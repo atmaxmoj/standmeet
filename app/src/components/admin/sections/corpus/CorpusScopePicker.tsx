@@ -1,18 +1,25 @@
-// CorpusScopePicker —— 从**真的 corpus 树**上勾出一组 URI，而不是让 owner 默写它们（F-A-14）。
+// CorpusScopePicker —— check off a set of URIs from the **real corpus tree**,
+// instead of making the owner type them from memory (F-A-14).
 //
-// role 的授权和 code 的收回是同一种语言（一组 glob），所以是同一个 picker：调用方只管拿 value /
-// onChange。
+// A role's grants and a code's revocations use the same language (a set of
+// globs), so they share the same picker: callers just supply value / onChange.
 //
-// 三条设计，每条都有由来：
+// Three design decisions, each with a reason:
 //
-// 1. **勾的是树上真实存在的行**，URI 取自后端给的 `path`（服务端 slug）。owner 再也不用知道
-//    `subjectivity://cv` 长什么样 —— 他只是勾了「cv」那一行。
-// 2. **勾一个有子节点的行 = 两条 glob**（`g://p` + `g://p/**`）。glob 方言里 `g://p/**` 不匹配
-//    `g://p` 自己；只发子树那条，owner 会以为授了整棵，实际漏了那个 folder-note 本身。这个坑归
-//    组件管，不去动匹配器。
-// 3. **看不懂的 glob 原样留着**，不吃掉。owner 可能手写过 `wiki://**/draft` —— 树上没有哪一行
-//    对应它。一个把值往复翻译一遍的 picker 会在保存时**静默删掉**它。所以：树只负责它认得的那些，
-//    其余原封不动带走，并且在下面如实列出来。
+// 1. **What gets checked is a row that really exists on the tree**; the URI comes
+//    from the backend's `path` (server-side slug). The owner never needs to know
+//    what `subjectivity://cv` looks like — they just check the "cv" row.
+// 2. **Checking a row with children = two globs** (`g://p` + `g://p/**`). In the
+//    glob dialect, `g://p/**` does not match `g://p` itself; sending only the
+//    subtree glob would make the owner think they granted the whole thing while
+//    actually missing the folder-note itself. This pitfall is the component's
+//    job to handle, not the matcher's.
+// 3. **A glob the picker doesn't recognize is kept as-is**, never swallowed. The
+//    owner may have hand-written `wiki://**/draft` — no row on the tree
+//    corresponds to it. A picker that round-trips the value through its own
+//    translation would **silently drop it** on save. So: the tree only handles
+//    what it recognizes; everything else is carried through unchanged and
+//    listed honestly below.
 
 'use client';
 
@@ -38,7 +45,8 @@ export function CorpusScopePicker({ value, onChange, testid }: PickerProps) {
     globs.forEach((g) => (on ? next.add(g) : next.delete(g)));
     onChange([...next]);
   }, [value, onChange]);
-  // 树认不出来的（手写的怪 glob、拼错的、将来新增 genre 的）——原样留着，不静默丢。
+  // Whatever the tree doesn't recognize (a hand-written odd glob, a typo, a
+  // future genre) — kept as-is, never silently dropped.
   const foreign = foreignGlobs(value);
   return (
     <div className="flex flex-col gap-2" data-testid={testid}>
@@ -50,7 +58,8 @@ export function CorpusScopePicker({ value, onChange, testid }: PickerProps) {
   );
 }
 
-// ForeignGlobs —— 树表达不了的那些。列出来（而不是藏起来）：owner 得看得见自己这份授权里还有什么。
+// ForeignGlobs —— the globs the tree cannot express. Listed (not hidden): the
+// owner needs to see what else is in this grant.
 function ForeignGlobs({ globs, prefix }: { globs: readonly string[]; prefix: string }) {
   const t = useTranslations('adminCorpus.scope');
   return globs.length === 0 ? null : (
@@ -68,12 +77,13 @@ interface BlockProps {
   genre: ScopeGenre;
   selected: Set<string>;
   toggle: (globs: string[], on: boolean) => void;
-  // prefix —— 这个 picker 实例的 testid 命名空间。一页上每张 role 卡各有一个 picker，
-  // 不带前缀的 `scope-genre-wiki` 会同时命中好几个（第一版就是这样）。
+  // prefix —— the testid namespace for this picker instance. Each role card on
+  // a page has its own picker; an unprefixed `scope-genre-wiki` would match
+  // several at once (that's how the first version behaved).
   prefix: string;
 }
 
-// GenreBlock —— 一个 genre：整棵的勾 + 可展开的树。
+// GenreBlock —— one genre: the checkbox for the whole tree + an expandable tree.
 function GenreBlock({ genre, selected, toggle, prefix }: BlockProps) {
   const t = useTranslations('adminCorpus.scope');
   const [open, setOpen] = useState(false);
@@ -112,7 +122,8 @@ interface LevelProps extends BlockProps {
   parentID: string;
 }
 
-// ScopeLevel —— 懒加载一层（复用 admin 树那套：一次一层，大 corpus 不会整棵拉下来）。
+// ScopeLevel —— lazily load one level (reuses the admin tree machinery: one
+// level at a time, so a large corpus never gets pulled down whole).
 function ScopeLevel({ genre, parentID, selected, toggle, prefix }: LevelProps) {
   const t = useTranslations('adminCorpus.common');
   const load = useCallback((p: string) => loadScopeLayer(genre, p), [genre]);
@@ -129,7 +140,8 @@ function ScopeLevel({ genre, parentID, selected, toggle, prefix }: LevelProps) {
   );
 }
 
-// ScopeRow —— 一行。勾它 = 它自己（有子节点时再加它的整棵子树，见文件头第 2 条）。
+// ScopeRow —— one row. Checking it = itself (plus its whole subtree when it
+// has children, see decision 2 at the top of this file).
 function ScopeRow({ genre, node, selected, toggle, prefix }: BlockProps & { node: ScopeNode }) {
   const t = useTranslations('adminCorpus.scope');
   const [open, setOpen] = useState(false);

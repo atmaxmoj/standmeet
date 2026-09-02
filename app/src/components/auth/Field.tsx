@@ -1,4 +1,4 @@
-// Field —— smallcaps label + 可选 hint + 包裹的输入。auth 表单共用。
+// Field — smallcaps label + optional hint + the wrapped input. Shared by auth forms.
 
 import type { ReactNode } from 'react';
 

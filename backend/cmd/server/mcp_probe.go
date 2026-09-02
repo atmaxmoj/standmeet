@@ -1,18 +1,24 @@
-// mcp_probe.go —— owner 主动问一台已注册的外部 MCP server：**你答不答话、都有哪些工具**（F-D-8）。
+// mcp_probe.go —— the owner actively asking an already-registered external MCP
+// server: **do you answer at all, and what tools do you have** (F-D-8)?
 //
-// 为什么实现落在组装根、而不是 marketplace 域里：那台 server 的认证头在库里是密文，
-// 而**内侧只封不解**（见 unseal.go 开头那段）。域声明端口（`MCPServerProber`），
-// 根这边把两件已经有的东西接起来：
+// Why the implementation lives at the composition root and not in the marketplace
+// domain: that server's auth header is ciphertext in the DB, and **the core only
+// seals, never unseals** (see the note at the top of unseal.go). The domain declares
+// a port (`MCPServerProber`), and this file wires together two things that already
+// exist:
 //
-//   - `dialableMCPServers`（unseal.go）—— 把「存起来的样子」翻成「能直接拨的样子」；
-//   - `mcpclient.Dial` + `ListTools` —— 装配访客会话时走的就是这条路
-//     （`internal/routes/capload/capreg_ext_mcp.go:149-163`）。
+//   - `dialableMCPServers` (unseal.go) — translates "the stored shape" into "the
+//     directly dialable shape";
+//   - `mcpclient.Dial` + `ListTools` — the exact path taken when assembling a
+//     visitor session (`internal/routes/capload/capreg_ext_mcp.go:149-163`).
 //
-// 所以这颗探针**不是新造的一条出站路**：它是让 owner 手动走一次会话装配已经在走的那条，
-// 跟连接器那颗只读探针（F-C-16）同一个形状 —— 一张卡上写着 `connected` 而无从询问，
-// 是这个产品犯过的错。
+// So this probe **isn't a newly built outbound path**: it lets the owner manually walk
+// the same path session assembly already walks — same shape as the read-only
+// connector probe (F-C-16). A card claiming `connected` with no way to actually ask is
+// a mistake this product has made before.
 //
-// (上面这段跟 package 之间空一行:包注释只有一份,在 doc.go。)
+// (There's a blank line between the block above and `package` because the package
+// comment lives in exactly one place, doc.go.)
 
 package main
 
@@ -26,16 +32,18 @@ import (
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
-// mcpServerProbe —— MCPServerProber 的实现。
+// mcpServerProbe —— implementation of MCPServerProber.
 type mcpServerProbe struct {
 	servers *dialableMCPServers
 }
 
-// probeDialTimeout —— 探针的耐心。owner 在等一句话，不该等到浏览器超时；
-// 而一台真的在答话的 server 一秒之内就该 initialize 完。
+// probeDialTimeout —— how patient the probe is. The owner is waiting for one line of
+// answer, and shouldn't have to wait for the browser to time out; a server that's
+// actually answering should finish initialize within a second.
 const probeDialTimeout = 12 * time.Second
 
-// Probe —— 拨一次、列一次、挂掉。**不留会话**：这颗探针只回答问题，不建立任何东西。
+// Probe —— dial once, list once, hang up. **Keeps no session**: this probe only
+// answers a question, it never establishes anything.
 func (p *mcpServerProbe) Probe(
 	ctx context.Context, ownerID, serverID string,
 ) (marketplace.MCPProbeResult, error) {
@@ -61,10 +69,13 @@ func (p *mcpServerProbe) Probe(
 	return marketplace.MCPProbeResult{Tools: names}, nil
 }
 
-// dialFailure —— 把传输层的真相翻成域认得的两个词（F-D-15）。
+// dialFailure —— translates the transport-layer truth into the two words the domain
+// understands (F-D-15).
 //
-// **翻译在这里，因为拨号也在这里**：域声明端口时说的是「问一句」，它不该认识
-// `mcpclient`，更不该认识 mcp-go 的哨兵。真因照旧包在里面进日志。
+// **The translation lives here because dialing lives here too**: when the domain
+// declares its port it's only saying "ask a question" — it shouldn't know about
+// `mcpclient`, let alone mcp-go's sentinels. The real cause is still wrapped inside,
+// on its way to the log.
 func dialFailure(err error) error {
 	if errors.Is(err, mcpclient.ErrAuthRejected) {
 		return fmt.Errorf("%w: %w", marketplace.ErrMCPServerRefusedAuth, err)

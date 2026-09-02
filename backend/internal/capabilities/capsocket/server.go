@@ -73,7 +73,8 @@ func ListenWith(
 	if cherr := chmodOrClose(ln, path, log); cherr != nil {
 		return nil, cherr
 	}
-	// 拷一份:调用方之后改自己那张表,改不到已经在服务的这一套。
+	// Copy the map: if the caller later mutates its own table, that must not reach
+	// the set already serving.
 	handlers := make(map[string]Handler, len(ops))
 	maps.Copy(handlers, ops)
 	return &Server{ln: ln, log: log, handlers: handlers, path: path}, nil
@@ -167,14 +168,18 @@ func errResp(msg string) json.RawMessage {
 	return encodeErr(map[string]string{"error": msg})
 }
 
-// faultCoder —— 会自报类别的错误。**按方法认，不按类型认**：这一层是严格 leaf
-// （`capsocket: mayDependOn: []`），不许 import 定义那个类型的包。声明一个同形的
-// 本地接口，谁实现了就认谁 —— 传输层因此只知道「有的错误说得出自己是哪一类」，
-// 不知道有哪些类。
+// faultCoder —— an error that can report its own category. **Identified by method,
+// not by type**: this layer is a strict leaf (`capsocket: mayDependOn: []`), so it
+// may not import the package that defines that type. Declare a local interface with
+// the same shape and recognize whoever implements it — the transport layer therefore
+// only knows "some errors can say which category they are," never which categories
+// exist.
 type faultCoder interface{ FaultCode() string }
 
-// faultResp —— 那句话，**外加它的类别**（有的话）。类别是沙箱唯一能据以分岔的东西：
-// 只发句子的话，「没配过」和「这一刻拨不通」在沙箱眼里是同一个错误（F-C-42）。
+// faultResp —— the message, **plus its category** (if it has one). The category is
+// the only thing the sandbox can branch on: sending just the sentence, "never
+// configured" and "unreachable right now" look like the same error to the sandbox
+// (F-C-42).
 func faultResp(err error) json.RawMessage {
 	fields := map[string]string{"error": err.Error()}
 	var fc faultCoder

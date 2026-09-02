@@ -1,16 +1,23 @@
-// connector_needs.go —— 市场卡上那句「还需要哪个连接器」的两半，在组装根合上（F-F-4）。
+// connector_needs.go —— the two halves of the marketplace card's "which connector is
+// still needed" line, joined together at the composition root (F-F-4).
 //
-// 一个技能声明它要用哪些**工具**（SKILL.md 的 `allowed-tools`）；一个能力声明它要哪些
-// **连接器**（manifest 的 `requires`）；owner 连了哪些连接器，在连接器那一侧。marketplace 域
-// 一半都不认识，所以它只声明一个端口（`ConnectorNeeds`），这里把三处接起来：
+// A skill declares which **tools** it uses (SKILL.md's `allowed-tools`); a capability
+// declares which **connectors** it needs (the manifest's `requires`); which connectors
+// the owner has actually connected lives on the connector side. The marketplace domain
+// knows none of these three, so it only declares one port (`ConnectorNeeds`), and this
+// file wires the three together:
 //
-//	allowed-tools ─▶ 能力注册表（谁提供这个工具、它要什么）─▶ 连接器（连没连）
+//	allowed-tools ─▶ capability registry (who provides this tool, what it needs) ─▶
+//	connectors (connected or not)
 //
-// 为什么在根：这条链跨了三个不该互相认识的地方。跟 mcp_probe.go 是同一个形状 ——
-// 域问一句话，根拿现成的零件答。
+// Why it lives at the root: this chain crosses three places that shouldn't know about
+// each other. Same shape as mcp_probe.go — the domain asks a question, the root
+// answers with parts already on hand.
 //
-// 为什么持 Runtime 而不是持那两张表：这两张表都在 `registerAgentSkills` 里才建好，而出站
-// 收口比它先装配。持 Runtime = 到**真被调用时**才去取，那时两张表都齐了。
+// Why it holds Runtime instead of the two tables directly: both tables are only built
+// inside `registerAgentSkills`, and the outbound convergence point is assembled before
+// that. Holding Runtime means fetching them only **when actually invoked**, by which
+// point both tables are complete.
 
 package main
 
@@ -21,14 +28,16 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 )
 
-// connectorNeeds —— marketplace.ConnectorNeeds 的实现。
+// connectorNeeds —— implementation of marketplace.ConnectorNeeds.
 type connectorNeeds struct {
 	rt *deps.Runtime
 }
 
-// DepsForTools —— 这些工具背后要哪些连接器。注册表里只认得**声明过自己工具名**的能力
-// （manifest 的 `visitor_tools`）；认不出来的返回空 —— 那是「这张表不认识它」，
-// 调用方据此把该技能的 needs 留成 nil（未知），而不是 []（不缺）。
+// DepsForTools —— which connectors these tools need behind the scenes. The registry
+// only recognizes capabilities that **declared their own tool names** (the manifest's
+// `visitor_tools`); an unrecognized one returns empty — that means "this table doesn't
+// know it", and callers should leave that skill's needs as nil (unknown), not []
+// (nothing needed).
 func (n *connectorNeeds) DepsForTools(tools []string) []string {
 	if n.rt.AgentSkills == nil || len(tools) == 0 {
 		return []string{}
@@ -36,7 +45,7 @@ func (n *connectorNeeds) DepsForTools(tools []string) []string {
 	return n.rt.AgentSkills.DepsForTools(tools)
 }
 
-// Unconnected —— 这些连接器里,这个 owner 还没连的那些。
+// Unconnected —— of these connectors, the ones this owner has not connected yet.
 func (n *connectorNeeds) Unconnected(
 	ctx context.Context, ownerID string, names []string,
 ) ([]string, error) {

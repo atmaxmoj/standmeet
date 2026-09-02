@@ -1,6 +1,6 @@
-// DeckHeader —— "── KICKER  count  [action]" 横条，下方 1px rule。
-// 公开页所有 deck（conversation / insights / projects / where / contact）
-// 共用，让每个 section 有一致的视觉打开。
+// DeckHeader —— the "── KICKER  count  [action]" bar, with a 1px rule below it.
+// Shared by every deck on the public page (conversation / insights /
+// projects / where / contact) so each section opens with a consistent look.
 
 import type { ReactNode } from 'react';
 
@@ -21,9 +21,10 @@ export function DeckHeader({ kicker, count, action }: Props) {
   );
 }
 
-// DeckCount —— 只有**一条**内容时不印计数。`01` 挂在一个复数标题旁边、下面只有一行，
-// 读起来像列表没加载完 —— 而计数回答的是"这里有多少条"，一条的时候它不回答任何问题
-// （UX-44）。
+// DeckCount —— doesn't print a count when there's only **one** item. A `01`
+// next to a plural heading with just one line below it reads like the list
+// failed to finish loading — and the count exists to answer "how many are
+// here," which isn't a question worth answering for a count of one (UX-44).
 function DeckCount({ count }: { count?: number }) {
   return count === undefined || count <= 1 ? null : (
     <span className="mono text-[10px] tracking-[0.14em] text-(--color-faint) tabular-nums ml-1">

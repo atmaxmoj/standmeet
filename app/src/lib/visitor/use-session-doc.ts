@@ -1,5 +1,7 @@
-// use-session-doc —— 公开 landing 锁屏时,凭访客 session 走 corpus_read 把被引
-// 文档全文取回来。无 session / 无权 → null(留锁屏)。逻辑在 lib(组件层禁 if)。
+// use-session-doc —— when the public landing shows a lockscreen, uses the
+// visitor's session to fetch the full cited document via corpus_read. No
+// session / no access → null (lockscreen stays). Logic lives in lib (the
+// components layer bans if).
 
 'use client';
 
@@ -11,7 +13,8 @@ import { loadStoredSession } from '@/lib/gate/use-gate';
 export interface SessionDocState {
   loading: boolean;
   doc: VisitorDoc | null;
-  // hasSession —— 这位访客手里有没有码。读不到这一条时，锁屏该说的话由它决定。
+  // hasSession —— whether this visitor has a code in hand. When the doc
+  // can't be read, this decides what the lockscreen should say.
   hasSession: boolean;
 }
 
@@ -27,9 +30,13 @@ export function useSessionScopedDoc(path: string): SessionDocState {
     }
     let alive = true;
     void fetchVisitorDoc(conv, token, path).then((doc) => {
-      // hasSession 要跟着 doc 一起出去：读不到的时候，**该说哪句话**取决于访客手里有没有码，
-      // 而不取决于这一条读不到（F-R-6）。后端对越权和不存在一律 404（不承认存在），
-      // 客户端分不出那两种；但它分得出有没有会话，而那正是决定下一步该说什么的那一位。
+      // hasSession must go out alongside doc: when the doc can't be read,
+      // **which line to say** depends on whether the visitor has a code,
+      // not on why this particular one couldn't be read (F-R-6). The
+      // backend returns 404 uniformly for both "no access" and "doesn't
+      // exist" (never admitting existence), and the client can't tell
+      // those two apart; but it can tell whether there's a session, and
+      // that's exactly what decides what to say next.
       if (alive) setState({ loading: false, doc, hasSession: true });
     });
     return () => { alive = false; };

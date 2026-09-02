@@ -1,5 +1,6 @@
-// TopBar —— admin 顶栏。左：standmeet · {handle} · admin · live dot。
-// 中：CorpusConstellation（语料链接图:节点大小 = 链接度）。右：build info + email + sign-out。
+// TopBar — the admin header bar. Left: standmeet · {handle} · admin · live dot.
+// Center: CorpusConstellation (corpus link graph: node size = link degree).
+// Right: build info + email + sign-out.
 
 'use client';
 
@@ -16,14 +17,16 @@ import { useInstanceLiveness } from '@/lib/state/instance-liveness';
 type Props = {
   handle: string;
   email: string;
-  // 侧栏抽屉的开关。只在 `lg` 以下露出来 —— 桌面上侧栏恒在，不需要一个开关。
+  // Toggle for the sidebar drawer. Only shown below `lg` — the sidebar is always
+  // visible on desktop, so no toggle is needed there.
   navOpen: boolean;
   onToggleNav: () => void;
 };
 
-// 版本号来自 useAppVersion —— 跑着的那个进程报的。上一版这里是个 `buildTag?: string`
-// 参数配一个常量默认值,而没有任何调用点传过它:那个参数唯一的作用就是让常量看起来像
-// "外面给的"(F-C-10)。参数去掉了。
+// The version string comes from useAppVersion — reported by the running process
+// itself. The previous version had a `buildTag?: string` prop with a constant
+// default, and no call site ever passed it: that prop's only effect was making
+// a constant look like it came "from outside" (F-C-10). The prop is gone now.
 export function TopBar({ handle, email, navOpen, onToggleNav }: Props) {
   const buildTag = useAppVersion();
   const onSignOut = useCallback(() => void signOut(), []);
@@ -31,16 +34,19 @@ export function TopBar({ handle, email, navOpen, onToggleNav }: Props) {
     <header className="flex items-center px-4 sm:px-6 lg:px-8 h-14 border-b border-(--color-rule) shrink-0 gap-3 sm:gap-4">
       <NavToggle open={navOpen} onToggle={onToggleNav} />
       <TopBarBrand handle={handle} />
-      {/* 星座图是**装饰性的**信息层。窄屏上它跟品牌和右侧那组抢同一条 56px 的横条，
-          三样都被挤扁；它是这里唯一一件拿掉之后什么都不少的东西，所以拿掉的是它。 */}
+      {/* The constellation is a **decorative** information layer. On narrow
+          screens it competes with the brand block and the right-side group for
+          the same 56px bar, and all three get squeezed. It's the one thing here
+          that loses nothing if dropped, so it's the one that gets dropped. */}
       <div className="hidden lg:contents"><CorpusConstellation /></div>
       <TopBarMeta email={email} buildTag={buildTag} onSignOut={onSignOut} />
     </header>
   );
 }
 
-// NavToggle —— 抽屉的开关。文字不是图标：这一整套 chrome 说的都是等宽小写字
-// （`view public ↗` / `sign out`），换成汉堡图标是往里塞一套别的语汇。
+// NavToggle — the drawer toggle. Text, not an icon: this whole chrome speaks in
+// lowercase mono labels (`view public ↗` / `sign out`); a hamburger icon would
+// import a different vocabulary.
 function NavToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const t = useTranslations('adminShell.topBar');
   return (
@@ -57,13 +63,17 @@ function NavToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) 
   );
 }
 
-// 窄屏上这条横条只有 358px，而它要装 `sections` + 品牌全称 + 版本 + `view public`
-// + `sign out`。上一版每一组都是 `shrink-0`，于是右边那一组被整个挤出屏幕：版本徽标只
-// 剩半个圆，`sign out` 一个字都不在（那是 owner 唯一的退出入口）。
+// On narrow screens this bar is only 358px wide, and it has to fit `sections`
+// + the full brand name + version + `view public` + `sign out`. The previous
+// version had every group `shrink-0`, so the right-side group got pushed
+// entirely off screen: the version badge was cut to half a circle, and
+// `sign out` — the owner's only sign-out entry point — didn't show at all.
 //
-// 让位的是**说明性的那几段**（`/ admin · <handle>` —— 人已经在 admin 里，标题栏也写着
-// 是谁），留下的是品牌、这台机器活没活、和退出。挪走的不是没了：版本、邮箱、view public
-// 在抽屉页脚里，那儿本来就在讲"这台实例是什么"。
+// What yields is the **explanatory** segments (`/ admin · <handle>` — the
+// person is already in admin, and the title bar already says whose instance
+// this is). What stays is the brand, whether this machine is alive, and
+// sign-out. What moved isn't gone: version, email, and view public live in
+// the drawer footer, which already explains what this instance is.
 function TopBarBrand({ handle }: { handle: string }) {
   const t = useTranslations('adminShell.topBar');
   return (
@@ -78,9 +88,11 @@ function TopBarBrand({ handle }: { handle: string }) {
   );
 }
 
-// LiveDot —— 它说的那个字必须**是**这台实例此刻的状态（F-N-6）。
-// 以前它是个常量：后端停机时正文写着这一节加载失败，顶栏照样 `● LIVE`。
-// 现在它读 instance-liveness —— 数据来自已经发生的那些请求，不额外轮询。
+// LiveDot — the word it shows must **be** this instance's current state (F-N-6).
+// It used to be a constant: when the backend was down and the body said the
+// section failed to load, the header still said `● LIVE`.
+// Now it reads instance-liveness — derived from requests that already
+// happened, no extra polling.
 function LiveDot() {
   const t = useTranslations('adminShell.topBar');
   const liveness = useInstanceLiveness();
@@ -107,7 +119,8 @@ function TopBarMeta({
   const t = useTranslations('adminShell.topBar');
   return (
     <div className="flex items-baseline gap-4 shrink-0 ml-auto">
-      {/* 版本 / view public / 邮箱在窄屏上让位给 `sign out`，三样都在抽屉页脚里。 */}
+      {/* Version / view public / email yield to `sign out` on narrow screens;
+          all three live in the drawer footer. */}
       <span className="hidden lg:inline"><Pill tone="muted" testId="build-tag">{buildTag}</Pill></span>
       <Link
         href="/"

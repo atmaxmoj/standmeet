@@ -1,18 +1,20 @@
-// binding_tool.go —— Capability 暴露给 visitor agent loop 的"一个 LLM tool"。
+// binding_tool.go — the "one LLM tool" a Capability exposes to the visitor agent loop.
 //
-// H.8 之后 BindingTool 直接持 eino tool.InvokableTool —— backend agent
-// loop (H.9 走 eino ADK / ToolsNode) 可以把 BindingTool.Tool 直接 plug
-// 进 eino 工具节点；不再有 standmeet 自维护的 ToolExecutor 平行抽象。
+// After H.8, BindingTool holds an eino tool.InvokableTool directly — the backend
+// agent loop (H.9 runs eino ADK / ToolsNode) can plug BindingTool.Tool straight
+// into an eino tool node; there's no more standmeet-maintained parallel
+// ToolExecutor abstraction.
 //
-// 三层：
+// Three layers:
 //
-//	Tool          —— eino canonical (Info / InvokableRun)；agent loop 用
-//	ProgressLabel —— standmeet 自加：throbber 文案，G-8 之后从 backend 单
-//	                 source 下发；不进 eino schema.ToolInfo
-//	InputSchema   —— raw JSON Schema 原文 (registered 时给的)。VisitorToolSpec
-//	                 (HTTP wire to browser pi-agent-core) 直接转发，不走
-//	                 eino ParamsOneOf 反序列化路径，保持 schema 字符串完全
-//	                 等同 caller 注册时的写法。
+//	Tool          — eino canonical (Info / InvokableRun); used by the agent loop
+//	ProgressLabel — standmeet addition: throbber text, sent from a single backend
+//	                source since G-8; not part of eino schema.ToolInfo
+//	InputSchema   — the raw JSON Schema text (as given at registration).
+//	                VisitorToolSpec (HTTP wire to browser pi-agent-core) forwards
+//	                it as-is, bypassing the eino ParamsOneOf deserialize path, so
+//	                the schema string stays exactly what the caller wrote at
+//	                registration.
 
 package capreg
 
@@ -32,19 +34,22 @@ var (
 	errSchemaNoType = errors.New("capreg: schema missing type")
 )
 
-// BindingTool —— 一个 Capability 暴露的一个 LLM tool。
+// BindingTool — one LLM tool exposed by one Capability.
 //
-// 构造方式：调 NewTool(...) 或 NewReturnDirectlyTool(...)；不准直接
-// struct literal —— 避免 caller 忘设 InputSchema 或不同步 Tool.Info()
-// 跟 sidecar 的字段。
+// Construct it via NewTool(...) or NewReturnDirectlyTool(...); never build it as
+// a bare struct literal — that risks the caller forgetting InputSchema or letting
+// Tool.Info() drift out of sync with the sidecar fields.
 //
-// Name 是 Tool.Info().Name 的快照，NewTool 注册时一并 stash —— 让 dispatcher
-// (routes/public/tools.go findToolInBinding / sys/diag_session 的 appendBinding
-// ToolSpecs) 按 name 找 tool 时不必每条都过一遍 ctx + Info() 失败兜底。
+// Name is a snapshot of Tool.Info().Name, stashed at NewTool registration time —
+// so the dispatcher (routes/public/tools.go findToolInBinding, and the
+// appendBinding ToolSpecs in sys/diag_session) can look a tool up by name
+// without running ctx + Info() and its failure fallback on every lookup.
 //
-// ReturnDirectly —— I.1: ask_visitor 那种 tool 调完不该继续 LLM 转圈，
-// 直接把 result 当 final 推浏览器；用 eino ADK ToolsConfig.ReturnDirectly
-// map 实现。NewReturnDirectlyTool 构造时置 true；老 NewTool 默认 false。
+// ReturnDirectly — I.1: a tool like ask_visitor shouldn't keep the LLM looping
+// after it returns; instead the result goes straight to the browser as final,
+// implemented via eino ADK's ToolsConfig.ReturnDirectly map.
+// NewReturnDirectlyTool sets it true at construction; the older NewTool
+// defaults it false.
 type BindingTool struct {
 	Tool           tool.InvokableTool
 	Name           string
@@ -52,24 +57,26 @@ type BindingTool struct {
 	UIHTML         string
 	InputSchema    json.RawMessage
 	ReturnDirectly bool
-	// ReadOnly —— 工具声明 MCP `annotations.readOnlyHint`（安全/幂等的读）。dispatch
-	// 据此放行 HTTP QUERY：只读工具才可 QUERY，会改状态的工具 QUERY → 405。
+	// ReadOnly — the tool declares MCP `annotations.readOnlyHint` (a safe/idempotent
+	// read). dispatch uses this to allow HTTP QUERY: only read-only tools may be
+	// QUERY'd; a state-changing tool answers QUERY with 405.
 	ReadOnly bool
 }
 
-// RunFn —— capability 写的 tool 执行闭包。args 是 LLM 喂的 JSON arguments
-// (raw string)。返 string text 进 tool_result。
+// RunFn — the tool execution closure a capability writes. args is the JSON
+// arguments the LLM fed in (raw string). Returns string text for tool_result.
 //
-// 跟 eino tool.InvokableRun 同形 (s, error)；省一层 wrap。
+// Same shape as eino tool.InvokableRun (s, error); saves a wrapper layer.
 type RunFn func(ctx context.Context, argsJSON string) (string, error)
 
-// NewTool —— capability 注册一个 LLM tool 的标准构造口。schemaRaw 是
-// raw JSON Schema bytes (合法 JSON object，带 type/properties/required)；
-// 内部解出 *schema.ParamsOneOf 给 eino，同时原样 stash 到 InputSchema
-// 让 visitor wire 直接转发。
+// NewTool — the standard constructor a capability uses to register an LLM tool.
+// schemaRaw is raw JSON Schema bytes (a valid JSON object with
+// type/properties/required); internally it's parsed into a *schema.ParamsOneOf
+// for eino, while the same bytes are stashed as-is into InputSchema so the
+// visitor wire can forward them directly.
 //
-// schemaRaw 空 / 不带 type → 视作 "无参数"，eino 拿到 nil ParamsOneOf
-// (跟 proxy_wire.toEinoToolInfos 同 sentinel 语义)。
+// schemaRaw empty / missing type → treated as "no parameters", eino gets a nil
+// ParamsOneOf (same sentinel semantics as proxy_wire.toEinoToolInfos).
 func NewTool(
 	name, description, progressLabel string,
 	schemaRaw json.RawMessage, run RunFn,
@@ -89,9 +96,10 @@ func NewTool(
 	}
 }
 
-// NewReturnDirectlyTool —— 跟 NewTool 一样但置 ReturnDirectly=true。
-// agent loop 调完直接返，不再多转一圈 LLM；run fn 应该 echo (或者
-// 算出一段可直接渲的 result string)。
+// NewReturnDirectlyTool — same as NewTool but sets ReturnDirectly=true.
+// The agent loop returns immediately after calling it, no extra LLM round
+// trip; the run fn should echo (or compute) a result string that can be
+// rendered as-is.
 func NewReturnDirectlyTool(
 	name, description, progressLabel string,
 	schemaRaw json.RawMessage, run RunFn,
@@ -101,9 +109,9 @@ func NewReturnDirectlyTool(
 	return b
 }
 
-// paramsFromRaw —— 跟 inference.proxy_wire 同套解析逻辑：空 schema → nil,
-// 解析失败 → 调用方拿到 error 自己决定 (NewTool 当前选择 swallow，让
-// "无参数 tool" 也能注册)。
+// paramsFromRaw — the same parsing logic as inference.proxy_wire: empty schema
+// → nil, parse failure → the caller gets an error and decides (NewTool
+// currently swallows it, so a "no-parameter tool" can still register).
 func paramsFromRaw(raw json.RawMessage) (*schema.ParamsOneOf, error) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil, errEmptySchema
@@ -118,10 +126,11 @@ func paramsFromRaw(raw json.RawMessage) (*schema.ParamsOneOf, error) {
 	return schema.NewParamsOneOfByJSONSchema(&js), nil
 }
 
-// funcTool —— 一个最小 tool.InvokableTool 实现，把 caller 提供的 RunFn
-// 拌进 eino 接口。eino-ext 里 utils.InferTool 走 reflection 自动绑 typed
-// arg 函数；我们的 capability 直接吃 raw JSON args (跟 LLM tool_use API
-// 同源)，用不上反射，自写更轻。
+// funcTool — a minimal tool.InvokableTool implementation that mixes the
+// caller-supplied RunFn into the eino interface. eino-ext's utils.InferTool
+// uses reflection to auto-bind a typed arg function; our capabilities take
+// raw JSON args directly (same shape as the LLM tool_use API), so reflection
+// buys nothing — hand-writing it is lighter.
 type funcTool struct {
 	info *schema.ToolInfo
 	run  RunFn
@@ -137,21 +146,24 @@ func (t *funcTool) InvokableRun(
 	return t.run(ctx, argumentsInJSON)
 }
 
-// FlattenResult is the return of FlattenBindings: 一份 eino tool 集合 +
-// 一份 name → progress_label 表 + I.1 ReturnDirectly 名集合。Struct return
-// 是为同时消 gocritic unnamedResult / nonamedreturns 两个互斥 lint。
-// 字段顺序按 fieldalignment 排：map (8 pointer bytes) 在前，slice 在后。
+// FlattenResult is the return of FlattenBindings: one eino tool collection +
+// one name → progress_label table + the I.1 ReturnDirectly name set. It's a
+// struct return to satisfy the mutually exclusive gocritic unnamedResult /
+// nonamedreturns lints at once. Field order follows fieldalignment: maps
+// (8 pointer bytes) first, slices after.
 type FlattenResult struct {
 	Labels         map[string]string
 	ReturnDirectly map[string]bool
 	Tools          []tool.BaseTool
-	// ClaimGates —— 本场装配到的能力里,声明了「说了就得做」的那几条(F-A-37)。
+	// ClaimGates — among the capabilities assembled this session, the ones that
+	// declared "say it, then do it" conditions (F-A-37).
 	ClaimGates []ClaimGate
 }
 
-// FlattenBindings 走每个 Binding 的 BindingTool 列表，抽 Tool 拼成
-// []tool.BaseTool 喂 eino，同时收集 ProgressLabel + ReturnDirectly 名
-// 表 (SSE tool_started 帧 + eino ADK ToolsConfig 用)。
+// FlattenBindings walks each Binding's BindingTool list, pulls out Tool to
+// build a []tool.BaseTool for eino, and along the way collects the
+// ProgressLabel + ReturnDirectly name tables (used by the SSE tool_started
+// frame and eino ADK ToolsConfig).
 func FlattenBindings(bindings []*Binding) FlattenResult {
 	out := FlattenResult{
 		Labels:         map[string]string{},

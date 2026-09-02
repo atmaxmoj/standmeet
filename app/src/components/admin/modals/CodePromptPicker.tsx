@@ -1,6 +1,7 @@
-// CodePromptPicker —— code create modal 里的 per-code prompt dropdown（#104）。
-// 引集中管理的 prompts 库；'' = 不挂（persona 只有 role 那份）。拆出来守
-// CreateCodeFields.tsx 的 max-lines，跟 CodeRolePicker 同款结构。
+// CodePromptPicker — the per-code prompt dropdown inside the code create modal (#104).
+// References the centrally-managed prompts library; '' = none attached (persona
+// comes only from the role). Split out to keep CreateCodeFields.tsx under max-lines;
+// same structure as CodeRolePicker.
 
 import { useTranslations } from 'next-intl';
 

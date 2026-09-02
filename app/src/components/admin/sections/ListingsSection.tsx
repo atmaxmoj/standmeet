@@ -1,7 +1,8 @@
-// ListingsSection —— /admin/listings。design 源 admin.js ListingsSection
-// (1348-1406)。jobs fetched from sources, 现存于 Redis 1d-TTL 池子。
-// #50: 接真后端 GET /api/admin/listings/(列表只读;ranking/match 是
-// Claude 在客户端做的事,这里只展示池子里现存的 FetchedJob)。
+// ListingsSection —— /admin/listings. Design source: admin.js ListingsSection
+// (1348-1406). Jobs fetched from sources, currently living in a Redis 1d-TTL pool.
+// #50: wired to the real backend GET /api/admin/listings/ (read-only list;
+// ranking/match is done by Claude on the client — this only shows the FetchedJob
+// entries currently in the pool).
 
 'use client';
 
@@ -80,7 +81,7 @@ function fmtMeta(job: AdminListingRow): string {
   return `${job.source_kind}${where}`;
 }
 
-// mono —— t.rich 的 <mono> 标签：把 MCP 工具名渲染成等宽 ink。
+// mono —— the <mono> tag for t.rich: renders an MCP tool name as monospace ink.
 const mono = (chunks: React.ReactNode) => (
   <span className="mono text-(--color-ink)">{chunks}</span>
 );

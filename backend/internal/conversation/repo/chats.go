@@ -1,11 +1,12 @@
-// chats.go —— ChatRepo: chats (= conversations 表) + messages 表的 CRUD
-// + admin 视角 list / transcript。AppendDialog 是一等 API (1 个 dialog
-// = 2 条 message + bump，单事务原子)。底层 dbq query name 仍叫
-// CreateConversation / GetConversation / AppendMessage / ListMessages
-// (DB 表名没改)。
+// chats.go — ChatRepo: CRUD for the chats (= conversations table) + messages table,
+// plus admin-view list / transcript. AppendDialog is a first-class API (1 dialog =
+// 2 messages + bump, atomic in one transaction). The underlying dbq query names are
+// still CreateConversation / GetConversation / AppendMessage / ListMessages (the DB
+// table names haven't changed).
 //
-// 命名：domain Chat → DB conversations row 的映射在 toDomainChat。
-// AppendMessage 仍存在但收成 unexported，dialog 写路径走 AppendDialog。
+// Naming: the domain Chat ← DB conversations row mapping lives in toDomainChat.
+// AppendMessage still exists but is now unexported; the dialog write path goes
+// through AppendDialog.
 
 package repo
 
@@ -21,26 +22,26 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// ChatRepo —— conversations + messages 表的访问入口。
+// ChatRepo — access entry point for the conversations + messages tables.
 type ChatRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewChatRepo 构造 ChatRepo。
+// NewChatRepo constructs a ChatRepo.
 func NewChatRepo(pool *pgstore.Pool) *ChatRepo { return &ChatRepo{pool: pool} }
 
-// CreateChatInput —— 创建 chat 入参。
+// CreateChatInput — input for creating a chat.
 type CreateChatInput struct {
 	CodeID      *string
 	MemberID    *string
 	OwnerID     string
 	Mode        string
 	VisitorName string
-	ClientIP    string // 访客来源 IP（chi.RealIP host，去 port）；空 = 未知
-	DocKey      string // surface 标识：'' = 主聊天；否则 = 当时所在 doc 的 path
+	ClientIP    string // Visitor source IP (chi.RealIP host, port stripped); empty = unknown
+	DocKey      string // surface identifier: '' = main chat; otherwise the doc path at the time
 }
 
-// CreateChat 写一行 chat。
+// CreateChat writes one chat row.
 func (r *ChatRepo) CreateChat(
 	ctx context.Context, in *CreateChatInput,
 ) (entity.Chat, error) {
@@ -72,7 +73,7 @@ func (r *ChatRepo) CreateChat(
 	return toDomainChat(&row), nil
 }
 
-// GetChat —— 拿一个 chat。不命中返 ErrChatNotFound。
+// GetChat — fetches one chat. Not found returns ErrChatNotFound.
 func (r *ChatRepo) GetChat(
 	ctx context.Context, ownerID, chatID string,
 ) (entity.Chat, error) {
@@ -97,8 +98,10 @@ func (r *ChatRepo) GetChat(
 	return toDomainChat(&row), nil
 }
 
-// GetOpenChatByMember —— 「一个名字=一段续聊的会」:同名 member 的主对话就返它
-// 续上;没有 → ErrChatNotFound (caller 新建)。对话不结束,同名永远续同一段。
+// GetOpenChatByMember — "one name = one ongoing conversation": returns the
+// same-named member's main conversation to continue it; none found →
+// ErrChatNotFound (caller creates a new one). A conversation never ends, so the
+// same name always continues the same thread.
 func (r *ChatRepo) GetOpenChatByMember(
 	ctx context.Context, memberID string,
 ) (entity.Chat, error) {
@@ -116,12 +119,13 @@ func (r *ChatRepo) GetOpenChatByMember(
 	return toDomainChat(&row), nil
 }
 
-// AppendDialog / AppendVisitorOnly 实现 + splitCitations / runAppendDialogTx 拆到
-// chats_dialog.go 守 350-line cap。row-level AppendMessage（老 SSE 路径）在 dialog 化后已删：
-// 所有 message 现在必属一个 dialog（dialog_id NOT NULL），写路径只剩 AppendDialog（成对 Q-A）
-// 与 AppendVisitorOnly（失败轮单-message dialog）。
+// AppendDialog / AppendVisitorOnly implementation + splitCitations / runAppendDialogTx are
+// split out to chats_dialog.go to hold the 350-line cap. The old row-level AppendMessage
+// (SSE path) was deleted after dialog-ization: every message must now belong to a dialog
+// (dialog_id NOT NULL), so the write path is only AppendDialog (paired Q-A) and
+// AppendVisitorOnly (single-message dialog for a failed turn).
 
-// CountSessionsForMember —— quota check 用：member 至今起过多少 session。
+// CountSessionsForMember — for quota checks: how many sessions a member has started to date.
 func (r *ChatRepo) CountSessionsForMember(
 	ctx context.Context, memberID string,
 ) (int32, error) {
@@ -137,7 +141,7 @@ func (r *ChatRepo) CountSessionsForMember(
 	return n, nil
 }
 
-// CountVisitorTurns —— turn quota check 用：当前 chat 里 visitor 发过几条。
+// CountVisitorTurns — for turn quota checks: how many visitor messages in the current chat.
 func (r *ChatRepo) CountVisitorTurns(
 	ctx context.Context, chatID string,
 ) (int32, error) {
@@ -189,5 +193,5 @@ func toDomainMessage(m *db.Message) entity.Message {
 	}
 }
 
-// ChatSummary / ChatWithMessages / ListByOwner / GetWithMessages / loadMessages
-// 拆到 chats_admin.go 守 350-line cap。
+// ChatSummary / ChatWithMessages / ListByOwner / GetWithMessages / loadMessages are split
+// out to chats_admin.go to hold the 350-line cap.

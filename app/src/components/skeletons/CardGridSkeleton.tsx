@@ -1,5 +1,7 @@
-// CardGridSkeleton —— /admin/codes /admin/raw 那种"卡片网格"loading 占位。
-// 每个卡子 = 标题块 + 几行短文本 + QR 占位。N 默认 4 张，撑 above-the-fold。
+// CardGridSkeleton — the "card grid" loading placeholder used by
+// /admin/codes and /admin/raw.
+// Each card = title block + a few lines of short text + QR placeholder.
+// N defaults to 4 cards to fill the above-the-fold area.
 
 import { Skel } from '@/components/skeletons/Skel';
 

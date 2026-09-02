@@ -1,16 +1,21 @@
-// codes.go —— 发码 / 撤码 / 改配额这三件事**本身**的规则。
+// codes.go — the rules **for** issuing a code / revoking a code / changing quotas,
+// themselves.
 //
-// 它们以前散在面和组装根上:
+// These three used to be scattered across faces and the composition root:
 //
-//   - "不指定 role 就用 owner 的 public role" 只长在 admin 那条路由上,于是同一件事
-//     从 MCP 打过来必须显式给 role_id。
-//   - "撤码要连着清掉这张码已经发出去的 visitor session" 也只长在 admin 那条路由上。
-//     从 MCP 撤码,持码人手里的 token 还活着,要等下一 turn 的 per-turn 检查才被挡。
-//   - "改配额时没提到的字段保持原值" 只长在 MCP 那边(它自己先读回来再合并),因为底下
-//     那条 SQL 是盲写两列;面板每次发全量所以没事,任何只发一个字段的调用方会把另一个
-//     悄悄清成"不限"。
+//   - "no role specified → use the owner's public role" only lived on the admin
+//     route, so the same operation coming in from MCP had to pass role_id explicitly.
+//   - "revoking a code must also clear the visitor sessions it already issued" also
+//     only lived on the admin route. Revoking from MCP left the codeholder's token
+//     alive, blocked only once the next turn's per-turn check ran.
+//   - "a field not mentioned in a quota update keeps its current value" only lived on
+//     the MCP side (it read the row back and merged itself), because the SQL
+//     underneath blind-writes both columns; the panel always sends the full set so
+//     it never hit this, but any caller sending just one field would silently reset
+//     the other to "unlimited".
 //
-// 三条都是**这件事怎么算**,不是某个面怎么表达,所以住在域里:哪个入口来都一样。
+// All three are **how the thing is computed**, not how some face presents it, so
+// they live in the domain: the same regardless of which entry point they come from.
 
 package usecase
 
@@ -22,16 +27,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
 )
 
-// CodesDeps —— 发码这组用例需要的 repos。Roles 用来兜 public role;
-// Sessions 用来在撤码时清掉已发出的 visitor session。
+// CodesDeps — repos needed by this group of code-issuing use cases. Roles is used to
+// fall back to the public role; Sessions is used to clear issued visitor sessions
+// when a code is revoked.
 type CodesDeps struct {
 	Codes    *repo.CodeRepo
 	Roles    *repo.RoleRepo
 	Sessions *VisitorSessionStore
 }
 
-// IssueCode —— 发一张码。AssumedRoleID 留空 = 用 owner 的 public role
-// (claim 那一刻种下的那张)。
+// IssueCode — issues a code. AssumedRoleID left blank = use the owner's public role
+// (the one seeded at the moment of claiming).
 func IssueCode(
 	ctx context.Context, d CodesDeps, in *repo.CreateCodeInput,
 ) (entity.Code, error) {
@@ -47,14 +53,18 @@ func IssueCode(
 	return code, nil
 }
 
-// assumedRoleOrInvited —— owner 没在这张码上指定 role 时的默认档。
+// assumedRoleOrInvited — the default role when the owner didn't specify one on this
+// code.
 //
-// 默认是 `invited`，不是 public。**发一张码就是一次邀请** —— 这是 owner 定的那条规则的另一半：
-// 「private 的没有码就读不到」，反过来说，有码的人读得到 owner 策展的语料。public 是留给
-// **没有码**的那条路的（BYOAI / gate），它只读已发布的（F-D-7）。
+// The default is `invited`, not public. **Issuing a code is itself an invitation** —
+// this is the other half of the owner's own rule: "private content is unreadable
+// without a code", which conversely means a codeholder can read the owner's curated
+// corpus. public is reserved for the **no-code** path (BYOAI / gate), which reads
+// only what's published (F-D-7).
 //
-// 想给某个人只开公开面，仍然做得到：在码上显式挑 `public`。区别是那成了一个**被选中**的
-// 决定，而不是替 owner 做的假设。
+// Giving someone only the public-facing slice is still possible: explicitly pick
+// `public` on the code. The difference is that becomes a **deliberately chosen**
+// decision, not an assumption made on the owner's behalf.
 func assumedRoleOrInvited(
 	ctx context.Context, d CodesDeps, ownerID, requested string,
 ) (string, error) {
@@ -68,10 +78,12 @@ func assumedRoleOrInvited(
 	return invited.ID(), nil
 }
 
-// RevokeCode —— 撤一张码,并清掉它已经发出去的 visitor session。
+// RevokeCode — revokes a code, and clears the visitor sessions it already issued.
 //
-// 清 session 是撤销的另一半:不清,持码人手里的 token 还活着,要等到下一 turn 的
-// per-turn 检查才被挡。清不掉只回报错误的前半段 —— 码本身已经撤了,那一层仍然会挡住。
+// Clearing sessions is the other half of revocation: without it, the codeholder's
+// token stays alive, blocked only once the next turn's per-turn check runs. If
+// clearing fails we still report only the error's back half — the code itself is
+// already revoked, and that layer still blocks it.
 func RevokeCode(ctx context.Context, d CodesDeps, ownerID, codeID string) error {
 	if err := d.Codes.Revoke(ctx, ownerID, codeID); err != nil {
 		return fmt.Errorf("revoke code: %w", err)
@@ -82,10 +94,12 @@ func RevokeCode(ctx context.Context, d CodesDeps, ownerID, codeID string) error 
 	return nil
 }
 
-// SetCodeCustomPage —— 这张码开哪一页。slug 空串 = 解绑，退回默认的访客对话。
+// SetCodeCustomPage — which page this code opens. Empty slug = unbind, fall back to
+// the default visitor chat.
 //
-// **不撤会话**（跟 RevokeCode 不同）：换渲染不是撤授权，正在对话的人不该被踢出去。
-// 下一次带这张码进来才落到新地方。
+// **Does not revoke the session** (unlike RevokeCode): changing what renders isn't
+// revoking authorization, and someone mid-conversation shouldn't get kicked out. The
+// new destination only applies the next time this code is brought in.
 func SetCodeCustomPage(
 	ctx context.Context, d CodesDeps, ownerID, codeID, slug string,
 ) (entity.Code, error) {
@@ -96,10 +110,12 @@ func SetCodeCustomPage(
 	return code, nil
 }
 
-// CodeQuotaUpdate —— 改配额。每个字段三态:没提到 = 保持原值,显式空 = 不限。
+// CodeQuotaUpdate — changes quotas. Each field has three states: not mentioned =
+// keep current value, explicitly empty = unlimited.
 //
-// 底下那条 SQL 盲写两列,所以"没提到"必须在这里读回原值填上 —— 少发一个字段等于把它
-// 清空,那是调用方绝不会预期的。
+// The SQL underneath blind-writes both columns, so "not mentioned" must be filled in
+// here by reading back the current value — sending one fewer field would otherwise
+// clear it, which no caller would ever expect.
 type CodeQuotaUpdate struct {
 	MaxTurnsPerSession OptionalQuota
 	MaxMembers         OptionalQuota
@@ -107,13 +123,14 @@ type CodeQuotaUpdate struct {
 	CodeID             string
 }
 
-// OptionalQuota —— 三态配额:Set=false 表示调用方没提这个字段。
+// OptionalQuota — a tri-state quota: Set=false means the caller didn't mention this
+// field.
 type OptionalQuota struct {
 	Value *int32
 	Set   bool
 }
 
-// or —— 没提到就用当前值顶上。
+// or — falls back to the current value when not mentioned.
 func (o OptionalQuota) or(current *int32) *int32 {
 	if o.Set {
 		return o.Value
@@ -121,7 +138,8 @@ func (o OptionalQuota) or(current *int32) *int32 {
 	return current
 }
 
-// UpdateCodeQuotas —— 合并后写入。两个字段都提到了就不用回读。
+// UpdateCodeQuotas — merges then writes. Skips the read-back if both fields were
+// mentioned.
 func UpdateCodeQuotas(
 	ctx context.Context, d CodesDeps, in *CodeQuotaUpdate,
 ) (entity.Code, error) {
@@ -138,7 +156,7 @@ func UpdateCodeQuotas(
 	return code, nil
 }
 
-// quotaPair —— 要写进那条盲写 SQL 的两个值。
+// quotaPair — the two values to write into that blind-write SQL.
 type quotaPair struct {
 	turns   *int32
 	members *int32

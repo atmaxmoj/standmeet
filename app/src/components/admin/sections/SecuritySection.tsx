@@ -1,6 +1,6 @@
-// SecuritySection —— /admin/ip-bans。owner 封禁来源 IP（#58-5）。封禁后公开面
-// （visitor chat / session / access-request）对该 IP 一律 403。配合 conversations
-// 里展示的访客 client_ip：看到滥用 IP → 复制过来封掉。
+// SecuritySection —— /admin/ip-bans. The owner bans source IPs (#58-5). Once banned, the public
+// surface (visitor chat / session / access-request) returns 403 for that IP across the board.
+// Pairs with the visitor client_ip shown in conversations: spot an abusive IP → copy it here and ban it.
 
 'use client';
 
@@ -48,7 +48,8 @@ function BanForm({ onBan }: { onBan: IPBansHook['banIP'] }) {
   const [reason, setReason] = useState('');
   const run = useAction();
   const clearForm = useCallback(() => { setIP(''); setReason(''); }, []);
-  // 成功才清输入：clearForm 排在 onBan resolve 之后、run 的 catch 之前 —— 抛错时输入留住让 owner 重试。
+  // Only clear the inputs on success: clearForm runs after onBan resolves and before run's catch
+  // — if it throws, the inputs stay so the owner can retry.
   const submit = useCallback(() => run(
     () => onBan({ ip: ip.trim(), reason: reason.trim() }).then(clearForm),
     { success: 'IP banned' },
@@ -89,9 +90,10 @@ function Field({
   );
 }
 
-// BansBody —— 这一页的空态是全 admin 里方向最危险的一句：「No IPs banned. The public surface
-// is open」。拉失败时印它，等于在 owner 问「我封了谁」的时候回答「谁也没封，门开着」。
-// 三种结局交给 ListPane 排序（F-N-7）。
+// BansBody —— this page's empty state is the single most dangerous-direction sentence in all of
+// admin: "No IPs banned. The public surface is open." Printing it on a failed fetch means
+// answering the owner's "who did I ban" with "no one, and the door is open."
+// The three outcomes are handed to ListPane to sort out (F-N-7).
 function BansBody({ hook }: { hook: IPBansHook }) {
   return (
     <ListPane status={hook.status} count={hook.bans.length} empty={<EmptyBans />}>
@@ -136,7 +138,8 @@ function BanRow({ ban, onUnban }: { ban: BanView; onUnban: IPBansHook['unbanIP']
 }
 
 function UnbanBtn({ ban, onUnban }: { ban: BanView; onUnban: IPBansHook['unbanIP'] }) {
-  // 一键 unban → run 收尾：成功 toast，失败 report（不再静默 —— unban 没生效 owner 必须知道）。
+  // One-click unban → run wraps it up: success toasts, failure reports (no longer silent —
+  // the owner must know when the unban didn't take).
   const t = useTranslations('adminShell.ipBans');
   const run = useAction();
   const handle = useCallback(

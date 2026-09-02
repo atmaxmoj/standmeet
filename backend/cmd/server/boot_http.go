@@ -1,6 +1,6 @@
-// boot_http.go —— composition root 的 HTTP 装配(原 internal/infra/server,按
-// routes-not-imported/infra-not-domain 层次移进 cmd)。把各 routes 子包的 Mount 拉到一起,
-// 加跨 sub-router 共享中间件(request id、slog request log、recovery)。不做业务。
+// boot_http.go —— composition root's HTTP assembly (moved from internal/infra/server per the
+// routes-not-imported/infra-not-domain layering). Wires each routes sub-package's Mount calls plus
+// middleware shared across sub-routers (request id, slog request log, recovery). No business logic.
 
 package main
 
@@ -35,21 +35,20 @@ import (
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 )
 
-// Deps 是 server 装配需要的依赖；composition root（cmd/server）填这个。
-// AdminDeps 放最后让里面的 bool 字段在尾部 padding 上不浪费。
+// Deps holds the dependencies server assembly needs; the composition root (cmd/server) fills
+// this in. AdminDeps is placed last so its bool fields don't waste space on trailing padding.
 type Deps struct {
 	DB    *pgxpool.Pool
 	Redis *redis.Client
 	Log   *slog.Logger
-	// CaptchaVerifier —— login captcha 校验器；composition root 按 env
-	// 装配（turnstile / noop）。
+	// CaptchaVerifier —— login captcha verifier; composition root assembles it from env.
 	CaptchaVerifier   security.Verifier
 	Public            publicroutes.Handlers
 	PublicPage        publicroutes.PageHandlers
 	PublicSEO         publicroutes.SEOHandlers
 	PublicCustomPages publicroutes.CustomPageHandlers
-	// PublicCustomPagePreview —— owner 面板里那块预览。公开侧但**凭令牌**:
-	// 它必须在没有 admin cookie 时也能服务(沙箱 iframe 的子资源不带 cookie)。
+	// PublicCustomPagePreview —— owner-panel preview tile. Public-side but **token-gated**:
+	// must serve without an admin cookie (a sandboxed iframe's sub-resources carry none).
 	PublicCustomPagePreview publicroutes.CustomPagePreviewHandlers
 	PublicAccessRequests    publicroutes.AccessRequestsHandlers
 	PublicPasswordReset     publicroutes.PasswordResetHandlers
@@ -61,22 +60,24 @@ type Deps struct {
 	DiagSession             sysroutes.DiagSessionDeps
 	DiagConnector           sysroutes.DiagConnectorDeps
 	DiagSandbox             sysroutes.DiagSandboxDeps
-	// PluginRegistry —— J.5: outbound plugins 一次性注册全套 admin REST hook。
-	// mountAdmin 在 WithOwner+RequireCSRF group 内调 MountAllAdminRoutes。
+	// PluginRegistry —— J.5: outbound plugins register their full admin REST hook set in one
+	// shot. mountAdmin calls MountAllAdminRoutes inside the WithOwner+RequireCSRF group.
 	PluginRegistry *capabilities.Registry
-	// BannedIPs —— 封禁 IP repo；公开面 BanGuard 用（enforcement，不是 owner 能力）。
+	// BannedIPs —— banned-IP repo used by the public BanGuard (enforcement, not an owner cap).
 	BannedIPs *security.BannedIPRepo
-	// Dispatch —— 出站收口。admin 面的能力只能从这儿 wire（路由形状仍照常手写）。
+	// Dispatch —— the outbound convergence point. Admin-side capabilities can only be wired
+	// from here (route shapes are still hand-written as usual).
 	Dispatch *dispatcher.Dispatcher
 	// PubAPI —— the API-key facade (/api/pub/v1); api-key auth in its own middleware.
 	PubAPI *pubapi.Handlers
 	MCP    mcphandle.Deps
 	Admin  AdminDeps
-	// CaptchaEnabled —— captcha 是否真启用(非 noop);#169 code guard 的 captcha-escape。
+	// CaptchaEnabled —— whether captcha is actually enabled (not noop); the captcha-escape
+	// for the #169 code guard.
 	CaptchaEnabled bool
 }
 
-// AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
+// AdminDeps packages up, on its own, the business deps the admin sub-router needs.
 type AdminDeps struct {
 	Corpus          corpus.Deps
 	ApproveRequests owner.ApproveRequestDeps
@@ -113,17 +114,19 @@ type AdminDeps struct {
 	SecureCookie    bool
 }
 
-// New 返回一个挂好路由的 chi router，可直接传给 http.Server。
-// pointer 接收避免 gocritic hugeParam。
+// New returns a chi router with routes already mounted, ready to hand straight to http.Server.
+// Pointer receiver avoids gocritic hugeParam.
 func New(deps *Deps) http.Handler {
-	// QUERY (RFC 10008) 是 chi 默认方法表外的扩展方法；注册后 r.Method("QUERY", ...) 才不 panic。
-	// 只读工具的 dispatch 路由用它（routes/public/chat.go）。必须在挂路由前调。
+	// QUERY (RFC 10008) is outside chi's default method table; registering it is what keeps
+	// r.Method("QUERY", ...) from panicking. Used by the read-only tools' dispatch route
+	// (routes/public/chat.go). Must be called before routes are mounted.
 	chi.RegisterMethod("QUERY")
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
-	// RealIP 之后：判一次来源地址到底是不是访客的。没有转发头时 RemoteAddr 停在
-	// app 那一跳上，拿它冒充访客会让 IP 栏 / 封禁 / 暴力锁全部改变含义 —— 见 clientaddr。
+	// After RealIP: decide once whether the source address is actually the visitor's. With no
+	// forwarded header, RemoteAddr stops at the app's own hop — treating that as the visitor's
+	// would skew the IP column / bans / brute-force locks across the board. See clientaddr.
 	r.Use(clientaddr.Middleware(deps.Log))
 	r.Use(chimw.Recoverer)
 	r.Use(requestLogger(deps.Log))
@@ -135,9 +138,9 @@ func New(deps *Deps) http.Handler {
 	if deps.PubAPI != nil {
 		deps.PubAPI.Mount(r)
 	}
-	// 两个 MCP 面，两个平面：`/mcp` 是 owner 自己的（Sigv1 验签），
-	// `/mcp/visitor` 是**拿着码的人**的（Bearer 那张码）。
-	// 先挂访客那条：chi 的 Mount 按前缀匹配，`/mcp` 挂在前面会把它一起吃掉。
+	// Two MCP faces, two planes: `/mcp` is the owner's own (Sigv1 signature verification),
+	// `/mcp/visitor` is for **whoever holds a code** (Bearer, that code). Mount the visitor
+	// one first: chi's Mount matches by prefix, so mounting `/mcp` first would swallow it too.
 	r.Mount("/mcp/visitor",
 		deps.Public.MountVisitorMCP(paritymanifest.APIRenderableTools()))
 	r.Mount("/mcp", mcphandle.New(&deps.MCP))
@@ -145,16 +148,16 @@ func New(deps *Deps) http.Handler {
 	return r
 }
 
-// assertDispatcherConformance —— 全部面都挂完之后,拿每个 op 的 Reach 跟各个面实际投影的对一遍。
-// 有欠账就**不让这个进程活下去**。
-//
-// 为什么是 panic 而不是日志:少一个面的能力不会让任何请求报错 —— 它只是安静地不存在。这种缺陷
-// 只有人去用的时候才会发现,而那时它已经上线了。启动即失败,是唯一能把它挡在上线之前的形态。
-//
-// 这也是那张手写对照表被替换掉的东西:它只在有人跑测试时才对账,而且要有人记得往里加行。
+// assertDispatcherConformance —— once every face is mounted, checks each op's Reach against
+// what each face actually projects. Any shortfall means **this process does not get to stay
+// alive**: a face missing a capability raises no request error, it just quietly doesn't
+// exist, and that's only found once someone tries to use it, by when it's already live.
+// Failing at startup is the only shape that catches it before it ships. This also replaces
+// the old hand-written cross-reference table, which only got reconciled when someone ran
+// the tests and remembered to update it.
 func assertDispatcherConformance(deps *Deps) {
 	if deps.Dispatch == nil {
-		return // 测试里可以不接收口
+		return // may be left unwired in tests
 	}
 	if report := deps.Dispatch.ConformReport(); report != "" {
 		panic("dispatcher: a face does not match the outbound convergence point — " +
@@ -185,18 +188,21 @@ func mountAdmin(r chi.Router, deps *Deps) {
 			r.Use(authmw.WithOwner(deps.Admin.Sessions))
 			r.Use(authmw.RequireCSRF)
 			adminH.MountAuthed(r, authmw.CredentialGuard(deps.Redis))
-			// 连接器 diag（owner-authed，session cookie path=/api/admin 才到这）。
+			// Connector diag (owner-authed; only reachable with a session cookie
+			// scoped to path=/api/admin).
 			sysroutes.MountDiagConnector(r, deps.DiagConnector)
-			// #147 沙箱管理面（owner-authed；复用 diag handler，路径 /api/admin/sandbox/*）。
+			// #147 sandbox admin panel (owner-authed; reuses the diag handler,
+			// path /api/admin/sandbox/*).
 			sysroutes.MountAdminSandbox(r, deps.DiagSandbox)
 			deps.PluginRegistry.MountAllAdminRoutes(r)
 		})
 	})
 }
 
-// mustBeWired —— 装配漏了一组 dep 就别起来。漏抄的代价不是"少个功能"，
-// 而是那条路上的 repo 是 nil，第一次请求空指针 panic，
-// 而 owner 屏幕上看到的是一句完全无关的解释（见 internal/infra/depcheck）。
+// mustBeWired —— if assembly missed wiring a dep, refuse to start. The cost of a
+// missed field isn't "one fewer feature" — it's a nil repo on that path, a nil-pointer
+// panic on the first request, and the owner seeing a completely unrelated explanation
+// on screen (see internal/infra/depcheck).
 func mustBeWired(h *adminroutes.Handlers) {
 	if err := h.AssertDepsWired(); err != nil {
 		panic(err)
@@ -217,8 +223,8 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Corpus: deps.Admin.Corpus, Face: wire.AdminFace(deps.Dispatch),
 		},
 		CodesAdmin: adminroutes.CodesDeps{Face: wire.AdminFace(deps.Dispatch)},
-		// APIKeysAdmin —— 外发 key 的网页面(F-K-1)。同一个 AdminFace:它按 op 的 reach 过滤,
-		// 而那四个 op 现在声明的是 OwnerRead/OwnerAction(两个 owner 面都长),不再是 mcp-only。
+		// APIKeysAdmin —— outbound-key panel (F-K-1). Same AdminFace gates it by an op's reach;
+		// those ops now declare OwnerRead/OwnerAction on both owner faces, no longer mcp-only.
 		APIKeysAdmin:   adminroutes.APIKeysAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		PageAdmin:      adminroutes.PageAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		SEOAdmin:       adminroutes.SEOAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
@@ -230,15 +236,15 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		PublicURLAdmin: adminroutes.PublicURLDeps{Face: wire.AdminFace(deps.Dispatch)},
 		AccountAdmin:   adminroutes.AccountDeps{Face: wire.AdminFace(deps.Dispatch)},
 		Recovery:       deps.Admin.Recovery,
-		EmailChange:    deps.Admin.EmailChange, // 漏抄它的代价见 internal/infra/depcheck
-
-		// 插件那份 builtin 由装配根递进去 —— 注册表住在这儿，路由层够不到它。
+		EmailChange:    deps.Admin.EmailChange, // see depcheck for the cost of missing it
+		// The plugins' builtins are handed in by the composition root — the registry
+		// lives here, the routing layer can't reach it.
 		SeedPlugins:      deps.PluginRegistry.SeedAllOwners,
 		AIProviderAdmin:  adminroutes.AIProviderDeps{Face: wire.AdminFace(deps.Dispatch)},
 		ProvidersAdmin:   adminroutes.ProvidersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		CustomPagesAdmin: adminroutes.CustomPagesDeps{Face: wire.AdminFace(deps.Dispatch)},
-		// 预览走域，不走 dispatcher：它发的是**文件字节**，而收口那条路是
-		// JSON op。跟公开侧 /p/{slug} 同一个理由。
+		// Preview goes through the domain, not the dispatcher: it hands back **file bytes**, and
+		// the convergence path is JSON ops. Same reasoning as the public-side /p/{slug}.
 		SkillsAdmin:     adminroutes.SkillsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		PromptsAdmin:    adminroutes.PromptsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		RolesAdmin:      adminroutes.RolesAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
@@ -255,15 +261,15 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Writings: deps.Admin.Writings.Writings,
 			Assets:   deps.Admin.Assets.Repo,
 			Storage:  deps.Admin.Assets.Storage,
-			Corpus:   deps.Admin.Corpus, // sync face: VaultSync + Raw + WikiRefs 都在这
+			Corpus:   deps.Admin.Corpus, // sync face: VaultSync + Raw + WikiRefs all live here
 			CSS:      deps.Admin.Owners, // .obsidian/snippets harvest → owner CSS
 			WritingsTx: corpus.WritingsTxDeps{
 				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
 				Assets: deps.Admin.Assets,
 			},
 			PagePins: pins,
-			// 同一个 owners 仓储：它已经是 CSS 的落点，导入回执（UX-62）也挂在 owner 上 ——
-			// 一个实例只有一份 vault。
+			// Same owners repo: it's already where CSS lands, so the import receipt
+			// (UX-62) hangs off owner too — one instance has exactly one vault.
 			ImportReceipt: deps.Admin.Owners,
 			Log:           deps.Log,
 		},
@@ -282,35 +288,42 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 }
 
 func mountPublic(r chi.Router, deps *Deps) {
-	// 直接挂 wireup 构好的 Handlers 值，不再字段一个个重抄 (G-1.5 smell E:
-	// 之前 Handlers 加字段 wireup 改了但 mount 漏抄 → silent nil 跑了一阵)。
-	// #169 访问码兑换失败锁定：middleware wiring 归 server 层(cmd 不引 middleware),跟
-	// LoginGuard 同处装配。注入进 public Handlers 的窄 CodeGuard 接口。
+	// Mount the Handlers value wireup already built directly, instead of re-copying
+	// each field one by one (G-1.5 smell E: a field was once added to Handlers,
+	// wireup updated, but the mount site missed the copy → silent nil ran for a while).
+	// #169 access-code redemption failure lockout: middleware wiring belongs to the
+	// server layer (cmd doesn't import middleware), assembled alongside LoginGuard.
+	// Injected into the public Handlers' narrow CodeGuard interface.
 	deps.Public.CodeGuard = authmw.NewCodeGuard(
 		deps.Redis, deps.CaptchaVerifier, deps.CaptchaEnabled,
 	)
-	// 留言口那道闸（F-G-4）：同一处装配、同一套零件，只是数的东西不同 —— 那边数猜错的码，
-	// 这边数发出来的留言。少了它，owner 亲手读的那个队列前面只有一层 fail-open 限流。
+	// The gate on the message-request port (F-G-4): same assembly site, same parts,
+	// just counting a different thing — that one counts wrong-guessed codes, this
+	// one counts submitted messages. Without it, the queue the owner reads by hand
+	// would only have a fail-open rate limit in front of it.
 	deps.PublicAccessRequests.Guard = authmw.NewRequestGuard(
 		deps.Redis, deps.CaptchaVerifier, deps.CaptchaEnabled,
 	)
 	r.Route("/api/v1", func(r chi.Router) {
-		// CORS 最外层：embed 从任意 origin 跨源加载，preflight + ACAO 头得先于
-		// Ban/Rate 挂上（即便后面 403/429 也要能被跨源 JS 读到）。D.2 wide-open。
+		// CORS at the outermost layer: embeds load cross-origin from any origin, so
+		// preflight + the ACAO header must be mounted before Ban/Rate (even a later
+		// 403/429 still needs to be readable by cross-origin JS). D.2 wide-open.
 		r.Use(authmw.PublicCORS)
-		// 封禁 IP 先挡（403），再 per-IP 限流公开滥用面（429）。
+		// Block banned IPs first (403), then per-IP rate-limit the public abuse
+		// surface (429).
 		r.Use(authmw.BanGuard(deps.BannedIPs))
 		r.Use(authmw.PublicRateGuard(deps.Redis))
 		(&deps.Public).Mount(r)
 		(&deps.PublicPage).Mount(r)
 		(&deps.PublicSEO).Mount(r)
 		(&deps.PublicCustomPages).Mount(r)
-		(&deps.PublicCustomPagePreview).Mount(r) // 预览:公开侧但凭令牌
+		(&deps.PublicCustomPagePreview).Mount(r) // preview: public-side but token-gated
 		(&deps.PublicAccessRequests).Mount(r)
 		(&deps.PublicPasswordReset).Mount(r)
 		(&deps.PublicWritings).Mount(r)
-		// Fallback 让 /prompts/{id} 在 embed .md 未命中时返 registry 里外置能力的
-		// fragment 文本（capabilities/<id> 已搬进插件 instructions，无 .md）。
+		// The fallback lets /prompts/{id} return the registry's externalized-capability
+		// fragment text when the embedded .md is not found (capabilities/<id> has moved
+		// into plugin instructions and has no .md).
 		(&publicroutes.PromptsHandlers{
 			Log:      deps.Log,
 			Fallback: deps.DiagRegistry.Registry.PromptFragmentText,
@@ -319,6 +332,6 @@ func mountPublic(r chi.Router, deps *Deps) {
 }
 
 func mountRootSEO(r chi.Router, deps *Deps) {
-	// /robots.txt + /sitemap.xml 是 SEO 标准约定路径，不走 /api/v1。
+	// /robots.txt + /sitemap.xml are standard SEO-convention paths, not under /api/v1.
 	(&publicroutes.SEOHandlers{Deps: deps.PublicSEO.Deps, Log: deps.Log}).MountRoot(r)
 }

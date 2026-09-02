@@ -1,4 +1,4 @@
-// index.ts —— @standmeet/mcp-client 入口。bin/standmeet-mcp 调 main()。
+// index.ts —— @standmeet/mcp-client entry point. bin/standmeet-mcp calls main().
 //
 // Env vars (jam through Claude Desktop / Cursor MCP server config):
 //   STANDMEET_HOST         — backend base URL (e.g. https://standmeet.local)

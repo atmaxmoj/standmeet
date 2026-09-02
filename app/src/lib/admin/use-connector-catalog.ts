@@ -1,19 +1,24 @@
-// use-connector-catalog —— 内置连接器目录（外置装配进来的 manifest）。GET /api/admin/connectors/
-// catalog → 可连接的内置卡（google-calendar / smtp / …）。跟 use-connector-list（owner 已建）分开：
-// 内置不进 List（List 的 reuse-by-category 调用方会误抓内置）。
+// use-connector-catalog —— the built-in connector catalog (manifests
+// assembled in from outside). GET /api/admin/connectors/catalog → connectable
+// built-in cards (google-calendar / smtp / …). Kept separate from
+// use-connector-list (owner-created): built-ins don't go into List (List's
+// reuse-by-category callers would otherwise pick up built-ins by mistake).
 
 import { z } from 'zod';
 
 import { useLatestList } from '@/lib/admin/use-latest-list';
 
-// OwnerOpFieldSchema / OwnerOpSchema —— 连接器自己在 manifest 里声明的 owner 操作,
-// 后端已把它的 input_schema 派生成扁平字段(见 connector.OwnerOp.Fields)。前端不解
-// JSON Schema:一个动作长什么样是**声明**说了算,这里照着渲。
+// OwnerOpFieldSchema / OwnerOpSchema —— the owner operations a connector
+// declares in its own manifest; the backend has already derived its
+// input_schema into flat fields (see connector.OwnerOp.Fields). The frontend
+// doesn't parse JSON Schema: what an action looks like is decided by the
+// **declaration**, and this just renders it as given.
 const OwnerOpFieldSchema = z.object({
   key: z.string(),
   description: z.string().nullish(),
-  // type —— 声明里的标量类型。控件按它选,值也按它送回去:数字字段送字符串的话,
-  // op 自己的 schema 第一步 unmarshal 就失败(F-C-17)。
+  // type —— the scalar type from the declaration. The control is chosen by
+  // it, and the value is sent back by it too: send a string for a numeric
+  // field, and the op's own schema fails to unmarshal at the very first step (F-C-17).
   type: z.string().nullish(),
   required: z.boolean().nullish(),
 });
@@ -27,7 +32,7 @@ const CatalogEntrySchema = z.object({
   id: z.string(),
   category: z.string(),
   kind: z.string(),
-  // title —— 上传连接器带的厂商名（F-C-56）。catalog 里的内置项没有它：它们的名字就是品类。
+  // title —— the vendor name carried by an uploaded connector (F-C-56). Built-in entries in the catalog don't have this: their name is just the category.
   title: z.string().nullish(),
   auth_scheme: z.string().nullish(),
   owner_ops: z.array(OwnerOpSchema).nullish(),

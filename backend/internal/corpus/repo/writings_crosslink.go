@@ -1,5 +1,5 @@
-// writings_crosslink.go —— public /writings 路径渲 `[[crosslink]]` 用的 slim
-// resolution index 查询，从 writings.go 拆出来守 350-line cap。
+// writings_crosslink.go — the slim resolution-index query used by the public /writings
+// path to render `[[crosslink]]`. Split out of writings.go to stay under the 350-line cap.
 
 package repo
 
@@ -11,15 +11,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// SlugTitle —— ListPublishedSlugAndTitle 返的轻量元组；不带 body_md，
-// 避免一次拉全 owner 的 body 重复传。
+// SlugTitle — the lightweight tuple returned by ListPublishedSlugAndTitle; excludes
+// body_md, so a full pull of the owner's writings doesn't ship every body redundantly.
 type SlugTitle struct {
 	Slug  string
 	Title string
 }
 
-// ListPublishedSlugAndTitle —— owner 全部 published writing 的 (slug, title)；
-// public 路径渲 [[crosslink]] 用的 resolution index。
+// ListPublishedSlugAndTitle — (slug, title) for every published writing an owner has;
+// the resolution index used by the public path to render [[crosslink]].
 func (r *WritingRepo) ListPublishedSlugAndTitle(
 	ctx context.Context, ownerID string,
 ) ([]SlugTitle, error) {

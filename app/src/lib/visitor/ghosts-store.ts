@@ -1,17 +1,25 @@
-// ghosts-store.ts —— Ghost steering P4: visitor chat 输入框的**单条** ghost text（不再是队列 + cycle）。
+// ghosts-store.ts —— Ghost steering P4: the visitor chat input box's
+// **single** ghost text (no longer a queue + cycle).
 //
-// 来源:
-//   - POST /api/v1/sessions 响应 `ghosts` → seed。取**首条**当单个 initial ghost（QR/landing 那组
-//     suggested question 保留在 code.ghosts，但输入框只吃第一条）。
-//   - SSE `ghost` 帧（backend policy done 之后出，code-accessor only）→ setPolicy，**替换**掉当前那条。
+// Sources:
+//   - `ghosts` in the POST /api/v1/sessions response → seed. Takes the
+//     **first item** as the single initial ghost (the QR/landing suggested
+//     question set stays on code.ghosts, but the input box only consumes
+//     the first one).
+//   - SSE `ghost` frame (emitted after backend policy completes,
+//     code-accessor only) → setPolicy, **replacing** the current one.
 //
-// 消费:
-//   - AskInput / ChatRoom / FloatingChatDock 渲当前 ghost；Tab → fill input 不自动 submit；
-//     开始打字 → ghost 被 input.value 自然遮住。**Esc 不再 cycle**（单条，没有下一条可切）。
+// Consumers:
+//   - AskInput / ChatRoom / FloatingChatDock render the current ghost; Tab
+//     → fills the input without auto-submitting; typing → the ghost is
+//     naturally covered by input.value. **Esc no longer cycles** (single
+//     ghost, nothing to switch to).
 //
-// non-code visitor (public / byoai) 永远 seed 空 → ghost === null → 不渲。三种 mode 同套代码。
+// A non-code visitor (public / byoai) always seeds empty → ghost === null →
+// nothing renders. All three modes share the same code path.
 //
-// source ('initial' | 'policy') 给后台日志区分：seed = 'initial'，policy 帧 = 'policy'。
+// source ('initial' | 'policy') distinguishes the two for backend logging:
+// seed = 'initial', a policy frame = 'policy'.
 
 import { create } from 'zustand';
 
@@ -20,27 +28,39 @@ export type GhostSource = 'initial' | 'policy';
 export interface Ghost {
   readonly text: string;
   readonly source: GhostSource;
-  // targetWaypoint —— policy ghost 携带（引导到哪个 waypoint）；initial 无。
+  // targetWaypoint —— carried by a policy ghost (which waypoint it steers
+  // toward); initial has none.
   readonly targetWaypoint?: string;
 }
 
 interface GhostsState {
   ghost: Ghost | null;
-  // shownIDs —— ghost text → backend row id 的反查表。useGhostLogger POST shown 拿到 id 后写一行；
-  // 别的 hook instance（mode 切换 ChatRoom remount）见有就不再 POST，避免重复落 row；accept 也 lookup。
+  // shownIDs —— a reverse lookup table from ghost text → backend row id.
+  // useGhostLogger writes an entry once POST shown returns an id; other
+  // hook instances (e.g. a ChatRoom remount from a mode switch) skip the
+  // POST if there's already an entry, avoiding a duplicate row; accept
+  // also does a lookup.
   shownIDs: Record<string, string>;
-  // seed —— 首次拿到 session 时取 items[0] 当单个 initial。重复调用整盘重置（新 session → 老 ghost 不再展示）。
+  // seed —— when the session is first obtained, takes items[0] as the
+  // single initial ghost. Calling it again resets the whole thing (new
+  // session → the old ghost no longer shows).
   seed: (items: readonly string[]) => void;
-  // setPolicy —— SSE `ghost` 帧到了，把当前 ghost 换成这条 policy ghost（source='policy'）。
-  // policy ghost 已在后端 policy 落库（RecordPolicy），帧带 ghostId → 直接 markShown，
-  // 前端不再 POST /shown（否则 dup row）。
+  // setPolicy —— an SSE `ghost` frame arrived, swap the current ghost for
+  // this policy ghost (source='policy'). A policy ghost is already
+  // persisted server-side (RecordPolicy); if the frame carries a ghostId,
+  // mark it shown directly — the frontend does not POST /shown for it
+  // (that would create a duplicate row).
   setPolicy: (text: string, ghostId?: string, targetWaypoint?: string) => void;
-  // markShown —— useGhostLogger POST shown 成功后写 text → row id 映射。
+  // markShown —— writes the text → row id mapping after useGhostLogger's
+  // POST shown succeeds.
   markShown: (text: string, id: string) => void;
-  // clear —— chat.reset 时清干净，避免老 ghost 污染新对话。
+  // clear —— wipes everything on chat.reset, so an old ghost doesn't
+  // contaminate the new conversation.
   clear: () => void;
-  // clearGhost —— F-A-9:policy 沉默的 turn 收尾时只清当前那条 ghost（留着 shownIDs 让在途的
-  // /shown 日志仍能反查),避免陈旧 steering ghost 挂在输入框上。
+  // clearGhost —— F-A-9: when a turn ends with policy staying silent, only
+  // clears the current ghost (keeping shownIDs so an in-flight /shown log
+  // can still be looked up), so a stale steering ghost doesn't linger in
+  // the input box.
   clearGhost: () => void;
 }
 
@@ -53,7 +73,8 @@ export const useGhostsStore = create<GhostsState>((set, get) => ({
   setPolicy: (text, ghostId, targetWaypoint) => {
     if (text === '') return;
     set({ ghost: { text, source: 'policy', targetWaypoint } });
-    // 后端已落库，帧带 id → 直接记进 shownIDs，logger 见有就不再 POST /shown。
+    // Already persisted server-side; if the frame carries an id, record it
+    // directly into shownIDs, so the logger skips POST /shown once present.
     if (ghostId !== undefined && ghostId !== '') {
       const cur = get().shownIDs;
       set({ shownIDs: { ...cur, [text]: ghostId } });
@@ -68,12 +89,14 @@ export const useGhostsStore = create<GhostsState>((set, get) => ({
   clearGhost: () => set({ ghost: null }),
 }));
 
-// useCurrentGhost —— React-friendly hook，组件 subscribe 当前那条（只要 text）。
+// useCurrentGhost —— React-friendly hook; a component subscribes to the
+// current one (just the text).
 export function useCurrentGhost(): string | null {
   return useGhostsStore((s) => s.ghost?.text ?? null);
 }
 
-// useCurrentGhostMeta —— 后台日志路径用，把 source 一并暴露（use-ghost-logger POST shown 要带）。
+// useCurrentGhostMeta —— for the backend logging path; also exposes source
+// (use-ghost-logger's POST shown needs to carry it).
 export function useCurrentGhostMeta(): Ghost | null {
   return useGhostsStore((s) => s.ghost);
 }

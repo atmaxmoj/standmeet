@@ -1,9 +1,13 @@
-// WikiTreeView —— reader 左侧 wiki 树。**懒加载**:走 LazyTree(loadWikiChildren),
-// 一层层按需取(ACL 由后端按 token scope 过滤,不在 scope 整条不出现),不预取整树。
-// 「自动展开到当前条」靠把 activePath 的各级前缀塞进 openPaths —— 只这条祖先链被
-// 预取,不破坏懒加载。当前条 accent 高亮。
+// WikiTreeView —— the wiki tree on the reader's left side. **Lazy
+// loading**: goes through LazyTree (loadWikiChildren), fetching level by
+// level on demand (ACL is filtered by the backend per the token's scope —
+// anything out of scope doesn't appear at all), never prefetching the
+// whole tree. "Auto-expand to the current entry" works by stuffing each
+// prefix level of activePath into openPaths — only this one ancestor chain
+// gets prefetched, so lazy loading stays intact. The current entry is
+// highlighted with the accent color.
 //
-// 组件层禁 if:全三元 + 抽小组件。
+// Components ban if: all ternaries + extracted small components.
 
 'use client';
 
@@ -20,11 +24,15 @@ import { loadWikiChildren, subscribeScopedStats } from '@/lib/visitor/load-wiki-
 
 import styles from '@/components/visitor/WikiTreeView.module.css';
 
-// activePath 从 **URL** 派生，不再由调用方传。
+// activePath is derived from the **URL** — no longer passed by the caller.
 //
-// 传 prop 的话，外层那个 layout 就得跟着「当前是哪一篇」变 —— 而 layout 一变就重渲，
-// 树又回到「每点一篇文章刷一次」。高亮本来就是 URL 的函数，让它直接读 URL，
-// layout 因此可以完全不关心当前在哪一篇（[[names-that-lie]] 的反面：让数据来自它真正的源）。
+// Passing it as a prop would force the outer layout to change with
+// "which article is current" — and a layout change means a rerender,
+// putting the tree right back to "refresh on every article click".
+// Highlighting is already a function of the URL, so let it read the URL
+// directly, and the layout can be completely unconcerned with which
+// article is current (the inverse of [[names-that-lie]]: let data come
+// from its actual source).
 export function WikiTreeView({ stats }: { stats: WikiTreeStats }) {
   const activePath = decodeURIComponent(usePathname() ?? '').replace(/^\/wiki\/?/, '');
   const t = useTranslations('visitor.wikiTreeView');
@@ -44,23 +52,32 @@ export function WikiTreeView({ stats }: { stats: WikiTreeStats }) {
   );
 }
 
-// TreeStats —— 侧栏脚定位计数(纯 COUNT 聚合,不拉树、不破坏懒加载)。
+// TreeStats —— the count anchored at the foot of the sidebar (a pure COUNT
+// aggregate, doesn't pull the tree, doesn't break lazy loading).
 //
-// 那句「这些是私有的 —— 输码」(F-L-11 part B)以前挂在这里。它搬到 `WikiIndexEmpty`,
-// 由**正文列**渲染 —— 因为这一整列侧栏在 `lg` 以下是隐藏的(那是对的:桌面版这棵树塞不进
-// 390px),于是手机上那句话不存在,访客拿到一张纯白页,没有原因也没有下一步。
-// F-L-11 修的就是「一堆数字配一棵空树等于吹牛」,而它在另一个视口上原样回来了。
-// 一句事实一个家:那句话回答的是「我眼前这张列表为什么空」,而列表在正文里,不在这儿。
+// The sentence "these are private — enter a code" (F-L-11 part B) used to
+// hang here. It moved to `WikiIndexEmpty`, rendered by the **body
+// column** — because this whole sidebar column is hidden below `lg`
+// (correctly so: a desktop-scale tree can't fit into 390px), so that
+// sentence simply didn't exist on mobile, leaving a visitor with a plain
+// white page and no reason and no next step. F-L-11 fixed exactly "a pile
+// of numbers paired with an empty tree amounts to bragging with nothing
+// behind it", and it came right back on another viewport. One fact, one
+// home: that sentence answers "why is the list in front of me empty",
+// and the list lives in the body, not here.
 function TreeStats({ stats }: { stats: WikiTreeStats }) {
   const t = useTranslations('visitor.wikiTreeView');
-  // SSR 拿不到访客 token,所以 SSR 那份 GATED 数说的是匿名访客的事。有 session 就按这位
-  // 访客的 grant 重取一次 —— 否则受邀访客读到「222 GATED」,而他每一条都打得开(F-L-14)。
+  // SSR can't see the visitor's token, so the SSR copy's GATED count
+  // describes the anonymous visitor. When there's a session, refetch once
+  // under that visitor's grant — otherwise an invited visitor reads "222
+  // GATED" while every one of their entries actually opens (F-L-14).
   const [scoped, setScoped] = useState<WikiTreeStats | null>(null);
   useEffect(() => subscribeScopedStats(setScoped), []);
   const shown = scoped ?? stats;
   return (
     <div className={styles['stats']} data-testid="wiki-tree-stats">
-      {/* 计数用 String() 传:ICU 会给 number 加千分位(1,234),原 JSX 直出 1234。 */}
+      {/* The count is passed through String(): ICU would add thousands
+          separators to a number (1,234), while raw JSX outputs 1234. */}
       {t.rich('stats', {
         entries: String(shown.entries), roots: String(shown.roots), gated: String(shown.gated),
         num: (c) => <span className={styles['statNum']}>{c}</span>,
@@ -70,7 +87,9 @@ function TreeStats({ stats }: { stats: WikiTreeStats }) {
 }
 
 function WikiLabel({ node, active }: { node: TreeNode; active: boolean }) {
-  // useCorpusHref 而不是 corpusHref:读者选的语言要跟着链接走,否则点开下一条就回英文。
+  // useCorpusHref rather than corpusHref: the language the reader picked
+  // needs to carry through the link, or opening the next entry falls back
+  // to English.
   const href = useCorpusHref();
   return (
     <Link
@@ -84,8 +103,9 @@ function WikiLabel({ node, active }: { node: TreeNode; active: boolean }) {
   );
 }
 
-// prefixSet —— "a/b/c" → {"a","a/b","a/b/c"}:从根到当前条每一级,供 openPaths
-// 自动展开到当前(只预取这条链)。
+// prefixSet —— "a/b/c" → {"a","a/b","a/b/c"}: every level from the root to
+// the current entry, for openPaths to auto-expand to the current one
+// (prefetching only this one chain).
 function prefixSet(path: string): ReadonlySet<string> {
   const segs = path.split('/').filter(Boolean);
   const out = new Set<string>();

@@ -1,20 +1,27 @@
-// visitor_waypoint_feasible.go —— 冻结 waypoints 的**可行性**下限(F-A-26)。
+// visitor_waypoint_feasible.go —— the **feasibility** floor for frozen waypoints (F-A-26).
 //
-// 跟它并排的那道闸(access.FilterWaypointsByCorpus)管的是**授权**:这个 role 的 glob 看不看得见
-// 这条证据。两件事一直共用「feasibility floor」这个名字,而只有前者被实现过 —— 于是一条
-// `subjectivity://standpoint` 之类的 ref,glob 匹配得完美无缺,指向的笔记却根本不存在,就这么
-// 穿了过去。
+// The gate sitting next to this one (access.FilterWaypointsByCorpus) handles
+// **authorization**: whether this role's glob can even see this piece of evidence. The
+// two have always shared the name "feasibility floor," but only the former was ever
+// implemented —— so a ref like `subjectivity://standpoint` could match its glob
+// perfectly while pointing at a note that doesn't exist at all, and slip right through.
 //
-// 为什么它比「推荐得不好」严重:WaypointLedger 标 visited 的办法,是拿本轮真被引用的笔记按
-// (genre, 树路径) 拼出 URI 再比对 evidence_refs。一条指向空的 ref 永远不会被任何引用拼出来,
-// 所以那条 waypoint **永久不可访** —— ghost 每轮都把它当「还没去过」重新推一遍,而「全都去过了
-// 就转静默」在这个 role 上永远不会发生。设计文档 [[ghost-steering]] 给这道闸的依据正是
-// "a ghost pointing where the corpus is thin steers the conversation into a failure"。
+// Why this is worse than "a bad recommendation": WaypointLedger marks visited by taking
+// the notes actually cited this turn, building their URIs from (genre, tree path), and
+// matching against evidence_refs. A ref pointing at nothing will never be built by any
+// citation, so that waypoint is **permanently unreachable** —— the ghost re-proposes it
+// every turn as "not yet visited," and "everything's visited, go quiet" can never happen
+// for this role. The design doc [[ghost-steering]] justifies this gate exactly on the
+// grounds that "a ghost pointing where the corpus is thin steers the conversation into a
+// failure."
 //
-// 终点(is_terminal)豁免:它靠工具事件(约成)标 visited,不靠引用,所以证据解不解析得出都不影响
-// 它可达。把预约终点滤掉会让整条转化路径静音。
+// Terminal (is_terminal) waypoints are exempt: they're marked visited by a tool event
+// (a booking closed), not by citation, so whether the evidence resolves has no bearing
+// on their reachability. Filtering out a booking terminal would silence the whole
+// conversion path.
 //
-// 「一条 ref 都没写」不在这里管:那一类由 require_ghost_evidence 那个开关管,开不开是 owner 的选择。
+// "Zero refs written" isn't handled here: that category is governed by the
+// require_ghost_evidence switch, and whether it's on is the owner's choice.
 
 package usecase
 
@@ -24,18 +31,23 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
-// CorpusRefResolver —— 「这条 evidence_ref 指得到一条真笔记吗」。
+// CorpusRefResolver —— "does this evidence_ref resolve to a real note."
 //
-// 只问存在性,不问准入 —— 准入是隔壁那道闸的事。实现在 corpus 域(corpus.RefResolver),
-// 复用 agent 自己读语料用的那套 finder,好让「解析得出」跟「真能被引用」是同一件事。
+// Only asks about existence, never admission —— admission is the neighboring gate's job.
+// Implemented in the corpus domain (corpus.RefResolver), reusing the same finder the
+// agent itself uses to read the corpus, so "resolves" and "can actually be cited" are
+// the same thing.
 type CorpusRefResolver interface {
 	ResolvesRef(ctx context.Context, ownerID, uri string) bool
 }
 
-// feasibleWaypoints —— 丢掉「非终点、且 evidence_refs 一条都解析不出真笔记」的 waypoint。
+// feasibleWaypoints —— drops any waypoint that's "non-terminal, and none of whose
+// evidence_refs resolve to a real note."
 //
-// resolver 为 nil(还没接读口的装配)→ 原样返回:这一层不该因为读不到语料就把 owner 的引导
-// 全部静音。接没接上由 ghost-waypoint-resolvable 那条 e2e 兜。
+// resolver is nil (an assembly that hasn't wired the read port yet) → returned
+// unchanged: this layer shouldn't silence all of the owner's steering just because it
+// can't read the corpus. Whether it's actually wired is covered by the
+// ghost-waypoint-resolvable e2e.
 func feasibleWaypoints(
 	ctx context.Context, resolver CorpusRefResolver, ownerID string, in []access.Waypoint,
 ) []access.Waypoint {
@@ -51,8 +63,9 @@ func feasibleWaypoints(
 	return out
 }
 
-// waypointReachable —— 终点永远可达(工具事件闭合);其余要么没写 refs(交给 require_ghost_evidence
-// 那个开关),要么至少有一条 ref 指得到真东西。
+// waypointReachable —— a terminal is always reachable (closed by a tool event); the
+// rest either have no refs written (handled by the require_ghost_evidence switch), or
+// have at least one ref that resolves to something real.
 func waypointReachable(
 	ctx context.Context, resolver CorpusRefResolver, ownerID string, w *access.Waypoint,
 ) bool {

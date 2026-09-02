@@ -1,17 +1,28 @@
-// WikiIndexEmpty —— /wiki 的索引列表空着时，正文列自己说明为什么。
+// WikiIndexEmpty —— when the /wiki index list is empty, the body column
+// explains why on its own.
 //
-// 这句话本来住在侧栏（`WikiTreeView` 的 TreeStats 脚注，F-L-11 part B）。而侧栏在 `lg`
-// 以下整个隐藏 —— 那是**对的**响应式，桌面版那棵树塞不进 390px。代价是：手机上访客拿到
-// 一张纯白页，标题 "The corpus, by entry" 底下什么都没有，没有原因也没有下一步。
-// F-L-11 修的正是「一堆数字配一棵空树等于吹牛」，而它在另一个视口上原样回来了。
+// This sentence used to live in the sidebar (`WikiTreeView`'s TreeStats
+// footnote, F-L-11 part B). But the sidebar is hidden entirely below `lg` —
+// which is **correct** responsive behavior, since a desktop-scale tree
+// can't fit into 390px. The cost was: on mobile, a visitor got a plain
+// white page with nothing below the heading "The corpus, by entry" — no
+// reason, no next step. F-L-11 fixed exactly "a pile of numbers paired
+// with an empty tree amounts to bragging with nothing behind it", and it
+// came right back on another viewport.
 //
-// 所以这句话搬到正文列 —— 它回答的是「我眼前这张列表为什么是空的」，而那张列表在这里。
-// 侧栏留下计数（数字是给宽屏的额外信息，不是这个问题的答案）。
+// So this sentence moved into the body column — it answers "why is the
+// list in front of me empty", and that list is right here. The sidebar
+// keeps its count (a number is extra information for wide screens, not
+// the answer to this question).
 //
-// 两种空是两回事，不许共用一句：
-//   - 有条目、但对匿名访客全是私有的 → 这是**邀约**：去输个码。
-//   - 一条都没有 → 这是**还没开始**：说实话，别暗示有什么东西藏着。
-// 拿一句去顶另一句，就是在没有 rest 的时候许诺一个 rest。
+// The two kinds of "empty" are two different things and must not share a
+// sentence:
+//   - there are entries, but they're all private to an anonymous visitor
+//     → this is an **invitation**: go enter a code.
+//   - there's really nothing at all → this is **hasn't started yet**: say
+//     so honestly, don't imply something is hiding.
+// Using one sentence to stand in for the other is promising a rest that
+// isn't there.
 
 'use client';
 
@@ -21,8 +32,9 @@ import { useTranslations } from 'next-intl';
 import type { WikiTreeStats } from '@/lib/api/public';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 
-// allGatedAnonymous —— 无 session，且 published（= entries − gated）为 0。
-// 受邀访客不算：他每一条都打得开，对他说「这些是私有的」是假话（F-L-14）。
+// allGatedAnonymous —— no session, and published (= entries − gated) is 0.
+// Doesn't apply to an invited visitor: every entry opens for them, so
+// telling them "these are private" would be a false statement (F-L-14).
 export function allGatedAnonymous(hasSession: boolean, stats: WikiTreeStats): boolean {
   return !hasSession && stats.entries > 0 && stats.entries === stats.gated;
 }
@@ -36,7 +48,8 @@ function EmptyReason({ gated }: { gated: boolean }) {
   return gated ? <GatedHint /> : <NothingYet />;
 }
 
-// GatedHint —— 有东西，但对这位访客是私有的。这是一句**邀约**，所以它带着去处。
+// GatedHint —— there's content, but it's private to this visitor. This is
+// an **invitation**, so it carries a destination.
 function GatedHint() {
   const t = useTranslations('visitor.wikiTreeView');
   return (
@@ -48,7 +61,8 @@ function GatedHint() {
   );
 }
 
-// NothingYet —— 真的一条都没有。不给去处，因为输码也变不出东西来。
+// NothingYet —— there's truly nothing at all. No destination given, since
+// entering a code won't conjure anything up.
 function NothingYet() {
   const t = useTranslations('visitor.wikiTreeView');
   return (

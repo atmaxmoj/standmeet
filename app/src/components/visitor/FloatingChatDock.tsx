@@ -1,20 +1,27 @@
-// FloatingChatDock —— visitor 可以从 blog/wiki/output 任意 surface 不离页
-// 直接 chat。collapsed = 右下角 pill 按钮；expanded = 浮动面板（input +
-// transcript）。
+// FloatingChatDock —— lets a visitor chat without leaving the page, from
+// any surface (blog/wiki/output). collapsed = the pill button in the
+// bottom-right corner; expanded = the floating panel (input + transcript).
 //
-// 多对话模型:浮窗复用 useChat hook 但带 docContext,useChat 据此 lazy 解析
-// 该 member 在这篇 doc 上**自己那段** conversation(POST /conversations,跟主
-// 聊天独立),transcript 不串。member(名字)+ turn 配额共享;「互通」靠后端把该
-// member 全部对话注进 instruction,所以这段答得出别处聊过的事。owner 在
-// /admin/conversations 看到的是该 member 名下多段对话(各占一行)。
+// Multi-conversation model: the dock reuses the useChat hook but passes
+// docContext, and useChat uses it to lazily resolve **this member's own**
+// conversation on this doc (POST /conversations, independent of the main
+// chat) — transcripts don't cross-contaminate. The member (name) and the
+// turn quota are shared; "cross-awareness" comes from the backend injecting
+// all of that member's conversations into the instruction, so this thread
+// can answer using things discussed elsewhere. What the owner sees in
+// /admin/conversations is multiple conversation rows under that member's
+// name.
 //
-// 设计意图（memory: visitor-chat-everywhere）：持 code 的 visitor 在
-// blog/wiki/output 看完文章想"继续问"不必跳回 `/`。AskAboutThis starter
-// prompt 走 `?q=` 跳 `/` 那条路保留；FloatingChatDock 走 inline。
+// Design intent (memory: visitor-chat-everywhere): a code-holding visitor
+// who finishes reading an article on blog/wiki/output and wants to
+// "keep asking" shouldn't have to jump back to `/`. AskAboutThis's starter
+// prompt keeps the `?q=` → `/` path; FloatingChatDock goes inline instead.
 //
-// SSR-safe：组件 'use client'，所有 zustand / fetch / WebStorage 都在
-// mount 之后跑。**public 模式不渲 pill**：没人付 inference 钱（owner 不愿
-// 替路过访客买单，visitor 不带 key）。byoai / code mode 才显示。
+// SSR-safe: the component is 'use client', and every zustand / fetch /
+// WebStorage call runs only after mount. **The pill doesn't render in
+// public mode**: nobody is paying for inference (the owner doesn't want to
+// foot the bill for a passerby, and a visitor without a key isn't billed
+// either). It shows only in byoai / code mode.
 
 'use client';
 
@@ -32,11 +39,15 @@ import {
 import { useCurrentGhost } from '@/lib/visitor/ghosts-store';
 import { dispatchGhostKey, pickGhost } from '@/lib/visitor/ghost-text';
 
-// docContext —— 访客当前所在 doc(wiki/writing/output 页传进来),让浮窗里问
-// 「this/这篇/这个项目」时 AI 解析得到(#36)。挂在主 chat 全屏不传 = undefined。
-// 渲不渲 pill 跟页尾那张 about 卡说哪句话,读的是**同一个**判据
-// (`useVisitorChatAvailable`)。以前这里自己判 `mode === 'public'`,而卡片无条件写着
-// 「在下面接着问」—— 匿名访客读到的是一句这一页自己证伪了的承诺(UX-86)。
+// docContext —— the doc the visitor is currently on (passed in by the
+// wiki/writing/output page), so the AI can resolve "this/this article/this
+// project" when asked in the dock (#36). Not passed on the main full-screen
+// chat = undefined.
+// Whether the pill renders, and what the about-card in the footer says,
+// read the **same** criterion (`useVisitorChatAvailable`). This used to
+// check `mode === 'public'` on its own, while the card unconditionally
+// said "keep asking below" — an anonymous visitor would read a promise
+// that this very page had already falsified (UX-86).
 export function FloatingChatDock({ docContext }: { docContext?: DocContext }) {
   const canAsk = useVisitorChatAvailable();
   const mode = useModeFromVisitorStore();
@@ -86,8 +97,8 @@ function FloatingChatDockInner({ mode, docContext }: { mode: SessionMode; docCon
   );
 }
 
-// useModeFromVisitorStore —— visitor-session store 派生 mode。
-// fresh visitor 没 session → 'public'（不渲 pill）。
+// useModeFromVisitorStore —— derives mode from the visitor-session store.
+// A fresh visitor with no session → 'public' (pill doesn't render).
 function useModeFromVisitorStore(): SessionMode {
   return deriveModeFromSession(useVisitorSessionStore((s) => s.session));
 }
@@ -130,7 +141,7 @@ interface PanelProps {
   conversationID?: string;
   pending: boolean;
   inputRef: React.RefObject<HTMLInputElement | null>;
-  // H.13.d ghost text 三件套；non-code mode 永远 null。
+  // H.13.d ghost text trio; always null in non-code mode.
   ghost: string | null;
   onAcceptGhost: (g: string) => void;
 }
@@ -165,8 +176,9 @@ function ChatPanel(props: PanelProps) {
   );
 }
 
-// FloatingTranscript —— 空态显引导;否则复用主 chat 的 ChatTranscript(真 md/latex
-// + throbber + citations,#35 不再另写简陋版)。
+// FloatingTranscript —— shows a hint in the empty state; otherwise reuses
+// the main chat's ChatTranscript (real md/latex + throbber + citations —
+// #35 means no more writing a crude second version).
 function FloatingTranscript({ dialogs, pending, onAsk, conversationID }: {
   dialogs: PanelProps['dialogs']; pending: boolean; onAsk: (q: string) => void;
   conversationID?: string;
@@ -221,11 +233,16 @@ function lockedPlaceholder(exhausted: boolean, placeholder: string): string {
 function ChatPanelInputField({ props, ghost, placeholder }: {
   props: ChatPanelInputProps; ghost: string | null; placeholder: string;
 }) {
-  // member 级 turn 预算用尽 → 锁输入(跟主 composer 一致)。多对话下 used 是
-  // member 级共享值,所以在浮窗这段烧到上限也会在这儿锁住。
+  // Member-level turn budget exhausted → lock the input (consistent with
+  // the main composer). Under multi-conversation, `used` is a member-level
+  // shared value, so burning through the limit on the dock also locks
+  // things here.
   //
-  // **只有它锁**：一轮在飞的时候不锁（F-A-42）。访客在等答案时想到下一句就会开始打，
-  // 置灰会把那些字直接吃掉；收下来由 useChat 排队才对（全局第 10 条）。主 composer 同。
+  // **This is the only thing that locks**: it doesn't lock while a turn is
+  // in flight (F-A-42). A visitor thinking of the next question while
+  // waiting for an answer will start typing, and graying out would eat
+  // those keystrokes outright; useChat queuing them is the correct
+  // behavior (global rule 10). Same as the main composer.
   const exhausted = useIsQuotaExhausted();
   return (
     <input
@@ -245,7 +262,8 @@ function ChatPanelInputField({ props, ghost, placeholder }: {
   );
 }
 
-// 只在「没写字」时灰 —— 一轮在飞时按下去会排队，不是失败（F-A-42）。
+// Gray out only when there's "nothing written" — pressing while a turn is
+// in flight queues it, it's not a failure (F-A-42).
 function ChatPanelInputSubmit({ value }: { value: string }) {
   return (
     <button
@@ -258,9 +276,11 @@ function ChatPanelInputSubmit({ value }: { value: string }) {
   );
 }
 
-// pending **不再是投递条件**（F-A-42）：上一轮在飞时投出的那一问由 useChat 排队并当场
-// 进逐字稿。以前这里 `&& !props.pending` 把它静默丢掉 —— 访客按了发送、框清空了，然后
-// 什么都没发生。
+// pending is **no longer a submission gate** (F-A-42): a question sent
+// while the previous turn is in flight is queued by useChat and lands in
+// the transcript right away. This used to have `&& !props.pending`, which
+// silently dropped it — the visitor pressed send, the box cleared, and
+// nothing happened.
 function onSubmit(
   e: React.FormEvent<HTMLFormElement>,
   props: { value: string; onSubmit: (q: string) => void },

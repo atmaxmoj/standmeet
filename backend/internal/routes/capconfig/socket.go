@@ -1,13 +1,18 @@
-// Package capconfig —— socket 入站 controller:沙箱里的能力问 host 要**自己的配置**。
+// Package capconfig — the socket inbound controller: a capability inside the sandbox asks the
+// host for **its own config**.
 //
-// 为什么要一个专门的 op,而不是让沙箱自己 capstore.query 那份文档:**默认值在声明里**
-// (manifest 的 ConfigField.Default),而声明在 host。沙箱自己查存储,owner 没设过就什么都读不到,
-// 于是它只能自己再写一份默认值 —— 那正是要消灭的第二份副本。
+// Why a dedicated op instead of letting the sandbox call capstore.query on that doc itself:
+// **the defaults live in the declaration** (the manifest's ConfigField.Default), and the
+// declaration lives on the host. If the sandbox queried storage directly, an owner who never
+// set a value would read back nothing — forcing the sandbox to write its own second copy of
+// the defaults, exactly the duplicate this is meant to eliminate.
 //
-// 所以这个 op 回的是**已经兜好底的最终值**:声明 ∪ owner 覆盖。沙箱拿到就用,不需要知道
-// 哪些是默认、哪些是改过的。
+// So this op returns **the final, already-defaulted values**: declaration union owner
+// overrides. The sandbox just uses what it gets — it doesn't need to know which values are
+// defaults and which were overridden.
 //
-// 跟 capstore 一样,构造期就绑死到某个 cap 的命名空间 —— 沙箱填不了别人的 id。
+// Like capstore, it's bound to one cap's namespace at construction time — the sandbox can't
+// fill in someone else's id.
 package capconfig
 
 import (
@@ -18,16 +23,20 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
-// BoundConfig —— 已绑定到某个 cap 的配置读口(无 kind/id/声明:构造期就定死)。
+// BoundConfig — a config reader already bound to one cap (no kind/id/declaration: fixed at
+// construction time).
 type BoundConfig interface {
 	Values(ctx context.Context, ownerID string) (map[string]json.RawMessage, error)
 }
 
-// Ops —— capconfig.get。只读:owner 改配置走面板,不走沙箱。
+// Ops — capconfig.get. Read-only: the owner changes config through the panel, not through the
+// sandbox.
 //
-// 有这条,沙箱才不用自己再写一份默认值 —— 声明的默认值宿主已经兜好了。
+// With this op, the sandbox doesn't need to write its own copy of the defaults — the host
+// already backfills the declared defaults.
 //
-// cfg 为 nil(这个能力没声明配置)→ 不开。给不出东西的来源自己说"没有"。
+// cfg is nil (this capability declared no config) → don't expose the op. A source with
+// nothing to give says so itself.
 func Ops(cfg BoundConfig) []hostop.Op {
 	if cfg == nil {
 		return []hostop.Op{}

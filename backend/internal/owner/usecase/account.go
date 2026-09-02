@@ -1,9 +1,11 @@
-// account.go —— owner 自助管理账号字段（full_name / email / password）的
-// usecase。email + password 改之前必须验证当前密码——防止 session 被借走后
-// 攻击者直接 hijack 账号。
+// account.go — the usecase for an owner self-managing account fields
+// (full_name / email / password). email + password changes must verify the
+// current password first — this stops an attacker who borrowed a session from
+// hijacking the account outright.
 //
-// password 校验沿用 session.VerifyPassword（Argon2id constant-time compare）；
-// 验证失败统一返 ErrUnauthorized，跟 login 同码，不告诉攻击者哪一步挂。
+// Password verification reuses session.VerifyPassword (Argon2id constant-time
+// compare); any verification failure returns ErrUnauthorized, the same code as
+// login, so an attacker isn't told which step failed.
 
 package usecase
 
@@ -19,7 +21,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// AccountDeps —— UpdateOwnerFullName / Email / Password 的依赖。
+// AccountDeps — dependencies for UpdateOwnerFullName / Email / Password.
 type AccountDeps struct {
 	Owners *repo.Repo
 }
@@ -30,12 +32,12 @@ const (
 	maxEmailLen    = 320 // RFC 5321
 )
 
-// ErrPasswordTooShort —— 新密码长度不够；usecase 翻 400，routes 走
-// envBadReq 让前端 inline hint。
+// ErrPasswordTooShort — the new password is too short; the usecase maps this to
+// 400, and routes go through envBadReq so the frontend can show an inline hint.
 var ErrPasswordTooShort = errors.New("password must be at least 12 characters")
 
-// UpdateOwnerFullName —— owner 改 full_name。trim + 长度上限 200；空返
-// apierr.ErrEmptyField。不需要密码校验（low-stake）。
+// UpdateOwnerFullName — owner changes full_name. Trim + 200-char cap; empty
+// returns apierr.ErrEmptyField. No password check needed (low-stake).
 func UpdateOwnerFullName(
 	ctx context.Context, deps AccountDeps, ownerID, raw string,
 ) (entity.Owner, error) {
@@ -55,15 +57,16 @@ func UpdateOwnerFullName(
 	return updated, nil
 }
 
-// EmailUpdateInput —— 把 UpdateOwnerEmail 的 ownerID + 双字段打包。
+// EmailUpdateInput — bundles UpdateOwnerEmail's ownerID + the two fields.
 type EmailUpdateInput struct {
 	OwnerID         string
 	CurrentPassword string
 	NewEmail        string
 }
 
-// UpdateOwnerEmail —— owner 改 email。先验当前密码，通过才改。新 email 走
-// trim + 长度 + 基本格式（@ 含一次）；唯一冲突翻 ErrEmailTaken。
+// UpdateOwnerEmail — owner changes email. Verify the current password first;
+// only proceed on success. The new email goes through trim + length + basic
+// format check (exactly one '@'); a uniqueness conflict maps to ErrEmailTaken.
 func UpdateOwnerEmail(
 	ctx context.Context, deps AccountDeps, in *EmailUpdateInput,
 ) (entity.Owner, error) {
@@ -81,9 +84,12 @@ func UpdateOwnerEmail(
 	return updated, nil
 }
 
-// normalizeEmail —— **校验**，不是定义规范化。规范化那条规则的家在 `repo.NormalizeEmail`
-// （邮箱进出数据库的唯一咽喉），这里只是按同一把尺子量完再判格式 —— 否则"校验通过的串"
-// 和"存进去的串"会是两个东西。别在这里重新实现 trim/lower。
+// normalizeEmail is **validation**, not where normalization is defined. The
+// normalization rule lives in `repo.NormalizeEmail` (the single choke point
+// emails pass through on the way in and out of the database); this function
+// only measures with that same ruler before checking format — otherwise "the
+// string that passed validation" and "the string that got stored" would be
+// two different things. Do not reimplement trim/lower here.
 func normalizeEmail(raw string) (string, error) {
 	trimmed := repo.NormalizeEmail(raw)
 	if trimmed == "" {
@@ -98,7 +104,8 @@ func normalizeEmail(raw string) (string, error) {
 	return trimmed, nil
 }
 
-// validEmail —— 最弱格式校验：含恰好一个 '@' 且左右非空。前端再约束。
+// validEmail — the loosest format check: exactly one '@' with non-empty sides.
+// The frontend adds tighter constraints.
 func validEmail(s string) bool {
 	parts := strings.Split(s, "@")
 	if len(parts) != 2 {
@@ -107,16 +114,18 @@ func validEmail(s string) bool {
 	return parts[0] != "" && parts[1] != "" && strings.Contains(parts[1], ".")
 }
 
-// PasswordUpdateInput —— UpdateOwnerPassword 的入参。
+// PasswordUpdateInput — input for UpdateOwnerPassword.
 type PasswordUpdateInput struct {
 	OwnerID         string
 	CurrentPassword string
 	NewPassword     string
 }
 
-// UpdateOwnerPassword —— owner 改密码。先验当前密码 + 新密码长度 ≥
-// minPasswordLen，再 HashPassword + repo 写。返 OK 不返 Owner（密码不进
-// /me 不影响 sessionStore；连 token 都不刷，老 session 仍然有效）。
+// UpdateOwnerPassword — owner changes password. Verify the current password
+// first + check the new password's length >= minPasswordLen, then
+// HashPassword + repo write. Returns OK, not Owner (password doesn't go into
+// /me, doesn't touch sessionStore; the token isn't even refreshed, so the old
+// session stays valid).
 func UpdateOwnerPassword(
 	ctx context.Context, deps AccountDeps, in *PasswordUpdateInput,
 ) error {
@@ -136,9 +145,10 @@ func UpdateOwnerPassword(
 	return nil
 }
 
-// verifyCurrentPassword —— 拿 ownerID + 明文 password，repo 取 hash，
-// session.VerifyPassword constant-time 比对。任何失败都翻成
-// ErrUnauthorized——不区分用户存在 / hash 解析失败 / 密码错。
+// verifyCurrentPassword — takes ownerID + plaintext password, has repo fetch
+// the hash, then session.VerifyPassword does a constant-time compare. Any
+// failure maps to ErrUnauthorized — it does not distinguish "user exists" /
+// "hash parse failed" / "wrong password".
 func verifyCurrentPassword(
 	ctx context.Context, deps AccountDeps, ownerID, plaintext string,
 ) error {

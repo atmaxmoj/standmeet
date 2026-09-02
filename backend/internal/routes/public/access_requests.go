@@ -1,5 +1,5 @@
-// access_requests.go —— POST /api/v1/access-requests —— 访客无 code 留言。
-// 不需要鉴权；body 校验失败返 400，handle 不存在返 404。
+// access_requests.go —— POST /api/v1/access-requests —— a visitor message with no access code.
+// No auth required; body validation failure returns 400, missing handle returns 404.
 
 package public
 
@@ -17,24 +17,26 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// RequestGuard —— 留言口的 per-IP 闸（实现在 infra/middleware）。窄接口:这一层只问
-// 「拦不拦」「记一笔」，captcha 和 redis 都藏在边界之后，跟 CodeGuard 同一个规矩。
+// RequestGuard —— the per-IP gate on the message endpoint (implemented in infra/middleware).
+// A narrow interface: this layer only asks "block or not" and "record one" — captcha and
+// redis both stay hidden behind the boundary, same rule as CodeGuard.
 type RequestGuard interface {
 	Locked(ctx context.Context, ip, captchaToken string) bool
-	// HasLift —— 被拦下的人此刻有没有一条自己走得通的出路（captcha 开着才有）。
-	// 拒绝那句话按它选词，否则它会去描述一个屏幕上不存在的控件。
+	// HasLift —— whether someone who just got blocked has a way through right now (only
+	// true when captcha is enabled). The rejection message picks its wording off this,
+	// otherwise it would describe a control that isn't on the screen.
 	HasLift() bool
 	RecordSubmit(ctx context.Context, ip string)
 }
 
-// AccessRequestsHandlers —— public access-request route 依赖。
+// AccessRequestsHandlers —— dependencies for the public access-request route.
 type AccessRequestsHandlers struct {
 	Reqs  access.RequestsDeps
 	Guard RequestGuard
 	Log   *slog.Logger
 }
 
-// Mount 挂 POST /access-requests。caller 负责前缀。
+// Mount wires POST /access-requests. Caller owns the prefix.
 func (h *AccessRequestsHandlers) Mount(r chi.Router) {
 	r.Post("/access-requests", h.submit())
 }
@@ -44,7 +46,8 @@ type submitRequestBody struct {
 	Org     string `json:"org"`
 	Email   string `json:"email"`
 	Message string `json:"message"`
-	// CaptchaToken —— 超过阈值之后放行用的那张票。跟码兑换同一个形状（F-G-4）。
+	// CaptchaToken —— the ticket that grants passage once the threshold is exceeded.
+	// Same shape as code redemption (F-G-4).
 	CaptchaToken string `json:"captcha_token,omitempty"`
 }
 
@@ -64,8 +67,8 @@ func (h *AccessRequestsHandlers) submit() http.HandlerFunc {
 	}
 }
 
-// guardedSubmit —— 闸 → 写 → 记账。这个口子不鉴权，而它写进的是 owner 一条条亲手读的
-// 队列，所以量本身就是信号（F-G-4）。
+// guardedSubmit —— gate → write → record. This endpoint has no auth, and what it writes
+// into is a queue the owner reads one item at a time, so volume itself is the signal (F-G-4).
 func (h *AccessRequestsHandlers) guardedSubmit(
 	w http.ResponseWriter, r *http.Request, req *submitRequestBody,
 ) {
@@ -84,12 +87,14 @@ func (h *AccessRequestsHandlers) guardedSubmit(
 		handleAccessRequestErr(h.Log, w, err)
 		return
 	}
-	// **成功也计**：这里数的是量不是错误。留言没有对错，多才是信号。
+	// **Counted on success too**: what's tallied here is volume, not errors. A message
+	// carries no right or wrong — too many of them is the signal.
 	h.Guard.RecordSubmit(r.Context(), ip)
 	writeSubmitResp(h.Log, w, &out)
 }
 
-// floodEnvelope —— 说哪一句，取决于这台实例此刻给不给得出那条出路（跟码兑换同一条规矩）。
+// floodEnvelope —— which message to say depends on whether this instance can currently
+// offer that way through (same rule as code redemption).
 func (h *AccessRequestsHandlers) floodEnvelope() apierr.Envelope {
 	if h.Guard.HasLift() {
 		return envRequestFloodCaptcha()
@@ -97,9 +102,11 @@ func (h *AccessRequestsHandlers) floodEnvelope() apierr.Envelope {
 	return envRequestFloodWait()
 }
 
-// envRequestFloodWait / envRequestFloodCaptcha —— 「这里发得太多了」的两句话。
-// 光说「稍后再试」会让一个真有话要说的人以为自己被永久拒之门外；而 captcha 关着的部署里
-// 根本没有校验可解，那时说「过一次人机校验」就是在指一个不存在的控件。
+// envRequestFloodWait / envRequestFloodCaptcha —— the two variants of "too many submissions
+// from here". Saying only "try again later" would make someone with a real message to send
+// think they're permanently locked out; and on a deployment with captcha disabled there is
+// no check to clear, so telling them to "pass a human check" would point at a control that
+// doesn't exist.
 func envRequestFloodWait() apierr.Envelope {
 	return requestFlood("too many notes from here — try again in a few minutes")
 }

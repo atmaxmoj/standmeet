@@ -1,6 +1,7 @@
-// writings_mapping.go —— writings.go 拆出来的纯映射 helpers (corpus_notes(genre='writing')
-// row → Writing，UUID/timestamp 互转，hue/visibility 白名单兜底)。
-// writing 折进 corpus_notes(#151):body_md→body，path 不存(派生 "writings/"+slug)。
+// writings_mapping.go — pure mapping helpers split out of writings.go (corpus_notes
+// (genre='writing') row -> Writing, UUID/timestamp conversion, hue/visibility whitelist
+// fallback). writing folded into corpus_notes (#151): body_md -> body, path not stored
+// (derived as "writings/"+slug).
 
 package repo
 
@@ -16,11 +17,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// writingPathPrefix —— writing 的 retriever/ACL path 前缀。path 不存列,由 slug 派生
-// "writings/<slug>"(跟折进 corpus_notes 前的存储值逐字一致,ACL / eval fixture 不变)。
+// writingPathPrefix — the retriever/ACL path prefix for writings. path has no column;
+// it's derived from slug as "writings/<slug>" (byte-for-byte identical to the value
+// stored before the fold into corpus_notes, so ACL / eval fixtures don't change).
 const writingPathPrefix = "writings/"
 
-// writingPathForSlug —— slug → 派生 path。
+// writingPathForSlug — derives the path from a slug.
 func writingPathForSlug(slug string) string { return writingPathPrefix + slug }
 
 func rowsToDomainWritings(rows []db.CorpusNote) []entity.Writing {
@@ -74,9 +76,9 @@ func toDomainWriting(row *db.CorpusNote) entity.Writing {
 	return entity.NewWriting(&in)
 }
 
-// buildWritingIntegrations —— corpus_notes 行里的 obsidian_source_path /
-// _imported_at 列在 mapper 这一层翻译成 Integration 集合。未来加 Notion /
-// GitHub 等列时在这一块扩 if branch，不动 domain。
+// buildWritingIntegrations — translates the obsidian_source_path / _imported_at columns
+// on a corpus_notes row into an Integration set at this mapper layer. When future columns
+// for Notion / GitHub etc. are added, extend the if-branches here without touching domain.
 func buildWritingIntegrations(row *db.CorpusNote) connector.Integrations {
 	integrations := connector.NewIntegrations()
 	if row.ObsidianSourcePath != "" {
@@ -92,8 +94,8 @@ func buildWritingIntegrations(row *db.CorpusNote) connector.Integrations {
 	return integrations
 }
 
-// optUUIDString —— 可空 uuid → 字符串(invalid → "")。cover asset id + parent_id
-// 共用(返 string 而非 *string,给 domain Init 的 string 字段)。
+// optUUIDString — nullable uuid -> string (invalid -> ""). Shared by cover asset id and
+// parent_id (returns string rather than *string, for the domain Init's string fields).
 func optUUIDString(u pgtype.UUID) string {
 	if !u.Valid {
 		return ""

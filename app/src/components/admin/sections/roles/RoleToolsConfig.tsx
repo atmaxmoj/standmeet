@@ -1,18 +1,23 @@
-// RoleToolsConfig —— role 卡上的**工具授权编辑器**：这个角色可以用哪些 skill、可以调用
-// 哪些外部 MCP server。
+// RoleToolsConfig —— the **tool-grant editor** on the role card: which skills this role can
+// use, which external MCP servers it may call.
 //
-// /admin/roles 顶上写着 role 捆绑「a set of skills, and which MCP servers it may call」，
-// api·mcp 面板注册完一台 server 也写着 "then attach it to a role under codes"。可这两份
-// 清单过去**只有「+ NEW ROLE」弹窗里能设一次** —— 卡片上只剩 `SKILLS 0` / `MCP 0 servers`
-// 两行只读文字（F-D-9）。
+// The top of /admin/roles says a role bundles "a set of skills, and which MCP servers it
+// may call", and the api·mcp panel says, right after registering a server, "then attach it
+// to a role under codes". But these two lists **used to be settable only once, in the
+// "+ NEW ROLE" modal** — the card kept only the two read-only lines `SKILLS 0` /
+// `MCP 0 servers` (F-D-9).
 //
-// 后果不是"不方便"：`invited` 和 `public` 是 seeder 建的，从来没经过那个弹窗。于是每一张
-// 留空的码走的那个默认角色**永远拿不到任何一台外部 MCP server**，owner 唯一的出路是新建
-// 一个角色再把码重发一遍。而后端从不缺这个能力：usecase/roles.go 的 Update 一直收
-// corpus_uris + skill_ids + mcp_server_ids，syncRoleJoins 三组 join 一起同步 —— 缺的只是这张脸。
+// The consequence isn't "inconvenient": `invited` and `public` are seeder-created and never
+// went through that modal. So the default role every blank code falls back to **could never
+// get any external MCP server**, and the owner's only way out was to create a new role and
+// resend every code. The backend was never missing this capability: Update in
+// usecase/roles.go always accepted corpus_uris + skill_ids + mcp_server_ids, and
+// syncRoleJoins synced all three joins together — only the UI was missing.
 //
-// 这是 F-A-11 的同款：那次是 corpus 正列表建完就锁死，修法是 RoleCorpusConfig。形态照抄它：
-// 卡上 inline 编辑 → 全量 PUT 回写（只有这两份清单变），冻进后续 session。
+// This is the same class of bug as F-A-11: there it was the corpus positive list locking
+// once the role was created, fixed by RoleCorpusConfig. Shape copied from it: inline edit
+// on the card → full PUT write-back (only these two lists change), frozen into subsequent
+// sessions.
 
 'use client';
 
@@ -25,8 +30,9 @@ import { roleUpdatePayload, useRoles, type RoleView } from '@/lib/admin/use-role
 import { useSkills } from '@/lib/admin/use-skills';
 import { useAction } from '@/lib/ui/use-action';
 
-// PUBLIC_ROLE_NAME —— builtin public 的 name。它**按定义没有工具**（卡上的原话：
-// "No skills, no MCP"），所以这一格对它不是编辑器，跟 RoleCorpusConfig 同样的分叉。
+// PUBLIC_ROLE_NAME —— the builtin public role's name. It **has no tools by definition**
+// (the card's own words: "No skills, no MCP"), so this slot isn't an editor for it — the
+// same branch as RoleCorpusConfig.
 const PUBLIC_ROLE_NAME = 'public';
 
 export function RoleToolsConfig({ role }: { role: RoleView }) {

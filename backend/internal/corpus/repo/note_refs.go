@@ -1,8 +1,10 @@
-// note_refs.go —— corpus `[[Title]]` 双链边表 CRUD（镜像 writing_refs，但 wiki 无
-// slug：边按 wiki.id 存，返回 id + title，path 由 usecase 用 WikiTreePaths 算）。
+// note_refs.go — CRUD over the corpus `[[Title]]` backlink edge table (mirrors
+// writing_refs, but wiki has no slug: edges are stored by wiki.id, returned as
+// id + title, and path is computed by the usecase via WikiTreePaths).
 //
-// PromoteToWiki / UpdateWiki 同事务调 ReplaceRefsBySrcTx 重建 src 出度；public
-// landing 调 BacklinksFor（入度=cited by）+ OutboundFor（出度=read next/sources）。
+// PromoteToWiki / UpdateWiki call ReplaceRefsBySrcTx in the same transaction to
+// rebuild src's out-degree; the public landing page calls BacklinksFor (in-degree
+// = cited by) + OutboundFor (out-degree = read next/sources).
 
 package repo
 
@@ -16,23 +18,24 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// NoteRefRepo —— note_refs 表 CRUD。
+// NoteRefRepo — CRUD over the note_refs table.
 type NoteRefRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewNoteRefRepo 构造。
+// NewNoteRefRepo constructs one.
 func NewNoteRefRepo(pool *pgstore.Pool) *NoteRefRepo { return &NoteRefRepo{pool: pool} }
 
-// NoteRef —— 一条 backlink / outbound ref（目标 note 的 id + title）。path 由
-// caller 用全树派生算（wiki 地址是树路径，不存）。
+// NoteRef — one backlink / outbound ref (the target note's id + title). Path is
+// derived by the caller from the whole tree (a wiki address is a tree path, not stored).
 type NoteRef struct {
 	ID    string
 	Title string
 }
 
-// ReplaceRefsBySrcTx —— delete + insert 重建 src wiki 的出度。同写 wiki 行的 tx
-// 内调。dstIDs 必须已去重 + 排除 self-link（caller 负责）。
+// ReplaceRefsBySrcTx — delete + insert to rebuild a src wiki's out-degree. Called
+// within the same tx that writes the wiki row. dstIDs must already be deduped and
+// exclude self-links (the caller's responsibility).
 func (*NoteRefRepo) ReplaceRefsBySrcTx(
 	ctx context.Context, tx db.DBTX,
 	srcID, ownerID string, dstIDs []string,
@@ -48,8 +51,10 @@ func (*NoteRefRepo) ReplaceRefsBySrcTx(
 	return insertNewNoteRefs(ctx, q, ids.Src, ids.Owner, dstIDs)
 }
 
-// ReplaceRefsBySrc —— 非事务版(wiki 写路径不在 tx 里)。边表是派生索引,delete +
-// insert 直接走 pool(*pgstore.Pool 满足 db.DBTX)即可,不要求原子。caller 已去重 + 排 self。
+// ReplaceRefsBySrc — the non-transactional version (the wiki write path isn't in
+// a tx). The edge table is a derived index, so delete + insert can go straight
+// through the pool (*pgstore.Pool satisfies db.DBTX) with no atomicity requirement.
+// The caller has already deduped and excluded self-links.
 func (r *NoteRefRepo) ReplaceRefsBySrc(
 	ctx context.Context, srcID, ownerID string, dstIDs []string,
 ) error {
@@ -84,7 +89,8 @@ func insertOneNoteRef(
 	return nil
 }
 
-// BacklinksFor —— 「cited by」：列指向 dstID 的源 wiki（id + title），只 published。
+// BacklinksFor — "cited by": lists the source wikis that point to dstID
+// (id + title), published only.
 func (r *NoteRefRepo) BacklinksFor(
 	ctx context.Context, ownerID, dstID string,
 ) ([]NoteRef, error) {
@@ -105,7 +111,8 @@ func (r *NoteRefRepo) BacklinksFor(
 	return out, nil
 }
 
-// AdminBacklinksFor —— owner 视角「cited by」：哪些 note 引用了 dst（任一 genre、含未发布）。
+// AdminBacklinksFor — owner-view "cited by": which notes reference dst
+// (any genre, including unpublished).
 func (r *NoteRefRepo) AdminBacklinksFor(
 	ctx context.Context, ownerID, dstID string,
 ) ([]NoteRef, error) {
@@ -126,7 +133,8 @@ func (r *NoteRefRepo) AdminBacklinksFor(
 	return out, nil
 }
 
-// AdminOutboundFor —— owner 视角「read next」：src 引用了哪些 note（任一 genre、含未发布）。
+// AdminOutboundFor — owner-view "read next": which notes src references
+// (any genre, including unpublished).
 func (r *NoteRefRepo) AdminOutboundFor(
 	ctx context.Context, ownerID, srcID string,
 ) ([]NoteRef, error) {
@@ -147,17 +155,19 @@ func (r *NoteRefRepo) AdminOutboundFor(
 	return out, nil
 }
 
-// OwnerNoteTitleRow —— 跨-genre 的 title→id（+genre）索引项，给 [[link]] 解析用。
+// OwnerNoteTitleRow — a cross-genre title→id (+genre) index entry, for [[link]] resolution.
 type OwnerNoteTitleRow struct {
 	ID    string
 	Title string
 	Genre string
-	// Aliases —— 这条笔记的别名池(frontmatter `aliases:`)。`[[别名]]` 跟 `[[标题]]` 一样
-	// 解析到本条,**候选同一批、消歧同一套**(pickByProximity)。别名不带第二套排序规则。
+	// Aliases — this note's alias pool (frontmatter `aliases:`). `[[alias]]` resolves to
+	// this entry the same way `[[Title]]` does — **same candidate pool, same disambiguation**
+	// (pickByProximity). Aliases don't carry a second ranking rule.
 	Aliases []string
 }
 
-// OwnerNoteTitles —— owner 语料全量（跨 genre）的 title/id，供 note refs 解析 `[[Title]]`。
+// OwnerNoteTitles — the owner's full corpus (cross-genre) title/id set, for
+// note refs to resolve `[[Title]]`.
 func (r *NoteRefRepo) OwnerNoteTitles(
 	ctx context.Context, ownerID string,
 ) ([]OwnerNoteTitleRow, error) {
@@ -179,8 +189,8 @@ func (r *NoteRefRepo) OwnerNoteTitles(
 	return out, nil
 }
 
-// OutboundFor —— 「read next / sources」：src 引用了哪些 wiki（id + title），只
-// published。「N corpus sources」= len(返回)。
+// OutboundFor — "read next / sources": which wikis src references (id + title),
+// published only. "N corpus sources" = len(returned).
 func (r *NoteRefRepo) OutboundFor(
 	ctx context.Context, srcID string,
 ) ([]NoteRef, error) {

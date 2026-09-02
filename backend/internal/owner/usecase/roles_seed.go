@@ -1,11 +1,12 @@
-// roles_seed.go —— public prompt + public role 种子。owner claim 时调一次
-// （也可 server 启动跑一次想幂等的话）。
+// roles_seed.go — seeds the public prompt + public role. Called once when the owner
+// claims (can also run once at server startup, since it's idempotent).
 //
-// 设计 [[iam-role-pivot-plan]]。owner 没显式选 role 时 access_code 默认挂
-// public role；public 配公开 corpus 三 glob，无 skill，无 mcp，挂 public
-// prompt。是删不掉的（repo 层挡 + UI 隐藏 delete）。
+// Design: [[iam-role-pivot-plan]]. When the owner hasn't explicitly picked a role,
+// access_code defaults to attaching the public role; public is configured with the
+// three public corpus globs, no skill, no mcp, and attaches the public prompt. It can't
+// be deleted (blocked at the repo layer + delete hidden in the UI).
 //
-// 文案匹配设计稿 docs/design/project/admin-data.js PROMPTS[0] + ROLES[0]。
+// The copy matches the design mockup docs/design/project/admin-data.js PROMPTS[0] + ROLES[0].
 
 package usecase
 
@@ -18,8 +19,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// SeedPublicRole —— 对一个 owner 幂等 upsert public prompt + public role
-// + role_corpus_uris 三条公开 glob。
+// SeedPublicRole — idempotently upserts the public prompt + public role +
+// role_corpus_uris's three public globs for one owner.
 func SeedPublicRole(
 	ctx context.Context,
 	prompts *repo.PromptRepo, roles *access.RoleRepo,
@@ -39,18 +40,22 @@ func SeedPublicRole(
 	if ierr := seedInvitedRole(ctx, roles, ownerID, promptID); ierr != nil {
 		return ierr
 	}
-	// 这里曾经还种过 job loop 要的 `hiring` prompt + role —— 它们不属于这一份。
-	// 插件的东西落在装配的地方，只因为 seeder 在那儿（跟 PeriodicWorker 那条注释
-	// 记的是同一个教训）。现在归 `internal/owner/jobs/jobs_seed.go`，
-	// 经 capabilities.OwnerSeeder 由宿主在同一个时机调。
+	// This used to also seed the `hiring` prompt + role the job loop needs — those don't
+	// belong in this function. A plugin's own seeding belongs where it's assembled,
+	// solely because that's where the seeder lives (the same lesson recorded in the
+	// PeriodicWorker comment). It now lives in `internal/owner/jobs/jobs_seed.go`,
+	// invoked by the host at the same moment via capabilities.OwnerSeeder.
 	return nil
 }
 
-// seedInvitedRole —— 产品替 owner 签发的那些码（简历 QR / 批准申请）挂的 builtin role。
+// seedInvitedRole — the builtin role attached to the codes the product issues on the
+// owner's behalf (resume QR / approved requests).
 //
-// 它跟 public 共用同一份 persona（同一个人的声音），区别只在**受邀与否**：这一条带真正的
-// 正列表，读得到 owner 策展过的语料；public 只读已发布的。两者分开之前，一次定向邀请
-// 拿的是给未受邀者的兜底档 —— 在 public 收窄之后那等于把受邀的人关在门外。
+// It shares the same persona as public (the same person's voice); the only difference
+// is **whether it's invited**: this one carries a real allowlist and can read corpus
+// the owner has curated, while public only reads what's published. Before the two were
+// separated, a targeted invitation got the fallback profile meant for the uninvited —
+// which, once public was narrowed, amounted to locking an invited person out.
 func seedInvitedRole(
 	ctx context.Context, roles *access.RoleRepo, ownerID, promptID string,
 ) error {
@@ -97,13 +102,16 @@ func upsertPublicRole(
 	return role, nil
 }
 
-// syncPublicRoleJoins —— 同步 role_corpus_uris + 清 skills + 清 mcp。
-// public 无 skill / 无 mcp，但显式 clear 让 re-seed 幂等（若以前种过别的
-// 后又调回 public 形态，要清干净 join 表）。
+// syncPublicRoleJoins — syncs role_corpus_uris + clears skills + clears mcp.
+// public has no skill / no mcp, but clearing them explicitly keeps re-seed idempotent
+// (if something else was seeded before and it's now reverted to the public shape, the
+// join tables need a clean sweep).
 //
-// corpus 那一行现在**清空**：public 读到的是 owner 发布过的那些，由每条笔记自己的
-// `published` 定（`CorpusScope.PublishedOnly`）。旧实例升级时这次 re-seed 会把那三条
-// `wiki://** output://** writing://**` 删掉 —— 这正是 F-D-7 要的：那份第二清单不该存在。
+// The corpus row is now **empty**: public reads whatever the owner has published,
+// decided by each note's own `published` flag (`CorpusScope.PublishedOnly`). When an
+// old instance upgrades, this re-seed removes the three
+// `wiki://** output://** writing://**` entries — exactly what F-D-7 wants: that second
+// list shouldn't exist.
 func syncPublicRoleJoins(
 	ctx context.Context, roles *access.RoleRepo, roleID string,
 ) error {

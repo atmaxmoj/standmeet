@@ -1,5 +1,6 @@
-// loader.go —— 读出所有内置连接器 manifest（拉起时调一次）。数据文件在本目录的
-// <id>/ 子目录里（google-calendar/ smtp/ bearer-api/），go:embed 进二进制。
+// loader.go —— reads out all builtin connector manifests (called once at launch). Data
+// files live in this directory's <id>/ subdirectories (google-calendar/ smtp/ bearer-api/),
+// embedded via go:embed into the binary.
 // (Package doc lives in embed.go.)
 
 package connectors
@@ -15,8 +16,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
-// descriptor —— data/<id>/manifest.yaml 的形状（声明 kind/品类 + 引用的 spec/binding 文件
-// + 这个连接器自己出的 owner 侧操作）。
+// descriptor —— the shape of data/<id>/manifest.yaml (declares kind/category + the
+// referenced spec/binding files + this connector's own owner-side operations).
 type descriptor struct {
 	ID         string        `yaml:"id"`
 	Kind       string        `yaml:"kind"`
@@ -28,10 +29,11 @@ type descriptor struct {
 	OwnerOps   []ownerOpDesc `yaml:"owner_ops"`
 }
 
-// ownerOpDesc —— manifest 里一条 owner 操作的声明。
+// ownerOpDesc —— one owner-operation declaration inside a manifest.
 //
-// input_schema 是一份 **JSON Schema**,所以在 manifest 里就按 JSON 原样写(YAML 的块标量)。
-// 不翻译成 YAML 映射再编回去:那样等于把同一份 schema 写成第二种语法,读的人还得在脑子里转。
+// input_schema is a **JSON Schema**, so it's written verbatim as JSON in the manifest
+// (a YAML block scalar). It is not translated into a YAML mapping and encoded back: that
+// would write the same schema in a second syntax, forcing the reader to mentally convert it.
 type ownerOpDesc struct {
 	Name        string `yaml:"name"`
 	Op          string `yaml:"op"`
@@ -39,7 +41,7 @@ type ownerOpDesc struct {
 	InputSchema string `yaml:"input_schema"`
 }
 
-// Load —— 读出所有内置连接器 manifest（拉起时调一次）。
+// Load —— reads out all builtin connector manifests (called once at launch).
 func Load() ([]connector.Manifest, error) {
 	entries, err := fs.ReadDir(builtinFS, ".")
 	if err != nil {
@@ -59,7 +61,8 @@ func Load() ([]connector.Manifest, error) {
 	return manifests, nil
 }
 
-// loadOne —— 读一个内置连接器目录：descriptor + 引用的 spec/binding 文件。
+// loadOne —— reads one builtin connector directory: descriptor + its referenced
+// spec/binding files.
 func loadOne(dir string) (connector.Manifest, error) {
 	descRaw, err := builtinFS.ReadFile(path.Join(dir, "manifest.yaml"))
 	if err != nil {
@@ -83,10 +86,11 @@ func loadOne(dir string) (connector.Manifest, error) {
 	return m, nil
 }
 
-// ownerOps —— 声明里的 owner 操作 → manifest 上的那份数据。
+// ownerOps —— the owner operations in the declaration → the data carried on the manifest.
 //
-// schema 当场校验:一份编不动的 schema 会让整张工具表 marshal 失败(历史上真发生过),
-// 与其等到那时候,不如拉起时就拒。
+// The schema is validated on the spot: one schema that fails to marshal takes down the
+// whole tool-table marshal (this actually happened before), so it's better to reject at
+// launch than let that happen later.
 func ownerOps(dir string, decls []ownerOpDesc) ([]connector.OwnerOp, error) {
 	out := make([]connector.OwnerOp, 0, len(decls))
 	for i := range decls {
@@ -99,9 +103,12 @@ func ownerOps(dir string, decls []ownerOpDesc) ([]connector.OwnerOp, error) {
 			Name: decls[i].Name, Op: decls[i].Op,
 			Description: decls[i].Description, InputSchema: schema,
 		}
-		// 声明了一格、面上派生不出来 → 拉起时就拒。以前它是**静默跳过**:manifest 说这个 op
-		// 收 days,op 也收得到,而卡上根本没有那一格,owner 填不了也没人吭声(F-C-17)。
-		// 跟「声明了一个没实现的 op 就启动炸」是同一条纪律 —— 声称的东西必须到得了面上。
+		// A field is declared but can't be derived on the surface → reject at launch.
+		// This used to **silently skip**: the manifest said the op takes `days`, the op
+		// really accepted it, but the card had no such field, so the owner couldn't fill
+		// it in and nobody noticed (F-C-17). Same discipline as "declaring an op that
+		// isn't implemented crashes on startup" — what's declared must actually reach
+		// the surface.
 		if bad := op.UnrenderableFields(); len(bad) > 0 {
 			return nil, fmt.Errorf(
 				"connector %s owner op %q: input fields %v cannot be rendered "+
@@ -112,14 +119,15 @@ func ownerOps(dir string, decls []ownerOpDesc) ([]connector.OwnerOp, error) {
 	return out, nil
 }
 
-// loadRefs —— 读 descriptor 引用的 spec/binding 文件进 manifest（openapi kind 才有）。
+// loadRefs —— reads the spec/binding files referenced by descriptor into the manifest
+// (present only for the openapi kind).
 func loadRefs(dir string, d *descriptor, m *connector.Manifest) error {
 	if d.Spec != "" {
 		raw, err := builtinFS.ReadFile(path.Join(dir, d.Spec))
 		if err != nil {
 			return fmt.Errorf("read %s spec: %w", dir, err)
 		}
-		m.Spec = expandEnv(raw) // ${VAR:-default} 端点：prod 默认，e2e 指向 mock
+		m.Spec = expandEnv(raw) // ${VAR:-default} endpoints: prod default, e2e points at mock
 	}
 	if d.Binding != "" {
 		raw, err := builtinFS.ReadFile(path.Join(dir, d.Binding))

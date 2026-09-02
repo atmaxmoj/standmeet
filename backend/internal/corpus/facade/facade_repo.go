@@ -2,7 +2,7 @@ package corpus
 
 import "github.com/atmaxmoj/standmeet/internal/corpus/repo"
 
-// 类型（实现:repo）.
+// Types (implemented in: repo).
 type (
 	AssetRepo           = repo.AssetRepo
 	NoteHeroRepo        = repo.NoteHeroRepo
@@ -31,7 +31,7 @@ type (
 	WritingRepo         = repo.WritingRepo
 )
 
-// 构造/函数（实现:repo）.
+// Constructors/functions (implemented in: repo).
 var (
 	NewAssetRepo      = repo.NewAssetRepo
 	NewNoteHeroRepo   = repo.NewNoteHeroRepo
@@ -47,5 +47,5 @@ var (
 	NewWritingRepo    = repo.NewWritingRepo
 )
 
-// 错误/变量（实现:repo）.
+// Errors/variables (implemented in: repo).
 var ErrSyncNoteNotFound = repo.ErrSyncNoteNotFound

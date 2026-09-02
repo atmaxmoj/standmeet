@@ -1,6 +1,7 @@
-// WritingsScrollLoader —— /writings 底部 IntersectionObserver 探测；可见且
-// 还有下一页就触发 store.loadMore。状态文本 ("scroll for more" /
-// "loading…" / "end of archive") 不挤主组件。
+// WritingsScrollLoader —— IntersectionObserver sentinel at the bottom of
+// /writings; when visible and there's a next page, it triggers
+// store.loadMore. The status text ("scroll for more" / "loading…" /
+// "end of archive") keeps that logic out of the main component.
 
 'use client';
 

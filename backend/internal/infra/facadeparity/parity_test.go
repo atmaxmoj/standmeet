@@ -9,7 +9,7 @@ import (
 )
 
 // mcp / admin —— two owner-facing facades. Both serve actions + reads; only admin can carry
-// browser/secret/multipart flows (MCP can't弹 a browser or traffic raw secrets).
+// browser/secret/multipart flows (MCP can't pop up a browser or traffic raw secrets).
 type facadeSet struct{ mcp, admin fp.Facade }
 
 func facades() facadeSet {

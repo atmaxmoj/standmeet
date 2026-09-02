@@ -1,3 +1,4 @@
-// Package usecase —— conversation 域的用例/编排（访客对话/history/ghost/dialog/summarize…）。
-// over entity + repo。对外经 internal/conversation/facade 暴露。
+// Package usecase —— use cases / orchestration for the conversation domain (visitor
+// chat / history / ghost / dialog / summarize…), built over entity + repo. Exposed
+// externally via internal/conversation/facade.
 package usecase

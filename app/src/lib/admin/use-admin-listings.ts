@@ -1,12 +1,15 @@
-// use-admin-listings —— /admin/listings 的池子(#50)。读 Redis 1d-TTL 池子里现存
-// (未 commit)的 FetchedJob，admin 只读。源走 MCP jobs.fetch_new；这里只显示。
-// 池子 ephemeral：过期或 fetch 太久没跑 → 空态。
+// use-admin-listings —— the /admin/listings pool (#50). Reads the FetchedJob
+// entries currently sitting in the Redis 1d-TTL pool (not yet committed);
+// admin is read-only here. Fetching goes through MCP jobs.fetch_new; this
+// file only displays. The pool is ephemeral: expired, or fetch hasn't run in a while → empty state.
 //
-// **一份数据一个来源**（F-N-4）：这个池子有三个读者 —— `/admin/listings` 的列表、
-// dashboard 上的 `IN POOL`、以及侧栏 `listings` 那个徽章。它们必须读同一个 store，
-// 不然屏幕上会出现「表头 1148、徽章空着」这种自相矛盾。徽章那一格原先三处声明
-// （`NAV_GROUPS` 的 badgeTestId、`SidebarBadges.listings`、`BADGE_MAP`）零个写者，
-// 于是池子里躺着 1148 条真岗位时，侧栏一声不吭。
+// **One datum, one source** (F-N-4): this pool has three readers —
+// `/admin/listings`'s list, dashboard's `IN POOL`, and the sidebar's
+// `listings` badge. They must all read the same store, or the screen ends up
+// with contradictions like "header says 1148, badge is blank". The badge
+// slot used to be declared in three places (`NAV_GROUPS`'s badgeTestId,
+// `SidebarBadges.listings`, `BADGE_MAP`) with zero writers, so with 1148 real
+// listings sitting in the pool, the sidebar stayed silent.
 
 import { useEffect } from 'react';
 
@@ -40,21 +43,26 @@ interface State {
   error: string | null;
 }
 
-// useAdminListings —— 给**看这个池子的那两个面**（/admin/listings 和 dashboard）。
+// useAdminListings —— for **the two surfaces that view this pool**
+// (/admin/listings and dashboard).
 //
-// 进这一节要 `refresh` 而不是 `ensureLoaded`：池子是 1 天 TTL 的 ephemeral 数据，
-// 而写它的是 MCP（owner 在 Claude 里让它抓一批），产品这边永远不知道它什么时候变。
-// 缓存住第一次的结果就等于「抓完了却看不见」—— 那正是 F-L-16 那一族（计数被冻在
-// 一次 mutation 之前）。共享 store 是为了让徽章和列表**同源**，不是为了少发请求。
+// Entering this section calls `refresh` rather than `ensureLoaded`: the pool
+// is ephemeral data with a 1-day TTL, and it's written by MCP (the owner has
+// it fetch a batch from inside Claude), so the product side never knows when
+// it changes. Caching the first result would mean "fetched but invisible" —
+// exactly the F-L-16 family of bugs (a count frozen from before the latest
+// mutation). The shared store exists to keep the badge and the list
+// **same-sourced**, not to send fewer requests.
 export function useAdminListings(): State {
   const r = useResource(listingsStore);
-  // 进这一节就重拉一次（`useResource` 只在 idle 时拉，缓存住的旧池子它不会动）。
+  // Refetches once whenever this section is entered (`useResource` only
+  // fetches while idle, and won't touch a cached, stale pool).
   useEffect(() => { void listingsStore.getState().refresh(); }, []);
   return listingsState(r.data, r.status, r.error);
 }
 
-// useListingsCount —— 侧栏徽章：只**读**这个 store，不自己发请求。
-// 它挂在每一个 admin 页上，再拉一次等于把同一份数据拉两遍。
+// useListingsCount —— the sidebar badge: only **reads** this store, never sends its own request.
+// It's mounted on every admin page, so fetching again would fetch the same data twice.
 export function useListingsCount(): State {
   const r = useResource(listingsStore);
   return listingsState(r.data, r.status, r.error);
@@ -72,7 +80,7 @@ function listingsState(
 
 export type ListingsBodyState = 'loading' | 'error' | 'empty' | 'list';
 
-// pickListingsBodyState —— component 用,避免 .tsx 里 if-ladder 触发 no-if/cyclo。
+// pickListingsBodyState —— used by the component, avoids an if-ladder in the .tsx that would trip no-if/cyclo.
 export function pickListingsBodyState(
   count: number, loading: boolean, error: string | null,
 ): ListingsBodyState {

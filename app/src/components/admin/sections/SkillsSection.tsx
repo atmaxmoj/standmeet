@@ -1,17 +1,22 @@
-// SkillsSection —— /admin/skills。**owner 的 skill registry 的唯一入口**。
+// SkillsSection —— /admin/skills. **The single entry point to the owner's skill registry.**
 //
-// 曾经是两个页面：/admin/skills（这份 CRUD 列表）+ /admin/agent-skills（MY SKILLS + MARKETPLACE）。
-// 但它们是**同一份 registry**：use-agent-skills 的 installed 直接来自 use-skills，marketplace install
-// 后端写的也是同一张表。一个概念、一份数据、两个顶层入口、两个几乎同名的侧栏标签 —— owner 得在两个
-// 地方管同一批东西，界面上却没有线索说它们是同一批。那是腐化（rot-D1），现在合并成一个 tab 页。
+// This used to be two pages: /admin/skills (this CRUD list) + /admin/agent-skills (MY SKILLS +
+// MARKETPLACE). But they're **the same registry**: use-agent-skills's installed comes straight
+// from use-skills, and marketplace install writes to the same backend table. One concept, one
+// dataset, two top-level entry points, two nearly-identically-named sidebar labels — the owner
+// had to manage the same batch of things in two places, with no clue in the UI that they were the
+// same batch. That's rot (rot-D1); now it's merged into one tab page.
 //
-//   tab「my skills」—— 这份 registry：手写建的 + 从 marketplace 装的（SkillCard 已按 is_builtin 区分）。
-//   tab「marketplace」—— 从 GitHub anthropics/skills + SkillsMP 搜索 + 安装。install 完 → 切回 my skills。
+//   tab "my skills" —— this registry: hand-built + installed from marketplace (SkillCard already
+//   distinguishes by is_builtin).
+//   tab "marketplace" —— search + install from GitHub anthropics/skills + SkillsMP. After install
+//   → switches back to my skills.
 //
-// 删掉的东西：`/admin/agent-skills` 那个门（重定向到这里）+ 它那份 InstalledCard（比 SkillCard 更弱的
-// 重复渲染，其「updates available 横幅」从来没实装）；还有曾经这里那张自称 "corpus-inferred" 的 skill
-// 热力图（**是编的** —— 热度=列表下标，rot-A1 类）+ 那个没有 onClick 的 "rebuild" 死按钮（rot-G1）。
-// 真的 corpus 热度要接真 endpoint —— 见 docs/real-env-verification/items/skill-corpus-heat.md。
+// Removed: the `/admin/agent-skills` gate (now redirects here) + its InstalledCard (a weaker
+// duplicate render of SkillCard, whose "updates available" banner was never implemented); and
+// the skill heatmap that used to claim "corpus-inferred" here (**it was fabricated** — heat =
+// list index, the rot-A1 class) + the dead "rebuild" button with no onClick (rot-G1).
+// Real corpus heat needs a real endpoint — see docs/real-env-verification/items/skill-corpus-heat.md.
 
 'use client';
 
@@ -29,17 +34,18 @@ import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
-// connectorLabel 删了（F-F-4）：它把连接器行手工映成 'Calendar' / 'Email'，好让客户端自己
-// 算 `needs − connected` 这个差集。那是同一件事的**第三种叫法**（dep 名 `smtp` / 连接器
-// category `mail` / 这里的 `Email`），而差集要的两半本来都在服务端。现在服务端直接回答
-// 「这张卡还缺哪几个连接器」，卡片照着渲染。
+// connectorLabel was removed (F-F-4): it hand-mapped connector rows to 'Calendar' / 'Email' so
+// the client could compute the `needs − connected` difference itself. That was a **third name**
+// for the same thing (dep name `smtp` / connector category `mail` / `Email` here), and both
+// halves needed for the difference already lived on the server. The server now answers directly
+// which connectors a card is still missing, and the card just renders it.
 export function SkillsSection() {
   const skills = useSkills();
   const agent = useAgentSkills();
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<SkillsTab>('installed');
   useEffectErrorToast(skills.error);
-  // install 完成 → 切回 my skills，owner 看着新 skill 落进列表。
+  // install complete → switches back to my skills, so the owner watches the new skill land in the list.
   useEffect(() => { (agent.lastInstalledAt > 0) && setTab('installed'); }, [agent.lastInstalledAt]);
   return (
     <>
@@ -69,7 +75,7 @@ function HeaderActions({
   );
 }
 
-// SkillsBody —— my skills（这份 registry 的 CRUD 列表）或 marketplace（搜索 + 安装）。
+// SkillsBody —— my skills (this registry's CRUD list) or marketplace (search + install).
 function SkillsBody({
   tab, skills, agent,
 }: {
@@ -85,7 +91,7 @@ function titleCount(hook: SkillsHook): string {
   return hook.status === 'ready' ? `${hook.skills.length} tracked` : '';
 }
 
-// ─── my skills：这份 registry 的 CRUD 列表 ─────────────────────
+// ─── my skills: this registry's CRUD list ─────────────────────
 
 function PersonaSkillsBlock({ hook }: { hook: SkillsHook }) {
   return (
@@ -166,7 +172,8 @@ function SkillToggle({
 }: { skill: SkillView; onToggle: (id: string, enabled: boolean) => Promise<void> }) {
   const report = useReportError();
   const cls = skill.enabled ? 'text-(--color-accent)' : 'text-(--color-faint)';
-  // toggle：不加成功 toast（开关位置变化本身就是反馈）；失败 report 让 owner 知道没生效。
+  // toggle: no success toast (the switch's position change is feedback enough); failure reports
+  // so the owner knows it didn't take.
   return (
     <button
       type="button"
@@ -196,7 +203,8 @@ function SkillDeleteRow({
 }: { skill: SkillView; onDelete: (id: string) => Promise<void> }) {
   const run = useAction();
   const t = useTranslations('adminIntegrations.skills');
-  // delete 是一键破坏性动作 → 成功 toast / 失败 report 都由 run 收尾（不再静默）。
+  // delete is a one-click destructive action → run wraps up both success toast and failure
+  // report (no longer silent).
   const handleDelete = useCallback(
     () => run(() => onDelete(skill.id), { success: `Skill ${skill.name} deleted` }),
     [onDelete, skill.id, skill.name, run],
@@ -266,7 +274,8 @@ function SkillModalFooter({
   const toast = useToast();
   const report = useReportError();
   const t = useTranslations('adminIntegrations.skills');
-  // modal：成功 → toast + 关；失败 → report + 保持开着，让 owner 看见错、改了重试。
+  // modal: success → toast + close; failure → report + stays open, so the owner sees the error,
+  // fixes it, and retries.
   const submit = useCallback(async () => {
     try {
       await onCreate({ name, description, prompt });

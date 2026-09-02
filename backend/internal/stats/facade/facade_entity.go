@@ -2,7 +2,7 @@ package stats
 
 import "github.com/atmaxmoj/standmeet/internal/stats/entity"
 
-// 类型（实现:entity）.
+// Types (implemented by: entity).
 type (
 	ActivityEvent     = entity.ActivityEvent
 	CorpusGrowth      = entity.CorpusGrowth
@@ -14,5 +14,5 @@ type (
 	SystemInfo        = entity.SystemInfo
 )
 
-// 构造/函数（实现:entity）.
+// Constructors/functions (implemented by: entity).
 var NewJobRegistry = entity.NewJobRegistry

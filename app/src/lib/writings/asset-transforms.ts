@@ -1,47 +1,61 @@
-// asset-transforms.ts —— body_md 里 asset URI ↔ presigned URL 互转。
+// asset-transforms.ts —— converts between asset URIs and presigned URLs
+// inside body_md, in both directions.
 //
-// Editor 内部 doc 用 presigned URL（Tiptap Image 节点 src，浏览器能直渲）。
-// Server / DB / on-disk markdown 用 stable URI `standmeet-asset:<id>`（不
-// 受 TTL 影响 + orphan 可追踪）。
+// The editor's internal doc uses presigned URLs (Tiptap Image node src,
+// which the browser can render directly). Server / DB / on-disk markdown
+// uses the stable URI `standmeet-asset:<id>` (immune to TTL expiry +
+// orphans stay traceable).
 //
-// load 时 expand（URI → URL），emit/save 时 contract（URL → URI）。
-// 新上传的 image 进来已是 URL 形态（upload 接口直接返 presigned），所以
-// expand 只处理 server 给的 body_md；contract 同时处理 server-loaded 和
-// new-uploaded 两类。
+// On load, expand (URI → URL); on emit/save, contract (URL → URI).
+// A freshly uploaded image already arrives in URL form (the upload
+// endpoint returns a presigned URL directly), so expand only handles
+// body_md coming from the server; contract handles both the
+// server-loaded case and the newly-uploaded case.
 
 import { ASSET_URI_SCHEME } from '@/lib/writings/upload-asset';
 
 const URI_RE = new RegExp(ASSET_URI_SCHEME + '([0-9a-fA-F-]{36})', 'g');
 
-// expandURIsToURLs —— body_md → display markdown（URI 替为 presigned URL）。
-// urlMap 缺 ID → 留原 URI，editor render 看到 broken img 但不丢引用（save
-// 回原样）。**这是编辑器的策略**：owner 在改一份草稿，把引用悄悄删掉才是坏事。
+// expandURIsToURLs —— body_md → display markdown (URI replaced with
+// presigned URL). If urlMap is missing an ID, the original URI is kept —
+// the editor renders a broken img but doesn't drop the reference (it
+// saves back unchanged). **This is the editor's policy**: the owner is
+// editing a draft, and silently dropping the reference would be the
+// actual harm.
 export function expandURIsToURLs(md: string, urlMap: Record<string, string>): string {
   return md.replace(URI_RE, (match, id: string) => urlMap[id] ?? match);
 }
 
-// IMAGE_WITH_URI_RE —— 整个图片节点 `![alt](standmeet-asset:<id>)`，连同它的 alt。
+// IMAGE_WITH_URI_RE —— the whole image node `![alt](standmeet-asset:<id>)`,
+// including its alt text.
 const IMAGE_WITH_URI_RE = new RegExp(
   '!\\[[^\\]]*\\]\\(\\s*' + ASSET_URI_SCHEME + '([0-9a-fA-F-]{36})\\s*\\)', 'g',
 );
 
-// expandURIsForReader —— **访客那一侧**的策略：解析得到就展开，解析不到就**整个图片节点删掉**。
+// expandURIsForReader —— the policy for **the visitor side**: expand
+// when it resolves, and **drop the whole image node** when it doesn't.
 //
-// 同一个函数不能同时满足两个读者（F-L-50）：编辑器必须保住引用（owner 还在改），
-// 而访客不该看见一张裂图。以前两边共用 `expandURIsToURLs`，于是撤下一份素材之后，
-// 公开页正文中间留下一个浏览器默认的裂图占位符，alt 里还印着原文件名 `harness-photo.jpg`
-// —— react-markdown 会把 `standmeet-asset:` 这种非标准 scheme 剥成空 src。
+// The same function can't serve both readers (F-L-50): the editor must
+// keep the reference (the owner is still editing), while the visitor
+// shouldn't see a broken image. Both sides used to share
+// `expandURIsToURLs`, so after an asset got removed, the public page
+// left a browser-default broken-image placeholder in the middle of the
+// body, with the original filename `harness-photo.jpg` still printed in
+// the alt text — react-markdown strips a non-standard scheme like
+// `standmeet-asset:` down to an empty src.
 //
-// 删掉整个节点而不是只删 URI：只删地址会留下一个 `![原文件名]()`，把**内部文件名**
-// 端到访客眼前，比裂图更糟。
+// Dropping the whole node instead of just the URI: dropping only the
+// address would leave `![original-filename]()`, exposing the
+// **internal filename** to the visitor — worse than a broken image.
 export function expandURIsForReader(md: string, urlMap: Record<string, string>): string {
   const withoutDangling = md.replace(IMAGE_WITH_URI_RE, (match, id: string) =>
     (urlMap[id] === undefined ? '' : match));
   return expandURIsToURLs(withoutDangling, urlMap);
 }
 
-// contractURLsToURIs —— display markdown → body_md（presigned URL 替回 URI）。
-// inverseMap 是 url → id；只匹 image 引用 `(url)` 形态，避免误伤普通 link。
+// contractURLsToURIs —— display markdown → body_md (presigned URL
+// replaced back with URI). inverseMap is url → id; only matches the
+// image-reference `(url)` shape, to avoid hitting a plain link.
 export function contractURLsToURIs(md: string, inverseMap: Record<string, string>): string {
   return Object.keys(inverseMap).length === 0
     ? md
@@ -51,7 +65,7 @@ export function contractURLsToURIs(md: string, inverseMap: Record<string, string
     );
 }
 
-// invertMap —— urlMap (id→url) 倒转成 (url→id)。contract 用。
+// invertMap —— inverts urlMap (id→url) into (url→id). Used by contract.
 export function invertMap(urlMap: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [id, url] of Object.entries(urlMap)) {

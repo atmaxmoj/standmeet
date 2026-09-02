@@ -1,5 +1,5 @@
-// chats_admin.go —— ChatRepo 的 admin 读侧 (list + transcript)。从 chats.go
-// 拆出来守 max-lines 350 cap。chats.go 留 CRUD + AppendDialog (write 路径)。
+// chats_admin.go — ChatRepo's admin read side (list + transcript). Split out of
+// chats.go to hold the max-lines 350 cap. chats.go keeps CRUD + AppendDialog (write path).
 
 package repo
 
@@ -13,8 +13,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// ChatSummary —— admin list 用的 chat 摘要（含 code label 关联）。
-// 字段顺序按 govet fieldalignment：time.Time 在前、pointer、string、数值、bool。
+// ChatSummary — chat summary for the admin list (includes the code label association).
+// Field order follows govet fieldalignment: time.Time first, then pointer, string,
+// numeric, bool.
 type ChatSummary struct {
 	StartedAt   time.Time
 	LastAt      time.Time
@@ -24,18 +25,18 @@ type ChatSummary struct {
 	ID          string
 	Mode        string
 	VisitorName string
-	ClientIP    string // 访客来源 IP（IP 感知）；空 = 未知
-	Turns       int32  // 从 messages 派生(数 visitor role),不是存储字段
+	ClientIP    string // Visitor source IP (IP-aware); empty = unknown
+	Turns       int32  // Derived from messages (counts visitor role), not a stored field
 	PrivateHits int32
 }
 
-// ChatWithMessages —— GetWithMessages 返回的 transcript bundle。
+// ChatWithMessages — the transcript bundle returned by GetWithMessages.
 type ChatWithMessages struct {
 	Chat     entity.Chat
 	Messages []entity.Message
 }
 
-// ListByOwner —— admin 列 owner 所有 chat 摘要（按 last_at DESC）。
+// ListByOwner — admin lists all of an owner's chat summaries (by last_at DESC).
 func (r *ChatRepo) ListByOwner(
 	ctx context.Context, ownerID string, limit int32,
 ) ([]ChatSummary, error) {
@@ -57,9 +58,9 @@ func (r *ChatRepo) ListByOwner(
 	return out, nil
 }
 
-// GetWithMessages —— 拿 chat + 全部 messages（admin transcript 查看）。
-// 不命中 chat 返 ErrChatNotFound（owner_id mismatch 也走这条分支，
-// 避免暴露 "存在但不属于你"）。
+// GetWithMessages — fetches a chat + all its messages (admin transcript view).
+// Chat not found returns ErrChatNotFound (an owner_id mismatch also takes this
+// branch, to avoid revealing "it exists but isn't yours").
 func (r *ChatRepo) GetWithMessages(
 	ctx context.Context, ownerID, chatID string,
 ) (ChatWithMessages, error) {

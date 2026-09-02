@@ -1,6 +1,7 @@
-// format-tokens —— token 数按量级读:1234567 → "1.2M"。
+// format-tokens —— reads the token count by order of magnitude: 1234567 → "1.2M".
 //
-// 油量是"还能聊多久"的问题,不是精确到个位的问题;而个位数字每答一句就变一次,读它没有意义。
+// The fuel gauge answers "how much longer can we talk", not "exactly how many
+// tokens"; the ones digit changes with every reply, so reading it is pointless.
 
 export function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;

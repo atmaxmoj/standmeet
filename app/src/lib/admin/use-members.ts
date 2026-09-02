@@ -1,6 +1,7 @@
-// use-members —— /admin/codes 卡里"members"展开块的状态机：
-// 拉一个 code 的 member 列表（只读）。revoke 不在 member 级别——AccessCode
-// 卡顶 revoke 一动整 code，跟产品语义对齐。
+// use-members —— state machine for the "members" expand block on an
+// /admin/codes card: fetches a code's member list (read-only). Revoke is not
+// a member-level operation — the AccessCode card's top-level revoke acts on
+// the whole code, matching the product's semantics.
 
 import { useEffect, useState } from 'react';
 

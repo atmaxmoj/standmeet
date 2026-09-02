@@ -1,12 +1,13 @@
-// ResumeComposer —— /admin/drafts 里点 "open composer →" 进入的全屏分屏
-// editor。左侧 6-panel 表单 + 右侧 PDF-shape 预览（不 render 真 PDF，
-// 只 reflect 字距 / 段落 / smallcaps 让 owner 边编辑边看版式）。
+// ResumeComposer —— the full-screen split editor opened via "open composer →" from
+// /admin/drafts. Left: 6-panel form. Right: PDF-shape preview (doesn't render a real PDF, only
+// reflects letter-spacing / paragraphs / smallcaps so the owner can see the layout while
+// editing).
 //
-// 设计源 docs/design/project/admin.js ResumeComposer。
+// Design source: docs/design/project/admin.js ResumeComposer.
 //
-// 注意：drafts 的真正 freeze + applications.commit 在 MCP 路径（job loop
-// memory），这里只是编辑层。"send →" 弹 confirm 模态 → 调 onSend
-// callback，caller 走 MCP/REST commit。
+// Note: the real freeze + applications.commit for drafts happens on the MCP path (job loop
+// memory) — this is only the editing layer. "send →" opens a confirm modal -> calls the onSend
+// callback, and the caller does the MCP/REST commit.
 
 'use client';
 
@@ -145,7 +146,8 @@ function ComposerActions({
 }: { matchPct: number; savedLabel: string; onSend: () => void }) {
   const t = useTranslations('adminShell.composer');
   return (
-    // 三段用竖线分开：对它的判断（match） | 状态（saved） | 动作（regenerate / send）。
+    // Three segments separated by a vertical bar: judgment of it (match) | status (saved) |
+    // actions (regenerate / send).
     <div className="flex items-center gap-3">
       <MatchGauge pct={matchPct} />
       <span className="sm-bar-sep" />
@@ -184,23 +186,27 @@ function MatchGauge({ pct }: { pct: number }) {
   );
 }
 
-// MatchGaugeBar —— 这根条**两个各自独立的原因**都会让它什么都不显示,缺一个都不够:
+// MatchGaugeBar —— this bar has **two independent causes** that can each make it render
+// nothing; either one alone is enough:
 //
-//  1. 填充比例曾写成拼接出来的 Tailwind 任意值,构建期扫不到 → 一条 CSS 都不生成,
-//     `.sm-fill` 退到兜底的 `width: 0%`。现在走 `style`。
-//  2. `.sm-fill` **只有 width** —— 高度和底色住在 `.sm-session-strip-gauge-fill` 里,
-//     而这里原本只贴了前者,于是即便宽度对了,盒子仍然高 0、无色。
+//  1. The fill percentage used to be written as a concatenated Tailwind arbitrary value, which
+//     the build-time scanner can't see -> not a single line of CSS gets generated, and
+//     `.sm-fill` falls back to its default `width: 0%`. Now it goes through `style`.
+//  2. `.sm-fill` **only has width** — height and background color live in
+//     `.sm-session-strip-gauge-fill`, and this element used to carry only the former, so even
+//     with the right width the box was still 0 tall and colorless.
 //
-// 两个都得修才看得见,所以**修一个仍然一片空白** —— 这正是它一直没被发现的原因:
-// 每一次"顺手改一下"都没有任何肉眼可见的回报,于是没人确认过它到底画没画
-// (见 [[names-that-lie]]:表上那个数一直是对的,只有条是假的)。
+// Both had to be fixed before it becomes visible, so **fixing only one still left a blank
+// bar** — which is exactly why it went unnoticed for so long: every "quick tweak" produced no
+// visible payoff, so nobody ever confirmed whether it actually rendered
+// (see [[names-that-lie]]: the number next to it was always correct, only the bar was fake).
 function MatchGaugeBar({ pct }: { pct: number }) {
   return (
     <span className="sm-session-strip-gauge-bar" data-testid="composer-match-track">
       <span
         className="sm-session-strip-gauge-fill sm-fill"
         data-testid="composer-match-fill"
-        // eslint-disable-next-line no-restricted-syntax -- pct 是运行时算出来的匹配度，只有 style 能承载
+        // eslint-disable-next-line no-restricted-syntax -- pct is a runtime match percentage; only style can carry it
         style={cssVars({ '--fill': `${pct}%` })}
       />
     </span>

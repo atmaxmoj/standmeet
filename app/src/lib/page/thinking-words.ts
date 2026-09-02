@@ -1,15 +1,24 @@
-// thinking-words —— LLM 在想(没有具体 tool 在跑)时 throbber 的轮换词库。
+// thinking-words —— the rotating word bank for the throbber while the LLM
+// is thinking (no concrete tool running).
 //
-// throbber 有真动作时显 "searching X" / "reading Y";动作之间、以及最后落笔
-// 生成答案那几段,agent 只是在想,没有具体可报的动作 —— 这时从词库里每 3 秒
-// 取一个词,比干巴巴一个静止的 "thinking" 活一点,长等待(真 LLM 一 turn 几十
-// 秒)也不显得卡死。
+// When the throbber has a real action it shows "searching X" / "reading
+// Y"; between actions, and during the final stretch where the agent is
+// composing the answer, the agent is just thinking, with no concrete
+// action to report — at that point it pulls a word from the bank every
+// 3 seconds, which feels more alive than a flat, static "thinking", and
+// keeps a long wait (a real LLM turn can take tens of seconds) from
+// looking stuck.
 //
-// 词不是我拍脑袋凑的:取自 thesaurus.com 的 ponder / contemplate / deliberate
-// 三个词头的同义动词,筛掉生僻(excogitate / cerebrate / perpend / woolgather)
-// 和不贴调性的(speculating / brooding —— 一个 grounded-answer 工具不该显得在
-// 瞎猜或郁结),再补上 compose 一支(composing / drafting,落笔写答案那层)。
-// 全是「人在斟酌、组织一段有据回答」的动词,贴 StandMeet 沉静、反 hype 的调性。
+// The words weren't picked off the top of my head: they're synonym verbs
+// pulled from thesaurus.com under the ponder / contemplate / deliberate
+// headwords, with the obscure ones filtered out (excogitate / cerebrate /
+// perpend / woolgather) along with ones that clash with the tone
+// (speculating / brooding —— a grounded-answer tool shouldn't look like
+// it's guessing wildly or brooding), plus one addition from compose
+// (composing / drafting, for the stretch where it's putting the answer
+// into words). All of them are verbs for "a person weighing things,
+// organizing a grounded answer", matching StandMeet's calm, anti-hype
+// tone.
 
 'use client';
 
@@ -33,8 +42,10 @@ export const THINKING_WORDS = [
 
 const ROTATE_MS = 3_000;
 
-// useThinkingWord —— 挂载期间每 3 秒前进一个词,返回当前词。每段 pending 重新
-// 挂载 → 从 'thinking' 起。组件卸载(答案出来 / turn 落地)清掉 interval。
+// useThinkingWord —— advances one word every 3 seconds while mounted,
+// returns the current word. Every pending segment remounts → starts back
+// at 'thinking'. Unmounting the component (answer arrives / turn lands)
+// clears the interval.
 export function useThinkingWord(): string {
   const [i, setI] = useState(0);
   useEffect(() => {

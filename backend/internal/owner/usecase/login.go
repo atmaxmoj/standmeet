@@ -1,4 +1,4 @@
-// login.go —— owner 登录 use case：verify password + 颁发 session。
+// login.go — the owner login use case: verify password + issue a session.
 
 package usecase
 
@@ -14,20 +14,21 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// LoginDeps 把 Login 需要的依赖打包。
+// LoginDeps bundles the dependencies Login needs.
 type LoginDeps struct {
 	Owners   *repo.Repo
 	Sessions *session.OwnerSessionStore
 }
 
-// LoginInput 是 Login 入参。
+// LoginInput is the input to Login.
 type LoginInput struct {
 	Email    string
 	Password string
 }
 
-// LoginOutput 返回 plaintext session token + csrf token，handler 用它写 cookie。
-// OwnerHandle 给前端拿到立刻能 redirect /<handle>，省一次 /me 调用。
+// LoginOutput returns the plaintext session token + csrf token; the handler uses these
+// to write the cookie. OwnerHandle lets the frontend redirect to /<handle> immediately,
+// saving an extra /me call.
 type LoginOutput struct {
 	SessionToken string
 	CSRFToken    string
@@ -35,8 +36,9 @@ type LoginOutput struct {
 	OwnerHandle  string
 }
 
-// Login 校验密码，颁发 session。错密码 / 不存在用户都返回 ErrUnauthorized
-// （不区分"用户不存在" vs "密码错"，避免暴露存在性）。
+// Login verifies the password and issues a session. Both a wrong password and a
+// nonexistent user return ErrUnauthorized (not distinguishing "user doesn't exist" vs.
+// "wrong password" avoids leaking existence).
 func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, error) {
 	if in.Email == "" || in.Password == "" {
 		return LoginOutput{}, apierr.ErrEmptyField
@@ -61,7 +63,8 @@ func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, er
 	}, nil
 }
 
-// authenticate 拆出 Login 中的密码校验部分，让 Login 本身 cognitive-complexity ≤ 7。
+// authenticate pulls the password-checking part out of Login, keeping Login itself at
+// cognitive-complexity <= 7.
 func authenticate(
 	ctx context.Context, deps LoginDeps, in *LoginInput,
 ) (repo.Credentials, error) {

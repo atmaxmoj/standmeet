@@ -1,5 +1,6 @@
-// CrosslinkPicker —— `[[…]]` autocomplete 下拉。tippy 浮窗承载。
-// 键盘 ↑↓ Enter 由 picker 自己吞；其它键 false 让 Tiptap 继续处理。
+// CrosslinkPicker —— `[[…]]` autocomplete dropdown, hosted in a tippy popup.
+// Keyboard ↑↓ Enter are swallowed by the picker itself; other keys return
+// false so Tiptap keeps processing them.
 
 'use client';
 

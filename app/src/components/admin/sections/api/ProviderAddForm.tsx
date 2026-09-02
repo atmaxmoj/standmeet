@@ -1,8 +1,10 @@
-// ProviderAddForm —— 往本子里加一条。
+// ProviderAddForm — add one more entry to the book.
 //
-// 跟上面那张"默认那条"的表单同样的字段(preset / endpoint / model / key),多一个 label ——
-// owner 自己起的名字,码和 role 的下拉里显示的就是它。选 preset 时自动填它的 base URL,
-// owner 改过就不再覆盖(跟上面同一条规矩)。
+// Same fields as the "default entry" form above (preset / endpoint / model
+// / key), plus one label — the name owner picks himself, which is what
+// shows in code and role dropdowns. Picking a preset auto-fills its base
+// URL; once owner edits it, it stops being overwritten (same rule as
+// above).
 
 'use client';
 

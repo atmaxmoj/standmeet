@@ -1,5 +1,6 @@
-// helpers.go —— admin handler 共享小工具：generic 500 envelope + JSON 写出。
-// 原住在 tokens.go / calendar_connector.go（已删），搬出来独立。
+// helpers.go — small utilities shared by admin handlers: the generic 500 envelope + JSON
+// output. Used to live in tokens.go / calendar_connector.go (both deleted); moved out
+// into its own file.
 
 package admin
 
@@ -19,14 +20,14 @@ func serverErr() apierr.Envelope {
 	}
 }
 
-// writeJSON —— 200 + JSON body。
+// writeJSON — 200 + JSON body.
 //
-//nolint:forbidigo // json.Encoder.Encode 必须 interface{}; 集中此处放行
+//nolint:forbidigo // json.Encoder.Encode requires interface{}; allowed here, centrally
 func writeJSON(log *slog.Logger, w http.ResponseWriter, v any) {
 	writeJSONStatus(log, w, http.StatusOK, v)
 }
 
-//nolint:forbidigo // json.Encoder.Encode 必须 interface{}; 集中此处放行
+//nolint:forbidigo // json.Encoder.Encode requires interface{}; allowed here, centrally
 func writeJSONStatus(log *slog.Logger, w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

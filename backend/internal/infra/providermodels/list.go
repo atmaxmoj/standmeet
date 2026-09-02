@@ -1,16 +1,20 @@
-// Package providermodels —— 问一个 OpenAI 式的推理端点：你有哪些模型。
+// Package providermodels asks an OpenAI-style inference endpoint one question: which
+// models do you have.
 //
-// **为什么它不住在路由层了**（F-R-11）：这件事有**两个调用方**，而它们拿 key 的方式完全不同 ——
+// **Why this doesn't live in the routing layer** (F-R-11): this has **two callers**, and
+// they get their key in completely different ways —
 //
-//   - 访客那一面（`/api/v1/inference/models`，无 auth）：key 是调用方在 BYOAI 面板里现输的，
-//     跟着请求进来。
-//   - owner 那一面：key **早就存在库里**（加密），页面永远读不回来。owner 打开自己配好的
-//     provider 点 "load models"，客户端手上根本没有那串字符 —— 以前它照发一个空 key，
-//     后端 `key required` 400，屏幕上什么都没有。
+//   - the visitor side (`/api/v1/inference/models`, no auth): the key is typed live into
+//     the BYOAI panel by the caller and rides in with the request.
+//   - the owner side: the key **already lives in the DB** (encrypted), and the page can
+//     never read it back. The owner opens their configured provider and clicks "load
+//     models" — the client has none of those characters on hand. It used to send an empty
+//     key anyway, the backend returned `key required` 400, and the screen showed nothing.
 //
-// 两边差的只有「key 从哪来」，拉列表这件事一模一样，所以它搬到这里：域外、无状态、
-// 谁拿到 (endpoint, key) 谁都能调。owner 那条路上的开封仍然只发生在组装根
-// （`cmd/server/provider_models.go`）—— 域这一层从不解封。
+// The only difference between the two sides is where the key comes from; pulling the list
+// is identical either way, so it moved here: outside any domain, stateless, callable by
+// whoever holds an (endpoint, key) pair. Unsealing on the owner path still happens only at
+// the composition root (`cmd/server/provider_models.go`) — this domain layer never decrypts.
 package providermodels
 
 import (
@@ -32,16 +36,18 @@ const (
 	listMaxBodyMiB = 1
 )
 
-// ErrNoModelList —— Anthropic 之类不暴露 /v1/models 的 provider。UI 据此提示手输 model。
+// ErrNoModelList is for providers like Anthropic that don't expose /v1/models. The UI uses
+// this to prompt for a manually typed model id.
 var ErrNoModelList = errors.New(
 	"provider does not expose a model list; type model id manually",
 )
 
-// List —— 拉这个 provider 的可用模型。返 DisplayError：每个失败自带「给用户看的人话 +
-// 机器码 + 400」，原始 cause 裹在里面（进日志，不进客户端）。
+// List pulls this provider's available models. Returns a DisplayError: every failure
+// carries a human-readable message + a machine code + 400, with the raw cause wrapped
+// inside (goes to the logs, never to the client).
 func List(ctx context.Context, provider, endpoint, key string) ([]string, error) {
 	if provider == "anthropic" {
-		// Anthropic 不暴露 /v1/models → UI 据此提示手输 model。
+		// Anthropic doesn't expose /v1/models → the UI prompts for a manually typed model.
 		return nil, apierr.Display(
 			http.StatusBadRequest, "no_model_list", ErrNoModelList.Error(),
 		)
@@ -53,11 +59,13 @@ func List(ctx context.Context, provider, endpoint, key string) ([]string, error)
 	return openAIModelsOrDisplay(ctx, endpoint, key)
 }
 
-// openAIModelsOrDisplay —— 拉 openai-style /v1/models；网络/HTTP/解码错裹成可回显的
-// provider-unreachable（原始 cause 进日志，客户端只见人话）。
-// endpoint 可能是调用方直接给的、无 allow-list 的 URL → 出站 client 装 SSRF 守卫
-// (BlockInternalEgress)；解析到内部/私网地址的 endpoint 直接回一句点名地址策略的人话
-// （不当成「连不上」）。
+// openAIModelsOrDisplay pulls the openai-style /v1/models; network/HTTP/decode errors are
+// wrapped into a displayable provider-unreachable error (raw cause goes to the logs, the
+// client only sees the human-readable message).
+// endpoint may be a caller-supplied URL with no allow-list → the outbound client wraps an
+// SSRF guard (BlockInternalEgress); an endpoint that resolves to an internal/private
+// address gets a human-readable message naming the address policy directly (not treated
+// as "can't connect").
 func openAIModelsOrDisplay(ctx context.Context, baseURL, key string) ([]string, error) {
 	models, err := getOpenAIModels(ctx, baseURL, key)
 	if err != nil {
@@ -66,11 +74,15 @@ func openAIModelsOrDisplay(ctx context.Context, baseURL, key string) ([]string, 
 	return models, nil
 }
 
-// displayFor —— 三种失败三句话。**「够不着」和「够到了、它拒绝了」不是同一件事**（F-R-12）：
-// 前者要去看地址和网络，后者要去看这把 key 的权限 —— 而「列模型」在真 provider 上常常
-// 需要跟「聊天」不同的权限，于是一把好用的 key 照样列不出东西。以前这两类塌成同一句
-// 「Couldn't reach the model provider」，owner 会去查一个根本没坏的地址。
-// 上游的响应体一个字都不外泄（它裹在 cause 里进日志）。
+// displayFor turns three kinds of failure into three sentences. **"can't reach it" and
+// "reached it, and it refused" are not the same thing** (F-R-12): the former means
+// checking the address and the network, the latter means checking what this key is
+// allowed to do — and "listing models" on a real provider often needs different
+// permissions than "chatting", so a perfectly good key can still fail to list anything.
+// These two used to collapse into one sentence, "Couldn't reach the model provider",
+// sending the owner to check an address that was never broken.
+// Not one byte of the upstream response body leaks out (it stays wrapped in the cause,
+// logs only).
 func displayFor(err error) error {
 	if errors.Is(err, httpx.ErrBlockedEgress) {
 		return apierr.Display(http.StatusBadRequest, "endpoint_blocked",
@@ -84,12 +96,15 @@ func displayFor(err error) error {
 		"Couldn't reach the model provider — check the base URL.", err)
 }
 
-// refusalDisplay —— 它答话了，只是不给。三种「不给」要说三句话：
+// refusalDisplay handles the case where it answered, just wouldn't give up the data.
+// Three kinds of "won't give it" need three different sentences:
 //
-//   - 401/403：这把 key 的权限问题 —— owner 要去 provider 那边看这把 key 能做什么。
-//   - 429：不是配错了，是**现在**不行 —— 要说的是「等一会儿再点」。少了这一句，owner 会去
-//     翻地址和 key，而那两样都没毛病。
-//   - 其余：它自己的规矩，如实说「答了话但不给」。
+//   - 401/403: a permissions problem with this key — the owner needs to check what this
+//     key is allowed to do on the provider's side.
+//   - 429: not a misconfiguration, just **not right now** — the message needs to say "try
+//     again in a moment". Without this line the owner goes and re-checks the address and
+//     the key, and neither one is wrong.
+//   - anything else: its own rules — say plainly "it answered, but wouldn't give it up".
 func refusalDisplay(refused refusedError, cause error) error {
 	switch {
 	case refused.deniedKey():
@@ -106,7 +121,8 @@ func refusalDisplay(refused refusedError, cause error) error {
 	}
 }
 
-// refusedError —— 上游**答话了**，只是拒绝了。带着状态码，好把「权限不够」跟「别的拒绝」分开。
+// refusedError means upstream **did answer**, it just refused. Carries the status code
+// so callers can separate "not permitted" from other kinds of refusal.
 type refusedError struct {
 	body   string
 	status int
@@ -116,7 +132,7 @@ func (e refusedError) Error() string {
 	return fmt.Sprintf("upstream %d: %s", e.status, e.body)
 }
 
-// deniedKey —— 401/403：这把 key 不被允许做这件事。
+// deniedKey reports 401/403: this key isn't allowed to do this.
 func (e refusedError) deniedKey() bool {
 	return e.status == http.StatusUnauthorized || e.status == http.StatusForbidden
 }
@@ -175,8 +191,10 @@ func buildModelsHTTPRequest(
 	return req, nil
 }
 
-// readUpstreamErr —— 上游答了话但不是 2xx。**带上状态码**：调用侧据此把「它拒绝了」
-// 跟「够不着」分开（F-R-12）。响应体留在错误里进日志，永远不外泄给调用方。
+// readUpstreamErr handles upstream answering but not with 2xx. **Carries the status
+// code**: callers use it to separate "it refused" from "couldn't reach it" (F-R-12).
+// The response body stays inside the error, goes to the logs, and never leaks to the
+// caller.
 func readUpstreamErr(resp *http.Response) error {
 	body, rerr := io.ReadAll(io.LimitReader(resp.Body, listMaxBodyMiB<<20))
 	if rerr != nil {

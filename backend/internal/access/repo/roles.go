@@ -1,8 +1,7 @@
-// roles.go —— roles 表 + role_corpus_uris / role_skills / role_mcp_servers
-// join 表 CRUD。owner-scoped visitor 身份原型；设计 [[iam-role-pivot-plan]]。
-//
-// 主表 CRUD + 三组 attach/clear/list join helpers。
-// SeedPublicRole 走 UpsertBuiltin 幂等种入；删除 builtin 被 SQL 谓词锁。
+// roles.go —— CRUD for roles + its role_corpus_uris/role_skills/role_mcp_servers
+// join tables. Owner-scoped visitor identity prototype; see design
+// [[iam-role-pivot-plan]]. SeedPublicRole seeds idempotently via UpsertBuiltin;
+// a SQL predicate blocks deleting a builtin.
 
 package repo
 
@@ -19,36 +18,33 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// RoleRepo —— roles + 3 个 join 表 CRUD。
+// RoleRepo —— CRUD for roles + its 3 join tables.
 type RoleRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewRoleRepo 构造。
+// NewRoleRepo constructs a RoleRepo.
 func NewRoleRepo(pool *pgstore.Pool) *RoleRepo { return &RoleRepo{pool: pool} }
 
-// CreateRoleInput —— Create 入参。PromptID nil = NULL；caller 已校验 prompt
-// 属于同 owner。
+// CreateRoleInput —— inputs for Create. PromptID nil = NULL; caller already
+// checked the prompt belongs to the same owner.
 type CreateRoleInput struct {
 	PromptID    *string
 	OwnerID     string
 	Name        string
 	Description string
 	Greeting    string
-	// ProviderID —— 空 = 没指(用 owner 默认那条)。
-	ProviderID  string
+	ProviderID  string // empty = not specified (uses the owner's default)
 	DockButtons []entity.DockButtonConfig
-	// GasMetered —— 挂不挂油表。**建的时候就收**:这个字段在 role.create 的入参表里写着,
-	// 收下却不落,就是一次"存好了"的空话 —— owner 建完看不出它没生效。
-	GasMetered bool
-	// RequireGhostEvidence —— 跟上面那条**一模一样的道理,而当初只修了上面那一条**(F-Q-4)。
-	// 它管的是「AI 答话前必须先有引证」,建的时候收下却不落,建出来的 role 这个开关是关的。
-	// 同一段注释写在紧挨着的一行,下一个字段还是漏了 —— 所以这两格现在挨在一起,
-	// 加第三个开关的人先读这两句。
+	// GasMetered, RequireGhostEvidence —— both must persist at creation (both are
+	// in role.create's input table; F-Q-4: GasMetered was fixed first, this one
+	// missed the same pass — kept adjacent as a reminder for the next switch).
+	GasMetered           bool
 	RequireGhostEvidence bool
 }
 
-// Create 新建 role 主表行（不挂任何 join 项；attach 在 caller usecase 内单独调）。
+// Create creates a new role main-table row (attaches no join items; those are
+// called separately by the caller usecase).
 func (r *RoleRepo) Create(ctx context.Context, in *CreateRoleInput) (entity.Role, error) {
 	params, perr := buildCreateRoleParams(in)
 	if perr != nil {
@@ -61,7 +57,7 @@ func (r *RoleRepo) Create(ctx context.Context, in *CreateRoleInput) (entity.Role
 	return toDomainRoleBare(&row), nil
 }
 
-// buildCreateRoleParams —— 提出 owner/prompt UUID parse，降 Create 的 cyclo。
+// buildCreateRoleParams —— owner/prompt UUID parsing, pulled out to lower Create's complexity.
 func buildCreateRoleParams(in *CreateRoleInput) (db.CreateRoleParams, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(in.OwnerID)
 	if oerr != nil {
@@ -87,7 +83,7 @@ func buildCreateRoleParams(in *CreateRoleInput) (db.CreateRoleParams, error) {
 	}, nil
 }
 
-// mapRoleCreateErr —— 把 unique violation 翻成 domain sentinel。
+// mapRoleCreateErr —— translates a unique violation into a domain sentinel error.
 func mapRoleCreateErr(err error) error {
 	if name, hit := pgstore.UniqueViolation(err); hit && name == "roles_owner_name_uniq" {
 		return entity.ErrRoleNameTaken
@@ -95,7 +91,7 @@ func mapRoleCreateErr(err error) error {
 	return fmt.Errorf("create role: %w", err)
 }
 
-// UpsertBuiltinInput —— SeedPublicRole 用。
+// UpsertBuiltinInput —— used by SeedPublicRole.
 type UpsertBuiltinInput struct {
 	PromptID    *string
 	OwnerID     string
@@ -103,9 +99,10 @@ type UpsertBuiltinInput struct {
 	Description string
 }
 
-// UpsertBuiltin —— public role 幂等种入。同 (owner_id, name) 覆盖
-// description + prompt_id。caller 之后用 SetCorpusURIs / SetSkills /
-// SetMCPServers 同步 join 表（public 公开 corpus 三 glob、无 skill、无 mcp）。
+// UpsertBuiltin —— idempotently seeds the public role; same (owner_id, name)
+// overwrites description + prompt_id. Caller then syncs join tables with
+// SetCorpusURIs / SetSkills / SetMCPServers (public: 3 corpus globs, no
+// skills, no mcp).
 func (r *RoleRepo) UpsertBuiltin(
 	ctx context.Context, in *UpsertBuiltinInput,
 ) (entity.Role, error) {
@@ -126,9 +123,10 @@ func (r *RoleRepo) UpsertBuiltin(
 	return toDomainRoleBare(&row), nil
 }
 
-// ListByOwner —— admin /admin/roles 列表 + visitor session issue 时 lookup。
-// 返的 Role 已 hydrate 三组 join 项（join 走 N+1，N 在 visitor 维度通常 ≤ 5 不
-// 优化；想优化在 commit 4 加 ListWithJoins 一个 batch query）。
+// ListByOwner —— used by the admin /admin/roles listing and the visitor-session
+// lookup. Returned Roles have their three join groups hydrated (each join is
+// N+1; N is usually ≤5 on the visitor dimension so unoptimized — a batch
+// ListWithJoins query in commit 4 would fix that).
 func (r *RoleRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.Role, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
@@ -150,7 +148,7 @@ func (r *RoleRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.Ro
 	return out, nil
 }
 
-// GetByID —— 单条详情 hydrate 三组 join。
+// GetByID —— hydrates the three join groups for a single detail view.
 func (r *RoleRepo) GetByID(ctx context.Context, ownerID, roleID string) (entity.Role, error) {
 	args, perr := parseRoleIDArgs(ownerID, roleID)
 	if perr != nil {
@@ -169,7 +167,7 @@ func (r *RoleRepo) GetByID(ctx context.Context, ownerID, roleID string) (entity.
 	return hydrateRole(ctx, q, &row)
 }
 
-// GetByName —— SeedPublicRole / access_code 默认 role 查找。
+// GetByName —— used by SeedPublicRole and the access_code default-role lookup.
 func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (entity.Role, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
@@ -188,24 +186,23 @@ func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (entity.
 	return hydrateRole(ctx, q, &row)
 }
 
-// UpdateRoleInput —— Update 入参。
+// UpdateRoleInput —— inputs for Update.
 type UpdateRoleInput struct {
-	PromptID    *string
-	OwnerID     string
-	RoleID      string
-	Name        string
-	Description string
-	Greeting    string
-	// ProviderID —— 空 = 没指(那一列 NULL)。
-	ProviderID           string
+	PromptID             *string
+	OwnerID              string
+	RoleID               string
+	Name                 string
+	Description          string
+	Greeting             string
+	ProviderID           string // empty = not specified (column is NULL)
 	DockButtons          []entity.DockButtonConfig
 	RequireGhostEvidence bool
-	// GasMetered —— 挂不挂油表。
-	GasMetered bool
+	GasMetered           bool // whether to attach a gas meter
 }
 
-// Update 改 role 主表行（不动 join 表；caller 用 SetCorpusURIs / SetSkills /
-// SetMCPServers 同步 join 表）。builtin rename 由 usecase 拦。
+// Update changes a role main-table row (join tables untouched; caller syncs
+// those with SetCorpusURIs/SetSkills/SetMCPServers). Renaming a builtin is
+// blocked by the usecase layer.
 func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (entity.Role, error) {
 	params, perr := buildUpdateRoleParams(in)
 	if perr != nil {
@@ -218,8 +215,8 @@ func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (entity.Role
 	return toDomainRoleBare(&row), nil
 }
 
-// buildUpdateRoleParams —— 解四样(两个 id、prompt、provider)+ 序列化 dock,
-// 让 Update 只剩"发这条 SQL"。跟 buildCreateRoleParams 对称。
+// buildUpdateRoleParams —— parses two ids + prompt/provider + serializes dock,
+// leaving Update to just send the SQL. Symmetric with buildCreateRoleParams.
 func buildUpdateRoleParams(in *UpdateRoleInput) (db.UpdateRoleParams, error) {
 	args, perr := parseRoleIDArgs(in.OwnerID, in.RoleID)
 	if perr != nil {
@@ -247,11 +244,11 @@ func buildUpdateRoleParams(in *UpdateRoleInput) (db.UpdateRoleParams, error) {
 	}, nil
 }
 
-// 这里以前有 NotifiesOwnerOnBooking —— 约成时实时读 role 的通知开关。**零调用方**:
-// 它从建好起就没有人调过,真正在用的一直是冻进 role snapshot 的那一份。那个开关现在是
-// calendar.book 自己的 role_config,这个方法和它背后那条专用 query 一起删。
+// NotifiesOwnerOnBooking used to live here (read a role's notification switch
+// live on booking). Zero callers ever — the frozen copy in the role snapshot
+// was what's used. Now lives in calendar.book's own role_config; deleted.
 
-// mapRoleUpdateErr —— 单独抽出来降 Update 的 cognitive complexity。
+// mapRoleUpdateErr —— pulled out on its own to lower Update's cognitive complexity.
 func mapRoleUpdateErr(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return entity.ErrRoleNotFound
@@ -262,8 +259,9 @@ func mapRoleUpdateErr(err error) error {
 	return fmt.Errorf("update role: %w", err)
 }
 
-// Delete —— 只删 non-builtin（SQL 谓词锁）。builtin 删请求 0 行影响，usecase 层
-// 先 GetByID 看 IsBuiltin 拦。删主表会级联清空 3 个 join 表（FK CASCADE）。
+// Delete —— deletes only non-builtin roles (locked by a SQL predicate); a
+// builtin delete affects 0 rows, so usecase checks IsBuiltin via GetByID first
+// and blocks it there. Cascades the 3 join tables (FK CASCADE).
 func (r *RoleRepo) Delete(ctx context.Context, ownerID, roleID string) error {
 	args, perr := parseRoleIDArgs(ownerID, roleID)
 	if perr != nil {
@@ -277,7 +275,7 @@ func (r *RoleRepo) Delete(ctx context.Context, ownerID, roleID string) error {
 	return nil
 }
 
-// CountActiveCodes —— /admin/roles 卡上 "N active codes" 指标用。
+// CountActiveCodes —— used for the "N active codes" metric on the /admin/roles card.
 func (r *RoleRepo) CountActiveCodes(ctx context.Context, roleID string) (int64, error) {
 	roleUUID, perr := pgstore.ParseUUID(roleID)
 	if perr != nil {
@@ -307,9 +305,10 @@ func parseRoleIDArgs(ownerID, roleID string) (roleIDArgs, error) {
 	return roleIDArgs{ownerUUID: ownerUUID, roleUUID: roleUUID}, nil
 }
 
-// toDomainRoleBare —— 不带 join 项的主表转换；Create/Update/UpsertBuiltin 用，
-// caller 会随后调 SetCorpusURIs/SetSkills/SetMCPServers + GetByID 拿完整 Role。
-// roleJoins —— hydrateRole 组装好的主行 + join 组，喂 toDomainRole（避开 argument-limit）。
+// toDomainRoleBare converts the main-table row without join items (used by
+// Create/Update/UpsertBuiltin; caller then calls SetCorpusURIs/SetSkills/
+// SetMCPServers + GetByID for the full Role). roleJoins is the main row +
+// join groups from hydrateRole, fed to toDomainRole (dodges the arg-limit).
 type roleJoins struct {
 	row          *db.Role
 	corpusURIs   []string
@@ -338,7 +337,7 @@ func toDomainRole(j *roleJoins) entity.Role {
 		Waypoints:            j.waypoints,
 		DockButtons:          decodeDockButtons(row.DockButtons),
 		RequireGhostEvidence: row.RequireGhostEvidence,
-		// 空串 = 没指(NULL,或者指着的那条被删了 —— ON DELETE SET NULL)。
+		// Empty = not specified (NULL, or its row was deleted — ON DELETE SET NULL).
 		ProviderID: pgstore.UUIDStrOrEmpty(row.ProviderID),
 		GasMetered: row.GasMetered,
 		CreatedAt:  row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,

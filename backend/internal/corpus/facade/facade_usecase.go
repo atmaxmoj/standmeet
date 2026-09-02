@@ -5,7 +5,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/usecase"
 )
 
-// 类型（实现:usecase）.
+// Types (implemented in: usecase).
 type (
 	AssetsDeps                      = usecase.AssetsDeps
 	NoteAssetsDeps                  = usecase.NoteAssetsDeps
@@ -53,7 +53,7 @@ type (
 	WritingsTxDeps                  = usecase.WritingsTxDeps
 )
 
-// 构造/函数（实现:usecase）.
+// Constructors/functions (implemented in: usecase).
 var (
 	LoadNoteMedia               = usecase.LoadNoteMedia
 	DeleteRaw                   = usecase.DeleteRaw
@@ -98,7 +98,8 @@ var (
 	ResolveAssetURLs            = usecase.ResolveAssetURLs
 	CompileGrep                 = usecase.CompileGrep
 	I18nViewFor                 = usecase.ViewFor
-	// I18nLabel —— 切换器上一个语言码显示成什么(owner 的 lang-labels 优先)。
+	// I18nLabel —— what a language code displays as in the switcher (owner's
+	// lang-labels take priority).
 	I18nLabel                      = i18n.Label
 	GrepBody                       = usecase.GrepBody
 	ResolveByName                  = usecase.ResolveByName
@@ -123,10 +124,10 @@ var (
 	WritingTreeChildren            = usecase.WritingTreeChildren
 )
 
-// 常量（实现:usecase）.
+// Constants (implemented in: usecase).
 const TreeMaxDepth = usecase.TreeMaxDepth
 
-// 错误/变量（实现:usecase）.
+// Errors/variables (implemented in: usecase).
 var (
 	ErrCorpusDenied   = usecase.ErrCorpusDenied
 	ErrCorpusNotFound = usecase.ErrCorpusNotFound

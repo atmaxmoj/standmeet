@@ -1,5 +1,6 @@
-// OutputRowForms —— output row 里那张 inline 编辑表单。
-// 从 OutputSection.tsx 拆出来守 350 行 max-lines(跟 wiki 那边的 WikiRowForms 对称)。
+// OutputRowForms — the inline edit form inside an output row.
+// Split out of OutputSection.tsx to stay under the 350-line max-lines cap
+// (mirrors WikiRowForms on the wiki side).
 
 'use client';
 
@@ -40,8 +41,9 @@ export function OutputEditForm({
   );
 }
 
-// OutputEditDetail —— 编辑一条 output 要读回来的那些字段。以前是内联的字面类型,
-// 少写一个字段就等于少传一个 —— show_as_source 就是这么丢的。
+// OutputEditDetail — the fields an output edit needs read back. Used to be an
+// inline literal type; missing a field there silently dropped it —
+// show_as_source got lost that way.
 interface OutputEditDetail {
   title: string;
   body: string;
@@ -71,17 +73,19 @@ function EditFormBody({
       <CorpusEntryForm
         initial={{
           title: detail.title, body: detail.body, tags: detail.tags,
-          // show_as_source 以前没传 —— 表单缺省成 true,于是每保存一次就把 owner
-          // 特意关掉的引用顶回打开。界面上那个勾看着完全正常,它只是不是从这条 output
-          // 读来的。
+          // show_as_source used to not be passed — the form defaulted to true,
+          // so every save flipped a reference the owner had deliberately turned
+          // off back on. The checkbox in the UI looked entirely normal; it just
+          // wasn't read from this output entry.
           show_as_source: detail.show_as_source,
           cover_image_asset_id: detail.cover_image_asset_id,
           cover_headline: detail.cover_headline,
           cover_hue: detail.cover_hue,
         }}
         busy={actions.pending}
-        // "save entry" + heading：同 wiki —— 这一屏下面还有一张带自己提交的 PUBLIC LANDING 卡，
-        // 两张卡各自点名管哪一半（UX-60）。
+        // "save entry" + heading: same as wiki — this screen has a separate
+        // PUBLIC LANDING card below with its own submit; each card names which
+        // half it owns (UX-60).
         heading={tf('entryHeading')}
         submitLabel="save entry"
         testidPrefix={`output-edit-form-${entry.id}`}
@@ -109,7 +113,8 @@ function EditFormBody({
   );
 }
 
-// saveOutputSEO —— 同 wiki 那一侧：取消发布会把它从首页栏目里摘掉，回执要说出来（F-L-31）。
+// saveOutputSEO — same as the wiki side: unpublishing pulls it off the
+// homepage sections, and the receipt must say so (F-L-31).
 async function saveOutputSEO(
   id: string, actions: CorpusActionsHook,
   toast: { success: (m: string) => void }, input: SEOUpdateInput,

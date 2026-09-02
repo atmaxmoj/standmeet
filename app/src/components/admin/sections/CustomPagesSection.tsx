@@ -1,13 +1,13 @@
-// CustomPagesSection —— /admin/custom-pages。owner 通过 MCP 创建的 React
-// 子页 + 状态 + "view live ↗" 链接。
+// CustomPagesSection —— /admin/custom-pages. React sub-pages the owner creates via
+// MCP, plus their status and a "view live ↗" link.
 //
-// 设计源 docs/design/project/admin.js PagesSection：intro
-// paragraph + 表格 (page · template · visibility · updated · actions) +
-// "templates available" 4-cell grid。模板字段 schema 还没有，先静态展示
-// 可选模板让 owner 知道下一步用哪种。
+// Design source: docs/design/project/admin.js PagesSection: an intro paragraph +
+// table (page · template · visibility · updated · actions) + a "templates available"
+// 4-cell grid. The template field schema doesn't exist yet — show the available
+// templates statically for now so the owner knows which one to use next.
 //
-// 写操作 (create/build/promote) 不在 admin —— owner 在 Claude 通过 MCP
-// driver 调；admin 这里只 confirm 状态。
+// Write operations (create/build/promote) don't live in admin — the owner calls them
+// via MCP driver in Claude; admin here only confirms status.
 
 'use client';
 
@@ -33,10 +33,12 @@ export function CustomPagesSection() {
   return (
     <>
       <SectionHeader
-        // kicker 要跟侧栏的分组一致。这一条以前写着 "corpus · microsites" ——
-        // 而这个入口已经搬去 access 组了（页面是给访客看的东西，不是语料的一种）。
-        // 搬导航时只改了导航，页面自己的那句留在原地，于是同一个东西在两处归属不同
-        // （[[vocabulary-must-not-diverge]]）。真 prod 上眼验才看见。
+        // kicker must match the sidebar's grouping. This line used to read
+        // "corpus · microsites" — but this entry has since moved to the access group
+        // (a page is something a visitor sees, not a genre of corpus). Moving the
+        // nav item only changed the nav; this page's own line stayed put, so the same
+        // thing belonged to two different groups ([[vocabulary-must-not-diverge]]).
+        // Only visible on a real-prod eyeball check.
         kicker="access · microsites"
         slug="custom-pages"
         count={hook.rows.length > 0 ? String(hook.rows.length) : ''}
@@ -117,10 +119,13 @@ function TableHead() {
   );
 }
 
-// PageRows —— 一页两行：一行元数据，一行**它长什么样**。
+// PageRows —— two rows per page: one metadata row, one showing **what it looks
+// like**.
 //
-// 预览跟元数据同属一页，所以不另开一栏或一个抽屉：owner 在指挥 agent 改的时候，
-// 状态和画面要在同一个视野里 —— 要来回切的话他还是只能靠猜。
+// The preview belongs on the same row as its metadata, so it isn't split into a
+// separate column or drawer: while the owner is directing an agent to make changes,
+// status and appearance need to sit in the same view — switching back and forth
+// would just leave him guessing.
 function PageRows({ page }: { page: CustomPageSummary }) {
   return (
     <>
@@ -147,8 +152,9 @@ function PageRow({ page }: { page: CustomPageSummary }) {
   );
 }
 
-// BindingCell —— 哪些码开这一页。**绑定的另一头**：码那一侧看得到页，这一侧看得到码。
-// 只能单向看见的绑定，人会忘了自己建过。
+// BindingCell —— which codes unlock this page. **The other end of the binding**:
+// the code side sees the page, this side sees the codes. A binding visible from
+// only one direction is a binding people forget they made.
 function BindingCell({ page }: { page: CustomPageSummary }) {
   return (
     <td className="px-4 py-3 mono text-[10px]" data-testid={`custom-page-codes-${page.slug}`}>
@@ -158,11 +164,12 @@ function BindingCell({ page }: { page: CustomPageSummary }) {
   );
 }
 
-// BoundCodes —— 哪些码开这一页。
+// BoundCodes —— which codes unlock this page.
 //
-// 这里的「空」跟列表空态不是一回事：行已经加载好了，`bound_codes` 是它上面的一个字段，
-// 空就是**真的没有码指向它**，不存在「加载失败看起来也像空」那种歧义
-// （check-one-empty-state 防的是后者）。
+// "Empty" here is not the same as the list's empty state: the row has already
+// loaded, and `bound_codes` is just a field on it — empty means **genuinely no code
+// points to it**, with none of the "failed-to-load looks like empty" ambiguity
+// (check-one-empty-state guards against that other case).
 function BoundCodes({ codes }: { codes: readonly string[] }) {
   const t = useTranslations('adminPages.customPages');
   const bound = codes.join(' · ');
@@ -171,11 +178,12 @@ function BoundCodes({ codes }: { codes: readonly string[] }) {
     : <span className="text-(--color-faint)">{t('boundNone')}</span>;
 }
 
-// ByoaiToggle —— 这一页允不允许访客自带 key。
+// ByoaiToggle —— whether this page allows visitors to bring their own key.
 //
-// **挂了码就作废**：码决定准入，页自己那一格不再说了算（"pages 给了 code 一个渲染"）。
-// 所以挂了码时不是把控件藏起来，而是明说它被顶掉了 —— 藏起来的话，owner 会以为
-// 自己上次设的还算数。
+// **Voided the moment a code is attached**: the code decides admission, this page's
+// own toggle no longer has the final say ("pages give a code a rendering"). So when
+// a code is attached, the control isn't hidden — it plainly states it's been
+// overridden; hiding it would let the owner think their last setting still applies.
 function ByoaiToggle({ page }: { page: CustomPageSummary }) {
   const bound = (page.bound_codes ?? []).length > 0;
   return bound ? <ByoaiVoid slug={page.slug} /> : <ByoaiButton page={page} />;
@@ -190,8 +198,10 @@ function ByoaiVoid({ slug }: { slug: string }) {
   );
 }
 
-// block —— 上一版是行内 `<button>`，于是它紧接在「哪些码开这一页」那句后面，
-// 屏幕上读成 `…anonymous onlyno bring-your-own-key`：两句话粘成一句谁也看不懂的话（UX-98）。
+// block —— the previous version was an inline `<button>`, so it sat right after
+// "which codes unlock this page", reading on screen as
+// `…anonymous onlyno bring-your-own-key`: two sentences glued into one nobody could
+// parse (UX-98).
 function ByoaiButton({ page }: { page: CustomPageSummary }) {
   const t = useTranslations('adminPages.customPages');
   const { setByoai } = useCustomPages();
@@ -263,9 +273,11 @@ function DateCell({ iso }: { iso: string }) {
   );
 }
 
-// ActionsCell —— 看、下线、删。**发得出去就得撤得回来**：少了后两个，
-// 「owner 在 admin 撤了，访客就访问不到」这条规矩在这一屏上根本没法执行，
-// owner 得开一个 Claude 会话调 MCP 才能把自己刚发的东西拿下来（F-P-4）。
+// ActionsCell —— view, take down, delete. **What can go live must be revocable**:
+// without the latter two, the rule "the owner takes it down in admin and visitors
+// lose access" simply can't be carried out on this screen — the owner would need to
+// open a Claude session and call MCP just to pull down what they just published
+// (F-P-4).
 function ActionsCell({ page }: { page: CustomPageSummary }) {
   return (
     <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -276,8 +288,10 @@ function ActionsCell({ page }: { page: CustomPageSummary }) {
   );
 }
 
-// TakeDownLink —— 下线。构建还在，随时可以再上线，所以它跟「删掉」是两个动作，
-// 后果不一样就不合成一个。没在服务的页面不显示这个 —— 一个撤不下来的东西不该有撤的入口。
+// TakeDownLink —— take the page down. The build is kept and can go live again any
+// time, so this is a separate action from "delete" — actions with different
+// consequences don't get merged. Not shown for a page that isn't live — something
+// that can't be un-taken-down shouldn't offer a take-down entry point.
 function TakeDownLink({ page }: { page: CustomPageSummary }) {
   const t = useTranslations('adminPages.customPages');
   const { rollback } = useCustomPages();
@@ -326,8 +340,9 @@ function ViewLiveLink({ page }: { page: CustomPageSummary }) {
   );
 }
 
-// TEMPLATES AVAILABLE 那一块删了：`press-kit / list-prose / menu / auto-now` 四张卡是
-// **纯 i18n 文案** —— 仓库里没有任何模板产物，`custom_page.create` 也不收 template 参数。
-// 面上摆着四个 owner 拿不到的东西，比什么都不摆更糟（[[names-that-lie]]）。
-// 真模板做出来一个，再把它挂回来。
+// The TEMPLATES AVAILABLE block was removed: the four cards `press-kit / list-prose /
+// menu / auto-now` were **pure i18n copy** — no template artifact exists anywhere in
+// the repo, and `custom_page.create` doesn't even accept a template parameter.
+// Displaying four things the owner can't actually get is worse than showing nothing
+// ([[names-that-lie]]). Once a real template exists, hook it back up.
 

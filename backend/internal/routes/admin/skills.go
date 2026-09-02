@@ -1,10 +1,12 @@
-// skills.go —— /api/admin/skills CRUD（#48-2）。
+// skills.go — /api/admin/skills CRUD (#48-2).
 //
-// 能力来自出站收口（通用件在 dispatch.go）；这个面只决定 REST 形状：
-// 建一个回 201、其余回 200，资源 id 走路径、其余进 body。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// this facade only decides the REST shape: create returns 201, everything else returns
+// 200, the resource id goes in the path, everything else goes in the body.
 //
-// 出站载荷跟 MCP 面是同一份 —— 迁移前 MCP 的 skill_list 少了 allowed_tools / enabled，
-// owner 从 Claude Code 看不出一个 skill 是不是被关掉了；现在只有一份形状。
+// The outbound payload is the same one MCP's facade uses — before the migration, MCP's
+// skill_list was missing allowed_tools / enabled, so the owner couldn't tell from Claude
+// Code whether a skill was turned off; now there's only one shape.
 
 package admin
 
@@ -14,12 +16,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// SkillsAdminDeps —— admin skills handlers 的能力来源。
+// SkillsAdminDeps — capability source for the admin skills handlers.
 type SkillsAdminDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountSkills 挂 /skills 子路由。
+// MountSkills mounts the /skills subrouter.
 func (h *Handlers) MountSkills(r chi.Router) {
 	face := h.SkillsAdmin.Face
 	r.Route("/skills", func(r chi.Router) {
@@ -27,8 +29,10 @@ func (h *Handlers) MountSkills(r chi.Router) {
 		r.Post("/", h.dispatchOp(face, "skill_create", bodyArgs, jsonCreated))
 		r.Patch("/{skill_id}",
 			h.dispatchOp(face, "skill_set_enabled", bodyWithURLParam("skill_id"), jsonOK))
-		// PUT = 换掉这份技能的正文和它可以调的工具。PATCH 那条只管开关那一位，
-		// 两件事分开是因为它们的入参和失败方式都不一样（改名会撞唯一约束，开关不会）。
+		// PUT replaces this skill's body and which tools it can call. The PATCH route
+		// only manages the enabled bit. The two are kept separate because their inputs
+		// and failure modes differ (a rename can collide with a unique constraint, the
+		// toggle can't).
 		r.Put("/{skill_id}",
 			h.dispatchOp(face, "skill_update", bodyWithURLParam("skill_id"), jsonOK))
 		r.Delete("/{skill_id}",

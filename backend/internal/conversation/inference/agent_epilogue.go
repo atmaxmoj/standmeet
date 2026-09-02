@@ -26,8 +26,8 @@ type EpilogueFrame struct {
 // to emit, or nil for silence.
 type EpilogueFunc func(ctx context.Context, lastAssistantMsg string) *EpilogueFrame
 
-// emitEpilogue —— DriveAgentLoop 收尾调:出 frame 就发一条 SSE(event=Kind, data=Payload);返 nil
-// (silence / 未装 epilogue)不发。
+// emitEpilogue —— called at the end of DriveAgentLoop: if a frame comes back, emit one SSE
+// (event=Kind, data=Payload); a nil return (silence / no epilogue wired) emits nothing.
 func emitEpilogue(ctx context.Context, sink AgentSink, in *AgentTurnInput, state *turnState) {
 	if in.Epilogue == nil {
 		return

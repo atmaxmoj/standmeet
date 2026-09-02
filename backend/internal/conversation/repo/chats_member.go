@@ -1,6 +1,7 @@
-// chats_member.go —— member 级读侧:跨该 member 的多段对话。member-wide turn
-// 计数(配额)、按 doc_key 找对话(浮窗 find-or-create)、拉其他对话消息给「互通」
-// 注入。从 chats.go 拆出来守 max-lines 350 cap。
+// chats_member.go — member-level read side: across a member's multiple conversation
+// threads. member-wide turn counting (quota), finding a conversation by doc_key
+// (floating-window find-or-create), and pulling other conversations' messages for
+// "cross-talk" injection. Split out of chats.go to hold the max-lines 350 cap.
 
 package repo
 
@@ -44,7 +45,8 @@ func (r *ChatRepo) ConversationMemberID(
 	return pgstore.FormatUUID(conv.MemberID), nil
 }
 
-// CountVisitorTurnsForMember —— 该 member 名下全部对话的访客发言合计(member 级配额)。
+// CountVisitorTurnsForMember — total visitor messages across all of this member's
+// conversations (member-level quota).
 func (r *ChatRepo) CountVisitorTurnsForMember(
 	ctx context.Context, memberID string,
 ) (int32, error) {
@@ -59,8 +61,8 @@ func (r *ChatRepo) CountVisitorTurnsForMember(
 	return n, nil
 }
 
-// GetOpenChatByMemberAndDoc —— 该 member 在某 surface(doc_key)未结束的那段对话;
-// 没有返 ErrChatNotFound(caller 新建)。
+// GetOpenChatByMemberAndDoc — this member's unfinished conversation on a given
+// surface (doc_key); none found returns ErrChatNotFound (caller creates new).
 func (r *ChatRepo) GetOpenChatByMemberAndDoc(
 	ctx context.Context, memberID, docKey string,
 ) (entity.Chat, error) {
@@ -79,7 +81,8 @@ func (r *ChatRepo) GetOpenChatByMemberAndDoc(
 	return toDomainChat(&row), nil
 }
 
-// MemberOtherMessage —— 该 member 其他对话的一条消息(给「互通」digest 用)。
+// MemberOtherMessage — one message from this member's other conversations (for the
+// "cross-talk" digest).
 type MemberOtherMessage struct {
 	CreatedAt time.Time
 	DocKey    string
@@ -87,8 +90,9 @@ type MemberOtherMessage struct {
 	Body      string
 }
 
-// ListMemberOtherMessages —— 该 member **其他**对话(排除 excludeConvID)的消息,
-// 时间正序。caller 自己截断 / 汇总成 instruction 块。
+// ListMemberOtherMessages — this member's messages from **other** conversations
+// (excludeConvID excluded), in chronological order. Caller truncates / summarizes
+// into an instruction block itself.
 func (r *ChatRepo) ListMemberOtherMessages(
 	ctx context.Context, memberID, excludeConvID string,
 ) ([]MemberOtherMessage, error) {

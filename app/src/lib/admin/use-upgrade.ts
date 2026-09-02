@@ -1,15 +1,20 @@
-// use-upgrade —— /admin/system 那一格「升级」的数据层。
+// use-upgrade —— data layer for the "upgrade" cell on /admin/system.
 //
-// 两件事,分得很开:
-//   check()  这台实例跑着哪一版、发布了哪一版、它按不按得动
-//   apply()  请编排方重新部署,**然后量结果**
+// Two things, kept sharply separate:
+//   check()  which version this instance is running, which version has been
+//     released, and whether it can be applied
+//   apply()  asks the orchestrator to redeploy, **then measures the outcome**
 //
-// 量结果是要害。后端只能报"请求打出去了" —— 它自己就在被替换的东西里面,活不到能回答
-// "升成功了没有"。而"打出去了"跟"升上去了"是两件事:hook 打通了、编排方也确实重新部署了,
-// 但如果 compose 把镜像 tag 钉死,版本一个字都不会变。所以这里在浏览器端轮询
-// /api/v1/instance 的 version —— 浏览器在重启中活着,它量得到。
+// Measuring the outcome is the crux. The backend can only report "the
+// request went out" — it is itself part of what's being replaced, and
+// doesn't survive to answer "did the upgrade actually succeed". "Went out"
+// and "went through" are two different things: the hook fires, the
+// orchestrator does redeploy, but if compose pins the image tag, the version
+// won't change one bit. So this file polls /api/v1/instance's version from
+// the browser instead — the browser stays alive through the restart, so it can measure it.
 //
-// 量不到变化就如实说"重新部署过了,版本没变",不许因为 hook 返 200 就宣布升级成功。
+// If no change can be measured, it honestly says "redeployed, version
+// unchanged"; a 200 from the hook is never enough on its own to declare the upgrade a success.
 
 'use client';
 
@@ -28,13 +33,13 @@ const UpgradeCheckSchema = z.object({
 });
 export type UpgradeCheck = z.infer<typeof UpgradeCheckSchema>;
 
-// 重启预算:拉五张镜像 + 起完依赖,慢的机器上几分钟是正常的。
+// Restart budget: pulling five images + bringing dependencies up, a few minutes is normal on a slow machine.
 const POLL_BUDGET_MS = 300_000;
 const POLL_EVERY_MS = 3_000;
 
 export type UpgradePhase = 'idle' | 'checking' | 'applying' | 'settled';
 
-// UpgradeOutcome —— apply() 之后**量出来**的结果,不是 hook 的返回码。
+// UpgradeOutcome —— the result **actually measured** after apply(), not the hook's return code.
 export type UpgradeOutcome =
   | { kind: 'upgraded'; version: string }
   | { kind: 'unchanged'; version: string }
@@ -77,8 +82,8 @@ export function useUpgrade(): UpgradeHook {
   return { check, phase, outcome, runCheck, apply };
 }
 
-// waitForRestart —— 盯着 /api/v1/instance 的 version,直到它变了或预算用完。
-// 重启途中请求会失败(容器正在换)—— 那是预期,不是结论,继续等。
+// waitForRestart —— watches /api/v1/instance's version until it changes or the budget runs out.
+// Requests will fail mid-restart (the container is being swapped) — that's expected, not conclusive, so it keeps waiting.
 async function waitForRestart(before: string): Promise<UpgradeOutcome> {
   const deadline = Date.now() + POLL_BUDGET_MS;
   let seen = before;
@@ -93,8 +98,9 @@ async function waitForRestart(before: string): Promise<UpgradeOutcome> {
   return { kind: 'unchanged', version: seen };
 }
 
-// liveVersion —— 拿不到就返空串。空串是"这一拍没问到",不是"版本是空的"
-// —— 两者混起来会让重启途中的一次失败被当成结论。
+// liveVersion —— returns an empty string when it can't get one. An empty
+// string means "couldn't ask this round", not "the version is empty" —
+// conflating the two would let one failure mid-restart get treated as conclusive.
 async function liveVersion(): Promise<string> {
   try {
     const res = await fetch('/api/v1/instance', { cache: 'no-store' });
@@ -109,10 +115,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => { setTimeout(resolve, ms); });
 }
 
-// —— 面板显示什么 ——
+// —— what the panel displays ——
 //
-// 分支在这里,不在组件里(跟 deployView / resourceStats 同一处):呈现层只把 key 交给 t()。
-// 这也不只是为了过闸门 —— "按钮该不该写成升级"是一条**判断**,判断有了名字才验得了。
+// Branching lives here, not in the component (same place as deployView /
+// resourceStats): the presentation layer only hands the key off to t().
+// This isn't just to pass the gate — "should the button say upgrade" is a
+// **judgment**, and a judgment can only be verified once it has a name.
 
 export interface UpgradeView {
   lineKey: string;
@@ -135,8 +143,9 @@ export function upgradeView(h: UpgradeHook): UpgradeView {
   };
 }
 
-// canApply —— 有新版**而且**这台实例按得动。两个条件缺一不可:少了后一个,按钮就成了
-// 一个按下去什么都不会发生的「升级」—— 那比没有这个按钮更坏。
+// canApply —— a new version exists **and** this instance can apply it.
+// Neither condition can be dropped: without the second, the button becomes
+// an "upgrade" that does nothing when pressed — worse than not having the button at all.
 function canApply(c: UpgradeCheck | null): boolean {
   return c !== null && c.available && c.can_apply;
 }
@@ -149,7 +158,7 @@ function buttonKeyOf(h: UpgradeHook): string {
 
 interface Line { key: string; params: Record<string, string> }
 
-// lineOf —— 结果优先于检查:升过一次之后,读者要看的是"到底升上去了没有"。
+// lineOf —— the outcome takes priority over the check: once one upgrade has run, the reader wants to know "did it actually go through".
 function lineOf(h: UpgradeHook): Line {
   if (h.outcome !== null) { return outcomeLine(h.outcome); }
   if (h.phase === 'applying') { return { key: 'upgradeWaiting', params: {} }; }
@@ -165,16 +174,19 @@ function outcomeLine(o: NonNullable<UpgradeOutcome>): Line {
 function checkLine(c: UpgradeCheck | null): Line {
   if (c === null) { return { key: 'upgradeUnknown', params: {} }; }
   if (c.error !== '') { return { key: 'upgradeUnreachable', params: {} }; }
-  // 「比不了」不是「已经最新」。未盖章的构建(自己从源码 build 的)版本号不是发行号,
-  // 报成"你已经是最新的"就是一句谎话 —— 照样把最新那一版说出来,让人自己判断。
+  // "Can't compare" is not "already up to date". An unstamped build's (one
+  // built from source directly) version number isn't a release tag, and
+  // reporting "you're already on the latest" would be a lie — state the
+  // latest version anyway and let the reader judge for themselves.
   if (!c.comparable) {
     return { key: 'upgradeIncomparable', params: { version: c.latest, current: c.current } };
   }
   return c.available ? availableLine(c) : { key: 'upgradeCurrent', params: { version: c.current } };
 }
 
-// availableLine —— 有新版,但**这台实例按不按得动**决定说哪句话。按不动就说清为什么
-// 以及该怎么升,不许含糊过去。
+// availableLine —— a new version exists, but **whether this instance can
+// apply it** decides which sentence is shown. If it can't, say clearly why
+// and how to upgrade instead — glossing over it is not allowed.
 function availableLine(c: UpgradeCheck): Line {
   return {
     key: c.can_apply ? 'upgradeAvailable' : 'upgradeManual',

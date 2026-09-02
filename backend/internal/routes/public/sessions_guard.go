@@ -1,6 +1,7 @@
-// sessions_guard.go —— #169 访问码兑换的失败锁定接线(从 sessions.go 拆出守 max-lines)。
-// createSession / codeIntro 两个 handler 委托到这里:锁定检查 + 兑换 + 失败/成功记账,
-// 让 handler 本身保持 routes-cyclo ≤ 3。
+// sessions_guard.go —— #169 the wiring for access-code redemption lockout (split out
+// of sessions.go to stay under max-lines). The createSession / codeIntro handlers
+// both delegate here: lockout check + redemption + failure/success recording, keeping
+// the handlers themselves within routes-cyclo ≤ 3.
 
 package public
 
@@ -14,8 +15,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// guardedIssueSession —— code-tier 锁定 → 兑换 → 记账。返 (res, true)=可写成功响应;
-// (_, false)=已写(429 锁定 / error 响应)。
+// guardedIssueSession —— code-tier lockout → redemption → recording. Returns (res,
+// true) meaning a success response can be written; (_, false) meaning a response has
+// already been written (429 lockout / error).
 func (h *Handlers) guardedIssueSession(
 	w http.ResponseWriter, r *http.Request, req *createSessionRequest,
 ) (conversation.IssueCodeSessionResult, bool) {
@@ -33,7 +35,8 @@ func (h *Handlers) guardedIssueSession(
 	return res, true
 }
 
-// guardedIntro —— 同上,针对名字选择器 pre-issue peek(同样是 code 枚举 oracle,同守卫)。
+// guardedIntro —— same as above, for the name picker's pre-issue peek (also a
+// code-enumeration oracle, same guard).
 func (h *Handlers) guardedIntro(
 	w http.ResponseWriter, r *http.Request, req *codeIntroRequest,
 ) (conversation.CodeIntroResult, bool) {
@@ -51,9 +54,10 @@ func (h *Handlers) guardedIntro(
 	return res, true
 }
 
-// preIssueBlocked —— 签发前的两道拦截合成一个（各自在拦下时已写好响应）：
-// ① code 兑换失败锁定（429）② embed 来源白名单（403）。合成一个是为了让 guardedIssueSession
-// 的圈复杂度留在 3 以内 —— 顺序即优先级：先锁定，再来源。
+// preIssueBlocked —— merges the two pre-issue checks into one (each already writes
+// its own response when it blocks): ① code-redemption failure lockout (429) ② the
+// embed origin allowlist (403). Merged into one so guardedIssueSession's cyclomatic
+// complexity stays within 3 — order is priority: lockout first, then origin.
 func (h *Handlers) preIssueBlocked(
 	w http.ResponseWriter, r *http.Request, req *createSessionRequest, ip string,
 ) bool {
@@ -63,9 +67,13 @@ func (h *Handlers) preIssueBlocked(
 	return h.embedAuthBlocked(w, r, req)
 }
 
-// embedAuthBlocked —— 带 embed_token 就验 widget 的 JWT（code 明文不进客户端）；否则是**明文 code
-// 直连**——不受 origin 限制（白名单只 gate widget/token 那条路）。明文直连跟没有 embed 时一样：
-// QR / 分享链接落到实例页、直接粘码都能用，泄露了就 revoke（[[embed-direct-code-stays-open]]）。
+// embedAuthBlocked —— carrying an embed_token verifies the widget's JWT (the
+// plaintext code never reaches the client); otherwise it's a **direct plaintext code
+// connection** — not subject to the origin restriction (the allowlist only gates the
+// widget/token path). A direct plaintext connection behaves the same as no embed at
+// all: a QR code / a shared link landing on the instance page, or pasting the code
+// directly, both work — a leaked code just gets revoked
+// ([[embed-direct-code-stays-open]]).
 func (h *Handlers) embedAuthBlocked(
 	w http.ResponseWriter, r *http.Request, req *createSessionRequest,
 ) bool {
@@ -75,8 +83,10 @@ func (h *Handlers) embedAuthBlocked(
 	return false
 }
 
-// embedTokenBlocked —— 验 JWT。通过 → 把它暴露的 code 填进 req（转成 code 模式），放行；
-// 失败 → 写 401/403 并拦下。code 明文只在这一步、服务端拿到（req 从没带过它）。
+// embedTokenBlocked —— verifies the JWT. On success → fills the code it reveals into
+// req (converting to code mode), and lets it through; on failure → writes 401/403 and
+// blocks. The plaintext code is obtained by the server only at this step (req never
+// carried it).
 func (h *Handlers) embedTokenBlocked(
 	w http.ResponseWriter, r *http.Request, req *createSessionRequest,
 ) bool {
@@ -95,7 +105,8 @@ func (h *Handlers) embedTokenDeps() access.EmbedTokenDeps {
 	return access.EmbedTokenDeps{Embeds: h.Embeds, Nonce: h.EmbedNonce, Log: h.Log}
 }
 
-// codeLocked —— code-tier 且该 IP 已锁 → 写 429 并返 true;否则 false 放行。
+// codeLocked —— code-tier and this IP is already locked → writes 429 and returns
+// true; otherwise returns false and lets it through.
 func (h *Handlers) codeLocked(
 	w http.ResponseWriter, r *http.Request, mode, captchaToken, ip string,
 ) bool {
@@ -109,7 +120,8 @@ func (h *Handlers) codeLocked(
 	return true
 }
 
-// codeLockedEnvelope —— 说哪一句，取决于这台实例此刻给不给得出那条出路。
+// codeLockedEnvelope —— which message to say depends on whether this instance can
+// currently offer that way through.
 func (h *Handlers) codeLockedEnvelope() apierr.Envelope {
 	if h.CodeGuard.HasLift() {
 		return envCodeLockedCaptcha()
@@ -117,7 +129,8 @@ func (h *Handlers) codeLockedEnvelope() apierr.Envelope {
 	return envCodeLockedWait()
 }
 
-// noteCodeFail —— 只在**无效码**时累计失败(暴力枚举信号);过期/其他错误不计。
+// noteCodeFail —— accumulates a failure only for an **invalid code** (a brute-force
+// enumeration signal); expired/other errors don't count.
 func (h *Handlers) noteCodeFail(ctx context.Context, ip string, err error) {
 	if errors.Is(err, access.ErrCodeInvalid) {
 		h.CodeGuard.RecordFail(ctx, ip)

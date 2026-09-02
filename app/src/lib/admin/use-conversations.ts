@@ -1,9 +1,9 @@
-// use-conversations —— /admin/conversations 状态。
-// GET /api/admin/conversations 列表；点行 → GET /{id} 拿 transcript，写到
-// transcript state 让 ConvTranscriptModal 显示。
+// use-conversations —— state for /admin/conversations.
+// GET /api/admin/conversations lists them; clicking a row → GET /{id} fetches
+// the transcript, written into transcript state so ConvTranscriptModal can display it.
 //
-// zustand 重构：list 通过 conversationsStore；transcript 是临时 UI state，
-// 单独一个小 store。
+// zustand refactor: the list goes through conversationsStore; transcript is
+// transient UI state, kept in its own small store.
 
 'use client';
 
@@ -41,17 +41,20 @@ export interface TitledRef {
   title: string;
 }
 
-// CITED_GENRES —— 一条答复可以引用的四种体裁。**一处列举**：后端四个都发
-// （`conversations_shape.go` 的 messageOut），而这边曾经只读两个，于是 owner 引用了
-// 6 条 subjectivity 的那一轮在逐字稿上一行引用都没有（F-A-39）。
-// 加第五种体裁时改这一行，其余地方跟着走。
+// CITED_GENRES —— the four genres a reply can cite. **Enumerated in one
+// place**: the backend sends all four (`conversations_shape.go`'s
+// messageOut), while this side used to read only two, so a turn that cited 6
+// subjectivity entries showed not a single citation on the transcript (F-A-39).
+// Add a fifth genre by editing this line; everywhere else follows.
 export const CITED_GENRES = ['output', 'wiki', 'subjectivity', 'writing'] as const;
 export type CitedGenre = (typeof CITED_GENRES)[number];
 
-// CONV_ROLES —— 逐字稿里的三种行。`event` **不是谁说的话** —— 它是这段对话里发生过的
-// 一件事（访客在卡上取消了会）。以前这里只有两种，而映射是「不是 visitor 就当 assistant」，
-// 于是这样一行会被贴上 `AI` 的标签：owner 读到的是「AI 说它取消了」，而 AI 从没说过
-// （F-B-9 / [[collapsed-error-class-kills-its-own-branch]]）。
+// CONV_ROLES —— the three kinds of rows in a transcript. `event` is **not
+// something said by anyone** — it's something that happened during this
+// conversation (the visitor cancelled a booking on a card). There used to be
+// only two, mapped as "not visitor, so assistant", so a row like this got
+// labeled `AI`: the owner would read it as "the AI said it cancelled", and
+// the AI never said any such thing (F-B-9 / [[collapsed-error-class-kills-its-own-branch]]).
 export type ConvRole = 'visitor' | 'assistant' | 'event';
 
 export interface ConvTranscriptMessage {
@@ -59,12 +62,12 @@ export interface ConvTranscriptMessage {
   role: ConvRole;
   body: string;
   created_at: string;
-  // cited —— 每种体裁被引用的 id。空数组 = 这一轮没引这一类。
+  // cited —— the ids cited for each genre. An empty array = this turn cited nothing from that genre.
   cited: Record<CitedGenre, readonly string[]>;
 }
 
-// GhostLog —— H.13.e: 一行 shown 日志。owner 在详情页看到这条
-// 让 visitor 看到了什么 ghost text、是否按了 Tab 接受。
+// GhostLog —— H.13.e: one shown log entry. On the detail page, the owner
+// sees which ghost text was shown to the visitor and whether they pressed Tab to accept it.
 export interface GhostLog {
   id: string;
   ghost_text: string;
@@ -79,19 +82,20 @@ export interface ConvTranscript {
   loading: boolean;
   error: string | null;
   messages: ConvTranscriptMessage[];
-  // id → title 索引，前端按 cited[genre][i] 找 title 渲染 "cited: <title>"。
-  // 四种体裁各一份，跟 CITED_GENRES 同一套名字。
+  // An id → title index, the frontend looks up cited[genre][i] to render
+  // "cited: <title>". One per genre, using the same names as CITED_GENRES.
   refs: Record<CitedGenre, Record<string, string>>;
-  // grounding —— 塑造了这段对话、但没 opt-in 的 subjectivity 笔记标题(F-A-27)。
-  // 按整段对话给,不按 message:owner 要判的是「哪几条在起作用」。
+  // grounding —— titles of subjectivity notes that shaped this conversation
+  // but weren't opted in (F-A-27). Given per whole-conversation, not
+  // per-message: what the owner needs to judge is "which entries were in play".
   grounding: string[];
   ghosts: GhostLog[];
 }
 
 const TitledRefSchema = z.object({ id: z.string(), title: z.string() });
 
-// citedIDs —— Go 的 nil slice 编码成 `null`，所以是 nullish 而不是 optional
-// （[[zod-unknown-is-not-optional]] 那一族：`.optional()` 接不住 null，整份 parse 会挂）。
+// citedIDs —— Go's nil slice encodes as `null`, hence nullish rather than
+// optional (the [[zod-unknown-is-not-optional]] family: `.optional()` can't accept null, and the whole parse would fail).
 const citedIDs = z.array(z.string()).nullish().transform((v) => v ?? []);
 
 const ConvMessageSchema = z.object({
@@ -114,10 +118,10 @@ const ConvTranscriptRespSchema = z.object({
   messages: z.array(ConvMessageSchema),
   wiki_refs: z.array(TitledRefSchema).optional(),
   output_refs: z.array(TitledRefSchema).optional(),
-  // 后端一直在发这两份（`transcriptOut`），这边曾经不读 —— F-A-39 就是那半边。
+  // The backend had always been sending these two (`transcriptOut`), this side just never read them — F-A-39 was that half of it.
   subjectivity_refs: z.array(TitledRefSchema).optional(),
   writing_refs: z.array(TitledRefSchema).optional(),
-  // grounding_refs —— 没 opt-in 的 subjectivity,后端只给 title/path(无正文,F-A-27)。
+  // grounding_refs —— subjectivity entries not opted in; the backend gives only title/path (no body, F-A-27).
   grounding_refs: z.array(TitledRefSchema).optional(),
   ghosts: z.array(GhostLogSchema).optional(),
 });
@@ -173,9 +177,10 @@ const transcriptStore = create<TranscriptState>((set) => ({
   set: (t) => set({ transcript: t }),
 }));
 
-// useConversations —— 可选 filterCode 让 ConversationsSection 通过 URL 参数
-// `?code=INTRO-001` 只显示该 code 的 conversation；客户端 filter，后端 list
-// 全拉（v1 量级 ≤ defaultLimit 200，影响不大）。
+// useConversations —— the optional filterCode lets ConversationsSection show
+// only that code's conversations via the URL param `?code=INTRO-001`;
+// filtered client-side, while the backend always fetches the whole list (at
+// v1 scale ≤ defaultLimit 200, this doesn't matter much).
 export function useConversations(filterCode?: string): ConversationsHook {
   const r = useResource(conversationsStore);
   const openId = transcriptStore((s) => s.openId);
@@ -229,8 +234,9 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
   }
 }
 
-// convRole —— 后端的 role 是裸字符串（`messages.role` 无 CHECK）。三种认识的各归各位，
-// 其余一律当 assistant —— 兜底还在，但 `event` 不再被兜进去。
+// convRole —— the backend's role is a bare string (`messages.role` has no
+// CHECK constraint). The three recognized ones each go to their own place,
+// everything else falls back to assistant — the fallback still exists, but `event` is no longer caught by it.
 function convRole(raw: string): ConvRole {
   return raw === 'visitor' || raw === 'event' ? raw : 'assistant';
 }
@@ -250,8 +256,8 @@ function toTranscriptMessage(m: z.infer<typeof ConvMessageSchema>): ConvTranscri
   };
 }
 
-// emptyRefs —— 四种体裁各一份空索引。加载中/出错时用它 —— 少一份就是又一个
-// 「这一类在这一面上不存在」。
+// emptyRefs —— an empty index for each of the four genres. Used while
+// loading/on error — missing one would be one more genre this surface pretends doesn't exist.
 export function emptyRefs(): Record<CitedGenre, Record<string, string>> {
   return { wiki: {}, output: {}, subjectivity: {}, writing: {} };
 }
@@ -275,9 +281,9 @@ function indexRefs(refs: TitledRef[] | undefined): Record<string, string> {
   return out;
 }
 
-// GhostView —— H.13.e: ConvTranscriptModal 渲一行时用的派生 view。
-// 三态映射 (sourceCls / acceptedMark / acceptedAttr) 抽这里让组件层
-// complexity 守 ≤ 3。
+// GhostView —— H.13.e: the derived view used when ConvTranscriptModal
+// renders one row. The three-state mapping (sourceCls / acceptedMark /
+// acceptedAttr) is pulled out here so the component layer keeps complexity ≤ 3.
 export interface GhostView {
   sourceCls: string;
   acceptedMark: string;
@@ -308,8 +314,9 @@ function toView(s: ConversationSummary): ConvView {
   };
 }
 
-// 这个函数叫 formatRelative，返回的却是 `toLocaleString()` —— 一个绝对时间
-// （[[names-that-lie]]）。会话列表是扫新鲜度的地方，所以它现在真的是相对时间了（UX-46）。
+// This function is called formatRelative, yet it used to return
+// `toLocaleString()` — an absolute time ([[names-that-lie]]). The
+// conversation list is where freshness gets scanned, so it now genuinely is a relative time (UX-46).
 function formatRelative(iso: string): string {
   return ago(iso);
 }

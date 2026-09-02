@@ -1,5 +1,5 @@
 // keypairs.go —— /api/admin/keypairs CRUD endpoints。
-// POST → 一次性返 {key_id, private_key_pem, label, created_at}
+// POST → returns {key_id, private_key_pem, label, created_at} once, only at creation
 // GET → list metadata only
 // DELETE /:key_id → hard delete (revoke)
 
@@ -19,7 +19,7 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// KeypairsAdminDeps —— admin keypairs handlers 需要的依赖。
+// KeypairsAdminDeps — dependencies the admin keypairs handlers need.
 type KeypairsAdminDeps struct {
 	Deps owner.KeypairDeps
 	Log  *slog.Logger
@@ -43,7 +43,7 @@ type listKeypairItem struct {
 	CreatedAt  string  `json:"created_at"`
 }
 
-// MountKeypairs 挂 /api/admin/keypairs 子路由。
+// MountKeypairs mounts the /api/admin/keypairs subrouter.
 func (h *Handlers) MountKeypairs(r chi.Router) {
 	r.Get("/", h.listKeypairs())
 	r.Post("/", h.createKeypair())

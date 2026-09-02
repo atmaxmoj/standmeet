@@ -1,21 +1,26 @@
-// import_unchanged.go —— 「这条 writing 这次有变化吗」。
+// import_unchanged.go — "did this writing actually change this time".
 //
-// corp 树那一侧一直有这个判断（`unchangedNode`），writings 这一侧从来没有：找到既有行就
-// 无条件 SaveWriting。于是同一份 vault 连导两次，第二次的回执是 `0 new · 1 updated`，
-// 而 check 4 的判据是「第二次导入是空操作，内容被保留而不是被重写」。代价不只是数字难看：
-// 每导一次全部 writing 的 `updated_at` 就往前跳一次，「最近改过什么」从此说不准（F-L-64）。
+// The corp-tree side has always had this check (`unchangedNode`); the writings side
+// never did: finding an existing row meant an unconditional SaveWriting. So importing
+// the same vault twice in a row produced a second-run receipt of `0 new · 1 updated`,
+// while check 4's pass criterion is "a second import is a no-op — content is preserved,
+// not rewritten". The cost was not just a bad number: every import bumped `updated_at`
+// on every writing, so "what changed recently" stopped meaning anything (F-L-64).
 //
-// 判据写成**一份指纹**而不是一串 `&&`：那样「vault 拥有哪些字段」只有一处清单，加字段的人
-// 改的是结构体，不是一个越来越长的布尔表达式。
+// The check is written as **one fingerprint**, not a chain of `&&`: that way "which
+// fields the vault owns" lives in exactly one place, and adding a field means editing
+// the struct, not a growing boolean expression.
 //
-// 保守的一侧是**存**：只要这一批带了附件或封面引用，就照旧走保存 —— 那两样要重新挂，
-// 光比标量字段判不出来。
+// The conservative side is **saving**: whenever this batch carries attachments or a
+// cover-image ref, it still goes through save — those two need to be re-attached, and
+// comparing only the scalar fields cannot tell you that.
 
 package obsidian
 
 import corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 
-// writingFingerprint —— vault 说了算的那些字段。两份相等 = 这次导入不会改变任何东西。
+// writingFingerprint — the fields the vault has final say over. Two equal
+// fingerprints mean this import would change nothing.
 type writingFingerprint struct {
 	title      string
 	body       string
@@ -27,7 +32,8 @@ type writingFingerprint struct {
 	published  bool
 }
 
-// unchangedWriting —— 既有行跟这次要写进去的东西一字不差（且没有附件要挂）。
+// unchangedWriting — the existing row matches what this import would write,
+// word for word (and there is nothing new to attach).
 func unchangedWriting(w *corpus.Writing, in *corpus.SaveWritingInput) bool {
 	if len(in.Files) > 0 || in.CoverImageRef != "" {
 		return false

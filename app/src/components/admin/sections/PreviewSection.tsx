@@ -1,8 +1,8 @@
-// PreviewSection —— /admin/preview。design 源 admin.js PreviewSection
-// (1154-1219)。左 sidebar = code picker（每张 code 卡 + BYOAI）；右 panel
-// = 模拟 visitor view（banner + welcome prose + suggested questions）。
-// 实际 visitor 看到的是 / surface + SessionStrip；这里 inline 模拟那个
-// 体验让 owner 预览 scoped view 而不需要真切 session。
+// PreviewSection —— /admin/preview. Design source: admin.js PreviewSection
+// (1154-1219). Left sidebar = code picker (one card per code + BYOAI); right panel
+// = a simulated visitor view (banner + welcome prose + suggested questions).
+// What a real visitor sees is the / surface + SessionStrip; this simulates that
+// experience inline so the owner can preview a scoped view without a real session.
 
 'use client';
 
@@ -70,15 +70,18 @@ function CodePicker({ codes, selected, onPick }: {
   );
 }
 
-// roleLabel —— 角色的**名字**，拿不到才退回截断的 id。
+// roleLabel —— the role's **name**; falls back to a truncated id only when the name
+// isn't available.
 //
-// 这张卡原本印的是 `role 0863240e…` —— 一个截断的 UUID，而产品其他每一处都用角色名
-// （`invited` / `public` / `ext-mcp-probe`）。owner 看着两张码显示同一串 `0863240e…`，
-// 知道它们共用一个角色，却不知道是哪个（UX-78）。名字一直在手边：`useRoles()` 已经在
-// 这个 admin 里拉过，`RoleView.name` 就是它。
+// This card used to print `role 0863240e…` — a truncated UUID, while every other
+// place in the product uses the role name (`invited` / `public` / `ext-mcp-probe`).
+// The owner would see two codes displaying the same string `0863240e…` and know they
+// shared a role, without knowing which one (UX-78). The name was always at hand:
+// `useRoles()` is already fetched in this admin page, and `RoleView.name` is it.
 //
-// 拿不到时退回 id 而不是留空 —— 一张码指向已删除的角色是真会发生的状态，
-// 让它可见比让它消失好。
+// Falls back to the id rather than leaving it blank when unavailable — a code
+// pointing at a deleted role is a real state that happens; making it visible is
+// better than making it disappear.
 function roleLabel(roleId: string, roles: readonly RoleView[]): string {
   return roles.find((r) => r.id === roleId)?.name ?? `${roleId.slice(0, 8)}…`;
 }
@@ -150,11 +153,13 @@ function ByoaiPreview() {
   );
 }
 
-// CodedPreview —— 这个面写着 "PREVIEW · VISITOR VIEW",所以它必须渲染**访客那句话**。
+// CodedPreview —— this panel is labeled "PREVIEW · VISITOR VIEW", so it must render **the
+// visitor's actual copy**.
 //
-// 上一版是 admin 自己用 adminPages.preview.codedWelcome* 拼的,还把 assumed_role_id 前 8 位
-// 印在句子里 —— 一个访客永远不会看到内部 id,而 owner 也就永远看不到这张码真正呈现什么(F-C-9)。
-// 现在读 visitor.codedWelcome:跟访客同一份文案,handle 和 code label 都是真的。
+// The previous version assembled it itself from adminPages.preview.codedWelcome*, and printed
+// the first 8 chars of assumed_role_id in the sentence — a visitor never sees the internal id,
+// and the owner would then never see what this code actually presents (F-C-9).
+// It now reads visitor.codedWelcome: the same copy the visitor gets, with a real handle and code label.
 function CodedPreview({ code }: { code: CodeView | null }) {
   const t = useTranslations('adminPages.preview');
   const tv = useTranslations('visitor.chatRoom');
@@ -171,16 +176,18 @@ function CodedPreview({ code }: { code: CodeView | null }) {
       </PreviewBanner>
       <p className="font-serif text-[17px] text-(--color-ink) mt-4 leading-[1.55] max-w-[48em]">
         {tv.rich('codedWelcome', {
-          // greeting —— 访客那边是 "Hi, {名字}";预览里还没有人,所以用 role 的问候语位置
-          // 放一句中性的,其余整句照访客那份走。
+          // greeting —— on the visitor side it's "Hi, {name}"; there's no one in the preview yet,
+          // so this puts a neutral phrase in the role's greeting slot, the rest of the sentence
+          // follows the visitor copy as-is.
           greeting: t('previewGreeting'),
           handle,
           codeLabel: code.label,
           accent: (chunks) => <span className="text-(--color-accent)">{chunks}</span>,
         })}
       </p>
-      {/* 访客读到的是三段:欢迎 + 这一句脱敏说明 + 引导。owner 预览时最该看见的正是第二句 ——
-          这张码到底会不会告诉对方"有些话不给看"。 */}
+      {/* The visitor reads three parts: welcome + this redaction note + a lead-in. What the owner
+          most needs to see in preview is the second part — whether this code actually tells the
+          visitor "some things aren't shown to you". */}
       <p className="font-serif text-[15px] text-(--color-muted) mt-2 leading-[1.55] max-w-[48em]">
         {tv('codedRedaction', { handle })}
       </p>

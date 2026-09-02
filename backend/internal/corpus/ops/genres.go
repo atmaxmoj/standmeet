@@ -1,16 +1,24 @@
-// genres.go —— 这个域有哪几个 genre。**只有一处回答。**
+// genres.go — which genres this domain has. **Answered in exactly one
+// place.**
 //
-// 拆出来是因为这件事被答错过:subjectivity 曾经在三处白名单里各自缺席 —— corpus.get
-// 拒绝它(错误信息还写着 "genre must be 'raw', 'wiki' or 'output'",一句否认它存在的话)、
-// assets.upload 拒绝它、corpus.delete 那边则手写了一个 `if genre != subjectivity` 绕开检查。
-// 三处各自回答"哪些 genre 算数",于是同一个 genre 在写口、读口、删口上是三个不同的答案。
+// Split out because this got answered wrong before: subjectivity used to be
+// missing from three separate allowlists — corpus.get rejected it (the error
+// message even read "genre must be 'raw', 'wiki' or 'output'", a sentence
+// denying it existed), assets.upload rejected it, and corpus.delete had a
+// hand-written `if genre != subjectivity` working around the check. Three
+// places each answered "which genres count", so the same genre had three
+// different answers across the write, read, and delete paths.
 //
-// 后来还剩最后一处不一致:写口只认三个,理由是"自我模型是边想边写出来的,不是填出来的"。
-// 那是一句被写进代码的偏好,不是产品决定 —— owner 说了它要跟别的 genre 一样。于是
-// **读、写、删、挂素材现在是同一份名单**,这个文件只需要一个函数。
+// One inconsistency was left after that: the write path only recognized
+// three, with the rationale "the self-model is worked out in conversation,
+// not typed into a form". That was a preference baked into code, not a
+// product decision — the owner said it should work like every other genre.
+// So **read, write, delete, and attach-asset now share one list**, and this
+// file needs only one function.
 //
-// 加一个 genre:改这里。某条口真要收得更窄,在这里写清楚为什么 —— 而不是在那条口自己
-// 的 switch 里悄悄少写一个 case。
+// To add a genre: change it here. If some particular path genuinely needs a
+// narrower list, write down why right here — not by quietly dropping a case
+// from that path's own switch statement.
 
 package ops
 
@@ -18,7 +26,7 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// 四个 genre —— 每个面、每条口用同一套词。
+// The four genres — the same vocabulary across every surface and every path.
 const (
 	genreRaw          = "raw"
 	genreWiki         = "wiki"
@@ -26,7 +34,8 @@ const (
 	genreSubjectivity = "subjectivity"
 )
 
-// requireGenre —— 这个域认哪几个 genre。读 / 写 / 删 / 挂素材共用。
+// requireGenre — which genres this domain recognizes. Shared by read / write
+// / delete / attach-asset.
 func requireGenre(genre string) error {
 	switch genre {
 	case genreRaw, genreWiki, genreOutput, genreSubjectivity:

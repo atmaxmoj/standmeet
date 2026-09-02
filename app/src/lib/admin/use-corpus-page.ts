@@ -35,8 +35,10 @@ export function useCorpusPage<T>(pagePath: string, itemSchema: z.ZodType<T>): Co
     busyRef.current = true;
     setLoading(true);
     const cur = reset ? undefined : cursorRef.current;
-    // pagePath 可能已经带着自己的 query(比如 `?tag=math`),所以分隔符要看它有没有 `?` —— 写死
-    // `?cursor=` 会把 tag 顶掉,而那正好是「筛选悄悄退化成筛一页」的另一种写法(F-L-23)。
+    // pagePath may already carry its own query (e.g. `?tag=math`), so the separator
+    // must check whether it already has a `?` — hardcoding `?cursor=` would clobber
+    // the tag, which is just another way for "filtered" to silently decay into
+    // "filtered on one page" (F-L-23).
     const sep = pagePath.includes('?') ? '&' : '?';
     const qs = cur ? `${sep}cursor=${encodeURIComponent(cur)}` : '';
     try {

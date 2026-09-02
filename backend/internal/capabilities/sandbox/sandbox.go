@@ -1,17 +1,19 @@
 // Package sandbox runs untrusted owner-curated scripts inside disposable
-// docker containers. 设计源自 legacy
-// standmeet-server/gateway/src/runtime/sandbox.ts，移植成 Go subprocess
-// 调用 `docker run`。
+// docker containers. Design ported from legacy
+// standmeet-server/gateway/src/runtime/sandbox.ts, reworked as a Go
+// subprocess call to `docker run`.
 //
-// 安全模型：
-//   - --network=none  → 脚本进不了网
-//   - --read-only     → root fs 不可写
-//   - --tmpfs /tmp    → 64MB 临时盘
-//   - --memory + --cpus → 资源上限
-//   - --rm            → 容器跑完就 GC
-//   - args 通过 ARGS env 传 JSON 字符串，脚本用语言内置 env 拆
+// Security model:
+//   - --network=none  → script can't reach the network
+//   - --read-only     → root fs is not writable
+//   - --tmpfs /tmp    → 64MB scratch disk
+//   - --memory + --cpus → resource caps
+//   - --rm            → container is GC'd once it finishes
+//   - args are passed as a JSON string via the ARGS env var; the script
+//     parses it with the language's built-in env access
 //
-// Runner 是接口让 dev/prod 走 docker、未受信环境走 disabled。
+// Runner is an interface so dev/prod use docker while untrusted
+// environments fall back to disabled.
 package sandbox
 
 import (
@@ -22,20 +24,21 @@ import (
 	"time"
 )
 
-// Runner —— sandbox 后端抽象。实现：DockerRunner / DisabledRunner。
+// Runner —— sandbox backend abstraction. Implementations: DockerRunner /
+// DisabledRunner.
 type Runner interface {
 	Run(ctx context.Context, in *RunInput) (Result, error)
 }
 
-// RunInput —— Run 入参。
+// RunInput —— Run's arguments.
 type RunInput struct {
 	Language string // 'python' | 'bash' | 'javascript'
-	Script   string // 脚本源码
-	ArgsJSON string // JSON string, 传给脚本的 ARGS env
+	Script   string // the script source
+	ArgsJSON string // JSON string, passed to the script as the ARGS env var
 	Timeout  time.Duration
 }
 
-// Result —— 脚本执行结果。
+// Result —— the script's execution result.
 type Result struct {
 	Stdout   string
 	Stderr   string
@@ -43,10 +46,10 @@ type Result struct {
 	TimedOut bool
 }
 
-// ErrDisabled —— SANDBOX_DRIVER=disabled 或 driver 未初始化。
+// ErrDisabled —— SANDBOX_DRIVER=disabled, or the driver was never initialized.
 var ErrDisabled = errors.New("sandbox: disabled")
 
-// ErrUnsupportedLanguage —— language 不在白名单。
+// ErrUnsupportedLanguage —— language isn't on the allowlist.
 var ErrUnsupportedLanguage = errors.New("sandbox: unsupported language")
 
 const (
@@ -58,23 +61,25 @@ const (
 	killGracePeriod = 5 * time.Second
 )
 
-// languageImages —— 白名单 + 对应 docker image。owner 写 skill script 时
-// 选其中一种 language。新加语言走 PR review。
+// languageImages —— the allowlist + its docker image for each. Owner picks
+// one of these languages when writing a skill script. Adding a new language
+// goes through PR review.
 var languageImages = map[string]string{
 	"python":     "python:3.11-slim",
 	"bash":       "bash:5",
 	"javascript": "node:20-slim",
 }
 
-// DockerRunner —— 通过 docker CLI 调用本机 docker daemon (通常 mount
-// /var/run/docker.sock 进 backend 容器)。
+// DockerRunner —— calls the local docker daemon via the docker CLI
+// (typically by mounting /var/run/docker.sock into the backend container).
 type DockerRunner struct{}
 
-// NewDockerRunner 构造 DockerRunner。
+// NewDockerRunner constructs a DockerRunner.
 func NewDockerRunner() *DockerRunner { return &DockerRunner{} }
 
-// Run 执行脚本。返回 Result + err；err 只在 setup 阶段非 nil
-// (unsupported language / docker 不可用)，脚本本身退出码非 0 走 Result。
+// Run executes the script. Returns Result + err; err is non-nil only during
+// setup (unsupported language / docker unavailable) — the script's own
+// nonzero exit code is reported through Result instead.
 func (*DockerRunner) Run(ctx context.Context, in *RunInput) (Result, error) {
 	image, ok := languageImages[in.Language]
 	if !ok {
@@ -88,14 +93,17 @@ func (*DockerRunner) Run(ctx context.Context, in *RunInput) (Result, error) {
 	return runDockerCmd(cmd, timeout)
 }
 
-// buildDockerCmd —— 拼 `docker run --rm --network=none ...`。脚本通过
-// stdin 喂语言 interpreter？这里跟 legacy 一致用 -c/-e 在 argv 传。
+// buildDockerCmd —— assembles `docker run --rm --network=none ...`. Feed the
+// script to the interpreter via stdin? No — matching legacy, it's passed
+// via -c/-e in argv instead.
 //
-// docker 命令路径硬编码 + 参数全部受控来自语言白名单 + owner-controlled
-// script content；脚本本身在 --network=none + --read-only sandbox 里跑，
-// shell-injection 攻击面在容器外是 zero。
+// The docker command path is hardcoded, and every argument is controlled:
+// it comes from the language allowlist plus owner-controlled script
+// content; the script itself runs inside the --network=none + --read-only
+// sandbox, so the shell-injection attack surface outside the container is
+// zero.
 //
-//nolint:gosec // docker subprocess 参数受控；脚本内容在沙箱内执行。
+//nolint:gosec // docker subprocess args are controlled; script content runs inside the sandbox.
 func buildDockerCmd(ctx context.Context, image string, in *RunInput) *exec.Cmd {
 	argsEnv := in.ArgsJSON
 	if argsEnv == "" {
@@ -127,8 +135,9 @@ func interpreterFor(language string) [2]string {
 	}
 }
 
-// runDockerCmd —— exec docker、wait、cap output。timeout 用 context cancel
-// 触发 `docker run` 被 kill，container --rm 自动清理。
+// runDockerCmd —— exec docker, wait, cap output. Timeout triggers a context
+// cancel that kills `docker run`; the container's --rm cleans it up
+// automatically.
 func runDockerCmd(cmd *exec.Cmd, timeout time.Duration) (Result, error) {
 	deadline := time.Now().Add(timeout)
 	stdoutBuf := newCappedBuffer(maxOutputBytes)
@@ -160,8 +169,9 @@ func waitOrKill(cmd *exec.Cmd, deadline time.Time) bool {
 	}
 }
 
-// killAndDrain —— deadline 到了：SIGKILL + 等 Wait 落地 (最多 killGracePeriod)。
-// drainWait 失败不影响调用方，Result.ExitCode 已经从 ProcessState 拿。
+// killAndDrain —— deadline hit: SIGKILL, then wait for Wait to land (up to
+// killGracePeriod). A failed drain doesn't affect the caller — Result.ExitCode
+// is already read from ProcessState.
 func killAndDrain(cmd *exec.Cmd, done <-chan error) {
 	if kerr := cmd.Process.Kill(); kerr != nil {
 		_ = kerr
@@ -179,21 +189,23 @@ func waitExitCode(cmd *exec.Cmd) int {
 	return cmd.ProcessState.ExitCode()
 }
 
-// DisabledRunner —— 未启用 sandbox 时返回 ErrDisabled。生产环境默认值，
-// owner 显式开 SANDBOX_DRIVER=docker 才走 DockerRunner。
+// DisabledRunner —— returns ErrDisabled when the sandbox isn't enabled. This
+// is the production default; only DockerRunner runs, and only once the owner
+// explicitly sets SANDBOX_DRIVER=docker.
 type DisabledRunner struct{}
 
-// NewDisabledRunner 构造 DisabledRunner。
+// NewDisabledRunner constructs a DisabledRunner.
 func NewDisabledRunner() *DisabledRunner { return &DisabledRunner{} }
 
-// Run 永远返 ErrDisabled。
+// Run always returns ErrDisabled.
 func (*DisabledRunner) Run(_ context.Context, _ *RunInput) (Result, error) {
 	return Result{}, ErrDisabled
 }
 
-// FromEnv —— 按 driver 字符串选 Runner。空 / "disabled" → DisabledRunner；
-// "docker" → DockerRunner。composition root 调。Driver-selection 工厂必须
-// 返 interface (allow-listed in .golangci.yml ireturn)。
+// FromEnv —— picks a Runner from the driver string. Empty / "disabled" →
+// DisabledRunner; "docker" → DockerRunner. Called by the composition root.
+// A driver-selection factory must return an interface (allow-listed in
+// .golangci.yml ireturn).
 func FromEnv(driver string) Runner {
 	if driver == "docker" {
 		return NewDockerRunner()

@@ -1,8 +1,10 @@
-// provider.tsx —— context 把 createClient 出来的实例传下去；hook
-// useStandMeet() 读它。SSR-safe：provider 接收 client 实例（已构造好的）
-// 而不是 baseURL，让 server component 也能在 root 处构造一次。
+// provider.tsx —— a context that passes down the instance produced by
+// createClient; the useStandMeet() hook reads it. SSR-safe: the provider takes
+// an already-constructed client instance rather than a baseURL, so a server
+// component can also construct it once at the root.
 //
-// 显式 typing 让 useStandMeet() 在没 provider 时 throw，不返 undefined。
+// Explicit typing makes useStandMeet() throw when there's no provider, instead
+// of returning undefined.
 
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';

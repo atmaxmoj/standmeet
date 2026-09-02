@@ -1,2 +1,3 @@
-// Package repo —— owner 域的仓储层（over owner/db + pgstore）。对外经 internal/owner/facade 暴露。
+// Package repo —— the repository layer of the owner domain (over owner/db + pgstore).
+// Exposed externally via internal/owner/facade.
 package repo

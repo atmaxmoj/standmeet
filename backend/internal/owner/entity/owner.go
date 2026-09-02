@@ -5,12 +5,13 @@ import (
 	"time"
 )
 
-// Owner 是 owner aggregate 的根。只放"身份"字段——email / handle / 名字 /
-// 位置 / 创建时间。各种 setting 不在这里，由 Settings 聚合内部值对象
-// 承载（AI provider / BYOAI / domain 等）。
+// Owner is the root of the owner aggregate. Holds only "identity" fields —
+// email / handle / name / location / created-at. The various settings
+// live outside this struct, carried by the Settings aggregate's internal
+// value objects (AI provider / BYOAI / domain, etc).
 //
-// 字段顺序按 govet fieldalignment：time.Time 在前（内部 ptr at 16）；string
-// 集中段。
+// Field order follows govet fieldalignment: time.Time first (internal ptr
+// at 16); strings grouped after.
 type Owner struct {
 	CreatedAt time.Time
 	ID        string
@@ -18,51 +19,60 @@ type Owner struct {
 	Handle    string
 	FullName  string
 	Location  string
-	// PublicURL —— 完整对外 URL (scheme+host+port)。claim 必填，admin 可改。
-	// SEO canonical / QR URL 都从这一列读，无 env / no fallback / no default。
+	// PublicURL —— the full outward-facing URL (scheme+host+port). Required
+	// at claim time, editable in admin. SEO canonical / QR URL both read
+	// from this column, no env / no fallback / no default.
 	PublicURL string
-	// ProfileTimezone —— IANA tz name ('America/New_York' / 'Asia/Shanghai')。
-	// 用于 BookingPolicy / calendar.book 解释 working_hours / weekday；空串
-	// fallback UTC。owner 在 admin profile 改。
+	// ProfileTimezone —— IANA tz name ('America/New_York' / 'Asia/Shanghai').
+	// Used by BookingPolicy / calendar.book to interpret working_hours /
+	// weekday; empty string falls back to UTC. Owner edits it in admin
+	// profile.
 	ProfileTimezone string
-	// PendingEmail —— 已请求、但**还没被证明收得到信**的新邮箱。空串 = 没有待确认的改动。
-	// 它不是身份：登录、恢复短语都还认 Email 那一列。面板要把它显示出来 ——
-	// 看不见的待确认状态 = owner 不知道自己按下的那一下有没有生效。
+	// PendingEmail —— a requested new email that **hasn't yet been proven
+	// reachable**. Empty string = no pending change. It isn't identity:
+	// login and the recovery phrase still key off the Email column. The
+	// panel must show it — an invisible pending state means the owner
+	// doesn't know whether the button they clicked actually took effect.
 	PendingEmail string
 }
 
-// Settings —— owner 聚合的"配置切面"，跟 identity 分开。
-// AI / BYOAI / Domain 三组互相独立的 setting；后续加 connector / SEO 配置
-// 等也归这里。
+// Settings —— the owner aggregate's "config facet", separate from
+// identity. Three independent setting groups: AI / BYOAI / Domain; future
+// additions like connector / SEO config also belong here.
 //
-// 这是 Owner aggregate 的值对象（不是独立 aggregate root），跟着 Owner 一起
-// 走事务边界——save AI key 跟 save BYOAI 各自落 DB，但都通过 Repo。
+// This is a value object of the Owner aggregate (not its own aggregate
+// root), and travels with Owner across the transaction boundary — saving
+// the AI key and saving BYOAI each land in the DB separately, but both go
+// through Repo.
 type Settings struct {
 	AI    AISettings
 	BYOAI BYOAISettings
 }
 
-// AISettings —— owner 自己的 inference provider 配置（给真访客 chat
-// 用）；明文 key 不出 repo，外层只看 KeyConfigured bool。
+// AISettings —— the owner's own inference provider config (used for real
+// visitor chat); the plaintext key never leaves the repo, the outer layer
+// only sees the KeyConfigured bool.
 type AISettings struct {
 	Provider      string // 'anthropic' | 'openai' | 'custom' | ...
-	Endpoint      string // owner 显式设过的 base URL(SoT;空 = 用 preset 默认)
-	Model         string // owner 显式设过的 model(SoT;空 = 用 preset 默认)
+	Endpoint      string // base URL the owner explicitly set (SoT; empty = use preset default)
+	Model         string // model the owner explicitly set (SoT; empty = use preset default)
 	KeyConfigured bool
 }
 
-// BYOAISettings —— "访客自带 key" 模式开关 + 允许的 provider 列表 +
-// 给访客看的说明文案。
+// BYOAISettings —— the "visitor brings their own key" mode toggle + the
+// list of allowed providers + the explanation text shown to visitors.
 type BYOAISettings struct {
 	PublicBlurb string
 	Providers   []string
 	Enabled     bool
 }
 
-// CreateOwnerInput 是 usecase 层传入 Repository 的创建参数。
-// PasswordHash 已经 hash 好（usecase 负责调 hasher），Repository 不碰明文。
-// PublicURL 是完整的对外 URL（scheme + host + 可选 port），claim 必填，
-// SEO canonical / QR URL 都从 owner.PublicURL 读，没有 env fallback。
+// CreateOwnerInput is the creation parameter the usecase layer passes to
+// Repository. PasswordHash is already hashed (usecase calls the hasher),
+// Repository never touches the plaintext. PublicURL is the full
+// outward-facing URL (scheme + host + optional port), required at claim
+// time; SEO canonical / QR URL both read from owner.PublicURL, no env
+// fallback.
 type CreateOwnerInput struct {
 	Email        string
 	PasswordHash string
@@ -71,29 +81,41 @@ type CreateOwnerInput struct {
 	PublicURL    string
 }
 
-// Owner-scoped sentinel errors. 其它 aggregate 的 sentinel 在各自文件。
+// Owner-scoped sentinel errors. Sentinels for other aggregates live in
+// their own files.
 var (
-	// ErrEmailTaken —— claim 时 email 已被占用（v1 不该发生但保留）。
+	// ErrEmailTaken —— email already in use at claim time (shouldn't happen
+	// in v1 but kept as a guard).
 	ErrEmailTaken = errors.New("email already taken")
-	// ErrPendingEmailNotFound —— 确认链接对不上任何一条待确认的改动：token 错、已过期、
-	// 或者已经用过了。三种**故意**收成一个错 —— 对不认识这个 token 的人，
-	// 区分它们只是在告诉他猜得对不对。分辨"过期"走另一条路（FindByPendingToken），
-	// 那条路只对 token 确实存在的人开。
+	// ErrPendingEmailNotFound —— the confirmation link doesn't match any
+	// pending change: wrong token, expired, or already used. The three
+	// cases are **deliberately** collapsed into one error — for someone
+	// who doesn't know this token, distinguishing them would only tell
+	// them whether their guess was right. Telling "expired" apart goes
+	// through a different path (FindByPendingToken), one open only to
+	// someone whose token genuinely exists.
 	ErrPendingEmailNotFound = errors.New("pending email change not found")
-	// ErrHandleTaken —— claim 时 handle 已被占用。
+	// ErrHandleTaken —— handle already in use at claim time.
 	ErrHandleTaken = errors.New("handle already taken")
-	// ErrOwnerNotFound —— 按 id / email 查 owner 未命中（login 时不暴露"用户存在与否"）。
+	// ErrOwnerNotFound —— lookup by id / email found no owner (login
+	// doesn't reveal "does this user exist").
 	ErrOwnerNotFound = errors.New("owner not found")
-	// ErrUnauthorized —— 鉴权失败（密码错、session 失效、token 错等的统一外部码）。
+	// ErrUnauthorized —— auth failure (wrong password, dead session, bad
+	// token, etc), the unified external code.
 	ErrUnauthorized = errors.New("unauthorized")
-	// ErrPublicURLNotSet —— owners.public_url 为空。claim 时已要求必填，
-	// 这里防御漏网（admin 改成空字符串、老数据等）；调用方应引导 owner 去
-	// /admin 填好再重试。
+	// ErrPublicURLNotSet —— owners.public_url is empty. Already required
+	// at claim time; this guards against edge cases slipping through
+	// (admin cleared it to an empty string, old data, etc). Caller should
+	// direct the owner to /admin to fill it in and retry.
 	ErrPublicURLNotSet = errors.New("public_url not set for owner")
-	// ErrProviderNotFound —— provider 本子里没有这一条（id 不对、或不属于这个 owner）。
-	// 也用于"这个 owner 一个 provider 都没有"：解析链退到默认那一档时没有可退的了。
+	// ErrProviderNotFound —— no such entry in the provider list (bad id,
+	// or it doesn't belong to this owner). Also used for "this owner has
+	// no providers at all": nothing left to fall back to when the
+	// resolution chain drops to the default tier.
 	ErrProviderNotFound = errors.New("provider not found")
-	// ErrProviderIsDefault —— 想删的是默认那条。删了就没有可退的了，所以拦住；
-	// owner 要么先把默认挪到别条，要么这条留着。
+	// ErrProviderIsDefault —— trying to delete the default entry. Deleting
+	// it would leave nothing to fall back to, so it's blocked; the owner
+	// must either move the default to another entry first, or keep this
+	// one.
 	ErrProviderIsDefault = errors.New("provider is the default")
 )

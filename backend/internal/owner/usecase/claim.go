@@ -1,5 +1,6 @@
-// claim.go —— first-run「claim this instance」编排:建 owner + 密码 + setup-token
-// 校验 + 种 public role/prompt。跨 owner/access/marketplace/session,是 owner 域的入驻用例。
+// claim.go — orchestrates first-run "claim this instance": creates the owner + password +
+// setup-token validation + seeds the public role/prompt. Spans owner/access/marketplace/
+// session; this is the owner domain's onboarding usecase.
 
 package usecase
 
@@ -17,7 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// ClaimDeps 把 ClaimInstance 需要的依赖打包，避免参数列表超长。
+// ClaimDeps bundles the dependencies ClaimInstance needs, to avoid an overlong param list.
 type ClaimDeps struct {
 	Instance *repo.InstanceRepo
 	Skills   *marketplace.SkillRepo
@@ -25,23 +26,23 @@ type ClaimDeps struct {
 	Roles    *access.RoleRepo
 }
 
-// ClaimInput 是 ClaimInstance 的入参。
+// ClaimInput is the input to ClaimInstance.
 type ClaimInput struct {
 	Token     string
 	Email     string
 	Password  string
 	Handle    string
 	FullName  string
-	PublicURL string // 完整 URL，含 scheme + host (+ port)。SEO canonical / QR 全用这个。
+	PublicURL string // Full URL, incl. scheme + host (+ port). Used by SEO canonical / QR too.
 }
 
-// ClaimInstance 跑首次 claim 流程：
-//  1. 校验 input 必填字段。
-//  2. 把 setup token 明文 hash + password 走 Argon2id。
-//  3. 在事务里 atomic claim instance + 创建 owner。
+// ClaimInstance runs the first-time claim flow:
+//  1. Validate input's required fields.
+//  2. Hash the plaintext setup token + run password through Argon2id.
+//  3. Atomically claim instance + create owner inside a transaction.
 //
-// 返回的 Owner 不含 password；password 已经在 input 里被 hash 后写进 DB。
-// pointer 接收 *ClaimInput 避免 gocritic hugeParam。
+// The returned Owner has no password; the password was hashed and written to the DB
+// from input. Takes *ClaimInput by pointer to avoid gocritic hugeParam.
 func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (entity.Owner, error) {
 	if err := validateClaimInput(in); err != nil {
 		return entity.Owner{}, err
@@ -74,8 +75,8 @@ func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (entity.
 	return created, nil
 }
 
-// seedClaimSkills —— claim 成功后 seed 内置 skills；失败 log + continue，不
-// 阻塞 claim（owner 仍能 login）。
+// seedClaimSkills — after a successful claim, seed built-in skills; on failure, log +
+// continue rather than blocking the claim (the owner can still log in).
 func seedClaimSkills(ctx context.Context, deps ClaimDeps, ownerID string) {
 	if deps.Skills == nil {
 		return
@@ -85,8 +86,8 @@ func seedClaimSkills(ctx context.Context, deps ClaimDeps, ownerID string) {
 	}
 }
 
-// seedClaimPublicRole —— claim 成功后种 public prompt + public role；失败
-// log + continue，不阻塞 claim。详细见 [[iam-role-pivot-plan]]。
+// seedClaimPublicRole — after a successful claim, seeds the public prompt + public
+// role; on failure, log + continue rather than blocking the claim. See [[iam-role-pivot-plan]].
 func seedClaimPublicRole(ctx context.Context, deps ClaimDeps, ownerID string) {
 	if deps.Prompts == nil || deps.Roles == nil {
 		return
@@ -96,7 +97,7 @@ func seedClaimPublicRole(ctx context.Context, deps ClaimDeps, ownerID string) {
 	}
 }
 
-// validateClaimInput 用 slice + slices.Contains 让 cyclo ≤ 2。
+// validateClaimInput uses slice + slices.Contains to keep cyclo <= 2.
 func validateClaimInput(in *ClaimInput) error {
 	fields := []string{in.Token, in.Email, in.Password, in.Handle, in.FullName, in.PublicURL}
 	if slices.Contains(fields, "") {
@@ -108,5 +109,6 @@ func validateClaimInput(in *ClaimInput) error {
 	return nil
 }
 
-// ValidPublicURL —— 必须 http:// 或 https:// 开头、host 非空。详细 URL 解析
-// 在 NormalizePublicURL；这里只挡明显错的（空 scheme / 写了纯 host）。
+// ValidPublicURL — must start with http:// or https://, host must be non-empty. Full URL
+// parsing lives in NormalizePublicURL; this only blocks the obviously wrong (empty scheme
+// / a bare host).

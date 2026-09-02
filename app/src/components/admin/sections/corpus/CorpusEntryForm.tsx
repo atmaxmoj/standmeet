@@ -1,7 +1,8 @@
-// CorpusEntryForm —— wiki / output 通用的 create / edit 表单。
-// 字段：title / body / tags（逗号分隔）。状态机全部在
-// lib/admin/use-corpus-form.ts，本文件只做 presentation。
-// retrieval-redesign 后 visibility 字段砍掉，access ACL 走 access_codes.corpus_permissions。
+// CorpusEntryForm —— the create / edit form shared by wiki / output.
+// Fields: title / body / tags (comma-separated). The whole state machine lives in
+// lib/admin/use-corpus-form.ts; this file is presentation only.
+// After the retrieval redesign the visibility field was dropped — access ACL now
+// goes through access_codes.corpus_permissions.
 
 'use client';
 
@@ -15,13 +16,15 @@ import {
 } from '@/lib/admin/use-corpus-form';
 import type { CorpusEntryInput, PromoteInput } from '@/lib/admin/use-corpus-actions';
 
-// CorpusParentOption —— 「挂在哪个节点下」下拉的一项(某条已有 entry)。
+// CorpusParentOption —— one option in the "attach under which node" dropdown
+// (an existing entry).
 export interface CorpusParentOption {
   id: string;
   label: string;
 }
 
-// corpusParentOptions —— rows → parent 候选。label 优先用树地址(path),否则 title。
+// corpusParentOptions —— rows → parent candidates. Label prefers the tree address
+// (path), falling back to title.
 export function corpusParentOptions(
   rows: readonly { id: string; title: string; path?: string | null }[],
 ): CorpusParentOption[] {
@@ -35,27 +38,35 @@ export interface CorpusEntryFormProps {
   onCancel: () => void;
   submitLabel: string;
   testidPrefix: string;
-  // heading —— 这张卡管哪一半。**只有旁边还站着另一张带自己提交的卡时才传**（编辑态：下面
-  // 那张 PUBLIC LANDING）。UX-60 的最后一半：两个提交边界叠在一个滚动面里，下面那张卡有名字、
-  // 上面这张没有，于是「按哪个」这件事只有一边说得清。promote / 新建那两条路只有一个提交，
-  // 给它安个标题反而是凭空多一层结构。
+  // heading —— which half this card owns. **Pass it only when another card with
+  // its own submit sits alongside it** (edit mode: the PUBLIC LANDING card below).
+  // The tail end of UX-60: two submit boundaries stacked in one scrolling pane —
+  // the card below has a name, this one doesn't, so only one side is legible about
+  // "which button do I press". The promote / create paths have only one submit,
+  // so giving them a heading would just be structure for its own sake.
   heading?: string;
   bodyVisible?: boolean;
   parentOptions?: readonly CorpusParentOption[];
-  // renderAssets —— 素材区。写成回调而不是一个 ReactNode,是因为"插进正文"要改 body,
-  // 而 body 的状态在这个表单里 —— 把写入口递出去,比让素材区自己拿一份 body 的副本安全。
-  // 新建时没有 id,挂不了素材,所以这个 prop 是可选的:调用方只在编辑态传。
+  // renderAssets —— the assets section. It's a callback rather than a plain
+  // ReactNode because "insert into body" needs to mutate body, and body's state
+  // lives in this form — handing out a write entry point is safer than letting
+  // the assets section keep its own copy of body. On create there's no id yet
+  // so no assets can attach, hence this prop is optional: callers pass it only
+  // in edit mode.
   renderAssets?: (api: CorpusFormAssetsAPI) => ReactNode;
 }
 
-// CorpusFormAssetsAPI —— 素材区能对这张表单做的事。
+// CorpusFormAssetsAPI —— what the assets section can do to this form.
 //
-// 封面走表单而不是单发一个请求:corpus.update 对 hero 之外的字段是**整份替换**,
-// 只发一个 cover_image_asset_id 会把标题和正文一起清空。所以这里只改表单状态,
-// owner 点 save 时跟正文一起提交。
+// The cover goes through the form rather than firing its own request:
+// corpus.update **fully replaces** every field other than hero, so sending just
+// a cover_image_asset_id would wipe out title and body along with it. So this
+// only mutates form state, and it gets submitted together with the body when
+// the owner clicks save.
 export interface CorpusFormAssetsAPI {
   insertIntoBody: (markdown: string) => void;
-  // dropFromBody —— 撤掉素材时把正文里引它的那张图一并去掉（F-L-50）。
+  // dropFromBody —— when an asset is dropped, also remove the image referencing
+  // it from the body (F-L-50).
   dropFromBody: (assetID: string) => void;
   setCover: (assetID: string) => void;
   coverAssetID: string;
@@ -92,8 +103,10 @@ export function CorpusEntryForm(props: CorpusEntryFormProps) {
   );
 }
 
-// BodySlot —— 正文 + 紧跟着的素材区。两者绑在一起:素材区的"插进正文"要写 body,
-// 而 promote 那条路根本没有正文,也就没有可挂素材的地方。
+// BodySlot —— the body field plus the assets section right after it. The two are
+// bound together: the assets section's "insert into body" needs to write body,
+// and the promote path has no body at all, so there's nowhere for assets to
+// attach there either.
 function BodySlot(
   { form, testid, visible, renderAssets }: {
     form: CorpusFormHook;
@@ -104,9 +117,11 @@ function BodySlot(
 ) {
   const api: CorpusFormAssetsAPI = {
     insertIntoBody: (markdown) => { form.setBody(appendBlock(form.body, markdown)); },
-    // dropFromBody —— insertIntoBody 的另一半（F-L-50）。撤掉一份素材时，正文里那条引用
-    // 必须跟着走：不然它留在原地，访客页上是一个裂图 + 内部文件名，而 owner 在面板上
-    // 看不到任何异样。正文的状态住在这儿，所以清理也归这儿。
+    // dropFromBody —— the other half of insertIntoBody (F-L-50). When an asset
+    // is dropped, the reference to it in the body must go too: otherwise it's
+    // left behind as a broken image + internal filename on the visitor page,
+    // while the owner's panel shows nothing unusual. Body state lives here, so
+    // the cleanup belongs here too.
     dropFromBody: (assetID) => { form.setBody(dropAssetRef(form.body, assetID)); },
     setCover: (assetID) => { form.setCoverAssetID(assetID); },
     coverAssetID: form.coverAssetID,
@@ -124,15 +139,21 @@ function BodySlot(
   ) : null;
 }
 
-// HeroFields —— hero 的另外两样。图在素材区里选(那儿才看得见有哪些图),
-// **这句话和这个色调必须在旁边** —— 只做图那一样的话,owner 设完封面看到的是标题被
-// 顶上去当 headline,而他没有任何办法改它。访客那侧三样都渲。
+// HeroFields —— the other two hero fields. The image is picked in the assets
+// section (that's the only place you can see what images exist) —
+// **this headline text and this hue must sit next to it** — doing only the
+// image would leave the owner, after setting a cover, seeing the title bumped
+// up to serve as headline with no way to change it. The visitor side renders
+// all three.
 //
-// 导出是给 raw 用的:raw 的行内编辑表单不走 CorpusEntryForm(它没有 title,字段也不同),
-// 但 hero 是同一件事 —— 在那边手抄一份的话,两处迟早长得不一样。
-// 所以入参收窄成这四个值,而不是整个表单 hook。
-// COVER_HUES —— 后端认的三个字面量(entity/cover.go)。**不翻译** —— 它们是存进
-// 数据库的值,不是给人看的文案;翻了就存不回去。
+// Exported for raw's use: raw's inline edit form doesn't go through
+// CorpusEntryForm (it has no title, its fields differ), but hero is the same
+// concern there — hand-copying it there would eventually let the two drift
+// apart. Hence the params are narrowed to these four values instead of the
+// whole form hook.
+// COVER_HUES —— the three literals the backend recognizes (entity/cover.go).
+// **Do not translate** — these are values stored in the database, not
+// user-facing copy; translating them would break round-tripping to storage.
 const COVER_HUES = ['amber', 'violet', 'acid'] as const;
 
 export interface HeroFieldsProps {
@@ -243,9 +264,11 @@ function BodyField({ form, testid }: { form: CorpusFormHook; testid: string }) {
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
         {t('body')}
       </span>
-      {/* 这个语料库的全部意义是长文笔记，而这一格曾是整屏最小的框之一（5 行，约 120px），
-          下面的 FILES / COVER LINE / HUE / TAGS / META DESCRIPTION 一路铺到底 —— 比例反了
-          （UX-61）。给正文足够的行数，并允许 owner 自己拉大：写长文的人自己知道要多大。 */}
+      {/* The whole point of this corpus is long-form notes, yet this box used to be
+          one of the smallest on the screen (5 rows, ~120px) while FILES / COVER LINE /
+          HUE / TAGS / META DESCRIPTION ran all the way down — the proportions were
+          backwards (UX-61). Give the body enough rows and let the owner resize it
+          themselves: whoever is writing long-form knows how big they need it. */}
       <textarea
         rows={16}
         value={form.body}
@@ -337,11 +360,15 @@ function FormActions(props: ActionsProps) {
   );
 }
 
-// CitableField —— show_as_source（AI 读了之后，答案里列不列出处）。
+// CitableField —— show_as_source (whether the AI lists this as a source under
+// its answer, after having read it).
 //
-// 文案在 i18n/messages/en.json 的 corpus.citable.*。那段 help 不是装饰：读到（能不能进 AI 的
-// 上下文，由 role/code 的 corpus URI 决定）和引用（答案下面列不列出处，就是这个勾）**不是一回事**，
-// 不讲明白，owner 面对的就是一个没有语境的勾，只会猜错。
+// Copy lives in i18n/messages/en.json under corpus.citable.*. That help text
+// isn't decoration: being read (whether it enters the AI's context, decided by
+// the role/code's corpus URI) and being cited (whether it's listed as a source
+// under the answer, i.e. this checkbox) are **not the same thing**. Without
+// spelling that out, the owner faces a checkbox with no context and can only
+// guess wrong.
 function CitableField({ form, testid }: { form: CorpusFormHook; testid: string }) {
   const t = useTranslations('adminCorpus.citable');
   return (

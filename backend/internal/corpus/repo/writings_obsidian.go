@@ -1,5 +1,6 @@
-// writings_obsidian.go —— WritingRepo 上跟 Obsidian sync 相关的两条 method，
-// 拆出来让 writings.go 不超 350-line cap，且让 obsidian 字段语义聚焦一处。
+// writings_obsidian.go — the two WritingRepo methods related to Obsidian sync, split out
+// so writings.go stays under the 350-line cap and the obsidian field semantics live in
+// one place.
 
 package repo
 
@@ -15,8 +16,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// GetByObsidianSourcePath —— Obsidian import 时按 vault 内相对路径找已经
-// import 过的行；命中 = re-import / 没命中 = 新行。
+// GetByObsidianSourcePath — during Obsidian import, finds an already-imported row by its
+// vault-relative path; a hit means a re-import, a miss means a new row.
 func (r *WritingRepo) GetByObsidianSourcePath(
 	ctx context.Context, ownerID, sourcePath string,
 ) (entity.Writing, error) {
@@ -37,9 +38,10 @@ func (r *WritingRepo) GetByObsidianSourcePath(
 	return toDomainWriting(&row), nil
 }
 
-// SetObsidianMeta —— Obsidian import 成功 SaveWriting 之后调用：标记这行
-// writing 是从 vault 来的 (source_path)，imported_at = now()。下次 re-import
-// 时 updated_at vs imported_at 判 owner 是否在 web 上覆写过。
+// SetObsidianMeta — called after a successful SaveWriting during Obsidian import: marks
+// this writing row as coming from the vault (source_path), imported_at = now(). On the
+// next re-import, updated_at vs imported_at decides whether the owner overwrote it on
+// the web.
 func (r *WritingRepo) SetObsidianMeta(
 	ctx context.Context, ownerID, writingID, sourcePath string,
 ) error {

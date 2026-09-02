@@ -1,4 +1,4 @@
-// use-wiki —— /admin/wiki 状态。GET /api/admin/corpus/wiki 返 list。
+// use-wiki —— /admin/wiki state. GET /api/admin/corpus/wiki returns a list.
 
 'use client';
 

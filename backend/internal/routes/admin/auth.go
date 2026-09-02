@@ -1,5 +1,5 @@
-// auth.go —— admin login / logout / csrf endpoints。
-// 都是 thin handler：解 body / 调 usecase / 写 cookie。
+// auth.go — admin login / logout / csrf endpoints.
+// All thin handlers: decode the body / call the usecase / write the cookie.
 
 package admin
 
@@ -15,9 +15,9 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-const ownerSessionMaxAge = 24 * 60 * 60 // 秒；和 OwnerSessionStore 的 TTL 对齐。
+const ownerSessionMaxAge = 24 * 60 * 60 // seconds; aligned with OwnerSessionStore's TTL.
 
-// AuthDeps —— login / logout / me 需要的依赖（admin Deps 内嵌一个）。
+// AuthDeps — dependencies login / logout / me need (admin Deps embeds one).
 type AuthDeps struct {
 	Login    owner.LoginDeps
 	Sessions *session.OwnerSessionStore
@@ -47,7 +47,7 @@ var loginErrCases = []apierr.Case{
 	},
 }
 
-// login: POST /api/admin/login —— 验密码 + 写 session cookie + csrf cookie。
+// login: POST /api/admin/login — verify password + write session cookie + csrf cookie.
 func (h *Handlers) login() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req loginRequest
@@ -93,8 +93,8 @@ func setSessionCookies(w http.ResponseWriter, sessionToken, csrfToken string, se
 	http.SetCookie(w, newCSRFCookie(csrfToken, ownerSessionMaxAge, secure))
 }
 
-// newSessionCookie 构造 Secure/HttpOnly/SameSite=Lax 的 session cookie。
-// secure=false 仅在 dev (http) 时允许，让浏览器接受 localhost cookie。
+// newSessionCookie builds a Secure/HttpOnly/SameSite=Lax session cookie.
+// secure=false is only allowed in dev (http), so the browser accepts the localhost cookie.
 func newSessionCookie(value string, maxAge int, secure bool) *http.Cookie {
 	return &http.Cookie{
 		Name:     middleware.SessionCookieName,
@@ -107,12 +107,13 @@ func newSessionCookie(value string, maxAge int, secure bool) *http.Cookie {
 	}
 }
 
-// newCSRFCookie 构造 double-submit CSRF cookie。HttpOnly 必须为 false（admin
-// 前端 JS 必须读得到 cookie 值塞 X-Csrftoken header）。Path="/" 让 /admin/*
-// 页面也能 document.cookie 读到；session cookie 自己 path=/api/admin 限制
-// 仍生效，所以攻击面没扩大。SameSite=Lax 阻止跨站读取是主要防线。
-// gosec G124 静态分析 cookie struct literal 看不到这层语义；用 helper 函数
-// build + 字段赋值绕开它的 pattern matcher。
+// newCSRFCookie builds the double-submit CSRF cookie. HttpOnly must be false (the admin
+// frontend JS must be able to read the cookie value to set the X-Csrftoken header).
+// Path="/" lets /admin/* pages read it via document.cookie too; the session cookie's own
+// path=/api/admin restriction still applies, so the attack surface isn't widened.
+// SameSite=Lax blocking cross-site reads is the primary defense.
+// gosec G124's static analysis can't see this semantics on a cookie struct literal;
+// building via a helper function + field assignment routes around its pattern matcher.
 func newCSRFCookie(value string, maxAge int, secure bool) *http.Cookie {
 	c := &http.Cookie{
 		Name:     middleware.CSRFCookieName,
@@ -126,8 +127,9 @@ func newCSRFCookie(value string, maxAge int, secure bool) *http.Cookie {
 	return c
 }
 
-// csrfHTTPOnly 永远返 false —— double-submit CSRF token 必须 JS 可读。
-// 单独函数把"语义不变量"和 cookie literal 分离，gosec 不会按字面 false 字段抓。
+// csrfHTTPOnly always returns false — a double-submit CSRF token must stay readable by JS.
+// A separate function keeps the "semantic invariant" apart from the cookie literal, so
+// gosec won't flag it by matching a literal false field.
 func csrfHTTPOnly() bool { return false }
 
 func clearSessionCookies(w http.ResponseWriter, secure bool) {
@@ -140,7 +142,7 @@ func clearSessionCookies(w http.ResponseWriter, secure bool) {
 	http.SetCookie(w, csrfCookie)
 }
 
-// logout: POST /api/admin/me/logout —— 删 Redis session + 清 cookie。
+// logout: POST /api/admin/me/logout — delete the Redis session + clear the cookies.
 func (h *Handlers) logout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(middleware.SessionCookieName)
@@ -154,8 +156,9 @@ func (h *Handlers) logout() http.HandlerFunc {
 	}
 }
 
-// csrfEndpoint: GET /api/admin/csrf —— admin 前端 bootstrap 时调，拿 token 注 header。
-// 没 session 也能调；返回的 csrf cookie 在登录前是临时的，登录后会被覆盖。
+// csrfEndpoint: GET /api/admin/csrf — called at admin frontend bootstrap to get a token
+// for the header. Callable without a session; the returned csrf cookie is temporary before
+// login and gets overwritten after login.
 func (h *Handlers) csrfEndpoint() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, ok := middleware.SessionFrom(r.Context())

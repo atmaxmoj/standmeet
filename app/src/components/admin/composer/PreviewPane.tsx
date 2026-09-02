@@ -1,9 +1,10 @@
-// PreviewPane —— ResumeComposer 右侧 PDF-shape 预览。
+// PreviewPane —— the PDF-shape preview on ResumeComposer's right side.
 //
 // Renders the canonical <ResumePage> component (same one gotenberg
 // prints at applications.commit), scaled to fit the composer pane.
 // Continuous vertical scroll: page 1 on top, page 2 below — matches the
-// post-2026-05-28 design intent (像翻 PDF 那样往下滚，而不是翻页 arrow).
+// post-2026-05-28 design intent (scroll down like flipping through a PDF,
+// not a page-turn arrow).
 //
 // Source of truth: docs/design/project/admin.js ResumeComposer
 // PreviewPane section (1695-1713).
@@ -70,8 +71,9 @@ function derivePreview(model: DraftModel): PreviewView {
 function PreviewStack({ view, zoom }: { view: PreviewView; zoom: number }) {
   return (
     <div className={styles.scroll}>
-      {/* pageCount 这个值 `derivePreview` 一直在算，只是从没传下去 —— 页脚照样写死
-          「/ 2」（F-E-14）。正确的数字就摆在旁边，没人用。 */}
+      {/* `derivePreview` has always computed pageCount — it just never got passed
+          down, so the footer kept hardcoding "/ 2" (F-E-14). The correct number
+          sat right next to it, unused. */}
       <ResumePage
         content={view.content} job={view.job} qrURL={PREVIEW_QR_URL}
         pageIndex={0} pageCount={view.pageCount} scale={zoom}
@@ -97,7 +99,8 @@ function PreviewToolbar({
   const t = useTranslations('adminShell.previewPane');
   return (
     <div className={styles.toolbar}>
-      {/* title —— 截断之后完整的名字还查得到（鼠标停一下）。截断本身在 CSS 里。 */}
+      {/* title —— the full name is still available on hover after truncation.
+          The truncation itself lives in CSS. */}
       <span className={styles.fileName} title={fileName}>
         {t('fileName', { name: fileName })}
       </span>

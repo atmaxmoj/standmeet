@@ -1,4 +1,5 @@
-// NewTokenInline —— 输入 name 后点 create。保留 e2e testid（token-name / token-create）。
+// NewTokenInline — type a name, click create. Keeps the e2e testids
+// (token-name / token-create).
 
 'use client';
 
@@ -29,7 +30,9 @@ export function NewTokenInline({ createToken, error }: Props) {
   );
 }
 
-// submit —— 成功 reveal 私钥 + 清空 label；失败 report 且**保留 label**（别丢 owner 刚填的输入，可直接重试）。
+// submit — on success, reveal the private key + clear the label; on
+// failure, report and **keep the label** (don't drop what owner just typed,
+// so a retry is a straight click).
 async function submit(
   trimmed: string,
   createToken: (n: string) => Promise<void>,

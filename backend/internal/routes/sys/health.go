@@ -1,8 +1,10 @@
-// Package sys 提供 /internal/* 系统路由：healthz、tls-ask、log 等。
-// 只对 instance 内部 / Caddy / 运维系统暴露，不在公开 surface。
+// Package sys provides /internal/* system routes: healthz, tls-ask, log, etc.
+// Exposed only to the instance's internals / Caddy / ops systems, not on the public
+// surface.
 //
-// 命名注意：路由 prefix 是 /internal/* 但 Go 包名用 sys（避开 Go 关键字
-// `internal` 目录的 import 隔离规则）。
+// Naming note: the route prefix is /internal/* but the Go package is named sys
+// (avoiding the import-isolation rule Go applies to a directory literally named
+// `internal`, a reserved keyword).
 package sys
 
 import (
@@ -24,28 +26,30 @@ const (
 	statusDown         = "down"
 )
 
-// Deps 是 sys handlers 需要的依赖。
+// Deps holds the dependencies sys handlers need.
 type Deps struct {
 	DB    *pgxpool.Pool
 	Redis *redis.Client
 	Log   *slog.Logger
 }
 
-// Mount 把所有 sys 路由挂到 r（已经被父 router 加了 /internal 前缀）。
+// Mount mounts all sys routes onto r (the parent router has already added the /internal
+// prefix).
 func Mount(r chi.Router, deps Deps) {
 	r.Get("/healthz", healthz(deps))
 }
 
-// healthResponse 字段顺序按 pointer/string/bool 对齐到 govet
-// fieldalignment 友好的内存排布。
+// healthResponse field order follows pointer/string/bool to align with a memory
+// layout govet fieldalignment is happy with.
 type healthResponse struct {
 	DB    string `json:"db"`
 	Redis string `json:"redis"`
 	OK    bool   `json:"ok"`
 }
 
-// healthz 是个薄派发：跑 health check helper + log 异常 + 写响应。
-// handler 自己 cyclo 必须 ≤ 3（routes 层强制，见 check-routes-cyclo.sh）。
+// healthz is a thin dispatch: runs the health-check helper, logs anomalies, writes the
+// response. The handler itself must keep cyclo <= 3 (enforced at the routes layer,
+// see check-routes-cyclo.sh).
 func healthz(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), healthCheckTimeout)
@@ -66,9 +70,10 @@ func healthz(deps Deps) http.HandlerFunc {
 	}
 }
 
-// computeHealth ping 各依赖，组装 response。
-// 拆成两个 helper 每个 cyclo ≤ 3（routes 层强制），避免 flag-parameter
-// 又满足 add-constant（statusUp/statusDown 走 const）。
+// computeHealth pings each dependency and assembles the response.
+// Split into two helpers, each cyclo <= 3 (enforced at the routes layer), to avoid a
+// flag-parameter while also satisfying add-constant (statusUp/statusDown go through
+// const).
 func computeHealth(ctx context.Context, deps Deps) healthResponse {
 	db := pingDB(ctx, deps.DB)
 	rds := pingRedis(ctx, deps.Redis)

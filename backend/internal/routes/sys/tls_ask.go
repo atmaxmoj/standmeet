@@ -1,15 +1,19 @@
 // tls_ask.go —— GET /internal/tls-ask?domain=foo.bar
-//   200 → "ok"  这个 owner 自定义域名放行(反代可为它签证书)
-//   403 → 拒绝
+//   200 -> "ok"  this owner custom domain is allowed (the reverse proxy may sign a cert
+//                for it)
+//   403 -> denied
 //
-// **边界**：本 app 只拥有「哪些域名放行」这半边(owner 在 admin 维护 allow-list)。真正签证书
-// (ACME / Let's Encrypt)是**部署 provider 的反代**的事 —— prod-deploy 是 provider 的活
-// (roadmap: prod-deploy dropped),app 不跑反代、不做 Caddy。任何支持 on-demand-TLS 的反代
-// (Caddy / Traefik / …)见到没见过的 Host 时 GET 这个 URL 确认合法 owner 域名,是才去签;
-// 无白名单 = 谁把 DNS 指过来都能逼实例申证书 → 撞 rate limit。
+// **Boundary**: this app owns only the "which domains are allowed" half (the owner
+// maintains the allow-list in admin). Actually signing the cert (ACME / Let's Encrypt) is
+// the job of the **deploy provider's reverse proxy** — prod-deploy is the provider's job
+// (roadmap: prod-deploy dropped), this app doesn't run a reverse proxy or Caddy. Any
+// reverse proxy that supports on-demand TLS (Caddy / Traefik / ...) GETs this URL to
+// confirm a legitimate owner domain when it sees an unfamiliar Host, and only signs if
+// confirmed; no allow-list means anyone who points DNS here can force the instance to
+// request a cert -> hits rate limits.
 //
-// 实现：查 instance_settings.allowed_domains(jsonb 数组),命中 200 否则 403。
-// setup 期默认把 PUBLIC_URL 的 host 加进去。
+// Implementation: looks up instance_settings.allowed_domains (a jsonb array), 200 on a
+// hit, 403 otherwise. Setup adds the PUBLIC_URL host to it by default.
 
 package sys
 
@@ -23,19 +27,21 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// AllowedDomainLookup —— instance_settings 表的窄接口。让 sys 不直接 import
-// postgres struct 而走 interface（沿用 arch-lint 已允许的依赖图）。
+// AllowedDomainLookup —— a narrow interface over the instance_settings table. Lets sys
+// go through an interface instead of importing the postgres struct directly (following
+// the dependency graph arch-lint already allows).
 type AllowedDomainLookup interface {
 	IsDomainAllowed(ctx context.Context, host string) (bool, error)
 }
 
-// TLSAskDeps —— /internal/tls-ask 需要的依赖。
+// TLSAskDeps —— the dependency /internal/tls-ask needs.
 type TLSAskDeps struct {
 	Log     *slog.Logger
 	Domains AllowedDomainLookup
 }
 
-// MountTLSAsk 挂 /tls-ask 到 r（已经被父 router 加了 /internal 前缀）。
+// MountTLSAsk mounts /tls-ask onto r (the parent router has already added the /internal
+// prefix).
 func MountTLSAsk(r chi.Router, deps TLSAskDeps) {
 	r.Get("/tls-ask", tlsAsk(deps))
 }
@@ -52,7 +58,7 @@ func tlsAsk(deps TLSAskDeps) http.HandlerFunc {
 	}
 }
 
-// askOutcome —— 把 ok+err 打包给 writeAskResult，避免控制 flag-parameter。
+// askOutcome —— bundles ok+err for writeAskResult, avoiding a control flag-parameter.
 type askOutcome struct {
 	Err     error
 	Domain  string

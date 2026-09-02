@@ -1,13 +1,18 @@
-// composer-attachments —— 长粘贴(贴一整份 JD 之类)不该塞满输入框,而是收成
-// 一枚「附件」chip 挂在输入框上方;真正发问时把附件原文完整拼回消息里,所以
-// 「我贴的所有内容都保留在对话中」。presentation 层禁逻辑,状态机 + 拼装放这。
+// composer-attachments —— a long paste (a whole JD, say) shouldn't fill up
+// the input box; instead it collapses into an "attachment" chip above the
+// input. When the question is actually sent, the attachment's raw text gets
+// spliced back into the message, so "everything I pasted stays in the
+// conversation". Presentation layer bans logic, so the state machine +
+// assembly live here.
 
 import { useCallback, useRef, useState } from 'react';
 
 import type { ClipboardEvent } from 'react';
 
-// 超过这个字符数的粘贴 → 转附件;以下走普通 textarea 内联(框会自己撑高)。
-// 一份 JD 动辄上千字,300 足够把「长文」和「一句话」分开。
+// Pastes longer than this many characters become an attachment; below it,
+// stays inline in the plain textarea (the box grows on its own). A JD is
+// often well over a thousand characters, so 300 is enough to separate
+// "long text" from "a single sentence".
 export const PASTE_ATTACH_THRESHOLD = 300;
 
 export interface Attachment {
@@ -16,7 +21,8 @@ export interface Attachment {
   readonly content: string;
 }
 
-// attachmentLabel —— chip 上显示的摘要:字数 + 行数 + 头一行预览。
+// attachmentLabel —— the summary shown on the chip: char count + line count
+// + a preview of the first line.
 export function attachmentLabel(content: string): string {
   const chars = content.length;
   const lines = content.split('\n').length;
@@ -26,9 +32,11 @@ export function attachmentLabel(content: string): string {
   return `${size} · ${lines} lines · ${preview}`;
 }
 
-// composeMessage —— 发问时把输入框文字 + 各附件原文拼成最终消息。问句在前、
-// 粘贴块在后(带分隔标记),读起来是「问题 + 我贴的材料」,LLM 和 transcript
-// 都拿到完整内容。
+// composeMessage —— when the question is sent, splices the typed text with
+// each attachment's raw content into the final message. The question comes
+// first, the pasted blocks after (with a separator marker), reading as
+// "question + material I pasted" — both the LLM and the transcript get the
+// full content.
 export function composeMessage(typed: string, attachments: readonly Attachment[]): string {
   const t = typed.trim();
   if (attachments.length === 0) return t;
@@ -39,18 +47,23 @@ export function composeMessage(typed: string, attachments: readonly Attachment[]
 }
 
 export interface SplitMessage {
-  // text —— 问句本身(去掉粘贴块);可能为空(只贴了材料没打字)。
+  // text —— the question itself (paste blocks stripped out); may be empty
+  // (only material was pasted, nothing typed).
   readonly text: string;
-  // pastes —— 各粘贴块原文,transcript 里折叠成 details 渲。
+  // pastes —— each paste block's raw text, rendered collapsed as details in
+  // the transcript.
   readonly pastes: readonly string[];
 }
 
-// 反解 composeMessage:按 "--- pasted text N ---" 标记切。首块前缀可能是
-// 行首(没问句)也可能是 \n\n(有问句),两种都吃。
+// Inverts composeMessage: splits on the "--- pasted text N ---" marker. The
+// first block's prefix might be the start of the string (no question) or
+// \n\n (there is a question) — this matches both.
 const PASTE_SPLIT = /(?:\n\n|^)--- pasted text \d+ ---\n/;
 
-// splitComposedMessage —— transcript 把 composed 消息拆回 {问句, 粘贴块[]},
-// 让 you 气泡显问句 + 折叠的粘贴块,而不是一面文字墙。非附件消息 → pastes 空。
+// splitComposedMessage —— the transcript splits a composed message back
+// into {question, paste blocks[]}, so the "you" bubble shows the question +
+// collapsed paste blocks instead of a wall of text. A message with no
+// attachments → pastes is empty.
 export function splitComposedMessage(q: string): SplitMessage {
   const [text = '', ...pastes] = q.split(PASTE_SPLIT);
   return { text: text.trim(), pastes };
@@ -59,15 +72,17 @@ export function splitComposedMessage(q: string): SplitMessage {
 interface ComposerAttachments {
   attachments: readonly Attachment[];
   hasAttachments: boolean;
-  // onPaste —— 长粘贴 → 吃掉默认、转附件并返回 true(调用方据此跳过 setInput);
-  // 短粘贴 → 返回 false 放行内联。
+  // onPaste —— a long paste prevents the default, becomes an attachment,
+  // and returns true (the caller uses that to skip setInput); a short
+  // paste returns false and lets it through inline.
   onPaste: (e: ClipboardEvent<HTMLTextAreaElement>) => boolean;
   remove: (id: string) => void;
   clear: () => void;
 }
 
-// useComposerAttachments —— 附件状态机。id 用单调计数器(避免 Math.random
-// 在 SSR / 测试里的不确定性),clear 在发送成功后由调用方调。
+// useComposerAttachments —— the attachment state machine. ids use a
+// monotonic counter (avoiding the nondeterminism of Math.random in
+// SSR / tests); clear is called by the caller after a successful send.
 export function useComposerAttachments(): ComposerAttachments {
   const [attachments, setAttachments] = useState<readonly Attachment[]>([]);
   const seq = useRef(0);

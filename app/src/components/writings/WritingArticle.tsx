@@ -1,14 +1,17 @@
-// WritingArticle —— 单篇文章；Stripe-Press 风密度 (680px 单栏 / 21px 字号 /
-// 1.65 行高)。private 文章按 visibility 锁。
+// WritingArticle —— a single article; Stripe-Press-style density (680px
+// single column / 21px font size / 1.65 line height). Private articles are
+// locked per visibility.
 //
-// body 来自 body_md (GitHub-flavored markdown)，react-markdown + remark-gfm
-// 渲染，每种 element 通过 components prop 套上 standmeet 字体 / 字号 / 间距
-// (见 WritingArticleMarkdown.tsx)，pixel-for-pixel 跟旧 3-block 版本对齐设计稿。
+// Body comes from body_md (GitHub-flavored markdown), rendered by
+// react-markdown + remark-gfm; each element gets standmeet font / size /
+// spacing via the components prop (see WritingArticleMarkdown.tsx),
+// pixel-for-pixel matching the design against the old 3-block version.
 //
-// I.2: 'use client' 让 react-markdown + rehype-katex + lazy MermaidBlock 在
-// client 上下文跑 (lazy 不能在 server 渲染)。Next.js 仍 SSR 出首屏 HTML，
-// 只是 component tree 已是 client；SEO 不受影响 (metadata 在 page.tsx 那
-// 层 generateMetadata 出，跟 component 渲染分离)。
+// I.2: 'use client' lets react-markdown + rehype-katex + lazy MermaidBlock
+// run in a client context (lazy can't render on the server). Next.js still
+// SSRs the first-paint HTML — only the component tree is now client; SEO is
+// unaffected (metadata comes from generateMetadata at the page.tsx layer,
+// separate from component rendering).
 
 'use client';
 
@@ -68,8 +71,8 @@ function UnlockedView({ writing }: { writing: WritingView }) {
   );
 }
 
-// Backlinks —— "linked from" section；列举其它 published writing 通过 [[X]]
-// 引到本篇的来源。空就不渲染。
+// Backlinks —— "linked from" section; lists other published writings that
+// reference this one via [[X]]. Renders nothing when empty.
 function Backlinks({ refs }: { refs: BacklinkRef[] }) {
   const t = useTranslations('writings.article');
   const href = useCorpusHref();
@@ -137,11 +140,16 @@ function ArticleHeader({ writing }: { writing: WritingView }) {
       <p className="italic text-(--color-muted) mt-6 max-w-[34em] text-[22px] leading-[1.45] font-[380]">
         {writing.excerpt}
       </p>
-      {/* 多语 writing 的切换器。跟 wiki reader **共用同一个组件** —— 那边一直有，
-          这边一直没有，读者拿到一面就到头了（F-R-6）。少于两种语言时组件自己不渲染。
+      {/* Language switcher for multi-language writings. It **shares the same
+          component** as the wiki reader — that surface always had it, this
+          one never did, so a reader hit a dead end on whichever version they
+          landed on first (F-R-6). The component renders nothing when there
+          are fewer than two languages.
 
-          靠右由**摆放它的这一侧**决定，不写进组件里：同一个切换器 wiki reader 也在用，
-          而那边的版式是另一回事。组件负责「切什么」，位置归用它的人。 */}
+          Right-alignment is decided by **whoever places it**, not baked into
+          the component: the same switcher is also used by the wiki reader,
+          whose layout is a different matter. The component owns "what to
+          switch"; placement belongs to its caller. */}
       <div className="mt-5 flex justify-end">
         <LanguageSwitch
           languages={writing.languages ?? []}
@@ -176,14 +184,18 @@ function TagLink({ tag }: { tag: string }) {
 }
 
 function Body({ bodyMD, assetURLs }: { bodyMD: string; assetURLs: Record<string, string> }) {
-  // expand standmeet-asset:<id> URIs → presigned URLs 之后再 feed react-markdown。
-  // react-markdown 默认 urlTransform 会 strip 非标准 scheme（XSS 保护）；先
-  // 替成 https URL 不踩这条规则。orphan 追踪走 body_md（source-of-truth），
-  // render 是 view-only 变换。
-  // promoteDisplayMath:单行 `$$…$$`(Obsidian/真 vault 写法)提成 fenced 形式 → display(F-R-3)。
-  // escapeCurrencyDollars:$100/$200 等金额按字面渲,不被 remark-math 当公式吃掉。
-  // expandBody 是 corpus 那套共用的那一步(URI → 可访问地址)。外面那两层是 writings
-  // 独有的数学排版处理,留着。
+  // Expand standmeet-asset:<id> URIs → presigned URLs before feeding
+  // react-markdown. react-markdown's default urlTransform strips
+  // non-standard schemes (XSS protection); converting to an https URL first
+  // avoids tripping that rule. Orphan tracking runs on body_md
+  // (source-of-truth); rendering is a view-only transform.
+  // promoteDisplayMath: promotes single-line `$$…$$` (the Obsidian /
+  // real-vault convention) into fenced form → display math (F-R-3).
+  // escapeCurrencyDollars: renders amounts like $100/$200 literally, so
+  // remark-math doesn't swallow them as formulas.
+  // expandBody is the shared step from the corpus module (URI → accessible
+  // address). The two wrapping calls are math-typesetting handling specific
+  // to writings, and stay here.
   const rendered = escapeCurrencyDollars(promoteDisplayMath(expandBody(bodyMD, assetURLs)));
   return (
     <article
@@ -191,9 +203,12 @@ function Body({ bodyMD, assetURLs }: { bodyMD: string; assetURLs: Record<string,
       data-testid="writing-article-body"
     >
       <CorpusContent>
-        {/* 管线跟 wiki / chat **同一份**（`CORPUS_REMARK_PLUGINS`）。这里以前自己配了
-            第二套（只有 gfm + math），于是同一批 owner markdown 在两个面上渲出两种结果 ——
-            中文的 `**粗体。**` 在这一面退化成字面星号，而在另一面是对的。 */}
+        {/* The pipeline is **the same one** used by wiki / chat
+            (`CORPUS_REMARK_PLUGINS`). This file used to configure its own
+            second pipeline (gfm + math only), so the same owner markdown
+            rendered two different results across surfaces — Chinese
+            `**bold.**` degraded to literal asterisks here while rendering
+            correctly on the other surface. */}
         <Markdown
           remarkPlugins={CORPUS_REMARK_PLUGINS}
           rehypePlugins={[rehypeKatex]}

@@ -1,6 +1,8 @@
-// owner_css.go —— owner 自定义 CSS 的 sanitize + scope(安全核心)。owner CSS 是 user-provided →
-// 攻击面:剥 @import(外部拉取/CSP)、外部 url()/javascript:(数据外泄/追踪)、expression()/-moz-binding
-// (老式 JS 执行);再把每条规则的选择器锚到 .corpus-content(动不了 app chrome,防 clickjacking/redress)。
+// owner_css.go — sanitize + scope for owner-provided custom CSS (a security core).
+// Owner CSS is user-provided -> attack surface: strip @import (external fetch/CSP),
+// external url()/javascript: (data exfil/tracking), expression()/-moz-binding (legacy JS
+// execution); then anchor every rule's selector to .corpus-content (can't touch the app
+// chrome, defends against clickjacking/redress).
 
 package usecase
 
@@ -14,28 +16,30 @@ const cssScopePrefix = ".corpus-content"
 
 var (
 	reCSSImport = regexp.MustCompile(`(?i)@import[^;]*;`)
-	// 除 http(s)/javascript: 外，protocol-relative `url(//host)` 也剥 —— 它照样从页面协议拉外部资源
-	// (数据外泄/追踪),跟 https: 同威胁。
+	// Besides http(s)/javascript:, protocol-relative `url(//host)` is stripped too — it
+	// still fetches an external resource under the page's protocol (data exfil/tracking),
+	// the same threat as https:.
 	reCSSExternalURL = regexp.MustCompile(`(?i)url\(\s*['"]?\s*(?:https?:|javascript:|//)[^)]*\)?`)
 	reCSSExpression  = regexp.MustCompile(`(?i)expression\([^)]*\)`)
 	reCSSBinding     = regexp.MustCompile(`(?i)-moz-binding[^;]*;`)
 )
 
-// CSSStore —— owner CSS 存取(Repo 实现)。
+// CSSStore — owner CSS storage/retrieval (implemented by Repo).
 type CSSStore interface {
 	GetCSS(ctx context.Context, ownerID string) (string, error)
 	SetCSS(ctx context.Context, ownerID, css string) error
 }
 
-// SetOwnerCSS —— 从任一面(admin/MCP/sync)写 owner CSS:先 sanitize+scope 再存安全版本。
+// SetOwnerCSS — writes owner CSS from any surface (admin/MCP/sync): sanitize+scope
+// first, then store the safe version.
 func SetOwnerCSS(ctx context.Context, store CSSStore, ownerID, raw string) error {
 	if err := store.SetCSS(ctx, ownerID, SanitizeAndScopeCSS(raw)); err != nil {
-		return err //nolint:wrapcheck // store 已 wrap
+		return err //nolint:wrapcheck // store already wraps
 	}
 	return nil
 }
 
-// SanitizeAndScopeCSS —— 剥危险构造 + scope 到 .corpus-content。
+// SanitizeAndScopeCSS — strips dangerous constructs + scopes to .corpus-content.
 func SanitizeAndScopeCSS(raw string) string {
 	s := reCSSImport.ReplaceAllString(raw, "")
 	s = reCSSExternalURL.ReplaceAllString(s, "url()")
@@ -44,8 +48,9 @@ func SanitizeAndScopeCSS(raw string) string {
 	return scopeCSS(s)
 }
 
-// scopeCSS —— brace-aware:每个顶层块 scope。@media/@supports 里的嵌套规则必须 recurse 进去
-// scope(否则 `@media{ body{…} }` 里的 body 逃出 .corpus-content → 能改 app chrome / clickjacking)。
+// scopeCSS — brace-aware: scopes every top-level block. Nested rules inside
+// @media/@supports must be recursed into and scoped too (otherwise the body in
+// `@media{ body{...} }` escapes .corpus-content -> can alter the app chrome / clickjacking).
 func scopeCSS(css string) string {
 	out := []string{}
 	for _, block := range splitTopLevelBlocks(css) {
@@ -56,7 +61,8 @@ func scopeCSS(css string) string {
 	return strings.Join(out, "\n")
 }
 
-// splitTopLevelBlocks —— 按 brace 深度切成顶层 `... { ... }` 块(尊重嵌套,@media 的外层 } 才收块)。
+// splitTopLevelBlocks — splits into top-level `... { ... }` blocks by brace depth
+// (respects nesting; only @media's outer } closes a block).
 func splitTopLevelBlocks(css string) []string {
 	blocks := []string{}
 	depth, start := 0, 0
@@ -83,8 +89,9 @@ func adjustBraceDepth(depth int, r rune) int {
 	return depth
 }
 
-// scopeBlock —— 一个顶层块:普通规则 scope 选择器;@media/@supports recurse;其它 @-规则
-// (@font-face/@keyframes/@page —— 不指向页面元素)原样。
+// scopeBlock — for one top-level block: a normal rule gets its selector scoped;
+// @media/@supports recurses; other @-rules (@font-face/@keyframes/@page — which don't
+// target page elements) pass through unchanged.
 func scopeBlock(block string) string {
 	brace := strings.Index(block, "{")
 	if brace < 0 {
@@ -110,12 +117,15 @@ func scopeAtRule(prelude, block string, brace int) string {
 	return block
 }
 
-// scopeSelectors —— 给选择器列表逐个加前缀。
+// scopeSelectors — prefixes each selector in the list, one by one.
 //
-// **注释先摘出去再切逗号**（F-R-7）：prelude 是"第一个 `{` 之前的一切"，所以规则上方的注释
-// 整段都在里面。直接按逗号切，注释里的逗号会被当成选择器分隔符 —— 真 vault 的
-// `i18n-switch.css` 因此存成 `… switch, .corpus-content pure CSS, .corpus-content NO JavaScript …`。
-// 注释原样接回选择器前面：它不指向任何元素，不需要 scope，也不该被改写。
+// **Comments are pulled out before splitting on commas** (F-R-7): prelude is "everything
+// before the first `{`", so a comment sitting above the rule is included in full. Splitting
+// on commas directly would treat commas inside the comment as selector separators — the
+// real vault's `i18n-switch.css` ended up stored as
+// `... switch, .corpus-content pure CSS, .corpus-content NO JavaScript ...` because of this.
+// The comment is reattached unchanged in front of the selectors: it targets no element,
+// needs no scoping, and must not be rewritten.
 func scopeSelectors(sel string) string {
 	p := splitLeadingComments(sel)
 	scoped := []string{}
@@ -127,16 +137,21 @@ func scopeSelectors(sel string) string {
 	return p.comments + strings.Join(scoped, ", ")
 }
 
-// prelude —— 第一个 `{` 之前那段东西拆开之后的两半。**用结构体而不是两个 string 返回值**:
-// 两个同类型返回值这仓库的 linter 不接受(要么 confusing-results 要么 nonamedreturns,
-// 两条互相打架),而这两半本来也是一个东西的两面。
+// prelude — the two halves after splitting apart everything before the first `{`.
+// **A struct, not two string return values**: this repo's linter rejects two
+// same-typed return values (it's either confusing-results or nonamedreturns, and the
+// two rules fight each other), and these two halves are naturally two faces of one thing
+// anyway.
 type prelude struct {
 	comments  string
 	selectors string
 }
 
-// splitLeadingComments —— 把 prelude 开头连续的 `/* … */`（含其间空白）摘下来，返回
-// (注释原文, 余下的选择器列表)。未闭合的 `/*` 整段算注释：那不是选择器，加前缀只会更坏。
+// splitLeadingComments — strips off a run of leading `/* ... */` comments (including
+// whitespace between them) at the start of prelude, and returns
+// (the comment text verbatim, the remaining selector list). An unclosed `/*` counts as a
+// comment for its entire remainder: that's not a selector, and prefixing it would only
+// make things worse.
 func splitLeadingComments(sel string) prelude {
 	lead, rest := "", strings.TrimLeft(sel, " \t\r\n")
 	for strings.HasPrefix(rest, "/*") {

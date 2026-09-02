@@ -1,12 +1,12 @@
-// facade_ops.go —— 本域对外能做的事,再导出给收口。
+// facade_ops.go -- what this domain can do for outside callers, re-exported for convergence.
 //
-// 门面还是门面:只有别名。声明在 internal/marketplace/ops。
+// Still just a facade: aliases only. Declared in internal/marketplace/ops.
 
 package marketplace
 
 import "github.com/atmaxmoj/standmeet/internal/marketplace/ops"
 
-// 操作组（实现:ops）.
+// Operation groups (implemented by: ops).
 var (
 	MCPServerOps   = ops.MCPServers
 	SkillOps       = ops.Skills

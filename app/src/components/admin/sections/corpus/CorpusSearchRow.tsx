@@ -1,9 +1,12 @@
-// CorpusSearchRow —— 语料后台的搜索框那一行。
+// CorpusSearchRow —— the search box row in the corpus admin.
 //
-// 它旁边那句状态不是装饰：这个网格下面可能装着**两种集合** —— 「这一页 + 标签筛」
-// 或者「全库命中」。两种长得一模一样，而它们的完备性完全不同（前者是局部，后者是全部）。
-// 屏幕不说清楚是哪一种，owner 就会把「这一页里没有」读成「我的语料里没有」——
-// 那正是这条搜索要治的病（F-L-39/40）。
+// The status line next to it isn't decoration: the grid underneath can hold
+// **two different sets** — "this page + tag filter" or "matches across the
+// whole corpus". The two look identical, yet their completeness is entirely
+// different (the former is partial, the latter is everything). If the screen
+// doesn't say which one it is, the owner will read "not on this page" as "not
+// in my corpus" — which is exactly the problem this search is meant to fix
+// (F-L-39/40).
 
 'use client';
 
@@ -33,7 +36,8 @@ export function CorpusSearchRow({ hook }: { hook: CorpusSearchHook }) {
   );
 }
 
-// 说哪句话由 `searchMessageKey` 推导（那是 hook 那一层的事）；这里只负责渲。
+// Which message to show is derived by `searchMessageKey` (that's the hook
+// layer's job); this component only renders it.
 function SearchState({ hook }: { hook: CorpusSearchHook }) {
   const t = useTranslations('adminCorpus.search');
   const { key, values } = searchMessageKey(hook);

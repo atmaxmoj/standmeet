@@ -1,17 +1,20 @@
-// assets.go —— asset 写流程。invariant: blob 生命周期 ⊆ post 生命周期，
-// 任何时刻 MinIO 里 blob 存在 ⇒ DB 里对应 holder + asset 行也存在。
+// assets.go —— the asset write flow. Invariant: blob lifecycle ⊆ post lifecycle —
+// at any moment, a blob existing in MinIO ⇒ its corresponding holder + asset row
+// also exists in the DB.
 //
-// 实现：
-//   - InsertAssetRowTx：caller 给的 tx 里只 insert assets 行（uuid 预生成，
-//     storage_key 已确定），**不动 MinIO**。
-//   - UploadBlob：tx commit 之后 caller 调，把 prepared bytes PUT 到 MinIO。
+// Implementation:
+//   - InsertAssetRowTx: only inserts the assets row inside the caller's given tx
+//     (uuid pre-generated, storage_key already determined), **doesn't touch MinIO**.
+//   - UploadBlob: the caller calls this after the tx commits, PUTting the prepared
+//     bytes to MinIO.
 //
-// "DB 行先 commit，blob 后传" 把失败模式从"silent MinIO orphan"换成
-// "visible broken post"。后者 owner UI 看得见，且 caller 在 upload 失败
-// 时跑 compensating DeletePostWithAssets 把 post 卷掉，owner re-submit 就行。
+// "DB row commits first, blob uploads after" turns the failure mode from a "silent
+// MinIO orphan" into a "visible broken post." The latter is visible in the owner's
+// UI, and on upload failure the caller runs a compensating DeletePostWithAssets to
+// roll the post back — the owner can just re-submit.
 //
-// 对应的 DELETE 顺序在 DeletePostWithAssets 里翻过来：MinIO 先删（strict），
-// DB tx 后删。同样保证 blob 不会 silent leak。
+// The matching DELETE order is flipped in DeletePostWithAssets: MinIO deletes first
+// (strict), the DB tx deletes after. This likewise guarantees no silent blob leak.
 
 package usecase
 
@@ -30,29 +33,32 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 )
 
-// AssetsDeps —— 用例打包。Storage 在 composition root fail-fast 检查过，
-// 永远 non-nil。
+// AssetsDeps —— usecase dependency bundle. Storage is fail-fast checked at the
+// composition root, so it's always non-nil.
 type AssetsDeps struct {
 	Repo    *repo.AssetRepo
 	Storage *storage.Client
 }
 
-// AssetUploadInput —— 一张图上传所需。caller (post usecase) 从 multipart
-// 解出来。PendingID 是 client-side 占位符（前端 editor 给的 uuid，body_md
-// 里写 `standmeet-asset:pending-<id>`），保留下来好让 InsertAssetRowTx
-// 把它透传进 PreparedAsset。fieldalignment: slice (24B) 先于 string (16B)。
+// AssetUploadInput —— what's needed to upload one image. The caller (post usecase)
+// decodes this out of multipart. PendingID is a client-side placeholder (a uuid the
+// frontend editor supplies, written into body_md as `standmeet-asset:pending-<id>`),
+// kept around so InsertAssetRowTx can pass it through into PreparedAsset.
+// fieldalignment: slice (24B) before string (16B).
 type AssetUploadInput struct {
 	ContentType      string
 	OriginalFilename string
 	PendingID        string
-	// Kind —— 'image' | 'attachment'。空 = image(这一列是后加的,既有路径都是配图)。
+	// Kind —— 'image' | 'attachment'. Empty = image (this column was added later;
+	// every existing path is an illustration).
 	Kind string
 	Body []byte
 }
 
-// PreparedAsset —— InsertAssetRowTx 返回。Body + ContentType 留着等 tx
-// commit 之后 UploadBlobs 用；PendingID 留着等 writePostBody 替 body_md。
-// fieldalignment: slice (24B) 先，string (16B) 后，embedded struct 最后。
+// PreparedAsset —— InsertAssetRowTx's return value. Body + ContentType are kept
+// around for UploadBlobs to use after the tx commits; PendingID is kept around for
+// writePostBody to substitute into body_md. fieldalignment: slice (24B) first,
+// string (16B) after, embedded struct last.
 type PreparedAsset struct {
 	Body        []byte
 	PendingID   string
@@ -60,10 +66,11 @@ type PreparedAsset struct {
 	Asset       entity.Asset
 }
 
-// InsertAssetRowTx —— 在 caller 给的 tx 里 insert assets 行（不动 MinIO）。
-// 预生成 uuid + storage_key，让 post body_md rewrite 立刻能拿到真 id。
-// 返回 PreparedAsset 让 caller 在 tx commit 之后调 UploadBlobs 把 bytes 真
-// 推到 MinIO。in.PendingID 透传到返回值方便 caller 一次性 build rewrite map。
+// InsertAssetRowTx —— inserts the assets row inside the caller's given tx (doesn't
+// touch MinIO). Pre-generates uuid + storage_key so the post body_md rewrite can get
+// the real id right away. Returns PreparedAsset so the caller can call UploadBlobs
+// after the tx commits to actually push the bytes to MinIO. in.PendingID is passed
+// through to the return value so the caller can build the rewrite map in one pass.
 func InsertAssetRowTx(
 	ctx context.Context, deps AssetsDeps, tx pgstore.DBTX,
 	holderID string, in *AssetUploadInput,
@@ -85,7 +92,8 @@ func InsertAssetRowTx(
 	}, nil
 }
 
-// insertAssetArgs —— insertAssetRow 参数打包，避开 argument-limit 5。
+// insertAssetArgs —— insertAssetRow's argument bundle, to dodge the argument-limit
+// of 5.
 type insertAssetArgs struct {
 	Tx       pgstore.DBTX
 	In       *AssetUploadInput
@@ -108,9 +116,10 @@ func insertAssetRow(ctx context.Context, a *insertAssetArgs) (entity.Asset, erro
 	return asset, nil
 }
 
-// UploadBlobs —— tx commit 之后 caller 调用，把 prepared bytes 顺次 PUT
-// 到 MinIO。任一失败立刻返 error 让 caller 跑 compensating delete；返
-// 已成功的 storage_key 列表让 caller 把那部分 blob 也清掉。
+// UploadBlobs —— the caller calls this after the tx commits, PUTting the prepared
+// bytes to MinIO in order. Any failure immediately returns an error for the caller
+// to run a compensating delete; returns the list of storage_keys that already
+// succeeded so the caller can clean up that part of the blobs too.
 func UploadBlobs(
 	ctx context.Context, deps AssetsDeps, prepared []PreparedAsset,
 ) ([]string, error) {
@@ -127,8 +136,9 @@ func UploadBlobs(
 	return done, nil
 }
 
-// DeleteBlobs —— 反向 cleanup。compensating delete 后清掉那部分已上传 blob。
-// 失败 swallow + 继续（best-effort，rare double-fault 情形）。
+// DeleteBlobs —— the reverse cleanup. After a compensating delete, cleans up the
+// portion of blobs already uploaded. Failures are swallowed and it continues
+// (best-effort, for the rare double-fault case).
 func DeleteBlobs(ctx context.Context, deps AssetsDeps, keys []string) {
 	for _, k := range keys {
 		if err := deps.Storage.Delete(ctx, k); err != nil {
@@ -137,10 +147,11 @@ func DeleteBlobs(ctx context.Context, deps AssetsDeps, keys []string) {
 	}
 }
 
-// DeleteBlobsStrict —— DELETE 路径用。任一删失败立刻返 error，DB tx 不
-// 启动。invariant: blob 删完才动 DB 行，避免 DB 已删 / blob 残留的 silent
-// orphan。MinIO 的 RemoveObject 幂等（S3 spec 204 even for non-existent），
-// owner retry 安全。
+// DeleteBlobsStrict —— used on the DELETE path. Any deletion failure immediately
+// returns an error, and the DB tx never starts. Invariant: DB rows are touched only
+// after all blobs are deleted, avoiding a silent orphan where the DB is deleted but
+// the blob remains. MinIO's RemoveObject is idempotent (S3 spec returns 204 even for
+// a non-existent object), so an owner retry is safe.
 func DeleteBlobsStrict(ctx context.Context, deps AssetsDeps, keys []string) error {
 	for _, k := range keys {
 		if err := deps.Storage.Delete(ctx, k); err != nil {

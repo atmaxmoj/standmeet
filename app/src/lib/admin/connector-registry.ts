@@ -1,17 +1,16 @@
-// connector-registry —— admin connectors 加新种类的 plugin 数组。
+// connector-registry —— the plugin array for adding new admin connector kinds.
 //
-// 设计源 docs/design/project/admin-data.js CONNECTOR_REGISTRY。
-// 加新 connector 的工作量 = append 一条 entry 进 CONNECTOR_REGISTRY；
-// ConnectorAddModal + ConnectorConfigForm 会自动渲染。GCal booking
-// (memory:gcal-booking-future) 之后 = 给 calendar entry 加 oauth flow，
-// 不动 component 代码。
+// Design source: docs/design/project/admin-data.js CONNECTOR_REGISTRY.
+// Adding a new connector = append one entry to CONNECTOR_REGISTRY;
+// ConnectorAddModal + ConnectorConfigForm render it automatically. After GCal
+// booking (memory:gcal-booking-future) = add an oauth flow to the calendar entry, without touching component code.
 
 export interface ConnectorField {
   k: string;
   label: string;
-  options?: readonly string[]; // 选择器（select / chip 渲染）
-  secret?: boolean;            // password input 隐藏内容
-  oauth?: boolean;             // 跳转 "Authorize…" 而非 input
+  options?: readonly string[]; // a picker (rendered as select / chips)
+  secret?: boolean;            // a password input that hides its content
+  oauth?: boolean;             // redirects to "Authorize…" instead of an input
   default?: string;
 }
 
@@ -28,13 +27,14 @@ export interface ConnectorEntry {
   category: string;
   blurb: string;
   fields: readonly ConnectorField[];
-  builtin?: boolean; // 内置，不能删
+  builtin?: boolean; // built-in, cannot be deleted
   docs_url?: string;
-  // protocol connector (#155 kind=protocol)：选它走「建 protocol 连接器 + 存固定凭据 + 连接测试」，
-  // protocolCategory = 它填的品类槽（mail/calendar）。openapi/catalog 条目不设这俩。
+  // protocol connector (#155 kind=protocol): selecting it takes the "create
+  // protocol connector + store fixed credentials + connection test" path,
+  // protocolCategory = the category slot it fills (mail/calendar). openapi/catalog entries don't set these two.
   protocol?: string;
   protocolCategory?: string;
-  // assemble (#155)：归一装配入口（品类卡）→ AssembleView（OpenAPI 上传 或 内置协议表单）。
+  // assemble (#155): the unified assembly entry point (category card) → AssembleView (OpenAPI upload or the built-in protocol form).
   assemble?: boolean;
   assembleCategory?: string;
 }
@@ -73,15 +73,16 @@ export const CONNECTOR_REGISTRY: readonly ConnectorEntry[] = [
     ],
   },
   {
-    // 归一装配入口（#155）：calendar 品类 → AssembleView（贴 OpenAPI spec 装配 per-SaaS，或填内置
-    // CalDAV 协议表单）。不再是写死 provider 下拉（那是 legacy，已删）。
+    // Unified assembly entry point (#155): calendar category → AssembleView
+    // (paste an OpenAPI spec to assemble per-SaaS, or fill in the built-in
+    // CalDAV protocol form). No longer a hardcoded provider dropdown (that was legacy, now removed).
     id: 'calendar', name: 'Calendar', icon: '◫', category: 'comms', assemble: true,
     assembleCategory: 'calendar',
     blurb: 'offers booking slots when a conversation gets serious.',
     fields: [],
   },
   {
-    // mail 品类 → AssembleView（OpenAPI mail SaaS 或内置 SMTP）。
+    // mail category → AssembleView (an OpenAPI mail SaaS or the built-in SMTP).
     id: 'mail', name: 'Mail', icon: '✉', category: 'comms', assemble: true,
     assembleCategory: 'mail',
     blurb: 'sends confirmations and follow-ups in the owner’s name.',
@@ -218,12 +219,12 @@ export const CONNECTOR_REGISTRY: readonly ConnectorEntry[] = [
   },
 ];
 
-// connectorsByCategory —— 渲 modal 按 category tab 分组用。
+// connectorsByCategory —— used to group entries by category tab when rendering the modal.
 export function connectorsByCategory(category: string): ConnectorEntry[] {
   return CONNECTOR_REGISTRY.filter((c) => c.category === category);
 }
 
-// installedCount —— ConnectorsSection 头标 "N installed / M catalog"。
+// installedCount —— ConnectorsSection's header "N installed / M catalog".
 export function catalogSize(): number {
   return CONNECTOR_REGISTRY.length;
 }

@@ -1,8 +1,11 @@
-// RoleWaypointsConfig —— F-A-7 role 卡上的 **ghost-steering waypoints 编辑器**。整套 waypoint 机制
-// (domain / role_waypoints 表 / ghost policy / freeze / visited-ledger)后端早就齐了,且 admin API
-// 已 round-trip `waypoints` —— 唯独 owner 在 GUI 上无处可写,所以真实例每个 role 都 `waypoints: []`,
-// ghost 永远无处可去。这里补上编辑器:加/改/删 waypoint(id + 描述 + 权重 + 是否终点 + 证据 URI),
-// 存 → 走 roleUpdatePayload 全量回写(其余字段原样),冻进后续 session。配合 F-A-10 的「需证据」开关。
+// RoleWaypointsConfig —— F-A-7 **ghost-steering waypoints editor** on the role card. The
+// whole waypoint mechanism (domain / role_waypoints table / ghost policy / freeze /
+// visited-ledger) has long existed on the backend, and the admin API already round-trips
+// `waypoints` — the owner just had nowhere to write it in the GUI, so every role on a real
+// instance sat at `waypoints: []` and the ghost had nowhere to steer to. This adds the
+// editor: add/edit/delete a waypoint (id + description + weight + terminal flag + evidence
+// URIs), save → full write-back via roleUpdatePayload (other fields untouched), frozen into
+// subsequent sessions. Pairs with the F-A-10 "require evidence" toggle.
 
 import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';

@@ -1,6 +1,8 @@
-// oauth_refresh.go —— oauth2 连接器的静默 token 刷新。注入出站请求前，若 access token 过期且有
-// refresh_token，就拿 refresh_token 去 token 端点换新 access token、回写存储、用新 token 注入。
-// 端点来自 spec，client_id/secret 来自 owner 存的凭据——provider 无关。
+// oauth_refresh.go — silent token refresh for oauth2 connectors. Before injecting an outbound
+// request, if the access token has expired and a refresh_token is present, exchange the
+// refresh_token at the token endpoint for a new access token, persist it, and inject with the
+// new token. Endpoints come from the spec, client_id/secret come from the owner's stored
+// credentials — provider-agnostic.
 
 package connector
 
@@ -13,14 +15,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 )
 
-// oauthRefresher —— 给一个 oauth2 连接器做静默刷新。装配期建（端点定，doer/store 注入）。
+// oauthRefresher — does silent refresh for one oauth2 connector. Built at assembly time
+// (endpoints fixed, doer/store injected).
 type oauthRefresher struct {
 	doer      openapi.Doer
 	store     ConnectionStore
 	endpoints OAuthEndpoints
 }
 
-// maybeRefresh —— token 没过期 / 无 refresh_token → 不动；否则走 doRefresh。
+// maybeRefresh — token not expired / no refresh_token → leave it alone; otherwise runs
+// doRefresh.
 func (r *oauthRefresher) maybeRefresh(
 	ctx context.Context, connectorID, ownerID string, conn *Connection,
 ) error {
@@ -30,7 +34,7 @@ func (r *oauthRefresher) maybeRefresh(
 	return r.doRefresh(ctx, connectorID, ownerID, conn)
 }
 
-// doRefresh —— 拿 refresh_token 换新 token + 回写 + 就地更新 conn。
+// doRefresh — exchange refresh_token for a new token + persist + update conn in place.
 func (r *oauthRefresher) doRefresh(
 	ctx context.Context, connectorID, ownerID string, conn *Connection,
 ) error {
@@ -57,8 +61,9 @@ func (r *oauthRefresher) doRefresh(
 	return nil
 }
 
-// handleRefreshErr —— invalid_grant（撤权）→ 落库 disconnected（下个 session 闸掉）+ 透传错；
-// 其余瞬时错只透传（上层映射成「稍后再试」降级，不动连接状态）。
+// handleRefreshErr — invalid_grant (revoked) → persist disconnected (gates the next session) +
+// pass the error through; other transient errors are just passed through (the caller maps them
+// to a "try again later" downgrade, connection state untouched).
 func (r *oauthRefresher) handleRefreshErr(
 	ctx context.Context, connectorID, ownerID string, rerr error,
 ) error {
@@ -70,7 +75,7 @@ func (r *oauthRefresher) handleRefreshErr(
 	return fmt.Errorf("refresh token: %w", rerr)
 }
 
-// pickRefreshToken —— provider 可能不回新 refresh_token → 留旧的。
+// pickRefreshToken — the provider may not return a new refresh_token → keep the old one.
 func pickRefreshToken(old, fresh string) string {
 	if fresh != "" {
 		return fresh
@@ -78,13 +83,16 @@ func pickRefreshToken(old, fresh string) string {
 	return old
 }
 
-// pickScopes —— 同一条道理，隔壁那个字段（F-C-43）。RFC 6749 §5.1：范围没变时
-// token 响应**可以不带 `scope`**。不带 ≠ 一个都没授 —— 而这一格原样落库的话，
-// 一次静默刷新就把已授范围抹成空。
+// pickScopes — the same reasoning applied to the field next door (F-C-43). RFC 6749 §5.1: a
+// token response **may omit `scope`** when it's unchanged. Omitted ≠ nothing was granted — and
+// if this field were persisted as-is, one silent refresh would wipe the granted scope down to
+// empty.
 //
-// 它现在是载荷不是记录：F-B-8 之后装配期拿它跟每个动作要求的 scope 对照。抹空的后果
-// 是 owner 连上一小时后，访客那边订会**静默消失**，而卡上仍写着 connected。
-// provider 明说了才更新，没说就留着。
+// It's a payload now, not just a record: after F-B-8, assembly-time code cross-checks it
+// against the scope each action requires. Wiping it out means that an hour after the owner
+// connects, visitor-side booking **silently disappears**, while the card still says connected.
+// Only update it when the provider explicitly says so; keep it as-is when the provider says
+// nothing.
 func pickScopes(old, fresh []string) []string {
 	if len(fresh) > 0 {
 		return fresh
@@ -92,12 +100,13 @@ func pickScopes(old, fresh []string) []string {
 	return old
 }
 
-// tokenExpired —— 有过期时间且已过（无过期时间 = 不过期，不刷）。
+// tokenExpired — has an expiry time and it has passed (no expiry time = never expires, no
+// refresh).
 func tokenExpired(conn *Connection) bool {
 	return conn.TokenExpiresAt != nil && nowUTC().After(*conn.TokenExpiresAt)
 }
 
-// clientCred —— oauth2 连接器存的 {client_id, client_secret}。
+// clientCred — the {client_id, client_secret} an oauth2 connector stores.
 type clientCred struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
@@ -114,7 +123,8 @@ func decodeClientCred(raw []byte) (clientCred, error) {
 	return c, nil
 }
 
-// buildRefresher —— oauth2/openIdConnect scheme → 建刷新器；其它 → nil（无需刷新）。
+// buildRefresher — oauth2/openIdConnect scheme → build a refresher; anything else → nil (no
+// refresh needed).
 func buildRefresher(
 	spec *openapi.Spec, schemeName string, doer openapi.Doer, store ConnectionStore,
 ) *oauthRefresher {

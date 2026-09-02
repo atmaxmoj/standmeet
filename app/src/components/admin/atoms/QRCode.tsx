@@ -1,8 +1,11 @@
-// QRCode —— 真·可扫 QR(qrcode-generator,经 lib/admin/qr-modules)。code 卡 +
-// CodeQRModal 用它生成 share-URL 的二维码,手机扫得开。三个 finder 角块上
-// vermillion(Reed-Solomon 容错扛得住配色),其余 ink。编码失败 → 优雅占位。
+// QRCode —— a genuinely scannable QR (qrcode-generator, via lib/admin/qr-modules).
+// Used by the code card + CodeQRModal to render the share-URL QR — scans fine
+// on a phone. The three finder corner blocks are vermillion (Reed-Solomon error
+// correction tolerates the color); everything else is ink. Encoding failure →
+// graceful placeholder.
 //
-// #30:之前这里是 qr-pattern 的伪 QR(确定性花纹,扫不出),已换真库。
+// #30: this used to be a fake QR from qr-pattern (a deterministic pattern that
+// doesn't actually scan); replaced with a real library.
 
 import { buildQRGrid, type QRCell, type QRGrid } from '@/lib/admin/qr-modules';
 

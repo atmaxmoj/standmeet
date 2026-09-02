@@ -2,7 +2,7 @@ package access
 
 import "github.com/atmaxmoj/standmeet/internal/access/entity"
 
-// 类型（实现:entity）.
+// Types (impl: entity).
 type (
 	APIKey                = entity.APIKey
 	Code                  = entity.Code
@@ -21,7 +21,7 @@ type (
 	Waypoint              = entity.Waypoint
 )
 
-// 构造/函数（实现:entity）.
+// Constructors/functions (impl: entity).
 var (
 	AllowsCorpusEntry       = entity.AllowsCorpusEntry
 	FilterWaypointsByCorpus = entity.FilterWaypointsByCorpus
@@ -30,7 +30,7 @@ var (
 	ValidateWaypoints       = entity.ValidateWaypoints
 )
 
-// 常量（实现:entity）.
+// Constants (impl: entity).
 const (
 	InvitedRoleDescription = entity.InvitedRoleDescription
 	InvitedRoleName        = entity.InvitedRoleName
@@ -38,7 +38,7 @@ const (
 	PublicRoleName         = entity.PublicRoleName
 )
 
-// 错误/变量（实现:entity）.
+// Errors/vars (impl: entity).
 var (
 	ErrAPIKeyNotFound             = entity.ErrAPIKeyNotFound
 	ErrAccessRequestNotFound      = entity.ErrAccessRequestNotFound

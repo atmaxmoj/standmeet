@@ -1,9 +1,12 @@
-// resume.go —— composition root 把 job-loop 的 ApplicationRepo 适配成访客侧简历读取能力的窄口。
-// 这个能力只需要"按 access code 取这一份简历的 JSON"，不该依赖整个 ApplicationRepo，
-// conversation / capload 更不该认识 jobsmodel —— 序列化收在这一层。
+// resume.go — composition root adapts the job-loop's ApplicationRepo into the narrow
+// port for the visitor-side resume-reading capability. This capability only needs
+// "fetch this resume's JSON by access code", it shouldn't depend on the whole
+// ApplicationRepo, and conversation / capload definitely shouldn't know about
+// jobsmodel — serialization is contained in this layer.
 //
-// not-found（普通码没绑 application）跟真失败一样返回 error：capability 拿到 error 一律隐藏
-// （fail-closed），不必分辨两者，所以这里不为它单开一条返回路径。
+// not-found (an ordinary code with no application bound) returns error the same as a
+// real failure: capability hides on any error unconditionally (fail-closed), so there's
+// no need to tell the two apart, and thus no separate return path for it here.
 
 package port
 
@@ -17,17 +20,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 )
 
-// ResumesByCode —— 构造。返回一个只能"按 access code 取这一份简历 JSON"的口子。
+// ResumesByCode — constructor. Returns a port that can only "fetch this resume's JSON
+// by access code".
 func ResumesByCode(d *deps.Runtime) ResumeReader {
 	return ResumeReader{repo: d.ApplicationRepo}
 }
 
-// ResumeReader —— 导出（revive unexported-return）。满足 conversation.ResumeSource。
+// ResumeReader — exported (revive unexported-return). Satisfies conversation.ResumeSource.
 type ResumeReader struct{ repo *jobsuc.ApplicationRepo }
 
-// ResumeForCode —— 反查这张 access code 绑的 application，回它的 resume_content（JSON bytes）。
-// 没绑 application 的普通码 → GetByAccessCode 返 ErrApplicationNotFound，这里包成 error 上抛
-// （capability 据此隐藏工具）。
+// ResumeForCode — looks up the application bound to this access code, returns its
+// resume_content (JSON bytes). An ordinary code with no bound application → GetByAccessCode
+// returns ErrApplicationNotFound, wrapped as an error and raised here (capability hides
+// the tool based on that).
 func (r ResumeReader) ResumeForCode(
 	ctx context.Context, ownerID, codeID string,
 ) ([]byte, error) {

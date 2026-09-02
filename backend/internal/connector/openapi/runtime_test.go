@@ -1,6 +1,8 @@
-// runtime_test.go —— 后端内部 UT（无第三方、不出本服务边界：进程内 httptest 兜替 SaaS）。
-// 钉死归一化执行核的纯逻辑：spec/binding 解析 + JSONata 两向形状归一 + 状态码降级。完整
-// 装配→连接→消费的真实路径由 e2e（connector-binding-jsonata.spec.ts）覆盖。
+// runtime_test.go — backend-internal unit tests (no third parties, never crosses this
+// service's boundary: an in-process httptest stand-in replaces the SaaS). Pins down the
+// normalization execution core's pure logic: spec/binding parsing + two-way JSONata shape
+// normalization + status-code degradation. The real end-to-end assembly → connect → consume
+// path is covered by e2e (connector-binding-jsonata.spec.ts).
 
 package openapi
 
@@ -126,7 +128,7 @@ func TestRuntime_RateLimited_TransientError(t *testing.T) {
 
 func TestRuntime_MissingResponseField_Graceful(t *testing.T) {
 	t.Parallel()
-	rt, srv := newCalRuntime(t, &reqRecorder{body: `{}`}) // 缺 calendars.primary.busy
+	rt, srv := newCalRuntime(t, &reqRecorder{body: `{}`}) // missing calendars.primary.busy
 	defer srv.Close()
 
 	var out busyOut
@@ -136,7 +138,8 @@ func TestRuntime_MissingResponseField_Graceful(t *testing.T) {
 	}
 }
 
-// reqRecorder —— 记录收到的请求 + 返回预设体/状态码的进程内 handler。
+// reqRecorder — an in-process handler that records the received request + returns a preset
+// body/status code.
 type reqRecorder struct {
 	body   string
 	path   string
@@ -168,7 +171,8 @@ func mustNoErr(t *testing.T, what string, err error) {
 	}
 }
 
-// TestSubstitutePath —— {param} 替换 + PathEscape:注入值(含 `/`)被转义,逃不出预期路径。
+// TestSubstitutePath — {param} substitution + PathEscape: an injected value (containing `/`)
+// gets escaped and cannot escape the intended path.
 func TestSubstitutePath(t *testing.T) {
 	const evPath = "/events/{eventId}"
 	cases := []struct {

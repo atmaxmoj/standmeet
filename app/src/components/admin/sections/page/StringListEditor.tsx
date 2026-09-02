@@ -1,4 +1,5 @@
-// StringListEditor —— 单值字符串数列编辑（hero examples / looking_for 等）。
+// StringListEditor — editor for a list of single-value strings (hero examples,
+// looking_for, etc).
 
 type Props = {
   label: string;

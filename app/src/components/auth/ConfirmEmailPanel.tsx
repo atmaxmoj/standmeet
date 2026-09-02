@@ -1,10 +1,13 @@
-// ConfirmEmailPanel —— 确认信里那条链接的落地页。
+// ConfirmEmailPanel — landing page for the link in the confirmation email.
 //
-// 三种结局各说各的话。**"过期"和"无效"必须分开** —— owner 下一步该做什么完全不同：
-// 过期 = 回面板再点一次保存（那条路还在）；无效 = 这封信不是给你的 / 已经用过了。
-// 压成一句"链接有问题"的话，为过期准备的那句指引就永远出不来。
+// Each of the three outcomes says something different. "Expired" and "invalid" must
+// stay separate — the owner's next step differs completely: expired = go back to
+// the panel and save again (that path still works); invalid = this email wasn't
+// for you / was already used. Collapsing both into "link has a problem" means the
+// guidance written for expired never surfaces.
 //
-// 呈现层不做判断：状态机在 useConfirmEmail 里，这里只按 kind 选一块渲染。
+// No judgment happens in this presentation layer: the state machine lives in
+// useConfirmEmail, this file only picks which block to render by kind.
 
 'use client';
 
@@ -28,8 +31,9 @@ export function ConfirmEmailPanel() {
   );
 }
 
-// OUTCOMES —— kind → 渲染哪一块。查表而不是四个三元：呈现层的分支上限是 3，
-// 而且加一种结局时改的是这张表，不是一条越来越长的链子。
+// OUTCOMES — kind → which block to render. A lookup table, not four ternaries:
+// caps the presentation layer's branching at 3, and adding a new outcome means
+// editing this table, not extending an ever-longer chain.
 const OUTCOMES: Record<ConfirmEmailState['kind'], (s: ConfirmEmailState) => ReactNode> = {
   working: () => <Working />,
   confirmed: (s) => <Confirmed email={s.kind === 'confirmed' ? s.email : ''} />,

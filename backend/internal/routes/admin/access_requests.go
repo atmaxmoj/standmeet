@@ -1,8 +1,10 @@
-// access_requests.go —— admin /access-requests endpoint (list + status update + approve)。
+// access_requests.go — admin /access-requests endpoint (list + status update + approve).
 //
-// 能力来自出站收口（通用件在 dispatch.go）；这个面只决定 REST 形状：
-// status 过滤走 query、资源 id 走路径、其余进 body。
-// 错误的状态码翻译也在这个面：收口只说“调用方给错了 / 找不到 / 机器出错”。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// this facade only decides the REST shape: status filter goes in the query, the resource id
+// goes in the path, everything else goes in the body.
+// Error-to-status-code translation also lives in this facade: the convergence point only
+// says "caller's fault / not found / our fault".
 
 package admin
 
@@ -12,12 +14,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// AccessRequestsDeps —— admin access-requests handlers 的能力来源。
+// AccessRequestsDeps — capability source for the admin access-requests handlers.
 type AccessRequestsDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountAccessRequests 挂 /access-requests 子路由。
+// MountAccessRequests mounts the /access-requests subrouter.
 func (h *Handlers) MountAccessRequests(r chi.Router) {
 	face := h.AccessRequests.Face
 	r.Get("/access-requests",

@@ -1,9 +1,13 @@
-// RestrictedDoc —— 公开 landing(wiki/output)上非 indexed / 受限文档的客户端
-// 兜底:持 code 的访客凭 session 走 corpus_read 把全文取回来渲染(role ACL 授了
-// 就看得见 —— AI 就是凭这访问读出来引用的)。无 session / 无权才落锁屏。
+// RestrictedDoc —— the client-side fallback, on the public landing page
+// (wiki/output), for a non-indexed / restricted document: a code-holding
+// visitor uses their session to fetch the full text through corpus_read and
+// render it (if the role's ACL grants it, they can see it — this is the
+// same access the AI reads and cites from). Only when there's no session /
+// no permission does it fall through to the lock screen.
 //
-// SSR 那层只认 published,拿不到访客 localStorage session,所以这一兜底必须
-// 在客户端做。
+// The SSR layer only knows about published content and can't see the
+// visitor's localStorage session, so this fallback has to happen on the
+// client.
 
 'use client';
 
@@ -62,15 +66,24 @@ function DocContent({ genre, slug, title, body }: {
   );
 }
 
-// Locked —— 这条读不到。**testid 挂在这一支上**:没有它,"访客看不到这条"只能靠
-// "某个元素不存在"来断,而元素不存在在页面 404、组件改名、路由挂掉时同样成立 ——
-// 一条在功能坏掉时也会绿的断言。要断的是"访客确实被拦在门外",那得有个正向的标记。
-// Locked 的两句话不是同一句 —— 说哪一句由**访客手里有没有码**决定（F-R-6）。
+// Locked —— this document can't be read. **The testid hangs on this
+// branch**: without it, "the visitor can't see this document" could only
+// be asserted by "some element doesn't exist" — and an element not
+// existing is equally true when the page 404s, a component gets renamed,
+// or a route breaks. That's an assertion that stays green even when the
+// feature is broken. What needs asserting is "the visitor really is
+// blocked at the door", and that needs a positive marker.
+// Locked's two sentences aren't the same sentence — which one shows
+// depends on **whether the visitor is holding a code** (F-R-6).
 //
-// 没有码：去 gate 输一张，这是能走的下一步。
-// 有码：让他再去输一次码，是让他重做一件已经做完的事 —— 而顶栏同一屏上就写着他的码。
-// 后端对「越权」和「不存在」一律回 404（不承认存在，这是对的），所以这句话必须**把两种
-// 情况都说进去**，而不是挑一种断言 —— 挑错的那一次就是一句关于世界的假话。
+// No code: go to gate and enter one — that's a step they can actually take.
+// Has a code: telling them to go enter a code again would mean redoing
+// something already done — and their code is written right there on the
+// same screen, in the top bar. The backend returns 404 uniformly for both
+// "out of scope" and "doesn't exist" (refusing to confirm existence, which
+// is correct), so this sentence has to **cover both cases** rather than
+// asserting just one — picking the wrong one would be a false statement
+// about the world.
 function Locked({ genre, slug, hasSession }: {
   genre: string; slug: string; hasSession: boolean;
 }) {
@@ -92,7 +105,8 @@ function Locked({ genre, slug, hasSession }: {
   );
 }
 
-// lockedTitle —— 组件里禁 if/复杂度，标题的三岔（有码 / 无码×output / 无码×entry）抽出来。
+// lockedTitle —— components ban if/complexity, so the title's three-way
+// branch (has-code / no-code×output / no-code×entry) is pulled out here.
 function lockedTitle(
   t: (k: string, v?: Record<string, string>) => string, genre: string, hasSession: boolean,
 ): string {

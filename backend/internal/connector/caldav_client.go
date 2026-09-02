@@ -1,6 +1,8 @@
-// caldav_client.go —— CalDAV 协议的最小但真实客户端：WebDAV REPORT（free-busy-query）查忙时、
-// PUT 一份 iCalendar VEVENT 建会、DELETE 退订。protocol 连接器（caldav）的传输层；跟 SMTP 一样
-// 是内置协议实现，凭据（url/user/pass）由 vault 解密给出，永不出本层。出站走 guarded client（SSRF）。
+// caldav_client.go — minimal but real CalDAV protocol client: WebDAV REPORT (free-busy-query)
+// checks busy times, PUT an iCalendar VEVENT to create a meeting, DELETE to cancel. Transport
+// layer of the protocol connector (caldav); like SMTP it's a built-in protocol implementation —
+// creds (url/user/pass) come decrypted from the vault and never leave this layer. Outbound
+// traffic goes through the guarded client (SSRF).
 
 package connector
 
@@ -16,7 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 )
 
-// caldavCreds —— 解密后的 CalDAV 凭据。
+// caldavCreds — decrypted CalDAV credentials.
 type caldavCreds struct {
 	URL      string
 	Username string
@@ -25,14 +27,16 @@ type caldavCreds struct {
 
 const (
 	icalLayout = "20060102T150405Z"
-	// icalLocalLayout —— 带 `;TZID=` 的时间没有末尾那个 Z（`DTSTART;TZID=Europe/Berlin:20260831T160000`）。
+	// icalLocalLayout — times carrying `;TZID=` have no trailing Z
+	// (`DTSTART;TZID=Europe/Berlin:20260831T160000`).
 	icalLocalLayout  = "20060102T150405"
 	caldavReportType = "application/xml; charset=utf-8"
 	caldavICalType   = "text/calendar; charset=utf-8"
-	maxCalDAVBytes   = 4 << 20 // 出站响应体读取上限（防失控 provider）
+	// maxCalDAVBytes — cap on outbound response body reads (guards against a runaway provider).
+	maxCalDAVBytes = 4 << 20
 )
 
-// freeBusyQuery —— CalDAV free-busy-query REPORT body（时间窗内的忙时段）。
+// freeBusyQuery — CalDAV free-busy-query REPORT body (busy periods within a time window).
 func freeBusyQuery(start, end time.Time) string {
 	return fmt.Sprintf(
 		`<?xml version="1.0" encoding="utf-8"?>`+
@@ -42,7 +46,7 @@ func freeBusyQuery(start, end time.Time) string {
 	)
 }
 
-// buildVEvent —— 一份最小 iCalendar VEVENT（建会 PUT 的 body）。
+// buildVEvent — a minimal iCalendar VEVENT (the body of the create-meeting PUT).
 func buildVEvent(uid, summary string, start, end time.Time, attendee string) string {
 	out := "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//StandMeet//CalDAV//EN\r\nBEGIN:VEVENT\r\n"
 	out += fmt.Sprintf("UID:%s\r\nSUMMARY:%s\r\nDTSTART:%s\r\nDTEND:%s\r\n",
@@ -53,7 +57,7 @@ func buildVEvent(uid, summary string, start, end time.Time, attendee string) str
 	return out + "END:VEVENT\r\nEND:VCALENDAR\r\n"
 }
 
-// caldavRequest —— 一个 CalDAV 出站请求（method 含 REPORT/PROPFIND/PUT/DELETE）。
+// caldavRequest — one outbound CalDAV request (method includes REPORT/PROPFIND/PUT/DELETE).
 type caldavRequest struct {
 	Method      string
 	URL         string
@@ -61,7 +65,8 @@ type caldavRequest struct {
 	ContentType string
 }
 
-// caldavReq —— 发一个 CalDAV 请求；basic auth；走 guarded doer。调用方负责关闭返回的 body。
+// caldavReq — send one CalDAV request; basic auth; goes through the guarded doer. The caller
+// is responsible for closing the returned body.
 func caldavReq(
 	ctx context.Context, doer openapi.Doer, creds *caldavCreds, r *caldavRequest,
 ) (*http.Response, error) {
@@ -96,21 +101,26 @@ func buildCalDAVReq(
 	return req, nil
 }
 
-// ErrFreeBusyUnreadable —— 对面**答了**，而我们没能从它的 VFREEBUSY 里读出任何忙时（F-C-50）。
+// ErrFreeBusyUnreadable — the other side **did answer**, but we could not read any busy time out
+// of its VFREEBUSY (F-C-50).
 //
-// **这条错误存在的理由**：这个字段上「我看不懂这个回答」和「这个日历是空的」是**相反**的两件事，
-// 而以前它们是同一个返回值（空切片）。真环境上的样子是：日历上有一场每周一的会，产品对访客说
-// *"a clean run available … with no gaps"*，然后把访客约在那场会上面。
-// 读不出来时正确的行为是说不出来，不是替日历宣布它空着（[[empty-is-not-json-null]]）。
+// **Why this error exists**: on this field, "I can't parse this answer" and "this calendar is
+// empty" are **opposite** facts, and they used to share one return value (an empty slice). What
+// that looked like in the real environment: the calendar had a recurring Monday meeting, the
+// product told the visitor *"a clean run available … with no gaps"*, and booked the visitor right
+// on top of that meeting. The correct behavior when a read fails is to say so, not to announce
+// the calendar empty on the calendar's behalf ([[empty-is-not-json-null]]).
 var ErrFreeBusyUnreadable = errors.New("free-busy response could not be read")
 
-// parseFreeBusy —— 从 VFREEBUSY 抽忙时区间。**两种真实答法都认**：
+// parseFreeBusy — extract busy-time ranges from VFREEBUSY. **Accepts both real-world answer
+// shapes**:
 //
-//	FREEBUSY[;params]:<start>/<end>       —— 属性形式（Google / Fastmail 一族）
-//	VFREEBUSY 组件上的 DTSTART / DTEND    —— 组件形式（Radicale 一族，一段一个组件）
+//	FREEBUSY[;params]:<start>/<end>       — property form (Google / Fastmail family)
+//	DTSTART / DTEND on a VFREEBUSY block  — component form (Radicale family, one block per period)
 //
-// 一个 VFREEBUSY 都没有 = 这段窗口里没有忙时，**那是一个答案**，返回空。
-// 有 VFREEBUSY 却一段都读不出来 = 我们没读懂 → `ErrFreeBusyUnreadable`，不许当成空。
+// Zero VFREEBUSY blocks = no busy time in this window, **that is itself an answer**, return
+// empty. VFREEBUSY blocks present but none of them parse = we failed to read it →
+// `ErrFreeBusyUnreadable`; never treat that as empty.
 func parseFreeBusy(body string) ([]busyRow, error) {
 	s := freeBusyScan{out: make([]busyRow, 0)}
 	for line := range strings.SplitSeq(body, "\n") {
@@ -122,7 +132,7 @@ func parseFreeBusy(body string) ([]busyRow, error) {
 	return s.out, nil
 }
 
-// freeBusyScan —— 逐行扫一份 VFREEBUSY 响应攒出来的状态。
+// freeBusyScan — state accumulated by scanning a VFREEBUSY response line by line.
 type freeBusyScan struct {
 	cur    busyBlock
 	out    []busyRow
@@ -141,7 +151,7 @@ func (s *freeBusyScan) line(line string) {
 	}
 }
 
-// busyBlock —— 一个 VFREEBUSY 组件里逐行攒起来的 DTSTART / DTEND。
+// busyBlock — DTSTART / DTEND accumulated line by line within one VFREEBUSY block.
 type busyBlock struct {
 	start time.Time
 	end   time.Time
@@ -149,7 +159,8 @@ type busyBlock struct {
 
 func (b *busyBlock) complete() bool { return !b.start.IsZero() && !b.end.IsZero() }
 
-// readFreeBusyLine —— 属性形式当场成段；组件形式先攒进 cur，等 END 再成段。
+// readFreeBusyLine — property form becomes a row immediately; component form accumulates into
+// cur first and becomes a row on END.
 func readFreeBusyLine(out []busyRow, cur *busyBlock, line string) []busyRow {
 	if val, ok := propValue(line, "FREEBUSY"); ok {
 		if row, valid := parseBusyPeriod(val); valid {
@@ -161,8 +172,9 @@ func readFreeBusyLine(out []busyRow, cur *busyBlock, line string) []busyRow {
 	return out
 }
 
-// readBlockTime —— 认 VFREEBUSY 组件上的 DTSTART / DTEND（含 `;TZID=…` 参数）。
-// 读不出来就留零值 —— `complete()` 因此判假，这一段不成立，最终落到 ErrFreeBusyUnreadable。
+// readBlockTime — recognize DTSTART / DTEND on a VFREEBUSY block (including the `;TZID=…`
+// parameter). Leaves a zero value on parse failure — `complete()` then reads false, this block
+// doesn't count, and it eventually falls through to ErrFreeBusyUnreadable.
 func readBlockTime(cur *busyBlock, line string) {
 	if val, ok := propValue(line, "DTSTART"); ok {
 		cur.start = parseICalTime(val, line)
@@ -182,9 +194,9 @@ func appendBlockRow(out []busyRow, cur *busyBlock) []busyRow {
 	return append(out, row)
 }
 
-// propValue —— 取 `NAME[;params]:<value>` 的 value；名字对不上 → ok=false。
-// 按**分隔符**判而不是按前缀判：`DTSTAMP` 也以 `DTSTA` 开头，前缀匹配会把它当成 DTSTART
-// （[[lookahead-rule-eats-the-neighbour]]）。
+// propValue — get the value out of `NAME[;params]:<value>`; name mismatch → ok=false.
+// Judged by **delimiter**, not by prefix: `DTSTAMP` also starts with `DTSTA`, so a prefix match
+// would mistake it for DTSTART ([[lookahead-rule-eats-the-neighbour]]).
 func propValue(line, name string) (string, bool) {
 	head, val, found := strings.Cut(line, ":")
 	if !found {
@@ -197,9 +209,10 @@ func propValue(line, name string) (string, bool) {
 	return val, true
 }
 
-// parseICalTime —— `20060102T150405Z`（UTC）或不带 Z 的本地时间 + `;TZID=Area/City`。
-// 读不出来返回零值。**TZID 认不出来时也返回零值，不许退回当成 UTC** —— 那会把一场会
-// 挪几个小时，而它长得像成功。
+// parseICalTime — `20060102T150405Z` (UTC) or the Z-less local time form + `;TZID=Area/City`.
+// Returns a zero value on parse failure. **Also returns a zero value when TZID isn't recognized —
+// never fall back to treating it as UTC** — that would shift a meeting by hours while looking
+// like success.
 func parseICalTime(val, line string) time.Time {
 	if t, err := time.Parse(icalLayout, val); err == nil {
 		return t
@@ -215,7 +228,8 @@ func parseICalTime(val, line string) time.Time {
 	return t.UTC()
 }
 
-// tzidOf —— 从 `DTSTART;TZID=Europe/Berlin:…` 里取出时区名；没有则空串（LoadLocation 会失败）。
+// tzidOf — pull the zone name out of `DTSTART;TZID=Europe/Berlin:…`; empty string if absent
+// (LoadLocation then fails).
 func tzidOf(line string) string {
 	head, _, _ := strings.Cut(line, ":")
 	for part := range strings.SplitSeq(head, ";") {
@@ -226,7 +240,7 @@ func tzidOf(line string) string {
 	return ""
 }
 
-// parseBusyPeriod —— 解析一个 "<start>/<end>" period（iCal UTC）成忙时区间。
+// parseBusyPeriod — parse a "<start>/<end>" period (iCal UTC) into a busy-time range.
 func parseBusyPeriod(period string) (busyRow, bool) {
 	parts := strings.SplitN(period, "/", 2)
 	if len(parts) != 2 {

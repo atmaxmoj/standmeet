@@ -1,9 +1,11 @@
-// usage_periodic.go —— 本域的周期任务:清 inference_usage 的老行。
+// usage_periodic.go — this domain's periodic job: clean old inference_usage rows.
 //
-// 它以前只在 boot 跑一次。一台跑三个月不重启的实例,第一天之后就再也没清过 —— 那不是
-// "每 7 天清一次",那是"重启时清一次",而两句话在面板上长得一模一样。
+// It used to run only once at boot. An instance that runs for three months without a
+// restart never cleans again after day one — that's not "cleaned every 7 days", that's
+// "cleaned once, at restart", and the two read identically on a dashboard.
 //
-// 清理规则本身在 SQL 里(计量行留着,不然油自己长回来);这里只管多久跑一次。
+// The cleanup rule itself lives in SQL (metered rows are kept, or the "gas" would grow
+// back on its own); this file only owns how often it runs.
 
 package repo
 
@@ -14,11 +16,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 )
 
-// usageCleanupEvery —— 表按天涨,一天清一次够了;间隔那句话由它算出来,不另写一份。
+// usageCleanupEvery — the table grows by the day, so once a day is enough; the interval
+// sentence is derived from this constant, not restated anywhere else.
 const usageCleanupEvery = 24 * time.Hour
 
-// UsagePeriodicJobs —— 本域开出去的周期任务。repo 为 nil → 一件也不开:
-// 面板上不该出现一个永远 ok 却什么都没做的任务。
+// UsagePeriodicJobs — the periodic jobs this domain exposes. repo == nil → expose none:
+// a dashboard shouldn't show a job that's always "ok" while doing nothing.
 func UsagePeriodicJobs(r *InferenceUsageRepo) []periodic.Job {
 	if r == nil {
 		return []periodic.Job{}

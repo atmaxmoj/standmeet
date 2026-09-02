@@ -1,8 +1,9 @@
-// table.go —— "访客能用什么"这张表怎么装出来(声明在 ops.go)。
+// table.go — how the "what can visitors use" table is assembled (declared in ops.go).
 //
-// 这张表要读四处:能力注册表(有哪些能力 + 它们的 origin)、capability_settings
-// (owner 关掉了哪些)、owner 自己的 skill、连接器槽(日历 / 邮件连上没有)。
-// 两根插件轴在这一侧,所以这段跨四处的编排也在这一侧。
+// This table has to read four places: the capability registry (which capabilities exist +
+// their origin), capability_settings (which ones the owner disabled), the owner's own skills,
+// and the connector slots (whether calendar / mail are connected). Both plugin axes live on
+// this side, so this cross-four-place orchestration lives here too.
 
 package axiscap
 
@@ -19,7 +20,7 @@ import (
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
-// connector kind 的稳定行 id(可关不可删 —— 断开而不是删掉)。
+// Stable row ids for the connector kind (can be disabled, not deleted — disconnect, not delete).
 const (
 	connectorGCalRowID = "connector.google-calendar"
 	connectorMailRowID = "connector.smtp"
@@ -39,7 +40,7 @@ func newCapabilityOps(d *deps.Runtime) capabilityOps {
 	}
 }
 
-// capabilityFacts —— 装配一次列表所需的全部 IO 结果,一次读齐。
+// capabilityFacts — every IO result needed to assemble one listing, read all at once.
 type capabilityFacts struct {
 	disabled map[string]bool
 	skills   []marketplace.Skill
@@ -57,8 +58,9 @@ func (a capabilityOps) List(ctx context.Context, ownerID string) ([]capabilityRo
 	return append(rows, ownerSkillRows(&facts)...), nil
 }
 
-// SetEnabled —— 开关写到**真正读它的**那张表:注册表能力 → capability_settings;
-// owner skill → skill 自己的 Enabled。connector 行前端锁死,不走这条。
+// SetEnabled — the toggle is written to **whichever table actually reads it**: a registry
+// capability → capability_settings; an owner skill → the skill's own Enabled. Connector rows
+// are locked in the frontend and never take this path.
 func (a capabilityOps) SetEnabled(ctx context.Context, ownerID, id string, enabled bool) error {
 	if _, ok := a.registry.OriginOf(id); ok {
 		if err := a.settings.SetEnabled(ctx, ownerID, id, enabled); err != nil {
@@ -72,7 +74,8 @@ func (a capabilityOps) SetEnabled(ctx context.Context, ownerID, id string, enabl
 	return nil
 }
 
-// Delete —— 只有 owner 自己写的 skill 可删。注册表能力(builtin/managed)和 connector 行都拒。
+// Delete — only an owner-authored skill can be deleted. Registry capabilities
+// (builtin/managed) and connector rows are both rejected.
 func (a capabilityOps) Delete(ctx context.Context, ownerID, id string) error {
 	if !a.deletable(id) {
 		return fp.BadInput("this capability is built in and cannot be deleted")
@@ -99,16 +102,18 @@ func (a capabilityOps) load(ctx context.Context, ownerID string) (capabilityFact
 	}, nil
 }
 
-// categoryConnected —— 品类槽里有没有一个 active 且已连的连接器。读失败当作没连:
-// 这是个展示状态,不该让整张表打不开。
+// categoryConnected — whether the category slot has an active, connected connector. A read
+// failure is treated as not connected: this is a display state, and shouldn't be able to
+// break the whole table.
 func (a capabilityOps) categoryConnected(ctx context.Context, ownerID, category string) bool {
 	ok, err := a.connectors.CategoryConnected(ctx, ownerID, category)
 	return err == nil && ok
 }
 
-// registryRows —— 注册表里**面向访客**的能力各一行。
+// registryRows — one row per **visitor-facing** capability in the registry.
 //
-// owner-only 的不列:owner-enable 闸只作用于访客装配,给它们放一个开关,那个开关什么都不做。
+// owner-only ones aren't listed: the owner-enable gate only applies to visitor assembly, so
+// giving them a toggle would be a toggle that does nothing.
 func (a capabilityOps) registryRows(facts *capabilityFacts) []capabilityRow {
 	caps := a.registry.List()
 	out := make([]capabilityRow, 0, len(caps))
@@ -141,7 +146,8 @@ func capabilityTitleOf(c capreg.Capability) string {
 	return ""
 }
 
-// dependencyOf —— 这个能力等的是哪个连接器,连上没有。没有依赖返 nil。
+// dependencyOf — which connector this capability is waiting on, and whether it's connected.
+// No dependency → returns nil.
 func dependencyOf(id string, facts *capabilityFacts) *capabilityDependency {
 	switch id {
 	case "calendar.book":
@@ -153,7 +159,8 @@ func dependencyOf(id string, facts *capabilityFacts) *capabilityDependency {
 	}
 }
 
-// connectorSlotRows —— 平台托管的连接器槽各一行。可关不可删(断开,不是删掉)。
+// connectorSlotRows — one row per platform-managed connector slot. Can be disabled, not
+// deleted (disconnect, not delete).
 func connectorSlotRows(facts *capabilityFacts) []capabilityRow {
 	managed := string(capreg.OriginManaged)
 	return []capabilityRow{
@@ -170,20 +177,22 @@ func connectorSlotRows(facts *capabilityFacts) []capabilityRow {
 	}
 }
 
-// ownerSkillRows —— owner 自己写的 skill 各一行。
+// ownerSkillRows — one row per owner-authored skill.
 //
-// enabled 读的是 **skill 自己**的全局开关(skill runner 真读的那个),不是
-// capability_settings —— skill 不是注册表能力,别拿 owner-enable 闸的表当它的真值。
+// enabled reads **the skill's own** global toggle (the one the skill runner actually reads),
+// not capability_settings — a skill isn't a registry capability, so don't treat the
+// owner-enable gate's table as its source of truth.
 func ownerSkillRows(facts *capabilityFacts) []capabilityRow {
 	out := make([]capabilityRow, 0, len(facts.skills))
 	for i := range facts.skills {
 		s := &facts.skills[i]
 		if s.IsBuiltin {
-			continue // 内建 skill 不算 owner-origin,不可删
+			continue // a built-in skill doesn't count as owner-origin, and can't be deleted
 		}
-		// Title 必须给:skill 的 id 是个 UUID。内建能力的 id 本身就是人话(mail.send),
-		// 所以面上只渲 id 也看着正常 —— 直到 owner 自己写的 skill 出现,那一行就只剩一串
-		// 十六进制,旁边还挂着开关和删除。
+		// Title must be given: a skill's id is a UUID. A built-in capability's id already
+		// reads like plain language (mail.send), so rendering only the id looks fine — until
+		// an owner-authored skill shows up, and that row is left as a string of hex digits
+		// with a toggle and a delete button hanging next to it.
 		out = append(out, capabilityRow{
 			ID: s.ID, Title: s.Name, Origin: string(capreg.OriginOwner), Kind: "skill",
 			Enabled: s.Enabled, Deletable: true,

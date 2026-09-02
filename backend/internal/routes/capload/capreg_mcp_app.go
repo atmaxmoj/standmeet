@@ -1,12 +1,13 @@
-// capreg_mcp_app.go —— C3: mcpAppCapability 适配器(泛化 ext-mcp)。
+// capreg_mcp_app.go —— C3: the mcpAppCapability adapter (a generalization of ext-mcp).
 //
-// 这是 **MCP app(能力)** 那一类 —— 不是 skill。把一条 mcpplugin.Manifest dial
-// 成一个 MCP server、ListTools、每个 tool 包成 BindingTool(register 式)。skill
-// (Agent Skills / SKILL.md 内容库)是完全不同的另一类(Phase C),不在这。
+// This is the **MCP app (capability)** category, not a skill. It dials a mcpplugin.Manifest
+// as an MCP server, calls ListTools, and wraps each tool as a BindingTool (register-style).
+// skill (the Agent Skills / SKILL.md library) is a separate category (Phase C), not covered
+// here.
 //
-// VisitorBinding 时按 transport dial → ListTools → 包 BindingTool;_meta.ui 进
-// CapabilityState.Extra。dial / list 失败 / 空 tool → ErrHidden(隐藏,不阻塞
-// chat)。tool 调用失败折成 errJSON(复用 ext-mcp 的 makeExtMCPRun)。
+// VisitorBinding: dial per transport → ListTools → wrap as BindingTool; _meta.ui goes into
+// CapabilityState.Extra. Dial / list failure / empty tool list → ErrHidden (hidden, without
+// blocking chat). A failed tool call folds into errJSON (reusing ext-mcp's makeExtMCPRun).
 
 package capload
 
@@ -23,34 +24,38 @@ import (
 type mcpAppCapability struct {
 	instrOnce *sync.Once
 	instr     *string
-	// toolsOnce/tools —— 缓存首拨拿到的 tool specs（name/desc/schema/_meta）。tool 元数据
-	// 是 server 级静态的，但每次 VisitorBinding 都重拨 + ListTools 会让 `_meta`（尤其
-	// return_directly / progress_label）在高负载冷启时偶发丢失（#149），导致 ask_visitor
-	// 卡不返、间歇 flake。读一次缓存：之后每次装配只用 live session 执行，specs 取缓存的
-	// 可靠值，彻底消掉 per-dial 的 _meta 读竞态。
+	// toolsOnce/tools —— cache the tool specs (name/desc/schema/_meta) from the first dial.
+	// Tool metadata is static server-side, but re-dialing + ListTools on every VisitorBinding
+	// would occasionally lose `_meta` (return_directly / progress_label) under a cold-start
+	// high-load ListTools (#149), hanging ask_visitor without returning — an intermittent
+	// flake. Read once; every later assembly executes on the live session but takes specs
+	// from the cache, eliminating the per-dial `_meta` read race.
 	toolsOnce *sync.Once
 	tools     *[]mcpclient.Tool
 	gate      capreg.SessionGate
-	// fragmentGate —— 可选 per-session 谓词，决定本能力是否「实际活跃」：控制
-	// SystemPromptFragment 是否贡献 + CapabilityState.Enabled。tool 暴露不受它影响
-	// （retrieval: 无 corpus scope 时 enabled=false + 不进 prompt，但 3 个 tool 仍暴露，
-	// 内部 ACL 拦）。nil = 恒活跃（默认）。跟 gate（控 tool 暴露）正交。
+	// fragmentGate —— optional per-session predicate for whether this capability is "actually
+	// active": gates SystemPromptFragment output and CapabilityState.Enabled. Tool exposure is
+	// unaffected (retrieval: no corpus scope → enabled=false, no prompt entry, but its 3 tools
+	// stay exposed, blocked instead by internal ACL). nil = always active. Orthogonal to gate.
 	fragmentGate func(*capreg.AssembleInput) bool
 	stateHook    StateHook
-	// dialErrLog —— composition root 注入：dial/list 失败(如 sandbox 起不来)本会静默
-	// 折成 ErrHidden(优雅降级,不阻塞 chat),这里在折之前把真因响出来(F-A-1:prod bwrap
-	// 起不来 → retrieval 静默 0 工具,日志查无此事)。nil = 静默(老行为)。
+	// dialErrLog —— injected by the composition root. A dial/list failure (e.g. sandbox won't
+	// start) would otherwise fold silently into ErrHidden (graceful degradation); this reports
+	// the real cause first (F-A-1: prod bwrap failing to start left retrieval silently at 0
+	// tools with nothing in the logs). nil = silent (old behavior).
 	dialErrLog func(id string, err error)
 	m          mcpplugin.Manifest
 }
 
-// StateHook —— 给某能力的 CapabilityState 补 host 侧算出来的字段（booker: quota_remaining）。
-// 装配期调，返回的非零字段（QuotaRemaining / PolicySummary / Extra）overlay 到通用 state。
+// StateHook —— fills in a capability's CapabilityState with host-computed fields (booker:
+// quota_remaining). Called at assembly time; its non-zero fields (QuotaRemaining /
+// PolicySummary / Extra) overlay onto the generic state.
 type StateHook func(context.Context, *capreg.AssembleInput) capreg.CapabilityState
 
-// CapHooks —— composition root 给特定内建挂的 per-session 钩子（都可选）。Gate 控 tool
-// 暴露（booker: connector+quota 隐藏）；Fragment 控 prompt 贡献 + enabled（retrieval:
-// 无 corpus scope）；State 补 host 侧算的 state 字段（booker: quota_remaining）。三者正交。
+// CapHooks —— per-session hooks the composition root attaches to a specific builtin, all
+// optional and orthogonal: Gate controls tool exposure (booker: hidden by connector+quota);
+// Fragment controls prompt contribution + enabled (retrieval: no corpus scope); State fills
+// in host-side-computed fields (booker: quota_remaining).
 type CapHooks struct {
 	Gate     capreg.SessionGate
 	Fragment func(*capreg.AssembleInput) bool
@@ -64,45 +69,48 @@ func newMCPAppCapability(m *mcpplugin.Manifest) *mcpAppCapability {
 	}
 }
 
-// 注册那一段（manifest → 注册好的能力、origin、撞 ID、always 名单）住在
-// capreg_mcp_app_register.go。
+// The registration part (manifest → registered capability, origin, ID collisions, the
+// always-list) lives in capreg_mcp_app_register.go.
 
 func (c *mcpAppCapability) ID() string { return c.m.ID }
 
-// Title —— capreg.Titled：透传插件 manifest 声明的人类可读 title（#109/#110 dock 按钮 label）。
-// 空 = 该插件没声明 title（不够格当 dock 按钮 label，无 id 兜底）。
+// Title —— capreg.Titled: the human-readable title from the plugin manifest (#109/#110
+// dock-button label). Empty = no title declared (not dock-button eligible, no id fallback).
 func (c *mcpAppCapability) Title() string { return c.m.Title }
 
 func (c *mcpAppCapability) Shape() capreg.Shape {
 	return capreg.Shape(string(c.m.Shape))
 }
 
-// Requires —— 本插件声明的命名 in-app 依赖（connector 名，来自 manifest.Requires）。
-// capreg.enabledCaps 据此走 global 单点闸：任一未连 → 整个 cap 隐藏（D-2）。实现
-// capreg.RequiresDeps，让 connector-gating 从写死在 booker 里收成单点。
+// Requires —— named in-app dependencies (connector names, from manifest.Requires).
+// capreg.enabledCaps uses this for one global gate: any unconnected → hidden (D-2).
+// Implements capreg.RequiresDeps, replacing booker's hardcoded connector-gating.
 func (c *mcpAppCapability) Requires() []string { return c.m.Requires }
 
-// SystemPromptFragment —— server initialize instructions 即本能力的 prompt 片段。
-// 按暴露门（role-grant）gate：role-granted 插件（外置 booker / echoer / 第三方）只在
-// role 授权时贡献 prompt，跟 in-process 时代 booker fragment 随 role gate 的行为一致；
-// ACL=always（ask_visitor / summarize）则恒贡献。connector/quota 闸只隐藏 tool，不影响
-// prompt（沿用旧行为：role-granted-未连 → fragment 在、tool 隐）。
+// SystemPromptFragment —— the server's initialize instructions ARE this capability's prompt
+// fragment. Gated by the same exposure gate (role-grant): a role-granted plugin
+// (externalized booker / echoer / third-party) contributes only when the role grants it,
+// matching booker's old in-process role-gating; ACL=always (ask_visitor / summarize) always
+// contributes. The connector/quota gate only hides the tool, not the prompt (old behavior
+// preserved: role-granted-but-unconnected → fragment present, tool hidden).
 func (c *mcpAppCapability) SystemPromptFragment(
 	ctx context.Context, in *capreg.AssembleInput,
 ) string {
 	if !c.fragmentVisible(in) {
 		return ""
 	}
-	// 额度用尽时**换成**那一句实话,而不是照发一份「你会做这件事」的说明书 —— 说明书还在、
-	// 工具没了,正是 F-B-14 里 agent 反过来否认自己战果的那份证据。
+	// When the allowance is spent, swap in that one honest sentence instead of the "you can
+	// do this" instructions — those instructions surviving while the tool is gone is exactly
+	// what let the agent in F-B-14 turn around and deny its own completed work.
 	return firstNonEmpty(c.spentAllowanceNote(ctx, in), c.cachedInstructions(ctx))
 }
 
-// SystemPromptFragmentID —— fragment 活跃时返 "capabilities/<id>"（跟 in-process 时代
-// 同一 id），否则空。前端按 part-id 走 GET /api/v1/prompts/{id} 取 fragment 文本拼进
-// system prompt；该 id 不再对应 embed 的 .md 文件（已外置），prompts 端点改为 fallback
-// 到 registry 返本插件的 server initialize instructions（StaticFragment）。空判定跟
-// SystemPromptFragment 同步（都 role-grant + fragmentActive），part_ids 与实际拼接一致。
+// SystemPromptFragmentID —— "capabilities/<id>" when the fragment is active (same id as the
+// in-process era), else empty. The frontend fetches fragment text via GET
+// /api/v1/prompts/{id} by part-id to splice into the system prompt; the id no longer maps to
+// an embedded .md file — the prompts endpoint falls back to the registry for this plugin's
+// server initialize instructions (StaticFragment). Kept in sync with SystemPromptFragment
+// (both use role-grant + fragmentActive) so part_ids match what's actually spliced in.
 func (c *mcpAppCapability) SystemPromptFragmentID(
 	_ context.Context, in *capreg.AssembleInput,
 ) string {
@@ -112,20 +120,20 @@ func (c *mcpAppCapability) SystemPromptFragmentID(
 	return c.StaticFragmentID()
 }
 
-// StaticFragmentID —— 本能力 fragment 的稳定 id（session 无关）。registry 据此把
-// GET /prompts/{id} 路由到 StaticFragment。跟 SystemPromptFragmentID 活跃时返的一致。
+// StaticFragmentID —— this capability's stable fragment id (session-independent); the
+// registry routes GET /prompts/{id} to StaticFragment via it, matching SystemPromptFragmentID.
 func (c *mcpAppCapability) StaticFragmentID() string {
 	return "capabilities/" + c.m.ID
 }
 
-// StaticFragment —— 本能力 fragment 的文本（= server initialize instructions，session
-// 无关）。prompts 端点服务外置能力 fragment 用。
+// StaticFragment —— this capability's fragment text (server initialize instructions,
+// session-independent); serves externalized capabilities' fragments via the prompts endpoint.
 func (c *mcpAppCapability) StaticFragment(ctx context.Context) string {
 	return c.cachedInstructions(ctx)
 }
 
-// VisitorBinding —— ACL gate(role 授权)→ dial → list → wrap。未授权 / dial /
-// list 失败 / 空 tool → 隐藏。先查授权再 dial(省掉没授权还白拨的开销)。
+// VisitorBinding —— ACL gate (role grant) → dial → list → wrap. Not granted / dial / list
+// failure / empty tool list → hidden. Checks the grant before dialing to skip a wasted dial.
 func (c *mcpAppCapability) VisitorBinding(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (*capreg.Binding, error) {
@@ -148,15 +156,17 @@ func (c *mcpAppCapability) VisitorBinding(
 	}, nil
 }
 
-// dialWithCachedSpecs —— 拨一次;**tool specs 已经缓存过就不再 ListTools**。
+// dialWithCachedSpecs —— dial once; if the tool specs are already cached, skip ListTools.
 //
-// 这一步在访客那侧是可见的:每一次工具调用都要走它(卡片点"发确认信"→
-// /sessions/{id}/tools/send_confirmation → 装配 → 这里)。tool 元数据是 server 级
-// 静态的、首拨就缓存了,而 ListTools 那一次往返每次都在付 —— 沙箱刚起来时那次往返
-// 尤其贵,机器压满时整段实测到过 19 秒(见 public/tools.go 的 slowAssembleThreshold)。
+// Visible on the visitor side: every tool call goes through it (a card's "send confirmation"
+// click → /sessions/{id}/tools/send_confirmation → assembly → here). Tool metadata is static
+// server-side and caches on the first dial, but the ListTools round trip was being paid on
+// every call — especially costly right after sandbox startup, measured up to 19s under load
+// (see slowAssembleThreshold in public/tools.go).
 //
-// 缓存**没有**顺带省掉拨号本身:session 是有状态的,而且用完就 Close(沙箱只活一轮,
-// 见 [[sandbox-lives-one-turn]])。省掉的是已经知道答案还要再问一遍的那一次。
+// The cache does not skip the dial itself: the session is stateful and gets Closed after use
+// (sandbox lives one turn, see [[sandbox-lives-one-turn]]). It only skips re-asking a
+// question we already know the answer to.
 func (c *mcpAppCapability) dialWithCachedSpecs(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (*dialedApp, error) {
@@ -172,9 +182,10 @@ func (c *mcpAppCapability) dialWithCachedSpecs(
 	return ds, nil
 }
 
-// cachedToolSpecs —— 首拨缓存 tool specs（含 _meta），之后恒返缓存：tool 元数据是静态
-// 的，缓存住就不会被某次冷启高负载的 ListTools 把 return_directly/progress_label 丢掉。
-// 执行仍走本次 dial 的 live session（tool name 一致），只有 specs 取缓存。
+// cachedToolSpecs —— cache the tool specs (including _meta) from the first dial and always
+// return the cache after: once cached, a cold-start high-load ListTools can no longer drop
+// return_directly/progress_label. Execution still uses this dial's live session; only the
+// specs come from the cache.
 func (c *mcpAppCapability) cachedToolSpecs(dialed []mcpclient.Tool) []mcpclient.Tool {
 	c.toolsOnce.Do(func() {
 		*c.tools = dialed
@@ -183,8 +194,8 @@ func (c *mcpAppCapability) cachedToolSpecs(dialed []mcpclient.Tool) []mcpclient.
 	return *c.tools
 }
 
-// knownToolSpecs —— 已经缓存过就返 (specs, true),没缓存过返 false。**只读**,不触发
-// Once —— 触发了的话第一次调用会把一个空切片当成"已知的工具表"缓存住,这个能力从此没有工具。
+// knownToolSpecs —— returns (specs, true) if cached. Read-only, does not trigger Once — that
+// would let the first call cache an empty slice as "known", leaving no tools forever after.
 func (c *mcpAppCapability) knownToolSpecs() ([]mcpclient.Tool, bool) {
 	if len(*c.tools) == 0 {
 		return []mcpclient.Tool{}, false
@@ -192,8 +203,8 @@ func (c *mcpAppCapability) knownToolSpecs() ([]mcpclient.Tool, bool) {
 	return *c.tools, true
 }
 
-// dialOnly —— 拨号,不 ListTools(specs 从缓存来)。失败仍然先把真因喂给 dialErrLog
-// 再折成 ErrHidden —— 沙箱起不来时静默隐藏,日志里查无此事,那是 F-A-1。
+// dialOnly —— dial without calling ListTools (specs come from the cache). On failure, still
+// feed the real cause to dialErrLog before folding into ErrHidden — see F-A-1.
 func dialOnly(
 	ctx context.Context, m *mcpplugin.Manifest, workspaceDir string,
 	dialErrLog func(id string, err error), specs []mcpclient.Tool,
@@ -205,8 +216,8 @@ func dialOnly(
 	return &dialedApp{sess: sess, tools: specs}, nil
 }
 
-// stateFor —— 通用 mcpAppState（id/enabled）+ 可选 stateHook overlay（booker:
-// quota_remaining）。enabled 走 fragmentActive。
+// stateFor —— the generic mcpAppState (id/enabled) plus an optional stateHook overlay
+// (booker: quota_remaining). enabled follows fragmentActive.
 func (c *mcpAppCapability) stateFor(
 	ctx context.Context, in *capreg.AssembleInput,
 ) capreg.CapabilityState {
@@ -219,15 +230,15 @@ func (c *mcpAppCapability) stateFor(
 	return st
 }
 
-// dialedApp —— dialAndList 的结果（会话 + 它的 tool 列表），打包成单返回值（revive
-// function-result-limit ≤ 2）。
+// dialedApp —— dialAndList's result (the session + its tool list), bundled into a single
+// return value (revive function-result-limit ≤ 2).
 type dialedApp struct {
 	sess  *mcpclient.Session
 	tools []mcpclient.Tool
 }
 
-// dialAndList —— dial transport + ListTools。dial 失败 / list 失败 / 空 tool 都收成
-// ErrHidden（隐藏，不阻塞 chat）；空 tool 时关掉会话不泄漏。
+// dialAndList —— dial the transport + ListTools. Dial / list failure / empty tool list all
+// fold into ErrHidden; on an empty tool list, the session is closed so it doesn't leak.
 func dialAndList(
 	ctx context.Context, m *mcpplugin.Manifest, workspaceDir string,
 	dialErrLog func(id string, err error),
@@ -235,9 +246,9 @@ func dialAndList(
 	id := m.ID
 	sess, err := dialMCPApp(ctx, m, workspaceDir)
 	if err != nil {
-		// Infra failure (sandbox couldn't spawn, transport unreachable). Still hide
-		// so a broken plugin never blocks chat — but log the real cause first (F-A-1:
-		// this branch swallowed the prod bwrap error, leaving `tools:0` unexplained).
+		// Infra failure (sandbox couldn't spawn, transport unreachable). Still hide so a
+		// broken plugin never blocks chat, but log the real cause first (F-A-1: this branch
+		// swallowed the prod bwrap error, leaving `tools:0` unexplained).
 		return nil, hideWithLog(dialErrLog, id, err)
 	}
 	tools, lerr := sess.ListTools(ctx)
@@ -252,8 +263,8 @@ func dialAndList(
 	return &dialedApp{sess: sess, tools: tools}, nil
 }
 
-// hideWithLog —— dial/list 失败:先把真因喂给 dialErrLog(nil 安全),再折成 ErrHidden
-// (优雅降级)。抽出来让 dialAndList 的 cyclo 不超标(每个错误分支收成一句)。
+// hideWithLog —— feed dialErrLog the real cause first (nil-safe), then fold into ErrHidden.
+// Extracted so dialAndList's cyclo stays under the limit (each error branch = one line).
 func hideWithLog(dialErrLog func(id string, err error), id string, err error) error {
 	if dialErrLog != nil {
 		dialErrLog(id, err)
@@ -261,10 +272,10 @@ func hideWithLog(dialErrLog func(id string, err error), id string, err error) er
 	return capreg.ErrHidden
 }
 
-// exposable —— dial 前的两道门：ACL（role-grant）+ 可选 per-session SessionGate
-// （booker: connector-connected + quota）。返 (proceed, realErr)：proceed=false →
-// 隐藏（caller 折成 ErrHidden）；闸的真错往上抛。挂闸的插件先过闸再 dial，省掉隐藏时
-// 还白拨沙箱的开销。
+// exposable —— the two gates before dialing: ACL (role-grant) + an optional per-session
+// SessionGate (booker: connector-connected + quota). Returns (proceed, realErr): proceed=
+// false → hidden (caller folds into ErrHidden); a real gate error propagates up. Checked
+// before dialing to avoid the wasted sandbox dial when the plugin will be hidden anyway.
 func (c *mcpAppCapability) exposable(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (bool, error) {
@@ -277,18 +288,19 @@ func (c *mcpAppCapability) exposable(
 	return c.gate(ctx, in)
 }
 
-// fragmentActive —— fragmentGate 谓词（retrieval: 有 corpus scope）。nil = 恒活跃。
-// 控 prompt fragment 贡献 + CapabilityState.Enabled。
+// fragmentActive —— the fragmentGate predicate (retrieval: has a corpus scope). nil =
+// always active. Controls prompt fragment contribution + CapabilityState.Enabled.
 func (c *mcpAppCapability) fragmentActive(in *capreg.AssembleInput) bool {
 	return c.fragmentGate == nil || c.fragmentGate(in)
 }
 
-// fragmentVisible —— 这一场里这个能力有没有资格说话(role 授权 + fragment 活跃)。
+// fragmentVisible —— whether this capability gets to speak in this session (role-granted
+// + fragment active).
 func (c *mcpAppCapability) fragmentVisible(in *capreg.AssembleInput) bool {
 	return mcpAppGranted(&c.m, in.RoleSnapshot) && c.fragmentActive(in)
 }
 
-// firstNonEmpty —— 有实话就说实话,否则发说明书。
+// firstNonEmpty —— say the honest thing when there is one, otherwise send the instructions.
 func firstNonEmpty(a, b string) string {
 	if a != "" {
 		return a
@@ -296,13 +308,14 @@ func firstNonEmpty(a, b string) string {
 	return b
 }
 
-// cachedInstructions —— server 的 initialize instructions = 本能力的 system-prompt
-// fragment（自包含：prompt 由 server 自己声明，不写在 core）。instructions 是 server
-// 级静态，lazy 拨号读一次缓存；deterministic（同 server 同文本），不每次装配重拨。
-// 首个调用方的 ctx 决定这次一次性拨号。
+// cachedInstructions —— the server's initialize instructions ARE this capability's
+// system-prompt fragment (self-contained: declared by the server, not written in core).
+// Static server-side, so read once via a lazy dial and cached; deterministic, so it isn't
+// re-dialed per assembly. Whichever caller comes first, its ctx decides the one-time dial.
 func (c *mcpAppCapability) cachedInstructions(ctx context.Context) string {
 	c.instrOnce.Do(func() {
-		// instructions 读取是无 session 的一次性拨号 → 不分配工作区（workspaceDir 空）。
+		// Reading instructions is a one-time, session-less dial → no workspace is allocated
+		// (workspaceDir is empty).
 		sess, err := dialMCPApp(ctx, &c.m, "")
 		if err != nil {
 			return
@@ -313,17 +326,19 @@ func (c *mcpAppCapability) cachedInstructions(ctx context.Context) string {
 	return *c.instr
 }
 
-// mcpAppGranted —— 暴露门。ACL=always → 无条件暴露给所有 mode（外置的内建基础
-// 能力，如 ask_visitor）。否则 role-granted：role 的 AllowedTools 含本插件 ID 才暴露
-// （echoer / 第三方 server），无 role(public/byoai) → 隐藏。
+// mcpAppGranted —— the exposure gate. ACL=always → exposed unconditionally to every mode
+// (an externalized builtin base capability, like ask_visitor). Otherwise role-granted: only
+// exposed when the role's AllowedTools contains this plugin's ID (echoer / third-party
+// server); no role (public/byoai) → hidden.
 func mcpAppGranted(m *mcpplugin.Manifest, snap *access.RoleSnapshot) bool {
 	always := m.ACL == mcpplugin.ACLAlways
 	if snap == nil {
-		return always // 无 snapshot：没 code deny 来源，只 always 能力暴露
+		return always // no snapshot: no code-deny source, so only always-capabilities show
 	}
-	// frozen 三层判定（global 活闸在 enabledCaps 另算）。code deny 含在内。
+	// The frozen three-tier judgment (the live-gate is computed separately in enabledCaps).
+	// Code denies are included here.
 	return snap.AllowsCapability(m.ID, always)
 }
 
-// sessionMetaFor / roleIDOf / maxBookingsOf / corpusScopeOf —— 见
-// capreg_mcp_app_session.go(从此文件拆出,守 max-lines ≤350)。
+// sessionMetaFor / roleIDOf / maxBookingsOf / corpusScopeOf —— see capreg_mcp_app_session.go
+// (split out to keep this file under max-lines ≤350).

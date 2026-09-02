@@ -1,18 +1,22 @@
-// sync.go —— sync face 入口。vault 文件批 → corpus_notes 多-genre 节点树(raw 折进 genre='raw')。
-// 路由:顶层 folder → genre(wiki/subjectivity/raw;output 无 folder = promote-derived;未知/根裸
-// 文件跳过)。跳 hidden(dotdir/_templates)。reconcile:按 title 认领(跨 genre,支持 move);basename
-// 不唯一时改按 source_path 认(同名文件各占各行,F-L-2)→ upsert;未变则 skip。链接整批解析。
-// 「唯一不唯一」问的是**语料**,不是这一批上传(F-L-61,见 sync_ambiguity.go)。
+// sync.go — entry point for the sync face: vault files → the corpus_notes multi-genre node
+// tree (raw folds into genre='raw'). Routing: top-level folder → genre (wiki/subjectivity/raw;
+// output has no folder = promote-derived; unknown/bare root files and hidden entries like
+// dotdirs/_templates are skipped). reconcile claims by title (cross-genre, supports move); when
+// basename isn't unique, it claims by source_path instead (same-name files keep their own row,
+// F-L-2) → upsert; skip when unchanged. Links resolve for the whole batch at once. "Unique or
+// not" asks the CORPUS, not this upload batch (F-L-61, see sync_ambiguity.go).
 //
-// **vault 是 single live source**(见 vault-ingestion 决策):sync 就是让 destination 等于 source,
-// 没有"谁 wins" —— web 上改过的不会把自己钉住对抗 vault,要留就先 export 回 vault 再同步(F-L-6)。
+// THE VAULT IS THE SINGLE LIVE SOURCE (see the vault-ingestion decision): sync makes
+// destination equal source, no "who wins". A web edit doesn't pin against the vault; to
+// keep it, export it back before the next sync (F-L-6).
 //
-// 落库 ≠ 公开(F-L-8):路由进来的 .md 一律落库;frontmatter 的 `publish` 只喂 DB 的 `published`
-// (旧名 seo_indexed)=「匿名访客可见 / 进 sitemap」,published=false 是「要 code 才能看」,不是
-// 「不存在」。两者曾被同一个 flag 绑死,代价是 owner 想喂给 agent ground 就必须同时公开给全网。
+// Persisted ≠ public (F-L-8): every routed .md persists regardless; frontmatter's `publish`
+// only feeds the DB's `published` (old name seo_indexed) = "visible to anonymous visitors /
+// in the sitemap"; published=false means "needs a code" not "doesn't exist". The two used to
+// share one flag, forcing an owner who wanted to feed the agent grounding to publish it too.
 //
-// 删:取决于 SyncMode —— authoritative(整个 vault)会 prune 掉不在这批里的 vault-imported note
-// (sync 就是让 corpus 等于 vault,F-L-6);partial(子集上传)绝不删。见 sync_prune.go。
+// Deletion depends on SyncMode: authoritative (whole vault) prunes vault-imported notes absent
+// from this batch (F-L-6); partial (a subset upload) never deletes. See sync_prune.go.
 
 package obsidian
 
@@ -36,21 +40,23 @@ const (
 
 var corpGenres = map[string]bool{genreWiki: true, genreSubjectivity: true}
 
-// IsVaultTopFolder —— 顶层 folder 是否是被同步的 genre。route layer 用它判 webkitRelativePath
-// 的首段是「vault 文件夹名」(要剥)还是「genre」(要留);两种上传形态都能正确路由。
+// IsVaultTopFolder — whether a top-level folder is a synced genre. The route layer
+// uses it to tell whether webkitRelativePath's first segment is a "vault folder name"
+// (strip it) or a "genre" (keep it); both upload shapes route correctly this way.
 func IsVaultTopFolder(seg string) bool {
 	return seg == genreWiki || seg == genreSubjectivity || seg == genreRaw ||
 		seg == genreWriting || seg == "writings"
 }
 
-// SyncNotesPort —— corp note reconcile(跨 genre)。VaultSyncRepo 实现。
-// GetByTitle 没认领到 → corpus.ErrSyncNoteNotFound。
+// SyncNotesPort — corp note reconcile (cross-genre). Implemented by VaultSyncRepo.
+// GetByTitle returns corpus.ErrSyncNoteNotFound when nothing matches.
 type SyncNotesPort interface {
 	GetByTitle(ctx context.Context, ownerID, title string) (corpus.SyncNote, error)
 	GetBySourcePath(ctx context.Context, ownerID, sourcePath string) (corpus.SyncNote, error)
-	// DuplicateTitles —— 语料里已经重名的标题(跨 genre,小写)。按 title 认领之前先问它。
+	// DuplicateTitles —— titles duplicated cross-genre (lowercased); ask before claiming by title.
 	DuplicateTitles(ctx context.Context, ownerID string) ([]string, error)
-	// GetByTitleInGenre —— 只在一个 genre 里按 title 认。结构节点(无 source_path)的身份。
+	// GetByTitleInGenre —— claims by title within one genre; identity for structural nodes
+	// (no source_path).
 	GetByTitleInGenre(ctx context.Context, ownerID, genre, title string) (corpus.SyncNote, error)
 	Create(ctx context.Context, in *corpus.CreateSyncNoteInput) (string, error)
 	Update(ctx context.Context, in *corpus.UpdateSyncNoteInput) error
@@ -58,17 +64,18 @@ type SyncNotesPort interface {
 	PruneAbsentVaultNotes(ctx context.Context, ownerID string, keepIDs []string) (int, error)
 }
 
-// SyncRefsPort —— 一条 note 的 body 里 `[[links]]` → note_refs(整批后解析)。
+// SyncRefsPort — a note's `[[links]]` in the body → note_refs (resolved after the batch).
 type SyncRefsPort interface {
 	RebuildForNote(ctx context.Context, ownerID, noteID, body string) error
 }
 
-// SyncWritingsPort —— writing/ 子树(含附件)→ writings 表(复用旧 ImportVault flatten-import)。
+// SyncWritingsPort — the writing/ subtree (including attachments) → the writings
+// table (reuses the old ImportVault flatten-import).
 type SyncWritingsPort interface {
 	ImportWritings(ctx context.Context, ownerID string, files []VaultFile) ImportResult
 }
 
-// SyncDeps —— sync face 依赖。Refs / Writings / CSS 可为 nil(可选)。
+// SyncDeps — dependencies for the sync face. Refs / Writings / CSS may be nil (optional).
 type SyncDeps struct {
 	Notes    SyncNotesPort
 	Refs     SyncRefsPort
@@ -76,8 +83,8 @@ type SyncDeps struct {
 	CSS      SyncCSSPort
 }
 
-// SyncVault —— sync face 主入口。mode says whether the upload is the whole vault (prune what's
-// absent) or a subset (never delete) — see SyncMode.
+// SyncVault — main entry point for the sync face. mode says whether the upload is
+// the whole vault (prune what's absent) or a subset (never delete) — see SyncMode.
 func SyncVault(
 	ctx context.Context, deps *SyncDeps, ownerID string, files []VaultFile, mode SyncMode,
 ) ImportResult {
@@ -86,8 +93,9 @@ func SyncVault(
 	syncWritings(ctx, deps, ownerID, b.writing, &result)
 	syncCSS(ctx, deps, ownerID, b.css)
 	tree := buildDesiredTree(b.corp)
-	// 先问语料哪些标题有歧义,再动手。问不出来就整批不做:不知道歧义在哪还按 title 认领,
-	// 等于拿别的 genre 里的笔记当赌注(见 sync_ambiguity.go)。
+	// Ask the corpus which titles are ambiguous before touching anything; if that can't
+	// be answered, do nothing for the whole batch — claiming by title without knowing
+	// where the ambiguity is means gambling with notes in other genres (sync_ambiguity.go).
 	dup, derr := ambiguousTitles(ctx, deps, ownerID, tree)
 	if derr != nil {
 		result.Errors = append(result.Errors, derr.Error())
@@ -102,7 +110,8 @@ func SyncVault(
 	return result
 }
 
-// syncWritings —— writing/ 子树(含附件)交给 writings importer,统计并进总结果。
+// syncWritings — hands the writing/ subtree (including attachments) to the writings
+// importer, folding its stats into the overall result.
 func syncWritings(
 	ctx context.Context, deps *SyncDeps, ownerID string, files []VaultFile, result *ImportResult,
 ) {
@@ -113,24 +122,24 @@ func syncWritings(
 	result.Created += wr.Created
 	result.Updated += wr.Updated
 	result.Skipped += wr.Skipped
-	// Kept 也要并过来 —— 那是剪枝放过谁的依据（F-L-63）。丢掉这一句,这一批 writing
-	// 就会被同一次请求里的剪枝当成「vault 里已经没有的东西」删掉。
+	// Kept must be merged in too — the basis for what prune spares (F-L-63); drop
+	// this and prune deletes this batch in the same request as "no longer in the vault".
 	result.Kept = append(result.Kept, wr.Kept...)
 	result.Errors = append(result.Errors, wr.Errors...)
 }
 
-// syncState —— 一次 sync 的可变状态：节点 (genre,path)→id。算父链和挂链接**共用同一份身份**。
-//
-// 这里以前还有一张 `titleToID`（只有链接解析读它）。它被删掉而不是留着：vault 的 basename
-// 不唯一，按 title 找笔记必然张冠李戴，而一份「按不唯一的键索引」的表放在那里，早晚还会
-// 有人去读第二次（F-L-60）。
+// syncState — mutable state for one sync: node (genre,path)→id. Parent chains and link
+// hooking SHARE THE SAME IDENTITY. A `titleToID` map used to live here too (only link
+// resolution read it) but was deleted: vault basenames aren't unique, so a title lookup
+// is bound to grab the wrong note, and a table indexed by a non-unique key sitting there
+// is bound to get read again by someone eventually (F-L-60).
 type syncState struct {
 	idOf      map[string]string
 	dupTitles map[string]bool // lowercased titles that are ambiguous → claim by source_path
 	ownerID   string
 }
 
-// nodeOp —— reconcile 一个节点的参数包(避开 argument-limit)。
+// nodeOp — argument bundle for reconciling one node (dodges the argument-limit lint).
 type nodeOp struct {
 	deps   *SyncDeps
 	node   *desiredNode
@@ -140,16 +149,18 @@ type nodeOp struct {
 	parent *string
 }
 
-// claimExisting —— reconcile 认领同一条 note 的入口。默认按 title 认(跨 genre,支持 move)。
-// 但 title 有歧义时(不同文件夹的同名文件 —— 语料里已经这样,或这批上传里就这样),按 title 认
-// 就是抓阄,输的那条可能住在别的 genre。歧义集合怎么算见 sync_ambiguity.go;有歧义时改用
-// 两把更细的尺子,按节点有没有文件分:
+// claimExisting — entry point for reconcile to claim a matching note. Claims by title by
+// default (cross-genre, supports move). When the title is ambiguous (same-name files in
+// different folders, already in the corpus or just within this batch), claiming by title
+// is a lottery and the loser might live in a different genre (ambiguity set computed in
+// sync_ambiguity.go). When ambiguous, split by whether the node has a file:
 //
-//   - 有文件 → 按 source_path 认(文件路径唯一),同名文件各占各行(schema 本来就是这么设计的:
-//     见 obsidian_source_path 注释 + corpus_notes_source_path_idx)。
-//   - 结构节点(文件夹占位,source_path 是空的,空路径会互撞)→ 在**自己这个 genre 里**按 title
-//     认:它的身份就是「自己那棵树上的那个文件夹」。真 vault 里 raw/math/ 和 wiki/math/ 并存
-//     是常态,跨 genre 认会把一棵树的文件夹拖进另一个 genre(F-L-61)。
+//   - Has a file → claim by source_path (unique paths); same-name files each keep their
+//     own row (see the obsidian_source_path comment + corpus_notes_source_path_idx).
+//   - Structural node (folder placeholder, empty source_path, empty paths collide) →
+//     claim by title WITHIN ITS OWN GENRE: identity is "that folder in its own tree".
+//     raw/math/ and wiki/math/ coexisting is normal; claiming across genres would drag
+//     one tree's folder into another genre (F-L-61).
 func claimExisting(
 	ctx context.Context, deps *SyncDeps, node *desiredNode, st *syncState,
 ) (corpus.SyncNote, error) {
@@ -165,8 +176,9 @@ func claimExisting(
 	return note, wrapClaim(err)
 }
 
-// wrapClaim —— 包认领错误(满足 wrapcheck),但透传 ErrSyncNoteNotFound sentinel 不变
-// (reconcileNode 用 errors.Is 判它当「新建」信号;%w 也能 Is 到,但留原样更省心)。
+// wrapClaim — wraps claim errors (satisfies wrapcheck), but passes ErrSyncNoteNotFound
+// through unchanged: reconcileNode uses errors.Is to read it as a "create" signal (%w
+// would still Is-match, but leaving it as-is is simpler).
 func wrapClaim(err error) error {
 	if err == nil || errors.Is(err, corpus.ErrSyncNoteNotFound) {
 		return err
@@ -211,8 +223,9 @@ func createNode(ctx context.Context, op *nodeOp) {
 
 func updateNode(ctx context.Context, op *nodeOp, existing *corpus.SyncNote) {
 	record(op.st, op.node, existing.ID) // always index for link resolution + child parenting
-	// vault 没提 publish → 沿用这条现有的值,别把「没说」当成「说不」(F-L-22)。要在比对**之前**
-	// 填,否则一条只差发布位的 note 会被判成 changed,然后拿那个不作数的 false 覆盖过去。
+	// The vault didn't mention publish → carry forward the existing value; don't treat
+	// "unsaid" as "said no" (F-L-22). Fill this in BEFORE the comparison, or a note
+	// that only differs on publish gets judged changed and overwritten by that false.
 	keepPublish(op.c, existing.Published)
 	if unchangedNode(existing, op.node, op.parent, op.c) {
 		op.result.Skipped++
@@ -287,30 +300,28 @@ func resolveNoteLinks(ctx context.Context, deps *SyncDeps, st *syncState, node *
 	if node.file == nil {
 		return
 	}
-	// **按路径找这条笔记，不按标题**（F-L-60）。
-	//
-	// 账：这里原来是 `st.titleToID[node.title]` —— 而 vault 里 basename 根本不唯一
-	// （`theory/theory.md` 在三个文件夹里各有一份）。同名的几篇共用一个桶，而
-	// `RebuildForNote(id, body)` 是**重建**：后处理的那篇把前一篇刚建好的边整个盖掉，
-	// 轮到最后那篇恰好没链接，桶就空了。prod 上量到的代价：同名笔记 97 条，只有 22 条
-	// 有出边，**41 条正文里有 `[[` 却一条边都没有** —— 而 vault 自己的 check-links.sh
-	// 说这些链接全是好的，损失只发生在我们这一侧、且不报错。
-	//
-	// reconcile 那一半早就改成按 `source_path` 认领了（F-L-2），链接这一半没跟上：
-	// 一个能力两个面，只修了一个面。`st.idOf` 就是那份按 (genre, path) 索引的表，
-	// 算父链一直用的是它。
+	// FIND THIS NOTE BY PATH, NOT BY TITLE (F-L-60): vault basenames aren't unique
+	// (`theory/theory.md` has a copy in three folders). This used to bucket same-name
+	// notes by `st.titleToID[node.title]`, but `RebuildForNote(id, body)` is a REBUILD:
+	// whichever note processes later overwrites the earlier one's edges, emptying the
+	// bucket if it has no links itself. Prod cost: of 97 same-name notes, only 22 had
+	// outgoing edges — 41 had `[[` in their body with ZERO EDGES, though check-links.sh
+	// says those links are good; the loss was silent, our side only. Reconcile already
+	// claims by `source_path` (F-L-2); this half hadn't caught up. `st.idOf` is the
+	// same (genre, path) table parent-chain computation already uses.
 	id, ok := st.idOf[nodeKey(node.genre, node.path)]
 	if !ok {
 		return
 	}
-	// best-effort:链接解析失败不该让整批 sync 失败。
+	// best-effort: a link-resolution failure shouldn't fail the whole sync batch.
 	if err := deps.Refs.RebuildForNote(ctx, st.ownerID, id, node.file.body); err != nil {
 		return
 	}
 }
 
-// marshalLabels —— lang-labels → jsonb 字节。空表 / 编不动 → nil(仓储那侧落成 `{}`)。
-// 编不动就当没写:一份切换器标签值不了让整条笔记同步失败。
+// marshalLabels — lang-labels → jsonb bytes. Empty map / can't marshal → nil; the repo
+// side persists it as `{}`. Treat "can't marshal" as "wrote nothing" — a bad language-
+// switcher label shouldn't fail the whole note's sync.
 func marshalLabels(labels map[string]string) []byte {
 	if len(labels) == 0 {
 		return []byte{}
@@ -322,10 +333,10 @@ func marshalLabels(labels map[string]string) []byte {
 	return b
 }
 
-// noteI18nNotices —— 这条笔记的多语结构有没有话要说。
-//
-// **同步照收**:它是镜像,拒收等于 owner 在 vault 里写的东西进不来。但一条只渲染得出半篇的
-// 笔记不能悄悄进来 —— 诊断挂在结果上,面板会印出来,owner 才知道去改哪一条。
+// noteI18nNotices — flags issues in this note's multi-lang structure. SYNC ACCEPTS IT
+// ANYWAY: it's a mirror, refusing means vault content can't get in. But a note rendering
+// only half an article can't fail silently — the diagnostic attaches to the result, the
+// panel prints it, and the owner learns which one to go fix.
 func noteI18nNotices(result *ImportResult, title string, c *nodeContent) {
 	ds := i18n.Validate(&i18n.Frontmatter{Lang: c.lang}, c.body)
 	for i := range ds {

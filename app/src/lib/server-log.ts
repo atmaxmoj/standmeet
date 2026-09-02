@@ -1,15 +1,22 @@
-// server-log —— 在 **app 进程自己**（route handler / server component）里记事的出口。
+// server-log —— the logging exit point for **the app process itself**
+// (route handler / server component).
 //
-// 为什么不复用 `@/lib/logger`：那个是**浏览器**那一侧的出口，prod 默认哑（要显式开
-// NEXT_PUBLIC_CLIENT_LOG）。装在服务端就必须一直发声 —— 它记的是「这一跳发生了什么」，
-// 而容器日志是唯一读得到它的地方。
+// Why not reuse `@/lib/logger`: that one is the exit point for the
+// **browser** side, mute by default in prod (needs NEXT_PUBLIC_CLIENT_LOG
+// explicitly turned on). Something running server-side must always speak up —
+// it records "what happened at this hop", and the container log is the only
+// place that's readable.
 //
-// 为什么需要它（F-O-3）：`/api/v1/agent/turn` 这一跳是 app 自己手写的反代。跨源第一轮偶发
-// 整个失败时，**后端日志里什么都没有**（请求根本没到后端），app 这边也什么都没有 ——
-// 于是唯一的线索是浏览器控制台里一句会误导人的 CORS 报错。没有装置，就只能靠推理，
-// 而需要推理本身就是缺陷（[[no-diagnosis-by-experiment]]）。
+// Why this is needed (F-O-3): the `/api/v1/agent/turn` hop is a hand-written
+// reverse proxy inside the app. When a cross-origin request intermittently
+// fails entirely on its first round, **there's nothing in the backend logs**
+// (the request never reached the backend), and there's nothing on the app
+// side either — the only clue left is a misleading CORS error in the browser
+// console. Without instrumentation, all you can do is guess, and needing to
+// guess is itself the defect ([[no-diagnosis-by-experiment]]).
 //
-// 形状跟后端的 slog 对齐（JSON 一行一条），让两边的日志能拼在同一条时间线上读。
+// The shape matches the backend's slog (one JSON object per line), so both
+// sides' logs can be read on the same timeline.
 
 /* eslint-disable no-console */
 

@@ -1,5 +1,5 @@
-// CodeRolePicker —— code create modal 里的 role dropdown。A.3-IAM。
-// 拆出来守 CreateCodeFields.tsx 的 max-lines。
+// CodeRolePicker — the role dropdown inside the code create modal. A.3-IAM.
+// Split out to keep CreateCodeFields.tsx under max-lines.
 
 import { useTranslations } from 'next-intl';
 
@@ -12,8 +12,9 @@ type Props = { form: CodeFormHook };
 export function CodeRolePicker({ form }: Props) {
   const hook = useRoles();
   return (
-    // 副标题说的是**留空会发生什么**：默认档是 `invited`（读得到你策展的语料），
-    // 因为发一张码就是一次邀请。想只给公开面，就在下拉里挑 `public`。
+    // The subtitle says **what happens if left blank**: the default is `invited`
+    // (can read your curated corpus), because issuing a code is itself an invitation.
+    // To grant only the public slice, pick `public` in the dropdown.
     <CodeRolePickerSection title="role" subtitle="frozen at issue; blank = invited">
       <CodeRolePickerSelect form={form} roles={hook.roles} />
     </CodeRolePickerSection>

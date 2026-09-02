@@ -1,9 +1,12 @@
-// page_content.go —— owner public page 完整内容。各 section 留作 typed
-// 结构（前端 + admin 编辑都按这个 shape），不让 jsonb 漏到上层。
-// 设计稿 J / docs/design/project/page-content.js 是字段语义来源。
+// page_content.go —— the full content of the owner's public page. Each
+// section stays a typed struct (both frontend and admin editing follow
+// this shape) so jsonb never leaks up to the layers above.
+// Design J / docs/design/project/page-content.js is the source of field
+// semantics.
 //
-// 这是 Owner aggregate 的"内容切面" —— 跟 Settings 平行，跟着 owner_id
-// 一起走 repo；不是独立 aggregate root。
+// This is the Owner aggregate's "content facet" — parallel to Settings,
+// travels through the repo along with owner_id; not its own aggregate
+// root.
 
 package entity
 
@@ -12,12 +15,15 @@ import (
 	"time"
 )
 
-// PageContent —— owner public page 完整内容(存储形)。
-// insights / projects 不再存内容,存 **pin 列表**(wiki 条目 UUID,数组序即
-// 展示序)——想法只存一份,主页是 corpus 的窗口
-// (docs/design/page-corpus-pinning.md)。渲染时 join title+excerpt(PagePinCard)。
-// 字段顺序按 govet fieldalignment：time.Time 在前（内部 ptr at 16）+ 嵌套
-// 结构 + 字符串 + 切片在后，使 last pointer offset 尽量小。
+// PageContent —— the full content of the owner's public page (stored
+// form). insights / projects no longer store content directly, they store
+// a **pin list** (wiki entry UUIDs, array order = display order) — an
+// idea is stored exactly once, and the homepage is a window onto the
+// corpus (docs/design/page-corpus-pinning.md). Rendering joins in
+// title+excerpt (PagePinCard).
+// Field order follows govet fieldalignment: time.Time first (internal ptr
+// at 16) + nested structs + strings + slices last, to keep the last
+// pointer offset small.
 type PageContent struct {
 	UpdatedAt    time.Time   `json:"updated_at"`
 	Where        PageWhere   `json:"where"`
@@ -29,9 +35,10 @@ type PageContent struct {
 	Projects     []string    `json:"projects"`
 }
 
-// PagePinCard —— 一个 pin 渲染出的卡:被 pin 条目的 title + excerpt + 树派生
-// path(前端链去 /wiki/<path>)。不变量 pinned ⊆ published 由写入端维护;这里
-// 只是 join 结果。
+// PagePinCard —— the card rendered from one pin: the pinned entry's title
+// + excerpt + tree-derived path (frontend links to /wiki/<path>). The
+// invariant pinned ⊆ published is maintained by the write side; this is
+// just the join result.
 type PagePinCard struct {
 	WikiID  string `json:"wiki_id"`
 	Title   string `json:"title"`
@@ -39,15 +46,18 @@ type PagePinCard struct {
 	Path    string `json:"path"`
 }
 
-// ErrPinUnpublished —— pin 一个未 published 的条目;写入点拒绝("publish it
-// first"),不变量另一端(unpublish → auto-unpin)在 seo usecase 维护。
+// ErrPinUnpublished —— pinning an entry that isn't published; the write
+// point rejects it ("publish it first"), the other end of the invariant
+// (unpublish → auto-unpin) is maintained in the seo usecase.
 var ErrPinUnpublished = errors.New("entry is not published; publish it first")
 
-// ErrPinNotFound —— pin 的 wiki_id 不存在(或不属于该 owner)。
+// ErrPinNotFound —— the pin's wiki_id doesn't exist (or doesn't belong to
+// this owner).
 var ErrPinNotFound = errors.New("pinned entry not found")
 
-// PageWhere —— "where I am" section（status + looking-for + closing）。
-// 字段顺序按 govet fieldalignment：strings 先，slice 在尾（slice ptr 在 offset 0）。
+// PageWhere —— the "where I am" section (status + looking-for + closing).
+// Field order follows govet fieldalignment: strings first, slice last
+// (slice ptr at offset 0).
 type PageWhere struct {
 	LocationLine string   `json:"location_line"`
 	StatusProse  string   `json:"status_prose"`
@@ -55,7 +65,7 @@ type PageWhere struct {
 	LookingFor   []string `json:"looking_for"`
 }
 
-// PageContact —— contact section（email + 多段 prose）。
+// PageContact —— contact section (email + multiple prose blocks).
 type PageContact struct {
 	Email          string `json:"email"`
 	ChatLine       string `json:"chat_line"`
@@ -63,5 +73,6 @@ type PageContact struct {
 	CasualProse    string `json:"casual_prose"`
 }
 
-// ErrPageNotFound —— 查 page_content 行不存在；usecase 层返默认值。
+// ErrPageNotFound —— page_content row not found; usecase layer returns a
+// default.
 var ErrPageNotFound = errors.New("page content not found")

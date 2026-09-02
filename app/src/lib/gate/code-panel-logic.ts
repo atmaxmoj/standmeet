@@ -1,8 +1,10 @@
-// code-panel-logic —— gate CodePanel 的 business logic + state derivation。
-// 从 component 文件里抽出来（presentation 层不准跑 `if` / async / control flow）。
+// code-panel-logic —— business logic + state derivation for the gate
+// CodePanel. Pulled out of the component file (the presentation layer is
+// not allowed to run `if` / async / control flow).
 //
-// 行为 mirror docs/design/project/gate.js CodeInput：归一化大写 + 去非
-// [A-Z0-9-] + 32 字符上限；paste 自动 submit；错码 → shake + 清空 + refocus。
+// Behavior mirrors docs/design/project/gate.js CodeInput: normalize to
+// uppercase + strip non-[A-Z0-9-] + 32-char cap; paste auto-submits;
+// a wrong code → shake + clear + refocus.
 
 import { loadStoredSession, type GateHook } from '@/lib/gate/use-gate';
 import { codeLandingHref } from '@/lib/visitor/code-landing';
@@ -11,19 +13,22 @@ export function normalizeCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 32);
 }
 
-// codeReady —— 输入足够长（去 dash 后 ≥ 3）才让 enter 按钮可点。
+// codeReady —— the enter button becomes clickable only once the input is
+// long enough (≥ 3 chars after stripping dashes).
 export function codeReady(code: string): boolean {
   return code.replace(/-/g, '').length >= 3;
 }
 
-// codeShapedForAutoSubmit —— paste 进来的东西看起来像 code（去 dash 后
-// ≥ 4 字符），值得自动跑一次 submit；不够长就停在 input 里等用户敲。
+// codeShapedForAutoSubmit —— whether the pasted text looks like a code
+// (≥ 4 chars after stripping dashes), worth auto-running a submit;
+// otherwise it just sits in the input waiting for the user to type more.
 export function codeShapedForAutoSubmit(code: string): boolean {
   return code.replace(/-/g, '').length >= 4;
 }
 
-// handlePasteEvent —— 接 onPaste 事件 → 抽 text → normalize → 喂给 apply。
-// 空剪切板直接 return；不调 preventDefault（让 React 自己处理）。
+// handlePasteEvent —— handles the onPaste event: extracts text, normalizes
+// it, feeds it into apply. An empty clipboard returns immediately without
+// calling preventDefault (letting React handle it itself).
 export function handlePasteEvent(
   e: React.ClipboardEvent<HTMLInputElement>,
   apply: (normalized: string) => void,
@@ -39,8 +44,9 @@ interface SubmitDeps {
   hook: GateHook;
 }
 
-// submitCodeAndGo —— 调 hook.submitCode + 成功跳 `/`(带回首页问题 ?q=)。
-// CodePanel form onSubmit + paste 自动提交 共用。
+// submitCodeAndGo —— calls hook.submitCode and, on success, navigates to
+// `/` (carrying the home-page question ?q= along). Shared by the CodePanel
+// form's onSubmit and paste auto-submit.
 export async function submitCodeAndGo(
   code: string,
   name: string,
@@ -51,14 +57,18 @@ export async function submitCodeAndGo(
   if (ok) deps.router.push(postGateHref());
 }
 
-// postGateHref —— 过闸后去哪。
+// postGateHref —— where to go after passing the gate.
 //
-// 这张码绑了页就去那一页 —— **扫出来看到的就该是那一页**，而不是先落在默认对话上再想办法。
-// 落地决定跟着颁发一起下来、由 persistSession 存进同一份 session，所以这里不必再问一次后端，
-// 也不会跟名字选择器那条路给出两个答案。
+// If this code is bound to a page, go to that page — **what you scanned
+// into should be what you land on**, not the default chat with a
+// workaround afterward. The landing decision comes down together with
+// issuance and is stored by persistSession into the same session, so this
+// doesn't need to ask the backend again, and it won't give a different
+// answer than the name-picker path does.
 //
-// 没绑就回 `/`;若访客是从首页带着问题(/gate?q=)来的,把 ?q= 串回去,
-// 让 ChatRoom mount 时接着答(不丢问题)。
+// If it's not bound, go back to `/`; if the visitor arrived from the home
+// page with a question (/gate?q=), carry the ?q= along so ChatRoom picks
+// up the answer on mount (the question isn't lost).
 export function postGateHref(): string {
   if (typeof window === 'undefined') {
     return '/';
@@ -69,7 +79,8 @@ export function postGateHref(): string {
   return q === null || q === '' ? '/' : `/?q=${encodeURIComponent(q)}`;
 }
 
-// scheduleAutoSubmit —— paste 的延迟自动提交（50ms 让 React state 跑完）。
+// scheduleAutoSubmit —— the delayed auto-submit for paste (50ms lets React
+// state finish settling).
 export function scheduleAutoSubmit(
   normalized: string,
   name: string,

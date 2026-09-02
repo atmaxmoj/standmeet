@@ -1,6 +1,8 @@
-// RoleGhostConfig —— F-A-10 role 卡上的 ghost-evidence 规则开关。开 → 内容型 steering ghost
-// 必须带语料证据(空证据的非终点 waypoint 不当引导提出;booking 等终点 waypoint 不受影响)。
-// 存 → updateRole 全量回写 require_ghost_evidence(其余字段原样),冻进后续 session;code 可覆盖。
+// RoleGhostConfig —— F-A-10 ghost-evidence rule toggle on the role card. On → a content-type
+// steering ghost must carry corpus evidence (a non-terminal waypoint with no evidence is not
+// offered as a lead; terminal waypoints like booking are unaffected). Save → updateRole
+// writes require_ghost_evidence back in full (other fields untouched), frozen into
+// subsequent sessions; a code can override it.
 
 import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';

@@ -99,7 +99,8 @@ async function runInstall(
 ): Promise<void> {
   setInstalling(m.id);
   try {
-    // 抛错（不再吞成 false）：调用方用 useAction 收尾 —— 安装失败不再只是清 spinner 假装没事。
+    // Throws (no longer swallowed into false): the caller finishes up with useAction —
+    // a failed install no longer just clears the spinner and pretends nothing happened.
     await installFromMarket(m);
     await refresh();
     setLastInstalledAt(Date.now());

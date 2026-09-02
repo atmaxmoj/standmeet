@@ -37,23 +37,26 @@ type Meta struct {
 type Entry struct {
 	ID   string
 	Path string
-	// Slug —— writings only. **公开站上一条 writing 是按 slug 寻址的**（`/writings/<slug>`），
-	// 而 Path 是它在树里的位置（`writings/<slug>`，带 vault 那层目录）。两者不是一回事，
-	// 而少了这一个字段，引用它的那一方只能拿 Path 去拼地址 —— prod 上拼出来的是
-	// `/writing/writings/the-business-model-wedge`，一个 404。
-	// wiki / output 按 Path 寻址，它们这里是空串。
+	// Slug —— writings only. **On the public site a writing is addressed by slug**
+	// (`/writings/<slug>`), while Path is its position in the tree (`writings/<slug>`,
+	// carrying the vault directory layer). The two are not the same, and without this
+	// separate field a caller has only Path to build the address from — on prod that builds
+	// `/writing/writings/the-business-model-wedge`, a 404.
+	// wiki / output are addressed by Path; this field is empty for them.
 	Slug       string
 	Title      string
 	Genre      string
 	Body       string
 	Tags       []string
-	CSSClasses []string // cssclasses frontmatter(per-note 呈现钩子)
-	// ShowAsSource —— wiki/output only: false = AI 能 read 拿 body，但 readCollector
-	// 不把它收进 cited(meta/persona 类)。见 collectCitation 的 gate。
+	CSSClasses []string // cssclasses frontmatter (per-note rendering hook)
+	// ShowAsSource —— wiki/output only: false = the AI can read and get the body, but
+	// readCollector won't fold it into cited (the meta/persona category). See the gate in
+	// collectCitation.
 	ShowAsSource bool
-	// Published —— 这条笔记自己的公开开关（owner 在 /admin 每条上翻的那一个）。
-	// public 身份（未受邀访客 + BYOAI）能不能读到它，就看这一个值 —— 所以每个 finder
-	// 都必须把它带上来，而不是让 ACL 拿一个零值去判（F-D-7）。
+	// Published —— this note's own public switch (the one the owner toggles per-entry in
+	// /admin). Whether the public identity (uninvited visitors + BYOAI) can read it comes
+	// down to this one value — so every finder must carry it forward, rather than letting
+	// ACL judge off a zero value (F-D-7).
 	Published bool
 }
 
@@ -76,8 +79,10 @@ type Lister interface {
 	Get(
 		ctx context.Context, ownerID string, scope access.CorpusScope, path string,
 	) (Entry, error)
-	// Links —— 1 跳 backlinks:本条的 outgoing links + backlinks 邻居(顺 note_refs)。每个邻居
-	// 逐条过 grantedGlobs ACL(防经链接侧漏);主体本身走 Get 的准入(denied/not-found 同语义)。
+	// Links —— 1-hop backlinks: this entry's outgoing links + backlink neighbors (via
+	// note_refs). Each neighbor is checked against grantedGlobs ACL individually (guards
+	// against leaking through a link); the subject itself goes through Get's own admission
+	// (same denied/not-found semantics).
 	Links(
 		ctx context.Context, ownerID string, scope access.CorpusScope, path string,
 	) (Links, error)
@@ -99,7 +104,8 @@ type Lister interface {
 	) ([]GrepHit, error)
 }
 
-// Links —— corpus_links 的返回:分开 outgoing(本条引用的)/ backlinks(引用本条的)。
+// Links —— corpus_links's return: split into outgoing (what this entry references) /
+// backlinks (what references this entry).
 type Links struct {
 	Outgoing  []Meta
 	Backlinks []Meta

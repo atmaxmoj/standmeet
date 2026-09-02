@@ -1,6 +1,7 @@
-// NewlyCreatedBanner —— 刚 Generate 出来的 Ed25519 keypair。显示 keyId
-// (复制到 credentials.json) + PEM (Download 成 .pem 文件保存)。仅一次：
-// 关掉之后服务器不再返私钥 (要再用就 Revoke + Generate 一个新的)。
+// NewlyCreatedBanner — the Ed25519 keypair just Generated. Shows keyId
+// (copy into credentials.json) + PEM (Download as a .pem file). One-time
+// only: after dismissing, the server never returns the private key again
+// (to get another, Revoke + Generate a new one).
 
 'use client';
 

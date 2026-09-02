@@ -1,10 +1,15 @@
-// marketplace.go —— 逛 skill 市场(GitHub + SkillsMP)并装一个进来。
+// marketplace.go — browse the skill marketplace (GitHub + SkillsMP) and install
+// one.
 //
-// 装进来的产物就是一个 skill,所以出站形状跟 skills.go 用**同一个** skillOut ——
-// 这正是这两组要放在一起的原因:分开就会留下两份"一个 skill 长什么样"。
+// What gets installed is a skill, so the outbound shape reuses **the same**
+// skillOut from skills.go — which is exactly why these two groups belong
+// together: keeping them apart would leave two definitions of "what a skill
+// looks like".
 //
-// install_manual 只在面板上:它是"把手里的 SKILL.md 粘进来"这个浏览器动作。MCP 客户端
-// 要造 skill 用 skill_create,不需要粘贴这一步 —— 这是写下来的单面决定,不是漏掉的面。
+// install_manual lives on the panel only: it's the browser action of "pasting
+// in the SKILL.md I already have". An MCP client building a skill uses
+// skill_create and skips this pasting step — that's a deliberate single-face
+// decision, not a missing face.
 
 package ops
 
@@ -19,10 +24,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace/usecase"
 )
 
-// marketSearchDefaultLimit —— 一页结果。
+// marketSearchDefaultLimit — one page of results.
 const marketSearchDefaultLimit = 24
 
-// Marketplace —— search / install / install_manual。
+// Marketplace — search / install / install_manual.
 func Marketplace(deps usecase.InstallSkillDeps) []fp.Op {
 	return []fp.Op{
 		{
@@ -94,10 +99,11 @@ var (
 	}`)
 )
 
-// marketSkillOut —— 市场里一条结果的出站形状。
+// marketSkillOut — the outbound shape of one marketplace search result.
 type marketSkillOut struct {
-	// RepoStars —— 技能所在**仓库**的星数;null = 这个源报不出来。
-	// 不许在这里兜底成 0:那会把"不知道"说成"零颗星"(F-F-2)。
+	// RepoStars — the star count of the skill's **repo**; null = this source
+	// can't report it. Never default this to 0: that would say "zero stars"
+	// when the truth is "unknown" (F-F-2).
 	RepoStars   *int   `json:"repo_stars"`
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -107,11 +113,14 @@ type marketSkillOut struct {
 	Description string `json:"description"`
 	SourceURL   string `json:"source_url"`
 	Source      string `json:"source"`
-	// Needs —— 这个技能要用的工具背后,这个 owner **还没连**的连接器。
-	//   null = 答不上来(没读过它的正文,或这台实例解析不了) —— 卡片什么都不说;
-	//   []   = 答得上,不缺;
-	//   [..] = 缺这几个。
-	// 同 repo_stars:不许把 null 兜底成 [],那会把「不知道」印成「没问题」(F-F-4)。
+	// Needs — connectors this owner has **not connected yet**, sitting behind
+	// the tools this skill wants to use.
+	//   null = can't answer (its body was never read, or this instance can't
+	//          parse it) — the card says nothing;
+	//   []   = can answer, and nothing is missing;
+	//   [..] = these are missing.
+	// Same rule as repo_stars: never default null to [], that would print
+	// "unknown" as "all clear" (F-F-4).
 	Needs []string `json:"needs"`
 }
 
@@ -138,7 +147,8 @@ func searchMarketplace(deps usecase.InstallSkillDeps) fp.Invoke {
 	}
 }
 
-// decodeMarketSearch —— 参数全可选:空 body 就是"逛整个市场"。
+// decodeMarketSearch — every param is optional: an empty body means "browse
+// the whole marketplace".
 func decodeMarketSearch(raw json.RawMessage) (marketSearchArgs, error) {
 	var in marketSearchArgs
 	if len(raw) > 0 {
@@ -214,8 +224,9 @@ func installManualSkill(deps usecase.InstallSkillDeps) fp.Invoke {
 	}
 }
 
-// installErr —— 安装失败的分类。抓不到 / 解不动远端的 SKILL.md 是**外部依赖**的问题:
-// 这句话可以直接给 owner 看,而不是一句 "internal error"。
+// installErr — categorizes an install failure. Failing to fetch / parse a
+// remote SKILL.md is an **external dependency** problem: this message can be
+// shown to the owner directly, instead of a generic "internal error".
 func installErr(err error) error {
 	switch {
 	case errors.Is(err, apierr.ErrEmptyField):

@@ -1,12 +1,16 @@
-// code_config.go —— 各能力在**邀请码**上占的字段,和照声明执行的用量闸。
+// code_config.go — the fields each capability occupies on an **access code**, and the usage
+// gate that enforces them per declaration.
 //
-// 这里替代了三个 booker 专属文件(booker_code_config.go / booker_code_store.go /
-// booker_quota.go,共 294 行)。那三个文件里没有一句是 booker 独有的**机制** —— 存一个
-// per-code 的值、把它接进发码入参、按它闸一个工具,全是通用的事,只是当时没有通用的地方,
-// 所以按 booker 抄了一份。第二个能力想在码上放东西,就得再抄一份。
+// This replaces three booker-only files (booker_code_config.go / booker_code_store.go /
+// booker_quota.go, 294 lines total). None of those three files held any **mechanism** unique
+// to booker — storing a per-code value, wiring it into the code-issuing args, gating a tool by
+// it, are all generic operations; there was just no generic home for them at the time, so they
+// got copied for booker. A second capability wanting to put something on a code would have had
+// to copy it again.
 //
-// 现在能力只在自己的 manifest 里写 CodeConfig + Quota 两句声明,这个文件谁也不认识:
-// 它遍历 manifest,把声明接到通用机制上。
+// Now a capability only writes two declarations in its own manifest, CodeConfig + Quota, and
+// this file knows none of them: it walks the manifests and wires the declarations into the
+// generic mechanism.
 
 package axiscap
 
@@ -26,11 +30,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/capload"
 )
 
-// CodeFieldSurface —— 所有能力在码上占的字段,合成 access 收的那一个口子。
+// CodeFieldSurface — all the fields capabilities occupy on a code, merged into the one
+// interface access accepts.
 //
-// 两个能力抢同一个字段名 → panic。这是启动期的事实错误,不是运行期的坏运气。
+// Two capabilities fighting over the same field name → panic. That's a startup-time factual
+// error, not runtime bad luck.
 //
-//nolint:ireturn // access 那边收的就是这个接口
+//nolint:ireturn // access accepts exactly this interface
 func CodeFieldSurface(d *deps.Runtime) access.CodeExtras {
 	fields, err := capconfig.NewCodeFields(d.Log, subjectCaps(d, "code", codeDecl))
 	if err != nil {
@@ -39,12 +45,14 @@ func CodeFieldSurface(d *deps.Runtime) access.CodeExtras {
 	return fields
 }
 
-// RoleFieldSurface —— 所有能力在一个 role 上占的字段,合成 access 收的那一个口子。
+// RoleFieldSurface — all the fields capabilities occupy on a role, merged into the one
+// interface access accepts.
 //
-// 跟 CodeFieldSurface 差的只有"取哪份声明"。calendar.book 的 notify_owner 是第一个;
-// 在它之前,一个 per-role 的开关只能长成内核 roles 表上的一列。
+// The only difference from CodeFieldSurface is which declaration it pulls. calendar.book's
+// notify_owner was the first one; before it, a per-role toggle could only be born as a column
+// on the kernel roles table.
 //
-//nolint:ireturn // access 那边收的就是这个接口
+//nolint:ireturn // access accepts exactly this interface
 func RoleFieldSurface(d *deps.Runtime) access.RoleExtras {
 	fields, err := capconfig.NewRoleFields(d.Log, subjectCaps(d, "role", roleDecl))
 	if err != nil {
@@ -53,12 +61,14 @@ func RoleFieldSurface(d *deps.Runtime) access.RoleExtras {
 	return fields
 }
 
-// KeyFieldSurface —— 所有能力在一把**对外 API key** 上占的字段,合成 access 收的那一个口子。
+// KeyFieldSurface — all the fields capabilities occupy on an **outbound API key**, merged into
+// the one interface access accepts.
 //
-// 用的是**跟码同一份声明**(`CodeConfig`):`max_bookings` 是「这个主体最多能约几次」,它跟主体
-// 是码还是 key 无关。没有这一面的话,配额挂在 key 上就无处可设(F-B-11)。
+// Uses **the same declaration as a code** (`CodeConfig`): `max_bookings` means "how many times
+// this subject may book at most", and that has nothing to do with whether the subject is a code
+// or a key. Without this facade a quota attached to a key would have nowhere to be set (F-B-11).
 //
-//nolint:ireturn // access 那边收的就是这个接口
+//nolint:ireturn // access accepts exactly this interface
 func KeyFieldSurface(d *deps.Runtime) access.KeyExtras {
 	fields, err := capconfig.NewKeyFields(d.Log, subjectCaps(d, "api_key", codeDecl))
 	if err != nil {
@@ -67,8 +77,9 @@ func KeyFieldSurface(d *deps.Runtime) access.KeyExtras {
 	return fields
 }
 
-// RoleCapConfig —— 冻结 role snapshot 时按能力读配置的那个读口(conversation 侧的窄端口)。
-// 跟 RoleFieldSurface 同一份声明、同一个存储:两个形状,一份事实。
+// RoleCapConfig — the read port for reading per-capability config when freezing a role
+// snapshot (the narrow port on the conversation side). Same declaration, same storage as
+// RoleFieldSurface: two shapes, one fact.
 func RoleCapConfig(d *deps.Runtime) *capconfig.SubjectFields {
 	fields, err := capconfig.NewRoleFields(d.Log, subjectCaps(d, "role", roleDecl))
 	if err != nil {
@@ -80,8 +91,9 @@ func RoleCapConfig(d *deps.Runtime) *capconfig.SubjectFields {
 func codeDecl(m *mcpplugin.Manifest) []mcpplugin.ConfigField { return m.CodeConfig }
 func roleDecl(m *mcpplugin.Manifest) []mcpplugin.ConfigField { return m.RoleConfig }
 
-// subjectCaps —— 声明了这类字段的能力 + 它们各自的存储。声明了却没有存储 → 记一条并跳过:
-// 那是启动期的配置错误,静默跳过的话 owner 只会看到设置存不下去。
+// subjectCaps — the capabilities that declare this class of field + each one's own storage.
+// Declared but no storage → log one line and skip: that's a startup-time config error, and
+// skipping it silently would only leave the owner seeing settings that fail to save.
 func subjectCaps(
 	d *deps.Runtime, subject string, decl func(*mcpplugin.Manifest) []mcpplugin.ConfigField,
 ) []capconfig.SubjectCap {
@@ -106,8 +118,10 @@ func subjectCaps(
 	return caps
 }
 
-// CapabilityQuotaHooks —— 声明了 Quota 的能力各拿一对钩子:闸(露不露这个工具)和余量
-// (还剩几次)。**两者共用同一条计数** —— 它们曾经是两段分开写的代码,而且只补回过一半。
+// CapabilityQuotaHooks — every capability that declares a Quota gets a pair of hooks: a gate
+// (whether to expose the tool) and a remaining count (how many uses are left). **Both share the
+// same counter** — they used to be two separately written pieces of code, and only one of the
+// two ever got backfilled when the other changed.
 func CapabilityQuotaHooks(d *deps.Runtime, hooks map[string]capload.CapHooks) {
 	manifests := BuiltinManifests()
 	for i := range manifests {
@@ -134,17 +148,20 @@ func quotaCounterFor(d *deps.Runtime, m *mcpplugin.Manifest) *capquota.Counter {
 	}
 	return capquota.New(&capquota.Bind{
 		Store: store, Config: CapConfigFor(store, m.ID), Decl: m.Quota,
-		// 同一份字段声明既用在码上也用在 key 上 —— 上限那个字段本身跟挂在谁身上无关。
+		// The same field declaration is used for both codes and keys — the cap field itself
+		// doesn't care whose subject it's attached to.
 		SubjectFields: m.CodeConfig, CapID: m.ID, Kind: capstore.KindMCP,
 	})
 }
 
-// quotaScope —— 会话主体 → 它的配置挂载点。**这句翻译只能住在组装根**:capreg 认识「一场
-// 会话以谁的身份跑」,capconfig 认识「配置挂在谁身上」,两个包互不认识(架构闸拦着),而这里
-// 两边都看得见。
+// quotaScope — session subject → its config mount point. **This translation can only live at
+// the assembly root**: capreg knows "which identity a session runs as", capconfig knows "who
+// config is attached to", and the two packages don't know each other (the architecture gate
+// blocks that) — but this file can see both.
 //
-// 不给兜底:种类不认得就当没有主体(不闸)。兜一个默认 scope 的话,一个拼错的种类会静默地去读
-// 别人的上限 —— 配额是最不该"猜一个"的地方。
+// No fallback: an unrecognized kind is treated as no subject (not gated). Falling back to a
+// default scope would let a misspelled kind silently read someone else's cap — quota is the
+// last place that should ever "guess one".
 func quotaScope(s capreg.Subject) capconfig.Scope {
 	switch s.Kind {
 	case capreg.SubjectCode:
@@ -156,10 +173,12 @@ func quotaScope(s capreg.Subject) capconfig.Scope {
 	}
 }
 
-// quotaGate —— 达上限 → 这次会话不暴露这个工具(隐藏,而不是让访客点了再报错)。
+// quotaGate — at the cap → this session doesn't expose the tool (hidden, instead of letting
+// the visitor click it and then get an error).
 //
-// 拦下来要**说出来**:被闸掉的症状是"授了权的工具不见了",跟没授权、没连连接器长得一模一样。
-// 不留一行日志,查的人只能一个一个闸去试。
+// Blocking it must **say so**: the symptom of being gated looks identical to "a granted tool
+// disappeared" — the same as being unauthorized or having no connector attached. With no log
+// line, whoever investigates has to try each gate one by one.
 func quotaGate(counter *capquota.Counter, log *slog.Logger, capID string) capreg.SessionGate {
 	return func(ctx context.Context, in *capreg.AssembleInput) (bool, error) {
 		allow, err := counter.Allow(ctx, quotaScope(in.Subject))
@@ -172,16 +191,18 @@ func quotaGate(counter *capquota.Counter, log *slog.Logger, capID string) capreg
 		if !allow {
 			log.Info("capability quota exhausted — tool hidden for this session",
 				"cap", capID, "subject_kind", in.Subject.Kind, "subject", in.Subject.ID)
-			// 带上**理由**再往上走。它包着 ErrHidden,所以聊天面照旧藏;而 HTTP 那一面
-			// 问得出「为什么没有」,不必把额度用完说成从来没授权(F-B-11)。
+			// Propagate the **reason**. It wraps ErrHidden, so the chat facade still hides
+			// it as before; the HTTP facade can ask "why isn't it there" without having to
+			// report an exhausted quota as never-authorized (F-B-11).
 			return false, capreg.ErrQuotaExhausted
 		}
 		return allow, nil
 	}
 }
 
-// quotaState —— 把还剩几次填进 capability_state.quota_remaining。
-// 读不到就不填(omitempty),而不是填 0:0 会被读成"已用尽"。
+// quotaState — fills the remaining-uses count into capability_state.quota_remaining.
+// If it can't be read, leave it unset (omitempty) rather than filling in 0: 0 reads as
+// "already exhausted".
 func quotaState(counter *capquota.Counter, capID string) capload.StateHook {
 	return func(ctx context.Context, in *capreg.AssembleInput) capreg.CapabilityState {
 		st := capreg.CapabilityState{ID: capID, Enabled: true}

@@ -1,14 +1,17 @@
-// use-api-keys —— /admin/api-mcp 上**外发 API key** 那一块的状态机（F-K-1）。
+// use-api-keys —— state machine for the **outbound API key** block on
+// /admin/api-mcp (F-K-1).
 //
-// 跟隔壁 use-tokens 是两种东西，别混（[[two-mcp-surfaces]]）：
-//   - use-tokens 管的是 **MCP keypair**（Ed25519，owner 自己的客户端拿去签名）
-//   - 这里管的是 **外发 `smk_` key**（第三方程序拿去打 `/api/pub/v1`）
+// Don't confuse this with its neighbor use-tokens — they're two different
+// things ([[two-mcp-surfaces]]):
+//   - use-tokens manages the **MCP keypair** (Ed25519, used by the owner's own client to sign)
+//   - this file manages the **outbound `smk_` key** (used by third-party programs to hit `/api/pub/v1`)
 //
-// 在它之前外发 key 只长在 owner-MCP 上，于是**一把泄露的 key 只有在 owner 装好并跑起一个
-// MCP 客户端之后才吊销得掉**。止血的路不该要求先装工具。
+// Before this existed, outbound keys lived only on owner-MCP, so **a leaked
+// key could only be revoked after the owner had installed and run an MCP
+// client**. The bleeding-stop path shouldn't require installing a tool first.
 //
-// 明文只在铸出来那一次给一次（justCreated），之后列表里只剩 prefix —— 这一页不能变成一个
-// 能薅 key 的地方。
+// The plaintext secret is shown exactly once, at mint time (justCreated);
+// after that only the prefix remains in the list — this page must not become a place someone can scrape keys from.
 
 import { useEffect, useState } from 'react';
 
@@ -30,7 +33,7 @@ const APIKeySchema = z.object({
 });
 export type APIKeyItem = z.infer<typeof APIKeySchema>;
 
-// 铸出来那一次的形状：**secret 只有这里有**。
+// The shape of one mint event: **secret only ever appears here**.
 const CreatedAPIKeySchema = z.object({
   id: z.string(),
   prefix: z.string(),
@@ -53,15 +56,18 @@ const keysStore = createResourceStore<APIKeyItem[]>({
   fetcher: () => adminAPI.get('/api-keys', z.array(APIKeySchema)),
 });
 
-// justCreated 是**组件本地**的一次性状态，不进 store。
+// justCreated is **local to the component**, a one-time state that never enters the store.
 //
-// 这是有意的：离开这一页再回来，那把明文就该消失 —— 它只在铸出来那一刻给一次，
-// 之后连产品自己都取不回。放进 store 会让它跨页面活着，而那正是"列表变成薅 key 的地方"。
+// This is deliberate: leave this page and come back, and that plaintext
+// secret should be gone — it's given exactly once, at mint time, and after
+// that even the product itself can't retrieve it again. Putting it in the
+// store would let it live across pages, which is exactly "the list becomes a place to scrape keys from".
 export function useAPIKeys(): APIKeysHook {
   const res = useResource(keysStore);
   const [justCreated, setJustCreated] = useState<CreatedAPIKey | null>(null);
-  // 首次挂载要真去拉一次 —— resource store 不会自己开始。少这一句的时候面板会渲染出来、
-  // 标题也在，**只是列表永远空着**：一个"看起来好了"的形态。
+  // The first mount needs to actually fetch once — a resource store doesn't
+  // start itself. Without this line, the panel renders, the header is there,
+  // **only the list stays empty forever**: a "looks fine" shape.
   const { ensureLoaded } = res;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return {

@@ -41,17 +41,19 @@ type Resolver interface {
 // ResolveInput —— per-request input. Visitor non-nil only in mode='byoai'.
 // fieldalignment: pointer first.
 type ResolveInput struct {
-	// Visitor —— 访客自带的凭据(BYOAI)。类型本身就说明它不可信,见 visitor_cred.go。
+	// Visitor —— the credential the visitor brought themselves (BYOAI). The type itself
+	// already says it's untrusted, see visitor_cred.go.
 	Visitor *VisitorCred
 	OwnerID string
 	Mode    string
-	// ProviderID —— 这场会话用 owner 本子里的**哪一条**。空 = 默认那条。
-	// 发会话时就定好冻进 session 了(码 > role > 默认);这里只是照着取。
+	// ProviderID —— **which** provider in the owner's book this session uses. Empty = the
+	// default one. Which one wins (code > role > default) was already decided and frozen in
+	// when the session was sent; this just reads it back.
 	ProviderID string
 }
 
-// OwnerKeyResolver —— Resolver impl:读 owner 行,拿到一份已经开好的凭据。
-// **不解封** —— 见 owner_lookup.go 的 OwnerKeyView.Key。
+// OwnerKeyResolver —— the Resolver impl: reads the owner row, gets back an already-unsealed
+// credential. **Never unseals** — see OwnerKeyView.Key in owner_lookup.go.
 type OwnerKeyResolver struct {
 	Lookup OwnerLookup
 }
@@ -61,7 +63,8 @@ func (r *OwnerKeyResolver) Resolve(
 	ctx context.Context, in *ResolveInput,
 ) (*Cred, error) {
 	if in.Mode == "byoai" && in.Visitor.HasKey() {
-		// Untrusted 由**这条路径**决定,不由调用方传 —— 访客给的 endpoint 必须过 SSRF 闸。
+		// Untrusted is decided by **this path**, never passed in by the caller — the endpoint
+		// the visitor gave must pass through the SSRF gate.
 		return validateCred(credFields{
 			Provider: in.Visitor.Provider, Key: in.Visitor.Key,
 			Endpoint: in.Visitor.Endpoint, Model: in.Visitor.Model, Untrusted: true,
@@ -96,8 +99,9 @@ func (r *OwnerKeyResolver) loadOwnerCred(
 // validateCred —— enforce that all four fields are populated before
 // returning a Cred. preset table only fills UI defaults; server doesn't
 // fall back at request time.
-// credFields —— 两条来路共用的校验入参。Untrusted 是**来路的属性**,由调用处按自己
-// 是哪条路填,不从外面传进来。
+// credFields —— the shared validation input for both source paths. Untrusted is
+// **a property of the path**, filled in by the call site based on which path it is, never
+// passed in from outside.
 type credFields struct {
 	Provider  string
 	Key       string

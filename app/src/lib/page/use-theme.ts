@@ -1,8 +1,11 @@
-// use-theme —— `<html>` 上挂 / 摘 .dark 类。首次访问读 prefers-color-scheme，
-// 之后 TopBar 切换写 localStorage 锁定，避免回到 prefers 默认。
+// use-theme —— attaches / removes the .dark class on `<html>`. On first
+// visit it reads prefers-color-scheme; after that, toggling via TopBar
+// writes a localStorage lock so it doesn't fall back to the prefers
+// default.
 //
-// SSR 安全：useEffect 才碰 document / localStorage / matchMedia，初始 state
-// 默认 false（亮色），客户端 hydrate 后再修正，避免 hydration mismatch。
+// SSR-safe: only useEffect touches document / localStorage / matchMedia;
+// the initial state defaults to false (light), corrected after the
+// client hydrates, to avoid a hydration mismatch.
 
 'use client';
 

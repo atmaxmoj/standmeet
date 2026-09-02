@@ -1,7 +1,9 @@
-// oauth.go —— openapi 连接器的 OAuth2 authorization-code dance（通用，从 spec 的 securityScheme
-// 取端点）。自托管：owner 贴自己的 client_id/secret，没有全局 OAuth app。dance：build 同意页
-// URL（authorizationUrl + client_id + redirect_uri + state + scope）→ owner 授权 → callback 拿
-// code → 换 token（tokenUrl）→ 存。endpoints 来自 manifest 的 spec，不写死任何 provider。
+// oauth.go — the OAuth2 authorization-code dance for openapi connectors (generic, endpoints
+// pulled from the spec's securityScheme). Self-hosted: the owner pastes their own
+// client_id/secret, there's no global OAuth app. The dance: build the consent-page URL
+// (authorizationUrl + client_id + redirect_uri + state + scope) → owner authorizes → callback
+// receives a code → exchange for a token (tokenUrl) → store. Endpoints come from the manifest's
+// spec; no provider is hardcoded.
 
 package connector
 
@@ -19,20 +21,21 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 )
 
-// ErrNotDanceScheme —— 该连接器的 securityScheme 不是 oauth2 authorization-code（apikey/bearer/basic）：
-// **预期的非-dance**，connect 走「存即用 / 连接测试」路，不是错。跟「声明了 oauth2 却配坏」分开，
-// 后者要吵闹（否则坏 oauth 连接器会静默 markConnected 却没 token）。
+// ErrNotDanceScheme — this connector's securityScheme isn't oauth2 authorization-code
+// (apikey/bearer/basic): an **expected non-dance**, connect takes the "save-and-use / connection
+// test" path, not an error. Kept separate from "declared oauth2 but misconfigured", which must
+// be loud (otherwise a broken oauth connector would silently markConnected with no token).
 var ErrNotDanceScheme = errors.New("connector scheme is not an oauth2 authorization-code dance")
 
-// OAuthEndpoints —— spec 的 oauth2 / openIdConnect scheme 解析出的端点。
+// OAuthEndpoints — endpoints parsed out of the spec's oauth2 / openIdConnect scheme.
 type OAuthEndpoints struct {
 	AuthorizationURL string
 	TokenURL         string
 	Scopes           []string
 }
 
-// OAuthEndpointsFor —— 解析 openapi manifest 的 spec，取指定 scheme 的 authorization-code 端点。
-// 非 oauth2 / 缺 authorizationCode flow → 错。
+// OAuthEndpointsFor — parse an openapi manifest's spec and get the authorization-code
+// endpoints for the specified scheme. Non-oauth2 / missing authorizationCode flow → error.
 func OAuthEndpointsFor(m *Manifest, schemeName string) (OAuthEndpoints, error) {
 	spec, err := openapi.ParseSpec(m.Spec)
 	if err != nil {
@@ -41,17 +44,20 @@ func OAuthEndpointsFor(m *Manifest, schemeName string) (OAuthEndpoints, error) {
 	return oauthEndpointsFromSpec(spec, schemeName)
 }
 
-// oauthEndpointsFromSpec —— 从已解析 spec 取 authorization-code 端点（schemeName 空 = 唯一那个）。
+// oauthEndpointsFromSpec — get the authorization-code endpoints from an already-parsed spec
+// (schemeName empty = use the sole scheme).
 func oauthEndpointsFromSpec(spec *openapi.Spec, schemeName string) (OAuthEndpoints, error) {
 	scheme, serr := pickScheme(spec, schemeName)
 	if serr != nil {
 		return OAuthEndpoints{}, serr
 	}
 	if scheme.Type != "oauth2" && scheme.Type != "openIdConnect" {
-		return OAuthEndpoints{}, ErrNotDanceScheme // apikey/bearer/basic：预期非 dance
+		return OAuthEndpoints{}, ErrNotDanceScheme // apikey/bearer/basic: expected non-dance
 	}
 	flow := scheme.Flows.AuthorizationCode
-	if flow == nil { // 声明了 oauth2 却没 authorizationCode flow → 真配错，上报（不静默非-dance）
+	// declared oauth2 but no authorizationCode flow → a real misconfig, report it (don't treat
+	// as a silent non-dance)
+	if flow == nil {
 		return OAuthEndpoints{}, fmt.Errorf("%w: oauth2 scheme has no authorizationCode flow",
 			errUnsupportedAuth)
 	}
@@ -62,7 +68,8 @@ func oauthEndpointsFromSpec(spec *openapi.Spec, schemeName string) (OAuthEndpoin
 	}, nil
 }
 
-// RefreshToken —— 用 refresh_token 换新 access token（静默刷新；token 端点同 ExchangeCode）。
+// RefreshToken — exchange a refresh_token for a new access token (silent refresh; same token
+// endpoint as ExchangeCode).
 func (e OAuthEndpoints) RefreshToken(
 	ctx context.Context, doer openapi.Doer, refreshToken, clientID, clientSecret string,
 ) (TokenResult, error) {
@@ -82,7 +89,8 @@ func scopeKeys(m map[string]string) []string {
 	return out
 }
 
-// AuthorizeInput —— 拼同意页 URL 要的东西。`Challenge` 是 PKCE 的 S256 摘要。
+// AuthorizeInput — everything needed to build the consent-page URL. `Challenge` is PKCE's S256
+// digest.
 type AuthorizeInput struct {
 	ClientID    string
 	RedirectURI string
@@ -91,11 +99,13 @@ type AuthorizeInput struct {
 	Scopes      []string
 }
 
-// BuildAuthorizeURL —— 拼同意页 URL。scopes 空 → 用 spec 声明的全部。
+// BuildAuthorizeURL — build the consent-page URL. Empty scopes → use everything the spec
+// declares.
 //
-// PKCE（F-C-44）：`state` 挡的是 CSRF，`code_challenge` 挡的是**授权码被中途截走** ——
-// 截到码的人没有 verifier 就换不出 token。这个连接器的 redirect 落在明文 HTTP 的
-// loopback 上，而 Google 对 installed-app 一类客户端本来就要求它。
+// PKCE (F-C-44): `state` guards against CSRF, `code_challenge` guards against **the
+// authorization code being intercepted in transit** — whoever intercepts the code can't
+// exchange it for a token without the verifier. This connector's redirect lands on plaintext
+// HTTP's loopback, and Google already requires PKCE for installed-app-style clients anyway.
 func (e OAuthEndpoints) BuildAuthorizeURL(in *AuthorizeInput) string {
 	scopes := in.Scopes
 	if len(scopes) == 0 {
@@ -106,7 +116,7 @@ func (e OAuthEndpoints) BuildAuthorizeURL(in *AuthorizeInput) string {
 	q.Set("redirect_uri", in.RedirectURI)
 	q.Set("response_type", "code")
 	q.Set("state", in.State)
-	q.Set("access_type", "offline") // 拿 refresh_token
+	q.Set("access_type", "offline") // get a refresh_token
 	q.Set("prompt", "consent")
 	if in.Challenge != "" {
 		q.Set("code_challenge", in.Challenge)
@@ -122,7 +132,7 @@ func (e OAuthEndpoints) BuildAuthorizeURL(in *AuthorizeInput) string {
 	return e.AuthorizationURL + sep + q.Encode()
 }
 
-// TokenResult —— code 换出的 token。
+// TokenResult — the token exchanged for a code.
 type TokenResult struct {
 	AccessToken  string
 	RefreshToken string
@@ -130,7 +140,7 @@ type TokenResult struct {
 	Scopes       []string
 }
 
-// tokenResponse —— token 端点的响应形状（OAuth2 标准）。
+// tokenResponse — the token endpoint's response shape (OAuth2 standard).
 type tokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -138,7 +148,7 @@ type tokenResponse struct {
 	ExpiresIn    int    `json:"expires_in"`
 }
 
-// ExchangeCode —— 拿 authorization code 换 access/refresh token。
+// ExchangeCode — exchange an authorization code for an access/refresh token.
 func (e OAuthEndpoints) ExchangeCode(
 	ctx context.Context, doer openapi.Doer, in *ExchangeInput,
 ) (TokenResult, error) {
@@ -154,8 +164,8 @@ func (e OAuthEndpoints) ExchangeCode(
 	return e.postToken(ctx, doer, form)
 }
 
-// ExchangeInput —— code 换 token 的入参。`CodeVerifier` 是 authorize 那一步
-// 发出去的 challenge 的原文（PKCE）。
+// ExchangeInput — input for exchanging a code for a token. `CodeVerifier` is the plaintext
+// behind the challenge sent out during the authorize step (PKCE).
 type ExchangeInput struct {
 	Code         string
 	ClientID     string
@@ -164,7 +174,7 @@ type ExchangeInput struct {
 	CodeVerifier string
 }
 
-// postToken —— POST token 端点（form-urlencoded）+ 解析。
+// postToken — POST to the token endpoint (form-urlencoded) + parse the response.
 func (e OAuthEndpoints) postToken(
 	ctx context.Context, doer openapi.Doer, form url.Values,
 ) (_ TokenResult, err error) {
@@ -202,8 +212,9 @@ func parseTokenResponse(resp *http.Response) (TokenResult, error) {
 	return buildTokenResult(&tr), nil
 }
 
-// classifyTokenError —— token 端点 4xx：invalid_grant（撤权，永久）→ ErrInvalidGrant；其余 →
-// errOAuthExchange（含 5xx，瞬时降级）。OAuth2 错误体形如 {"error":"invalid_grant"}。
+// classifyTokenError — token endpoint 4xx: invalid_grant (revoked, permanent) → ErrInvalidGrant;
+// everything else → errOAuthExchange (includes 5xx, downgraded to transient). An OAuth2 error
+// body looks like {"error":"invalid_grant"}.
 func classifyTokenError(raw []byte, status int) error {
 	var body struct {
 		Error string `json:"error"`
@@ -211,12 +222,12 @@ func classifyTokenError(raw []byte, status int) error {
 	if jerr := json.Unmarshal(raw, &body); jerr == nil && body.Error == "invalid_grant" {
 		return ErrInvalidGrant
 	}
-	// 非 invalid_grant：5xx 当瞬时（友好降级 + 可重试），其余永久。归一到 StatusError 让
-	// 契约适配器统一映射。
+	// Not invalid_grant: treat 5xx as transient (friendly downgrade + retryable), everything
+	// else as permanent. Unified into StatusError so the contract adapter maps it consistently.
 	return &openapi.StatusError{Code: status, Transient: status >= http.StatusInternalServerError}
 }
 
-// buildTokenResult —— token 响应 → TokenResult（解析 expires_in / scope）。
+// buildTokenResult — token response → TokenResult (parses expires_in / scope).
 func buildTokenResult(tr *tokenResponse) TokenResult {
 	out := TokenResult{AccessToken: tr.AccessToken, RefreshToken: tr.RefreshToken}
 	if tr.ExpiresIn > 0 {
@@ -230,5 +241,5 @@ func buildTokenResult(tr *tokenResponse) TokenResult {
 
 const maxTokenBytes = 1 << 20 // 1 MiB
 
-// nowUTC —— 可在测试里替换的时钟（默认 time.Now）。
+// nowUTC — a clock that can be substituted in tests (defaults to time.Now).
 var nowUTC = func() time.Time { return time.Now().UTC() }

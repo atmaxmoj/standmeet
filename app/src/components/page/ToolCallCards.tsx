@@ -1,16 +1,19 @@
-// ToolCallCards —— G-4: 渲 answer.toolCalls per tool name(assistant 这一轮调的工具)。
+// ToolCallCards —— G-4: renders answer.toolCalls per tool name (the tools the
+// assistant called this turn).
 //
-// dispatch 表：
-//   - corpus_search / corpus_list  → SearchHitsCard (path+title+summary 列表)
-//   - corpus_read                  → skip (Citation 已渲，重复)
-//   - calendar_book                → skip (G-7 单独 confirmation card)
-//   - skill_* / ext_*              → GenericDumpCard (debug-grade JSON 框)
-//   - 其他                          → null (不渲，避免 chat 噪声)
+// Dispatch table:
+//   - corpus_search / corpus_list  → SearchHitsCard (path+title+summary list)
+//   - corpus_read                  → skip (already rendered as a Citation, would duplicate)
+//   - calendar_book                → skip (G-7 has its own confirmation card)
+//   - skill_* / ext_*              → GenericDumpCard (debug-grade JSON box)
+//   - anything else                → null (renders nothing, avoids chat noise)
 //
-// 位置：ConversationDeck / ChatRoom 渲 answer paras 之前 (transcript flow
-// 上："tool 卡 → answer 文本 → citations" 的纵向顺序)。
+// Position: ConversationDeck / ChatRoom render this before the answer paras
+// (on the transcript flow, the vertical order is "tool card → answer text →
+// citations").
 //
-// 数据 narrow 在 lib/page/tool-call-shape.ts；presentation 层只做渲染。
+// Data narrowing lives in lib/page/tool-call-shape.ts; this presentation
+// layer only renders.
 
 'use client';
 
@@ -28,13 +31,16 @@ import styles from '@/components/page/ToolCallCards.module.css';
 
 interface ToolCallCardsProps {
   calls: readonly ToolCallView[];
-  // onAsk —— 交互卡(ask_visitor / slots 沙盒卡)把 visitor 选择 forward 进下一
-  // turn(经 McpAppCard 的 mcp-ui:submit)。只读卡不用。
+  // onAsk —— interactive cards (ask_visitor / slots sandboxed cards) forward
+  // the visitor's choice into the next turn (via McpAppCard's
+  // mcp-ui:submit). Unused by read-only cards.
   onAsk?: (q: string) => void;
-  // conversationID —— booked 沙盒卡的 mcp-ui:tool 派发(cancel / send_confirmation)
-  // 凭它 + 访客 session 调 tool；传给 McpAppCard。
+  // conversationID —— a booked sandboxed card's mcp-ui:tool dispatch
+  // (cancel / send_confirmation) uses this plus the visitor session to call
+  // the tool; passed through to McpAppCard.
   conversationID?: string;
-  // noteEvent —— 见 CardCtx：卡上做的事要让下一轮的 agent 知道（F-B-9）。
+  // noteEvent —— see CardCtx: what happens on a card must reach the agent on
+  // the next turn (F-B-9).
   noteEvent?: (text: string) => void;
 }
 
@@ -60,16 +66,19 @@ export function ToolCallCards({
   );
 }
 
-// otherCards —— 非检索、且可渲的 tool call(交互 ui:// 卡 / skill·ext dump)。检索族
-// 折叠成 RetrievalSummary,不走这里。
+// otherCards —— non-retrieval, renderable tool calls (interactive ui://
+// cards / skill·ext dumps). The retrieval family collapses into
+// RetrievalSummary and doesn't go through here.
 function otherCards(
   calls: readonly ToolCallView[], byName: Record<string, PublicSessionToolSpec>,
 ): ToolCallView[] {
   return calls.filter((c) => !isRetrievalTool(c.name) && renderableCall(c, byName));
 }
 
-// RetrievalSummary —— 折叠后的检索行:一行、原地,不随检索次数堆叠(UX-10)。
-// 「读到的具体内容」在 citations footer;这里只报「搜/读了多少次」的透明度。
+// RetrievalSummary —— the collapsed retrieval row: one line, in place, and
+// doesn't stack with the number of retrievals (UX-10). The actual content
+// that was read lives in the citations footer; this line only reports the
+// transparency figure of "how many searches/reads."
 function RetrievalSummary({ counts }: { counts: RetrievalCounts }) {
   const t = useTranslations('page');
   return (
@@ -81,8 +90,10 @@ function RetrievalSummary({ counts }: { counts: RetrievalCounts }) {
   );
 }
 
-// renderableCall —— 渲卡判定。tool 自带 ui:// 卡（per-tool ui_html）→ 渲沙盒；
-// 否则 skill·ext 通用 debug 兜底（cardKindFor → dump）。皆无 → 不渲。
+// renderableCall —— decides whether to render a card. Tool ships its own
+// ui:// card (per-tool ui_html) → render sandboxed; otherwise falls back to
+// the generic skill·ext debug card (cardKindFor → dump). Neither → renders
+// nothing.
 function renderableCall(
   c: ToolCallView, byName: Record<string, PublicSessionToolSpec>,
 ): boolean {
@@ -90,19 +101,23 @@ function renderableCall(
   return c.ok && (uiHtml !== '' || cardKindFor(c.name) !== 'none');
 }
 
-// CardCtx —— dispatch 每张卡拿到的上下文(call + onAsk + conversationID)。
+// CardCtx —— the context each card gets when dispatched (call + onAsk + conversationID).
 interface CardCtx {
   call: ToolCallView;
   onAsk?: (q: string) => void;
   conversationID?: string;
-  // noteEvent —— 卡上派出去的工具调用要进这段对话的历史（F-B-9）。
+  // noteEvent —— a tool call dispatched from a card must go into this
+  // conversation's history (F-B-9).
   noteEvent?: (text: string) => void;
 }
 
-// NON_SANDBOX_CARDS —— 工具没自带 ui:// 卡时的兜底渲染（按 kind 查表，避开
-// presentation 层 if）。dump (skill_*/ext_*) → GenericDumpCard：任意「无卡」工具的
-// 通用 debug 兜底（不是按能力写死的卡；自带卡的 externalized 工具走沙盒）。booked 卡
-// 已外置成 booker 插件的 ui:// 沙盒卡，不再有写死的 React 卡。
+// NON_SANDBOX_CARDS —— fallback rendering for when a tool doesn't ship its
+// own ui:// card (looked up by kind, avoiding an if-chain in the
+// presentation layer). dump (skill_*/ext_*) → GenericDumpCard: the generic
+// debug fallback for any "no card" tool (not a hardcoded per-capability
+// card; externalized tools that ship their own card go sandboxed instead).
+// The booked card has already been externalized into the booker plugin's
+// ui:// sandboxed card, so there's no hardcoded React card for it anymore.
 const NON_SANDBOX_CARDS: Record<
   Exclude<ReturnType<typeof cardKindFor>, 'none'>,
   (ctx: CardCtx) => React.ReactElement | null
@@ -111,7 +126,8 @@ const NON_SANDBOX_CARDS: Record<
 };
 
 function ToolCallCard(ctx: CardCtx) {
-  // tool 自带 ui:// 卡 → 沙盒渲染（per-tool，能力自包含自己的渲染）；否则走兜底。
+  // Tool ships its own ui:// card → render sandboxed (per-tool, the
+  // capability contains its own rendering); otherwise fall back.
   const byName = useToolSpecsStore((s) => s.byName);
   const uiHtml = uiHtmlForTool(byName, ctx.call.name);
   return uiHtml !== ''
@@ -129,15 +145,22 @@ function nonSandboxCard(ctx: CardCtx) {
   return kind === 'none' ? null : NON_SANDBOX_CARDS[kind](ctx);
 }
 
-// GenericDumpCard —— skill_* / ext_* tool 结果的兜底卡。
+// GenericDumpCard —— the fallback card for skill_* / ext_* tool results.
 //
-// **它的受众是 owner，但它渲染在访客的逐字稿里**（F-D-10）。原来的写法把结果直接 `<pre>`
-// 摊开：prod 上一个第三方 MCP 工具回了 374 KB，访客看到的就是一大块没解转义的 JSON ——
-// 开头那个引号和满屏 `\n` 字面量都在，而他要读的答案在那底下。
+// **Its audience is the owner, but it renders in the visitor's transcript**
+// (F-D-10). The original version dumped the result straight into a `<pre>`:
+// in prod, a third-party MCP tool returned 374 KB, and the visitor saw one
+// giant block of un-escaped JSON — the leading quote and screenfuls of
+// literal `\n` all still there, with the answer they actually wanted to
+// read buried underneath.
 //
-// 检索族早就折成一行（`RetrievalSummary`），自带卡的能力走沙盒卡，**只有这个兜底还在摊**。
-// 所以这里也折起来：默认只留一行「跑了哪个工具」，owner 想看载荷点开就有 —— 兜底不该把
-// 「没配卡」变成「把原始载荷糊到用户脸上」（[[display-fallback-reintroduces-the-bug]]）。
+// The retrieval family already collapses to one line (`RetrievalSummary`),
+// and capabilities that ship their own card go sandboxed — **this fallback
+// was the only thing still dumping the raw payload.** So it collapses too:
+// by default it leaves just one line saying which tool ran, and the owner
+// can expand it to see the payload if they want — a fallback shouldn't turn
+// "no card configured" into "smear the raw payload across the user's face"
+// ([[display-fallback-reintroduces-the-bug]]).
 function GenericDumpCard({ call }: { call: ToolCallView }) {
   return (
     <details className={styles['genericCard']} data-testid={`tool-card-${call.name}`}>

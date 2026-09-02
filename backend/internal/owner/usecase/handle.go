@@ -1,5 +1,5 @@
-// handle.go —— owner 改 handle 的 usecase。校验 + 转交 repo（repo 内 tx
-// 保证原子 UPDATE owners + INSERT handle_aliases）。
+// handle.go — the usecase for an owner changing their handle. Validate + hand off to
+// repo (repo's own tx guarantees an atomic UPDATE owners + INSERT handle_aliases).
 
 package usecase
 
@@ -13,7 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// HandleDeps —— UpdateOwnerHandle 依赖。
+// HandleDeps — dependencies for UpdateOwnerHandle.
 type HandleDeps struct {
 	Owners *repo.Repo
 }
@@ -23,8 +23,9 @@ const (
 	minHandleLen = 2
 )
 
-// UpdateOwnerHandle —— admin "change handle" 的入口。校验：a-z0-9- + 2-64
-// 字符；新 handle 跟旧一致直接返当前。返 ErrHandleTaken 让 routes 翻译 409。
+// UpdateOwnerHandle — the entry point for admin's "change handle". Validation: a-z0-9- +
+// 2-64 chars; if the new handle matches the old one, just return the current one. Returns
+// ErrHandleTaken so routes can translate it to 409.
 func UpdateOwnerHandle(
 	ctx context.Context, deps HandleDeps, ownerID, raw string,
 ) (entity.Owner, error) {

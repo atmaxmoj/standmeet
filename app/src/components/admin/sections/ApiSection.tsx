@@ -1,8 +1,8 @@
-// ApiSection —— /admin/api-mcp 的设计稿版本。
-// 顶部 SectionHeader + intro + new-token 表单（NewTokenInline）。
-// 下方：TokenRow 列表 + AI provider panel + MCPClientPanel + MCPDownloadPanel。
-// e2e testid 保留：new-token / token-name / token-create / token-plaintext / token-list /
-//   token-delete-{name}。
+// ApiSection —— the design-spec version of /admin/api-mcp.
+// Top: SectionHeader + intro + new-token form (NewTokenInline).
+// Below: TokenRow list + AI provider panel + MCPClientPanel + MCPDownloadPanel.
+// e2e testids kept: new-token / token-name / token-create / token-plaintext / token-list /
+//   token-delete-{name}.
 
 'use client';
 
@@ -64,16 +64,19 @@ function Ready({ hook }: { hook: TokensHook }) {
     <div className="space-y-10">
       <Intro />
       <TokensBlock hook={hook} />
-      {/* 外发 API key 紧跟在 MCP keypair 后面：两种 key 都在这一页,挨着放才看得出它们是
-          两件事(F-K-1)。上面那批是 owner 自己客户端签名用的,这批是给第三方程序的。 */}
+      {/* The outbound API key sits right after the MCP keypair: both kinds of key live
+          on this page, and placing them next to each other is what makes it clear they
+          are two different things (F-K-1). The block above is for the owner's own client
+          to sign with; this one is for third-party programs. */}
       <APIKeysPanel />
       <AIProviderPanel />
       <ProviderBookPanel />
       <MCPClientPanel />
       <MCPDownloadPanel />
       <MCPServersPanel />
-      {/* embed 放最后：前面几块都是 owner 自己的程序连进来,这一块反过来 ——
-          把这台实例的 chat 放到**别人的网站**上去。 */}
+      {/* embed goes last: the blocks above are the owner's own programs connecting in;
+          this one is the reverse — it puts this instance's chat on **someone else's
+          website**. */}
       <EmbedPanel />
     </div>
   );
@@ -104,9 +107,9 @@ function TokensBlock({ hook }: { hook: TokensHook }) {
   );
 }
 
-// bannerView —— hook.justCreated 形态是 { id, name, plaintext, created_at }；
-// NewlyCreatedBanner 只用 id/name/plaintext。narrow 一下避免传整个 store
-// 形态 (含 created_at 是日期 string，不需要)。
+// bannerView —— hook.justCreated has the shape { id, name, plaintext, created_at };
+// NewlyCreatedBanner only uses id/name/plaintext. Narrow it here so we don't pass the
+// whole store shape (created_at is a date string we don't need).
 function bannerView(c: TokensHook['justCreated']):
   { id: string; name: string; plaintext: string } | null {
   return c

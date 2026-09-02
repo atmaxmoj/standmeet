@@ -1,8 +1,8 @@
-// /output/<slug> —— SEO landing for a polished output entry。
+// /output/<slug> -- SEO landing for a polished output entry.
 //
-// raw → wiki → output 三层中"可在对话里完整原样引用"的成品层。SSR fetch
-// /api/v1/output/:slug；404 走 Next not-found。<head> 加 og:title /
-// og:description / canonical。
+// The "output" layer of raw -> wiki -> output: the finished layer that can be quoted
+// verbatim in a conversation. SSR fetches /api/v1/output/:slug; 404 falls through to
+// Next's not-found. <head> adds og:title / og:description / canonical.
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -24,7 +24,7 @@ import { fetchOutputLanding } from '@/lib/api/public';
 
 import styles from '@/app/output/[...path]/output-hero.module.css';
 
-// catch-all [...path]：path 可含 `/` 分组分段。
+// catch-all [...path]: path can contain `/`-separated segments.
 type Params = { path: string[] };
 
 export async function generateMetadata(
@@ -83,12 +83,15 @@ function OutputLandingContent({ out, handle, slug }: {
   );
 }
 
-// OutputCoverHero —— owner 设了封面图就铺那张图,没设就是原来那块底色。
-// headline 优先用 owner 写的那句(压在图上的那行),没写才回落到标题。
+// OutputCoverHero -- renders the owner's cover image if set, otherwise the original
+// flat background color. The headline prefers the line the owner wrote to overlay the
+// image; falls back to the title when unset.
 //
-// hero 三件套的第三件(色调)以前在这条路上**没有渲染位**:owner 在编辑器里挑了 acid,
-// 后端存了、载荷也发了,而 output 的 hero 一直是一块固定底色(F-L-34)。他没挑就还是那块底色 ——
-// 这块 hero 跟 wiki 那块不同,它托着标题和日期,不是"没设就不该存在"的空壳。
+// The third piece of the hero trio (the hue) previously had **no render slot** on this
+// path: the owner picked "acid" in the editor, the backend stored it and the payload
+// carried it, but the output hero always rendered a fixed background color (F-L-34).
+// If the owner never picked one it stays that same flat color -- unlike the wiki hero,
+// this one carries the title and date, so it isn't a shell that "shouldn't exist when unset".
 async function OutputCoverHero({ title, handle, updatedAt, coverURL: cover, headline, hue }: {
   title: string; handle: string; updatedAt: string;
   coverURL?: string; headline: string; hue: string;
@@ -141,7 +144,7 @@ async function Breadcrumb({ slug }: { slug: string }) {
 }
 
 async function PageHeader() {
-  // #39: document 页统一返回 writing index,不再「← home」回 /。
+  // #39: the document page now always returns to the writing index, no longer "back home" to /.
   const t = await getTranslations('reader');
   return (
     <header className="mb-10">

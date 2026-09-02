@@ -1,6 +1,8 @@
-// retrypolicy.go —— connector 出站重试策略（决策点 D-6/D-7）。架在 internal/retry 通用底座
-// 之上——底座只管「按退避重试、封顶、可打断」，本处只「配」不「改」。owner-notify 异步发信长
-// 预算后台重试；openapi 日历同步读/写短预算重试瞬时错（#155 归一到 StatusError.Transient）。
+// retrypolicy.go — connector outbound retry policies (decision points D-6/D-7). Built on top of
+// the generic internal/retry base — the base only handles "retry with backoff, cap it, be
+// interruptible", this file only "configures", never "changes". owner-notify async sends retry
+// in the background on a long budget; openapi calendar sync reads/writes retry transient errors
+// on a short budget (#155 unified onto StatusError.Transient).
 
 package connector
 
@@ -28,8 +30,9 @@ const (
 	calRetryMaxTotal    = 4 * time.Second
 )
 
-// calendarReadPolicy —— 读（freeBusy）重试：重瞬时错（429/5xx 的 StatusError + 网络抖动），
-// 短预算。读幂等，重它无副作用。
+// calendarReadPolicy — retry for reads (freeBusy): retries transient errors (429/5xx's
+// StatusError + network jitter), short budget. Reads are idempotent, retrying them is
+// side-effect-free.
 func calendarReadPolicy() retry.Policy {
 	return retry.Policy{
 		Retryable:   openapiTransient,
@@ -40,9 +43,11 @@ func calendarReadPolicy() retry.Policy {
 	}
 }
 
-// calendarWritePolicy —— 写（events.insert/delete）重试（D-7）：只重**网络层**错（请求可能没
-// 到对端，带幂等键重发安全去重）；5xx **不重**——服务端已收到、可能已生效，快速友好降级而不是
-// 盲目重发。
+// calendarWritePolicy — retry for writes (events.insert/delete) (D-7): only retries
+// **network-layer** errors (the request may never have reached the far side, and it's safe to
+// resend since the idempotency key dedupes it); 5xx is **never retried** — the server already
+// received it and may have already applied it, so a fast friendly downgrade beats blindly
+// resending.
 func calendarWritePolicy() retry.Policy {
 	return retry.Policy{
 		Retryable:   openapiNetworkOnly,
@@ -53,7 +58,8 @@ func calendarWritePolicy() retry.Policy {
 	}
 }
 
-// openapiTransient —— 瞬时错判定：StatusError.Transient（429/5xx）或网络层抖动（dial/超时/EOF）。
+// openapiTransient — the transient-error decision: StatusError.Transient (429/5xx) or
+// network-layer jitter (dial/timeout/EOF).
 func openapiTransient(err error) bool {
 	if err == nil {
 		return false
@@ -65,7 +71,8 @@ func openapiTransient(err error) bool {
 	return isNetworkErr(err)
 }
 
-// openapiNetworkOnly —— 只认网络层错（写重试用）；任何 HTTP 状态错（含 5xx）→ 不重。
+// openapiNetworkOnly — recognizes only network-layer errors (used for write retries); any HTTP
+// status error (including 5xx) → not retried.
 func openapiNetworkOnly(err error) bool {
 	if err == nil {
 		return false
@@ -77,7 +84,7 @@ func openapiNetworkOnly(err error) bool {
 	return isNetworkErr(err)
 }
 
-// isNetworkErr —— dial/超时/EOF 等传输层抖动。
+// isNetworkErr — transport-layer jitter like dial/timeout/EOF.
 func isNetworkErr(err error) bool {
 	var ne net.Error
 	if errors.As(err, &ne) {
@@ -86,9 +93,11 @@ func isNetworkErr(err error) bool {
 	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }
 
-// notifyPolicy —— owner-notify 异步发信（D-6 R6）：长预算后台重试，只重瞬时传输错
-// （连接被断/拒/超时；发信未达对端，重发安全），永久错（未配置等）不重。RetryingMailProxy
-// 用；确认信走同步单发不重。
+// notifyPolicy — async sends for owner-notify (D-6 R6): background retry on a long budget,
+// retries only transient transport errors (connection dropped/refused/timeout; the send never
+// reached the far side, safe to resend), permanent errors (not configured, etc.) not retried.
+// Used by RetryingMailProxy; confirmation emails go through a synchronous single send, never
+// retried.
 func notifyPolicy() retry.Policy {
 	return retry.Policy{
 		Retryable:   mailTransient,

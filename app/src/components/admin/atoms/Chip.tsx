@@ -1,4 +1,4 @@
-// Chip —— mono lowercase 小标签，可点击切换。tags / scopes 用。
+// Chip —— mono lowercase small tag, clickable toggle. Used for tags / scopes.
 
 import type { MouseEventHandler, ReactNode } from 'react';
 

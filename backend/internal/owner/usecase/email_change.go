@@ -1,19 +1,26 @@
-// email_change.go —— 改邮箱：先证明新地址收得到信，才让它成为登录身份。
+// email_change.go — changing email: prove the new address can receive mail before
+// letting it become the sign-in identity.
 //
-// **为什么不能当场换**：`owners.email` 这一列同时是**登录身份**和**恢复渠道**
-// （recovery.go 的 `To:` 直接读它）。当场换就是把钥匙和备用钥匙一起交给一个还没被证明
-// 存在的地址 —— 一个拼写错误同时拿掉两样。而 session 按 ownerID 发，owner 当场毫无感觉，
-// 它在 session 过期那天才生效。
+// **Why it can't switch instantly**: the `owners.email` column is both the **sign-in
+// identity** and the **recovery channel** (recovery.go's `To:` reads it directly).
+// Switching instantly would hand both the key and the spare key to an address that
+// hasn't been proven to exist — one typo takes out both at once. And since the session
+// is keyed by ownerID, the owner feels nothing at the moment of the switch; it only
+// bites the day the session expires.
 //
-// **两条路，按出站通道分**：
-//   - 有已验证的 mail connector → 走 pending：寄一封确认信，点开了才换。
-//   - 没有 → 当场换。不能因为发不出信就把功能拿掉（那是把系统的限制转嫁成用户的纪律），
-//     所以退化成前端的"输两遍" + 把后果说全。这跟 recovery phrase 那一行按 SMTP 灰/亮
-//     是同一个模式（#115）。
+// **Two paths, chosen by outbound channel**:
+//   - A verified mail connector exists -> go through pending: send a confirmation email,
+//     switch only once it's clicked.
+//   - None exists -> switch instantly. The feature can't be pulled just because mail
+//     can't be sent (that would push the system's limitation onto the user as discipline),
+//     so it degrades to the frontend's "type it twice" + spelling out the consequences in
+//     full. Same pattern as the recovery-phrase row gating on SMTP being connected (#115).
 //
-// **pending 期间恢复短语仍寄旧地址** —— 新地址还没被证明，把救命通道交给它只是把洞
-// 挪了个位置。这条不在这个文件里体现（recovery.go 读的是 Email 那一列，天然就对），
-// 但它是这个设计成立的前提，有测试钉着。
+// **The recovery phrase still goes to the old address while pending** — the new address
+// hasn't been proven yet, and handing the lifeline channel to it would just relocate the
+// hole. This isn't visible in this file (recovery.go reads the Email column, which is
+// naturally correct already), but it's a precondition this design depends on, and it's
+// pinned down by a test.
 
 package usecase
 
@@ -32,40 +39,46 @@ import (
 )
 
 const (
-	// emailTokenBytes —— 128-bit 随机。链接里那串就是它，猜不出来。
+	// emailTokenBytes — 128-bit random. This is exactly the string in the link; unguessable.
 	emailTokenBytes = 16
-	// emailConfirmWindow —— 确认链接的有效期。够 owner 换个设备去收信，
-	// 又不至于让一封半年前的邮件还能换掉身份。
+	// emailConfirmWindow — how long the confirmation link stays valid. Enough for the
+	// owner to switch devices to check mail, but not so long that a six-month-old email
+	// could still switch the identity.
 	emailConfirmWindow = 24 * time.Hour
-	// confirmPath —— 信里那条链接的路径。前端有一页在这儿等着（app/confirm-email）。
+	// confirmPath — the path of the link inside the email. The frontend has a page waiting
+	// here (app/confirm-email).
 	confirmPath = "/confirm-email?token="
 )
 
-// ErrPendingEmailExpired —— token 认得，但过期了。跟"认不出"分开，因为 owner
-// 下一步该做什么取决于这两个词的区别：过期 → 再点一次保存；无效 → 这封信不是给你的。
+// ErrPendingEmailExpired — the token is recognized, but expired. Kept separate from
+// "not recognized" because what the owner does next depends on the distinction:
+// expired -> click save again; invalid -> this email isn't for you.
 var ErrPendingEmailExpired = errors.New("email confirmation link expired")
 
-// EmailChangeDeps —— 改邮箱的依赖。Proxy 用来问"发得出信吗"以及把确认信送出去。
+// EmailChangeDeps — dependencies for changing email. Proxy is used to ask "can mail be
+// sent at all" and to actually send the confirmation email.
 type EmailChangeDeps struct {
 	Owners *repo.Repo
 	Proxy  OutboundSender
 }
 
-// EmailChangeInput —— 请求改邮箱。
+// EmailChangeInput — a request to change email.
 type EmailChangeInput struct {
 	OwnerID         string
 	CurrentPassword string
 	NewEmail        string
 }
 
-// EmailChangeOutput —— 回执必须说清**发生了什么**，不是"成功了"。
-// Pending 非空 = 寄了一封信，身份没动；空 = 当场换好了。界面上那两句话不一样。
+// EmailChangeOutput — the receipt must spell out **what happened**, not just "success".
+// Pending non-empty = a confirmation email was sent, identity unchanged; empty = switched
+// instantly. The UI shows two different messages depending on which.
 type EmailChangeOutput struct {
 	Email   string
 	Pending string
 }
 
-// RequestEmailChange —— 验密码 → 校验邮箱 → 按出站通道决定走 pending 还是当场换。
+// RequestEmailChange — verify password -> validate email -> decide pending vs. instant
+// switch based on the outbound channel.
 func RequestEmailChange(
 	ctx context.Context, deps EmailChangeDeps, in *EmailChangeInput,
 ) (EmailChangeOutput, error) {
@@ -83,17 +96,19 @@ func RequestEmailChange(
 	return startPendingEmailChange(ctx, deps, in.OwnerID, normalized)
 }
 
-// canConfirmByMail —— 这台实例现在发得出确认信吗。问不出来就当**发不出**：
-// 这一步失败时如果按"发得出"走，owner 会看到"确认信已寄出"而那封信根本不存在，
-// 然后他会一直等一封等不到的信。
+// canConfirmByMail — can this instance send a confirmation email right now. If the
+// check itself fails, treat that as **cannot send**: proceeding as if it can would show
+// the owner "confirmation email sent" for an email that was never sent, and he'd wait
+// forever for a message that never arrives.
 func canConfirmByMail(ctx context.Context, deps EmailChangeDeps, ownerID string) bool {
 	connected, err := deps.Proxy.Connected(ctx, ownerID)
 	return err == nil && connected
 }
 
-// switchEmailNow —— 没有出站通道时的那条路：当场换。
-// 不能因为发不出信就把功能拿掉（那是把系统的限制转嫁成用户的纪律），
-// 保护退化成前端的双录入 + 把后果说全。
+// switchEmailNow — the path taken when there's no outbound channel: switch instantly.
+// The feature can't be pulled just because mail can't be sent (that would push the
+// system's limitation onto the user as discipline); the safety net degrades to the
+// frontend's double-entry + spelling out the consequences in full.
 func switchEmailNow(
 	ctx context.Context, deps EmailChangeDeps, ownerID, normalized string,
 ) (EmailChangeOutput, error) {
@@ -104,8 +119,9 @@ func switchEmailNow(
 	return EmailChangeOutput{Email: updated.Email}, nil
 }
 
-// startPendingEmailChange —— 记下待确认 + 把确认链接寄到**新**地址。
-// 寄给新地址是全部意义所在：收得到，才证明这个地址是真的。
+// startPendingEmailChange — records the pending confirmation + sends the confirmation
+// link to the **new** address. Sending it to the new address is the entire point:
+// receiving it is what proves the address is real.
 func startPendingEmailChange(
 	ctx context.Context, deps EmailChangeDeps, ownerID, newEmail string,
 ) (EmailChangeOutput, error) {
@@ -129,12 +145,14 @@ func startPendingEmailChange(
 	return EmailChangeOutput{Email: owner.Email, Pending: newEmail}, nil
 }
 
-// ConfirmEmailChange —— 点开链接。命中就换身份并作废这条 token（一次性）。
+// ConfirmEmailChange — the link is clicked. On a match, switch identity and invalidate
+// this token (one-time use).
 func ConfirmEmailChange(
 	ctx context.Context, deps EmailChangeDeps, token string,
 ) (entity.Owner, error) {
-	// 空 token 不去问库：它跟"这封信是编的"是同一个答案，而我们在这里就知道。
-	// 也别给它一句专属的错误 —— 那会告诉探路的人他离对的形状有多远。
+	// An empty token never queries the DB: it has the same answer as "this email was
+	// fabricated", and we already know that here. Don't give it a dedicated error either —
+	// that would tell a probing attacker how close they are to the right shape.
 	if token == "" {
 		return entity.Owner{}, entity.ErrPendingEmailNotFound
 	}
@@ -149,8 +167,9 @@ func ConfirmEmailChange(
 	return entity.Owner{}, classifyConfirmMiss(ctx, deps, hash)
 }
 
-// classifyConfirmMiss —— 没换成，到底是过期还是压根不认得。
-// 只对 token **确实存在**的人分辨；不存在就统一说不认得，不告诉猜的人他猜得对不对。
+// classifyConfirmMiss — the switch didn't happen; was it expired or just never recognized.
+// Only distinguishes these for someone whose token **actually exists**; a nonexistent
+// token always says "not recognized", never telling a guesser whether they guessed right.
 func classifyConfirmMiss(ctx context.Context, deps EmailChangeDeps, hash string) error {
 	found, ferr := deps.Owners.FindByPendingToken(ctx, hash)
 	if ferr != nil {
@@ -162,7 +181,8 @@ func classifyConfirmMiss(ctx context.Context, deps EmailChangeDeps, hash string)
 	return entity.ErrPendingEmailNotFound
 }
 
-// CancelEmailChange —— owner 反悔。清掉之后那封信里的链接也就死了（hash 没了）。
+// CancelEmailChange — the owner changed their mind. Once cleared, the link in that
+// email is dead too (its hash is gone).
 func CancelEmailChange(
 	ctx context.Context, deps EmailChangeDeps, ownerID string,
 ) (entity.Owner, error) {
@@ -181,8 +201,9 @@ func newEmailToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// hashEmailToken —— sha256，不是 bcrypt。这条 token 是**唯一的查找键**（WHERE 精确匹配），
-// 所以必须是确定性的；而它本身就是 128-bit 随机，不需要慢哈希去防字典。
+// hashEmailToken — sha256, not bcrypt. This token is a **unique lookup key** (an exact
+// WHERE match), so it must be deterministic; and it's already 128-bit random, so it
+// doesn't need a slow hash to defend against dictionary attacks.
 func hashEmailToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])

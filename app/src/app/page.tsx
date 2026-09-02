@@ -1,10 +1,10 @@
-// page.tsx —— 根公开页：SSR fetch `/api/v1/page`（sole owner，v1 单 owner
-// instance）。把 hero / insights / projects / where / contact 五段渲染成
-// 长滚屏，底部 sticky ChatDock 让访客可发问。
+// page.tsx — the root public page: SSR fetches `/api/v1/page` (sole owner, v1 single-owner
+// instance). Renders the five sections — hero / insights / projects / where / contact — as
+// a long scroll, with a sticky ChatDock at the bottom so visitors can ask questions.
 //
-// pre-claim 时（instance 还没人 claim）/api/v1/instance 返 setup_token，
-// 这里直接 server-side redirect 到 /setup?t=<token>，让首次部署的 operator
-// 不用复制 stdout banner —— 打开域名 / 就自动到 setup 表单。
+// Pre-claim (nobody has claimed the instance yet), `/api/v1/instance` returns a setup_token,
+// so this does a server-side redirect to /setup?t=<token> — the operator of a fresh deploy
+// doesn't have to copy the stdout banner; opening the domain's / auto-lands on the setup form.
 
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
@@ -14,10 +14,12 @@ import { fetchPublicPage } from '@/lib/api/public';
 
 import { PageShell } from '@/app/page-shell';
 
-// generateMetadata —— og:description / meta description 读**真** hero_prose（rot-C3）。
-// 曾经根页没有 generateMetadata，于是继承 layout.tsx 里一句写死的 'A personal page that argues
-// back.'，owner 改什么都不变；而 SEO UI 还叫 owner 去改一个根本不存在的 "page tagline"。现在
-// 分享预览跟着 owner 的 hero prose 走。unclaimed / 取不到 → 退回中性默认（不崩）。
+// generateMetadata — og:description / meta description read the **real** hero_prose (rot-C3).
+// The root page used to have no generateMetadata, so it inherited the hardcoded string
+// 'A personal page that argues back.' from layout.tsx — nothing the owner changed ever showed
+// up, while the SEO UI still told the owner to edit a "page tagline" that didn't exist. Now
+// the share preview follows the owner's hero prose. unclaimed / fetch fails → fall back to a
+// neutral default (no crash).
 export async function generateMetadata(): Promise<Metadata> {
   try {
     const { owner, content } = await fetchPublicPage();

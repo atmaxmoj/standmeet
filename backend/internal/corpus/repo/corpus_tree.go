@@ -1,7 +1,10 @@
-// corpus_tree.go —— admin 语料树的懒加载一层（owner-scoped，全状态）。每次只取某个
-// 父节点的直接子，配 has_children 决定还能否下钻 + path_titles（root→leaf 标题链，路由层
-// slug 成 "view live" 地址）。这让 admin 树在大 corpus 下 scale-safe：永不一次性拉全树。
-// 公开侧的 ListNoteChildren 是 label-only + ACL；这里是 owner 全量 + 富行（body/tags/excerpt）。
+// corpus_tree.go —— one lazy-load layer of the admin corpus tree (owner-scoped, all
+// statuses). Each call fetches only the direct children of one parent node, paired with
+// has_children (whether it can still be drilled into) and path_titles (the root→leaf title
+// chain, slugified at the route layer into the "view live" address). This keeps the admin
+// tree scale-safe on a large corpus: it never pulls the whole tree at once.
+// The public-side ListNoteChildren is label-only + ACL; this one is the owner's full set +
+// rich rows (body/tags/excerpt).
 
 package repo
 
@@ -75,8 +78,9 @@ func (r *RawRepo) ListChildrenTree(
 }
 
 // ListChildrenTree —— one lazy layer of a NoteRepo's tree (r.genre, so subjectivity gets one too).
-// subjectivity 之前没有 tree —— owner 在 admin 里根本看不见 CV 所在的那个 genre,更没法从树上勾它
-// 的准入(F-A-15)。这里不是 subjectivity 专用:NoteRepo 本来就是 genre-参数化的。
+// subjectivity previously had no tree — the owner couldn't see the genre the CV lives in from
+// admin at all, let alone toggle its access from the tree (F-A-15). This isn't subjectivity-
+// specific: NoteRepo was already genre-parameterized.
 func (r *NoteRepo) ListChildrenTree(
 	ctx context.Context, ownerID string, parentID *string,
 ) ([]TreeChild[Note], error) {

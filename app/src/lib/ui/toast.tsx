@@ -1,14 +1,14 @@
-// toast —— 全局短暂通知。
+// toast —— global transient notifications.
 //
-// 设计语言：fixed bottom-right、cream paper 背景、ink 边、success 用 muted、
-// error 用 vermillion accent。无依赖，纯 React Context + setTimeout。
+// Design language: fixed bottom-right, cream paper background, ink border, success uses muted,
+// error uses the vermillion accent. No dependencies, plain React Context + setTimeout.
 //
-// 使用：
+// Usage:
 //   const toast = useToast();
 //   toast.success('Handle updated');
 //   toast.error('Domain verify failed');
 //
-// 整个 app 在 root layout 里包一次 <ToastProvider>，挂一个 <Toaster /> 渲染区。
+// The whole app wraps <ToastProvider> once in the root layout, and mounts one <Toaster /> render area.
 
 'use client';
 
@@ -76,13 +76,13 @@ const noopToast: ToastAPI = {
   info: () => undefined,
 };
 
-// useToastList —— 给 Toaster 组件读当前 stack。其他人不该用。
+// useToastList —— lets the Toaster component read the current stack. Nothing else should use it.
 function useToastList(): readonly ToastItem[] {
   return useContext(ToastListCtx);
 }
 
-// Toaster —— 渲染面板。需要 layout 自己挂一次（不是 portal，因为我们的
-// fixed positioning + z-index 跟设计 chrome 干净对齐就够）。
+// Toaster —— renders the panel. Needs the layout to mount it itself (not a portal, because our
+// fixed positioning + z-index already aligns cleanly with the design chrome).
 export function Toaster() {
   const items = useToastList();
   return (
@@ -124,9 +124,9 @@ function kindLabel(kind: ToastKind): string {
     : '· note';
 }
 
-// useEffectErrorToast —— 把一个 (err: string | null) state 错误"溢出"成 toast。
-// 用在 use-domain / use-handle 这种把 error 留在自己 state 里的 hook 上：
-// 调用 useEffectErrorToast(hook.error)，hook 报错就自动弹 toast。
+// useEffectErrorToast —— "overflows" an (err: string | null) state error into a toast.
+// Used on hooks like use-domain / use-handle that keep their error in their own state:
+// call useEffectErrorToast(hook.error), and a hook error automatically pops a toast.
 export function useEffectErrorToast(error: string | null): void {
   const toast = useToast();
   useEffect(() => {

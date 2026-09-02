@@ -1,8 +1,8 @@
-// ConnectorConfigForm —— 按 ConnectorEntry.fields[] 动态渲染配置表单。
-// 字段类型：string / select (options) / secret (password) / oauth (按钮)。
+// ConnectorConfigForm —— dynamically renders a config form from ConnectorEntry.fields[].
+// Field types: string / select (options) / secret (password) / oauth (button).
 //
-// 设计源 docs/design/project/admin.js ConnectorConfigForm。
-// 加新 connector 只需要给 registry 加一条 entry —— form 自动 render。
+// Design source: docs/design/project/admin.js ConnectorConfigForm.
+// Adding a new connector only needs a new entry in the registry — the form renders itself.
 
 'use client';
 
@@ -84,9 +84,10 @@ function OauthBtn({ field }: { field: ConnectorField }) {
   );
 }
 
-// ConfigSelectField —— 连接器配置表单里「一行带 label 的字段,控件是下拉」。
-// 它跟 `SelectField`(全 app 那个下拉控件本身)不是一个概念,原本重名 —— 控件那个名字归通用件,
-// 这里叫 Config* 说明它属于这张表单(见 [[vocabulary-must-not-diverge]])。
+// ConfigSelectField —— "a labeled row whose control is a dropdown" in the connector config
+// form. It's not the same concept as `SelectField` (the dropdown control itself, used app-wide)
+// — they used to share a name. That generic name belongs to the control; calling this one
+// Config* marks it as belonging to this form (see [[vocabulary-must-not-diverge]]).
 function ConfigSelectField({ field, value, onChange }: {
   field: ConnectorField;
   value: string;

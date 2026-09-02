@@ -1,11 +1,14 @@
-// seo.go —— /api/admin/seo/*：这台实例被搜索引擎和分享卡片看见的那一面。
+// seo.go — /api/admin/seo/*: the facade this instance shows to search engines and share
+// cards.
 //
-// 能力来自出站收口（通用件在 dispatch.go）；这个面只决定 REST 形状：设置在 /seo，
-// 计数在 /seo/stats，单条条目走 /corpus/{genre}/{id}/seo（genre 和 id 在路径上）。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// this facade only decides the REST shape: settings at /seo, counts at /seo/stats, a
+// single entry through /corpus/{genre}/{id}/seo (genre and id in the path).
 //
-// 迁移前差了两处：MCP 的 update_settings 不带 site_title，而那条 upsert 整行覆写 ——
-// 从 Claude Code 改一次 robots 就把 owner 写的站点标题洗掉了；另外 wiki / output
-// 在面板这边早就是一条路由，在 MCP 那边还是两个工具。
+// Before the migration, two things had drifted: MCP's update_settings carried no
+// site_title, and that upsert overwrote the whole row — changing robots once from Claude
+// Code wiped out the site title the owner had written; also wiki / output had long been a
+// single route on the panel side, but were still two separate tools on MCP's side.
 
 package admin
 
@@ -15,18 +18,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// SEOAdminDeps —— admin SEO handlers 的能力来源。
+// SEOAdminDeps — capability source for the admin SEO handlers.
 type SEOAdminDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountSEO 挂 /seo + /seo/stats + /corpus/{genre}/{id}/seo。
+// MountSEO mounts /seo + /seo/stats + /corpus/{genre}/{id}/seo.
 func (h *Handlers) MountSEO(r chi.Router) {
 	face := h.SEOAdmin.Face
 	r.Get("/seo", h.dispatchOp(face, "seo.get_settings", emptyArgs, jsonOK))
 	r.Put("/seo", h.dispatchOp(face, "seo.update_settings", bodyArgs, jsonOK))
 	r.Get("/seo/stats", h.dispatchOp(face, "seo.stats", emptyArgs, jsonOK))
-	// genre 和 id 都在路径上（面板早就把 wiki / output 收成一条路由）。
+	// Both genre and id sit in the path (the panel long ago folded wiki / output into
+	// one route).
 	r.Patch("/corpus/{genre}/{id}/seo",
 		h.dispatchOp(face, "seo.set_entry_seo", bodyWithURLParam("genre", "id"), jsonOK))
 }

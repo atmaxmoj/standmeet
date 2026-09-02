@@ -2,7 +2,7 @@ package access
 
 import "github.com/atmaxmoj/standmeet/internal/access/repo"
 
-// 类型（实现:repo）.
+// Types (impl: repo).
 type (
 	APIKeyRepo         = repo.APIKeyRepo
 	CapabilityRepo     = repo.CapabilityRepo
@@ -15,7 +15,7 @@ type (
 	UpsertBuiltinInput = repo.UpsertBuiltinInput
 )
 
-// 构造/函数（实现:repo）.
+// Constructors/functions (impl: repo).
 var (
 	CreateAccessCodeTx   = repo.CreateAccessCodeTx
 	NewAPIKeyRepo        = repo.NewAPIKeyRepo

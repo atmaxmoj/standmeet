@@ -1,9 +1,12 @@
-// Package stats —— 观测/统计域(Monitor 面的 activity / growth / inference-usage / jobs 计量)的
-// 对外 facade。薄薄一层,把内部子包的类型/构造抬上来;别的层只 import 这个 facade 包。实现是
-// 同域兄弟子包 internal/stats/{entity,repo,db},由 check-domain-facade-boundary 挡住外部直引。
+// Package stats -- the external facade for the observation/stats domain (activity / growth /
+// inference-usage / jobs metering on the Monitor surface). A thin layer that lifts the internal
+// sub-packages' types/constructors up; other layers only import this facade package. The
+// implementation lives in sibling sub-packages internal/stats/{entity,repo,db}, and
+// check-domain-facade-boundary blocks direct external import of those.
 //
-// # 对外协议
+// # External contract
 //
-//   - 实体(entity): Activity / Growth / InferenceUsage / SystemInfo / job-source registry 等读模型值对象
-//   - 仓储(repo): activity / growth / inference-usage 的 PG 查询 repo
+//   - entity: Activity / Growth / InferenceUsage / SystemInfo / job-source registry, etc. --
+//     read-model value objects
+//   - repo: PG query repos for activity / growth / inference-usage
 package stats

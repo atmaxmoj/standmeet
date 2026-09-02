@@ -1,8 +1,8 @@
-// corpus_crud.go —— raw + wiki + output 的 admin edit / delete / promote-aux
-// 操作，从 corpus.go / output.go 主体拆出来，守 350 行 max-lines。
+// corpus_crud.go —— admin edit / delete / promote-aux operations for raw + wiki + output,
+// split out of the corpus.go / output.go bodies to stay under the 350-line max-lines cap.
 //
-// 命名规则跟 sqlc 生成的 query 对齐：RawRepo.UpdateBody / Archive；
-// WikiRepo.Update / Delete；OutputRepo.Update / Delete。
+// Naming follows the sqlc-generated queries: RawRepo.UpdateBody / Archive;
+// WikiRepo.Update / Delete; OutputRepo.Update / Delete.
 
 package repo
 
@@ -20,7 +20,7 @@ import (
 
 // ─── raw ────────────────────────────────────────────────────
 
-// UpdateRawInput —— admin "edit raw" 入参。
+// UpdateRawInput —— admin "edit raw" input.
 type UpdateRawInput struct {
 	OwnerID        string
 	ID             string
@@ -29,7 +29,8 @@ type UpdateRawInput struct {
 	FlaggedPrivate bool
 }
 
-// UpdateBody 改 raw(corpus_notes genre='raw') body + tags + flagged_private（inbox_source 不改）。
+// UpdateBody changes a raw's (corpus_notes genre='raw') body + tags + flagged_private
+// (inbox_source is left unchanged).
 func (r *RawRepo) UpdateBody(
 	ctx context.Context, in *UpdateRawInput,
 ) (entity.Raw, error) {
@@ -55,12 +56,14 @@ func (r *RawRepo) UpdateBody(
 	return toDomainRaw(&row), nil
 }
 
-// Delete 删一条 raw。走跟 wiki / output 同一条 DeleteNote —— 底下本来就是同一张
-// corpus_notes,genre 只是一列。
+// Delete removes one raw. Goes through the same DeleteNote as wiki / output — underneath
+// it's already the same corpus_notes table, genre is just a column.
 //
-// 这里以前是 Archive:置 archived=true 把行留着,注释写着"soft-delete 让 retention / audit
-// 仍可见"。**那个"仍可见"从来不存在** —— ListRawByOwner 永远 archived=false,没有第二个
-// 读者,也没有恢复的路。一句解释性的注释让这个设计看起来是有意的,持续了很久。
+// This used to be Archive: set archived=true and keep the row, with a comment claiming
+// "soft-delete keeps it visible for retention / audit". **That "still visible" never
+// existed** — ListRawByOwner always filters archived=false, there was no second reader,
+// and no path to restore it. One explanatory comment made this design look intentional,
+// for a long time.
 func (r *RawRepo) Delete(ctx context.Context, ownerID, rawID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -82,7 +85,7 @@ func (r *RawRepo) Delete(ctx context.Context, ownerID, rawID string) error {
 
 // ─── wiki ───────────────────────────────────────────────────
 
-// UpdateWikiInput —— admin "edit wiki" 入参。
+// UpdateWikiInput —— admin "edit wiki" input.
 type UpdateWikiInput struct {
 	OwnerID      string
 	ID           string
@@ -94,7 +97,8 @@ type UpdateWikiInput struct {
 	ShowAsSource bool
 }
 
-// Update 改 wiki note（corpus_notes genre='wiki'）主字段；SEO 走 SetSEO 单独写。
+// Update changes the main fields of a wiki note (corpus_notes genre='wiki'); SEO is
+// written separately through SetSEO.
 func (r *WikiRepo) Update(
 	ctx context.Context, in *UpdateWikiInput,
 ) (entity.Wiki, error) {
@@ -133,9 +137,11 @@ func buildWikiUpdateParams(in *UpdateWikiInput) (db.UpdateNoteBodyParams, error)
 	}, nil
 }
 
-// Delete 硬删一条 wiki。素材**不靠外键**跟着走:assets 按 holder_id 挂、没有 FK,
-// 所以删条目那一步由上层先删素材再删条目(见 ops/corpus_write_media.go 的 dropEntryAssets)。
-// output.source_wiki_ids 是 uuid[]，不会被 cascade 影响（残留 wiki id 不致命）。
+// Delete hard-deletes one wiki. Assets **don't follow via foreign key** — they're attached
+// by holder_id with no FK, so deleting an entry is done by the caller deleting assets
+// first, then the entry (see dropEntryAssets in ops/corpus_write_media.go).
+// output.source_wiki_ids is a uuid[], so it's unaffected by cascade (a leftover wiki id
+// there isn't fatal).
 func (r *WikiRepo) Delete(ctx context.Context, ownerID, wikiID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -155,13 +161,14 @@ func (r *WikiRepo) Delete(ctx context.Context, ownerID, wikiID string) error {
 	return nil
 }
 
-// cited id → title+path 的批量反查(GetTitlesByIDs)退役了:transcript hydration
-// 改在 conversation.GetConversationTranscript 里 load 全树 + WikiTreePaths 算地址
-// (地址纯树派生,不读已退役的 path 列)。
+// The batch cited-id → title+path lookup (GetTitlesByIDs) is retired: transcript hydration
+// now loads the whole tree in conversation.GetConversationTranscript and computes the
+// address with WikiTreePaths (the address is derived purely from the tree, not read from
+// the retired path column).
 
 // ─── output ─────────────────────────────────────────────────
 
-// UpdateOutputInput —— admin "edit output" 入参。
+// UpdateOutputInput —— admin "edit output" input.
 type UpdateOutputInput struct {
 	OwnerID      string
 	ID           string
@@ -172,7 +179,7 @@ type UpdateOutputInput struct {
 	ShowAsSource bool
 }
 
-// Update 改 output note（corpus_notes genre='output'）主字段。
+// Update changes the main fields of an output note (corpus_notes genre='output').
 func (r *OutputRepo) Update(
 	ctx context.Context, in *UpdateOutputInput,
 ) (entity.Output, error) {
@@ -211,7 +218,7 @@ func buildOutputUpdateParams(in *UpdateOutputInput) (db.UpdateNoteBodyParams, er
 	}, nil
 }
 
-// Delete 硬删一条 output。
+// Delete hard-deletes one output.
 func (r *OutputRepo) Delete(ctx context.Context, ownerID, outputID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {

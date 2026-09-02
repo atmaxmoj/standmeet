@@ -8,8 +8,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// requestLogger 把每个请求的 method / path / status / 耗时 / request_id 打到
-// slog。比 chi 内建的 logger 友好，因为输出是 JSON 结构化字段。
+// requestLogger logs each request's method / path / status / duration / request_id
+// to slog. Friendlier than chi's built-in logger because the output is structured
+// JSON fields.
 func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

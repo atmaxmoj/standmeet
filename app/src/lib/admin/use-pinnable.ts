@@ -1,6 +1,7 @@
-// use-pinnable —— admin pin manager 的候选列表(GET /page/pinnable):published
-// 的 wiki 条目(id/title/path)。pin 只能挑已发布条目(不变量 pinned ⊆ published
-// 的写入端;后端 PUT /page 也会二次校验)。轻量 fetch-once,不上 resource store。
+// use-pinnable —— candidate list for the admin pin manager (GET /page/pinnable):
+// published wiki entries (id/title/path). pin can only choose published entries
+// (the write side of the invariant pinned ⊆ published; the backend PUT /page
+// also re-validates it). Lightweight fetch-once, not backed by a resource store.
 
 import { useEffect, useState } from 'react';
 
@@ -12,7 +13,7 @@ export function usePinnable(): readonly PinnableEntry[] {
     let alive = true;
     void fetchPinnable()
       .then((r) => { if (alive) setItems(r); })
-      .catch(() => { /* 空候选:pin manager 提示先发布一条 */ });
+      .catch(() => { /* empty candidate list: the pin manager prompts to publish one first */ });
     return () => { alive = false; };
   }, []);
   return items;

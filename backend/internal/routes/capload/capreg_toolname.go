@@ -1,18 +1,19 @@
-// capreg_toolname.go —— LLM tool name 规范化，给「聚合外部工具成 LLM tool」的
-// capability 共用（ext-mcp 的 ext_<server>_<tool>、mcp-app 的 <plugin>_<tool>）。
-// skill 现在用静态名（skill_use / skill_run_script），不走这条。
+// capreg_toolname.go —— LLM tool name normalization, shared by capabilities that
+// "aggregate external tools into LLM tools" (ext-mcp's ext_<server>_<tool>, mcp-app's
+// <plugin>_<tool>). skill now uses static names (skill_use / skill_run_script), and
+// doesn't go through this.
 
 package capload
 
 import "regexp"
 
-// maxToolNameLen —— Anthropic tool name 上限附近的安全截断长度。
+// maxToolNameLen —— a safe truncation length near the Anthropic tool name limit.
 const maxToolNameLen = 64
 
-// toolNameSanitizeRe —— 非 [a-zA-Z0-9_-] 一律换 '_'（含 '.'）。
+// toolNameSanitizeRe —— replaces anything outside [a-zA-Z0-9_-] with '_' (including '.').
 var toolNameSanitizeRe = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 
-// sanitizeToolName —— 非法字符 → '_'，超长截到 maxToolNameLen。
+// sanitizeToolName —— illegal characters → '_', truncated to maxToolNameLen if too long.
 func sanitizeToolName(raw string) string {
 	clean := toolNameSanitizeRe.ReplaceAllString(raw, "_")
 	if len(clean) > maxToolNameLen {

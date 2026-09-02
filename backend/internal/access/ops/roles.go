@@ -1,16 +1,19 @@
-// roles.go —— 资源 roles:owner 定的"访客身份原型"。一个 role 打包了 prompt(人格)、
-// corpus URI 白名单、选中的 skill、选中的外部 MCP server,外加几个 per-role 开关。
-// 邀请码是发给 role 的;会话开始时冻结一份 RoleSnapshot,之后改 role 只影响新会话。
+// roles.go — resource roles: the owner-defined "visitor identity archetype". A role bundles
+// a prompt (persona), a corpus URI allowlist, selected skills, selected external MCP servers,
+// plus a few per-role switches. Invitation codes are issued against a role; session start
+// freezes a RoleSnapshot, so editing a role afterward only affects future sessions.
 //
-// 归一化前两个面差得最多的就是这个资源:admin 的 role 一直带 waypoints、dock_buttons、
-// require_ghost_evidence 和活跃码计数;MCP 的 role_list 只给计数,role_update 连那几个开关
-// 都收不了 —— 也就是说 owner 从 Claude Code **改不了、也看不见** require_ghost_evidence
-// 这种安全相关的 per-role 开关。现在只有一份形状。
+// Before normalization this was the resource where the two facades diverged the most: admin's
+// role always carried waypoints, dock_buttons, require_ghost_evidence, and the active-code
+// count; MCP's role_list gave only the count, and role_update couldn't even accept those
+// switches — meaning the owner **couldn't change, and couldn't see**, a safety-relevant
+// per-role switch like require_ghost_evidence from Claude Code. Now there's only one shape.
 //
-// 各能力自己的 per-role 设置(calendar.book 的 notify_owner)不在本域的形状里,经 Extras
-// 那个口子并进来 —— 本域连它们叫什么都不知道。
+// A capability's own per-role settings (calendar.book's notify_owner) aren't part of this
+// domain's shape; they're merged in through the Extras seam — this domain doesn't even know
+// their names.
 //
-// op 的 id 保持历史名字(role_create 而不是 roles.create)。
+// Op ids keep their historical names (role_create rather than roles.create).
 
 package ops
 
@@ -24,23 +27,27 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// RolesDeps —— role 用例 + "dock 按钮上能挂哪些能力"。
+// RolesDeps — role use cases + "which capabilities may be mounted on dock buttons".
 //
-// ValidCapabilityIDs 是**惰性**的:能力注册表要等插件都装完才齐,而收口在那之前就建好了。
-// 存函数而不是快照,否则 dock 按钮会拿到一张空的合法能力表。
+// ValidCapabilityIDs is **lazy**: the capability registry isn't complete until every plugin is
+// installed, and the convergence point is built before that. Storing a function rather than a
+// snapshot avoids dock buttons getting an empty table of valid capabilities.
 //
-// **它按这次写入的技能列表回答**：`acl: role_granted` 的能力要这个 role 的技能真的授了它，
-// 会话里才会出现。以前这里问的是「这台实例注册了哪些访客能力」，比会话那侧宽 —— 差集里的
-// 能力后台收得下、访客永远看不到，两边都不吭声（F-D-13）。
+// **It answers scoped to the skill list being written this time**: an `acl: role_granted`
+// capability only shows up in the session once this role's skills actually grant it. This used
+// to ask "which visitor capabilities does this instance register", which was broader than the
+// session side — a capability in the gap between the two would be accepted on the backend but
+// never shown to the visitor, and neither side would say anything about it (F-D-13).
 type RolesDeps struct {
 	Roles              usecase.RolesDeps
 	ValidCapabilityIDs func(ctx context.Context, ownerID string, skillIDs []string) []string
-	// Extras —— 各能力在一个 role 上占的字段(calendar.book 的 notify_owner 是第一个)。
-	// access 不认识任何一个能力,只认识这个口子。nil = 没有能力声明过 per-role 配置。
+	// Extras — the fields each capability occupies on a role (calendar.book's notify_owner
+	// was the first). access doesn't know any capability, only this seam. nil = no
+	// capability has declared per-role config.
 	Extras RoleExtras
 }
 
-// Roles —— list / get / create / update / delete / set_dock_buttons。
+// Roles — list / get / create / update / delete / set_dock_buttons.
 func Roles(d RolesDeps) []fp.Op {
 	extras := extrasOr(d.Extras)
 	return []fp.Op{
@@ -166,7 +173,8 @@ func roleWriteSchema(required string) json.RawMessage {
 	}`)
 }
 
-// roleOut —— 出站载荷形状(每个面同一份;admin 已发出去的契约就是它)。
+// roleOut — outbound payload shape (identical on every facade; it's the contract admin has
+// already shipped).
 type roleOut struct {
 	CreatedAt            string                    `json:"created_at"`
 	UpdatedAt            string                    `json:"updated_at"`
@@ -187,11 +195,13 @@ type roleOut struct {
 	GasMetered           bool                      `json:"gas_metered"`
 }
 
-// marshalRole —— 出站载荷 = 本域的形状 + 各能力在这个 role 上那几个字段的值。
+// marshalRole — outbound payload = this domain's shape + the values of the fields each
+// capability puts on this role.
 //
-// 跟 marshalCode 是同一件事的另一个主体。能力的值是**并进来**的,不是本结构体的字段 ——
-// access 不认识它们叫什么,所以它们不能出现在 roleOut 上。notify_owner_on_booking 以前
-// 就在那上面,而且一路长到了内核的 roles 表。
+// The same thing as marshalCode, on a different subject. A capability's values are **merged
+// in**, not fields of this struct — access doesn't know their names, so they can't appear on
+// roleOut. notify_owner_on_booking used to sit right there, and had grown all the way into the
+// kernel's roles table.
 func marshalRole(
 	ctx context.Context, deps usecase.RolesDeps, extras SubjectExtras, rl *entity.Role,
 ) (json.RawMessage, error) {
@@ -202,8 +212,9 @@ func marshalRole(
 	return withExtraValues(row, extras.Read(ctx, rl.ID())), nil
 }
 
-// toRoleOut —— 域实体 → 出站形状,顺带补上活跃码计数。计数失败不该让整条读操作失败
-// (它是展示用的旁证),记 0 并继续 —— admin 面一直是这个行为。
+// toRoleOut — domain entity → outbound shape, filling in the active-code count along the way.
+// A count failure shouldn't fail the whole read (it's display-only corroboration); record 0
+// and continue — this is how the admin facade has always behaved.
 func toRoleOut(ctx context.Context, deps usecase.RolesDeps, rl *entity.Role) roleOut {
 	count, cerr := usecase.CountActiveCodesForRole(ctx, deps, rl.OwnerID(), rl.ID())
 	if cerr != nil {

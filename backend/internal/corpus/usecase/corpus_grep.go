@@ -1,15 +1,19 @@
-// corpus_grep.go —— 第二条检索路:字面 / 正则,never-miss。
+// corpus_grep.go — the second retrieval path: literal / regex, never-miss.
 //
-// 隔壁 corpus_search 走 Meili:容错、前缀、瞬时,回答的是"关于 X 的笔记有哪些"。它有一件事
-// 做不到,而且不是调参能解决的 —— 分词器切不出来的东西它就是找不到:词中间的一截、
-// 紧贴标点的符号、跨过分词边界的中文双字。
+// Its neighbor corpus_search goes through Meili: fuzzy, prefix, fast, and answers "what notes
+// are about X". There's one thing it can't do, and no amount of tuning fixes it — whatever the
+// tokenizer can't cut out, it simply can't find: a mid-word substring, a symbol glued to
+// punctuation, a two-character Chinese word straddling a tokenizer boundary.
 //
-// 这条路只回答一个问题:**这个模式出现在哪儿**。它不排序、不猜意图、不改写查询;它扫过每一条
-// 有权看的语料,把匹配的行原样交出来。"在的一定能找到"在这里是算术,不是排名启发式 ——
-// 也正因为如此,它不能有 LIMIT:一个上限会把这句话悄悄换成"通常能找到"。
+// This path answers exactly one question: **where does this pattern appear**. It doesn't rank,
+// doesn't guess intent, doesn't rewrite the query; it scans every piece of corpus the caller has
+// access to and hands back the matching lines verbatim. "If it's there, it will be found" is
+// arithmetic here, not a ranking heuristic — and that's exactly why it must never have a LIMIT:
+// a cap would quietly turn that sentence into "usually found".
 //
-// 两个工具都摆在 agent 面前,由它按问题挑。所以两句描述必须说出**不同的保证**;它们要是
-// 互相靠拢,agent 就只能瞎选,never-miss 也就没人用得上了。
+// Both tools sit in front of the agent, which picks by the shape of the question. So the two
+// descriptions must state **different guarantees**; if they converge, the agent can only guess,
+// and nobody gets to use never-miss.
 
 package usecase
 
@@ -25,33 +29,39 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 )
 
-// ErrGrepPattern —— 模式编译不了。这是 owner/agent 写错了,不是故障:面上翻成一句人话,
-// 而不是 500。
+// ErrGrepPattern — the pattern failed to compile. This is an owner/agent input mistake, not
+// a system fault: surface it as a human-readable message, not a 500.
 var ErrGrepPattern = errors.New("corpus: invalid search pattern")
 
-// grepMaxLinesPerNote —— 一条笔记最多回几行。**这不是结果集的上限**:命中的笔记一条都不少,
-// 少的只是同一条里重复的行。总匹配数照实报,agent 想看全就去 corpus_read。
+// grepMaxLinesPerNote — max lines returned per note. **This is not a cap on the result set**:
+// no matching note is ever dropped, only the repeated lines within a single note get trimmed.
+// The total match count is still reported honestly; an agent wanting the full text goes to
+// corpus_read.
 const grepMaxLinesPerNote = 5
 
-// grepLineWidth —— 一行最多回多少字符(超长行会把结果撑爆,而人和 agent 都只看得下一句)。
+// grepLineWidth — max characters returned per line (an overlong line would blow up the result,
+// and neither a human nor an agent can take in more than one sentence anyway).
 const grepLineWidth = 400
 
-// GrepRequest —— 一次扫描的参数。
+// GrepRequest — the parameters for one scan.
 type GrepRequest struct {
 	Pattern string
-	// Fixed —— 把 Pattern 当字面量(内部 QuoteMeta)。找 "C++" / "a.b" 这种时用它。
+	// Fixed — treat Pattern as a literal (QuoteMeta internally). Use it to search for
+	// things like "C++" / "a.b".
 	Fixed bool
-	// CaseSensitive —— 默认不区分大小写(agent 拿到的多半是人说的词)。
+	// CaseSensitive — case-insensitive by default (an agent usually receives words the
+	// way a human said them).
 	CaseSensitive bool
 }
 
-// GrepLine —— 一条命中行:行号(1 起)+ 行文。
+// GrepLine — one matching line: line number (1-based) + line text.
 type GrepLine struct {
 	Text string
 	No   int
 }
 
-// GrepHit —— 一条笔记里的全部命中。Total 是这条笔记里的匹配总数(Lines 可能被截断)。
+// GrepHit — all matches within one note. Total is the match count for this note
+// (Lines may be truncated).
 type GrepHit struct {
 	Path  string
 	Title string
@@ -60,7 +70,8 @@ type GrepHit struct {
 	Total int
 }
 
-// CompileGrep —— 模式 → RE2。Fixed 时先 QuoteMeta,所以 "C++" 不会被当成正则。
+// CompileGrep — pattern → RE2. When Fixed, QuoteMeta runs first, so "C++" is never
+// interpreted as a regex.
 func CompileGrep(req *GrepRequest) (*regexp.Regexp, error) {
 	pat := req.Pattern
 	if strings.TrimSpace(pat) == "" {
@@ -79,15 +90,18 @@ func CompileGrep(req *GrepRequest) (*regexp.Regexp, error) {
 	return re, nil
 }
 
-// GrepBody —— 一条正文里的命中行。纯函数:扫描面从哪来跟它无关,所以第二阶段换成索引
-// 候选集之后,判定这一步一个字都不用改(那正是"索引只许更快"的意思)。
+// GrepBody — matching lines within one body. A pure function: it doesn't care where the
+// scan surface comes from, so once phase two swaps in an index-backed candidate set, this
+// matching step needs zero changes (that's exactly what "an index may only make it faster"
+// means).
 func GrepBody(re *regexp.Regexp, body string) ([]GrepLine, int) {
 	lines := strings.Split(body, "\n")
 	hits := make([]GrepLine, 0, grepMaxLinesPerNote)
 	total := 0
 	for i, line := range lines {
-		// 数的是**出现次数**,不是命中的行数:一行里出现两次就是两次。字段叫 matches,
-		// 那它就得是匹配的个数 —— 名字说一件事、值是另一件事,是这套代码里最难发现的一种错。
+		// Counts **occurrences**, not matching lines: two hits on one line count as two.
+		// The field is called matches, so it must hold the match count — a name saying one
+		// thing while the value means another is the hardest kind of bug to spot in this code.
 		n := len(re.FindAllStringIndex(line, -1))
 		if n == 0 {
 			continue
@@ -108,11 +122,13 @@ func clipLine(s string) string {
 	return string(r[:grepLineWidth]) + "…"
 }
 
-// grepHitsHint —— 结果切片的初始容量。命中通常是个位数;猜大了浪费,猜小了多一次扩容,
-// 两者都无所谓 —— 它跟"能找到多少条"没有任何关系(那个数没有上限)。
+// grepHitsHint — initial capacity for the result slice. Hits are usually single digits;
+// guessing too high wastes memory, guessing too low costs one extra grow, and neither matters —
+// it has no bearing on "how many can be found" (that count has no upper bound).
 const grepHitsHint = 8
 
-// Grep —— 扫描面 + 判定。pgCorpusLister 那份走 DB 一次取全,driver 那份走它自己的枚举。
+// Grep — scan surface + matching. The pgCorpusLister version pulls everything from the DB
+// in one shot; the driver version uses its own enumeration.
 func (l *pgCorpusLister) Grep(
 	ctx context.Context, ownerID string, scope access.CorpusScope, req *GrepRequest,
 ) ([]GrepHit, error) {
@@ -127,7 +143,8 @@ func (l *pgCorpusLister) Grep(
 	return append(notes, l.grepWritings(ctx, ownerID, scope, re)...), nil
 }
 
-// grepNotes —— vault 那三个 genre(wiki / output / subjectivity)一次取全再判。
+// grepNotes — pulls the three vault genres (wiki / output / subjectivity) all at once,
+// then matches.
 func (l *pgCorpusLister) grepNotes(
 	ctx context.Context, ownerID string, scope access.CorpusScope, re *regexp.Regexp,
 ) ([]GrepHit, error) {
@@ -147,7 +164,8 @@ func (l *pgCorpusLister) grepNotes(
 	return out, nil
 }
 
-// grepNoteRow —— 一条 note 过 ACL + 判定。path 从 root→leaf 的标题段拼出来(跟别的读路一致)。
+// grepNoteRow — run one note through the ACL, then match. path is built by joining the
+// root→leaf title segments (consistent with the other read paths).
 func grepNoteRow(
 	row *repo.GrepNoteRow, scope access.CorpusScope, re *regexp.Regexp,
 ) (GrepHit, bool) {
@@ -168,8 +186,9 @@ func grepNoteRow(
 	}, true
 }
 
-// grepWritings —— writings 自成一 genre(不在 corpus_notes 里),所以单独扫一遍:
-// 少扫这一张表,"每一条有权看的语料"就是句空话。
+// grepWritings — writings are their own genre (not in corpus_notes), so they get a
+// separate scan: skip this table and "every piece of corpus the caller can see" becomes
+// an empty promise.
 func (l *pgCorpusLister) grepWritings(
 	ctx context.Context, ownerID string, scope access.CorpusScope, re *regexp.Regexp,
 ) []GrepHit {

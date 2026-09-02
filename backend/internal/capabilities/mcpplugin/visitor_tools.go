@@ -1,20 +1,26 @@
-// visitor_tools.go —— manifest 声明的访客工具名，跟真相对账的判定。
+// visitor_tools.go —— the visitor tool names a manifest declares, and the check
+// that reconciles them against the truth.
 //
-// 判定住在这儿（声明本身住的地方），不在装配那一侧：装配那一侧只该拿到结论然后记一句日志。
+// The check lives here (where the declaration itself lives), not on the assembly
+// side: the assembly side should only get the conclusion and log a line.
 
 package mcpplugin
 
-// ToolDrift —— 声明跟真相差在哪。Drifted=false 表示不必声张 —— 要么这个能力压根没声明
-// （第三方插件的默认，「拨号前查不到它」是允许的），要么两边一致。
+// ToolDrift —— where the declaration differs from the truth. Drifted=false means
+// nothing to flag — either this capability never declared at all (the default for
+// third-party plugins; "unknowable before dial" is allowed), or the two sides
+// agree.
 type ToolDrift struct {
-	// DeclaredButAbsent —— 声明里有、沙箱没给。
+	// DeclaredButAbsent —— in the declaration, but the sandbox didn't offer it.
 	DeclaredButAbsent []string
-	// OfferedButUndeclared —— 沙箱给了、声明里没有。
+	// OfferedButUndeclared —— the sandbox offered it, but it's not in the
+	// declaration.
 	OfferedButUndeclared []string
 	Drifted              bool
 }
 
-// VisitorToolDrift —— 拿真相对一遍声明。顺序无关：两份都是集合，谁先谁后不是事实的一部分。
+// VisitorToolDrift —— checks the declaration against the truth. Order doesn't
+// matter: both sides are sets, which comes first is not part of the fact.
 func VisitorToolDrift(m *Manifest, actual []string) ToolDrift {
 	if len(m.VisitorTools) == 0 {
 		return ToolDrift{DeclaredButAbsent: []string{}, OfferedButUndeclared: []string{}}
@@ -27,7 +33,7 @@ func VisitorToolDrift(m *Manifest, actual []string) ToolDrift {
 	}
 }
 
-// notIn —— names 里 other 没有的那些。
+// notIn —— the entries of names that other doesn't have.
 func notIn(names, other []string) []string {
 	have := make(map[string]struct{}, len(other))
 	for _, n := range other {

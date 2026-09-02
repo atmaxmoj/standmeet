@@ -1,7 +1,5 @@
-// main.go —— 进程入口:组装 config、DB pool、Redis、router,然后启 HTTP server。
-//
-// 任何业务逻辑都不在这里。这里的工作是"把依赖塞进去 + 监听端口 + 优雅退出"。
-// 整个目录的分工章程在 doc.go。
+// main.go —— process entry point: assembles config, DB pool, Redis, router, starts
+// the HTTP server. No business logic here; see doc.go for the directory's layout.
 
 package main
 
@@ -25,9 +23,9 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	"github.com/atmaxmoj/standmeet/cmd/server/wire"
 
-	// time/tzdata 把 IANA 时区库嵌进二进制 —— 静态 CGO_ENABLED=0 binary 跑在不带 tzdata 的
-	// 镜像时 time.LoadLocation("America/Toronto") 这类命名时区否则会失败(booking working-hours
-	// 评估对每个候选 slot 报错 → list_slots 永远 0 候选)。嵌进二进制保证任何 owner tz 都能加载。
+	// time/tzdata embeds the IANA tz database in the binary — without it a static
+	// CGO_ENABLED=0 image with no tzdata fails to load named zones like
+	// time.LoadLocation("America/Toronto") (list_slots then returns 0 candidates).
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -86,10 +84,10 @@ func runWithCfg(
 		return fmt.Errorf("connect pg: %w", err)
 	}
 	defer db.Close()
-	// **升级就发生在这里** —— 不是某个要人记得跑的独立步骤。
-	// 这一版带来的 schema 改动编在同一个二进制里，部署这一版＝打这些改动。
-	// 失败就不服务：一个 schema 打了一半的实例会在某条具体查询上炸，
-	// 而那个错误指向查询、不指向原因。
+	// **The upgrade happens right here**, not as a separate step someone must
+	// remember. Schema changes are compiled into this binary; deploying it *is*
+	// applying them. On failure we refuse to serve, rather than let a half-applied
+	// schema blow up later on some unrelated query.
 	if merr := pgstore.Migrate(ctx, db, log); merr != nil {
 		return fmt.Errorf("migrate schema: %w", merr)
 	}
@@ -101,7 +99,8 @@ func runWithCfg(
 	return wireAndServe(ctx, log, cfg, &conns{db: db, rdb: rdb}, stop)
 }
 
-// conns 把基础设施连接打包，让 wireAndServe 满足 argument-limit ≤ 5。
+// conns bundles the infrastructure connections, keeping wireAndServe within the
+// argument-limit ≤ 5.
 type conns struct {
 	db  *pgxpool.Pool
 	rdb *redis.Client
@@ -112,11 +111,11 @@ func wireAndServe(
 	c *conns, stop context.CancelFunc,
 ) error {
 	repos := newRepos(c.db)
-	// resolver always builds from owner.ai_provider + decrypted key. In
-	// dev/e2e the owner's endpoint is seeded to the mock llm-gateway
-	// service (see e2e/fixtures/admin.ts seedDevAIProvider).
-	// 开封在 ownerLookupAdapter 里做(openAIProviderKey)。这里**不再**往 resolver 注一个
-	// 解封闭包 —— 那是一把对任意 owner 都好使的万能钥匙,内核不该拿着它。
+	// resolver always builds from owner.ai_provider + decrypted key (in dev/e2e the
+	// owner's endpoint is seeded to the mock llm-gateway; see
+	// e2e/fixtures/admin.ts seedDevAIProvider). Unsealing happens inside
+	// ownerLookupAdapter (openAIProviderKey) — the resolver no longer takes an
+	// unsealing closure, which would be a skeleton key working on any owner.
 	providerResolver := &inference.OwnerKeyResolver{
 		Lookup: &ownerLookupAdapter{repo: repos.owner},
 	}
@@ -133,23 +132,27 @@ func wireAndServe(
 		setupTokenHolder: setupTokenHolder,
 		storageClient:    storageClient,
 	})
-	// 市场搜索那句「这张卡还缺哪几个连接器」的实现:它持 &rt,到被调用时才去取能力注册表
-	// 和依赖注册表 —— 那两张表要等 registerAgentSkills 才齐,而收口比它先装配(F-F-4)。
+	// Implements marketplace-search's "which connectors is this card still missing":
+	// holds &rt, fetches the capability + dependency registries only when invoked,
+	// since neither is complete until registerAgentSkills runs (F-F-4).
 	rt.ConnectorNeeds = &connectorNeeds{rt: &rt}
 	// must precede buildPluginRegistry: owner-MCP caps capture the connector dispatcher there.
 	axisconn.EnsureConnectorSlots(&rt)
-	// 各能力自己的隔离存储先备好:出站收口(码上的字段)、入站收口(沙箱读写)、用量闸
-	// 三条路都从同一份取,provision 只跑这一次。
+	// Provisions each capability's isolated storage once; the outbound convergence
+	// point (fields on the code), the inbound one (sandbox reads/writes), and the
+	// usage gate all draw from this same storage.
 	axiscap.CapabilityStorageInit(ctx, &rt)
 	rt.PluginRegistry = buildPluginRegistry(&rt)
-	// 出站收口只建一个:MCP 面和 admin 面必须投影自**同一份**声明,否则 parity 无从谈起。
+	// One outbound convergence point: MCP face and admin face must project from
+	// **the same** declaration, or there's no basis for parity between them.
 	rt.Dispatch = wire.BuildDispatcher(&rt)
 	registerAgentSkills(ctx, &rt)
 	return serve(ctx, &rt, net.JoinHostPort(cfg.Host, cfg.Port), stop)
 }
 
-// initStorage —— 启动时 init MinIO + ensure bucket。STORAGE_ENDPOINT 已经
-// 在 config.Load 里 required，这里不再 nil 兜底。
+// initStorage —— inits MinIO + ensures the bucket exists at startup.
+// STORAGE_ENDPOINT is already required in config.Load, so this no longer needs a
+// nil fallback.
 func initStorage(
 	ctx context.Context, log *slog.Logger, cfg *config.Config,
 ) (*storage.Client, error) {
@@ -169,9 +172,8 @@ func initStorage(
 	return client, nil
 }
 
-// ensureSetupToken 在 server 启动前调一次：未 claimed 的 instance 生成
-// 新 setup token + 打印到 stdout + 写 /srv/first-run.txt。已 claimed
-// 直接 skip。
+// ensureSetupToken runs once before the server starts: an unclaimed instance gets a
+// new setup token (stdout + /srv/first-run.txt); a claimed instance skips this.
 func ensureSetupToken(
 	ctx context.Context,
 	log *slog.Logger,
@@ -192,8 +194,8 @@ func ensureSetupToken(
 	return nil
 }
 
-// captchaSiteKeyFor —— site_key 只有 TURNSTILE_SECRET 也设了才往前端吐；
-// 任一空都返空串（feature off），跟 NewFromConfig 的 noop 一致。
+// captchaSiteKeyFor —— site_key goes to the frontend only when TURNSTILE_SECRET is
+// also set; either empty returns "" (feature off), matching NewFromConfig's noop.
 func captchaSiteKeyFor(cfg *config.Config) string {
 	if cfg.TurnstileSiteKey == "" || cfg.TurnstileSecret == "" {
 		return ""
@@ -201,30 +203,33 @@ func captchaSiteKeyFor(cfg *config.Config) string {
 	return cfg.TurnstileSiteKey
 }
 
-// setupTokenIssuerAdapter —— 把 *owner.InstanceRepo + *session.SetupTokenHolder
-// 包成 owner.SetupTokenIssuer。让 /api/v1/instance handler 通过 usecase 拿
-// self-healing 的 unclaimed setup token，而 usecase 层不直接 import session 包。
+// setupTokenIssuerAdapter —— wraps *owner.InstanceRepo + *session.SetupTokenHolder
+// into an owner.SetupTokenIssuer, letting the /api/v1/instance handler self-heal an
+// unclaimed setup token through the usecase without importing session directly.
 type setupTokenIssuerAdapter struct {
 	log    *slog.Logger
 	repo   *owner.InstanceRepo
 	holder *session.SetupTokenHolder
-	// issuing —— 发放要单飞。写 DB hash 和写内存 holder 是两步，两个请求交错一次
-	// 就会留下「holder=TA、DB=hash(TB)」这种谁都用不了的组合（F-L-56，真实环境里
-	// 咬到过：首页 SSR 每渲一次就问一次 /api/v1/instance，并发是常态不是意外）。
-	// 锁住「查一次 + 需要就发一次」这整段，交错就没有落脚的地方。
+	// issuing —— issuance must be singleflight: writing the DB hash and the in-memory
+	// holder are two steps, and letting two requests interleave once leaves an
+	// unusable "holder=TA, DB=hash(TB)" combo (F-L-56, hit for real: homepage SSR
+	// calls /api/v1/instance on every render, so concurrency here is the norm).
+	// Locking the whole check-then-issue section removes the interleaving window.
 	issuing sync.Mutex
 }
 
-// UsableToken —— 库里那个 hash 和内存这份明文**是不是一对**。是就返它，不是就返空串
-// （调用方去重发）。只问「都非空吗」是不够的：那正是坏状态的样子。
+// UsableToken —— does the DB hash match this in-memory plaintext? Returns the
+// plaintext if so, else empty (caller re-issues). Checking "both non-empty" isn't
+// enough — that's exactly what the broken state looks like too.
 func (a *setupTokenIssuerAdapter) UsableToken(ctx context.Context) (string, error) {
 	a.issuing.Lock()
 	defer a.issuing.Unlock()
 	return a.usableLocked(ctx)
 }
 
-// IssueAndStore —— 单飞。进来先再查一次：等锁的那几个请求里，第一个已经发过了，
-// 剩下的直接用它的结果，不要一人发一份（那既浪费，又让最后一个覆盖掉前面所有人）。
+// IssueAndStore —— singleflight. Rechecks on entry: of the requests that were
+// waiting on the lock, the first already issued a token, so the rest reuse it
+// instead of each issuing their own (wasted work, and the last would overwrite it).
 func (a *setupTokenIssuerAdapter) IssueAndStore(ctx context.Context) (string, error) {
 	a.issuing.Lock()
 	defer a.issuing.Unlock()
@@ -237,8 +242,8 @@ func (a *setupTokenIssuerAdapter) IssueAndStore(ctx context.Context) (string, er
 	return a.holder.Plaintext(), nil
 }
 
-// usableLocked —— 上面两个方法共用的那一段：**库里那个 hash 和内存这份明文是不是一对**。
-// 调用方已经持锁。
+// usableLocked —— shared by the two methods above: does the DB hash match this
+// in-memory plaintext? Caller already holds the lock.
 func (a *setupTokenIssuerAdapter) usableLocked(ctx context.Context) (string, error) {
 	inst, err := a.repo.Get(ctx)
 	if err != nil {
@@ -249,7 +254,7 @@ func (a *setupTokenIssuerAdapter) usableLocked(ctx context.Context) (string, err
 		return "", nil
 	}
 	if session.HashSetupToken(plaintext) != inst.SetupTokenHash {
-		// 明说：这一行是「发出去的链接为什么突然换了一条」的唯一解释。
+		// The only explanation for "why did the link that went out suddenly change".
 		a.log.Warn("setup token halves diverged; re-issuing",
 			"reason", "in-memory plaintext does not hash to the stored hash")
 		return "", nil
@@ -257,8 +262,8 @@ func (a *setupTokenIssuerAdapter) usableLocked(ctx context.Context) (string, err
 	return plaintext, nil
 }
 
-// ownerLookupAdapter —— 把 owner.Repo 包成 inference.OwnerLookup。
-// resolver 不该直接 import postgres（arch-lint 禁），所以胶水放在 cmd 层。
+// ownerLookupAdapter —— wraps owner.Repo into an inference.OwnerLookup. The resolver
+// shouldn't import postgres directly (arch-lint forbids it), so this glue lives here.
 type ownerLookupAdapter struct {
 	repo *owner.Repo
 }
@@ -280,7 +285,7 @@ func (a *ownerLookupAdapter) LookupForResolver(
 	}, nil
 }
 
-// openAIProviderKey 在 unseal.go —— 开封只在那一个文件里发生。
+// openAIProviderKey lives in unseal.go —— unsealing only happens in that one file.
 
 func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redis.Client, error) {
 	opts, err := redis.ParseURL(redisURL)
@@ -316,8 +321,8 @@ func serve(ctx context.Context, rt *deps.Runtime, addr string, stop context.Canc
 	rt.Log.Info("plugins enabled", "names", rt.PluginRegistry.Names())
 
 	go func() {
-		// 版本进启动日志:"这条日志是哪个 build 打的"必须从日志本身答得出,
-		// 不能靠回忆当时线上是哪一版。
+		// Version goes in the startup log so "which build produced this log" is
+		// answerable from the log itself, not from memory.
 		rt.Log.Info("server starting", "addr", srv.Addr, "version", port.AppVersion())
 		if lerr := srv.ListenAndServe(); lerr != nil && !errors.Is(lerr, http.ErrServerClosed) {
 			rt.Log.Error("listen", "err", lerr)
@@ -328,8 +333,8 @@ func serve(ctx context.Context, rt *deps.Runtime, addr string, stop context.Canc
 	<-ctx.Done()
 	rt.Log.Info("server stopping")
 
-	// shutdown 用 ctx 派生但去掉 cancel 信号，再加超时；这样 contextcheck
-	// 不报"new context"且 graceful shutdown 不会被原 ctx 立即终止。
+	// Derives from ctx but strips its cancel signal, then adds a timeout: keeps
+	// contextcheck from flagging a "new context", and shutdown isn't killed by ctx.
 	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
 	defer cancel()
 	if serr := srv.Shutdown(shutdownCtx); serr != nil {

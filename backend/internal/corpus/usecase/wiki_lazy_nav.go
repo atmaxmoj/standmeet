@@ -1,6 +1,8 @@
-// wiki_lazy_nav.go —— wiki 懒加载导航的 usecase 工具:不 load 全量,按 id 顺 parent
-// 链(meta-only,GetMetaByID)算一条的树派生 path + 判 ACL。retriever 的 DB 搜/读、
-// 以及 cited 反查的 path 都走这套,跟 WikiTreePaths 同款 slug。
+// wiki_lazy_nav.go — usecase utilities for wiki lazy-load navigation: instead
+// of loading the whole tree, walk the parent chain by id (meta-only,
+// GetMetaByID) to compute an entry's tree-derived path + check ACL. The
+// retriever's DB search/read, and the path in a cited back-lookup, both go
+// through this; uses the same slug scheme as WikiTreePaths.
 
 package usecase
 
@@ -13,12 +15,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 )
 
-// resolveChildPageLimit —— 顺 path 下降时每层翻页拉子节点的页大小(只为定位某个
-// segment,够大就行)。
+// resolveChildPageLimit — page size when paging through children at each level
+// while descending a path (only needs to be big enough to locate one segment).
 const resolveChildPageLimit = 200
 
-// WikiPathByID —— 顺 parent_id 上溯算一条 wiki 的树派生 path(meta-only,不读 body)。
-// 跟 WikiTreePaths 同款 slug;懒加载下不做同名兄弟去重(罕见,边缘略过)。
+// WikiPathByID — walks up parent_id to compute a wiki entry's tree-derived
+// path (meta-only, doesn't read body). Uses the same slug scheme as
+// WikiTreePaths; lazy-load skips same-name-sibling dedup (rare, edge case
+// left unhandled).
 func WikiPathByID(
 	ctx context.Context, repo WikiLister, ownerID, id string,
 ) (string, error) {
@@ -38,8 +42,8 @@ func WikiPathByID(
 	return strings.Join(segs, "/"), nil
 }
 
-// OutputPathByID —— WikiPathByID 的 output 孪生:顺 parent_id 上溯算 output 的树派生
-// path(meta-only,不读 body)。
+// OutputPathByID — the output twin of WikiPathByID: walks up parent_id to
+// compute an output entry's tree-derived path (meta-only, doesn't read body).
 func OutputPathByID(
 	ctx context.Context, repo OutputLister, ownerID, id string,
 ) (string, error) {
@@ -59,25 +63,30 @@ func OutputPathByID(
 	return strings.Join(segs, "/"), nil
 }
 
-// WikiEntryPath —— 导出:一条 wiki 的树派生 path(meta-only 上溯)。corpus 写工具
-// (promote_to_wiki / update_wiki)在响应里回它,让调用方拿到"东西落在哪"的地址
-// (= corpus_read 的入参),不用自己从 title slug 反推。
+// WikiEntryPath — exported: a wiki entry's tree-derived path (meta-only
+// walk-up). corpus write tools (promote_to_wiki / update_wiki) return it in
+// their response, so the caller gets the "where it landed" address
+// (= corpus_read's input) without having to reverse-derive it from the title
+// slug itself.
 func WikiEntryPath(
 	ctx context.Context, repo WikiLister, ownerID, id string,
 ) (string, error) {
 	return WikiPathByID(ctx, repo, ownerID, id)
 }
 
-// OutputEntryPath —— WikiEntryPath 的 output 孪生(promote_wiki_to_output / update_output 用)。
+// OutputEntryPath — the output twin of WikiEntryPath (used by
+// promote_wiki_to_output / update_output).
 func OutputEntryPath(
 	ctx context.Context, repo OutputLister, ownerID, id string,
 ) (string, error) {
 	return OutputPathByID(ctx, repo, ownerID, id)
 }
 
-// ResolveWikiNodeID —— 把一条**非空**树派生 path 顺 root→下逐层解成它的节点 id(不
-// load 全树:每层 ListChildren meta-only,按 PathSegment(title) 匹配 segment)。任一段
-// 无匹配 → ErrWikiNotFound。根层(path 空)由调用方直接用 nil parentID,不进这里。
+// ResolveWikiNodeID — resolves a **non-empty** tree-derived path down to its
+// node id, level by level from root (doesn't load the whole tree: each level
+// calls ListChildren meta-only, matching a segment by PathSegment(title)). Any
+// segment with no match → ErrWikiNotFound. The root level (empty path) is
+// handled by the caller passing a nil parentID directly, and never reaches here.
 func ResolveWikiNodeID(
 	ctx context.Context, repo WikiLister, ownerID, path string,
 ) (string, error) {
@@ -94,8 +103,9 @@ func ResolveWikiNodeID(
 	return id, nil
 }
 
-// findChildBySegment —— 在 parentID 的直接子里翻页找 PathSegment(title)==seg 的那个,
-// 返其 id。翻完没有 → ErrWikiNotFound。
+// findChildBySegment — pages through parentID's direct children looking for
+// the one where PathSegment(title)==seg, and returns its id. Exhausting all
+// pages with no match → ErrWikiNotFound.
 func findChildBySegment(
 	ctx context.Context, repo WikiLister, ownerID string, parentID *string, seg string,
 ) (string, error) {
@@ -113,7 +123,8 @@ func findChildBySegment(
 	}
 }
 
-// segInPage —— 一页 children 里找 PathSegment(title)==seg 的那个,返其 id。
+// segInPage — within one page of children, finds the one where
+// PathSegment(title)==seg and returns its id.
 func segInPage(kids []repo.WikiMeta, seg string) (string, bool) {
 	for i := range kids {
 		if PathSegment(kids[i].Title) == seg {
@@ -123,8 +134,9 @@ func segInPage(kids []repo.WikiMeta, seg string) (string, bool) {
 	return "", false
 }
 
-// resolveOutputNodeID —— ResolveWikiNodeID 的 output 孪生(output 跟 wiki 同构,都是
-// 带 parent_id 的树);顺 root→下逐层 ListChildren meta-only 解 path→id。
+// resolveOutputNodeID — the output twin of ResolveWikiNodeID (output has the
+// same shape as wiki, both parent_id trees); resolves path→id level by level
+// from root using ListChildren meta-only.
 func resolveOutputNodeID(
 	ctx context.Context, repo OutputLister, ownerID, path string,
 ) (string, error) {

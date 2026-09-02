@@ -1,17 +1,17 @@
 // proxy.go —— POST /api/v1/llm/chat/stream
 //
-// H.2: 新 chat 入口；走 eino model.ToolCallingChatModel 抽象，对调用方
-// (浏览器 pi-agent-core) provider-agnostic：backend 收到的请求 shape
-// 跟返回的 SSE 事件流都是 pi unified 形态，跟具体 provider (anthropic /
-// openai-compat / gemini / ollama) 无关。
+// H.2: the new chat entry point; goes through eino's model.ToolCallingChatModel abstraction,
+// provider-agnostic to the caller (the browser's pi-agent-core): both the request shape the
+// backend receives and the SSE event stream it returns are in the pi unified form, independent
+// of the specific provider (anthropic / openai-compat / gemini / ollama).
 //
-// Wire 形态 (与 G-Y.6 之前的老 /messages SSE 同源)：
+// Wire shape (shares its origin with the old /messages SSE from before G-Y.6):
 //
 //	POST body:
 //	  {
 //	    "system":   "...",
 //	    "model":    "...",      // optional, fallback owner cred.Model
-//	    "messages": [{role, content: string}],   // pi-style 平字符串
+//	    "messages": [{role, content: string}],   // pi-style flat string content
 //	    "tools":    [{name, description, input_schema}]
 //	  }
 //
@@ -28,8 +28,8 @@
 //	  event: error
 //	  data: {"code":"...","message":"..."}
 //
-// 跟老 /inference/stream (Anthropic native byte proxy) 并存。H.5 浏览器
-// pi-agent-core 切到这条；H.3 删老 path。
+// Coexists with the old /inference/stream (Anthropic native byte proxy). H.5 switches the
+// browser's pi-agent-core to this one; H.3 deletes the old path.
 
 package inference
 
@@ -46,10 +46,11 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
-// ChatRequest —— 浏览器 POST 的 body。
-// MaxTokens —— 这一次调用的输出预算（0 = 用默认那个）。只有 turn 的边界合成会设它：
-// 它要在一个 reasoning 模型上把二十多条证据合成成一段话，而默认额度会被思考 token
-// 吃干净、正文回来是空的（F-A-40 的 ⑤ 在 prod 上量到的）。
+// ChatRequest —— the browser's POST body.
+// MaxTokens —— this call's output budget (0 = use the default). Only the turn's boundary
+// synthesis sets it: it needs to synthesize twenty-odd evidence items into one passage on a
+// reasoning model, and the default budget gets eaten entirely by thinking tokens, coming back
+// with an empty body (measured in prod, F-A-40's item 5).
 type ChatRequest struct {
 	System    string            `json:"system"`
 	Model     string            `json:"model,omitempty"`
@@ -58,11 +59,11 @@ type ChatRequest struct {
 	MaxTokens int               `json:"max_tokens,omitempty"`
 }
 
-// ChatRequestMsg —— pi 风格平字符串消息。assistant 调 tool 时把 tool_calls
-// 装进当条消息；tool role 携带 tool_call_id 标明回应哪条 tool_use。形态
-// 跟 OpenAI chat completions + eino schema.Message 同构，proxy_wire 1:1
-// 翻给 eino，不再走 marker string。字段顺序按 govet fieldalignment 排
-// (4 string 在前；slice 在后)。
+// ChatRequestMsg —— a pi-style flat-string message. When an assistant calls a tool, tool_calls
+// is packed into that same message; a tool-role message carries tool_call_id to mark which
+// tool_use it's answering. Isomorphic to OpenAI chat completions + eino schema.Message; proxy_wire
+// translates it 1:1 into eino, no marker string involved anymore. Field order follows govet
+// fieldalignment (4 strings first; slice after).
 type ChatRequestMsg struct {
 	Role       string            `json:"role"`
 	Content    string            `json:"content"`
@@ -70,23 +71,23 @@ type ChatRequestMsg struct {
 	ToolCalls  []ChatToolCallRef `json:"tool_calls,omitempty"`
 }
 
-// ChatToolCallRef —— assistant turn 当中调出的一条 tool_use。args 是
-// raw JSON (用 RawMessage 保 caller 序列化原样)。
+// ChatToolCallRef —— one tool_use invoked within an assistant turn. args is raw JSON (using
+// RawMessage to preserve the caller's serialization exactly as-is).
 type ChatToolCallRef struct {
 	ID   string          `json:"id"`
 	Name string          `json:"name"`
 	Args json.RawMessage `json:"args"`
 }
 
-// ChatRequestTool —— tool spec; input_schema 是 raw JSON schema。
+// ChatRequestTool —— a tool spec; input_schema is a raw JSON schema.
 type ChatRequestTool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	InputSchema json.RawMessage `json:"input_schema"`
 }
 
-// Stream —— H.2 entry point。caller (route handler) 拿到 cred + req 后
-// 调这个，proxy 自己负责 SSE header + chunk emission。
+// Stream —— the H.2 entry point. The caller (route handler) calls this once it has cred + req;
+// the proxy handles the SSE headers + chunk emission itself.
 func Stream(
 	ctx context.Context, log *slog.Logger, w http.ResponseWriter,
 	cred *Cred, req *ChatRequest,
@@ -180,8 +181,8 @@ type streamState struct {
 	finishReason string
 }
 
-// drainOneChunk —— 读一条 chunk，emit 对应 SSE 帧。返 false 表示流终止
-// (EOF 或 error)。EOF 时同时 emit pending tool_calls + done 帧。
+// drainOneChunk —— reads one chunk, emits the matching SSE frame. Returns false when the
+// stream has ended (EOF or error). On EOF, also emits pending tool_calls + a done frame.
 func drainOneChunk(
 	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
 	stream *schema.StreamReader[*schema.Message], state *streamState,

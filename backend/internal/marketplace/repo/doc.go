@@ -1,3 +1,4 @@
-// Package repo —— marketplace 域的仓储层（SkillRepo / MCPServerRepo，over marketplace/db + pgstore）。
-// 对外经 internal/marketplace/facade 暴露。
+// Package repo — the repository layer for the marketplace domain (SkillRepo /
+// MCPServerRepo, over marketplace/db + pgstore). Exposed externally via
+// internal/marketplace/facade.
 package repo

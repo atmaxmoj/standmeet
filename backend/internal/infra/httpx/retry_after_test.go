@@ -1,11 +1,15 @@
-// retry_after_test.go —— F-A-31:429 带来的 `Retry-After` 是 provider 明说的「等这么久再来」。
-// 在这条测试出现之前,退避表是我们自己的指数序列,那个头**从来没有被读过** —— 于是对着一个真的
-// 限流的 provider,我们会比它要求的更早重打,而那正是加重封禁的行为。
+// retry_after_test.go —— F-A-31: the `Retry-After` a 429 carries is the provider explicitly
+// saying "come back after this long". Before this test existed, the backoff table was our own
+// exponential sequence and that header had **never once been read** — so against a provider
+// that's actually rate-limiting us, we'd retry earlier than it asked, which is exactly the
+// behavior that makes a ban worse.
 //
-// 断的是**等了多久**,不是「有没有读那个头」:后者可以用一行 `resp.Header.Get` 骗过去而不改变任何
-// 行为。所以每条都发头 + 量时间。
+// What's asserted is **how long we waited**, not "did we read that header": the latter can be
+// faked with a one-line `resp.Header.Get` that changes no actual behavior. So every case here
+// sends the header + measures elapsed time.
 //
-// 这几条必须留在 Go 侧:e2e 从界面上看不出「等了 1 秒还是 1 毫秒」,而这正是本条的全部内容。
+// These have to stay on the Go side: e2e can't tell from the UI whether it waited 1 second or
+// 1 millisecond, and that distinction is this whole test's point.
 
 package httpx_test
 
@@ -19,12 +23,15 @@ import (
 )
 
 const (
-	// retryAfterSeconds —— 用最小的合法秒数。1s 让用例慢一点,但这就是这条要测的量。
+	// retryAfterSeconds —— the smallest legal number of seconds. 1s slows the test case down
+	// a bit, but that's exactly the quantity being tested.
 	retryAfterSeconds = 1
-	// dateFormFloor —— HTTP-date 只到秒,目标时刻落在这一秒的哪个位置不定;这个下限仍然把
-	// 「一毫秒就重打」挡在外面(那才是这条要防的),同时不会因为秒的截断而假红。
+	// dateFormFloor —— an HTTP-date is only precise to the second, so where the target moment
+	// falls within that second is undetermined; this floor still keeps out "retried after
+	// 1ms" (the thing this test guards against) while not going red from second-truncation.
 	dateFormFloor = 900 * time.Millisecond
-	// hostileRetryAfter —— 远超调用方截止时间的间隔:正确动作是不重试,不是睡满预算。
+	// hostileRetryAfter —— an interval far beyond the caller's deadline: the correct move is
+	// not to retry, not to sleep away the whole budget.
 	hostileRetryAfter = "3600"
 )
 
@@ -34,7 +41,8 @@ func TestWaitsAtLeastRetryAfterSeconds(t *testing.T) {
 		{status: http.StatusTooManyRequests, retryAfter: "1"},
 		{status: http.StatusOK},
 	}}
-	// BaseDelay 是微秒级:任何「等够了」都只能来自那个头,不可能来自我们自己的退避。
+	// BaseDelay is microsecond-scale: any "waited long enough" can only come from that
+	// header, never from our own backoff.
 	c := httpx.NewClient(httpx.Options{
 		Base: st, MaxRetries: 2, BaseDelay: time.Microsecond,
 	})
@@ -57,11 +65,14 @@ func TestWaitsAtLeastRetryAfterSeconds(t *testing.T) {
 
 func TestWaitsAtLeastRetryAfterHTTPDate(t *testing.T) {
 	t.Parallel()
-	// HTTP-date 是 `Retry-After` 的另一种合法写法,真 provider 两种都发。
+	// HTTP-date is `Retry-After`'s other legal form, and real providers send both.
 	//
-	// 用 +2s 而不是 +1s:`http.TimeFormat` 只精确到秒,格式化会把当前这一秒的小数部分**截掉**,
-	// 所以 now+1s 写出来之后实际间隔是 (1s − 小数部分),最坏接近 0。+2s 保证截断后仍 > 1s。
-	// (第一版我写的是 +1s,量到 464ms —— 那不是代码没等,是这个头本来就只要求了 464ms。)
+	// Use +2s rather than +1s: `http.TimeFormat` is only precise to the second, so
+	// formatting **truncates** the fractional part of the current second. So a written-out
+	// now+1s ends up with an actual interval of (1s − the truncated fraction), worst case
+	// close to 0. +2s guarantees it stays > 1s after truncation.
+	// (The first version used +1s and measured 464ms — that wasn't the code failing to wait,
+	// it's that this header only asked for 464ms to begin with.)
 	when := time.Now().UTC().Add(2 * time.Second).Format(http.TimeFormat)
 	st := &stubRT{responses: []stubResp{
 		{status: http.StatusTooManyRequests, retryAfter: when},
@@ -80,9 +91,11 @@ func TestWaitsAtLeastRetryAfterHTTPDate(t *testing.T) {
 	}
 }
 
-// TestRetryAfterBeyondDeadlineStopsInsteadOfSleeping —— provider 要求的间隔超出调用方的截止时间时,
-// 正确的动作是**不重试、把 429 交回去**(让上面渲一句人话),而不是把剩下的预算全部睡掉再失败。
-// 「不早于它要求的时间重打」和「不把调用方的截止拖死」两件事都要成立。
+// TestRetryAfterBeyondDeadlineStopsInsteadOfSleeping —— when the interval the provider asks
+// for exceeds the caller's deadline, the correct move is **don't retry, hand the 429 back**
+// (so a layer above can render a human sentence), instead of sleeping away the whole remaining
+// budget and failing anyway. Both "never retry earlier than asked" and "never drag the
+// caller's deadline out to death" must hold.
 func TestRetryAfterBeyondDeadlineStopsInsteadOfSleeping(t *testing.T) {
 	t.Parallel()
 	st := &stubRT{responses: []stubResp{
@@ -104,7 +117,8 @@ func TestRetryAfterBeyondDeadlineStopsInsteadOfSleeping(t *testing.T) {
 	}
 }
 
-// doWithDeadline —— 在一个带截止时间的 ctx 上打一次请求,返状态码和真实耗时。
+// doWithDeadline —— fire one request on a ctx with a deadline; return the status code and the
+// actual elapsed time.
 func doWithDeadline(t *testing.T, c *http.Client, budget time.Duration) (int, time.Duration) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), budget)

@@ -26,13 +26,16 @@ const (
 	envSecretName = "INSTANCE_SECRET"
 )
 
-// ErrShortSecret —— INSTANCE_SECRET 太短，拒绝 boot。生产环境必须给 ≥32 字节。
+// ErrShortSecret — INSTANCE_SECRET is too short; boot is refused. Production
+// deploys must supply ≥ 32 bytes.
 var ErrShortSecret = errors.New("INSTANCE_SECRET must be ≥ 32 chars")
 
-// ErrTampered —— GCM auth tag 校验失败：密文被改 / 截断 / 用错 key。
+// ErrTampered — GCM auth tag verification failed: ciphertext was altered,
+// truncated, or the wrong key was used.
 var ErrTampered = errors.New("ciphertext tampered or wrong key")
 
-// loadKey 从 env 读 INSTANCE_SECRET，sha256 它出 32 字节 AES-256 key。
+// loadKey reads INSTANCE_SECRET from env and sha256's it into a 32-byte
+// AES-256 key.
 func loadKey() ([aesKeyLen]byte, error) {
 	secret := os.Getenv(envSecretName)
 	if len(secret) < minSecretLen {
@@ -41,9 +44,12 @@ func loadKey() ([aesKeyLen]byte, error) {
 	return sha256.Sum256([]byte(secret)), nil
 }
 
-// Encrypt —— plaintext 加密为 nonce|ciphertext|tag 单 buf。aad 是 additional authenticated data:
-// 绑定密文到一个 context(持久化凭据传 owner_id)——密文被搬到另一 owner 的行时 Decrypt tamper-fail。
-// aad 不进密文、只进 auth tag。空 aad = 无绑定(旧 wire format;迁移期兼容)。empty plaintext 不调本函数。
+// Encrypt — encrypts plaintext into a single nonce|ciphertext|tag buffer. aad is
+// additional authenticated data: it binds the ciphertext to a context (persisted
+// credentials pass owner_id) — if the ciphertext is moved into another owner's
+// row, Decrypt fails as tampered. aad never enters the ciphertext, only the auth
+// tag. Empty aad = no binding (old wire format; compat during migration). Never
+// call this with an empty plaintext.
 func Encrypt(plaintext, aad []byte) ([]byte, error) {
 	gcm, err := newGCM()
 	if err != nil {
@@ -56,8 +62,10 @@ func Encrypt(plaintext, aad []byte) ([]byte, error) {
 	return gcm.Seal(nonce, nonce, plaintext, aad), nil
 }
 
-// Decrypt —— 反向,按 aad 校验绑定。aad 不匹配(密文被搬到别的 owner 行)/ 损坏 / 截断 → ErrTampered;
-// 调用者按 401/500 翻译。没有 legacy 密文(未发版),所以不做无-AAD fallback:AAD 必须严格对上。
+// Decrypt — the reverse; verifies the binding against aad. aad mismatch (ciphertext
+// moved to another owner's row) / corruption / truncation → ErrTampered; callers
+// translate this to 401/500. There is no legacy ciphertext (unreleased yet), so
+// there's no no-AAD fallback: AAD must match exactly.
 func Decrypt(blob, aad []byte) ([]byte, error) {
 	if len(blob) < nonceLen {
 		return nil, ErrTampered
@@ -74,8 +82,8 @@ func Decrypt(blob, aad []byte) ([]byte, error) {
 	return out, nil
 }
 
-// newGCM 构造 AES-256-GCM cipher mode；统一 key load + aes + gcm 三步以让
-// Encrypt / Decrypt 都 cyclo ≤ 5。
+// newGCM builds the AES-256-GCM cipher mode; consolidating the key-load + aes
+// + gcm steps here keeps Encrypt / Decrypt at cyclo ≤ 5.
 func newGCM() (cipher.AEAD, error) {
 	key, err := loadKey()
 	if err != nil {

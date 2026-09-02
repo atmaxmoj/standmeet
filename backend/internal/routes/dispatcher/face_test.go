@@ -31,8 +31,9 @@ func face(name string) fp.Facade {
 	return fp.Facade{Name: name, Plane: fp.PlaneOwner, ServesRead: true, ServesActn: true}
 }
 
-// TestGeneratedFaceIsCompleteByConstruction —— 生成型的面(MCP 就是这么接的)一次取走全部 op,
-// 取用即登记,所以它不可能欠账。这是"没有手写步骤可忘"的那半边。
+// TestGeneratedFaceIsCompleteByConstruction -- a generated face (MCP wires up exactly
+// this way) pulls all ops at once, and pulling registers, so it can never owe anything.
+// This is the "no hand-written step to forget" half.
 func TestGeneratedFaceIsCompleteByConstruction(t *testing.T) {
 	t.Parallel()
 
@@ -42,17 +43,19 @@ func TestGeneratedFaceIsCompleteByConstruction(t *testing.T) {
 	require.Empty(t, d.Conform())
 }
 
-// TestVerifiedFaceMissingAnOpIsCaught —— 核对型的面(admin HTTP)逐条取能力。少 wire 一条,
-// 它就没在收口登记过 → Conform 报 missing。
+// TestVerifiedFaceMissingAnOpIsCaught -- a verified face (admin HTTP) pulls capabilities
+// one by one. Miss wiring one and it was never registered against the convergence point ->
+// Conform reports missing.
 //
-// 这正是那张手写台账原本要抓的东西 —— 现在由结构抓,不需要有人去表里加一行。
+// This is exactly what the hand-written ledger used to catch -- now structure catches it,
+// nobody has to go add a row to a table.
 func TestVerifiedFaceMissingAnOpIsCaught(t *testing.T) {
 	t.Parallel()
 
 	d := dispatcher.New(ownerOps())
 	d.Attach(face("mcp")).Ops()
 	admin := d.Attach(face("admin"))
-	admin.MustOp(thingsList) // 只 wire 了 list,漏了 create
+	admin.MustOp(thingsList) // only list is wired, create is missed
 
 	vs := d.Conform()
 	require.Len(t, vs, 1)
@@ -61,14 +64,15 @@ func TestVerifiedFaceMissingAnOpIsCaught(t *testing.T) {
 	require.Equal(t, "missing", vs[0].Kind)
 }
 
-// TestNewFaceInheritsTheWholeDebt —— 新加一个面时,它欠的每一个 op 立刻被列出来。
-// 不需要谁记得去更新什么:Reach 是意图,面一注册就自动结算。
+// TestNewFaceInheritsTheWholeDebt -- when a new face is added, every op it owes is
+// immediately listed. Nobody has to remember to update anything: Reach is the intent,
+// and it settles automatically the moment a face registers.
 func TestNewFaceInheritsTheWholeDebt(t *testing.T) {
 	t.Parallel()
 
 	d := dispatcher.New(ownerOps())
 	d.Attach(face("mcp")).Ops()
-	d.Attach(face("im")) // 刚接上,一条都还没 wire
+	d.Attach(face("im")) // just attached, nothing wired yet
 
 	vs := d.Conform()
 	require.Len(t, vs, 2)
@@ -78,8 +82,9 @@ func TestNewFaceInheritsTheWholeDebt(t *testing.T) {
 	}
 }
 
-// TestFaceAttachIsIdempotent —— 一个面的路由分散在几个文件里 wire 很正常;同名 Attach 必须拿到
-// 同一个 Face,否则登记会被拆成两半,凭空报出 missing。
+// TestFaceAttachIsIdempotent -- it's normal for a face's routes to be wired across
+// several files; Attaching the same name must return the same Face, otherwise
+// registration would split in two and a phantom missing would get reported.
 func TestFaceAttachIsIdempotent(t *testing.T) {
 	t.Parallel()
 
@@ -91,7 +96,8 @@ func TestFaceAttachIsIdempotent(t *testing.T) {
 	require.Empty(t, d.Conform())
 }
 
-// TestUnknownOpPanicsAtWireTime —— id 拼错要在挂路由时炸,而不是运行时静悄悄少一条路由。
+// TestUnknownOpPanicsAtWireTime -- a misspelled id must blow up while wiring the route,
+// not silently drop a route at runtime.
 func TestUnknownOpPanicsAtWireTime(t *testing.T) {
 	t.Parallel()
 
@@ -100,15 +106,17 @@ func TestUnknownOpPanicsAtWireTime(t *testing.T) {
 	require.Panics(t, func() { admin.MustOp("things.nope") })
 }
 
-// TestDuplicateOpIDPanics —— 两个 op 同名意味着有一个永远取不到。这种事只能在启动时炸。
+// TestDuplicateOpIDPanics -- two ops sharing a name means one of them can never be
+// reached. That can only blow up at startup.
 func TestDuplicateOpIDPanics(t *testing.T) {
 	t.Parallel()
 
 	require.Panics(t, func() { dispatcher.New(ownerOps(), ownerOps()) })
 }
 
-// TestDecoratorWrapsEveryFaceAlike —— 装饰器挂在收口上,所以每个面拿到的能力都已经过完同一条链。
-// 想绕过就得绕过收口 —— 而那条路被结构闸门挡死。
+// TestDecoratorWrapsEveryFaceAlike -- decorators hang on the convergence point, so every
+// capability a face gets has already passed through the same chain. Bypassing it means
+// bypassing the convergence point -- and that path is blocked by a structural gate.
 func TestDecoratorWrapsEveryFaceAlike(t *testing.T) {
 	t.Parallel()
 
@@ -135,13 +143,16 @@ func TestDecoratorWrapsEveryFaceAlike(t *testing.T) {
 	require.Equal(t, []string{thingsList, thingsList}, seen)
 }
 
-// TestGeneratedFaceDoesNotServeWhatItIsNotOwed —— 生成型的面只长出**它该服务的** op。
+// TestGeneratedFaceDoesNotServeWhatItIsNotOwed -- a generated face only grows the ops
+// **it's supposed to serve**.
 //
-// 这条守的是一个真出现过的缺陷:Face.Ops() 原本返回收口里的全部 op,于是一个写明
-// Only(reason, "admin") 的 op(marketplace.install_manual)照样长到了 MCP 上 ——
-// Reach 沦为注释,而"生成"变成了"凡是收口里有的都露出去",正好是最危险的默认。
+// This guards a real defect that once occurred: Face.Ops() originally returned every op
+// in the convergence point, so an op explicitly marked Only(reason, "admin")
+// (marketplace.install_manual) grew onto MCP anyway -- Reach degraded to a comment, and
+// "generated" turned into "whatever the convergence point holds gets exposed", exactly
+// the most dangerous default.
 //
-// 把这里的筛子去掉,这个测试会红。
+// Remove the filter here and this test goes red.
 func TestGeneratedFaceDoesNotServeWhatItIsNotOwed(t *testing.T) {
 	t.Parallel()
 
@@ -163,7 +174,7 @@ func TestGeneratedFaceDoesNotServeWhatItIsNotOwed(t *testing.T) {
 	require.Equal(t, []string{thingsList}, got,
 		"the generated face must not serve an op pinned to another face")
 
-	// 而 admin 面确实欠它 —— 只有它 wire 了,两个面才都对得上账。
+	// admin genuinely owes it -- only once it's wired do both faces reconcile.
 	admin := d.Attach(face("admin"))
 	admin.MustOp(thingsList)
 	admin.MustOp(thingsPaste)

@@ -1,4 +1,4 @@
-// Block —— Page editor 中的章节卡片：标题 + 副标题 + 内容。
+// Block — section card in the Page editor: title + subtitle + content.
 
 import type { ReactNode } from 'react';
 

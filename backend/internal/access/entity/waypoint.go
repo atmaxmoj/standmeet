@@ -1,7 +1,9 @@
-// waypoint.go —— ghost-steering 的 waypoint 类型 + 它的代数（合并 / 校验 / 可行性过滤）。
+// waypoint.go — the ghost-steering waypoint type + its algebra (merge / validation /
+// feasibility filtering).
 //
-// 从 role_snapshot.go 抽出来：snapshot 是"session 冻结的 role 状态"，waypoint 的合并规则
-// （role ⊕ code）是独立主题，跟 corpus/skill/capability 的冻结逻辑无关。
+// Pulled out of role_snapshot.go: the snapshot is "the role state frozen for a session",
+// while the waypoint merge rule (role (+) code) is a separate topic, unrelated to the
+// corpus/skill/capability freeze logic.
 
 package entity
 
@@ -12,8 +14,9 @@ import (
 	"strings"
 )
 
-// Waypoint —— ghost-steering 的一个引导目的地（owner 写在 role 上,code 可继承/覆盖,
-// 冻结进 RoleSnapshot）。字段顺序按 fieldalignment：两个 string 在前、slice 中、int/bool 末。
+// Waypoint — one ghost-steering guidance destination (the owner writes it on a role, a
+// code can inherit/override it, frozen into RoleSnapshot). Field order follows
+// fieldalignment: two strings first, slice in the middle, int/bool last.
 type Waypoint struct {
 	WaypointID   string   `json:"waypoint_id"`
 	Description  string   `json:"description"`
@@ -22,14 +25,18 @@ type Waypoint struct {
 	IsTerminal   bool     `json:"is_terminal"`
 }
 
-// MergeWaypoints —— code 的 waypoints 叠在 role 的之上:同 waypoint_id → code 覆盖整条,
-// 新 id → 追加。role 是「这个受众」的目的地,code 是「这一次邀约」的 —— 一张招聘码想给通用
-// role 加一个只属于本次的目的地、或把某条的 weight 调高,不该被迫复制整份清单。
+// MergeWaypoints — a code's waypoints layer over the role's: same waypoint_id -> the code
+// overrides the whole entry, a new id -> appended. A role is the destinations for "this
+// audience", a code is for "this one invite" — a hiring code that wants to add a
+// destination unique to this occasion, or bump one entry's weight, on top of a generic
+// role should not be forced to copy the entire list.
 //
-// 保留 role 顺序(稳定,便于 owner 对照),code 新增的接在后面。空 override → 原样返回 role 的。
+// Role order is preserved (stable, easy for the owner to compare against), the code's new
+// entries are appended after. An empty override returns the role's list as-is.
 //
-// 这里**只做合并**:授权过滤仍由 FilterWaypointsByCorpus 在冻结那刻统一执行 —— code 永远
-// 不能借覆盖把 role 看不见的证据引导出来(授权下限不因 code 而松)。
+// This function **only merges**: authorization filtering still happens uniformly through
+// FilterWaypointsByCorpus at freeze time — a code can never use an override to steer
+// toward evidence the role cannot see (an override never loosens the authorization floor).
 func MergeWaypoints(base, override []Waypoint) []Waypoint {
 	if len(override) == 0 {
 		return base
@@ -42,13 +49,15 @@ func MergeWaypoints(base, override []Waypoint) []Waypoint {
 	return append(ov.merged, newOverrides(override, ov.overriddenIDs)...)
 }
 
-// overlaid —— overlayOnto 的多返回打包（同 partitionedVault：避开 named return / result-limit）。
+// overlaid — the multi-return bundle for overlayOnto (same as partitionedVault: avoids a
+// named return / the result-count limit).
 type overlaid struct {
-	overriddenIDs map[string]bool // fieldalignment: map(1 ptr) 在前, slice(3 ptr) 在后
+	overriddenIDs map[string]bool // fieldalignment: map (1 ptr) first, slice (3 ptr) after
 	merged        []Waypoint
 }
 
-// overlayOnto —— 走一遍 role 的清单：同 id 换成 code 那条，其余原样。
+// overlayOnto — walks the role's list once: swap in the code's entry for a matching id,
+// leave the rest as-is.
 func overlayOnto(base []Waypoint, byID map[string]Waypoint) overlaid {
 	out := make([]Waypoint, 0, len(base)+len(byID))
 	overridden := map[string]bool{}
@@ -63,7 +72,8 @@ func overlayOnto(base []Waypoint, byID map[string]Waypoint) overlaid {
 	return overlaid{merged: out, overriddenIDs: overridden}
 }
 
-// newOverrides —— code 里 role 没有的那些（保持 code 内的书写顺序，接在后面）。
+// newOverrides — the entries in code that role does not have (kept in code's own written
+// order, appended after).
 func newOverrides(override []Waypoint, overridden map[string]bool) []Waypoint {
 	out := make([]Waypoint, 0, len(override))
 	for _, w := range override {
@@ -74,16 +84,20 @@ func newOverrides(override []Waypoint, overridden map[string]bool) []Waypoint {
 	return out
 }
 
-// ErrWaypointEmptyID —— waypoint_id 是合并(MergeWaypoints)、visited 标记(ledger)、
-// ghost 归因的键；空了整套语义散架，所以它是唯一的硬性要求。
+// ErrWaypointEmptyID — waypoint_id is the key for merge (MergeWaypoints), the visited mark
+// (ledger), and ghost attribution; leaving it empty collapses that whole set of semantics,
+// which is why it's the one hard requirement.
 var ErrWaypointEmptyID = errors.New("each waypoint needs an id")
 
-// ErrWaypointDuplicateID —— 同一份清单里 id 撞车 → 合并时无从判定谁覆盖谁。
+// ErrWaypointDuplicateID — two ids collide within the same list -> merge has no way to
+// decide who overrides whom.
 var ErrWaypointDuplicateID = errors.New("waypoint ids must be unique")
 
-// ValidateWaypoints —— owner 写入的 waypoint 形态校验（role 面 + code 覆盖面共用一条规则）。
-// description/weight/evidence_refs 都可空：没证据的 waypoint 仍是合法目的地（FilterWaypointsByCorpus
-// 放行它，prompt 的 EVIDENCE 规则再决定提不提），空 weight 就是 0 权重。
+// ValidateWaypoints — shape validation for owner-written waypoints (shared by both the
+// role surface and the code-override surface). description/weight/evidence_refs may all be
+// empty: a waypoint with no evidence is still a valid destination (FilterWaypointsByCorpus
+// admits it, the prompt's EVIDENCE rule then decides whether to offer it), an empty weight
+// just means weight 0.
 func ValidateWaypoints(ws []Waypoint) error {
 	seen := map[string]bool{}
 	for i := range ws {
@@ -99,7 +113,8 @@ func ValidateWaypoints(ws []Waypoint) error {
 	return nil
 }
 
-// cloneWaypoints —— 深拷贝（evidence_refs slice 也 clone），防冻结后被改。
+// cloneWaypoints — a deep copy (evidence_refs slices are cloned too), to prevent mutation
+// after freezing.
 func cloneWaypoints(in []Waypoint) []Waypoint {
 	if len(in) == 0 {
 		return []Waypoint{}
@@ -112,14 +127,19 @@ func cloneWaypoints(in []Waypoint) []Waypoint {
 	return out
 }
 
-// FilterWaypointsByCorpus —— **授权**下限（冻结时调）：丢弃 evidence_refs 全落在授权 glob
-// 之外的 waypoint —— role 看不到的证据不该被引导向。无 refs 的 waypoint（如 booking 终点，靠工具
-// 事件而非 corpus）保留；≥1 条 ref 在界内 → 保留整条（policy 侧只会引用可见的那些）。
+// FilterWaypointsByCorpus — the **authorization** floor (called at freeze time): drops a
+// waypoint whose evidence_refs fall entirely outside the authorized glob — a role should
+// never be steered toward evidence it cannot see. A waypoint with no refs (e.g. a booking
+// terminal, driven by a tool event rather than corpus) is kept; >=1 ref inside the
+// boundary -> the whole entry is kept (the policy side only ever cites the visible ones).
 //
-// 这里一度叫 "feasibility floor"，而它从来没做过那件事：glob 判的是**这串字**落不落在界内，
-// `subjectivity://standpoint` 匹配 `subjectivity://*` 匹配得完美，指向的笔记却可以根本不存在。
-// 那样的 waypoint 永久不可访（ledger 靠引用拼 URI 才标 visited），ghost 会永远推它。可行性由
-// conversation 侧的 feasibleWaypoints 单独守（F-A-26）—— 两件事，两个名字。
+// This function used to be called "feasibility floor", and it never did that job: a glob
+// judges whether **this string** falls inside the boundary — `subjectivity://standpoint`
+// matches `subjectivity://*` perfectly, while the note it points at can simply not exist.
+// A waypoint like that is permanently unreachable (the ledger only marks visited by
+// resolving the URI through a reference), and a ghost would push it forever. Feasibility
+// is guarded separately by feasibleWaypoints on the conversation side (F-A-26) — two
+// different things, two different names.
 func FilterWaypointsByCorpus(waypoints []Waypoint, granted []string) []Waypoint {
 	out := make([]Waypoint, 0, len(waypoints))
 	for _, w := range waypoints {

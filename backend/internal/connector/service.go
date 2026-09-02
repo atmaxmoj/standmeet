@@ -1,6 +1,7 @@
-// service.go —— 连接器 admin 编排（存凭据 / connect / oauth callback / activate /
-// disconnect）。把这套业务逻辑从 routes 层抽出来（routes handler 强制 cyclo ≤3，只做表现），
-// 这里跑在 cyclop ≤5 业务预算上。OAuth dance 复用 OAuthEndpoints（provider 无关）。
+// service.go — connector admin orchestration (save credentials / connect / oauth callback /
+// activate / disconnect). Pulls this business logic out of the routes layer (route handlers
+// enforce cyclo ≤3 and only handle presentation); this runs under a cyclop ≤5 business budget.
+// The OAuth dance reuses OAuthEndpoints (provider-agnostic).
 
 package connector
 
@@ -19,9 +20,10 @@ const (
 	oauthStateBytes = 16
 )
 
-// sentinel 错误见 errors.go。
+// Sentinel errors are in errors.go.
 
-// Deps —— 服务依赖（composition root 注入）。Manifests = 内置连接器（id→category/kind/spec）。
+// Deps — service dependencies (injected by the composition root). Manifests = built-in
+// connectors (id→category/kind/spec).
 type Deps struct {
 	Repo      *Repo
 	Owners    OwnerLookup
@@ -32,13 +34,14 @@ type Deps struct {
 	Manifests []Manifest
 }
 
-// Service —— 连接器 admin 编排。
+// Service — connector admin orchestration.
 type Service struct{ d *Deps }
 
-// New —— 构造（按指针接装配期依赖束，不按值拷大 struct）。
+// New — construct (takes the assembly-time dependency bundle by pointer, doesn't copy the
+// large struct by value).
 func New(d *Deps) *Service { return &Service{d: d} }
 
-// Manifest —— 内置 manifest 按 id 查。
+// Manifest — looks up a built-in manifest by id.
 func (s *Service) Manifest(id string) *Manifest {
 	for i := range s.d.Manifests {
 		if s.d.Manifests[i].ID == id {
@@ -48,15 +51,17 @@ func (s *Service) Manifest(id string) *Manifest {
 	return nil
 }
 
-// DeclaredOwnerOpIDs —— 各连接器**自己在 manifest 里声明**的 owner 操作 id
-// (如 "connectors.mail_test_send")。
+// DeclaredOwnerOpIDs — the owner-operation ids each connector **declares for itself in its
+// manifest** (e.g. "connectors.mail_test_send").
 //
-// admin 路由从这份清单派生自己的路由,所以那一层不写死任何品类名:加一个连接器、
-// 它声明一个操作,路由自动就有。清单归连接器轴 —— 谁声明的谁知道。
+// The admin routing layer derives its own routes from this list, so that layer never hardcodes
+// a category name: adding a connector that declares an operation gets the route automatically.
+// The list belongs to the connector axis — whoever declares it knows about it.
 //
-// 只扫内置 manifest,**不是遗漏**:owner-op 唯一的来源是 `connectors/<id>/manifest.yaml`
-// 的 `owner_ops:`(见 connectors/loader.go)。owner **上传**的连接器是 spec + 绑定,
-// 它暴露的是 agent 工具,没有声明 owner-op 的机制 —— 所以这里没有它要漏的东西。
+// Scans only built-in manifests, **which is not an omission**: an owner-op's only source is the
+// `owner_ops:` block in `connectors/<id>/manifest.yaml` (see connectors/loader.go). An
+// owner-**uploaded** connector is spec + binding, exposing agent tools, with no mechanism to
+// declare an owner-op — so there's nothing here it could be missing.
 func (s *Service) DeclaredOwnerOpIDs() []string {
 	out := make([]string, 0, len(s.d.Manifests))
 	for i := range s.d.Manifests {
@@ -67,11 +72,14 @@ func (s *Service) DeclaredOwnerOpIDs() []string {
 	return out
 }
 
-// OwnerOpsOf —— 某个内置连接器**自己声明**的 owner 操作。未知 id / 没声明 → 空。
+// OwnerOpsOf — the owner operations one built-in connector **declares for itself**. Unknown id
+// / nothing declared → empty.
 //
-// 跟 DeclaredOwnerOpIDs 的分工:那一份是扁平清单,给挂路由用(挂路由不关心谁声明的);
-// 这一份按连接器分,给**面**用 —— 一个动作要渲在声明它的那张卡上,否则面就得自己知道
-// "mail 卡上有个发信按钮",通用层里又冒出品类名,正是 owner_op.go 要拆掉的那件事。
+// Division of labor with DeclaredOwnerOpIDs: that one is a flat list, used for wiring routes
+// (route wiring doesn't care who declared what); this one is grouped by connector, used by the
+// **surface** — an action needs to render on the card declaring it, otherwise the surface would
+// have to know "the mail card has a send button" by itself, and a category name leaks back into
+// the generic layer — exactly what owner_op.go exists to prevent.
 func (s *Service) OwnerOpsOf(id string) []OwnerOp {
 	m := s.Manifest(id)
 	if m == nil {
@@ -80,9 +88,11 @@ func (s *Service) OwnerOpsOf(id string) []OwnerOp {
 	return m.OwnerOps
 }
 
-// Catalog —— 所有内置连接器（拉起时外置装配进来的 manifest），供 admin UI 渲染可连接的内置卡。
-// 各卡状态/凭据表单各自再取 /{id}/{status,credential-form}。不进 List（List 只列 owner 已建；内置
-// 混进去会被 reuse-by-category 的调用方误抓）。复用 Connection，不新增公开类型。
+// Catalog — every built-in connector (manifests assembled externally at boot), for the admin UI
+// to render connectable built-in cards. Each card's status/credential form is fetched
+// separately via /{id}/{status,credential-form}. Not part of List (List lists only what the
+// owner already created; mixing built-ins in would be misgrabbed by reuse-by-category callers).
+// Reuses Connection, no new public type added.
 func (s *Service) Catalog() []Connection {
 	out := make([]Connection, 0, len(s.d.Manifests))
 	for i := range s.d.Manifests {
@@ -94,34 +104,39 @@ func (s *Service) Catalog() []Connection {
 	return out
 }
 
-// ConnectResult —— Connect 的结果：oauth → AuthURL+State；非 dance → Connected=true。
+// ConnectResult — the result of Connect: oauth → AuthURL+State; non-dance → Connected=true.
 type ConnectResult struct {
-	AuthURL   string
-	State     string
-	Error     string // 连接测试失败的 owner 友好理由（protocol verify 失败：connect/tls/auth）
+	AuthURL string
+	State   string
+	// Error — owner-friendly reason for a failed connection test (protocol verify failure:
+	// connect/tls/auth).
+	Error     string
 	Connected bool
 }
 
-// Connect —— oauth2 → 起 dance（建同意页 URL + state 存 Redis）；非 dance → 标 connected。
+// Connect — oauth2 → starts the dance (builds the consent-page URL + stores state in Redis);
+// non-dance → marks connected.
 func (s *Service) Connect(ctx context.Context, ownerID, id string) (ConnectResult, error) {
 	m, merr := s.manifestFor(ctx, ownerID, id)
 	if merr != nil {
 		return ConnectResult{}, merr
 	}
-	if m.Kind == "protocol" { // protocol（caldav/smtp，无 spec）：connect = 连接测试，无 dance
+	if m.Kind == "protocol" { // caldav/smtp, no spec: connect = connection test, no dance
 		return s.verifyAndConnect(ctx, ownerID, id)
 	}
 	return s.connectOpenAPI(ctx, ownerID, id, m)
 }
 
-// Callback —— 校验 state → code 换 token → 存。返回该 owner（state 携带）。
+// Callback — validates state → exchanges code for a token → stores it. Returns that owner
+// (carried in state).
 func (s *Service) Callback(ctx context.Context, id, code, state string) error {
 	dance, cerr := s.consumeState(ctx, state, id)
 	if cerr != nil {
-		return fmt.Errorf("oauth callback: %w", cerr) // Redis 故障 → 上报，不掩盖成「坏 state」
+		// a Redis fault → reported, never masked as "bad state"
+		return fmt.Errorf("oauth callback: %w", cerr)
 	}
 	if dance.OwnerID == "" {
-		return ErrInvalidOAuthState // state 空/过期/不匹配（预期态）
+		return ErrInvalidOAuthState // state empty/expired/mismatched (expected state)
 	}
 	if err := s.exchangeAndStore(ctx, &dance, code); err != nil {
 		return err
@@ -129,7 +144,7 @@ func (s *Service) Callback(ctx context.Context, id, code, state string) error {
 	return s.ensureActive(ctx, dance.OwnerID, id)
 }
 
-// Activate —— 占品类槽。Disconnect —— soft disconnect。Status / List —— 读。
+// Activate — claims the category slot. Disconnect — soft disconnect. Status / List — reads.
 func (s *Service) Activate(ctx context.Context, ownerID, id string) error {
 	m, merr := s.manifestFor(ctx, ownerID, id)
 	if merr != nil {
@@ -141,8 +156,10 @@ func (s *Service) Activate(ctx context.Context, ownerID, id string) error {
 	return nil
 }
 
-// Disconnect —— soft disconnect（擦 token + connected + active，留凭据）。断的若是 active 且同品类
-// 还有 connected 候选 → 自动 promote 成 active（§1 rule#6 回退，不复闸）；无候选 → 槽空 → 复闸。
+// Disconnect — soft disconnect (wipes token + connected + active, keeps credentials). If what
+// was disconnected was active and the same category has another connected candidate →
+// auto-promote it to active (§1 rule#6 fallback, no re-gating); no candidate → slot goes empty
+// → re-gated.
 func (s *Service) Disconnect(ctx context.Context, ownerID, id string) error {
 	m, merr := s.manifestFor(ctx, ownerID, id)
 	if merr != nil {
@@ -154,7 +171,7 @@ func (s *Service) Disconnect(ctx context.Context, ownerID, id string) error {
 	return s.promoteFallback(ctx, ownerID, m.Category)
 }
 
-// List —— owner 已配的连接器。
+// List — the connectors an owner has configured.
 func (s *Service) List(ctx context.Context, ownerID string,
 ) ([]Connection, error) {
 	conns, err := s.d.Repo.ListByOwner(ctx, ownerID)
@@ -164,7 +181,7 @@ func (s *Service) List(ctx context.Context, ownerID string,
 	return conns, nil
 }
 
-// Status —— 单连接器状态。
+// Status — one connector's status.
 func (s *Service) Status(
 	ctx context.Context, ownerID, id string,
 ) (Connection, error) {
@@ -176,8 +193,8 @@ func (s *Service) Status(
 	return conn, nil
 }
 
-// manifestFor —— 解析一个 id 的 manifest：内置（embed）优先，否则上传连接器（DB 存档的
-// spec/binding）。都没有 → ErrNotFound。
+// manifestFor — resolve the manifest for an id: built-in (embedded) takes priority, otherwise
+// an uploaded connector (spec/binding archived in the DB). Neither → ErrNotFound.
 func (s *Service) manifestFor(
 	ctx context.Context, ownerID, id string,
 ) (*Manifest, error) {
@@ -188,7 +205,8 @@ func (s *Service) manifestFor(
 	if err != nil {
 		return nil, fmt.Errorf("load uploaded manifest: %w", err)
 	}
-	// 空 spec 且非 protocol = 不是 owner 自建连接器（无行 / 内置）。protocol 连接器 spec 本就空。
+	// Empty spec and not protocol = not an owner-created connector (no row / built-in). A
+	// protocol connector's spec is empty by nature.
 	if len(um.Spec) == 0 && um.Kind != "protocol" {
 		return nil, ErrNotFound
 	}
@@ -198,9 +216,12 @@ func (s *Service) manifestFor(
 	}, nil
 }
 
-// verifyAndConnect —— 非 dance：先跑连接测试（protocol 连接器有；其它 no-op）→ 通过才标 connected。
-// connectOpenAPI —— openapi 连接器的 connect：oauth2 → dance；非 oauth（apikey/bearer/basic）→ 存即用；
-// 声明了 oauth2 却配坏（缺 authorizationCode flow 等）→ 暴露错，不静默走非-dance（否则 markConnected 却无 token）。
+// verifyAndConnect — non-dance: run a connection test first (protocol connectors have one; a
+// no-op for others) → mark connected only after it passes.
+// connectOpenAPI — connect for openapi connectors: oauth2 → dance; non-oauth
+// (apikey/bearer/basic) → save-and-use; declared oauth2 but misconfigured (missing
+// authorizationCode flow, etc.) → surface the error, never silently fall through to the
+// non-dance path (otherwise markConnected would run with no token).
 func (s *Service) connectOpenAPI(
 	ctx context.Context, ownerID, id string, m *Manifest,
 ) (ConnectResult, error) {
@@ -224,11 +245,12 @@ func (s *Service) verifyAndConnect(ctx context.Context, ownerID, id string) (Con
 	return s.markConnected(ctx, ownerID, id)
 }
 
-// noCredentialsReason —— 还没存过凭据就点 Connect 时给 owner 的理由。说的是下一步该干什么,
-// 不是内部为什么(没有那一行)。
+// noCredentialsReason — the reason shown to the owner when Connect is clicked before any
+// credentials were ever saved. States what to do next, not the internal why (there's no row).
 const noCredentialsReason = "fill in this connector's credentials above, then connect"
 
-// verifyReason —— 连接测试失败的 owner 友好理由（分类 connect/tls/auth；非已知 → 通用）。
+// verifyReason — an owner-friendly reason for a failed connection test (categorized
+// connect/tls/auth; unrecognized → generic).
 func verifyReason(err error) string {
 	if r := FriendlyVerifyError(err); r != "" {
 		return r
@@ -236,12 +258,15 @@ func verifyReason(err error) string {
 	return "the connection test failed — check the host, port, and credentials"
 }
 
-// markConnected —— 标 connected。**写不下就说写不下。**
+// markConnected — mark connected. **If the write didn't land, say so.**
 //
-// 底下那条 UPDATE 只更新已有的行,而行是"存凭据"那一步建的。owner 一个字都没填就点 Connect
-// 时没有行 —— 以前这里照样回 connected:true,卡片翻绿、库里没有,刷新一下"自己就断了"。
-// 现在 repo 把 0 行报成 ErrNoConnection,这里翻成 owner 看得懂的下一步(去填表单),
-// 跟连接测试失败同一个形状:200 + connected:false + 一句人话。
+// The UPDATE below only updates an existing row, and the row is created by the "save
+// credentials" step. When the owner clicks Connect having filled in nothing, there's no row —
+// this used to return connected:true anyway, the card would flip green while the DB had
+// nothing, and a refresh would show it "disconnected itself". Now the repo reports 0 rows as
+// ErrNoConnection, and this translates that into a next step the owner can understand (go fill
+// in the form), the same shape as a failed connection test: 200 + connected:false + one plain
+// sentence.
 func (s *Service) markConnected(ctx context.Context, ownerID, id string) (ConnectResult, error) {
 	if err := s.d.Repo.MarkConnected(ctx, ownerID, id); err != nil {
 		if errors.Is(err, ErrNoConnection) {
@@ -255,21 +280,23 @@ func (s *Service) markConnected(ctx context.Context, ownerID, id string) (Connec
 	return ConnectResult{Connected: true}, nil
 }
 
-// ensureActive —— 该品类还没有 active 连接器 → 把刚连上的这个占了槽（首连即用；已有 active
-// 则不抢，切换走显式 activate）。§9：同品类同时只一个 active。
+// ensureActive — this category has no active connector yet → the one that just connected
+// claims the slot (first connection wins; if there's already an active one, it isn't grabbed —
+// switching goes through explicit activate). §9: only one active connector per category at a
+// time.
 func (s *Service) ensureActive(ctx context.Context, ownerID, id string) error {
 	category, err := s.activateCategory(ctx, ownerID, id)
 	if err != nil {
 		return err
 	}
 	if category == "" {
-		return nil // 定不出品类（无 manifest）→ 静默跳过自动激活
+		return nil // category couldn't be determined (no manifest) → silently skip auto-activate
 	}
 	return s.claimSlotIfFree(ctx, ownerID, id, category)
 }
 
-// activateCategory —— 解出该连接器的品类供自动激活。空品类 = 没有 manifest（ErrNotFound），跳过信号；
-// 真错（DB 等）→ 上报。
+// activateCategory — resolve this connector's category for auto-activation. An empty category =
+// no manifest (ErrNotFound), a skip signal; a real error (DB, etc.) → reported.
 func (s *Service) activateCategory(ctx context.Context, ownerID, id string) (string, error) {
 	m, merr := s.manifestFor(ctx, ownerID, id)
 	switch {
@@ -282,7 +309,8 @@ func (s *Service) activateCategory(ctx context.Context, ownerID, id string) (str
 	}
 }
 
-// claimSlotIfFree —— 该品类槽还没有 active 连接器 → 把这个占了（首连即用）；已有则不抢。
+// claimSlotIfFree — this category's slot has no active connector yet → claim it (first
+// connection wins); if there's already one, it isn't grabbed.
 func (s *Service) claimSlotIfFree(ctx context.Context, ownerID, id, category string) error {
 	conns, err := s.d.Repo.ListByCategory(ctx, ownerID, category)
 	if err != nil {
@@ -306,4 +334,4 @@ func hasActive(conns []Connection) bool {
 	return false
 }
 
-// initDance / openDance 在 svc_oauth.go —— dance 的内部件都在那一边。
+// initDance / openDance are in svc_oauth.go — the dance's internal pieces all live there.

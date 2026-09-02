@@ -1,12 +1,15 @@
-// use-tokens —— /admin/api-mcp 的状态机。
+// use-tokens —— the /admin/api-mcp state machine.
 //
-// Phase C 后端已切到 Ed25519 keypair (POST/GET/DELETE /api/admin/keypairs)。
-// 本 hook 内部 fetch /keypairs，按老 TokenItem 形态映射给上游 UI 用，让
-// ApiSection / TokenRow / NewlyCreatedBanner 等组件不动 (C-2 重做 UI 时
-// 再换语义)。"plaintext" 字段承载完整 PEM (多行)，UI 当 opaque 文本展示。
+// The Phase C backend has switched to Ed25519 keypairs
+// (POST/GET/DELETE /api/admin/keypairs). This hook fetches /keypairs
+// internally and maps it into the old TokenItem shape for the upstream UI, so
+// components like ApiSection / TokenRow / NewlyCreatedBanner don't need to
+// change (the semantics get swapped out when C-2 redoes the UI). The
+// "plaintext" field carries the full PEM (multi-line); the UI displays it as opaque text.
 //
-// zustand 重构：list cache 走 tokensStore (createResourceStore)；justCreated
-// 是一次性 banner，放独立 store 字段（不要每次 mount 重 mount banner）。
+// zustand refactor: the list cache goes through tokensStore
+// (createResourceStore); justCreated is a one-time banner, kept in its own
+// store field (so the banner doesn't remount on every mount).
 
 import { useEffect } from 'react';
 
@@ -33,7 +36,7 @@ const CreatedKeypairSchema = z.object({
 });
 type CreatedKeypair = z.infer<typeof CreatedKeypairSchema>;
 
-// TokenItem —— UI 形态。id ← key_id；name ← label；其他字段同 keypair。
+// TokenItem —— the UI shape. id ← key_id; name ← label; other fields match keypair.
 export interface TokenItem {
   id: string;
   name: string;
@@ -77,8 +80,8 @@ function toTokenItemFromList(k: KeypairListItem): TokenItem {
   };
 }
 
-// justCreated 是 UI 临时状态（一次性 banner），不属 resource shape。
-// 用 module-level state + tiny subscription 跟 zustand 风格保持一致。
+// justCreated is transient UI state (a one-time banner), not part of the resource shape.
+// Uses module-level state + a tiny subscription to stay consistent with the zustand style.
 import { create } from 'zustand';
 
 const justCreatedStore = create<TokensExtra & { set: (c: CreatedToken | null) => void }>(
@@ -101,7 +104,8 @@ export function useTokens(): TokensHook {
   };
 }
 
-// 抛错（不再吞）：成功路径 reveal 私钥；失败让 caller report 且保留表单（别丢 owner 刚填的 label）。
+// Throws (no longer swallowed): the success path reveals the private key; on
+// failure the caller reports it and the form is kept (don't lose the label the owner just typed).
 async function createToken(name: string): Promise<void> {
   const kp = await adminAPI.post('/keypairs', { label: name }, CreatedKeypairSchema);
   const created = toCreatedToken(kp);
@@ -110,7 +114,7 @@ async function createToken(name: string): Promise<void> {
 }
 
 async function deleteToken(id: string): Promise<void> {
-  // id 字段映射的是 keypair.key_id，DELETE 走 key_id path。抛错 → caller 走 useAction 收尾。
+  // The id field maps to keypair.key_id; DELETE uses the key_id path. Throws → the caller finishes up via useAction.
   await adminAPI.deleteVoid(`/keypairs/${id}`);
   tokensStore.getState().mutate((prev) => (prev ?? []).filter((t) => t.id !== id));
 }
@@ -123,9 +127,9 @@ function toListItem(c: CreatedToken): TokenItem {
   return { id: c.id, name: c.name, created_at: c.created_at, last_used_at: null };
 }
 
-// MCP client snippet helpers —— Phase C 切 keypair。客户端不直接 embed
-// 私钥；走 creds JSON 文件 + STANDMEET_CREDS_PATH env var (跟 @youteacher
-// /mcp 同形态)。
+// MCP client snippet helpers —— Phase C switches to keypairs. The client
+// doesn't embed the private key directly; it goes through a creds JSON file
+// + the STANDMEET_CREDS_PATH env var (same shape as @youteacher/mcp).
 export interface MCPClient {
   id: 'claude-desktop' | 'cursor' | 'creds-template';
   label: string;

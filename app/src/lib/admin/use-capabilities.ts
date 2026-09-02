@@ -1,9 +1,9 @@
-// use-capabilities —— Phase H 管理面「能力」数据层。
+// use-capabilities —— Phase H data layer for the admin panel's "capabilities".
 //
-// 一个 fetched resource（GET /api/admin/capabilities，列全部 capability +
-// connector + skill）+ 两个 mutation（PATCH owner-enable 开关、DELETE 仅
-// owner-origin）。沿用别的 connector hook 的 createResourceStore + facade 形态，
-// mutation 后 refresh 拿最新。
+// One fetched resource (GET /api/admin/capabilities, lists every capability +
+// connector + skill) + two mutations (PATCH the owner-enable toggle, DELETE
+// for owner-origin only). Follows the createResourceStore + facade shape used
+// by the other connector hooks, refreshing after a mutation to get the latest.
 
 'use client';
 
@@ -22,7 +22,7 @@ const CapabilityDependencySchema = z.object({
 
 const CapabilityRowSchema = z.object({
   id: z.string(),
-  // title —— 人类可读显示名（#109/#110 dock 按钮下拉 label）。能力没声明则缺省。
+  // title —— human-readable display name (the #109/#110 dock button dropdown label). Absent if the capability didn't declare one.
   title: z.string().optional(),
   origin: z.enum(['builtin', 'managed', 'owner']),
   kind: z.enum(['capability', 'connector', 'skill']),
@@ -73,7 +73,7 @@ export function useCapabilities(): CapabilitiesHook {
 
 // ─── view helpers ──────────────────────────────────────────────
 
-// dependencyHint —— connector 依赖未满足时的人话提示（calendar.book 需连日历）。
+// dependencyHint —— plain-language hint when a connector dependency isn't met (calendar.book needs a calendar connected).
 export function dependencyHint(row: CapabilityRow): string | null {
   if (!row.dependency || row.dependency.connected) return null;
   return `needs ${row.dependency.name} — not connected`;

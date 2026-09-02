@@ -1,3 +1,3 @@
-// Package entity —— marketplace 域的值对象 + 域错误（Skill / MCPServerConfig / MarketSkill …）。
-// 对外经 internal/marketplace/facade 暴露。
+// Package entity —— value objects + domain errors for the marketplace domain (Skill /
+// MCPServerConfig / MarketSkill …). Exposed externally via internal/marketplace/facade.
 package entity

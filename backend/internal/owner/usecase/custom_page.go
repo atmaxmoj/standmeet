@@ -1,12 +1,7 @@
-// custom_page.go —— custom_pages 全套 usecase。
-//
-// 流程：
-//   1. CreatePage(slug)
-//   2. WriteFile(page, path, content) 累计 source_files
-//   3. Build(page) 落一条 pending build，builder 服务消费
-//   4. GetBuild(buildID) 让 owner / MCP poll 状态
-//   5. PromoteToStaging / PromoteToLive
-//   6. Rollback / Delete
+// custom_page.go — the full custom_pages usecase set.
+// Flow: CreatePage(slug) -> WriteFile accumulates source_files -> Build persists a pending
+// build for the builder service -> GetBuild lets owner/MCP poll status -> PromoteToStaging /
+// PromoteToLive -> Rollback / Delete.
 
 package usecase
 
@@ -22,23 +17,23 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// CustomPageDeps —— custom page usecase 依赖。
+// CustomPageDeps — custom page usecase dependencies.
 type CustomPageDeps struct {
 	Pages  *repo.CustomPageRepo
 	Builds *repo.CustomBuildRepo
-	// PreviewSigningKey —— 签面板那块预览的地址（HMAC 派生，不落表）。
-	// 空 = 不给预览地址：预览打不开，但列表本身照常。
+	// PreviewSigningKey — signs the admin preview URL (HMAC-derived, never persisted). Empty:
+	// no preview URL, but the list still works.
 	PreviewSigningKey string
 }
 
-// CreatePageInput —— 创建一个 custom page 入参。
+// CreatePageInput — input to create a custom page.
 type CreatePageInput struct {
 	OwnerID string
 	Slug    string
 	Title   string
 }
 
-// CreatePage —— slug 必须 a-z0-9-，长度 ≤ 64。
+// CreatePage — slug must be a-z0-9-, length <= 64.
 func CreatePage(
 	ctx context.Context, deps CustomPageDeps, in *CreatePageInput,
 ) (entity.CustomPage, error) {
@@ -52,10 +47,10 @@ func CreatePage(
 	return page, nil
 }
 
-// SetPageByoai —— 这一页在**无人出示 grant 时**给不给读者用自己的 key。
-//
-// 只在那种情况下生效：带 code 进来的读者由那张码决定一切，这个设置随之作废（I-4）。
-// 这条规矩不写在这儿 —— 它写在装配那一侧，因为「谁说了算」是装配的事；这里只存 owner 的意思。
+// SetPageByoai — whether this page lets a reader use their own key when no grant is presented
+// at all. Only takes effect then: a reader arriving with a code has the code decide everything,
+// overriding this (I-4) — that rule lives on the composition side (a wiring concern), not here.
+// This function only stores the owner's intent.
 func SetPageByoai(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug string, allow bool,
 ) (entity.CustomPage, error) {
@@ -66,7 +61,7 @@ func SetPageByoai(
 	return page, nil
 }
 
-// WriteFileInput —— 累计写一个文件到 page 的下一个 draft。
+// WriteFileInput — accumulate-write one file into the page's next draft.
 type WriteFileInput struct {
 	OwnerID string
 	Slug    string
@@ -83,8 +78,8 @@ const (
 	maxErrorMessage = 2000
 )
 
-// WriteFile —— path 必须不含 '..' / 绝对路径；内容 ≤ 64KB；总 ≤ 512KB。
-// 合并新 path/content 到上一个 build 的 source_files，落一条新 pending build。
+// WriteFile — path must not contain '..' / be absolute; content <= 64KB; total <= 512KB. Merges
+// the new path/content into the previous build's source_files and persists a new pending build.
 func WriteFile(
 	ctx context.Context, deps CustomPageDeps, in *WriteFileInput,
 ) (entity.CustomPageBuild, error) {
@@ -106,7 +101,7 @@ func WriteFile(
 	return build, nil
 }
 
-// mergedDraft —— 加载上一次 source_files、merge 这次写入、校验 bundle 大小。
+// mergedDraft — loads the previous source_files, merges in this write, validates bundle size.
 func mergedDraft(
 	ctx context.Context, deps CustomPageDeps,
 	pageID, path, content string,
@@ -122,9 +117,9 @@ func mergedDraft(
 	return files, nil
 }
 
-// Build —— 显式触发一次 build：从 latest pending 落实变成 builder 可消费。
-// 当前实现：直接返回 latest pending build（WriteFile 已经写了一条 pending）。
-// 没有任何 pending 时返 ErrCustomPageBuildNotFound。
+// Build — explicitly triggers a build: turns the latest pending build into something the
+// builder can consume. Current implementation just returns the latest pending build (WriteFile
+// already wrote one). Returns ErrCustomPageBuildNotFound when there's no pending build.
 func Build(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug string,
 ) (entity.CustomPageBuild, error) {
@@ -139,7 +134,7 @@ func Build(
 	return build, nil
 }
 
-// GetBuild —— MCP poll 状态用。
+// GetBuild — used by MCP to poll status.
 func GetBuild(
 	ctx context.Context, deps CustomPageDeps, buildID string,
 ) (entity.CustomPageBuild, error) {
@@ -150,8 +145,8 @@ func GetBuild(
 	return build, nil
 }
 
-// PromoteToStaging —— 把 build 设为 page 的 staging_build_id。
-// build 必须属于该 page + status 必须 built。
+// PromoteToStaging — sets build as the page's staging_build_id.
+// The build must belong to this page + status must be built.
 func PromoteToStaging(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug, buildID string,
 ) (entity.CustomPage, error) {
@@ -166,7 +161,7 @@ func PromoteToStaging(
 	return updated, nil
 }
 
-// PromoteToLive —— 同上 + 落 previous，让 Rollback 能用。
+// PromoteToLive — same as above + records previous, so Rollback can use it.
 func PromoteToLive(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug, buildID string,
 ) (entity.CustomPage, error) {
@@ -181,7 +176,7 @@ func PromoteToLive(
 	return updated, nil
 }
 
-// Rollback —— previous_live_build_id 重新提到 live。
+// Rollback — promotes previous_live_build_id back to live.
 func Rollback(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug string,
 ) (entity.CustomPage, error) {
@@ -196,7 +191,7 @@ func Rollback(
 	return updated, nil
 }
 
-// DeletePage —— 软删（保留 build artifact 给 audit）。
+// DeletePage — soft delete (keeps the build artifact for audit).
 func DeletePage(ctx context.Context, deps CustomPageDeps, ownerID, slug string) error {
 	page, lerr := lookupPage(ctx, deps, ownerID, slug)
 	if lerr != nil {
@@ -208,7 +203,7 @@ func DeletePage(ctx context.Context, deps CustomPageDeps, ownerID, slug string) 
 	return nil
 }
 
-// ListPages —— admin 显示所有 active page。
+// ListPages — for admin to display all active pages.
 func ListPages(
 	ctx context.Context, deps CustomPageDeps, ownerID string,
 ) ([]entity.CustomPage, error) {
@@ -231,8 +226,8 @@ func lookupPage(
 	return page, nil
 }
 
-// loadDraftFiles —— 拿 latest build 的 source_files；如果 latest 已经 built/failed
-// 就基于它做 fork（克隆 files）。没 build 时返 empty map。
+// loadDraftFiles — fetches source_files from the latest build; if the latest is already
+// built/failed, forks off of it (clones files). Returns an empty map when there's no build.
 func loadDraftFiles(
 	ctx context.Context, deps CustomPageDeps, pageID string,
 ) (map[string]string, error) {

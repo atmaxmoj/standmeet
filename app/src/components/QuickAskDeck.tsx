@@ -1,11 +1,14 @@
-// QuickAskDeck —— design 源 app.js QuickAskDeck。
-// 12 curated questions 的 3-col grid，按 section 分组，click → fire onAsk。
-// 已 asked 的条目 line-through 标灰。private 标签 accent 提醒需要 code。
+// QuickAskDeck —— ported from the design source's app.js QuickAskDeck.
+// A 3-col grid of 12 curated questions, grouped by section, click → fires
+// onAsk. An already-asked item is shown line-through and greyed out. A
+// private label in accent color signals that a code is needed.
 //
-// 当前 backend 没有 "sections + questions" 专用 schema —— 用 hero_examples
-// 作为 flat list 渲染成单列。design 的 3-col grouped 需要 owner 配置
-// sections（work & trajectory / thinking / fit & availability）—— 暂用
-// owner examples flat render，UI 结构完整。
+// The backend currently has no dedicated "sections + questions" schema — this
+// renders hero_examples as a flat list in a single column instead. The
+// design's 3-col grouped layout needs the owner to configure sections
+// (work & trajectory / thinking / fit & availability) — for now it falls
+// back to a flat render of the owner's examples, with the UI structure fully
+// in place.
 
 'use client';
 
@@ -17,7 +20,7 @@ interface Props {
   onAsk: (q: string) => void;
 }
 
-// 6+ examples → render QuickAskDeck (below that, Hero's inline Examples 已够)
+// 6+ examples → render QuickAskDeck (below that, Hero's inline Examples is enough)
 const MIN_FOR_DECK = 6;
 
 export function QuickAskDeck({ examples, askedSet, onAsk }: Props) {

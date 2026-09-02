@@ -8,7 +8,7 @@
 // The system prompt is the experiment injection point: leave SystemPromptOverride
 // empty for the faithful composed prompt (ComposeBasePersona + capability fragments),
 // or set it to try a variant. The core runs whatever prompt you hand it — that's the
-// "试出好 prompt → 回填 prod" mechanism, parallelizable across processes.
+// "trial a good prompt → backfill into prod" mechanism, parallelizable across processes.
 
 package agentcore
 
@@ -143,7 +143,8 @@ func composePrompt(
 // buildSnapshot —— RoleSnapshot framing the run: PromptBody is the owner persona;
 // CorpusURIs are the granted (public) entry URIs (turn retrieval on + gate ACL); a
 // granted skill adds its id + prompt; a non-empty mcpURL adds its server id.
-// snapshotInput —— buildSnapshot 的入参(打包守 argument-limit)。
+// snapshotInput — buildSnapshot's argument struct (packed to stay under the
+// argument-limit).
 type snapshotInput struct {
 	skill      *VisitorSkillSpec
 	roleBody   string
@@ -158,7 +159,8 @@ func buildSnapshot(in *snapshotInput) access.RoleSnapshot {
 		RoleName:   "eval",
 		PromptBody: in.roleBody,
 		CorpusURIs: in.corpusURIs,
-		// AllowedTools —— role 授出去的能力 id。acl=role_granted 的插件靠它暴露。
+		// AllowedTools — the capability ids the role has granted. acl=role_granted
+		// plugins are exposed through this.
 		AllowedTools: in.granted,
 	}
 	if in.skill != nil {

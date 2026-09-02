@@ -1,11 +1,15 @@
-// codes_acl.go —— codes 资源的 ACL 面:per-code 的拒绝清单 + 引导目的地。
+// codes_acl.go — the ACL facet of the codes resource: the per-code denylist + steering
+// destinations.
 //
-// 拒绝有**三种**(capability / skill / corpus URI),它们是同一件事的三个维度:
-// 这张码在 role 给的范围上再收窄一层。规则在 usecase/code_acl.go,这里只声明和转交。
+// There are **three kinds** of denial (capability / skill / corpus URI) — three dimensions of
+// the same thing: this code narrowing the scope the role gave it one layer further. The rules
+// live in usecase/code_acl.go; this file only declares and forwards.
 //
-// 归一化前它们被拆在两处:MCP 的 codes.list_denials 只给前两种,corpus 那一种由一条单独的
-// admin 路由伺候,而且那条路由在台账里没有一行。于是 owner 从 Claude Code 看一张码的 ACL,
-// 看到的是**不完整的**那份 —— 少的正好是"这张码看不到哪些语料"。现在三种在同一个载荷里。
+// Before normalization these were split across two places: MCP's codes.list_denials gave only
+// the first two kinds, while the corpus kind was served by a separate admin route that had no
+// row in the ledger. So when the owner looked at a code's ACL from Claude Code, they saw an
+// **incomplete** picture — missing exactly "which corpus this code can't see". Now all three
+// kinds live in the same payload.
 
 package ops
 
@@ -110,14 +114,14 @@ var (
 	}`)
 )
 
-// codeDenialsOut / codeWaypointsOut —— 出站载荷(每个面同一份)。
+// codeDenialsOut / codeWaypointsOut — outbound payloads (identical on every facade).
 type codeDenialsOut struct {
 	CapabilityIDs []string `json:"capability_ids"`
 	SkillIDs      []string `json:"skill_ids"`
 	CorpusURIs    []string `json:"corpus_uris"`
 	CorpusGranted []string `json:"corpus_granted"`
-	// CorpusPublishedOnly —— 继承的 role 读的是「已发布的那些」；它没有正列表，
-	// 所以 corpus_granted 为空**不等于**什么都读不到。
+	// CorpusPublishedOnly — the inherited role reads "whatever is published"; it has no
+	// positive list, so an empty corpus_granted **does not mean** nothing is readable.
 	CorpusPublishedOnly bool `json:"corpus_published_only"`
 }
 
@@ -184,7 +188,8 @@ func parseCodeDenial(raw json.RawMessage) (usecase.CodeDenialRef, error) {
 		[2]string{"target_id", in.TargetID})
 }
 
-// codeDenialWrite —— 加和删只差调哪个用例;入参、回包形状同一份,所以往下传的是**要做的那件事**。
+// codeDenialWrite — add and remove differ only in which use case gets called; the input and
+// response shapes are identical, so what gets passed down is **the action to perform**.
 type codeDenialWrite func(
 	ctx context.Context, d usecase.CodeACLDeps, in *usecase.CodeDenialRef,
 ) (usecase.CodeDenials, error)
@@ -209,8 +214,8 @@ type codeCorpusArgs struct {
 	URIs   []string `json:"uris"`
 }
 
-// setCodeCorpusDenials —— 整份替换。语料收回是 owner 在一个文本框里编辑的一张清单,
-// 逐条加/删表达不了"存这一版"。
+// setCodeCorpusDenials — a full replace. Corpus takeback is a list the owner edits in one
+// text box; adding/removing one item at a time can't express "save this version".
 func setCodeCorpusDenials(deps usecase.CodeACLDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var in codeCorpusArgs

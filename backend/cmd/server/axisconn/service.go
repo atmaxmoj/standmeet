@@ -1,8 +1,12 @@
-// service.go —— 连接器编排服务的构造。admin 面板和 connectors 资源共用同一个。
+// service.go —— construction of the connector orchestration service. The admin
+// panel and the connectors resource share the same one.
 //
-// 它曾经放在组装根的"适配器"那一堆里,因为 ownercore 不能 import 连接器服务,于是每个方法
-// 都要把参数和结果在两套等价类型之间搬一遍。connectors 归了连接器轴自己声明之后,那层翻译
-// 整个消失 —— 声明和实现在同一侧,没有第二套类型。这个构造也就回到了轴自己这儿。
+// It used to sit in the assembly root's pile of "adapters", because ownercore
+// couldn't import the connector service, so every method had to shuttle params and
+// results between two equivalent type sets. Once connectors were declared by the
+// connector axis itself, that translation layer disappeared entirely — the
+// declaration and the implementation are on the same side, so there's no second type
+// set. This construction moved back to the axis itself along with it.
 
 package axisconn
 
@@ -11,7 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
-// NewService —— 建连接器编排服务。
+// NewService —— builds the connector orchestration service.
 func NewService(d *deps.Runtime) *connector.Service {
 	return connector.New(&connector.Deps{
 		Repo: d.ConnectorRepo, Owners: d.OwnerRepo, Redis: d.RDB,

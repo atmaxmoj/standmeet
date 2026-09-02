@@ -2,7 +2,7 @@ package access
 
 import "github.com/atmaxmoj/standmeet/internal/access/usecase"
 
-// 类型（实现:usecase）.
+// Types (impl: usecase).
 type (
 	APIKeyRoleGetter         = usecase.APIKeyRoleGetter
 	CodeACLDeps              = usecase.CodeACLDeps
@@ -25,7 +25,7 @@ type (
 	EmbedNonceStore          = usecase.NonceStore
 )
 
-// 构造/函数（实现:usecase）.
+// Constructors/functions (impl: usecase).
 var (
 	CountActiveCodesForRole   = usecase.CountActiveCodesForRole
 	CreateRole                = usecase.CreateRole
@@ -46,14 +46,14 @@ var (
 	VerifyEmbedToken          = usecase.VerifyEmbedToken
 )
 
-// 常量（实现:usecase）.
+// Constants (impl: usecase).
 const (
 	RefMCPServer = usecase.RefMCPServer
 	RefPrompt    = usecase.RefPrompt
 	RefSkill     = usecase.RefSkill
 )
 
-// 错误/变量（实现:usecase）.
+// Errors/vars (impl: usecase).
 var (
 	ErrAPIKeyLabelRequired    = usecase.ErrAPIKeyLabelRequired
 	ErrAPIKeyRoleRequired     = usecase.ErrAPIKeyRoleRequired

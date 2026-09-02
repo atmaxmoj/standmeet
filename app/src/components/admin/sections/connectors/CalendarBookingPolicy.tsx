@@ -1,10 +1,11 @@
-// CalendarBookingPolicy —— GCal 卡下半截：owner 定「什么时候可以被约」。
-// working hours / min lead / buffer / timezone / weekdays，每一格改完即存。
+// CalendarBookingPolicy — bottom half of the GCal card: owner sets "when can I be booked".
+// working hours / min lead / buffer / timezone / weekdays, each field saves on change.
 //
-// 从 `CalendarConnectorPanel` 里搬出来：那张卡上半截讲的是**连没连上**（凭据、授权、断开），
-// 这半截讲的是**连上之后按什么规矩排**，两件事只是恰好画在同一张卡上。
+// Split out of `CalendarConnectorPanel`: that card's top half is about **whether it's
+// connected** (credentials, authorize, disconnect); this half is about **what rules apply
+// once it's connected** — two different things that just happen to share one card.
 //
-// 视觉沿用卡里的语言（mono kicker + 一列字段），不另起风格。
+// Visually it keeps the card's language (mono kicker + a column of fields), no new style.
 
 'use client';
 
@@ -86,22 +87,27 @@ function PolicyLeadBufferRow({
   );
 }
 
-// positiveIntOr —— min_lead_days 只接受正整数 (≥1)；空 / 0 / 负 / 非数回退到
-// fallback。恒正保证 booking 永远落在未来，杜绝过去时段。
+// positiveIntOr — min_lead_days only accepts a positive integer (>=1); empty / 0 / negative /
+// non-numeric falls back to `fallback`. Staying positive keeps bookings in the future and
+// rules out past slots.
 function positiveIntOr(v: string, fallback: number): number {
   const n = parseInt(v, 10);
   return Number.isInteger(n) && n >= 1 ? n : fallback;
 }
 
-// PolicyTimezoneRow —— 这个控件显示的**必须**是库里存着的那个值。
+// PolicyTimezoneRow — this control **must** display the value actually stored in the DB.
 //
-// 上一版在没存过时显示浏览器自己的时区（UX-11：躲开 option[0] 那个 "-11:00 American Samoa"）。
-// 躲开是对的，但代价没人接：屏幕上写着 America/Toronto，库里是空串，而 `book.go` 把空串读成
-// **UTC** —— owner 设的 09:00–18:00 在 UTC 上判，访客拿到的第一个时段是多伦多凌晨 05:18
-// （F-B-5 ⭐）。一个显示着「已经配好」的控件，让人没有理由去点它。
+// The previous version showed the browser's own timezone when nothing was stored (UX-11:
+// dodging option[0]'s "-11:00 American Samoa"). Dodging that was right, but nobody caught the
+// cost: the screen read America/Toronto while the DB held an empty string, and `book.go` reads
+// an empty string as **UTC** — the owner's 09:00-18:00 gets judged in UTC, and a visitor's
+// first offered slot lands at 05:18 Toronto time (F-B-5 star). A control that displays
+// "already configured" gives nobody a reason to click it.
 //
-// 现在：空就显示空，并且把**空的后果**写在旁边（时间按 UTC 算），顺带把检测到的时区作为
-// 建议说出来 —— 那条信息本来是好的，只是它属于一句提示，不属于一个假装存过的值。
+// Now: empty shows as empty, with the **consequence of empty** written right next to it
+// (times are computed in UTC), and the detected timezone is offered as a suggestion on the
+// side — that information was good all along, it just belongs in a hint, not in a value
+// pretending to have been saved.
 function PolicyTimezoneRow({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {

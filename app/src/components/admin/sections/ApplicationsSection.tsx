@@ -1,8 +1,9 @@
-// ApplicationsSection —— /admin/applications。
+// ApplicationsSection —— /admin/applications.
 //
-// 数据走 GET /api/admin/applications 真 fetch；详情 modal 仍走 mock
-// applications-model（modal 当前 ApplicationDetailModal 期待 timeline /
-// notes / snapshot 等 jsonb 字段，row 上没有，等单条 detail endpoint）。
+// Data comes from a real GET /api/admin/applications fetch; the detail modal still
+// runs on the mock applications-model (ApplicationDetailModal currently expects
+// timeline / notes / snapshot jsonb fields that aren't on the row — waiting on a
+// single-record detail endpoint).
 
 'use client';
 
@@ -42,8 +43,8 @@ export function ApplicationsSection() {
   );
 }
 
-// titleCount —— 数的是申请行,不是"已投出"的申请:今天没有任何代码会把一行标成投出去了,
-// 所以 `N sent` 这句话在每一台实例上都是假的(F-E-3)。
+// titleCount —— counts application rows, not "sent" applications: no code today
+// marks a row as sent, so the phrase `N sent` would be false on every instance (F-E-3).
 function titleCount(n: number, loading: boolean): string {
   return loading ? 'loading…' : `${n} committed`;
 }
@@ -120,8 +121,9 @@ function List({
   );
 }
 
-// toDetailApp —— 用真 list row 拼一个 detail（notes / contact 等 jsonb 字段后端还没出,
-// 留空,不编假数据)。**简历那一份是真的**：它就在这一行里（F-E-23）。
+// toDetailApp —— assembles a detail from the real list row (the notes / contact jsonb
+// fields aren't out of the backend yet, so leave them empty — don't fabricate data).
+// **The resume content is real**: it's right there on the row (F-E-23).
 function toDetailApp(row: AdminApplicationRow): Application {
   return {
     id: row.id,
@@ -130,9 +132,11 @@ function toDetailApp(row: AdminApplicationRow): Application {
     committedAt: row.created_at,
     submittedAt: realDate(row.submitted_at),
     method: 'autofill',
-    // 两个都留**空串** —— "没有"这件事由渲染层说一次(`EmptyMark`),不在模型里编一个破折号
-    // 当数据。以前 contact 在这里写死 `—`、notes 在视图里 `notes || '—'`,同一句"没有"分在
-    // 两层说,而且两层的字体不同 —— 屏幕上就是一短一长两种记号并排(UX-89)。
+    // Both left as **empty strings** — "absent" is stated once by the render layer
+    // (`EmptyMark`), not faked as a dash in the model. Contact used to hardcode `—`
+    // here while notes used `notes || '—'` in the view: the same "absent" was said
+    // in two layers, in two different fonts — on screen that read as a short dash
+    // and a long dash side by side (UX-89).
     contact: '',
     notes: '',
     state: submissionLabel(row.status),
@@ -164,13 +168,18 @@ function Row({
   );
 }
 
-// ValueCell —— 一格「标签 + 值」。**空态由这一格自己说,而且两格说得一模一样**(UX-89)。
+// ValueCell —— one "label + value" cell. **The empty state is stated by this cell
+// itself, and both cells state it identically** (UX-89).
 //
-// 以前 contact 在模型里写死一个 `—` 当数据、notes 在视图里 `notes || '—'`,同一句"没有"分在
-// 两层;而且两格的字体不同(等宽 11px 对衬线 12px),于是并排的两条杠一短一长。
-// 只把破折号统一成等宽还不够:内联的字号能统一,**基线不能** —— 行盒里的基线位置由父级字体的
-// 度量决定,Newsreader 和 JetBrains Mono 摆不到同一条线上。所以空的时候**整格**走等宽档,
-// 有值的时候才用各自该有的字体(联系人是数据、备注是散文)。
+// Contact used to hardcode a `—` as data in the model while notes used
+// `notes || '—'` in the view — the same "absent" was split across two layers, and
+// the two cells used different fonts (mono 11px vs. serif 12px), so the two dashes
+// sat side by side at different lengths. Unifying the dash character to mono alone
+// isn't enough: inline font size can be unified, but **baseline can't** — a line
+// box's baseline position is set by the parent font's metrics, and Newsreader and
+// JetBrains Mono don't land on the same line. So when empty, **the whole cell**
+// switches to mono; when it has a value, each field uses its proper font (contact
+// is data, notes is prose).
 function ValueCell({ label, value, full }: { label: string; value: string; full: string }) {
   const empty = value === '';
   return (
@@ -219,8 +228,9 @@ function RowHead({ row }: { row: AdminApplicationRow }) {
   );
 }
 
-// RowMeta —— commit 那一刻是真的,投递那一刻今天还没有(没有代码写它)。
-// 上一版把 `sent —` 排在第一位:一个断言"已投出"的标签配一个不存在的日期。
+// RowMeta —— the commit moment is real; the submit moment doesn't exist yet today
+// (no code writes it). The previous version put `sent —` first: a label asserting
+// "sent" paired with a date that doesn't exist.
 function RowMeta({ row }: { row: AdminApplicationRow }) {
   const t = useTranslations('adminJobs');
   return (
@@ -243,8 +253,8 @@ function SubmittedMeta({ iso }: { iso: string }) {
   );
 }
 
-// realDate —— pg 的 NULL timestamptz 经 Go 的零值走过来是 "0001-01-01T…"。
-// 那不是一个日期,是"没有";空串统一表示"没有"。
+// realDate —— a NULL timestamptz in pg arrives via Go's zero value as "0001-01-01T…".
+// That isn't a date, it's "absent"; an empty string uniformly means "absent".
 function realDate(iso: string): string {
   return iso === '' || iso.startsWith('0001') ? '' : iso;
 }

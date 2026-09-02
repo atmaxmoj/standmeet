@@ -6,31 +6,32 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/security/captcha"
 )
 
-// ── captcha 校验(实现:captcha 子包)──────────────────────
+// ── captcha verification (impl: captcha subpackage) ──────────────────────
 
-// Verifier —— captcha 校验器:Verify 成功返 nil(放行),error 表拒绝。
+// Verifier —— captcha verifier: Verify returns nil on success (allow), error means reject.
 type Verifier = captcha.Verifier
 
-// Config —— captcha provider 装配参数。
+// Config —— captcha provider assembly parameters.
 type Config = captcha.Config
 
-// Provider —— captcha 实现选择(none / turnstile)。
+// Provider —— captcha implementation choice (none / turnstile).
 type Provider = captcha.Provider
 
 const (
-	// ProviderNone —— captcha 关闭(SiteKey/Secret 任一空时)。
+	// ProviderNone —— captcha disabled (when either SiteKey/Secret is empty).
 	ProviderNone = captcha.ProviderNone
-	// ProviderTurnstile —— Cloudflare Turnstile。
+	// ProviderTurnstile —— Cloudflare Turnstile.
 	ProviderTurnstile = captcha.ProviderTurnstile
 )
 
-// ErrCaptchaFailed —— captcha 校验失败 sentinel。
+// ErrCaptchaFailed —— sentinel for captcha verification failure.
 var ErrCaptchaFailed = captcha.ErrCaptchaFailed
 
-// NewFromConfig —— 按 cfg 装配 captcha Verifier(turnstile / noop)。httpClient nil 用默认。
+// NewFromConfig —— assembles a captcha Verifier per cfg (turnstile / noop). httpClient nil uses
+// the default.
 func NewFromConfig(cfg Config, httpClient *http.Client) Verifier {
 	return captcha.NewFromConfig(cfg, httpClient)
 }
 
-// FromEnvLike —— (siteKey, secret) → Config;任一空 → ProviderNone。
+// FromEnvLike —— (siteKey, secret) → Config; either empty → ProviderNone.
 func FromEnvLike(siteKey, secret string) Config { return captcha.FromEnvLike(siteKey, secret) }

@@ -1,18 +1,20 @@
-// byoai_envelope.go —— X-BYOAI-Provider + X-BYOAI-Key header 的解封逻辑。
-// chat.go 跟 summary.go 共用；拆出来让两个 route 都 ≤ 350 行。
+// byoai_envelope.go —— unwrapping logic for the X-BYOAI-Provider + X-BYOAI-Key headers.
+// Shared by chat.go and summary.go; split out so both routes stay ≤ 350 lines.
 //
-// 设计要点：
-//   - BYOAI api key 不在 server 任何持久层。browser localStorage 加密 vault
-//     (IndexedDB Web Crypto non-extractable wrap) 自己保管，每次 chat/summary
-//     在 `X-BYOAI-Key` header 信封带过来。
-//   - 信封的对称密钥从 session_token 派生：
-//     HKDF-SHA256(ikm=session_token, info="standmeet-byoai-v1") → 32B AES key。
-//     browser 跟 server 唯一共享密钥 = session_token (browser 创建 session 之后
-//     存，每次请求 Authorization Bearer 都带；server 在 Redis 用它当 key 查 session)。
-//   - cipher = AES-256-GCM；wire format = nonce(12) || ciphertext || tag(16)
-//     的连续 byte slice，整体 base64 URL（兼容 std padding）。
+// Design points:
+//   - The BYOAI API key never lives in any server-side persistence layer. The browser's
+//     localStorage encrypted vault (IndexedDB, Web Crypto non-extractable wrap) holds it,
+//     and it's carried in the `X-BYOAI-Key` header envelope on every chat/summary call.
+//   - The envelope's symmetric key is derived from session_token:
+//     HKDF-SHA256(ikm=session_token, info="standmeet-byoai-v1") → 32B AES key.
+//     The only key shared between browser and server is session_token (the browser
+//     stores it after creating the session, and sends it on every request's
+//     Authorization Bearer; the server uses it as the Redis key to look up the session).
+//   - cipher = AES-256-GCM; wire format = nonce(12) || ciphertext || tag(16) as one
+//     contiguous byte slice, the whole thing base64 URL-encoded (accepts std padding
+//     too).
 //
-// 不引入新的 keypair / 不新增 server-side secret。
+// Introduces no new keypair and no new server-side secret.
 
 package public
 
@@ -33,8 +35,8 @@ const (
 	byoaiHKDFInfo       = "standmeet-byoai-v1"
 )
 
-// unwrapBYOAIKey —— wrappedB64 是 base64 编码的 nonce|ct|tag；HKDF 派生 AES
-// key 解封；返 plaintext API key。
+// unwrapBYOAIKey —— wrappedB64 is base64-encoded nonce|ct|tag; unwraps using an
+// HKDF-derived AES key; returns the plaintext API key.
 func unwrapBYOAIKey(sessionToken, wrappedB64 string) (string, error) {
 	blob, derr := decodeEnvelopeB64(wrappedB64)
 	if derr != nil {
@@ -56,8 +58,8 @@ func deriveAndDecrypt(sessionToken string, blob []byte) (string, error) {
 }
 
 func decodeEnvelopeB64(s string) ([]byte, error) {
-	// URL-safe base64 (no padding) 优先；fallback std padding（兼容浏览器
-	// btoa 默认输出）。
+	// URL-safe base64 (no padding) first; falls back to std padding (compatible with
+	// the browser's default btoa output).
 	if blob, err := base64.RawURLEncoding.DecodeString(s); err == nil {
 		return blob, nil
 	}
@@ -68,14 +70,16 @@ func decodeEnvelopeB64(s string) ([]byte, error) {
 	return blob, nil
 }
 
-// readBYOAICredFromHeaders —— /llm/chat/stream + /agent/turn 共用。tier=byoai
-// 才调。4 个 header (provider / key / endpoint / model) 都必填；browser
-// 端用 preset 给 UI 自动填默认，但 server 不做 fallback：cred 永远完整。
+// readBYOAICredFromHeaders —— shared by /llm/chat/stream and /agent/turn. Only called
+// when tier=byoai. All 4 headers (provider / key / endpoint / model) are required; the
+// browser side uses a preset to auto-fill UI defaults, but the server does no fallback:
+// cred is always complete or nil.
 //
-// I.3 起 caller 都用 nopResponseWriter 屏蔽 writeError (BYOAI 缺 header
-// 等价于退回非 BYOAI 路径，cred=nil 让上游 fallback 到 owner provider)，
-// bool ok 不再被消费 (lint unparam) —— 简化签名只返指针，nil 等价老
-// false 语义。
+// Since I.3 every caller passes nopResponseWriter to suppress writeError (missing BYOAI
+// headers is equivalent to falling back to the non-BYOAI path, cred=nil lets upstream
+// fall back to the owner provider), so the bool ok is no longer consumed (lint unparam)
+// — the signature is simplified to return just the pointer, nil carrying the old false
+// semantics.
 func readBYOAICredFromHeaders(
 	h *Handlers, w http.ResponseWriter, r *http.Request, sessionToken string,
 ) *inference.VisitorCred {
@@ -94,8 +98,8 @@ func readBYOAICredFromHeaders(
 	}
 }
 
-// byoaiHeaders —— requireBYOAIHeaders 多返打包（避开 funcresult-limit 2 +
-// confusing-results）。4 个字段全是必填值。
+// byoaiHeaders —— the packaged multi-return of requireBYOAIHeaders (avoids
+// funcresult-limit 2 + confusing-results). All 4 fields are required values.
 type byoaiHeaders struct {
 	Provider string
 	Wrapped  string

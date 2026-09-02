@@ -1,12 +1,15 @@
-// RoleMultiSelect —— 一排可勾的 chip：role 的两份**工具授权清单**（skills / 外部 MCP
-// servers）都用它。
+// RoleMultiSelect —— a row of checkable chips: both of a role's **tool-grant lists**
+// (skills / external MCP servers) use it.
 //
-// 它原来是 RoleCreateModal 的私有组件，于是这两份清单**只在建角色那一刻能设**。角色建好
-// 之后卡片上只剩 `SKILLS 0` / `MCP 0 servers` 两行只读文字 —— 而 `invited` 和 `public`
-// 是 seeder 建的，从没经过那个弹窗，也就永远挂不上任何一台外部 MCP server（F-D-9）。
+// It used to be a private component of RoleCreateModal, so these two lists **were settable
+// only at role-creation time**. Once the role existed, the card kept only the two read-only
+// lines `SKILLS 0` / `MCP 0 servers` — and `invited` and `public` are seeder-created, never
+// went through that modal, so they could never get any external MCP server attached
+// (F-D-9).
 //
-// 抽出来是为了让卡片编辑器**复用同一个控件**而不是再抄一份：一个控件两个调用点，
-// chip 的 testid、空态那句话、勾选语义只有一处。
+// Extracted so the card editors can **reuse the same control** instead of copying it again:
+// one control, two call sites, so the chip's testid, empty-state text, and check semantics
+// live in exactly one place.
 
 'use client';
 

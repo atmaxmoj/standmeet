@@ -1,6 +1,7 @@
-// static-html.ts —— ` ```standmeet-html ` 块的 sanitize(Obsidian-ecosystem leverage #2)。
-// owner 在导出侧把插件内容(Dataview 等)预烤成静态 HTML;这里 allowlist 净化后才渲进正文:
-// 留结构/文本标签,**剥 script / iframe / style / on* 事件属性 / javascript: URL**。
+// static-html.ts — sanitize for ` ```standmeet-html ` blocks (Obsidian-ecosystem leverage #2).
+// On export the owner pre-bakes plugin content (Dataview etc.) into static HTML; only after
+// allowlist sanitization here does it render into the body: structural/text tags are kept,
+// **script / iframe / style / on* event attributes / javascript: URLs are stripped**.
 
 import sanitizeHtml from 'sanitize-html';
 
@@ -20,7 +21,8 @@ const OPTIONS: sanitizeHtml.IOptions = {
     td: ['colspan', 'rowspan'],
     th: ['colspan', 'rowspan', 'scope'],
   },
-  // 只放安全 scheme;javascript:/data: 之类被剥(sanitize-html 默认也不放 script/on*)。
+  // Only allow safe schemes; javascript:/data: and the like are stripped
+  // (sanitize-html also blocks script/on* by default).
   allowedSchemes: ['http', 'https', 'mailto'],
   allowedSchemesByTag: { img: ['http', 'https', 'data'] },
   disallowedTagsMode: 'discard',

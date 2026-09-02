@@ -1,3 +1,4 @@
-// Package entity —— owner 域的值对象/实体 + 域错误（Owner/InstanceSettings/CustomPage/Prompt…）。
-// 对外经 internal/owner/facade 暴露。
+// Package entity —— value objects/entities + domain errors for the owner
+// domain (Owner/InstanceSettings/CustomPage/Prompt...). Exposed externally
+// via internal/owner/facade.
 package entity

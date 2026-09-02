@@ -1,6 +1,7 @@
-// SandboxPanel —— #147 admin 管理 MCP 沙箱:列活跃 per-session 工作区 + 一键清扫过期。
-// 后端 sandboxws.Manager + cron sweep(#148);这里是 owner-authed 管理面。数据走
-// /api/admin/sandbox/*。sweep 是 owner 手动触发的清理(cron 之外的按需)。
+// SandboxPanel — #147 admin panel for the MCP sandbox: lists active per-session
+// workspaces + a one-click sweep of expired ones. Backend is sandboxws.Manager +
+// cron sweep (#148); this is the owner-authed admin surface. Data via
+// /api/admin/sandbox/*. Sweep is an owner-triggered cleanup (on-demand, outside cron).
 
 'use client';
 
@@ -26,14 +27,19 @@ export function SandboxPanel() {
       className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2"
       data-testid="sandbox-panel"
     >
-      {/* 标题走 AdminSectionHead（12px + 朱红竖条）—— 跟 api·mcp 的六个大节同一个骨架。
-          这一块以前是个裸的 10px mono div，跟字段名同一号，扫页时看不出「这里开始新的一节」。 */}
-      {/* 扫除按钮挂在标题那条线的右端（`aside`）—— 之前它在标题外面另起一个 flex 行，那条
-          横线就只画到按钮前面为止，跟同一页另外五张卡的整幅横线对不上。
-          **没有 workspace 时它是禁用的**（F-E-26）：一颗永远可点、有时无事发生的按钮，
-          会把「没生效」教成正常（同族：F-C-24 画上去的 CONNECT、F-D-13 那颗访客看不见的
-          dock 按钮）。理由不只挂在 title 上 —— 禁用的按钮 hover 事件都未必来；
-          底下那块空态（`sandbox-empty`）本来就写着「现在一个都没有、什么时候会有」。 */}
+      {/* Title uses AdminSectionHead (12px + vermillion bar) — the same skeleton as the
+          six main sections under api·mcp. This card used to be a bare 10px mono div,
+          same size as a field name, so scanning the page gave no cue "a new section
+          starts here". */}
+      {/* The sweep button sits at the right end of the title rule (`aside`) — it used to
+          start its own flex row outside the title, so the rule only drew up to the
+          button and didn't span full-width like the other five cards on this page.
+          **It's disabled when there are no workspaces** (F-E-26): a button that's always
+          clickable but sometimes does nothing teaches "no effect" as normal (same family
+          as F-C-24's painted-on CONNECT, F-D-13's dock button visitors can't see). The
+          reason isn't only on the title either — a disabled button may not even get
+          hover events; the empty state below (`sandbox-empty`) already says "none right
+          now, and when there will be". */}
       <AdminSectionHead
         className="mb-3"
         aside={
@@ -54,11 +60,12 @@ export function SandboxPanel() {
   );
 }
 
-// WorkspaceBody —— 三态走 ListPane（F-L-53）。
+// WorkspaceBody — the three states go through ListPane (F-L-53).
 //
-// 这里的空态是这一族里最露骨的一处：它那句 hint 写着
-// **「None here means none in use — not that something is broken.」**
-// GET 500 的时候，屏幕上写着的正好是「没坏」。所以它只配在**真的拉到了**的时候出现。
+// The empty state here is the most explicit in this family: its hint reads
+// **"None here means none in use — not that something is broken."**
+// On a GET 500, that's exactly the message shown — "not broken". So it may only
+// appear once the fetch has **actually** succeeded.
 function WorkspaceBody({ rows, status }: {
   rows: readonly SandboxWorkspace[]; status: ResourceStatus;
 }) {

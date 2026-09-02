@@ -1,6 +1,7 @@
-// MCPClientPanel —— /admin/api-mcp 安装说明面板。Phase C 起客户端通过
-// `STANDMEET_CREDS_PATH` 指向 owner 本地 credentials.json (keyId +
-// privateKeyPem)；不再把 plaintext key 塞 env var。
+// MCPClientPanel — install-instructions panel on /admin/api-mcp. As of
+// Phase C, the client points to owner's local credentials.json (keyId +
+// privateKeyPem) via `STANDMEET_CREDS_PATH`; a plaintext key no longer goes
+// into an env var.
 
 'use client';
 

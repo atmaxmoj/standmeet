@@ -1,16 +1,18 @@
-// visitor_profile.go —— 访客的自述身份(profile)。
+// visitor_profile.go — a visitor's self-declared identity (profile).
 
 package entity
 
-// VisitorProfile —— 访客进入时填 / 带的自述身份。挂在 session(visitor 身份),
-// 不挂 chat —— 一个人跨多段对话是同一个 profile。
+// VisitorProfile — the self-declared identity a visitor fills in / carries on entry.
+// Attached to the session (the visitor identity), not to chat — one person carries the
+// same profile across multiple conversations.
 //
-//   - Name  —— owner 在 transcript 里看到的名字(handle 也行)。
-//   - Email —— 可选。booker 拿它当 calendar_book 的 visitor_email 兜底
-//     (AI 没从对话里问到也能让 Google 发 invite),也是发确认邮件的 default
-//     收件地址。空 = 没填。
+//   - Name  —— the name the owner sees in the transcript (a handle works too).
+//   - Email —— optional. booker uses it as the fallback visitor_email for calendar_book
+//     (so Google can still send an invite even when the AI never asked for it in
+//     conversation), and it's also the default recipient for confirmation emails.
+//     Empty = not filled in.
 //
-// 访客时区(#120)等将来也归到这个 profile。
+// Visitor timezone (#120) and similar future fields also belong on this profile.
 type VisitorProfile struct {
 	Name  string `json:"name"`
 	Email string `json:"email,omitempty"`

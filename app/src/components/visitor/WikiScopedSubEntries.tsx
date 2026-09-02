@@ -1,8 +1,13 @@
-// WikiScopedSubEntries —— F-L-13 reader 条目页的「子条目」栏。SSR 用匿名 scope 取 context,所以一个
-// 受邀访客(带 code 的 role scope)看不到自己的 gated 子条目 —— 栏是空的,页面成了导航死胡同。这里做
-// 渐进增强:先渲 SSR 给的(published)children,mount 后拿 stored session token 再按访客 scope 重取一次,
-// 把 gated 子条目补上。无 token(匿名)→ 不重取,SSR 的 published 列表即最终。逻辑照抄 load-wiki-children
-// 的 token 取法(reader 侧栏懒加载也这么做)。
+// WikiScopedSubEntries —— F-L-13's "sub-entries" rail on the reader entry
+// page. SSR fetches context under an anonymous scope, so an invited
+// visitor (with a code's role scope) can't see their own gated sub-entries
+// — the rail comes back empty, and the page becomes a navigation dead end.
+// This does progressive enhancement: first render what SSR gave
+// (published) children, then after mount, refetch once under the
+// visitor's scope using the stored session token to fill in the gated
+// sub-entries. No token (anonymous) → no refetch, SSR's published list is
+// final. The logic mirrors load-wiki-children's token-fetch approach (the
+// reader sidebar's lazy loading does the same thing).
 
 'use client';
 

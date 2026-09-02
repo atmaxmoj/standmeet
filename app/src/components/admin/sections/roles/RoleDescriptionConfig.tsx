@@ -1,7 +1,10 @@
-// RoleDescriptionConfig —— role 卡上的 **description 编辑器**。description 过去只能在「+ NEW ROLE」
-// 弹窗里写一次,role 建好后卡片上只把它当只读一行印出来,owner 再也改不了(owner 手工审计时发现:一个
-// 名叫 D 的占位描述改不掉)。形态照抄 RoleDockConfig/RoleGhostConfig:卡上 inline 编辑 → 全量 PUT 回写
-// (走 roleUpdatePayload,只表达 description 变,其余字段一律原样保留)。
+// RoleDescriptionConfig —— the **description editor** on the role card. description used to
+// be writable only once, in the "+ NEW ROLE" modal; once the role existed, the card printed
+// it as a read-only line the owner could never edit again (found during a manual owner
+// audit: a placeholder description named D was stuck unchangeable). Shape copied from
+// RoleDockConfig/RoleGhostConfig: inline edit on the card → full PUT write-back (via
+// roleUpdatePayload, expressing only the description change, every other field preserved
+// as-is).
 
 import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
@@ -27,10 +30,12 @@ export function RoleDescriptionConfig({ role }: { role: RoleView }) {
         {t('roleDesc.label')}
       </span>
       <div className="flex flex-col gap-1.5 min-w-0">
-        {/* rows=2 **加** resize-none = owner 既看不到自己写的后半段，也拉不大。
-            两个系统角色的 about 都是四五行散文，于是卡上那段在句子中间断掉
-            （"…the code that goes out when you" 然后没了 —— 补图时在真环境上看见的）。
-            这跟 UX-61 是同一类：编辑框比被编辑的东西小。 */}
+        {/* rows=2 **plus** resize-none meant the owner could neither see the back half of
+            what they wrote nor drag the box bigger. Both system roles' about text runs
+            four or five lines of prose, so the card text cut off mid-sentence
+            ("…the code that goes out when you" then nothing — seen live while taking
+            screenshots). Same class of bug as UX-61: the edit box smaller than the thing
+            it edits. */}
         <textarea
           className="w-full min-w-0 bg-transparent border-b border-(--color-rule) py-1 reading-tight text-[13.5px] text-(--color-muted) resize-y"
           rows={5}

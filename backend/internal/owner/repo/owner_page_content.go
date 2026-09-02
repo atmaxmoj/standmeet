@@ -1,8 +1,9 @@
-// owner_page_content.go —— Owner aggregate 的 "公开页内容" 切面（与
-// identity / settings 平行）。物理上 page_content 是独立表（FK 到
-// owners.id），但聚合边界上跟 Owner 走同一事务边界，所以这里是
-// Repo 的方法而非独立 PageRepo。jsonb 列在 Repo 层 marshal /
-// unmarshal，让 usecase / routes 拿到 typed PageContent。
+// owner_page_content.go —— the "public page content" facet of the Owner
+// aggregate (parallel to identity / settings). Physically page_content is
+// its own table (FK to owners.id), but at the aggregate boundary it shares
+// Owner's transaction boundary, so these are methods on Repo rather than a
+// standalone PageRepo. The jsonb columns are marshaled / unmarshaled at the
+// Repo layer, so usecase / routes get a typed PageContent.
 
 package repo
 
@@ -19,8 +20,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// GetPageContent 拿 owner 的 page_content；不存在返 ErrPageNotFound
-// （usecase 层用默认值兜底）。
+// GetPageContent gets the owner's page_content; returns ErrPageNotFound if
+// it doesn't exist (the usecase layer falls back to defaults).
 func (r *Repo) GetPageContent(
 	ctx context.Context, ownerID string,
 ) (entity.PageContent, error) {
@@ -39,7 +40,8 @@ func (r *Repo) GetPageContent(
 	return rowToPageContent(&row)
 }
 
-// UpsertPageContent 写入 / 更新 owner 的 page_content（admin PUT 用）。
+// UpsertPageContent writes / updates the owner's page_content (used by the
+// admin PUT route).
 func (r *Repo) UpsertPageContent(
 	ctx context.Context, ownerID string, in *entity.PageContent,
 ) (entity.PageContent, error) {
@@ -59,16 +61,17 @@ func (r *Repo) UpsertPageContent(
 	return rowToPageContent(&row)
 }
 
-// marshaledSections —— pageContentToParams 拆分用：把 5 段 json.Marshal
-// 合并到一个 helper，让 cyclop ≤ 5。
+// marshaledSections —— used to split up pageContentToParams: folds 5
+// json.Marshal calls into one helper, keeping cyclop ≤ 5.
 type marshaledSections struct {
 	examples, insights, projects, where, contact []byte
 }
 
 func marshalSections(in *entity.PageContent) (marshaledSections, error) {
 	var out marshaledSections
-	// 字段顺序按 govet fieldalignment：src (interface, 2 ptrs) 在前，
-	// dst (slice ptr, 1 ptr) 在中，name (string, 1 ptr) 在尾。
+	// Field order follows govet fieldalignment: src (interface, 2 ptrs)
+	// first, dst (slice ptr, 1 ptr) in the middle, name (string, 1 ptr)
+	// last.
 	parts := []struct {
 		src  any
 		dst  *[]byte
@@ -121,8 +124,9 @@ func rowToPageContent(row *db.PageContent) (entity.PageContent, error) {
 }
 
 func unmarshalSections(row *db.PageContent, pc *entity.PageContent) error {
-	// 字段顺序按 govet fieldalignment：dst (interface, 2 ptrs) 在前，
-	// name (string, 1 ptr) 在中，raw (slice, len/cap 无 ptr 尾段) 在尾。
+	// Field order follows govet fieldalignment: dst (interface, 2 ptrs)
+	// first, name (string, 1 ptr) in the middle, raw (slice, whose
+	// len/cap trailer has no ptr) last.
 	parts := []struct {
 		dst  any
 		name string

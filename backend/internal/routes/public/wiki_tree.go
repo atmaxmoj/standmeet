@@ -1,8 +1,10 @@
-// wiki_tree.go —— GET /api/v1/wiki-tree[?parent=ID] —— sidebar 导航的懒加载
-// 分层。parent 空 → roots;parent=ID → ID 的直接子节点。一次一层,前端展开才取。
+// wiki_tree.go —— GET /api/v1/wiki-tree[?parent=ID] —— lazy-loaded hierarchy for
+// sidebar navigation. Empty parent → roots; parent=ID → ID's direct children. One
+// level at a time, fetched only when the frontend expands a node.
 //
-// scope:带有效 bearer(code session)→ role corpus_uris;否则匿名 → published。
-// token 无效/缺失都安全退到匿名(公开端点,不报 401)。
+// scope: a valid bearer (code session) → role corpus_uris; otherwise anonymous →
+// published. An invalid/missing token safely falls back to anonymous (a public
+// endpoint, never returns 401).
 
 package public
 
@@ -36,10 +38,12 @@ type wikiTreeStatsView struct {
 	Gated   int `json:"gated"`
 }
 
-// getWikiTreeStats —— GET /api/v1/wiki-tree/stats —— 侧栏脚计数。
-// **跟 wiki-tree 同一道闸**:带有效 bearer → role scope,否则匿名。上一版这里不看 token,
-// 于是一个受邀访客读到的 GATED 数说的是别人的事(F-L-14)。
-// logErrKey —— slog 错误字段名(本文件 "err" 多处,提常量过 add-constant)。
+// getWikiTreeStats —— GET /api/v1/wiki-tree/stats —— the sidebar footer's count.
+// **Same gate as wiki-tree**: a valid bearer → role scope, otherwise anonymous. The
+// previous version never looked at the token here, so an invited visitor read a
+// GATED count that described someone else's scope (F-L-14).
+// logErrKey —— the slog error field name (the "err" literal appears many times in
+// this file, pulled into a constant to pass add-constant).
 const logErrKey = "err"
 
 func (h *SEOHandlers) getWikiTreeStats() http.HandlerFunc {
@@ -61,8 +65,8 @@ func (h *SEOHandlers) getWikiTreeStats() http.HandlerFunc {
 	}
 }
 
-// getWikiTreeContext —— GET /api/v1/wiki-tree/context?path=... —— 某条目的祖先链
-// (breadcrumb)+ 直接子(SubEntriesRail)。scope 同 wiki-tree。
+// getWikiTreeContext —— GET /api/v1/wiki-tree/context?path=... —— an entry's ancestor
+// chain (breadcrumb) + direct children (SubEntriesRail). Same scope as wiki-tree.
 func (h *SEOHandlers) getWikiTreeContext() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, _ := bearerToken(r)

@@ -1,8 +1,8 @@
-// visitor_role_snapshot.go —— session issue 时把 Role 状态拍下来塞 session_data。
-//
-// 设计 [[iam-role-pivot-plan]] · Session freeze 节。A.3-IAM-5 起 access_code
-// 必挂 assumed_role_id（NOT NULL）；public / byoai 则用 owner 的 public。
-// Snapshot 从 role + prompt + skills 拼起来；session 整个生命周期不再回头读。
+// visitor_role_snapshot.go —— at session issuance, snapshots the Role state into
+// session_data. Design in [[iam-role-pivot-plan]] · Session freeze section. Since
+// A.3-IAM-5, access_code must carry assumed_role_id (NOT NULL); public / byoai use the
+// owner's public role instead. Assembled from role + prompt + skills; nothing is read
+// back for the rest of the session's lifetime.
 
 package usecase
 
@@ -18,8 +18,8 @@ import (
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
-// buildRoleSnapshotForCode —— code.AssumedRoleID 必填（schema NOT NULL）→ 构造
-// RoleSnapshot。失败永远是真 error。
+// buildRoleSnapshotForCode —— code.AssumedRoleID is required (schema NOT NULL) → builds
+// the RoleSnapshot. A failure here is always a real error.
 func buildRoleSnapshotForCode(
 	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
 ) (access.RoleSnapshot, error) {
@@ -27,13 +27,14 @@ func buildRoleSnapshotForCode(
 	if err != nil {
 		return access.RoleSnapshot{}, err
 	}
-	// #104(+扩展): code 自带的 prompt 冻进 snapshot，persona 在 role persona 之后叠加。
-	// prompt_id（owner 集中管理的那份）在前，内联（发码方随这张码带的那句）在后 —— 两层**叠加**。
+	// #104 (+extension): the code's own prompt freezes into the snapshot, layered after
+	// the role persona. prompt_id (owner's centrally-managed) comes first, inline (the
+	// issuer's sentence) comes after —— the two layers **stack**.
 	codePrompt, perr := resolveCodePrompt(ctx, deps, code)
 	if perr != nil {
 		return access.RoleSnapshot{}, perr
 	}
-	// ghost-steering: 这张 code 的 waypoint 覆盖层(空 = 完全继承 role 的)。
+	// ghost-steering: this code's waypoint overlay (empty = fully inherits the role's).
 	wps, werr := loadCodeWaypoints(ctx, deps, code.ID)
 	if werr != nil {
 		return access.RoleSnapshot{}, werr
@@ -45,8 +46,9 @@ func buildRoleSnapshotForCode(
 		})
 }
 
-// loadCodeWaypoints —— 读一张 code 的 waypoint 覆盖层。无 Codes port(eval facade / 老路径没接)
-// → 空覆盖,行为同从前(完全继承 role,向后兼容)。
+// loadCodeWaypoints —— reads a code's waypoint overlay. No Codes port (the eval facade
+// / an older path hasn't wired it) → empty overlay, same behavior as before (fully
+// inherits the role, backward-compatible).
 func loadCodeWaypoints(
 	ctx context.Context, deps *VisitorSessionDeps, codeID string,
 ) ([]access.Waypoint, error) {
@@ -60,21 +62,25 @@ func loadCodeWaypoints(
 	return wps, nil
 }
 
-// resolveCodePrompt / promptBodyByID 住在 visitor_code_prompt.go —— 那一层的取值
-// 规则（两层叠加）自己够一个文件，而这个文件是 snapshot 的装配。
+// resolveCodePrompt / promptBodyByID live in visitor_code_prompt.go —— that layer's
+// resolution rule (the two-layer stack) is substantial enough for its own file, while
+// this file is the snapshot's assembly.
 
-// roleDenials —— code 层要从 role grant 里砍掉的 capability / skill id（纯 deny）。
-// 非 code 路径（public + byoai）传零值 = 不砍。
+// roleDenials —— the capability / skill ids the code layer subtracts from the role
+// grant (pure deny). Non-code paths (public + byoai) pass a zero value = subtract
+// nothing.
 type roleDenials struct {
 	Caps   []string
 	Skills []string
-	// Corpus —— 这张 code 从 role 的正列表里收回的 URI glob（ACL 三类里的 corpus 那类）。
-	// 不从 CorpusURIs 里删：glob 减法删不掉列表项，冻成独立一列，匹配时判（AllowsCorpusScope）。
+	// Corpus —— the URI globs this code retracts from the role's allow-list (the
+	// corpus category among the three ACL kinds). Not removed from CorpusURIs: glob
+	// subtraction can't delete a list entry, so it's frozen into its own column and
+	// checked at match time (AllowsCorpusScope).
 	Corpus []string
 }
 
-// loadCodeDenials —— 读一张 code 的 deny 集。无 CodeDenials port（eval facade /
-// 老路径没接）→ 零 deny，行为同从前（向后兼容）。
+// loadCodeDenials —— reads a code's deny set. No CodeDenials port (the eval facade / an
+// older path hasn't wired it) → zero denies, same behavior as before (backward-compatible).
 func loadCodeDenials(
 	ctx context.Context, deps *VisitorSessionDeps, codeID string,
 ) (roleDenials, error) {
@@ -103,9 +109,9 @@ type APIKeyDenialReader interface {
 	ListSkillDenials(ctx context.Context, keyID string) ([]string, error)
 }
 
-// BuildAPIKeyRoleSnapshot —— freeze the RoleSnapshot for an API key: the assumed role's grant minus
-// the key's per-key denials. No per-key prompt (the api facade has no LLM persona) — snapshot is
-// used purely to gate which capabilities/tools the key's HTTP calls may reach.
+// BuildAPIKeyRoleSnapshot —— freeze the RoleSnapshot for an API key: the assumed role's
+// grant minus the key's per-key denials. No per-key prompt (the api facade has no LLM
+// persona) — snapshot only gates which capabilities/tools the key's HTTP calls may reach.
 func BuildAPIKeyRoleSnapshot(
 	ctx context.Context, deps *VisitorSessionDeps, denials APIKeyDenialReader,
 	key *access.APIKey,
@@ -122,9 +128,9 @@ func BuildAPIKeyRoleSnapshot(
 		&codeOverlay{denials: roleDenials{Caps: caps, Skills: skills}})
 }
 
-// buildRoleSnapshotForOwnerPublic —— public / byoai session 用 owner 的
-// public role snapshot。owner 没改过 public 的话覆盖 wiki/output/writing
-// 三个公开 glob。
+// buildRoleSnapshotForOwnerPublic —— public / byoai sessions use the owner's public
+// role snapshot. If the owner hasn't customized public, it covers the three public
+// globs: wiki/output/writing.
 func buildRoleSnapshotForOwnerPublic(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID string,
 ) (access.RoleSnapshot, error) {
@@ -132,19 +138,22 @@ func buildRoleSnapshotForOwnerPublic(
 	if err != nil {
 		return access.RoleSnapshot{}, fmt.Errorf("get public role: %w", err)
 	}
-	// public + byoai (非 code 路径) 无 per-code prompt、无 deny。
+	// public + byoai (non-code paths) have no per-code prompt, no denies.
 	return buildRoleSnapshotByID(ctx, deps, ownerID, role.ID(), &codeOverlay{})
 }
 
-// codeOverlay —— code 层在 role 基础上的叠加：deny 集 + 这张 code 自带的 prompt body。
-// 非 code 路径（public + byoai）传零值 = 不 deny、无 per-code prompt。
+// codeOverlay —— what the code layer stacks on top of the role: the deny set + this
+// code's own prompt body. Non-code paths (public + byoai) pass a zero value = no deny,
+// no per-code prompt.
 type codeOverlay struct {
 	codePromptBody string
 	denials        roleDenials
-	// requireGhostEvidence —— F-A-10 per-code 覆盖（nil = 继承 role 的开关）。
+	// requireGhostEvidence —— F-A-10 per-code override (nil = inherits the role's
+	// switch).
 	requireGhostEvidence *bool
-	// waypoints —— 这张 code 的 ghost-steering 覆盖层（空 = 完全继承 role 的）。放末位:slice 尾部
-	// len/cap 无指针,让 GC 少扫 16 字节（fieldalignment）。
+	// waypoints —— this code's ghost-steering overlay (empty = fully inherits the
+	// role's). Placed last: a slice's len/cap has no pointer, so the GC scans 16 fewer
+	// bytes (fieldalignment).
 	waypoints []access.Waypoint
 }
 
@@ -159,8 +168,9 @@ func buildRoleSnapshotByID(
 	if err != nil {
 		return access.RoleSnapshot{}, err
 	}
-	// ACL code 层（capability-acl-hierarchy.md）：deny 的 skill 在装配源头就剔除，
-	// 这样它的 L1 prompt / tool 授权 / id 一并消失（只减 SkillIDs 漏掉了 L1 prompt）。
+	// ACL code layer (capability-acl-hierarchy.md): a denied skill is removed right at
+	// the assembly source, so its L1 prompt / tool grants / id all vanish together
+	// (subtracting only from SkillIDs would leave the L1 prompt behind).
 	skills, err := loadRoleSkills(ctx, deps, role.ID(), overlay.denials.Skills)
 	if err != nil {
 		return access.RoleSnapshot{}, err
@@ -174,45 +184,53 @@ func buildRoleSnapshotByID(
 		CorpusURIs:     role.CorpusURIs(),
 		SkillPrompts:   skills.Prompts,
 		AllowedTools:   skills.Tools,
-		// capability deny 冻进 DeniedCapabilities，能力暴露门据此挡掉（含 ACL=always
-		// 的——它们不进 allowedTools，subtract 减不到，只能在门上挡）。
+		// Frozen into DeniedCapabilities; the exposure gate blocks on this, including
+		// ACL=always caps (never in allowedTools, so only the gate can block them).
 		DeniedCapabilities: overlay.denials.Caps,
-		// corpus 的 code 层收窄：冻成独立一列，匹配时 grant AND NOT deny（AllowsCorpusScope）。
+		// Code layer's corpus narrowing: own column, checked as grant AND NOT deny
+		// (AllowsCorpusScope) — a glob subtraction can't delete a list entry.
 		DeniedCorpusURIs: overlay.denials.Corpus,
-		// Phase C: 只冻 enabled 授权 skill 的 id（bundle 已过 enabled），让
-		// disabled skill 既不进 L1，也不被 skill_use/skill_run_script 命中。
+		// Phase C: only enabled, granted skill ids (bundle pre-filtered by enabled), so
+		// a disabled skill neither enters L1 nor matches skill_use/skill_run_script.
 		SkillIDs:     skills.IDs,
 		MCPServerIDs: role.MCPServerIDs(),
-		// #109/#110: 冻下 role 的 ≤2 个 dock 按钮配置；session payload 层解析 title + 过滤 code-deny。
+		// #109/#110: role's ≤2 dock button configs; session payload layer resolves
+		// title + filters code-deny.
 		DockButtons: role.DockButtons(),
-		// role 说自己用哪条 provider、挂不挂油表。码上那条压过前者,压制在会话装配层做。
+		// Role says which provider + whether metering is on; the code's value can
+		// override, applied at session assembly.
 		ProviderID: role.ProviderID(),
 		GasMetered: role.GasMetered(),
-		// ghost-steering: 冻 waypoints。先按 waypoint_id 把 code 的覆盖层叠在 role 之上
-		// （role = 这个受众的目的地，code = 这一次邀约的），**再**过两道下限 —— 顺序要紧：
-		// 过滤在合并之后，code 才不能借覆盖把 role 看不到的证据引导出来。
-		//   1. 授权：evidence_refs 全落在 role 授权 glob 之外 → 整条丢弃；
-		//   2. 可行性(F-A-26)：非终点 waypoint 的 refs 一条都指不到真笔记 → 整条丢弃。
-		//      两件事以前共用一个名字而只做了第一件，于是「glob 匹配得上、笔记不存在」的
-		//      引导目的地永久不可访，ghost 永远静默不下来。见 visitor_waypoint_feasible.go。
+		// ghost-steering: merge code's waypoint overlay onto the role's by waypoint_id
+		// (role = audience destinations, code = this invitation's), THEN two floor
+		// checks — filtering after merging so the overlay can't steer toward evidence
+		// the role can't see: (1) authorization — evidence_refs outside the role's
+		// granted globs drops the entry; (2) feasibility (F-A-26) — a non-terminal
+		// waypoint whose refs resolve to no real note drops the entry. These two used
+		// to share one name while only (1) ran, so a glob-matched but nonexistent note
+		// became permanently unreachable and its ghost could never go quiet. See
+		// visitor_waypoint_feasible.go.
 		Waypoints: feasibleWaypoints(ctx, deps.CorpusRefs, ownerID, access.FilterWaypointsByCorpus(
 			access.MergeWaypoints(role.Waypoints(), overlay.waypoints), role.CorpusURIs(),
 		)),
-		// F-A-10: 有效开关 = code 覆盖(非 nil)否则 role 值。冻进 snapshot,ghost 选择时用。
+		// F-A-10: code's override if non-nil, else role's value; used at ghost selection.
 		RequireGhostEvidence: effectiveGhostEvidence(
 			role.RequireGhostEvidence(), overlay.requireGhostEvidence,
 		),
-		// 各能力自己的 per-role 配置,随 role 一起冻下。**本层不认识任何一个键** ——
-		// 这里以前是一个 NotifyOwnerOnBooking bool,一个 booking 的业务开关长在内核的
-		// 快照构造里。现在是能力 id → 它那份配置,原样传到沙箱由它自己读。
+		// Per-capability config frozen alongside the role. This layer knows nothing
+		// about the keys — replaces the old single NotifyOwnerOnBooking bool wired
+		// into the kernel; now capability id → config, passed through unchanged for
+		// the sandbox to read.
 		CapConfig: roleCapConfig(ctx, deps, role.ID()),
 	}), nil
 }
 
-// roleCapConfig —— 冻结那一刻,各能力在这个 role 上的配置。没接读口 → 空表(不是错):
-// 一台没有任何能力声明 per-role 配置的实例是完全正常的。
+// roleCapConfig —— at the moment of freezing, each capability's config on this role. No
+// read port wired → empty map (not an error): an instance where no capability has ever
+// declared per-role config is perfectly normal.
 //
-// 读失败也不该让会话开不起来 —— 那一层自己留日志(见 capconfig 的 SubjectFields)。
+// A read failure shouldn't stop a session from opening either —— that layer logs it
+// itself (see SubjectFields in capconfig).
 func roleCapConfig(
 	ctx context.Context, deps *VisitorSessionDeps, roleID string,
 ) map[string]json.RawMessage {
@@ -222,7 +240,8 @@ func roleCapConfig(
 	return deps.RoleCapConfig.ReadByCapability(ctx, roleID)
 }
 
-// effectiveGhostEvidence —— F-A-10 的 role/code 合并:code 显式覆盖(非 nil)则用 code,否则继承 role。
+// effectiveGhostEvidence —— F-A-10's role/code merge: uses code if it explicitly
+// overrides (non-nil), otherwise inherits role.
 func effectiveGhostEvidence(roleVal bool, codeOverride *bool) bool {
 	if codeOverride != nil {
 		return *codeOverride
@@ -230,8 +249,9 @@ func effectiveGhostEvidence(roleVal bool, codeOverride *bool) bool {
 	return roleVal
 }
 
-// loadPromptBody —— role 没挂 prompt 或挂的 prompt 不存在 → 返空串（public
-// 之类 role 不一定有 prompt，session 没问题）。
+// loadPromptBody —— when the role has no prompt attached, or the attached prompt
+// doesn't exist → returns empty string (a role like public doesn't necessarily have a
+// prompt, the session is still fine).
 func loadPromptBody(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID string, role *access.Role,
 ) (string, error) {
@@ -242,15 +262,16 @@ func loadPromptBody(
 	return promptBodyByID(ctx, deps, ownerID, &promptID)
 }
 
-// roleSkillBundle —— loadRoleSkills 返回打包，避开 function-result-limit 3-return。
+// roleSkillBundle —— the bundled return of loadRoleSkills, avoiding the
+// function-result-limit 3-return.
 type roleSkillBundle struct {
-	Prompts []string // Phase C / L1: 每条 = skill 的 name+description（不是正文）
+	Prompts []string // Phase C / L1: each entry = a skill's name+description (not its body)
 	Tools   []string
-	IDs     []string // enabled 授权 skill 的 id（snapshot.SkillIDs → skill_use/run）
+	IDs     []string // ids of enabled, granted skills (snapshot.SkillIDs → skill_use/run)
 }
 
-// loadRoleSkills —— 把 role 挂的 skills 的 prompt 拼一组、allowed_tools 合并
-// 去重一组。
+// loadRoleSkills —— assembles the prompts of the skills attached to a role into one
+// group, and merges+dedupes allowed_tools into another.
 func loadRoleSkills(
 	ctx context.Context, deps *VisitorSessionDeps, roleID string, deniedSkills []string,
 ) (roleSkillBundle, error) {
@@ -261,8 +282,9 @@ func loadRoleSkills(
 	return collectRoleSkillBundle(filterDeniedSkills(skills, deniedSkills)), nil
 }
 
-// filterDeniedSkills —— ACL code 层：剔掉这张 code deny 的 skill（按 id）。源头剔除
-// 让 prompt / tool / id 一致消失。空 deny → 原样返回。
+// filterDeniedSkills —— the ACL code layer: strips out skills this code denies (by id).
+// Removing at the source makes prompt / tool / id all vanish together. Empty deny →
+// returned unchanged.
 func filterDeniedSkills(skills []marketplace.Skill, denied []string) []marketplace.Skill {
 	if len(denied) == 0 {
 		return skills
@@ -276,10 +298,11 @@ func filterDeniedSkills(skills []marketplace.Skill, denied []string) []marketpla
 	return out
 }
 
-// collectRoleSkillBundle —— ListSkillsForRole 已按 enabled 过滤。Phase C：
-// 系统提示只放 name+description（L1 progressive disclosure），正文要 agent 调
-// skill_use 才披露（L2）；同时收 enabled skill id 冻进 snapshot，让 binding 只
-// 对 enabled 授权 skill 暴露 skill_use/skill_run_script。
+// collectRoleSkillBundle —— ListSkillsForRole has already filtered by enabled. Phase C:
+// the system prompt carries only name+description (L1 progressive disclosure), the body
+// is only disclosed once the agent calls skill_use (L2); it also collects enabled skill
+// ids frozen into the snapshot, so the binding only exposes skill_use/skill_run_script
+// for enabled, granted skills.
 func collectRoleSkillBundle(skills []marketplace.Skill) roleSkillBundle {
 	prompts := make([]string, 0, len(skills))
 	ids := make([]string, 0, len(skills))
@@ -300,8 +323,9 @@ func collectRoleSkillBundle(skills []marketplace.Skill) roleSkillBundle {
 	return roleSkillBundle{Prompts: prompts, Tools: tools, IDs: ids}
 }
 
-// skillL1Line —— L1 注入系统提示的一行:name + 一句话 description + 提示用
-// skill_use 读正文。引导 agent 在相关时才把正文（L2）拉进上下文。
+// skillL1Line —— the L1 line injected into the system prompt: name + a one-sentence
+// description + a hint to call skill_use to read the body. Steers the agent to pull the
+// body (L2) into context only when it's actually relevant.
 func skillL1Line(s *marketplace.Skill) string {
 	name := strings.TrimSpace(s.Name)
 	if name == "" {

@@ -1,10 +1,13 @@
-// page.go —— /api/admin/page*：owner 的公开主页。
+// page.go — /api/admin/page*: the owner's public homepage.
 //
-// 能力来自出站收口（通用件在 dispatch.go）；这个面只决定 REST 形状。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// this facade only decides the REST shape.
 //
-// 迁移前这边拿到的 page 是**裸的**：insights/projects 只有 id，标题和摘要要前端自己再去
-// 拼；MCP 那边拿到的是 join 过的。现在两个面同一份。「能 pin 什么」以前也只有这边有，
-// 而且规则（pinned ⊆ published）写在 handler 里——现在在域里，两个面都问得到。
+// Before the migration, the page this facade got was **bare**: insights/projects only
+// carried an id, and the frontend had to assemble the title and excerpt itself; MCP's
+// side got a joined version. Now both facades share the same one. "What can be pinned"
+// also used to exist only here, with the rule (pinned ⊆ published) written into the
+// handler — now it lives in the domain, and both facades can query it.
 
 package admin
 
@@ -14,12 +17,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// PageAdminDeps —— admin page handlers 的能力来源。
+// PageAdminDeps — capability source for the admin page handlers.
 type PageAdminDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountPage 挂 /page。caller 负责 /api/admin/ 前缀 + auth middleware。
+// MountPage mounts /page. The caller is responsible for the /api/admin/ prefix + auth
+// middleware.
 func (h *Handlers) MountPage(r chi.Router) {
 	face := h.PageAdmin.Face
 	r.Get("/page", h.dispatchOp(face, "page.get", emptyArgs, jsonOK))

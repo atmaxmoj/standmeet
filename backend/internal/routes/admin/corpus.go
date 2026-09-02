@@ -1,10 +1,13 @@
-// corpus.go —— admin 的语料面:列表 / 详情 / 建 / 改 / 删 / 提升,genre 走路径参数。
+// corpus.go — admin's corpus facade: list / detail / create / update / delete / promote,
+// with genre carried as a path parameter.
 //
-// 能力全部经出站收口取(声明在 internal/corpus/ops);这一层只留 REST 形状:genre 在路径、
-// id 在路径、其余在 body,以及成功回 200 还是 201 还是 204。
+// All capability is taken through the outbound convergence point (declared in
+// internal/corpus/ops); this layer keeps only the REST shape: genre in the path, id in
+// the path, everything else in the body, and whether a success returns 200, 201, or 204.
 //
-// 树视图和分页视图(/tree、/page)是**面板独有**的浏览形态,不经收口:它们回的是树节点,
-// 不是"一条语料"。
+// The tree view and page view (/tree, /page) are browsing shapes **unique to the panel**
+// and don't go through the convergence point: they return tree nodes, not "one corpus
+// entry".
 
 package admin
 
@@ -21,9 +24,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// CorpusDeps —— admin corpus handlers 的依赖。
+// CorpusDeps — dependencies for the admin corpus handlers.
 //
-// Face —— 语料的能力经收口取。Corpus 只剩树/分页那两个面板独有的视图还在直连。
+// Face — corpus capability is taken through the convergence point. Corpus is only kept
+// for the tree/page views, the two panel-unique views that still connect directly.
 type CorpusDeps struct {
 	Corpus corpus.Deps
 	Face   *dispatcher.Face
@@ -37,14 +41,16 @@ const (
 	paramAssetID       = "asset_id"
 )
 
-// MountCorpus 挂 corpus 的列表 + 新建:genre 作路径参数(合并了原 /raw · /wiki · /output
-// 三套 URL —— genre 本来就是参数,不该拆成不同 endpoint)。
+// MountCorpus mounts corpus's list + create routes: genre is a path parameter (merging
+// the original three URL sets — /raw, /wiki, /output — since genre was always a
+// parameter, and shouldn't have been split into different endpoints).
 func (h *Handlers) MountCorpus(r chi.Router) {
 	face := h.Corpus.Face
 	r.Get("/corpus/{genre}", h.dispatchOp(face, "corpus.list", corpusListArgs, jsonOK))
 	r.Post("/corpus/{genre}", h.dispatchOp(face, "corpus.create", corpusBodyArgs, jsonCreated))
-	// search —— 按内容找一条。列表只给最新的一页,而 owner 的语料是上千条:
-	// 「打开我那条 good-regulator-theorem」以前在这个面上做不到(F-L-39)。
+	// search — finds an entry by content. The list only gives the latest page, while an
+	// owner's corpus runs to thousands of entries: "open my good-regulator-theorem entry"
+	// used to be impossible on this facade (F-L-39).
 	r.Get("/corpus/{genre}/search", h.dispatchOp(face, "corpus.search", corpusSearchArgs, jsonOK))
 	r.Get("/corpus/{genre}/tree", h.byGenre(map[string]http.HandlerFunc{
 		"raw": h.treeRaw(), "wiki": h.treeWiki(), "output": h.treeOutput(),
@@ -53,17 +59,20 @@ func (h *Handlers) MountCorpus(r chi.Router) {
 	r.Get("/corpus/{genre}/page", h.byGenre(map[string]http.HandlerFunc{
 		"raw": h.pageRaw(), "wiki": h.pageWiki(), "output": h.pageOutput(),
 	}))
-	// tags —— 这个 genre 用过的全部标签(语料级)。面板的标签行读它。
+	// tags — every tag this genre has ever used (corpus-wide). The panel's tag row reads
+	// this.
 	r.Get("/corpus/{genre}/tags", h.byGenre(map[string]http.HandlerFunc{
 		"wiki": h.tagsWiki(),
 	}))
-	// check-i18n —— 只看不写(POST 是因为正文进 body,不是因为它改了什么)。
-	// 面板的编辑器在保存之前问一次,拿到的诊断跟 MCP 写入口拒绝时用的是同一份。
+	// check-i18n — read-only (it's a POST because the payload goes in the body, not
+	// because it changes anything). The panel's editor calls this once before saving, and
+	// gets back the same diagnostics the MCP write entrypoint would reject on.
 	r.Post("/corpus/check-i18n", h.dispatchOp(face, "corpus.check_i18n", bodyArgs, jsonOK))
 }
 
-// byGenre —— 树/分页那两条还在用的 genre 分派:URL 的 {genre} 选对应 handler。
-// 未知 / 该视图不支持的 genre → 404 unknown_genre。
+// byGenre — the genre dispatch the tree/page routes still use: the URL's {genre} picks
+// the matching handler. An unknown genre, or one this view doesn't support, → 404
+// unknown_genre.
 func (h *Handlers) byGenre(m map[string]http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if handler, ok := m[chi.URLParam(r, paramGenre)]; ok {
@@ -76,9 +85,11 @@ func (h *Handlers) byGenre(m map[string]http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// corpusListArgs —— genre 在路径,limit 在 query。收口那边只认一份扁平 args。
+// corpusListArgs — genre in the path, limit in the query. The convergence point side only
+// accepts one flat args shape.
 //
-// limit 解不动就整个略过,由域取默认值 —— ?limit=abc 不是错误,是"没说"。
+// If limit fails to parse it's simply dropped and the domain picks the default —
+// ?limit=abc isn't an error, it's "unstated".
 func corpusListArgs(r *http.Request) (json.RawMessage, error) {
 	fields := map[string]json.RawMessage{
 		paramGenre: quoteJSON(chi.URLParam(r, paramGenre)),
@@ -87,8 +98,10 @@ func corpusListArgs(r *http.Request) (json.RawMessage, error) {
 	return marshalArgs(fields)
 }
 
-// corpusSearchArgs —— genre 在路径,查询词和翻页在 query。`?q=` 空 = 域那边报缺参数,
-// 不在这里编一个空搜索:一次没给词的搜索和一次搜不到的搜索,不该长成同一个回答。
+// corpusSearchArgs — genre in the path, the query term and pagination in the query
+// string. An empty `?q=` means the domain reports a missing parameter; this facade
+// doesn't fabricate an empty search for it — a search with no term given and a search
+// that found nothing shouldn't come back looking like the same answer.
 func corpusSearchArgs(r *http.Request) (json.RawMessage, error) {
 	fields := map[string]json.RawMessage{
 		paramGenre: quoteJSON(chi.URLParam(r, paramGenre)),
@@ -98,11 +111,13 @@ func corpusSearchArgs(r *http.Request) (json.RawMessage, error) {
 	return marshalArgs(fields)
 }
 
-// addPositiveInts —— query 上那几个可选的正整数,有就带上。
+// addPositiveInts — the handful of optional positive integers on the query string;
+// includes each one if present.
 //
-// 抽出来是因为 `check-routes-cyclo` 说的那句话是对的:**分支意味着业务,face 只该声明和调用**。
-// 「?limit=abc 不是错误,是没说」这条判断原先在两条路由里各抄了一遍 —— 抄第二遍的时候
-// 就该抽了。
+// Extracted because `check-routes-cyclo` is right about this: **a branch means business
+// logic, a facade should only declare and call**. The "?limit=abc isn't an error, it's
+// unstated" judgment used to be copied once per route — copying it a second time was the
+// signal to extract it.
 func addPositiveInts(fields map[string]json.RawMessage, q url.Values, names ...string) {
 	for _, n := range names {
 		if raw, ok := positiveInt(q, n); ok {
@@ -122,7 +137,7 @@ func positiveInt(q url.Values, name string) (json.RawMessage, bool) {
 	return json.RawMessage(strconv.Itoa(v)), true
 }
 
-// corpusBodyArgs —— body 里的字段 + 路径上的 genre。
+// corpusBodyArgs — the body's fields + genre from the path.
 func corpusBodyArgs(r *http.Request) (json.RawMessage, error) {
 	fields, err := decodeBodyFields(r)
 	if err != nil {
@@ -132,7 +147,7 @@ func corpusBodyArgs(r *http.Request) (json.RawMessage, error) {
 	return marshalArgs(fields)
 }
 
-// corpusEntryArgs —— body + 路径上的 genre 和 id(改)。
+// corpusEntryArgs — the body + genre and id from the path (for update).
 func corpusEntryArgs(r *http.Request) (json.RawMessage, error) {
 	fields, err := decodeBodyFields(r)
 	if err != nil {
@@ -143,7 +158,7 @@ func corpusEntryArgs(r *http.Request) (json.RawMessage, error) {
 	return marshalArgs(fields)
 }
 
-// corpusAssetArgs —— 路径上的 genre + 条目 id + 素材 id(删一份素材)。
+// corpusAssetArgs — genre + entry id + asset id from the path (for deleting one asset).
 func corpusAssetArgs(r *http.Request) (json.RawMessage, error) {
 	return marshalArgs(map[string]json.RawMessage{
 		paramGenre:   quoteJSON(chi.URLParam(r, paramGenre)),
@@ -152,7 +167,7 @@ func corpusAssetArgs(r *http.Request) (json.RawMessage, error) {
 	})
 }
 
-// corpusIDArgs —— 只要路径上的 genre 和 id(读 / 删)。
+// corpusIDArgs — just genre and id from the path (for read / delete).
 func corpusIDArgs(r *http.Request) (json.RawMessage, error) {
 	return marshalArgs(map[string]json.RawMessage{
 		paramGenre:   quoteJSON(chi.URLParam(r, paramGenre)),

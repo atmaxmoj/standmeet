@@ -1,44 +1,54 @@
-// agent_stop.go —— **这一轮怎么收场，以及告诉访客哪个词**。
+// agent_stop.go —— **how this turn ends, and which word gets told to the visitor**.
 //
-// 从 agent_loop_budget.go 拆出来（那个文件撞了 max-lines 闸门，而闸门要的是拆包不是豁免）：
-// 那边讲的是「预算怎么用完的」，这边讲的是「用完之后这一轮叫什么名字」—— 两件事的读者不同，
-// 一个是运维看日志，一个是访客看屏幕。
+// Split out of agent_loop_budget.go (that file hit the max-lines gate, and the gate wants
+// splitting, not an exemption): that file covers "how the budget ran out", this one covers
+// "what this turn gets called once it has" — two different readers, one is ops reading logs,
+// the other is the visitor looking at the screen.
 //
-// 停止原因每加一种，`proxy_wire.go` 的 `productStops` 也要认得它，否则会被 mapFinishReason
-// 的 default 静默改写成「说完了」（F-A-35 就是这么漏的）。那份名单只有一处。
+// Every new stop reason added here also needs `proxy_wire.go`'s `productStops` to recognize
+// it, otherwise mapFinishReason's default will silently rewrite it into "finished normally"
+// (that's exactly how F-A-35 leaked through). That list has exactly one place it lives.
 
 package inference
 
-// StopNoAnswer —— 停止原因：这一轮**一个字都没答出来**，而且救不回来（F-A-35）。
+// StopNoAnswer —— stop reason: this turn **produced not one word of an answer**, and it
+// couldn't be rescued (F-A-35).
 //
-// 为什么它必须是独立的一种，而不是复用 max_tokens / tool_use：那两个说的是**怎么停的**，
-// 而访客要知道的是**结果是什么**。「说了一半」和「一个字没说」对他意味着不同的下一步 ——
-// 前者可以问「剩下的呢」，后者只能重问一个更小的问题。产品以前对这两种说同一句
-// 「ask for the rest」，于是在没有 rest 的时候许诺了一个 rest。
+// Why it must be its own kind rather than reusing max_tokens / tool_use: those two describe
+// **how it stopped**, while what the visitor needs to know is **what the outcome was**. "said
+// half of it" and "said nothing at all" mean different next steps for them — the former can ask
+// "what about the rest", the latter can only ask a narrower question again. The product used to
+// say the same "ask for the rest" for both, promising a rest that didn't exist.
 const StopNoAnswer = "no_answer"
 
-// StopDeadline —— 停止原因：**时间用完了**，而且连边界那次救场也没来得及（F-A-44）。
+// StopDeadline —— stop reason: **time ran out**, and even the boundary's rescue attempt
+// didn't finish in time (F-A-44).
 //
-// 跟 StopNoAnswer 分开，是因为访客要采取的动作不同：这一种该问得更窄，而不是「再问一次」。
-// prod 上的现场：读了 64 条笔记、边界点着了、救场那 60 秒也用完，然后访客读到
-// "The connection dropped before a reply came back. Please try asking again." ——
-// 连接好好的，而「再问一次」会撞同一堵墙。
+// Kept separate from StopNoAnswer because the visitor's next action differs: this one calls
+// for a narrower question, not "try again". What prod's incident looked like: 64 notes read,
+// the boundary fired, the rescue attempt's 60 seconds also ran out, and the visitor then read
+// "The connection dropped before a reply came back. Please try asking again." — the connection
+// was fine the whole time, and "try again" would hit the same wall.
 const StopDeadline = "deadline"
 
-// doneStop —— 交给访客那一侧的收场词。
+// doneStop —— the closing word handed to the visitor's side.
 //
-// 四条分支，各自对应访客手里**不同的东西**：
-//   - 说了自己办成一件事却没有回执 → `claim_unbacked`（压过全部，F-A-37）
-//   - 时间用完、连救场都没来得及 → `deadline`（F-A-44）
-//   - 救回来了 → 有一个完整答案 → `end_turn`（不能再说 max_tokens：没有 rest 可问了）
-//   - 没救回来、正文是空的 → **手里什么都没有** → `no_answer`
-//   - 其余 → 原样透传（正文在，只是没说完）
+// Four branches, each matching a **different thing** the visitor is left holding:
+//   - claimed an action was completed with no receipt for it → `claim_unbacked` (overrides
+//     everything else, F-A-37)
+//   - time ran out, and even the rescue attempt didn't finish → `deadline` (F-A-44)
+//   - rescued → a complete answer exists → `end_turn` (must not say max_tokens: there's no
+//     rest left to ask for)
+//   - not rescued, body is empty → **there's genuinely nothing in hand** → `no_answer`
+//   - everything else → passed through unchanged (there's a body, it just didn't finish)
 //
-// 判据落在 `product == ""` 而不是某个具体 stop reason：任何「正常收场却没有产物」的结局
-// 都是同一件事，不该等下一种 finish_reason 出现时再补一遍（[[lesson-not-swept-to-neighbours]]，
-// 跟 ensureProduct 里那个条件同源）。
+// The criterion is `product == ""`, not any specific stop reason: any outcome of "ended
+// normally but produced nothing" is the same situation, and shouldn't need patching again the
+// next time a new finish_reason shows up ([[lesson-not-swept-to-neighbours]]; same root cause
+// as the condition in ensureProduct).
 //
-// 日志那边照旧记真实的 stop + recovered，两个读者要的东西不一样。
+// The logs still record the real stop + recovered as they are — the two readers want different
+// things.
 func doneStop(state *turnState) string {
 	if state.stop == StopClaimUnbacked || state.stop == StopDeadline {
 		return state.stop

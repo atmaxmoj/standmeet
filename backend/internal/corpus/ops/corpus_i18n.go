@@ -1,12 +1,16 @@
-// corpus_i18n.go —— 多语结构在写入口的那道门,以及不写只看的那件工具。
+// corpus_i18n.go — the gate on multilingual structure at the write entry point, plus the
+// read-only check-without-writing tool.
 //
-// 两个入口两种脾气(设计里定的):
-//   - **MCP 写入拒绝**。agent 拿到错误可以改了重来,而一条坏掉的多语笔记会在读者面前
-//     少半篇内容 —— 那半篇没有任何提示。
-//   - **vault 同步照收**(见 obsidian 那侧)。它是镜像:拒收等于 owner 丢内容。
+// Two entry points, two different temperaments (by design):
+//   - **MCP writes reject**. An agent that gets an error back can fix it and retry, while a
+//     broken multilingual note leaves readers missing half the content — with no hint that
+//     half is missing.
+//   - **vault sync accepts as-is** (see the obsidian side). It's a mirror: refusing to
+//     accept means the owner loses content.
 //
-// 怎么改这件事写在**错误里**,不写在工具描述里:描述每次调用都要付钱,而且经常被略过;
-// 错误只在出事时出现,而且出现在最需要它的那一刻。
+// How to fix it is written **into the error**, not into the tool description: the
+// description gets paid for on every call and is often skipped over anyway; the error only
+// shows up when something's actually wrong, right when it's most needed.
 
 package ops
 
@@ -19,9 +23,10 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// i18nMinimalExample —— 错误里附的那份可抄的最小形式。frontmatter 一个字都不需要。
+// i18nMinimalExample — the copy-pasteable minimal form attached to the error. No
+// frontmatter needed at all.
 //
-//nolint:gosmopolitan // 示例里的中文那一面是这份契约的一半
+//nolint:gosmopolitan // the Chinese side of the example is half of this contract
 const i18nMinimalExample = "> [!i18n]\n" +
 	"> > [!lang] en\n" +
 	"> > # Title\n" +
@@ -31,8 +36,9 @@ const i18nMinimalExample = "> [!i18n]\n" +
 	"> > # 标题\n" +
 	"> > 中文正文。"
 
-// guardI18n —— 正文的多语结构过一遍。有 error 级诊断 → 拒绝,并把每一条 + 一份最小示例
-// 交给调用方。warning 不拦(翻译质量的事不该挡住一次写入)。
+// guardI18n — runs a body's multilingual structure through validation. Any error-level
+// diagnostic → reject, handing every one of them plus a minimal example back to the
+// caller. Warnings don't block (translation quality shouldn't hold up a write).
 func guardI18n(body string) error {
 	ds := i18n.Validate(nil, body)
 	if !i18n.HasError(ds) {
@@ -53,9 +59,12 @@ func i18nRejection(ds []i18n.Diagnostic) string {
 	return strings.Join(lines, "\n")
 }
 
-// I18nOps —— 只看不写:agent 在写之前先问一次,拿到的诊断跟写入口是同一份。
+// I18nOps — read-only, no write: an agent can ask before writing and gets back the exact
+// same diagnostics the write entry point would produce.
 //
-// 两处各写一套判断的话,"检查通过了但写不进去"这种事迟早出现,而那时候 agent 只会重试。
+// If the two places each had their own validation logic, "the check passed but the write
+// still failed" would show up sooner or later, and at that point the agent can only retry
+// blindly.
 func I18nOps() []fp.Op {
 	return []fp.Op{{
 		ID: "corpus.check_i18n",
@@ -75,8 +84,9 @@ var i18nCheckSchema = json.RawMessage(`{
 	"required":["body"]
 }`)
 
-// i18nCheckOut —— 出站:能不能写、有哪些诊断、解析出了哪些语言。
-// languages 是**解析出来的**那些,不是声明的 —— agent 想知道"我写的这几面到底认出来没有"。
+// i18nCheckOut — the outbound shape: whether it's writable, what diagnostics came up,
+// and which languages parsed out. languages is what was **actually parsed**, not what was
+// declared — the agent wants to know "did the panes I wrote actually get recognized".
 type i18nCheckOut struct {
 	Example     string            `json:"minimal_example,omitempty"`
 	Diagnostics []i18n.Diagnostic `json:"diagnostics"`

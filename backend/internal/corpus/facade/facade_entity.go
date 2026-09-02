@@ -2,7 +2,7 @@ package corpus
 
 import "github.com/atmaxmoj/standmeet/internal/corpus/entity"
 
-// 类型（实现:entity）.
+// Types (implemented in: entity).
 type (
 	Asset         = entity.Asset
 	NoteHero      = entity.NoteHero
@@ -15,10 +15,10 @@ type (
 	Writing       = entity.Writing
 )
 
-// 构造/函数（实现:entity）.
+// Constructors/functions (implemented in: entity).
 var FormatURI = entity.FormatURI
 
-// 常量（实现:entity）.
+// Constants (implemented in: entity).
 const (
 	GenreOutput              = entity.GenreOutput
 	GenreSubjectivity        = entity.GenreSubjectivity
@@ -31,7 +31,7 @@ const (
 	WritingVisibilityPublic  = entity.WritingVisibilityPublic
 )
 
-// 错误/变量（实现:entity）.
+// Errors/variables (implemented in: entity).
 var (
 	ErrOutputNotFound       = entity.ErrOutputNotFound
 	ErrParentCycle          = entity.ErrParentCycle

@@ -1,9 +1,11 @@
-// wiki_tree_context.go —— 一个节点的"上下文":祖先链(breadcrumb)+ 直接子
-// (SubEntriesRail)。跟树端点同一套懒加载 + cascade scope:path 顺树解成 nodeID,
-// 再 visibleChain 验整条链可见 —— 不在 scope 的祖先不出现在 breadcrumb(不泄露
-// gated 标题),子节点也照 scope 过滤。
+// wiki_tree_context.go — a node's "context": the ancestor chain (breadcrumb) + its
+// direct children (SubEntriesRail). Uses the same lazy-loading + cascade scope as the
+// tree endpoints: path is resolved to a nodeID by walking the tree, then visibleChain
+// checks the whole chain is visible — an ancestor outside scope never appears in the
+// breadcrumb (a gated title is never leaked), and child nodes are filtered by scope too.
 //
-// landing 页 SSR 拿这个画 breadcrumb + sub-rail;client 树 sidebar 走 WikiTreeChildren。
+// The landing page's SSR uses this to draw the breadcrumb + sub-rail; the client tree
+// sidebar goes through WikiTreeChildren.
 
 package usecase
 
@@ -15,14 +17,15 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
-// WikiContext —— 节点上下文。Ancestors 是 root→parent 顺序(不含自己)。
+// WikiContext — a node's context. Ancestors is in root->parent order (excludes itself).
 type WikiContext struct {
 	Ancestors []WikiTreeNode
 	Children  []WikiTreeNode
 }
 
-// WikiNodeContext —— 取 path 那条的祖先链 + 直接子。path 不存在 / 不在 scope →
-// 空上下文(不报错,前端不画 breadcrumb/rail)。
+// WikiNodeContext — fetches the ancestor chain + direct children for the entry at
+// path. If path doesn't exist / is outside scope -> an empty context (no error, and
+// the frontend simply draws no breadcrumb/rail).
 func WikiNodeContext(
 	ctx context.Context, deps SEODeps, path string, scope WikiTreeScope,
 ) (WikiContext, error) {
@@ -33,7 +36,7 @@ func WikiNodeContext(
 	nodeID, err := corpus.ResolveWikiNodeID(ctx, deps.Wiki, soleOwner.ID, path)
 	if err != nil {
 		if errors.Is(err, corpus.ErrWikiNotFound) {
-			return emptyWikiContext(), nil // path 不存在 → 空(不报错)
+			return emptyWikiContext(), nil // path doesn't exist -> empty (no error)
 		}
 		return WikiContext{}, fmt.Errorf("wiki context resolve: %w", err)
 	}
@@ -41,7 +44,8 @@ func WikiNodeContext(
 	return q.context(ctx, nodeID)
 }
 
-// context —— nodeID 的祖先链 + 直接子。节点(或任一祖先)不可见 → 空上下文。
+// context — nodeID's ancestor chain + direct children. If the node (or any ancestor) is
+// not visible -> an empty context.
 func (q *wikiTreeQuery) context(ctx context.Context, nodeID string) (WikiContext, error) {
 	chain, err := q.visibleChain(ctx, nodeID)
 	if err != nil {

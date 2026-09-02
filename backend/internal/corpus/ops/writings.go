@@ -1,11 +1,13 @@
-// writings.go —— owner 的长文:建 / 列出 / 发布 / 取消发布 / 删除。
+// writings.go — the owner's long-form pieces: create / list / publish / unpublish / delete.
 //
-// 建那一条的声明单独一个文件(writings_create.go),因为它带着一份自己的欠账:admin 面还
-// 走手写的 multipart 路由,所以它的 Reach 是 Only(理由, "mcp")。差异登记在收口里,不是
-// 靠躲在收口外面。
+// The create declaration lives in its own file (writings_create.go), because it
+// carries its own debt: the admin panel still goes through a hand-written
+// multipart route, so its Reach is Only(reason, "mcp"). The discrepancy is
+// recorded in the convergence point, not hidden by staying outside it.
 //
-// MCP 那份列表以前只有一行摘要(没有正文、地址、阅读时长、配图 URL),于是 owner 从
-// Claude Code 看不到自己写了什么,只看得到标题。现在两个面同一份完整记录。
+// The MCP list used to return just a one-line summary (no body, no address, no
+// read time, no image URLs), so the owner couldn't see what they'd written from
+// Claude Code — only the title. Now both surfaces get the same full record.
 
 package ops
 
@@ -23,18 +25,19 @@ import (
 
 const writingPreviewMaxLen = 200
 
-// noArgs —— 不吃参数的操作共用这份 schema。
+// noArgs — shared schema for operations that take no parameters.
 var noArgs = json.RawMessage(`{"type":"object","properties":{}}`)
 
-// WritingsDeps —— 这一组要的依赖。Tx 那份带素材存储(删文章要连着删配图,
-// 列表要把配图解析成可访问地址)。
+// WritingsDeps — the dependencies this group needs. The Tx one carries asset
+// storage (deleting an article must delete its images along with it; listing
+// must resolve images to accessible URLs).
 type WritingsDeps struct {
 	Writings usecase.WritingsDeps
 	Tx       usecase.WritingsTxDeps
 	Log      *slog.Logger
 }
 
-// Writings —— 建 / 列出 / 发布 / 取消发布 / 删除。
+// Writings — create / list / publish / unpublish / delete.
 func Writings(deps WritingsDeps) []fp.Op {
 	return []fp.Op{
 		writingsCreateOp(deps),
@@ -81,7 +84,7 @@ var writingIDSchema = json.RawMessage(`{
 	"required":["writing_id"]
 }`)
 
-// writingOut —— 一篇长文的出站形状(两个面同一份)。
+// writingOut — the outbound shape of one writing (shared by both surfaces).
 type writingOut struct {
 	AssetURLs         map[string]string `json:"asset_urls"`
 	PublishedAt       string            `json:"published_at,omitempty"`
@@ -134,8 +137,9 @@ func writingPublishedAt(wg *entity.Writing) string {
 	return usecase.PublishedAtRFC3339(&pub)
 }
 
-// assetURLs —— 正文和封面引用的素材 → 可访问地址。取不到给空表:一篇文章的配图取不到
-// 地址,不该让整份列表打不开。
+// assetURLs — assets referenced by the body and cover → accessible URLs. Give
+// an empty map when resolution fails: one article's images failing to resolve
+// must not break the whole list from loading.
 func (d WritingsDeps) assetURLs(ctx context.Context, wg *entity.Writing) map[string]string {
 	var coverPtr *string
 	if cover := wg.CoverImageAssetID(); cover != "" {
@@ -166,7 +170,8 @@ func listWritings(deps WritingsDeps) fp.Invoke {
 	}
 }
 
-// publishFn —— 发布 / 取消发布在域里是两个函数;这一层只选其一。
+// publishFn — publish / unpublish are two functions in the domain; this layer
+// just picks one.
 type publishFn func(
 	ctx context.Context, deps usecase.WritingsDeps, ownerID, writingID string,
 ) (entity.Writing, error)

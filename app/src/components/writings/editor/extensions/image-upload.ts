@@ -1,7 +1,8 @@
-// image-upload.ts —— editor 接住 paste/drop image。不立即上传：分配
-// client-side `pending-<id>`，把 File 存进 editor storage（caller 从
-// WritingEditor 拿出来跟 body_md 一起 multipart 提交）。markdown 里写
-// `standmeet-asset:pending-<id>`；显示用 URL.createObjectURL 拿 blob URL。
+// image-upload.ts — editor catches paste/drop image. Doesn't upload
+// immediately: assigns a client-side `pending-<id>`, stores the File in
+// editor storage (caller pulls it out of WritingEditor and submits it as
+// multipart along with body_md). Markdown holds
+// `standmeet-asset:pending-<id>`; display uses URL.createObjectURL for a blob URL.
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
@@ -51,9 +52,10 @@ function firstImageFile(files: FileList | null | undefined): File | undefined {
     : undefined;
 }
 
-// insertPending —— 不上传，分配 pending-id + 存 File，editor doc 插入
-// 一个 src=URI 的 image 节点（blob URL 给当前 session 显示；onPending
-// 回调把 PendingFile 喂回 WritingEditor 让 WritingForm 在 save 时收集）。
+// insertPending — doesn't upload, assigns a pending-id + stores the File,
+// inserts an image node with src=URI into the editor doc (blob URL for
+// display in the current session; the onPending callback feeds the
+// PendingFile back to WritingEditor so WritingForm collects it on save).
 function insertPending(view: EditorView, file: File, opts: ImageUploadOptions): void {
   const id = newPendingID();
   const objectURL = URL.createObjectURL(file);

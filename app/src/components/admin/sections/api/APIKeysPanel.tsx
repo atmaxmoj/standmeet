@@ -1,13 +1,19 @@
-// APIKeysPanel —— /admin/api-mcp 上**外发 API key** 的那一块（F-K-1）。
+// APIKeysPanel — the **outbound API key** block on /admin/api-mcp (F-K-1).
 //
-// 跟同一页的 MCP keypair 列表是两种东西，别混（[[two-mcp-surfaces]]）：那边是 owner 自己的
-// 客户端拿去签名的 Ed25519 keypair，这边是第三方程序拿去打 `/api/pub/v1` 的 `smk_` key。
+// Don't confuse this with the MCP keypair list on the same page
+// ([[two-mcp-surfaces]]): that one is the Ed25519 keypair owner's own
+// client uses to sign; this one is the `smk_` key a third-party program
+// uses to hit `/api/pub/v1`.
 //
-// **为什么这一块必须存在**：在它之前外发 key 只长在 owner-MCP 上，于是一把泄露的 key
-// 只有在 owner 装好并跑起一个 MCP 客户端之后才吊销得掉。止血的路不该要求先装工具。
-// 设计本来就要两个面互为孪生（`docs/design/facade-directions.md:202-206`）。
+// **Why this block has to exist**: before it, outbound keys only lived on
+// owner-MCP, so a leaked key could only be revoked after owner had
+// installed and run an MCP client. The bleeding-stop path shouldn't
+// require installing a tool first. The design always meant the two
+// surfaces to be twins (`docs/design/facade-directions.md:202-206`).
 //
-// 明文只在铸出来那一次显示，之后列表里只剩 prefix —— 这一页不能变成一个能薅 key 的地方。
+// Plaintext shows only at the moment it's minted; after that the list
+// only keeps the prefix — this page must never become a place to harvest
+// keys from.
 
 'use client';
 
@@ -21,9 +27,11 @@ import { useAPIKeys, type APIKeyItem } from '@/lib/admin/use-api-keys';
 import { useRoles } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
-// INPUT_CLASS —— 这一页既有输入框的写法（下边框，不是四边框）。**照抄不发明**：
-// 我第一版写了个 `sm-input`，那个类根本不存在，而 `check-sm-class-defined.sh` 正是为这种
-// "名字看着像原子、其实什么都不生成"建的（[[computed-class-generates-nothing]]）。
+// INPUT_CLASS — the existing input style on this page (bottom border only,
+// not all four sides). **Copy it, don't invent one**: my first version wrote
+// an `sm-input` class that didn't exist at all, and `check-sm-class-defined.sh`
+// exists exactly for this "looks like an atom, generates nothing" failure
+// mode ([[computed-class-generates-nothing]]).
 const INPUT_CLASS =
   'w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 ' +
   'reading-tight text-base';
@@ -47,13 +55,16 @@ export function APIKeysPanel() {
   );
 }
 
-// firstRoleID —— 取值,不是渲染;放在组件外面让呈现层守住 cyclo ≤3。
+// firstRoleID — pure value lookup, not rendering; kept outside the
+// component so the presentation layer stays at cyclo ≤3.
 function firstRoleID(roles: readonly { id: string }[]): string {
   return roles[0]?.id ?? '';
 }
 
-// NewSecret —— 明文只出现这一次。文案要说清"再也拿不回来"，否则 owner 会以为待会儿还能看。
-// **null 的分支自己接住**：让调用点保持无分支（呈现层 cyclo ≤3）。
+// NewSecret — plaintext appears only this once. Copy must say "you can't
+// get this back later", or owner will assume they can look at it again.
+// **The null branch is handled in here**: keeps the call site branch-free
+// (presentation layer stays at cyclo ≤3).
 function NewSecret(
   { created, onDismiss }: { created: { secret: string } | null; onDismiss: () => void },
 ) {
@@ -74,8 +85,9 @@ function NewSecret(
 interface MintProps {
   hook: ReturnType<typeof useAPIKeys>;
   roleIDs: { id: string; name: string }[];
-  // fallbackRole —— 角色还没选时用哪个。**父组件算好传下来**:呈现层守 cyclo ≤3,
-  // 而"取第一个"那一步的分支放在这里就超了。
+  // fallbackRole — which role to use when none is picked yet. **The parent
+  // component computes it and passes it down**: presentation layer stays at
+  // cyclo ≤3, and putting the "take the first one" branch here would blow it.
   fallbackRole: string;
 }
 
@@ -100,8 +112,9 @@ function MintRow({ hook, roleIDs, fallbackRole }: MintProps) {
       </label>
       <label>
         <span className="sm-smallcaps block mb-1">{t('roleField')}</span>
-        {/* SelectField 而不是裸 <select> —— 下拉只能有一种长相（UX-47 那条留下的闸门
-            check-one-select 当场抓住了我）。 */}
+        {/* SelectField instead of a bare <select> — dropdowns must have one
+            look only (the gate check-one-select left by UX-47 caught me
+            red-handed). */}
         <SelectField
           testid="api-key-new-role" value={roleID}
           onChange={(e) => { setRoleID(e.target.value); }}
@@ -111,10 +124,12 @@ function MintRow({ hook, roleIDs, fallbackRole }: MintProps) {
       </label>
       <button
         type="button" data-testid="api-key-new-create"
-        // **没有角色可 assume 时不可点**。角色列表是异步来的，而这个按钮只要填了标签就亮；
-        // 在列表回来之前点下去，`assumed_role_id` 是空串，后端必然 400 —— 一个**注定失败的
-        // 可点按钮**（[[button-that-cannot-be-wired]]）。这不是竞态的补丁：没有角色的时候，
-        // 铸一把 key 这件事本身就没有意义。
+        // **Disabled when there's no role to assume yet.** The role list
+        // arrives async, and this button lights up as soon as the label is
+        // filled; clicking before the list is back leaves `assumed_role_id`
+        // empty, and the backend always 400s — a **clickable button doomed
+        // to fail** ([[button-that-cannot-be-wired]]). This isn't a race-
+        // condition patch: with no role, minting a key has no meaning at all.
         disabled={label.trim() === '' || fallbackRole === ''}
         onClick={mint}
         className="sm-btn sm-btn-solid sm-btn-sm"
@@ -126,9 +141,12 @@ function MintRow({ hook, roleIDs, fallbackRole }: MintProps) {
 }
 
 
-// KeyList —— 三态走 ListPane（F-L-53：`check-one-empty-state` 加宽之后当场抓到这一处）。
-// 「no keys yet · generate one to wire up your first AI client」是一句会被 owner 当真的话：
-// 拉失败时它读作「这台实例还没有 key」，而真相可能是他已经发出去的那几把正在被用。
+// KeyList — the three states go through ListPane (F-L-53: this spot was
+// caught the moment `check-one-empty-state` was widened).
+// "no keys yet · generate one to wire up your first AI client" is a line
+// owner will take at face value: on a failed fetch it reads as "this
+// instance has no keys", when the truth may be that the keys he already
+// handed out are still in active use.
 function KeyList({ keys, hook }: { keys: readonly APIKeyItem[]; hook: ReturnType<typeof useAPIKeys> }) {
   const t = useTranslations('adminIntegrations.apiKeys');
   return (
@@ -146,14 +164,16 @@ function KeyList({ keys, hook }: { keys: readonly APIKeyItem[]; hook: ReturnType
 
 const ROW_BASE = 'flex items-baseline gap-3 border-b border-(--color-rule)/60 pb-2';
 
-// rowCls —— 活着的行原样,吊销的行退浓度。
+// rowCls — a live row stays as-is; a revoked row loses saturation.
 const rowCls = (live: boolean): string => (live ? ROW_BASE : `${ROW_BASE} opacity-55 saturate-50`);
 
-// KeyRow —— 一把 key 一行。**只显示 prefix**，明文不在这儿。
+// KeyRow — one row per key. **Only the prefix shows**, plaintext never does.
 //
-// 吊销过的那一行**退到后面去**(UX-91,跟 codes 那边的 UX-88 同一条规矩):这张表回答的是
-// 「现在谁的程序连得进来」,而吊销的行以前跟活着的行同样浓,只差一个词。退浓度不退内容 ——
-// owner 还要能查一把旧 key 当初给了谁。
+// A revoked row **fades into the background** (UX-91, the same rule as
+// UX-88 on the codes side): this table answers "whose program can connect
+// right now", and a revoked row used to sit at the same visual weight as a
+// live one, differing only by one word. Fade weight, not content — owner
+// still needs to look up who an old key was ever given to.
 function KeyRow({ row, hook }: { row: APIKeyItem; hook: ReturnType<typeof useAPIKeys> }) {
   const t = useTranslations('adminIntegrations.apiKeys');
   const run = useAction();
@@ -168,7 +188,8 @@ function KeyRow({ row, hook }: { row: APIKeyItem; hook: ReturnType<typeof useAPI
       {live ? (
         <button
           type="button" data-testid={`api-key-revoke-${row.label}`}
-          // 吊销不可逆,所以先问一句 —— 跟 wiki 删除同一个惯例。
+          // Revoking is irreversible, so ask first — same convention as
+          // wiki delete.
           onClick={() => {
             confirm(t('revokeConfirm'))
               && void run(async () => { await hook.revokeKey(row.id); });

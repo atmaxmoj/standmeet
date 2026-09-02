@@ -1,8 +1,9 @@
-// landing.go —— #114 公开 corpus landing/reader 渲染(从原 seo.go 拆出)。
-// GET /wiki/* + /output/* —— sole-owner instance,URL 不带 handle,chi wildcard
-// 让 path 含 `/`(分组分段)。owner 不存在 / slug 不存在 / 非 public 都 404。
-// robots.txt + sitemap.xml 是真 SEO,仍在 seo.go。handler 方法挂在 SEOHandlers 上
-// (共用 Deps),命名的完整 SEO→landing 归一留后续一轮。
+// landing.go —— #114 public corpus landing/reader rendering (split out of the original
+// seo.go). GET /wiki/* + /output/* — single-owner instance, URL carries no handle, a chi
+// wildcard lets path contain `/` (group/section). Owner doesn't exist / slug doesn't
+// exist / not public all → 404. robots.txt + sitemap.xml are real SEO and stay in
+// seo.go. Handler methods hang off SEOHandlers (sharing Deps); fully normalizing the
+// SEO→landing naming is left for a later pass.
 
 package public
 
@@ -28,8 +29,9 @@ func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
 		// (no/dead token) → published-only (SEO). Same scope predicate the wiki-tree/context use.
 		token, _ := bearerToken(r)
 		scope := owner.WikiTreeScopeFor(r.Context(), h.Sessions, token)
-		// ?lang= —— 访客要哪一种语言。**是查询参数不是路径段**:不是每条笔记都有同一套
-		// 语言,`/zh/...` 那种形态会在没有中文的条目上碎掉。
+		// ?lang= —— which language the visitor wants. **A query parameter, not a path
+		// segment**: not every note carries the same set of languages, and a
+		// `/zh/...`-style path would break on an entry with no Chinese version.
 		view, err := loadWikiLandingView(
 			r.Context(), h.Deps, slug, scope, r.URL.Query().Get("lang"))
 		if err != nil {
@@ -45,39 +47,47 @@ type wikiRefView struct {
 	Path  string `json:"path"`
 }
 
-// wikiLandingView —— 字段序按指针宽度排(map → string → slice → 标量),govet
-// fieldalignment 管着;读的时候按 json tag 看,别按行序推语义分组。
+// wikiLandingView —— field order follows pointer width (map → string → slice →
+// scalar), enforced by govet fieldalignment; read it by json tag, don't infer semantic
+// grouping from line order.
 type wikiLandingView struct {
-	// AssetURLs —— 正文里的 `standmeet-asset:<id>` 引用 + hero 图 → 可访问地址。
-	// reader 照这张表把 URI 换成 URL 再渲染;没有它,访客看到的是一段渲不出来的 URI。
+	// AssetURLs —— maps `standmeet-asset:<id>` references in the body + the hero image
+	// to reachable URLs. The reader swaps URIs for URLs against this table before
+	// rendering; without it, the visitor sees a URI that won't render.
 	AssetURLs map[string]string `json:"asset_urls"`
 	Path      string            `json:"path"`
 	Title     string            `json:"title"`
 	Body      string            `json:"body"`
 	Excerpt   string            `json:"excerpt"`
 	UpdatedAt string            `json:"updated_at"`
-	// hero 区 —— 封面图 + 压在图上那句话 + 色调。CoverImageAssetID 空 = owner 没设封面,
-	// reader 退回程序生成的那块色板。
-	CoverImageAssetID string        `json:"cover_image_asset_id"`
-	CoverHeadline     string        `json:"cover_headline"`
-	CoverHue          string        `json:"cover_hue"`
-	Tags              []string      `json:"tags"`
-	CSSClasses        []string      `json:"css_classes"` // per-note 呈现钩子;加到 .corpus-content
-	Related           []wikiRefView `json:"related"`
-	CitedBy           []wikiRefView `json:"cited_by"`
-	// Assets —— 挂在这条上的文件(文件名 + 真实字节数 + 地址)。reader 拿它渲下载区。
-	// **永不为 null**:空数组的意思是"没有附件",null 会被读成"这个字段坏了"。
+	// hero section —— cover image + the line laid over it + hue. An empty
+	// CoverImageAssetID = the owner never set a cover, and the reader falls back to a
+	// procedurally generated color swatch.
+	CoverImageAssetID string   `json:"cover_image_asset_id"`
+	CoverHeadline     string   `json:"cover_headline"`
+	CoverHue          string   `json:"cover_hue"`
+	Tags              []string `json:"tags"`
+	// CSSClasses —— per-note presentation hooks; added to .corpus-content.
+	CSSClasses []string      `json:"css_classes"`
+	Related    []wikiRefView `json:"related"`
+	CitedBy    []wikiRefView `json:"cited_by"`
+	// Assets —— the files attached to this entry (filename + real byte count + URL).
+	// The reader uses it to render the downloads section. **Never null**: an empty
+	// array means "no attachments", a null would be read as "this field is broken".
 	Assets []wikiAssetView `json:"assets"`
-	// Lang / Languages —— 这份正文是哪一种语言,以及这条笔记有哪些语言可选(切换器用)。
-	// 单语笔记:lang 空、languages 空数组。
+	// Lang / Languages —— which language this body is in, and which languages this
+	// note offers (used by the switcher). A single-language note: lang empty,
+	// languages an empty array.
 	Lang      string         `json:"lang"`
 	Languages []languageView `json:"languages"`
-	// SourcesCount —— 这条 wiki 是从几条 raw 提炼来的(N corpus sources)。
+	// SourcesCount —— how many raw entries this wiki entry was distilled from
+	// (N corpus sources).
 	SourcesCount int `json:"sources_count"`
 }
 
-// wikiAssetView —— 一份附件在访客那一侧的样子。**不含 storage key、不含 holder id**:
-// 访客要的是"叫什么、多大、从哪儿下",别的都不该出现在这条线上。
+// wikiAssetView —— what one attachment looks like from the visitor's side. **No
+// storage key, no holder id**: the visitor needs "what it's called, how big, where to
+// download from" — nothing else belongs on this wire.
 type wikiAssetView struct {
 	AssetID     string `json:"asset_id"`
 	Kind        string `json:"kind"`
@@ -99,7 +109,7 @@ func toWikiAssetViews(assets []corpus.AssetView) []wikiAssetView {
 	return out
 }
 
-// nonNilURLs —— nil map 序列化成 null,调用方要的是 {}。
+// nonNilURLs —— a nil map serializes to null, but callers need {}.
 func nonNilURLs(m map[string]string) map[string]string {
 	if m == nil {
 		return map[string]string{}
@@ -135,15 +145,17 @@ func loadWikiLandingView(
 	}, nil
 }
 
-// languageView —— 切换器上的一项:码 + 显示的字。标签规则来自 vault 自己的 lang-labels
-// (没写就按码生成),所以 vault 里和站点上看到的是同一套字。
+// languageView —— one entry on the switcher: code + display label. Label rules come
+// from the vault's own lang-labels (generated from the code if not set), so the vault
+// and the site show the same wording.
 type languageView struct {
 	Code  string `json:"code"`
 	Label string `json:"label"`
 }
 
-// toLanguageViews —— 语言集 → 切换器项。**永不为 null**:空数组的意思是"这条是单语的",
-// null 会被读成"这个字段坏了"。
+// toLanguageViews —— language set → switcher entries. **Never null**: an empty array
+// means "this entry is single-language", a null would be read as "this field is
+// broken".
 func toLanguageViews(meta *owner.LandingI18n) []languageView {
 	out := make([]languageView, 0, len(meta.Languages))
 	for _, code := range meta.Languages {
@@ -176,12 +188,13 @@ func handleLandingErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, env)
 }
 
-// landingNotFound —— wiki / output 公共 not-found envelope。
+// landingNotFound —— the shared not-found envelope for wiki / output.
 var landingNotFound = apierr.Envelope{
 	Status: http.StatusNotFound, Code: "not_found", Message: "page not found",
 }
 
-// landingNotFoundSentinels —— landing 路径上视作 404 的 sentinel error 集合。
+// landingNotFoundSentinels —— the set of sentinel errors treated as 404 on the landing
+// path.
 var landingNotFoundSentinels = []error{
 	corpus.ErrWikiNotFound,
 	corpus.ErrOutputNotFound,
@@ -218,17 +231,20 @@ func (h *SEOHandlers) getOutputLanding() http.HandlerFunc {
 	}
 }
 
-// outputLandingView —— 跟 wikiLandingView 字段对齐，前端 SDK 可复用渲染。
+// outputLandingView —— fields aligned with wikiLandingView, so the frontend SDK can
+// reuse the rendering.
 type outputLandingView struct {
-	// AssetURLs —— 正文里的 `standmeet-asset:<id>` 引用 + hero 图 → 可访问地址。
-	// 没有它,访客看到的是一个空图位(urlTransform 把非标准 scheme 静默剥掉,还不报错)。
+	// AssetURLs —— maps `standmeet-asset:<id>` references in the body + the hero
+	// image to reachable URLs. Without it, the visitor sees an empty image slot
+	// (urlTransform silently strips a non-standard scheme, with no error).
 	AssetURLs map[string]string `json:"asset_urls"`
 	Path      string            `json:"path"`
 	Title     string            `json:"title"`
 	Body      string            `json:"body"`
 	Excerpt   string            `json:"excerpt"`
 	UpdatedAt string            `json:"updated_at"`
-	// hero 区 —— 封面图 + 压在图上那句话 + 色调。空 = owner 没设。
+	// hero section —— cover image + the line laid over it + hue. Empty = the owner
+	// never set one.
 	CoverImageAssetID string          `json:"cover_image_asset_id"`
 	CoverHeadline     string          `json:"cover_headline"`
 	CoverHue          string          `json:"cover_hue"`

@@ -1,5 +1,5 @@
-// codes_members.go —— CodeMember (code_members 表) CRUD。从 codes.go 拆出
-// 守 max-lines 350 line cap。
+// codes_members.go —— CRUD for CodeMember (the code_members table). Split out
+// of codes.go to respect the max-lines 350 line cap.
 
 package repo
 
@@ -19,23 +19,31 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// GetOrCreateMember —— 具名访客:按 (code_id, display_name) upsert。同名 = 同一
-// 个人(续会);is_anonymous 永远 false(匿名走 CreateAnonymousMember)。
+// GetOrCreateMember —— named visitor: upserts by (code_id, display_name). Same
+// name = the same person (resuming a session); is_anonymous is always false
+// (anonymous visitors go through CreateAnonymousMember instead).
 func (r *CodeRepo) GetOrCreateMember(
 	ctx context.Context, codeID, displayName string,
 ) (entity.CodeMember, error) {
 	return r.insertMemberUnderCap(ctx, codeID, displayName, false)
 }
 
-// insertMemberUnderCap —— 名额上限**在一个事务里**守住：锁码 → 数人 → 插入。
+// insertMemberUnderCap —— enforces the member cap **inside one transaction**:
+// lock the code → count members → insert.
 //
-// 三步必须是三条**独立语句**：READ COMMITTED 下一条语句里的所有读取共用同一个快照，
-// 所以「`FOR UPDATE` + `count(*)` 写进同一条 SQL」只串行了锁、没串行计数 ——
-// 后到的那个请求拿到锁之后仍然按旧快照数人，看不见对方刚提交的那一行，于是照样放行。
-// 这就是 F-D-5 修过一次却仍然漏的原因：12 个人同时冲上限 5 的码，落库 6。
-// 拆开之后，count 是取得行锁之后开始的新语句 → 新快照 → 看得见已提交的成员。
+// The three steps must be three **separate statements**: under READ COMMITTED, every
+// read within one statement shares the same snapshot, so writing `FOR UPDATE` +
+// `count(*)` into a single SQL statement only serializes the lock, not the count —
+// a request arriving later still counts against the old snapshot once it gets the
+// lock, can't see the row the other request just committed, and lets itself through
+// anyway. That's why F-D-5 was fixed once and still leaked: 12 people hitting a
+// cap-5 code at once landed 6 rows. Once split apart, the count is a new statement
+// that starts after the row lock is acquired → a new snapshot → it can see already
+// committed members.
 //
-// 同名放行是**续会**，不占新名额（先问 MemberExistsByName，再决定要不要看上限）。
+// Letting a same-name request through is **resuming a session**, and doesn't consume
+// a new slot (MemberExistsByName is checked first, before deciding whether the cap
+// even matters).
 func (r *CodeRepo) insertMemberUnderCap(
 	ctx context.Context, codeID, displayName string, anon bool,
 ) (entity.CodeMember, error) {
@@ -52,8 +60,10 @@ func (r *CodeRepo) insertMemberUnderCap(
 	return toDomainMember(&row), nil
 }
 
-// inTx —— 开事务、跑一件事、成功提交/失败回滚。回滚失败跟原错误一起交出去（丢掉其中任何
-// 一个都会让下一个人诊断错方向）。
+// inTx —— opens a transaction, runs one thing, commits on success / rolls back on
+// failure. A rollback failure is joined with the original error and handed out
+// together (dropping either one would send the next person diagnosing in the
+// wrong direction).
 func (r *CodeRepo) inTx(
 	ctx context.Context, body func(pgx.Tx) (db.CodeMember, error),
 ) (db.CodeMember, error) {
@@ -102,14 +112,15 @@ func insertMemberTx(
 	return row, nil
 }
 
-// hasRoom —— 这张码还收不收人。无上限 / 已是成员(续会) / 人数未满 → 收。
+// hasRoom —— whether this code still accepts new members. No cap / already a
+// member (resuming) / not yet full → accept.
 func hasRoom(
 	ctx context.Context, q *db.Queries, codeUUID pgtype.UUID, displayName string, maxMembers *int32,
 ) (bool, error) {
 	if noCap(maxMembers) {
 		return true, nil
 	}
-	// 同名 = 续会,不吃新名额。
+	// Same name = resuming a session, doesn't consume a new slot.
 	exists, eerr := q.MemberExistsByName(ctx, db.MemberExistsByNameParams{
 		CodeID: codeUUID, DisplayName: displayName,
 	})
@@ -120,7 +131,7 @@ func hasRoom(
 	return n < int64(*maxMembers), wrapIf(cerr, "count code members")
 }
 
-// noCap —— 没设上限（NULL）或设成 0/负数,都表示不限。
+// noCap —— no cap set (NULL), or set to 0/negative, both mean unlimited.
 func noCap(maxMembers *int32) bool {
 	return maxMembers == nil || *maxMembers <= 0
 }
@@ -132,11 +143,13 @@ func wrapIf(err error, what string) error {
 	return fmt.Errorf("%s: %w", what, err)
 }
 
-// memberInsertErr —— 插了 0 行 = 名额满了,不是数据库出错。
+// memberInsertErr —— 0 rows inserted = the cap is full, not a database error.
 //
-// 上限守在那条语句自己里(见 access_codes.sql:GetOrCreateCodeMember),所以「满」在这一层的样子
-// 就是 no-rows。把它翻回领域错误,调用方才能说人话;不翻的话它会以 "upsert code member: no rows"
-// 的形状冒到面上 —— 一个访客读不懂、owner 也定位不到的句子。
+// The cap is enforced inside that statement itself (see access_codes.sql:
+// GetOrCreateCodeMember), so "full" shows up at this layer as no-rows. Translating
+// it back into a domain error lets the caller say something a human can read; without
+// the translation it would surface as the literal "upsert code member: no rows" —
+// a sentence a visitor can't understand and an owner can't act on either.
 func memberInsertErr(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return entity.ErrMemberQuotaReached
@@ -144,9 +157,10 @@ func memberInsertErr(err error) error {
 	return fmt.Errorf("upsert code member: %w", err)
 }
 
-// CreateAnonymousMember —— 匿名访客(skip 名字)每人一个独立 member:生成唯一
-// guest 名 + is_anonymous=true。client 拿返回的 member_id 存下,再来凭 id 续会,
-// 不会跟别的匿名者塌成一个。
+// CreateAnonymousMember —— an anonymous visitor (skipping a name) gets one
+// independent member of their own: generates a unique guest name +
+// is_anonymous=true. The client stores the returned member_id and resumes by
+// id next time, so it never collapses together with another anonymous visitor.
 func (r *CodeRepo) CreateAnonymousMember(
 	ctx context.Context, codeID string,
 ) (entity.CodeMember, error) {
@@ -154,12 +168,14 @@ func (r *CodeRepo) CreateAnonymousMember(
 	if gerr != nil {
 		return entity.CodeMember{}, gerr
 	}
-	// 匿名者也吃名额（每人一个 member），所以走同一道事务闸门 —— 只改具名那条路，
-	// 等于把同一个并发洞留在隔壁（今天反复撞的那个形状）。
+	// Anonymous visitors consume a slot too (one member each), so they go through the
+	// same transaction gate — fixing only the named-visitor path would leave the exact
+	// same concurrency hole sitting right next door (the shape that kept getting hit).
 	return r.insertMemberUnderCap(ctx, codeID, name, true)
 }
 
-// CountMembers —— 这张码已有几个 member(名字选择器 pre-issue 显 "N of M")。
+// CountMembers —— how many members this code already has (the name picker shows
+// "N of M" pre-issue).
 func (r *CodeRepo) CountMembers(ctx context.Context, codeID string) (int32, error) {
 	codeUUID, err := pgstore.ParseUUID(codeID)
 	if err != nil {
@@ -172,8 +188,9 @@ func (r *CodeRepo) CountMembers(ctx context.Context, codeID string) (int32, erro
 	return int32(n), nil
 }
 
-// GetMemberByID —— 按 member id + code 取(client 存 member_id 续会用);
-// 不存在 → ErrMemberNotFound,caller 退到按名字 / 新建匿名。
+// GetMemberByID —— fetches by member id + code (used to resume a session from a
+// client-stored member_id); not found → ErrMemberNotFound, and the caller falls
+// back to looking up by name / creating a new anonymous member.
 func (r *CodeRepo) GetMemberByID(
 	ctx context.Context, memberID, codeID string,
 ) (entity.CodeMember, error) {
@@ -202,7 +219,7 @@ const (
 	guestNameLen   = 8
 )
 
-// genGuestName —— "guest-xxxxxxxx" 唯一匿名名(lowercase base32)。
+// genGuestName —— generates a unique anonymous name "guest-xxxxxxxx" (lowercase base32).
 func genGuestName() (string, error) {
 	buf := make([]byte, guestRandBytes)
 	if _, err := rand.Read(buf); err != nil {
@@ -212,7 +229,8 @@ func genGuestName() (string, error) {
 	return "guest-" + strings.ToLower(enc)[:guestNameLen], nil
 }
 
-// ListMembers —— admin 看 code 下所有 member（含 revoked，UI 自己分组）。
+// ListMembers —— admin view of all members under a code (including revoked ones;
+// the UI groups them itself).
 func (r *CodeRepo) ListMembers(
 	ctx context.Context, codeID string) ([]entity.CodeMember, error,
 ) {

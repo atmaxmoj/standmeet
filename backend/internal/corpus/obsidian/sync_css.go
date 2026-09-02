@@ -1,5 +1,7 @@
-// sync_css.go —— 从 .obsidian/snippets/*.css(按 appearance.json 的 enabled 列表)harvest owner CSS。
-// 拼成 raw CSS 交给 SyncCSSPort(usecase 层再 sanitize+scope 落库)。跟 Obsidian 一致:只搬启用的。
+// sync_css.go -- harvests owner CSS from .obsidian/snippets/*.css (per the
+// enabled list in appearance.json). Concatenates it into raw CSS and hands
+// it to SyncCSSPort (the usecase layer sanitizes + scopes it before
+// persisting). Matches Obsidian's own behavior: only enabled snippets carry over.
 
 package obsidian
 
@@ -10,19 +12,21 @@ import (
 	"strings"
 )
 
-// SyncCSSPort —— owner CSS 存(SetOwnerCSS 会 sanitize+scope)。
+// SyncCSSPort -- stores owner CSS (SetOwnerCSS sanitizes + scopes it).
 type SyncCSSPort interface {
 	SetCSS(ctx context.Context, ownerID, rawCSS string) error
 }
 
-// cssHarvest —— 从 css 桶解出的:启用列表 + 各 snippet 内容 + 是否有 appearance.json。
+// cssHarvest -- what's parsed out of the css bucket: the enabled list, each
+// snippet's content, and whether appearance.json exists.
 type cssHarvest struct {
 	enabled       map[string]bool
 	snippets      map[string]string
 	hasAppearance bool
 }
 
-// syncCSS —— 拼启用的 snippet → SetCSS(best-effort;失败不阻塞整批 sync)。
+// syncCSS -- concatenates enabled snippets -> SetCSS (best-effort; a
+// failure doesn't block the whole sync batch).
 func syncCSS(ctx context.Context, deps *SyncDeps, ownerID string, files []VaultFile) {
 	if deps.CSS == nil || len(files) == 0 {
 		return
@@ -32,7 +36,8 @@ func syncCSS(ctx context.Context, deps *SyncDeps, ownerID string, files []VaultF
 	}
 }
 
-// concatEnabledCSS —— 按名字序拼接启用(或无 appearance 时全部)的 snippet 内容。
+// concatEnabledCSS -- concatenates enabled snippet content (or all of them,
+// when there's no appearance.json), sorted by name.
 func concatEnabledCSS(h cssHarvest) string {
 	names := make([]string, 0, len(h.snippets))
 	for name := range h.snippets {

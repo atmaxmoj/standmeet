@@ -1,8 +1,8 @@
 import { defineConfig } from 'tsup';
 
-// @standmeet/sdk-core 是无 UI 的核心：API client、类型、状态机。
-// ESM-only、.d.ts 输出、tree-shake 开、splitting 关 —— dist/ 保持扁平，
-// package.json 的 exports map 简洁。
+// @standmeet/sdk-core is the UI-less core: API client, types, state machine.
+// ESM-only, .d.ts output, tree-shake on, splitting off — keeps dist/ flat
+// and the package.json exports map simple.
 export default defineConfig({
   entry: {
     index: 'src/index.ts',

@@ -1,6 +1,7 @@
-// corpus_write_delete.go —— 删一条语料(声明在 corpus_write.go)。
+// corpus_write_delete.go —— delete one corpus entry (declared in corpus_write.go).
 //
-// 单拎出来只为守住那个文件的行数上限;删跟建/改是同一组操作的三分之一,别在这儿找第二套语义。
+// Pulled into its own file only to keep that file under its line-count limit; delete is one
+// third of the same operation group as create/update — don't look for a second semantics here.
 
 package ops
 
@@ -28,8 +29,8 @@ func deleteCorpus(deps usecase.Deps) fp.Invoke {
 	}
 }
 
-// decodeCorpusDelete —— 删多认一个 genre:subjectivity 只能删,不走别的写口
-// (它是 owner 跟自己的 AI 写出来的,见 subjectivity.go)。
+// decodeCorpusDelete —— delete accepts one extra genre: subjectivity can only be deleted,
+// it has no other write op (it's written by the owner's own AI, see subjectivity.go).
 func decodeCorpusDelete(raw json.RawMessage) (corpusGetArgs, error) {
 	var in corpusGetArgs
 	if err := json.Unmarshal(raw, &in); err != nil {
@@ -41,14 +42,17 @@ func decodeCorpusDelete(raw json.RawMessage) (corpusGetArgs, error) {
 	return in, fp.RequireArgs([2]string{"id", in.ID})
 }
 
-// deleteByGenre —— 删就是删,**三个 genre 一个样**。
+// deleteByGenre —— delete means delete, **the same for all three genres**.
 //
-// raw 以前走的是"归档":行留着,archived 置 true。那不是另一种语义,是同一件事换了个名字 ——
-// 没有任何列表会再显示它(ListRaw 永远过滤 archived=false),没有恢复的入口,面板上那个
-// 写着 archive 的按钮打的就是 DELETE。于是 `corpus.delete` 这个名字在 raw 上是假的:
-// owner 的 AI 说"删掉这条",拿到 deleted:true,而库里留着一行谁也读不到的墓碑。
+// raw used to go through "archiving" instead: the row stayed, archived flipped to true. That
+// wasn't a different semantics, just the same thing under a different name — no list ever shows
+// it again (ListRaw always filters archived=false), there's no restore path, and the panel
+// button labeled archive actually hits DELETE. So the name `corpus.delete` was a lie on raw:
+// the owner's AI says "delete this one", gets back deleted:true, and the database still holds
+// a tombstone row nobody can ever read.
 //
-// 一个删除动作在不同 genre 上意味着不同的事,调用方就得记住哪个是哪个 —— 而它记不住。
+// A delete action meaning different things on different genres would make the caller have to
+// remember which is which — and it can't.
 func deleteByGenre(
 	ctx context.Context, deps usecase.Deps, ownerID, genre, id string,
 ) error {

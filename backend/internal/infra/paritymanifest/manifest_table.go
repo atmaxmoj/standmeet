@@ -24,8 +24,9 @@ func concat(groups ...[]Entry) []Entry {
 	return out
 }
 
-// session / keypairs —— account 本身已搬进出站收口(dispatcher.Account),
-// 剩下的是浏览器会话生命周期和凭据引导面,它们本来就只在 admin 上。
+// session / keypairs —— the account capability itself has moved into the outbound convergence
+// point (dispatcher.Account); what's left is the browser session lifecycle and the credential
+// bootstrap face, which were always admin-only.
 func accountEntries() []Entry {
 	return []Entry{
 		{
@@ -51,27 +52,31 @@ func accountEntries() []Entry {
 	}
 }
 
-// corpus —— 六条(list / get / create / update / delete / promote)都搬进了 corpus 域自己的
-// 声明(internal/corpus/ops),genre 从"三套工具"收成了一个参数,收口去 facade 取。
+// corpus —— all six ops (list / get / create / update / delete / promote) have moved into the
+// corpus domain's own declaration (internal/corpus/ops); genre collapsed from "three tool sets"
+// into a single parameter, and the facade reads it from the convergence point.
 //
-// 这张表原来把它们记成"一个 op、三个 MCP 工具"(list_recent_raw / _wiki / _output),那正是
-// 台账在替结构记账;现在一个 op 就是一个工具,parity 由 dispatcher.Conform() 保证。
-// subjectivity.write 同理,更早就搬走了。
+// This table used to record them as "one op, three MCP tools" (list_recent_raw / _wiki /
+// _output), which was exactly the ledger doing bookkeeping the structure should own; now one op
+// is one tool, and parity is guaranteed by dispatcher.Conform(). subjectivity.write moved out
+// the same way, earlier.
 func corpusEntries() []Entry {
 	return []Entry{}
 }
 
-// codes + per-code ACL —— 都搬进了出站收口(dispatcher.Codes)。
+// codes + per-code ACL —— all moved into the outbound convergence point (dispatcher.Codes).
 //
-// 顺带补上了三条一直没被登记的 admin 路由(waypoints / corpus / ghost-evidence):
-// 它们既没有 MCP 孪生,也没有台账行,棘轮从来看不见 —— 跟 /stats/graph 同一类。
+// Along the way it picked up three admin routes that had never been registered (waypoints /
+// corpus / ghost-evidence): they have no MCP twin and no ledger row, so the ratchet never saw
+// them — same category as /stats/graph.
 func codesEntries() []Entry {
 	return []Entry{}
 }
 
-// roles / prompts / skills 三组也都搬进了出站收口(dispatcher.{Roles,Prompts,Skills})。
-// skills 连同 marketplace 一起 —— 它们共用"一个 skill 长什么样"这份形状。
-// 这个函数现在是空的,等最后一批搬完连同整包一起删。
+// roles / prompts / skills —— all three groups have also moved into the outbound convergence
+// point (dispatcher.{Roles,Prompts,Skills}). skills moved together with marketplace — they share
+// the shape of "what a skill looks like". This function is empty now; it gets deleted along with
+// the whole package once the last batch has moved.
 func rolesPromptsSkills() []Entry {
 	return []Entry{}
 }

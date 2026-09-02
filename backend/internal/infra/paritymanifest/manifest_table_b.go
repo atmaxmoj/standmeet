@@ -6,12 +6,14 @@ import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 func connectorsMCPServers() []Entry {
 	browser := func(id, why string) fp.Op { return act(id, fp.Only(why, FacadeAdmin)) }
 	return []Entry{
-		// 通用注册表那 9 条(list / catalog / status / create / update / delete /
-		// activate / disconnect / validate_spec)已经由**连接器轴自己声明**
-		// (cmd/server/axisconn/ops.go),经收口投影到面上;mail_test_send 则归了
-		// smtp 连接器自己的 manifest。这张表因此不再有它们的行。
+		// The 9 generic-registry ops (list / catalog / status / create / update / delete /
+		// activate / disconnect / validate_spec) are now declared by **the connector axis
+		// itself** (cmd/server/axisconn/ops.go) and projected onto faces via the convergence
+		// point; mail_test_send belongs to the smtp connector's own manifest. This table no
+		// longer has rows for them.
 		//
-		// 剩下这四条是浏览器专属的(OAuth 跳转、明文凭据表单):它们本来就只在 admin 上。
+		// The remaining four are browser-only (OAuth redirect, plaintext credential form):
+		// they were always admin-only.
 		{
 			Op:    browser("connectors.oauth_connect", "begins a browser OAuth redirect"),
 			Admin: []string{"POST /api/admin/connectors/{id}/connect"},
@@ -47,12 +49,13 @@ func contentEntries() []Entry {
 			Op:    act("obsidian.import", fp.Only("multipart vault upload; the sync connector's ingest surface", FacadeAdmin).Except(fp.Multipart)),
 			Admin: []string{"POST /api/admin/obsidian/import"},
 		},
-		// conversations 三条都搬进了出站收口(dispatcher.Conversations)。
+		// conversations — all three ops moved into the outbound convergence point
+		// (dispatcher.Conversations).
 	}
 }
 
 // owner settings (page / appearance / seo / handle / url / ai / byoai).
 func settingsEntries() []Entry {
-	// page / handle / public-url 都搬进了出站收口(dispatcher.Page)。
+	// page / handle / public-url all moved into the outbound convergence point (dispatcher.Page).
 	return []Entry{}
 }

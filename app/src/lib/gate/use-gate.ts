@@ -1,15 +1,18 @@
-// use-gate —— /gate 的状态机。
+// use-gate —— the state machine for /gate.
 //
-// 三条 submit 路径：
-//   - code: POST /api/v1/sessions {mode:'code', code} → 拿 session_token →
-//     redirect / (chat 实例 mount 时复用 cookie/session)
-//   - byoai: POST /api/v1/sessions {mode:'byoai', byoai_provider}（server 端
-//     只要 provider，endpoint+model 在 chat header 里走）→ session 拿到后
-//     把 BYOAI {provider,endpoint,model,key} 一坨进 browser vault
+// Three submit paths:
+//   - code: POST /api/v1/sessions {mode:'code', code} → get session_token →
+//     redirect / (the chat instance reuses the cookie/session on mount)
+//   - byoai: POST /api/v1/sessions {mode:'byoai', byoai_provider} (the
+//     server only needs the provider; endpoint+model travel in the chat
+//     header) → once the session comes back, the BYOAI
+//     {provider,endpoint,model,key} bundle goes into the browser vault
 //     (lib/gate/byoai-vault.ts) → redirect /
-//   - request: POST /api/v1/access-requests (无 handle field —— v1 单 owner)
+//   - request: POST /api/v1/access-requests (no handle field — v1 is
+//     single-owner)
 //
-// 都是 client-side hook；业务逻辑都在这里。Components 只渲染。
+// All client-side hooks; the business logic all lives here. Components
+// only render.
 
 import { useCallback, useState } from 'react';
 import { VISITOR_SESSION_STORAGE_KEY } from '@standmeet/sdk-core';
@@ -23,8 +26,10 @@ import { storeBYOAI } from '@/lib/gate/byoai-vault';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { rememberVisitorName } from '@/lib/visitor/visitor-name';
 
-// 键名从 SDK 来：自定义页面上的 agent 要**接手**这场已颁发的 session（页面是这张码的
-// 一个渲染），读的就是这一份。两边各写一遍字面量的话，改一处另一处静默失联。
+// The key name comes from the SDK: the agent on a custom page needs to
+// **take over** this already-issued session (the page is a rendering of
+// this code), and it reads this same key. If each side wrote the literal
+// separately, changing one would silently disconnect the other.
 const BYOAI_STORAGE_KEY = VISITOR_SESSION_STORAGE_KEY;
 
 import { z } from 'zod';
@@ -38,11 +43,13 @@ import { safeJsonString } from '@/lib/api/typed-json';
 const ToolSpecSchema = z.object({
   name: z.string(),
   description: z.string(),
-  // G-8: throbber 文案随 spec 一起持久化；缺失 → fallback "running <name>"
+  // G-8: throbber copy is persisted along with the spec; missing → falls
+  // back to "running <name>"
   progress_label: z.string().optional(),
   input_schema: z.unknown(),
-  // #134: 这个 tool 自带的 ui:// 卡 HTML（MCP Apps，per-tool）。随 spec 持久化，
-  // 否则 code-mode 进站(gate issue → localStorage → chat reuse)那一跳被 zod 剥掉。
+  // #134: this tool's own ui:// card HTML (MCP Apps, per-tool). Persisted
+  // with the spec, otherwise the code-mode entry hop (gate issue →
+  // localStorage → chat reuse) gets it stripped by zod.
   ui_html: z.string().optional(),
 });
 const CapStateSchema = z.object({
@@ -50,12 +57,15 @@ const CapStateSchema = z.object({
   enabled: z.boolean(),
   quota_remaining: z.number().optional(),
   policy_summary: z.string().optional(),
-  // extra —— 能力的附加状态（#134: 外置 MCP app 的 ui:// 卡 html / resource_uri
-  // 挂在 ui 下）。必须保留 —— Zod 默认 strip 未知键，漏了它 reuseStored 会把
-  // 沙盒卡的 html 丢掉，前端渲不出卡。
+  // extra —— extra state for the capability (#134: an externalized MCP
+  // app's ui:// card html / resource_uri hangs under ui). Must be kept —
+  // Zod strips unknown keys by default, and missing this would make
+  // reuseStored drop the sandbox card's html, so the frontend can't render
+  // the card.
   extra: z.unknown().optional(),
 });
-// DockButtonSchema —— #109/#110 dock 按钮持久化：reuse session 第二次进站仍看到按钮。
+// DockButtonSchema —— #109/#110 dock button persistence: on a second entry
+// with a reused session, the buttons are still there.
 const DockButtonSchema = z.object({
   capability_id: z.string(),
   title: z.string(),
@@ -65,16 +75,19 @@ const StoredVisitorSessionSchema = z.object({
   session_token: z.string(),
   conversation_id: z.string(),
   byoai: z.boolean(),
-  // custom_page_slug —— 这张码扫出来看到的是哪一页。**落地决定的唯一落点**：
-  // 领码有两条路（/gate 提交、名字选择器），两条都走这个 persist，所以谁也漏不掉。
-  // 空串 = 默认对话。老 blob 没这个字段 → default ''。
+  // custom_page_slug —— which page this code lands you on when scanned.
+  // **The single place the landing decision is stored**: there are two
+  // paths to claim a code (/gate submit, the name picker), and both go
+  // through this same persist, so neither can miss it. Empty string =
+  // default chat. Old blobs lack this field → default ''.
   custom_page_slug: z.string().default(''),
   capabilities: z.array(CapStateSchema).optional(),
   tool_specs: z.array(ToolSpecSchema).optional(),
   system_prompt_part_ids: z.array(z.string()).optional(),
   system_prompt_persona: z.string().optional(),
-  // H.13.d: code-mode 初始 ghost 队列也持久化；reused session 第二
-  // 次进站仍能看到 owner 设的 suggested ghost。
+  // H.13.d: the initial ghost queue for code-mode is persisted too; on a
+  // second entry with a reused session, the owner's suggested ghosts are
+  // still visible.
   ghosts: z.array(z.string()).nullish().transform((v) => v ?? undefined), // F-D-1 class: ghosts can be null
   dock_buttons: z.array(DockButtonSchema).optional(),
 });
@@ -102,18 +115,23 @@ export function persistSession(sess: PublicSessionResponse, byoai: boolean): voi
   window.localStorage.setItem(BYOAI_STORAGE_KEY, JSON.stringify(data));
 }
 
-// storeDisplaySession —— 把 issue 响应折进 SessionStrip 展示 store。code/byoai
-// 两条路径共用:role-specific 字段(code/visitor/byoai/provider)由 caller 传,其余
-// quota/members/startedAt + #122 的 email/ownerCanDeliver 在这里统一映射。
+// storeDisplaySession —— folds the issue response into the SessionStrip
+// display store. Shared by both the code and byoai paths: role-specific
+// fields (code/visitor/byoai/provider) are passed by the caller, while
+// quota/members/startedAt plus #122's email/ownerCanDeliver are mapped
+// uniformly here.
 function storeDisplaySession(
   sess: PublicSessionResponse,
   fields: { code: string | null; visitor: string | null; byoai: boolean; byoaiProvider: string },
 ): void {
   useVisitorSessionStore.getState().setSession({
     ...fields,
-    // label —— 这张码的名字，strip 和欢迎语拿它说「你进的是哪一片」。以前这里写死
-    // null，于是两处的 `?? 'invited'` 兜底恒定生效，每张码都被说成 invited（UX-68）。
-    // 兜底本身是对的（设计源：没标签才退回），错的是把真值扔在这一行。
+    // label —— this code's name; the strip and the welcome message use it
+    // to say "which slice you're in". This used to be hardcoded to null,
+    // so the `?? 'invited'` fallback in both places always kicked in and
+    // every code got called "invited" (UX-68). The fallback itself is
+    // correct (per the design: fall back only when there's no label) —
+    // the bug was throwing away the real value on this line.
     label: sess.code_label ?? null,
     used: sess.quota.used_turns,
     max: sess.quota.max_turns,
@@ -131,23 +149,28 @@ export function loadStoredSession(): StoredVisitorSession | null {
   return raw ? safeJsonString(raw, StoredVisitorSessionSchema) : null;
 }
 
-// clearStoredSession —— 删掉 chat 鉴权凭据(session_token + conversation_id)。
-// session 失效(401)时跟 useVisitorSessionStore.clear() 一起调,免得拿着死
-// token 反复打后端。
+// clearStoredSession —— removes the chat auth credentials (session_token +
+// conversation_id). Called together with useVisitorSessionStore.clear()
+// when the session expires (401), so a dead token doesn't keep hitting the
+// backend.
 export function clearStoredSession(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(BYOAI_STORAGE_KEY);
 }
 
-// Provider —— BYOAI 提交时的 provider 名。string 不收窄，因为新 backend
-// 支持 anthropic / openai / deepseek / kimi / groq / siliconflow / openrouter
-// / together / custom 一长串，全枚举不划算；非法值 server 端会 reject。
+// Provider —— the provider name submitted for BYOAI. Left as string rather
+// than narrowed, because the new backend supports a long list — anthropic
+// / openai / deepseek / kimi / groq / siliconflow / openrouter / together /
+// custom — and enumerating them all isn't worth it; the server rejects
+// invalid values anyway.
 export type Provider = string;
 
-// BYOAISubmitInput —— /gate BYOAI panel submit 时一起提交的 4 个字段。
-// endpoint + model 必填（custom 必须 owner 自填；preset 选了之后由 UI 预填
-// 默认值再走这里，所以走到这一步永远非空）。key 由 vault 加密落 localStorage，
-// session 仍只发 provider 给 server。
+// BYOAISubmitInput —— the 4 fields submitted together from the /gate BYOAI
+// panel. endpoint + model are required (custom requires the owner to fill
+// them in; for a preset, the UI prefills the default and that flows
+// through here too, so by this point they're always non-empty). The key is
+// encrypted by the vault and lands in localStorage; the session still only
+// sends provider to the server.
 export interface BYOAISubmitInput {
   provider: Provider;
   endpoint: string;
@@ -155,16 +178,23 @@ export interface BYOAISubmitInput {
   key: string;
 }
 
-// SubmitState.locked —— 上一次失败是不是 per-IP 的锁（后端信封 code=`code_locked`）。
-// 它跟「码不对」是两件不同的事，下一步也不同：一个是重新输，另一个是**过一次人机校验**。
-// 后端认这条出路（`code_guard.go`: 有效 token → 立刻解锁），所以界面必须给得出来（F-G-3）。
+// SubmitState.locked —— whether the last failure was a per-IP lock (the
+// backend envelope's code=`code_locked`). That's a different thing from
+// "wrong code", and the next step differs too: one is retyping, the other
+// is **passing a captcha**. The backend honors this way out
+// (`code_guard.go`: a valid token unlocks immediately), so the UI has to
+// offer it (F-G-3).
 export type SubmitState = { busy: boolean; error: string | null; locked: boolean };
 
-// GateHook —— gate 上有三扇门，**每扇门自己的成败只属于它自己**。
+// GateHook —— there are three doors on the gate, and **each door's own
+// success or failure belongs only to it**.
 //
-// 上一版只有一份 state，三扇门共读：留言口被 per-IP 拦下时，「输入访问码」那一栏跟着亮红字、
-// 跟着弹出人机校验，而那扇门根本没上锁 —— 界面替一个不存在的状态作了证，还把另一扇门的
-// 理由印在了它下面（F-G-6）。分成三份不是整洁，是让那件事**写不出来**。
+// The previous version had one shared state read by all three doors: when
+// the message door got blocked per-IP, the "enter access code" field would
+// also light up red and pop a captcha, even though that door was never
+// locked — the UI was bearing witness to a state that didn't exist, and
+// printing another door's reason underneath it (F-G-6). Splitting into
+// three isn't for tidiness — it makes that bug **impossible to write**.
 export interface GateHook {
   code: SubmitState;
   byoai: SubmitState;
@@ -181,8 +211,9 @@ export interface AccessRequestInput {
   name: string;
   org: string;
   message: string;
-  // captcha_token —— 发得太多被拦下之后放行用的那张票（F-G-4）。字段名跟线路上一致，
-  // 因为它是直接 JSON.stringify 出去的。
+  // captcha_token —— the pass used to get through after being blocked for
+  // sending too many (F-G-4). The field name matches the wire format
+  // because it's JSON.stringify'd out directly.
   captcha_token?: string;
 }
 
@@ -199,8 +230,9 @@ export function useGate(): GateHook {
       const trimmedName = visitorName.trim();
       const sess = await issueCodeSession({
         code: trimmedCode, visitor_name: trimmedName,
-        // 空串不发：captcha 关着时后端不看这个字段，但一个恒定出现的空字段会让人以为
-        // 「票已经带上了」。
+        // Don't send an empty string: the backend ignores this field when
+        // captcha is off, but a field that's always present, even empty,
+        // could look like "the token is already attached".
         ...(captchaToken === '' ? {} : { captcha_token: captchaToken }),
       });
       // F-A-5: keep the remembered name in sync with the /gate entry so a later
@@ -268,9 +300,12 @@ async function runSubmit(
   }
 }
 
-// requestError —— 把留言口的错误信封读出来（code + message），别折成一句
-// `submit access request: 429`。后端为这次拒绝写了一句给访客看的话，而上一版把它扔了 ——
-// 于是「发得太多了、过一次校验就行」变成一个没人看得懂的状态码（同 F-A-23 那一族）。
+// requestError —— reads the error envelope from the message door (code +
+// message) instead of collapsing it into a bare `submit access request:
+// 429`. The backend wrote a sentence for the visitor to read explaining
+// this rejection, and the previous version threw it away — so "you sent
+// too many, just pass a captcha" turned into a status code nobody could
+// make sense of (same family as F-A-23).
 async function requestError(res: Response): Promise<Error> {
   const body: unknown = await res.json().catch(() => ({}));
   const env = envelopeOf(body);
@@ -290,9 +325,12 @@ function envelopeOf(body: unknown): { code: string; message: string } {
   return { code, message };
 }
 
-// LOCK_CODES —— 「被这道闸拦下，而一次人机校验就能过」的那几种拒绝。
-// 码兑换是 `code_locked`，留言口是 `request_flood` —— 两个口子、同一台机器（ipTally）、
-// 同一条出路。断的是信封里的 `code`，不是那句话的措辞：文案改一次就失灵的判定等于没判。
+// LOCK_CODES —— the rejections that mean "blocked by this gate, and a
+// single captcha pass gets you through". Code redemption uses
+// `code_locked`, the message door uses `request_flood` — two doors, the
+// same machine (ipTally), the same way out. What's checked is the envelope's
+// `code`, not the wording of the message: a check that breaks the moment
+// the copy changes isn't really a check.
 const LOCK_CODES = ['code_locked', 'request_flood'];
 
 function isLocked(e: unknown): boolean {
@@ -300,17 +338,21 @@ function isLocked(e: unknown): boolean {
   return typeof e.code === 'string' && LOCK_CODES.includes(e.code);
 }
 
-// submitErrorText —— 后端为每一种拒绝都写了一句给访客看的话("no such access code…"、
-// "this access code was revoked…"、"this code is full…"),那就把那句话说出来。
-// 每一句都指向不同的下一步,所以这一层不许把它们归并(F-D-6)。拿不到才退到一句通用的:
-// `issue session: 403` 这种给不了访客任何东西(F-A-23)。
+// submitErrorText —— the backend wrote a sentence for the visitor to read
+// for every kind of rejection ("no such access code…", "this access code
+// was revoked…", "this code is full…"), so surface that sentence. Each one
+// points to a different next step, so this layer must not merge them
+// (F-D-6). Only fall back to a generic message when there's nothing to
+// get: something like `issue session: 403` gives the visitor nothing
+// (F-A-23).
 function submitErrorText(e: unknown): string {
   const fromServer = serverMessageOf(e);
   return fromServer !== '' ? fromServer : 'Couldn’t check that just now. Try again.';
 }
 
-// serverMessageOf —— SDK 把信封里的 message 挂在抛出的 Error 上。类型断言在这个 repo 里
-// 是禁的,所以走 in + typeof 逐步收窄。
+// serverMessageOf —— the SDK attaches the envelope's message onto the
+// thrown Error. Type assertions are banned in this repo, so this narrows
+// step by step with in + typeof instead.
 function serverMessageOf(e: unknown): string {
   if (typeof e !== 'object' || e === null || !('serverMessage' in e)) return '';
   const msg: unknown = e.serverMessage;

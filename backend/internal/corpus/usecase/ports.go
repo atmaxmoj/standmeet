@@ -1,6 +1,8 @@
-// ports.go —— corpus 模块对外暴露的读取端口（consumer 面向这些窄接口编程，
-// prod 的 *WikiRepo/*OutputRepo/*WritingRepo 结构上满足；eval 内存 fixture 补齐）。
-// 从 usecases/visitor_data_sources.go 抽出，让 corpus usecase 与 visitor 编排共享。
+// ports.go —— the read ports the corpus module exposes externally (consumers code
+// against these narrow interfaces; prod's *WikiRepo/*OutputRepo/*WritingRepo satisfy
+// them structurally; the eval in-memory fixture fills them in too). Extracted out of
+// usecases/visitor_data_sources.go so the corpus usecase and visitor orchestration
+// share it.
 
 package usecase
 
@@ -11,10 +13,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 )
 
-// WikiLister —— owner-scoped wiki corpus for retrieval。内存窗口 ListByOwner
-// + DB 懒加载三件套:全量搜(Search)、按 id 读 meta
-// (GetMetaByID,上溯算 path)、按 id 读正文(GetByID)。prod *WikiRepo
-// 原样满足;eval-harness 内存 fixture 需补这三个。
+// WikiLister —— owner-scoped wiki corpus for retrieval. The in-memory window
+// ListByOwner plus a trio of DB lazy-loads: full-text search (Search), read meta by id
+// (GetMetaByID, walks up parents to compute path), read body by id (GetByID). prod's
+// *WikiRepo satisfies this as-is; the eval-harness in-memory fixture needs to fill in
+// these three.
 type WikiLister interface {
 	ListByOwner(ctx context.Context, ownerID string, limit int32) ([]entity.Wiki, error)
 	Search(
@@ -27,9 +30,10 @@ type WikiLister interface {
 	GetByID(ctx context.Context, ownerID, id string) (entity.Wiki, error)
 }
 
-// OutputLister —— owner-scoped output corpus for retrieval。wiki 的孪生:内存窗口的
-// ListByOwner 之外,加 DB 懒加载:全量搜(Search)、按 id 读 meta(GetMetaByID,上溯算
-// path)、按 id 读正文(GetByID)。prod *OutputRepo 原样满足。
+// OutputLister —— owner-scoped output corpus for retrieval. Wiki's twin: on top of the
+// in-memory window ListByOwner, adds DB lazy-loads: full-text search (Search), read meta
+// by id (GetMetaByID, walks up parents to compute path), read body by id (GetByID).
+// prod's *OutputRepo satisfies this as-is.
 type OutputLister interface {
 	ListByOwner(ctx context.Context, ownerID string, limit int32) ([]entity.Output, error)
 	Search(
@@ -42,10 +46,12 @@ type OutputLister interface {
 	GetByID(ctx context.Context, ownerID, id string) (entity.Output, error)
 }
 
-// WritingLister —— owner-scoped published writings for retrieval。wiki/output 的
-// 第三个孪生:DB 全量搜(Search)+ 按树派生 path 读(GetPublishedByPath),不走内存窗口。
-// (writing 按 published 准入 + 自带 path 列,无需 tree 上溯。)corpus_list 仍用
-// ListPublishedByOwner 的内存列表(扁平 genre,同 output)。
+// WritingLister —— owner-scoped published writings for retrieval. The third twin of
+// wiki/output: DB full-text search (Search) + read by tree-derived path
+// (GetPublishedByPath), bypassing the in-memory window entirely. (A writing is admitted
+// by its published flag and carries its own path column, so no tree walk-up is needed.)
+// corpus_list still uses ListPublishedByOwner's in-memory list (a flat genre, same as
+// output).
 type WritingLister interface {
 	ListPublishedByOwner(ctx context.Context, ownerID string) ([]entity.Writing, error)
 	Search(

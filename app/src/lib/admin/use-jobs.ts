@@ -1,6 +1,9 @@
-// use-jobs —— Monitor/SystemSection background-jobs 数据层。GET /api/admin/stats/jobs 拿真 cron
-// 登记表（目前唯一真任务:沙箱工作区 sweep）+ last-run/status。只读,mount 拉一次。格式化在这
-// (lib),组件无 if。诚实:只列真正在跑的 job,不再硬编 sitemap/reindex/backup。
+// use-jobs —— data layer for the Monitor/SystemSection background-jobs panel.
+// GET /api/admin/stats/jobs fetches the real cron registry (currently the
+// only real job: sandbox workspace sweep) + last-run/status. Read-only,
+// fetched once on mount. Formatting lives here (lib), the component has no
+// if. Honest: lists only jobs actually running, no longer hardcodes
+// sitemap/reindex/backup.
 
 'use client';
 
@@ -43,13 +46,14 @@ export interface JobRowView {
   status: string;
 }
 
-// lastRunView —— ISO last_run → 「多久以前」；null(没跑过)→ '—'。
-// 原来给的是 `10:16 AM` 这种一天之内才读得懂的时刻：昨天跑的和今天跑的长得一样（UX-46）。
+// lastRunView —— ISO last_run → "how long ago"; null (never run) → '—'.
+// It used to give a time like `10:16 AM` that only reads meaningfully within
+// a day: something run yesterday and something run today look identical (UX-46).
 function lastRunView(iso: string | null): string {
   return iso === null ? '—' : ago(iso);
 }
 
-// jobRowViews —— jobs → 表格行显示串。空(子系统未起)→ 一条诚实占位行,非假 job。
+// jobRowViews —— jobs → table row display strings. Empty (subsystem not up) → one honest placeholder row, not a fake job.
 export function jobRowViews(jobs: ScheduledJob[]): JobRowView[] {
   if (jobs.length === 0) {
     return [{ name: 'no scheduled jobs', schedule: '—', last: '—', status: 'idle' }];

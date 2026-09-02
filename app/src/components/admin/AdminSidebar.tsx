@@ -1,8 +1,9 @@
-// AdminSidebar —— admin 左侧 nav。design 源 admin.js Sidebar +
-// NAV_GROUPS (27-62)。mono 11.5px nav-link + "── group" headers + accent
-// badge 动态计数。border-left accent 标 active。
+// AdminSidebar —— admin left nav. design source: admin.js Sidebar +
+// NAV_GROUPS (27-62). mono 11.5px nav-link + "── group" headers + accent
+// badge with a live count. border-left accent marks active.
 //
-// 每一节叫什么在 `lib/admin/nav` 里写一次 —— 侧栏的牌子和门后的大标题读的是同一份（F-N-3）。
+// Each section's name is written once in `lib/admin/nav` — the sidebar's label and the big
+// heading behind the door read from the same source (F-N-3).
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -23,29 +24,35 @@ export interface SidebarBadges {
 type Props = {
   active: AdminSlug;
   badges?: SidebarBadges;
-  // open / onClose —— 只在 `lg` 以下有意义（那时它是抽屉）。桌面上侧栏恒在，两者不参与。
+  // open / onClose —— only meaningful below `lg` (where the sidebar is a drawer). On desktop
+  // the sidebar is always present, and neither prop is used.
   open?: boolean;
   onClose?: () => void;
 };
 
-// 窄屏上这一列**脱离文档流**（`max-lg:fixed`）。用 translate 藏起来是不够的：
-// 它仍是 flex 行里 `w-[232px] shrink-0` 的一项，宽度照占，正文照样只剩 158px ——
-// 看不见了，却还在挤，而那正是要修的那件事。
+// On narrow screens this column **leaves the document flow** (`max-lg:fixed`). Hiding it with
+// translate alone isn't enough: it's still a `w-[232px] shrink-0` item in the flex row, still
+// claiming its width, still leaving content with only 158px — invisible, yet still crowding,
+// which is exactly the thing that needs fixing.
 const SHELL = 'w-[232px] shrink-0 border-r border-(--color-rule) pb-5 flex flex-col overflow-y-auto';
-// 层级走 globals.css 那张表的 `overlay` 带（半屏遮罩），抽屉压着自己那层遮罩：
-// `overlay-1` 是遮罩、`overlay-2` 是面板。**不往上挪**到 modal / toast 那两带 ——
-// 抽屉开着时弹的 toast 仍然要看得见（F-C-26 就是被这个次序坑的）。
+// Stacking uses the `overlay` band from the table in globals.css (the half-screen scrim); the
+// drawer sits on its own overlay layer: `overlay-1` is the scrim, `overlay-2` is the panel.
+// **Do not** bump it up to the modal / toast bands — a toast fired while the drawer is open
+// still has to stay visible (F-C-26 was bitten by exactly this ordering).
 //
-// `sm-z-overlay-2` 不带 `max-lg:`：那是 Tailwind 的变体，套不到这个手写 CSS 类上
-// （写了不报错，只是不生成任何东西）。不加限制也没有副作用 —— 桌面上这一列是 `static`，
-// z-index 对 static 元素本来就不生效。
+// `sm-z-overlay-2` carries no `max-lg:`: that's a Tailwind variant and doesn't apply to this
+// hand-written CSS class (writing it compiles fine, it just generates nothing). Leaving it
+// unscoped has no side effect either — on desktop this column is `static`, and z-index never
+// does anything to a static element anyway.
 const DRAWER = 'sm-z-overlay-2 max-lg:fixed max-lg:top-14 max-lg:bottom-0 max-lg:left-0 '
   + 'max-lg:w-[min(19rem,85vw)] max-lg:bg-(--color-paper) max-lg:shadow-xl '
   + 'max-lg:transition-transform max-lg:duration-200';
-// 关着时用 `invisible` 而不是 `aria-hidden`：关着的抽屉对读屏和 Tab 也该是关着的
-// （只用 translate 挪走的话，焦点还能走进一列看不见的链接，而人不知道自己去了哪），
-// 但 `aria-hidden` 是个属性、没有断点，写上去会把**桌面上那列常驻的侧栏**一起藏掉。
-// `visibility` 同时管无障碍树和 Tab 序，而且能按断点切换，正好是这里要的那一个。
+// When closed, use `invisible` rather than `aria-hidden`: a closed drawer should also be closed
+// to screen readers and Tab (translate alone still lets focus walk into a column of invisible
+// links, with no way for the person to know where they went) — but `aria-hidden` is an
+// attribute with no breakpoint variant, so setting it would also hide **the sidebar that's
+// permanently present on desktop**. `visibility` covers both the a11y tree and tab order, and
+// it can be scoped by breakpoint, which is exactly what's needed here.
 const CLOSED = 'max-lg:-translate-x-full max-lg:invisible lg:visible';
 
 export function AdminSidebar({ active, badges, open = false, onClose }: Props) {
@@ -55,11 +62,13 @@ export function AdminSidebar({ active, badges, open = false, onClose }: Props) {
       <nav
         id="admin-sidebar"
         data-testid="admin-sidebar"
-        // 抽屉里点了任何一条就收起来 —— 冒泡到这里,不用给每个 item 传一遍。
+        // Clicking any item in the drawer closes it — handled here via bubbling, so it doesn't
+        // need to be threaded through every item.
         //
-        // 挂在这儿而不是「路由变了就收」:后者在**重复点当前这一节**时不触发
-        // （`active` 没变),于是抽屉留在原地盖着正文,而人刚刚做的动作是"我要去看它"。
-        // 桌面上 onClose 是 undefined,这一行什么都不做。
+        // Attached here rather than to "close on route change": the latter doesn't fire when
+        // **re-clicking the currently active section** (`active` doesn't change), so the
+        // drawer would stay open covering the content right after the person just acted to go
+        // look at it. On desktop onClose is undefined, so this line does nothing.
         onClick={onClose}
         className={navCls(open)}
       >
@@ -75,7 +84,8 @@ function navCls(open: boolean): string {
   return `${SHELL} ${DRAWER} ${open ? 'max-lg:translate-x-0' : CLOSED}`;
 }
 
-// Scrim —— 抽屉后面那层。它同时是**点外面关掉**那个动作：手机上没有别的地方可点。
+// Scrim —— the layer behind the drawer. It doubles as the **tap-outside-to-close** action:
+// there's nowhere else to tap on a phone.
 function Scrim({ onClose }: { onClose?: () => void }) {
   const t = useTranslations('adminShell.sidebar');
   return (
@@ -142,10 +152,12 @@ function Badge({ count, testId }: { count: number | null; testId?: string }) {
   ) : null;
 }
 
-// SidebarFooter —— 这两行 owner 在 admin 每一页都看得见,所以两行都必须是关于**这台**机器的。
-// 上一版是 `instance · standmeet`(i18n 常量:每台实例都这么写,于是它谁也没说)加
-// `uptime · —`(横杠是 JSX 字面量)。而 /admin/system 同一时刻显示着真的 uptime —— 值一直
-// 在,只是没接过来。现在两处读同一个 system-info store,不可能再各说各的(UX-27)。
+// SidebarFooter —— these two lines are visible to the owner on every admin page, so both must
+// be about **this specific** machine. The previous version was `instance · standmeet` (an i18n
+// constant — every instance said the same thing, so it said nothing) plus `uptime · —` (the
+// dash was a JSX literal), while /admin/system was showing the real uptime at the same moment —
+// the value was there all along, just never wired in. Now both places read the same
+// system-info store, so they can no longer disagree (UX-27).
 function SidebarFooter() {
   const t = useTranslations('adminShell.sidebar');
   const { info } = useSystemInfo();
@@ -166,9 +178,10 @@ function SidebarFooter() {
   );
 }
 
-// NarrowFooterExtras —— 窄屏顶栏放不下的那几样（版本、登录的是谁、去公开页）落在这里。
-// 这一节本来讲的就是「这台实例是什么」，版本和身份是同一件事的两句；`lg` 起它们回到顶栏，
-// 这里就收起来，不在桌面上重复说一遍。
+// NarrowFooterExtras —— the items that don't fit the top bar on narrow screens (version, who's
+// signed in, link to the public page) land here. This section already tells "what instance is
+// this"; version and identity are two lines of the same story. At `lg` and above they move back
+// to the top bar, and this block collapses so desktop doesn't repeat them.
 function NarrowFooterExtras() {
   const t = useTranslations('adminShell.topBar');
   const buildTag = useAppVersion();

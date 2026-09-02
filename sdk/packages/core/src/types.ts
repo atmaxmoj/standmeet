@@ -1,6 +1,7 @@
 // types.ts —— public-facing shape of every response @standmeet/sdk-core
-// returns. 全部 readonly 走"server is authoritative"语义；caller 不该改
-// 这些对象再回写。命名遵循 backend JSON 协议（snake_case）。
+// returns. Everything is readonly under a "server is authoritative"
+// semantics; the caller should never mutate these objects and write them
+// back. Naming follows the backend JSON protocol (snake_case).
 
 // PagePinCard —— one rendered pin: the pinned corpus entry's title + excerpt +
 // tree-derived path (the card links into /wiki/<path>). insights/projects are
@@ -56,39 +57,48 @@ export interface WikiLandingView {
   readonly excerpt: string;
   readonly updated_at: string;
   readonly tags: readonly string[];
-  // per-note cssclasses(呈现钩子):reader 把它加到 .corpus-content 容器上。
+  // per-note cssclasses (a rendering hook): the reader adds this to the
+  // .corpus-content container.
   readonly css_classes?: readonly string[];
-  // 出/入链(read next / cited by rail):每项指向另一条 wiki。
+  // outbound/inbound links (read next / cited by rail): each item points to
+  // another wiki entry.
   readonly related: readonly { readonly path: string; readonly title: string }[];
   readonly cited_by: readonly { readonly path: string; readonly title: string }[];
-  // 这条 wiki 是从几条 raw 提炼来的(N corpus sources)。
+  // how many raw entries this wiki entry was distilled from (N corpus sources).
   readonly sources_count: number;
-  // asset_urls —— 正文里的 `standmeet-asset:<id>` 引用 + hero 图 → 可访问地址。
-  // reader 渲染前照它把 URI 换成 URL;不换的话 react-markdown 会把非标准 scheme 剥掉,
-  // 图位是空的而且不报错。
+  // asset_urls —— maps `standmeet-asset:<id>` references in the body + hero
+  // image to reachable addresses. The reader swaps URIs for URLs against
+  // this before rendering; skip it and react-markdown strips the
+  // non-standard scheme, leaving an empty image slot with no error.
   readonly asset_urls?: Readonly<Record<string, string>>;
-  // assets —— 挂在这条上的文件(文件名 + 真实字节数 + 地址)。图片走正文里的 asset URI,
-  // kind='attachment' 的渲成下载区 —— 大小要显示真实字节数,那是访客决定点不点的依据。
+  // assets —— files attached to this entry (filename + actual byte size +
+  // address). Images go through the asset URI in the body; kind='attachment'
+  // ones render as a download area —— the size must show the real byte count,
+  // since that's what the visitor decides whether to click on.
   readonly assets?: readonly WikiAssetView[];
-  // hero 三件套。cover_image_asset_id 为空 = owner 没设封面,reader 退回程序生成的色板。
+  // The hero trio. cover_image_asset_id empty = owner set no cover, and the
+  // reader falls back to a procedurally generated color swatch.
   readonly cover_image_asset_id?: string;
   readonly cover_headline?: string;
   readonly cover_hue?: string;
-  // 多语:body **已经是**选中语言的那一份(服务端选的),lang 说的是哪一份。
-  // languages 空 = 单语笔记,reader 不出切换器。
+  // Multi-language: body is **already** the selected language's copy (chosen
+  // server-side); lang says which one. languages empty = a single-language
+  // note, and the reader shows no switcher.
   readonly lang?: string;
   readonly languages?: readonly LanguageOption[];
 }
 
-// LanguageOption —— 切换器上的一项:码 + 显示的字(owner 的 lang-labels 优先,
-// 没写就按码生成:zh→中文 / fr→FR)。
+// LanguageOption —— one entry on the switcher: code + display label (the
+// owner's lang-labels take priority; if unset, generated from the code:
+// zh→中文 / fr→FR).
 export interface LanguageOption {
   readonly code: string;
   readonly label: string;
 }
 
-// WikiAssetView —— 一份挂在语料上的文件,访客那一侧看到的样子。
-// **不含 storage key、不含 holder id**:访客要的是"叫什么、多大、从哪儿下"。
+// WikiAssetView —— how a file attached to a corpus entry looks from the
+// visitor's side. **No storage key, no holder id**: what the visitor needs
+// is "what's it called, how big, where to download it from".
 export interface WikiAssetView {
   readonly asset_id: string;
   readonly kind: string;
@@ -98,39 +108,47 @@ export interface WikiAssetView {
   readonly size_bytes: number;
 }
 
-// OutputLandingView —— /output/<path> SEO landing。output 是 raw → wiki → output
-// 三层中最精炼那层。
+// OutputLandingView —— the /output/<path> SEO landing. output is the most
+// refined of the three raw → wiki → output layers.
 //
-// 素材那几个字段以前**不在这里**,而上面那句注释写着"结构跟 WikiLandingView 一致" ——
-// 它描述的是意图,不是结果。于是访客读一条 output 时:正文里的 standmeet-asset 渲不出来
-// (空图位,不报错)、owner 设的封面到不了前端、附件连字段都没有。
+// The asset-related fields used to **not be here**, while the comment above
+// claimed "structure matches WikiLandingView" —— that described the intent,
+// not the result. So when a visitor read an output entry: standmeet-asset
+// references in the body wouldn't render (empty image slot, no error), the
+// owner's cover setting never reached the frontend, and attachments had no
+// field to even carry them.
 export interface OutputLandingView {
   readonly path: string;
   readonly title: string;
   readonly body: string;
   readonly excerpt: string;
   readonly updated_at: string;
-  // 正文引用 + hero 图 → 可访问地址。渲染前照它把 URI 换成 URL。
+  // Body references + hero image → reachable addresses. Swap URIs for URLs
+  // against this before rendering.
   readonly asset_urls?: Readonly<Record<string, string>>;
-  // 挂在这条上的文件(文件名 + 真实字节数 + 地址)。kind='attachment' 的渲成下载区。
+  // Files attached to this entry (filename + actual byte size + address).
+  // kind='attachment' ones render as a download area.
   readonly assets?: readonly WikiAssetView[];
-  // hero 三件套。cover_image_asset_id 为空 = owner 没设封面。
+  // The hero trio. cover_image_asset_id empty = owner set no cover.
   readonly cover_image_asset_id?: string;
   readonly cover_headline?: string;
   readonly cover_hue?: string;
 }
 
-// PublicSessionQuota —— session 颁发时 server 给的 turn 配额。max_turns=0
-// 表示无限（owner 在 code 上未设 max_turns_per_session，或非 code mode）。
+// PublicSessionQuota —— the turn quota the server hands out when a session
+// is issued. max_turns=0 means unlimited (owner set no max_turns_per_session
+// on the code, or it's not code mode).
 export interface PublicSessionQuota {
   readonly max_turns: number;
   readonly used_turns: number;
-  // max_members —— 这张码最多几个名字(0 = 不限)。后端恒发(非 code session
-  // 也是 0),必填 —— 直接读,不兜底。配 members 数渲 "N of M names"。
+  // max_members —— how many names this code allows at most (0 = unlimited).
+  // The backend always sends it (0 for non-code sessions too), required ——
+  // read it directly, no fallback. Paired with members.length to render
+  // "N of M names".
   readonly max_members: number;
 }
 
-// PublicSessionMember —— 这张码下已有的一个名字(member)。
+// PublicSessionMember —— one existing name (member) under this code.
 export interface PublicSessionMember {
   readonly name: string;
   readonly last_seen: string;
@@ -139,14 +157,17 @@ export interface PublicSessionMember {
 export interface PublicSessionCapability {
   readonly id: string;
   readonly enabled: boolean;
-  // title —— 透传 MCP 工具的人类可读显示名（#109/#110 dock 按钮 label）。没实现则缺省。
+  // title —— passes through the MCP tool's human-readable display name
+  // (the #109/#110 dock button label). Absent if not implemented.
   readonly title?: string;
   readonly quota_remaining?: number;
   readonly policy_summary?: string;
 }
 
-// PublicSessionDockButton —— #109/#110 一个可渲染的 chat dock 按钮：能力 id + 显示名 + 触发词。
-// owner 在 role 上配，已过滤 code-deny。访客点它 = 把 trigger 当自己的消息发出。
+// PublicSessionDockButton —— #109/#110's renderable chat dock button:
+// capability id + display name + trigger phrase. The owner configures it on
+// the role, already filtered for code-deny. Visitor clicking it = sending
+// the trigger as their own message.
 export interface PublicSessionDockButton {
   readonly capability_id: string;
   readonly title: string;
@@ -156,13 +177,16 @@ export interface PublicSessionDockButton {
 export interface PublicSessionToolSpec {
   readonly name: string;
   readonly description: string;
-  // G-8: tool 跑过程中 frontend throbber 显的文案；空 / 缺失 → fallback
-  // "running <name>"。让 label 跟 tool spec 同源 (backend single source)，
-  // frontend ConversationDeck/ChatRoom 不再各自硬编码 THROBBER_LABELS 表。
+  // G-8: the text the frontend throbber shows while the tool runs; empty /
+  // missing → fallback "running <name>". Keeps the label sourced from the
+  // same place as the tool spec (backend single source), so the frontend
+  // ConversationDeck/ChatRoom no longer hardcode their own THROBBER_LABELS
+  // table.
   readonly progress_label?: string;
   readonly input_schema: unknown;
-  // #134 / MCP Apps: 这个 tool 自带的 ui:// 卡片 HTML（插件经 tool `_meta.ui_resource`
-  // 声明，宿主装配时 resources/read 进来）。空 / 缺失 → 无卡。
+  // #134 / MCP Apps: this tool's own ui:// card HTML (declared by the plugin
+  // via the tool's `_meta.ui_resource`, pulled in by the host at assembly
+  // time via resources/read). Empty / missing → no card.
   readonly ui_html?: string;
 }
 
@@ -170,41 +194,53 @@ export interface PublicSessionResponse {
   readonly session_token: string;
   readonly conversation_id: string;
   readonly code?: string;
-  // code_label —— owner 给这张码起的名字（"OpenAI eng loop"）。session strip 和欢迎语
-  // 用它说出访客进的是哪一片（设计源 docs/design/project/app.js）。后端一直在发，
-  // 这里以前没声明，于是被整条前端链路丢掉、退回 'invited' 兜底（UX-68）。
+  // code_label —— the name the owner gave this code ("OpenAI eng loop"). The
+  // session strip and welcome message use it to tell the visitor which slice
+  // they entered (design source: docs/design/project/app.js). The backend
+  // has always sent it; this field just wasn't declared here, so it got
+  // dropped by the whole frontend chain and fell back to 'invited' (UX-68).
   readonly code_label?: string;
-  // custom_page_slug —— 这张码扫出来看到的是哪一页；空串 = 默认对话。
-  // 落地决定跟着颁发一起下来，领码的每一条路都拿得到同一个答案。
+  // custom_page_slug —— which page scanning this code lands on; empty string
+  // = the default chat. The landing decision travels with the issuance, so
+  // every path that picks up the code gets the same answer.
   readonly custom_page_slug?: string;
   readonly visitor_name?: string;
-  // member_id —— 这次解析到的 member id;client 存下,再来带上续会(尤其匿名)。
+  // member_id —— the member id resolved this time; the client stores it and
+  // brings it along next time to continue the session (especially for
+  // anonymous visitors).
   readonly member_id?: string;
-  // quota / members —— 后端恒发(public/byoai 也给 zero-value quota + [] members),
-  // 必填:直接读,不用 `?.` + `?? 0` 兜底掩盖"本该有却没有"。
+  // quota / members —— the backend always sends these (public/byoai also get
+  // a zero-value quota + [] members), required: read directly, don't mask
+  // "should be there but isn't" with `?.` + `?? 0` fallbacks.
   readonly quota: PublicSessionQuota;
   readonly members: readonly PublicSessionMember[];
-  // D-2 / D-5: pi-pivot fields。pi-agent-core 装 system prompt + tool
-  // registry 用。旧 caller 不读这些字段，optional 兼容。
+  // D-2 / D-5: pi-pivot fields. Used by pi-agent-core to assemble the system
+  // prompt + tool registry. Old callers don't read these fields; optional
+  // for compatibility.
   readonly capabilities?: readonly PublicSessionCapability[];
   readonly tool_specs?: readonly PublicSessionToolSpec[];
   readonly system_prompt_part_ids?: readonly string[];
   readonly system_prompt_persona?: string;
-  // H.13.b: code-mode visitor 进 chat 时浏览器拿初始 ghost text 列表，
-  // owner 建码时填的 suggested questions 透下来。code-mode 之外是空
-  // 数组 (backend 强制 [] 不 null)。
+  // H.13.b: when a code-mode visitor enters chat, the browser gets an
+  // initial ghost-text list —— the suggested questions the owner filled in
+  // while creating the code, passed straight through. Outside code-mode
+  // it's an empty array (backend forces [] rather than null).
   readonly ghosts?: readonly string[];
-  // #109/#110: owner 在 role 上配的 ≤2 个 chat dock 按钮（冻结、过滤 code-deny 后）。
+  // #109/#110: up to 2 chat dock buttons the owner configured on the role
+  // (frozen, filtered for code-deny).
   readonly dock_buttons?: readonly PublicSessionDockButton[];
-  // #122: owner 已配通 mail connector。前端据此决定约成卡要不要显
-  // "发确认邮件" 那块(没配 → 整张确认卡不渲染,owner 根本发不了信)。
+  // #122: whether the owner has a mail connector configured. The frontend
+  // uses this to decide whether the booking-confirmation card should show
+  // the "send confirmation email" section (unconfigured → the whole
+  // confirmation card doesn't render, since the owner can't send mail at all).
   readonly owner_can_deliver?: boolean;
 }
 
 export type SSETokenEvent = { readonly kind: 'token'; readonly text: string };
 
-// CitedRef —— SSE done event 给前端的引用信息：id + title。让 visitor chat
-// 渲染 "↑ from: <title>" footer 时不用再去 fetch 单条 wiki/output。
+// CitedRef —— the citation info an SSE done event gives the frontend: id +
+// title. Lets visitor chat render an "↑ from: <title>" footer without
+// having to fetch the individual wiki/output entry.
 export interface CitedRef {
   readonly id: string;
   readonly title: string;

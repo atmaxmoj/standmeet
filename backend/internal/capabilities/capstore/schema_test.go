@@ -1,8 +1,10 @@
-// schema_test.go —— schema 名推导 + DROP 核心安全守卫的纯 UT(不碰 DB)。最要紧的断言:
-// **没有任何 (kind,id) 输入能推出一个"可 DROP 且命中核心"的名字**,且守卫会拒绝一切
-// 非保留前缀 / 核心 / 空的名字。守卫漏了 → 这些断言变红(guard-must-fail-on-the-bug)。
+// schema_test.go —— pure unit tests (no DB touched) for schema-name derivation + the DROP
+// core-safety guard. The assertion that matters most: **no (kind,id) input can ever derive a
+// name that is both DROPpable and hits core**, and the guard refuses every name with no
+// reserved prefix / that's core / that's empty. A leaky guard → these assertions go red
+// (guard-must-fail-on-the-bug).
 
-package capstore //nolint:testpackage // 测未导出守卫(schemaName/assertDroppable),必须同包
+package capstore //nolint:testpackage // schemaName/assertDroppable are unexported, share pkg
 
 import "testing"
 
@@ -13,9 +15,9 @@ func TestSchemaName_Derivation(t *testing.T) {
 		id   string
 		want string
 	}{
-		{KindConnector, "google-calendar", "connector_google_calendar"}, // '-' 净化
+		{KindConnector, "google-calendar", "connector_google_calendar"}, // '-' sanitized
 		{KindConnector, "smtp", "connector_smtp"},
-		{KindMCP, "calendar.book", "mcp_calendar_book"}, // '.' 净化
+		{KindMCP, "calendar.book", "mcp_calendar_book"}, // '.' sanitized
 		{KindMCP, "corpus.retrieval", "mcp_corpus_retrieval"},
 	}
 	for _, c := range cases {
@@ -35,10 +37,10 @@ func TestSchemaName_RejectsBadInput(t *testing.T) {
 		kind Kind
 		id   string
 	}{
-		{KindConnector, ""},    // 空 id
-		{KindConnector, "---"}, // 净化后为空
-		{Kind("core"), "x"},    // 未知 kind
-		{Kind(""), "x"},        // 空 kind
+		{KindConnector, ""},    // empty id
+		{KindConnector, "---"}, // empty after sanitizing
+		{Kind("core"), "x"},    // unknown kind
+		{Kind(""), "x"},        // empty kind
 	}
 	for _, b := range bad {
 		if _, err := schemaName(b.kind, b.id); err == nil {
@@ -50,16 +52,16 @@ func TestSchemaName_RejectsBadInput(t *testing.T) {
 func TestAssertDroppable_RefusesCoreAndUnprefixed(t *testing.T) {
 	t.Parallel()
 	refuse := []string{
-		"public",             // 核心
-		"pg_catalog",         // 核心
-		"information_schema", // 核心
-		"",                   // 空
-		"dialogs",            // 核心表所在(无前缀)
-		"codes",              // 无前缀
-		"connector",          // 只有前缀词、无 '_后缀'
-		"mcp",                // 同上
-		"public_",            // 不匹配保留前缀
-		"xmcp_booker",        // 前缀不在词首
+		"public",             // core
+		"pg_catalog",         // core
+		"information_schema", // core
+		"",                   // empty
+		"dialogs",            // where core tables live (no prefix)
+		"codes",              // no prefix
+		"connector",          // just the prefix word, no '_suffix'
+		"mcp",                // same
+		"public_",            // doesn't match a reserved prefix
+		"xmcp_booker",        // prefix not at the start of the word
 	}
 	for _, name := range refuse {
 		if err := assertDroppable(name); err == nil {
@@ -78,8 +80,9 @@ func TestAssertDroppable_AllowsPluginSchemas(t *testing.T) {
 	}
 }
 
-// TestNoInputProducesCoreDrop —— 兜底:遍历一堆恶意 id,证明 schemaName 要么报错、要么给出
-// 一个过得了守卫的 plugin 名 —— 永远不会给出一个"能 DROP 的核心名"。
+// TestNoInputProducesCoreDrop —— a fallback: iterate a batch of malicious ids to prove
+// schemaName either errors or produces a plugin name that passes the guard — it never
+// produces a "DROPpable core name".
 func TestNoInputProducesCoreDrop(t *testing.T) {
 	t.Parallel()
 	evil := []string{"public", "../public", "public;drop", "pg_catalog", "", "  ", "..", "PUBLIC"}
@@ -93,7 +96,7 @@ func assertNeverCoreDrop(t *testing.T, kind Kind, id string) {
 	t.Helper()
 	name, err := schemaName(kind, id)
 	if err != nil {
-		return // 拒绝 = 安全
+		return // a refusal is safe
 	}
 	if derr := assertDroppable(name); derr != nil {
 		t.Fatalf("schemaName(%s,%q)=%q slipped past the guard: %v", kind, id, name, derr)

@@ -1,81 +1,108 @@
-// Package mcpplugin —— 标准 MCP 插件的 manifest + 装机发现来源（Phase A / C1）。
+// Package mcpplugin —— manifest + install-time discovery source for standard MCP
+// plugins (Phase A / C1).
 //
-// 装机配置（STANDMEET_PLUGINS 指向的 JSON，形如 Claude Desktop mcpServers）
-// 声明一组 MCP 插件；core 启动时解析 + 版本闸 + 逐条校验，产出可注册的
-// []Manifest。这里是**纯数据层** —— 不 dial、不注册、不碰 transport。
-// dial→list→wrap 在 C2/C3。设计见 docs/design/platform-architecture.md。
+// The install config (JSON pointed to by STANDMEET_PLUGINS, shaped like Claude
+// Desktop's mcpServers) declares a set of MCP plugins; core parses + version-gates
+// + validates entry-by-entry at startup, producing a registrable []Manifest. This
+// is the **pure data layer** — no dial, no registration, no touching transport.
+// dial→list→wrap lives in C2/C3. See docs/design/platform-architecture.md for the
+// design.
 //
-// 失败模型：整份 JSON 解析不了 → 返 error（fail-closed）；单条 manifest 校验
-// 不过 → 跳过 + 进 Skipped（带 reason，fail-open per-manifest），其余照常。
-// caller 负责把 Skipped log 出来（返回而非内部 log → 可测、无隐藏副作用）。
+// Failure model: the whole JSON fails to parse → return error (fail-closed); a
+// single manifest fails validation → skip it + add to Skipped (with reason,
+// fail-open per-manifest), the rest proceed normally. The caller is responsible
+// for logging Skipped (returned rather than logged internally → testable, no
+// hidden side effect).
 package mcpplugin
 
 import mcpgoserver "github.com/mark3labs/mcp-go/server"
 
-// SupportedVersion —— 本 core 认的 manifest schema 版本；插件 version 不等 → 拒。
+// SupportedVersion —— the manifest schema version this core accepts; a plugin
+// with a different version → rejected.
 const SupportedVersion = "1"
 
-// Shape —— 插件暴露给哪一侧（与 capreg.Shape 取值一致，留独立类型让本包是 leaf）。
+// Shape —— which side the plugin is exposed to (values match capreg.Shape; kept
+// as its own type so this package stays a leaf).
 type Shape string
 
-// Shape 枚举值。
+// Shape enum values.
 const (
 	ShapeVisitorOnly Shape = "visitor_only"
 	ShapeOwnerOnly   Shape = "owner_only"
 	ShapeBoth        Shape = "both"
 )
 
-// Transport kind 取值。
+// Transport kind values.
 const (
-	// TransportStdio —— core spawn 子进程，走 stdin/stdout（第三方插件）。
+	// TransportStdio —— core spawns a child process, talks over stdin/stdout
+	// (third-party plugins).
 	TransportStdio = "stdio"
-	// TransportHTTP —— 连 URL（第三方插件）。
+	// TransportHTTP —— connects to a URL (third-party plugins).
 	TransportHTTP = "http"
-	// TransportInProcess —— 同进程内的 mcp-go server 对象（随产品发的内建能力，
-	// 代码解耦在外、运行时在进程里）。InProcessServer 在 composition root 用代码
-	// 填，不经 JSON manifest（Go 对象进不了 JSON）。
+	// TransportInProcess —— an in-process mcp-go server object (a built-in
+	// capability shipped with the product, decoupled in code but running in the
+	// same process). InProcessServer is filled in code at the composition root,
+	// never through the JSON manifest (a Go object can't go into JSON).
 	TransportInProcess = "in_process"
-	// TransportSandboxStdio —— 第三方 stdio server，但 **主进程把它起在一个受限
-	// docker 沙箱里**（只读根、--tmpfs、只挂自己的插件目录、默认无网），而不是裸
-	// spawn。Command/Args 是容器内的启动命令；沙箱细节在 Transport.Sandbox。stdio
-	// 透明走 docker -i pipe，dial 跟普通 stdio 同一条路（只是命令被包了一层 docker）。
+	// TransportSandboxStdio —— a third-party stdio server, but **the main process
+	// starts it inside a restricted docker sandbox** (read-only root, --tmpfs,
+	// only its own plugin dir mounted, no network by default), instead of a bare
+	// spawn. Command/Args is the in-container start command; sandbox details live
+	// in Transport.Sandbox. stdio flows transparently through the docker -i pipe;
+	// dial follows the same path as plain stdio (the command is just wrapped in
+	// docker).
 	TransportSandboxStdio = "sandbox_stdio"
 )
 
-// Sandbox —— kind=sandbox_stdio 时的沙箱声明（来自 JSON manifest）。PluginDir 是
-// 宿主上该 server 的安装目录（owner 装插件就装进这里），bubblewrap 只读挂进沙箱的
-// /plugin —— 那个「特定目录」就是沙箱；解释器用 host 的只读 /usr，不需要镜像。
-// AllowNet 仅放给真正要 egress 的（yt-dlp 那类），默认无网。
+// Sandbox —— the sandbox declaration (from the JSON manifest) when
+// kind=sandbox_stdio. PluginDir is this server's install directory on the host
+// (where the owner's installed plugin lands); bubblewrap mounts it read-only into
+// the sandbox's /plugin — that "specific directory" is the sandbox; the
+// interpreter uses the host's read-only /usr, no image needed. AllowNet is only
+// granted to plugins that genuinely need egress (the yt-dlp kind); no network by
+// default.
 type Sandbox struct {
 	PluginDir string
-	// HostOps —— 这个插件要宿主开给它的 host op 名字（固定词表见 routes/hostdesk）。
+	// HostOps —— the host-op names this plugin wants the host to open for it (the
+	// fixed word list lives in routes/hostdesk).
 	//
-	// 声明的是**要哪几件事**,不是"给我挂哪个 socket 文件"——路径由宿主按插件 id 派生。
-	// 这个粒度是要害:声明成文件路径时,文件上放什么机制答不出来,只能由组装根一个个手写,
-	// 于是长出了四个 gateway。声明成 op 名字之后,宿主照着发,点了词表没有的名字启动就炸。
+	// What's declared is **which things it wants**, not "mount me this socket
+	// file" — the path is derived by the host from the plugin id. This grain size
+	// is the crux: declare it as a file path and the mechanism can't answer "what
+	// sits on this file", so it has to be hand-written one by one at the
+	// composition root — which is how four gateways grew. Declare it as op names
+	// instead, and the host just dispatches by name; asking for a name not in the
+	// word list fails loudly at startup.
 	//
-	// 非空 = 这是个要后端数据的内建 → host 会把可信 session 上下文经 tool-call `_meta`
-	// 递给它；第三方插件（不声明 HostOps）拿不到 session 上下文,也够不到宿主。
+	// Non-empty = this is a built-in that needs backend data → the host passes it
+	// trusted session context via the tool-call `_meta`; third-party plugins
+	// (that don't declare HostOps) get no session context and can't reach the
+	// host either.
 	HostOps  []string
 	AllowNet bool
-	// Workspace —— true = 这个 server 要一块**持久的 per-visitor-session 工作区**
-	// （写文件那类，如 server-filesystem）。host 按 conversation_id 懒建一个目录、
-	// bwrap --bind 进沙箱的 /workspace（可写）；不写就没目录。这块区有后端可控的 TTL +
-	// cron 清扫（#148），不会无限涨。默认 false（无持久工作区，只有 ephemeral tmpfs /tmp）。
+	// Workspace —— true = this server needs a **persistent per-visitor-session
+	// workspace** (the file-writing kind, like server-filesystem). The host lazily
+	// creates a directory keyed by conversation_id and bwrap --binds it into the
+	// sandbox's /workspace (writable); no writing means no directory. This area has
+	// a backend-controlled TTL + cron sweep (#148), so it never grows unbounded.
+	// Default false (no persistent workspace, only ephemeral tmpfs /tmp).
 	Workspace bool
 }
 
-// Transport —— 插件的 MCP 传输声明：stdio 用 Command/Args/Env；http 用 URL/Headers；
-// in_process 用 InProcessServer（随产品发的内建能力，composition root 在代码里填一个
-// 同进程 mcp-go server 对象）。三种走同一条注册/dial 路径（归一），只是 dial 时按 Kind
-// 分流。
+// Transport —— a plugin's MCP transport declaration: stdio uses
+// Command/Args/Env; http uses URL/Headers; in_process uses InProcessServer (a
+// built-in capability shipped with the product, with the composition root filling
+// in an in-process mcp-go server object in code). All three go through the same
+// registration/dial path (unified), only branching by Kind at dial time.
 type Transport struct {
 	Env     map[string]string
 	Headers map[string]string
-	// InProcessServer —— kind=in_process 时的同进程 *mcp-go server.MCPServer。
-	// json:"-"：Go 对象不进 JSON 配置，只由 composition root 代码填。
+	// InProcessServer —— the in-process *mcp-go server.MCPServer when
+	// kind=in_process. json:"-": the Go object never enters the JSON config, it's
+	// only filled by composition-root code.
 	InProcessServer *mcpgoserver.MCPServer `json:"-"`
-	// Sandbox —— kind=sandbox_stdio 时的受限容器声明（来自 JSON）。
+	// Sandbox —— the restricted-container declaration (from JSON) when
+	// kind=sandbox_stdio.
 	Sandbox *Sandbox
 	Kind    string
 	Command string
@@ -83,24 +110,31 @@ type Transport struct {
 	Args    []string
 }
 
-// ACL 取值 —— 插件工具对访客的暴露门。
+// ACL values —— the exposure gate for a plugin's tools toward visitors.
 const (
-	// ACLRoleGranted —— 默认：role.AllowedTools 含本插件 ID 才暴露（echoer /
-	// owner 注册的第三方 server 同此）。
+	// ACLRoleGranted —— default: exposed only if role.AllowedTools contains this
+	// plugin's ID (same rule as echoer / an owner-registered third-party server).
 	ACLRoleGranted = "role_granted"
-	// ACLAlways —— 无条件暴露给所有 mode（public/code/byoai），不看 role 授权。
-	// 外置的内建基础能力（如 ask_visitor）用这个，保住"所有 mode 都有"的语义。
+	// ACLAlways —— exposed unconditionally to every mode (public/code/byoai),
+	// ignoring role grants. Externalized built-in base capabilities (like
+	// ask_visitor) use this, to keep the "every mode has it" semantics.
 	ACLAlways = "always"
 )
 
-// OwnerTool —— 插件暴露给 **owner 侧** 的一个工具,纯**声明数据**(名字/描述/入参 schema)。
+// OwnerTool —— one tool a plugin exposes to the **owner side**, pure **declared
+// data** (name/description/input schema).
 //
-// 为什么是数据而不是 dial 出来的:owner MCP 的工具表在装配期就要枚举(facade-parity 也照它对
-// 账),若靠 dial 就得在启动时把沙箱拉起来。声明是数据、实现在沙箱 —— 正是两条插件轴的
-// {declaration(data) → implementation → instance} 元结构;host 只在**真被调用时**才 dial。
+// Why data instead of something dialed out: the owner MCP's tool table has to be
+// enumerable at assembly time (facade-parity reconciles against it too); relying
+// on dial would mean spinning up the sandbox at startup. Declaration is data,
+// implementation is in the sandbox — that's exactly the two plugin axes'
+// {declaration(data) → implementation → instance} meta-structure; the host only
+// dials **when actually called**.
 //
-// Name 是 owner MCP 上的对外名(如 "calendar.list_slots");Tool 是插件内部的 MCP 工具名
-// (如 "calendar_list_slots")。两者分开,让 owner 面的命名规范不绑死插件内部命名。
+// Name is the external name on owner MCP (like "calendar.list_slots"); Tool is
+// the plugin's internal MCP tool name (like "calendar_list_slots"). Keeping them
+// separate lets the owner-facing naming convention stay independent of the
+// plugin's internal naming.
 type OwnerTool struct {
 	Name        string
 	Tool        string
@@ -108,65 +142,93 @@ type OwnerTool struct {
 	InputSchema string
 }
 
-// Manifest —— 一条校验通过的 MCP 插件声明。
+// Manifest —— one MCP plugin declaration that passed validation.
 type Manifest struct {
 	Requires []string
-	// VisitorTools —— 本插件在**访客侧**提供的工具名。
+	// VisitorTools —— the tool names this plugin offers on the **visitor side**.
 	//
-	// 真相在沙箱那边(拨号时 tools/list 回什么就是什么),这里是**拨号之前也要回答的那个问题**
-	// 的声明:「哪个工具是哪个能力的」。没有它,任何在装配之前就要问这句话的地方都问不出来 ——
-	// 一个 skill 声明 `allowed-tools: [calendar_book]`,产品答不上「那需要 calendar 连接器」。
+	// The truth lives on the sandbox side (whatever tools/list returns at dial
+	// time is the truth); this is the declaration that answers **the question that
+	// has to be answered before dialing**: "which tool belongs to which
+	// capability". Without it, anywhere that needs this answer before assembly time
+	// has no way to get it — a skill declares `allowed-tools: [calendar_book]`, and
+	// the product can't tell "that needs the calendar connector".
 	//
-	// 因为它是**声明**而真相在别处,所以每次真拨到号,`Verify` 都拿真答案对一遍:不一致就
-	// 记一条 error,而绑定用真的那份。声明可以过期,但不许悄悄过期。
+	// Because it's a **declaration** and the truth lives elsewhere, every time a
+	// real dial happens, `Verify` checks it against the real answer: a mismatch
+	// gets recorded as an error, and the real one is what binding uses. A
+	// declaration is allowed to go stale, just not silently.
 	VisitorTools []string
-	// VisitorToolRequires —— 工具名 → **这一个工具**额外要求的依赖（`calendar:events.insert`
-	// 这种带动作的名字）。能力级的 Requires 答「连没连」，这一层答「这个连接做不做得了
-	// 这一个动作」。
+	// VisitorToolRequires —— tool name → the extra dependency **this one tool**
+	// requires (an action-qualified name like `calendar:events.insert`). The
+	// capability-level Requires answers "is it connected"; this layer answers
+	// "can this connection do this one action".
 	//
-	// 没有这一层的话，只授了只读的日历会让「订会」照旧摆在访客面前（每次 403，而访客被告知
-	// 「过一会儿再问」）；而把整条 Requires 提到写权限上，又会连「列时段」一起藏掉 ——
-	// 那是为了修「提供了做不到的动作」而拿掉一个「做得到的动作」（F-B-8）。
+	// Without this layer, granting only a read-only calendar would still leave
+	// "book a meeting" sitting in front of the visitor (403 every time, and the
+	// visitor is told "try again later"); and bumping the whole Requires up to
+	// write access would also hide "list slots" along with it — that's fixing
+	// "an action offered that can't be done" by removing "an action that can be
+	// done" (F-B-8).
 	//
-	// 不在表里的工具 = 没有额外要求，只受能力级 Requires 管。
+	// A tool absent from this table = no extra requirement, governed only by the
+	// capability-level Requires.
 	VisitorToolRequires map[string][]string
-	// OwnerTools —— 本插件在 owner 侧暴露的工具声明(Shape 含 owner 时才有意义)。
+	// OwnerTools —— this plugin's owner-side tool declarations (meaningful only
+	// when Shape includes owner).
 	OwnerTools []OwnerTool
-	// Config —— 本插件的可配置项声明。owner 面板按它渲染,值存进本插件自己的隔离存储。
-	// 空 = 这个能力没有可调的东西。
+	// Config —— this plugin's configurable-field declarations. The owner panel
+	// renders from it; values are stored in this plugin's own isolated storage.
+	// Empty = this capability has nothing tunable.
 	Config []ConfigField
-	// CodeConfig —— 本插件在**一张邀请码**上占的那几个字段。owner 发码时一起填,列表里一起看。
+	// CodeConfig —— the fields this plugin occupies on **one access code**. The
+	// owner fills them in when issuing a code, and sees them together in the list.
 	//
-	// 跟 Config 同一套声明,只是挂载点从 owner 换成 code。有这个之前,能力想在码上放一个数字
-	// 只能在组装根手写一整套(自己的存储、自己的读写、自己接进发码入参)—— booker 的
-	// max_bookings 就是那样,三个文件两百多行,全是这份机制的手抄本。
+	// Same declaration shape as Config, just with the mount point switched from
+	// owner to code. Before this existed, a capability wanting to put a number on
+	// a code could only get it by hand-writing the whole thing at the composition
+	// root (its own storage, its own read/write, its own wiring into the
+	// issue-code input) — booker's max_bookings was exactly that: three files,
+	// two hundred-plus lines, all a hand copy of this mechanism.
 	CodeConfig []ConfigField
-	// RoleConfig —— 本插件在**一个 role**上占的那几个字段。owner 建 role 时一起填。
+	// RoleConfig —— the fields this plugin occupies on **one role**. The owner
+	// fills them in when creating a role.
 	//
-	// 跟 Config / CodeConfig 同一套声明,只是挂载点换成 role。它跟前两个有一处不同:role 上的
-	// 值随 session **冻结**(进 RoleSnapshot 的 capability_config),访客整场会话按他进来时的
-	// 配置走。有这个之前,一个 per-role 的开关只能长成内核 roles 表上的一列 ——
-	// notify_owner_on_booking 就是那样:一列贯穿 9 份生成代码、一条专用 query、entity、
-	// snapshot、MCP schema、和每次 tool-call 的 `_meta`,而内核从头到尾不该知道 booking 是什么。
+	// Same declaration shape as Config / CodeConfig, just with the mount point
+	// switched to role. It differs from the other two in one way: a value on a
+	// role gets **frozen** with the session (into RoleSnapshot's
+	// capability_config), and the visitor's whole session runs on the config
+	// as of when they came in. Before this existed, a per-role toggle could only
+	// grow into a column on the kernel's roles table — notify_owner_on_booking was
+	// exactly that: one column running through 9 generated files, a dedicated
+	// query, an entity, a snapshot, the MCP schema, and every tool-call's `_meta`,
+	// while the kernel should never have known what booking is.
 	RoleConfig []ConfigField
-	// Quota —— 本插件的 per-code 用量上限:允许多少、已经用了多少,都由声明说清。
-	// nil = 这个能力不闸用量。
+	// Quota —— this plugin's per-code usage cap: how much is allowed, how much
+	// has been used, both spelled out by the declaration. nil = this capability
+	// doesn't gate usage.
 	Quota *QuotaDecl
-	// ClaimGate —— 本能力做的动作「说了就得做」的声明:答案断言它完成了,本轮就必须有那个
-	// 工具的成功回执。nil = 这个能力不闸主张(说什么都不必有回执支撑)。见 claimgate.go。
+	// ClaimGate —— this capability's declaration that an action "said is done
+	// must be done": if the answer asserts it completed, this turn must carry that
+	// tool's success receipt. nil = this capability doesn't gate claims (whatever
+	// it says needs no receipt behind it). See claimgate.go.
 	ClaimGate *ClaimGateDecl
 	ID        string
 	Version   string
-	// Title —— 人类可读显示名（#109/#110 dock 按钮 label 透传它）。跟 MCP tool title 同角色：
-	// 显示用，区别于程序标识 ID。空 = 该能力没 title（不够格当 dock 按钮 label，无 id 兜底）。
+	// Title —— human-readable display name (the #109/#110 dock button label passes
+	// it through). Same role as an MCP tool title: for display, distinct from the
+	// programmatic ID. Empty = this capability has no title (not fit to be a dock
+	// button label, no id fallback).
 	Title            string
 	Shape            Shape
 	PromptFragmentID string
-	// ACL —— 暴露门：ACLRoleGranted（默认）或 ACLAlways。
+	// ACL —— the exposure gate: ACLRoleGranted (default) or ACLAlways.
 	ACL       string
 	Transport Transport
-	// RawToolNames —— true 时工具用 server 原名（不加 <id>_ 前缀）。外置的内建
-	// 能力保留 canonical 名（ask_visitor 就叫 ask_visitor，不是 ask_visitor_ask_visitor）。
-	// 默认 false：跟 ext-mcp 同样加前缀，避免多个第三方 server 撞名。
+	// RawToolNames —— when true, tools use the server's original name (no
+	// <id>_ prefix). Externalized built-in capabilities keep their canonical name
+	// (ask_visitor stays ask_visitor, not ask_visitor_ask_visitor). Default false:
+	// prefixed the same as ext-mcp, to avoid name collisions across multiple
+	// third-party servers.
 	RawToolNames bool
 }

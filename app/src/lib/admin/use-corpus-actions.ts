@@ -1,8 +1,9 @@
-// use-corpus-actions —— raw / wiki / output 三层的 update / delete /
-// create / promote actions hook。
+// use-corpus-actions —— the update / delete / create / promote actions hook
+// for the three tiers raw / wiki / output.
 //
-// 每个 action 返回 Promise<boolean>（成功 true，失败 false 并 setError）。
-// 调用方负责 toast；list stores 在 mutation 后 reset → 下次访问 refetch。
+// Each action returns Promise<boolean> (true on success, false on failure
+// with setError). The caller handles the toast; list stores reset() after a
+// mutation → refetched on the next visit.
 
 'use client';
 
@@ -22,7 +23,7 @@ export interface RawUpdateInput {
   body: string;
   tags?: string[];
   flagged_private?: boolean;
-  // hero 三件套 —— 图 + 压在图上那句话 + 色调。后端是指针字段:不发 = 不动,发空串 = 清掉。
+  // the hero trio — image + the line laid over it + tone. Backend pointer fields: not sending = leave unchanged, sending empty = clear it.
   cover_image_asset_id?: string;
   cover_headline?: string;
   cover_hue?: string;
@@ -34,7 +35,7 @@ export interface CorpusEntryInput {
   tags?: string[];
   parent_id?: string;
   show_as_source?: boolean;
-  // hero 三件套 —— 图用哪份素材 + 压在图上那句话 + 色调。后端是指针字段:不发 = 不动。
+  // the hero trio — which asset for the image + the line laid over it + tone. Backend pointer fields: not sending = leave unchanged.
   cover_image_asset_id?: string;
   cover_headline?: string;
   cover_hue?: string;
@@ -46,23 +47,27 @@ export interface PromoteInput {
   parent_id?: string;
 }
 
-// 详情 view（GET single 返）—— 比 list summary 多 body + source_*_ids + SEO，
-// EditForm 展开时 fetch 它回填 body 字段。
-// detail 不带 path:地址树派生(浏览列表那条由后端算并回显),编辑表单无 path 字段。
+// The detail view (returned by GET single) — has body + source_*_ids + SEO
+// on top of the list summary; EditForm fetches it when expanding to backfill
+// the body field.
+// detail carries no path: the address is derived from the tree (the
+// browse-list row has it computed and echoed by the backend), and the edit
+// form has no path field.
 const WikiDetailSchema = z.object({
   id: z.string(), title: z.string(), body: z.string(), tags: z.array(z.string()),
   source_raw_ids: z.array(z.string()),
   parent_id: z.string().nullable().optional(),
   show_as_source: z.boolean(), excerpt: z.string(), published: z.boolean(),
-  // hero 图。omitempty:没设过封面时字段不在 —— 那是"没有",不是坏了。
+  // The hero image. omitempty: the field is absent when no cover was ever set — that's "none", not broken.
   cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
   cover_headline: z.string().nullish().transform((v) => v ?? ''),
   cover_hue: z.string().nullish().transform((v) => v ?? ''),
 });
 export type WikiDetail = z.infer<typeof WikiDetailSchema>;
 
-// raw 的详情 —— 只为 hero 三件套。raw 的行内编辑框其余字段直接用列表行(它带 body),
-// 但 hero 不在列表里(每行算一次素材太贵)。
+// The detail for raw — only for the hero trio. raw's inline edit box uses
+// the list row directly for its other fields (it carries body), but hero
+// isn't in the list (computing assets for every row would be too expensive).
 const RawDetailSchema = z.object({
   cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
   cover_headline: z.string().nullish().transform((v) => v ?? ''),
@@ -70,8 +75,8 @@ const RawDetailSchema = z.object({
 });
 export type RawDetail = z.infer<typeof RawDetailSchema>;
 
-// subjectivity 的详情。它没有 excerpt / published(那是对外发布才有的概念),
-// 其余跟 wiki 一致 —— 不适用的字段不该硬凑一个出来。
+// subjectivity's detail. It has no excerpt / published (those concepts only
+// exist for public-facing publishing); everything else matches wiki — a field that doesn't apply shouldn't be forced in.
 const SubjectivityDetailSchema = z.object({
   id: z.string(), title: z.string(), body: z.string(), tags: z.array(z.string()),
   parent_id: z.string().nullable().optional(),
@@ -87,24 +92,26 @@ const OutputDetailSchema = z.object({
   source_wiki_ids: z.array(z.string()),
   parent_id: z.string().nullable().optional(),
   show_as_source: z.boolean(), excerpt: z.string(), published: z.boolean(),
-  // hero 图。omitempty:没设过封面时字段不在 —— 那是"没有",不是坏了。
+  // The hero image. omitempty: the field is absent when no cover was ever set — that's "none", not broken.
   cover_image_asset_id: z.string().nullish().transform((v) => v ?? ''),
   cover_headline: z.string().nullish().transform((v) => v ?? ''),
   cover_hue: z.string().nullish().transform((v) => v ?? ''),
 });
 export type OutputDetail = z.infer<typeof OutputDetailSchema>;
 
-// SEOUpdateInput —— PATCH /wiki/{id}/seo + /output/{id}/seo 入参。地址树派生,
-// owner 不设 path —— 只有 description/indexed。
+// SEOUpdateInput —— the input for PATCH /wiki/{id}/seo + /output/{id}/seo.
+// The address is derived from the tree; the owner never sets path — only description/indexed.
 export interface SEOUpdateInput {
   excerpt: string;
   published: boolean;
 }
 
-// SEOWriteResultSchema —— 这次保存**顺带**做了什么。取消发布一条被 pin 的条目会把它从首页
-// 那几个栏目里摘掉（不变量的另一端，见 `owner/entity/page_content.go`），后端一直在回执里
-// 说这件事，而客户端用 `patchVoid` 把整个响应扔了 —— 于是 owner 一次点击做成两件事，只被
-// 告知了第一件（F-L-31）。
+// SEOWriteResultSchema —— what this save did **as a side effect**.
+// Unpublishing a pinned entry removes it from the homepage sections (the
+// other end of that invariant, see `owner/entity/page_content.go`); the
+// backend has always been saying so in the receipt, and the client used to
+// discard the whole response via `patchVoid` — so one owner click did two
+// things and only the first one was ever reported (F-L-31).
 const SEOWriteResultSchema = z.object({
   unpinned_sections: z.array(z.string()).nullish().transform((v) => v ?? []),
 });
@@ -117,10 +124,12 @@ export interface CorpusActionsHook {
   updateRaw: (id: string, input: RawUpdateInput) => Promise<boolean>;
   deleteRaw: (id: string) => Promise<boolean>;
   promoteRaw: (id: string, input: PromoteInput) => Promise<boolean>;
-  // fetchRawDetail —— raw 的行内编辑框展开时拉 hero 三件套。列表行不带它们
-  // (每行算一次素材太贵),而**表单不显示一个已经存在的值,等于告诉 owner "没设过"**。
+  // fetchRawDetail —— fetches the hero trio when raw's inline edit box
+  // expands. List rows don't carry them (computing assets per row would be
+  // too expensive), and **a form that doesn't show an existing value is
+  // telling the owner "never set"**.
   fetchRawDetail: (id: string) => Promise<RawDetail | null>;
-  // subjectivity —— 跟 wiki / output 同形(它不是特例,只是第四个 genre)
+  // subjectivity —— shaped the same as wiki / output (it's not a special case, just the fourth genre)
   createSubjectivity: (input: CorpusEntryInput) => Promise<boolean>;
   updateSubjectivity: (id: string, input: CorpusEntryInput) => Promise<boolean>;
   fetchSubjectivityDetail: (id: string) => Promise<SubjectivityDetail | null>;
@@ -130,8 +139,9 @@ export interface CorpusActionsHook {
   deleteWiki: (id: string) => Promise<boolean>;
   promoteWiki: (id: string, input: PromoteInput) => Promise<boolean>;
   fetchWikiDetail: (id: string) => Promise<WikiDetail | null>;
-  // updateWikiSEO / updateOutputSEO —— 回执带出去（`unpinned_sections`），调用方才说得出
-  // 这次保存**顺带**做了什么。失败为 null。
+  // updateWikiSEO / updateOutputSEO —— carries the receipt out
+  // (`unpinned_sections`), so the caller can state what this save did **as a
+  // side effect**. Failure is null.
   updateWikiSEO: (id: string, input: SEOUpdateInput) => Promise<SEOWriteResult | null>;
   // output
   createOutput: (input: CorpusEntryInput) => Promise<boolean>;
@@ -210,9 +220,11 @@ async function fetchDetail<T>(
 }
 
 type Runner = (fn: () => Promise<void>) => Promise<boolean>;
-// ValueRunner —— 跟 Runner 同一套 pending/error/失效处理，只是**把写入的回执交出去**而不是
-// 折成一个布尔。有些写会顺带做别的事（取消发布把首页的 pin 摘掉），而那件事只有响应里说得清；
-// 折成布尔之后调用方只能报一句通用的「保存成功」（F-L-31）。失败仍是 null。
+// ValueRunner —— the same pending/error/invalidation handling as Runner,
+// except it **hands out the write's receipt** instead of folding it into a
+// boolean. Some writes do something else as a side effect (unpublishing
+// unpins from the homepage), and only the response can say what that was;
+// folded into a boolean, the caller can only report a generic "saved" (F-L-31). Failure is still null.
 type ValueRunner = <T>(fn: () => Promise<T>) => Promise<T | null>;
 
 function makeRun(
@@ -230,7 +242,7 @@ function makeRunValue(
     setError(null);
     try {
       const out = await fn();
-      onCorpusChanged(); // 树 + 计数一起作废,见 corpus-changed.ts(F-L-16)
+      onCorpusChanged(); // invalidates the tree + counts together, see corpus-changed.ts (F-L-16)
       return out;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'request failed');
@@ -243,8 +255,9 @@ function makeRunValue(
 
 // ─── raw ────────────────────────────────────────────────────
 
-// heroPatch —— hero 三项在后端是**指针字段**:不发 = 不动。owner 这次没碰的那几项
-// 就别发 —— 发空串等于"明确清空",会把他上次设的抹掉。
+// heroPatch —— the three hero fields are **pointer fields** on the backend:
+// not sending = leave unchanged. Fields the owner didn't touch this time
+// must not be sent — sending an empty string means "explicitly clear", which would wipe out what he set last time.
 function heroPatch(input: RawUpdateInput): Record<string, string> {
   const out: Record<string, string> = {};
   if (input.cover_image_asset_id !== undefined) {
@@ -259,8 +272,9 @@ async function doUpdateRaw(id: string, input: RawUpdateInput): Promise<void> {
   const updated = await adminAPI.patch(`/corpus/raw/${id}`, {
     body: input.body, tags: input.tags ?? [],
     flagged_private: input.flagged_private ?? false,
-    // hero 是**指针字段**:不发 = 不动。owner 这次没点封面就别发 —— 发空串等于
-    // "明确清空",会把他上次设的封面抹掉。
+    // hero fields are **pointer fields**: not sending = leave unchanged. If
+    // the owner didn't touch the cover this time, don't send it — an empty
+    // string means "explicitly clear", which would wipe out the cover he set last time.
     ...heroPatch(input),
   }, RawAdminViewSchema);
   rawStore.getState().mutate(
@@ -268,8 +282,9 @@ async function doUpdateRaw(id: string, input: RawUpdateInput): Promise<void> {
   );
 }
 
-// doDeleteRaw —— 删一条 raw。**从列表里拿掉**,不是打个已归档的标记留在那儿:
-// 后端现在是真删(跟 wiki / output 一样),再刷新它也不会回来。
+// doDeleteRaw —— deletes one raw entry. **Removed from the list**, not left
+// there with an archived flag: the backend now genuinely deletes it (same as
+// wiki / output), and it won't come back even on refresh.
 async function doDeleteRaw(id: string): Promise<void> {
   await adminAPI.deleteVoid(`/corpus/raw/${id}`);
   rawStore.getState().mutate((prev) => (prev ?? []).filter((r) => r.id !== id));
@@ -277,7 +292,7 @@ async function doDeleteRaw(id: string): Promise<void> {
 
 async function doPromoteRaw(id: string, input: PromoteInput): Promise<void> {
   await adminAPI.postVoid(`/corpus/raw/${id}/promote`, input);
-  // raw row 没有 promoted_to 字段在前端 view 里；只 refresh 让后端的状态回灌。
+  // The raw row has no promoted_to field in the frontend view; just refresh to pull the backend's state back in.
   rawStore.getState().reset();
   wikiStore.getState().reset();
 }
@@ -286,8 +301,8 @@ async function doPromoteRaw(id: string, input: PromoteInput): Promise<void> {
 
 // ─── subjectivity ───────────────────────────────────────────
 //
-// 跟 wiki / output 逐字同形 —— 同一条 `/corpus/{genre}` 路由、同一份入参。
-// **这里没有一处 genre 特判**:它不是特例,只是第四个 genre。
+// Byte-for-byte the same shape as wiki / output — the same `/corpus/{genre}`
+// route, the same input. **Not a single genre special-case anywhere here**: it isn't an exception, just the fourth genre.
 
 async function doCreateSubjectivity(input: CorpusEntryInput): Promise<void> {
   const created = await adminAPI.post(

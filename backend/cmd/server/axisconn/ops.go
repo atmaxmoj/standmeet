@@ -1,14 +1,20 @@
-// ops.go —— 资源 connectors:owner 手上这些"连出去的线",由**连接器轴**自己声明。
+// ops.go —— the connectors resource: the "outbound wires" the owner holds,
+// declared by the **connector axis** itself.
 //
-// 这一组分两半:
+// This group splits in two:
 //
-//	通用注册表   列 / 目录 / 状态 / 建 / 改 / 删 / 激活 / 断开 / 验 spec —— 对任何品类
-//	             都一样,所以住在这里,而且**不认识任何一个品类的名字**。
-//	品类专属     连接器自己在 manifest 里声明(connector.OwnerOp),比如 smtp 的
-//	             connectors.mail_test_send。声明是数据,实现由这一侧按品类契约接上。
+//	generic registry   list / catalog / status / create / edit / delete / activate /
+//	                    disconnect / validate spec — the same for every category, so
+//	                    it lives here, and **doesn't know the name of any category**.
+//	category-specific  the connector declares these itself in its manifest
+//	                    (connector.OwnerOp), e.g. smtp's connectors.mail_test_send.
+//	                    The declaration is data; this side wires up the
+//	                    implementation per the category contract.
 //
-// 拆开之前 mail_test_send 长在通用注册表上,于是通用那层里出现了 "mail" —— 加一个品类专属
-// 动作就得改通用层。现在加一个 = 在那个连接器的 manifest 里加一段。
+// Before this split, mail_test_send lived on the generic registry, so the word
+// "mail" showed up in the generic layer — adding one category-specific action meant
+// editing the generic layer. Now adding one means adding a block to that
+// connector's manifest.
 
 package axisconn
 
@@ -23,7 +29,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// ConnectorResource —— 通用注册表 + 各连接器自己声明的那些。
+// ConnectorResource —— the generic registry + what each connector declares itself.
 func ConnectorResource(d *deps.Runtime) dispatcher.Resource {
 	ops := newConnectorOps(d)
 	return dispatcher.Resource{
@@ -80,27 +86,35 @@ var connectorIDSchema = json.RawMessage(`{
 	"required":["id"]
 }`)
 
-// connectorRowOut —— 一个连接:id / 品类 / kind + 凭据、连上、激活三个状态。
+// connectorRowOut —— one connection: id / category / kind + the three states
+// credentials, connected, active.
 type connectorRowOut struct {
 	ID       string `json:"id"`
 	Category string `json:"category"`
 	Kind     string `json:"kind"`
-	// Title —— 厂商自己给这份 API 起的名字。**没绑品类契约的上传连接器 Category 是空串**，
-	// 而卡名渲的就是 Category —— 于是它在列表里没有名字，两条并排时分不出谁是谁（F-C-56）。
+	// Title —— the name the vendor itself gave this API. **An uploaded connector
+	// not bound to a category contract has an empty Category**, and the card
+	// renders Category as its name — so it shows up nameless in the list, and two
+	// rows side by side can't be told apart (F-C-56).
 	Title string `json:"title,omitempty"`
-	// Reason —— 给 owner 照做的那一句。**不谈密钥、不谈密文**:他要做的只是重新连一次。
+	// Reason —— the sentence telling the owner what to do. **Never mentions the
+	// key or the ciphertext** — all they need to do is reconnect.
 	Reason         string `json:"reason,omitempty"`
 	HasCredentials bool   `json:"has_credentials"`
 	Connected      bool   `json:"connected"`
 	Active         bool   `json:"active"`
-	// Unreadable —— 这台实例解不开这一行的密文了(换过 INSTANCE_SECRET / 密文被动过)。F-C-41。
-	// 以前这种行让整个 list 500,面把它当成「一条都没有」,于是每张卡都写着「你没连过」——
-	// 而库里密文和 connected_at 都还在。现在这一行照常回去,只是带着这句话。
+	// Unreadable —— this instance can no longer decrypt this row's ciphertext
+	// (INSTANCE_SECRET rotated / ciphertext tampered with). F-C-41.
+	// This used to make the whole list 500, and the surface treated that as "zero
+	// rows", so every card said "you've never connected" — while the ciphertext
+	// and connected_at were still sitting in the DB. Now this row comes back
+	// normally, just carrying this sentence.
 	Unreadable bool `json:"unreadable,omitempty"`
 }
 
-// unreadableReason —— 这句话同时覆盖两种世界(换了密钥 / 密文被动过),
-// 因为 AES-GCM 的认证失败在密码学上分不出它们。
+// unreadableReason —— this one sentence covers both cases (key rotated /
+// ciphertext tampered with), because AES-GCM's auth failure can't tell them apart
+// cryptographically.
 const unreadableReason = "This instance can no longer read this connector's " +
 	"saved credentials — reconnect it."
 
@@ -135,18 +149,22 @@ func listConnectors(ops connectorOps) fp.Invoke {
 	}
 }
 
-// catalogRowOut —— 目录里的一张卡:通用那几项 + **它自己声明的 owner 操作**。
+// catalogRowOut —— one card in the catalog: the generic fields + **the owner
+// operations it declares itself**.
 //
-// 声明必须一路走到面上。不走的话,面要摆一个「发一封测试信」的按钮就只能自己写死
-// "mail 卡上有这个" —— 通用的那一层里又出现了品类名,而这正是 owner_op.go 把它拆开的
-// 理由。声明是数据:manifest 里加一段,卡上就多一个动作,前端一行不改。
+// The declaration has to make it all the way to the surface. If it doesn't, the
+// surface can only hardcode "the mail card has this button" to show a "send a test
+// email" button — putting the category name back into the generic layer, which is
+// exactly why owner_op.go split it apart. The declaration is data: add a block to the
+// manifest, the card gains an action, the frontend changes zero lines.
 type catalogRowOut struct {
 	connectorRowOut
 
 	OwnerOps []ownerOpOut `json:"owner_ops,omitempty"`
 }
 
-// ownerOpOut —— 一个 owner 操作在面上的样子:操作 id + 一句说明 + 要填的几格。
+// ownerOpOut —— how one owner operation looks on the surface: op id + one
+// description line + the fields to fill in.
 type ownerOpOut struct {
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
@@ -156,8 +174,9 @@ type ownerOpOut struct {
 type ownerOpFieldOut struct {
 	Key         string `json:"key"`
 	Description string `json:"description"`
-	// Type —— 声明里的标量类型。面据此选控件并按类型送值:数字字段送字符串的话,
-	// op 自己的 schema 第一步 unmarshal 就失败(F-C-17)。
+	// Type —— the scalar type from the declaration. The surface picks a control
+	// and sends the value by this type: send a string for a number field, and
+	// the op's own schema fails at the first unmarshal step (F-C-17).
 	Type     string `json:"type"`
 	Required bool   `json:"required"`
 }
@@ -224,10 +243,13 @@ func connectorStatus(ops connectorOps) fp.Invoke {
 	}
 }
 
-// connectorDeclaredOps —— 各内置连接器在自己 manifest 里声明的那些 owner 操作。
+// connectorDeclaredOps —— the owner operations each built-in connector declares in
+// its own manifest.
 //
-// 声明里的 op 指向品类契约上的一个动作;这一侧按 op 找实现。manifest 声明了一个没人实现的
-// op,启动就炸 —— 那是一句谎话,不能等到 owner 点下去才发现。
+// The op in the declaration points to an action on the category contract; this side
+// looks up the implementation by that op. A manifest that declares an op nobody
+// implements makes boot panic — that declaration would be a lie, and it can't wait
+// until the owner clicks it to be discovered.
 func connectorDeclaredOps(d *deps.Runtime) []fp.Op {
 	impls := connectorOpImpls(d)
 	manifests := loadBuiltinConnectorManifests(d)

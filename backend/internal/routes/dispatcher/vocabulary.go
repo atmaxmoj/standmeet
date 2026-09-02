@@ -1,36 +1,47 @@
-// vocabulary.go —— 声明一个操作要用的词汇,收口只是**再导出**它。
+// vocabulary.go -- the vocabulary an operation's declaration needs; the convergence point
+// only **re-exports** it.
 //
-// 词汇本身住在 internal/infra/facadeparity:域要能说清自己会做什么,而域不该 import 路由。
-// 词汇放在收口里的时候,后果是一连串的 —— 域说不出口,声明只好挪到唯一能同时看见两边的
-// 地方(组装根),于是每个资源都要在收口重新声明一遍域已有的入参出参,再写一段搬运。
+// The vocabulary itself lives in internal/infra/facadeparity: a domain must be able to
+// state clearly what it does, and a domain must not import routing. If the vocabulary
+// lived in the convergence point instead, the consequences cascade -- a domain couldn't
+// speak it, so the declaration would have to move to the one place that can see both
+// sides (the composition root), and then every resource would have to redeclare the input
+// and output shape the domain already has, plus a chunk of plumbing to move it around.
 //
-// 面这一层只 import 收口,所以这些别名让面不必知道词汇的真实住处。
+// The face layer only imports the convergence point, so these aliases let a face stay
+// ignorant of where the vocabulary actually lives.
 
 package dispatcher
 
 import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 
-// 一个操作的形状 + 它做的事。
+// An operation's shape + what it does.
 type (
-	// Op —— 一个操作,整份声明(id / 说明 / 入参 schema / kind / reach / 实现)。
+	// Op -- one operation, the full declaration (id / description / input schema / kind /
+	// reach / implementation).
 	Op = fp.Op
-	// Invoke —— 操作真正做的事。入参出参是不透明 JSON:协议无关。
+	// Invoke -- what the operation actually does. Input and output are opaque JSON:
+	// protocol-agnostic.
 	Invoke = fp.Invoke
-	// File —— 随调用一起递过来的一份字节(面板挑的文件之类)。不塞进 args:
-	// base64 进 JSON 要多占三分之一内存,还会长进 InputSchema,让生成型的面
-	// 多出一个它永远不该填的参数。
+	// File -- one file's worth of bytes handed over alongside a call (a file picked in a
+	// panel, for instance). Not stuffed into args: base64 in JSON costs a third more
+	// memory, and it would grow into InputSchema, giving a generated face an extra
+	// parameter it must never fill in.
 	File = fp.File
 )
 
-// 随行字节 —— 面把字节挂到这次调用上(WithFiles),op 那边取(FilesFrom)。
-// 走 ctx 而不是给 Invoke 加参数,是为了装饰器链只有一条:鉴权/配额/审计包的还是
-// 同一个 Invoke。开第二个执行入口就意味着这些策略要**记得**也包那一个。
+// Accompanying bytes -- a face attaches bytes to this call (WithFiles), and the op side
+// reads them (FilesFrom). This goes through ctx instead of adding a parameter to Invoke so
+// the decorator chain stays singular: auth/quota/audit still wrap the same Invoke. Opening
+// a second execution entry point would mean those policies would have to **remember** to
+// wrap that one too.
 var (
 	WithFiles = fp.WithFiles
 	FilesFrom = fp.FilesFrom
 )
 
-// 错误类别 —— 协议无关的几类,面各自翻成自己的形态(HTTP 状态码 / MCP isError)。
+// Error classes -- a handful of protocol-agnostic classes, each face translates them into
+// its own shape (HTTP status codes / MCP isError).
 var (
 	BadInput  = fp.BadInput
 	NotFound  = fp.NotFound
@@ -46,7 +57,8 @@ var (
 	IsForbidden = fp.IsForbidden
 	IsUpstream  = fp.IsUpstream
 
-	// Coded / CodeOf —— 给面一个机器可读的 code(前端按它分流),消息仍是给人看的那句。
+	// Coded / CodeOf -- gives a face a machine-readable code (the frontend branches on
+	// it), while the message stays the sentence meant for a person to read.
 	Coded  = fp.Coded
 	CodeOf = fp.CodeOf
 )

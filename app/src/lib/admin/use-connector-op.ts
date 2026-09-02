@@ -1,10 +1,15 @@
-// use-connector-op —— 跑一个连接器**自己声明**的 owner 操作(见后端 connector/owner_op.go)。
+// use-connector-op —— runs an owner operation **a connector declares for
+// itself** (see backend connector/owner_op.go).
 //
-// 面不认识任何一个具体操作:名字、说明、要填哪几格,全从目录里那份声明来。这里只做两件事 ——
-// 把 owner 填的值攒起来,POST 到那个操作的路由,然后把回来的东西变成**一个结果**给卡去渲。
+// This surface doesn't know any specific operation: name, description, which
+// fields to fill in — all come from the declaration in the catalog. This
+// file does exactly two things — collects what the owner filled in, POSTs it
+// to that operation's route, and turns whatever comes back into **one result** for the card to render.
 //
-// 失败那句话原样用后端给的:它在后端就已经归好类了(mailFailureReason —— 改配置 / 换收件人 /
-// 等一会儿再试),措辞里没有状态码、主机名和栈。前端再包装一次只会把它冲淡。
+// A failure message is used verbatim from the backend: it's already been
+// classified there (mailFailureReason — fix config / change recipient / try
+// again later), with no status codes, hostnames, or stack traces in the
+// wording. Wrapping it again on the frontend would only dilute it.
 
 import { useCallback, useRef, useState } from 'react';
 import { z } from 'zod';
@@ -13,26 +18,35 @@ import type { OwnerOp } from '@/lib/admin/use-connector-catalog';
 import { adminAPI } from '@/lib/api/admin';
 import { APIError } from '@/lib/api/api-error';
 
-// OP_PREFIX —— 声明的操作 id 统一以此开头,去掉就是路由段。跟后端 declaredOpPrefix
-// (routes/admin/connectors.go)是同一条约定 —— 路由 `/connectors/ops/<段>` 本来就是公开的。
+// OP_PREFIX —— every declared operation id starts with this; stripping it
+// leaves the route segment. Follows the same convention as the backend's
+// declaredOpPrefix (routes/admin/connectors.go) — the route `/connectors/ops/<segment>` was already public.
 const OP_PREFIX = 'connectors.';
 
-// OpResultSchema —— 每个操作回什么由它自己定,但共同的形状就这三样:成没成 / 没成的话一句
-// 人话 / 成了的话是哪一路送出去的。别的字段这一层不认,也不该出现在面上。
+// OpResultSchema —— what each operation returns is defined by itself, but
+// the shared shape is these three things: did it succeed / a plain-language
+// sentence if it didn't / which path it went out through if it did. No other field is recognized at this layer, and none should ever surface.
 const OpResultSchema = z.object({
   ok: z.boolean().nullish(),
   reason: z.string().nullish(),
   via_kind: z.string().nullish(),
-  // summary —— 成了之后那一句,由**操作自己**说。以前只有 via_kind,而卡上那句成功文案是
-  // 「被 {kind} 连接器收下了 —— 去收件箱确认」:邮件口吻长在了通用的那一层里,换个品类就是胡话
-  // (日历自检没有收件箱)。给得出 summary 的操作用自己的话;给不出的仍走老那句。
+  // summary —— the success sentence, spoken by **the operation itself**.
+  // There used to be only via_kind, and the card's success copy read "was
+  // accepted by the {kind} connector — check your inbox to confirm": mail
+  // phrasing baked into the generic layer, nonsense for a different category
+  // (a calendar self-test has no inbox). An operation that can supply a
+  // summary uses its own words; one that can't still falls back to the old sentence.
   summary: z.string().nullish(),
 });
 
-// OpOutcome —— 跑完之后的结果。reason 是**后端的原话**;viaKind 是成时那一路的 kind。
+// OpOutcome —— the result once a run finishes. reason is **the backend's
+// exact wording**; viaKind is the kind of the path used on success.
 //
-// reached 单独一格,是因为「请求根本没走通」和「操作跑了但没成」是两件事:后者后端归过类,
-// 前者它连收都没收到。塌成同一个 ok:false 的话,面上就会拿一句归类结果去解释一次断网。
+// reached is its own field because "the request never went through at all"
+// and "the operation ran but didn't succeed" are two different things: the
+// latter has already been classified by the backend, the former never even
+// got received. Collapsing both into the same ok:false would have the
+// screen explain a plain network outage with a classified-result sentence.
 export interface OpOutcome {
   reached: boolean;
   ok: boolean;
@@ -49,8 +63,9 @@ export interface ConnectorOpHook {
   run: () => void;
 }
 
-// coerce —— 按声明的类型把输入框里的字符串转回去。数字字段送字符串的话,op 自己的
-// schema 第一步 unmarshal 就失败(F-C-17)。空串一律当没填,交给 op 的默认值。
+// coerce —— converts the string in the input box back according to the
+// declared type. Sending a string for a numeric field fails at the op's own
+// schema's very first unmarshal step (F-C-17). An empty string is always treated as unfilled, deferring to the op's default.
 function coerce(value: string, type: string): string | number | undefined {
   if (value === '') return undefined;
   if (type !== 'integer' && type !== 'number') return value;
@@ -58,15 +73,21 @@ function coerce(value: string, type: string): string | number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-// failedOutcome —— 这一笔为什么没成。**服务端答过话就不许说「够不着」**（F-C-37）。
+// failedOutcome —— why this run didn't succeed. **If the server answered
+// at all, "unreachable" must never be said** (F-C-37).
 //
-// 以前这里是 `.catch(() => ({ reached: false … }))` —— 任何拒绝都算「请求没走通」，
-// 包括一个 `400 to is required`：后端 33 毫秒就把原因说清楚了，屏幕却让 owner 去查网络，
-// 而他要做的只是往那个框里填个地址。三态（没走通 / 跑了但没成 / 成了）是这个组件**设计
-// 里就有的**（见 ConnectorOps 那段注释），塌在了唯一做判断的这一处。
+// This used to be `.catch(() => ({ reached: false … }))` — any rejection
+// counted as "the request never went through", including a `400 to is
+// required`: the backend already stated the reason in 33ms, yet the screen
+// sent the owner to go check their network, when all they needed to do was
+// fill an address into that box. The three states (never went through / ran
+// but didn't succeed / succeeded) are **already part of this component's
+// design** (see the comment in ConnectorOps), and they'd been collapsed
+// right here — the one place that makes this judgment.
 //
-// `APIError` 就是后端 envelope 的前端镜像（status + code + message），它在手里就说明
-// **实例答过话**：那是「跑了但没成」，把它的话原样交出去。真正的传输失败没有 APIError。
+// `APIError` is the frontend mirror of the backend's envelope (status + code
+// + message); having one in hand already means **the instance answered**:
+// that's "ran but didn't succeed", so its message is handed over verbatim. A genuine transport failure never produces an APIError.
 function failedOutcome(e: unknown): OpOutcome {
   const answered = e instanceof APIError;
   return {
@@ -78,9 +99,12 @@ function failedOutcome(e: unknown): OpOutcome {
   };
 }
 
-// onRan —— 跑完之后通知卡片去重取一次状态（F-C-45）。这些操作会改变连接状态：撤权之后
-// 跑一次探针，后端当场把那一行标成断开，而卡上的 `connected` 还是进页面时取的那一份。
-// **不分成败都通知** —— 「哪类失败才要通知」得让每个操作各记一遍，下一个就会忘。
+// onRan —— notifies the card to refetch status once a run finishes (F-C-45).
+// These operations can change connection state: run a probe after
+// deauthorizing and the backend marks that row disconnected right away,
+// while the card's `connected` is still whatever it fetched when the page loaded.
+// **Notified regardless of success or failure** — "which kind of failure
+// needs a notification" would have to be remembered separately by every operation, and the next one would forget.
 export function useConnectorOp(op: OwnerOp, onRan: () => void): ConnectorOpHook {
   const [running, setRunning] = useState(false);
   const [outcome, setOutcome] = useState<OpOutcome | null>(null);
@@ -106,8 +130,9 @@ export function useConnectorOp(op: OwnerOp, onRan: () => void): ConnectorOpHook 
   };
 }
 
-// setValue —— 空值就把这一格删掉,而不是送一个空串:op 的 schema 里 days 是 integer,
-// 送 "" 过去它连解析都过不了,而 owner 的意思只是「这格我没填」。
+// setValue —— an empty value removes this field, instead of sending an empty
+// string: the op's schema has days as an integer, and sending "" wouldn't
+// even parse — the owner's intent was just "I left this field blank".
 function setValue(
   bag: Record<string, string | number>, key: string, value: string, type: string,
 ): void {

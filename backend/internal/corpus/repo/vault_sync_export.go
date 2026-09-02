@@ -1,14 +1,18 @@
-// vault_sync_export.go —— **把语料读出去给 vault** 的那一半。
+// vault_sync_export.go — the half that **reads corpus out to the vault**.
 //
-// 跟 vault_sync.go 分开，不是为了让那个文件短一点：那边做的是「把一次 sync 对账进来」
-// （认领、reconcile、web-wins、prune），这边只做一件事 —— 一次性把 owner 的全部 corp note
-// 取出来，交给 obsidian 渲染成 .md。两边的读法本来就不同：对账按 title / source_path 一条条
-// 认领，导出要的是**整棵树加上每条笔记的全部字段**。
+// It's split from vault_sync.go not to make that file shorter: that file does "reconcile
+// an incoming sync" (claim, reconcile, web-wins, prune), while this one does exactly one
+// thing — pull out ALL of the owner's corpus notes in one shot and hand them to obsidian
+// to render as .md. The two reads are fundamentally different: reconciliation claims rows
+// one at a time by title / source_path, while export needs **the whole tree plus every
+// field on every note**.
 //
-// 而「全部字段」这句话在这里一直是假的（F-L-67）：`excerpt` / `css_classes` / `lang_labels`
-// 三个列在库里躺着，这条读取从来没取过，于是 owner 同步下来就少了它们。上一次修同一个形状
-// （F-L-59，lang/aliases）时那条 SELECT 的注释已经写下了正确的道理 ——「丢失从这条 SELECT
-// 开始，不是从渲染开始」—— 只是没有扫到邻居。
+// And that phrase "every field" has always been false here (F-L-67): the `excerpt` /
+// `css_classes` / `lang_labels` columns sit in the DB but this read never selected them,
+// so the owner's synced-down copy came out missing them. The last time the same shape of
+// bug was fixed (F-L-59, lang/aliases), that SELECT's comment already stated the right
+// lesson — "the loss starts at this SELECT, not at rendering" — it just never got swept
+// to the neighboring columns.
 
 package repo
 
@@ -21,7 +25,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// ListAllForExport —— owner 所有 corp note(任一 genre),给 vault export 反向渲染成 .md。
+// ListAllForExport — all of the owner's corpus notes (any genre), for vault export to
+// render back into .md.
 func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([]SyncNote, error) {
 	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -50,8 +55,10 @@ func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([
 	return out, nil
 }
 
-// decodeLangLabels —— `lang_labels` jsonb → map。解不开就当没有：这一列是**呈现用的标签**
-// （码 → 切换器上显示的字），坏掉一条不该让整次导出失败，缺了按码生成就是它本来的降级路径。
+// decodeLangLabels — `lang_labels` jsonb -> map. Treat a decode failure as absent: this
+// column is **display labels** (code -> the text shown on the language switcher), so one
+// bad row shouldn't fail the whole export, and generating from the code is its intended
+// fallback path.
 func decodeLangLabels(raw []byte) map[string]string {
 	labels := map[string]string{}
 	if len(raw) == 0 {

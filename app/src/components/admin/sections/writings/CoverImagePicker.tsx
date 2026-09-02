@@ -1,11 +1,11 @@
-// CoverImagePicker —— admin writings 表单的 cover image 选择 row：
-// preview thumbnail + file picker + clear。
+// CoverImagePicker —— the cover image selection row in the admin writings form:
+// preview thumbnail + file picker + clear.
 //
-// 不立即上传：file pick → 分配 pending-id + objectURL（本地预览）→
-// 通过 onChange 报 cover_image_ref = 'pending-<id>'，同时 onPending
-// 报 PendingFile 给 WritingForm（save 时一起 multipart）。
-// edit 模式：caller 把已存 asset 的 id + presigned URL 传进来 (value 字段)，
-// 不动 onPending。
+// No immediate upload: file pick → assign a pending-id + objectURL (local preview) →
+// report cover_image_ref = 'pending-<id>' via onChange, and also report the
+// PendingFile to WritingForm via onPending (bundled into the multipart save).
+// Edit mode: the caller passes in the id + presigned URL of an already-stored
+// asset (the value field) and never touches onPending.
 
 'use client';
 

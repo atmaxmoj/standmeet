@@ -1,6 +1,8 @@
-// authform.go —— #155 区 B：从 spec 的 securitySchemes 派生「凭据表单」描述（owner 该填哪些字段、
-// 字段类型、scope 多选、apiKey 落 header/query、oauth2/oidc 要不要 dance、oidc discovery URL）。
-// 前端通用渲染器据此渲表单，不每个连接器手写。纯数据派生（§4 认证表）。
+// authform.go — #155 zone B: derives a "credential form" description from the spec's
+// securitySchemes (which fields the owner should fill, field types, scope multi-select,
+// whether apiKey lands in header/query, whether oauth2/oidc needs the dance, oidc discovery
+// URL). The generic frontend renderer draws the form from this — no per-connector hand-coding.
+// Pure data derivation (§4 auth table).
 
 package openapi
 
@@ -9,14 +11,15 @@ import (
 	"strings"
 )
 
-// AuthFieldForm —— 表单里的一个字段。Type: text | password | readonly | scopes。
+// AuthFieldForm — one field in the form. Type: text | password | readonly | scopes.
 type AuthFieldForm struct {
 	Key    string   `json:"key"`
 	Type   string   `json:"type"`
 	Scopes []string `json:"scopes,omitempty"`
 }
 
-// AuthSchemeForm —— 一个 securityScheme 派生出的表单。Scheme = spec 里的方案名（多方案选择器用）。
+// AuthSchemeForm — the form derived from one securityScheme. Scheme = the scheme's name in
+// the spec (used by the multi-scheme selector).
 type AuthSchemeForm struct {
 	Scheme       string          `json:"scheme"`
 	Type         string          `json:"type"` // oauth2 | oidc | apikey | basic | bearer
@@ -27,19 +30,22 @@ type AuthSchemeForm struct {
 	NeedsDance   bool            `json:"needs_dance"`
 }
 
-// AuthForms —— 一份 spec 的派生结果：若干可选方案；Note 非空 = 无可用/不支持的认证（owner 提示）。
+// AuthForms — the derivation result for one spec: a set of selectable schemes; Note non-empty
+// means no usable/supported authentication (a hint shown to the owner).
 type AuthForms struct {
 	Note  string           `json:"note,omitempty"`
 	Forms []AuthSchemeForm `json:"forms,omitempty"`
 }
 
-// manualSchemeNames —— F-H-2 手动兜底方案(spec 没声明 securitySchemes 时给 owner 选)。
+// manualSchemeNames — F-H-2 manual fallback schemes (offered to the owner to pick from when
+// the spec declares no securitySchemes).
 var manualSchemeNames = []string{"manual:bearer", "manual:apikey", "manual:basic"}
 
-// ManualScheme —— 把一个 "manual:*" 方案名映射成合成 SecurityScheme。真实厂商 spec 常
-// 把 components.securitySchemes 留空(Cal.com v2 就是),但 API 仍需 Authorization: Bearer。
-// 与其硬拒,让 owner 手动挑一个通用方案(bearer/apiKey-header/basic),装配期据此建注入器
-// (F-H-2)。返回 (scheme, true) 命中,否则 (零值, false)。
+// ManualScheme — maps a "manual:*" scheme name to a synthetic SecurityScheme. Real vendor
+// specs often leave components.securitySchemes empty (Cal.com v2 does), yet the API still
+// requires Authorization: Bearer. Rather than hard-reject, let the owner manually pick a
+// generic scheme (bearer/apiKey-header/basic), and build an injector from it at assembly
+// time (F-H-2). Returns (scheme, true) on a hit, otherwise (zero value, false).
 func ManualScheme(name string) (SecurityScheme, bool) {
 	switch name {
 	case "manual:bearer":
@@ -55,7 +61,8 @@ func ManualScheme(name string) (SecurityScheme, bool) {
 	}
 }
 
-// manualFallbackForms —— spec 无 securitySchemes 时给 owner 的三个通用方案表单(F-H-2)。
+// manualFallbackForms — the three generic scheme forms offered to the owner when the spec
+// has no securitySchemes (F-H-2).
 func manualFallbackForms() AuthForms {
 	forms := make([]AuthSchemeForm, 0, len(manualSchemeNames))
 	for _, name := range manualSchemeNames {
@@ -70,8 +77,9 @@ func manualFallbackForms() AuthForms {
 	}
 }
 
-// DeriveAuthForms —— 遍历 spec 的 securitySchemes 派生表单。无方案 → 手动兜底(F-H-2)；全不支持 →
-// unsupported note；否则按方案名排序返回（多方案前端给选择器）。
+// DeriveAuthForms — walks the spec's securitySchemes and derives forms. No schemes → manual
+// fallback (F-H-2); none supported → unsupported note; otherwise returns them sorted by
+// scheme name (the frontend gives a selector when there are several).
 func DeriveAuthForms(spec *Spec) AuthForms {
 	schemes := spec.SecuritySchemes()
 	if len(schemes) == 0 {
@@ -94,7 +102,8 @@ func DeriveAuthForms(spec *Spec) AuthForms {
 	return AuthForms{Forms: forms}
 }
 
-// sortedKeys —— securityScheme 名字排序（确定性的方案顺序，多方案选择器稳定）。
+// sortedKeys — sorts securityScheme names (a deterministic scheme order, so the multi-scheme
+// selector stays stable).
 func sortedKeys(schemes map[string]SecurityScheme) []string {
 	names := make([]string, 0, len(schemes))
 	for name := range schemes {
@@ -104,7 +113,8 @@ func sortedKeys(schemes map[string]SecurityScheme) []string {
 	return names
 }
 
-// authSchemeForm —— 单个 securityScheme → 表单。oauth2/oidc 同形；其余下放 nonOAuthForm。
+// authSchemeForm — a single securityScheme → form. oauth2/oidc share a shape; everything
+// else is handed off to nonOAuthForm.
 func authSchemeForm(name string, s *SecurityScheme) (AuthSchemeForm, bool) {
 	switch s.Type {
 	case "oauth2":
@@ -116,7 +126,7 @@ func authSchemeForm(name string, s *SecurityScheme) (AuthSchemeForm, bool) {
 	}
 }
 
-// nonOAuthForm —— 非 oauth 方案：apiKey（key + header/query 位置）/ http（basic|bearer）。
+// nonOAuthForm — non-oauth schemes: apiKey (key + header/query location) / http (basic|bearer).
 func nonOAuthForm(name string, s *SecurityScheme) (AuthSchemeForm, bool) {
 	switch s.Type {
 	case "apiKey":
@@ -131,7 +141,8 @@ func nonOAuthForm(name string, s *SecurityScheme) (AuthSchemeForm, bool) {
 	}
 }
 
-// oauthForm —— oauth2 / oidc 同形：client_id + client_secret + scope 多选 + 只读 redirect_uri，需 dance。
+// oauthForm — oauth2 / oidc share a shape: client_id + client_secret + scope multi-select +
+// readonly redirect_uri, and the dance is required.
 func oauthForm(name, kind string, scopes []string, discovery string) AuthSchemeForm {
 	fields := []AuthFieldForm{
 		{Key: "client_id", Type: "text"},
@@ -146,7 +157,8 @@ func oauthForm(name, kind string, scopes []string, discovery string) AuthSchemeF
 	}
 }
 
-// httpSchemeForm —— http securityScheme：basic→username/password；其余（bearer）→单 token。
+// httpSchemeForm — http securityScheme: basic → username/password; everything else
+// (bearer) → a single token.
 func httpSchemeForm(name, scheme string) AuthSchemeForm {
 	if scheme == "basic" {
 		return AuthSchemeForm{Scheme: name, Type: "basic", Fields: []AuthFieldForm{
@@ -158,7 +170,8 @@ func httpSchemeForm(name, scheme string) AuthSchemeForm {
 	}}
 }
 
-// oauthScopes —— oauth2 authorizationCode flow 声明的所有 scope（排序，去 op 引用差异）。
+// oauthScopes — every scope declared by the oauth2 authorizationCode flow (sorted, to remove
+// differences from op reference order).
 func oauthScopes(s *SecurityScheme) []string {
 	if s.Flows.AuthorizationCode == nil {
 		return []string{}

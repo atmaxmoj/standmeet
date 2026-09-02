@@ -2,7 +2,7 @@ package marketplace
 
 import "github.com/atmaxmoj/standmeet/internal/marketplace/usecase"
 
-// 类型（实现:usecase）.
+// Types (implemented by: usecase).
 type (
 	Client             = usecase.Client
 	ConnectorNeeds     = usecase.ConnectorNeeds
@@ -18,9 +18,10 @@ type (
 	SkillsDeps         = usecase.SkillsDeps
 )
 
-// 构造/函数（实现:usecase）.
+// Constructors/functions (implemented by: usecase).
 var (
-	// 探针失败的两类 —— 组装根拨完号，用它们说清是哪一种（F-D-15）。
+	// Two probe-failure classes -- once the composition root finishes dialing, use these
+	// to state which kind it is (F-D-15).
 	ErrMCPServerRefusedAuth = usecase.ErrMCPServerRefusedAuth
 	ErrMCPServerNoAnswer    = usecase.ErrMCPServerNoAnswer
 

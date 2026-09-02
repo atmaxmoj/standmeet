@@ -1,7 +1,8 @@
-// ConnectorCredForm —— #155 区 B：从派生的 auth forms 渲通用凭据表单。owner 贴 spec → 后端按
-// securitySchemes 派生 → 这里据 AuthType 渲对应字段（oauth2: client_id/secret/scope/redirect_uri +
-// Connect；apikey: key + 落点提示；basic: user/pass；bearer: token）。多方案给选择器。无/不支持
-// 认证 → connector-status 提示。不每个连接器手写表单。
+// ConnectorCredForm —— #155 area B: renders a generic credential form from derived auth forms.
+// owner pastes a spec -> backend derives from securitySchemes -> this renders the matching
+// fields per AuthType (oauth2: client_id/secret/scope/redirect_uri + Connect; apikey: key + a
+// placement hint; basic: user/pass; bearer: token). Multiple schemes get a picker. No/unsupported
+// auth -> connector-status message. No hand-written form per connector.
 
 'use client';
 
@@ -13,12 +14,15 @@ import { SelectField } from '@/components/atoms/SelectField';
 import type { AuthField, AuthForms, AuthScheme } from '@/lib/admin/use-connector-ingest';
 import { credFieldLabel } from '@/lib/admin/cred-field-label';
 
-// onScheme / values —— 装配那一步要的两样东西。scheme 是**建**连接器的参数（写进 manifest），
-// values 是**建完之后**存进那个连接器的凭据。没有它们时这张表单填了也没地方去
-// （同 [[write-with-no-receipt]]：token 那一格看着能填，其实是个死胡同）。
+// onScheme / values —— the two things the assembly step needs. scheme is the parameter that
+// **creates** the connector (written into the manifest); values are the credentials stored
+// **into** that connector **after** it's created. Without them, filling in this form has
+// nowhere to go (same as [[write-with-no-receipt]]: the token field looks fillable but is
+// actually a dead end).
 //
-// values 用「调用方给一个对象、这里往里写」的写法，跟 AssembleView 的协议表单同一个套路，
-// 免得为几个非受控输入再拉一层 state。
+// values uses the "caller hands in an object, this writes into it" pattern — the same one
+// AssembleView's protocol form uses — to avoid pulling in another state layer for a handful of
+// uncontrolled inputs.
 export function ConnectorCredForm({ auth, onScheme, values, scopes }: {
   auth: AuthForms;
   onScheme?: (s: string) => void;
@@ -139,15 +143,17 @@ function DiscoveryHintBody({ url }: { url: string }) {
   );
 }
 
-// NeedsDanceNote —— 「这个方案要走一次授权跳转」是**真实的信号**，owner 该在填凭据时就知道。
+// NeedsDanceNote —— "this scheme requires an authorization redirect" is a **real signal** the
+// owner should see while filling in credentials.
 //
-// 但这里以前渲染的是一个 `connector-connect-button` **按钮，而且没有 onClick**（F-C-24）。
-// 后果不是"少一个功能"：装配这条路上，owner（和 e2e）点下去什么都不会发生，
-// 而屏幕上找不出任何"没生效"的迹象 —— 直到 15 秒后轮询超时才知道连接从未发起。
-// 连接是**卡片**的职责（卡片才有连接器 id），摄入表单从来就没有能力连。
-// 而且两处同名 testid 一旦同时在场，定位器还会撞车。
+// But this used to render a `connector-connect-button` **button with no onClick** (F-C-24). The
+// consequence isn't "missing a feature": on the assembly path, the owner (and e2e) could click
+// it and nothing would happen, with no on-screen sign that it "didn't work" — only after a
+// 15-second poll timeout would it become clear the connection was never initiated. Connecting is
+// the **card's** job (only the card has the connector id); the ingest form never had the ability
+// to connect. And having two same-named testids present at once made locators collide too.
 //
-// 所以信号留下，元件换掉：说一句话，别摆一个按不动的按钮。
+// So the signal stays, the element changes: say it in words, don't leave an unclickable button.
 function ConnectMaybe({ form }: { form: AuthScheme }) {
   return form.needs_dance ? <NeedsDanceNote /> : null;
 }
@@ -174,10 +180,13 @@ function CredField({ field, values, scopes }: {
     : <PlainField field={field} values={values} />;
 }
 
-// ScopeField —— oauth2 的 scope 多选。勾选结果写进 scopes（跟 values 同一个套路：调用方给个
-// 容器，这里往里写）。**没有它的话这些复选框勾了以后无处可去** —— 装配送出的凭据不带 scope，
-// 授权跳转就少了范围，而界面上一切正常。
-// toggleScope —— 勾上加、取消删。抽出来只为把分支摊开（内联的三元 + 两个可选链超 complexity 闸）。
+// ScopeField —— the oauth2 scope multi-select. Checked results are written into scopes (same
+// pattern as values: the caller hands in a container, this writes into it). **Without it these
+// checkboxes have nowhere to go once checked** — the credentials sent during assembly would
+// carry no scope, the authorization redirect would request fewer scopes, and the UI would look
+// entirely normal.
+// toggleScope —— add on check, delete on uncheck. Split out only to flatten the branches (an
+// inline ternary plus two optional chains trips the complexity gate).
 function toggleScope(scopes: Set<string>, s: string, on: boolean): void {
   on ? scopes.add(s) : scopes.delete(s);
 }
@@ -187,7 +196,8 @@ function ScopeField(
 ) {
   const t = useTranslations('adminShell.connectorCred');
   const all = field.scopes ?? [];
-  // 默认全勾 → 容器的初值也得是全勾，否则「一次都没点过」等于一个都没选。
+  // Everything is checked by default -> the container's initial value must also be all-checked,
+  // otherwise "never clicked at all" would be read as "nothing selected".
   all.forEach((s) => scopes.add(s));
   return (
     <div>

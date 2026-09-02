@@ -1,8 +1,10 @@
-// op.go —— 一个操作的完整声明,以及它做的事。
+// op.go —— an operation's complete declaration, and what it does.
 //
-// 这套词汇住在这里而不是收口旁边,是为了让**域说得出自己会什么**:域声明操作时不必
-// import 任何路由包。词汇一旦住进收口,域就说不出口,声明只好挪到唯一能同时看见两边的
-// 地方,那里又得把域已有的入参出参复述一遍 —— 同一个概念于是有了第二个名字。
+// This vocabulary lives here rather than alongside the gate so that **a domain can state what it
+// can do**: declaring an operation never requires importing any routing package. If this
+// vocabulary lived in the gate instead, a domain couldn't state it there, and the declaration
+// would have to move to the one place that can see both sides — which would then have to restate
+// the domain's existing input/output shapes, giving the same concept a second name.
 
 package facadeparity
 
@@ -11,22 +13,27 @@ import (
 	"encoding/json"
 )
 
-// Invoke —— 一个操作真正做的事。入参出参都是不透明 JSON:这套词汇跟协议无关,
-// 所以它能命名一个操作,而不必知道调用方是从 MCP、HTTP 还是别的还没写的东西过来的。
+// Invoke —— what an operation actually does. Both input and output are opaque JSON: this
+// vocabulary is protocol-agnostic, so it can name an operation without needing to know whether
+// the caller comes from MCP, HTTP, or something not written yet.
 type Invoke func(ctx context.Context, ownerID string, args json.RawMessage) (json.RawMessage, error)
 
-// NoArgs —— 不收参数的操作的入参 schema。
+// NoArgs —— the input schema for an operation that takes no parameters.
 var NoArgs = json.RawMessage(`{"type":"object","properties":{}}`)
 
-// File —— 随调用一起递过来的一份字节。
+// File —— one blob of bytes handed over alongside a call.
 //
-// 为什么它不塞进 args:args 是 JSON,把 25MB 的附件 base64 进去要多占三分之一的内存,而且
-// 会长进 InputSchema —— 生成型的面(MCP)于是多出一个参数,而那个面**永远不该**填它:
-// owner 通过 AI 递的是地址,字节在图床上。字节这条路只属于挑得动文件的那类面。
+// Why it isn't stuffed into args: args is JSON, and base64-ing a 25MB attachment into it costs
+// an extra third of the memory, plus it would grow into InputSchema — a generative facade (MCP)
+// would then gain an extra parameter that facade **must never** fill in: an owner routing
+// through an AI hands over an address, with the bytes living on an image host. The byte-carrying
+// path belongs only to facades that can actually pick up a file.
 //
-// 这个通道以前不存在,后果不是"少个功能",而是**每个要传文件的面只能绕过收口**:
-// writings 那条 multipart 就是这么直连域的(见 check-routes-via-dispatcher 的基线)。
-// 一道闸门挡住了唯一的路,代码就绕到闸门外面去 —— 缺的是机制,不是纪律。
+// This channel didn't used to exist, and the consequence wasn't "one feature missing" — it was
+// **every facade that needs to pass a file has to route around the gate**: the writings
+// multipart path connects straight to the domain exactly this way (see the baseline in
+// check-routes-via-dispatcher). A gate that blocks the only path just gets bypassed — what's
+// missing is the mechanism, not discipline.
 type File struct {
 	Field       string
 	Filename    string
@@ -34,20 +41,23 @@ type File struct {
 	Body        []byte
 }
 
-// filesKey —— 随行字节在 context 里的键。包私有:别的包造不出这个键,
-// 于是"谁能往里放"是可查的(只有 WithFiles 这一个入口)。
+// filesKey —— the context key for accompanying bytes. Package-private: no other package can
+// construct this key, so "who can put something in" is auditable (WithFiles is the only entry
+// point).
 type filesKey struct{}
 
-// WithFiles —— 把随行字节挂到这次调用上。
+// WithFiles —— attach accompanying bytes to this call.
 //
-// 走 context 而不是给 Invoke 加一个参数,是为了**装饰器链只有一条**:鉴权 / 配额 / 审计
-// 包的还是同一个 Invoke。开第二个执行入口的话,这些策略就得记得也包那一个 —— 那正是
-// 收口存在要消灭的那种"记得"。
+// This goes through context rather than adding a parameter to Invoke so that **there is only
+// one decorator chain**: the auth / quota / audit wrapping still wraps the same Invoke. Opening
+// a second execution entry point would mean these policies would have to remember to wrap that
+// one too — exactly the kind of "remembering" the gate exists to eliminate.
 func WithFiles(ctx context.Context, files []File) context.Context {
 	return context.WithValue(ctx, filesKey{}, files)
 }
 
-// FilesFrom —— 这次调用带了哪些字节。没带就是空 —— 空不是"坏了",是"owner 给的是地址"。
+// FilesFrom —— which bytes this call carried. None carried means empty — empty isn't "broken",
+// it means "the owner handed over an address".
 func FilesFrom(ctx context.Context) []File {
 	files, ok := ctx.Value(filesKey{}).([]File)
 	if !ok {
@@ -56,8 +66,8 @@ func FilesFrom(ctx context.Context) []File {
 	return files
 }
 
-// Op —— 一个操作的整份声明:稳定 id、给调用方看的说明、入参 schema、语义类别、
-// 暴露意图(哪些面欠它),以及实现。
+// Op —— an operation's full declaration: stable id, a description for callers, input schema,
+// semantic category, exposure intent (which facades owe it), and the implementation.
 type Op struct {
 	Invoke      Invoke
 	ID          string

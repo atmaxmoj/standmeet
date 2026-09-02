@@ -1,8 +1,8 @@
-// use-raw —— /admin/raw 状态机：list raw entries + 直接 dump 一条。
-// POST /api/admin/corpus/raw 已经接通；RawDumpBox 的 onAdd 直接走 hook。
+// use-raw —— /admin/raw state machine: list raw entries + dump one directly.
+// POST /api/admin/corpus/raw is already wired up; RawDumpBox's onAdd goes straight through this hook.
 //
-// zustand 重构：rawStore 管 list；filter / submitting / submitError 留 local
-// state（per-section instance，不需要全局）。
+// zustand refactor: rawStore manages the list; filter / submitting /
+// submitError stay as local state (per-section instance, no need to be global).
 
 import { useCallback, useEffect, useState } from 'react';
 
@@ -12,10 +12,12 @@ import { onCorpusChanged } from '@/lib/admin/corpus-changed';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-// RawFilter —— raw 收件箱的页签。以前还有一个 'archived' —— 它**永远是空的**:
-// 后端的列表查询一直过滤掉归档行,没有任何请求会把它们取回来。一个取不到数据的页签
-// 比没有更糟:owner 点进去看见空的,会以为"我没有归档过的东西",而不是"这里坏了"。
-// 现在 raw 的删就是真删,归档这个状态不再存在。
+// RawFilter —— tabs for the raw inbox. There used to also be an 'archived'
+// tab — it was **always empty**: the backend's list query always filtered
+// out archived rows, and no request ever fetched them back. A tab that can
+// never return data is worse than no tab at all: the owner clicks in, sees
+// it empty, and thinks "I've never archived anything" instead of "this is
+// broken". Delete on raw is now a real delete; the archived state no longer exists.
 export type RawFilter = 'all' | 'unprocessed' | 'promoted' | 'flagged-private';
 
 export interface RawHook {
@@ -96,9 +98,11 @@ async function doAddRaw(
   try {
     const created = await adminAPI.post('/corpus/raw', input, RawAdminViewSchema);
     rawStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
-    // dump 绕开 useCorpusActions,所以它得自己喊一声 —— 但喊的是**同一个**函数,不是再抄一遍。
-    // 上一版这里抄的是当时 run() 里那一行 bumpCorpusEpoch();后来 run() 那边加了计数作废,
-    // 这条路没跟上,于是 quick-dump 之后四个计数原地不动(F-L-16)。
+    // dump bypasses useCorpusActions, so it must call this itself — but it
+    // calls **the same** function, not a fresh copy of it. The previous
+    // version here copied the bumpCorpusEpoch() line from run() at the time;
+    // later run() added counting invalidation, and this path never followed
+    // along, so the four counts stayed frozen after a quick-dump (F-L-16).
     onCorpusChanged();
     return true;
   } catch (e) {

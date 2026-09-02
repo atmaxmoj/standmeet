@@ -4,13 +4,18 @@
 // Returns null while a level is unfetched / loading. Mirrors the public useTreeLayer but
 // adds epoch invalidation (the public sidebar never mutates, so it has none).
 //
-// **作废必须能撤销一次在途的取**。以前 epoch 是靠一个 `setNodes(null)` 的 effect 表达的,
-// 而 nodes **本来就是 null** 时 React 对同值 setState 直接 bail out —— 那一步于是什么也没做:
-// 取还在路上、取回来的是新建之前的那份名单、落地之后 `nodes !== null` 就再也不取了。
-// 屏幕上是「标题说 5 条、树上 4 行」,而且永远不会自己好(corpus-tree-epoch-inflight 钉的就是它)。
+// **Invalidation must be able to cancel a fetch already in flight.** The epoch
+// used to be expressed via a `setNodes(null)` effect, and when nodes was
+// **already null**, React bails out of a same-value setState — so that step
+// did nothing: the fetch was still in flight, what it fetched was the list
+// from before the mutation, and once it landed, `nodes !== null` meant it
+// never fetched again. On screen: "header says 5, tree shows 4 rows", and it
+// would never fix itself (this is exactly what corpus-tree-epoch-inflight pins down).
 //
-// 现在缓存**带着自己那一代的 epoch**:代次一变,读出来的就是 null(不需要任何 effect 生效),
-// 取的那个 effect 也跟着重跑 —— 它的清理函数把上一代那笔标成作废,旧回参落地时被丢掉。
+// The cache now **carries its own generation's epoch**: the moment the
+// generation changes, reading it returns null (no effect needs to fire for
+// that), and the fetch effect reruns along with it — its cleanup marks the
+// previous generation's fetch as stale, so a late response is dropped on landing.
 
 'use client';
 
@@ -26,7 +31,8 @@ export function useAdminTreeLayer<T>(
   parentID: string, enabled: boolean, epoch: number,
 ): T[] | null {
   const [layer, setLayer] = useState<Layer<T>>({ epoch, nodes: null });
-  // 别的代次取回来的东西不算数 —— 这一句是**推导**,不是一个要生效才成立的副作用。
+  // What a different generation fetched doesn't count — this line is a
+  // **derivation**, not a side effect that requires firing to hold.
   const nodes = layer.epoch === epoch ? layer.nodes : null;
   useEffect(() => {
     if (!enabled || nodes !== null) return undefined;

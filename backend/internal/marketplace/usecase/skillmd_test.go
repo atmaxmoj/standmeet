@@ -5,9 +5,10 @@ import (
 	"testing"
 )
 
-// parseSkillMD 是 install 的核心:把 SKILL.md frontmatter + body 拆成 install 字段。
-// 锁三件事:inline allowed-tools、block-list allowed-tools、无 frontmatter 时整体即
-// body。fetch(HTTP/base64)走 install e2e(marketplace install spec)。
+// parseSkillMD is install's core: it splits a SKILL.md's frontmatter + body into install
+// fields. This locks down three things: inline allowed-tools, block-list allowed-tools,
+// and the whole thing being the body when there's no frontmatter. fetch (HTTP/base64) is
+// covered by the install e2e (marketplace install spec).
 
 func eq(t *testing.T, label, got, want string) {
 	t.Helper()

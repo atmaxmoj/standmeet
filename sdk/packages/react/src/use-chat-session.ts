@@ -1,10 +1,11 @@
-// use-chat-session.ts —— chat 状态机 hook。封装：
-//   1) issueSession（首次提问时按 mode 申请 visitor session）
-//   2) streamMessage（每条消息走 SSE 收 token）
-//   3) message 数组累加；streaming flag；error 暴露
+// use-chat-session.ts —— the chat state-machine hook. Wraps:
+//   1) issueSession (requests a visitor session per mode, on the first question)
+//   2) streamMessage (each message receives tokens over SSE)
+//   3) accumulating the message array; a streaming flag; error surfacing
 //
-// 设计选择：sessionToken 存 hook 内部 state，不暴露给 caller，让 UI 不
-// 关心 session 生命周期。caller 只做 send(text)、看 messages / streaming。
+// Design choice: sessionToken lives in the hook's internal state and is never
+// exposed to the caller, so the UI doesn't need to care about session
+// lifecycle. The caller only calls send(text) and watches messages / streaming.
 
 import { useCallback, useRef, useState } from 'react';
 import type {
@@ -48,13 +49,19 @@ export function useChatSession(input: IssueSessionInput): ChatState {
     appendAssistant(setMessages, assistantID);
     try {
       if (!sessionRef.current) {
-        // 先接手浏览器里已经颁发的那一场。**页面是这张码的一个渲染**：读者带着码进来，
-        // 页上的 agent 就该是那张码的 agent —— 同一份授权、同一套配额、同一份记账。
-        // 自己另开一场匿名的，屏幕上看不出差别，而读者的名字、名额、轮数全部落空。
-        // 没有已颁发的 session（路过的匿名读者）才照 input 开一场。
+        // Adopt any session already issued in this browser first. **The page is
+        // a rendering of that code**: the reader arrived carrying the code, so
+        // the agent on the page must be that code's agent — the same
+        // authorization, the same quota, the same accounting. Opening a fresh
+        // anonymous session instead looks identical on screen, but the reader's
+        // name, allotment, and turn count all get silently dropped. Only open a
+        // fresh session from `input` when there's no issued session to adopt
+        // (a passing anonymous reader).
         const s = adoptStoredSession() ?? await client.issueSession(input);
-        // system prompt 一场拼一次(fragment + 这场的 persona)。不拼 = 空 system,那样答出来
-        // 的东西跟这个 owner 无关(F-O-2)。
+        // The system prompt is assembled once per session (fragment + this
+        // session's persona). Skipping assembly means an empty system prompt,
+        // and the answers that come out have nothing to do with this owner
+        // (F-O-2).
         sessionRef.current = {
           id: s.conversation_id, token: s.session_token,
           system: await client.composeSystem(s),

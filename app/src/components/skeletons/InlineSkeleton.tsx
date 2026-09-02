@@ -1,5 +1,6 @@
-// InlineSkeleton —— 单条信息占位（label + 一行值）。给 admin sidebar pulse、
-// /admin/page handle row 等小尺寸 loading 用，不要全屏 card-grid 那种重的。
+// InlineSkeleton — a single-field placeholder (label + one line of value).
+// Use it for small loading states like the admin sidebar pulse or the
+// /admin/page handle row — not the heavier full-screen card-grid style.
 
 import { Skel } from '@/components/skeletons/Skel';
 

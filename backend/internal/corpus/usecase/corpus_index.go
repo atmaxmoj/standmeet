@@ -1,9 +1,12 @@
-// corpus_index.go —— corpus → Meili 索引传播(1b crawl face)。
+// corpus_index.go —— corpus → Meili index propagation (the 1b crawl face).
 //
-// Postgres 是 source-of-truth,Meili 是派生投影。写路径把变更同步进 Meili:promote/update/publish →
-// IndexNote(单条 upsert),delete → DeleteNote,sync/backfill/reconcile → ReindexOwner(整批重建)。
-// **best-effort**:index 失败只记 warn,绝不让 corpus 写失败(Postgres 已落即事实成立;Meili 事后由
-// 健康恢复时的 reconcile 补上)。path 用 PathSegment 走父链算,与检索 ACL(allowsCorpusURI)完全一致。
+// Postgres is the source of truth; Meili is a derived projection. The write path
+// syncs changes into Meili: promote/update/publish → IndexNote (single-row upsert),
+// delete → DeleteNote, sync/backfill/reconcile → ReindexOwner (full rebuild).
+// **Best-effort**: an index failure only logs a warning and never fails the corpus
+// write (once Postgres has landed the row, the fact is established; Meili catches up
+// later via reconcile once it's healthy again). Path is computed via PathSegment
+// walking the parent chain, exactly matching the retrieval ACL (allowsCorpusURI).
 
 package usecase
 
@@ -18,17 +21,21 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
 )
 
-// Indexer —— 写路径调用的索引传播口(best-effort,不返错)。nil = 未配 Meili,hooks 直接跳过。
+// Indexer —— the index-propagation port called from the write path (best-effort,
+// never returns an error). nil = Meili not configured, hooks skip directly.
 type Indexer interface {
 	IndexNote(ctx context.Context, ownerID, noteID string)
 	DeleteNote(ctx context.Context, noteID string)
 	ReindexOwner(ctx context.Context, ownerID string)
-	// Reconcile —— Meili 恢复后补齐 down 期间漏索引的写(有脏标记 + 健康时整批重建)。后台循环定期调。
+	// Reconcile —— once Meili recovers, backfills writes missed while it was down
+	// (dirty flag + full rebuild once healthy). Called periodically by a background loop.
 	Reconcile(ctx context.Context, ownerID string)
 }
 
-// meiliCorpusIndexer —— Meili 后端的 Indexer。只索引 corpus_notes(wiki/output/subjectivity =
-// vault);writings 留在 Postgres 全文,不进 Meili。dirty:有过 Meili 写失败(down 期间)→ 恢复后 reconcile。
+// meiliCorpusIndexer —— the Meili-backed Indexer. Only indexes corpus_notes
+// (wiki/output/subjectivity = vault); writings stay on Postgres full-text and never
+// enter Meili. dirty: a Meili write failed (while it was down) → reconcile once
+// recovered.
 type meiliCorpusIndexer struct {
 	client *search.Client
 	notes  *repo.VaultSyncRepo
@@ -36,9 +43,10 @@ type meiliCorpusIndexer struct {
 	dirty  atomic.Bool
 }
 
-// NewCorpusIndexer —— 构造。client nil(未配 Meili)→ 返 nil,让 Deps.Index 为 nil、hooks 跳过。
+// NewCorpusIndexer —— constructor. client nil (Meili not configured) → returns nil,
+// so Deps.Index ends up nil and hooks skip.
 //
-//nolint:ireturn // nil-safe factory:client nil 返 nil 接口,写 hooks 全跳过
+//nolint:ireturn // nil-safe factory: client nil returns a nil interface, all write hooks skip
 func NewCorpusIndexer(
 	client *search.Client, notes *repo.VaultSyncRepo, log *slog.Logger,
 ) Indexer {
@@ -48,18 +56,23 @@ func NewCorpusIndexer(
 	return &meiliCorpusIndexer{client: client, notes: notes, log: log}
 }
 
-// genreRaw —— raw 是 owner 私有 inbox,privacy-critical:绝不进搜索索引。
+// genreRaw —— raw is the owner's private inbox, privacy-critical: never enters the
+// search index.
 
-// genreWriting —— writing 折进 corpus_notes(#151)后同住本表,但检索仍留在 Postgres 全文
-// (lister.Search 在 Meili 结果后 append searchWritings)。若也进 Meili 会重复命中,故跳过。
+// genreWriting —— once writing folded into corpus_notes (#151) it shares this table,
+// but retrieval still stays on Postgres full-text (lister.Search appends
+// searchWritings after the Meili results). Entering Meili too would double-hit, so
+// it's skipped.
 
-// skipFromMeili —— 该 genre 是否排除出 Meili 索引:raw(私有 inbox)+ writing(留 PG 全文,避免重复)。
+// skipFromMeili —— whether this genre is excluded from the Meili index: raw (private
+// inbox) + writing (stays on PG full-text, to avoid duplicate hits).
 func skipFromMeili(genre string) bool {
 	return genre == string(entity.GenreRaw) || genre == string(entity.GenreWriting)
 }
 
-// IndexNote —— 单条 corpus note(wiki/output/subjectivity)upsert 进 Meili。genre='raw'/'writing'
-// 直接跳过(raw 是私有 inbox;writing 留 Postgres 全文,进 Meili 会重复命中)。
+// IndexNote —— upserts a single corpus note (wiki/output/subjectivity) into Meili.
+// genre='raw'/'writing' is skipped outright (raw is a private inbox; writing stays on
+// Postgres full-text, and entering Meili would double-hit).
 func (x *meiliCorpusIndexer) IndexNote(ctx context.Context, ownerID, noteID string) {
 	note, err := x.notes.GetSyncNote(ctx, ownerID, noteID)
 	if err != nil {
@@ -67,7 +80,7 @@ func (x *meiliCorpusIndexer) IndexNote(ctx context.Context, ownerID, noteID stri
 		return
 	}
 	if skipFromMeili(note.Genre) {
-		return // raw=私有 inbox; writing=留 PG 全文(见 skipFromMeili)
+		return // raw=private inbox; writing=stays on PG full-text (see skipFromMeili)
 	}
 	doc := search.Doc{
 		ID: note.ID, OwnerID: ownerID, Genre: note.Genre,
@@ -80,14 +93,15 @@ func (x *meiliCorpusIndexer) IndexNote(ctx context.Context, ownerID, noteID stri
 	}
 }
 
-// DeleteNote —— 从 Meili 删一条(note 删/归档)。
+// DeleteNote —— removes one entry from Meili (note deleted/archived).
 func (x *meiliCorpusIndexer) DeleteNote(ctx context.Context, noteID string) {
 	if err := x.client.Delete(ctx, []string{noteID}); err != nil {
 		x.failed("delete note", err)
 	}
 }
 
-// ReindexOwner —— 整批重建 owner 的 index(先清后建)。sync / boot 回填 / 健康恢复 reconcile 用。
+// ReindexOwner —— full rebuild of an owner's index (clear, then build). Used by
+// sync / boot backfill / health-recovery reconcile.
 func (x *meiliCorpusIndexer) ReindexOwner(ctx context.Context, ownerID string) {
 	docs := x.ownerDocs(ctx, ownerID)
 	if err := x.client.DeleteOwner(ctx, ownerID); err != nil {
@@ -99,20 +113,23 @@ func (x *meiliCorpusIndexer) ReindexOwner(ctx context.Context, ownerID string) {
 	}
 }
 
-// Reconcile —— Meili 恢复后补齐 down 期间漏的写:有脏标记且健康 → 从 DB 整批重建。乐观清脏,
-// 重建再失败会重新置脏(下轮再试)。后台 wireSearchReconcile 定期调。
+// Reconcile —— once Meili recovers, backfills writes missed while it was down: dirty
+// flag set and healthy → full rebuild from the DB. Clears the dirty flag
+// optimistically; if the rebuild fails it gets marked dirty again (retried next
+// round). Called periodically by the background wireSearchReconcile.
 func (x *meiliCorpusIndexer) Reconcile(ctx context.Context, ownerID string) {
 	if !x.dirty.Load() {
 		return
 	}
 	if err := x.client.Healthy(ctx); err != nil {
-		return // 还没恢复,留着脏标记下轮再试
+		return // not recovered yet, leave the dirty flag set and retry next round
 	}
 	x.dirty.Store(false)
 	x.ReindexOwner(ctx, ownerID)
 }
 
-// ownerDocs —— owner 全部 corpus_notes(内存父链算 path)。writings 不进 Meili(留 PG 全文),故不含。
+// ownerDocs —— all of an owner's corpus_notes (path computed via an in-memory parent
+// chain). writings don't enter Meili (stay on PG full-text), so they're excluded.
 func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []search.Doc {
 	notes, err := x.notes.ListAllForExport(ctx, ownerID)
 	if err != nil {
@@ -126,7 +143,7 @@ func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []se
 	docs := make([]search.Doc, 0, len(notes))
 	for i := range notes {
 		if skipFromMeili(notes[i].Genre) {
-			continue // raw=私有 inbox; writing=留 PG 全文(见 skipFromMeili)
+			continue // raw=private inbox; writing=stays on PG full-text (see skipFromMeili)
 		}
 		path := SyncNotePath(notes[i].Title, notes[i].ParentID, mapParentOf(byID))
 		docs = append(docs, search.Doc{
@@ -138,10 +155,14 @@ func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []se
 	return docs
 }
 
-// SyncNotePath —— corpus note 的 path:PathSegment 父链 '/' 连,**best-effort**(父链断了就到此为止,
-// 不报错——索引/links 是尽力而为)。parentOf 提供「某 id → (title, parentID)」;走库版传 GetSyncNote
-// 闭包、批量版传内存 map 闭包 —— walk 逻辑一处,两种 backing。索引传播 + corpus_links 共用,保证
-// path 与检索 ACL(allowsCorpusURI)一致(读路径的 WikiPathByID 等是 strict 版、语义不同,故不合并)。
+// SyncNotePath —— a corpus note's path: PathSegment-ed parent chain joined by '/',
+// **best-effort** (if the parent chain breaks, it stops there and doesn't error —
+// indexing/links are best-effort). parentOf supplies "id → (title, parentID)"; the
+// DB-backed version passes a GetSyncNote closure, the batch version passes an
+// in-memory map closure — one walk implementation, two backings. Shared by index
+// propagation and corpus_links, keeping path consistent with the retrieval ACL
+// (allowsCorpusURI) — WikiPathByID and friends on the read path are a strict
+// variant with different semantics, so they're not merged with this one.
 func SyncNotePath(title, parentID string, parentOf func(id string) (string, string, bool)) string {
 	segs := []string{PathSegment(title)}
 	for cur, depth := parentID, 0; cur != "" && depth < TreeMaxDepth; depth++ {
@@ -155,7 +176,7 @@ func SyncNotePath(title, parentID string, parentOf func(id string) (string, stri
 	return strings.Join(segs, "/")
 }
 
-// DBParentOf —— SyncNotePath 的走库 backing:逐父 GetSyncNote。
+// DBParentOf —— SyncNotePath's DB-backed implementation: GetSyncNote per parent.
 func DBParentOf(
 	ctx context.Context, notes *repo.VaultSyncRepo, ownerID string,
 ) func(string) (string, string, bool) {
@@ -165,7 +186,8 @@ func DBParentOf(
 	}
 }
 
-// mapParentOf —— SyncNotePath 的内存 backing:ReindexOwner 批量,免 N 次查库。
+// mapParentOf —— SyncNotePath's in-memory implementation: for ReindexOwner's batch
+// path, avoids N separate DB queries.
 func mapParentOf(byID map[string]*repo.SyncNote) func(string) (string, string, bool) {
 	return func(id string) (string, string, bool) {
 		n, ok := byID[id]
@@ -182,14 +204,17 @@ func (x *meiliCorpusIndexer) warn(msg string, err error) {
 	}
 }
 
-// failed —— Meili 写调用失败:记 warn + 置脏,让 Reconcile 在恢复后补上(D4 self-heal)。
+// failed —— a Meili write call failed: logs a warning + marks dirty, so Reconcile
+// backfills it once recovered (D4 self-heal).
 func (x *meiliCorpusIndexer) failed(msg string, err error) {
 	x.dirty.Store(true)
 	x.warn(msg, err)
 }
 
-// indexNoteHook / deleteNoteHook / reindexOwnerHook —— 写路径的 nil-safe 钩子。未配 Meili 时
-// deps.Index == nil 直接跳过。放这层让每个 write/delete usecase 显式调,不藏进 RebuildNoteRefs。
+// indexNoteHook / deleteNoteHook / reindexOwnerHook —— nil-safe hooks for the write
+// path. When Meili isn't configured, deps.Index == nil and they skip directly. Kept
+// at this layer so each write/delete usecase calls them explicitly, instead of
+// hiding the call inside RebuildNoteRefs.
 func indexNoteHook(ctx context.Context, deps Deps, ownerID, noteID string) {
 	if deps.Index != nil {
 		deps.Index.IndexNote(ctx, ownerID, noteID)
@@ -208,20 +233,25 @@ func reindexOwnerHook(ctx context.Context, deps Deps, ownerID string) {
 	}
 }
 
-// ReindexCorpusOwner —— 供外层(sync handler)在批量写后整批重建 index。batch 一次比逐条 upsert
-// 划算,且能反映 vault 删除(整批重建 = 删+建,漂移不留)。nil-safe。
+// ReindexCorpusOwner —— for an outer layer (the sync handler) to fully rebuild the
+// index after a batch write. Batching once is cheaper than upserting row-by-row, and
+// it reflects vault deletions (full rebuild = delete + build, no drift left behind).
+// nil-safe.
 func ReindexCorpusOwner(ctx context.Context, deps Deps, ownerID string) {
 	reindexOwnerHook(ctx, deps, ownerID)
 }
 
-// ReindexCorpusNote —— 供外层在**单条**写后传播。nil-safe。
+// ReindexCorpusNote —— for an outer layer to propagate after a **single-row** write.
+// nil-safe.
 //
-// 存在的理由是 publish：`seo.set_entry_seo` 改的是 corpus_notes.published，而它走的是
-// owner 那侧的 SEO 端口，不经过本包任何一个写 usecase —— 于是那条笔记的索引文档里
-// `published` 停在写入时的值。以前没人读索引里的这个字段，所以看不出来；F-D-7 之后
-// public 身份的准入正是读它，一条刚发布的笔记会**从检索里消失**。
+// Exists because of publish: `seo.set_entry_seo` changes corpus_notes.published, but
+// it goes through the owner-side SEO port, not through any write usecase in this
+// package — so that note's index document is left stuck at the `published` value
+// from whenever it was written. Nobody read that field from the index before, so this
+// went unnoticed; after F-D-7, public-identity admission reads exactly that field, so
+// a note that just got published would **vanish from retrieval**.
 //
-// 索引的每一个字段都必须有它的写路径；这一个以前没有。
+// Every field in the index must have its own write path; this one didn't.
 func ReindexCorpusNote(ctx context.Context, deps Deps, ownerID, noteID string) {
 	indexNoteHook(ctx, deps, ownerID, noteID)
 }

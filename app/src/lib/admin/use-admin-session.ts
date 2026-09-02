@@ -1,8 +1,8 @@
-// use-admin-session —— 探测当前是不是登录状态。GET /api/admin/me；
-// 401 就跳 /login。Loading 期间显示 placeholder。
+// use-admin-session —— probes whether the current state is signed in. GET
+// /api/admin/me; a 401 redirects to /login. A placeholder shows while loading.
 //
-// zustand 重构：sessionStore 是全应用 /me cache。BYOAI / AI provider /
-// admin session 三个 hook 都读它，避免每个 panel 各拉一次。
+// zustand refactor: sessionStore is the app-wide /me cache. The BYOAI / AI
+// provider / admin session hooks all read from it, avoiding each panel fetching its own copy.
 
 'use client';
 
@@ -12,24 +12,28 @@ import { useRouter } from 'next/navigation';
 import { adminAPI, MeViewSchema, type MeView } from '@/lib/api/admin';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 
-// AdminSession —— 旧 shape：sessionStore 全字段（MeView）的子集别名，
-// 老 caller (AdminSidebar / PageSection / etc.) 还按这个 4 字段读。
+// AdminSession —— the legacy shape: an alias for a subset of sessionStore's
+// full fields (MeView). Old callers (AdminSidebar / PageSection / etc.) still read by these 4 fields.
 export interface AdminSession {
   owner_id: string;
   email: string;
   handle: string;
   full_name: string;
   public_url: string;
-  // pendingEmail —— 有一次待确认的改邮箱在等着。事实住在库里(owners.pending_email),
-  // 这里只是转述:owner 关掉标签页再回来,那个状态还在,而组件的 useState 早没了。
+  // pendingEmail —— an email change is waiting on confirmation. The fact
+  // lives in the database (owners.pending_email); this is just a relay: the
+  // owner closes the tab and comes back, and that state is still there,
+  // while a component's useState would have been gone long ago.
   pendingEmail: string;
 }
 
-// AdminSessionState —— `unreachable` 跟 `unauthed` 必须是两态（F-N-2）。
+// AdminSessionState —— `unreachable` and `unauthed` must be two separate states (F-N-2).
 //
-// 它们对 owner 的指示正好相反：401 = 去登录；5xx / 网络断 = 服务器不在，登录也没用。
-// 以前两者都是 `unauthed`，于是一次后端停机被渲染成一张空的登录表单 —— owner 会以为
-// 自己的密码出了问题，反复重输。**「你没登录」是一句关于世界的断言，它可能是假的。**
+// They tell the owner exactly opposite things: 401 = go sign in; 5xx /
+// network down = the server isn't there, and signing in wouldn't help
+// either. Both used to be `unauthed`, so a backend outage rendered as an
+// empty sign-in form — the owner would think their password was wrong and
+// keep retyping it. **"You're not signed in" is a claim about the world, and it can be false.**
 export type AdminSessionState =
   | { kind: 'loading' }
   | { kind: 'unauthed' }
@@ -46,15 +50,15 @@ export function useAdminSession(): AdminSessionState {
   const r = useResource(sessionStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
-  // 只有**真的没登录**才跳登录页。服务器不在的时候跳过去，给的是那条不管用的建议。
+  // Only redirects to sign-in when **actually** not signed in. Redirecting when the server is unreachable would give advice that doesn't help.
   useEffect(() => {
     if (r.status === 'error' && isUnauthed(r.errorStatus)) router.push('/login');
   }, [r.status, r.errorStatus, router]);
   return adminSessionFromResource(r.status, r.errorStatus, r.data);
 }
 
-// isUnauthed —— 401 / 403 才是「你没登录」。其余（5xx、网络断 → errorStatus 为 null）
-// 都是「够不着服务器」。
+// isUnauthed —— only 401 / 403 mean "you're not signed in". Everything else
+// (5xx, network down → errorStatus is null) means "can't reach the server".
 function isUnauthed(errorStatus: number | null): boolean {
   return errorStatus === 401 || errorStatus === 403;
 }

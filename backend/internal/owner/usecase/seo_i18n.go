@@ -1,7 +1,9 @@
-// seo_i18n.go —— landing 上的多语那一层:读者要哪一种语言,以及这条笔记有哪些语言。
+// seo_i18n.go — the multi-language layer on the landing page: which language the reader
+// wants, and which languages this note has.
 //
-// 单拎一个文件,因为它跟隔壁"定位一条 landing + 装配它的素材/链接"是两件事:那边回答
-// "哪一条",这边回答"哪一面"。
+// Split into its own file because it's a different concern from its neighbor's "locate
+// one landing + assemble its assets/links": that one answers "which entry", this one
+// answers "which face".
 
 package usecase
 
@@ -11,8 +13,10 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
-// landingNote —— 要渲染的那一条(谁的、哪条、正文、标题)。打包成一个入参守 argument-limit。
-// 标题在这儿是因为**正文开头再说一遍标题的那行不渲染**:页头已经印了它(UX-85)。
+// landingNote — the entry being rendered (whose, which one, body, title). Bundled into
+// one param to respect the argument-limit. Title is here because **the line at the top
+// of the body that repeats the title is not rendered**: the page header already prints
+// it (UX-85).
 type landingNote struct {
 	ownerID string
 	id      string
@@ -20,14 +24,16 @@ type landingNote struct {
 	title   string
 }
 
-// landingRender —— 一条 landing 渲染出来的正文 + 它的多语元信息。
+// landingRender — one landing's rendered body + its multi-language metadata.
 type landingRender struct {
 	body string
 	meta LandingI18n
 }
 
-// landingI18n —— 按访客要的语言选一面。多语区块**之外**的散文照留:一条笔记不是 N 份文档,
-// 那些句子不属于任何一种语言。要的语言没有 → 退回这条笔记的身份语言(lang),不是第一面。
+// landingI18n — picks a face according to the language the visitor wants. Prose
+// **outside** the multi-language blocks stays as-is: a note isn't N separate documents,
+// and those sentences don't belong to any one language. If the requested language isn't
+// available -> falls back to the note's identity language (lang), not the first face.
 func landingI18n(
 	ctx context.Context, deps SEODeps, note *landingNote, want string,
 ) landingRender {

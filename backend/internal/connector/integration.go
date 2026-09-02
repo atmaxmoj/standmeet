@@ -1,13 +1,14 @@
-// integration.go —— Document 跟外部系统同步关系的统一抽象。
+// integration.go — the unified abstraction for a Document's sync relationship with an external
+// system.
 //
-// 设计点：
-//   - 一个 Document 可以同时挂多个 Integration（同篇 wiki 既被 Obsidian sync
-//     又被 Notion 拉，这种未来）。
-//   - 加新 integration 类型（Notion/GitHub/AppleNotes/IM bridge…）只需要：
-//     新增 IntegrationKind 常量 + 新 struct 实现 Integration interface，不
-//     动 Document/Genre/postgres 任何 caller。OCP-correct。
-//   - Integrations 管理集合：Add / All / Find / Has，All() 永远 defensive
-//     copy 返。
+// Design points:
+//   - A Document can carry multiple Integrations at once (the same wiki page synced by both
+//     Obsidian sync and pulled by Notion, that future).
+//   - Adding a new integration type (Notion/GitHub/AppleNotes/IM bridge…) only needs: a new
+//     IntegrationKind constant + a new struct implementing the Integration interface, without
+//     touching any Document/Genre/postgres caller. OCP-correct.
+//   - Integrations manages the collection: Add / All / Find / Has, and All() always returns a
+//     defensive copy.
 
 package connector
 
@@ -16,55 +17,57 @@ import (
 	"time"
 )
 
-// IntegrationKind —— integration 类型枚举。
+// IntegrationKind — enum of integration types.
 type IntegrationKind string
 
-// 当前支持的 integration 种类。未来扩展只加常量 + 新 struct 实现接口。
+// Currently supported integration kinds. Future extension only adds a constant + a new struct
+// implementing the interface.
 const (
 	IntegrationObsidian IntegrationKind = "obsidian"
 )
 
-// Integration —— document 跟外部系统的一份同步关系。
+// Integration — one sync relationship between a document and an external system.
 type Integration interface {
-	// Kind —— 返该 integration 的类型，让 caller 分支处理 / type-assert。
+	// Kind — returns this integration's type, letting the caller branch / type-assert on it.
 	Kind() IntegrationKind
-	// SourceRef —— 外部系统里该 document 的唯一引用（vault path / notion
-	// page id / github gist url 等）。
+	// SourceRef — the unique reference to this document in the external system (vault path /
+	// notion page id / github gist url, etc.).
 	SourceRef() string
-	// LastSyncedAt —— 最近一次同步时间。owner UI 显示用，定期 re-sync 调度
-	// 也参考。
+	// LastSyncedAt — the last sync time. Used for owner UI display; also consulted by
+	// periodic re-sync scheduling.
 	LastSyncedAt() time.Time
 }
 
-// Integrations —— document 上挂的所有 integration 管理集合。
-// 用值类型 (value type) 嵌进 Document，所有 mutate 操作 (Add) 用指针接收器。
+// Integrations — the collection of all integrations attached to a document.
+// Embedded into Document as a value type; all mutating operations (Add) use a pointer receiver.
 type Integrations struct {
 	items []Integration
 }
 
-// NewIntegrations —— 构造时直接传一组 integration。空构造 → 空集合。
-// items 内部 defensive clone，避免 caller 后续 mutate 影响。
+// NewIntegrations — construct by passing a set of integrations directly. Empty construction →
+// empty collection. items is defensively cloned internally, so the caller mutating it later
+// doesn't affect this collection.
 func NewIntegrations(items ...Integration) Integrations {
 	out := make([]Integration, 0, len(items))
 	out = append(out, items...)
 	return Integrations{items: out}
 }
 
-// Add —— 加一个 integration。pointer receiver 因为要 mutate。
+// Add — add one integration. Pointer receiver because it mutates.
 func (i *Integrations) Add(in Integration) {
 	i.items = append(i.items, in)
 }
 
-// All —— 返当前所有 integration 的副本，caller 拿到的可以随便 range/sort
-// 不会影响内部状态。永远不返 nil（空集合返空 slice）。
+// All — returns a copy of all current integrations; the caller can range/sort it freely without
+// affecting internal state. Never returns nil (an empty collection returns an empty slice).
 func (i *Integrations) All() []Integration {
 	out := make([]Integration, len(i.items))
 	copy(out, i.items)
 	return out
 }
 
-// Find —— 按 kind 查回第一条匹中的 integration。caller 通常 type-assert
-// 拿回具体类型用 (例如 Obsidian)。没找到返 (nil, false)。
+// Find — look up the first integration matching a kind. The caller typically type-asserts it
+// back to a concrete type to use (e.g. Obsidian). Returns (nil, false) if not found.
 func (i *Integrations) Find(kind IntegrationKind) (Integration, bool) {
 	for _, x := range i.items {
 		if x.Kind() == kind {
@@ -74,16 +77,18 @@ func (i *Integrations) Find(kind IntegrationKind) (Integration, bool) {
 	return nil, false
 }
 
-// Has —— 是否挂了该 kind 的 integration。Find 的 boolean-only 版本。
+// Has — whether an integration of this kind is attached. The boolean-only version of Find.
 func (i *Integrations) Has(kind IntegrationKind) bool {
 	_, ok := i.Find(kind)
 	return ok
 }
 
-// Len —— integration 数量。caller len(x.All()) 也 work 但要分配；Len 不分配。
+// Len — number of integrations. A caller could also do len(x.All()), but that allocates; Len
+// does not.
 func (i *Integrations) Len() int { return len(i.items) }
 
-// Kinds —— 返已挂的所有 IntegrationKind（去重，按出现顺序）。admin UI 渲染用。
+// Kinds — returns every attached IntegrationKind (deduplicated, in appearance order). Used for
+// admin UI rendering.
 func (i *Integrations) Kinds() []IntegrationKind {
 	seen := make(map[IntegrationKind]struct{}, len(i.items))
 	out := make([]IntegrationKind, 0, len(i.items))
@@ -98,5 +103,5 @@ func (i *Integrations) Kinds() []IntegrationKind {
 	return out
 }
 
-// _ —— compile-time check Integrations 没被错误重命名 / 字段错配。
+// _ — compile-time check that Integrations wasn't misrenamed / has a field mismatch.
 var _ = slices.Index[[]Integration, Integration]

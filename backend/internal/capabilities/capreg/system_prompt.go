@@ -1,5 +1,6 @@
-// system_prompt.go —— system prompt 拼接：base + role persona + 每个
-// capability 的 SystemPromptFragment。Hash 给 dev endpoint 用，验确定性。
+// system_prompt.go —— system prompt splicing: base + role persona + each
+// capability's SystemPromptFragment. The hash is used by the dev endpoint to
+// verify determinism.
 
 package capreg
 
@@ -10,13 +11,15 @@ import (
 	"strings"
 )
 
-// ComposeSystemPrompt —— 拼一份完整 system prompt。
-//   - basePersona：来自 RoleSnapshot.PromptBody，由 caller 解出来传入。
-//   - registry：walk 注册顺序，每个 cap 调 SystemPromptFragment 拿片段。
-//     片段为空 string 的 cap 不贡献文本。
+// ComposeSystemPrompt —— assembles one complete system prompt.
+//   - basePersona: comes from RoleSnapshot.PromptBody, resolved and passed in by
+//     the caller.
+//   - registry: walks registration order, calling SystemPromptFragment on each
+//     cap for its fragment. A cap whose fragment is the empty string contributes
+//     no text.
 //
-// 顺序：[basePersona] + [for cap in register order: fragment(cap)]
-// 用 "\n\n" 连接。
+// Order: [basePersona] + [for cap in register order: fragment(cap)], joined with
+// "\n\n".
 func (r *Registry) ComposeSystemPrompt(
 	ctx context.Context, basePersona string, in *AssembleInput,
 ) string {
@@ -33,9 +36,11 @@ func (r *Registry) ComposeSystemPrompt(
 	return strings.Join(parts, "\n\n")
 }
 
-// SystemPromptHash —— ComposeSystemPrompt 的 SHA-256 hex 前缀。dev endpoint
-// 用：相同 (basePersona, in) 应永远返同 hash —— invariants spec 跑 3 次
-// 验稳定，捕捉任何"装配顺序 / fragment 内容含时间戳 / map iter"等抖动源。
+// SystemPromptHash —— the SHA-256 hex digest of ComposeSystemPrompt's output.
+// Used by the dev endpoint: the same (basePersona, in) should always return the
+// same hash — the invariants spec runs it 3 times to verify stability, catching
+// any source of flakiness such as "assembly order / a fragment's content
+// containing a timestamp / map iteration".
 func (r *Registry) SystemPromptHash(
 	ctx context.Context, basePersona string, in *AssembleInput,
 ) string {

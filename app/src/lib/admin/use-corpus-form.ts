@@ -1,9 +1,10 @@
-// use-corpus-form —— CorpusEntryForm 的状态机。把 useState / useEffect /
-// 字段计算从 .tsx 抽到 lib 让 presentation 层守 cyclo ≤ 3 + no-if 规则。
+// use-corpus-form —— the state machine for CorpusEntryForm. useState /
+// useEffect / field computation are pulled out of the .tsx into lib to keep
+// the presentation layer at cyclo ≤ 3 + the no-if rule.
 //
-// retrieval-redesign 后 visibility 字段砍掉，准入靠 access_codes.corpus_permissions
-// (path-glob ACL)。show_as_source 通过 admin SEO/path edit 路径独立设置，不在
-// 主 form 里。
+// After the retrieval-redesign the visibility field was removed; access
+// relies on access_codes.corpus_permissions (path-glob ACL). show_as_source
+// is set independently via the admin SEO/path edit path, not in the main form.
 
 'use client';
 
@@ -20,12 +21,15 @@ export interface CorpusFormHook {
   tagsRaw: string;
   parentID: string;
   citable: boolean;
-  // hero 三件套 —— 图 + 压在图上那句话 + 色调。**三样都要能在面板上写**:
-  // 只做图那一样的话,owner 设完封面看到的是标题被顶上去当 headline,而他没有任何
-  // 办法改它(除非去 AI 客户端调 MCP)。访客那侧三样都渲。
+  // The hero trio — image + the line laid over it + tone. **All three must
+  // be writable on the panel**: doing only the image would mean the owner,
+  // after setting a cover, sees the title get pushed up to serve as the
+  // headline, with no way to change it (short of going to an AI client and
+  // calling MCP). The visitor side renders all three.
   //
-  // 跟正文一起存,**不单独 PATCH**:corpus.update 对除 hero 之外的字段是整份替换,
-  // 只发一个 cover 会把标题和正文清成空的。
+  // Saved together with the body, **never PATCHed separately**: corpus.update
+  // does a full replace on every field except hero, so sending just a cover
+  // would clear the title and body to empty.
   coverAssetID: string;
   coverHeadline: string;
   coverHue: string;
@@ -37,7 +41,7 @@ export interface CorpusFormHook {
   setCoverAssetID: (v: string) => void;
   setCoverHeadline: (v: string) => void;
   setCoverHue: (v: string) => void;
-  // 派生：当前不能 submit 的原因 ('' = 可以)
+  // Derived: whether submit is currently disallowed (false = allowed)
   submitDisabledReason: (busy: boolean, bodyVisible: boolean) => boolean;
   toEntryInput: (bodyVisible: boolean) => CorpusEntryInput;
   toPromoteInput: () => PromoteInput;
@@ -80,17 +84,21 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
         title: title.trim(),
         body: bodyVisible ? body : '',
         tags: parseTags(tagsRaw),
-        // parent_id —— 后端现在也是**指针字段**（F-L-28）：不发 = 不动，发空串 = 挪到根。
-        // 编辑表单不显示这一格，所以它一直不发，笔记的位置因此不动 —— 这正是要的。
-        // **给编辑表单加父级控件的时候必须改这一行**：那时候「none (root)」得发空串，
-        // 而不是像这里一样折成 undefined，否则那个选项按下去什么都不会发生。
+        // parent_id —— the backend is now also a **pointer field** (F-L-28):
+        // not sending = leave unchanged, sending empty = move to root.
+        // The edit form doesn't display this field, so it's never sent, and
+        // the note's position stays put — which is exactly what's wanted.
+        // **This line must change when a parent control is added to the edit
+        // form**: at that point "none (root)" must send an empty string,
+        // instead of being folded into undefined as it is here, or that option would do nothing when clicked.
         parent_id: parentID === '' ? undefined : parentID,
         // citable —— MUST be sent: the Go request struct decodes a missing `show_as_source` as
         // FALSE, so omitting it silently turned citation OFF on every edit (the note stayed
         // readable but stopped being attributable). Carry it explicitly.
         show_as_source: citable,
-        // hero 三格发什么由 heroField 一处判(跟**载入时**的值比,不是跟空比) ——
-        // 这样「他从没设过」和「他要撤掉」才分得开。
+        // What gets sent for the three hero fields is judged in one place by
+        // heroField (compared against the value **as loaded**, not against
+        // empty) — that's what lets "he never set this" and "he's clearing it" be told apart.
         cover_image_asset_id: heroField(coverAssetID, seed.coverAssetID),
         cover_headline: heroField(coverHeadline, seed.coverHeadline),
         cover_hue: heroField(coverHue, seed.coverHue),
@@ -124,7 +132,7 @@ function seedFromInitial(initial?: Partial<CorpusEntryInput>): Seed {
     body: initial?.body ?? '',
     tagsRaw: (initial?.tags ?? []).join(', '),
     parentID: initial?.parent_id ?? '',
-    // 缺省 true = 跟 DB 的 `show_as_source NOT NULL DEFAULT true` 一致：新条目默认可引用。
+    // Defaults to true = matches the DB's `show_as_source NOT NULL DEFAULT true`: a new entry is citable by default.
     citable: initial?.show_as_source ?? true,
     coverAssetID: initial?.cover_image_asset_id ?? '',
     coverHeadline: initial?.cover_headline ?? '',
@@ -140,36 +148,45 @@ function submitDisabled(
   return busy || titleBlank || bodyBlank;
 }
 
-// splitTail —— 把正文拆成「正文」和「末尾那串空白」。
+// splitTail —— splits the body into "the body" and "the trailing whitespace run".
 //
-// 这两个函数都要用它，原因是同一个（F-L-51）：**末尾那个换行是 owner 的字节，不是我们的**。
-// 谁都不许顺手削掉它 —— 削了就再也长不回来，于是「插入 → 撤下」永远回不到原文。
+// Both functions below use it, for the same reason (F-L-51): **that
+// trailing newline is the owner's own byte, not ours**. Nothing is allowed
+// to casually strip it — strip it and it never grows back, so "insert →
+// remove" would never return to the original text.
 function splitTail(body: string): { head: string; tail: string } {
   const tail = /\s*$/u.exec(body)?.[0] ?? '';
   return { head: body.slice(0, body.length - tail.length), tail };
 }
 
-// appendBlock —— 往正文末尾接一段,中间留一个空行。**接在后面,不覆盖** ——
-// owner 点"插入"是想加一张图,不是想让已经写好的正文消失。
+// appendBlock —— appends a block to the end of the body, leaving one blank
+// line between. **Appended, never overwritten** — the owner clicking
+// "insert" means adding an image, not making the body they already wrote disappear.
 //
-// 末尾那串空白**原样留在最后**：插入是加一张图，不是顺手给笔记做一次格式化。
-// prod 上量过代价：3240 字节的真笔记插一次变 3311，撤下来 3239 —— 那少掉的一个字节
-// 就是这里削的（F-L-51）。
+// The trailing whitespace run **stays exactly where it was, at the very
+// end**: inserting means adding an image, not casually reformatting the
+// note. Measured the cost in prod: a real 3240-byte note became 3311 after
+// one insert, 3239 after removing it — that missing byte was stripped right here (F-L-51).
 export function appendBlock(body: string, block: string): string {
   if (body.trim() === '') return block;
   const { head, tail } = splitTail(body);
   return `${head}\n\n${block}${tail}`;
 }
 
-// dropAssetRef —— 把正文里引用某份素材的**整张图**去掉，连同它前后多出来的空行。
+// dropAssetRef —— removes the **entire image reference** to an asset from
+// the body, along with any surrounding blank lines it added.
 //
-// appendBlock 的另一半（F-L-50）：素材撤了而引用留在原地，访客页上就是一个裂图加一个
-// 内部文件名，而 owner 在面板上看不见。删整个图片节点而不是只删地址 —— 只删地址会留下
-// `![原文件名]()`，把文件名端给访客。
+// The other half of appendBlock (F-L-50): if the asset is removed but the
+// reference stays in place, the visitor page shows a broken image plus an
+// internal filename, invisible to the owner on the panel. The whole image
+// node is deleted, not just the address — deleting only the address would
+// leave `![original filename]()`, exposing the filename to visitors.
 //
-// **跟 appendBlock 严格互逆**（F-L-51）：它插的是 `\n\n` + 图，这里就先按那个形状撤；
-// 撤不掉再退而求其次（图后面跟空行、或者光秃秃一张图 —— 那是 owner 自己手写的位置）。
-// 末尾空白同样原样保留。于是「插入 → 撤下」逐字节回到原文，而不是每来一次少一个字节。
+// **Strictly the inverse of appendBlock** (F-L-51): appendBlock inserts
+// `\n\n` + the image, so this tries removing exactly that shape first;
+// failing that, it falls back to something looser (an image followed by a
+// blank line, or a bare image — a position the owner typed by hand).
+// Trailing whitespace is likewise preserved exactly. So "insert → remove" returns byte-for-byte to the original, instead of losing a byte every round trip.
 export function dropAssetRef(body: string, assetID: string): string {
   const ref = `!\\[[^\\]]*\\]\\(\\s*standmeet-asset:${assetID}\\s*\\)`;
   const { head, tail } = splitTail(body);
@@ -185,9 +202,9 @@ function parseTags(raw: string): string[] {
   return raw.split(',').map((t) => t.trim()).filter((t) => t !== '');
 }
 
-// runWith —— action `Promise<boolean>` + toast + onDone 的"成功才收尾"helper。
-// section 各处提交都走它，避免 presentation 层出现 `ok && (toast, onDone)`
-// 这种 no-unused-expressions / 多语句 ternary。
+// runWith —— a "finish up only on success" helper wrapping an action
+// `Promise<boolean>` + toast + onDone. Every submit path in a section goes
+// through it, avoiding a `ok && (toast, onDone)` no-unused-expressions / multi-statement-ternary in the presentation layer.
 export async function runWith(
   action: () => Promise<boolean>,
   onSuccess: () => void,
@@ -196,9 +213,11 @@ export async function runWith(
   if (ok) onSuccess();
 }
 
-// savedLine —— 一次保存的回执。**顺带做掉的事也要说**：取消发布一条被 pin 的条目会把它从
-// 首页那几个栏目里摘掉，而 owner 是在「改一条笔记」的界面上做的，不去那一页根本不会知道
-// （F-L-31）。没有连带时就是原来那句。
+// savedLine —— the receipt for one save. **Whatever happened as a side
+// effect must also be stated**: unpublishing a pinned entry removes it from
+// the homepage sections, and the owner did this from the "edit a note"
+// screen — without going to that other page, they'd never know (F-L-31).
+// When there's no side effect, it's just the original sentence.
 export function savedLine(unpinnedSections: readonly string[]): string {
   if (unpinnedSections.length === 0) {
     return 'saved';

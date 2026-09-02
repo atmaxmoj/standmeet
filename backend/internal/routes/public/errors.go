@@ -1,5 +1,5 @@
-// errors.go —— 共享 envelope/writeError helper。chat.go 守 max-lines
-// 拆出来；persist_turn.go + 后续 handler 都用。
+// errors.go —— shared envelope/writeError helpers. Split out of chat.go to stay under
+// max-lines; used by persist_turn.go and later handlers too.
 
 package public
 
@@ -22,14 +22,19 @@ func serverErr() apierr.Envelope {
 	}
 }
 
-// envCodeLockedWait / envCodeLockedCaptcha —— #169 访问码兑换失败超阈值 → 429 锁定
-// (暴力枚举防护)。**同一个锁，两句话**，按这台实例此刻给不给得出那条出路选：
+// envCodeLockedWait / envCodeLockedCaptcha —— #169 access-code redemption failing past
+// threshold → 429 lockout (brute-force enumeration protection). **One lockout, two
+// messages**, chosen by whether this instance can currently offer a way through:
 //
-//   - captcha 关着（默认部署）：没有校验可解，只能等窗口过去 → 说「稍后再试」。
-//   - captcha 开着：屏幕上就摆着那道校验 → 说「过一次就放你过去」。
+//   - captcha off (the default deployment): no check to clear, only the window to wait
+//     out → says "try again later".
+//   - captcha on: the check is right there on the screen → says "clear it once and
+//     you're through".
 //
-// 混用哪一句都是谎：说「稍后再试」会让人对着眼前的出路干等十五分钟；说「过一次人机校验」
-// 会让人去找一个页面上根本不存在的控件，找不到就以为自己被永久挡住了。
+// Mixing them up is a lie either way: saying "try again later" makes someone stare at a
+// way out that's right in front of them and wait fifteen minutes for nothing; saying
+// "clear a human check" sends them looking for a control that isn't on the page, and
+// when they can't find it they'll think they're locked out for good.
 func envCodeLockedWait() apierr.Envelope {
 	return codeLocked("too many invalid codes from here — try again in a few minutes")
 }
@@ -55,10 +60,10 @@ func writeError(log *slog.Logger, w http.ResponseWriter, env apierr.Envelope) {
 	}
 }
 
-// nopResponseWriter —— BYOAI envelope helper writes 401 on missing
-// headers，但 llm_chat_stream 在 SSE 阶段 take control 自己写错误响应；
-// 拿一个静默 ResponseWriter 喂给那个 helper 让它能 inspect headers
-// 但不能 hit wire。
+// nopResponseWriter —— the BYOAI envelope helper writes a 401 on missing headers, but
+// llm_chat_stream takes control in the SSE phase and writes its own error response;
+// feeding that helper a silent ResponseWriter lets it inspect headers without ever
+// hitting the wire.
 type nopResponseWriter struct{}
 
 func (*nopResponseWriter) Header() http.Header         { return http.Header{} }

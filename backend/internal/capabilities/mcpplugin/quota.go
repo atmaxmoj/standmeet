@@ -1,41 +1,56 @@
-// quota.go —— 一个能力的 per-主体用量上限,**声明成数据**。
+// quota.go —— a capability's per-subject usage cap, **declared as data**.
 //
-// "这张码最多能约两次" 由三个事实构成:上限在哪(主体上的哪个配置字段)、用量怎么数(能力
-// 自己存储里的哪个 collection)、怎么认出属于这个主体(那些文档里的哪个字段)。三个都是这个
-// 能力自己的知识,所以由它自己说。
+// "This code can book at most twice" is made of three facts: where the cap lives
+// (which config field on the subject), how usage is counted (which collection in
+// the capability's own storage), and how a document is recognized as belonging to
+// this subject (which field). All three are this capability's own knowledge, so it
+// states them itself.
 //
-// **主体不只有码**:访客拿着一张码进来,别人的程序拿着一把对外 key 调进来 —— 两者都是"每个
-// X 多少次"里的那个 X。这份声明只说字段名,不说是哪一类主体。
+// **A subject isn't only a code**: a visitor comes in holding a code, someone
+// else's program calls in holding an external key — both are the X in "how many
+// per X". This declaration only names the field, not which kind of subject it is.
 //
-// 宿主拿着这三句话就能通用地实现两件事,一份计数:
+// With these three lines the host implements two things generically, off one
+// count:
 //
-//   - 闸:数到上限 → 这次会话不暴露这个工具(隐藏,而不是让访客点了再报错)。
-//   - 余量:把"还剩几次"填进 capability_state,前端照着显示。
+//   - Gate: hits the cap → this tool isn't exposed for this session (hidden,
+//     rather than letting the visitor click it and then get an error).
+//   - Remaining: fills "how many left" into capability_state for the frontend to
+//     display.
 //
-// 之前这两个钩子在组装根手写,里面明明白白写着 "bookings"、"code_id"、"max_bookings" ——
-// 内核不认识 booking,组装根却认识。而且写过一次教训:#135 外置 booker 时两个钩子一起被
-// 摘掉,后来只补回了闸,余量从此永远是 nil,而前端契约仍然承诺那个字段。两件事共用一份
-// 声明,就不会再补回一半。
+// These two hooks used to be hand-written at the composition root, spelling out
+// "bookings", "code_id", "max_bookings" right there in the code — the kernel
+// doesn't know what a booking is, but the composition root did. And it already cost
+// a lesson once: when booker got externalized (#135), both hooks were removed
+// together, and only the gate was ever restored — remaining has been nil ever
+// since, while the frontend contract still promises that field. Sharing one
+// declaration for both means only half never gets restored again.
 
 package mcpplugin
 
-// QuotaDecl —— per-**主体**用量上限的声明。主体是一张码,也可能是一把对外 API key。
+// QuotaDecl —— the declaration of a per-**subject** usage cap. The subject is an
+// access code, or possibly an external API key.
 type QuotaDecl struct {
-	// ConfigKey —— 上限值取自这个主体的配置里的哪个键(如 "max_bookings")。
-	// 该键没设 / 设成 null / ≤ 0 → 不限。
+	// ConfigKey —— which key in this subject's config the cap value comes from
+	// (e.g. "max_bookings"). Unset / null / <= 0 → unlimited.
 	ConfigKey string
-	// Collection —— 用量数的是本能力自己存储里的哪个 collection(如 "bookings")。
+	// Collection —— which collection in this capability's own storage usage is
+	// counted from (e.g. "bookings").
 	Collection string
-	// SubjectField —— 那些文档里哪个字段记着**主体**(如 "subject_id")。
+	// SubjectField —— which field in those documents records the **subject**
+	// (e.g. "subject_id").
 	//
-	// 这个字段以前叫 `CodeField`,值是 `"code_id"` —— 一个只认得码的名字。于是对外 API key
-	// 那条路上写下的行没有可数的主体,配额一次都不数(F-B-11)。名字改成主体之后,"挂在谁身上"
-	// 才真的是参数([[names-that-lie]])。
+	// This field used to be called `CodeField`, valued `"code_id"` — a name that
+	// only recognized codes. So rows written down the external-API-key path had
+	// no countable subject, and quota never counted them at all (F-B-11). After
+	// renaming it to subject, "who it's attached to" finally became a real
+	// parameter ([[names-that-lie]]).
 	SubjectField string
 }
 
-// Usable —— 这份声明能不能真的执行。三句话齐了才算数:缺一句宿主就数不出用量,
-// 那时候"不闸"比"瞎闸"对。nil 接收者是合法的(大多数能力不闸用量)。
+// Usable —— can this declaration actually be enforced. All three lines must be
+// present: missing even one and the host can't count usage, and then "don't gate"
+// beats "gate blindly". A nil receiver is legal (most capabilities don't gate usage).
 func (q *QuotaDecl) Usable() bool {
 	return q != nil && q.ConfigKey != "" && q.Collection != "" && q.SubjectField != ""
 }

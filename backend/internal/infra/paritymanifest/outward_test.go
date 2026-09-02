@@ -44,11 +44,12 @@ func TestOutward_AgenticOpsAreNeverRenderable(t *testing.T) {
 	}
 }
 
-// TestOutward_MCPVisitorRatchet —— 访客 MCP 面的棘轮，跟 api 面同一份契约：
-// 它渲染的那组工具要实现**每一个**非 Agentic 的对外 op。
+// TestOutward_MCPVisitorRatchet —— the visitor MCP face's ratchet, the same contract as the api
+// face: the tool set it renders must realize **every** non-Agentic outward op.
 //
-// 这一条防的是「第三个对外面报出跟前两个不一样的东西」：一个面少报一个能力，
-// 访客的 AI 就永远规划不到那条路，而没有任何编译期的东西会吭声。
+// This guards against "a third outward face reporting something different from the first two":
+// if a face under-reports one capability, the visitor's AI can never plan a path to it, and
+// nothing at compile time will say a word.
 func TestOutward_MCPVisitorRatchet(t *testing.T) {
 	t.Parallel()
 	require.ElementsMatch(t, pm.KnownAPIGaps(), pm.MCPVisitorMissing(pm.APIRenderableTools()),
@@ -57,12 +58,13 @@ func TestOutward_MCPVisitorRatchet(t *testing.T) {
 			"• Added a non-Agentic outward op? it must render on every outward face.")
 }
 
-// TestOutward_OwnerOpOnMCPVisitorIsLeak —— **这一条才是登记这个面的真正理由。**
+// TestOutward_OwnerOpOnMCPVisitorIsLeak —— **this is the actual reason this face is registered.**
 //
-// 访客 MCP 面收的是一张访问码，而 owner 面收的是 Sigv1 —— 两个面住在同一个进程里，
-// 挂载点只差一个前缀（`/mcp` 与 `/mcp/visitor`）。哪天有人往访客那一面挂一个 owner 能力，
-// 编译得过、测试全绿、访客的 AI 拿到一把 owner 的工具。
-// 登记成对外平面的面之后，那件事是一条 leak。
+// The visitor MCP face authenticates with an access code, while the owner face authenticates
+// with Sigv1 — the two faces live in the same process, and their mount points differ only by a
+// prefix (`/mcp` vs `/mcp/visitor`). The day someone mounts an owner capability onto the visitor
+// face, it compiles, tests go green, and the visitor's AI gets a hold of an owner tool. Once this
+// face is registered as outward-plane, that becomes a leak.
 func TestOutward_OwnerOpOnMCPVisitorIsLeak(t *testing.T) {
 	t.Parallel()
 	const ownerSample = "writings.save"
@@ -88,9 +90,10 @@ func TestOutward_OwnerOpOnMCPVisitorIsLeak(t *testing.T) {
 // the outward api surface.
 func TestOutward_OwnerOpOnAPIFacadeIsLeak(t *testing.T) {
 	t.Parallel()
-	// 取一个**这张表里还有的** owner op 当样本。corpus.list 曾经是这个样本,它搬进
-	// corpus 域之后从表里消失,这条就退化成了 orphan 而不是 leak —— 样本得跟着表走。
-	// 表清空的那天,这条断言搬到收口那侧(dispatcher.Conform)。
+	// Take an owner op **still present in this table** as the sample. corpus.list used to be
+	// that sample; once it moved into the corpus domain and vanished from the table, this test
+	// degraded into an orphan instead of a leak — the sample has to track the table. The day the
+	// table empties, this assertion moves to the convergence point (dispatcher.Conform).
 	const ownerSample = "writings.save"
 	api := fp.Facade{Name: "api", Plane: fp.PlaneOutward, ServesRead: true, ServesActn: true}
 	vs := fp.Conform(pm.AllOps(), []fp.Exposure{

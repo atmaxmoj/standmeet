@@ -1,9 +1,13 @@
-// recovery.go —— #100 account recovery phrase。
+// recovery.go — #100 account recovery phrase.
 //
-// GenerateRecovery(authed):生成高熵 phrase → 只存 hash(bcrypt,复用 password hasher)→ 明文
-// **只**发到 owner 邮箱(走 owner 自己的 mail connector,SMTP 凭据不出 vault)。
-// Recover(public):锁在外面时拿 {email, phrase} 对 hash,对上 → 作废(单次)→ 发 owner session。
-// 公开端点 brute-force 面由 route 层 login-guard 限速;这层只做「验对 → 换 session」。
+// GenerateRecovery (authed): generates a high-entropy phrase -> stores only the hash
+// (bcrypt, reusing the password hasher) -> the plaintext is sent **only** to the
+// owner's email (through the owner's own mail connector; SMTP credentials never leave
+// the vault).
+// Recover (public): when locked out, {email, phrase} is checked against the hash; on a
+// match -> invalidate (single use) -> issue an owner session. The public endpoint's
+// brute-force surface is rate-limited by the route layer's login-guard; this layer only
+// does "verify correctness -> exchange for a session".
 
 package usecase
 
@@ -21,27 +25,28 @@ import (
 )
 
 const (
-	// recoveryPhraseBytes —— 128-bit 随机,base32 化后约 26 字符,brute-force 不可行。
+	// recoveryPhraseBytes — 128-bit random, about 26 chars after base32, infeasible to brute-force.
 	recoveryPhraseBytes = 16
-	// phraseGroupLen —— readable 分组:每 4 字符一个连字符段(k7m2-9xqp-…)。
+	// phraseGroupLen — readable grouping: one hyphenated segment per 4 chars (k7m2-9xqp-...).
 	phraseGroupLen = 4
 )
 
-// RecoveryDeps —— recovery 依赖。Owners=读写 recovery_hash + creds;Sessions=recover 后发 session;
-// Proxy=把 phrase 送出去。
+// RecoveryDeps — recovery dependencies. Owners = read/write recovery_hash + creds;
+// Sessions = issues a session after recovery; Proxy = delivers the phrase.
 type RecoveryDeps struct {
 	Owners   *repo.Repo
 	Sessions *session.OwnerSessionStore
 	Proxy    OutboundSender
 }
 
-// RecoverInput —— 公开 /recover 入参。
+// RecoverInput — input to the public /recover endpoint.
 type RecoverInput struct {
 	Email  string
 	Phrase string
 }
 
-// RecoverOutput —— recover 成功后的 session(跟 Login 一致,route 落 cookie)。
+// RecoverOutput — the session on successful recovery (consistent with Login; the route
+// sets the cookie).
 type RecoverOutput struct {
 	SessionToken string
 	CSRFToken    string
@@ -49,7 +54,8 @@ type RecoverOutput struct {
 	OwnerHandle  string
 }
 
-// GenerateRecovery —— 生成 phrase、存 hash、把明文邮给 owner。要求出站通道可用(否则 Send 报错)。
+// GenerateRecovery — generates a phrase, stores its hash, emails the plaintext to the
+// owner. Requires a working outbound channel (otherwise Send errors).
 func GenerateRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) error {
 	ownerRow, err := deps.Owners.GetByID(ctx, ownerID)
 	if err != nil {
@@ -69,7 +75,8 @@ func GenerateRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) e
 	return nil
 }
 
-// storeNewRecovery —— 生成 phrase + hash + 存,返明文 phrase(给通知正文)。
+// storeNewRecovery — generates the phrase + hashes it + stores it, returns the
+// plaintext phrase (for the notice body).
 func storeNewRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) (string, error) {
 	phrase, perr := newRecoveryPhrase()
 	if perr != nil {
@@ -85,8 +92,9 @@ func storeNewRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) (
 	return phrase, nil
 }
 
-// Recover —— {email, phrase} 对上 recovery_hash → 作废(单次)→ 发 session。任何不对 → ErrUnauthorized
-// (不区分「无此邮箱 / 没生成过 / phrase 错」,防枚举)。
+// Recover — {email, phrase} matches recovery_hash -> invalidate (single use) -> issue
+// a session. Anything wrong -> ErrUnauthorized (not distinguishing "no such email" /
+// "never generated" / "wrong phrase", to defend against enumeration).
 func Recover(ctx context.Context, deps *RecoveryDeps, in *RecoverInput) (RecoverOutput, error) {
 	if in.Email == "" || in.Phrase == "" {
 		return RecoverOutput{}, apierr.ErrEmptyField
@@ -98,7 +106,8 @@ func Recover(ctx context.Context, deps *RecoveryDeps, in *RecoverInput) (Recover
 	return issueRecovered(ctx, deps, &creds)
 }
 
-// verifyRecovery —— email + phrase 对 recovery_hash。任何失败一律 ErrUnauthorized(防枚举)。
+// verifyRecovery — checks email + phrase against recovery_hash. Any failure returns
+// ErrUnauthorized uniformly (defends against enumeration).
 func verifyRecovery(
 	ctx context.Context, deps *RecoveryDeps, in *RecoverInput,
 ) (repo.Credentials, error) {
@@ -115,7 +124,8 @@ func verifyRecovery(
 	return creds, nil
 }
 
-// issueRecovered —— 单次用:先作废 recovery_hash 再发 session(并发也只有一个成)。
+// issueRecovered — single use: invalidate recovery_hash first, then issue the session
+// (even under concurrency, only one attempt can succeed).
 func issueRecovered(
 	ctx context.Context, deps *RecoveryDeps, creds *repo.Credentials,
 ) (RecoverOutput, error) {
@@ -132,7 +142,8 @@ func issueRecovered(
 	}, nil
 }
 
-// newRecoveryPhrase —— 128-bit 随机 → base32 小写 → 4 字符一组连字符(readable,如 k7m2-9xqp-…)。
+// newRecoveryPhrase — 128-bit random -> lowercase base32 -> hyphenated in groups of 4
+// chars (readable, e.g. k7m2-9xqp-...).
 func newRecoveryPhrase() (string, error) {
 	b := make([]byte, recoveryPhraseBytes)
 	if _, err := rand.Read(b); err != nil {

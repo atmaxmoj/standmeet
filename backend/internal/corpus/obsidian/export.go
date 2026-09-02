@@ -1,14 +1,16 @@
-// export.go —— 把 owner 所有 writing 渲成 .md + frontmatter，连带 attachment
-// 一起打包成 zip。route layer 直接 stream 这个 zip 给 browser 下载。
+// export.go -- renders every owner writing to .md + frontmatter, bundled
+// with attachments, into a zip. The route layer streams this zip straight
+// to the browser for download.
 //
-// 形态（zip 内）：
-//   writings/<slug>.md     —— frontmatter + body（image ref 已 rewrite 成
-//                            attachments/<asset-id>.<ext> 形态，portable）
-//   attachments/<id>.<ext> —— body / cover 引用的所有 asset blob
+// Shape (inside the zip):
+//   writings/<slug>.md     -- frontmatter + body (image refs already
+//                            rewritten to attachments/<asset-id>.<ext>
+//                            form, portable)
+//   attachments/<id>.<ext> -- every asset blob referenced by body / cover
 //
-// Obsidian 解压进 vault：每篇 writing 是 `<slug>.md`，所有图片在
-// `attachments/` 子目录。owner 可以直接在 Obsidian 里看到、编辑、用 graph
-// view 浏览。
+// Unzipped into an Obsidian vault: each writing is `<slug>.md`, all images
+// live under the `attachments/` subdirectory. The owner can view, edit, and
+// browse it with graph view directly in Obsidian.
 
 package obsidian
 
@@ -24,19 +26,21 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 )
 
-// ExportDeps —— 流式 zip writer 要的 backend hooks。
+// ExportDeps -- backend hooks needed by the streaming zip writer.
 type ExportDeps struct {
 	Writings *corpus.WritingRepo
 	Assets   *corpus.AssetRepo
 	Storage  *storage.Client
-	Corpus   *corpus.VaultSyncRepo // corp note(wiki/subjectivity/output)反向渲染
+	Corpus   *corpus.VaultSyncRepo // corp notes (wiki/subjectivity/output), rendered back
 }
 
-// initialWrittenCap —— 单 owner 多 writing 共享 attachment dedup map 的初始容量。
+// initialWrittenCap -- initial capacity of the attachment dedup map shared
+// across a single owner's writings.
 const initialWrittenCap = 16
 
-// WriteZip —— 全部 owner 的 writing + 关联 attachment 写进 zip。w 通常是
-// http.ResponseWriter（route layer 调）。stream 模式，不落临时文件。
+// WriteZip -- writes all of an owner's writings plus their attachments into
+// a zip. w is usually an http.ResponseWriter (called by the route layer).
+// Streaming mode, no temp file on disk.
 func WriteZip(ctx context.Context, deps ExportDeps, ownerID string, w io.Writer) error {
 	writings, err := deps.Writings.ListByOwner(ctx, ownerID)
 	if err != nil {
@@ -56,7 +60,8 @@ func WriteZip(ctx context.Context, deps ExportDeps, ownerID string, w io.Writer)
 	return nil
 }
 
-// writeCorpusIfSet —— 有 corpus repo 时把 corp note 也写进 zip(admin export)。
+// writeCorpusIfSet -- when a corpus repo is set, also write corp notes into
+// the zip (admin export).
 func writeCorpusIfSet(ctx context.Context, deps ExportDeps, zw *zip.Writer, ownerID string) error {
 	if deps.Corpus == nil {
 		return nil
@@ -106,9 +111,10 @@ func writeOneWriting(
 	return writeWritingMarkdown(zw, writing, filenames)
 }
 
-// buildAttachmentFilenames —— 每张 asset 的 zip 内 filename。命名规则：
-// `<asset-id>.<ext>`，ext 从 content-type 推。用 asset-id 而不是原始 filename
-// 保证 zip 内 unique（owner 上传两张同名图也不撞）。
+// buildAttachmentFilenames -- the in-zip filename for each asset. Naming
+// rule: `<asset-id>.<ext>`, ext inferred from content-type. Using asset-id
+// instead of the original filename guarantees uniqueness inside the zip
+// (two images the owner uploaded under the same name still won't collide).
 func buildAttachmentFilenames(assets []corpus.Asset) map[string]string {
 	out := make(map[string]string, len(assets))
 	for i := range assets {
@@ -118,8 +124,10 @@ func buildAttachmentFilenames(assets []corpus.Asset) map[string]string {
 	return out
 }
 
-// canonicalExt —— 常见类型的规范扩展名。mime.ExtensionsByType 按字母序返回,`image/jpeg`
-// 会给 `.jpe`(不是 `.jpg`)、`text/markdown` 也乱,round-trip 名字就漂了。先查这张表。
+// canonicalExt -- canonical extensions for common types. mime.ExtensionsByType
+// returns results alphabetically, so `image/jpeg` yields `.jpe` (not
+// `.jpg`), and `text/markdown` is wrong too -- names would drift across a
+// round-trip. Check this table first.
 var canonicalExt = map[string]string{
 	"image/jpeg":       ".jpg",
 	"image/png":        ".png",
@@ -136,7 +144,7 @@ var canonicalExt = map[string]string{
 
 func extFromContentType(ct string) string {
 	base := ct
-	if before, _, found := strings.Cut(ct, ";"); found { // 剥 "; charset=..." 参数
+	if before, _, found := strings.Cut(ct, ";"); found { // strip the "; charset=..." parameter
 		base = strings.TrimSpace(before)
 	}
 	if e, ok := canonicalExt[strings.ToLower(base)]; ok {
@@ -149,9 +157,9 @@ func extFromContentType(ct string) string {
 	return exts[0]
 }
 
-// writeAttachmentsArgs —— writeAttachments 参数打包（避开 argument-limit 5）。
-// fieldalignment: 把 ExportDeps (3 个 pointer) 内嵌进来扁平化，避开 nested
-// struct 的 padding overhead。
+// writeAttachmentsArgs -- bundles writeAttachments' arguments (to stay
+// under the argument-limit-5 lint). fieldalignment: flattens ExportDeps's 3
+// pointers in directly, avoiding nested-struct padding overhead.
 type writeAttachmentsArgs struct {
 	Zw        *zip.Writer
 	Writings  *corpus.WritingRepo
@@ -179,7 +187,8 @@ func writeAttachments(ctx context.Context, a *writeAttachmentsArgs) error {
 	return nil
 }
 
-// writeOneArgs —— writeOneAttachment 参数包（避开 argument-limit 5）。
+// writeOneArgs -- argument bundle for writeOneAttachment (to stay under the
+// argument-limit-5 lint).
 type writeOneArgs struct {
 	Zw        *zip.Writer
 	Storage   *storage.Client
@@ -222,8 +231,9 @@ func writeWritingMarkdown(
 	return nil
 }
 
-// writingToFrontmatter —— Writing struct → Obsidian frontmatter。cover_image
-// 字段引用 attachments/<filename> 形态，让 Obsidian 能直接展示。
+// writingToFrontmatter -- Writing struct -> Obsidian frontmatter. The
+// cover_image field references the attachments/<filename> form so Obsidian
+// can render it directly.
 func writingToFrontmatter(w *corpus.Writing, filenames map[string]string) Frontmatter {
 	fm := Frontmatter{
 		Title: w.Title(), Slug: w.Slug(),
@@ -232,7 +242,8 @@ func writingToFrontmatter(w *corpus.Writing, filenames map[string]string) Frontm
 		CoverHue:      w.CoverHue(), Visibility: w.VisibilityMode(),
 		LockedBody: w.LockedBody(), Publish: w.IsPublished(),
 	}
-	// 时间戳不进 frontmatter:created_at / published_at 由 DB 拥有,import 侧也不读。
+	// Timestamps don't go into frontmatter: created_at / published_at are
+	// owned by the DB, and the import side doesn't read them either.
 	addCoverImageRef(&fm, w, filenames)
 	return fm
 }
@@ -246,19 +257,22 @@ func addCoverImageRef(fm *Frontmatter, w *corpus.Writing, filenames map[string]s
 	if !ok {
 		return
 	}
-	// frontmatter 里写 cover_image 当 custom field（Obsidian 显示成 text；
-	// Obsidian 1.4+ 不会把它当 image embed 渲，但 export/import round-trip 完
-	// 整无损）。
+	// cover_image is written into frontmatter as a custom field (Obsidian
+	// displays it as text; Obsidian 1.4+ won't render it as an image embed,
+	// but the export/import round-trip stays lossless).
 	addCoverImageField(fm, "attachments/"+name)
 }
 
-// addCoverImageField —— 通过给 frontmatter 加一个非 typed field 来 carry
-// cover_image。我们的 Frontmatter struct 静态字段没有 cover_image，需要
-// 拼到 LockedBody 之外的位置，这里用一个 ad-hoc 后处理：在 RenderFrontmatter
-// 输出后插一行。最简单的形态是直接在 frontmatter struct 加 CoverImage 字段。
-// 这里走加字段的路（修一次 frontmatter.go 即可，跟其它 custom field 一样）。
+// addCoverImageField -- carries cover_image by adding a non-typed field to
+// frontmatter. Our Frontmatter struct has no static cover_image field, so
+// it needs to land somewhere outside LockedBody. One ad-hoc option would be
+// a post-processing step: insert a line after RenderFrontmatter's output.
+// The simplest form is to add a CoverImage field directly to the
+// frontmatter struct -- that's the route taken here (a one-time edit to
+// frontmatter.go, same as any other custom field).
 //
-// 注意：此函数只更新 fm.CoverImage（在 frontmatter.go 加的字段）。
+// Note: this function only updates fm.CoverImage (the field added in
+// frontmatter.go).
 func addCoverImageField(fm *Frontmatter, path string) {
 	fm.CoverImage = path
 }

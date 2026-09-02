@@ -1,3 +1,4 @@
-// Package usecase —— corpus 域的用例/编排 + 读取端口（CorpusLister、map/tree/crosslink/index、
-// writings CRUD、assets …）。over entity + repo。对外经 internal/corpus/facade 暴露。
+// Package usecase —— use cases/orchestration + read ports for the corpus domain
+// (CorpusLister, map/tree/crosslink/index, writings CRUD, assets …). Sits over entity + repo.
+// Exposed externally via internal/corpus/facade.
 package usecase

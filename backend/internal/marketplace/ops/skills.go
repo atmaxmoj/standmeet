@@ -1,11 +1,14 @@
-// skills.go —— owner 自己攒的 AI skill(附加 system prompt + 可选沙箱脚本),挂到
-// role / 邀请码上就组成访客看到的那个 AI。
+// skills.go — an owner-curated AI skill (extra system prompt plus optional sandbox
+// scripts). Attaching it to a role / invite code composes the AI a visitor sees.
 //
-// 迁移时两个面的载荷本来**不一样**:面板回完整的 skill(带 allowed_tools / enabled),
-// MCP 的 skill_list 少这两个字段 —— owner 从 Claude Code 看不出一个 skill 是不是被关掉了。
-// 现在一份形状(面板那份是已经发出去的契约),盲点自然没了。
+// During migration the two faces' payloads used to **differ**: the panel returned
+// the full skill (with allowed_tools / enabled), while MCP's skill_list was missing
+// those two fields — an owner looking from Claude Code couldn't tell whether a skill
+// was turned off. Now it's one shape (the panel's is the already-shipped contract),
+// so that blind spot is gone.
 //
-// op 的 id 就是 MCP 工具名,保持历史名字(skill_create 而不是 skills.create)。
+// An op's id is the MCP tool name; it keeps the historical name (skill_create,
+// not skills.create).
 
 package ops
 
@@ -21,7 +24,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace/usecase"
 )
 
-// Skills —— list / create / set_enabled / delete。
+// Skills — list / create / set_enabled / delete.
 func Skills(deps usecase.SkillsDeps) []fp.Op {
 	return []fp.Op{
 		{
@@ -120,7 +123,7 @@ var (
 	}`)
 )
 
-// skillOut —— 出站形状(两个面同一份)。
+// skillOut — the outbound shape (the same one for both faces).
 type skillOut struct {
 	CreatedAt    string   `json:"created_at"`
 	ID           string   `json:"id"`
@@ -266,7 +269,8 @@ func decodeSkillID(raw json.RawMessage) (skillArgs, error) {
 	return in, fp.RequireArgs([2]string{"skill_id", in.SkillID})
 }
 
-// skillErr —— 域的哨兵 → 协议无关的类别。code 是已经发出去的契约,显式钉住。
+// skillErr — domain sentinel → protocol-agnostic category. The code is an
+// already-shipped contract, pinned explicitly.
 func skillErr(err error) error {
 	for _, c := range skillErrClasses {
 		if errors.Is(err, c.sentinel) {
@@ -287,8 +291,9 @@ var skillErrClasses = []struct {
 		return fp.Coded(
 			fp.Conflict("a skill with that name is already installed"), "skill_name_taken")
 	}},
-	// 措辞不说「删」—— 同一个哨兵现在也管编辑，而「删不掉」对一个想改 prompt 的 owner
-	// 是一句不相干的话（[[collapsed-error-class-kills-its-own-branch]] 的同族）。
+	// The wording avoids "delete" — this same sentinel now also covers edit, and
+	// "can't delete it" is irrelevant to an owner who just wants to change the
+	// prompt (same family as [[collapsed-error-class-kills-its-own-branch]]).
 	{entity.ErrSkillBuiltinImmutable, func() error {
 		return fp.Coded(
 			fp.Forbidden("a builtin skill cannot be edited or deleted — "+

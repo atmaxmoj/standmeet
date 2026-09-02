@@ -1,19 +1,24 @@
 // embed.ts —— <standmeet-chat base-url="..." tier="public" code="...">
-// Web Component。drop-in 单 <script> 给任意站点用。
+// Web Component. Drop-in single <script> for any site to use.
 //
-// 内部不依赖 React；直接调 sdk-core 的 createClient + streamMessage，手写 DOM 渲染
-// transcript：**问 = mono 小标题，答 = 衬线正文**，两种声音，跟设计稿一致。
+// No React dependency internally; calls sdk-core's createClient + streamMessage directly,
+// hand-rolls the DOM rendering of the transcript: **question = mono small heading, answer =
+// serif body**, two distinct voices, matching the design spec.
 //
-// ⚠️ 这句话以前是**假的**：注释这么写着，而全文一行样式都没有 —— 裸 div 挂个 `data-role`
-// 就交付给别人的站点了，字体颜色全靠宿主页面施舍，问和答同字号同色、连一轮的边界都看不出来
-// （2026-08-13 的设计判定 🎨🔴 三条，全指这里）。**注释描述的是意图，不是结果。**
-// 现在样式挂在 shadow root 里：宿主页面的 CSS 进不来，我们的也漏不出去 —— 这一面是
-// 交付物，它必须自带产品身份，而不是长成它落在谁家的样子。
+// ⚠️ This sentence used to be **false**: the comment said this, while the whole file had not
+// a single line of styling — a bare div with a `data-role` attribute shipped to someone
+// else's site, font and color left entirely to the host page's mercy, question and answer
+// same size and color, you couldn't even see where one turn ended
+// (three 2026-08-13 design-review 🎨🔴 items, all pointing here). **A comment describes
+// intent, not outcome.**
+// Now the styles live in a shadow root: the host page's CSS can't get in, ours can't leak
+// out — this surface is a deliverable, it must carry its own product identity rather than
+// take on the shape of whatever site it lands on.
 //
-// v1 单 owner instance —— base-url 直接指向 owner 自己的 standmeet 部署，
-// 不再有 handle attribute。
+// v1 is single-owner-instance — base-url points straight at the owner's own standmeet
+// deployment, there's no handle attribute anymore.
 //
-// 用法：
+// Usage:
 //   <script src="https://alice.dev/embed/embed.iife.js"></script>
 //   <standmeet-chat base-url="https://alice.dev"></standmeet-chat>
 
@@ -24,15 +29,20 @@ import type {
 
 const TAG = 'standmeet-chat';
 
-// SHELL_CSS —— 这一面的产品身份。三件事，对应 2026-08-13 那三条设计判定：
+// SHELL_CSS —— this surface's product identity. Three things, matching the three
+// 2026-08-13 design-review items:
 //
-//  1. **身份**：奶油纸 + 墨 + 朱红 + 衬线/mono 双字体。**不取外部字体** —— 一个 drop-in
-//     脚本去 CDN 取字会在别人页面上多一次跨源请求，而且取不到时会静默换脸
-//     （[[right-bytes-wrong-glyphs]]）。所以给的是字体栈：宿主装了 Newsreader 就用，
-//     没装退到 Georgia —— 两种都还是衬线，声音不变。
-//  2. **层级**：问是 mono 小标题（小、字距宽、muted），答是衬线正文（大、墨色、行距松）。
-//     以前两者同字号同色，输入框反而带着浏览器默认的蓝焦点框最抢眼 —— 层级是反的。
-//  3. **边界**：每一轮之间一条发丝线 + 留白，一眼数得出问了几轮。
+//  1. **Identity**: cream paper + ink + vermillion + serif/mono dual typeface. **No external
+//     font fetch** — a drop-in script hitting a CDN for fonts adds a cross-origin request on
+//     someone else's page, and silently swaps faces when the fetch fails
+//     ([[right-bytes-wrong-glyphs]]). So instead we ship a font stack: use Newsreader if the
+//     host has it installed, fall back to Georgia — both still serif, the voice doesn't change.
+//  2. **Hierarchy**: the question is a mono small heading (small, wide letter-spacing, muted),
+//     the answer is serif body text (large, ink-colored, loose line-height).
+//     Before, both were the same size and color, and the browser's default blue focus ring
+//     on the input was the most eye-catching thing on the page — the hierarchy was backwards.
+//  3. **Boundary**: a hairline rule + whitespace between each turn, so you can count turns
+//     at a glance.
 const SHELL_CSS = `
   :host {
     --sm-paper: #F3EFE6; --sm-ink: #1B1814; --sm-muted: #7A7167;
@@ -44,7 +54,7 @@ const SHELL_CSS = `
     max-width: 46em; padding: 0;
   }
   [data-role="transcript"] { padding: 22px 24px 6px; }
-  /* 一轮 = 问 + 答。轮与轮之间一条发丝线，边界看得见。 */
+  /* One turn = question + answer. A hairline rule between turns makes the boundary visible. */
   [data-role="visitor"] {
     font-family: var(--sm-mono); font-size: 10.5px; letter-spacing: 0.14em;
     text-transform: uppercase; color: var(--sm-muted);
@@ -57,12 +67,15 @@ const SHELL_CSS = `
     font-family: var(--sm-serif); font-size: 16.5px; line-height: 1.62;
     color: var(--sm-ink); margin: 0 0 22px; white-space: pre-wrap;
   }
-  /* 还没有字的答 = 正在想。纯 CSS，不新增任何事件或能力（进度那件事是 Result 列的）。 */
+  /* An answer with no text yet = still thinking. Pure CSS, adds no new event or capability
+     (progress indication belongs to the Result column). */
   [data-role="assistant"]:empty::after {
     content: '…'; color: var(--sm-muted); font-family: var(--sm-mono);
   }
-  /* 段与行内标记（F-O-6）：答案里的粗体和行内代码现在渲成排版，不再把星号反引号原样印。
-     注意这段注释在 SHELL_CSS 那个模板字符串里 —— 不能出现反引号，它会截断整个字符串。 */
+  /* Paragraphs and inline markup (F-O-6): bold and inline code in the answer now render as
+     typography instead of printing the raw asterisks/backticks. Note: this comment lives
+     inside the SHELL_CSS template literal — it can't contain a backtick character, that
+     would truncate the whole string. */
   [data-role="assistant"] .para { margin: 0 0 0.85em; }
   [data-role="assistant"] .para:last-child { margin-bottom: 0; }
   [data-role="assistant"] strong { font-weight: 600; }
@@ -72,7 +85,8 @@ const SHELL_CSS = `
     background: color-mix(in oklab, var(--sm-ink) 7%, transparent);
     padding: 0.1em 0.3em; border-radius: 2px;
   }
-  /* 答案块本身不再 pre-wrap：分段现在由 .para 负责（pre-wrap 会把段间空行再算一次）。 */
+  /* The answer block itself is no longer pre-wrap: paragraph breaks are now handled by
+     .para (pre-wrap would double-count the blank line between paragraphs). */
   [data-role="assistant"] { white-space: normal; }
   textarea {
     display: block; width: 100%; box-sizing: border-box;
@@ -82,7 +96,8 @@ const SHELL_CSS = `
     padding: 14px 24px 16px; resize: none; outline: none;
   }
   textarea::placeholder { color: var(--sm-muted); }
-  /* 焦点用左边一道朱红，而不是浏览器默认那圈蓝框 —— 后者比答案还抢眼。 */
+  /* Focus uses a vermillion bar on the left instead of the browser's default blue ring —
+     the ring competed with the answer for attention. */
   textarea:focus { box-shadow: inset 2px 0 0 var(--sm-accent); }
 `;
 
@@ -91,9 +106,11 @@ class StandMeetChatElement extends HTMLElement {
   private session: { id: string; token: string; system: string } | null = null;
   private transcript: HTMLDivElement;
   private input: HTMLTextAreaElement;
-  // pending / queue —— 这一场有没有一轮在飞，以及排在后面的问题。后端一场只跑一轮
-  // （抢跑会被 429 拒，F-O-5），所以这里串行；但**不置灰**，排队是产品的活不是访客的
-  // 纪律（F-A-42）。
+  // pending / queue —— whether a turn is in flight right now, plus the questions waiting
+  // behind it. The backend only runs one turn per session at a time
+  // (a race gets rejected with 429, F-O-5), so this is serialized here; but **it does not
+  // gray out the input** — queuing is the product's job, not a discipline imposed on the
+  // visitor (F-A-42).
   private pending = false;
   private readonly queue: string[] = [];
 
@@ -118,22 +135,27 @@ class StandMeetChatElement extends HTMLElement {
     this.transcript.setAttribute('data-role', 'transcript');
     this.input.setAttribute('placeholder', 'ask…');
     this.input.setAttribute('rows', '2');
-    // shadow root：宿主页面的 CSS 进不来，我们的也漏不出去。交付给别人的东西必须两边都封。
+    // shadow root: the host page's CSS can't get in, ours can't leak out. Something shipped
+    // to someone else's site has to be sealed on both sides.
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
     style.textContent = SHELL_CSS;
     root.append(style, this.transcript, this.input);
   }
 
-  // onKeyDown —— 一律**收下**这一问（F-O-5 → F-A-42）。
+  // onKeyDown —— **always accept** this question (F-O-5 → F-A-42).
   //
-  // 后端一场只跑一轮（`ErrSessionBusy` → 429），所以上一轮在流的时候直接再发会被拒，
-  // 而访客读到的是「没发出去，再试一次」—— 两句都是假的。
+  // The backend only runs one turn per session at a time (`ErrSessionBusy` → 429), so
+  // sending again while the previous turn is still streaming gets rejected, and the visitor
+  // reads "didn't go through, try again" — both halves of that sentence are false.
   //
-  // 我上一批的修法是**把输入框置灰**。那是错的，而且错得很典型：全局第 10 条写着
-  // 「某个操作暂时做不了（忙／未就绪／冲突），**接受请求并排队，不要置灰**。置灰＝要求人
-  // 守着屏幕等」。产品自己那张访客页也犯了同一个错，被 F-A-42 抓到 —— 一个长得完全就绪的
-  // 框把访客打进去的字全吃掉。两面现在是同一套：收下、上屏、排队。
+  // My previous fix was to **gray out the input**. That was wrong, and wrong in a classic
+  // way: global rule #10 says "when an action can't be done right now (busy / not ready /
+  // conflicting), **accept the request and queue it, don't gray it out**. Graying out means
+  // making a person stand and watch the screen." The product's own visitor page made this
+  // same mistake, caught by F-A-42 — an input that looked perfectly ready ate every
+  // keystroke the visitor typed into it. Both surfaces now follow the same rule: accept,
+  // show it, queue it.
   private readonly onKeyDown = (ev: KeyboardEvent): void => {
     if (ev.key !== 'Enter' || ev.shiftKey) return;
     ev.preventDefault();
@@ -143,14 +165,16 @@ class StandMeetChatElement extends HTMLElement {
     this.enqueue(text);
   };
 
-  // enqueue —— 问题当场上屏（访客看得见自己那句话还在），然后排队。
+  // enqueue —— the question posts to the transcript immediately (the visitor sees their own
+  // message stay put), then gets queued.
   private enqueue(text: string): void {
     this.appendBlock('visitor', text);
     this.queue.push(text);
     void this.drain();
   }
 
-  // drain —— 一次只跑一轮（后端要求），但排在后面的自己会被取走跑掉，不用访客再打一遍。
+  // drain —— runs one turn at a time (backend requirement), but anything queued behind it
+  // gets picked up and run automatically, no need for the visitor to resend.
   private async drain(): Promise<void> {
     if (this.pending) return;
     this.pending = true;
@@ -176,8 +200,10 @@ class StandMeetChatElement extends HTMLElement {
         applyEventToBlock(assistant, ev);
       }
     } catch (e) {
-      // 访客看得懂的话优先；技术细节留给 console（项目规矩：UI 上不出原始错误串）。
-      // **按类别说**：一句话顶所有失败，就会在「其实发出去了」的时候叫人再试一次（F-O-5）。
+      // Prefer language the visitor can understand; technical detail goes to console
+      // (project rule: no raw error strings in the UI).
+      // **Speak by category**: one blanket sentence for every failure tells someone to
+      // retry even when the message actually went through (F-O-5).
       assistant.textContent = turnFailureText(e);
       console.error('[standmeet-chat] turn failed', e);
     }
@@ -186,17 +212,19 @@ class StandMeetChatElement extends HTMLElement {
   private async ensureSession(): Promise<void> {
     if (this.session || !this.client) return;
     const s = await this.client.issueSession(await this.sessionInput());
-    // system prompt 一场拼一次：fragment + 这场的 persona。不拼的话模型收到的是空 system,
-    // 于是它答得像个通用聊天机器人,跟这个 owner 无关（F-O-2）。
+    // system prompt is assembled once per session: the fragment + this session's persona.
+    // Without it the model gets an empty system prompt and answers like a generic chatbot,
+    // unrelated to this owner (F-O-2).
     this.session = {
       id: s.conversation_id, token: s.session_token,
       system: await this.client.composeSystem(s),
     };
   }
 
-  // sessionInput —— 这一场怎么开。**防盗路（首选）**：宿主页给了 embed 凭据（embed id + kid +
-  // 私钥），就现签一张 EdDSA JWT，只发 embed_token，**不发明文 code**。没给凭据 → 退回老路
-  // （mode + code / public）。见 [[embed-credential-never-carries-the-code]]。
+  // sessionInput —— how this session opens. **Anti-leak path (preferred)**: if the host page
+  // supplied embed credentials (embed id + kid + private key), sign an EdDSA JWT on the spot
+  // and send only embed_token, **never the plaintext code**. No credentials → fall back to
+  // the old path (mode + code / public). See [[embed-credential-never-carries-the-code]].
   private async sessionInput(): Promise<IssueSessionInput> {
     const embed = this.getAttribute('embed');
     const kid = this.getAttribute('kid');
@@ -220,26 +248,32 @@ class StandMeetChatElement extends HTMLElement {
   }
 }
 
-// turnFailureText —— 这一轮为什么没成，**按类别说**（F-O-5）。
+// turnFailureText —— why this turn didn't go through, **stated by category** (F-O-5).
 //
-// 429 是「这一场正忙着」：上一轮还在流。它跟别的失败**要求的下一步不同** ——
-// 那些可以再试一次，这个再试只会再被拒一次。以前一个 catch 把两者塌成同一句
-// 「That did not go through. Please try again.」，于是在**其实发出去了**的时候
-// 叫人再试（[[collapsed-error-class-kills-its-own-branch]]）。
+// 429 means "this session is busy right now": the previous turn is still streaming. It
+// calls for a **different next step** than other failures — those can be retried, retrying
+// this one just gets rejected again. A single catch used to collapse both into the same
+// sentence, "That did not go through. Please try again.", which told people to retry even
+// when the message **actually went through**
+// ([[collapsed-error-class-kills-its-own-branch]]).
 //
-// 现在 onKeyDown 那道闸让这一类基本到不了这里；留着是因为**闸挡不住所有来路**
-// （多标签页、程序化调用），而那时这句话仍然得是对的。
+// The gate in onKeyDown now keeps most of this class from reaching here at all; it stays
+// because **the gate doesn't block every path in** (multiple tabs, programmatic calls),
+// and this sentence still has to be true when it does.
 function turnFailureText(e: unknown): string {
   const status = (e as { status?: unknown } | null)?.status;
   if (status === 429) return 'Still answering the previous question — one moment.';
   return 'That did not go through. Please try again.';
 }
 
-// applyEventToBlock —— 流式累加。**原文攒在 dataset 里，屏幕上渲的是排过版的那份**（F-O-6）。
+// applyEventToBlock —— streaming accumulation. **The raw text accumulates in the dataset,
+// what renders on screen is the formatted version** (F-O-6).
 //
-// 以前这里直接 `textContent +=`，于是 `**这样**` 和反引号原样印给访客 —— 给模型的语法漏到
-// 人眼前（同 F-R-7 的 `[[wikilink]]`）。产品自己的访客页会渲，embed 不会：又一次
-// 「同一个能力两个面，只有一个面做了」。
+// This used to do `textContent +=` directly, so `**like this**` and backticks printed
+// literally to the visitor — syntax meant for the model leaking in front of a human
+// (same class as F-R-7's `[[wikilink]]`). The product's own visitor page renders this
+// correctly, the embed didn't: another case of "one capability, two surfaces, only one
+// of them implemented."
 function applyEventToBlock(block: HTMLDivElement, ev: SSEEvent): void {
   if (ev.kind === 'token') {
     block.dataset['raw'] = (block.dataset['raw'] ?? '') + ev.text;
@@ -250,16 +284,20 @@ function applyEventToBlock(block: HTMLDivElement, ev: SSEEvent): void {
   }
 }
 
-// streamFailureText —— 流里来的错误，访客那一格该写什么（F-O-9）。
+// streamFailureText —— an error arriving over the stream, what should the visitor's block
+// say (F-O-9)?
 //
-// 账：这一行原来是 `error: ${ev.message}`。而后端发下来的 message **本来就是一句人话**
-// （「Something went wrong on my end — please try again.」），所以屏幕上出现的是
-// *"error: Something went wrong on my end…"* —— 一句好好的话被我们自己粘上了一个技术前缀，
-// 而这块 widget 装在**别人的网站**上。隔十二行的 `catch` 那条路早就改好了（`turnFailureText`，
-// F-O-5 那一刀），流事件这条路没跟上：一个能力两个面，只修了一个面。
+// The bill: this line used to be `error: ${ev.message}`. But the message the backend sends
+// down **is already a sentence meant for a human**
+// ("Something went wrong on my end — please try again."), so what showed up on screen was
+// *"error: Something went wrong on my end…"* — a perfectly good sentence with a technical
+// prefix we glued onto it ourselves, on a widget embedded on **someone else's site**. The
+// `catch` path twelve lines up was already fixed (`turnFailureText`, the F-O-5 change), the
+// stream-event path never caught up: one capability, two surfaces, only one got fixed.
 //
-// 所以：**后端写给人看的那句话，原样用**；它没给（`client.ts` 兜底成 `'error'`）才由我们兜。
-// 技术细节走 console，跟 catch 那条路同一个规矩。
+// So: **use the backend's human-facing sentence as-is**; only fall back ourselves when it
+// didn't send one (`client.ts` defaults to `'error'`). Technical detail goes to console,
+// same rule as the catch path.
 function streamFailureText(ev: { readonly message: string }): string {
   const msg = ev.message.trim();
   return msg === '' || msg === 'error'
@@ -267,17 +305,23 @@ function streamFailureText(ev: { readonly message: string }): string {
     : msg;
 }
 
-// renderInline —— 只认三样：`**粗**`、`` `代码` ``、空行分段。
+// renderInline —— recognizes exactly three things: `**bold**`, `` `code` ``, and blank-line
+// paragraph breaks.
 //
-// **不用 innerHTML，也不引 markdown 库**：这段代码跑在**别人的页面上**，一个 XSS 就是
-// 别人域上的 XSS。这里全程 `createElement` + `textContent` 造 DOM —— 注入面从根上不存在，
-// 不需要再挂一层消毒（真要上完整 markdown，得先把 rehype-sanitize 排在 rehype-katex 前面，
-// [[katex-sanitize-order]]，那是另一件事，不在这条里做）。
+// **No innerHTML, no markdown library**: this code runs on **someone else's page**, so an
+// XSS here is an XSS on someone else's origin. This builds the DOM entirely with
+// `createElement` + `textContent` — the injection surface doesn't exist in the first place,
+// no need to bolt on a sanitizer (a full markdown pipeline would need rehype-sanitize
+// ordered before rehype-katex, [[katex-sanitize-order]], but that's a separate concern, not
+// handled here).
 //
-// 三样是判断出来的，不是随手选的：这三种是模型答案里**真正高频**的标记，其余（表格、列表、
-// 链接）在一个嵌进别人页面的小窗里本来就该退化成纯文本。
-// renderInline —— 解析走 core 的 `parseAnswerText`（React 绑定用的是同一份，F-O-8），
-// 这里只把片段拼成 DOM。全程 `createElement` + `textContent`，不碰 innerHTML。
+// The three markers were chosen deliberately, not picked at random: these are the markers
+// that actually show up **at high frequency** in model answers; everything else (tables,
+// lists, links) should degrade to plain text in a small window embedded on someone else's
+// page anyway.
+// renderInline —— parsing goes through core's `parseAnswerText` (the same one the React
+// bindings use, F-O-8), this just assembles the resulting spans into DOM. All
+// `createElement` + `textContent`, never touches innerHTML.
 function renderInline(block: HTMLDivElement, raw: string): void {
   block.textContent = '';
   for (const spans of parseAnswerText(raw)) {

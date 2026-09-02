@@ -1,8 +1,8 @@
-// WritingsIndex —— /writings 落地。time-desc lead + archive list + tag chip
-// filter + infinite scroll (WritingsScrollLoader)。
+// WritingsIndex —— the /writings landing page. time-desc lead + archive
+// list + tag chip filter + infinite scroll (WritingsScrollLoader).
 //
-// `?tag=<name>` 走 URLSearchParams (真 sharable)，writings 走 zustand。
-// 设计源自 blog.js IndexView。
+// `?tag=<name>` goes through URLSearchParams (genuinely shareable); writings
+// go through zustand. Design sourced from blog.js IndexView.
 
 'use client';
 
@@ -53,9 +53,11 @@ export function WritingsIndex({ initialWritings, initialCursor }: Props) {
   );
 }
 
-// AskCorpusCTA —— writings index 末尾的"or skip the reading"，引 visitor 回
-// `/` 直接跟 AI 聊；只有有文章时才显示（空 corpus 不引）。design 源:
-// docs/design/project/blog.js IndexView 末段。
+// AskCorpusCTA —— the "or skip the reading" at the end of the writings
+// index, pointing the visitor back to `/` to chat with the AI directly;
+// shown only when there are articles (an empty corpus shows no pointer).
+// Design source: the closing section of docs/design/project/blog.js
+// IndexView.
 function AskCorpusCTA({ hasWritings }: { hasWritings: boolean }) {
   const t = useTranslations('writings.index');
   return hasWritings ? (

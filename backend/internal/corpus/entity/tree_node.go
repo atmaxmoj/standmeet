@@ -1,23 +1,25 @@
-// tree_node.go —— Wiki / Output 共用的树结构(parent 链)。
+// tree_node.go —— the tree structure (parent chain) shared by Wiki / Output.
 //
-// Wiki / Output 是 forest：ParentID nil 是 root；非空 ParentID 指向同 owner
-// 同 genre 的另一条。地址(path)纯从这条 parent 链 + title slug 树派生
-// (usecases.WikiTreePaths),不存进 entry。
+// Wiki / Output form a forest: a nil ParentID is a root; a non-nil ParentID
+// points to another entry of the same owner and genre. The address (path) is
+// derived purely from this parent chain + the title-slug tree
+// (usecases.WikiTreePaths), and is not stored on the entry.
 
 package entity
 
-// TreeNode —— Wiki / Output 用的 parent 字段。*string 表达可空:nil = root。
+// TreeNode —— the parent field shared by Wiki / Output. *string expresses
+// nullability: nil = root.
 type TreeNode struct {
 	parentID *string
 }
 
-// TreeNodeInit —— 构造参数。
+// TreeNodeInit —— constructor params.
 type TreeNodeInit struct {
 	ParentID *string
 }
 
-// NewTreeNode —— 从 Init 构造；内部 defensive copy 指针指向的值，避免
-// caller 后续 mutate。
+// NewTreeNode —— constructs from Init; defensive-copies the pointed-to value
+// internally so the caller can't mutate it afterward.
 func NewTreeNode(i *TreeNodeInit) TreeNode {
 	n := TreeNode{}
 	if i.ParentID != nil {
@@ -27,8 +29,9 @@ func NewTreeNode(i *TreeNodeInit) TreeNode {
 	return n
 }
 
-// ParentID —— 父 entry id；(parentID, true) 或 ("", false) 形态返。Go-y
-// 比 *string 安全（避免 caller 通过指针 *p = newID 篡改）。
+// ParentID —— the parent entry's id; returned as (parentID, true) or ("", false).
+// More Go-idiomatic and safer than *string (prevents a caller from tampering via
+// the pointer with *p = newID).
 func (t TreeNode) ParentID() (string, bool) {
 	if t.parentID == nil {
 		return "", false
@@ -36,5 +39,5 @@ func (t TreeNode) ParentID() (string, bool) {
 	return *t.parentID, true
 }
 
-// HasParent —— ParentID() 的 ok-only 版本。
+// HasParent —— the ok-only version of ParentID().
 func (t TreeNode) HasParent() bool { return t.parentID != nil }

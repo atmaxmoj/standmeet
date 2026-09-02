@@ -1,7 +1,8 @@
-// BubbleToolbar —— 选区出现 floating B / I / S / code / link 浮窗。
-// Tiptap 选区改变 → recompute coord → 跟随。
+// BubbleToolbar —— shows a floating B / I / S / code / link popup on selection.
+// Tiptap selection changes → recompute coord → follow.
 //
-// MVP：link 按钮用 window.prompt 拿 URL；future 接 inline popover。
+// MVP: the link button uses window.prompt to get the URL; future work will
+// wire up an inline popover.
 
 'use client';
 
@@ -57,12 +58,15 @@ function selectionRectPos(editor: Editor): Pos {
 
 function ToolbarBody({ editor, pos }: { editor: Editor; pos: Pos }) {
   return (
-    // 坐标走 `style`,不走拼出来的类名:`[--pos-top:${'${pos.top}'}px]` 这种串 Tailwind
-    // 构建期扫不到,一条 CSS 都不生成,于是 `.sm-pos-abs` 一直退到兜底的 `top:0; left:0` ——
-    // **这条工具条从来没跟随过选区**,它一直贴在定位祖先的左上角。
+    // Coordinates go through `style`, not a computed class name: a string like
+    // `[--pos-top:${'${pos.top}'}px]` isn't seen by the Tailwind build scan,
+    // so no CSS is generated for it, and `.sm-pos-abs` always falls back to
+    // its default `top:0; left:0` — **this toolbar never actually follows
+    // the selection**, it just sits at the top-left of its positioned
+    // ancestor.
     <div
       data-testid="bubble-toolbar"
-      // eslint-disable-next-line no-restricted-syntax -- 选区坐标每次都不同，只有 style 能承载
+      // eslint-disable-next-line no-restricted-syntax -- the selection coords differ every time, only `style` can carry them
       style={cssVars({ '--pos-top': `${pos.top}px`, '--pos-left': `${pos.left}px` })}
       className="sm-pos-abs sm-z-float -translate-x-1/2 bg-(--color-ink) text-(--color-paper) flex items-baseline gap-1 px-1 py-0.5"
     >

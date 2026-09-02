@@ -1,5 +1,6 @@
-// Seal —— gate 页面顶部的"封口"圆环：三层圆，里面 mono 写
-// "standmeet · <handle> / private"。视觉上立刻告诉访客这页是 gated。
+// Seal — the "wax seal" ring at the top of the gate page: three nested circles
+// with mono text "standmeet · <handle> / private" inside. Visually tells the
+// visitor at a glance that this page is gated.
 
 import { useTranslations } from 'next-intl';
 

@@ -1,11 +1,12 @@
-// capreg_ext_mcp.go —— Phase B-3: extMCPCapability。
-// owner 在 admin 注册的外部 MCP server (URL + auth) 在 visitor session 装配
-// 时被并发 dial，每 server.ListTools 暴露成 ext_<server>_<tool>；执行走
-// session.CallTool。session 在 Binding.Close 里释放，dial/close 计数进
-// capreg.ExtMCP{Dialed,Closed}。
+// capreg_ext_mcp.go —— Phase B-3: extMCPCapability.
+// External MCP servers (URL + auth) the owner registered in admin get dialed
+// concurrently during visitor-session assembly; each server.ListTools call is
+// exposed as ext_<server>_<tool>, and calls run through session.CallTool. The
+// session is released in Binding.Close, with dial/close counts tallied into
+// capreg.ExtMCP{Dialed,Closed}.
 //
-// Shape=visitor_only；owner 通过自己的 MCP 客户端跟外部 server 直连，不
-// 走 standmeet 转发。
+// Shape=visitor_only; the owner talks to external servers directly through
+// their own MCP client, not through standmeet's forwarding.
 
 package capload
 
@@ -26,8 +27,9 @@ const (
 	extToolPrefix = "ext_"
 )
 
-// extMCPCapability —— 窄依赖(#131):owner 注册的外部 MCP server 目录 + connector-dep
-// 连通查询（ext-mcp 工具声明 _meta.requires 时按 grant+connected 闸，见 _deps.go）。
+// extMCPCapability —— narrow deps (#131): the owner's registered external MCP server
+// directory + a connector-dep connectivity query (when an ext-mcp tool declares
+// _meta.requires, it is gated on grant+connected — see _deps.go).
 type extMCPCapability struct {
 	servers   conversation.MCPServerGetter
 	connected DepConnected
@@ -60,9 +62,10 @@ func (*extMCPCapability) SystemPromptFragmentID(
 	return ""
 }
 
-// VisitorBinding —— role.MCPServerIDs 解算 → 并发 dial → ListTools →
-// Tools[]。任一 server dial / ListTools 失败 silently skip (log + 不阻塞
-// 整 chat)。Close hook 释放所有 session + 更新计数。
+// VisitorBinding —— resolve role.MCPServerIDs → dial concurrently → ListTools →
+// Tools[]. Any server whose dial / ListTools fails is silently skipped (logged,
+// without blocking the whole chat). The Close hook releases every session and
+// updates the counters.
 func (c *extMCPCapability) VisitorBinding(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (*capreg.Binding, error) {
@@ -100,8 +103,9 @@ func loadMCPServersForRole(
 	return out
 }
 
-// extMCPBundle —— 一次 dial 出来的 session + tools 打包，让 Close hook 闭包
-// 持有引用，VisitorBinding 拿到 tools 列表给 LLM。
+// extMCPBundle —— the sessions + tools produced by one round of dialing, bundled
+// so the Close hook closure can hold a reference and VisitorBinding gets the
+// tools list to hand to the LLM.
 type extMCPBundle struct {
 	tools    []capreg.BindingTool
 	sessions []*mcpclient.Session
@@ -147,8 +151,10 @@ func dialAllInParallel(
 }
 
 func dialOne(ctx context.Context, cfg *marketplace.DialableMCPServer) dialResult {
-	// 认证头在这里已经是明文了 —— 开封发生在实现 MCPServerGetter 的那一侧(组装根)。
-	// 这里以前有一个 buildAuthHeaders,自己 cryptobox.Decrypt:装配是内侧,内侧不解封。
+	// The auth headers are already plaintext here — decryption happens on the side that
+	// implements MCPServerGetter (the composition root). This used to have its own
+	// buildAuthHeaders calling cryptobox.Decrypt: assembly is an inner layer, and inner
+	// layers don't unseal secrets.
 	sess, derr := mcpclient.Dial(ctx, cfg.URL, cfg.AuthHeader.Headers())
 	if derr != nil {
 		return dialResult{err: derr}
@@ -174,8 +180,9 @@ func (b *extMCPBundle) absorb(
 	}
 }
 
-// addTool —— 暴露一个 ext-mcp 工具，先过 connector-dep 闸（ext-mcp 最低信任，见 _deps.go）：
-// 工具声明的 requires 必须 owner 显式 grant + 已连，否则隐藏。
+// addTool —— expose one ext-mcp tool, gated first by connector-dep (ext-mcp is lowest
+// trust, see _deps.go): the tool's declared requires must be explicitly granted by the
+// owner AND already connected, otherwise it's hidden.
 func (b *extMCPBundle) addTool(
 	ctx context.Context, cfg *marketplace.DialableMCPServer, connected DepConnected,
 	session *mcpclient.Session, t *mcpclient.Tool,
@@ -194,7 +201,7 @@ func (b *extMCPBundle) addTool(
 		t.InputSchema,
 		makeExtMCPRun(session, t.Name, nil, 0), // third-party ext tools: default budget
 	)
-	bt.ReadOnly = t.ReadOnly // server 声明 readOnlyHint 的工具可走 QUERY
+	bt.ReadOnly = t.ReadOnly // a tool whose server declares readOnlyHint may go via QUERY
 	b.tools = append(b.tools, bt)
 }
 
@@ -210,9 +217,10 @@ func extToolDescription(server string, t *mcpclient.Tool) string {
 	return prefix + strings.TrimSpace(t.Description)
 }
 
-// makeExtMCPRun —— CallTool 失败时不让 agent loop 整 abort —— 把 err
-// 包成 errJSON 进 tool_result，AI 看到"外部工具失败"自己换路。budget 是本 tool 的调用预算
-// （<=0 走默认 15s；LLM-backed 的 summarize 传 LongCallTimeout，见 F-A-6）。
+// makeExtMCPRun —— don't let a CallTool failure abort the whole agent loop — wrap the
+// err as errJSON inside tool_result, so the AI sees "external tool failed" and routes
+// around it itself. budget is this tool's call budget (<=0 uses the default 15s;
+// LLM-backed summarize passes LongCallTimeout, see F-A-6).
 func makeExtMCPRun(
 	session *mcpclient.Session, realToolName string, sctx *mcpclient.SessionContext,
 	budget time.Duration,
@@ -224,12 +232,14 @@ func makeExtMCPRun(
 	}
 }
 
-// extCallToToolResult —— CallTool err 折成 errJSON tool_result，让 SDK
-// continue 而非 abort (Go-side err 永远 nil 是 RunFn 契约)。
+// extCallToToolResult —— fold a CallTool err into an errJSON tool_result, so the SDK
+// continues rather than aborting (returning nil for the Go-side err is the RunFn
+// contract).
 //
-// 故意 nil 让 agent loop 继续而不 abort 整个 stream。
+// The nil is deliberate — it lets the agent loop continue instead of aborting the
+// whole stream.
 //
-//nolint:nilerr // tool-result envelope: err 进 JSON text，Go err return
+//nolint:nilerr // tool-result envelope: err goes into the JSON text, Go err return
 func extCallToToolResult(out string, err error) (string, error) {
 	if err != nil {
 		return errJSON("external mcp tool: " + err.Error()), nil

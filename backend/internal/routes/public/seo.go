@@ -1,8 +1,9 @@
-// seo.go —— 真 SEO：/robots.txt + /sitemap.xml。公开 corpus landing/reader 渲染
-// (GET /wiki/* + /output/*)#114 已拆到 landing.go。
+// seo.go —— real SEO: /robots.txt + /sitemap.xml. Public corpus landing/reader
+// rendering (GET /wiki/* + /output/*) was split out into landing.go by #114.
 //
-// /robots.txt 总是返；body 受 SEOSettings.IndexRobots 控制。
-// /sitemap.xml 列首位 owner 的 public page + 所有 published wiki/output landing。
+// /robots.txt always returns; its body is controlled by SEOSettings.IndexRobots.
+// /sitemap.xml lists the first owner's public page + every published wiki/output
+// landing.
 
 package public
 
@@ -20,32 +21,36 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// SEOHandlers —— SEO 路由依赖。
+// SEOHandlers —— dependencies for the SEO route.
 //
-// 没有 PublicURL 字段：robots.txt / sitemap.xml 里所有"对外 URL" 都从
-// owners.public_url 读（首位 owner，v1 单 owner instance）。pre-claim 阶段
-// FirstOwner 返 ok=false → robots Disallow / sitemap 空。
+// No PublicURL field: every "outward URL" in robots.txt / sitemap.xml is read from
+// owners.public_url (the first owner, since v1 is a single-owner instance). During the
+// pre-claim phase, FirstOwner returns ok=false → robots Disallow / an empty sitemap.
 type SEOHandlers struct {
 	Deps owner.SEODeps
-	// Sessions —— 可选;wiki-tree 端点用它把 bearer token 换 RoleSnapshot 做
-	// code-scope。nil(如 MountRoot 那条只挂 robots/sitemap)→ 退到匿名 scope。
+	// Sessions —— optional; the wiki-tree endpoints use it to exchange a bearer token
+	// for a RoleSnapshot to do code-scope. nil (e.g. the MountRoot route only
+	// mounting robots/sitemap) → falls back to anonymous scope.
 	Sessions *access.VisitorSessionStore
 	Log      *slog.Logger
 }
 
-// Mount 挂 /wiki/* + /output/*。owner 是 sole owner，URL 不带 handle。
-// 用 chi wildcard 让 path 可含 `/` (projects/lucerna 这种分组分段)，
-// 跟 entry.path 字段对齐。chi 把整段 path 暴露成 URL param "*"。
+// Mount wires /wiki/* + /output/*. The owner is a sole owner, so the URL carries no
+// handle. Uses a chi wildcard so path can contain `/` (a group/section like
+// projects/lucerna), matching the entry.path field. chi exposes the whole path
+// segment as the URL param "*".
 func (h *SEOHandlers) Mount(r chi.Router) {
 	r.Get("/wiki/*", h.getWikiLanding())
 	r.Get("/output/*", h.getOutputLanding())
-	// wiki-tree —— sidebar 导航的懒加载分层 + 节点上下文(handler 在 wiki_tree.go)。
+	// wiki-tree —— lazy-loaded hierarchy + node context for sidebar navigation
+	// (handlers live in wiki_tree.go).
 	r.Get("/wiki-tree", h.getWikiTree())
 	r.Get("/wiki-tree/stats", h.getWikiTreeStats())
 	r.Get("/wiki-tree/context", h.getWikiTreeContext())
 }
 
-// MountRoot —— /robots.txt + /sitemap.xml 是 SEO 标准约定路径，挂 root。
+// MountRoot —— /robots.txt + /sitemap.xml are SEO's standard conventional paths,
+// mounted at root.
 func (h *SEOHandlers) MountRoot(r chi.Router) {
 	r.Get("/robots.txt", h.robotsTxt())
 	r.Get("/sitemap.xml", h.sitemapXML())
@@ -62,8 +67,8 @@ func (h *SEOHandlers) robotsTxt() http.HandlerFunc {
 	}
 }
 
-// robotsBody —— pre-claim / index-disabled / public_url 未填 → Disallow all。
-// readiness check 集中在 owner.PublicReady 里。
+// robotsBody —— pre-claim / indexing disabled / public_url not set → Disallow all.
+// The readiness check is centralized in owner.PublicReady.
 func robotsBody(ctx context.Context, deps owner.SEODeps) string {
 	soleOwner, ready := owner.PublicReady(ctx, deps)
 	if !ready {

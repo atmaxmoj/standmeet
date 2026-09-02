@@ -1,8 +1,9 @@
-// use-password-reset-form —— /account/reset?t=... 表单状态机。
+// use-password-reset-form —— /account/reset?t=... form state machine.
 //
-// 前端校验：new ≥ 12 chars + new == confirm。提交 POST
-// /api/v1/account/reset-password { token, new_password }。
-// 成功返 true（caller router.push('/login')），失败 setError。
+// Frontend validation: new >= 12 chars + new == confirm. Submits POST
+// /api/v1/account/reset-password { token, new_password }.
+// Returns true on success (caller does router.push('/login')); calls
+// setError on failure.
 
 'use client';
 

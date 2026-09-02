@@ -1,8 +1,10 @@
-// vault_sync_titles.go —— reconcile 的第三种身份问题:「这个标题指得准吗」。
+// vault_sync_titles.go —— reconcile's third identity problem: "does this title point at the
+// right note?"
 //
-// GetByTitle 是跨 genre 的认领口,而它落在 `ORDER BY created_at ASC LIMIT 1` 上 —— 标题一旦
-// 在语料里不唯一,认到哪一条就是抓阄,输的那条常常是这次上传根本没提的、住在另一个 genre 的
-// 同名笔记。所以 sync 动手之前先问语料:哪些标题是有歧义的(F-L-61)。
+// GetByTitle is the cross-genre claim path, and it falls back to `ORDER BY created_at ASC
+// LIMIT 1` — once a title isn't unique in the corpus, which row it claims is a coin flip, and
+// the loser is often a same-named note in another genre that this upload never even mentioned.
+// So before sync acts, it asks the corpus which titles are ambiguous (F-L-61).
 
 package repo
 
@@ -17,7 +19,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// DuplicateTitles —— owner 语料里出现不止一次的标题(已小写,跨 genre)。空表 = 每个标题都唯一。
+// DuplicateTitles —— titles that occur more than once in the owner's corpus (lowercased,
+// cross-genre). An empty slice = every title is unique.
 func (r *VaultSyncRepo) DuplicateTitles(ctx context.Context, ownerID string) ([]string, error) {
 	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -30,8 +33,9 @@ func (r *VaultSyncRepo) DuplicateTitles(ctx context.Context, ownerID string) ([]
 	return titles, nil
 }
 
-// GetByTitleInGenre —— 在**这一个 genre 里**按 title 认领。结构节点(文件夹占位)用它:
-// 它没有 source_path,身份就是「自己那棵树上的那个文件夹」。没有 → ErrSyncNoteNotFound。
+// GetByTitleInGenre —— claims by title **within this one genre**. Structural nodes (folder
+// placeholders) use this path: they have no source_path, so their identity IS "that folder in
+// their own tree." No match → ErrSyncNoteNotFound.
 func (r *VaultSyncRepo) GetByTitleInGenre(
 	ctx context.Context, ownerID, genre, title string,
 ) (SyncNote, error) {

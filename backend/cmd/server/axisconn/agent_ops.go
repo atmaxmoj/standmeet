@@ -1,13 +1,16 @@
-// agent_ops.go —— `connectors.agent_ops`：已连上、且开了「暴露给访客 AI」的连接器，
-// 各自有哪些 operation 可以授权。
+// agent_ops.go —— `connectors.agent_ops`: for each connector that's connected and
+// has "expose to visitor AI" turned on, which operations can be granted.
 //
-// **为什么要有这一条**（F-C-57）：装配那一屏的复选框写着 *"Let a visitor's AI call these
-// operations directly … subject to per-code grants"*，而会话侧的闸比的是「这个角色挂的技能的
-// `allowed_tools` 里有没有 `op_<id>`」。也就是说勾完之后还差一步授权，而 owner 要完成那一步，
-// 先得知道**这些 operation 叫什么名字** —— 产品以前从来没说过。
+// **Why this exists** (F-C-57): the checkbox on the assembly screen reads *"Let a
+// visitor's AI call these operations directly … subject to per-code grants"*, but the
+// session-side gate checks whether `op_<id>` is present in the `allowed_tools` of the
+// skill attached to that role. In other words, checking the box still leaves a
+// granting step, and to complete that step the owner first has to know **what these
+// operations are named** — the product had never said, until now.
 //
-// 让 owner 照着厂商文档手打 `op_gists_list` 不算「说过」：那个名字是产品自己规范化出来的
-// （`agent_tool_name.go`），厂商文档里根本没有这个串。
+// Making the owner hand-type `op_gists_list` from vendor docs doesn't count as
+// "said": that name is normalized by the product itself (`agent_tool_name.go`) —
+// the string doesn't exist anywhere in the vendor's documentation.
 
 package axisconn
 
@@ -19,14 +22,15 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// agentOpOut —— 一个可授权的 operation：工具名 + 它自己那句说明。
+// agentOpOut —— one grantable operation: its tool name + its own description line.
 type agentOpOut struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
 
-// agentOpsRowOut —— 一个连接器 + 它暴露出来的那些 operation。
-// 带上 title/category 是因为一份厂商文档可能有上千个 op，不说清是谁的就没法读。
+// agentOpsRowOut —— one connector + the operations it exposes.
+// Carries title/category because a single vendor's docs can list a thousand ops —
+// unreadable without saying whose they are.
 type agentOpsRowOut struct {
 	ConnectorID string       `json:"connector_id"`
 	Title       string       `json:"title,omitempty"`
@@ -44,8 +48,10 @@ func agentOpsList(ops connectorOps) fp.Invoke {
 	}
 }
 
-// agentOpsRows —— 已连上的那些 → 各自的 op 清单。**未连的不列**：一个连不上的连接器
-// 授权了也调不到，把它摆在选择器里等于请 owner 授一个不会生效的权限。
+// agentOpsRows —— the connected ones → each one's op list. **Unconnected ones are
+// not listed**: a connector that can't be reached can't be called even if granted, so
+// putting it in the picker would just invite the owner to grant a permission that
+// never takes effect.
 func agentOpsRows(ops connectorOps, conns []connector.Connection) []agentOpsRowOut {
 	byID := ops.slots.AgentOpsByID(connectedIDsOf(conns))
 	rows := make([]agentOpsRowOut, 0, len(byID))

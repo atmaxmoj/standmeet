@@ -1,6 +1,8 @@
-// app_state.go —— mcp_app_state repo。MCP App（ui:// 沙箱卡）的跨刷新状态持久层。
-// scope = (member, mcp_id)；mcp_id 由调用方（route）从 tool 派生后传入，repo 不碰
-// ACL / 派生，只读写那一格。value 是 app 自定义 jsonb，repo 当 opaque []byte 透传。
+// app_state.go — mcp_app_state repo. Cross-refresh state persistence layer for MCP Apps
+// (ui:// sandbox cards).
+// scope = (member, mcp_id); mcp_id is derived from the tool by the caller (route) and
+// passed in — the repo never touches ACL / derivation, it only reads and writes that one
+// cell. value is app-defined jsonb; the repo passes it through as an opaque []byte.
 
 package repo
 
@@ -14,15 +16,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// AppStateRepo —— mcp_app_state 表 repo。
+// AppStateRepo — repo for the mcp_app_state table.
 type AppStateRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewAppStateRepo 构造 AppStateRepo。
+// NewAppStateRepo constructs an AppStateRepo.
 func NewAppStateRepo(pool *pgstore.Pool) *AppStateRepo { return &AppStateRepo{pool: pool} }
 
-// Set —— upsert 一格（ref = member × mcp × key）的 value（opaque jsonb）。
+// Set — upserts the value (opaque jsonb) of one cell (ref = member × mcp × key).
 func (r *AppStateRepo) Set(
 	ctx context.Context, ref entity.AppStateRef, value []byte,
 ) error {
@@ -42,7 +44,8 @@ func (r *AppStateRepo) Set(
 	return nil
 }
 
-// Get —— 读 (member, mcp) 整格，返 key → opaque value。空格返空 map。
+// Get — reads the whole (member, mcp) cell, returning key → opaque value. An empty cell
+// returns an empty map.
 func (r *AppStateRepo) Get(
 	ctx context.Context, memberID, mcpID string,
 ) (map[string]json.RawMessage, error) {
@@ -63,7 +66,7 @@ func (r *AppStateRepo) Get(
 	return out, nil
 }
 
-// Delete —— 删一个 (member, mcp, key)。不存在也不报错（幂等）。
+// Delete — deletes one (member, mcp, key). Not found is not an error (idempotent).
 func (r *AppStateRepo) Delete(
 	ctx context.Context, memberID, mcpID, key string,
 ) error {

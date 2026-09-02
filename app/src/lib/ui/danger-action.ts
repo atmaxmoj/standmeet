@@ -1,18 +1,22 @@
-// danger-action —— 破坏性行内动作（delete / discard）的**唯一**一份样式。
+// danger-action —— the **single** shared style for destructive inline actions (delete / discard).
 //
-// UX-32:raw 每行三个动作 promote / edit / delete 的 hover 全部收敛到同一个 `--color-accent`
-// (实测都是 `rgb(181, 57, 28)`),于是「提升进 wiki」「编辑」和「永久删除」在鼠标停下那一刻
-// 反馈完全相同 —— 而 hover 是点击前最后一次分辨机会。静止态更糟:delete 用的是三者里最淡的
-// `--color-faint`,所以最不可逆的动作平时最不显眼、悬停时又认不出来。
+// UX-32: on the raw row, the hover state of all three actions (promote / edit / delete)
+// converged on the same `--color-accent` (measured as `rgb(181, 57, 28)` in every case), so
+// "promote to wiki", "edit", and "permanently delete" gave identical feedback the instant the
+// mouse settled — and hover is the last chance to tell them apart before a click. The resting
+// state was worse: delete used `--color-faint`, the palest of the three, so the least reversible
+// action was the least visible at rest, and unrecognizable on hover.
 //
-// 两个设计判断写在这里,别再各自散着写:
-//   • 静止态用 `--color-muted` 而不是 `--color-faint` —— 破坏性动作应该**朴素**,不该**藏起来**。
-//     藏起来 + 悬停时又和安全动作一样,是最坏的组合:你注意到它的那一刻已经悬在上面了。
-//   • 悬停态不借品牌强调色。朱砂在这个产品里是**身份**(LIVE 点、AI 标签、侧栏计数),让它同时
-//     表示"危险",色彩就什么都没说。改用满强度的 ink + 下划线:重量 + 下划线读作"这是一次承诺",
-//     而且不用往这套紧凑的调色板里塞新色相。
+// Two design decisions live here — don't let them scatter again:
+//   - Resting state uses `--color-muted`, not `--color-faint` — a destructive action should be
+//     **plain**, not **hidden**. Hidden plus indistinguishable-on-hover from a safe action is the
+//     worst combination: by the time you notice it, you're already hovering over it.
+//   - Hover state does not borrow the brand accent color. Vermillion is this product's **identity**
+//     (the LIVE dot, the AI label, the sidebar counters); having it also mean "danger" makes the
+//     color say nothing. Use full-strength ink + underline instead: weight + underline reads as
+//     "this is a commitment", without adding a new hue to this already-tight palette.
 //
-// 新增任何 delete/discard 都从这里取,免得下一个又长成安全的样子。
+// Pull any new delete/discard action from here, so the next one doesn't grow up looking safe.
 export const DANGER_ACTION_CLASS =
   'mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) '
   + 'hover:text-(--color-ink) hover:underline underline-offset-2 disabled:opacity-40';

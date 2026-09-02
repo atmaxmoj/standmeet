@@ -1,15 +1,22 @@
-// capability_host.go —— eval mini-host 给沙箱能力开的那根 socket:**只做适配,不带任何替身**。
+// capability_host.go — the socket the eval mini-host opens for sandboxed
+// capabilities: **adapter only, no stand-ins.**
 //
-// 沙箱能力断了网,只有一根 unix socket 通向宿主,上面挂着它 manifest 里点名的那几件
-// host op。prod 那一份由入站收口(routes/hostdesk)按各域的声明发;这里发的是**同一份声明**
-// (同一个 Collect、同一个 pick),只是背后接的是调用方给的实现。
+// A sandboxed capability has no network, only a unix socket to the host,
+// carrying the handful of host ops named in its manifest. Prod's inbound
+// convergence (routes/hostdesk) dispatches by each domain's declaration;
+// this dispatches **the same declaration** (the same Collect, the same
+// pick) — only the implementation behind it is supplied by the caller.
 //
-// 那些实现(一份会回答的日历、一张内存记录表)住在 eval-harness 那一侧 —— P.13 的不变量:
-// backend 里一个替身都不留。这个文件因此只有桥:把公开的、纯数据的口(ConnectorCall /
-// CapabilityStore)接到内部那几个端口上。
+// The implementations (a calendar that answers, an in-memory record table)
+// live on the eval-harness side — the P.13 invariant: not one stand-in
+// stays in the backend. This file is therefore only a bridge: it wires
+// the public, pure-data ports (ConnectorCall / CapabilityStore) into the
+// internal ports.
 //
-// 为什么不让 harness 自己写 9 个 handler:那样词汇表就有了第二个来源,manifest 改一个名字
-// eval 照样绿 —— 而它测的已经是产品里不存在的那套接口了。这里换的是后端,不是词表。
+// Why not let the harness write its own 9 handlers: that would give the
+// vocabulary a second source — rename something in the manifest and eval
+// still stays green, but it's now testing an interface that doesn't exist
+// in the product. What gets swapped here is the backend, not the vocabulary.
 
 package agentcore
 
@@ -24,20 +31,22 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/hostdesk"
 )
 
-// ConnectorCall —— 一次外部调用:"<category>.<verb>"(如 "calendar.free_busy")+ 入参 JSON,
-// 返回响应 JSON 或错。**调用方实现** —— 宿主这一层不知道日历长什么样。
+// ConnectorCall — one external call: "<category>.<verb>" (e.g. "calendar.free_busy")
+// + arg JSON, returns response JSON or an error. **Caller-implemented** — this
+// host layer doesn't know what a calendar looks like.
 type ConnectorCall func(call string, args []byte) ([]byte, error)
 
-// StoredRecord —— 能力自己存储里的一条:id + 文档。
+// StoredRecord — one entry in a capability's own store: id + document.
 type StoredRecord struct {
 	ID  string
 	Doc []byte
 }
 
-// CapabilityStore —— 一个能力自己的隔离存储(调用方实现)。
+// CapabilityStore — a capability's own isolated store (caller-implemented).
 //
-// 过滤器是一段 JSON,语义照 prod 那份:**包含**(postgres 的 doc @> filter)。语义不同的话,
-// 一个按 code_id 数用量的配额闸在这一侧会数出别的数 —— 而那种偏差不会报错。
+// The filter is a JSON blob with the same semantics as prod: **containment**
+// (postgres's doc @> filter). If the semantics differ, a quota gate that counts
+// usage by code_id will count something else here — and that drift won't error.
 type CapabilityStore interface {
 	Insert(collection string, doc []byte) (string, error)
 	Query(collection string, filter []byte) ([]StoredRecord, error)
@@ -45,32 +54,39 @@ type CapabilityStore interface {
 	DeleteMatching(collection string, filter []byte) (int, error)
 }
 
-// CapabilityHost —— 挂一个能力所需要的东西。字段全是数据或函数,所以独立 module 填得出来。
+// CapabilityHost — everything needed to hook up one capability. Every field
+// is data or a function, so a standalone module can fill it in.
 type CapabilityHost struct {
-	// Connector —— 外部世界。nil = 这个能力不点 connector.invoke。
+	// Connector — the outside world. nil = this capability never calls connector.invoke.
 	Connector ConnectorCall
-	// Store —— 它自己的存储。nil = 它不点 capstore.*。
+	// Store — its own storage. nil = it never calls capstore.*.
 	Store CapabilityStore
-	// Config —— 覆盖某几项配置(键 → 原始 JSON)。没给的项走 manifest 声明的默认值 ——
-	// "默认值只有一处"在这一侧同样成立。
+	// Config — overrides for a few config keys (key → raw JSON). Keys not given
+	// fall back to the manifest's declared default — "one place for a default"
+	// holds here too.
 	Config map[string]string
-	// Transcript —— conversation.read 的答案(到调用那一刻为止)。nil = 不点这件事。
+	// Transcript — the answer to conversation.read (as of the moment it's
+	// called). nil = this is never called.
 	Transcript TranscriptSource
-	// Cred —— inference.generate 拿哪把凭据去跑。nil = 不点这件事。
+	// Cred — which credential inference.generate runs with. nil = this is never called.
 	Cred *Cred
-	// Report —— report.store 洗干净、套好版之后的 HTML 交给谁。nil = 不点这件事。
+	// Report — who receives the cleaned, templated HTML from report.store.
+	// nil = this is never called.
 	Report ReportSink
-	// OwnerID / Timezone —— owner.meta 回答的那两项。Timezone 必须跟这一轮 instruction 里
-	// 说的那个时区一致:预约策略按 owner 的时区判,两处不一致会让一个开着的时段显示成关的。
+	// OwnerID / Timezone — the two fields owner.meta answers with. Timezone must
+	// match the timezone stated in this turn's instruction: booking policy is
+	// judged against the owner's timezone, and a mismatch here makes an open
+	// slot show as closed.
 	OwnerID  string
 	Timezone string
 
 	manifest mcpplugin.Manifest
 }
 
-// StartCapabilitySocket —— 按 manifest 点的那些 host op 起一个 socket。
+// StartCapabilitySocket — starts a socket for the host ops named in the manifest.
 //
-// 点了词表里没有的名字 → 报错,跟 prod 启动时炸是同一个信号。
+// Naming an op that isn't in the vocabulary → error, the same signal prod
+// gives at boot.
 func StartCapabilitySocket(
 	ctx context.Context, h *CapabilityHost, capID, sockPath string,
 ) (func() error, error) {
@@ -93,10 +109,13 @@ func StartCapabilitySocket(
 	return srv.Close, nil
 }
 
-// deps —— 域依赖。每一样都由桥填;这一场没接的那样,它自己的桥会报错 —— 而 pick 只发
-// 点过的名字,所以没点的那些连处理器都不会挂上去。
+// deps — the domain dependencies. Every one is filled by a bridge; whichever
+// isn't wired for this run, its own bridge errors out — and pick only
+// dispatches names that were actually called, so the ones never called
+// don't even get a handler attached.
 //
-// Corpus 给空:检索走的是它自己那根 socket(StartRetrievalSocket),不从这儿发。
+// Corpus is left empty: retrieval goes through its own socket
+// (StartRetrievalSocket), not dispatched from here.
 func (h *CapabilityHost) deps() *hostdesk.Deps {
 	return &hostdesk.Deps{
 		Corpus:     &corpus.IndexDeps{},
@@ -110,7 +129,8 @@ func (h *CapabilityHost) deps() *hostdesk.Deps {
 	}
 }
 
-// perCapability —— 只属于这个能力的两样:它自己的存储、它自己的配置。
+// perCapability — the two things that belong only to this capability: its
+// own store, its own config.
 func (h *CapabilityHost) perCapability() *hostdesk.PerCapability {
 	return &hostdesk.PerCapability{
 		Store:  storeBridge{store: h.Store},

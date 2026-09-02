@@ -1,7 +1,12 @@
-// use-latest-list —— GET 一个 `{ connectors: T[] }` 端点成列表，**最新赢** + loaded。use-connector-list
-// （owner 已建）与 use-connector-catalog（内置目录）共用这一份 fetch 逻辑，不各写一份（dim-3 单源）。
-// 最新赢（dim-7）：refresh 常被 create/remove 连着触发，前一发在飞时后一发已发出——响应乱序回来会
-// 用旧列表盖掉新列表。只认最后一发的响应（连接器 Hub 竞态的前端同构）。
+// use-latest-list —— GETs a `{ connectors: T[] }` endpoint into a list, with
+// **latest-wins** + loaded. use-connector-list (owner-created) and
+// use-connector-catalog (built-in catalog) share this one fetch logic instead
+// of each writing their own (dim-3 single source).
+// Latest-wins (dim-7): refresh is often fired back-to-back by create/remove —
+// a later request can go out while an earlier one is still in flight, and
+// out-of-order responses would let the old list clobber the new one. Only the
+// most recently sent response is honored (the frontend mirror of the
+// connector Hub race).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ZodType } from 'zod';
@@ -20,7 +25,9 @@ export function useLatestList<T>(
 ): LatestList<T> {
   const [items, setItems] = useState<readonly T[]>([]);
   const [loaded, setLoaded] = useState(false);
-  // 加载失败别静默成空列表：空 vs「没拉到」owner 得分得清（fetch 失败非预期业务态，guide §2 不许静默）。
+  // A load failure must not silently become an empty list: the owner needs to
+  // tell "empty" apart from "failed to fetch" (a fetch failure is not an
+  // expected business state — guide §2 forbids silencing it).
   const [loadError, setLoadError] = useState(false);
   const seq = useRef(0);
 

@@ -1,15 +1,21 @@
-// ReaderAboutCard —— reader 页尾那张「这是什么、能拿它做什么」的卡。
+// ReaderAboutCard —— the "what this is, what you can do with it" card at
+// the bottom of a reader page.
 //
-// **它说的话必须是这位访客做得到的事。** 卡片以前无条件写着「ask follow-ups below」,
-// 而问答入口(FloatingChatDock)对没有会话的访客根本不渲染 —— 匿名读者读到的是一句
-// 这一页自己证伪了的承诺(UX-86)。
+// **What it says must be something this visitor can actually do.** The
+// card used to unconditionally say "ask follow-ups below", while the
+// chat entry point (FloatingChatDock) doesn't render at all for a visitor
+// with no session — an anonymous reader would read a promise that this
+// very page had already falsified (UX-86).
 //
-// 所以「能不能接着问」只有一个判据 —— `useVisitorChatAvailable()`,浮窗和这张卡读同一个。
-// 做不到的时候不是闭嘴,是给出他真走得到的那条路:进 `/gate` 输码
-// ([[gate-handoff-no-inline-chat]])。
+// So "can they keep asking" has exactly one criterion —
+// `useVisitorChatAvailable()`, read by both the dock and this card. When
+// they can't, the card doesn't stay silent — it points to the path they
+// can actually take: go to `/gate` and enter a code
+// ([[gate-handoff-no-inline-chat]]).
 //
-// 两个 genre 共用这一张卡:wiki 和 output 以前各抄了一份(措辞还不一样),而这条规矩
-// 一旦分成两份,下次只会改到其中一份。
+// Both genres share this one card: wiki and output used to each have their
+// own copy (with different wording, too), and once this rule is split into
+// two copies, the next change only ever reaches one of them.
 
 'use client';
 
@@ -35,8 +41,10 @@ export function ReaderAboutCard({ genre, handle }: { genre: 'wiki' | 'output'; h
   );
 }
 
-// GateLink —— 给出那条真走得到的路。卡片点名了一个动作就得把它递过来,
-// 不然读者要自己找门([[button-that-cannot-be-wired]] 的反面)。
+// GateLink —— gives the path they can actually take. Once the card names
+// an action, it must hand over the way to do it — otherwise the reader has
+// to go find the door themselves (the inverse of
+// [[button-that-cannot-be-wired]]).
 function GateLink() {
   const t = useTranslations('reader');
   return (

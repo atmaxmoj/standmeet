@@ -1,51 +1,63 @@
-// href.ts —— **一条语料在公开站上的地址，只有这里算得出来。**
+// href.ts —— **the address of one piece of corpus on the public site, computed only here.**
 //
-// 为什么要有这个模块：这件事以前没有主人，15 个地方各自现拼一遍，而它们**互相不一致**：
+// Why this module exists: this used to have no single owner — 15 places each
+// built their own address inline, and they **disagreed with each other**:
 //   - `/writings/${writing.slug}`  ← WritingCards ×3 / WritingsIndex / WritingArticle
 //   - `/writings/${node.path}`     ← WritingTreeAside / writings/[slug]/page.tsx
-//   - `/wiki/${node.path}`         ← 7 处
-//   - `/${c.genre}/${c.path}`      ← 两处引用链接
+//   - `/wiki/${node.path}`         ← 7 places
+//   - `/${c.genre}/${c.path}`      ← two citation links
 //
-// 最后那一种在 prod 上渲出了一个 404：`sijie.xyz/writing/writings/the-business-model-wedge`。
-// 它把**体裁名当成了路由名** —— 体裁是单数 `writing`，路由是复数 `/writings/[slug]`；
-// 而那条 writing 的语料 path 本身又带 `writings/` 前缀（vault 里就有这个目录），于是叠成两段。
+// The last form rendered a 404 in prod: `sijie.xyz/writing/writings/the-business-model-wedge`.
+// It **treated the genre name as the route name** — the genre is the singular
+// `writing`, but the route is the plural `/writings/[slug]`; and that writing's
+// corpus path already carries a `writings/` prefix (the vault has that directory),
+// so the two stacked into a doubled segment.
 //
-// 更深的那一层在 `public.ts` 的 `mapWritingNode`：它把 `slug` 装进了 `path` 字段
-// （注释里还写着"slug 装进 path"）。于是同一个 `TreeNode.path`，树接口给的是 slug、
-// 引用结果给的是真实路径 —— **同一个字段名两种含义**，而这正是同一个表达式在一块屏上对、
-// 在另一块屏上 404 的原因（[[names-that-lie]]）。改名让各处的独立决定"看起来"一致，
-// 而它们从来就不一致。
+// The deeper layer is `mapWritingNode` in `public.ts`: it stuffed `slug` into
+// the `path` field (the comment there literally says "slug goes in path").
+// So the same `TreeNode.path` means slug from the tree endpoint and the real
+// path from the citation result — **one field name, two meanings** — and that
+// is exactly why the same expression was correct on one screen and 404'd on
+// another ([[names-that-lie]]). Renaming things made the independent decisions
+// at each call site *look* consistent, when they never actually were.
 //
-// 所以这里收的不是一个字符串拼接，是两个决定：
-//   ① 每种体裁对应哪个路由段（writing → writings 这条单复数在别处已经被就地解决过第三遍了，
-//      见 `use-corpus-scope-tree.ts` 的 `genre === 'writing' ? …`）
-//   ② 每种体裁用**哪个标识**寻址：writings 用 slug，wiki / output 用树路径
+// So what lives here isn't one string concatenation, it's two decisions:
+//   ① which route segment each genre maps to (the writing → writings
+//      singular/plural mismatch has already been solved in place a third time
+//      elsewhere, see `genre === 'writing' ? …` in `use-corpus-scope-tree.ts`)
+//   ② which **identifier** each genre addresses by: writings use slug,
+//      wiki / output use the tree path
 //
-// 闸门 `check-one-corpus-href` 只允许这三个前缀从本文件出来。
+// The `check-one-corpus-href` gate only allows these three prefixes to leave this file.
 
-// CorpusGenre —— 公开站上**可寻址**的三种体裁。raw / subjectivity 没有公开页面，
-// 所以它们不在这里 —— 这个联合类型本身就是「什么东西有地址」那份名单。
+// CorpusGenre —— the three genres that are **addressable** on the public site.
+// raw / subjectivity have no public pages, so they're not here — this union
+// type itself is the list of "what has an address".
 export type CorpusGenre = 'wiki' | 'output' | 'writing';
 
-// ROUTE_SEGMENT —— 体裁 → 路由段。**只有 writing 是不一样的**，而正是这一条让
-// `/${genre}/…` 这种写法在两种体裁上侥幸成立、在第三种上 404。
+// ROUTE_SEGMENT —— genre → route segment. **Only writing differs**, and that's
+// exactly what let `/${genre}/…` accidentally work for two genres while
+// 404ing on the third.
 const ROUTE_SEGMENT: Readonly<Record<CorpusGenre, string>> = {
   wiki: 'wiki',
   output: 'output',
   writing: 'writings',
 };
 
-// CorpusRef —— 一条语料的**地址凭据**。
+// CorpusRef —— the **address credential** for one piece of corpus.
 //
-// 两个标识分开写，不合并成一个 `path`：wiki / output 按树路径寻址（多段，`/wiki/a/b/c`），
-// writings 按 slug 寻址（单段）。合并的那一刻就得有人在某个边界上做改名，而那次改名
-// 就是这个缺陷的来历。调用方给不出对应体裁要的那个标识时，这里返回空串而不是猜一个 ——
-// 一个指不到的链接比没有链接更糟：它看起来可点，点下去是 404。
+// The two identifiers are kept separate, not merged into a single `path`:
+// wiki / output address by tree path (multi-segment, `/wiki/a/b/c`), writings
+// address by slug (single segment). The moment they get merged, someone has
+// to rename something at some boundary — and that rename is exactly where
+// this bug came from. When a caller can't produce the identifier its genre
+// needs, this returns an empty string instead of guessing one — a link that
+// points nowhere is worse than no link: it looks clickable and 404s on click.
 export type CorpusRef =
   | { genre: 'wiki' | 'output'; path: string }
   | { genre: 'writing'; slug: string };
 
-// corpusHref —— 这条语料在公开站上的地址。标识为空 → 空串（调用方据此不渲染链接）。
+// corpusHref —— the address of this corpus item on the public site. Empty identifier → empty string (caller uses this to skip rendering the link).
 export function corpusHref(ref: CorpusRef): string {
   const id = ref.genre === 'writing' ? ref.slug : ref.path;
   return id === '' ? '' : `/${ROUTE_SEGMENT[ref.genre]}/${stripLeadingSlash(id)}`;
@@ -55,10 +67,12 @@ function stripLeadingSlash(s: string): string {
   return s.startsWith('/') ? s.slice(1) : s;
 }
 
-// citationHref —— 答案下面那条引用的地址。
+// citationHref —— the address for a citation shown under an answer.
 //
-// 引用行手里同时有 path（给人看的位置）和 slug（writings 的地址），**挑哪一个是这里的事**，
-// 不是渲染那一侧的事 —— 以前它是渲染那侧的一句 `/${genre}/${path}`，抄了两份，两份都错。
+// A citation row carries both a path (the human-readable location) and a
+// slug (the writings address); **picking which one to use is this
+// function's job**, not the rendering side's — it used to be a `/${genre}/${path}`
+// line on the rendering side, copy-pasted twice, and wrong both times.
 export function citationHref(c: { genre: CorpusGenre; path: string; slug: string }): string {
   return c.genre === 'writing'
     ? corpusHref({ genre: 'writing', slug: c.slug })

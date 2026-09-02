@@ -1,11 +1,14 @@
-// from_dispatcher.go —— MCP 面 = 出站收口的**投影**(generated)。
+// from_dispatcher.go —— the MCP face = the **projection** (generated) of the
+// outbound convergence point.
 //
-// 走一遍 dispatcher 的操作,每个 Op 长成一个 MCP 工具。这里没有"工具清单"这种东西可以写漏 ——
-// 面不是手写的,是长出来的。这正是 facade-parity 设计里 MCP 标 Generated 的含义:
-// "there is no hand-written step to forget"。
+// Walk the dispatcher's operations, and each Op grows into an MCP tool. There
+// is no "tool manifest" here that could be left out of sync — the face isn't
+// hand-written, it's grown. This is exactly what "MCP marked Generated" means
+// in the facade-parity design: "there is no hand-written step to forget".
 //
-// 收口不认识 MCP:Op.Invoke 收发 json.RawMessage,错误原样上抛。把它翻译成 MCP 的
-// CallToolResult / isError 是**本面**的职责,就在这一处完成。
+// The convergence point knows nothing about MCP: Op.Invoke sends/receives
+// json.RawMessage, and errors are thrown as-is. Translating that into MCP's
+// CallToolResult / isError is **this face's** job, done in this one place.
 
 package mcphandle
 
@@ -22,17 +25,23 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// MCPFace —— MCP 面在 parity 里的档案:服务 owner 的读和动作,承载不了浏览器流程、
-// 明文密钥、multipart(它只走纯 JSON 工具调用)。
+// MCPFace —— the MCP face's record in parity: it serves the owner's reads
+// and actions, and cannot carry browser flows, plaintext secrets, or
+// multipart (it only handles pure JSON tool calls).
 func MCPFace() fp.Facade {
 	return fp.Facade{Name: "mcp", Plane: fp.PlaneOwner, ServesRead: true, ServesActn: true}
 }
 
-// registerDispatcherOps —— 把收口里的每个操作挂成 MCP 工具。owner_id 解析 / panic recover /
-// 结果翻译复用 wrapCapabilityHandler,跟 capreg 来的工具走同一条包装。
+// registerDispatcherOps —— mounts every operation in the convergence point
+// as an MCP tool. owner_id resolution / panic recover / result translation
+// reuse wrapCapabilityHandler, going through the same wrapping as tools
+// coming from capreg.
 //
-// 取 op 走 Face.Ops():**一次拿走全部,拿的同时就登记为已投影**。所以这个面既不可能漏挂一个
-// op(没有手写清单),也不可能声称挂了却没挂(登记就是取用本身)。
+// Ops are fetched via Face.Ops(): **all are taken at once, and taking them
+// registers them as projected in the same step**. So this face can neither
+// miss mounting an op (there is no hand-written manifest to omit one from),
+// nor claim to have mounted one without actually doing so (the registration
+// IS the taking).
 func registerDispatcherOps(srv *server.MCPServer, d *dispatcher.Dispatcher, log *slog.Logger) {
 	ops := d.Attach(MCPFace()).Ops()
 	for i := range ops {
@@ -41,8 +50,9 @@ func registerDispatcherOps(srv *server.MCPServer, d *dispatcher.Dispatcher, log 
 	}
 }
 
-// mcpHandlerFor —— 协议无关的 Invoke → MCP 的 handler 形态。
-// error → isError 错误结果;成功载荷原样透传(收口已经是 JSON)。
+// mcpHandlerFor —— converts the protocol-agnostic Invoke into MCP's handler
+// shape. error → an isError result; a success payload passes through as-is
+// (the convergence point's output is already JSON).
 func mcpHandlerFor(invoke dispatcher.Invoke) capreg.MCPHandler {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) capreg.MCPResult {
 		out, err := invoke(ctx, ownerID, raw)

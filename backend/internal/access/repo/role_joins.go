@@ -1,8 +1,10 @@
-// role_joins.go —— roles 三组 join 表（role_corpus_uris / role_skills /
-// role_mcp_servers）的 set/hydrate 操作。从 roles.go 拆出守 max-lines。
+// role_joins.go —— the set/hydrate operations for roles' three join tables
+// (role_corpus_uris / role_skills / role_mcp_servers). Split out of roles.go to
+// respect max-lines.
 //
-// 所有 set 操作走 clear + bulk insert 形态，跟 mcp_servers.SetCodeMCPServers
-// 一致。caller usecase 已校验 join 项的 owner 归属。
+// Every set operation follows the clear + bulk insert shape, consistent with
+// mcp_servers.SetCodeMCPServers. The caller usecase has already checked owner
+// ownership of the join items.
 
 package repo
 
@@ -18,8 +20,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// SetCorpusURIs —— clear + bulk insert role_corpus_uris。caller 已校验
-// pattern 形态合理（commit 2 接 retriever 时加 validator）。
+// SetCorpusURIs —— clear + bulk insert role_corpus_uris. The caller has already
+// checked the pattern shape is sane (a validator gets added when commit 2 wires
+// up the retriever).
 func (r *RoleRepo) SetCorpusURIs(ctx context.Context, roleID string, patterns []string) error {
 	roleUUID, perr := pgstore.ParseUUID(roleID)
 	if perr != nil {
@@ -40,8 +43,9 @@ func (r *RoleRepo) SetCorpusURIs(ctx context.Context, roleID string, patterns []
 	return nil
 }
 
-// SetWaypoints —— clear + 逐条 insert role_waypoints。evidence_refs 存 jsonb
-// （json.Marshal []string）。caller usecase 已校验 waypoint 形态。
+// SetWaypoints —— clear + insert role_waypoints one row at a time. evidence_refs
+// is stored as jsonb (json.Marshal of []string). The caller usecase has already
+// checked the waypoint shape.
 func (r *RoleRepo) SetWaypoints(
 	ctx context.Context, roleID string, waypoints []entity.Waypoint,
 ) error {
@@ -77,7 +81,8 @@ func attachWaypoint(
 	return nil
 }
 
-// hydrateRoleWaypoints —— 读 role_waypoints → domain（行映射共用 waypointsFromRows）。
+// hydrateRoleWaypoints —— reads role_waypoints → domain (row mapping shares
+// waypointsFromRows).
 func hydrateRoleWaypoints(
 	ctx context.Context, q *db.Queries, roleID pgtype.UUID,
 ) ([]entity.Waypoint, error) {
@@ -96,8 +101,8 @@ func hydrateRoleWaypoints(
 	return waypointsFromRows(shaped)
 }
 
-// SetSkills —— clear + bulk insert role_skills。caller 已校验 skill_ids 属于
-// 同 owner。
+// SetSkills —— clear + bulk insert role_skills. The caller has already checked
+// skill_ids belong to the same owner.
 func (r *RoleRepo) SetSkills(ctx context.Context, roleID string, skillIDs []string) error {
 	q := db.New(r.pool)
 	return setRoleUUIDJoin(ctx, &roleJoinOp{
@@ -111,8 +116,8 @@ func (r *RoleRepo) SetSkills(ctx context.Context, roleID string, skillIDs []stri
 	})
 }
 
-// SetMCPServers —— clear + bulk insert role_mcp_servers。caller 已校验
-// server_ids 属于同 owner。
+// SetMCPServers —— clear + bulk insert role_mcp_servers. The caller has already
+// checked server_ids belong to the same owner.
 func (r *RoleRepo) SetMCPServers(ctx context.Context, roleID string, serverIDs []string) error {
 	q := db.New(r.pool)
 	return setRoleUUIDJoin(ctx, &roleJoinOp{
@@ -126,8 +131,9 @@ func (r *RoleRepo) SetMCPServers(ctx context.Context, roleID string, serverIDs [
 	})
 }
 
-// roleJoinOp —— setRoleUUIDJoin 入参，bundle 起来避开 argument-limit。
-// drop 调对应 ClearRole<X>，bind 调对应 AttachRole<X>。
+// roleJoinOp —— inputs for setRoleUUIDJoin, bundled up to work around the
+// argument-limit. drop calls the matching ClearRole<X>, bind calls the matching
+// AttachRole<X>.
 type roleJoinOp struct {
 	drop   func(context.Context, pgtype.UUID) error
 	bind   func(pgtype.UUID, []pgtype.UUID) error
@@ -136,8 +142,8 @@ type roleJoinOp struct {
 	ids    []string
 }
 
-// setRoleUUIDJoin —— SetSkills / SetMCPServers 共享的 clear-then-attach
-// 框架。tag 只用于 err message。
+// setRoleUUIDJoin —— the clear-then-attach framework shared by SetSkills /
+// SetMCPServers. tag is used only in error messages.
 func setRoleUUIDJoin(ctx context.Context, op *roleJoinOp) error {
 	roleUUID, err := prepareRoleJoinClear(ctx, op)
 	if err != nil {
@@ -156,8 +162,8 @@ func setRoleUUIDJoin(ctx context.Context, op *roleJoinOp) error {
 	return nil
 }
 
-// prepareRoleJoinClear —— parse role uuid + 调 op.drop。提出来降
-// setRoleUUIDJoin 的 cyclo。
+// prepareRoleJoinClear —— parses the role uuid + calls op.drop. Pulled out to
+// lower setRoleUUIDJoin's cyclomatic complexity.
 func prepareRoleJoinClear(ctx context.Context, op *roleJoinOp) (pgtype.UUID, error) {
 	roleUUID, perr := pgstore.ParseUUID(op.roleID)
 	if perr != nil {
@@ -169,7 +175,8 @@ func prepareRoleJoinClear(ctx context.Context, op *roleJoinOp) (pgtype.UUID, err
 	return roleUUID, nil
 }
 
-// hydrateRole 从主表行起步，N+1 取 3 个 join 表组装完整 Role。
+// hydrateRole starts from the main-table row and does an N+1 fetch across the 3
+// join tables to assemble the full Role.
 func hydrateRole(ctx context.Context, q *db.Queries, row *db.Role) (entity.Role, error) {
 	corpusURIs, cerr := q.ListRoleCorpusURIs(ctx, row.ID)
 	if cerr != nil {

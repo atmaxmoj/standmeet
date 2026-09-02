@@ -11,9 +11,10 @@ import (
 	"testing"
 )
 
-// TestRetryTransportNotifiesRetry —— transient 失败重试时,transport 必须经
-// ctx 通知器把 attempt 喊出来(给 sink emit `retrying` 用)。这是"throbber 显
-// retrying"整条链的源头:transport(深层)→ ctx 回调 → sink。
+// TestRetryTransportNotifiesRetry —— when retrying a transient failure, the transport must
+// call out the attempt through the ctx notifier (used by the sink to emit `retrying`). This is
+// the source of the entire "throbber shows retrying" chain: transport (deep down) → ctx
+// callback → sink.
 func TestRetryTransportNotifiesRetry(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(failTwiceThenOK())
@@ -26,8 +27,8 @@ func TestRetryTransportNotifiesRetry(t *testing.T) {
 	rec.requireSeq(t, 1, 2)
 }
 
-// TestSSESinkRetryingFrame —— sink.Retrying 写出一帧 `event: retrying` 带
-// attempt;前端据此把 throbber 文案切到 "retrying"。
+// TestSSESinkRetryingFrame —— sink.Retrying writes out one `event: retrying` frame carrying
+// attempt; the frontend uses it to switch the throbber copy to "retrying".
 func TestSSESinkRetryingFrame(t *testing.T) {
 	t.Parallel()
 	rec := httptest.NewRecorder()
@@ -44,7 +45,7 @@ func TestSSESinkRetryingFrame(t *testing.T) {
 	}
 }
 
-// failTwiceThenOK —— 前两次 503,第三次 200(触发两次重试)。
+// failTwiceThenOK —— 503 for the first two calls, 200 on the third (triggers two retries).
 func failTwiceThenOK() http.HandlerFunc {
 	var hits atomic.Int32
 	return func(w http.ResponseWriter, _ *http.Request) {
@@ -56,7 +57,8 @@ func failTwiceThenOK() http.HandlerFunc {
 	}
 }
 
-// doReqCtxStatus —— 带 ctx 走 retry client 打一次请求,drain+close body。
+// doReqCtxStatus —— fires one request through the retry client with the given ctx,
+// drain+closes the body.
 func doReqCtxStatus(ctx context.Context, t *testing.T, url string) {
 	t.Helper()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
@@ -75,7 +77,7 @@ func doReqCtxStatus(ctx context.Context, t *testing.T, url string) {
 	}
 }
 
-// attemptRec —— 线程安全地收 retry 通知里的 attempt 序列。
+// attemptRec —— thread-safely collects the sequence of attempts from retry notifications.
 type attemptRec struct {
 	attempts []int
 	mu       sync.Mutex

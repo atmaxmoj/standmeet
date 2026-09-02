@@ -1,14 +1,15 @@
 // report_pdf.go —— GET /api/v1/report/{id}/pdf
 //
-// 把一份 chat report 的 HTML 渲成 PDF 下载。复用 report.go 的 owner-scoped
-// fetch；HTML body fragment 包成完整 doc + 朴素打印样式，经 gotenberg
-// /forms/chromium/convert/html 渲 PDF，回 application/pdf attachment。
+// Renders one chat report's HTML into a downloadable PDF. Reuses report.go's
+// owner-scoped fetch; wraps the HTML body fragment into a complete document + a plain
+// print stylesheet, renders it through gotenberg's /forms/chromium/convert/html, and
+// returns it as an application/pdf attachment.
 //
-// 报告是简单 HTML（h1/h2/p/ul），用 convert/html 直渲即可，不走简历那条
-// print-page + printsess + convert/url 的 React 渲染链。
+// A report is simple HTML (h1/h2/p/ul), so convert/html renders it directly — this
+// skips the résumé's print-page + printsess + convert/url React rendering chain.
 //
-// renderer 没配（NoopClient → ErrNotConfigured）时回 503 + 人话错误，
-// 不漏栈。
+// When no renderer is configured (NoopClient → ErrNotConfigured), returns 503 + a
+// human-readable error, with no stack trace leaking.
 
 package public
 
@@ -25,9 +26,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/gotenberg"
 )
 
-// ReportPDFRenderer —— 把完整 HTML doc 渲成 PDF bytes 的窄口子
-// (gotenberg.Client / NoopClient 都满足)。在 public 包定义避免 routes →
-// gotenberg 的 arch 依赖；wireup 注入具体实现。
+// ReportPDFRenderer —— a narrow interface for rendering a complete HTML doc into PDF
+// bytes (satisfied by both gotenberg.Client and NoopClient). Defined in the public
+// package to avoid a routes → gotenberg architecture dependency; wireup injects the
+// concrete implementation.
 type ReportPDFRenderer interface {
 	RenderHTML(ctx context.Context, htmlDoc string) ([]byte, error)
 }
@@ -51,8 +53,9 @@ func dispatchGetReportPDF(h *Handlers, w http.ResponseWriter, r *http.Request) {
 	writeReportPDF(h, w, chi.URLParam(r, "id"), pdf)
 }
 
-// renderReportPDF —— member-scoped fetch (#170) + gotenberg HTML→PDF。错误 (not-found /
-// not-configured / render) 原样上抛，由 handleReportPDFErr 分流。
+// renderReportPDF —— member-scoped fetch (#170) + gotenberg HTML→PDF. Errors
+// (not-found / not-configured / render) propagate as-is, routed by
+// handleReportPDFErr.
 func renderReportPDF(h *Handlers, r *http.Request, ownerID, memberID string) ([]byte, error) {
 	report, ferr := fetchOwnedReport(h, r, chi.URLParam(r, "id"), ownerID, memberID)
 	if ferr != nil {

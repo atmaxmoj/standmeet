@@ -1,10 +1,12 @@
-// Package search —— corpus 词法检索的 Meilisearch 封装(1b crawl face)。
+// Package search — the Meilisearch wrapper for corpus lexical search (1b crawl face).
 //
-// Postgres 是 source-of-truth,meili 是派生投影:写路径同步 upsert/delete(见
-// usecases 的 index 传播),读走 Search。每次写操作后 WaitForTask,让"写完立刻搜得到"
-// 强一致(不靠轮询,e2e 无 flake)。ACL 不在这层——这层只按 owner_id 过滤,细粒度
-// path-glob ACL 由 caller(pgCorpusLister)复用既有 allowsCorpusURI 逐条过,保证与
-// corpus_read 完全一致的准入。
+// Postgres is the source of truth; meili is a derived projection: the write path
+// upserts/deletes in sync (see index propagation in usecases), the read path goes through
+// Search. Every write WaitForTask's, so "written = immediately searchable" holds as strong
+// consistency (no polling, no e2e flakiness). ACL doesn't live at this layer — this layer only
+// filters by owner_id; fine-grained path-glob ACL is applied row-by-row by the caller
+// (pgCorpusLister), reusing the existing allowsCorpusURI so admission matches corpus_read
+// exactly.
 package search
 
 import (
@@ -18,12 +20,13 @@ import (
 const (
 	corpusIndex  = "corpus_notes"
 	waitInterval = 20 * time.Millisecond
-	// defaultLimit —— 单次 Search 从 meili 取的上限(ACL 过滤前的候选池)。
+	// defaultLimit — the cap on what one Search call pulls from meili (the candidate
+	// pool before ACL filtering).
 	defaultLimit = 100
 )
 
-// Doc —— 一条 corpus note 在 meili index 里的形态。id = corpus_notes.id(raw 用 raw id)。
-// searchable: title/body/tags;filterable: owner_id/genre/published。
+// Doc — the shape of one corpus note in the meili index. id = corpus_notes.id (raw
+// uses the raw id). searchable: title/body/tags; filterable: owner_id/genre/published.
 type Doc struct {
 	ID        string   `json:"id"`
 	OwnerID   string   `json:"owner_id"`
@@ -36,13 +39,14 @@ type Doc struct {
 	Published bool     `json:"published"`
 }
 
-// Client —— meili 封装。Search/Index/Delete 都 WaitForTask 做强一致。
+// Client — the meili wrapper. Search/Index/Delete all WaitForTask for strong consistency.
 type Client struct {
 	mgr   meilisearch.ServiceManager
 	index meilisearch.IndexManager
 }
 
-// New —— 建客户端。host/key 空 → 返 nil(caller 判 nil 走 Postgres 全文降级)。
+// New — builds the client. Empty host/key → returns nil (caller checks nil and falls
+// back to Postgres full-text search).
 func New(host, apiKey string) *Client {
 	if host == "" {
 		return nil
@@ -51,12 +55,13 @@ func New(host, apiKey string) *Client {
 	return &Client{mgr: mgr, index: mgr.Index(corpusIndex)}
 }
 
-// EnsureIndex —— 建 index(primaryKey=id)+ 配 searchable/filterable。启动时调一次;
-// 幂等(index 已存在时 CreateIndex 报错无害,忽略)。
+// EnsureIndex — creates the index (primaryKey=id) + configures searchable/filterable
+// attributes. Called once at startup; idempotent (CreateIndex errors harmlessly when the
+// index already exists, so that error is ignored).
 func (c *Client) EnsureIndex(ctx context.Context) error {
 	idxCfg := &meilisearch.IndexConfig{Uid: corpusIndex, PrimaryKey: "id"}
 	if _, err := c.mgr.CreateIndexWithContext(ctx, idxCfg); err != nil {
-		_ = err // 已存在等 → 无害
+		_ = err // already-exists and the like → harmless
 	}
 	searchable := []string{"title", "body", "tags"}
 	if _, err := c.index.UpdateSearchableAttributesWithContext(ctx, &searchable); err != nil {
@@ -70,7 +75,8 @@ func (c *Client) EnsureIndex(ctx context.Context) error {
 	return c.wait(ctx, task.TaskUID)
 }
 
-// Index —— upsert 一批 doc(primaryKey=id → 同 id 覆盖)。写完 WaitForTask。
+// Index — upserts a batch of docs (primaryKey=id → same id overwrites). WaitForTask
+// after writing.
 func (c *Client) Index(ctx context.Context, docs []Doc) error {
 	if len(docs) == 0 {
 		return nil
@@ -84,7 +90,7 @@ func (c *Client) Index(ctx context.Context, docs []Doc) error {
 	return c.wait(ctx, task.TaskUID)
 }
 
-// Delete —— 按 id 删 doc(note 删/归档时)。
+// Delete — removes docs by id (when a note is deleted/archived).
 func (c *Client) Delete(ctx context.Context, ids []string) error {
 	if len(ids) == 0 {
 		return nil
@@ -96,7 +102,8 @@ func (c *Client) Delete(ctx context.Context, ids []string) error {
 	return c.wait(ctx, task.TaskUID)
 }
 
-// DeleteOwner —— 清一个 owner 的全部 doc(reindex 回填前先清,防漂移残留)。
+// DeleteOwner — clears every doc for one owner (cleared before a reindex backfill, to
+// prevent stale drift from sticking around).
 func (c *Client) DeleteOwner(ctx context.Context, ownerID string) error {
 	filter := fmt.Sprintf("owner_id = %q", ownerID)
 	task, err := c.index.DeleteDocumentsByFilterWithContext(ctx, filter, nil)
@@ -106,8 +113,9 @@ func (c *Client) DeleteOwner(ctx context.Context, ownerID string) error {
 	return c.wait(ctx, task.TaskUID)
 }
 
-// Search —— owner 的 corpus 词法搜。只按 owner_id filter;细粒度 ACL(glob/published)
-// 由 caller 逐条过。返命中 Doc(含 path/genre 供 caller 判 ACL + 建 CorpusMeta)。
+// Search — lexical search over one owner's corpus. Filters only by owner_id;
+// fine-grained ACL (glob/published) is applied row-by-row by the caller. Returns the hit
+// Docs (with path/genre so the caller can judge ACL and build CorpusMeta).
 func (c *Client) Search(ctx context.Context, ownerID, query string) ([]Doc, error) {
 	resp, err := c.index.SearchWithContext(ctx, query, &meilisearch.SearchRequest{
 		Filter: fmt.Sprintf("owner_id = %q", ownerID),
@@ -126,7 +134,8 @@ func (c *Client) Search(ctx context.Context, ownerID, query string) ([]Doc, erro
 	return out, nil
 }
 
-// Healthy —— live 健康 ping。err != nil = degraded(admin 面板显示 + reconcile 判断用)。
+// Healthy — a live health ping. err != nil = degraded (used for the admin panel
+// display and by reconcile's decision).
 func (c *Client) Healthy(ctx context.Context) error {
 	if _, err := c.mgr.HealthWithContext(ctx); err != nil {
 		return fmt.Errorf("meili health: %w", err)

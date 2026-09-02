@@ -1,36 +1,38 @@
-// Package apierr 提供 domain / usecase sentinel error → HTTP envelope 的翻译。
+// Package apierr translates domain/usecase sentinel errors into HTTP envelopes.
 //
-// 为什么单独成包：admin / public 等 routes 包 handlers 受 cyclo ≤ 3 限制，
-// switch/case 翻译 5 个 error 就超了。把翻译挪到 routes/ 之外的 apierr 包
-// 用 table-driven 的 Classify(err, cases)，调用点 cyclo 始终 ≤ 2。
+// Why this is its own package: handlers in routes packages like admin/public are capped at cyclo <=
+// 3, and a switch/case translating 5 errors already blows that. Moving the translation out of
+// routes/ into apierr's table-driven Classify(err, cases) keeps the call site's cyclo at <= 2.
 package apierr
 
 import "errors"
 
-// Envelope 是统一错误响应的内容。字段顺序按 fieldalignment。
+// Envelope is the content of a unified error response. Field order follows fieldalignment.
 type Envelope struct {
 	Code    string
 	Message string
 	Status  int
 }
 
-// Case 把"匹配哪个 sentinel error → 翻成哪个 envelope"一一对应。
-// 多个 case 按顺序匹配；调用方控制 case 顺序（first-match-wins）。
+// Case pairs "which sentinel error to match" with "which envelope to translate it into." Multiple
+// cases are matched in order; the caller controls case order (first-match-wins).
 type Case struct {
 	Match    error
 	Envelope Envelope
 }
 
-// fallback —— 没匹配任何 case 时的 envelope。caller 在 handler 里看到
-// status >= 500 时再 log，避免 noise。
+// fallback -- the envelope used when no case matches. The caller logs it in the handler when status
+// >= 500, to avoid noise.
 var fallback = Envelope{
 	Status:  500,
 	Code:    "server_error",
 	Message: "internal error",
 }
 
-// Classify 先认 DisplayError（错误自带回显信息 → 直接渲染，无需 Case），再用 errors.Is 顺序匹配
-// cases；都不匹配返回 500 fallback（不外泄内部细节）。DisplayError 优先：错误显式声明可回显就照它办。
+// Classify first checks for a DisplayError (an error carrying its own display info -> render it
+// directly, no Case needed), then matches cases in order via errors.Is; if none match, returns the
+// 500 fallback (no internal detail leaks). DisplayError takes priority: if an error explicitly
+// declares itself displayable, honor that.
 func Classify(err error, cases []Case) Envelope {
 	var de DisplayError
 	if errors.As(err, &de) {
@@ -46,6 +48,7 @@ func Classify(err error, cases []Case) Envelope {
 	return fallback
 }
 
-// ErrEmptyField —— 跨域共用的「必填字段为空」sentinel。usecase / 领域模块 return
-// 它，routes 统一 Classify 成 400。住 apierr（leaf）避免各模块反依赖 usecases。
+// ErrEmptyField -- the cross-domain shared "required field is empty" sentinel. usecase/domain
+// modules return it, and routes uniformly Classify it to 400. It lives in apierr (a leaf package)
+// so modules don't have to depend back on usecases.
 var ErrEmptyField = errors.New("required field is empty")

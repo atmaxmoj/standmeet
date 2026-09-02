@@ -1,5 +1,5 @@
-// WritingFormAtoms —— admin writings Create / Edit 表单共用的小部件。
-// 纯 presentational + 各自挂 data-testid 给 e2e。
+// WritingFormAtoms —— small widgets shared by the admin writings Create / Edit forms.
+// Pure presentational + each carries its own data-testid for e2e.
 
 'use client';
 
@@ -63,8 +63,10 @@ export function CoverHueSelect({
   );
 }
 
-// ParentSelect —— 「设父」下拉:reader 树里把这篇挂到某篇下。「— none —」= root。
-// 选项由 caller 给(别的 writing);成环(挂到自己子孙下)由后端 reparent 校验拦 400。
+// ParentSelect —— the "set parent" dropdown: attaches this writing under another
+// one in the reader tree. "— none —" = root.
+// Options come from the caller (other writings); cycles (attaching under one's
+// own descendant) are blocked with a 400 by the backend's reparent validation.
 export function ParentSelect({
   value, options, onChange,
 }: { value: string; options: { id: string; title: string }[]; onChange: (v: string) => void }) {

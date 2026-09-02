@@ -1,6 +1,7 @@
-// Package wire —— 把**一个机制**接起来,一个机制一个文件:出站收口、入站收口、周期任务、
-// 语料依赖、检索索引。
+// Package wire — wires up **one mechanism per file**: outbound convergence, inbound
+// convergence, periodic jobs, corpus deps, search index.
 //
-// 各建**一个**,别处一律从它投影。这个包不实现机制,也不声明能力 —— 它只把跑着的东西交给
-// 机制,再把机制交给 main。
+// Each is built **once**; everywhere else projects off it. This package implements no
+// mechanism and declares no capability — it only hands the running instance to each
+// mechanism, then hands the mechanism to main.
 package wire

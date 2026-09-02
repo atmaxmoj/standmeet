@@ -30,15 +30,17 @@ const (
 // invited the card to present it as this skill's popularity (F-F-2). nil means "not known from
 // this source" and must stay distinguishable from zero: the GitHub path has no per-skill figure
 // at all, and rendering that as `★ 0` tells the owner this skill has no stars.
-// AllowedTools / Needs 都不上线路(ops 有自己的出站形状),它们是搜索这一程里的中间结论。
+// AllowedTools / Needs never go out on the wire (ops has its own outbound shape); they're
+// intermediate conclusions within this search pass.
 //
-// **nil 和空切片在这里意思不同**,两个字段都是:
-//   - AllowedTools: nil = 没读过这个技能的 SKILL.md(SkillsMP 那条源在搜索时不取正文);
-//     [] = 读过了,它没声明工具。
-//   - Needs: nil = 答不上来(没读过正文,或这台实例解析不了);[] = 答得上,它不缺连接器。
+// **nil and an empty slice mean different things here**, for both fields:
+//   - AllowedTools: nil = this skill's SKILL.md was never read (the SkillsMP source doesn't
+//     fetch body text during search); [] = it was read, and it declares no tools.
+//   - Needs: nil = can't answer (body wasn't read, or this instance can't parse it); [] =
+//     answerable, and it needs no connectors.
 //
-// 把两者混成一个空切片,就是「不知道」被印成「没问题」——`needs` 这个字段以前正是这么
-// 恒空的(F-F-4)。
+// Collapsing the two into one empty slice prints "unknown" as "no problem" — the `needs`
+// field used to be exactly this permanently-empty (F-F-4).
 type MarketSkill struct {
 	RepoStars    *int         `json:"repo_stars"`
 	ID           string       `json:"id"`
@@ -53,9 +55,10 @@ type MarketSkill struct {
 	Needs        []string     `json:"-"`
 }
 
-// MarketSkillContent —— parsed SKILL.md(#48-3 install)。Prompt 是 SKILL.md 正文
-// (frontmatter 之后的全部),作为 skill 的附加 system prompt;name/description/
-// allowed-tools 来自 frontmatter。空字段由 install usecase 用搜索元数据兜底。
+// MarketSkillContent —— parsed SKILL.md (#48-3 install). Prompt is the SKILL.md body (all of
+// it after the frontmatter), used as the skill's extra system prompt; name/description/
+// allowed-tools come from the frontmatter. Empty fields fall back to search metadata in the
+// install usecase.
 type MarketSkillContent struct {
 	Name         string
 	Description  string

@@ -1,7 +1,8 @@
-// visitor_code_prompt.go —— 一张 access code 带来的那段 prompt 怎么取。
+// visitor_code_prompt.go —— how to resolve the prompt segment an access code carries.
 //
-// 从 visitor_role_snapshot.go 拆出来：那个文件是 snapshot 的**装配**，而这里是
-// 一条取值规则，而且这条规则自己有故事（下面那段），值得一个自己的地方。
+// Split out of visitor_role_snapshot.go: that file is the snapshot's **assembly**, while
+// this is a single resolution rule — and this rule has its own story (below), worth its
+// own place.
 
 package usecase
 
@@ -15,18 +16,23 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// resolveCodePrompt —— 两层**叠加**，不是二选一。
+// resolveCodePrompt —— the two layers **stack**, they aren't an either/or choice.
 //
-// 它们是不同的层，不是同一件事的两种写法：
-//   - prompt_id  = owner 集中管理的、这一类访客通用的那份（改一次，所有还没被打开的码受益）
-//   - inline     = 发码方随**这一张**码带的那句（"这是冲着 GitLab Staff Backend 来的"）
+// They're different layers, not two ways of writing the same thing:
+//   - prompt_id  = the owner's centrally-managed prompt shared across this class of
+//     visitor (change it once, every not-yet-redeemed code benefits)
+//   - inline     = the sentence the issuer attached to **this one** code ("this is
+//     for the GitLab Staff Backend role")
 //
-// 曾经是 `inline 非空就赢`。而 job loop 两样都要：招聘语境**和**这一份是哪个职位。
-// 互斥逼它二选一，于是自动签的码要么没有招聘语境、要么不知道自己是哪个职位 ——
-// 那个"要么"本身就是缺陷。role persona 和 code prompt 早就是叠加的，这里同理。
+// It used to be "inline wins if non-empty." But the job loop needs both: the hiring
+// context **and** which specific role this is. Forcing an either/or meant an
+// auto-issued code ended up with either no hiring context or no idea which role it was
+// for —— that "either" was itself the defect. role persona and code prompt already stack;
+// this follows the same pattern.
 //
-// 叠加的顺序有意义：通用的在前、这一张码专属的在后。后面那句是对前面的**收窄**，
-// 反过来的话具体的会被通用的盖住。
+// The stacking order matters: the shared one comes first, the code-specific one after.
+// The later sentence **narrows** the earlier one; reversed, the specific one would get
+// buried under the generic one.
 func resolveCodePrompt(
 	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
 ) (string, error) {
@@ -39,7 +45,8 @@ func resolveCodePrompt(
 	)), nil
 }
 
-// nonEmptyParts —— 拼接前先把空的挑掉，免得留下一串空行。
+// nonEmptyParts —— filters out empties before joining, so we don't leave a run of blank
+// lines.
 func nonEmptyParts(parts ...string) []string {
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
@@ -50,8 +57,9 @@ func nonEmptyParts(parts ...string) []string {
 	return out
 }
 
-// promptBodyByID —— 按可选 prompt id 取 body（role prompt + per-code prompt 共用）。
-// nil / 不存在（SET NULL 删过）→ 空串（那段 persona 没有，session 照常）。
+// promptBodyByID —— fetches the body for an optional prompt id (shared by role prompt +
+// per-code prompt). nil / not found (deleted via SET NULL) → empty string (that persona
+// segment is simply absent, session proceeds as normal).
 func promptBodyByID(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID string, promptID *string,
 ) (string, error) {

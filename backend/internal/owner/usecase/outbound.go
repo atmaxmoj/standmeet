@@ -1,12 +1,18 @@
-// outbound.go —— 内核发**确定性**通知(找回、gate 请求获批时把访问码发给申请人)的中性出站口。
+// outbound.go — the core's neutral outbound port for sending **deterministic** notices
+// (recovery, and delivering an access code to a requester when a gate request is
+// approved).
 //
-// 内核这一侧只有这个接口:一个收件人、一个主题、一段正文。它不知道对面是邮件、是 IM、
-// 还是别的什么;**这个包里没有 "mail" 也没有 "SMTP" 这两个词**(除了这句说明本身)。
+// The core's side only sees this one interface: one recipient, one subject, one body.
+// It doesn't know whether the other side is email, IM, or something else; **this package
+// contains neither the word "mail" nor "SMTP"** (aside from this comment itself).
 //
-// 背后接什么由**组装根**决定,而且接法也是中性的:`cmd/server/port/outbound_sender.go` 把它
-// 绑到注册器的 `Invoke(category, verb, argsJSON)` 上 —— 不是绑到某个 typed 的品类代理。
-// 差别是编译期的:内核若能写出 `proxy.Send(...)`,它就知道"发信"这件事、知道一封信由
-// To/Subject/Body/HTML 构成 —— 名字删掉了,形状还留着。现在它写得出的只有这个接口。
+// What's wired up behind it is decided by the **composition root**, and the wiring
+// itself is neutral too: `cmd/server/port/outbound_sender.go` binds it to the registry's
+// `Invoke(category, verb, argsJSON)` — not to some typed category proxy. The difference
+// is compile-time: if the core could write `proxy.Send(...)` against a typed mail
+// interface, it would know about "sending mail" and that a message is made of
+// To/Subject/Body/HTML — the name would be gone but the shape would remain. As it
+// stands, this interface is the only thing it can write.
 
 package usecase
 
@@ -15,37 +21,49 @@ import (
 	"errors"
 )
 
-// ErrOutboundNotConfigured —— owner 还没配好可用的出站通道,送不出去。
+// ErrOutboundNotConfigured — the owner hasn't set up a working outbound channel yet;
+// delivery is impossible.
 //
-// **内核自己的哨兵**。以前这里用的是连接器轴导出的 `consumer.ErrMailNotConfigured` ——
-// 一个跨界的、名字里带 mail 的错误:内核只要 errors.Is 它一次,就等于承认自己知道对面是邮件。
-// 组装根负责把渠道侧的对应错误翻成这个(见 cmd/server/port/outbound_sender.go)。
+// **The core's own sentinel.** This used to be `consumer.ErrMailNotConfigured` exported
+// from the connector axis — a boundary-crossing error with "mail" in its name: the
+// moment the core did errors.Is against it even once, that was an admission that it
+// knows the other side is email. The composition root is responsible for translating
+// the channel-side equivalent into this one (see cmd/server/port/outbound_sender.go).
 var ErrOutboundNotConfigured = errors.New("no outbound channel configured")
 
-// OutboundSender —— 送一条确定性通知的中性口。未配/未连 → ErrOutboundNotConfigured。
+// OutboundSender — the neutral port for sending one deterministic notice. Not
+// configured/not connected -> ErrOutboundNotConfigured.
 type OutboundSender interface {
-	// Connected —— 出站通道是否可用(owner 配了并验过)。
+	// Connected — whether the outbound channel is available (owner configured it and it
+	// verified).
 	Connected(ctx context.Context, ownerID string) (bool, error)
-	// Send —— 把一条通知送到某个收件人手上。
+	// Send — delivers one notice to a recipient.
 	Send(ctx context.Context, ownerID string, n OutboundNotice) error
-	// ChannelName —— 送不出去时,让 owner 去连**哪一种**连接器。
+	// ChannelName — when delivery fails, tells the owner **which kind** of connector to
+	// go connect.
 	//
-	// 这个字符串由**装配根**给(它才知道这台实例把出站绑到了哪个品类),内核只是转述。
-	// 有它之前,消息里写的是"an outbound channel" —— 一个界面上根本不存在的词:
-	// owner 读完不知道去哪儿、找什么。**错误消息里的名词必须是他在屏幕上找得到的那个。**
+	// This string is supplied by the **composition root** (only it knows which category
+	// this instance's outbound is bound to); the core just relays it. Before this field
+	// existed, the message said "an outbound channel" — a phrase that appears nowhere in
+	// the UI: the owner would read it and have no idea where to go or what to look for.
+	// **A noun in an error message must be one the owner can actually find on screen.**
 	ChannelName() string
 }
 
-// OutboundNotice —— 一条待送的通知。**这是内核能表达的全部**:送给谁、一句标题、一段正文。
+// OutboundNotice — one notice waiting to be sent. **This is the entirety of what the
+// core can express**: who to send it to, one title line, one body.
 //
-// 三个字段都是**渠道无关**的:邮件把 Title 当主题行,IM 当首行,推送当通知标题。原来这里还有
-// 一个 `HTML` 字段(邮件的 text/html alternative),那是**只有邮件才有的概念** —— 而且从来
-// 没有任何调用方填过它。它留在这儿的唯一作用,就是让内核仍然写得出"一封信"。
+// All three fields are **channel-agnostic**: email treats Title as the subject line, IM
+// as the first line, push as the notification title. There used to be an `HTML` field
+// here too (email's text/html alternative), which is a concept **only email has** — and
+// no caller had ever filled it in. Its only function was letting the core still be able
+// to write "an email". It's gone now.
 type OutboundNotice struct {
-	// To —— 收件人在那条渠道上的地址。内核不解析它,也不知道它是邮箱还是别的什么。
+	// To — the recipient's address on that channel. The core never parses it and doesn't
+	// know whether it's an email address or something else.
 	To string
-	// Title —— 一句话的标题。
+	// Title — a one-line title.
 	Title string
-	// Body —— 正文纯文本。
+	// Body — the plain-text body.
 	Body string
 }

@@ -1,11 +1,15 @@
-// CodeCorpusConfig —— code 卡上的 **corpus 收窄面**（ACL 三类里的 corpus 那类的 code 层）。
+// CodeCorpusConfig — the **corpus narrowing panel** on a code card (the code-layer piece of
+// the corpus category among the three ACL categories).
 //
-// role 授的是「这个受众」能读的正列表（这里只读地列出来）；这张码可以再**减** ——「这一次邀约」
-// 不该看的。典型：一个通用 role 授了整个 subjectivity（stance 都要给），但发给外部的那张码收回
-// `subjectivity://cv`（record 笔记：真名/学历/雇主）。
+// A role grants an allow-list of what "this audience" can read (shown read-only here); this
+// code can further **narrow** it — things "this particular invite" shouldn't see. Typical
+// case: a general role grants the whole subjectivity (every stance included), but the code
+// handed to an external party takes back `subjectivity://cv` (record notes: real name,
+// education, employer).
 //
-// **只能减**：写在这里的 glob 只会让这张码读到的更少，开不了 role 没给的（纯 AND，A.4）。所以写错
-// 一条最多是少读到东西，不会泄露。
+// **Narrowing only**: a glob written here can only make this code read less, never open up
+// something the role didn't already grant (pure AND, A.4). So a mistaken entry can at worst
+// under-read, never leak.
 
 'use client';
 
@@ -16,8 +20,10 @@ import { CorpusScopePicker } from '@/components/admin/sections/corpus/CorpusScop
 import { fetchCodeCorpus, saveCodeCorpus } from '@/lib/admin/use-code-corpus';
 import { useAction } from '@/lib/ui/use-action';
 
-// CorpusLoadFailed —— 没拉到就说没拉到，**并且不出编辑器**：granted 未知时那个列表只会误导，而
-// denied 未知时保存会把 owner 没看见的收回列表清掉。宁可这张卡少一块，不可给一块假的。
+// CorpusLoadFailed — say so when the fetch fails, **and don't render the editor**: with
+// granted unknown, that list would only mislead, and with denied unknown, saving would wipe
+// out a take-back list the owner never even saw. Better to leave this card missing a piece
+// than to show a fake one.
 function CorpusLoadFailed({ codeLabel }: { codeLabel: string }) {
   const t = useTranslations('adminAccess');
   return (
@@ -32,8 +38,9 @@ function CorpusLoadFailed({ codeLabel }: { codeLabel: string }) {
   );
 }
 
-// CorpusState —— 这张卡的加载态。`error` 是**第三种**状态，不是 loaded 的一个空值：
-// 「role 什么都没授」和「没拉到」在 UI 上必须分得开（F-A-13）。
+// CorpusState — this card's load state. `error` is a **third** state, not a hollow value of
+// loaded: "the role grants nothing" and "the fetch failed" must read differently in the UI
+// (F-A-13).
 interface CorpusState {
   granted: string[];
   publishedOnly: boolean;
@@ -43,7 +50,8 @@ interface CorpusState {
   error: boolean;
 }
 
-// Sinks —— useCodeCorpusState 的 setter 束（组件里不写分支：presentation 层禁 if，故 apply* 提到外面）。
+// Sinks — the bundle of setters for useCodeCorpusState (no branching inside the component:
+// the presentation layer bans `if`, so the apply* helpers live outside it).
 interface Sinks {
   setGranted: (v: string[]) => void;
   setPublishedOnly: (v: boolean) => void;
@@ -52,7 +60,7 @@ interface Sinks {
   setError: (v: boolean) => void;
 }
 
-// applyCorpus —— 落 GET 的结果。
+// applyCorpus — applies the GET result.
 function applyCorpus(
   c: { granted: string[]; denied: string[]; publishedOnly: boolean }, s: Sinks,
 ): void {
@@ -62,13 +70,15 @@ function applyCorpus(
   s.setLoaded(true);
 }
 
-// applyLoadError —— 没拉到。**不**碰 granted/text：它们此刻是无意义的初值，渲染出去就是那句谎。
+// applyLoadError — the fetch failed. Does **not** touch granted/text: at this point they're
+// meaningless initial values, and rendering them would tell that same lie.
 function applyLoadError(s: Sinks): void {
   s.setError(true);
   s.setLoaded(true);
 }
 
-// useCodeCorpusState —— GET 一张码的 corpus 面。加载失败别静默成空（同 use-latest-list 的 loadError）。
+// useCodeCorpusState — GETs a code's corpus panel. A load failure must not silently collapse
+// to empty (same pattern as use-latest-list's loadError).
 function useCodeCorpusState(codeID: string): CorpusState {
   const [granted, setGranted] = useState<string[]>([]);
   const [publishedOnly, setPublishedOnly] = useState(false);
@@ -86,12 +96,15 @@ function useCodeCorpusState(codeID: string): CorpusState {
   return { granted, publishedOnly, text, setText, loaded, error };
 }
 
-// GrantedList —— 继承来的 role 授到什么。只有在**确实拉到了**的时候才会渲染，所以这里
-// 说出来的话是真的（见 useCodeCorpusState 的 error 分支）。
+// GrantedList — what the inherited role grants. Renders only when the fetch has **actually
+// succeeded**, so what it says here is true (see useCodeCorpusState's error branch).
 //
-// 空列表有**两种**含义，必须分开说：`public` 身份根本没有正列表（它读 owner 发布过的那些），
-// 别的 role 空着才真的是什么都不授。以前这里只有一句 `(role grants nothing)` —— 挂 public
-// 的码于是被写成"什么都读不到"，而它明明读得到已发布的条目（F-D-7 之后新出现的假话）。
+// An empty list has **two** distinct meanings that must read differently: the `public`
+// identity has no allow-list at all (it reads whatever the owner has published), while an
+// empty list on any other role genuinely means it grants nothing. This used to just say
+// `(role grants nothing)` — so a code with public attached was wrongly written up as reading
+// nothing, when it plainly reads published entries (a false statement that surfaced after
+// F-D-7).
 function GrantedList({
   granted, publishedOnly,
 }: { granted: readonly string[]; publishedOnly: boolean }) {
@@ -105,11 +118,13 @@ function GrantedList({
   );
 }
 
-// TakenBackHelp —— 那段 60 词的说明**收进一个折叠里**(UX-88)。
+// TakenBackHelp — that ~60-word explanation is **collapsed into a disclosure** (UX-88).
 //
-// 它以前是每张卡都摊开印一遍:这一页上 13 张码 = 同一段话印 13 遍,把「谁还进得来」这件事
-// 埋进说明书里。它讲的是这个控件本身,所以留在控件旁边(不搬去页头);但一个人只需要读一次,
-// 所以默认收起。`<details>` 是这个产品已有的折叠件(skills 面板的 show prompt 同款)。
+// It used to be printed fully open on every card: 13 codes on this page meant the same
+// paragraph printed 13 times, burying "who can still get in" inside a manual. It explains
+// this control itself, so it stays next to the control (not moved to the page header); but a
+// person only needs to read it once, so it's collapsed by default. `<details>` is an existing
+// disclosure pattern in this product (same as the skills panel's show-prompt).
 function TakenBackHelp() {
   const t = useTranslations('adminAccess');
   return (
@@ -150,7 +165,8 @@ export function CodeCorpusConfig({ codeID, codeLabel }: { codeID: string; codeLa
         {t('codeCorpus.takenBack')}
       </span>
       <TakenBackHelp />
-      {/* 收回和授权是同一种语言（一组 glob），所以是同一个 picker（F-A-14）。 */}
+      {/* Taking back and granting speak the same language (a set of globs), so they share
+          the same picker (F-A-14). */}
       <CorpusScopePicker
         value={text.split('\n').map((s) => s.trim()).filter((s) => s !== '')}
         onChange={(next) => setText(next.join('\n'))}

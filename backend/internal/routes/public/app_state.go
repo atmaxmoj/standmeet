@@ -1,9 +1,12 @@
-// app_state.go —— MCP App 跨刷新状态 endpoint（访客 session 视角）。
+// app_state.go —— the MCP App cross-refresh state endpoint (from the visitor session's
+// point of view).
 //
-// 沙箱卡（ui://）经 host 对**自己 mcp 那一格**增删改查。mcp_id 由后端从 {tool} 派生
-// （capreg binding 的 capability id，如 calendar.book / corpus.retrieval）—— 绝不收客户端
-// 传来的 mcp_id，这是隔离的根：卡碰不到别的 mcp 那格。member（session 背后的耐久身份）
-// 是 scope；public/byoai 无 member → 无处可存。tool 未授权 → 404（与 tool 派发同口径）。
+// A sandboxed card (ui://) CRUDs **only its own MCP slot** through the host. mcp_id is
+// derived server-side from {tool} (the capability id off the capreg binding, e.g.
+// calendar.book / corpus.retrieval) — it never accepts an mcp_id sent by the client, and
+// that's the root of the isolation: a card can never touch another MCP's slot. member
+// (the durable identity behind the session) is the scope; public/byoai has no member →
+// nowhere to store. An unauthorized tool → 404 (same status as tool dispatch).
 //
 //	GET    /sessions/{id}/app-state/{tool}        → {state:{key:value}}
 //	PUT    /sessions/{id}/app-state/{tool}/{key}  {value} → {ok:true}
@@ -24,14 +27,16 @@ import (
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
 
-// AppStateStore —— mcp_app_state 持久层（route 注入；wireup 接 postgres repo）。
+// AppStateStore —— the mcp_app_state persistence layer (injected by the route; wireup
+// plugs in the postgres repo).
 type AppStateStore interface {
 	Set(ctx context.Context, ref conversation.AppStateRef, value []byte) error
 	Get(ctx context.Context, memberID, mcpID string) (map[string]json.RawMessage, error)
 	Delete(ctx context.Context, memberID, mcpID, key string) error
 }
 
-// appStateResp / appStateAck / appStateErr —— 定型 JSON 响应（business code 禁 any）。
+// appStateResp / appStateAck / appStateErr —— typed JSON responses (business code bans
+// any).
 type appStateResp struct {
 	State map[string]json.RawMessage `json:"state"`
 }
@@ -43,7 +48,7 @@ type appStateErr struct {
 	OK     bool   `json:"ok"`
 }
 
-// appScope —— 一次 app-state 请求解出的 (member, owner, mcp_id)。
+// appScope —— the (member, owner, mcp_id) resolved for one app-state request.
 type appScope struct {
 	memberID string
 	ownerID  string
@@ -107,8 +112,9 @@ func (h *Handlers) deleteAppState() http.HandlerFunc {
 	}
 }
 
-// resolveAppScope —— auth → 装配 → 从 tool 派生 mcp_id + ACL（tool 必须在装配出的
-// binding 里 = 已授权）。member 空（无耐久身份）→ 403，state 无处可挂。
+// resolveAppScope —— auth → assembly → derive mcp_id + ACL from tool (tool must be
+// present in the assembled bindings = authorized). Empty member (no durable identity)
+// → 403, state has nowhere to attach.
 func (h *Handlers) resolveAppScope(w http.ResponseWriter, r *http.Request) (appScope, bool) {
 	auth, ok := authVisitorWithToken(h, w, r)
 	if !ok {
@@ -121,16 +127,21 @@ func (h *Handlers) resolveAppScope(w http.ResponseWriter, r *http.Request) (appS
 	return h.scopeForTool(w, r, auth.Data)
 }
 
-// scopeForTool —— 从 {tool} 派生 mcp_id + ACL（tool 须已授权）。同一 mcp 的多个 tool
-// （calendar_book / calendar_list_slots）映到同一 id → 共享一格 app-state。
+// scopeForTool —— derives mcp_id + ACL from {tool} (tool must already be authorized).
+// Multiple tools on the same MCP (calendar_book / calendar_list_slots) map to the same
+// id → they share one app-state slot.
 //
-// **问一句,不要全量装配。** 这里原来先 AssembleVisitor 把每个能力都实例化一遍,只为从
-// binding 里把 tool 名翻成 capability id —— 外置能力实例化 = 起一个 bwrap 沙箱,于是卡片每
-// 读写一次自己那格 state,整排沙箱冷启一次。实测一次 app-state 读花了 6 秒,卡片内容一直空着,
-// 断言超时(#17 收工具调用那条、#22 收会话打开那条,这是同一族的第三条)。
+// **Ask one question, don't assemble everything.** This used to call AssembleVisitor
+// first, instantiating every capability just to translate a tool name into a capability
+// id off the binding — instantiating an external capability means spinning up a bwrap
+// sandbox, so every time a card read or wrote its own state slot, the whole row of
+// sandboxes cold-started. Measured: one app-state read took 6 seconds, the card stayed
+// empty the whole time, and assertions timed out (this is the third in the same family
+// as the ticket that caught the tool-call case at #17 and the session-open case at #22).
 //
-// 归属是静态信息,registry 大多不拨号就答得出(MCPIDForTool)。把问题交给它,这一层也就
-// 没有机会再选错那条贵的路。
+// Ownership is static information, and the registry can usually answer it without
+// dialing out at all (MCPIDForTool). Hand the question to it, and this layer no longer
+// gets a chance to pick the expensive path again.
 func (h *Handlers) scopeForTool(
 	w http.ResponseWriter, r *http.Request, data *access.VisitorSessionData,
 ) (appScope, bool) {
@@ -143,7 +154,8 @@ func (h *Handlers) scopeForTool(
 	return appScope{memberID: data.MemberID, ownerID: data.OwnerID, mcpID: mcpID}, true
 }
 
-// readAppStateValue —— 取 body 的 {value:<json>}；缺失/畸形 → 400。value 当 opaque 存。
+// readAppStateValue —— reads {value:<json>} from the body; missing/malformed → 400.
+// value is stored opaque.
 func readAppStateValue(log *slog.Logger, w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {

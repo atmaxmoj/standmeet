@@ -1,17 +1,22 @@
-// btn-styles —— Btn 的 size / kind 到 **`.sm-btn` 原子**的映射。
+// btn-styles —— maps Btn's size / kind to the **`.sm-btn` atoms**.
 //
-// 这里以前是第二套按钮实现:自己一份 BASE(mono/uppercase/tracking) + 自己一份 KIND_CLS
-// (bg-ink / border-rule / muted),跟 `sm-atoms.css` 里的 `.sm-btn*` **并行存在**,
-// 连词汇都不一样 —— 那边叫 `solid`,这边叫 `primary`。
+// This used to be a second button implementation: its own BASE
+// (mono/uppercase/tracking) + its own KIND_CLS (bg-ink / border-rule /
+// muted), existing **in parallel** with `sm-atoms.css`'s `.sm-btn*` — even
+// the vocabulary didn't match, that side called it `solid`, this side called it `primary`.
 //
-// 代价不是"两份代码":`/admin/seo` 的 SAVE 写的是 `className="sm-btn sm-btn-primary"` ——
-// **记着这一套的词汇,写进了那一套的命名空间**。`sm-btn-primary` 一条 CSS 都不生成,
-// 于是那个主动作静默退回裸 `.sm-btn`,渲染得比它旁边的次要链接还轻(UX-74②)。
-// 两套并存不只是重复,它**生产**这种错。
+// The cost wasn't "two copies of code": `/admin/seo`'s SAVE wrote
+// `className="sm-btn sm-btn-primary"` — **remembering this file's
+// vocabulary, and writing it into the other file's namespace**.
+// `sm-btn-primary` generates zero CSS, so that primary action silently fell
+// back to bare `.sm-btn`, rendering lighter than the secondary link next to
+// it (UX-74②). Having two definitions coexist isn't just duplication, it
+// **produces** this class of bug.
 //
-// 现在只有一套定义(CSS 原子),这里只做名字映射。`kind` 的取值也跟着改成原子的词:
-// solid,不是 primary —— 一个概念一个词。
-// 新的 variant 加在 `sm-atoms.css`,不加在这里。
+// Now there's only one set of definitions (the CSS atoms); this file only
+// does name mapping. `kind`'s values were changed to match the atoms'
+// vocabulary too: solid, not primary — one concept, one word.
+// A new variant gets added in `sm-atoms.css`, not here.
 
 import type { BtnKind, BtnSize } from '@/components/admin/atoms/Btn';
 

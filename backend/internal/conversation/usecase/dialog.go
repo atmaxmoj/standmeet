@@ -1,13 +1,16 @@
-// dialog.go —— Dialog 一等公民。D-5 后 visitor pi-agent-core 在浏览器跑
-// agent loop，backend 不再经 SendMessage 落消息。frontend turn 完成后调
-// POST /sessions/{id}/dialogs 把这轮交换记下来。一个 dialog 含:
-//   - 用户问句 (Question)
-//   - AI 答 (Answer)
-//   - AI 引用了哪些 corpus entry —— 按 **id** 引用 (Cited*IDs)
+// dialog.go —— Dialog is a first-class citizen. After D-5 the visitor pi-agent-core runs
+// the agent loop in the browser, and the backend no longer records messages via
+// SendMessage. After the frontend turn completes, it calls
+// POST /sessions/{id}/dialogs to record this exchange. A dialog contains:
+//   - the visitor's question (Question)
+//   - the AI's answer (Answer)
+//   - which corpus entries the AI cited —— referenced by **id** (Cited*IDs)
 //
-// 按 id 而非 path:地址是树派生的(见 corpus_tree_path),路径在 ACL 子集下可能
-// 对不上;corpus_read 结果回 entry id,前端照原样回传,这里 GetByID 反查成
-// Citation VO，走 ChatRepo.AppendDialog (单事务两行 messages + bump，原子)。
+// By id, not path: the path is tree-derived (see corpus_tree_path) and may not
+// resolve under an ACL subset; corpus_read returns entry ids, the frontend echoes
+// them back unchanged, and here GetByID resolves them into
+// Citation VOs, going through ChatRepo.AppendDialog (single transaction, two message
+// rows + bump, atomic).
 
 package usecase
 
@@ -23,19 +26,20 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
-// DialogCorpusLookup —— Dialog cited 反查 entry 的窄接口。*corpus.Corpus
-// facade 满足:Get(ctx, ownerID, "<genre>://<id>") 内部 isUUID → GetByID
-// (见 corpus_facade)。
+// DialogCorpusLookup —— narrow interface for resolving a dialog's cited entries.
+// *corpus.Corpus facade satisfies it: Get(ctx, ownerID, "<genre>://<id>")
+// internally does isUUID → GetByID (see corpus_facade).
 //
-// 不直接用 corpus.Corpus 类型 (publicroutes 不能 import postgres)，靠
-// 接口模式让 mcp / publicroutes 这两个组件都能传它。
+// Not using the corpus.Corpus type directly (publicroutes can't import postgres) —
+// the interface pattern lets both mcp and publicroutes pass it in.
 type DialogCorpusLookup interface {
 	Get(ctx context.Context, ownerID, uri string) (corpus.Document, error)
 }
 
-// DialogDeps —— RecordDialog 需要的依赖。Subjectivity 单独一个 lookup（不走 Corpus facade——
-// facade 只 dispatch 4 个 genre，subjectivity 不在内），gate show_as_source 用。nil = 不解析
-// subjectivity cite（无 subjectivity 装配的调用方）。
+// DialogDeps —— dependencies RecordDialog needs. Subjectivity is a separate lookup (it
+// doesn't go through the Corpus facade —— the facade only dispatches 4 genres,
+// subjectivity isn't one), used to gate show_as_source. nil = don't resolve
+// subjectivity cites (for callers with no subjectivity wiring).
 type DialogDeps struct {
 	Chats        *repo.ChatRepo
 	Corpus       DialogCorpusLookup
@@ -43,7 +47,7 @@ type DialogDeps struct {
 	Log          *slog.Logger
 }
 
-// RecordDialogInput —— 一个 dialog 完成后落到 transcript 的入参。
+// RecordDialogInput —— input for recording a completed dialog into the transcript.
 type RecordDialogInput struct {
 	OwnerID              string
 	ConversationID       string
@@ -56,13 +60,16 @@ type RecordDialogInput struct {
 	ToolCalls            []byte
 }
 
-// RecordDialog —— cited id 反查成 Citation → 构造 Dialog → ChatRepo.AppendDialog
-// 原子落地。Answer 空 **且无 tool_calls** 时只落 question(纯出错的 dialog 也想留用户问句)。
+// RecordDialog —— resolves cited ids into Citations → builds a Dialog → ChatRepo.AppendDialog
+// commits atomically. When Answer is empty **and there are no tool_calls**, only the
+// question is recorded (even a purely-erroring dialog should keep the visitor's question).
 //
-// F-A-19: 一个 return_directly 工具(summarize / booking / ask_visitor)的产物就是那条 tool
-// 结果(报告卡),没有 answer 文本 —— 但它是完整的一轮,assistant message 必须带 tool_calls 落库,
-// 否则 reload 后访客丢了自己生成的报告。所以「空 answer」不再等于「只落 visitor」:有 tool_calls
-// 就走完整 AppendDialog(空 body + tool_calls),restore 侧 pairDialogs 据 tool_calls 收它。
+// F-A-19: a return_directly tool's (summarize / booking / ask_visitor) output IS that tool
+// result (the report card) — there's no answer text — but it's still a complete turn, so the
+// assistant message must persist with tool_calls, or the visitor loses their own generated
+// report on reload. So "empty answer" no longer means "record visitor only": if there are
+// tool_calls, it goes through the full AppendDialog (empty body + tool_calls), and on the
+// restore side pairDialogs picks it up by tool_calls.
 func RecordDialog(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
 ) error {
@@ -81,13 +88,16 @@ func RecordDialog(
 	return nil
 }
 
-// RecordCardEvent —— 落一条「访客在卡上做了什么」（F-B-9）。
+// RecordCardEvent —— records "what the visitor did on a card" (F-B-9).
 //
-// 这条路不经过对话：卡片的工具调用打的是 `POST /sessions/{id}/tools/{name}`，执行完就返回。
-// 客户端那一侧已经把它补进本轮的历史（`noteEvent`），**但那只活在浏览器里** —— 刷新一次
-// 就没了，owner 的逐字稿里也从来看不见它。这一笔是给这两件事用的。
+// This path doesn't go through the dialog flow: a card's tool call hits
+// `POST /sessions/{id}/tools/{name}` and returns once it executes. The client side has
+// already folded it into this turn's history (`noteEvent`), **but that only lives in the
+// browser** —— it's gone after a refresh, and the owner's transcript never sees it either.
+// This call is for both of those gaps.
 //
-// 空文本不落：没有内容的「事件」在逐字稿上就是一行噪声。
+// Empty text is not recorded: a content-free "event" would just be a line of noise in
+// the transcript.
 func RecordCardEvent(
 	ctx context.Context, deps *DialogDeps, conversationID, text string,
 ) error {
@@ -100,8 +110,9 @@ func RecordCardEvent(
 	return nil
 }
 
-// appendVisitorOnly —— answer 空时只落 visitor 那行 (用于 error 路径)。失败轮也是一个
-// 「单-message」dialog（dialog_id NOT NULL），走 AppendVisitorOnly 单事务建 dialog + 1 message。
+// appendVisitorOnly —— records only the visitor row when answer is empty (for the error
+// path). A failed turn is still a "single-message" dialog (dialog_id NOT NULL), created via
+// AppendVisitorOnly in one transaction: dialog + 1 message.
 func appendVisitorOnly(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
 ) error {
@@ -111,18 +122,22 @@ func appendVisitorOnly(
 	return nil
 }
 
-// resolvedCites —— 一轮解析出来的两拨:进访客 footer 的引用,和只塑造了声音的 subjectivity
-// (F-A-27)。分开返回而不是在 Citation 上加个标志位 —— 访客那条路只拿 Cites,漏不进去。
+// resolvedCites —— the two batches resolved from one turn: citations that go into the
+// visitor footer, and subjectivity that only shaped the voice (F-A-27). Returned separately
+// instead of adding a flag on Citation —— the visitor path only takes Cites, so it can't leak
+// through.
 type resolvedCites struct {
 	Cites    []entity.Citation
 	Grounded []string
 }
 
-// resolveCitations —— 把 frontend 传的 cited id 数组反查成 Citation VO
-// (genre + doc_id + uri + title)。lookup 失败的丢弃 (不阻塞 dialog 落)。
+// resolveCitations —— resolves the cited id arrays the frontend passed in into Citation VOs
+// (genre + doc_id + uri + title). Failed lookups are dropped (doesn't block the dialog
+// write).
 //
-// 没过 show_as_source 的 subjectivity 不再直接扔掉:它的 id 进 Grounded,落到独立那一列,
-// owner 的记录里能看见「哪几条 standpoint 笔记在起作用」。
+// subjectivity that didn't pass show_as_source is no longer just discarded: its id goes into
+// Grounded, recorded in its own column, so the owner's records can show "which standpoint
+// notes were in play".
 func resolveCitations(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
 ) resolvedCites {
@@ -144,13 +159,15 @@ func resolveCitations(
 	return splitSubjectivity(ctx, deps, in.OwnerID, in.CitedSubjectivityIDs, cites)
 }
 
-// splitSubjectivity —— subjectivity id 按 show_as_source 分成两拨：opt-in 的进 cited（访客
-// footer 看得到），其余进 grounded（只落 owner 那一列）。server-authoritative：不信 client，
-// 源头查 DB。lookup 未注入 / 未命中 → 略过（不阻塞 dialog 落）。
+// splitSubjectivity —— splits subjectivity ids by show_as_source into two batches: opt-in
+// ones go into cited (visible in the visitor footer), the rest go into grounded (recorded
+// only in the owner's column). Server-authoritative: doesn't trust the client, queries the
+// DB at the source. lookup not wired / not found → skipped (doesn't block the dialog write).
 //
-// 「其余」以前是 `continue` 直接丢：于是 owner 写的 standpoint 笔记塑造了每一条回答，而他
-// 在任何界面上都看不到它们参与过（F-A-27）。现在它们的 id 留下来，标题在 admin transcript
-// 读时才 hydrate —— 正文不进会话表。
+// "The rest" used to be dropped outright with `continue`: so the owner's standpoint notes
+// shaped every answer while they had no view anywhere showing those notes were involved
+// (F-A-27). Now their ids are kept, and the title is hydrated only when the admin transcript
+// is read —— the body never enters the conversation table.
 func splitSubjectivity(
 	ctx context.Context, deps *DialogDeps, ownerID string, ids []string,
 	acc []entity.Citation,
@@ -167,7 +184,7 @@ func splitSubjectivity(
 		}
 		if !ref.ShowAsSource {
 			out.Grounded = append(out.Grounded, ref.ID)
-			continue // 私有：ground 了 voice 但不进 visitor footer。
+			continue // private: grounded the voice but doesn't enter the visitor footer.
 		}
 		out.Cites = append(out.Cites, entity.Citation{
 			Genre: corpus.GenreSubjectivity, DocID: ref.ID,
@@ -177,19 +194,20 @@ func splitSubjectivity(
 	return out
 }
 
-// resolveCiteArgs —— 一组 entry id 用同样 (owner, genre) 反查 Citation 的入
-// 参。打包让 appendResolvedCitations 参数控在 5 个以内 (revive)。字段按
-// ptr-density 排：strings 在前，slice 后 (govet fieldalignment 让 ptr 段
-// 连续)。
+// resolveCiteArgs —— input for resolving a group of entry ids into Citations with the same
+// (owner, genre). Packed so appendResolvedCitations stays under 5 params (revive). Fields
+// ordered by ptr-density: strings first, slice after (govet fieldalignment keeps the ptr
+// segment contiguous).
 type resolveCiteArgs struct {
 	OwnerID string
 	Genre   corpus.DocumentGenre
 	IDs     []string
 }
 
-// appendResolvedCitations —— 一组 entry id → Citation 反查。统一走 Corpus
-// facade:Get(`<genre>://<id>`) 内部 isUUID → GetByID(见 corpus_facade)。按 id
-// 引用稳:不受树路径在 ACL 子集下对不上影响。corpus 没注入时返空。
+// appendResolvedCitations —— resolves a group of entry ids into Citations. Uniformly
+// goes through the Corpus facade: Get(`<genre>://<id>`) internally does isUUID → GetByID
+// (see corpus_facade). Referencing by id is stable: unaffected by a tree path not resolving
+// under an ACL subset. Returns empty when corpus isn't wired.
 func appendResolvedCitations(
 	ctx context.Context, deps *DialogDeps, args *resolveCiteArgs,
 	acc []entity.Citation,
@@ -221,8 +239,9 @@ func logIfUnexpectedNotFound(
 }
 
 func notFoundForGenre(g corpus.DocumentGenre) error {
-	// dialog cited 覆盖 wiki + writing + output + subjectivity；其他 genre (raw) 返 nil，
-	// errors.Is(err, nil) 恒 false → 任何 err 都算 unexpected 并记一行。
+	// dialog cited covers wiki + writing + output + subjectivity; other genres (raw)
+	// return nil, and errors.Is(err, nil) is always false → any err counts as unexpected
+	// and gets logged.
 	return map[corpus.DocumentGenre]error{
 		corpus.GenreWiki:         corpus.ErrWikiNotFound,
 		corpus.GenreWriting:      corpus.ErrWritingNotFound,

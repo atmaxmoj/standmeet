@@ -1,15 +1,17 @@
-// Package ops —— stats 域对外能做的事:这台实例自己的可观测面。全是只读。
+// Package ops —— what the stats domain exposes externally: this instance's own observability
+// surface. All read-only.
 //
-//	status           版本 / 运行时长 / 依赖健康 / 内存磁盘负载
-//	inference_usage  近 7 天 LLM 用量
-//	corpus_growth    语料增长(14 天曲线 + 分层总数)
-//	corpus_graph     语料链接图(节点 + 链接度)
-//	activity         最近事件流
-//	jobs             后台计划任务
+//	status           version / uptime / dependency health / memory & disk load
+//	inference_usage  last 7 days of LLM usage
+//	corpus_growth    corpus growth (14-day series + per-tier totals)
+//	corpus_graph     corpus link graph (nodes + link degree)
+//	activity         recent event stream
+//	jobs             background scheduled jobs
 //
-// 迁移时补过两处两个面对不上的地方:corpus_growth 的 by_tier 面板给 5 个数、MCP 只给 3 个;
-// corpus_graph **在 MCP 上根本不存在**,而且它连那张手写对照表里都没有一行 —— 一条既没有
-// MCP 孪生、也没被登记的路由,棘轮从来看不见。现在两个面都欠它们。
+// Migration patched two spots where the surfaces didn't line up: corpus_growth's by_tier panel
+// gives 5 numbers, MCP gives only 3; corpus_graph **doesn't exist on MCP at all**, and it isn't
+// even a row in that handwritten parity table — a route with neither an MCP twin nor a
+// registered entry is invisible to the ratchet. Both surfaces still owe fixes for it.
 package ops
 
 import (
@@ -23,24 +25,25 @@ import (
 )
 
 const (
-	// graphDefaultLimit —— 语料图默认取多少个节点。
+	// graphDefaultLimit —— how many nodes the corpus graph takes by default.
 	graphDefaultLimit = 60
-	// activityFeedLimit —— 活动流一次给多少条。
+	// activityFeedLimit —— how many entries the activity feed returns per call.
 	activityFeedLimit = 20
-	// dayFormat —— 用量按天分组,日期就是这个格式。
+	// dayFormat —— usage is grouped by day; this is the date format used for that.
 	dayFormat = "2006-01-02"
 )
 
 var noArgs = json.RawMessage(`{"type":"object","properties":{}}`)
 
-// SystemInfoSource —— 进程和主机的运行时快照从哪儿来。版本号、goroutine 数、磁盘占用
-// 是**进程自己**知道的事,不是这个域的数据,所以走窄口由组装根注入。
-// 形状用域已有的 entity.SystemInfo,不另起一份。
+// SystemInfoSource —— where the process's and host's runtime snapshot comes from. Version,
+// goroutine count, and disk usage are things the **process itself** knows, not this domain's
+// own data, so they arrive through a narrow port the composition root injects.
+// The shape reuses the domain's existing entity.SystemInfo instead of inventing a second one.
 type SystemInfoSource interface {
 	SystemInfo(ctx context.Context) entity.SystemInfo
 }
 
-// InstanceDeps —— 这一组要的五个来源。
+// InstanceDeps —— the five sources this group needs.
 type InstanceDeps struct {
 	System   SystemInfoSource
 	Usage    *repo.InferenceUsageRepo
@@ -49,7 +52,7 @@ type InstanceDeps struct {
 	Jobs     *entity.JobRegistry
 }
 
-// Instance —— 六个只读观测口。
+// Instance —— six read-only observation ports.
 func Instance(deps InstanceDeps) []fp.Op {
 	return []fp.Op{
 		{
@@ -153,7 +156,7 @@ func instanceStatus(system SystemInfoSource) fp.Invoke {
 	}
 }
 
-// formatOptionalTime —— nil 保持 null(前端据此显示"还没跑过")。
+// formatOptionalTime —— nil stays null (the frontend shows "never run yet" based on that).
 func formatOptionalTime(t *time.Time) *string {
 	if t == nil {
 		return nil

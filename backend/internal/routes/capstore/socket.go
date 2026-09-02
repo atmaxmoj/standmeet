@@ -1,7 +1,9 @@
-// Package capstore —— socket 入站 controller。capstore 的四个 host op(insert/query/count/delete)：
-// 断网沙箱 cap 经 socket 读写自己那份隔离存储。按业务分类:它跟 capstore 住一起,不进机制 bucket。
-// BoundStore 已在构造期绑死到
-// 某个 cap 的命名空间(接口里没 kind/id),沙箱填不了别人的。cmd 按需要存储的 cap 挂这四个。
+// Package capstore — the socket inbound controller. capstore's four host ops
+// (insert/query/count/delete): an offline-sandboxed cap reads and writes its own isolated
+// store over the socket. Classified by domain, it lives with capstore rather than in the
+// mechanism bucket. BoundStore is already bound at construction time to one cap's namespace
+// (no kind/id in the interface), so the sandbox can't fill in someone else's. cmd wires these
+// four onto whichever caps need storage.
 package capstore
 
 import (
@@ -12,39 +14,45 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
-// BoundStore —— 已绑定到某个 cap 的隔离文档存储(无 kind/id)。cmd 用 capstore.Store 绑一个 (kind,id) 后传入。
+// BoundStore — an isolated document store already bound to one cap (no kind/id). cmd binds
+// one via capstore.Store to a (kind,id) pair before passing it in.
 type BoundStore interface {
 	Insert(ctx context.Context, collection string, doc json.RawMessage) (string, error)
 	Query(ctx context.Context, collection string, filter json.RawMessage) ([]json.RawMessage, error)
 	Count(ctx context.Context, collection string, filter json.RawMessage) (int64, error)
 	Delete(ctx context.Context, collection string, filter json.RawMessage) (int64, error)
-	// QueryRecords / DeleteByID —— 带记录 id 的读与按 id 删。
+	// QueryRecords / DeleteByID — read with the record id, and delete by that id.
 	//
-	// 这两个曾经标着 "host-only(cancel-by-id)":沙箱能力拿不到自己记录的 id,于是
-	// "按 id 取消一条预约"只能在 host 再实现一遍(那份实现现在还在,是这轮要删的)。
-	// 一个能力够不到自己的数据,就必然在别处长出一份副本 —— 跟 OwnerTools、Config 是同一个洞。
+	// These two used to be marked "host-only (cancel-by-id)": a sandboxed cap couldn't get its
+	// own record's id, so "cancel one booking by id" had to be reimplemented again on the
+	// host (that implementation still exists — it's what this round removes). When a
+	// capability can't reach its own data, a duplicate inevitably grows somewhere else — the
+	// same hole as OwnerTools and Config.
 	QueryRecords(
 		ctx context.Context, collection string, filter json.RawMessage,
 	) ([]BoundRecord, error)
 	DeleteByID(ctx context.Context, collection, recordID string) (int64, error)
-	// Claim / Release —— 单赢占位:同一个 key 同一时刻只有一个调用方拿得到(主键冲突保证,
-	// 不是先后顺序保证)。任何「先看一眼再动手」的动作都要它盖住中间那个窗口 —— 没有它,
-	// 两个同时进来的调用方会看见同一个「空着」(F-B-15:同一格被订两次)。
+	// Claim / Release — single-winner claim: only one caller gets a given key at a given
+	// moment (guaranteed by primary-key conflict, not by arrival order). Any "look then act"
+	// step needs this to cover the window in between — without it, two callers arriving at
+	// the same time would see the same "free" slot (F-B-15: the same slot gets booked twice).
 	Claim(ctx context.Context, collection, key string, ttlSeconds int) (bool, error)
 	Release(ctx context.Context, collection, key string) error
 }
 
-// BoundRecord —— 一条记录:它的 id + 文档。
+// BoundRecord — one record: its id plus the document.
 type BoundRecord struct {
 	ID  string          `json:"id"`
 	Doc json.RawMessage `json:"doc"`
 }
 
-// Ops —— 一个能力**自己的**存储:插入 / 查 / 数 / 删。store 在构造期就绑死到这个能力的
-// 命名空间,所以沙箱那侧填不了别人的表 —— 隔离是构造出来的,不是每次请求校验出来的。
+// Ops — one capability's **own** storage: insert / query / count / delete. store is bound at
+// construction time to that capability's namespace, so the sandbox side can't fill in someone
+// else's table — the isolation is built in, not checked on every request.
 //
-// store 为 nil(这个能力没要存储)→ 一件也不开。这个判断在这儿,不在收口:一个来源给不出
-// 东西的时候该自己说"没有",不该让汇聚方替每个来源记一遍。
+// store is nil (this capability didn't ask for storage) -> no ops are exposed. That check
+// lives here, not at the aggregation point: a source that has nothing to offer should say so
+// itself, rather than making the aggregator remember it for every source.
 func Ops(store BoundStore) []hostop.Op {
 	if store == nil {
 		return []hostop.Op{}

@@ -1,7 +1,9 @@
-// descriptor.go —— manifest.yaml 的形状。
+// descriptor.go — the shape of manifest.yaml.
 //
-// 它跟 mcpplugin.Manifest 是**两个东西**:这边是磁盘上的写法(YAML 标签、可省字段、
-// JSON Schema 用块标量原样写),那边是宿主用的形状。中间那层翻译在 loader.go,只有一处。
+// It and mcpplugin.Manifest are **two different things**: this side is the on-disk
+// spelling (YAML tags, optional fields, JSON Schema written verbatim as a block
+// scalar), that side is the shape the host uses. The translation between the two
+// happens in loader.go, and only there.
 
 package capabilities
 
@@ -13,7 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// descriptor —— 一个能力的完整声明。
+// descriptor — the complete declaration of one capability.
 type descriptor struct {
 	Transport    transportDesc     `yaml:"transport"`
 	Quota        quotaDesc         `yaml:"quota"`
@@ -32,27 +34,32 @@ type descriptor struct {
 	RawToolNames bool              `yaml:"raw_tool_names"`
 }
 
-// visitorToolDesc —— `visitor_tools` 的一项。**两种写法都收**：
+// visitorToolDesc — one entry of `visitor_tools`. **Both spellings are accepted**:
 //
 //	visitor_tools:
-//	  - calendar_list_slots            # 只要能力级 requires 就够（只读也能用）
-//	  - name: calendar_book            # 这一个动作还额外要什么
+//	  - calendar_list_slots            # a capability-level requires is enough (read is fine)
+//	  - name: calendar_book            # this one action needs something extra
 //	    requires: [calendar:events.insert]
 //
-// 为什么要 per-tool 这一层（F-B-8 ⭐⭐）：能力级的 `requires: [calendar]` 只答得了
-// 「连没连」。owner 只授 `calendar.readonly` 时连接是好的、列时段也是好的，**只有写会
-// 永远 403** —— 而产品照旧把「订会」摆给访客。把整条 requires 提到写权限上又会**连列时段
-// 一起藏掉**，那是拿掉一个本来能用的动作。所以粒度必须落到工具，跟产品在邮件那边的做法一致：
-// 确认邮件那一块不渲染，预约本身照旧在。
+// Why the per-tool layer exists (F-B-8 ⭐⭐): a capability-level `requires: [calendar]`
+// can only answer "connected or not". When the owner grants only `calendar.readonly`,
+// connecting is fine and listing slots is fine — **only writes must always 403** — yet
+// the product still offers "book a meeting" to the visitor. Moving the whole requires
+// onto the write permission would **hide listing slots along with it**, which removes
+// an action that already works. So the granularity has to land on the tool, matching
+// what the product already does for email: the confirmation-email part doesn't
+// render, but the booking itself still goes through.
 type visitorToolDesc struct {
 	Name     string   `yaml:"name"`
 	Requires []string `yaml:"requires"`
 }
 
-// UnmarshalYAML —— 裸字符串 = 只有名字；映射 = 名字 + 这一个工具额外的 requires。
-// 收两种写法是为了**不动**其余 4 个能力的 manifest：它们的 visitor_tools 全是裸名字，
-// 而"顺手把它们也改成映射"会把一次机制补齐变成一次全域改写（[[externalize-is-not-relocate]]
-// 的反面：这里要的正是只加机制、不搬家）。
+// UnmarshalYAML — a bare string = name only; a mapping = name + this one tool's
+// extra requires. Both spellings are accepted so the other 4 capabilities'
+// manifests stay **untouched**: their visitor_tools are all bare names, and
+// "might as well convert them to mappings too" would turn a mechanism patch into
+// a repo-wide rewrite ([[externalize-is-not-relocate]] in reverse: what's wanted
+// here is exactly add-the-mechanism-without-moving-anything).
 func (v *visitorToolDesc) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind == yaml.ScalarNode {
 		v.Requires = nil
@@ -73,7 +80,7 @@ func (v *visitorToolDesc) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-// transportDesc —— 怎么把这个能力跑起来。
+// transportDesc — how to run this capability.
 type transportDesc struct {
 	Env     map[string]string `yaml:"env"`
 	Headers map[string]string `yaml:"headers"`
@@ -84,7 +91,8 @@ type transportDesc struct {
 	Args    []string          `yaml:"args"`
 }
 
-// sandboxDesc —— 隔离声明。**没有 socket 路径这一项** —— 路径由 id 派生,装载器注入。
+// sandboxDesc — the isolation declaration. **No socket-path field** — the path is
+// derived from the id, and the loader injects it.
 type sandboxDesc struct {
 	PluginDir string   `yaml:"plugin_dir"`
 	HostOps   []string `yaml:"host_ops"`
@@ -92,7 +100,8 @@ type sandboxDesc struct {
 	Workspace bool     `yaml:"workspace"`
 }
 
-// ownerToolDesc —— owner 面的一个工具。input_schema 是 JSON Schema,按 JSON 原样写。
+// ownerToolDesc — one owner-facing tool. input_schema is JSON Schema, written as
+// literal JSON.
 type ownerToolDesc struct {
 	Name        string `yaml:"name"`
 	Tool        string `yaml:"tool"`
@@ -100,7 +109,8 @@ type ownerToolDesc struct {
 	InputSchema string `yaml:"input_schema"`
 }
 
-// fieldDesc —— 一个配置项(owner 面的和码上的同一套)。
+// fieldDesc — one config item (the owner-facing side and the code-side share this
+// same shape).
 type fieldDesc struct {
 	Min         *int   `yaml:"min"`
 	Max         *int   `yaml:"max"`
@@ -111,15 +121,17 @@ type fieldDesc struct {
 	Default     string `yaml:"default"`
 }
 
-// quotaDesc —— per-**主体**用量上限的三句话。三句不齐 → 不闸(宿主数不出用量时,"不闸"比
-// "瞎闸"对)。主体可以是一张码,也可以是一把对外 API key(F-B-11)。
+// quotaDesc — the three fields for a per-**subject** usage cap. Incomplete → no
+// gating (when the host can't count usage, "don't gate" beats "gate blindly").
+// The subject can be an access code, or an outward-facing API key (F-B-11).
 type quotaDesc struct {
 	ConfigKey    string `yaml:"config_key"`
 	Collection   string `yaml:"collection"`
 	SubjectField string `yaml:"subject_field"`
 }
 
-// manifest —— 三句话齐了才给出一份声明;没声明 quota 的能力得到 nil。
+// manifest — only produces a declaration once all three fields are filled in;
+// a capability that never declared quota gets nil.
 func (q quotaDesc) manifest() *mcpplugin.QuotaDecl {
 	decl := &mcpplugin.QuotaDecl{
 		ConfigKey: q.ConfigKey, Collection: q.Collection, SubjectField: q.SubjectField,
@@ -130,13 +142,15 @@ func (q quotaDesc) manifest() *mcpplugin.QuotaDecl {
 	return decl
 }
 
-// claimGateDesc —— 「说了就得做」的两句话:哪个工具算回执、哪些说法算主张。
+// claimGateDesc — the two fields behind "say it, then do it": which tool counts
+// as the receipt, and which phrasings count as a claim.
 type claimGateDesc struct {
 	Tool    string   `yaml:"tool"`
 	Phrases []string `yaml:"phrases"`
 }
 
-// manifest —— 两句话齐了才给出一份声明;没声明 claim_gate 的能力得到 nil。
+// manifest — only produces a declaration once both fields are filled in; a
+// capability that never declared claim_gate gets nil.
 func (c claimGateDesc) manifest() *mcpplugin.ClaimGateDecl {
 	decl := &mcpplugin.ClaimGateDecl{Tool: c.Tool, Phrases: c.Phrases}
 	if !decl.Usable() {

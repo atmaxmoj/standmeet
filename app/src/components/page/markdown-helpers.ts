@@ -1,4 +1,4 @@
-// markdown-helpers.ts —— chat markdown 的纯 helper，让 .tsx 不带分支。
+// markdown-helpers.ts —— pure helpers for chat markdown, so the .tsx stays branch-free.
 
 import type { ReactNode } from 'react';
 
@@ -6,20 +6,26 @@ export function isMermaidCode(className: string): boolean {
   return className.replace(/^language-/, '') === 'mermaid';
 }
 
-// escapeCurrencyDollars —— 把"货币 $"转义成 \$,免得 remark-math 把一句话里两个金额之间的
-// 文字当行内公式吃掉(#36/#40:"$100 ... $200")。
+// escapeCurrencyDollars —— escapes a "currency $" to \$ so remark-math doesn't
+// eat the text between two dollar amounts as inline math (#36/#40:
+// "$100 ... $200").
 //
-// **判据是配对,不是"后面跟没跟数字"。** 上一版的规则就是后者(`\$(?=\d)`),于是每一个
-// 以数字开头的行内公式都被它转义掉 —— `$0<h_1<h_2$` 里开头那个 `$` 死了,它的收尾 `$` 就
-// 变成了下一段的开头,整段的配对从此错位:访客在一段证明中间读到成片的 `\varphi`、`\le`
-// 和 `$`,周围的词还被粘成 `dividingby`(F-R-4,真 vault 笔记 adaptive-commitment-value)。
-// 一条为某一类写的规则,悄悄吃掉了紧挨着的另一类,而且坏的不只是那一处,是那一段的其余部分。
+// **The test is pairing, not "is a digit next."** The previous rule was the
+// latter (`\$(?=\d)`), so it escaped every inline formula that starts with a
+// digit — e.g. the opening `$` in `$0<h_1<h_2$` got killed, and its closing
+// `$` became the start of the next segment, throwing off every pairing after
+// it: the visitor reads a run of `\varphi`, `\le`, and `$` in the middle of a
+// proof, with surrounding words glued into `dividingby` (F-R-4, from a real
+// vault note, adaptive-commitment-value). A rule written for one class
+// quietly ate the neighboring class, and the damage wasn't limited to that
+// one spot — it corrupted the rest of the paragraph.
 //
-// 现在的规则:一个后面跟数字的 `$`,只有在**同一行里找不到能给它收尾的 `$`** 时才算货币。
-// 能收尾 = 那个 `$` 前面不是空白(remark-math 自己的收尾条件),且后面不是字母数字
-// (否则它是下一个金额的 `$`)。于是:
-//   "$100 up front and $200"  → 候选收尾前面是空格 → 不成对 → 两个都是货币 ✓
-//   "$0<h_1<h_2$, $t=…$"      → 收尾前面是 `2`、后面是 `,` → 成对 → 是公式,不动 ✓
+// The current rule: a `$` followed by a digit only counts as currency when
+// **no `$` later on the same line can close it**. "Can close" means that `$`
+// is not preceded by whitespace (remark-math's own closing condition) and not
+// followed by an alphanumeric (otherwise it's the next amount's `$`). So:
+//   "$100 up front and $200"  → candidate closer is preceded by a space → no pair → both are currency ✓
+//   "$0<h_1<h_2$, $t=…$"      → closer preceded by `2`, followed by `,` → pairs → it's math, leave it ✓
 export function escapeCurrencyDollars(md: string): string {
   return md.replace(
     /(?<![\\$])\$(?=\d)/g,
@@ -28,7 +34,7 @@ export function escapeCurrencyDollars(md: string): string {
   );
 }
 
-// hasInlineCloser —— openAt 处的 `$` 在同一行里有没有一个能当收尾的 `$`。
+// hasInlineCloser —— does the `$` at openAt have a `$` later on the same line that can close it?
 function hasInlineCloser(text: string, openAt: number): boolean {
   const lineEnd = lineEndFrom(text, openAt);
   for (let i = openAt + 1; i < lineEnd; i += 1) {
@@ -37,8 +43,9 @@ function hasInlineCloser(text: string, openAt: number): boolean {
   return false;
 }
 
-// closesMath —— 前面不是空白(remark-math 的收尾条件),后面不是字母数字
-// (紧跟着字母数字的 `$` 是下一段的开头,不是这一段的收尾)。
+// closesMath —— not preceded by whitespace (remark-math's closing condition),
+// not followed by an alphanumeric (a `$` right before an alphanumeric is the
+// start of the next segment, not this segment's close).
 function closesMath(text: string, at: number): boolean {
   const before = text[at - 1] ?? ' ';
   const after = text[at + 1] ?? ' ';
@@ -50,11 +57,15 @@ function lineEndFrom(text: string, from: number): number {
   return at === -1 ? text.length : at;
 }
 
-// promoteDisplayMath —— Obsidian 把单行 `$$…$$` 当 **display**(块级、居中)数学;remark-math
-// v6+ 却把单行 `$$x$$` 当 **inline** → 无 `.katex-display` → 高公式(∑/分式带上下标)与相邻
-// 文字行重叠(F-R-3,真 vault `wiki/math/analysis/lagrangian` 全是这种写法)。渲染前把一整行
-// (可带 blockquote `>` 前缀)、开头到结尾就是一个 `$$…$$` 的行,提成 fenced 形式(`$$` 各占
-// 一行),让 remark-math 走 display 分支。多行 `$$`(`$$` 已各占一行)与行内 `$…$` 都不匹配。
+// promoteDisplayMath —— Obsidian treats a single-line `$$…$$` as **display**
+// (block-level, centered) math; remark-math v6+ instead treats a single-line
+// `$$x$$` as **inline** → no `.katex-display` → tall formulas (sums/fractions
+// with sub/superscripts) overlap the adjacent text line (F-R-3, seen
+// throughout the real vault at `wiki/math/analysis/lagrangian`). Before
+// rendering, promote any line that is entirely one `$$…$$` (optionally with a
+// blockquote `>` prefix) from start to end into fenced form (`$$` each on
+// their own line), so remark-math takes the display branch. A multi-line
+// `$$` block (`$$` already on its own line) and inline `$…$` both don't match.
 export function promoteDisplayMath(md: string): string {
   return md.replace(
     /^([ \t]*(?:>[ \t]?)*)\$\$(?!\$)(.+?)\$\$[ \t]*$/gm,

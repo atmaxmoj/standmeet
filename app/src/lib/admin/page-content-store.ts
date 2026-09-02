@@ -1,9 +1,9 @@
-// page-content-store —— /api/admin/page server baseline 的 resource store。
-// admin /page section 编辑表单的 baseline；mutate() 在 PUT 成功后同步缓存
-// 让下一次 mount 不必重新 GET。
+// page-content-store —— resource store for the /api/admin/page server baseline.
+// The baseline for the admin /page section's edit form; mutate() syncs the
+// cache after a successful PUT so the next mount doesn't need to re-GET.
 //
-// 跟 sessionStore / codesStore 同形状：单一 fetcher，{status,data,error}
-// 由 [[create-resource-store]] 工厂统一形态。
+// Same shape as sessionStore / codesStore: a single fetcher, {status,data,error}
+// unified by the [[create-resource-store]] factory.
 
 import { adminAPI, type AdminPage } from '@/lib/api/admin';
 import { AdminPageSchema } from '@/lib/api/public-schemas';

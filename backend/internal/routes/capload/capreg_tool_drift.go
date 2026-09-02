@@ -1,13 +1,18 @@
-// capreg_tool_drift.go —— manifest 里那份 `visitor_tools` 声明，跟沙箱真答的那份对账。
+// capreg_tool_drift.go —— reconciles the `visitor_tools` declaration in the manifest
+// against what the sandbox actually answers.
 //
-// 为什么会有两份：访客工具名的真相在沙箱那边（拨号时 tools/list 回什么就是什么），而有人
-// 要在**拨号之前**就问「哪个工具是哪个能力的」—— 市场卡上那句 "needs X connector" 就是
-// （F-F-4）。于是能力在 manifest 里声明一份，首拨时对一次账。
+// Why there are two copies: the source of truth for visitor tool names lives on the
+// sandbox side (whatever tools/list returns on dial is what it is), yet something needs to
+// ask "which tool belongs to which capability" **before dialing** — the "needs X
+// connector" line on a marketplace card is exactly that (F-F-4). So the capability
+// declares a copy in the manifest, and it gets reconciled once on the first dial.
 //
-// 不对账的副本会漂，而漂了没人会发现：装配照常成功，只是产品对那个问题开始答错。
+// An unreconciled copy drifts, and nobody notices when it does: assembly keeps succeeding
+// as normal, only the product starts answering that question wrong.
 //
-// **绑定用的仍是真的那份**：声明可以过期，不许让它改变访客拿到什么。
-// 判定在 mcpplugin（声明住的地方），这里只把结论记出来。
+// **The real copy is still what's used for binding**: a declaration can go stale, but it
+// is never allowed to change what a visitor actually gets. The judgment lives in mcpplugin
+// (where the declaration lives); this file only records the conclusion.
 
 package capload
 
@@ -18,15 +23,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// VisitorToolNames —— manifest 里声明的访客工具名（capreg.ProvidesVisitorTools）。
-// 空 = 这个能力没声明，于是「这个工具是谁的」在拨号之前查不到它 —— 那是未知，不是没有。
+// VisitorToolNames —— the visitor tool names declared in the manifest
+// (capreg.ProvidesVisitorTools). Empty = this capability declared none, so "who owns this
+// tool" can't be looked up before dialing — that's unknown, not absent.
 func (c *mcpAppCapability) VisitorToolNames() []string { return c.m.VisitorTools }
 
-// ToolRequires —— manifest 里**某几个工具各自**额外点名的依赖（capreg.RequiresPerTool）。
-// 装配时按它把做不了的那几个动作摘掉，而同一个能力里做得了的照旧在（F-B-8）。
+// ToolRequires —— the extra dependencies **some individual tools** each name in the
+// manifest (capreg.RequiresPerTool). At assembly time, this strips out the specific
+// actions that can't be done while leaving the ones that can still in the same capability
+// (F-B-8).
 func (c *mcpAppCapability) ToolRequires() map[string][]string { return c.m.VisitorToolRequires }
 
-// reportToolDrift —— 首拨是**真答案第一次到手**的那一刻，拿它对一遍声明。
+// reportToolDrift —— the first dial is the moment **the real answer arrives for the first
+// time**; use it to reconcile against the declaration.
 func reportToolDrift(m *mcpplugin.Manifest, dialed []mcpclient.Tool) {
 	drift := mcpplugin.VisitorToolDrift(m, toolNames(dialed))
 	if drift.Drifted {

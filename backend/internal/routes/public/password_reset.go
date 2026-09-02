@@ -1,11 +1,13 @@
 // password_reset.go —— POST /api/v1/account/reset-password
 //
-// 兜底紧急 password reset：operator 在 server 上跑 standmeet password-reset
-// 子命令颁发 token；owner 拿 token 来这里 consume 改密码。
+// Fallback emergency password reset: an operator runs the standmeet password-reset
+// subcommand on the server to issue a token; the owner brings that token here to
+// consume it and change the password.
 //
-// 不需要 session，公开端点；token 本身就是凭据。
-// rate-limit 通过 chi 默认 timeout 兜，不在这里加（reset 流程节奏低；服务器
-// shell 已经是高门槛了，brute force 不实际）。
+// No session required, a public endpoint; the token itself is the credential.
+// Rate-limiting is covered by chi's default timeout, no extra limiter added here (the
+// reset flow is low-cadence; server shell access is already a high bar, so brute force
+// isn't practical).
 
 package public
 
@@ -21,13 +23,13 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// PasswordResetHandlers —— /api/v1/account/reset-password 路由依赖。
+// PasswordResetHandlers —— dependencies for the /api/v1/account/reset-password route.
 type PasswordResetHandlers struct {
 	Deps owner.PasswordResetDeps
 	Log  *slog.Logger
 }
 
-// Mount 挂 /account/reset-password。caller 前缀 /api/v1。
+// Mount wires /account/reset-password. Caller prefixes /api/v1.
 func (h *PasswordResetHandlers) Mount(r chi.Router) {
 	r.Post("/account/reset-password", h.resetPassword())
 }

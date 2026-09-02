@@ -1,12 +1,17 @@
-// codes.go —— /api/admin/codes/*：owner 发出去的邀请码。
+// codes.go — /api/admin/codes/*: the invitation codes the owner has issued.
 //
-// 能力来自出站收口（通用件在 dispatch.go）；这个面只决定 REST 形状：
-// 资源 id 走路径、其余进 body，denial 的 kind 和 target 也在路径上（历史形状，前端按它写的）。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// this facade only decides the REST shape: the resource id goes in the path, everything
+// else goes in the body, and a denial's kind and target also sit in the path (a
+// historical shape the frontend was written against).
 //
-// 出站载荷跟 MCP 面是同一份。迁移前差了三处：
-//   - MCP 的 codes.list 少 require_ghost_evidence / prompt_id；
-//   - corpus 拒绝（ACL 的第三类）只有 admin 有一条单独路由，MCP 的 list_denials 看不到；
-//   - waypoints / corpus / ghost-evidence 三条路由在手写台账里一行都没有，棘轮看不见。
+// The outbound payload is the same one MCP's facade uses. Before the migration, three
+// things had drifted:
+//   - MCP's codes.list was missing require_ghost_evidence / prompt_id;
+//   - corpus denial (the ACL's third kind) only had a separate route on admin; MCP's
+//     list_denials couldn't see it;
+//   - the waypoints / corpus / ghost-evidence routes had zero lines in the hand-written
+//     ledger, so the ratchet couldn't see them.
 
 package admin
 
@@ -20,19 +25,20 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// 路径参数名 —— 前端按这套 URL 形状写的,改名要连着前端一起改。
+// Path parameter names — the frontend is written against this URL shape; renaming one
+// means changing the frontend too.
 const (
 	paramCodeID   = "code_id"
 	paramKind     = "kind"
 	paramTargetID = "target_id"
 )
 
-// CodesDeps —— admin codes handlers 的能力来源。
+// CodesDeps — capability source for the admin codes handlers.
 type CodesDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountCodes 挂 /codes 子路由（caller 已经在 /codes 前缀内）。
+// MountCodes mounts the /codes subrouter (the caller is already inside the /codes prefix).
 func (h *Handlers) MountCodes(r chi.Router) {
 	face := h.CodesAdmin.Face
 	r.Get("/", h.dispatchOp(face, "codes.list", emptyArgs, jsonOK))
@@ -43,7 +49,8 @@ func (h *Handlers) MountCodes(r chi.Router) {
 		h.dispatchOp(face, "codes.update_quotas", bodyWithURLParam(paramCodeID), jsonOK))
 	r.Patch("/{code_id}/ghost-evidence",
 		h.dispatchOp(face, "codes.set_ghost_evidence", bodyWithURLParam(paramCodeID), jsonOK))
-	// 这张码开哪一页。空 slug = 解绑，退回默认的访客对话。
+	// Which page this code opens. An empty slug unbinds it, falling back to the default
+	// visitor chat.
 	r.Patch("/{code_id}/custom-page",
 		h.dispatchOp(face, "codes.set_custom_page", bodyWithURLParam(paramCodeID), jsonOK))
 	r.Get("/{code_id}/members",
@@ -51,10 +58,13 @@ func (h *Handlers) MountCodes(r chi.Router) {
 	h.mountCodeACL(r, face)
 }
 
-// mountCodeACL —— 一张码的 ACL 面：三类拒绝 + 引导目的地。
+// mountCodeACL — a single code's ACL facade: the three denial kinds + waypoint
+// destinations.
 //
-// 三类拒绝以前分在两处：capability/skill 走 /denials/{kind}，corpus 走单独的 /corpus。
-// 现在同一个 op，kind 是参数 —— 它们本来就是"在 role 给的范围上再收窄一层"的三个维度。
+// The three denial kinds used to split across two places: capability/skill went through
+// /denials/{kind}, corpus went through a separate /corpus. Now it's the same op with kind
+// as a parameter — they were always three dimensions of "narrowing further within the
+// scope a role already grants".
 func (h *Handlers) mountCodeACL(r chi.Router, face *dispatcher.Face) {
 	r.Get("/{code_id}/waypoints",
 		h.dispatchOp(face, "codes.waypoints", urlParamArgs(paramCodeID), jsonOK))
@@ -62,8 +72,9 @@ func (h *Handlers) mountCodeACL(r chi.Router, face *dispatcher.Face) {
 		h.dispatchOp(face, "codes.set_waypoints", bodyWithURLParam(paramCodeID), jsonOK))
 	r.Get("/{code_id}/denials",
 		h.dispatchOp(face, "codes.list_denials", urlParamArgs(paramCodeID), jsonOK))
-	// 整份替换一类拒绝。今天只有 corpus 这类是"一张清单"（owner 在文本框里编辑），
-	// 所以 kind 固定在路径上，形状留着给以后另外两类。
+	// Replaces a whole denial kind's set at once. Today only corpus is "a single list"
+	// (the owner edits it in a textbox), so kind is fixed in the path here; the shape is
+	// left in place for the other two kinds later.
 	r.Put("/{code_id}/denials/corpus",
 		h.dispatchOp(face, "codes.set_corpus_denials", bodyWithURLParam(paramCodeID), jsonOK))
 	r.Post("/{code_id}/denials/{kind}",
@@ -72,18 +83,20 @@ func (h *Handlers) mountCodeACL(r chi.Router, face *dispatcher.Face) {
 		h.dispatchOp(face, "codes.remove_denial", pathDenialArgs, jsonOK))
 }
 
-// denialTargetFields —— 各 kind 在 body 里用的字段名（历史形状：字段名跟着 kind 变）。
-// 收口那边统一是 target_id，这里做映射 —— 这就是"REST 形状留在面上"的具体样子。
+// denialTargetFields — the body field name each kind uses (a historical shape: the field
+// name varies with kind). The convergence point side is uniformly target_id; the mapping
+// happens here — this is what "the REST shape stays in the facade" looks like concretely.
 //
-// kind 本身是这条路由自己的路径段，所以在这儿是字面量；能接受哪几个值由 op 的 schema 说，
-// 面不复述那份判断（给错了域会回一句 bad input）。
+// kind itself is this route's own path segment, so it's a literal here; which values are
+// accepted is decided by the op's schema — the facade doesn't restate that judgment
+// (a wrong value gets a bad-input reply from the domain).
 var denialTargetFields = map[string]string{
 	"capability": "capability_id",
 	"skill":      "skill_id",
 	"corpus":     "uri",
 }
 
-// addDenialArgs —— POST /codes/{id}/denials/{kind}：kind 在路径，target 在 body。
+// addDenialArgs — POST /codes/{id}/denials/{kind}: kind in the path, target in the body.
 func addDenialArgs(r *http.Request) (json.RawMessage, error) {
 	kind := chi.URLParam(r, paramKind)
 	fields, err := decodeBodyFields(r)
@@ -98,7 +111,7 @@ func addDenialArgs(r *http.Request) (json.RawMessage, error) {
 	return marshalDenial(chi.URLParam(r, paramCodeID), kind, target)
 }
 
-// pathDenialArgs —— DELETE /codes/{id}/denials/{kind}/{target_id}：三样都在路径上。
+// pathDenialArgs — DELETE /codes/{id}/denials/{kind}/{target_id}: all three sit in the path.
 func pathDenialArgs(r *http.Request) (json.RawMessage, error) {
 	target, merr := json.Marshal(chi.URLParam(r, paramTargetID))
 	if merr != nil {

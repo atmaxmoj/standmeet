@@ -1,9 +1,9 @@
 import { z } from 'zod';
-// use-codes —— /admin/codes 的状态。zustand store 管 list cache + status；
-// action 函数（create / revoke / updateQuotas / dispatchSave）跟 store
-// 平级，调完直接 mutate / refresh。
+// use-codes —— state for /admin/codes. A zustand store manages list cache +
+// status; action functions (create / revoke / updateQuotas / dispatchSave)
+// sit alongside the store, mutating/refreshing directly once called.
 //
-// 这是 zustand 重构的样板：其他 hook 跟随同一 pattern。
+// This is the zustand refactor's template: other hooks follow this same pattern.
 
 import { useEffect } from 'react';
 
@@ -11,10 +11,10 @@ import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-// PathPermission —— retrieval-redesign 的准入单元。first-match-wins by
-// A.3-IAM-5: PathPermission / corpus_permissions / granted_skills / skill_ids
-// 全部从 code wire 形态删了 —— code 只挂 assumed_role_id，ACL / capability
-// 都从 role 推断。
+// PathPermission —— the access unit of the retrieval-redesign. first-match-wins
+// as of A.3-IAM-5: PathPermission / corpus_permissions / granted_skills /
+// skill_ids have all been removed from the code wire shape — a code only
+// carries assumed_role_id, and ACL / capability are both derived from the role.
 export const CodeViewSchema = z.object({
   id: z.string(), code: z.string(), label: z.string(), status: z.string(),
   purpose: z.string().optional(),
@@ -27,18 +27,20 @@ export const CodeViewSchema = z.object({
   max_members: z.number().nullable().optional(),
   max_turns_per_session: z.number().nullable().optional(),
   max_bookings: z.number().nullable().optional(),
-  // require_ghost_evidence —— F-A-10 per-code 覆盖:null/缺 = 继承 role;true/false = 显式覆盖。
+  // require_ghost_evidence —— F-A-10 per-code override: null/absent = inherits the role; true/false = explicit override.
   require_ghost_evidence: z.boolean().nullable().optional(),
   assumed_role_id: z.string(),
   prompt_id: z.string().nullable().optional(),
-  // provider_id —— 这张码指定的 provider;'' = 继承 role,再退 owner 默认。
+  // provider_id —— the provider this code specifies; '' = inherits the role, then falls back to the owner default.
   provider_id: z.string().nullish().transform((v) => v ?? ''),
-  // member_count —— 已经进来几个人。上限单独摆着说明不了任何事:一张满了的码跟一张全新的码
-  // 会长得一模一样,而访客那头已经被挡在门外了(F-D-2)。旧后端不发这个字段,所以 nullish→0。
+  // member_count —— how many people have joined so far. The cap on its own
+  // says nothing: a full code and a brand-new code would look identical,
+  // while visitors are already being turned away at the door (F-D-2). Old
+  // backends don't send this field, so nullish→0.
   member_count: z.number().nullish().transform((v) => v ?? 0),
-  // custom_page_slug —— 这张码开哪一页。'' = 开默认的访客对话。
-  // nullish：旧后端不发这个字段，而少一个字段不该让整份码列表静默失败
-  // （[[zod-unknown-is-not-optional]]）。
+  // custom_page_slug —— which page this code opens. '' = opens the default visitor chat.
+  // nullish: old backends don't send this field, and a missing field
+  // shouldn't silently fail the whole code list ([[zod-unknown-is-not-optional]]).
   custom_page_slug: z.string().nullish().transform((v) => v ?? ''),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
@@ -73,13 +75,13 @@ export interface CodesHook {
   setCustomPage: (id: string, slug: string) => Promise<void>;
 }
 
-// codesStore —— module-singleton；一次 fetch、所有 component 共享。
+// codesStore —— a module singleton; fetched once, shared by every component.
 export const codesStore = createResourceStore<CodeView[]>({
   name: 'codes',
   fetcher: () => adminAPI.get('/codes/', z.array(CodeViewSchema)),
 });
 
-// useCodes —— component-facing hook。读 store + mount 时 ensureLoaded。
+// useCodes —— the component-facing hook. Reads the store + calls ensureLoaded on mount.
 export function useCodes(): CodesHook {
   const r = useResource(codesStore);
   const ensureLoaded = r.ensureLoaded;
@@ -97,7 +99,8 @@ export function useCodes(): CodesHook {
   };
 }
 
-// mutation 抛错（不再吞成 false）：调用方用 useAction 收尾（成功 toast / 失败 report），或就地内联。
+// The mutation throws (no longer swallowed into false): the caller finishes
+// up with useAction (success toast / failure report), or inlines it in place.
 async function createCode(input: CreateCodeInput): Promise<void> {
   const created = await adminAPI.post('/codes/', toCreateBody(input), CodeViewSchema);
   codesStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
@@ -115,7 +118,7 @@ async function updateQuotas(id: string, input: QuotasInput): Promise<void> {
     (prev ?? []).map((c) => c.id === updated.id ? updated : c));
 }
 
-// setGhostEvidence —— F-A-10 per-code 覆盖:null = 继承 role;true/false = 显式覆盖(code 优先于 role)。
+// setGhostEvidence —— F-A-10 per-code override: null = inherits the role; true/false = explicit override (code takes priority over role).
 async function setGhostEvidence(id: string, value: boolean | null): Promise<void> {
   const updated = await adminAPI.patch(
     `/codes/${id}/ghost-evidence`, { require_ghost_evidence: value }, CodeViewSchema,
@@ -124,10 +127,11 @@ async function setGhostEvidence(id: string, value: boolean | null): Promise<void
     (prev ?? []).map((c) => c.id === updated.id ? updated : c));
 }
 
-// setCustomPage —— 这张码开哪一页。空串 = 解绑，回到默认的访客对话。
-// 一张码最多挂一页 —— 所以这里是**赋值**，不是「加一个」：换一页就顶掉原来那页。
-// 回执发的是**回读到的** slug，不是入参回声 —— 所以存进 store 的也是回执那一份，
-// 而不是刚才选的那一个（[[write-with-no-receipt]]）。
+// setCustomPage —— which page this code opens. Empty string = unbind, back to the default visitor chat.
+// A code attaches to at most one page — so this is an **assignment**, not
+// "add one": switching pages replaces the previous one.
+// The receipt returns the **slug as read back**, not an echo of the input —
+// so what's stored into the store is the receipt's value, not the one just selected ([[write-with-no-receipt]]).
 async function setCustomPage(id: string, slug: string): Promise<void> {
   const done = await adminAPI.patch(
     `/codes/${id}/custom-page`, { slug },
@@ -148,14 +152,14 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     max_bookings: input.max_bookings ?? null,
     assumed_role_id: input.assumed_role_id ?? null,
     prompt_id: input.prompt_id ?? null,
-    // 空串 = 不指定(后端把空当"没给")。这里不发 null:那一列是 uuid 引用,
-    // 后端收的是 string 形态的 id。
+    // Empty string = unspecified (the backend treats empty as "not given").
+    // null isn't sent here: that column is a uuid reference, and the backend expects the id as a string.
     provider_id: input.provider_id ?? '',
   };
 }
 
-// codeModalLabels —— modal 头部文案 / kicker / 是否 edit。switch-by-existing
-// 的分支让 component 自己 cyclo ≤ 3，挪 lib 写 if/else。
+// codeModalLabels —— the modal's header copy / kicker / whether it's an
+// edit. The switch-by-existing branching is moved to lib as if/else, keeping the component's cyclo ≤ 3.
 export function codeModalLabels(
   existing: CodeView | null,
 ): { editing: boolean; kicker: string; title: string } {
@@ -165,8 +169,8 @@ export function codeModalLabels(
   return { editing: false, kicker: 'new code', title: 'gate a slice of your wiki' };
 }
 
-// dispatchSave —— "存档" 业务：editing 决定走 PATCH /quotas 还是 POST。把
-// 分支挪 lib 让 component 复杂度 ≤ 3。
+// dispatchSave —— the "save" logic: editing decides whether this goes
+// through PATCH /quotas or POST. Branching moved to lib so the component's complexity stays ≤ 3.
 export async function dispatchSave(
   existing: CodeView | null,
   input: CreateCodeInput,
@@ -183,8 +187,8 @@ export async function dispatchSave(
   });
 }
 
-// MemberView / listCodeMembers —— member 是 AccessCode 聚合的子实体，只读。
-// revoke 在 code 级别（revokeCode）—— member 不该单独管。
+// MemberView / listCodeMembers —— a member is a read-only child entity of
+// the AccessCode aggregate. revoke happens at the code level (revokeCode) — a member should never be managed individually.
 const MemberViewSchema = z.object({
   id: z.string(), display_name: z.string(), email: z.string().optional(),
   is_anonymous: z.boolean(), last_seen_at: z.string().optional(),

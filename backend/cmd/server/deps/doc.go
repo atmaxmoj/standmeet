@@ -1,8 +1,11 @@
-// Package deps —— 组装根手上那一堆跑着的东西:连接池、各域的仓储、两根轴的注册表、两个收口。
+// Package deps —— the running things the composition root holds: connection pools,
+// each domain's repos, both axis registries, and the two convergence points.
 //
-// **只有数据,没有装配** —— 装出这些对象是 main 的事,这里只给它们一个共同的类型,好让组装根
-// 的四个组(port / axisconn / axiscap / wire)都能收同一个引用。
+// **Data only, no assembly** — constructing these objects is main's job; this package
+// only gives them a shared type, so the composition root's four groups (port / axisconn /
+// axiscap / wire) can all hold the same reference.
 //
-// 它在组装根内部是叶子:那四个包一个都不 import。方向因此立得住 —— 摊在一个包里的时候,
-// 任何一段都能直接够到任何一段。
+// It is a leaf inside the composition root: none of those four packages import it.
+// That's what makes the direction hold — once everything is flattened into one package,
+// any section could reach any other section directly.
 package deps

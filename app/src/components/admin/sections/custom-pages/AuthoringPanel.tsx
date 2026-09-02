@@ -1,14 +1,18 @@
-// AuthoringPanel —— 在面板上写一个自定义页：粘源码 → 构建 → 看状态 → 上线。
+// AuthoringPanel — write a custom page in the panel: paste source → build → watch status
+// → publish.
 //
-// 这一块以前不存在。写这一组的能力**一直都在**（create / write_file / build /
-// get_build / promote_to_live 齐全），只在 MCP 上，而那条例外的理由是
-// 「面板没有这个界面」—— 用现状解释现状。删掉例外之后收口点名要这几条，这里是它们的脸。
+// This block did not exist before. The capability to write this set **always existed**
+// (create / write_file / build / get_build / promote_to_live all present), just on MCP
+// only, and the exception's reason was "the panel has no UI for this" — explaining the
+// status quo with the status quo. After removing the exception, the closure named these
+// items; this is their face.
 //
-// 三件事刻意做出来：
-//   · 构建是**异步**的，所以「在跑」「成了」「失败了」必须在屏幕上分得出来 ——
-//     一个悄悄失败、线上还是旧页的构建，在 owner 眼里跟成功一模一样。
-//   · 失败要把**后端说的那句话**原样摆出来，不是「构建失败」四个字。
-//   · 上线是单独一步：构建成功不等于 owner 想让它上线。
+// Three things are deliberate:
+//   · Build is **async**, so "running" / "succeeded" / "failed" must be visually
+//     distinguishable — a silently failed build, with the live page still the old one,
+//     looks identical to success from the owner's view.
+//   · On failure, show **the backend's exact message** verbatim, not just "build failed".
+//   · Publish is a separate step: a successful build does not mean the owner wants it live.
 
 'use client';
 
@@ -56,9 +60,10 @@ export function AuthoringPanel() {
   );
 }
 
-// ImportsHelp —— 能 import 什么。**这一块是这个面板缺的那件东西**：builder 早就 vendor
-// 了 sdk / sdk-core / agent-core，而屏幕上一个字没说，owner 只能靠猜。
-// 清单从 `custom-page-imports.ts` 来，那份有闸门钉着它跟 builder/vendor 一致。
+// ImportsHelp — what can be imported. **This is the thing this panel was missing**: the
+// builder has long vendored sdk / sdk-core / agent-core, but nothing on screen said so,
+// so the owner had to guess. The list comes from `custom-page-imports.ts`, which a gate
+// pins to stay consistent with builder/vendor.
 function ImportsHelp() {
   const t = useTranslations('adminPages.customPages');
   return (
@@ -117,8 +122,9 @@ function SourceField({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
-// BuildLine —— 「在跑 / 成了 / 失败了」三态必须分得出来，而失败那一态要把后端说的
-// 那句话原样摆出来：owner 要修的是源码里的某一行，不是「构建失败」四个字。
+// BuildLine — the three states "running / succeeded / failed" must be distinguishable,
+// and the failed state must show the backend's exact message: the owner needs to fix a
+// line in the source, not read "build failed".
 function BuildLine({ build }: { build: BuildView | null }) {
   return build === null ? null : <BuildState build={build} />;
 }
@@ -129,8 +135,8 @@ function BuildState({ build }: { build: BuildView }) {
     : <BuildProgress built={build.status === 'built'} />;
 }
 
-// BuildFailed —— **把后端说的那句话原样摆出来**。owner 要修的是源码里的某一行，
-// 而「构建失败」四个字对他没有任何用处。
+// BuildFailed — **show the backend's exact message verbatim**. The owner needs to fix a
+// line in the source; "build failed" alone is useless to him.
 function BuildFailed({ message }: { message: string }) {
   const t = useTranslations('adminPages.customPages');
   return (

@@ -1,11 +1,13 @@
-// page-shell —— / 根公开页的 client 容器（v1 单 owner instance）。把 SSR fetch
-// 好的 owner + content 接给设计稿那套：TopBar / Banners / Hero / Conversation /
-// Insights / Projects / Where / Contact / Footer，dark 切换 + chat 状态在这一层管。
+// page-shell — the client container for the / root public page (v1 single-owner instance).
+// Wires the SSR-fetched owner + content into the design's layout: TopBar / Banners / Hero /
+// Conversation / Insights / Projects / Where / Contact / Footer. Dark-mode toggle + chat
+// state are managed at this layer.
 //
-// mode 来自 localStorage（use-gate.persistSession 写的 visitor-session），
-// 不再读 URL `?byoai=1` —— flag-on-URL 是坏设计（URL 上落历史 / 截图 / 分享时
-// 泄漏 + 状态边界混乱）。BYOAI 流程：visitor 在 /gate 提交 → use-gate 写
-// localStorage → router.push('/') → 这里读 store → 渲染 byoai banner。
+// mode comes from localStorage (the visitor-session written by use-gate.persistSession),
+// not from the URL `?byoai=1` anymore — flag-on-URL is bad design (it leaks into browser
+// history / screenshots / shares, and blurs the state boundary). BYOAI flow: the visitor
+// submits on /gate → use-gate writes localStorage → router.push('/') → this reads the store
+// → renders the byoai banner.
 
 'use client';
 
@@ -54,10 +56,11 @@ function useChatModeDetect(): boolean {
   return session !== null && (session.code !== null || session.byoai);
 }
 
-// useSessionMode —— mode 直接从 session store 派生(reactive):名字选择器
-// issue session(setSession)后无需额外 sync,mode 自动从 public 切到 code。
-// store 由 SessionStrip 的 bindVisitorSessionSync 在 mount 时从 localStorage
-// hydrate(返客)。顺手挂 useAbsorbCodeFromURL 吸 ?code=(只存 pending,不 issue)。
+// useSessionMode — mode derives directly from the session store (reactive): once the name
+// picker issues a session (setSession), no extra sync is needed — mode auto-switches from
+// public to code. The store is hydrated from localStorage on mount by SessionStrip's
+// bindVisitorSessionSync (for returning visitors). Also mounts useAbsorbCodeFromURL to
+// absorb ?code= (only stores it as pending, doesn't issue).
 function useSessionMode(): SessionMode {
   useAbsorbCodeFromURL();
   const session = useVisitorSessionStore((s) => s.session);
@@ -74,9 +77,10 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
   const ghost = useCurrentGhost();
   const ghostLogger = useGhostLogger();
 
-  // 长滚屏只对**没有 chat session**(public)的访客渲染 —— 这里提问不行内答,一律
-  // hand off 到 /gate(填 code/BYOAI),问题用 ?q= 带过去,过闸后在 ChatRoom 接着答。
-  // 无码不该用 owner 的 key 直接聊。
+  // The long-scroll body only renders for visitors with **no chat session** (public) — asking
+  // a question here never answers inline; it always hands off to /gate (fill in code/BYOAI),
+  // carrying the question via ?q=, then continues answering in ChatRoom past the gate. A
+  // codeless visitor must not chat directly with the owner's key.
   const onAsk = useCallback((q: string) => {
     setInput('');
     router.push(gateHref(q));
@@ -136,7 +140,8 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
   );
 }
 
-// gateHref —— 把首页问题带去 /gate(空问题就纯 /gate)。过闸后 gate 跳 /?q= 续答。
+// gateHref — carries a homepage question to /gate (plain /gate if the question is empty).
+// After the gate, gate redirects to /?q= to continue answering.
 function gateHref(q: string): string {
   const trimmed = q.trim();
   return trimmed === '' ? '/gate' : `/gate?q=${encodeURIComponent(trimmed)}`;

@@ -1,14 +1,20 @@
-// visitor_gas_quota.go —— 发言前查一次油量(#7)。
+// visitor_gas_quota.go —— checks gas level once before a turn is sent (#7).
 //
-// 跟隔壁 visitor_turn_quota.go 是同一个形状,只是量纲不同:轮数换成 token。
+// Same shape as the neighboring visitor_turn_quota.go, just a different unit: turn count
+// swapped for tokens.
 //
-//   · 没挂表 → **一次查询都不发**就返回。这不是优化,是"绝大多数 owner 从不计量"那条路
-//     必须在结构上跟今天一模一样 —— 挂表与否由 role 说了算,而它默认是 false。
-//   · 挂了表 → 写之前查一次,空了就回一个哨兵,面翻成 403 + 一句人话。
-//   · 剩多少不存计数器:owner 域读时从用量求和派生(那边的 provider_gas.go)。
+//   · No metering attached → returns having sent **zero queries**. This isn't an
+//     optimization, it's a structural requirement: the path most owners take (never
+//     metering at all) must stay bit-for-bit identical to today — whether metering is
+//     attached is decided by role, and it defaults to false.
+//   · Metering attached → queries once before the write; if empty, returns a sentinel
+//     the face translates into 403 + a human-readable sentence.
+//   · Remaining amount isn't stored as a counter: the owner domain derives it by summing
+//     usage on read (see provider_gas.go over there).
 //
-// 最后那一轮可能超出一点点:闸门在写之前,用量在答完之后。这跟轮数配额是同一种取舍 ——
-// 想不超一个 token,就得在答之前知道它要花多少,那是不可能的。
+// The last turn can overshoot slightly: the gate runs before the write, usage is known
+// only after the answer completes. Same tradeoff as the turn quota —— staying under a
+// token exactly would require knowing the cost before answering, which is impossible.
 
 package usecase
 
@@ -19,15 +25,18 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
-// GasQuotaInput —— 这一场的油表参数,发会话时就冻好了(跟 provider 一起)。
+// GasQuotaInput —— this session's gas gauge parameters, frozen at session issue (along
+// with the provider).
 type GasQuotaInput struct {
 	OwnerID    string
 	ProviderID string
-	// Metered —— 这一场挂没挂表(role 上的开关,冻在会话里)。
+	// Metered —— whether this session has metering attached (the role's switch,
+	// frozen into the session).
 	Metered bool
 }
 
-// EnforceGasQuota —— 返 nil = 可以发;access.ErrGasExhausted = 这箱油空了。
+// EnforceGasQuota —— returns nil = OK to send; access.ErrGasExhausted = the tank is
+// empty.
 func EnforceGasQuota(
 	ctx context.Context, deps *VisitorSessionDeps, in *GasQuotaInput,
 ) error {
@@ -38,15 +47,17 @@ func EnforceGasQuota(
 	if err != nil {
 		return fmt.Errorf("read gas: %w", err)
 	}
-	// nil = 这箱油没挂表。role 上的开关开着、油箱上没加过油,合起来仍然是"不计量":
-	// 两个开关都得在,少一个就是今天这条路。
+	// nil = this tank has no metering attached. The role's switch is on but the tank
+	// has never been filled, and together that still means "not metered": both
+	// switches must be on, missing either one falls back to today's path.
 	if left == nil || *left > 0 {
 		return nil
 	}
 	return access.ErrGasExhausted
 }
 
-// gaugeIsOn —— 这一场要不要查油量。三个都得成立,否则一次查询都不发。
+// gaugeIsOn —— whether this session needs to check gas level. All three must hold,
+// otherwise zero queries are sent.
 func gaugeIsOn(deps *VisitorSessionDeps, in *GasQuotaInput) bool {
 	return in.Metered && in.ProviderID != "" && deps.Gas != nil
 }

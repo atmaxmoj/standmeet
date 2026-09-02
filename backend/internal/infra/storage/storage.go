@@ -1,13 +1,14 @@
-// Package storage —— S3-compatible object storage 客户端。生产用 MinIO
-// (self-host)，配置入口 STORAGE_* env。所有 owner-uploaded binary (post
-// 封面图 / raw 附件 / custom page 静态资源) 都进这里。
+// Package storage — S3-compatible object storage client. Production uses MinIO
+// (self-hosted), config comes from STORAGE_* env vars. Every owner-uploaded binary
+// (post cover images / raw attachments / custom page static assets) lands here.
 //
-// 不直接暴露 minio-go API：上层只看到本包的 Client interface，方便测试时
-// 换 in-memory 实现 (e2e 用真 minio 容器跑全链，单元测试可后续注入 fake)。
+// Does not expose the minio-go API directly: callers only see this package's Client
+// interface, making it easy to swap in an in-memory impl for tests (e2e runs the
+// full chain against a real minio container; unit tests can inject a fake later).
 //
-// 对象 key 形态：`<owner_id>/<asset_id>` —— 平坦命名，避免 path traversal；
-// 元数据 (content-type / size / original_filename / sha256) 全部落 Postgres
-// 的 assets 表，bucket 里只放裸 bytes。
+// Object key shape: `<owner_id>/<asset_id>` — flat naming, avoids path traversal;
+// metadata (content-type / size / original_filename / sha256) all lands in the
+// Postgres assets table — the bucket holds only raw bytes.
 package storage
 
 import (
@@ -21,11 +22,12 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-// presignTTL —— 公共 GET 链接有效期；前端展示 cover 时刷一次。生产可
-// 拉长到 24h 让缓存友好；先给 1h 平衡掉错时钟 + token 泄漏窗口。
+// presignTTL — validity window for the public GET link; the frontend refreshes it
+// once when displaying a cover. Production could stretch it to 24h for cache
+// friendliness; starting at 1h balances clock skew against the token-leak window.
 const presignTTL = 1 * time.Hour
 
-// PutInput —— Put 的入参打包；revive argument-limit ≤ 5。
+// PutInput — bundles Put's arguments; keeps revive's argument-limit ≤ 5.
 type PutInput struct {
 	Body        io.Reader
 	Key         string
@@ -33,11 +35,12 @@ type PutInput struct {
 	Size        int64
 }
 
-// Config —— composition root 注入。STORAGE_* env 直接 unmarshal。
-// Endpoint 不能空 (composition root fail-fast)；PublicURL 是前端浏览器
-// 直连的 host (容器内 endpoint 是 minio:9000，浏览器需 localhost:9200)。
+// Config — injected by the composition root. Unmarshaled directly from STORAGE_*
+// env vars. Endpoint must not be empty (composition root fails fast); PublicURL is
+// the host the browser connects to directly (in-container endpoint is minio:9000,
+// the browser needs localhost:9200).
 type Config struct {
-	Endpoint  string // host:port，不含 scheme
+	Endpoint  string // host:port, no scheme
 	AccessKey string
 	SecretKey string
 	Bucket    string
@@ -45,23 +48,24 @@ type Config struct {
 	UseSSL    bool
 }
 
-// Client —— minio-go 封装。Bucket 在 NewClient 内 idempotent 建好；
-// 所有 owner-uploaded binary (post 封面 / raw 附件 / custom page 资源)
-// 都进这里。对象 key 形态 "<owner_id>/<asset_id>" 平坦避免 path traversal；
-// 元数据 (content-type / size / sha256) 落 Postgres 的 assets 表，bucket
-// 里只放裸 bytes。
+// Client — wraps minio-go. NewClient creates the bucket idempotently; every
+// owner-uploaded binary (post covers / raw attachments / custom page assets)
+// goes through here. Object key shape "<owner_id>/<asset_id>" is flat, avoiding
+// path traversal; metadata (content-type / size / sha256) lands in the Postgres
+// assets table — the bucket holds only raw bytes.
 //
-// 两个底层 client 因为 AWS SigV4 把 host 签进 URL —— 内部 Put/Delete
-// 用 internal endpoint (minio:9000，容器互通)，浏览器拿到的 presigned
-// URL 必须签在 public endpoint (localhost:9200)，不能 mint 后改 host
-// 否则签名 invalid。PublicURL 跟 Endpoint 同值时两个 client 等价。
+// Two underlying clients because AWS SigV4 signs the host into the URL — internal
+// Put/Delete uses the internal endpoint (minio:9000, container-to-container),
+// while the presigned URL handed to the browser must be signed against the public
+// endpoint (localhost:9200); you can't mint it then swap the host, the signature
+// goes invalid. When PublicURL equals Endpoint the two clients are equivalent.
 type Client struct {
 	internal *minio.Client
 	presign  *minio.Client
 	bucket   string
 }
 
-// NewClient 构造 + 确保 bucket 存在。
+// NewClient builds the client and ensures the bucket exists.
 func NewClient(ctx context.Context, cfg *Config) (*Client, error) {
 	internal, err := buildMinioClient(cfg.Endpoint, cfg)
 	if err != nil {
@@ -82,9 +86,9 @@ func buildMinioClient(endpoint string, cfg *Config) (*minio.Client, error) {
 	c, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
 		Secure: cfg.UseSSL,
-		// Region 显式给死 (MinIO 默认 us-east-1)，让 SigV4 不需要预先
-		// HTTP probe BucketLocation —— presign client 不需要能真连通
-		// (它的 endpoint 是浏览器侧 public host)。
+		// Region is hardcoded (MinIO defaults to us-east-1) so SigV4 doesn't need to
+		// probe BucketLocation over HTTP first — the presign client doesn't need to
+		// actually be reachable (its endpoint is the browser-side public host).
 		Region: "us-east-1",
 	})
 	if err != nil {
@@ -93,19 +97,24 @@ func buildMinioClient(endpoint string, cfg *Config) (*minio.Client, error) {
 	return c, nil
 }
 
-// buildPresignClient —— PublicURL 空 → 复用 internal；非空 → 用 public
-// host 做一个仅用来 PresignedGetObject 的 client，避免后置改 host 破坏签名。
+// buildPresignClient — PublicURL empty → reuse internal; non-empty → build a
+// public-host client used only for PresignedGetObject, so a later host swap can't
+// break the signature.
 //
-// **没有 scheme 必须当场拒绝，并且说清楚是哪个变量。**
-// `url.Parse("files.example.com:9000")` 不报错：它把整串当成 opaque，`Host` 是空串。
-// 那个空串一路传进 minio.New，实例崩在
-// `new minio client "": Endpoint:  does not follow ip address or domain name standards` ——
-// 而这句话指着 endpoint，owner 会去查 `STORAGE_ENDPOINT`，可那一个他设对了。
-// 真环境上撞过一次：整栈起不来，db/redis/minio 全健康，只有 backend 崩溃循环，
-// 而日志把人指向一个没问题的变量（F-S-1）。
+// **A missing scheme must be rejected on the spot, and must name which variable.**
+// `url.Parse("files.example.com:9000")` does not error: it treats the whole string
+// as opaque, so `Host` comes back empty. That empty string flows straight into
+// minio.New, and the instance crashes on
+// `new minio client "": Endpoint:  does not follow ip address or domain name standards` —
+// a message that points at endpoint, so the owner checks `STORAGE_ENDPOINT`,
+// which they actually set correctly.
+// Hit this once in the real environment: the whole stack wouldn't come up, db/redis/minio
+// were all healthy, only backend was crash-looping, and the log pointed at a variable
+// that was fine (F-S-1).
 //
-// 这不是边角输入：`STORAGE_PUBLIC_URL` 是**浏览器侧**地址，自托管的人自然写
-// `files.example.com`；Coolify 的 magic FQDN 变量存回来时也会把 `http://` 吃掉。
+// This isn't an edge-case input: `STORAGE_PUBLIC_URL` is the **browser-side** address,
+// so a self-hoster naturally writes `files.example.com`; Coolify's magic FQDN variable
+// also strips the `http://` when it round-trips.
 func buildPresignClient(cfg *Config, internal *minio.Client) (*minio.Client, error) {
 	if cfg.PublicURL == "" {
 		return internal, nil
@@ -122,7 +131,7 @@ func buildPresignClient(cfg *Config, internal *minio.Client) (*minio.Client, err
 	return buildMinioClient(parsed.Host, cfg)
 }
 
-// Put 上传 bytes。
+// Put uploads bytes.
 func (m *Client) Put(ctx context.Context, in *PutInput) error {
 	_, err := m.internal.PutObject(ctx, m.bucket, in.Key, in.Body, in.Size,
 		minio.PutObjectOptions{ContentType: in.ContentType})
@@ -132,7 +141,7 @@ func (m *Client) Put(ctx context.Context, in *PutInput) error {
 	return nil
 }
 
-// Delete 删除。
+// Delete removes the object.
 func (m *Client) Delete(ctx context.Context, key string) error {
 	if err := m.internal.RemoveObject(ctx, m.bucket, key, minio.RemoveObjectOptions{}); err != nil {
 		return fmt.Errorf("storage: delete %q: %w", key, err)
@@ -140,8 +149,8 @@ func (m *Client) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-// Get 直接拉 bytes（不签 URL）。Obsidian export 把 blob 写进 zip 用，正常
-// blob 一般 < 10MB，全量读到内存里可接受。
+// Get pulls bytes directly (no signed URL). Obsidian export writes the blob into
+// a zip; blobs are typically < 10MB so reading the whole thing into memory is fine.
 func (m *Client) Get(ctx context.Context, key string) ([]byte, error) {
 	obj, err := m.internal.GetObject(ctx, m.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
@@ -159,8 +168,8 @@ func (m *Client) Get(ctx context.Context, key string) ([]byte, error) {
 	return buf, nil
 }
 
-// PresignedGetURL 颁发签名 URL；用 presign client (host=PublicURL) 直接
-// 签，避免事后改 host 破坏 SigV4 签名。
+// PresignedGetURL issues a signed URL; signs directly with the presign client
+// (host=PublicURL) to avoid breaking the SigV4 signature by swapping the host after.
 func (m *Client) PresignedGetURL(ctx context.Context, key string) (string, error) {
 	signed, err := m.presign.PresignedGetObject(ctx, m.bucket, key, presignTTL, nil)
 	if err != nil {
@@ -169,7 +178,7 @@ func (m *Client) PresignedGetURL(ctx context.Context, key string) (string, error
 	return signed.String(), nil
 }
 
-// Health —— #101 真健康检查:能不能连上 minio 查配置的 bucket。
+// Health — #101 real health check: can it reach minio and query the configured bucket.
 func (m *Client) Health(ctx context.Context) error {
 	if _, err := m.internal.BucketExists(ctx, m.bucket); err != nil {
 		return fmt.Errorf("storage: health check: %w", err)

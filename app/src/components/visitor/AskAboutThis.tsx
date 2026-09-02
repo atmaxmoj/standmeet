@@ -1,13 +1,14 @@
-// AskAboutThis —— visitor 在 blog/[slug] / wiki/[...path] / output/[...path]
-// 文章/landing 底下 follow-up 输入条。submit 走 GET `/?q=<question>` →
-// root PageShell 的 useConsumeQuestionFromURL 落地自动喂进 chat 后 replaceState
-// 清 URL。
+// AskAboutThis —— the follow-up input bar under the article/landing on
+// blog/[slug] / wiki/[...path] / output/[...path]. Submit goes through
+// GET `/?q=<question>` → root PageShell's useConsumeQuestionFromURL feeds it
+// into chat, then replaceState clears the URL.
 //
-// 三种 surface 共用：blog (essay) / wiki (corpus entry) / output (polished)。
-// kind 只影响 header 文案，结构 + 行为完全一致。
+// Shared across three surfaces: blog (essay) / wiki (corpus entry) /
+// output (polished). kind only affects the header copy — structure and
+// behavior are identical.
 //
-// 设计源 docs/design/project/blog.js AskAboutThis +
-// docs/design/project/wiki.js sticky ask bar。
+// Design source: docs/design/project/blog.js AskAboutThis +
+// docs/design/project/wiki.js sticky ask bar.
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -42,7 +43,8 @@ function AskHeader({ title, kind }: { title: string; kind: Kind }) {
   );
 }
 
-// labelKeyFor —— kind → 词条 key(essay / entry / piece),catalog 里取真词。
+// labelKeyFor —— kind → catalog key (essay / entry / piece); the catalog
+// resolves the actual word.
 function labelKeyFor(kind: Kind): 'essay' | 'entry' | 'piece' {
   return kind === 'essay' ? 'essay' : kind === 'wiki' ? 'entry' : 'piece';
 }

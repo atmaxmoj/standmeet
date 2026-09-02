@@ -1,10 +1,13 @@
-// use-providers —— owner 的 provider 本子(/admin/providers)。
+// use-providers —— the owner's provider registry (/admin/providers).
 //
-// 一个 owner 一本,其中一条是**默认**。码和 role 各自可以指一条,解析顺序
-// `byoai > code > role > 默认`。删掉被引用的一条不需要先解绑 —— 引用置空,读时退默认;
-// 默认那条删不动(后端回 409),这里不预判,让那句人话从后端来。
+// One registry per owner, one of whose entries is the **default**. A code
+// and a role can each point at one, resolved in order `byoai > code > role >
+// default`. Deleting a referenced entry doesn't require unlinking it first —
+// the reference goes null and falls back to the default on read; the default
+// entry itself can't be deleted (backend returns 409), and this file doesn't
+// pre-judge that — the human-readable message comes from the backend.
 //
-// key 只进不出:create 带明文 key,列表里只有 key_configured。
+// The key is write-only, never read back: create sends the plaintext key, the list only ever shows key_configured.
 
 import { useEffect } from 'react';
 
@@ -22,9 +25,9 @@ export const ProviderViewSchema = z.object({
   model: z.string(),
   key_configured: z.boolean(),
   is_default: z.boolean(),
-  // gas_tokens —— 这箱**加了多少**;null = 不计量(#7)。
+  // gas_tokens —— **how much was added** to this tank; null = unmetered (#7).
   gas_tokens: z.number().nullable(),
-  // gas_remaining —— 还剩多少(读时派生,没有计数器列)。null = 不计量。
+  // gas_remaining —— how much is left (derived on read, no counter column). null = unmetered.
   gas_remaining: z.number().nullable(),
 });
 export type ProviderView = z.infer<typeof ProviderViewSchema>;
@@ -70,17 +73,18 @@ export function useProviders(): ProvidersHook {
   };
 }
 
-// mutation 抛错:调用方用 useAction 收尾(成功 toast / 失败 report)。
+// The mutation throws: the caller finishes up with useAction (success toast / failure report).
 
 async function createProvider(input: CreateProviderInput): Promise<ProviderView> {
   const created = await adminAPI.post('/providers/', input, ProviderViewSchema);
-  // 建的这条如果成了默认,原来那条就不再是了 —— 本地一起改,免得列表上出现两个默认。
+  // If the newly created entry becomes the default, the previous one no
+  // longer is — update both locally so the list never shows two defaults.
   providersStore.getState().mutate((prev) =>
     [...clearDefaultIf(created.is_default, prev ?? []), created]);
   return created;
 }
 
-// setDefaultProvider —— 后端回的是 {ok:true},不是那一行;所以本地自己搬旗子。
+// setDefaultProvider —— the backend returns {ok:true}, not the row itself; so this moves the flag locally.
 async function setDefaultProvider(id: string): Promise<void> {
   await adminAPI.postVoid(`/providers/${id}/default`, {});
   providersStore.getState().mutate((prev) =>
@@ -92,7 +96,7 @@ async function deleteProvider(id: string): Promise<void> {
   providersStore.getState().mutate((prev) => (prev ?? []).filter((p) => p.id !== id));
 }
 
-// setGas —— 加油 / 拆表。null = 不计量(把这条油箱上的表拆了)。
+// setGas —— add fuel / remove the meter. null = unmetered (removes the meter from this tank).
 async function setGas(id: string, tokens: number | null): Promise<void> {
   const updated = await adminAPI.patch(
     `/providers/${id}`, { gas_tokens: tokens }, ProviderViewSchema,

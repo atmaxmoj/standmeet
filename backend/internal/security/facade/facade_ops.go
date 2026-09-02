@@ -1,12 +1,12 @@
-// facade_ops.go —— 本域对外能做的事,再导出给收口。
+// facade_ops.go —— what this domain can do externally, re-exported for the convergence point.
 //
-// 门面还是门面:只有别名。声明在 internal/security/ops。
+// Still just a facade: aliases only. Declared in internal/security/ops.
 
 package security
 
 import "github.com/atmaxmoj/standmeet/internal/security/ops"
 
-// 操作组（实现:ops）.
+// Operation groups (impl: ops).
 var (
 	IPBanOps = ops.IPBans
 )

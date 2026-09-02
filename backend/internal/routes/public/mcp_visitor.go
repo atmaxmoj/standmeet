@@ -1,18 +1,22 @@
-// mcp_visitor.go —— **访客那一侧的 MCP 面**：拿着一张码的人，可以把自己的 AI 客户端
-// （Claude Desktop / Cursor / …）指到这个实例上，用那张码授予的工具直接问。
+// mcp_visitor.go —— the MCP face on the visitor side: someone holding a code points
+// their own AI client (Claude Desktop / Cursor / …) at this instance and asks directly,
+// using the tools that code grants.
 //
-// 为什么它该存在：owner 早就有一个 MCP 面（`/mcp`，Sigv1 验签），对外却只有两条路 ——
-// 网页上的对话，和给程序用的 API key。而**「拿着码的人用自己的 AI 来问」这件事一直没有面**。
-// 招聘方扫了码，他手边正开着一个 AI 客户端；今天他只能去网页上聊。
+// Why: the owner already has an MCP face (`/mcp`, Sigv1-signed), but outward-facing
+// there were only two paths — web chat, and an API key for programs. "Someone with a
+// code asking with their own AI" had no face; a recruiter with an AI client open could
+// only go chat on the web page.
 //
-// 形状跟自定义页是同一条不变式：**这只是那张码的又一个渲染**。同一份授权、同一个角色、
-// 同一套配额、同一份记账 —— 所以这里没有一行「MCP 专用」的准入逻辑：
-// 认证换成码，装配和执行走的是访客工具那条现成的路（tools.go 的 AssembleVisitorForTool
-// → InvokableRun）。任何一条 deny / 配额 / 撤销，在这一面上自动同样生效。
+// Shape: follows the same invariant as custom pages — this is one more rendering of the
+// same code. Same authorization, role, quota, billing; no "MCP-only" admission logic —
+// auth is swapped for the code, and assembly/execution run through the same path as the
+// visitor tools (tools.go's AssembleVisitorForTool → InvokableRun). Deny/quota/
+// revocation take effect here automatically the same way.
 //
-// 认证为什么收**码本身**而不是 session token：MCP 客户端的配置里只放得下一个静态字符串，
-// 它做不了「先开会话再拿 token」那一步。而码正是产品发出去的那张票（二维码、简历右上角）——
-// 收它，等于这一面跟其他面用的是同一张票。
+// Why the code itself, not a session token: an MCP client's config holds one static
+// string — it can't do "open a session, then get a token". The code is already the
+// product's ticket (QR code, corner of a résumé), so this face uses the same ticket as
+// every other face.
 
 package public
 
@@ -30,34 +34,34 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// visitorMCPPath —— 挂载点。owner 那一面是 `/mcp`，这一面是它的对外孪生。
+// visitorMCPPath —— the mount point. The owner's face is `/mcp`; this is its outward twin.
 const visitorMCPPath = "/mcp/visitor"
 
-// visitorNameHeader —— 可选：客户端自报名字。网页那条路有「你是谁」的弹窗，
-// MCP 没有界面可弹，所以给一个头；不给就是匿名成员，跟网页上点 skip 同一种人。
+// visitorNameHeader —— optional self-reported name. The web path pops a "who are you"
+// modal; MCP has no UI, so a header stands in — omitting it means anonymous, same as skip.
 const visitorNameHeader = "X-Standmeet-Visitor"
 
 type visitorMCPKey struct{}
 
-// visitorMCPSession —— 这一条 MCP 连接背后的那一场访客会话。
-//
-// 存的是**装配好的入参**而不是原始 session 行：这一面不需要知道 session 长什么样，
-// 它只把它交给能力装配。少一个域类型跨进来，这一面就少一处会跟着域一起改的地方。
+// visitorMCPSession —— the visitor session behind one MCP connection. Stores the
+// already-assembled input, not the raw session row: this face doesn't need to know the
+// session shape, it just hands input to capability assembly — one less domain type
+// crossing in, one less place to change when the domain does.
 type visitorMCPSession struct {
 	In     *capreg.AssembleInput
 	ConvID string
 }
 
-// MountVisitorMCP —— 把访客 MCP 面挂上。调用方给 `/mcp/visitor`。
+// MountVisitorMCP —— wires up the visitor MCP face at `/mcp/visitor`.
 //
-// toolNames 由装配层给（跟 api 面同一份清单，住在 paritymanifest）——
-// 这一面只声明自己要一份名单，不自己去查：清单在它该在的地方，面拿它当入参。
+// toolNames comes from the assembly layer (same manifest as the api face, living in
+// paritymanifest) — this face only declares it needs a list, never looks one up itself.
 func (h *Handlers) MountVisitorMCP(toolNames []string) http.Handler {
 	srv := server.NewMCPServer("standmeet-visitor", "0.1.0",
 		server.WithToolCapabilities(true),
-		// 工具表**按这张码过一遍**。全部注册一次、按会话过滤，是 mcp-go 给的做法；
-		// 不过滤的话 tools/list 会报出这张码根本调不动的工具 —— 那等于对着访客的 AI
-		// 撒谎，它会规划一条永远走不通的路。
+		// Tool table is filtered per code (register-all + per-session filter is the
+		// mcp-go pattern). Without filtering, tools/list would advertise tools this
+		// code can't call — lying to the visitor's AI, which would plan a dead path.
 		server.WithToolFilter(h.filterVisitorTools),
 	)
 	h.registerVisitorTools(srv, toolNames)
@@ -68,10 +72,10 @@ func (h *Handlers) MountVisitorMCP(toolNames []string) http.Handler {
 	return h.visitorMCPAuth(httpSrv)
 }
 
-// visitorMCPAuth —— `Authorization: Bearer <code>` → 开一场会话。
+// visitorMCPAuth —— `Authorization: Bearer <code>` → opens a session.
 //
-// 每条连接开一场：配额、成员、逐字稿因此跟网页那条路记在同一个地方，
-// owner 在 /admin/conversations 里看得见它是从哪张码来的。
+// One session per connection, so quota/membership/transcripts land in the same place
+// as the web path, and /admin/conversations shows which code it came from.
 func (h *Handlers) visitorMCPAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sess, refusal := h.openVisitorMCP(r)
@@ -84,11 +88,13 @@ func (h *Handlers) visitorMCPAuth(next http.Handler) http.Handler {
 	})
 }
 
-// openVisitorMCP —— 这一条连接进不进得来。进不来时回**那句要给对面看的话**，
-// 不是一个状态码：客户端那头没有界面，它能拿到的全部就是这句话。
+// openVisitorMCP —— whether this connection gets in. On refusal, returns the message
+// meant for the other side, not just a status code: the client has no UI, so this
+// message is all it will ever get.
 //
-// 真正开会话那一步落在 sessions.go（`OpenCodeSession`）—— 那里是这个实例**所有**
-// 「拿一张码换一场会话」的去处。这一面只负责 MCP 那一半：读头、把结论塞进 ctx。
+// The real code-for-session exchange lives in sessions.go (`OpenCodeSession`), where
+// every "trade a code for a session" goes. This face only owns the MCP half: read the
+// header, stuff the outcome into ctx.
 func (h *Handlers) openVisitorMCP(r *http.Request) (*visitorMCPSession, apierr.Envelope) {
 	code, refusal := h.visitorMCPCredential(r)
 	if code == "" {
@@ -97,7 +103,8 @@ func (h *Handlers) openVisitorMCP(r *http.Request) (*visitorMCPSession, apierr.E
 	return h.visitorMCPSessionFor(r, code)
 }
 
-// visitorMCPCredential —— 这次请求带没带一张**现在还能用**的票。空串 = 没带或被闸挡住。
+// visitorMCPCredential —— whether this request carries a ticket valid right now. An
+// empty string means no ticket, or the gate blocked it.
 func (h *Handlers) visitorMCPCredential(r *http.Request) (string, apierr.Envelope) {
 	code := bearerCode(r.Header.Get("Authorization"))
 	if code == "" {
@@ -107,9 +114,10 @@ func (h *Handlers) visitorMCPCredential(r *http.Request) (string, apierr.Envelop
 			Message: "present your access code as `Authorization: Bearer <code>`",
 		}
 	}
-	// 猜码那道闸也要挡这一面。**一个新入口不许把已经关上的洞重新打开**：
-	// 网页那条路上同一个 IP 连着试错码会被锁 15 分钟；这一面收的是同一种秘密，
-	// 少了它，攻击者换个端点就能不限速地穷举（[[gate-after-early-return-is-walkable]]）。
+	// The code-guessing gate covers this face too — a new entry point must never
+	// reopen a closed hole. On the web path the same IP gets locked out for 15min
+	// after repeated wrong codes; without this gate an attacker could switch
+	// endpoints and enumerate unrated ([[gate-after-early-return-is-walkable]]).
 	if h.CodeGuard.Locked(r.Context(), clientIP(r), "") {
 		return "", apierr.Envelope{
 			Status:  http.StatusTooManyRequests,
@@ -139,7 +147,8 @@ func bearerCode(header string) string {
 	return strings.TrimSpace(header[len(prefix):])
 }
 
-// carryVisitorSession —— 把会话从 request ctx 转进 mcp ctx，让工具处理函数读得到。
+// carryVisitorSession —— carries the session from the request ctx into the mcp ctx, so
+// tool handler functions can read it.
 func carryVisitorSession(ctx context.Context, r *http.Request) context.Context {
 	s, ok := r.Context().Value(visitorMCPKey{}).(*visitorMCPSession)
 	if !ok {
@@ -156,8 +165,8 @@ func visitorMCPFrom(ctx context.Context) *visitorMCPSession {
 	return s
 }
 
-// registerVisitorTools —— 注册**对外那一组**工具。跟 api 面同一份来源，
-// 两个对外面报出的东西才不会各飘各的。
+// registerVisitorTools —— registers **the outward-facing set** of tools. Same source
+// as the api face, so the two outward faces never drift and report different things.
 func (h *Handlers) registerVisitorTools(srv *server.MCPServer, names []string) {
 	for _, name := range names {
 		srv.AddTool(
@@ -167,8 +176,8 @@ func (h *Handlers) registerVisitorTools(srv *server.MCPServer, names []string) {
 	}
 }
 
-// visitorToolSchema —— 入参形状由能力自己定，这一层不复述一遍（复述就是第二份真源）。
-// 真正的校验在工具自己那儿。
+// visitorToolSchema —— the input shape is owned by the capability itself; this layer
+// never restates it (a second source of truth). Real validation lives with the tool.
 func visitorToolSchema() json.RawMessage {
 	return json.RawMessage(`{"type":"object","additionalProperties":true}`)
 }
@@ -177,18 +186,17 @@ func visitorToolDesc(name string) string {
 	return name + " — scoped to the access code you presented."
 }
 
-// filterVisitorTools —— 只报**这张码真的调得动**的那些。
+// filterVisitorTools —— reports only the tools **this code can actually call**.
 func (h *Handlers) filterVisitorTools(ctx context.Context, tools []mcpgo.Tool) []mcpgo.Tool {
 	s := visitorMCPFrom(ctx)
 	if s == nil {
-		// 空表，不是 nil。没有会话就是「一个工具都不给你」—— 一个明确的答案，
-		// 而不是一个让对面去猜的空指针。
+		// An empty table, never nil — no session means zero tools, an explicit answer.
 		return []mcpgo.Tool{}
 	}
 	return keepNamed(tools, h.visitorGrantedNames(ctx, s))
 }
 
-// visitorGrantedNames —— 这张码这一刻真的调得动哪些工具。
+// visitorGrantedNames —— which tools this code can actually call right now.
 func (h *Handlers) visitorGrantedNames(
 	ctx context.Context, s *visitorMCPSession,
 ) map[string]bool {
@@ -210,8 +218,8 @@ func keepNamed(tools []mcpgo.Tool, live map[string]bool) []mcpgo.Tool {
 	return out
 }
 
-// runVisitorTool —— 执行一次调用。走的是访客工具那条**现成的**路
-// （AssembleVisitorForTool → InvokableRun），所以 deny / 配额 / 撤销全部照旧生效。
+// runVisitorTool —— executes one call, through the same visitor-tool path
+// (AssembleVisitorForTool → InvokableRun), so deny/quota/revocation take effect as before.
 func (h *Handlers) runVisitorTool(name string) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
 		s := visitorMCPFrom(ctx)
@@ -223,7 +231,8 @@ func (h *Handlers) runVisitorTool(name string) server.ToolHandlerFunc {
 		defer closeBindings(bindings)
 		tool, found := findBindingTool(bindings, name)
 		if !found {
-			// 「这张码没开这个工具」跟「这个工具坏了」是两件事，说清楚哪一件。
+			// "this code doesn't grant this tool" and "this tool is broken" are two
+			// different things — say which one clearly.
 			return mcpgo.NewToolResultError(
 				"this access code does not grant " + name), nil
 		}
@@ -231,9 +240,9 @@ func (h *Handlers) runVisitorTool(name string) server.ToolHandlerFunc {
 	}
 }
 
-// runVisitorToolCall —— 一次调用的结果。**工具自己的失败是一个「结果」，不是传输错误**：
-// MCP 里把它当传输错误抛出去，对面的客户端会以为连接坏了，而实际上只是这一次调用被拒了
-// （配额、准入、参数不对）。所以这里只回结果。
+// runVisitorToolCall —— the result of one call. A tool's own failure is a "result", not
+// a transport error: throwing it as transport error in MCP would make the client think
+// the connection broke, when really just this call was refused (quota/admission/bad args).
 func runVisitorToolCall(
 	ctx context.Context, tool *capreg.BindingTool, req *mcpgo.CallToolRequest,
 ) *mcpgo.CallToolResult {
@@ -248,19 +257,21 @@ func runVisitorToolCall(
 	return mcpgo.NewToolResultText(out)
 }
 
-// writeVisitorMCPErr —— 拒绝这一次连接，**答在对方在听的那一层**。
+// writeVisitorMCPErr —— refuses this connection, answering at the layer the other side
+// actually listens on.
 //
-// 这里曾经是 401 + `WWW-Authenticate`。头是按 RFC 6750 写对了，然而在 MCP 里 401 的语义
-// **就是**「去做 OAuth」（规范的认证故事是 OAuth 2.1 + 受保护资源元数据），于是守规矩的
-// 客户端转头去跑发现流程 —— 官方 Inspector 打印的是 `Interactive OAuth requires a TTY`，
-// 我们写的那句「带上你的访问码」一个字没露面（F-P-8）。**body 里有那句话是不够的：
-// 没人会看到 body。**
+// This used to be 401 + `WWW-Authenticate` (correct per RFC 6750), but in MCP a 401
+// means "go do OAuth" (spec ties auth to OAuth 2.1 + protected-resource metadata): a
+// compliant client runs discovery instead. The official Inspector printed `Interactive
+// OAuth requires a TTY`, and our "bring your access code" message never showed (F-P-8)
+// — message-in-body isn't enough when nobody looks at the body.
 //
-// 401 那条路是给 OAuth 服务器定的，我们不是。所以改成 JSON-RPC 错误：客户端渲染的正是它。
-// id 从请求里回显 —— 按 id 配对响应的客户端，收到 `id:null` 会当成对不上而挂着等。
+// A 401 path is for an OAuth server, which we aren't, so this returns a JSON-RPC error
+// instead — what the client actually renders. id is echoed from the request: a client
+// matching responses by id treats `id:null` as unmatched and hangs.
 //
-// 代价写在这儿：**auth 失败在访问日志里长得像成功（200）**。分辨它要看 JSON-RPC 的
-// error.code，或者猜码那道闸自己的计数。
+// Cost: an auth failure now looks like a 200 in the access log. Tell it apart via the
+// JSON-RPC error.code, or the code-guessing gate's own counter.
 func (h *Handlers) writeVisitorMCPErr(
 	w http.ResponseWriter, r *http.Request, status int, msg string,
 ) {
@@ -272,11 +283,11 @@ func (h *Handlers) writeVisitorMCPErr(
 	}
 }
 
-// visitorMCPErrCode —— JSON-RPC 的实现自定义区间（-32000..-32099）。
+// visitorMCPErrCode —— inside JSON-RPC's implementation-defined range (-32000..-32099).
 const visitorMCPErrCode = -32001
 
-// visitorMCPIDProbeMax —— 只为读一个 id 而读的上限。这条路已经决定要拒了，
-// 不该为此把一个任意大的 body 读进内存。
+// visitorMCPIDProbeMax —— cap on reading just to find an id. This path already decided
+// to refuse; it shouldn't read an arbitrarily large body into memory to do it.
 const visitorMCPIDProbeMax = 64 << 10
 
 type visitorMCPErrData struct {
@@ -284,10 +295,10 @@ type visitorMCPErrData struct {
 }
 
 type visitorMCPErrDetail struct {
-	// Message 就是那句给人看的话。
+	// Message is the sentence meant to be read by a person.
 	Message string `json:"message"`
-	// Data.HTTPStatus —— 这次拒绝的**种类**（401 票不对 / 429 被闸挡住）。
-	// 合成一句的话，两种人的下一步就分不出来了。
+	// Data.HTTPStatus —— the kind of refusal (401 wrong ticket / 429 gate-blocked).
+	// Merged into one message, the two cases' next steps become indistinguishable.
 	Data visitorMCPErrData `json:"data"`
 	Code int               `json:"code"`
 }
@@ -308,8 +319,8 @@ func visitorMCPRefusal(id json.RawMessage, status int, msg string) visitorMCPErr
 	}
 }
 
-// requestID —— 回显请求里的 id。**按 id 配对响应的客户端，收到 `id:null` 会当成对不上
-// 而挂着等** —— 一个永远不返回的调用，比一句难看的错误糟得多。读不出来才退回 null。
+// requestID —— echoes back the request's id. A client matching by id treats `id:null`
+// as unmatched and hangs — worse than an ugly error. Falls back to null only if unreadable.
 func requestID(r *http.Request) json.RawMessage {
 	raw, err := io.ReadAll(io.LimitReader(r.Body, visitorMCPIDProbeMax))
 	if err != nil {

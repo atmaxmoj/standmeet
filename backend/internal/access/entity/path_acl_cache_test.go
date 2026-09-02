@@ -2,15 +2,16 @@ package entity
 
 import "testing"
 
-// TestCompileGlobCached —— 同 pattern 两次返回同一个编译好的 regex 实例(证明缓存生效,
-// 热路径不重编)。行为正确性由 corpus ACL 的 e2e/其它 domain 测试守。
+// TestCompileGlobCached —— the same pattern returns the same compiled regex instance twice
+// (proves the cache works and the hot path does not recompile). Behavioral correctness is
+// guarded by corpus ACL's e2e / other domain tests.
 func TestCompileGlobCached(t *testing.T) {
 	a := compileGlob("wiki://projects/**")
 	b := compileGlob("wiki://projects/**")
 	if a != b {
 		t.Fatal("compileGlob not cached: got two distinct instances")
 	}
-	// 缓存不影响匹配语义。
+	// Caching does not change matching semantics.
 	if !a.MatchString("wiki://projects/lucerna") {
 		t.Fatal("cached glob failed to match expected uri")
 	}

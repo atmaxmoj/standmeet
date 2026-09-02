@@ -1,7 +1,8 @@
-// access_requests.go —— /gate 留言的创建 + admin 审阅。
+// access_requests.go — creation of /gate messages + admin review.
 //
-// 业务逻辑薄：sole owner lookup + 必填字段校验。状态机由 domain 层和
-// DB CHECK 共同把守，usecase 只做"白名单"判断。
+// Business logic is thin: sole owner lookup + required-field validation. The state
+// machine is guarded jointly by the domain layer and the DB CHECK constraint; usecase
+// only does a "whitelist" check.
 
 package usecase
 
@@ -14,14 +15,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// RequestsDeps —— SubmitForOwner / ListForOwner / UpdateStatus 共享依赖。
+// RequestsDeps — shared dependencies for SubmitForOwner / ListForOwner / UpdateStatus.
 type RequestsDeps struct {
 	Repo   *repo.RequestRepo
 	Owners SoleOwnerLookup
 }
 
-// SubmitAccessRequestInput —— 公共 POST /api/v1/access-requests 入参。
-// v1 单 owner instance：留言自动绑到 sole owner，无 handle 字段。
+// SubmitAccessRequestInput — public POST /api/v1/access-requests input.
+// v1 single-owner instance: the message auto-binds to the sole owner, no handle field.
 type SubmitAccessRequestInput struct {
 	Name    string
 	Org     string
@@ -29,8 +30,8 @@ type SubmitAccessRequestInput struct {
 	Message string
 }
 
-// SubmitForOwner —— 公共接口：visitor 留言。
-// 必填 email + message；instance 必须已 claim（否则 ErrOwnerNotFound）。
+// SubmitForOwner — public endpoint: a visitor's message.
+// Requires email + message; the instance must already be claimed (else ErrOwnerNotFound).
 func SubmitForOwner(
 	ctx context.Context, deps RequestsDeps, in *SubmitAccessRequestInput,
 ) (entity.Request, error) {
@@ -55,7 +56,7 @@ func validSubmitInput(in *SubmitAccessRequestInput) bool {
 	return in.Email != "" && in.Message != ""
 }
 
-// ListForOwner —— admin list。status 可空，空 = 全部。
+// ListForOwner — admin list. status may be empty; empty = all.
 func ListForOwner(
 	ctx context.Context, deps RequestsDeps, ownerID, status string,
 ) ([]entity.Request, error) {
@@ -72,7 +73,7 @@ func ListForOwner(
 	return rows, nil
 }
 
-// UpdateAccessRequestStatus —— admin 改 status。status 必须是 open/replied/closed。
+// UpdateAccessRequestStatus — admin changes status. status must be open/replied/closed.
 func UpdateAccessRequestStatus(
 	ctx context.Context, deps RequestsDeps, ownerID, id, status string,
 ) (entity.Request, error) {
@@ -89,12 +90,12 @@ func UpdateAccessRequestStatus(
 	return out, nil
 }
 
-// validStatus —— 写入用：必须是三个 enum 之一。
+// validStatus — for writes: must be one of the three enum values.
 func validStatus(s string) bool {
 	return s == "open" || s == "replied" || s == "closed"
 }
 
-// validStatusFilter —— list 过滤用：空 = 不过滤；非空必须合法。
+// validStatusFilter — for list filtering: empty = no filter; non-empty must be valid.
 func validStatusFilter(s string) bool {
 	return s == "" || validStatus(s)
 }

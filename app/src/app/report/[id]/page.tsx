@@ -1,13 +1,16 @@
-// /report/[id] —— I.3: chat report 独立路由。AI 写完 HTML 报告，visitor
-// 点 chat 里的 "open as page ↗" 进这条；浏览器全屏渲 iframe + 顶部 print
-// button。
+// /report/[id] — I.3: standalone route for a chat report. After the AI
+// writes the HTML report, the visitor clicks "open as page ↗" in chat to
+// land here; the browser renders a fullscreen iframe with a print button
+// on top.
 //
-// Auth: visitor session token (Bearer) 由 client-side fetch 添加 (从
-// localStorage 的 stored session 读)。session 跟 chat 同套 (use-gate
-// 颁发 / 复用)。
+// Auth: the visitor session token (Bearer) is added by the client-side
+// fetch (read from the stored session in localStorage). It shares the
+// same session as chat (issued/reused by use-gate).
 //
-// SSR 不出 HTML 内容 (auth header 不能放 query string；report 包含 AI
-// 输出可能敏感)。SSR 只渲框架，client mount fetch 真 html 喂 iframe。
+// SSR does not emit the HTML content (the auth header can't go in a
+// query string, and the report may contain sensitive AI output). SSR
+// only renders the shell; the client mount fetches the real HTML and
+// feeds it to the iframe.
 
 import { ReportArtifactPage } from '@/components/page/ReportArtifactPage';
 

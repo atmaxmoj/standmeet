@@ -1,12 +1,10 @@
-// registry.go —— Capability 集中注册口。注册顺序就是装配顺序（确定性，
-// system prompt hash 依赖之）。
+// registry.go —— the central registration point for Capability. Registration order is
+// assembly order (deterministic, the system prompt hash depends on it).
 //
-// 三个 walk 入口：
-//   - List —— 注册顺序回 capability 副本
-//   - AssembleVisitor —— per-session 装配出 binding 序列（含 Close）
-//   - OwnerMCPBindings —— owner MCP server 装配用的 binding 序列
-//
-// AssembleVisitor 失败 silently skip；caller 注入 log（B-2 起加 log hook）。
+// Three walk entry points: List (capability copies, registration order),
+// AssembleVisitor (per-session binding sequence, incl. Close), OwnerMCPBindings
+// (binding sequence for owner MCP server assembly). AssembleVisitor failures are
+// silently skipped; the caller injects logging (log hook added from B-2 on).
 
 package capreg
 
@@ -19,36 +17,40 @@ import (
 	"sync"
 )
 
-// EnableGate —— 注入式 owner-enable 解析器：给 ownerID 返回该 owner **关掉**
-// 的 capability ID 集合（P.6 的 owner_enabled 闸）。nil = 没装 gate（eval /
-// 单测 → 全开）。实现自己吞 DB 错（错 → 返空，fail-open 到全开，保 availability）。
+// EnableGate —— an injected owner-enable resolver: given ownerID, returns the set of
+// capability IDs that owner has **turned off** (the owner_enabled gate, P.6). nil = no
+// gate installed (eval / unit tests → everything on). The implementation swallows its
+// own DB errors (fail-open to everything on, preserving availability).
 type EnableGate func(ctx context.Context, ownerID string) map[string]bool
 
-// Registry —— Capability 注册口。Register 撞 ID 返错；boot 期用
-// MustRegister 让启动失败比运行时漏注册好。
+// Registry —— the Capability registration point. Register returns an error on a
+// colliding ID; boot-time code should use MustRegister so a startup failure beats
+// a silent missing registration at runtime.
 type Registry struct {
 	seen   map[string]bool
 	origin map[string]Origin
 	gate   EnableGate
 	depReg *DepRegistry
 	caps   []Capability
-	// alwaysGranted —— manifest 写着 `acl: always` 的那些能力 id（见 SetAlwaysGranted）。
+	// alwaysGranted —— capability ids whose manifest says `acl: always` (see SetAlwaysGranted).
 	alwaysGranted []string
 	mu            sync.RWMutex
 }
 
-// NewRegistry —— 新建空 Registry。
+// NewRegistry —— builds a new empty Registry.
 func NewRegistry() *Registry {
 	return &Registry{seen: map[string]bool{}, origin: map[string]Origin{}}
 }
 
-// Register —— 注册一个 builtin-origin capability。ID 撞名 / 空 ID 返错。
+// Register —— registers a builtin-origin capability. Returns an error on a
+// colliding ID / empty ID.
 func (r *Registry) Register(c Capability) error {
 	return r.RegisterOrigin(c, OriginBuiltin)
 }
 
-// RegisterOrigin —— 带 Origin 注册（插件 managed / owner-authored owner）。
-// ID 撞名 / 空 ID 返错；撞名时 first-wins，已注册的不被影子覆盖（P.5 guard）。
+// RegisterOrigin —— registers with an explicit Origin (plugin-managed / owner-authored).
+// Errors on a colliding ID / empty ID; on collision first-wins — the already-registered
+// one is never shadowed (the P.5 guard).
 func (r *Registry) RegisterOrigin(c Capability, origin Origin) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -65,24 +67,24 @@ func (r *Registry) RegisterOrigin(c Capability, origin Origin) error {
 	return nil
 }
 
-// SetEnableGate —— composition root 注入 owner-enable 解析器（backed by
-// capability_settings repo）。boot 期一次性设；nil-safe（没设 → 全开）。
+// SetEnableGate —— composition root injects the owner-enable resolver (backed by the
+// capability_settings repo). Set once at boot; nil-safe (unset → everything on).
 func (r *Registry) SetEnableGate(g EnableGate) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.gate = g
 }
 
-// SetDepRegistry —— composition root 注入命名依赖 provider 注册表（D-2）。
-// enabledCaps 用它把 Requires 未连的 cap 从 global 单点闸踢掉。boot 期一次性设；
-// nil-safe（没设 → 不 connector-gate）。
+// SetDepRegistry —— composition root injects the named-dependency provider registry
+// (D-2). enabledCaps uses it to drop, at the single global gate, any cap whose Requires
+// is not connected. Set once at boot; nil-safe (unset → no connector-gating).
 func (r *Registry) SetDepRegistry(dr *DepRegistry) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.depReg = dr
 }
 
-// OriginOf —— 某 capability 的来源；未注册返 ("", false)。
+// OriginOf —— the origin of a capability; returns ("", false) if unregistered.
 func (r *Registry) OriginOf(id string) (Origin, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -90,15 +92,16 @@ func (r *Registry) OriginOf(id string) (Origin, bool) {
 	return o, ok
 }
 
-// MustRegister —— Register 失败 panic（boot 期使用，启动失败比运行时漏
-// 注册好）。
+// MustRegister —— panics if Register fails (boot-time; a startup failure beats a
+// silent missing registration at runtime).
 func (r *Registry) MustRegister(c Capability) {
 	if err := r.Register(c); err != nil {
 		panic(err)
 	}
 }
 
-// List —— 注册顺序返回 capability 副本（外部不能 mutate 内部 slice）。
+// List —— returns capability copies in registration order (callers can't mutate
+// the internal slice).
 func (r *Registry) List() []Capability {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -107,17 +110,20 @@ func (r *Registry) List() []Capability {
 	return out
 }
 
-// staticFragmentProvider —— 外置能力实现：按稳定 id 提供 session-无关的 prompt 文本
-// （server initialize instructions）。GET /api/v1/prompts/{id} 经 PromptFragmentText
-// fallback 到这里，服务那些已不在 embed .md、只活在插件 instructions 里的 fragment。
+// staticFragmentProvider —— an externalized capability implementation: provides
+// session-independent prompt text (server initialize instructions) keyed by a stable
+// id. GET /api/v1/prompts/{id} falls back here via PromptFragmentText, serving
+// fragments that no longer live in the embedded .md files and only exist in a
+// plugin's own instructions.
 type staticFragmentProvider interface {
 	StaticFragmentID() string
 	StaticFragment(ctx context.Context) string
 }
 
-// PromptFragmentText —— 按 fragment id 返某能力的静态 prompt 文本。命中外置能力返
-// (text, true)；无 → ("", false)。prompts 端点对 embed .md 未命中时 fallback 到它，
-// 让前端按 part-id 取得到外置 fragment 的文本（拼进 system prompt）。
+// PromptFragmentText —— returns a capability's static prompt text by fragment id. A hit
+// on an externalized capability returns (text, true); no hit → ("", false). The prompts
+// endpoint falls back here when the embedded .md misses, so the frontend can fetch an
+// externalized fragment's text by part-id (to splice into the system prompt).
 func (r *Registry) PromptFragmentText(ctx context.Context, fragmentID string) (string, bool) {
 	for _, c := range r.List() {
 		sf, ok := c.(staticFragmentProvider)
@@ -128,10 +134,11 @@ func (r *Registry) PromptFragmentText(ctx context.Context, fragmentID string) (s
 	return "", false
 }
 
-// AssembleVisitor —— 给定 session 装配该 session 可见的 binding 集合。
-// ErrHidden = capability 主动隐藏 (干净路径，silently skip)；其他错误也
-// silently skip (装配失败不阻塞 chat)；都返非 nil binding 才进结果。
-// 返回顺序与 Register 顺序一致。owner 关掉的 capability 不参与装配。
+// AssembleVisitor —— assembles the set of bindings visible to a given session.
+// ErrHidden = the capability actively hides itself (a clean path, silently skipped);
+// other errors are also silently skipped (an assembly failure must not block chat);
+// only a non-nil binding makes it into the result. Return order matches Register
+// order. A capability the owner turned off does not take part in assembly.
 func (r *Registry) AssembleVisitor(
 	ctx context.Context, in *AssembleInput,
 ) []*Binding {
@@ -148,31 +155,35 @@ func (r *Registry) AssembleVisitor(
 	return out
 }
 
-// VisitorStates / visitorStateFor / setCapTitle 见 registry_visitor_state.go。
+// VisitorStates / visitorStateFor / setCapTitle live in registry_visitor_state.go.
 
-// SetAlwaysGranted —— 哪些能力的暴露门是「无条件」（manifest `acl: always`）。装配期由
-// capload 交进来（ACL 写在 manifest 里，注册表本身不解析 manifest）。
-//
-// 为什么注册表要知道这件事：`VisitorCapabilityIDs` 回答的是「这台实例注册了哪些访客能力」，
-// 而**能不能挂到某个 role 的 dock 上**是另一个问题 —— `acl: role_granted` 的能力要这个 role
-// 的技能真的授了它才会在会话里出现。两件事以前用同一份名单，于是后台收下了一颗访客永远看不到
-// 的按钮（F-D-13）。
+// SetAlwaysGranted —— which capabilities' exposure gate is "unconditional" (manifest
+// `acl: always`). Passed in by capload at assembly time (the ACL lives in the
+// manifest; the registry itself never parses manifests). Why the registry needs this:
+// `VisitorCapabilityIDs` answers "which visitor capabilities did this instance
+// register", while **whether it can be docked onto a given role** is different — an
+// `acl: role_granted` cap only appears in a session when that role's skill grants it.
+// The two used to share one list, so the admin panel accepted a button a visitor
+// could never see (F-D-13).
 func (r *Registry) SetAlwaysGranted(ids []string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.alwaysGranted = slices.Clone(ids)
 }
 
-// AlwaysGranted —— 已登记的那份名单（分几批注册时要在原有基础上追加）。
+// AlwaysGranted —— the list registered so far (appended to when registration
+// happens in several batches).
 func (r *Registry) AlwaysGranted() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return slices.Clone(r.alwaysGranted)
 }
 
-// DockableCapabilityIDs —— 一个「技能授了 allowedTools 这些工具」的 role，dock 上挂得住哪些
-// 能力：访客形状 且（无条件暴露 或 在这个 role 的授权工具里）。判据跟会话装配那一侧同源
-// （`RoleSnapshot.AllowsCapability`：`aclAlways || allowedTools 含它`）。
+// DockableCapabilityIDs —— for a role whose skill grants the tools in
+// allowedTools, which capabilities its dock can hold: visitor-shaped and (either
+// unconditionally exposed, or in this role's granted tools). The test matches
+// the session-assembly side (`RoleSnapshot.AllowsCapability`: `aclAlways ||
+// allowedTools contains it`).
 func (r *Registry) DockableCapabilityIDs(allowedTools []string) []string {
 	always := r.AlwaysGranted()
 	ids := r.VisitorCapabilityIDs()
@@ -185,9 +196,11 @@ func (r *Registry) DockableCapabilityIDs(allowedTools []string) []string {
 	return out
 }
 
-// VisitorCapabilityIDs —— 非 owner-only 的已注册能力 id 集（访客侧能力）。**它回答的是
-// 「这台实例注册了哪些」**；「某个 role 的 dock 挂得住哪些」要问 DockableCapabilityIDs ——
-// 两者以前被当成同一件事（F-D-13）。
+// VisitorCapabilityIDs —— the set of registered capability ids that aren't
+// owner-only (visitor-side capabilities). **It answers "which ones did this
+// instance register"**; "which ones can a given role's dock hold" is
+// DockableCapabilityIDs's question — the two used to be treated as the same
+// thing (F-D-13).
 func (r *Registry) VisitorCapabilityIDs() []string {
 	caps := r.List()
 	out := make([]string, 0, len(caps))
@@ -199,19 +212,19 @@ func (r *Registry) VisitorCapabilityIDs() []string {
 	return out
 }
 
-// VisitorHeaderFragmentID —— 永远是 system prompt 第一段 (visitor-header.md)。
-// 由 Registry 集中导出，避免 caller 各处硬编码。
+// VisitorHeaderFragmentID —— always the first segment of the system prompt
+// (visitor-header.md). Exported centrally from Registry so callers don't
+// hardcode it everywhere.
 const VisitorHeaderFragmentID = "visitor-header"
 
-// VisitorToolSpec —— frontend 看到的 tool 描述 (LLM tool API shape)。
-// H.8 之后由 BindingTool.Tool.Info() (eino schema.ToolInfo) +
-// BindingTool.InputSchema (raw JSON Schema) + BindingTool.ProgressLabel
-// 组合而成；wire 形态稳定不变。
-//
-// ProgressLabel —— G-8: tool 跑过程中 frontend throbber 显的文案
-// ("searching corpus" / "reading entry" / ...)。空字符串 → frontend
-// fallback "running <name>"。让 label 跟 tool 注册同源，去掉前端两份硬
-// 编码 THROBBER_LABELS 重复。omitempty 保证 wire 干净。
+// VisitorToolSpec —— the tool description the frontend sees (LLM tool API shape).
+// Since H.8, assembled from BindingTool.Tool.Info() (eino schema.ToolInfo) +
+// BindingTool.InputSchema (raw JSON Schema) + BindingTool.ProgressLabel; the wire
+// shape is stable. ProgressLabel (G-8): the text the frontend throbber shows while
+// the tool runs ("searching corpus" / "reading entry" / ...); empty → frontend falls
+// back to "running <name>". Sourced from the same place as the tool registration,
+// removing the frontend's duplicate hardcoded THROBBER_LABELS. omitempty keeps the
+// wire clean.
 type VisitorToolSpec struct {
 	Name          string          `json:"name"`
 	Description   string          `json:"description"`
@@ -220,10 +233,11 @@ type VisitorToolSpec struct {
 	InputSchema   json.RawMessage `json:"input_schema"`
 }
 
-// VisitorToolSpecs —— per-session 跑一遍 AssembleVisitor 拿到所有 enabled
-// capability 的 tool spec 列表 (name + description + progress_label +
-// input_schema)，让前端 pi-agent-core 知道往 LLM 注哪些 tool + throbber 怎
-// 么显。Close hook 顺手释放 (一次性查询)。
+// VisitorToolSpecs —— per-session, runs AssembleVisitor once to get the tool spec
+// list (name + description + progress_label + input_schema) of every enabled
+// capability, so the frontend pi-agent-core knows which tools to inject into the
+// LLM and how to show the throbber. Releases via the Close hook right away (a
+// one-shot query).
 func (r *Registry) VisitorToolSpecs(
 	ctx context.Context, in *AssembleInput,
 ) []VisitorToolSpec {
@@ -240,9 +254,10 @@ func (r *Registry) VisitorToolSpecs(
 	return out
 }
 
-// toolToVisitorSpec —— BindingTool → VisitorToolSpec 投射。Name 直接读
-// BindingTool.Name (NewTool 时 stash 的快照)；Description 走 Tool.Info()
-// 拿；InputSchema + ProgressLabel 是 standmeet 自加的 sidecar。
+// toolToVisitorSpec —— projects a BindingTool into a VisitorToolSpec. Name reads
+// BindingTool.Name directly (the snapshot stashed at NewTool time); Description
+// comes from Tool.Info(); InputSchema + ProgressLabel are standmeet's own
+// sidecar additions.
 func toolToVisitorSpec(ctx context.Context, t *BindingTool) VisitorToolSpec {
 	return VisitorToolSpec{
 		Name:          t.Name,
@@ -261,16 +276,16 @@ func bindingToolDescription(ctx context.Context, t *BindingTool) string {
 	return info.Desc
 }
 
-// VisitorPromptPartIDs —— 当前 session 实际拼进 system prompt 的 fragment id
-// 顺序：[VisitorHeaderFragmentID] + [每个 capability 非空 fragment id]。
-// 前端 pi-agent-core 按此顺序 GET /api/v1/prompts/{id} 拿文本本地拼，跟
-// 后端 ComposeSystemPrompt 的拼接顺序一致 (注册顺序 = walk 顺序)。
-//
-// "非空" 判定走 capability.SystemPromptFragmentID —— 跟
-// SystemPromptFragment 同一 gating 逻辑，cap 实现负责保持一致。
-//
-// 注意：base persona 中 role.PromptBody + skillPrompts 是 DB 内容，没有
-// 文件 id，本列表不含；前端拿这两段要靠别的字段 (D-4 时定形)。
+// VisitorPromptPartIDs —— the ordered fragment ids actually spliced into the current
+// session's system prompt: [VisitorHeaderFragmentID] + [each capability's non-empty
+// fragment id]. The frontend pi-agent-core GETs /api/v1/prompts/{id} in this order
+// and splices the text locally, matching the backend ComposeSystemPrompt's splice
+// order (registration order = walk order). The "non-empty" test goes through
+// capability.SystemPromptFragmentID — the same gating logic as SystemPromptFragment;
+// the cap implementation must keep the two in sync. Note: in the base persona,
+// role.PromptBody + skillPrompts are DB content with no file id, so this list
+// excludes them; the frontend gets those two segments through other fields (shape
+// settled at D-4).
 func (r *Registry) VisitorPromptPartIDs(
 	ctx context.Context, in *AssembleInput,
 ) []string {
@@ -285,9 +300,10 @@ func (r *Registry) VisitorPromptPartIDs(
 	return out
 }
 
-// OwnerMCPBindings —— 走 registry 拿 owner MCP server 应注册的所有 binding。
-// B-4 起 mcp/server.go 改成 walk 这个返回；plural 让一个 capability 可
-// 一次暴露多个 tool (seo / jobs / writings 等多 tool family)。
+// OwnerMCPBindings —— walks the registry to get every binding the owner MCP
+// server should register. Since B-4, mcp/server.go walks this return value;
+// plural lets one capability expose several tools at once (seo / jobs / writings
+// and other multi-tool families).
 func (r *Registry) OwnerMCPBindings() []*MCPBinding {
 	caps := r.List()
 	out := make([]*MCPBinding, 0, len(caps))
@@ -297,15 +313,17 @@ func (r *Registry) OwnerMCPBindings() []*MCPBinding {
 	return out
 }
 
-// enabledCaps —— List() 去掉本 owner 关掉的（owner_enabled 闸，P.6）。所有
-// visitor-facing walk（AssembleVisitor / VisitorStates / VisitorPromptPartIDs /
-// ComposeSystemPrompt）都经它 —— owner-disable 成为单点闸，对 builtin 也生效。
+// enabledCaps —— List() with the capabilities this owner turned off removed (the
+// owner_enabled gate, P.6). Every visitor-facing walk (AssembleVisitor /
+// VisitorStates / VisitorPromptPartIDs / ComposeSystemPrompt) goes through it —
+// owner-disable becomes a single gate that applies to builtins too.
 func (r *Registry) enabledCaps(ctx context.Context, in *AssembleInput) []Capability {
 	caps := r.List()
 	disabled := r.disabledSet(ctx, in)
 	out := make([]Capability, 0, len(caps))
 	for _, c := range caps {
-		// global 单点闸 = owner 手关（disabled）∧ Requires 的 connector 全连（D-2）。
+		// The single global gate = owner turned it off (disabled) AND every connector
+		// in Requires is connected (D-2).
 		if disabled[c.ID()] || !r.depsConnected(ctx, c, in) {
 			continue
 		}
@@ -314,8 +332,8 @@ func (r *Registry) enabledCaps(ctx context.Context, in *AssembleInput) []Capabil
 	return out
 }
 
-// disabledSet —— 本 owner 被关掉的 capability ID 集合（经注入的 EnableGate）。
-// 没装 gate / 无 owner 上下文 → nil（全开）。
+// disabledSet —— the set of capability IDs this owner has turned off (via the
+// injected EnableGate). No gate installed / no owner context → nil (everything on).
 func (r *Registry) disabledSet(ctx context.Context, in *AssembleInput) map[string]bool {
 	r.mu.RLock()
 	gate := r.gate

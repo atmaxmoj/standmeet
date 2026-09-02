@@ -1,17 +1,23 @@
-// wiki_tree.go —— 公开 wiki 树的**真·懒加载**分层 + ACL 过滤。wiki landing
-// sidebar(#37)和 reader/writing 入口(#43)共用这一套。
+// wiki_tree.go — **true lazy-loading** layered pagination + ACL filtering for the
+// public wiki tree. Shared by both the wiki landing sidebar (#37) and the
+// reader/writing entry point (#43).
 //
-// 懒加载是逐层的:一次只查一层(roots / 某节点的直接子,DB 端 ListChildren,
-// meta-only),**不 load 整棵树**。大 corpus 不再吃 newest-50 cap。
+// The lazy loading is per-layer: one query fetches one layer at a time (roots / a
+// node's direct children, via ListChildren on the DB side, meta-only), **the whole tree
+// is never loaded**. A large corpus no longer hits the newest-50 cap.
 //
-// 可见性走 scope:匿名只 published,有 code 走 role corpus_uris glob 准入。
-// 文件系统式 cascade:一条可见 ⟺ 它自己过闸 **且** 每个祖先都过闸 —— 祖先 gate 了
-// 整条子树不可见(不泄露 gated 标题、indexed 子也不升根)。懒加载下 cascade 这样守:
-// 列某 parent 的子前先顺 parent→root 验整条链可见(visibleChain),链断 → 返空层;
-// 链通 → parent 已可见,子的可见性就只看子自己过不过闸。
+// Visibility goes through scope: anonymous sees published only; with a code, admission
+// follows the role's corpus_uris glob. Filesystem-style cascade: an entry is visible ⟺
+// it passes the gate itself **and** every ancestor passes the gate too — a gated
+// ancestor makes its whole subtree invisible (a gated title is never leaked, and an
+// indexed child never gets promoted to the root). Under lazy loading, cascade is
+// enforced like this: before listing a parent's children, walk parent->root to verify
+// the whole chain is visible (visibleChain); a broken chain -> return an empty layer;
+// an intact chain -> the parent is already visible, so a child's visibility depends only
+// on whether the child itself passes the gate.
 //
-// path 跟 GetWikiLanding 同口径(树派生,corpus.PathSegment(title) 顺链拼),前端拿 path
-// 直接拼 /wiki/<path>。
+// path follows the same convention as GetWikiLanding (tree-derived, built by chaining
+// corpus.PathSegment(title)), and the frontend appends path directly onto /wiki/<path>.
 
 package usecase
 
@@ -25,11 +31,14 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
-// wikiTreeLayerCap —— 一层最多返多少节点。逐层懒加载下这是**单层**上限(不是全
-// corpus),远松于旧的 newest-50 全树 cap。前端树暂不分页,故取一个宽值。
+// wikiTreeLayerCap — the maximum number of nodes returned in one layer. Under
+// per-layer lazy loading this caps **one layer** (not the whole corpus), far looser
+// than the old newest-50 whole-tree cap. The frontend tree isn't paginated yet, so a
+// generous value is used.
 const wikiTreeLayerCap = 500
 
-// WikiTreeNode —— 树的一个节点(单层)。HasChildren 决定前端要不要画展开箭头。
+// WikiTreeNode — one node of the tree (a single layer). HasChildren decides whether
+// the frontend draws an expand arrow.
 type WikiTreeNode struct {
 	ID          string
 	Title       string
@@ -37,27 +46,31 @@ type WikiTreeNode struct {
 	HasChildren bool
 }
 
-// WikiTreeScope —— 判一条 wiki(按 published + 树派生 path)对当前 viewer 是否
-// 过闸。只看节点**自己**;cascade 的祖先链由 visibleChain 单独验。
+// WikiTreeScope — decides whether one wiki entry (by published + tree-derived path)
+// passes the gate for the current viewer. Looks only at the node **itself**; the
+// cascade's ancestor chain is checked separately by visibleChain.
 type WikiTreeScope func(seoIndexed bool, path string) bool
 
-// PublicWikiScope —— 匿名:只 published 可见(跟 GetWikiLanding 一致)。
+// PublicWikiScope — anonymous: only published is visible (consistent with GetWikiLanding).
 func PublicWikiScope(seoIndexed bool, _ string) bool {
 	return seoIndexed
 }
 
-// RoleWikiScope —— 有 code:role 的准入判 wiki://<path>。
+// RoleWikiScope — with a code: the role's admission decides on wiki://<path>.
 //
-// `seoIndexed` 就是这条自己的 published 开关,以前在这里被丢掉(`_`)—— 而它正是 public
-// 身份唯一的判据。现在传下去:受邀身份仍走 role 的 glob,public 身份看条目自己(F-D-7)。
+// `seoIndexed` is this entry's own published flag — it used to be discarded here
+// (`_`) — and it's exactly the sole criterion for the public identity. It's now passed
+// through: an invited identity still goes through the role's glob, while the public
+// identity looks at the entry itself (F-D-7).
 func RoleWikiScope(snap *access.RoleSnapshot) WikiTreeScope {
 	return func(seoIndexed bool, path string) bool {
 		return snap.AllowsCorpus("wiki://"+path, seoIndexed)
 	}
 }
 
-// WikiTreeScopeFor —— bearer token → scope。token 空 / 无效 / 无 store 都退到
-// 匿名(只 published);有效 session → role corpus_uris scope。
+// WikiTreeScopeFor — bearer token -> scope. An empty / invalid token, or no store,
+// all fall back to anonymous (published only); a valid session -> the role's
+// corpus_uris scope.
 func WikiTreeScopeFor(
 	ctx context.Context, sessions *access.VisitorSessionStore, token string,
 ) WikiTreeScope {
@@ -68,7 +81,8 @@ func WikiTreeScopeFor(
 	return RoleWikiScope(snap)
 }
 
-// sessionRoleSnapshot —— token 换 RoleSnapshot;任何缺失/错误 → nil(退匿名)。
+// sessionRoleSnapshot — exchanges a token for a RoleSnapshot; any missing data/error ->
+// nil (falls back to anonymous).
 func sessionRoleSnapshot(
 	ctx context.Context, sessions *access.VisitorSessionStore, token string,
 ) *access.RoleSnapshot {
@@ -82,24 +96,29 @@ func sessionRoleSnapshot(
 	return data.RoleSnapshot
 }
 
-// wikiTreeQuery —— 一次树查询的公共上下文(repo + owner + scope),把 ctx 之外的
-// 共参收进 receiver,守 argument-limit。
+// wikiTreeQuery — the shared context for one tree query (repo + owner + scope);
+// gathers the shared params beyond ctx into the receiver to respect argument-limit.
 type wikiTreeQuery struct {
 	repo    corpus.WikiLister
 	scope   WikiTreeScope
 	ownerID string
 }
 
-// WikiTreeStats —— 侧栏脚计数。Entries / Roots 是关于这个语料的事实(一共多少条、几个根);
-// **Gated 是相对这位访客的**:对他关着几条。
+// WikiTreeStats — the sidebar footer counts. Entries / Roots are facts about this
+// corpus (how many entries total, how many roots); **Gated is relative to this
+// visitor**: how many are closed off to him.
 //
-// 上一版是一句 `COUNT(*) WHERE NOT published`,完全不看 session。于是一个 role 授了
-// `wiki://**` 的受邀访客被告知「222 GATED」,而他随手就能打开其中任何一条 —— 同一个会话里,
-// 侧栏树、条目页、检索三处都认这份 grant,只有这个计数(和 /wiki 索引)认 published 标志。
-// 一个问题两道闸,而这里用错了那一道(F-L-14)。
+// The previous version was a single `COUNT(*) WHERE NOT published`, which never looked
+// at the session at all. So a visitor invited via a role granting `wiki://**` would be
+// told "222 GATED" while being able to open any of them with a click — within the same
+// session, the sidebar tree, the entry page, and search all honored that grant, and only
+// this count (and the /wiki index) went by the published flag. One question, two gates,
+// and this used the wrong one (F-L-14).
 //
-// 现在按 scope 数,cascade 跟树一致:一条可见 ⟺ 它自己过闸且每个祖先都过闸。
-// 一次 ListAllMeta(无 body)+ 内存里拼 path;个人语料的量级下这比"少一句 COUNT"重要得多。
+// It now counts by scope, with the cascade matching the tree: an entry is visible ⟺ it
+// passes the gate itself and every ancestor passes the gate too. One ListAllMeta call
+// (no body) + assembling paths in memory; at the scale of a personal corpus, this
+// matters far more than saving one COUNT query.
 func WikiTreeStats(
 	ctx context.Context, deps SEODeps, scope WikiTreeScope,
 ) (corpus.WikiStats, error) {
@@ -114,7 +133,8 @@ func WikiTreeStats(
 	return countVisible(metas, scope), nil
 }
 
-// countVisible —— entries / roots 照实数;gated = 这位访客看不到的条数。
+// countVisible — entries / roots are counted as-is; gated = the count this visitor
+// can't see.
 func countVisible(metas []corpus.WikiMeta, scope WikiTreeScope) corpus.WikiStats {
 	byID := make(map[string]*corpus.WikiMeta, len(metas))
 	for i := range metas {
@@ -132,8 +152,9 @@ func countVisible(metas []corpus.WikiMeta, scope WikiTreeScope) corpus.WikiStats
 	return stats
 }
 
-// visibleWithAncestors —— 从根到自己每一级都要过闸(跟 visibleChain 同一条规则)。
-// path 是顺链拼的 PathSegment,跟树、条目页用的是同一个口径。
+// visibleWithAncestors — every level from root down to itself must pass the gate (the
+// same rule as visibleChain). path is PathSegment chained together, the same
+// convention used by the tree and the entry page.
 func visibleWithAncestors(
 	byID map[string]*corpus.WikiMeta, node *corpus.WikiMeta, scope WikiTreeScope,
 ) bool {
@@ -148,7 +169,8 @@ func visibleWithAncestors(
 	return true
 }
 
-// ancestorChain —— node → root(自身在前)。父不在图里(理论上不该发生)就到此为止。
+// ancestorChain — node -> root (itself comes first). If a parent isn't found in the
+// graph (shouldn't happen in theory), the chain simply stops there.
 func ancestorChain(
 	byID map[string]*corpus.WikiMeta, node *corpus.WikiMeta,
 ) []*corpus.WikiMeta {
@@ -168,8 +190,9 @@ func ancestorChain(
 	return out
 }
 
-// WikiTreeChildren —— 返 parentID 的直接可见子(parentID="" → roots)。非根先验
-// parent 链整条可见(cascade),链断 → 空层。
+// WikiTreeChildren — returns parentID's directly visible children (parentID="" -> roots).
+// For a non-root, first verifies the whole parent chain is visible (cascade); a broken
+// chain -> an empty layer.
 func WikiTreeChildren(
 	ctx context.Context, deps SEODeps, parentID string, scope WikiTreeScope,
 ) ([]WikiTreeNode, error) {
@@ -185,15 +208,17 @@ func WikiTreeChildren(
 			return nil, fmt.Errorf("wiki tree parent: %w", err)
 		}
 		if len(chain) == 0 {
-			return []WikiTreeNode{}, nil // gated 祖先链 → 整条子树不可见
+			return []WikiTreeNode{}, nil // a gated ancestor chain -> the whole subtree is invisible
 		}
 		parentPath = chain[len(chain)-1].Path
 	}
 	return q.listChildren(ctx, parentID, parentPath)
 }
 
-// visibleChain —— 顺 nodeID→root 走一条链,top-down 算每节点 path + 验 scope。整条
-// 都过闸 → 返 root→node(含自身)的可见节点链;任一祖先(或自身)不过闸 → 返空 slice。
+// visibleChain — walks the chain from nodeID->root, computing each node's path
+// top-down + checking scope. If the whole chain passes -> returns the visible chain of
+// nodes from root->node (inclusive); if any ancestor (or itself) fails the gate ->
+// returns an empty slice.
 func (q *wikiTreeQuery) visibleChain(
 	ctx context.Context, nodeID string,
 ) ([]WikiTreeNode, error) {
@@ -214,7 +239,8 @@ func (q *wikiTreeQuery) visibleChain(
 	return nodes, nil
 }
 
-// walkToRoot —— 顺 parent_id 上溯收 meta(bottom-up,不读 body),到 root 或 maxDepth。
+// walkToRoot — walks up via parent_id collecting meta (bottom-up, no body read), up
+// to root or maxDepth.
 func (q *wikiTreeQuery) walkToRoot(
 	ctx context.Context, nodeID string,
 ) ([]corpus.WikiMeta, error) {
@@ -234,8 +260,10 @@ func (q *wikiTreeQuery) walkToRoot(
 	return out, nil
 }
 
-// listChildren —— DB 列 parentID 的直接子,逐个验自己过闸(parent 已验可见)。
-// has_children 是「有 ≥1 可见子」:peek 一层下去现算,无可见子 → 不画箭头。
+// listChildren — the DB lists parentID's direct children, and each is individually
+// checked against its own gate (the parent was already verified visible).
+// has_children means "has >= 1 visible child": computed by peeking one layer down;
+// no visible child -> no arrow drawn.
 func (q *wikiTreeQuery) listChildren(
 	ctx context.Context, parentID, parentPath string,
 ) ([]WikiTreeNode, error) {
@@ -260,7 +288,8 @@ func (q *wikiTreeQuery) listChildren(
 	return out, nil
 }
 
-// hasVisibleChild —— nodeID 是否有 ≥1 个过闸的直接子(nodePath 已知可见)。
+// hasVisibleChild — whether nodeID has >= 1 direct child that passes the gate
+// (nodePath is already known to be visible).
 func (q *wikiTreeQuery) hasVisibleChild(
 	ctx context.Context, nodeID, nodePath string,
 ) (bool, error) {
@@ -276,7 +305,7 @@ func (q *wikiTreeQuery) hasVisibleChild(
 	return false, nil
 }
 
-// parentPtr —— ""(roots)→ nil,否则 &id;喂 ListChildren 的 parentID 参数。
+// parentPtr — "" (roots) -> nil, otherwise &id; fed into ListChildren's parentID param.
 func parentPtr(id string) *string {
 	if id == "" {
 		return nil

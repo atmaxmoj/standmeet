@@ -1,8 +1,9 @@
-// storage.go —— 一个能力**自己的**存储和配置,绑死在它的命名空间上。
+// storage.go — a capability's **own** storage and config, bound to its own namespace.
 //
-// 绑死是构造期做的:接口里没有 kind / id,所以沙箱那侧根本没有"填别人的表"这个路径 ——
-// 隔离是构造出来的,不是每次请求校验出来的。schema 名从**宿主信任的 id** 派生
-// (mcp_<id>),永远不从插件的请求里取。
+// The binding happens at construction time: the interface carries no kind / id, so the sandbox
+// side has no path at all to "fill in someone else's table" — isolation is built in by
+// construction, not validated per request. The schema name is derived from **an id the host
+// trusts** (mcp_<id>), never taken from the plugin's request.
 
 package axiscap
 
@@ -21,11 +22,11 @@ import (
 	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
 )
 
-// CapabilityStorageInit —— 启动期给每个**需要**存储的能力 provision 一次它自己的 schema
-// (mcp_<id>),之后所有接线从这里取。
+// CapabilityStorageInit — at startup, provisions one schema (mcp_<id>) for every capability
+// that **needs** storage; every wiring point pulls from here afterward.
 //
-// 一次而不是每个接线点各来一次:provision 是 DDL,重复跑既慢又让"这个能力有没有存储"这个
-// 事实散在四处各判一遍。
+// Once, not once per wiring point: provision is DDL, so running it repeatedly is both slow and
+// scatters the fact "does this capability have storage" into a separate check at each site.
 func CapabilityStorageInit(ctx context.Context, d *deps.Runtime) {
 	manifests := BuiltinManifests()
 	for i := range manifests {
@@ -42,11 +43,13 @@ func CapabilityStorageInit(ctx context.Context, d *deps.Runtime) {
 	}
 }
 
-// CapabilityStorage —— 这个能力自己的隔离存储。没有(不需要 / provision 失败)→ nil。
+// CapabilityStorage — this capability's own isolated storage. None (not needed / provision
+// failed) → nil.
 //
-// 四件事都落在同一份存储上:沙箱自己读写(capstore.*)、owner 的配置(Config)、码上的字段
-// (CodeConfig)、用量计数(Quota)。判定只有 needsStorage 这一处 —— 散开写的后果是漏记条件
-// 的那一处到运行时才发现:表不存在。
+// Four things land on this same store: the sandbox's own reads/writes (capstore.*), the
+// owner's config (Config), the code-side fields (CodeConfig), and usage counting (Quota).
+// The condition is decided in exactly one place, needsStorage — the cost of writing it
+// scattered is that a missed condition only surfaces at runtime: the table doesn't exist.
 func CapabilityStorage(d *deps.Runtime, m *mcpplugin.Manifest) *capstore.Store {
 	return d.CapStores[m.ID]
 }
@@ -56,7 +59,7 @@ func needsStorage(m *mcpplugin.Manifest) bool {
 		len(m.Config) > 0 || len(m.CodeConfig) > 0 || m.Quota.Usable()
 }
 
-// wantsAny —— 这个能力点过某个前缀下的 host op 没有。
+// wantsAny — whether this capability calls any host op under the given prefix.
 func wantsAny(m *mcpplugin.Manifest, prefix string) bool {
 	for _, name := range HostOpsOf(m) {
 		if strings.HasPrefix(name, prefix) {
@@ -66,8 +69,8 @@ func wantsAny(m *mcpplugin.Manifest, prefix string) bool {
 	return false
 }
 
-// HostOpsOf —— 这个能力点了哪几件 host op。读的是 manifest,所以是能力轴的知识;
-// 入站收口那边照它发单。
+// HostOpsOf — which host ops this capability calls. Read from the manifest, so it's the
+// capability axis's own knowledge; inbound convergence dispatches by it.
 func HostOpsOf(m *mcpplugin.Manifest) []string {
 	if m.Transport.Sandbox == nil {
 		return []string{}
@@ -75,7 +78,7 @@ func HostOpsOf(m *mcpplugin.Manifest) []string {
 	return m.Transport.Sandbox.HostOps
 }
 
-// boundCapStore —— 通用 capstore.Store 绑到某个能力的命名空间。
+// boundCapStore — the generic capstore.Store bound to one capability's namespace.
 type boundCapStore struct {
 	store *capstore.Store
 	kind  capstore.Kind
@@ -122,8 +125,9 @@ func (b boundCapStore) Delete(
 	return n, nil
 }
 
-// QueryRecords / DeleteByID —— 带记录 id 的读与按 id 删。能力够不到自己记录的 id,
-// 就必然在别处长出一份副本(见 capstoreroutes.BoundStore 的说明)。
+// QueryRecords / DeleteByID — reads that include the record id, and delete by id. If a
+// capability can't reach its own records' ids, a duplicate is bound to grow somewhere else
+// (see the note on capstoreroutes.BoundStore).
 func (b boundCapStore) QueryRecords(
 	ctx context.Context, collection string, filter json.RawMessage,
 ) ([]capstoreroutes.BoundRecord, error) {
@@ -148,7 +152,8 @@ func (b boundCapStore) DeleteByID(
 	return n, nil
 }
 
-// Claim / Release —— 单赢占位。盖住「先看一眼再动手」中间那个窗口(F-B-15)。
+// Claim / Release — single-winner locking. Closes the window in the middle of "check then
+// act" (F-B-15).
 func (b boundCapStore) Claim(
 	ctx context.Context, collection, key string, ttlSeconds int,
 ) (bool, error) {
@@ -170,13 +175,14 @@ func (b boundCapStore) Release(ctx context.Context, collection, key string) erro
 	return nil
 }
 
-// boundCapConfig —— 绑死 (kind, id, 声明) 的配置读口:沙箱只能问"我的配置"。
+// boundCapConfig — the config read port bound to (kind, id, declaration): the sandbox can
+// only ask for "my own config".
 type boundCapConfig struct {
 	cfg  *capconfig.Store
 	decl []mcpplugin.ConfigField
 }
 
-// CapConfigFor —— 把这个能力的隔离存储包成它自己的配置读写口。
+// CapConfigFor — wraps this capability's isolated storage into its own config read/write port.
 func CapConfigFor(store *capstore.Store, capID string) *capconfig.Store {
 	return capconfig.New(store, capstore.KindMCP, capID)
 }

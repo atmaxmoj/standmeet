@@ -1,7 +1,9 @@
-// codes_write.go —— 发码 / 撤码 / 改配额 / 改证据开关的解参与转交(声明在 codes.go)。
+// codes_write.go — arg decoding and forwarding for issue / revoke / update-quota / update-
+// evidence-switch (declared in codes.go).
 //
-// 规则本身在 usecase/codes.go:不指定 role 用 public role、撤码连着清 session、
-// 没提到的配额保持原值。这里只把线上的 JSON 翻成域的入参,再把结果翻回去。
+// The rules themselves live in usecase/codes.go: no role specified uses the public role,
+// revoking a code also clears its sessions, an unmentioned quota keeps its current value. This
+// file only translates the wire JSON into the domain's input, then translates the result back.
 
 package ops
 
@@ -45,8 +47,8 @@ func createCode(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
 	}
 }
 
-// decodeCodeCreate —— 解参。code 留空、assumed_role_id 留空都合法:前者由域派生,
-// 后者由域兜到 public role。
+// decodeCodeCreate — decode args. Leaving code empty or assumed_role_id empty are both valid:
+// the former is derived by the domain, the latter falls back to the public role in the domain.
 func decodeCodeCreate(raw json.RawMessage, ownerID string) (*repo.CreateCodeInput, error) {
 	var in codeCreateArgs
 	if err := json.Unmarshal(raw, &in); err != nil {
@@ -62,16 +64,16 @@ func decodeCodeCreate(raw json.RawMessage, ownerID string) (*repo.CreateCodeInpu
 		AssumedRoleID: in.AssumedRoleID, PromptID: in.PromptID,
 		MaxMembers: in.MaxMembers, MaxTurnsPerSession: in.MaxTurnsPerSession,
 		ExpiresAt: expires,
-		// 空 = 没指:继承 role 的,再退 owner 默认那条。
+		// empty = not specified: inherits the role's, then falls back to the owner default.
 		ProviderID:     in.ProviderID,
 		LimitPerPeriod: in.LimitPerPeriod,
 	}, nil
 }
 
-// parseOptionalRFC3339 —— 空 = 不设(永不过期),不是错。
+// parseOptionalRFC3339 — empty = not set (never expires), not an error.
 func parseOptionalRFC3339(s string) (*time.Time, error) {
 	if s == "" {
-		return nil, nil //nolint:nilnil // 空 = 没设,不是错误
+		return nil, nil //nolint:nilnil // empty = unset, not an error
 	}
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
@@ -80,8 +82,8 @@ func parseOptionalRFC3339(s string) (*time.Time, error) {
 	return &t, nil
 }
 
-// revokedOut —— 撤销的回执。它不是一行码,是"对哪张码做完了什么",所以字段跟**入参**同名
-// (code_id),不是行里的 id。
+// revokedOut — the revoke receipt. It isn't a code row, it's "what was done to which code",
+// so its field is named after the **input** (code_id), not the row's id.
 type revokedOut struct {
 	CodeID  string `json:"code_id"`
 	Revoked bool   `json:"revoked"`
@@ -100,16 +102,17 @@ func revokeCode(deps usecase.CodesDeps) fp.Invoke {
 	}
 }
 
-// codePageArgs —— codes.set_custom_page 的入参。slug 空串 = 解绑。
+// codePageArgs — input for codes.set_custom_page. slug empty string = unbind.
 type codePageArgs struct {
 	CodeID string `json:"code_id"`
 	Slug   string `json:"slug"`
 }
 
-// setCodeCustomPage —— 把这张码指向某一页，或清掉。
+// setCodeCustomPage — points this code at a page, or clears it.
 //
-// **绑定住在码上**（access_codes.custom_page_id），所以「一张码至多一页」是结构保证的，
-// 不靠校验；而页那一侧看到的是「哪些码开我」，同一个事实两处读、谁也不存第二份。
+// **The binding lives on the code** (access_codes.custom_page_id), so "at most one page per
+// code" is guaranteed by structure, not by validation; the page side sees "which codes open
+// me" — the same fact read from two places, neither side storing a second copy.
 func setCodeCustomPage(deps usecase.CodesDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var in codePageArgs
@@ -127,8 +130,9 @@ func setCodeCustomPage(deps usecase.CodesDeps) fp.Invoke {
 	}
 }
 
-// codePageOut —— 绑定的回执：**回读到的那个 slug**，不是入参回声。
-// 回声只能证明「我收到了」，回读才证明「它现在就是这样」（[[write-with-no-receipt]]）。
+// codePageOut — the binding receipt: **the slug read back**, not an echo of the input.
+// An echo only proves "I received it"; a read-back proves "this is how it is now"
+// ([[write-with-no-receipt]]).
 type codePageOut struct {
 	CodeID         string `json:"code_id"`
 	CustomPageSlug string `json:"custom_page_slug"`

@@ -1,4 +1,5 @@
-// /login —— owner sign-in 入口。成功后跳到 /<handle>（admin 落地后改跳 /admin）。
+// /login — owner sign-in entry. On success redirects to /<handle> (switch to
+// /admin once admin lands).
 
 import { AuthShell } from '@/components/auth/AuthShell';
 import { LoginForm } from '@/components/auth/LoginForm';

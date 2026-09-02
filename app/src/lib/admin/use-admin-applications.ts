@@ -1,4 +1,4 @@
-// use-admin-applications —— /admin/applications 的 fetch hook。
+// use-admin-applications —— fetch hook for /admin/applications.
 
 import { useEffect, useState } from 'react';
 
@@ -7,8 +7,9 @@ import { z } from 'zod';
 import { ResumeContentSchema } from '@/lib/admin/draft-detail';
 import { safeJson } from '@/lib/api/typed-json';
 
-// resume_content —— 详情卡那块 snapshot 渲的就是它（F-E-23：那块以前只有一个标题和一片空白，
-// 而「我到底发出去了什么」在整个产品里没有第二处能回答）。
+// resume_content —— this is what the detail card's snapshot block renders
+// (F-E-23: that block used to be just a title and blank space, and nowhere
+// else in the product could answer "what did I actually send").
 const AdminApplicationRowSchema = z.object({
   id: z.string(), company: z.string(), role: z.string(), status: z.string(),
   submitted_at: z.string(), created_at: z.string(),

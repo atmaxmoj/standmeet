@@ -1,14 +1,15 @@
-// SessionStrip —— visitor 所有 chat-capable surface (index / blog / wiki /
-// output) 顶部 sticky 单一 session 指示条。
+// SessionStrip —— the single sticky session indicator bar at the top of
+// every chat-capable visitor surface (index / blog / wiki / output).
 //
-// 状态来源：useVisitorSessionStore（zustand + localStorage 'standmeet-session'）。
-// SessionStrip 自身不知道 code 从哪来；上游 (use-absorb-code / use-gate)
-// 负责 issue session 后写 store；这里订阅 + 渲染 + 自带 storage event 跨
-// tab 同步。
+// State source: useVisitorSessionStore (zustand + localStorage
+// 'standmeet-session'). SessionStrip itself doesn't know where the code
+// came from; the upstream code (use-absorb-code / use-gate) is responsible
+// for writing to the store after issuing a session — this component
+// subscribes + renders + wires up its own storage event for cross-tab sync.
 //
-// 视觉规范见 docs/design/project/sm-components.js SessionStrip + sm-tokens.css
-// .sm-session-strip。无 props —— 跨 surface 复用，挂在每个 page 顶端。
-// 没 active session → 不渲染。
+// Visual spec: docs/design/project/sm-components.js SessionStrip +
+// sm-tokens.css .sm-session-strip. No props — reused across surfaces,
+// mounted at the top of every page. No active session → doesn't render.
 
 'use client';
 
@@ -25,23 +26,30 @@ import { validateVisitorSession } from '@/lib/visitor/validate-session';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { cssVars } from '@/lib/ui/css-vars';
 
-// Slots —— 一个面可以把**自己的**页眉内容塞进这条已经存在的横条,而不是在它上面再摞一条。
+// Slots —— a surface can slot **its own** header content into this
+// already-existing strip, instead of stacking a second full-width bar on
+// top of it.
 //
-// 聊天那一屏原来是两条整宽横条摞在一起:一条是这次**会话**的状态,一条是这个**站点**的身份
-// (`STANDMEET / sijie ● LIVE … FULL PAGE →`)。两种不同的东西、同样的形状、同样整宽、
-// 同样的等宽小字,加起来 68px,访客在正文开始之前先要越过它 —— 而且两条各画一个 live dot,
-// 同一个信号说了两遍(UX-53)。
+// The chat screen used to stack two full-width bars: one for this
+// **conversation's** state, one for this **site's** identity
+// (`STANDMEET / sijie ● LIVE … FULL PAGE →`). Two different things, same
+// shape, both full-width, both small mono text, adding up to a 68px header
+// the visitor had to get past before reaching any content — and each bar
+// drew its own live dot, saying the same signal twice (UX-53).
 //
-// 其余七个挂了这条横条的面不传这两个槽,渲染完全不变。
+// The other seven surfaces that mount this strip don't pass these two
+// slots, and their rendering is unchanged.
 interface StripSlots {
   leading?: ReactNode;
   trailing?: ReactNode;
 }
 
 export function SessionStrip(slots: StripSlots = {}) {
-  // mount 一次 bind storage / custom event listener。组件卸载 → unbind。
-  // F-L-11: 同时探一下 stored token 还活着没(TTL 过期 → 401 → 清两个 store),
-  // 免得读者页拿着死 session 显假「unlocked」chrome + 空正文。
+  // Bind the storage / custom event listener once on mount. Component
+  // unmounts → unbind.
+  // F-L-11: also probes whether the stored token is still alive (TTL
+  // expired → 401 → clear both stores), so the reader page doesn't hold a
+  // dead session and show a false "unlocked" chrome over an empty body.
   useEffect(() => {
     void validateVisitorSession();
     return bindVisitorSessionSync();
@@ -118,8 +126,10 @@ function StripVisitorBadge({ s }: { s: VisitorSession }) {
   ) : null;
 }
 
-// StripVisitorName —— code 模式下名字可点 = 换人:重开名字选择器,取新名字 =
-// 新 member = 新对话(同名则续上)。byoai 无 member 概念 → 纯文字不可点。
+// StripVisitorName —— in code mode, the name is clickable = switch person:
+// reopens the name picker, and taking a new name = a new member = a new
+// conversation (the same name resumes it). byoai has no concept of a
+// member → plain unclickable text.
 function StripVisitorName({ s }: { s: VisitorSession }) {
   const t = useTranslations('visitor.sessionStrip');
   const you = t('you', { visitor: s.visitor ?? '' });
@@ -167,16 +177,20 @@ function StripQuotaSlot({ s, pct }: { s: VisitorSession; pct: number }) {
   ) : null;
 }
 
-// StripNamesSlot —— 这张码有名字上限时显 "N / M names"(几个人用了 / 共几个)。
+// StripNamesSlot —— when this code has a member cap, shows "N / M names"
+// (how many people have used it / how many total).
 function StripNamesSlot({ s }: { s: VisitorSession }) {
   const t = useTranslations('visitor.sessionStrip');
   return s.maxMembers > 0 ? (
     <>
       <span className="sm-session-strip-sep">·</span>
       <span className="sm-session-strip-gauge-text" data-testid="session-strip-names">
-        {/* 名字数和轮数长得一样(同一个类),但它们是**两个**量,各自要能被指到。
-            共用一个类名的后果:`.sm-session-strip-used` 一次命中两个元素,谁也定位不了。
-            外观归类名,身份归 testid。 */}
+        {/* Name count and turn count look alike (same class), but they're
+            **two** distinct quantities, each needing to be individually
+            targetable. The consequence of sharing one class name:
+            `.sm-session-strip-used` would match two elements at once, and
+            neither could be located. Appearance belongs to the class name,
+            identity belongs to the testid. */}
         <span className="sm-session-strip-used" data-testid="session-strip-members-used">
           {s.memberCount}
         </span>
@@ -217,13 +231,15 @@ function StripGauge({ used, max, pct }: { used: number; max: number; pct: number
   );
 }
 
-// 填充比例走 `style`：拼接出来的 Tailwind 任意属性构建期扫不到，一条 CSS 都不生成，
-// `.sm-fill` 会一直退到兜底的 `width: 0%` —— 访客看到的配额条就永远是空的。
+// The fill percentage goes through `style`: a string-concatenated Tailwind
+// arbitrary property can't be scanned at build time, so no CSS gets
+// generated for it, and `.sm-fill` would always fall back to `width: 0%` —
+// the visitor would see a quota bar that's forever empty.
 function SessionStripGaugeFill({ pct }: { pct: number }) {
   return (
     <span
       className="sm-session-strip-gauge-fill sm-fill"
-      // eslint-disable-next-line no-restricted-syntax -- pct 是这次会话用掉的比例，运行时才知道
+      // eslint-disable-next-line no-restricted-syntax -- pct is this session's used ratio, only known at runtime
       style={cssVars({ '--fill': `${pct}%` })}
     />
   );

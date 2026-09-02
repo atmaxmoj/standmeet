@@ -1,11 +1,11 @@
 // use-gcal —— state + actions for /admin/connectors Calendar panel.
 //
-// 三块状态：
+// Three blocks of state:
 //   1. connector status (has_credentials / connected / scopes)
 //   2. booking policy (working hours / weekdays / lead time / timezone)
-//   3. credentials form (client_id / client_secret，blur 后保存)
+//   3. credentials form (client_id / client_secret, saved on blur)
 //
-// 所有 mutation 立即同步到 zustand store；component 直接读 store。
+// Every mutation syncs immediately into the zustand store; the component reads the store directly.
 
 import { useEffect } from 'react';
 
@@ -37,7 +37,7 @@ export const gcalStatusStore = createResourceStore<GCalStatus>({
 export const Weekday = z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 export type WeekdayT = z.infer<typeof Weekday>;
 
-// toggledWeekdays —— add/remove one weekday。分支挪 lib 让 presentation 层无 if。
+// toggledWeekdays —— add/remove one weekday. Branching moved to lib so the presentation layer has no if.
 export function toggledWeekdays(current: readonly WeekdayT[], d: WeekdayT): WeekdayT[] {
   if (current.includes(d)) return current.filter((x) => x !== d);
   return [...current, d];
@@ -53,9 +53,12 @@ export const BookingPolicySchema = z.object({
 });
 export type BookingPolicy = z.infer<typeof BookingPolicySchema>;
 
-// 预约策略是 booker 这个能力**自己声明**的配置，经通用的 capability-config 口读写；
-// 后端不再有按能力名写死的 /booking-policy。timezone 不在其中 —— 那是 owner 的档案
-// （换个能力也会用它解释"几点"），走 /me + /account/timezone。
+// The booking policy is config that the booker capability **declares for
+// itself**, read and written through the generic capability-config endpoint;
+// the backend no longer has a /booking-policy hardcoded to this capability's
+// name. timezone is not part of it — that belongs to the owner's profile
+// (another capability would also use it to interpret "what time"), and goes
+// through /me + /account/timezone.
 const BOOKER_CAP = 'calendar.book';
 
 const CapConfigSchema = z.object({
@@ -124,8 +127,8 @@ async function refresh(): Promise<void> {
   ]);
 }
 
-// mutation 抛错（不再吞成 false）：调用方 auto-save 路径用 `.catch(report)`，
-// 显式按钮（disconnect）用 useAction 收尾。
+// The mutation throws (no longer swallowed into false): the auto-save call
+// site uses `.catch(report)`, and an explicit button (disconnect) finishes up with useAction.
 async function saveCredentials(
   clientID: string, clientSecret: string,
 ): Promise<void> {

@@ -22,36 +22,43 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 )
 
-// NonceStore —— 一次性 jti 记录（防重放）。实现 = Redis SetNX（跟 Sigv1 共用同一个）。
+// NonceStore — records a one-time jti (replay protection). Impl = Redis SetNX (shares
+// the same store as Sigv1).
 type NonceStore interface {
 	Fresh(ctx context.Context, key string, ttl time.Duration) (bool, error)
 }
 
-// EmbedTokenDeps —— 验 embed JWT 所需。
+// EmbedTokenDeps — what's needed to verify the embed JWT.
 type EmbedTokenDeps struct {
 	Embeds *repo.EmbedRepo
 	Nonce  NonceStore
 	Log    *slog.Logger
 }
 
-// embedTokenNonceTTL —— jti 记录存活时间：盖过 JWT 的有效窗再留余量，之后 exp 早已过期可回收。
+// embedTokenNonceTTL — how long the jti record lives: covers the JWT's valid window
+// plus slack; after that exp has long since passed and it can be reclaimed.
 const embedTokenNonceTTL = 10 * time.Minute
 
-// embedClaims —— origin 折进签名；其余走标准注册声明（iss/iat/exp/jti）。
+// embedClaims — origin is folded into the signature; the rest uses standard
+// registered claims (iss/iat/exp/jti).
 type embedClaims struct {
 	jwt.RegisteredClaims
 
 	Origin string `json:"origin"`
 }
 
-// VerifyEmbedToken —— 验 widget 的 EdDSA JWT，通过则返它暴露的 code。
+// VerifyEmbedToken — verifies the widget's EdDSA JWT; on success returns the code it
+// carries.
 //
-// 顺序（任一步失败给一句 sentinel，不细分 → 不给探测预言机）：
-//  1. 解析 + **硬钉 alg=EdDSA**（WithValidMethods）——挡 alg:none / 算法混淆；exp/iat 由库校、exp 必填。
-//  2. keyFunc 按 kid 取这个 embed 的公钥（未知 kid → 失败）。
-//  3. origin claim == 浏览器带的 Origin 头（页面 JS 伪造不了它）。
-//  4. origin 在这个 embed 的白名单里，否则 ErrEmbedOriginNotAllowed（403）。
-//  5. jti 首见（Redis，**fail-closed**：空 / 未装 / Redis 出错 → 拒；公开面不留静默重放窗口）。
+// Order (any step's failure returns one sentinel, no finer breakdown → no probing
+// oracle):
+//  1. Parse + **hard-pin alg=EdDSA** (WithValidMethods) — blocks alg:none / algorithm
+//     confusion; exp/iat are checked by the library, exp is required.
+//  2. keyFunc fetches this embed's public key by kid (unknown kid → failure).
+//  3. origin claim == the browser's Origin header (page JS can't forge this).
+//  4. origin is on this embed's allowlist, else ErrEmbedOriginNotAllowed (403).
+//  5. jti first-seen check (Redis, **fail-closed**: empty / not installed / Redis
+//     error → deny; the public surface leaves no silent replay window).
 func VerifyEmbedToken(
 	ctx context.Context, deps EmbedTokenDeps, tokenStr, originHeader string,
 ) (string, error) {
@@ -68,18 +75,21 @@ func VerifyEmbedToken(
 	return p.auth.Code, nil
 }
 
-// parsedEmbedToken —— 解析验签的产出：反查到的 auth + 校过的 claims。
+// parsedEmbedToken — the output of parse+verify: the auth looked up along the way,
+// plus the checked claims.
 type parsedEmbedToken struct {
 	claims *embedClaims
 	auth   entity.EmbedAuth
 }
 
-// parseEmbedToken —— 解析 + 验签（**alg=EdDSA 硬钉**、exp 必填），keyFunc 按 kid 取公钥。
+// parseEmbedToken — parse + verify signature (**alg=EdDSA hard-pinned**, exp required);
+// keyFunc fetches the public key by kid.
 func parseEmbedToken(
 	ctx context.Context, deps EmbedTokenDeps, tokenStr string,
 ) (parsedEmbedToken, error) {
 	var auth entity.EmbedAuth
-	// jwt.Keyfunc 的签名要求返回 (any, error)——库边界，不是业务代码在选 any。
+	// jwt.Keyfunc's signature requires returning (any, error) — a library
+	// boundary, not business code choosing any.
 	keyFunc := func(t *jwt.Token) (any, error) { //nolint:forbidigo // jwt.Keyfunc boundary
 		a, err := deps.Embeds.AuthByKeyID(ctx, headerKID(t))
 		if err != nil {
@@ -105,7 +115,8 @@ func headerKID(t *jwt.Token) string {
 	return kid
 }
 
-// checkEmbedOrigin —— 签的 origin 必须等于浏览器带的 Origin 头，且在白名单里。
+// checkEmbedOrigin — the signed origin must equal the browser's Origin header, and be
+// on the allowlist.
 func checkEmbedOrigin(auth *entity.EmbedAuth, claimOrigin, headerOrigin string) error {
 	if claimOrigin == "" || claimOrigin != headerOrigin {
 		return entity.ErrEmbedTokenInvalid
@@ -116,7 +127,8 @@ func checkEmbedOrigin(auth *entity.EmbedAuth, claimOrigin, headerOrigin string) 
 	return nil
 }
 
-// embedNonceFresh —— jti 首见校验。**fail-closed**（跟 Sigv1 的 fail-open 相反）。
+// embedNonceFresh — first-seen check for jti. **fail-closed** (the opposite of
+// Sigv1's fail-open).
 func embedNonceFresh(ctx context.Context, deps EmbedTokenDeps, jti string) error {
 	if jti == "" || deps.Nonce == nil {
 		return entity.ErrEmbedTokenInvalid

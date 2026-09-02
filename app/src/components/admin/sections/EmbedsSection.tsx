@@ -1,9 +1,12 @@
-// EmbedsSection —— /admin/embeds。owner 把某张码作为 <standmeet-chat> widget
-// 暴露到别人的网站上，配来源白名单（embed 规划 2026-09-01）。
+// EmbedsSection —— /admin/embeds. Owner exposes a given code as a
+// <standmeet-chat> widget on someone else's website, with an origin allowlist
+// (embed plan 2026-09-01).
 //
-// 邻居是 codes / custom-pages（都在 access 组）：一个 embed 挂一张码，跟 custom page
-// 挂一张码是同一件事的两种落地。写操作**在 admin 里做**（不像 custom-pages 那样只在 MCP）——
-// 因为白名单是安全边界，owner 要在能看见全部 embed 的地方一处管完。
+// Its neighbors are codes / custom-pages (all in the access group): an embed
+// attaching a code and a custom page attaching a code are two shapes of the same
+// idea. Writes happen **in admin** (unlike custom-pages, which is MCP-only) — because
+// the allowlist is a security boundary, and the owner needs to manage it all in one
+// place where every embed is visible.
 
 'use client';
 
@@ -24,15 +27,19 @@ import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 import { stampDay } from '@/lib/ui/format-time';
 
-// codeStringFor —— embed 存的是 code_id（uuid），但贴进网站的标签要人读的码串（LABEL-XXX）。
-// 码列表在这一页本来就为「新建时挑码」加载了，顺手拿它反查。查不到（码被删了）→ ''，
-// 由调用方显示"code removed"。
+// codeStringFor —— an embed stores code_id (a uuid), but the tag pasted into a
+// website needs the human-readable code string (LABEL-XXX). The code list is
+// already loaded on this page for "pick a code when creating", so reuse it for the
+// reverse lookup. Not found (the code was deleted) → '', and the caller shows
+// "code removed".
 function codeStringFor(codeID: string, codes: readonly CodeView[]): string {
   return codes.find((c) => c.id === codeID)?.code ?? '';
 }
 
-// unembeddedCodes —— 还没被任何 embed 挂着的码。一张码只能挂一个 embed（code_id 唯一）——
-// 所以新建时的挑码器只列没挂过的，owner 挑不到一张已经挂了的码（后端那道唯一约束是 race 兜底）。
+// unembeddedCodes —— codes not yet attached to any embed. One code can only be
+// attached to one embed (code_id is unique) — so the code picker at creation time
+// only lists unattached ones, and the owner can't pick a code that's already
+// attached (the backend's uniqueness constraint is the race-condition backstop).
 function unembeddedCodes(
   codes: readonly CodeView[], embeds: readonly EmbedView[],
 ): readonly CodeView[] {
@@ -45,7 +52,8 @@ export function EmbedsSection() {
   const codesHook = useCodes();
   const [editing, setEditing] = useState<EmbedView | null>(null);
   const [creating, setCreating] = useState(false);
-  // revealed —— 刚建好的 embed（带只此一次的私钥）。设上就弹出完整 snippet 让 owner 复制走。
+  // revealed —— an embed just created (carrying its one-time private key). Setting
+  // it pops up the full snippet for the owner to copy.
   const [revealed, setRevealed] = useState<CreatedEmbed | null>(null);
   useEffectErrorToast(hook.error);
   const openEdit = useCallback((e: EmbedView) => { setCreating(false); setEditing(e); }, []);
@@ -149,8 +157,9 @@ function Th({ text, align }: { text: string; align: 'left' | 'right' }) {
   );
 }
 
-// EmbedRows —— 一个 embed 两行：一行元数据 + 动作，一行**贴进网站的那段代码**。
-// 代码跟它属于同一个 embed，所以不另开抽屉：owner 建完当场就能复制走。
+// EmbedRows —— two rows per embed: one metadata + actions row, one for **the code
+// snippet pasted into the website**. The snippet belongs to the same embed, so it
+// doesn't get its own drawer: the owner can copy it right away once it's created.
 function EmbedRows({
   embed, codes, onEdit,
 }: { embed: EmbedView; codes: readonly CodeView[]; onEdit: (e: EmbedView) => void }) {
@@ -199,7 +208,8 @@ function CodeCell({ code }: { code: string }) {
   );
 }
 
-// OriginsCell —— 空 = 任何来源（安全上最松，明说而不是留白，免得读成"还没设"）。
+// OriginsCell —— empty = any origin (the loosest security setting; state it
+// explicitly rather than leaving it blank, so it doesn't read as "not set yet").
 function OriginsCell({ origins }: { origins: readonly string[] }) {
   const t = useTranslations('adminAccess.embeds');
   return (
@@ -249,9 +259,12 @@ function ActionsCell({
   );
 }
 
-// SnippetRow —— 一行说明：完整 snippet（含私钥）只在**创建时**给一次（[[write-with-no-receipt]]
-// 反过来：私钥是给一次的秘密）。列表里拿不到私钥，所以这里不复现可用 snippet，只标出 kid、
-// 提示"要新的就删了重建"。真正贴走那段在创建后的一次性弹窗里。
+// SnippetRow —— one line of explanation: the full snippet (with the private key) is
+// given only once, **at creation time** ([[write-with-no-receipt]] in reverse: the
+// private key is a secret given once). The private key can't be retrieved from the
+// list, so no usable snippet is reproduced here — just the kid, with a note to
+// "delete and recreate for a new one". The actual snippet to paste lives in the
+// one-time popup right after creation.
 function SnippetRow({ embed }: { embed: EmbedView }) {
   const t = useTranslations('adminAccess.embeds');
   return (
@@ -266,7 +279,7 @@ function SnippetRow({ embed }: { embed: EmbedView }) {
   );
 }
 
-// CopyButton —— 复制任意文本 + toast。reveal 弹窗复用它。
+// CopyButton —— copies arbitrary text + toasts. Reused by the reveal popup.
 function CopyButton({ testid, text }: { testid: string; text: string }) {
   const t = useTranslations('adminAccess.embeds');
   const toast = useToast();
@@ -284,8 +297,10 @@ function CopyButton({ testid, text }: { testid: string; text: string }) {
   );
 }
 
-// SnippetReveal —— 创建后一次性弹出：完整可贴的 widget snippet（含私钥），复制走。
-// 私钥只在这一刻拿得到，关掉就没了 —— 措辞要说清"现在复制，之后不再显示"。
+// SnippetReveal —— pops up once after creation: the full paste-ready widget snippet
+// (with the private key), to copy. The private key is only obtainable at this
+// moment — closing the dialog loses it, so the copy must say "copy now, this won't
+// show again".
 function SnippetReveal({ embed, onClose }: { embed: CreatedEmbed; onClose: () => void }) {
   const t = useTranslations('adminAccess.embeds');
   const [origin, setOrigin] = useState('');
@@ -326,7 +341,8 @@ function ModalSlot({
   const t = useTranslations('adminAccess.embeds');
   const onCreate = useCallback(async (codeID: string, label: string, origins: string[]) => {
     try {
-      // 回执带着只此一次的私钥 → 立刻交给 reveal 弹窗（关掉列表就再也拿不到它）。
+      // The response carries the one-time private key → hand it straight to the
+      // reveal popup (closing the list loses it for good).
       const created = await hook.createEmbed({ code_id: codeID, label, allowed_origins: origins });
       onClose();
       onRevealed(created);
@@ -339,7 +355,8 @@ function ModalSlot({
       onClose();
     } catch (e) { report(e); }
   }, [hook, toast, report, t, onClose]);
-  // 编辑：码锁死，picker 要含它自己那张（用全量 codes）。新建：只列没挂过的（available）。
+  // Edit: the code is locked in, so the picker must include its own code (use the
+  // full codes list). Create: only list unattached ones (available).
   return open ? (
     <EmbedCreateModal
       existing={existing} codes={existing ? codes : available} onClose={onClose}

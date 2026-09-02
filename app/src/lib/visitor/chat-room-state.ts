@@ -1,5 +1,5 @@
-// chat-room-state —— ChatRoom 的 derived state。presentation 层不准跑
-// if / 复杂逻辑，所以抽到 lib/。
+// chat-room-state —— derived state for ChatRoom. The presentation layer isn't
+// allowed to run if / complex logic, so it's extracted into lib/.
 
 import { useCallback, useState } from 'react';
 
@@ -37,8 +37,9 @@ export function useChatRoomInput(mode: SessionMode) {
     void chat.ask(q);
   }, [chat]);
 
-  // H.13.d: Tab 接受 ghost → 填进 input 不自动 submit；visitor 自己决定
-  // 直接 send 还是继续编辑。H.13.e: 同时 fire accept 让 admin 后台日志。
+  // H.13.d: Tab accepts the ghost → fills the input without auto-submitting;
+  // the visitor decides whether to send right away or keep editing.
+  // H.13.e: also fires accept so the admin backend can log it.
   const onAcceptGhost = useCallback((g: string) => {
     setInput(g);
     ghostLogger.acceptCurrent();

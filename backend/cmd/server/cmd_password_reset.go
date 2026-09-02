@@ -1,14 +1,16 @@
-// cmd_password_reset.go —— `standmeet password-reset` 子命令实现。
+// cmd_password_reset.go —— implementation of the `standmeet password-reset` subcommand.
 //
-// owner 忘了密码兜底：服务器上 docker exec 跑这个子命令，server 进程
-// 短暂启起来、写 DB 一次性 reset token、stdout 打印 plaintext + URL，
-// 然后退出。owner 拷链接到浏览器，进 /account/reset?t=... 改密码。
+// Fallback for when the owner forgets their password: run this subcommand via
+// docker exec on the server, the server process starts up briefly, writes a one-time
+// reset token to the DB, prints the plaintext + URL to stdout, then exits. The owner
+// copies the link into a browser and goes to /account/reset?t=... to change the
+// password.
 //
-// 设计：
-//   - token 32-byte random，base64url 编码 + "smr_" 前缀（standmeet reset）。
-//     hash = SHA-256(plaintext)，落 owners.password_reset_hash（bytea）。
-//     password_reset_at = NOW()，验时检 TTL (30min)。
-//   - 通过 owner.Repo 走，不直接 import dbq（arch-lint 拒）。
+// Design:
+//   - token is 32 random bytes, base64url-encoded with a "smr_" prefix (standmeet
+//     reset). hash = SHA-256(plaintext), stored in owners.password_reset_hash (bytea).
+//     password_reset_at = NOW(), TTL checked on verify (30min).
+//   - goes through owner.Repo, never imports dbq directly (arch-lint forbids it).
 
 package main
 
@@ -30,19 +32,21 @@ import (
 const (
 	passwordResetTokenBytes  = 32
 	passwordResetTokenPrefix = "smr_"
-	// passwordResetTTLMinutes —— operator 看 stdout 知道得在多少分钟内用掉；
-	// 保持跟 usecases.PasswordResetTTL 一致。
+	// passwordResetTTLMinutes —— the operator reads stdout to know how many minutes
+	// they have to use it; kept in sync with usecases.PasswordResetTTL.
 	passwordResetTTLMinutes = 30
 )
 
-// resetToken —— generateResetToken 返结构，避开 function-result-limit。
+// resetToken —— the struct generateResetToken returns, to stay under
+// function-result-limit.
 type resetToken struct {
 	plaintext string
 	hash      []byte
 }
 
-// runPasswordReset —— 子命令入口。连 pg → 拿 sole owner → 颁发 token →
-// 打印 URL。任何失败返 error，caller (main) 决定 exit code。
+// runPasswordReset —— the subcommand entry point. Connects to pg → fetches the sole
+// owner → issues a token → prints the URL. Any failure returns an error; the caller
+// (main) decides the exit code.
 func runPasswordReset(log *slog.Logger, cfg *config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -104,14 +108,16 @@ func printResetInstructions(w io.Writer, plaintext, publicURL string) {
 func writeLines(w io.Writer, lines []string) {
 	for _, line := range lines {
 		if _, err := fmt.Fprintln(w, line); err != nil {
-			// stdout 写不出去就放弃；不应该 fail subcommand 因为这个。
+			// Give up if stdout can't be written to; this shouldn't fail the
+			// subcommand on its own.
 			return
 		}
 	}
 }
 
-// passwordResetSubcommand —— main() 调度：argv[1] == "password-reset" 时
-// 跑 reset 然后返 exit code（0 / 1）。其它 argv 走 server 路径返 -1。
+// passwordResetSubcommand —— main() dispatch: when argv[1] == "password-reset",
+// runs the reset and returns an exit code (0 / 1). Any other argv takes the server
+// path and returns -1.
 func passwordResetSubcommand(log *slog.Logger) int {
 	if len(os.Args) < 2 || os.Args[1] != "password-reset" {
 		return -1

@@ -1,15 +1,20 @@
-// invoke_background.go —— 后台(fire-and-forget)连接器调用 + 瞬时错重试。
+// invoke_background.go — background (fire-and-forget) connector calls + retry on transient
+// errors.
 //
-// 为什么需要:有些调用的**结果不该挡住调用方**。约成后给 owner 发的通知信就是典型 ——
-// 预约已经落库、日历事件已经建好,访客正盯着卡片等返回;为一封通知信把 tool 调用挂住
-// (还要等重试退避)是本末倒置。
+// Why this is needed: some calls' **results shouldn't block the caller**. The notification
+// email sent to the owner after a booking is confirmed is the typical case — the booking is
+// already in the DB, the calendar event is already created, the visitor is staring at the card
+// waiting for a response; blocking the tool call on a notification email (and waiting through
+// its retry backoff too) has things backwards.
 //
-// 为什么必须在 host 而不是能力自己起 goroutine:沙箱能力的进程生命周期**只有这一轮**,
-// tool 调用一返回它就可能被回收 —— 起在里面的重试 goroutine 会跟着进程一起消失,第一次
-// 退避都熬不过。所以"过一轮之后还要继续做的事"只能由 host 持有。
+// Why this must live in the host rather than the capability spawning its own goroutine: a
+// sandboxed capability's process lifetime is **only this one turn** — it may be reclaimed the
+// moment the tool call returns, and a retry goroutine started inside it would disappear along
+// with the process, not surviving even the first backoff. So "work that still needs to continue
+// after this turn ends" can only be held by the host.
 //
-// 重试基座按 arch 只允许 connector 层用,所以退避策略留在这儿(复用 notifyPolicy),
-// 而不是散进 routes/cmd。
+// The retry base is only allowed for use by the connector layer per the architecture, so the
+// backoff policy stays here (reusing notifyPolicy) instead of scattering into routes/cmd.
 
 package connector
 
@@ -22,20 +27,25 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/retry"
 )
 
-// backgroundBudget —— 后台调用的总时限。比 notifyPolicy 的 MaxTotal 略宽,留出最后一次尝试
-// 跑完的余量;超时就放弃(不无限挂着占资源)。
+// backgroundBudget — total time budget for a background call. Slightly wider than notifyPolicy's
+// MaxTotal, leaving room for the last attempt to finish running; it gives up on timeout (doesn't
+// hang indefinitely holding resources).
 const backgroundBudget = 3 * time.Minute
 
-// SetLogger —— 后台调用失败时的去处。没设 → 静默(只有测试装配会这样)。
-// 日志器随 Slots 一次性注入,不逐次调用传:那样参数表会撑爆,而且 routes 那层薄壳按 arch
-// 不允许 import connector,没法共享一个入参结构体。
+// SetLogger — where a background call's failure goes. Not set → silent (only test wiring does
+// this).
+// The logger is injected once alongside Slots, not passed on every call: that would blow up the
+// parameter list, and the thin routes shell isn't allowed to import connector per the
+// architecture, so it can't share an input struct.
 func (s *Slots) SetLogger(log *slog.Logger) { s.log = log }
 
-// InvokeBackground —— 立刻返回,调用在后台跑,瞬时传输错按 notifyPolicy 退避重试。
+// InvokeBackground — returns immediately, the call runs in the background, transient transport
+// errors retry with notifyPolicy backoff.
 //
-// ctx 只用来取消"排队"本身是没意义的:调用方(沙箱)马上就走,它的 ctx 随即取消。所以这里
-// 刻意用 context.WithoutCancel 切断父取消,只保留自己的预算 —— 否则后台任务会在出生的
-// 瞬间就被取消掉(而且是静默的)。
+// Using ctx just to cancel "being queued" is meaningless: the caller (the sandbox) leaves
+// right away, and its ctx gets canceled immediately after. So this deliberately uses
+// context.WithoutCancel to cut off the parent cancellation, keeping only its own budget —
+// otherwise the background task would get canceled the instant it's born (and silently, too).
 func (s *Slots) InvokeBackground(
 	ctx context.Context, ownerID, category, verb string, args json.RawMessage,
 ) {
@@ -47,7 +57,8 @@ func (s *Slots) InvokeBackground(
 			return ierr
 		})
 		if err != nil && s.log != nil {
-			// 后台失败没人在等它 —— 不吼出来就等于没发生过。
+			// Nobody is waiting on a background failure — if it doesn't get logged loudly,
+			// it's as if it never happened.
 			s.log.Error("connector background invoke failed",
 				"category", category, "verb", verb, "owner", ownerID, "err", err)
 		}

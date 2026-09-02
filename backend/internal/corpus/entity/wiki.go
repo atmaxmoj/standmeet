@@ -1,13 +1,13 @@
-// wiki.go —— curated 内容（树状）+ owner 维度全局 SEO 设置。
+// wiki.go — curated content (tree-shaped) + owner-scoped global SEO settings.
 //
-// LSP contract（4 个 Genre 共契约）：
-//   - Wiki.Title() 非空（owner 整理 wiki 时必填 title）
-//   - Wiki.IsPublished() 永远 true（wiki 没 draft 概念，存在即可见）
-//   - 其它 method 按一般约定，Tags / Integrations 永远返非 nil
+// LSP contract (shared across all 4 Genres):
+//   - Wiki.Title() is non-empty (title is required when an owner curates a wiki entry)
+//   - Wiki.IsPublished() is always true (wiki has no draft concept — existing means visible)
+//   - Other methods follow the usual convention: Tags / Integrations always return non-nil
 //
-// Wiki-specific 字段：ParentID / Path / ShowAsSource / Excerpt /
-// Published / SourceRawIDs —— caller type-assert 回 Wiki 用。Path/Parent
-// 走 TreeNode sub-object；SEO 走 SEO sub-object。
+// Wiki-specific fields: ParentID / Path / ShowAsSource / Excerpt /
+// Published / SourceRawIDs — for callers that type-assert back to Wiki. Path/Parent
+// go through the TreeNode sub-object; SEO goes through the SEO sub-object.
 
 package entity
 
@@ -19,10 +19,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
-// Wiki —— corpus_notes(genre=wiki) 行的领域值对象。
+// Wiki — the domain value object for a corpus_notes row with genre=wiki.
 //
-// ShowAsSource：retriever 内 AI 能 read 拿 body 但 readCollector 不收 —— meta /
-// persona 这种"用得到但不该曝光"的 entry 用这个开关。
+// ShowAsSource: the AI inside the retriever can read the body, but readCollector
+// won't collect it — this switch is for meta/persona-type entries that are
+// "usable but shouldn't be exposed".
 type Wiki struct {
 	timestamps   Timestamps
 	tree         TreeNode
@@ -37,7 +38,7 @@ type Wiki struct {
 	published    bool
 }
 
-// WikiInit —— 构造参数。
+// WikiInit — constructor parameters.
 type WikiInit struct {
 	UpdatedAt    time.Time
 	CreatedAt    time.Time
@@ -55,7 +56,8 @@ type WikiInit struct {
 	ShowAsSource bool
 }
 
-// NewWiki —— 从 Init 构造。SourceRawIDs defensive clone。pointer 入参避开 hugeParam。
+// NewWiki — constructs from Init. SourceRawIDs is defensively cloned. Pointer param
+// avoids hugeParam.
 func NewWiki(i *WikiInit) Wiki {
 	srcs := []string{}
 	if len(i.SourceRawIDs) > 0 {
@@ -80,68 +82,70 @@ func NewWiki(i *WikiInit) Wiki {
 	}
 }
 
-// --- Document interface (flat 转发) ---
+// --- Document interface (flat forwarding) ---
 
-// URI —— wiki://<id>。地址(树派生 path)是 retrieval 期算的、随集合而变,不是
-// entry 自身稳定标识;cite/寻址一律按稳定的 id。
+// URI — wiki://<id>. The address (tree-derived path) is computed at retrieval time and
+// varies with the collection — it's not the entry's own stable identity; citing/addressing
+// always goes by the stable id.
 func (w *Wiki) URI() string {
 	return FormatURI(GenreWiki, w.id)
 }
 
-// Genre —— 永远返 GenreWiki。
+// Genre — always returns GenreWiki.
 func (*Wiki) Genre() DocumentGenre { return GenreWiki }
 
-// ID —— DB primary key。
+// ID — DB primary key.
 func (w *Wiki) ID() string { return w.id }
 
-// OwnerID —— owner-scoped corpus FK。
+// OwnerID — owner-scoped corpus FK.
 func (w *Wiki) OwnerID() string { return w.ownerID }
 
-// Title —— wiki entry 标题。
+// Title — the wiki entry's title.
 func (w *Wiki) Title() string { return w.content.Title() }
 
-// Body —— wiki entry 主体文本。
+// Body — the wiki entry's main text.
 func (w *Wiki) Body() string { return w.content.Body() }
 
-// Tags —— 标签列表 (defensive copy)。
+// Tags — the tag list (defensive copy).
 func (w *Wiki) Tags() []string { return w.content.Tags() }
 
-// CSSClasses —— per-note cssclasses(呈现钩子)。
+// CSSClasses — per-note cssclasses (a presentation hook).
 func (w *Wiki) CSSClasses() []string { return w.content.CSSClasses() }
 
-// CreatedAt —— 创建时间。
+// CreatedAt — creation time.
 func (w *Wiki) CreatedAt() time.Time { return w.timestamps.CreatedAt() }
 
-// UpdatedAt —— 最后更新时间。
+// UpdatedAt — last update time.
 func (w *Wiki) UpdatedAt() time.Time { return w.timestamps.UpdatedAt() }
 
-// Integrations —— 挂的 integration 列表 (defensive copy)。
+// Integrations — the attached integration list (defensive copy).
 func (w *Wiki) Integrations() []connector.Integration { return w.integrations.All() }
 
 // --- Wiki-specific accessors ---
 
-// ParentID —— 父 wiki id 或 ("", false) 表示 root。地址是从这条 parent 链
-// 树派生算的(usecases.WikiTreePaths),不存 entry 自身。
+// ParentID — the parent wiki id, or ("", false) meaning root. The address is derived
+// from this parent-chain tree (usecases.WikiTreePaths); it's not stored on the entry itself.
 func (w *Wiki) ParentID() (string, bool) { return w.tree.ParentID() }
 
-// ShowAsSource —— 是否进 readCollector 的 cited 列表（默认 true；persona
-// 类条目设 false）。
+// ShowAsSource — whether this enters readCollector's cited list (default true;
+// persona-type entries set it false).
 func (w *Wiki) ShowAsSource() bool { return w.showAsSource }
 
-// Excerpt —— 一句话摘要（卡片 excerpt / og:description / cited summary 共用）。
+// Excerpt — a one-sentence summary (shared by the card excerpt / og:description /
+// cited summary).
 func (w *Wiki) Excerpt() string { return w.excerpt }
 
-// Published —— 是否公开（进 sitemap + robots index + 访客可读）。
+// Published — whether this is public (goes into sitemap + robots index + visitor-readable).
 func (w *Wiki) Published() bool { return w.published }
 
-// SourceRawIDs —— 该 wiki 是从哪些 raw promote 来的（defensive copy）。
+// SourceRawIDs — which raw entries this wiki was promoted from (defensive copy).
 func (w *Wiki) SourceRawIDs() []string {
 	return slices.Clone(w.sourceRawIDs)
 }
 
-// SEOSettings —— owner 维度全局 SEO 设置。
-// 字段顺序按 govet fieldalignment：time.Time 在前（内部 ptr at 16），strings
-// 中间（ptr at 0），slice 在尾（ptr at 0），bool 末尾占 tail padding。
+// SEOSettings — owner-scoped global SEO settings.
+// Field order follows govet fieldalignment: time.Time first (internal ptr at 16), strings
+// in the middle (ptr at 0), slice near the end (ptr at 0), bool last to take the tail padding.
 type SEOSettings struct {
 	UpdatedAt     time.Time
 	OwnerID       string
@@ -151,18 +155,22 @@ type SEOSettings struct {
 	IndexRobots   bool
 }
 
-// ErrWikiNotFound —— 按 id 查 wiki 未命中。
+// ErrWikiNotFound — looking up a wiki by id found nothing.
 var ErrWikiNotFound = errors.New("wiki entry not found")
 
-// ErrParentNotFound —— 创建/promote 时给的 parent_id 在本 owner 下找不到
-// (不存在 / 别的 owner)。地址树派生 + 级联删,不允许挂到无效父上落孤儿。
+// ErrParentNotFound — the parent_id given at create/promote time can't be found under
+// this owner (doesn't exist / belongs to another owner). Since the address is tree-derived
+// and deletion cascades, attaching to an invalid parent (leaving an orphan) is disallowed.
 var ErrParentNotFound = errors.New("parent entry not found")
 
-// ErrParentCycle —— UpdateWiki 改 parent 时,把节点挂到自己或自己的子孙下会成
-// 环(地址树派生,环会让 path 计算无意义)。拒绝。
+// ErrParentCycle — when UpdateWiki changes the parent, attaching a node under itself or
+// its own descendant would form a cycle (since the address is tree-derived, a cycle makes
+// path computation meaningless). Rejected.
 var ErrParentCycle = errors.New("parent would create a cycle")
 
-// ErrSiblingSlugTaken —— 同一 parent(文件夹)下已有一条 title slug 相同的兄弟。
-// 地址 = 树派生 slug path,同 slug 兄弟会让 path 不再 1↔1(第二条无法单独寻址)。
-// Obsidian 语义:一个文件夹里不能有两个同名文件 —— 写时直接拒,不静默改名/合并。
+// ErrSiblingSlugTaken — a sibling under the same parent (folder) already has the same
+// title slug. Since address = tree-derived slug path, a same-slug sibling would break the
+// path's 1:1 mapping (the second entry couldn't be addressed on its own). Obsidian semantics:
+// a folder can't hold two files with the same name — reject at write time, no silent
+// rename/merge.
 var ErrSiblingSlugTaken = errors.New("a sibling entry with the same name already exists")

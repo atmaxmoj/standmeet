@@ -2,7 +2,7 @@ package owner
 
 import "github.com/atmaxmoj/standmeet/internal/owner/usecase"
 
-// 类型（实现:usecase）.
+// Types (impl: usecase).
 type (
 	AIProviderDeps             = usecase.AIProviderDeps
 	ProvidersUseDeps           = usecase.ProvidersDeps
@@ -60,7 +60,7 @@ type (
 	WriteFileInput             = usecase.WriteFileInput
 )
 
-// 构造/函数（实现:usecase）.
+// Constructors/functions (impl: usecase).
 var (
 	ErrOutboundNotConfigured  = usecase.ErrOutboundNotConfigured
 	AddAllowedDomain          = usecase.AddAllowedDomain
@@ -133,14 +133,14 @@ var (
 	WriteFile                 = usecase.WriteFile
 )
 
-// 常量（实现:usecase）.
+// Constants (impl: usecase).
 const (
 	KeyClear = usecase.KeyClear
 	KeyKeep  = usecase.KeyKeep
 	KeySet   = usecase.KeySet
 )
 
-// 错误/变量（实现:usecase）.
+// Errors/vars (impl: usecase).
 var (
 	ErrPasswordTooShort = usecase.ErrPasswordTooShort
 	ErrPublicURLInvalid = usecase.ErrPublicURLInvalid

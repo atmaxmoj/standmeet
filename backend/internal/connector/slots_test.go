@@ -1,5 +1,7 @@
-// slots_test.go —— 后端内部 UT：品类槽位分派。Hub 持连接器、SlotStore 解析 active，品类契约
-// 调用被分派到 active 连接器；无 active → 不连（gate 掉，不报错）。证明消费者 provider-agnostic。
+// slots_test.go — backend-internal unit test: category-slot dispatch. Hub holds connectors,
+// SlotStore resolves the active one, and category-contract calls get dispatched to the active
+// connector; no active → not connected (gated, no error). Proves consumers are
+// provider-agnostic.
 
 package connector_test
 
@@ -39,7 +41,7 @@ func (f fakeCalConnector) InsertEvent(
 func (fakeCalConnector) DeleteEvent(_ context.Context, _, _, _ string) error { return nil }
 
 type fakeSlotStore struct {
-	id string // 空 = 无 active
+	id string // empty = no active
 }
 
 func (f fakeSlotStore) ActiveConnectorID(_ context.Context, _, _ string) (string, error) {

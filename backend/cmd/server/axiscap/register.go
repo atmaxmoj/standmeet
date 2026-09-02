@@ -1,5 +1,5 @@
-// register.go —— composition root: 把所有 MCP-app 能力注册进 capreg.Registry（归一）。
-// 从 boot_wireup.go 拆出来保持 ≤350 行。
+// register.go — composition root: registers every MCP-app capability into capreg.Registry
+// (normalized). Split out of boot_wireup.go to keep it ≤350 lines.
 
 package axiscap
 
@@ -13,30 +13,37 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/capload"
 )
 
-// RegisterDiscoveredPlugins —— 注册所有 MCP-app 能力进同一个 capreg.Registry，归一：
-//   - 内建：代码在独立 module（mcp-servers/*），编成静态二进制随产品发，运行时跟第三方
-//     **完全同一条** sandbox_stdio 路径（bwrap）加载，origin=builtin。host 不 import 它们
-//     ——契约只有下面的 manifest（id/version/transport 是数据）+ 运行时 MCP 协议。
-//   - 第三方：STANDMEET_PLUGINS 声明的 stdio/http 插件，origin=managed。env 未设 →
-//     无（prod 默认无第三方）。
+// RegisterDiscoveredPlugins — registers every MCP-app capability into the same
+// capreg.Registry, normalized:
+//   - Built-in: code lives in its own module (mcp-servers/*), compiled to a static binary
+//     shipped with the product, loaded at runtime through **the exact same** sandbox_stdio
+//     path (bwrap) as third-party plugins, origin=builtin. The host doesn't import them —
+//     the only contract is the manifest below (id/version/transport are data) + the runtime
+//     MCP protocol.
+//   - Third-party: stdio/http plugins declared by STANDMEET_PLUGINS, origin=managed. Env
+//     unset → none (prod has no third-party plugins by default).
 //
-// 三类走同一条 RegisterDiscoveredPlugins，只是 manifest 来源 / transport 不同。
-// depReg 由 registerAgentSkills 一处建好并 SetDepRegistry（ext-mcp dep 闸与这里的
-// Requires 校验共用同一份）：(a) 装配期 enabledCaps 据它把 Requires 未连的 cap 经 global
-// 单点闸隐藏（D-2）；(b) 注册 config 插件时校验其 Requires —— 声明了 core 给不了的依赖名
-// → 拒（fail-fast，requires-boot-reject）。
+// All three kinds go through the same RegisterDiscoveredPlugins; only the manifest source /
+// transport differs.
+// depReg is built once by registerAgentSkills and set via SetDepRegistry (the ext-mcp dep
+// gate and the Requires check here share the one copy): (a) at assembly time enabledCaps uses
+// it to hide, via the single global gate, any cap whose Requires isn't connected (D-2); (b)
+// when registering a config plugin, its Requires is checked — a plugin declaring a dependency
+// name core can't supply → rejected (fail-fast, requires-boot-reject).
 func RegisterDiscoveredPlugins(
 	d *deps.Runtime, depReg *capreg.DepRegistry, hooks map[string]capload.CapHooks,
 ) {
-	registerBuiltins(d, hooks) // 内建依赖名由构造保证已知，不必再校验
+	registerBuiltins(d, hooks) // built-in dep names are known by construction; no re-check needed
 	registerPluginSource(d, os.Getenv("STANDMEET_PLUGINS"), capreg.OriginManaged, depReg)
 }
 
-// registerBuiltins —— 随产品发的内建能力。代码在独立 module、**编译成静态二进制随镜像
-// 装进插件目录**，运行时跟第三方插件**完全同一条** sandbox_stdio 路径（bwrap 隔离）。
-// 归一到底：builtin 只剩 origin=builtin 这个标签，加载机制没有任何特殊路。hooks 给需要
-// 运行时钩子的内建挂 per-session CapHooks（booker: connector+quota tool 闸；retrieval:
-// corpus-scope fragment/enabled 闸）。
+// registerBuiltins — the built-in capabilities shipped with the product. Code lives in its
+// own module, **compiled to a static binary and placed into the plugin directory with the
+// image**; at runtime it goes through **the exact same** sandbox_stdio path (bwrap isolation)
+// as third-party plugins. Normalized all the way down: builtin is left with only the
+// origin=builtin label — the load mechanism has no special path at all. hooks attaches
+// per-session CapHooks to the built-ins that need runtime hooks (booker: connector+quota tool
+// gate; retrieval: corpus-scope fragment/enabled gate).
 func registerBuiltins(d *deps.Runtime, hooks map[string]capload.CapHooks) {
 	dupes := capload.RegisterDiscoveredPluginsHooked(
 		d.AgentSkills, BuiltinManifests(), capreg.OriginBuiltin, hooks, capDialErrLog(d),
@@ -46,8 +53,9 @@ func registerBuiltins(d *deps.Runtime, hooks map[string]capload.CapHooks) {
 	}
 }
 
-// capDialErrLog —— dial/list 失败(如 sandbox 起不来)在折成 ErrHidden 前把真因响出来。
-// builtin(retrieval 等)与第三方插件共用。F-A-1:prod bwrap 起不来曾静默 0 工具。
+// capDialErrLog — sounds off the real cause of a dial/list failure (e.g. sandbox won't start)
+// before it collapses into ErrHidden. Shared by builtins (retrieval etc.) and third-party
+// plugins. F-A-1: prod's bwrap failing to start once silently produced 0 tools.
 func capDialErrLog(d *deps.Runtime) func(id string, err error) {
 	return func(id string, err error) {
 		d.Log.Warn("visitor capability failed to bind — hidden from this session",
@@ -55,9 +63,10 @@ func capDialErrLog(d *deps.Runtime) func(id string, err error) {
 	}
 }
 
-// registerPluginSource —— 加载一条发现源配置并以指定 origin 注册。声明了 core 给不了的
-// 命名依赖（Requires 里有未注册的 connector 名）的插件 → 拒 + log，不让它带着满足不了的
-// 依赖上（fail-fast，跟 version 闸同性质）。
+// registerPluginSource — loads one discovery-source config and registers it under the given
+// origin. A plugin declaring a named dependency core can't supply (a Requires entry naming an
+// unregistered connector) → rejected + logged, rather than let it come up carrying a
+// dependency it can never satisfy (fail-fast, same nature as the version gate).
 func registerPluginSource(
 	d *deps.Runtime, path string, origin capreg.Origin, depReg *capreg.DepRegistry,
 ) {
@@ -77,8 +86,9 @@ func registerPluginSource(
 	}
 }
 
-// keepResolvableDeps —— 丢掉声明了 core 给不了的命名依赖（Requires 里有未注册 connector
-// 名）的 manifest + log；其余原样保留（requires-boot-reject，fail-fast）。
+// keepResolvableDeps — drops any manifest that declares a named dependency core can't supply
+// (a Requires entry naming an unregistered connector) + logs it; everything else is kept
+// as-is (requires-boot-reject, fail-fast).
 func keepResolvableDeps(
 	d *deps.Runtime, manifests []mcpplugin.Manifest, depReg *capreg.DepRegistry,
 ) []mcpplugin.Manifest {

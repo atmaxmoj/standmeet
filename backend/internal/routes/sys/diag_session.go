@@ -1,10 +1,11 @@
 // diag_session.go —— GET /internal/diag/session
 //
-// 接 X-Session-Token，把 backend 装配给这个 session 的 capability map +
-// tool spec + 完整 system prompt + hash 全吐出。Owner 排错 / e2e 验装配
-// 结果都用得着 (含 enabled 状态、quota_remaining 计算等)；同 SendMessage
-// 路径走同一 AssembleVisitor / ComposeSystemPrompt，所以 hash + body 反
-// 映实际下行 prompt。
+// Takes X-Session-Token and dumps out the capability map + tool specs + full system
+// prompt + hash that the backend assembled for this session. Useful for owner
+// troubleshooting and for e2e specs that verify the assembly result (including enabled
+// state, quota_remaining computation, etc.); this goes through the same
+// AssembleVisitor / ComposeSystemPrompt path as SendMessage, so the hash + body reflect
+// the actual outbound prompt.
 
 package sys
 
@@ -27,9 +28,10 @@ import (
 type DiagSessionDeps struct {
 	Sessions *access.VisitorSessionStore
 	Registry *capreg.Registry
-	// Owners —— 取 owner 的名字。persona 第一句就是「你是谁」(UX-66)，而这个端点存在的意义
-	// 是「hash 反映实际下行 prompt」—— 少了这一段，它报的哈希跟真发出去的那份对不上，
-	// 而一个会说谎的诊断比没有诊断更糟。
+	// Owners —— fetches the owner's name. The persona's first line is "who are you"
+	// (UX-66), and this endpoint exists precisely so "the hash reflects the actual
+	// outbound prompt" — without this piece, the hash it reports wouldn't match what's
+	// actually sent, and a diagnostic that lies is worse than no diagnostic at all.
 	Owners owner.OpsHostLookup
 	Log    *slog.Logger
 }
@@ -49,12 +51,14 @@ type diagSessionResp struct {
 	SystemPromptFull string                   `json:"system_prompt_full"`
 	Capabilities     []capreg.CapabilityState `json:"capabilities"`
 	ToolSpecs        []toolSpecWireV2         `json:"tool_specs"`
-	// Waypoints —— ghost-steering: 冻进 RoleSnapshot 的引导目的地（ACL 过滤后）+ ledger visited。
-	// operator/e2e 观测 freeze 结果 + waypoint 到访状态。
+	// Waypoints —— ghost-steering: the guidance destinations frozen into RoleSnapshot
+	// (post-ACL-filter) plus the ledger's visited state. Lets operators/e2e observe the
+	// freeze result and waypoint visit status.
 	Waypoints []diagWaypoint `json:"waypoints"`
 }
 
-// diagWaypoint —— 冻结 waypoint + ledger visited 合并出到 diag。字段顺序按 fieldalignment。
+// diagWaypoint —— merges a frozen waypoint + ledger visited state for diag output. Field
+// order follows fieldalignment.
 type diagWaypoint struct {
 	WaypointID   string   `json:"waypoint_id"`
 	Description  string   `json:"description"`
@@ -93,12 +97,13 @@ func writeDiagSession(
 	}
 }
 
-// buildDiagSessionResp —— pure 装配，无 IO；handler 只剩 encode。
-// 让 handler 自身 cyclo ≤ 3，分支挪到 helper。
-// 与 real SendMessage 路径走同一 AssembleVisitor / ComposeSystemPrompt，
-// hash 反映实际下行 prompt。
-// ownerName 取不到就空串：诊断少一段总比 500 好，而 `ComposeBasePersona` 对空名字的
-// 处理跟没有身份那一版逐字相同。
+// buildDiagSessionResp —— pure assembly, no IO; the handler is left with only encode.
+// Keeps the handler's own cyclo <= 3 by moving branching into this helper.
+// Goes through the same AssembleVisitor / ComposeSystemPrompt path as the real
+// SendMessage, so the hash reflects the actual outbound prompt.
+// ownerName falls back to an empty string when it can't be fetched: a diagnostic missing
+// one piece beats a 500, and `ComposeBasePersona`'s handling of an empty name is
+// byte-for-byte identical to its no-identity version.
 func buildDiagSessionResp(
 	ctx context.Context, reg *capreg.Registry,
 	data *access.VisitorSessionData, ownerName string,
@@ -109,8 +114,9 @@ func buildDiagSessionResp(
 		Mode:         data.Mode,
 		Subject:      capreg.Subject{Kind: capreg.SubjectCode, ID: data.CodeID},
 		Visitor:      data.Visitor,
-		// ConversationID 留空：diag endpoint 不绑定具体 conversation；
-		// capability 实现按需 fallback (booker 没 conv ID 就跳 DB lookup)。
+		// ConversationID left empty: the diag endpoint isn't bound to a specific
+		// conversation; capability implementations fall back as needed (booker skips
+		// the DB lookup with no conv ID).
 	}
 	basePersona := conversation.ComposeBasePersona(data.RoleSnapshot, ownerName)
 	return diagSessionResp{
@@ -122,7 +128,8 @@ func buildDiagSessionResp(
 	}
 }
 
-// diagWaypoints —— 冻结 waypoints 逐条附上 ledger visited（waypoint_id ∈ VisitedWaypoints）。
+// diagWaypoints —— attaches ledger visited state to each frozen waypoint
+// (waypoint_id ∈ VisitedWaypoints).
 func diagWaypoints(frozen []access.Waypoint, visited []string) []diagWaypoint {
 	vset := make(map[string]bool, len(visited))
 	for _, v := range visited {
@@ -150,8 +157,9 @@ func toolSpecsFor(
 	return specs
 }
 
-// appendBindingToolSpecs —— 拍平一个 binding 的所有 tool spec 名进 out，
-// 顺便 release Close hook (introspect 用完即关，让 ext-mcp 计数 +1 后归零)。
+// appendBindingToolSpecs —— flattens all of a binding's tool spec names into out,
+// and releases the Close hook along the way (introspect closes right after use, so
+// the ext-mcp count goes +1 then back to zero).
 func appendBindingToolSpecs(
 	ctx context.Context, out []toolSpecWireV2, b *capreg.Binding,
 ) []toolSpecWireV2 {
@@ -166,7 +174,7 @@ func appendBindingToolSpecs(
 	return out
 }
 
-// toolDesc —— 工具的描述（eino Tool.Info().Desc）；取不到 → 空。
+// toolDesc —— a tool's description (eino Tool.Info().Desc); empty if unavailable.
 func toolDesc(ctx context.Context, t *capreg.BindingTool) string {
 	if info, err := t.Tool.Info(ctx); err == nil {
 		return info.Desc

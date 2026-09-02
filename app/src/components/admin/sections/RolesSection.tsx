@@ -1,7 +1,7 @@
-// RolesSection —— /admin/roles。design 源 docs/design/project/admin.js
-// RolesSection (1124-1174)。两栏卡片：每卡 slug + [system] pill + description +
-// prompt/corpus/skills/mcp/codes 五行 metadata + edit/delete actions（public
-// 无 delete）。create modal 拆到 roles/RoleCreateModal.tsx 守 max-lines。
+// RolesSection —— /admin/roles. Design source docs/design/project/admin.js
+// RolesSection (1124-1174). Two-column cards: each card has slug + [system] pill + description +
+// five metadata lines (prompt/corpus/skills/mcp/codes) + edit/delete actions (public
+// has no delete). The create modal is split out to roles/RoleCreateModal.tsx to keep max-lines.
 
 'use client';
 
@@ -72,8 +72,9 @@ function RoleCreateModalSlot({
   createRole: RolesHook['createRole'];
 }) {
   const report = useReportError();
-  // modal：成功 → 返回 RoleView（modal 内部 toast + close）；失败 → report 后返回 null，modal **保持开着**
-  // 让 owner 看见错、改了重试。createRole 现在抛错，这里就地 try/catch 转成 modal 期望的 RoleView | null。
+  // modal: success → returns RoleView (modal handles its own toast + close); failure → returns
+  // null after report, modal **stays open** so the owner sees the error, fixes it, and retries.
+  // createRole now throws, so this catches it in place and converts to the RoleView | null the modal expects.
   const onCreate = useCallback(async (input: WriteRoleInput): Promise<RoleView | null> => {
     try {
       return await createRole(input);
@@ -98,9 +99,9 @@ function Intro() {
   );
 }
 
-// RolesBody —— 三种结局交给 ListPane 排序（F-N-7）。这里原本是
-// `loading ? skeleton : (length === 0 ? 空态 : 列表)` —— 没有 error 分支，于是 500 之后
-// 页面写着「还没有角色」，而实例有三个。
+// RolesBody —— the three outcomes are handed to ListPane to sort out (F-N-7). This used to be
+// `loading ? skeleton : (length === 0 ? empty state : list)` — no error branch, so after a 500
+// the page would say "no roles yet" while the instance actually has three.
 function RolesBody({ hook }: { hook: RolesHook }) {
   return (
     <ListPane status={hook.status} count={hook.roles.length} empty={<EmptyRoles />}>
@@ -152,9 +153,10 @@ function RoleCard({
   );
 }
 
-// RolePromptRow —— #103：显示并可编辑 role 挂的 prompt（引 prompts 库）。选另一份 / 清空 →
-// updateRole 全量回写（PUT），useAction 成功/失败都 toast（改没生效 owner 要知道）。之前卡片只有
-// delete，看不到也改不了挂的 prompt。
+// RolePromptRow —— #103: shows and lets you edit the prompt attached to a role (references the
+// prompts library). Picking a different one / clearing it → updateRole does a full rewrite (PUT),
+// useAction toasts on both success/failure (the owner needs to know if the change didn't take).
+// Before this, the card only offered delete — you couldn't see or change the attached prompt.
 function RolePromptRow({ role }: { role: RoleView }) {
   const t = useTranslations('adminAccess');
   const hook = usePrompts();
@@ -229,7 +231,8 @@ function RoleDeleteBtn({
 }: { role: RoleView; onDelete: (id: string) => Promise<void> }) {
   const t = useTranslations('adminAccess');
   const run = useAction();
-  // delete 是一键破坏性动作 → 成功/失败都用 toast 收尾（失败不再静默：删除没生效 owner 必须知道）。
+  // delete is a one-click destructive action → both success/failure end with a toast (failure is
+  // no longer silent: the owner must know when the delete didn't take).
   const handleDelete = useCallback(
     () => run(() => onDelete(role.id), { success: `Role ${role.name} deleted` }),
     [onDelete, role.id, role.name, run],
@@ -246,14 +249,15 @@ function RoleDeleteBtn({
   );
 }
 
-// PUBLIC_ROLE_NAME —— builtin public 的 name（后端 access.PublicRoleName，不可改名）。
+// PUBLIC_ROLE_NAME —— the name of the builtin public role (backend access.PublicRoleName, cannot be renamed).
 const PUBLIC_ROLE_NAME = 'public';
 
-// corpusMetaOf —— 卡片上那行「corpus」。
+// corpusMetaOf —— the "corpus" line on the card.
 //
-// public 身份**没有正列表**：它读到的是 owner 发布过的那些，一条一条由笔记自己的开关定。
-// 对它写 `0 URIs` 会是句谎话（"什么都读不到"），写 `3 URIs` 更糟（那是它以前那份被
-// 悄悄种下的第二清单，F-D-7）。所以这里说它真正的范围在哪。
+// The public identity **has no explicit list**: what it reads is whatever the owner has
+// published, decided note by note via each note's own toggle. Writing `0 URIs` for it would be
+// a lie ("reads nothing"), and writing `3 URIs` would be worse (that was the old secretly-seeded
+// second list, F-D-7). So this describes its actual scope instead.
 function corpusMetaOf(role: RoleView): string {
   return role.name === PUBLIC_ROLE_NAME
     ? 'what you published'

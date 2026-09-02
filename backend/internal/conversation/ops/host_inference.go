@@ -1,8 +1,11 @@
-// host_inference.go —— inference.generate 与 report.store 的实现(声明在 host.go)。
+// host_inference.go — the implementation of inference.generate and report.store
+// (declared in host.go).
 //
-// 两件都守着同一条线:**凭据不出宿主**。沙箱说"用 owner 的模型跑一段",宿主按 owner+mode
-// 解出凭据、跑完、只把结果递回去;沙箱说"这是我生成的 HTML",宿主按白名单洗一遍再存 ——
-// 洗这件事只能在宿主做,那是安全边界,不是格式化。
+// Both hold the same line: **credentials never leave the host**. When the sandbox says
+// "run a pass on the owner's model," the host resolves the credential by owner+mode, runs
+// it, and hands back only the result; when the sandbox says "here's the HTML I generated,"
+// the host sanitises it against an allow-list before storing — that sanitising can only
+// happen on the host, it's a security boundary, not formatting.
 
 package ops
 
@@ -43,8 +46,8 @@ func generateInference(resolver infcore.Resolver) hostop.Invoke {
 	}
 }
 
-// generateOnOwnerModel —— 按 owner+mode 解出凭据、跑一次生成。**凭据只活在这个函数里**:
-// 上面那层拿到的是文本,不是 key。
+// generateOnOwnerModel — resolves the credential by owner+mode and runs one generation.
+// **The credential lives only inside this function** — the caller gets text back, not a key.
 func generateOnOwnerModel(
 	ctx context.Context, resolver infcore.Resolver,
 	ownerID, mode string, chat *infcore.ChatRequest,

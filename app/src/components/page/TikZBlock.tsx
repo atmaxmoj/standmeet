@@ -1,6 +1,9 @@
-// TikZBlock —— ` ```tikz ` 块的客户端渲染。源码 POST 到 /render-tikz(server 用 node-tikzjax
-// = obsidian-tikzjax 同引擎渲成 SVG)→ inject。重 WASM 留服务端,客户端只拿 SVG。
-// pattern 同 MermaidBlock(loading/error/ok 三态,presentation 只 read state,ternary 分支)。
+// TikZBlock —— client-side rendering of a ` ```tikz ` block. Source is
+// POSTed to /render-tikz (the server uses node-tikzjax — the same engine as
+// obsidian-tikzjax — to render it to SVG) → injected. The heavy WASM stays
+// server-side; the client only gets the SVG. Same pattern as MermaidBlock
+// (three states loading/error/ok, presentation only reads state via a
+// ternary branch).
 
 'use client';
 
@@ -28,9 +31,12 @@ export function TikZBlock({ source }: { source: string }): React.ReactElement {
 
   return state.kind === 'ok'
     ? (
-      // 图在自己那一格里**居中**,而且不许撑破正文列:SVG 带着 TeX 排出来的固定
-      // width/height,窄一点的列上它会直接顶出去。max-w-full + h-auto 让它按比例缩,
-      // 缩到头还不够就在这一格里横向滚,不影响页面本身。
+      // The diagram is **centered** within its own cell, and must never blow
+      // out the body column: the SVG carries the fixed width/height TeX laid
+      // it out with, and on a narrower column it would push straight past
+      // the edge. max-w-full + h-auto lets it scale proportionally, and if
+      // that's still not enough it scrolls horizontally inside this cell
+      // without affecting the page itself.
       <div
         data-testid="tikz-svg"
         className="my-6 flex justify-center overflow-x-auto [&_svg]:max-w-full [&_svg]:h-auto"
@@ -40,12 +46,17 @@ export function TikZBlock({ source }: { source: string }): React.ReactElement {
     : <PendingDiagram source={source} kind={state.kind} />;
 }
 
-// PendingDiagram —— 还没渲出来的那一格。**不许把 LaTeX 源码印给读者**:图只是补充,
-// 正文本来就得自己站得住,而 `\begin{tikzpicture}` 不是产品说的话。这跟 MermaidBlock 的
-// FailedDiagram 是同一个决定 —— owner 看得见诊断,访客什么都看不见 —— tikz 这边当初漏了,
-// 于是渲染一失败读者就吃到一整段 LaTeX。
+// PendingDiagram —— the cell for a diagram that hasn't rendered yet. **The
+// LaTeX source must never be printed to the reader**: a diagram is only
+// supplementary, the body text has to stand on its own regardless, and
+// `\begin{tikzpicture}` isn't the product's voice. This is the same decision
+// as MermaidBlock's FailedDiagram — the owner sees the diagnostic, the
+// visitor sees nothing — this file originally missed that, so a render
+// failure dumped a whole block of LaTeX on the reader.
 //
-// loading 也归这里:引擎串行之后,一页多图时排在后面的要等上几秒,那几秒更不能是源码。
+// loading belongs here too: with the engine running serially, on a page with
+// multiple diagrams the later ones can wait several seconds, and those
+// seconds definitely shouldn't show source either.
 function PendingDiagram(
   { source, kind }: { source: string; kind: 'loading' | 'error' },
 ): React.ReactElement | null {

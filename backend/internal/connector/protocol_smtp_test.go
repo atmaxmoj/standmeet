@@ -1,5 +1,6 @@
-// protocol_smtp_test.go —— 后端内部 UT：SMTP protocol 连接器真实现 MailProxy，未配 → 友好
-// ErrMailNotConfigured，连接状态委托 vault。真发信（net/smtp）由 e2e 覆盖。
+// protocol_smtp_test.go — backend-internal unit test: the SMTP protocol connector actually
+// implements MailProxy, not configured → friendly ErrMailNotConfigured, connection state
+// delegates to vault. Real sending (net/smtp) is covered by e2e.
 
 package connector_test
 

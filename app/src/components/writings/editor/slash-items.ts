@@ -1,8 +1,11 @@
-// slash-items.ts —— slash menu 单点注册表。加新 block type 改这一处。
+// slash-items.ts —— the single-point registry for the slash menu. Adding
+// a new block type means changing only this file.
 //
-// 设计点：每条 item 自己知道怎么把自己插进编辑器（insert 接 Editor 实例
-// 调 chain）。SlashMenu 只渲染 + 转发键盘，不知道 block 类型。这就是
-// "真单点 registry" —— renderer/parser/menu 没有耦合。
+// Design point: each item knows how to insert itself into the editor
+// (insert takes the Editor instance and calls chain). SlashMenu only
+// renders + forwards keyboard input; it doesn't know about block types.
+// That's what makes this a "true single-point registry" —— renderer,
+// parser, and menu aren't coupled.
 
 import type { Editor } from '@tiptap/core';
 
@@ -10,9 +13,11 @@ export interface SlashItem {
   id: string;
   title: string;
   description: string;
-  // 触发关键词（fuzzy match 拿来过滤）。第一个一般跟 title 一致。
+  // Trigger keywords (used for fuzzy-match filtering). The first one
+  // usually matches the title.
   keywords: string[];
-  // hint 是右侧 kbd 提示（例如 "##" 提示这等同于 ## markdown shortcut）。
+  // hint is the kbd hint shown on the right (e.g. "##" hints that this
+  // is equivalent to the ## markdown shortcut).
   hint: string;
   insert: (editor: Editor, range: { from: number; to: number }) => void;
 }
@@ -74,7 +79,8 @@ export const slashItems: SlashItem[] = [
   },
 ];
 
-// filterItems —— fuzzy match by query. 没 query 返全集。
+// filterItems —— fuzzy match by query. Returns the full set when there's
+// no query.
 export function filterItems(query: string): SlashItem[] {
   const q = query.toLowerCase().trim();
   return q === ''

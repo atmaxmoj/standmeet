@@ -1,9 +1,11 @@
 // visitor_conversations.go —— POST /api/v1/conversations
 //
-// 多对话模型:一个 member 可有多段对话(主聊天 + 每篇 doc 浮窗各一段)。浮窗打开
-// 时带 doc_key 过来,后端按 (member, doc_key) find-or-create 那段对话并返它的
-// id + 已有 dialogs。idempotent:同一 doc 再开还是那段,刷新重 POST 即可恢复。
-// 仅 code 访客(有 member)可用;缺字段 → 400。
+// Multi-conversation model: one member can have several conversations (the main chat
+// + one for each doc's floating panel). When a floating panel opens it sends doc_key
+// along, and the backend finds-or-creates that conversation by (member, doc_key) and
+// returns its id + existing dialogs. Idempotent: reopening the same doc returns the
+// same conversation, so a refresh can just re-POST to recover it. Only available to
+// code visitors (who have a member); missing fields → 400.
 
 package public
 

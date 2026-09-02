@@ -1,6 +1,7 @@
-// byoai-envelope.ts —— 给 chat 请求用：把 BYOAI 明文 api key 封进 wire-format
-// envelope，server 端 unwrapBYOAIKey 用同样 HKDF info + session_token 派生
-// AES-256 key 解封（见 backend/internal/routes/public/byoai_envelope.go）。
+// byoai-envelope.ts —— used for chat requests: wraps the BYOAI plaintext api
+// key into a wire-format envelope; the server's unwrapBYOAIKey derives the
+// same AES-256 key from the same HKDF info + session_token to unwrap it
+// (see backend/internal/routes/public/byoai_envelope.go).
 //
 // Wire format:
 //   1. HKDF-SHA256(ikm=session_token UTF-8, salt=∅, info="standmeet-byoai-v1", L=32)
@@ -8,14 +9,15 @@
 //   2. AES-256-GCM Seal: nonce(12) || ct || tag(16)
 //   3. base64 URL-safe（no padding）
 //
-// 仅 BYOAI mode 用；其他 mode 完全不 send 这俩 header。Web Crypto subtle 原生
-// 跑，无第三方依赖。
+// Used only in BYOAI mode; other modes send neither header at all. Runs
+// natively on Web Crypto subtle, no third-party dependency.
 
 const HKDF_INFO = 'standmeet-byoai-v1';
 const NONCE_LEN = 12;
 
-// wrapBYOAIKey —— 输入明文 api key + session_token，输出 base64 URL-safe (no
-// padding) envelope 字符串，直接塞 `X-BYOAI-Key` header。
+// wrapBYOAIKey —— takes a plaintext api key + session_token, outputs a
+// base64 URL-safe (no padding) envelope string, ready to drop straight into
+// the `X-BYOAI-Key` header.
 export async function wrapBYOAIKey(
   plainKey: string, sessionToken: string,
 ): Promise<string> {

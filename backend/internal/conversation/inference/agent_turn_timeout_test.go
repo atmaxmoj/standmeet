@@ -15,13 +15,15 @@ const (
 	hangFallback = 10 * time.Second
 )
 
-// TestRunAgentTurnTimesOutOnHangingUpstream —— 复现 + 修复验证:第三方 LLM 卡住
-// 时,一整轮 agent turn 必须在 deadline 内被切断,而不是无限 retrieving。
+// TestRunAgentTurnTimesOutOnHangingUpstream —— reproduction + fix verification: when a
+// third-party LLM hangs, an entire agent turn must be cut off within the deadline, not left
+// "retrieving" forever.
 //
-// 用一个"挂死"的上游(收到请求就阻塞)冒充 DeepSeek。没有 per-turn timeout 时,
-// SSE handler 的 ctx 永不取消 → RunAgentTurn 永不返回(本测试 10s 兜底会 fail)。
-// 加了 WithTimeout 后,1s 到点 → in-flight LLM 调用 ctx 被取消 → 错误冒上来 → 返回,
-// 且 UI 收到的是友好 timeout 文案,不是 raw NodeRunError。
+// Impersonates DeepSeek with a "hung" upstream (blocks as soon as it receives a request).
+// Without a per-turn timeout, the SSE handler's ctx never cancels → RunAgentTurn never
+// returns (this test's 10s backstop would then fail). With WithTimeout added, the moment 1s
+// hits → the in-flight LLM call's ctx gets cancelled → the error surfaces → it returns, and
+// the UI receives friendly timeout copy, not a raw NodeRunError.
 func TestRunAgentTurnTimesOutOnHangingUpstream(t *testing.T) {
 	stop := make(chan struct{})
 	hung := hangingUpstream(stop)

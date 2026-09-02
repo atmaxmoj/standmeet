@@ -1,12 +1,13 @@
-// CalendarConnectorPanel —— owner-facing Google Calendar connector card.
-// 三块：
+// CalendarConnectorPanel — owner-facing Google Calendar connector card.
+// Three blocks:
 //   1. credentials form (client_id / client_secret)
 //   2. status + Authorize button + Disconnect
-//   3. booking policy editor —— 住在 `CalendarBookingPolicy.tsx`（连没连上 / 连上之后按什么
-//      规矩排，是两件事，只是画在同一张卡上）
+//   3. booking policy editor — lives in `CalendarBookingPolicy.tsx` (whether it's connected
+//      vs. what rules apply once connected are two different things, drawn on one card)
 //
-// 设计稿没专门画 GCal 卡，沿用 ConnectorTile 视觉语言（crosshair + mono
-// kicker + 字段一列）。布局窄一档（max-w-[640px]）。
+// The design mockups have no dedicated GCal card; this follows the ConnectorTile visual
+// language (crosshair + mono kicker + a column of fields). Layout is one notch narrower
+// (max-w-[640px]).
 
 'use client';
 

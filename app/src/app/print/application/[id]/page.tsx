@@ -37,9 +37,11 @@ export default async function PrintPage({
   return payload ? <PrintBody payload={payload} /> : notFound();
 }
 
-// pagesFor —— 这份文档实际渲染哪几页。**页数只有这一个来源**：页脚的「/ M」由
-// `pages.length` 得出，所以它不可能跟文档对不上（F-E-14：M 曾经写死在 i18n 文案里，
-// 于是没有 cover letter 的一页简历也印着「page 1 / 2」）。
+// pagesFor — which pages this document actually renders. **Page count has
+// only this one source**: the footer's "/ M" is derived from
+// `pages.length`, so it can never drift from the document (F-E-14: M used
+// to be hardcoded in i18n copy, so a one-page resume with no cover letter
+// still printed "page 1 / 2").
 function pagesFor(content: ResumeContent): (0 | 1)[] {
   return (content.coverLetter ?? '').trim() !== '' ? [0, 1] : [0];
 }
@@ -50,8 +52,10 @@ function PrintBody({ payload }: { payload: PrintPayloadWire }) {
     role: payload.job_snapshot.title,
     company: payload.job_snapshot.company,
   };
-  // pageCount 跟「渲染几页」是**同一个**判断，所以页脚的「/ M」不可能跟文档对不上
-  // （F-E-14：M 曾经写死在 i18n 文案里，没有 cover letter 的一页简历也印「1 / 2」）。
+  // pageCount is the **same** judgment as "which pages render", so the
+  // footer's "/ M" can never drift from the document (F-E-14: M used to be
+  // hardcoded in i18n copy, so a one-page resume with no cover letter still
+  // printed "1 / 2").
   const pages = pagesFor(content);
   return (
     <div className={styles.printSurface}>

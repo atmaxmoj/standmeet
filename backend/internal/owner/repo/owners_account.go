@@ -1,8 +1,10 @@
-// owners_account.go —— owner 自助管理账号字段（full_name / email / password）
-// 的 repo 方法。从 owners.go 拆出避免本体超过 350 行 max-lines。
+// owners_account.go —— repo methods for owner self-service management of
+// account fields (full_name / email / password). Split out of owners.go
+// to keep that file under its 350-line max-lines cap.
 //
-// 三个 update 都返完整 Owner row（前端 sessionStore mutate 用），跟
-// UpdatePublicURL / UpdateHandle 风格一致。
+// All three updates return the full Owner row (used by the frontend
+// sessionStore mutate), matching the style of UpdatePublicURL /
+// UpdateHandle.
 
 package repo
 
@@ -17,8 +19,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// UpdateFullName —— owner 改自己的 full_name；空字符串 / 全 whitespace 由
-// usecase 层拦下，repo 只信纯字符串。
+// UpdateFullName —— the owner changes their own full_name; an empty
+// string / all-whitespace is caught by the usecase layer, repo just
+// trusts the plain string.
 func (r *Repo) UpdateFullName(
 	ctx context.Context, ownerID, newFullName string,
 ) (entity.Owner, error) {
@@ -36,7 +39,8 @@ func (r *Repo) UpdateFullName(
 	return toDomainOwner(&row), nil
 }
 
-// UpdateProfileTimezone —— admin booking-policy PATCH 路径触发；空串 = "UTC"。
+// UpdateProfileTimezone —— triggered by the admin booking-policy PATCH
+// route; an empty string means "UTC".
 func (r *Repo) UpdateProfileTimezone(
 	ctx context.Context, ownerID, tz string,
 ) error {
@@ -52,8 +56,9 @@ func (r *Repo) UpdateProfileTimezone(
 	return nil
 }
 
-// UpdateEmail —— owner 改自己的 email。唯一冲突翻 ErrEmailTaken
-// 让 routes 翻 409。usecase 必须先验当前密码。
+// UpdateEmail —— the owner changes their own email. A unique conflict
+// translates to ErrEmailTaken, letting routes translate to 409. usecase
+// must verify the current password first.
 func (r *Repo) UpdateEmail(
 	ctx context.Context, ownerID, newEmail string,
 ) (entity.Owner, error) {
@@ -62,7 +67,8 @@ func (r *Repo) UpdateEmail(
 		return entity.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	q := db.New(r.pool)
-	// 规范化在这一层,不在调用方 —— 见 email.go 的头注释。
+	// Normalization happens at this layer, not the caller's — see the
+	// header comment in email.go.
 	row, qerr := q.UpdateOwnerEmail(ctx, db.UpdateOwnerEmailParams{
 		ID: pgID, Email: NormalizeEmail(newEmail),
 	})
@@ -80,8 +86,9 @@ func translateEmailUpdateErr(err error) error {
 	return fmt.Errorf("update email: %w", err)
 }
 
-// UpdatePasswordHash —— 写 owner password_hash；usecase 必须先验旧密码 +
-// 在外面 HashPassword(newPlaintext) 拿到 PHC 字符串。
+// UpdatePasswordHash —— writes the owner's password_hash; usecase must
+// verify the old password first + call HashPassword(newPlaintext) outside
+// to get the PHC string.
 func (r *Repo) UpdatePasswordHash(
 	ctx context.Context, ownerID, newHash string,
 ) error {
@@ -98,7 +105,8 @@ func (r *Repo) UpdatePasswordHash(
 	return nil
 }
 
-// SetRecoveryHash —— #100 写 owner recovery_hash(usecase 在外面 HashPassword(phrase))。
+// SetRecoveryHash —— #100 writes the owner's recovery_hash (usecase calls
+// HashPassword(phrase) outside this).
 func (r *Repo) SetRecoveryHash(ctx context.Context, ownerID, hash string) error {
 	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
@@ -112,7 +120,8 @@ func (r *Repo) SetRecoveryHash(ctx context.Context, ownerID, hash string) error 
 	return nil
 }
 
-// ClearRecoveryHash —— #100 recover 成功后作废(单次用)。
+// ClearRecoveryHash —— #100 invalidates it after a successful recover
+// (single-use).
 func (r *Repo) ClearRecoveryHash(ctx context.Context, ownerID string) error {
 	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
@@ -124,8 +133,8 @@ func (r *Repo) ClearRecoveryHash(ctx context.Context, ownerID string) error {
 	return nil
 }
 
-// GetPasswordHash —— 拿 owner 当前 password_hash，给 usecase 验旧密码用。
-// 不存在返 ErrOwnerNotFound。
+// GetPasswordHash —— gets the owner's current password_hash, for usecase
+// to verify the old password. Returns ErrOwnerNotFound if not found.
 func (r *Repo) GetPasswordHash(ctx context.Context, ownerID string) (string, error) {
 	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
@@ -142,16 +151,18 @@ func (r *Repo) GetPasswordHash(ctx context.Context, ownerID string) (string, err
 	return hash, nil
 }
 
-// ActiveResetToken —— sole owner 当前活跃的 password reset 信息。Hash 空
-// + IssuedAt zero 表示没活跃 token；usecase 据此判 ErrUnauthorized。
+// ActiveResetToken —— the sole owner's currently active password-reset
+// info. Empty Hash + zero IssuedAt means no active token; usecase uses
+// this to decide ErrUnauthorized.
 type ActiveResetToken struct {
 	IssuedAt time.Time
 	OwnerID  string
 	Hash     []byte
 }
 
-// GetActiveResetToken —— 单 owner self-host：表里第一行 owner 的 reset
-// token 信息。表为空返 ErrOwnerNotFound（caller 通常翻 401）。
+// GetActiveResetToken —— single-owner self-host: the reset-token info of
+// the table's first owner row. Returns ErrOwnerNotFound if the table is
+// empty (the caller usually translates that to 401).
 func (r *Repo) GetActiveResetToken(ctx context.Context) (ActiveResetToken, error) {
 	q := db.New(r.pool)
 	row, err := q.GetFirstOwnerResetToken(ctx)
@@ -171,7 +182,8 @@ func (r *Repo) GetActiveResetToken(ctx context.Context) (ActiveResetToken, error
 	return out, nil
 }
 
-// ClearPasswordResetToken —— reset 成功后清掉 hash + at，让 token 一次性。
+// ClearPasswordResetToken —— clears hash + at after a successful reset,
+// making the token single-use.
 func (r *Repo) ClearPasswordResetToken(ctx context.Context, ownerID string) error {
 	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
@@ -184,15 +196,17 @@ func (r *Repo) ClearPasswordResetToken(ctx context.Context, ownerID string) erro
 	return nil
 }
 
-// SoleOwnerHandle —— `standmeet password-reset` CLI 用：sole owner 的
-// id + public_url（拼 reset URL）。表为空返 ErrOwnerNotFound。
+// SoleOwnerHandle —— used by the `standmeet password-reset` CLI: the sole
+// owner's id + public_url (used to build the reset URL). Returns
+// ErrOwnerNotFound if the table is empty.
 type SoleOwnerHandle struct {
 	OwnerID   string
 	PublicURL string
 }
 
-// GetSoleOwnerHandle —— CLI password-reset 子命令 + 任何只看 "sole owner
-// 是谁" 的 helper。GetFirstOwnerResetToken + GetOwnerByID 拼一下。
+// GetSoleOwnerHandle —— used by the CLI password-reset subcommand + any
+// helper that just wants to know "who is the sole owner". Combines
+// GetFirstOwnerResetToken + GetOwnerByID.
 func (r *Repo) GetSoleOwnerHandle(ctx context.Context) (SoleOwnerHandle, error) {
 	q := db.New(r.pool)
 	tok, err := q.GetFirstOwnerResetToken(ctx)
@@ -212,8 +226,10 @@ func (r *Repo) GetSoleOwnerHandle(ctx context.Context) (SoleOwnerHandle, error) 
 	}, nil
 }
 
-// SetPasswordResetHash —— CLI 颁发 reset token 时调；写 hash + 当前时间戳。
-// 重复调会覆盖旧 token，跟 SQL 语义一致（重新跑命令是合法 UX）。
+// SetPasswordResetHash —— called when the CLI issues a reset token; writes
+// hash + the current timestamp. Calling it again overwrites the old
+// token, consistent with SQL semantics (re-running the command is valid
+// UX).
 func (r *Repo) SetPasswordResetHash(
 	ctx context.Context, ownerID string, hash []byte,
 ) error {
@@ -230,7 +246,8 @@ func (r *Repo) SetPasswordResetHash(
 	return nil
 }
 
-// GetCSS —— owner 自定义 CSS(sanitize+scope 后的安全版本)。
+// GetCSS —— the owner's custom CSS (the safe version, after
+// sanitize+scope).
 func (r *Repo) GetCSS(ctx context.Context, ownerID string) (string, error) {
 	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
@@ -243,7 +260,8 @@ func (r *Repo) GetCSS(ctx context.Context, ownerID string) (string, error) {
 	return css, nil
 }
 
-// SetCSS —— 存 owner CSS(caller 应已 sanitize+scope)。
+// SetCSS —— stores the owner's CSS (the caller should have already
+// sanitized+scoped it).
 func (r *Repo) SetCSS(ctx context.Context, ownerID, css string) error {
 	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {

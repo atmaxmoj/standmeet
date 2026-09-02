@@ -1,7 +1,9 @@
-// Package ops —— owner 域对外能做的事,由域自己声明。
+// Package ops —— what the owner domain can do externally, declared by the domain itself.
 //
-// 一个操作在这里是完整的一份:id、说明、入参 schema、语义类别、暴露意图、实现。
-// 实现直接调本域的用例,不经中间形状 —— 收口只汇聚、加装饰器、投影到各个面。
+// An operation is one complete unit here: id, description, input schema, semantic kind,
+// exposure intent, implementation. The implementation calls this domain's use case directly,
+// with no intermediate shape in between — the convergence point only aggregates, decorates,
+// and projects onto each face.
 package ops
 
 import (
@@ -14,11 +16,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
-// Domains —— on-demand TLS 的自定义域名白名单:列出 / 加 / 删。
+// Domains —— the custom-domain whitelist for on-demand TLS: list / add / remove.
 //
-// 真正的 DNS / TLS 验证走 Caddy 的 on-demand 回调,这里只维护那份名单。
-// 它是**实例级**设置(单 owner 实例),所以域函数不吃 ownerID —— 这一层把它吃掉,
-// 让收口那侧每个操作的签名一致。
+// The actual DNS / TLS verification goes through Caddy's on-demand callback; this only
+// maintains that whitelist. It's an **instance-level** setting (single-owner instance), so
+// the domain functions don't take an ownerID — this layer swallows it so every op's
+// signature stays consistent at the convergence point.
 func Domains(deps usecase.AllowedDomainsDeps) []fp.Op {
 	return []fp.Op{
 		{
@@ -51,7 +54,7 @@ func Domains(deps usecase.AllowedDomainsDeps) []fp.Op {
 
 var noArgs = json.RawMessage(`{"type":"object","properties":{}}`)
 
-// nonNilStrings —— nil 切片序列化成 null,调用方要的是 []。
+// nonNilStrings —— a nil slice serializes to null; callers want [].
 func nonNilStrings(in []string) []string {
 	if in == nil {
 		return []string{}
@@ -81,7 +84,8 @@ func listDomains(deps usecase.AllowedDomainsDeps) fp.Invoke {
 	}
 }
 
-// mutateDomain —— 加和删只差调哪个用例;解参、校验、回包形状同一份。
+// mutateDomain —— add and remove differ only in which use case gets called; decoding,
+// validation, and reply shape are all the same.
 func mutateDomain(
 	deps usecase.AllowedDomainsDeps,
 	apply func(ctx context.Context, deps usecase.AllowedDomainsDeps, domain string) error,
@@ -101,7 +105,8 @@ func mutateDomain(
 	}
 }
 
-// domainErr —— 域说"这个字段空"(normalize 之后才变空也算),对外就是调用方给错了。
+// domainErr —— the domain saying "this field is empty" (including becoming empty only
+// after normalizing) is, externally, the caller having given a bad value.
 func domainErr(err error) error {
 	if errors.Is(err, apierr.ErrEmptyField) {
 		return fp.BadInput("domain is required")

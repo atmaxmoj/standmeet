@@ -1,6 +1,7 @@
-// use-chat-session —— PageSession 生命周期：ensureSession 单次拉
-// /sessions → 缓存；reuseStored 从 localStorage 复活；issueByMode 按
-// public/code/byoai 分。从 use-chat.ts 拆出来守 350-line cap。
+// use-chat-session —— PageSession lifecycle: ensureSession fetches
+// /sessions once → caches it; reuseStored revives it from localStorage;
+// issueByMode splits by public/code/byoai. Split out of use-chat.ts to
+// keep the 350-line cap.
 
 'use client';
 
@@ -20,9 +21,11 @@ import { useToolSpecsStore } from '@/lib/visitor/tool-specs-store';
 
 export type SessionMode = 'public' | 'code' | 'byoai';
 
-// PageSession —— ensureSession 之后内部记一份；含 pi-pivot 用的 part_ids
-// + tool_specs。browser 不再 hit /sessions 多次 (老路径每次 ask 都
-// reuseStored + 不读 part_ids)；这里 first-ask 拿一次然后整轮持有。
+// PageSession —— kept internally after ensureSession; carries the
+// part_ids + tool_specs used for the pi-pivot. The browser no longer hits
+// /sessions repeatedly (the old path did reuseStored on every ask and
+// never read part_ids); here first-ask fetches once and holds it for the
+// whole session.
 export interface PageSession {
   sessionToken: string;
   conversationID: string;
@@ -34,9 +37,12 @@ export interface SessionDeps {
   mode: SessionMode;
 }
 
-// ensureEffectiveSession —— 主 chat 用 session 自带的主 conversation;浮窗(有
-// docContext)首次发问时 lazy 解析自己那段 doc conversation(POST /conversations),
-// 之后缓存复用。解析失败回退主对话(不崩,代价是这次没分流)。多对话模型核心。
+// ensureEffectiveSession —— the main chat uses the session's own main
+// conversation; the floating dock (with docContext) lazily resolves its
+// own doc conversation on its first question (POST /conversations), then
+// caches and reuses it. If resolution fails, falls back to the main
+// conversation (doesn't crash, at the cost of not splitting this time).
+// This is the core of the multi-conversation model.
 export async function ensureEffectiveSession(
   sessionRef: React.MutableRefObject<PageSession | null>,
   docConvRef: React.MutableRefObject<string | null>,
@@ -74,19 +80,22 @@ export async function ensureSession(
   const sess = toPageSession(issued);
   ref.current = sess;
   useCapabilityStore.getState().setStates(extractCapabilities(issued));
-  // G-8: tool_specs 进 throbber-label registry，components 读 progress_label
+  // G-8: tool_specs feed the throbber-label registry, components read
+  // progress_label
   useToolSpecsStore.getState().setSpecs(issued.tool_specs ?? []);
-  // H.13.d: code-mode 拿到 ghosts 当初始 ghost 队列；非 code
-  // mode backend 给 []，seed 空数组等于 reset，ghost 自然不渲。
+  // H.13.d: code-mode gets ghosts as the initial ghost queue; non-code
+  // mode backends send [], and seeding an empty array is a reset, so no
+  // ghost renders.
   useGhostsStore.getState().seed(issued.ghosts ?? []);
-  // #109/#110: owner 在 role 上配的 dock 按钮（≤2，已过滤 code-deny）→ ChatRoom 渲染。
+  // #109/#110: dock buttons the owner configured on the role (≤2, already
+  // filtered for code-deny) → rendered by ChatRoom.
   useDockButtonsStore.getState().setButtons(issued.dock_buttons ?? []);
   return sess;
 }
 
-// IssuedSessionWithExtras —— sdk-core PublicSessionResponse 已含
-// capabilities? / tool_specs? / system_prompt_part_ids?；这里 alias 一下
-// 让本文件少 import。
+// IssuedSessionWithExtras —— sdk-core's PublicSessionResponse already
+// includes capabilities? / tool_specs? / system_prompt_part_ids?; aliased
+// here so this file needs fewer imports.
 type IssuedSessionWithExtras = PublicSessionResponse;
 
 function toPageSession(issued: IssuedSessionWithExtras): PageSession {
@@ -127,8 +136,10 @@ function reuseStored(stored: StoredFull): PublicSessionResponse {
     system_prompt_persona: stored.system_prompt_persona,
     ghosts: stored.ghosts,
     dock_buttons: stored.dock_buttons,
-    // 持久化的 auth-blob 不带 quota/members(那是 SessionStrip 的展示源,存在
-    // 另一个 store);这条 reuse 路径只喂 agent turn,用不到,给空值占位。
+    // The persisted auth-blob carries no quota/members (that's
+    // SessionStrip's display source, kept in a different store); this
+    // reuse path only feeds the agent turn and doesn't need it, so a
+    // placeholder empty value goes here.
     quota: { max_turns: 0, used_turns: 0, max_members: 0 },
     members: [],
   };

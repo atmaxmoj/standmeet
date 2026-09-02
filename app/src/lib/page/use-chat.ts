@@ -1,18 +1,23 @@
-// use-chat —— visitor chat 的 UI 状态机：UI 吃 Dialog[] state，内部走
-// VisitorTurnAgent + 真 prod adapters (H.10: agent loop 在 backend eino，
-// 浏览器一次 POST /agent/turn，SSE 事件聚合成 Dialog)。
+// use-chat —— the UI state machine for visitor chat: the UI consumes
+// Dialog[] state, and internally it runs on VisitorTurnAgent + real prod
+// adapters (H.10: the agent loop lives in the backend's eino, the browser
+// makes one POST /agent/turn, and SSE events are aggregated into Dialog).
 //
-// ChatState 接口：caller (PageShell / FloatingChatDock / ChatRoom) 不变
-// 拿 dialogs / pending / error + ask / reset。
+// ChatState interface: callers (PageShell / FloatingChatDock / ChatRoom)
+// keep getting dialogs / pending / error + ask / reset, unchanged.
 //
-// 命名 (G-1.5)：
-//   - Turn → Dialog (一轮 visitor 问 + AI 答 + cited，跟 backend domain.Dialog 对齐)
-//   - useConversation → useChat (Chat 是聚合根，dialog 是子 entity)
-//   - Citation.kind → genre, Citation.id → path (后端复用 DocumentGenre，前端字段名说实话)
+// Naming (G-1.5):
+//   - Turn → Dialog (one round of visitor question + AI answer + cited,
+//     aligned with the backend's domain.Dialog)
+//   - useConversation → useChat (Chat is the aggregate root, dialog is a
+//     child entity)
+//   - Citation.kind → genre, Citation.id → path (the backend reuses
+//     DocumentGenre; the frontend field names say what they mean)
 //
-// 事件聚合:
-//   - tool_completed corpus_read 事件 → cited 列表
-//   - Dialog.answer.paras 仍由 body 拆段；body 从 llm_chunk text deltas 累积
+// Event aggregation:
+//   - tool_completed corpus_read events → the cited list
+//   - Dialog.answer.paras still comes from splitting body; body
+//     accumulates from llm_chunk text deltas
 
 'use client';
 
@@ -54,28 +59,37 @@ export type ChatState = {
   error: string | null;
   ask: (q: string) => Promise<void>;
   /**
-   * noteEvent —— 把「访客在卡上做了一件事」写进这一段对话的历史（F-B-9 ⭐⭐）。
+   * noteEvent —— writes "the visitor did something on a card" into this
+   * conversation's history (F-B-9 ⭐⭐).
    *
-   * 卡片的工具调用走的是另一条路（`mcp-ui:tool` → `POST /sessions/{id}/tools/{name}`），
-   * 它执行、返回，**从不碰对话**。而这段对话是客户端驱动的：每一轮把这串消息当 History
-   * 发出去。所以卡上点掉的那次取消，对 agent 来说从没发生过 —— 下一句它照旧说
-   * 「你那场还在」，跟同屏的 `CANCELLED` 直接打架。
+   * A card's tool call goes through a different path
+   * (`mcp-ui:tool` → `POST /sessions/{id}/tools/{name}`) — it executes,
+   * returns, and **never touches the conversation**. But this conversation
+   * is client-driven: every turn sends this message array out as History.
+   * So a cancellation dismissed on a card never happened as far as the
+   * agent is concerned — its next line still says "your meeting is still
+   * on", directly contradicting the `CANCELLED` shown on the same screen.
    *
-   * 写成 `system` 而不是 `user`：那不是访客说的话，是这段对话里发生的一件事。
-   * 也因此它不占一轮（配额数的是 visitor 消息）。
+   * Written as `system`, not `user`: it's not something the visitor said,
+   * it's something that happened in this conversation. It also doesn't
+   * count as a turn for this reason (quota only counts visitor messages).
    */
   noteEvent: (text: string) => void;
   reset: () => void;
-  // conversationID —— 这段 chat 落地的 conversation id(主 chat = session 自带;
-  // 浮窗 = lazy 解析的 doc 对话)。#122 约成卡发确认信要带它(后端按它定位最近一笔
-  // 预约)。开局可能空(浮窗首问前未解析),BookCard 出现时必非空。
+  // conversationID —— the conversation id this chat lands in (main chat =
+  // the one that comes with the session; floating dock = the lazily
+  // resolved doc conversation). #122 requires the BookCard's confirmation
+  // email to carry it (the backend locates the most recent booking by
+  // it). Can start empty (floating dock, before its first question
+  // resolves it); must be non-empty by the time BookCard appears.
   conversationID: string;
 };
 
 type Deps = {
   mode: SessionMode;
-  // docContext —— 访客当前所在 doc(doc 页/浮窗 chat);主 chat 全屏 = undefined。
-  // 透到 /agent/turn 让 AI 解析「this/这篇」指代(#36)。
+  // docContext —— the doc the visitor is currently on (doc page / floating
+  // chat); undefined for the full-screen main chat. Passed through to
+  // /agent/turn so the AI can resolve "this" references (#36).
   docContext?: DocContext;
 };
 
@@ -83,49 +97,71 @@ export function useChat(deps: Deps): ChatState {
   const [dialogs, setDialogs] = useState<Dialog[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // conversationID —— 暴露给 BookCard(#122 发确认信带它)。主 chat mount 时从 stored
-  // 灌;每次 ask 解析出 effective conversation(浮窗 doc 对话)后同步。
+  // conversationID —— exposed to BookCard (#122, its confirmation email
+  // carries it). Filled from stored when the main chat mounts; synced
+  // after each ask resolves the effective conversation (floating dock's
+  // doc conversation).
   const [conversationID, setConversationID] = useState<string>('');
   const sessionRef = useRef<PageSession | null>(null);
   const messageHistRef = useRef<Message[]>([]);
   const counter = useRef(0);
-  // streamOpenRef / queuedRef —— 见下面 ask 的说明（F-A-42）：一轮在飞时按下发送的那一问
-  // 排在这里，连同它已经进了逐字稿的那条 dialog id。
+  // streamOpenRef / queuedRef —— see the note on ask below (F-A-42): a
+  // question sent while a turn is in flight gets queued here, along with
+  // the id of the dialog it already went into the transcript as.
   const streamOpenRef = useRef(false);
   const queuedRef = useRef<{ q: string; id: string } | null>(null);
-  // 多对话模型:浮窗(有 docContext)用自己那段对话,不蹭主对话。docConvRef 缓存
-  // 解析出的 doc conversation_id(首次发问时 lazy POST /conversations);docCtxRef
-  // 让 mount effect 不把它进依赖数组(浮窗那段不在 mount 恢复,首次发问才建,开局空)。
+  // Multi-conversation model: the floating dock (has docContext) uses its
+  // own conversation, doesn't piggyback on the main one. docConvRef caches
+  // the resolved doc conversation_id (lazily POSTs /conversations on the
+  // first question); docCtxRef keeps it out of the mount effect's
+  // dependency array (the floating dock's conversation isn't restored at
+  // mount, only created on its first question — starts empty).
   const docConvRef = useRef<string | null>(null);
   const docCtxRef = useRef(deps.docContext);
   docCtxRef.current = deps.docContext;
 
-  // H.13.d: mount 时若 localStorage 已有 stored session，把临时投影(ghosts/specs/dock/caps)
-  // 补回各 store —— ensureSession 是 lazy(只发问时跑)，不补这一勺初始 chat 屏就空。
+  // H.13.d: at mount, if localStorage already has a stored session,
+  // restore the ephemeral projections (ghosts/specs/dock/caps) into each
+  // store — ensureSession is lazy (only runs on asking a question), so
+  // without this the initial chat screen would be empty.
   useEffect(() => {
     const stored = seedEphemeralStores();
-    // 浮窗(有 docContext)不恢复主对话 —— 那是别段,会串。它自己那段开局空,首次
-    // 发问才 lazy 建/续(ensureEffectiveSession)。主 chat 才走 restoreSession。
+    // The floating dock (has docContext) doesn't restore the main
+    // conversation — that's a different one, and mixing them would cross
+    // wires. Its own conversation starts empty and is only lazily
+    // built/resumed on its first question (ensureEffectiveSession). Only
+    // the main chat goes through restoreSession.
     if (docCtxRef.current !== undefined) return;
-    // 刷新恢复:有 stored session 就按 token 拉回主对话的 Q&A 重建 transcript
-    // (纯内存 dialogs 刷新会空,这里补回来)。失败 → 空,跟现在一样不崩。
+    // Refresh restore: with a stored session, pull back the main
+    // conversation's Q&A by token and rebuild the transcript (a
+    // pure-in-memory dialogs array would be empty after a refresh — this
+    // fills it back in). On failure → stays empty, doesn't crash, same as
+    // now.
     const token = stored?.session_token ?? '';
     const conv = stored?.conversation_id ?? '';
     if (conv !== '') setConversationID(conv);
-    // 刷新之后**两样都要补回来**：屏幕上的逐字稿，和模型看的那串消息（F-A-46）。
-    // 只补前者的话，访客看着自己刚问过的话，而模型那边是一片空白。
+    // After a refresh, **both** need to be restored: the transcript on
+    // screen, and the message array the model sees (F-A-46). Restoring
+    // only the former leaves the visitor looking at what they just asked
+    // while the model sees a blank slate.
     void restoreIfStored(conv, token, setDialogs, messageHistRef);
   }, []);
 
-  // strip 的 used 是 **member 级**(后端跨该人全部对话合计),不再从本地 dialogs
-  // 数 —— 多对话下单 surface 的本地轮数会少算。seed 走 session issue 的
-  // quota.used_turns(已 member 级),每答成一轮乐观 +1(runAsk),load/reconcile
-  // 由后端权威值纠正。
+  // The strip's used is **member-level** (the backend's total across all
+  // of this person's conversations), no longer counted from local
+  // dialogs — under multiple conversations, a single surface's local turn
+  // count would undercount. The seed comes from the session issue's
+  // quota.used_turns (already member-level), each successfully answered
+  // turn optimistically +1 (runAsk), and load/reconcile corrects it
+  // against the backend's authoritative value.
 
-  // 换人:SessionStrip 点名字重开 picker → 发新名字 issue 出新 session(新
-  // member / 新对话),session store 的 startedAt 随之变。chat 据此丢掉旧
-  // transcript + 缓存的 session,下一问从新 stored session 起。新 session 的
-  // ghosts 已由 issue 重新 seed,这里不碰 ghosts。
+  // Switching identity: clicking the name on SessionStrip reopens the
+  // picker → issuing a new name issues a new session (new member / new
+  // conversation), and the session store's startedAt changes along with
+  // it. chat responds by dropping the old transcript + cached session, so
+  // the next question starts from the new stored session. The new
+  // session's ghosts are already re-seeded by issue, so ghosts aren't
+  // touched here.
   const startedAt = useVisitorSessionStore((s) => s.session?.startedAt ?? 0);
   const lastStartedAt = useRef(startedAt);
   useEffect(() => {
@@ -143,21 +179,30 @@ export function useChat(deps: Deps): ChatState {
     return `d${counter.current}`;
   }, []);
 
-  // ask —— 一轮在飞的时候**不再把第二问丢掉**（F-A-42）。
+  // ask —— **no longer drops the second question** while a turn is in
+  // flight (F-A-42).
   //
-  // 以前这里是 `if (q === '' || pending) return` —— 访客按了发送、输入框清空了，然后什么都
-  // 没发生。全局第 10 条说的就是这件事：**接受请求并排队，不要置灰**；「暂时做不了」不该
-  // 变成「你自己记着待会儿再打一遍」。
+  // This used to be `if (q === '' || pending) return` — the visitor hit
+  // send, the input box cleared, and then nothing happened. Global rule
+  // #10 is about exactly this: **accept the request and queue it, don't
+  // grey it out**; "can't do it right now" shouldn't turn into "you have
+  // to remember to hit it again yourself later".
   //
-  // 两个「忙」是两件事，所以用两个变量：
-  //   · `pending`（state，驱动界面）= **访客在等答案**，收到 `done` 回执就结束。
-  //   · `streamOpenRef`（ref，管串行）= **这一轮的流还开着**（epilogue 的 ghost 还在路上）。
-  // 前者早、后者晚；输入框看前者，发送时序看后者。混成一个，就是这条缺陷本身。
+  // "Busy" means two different things, so two variables:
+  //   · `pending` (state, drives the UI) = **the visitor is waiting for an
+  //     answer**, ends the moment a `done` receipt arrives.
+  //   · `streamOpenRef` (ref, controls serialization) = **this turn's
+  //     stream is still open** (the epilogue's ghost is still in flight).
+  // The former ends early, the latter ends late; the input box watches
+  // the former, send-timing watches the latter. Conflating them into one
+  // was this bug itself.
   const ask = useCallback(async (text: string): Promise<void> => {
     const q = text.trim();
     if (q === '') return;
     if (streamOpenRef.current) {
-      // 排进队，并且**当场进逐字稿**：访客得看见自己那句话还在，而不是凭空消失。
+      // Queue it, and **put it in the transcript right away**: the
+      // visitor needs to see their own message stay put, not vanish into
+      // thin air.
       const qid = nextID();
       setDialogs((prev) => [...prev, newPendingDialog(qid, q)]);
       queuedRef.current = { q, id: qid };
@@ -172,14 +217,18 @@ export function useChat(deps: Deps): ChatState {
       } finally {
         streamOpenRef.current = false;
       }
-      // 排队的那一问在**流真的关掉之后**才发：`histRef` 要等上一轮的 agent.send 返回才写得对，
-      // 提前发会让第二轮读到缺了上一轮的历史。开锁（凭 done 回执）和发送时序是两回事。
+      // The queued question is only sent **after the stream is truly
+      // closed**: `histRef` isn't written correctly until the previous
+      // turn's agent.send returns, and sending early would let the second
+      // turn read history that's missing the previous turn. Unlocking (on
+      // the done receipt) and send-timing are two separate things.
       job = takeQueued(queuedRef);
     }
   }, [deps, nextID]);
 
-  // noteEvent —— 见 ChatState 上的说明。直接写 ref：它不上屏（卡自己已经显示了结果），
-  // 要的是**下一轮发出去的 History 里有它**。
+  // noteEvent —— see the note on ChatState. Writes directly to the ref: it
+  // doesn't render on screen (the card already shows its own result), what
+  // matters is **that it's in the History sent out on the next turn**.
   const noteEvent = useCallback((text: string): void => {
     if (text === '') return;
     messageHistRef.current = [...messageHistRef.current, { role: 'system', content: text }];
@@ -189,16 +238,18 @@ export function useChat(deps: Deps): ChatState {
     setDialogs([]);
     setError(null);
     messageHistRef.current = [];
-    // H.13.d: 新 chat session 重新接 ghost；不 clear 会把上一段 follow-up
-    // 队列带过来。
+    // H.13.d: a new chat session picks up ghosts fresh; not clearing
+    // would carry the previous conversation's follow-up queue over.
     useGhostsStore.getState().clear();
   }, []);
 
   return { dialogs, pending, error, ask, noteEvent, reset, conversationID };
 }
 
-// restoreIfStored —— 有 stored session 就把这段对话补回来：逐字稿 + **模型看的那串消息**。
-// 抽成函数是为了让 useChat 留在行数闸门以内；两件事一起做，是因为少做后者就是 F-A-46。
+// restoreIfStored —— with a stored session, restores this conversation:
+// the transcript + **the message array the model sees**. Pulled into its
+// own function to keep useChat under the line-count gate; both things are
+// done together because skipping the latter is exactly F-A-46.
 async function restoreIfStored(
   conv: string, token: string,
   setDialogs: React.Dispatch<React.SetStateAction<Dialog[]>>,
@@ -208,8 +259,10 @@ async function restoreIfStored(
   await restoreSession(conv, token, setDialogs, (msgs) => { histRef.current = msgs; });
 }
 
-// takeQueued —— 取走排队的那一问(取完清空)。单独一个函数,而不是在循环里就地取 ——
-// 就地写的话 TS 会把 ref 收窄成 null 之后再也放不开(它看不见 await 之间的外部改写)。
+// takeQueued —— takes the queued question (clears it once taken). A
+// separate function rather than inline in the loop — inline, TS would
+// narrow the ref to null and never widen it back (it can't see the ref
+// being written externally across an await).
 function takeQueued(
   ref: React.MutableRefObject<{ q: string; id: string } | null>,
 ): { q: string; id: string | null } | null {
@@ -218,8 +271,9 @@ function takeQueued(
   return next === null ? null : { q: next.q, id: next.id };
 }
 
-// AskRefs / AskSetters —— runAsk 的 ref / setter 打包,避开多参数(eslint
-// max-params)。docConvRef 是多对话模型新增:浮窗那段对话的 id 缓存。
+// AskRefs / AskSetters —— bundles runAsk's refs / setters to avoid too
+// many parameters (eslint max-params). docConvRef is new for the
+// multi-conversation model: caches the floating dock's conversation id.
 interface AskRefs {
   sessionRef: React.MutableRefObject<PageSession | null>;
   docConvRef: React.MutableRefObject<string | null>;
@@ -230,7 +284,8 @@ interface AskSetters {
   setDialogs: React.Dispatch<React.SetStateAction<Dialog[]>>;
   setPending: (b: boolean) => void;
   setError: (e: string | null) => void;
-  // setConvID —— effective conversation 解析后回灌(#122 BookCard 要这段对话 id)。
+  // setConvID —— filled back in after the effective conversation resolves
+  // (#122, BookCard needs this conversation id).
   setConvID: (id: string) => void;
 }
 
@@ -240,8 +295,9 @@ async function runAsk(
   refs: AskRefs,
   setters: AskSetters,
   nextID: () => string,
-  // queuedID —— 这一问在**排队时**就已经进了逐字稿（F-A-42），复用那条 dialog，
-  // 别再建第二条。null = 正常路径，这里现建。
+  // queuedID —— this question already went into the transcript **when it
+  // was queued** (F-A-42); reuse that dialog instead of creating a second
+  // one. null = the normal path, create it here.
   queuedID: string | null,
 ): Promise<void> {
   const { setDialogs, setPending, setError, setConvID } = setters;
@@ -258,22 +314,32 @@ async function runAsk(
     const byoai = await wrapBYOAIFor(deps, sess);
     const accum = makeAccumulator();
     await runAgentForDialog(sess, byoai, refs.histRef, q,
-      // 收到 `done` 回执就开锁 —— 不等流关掉（F-A-42）。`done` 之后服务端还要跑 epilogue
-      // （ghost 是一次真的 LLM 调用，prod 上 10–26 秒），那段时间跟访客没关系。
+      // Unlock as soon as the `done` receipt arrives — don't wait for the
+      // stream to close (F-A-42). After `done` the server still has an
+      // epilogue to run (the ghost is a real LLM call, 10–26 seconds in
+      // prod), and that stretch has nothing to do with the visitor.
       makeObserver(id, accum, setDialogs, () => { setPending(false); }), deps.docContext);
     finalizeDialog(id, accum, setDialogs);
-    // F-A-9: policy 沉默(这轮没出 ghost 帧)→ 清掉上一条 steering ghost,别让已访问 waypoint 的
-    // 陈旧 ghost 挂在输入框上。出了新帧(ghostReceived)则 setPolicy 已替换,不清。非 code visitor
-    // ghost 恒 null,这里是无副作用的 no-op。
+    // F-A-9: when policy stays silent (this turn produced no ghost frame)
+    // → clear the previous steering ghost, so a stale ghost for an
+    // already-visited waypoint doesn't keep hanging on the input box. If a
+    // new frame did arrive (ghostReceived), setPolicy has already replaced
+    // it, so don't clear. For non-code visitors ghost is always null, so
+    // this is a no-op with no side effects.
     if (!accum.ghostReceived) {
       useGhostsStore.getState().clearGhost();
     }
-    // backend 拥有这一轮:/agent/turn 流末端已把它 sink 进 conversation 表(#28),
-    // 前端不再自落库。答完那条留在本地 transcript 显示,used 由 dialogs 派生(下面
-    // mirror effect)自然 +1;真相在后端,刷新走 restoreSession 从 conversation 重建。
-    // 失败/掐断(含 401)→ revalidate 收口:会话若死了清身份回入口。
-    // 答成 → member 级 used 乐观 +1(任意 surface 都烧同一个共享预算);失败/掐断
-    // → 不计数,回头确认会话是否还活着。
+    // The backend owns this turn: the tail end of the /agent/turn stream
+    // has already sunk it into the conversation table (#28), the frontend
+    // no longer persists it itself. The finished dialog stays in the
+    // local transcript for display; used is derived from dialogs (the
+    // mirror effect below) and naturally +1s; the source of truth is the
+    // backend, and a refresh rebuilds from the conversation via
+    // restoreSession. Failure/cut-off (including 401) → revalidate winds
+    // down: if the session is dead, clears identity back to the entry
+    // flow. Success → optimistic member-level used +1 (any surface burns
+    // the same shared budget); failure/cut-off → doesn't count, checks
+    // back on whether the session is still alive.
     if (turnSucceeded(accum)) {
       useVisitorSessionStore.getState().incUsed();
     } else {
@@ -289,8 +355,9 @@ async function runAsk(
   }
 }
 
-// wrapBYOAIFor —— byoai mode 时从 vault 拿 plaintext key 用 HKDF(session_token)
-// 派 AES key 信封过；其他 mode 返 undefined。
+// wrapBYOAIFor —— in byoai mode, pulls the plaintext key from the vault
+// and envelopes it with an AES key derived via HKDF(session_token);
+// returns undefined for other modes.
 async function wrapBYOAIFor(
   deps: Deps, sess: PageSession,
 ): Promise<HttpBYOAIHeaders | undefined> {
@@ -304,9 +371,12 @@ async function wrapBYOAIFor(
   };
 }
 
-// makeObserver —— onReceipt 在 `turn_finished`（`done` 帧）那一刻调一次：这一轮对访客
-// 已经结束。产品自己写着它是唯一可靠的凭据（agent-core `agent-turn.ts:125`），而在
-// F-A-42 之前**没人接**，界面拿流关闭当收场，于是输入框多锁 10–26 秒。
+// makeObserver —— onReceipt fires once, right when `turn_finished` (the
+// `done` frame) arrives: this turn is over as far as the visitor is
+// concerned. The product itself documents this as the only reliable
+// receipt (agent-core `agent-turn.ts:125`), yet before F-A-42 **nobody
+// listened for it** — the UI treated the stream closing as the wrap-up,
+// so the input box stayed locked an extra 10–26 seconds.
 function makeObserver(
   dialogID: string,
   accum: DialogAccumulator,
@@ -350,9 +420,10 @@ function buildPageAgent(
   observer: EventObserver,
   docContext?: DocContext,
 ): VisitorTurnAgent {
-  // H.10: backend (eino ADK) 接管 agent loop；浏览器只调一次 /agent/turn
-  // 收 SSE 事件。不再需要 capabilities / llm / tools 三个 port，整套
-  // loop / dispatch 全在 backend。
+  // H.10: the backend (eino ADK) owns the agent loop; the browser makes
+  // just one /agent/turn call and receives SSE events. The three ports —
+  // capabilities / llm / tools — are no longer needed; the whole
+  // loop / dispatch lives in the backend now.
   return new VisitorTurnAgent(
     {
       prompts: httpPromptSource({ baseURL: '' }),
@@ -363,10 +434,13 @@ function buildPageAgent(
     },
     {
       systemPromptPartIDs: sess.systemPromptPartIDs,
-      // persona —— 这个会话动态的那一段（role 人格 + code prompt + skill 清单）。后端一直
-      // 在 /sessions 里下发它，这里以前没传，于是它到 PageSession 就断了（F-A-36）。
-      // 原来这行是 `assembledPartIDs(sess)` —— 一个叫"assembled"却什么都不装配的直通函数，
-      // 名字正好盖住了漏掉的那一半。
+      // persona —— this session's dynamic portion (role persona + code
+      // prompt + skill list). The backend has always sent it down in
+      // /sessions; this used not to pass it through, so it got dropped at
+      // PageSession (F-A-36). This line used to be
+      // `assembledPartIDs(sess)` — a pass-through function named
+      // "assembled" that assembled nothing, and the name happened to
+      // hide exactly the missing half.
       persona: sess.persona,
       conversationID: sess.conversationID,
       docContext,

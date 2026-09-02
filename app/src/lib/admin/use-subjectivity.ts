@@ -1,8 +1,9 @@
-// use-subjectivity —— 面板上的自我模型列表(只读)。
+// use-subjectivity —— the self-model list on the admin panel (read-only).
 //
-// 这个 genre 的写口是 MCP(subjectivity_write:owner 跟自己的 AI 边想边写),所以这里
-// **只有读**。在它之前 subjectivity 在面板上一个界面都没有 —— owner 想知道自己写过什么,
-// 只能去问 AI。
+// This genre's write path is MCP (subjectivity_write: the owner writes it
+// while thinking out loud with their own AI), so this side is **read-only**.
+// Before this, subjectivity had no interface at all on the admin panel — the
+// only way for the owner to find out what they'd written was to ask the AI.
 
 'use client';
 
@@ -41,9 +42,11 @@ export function useSubjectivity(): SubjectivityHook {
   return { rows, error: r.error, status: r.status, state: pickState(r.status, rows.length) };
 }
 
-// pickState —— 渲染哪一支。**空列表和还没加载完是两回事**:两者都"没有行",
-// 但一个该显示骨架、另一个该显示"还什么都没有"。混成一个的话,加载中的那一瞬
-// owner 看到的是"你还没写过任何东西"。
+// pickState —— which branch to render. **An empty list and still-loading are
+// two different things**: both have "no rows", but one should show a
+// skeleton, the other "nothing here yet". Merge them into one and, for that
+// moment while it's still loading, the owner sees "you haven't written
+// anything yet".
 function pickState(status: string, count: number): SubjectivityHook['state'] {
   if (status === 'error') return 'error';
   if (status !== 'ready') return 'loading';

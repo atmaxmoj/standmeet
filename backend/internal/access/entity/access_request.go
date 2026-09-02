@@ -1,6 +1,6 @@
-// access_request.go —— /<handle>/gate 上无 code 的访客留言。
-// owner 在 /admin/requests 看；open → replied (回邮件后) / closed (无视)。
-// 不自动通知 owner、不自动回邮件——owner-curated，是 product 设计的明确选择。
+// access_request.go — a message left by a visitor without a code on /<handle>/gate.
+// owner reviews it at /admin/requests; open -> replied (after emailing back) / closed (ignored).
+// No auto-notify to owner, no auto-reply email — owner-curated is a deliberate product choice.
 
 package entity
 
@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// Request —— 一条访客留言。字段顺序按 govet fieldalignment：
-// time.Time 在前（内部 ptr at offset 16），strings 紧跟。
+// Request — one visitor message. Field order follows govet fieldalignment:
+// time.Time first (internal ptr at offset 16), strings right after.
 type Request struct {
 	CreatedAt time.Time
 	ID        string
@@ -22,7 +22,7 @@ type Request struct {
 	Status    string // 'open' | 'replied' | 'closed'
 }
 
-// CreateAccessRequestInput —— usecase 创建一条留言的入参。
+// CreateAccessRequestInput — the usecase's input for creating one message.
 type CreateAccessRequestInput struct {
 	OwnerID string
 	Name    string
@@ -31,8 +31,8 @@ type CreateAccessRequestInput struct {
 	Message string
 }
 
-// ErrAccessRequestNotFound —— UpdateStatus 时 id 不存在或不属于此 owner。
+// ErrAccessRequestNotFound — UpdateStatus's id does not exist or does not belong to this owner.
 var ErrAccessRequestNotFound = errors.New("access request not found")
 
-// ErrAccessRequestStatusInvalid —— UpdateStatus 传入的 status 不合法。
+// ErrAccessRequestStatusInvalid — UpdateStatus's status argument is not a valid value.
 var ErrAccessRequestStatusInvalid = errors.New("access request status invalid")

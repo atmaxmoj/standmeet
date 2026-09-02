@@ -1,19 +1,22 @@
-// logger —— 前端唯一的 console 出口。
+// logger —— the frontend's single console exit point.
 //
-// eslint 设了 'no-console: error'，业务代码不让直接 console.*。这个文件本
-// 身用 eslint-disable 突破，让所有 client-side 日志统一从这里走。
+// eslint has 'no-console: error' set, so business code can't call console.*
+// directly. This file breaks that with eslint-disable so every client-side
+// log funnels through here.
 //
-// 行为：
-//   - dev (NODE_ENV !== 'production') 直接打 console.{info,warn,error}
-//   - prod 默认 no-op；但独立开关 NEXT_PUBLIC_CLIENT_LOG=1 可强开(e2e prod app
-//     诊断 / 线上排障都用它,不用靠改 NODE_ENV)。
-//   - 后续可以加 navigator.sendBeacon → /internal/client-errors
+// Behavior:
+//   - dev (NODE_ENV !== 'production') calls console.{info,warn,error} directly
+//   - prod defaults to no-op; a separate NEXT_PUBLIC_CLIENT_LOG=1 flag can
+//     force it on (used for e2e prod app diagnostics / live troubleshooting,
+//     without needing to change NODE_ENV).
+//   - could later add navigator.sendBeacon → /internal/client-errors
 //
-// 用法：
+// Usage:
 //   import { logger } from '@/lib/logger';
 //   logger.error('handle update', err);
 //
-// `unknown` 入参直接 spread 进 console；caller 别担心类型。
+// `unknown` args are spread straight into console; callers don't need to
+// worry about types.
 
 /* eslint-disable no-console */
 
@@ -23,8 +26,9 @@ interface Logger {
   error: (msg: string, ...args: unknown[]) => void;
 }
 
-// NEXT_PUBLIC_CLIENT_LOG 是 build 期 inline 的独立开关:dev 默认开,prod 要显式
-// 置 1 才开。跟 NODE_ENV 解耦 —— prod 也能临时开客户端日志排障。
+// NEXT_PUBLIC_CLIENT_LOG is a separate build-time-inlined flag: on by
+// default in dev, needs an explicit 1 in prod. Decoupled from NODE_ENV —
+// so prod can also temporarily turn on client-side log troubleshooting.
 function isDev(): boolean {
   if (process.env.NEXT_PUBLIC_CLIENT_LOG === '1') return true;
   return typeof process !== 'undefined' && process.env.NODE_ENV !== 'production';

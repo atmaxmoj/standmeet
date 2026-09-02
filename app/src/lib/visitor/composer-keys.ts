@@ -1,19 +1,26 @@
-// composer-keys —— textarea 版 composer 的两块 presentation 禁区逻辑:
-//   1. useAutoGrowTextarea —— 输入框随内容撑高,到视口 40% 封顶后内部滚
-//      ("对话栏弄超大,但要有上限")。
-//   2. dispatchComposerKey —— Enter 提交 / Shift+Enter 换行 / IME 组字中
-//      不误投 / 其余键交给 ghost(Tab 接受、Esc 切换)。
-// ChatRoom composer + AskInput(hero) 共用。
+// composer-keys —— the two pieces of logic banned from the presentation
+// layer for the textarea-based composer:
+//   1. useAutoGrowTextarea —— the input box grows with its content, capping
+//      at 40% of the viewport and scrolling internally past that
+//      ("let the composer get big, but keep a ceiling").
+//   2. dispatchComposerKey —— Enter submits / Shift+Enter inserts a
+//      newline / no accidental submit while an IME is composing / all
+//      other keys are handed to ghost (Tab accepts, Esc cycles).
+// Shared by the ChatRoom composer and AskInput (hero).
 
 import { useEffect, type KeyboardEvent, type RefObject } from 'react';
 
 import { dispatchGhostKey } from '@/lib/visitor/ghost-text';
 
-// 输入框最多撑到视口高 40%,再高内部滚 —— 大到能读一整段,又不至于盖掉对话。
+// The input box grows to at most 40% of viewport height, then scrolls
+// internally — big enough to read a whole paragraph, without covering the
+// conversation.
 const MAX_VIEWPORT_RATIO = 0.4;
 
-// useAutoGrowTextarea —— value 变就重算高度:先归零量 scrollHeight(否则只增
-// 不减),再 clamp 到 max;触顶后开 overflow-y 让内部滚而不是继续撑。
+// useAutoGrowTextarea —— recomputes height whenever value changes: first
+// zero out the height to measure scrollHeight fresh (otherwise it only ever
+// grows, never shrinks), then clamp to max; once it hits the ceiling, turn
+// on overflow-y so it scrolls internally instead of growing further.
 export function useAutoGrowTextarea(
   ref: RefObject<HTMLTextAreaElement | null>,
   value: string,
@@ -34,9 +41,11 @@ interface ComposerKeyHandlers {
   onAccept: (g: string) => void;
 }
 
-// dispatchComposerKey —— textarea keydown 派发。Enter(无 shift、非 IME 组字)
-// = 提交并吃掉默认换行;其余交给 ghost。nativeEvent.isComposing 守卫让中文
-// /日文输入法在选字回车时不会把半成品当成提交。
+// dispatchComposerKey —— textarea keydown dispatch. Enter (no shift, not
+// mid-IME-composition) = submit and swallow the default newline; every
+// other key goes to ghost. The nativeEvent.isComposing guard stops a
+// Chinese/Japanese IME's confirm-selection Enter from being treated as a
+// submit while the text is still half-formed.
 export function dispatchComposerKey(
   e: KeyboardEvent<HTMLTextAreaElement>,
   h: ComposerKeyHandlers,

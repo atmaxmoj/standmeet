@@ -1,15 +1,19 @@
 // diag_connector.go —— POST /internal/diag/connector/{id}/{invoke,agent-call}
 //
-// Owner-authed diag：直接打某个连接器（按 id，不经 active 槽）跑一件事，吐它原样的结果。
-// 验 owner 刚传上来的那份绑定（response 抽取 / request 构造）端到端对不对——不经访客会话。
+// Owner-authed diag: hits a connector directly (by id, bypassing the active slot) to run
+// one thing and echoes back its raw result. Verifies end-to-end that the binding the owner
+// just uploaded (response extraction / request construction) is correct — no visitor session.
 //
-// **这一层不认识任何品类。** 它收三个字符串加一段不透明 JSON（品类、动词、入参），转交，
-// 把回参原样吐回去。以前这里是三条路由 `/list-busy` `/create-event` `/send`，各自持一个
-// typed 代理、各自把友好入参翻译成品类 DTO —— 于是**面**（路由层）知道了一次约会由
-// summary/起止/时区/与会者构成、一封信由 to/subject/body 构成。名字删掉，形状还在。
+// **This layer knows no category.** It takes three strings plus an opaque JSON blob
+// (category, verb, args), forwards it, and echoes the result back verbatim. This used to
+// be three routes — `/list-busy` `/create-event` `/send` — each holding a typed proxy that
+// translated friendly input into a category DTO. So **this face** (the route layer) knew
+// that a meeting is made of summary/start-end/timezone/attendees, that an email is made of
+// to/subject/body. The names are gone; the shape remained.
 //
-// 正确的形状本来就摆在同一个文件里：`/agent-call` 一直是通用的（按 op + args 调）。
-// 现在两条都是。品类知识搬去了调用方——它在内核外面。
+// The right shape was already sitting in this same file: `/agent-call` was always generic
+// (call by op + args). Now both routes are. Category knowledge moved to the caller — it's
+// outside the kernel.
 
 package sys
 
@@ -25,32 +29,38 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 )
 
-// ErrConnectorNotFound —— 这个 id 没注册,或者它不是所点品类的连接器。
+// ErrConnectorNotFound —— this id isn't registered, or it isn't a connector of the
+// category being called.
 //
-// **这一层自己的 sentinel**,不是从连接器层借来的:借一个就得 import 那个包,而这条路由
-// 唯一该知道的事就是"地址错了"还是"事没成"。组装根负责把连接器侧的对应错误翻成它
-// (见 cmd/server/boot_wireup.go)。
+// **This layer's own sentinel**, not borrowed from the connector layer: borrowing one
+// would mean importing that package, and all this route needs to know is "wrong address"
+// vs. "the call failed". The composition root is responsible for translating the
+// connector layer's equivalent error into this one (see cmd/server/boot_wireup.go).
 var ErrConnectorNotFound = errors.New("connector not found")
 
-// AgentCallFn —— 按 id 跑一个 agent-tool op（注入 auth 调 SaaS），回原始响应或错（diag 直验通路）。
+// AgentCallFn —— runs an agent-tool op by id (auth-injected SaaS call), returning the raw
+// response or an error (diag route that verifies the path directly).
 type AgentCallFn func(
 	ctx context.Context, id, ownerID, op string, args json.RawMessage,
 ) (json.RawMessage, error)
 
-// CategoryInvokeFn —— 按 id 跑一个**品类动词**，回归一后的原始 JSON。品类和动词都是字符串：
-// 这一层因此写不出任何品类专属的类型。
+// CategoryInvokeFn —— runs a **category verb** by id, returning the normalized raw JSON.
+// Category and verb are both strings, so this layer literally cannot write a
+// category-specific type.
 type CategoryInvokeFn func(
 	ctx context.Context, ownerID, id, category, verb string, args json.RawMessage,
 ) (json.RawMessage, error)
 
-// DiagConnectorDeps —— 直打某个连接器要的两条通路（组装根接上具体实现）。
+// DiagConnectorDeps —— the two paths needed to hit a connector directly (the composition
+// root wires the concrete implementations).
 type DiagConnectorDeps struct {
 	Invoke    CategoryInvokeFn
 	AgentCall AgentCallFn
 	Log       *slog.Logger
 }
 
-// MountDiagConnector —— 挂连接器 diag（caller 已套 owner-session 中间件）。
+// MountDiagConnector —— mounts connector diag (caller already wraps owner-session
+// middleware).
 func MountDiagConnector(r chi.Router, deps DiagConnectorDeps) {
 	r.Post("/diag/connector/{id}/invoke", diagInvoke(deps))
 	r.Post("/diag/connector/{id}/agent-call", diagAgentCall(deps))
@@ -61,8 +71,9 @@ type diagAgentCallReq struct {
 	Args json.RawMessage `json:"args"`
 }
 
-// diagAgentCall —— owner 直跑一个 agent-tool（op）：注入 auth 调 SaaS，证运行时通路（§3 [A6]）。
-// 成功 → 200 {ok:true}；运行失败 → 友好 200 {ok:false}（不泄底层，真错进日志）。
+// diagAgentCall —— owner runs an agent-tool (op) directly: auth-injected SaaS call,
+// proving the runtime path (§3 [A6]). Success -> 200 {ok:true}; a run failure -> friendly
+// 200 {ok:false} (no leaking internals; the real error goes to the log).
 func diagAgentCall(deps DiagConnectorDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req diagAgentCallReq
@@ -80,31 +91,34 @@ func diagAgentCall(deps DiagConnectorDeps) http.HandlerFunc {
 	}
 }
 
-// diagInvokeReq —— 打哪个品类的哪个动词，入参原样透传。
+// diagInvokeReq —— which category, which verb, args passed through as-is.
 type diagInvokeReq struct {
 	Category string          `json:"category"`
 	Op       string          `json:"op"`
 	Args     json.RawMessage `json:"args"`
 }
 
-// diagInvokeResp —— 回参**原样**吐回（result 是连接器那一侧归一后的 JSON）。
-// 这一层不重排、不改名、不格式化 —— 它看不懂里面是什么，也不该看懂。
+// diagInvokeResp —— the response is echoed back **verbatim** (result is the connector
+// side's already-normalized JSON). This layer does not reorder, rename, or reformat it —
+// it can't understand what's inside, and shouldn't.
 //
-// 失败时 Error 带上**真实原因**。diag 是 owner-authed 的诊断口，它存在的全部意义就是
-// "告诉我为什么我这份绑定不通" —— 把原因藏进服务端日志，等于废掉这个端点。
-// (对访客面的"不泄底层"要求不适用于这里:这一条只有 owner 打得到。)
+// On failure, Error carries the **real reason**. diag is an owner-authed diagnostic port;
+// its entire reason to exist is "tell me why my binding doesn't work" — hiding the reason
+// in the server log would defeat the endpoint. (The visitor-facing "don't leak internals"
+// rule doesn't apply here: only the owner can hit this route.)
 //
-// 字段序按指针宽度排 —— govet fieldalignment 管着。
+// Field order follows pointer width — enforced by govet fieldalignment.
 type diagInvokeResp struct {
 	Error  string          `json:"error,omitempty"`
 	Result json.RawMessage `json:"result,omitempty"`
 	OK     bool            `json:"ok"`
 }
 
-// diagInvoke —— 直打某个连接器的一个品类动词。
+// diagInvoke —— hits one category verb on a connector directly.
 //
-// 连接器不存在 / 不是这个品类 → 404；跑失败 → 友好 200 {ok:false}（底层错进日志，
-// 不泄给调用方 —— diag 也是一个面）。
+// Connector doesn't exist / isn't this category -> 404; a run failure -> friendly
+// 200 {ok:false} (the underlying error goes to the log, not to the caller — diag is
+// still a face).
 func diagInvoke(deps DiagConnectorDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req diagInvokeReq
@@ -120,10 +134,12 @@ func diagInvoke(deps DiagConnectorDeps) http.HandlerFunc {
 	}
 }
 
-// complete —— 品类和动词都得给:这一层不认识任何品类,自然也补不出默认值。
+// complete —— both category and verb are required: this layer knows no category, so it
+// can't supply a default either.
 func (q *diagInvokeReq) complete() bool { return q.Category != "" && q.Op != "" }
 
-// runDiagInvoke —— 转交 + 翻回执。分支留在这儿,handler 只做解码和分派。
+// runDiagInvoke —— forwards the call and translates the receipt. Branching stays here;
+// the handler only decodes and dispatches.
 func runDiagInvoke(
 	ctx context.Context, deps DiagConnectorDeps, w http.ResponseWriter,
 	id string, req *diagInvokeReq,
@@ -137,7 +153,8 @@ func runDiagInvoke(
 	diagStatus(deps.Log, w, http.StatusOK, diagInvokeResp{OK: true, Result: out})
 }
 
-// argsOrEmpty —— 没带 args 就当空对象。有些动词（connected / 默认区间的探测）本来就不需要入参。
+// argsOrEmpty —— no args given means treat it as an empty object. Some verbs (connected /
+// probing a default range) genuinely need no args.
 func argsOrEmpty(a json.RawMessage) json.RawMessage {
 	if len(a) == 0 {
 		return json.RawMessage(`{}`)
@@ -145,8 +162,9 @@ func argsOrEmpty(a json.RawMessage) json.RawMessage {
 	return a
 }
 
-// diagInvokeErr —— 分两种:"这个连接器不是这个品类"是地址错了(404);"跑失败了"是这次
-// 调用没成(400 + 原因)。**原因照实回** —— 见 diagInvokeResp 的说明。
+// diagInvokeErr —— two cases: "this connector isn't this category" is a wrong address
+// (404); "the run failed" is this call not succeeding (400 + reason). **The reason goes
+// back verbatim** — see the diagInvokeResp comment.
 func diagInvokeErr(
 	log *slog.Logger, w http.ResponseWriter, category, op string, err error,
 ) {
@@ -158,8 +176,9 @@ func diagInvokeErr(
 	diagStatus(log, w, http.StatusBadRequest, diagInvokeResp{OK: false, Error: err.Error()})
 }
 
-// diagBody —— 这一层能解的两种请求体。`any` 在业务代码里是禁的:一个不透明的解码目标
-// 等于放弃了"这条路由收什么"这件事的可读性。
+// diagBody —— the two request-body shapes this layer can decode. `any` is banned in
+// business code: an opaque decode target throws away the readability of "what does
+// this route accept".
 type diagBody interface {
 	*diagInvokeReq | *diagAgentCallReq
 }
@@ -172,7 +191,7 @@ func diagDecode[T diagBody](log *slog.Logger, w http.ResponseWriter, r *http.Req
 	return true
 }
 
-// diagPayload —— 这一层会吐的几种回参。同样不用 `any`。
+// diagPayload —— the response shapes this layer sends back. Also no `any`.
 type diagPayload interface {
 	diagInvokeResp | map[string]string | map[string]bool
 }

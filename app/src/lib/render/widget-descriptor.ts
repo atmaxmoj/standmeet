@@ -1,5 +1,7 @@
-// widget-descriptor.ts —— ` ```standmeet-widget ` 块内 JSON descriptor 的解析 + 校验(usecase 层)。
-// src 必须是 URL;height 有界;sandbox 可选覆盖。畸形 → null(块降级,不渲染 iframe)。
+// widget-descriptor.ts — parsing + validation (usecase layer) for the JSON descriptor
+// inside a ` ```standmeet-widget ` block.
+// src must be a URL; height is bounded; sandbox is an optional override. Malformed → null
+// (block degrades gracefully, no iframe rendered).
 
 import { z } from 'zod';
 
@@ -11,7 +13,8 @@ const DescSchema = z.object({
 
 type WidgetDescriptor = z.infer<typeof DescSchema>;
 
-// ResolvedWidget —— 默认值填好的 descriptor,组件直接用(免在 presentation 层写 `??`)。
+// ResolvedWidget — descriptor with defaults filled in, ready for the component to use
+// directly (avoids writing `??` in the presentation layer).
 export interface ResolvedWidget {
   src: string;
   height: number;
@@ -23,7 +26,8 @@ export function parseWidgetDescriptor(source: string): ResolvedWidget | null {
   return result.success ? resolveDefaults(result.data) : null;
 }
 
-// resolveDefaults —— height 320;sandbox 最小权限 'allow-scripts'(不给 allow-same-origin,免 sandbox 自解除)。
+// resolveDefaults — height defaults to 320; sandbox defaults to the least-privilege
+// 'allow-scripts' (no allow-same-origin, so the sandbox can't self-lift).
 function resolveDefaults(d: WidgetDescriptor): ResolvedWidget {
   return { src: d.src, height: d.height ?? 320, sandbox: d.sandbox ?? 'allow-scripts' };
 }

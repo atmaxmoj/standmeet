@@ -1,12 +1,15 @@
-// page_pins_seo.go —— publish 开关和 pin 不变量的会合点。
+// page_pins_seo.go — where the publish toggle and the pin invariant meet.
 //
-// pinned ⊆ published 的 unpublish 端:改 wiki published 的两个入口(admin PATCH
-// /corpus/wiki/{id}/seo 和 MCP seo.set_wiki_seo)都必须走 UpdateWikiSEOWithPins,
-// 不直接调 repo —— unpublish 一个已 pin 条目会成功 + 自动 unpin,并把被摘栏目
-// 返给 caller 写进响应/tool result(副作用当面声明,不藏)。
+// The unpublish side of pinned ⊆ published: both entry points that change wiki
+// published (admin PATCH /corpus/wiki/{id}/seo and MCP seo.set_wiki_seo) must go
+// through UpdateWikiSEOWithPins, never call repo directly — unpublishing an already-pinned
+// entry succeeds + auto-unpins, and the sections it was removed from are returned to the
+// caller to write into the response/tool result (the side effect is declared up front,
+// never hidden).
 //
-// vault sync 是第三条 published 写路径(frontmatter 可翻 publish),它批量 reconcile
-// 后调 SweepPagePins 清掉失效 pin;渲染侧 published 过滤仍是兜底(防御纵深)。
+// vault sync is the third path that writes published (frontmatter can flip publish); it
+// calls SweepPagePins after a batch reconcile to clean out stale pins; the rendering
+// side's published filter is still a fallback (defense in depth).
 
 package usecase
 
@@ -18,14 +21,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// WikiSEOUpdater —— repo 面的窄口(corpus.SEORepo 满足)。
+// WikiSEOUpdater — the narrow port on repo's side (satisfied by corpus.SEORepo).
 type WikiSEOUpdater interface {
 	UpdateWikiSEO(
 		ctx context.Context, ownerID, wikiID, description string, indexed bool,
 	) (corpus.Wiki, error)
 }
 
-// WikiSEOUpdate —— 一次 wiki SEO 更新的入参(excerpt + publish 开关)。
+// WikiSEOUpdate — input for one wiki SEO update (excerpt + publish toggle).
 type WikiSEOUpdate struct {
 	OwnerID     string
 	WikiID      string
@@ -33,14 +36,15 @@ type WikiSEOUpdate struct {
 	Published   bool
 }
 
-// WikiSEOResult —— 更新后的 wiki + 因 unpublish 被自动摘除的栏目名。
+// WikiSEOResult — the updated wiki + the section names it was auto-removed from
+// because of unpublish.
 type WikiSEOResult struct {
 	Unpinned []string
 	Wiki     corpus.Wiki
 }
 
-// UpdateWikiSEOWithPins —— 改 excerpt/published,unpublish 时自动 unpin。
-// 返回更新后的 wiki + 被摘的栏目名。
+// UpdateWikiSEOWithPins — changes excerpt/published, auto-unpinning on unpublish.
+// Returns the updated wiki + the section names it was removed from.
 func UpdateWikiSEOWithPins(
 	ctx context.Context, seo WikiSEOUpdater, pins PagePinDeps, upd WikiSEOUpdate,
 ) (WikiSEOResult, error) {
@@ -58,8 +62,9 @@ func UpdateWikiSEOWithPins(
 	return WikiSEOResult{Wiki: updated, Unpinned: unpinned}, nil
 }
 
-// SweepPagePins —— 批量写路径(vault sync)后的清扫:摘掉已删/已 unpublish 的
-// pin。逐条路过同一套 mutate,不另起第二套实现。
+// SweepPagePins — cleanup after a batch write path (vault sync): removes pins that are
+// deleted/unpublished. Routes each one through the same mutate path, no second
+// implementation.
 func SweepPagePins(ctx context.Context, pins PagePinDeps, ownerID string) error {
 	content, err := loadPageContentOrDefault(ctx, PageDeps{Owners: pins.Owners}, ownerID)
 	if err != nil {
@@ -77,7 +82,8 @@ func SweepPagePins(ctx context.Context, pins PagePinDeps, ownerID string) error 
 	return nil
 }
 
-// collectStalePins —— 不再 published(或条目已删,join 未命中)的 pin id 集。
+// collectStalePins — the set of pin ids that are no longer published (or the entry was
+// deleted, so the join misses).
 func collectStalePins(
 	content *entity.PageContent, cards map[string]corpus.WikiCard,
 ) []string {

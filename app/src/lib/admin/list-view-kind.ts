@@ -1,8 +1,8 @@
-// list-view-kind —— admin sections (DraftsSection / ApplicationsSection 等)
-// 共用的 list 视图 4 态 dispatch。
+// list-view-kind —— the 4-state list-view dispatch shared by admin sections
+// (DraftsSection / ApplicationsSection etc.).
 //
-// presentation 层不准跑 `if` / 复杂三元链；这里抽出来给 component 用单一
-// switch on string。
+// The presentation layer must not run `if` / complex ternary chains; this is
+// pulled out so the component can use a single switch on string.
 
 export type ListViewKind = 'loading' | 'error' | 'empty' | 'list';
 

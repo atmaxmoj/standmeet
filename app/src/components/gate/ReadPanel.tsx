@@ -1,15 +1,20 @@
-// ReadPanel —— gate 上「不用码、也不用自带 AI，直接读」那条路。
+// ReadPanel — the gate's "no code, no BYOAI, just read" path.
 //
-// 为什么要有：gate 原来对没有码的访客只给两扇门 —— 输码，或者 BYOAI（要访客自己掏一把
-// API key）。而这台实例上**已经公开**的 wiki 和 writings，在这一页上一个链接都没有；
-// 页面自己的文案还写着「bring your own AI to chat with the public corpus」——
-// 承认了公开语料存在，却不告诉人它在哪。顶栏在这一页也没有导航（`/wiki` 那条顶栏有
-// WRITING / CHAT，gate 这条没有），所以访客从这里出不去。
-// 于是「读一读他写了什么」这个最低门槛的动作，成本比「去弄一把 OpenAI key」还高。
+// Why it exists: the gate used to give a codeless visitor only two doors — enter a
+// code, or BYOAI (which means the visitor produces their own API key). Meanwhile
+// the wiki and writings that are **already public** on this instance had zero
+// links on this page; the page's own copy even says "bring your own AI to chat
+// with the public corpus" — admitting a public corpus exists while never saying
+// where it is. The top nav has no links on this page either (the `/wiki` top nav
+// has WRITING / CHAT, the gate's doesn't), so a visitor has no way out from here.
+// So the lowest-effort action — "read what they've written" — ended up costing
+// more than "go get an OpenAI key".
 //
-// **有东西才开门**：`/wiki` 和 `/writings` 各自的计数为 0 时不渲染那一条。
-// 空的入口比没有入口更糟 —— 点进去是一张空页，而访客不知道是自己走错了还是产品坏了。
-// 两个都为 0 时整块不出现，gate 回到原来那两扇门。
+// **Only open the door when there's something behind it**: don't render a link
+// whose count (`/wiki` or `/writings`) is 0. An empty entry is worse than no
+// entry — clicking through lands on a blank page, and the visitor can't tell
+// whether they took a wrong turn or the product is broken. When both are 0 the
+// whole block disappears and the gate falls back to its original two doors.
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -25,9 +30,10 @@ export function ReadPanel({ publicWiki, publicWritings }: Props) {
     : null;
 }
 
-// `mb-14` 是必须的：BYOAIPanel 自己不带外边距（它以前紧跟在 `<Sep />` 后面）。
-// 不给的话 `WRITINGS · 1 →` 会贴着下一块的 kicker `NO CODE? · BYOAI`，两块读起来像一块，
-// 那条链接看上去是 BYOAI 的一部分。
+// `mb-14` is required: BYOAIPanel carries no margin of its own (it used to sit
+// right after `<Sep />`). Without it, `WRITINGS · 1 →` would butt up against the
+// next block's kicker `NO CODE? · BYOAI`, the two blocks would read as one, and
+// that link would look like part of BYOAI.
 function ReadPanelBody({ publicWiki, publicWritings }: Props) {
   const t = useTranslations('gate.read');
   return (
@@ -39,9 +45,10 @@ function ReadPanelBody({ publicWiki, publicWritings }: Props) {
         {t('heading')}
       </h2>
       <p className="text-(--color-muted) max-w-[62ch] mb-5">{t('body')}</p>
-      {/* 两条链接不挂 testid：`Link` 是组件，testid 只能落在裸 DOM 元素上。
-          要定位它们就按可访问名字走（`getByRole('link', { name: /wiki/ })`）—— 那也正是
-          真人认它们的方式。 */}
+      {/* The two links carry no testid: `Link` is a component, and a testid can
+          only land on a bare DOM element. Locate them by accessible name instead
+          (`getByRole('link', { name: /wiki/ })`) — which is also how a real
+          person finds them. */}
       <div className="flex flex-wrap gap-x-8 gap-y-3">
         <ReadLink href="/wiki" label={t('wiki')} count={publicWiki} />
         <ReadLink href="/writings" label={t('writings')} count={publicWritings} />
@@ -50,8 +57,10 @@ function ReadPanelBody({ publicWiki, publicWritings }: Props) {
   );
 }
 
-// 计数印在链接上，不是装饰：它是访客判断「这扇门后面有没有东西」的唯一依据，
-// 而这一页别的地方不讲这台实例公开了多少。数为 0 的那一条根本不渲染。
+// The count printed on the link isn't decoration: it's the visitor's only way to
+// judge "is there anything behind this door", since nothing else on this page says
+// how much this instance has made public. The one whose count is 0 doesn't render
+// at all.
 function ReadLink({ href, label, count }: { href: string; label: string; count: number }) {
   return count > 0
     ? (

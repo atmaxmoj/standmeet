@@ -1,9 +1,12 @@
-// ConnectorsSection —— /admin/connectors。
+// ConnectorsSection —— /admin/connectors.
 //
-// 真接通的:内置卡(CatalogCards ← /connectors/catalog:gcal/smtp…owner 填凭据 Connect)、
-// owner 上传的 OpenAPI/protocol connector(ConnectorList + ConnectorAddModal 真走 POST
-// /api/admin/connectors)、Calendar/Mail 专用面板、能力可用性面板。
-// (旧的 "coming soon" catalog 预览网格已删 —— 不做 marketplace 目录,owner 上传即用。)
+// What's really wired: built-in cards (CatalogCards ← /connectors/catalog: gcal/smtp…
+// owner fills credentials and hits Connect), connectors the owner uploads as
+// OpenAPI/protocol connector (ConnectorList + ConnectorAddModal, a real POST to
+// /api/admin/connectors), the Calendar/Mail-specific panels, the capability
+// availability panel.
+// (The old "coming soon" catalog preview grid is removed — no marketplace catalog;
+// the owner just uploads and it's live.)
 
 'use client';
 
@@ -26,12 +29,16 @@ export function ConnectorsSection() {
   const catalog = useConnectorCatalog();
   const upload = useConnectorUpload(list);
   const [showAdd, setShowAdd] = useState(false);
-  // modalOpen —— 有待回答的覆盖确认时,模态让位(那个确认渲染在区内主体里)。
+  // modalOpen —— when an overwrite confirmation is pending, the modal steps aside
+  // (that confirmation renders in the section body).
   const modalOpen = showAdd && upload.pending === null;
-  // openAdd —— 每次打开都从**干净的表单**开始。createdID 属于一次模态会话，不清的话摄入表单
-  // 会一直让位给上一次装好的那张卡，spec 输入框永远不再出现 —— 装第二个连接器就此无门。
+  // openAdd —— every open starts from a **clean form**. createdID belongs to one modal
+  // session; if it isn't cleared, the ingest form keeps deferring to the previously
+  // assembled card and the spec input never reappears — installing a second connector
+  // becomes impossible.
   const openAdd = useCallback(() => { upload.resetCreated(); setShowAdd(true); }, [upload]);
-  // AddModal 的内置-connect 回调:上传流不用它(走 onAssemble),留 no-op 满足 prop。
+  // AddModal's built-in-connect callback: the upload flow doesn't use it (it goes
+  // through onAssemble); kept as a no-op to satisfy the prop.
   const onConnect = useCallback(() => {}, []);
   return (
     <>
@@ -42,17 +49,22 @@ export function ConnectorsSection() {
         action={<AddBtn onOpen={openAdd} />}
       />
       <Intro />
-      {/* 模态打开时不渲染区内卡片/列表 —— 否则它们的 connector-connect-button/connector-status 会和
-          模态里装配视图的同名 testid 撞上（装配测试用 page 级选择器）。 */}
-      {/* 模态在「有待回答的问题」时让位：覆盖确认渲染在区内主体里，模态盖着就问不出来。
-          待回答的问题优先于模态。 */}
+      {/* Don't render the section's cards/list while the modal is open — otherwise
+          their connector-connect-button/connector-status testids collide with the
+          same-named ones in the modal's assembly view (assembly tests use page-level
+          selectors). */}
+      {/* The modal steps aside when there's a pending question: the overwrite
+          confirmation renders in the section body, and the modal on top would block
+          it from being answered. A pending question takes priority over the modal. */}
       <SectionBody show={!modalOpen} catalog={catalog} list={list} upload={upload} />
       {modalOpen && (
         <ConnectorAddModal
           installed={[]} onClose={() => setShowAdd(false)}
           onConnect={onConnect}
-          // 装配之后**不关**模态：接着在同一处渲染新连接器的卡（凭据 + Connect）。
-          // 关掉的话 owner 会落在一个连不上的列表行上 —— ConnectorList 的行没有 Connect。
+          // After assembly, **don't close** the modal: it goes on to render the new
+          // connector's card (credentials + Connect) in the same place. Closing it
+          // would leave the owner on a list row that can't connect — ConnectorList
+          // rows have no Connect action.
           onAssemble={upload.upload}
           assemble={upload.state}
         />
@@ -61,7 +73,8 @@ export function ConnectorsSection() {
   );
 }
 
-// SectionBody —— connectors 区主体（内置卡 + 已配列表 + 面板）。模态开时整体不渲染（避免 testid 撞）。
+// SectionBody —— the connectors section body (built-in cards + configured list +
+// panels). Doesn't render at all while the modal is open (avoids testid collisions).
 function SectionBody({
   show, catalog, list, upload,
 }: {
@@ -88,14 +101,17 @@ function SectionBody({
   ) : null;
 }
 
-// CatalogCards —— 内置连接器（外置装配进来的）各一张归一卡，owner 在卡里填凭据 + Connect。
+// CatalogCards —— one normalized card per built-in connector (assembled externally);
+// the owner fills credentials + Connect right in the card.
 function CatalogCards({ catalog }: { catalog: ConnectorCatalogHook }) {
   const t = useTranslations('adminIntegrations.connectors');
-  // loadError 时哪怕空也要出提示：空 vs「没拉到」得分得清（§2 不静默成空）。
+  // Show a notice on loadError even when the entries list is empty: empty vs.
+  // "failed to load" must stay distinguishable (§2 — never fail silently into empty).
   return (!catalog.loadError && catalog.entries.length === 0) ? null : (
     <div className="mb-8 space-y-3">
-      {/* 这一堆卡以前直接从 intro 底下开始，跟下面 owner 自己传的那份列表之间没有任何分界
-          —— 于是「现成的」和「我传的」在一页上看起来是一件事（UX-79）。 */}
+      {/* This block of cards used to start right under the intro with no boundary
+          from the owner's own uploaded list below — so "built-in" and "what I
+          uploaded" read as one thing on the page (UX-79). */}
       <AdminSectionHead className="mb-3" aside={t('builtinCount', { count: String(catalog.entries.length) })}>
         {t('builtinHeading')}
       </AdminSectionHead>
@@ -107,7 +123,8 @@ function CatalogCards({ catalog }: { catalog: ConnectorCatalogHook }) {
   );
 }
 
-// CatalogLoadError —— 目录没拉到时的提示（§2：空 vs 加载失败要分得清）。
+// CatalogLoadError —— the notice shown when the catalog failed to load (§2: empty
+// vs. failed-to-load must stay distinguishable).
 function CatalogLoadError({ show }: { show: boolean }) {
   const t = useTranslations('adminIntegrations.connectors');
   return show ? (

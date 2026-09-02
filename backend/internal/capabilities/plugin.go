@@ -1,10 +1,11 @@
-// plugin.go —— capability 轴的 in-process 装载机制(原 internal/plugins 的 Plugin/Registry,
-// 按 backend-domain-modules.md 折进 capabilities)。
+// plugin.go — the in-process loading mechanism for the capability axis (formerly the
+// Plugin/Registry in internal/plugins, folded into capabilities per backend-domain-modules.md).
 //
-// 每个 in-process 能力(owner-side caps / outbound use case)实现 Plugin,可选挂 lifecycle
-// hook (CapabilityRegistrar / AdminRouter);boot 期 Register 进 Registry,wireup 只调一次
-// RegisterAllCapabilities / MountAllAdminRoutes,不再 case-by-case 散在 composition root。
-// hook 全 optional (type-assert):plugin 按自己能力挂哪些面。
+// Each in-process capability (owner-side caps / outbound use case) implements Plugin, and
+// optionally hangs lifecycle hooks (CapabilityRegistrar / AdminRouter) off it; Register runs
+// once at boot into the Registry, and wireup calls RegisterAllCapabilities /
+// MountAllAdminRoutes exactly once instead of case-by-case code scattered in the composition
+// root. Every hook is optional (type-assert): each plugin hangs whichever faces it needs.
 
 package capabilities
 
@@ -15,61 +16,64 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 )
 
-// Plugin —— 一个 outbound use case 的最小标识。具体能力 (MCP tools / admin
-// routes / migrations / agent capabilities / AccessCode hooks) 由各自 optional
-// sub-interface 暴露 (CapabilityRegistrar / AdminRouter / ...)；wireup 用
-// type-assert 拿到具体 hook 调即可。
+// Plugin — the minimal identity of one outbound use case. Concrete capabilities (MCP tools /
+// admin routes / migrations / agent capabilities / AccessCode hooks) are each exposed by their
+// own optional sub-interface (CapabilityRegistrar / AdminRouter / ...); wireup just
+// type-asserts to get the concrete hook and calls it.
 type Plugin interface {
 	Name() string
 }
 
-// CapabilityRegistrar —— optional hook: plugin 把自己的 owner-MCP capabilities
-// 注册到核心 capreg.Registry。重 ID 由 capreg 自身 panic 兜底。
+// CapabilityRegistrar — optional hook: the plugin registers its own owner-MCP capabilities
+// into the core capreg.Registry. A duplicate ID is caught by capreg's own panic guard.
 type CapabilityRegistrar interface {
 	RegisterCapabilities(reg *capreg.Registry)
 }
 
-// AdminRouter —— optional hook: plugin 把自己的 owner admin REST routes 挂
-// 到入参 router (caller 负责事先用 WithOwner / RequireCSRF middleware 包好)。
+// AdminRouter — optional hook: the plugin mounts its own owner admin REST routes onto the
+// given router (the caller is responsible for wrapping it with WithOwner / RequireCSRF
+// middleware beforehand).
 type AdminRouter interface {
 	MountAdminRoutes(r chi.Router)
 }
 
-// PeriodicWorker —— optional hook: plugin 声明自己的周期任务(要清的过期行之类)。
+// PeriodicWorker — optional hook: the plugin declares its own periodic jobs (things like
+// sweeping expired rows).
 //
-// 只声明"做什么、多久一次";什么时候起、怎么进 Monitor 的面板,归宿主的一份调度
-// (internal/infra/periodic)。这个 hook 在之前是不存在的,于是 jobs 插件的 resume-draft
-// 清扫写在了组装根里 —— 插件的业务落在装配的地方,只因为 ticker 在那儿。
+// It only declares "what to do, how often"; when it starts and how it surfaces in the Monitor
+// panel belongs to the one host-side scheduler (internal/infra/periodic). This hook didn't
+// exist before, so the jobs plugin's resume-draft sweep ended up written into the composition
+// root — a plugin's business logic landing wherever the wiring happened to sit, only because
+// the ticker was there.
 type PeriodicWorker interface {
 	PeriodicJobs() []periodic.Job
 }
 
-// Registry —— 启动期注册全部启用 plugins。boot 跑一次 Register*，wireup
-// 时调 RegisterAllCapabilities / MountAllAdminRoutes 把全部 plugin 的 hook
-// 一次性执行完毕。
+// Registry — registers every enabled plugin at startup. Boot runs Register* once, and wireup
+// calls RegisterAllCapabilities / MountAllAdminRoutes to run every plugin's hooks in one pass.
 type Registry struct {
 	plugins []Plugin
 }
 
-// NewRegistry —— 构造空 registry。
+// NewRegistry — constructs an empty registry.
 func NewRegistry() *Registry {
 	return &Registry{plugins: []Plugin{}}
 }
 
-// Register —— 把 plugin 加进 registry。重复 Name 不 panic (caller 自己
-// 保 plugin 单例)；Plugins() 返回顺序 = 注册顺序。
+// Register — adds a plugin to the registry. A duplicate Name does not panic (the caller is
+// responsible for keeping plugins singletons); Plugins() returns them in registration order.
 func (r *Registry) Register(p Plugin) {
 	r.plugins = append(r.plugins, p)
 }
 
-// Plugins —— 拷贝一份返回 (slice 内容不可被外部 mutate)。
+// Plugins — returns a copy (the slice's contents must not be mutated by callers).
 func (r *Registry) Plugins() []Plugin {
 	out := make([]Plugin, len(r.plugins))
 	copy(out, r.plugins)
 	return out
 }
 
-// Names —— 注册顺序返每个 plugin 的 Name；admin debug + log 用。
+// Names — returns each plugin's Name in registration order; used by admin debug + logging.
 func (r *Registry) Names() []string {
 	out := make([]string, 0, len(r.plugins))
 	for _, p := range r.plugins {
@@ -78,8 +82,8 @@ func (r *Registry) Names() []string {
 	return out
 }
 
-// RegisterAllCapabilities —— 遍历每个 plugin，实现了 CapabilityRegistrar
-// 就调一次 RegisterCapabilities。注册顺序 = plugin 注册顺序。
+// RegisterAllCapabilities — walks every plugin and calls RegisterCapabilities once for each
+// that implements CapabilityRegistrar. Order follows plugin registration order.
 func (r *Registry) RegisterAllCapabilities(skills *capreg.Registry) {
 	for _, p := range r.plugins {
 		if cr, ok := p.(CapabilityRegistrar); ok {
@@ -88,8 +92,8 @@ func (r *Registry) RegisterAllCapabilities(skills *capreg.Registry) {
 	}
 }
 
-// MountAllAdminRoutes —— 遍历每个 plugin，实现了 AdminRouter 就调一次
-// MountAdminRoutes。挂载顺序 = plugin 注册顺序。
+// MountAllAdminRoutes — walks every plugin and calls MountAdminRoutes once for each that
+// implements AdminRouter. Mount order follows plugin registration order.
 func (r *Registry) MountAllAdminRoutes(router chi.Router) {
 	for _, p := range r.plugins {
 		if ar, ok := p.(AdminRouter); ok {
@@ -98,7 +102,8 @@ func (r *Registry) MountAllAdminRoutes(router chi.Router) {
 	}
 }
 
-// AllPeriodicJobs —— 汇齐所有 plugin 声明的周期任务,交给宿主那一份调度去起。
+// AllPeriodicJobs — collects every periodic job declared by any plugin, for the host's one
+// scheduler to start.
 func (r *Registry) AllPeriodicJobs() []periodic.Job {
 	out := []periodic.Job{}
 	for _, p := range r.plugins {

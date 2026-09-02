@@ -35,7 +35,8 @@ func (l *pgCorpusLister) Get(
 	return Entry{}, ErrCorpusNotFound
 }
 
-// fillCSSClasses —— 补 per-note cssclasses(呈现钩子),best-effort;queryRepo 缺则原样。
+// fillCSSClasses —— fills in per-note cssclasses (a presentation hook), best-effort;
+// leaves the entry as-is when queryRepo is absent.
 func (l *pgCorpusLister) fillCSSClasses(ctx context.Context, ownerID string, entry *Entry) {
 	if l.queryRepo != nil {
 		entry.CSSClasses = l.queryRepo.GetCSSClasses(ctx, ownerID, entry.ID)
@@ -110,8 +111,10 @@ func (l *pgCorpusLister) findWriting(
 	if err != nil {
 		return Entry{}, false
 	}
-	// GetPublishedByPath 名副其实（只回已发布的），所以这里 Published 恒 true —— 写成
-	// 显式的 IsPublished() 而不是字面 true：判据仍来自那一行，不来自函数名的承诺。
+	// GetPublishedByPath lives up to its name (only returns published entries), so
+	// Published is always true here — written as an explicit IsPublished() call
+	// rather than a literal true: the criterion still comes from that call, not
+	// from the promise implied by the function's name.
 	return Entry{
 		ID: w.ID(), Path: path, Slug: w.Slug(), Title: w.Title(), Genre: "writing",
 		Body: writingBodyText(&w), Published: w.IsPublished(),

@@ -1,6 +1,6 @@
-// PromptsSection —— /admin/prompts。design 源 docs/design/project/admin.js
-// PromptsSection (1176-1209)。两栏卡片 list；public [system] pill 不可删；
-// 创建弹层：name + description + body (serif textarea，body 是写作物)。
+// PromptsSection —— /admin/prompts. Design source docs/design/project/admin.js
+// PromptsSection (1176-1209). Two-column card list; the public [system] pill can't be deleted;
+// create modal: name + description + body (serif textarea, body is the writing).
 
 'use client';
 
@@ -138,7 +138,8 @@ function PromptDeleteBtn({
 }: { prompt: PromptView; onDelete: (id: string) => Promise<void> }) {
   const t = useTranslations('adminAccess');
   const run = useAction();
-  // 一键破坏性动作 → 成功/失败都用 toast 收尾（失败不再静默：删没生效 owner 必须知道）。
+  // One-click destructive action → both success/failure end with a toast (failure is no longer
+  // silent: the owner must know when a delete didn't take).
   const handleDelete = useCallback(
     () => run(() => onDelete(prompt.id), { success: `Prompt ${prompt.name} deleted` }),
     [onDelete, prompt.id, prompt.name, run],
@@ -246,7 +247,8 @@ function PromptModalFooter({
   const t = useTranslations('adminAccess');
   const toast = useToast();
   const report = useReportError();
-  // 成功 → toast + 关；失败 → report + **保持开着**（让 owner 看见错、改了重试，不静默关掉像成功了）。
+  // Success → toast + close; failure → report + **stay open** (so the owner sees the error, can
+  // fix and retry, instead of closing silently like it succeeded).
   const submit = useCallback(async () => {
     try {
       await onCreate({ name, description, body });

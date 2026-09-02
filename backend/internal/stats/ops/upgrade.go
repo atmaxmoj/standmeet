@@ -1,14 +1,18 @@
-// upgrade.go —— 「这台实例还能不能更新」以及「让它更新」。
+// upgrade.go —— "can this instance still upgrade" and "make it upgrade".
 //
-//	instance.upgrade_check   跑着哪一版 / 发布了哪一版 / 这台实例按得动按钮吗
-//	instance.upgrade         请编排方重新部署
+//	instance.upgrade_check   which version is running / which version was released / can this
+//	                         instance actually press the button
+//	instance.upgrade         ask the orchestrator to redeploy
 //
-// 分工的要害:**这台实例没有宿主控制权**(backend 刻意不挂 docker.sock),所以升级这件事
-// 它自己做不了。它能做的只有"请编排方做",而那条路的权限由 owner 亲手给。给了就按得动,
-// 没给就如实说按不动 —— 提供一个做不到的动作,比不提供更坏。
+// The key division of labor: **this instance has no host control** (the backend deliberately
+// doesn't mount docker.sock), so it cannot upgrade itself. All it can do is "ask the
+// orchestrator to do it", and that path's permission is granted by the owner's own hand.
+// Grant it and the button works; withhold it and the button honestly reports it can't —
+// offering an action that can't succeed is worse than not offering it at all.
 //
-// upgrade 只报"请求打出去了",不报"升级成功了"。这个进程自己就在被替换的东西里面,
-// 它活不到能回答后一句;真回执由浏览器轮询 /api/v1/instance 的 version 量出来。
+// upgrade only reports "the request went out", never "the upgrade succeeded". This very
+// process is among the things being replaced, so it won't live to answer that later question;
+// the real receipt comes from the browser polling /api/v1/instance's version and measuring it.
 
 package ops
 
@@ -19,38 +23,43 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// ReleaseSource —— 镜像库那边最新发布的是哪一版。出站 HTTP 在组装根,域只见这一个口。
+// ReleaseSource —— which version is newest in the image registry. The outbound HTTP call
+// lives in the composition root; the domain only sees this one port.
 type ReleaseSource interface {
 	LatestVersion(ctx context.Context) (string, error)
-	// Newer —— candidate 比 current 新吗。版本号怎么比是发行渠道的规矩,不是这个域的。
+	// Newer —— is candidate newer than current. How version numbers compare is the release
+	// channel's rule, not this domain's.
 	Newer(current, candidate string) bool
-	// Released —— 这个字符串是个发行版本号吗。"什么算发行版本"跟"怎么比"是同一套规矩,
-	// 所以由同一方回答;前端不许自己再写一份正则(那就是两份会走散的规矩)。
+	// Released —— is this string a release version number. "What counts as a release" and
+	// "how to compare" are the same rule set, so the same party answers both; the frontend
+	// must not write a second regex of its own (that's two copies of a rule going out of sync).
 	Released(version string) bool
 }
 
-// Redeploy —— 请编排方重新部署这台实例。Configured 为假时 Trigger 必然失败,
-// 面板据此把按钮画成"做不到"而不是画成能按。
+// Redeploy —— ask the orchestrator to redeploy this instance. When Configured is false,
+// Trigger is guaranteed to fail; the panel uses that to draw the button as "can't" rather
+// than as pressable.
 type Redeploy interface {
 	Configured() bool
 	Trigger(ctx context.Context) error
 }
 
-// UpgradeSources —— 升级要的两个**外部**口。成对出现,所以一起传:组装根一处构造,
-// 运行时一个字段。
+// UpgradeSources —— the two **external** ports upgrade needs. They always show up together,
+// so they're passed together: one construction in the composition root, one runtime field.
 type UpgradeSources struct {
 	Releases ReleaseSource
 	Deploy   Redeploy
 }
 
-// UpgradeDeps —— 升级这一组要的来源:进程自己知道的那一份 + 两个外部口。
+// UpgradeDeps —— the sources this group needs to upgrade: what the process itself knows,
+// plus the two external ports.
 type UpgradeDeps struct {
 	UpgradeSources
 
 	System SystemInfoSource
 }
 
-// Upgrade —— 两个口:查 + 做。
+// Upgrade —— two ports: check, and act.
 func Upgrade(deps UpgradeDeps) []fp.Op {
 	return []fp.Op{
 		{
@@ -81,17 +90,19 @@ type upgradeCheckOut struct {
 	Current string `json:"current"`
 	Latest  string `json:"latest"`
 	Error   string `json:"error"`
-	// Comparable —— 跑着的这一版是个**发行版本号**吗。未盖章的构建(自己 build 出来的
-	// "dev")比不了 —— 而"比不了"绝不能报成"你已经是最新的"。那正是刚修掉的那一类谎:
-	// 一个跟事实无关的答案,看起来像知道。
+	// Comparable —— is the version currently running a **release version number**. An
+	// unstamped build (a self-built "dev") can't be compared — and "can't compare" must
+	// never be reported as "you're already up to date". That's exactly the kind of lie just
+	// fixed: an answer unrelated to the facts that looks like it knows.
 	Comparable bool `json:"comparable"`
 	Available  bool `json:"available"`
 	CanApply   bool `json:"can_apply"`
 }
 
-// upgradeCheck —— 问不到镜像库不算故障:自托管的实例可能根本没有出网。那种情况下
-// `latest` 留空 + `error` 说明为什么,而 `current` 照常给 —— 拿不到远端不该连
-// "我在跑哪一版"都一起丢掉。
+// upgradeCheck —— failing to reach the image registry isn't a fault: a self-hosted instance
+// may have no outbound network at all. In that case `latest` stays empty and `error` explains
+// why, while `current` is still returned as usual — losing the remote shouldn't also cost us
+// "which version am I running".
 func upgradeCheck(deps UpgradeDeps) fp.Invoke {
 	return func(ctx context.Context, _ string, _ json.RawMessage) (json.RawMessage, error) {
 		out := upgradeCheckOut{

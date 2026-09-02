@@ -1,10 +1,12 @@
-// corpus_write_promote.go —— 提升:raw → wiki → output。
+// corpus_write_promote.go — promotion: raw → wiki → output.
 //
-// 提升是**有方向的**,所以 corpus.promote 的 genre 说的是**源**的 genre,不是结果的。
-// output 是最后一站,再提升没有去处 —— 那是入参错,不是内部故障。
+// Promotion is **directional**, so corpus.promote's genre names the **source**
+// genre, not the result's. output is the last stop; promoting it further has
+// nowhere to go — that's a bad input, not an internal failure.
 //
-// 从 corpus_write.go 拆出来:建/改/删是"就地写这一条",提升是"读一条、生成另一条、
-// 把来源记在新条目上",不是同一件事。
+// Split out from corpus_write.go: create/update/delete are "write this entry
+// in place"; promote is "read one entry, generate another, record the
+// provenance on the new entry" — not the same operation.
 
 package ops
 

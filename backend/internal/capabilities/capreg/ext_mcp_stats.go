@@ -1,7 +1,9 @@
-// ext_mcp_stats.go —— 进程级 ext MCP 连接计数。invariants spec 在 session
-// teardown 后读 stats 验 closed 对齐 dialed，防 connection leak。
+// ext_mcp_stats.go — process-level ext MCP connection counters. The
+// invariants spec reads the stats after session teardown to verify closed
+// matches dialed, guarding against a connection leak.
 //
-// ext-mcp capability（B-3 加入）每开关一次连接就调一下。
+// The ext-mcp capability (added in B-3) calls this once per connection
+// open/close.
 
 package capreg
 
@@ -12,20 +14,22 @@ var (
 	extMCPClosed atomic.Int64
 )
 
-// ExtMCPDialed —— ext-mcp capability dial 成功后调一次（计数 +1）。
+// ExtMCPDialed — call once after an ext-mcp capability dial succeeds
+// (counter +1).
 func ExtMCPDialed() { extMCPDialed.Add(1) }
 
-// ExtMCPClosed —— ext-mcp capability close 后调一次（计数 +1）。
+// ExtMCPClosed — call once after an ext-mcp capability closes (counter +1).
 func ExtMCPClosed() { extMCPClosed.Add(1) }
 
-// ExtMCPStat —— ExtMCPStats 的返回结构（用 struct 而非 (int64, int64)
-// 避开 nonamedreturns ↔ confusing-results 互冲）。
+// ExtMCPStat — the return shape of ExtMCPStats (a struct instead of
+// (int64, int64) to avoid the nonamedreturns ↔ confusing-results lint
+// conflict).
 type ExtMCPStat struct {
 	Dialed int64
 	Closed int64
 }
 
-// ExtMCPStats —— 读当前进程级计数。
+// ExtMCPStats — reads the current process-level counters.
 func ExtMCPStats() ExtMCPStat {
 	return ExtMCPStat{Dialed: extMCPDialed.Load(), Closed: extMCPClosed.Load()}
 }

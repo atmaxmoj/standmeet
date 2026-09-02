@@ -1,5 +1,5 @@
-// builder.go —— fluent compose-and-send 之上的 Send。把要写的字段链式传入，
-// Send() 发出，caller 不用手搓 Message：
+// builder.go — Send built on top of fluent compose-and-send. Chain in the fields to write, call
+// Send() to send it, so the caller never hand-builds a Message:
 //
 //	mailer.Compose(cfg).To(addr).Subject(s).Body(b).Send()
 
@@ -10,44 +10,45 @@ import (
 	"time"
 )
 
-// Builder —— 一封待发信的链式构造器。
+// Builder — a chained constructor for one message being sent.
 type Builder struct {
 	msg Message
 	cfg Config
 }
 
-// Compose —— 起一个发信 builder（cfg = 发件方 SMTP 配置）。
+// Compose — start a send builder (cfg = the sender's SMTP config).
 func Compose(cfg *Config) *Builder {
 	return &Builder{cfg: *cfg}
 }
 
-// To —— 收件人地址。
+// To — the recipient address.
 func (b *Builder) To(addr string) *Builder {
 	b.msg.ToAddress = addr
 	return b
 }
 
-// Subject —— 主题。
+// Subject — the subject line.
 func (b *Builder) Subject(s string) *Builder {
 	b.msg.Subject = s
 	return b
 }
 
-// Body —— 纯文本正文(非 HTML 客户端的兜底)。
+// Body — the plain-text body (the fallback for non-HTML clients).
 func (b *Builder) Body(s string) *Builder {
 	b.msg.Body = s
 	return b
 }
 
-// HTML —— 可选的 HTML 正文;设了就发 multipart/alternative。
+// HTML — the optional HTML body; when set, sends as multipart/alternative.
 func (b *Builder) HTML(s string) *Builder {
 	b.msg.HTML = s
 	return b
 }
 
-// Send —— 发出。
-// Send —— 发出去。**ctx 要一路传到拨号**：调用方的截止时间就是 owner 还愿意等的时间，
-// 而以前这条路上拨号根本不看它（F-C-36）。
+// Send — sends it.
+// Send — sends it out. **ctx must be carried all the way to the dial**: the caller's deadline
+// is how long the owner is still willing to wait, and this dial path used to ignore it
+// entirely (F-C-36).
 func (b *Builder) Send(ctx context.Context) error {
 	return Send(ctx, &b.cfg, &b.msg, time.Now())
 }

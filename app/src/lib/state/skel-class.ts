@@ -1,5 +1,6 @@
-// skel-class —— Skel 组件的 class 串拼。从 component 拆到 lib 让
-// component 不背"分支推导"复杂度。
+// skel-class —— class string assembly for the Skel component. Split out of
+// the component into lib so the component doesn't carry the "branch
+// derivation" complexity.
 
 export type SkelRound = 'sm' | 'full';
 

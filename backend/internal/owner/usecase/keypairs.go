@@ -1,7 +1,8 @@
-// keypairs.go —— Phase C: Owner keypair create / list / delete + Sigv1
-// header 验签。每个 MCP HTTP 请求带 `Authorization: Sigv1 keyId=X,ts=N,
-// sig=base64`；本 usecase 解 header → 查公钥 → ed25519.Verify。无 session
-// cookie / 无 token mint / 无 nonce 表，依靠 ts 窗口防 replay。
+// keypairs.go — Phase C: Owner keypair create / list / delete + Sigv1 header signature
+// verification. Every MCP HTTP request carries `Authorization: Sigv1 keyId=X,ts=N,
+// sig=base64`; this usecase parses the header -> looks up the public key ->
+// ed25519.Verify. No session cookie / no token minting / no nonce table — replay is
+// defended against with a ts window instead.
 
 package usecase
 
@@ -25,39 +26,42 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// challengeNS —— Sigv1 challenge 命名空间，跟 e2e/fixtures/sigv1.ts 对齐。
+// challengeNS — the Sigv1 challenge namespace, kept in sync with e2e/fixtures/sigv1.ts.
 const challengeNS = "standmeet-sigv1"
 
-// sigv1MaxSkew —— 允许的时钟偏差窗口 (±5min)。
+// sigv1MaxSkew — the allowed clock-skew window (+/-5min).
 const sigv1MaxSkew = 5 * time.Minute
 
-// KeypairDeps —— keypair 用例所需。
+// KeypairDeps — what the keypair use cases need.
 type KeypairDeps struct {
 	Repo  *repo.KeypairRepo
 	Log   *slog.Logger
 	Nonce NonceStore
 }
 
-// NonceStore —— 一次性 nonce 记录（防 Sigv1 重放）。实现在 composition root（Redis SetNX）。
+// NonceStore — a one-time nonce record (defends against Sigv1 replay). Implemented in
+// the composition root (Redis SetNX).
 type NonceStore interface {
-	// Fresh —— 首次见此 key 返 (true,nil) 并记下（TTL 后过期）；已见返 (false,nil) = 重放。
+	// Fresh — the first time this key is seen, returns (true,nil) and records it (expires
+	// after TTL); already seen returns (false,nil) = a replay.
 	Fresh(ctx context.Context, key string, ttl time.Duration) (bool, error)
 }
 
-// CreateKeypairInputReq —— admin POST /api/admin/keypairs 入参。
+// CreateKeypairInputReq — input for admin POST /api/admin/keypairs.
 type CreateKeypairInputReq struct {
 	OwnerID string
 	Label   string
 }
 
-// CreatedKeypair —— Create 返结果 (含 PrivateKeyPEM，**只在创建时返回一次**)。
+// CreatedKeypair — Create's result (includes PrivateKeyPEM, **returned only once, at
+// creation time**).
 type CreatedKeypair struct {
 	Record        entity.Keypair
 	PrivateKeyPEM string
 }
 
-// CreateKeypair —— 服务端生成 Ed25519 keypair，落库存公钥，返私钥 PEM 给
-// owner 一次。
+// CreateKeypair — the server generates an Ed25519 keypair, persists the public key, and
+// returns the private key PEM to the owner exactly once.
 func CreateKeypair(
 	ctx context.Context, deps KeypairDeps, in *CreateKeypairInputReq,
 ) (CreatedKeypair, error) {
@@ -78,7 +82,7 @@ func CreateKeypair(
 	return CreatedKeypair{Record: rec, PrivateKeyPEM: pems.PrivatePEM}, nil
 }
 
-// keypairPEMs —— encodeKeypairPEM 返打包；避开 3-return lint。
+// keypairPEMs — bundles encodeKeypairPEM's return values; avoids the 3-return lint.
 type keypairPEMs struct {
 	PublicPEM  string
 	PrivatePEM string
@@ -103,7 +107,7 @@ func generateKeypairPEMs() (keypairPEMs, error) {
 	}, nil
 }
 
-// ListKeypairs —— admin GET /api/admin/keypairs 用，metadata only。
+// ListKeypairs — used by admin GET /api/admin/keypairs, metadata only.
 func ListKeypairs(
 	ctx context.Context, deps KeypairDeps, ownerID string,
 ) ([]entity.KeypairMetadata, error) {
@@ -117,8 +121,8 @@ func ListKeypairs(
 	return out, nil
 }
 
-// DeleteKeypair —— hard delete = revoke。先 GetByKeyID 验存在 + owner 匹配，
-// 不匹配返 ErrKeypairUnauthorized 不泄露存在性。
+// DeleteKeypair — a hard delete = revoke. First GetByKeyID checks existence + owner
+// match; a mismatch returns ErrKeypairUnauthorized so existence isn't leaked.
 func DeleteKeypair(
 	ctx context.Context, deps KeypairDeps, ownerID, keyID string,
 ) error {
@@ -134,8 +138,9 @@ func DeleteKeypair(
 	return nil
 }
 
-// ensureKeypairOwned —— GetByKeyID 返 ErrKeypairUnauthorized 直接透传；
-// owner 不匹也返同 sentinel (不泄露存在性)；其他错 wrap。
+// ensureKeypairOwned — if GetByKeyID returns ErrKeypairUnauthorized, pass it straight
+// through; an owner mismatch returns the same sentinel too (existence isn't leaked);
+// any other error is wrapped.
 func ensureKeypairOwned(
 	ctx context.Context, deps KeypairDeps, ownerID, keyID string,
 ) error {
@@ -152,19 +157,20 @@ func ensureKeypairOwned(
 	return nil
 }
 
-// VerifySigv1 —— 解 `Sigv1 keyId=X,ts=N,sig=base64` 头，验签通过返
-// owner_id；任一步失败返 ErrKeypairUnauthorized。
+// VerifySigv1 — parses the `Sigv1 keyId=X,ts=N,sig=base64` header, and on a successful
+// signature check returns owner_id; any single step failing returns
+// ErrKeypairUnauthorized.
 //
-// 步骤：
-//  1. 解 header 字段
-//  2. ts 在 ±5min 窗口内 (clock skew)
-//  3. DB 查公钥 (不命中 = 401)
+// Steps:
+//  1. Parse header fields
+//  2. ts is within the +/-5min window (clock skew)
+//  3. DB lookup of the public key (a miss = 401)
 //  4. ed25519.Verify(pub, challenge, sig) — challenge =
 //     "standmeet-sigv1\n<keyId>\n<ts>\n<nonce>"
-//  5. nonce 首见校验（Redis，防窗口内重放；fail-open）
-//  6. Touch last_used_at (best effort, log only on fail)
+//  5. First-seen nonce check (Redis, defends against replay within the window; fail-open)
+//  6. Touch last_used_at (best effort, log only on failure)
 //
-// 返回 (ownerID, nil) on success；(empty, ErrKeypairUnauthorized) on 任一失败。
+// Returns (ownerID, nil) on success; (empty, ErrKeypairUnauthorized) if any step fails.
 func VerifySigv1(
 	ctx context.Context, deps KeypairDeps, authHeader string,
 ) (string, error) {
@@ -232,7 +238,7 @@ func buildParsedSigv1(fields map[string]string) (parsedSigv1, error) {
 	return parsedSigv1{keyID: raw.keyID, ts: ts, sig: sig, nonce: raw.nonce}, nil
 }
 
-// rawSigv1Fields —— 字段存在性校验后的 string 四元组。
+// rawSigv1Fields — the string quadruple after presence-checking the fields.
 type rawSigv1Fields struct {
 	keyID, ts, sig, nonce string
 }
@@ -279,11 +285,14 @@ func verifyParsedSig(
 	return kp.OwnerID, nil
 }
 
-// nonceTTL —— nonce 记录存活时间：覆盖 ±skew 接受窗口两侧再留余量，之后可复用（ts 早已过期）。
+// nonceTTL — how long a nonce record stays alive: covers both sides of the +/-skew
+// acceptance window plus margin; after that it can be reused (ts has long since expired).
 const nonceTTL = 2 * sigv1MaxSkew
 
-// checkNonceFresh —— 验签通过后确认 nonce 首次出现（防重放）。fail-open：nonce store 未装配
-// 或 Redis 出错 → 放行（退回纯 ts-window），不因 Redis 抖动阻断 owner 的 MCP auth。
+// checkNonceFresh — after signature verification passes, confirms the nonce is being
+// seen for the first time (defends against replay). Fail-open: if the nonce store isn't
+// wired up or Redis errors, allow the request (degrade to plain ts-window) — a Redis
+// blip must not block the owner's MCP auth.
 func checkNonceFresh(ctx context.Context, deps KeypairDeps, p parsedSigv1) error {
 	if deps.Nonce == nil {
 		return nil

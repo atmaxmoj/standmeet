@@ -1,8 +1,9 @@
-// /writings/[slug] —— 单篇文章,reader 框:240px writing 树 sidebar(当前篇高亮)
-// + 主栏 breadcrumb 祖先链 + 文章。private 文章前端按 visibility 渲 LockedView
-// (后端 visitor-chat 路径才做实际 path-glob ACL;UI 这层仅按 visibility 决定锁)。
+// /writings/[slug] — single article, reader frame: 240px writing tree sidebar (current
+// article highlighted) + main column breadcrumb ancestor chain + article. Frontend renders
+// private articles as LockedView based on visibility (only the backend visitor-chat path
+// does the real path-glob ACL; this UI layer only decides the lock by visibility).
 //
-// 设计源 reader.html(tree sidebar + 纯阅读)+ blog.js ArticleView。
+// Design source: reader.html (tree sidebar + pure reading) + blog.js ArticleView.
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -19,17 +20,20 @@ export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
-  // searchParams —— `?lang=zh`。跟 wiki reader 同一个约定：多语文章**服务端**就挑好那一面，
-  // 于是爬虫和 agent 抓到的是内容，而不是两份都发下来再藏一份（F-R-6）。
+  // searchParams — `?lang=zh`. Same convention as the wiki reader: for a multilingual
+  // article the **server** picks the language up front, so crawlers and agents fetch the
+  // actual content instead of both versions being sent with one hidden (F-R-6).
   searchParams: Promise<{ lang?: string }>;
 }
 
 export default async function WritingArticlePage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  // 走跟 wiki 同一个阅读器骨架（ReaderLayout）。这里原本是自己写的一份 flex
-  // （树 + `flex-1` 正文），于是同一个毛病出现了两次：正文只在**树之外剩下的那段**里
-  // 居中（读者看到的是一篇没对准的文章），而树被切的地方没有任何续读信号。
-  // 共用一份之后，「正文对视口居中」和「切口有渐隐」都只需要在一个地方成立。
+  // Uses the same reader skeleton as wiki (ReaderLayout). This used to have its own
+  // hand-rolled flex (tree + `flex-1` body), so the same bug showed up twice: the body
+  // only centered within **the leftover space outside the tree** (readers saw a
+  // misaligned article), and the tree's cut edge had no continuation cue. Sharing one
+  // skeleton means "body centers on viewport" and "cut edge fades" only need to hold in
+  // one place.
   const { lang } = await searchParams;
   try {
     const writing = await fetchWriting(slug, lang ?? '');
@@ -45,8 +49,9 @@ export default async function WritingArticlePage({ params, searchParams }: PageP
   }
 }
 
-// ReaderBreadcrumb —— ← writing / writing ▸ 祖先链 ▸ 当前篇。祖先来自 context
-// (published 树),每个可点回各自文章;当前篇纯文字。
+// ReaderBreadcrumb — ← writing / writing ▸ ancestor chain ▸ current article. Ancestors
+// come from context (the published tree); each is clickable back to its own article; the
+// current article is plain text.
 async function ReaderBreadcrumb({ ancestors, current }: { ancestors: TreeNode[]; current: string }) {
   const t = await getTranslations('writings.breadcrumb');
   return (

@@ -1,7 +1,8 @@
-// owner_seeder.go —— plugin 声明"我需要 owner 名下存在什么"的那个钩子。
+// owner_seeder.go — the hook a plugin uses to declare "what I need to exist under this
+// owner".
 //
-// 单独一个文件，不跟 plugin.go 挤：那份已经顶到 revive 的 max-public-structs 上限，
-// 而这一条本来就是独立的一件事。
+// Kept in its own file instead of crowding into plugin.go: that file already sits at revive's
+// max-public-structs limit, and this hook is a separate concern anyway.
 
 package capabilities
 
@@ -10,27 +11,31 @@ import (
 	"fmt"
 )
 
-// OwnerSeeder —— optional hook: plugin 声明它需要在一个 owner 名下存在的那些 builtin
-// （role / prompt / …）。
+// OwnerSeeder — optional hook: the plugin declares the builtins (role / prompt / …) it needs
+// to exist under a given owner.
 //
-// **必须幂等**：claim 时跑一次，之后每次启动再跑一次（跟 SeedPublicRole 同一个节奏），
-// 所以它只能是 upsert。
+// **Must be idempotent**: it runs once at claim time, then again on every startup (the same
+// cadence as SeedPublicRole), so it can only ever be an upsert.
 //
-// 为什么归插件而不是归内核的那份 seed：`hiring` 是 job loop 的概念，不是一档内核级
-// 访问层。写在 access/entity 里等于让内核认识一个插件的词，而那条 glob
-// （招聘官要读的 CV 在哪）也只有插件说得清。
+// Why this belongs to the plugin and not the core's own seed: `hiring` is a job-loop concept,
+// not a core-level access layer. Writing it into access/entity would make the core aware of a
+// plugin's vocabulary, and only the plugin actually knows that glob (where the recruiter's
+// CV should be read from).
 type OwnerSeeder interface {
 	SeedOwner(ctx context.Context, ownerID string) error
 }
 
-// SeedAllOwners —— 让每个 plugin 把自己那份 builtin 种进这个 owner 名下。
+// SeedAllOwners — has every plugin seed its own builtins under this owner.
 //
-// 跟 PeriodicWorker 是同一条教训的第二次：**这个 hook 之前不存在，于是 jobs 插件要的
-// 那条 `hiring` role 和 prompt 落进了内核的 roles_seed —— 插件的东西落在装配的地方，
-// 只因为 seeder 在那儿。** 内核于是认识了一个插件的词（"招聘"），而
-// `check-core-agnostic` 的 CORE_DIRS 不含 access/entity，那道锁结构上看不见这种泄漏。
+// This is the same lesson as PeriodicWorker, hit a second time: **this hook didn't exist
+// before, so the `hiring` role and prompt the jobs plugin needed ended up landing in the
+// core's roles_seed — a plugin's stuff landing wherever the wiring happened to sit, only
+// because the seeder was there.** The core then ended up aware of a plugin's vocabulary
+// ("hiring"), and since `check-core-agnostic`'s CORE_DIRS doesn't cover access/entity, that
+// lock is structurally blind to this kind of leak.
 //
-// 宿主只负责"什么时候种"（claim 一次 + 每次启动一次）；种什么、种成什么样，归插件。
+// The host is only responsible for "when to seed" (once at claim, then once per startup);
+// what gets seeded, and in what shape, belongs to the plugin.
 func (r *Registry) SeedAllOwners(ctx context.Context, ownerID string) error {
 	for _, p := range r.plugins {
 		os, ok := p.(OwnerSeeder)

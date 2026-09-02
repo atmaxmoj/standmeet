@@ -1,5 +1,5 @@
-// markdown.katex.test.tsx —— UT guarding the shared markdown render primitive (owner: "katex 是
-// 工具箱里的东西,通用,需要测试守护"). rehype-katex lays out EVERY equation with inline `style`
+// markdown.katex.test.tsx —— UT guarding the shared markdown render primitive (owner: "katex is
+// a toolbox thing, general-purpose, needs test coverage"). rehype-katex lays out EVERY equation with inline `style`
 // on its struts / vlists (strut heights, sub/superscript vertical offsets); rehype-sanitize strips
 // `style`. So the plugin ORDER is load-bearing: sanitize must run BEFORE katex, or sanitize guts the
 // math — struts collapse to 0, and ∑ / sub / superscripts overflow their box and overlap the text
@@ -37,13 +37,16 @@ describe('ChatMarkdown · KaTeX layout survives the sanitize pipeline', () => {
       .toMatch(/class="strut"[^>]*style="height:/);
   });
 
-  // F-R-4 —— 访客在真 vault 笔记里读到的是 TeX 源码:一段证明的中间冒出
-  // `$0<h_1<h_2, ,t=h_1/h_2, ,...` 和一串 `\varphi` `\le`,而周围的词还被粘成了
-  // `dividingby` / `isnondecreasingandbounded`。
+  // F-R-4 —— what the visitor reads in a real vault note is raw TeX source:
+  // in the middle of a proof, `$0<h_1<h_2, ,t=h_1/h_2, ,...` and a run of
+  // `\varphi` `\le` appear, and the surrounding words get glued into
+  // `dividingby` / `isnondecreasingandbounded`.
   //
-  // 下面这一行是那条笔记里的原文(cybernetics/.../adaptive-commitment-value.md:40),
-  // 它坐在三层嵌套的 callout(`> > >`)里 —— 页面上其余的公式都渲染正常,所以要复现就得
-  // 连它所在的那个容器一起搬过来。
+  // The line below is the original text from that note
+  // (cybernetics/.../adaptive-commitment-value.md:40), sitting inside a
+  // triple-nested callout (`> > >`) — every other formula on the page
+  // renders fine, so reproducing this requires moving the whole container it
+  // sits in along with it.
   const PROOF_LINE =
     '> > > For $h>0$ let $D(h)=\\frac{\\varphi(a+h)-\\varphi(a)}{h}$. '
     + 'For $0<h_1<h_2$, $t=h_1/h_2$, $a+h_1=(1-t)a+t(a+h_2)$, so '
@@ -52,20 +55,25 @@ describe('ChatMarkdown · KaTeX layout survives the sanitize pipeline', () => {
 
   it('renders every inline span inside a nested callout — no TeX source reaches the reader (F-R-4)', () => {
     const html = renderToStaticMarkup(<ChatMarkdown source={PROOF_LINE} variant="article" />);
-    // katex 自己会把原始 TeX 回声进 <annotation>(MathML 的语义分支),所以要判"有没有源码
-    // 漏到读者眼前",得先把 <math> 整块摘掉 —— 否则这条断言在修好之后也永远红。
+    // katex itself echoes the raw TeX source back into <annotation> (MathML's
+    // semantic branch), so checking "did any source leak in front of the
+    // reader" requires stripping out the whole <math> block first — otherwise
+    // this assertion would stay red forever, even after the fix.
     const visible = html.replace(/<math[\s\S]*?<\/math>/g, '');
     expect(visible, '一条 \\varphi 都不该以源码形态到达访客').not.toContain('\\varphi');
     expect(visible, '\\le 同理').not.toContain('\\le');
     expect(visible, '一个 $ 都不该剩下 —— 剩下就说明有一段没被当成公式').not.toContain('$');
-    // 每一段 `$...$` 都该变成一个 katex 节点。源里有 6 段。
+    // Every `$...$` segment should become a katex node. There are 6 in the source.
     const katexNodes = (html.match(/class="katex"/g) ?? []).length;
     expect(katexNodes, '6 段行内公式,一段都不许漏').toBeGreaterThanOrEqual(6);
   });
 
-  // 同一处修改的另一半:货币那条规则(#36/#40)必须继续成立 —— 两个金额之间的话不许被当公式吃掉。
-  // 这两条断言必须一起看:F-R-4 的根因正是"为货币写的规则吃掉了紧挨着的公式",
-  // 只测一边就会在两个方向之间来回撞。
+  // The other half of the same change: the currency rule (#36/#40) must
+  // still hold — the text between two amounts must not be swallowed as
+  // math. These two assertions have to be read together: F-R-4's root cause
+  // was exactly "the rule written for currency ate the formula next to it,"
+  // and testing only one side would keep bouncing between the two
+  // directions.
   it('two currency amounts in one sentence stay literal (#36/#40 still holds)', () => {
     const html = renderToStaticMarkup(
       <ChatMarkdown source="Pricing: it cost $100 up front and $200 on renewal." variant="article" />,

@@ -1,14 +1,15 @@
-// shape.go —— Capability 暴露侧枚举。invariants spec 断言：
-//   visitor_only ↔ 不出现在 owner MCP
-//   owner_only   ↔ 不出现在 visitor session
-//   both         ↔ 两侧都出现
+// shape.go —— the enum for which side a Capability is exposed on. The
+// invariants spec asserts:
+//   visitor_only ↔ never appears in owner MCP
+//   owner_only   ↔ never appears in a visitor session
+//   both         ↔ appears on both sides
 
 package capreg
 
-// Shape —— 一个 capability 暴露给哪一侧。
+// Shape —— which side a capability is exposed to.
 type Shape string
 
-// Shape 枚举值。
+// Shape enum values.
 const (
 	ShapeVisitorOnly Shape = "visitor_only"
 	ShapeOwnerOnly   Shape = "owner_only"

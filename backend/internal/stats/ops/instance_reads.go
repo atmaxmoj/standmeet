@@ -1,5 +1,6 @@
-// instance_reads.go —— 五个观测读的实现(声明在 instance.go)。全是形状转换,没有校验:
-// 出站字段名就是面板已经发出去的那套。
+// instance_reads.go —— implementations of the five observation reads (declared in
+// instance.go). All shape conversion, no validation: the outbound field names are exactly
+// what the panel already ships.
 
 package ops
 
@@ -104,7 +105,8 @@ type graphOut struct {
 	Nodes []graphNodeOut `json:"nodes"`
 }
 
-// graphLimit —— 没给或给了非正数就用默认值:它是展示上限,不是校验项。
+// graphLimit —— falls back to the default when omitted or non-positive: it's a display cap,
+// not something to validate.
 func graphLimit(raw json.RawMessage) int {
 	var in struct {
 		Limit int `json:"limit"`

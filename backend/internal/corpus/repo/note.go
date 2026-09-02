@@ -1,8 +1,11 @@
-// note.go —— NoteRepo：genre-参数化的通用 corpus_notes 仓储。一个实例绑定一个 genre（构造时传入），
-// 复用统一的 db.Note* query。subjectivity 直接用它（零重复);wiki/output 现有独立 repo 之后可收敛到这里。
+// note.go — NoteRepo: a genre-parameterized generic corpus_notes repository. One instance
+// binds one genre (passed at construction) and reuses the shared db.Note* queries.
+// subjectivity uses it directly (zero duplication); wiki/output currently have their own
+// repos and can converge onto this one later.
 //
-// 只暴露 tree-note 通用面(建/读/meta/子/搜/改父/删),不含 genre 专属字段（source_ids、covers…）——
-// 那些留给各自 genre 的薄封装。地址仍纯树派生（parent 链）。
+// Exposes only the generic tree-note surface (create/read/meta/children/search/reparent/
+// delete), no genre-specific fields (source_ids, covers, ...) — those stay in each genre's
+// thin wrapper. The address is still purely derived from the tree (the parent chain).
 
 package repo
 
@@ -18,25 +21,26 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// ErrNoteNotFound —— genre-通用的未命中。
+// ErrNoteNotFound — the genre-generic not-found error.
 var ErrNoteNotFound = errors.New("note not found")
 
-// NoteRepo —— 绑定单个 genre 的通用笔记仓储。
+// NoteRepo — a generic note repository bound to a single genre.
 type NoteRepo struct {
 	pool  *pgstore.Pool
 	genre string
 }
 
-// NewNoteRepo 构造绑定给定 genre 的 NoteRepo。
+// NewNoteRepo constructs a NoteRepo bound to the given genre.
 func NewNoteRepo(pool *pgstore.Pool, genre string) *NoteRepo {
 	return &NoteRepo{pool: pool, genre: genre}
 }
 
-// Genre 返回本 repo 绑定的 genre。
+// Genre returns the genre this repo is bound to.
 func (r *NoteRepo) Genre() string { return r.genre }
 
-// Note —— 一条笔记的通用视图（无 genre 专属字段）。ShowAsSource 决定是否进 visitor cited
-// footer（subjectivity 默认 false = 私有；wiki/output 默认 true）。
+// Note — a generic view of one note (no genre-specific fields). ShowAsSource decides
+// whether it enters the visitor's cited footer (subjectivity defaults to false = private;
+// wiki/output default to true).
 type Note struct {
 	ParentID     *string
 	ID           string
@@ -45,13 +49,15 @@ type Note struct {
 	Body         string
 	Tags         []string
 	ShowAsSource bool
-	// Published —— 这条笔记自己的公开开关。读路径要带上它：public 身份能不能读到这条，
-	// 就看这一个值（见 access.AllowsCorpusEntry）。行本来就选出来了，这里只是不再扔掉。
+	// Published — this note's own public/private switch. The read path must carry it along:
+	// whether a public identity can read this note comes down to this one value (see
+	// access.AllowsCorpusEntry). The row was already selected; this just stops discarding it.
 	Published bool
 }
 
-// NoteMeta —— 无 body 的轻量 meta（树导航 / 搜索 / 算 path 用）。Snippet 仅搜索结果有值。
-// UpdatedAt 同理（unix 秒；0 = 这条路没取）。
+// NoteMeta — lightweight meta with no body (for tree navigation / search / computing path).
+// Snippet is populated only in search results. Same for UpdatedAt (unix seconds; 0 = this
+// path didn't fetch it).
 type NoteMeta struct {
 	ParentID    *string
 	ID          string
@@ -62,8 +68,8 @@ type NoteMeta struct {
 	HasChildren bool
 }
 
-// CreateNoteInput —— 建一条笔记。ShowAsSource：是否进 visitor cited footer。subjectivity
-// 建笔记默认传 false（私有）；调用方显式给。
+// CreateNoteInput — creates one note. ShowAsSource: whether it enters the visitor cited
+// footer. subjectivity passes false by default (private); the caller sets it explicitly.
 type CreateNoteInput struct {
 	OwnerID      string
 	ParentID     *string
@@ -74,7 +80,7 @@ type CreateNoteInput struct {
 	ShowAsSource bool
 }
 
-// Create 写一条新笔记（本 repo 的 genre）。
+// Create writes a new note (in this repo's genre).
 func (r *NoteRepo) Create(ctx context.Context, in *CreateNoteInput) (Note, error) {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
@@ -97,7 +103,7 @@ func (r *NoteRepo) Create(ctx context.Context, in *CreateNoteInput) (Note, error
 	return noteFromRow(&row), nil
 }
 
-// UpdateBody 改一条笔记的 title/body/tags/parent（同 wiki 的 edit 入口）。
+// UpdateBody edits a note's title/body/tags/parent (the same edit entry point as wiki).
 func (r *NoteRepo) UpdateBody(ctx context.Context, in *UpdateNoteInput) (Note, error) {
 	ids, perr := parseSrcAndOwner(in.ID, in.OwnerID)
 	if perr != nil {
@@ -121,7 +127,8 @@ func (r *NoteRepo) UpdateBody(ctx context.Context, in *UpdateNoteInput) (Note, e
 	return noteFromRow(&row), nil
 }
 
-// UpdateNoteInput —— 改一条笔记。ShowAsSource：opt-in/out visitor cited footer（toggle 走这里）。
+// UpdateNoteInput — edits a note. ShowAsSource: opt-in/out of the visitor cited
+// footer (the toggle goes through here).
 type UpdateNoteInput struct {
 	OwnerID      string
 	ID           string
@@ -133,7 +140,7 @@ type UpdateNoteInput struct {
 	ShowAsSource bool
 }
 
-// GetByID 拿本 genre 的某条笔记；不命中 → ErrNoteNotFound。
+// GetByID fetches a note in this genre; miss → ErrNoteNotFound.
 func (r *NoteRepo) GetByID(ctx context.Context, ownerID, id string) (Note, error) {
 	ids, perr := parseSrcAndOwner(id, ownerID)
 	if perr != nil {
@@ -151,7 +158,7 @@ func (r *NoteRepo) GetByID(ctx context.Context, ownerID, id string) (Note, error
 	return noteFromRow(&row), nil
 }
 
-// GetMetaByID —— meta（无 body）：算 path / 判 ACL 用。不命中 → ErrNoteNotFound。
+// GetMetaByID — meta (no body): used to compute path / check ACL. Miss → ErrNoteNotFound.
 func (r *NoteRepo) GetMetaByID(ctx context.Context, ownerID, id string) (NoteMeta, error) {
 	ids, perr := parseSrcAndOwner(id, ownerID)
 	if perr != nil {
@@ -172,7 +179,8 @@ func (r *NoteRepo) GetMetaByID(ctx context.Context, ownerID, id string) (NoteMet
 	}, nil
 }
 
-// ListByOwner 返回 owner 本 genre 的笔记（最新 N 条）—— 满足 lister 接口。
+// ListByOwner returns the owner's notes in this genre (newest N) — satisfies
+// the lister interface.
 func (r *NoteRepo) ListByOwner(ctx context.Context, ownerID string, limit int32) ([]Note, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -191,7 +199,8 @@ func (r *NoteRepo) ListByOwner(ctx context.Context, ownerID string, limit int32)
 	return out, nil
 }
 
-// ListChildren —— 某节点直接子（meta，无 body）;parentID nil = 根层;翻页。
+// ListChildren — direct children of a node (meta, no body); parentID nil = root
+// level; paginated.
 func (r *NoteRepo) ListChildren(
 	ctx context.Context, ownerID string, parentID *string, limit, offset int32,
 ) ([]NoteMeta, error) {
@@ -209,7 +218,7 @@ func (r *NoteRepo) ListChildren(
 		})
 }
 
-// Search —— 全量 DB 端关键词搜（full-text），返 meta + snippet;翻页。
+// Search — full DB-side keyword search (full-text), returns meta + snippet; paginated.
 func (r *NoteRepo) Search(
 	ctx context.Context, ownerID, query string, limit, offset int32,
 ) ([]NoteMeta, error) {
@@ -234,7 +243,7 @@ func (r *NoteRepo) Search(
 	return out, nil
 }
 
-// Delete 硬删一条笔记（子孙经 FK 级联）。
+// Delete hard-deletes a note (descendants cascade via FK).
 func (r *NoteRepo) Delete(ctx context.Context, ownerID, id string) error {
 	ids, perr := parseSrcAndOwner(id, ownerID)
 	if perr != nil {

@@ -1,19 +1,23 @@
-// tools.go —— Phase D-3: per-tool dispatch HTTP 端点。
+// tools.go —— Phase D-3: the per-tool dispatch HTTP endpoint.
 //
 // URL: POST /api/v1/sessions/{conv_id}/tools/{tool_name}
-// Auth: Bearer visitor session token (跟 /messages 共用)
-// Body: raw JSON tool args (透传到 capability binding 的 Execute)
+// Auth: Bearer visitor session token (shared with /messages)
+// Body: raw JSON tool args (passed through unchanged to the capability binding's
+// Execute)
 //
 // Behavior:
-//   1. 鉴权 → 拿 session data
-//   2. 走 Registry.AssembleVisitor 装配 binding (跟 chat path 同源 gating)
-//   3. 按 tool name 查 binding；找不到 → 404 capability_not_enabled
-//   4. 执行 tool；返 {ok:true, result, capability_state} 或 tool error
-//      envelope；capability_state 必返让前端 zustand 同步 (quota cascade
-//      场景：tool 跑完 quota 耗尽，前端要立刻看到 enabled=false)
+//   1. auth → get session data
+//   2. assemble bindings through Registry.AssembleVisitor (same-source gating as the
+//      chat path)
+//   3. look up the binding by tool name; not found → 404 capability_not_enabled
+//   4. execute the tool; returns {ok:true, result, capability_state} or a tool error
+//      envelope; capability_state is always returned so the frontend zustand store
+//      stays in sync (a quota-cascade scenario: quota runs out mid-tool, and the
+//      frontend needs to see enabled=false right away)
 //
-// 跟 chat path 共用 capability 装配代码 → 行为一致；前端 pi-agent-core
-// 的 ToolDispatcher port 实现就是 fetch 此端点。
+// Shares its capability-assembly code with the chat path → identical behavior; the
+// frontend pi-agent-core's ToolDispatcher port implementation is just fetching this
+// endpoint.
 
 package public
 
@@ -33,17 +37,21 @@ import (
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
 
-// methodQuery —— HTTP QUERY (RFC 10008)：安全/幂等的带 body 查询。只读工具可经此调用。
-// chi 默认方法表不含 QUERY，composition root（server.go）启动时 chi.RegisterMethod 注册。
+// methodQuery —— HTTP QUERY (RFC 10008): a safe/idempotent query that carries a body.
+// Read-only tools can be called through it. chi's default method table doesn't include
+// QUERY, so the composition root (server.go) registers it with chi.RegisterMethod at
+// startup.
 const methodQuery = "QUERY"
 
-// isQueryOnMutating —— QUERY 打到一个会改状态（非只读）的工具 → 拒（405）。QUERY 语义
-// 承诺安全/幂等，会改状态的工具只能走 POST。
+// isQueryOnMutating —— a QUERY hitting a state-changing (non-read-only) tool → refused
+// (405). QUERY's semantics promise safe/idempotent, so a state-changing tool can only
+// go through POST.
 func isQueryOnMutating(method string, t *capreg.BindingTool) bool {
 	return method == methodQuery && !t.ReadOnly
 }
 
-// toolDispatch handler —— 单一入口处理任意 per-tool 调用（POST 全工具；QUERY 仅只读工具）。
+// toolDispatch handler —— the single entry point handling any per-tool call (POST for
+// every tool; QUERY for read-only tools only).
 func (h *Handlers) toolDispatch() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		auth, ok := authVisitorWithToken(h, w, r)
@@ -68,9 +76,11 @@ func (h *Handlers) toolDispatch() http.HandlerFunc {
 	}
 }
 
-// slowAssembleThreshold —— 超过这个数就记一条。**不是随手挑的**:访客那一侧的卡片
-// 等结果只等 5 秒,超过就显示"发送失败"(而后端往往已经做完了)。所以 2s 是"还没坏但
-// 正在往那儿走"的位置 —— 记下来才有机会在它变成故障之前看见。
+// slowAssembleThreshold —— logs one line once this is exceeded. **Not an arbitrary
+// pick**: the visitor-side card only waits 5 seconds for a result before it shows
+// "send failed" (while the backend has often already finished). So 2s marks "not
+// broken yet, but heading there" — logging it is the only chance to see it before it
+// turns into an actual failure.
 const slowAssembleThreshold = 2 * time.Second
 
 func logSlowAssemble(log *slog.Logger, tool string, took time.Duration) {
@@ -90,21 +100,28 @@ type toolDispatchArgs struct {
 	Body     []byte
 }
 
-// runToolDispatch —— 拆出装配 + 派发 + response 流，让 handler cyclo ≤ 3。
+// runToolDispatch —— splits out assembly + dispatch + the response flow, keeping the
+// handler's cyclo ≤ 3.
 func runToolDispatch(
 	ctx context.Context, h *Handlers, w http.ResponseWriter, args *toolDispatchArgs,
 ) {
 	in := assembleInputFromSession(args.Data, args.ConvID)
-	// 装配这一步要把能力起起来(沙箱容器 / bwrap namespace)。**它是这条路上最贵的一段**,
-	// 而且贵的程度跟机器当时的负载有关:空闲时 ~1s,压满时见过 19s —— 那时访客点了
-	// "发确认信",界面十几秒没有任何反馈,他会以为没成功再点一次。
+	// This assembly step has to spin capabilities up (sandbox container / bwrap
+	// namespace). **It's the most expensive part of this path**, and how expensive
+	// depends on the machine's load at that moment: ~1s when idle, seen as high as 19s
+	// under load — meanwhile the visitor clicked "send confirmation email" and the UI
+	// gave them no feedback for ten-plus seconds, so they think it failed and click
+	// again.
 	//
-	// ForTool:这条路只用得上一个 tool,所以只拨可能提供它的那个能力(见 capreg 的
-	// registry_tool_dispatch.go)。原来是把每个能力都拨一遍,执行完回 state 时再拨
-	// 一遍 —— 一次点击 2N 次沙箱。
+	// ForTool: this path only ever needs one tool, so it only dials the capability
+	// that might provide it (see capreg's registry_tool_dispatch.go). It used to dial
+	// every capability once, then dial them all again when returning state after
+	// execution — 2N sandboxes per click.
 	//
-	// 分段计时留在这儿,是因为上一次查这件事时只有一个 HTTP 总耗时,分不出是装配慢还是
-	// 工具本身慢 —— 结论只能停在"负载下会慢"。
+	// The per-segment timing stays here because the last time this was investigated
+	// there was only one total HTTP duration, with no way to tell whether assembly was
+	// slow or the tool itself was — the conclusion could only stop at "slow under
+	// load".
 	assembleStart := time.Now()
 	bindings := h.Visitor.AgentSkills.AssembleVisitorForTool(ctx, in, args.ToolName)
 	defer closeBindings(bindings)
@@ -136,8 +153,9 @@ type executeArgs struct {
 	In       *capreg.AssembleInput
 	Tool     *capreg.BindingTool
 	ToolName string
-	// ConvID —— 这次调用发生在哪一段对话里。要它是为了把「访客在卡上做了什么」
-	// 写回那段对话（F-B-9）—— 在此之前这条路对 conversation 一无所知。
+	// ConvID —— which conversation this call happens inside. Needed so "what the
+	// visitor did on the card" can be written back into that conversation (F-B-9) —
+	// before this, the path knew nothing about the conversation at all.
 	ConvID string
 	Body   []byte
 }
@@ -161,17 +179,22 @@ func executeAndRespond(
 	writeToolOK(h.Log, w, out, capState)
 }
 
-// recordCardEvent —— 把这次**卡上派出去的调用**写进这段对话（F-B-9）。
+// recordCardEvent —— writes **this call dispatched from a card** back into this
+// conversation (F-B-9).
 //
-// 为什么在这儿：这条路从头到尾没碰过 conversation —— 装配、执行、返回。于是访客在卡上
-// 取消掉的那场会，对 agent 来说从没发生过，而且刷新一次连客户端那份记录也没了，
-// owner 的逐字稿里更是从来看不见。
+// Why it's here: this path never touched the conversation from start to finish —
+// assemble, execute, return. So a meeting the visitor canceled on the card had, as far
+// as the agent was concerned, never happened, and after one refresh even the client's
+// own record was gone, and it never once showed up in the owner's transcript either.
 //
-// 措辞跟客户端那一侧**逐字一致**（`[card action] …`）：同一件事在两处出现时长得不一样，
-// 读的人（和模型）会当成两件事。
+// The wording matches the client side **verbatim** (`[card action] …`): when the same
+// event shows up worded differently in two places, the reader (and the model) treats
+// it as two different events.
 //
-// best-effort：这一笔失败不该把已经做完的工具调用变成一次失败的调用 —— 那才是对访客说谎。
-// 失败要吵，否则「卡上做了事而对话里没有」会成为一种无声的常态。
+// best-effort: a failure to record this shouldn't turn an already-completed tool call
+// into a failed one — that would be lying to the visitor. The failure should be loud,
+// otherwise "something happened on the card but not in the conversation" becomes a
+// silent norm.
 func recordCardEvent(
 	ctx context.Context, h *Handlers, args executeArgs, out string,
 ) {
@@ -187,8 +210,9 @@ func recordCardEvent(
 	}
 }
 
-// findBindingTool —— walk bindings 找 name 匹配的 tool。同名只取第一个
-// (capability 注册顺序里没有跟 name 撞的设计前提)。
+// findBindingTool —— walks bindings looking for a tool matching name. Only the first
+// same-named match is taken (the design assumes capability registration order never
+// collides on name).
 func findBindingTool(
 	bindings []*capreg.Binding, name string,
 ) (*capreg.BindingTool, bool) {
@@ -211,8 +235,8 @@ func findToolInBinding(
 	return nil, false
 }
 
-// closeBindings —— 释放装配产生的 binding 资源 (ext-mcp session 等)。
-// 跟 chat path 的 close pattern 一致；defer 在 handler 顶部一次。
+// closeBindings —— releases the binding resources assembly produced (ext-mcp sessions
+// etc). Same close pattern as the chat path; deferred once at the top of the handler.
 func closeBindings(bindings []*capreg.Binding) {
 	for _, b := range bindings {
 		if b.Close != nil {
@@ -268,7 +292,8 @@ func writeToolErr(
 	}
 }
 
-// rawOrQuoted —— executor 通常返 JSON string；非 JSON 时包成 JSON string。
+// rawOrQuoted —— the executor usually returns a JSON string; wraps it as one when it
+// isn't.
 func rawOrQuoted(s string) json.RawMessage {
 	if json.Valid([]byte(s)) {
 		return json.RawMessage(s)

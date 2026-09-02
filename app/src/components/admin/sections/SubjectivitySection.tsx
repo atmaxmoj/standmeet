@@ -1,9 +1,10 @@
-// SubjectivitySection —— /admin/subjectivity。**跟其余几个 genre 一样**:建 / 改 / 挂文件。
+// SubjectivitySection —— /admin/subjectivity. **Same as the other genres**: create / edit / attach files.
 //
-// 它以前在面板上一个界面都没有(只有 MCP 写得动),那不是产品决定 —— 只是一句被写进代码的
-// 偏好。现在它跟 wiki / output 走同一套:同一个 CorpusEntryForm、同一个素材区、同一条
-// `/corpus/{genre}` 路由。这个文件里**没有一处 if genre === 'subjectivity'**,
-// 那正是"它不是特例,只是第四个 genre"该有的样子。
+// It used to have zero admin UI (only MCP could write it), and that wasn't a product decision —
+// just a preference that had been baked into the code. Now it runs through the same pipeline as
+// wiki / output: the same CorpusEntryForm, the same asset area, the same `/corpus/{genre}` route.
+// There is **not a single `if genre === 'subjectivity'`** in this file, which is exactly what
+// "it's not a special case, just the fourth genre" should look like.
 
 'use client';
 

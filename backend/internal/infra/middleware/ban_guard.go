@@ -8,19 +8,23 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/clientaddr"
 )
 
-// BanChecker —— BanGuard 对封禁表的只读视图。用接口而非直接依赖 postgres，
-// 避免 middleware 组件越界依赖 repo（arch-lint）；security.BannedIPRepo 满足它。
+// BanChecker is BanGuard's read-only view of the ban table. It's an
+// interface rather than a direct postgres dependency, so the middleware
+// component doesn't overreach into a repo dependency (arch-lint);
+// security.BannedIPRepo satisfies it.
 type BanChecker interface {
 	IsBannedAnywhere(ctx context.Context, ip string) (bool, error)
 }
 
-// BanGuard —— 公开面封禁 enforcement middleware。命中 banned_ips 的来源 IP 一律
-// 403 挡掉（visitor chat / session / access-request 全拒）。挂在 /api/v1 组上。
+// BanGuard is the public-facing ban enforcement middleware. A source IP
+// that hits banned_ips is blocked with 403 across the board (visitor chat /
+// session / access-request all denied). Mounted on the /api/v1 group.
 //
-// checker 故障 fail-open（记 warn 放行）：跟 PublicRateGuard 一致，公开访客面
-// 可用性优先，不让一次 DB 抖动把整个站点对所有人锁死。
+// checker failures fail open (logged as warn, then allowed): matching
+// PublicRateGuard, the public visitor surface prioritizes availability —
+// one DB hiccup shouldn't lock the whole site out for everyone.
 //
-// checker 必填；nil 直接 panic（composition root bug）。
+// checker is required; nil panics immediately (a composition root bug).
 func BanGuard(checker BanChecker) func(http.Handler) http.Handler {
 	if checker == nil {
 		panic("BanGuard: checker is nil")
@@ -35,9 +39,13 @@ func BanGuard(checker BanChecker) func(http.Handler) http.Handler {
 func serveBanGuard(
 	w http.ResponseWriter, r *http.Request, checker BanChecker, next http.Handler,
 ) {
-	// 封禁按定义是**针对一个地址**的。地址不可见时（没有转发头的出厂形态，见 clientaddr）
-	// 就没有可封的对象 —— 直接放行，而不是拿限流用的那个共用桶名去 banned_ips 里查一个
-	// 假地址：那既永远查不中，又让 owner 有机会把那个字面量填进封禁表把所有人挡在门外。
+	// A ban is by definition **against an address**. When the address isn't
+	// visible (no forwarded header, the out-of-the-box shape — see
+	// clientaddr) there's nothing to ban — just allow it, rather than
+	// looking up the shared bucket name used for rate-limiting against a
+	// fake address in banned_ips: that lookup would never hit, and it would
+	// give the owner a chance to put that literal string into the ban table
+	// and lock everyone out.
 	ip := clientaddr.Of(r.Context())
 	if ip == "" {
 		next.ServeHTTP(w, r)

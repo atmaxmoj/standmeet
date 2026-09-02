@@ -1,5 +1,6 @@
-// RawDumpBox —— "quick dump" 入口。owner 可以在 admin 直接粘贴一条想法。
-// POST /api/admin/corpus/raw 通了：onAdd 走 useRaw().addRaw，成功后 textarea 清空。
+// RawDumpBox — the "quick dump" entry point. Owner can paste a thought directly in admin.
+// POST /api/admin/corpus/raw is wired: onAdd goes through useRaw().addRaw,
+// textarea clears on success.
 
 'use client';
 
@@ -93,10 +94,11 @@ function RawDumpFooter({ disabled, submitting, error, onAdd }: FooterProps) {
   return (
     <div className="flex items-center justify-between mt-3 gap-3">
       <FooterHint error={error} />
-      {/* 这里以前有一个写着 "attach media" 的 span:有 cursor-pointer、有 hover 变色、
-          没有 onClick。它不能是真的 —— 倾倒框还没有条目 id,没有东西可挂。挂文件在条目
-          建好之后的编辑表单里(CorpusAssetsPanel)。一个装成按钮的标签比没有更糟:
-          owner 点它、以为自己挂过了。 */}
+      {/* There used to be a span here reading "attach media": cursor-pointer, hover color
+          change, no onClick. It couldn't be real — the dump box has no entry id yet, so
+          there's nothing to attach to. Attaching files happens in the edit form after the
+          entry exists (CorpusAssetsPanel). A label dressed up as a button is worse than none:
+          the owner clicks it and assumes the attach happened. */}
       <div className="flex items-baseline gap-3">
         <Btn kind="solid" onClick={onAdd} disabled={disabled}>
           {submitting ? t('dumping') : t('dump')}

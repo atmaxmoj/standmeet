@@ -1,18 +1,21 @@
-// custom-page-imports —— 写一页自定义页时，能 import 什么。
+// custom-page-imports —— what you can import when writing a custom page.
 //
-// **为什么这份清单要存在**：面板上原来只有一个 slug 框和一个 textarea，起手模板是
-// `<main><h1>Hello</h1></main>`。而 `builder/vendor/@standmeet/` 里**早就**装好了
-// sdk / sdk-core / agent-core —— chat 接得上，只是屏幕上一个字都没说。
-// owner 2026-08-30 自己撞上：「我想引用我们的 chat 功能，我完全不知道写什么」。
+// **Why this list needs to exist**: the panel used to have just a slug box
+// and a textarea, with `<main><h1>Hello</h1></main>` as the starter
+// template. Meanwhile sdk / sdk-core / agent-core were **already** installed
+// under `builder/vendor/@standmeet/` — chat was already wired up, the screen
+// just never said so. The owner ran into this themselves on 2026-08-30: "I
+// want to reference our chat feature, I have no idea what to write."
 //
-// ⚠️ 这份清单是 builder 实际 vendor 的那份东西的**第二份表示**，会漂移，而漂移的方向
-// 恰好最坏：面板说能用，构建时报 module not found，owner 以为是自己写错了。
-// `infra/scripts/check-custom-page-imports-declared.sh` 就是那道闸门 ——
-// 这里提到的每个 `@standmeet/*`，builder 必须 vendor 了它。
+// Warning: this list is a **second representation** of what the builder
+// actually vendors, and it can drift — in exactly the worst direction: the
+// panel says it works, the build reports module not found, and the owner
+// thinks they made a mistake. `infra/scripts/check-custom-page-imports-declared.sh`
+// is the gate for that — every `@standmeet/*` mentioned here must be vendored by the builder.
 
 export interface ImportableModule {
   module: string;
-  // exports —— 这个包里 owner 最可能要的那几个名字。不求全：清单是**入口**，不是文档。
+  // exports —— the names in this package an owner is most likely to want. Not exhaustive: this list is an **entry point**, not documentation.
   exports: string[];
   note: string;
 }
@@ -43,11 +46,13 @@ export const IMPORTABLE_MODULES: readonly ImportableModule[] = [
   },
 ];
 
-// STARTER —— 面板给的起手模板。
+// STARTER —— the starter template the panel provides.
 //
-// 它曾经是 `<main><h1>Hello</h1></main>` —— 构建得过，但什么也没教。而**范例比说明有效**：
-// 这一份顺带把两件没人说的事说了 —— 你得自己包 `<StandMeetProvider>`（builder 的
-// template/src/main.tsx 不包），以及一次问答长什么样。
+// It used to be `<main><h1>Hello</h1></main>` — it built fine, but taught
+// nothing. And **an example teaches better than an explanation**: this one
+// quietly says two things nobody else said — you have to wrap
+// `<StandMeetProvider>` yourself (the builder's template/src/main.tsx
+// doesn't), and what one question-and-answer actually looks like.
 export const STARTER = `import { useState } from "react";
 import { StandMeetProvider, useChatSession, AnswerText } from "@standmeet/sdk";
 

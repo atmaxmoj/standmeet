@@ -1,9 +1,13 @@
-// WritingCrumb —— /writings/[slug] 面包屑里的一格。
+// WritingCrumb —— one segment of the /writings/[slug] breadcrumb.
 //
-// 单独抽出来只为一件事:它得是**客户端**组件,才能读得到读者当前选的语言
-// (`useCorpusHref`)。面包屑是往回走的那条路,跟树上往下走是同一段阅读 ——
-// 往下走带着语言、往回走却掉回英文,那这个选择照样是半个。
-// 页面本身是服务端组件,`use client` 只能整文件标,所以这一格搬出来。
+// Pulled out into its own file for exactly one reason: it has to be a
+// **client** component to read the reader's currently chosen language
+// (`useCorpusHref`). The breadcrumb is the path back up, and that's the same
+// reading session as the path down the tree — if going down carries the
+// chosen language but coming back drops to English, that choice is only
+// half honored.
+// The page itself is a server component, and `use client` can only be
+// stamped on a whole file, so this one segment was moved out.
 
 'use client';
 

@@ -1,16 +1,19 @@
-// @standmeet/sdk (React) —— context + hooks 包装 @standmeet/sdk-core。
+// @standmeet/sdk (React) —— context + hooks wrapping @standmeet/sdk-core.
 //
-// 用法：
+// Usage:
 //   <StandMeetProvider baseURL="">
-//     <App />  // 内部 useStandMeet().fetchPage('alice') 等
+//     <App />  // internally: useStandMeet().fetchPage('alice') etc.
 //   </StandMeetProvider>
 //
-// React 这层几乎不内置 UI —— 形态由 caller 自己定，hook 只暴露 API 客户端 + 一个
-// useChatSession 的状态机（streaming → tokens → done）。
+// This React layer builds in almost no UI — shape is up to the caller; the hooks
+// only expose the API client plus one state machine, useChatSession
+// (streaming → tokens → done).
 //
-// **唯一的例外是 AnswerText**（F-O-8）：hook 交出去的是纯文本，而答案里带行内标记；
-// 宿主直接印出来就会看到满屏星号 —— 那不是宿主的选择，是我们少给了一件东西，
-// 而 web component 那一面早就渲了。
+// **The one exception is AnswerText** (F-O-8): the hook hands out plain text,
+// but the answer carries inline markup; a host that just prints it verbatim
+// would see a screen full of asterisks — that's not the host's choice, it's
+// something we failed to provide, and the web component face already renders
+// it correctly.
 
 export { StandMeetProvider, useStandMeet } from './provider.js';
 export { useChatSession } from './use-chat-session.js';
@@ -18,8 +21,8 @@ export type { ChatMessage, ChatState } from './use-chat-session.js';
 export { AnswerText } from './AnswerText.js';
 export type { AnswerTextProps } from './AnswerText.js';
 
-// agent-core React glue + browser adapters (H.10: loop 在 backend，
-// 浏览器只用 prompt source + agent-turn streamer)
+// agent-core React glue + browser adapters (H.10: the loop lives in the
+// backend; the browser only uses the prompt source + agent-turn streamer)
 export {
   httpPromptSource, httpAgentTurnStreamer,
 } from './agent-adapters.js';

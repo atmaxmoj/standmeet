@@ -16,7 +16,8 @@ const (
 	cjkLen   = 20
 )
 
-// RepoStars 是 *int(nil = 这个源报不出星数,不是零颗星),所以测试里用 new(值) 取地址。
+// RepoStars is *int (nil = this source can't report a star count, not zero stars), so
+// tests take its address with new(value).
 
 func findSkill(skills []entity.MarketSkill, name string) *entity.MarketSkill {
 	for i := range skills {

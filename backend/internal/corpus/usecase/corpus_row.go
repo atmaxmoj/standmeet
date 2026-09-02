@@ -1,8 +1,10 @@
-// corpus_row.go —— corpus_search / corpus_list 的 wire 行(corpus 拥有,socket 序列化用)。
+// corpus_row.go — the wire row for corpus_search / corpus_list (owned by
+// corpus, used for socket serialization).
 
 package usecase
 
-// Row —— corpus_search / corpus_list 的 wire 行。summary 仅 search 填(omitempty)。
+// Row — the wire row for corpus_search / corpus_list. summary is filled only
+// by search (omitempty).
 type Row struct {
 	Path    string `json:"path"`
 	Title   string `json:"title"`

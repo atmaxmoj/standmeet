@@ -9,7 +9,8 @@ import (
 	"testing"
 )
 
-// TestRetryTransportRetriesTransient5xx —— transient 5xx 应被重试,最终拿到 200。
+// TestRetryTransportRetriesTransient5xx —— a transient 5xx should be retried, eventually
+// getting a 200.
 func TestRetryTransportRetriesTransient5xx(t *testing.T) {
 	t.Parallel()
 	var hits atomic.Int32
@@ -30,7 +31,7 @@ func TestRetryTransportRetriesTransient5xx(t *testing.T) {
 	}
 }
 
-// TestRetryTransportNoRetryOn4xx —— 4xx 是确定性失败,不重试。
+// TestRetryTransportNoRetryOn4xx —— a 4xx is a deterministic failure, never retried.
 func TestRetryTransportNoRetryOn4xx(t *testing.T) {
 	t.Parallel()
 	var hits atomic.Int32
@@ -46,7 +47,8 @@ func TestRetryTransportNoRetryOn4xx(t *testing.T) {
 	}
 }
 
-// doReqStatus —— 走 retry client 打一次请求,返回状态码,顺手 drain+close body。
+// doReqStatus —— fires one request through the retry client, returns the status code, and
+// drains+closes the body along the way.
 func doReqStatus(t *testing.T, url string) int {
 	t.Helper()
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)

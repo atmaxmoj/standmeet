@@ -1,11 +1,14 @@
-// capabilities.go —— 管理面 /api/admin/capabilities：owner 的「访客能用什么」面板。
+// capabilities.go — admin facade /api/admin/capabilities: the owner's "what can visitors
+// use" panel.
 //
-//	GET    /api/admin/capabilities        → 列全部（capability / connector / skill）
-//	PATCH  /api/admin/capabilities/{id}   → {enabled} owner-enable 开关（builtin 也可关）
-//	DELETE /api/admin/capabilities/{id}   → 仅 owner-origin 可删，其余 4xx
+//	GET    /api/admin/capabilities        → list everything (capability / connector / skill)
+//	PATCH  /api/admin/capabilities/{id}   → {enabled} owner-enable toggle (builtins too)
+//	DELETE /api/admin/capabilities/{id}   → only owner-origin can be deleted, else 4xx
 //
-// 能力来自出站收口（通用件在 dispatch.go）。origin 决定存在性（可删性），
-// enabled 决定可用性（访客 session 是否装配）—— 两者的判定都在收口里，只有一份。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go).
+// origin decides existence (whether it's deletable); enabled decides availability
+// (whether a visitor session assembles it) — both decisions live in the convergence point,
+// only one copy.
 
 package admin
 
@@ -15,12 +18,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// CapabilityAdminDeps —— admin capabilities handlers 的能力来源。
+// CapabilityAdminDeps — capability source for the admin capabilities handlers.
 type CapabilityAdminDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountCapabilities 挂 /capabilities 子路由。
+// MountCapabilities mounts the /capabilities subrouter.
 func (h *Handlers) MountCapabilities(r chi.Router) {
 	face := h.CapabilitiesAdmin.Face
 	r.Route("/capabilities", func(r chi.Router) {

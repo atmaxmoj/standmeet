@@ -1,15 +1,19 @@
-// ip_bans.go —— /api/admin/ip-bans/* —— owner 看 / 加 / 删封禁 IP（#58-4）。
-// 公开面 enforcement 走 middleware.BanGuard（另一处）；这里只是 owner 的 CRUD。
-// 配合 conversations.client_ip 的「IP 感知」：owner 在对话里看到来源 IP →
-// 来这儿封掉。
+// ip_bans.go — /api/admin/ip-bans/* — lets the owner view / add / remove banned IPs
+// (#58-4). Enforcement on the public facade goes through middleware.BanGuard (elsewhere);
+// this is just the owner's CRUD. Works with conversations.client_ip's "IP awareness":
+// the owner sees the source IP in a conversation → comes here to ban it.
 //
-// **第一条从出站收口 wire 的 admin 路由。** 路由形状、方法、路径、参数位置照常手写 ——
-// REST 长什么样是这个面自己的决定。变的是能力的来源：handler 里不再握着 security 的仓储，
-// 而是从 dispatcher 的 admin Face 取 Op（通用件在 dispatch.go）。于是：
+// **The first admin route wired from the outbound convergence point.** The route shape,
+// method, path, parameter placement are all still hand-written as before — what REST
+// looks like is this facade's own decision. What changes is where the capability comes
+// from: the handler no longer holds security's repository, it takes an Op from the
+// dispatcher's admin Face instead (shared plumbing in dispatch.go). As a result:
 //
-//   - 业务与校验只有一份（在收口里），MCP 面拿到的是同一个 Op，不会两边各写一套；
-//   - 「这条路由服务了哪个能力」是收口记下的事实（取用即登记），parity 由结构回答，
-//     不再需要一张手写对照表去事后对账。
+//   - business logic and validation exist in one copy (at the convergence point); MCP's
+//     facade gets the same Op, so there's no separate copy on each side;
+//   - "which capability does this route serve" is a fact recorded by the convergence
+//     point (taking it registers it), so parity is answered by structure, no more
+//     hand-written cross-reference table to reconcile after the fact.
 
 package admin
 
@@ -19,13 +23,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// IPBansAdminDeps —— admin ip-bans 的能力来源：出站收口的 admin Face。
-// 不再是仓储：这个面不该直接够到域。
+// IPBansAdminDeps — capability source for admin ip-bans: the outbound convergence
+// point's admin Face. No longer a repository: this facade shouldn't reach the domain
+// directly.
 type IPBansAdminDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountIPBans 挂 /ip-bans/* 子路由。
+// MountIPBans mounts the /ip-bans/* subrouter.
 func (h *Handlers) MountIPBans(r chi.Router) {
 	face := h.IPBansAdmin.Face
 	r.Route("/ip-bans", func(r chi.Router) {

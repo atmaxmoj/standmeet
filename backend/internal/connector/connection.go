@@ -2,17 +2,20 @@ package connector
 
 import "time"
 
-// Connection —— 一个连接器对某 owner 的**解密后**连接状态（#155 统一连接器层）。
-// repo 边界解密后给出，凭据明文只在 connector 层内存活、不进 usecases。Credentials 是解密后的
-// 凭据 JSON，按 kind 解（openapi oauth2 {client_id,client_secret} / apiKey {key} / smtp config）。
+// Connection — a connector's **decrypted** connection state for some owner (#155
+// unified connector layer). Decrypted at the repo boundary before it comes out; the
+// plaintext credentials live only inside the connector layer's memory, never reach
+// usecases. Credentials is the decrypted credential JSON, parsed by kind (openapi
+// oauth2 {client_id,client_secret} / apiKey {key} / smtp config).
 type Connection struct {
 	TokenExpiresAt *time.Time
 	ConnectorID    string
 	Category       string
 	Kind           string
-	// Title —— 厂商自己给这份 API 起的名字（openapi 连接器摄入时取的 info.title）。
-	// 内置的留空 —— 它们的名字就是品类。**没绑品类契约的上传连接器 Category 是空串**，
-	// 所以这是它在界面上唯一的名字（F-C-56）。
+	// Title — the name the vendor gave this API themselves (the info.title picked up
+	// when the openapi connector was ingested). Left blank for built-ins — their name
+	// IS the category. **An uploaded connector with no category contract bound has an
+	// empty-string Category**, so this is its only name in the UI (F-C-56).
 	Title        string
 	AccessToken  string
 	RefreshToken string
@@ -20,16 +23,21 @@ type Connection struct {
 	Scopes       []string
 	Connected    bool
 	Active       bool
-	// Unreadable —— 这一行的密文这台实例解不开了（换过 INSTANCE_SECRET，或者密文被动过）。
+	// Unreadable — this row's ciphertext can no longer be decrypted on this instance
+	// (INSTANCE_SECRET was rotated, or the ciphertext was tampered with).
 	//
-	// **为什么是一个状态位而不是一个错误**（F-C-41）：轮换密钥之后 `connectors.list` 整个 500，
-	// 界面把它当成「列表是空的」，于是**每一张卡**都渲成「你没连过」——而库里密文和 connected_at
-	// 都还在。owner 会在一份自己没读到的配置上面动手。
+	// **Why a status flag and not an error** (F-C-41): after a key rotation,
+	// `connectors.list` used to 500 outright, and the UI read that as "the list is
+	// empty" — so **every card** rendered as "you've never connected this", while the
+	// ciphertext and connected_at were still sitting in the database. The owner would
+	// then act on a configuration they never actually got to read.
 	//
-	// 行的**身份**是明文列（connector_id / category / kind），读不出来的只有密钥。所以这一行
-	// 该照常回去、照常说自己是谁，只是带着「重新连一下」这句话。
+	// A row's **identity** is its plaintext columns (connector_id / category / kind);
+	// only the secrets fail to decode. So this row should still come back normally,
+	// still say who it is, just carrying the message "reconnect this".
 	//
-	// ⚠️ 别指望区分「被篡改」和「换了密钥」：AES-GCM 的认证失败在密码学上就是同一件事。
-	// 这一位同时覆盖两种世界，那句话也要同时说得通。
+	// Warning: don't expect to distinguish "tampered with" from "key was rotated" —
+	// AES-GCM auth failure is cryptographically the same event either way. This one
+	// flag has to cover both worlds, and the message shown has to make sense for both.
 	Unreadable bool
 }

@@ -1,17 +1,20 @@
-// agent_compaction.go —— 上下文压缩：**压掉什么、必须留住什么**。
+// agent_compaction.go —— context compaction: **what gets compacted away, what must survive**.
 //
-// 账（F-A-45）：真模型跑一段 39K token 的长对话，压缩确实触发了（`before_msgs=276
-// after_msgs=2`），然后 agent 答得像对话刚开始 —— 面试官的名字、公司、岗位、团队，
-// 一个都想不起来。而这些全在开头。
+// The bill (F-A-45): a real model run against a 39K-token long conversation, compaction did fire
+// (`before_msgs=276 after_msgs=2`), and the agent then answered as if the conversation had just
+// started — the interviewer's name, company, role, team, none of it recalled. All of it was near
+// the start.
 //
-// ②🎯 两处都是「我们没说」：
-//   - `Config.UserInstruction` 空着 → 用的是库自带的通用摘要指令。它不可能知道
-//     StandMeet 的一轮对话里**哪些事实是不能丢的**：访客说自己是谁、他为什么来、
-//     产品答应过他什么。
-//   - `Config.Finalize` 空着 → `DefaultFinalize` 只留 system + 一条摘要。也就是说
-//     最近那几轮的**原话**也没了，全靠摘要转述。
+// Both gaps were things we never told it:
+//   - `Config.UserInstruction` was left empty → falls back to the library's generic summarization
+//     instruction. It has no way to know **which facts a StandMeet conversation cannot afford to
+//     lose**: who the visitor said they are, why they came, what the product promised them.
+//   - `Config.Finalize` was left empty → `DefaultFinalize` keeps only system + one summary
+//     message. Which means the **verbatim text** of the most recent turns is gone too, entirely
+//     at the mercy of the summary's paraphrase.
 //
-// 所以两样都给：说清要保住什么，再把最近几轮原样留着 —— 摘要写砸了也还有原话兜底。
+// So both get filled in: say plainly what must survive, then keep the most recent turns verbatim
+// on top of the summary — a botched summary still has the original text as a backstop.
 
 package inference
 
@@ -24,16 +27,19 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
-// keepTailTurns —— 压缩之后原样保留的**最近**几条问答。
+// keepTailTurns —— how many **most recent** Q&A turns survive compaction verbatim.
 //
-// 为什么不只靠摘要：摘要是转述，而访客上一句里的指代（「那个」「他」「刚说的那条」）
-// 只在原话里解得开。留几条最贵的一段，比让摘要试图复述它便宜也可靠。
+// Why not rely on the summary alone: a summary is paraphrase, and a reference in the visitor's
+// last message ("that one", "him", "what you just said") only resolves against the original
+// wording. Keeping a few turns verbatim is cheaper and more reliable than asking the summary to
+// reproduce them.
 const keepTailTurns = 6
 
-// compactionUserInstruction —— 交给摘要模型的任务说明。
+// compactionUserInstruction —— the task description handed to the summarization model.
 //
-// 措辞照着「访客那一侧会因为丢了什么而受伤」写，而不是泛泛地说「保留要点」：
-// 前者能判负（丢了名字就是丢了），后者写完等于没写。
+// Worded around "what the visitor side gets hurt by losing", not a generic "keep the key
+// points": the former is falsifiable (a lost name is a lost name), the latter is worthless
+// advice once written down.
 const compactionUserInstruction = `Condense the conversation so far into one compact record.
 
 This is a visitor talking to an AI that speaks for a specific person (its owner).
@@ -58,7 +64,8 @@ Carry these forward verbatim, as concrete facts, not as themes:
 
 Write it as plain prose. Do not call any tools.`
 
-// summarizationConfig —— 压缩中间件的配置。Model 由 caller 填。
+// summarizationConfig —— config for the compaction middleware. Model is filled in by
+// the caller.
 func summarizationConfig(
 	cm model.ToolCallingChatModel, threshold int, onFire summarization.CallbackFunc,
 ) *summarization.Config {
@@ -71,7 +78,8 @@ func summarizationConfig(
 	}
 }
 
-// finalizeKeepingTail —— 库的默认收尾（system + 摘要），后面再接上最近几条原话。
+// finalizeKeepingTail —— the library's default finish (system + summary), with the most recent
+// turns appended verbatim afterward.
 func finalizeKeepingTail(
 	ctx context.Context, original []*schema.Message, summary *schema.Message,
 ) ([]*schema.Message, error) {
@@ -82,10 +90,11 @@ func finalizeKeepingTail(
 	return append(base, tailPlainTurns(original, keepTailTurns)...), nil
 }
 
-// tailPlainTurns —— 取最后 n 条**纯文本**的 user/assistant 消息。
+// tailPlainTurns —— take the last n **plain-text** user/assistant messages.
 //
-// 刻意跳过带 tool_calls 的助手消息和 tool 结果：把一条 tool 结果留下来而它的调用已经
-// 被压掉，provider 会拒收整个请求。留原话是为了解指代，不是为了留工具痕迹。
+// Deliberately skips assistant messages carrying tool_calls and tool results: leaving a tool
+// result behind whose call has already been compacted away gets the whole request rejected by
+// the provider. The original text is kept to resolve references, not to preserve tool traces.
 func tailPlainTurns(msgs []*schema.Message, n int) []*schema.Message {
 	out := make([]*schema.Message, 0, n)
 	for i := len(msgs) - 1; i >= 0 && len(out) < n; i-- {
@@ -93,20 +102,22 @@ func tailPlainTurns(msgs []*schema.Message, n int) []*schema.Message {
 			out = append(out, msgs[i])
 		}
 	}
-	// 上面是从后往前收的，翻回时间顺序。
+	// Collected back-to-front above; flip back into chronological order.
 	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
 		out[i], out[j] = out[j], out[i]
 	}
 	return out
 }
 
-// isPlainTurn —— 一条**能单独留下来**的问答：有正文、不带工具痕迹、是人或 AI 说的话。
+// isPlainTurn —— a turn that **can stand alone if kept**: has body text, carries no tool trace,
+// and is spoken by the visitor or the AI.
 func isPlainTurn(m *schema.Message) bool {
 	return m != nil && m.Content != "" && !carriesToolTrace(m) && isDialogueRole(m.Role)
 }
 
-// carriesToolTrace —— 这条消息是不是工具往返的一半（调用或结果）。
-// 留下半条会让 provider 拒收整个请求，所以两半都不留。
+// carriesToolTrace —— is this message one half of a tool round trip (call or result)?
+// Leaving one half behind gets the whole request rejected by the provider, so neither half is
+// kept.
 func carriesToolTrace(m *schema.Message) bool {
 	return len(m.ToolCalls) > 0 || m.ToolCallID != ""
 }

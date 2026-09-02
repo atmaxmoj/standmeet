@@ -1,5 +1,6 @@
-// instance.go —— singleton "this deployment" 行的 domain 视图。
-// 一个 self-hosted 实例对应一行 instance_settings；多 tenant 时一行 / tenant。
+// instance.go —— domain view of the singleton "this deployment" row.
+// One self-hosted instance maps to one instance_settings row; under
+// multi-tenant, one row per tenant.
 
 package entity
 
@@ -8,26 +9,33 @@ import (
 	"time"
 )
 
-// InstanceSettings 是 singleton 行的快照。
+// InstanceSettings is a snapshot of the singleton row.
 type InstanceSettings struct {
 	DeployedAt time.Time
-	// SetupTokenHash —— 库里存着的那个 hash 本身（没有就是空串）。
-	// **只有 bool 是不够的**：发链接的那一侧手里是明文，要判的是「我这份明文哈希之后
-	// 等不等于库里这个」。只问"有没有"，就分不出「好着呢」和「两半各存各的」——
-	// 而后者正是真实环境里让 owner 永远 claim 不了的那个状态（F-L-56）。
+	// SetupTokenHash —— the actual hash stored in the DB (empty string if
+	// there is none). **A bool alone is not enough**: the side that sent
+	// the link holds the plaintext, and what needs checking is "does this
+	// plaintext, hashed, equal what's in the DB". Asking only "is there
+	// one" can't distinguish "fine" from "the two halves each have their
+	// own copy" — and the latter is exactly the state that, in the real
+	// environment, leaves the owner permanently unable to claim (F-L-56).
 	SetupTokenHash string
-	// 三个 bool 排在最后：fieldalignment 要求大的在前，别为了读起来顺手多占一个字。
+	// The three bools go last: fieldalignment wants larger fields first,
+	// don't burn an extra word just for readability.
 	IsClaimed         bool
 	MultiTenant       bool
-	HasSetupTokenHash bool // DB 里 setup_token_hash 是否非 NULL（claim 后清成 NULL）
+	HasSetupTokenHash bool // whether setup_token_hash is non-NULL in DB (cleared on claim)
 }
 
-// ErrInstanceAlreadyClaimed —— 重复 claim 同一个 instance（已经过初次 setup）。
+// ErrInstanceAlreadyClaimed —— attempted to claim the same instance again
+// (initial setup already happened).
 var ErrInstanceAlreadyClaimed = errors.New("instance already claimed")
 
-// ErrInvalidSetupToken —— setup token 不匹配（被改、被偷、过期 / 已消费）。
+// ErrInvalidSetupToken —— setup token doesn't match (tampered, stolen,
+// expired / already consumed).
 var ErrInvalidSetupToken = errors.New("invalid setup token")
 
-// ErrInstanceSettingsNotFound —— instance_settings 单行查不到（v1 不该
-// 发生因为 migration 引导插入；保留 sentinel 给后续 multi-tenant 用）。
+// ErrInstanceSettingsNotFound —— the single instance_settings row wasn't
+// found (shouldn't happen in v1 since migration seeds it; kept as a
+// sentinel for future multi-tenant use).
 var ErrInstanceSettingsNotFound = errors.New("instance settings not found")

@@ -1,11 +1,14 @@
-// capreg_openapi_agent_tools.go —— #155 §3 第二条 consumer 路：openapi 连接器的 raw operations
-// 暴露成 per-session agent 工具（op_<operationId>）。一个 capreg.Capability，VisitorBinding 枚举
-// owner 已 connected + expose_as_agent_tools 的 openapi 连接器，把每个 operation 变成一个 LLM
-// tool（描述取 operation summary）；运行时按 op 调 SaaS、注入 auth、回原始响应（无契约、无映射）。
+// capreg_openapi_agent_tools.go —— #155 §3, the second consumer path: an openapi
+// connector's raw operations exposed as per-session agent tools (op_<operationId>). A
+// capreg.Capability whose VisitorBinding enumerates the owner's openapi connectors that are
+// connected + expose_as_agent_tools, turning each operation into an LLM tool (description
+// taken from the operation summary); at runtime it calls the SaaS for that op, injects auth,
+// and returns the raw response (no contract, no mapping).
 //
-// 闸（跟其它 cap 同一张）：(a) 连接器 connected（source 已过滤）；(b) 该 op 的 tool 名在本
-// session 的 allowed_tools 里（per-op grant）。纯品类绑定（无 expose）的连接器不进 source →
-// 不泄 raw ops（[A5]）。
+// Gated (same gate as other caps): (a) the connector is connected (already filtered by
+// source); (b) that op's tool name is in this session's allowed_tools (per-op grant). A
+// connector bound purely by category (with no expose) never enters source → its raw ops are
+// never leaked ([A5]).
 
 package capload
 
@@ -21,14 +24,17 @@ import (
 
 const capOpenapiAgentTools = "connector.agent_tools"
 
-// errAgentOpFailed —— agent-tool 运行失败的干净 tool 错（不泄底层 SaaS/auth 细节给 LLM）。
+// errAgentOpFailed —— the clean tool error for a failed agent-tool run (leaks no
+// underlying SaaS/auth details to the LLM).
 var errAgentOpFailed = errors.New("the operation could not be completed")
 
-// agentToolArgsSchema —— 宽松 object 入参（agent 路无契约；LLM 按 operation 自由构造 body）。
+// agentToolArgsSchema —— a loose object input schema (no contract on the agent path; the
+// LLM constructs the body freely per operation).
 var agentToolArgsSchema = json.RawMessage(`{"type":"object"}`)
 
-// AgentConnectorSource —— owner 的、connected 且 expose_as_agent_tools 的 openapi 连接器。
-// composition root 适配 ConnectorRepo.ListByOwner + Hub（type-assert AgentToolConnector）。
+// AgentConnectorSource —— the owner's openapi connectors that are connected and
+// expose_as_agent_tools. The composition root adapts ConnectorRepo.ListByOwner + Hub
+// (type-asserting AgentToolConnector).
 type AgentConnectorSource interface {
 	AgentConnectors(ctx context.Context, ownerID string) ([]consumer.AgentToolConnector, error)
 }
@@ -61,7 +67,8 @@ func (*openapiAgentToolsCapability) SystemPromptFragmentID(
 	return ""
 }
 
-// VisitorBinding —— 枚举 owner 的 agent 连接器 → 每个被授的 op 一个 tool。无可暴露 → ErrHidden。
+// VisitorBinding —— enumerates the owner's agent connectors → one tool per granted op.
+// Nothing to expose → ErrHidden.
 func (c *openapiAgentToolsCapability) VisitorBinding(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (*capreg.Binding, error) {
@@ -83,7 +90,8 @@ func (c *openapiAgentToolsCapability) VisitorBinding(
 	}, nil
 }
 
-// grantedOpTools —— 一个连接器里被本 session 授权的 op（op_<id> 在 allowed_tools）→ LLM tools。
+// grantedOpTools —— the ops within one connector that this session has granted (op_<id> is
+// in allowed_tools) → LLM tools.
 func grantedOpTools(
 	conn consumer.AgentToolConnector, granted map[string]bool, ownerID string,
 ) []capreg.BindingTool {
@@ -96,8 +104,10 @@ func grantedOpTools(
 	return tools
 }
 
-// agentOpTool —— 一个 op → 一个 LLM tool。Run 把 LLM args 原样作请求体调 SaaS，回原始响应（agent
-// 路：LLM 直接消费 SaaS 形状）；失败 → 干净 tool 错（不泄底层），由 agent loop 转给 LLM。
+// agentOpTool —— one op → one LLM tool. Run calls the SaaS with the LLM's args used verbatim
+// as the request body and returns the raw response (the agent path: the LLM consumes the
+// SaaS shape directly); on failure → a clean tool error (nothing about the underlying cause
+// leaks), passed to the LLM by the agent loop.
 func agentOpTool(
 	conn consumer.AgentToolConnector, op consumer.AgentOp, ownerID string,
 ) capreg.BindingTool {

@@ -1,23 +1,29 @@
-// session-store.ts —— visitor session 全局单源 state（code / visitor name /
-// quota / BYOAI flag）。所有 visitor surface (index / blog / wiki / output /
-// page) 共享同一份。
+// session-store.ts —— the global single-source state for the visitor
+// session (code / visitor name / quota / BYOAI flag). Shared by every
+// visitor surface (index / blog / wiki / output / page).
 //
-// 设计跟 docs/design/project/sm-session.js 对齐：
-//   - 唯一持久化点 = localStorage key `standmeet-session`
-//   - 跨 tab 同步走 `storage` event；同 tab 跨组件走自定义事件
-//   - used 不是独立计数器:它派生自这段 conversation 答完的轮数(useChat 从
-//     dialogs 数出来 setUsed 进来)。conversation 是唯一源,没有「乐观自增被迟到
-//     快照盖回去」的 race。max / 名额 / 名字也都从后端 reconcile。
-//   - URL 带 ?code= 时由 use-absorb-code 那侧 issue session 后写入；URL
-//     不带则继续用 stored
+// The design aligns with docs/design/project/sm-session.js:
+//   - The one persistence point is the localStorage key `standmeet-session`
+//   - Cross-tab sync goes through a `storage` event; same-tab, cross-component
+//     goes through a custom event
+//   - used is not an independent counter: it's derived from how many turns
+//     this conversation has answered (useChat counts from dialogs and calls
+//     setUsed). conversation is the single source, so there's no race of
+//     "an optimistic increment gets overwritten by a late snapshot". max /
+//     quota / name are also all reconciled from the backend.
+//   - When the URL carries ?code=, this is written by the use-absorb-code
+//     side after it issues a session; without ?code= it keeps using the
+//     stored value
 //
-// 注意：这个 store 跟 `standmeet:visitor-session` (use-gate.ts) 是两个不同
-// 角色：
-//   - use-gate 的 visitor-session 存 session_token + conversation_id +
-//     byoai 布尔（是 "chat 鉴权" 凭据）
-//   - 这里的 standmeet-session 存 UI 用的展示数据（code / visitor / quota /
-//     label / byoaiProvider，是 "session strip 的渲染源"）
-//   - 两者由 issueCodeSession 的响应同时填，之后独立读写
+// Note: this store plays a different role from `standmeet:visitor-session`
+// (use-gate.ts):
+//   - use-gate's visitor-session stores session_token + conversation_id +
+//     the byoai boolean (the "chat auth" credential)
+//   - standmeet-session here stores UI display data (code / visitor /
+//     quota / label / byoaiProvider — the "render source for the session
+//     strip")
+//   - Both get filled by the issueCodeSession response at the same time,
+//     then read and written independently after that
 
 import { create } from 'zustand';
 import { z } from 'zod';
@@ -36,13 +42,17 @@ const VisitorSessionSchema = z.object({
   used: z.number(),
   max: z.number(),
   startedAt: z.number(),
-  // 名字上限展示用:maxMembers 这张码共几个名字(0=不限)、memberCount 已有几个。
-  // 必填 —— 每条 session 响应都带 quota.max_members + members,如实落进来。
+  // For the member-limit display: maxMembers is how many names this code
+  // allows in total (0 = unlimited), memberCount is how many already exist.
+  // Required — every session response carries quota.max_members + members,
+  // stored as-is.
   maxMembers: z.number(),
   memberCount: z.number(),
-  // #122: email 是进入时填的访客邮箱(可空);约成卡「引用」按钮据此显隐(空 → 不
-  // 给引用,只给透传)。ownerCanDeliver = owner 已配通 mail connector(否则整张确认卡
-  // 不渲染)。老 localStorage blob 没这俩字段 → default 兜底。
+  // #122: email is the visitor email typed on entry (may be empty); it
+  // decides whether the booking card's "cc me" button shows (empty → no cc,
+  // relay-only). ownerCanDeliver = the owner has a working mail connector
+  // configured (otherwise the whole confirmation card doesn't render). Old
+  // localStorage blobs lack these two fields → fall back to the default.
   email: z.string().default(''),
   ownerCanDeliver: z.boolean().default(false),
 });
@@ -52,17 +62,21 @@ interface SessionState {
   session: VisitorSession | null;
   setSession: (s: VisitorSession | null) => void;
   setVisitor: (name: string) => void;
-  // setUsed —— 后端 member 级权威值同步进来(load / reconcile)。
+  // setUsed —— syncs in the backend's authoritative member-level value
+  // (load / reconcile).
   setUsed: (n: number) => void;
-  // incUsed —— 一轮答成后乐观 +1。多对话下 used 是 member 级,任意 surface 答成
-  // 都把同一个共享计数 +1;下次 load 由后端 member 级合计纠正。
+  // incUsed —— optimistic +1 once a turn is answered. Across multiple
+  // conversations, used is member-level: any surface finishing an answer
+  // bumps the same shared counter by +1; the next load is corrected by the
+  // backend's member-level total.
   incUsed: () => void;
   clear: () => void;
   hydrate: () => void;
 }
 
-// useIsQuotaExhausted —— SessionStrip / AskInput 用：用尽 turn 后 chat
-// 入口禁掉、显式提示 "request more"。max=0 表示无限（owner 没设 max_turns）。
+// useIsQuotaExhausted —— used by SessionStrip / AskInput: once turns are
+// exhausted, the chat entry is disabled and explicitly prompts "request
+// more". max=0 means unlimited (the owner didn't set max_turns).
 export function useIsQuotaExhausted(): boolean {
   const session = useVisitorSessionStore((s) => s.session);
   if (!session) return false;
@@ -70,14 +84,19 @@ export function useIsQuotaExhausted(): boolean {
   return session.max > 0 && session.used >= session.max;
 }
 
-// useVisitorChatAvailable —— **这一页上能不能接着问**。
+// useVisitorChatAvailable —— **can this page keep being asked questions**.
 //
-// 一个来源,两个读者:浮窗按它决定渲不渲 pill,页尾那张 about 卡按它决定说哪句话。
-// 以前只有浮窗自己判(`mode === 'public' → null`),而卡片**无条件**写着「在下面接着问」——
-// 于是匿名访客读到的是一句这一页自己证伪了的承诺(UX-86)。两处各判一次的话,下次改浮窗
-// 的条件还会漏掉卡片([[copied-invalidation-goes-stale]]);所以判据只有这一个。
+// One source, two readers: the floating widget uses it to decide whether
+// to render the pill, and the about card at the page footer uses it to
+// decide which line to say. It used to be judged only by the widget
+// (`mode === 'public' → null`), while the card **unconditionally** said
+// "keep asking below" — so an anonymous visitor read a promise this very
+// page had already falsified (UX-86). Judging it in two places means the
+// next time the widget's condition changes, the card gets missed
+// ([[copied-invalidation-goes-stale]]); so there's only this one criterion.
 //
-// public(没有 session)= 没人付推理钱:owner 不替路过的访客买单,访客也没带 key。
+// public (no session) = nobody is paying for inference: the owner doesn't
+// foot the bill for a passing visitor, and the visitor didn't bring a key.
 export function useVisitorChatAvailable(): boolean {
   return useVisitorSessionStore((s) => s.session) !== null;
 }
@@ -118,9 +137,11 @@ export const useVisitorSessionStore = create<SessionState>((set, get) => ({
   },
 }));
 
-// peekStoredSession —— 直接同步读 localStorage 里持久化的展示 session(绕开
-// zustand hydrate 时序)。dead-session 收口要拿 code 决定回哪条入口,不能等
-// store 灌好(那有竞态)。
+// peekStoredSession —— reads the persisted display session directly and
+// synchronously from localStorage (bypassing zustand's hydrate timing).
+// The dead-session convergence point needs the code to decide which entry
+// to return to, and can't wait for the store to be populated (that has a
+// race).
 export function peekStoredSession(): VisitorSession | null {
   return load();
 }
@@ -143,18 +164,23 @@ function persist(s: VisitorSession | null): void {
     } else {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
     }
-    // 同 tab 跨组件订阅；storage event 只跨 tab。
+    // Same-tab, cross-component subscription; the storage event only fires
+    // cross-tab.
     window.dispatchEvent(new CustomEvent(CHANGED_EVENT, { detail: s }));
   } catch {
-    // localStorage 满 / 不可用 → silent；下一次写入失败不阻塞 chat。
+    // localStorage full / unavailable → silent; a failed write here must
+    // not block chat.
   }
 }
 
-// useSyncVisitorSession —— 挂到 visitor 屏，监听 cross-tab storage + 同 tab
-// custom event，把 LS 变化喂进 store。同 tab 内 setSession/consume/clear 已
-// 经走 set()，这里主要管 cross-tab；为了简洁也兜底监听同 tab 自定义事件。
+// useSyncVisitorSession —— attached on visitor screens; listens for
+// cross-tab storage + same-tab custom events, feeding localStorage changes
+// into the store. Same-tab setSession/consume/clear already go through
+// set(), so this mainly handles cross-tab; for simplicity it also listens
+// to the same-tab custom event as a fallback.
 //
-// 必须在 client component 里调；只 mount-once 不依赖任何 prop。
+// Must be called inside a client component; mount-once, doesn't depend on
+// any prop.
 export function bindVisitorSessionSync(): () => void {
   if (typeof window === 'undefined') return () => undefined;
   const hydrate = useVisitorSessionStore.getState().hydrate;

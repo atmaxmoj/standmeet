@@ -1,6 +1,8 @@
-// spec.go —— OpenAPI 3.0.x / 3.1.x spec 的最小解析。runtime 只需三样：server base URL、operationId →
-// {method,path}、securitySchemes（派生凭据表单 + 注入认证）。自己解析这个子集 = 零重型依赖、
-// 最干净。JSON 也是合法 YAML 1.2，所以 owner 贴 JSON 或 YAML spec 都走这一个 parser；收 3.0.x / 3.1.x。
+// spec.go — minimal parsing of an OpenAPI 3.0.x / 3.1.x spec. The runtime needs only three
+// things: server base URL, operationId → {method,path}, securitySchemes (to derive the
+// credential form + inject auth). Parsing this subset ourselves = zero heavyweight
+// dependencies, cleanest. JSON is also valid YAML 1.2, so whether the owner pastes a JSON or
+// YAML spec, both go through this one parser; accepts 3.0.x / 3.1.x.
 
 package openapi
 
@@ -12,7 +14,7 @@ import (
 	yaml "go.yaml.in/yaml/v3"
 )
 
-// Spec —— OpenAPI 3.0 文档里 runtime 用得到的子集。
+// Spec — the subset of an OpenAPI 3.0 document the runtime actually uses.
 type Spec struct {
 	Paths      map[string]map[string]operation `yaml:"paths"`
 	Components components                      `yaml:"components"`
@@ -21,12 +23,13 @@ type Spec struct {
 	Servers    []server                        `yaml:"servers"`
 }
 
-// specInfo —— spec 的 info 块（摄入候选展示 title 给 owner 确认）。
+// specInfo — the spec's info block (shows the title to the owner for confirmation at
+// ingest).
 type specInfo struct {
 	Title string `yaml:"title"`
 }
 
-// Title —— spec 的 info.title（摄入候选展示）。
+// Title — the spec's info.title (shown at ingest as the candidate).
 func (s *Spec) Title() string { return s.Info.Title }
 
 type server struct {
@@ -38,17 +41,19 @@ type operation struct {
 	OperationID string      `yaml:"operationId"`
 	Summary     string      `yaml:"summary"`
 	Description string      `yaml:"description"`
-	// Security —— **这一个动作**需要哪些 scope。OpenAPI 的标准位置。
+	// Security — which scopes **this one action** needs. OpenAPI's standard location.
 	//
-	// 跟 components.securitySchemes 下那份 scope 表不是一回事：那份说的是「这个连接器
-	// 可能会要哪些」，这一份说的是「这一步要哪一个」。少了这一份，宿主手里只有
-	// 「owner 授到了什么」而没有可对照的另一半，于是只授了只读的连接照旧把写操作
-	// 摆给访客，每一次都 403（F-B-8）。
+	// Not the same thing as the scope table under components.securitySchemes: that one says
+	// "what this connector might ever need", this one says "which one this step needs".
+	// Without this, the host has only "what the owner granted" with no counterpart to check
+	// it against, so a read-only-scoped connection would still offer write operations to a
+	// visitor — every single one 403ing (F-B-8).
 	Security []map[string][]string `yaml:"security"`
 }
 
-// requestBody/mediaType/bodySchema —— 仅取 application/json 的 schema.required（运行时 pre-flight
-// 校验：request JSONata 求出的 body 缺必填字段 → 拒，不发畸形请求）。
+// requestBody/mediaType/bodySchema — only pulls application/json's schema.required (runtime
+// pre-flight validation: the body the request JSONata evaluated to is missing a required
+// field → reject, never send a malformed request).
 type requestBody struct {
 	Content map[string]mediaType `yaml:"content"`
 }
@@ -65,7 +70,8 @@ type components struct {
 	SecuritySchemes map[string]SecurityScheme `yaml:"securitySchemes"`
 }
 
-// SecurityScheme —— spec 声明的一种认证方式；派生凭据表单 + 注入认证都读它。
+// SecurityScheme — one authentication method the spec declares; both deriving the
+// credential form and injecting auth read this.
 type SecurityScheme struct {
 	Flows            OAuthFlows `yaml:"flows"`
 	Type             string     `yaml:"type"`
@@ -75,34 +81,38 @@ type SecurityScheme struct {
 	OpenIDConnectURL string     `yaml:"openIdConnectUrl"`
 }
 
-// OAuthFlows —— oauth2 的流程集合（派生表单 + dance 用）。
+// OAuthFlows — the set of oauth2 flows (used to derive the form + the OAuth dance).
 type OAuthFlows struct {
 	AuthorizationCode *OAuthFlow `yaml:"authorizationCode"`
 	ClientCredentials *OAuthFlow `yaml:"clientCredentials"`
 }
 
-// OAuthFlow —— 一个 oauth2 流程的端点 + scope。
+// OAuthFlow — one oauth2 flow's endpoints + scopes.
 type OAuthFlow struct {
 	Scopes           map[string]string `yaml:"scopes"`
 	AuthorizationURL string            `yaml:"authorizationUrl"`
 	TokenURL         string            `yaml:"tokenUrl"`
 }
 
-// resolvedOp —— 一个 operationId 解析成的具体 HTTP 操作。
+// resolvedOp — the concrete HTTP operation an operationId resolves to.
 type resolvedOp struct {
 	Method string
 	Path   string
-	// BodyMedia —— requestBody 声明的媒体类型。**从 spec 读，不假设**（F-C-54）：以前这里
-	// 只看 `application/json`，运行时也写死发 JSON，于是任何表单编码的 vendor 都发不出去 ——
-	// 真 Mailgun 对一份 JSON body 的回答是 `400 from parameter is missing`，它只是没看见那些字段。
-	// Mailgun / Twilio / Stripe 都是这一类。空 = 没声明请求体。
+	// BodyMedia — the media type requestBody declares. **Read from the spec, never assumed**
+	// (F-C-54): this used to only look for `application/json`, and the runtime was hardcoded
+	// to send JSON, so any form-encoded vendor couldn't be reached at all — the real
+	// Mailgun's response to a JSON body is `400 from parameter is missing`; it simply never
+	// saw those fields. Mailgun / Twilio / Stripe are all in this category. Empty = no
+	// request body declared.
 	BodyMedia string
-	Required  []string // 选中那份媒体类型的 schema.required（pre-flight 校验）
+	Required  []string // schema.required for the selected media type (pre-flight validation)
 }
 
-// ParseSpec —— 解析 spec 原文（JSON 或 YAML）。非 3.0.x / 3.1.x → 错（版本闸在此）。runtime 只读
-// paths/operations、requestBody.required、securitySchemes、servers —— 这几样在 3.0 与 3.1 里结构一致
-// （bodySchema 只取 `required` 名单，3.1 的 `type: [..]` 数组落在未声明字段上被忽略），所以 3.1 安全放行。
+// ParseSpec — parses spec source (JSON or YAML). Not 3.0.x / 3.1.x → error (the version gate
+// lives here). The runtime only reads paths/operations, requestBody.required,
+// securitySchemes, servers — these are structurally identical across 3.0 and 3.1
+// (bodySchema only takes the `required` list; 3.1's `type: [..]` array falls on an
+// undeclared field and is ignored), so 3.1 is safe to let through.
 func ParseSpec(raw []byte) (*Spec, error) {
 	var s Spec
 	if err := yaml.Unmarshal(raw, &s); err != nil {
@@ -119,17 +129,20 @@ func ParseSpec(raw []byte) (*Spec, error) {
 	return &s, nil
 }
 
-// SecuritySchemes —— spec 声明的认证方式（派生凭据表单用）。
+// SecuritySchemes — the authentication methods the spec declares (used to derive the
+// credential form).
 func (s *Spec) SecuritySchemes() map[string]SecurityScheme {
 	return s.Components.SecuritySchemes
 }
 
-// ScopesFor —— **这个 operation 需要哪些 scope**（spec 自己声明的那一份）。
-// 没声明 → 空切片，调用方据此当「这一步不要求额外权限」。
+// ScopesFor — **which scopes this operation needs** (the set the spec declares itself).
+// Undeclared → an empty slice, which the caller treats as "this step requires no extra
+// permission".
 //
-// 这是「授到的 ⊇ 需要的」那句判断的右半边。左半边（授到了什么）在连接行上。
-// 两边都必须是**数据**：把 scope 名抄进 Go 就会有第二份真相，而它迟早跟 spec 分叉
-// （F-B-8 / [[vocabulary-must-not-diverge]]）。
+// This is the right-hand side of the judgment "granted ⊇ required". The left-hand side
+// (what was granted) lives on the connection row. Both sides must be **data**: copying
+// scope names into Go creates a second source of truth, and it will eventually diverge
+// from the spec (F-B-8 / [[vocabulary-must-not-diverge]]).
 func (s *Spec) ScopesFor(operationID string) []string {
 	for _, methods := range s.Paths {
 		for _, op := range methods {
@@ -138,12 +151,14 @@ func (s *Spec) ScopesFor(operationID string) []string {
 			}
 		}
 	}
-	// 空切片，不是 nil —— 我上面那句注释写的就是「空切片」，代码却 return nil，
-	// 而闸门当场把这处不一致挡了下来（collections always return empty）。
+	// An empty slice, not nil — the comment above says "empty slice", and the code
+	// used to return nil; the gate caught that exact inconsistency on the spot
+	// (collections always return empty).
 	return []string{}
 }
 
-// ServerURLs —— 所有 server 的 base URL（出站 SSRF 守卫装配期校验用）。
+// ServerURLs — every server's base URL (used by the outbound SSRF guard at assembly-time
+// validation).
 func (s *Spec) ServerURLs() []string {
 	out := make([]string, 0, len(s.Servers))
 	for i := range s.Servers {
@@ -152,15 +167,16 @@ func (s *Spec) ServerURLs() []string {
 	return out
 }
 
-// OpInfo —— 一个 operation 的 agent-facing 元数据（agent 路：每个 op 暴露成一个 tool；
-// Summary/Description 喂 LLM 当工具描述选用）。
+// OpInfo — one operation's agent-facing metadata (agent path: each op is exposed as a tool;
+// Summary/Description feed the LLM as the tool description).
 type OpInfo struct {
 	ID          string
 	Summary     string
 	Description string
 }
 
-// Operations —— spec 里所有带 operationId 的 operation（agent 路把每个 op 暴露成一个工具）。
+// Operations — every operation in the spec that has an operationId (the agent path exposes
+// each op as a tool).
 func (s *Spec) Operations() []OpInfo {
 	out := make([]OpInfo, 0)
 	for _, methods := range s.Paths {
@@ -175,7 +191,7 @@ func (s *Spec) Operations() []OpInfo {
 	return out
 }
 
-// serverURL —— 第一个 server 的 base URL（去尾斜杠）。无 → 空串。
+// serverURL — the first server's base URL (trailing slash removed). None → empty string.
 func (s *Spec) serverURL() string {
 	if len(s.Servers) == 0 {
 		return ""
@@ -183,7 +199,7 @@ func (s *Spec) serverURL() string {
 	return strings.TrimRight(s.Servers[0].URL, "/")
 }
 
-// operation —— 按 operationId 找具体 HTTP 操作。未找到 → ok=false。
+// operation — finds the concrete HTTP operation by operationId. Not found → ok=false.
 func (s *Spec) lookup(operationID string) (resolvedOp, bool) {
 	for path, methods := range s.Paths {
 		for method, op := range methods {
@@ -199,9 +215,10 @@ func (s *Spec) lookup(operationID string) (resolvedOp, bool) {
 	return resolvedOp{}, false
 }
 
-// pickBodyMedia —— requestBody 声明了哪种媒体类型。**JSON 优先**（既有连接器一个字都不变），
-// 没有 JSON 就取声明里字典序最小的那一个 —— 要的是**确定**，map 的遍历顺序不是。
-// 一个都没有 = 这个操作没有请求体。
+// pickBodyMedia — which media type requestBody declares. **JSON takes priority** (existing
+// connectors don't change a single byte), and without JSON it takes the lexicographically
+// smallest one declared — what's wanted is **determinism**, and map iteration order isn't
+// that. None declared = this operation has no request body.
 func pickBodyMedia(content map[string]mediaType) (string, bodySchema) {
 	if m, ok := content["application/json"]; ok {
 		return "application/json", m.Schema
@@ -217,9 +234,11 @@ func pickBodyMedia(content map[string]mediaType) (string, bodySchema) {
 	return names[0], content[names[0]].Schema
 }
 
-// flattenSecurity —— OpenAPI 的 security 是「一组备选方案，每个方案是 scheme→scopes」。
-// 我们只用一种认证方式，所以摊平去重就够；哪天真有两种备选，这里必须改成
-// 「任一方案满足即可」，而不是现在这样合并（写在这儿，免得那天读错）。
+// flattenSecurity — OpenAPI's security is "a set of alternatives, each alternative a
+// scheme→scopes map". We only use one authentication method, so flattening + de-duping is
+// enough; the day there are genuinely two alternatives, this must change to "any one
+// alternative satisfies it" instead of merging like it does now (written here so that day
+// doesn't get misread).
 func flattenSecurity(security []map[string][]string) []string {
 	out := []string{}
 	seen := map[string]bool{}
@@ -242,7 +261,8 @@ func appendUnseen(out []string, seen map[string]bool, alt map[string][]string) [
 	return out
 }
 
-// operationIDs —— spec 里所有 operationId（去重）。绑定校验「引用了不存在的 op」用。
+// operationIDs — every operationId in the spec (de-duplicated). Used by binding validation
+// to check "references an op that doesn't exist".
 func (s *Spec) operationIDs() map[string]struct{} {
 	ids := map[string]struct{}{}
 	for _, methods := range s.Paths {

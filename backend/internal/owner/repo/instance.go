@@ -1,9 +1,10 @@
-// InstanceRepo + 原子 claim 流程。
+// InstanceRepo + the atomic claim flow.
 //
-// Claim 是 instance 状态变更（is_claimed=true）+ owner 创建组合，需要
-// 一个 DB transaction 保证原子性：要么两边都成功，要么都回滚。这个
-// 跨 aggregate 的事务直接写在 infra 层（避免引入 UnitOfWork 抽象），
-// usecase 调它即可。
+// Claim combines an instance state change (is_claimed=true) with owner
+// creation, and needs one DB transaction to guarantee atomicity: either
+// both sides succeed, or both roll back. This cross-aggregate transaction
+// is written directly at the infra layer (avoiding a UnitOfWork
+// abstraction); usecase just calls it.
 
 package repo
 
@@ -21,17 +22,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// InstanceRepo 提供 instance_settings 单行的读 + setup token 写。
+// InstanceRepo provides reads of the single instance_settings row + writes
+// of the setup token.
 type InstanceRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewInstanceRepo 构造 InstanceRepo。
+// NewInstanceRepo constructs an InstanceRepo.
 func NewInstanceRepo(pool *pgstore.Pool) *InstanceRepo {
 	return &InstanceRepo{pool: pool}
 }
 
-// Get 读 instance_settings 单行。
+// Get reads the single instance_settings row.
 func (r *InstanceRepo) Get(ctx context.Context) (entity.InstanceSettings, error) {
 	q := db.New(r.pool)
 	row, err := q.GetInstanceSettings(ctx)
@@ -47,7 +49,7 @@ func (r *InstanceRepo) Get(ctx context.Context) (entity.InstanceSettings, error)
 	}, nil
 }
 
-// derefOrEmpty —— NULL 的 text 列读成空串。
+// derefOrEmpty —— reads a NULL text column as an empty string.
 func derefOrEmpty(s *string) string {
 	if s == nil {
 		return ""
@@ -55,8 +57,9 @@ func derefOrEmpty(s *string) string {
 	return *s
 }
 
-// IsDomainAllowed —— 给 /internal/tls-ask 用：domain 是否在 allowed_domains
-// 白名单里。Caddy on-demand TLS 据此决定是否替它签证书。
+// IsDomainAllowed —— used by /internal/tls-ask: whether domain is on the
+// allowed_domains allowlist. Caddy on-demand TLS uses this to decide
+// whether to sign it a certificate.
 func (r *InstanceRepo) IsDomainAllowed(ctx context.Context, dom string) (bool, error) {
 	list, err := r.loadAllowedDomains(ctx)
 	if err != nil {
@@ -65,7 +68,8 @@ func (r *InstanceRepo) IsDomainAllowed(ctx context.Context, dom string) (bool, e
 	return slices.Contains(list, dom), nil
 }
 
-// AddAllowedDomain —— 把 domain 加进白名单（去重）。admin / setup 调。
+// AddAllowedDomain —— adds domain to the allowlist (deduped). Called by
+// admin / setup.
 func (r *InstanceRepo) AddAllowedDomain(ctx context.Context, dom string) error {
 	list, err := r.loadAllowedDomains(ctx)
 	if err != nil {
@@ -77,7 +81,8 @@ func (r *InstanceRepo) AddAllowedDomain(ctx context.Context, dom string) error {
 	return r.writeAllowedDomains(ctx, append(list, dom))
 }
 
-// RemoveAllowedDomain —— 从白名单删 domain；不存在也不报错（idempotent）。
+// RemoveAllowedDomain —— removes domain from the allowlist; not an error
+// if it's already absent (idempotent).
 func (r *InstanceRepo) RemoveAllowedDomain(ctx context.Context, dom string) error {
 	list, err := r.loadAllowedDomains(ctx)
 	if err != nil {
@@ -95,7 +100,8 @@ func (r *InstanceRepo) RemoveAllowedDomain(ctx context.Context, dom string) erro
 	return r.writeAllowedDomains(ctx, filtered)
 }
 
-// ListAllowedDomains —— 返当前白名单（empty slice on empty jsonb）。
+// ListAllowedDomains —— returns the current allowlist (an empty slice on
+// empty jsonb).
 func (r *InstanceRepo) ListAllowedDomains(ctx context.Context) ([]string, error) {
 	list, err := r.loadAllowedDomains(ctx)
 	if err != nil {
@@ -107,9 +113,10 @@ func (r *InstanceRepo) ListAllowedDomains(ctx context.Context) ([]string, error)
 	return list, nil
 }
 
-// SetSetupTokenHash 把启动时生成的 setup token 的 sha256(hash) 存到
-// instance_settings.setup_token_hash。已 claimed 的 instance 不应再调
-// 这个（调了也只是 update，没语义意义）。
+// SetSetupTokenHash stores the sha256 hash of the setup token generated at
+// startup into instance_settings.setup_token_hash. An already-claimed
+// instance shouldn't call this again (calling it just re-updates the
+// column, with no semantic effect).
 func (r *InstanceRepo) SetSetupTokenHash(ctx context.Context, hash string) error {
 	q := db.New(r.pool)
 	if err := q.SetSetupTokenHash(ctx, &hash); err != nil {
@@ -118,12 +125,14 @@ func (r *InstanceRepo) SetSetupTokenHash(ctx context.Context, hash string) error
 	return nil
 }
 
-// ClaimAndCreateOwner 在一个 transaction 里做：
-//  1. TryClaimInstance(tokenHash) —— 当且仅当 is_claimed=false 且 setup_token_hash
-//     匹配时才能成功；UPDATE ... RETURNING 0 行视为失败。
-//  2. CreateOwner —— 第一行 owner 入表。
+// ClaimAndCreateOwner does the following in a single transaction:
+//  1. TryClaimInstance(tokenHash) —— succeeds if and only if is_claimed=false
+//     and setup_token_hash matches; an UPDATE ... RETURNING with 0 rows
+//     counts as failure.
+//  2. CreateOwner —— inserts the first owner row.
 //
-// 失败时返回 domain sentinel error；成功时返回新建的 Owner。
+// Returns a domain sentinel error on failure; returns the newly created
+// Owner on success.
 func (r *InstanceRepo) ClaimAndCreateOwner(
 	ctx context.Context,
 	tokenHash string,
@@ -146,7 +155,7 @@ func (r *InstanceRepo) ClaimAndCreateOwner(
 	return ownerRow, nil
 }
 
-// claimTx 是 ClaimAndCreateOwner 的内层。
+// claimTx is the inner body of ClaimAndCreateOwner.
 func claimTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -190,8 +199,9 @@ func translateCreateOwnerErr(err error) error {
 	}
 }
 
-// loadAllowedDomains / writeAllowedDomains —— allowed_domains 的 jsonb
-// 编解码 helper。放文件尾部满足 funcorder（unexported 在 exported 之后）。
+// loadAllowedDomains / writeAllowedDomains —— jsonb encode/decode helpers
+// for allowed_domains. Placed at the end of the file to satisfy funcorder
+// (unexported after exported).
 
 func (r *InstanceRepo) loadAllowedDomains(ctx context.Context) ([]string, error) {
 	row, err := db.New(r.pool).GetInstanceSettings(ctx)

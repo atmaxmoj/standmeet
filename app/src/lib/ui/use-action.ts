@@ -1,11 +1,14 @@
-// use-action —— 跑一个「owner 主动触发的 mutation」的默认收尾：成功 → success toast（可选），失败 →
-// reportError（401 跳登录 / 其余 error toast）。取代满屏 `const ok = await x(); ok && toast.success(...)`
-// —— 那个 idiom 只在成功时反馈，失败静默。mutation 现在**抛错**（不再吞成 false），这里统一接住。
+// use-action —— the default wrap-up for running an "owner-triggered mutation": success →
+// success toast (optional), failure → reportError (401 redirects to login / everything else is
+// an error toast). Replaces the `const ok = await x(); ok && toast.success(...)` idiom that was
+// everywhere — that idiom only gave feedback on success and stayed silent on failure. Mutations
+// now **throw** (no longer swallowed into false), and this is the one place that catches them.
 //
 //   const run = useAction();
 //   run(() => hook.createCode(input), { success: 'Code created' });
 //
-// 需要非默认业务处理的（回滚乐观态、就地内联、冲突高亮、跳转到别处）——别用 run，调用方自己 try/catch。
+// For non-default handling (rolling back optimistic state, inline-in-place, conflict
+// highlighting, redirecting elsewhere) — don't use run, do your own try/catch at the call site.
 
 'use client';
 

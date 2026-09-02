@@ -1,6 +1,7 @@
-// visitor_ports.go —— visitor agent-loop 消费的 capability-assembly 窄口(consumer-side)。
-// 结构上由 capreg glue 的具体实现满足;composition root 注入。跟 usecases/capreg_* 里的同名
-// 口是结构对偶,conversation 因此不反依赖 capreg glue。
+// visitor_ports.go —— narrow capability-assembly ports (consumer-side) that the visitor
+// agent loop consumes. Structurally satisfied by capreg glue's concrete implementations;
+// injected by the composition root. Structural duals of the same-named ports in
+// usecases/capreg_*, so conversation never depends back on capreg glue.
 
 package usecase
 
@@ -10,19 +11,23 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 )
 
-// AgentConnectorSource —— 取 owner 的 agent-tool connector 列表(openapi capability 装配用)。
+// AgentConnectorSource —— fetches the owner's agent-tool connector list (used to
+// assemble the openapi capability).
 type AgentConnectorSource interface {
 	AgentConnectors(ctx context.Context, ownerID string) ([]consumer.AgentToolConnector, error)
 }
 
-// DepConnected —— 命名 connector 依赖是否全连通(ext-mcp dep-grant 闸)。
+// DepConnected —— whether the named connector dependencies are all connected (the
+// ext-mcp dep-grant gate).
 type DepConnected interface {
 	AllConnected(ctx context.Context, ownerID string, deps []string) (bool, error)
 }
 
-// ResumeSource —— 按 session 的 access code 取"这一份" application 的简历内容(JSON)。
-// err != nil = 取不到(没绑 application 的普通码，或真失败)；访客侧简历读取 capability
-// 一律据此 fail-closed 隐藏 —— 它不必分辨"没有"和"坏了"。装配用。
+// ResumeSource —— fetches "this" application's resume content (JSON) by the session's
+// access code. err != nil = couldn't fetch (an ordinary code with no bound application,
+// or a real failure); the visitor-side resume-reading capability fail-closed hides
+// itself based on this either way —— it never needs to tell "not there" apart from
+// "broken." Used at assembly time.
 type ResumeSource interface {
 	ResumeForCode(ctx context.Context, ownerID, codeID string) ([]byte, error)
 }

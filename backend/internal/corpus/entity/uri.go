@@ -1,17 +1,19 @@
-// uri.go —— corpus document 的 URI 解析 / 拼接。
+// uri.go —— URI parsing / formatting for corpus documents.
 //
-// 形态：`<genre>://<path>`
-//   - raw://<uuid>           （raw 没语义路径，UUID 是唯一寻址）
+// Shape: `<genre>://<path>`
+//   - raw://<uuid>           (raw has no semantic path; the UUID is the sole address)
 //   - wiki://projects/lucerna
 //   - output://essays/principles
 //   - writing://my-slug
 //
-// scheme 严格 = 4 个 DocumentGenre 字面值；其余视为 invalid。`://` 后的 path
-// 不做编码（owner 配 path 时不允许 `?` / `#` 等 URL meta，保持纯文件路径
-// 形态，跟 Quartz / Obsidian 的 vault path 一致）。
+// The scheme must be exactly one of the 4 DocumentGenre literals; anything else is
+// invalid. The path after `://` is not encoded (owners configuring a path aren't allowed
+// URL meta-characters like `?` / `#`, keeping it a plain file-path shape, matching
+// Quartz / Obsidian vault paths).
 //
-// **A.2 阶段不用 net/url** —— 避免它对 host / 端口 / query 的语义介入，纯
-// 字符串 split-by-"://" 即可。未来真要更严格的 URI 校验再换。
+// **Phase A.2 deliberately skips net/url** — avoids its baked-in semantics for host /
+// port / query; a plain split-on-"://" is enough. Swap in stricter URI validation later
+// if it's ever actually needed.
 
 package entity
 
@@ -22,23 +24,24 @@ import (
 	"strings"
 )
 
-// URIRef —— Document URI 解析结果。Path 不带 leading `/`，跟 owner 配的
-// Wiki.Path / Writing.Slug 等字段直接对齐。
+// URIRef —— the parsed result of a Document URI. Path carries no leading `/`, lining up
+// directly with owner-configured fields like Wiki.Path / Writing.Slug.
 type URIRef struct {
 	Genre DocumentGenre
 	Path  string
 }
 
-// ErrURIInvalid —— ParseURI 无法识别的 URI 字面。
+// ErrURIInvalid —— a URI literal that ParseURI can't recognize.
 var ErrURIInvalid = errors.New("invalid corpus URI")
 
-// uriSep —— `://` 是 URI scheme 跟 path 的固定分隔，extract 出来避免 magic
-// 字符串散落。
+// uriSep —— `://` is the fixed separator between URI scheme and path; extracted here to
+// avoid scattering the magic string.
 const uriSep = "://"
 
 // ParseURI —— `wiki://projects/lucerna` → URIRef{Genre: GenreWiki, Path:
-// "projects/lucerna"}。空 path 算合法（`writing://` 指 writing 集合本身），但
-// genre 必须在 4 个枚举里；其它一律 ErrURIInvalid 包错。
+// "projects/lucerna"}. An empty path is valid (`writing://` refers to the writing
+// collection itself), but genre must be one of the 4 enum values; anything else is
+// wrapped in ErrURIInvalid.
 func ParseURI(s string) (URIRef, error) {
 	idx := strings.Index(s, uriSep)
 	if idx <= 0 {
@@ -51,15 +54,15 @@ func ParseURI(s string) (URIRef, error) {
 	return URIRef{Genre: genre, Path: s[idx+len(uriSep):]}, nil
 }
 
-// FormatURI —— URIRef → `<genre>://<path>`。空 path 输出 `<genre>://`。
-// caller 通常用 `Document.URI()` 而不直接调这个，但 admin / migration
-// 工具按 Genre + path 拼时直接用。
+// FormatURI —— URIRef → `<genre>://<path>`. An empty path formats as `<genre>://`.
+// Callers usually go through `Document.URI()` rather than calling this directly, but
+// admin / migration tools call it directly when assembling from Genre + path.
 func FormatURI(genre DocumentGenre, path string) string {
 	return string(genre) + uriSep + path
 }
 
-// isValidGenre —— DocumentGenre 字面是否在白名单。AllGenres 做 source of
-// truth，避免漏一个 case。
+// isValidGenre —— whether a DocumentGenre literal is on the whitelist. AllGenres is the
+// source of truth here, so no case gets missed.
 func isValidGenre(g DocumentGenre) bool {
 	return slices.Contains(AllGenres, g)
 }

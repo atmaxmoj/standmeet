@@ -1,6 +1,7 @@
-// use-debounced-saved-label —— ResumeComposer 顶栏 "saved / saving…" 指示。
-// model 变 → "moments ago"; 600ms 不变 → "saved"。
-// component 不准跑 useEffect 控制流（presentation 规约），所以抽到 lib/。
+// use-debounced-saved-label —— the "saved / saving…" indicator in the
+// ResumeComposer top bar. model changes → "moments ago"; unchanged for
+// 600ms → "saved". Components must not run useEffect control flow
+// (presentation-layer rule), so this is pulled out into lib/.
 
 import { useEffect, useState } from 'react';
 

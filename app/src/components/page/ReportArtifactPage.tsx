@@ -1,5 +1,6 @@
-// ReportArtifactPage —— /report/[id] 独立路由的渲染层。client component
-// 因为要 fetch 后写 iframe + iframe 触发 print。
+// ReportArtifactPage —— the render layer for the standalone /report/[id]
+// route. Client component because it fetches then writes an iframe, and the
+// iframe triggers print.
 
 'use client';
 
@@ -31,10 +32,13 @@ export function ReportArtifactPage({ reportID }: Props) {
 
   return (
     <div className={styles['shell']} data-testid="report-page">
-      {/* 两颗动作归一组挂在右端。原来三个孩子直接吃 `space-between`，于是
-          `DOWNLOAD PDF` 落在这条栏的**正中间**、`PRINT` 在右端 —— 同一类东西（对这份
-          报告的动作）被排版拆成两处，读的人得逐个认。跟 UX-52 是同一族：一条栏上
-          几类东西之间要有分组，而不是等距摊开。 */}
+      {/* The two actions are grouped together at the right end. The three
+          children used to sit directly on `space-between`, so `DOWNLOAD PDF`
+          landed at the **dead center** of this bar and `PRINT` sat at the
+          right end — the same class of thing (actions on this report) got
+          split across two spots, forcing the reader to parse each one
+          separately. Same family as UX-52: items on one bar need grouping
+          by kind, not even spacing. */}
       <header className={styles['bar']}>
         <span className={styles['title']}>{t('report.title', { id: reportID.slice(0, 8) })}</span>
         <div className={styles['actions']}>

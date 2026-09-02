@@ -1,23 +1,27 @@
-// error_code.go —— 给已分类的错误附一个**稳定的机器可读 code**。
+// error_code.go —— attaches a **stable, machine-readable code** to an already-categorized error.
 //
-// 类别决定状态码(见 errors.go),code 是另一回事:它是调用方按具体情况分流用的字符串,
-// 属于已经发出去的契约。两者不是一件事 ——
+// The category decides the status code (see errors.go); the code is a separate thing: a string
+// the caller branches on for specific handling, part of an already-shipped contract. The two
+// aren't the same thing —
 //
-//	Conflict            → 409,默认 code "conflict"
-//	Coded(Conflict, …)  → 409,code "role_name_taken"
+//	Conflict            → 409, default code "conflict"
+//	Coded(Conflict, …)  → 409, code "role_name_taken"
 //
-// 为什么要分开:迁移时我把 role 的 role_name_taken / role_builtin_immutable 塌成了
-// 类别默认的 conflict / forbidden,状态码没变,但**载荷说的话变少了** —— 前端拿到的从
-// "重名了"退化成"冲突了"。类别是给面选状态码的,code 是给调用方分流的,谁也替代不了谁。
+// Why they're kept separate: during a migration I collapsed role's role_name_taken /
+// role_builtin_immutable into the category defaults conflict / forbidden. The status code stayed
+// the same, but **the payload said less** — what the frontend got degraded from "name is taken"
+// to "conflict". Category is for the facade to pick a status code; code is for the caller to
+// branch on. Neither can substitute for the other.
 //
-// 默认 code 够用时不必写:只有"这个 code 是已经发出去的契约"才需要显式钉住。
+// No need to write one when the default code is good enough: only pin a code explicitly when
+// "this code is an already-shipped contract".
 
 package facadeparity
 
 import "errors"
 
-// codedError —— 包在类别错误外面的一层,只加一个 code。
-// 实现 Unwrap,所以 IsBadInput / IsNotFound / … 照常认得出里面的类别。
+// codedError —— a layer wrapped around a categorized error that adds just a code.
+// Implements Unwrap, so IsBadInput / IsNotFound / … still recognize the category inside as usual.
 type codedError struct {
 	inner error
 	code  string
@@ -26,10 +30,11 @@ type codedError struct {
 func (e codedError) Error() string { return e.inner.Error() }
 func (e codedError) Unwrap() error { return e.inner }
 
-// Coded —— 给一个已分类的错误钉上机器可读 code。
+// Coded —— pin a machine-readable code onto an already-categorized error.
 func Coded(err error, code string) error { return codedError{inner: err, code: code} }
 
-// CodeOf —— 取出显式钉过的 code。没钉过 → ok=false,面用类别的默认 code。
+// CodeOf —— retrieve an explicitly pinned code. Not pinned → ok=false, facade uses the category's
+// default code.
 func CodeOf(err error) (string, bool) {
 	var t codedError
 	if errors.As(err, &t) {

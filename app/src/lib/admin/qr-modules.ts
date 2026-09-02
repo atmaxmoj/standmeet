@@ -1,6 +1,7 @@
-// qr-modules.ts —— 真 QR 的模块网格数学(qrcode-generator)。纯逻辑放 lib,
-// atoms/QRCode + resume-page/QRCode 共用(原在 resume-page 下,移到 lib 让
-// atom 不反向依赖 section)。Mirrors docs/design/project/sm-components.js:259.
+// qr-modules.ts —— real QR module-grid math (qrcode-generator). Pure logic lives
+// in lib, shared by atoms/QRCode + resume-page/QRCode (originally under
+// resume-page, moved to lib so the atom doesn't depend back on the section).
+// Mirrors docs/design/project/sm-components.js:259.
 
 import qrcodeGen from 'qrcode-generator';
 

@@ -1,7 +1,9 @@
-// runtime_body.go —— 请求体这一段：JSONata 求值 → 必填 pre-flight → **按 spec 声明的媒体类型编码**。
+// runtime_body.go — the request-body segment: JSONata evaluation → required-field pre-flight
+// → **encoding by the media type the spec declares**.
 //
-// 从 runtime.go 拆出来（那边到了 350 行的闸）。拆的是一整族，不是随手切一刀：
-// 「这一次请求的 body 长什么样、怎么编」是一个话题，URL、认证、响应解析各是另一个。
+// Split out of runtime.go (that file hit the 350-line gate). The split is a whole family,
+// not an arbitrary cut: "what this request's body looks like and how it's encoded" is one
+// topic; URL, auth, response parsing are each a different one.
 
 package openapi
 
@@ -15,8 +17,9 @@ import (
 	"strings"
 )
 
-// renderBody —— request JSONata → 请求体 reader。pre-flight 校验必填字段（缺 → 拒，不发畸形
-// 请求）。无体 → nil reader（合法空）。
+// renderBody — request JSONata → a request-body reader. pre-flight validates required
+// fields (missing → reject, never send a malformed request). No body → nil reader (a
+// legitimate empty body).
 func renderBody(ob *opBinding, input any, required []string, media string) (io.Reader, error) {
 	body, err := ob.evalRequest(input)
 	if err != nil {
@@ -31,12 +34,16 @@ func renderBody(ob *opBinding, input any, required []string, media string) (io.R
 	return encodeBody(body, media)
 }
 
-// encodeBody —— 按 **spec 声明的媒体类型**编码（F-C-54）。以前这里无条件 `json.Marshal`，
-// 于是一个声明表单编码的 vendor 收到的是 JSON —— 它不会说「格式不对」，它只是看不见任何字段
-// （真 Mailgun 的原话：`400 from parameter is missing`）。Mailgun / Twilio / Stripe 都是这一类。
+// encodeBody — encodes by the **media type the spec declares** (F-C-54). This used to
+// unconditionally `json.Marshal`, so a vendor that declares form encoding would receive
+// JSON — it wouldn't say "wrong format", it would just see no fields at all (the real
+// Mailgun's own words: `400 from parameter is missing`). Mailgun / Twilio / Stripe are all
+// in this category.
 //
-// multipart 目前**明说不支持**而不是悄悄按别的发：发错编码在对面眼里是「你没给这些字段」，
-// 那种错误会把排查的人送去检查一份完全正确的 binding。
+// multipart is currently **explicitly unsupported** rather than silently sent as something
+// else: sending the wrong encoding looks, from the other side, like "you didn't give these
+// fields" — that kind of error sends whoever's debugging it off to check a binding that's
+// actually completely correct.
 func encodeBody(body any, media string) (io.Reader, error) {
 	switch media {
 	case "application/x-www-form-urlencoded":
@@ -53,12 +60,14 @@ func encodeBody(body any, media string) (io.Reader, error) {
 	}
 }
 
-// ErrUnsupportedBodyMedia —— spec 声明的请求体编码这台实例发不出来。**说出来**，别退回 JSON：
-// 退回去的话对面回的是「字段没给」，而 binding 是对的。
+// ErrUnsupportedBodyMedia — this instance cannot send the request-body encoding the spec
+// declares. **Say so**, don't fall back to JSON: falling back gets you "field not given"
+// from the other side while the binding was actually correct.
 var ErrUnsupportedBodyMedia = errors.New("unsupported request body media type")
 
-// encodeForm —— 平对象 → `a=1&b=2`。表单没有嵌套，所以嵌套值是**绑定写错了**，直接说清楚，
-// 不悄悄塞一段 JSON 进某个字段里。
+// encodeForm — a flat object → `a=1&b=2`. Forms have no nesting, so a nested value means
+// **the binding is written wrong** — say so directly, don't silently stuff a chunk of JSON
+// into some field.
 func encodeForm(body any) (io.Reader, error) {
 	m, ok := body.(map[string]any)
 	if !ok {
@@ -75,7 +84,7 @@ func encodeForm(body any) (io.Reader, error) {
 	return strings.NewReader(form.Encode()), nil
 }
 
-// formValue —— 一个表单字段的值。字符串/数字/布尔可以；嵌套不行。
+// formValue — the value of one form field. String/number/bool are fine; nesting is not.
 func formValue(v any) (string, error) {
 	switch t := v.(type) {
 	case string:
@@ -87,14 +96,15 @@ func formValue(v any) (string, error) {
 	}
 }
 
-// checkRequired —— body 缺任一必填字段（缺键或值 null）→ ErrMissingRequired（pre-flight 拒）。
+// checkRequired — the body is missing any required field (missing key or null value) →
+// ErrMissingRequired (pre-flight rejection).
 func checkRequired(body any, required []string) error {
 	if len(required) == 0 {
 		return nil
 	}
 	m, ok := body.(map[string]any)
 	if !ok {
-		m = nil // 非对象 body → 视作所有必填都缺
+		m = nil // a non-object body → treat all required fields as missing
 	}
 	for _, f := range required {
 		if fieldMissing(m, f) {

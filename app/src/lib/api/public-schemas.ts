@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
-// AdminPageSchema —— /api/admin/page GET/PUT 的形状。insights/projects 是 corpus
-// pin 列表(wiki id 引用),不是自由文本 —— 主页渲染时 join 成卡(不变量
-// pinned ⊆ published 在写入点维护)。跟公开 /api/v1/page 的卡形状(PagePinCard)
-// 不同:这里存引用,那里存渲染好的卡。
+// AdminPageSchema —— shape of /api/admin/page GET/PUT. insights/projects are
+// corpus pin lists (wiki id references), not free text — the home page joins
+// them into cards at render time (the invariant pinned ⊆ published is
+// maintained at the write site). Different from the public /api/v1/page card
+// shape (PagePinCard): this stores references, that stores rendered cards.
 export const AdminPageSchema = z.object({
   updated_at: z.string(), owner_id: z.string(), hero_prose: z.string(),
   hero_examples: z.array(z.string()),
@@ -14,20 +15,21 @@ export const AdminPageSchema = z.object({
 });
 export type AdminPage = z.infer<typeof AdminPageSchema>;
 
-// PinnableEntrySchema —— GET /page/pinnable 的候选:published 的 wiki 条目
-// (id/title/path),给 admin pin manager 的选择器。
+// PinnableEntrySchema —— candidates for GET /page/pinnable: published wiki
+// entries (id/title/path), for the admin pin manager's picker.
 export const PinnableEntrySchema = z.object({
   id: z.string(), title: z.string(), path: z.string(),
 });
 export const PinnableListSchema = z.array(PinnableEntrySchema);
 export type PinnableEntry = z.infer<typeof PinnableEntrySchema>;
 
-// ─── writings（公开读者页）────────────────────────────────────────────
-// 从 `public.ts` 搬过来的：那个文件顶到了 max-lines，而闸门指的方向是对的 ——
-// schema 归 schema。这里只放形状，取数仍在 public.ts。
+// ─── writings (public reader page) ────────────────────────────────────────
+// Moved over from `public.ts`: that file hit max-lines, and the gate was
+// pointing the right direction — schemas belong here. Only shapes live in
+// this file; fetching still lives in public.ts.
 
-// BacklinkRef —— /writings/<slug> "linked from" 的一条。后端渲染时收集，
-// 源 writing 必须 published。
+// BacklinkRef —— one "linked from" entry on /writings/<slug>. Collected by the
+// backend at render time; the source writing must be published.
 const BacklinkRefSchema = z.object({ slug: z.string(), title: z.string() });
 export type BacklinkRef = z.infer<typeof BacklinkRefSchema>;
 
@@ -42,13 +44,17 @@ export const WritingViewSchema = z.object({
   published_at: z.string().nullish().transform((v) => v ?? undefined),
   asset_urls: z.record(z.string(), z.string()).nullish().transform((v) => v ?? {}),
   backlinks: z.array(BacklinkRefSchema).nullish().transform((v) => v ?? []),
-  // 服务端已挑好那一面；这两个只回答"还有哪些"（切换器用）。
+  // The server has already picked which side to serve; these two only answer
+  // "what else is there" (for the switcher).
   //
-  // **`.nullish()` 不是 `.optional()`**（F-R-5）：Go 的 nil slice 编码出来是 `null`，
-  // 而 `.optional()` 只接受**键不在**，接不住 `null` —— 于是整份 parse 挂掉，
-  // 而 zod 不匹配是**整份挂掉**，不是这一个字段变 undefined（[[zod-unknown-is-not-optional]]）。
-  // 后果不是少一个语言切换器，是 `/writings` 整页 500。这一行上面那几个
-  // `.optional()` 是同一个坑的邻居，一起改了：它们的值也都来自可能为 nil 的 Go 字段。
+  // **`.nullish()` is not `.optional()`** (F-R-5): a Go nil slice encodes as
+  // `null`, but `.optional()` only accepts the **key being absent** — it
+  // doesn't accept `null`, so the whole parse fails, and a zod mismatch fails
+  // the **entire** parse, not just turns this one field into undefined
+  // ([[zod-unknown-is-not-optional]]). The consequence isn't a missing
+  // language switcher, it's the whole `/writings` page 500ing. The
+  // `.optional()` calls above this line are neighbors of the same trap, fixed
+  // together: their values also come from Go fields that can be nil.
   lang: z.string().nullish(),
   languages: z.array(z.object({ code: z.string(), label: z.string() })).nullish(),
 });

@@ -1,23 +1,30 @@
-// export_frontmatter.go —— 导出时那一块 frontmatter 该长什么样。
+// export_frontmatter.go — what the frontmatter block should look like on export.
 //
-// 两种来路，两种写法：
+// Two origins, two write paths:
 //
-//   · 这条笔记**来自 vault**（存着 `obsidian_frontmatter` 原文）→ 拿原文**打补丁**：
-//     产品拥有的 key 只有在网页上被改过时才就地改那几行，其余原样带回去。
-//   · 这条笔记是**网页 / MCP 新建的**（没有原文）→ 照旧按字段渲染。
+//   · The note **came from the vault** (has an `obsidian_frontmatter` original) → **patch**
+//     the original: only rewrite, in place, the lines whose key was actually edited on the
+//     web; everything else is carried back verbatim.
+//   · The note was **created on the web / via MCP** (no original) → render field-by-field
+//     as before.
 //
-// 为什么不统一成「按字段重新渲染」（那样代码少一半）：产品只认识十来个 key，而 owner 的
-// vault 上还写着 `langs`（真 vault 596 篇）、`aliases-zh`（595 篇）、`owns`（33 篇）。
-// 重新渲染等于把它们删了。形态也一样重要 —— `tags: [a, b]` 重渲会变成缩进 list，键序也会重排，
-// 内容一样而字节不一样：在一个 git 管着的 vault 里，那是每次同步都发生一遍的假 diff。
+// Why not unify on "always re-render field-by-field" (half the code): the product only
+// knows about a dozen keys, while the owner's vault also carries `langs` (596 real-vault
+// notes), `aliases-zh` (595 notes), `owns` (33 notes). Re-rendering would delete them.
+// Shape matters too — re-rendering `tags: [a, b]` turns it into an indented list and
+// reorders the keys: same content, different bytes. In a git-tracked vault, that is a
+// fake diff on every single sync.
 //
-// 为什么不统一成「原样回吐」：网页上改过的东西必须反映出去，否则镜像说的是旧话。
+// Why not unify on "always echo the original verbatim": edits made on the web must be
+// reflected back, or the mirror would be saying stale things.
 //
-// ── 一个 key 的三件事写在一起 ────────────────────────────────────────────────────────
-// 每个 `fmField` 自带**怎么渲染**和**怎么跟原文比**。这两件事最早是分开的（一张字段表 +
-// 一个按 key 分派的 switch），于是加一个 key 要记得改两处，而漏掉哪一处都不报错：
-// 漏了比较 → 那个 key 每次导出都被重写一遍（假 diff）；漏了渲染 → 那个 key 被删。
-// 合在一起之后，忘不掉。
+// —— Three facts about one key, kept together ——
+// Each `fmField` carries both **how to render it** and **how to compare it against the
+// original**. These two used to live apart (a field table + a switch dispatched by
+// key), so adding a key meant remembering to edit both places, and missing either one
+// failed silently: miss the comparison → that key gets rewritten on every export (a
+// fake diff); miss the rendering → that key gets deleted. Keeping them together, you
+// can't forget one.
 
 package obsidian
 
@@ -28,15 +35,18 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
-// fmField —— 一个产品拥有的 frontmatter key：它现在的值怎么写，以及它跟原文说的是否一致。
+// fmField — one product-owned frontmatter key: how its current value is rendered,
+// and whether it still agrees with what the original said.
 type fmField struct {
-	// sameAsVault —— 原文说的还是这个值吗。是 → 那几行原样留着，形态一并保住。
+	// sameAsVault — does the original still say this value? If yes → those lines are
+	// kept verbatim, preserving their shape too.
 	sameAsVault func(was *corpFM) bool
 	key         string
 	lines       []string
 }
 
-// ownedFrontmatter —— 导出时产品拥有的那几个 key。切片顺序 = 没有原文时的书写顺序。
+// ownedFrontmatter — the keys the product owns on export. Slice order = the write
+// order used when there is no original.
 func ownedFrontmatter(n *corpus.SyncNote) []fmField {
 	return []fmField{
 		publishField(n.Published),
@@ -49,8 +59,9 @@ func ownedFrontmatter(n *corpus.SyncNote) []fmField {
 	}
 }
 
-// publishField —— 原文**没写** publish 时不算「变了」。真 vault 的绝大多数笔记一个 publish
-// 键都没有，而补一行上去就是给每一条笔记加一条 diff（F-L-22 的同族）。
+// publishField — when the original **has no** publish key at all, that does not count
+// as "changed". Most notes in the real vault have no publish key, and adding one would
+// add a diff to every single note (same family as F-L-22).
 func publishField(published bool) fmField {
 	now := strconv.FormatBool(published)
 	return fmField{
@@ -86,7 +97,8 @@ func pairField(key string, now map[string]string) fmField {
 	}
 }
 
-// renderOwnedBlock —— 没有原文时的写法：按 ownedFrontmatter 的顺序渲染。
+// renderOwnedBlock — how it's written when there is no original: rendered in the
+// order given by ownedFrontmatter.
 func renderOwnedBlock(n *corpus.SyncNote) string {
 	lines := []string{}
 	for _, f := range ownedFrontmatter(n) {
@@ -95,7 +107,8 @@ func renderOwnedBlock(n *corpus.SyncNote) string {
 	return strings.Join(lines, newline)
 }
 
-// scalarLines —— `key: value`。空值一行都不写（跟 import 侧「没有这个键」等价）。
+// scalarLines — `key: value`. An empty value writes no line at all (equivalent to
+// "this key is absent" on the import side).
 func scalarLines(key, val string) []string {
 	if val == "" {
 		return []string{}
@@ -103,7 +116,7 @@ func scalarLines(key, val string) []string {
 	return []string{key + ": " + val}
 }
 
-// listLines —— `key:` + 缩进 list。空一行都不写。
+// listLines — `key:` plus an indented list. An empty list writes no line at all.
 func listLines(key string, vals []string) []string {
 	if len(vals) == 0 {
 		return []string{}
@@ -116,8 +129,10 @@ func listLines(key string, vals []string) []string {
 	return out
 }
 
-// pairLines —— `key:` + 缩进 `码: 字`。按码排序：Go 的 map 迭代顺序是随机的，不排的话
-// 同一条笔记连导两次会得到两份不同的字节 —— 那正是这一族缺陷要消灭的东西。
+// pairLines — `key:` plus indented `code: label` lines, sorted by code: Go's map
+// iteration order is randomized, and without sorting, exporting the same note twice
+// in a row would yield two different byte streams — exactly what this bug family
+// exists to eliminate.
 func pairLines(key string, pairs map[string]string) []string {
 	if len(pairs) == 0 {
 		return []string{}

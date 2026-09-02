@@ -1,18 +1,21 @@
-// select.go —— "这位读者应该看到哪一份正文"。
+// select.go —— "which body should this reader see".
 //
-// 一条笔记**不是** N 份文档,所以选语言不是选文档:中性散文照出,多语区块换成那一面。
-// 这条规则同时供三处:读者页、检索(一条命中而不是 N 条)、以及喂给 agent 的上下文
-// (一次一种语言,不是把 N 种都灌进去)。
+// A note is **not** N documents, so picking a language isn't picking a document:
+// neutral prose passes through unchanged, and a multilingual block is swapped for
+// that one face. This same rule serves three call sites: the reader page, search
+// (one hit, not N), and the context fed to an agent (one language at a time, not
+// all N crammed in).
 
 package i18n
 
 import "strings"
 
-// Render —— 按 want 语言把正文拼回一份单语 markdown。
+// Render —— reassembles the body into a single monolingual markdown for the want language.
 //
-// want 为空、或者这条笔记里根本没有那一面 → 退回 fallback(frontmatter 的 lang);
-// 连 fallback 都没有 → 第一面。**绝不把某一面贴到另一个语言标签下**:退回整条,
-// 而不是猜一段。
+// If want is empty, or this note has no pane for it, falls back to fallback
+// (frontmatter's lang); if even that has no pane, falls back to the first pane.
+// **Never attach one face to a different language label**: the whole note falls
+// back, never a guessed segment.
 func Render(doc *Doc, want, fallback string) string {
 	if !doc.Multilingual() {
 		return joinNeutral(doc)
@@ -27,10 +30,12 @@ func Render(doc *Doc, want, fallback string) string {
 	return strings.Join(parts, "\n\n")
 }
 
-// Resolve —— 实际会用哪个语言码。
+// Resolve —— which language code actually gets used.
 //
-// 顺序:读者要的 → 身份语言(lang)→ 第一面。`?lang=de` 落在一条没有德语的笔记上时,
-// 落点是 lang 而**不是** langs[0] —— lang 是这条笔记的身份,langs[0] 只是碰巧排在前面。
+// Order: what the reader wants -> the identity language (lang) -> the first pane.
+// When `?lang=de` lands on a note with no German pane, the result is lang, **not**
+// langs[0] — lang is this note's identity, langs[0] is just whichever happens to
+// come first.
 func Resolve(doc *Doc, want, fallback string) string {
 	if code := strings.ToLower(strings.TrimSpace(want)); contains(doc.Langs, code) {
 		return code
@@ -44,7 +49,8 @@ func Resolve(doc *Doc, want, fallback string) string {
 	return ""
 }
 
-// regionText —— 一段在选定语言下的样子:中性段原样,多语段取那一面(没有那一面 → 空)。
+// regionText —— how a segment looks under the chosen language: a neutral segment
+// passes through as-is, a multilingual segment takes that one face (no such face -> empty).
 func regionText(r *Region, lang string) string {
 	if len(r.Panes) == 0 {
 		return r.Neutral
@@ -67,10 +73,11 @@ func joinNeutral(doc *Doc) string {
 	return strings.Join(parts, "\n\n")
 }
 
-// Label —— 切换器上这个语言码显示成什么。
+// Label —— what this language code shows as in the switcher.
 //
-// 规则来自 vault 自己的 lang-labels:owner 写了就用他的;没写就按码给一个 ——
-// 非拉丁文字给本地写法(zh→中文),其余大写(fr→FR)。不发明第二套规则。
+// The rule comes from the vault's own lang-labels: if the owner wrote one, use it;
+// otherwise derive one from the code — a non-Latin script gets its native spelling
+// (zh -> 中文), everything else gets uppercased (fr -> FR). No second rule is invented.
 func Label(code string, labels map[string]string) string {
 	if l, ok := labels[code]; ok && strings.TrimSpace(l) != "" {
 		return l
@@ -81,9 +88,10 @@ func Label(code string, labels map[string]string) string {
 	return strings.ToUpper(code)
 }
 
-// builtinLabels —— 非拉丁文字的默认写法:一个中文读者看到 "ZH" 会以为那是别人的语言。
+// builtinLabels —— default spellings for non-Latin scripts: a Chinese reader seeing
+// "ZH" would take it for someone else's language.
 //
-//nolint:gosmopolitan // 这张表的**内容**就是各语言自己的写法,换成 ASCII 等于把它废了
+//nolint:gosmopolitan // this table's content IS each language's own spelling; ASCII defeats it
 var builtinLabels = map[string]string{
 	"zh": "中文", "zh-hans": "简体", "zh-hant": "繁體",
 	"ja": "日本語", "ko": "한국어", "ru": "Русский",

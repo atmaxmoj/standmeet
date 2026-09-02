@@ -1,24 +1,38 @@
-// email.go —— 邮箱的**存储身份规则**：什么样的两个字符串算同一行。
+// email.go —— the **storage identity rule** for email: what makes two
+// strings count as the same row.
 //
-// 这条规则原来只活在 `usecase.normalizeEmail` 里，而那个函数**只有 change_email 调**。
-// claim / login / recover 三个入口都把原值直接透传下去。大小写侥幸没出事 —— `owners.email`
-// 是 citext；**空格会出事**：citext 不 trim。claim 时带一个前导空格进去，那个带空格的字符串
-// 就成了身份，之后正常输入永远登不上，recover 也救不回来（同一条查找路径）。
+// This rule used to live only in `usecase.normalizeEmail`, and that
+// function was **only called by change_email**. The claim / login /
+// recover entry points all passed the raw value straight through.
+// Case got a pass by luck — `owners.email` is citext. **Whitespace does
+// not**: citext doesn't trim. Claim a row with a leading space and that
+// space-padded string becomes the identity — normal input can never log
+// in again after that, and recover can't save it either (same lookup
+// path).
 //
-// 所以规则落在 repo：邮箱进出数据库只有三个口（CreateOwner / UpdateOwnerEmail /
-// GetOwnerByEmail），全在这一层。放在这里之后**没有什么需要记得** —— 以后新加一个读邮箱的
-// 入口，它自动就是对的。放在 usecase 就得每个入口各记一次，而忘记调用的人和写检查器的人
-// 是同一个（CLAUDE.md A4：外来数据在入口规范化一次，下游当字段总在）。
+// So the rule lives in repo instead: email has exactly three doors in and
+// out of the database (CreateOwner / UpdateOwnerEmail / GetOwnerByEmail),
+// all in this layer. Putting it here means **there is nothing to
+// remember** — any new entry point that reads email is automatically
+// correct. Putting it in usecase would mean remembering it at every entry
+// point, and the person who forgets to call it and the person who writes
+// the checker for it are the same person (CLAUDE.md A4: normalize
+// foreign data once at the entry point, so downstream always sees a
+// well-formed field).
 //
-// 分工：**repo 规范化**（trim + 转小写，决定"是不是同一行"），**usecase 校验格式**
-// （有没有 @、长度，决定"能不能收"）。citext 已经管了大小写，这里补上空格那一半。
+// Division of labor: **repo normalizes** (trim + lowercase, deciding
+// "is this the same row"), **usecase validates format** (has an @, length,
+// deciding "is this acceptable"). citext already handles case; this adds
+// the whitespace half.
 
 package repo
 
 import "strings"
 
-// NormalizeEmail —— 存储身份用的形式。导出是因为 usecase 在校验前也要按同一把尺子量，
-// 否则"校验通过的串"和"存进去的串"会是两个东西。
+// NormalizeEmail —— the form used for storage identity. Exported because
+// usecase must also measure against the same yardstick before validating,
+// otherwise "the string that passed validation" and "the string that got
+// stored" would be two different things.
 func NormalizeEmail(raw string) string {
 	return strings.ToLower(strings.TrimSpace(raw))
 }

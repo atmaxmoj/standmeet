@@ -1,10 +1,13 @@
-// registry_visitor_bundle.go —— /sessions 的一次性 visitor 装配。
+// registry_visitor_bundle.go —— a single-pass visitor assembly for /sessions.
 //
-// /sessions 同时要 States + ToolSpecs + PromptPartIDs。原来分别调 VisitorStates
-// + VisitorToolSpecs 会把每个外置插件**冷拨两遍**(各自一趟 VisitorBinding)。两个
-// 真实网络沙箱插件时 = 4 次冷拨,把一次 /sessions 顶到 ~16s(超 e2e 15s 等待)。这里
-// 每个 cap 只 VisitorBinding 一次,state 与 tool spec 共用同一次拨号。语义跟三方法
-// 逐一调完全一致(顺序、隐藏/禁用判定、prompt-part 与 binding 解耦都不变)。
+// /sessions needs States + ToolSpecs + PromptPartIDs all at once. Calling
+// VisitorStates + VisitorToolSpecs separately used to **cold-dial each
+// externalized plugin twice** (each its own VisitorBinding round trip). With two
+// real network-sandboxed plugins that's 4 cold dials, pushing one /sessions call
+// to ~16s (past the e2e 15s wait). Here each cap gets exactly one VisitorBinding
+// call, and state and tool spec share that one dial. Semantics match calling the
+// three methods separately exactly (order, hidden/disabled tests, and the
+// prompt-part/binding decoupling are all unchanged).
 
 package capreg
 
@@ -14,26 +17,35 @@ import (
 	"sync"
 )
 
-// VisitorBundle —— 一次 walk 产出的三样投影。
+// VisitorBundle —— the three projections one walk produces.
 type VisitorBundle struct {
 	States        []CapabilityState
 	ToolSpecs     []VisitorToolSpec
 	PromptPartIDs []string
 }
 
-// AssembleVisitorBundle —— 每个 cap 只 VisitorBinding 一次,一趟 walk 出
-// States + ToolSpecs + PromptPartIDs。/sessions 用它替代分别调三方法(那样每个
-// 外置插件被冷拨两遍)。
+// AssembleVisitorBundle —— each cap gets exactly one VisitorBinding call; one
+// walk produces States + ToolSpecs + PromptPartIDs. /sessions uses this instead
+// of calling the three methods separately (which cold-dialed each externalized
+// plugin twice).
 //
-// **每个 cap 并发实例化。** 这一步躲不开"全部都拨"(会话要拿到全部 tool spec),但没有理由
-// 一个一个拨:每个外置能力实例化 = 起一个 bwrap 沙箱(冷启约 1 秒),串行就是 N 秒起步。
-// 实测负载下 `/api/v1/sessions` 要 13.9 秒,而访客侧 15 秒放弃 —— 表现成"会话偶尔打不开"。
-// (#17 收的是**单次工具调用**那条:只拨提供该 tool 的那一个。这条要全部,能省的只有等待方式。)
+// **Each cap is instantiated concurrently.** There's no avoiding "dial all of
+// them" (the session needs every tool spec), but there's no reason to dial them
+// one at a time: each externalized capability instantiation spawns a bwrap
+// sandbox (~1s cold start), so serial dialing is N seconds just to start.
+// Measured under load, `/api/v1/sessions` took 13.9 seconds while the visitor
+// side gives up at 15 — showing up as "the session occasionally fails to open".
+// (#17 addressed the **single tool call** path — dial only the one that serves
+// that tool. This path needs all of them, so the only thing left to save is how
+// the wait is spent.)
 //
-// **顺序仍然是注册顺序**:每个 cap 先各折进自己那一格,再按格子顺序拼起来。前端的能力列表、
-// prompt part 的拼接顺序都靠它,并发化最容易弄丢的就是这个 —— 所以它有单独一条测试。
+// **Order is still registration order**: each cap folds into its own slot first,
+// then the slots are concatenated in order. The frontend's capability list and
+// the prompt part splice order both depend on this — it's the thing concurrency
+// most easily loses, hence its own dedicated test.
 //
-// 并发度不设上限:能力数是注册期就定死的一小撮(个位数),不是随请求增长的量。
+// No cap on concurrency: the number of capabilities is a small, fixed handful
+// set at registration time, not something that grows with request volume.
 func (r *Registry) AssembleVisitorBundle(
 	ctx context.Context, in *AssembleInput,
 ) VisitorBundle {
@@ -47,8 +59,10 @@ func (r *Registry) AssembleVisitorBundle(
 	return mergeVisitorSlots(slots, len(caps))
 }
 
-// capBundleSlot —— 一个 cap 自己那一格(只装它自己贡献的东西)。并发写各自的格子,
-// 不碰共享切片 —— 共享 append 既要锁,又会把顺序变成"谁先回来"。
+// capBundleSlot —— one cap's own slot (holds only what it itself contributes).
+// Writing concurrently into separate slots avoids touching a shared slice —
+// shared appends would both need a lock and turn order into "whoever returns
+// first".
 func capBundleSlot(ctx context.Context, c Capability, in *AssembleInput) VisitorBundle {
 	slot := VisitorBundle{
 		States:        make([]CapabilityState, 0, 1),
@@ -59,7 +73,8 @@ func capBundleSlot(ctx context.Context, c Capability, in *AssembleInput) Visitor
 	return slot
 }
 
-// mergeVisitorSlots —— 按注册顺序拼回一份 bundle。header 永远是第一个 prompt part。
+// mergeVisitorSlots —— concatenates slots back into one bundle in registration
+// order. The header is always the first prompt part.
 func mergeVisitorSlots(slots []VisitorBundle, n int) VisitorBundle {
 	b := VisitorBundle{
 		States:        make([]CapabilityState, 0, n),
@@ -75,9 +90,10 @@ func mergeVisitorSlots(slots []VisitorBundle, n int) VisitorBundle {
 	return b
 }
 
-// accumVisitorCap —— 把一个 capability 折进 bundle:prompt-part-id 跟 binding 解耦
-// (与 VisitorPromptPartIDs 同源,不拨号);binding 拨一次,active 同时贡献 state +
-// tool specs,disabled 只贡献 enabled=false 的 state,hidden 啥都不贡献。
+// accumVisitorCap —— folds one capability into the bundle: the prompt-part-id is
+// decoupled from the binding (same source as VisitorPromptPartIDs, no dialing);
+// the binding is dialed once — active contributes both state and tool specs,
+// disabled contributes only an enabled=false state, hidden contributes nothing.
 func accumVisitorCap(
 	ctx context.Context, c Capability, in *AssembleInput, b *VisitorBundle,
 ) {
@@ -88,15 +104,18 @@ func accumVisitorCap(
 	}
 	if err != nil {
 		st := CapabilityState{ID: c.ID(), Enabled: false}
-		setCapTitle(&st, c) // disabled 的也带 title：dock 按钮置灰时仍要 label
+		// Even disabled ones carry a title: a greyed-out dock button needs a
+		// label.
+		setCapTitle(&st, c)
 		b.States = append(b.States, st)
 		return
 	}
 	accumActiveBinding(ctx, binding, c, b)
 }
 
-// appendPromptPart —— cap 的 system-prompt fragment id(非空才进),与 binding 无关
-// (跟 VisitorPromptPartIDs 同源,不拨号)。
+// appendPromptPart —— the cap's system-prompt fragment id (added only if
+// non-empty), unrelated to the binding (same source as VisitorPromptPartIDs, no
+// dialing).
 func appendPromptPart(
 	ctx context.Context, c Capability, in *AssembleInput, b *VisitorBundle,
 ) {
@@ -105,13 +124,14 @@ func appendPromptPart(
 	}
 }
 
-// isHiddenBinding —— ErrHidden 或干净的 nil binding = 该 cap 完全不暴露
-// (跟 visitorStateFor 的隐藏判定一致)。
+// isHiddenBinding —— ErrHidden, or a clean nil binding, means this cap is not
+// exposed at all (matches visitorStateFor's hidden test).
 func isHiddenBinding(b *Binding, err error) bool {
 	return errors.Is(err, ErrHidden) || (b == nil && err == nil)
 }
 
-// accumActiveBinding —— active binding 同时折出 state + tool specs,末了 Close。
+// accumActiveBinding —— an active binding folds into both state and tool specs,
+// then Close at the end.
 func accumActiveBinding(
 	ctx context.Context, binding *Binding, c Capability, b *VisitorBundle,
 ) {
@@ -119,7 +139,7 @@ func accumActiveBinding(
 	if state.ID == "" {
 		state.ID = c.ID()
 	}
-	setCapTitle(&state, c) // dock 按钮 label 透传 MCP title（无 id 兜底）
+	setCapTitle(&state, c) // dock button label passes through the MCP title (no id fallback)
 	b.States = append(b.States, state)
 	for i := range binding.Tools {
 		b.ToolSpecs = append(b.ToolSpecs, toolToVisitorSpec(ctx, &binding.Tools[i]))

@@ -1,9 +1,11 @@
-// agent-turn.ts —— H.10: VisitorTurnAgent，agent-core 唯一的 agent 入口。
+// agent-turn.ts —— H.10: VisitorTurnAgent, agent-core's single agent entry point.
 //
-// H.9 backend (eino ADK) 接管 LLM ↔ tool loop 之后，浏览器只是 event
-// consumer —— 单一 POST /api/v1/agent/turn，SSE 收整套事件 (text /
-// tool_started / tool_completed / done / error)，分派给 observer 渲 UI 即可。
-// (老的浏览器侧 VisitorAgent loop 已删，只剩 3 ports: prompts / turn / observer)
+// After H.9 backend (eino ADK) took over the LLM <-> tool loop, the
+// browser is just an event consumer —— a single POST /api/v1/agent/turn,
+// receiving the whole event set over SSE (text / tool_started /
+// tool_completed / done / error), dispatched to the observer to render the
+// UI. (The old browser-side VisitorAgent loop is deleted; only 3 ports
+// remain: prompts / turn / observer)
 
 import type {
   DocContext,
@@ -22,19 +24,25 @@ export interface VisitorTurnAgentPorts {
 
 export interface VisitorTurnAgentConfig {
   readonly systemPromptPartIDs: readonly string[];
-  // persona —— 这个会话**动态**的那一段 system prompt：role 的人格正文 + 这张码自己的
-  // prompt(#104) + 每条授权 skill 的名字和描述。后端在 /sessions 里算好下发
-  // (`system_prompt_persona`)，因为它随 role/code/skill 变，不是一段可缓存的 fragment，
-  // 所以进不了 part id 那条通道。
+  // persona —— the **dynamic** part of this session's system prompt: the
+  // role's persona body + this code's own prompt (#104) + name and
+  // description of every authorized skill. The backend computes and sends
+  // it down in /sessions (`system_prompt_persona`), because it varies by
+  // role/code/skill and isn't a cacheable fragment, so it can't go through
+  // the part id channel.
   //
-  // 它以前**根本没被拼进去**：composeSystemPrompt 只遍历 part ids，于是 owner 配的人格、
-  // 码的专属 prompt、skill 清单三样都从没到过模型手上 —— skill_use 要准确的 skill 名，
-  // 没清单就永远点不出名字（F-A-36）。
+  // It used to **never get spliced in at all**: composeSystemPrompt only
+  // iterated over part ids, so the owner's configured persona, the code's
+  // dedicated prompt, and the skill list all never reached the model —
+  // skill_use needs the exact skill name, and with no list it could never
+  // name one (F-A-36).
   readonly persona?: string;
-  // conversationID 持久化 chat 行的 UUID，每次 /agent/turn 都要带，让
-  // backend tool (calendar_book / 等) 找得到归属的 conversation。
+  // conversationID is the UUID of the persisted chat row, sent on every
+  // /agent/turn so backend tools (calendar_book / etc.) can find the
+  // conversation it belongs to.
   readonly conversationID: string;
-  // docContext —— 访客当前所在 doc(在 doc 页/浮窗发问时);主 chat 全屏 = undefined。
+  // docContext —— the doc the visitor is currently on (when asking from a
+  // doc page/floating panel); undefined for the main full-screen chat.
   readonly docContext?: DocContext;
 }
 
@@ -52,9 +60,9 @@ export class VisitorTurnAgent {
     this.cfg = cfg;
   }
 
-  // send —— 一整 turn：拼 system prompt → POST /agent/turn → 收 SSE 事件
-  // → emit observer events → 返回更新后的 message history (caller 持给下
-  // 次调用)。
+  // send —— runs one whole turn: assemble system prompt -> POST /agent/turn
+  // -> receive SSE events -> emit observer events -> return the updated
+  // message history (the caller holds onto it for the next call).
   async send(opts: SendTurnOptions): Promise<readonly Message[]> {
     const system = await this.composeSystemPrompt();
     const history = opts.history ?? [];
@@ -70,20 +78,29 @@ export class VisitorTurnAgent {
         this.consumeEvent(ev, ctx);
       }
     } catch (err) {
-      // 流被中途掐断:reader.read() reject(代理/服务器 write-deadline 超时、
-      // 网络抖动 → ERR_INCOMPLETE_CHUNKED_ENCODING),或 streamer 在拿到响应
-      // 时就因非 2xx 抛错(401 session 失效 / 403 等)。绝不让对话卡 pending。
+      // Stream cut mid-way: reader.read() rejects (proxy/server
+      // write-deadline timeout, network hiccup ->
+      // ERR_INCOMPLETE_CHUNKED_ENCODING), or the streamer throws right when
+      // it gets the response because of a non-2xx status (401 session
+      // expired / 403 etc.). Never let the conversation get stuck pending.
       ctx.cutStatus = readCutStatus(err);
     }
     this.emit({ type: 'iteration_completed', iter: 0 });
-    // 一轮**算不算说完了**,判据是它的 `done` 尾帧到没到 —— 后端在每条路径末尾都无条件发它
-    // (agent_loop.go:152,错误路径也发),所以缺了它就是**确定**没收尾。
+    // Whether a turn **counts as finished** is decided by whether its
+    // `done` trailing frame arrived — the backend unconditionally sends it
+    // at the end of every path (agent_loop.go:152, error paths included),
+    // so missing it means the turn is **definitely** unfinished.
     //
-    // 这里以前判的是 `ctx.text === ''`:一个字都没收到才报。而「有文字」不等于「有答案」——
-    // 真实环境里那段文字是模型的计划旁白(*"Let me peek at the remaining ~39 notes…"*),
-    // 流在 done 之前断掉,于是那半句计划被当成完成的答案发布,访客那边没有任何提示,
-    // 这一轮还算成功、照常计费(F-A-32)。后端早就有这个区分(它判的是 product 而不是
-    // 累计文本),客户端这一侧从来没有。
+    // This used to check `ctx.text === ''`: only flagged an error when not
+    // a single character came back. But "has text" doesn't mean "has an
+    // answer" — in the real environment that text can be the model's
+    // planning narration (*"Let me peek at the remaining ~39 notes…"*),
+    // with the stream cutting off before done, so that half-finished plan
+    // gets published as the completed answer, the visitor gets no
+    // indication anything went wrong, and the turn still counts as
+    // successful and gets billed normally (F-A-32). The backend already
+    // makes this distinction (it judges by the product, not the
+    // accumulated text) — the client side never did.
     if (!ctx.sawDone && !ctx.errored) {
       ctx.errored = true;
       this.emit({ type: 'error', message: unfinishedMessage(ctx) });
@@ -122,10 +139,13 @@ export class VisitorTurnAgent {
         this.emit({ type: 'retrying', attempt: ev.attempt });
         return;
       case 'done':
-        // 尾帧本身不渲任何东西,但**它到没到**是这一轮唯一可靠的「说完了」凭据。
+        // The trailing frame itself renders nothing, but **whether it
+        // arrived** is the only reliable evidence this turn "finished".
         ctx.sawDone = true;
-        // 而它**怎么**结束的同样有人要:stop_reason=max_tokens 是"预算用完",不是"说完了"。
-        // 以前这里只置 sawDone、把 stopReason 丢掉 —— 那就是这条信息断掉的地方(F-A-34)。
+        // And **how** it ended matters too: stop_reason=max_tokens means
+        // "ran out of budget", not "finished speaking". This used to only
+        // set sawDone and discard stopReason — that's where this
+        // information got lost (F-A-34).
         this.emit({ type: 'turn_finished', stopReason: ev.stopReason });
         return;
       case 'error':
@@ -147,9 +167,10 @@ export class VisitorTurnAgent {
     });
   }
 
-  // composeSystemPrompt —— 固定 fragment（visitor-header + 每个 capability 一段）在前，
-  // 这个会话的动态 persona 在后。顺序要紧：persona 是 owner 为这个受众写的东西，
-  // 让它压在通用说明之上。
+  // composeSystemPrompt —— fixed fragments (visitor-header + one section
+  // per capability) come first, this session's dynamic persona comes
+  // after. Order matters: persona is what the owner wrote for this
+  // audience, so it should sit on top of the general instructions.
   private async composeSystemPrompt(): Promise<string> {
     const parts: string[] = [];
     for (const id of this.cfg.systemPromptPartIDs) {
@@ -165,34 +186,42 @@ export class VisitorTurnAgent {
   }
 }
 
-// STREAM_CUT_MESSAGE —— 流被掐断且一个字都没收到时给 visitor 的人话兜底。
-// 不暴露 ERR_INCOMPLETE_CHUNKED_ENCODING 之类的技术细节。
+// STREAM_CUT_MESSAGE —— human-readable fallback shown to the visitor when
+// the stream got cut and not a single character came back.
+// Doesn't expose technical details like ERR_INCOMPLETE_CHUNKED_ENCODING.
 const STREAM_CUT_MESSAGE =
   'The connection dropped before a reply came back. Please try asking again.';
 
-// SESSION_EXPIRED_MESSAGE —— 401/403:session token 失效(过期 / 实例重置 /
-// 配额耗尽)。再试一次没用,得用访问链接重进 —— 说清楚,别让人对着 "try again"。
+// SESSION_EXPIRED_MESSAGE —— 401/403: session token is invalid (expired /
+// instance reset / quota exhausted). Retrying won't help; the visitor needs
+// to re-open the access link — say so explicitly instead of leaving them
+// staring at "try again".
 const SESSION_EXPIRED_MESSAGE =
   'Your session is no longer valid (it may have expired). Re-open your access link to continue.';
 
-// PARTIAL_ANSWER_MESSAGE —— 已经流出来一部分、但没收尾。**必须说出来**:一段没说完的话
-// 沉默地留在屏幕上,读起来就是一个完整而错误的答案(F-A-32 里那半句是模型的计划旁白)。
+// PARTIAL_ANSWER_MESSAGE —— part of the answer already streamed in, but
+// never finished. **Must be said out loud**: an unfinished sentence left
+// silently on screen reads as a complete but wrong answer (in F-A-32, that
+// half-sentence was the model's own planning narration).
 const PARTIAL_ANSWER_MESSAGE =
   'This answer was cut off before it finished — what you see above is partial. Please ask again.';
 
-// cutMessage —— 按掐断时的 HTTP status 选文案:401/403 → 重进;其它 → 重试。
+// cutMessage —— picks the copy based on the HTTP status at the time of the
+// cut: 401/403 -> re-open the link; anything else -> retry.
 function cutMessage(status: number): string {
   return status === 401 || status === 403 ? SESSION_EXPIRED_MESSAGE : STREAM_CUT_MESSAGE;
 }
 
-// unfinishedMessage —— 没收尾时说哪一句:已经流出来一部分 → 说它是残缺的;一个字都没有 →
-// 按掐断时的 status 说「重进」还是「再试」。
+// unfinishedMessage —— which line to show when unfinished: some text
+// already streamed in -> say it's partial; nothing at all -> pick "re-open
+// the link" or "try again" based on the status at the time of the cut.
 function unfinishedMessage(ctx: TurnCtx): string {
   return ctx.text === '' ? cutMessage(ctx.cutStatus) : PARTIAL_ANSWER_MESSAGE;
 }
 
-// readCutStatus —— 从 streamer 抛的 error 上取 HTTP status(agent-adapters 用
-// Object.assign 挂的);取不到返 0。
+// readCutStatus —— reads the HTTP status off the error thrown by the
+// streamer (agent-adapters attaches it via Object.assign); returns 0 if
+// not present.
 function readCutStatus(err: unknown): number {
   if (err === null || typeof err !== 'object') return 0;
   const s = (err as { status?: unknown }).status;
@@ -202,12 +231,18 @@ function readCutStatus(err: unknown): number {
 interface TurnCtx {
   text: string;
   errored: boolean;
-  // sawDone —— 收到过 `done` 尾帧。这是「这一轮说完了」的**唯一**凭据:后端在每条路径末尾
-  // 都无条件发它,所以没收到就是确定没收尾 —— 不管已经流出来多少字。
+  // sawDone —— whether a `done` trailing frame was received. This is the
+  // **only** evidence that "this turn finished": the backend
+  // unconditionally sends it at the end of every path, so not receiving it
+  // means it's definitely unfinished — regardless of how much text already
+  // streamed in.
   sawDone: boolean;
-  // cutStatus —— 掐断时若是非 2xx 响应,带上 HTTP status(401/403 等);否则 0。
-  // 「断没断」不再单独记:done 帧到没到已经说明了一切,而抛错只是没收尾的**一种**方式
-  // (另一种是流干净地结束却少了尾帧 —— 以前那一种连报都不会报)。
+  // cutStatus —— if the cut happened on a non-2xx response, the HTTP
+  // status (401/403 etc.); otherwise 0.
+  // "Was it cut" is no longer tracked separately: whether the done frame
+  // arrived already tells the whole story, and throwing is only **one**
+  // way of being unfinished (the other is the stream ending cleanly but
+  // missing the trailing frame — which used to go unreported entirely).
   cutStatus: number;
 }
 
@@ -215,25 +250,27 @@ function makeCtx(): TurnCtx {
   return { text: '', errored: false, sawDone: false, cutStatus: 0 };
 }
 
-// safeParseToolResult —— H.10: backend agent loop 把 tool RunFn 的 raw
-// 返回字符串原样塞进 SSE tool_completed.result。各 tool wire 形态
-// heterogeneous：
+// safeParseToolResult —— H.10: the backend agent loop stuffs the tool
+// RunFn's raw return string straight into SSE tool_completed.result. Each
+// tool's wire shape is heterogeneous:
 //   - corpus_search/list: bare array  `[{path, title, genre, summary}]`
 //   - corpus_read: flat object        `{genre, body, path, title}`
 //   - calendar_list_slots: envelope   `{ok, slots: [...]}`
 //   - calendar_book ok: envelope      `{ok, event_id, html_link, start, end}`
 //   - calendar_book fail: envelope    `{ok: false, conflict, ...}`
-//   - skill_* / ext_*: 任意 JSON
+//   - skill_* / ext_*: arbitrary JSON
 //
-// 这一层只做：
+// This layer only does:
 //   - JSON.parse
-//   - 顶层有 `ok: boolean` 时把它当 result 的 ok 透上去 (shouldRenderCall
-//     按 c.ok 过滤失败 card)；result 字段仍透整 parsed 对象 (consumer
-//     的 pickSlots / pickBookConfirmation 自己 narrow)
+//   - when the top level has `ok: boolean`, pass it through as result's ok
+//     (shouldRenderCall filters out failed cards by c.ok); the result
+//     field still passes through the whole parsed object (the consumer's
+//     pickSlots / pickBookConfirmation narrow it themselves)
 //
-// 不准对 `{ok, ...}` 当 {ok, result, reason} envelope 解包成 result =
-// parsed.result —— 那会把 {ok, slots} 误解成 {ok, result: undefined}
-// 丢数据 (H.10 sweep SlotsCard 显 0 slot 的 regression 踩这条)。
+// Never unwrap `{ok, ...}` as if it were a {ok, result, reason} envelope
+// by setting result = parsed.result —— that would misread {ok, slots} as
+// {ok, result: undefined} and drop data (this is what the H.10 sweep hit,
+// the regression where SlotsCard showed 0 slots).
 function safeParseToolResult(raw: string): {
   ok: boolean; result?: unknown; reason?: string;
 } {

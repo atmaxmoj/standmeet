@@ -1,6 +1,7 @@
-// EditorSideRail —— design 源 admin.js WritingSection side rail。
-// Tiptap editor 右侧三卡：crosslinks (outgoing/incoming) + keyboard shortcuts。
-// publish card 已在 WritingFormFooter 里（PublishToggle + 按钮），不重复。
+// EditorSideRail —— ported from the design source admin.js WritingSection side rail.
+// Three cards to the right of the Tiptap editor: crosslinks (outgoing/incoming) +
+// keyboard shortcuts. The publish card already lives in WritingFormFooter
+// (PublishToggle + button), so it's not duplicated here.
 
 'use client';
 

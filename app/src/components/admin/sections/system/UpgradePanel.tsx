@@ -1,14 +1,18 @@
-// UpgradePanel —— /admin/system 顶上那一格「升级」。
+// UpgradePanel — the "upgrade" card at the top of /admin/system.
 //
-// 那个「check for updates」按钮以前**接不上**:没有 onClick,也没有后端可问。现在它问
-// `instance.upgrade_check`,并且按答案决定自己变成什么 —— 判断都在 use-upgrade 的
-// `upgradeView` 里(呈现层不含分支),这里只把它给的 key 交给 t()。
+// The "check for updates" button used to be **unwired**: no onClick, no backend to ask.
+// Now it calls `instance.upgrade_check` and decides what it becomes from the answer —
+// all branching lives in use-upgrade's `upgradeView` (presentation layer has none);
+// this component just hands the key it returns to t().
 //
-// 两条要害都写在那边:
-//   · 只有真按得动的时候按钮才写「升级」。按不动的实例(没配重新部署的路)如实说,
-//     并说清该怎么升 —— 提供一个做不到的动作比不提供更坏。
-//   · 升过之后显示的是**量出来**的结果。后端只能报"请求打出去了";hook 通了、编排方也
-//     重新部署了、而版本一个字没变(compose 把 tag 钉死了)是完全可能的。
+// Two things matter, both handled there:
+//   - The button only says "upgrade" when it can actually be pressed. An instance with
+//     no redeploy path wired says so honestly and states how to upgrade instead —
+//     offering an action that can't work is worse than not offering it.
+//   - What shows after upgrading is a **measured** result. The backend can only report
+//     "the request went out"; the hook firing, the orchestrator redeploying, and the
+//     version staying byte-for-byte unchanged (compose pins the tag) can all be true
+//     at once.
 
 'use client';
 

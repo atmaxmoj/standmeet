@@ -1,15 +1,22 @@
-// corpus_ref_resolve.go —— 一条 corpus URI 引用(`genre://path`)指不指得到一条真笔记。
+// corpus_ref_resolve.go — whether a corpus URI reference (`genre://path`)
+// resolves to a real note.
 //
-// 谁需要它:ghost-steering 的 waypoint 冻结(F-A-26)。owner 在 role 上给 waypoint 写
-// evidence_refs;refs 指向空,会造出一个**永久不可访**的引导目的地 —— WaypointLedger 标 visited
-// 的办法是拿「本轮真被引用的笔记」按 (genre, 树路径) 拼出 URI 再比对 refs,没有笔记就永远拼不出
-// 那条 URI,于是 ghost 每轮重新推它、永远静默不下来。
+// Who needs this: ghost-steering's waypoint freeze (F-A-26). The owner writes
+// evidence_refs on a waypoint's role; if a ref points at nothing, it creates a
+// **permanently unreachable** steering destination — WaypointLedger marks
+// visited by taking "the note actually cited this turn," building its URI from
+// (genre, tree path), and comparing that against refs. With no matching note,
+// that URI can never be built, so the ghost keeps re-pushing it every turn,
+// never settling down silently.
 //
-// **判据必须跟 ledger 是同一个**,所以这里复用 pgCorpusLister 的 per-genre finder,并把
-// 「解析得出」定义成:存在一条笔记,它的 genre 和树路径**正好**拼成这条 ref。
+// **The criterion here must match the ledger's exactly**, so this reuses
+// pgCorpusLister's per-genre finder, and defines "resolves" as: a note exists
+// whose genre and tree path build **exactly** this ref.
 //
-// 不能拿 Get 顶替:Get 是跨 genre 按 path 找第一个命中,wiki 底下有 standpoint 就会让
-// subjectivity://standpoint 算作解析得出,而 ledger 永远不认 —— 那就是换个地方重新长出同一个洞。
+// Get can't substitute for this: Get searches across genres by path and
+// returns the first hit, so if wiki has a "standpoint" entry, it would make
+// subjectivity://standpoint count as resolved when the ledger never would —
+// that just regrows the same hole somewhere else.
 
 package usecase
 
@@ -19,19 +26,23 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 )
 
-// RefResolver —— 见文件头。具体类型而非接口(避 ireturn);消费方按自己的窄口子收。
+// RefResolver — see the file header. A concrete type rather than an interface
+// (avoids ireturn); consumers accept it through their own narrow subset.
 type RefResolver struct {
 	lister *pgCorpusLister
 }
 
-// NewRefResolver —— prod:跟 corpus host ops 同一份 IndexDeps、同一套 finder。
+// NewRefResolver — prod: shares the same IndexDeps and the same set of finders
+// as corpus host ops.
 func NewRefResolver(deps *IndexDeps) *RefResolver {
 	return &RefResolver{lister: newPGLister(deps)}
 }
 
-// ResolvesRef —— 这条 ref 指得到一条真笔记吗。语法不合法 / genre 不认识 / 没有这条笔记 →
-// false。**不判 ACL** —— 「这个 role 能不能看」是另一件事,由授权那道闸(FilterWaypointsByCorpus)
-// 管;本函数只回答存在性,两件事分开才各自说得清自己在说什么。
+// ResolvesRef — does this ref resolve to a real note? Invalid syntax /
+// unrecognized genre / no such note → false. **Does not check ACL** —
+// "can this role see it" is a separate concern, owned by the authorization
+// gate (FilterWaypointsByCorpus); this function only answers existence, and
+// keeping the two apart lets each one say clearly what it's answering.
 func (r *RefResolver) ResolvesRef(ctx context.Context, ownerID, uri string) bool {
 	ref, err := entity.ParseURI(uri)
 	if err != nil {

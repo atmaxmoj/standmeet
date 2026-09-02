@@ -2,7 +2,7 @@ package conversation
 
 import "github.com/atmaxmoj/standmeet/internal/conversation/repo"
 
-// 类型（实现:repo）.
+// Types (impl: repo).
 type (
 	AppStateRepo      = repo.AppStateRepo
 	ChatRepo          = repo.ChatRepo
@@ -13,7 +13,7 @@ type (
 	UpsertReportInput = repo.UpsertReportInput
 )
 
-// 构造/函数（实现:repo）.
+// Constructors/functions (impl: repo).
 var (
 	NewAppStateRepo   = repo.NewAppStateRepo
 	NewChatRepo       = repo.NewChatRepo

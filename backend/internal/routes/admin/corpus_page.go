@@ -1,6 +1,7 @@
-// corpus_page.go —— GET /corpus/{genre}/page?cursor= —— admin grid 的 keyset 分页
-// (infinite scroll)。一次一页(gridPageSize),LIMIT+1 判 has_more,next_cursor 是本页
-// 最末行的 (created_at,id) base64 编码。前端累积 + 虚拟列表渲染,永不一次性拉全量。
+// corpus_page.go — GET /corpus/{genre}/page?cursor= — keyset pagination for the admin
+// grid (infinite scroll). One page at a time (gridPageSize), LIMIT+1 decides has_more,
+// next_cursor is the base64 encoding of this page's last row's (created_at, id). The
+// frontend accumulates + renders a virtual list, never pulling the full set at once.
 
 package admin
 
@@ -20,8 +21,10 @@ import (
 
 const gridPageSize = 30
 
-// pageTag —— `?tag=` 的取值,"" = 不过滤。过滤下推到取页那一步,而不是让面板拿到一页再筛:
-// 后者筛的只是那一页,而面板会把结果当成整个语料的答案(F-L-23)。
+// pageTag — the value of `?tag=`; "" means no filter. Filtering is pushed down to the
+// page fetch itself, rather than letting the panel fetch a page and then filter it: the
+// latter would only filter that one page, while the panel would treat the result as the
+// answer for the whole corpus (F-L-23).
 func pageTag(r *http.Request) string {
 	return strings.TrimSpace(r.URL.Query().Get("tag"))
 }
@@ -30,8 +33,10 @@ type genreTagsResponse struct {
 	Tags []string `json:"tags"`
 }
 
-// tagsWiki —— GET /corpus/wiki/tags —— 这个 genre 用过的全部标签。面板的标签行读它,而不是
-// 从已加载的那一页推:后者让只存在于那一页之外的标签连 chip 都没有(F-L-23 的后半条)。
+// tagsWiki — GET /corpus/wiki/tags — every tag this genre has ever used. The panel's tag
+// row reads this directly rather than deriving it from the loaded page: the latter would
+// give no chip at all to a tag that only exists outside that page (the second half of
+// F-L-23).
 func (h *Handlers) tagsWiki() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())

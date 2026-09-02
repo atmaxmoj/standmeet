@@ -1,8 +1,10 @@
-// use-captcha-site-key —— /login 启动时拉一次 /api/v1/instance，从里面挑
-// captcha_site_key。非空表示 backend 装了 Turnstile，要渲 widget。
+// use-captcha-site-key —— fetches /api/v1/instance once when /login starts,
+// and picks out captcha_site_key. Non-empty means the backend has Turnstile
+// installed and the widget should render.
 //
-// 整个 hook 故意不缓存到 zustand：/login 是 SSR + 客户端独立挂载的 leaf
-// 页面，没有跨页共用必要；额外的 store 是过度抽象。
+// This hook deliberately isn't cached in zustand: /login is an SSR + client
+// independently-mounted leaf page with no cross-page sharing need; an extra
+// store would be over-abstraction.
 
 'use client';
 

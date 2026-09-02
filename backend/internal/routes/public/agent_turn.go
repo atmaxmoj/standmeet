@@ -41,8 +41,8 @@ func runAgentTurn(
 	if !ok {
 		return
 	}
-	// defer 是**兜底**,不是正常路径:正常路径在 `done` 帧那一刻就放槽(TurnEnded),
-	// 让 epilogue 不再占着这一场。release 幂等,两条路都调是安全的(F-A-42)。
+	// defer is a **fallback**, not the normal path: normally the slot releases the moment
+	// `done` fires (TurnEnded). release is idempotent, calling from both paths is safe (F-A-42).
 	defer release()
 	dispatchTurn(h, w, r, turnSlot{auth: auth, release: release}, req)
 }
@@ -57,9 +57,10 @@ type ghostWire struct {
 	IsBridge       bool   `json:"is_bridge"`
 }
 
-// buildGhostForTurn —— 注入给 inference 的 turn-epilogue port(ghost-steering)。done 之后据本轮末条
-// 回复出至多一个 steering ghost，包成通用 EpilogueFrame{Kind:"ghost"}。仅 code 模式 + 冻了 waypoints
-// + 有 conversation 才装(否则 nil)。inference 不认识 "ghost"，只按 Kind 发 SSE 事件。
+// buildGhostForTurn —— turn-epilogue port (ghost-steering) injected into inference. After
+// done, produces at most one steering ghost from this turn's last reply, wrapped in the
+// generic EpilogueFrame{Kind:"ghost"}. Wired only in code mode + frozen waypoints + a
+// conversation (nil otherwise); inference doesn't know "ghost", it just emits by Kind.
 func buildGhostForTurn(
 	h *Handlers, auth authedVisitor, cred *inference.Cred, convID string,
 ) inference.EpilogueFunc {
@@ -72,7 +73,8 @@ func buildGhostForTurn(
 	}
 }
 
-// ghostRun —— 一段 code session 的 ghost policy 上下文(闭进 handler + session + cred + conv)。
+// ghostRun —— ghost-policy context for one code session (closes over handler + session
+// + cred + conv).
 type ghostRun struct {
 	h      *Handlers
 	cred   *inference.Cred
@@ -80,7 +82,8 @@ type ghostRun struct {
 	convID string
 }
 
-// run —— 出候选(silence/失败 → nil)→ 落 conversation_ghosts → Kind="ghost" epilogue frame。
+// run —— produce a candidate (silence/failure → nil) → persist to conversation_ghosts →
+// Kind="ghost" frame.
 func (gr *ghostRun) run(ctx context.Context, lastMsg string) *inference.EpilogueFrame {
 	cand := gr.candidate(ctx, lastMsg)
 	if cand == nil {
@@ -89,10 +92,11 @@ func (gr *ghostRun) run(ctx context.Context, lastMsg string) *inference.Epilogue
 	return gr.persist(ctx, cand)
 }
 
-// candidate —— unvisited 检查(空 → silence,不调 LLM)→ GhostPolicy(owner 单模型)→ 解析。
-// 沉默/失败/无效 → nil。
+// candidate —— check unvisited (empty → silence, no LLM call) → GhostPolicy (owner's single
+// model) → parse. Silence/failure/invalid → nil.
 func (gr *ghostRun) candidate(ctx context.Context, lastMsg string) *conversation.GhostCandidate {
-	// F-A-10: 未访问的 waypoint,并按 role/code 的「需证据」开关剔除空证据的非终点 waypoint(终点保留)。
+	// F-A-10: unvisited waypoints, filtered by role/code "evidence required" to drop
+	// non-terminal waypoints with no evidence (terminal waypoints kept).
 	unvisited := conversation.SteeringCandidates(
 		gr.auth.Data.RoleSnapshot, gr.auth.Data.VisitedWaypoints,
 	)
@@ -134,9 +138,10 @@ func (gr *ghostRun) persist(
 	return &inference.EpilogueFrame{Kind: "ghost", Payload: payload}
 }
 
-// buildAgentTurnLedger —— 注入给 inference 的 ghost-steering ledger port。turn 收尾把本轮引用
-// + booking 命中解析成 waypoint visited,存回 session。仅 code 模式且冻了 waypoints 才装(否则 nil,
-// inference 跳过)。best-effort:标记失败只 warn,绝不压这轮答复。
+// buildAgentTurnLedger —— ghost-steering ledger port injected into inference. At turn end,
+// resolves this turn's citations + booking hits into waypoint-visited and stores it back to
+// the session. Wired only in code mode with frozen waypoints (nil otherwise, inference skips
+// it). best-effort: a marking failure only warns, never suppresses this turn's reply.
 func buildAgentTurnLedger(h *Handlers, auth authedVisitor) inference.MarkWaypointsFunc {
 	if !hasFrozenWaypoints(auth) {
 		return nil
@@ -149,8 +154,9 @@ func buildAgentTurnLedger(h *Handlers, auth authedVisitor) inference.MarkWaypoin
 	}
 }
 
-// terminalToolHit —— ledger 的"终点命中"信号:本轮成功工具里有没有跑成终点能力的工具。终点能力
-// 是外置的(booking = calendar_book);inference 只报工具名,这里(route,认得具体能力)判定。
+// terminalToolHit —— the ledger's "terminal hit" signal: did this turn's successful tools
+// include one that ran a terminal capability. The capability is external (booking =
+// calendar_book); inference only reports the tool name, so this call is made here.
 func terminalToolHit(successfulTools []string) bool {
 	return slices.Contains(successfulTools, "calendar_book")
 }
@@ -162,9 +168,8 @@ func hasFrozenWaypoints(auth authedVisitor) bool {
 	return len(auth.Data.RoleSnapshot.Waypoints()) > 0
 }
 
-// ownerTZForTurn —— owner 的 profile timezone,注入通用 instruction 的"现在
-// 几点/在哪个时区"。fail-open(读不到 → 空,inference 退 UTC),不为了上下文把这轮
-// 答崩。
+// ownerTZForTurn —— the owner's profile timezone, injected into the generic instruction's
+// "what time is it now" context. fail-open (unreadable → empty, inference falls back to UTC).
 func ownerTZForTurn(r *http.Request, h *Handlers, ownerID string) string {
 	ownerRow, err := h.Visitor.Owners.GetByID(r.Context(), ownerID)
 	if err != nil {
@@ -174,9 +179,9 @@ func ownerTZForTurn(r *http.Request, h *Handlers, ownerID string) string {
 	return ownerRow.ProfileTimezone
 }
 
-// buildCrossConvForTurn —— 「互通」:turn 前算好该 member 其他对话的 digest 注入
-// instruction。无 member(public/byoai)/ 无 conv → 空。失败 fail-open(warn + 空,
-// 不为了上下文把这轮答崩)。
+// buildCrossConvForTurn —— "cross-conversation awareness": before the turn, computes a
+// digest of this member's other conversations to inject into the instruction. No member
+// (public/byoai) or no conv → empty. fail-open (warn + empty on failure).
 func buildCrossConvForTurn(
 	r *http.Request, h *Handlers, auth authedVisitor, convID string,
 ) string {
@@ -195,10 +200,10 @@ func crossConvDigestOrEmpty(r *http.Request, h *Handlers, memberID, convID strin
 	return digest
 }
 
-// buildAgentTurnPersist —— 注入给 inference 的落库 port。把后端累计出的
-// TurnResult 走现有 RecordDialog sink 进 conversation 表(cited id → Citation
-// VO、两行 messages 原子)。convID 空 → nil(不落)。ctx 由 inference 传(detached,
-// 客户端断开也活)。
+// buildAgentTurnPersist —— the persistence port injected into inference. Routes the
+// backend's accumulated TurnResult through RecordDialog into the conversation table (cited
+// ids → Citation VO, both message rows written atomically). Empty convID → nil (no persist).
+// ctx is passed in by inference (detached — survives a client disconnect).
 func buildAgentTurnPersist(
 	h *Handlers, auth authedVisitor, convID string,
 ) inference.PersistFunc {
@@ -221,23 +226,25 @@ func buildAgentTurnPersist(
 	}
 }
 
-// buildAgentTurnUsage —— #106 计费:注入给 inference 的用量 port。owner-key turn 收尾把累计
-// token 记进 inference_usage(闭进 owner_id)。BYOAI 是访客自付,返 nil 不计。best-effort:
-// 记账失败只 warn,不影响这轮答复。
+// buildAgentTurnUsage —— #106 billing: usage port injected into inference. At the end of an
+// owner-key turn, records accumulated tokens into inference_usage (scoped to owner_id).
+// BYOAI is visitor-paid, so it returns nil. best-effort: a recording failure only warns.
 func buildAgentTurnUsage(h *Handlers, auth authedVisitor) inference.RecordUsageFunc {
 	if !usageBillable(h, auth) {
 		return nil
 	}
 	rec := turnUsageRecorder{
 		h: h, ownerID: auth.Data.OwnerID, providerID: auth.Data.ProviderID,
-		// metered —— 这一行算不算某箱油的账。两个开关都得在:role 挂了表,而且这一场确实
-		// 指得到一条 provider。它同时决定这行会不会被清理带走 —— 计量行清早了,油自己长回来。
+		// metered —— counts against some gas tank only if both switches are on: the role
+		// has a tank attached and this turn resolves to a provider. Also gates cleanup
+		// sweep-away — clear a metered row too early and the gas grows back on its own.
 		metered: auth.Data.GasMetered && auth.Data.ProviderID != "",
 	}
 	return rec.record
 }
 
-// turnUsageRecorder —— 一场会话记账要闭住的那几件事(谁的、哪箱油、算不算油钱)。
+// turnUsageRecorder —— the handful of things a turn's billing needs to close over (whose
+// it is, which tank, and whether it counts as gas spend).
 type turnUsageRecorder struct {
 	h          *Handlers
 	ownerID    string
@@ -255,23 +262,27 @@ func (u turnUsageRecorder) record(ctx context.Context, usage *inference.TurnUsag
 	}
 }
 
-// usageBillable —— #106: 只对 owner-key turn 计费(BYOAI 访客自付 / 无 recorder 时不计)。
+// usageBillable —— #106: only owner-key turns are billed (BYOAI is visitor-paid / not
+// billed when there's no recorder).
 func usageBillable(h *Handlers, auth authedVisitor) bool {
 	return h.Usage != nil && auth.Data.Mode != "byoai"
 }
 
-// visitorToolset —— collectVisitorTools 返回打包，避免 revive func-result
-// max=2 限制。bindings 仅给 handler defer close 用；inference 不接它。
-// 字段顺序按 govet fieldalignment 排：map (8 ptr bytes) 在前，slice 在后。
+// visitorToolset —— the packaged return of collectVisitorTools, to stay under revive's
+// func-result max=2 limit. bindings is only for the handler's defer close; inference
+// doesn't take it. Field order follows govet fieldalignment: maps (8 ptr bytes) first,
+// slices after.
 type visitorToolset struct {
 	Labels         map[string]string
 	ReturnDirectly map[string]bool
 	Bindings       []*capreg.Binding
 	Tools          []tool.BaseTool
-	// ClaimGates —— 本场装配到的「说了就得做」条件,原样交给这一轮(F-A-37)。
+	// ClaimGates —— the "said it, must do it" conditions assembled for this turn, passed
+	// through as-is (F-A-37).
 	ClaimGates []inference.ClaimGate
-	// SessionNotes —— 会话开始之后才成立的事实(额度用完了)。访客那份 system prompt 在发会话
-	// 时就冻住了,这是它们唯一进得去的通路(F-B-14)。
+	// SessionNotes —— facts that only became true after the session started (quota ran
+	// out). The visitor's system prompt is frozen when the session is issued, so this is
+	// the only channel these facts can get in through (F-B-14).
 	SessionNotes []string
 }
 
@@ -281,7 +292,8 @@ func resolveAgentTurnCred(
 	byoai := pickAgentTurnBYOAICred(h, auth, r)
 	return h.Resolver.Resolve(r.Context(), &inference.ResolveInput{
 		OwnerID: auth.Data.OwnerID, Mode: auth.Data.Mode, Visitor: byoai,
-		// 这一场用本子里的哪一条 —— 发会话时按"码 > role > 默认"定好冻进去的。
+		// which entry in the book this turn uses — decided and frozen in at session-issue
+		// time by "code > role > default".
 		ProviderID: auth.Data.ProviderID,
 	})
 }
@@ -295,16 +307,13 @@ func pickAgentTurnBYOAICred(
 	return readBYOAICredFromHeaders(h, &nopResponseWriter{}, r, auth.Token)
 }
 
-// collectVisitorTools —— 装配本 session 的所有 visitor binding，拍平成
-// eino tool 集合 + name → progress_label 表 (走 capreg.FlattenBindings；
-// 拍平逻辑放 capreg 包，让本 handler 守 routes-cyclo ≤ 3)。
-//
-// 返回 visitorToolset 是为了避开 revive func-result max=2 限制；
-// Bindings 字段仅给 handler defer close 用，inference 不接。
-//
-// convID 透到 AssembleInput.ConversationID 让下游 tool (calendar_book /
-// persist) 能找到 conversation 行；空 conv_id 会让 BookMeeting 的
-// parseUUID 失败 (H.10 sweep 时踩出的 regression)。
+// collectVisitorTools —— assembles every visitor binding for this session, flattened into
+// the eino tool set + a name → progress_label table (via capreg.FlattenBindings; flattening
+// lives in the capreg package so this handler stays under the routes-cyclo ≤ 3 budget).
+// Returns visitorToolset to stay under revive's func-result max=2 limit; Bindings is only
+// for the handler's defer close, inference doesn't take it. convID threads through to
+// AssembleInput.ConversationID so downstream tools (calendar_book / persist) can find the
+// conversation row; an empty conv_id makes BookMeeting's parseUUID fail (H.10 regression).
 func collectVisitorTools(
 	ctx context.Context, h *Handlers, auth authedVisitor, convID string,
 ) *visitorToolset {
@@ -319,8 +328,9 @@ func collectVisitorTools(
 	}
 }
 
-// turnClaimGates —— 装配面的声明 → 这一轮的必要条件。两边是同一份数据,分处两个边界:
-// 装配面说「这个能力声明了什么」,内核只问「这一轮满不满足」。
+// turnClaimGates —— assembly-side declarations → this turn's required conditions. Both
+// sides are the same data, split across two boundaries: the assembly side states "what
+// this capability declares", the kernel only asks "does this turn satisfy it".
 func turnClaimGates(gates []capreg.ClaimGate) []inference.ClaimGate {
 	out := make([]inference.ClaimGate, 0, len(gates))
 	for i := range gates {

@@ -1,4 +1,4 @@
-// chip-styles —— Chip 的 class 拼装。
+// chip-styles —— assembles the Chip's class string.
 
 export type ChipTone = 'neutral' | 'private';
 

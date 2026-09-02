@@ -1,6 +1,6 @@
-// domains.go —— allowed_domains（Caddy on-demand TLS 白名单）的 admin
-// CRUD use case。verify DNS 是 Caddy 侧 /internal/tls-ask 的事；这里
-// 只管 instance_settings.allowed_domains 这个 jsonb 数组本身。
+// domains.go — the admin CRUD use case for allowed_domains (the Caddy on-demand
+// TLS allowlist). DNS verification is Caddy's job on the /internal/tls-ask side;
+// here we only manage the instance_settings.allowed_domains jsonb array itself.
 
 package usecase
 
@@ -13,12 +13,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// AllowedDomainsDeps —— List / Add / Remove 需要 InstanceRepo。
+// AllowedDomainsDeps — List / Add / Remove need InstanceRepo.
 type AllowedDomainsDeps struct {
 	Instance *repo.InstanceRepo
 }
 
-// ListAllowedDomains —— 返当前白名单（empty slice if none）。
+// ListAllowedDomains — returns the current allowlist (empty slice if none).
 func ListAllowedDomains(
 	ctx context.Context, deps AllowedDomainsDeps,
 ) ([]string, error) {
@@ -29,8 +29,8 @@ func ListAllowedDomains(
 	return list, nil
 }
 
-// AddAllowedDomain —— 把 domain 加进白名单（normalize + 去重）。
-// 空字符串 / 无效格式返 apierr.ErrEmptyField；调用方据此返 400。
+// AddAllowedDomain — adds a domain to the allowlist (normalize + dedupe).
+// An empty string / invalid format returns apierr.ErrEmptyField; the caller maps that to 400.
 func AddAllowedDomain(
 	ctx context.Context, deps AllowedDomainsDeps, dom string,
 ) error {
@@ -44,8 +44,9 @@ func AddAllowedDomain(
 	return nil
 }
 
-// RemoveAllowedDomain —— 从白名单删 domain。空串返 apierr.ErrEmptyField；
-// 不存在 idempotent 不报错（repo 已经吞了）。
+// RemoveAllowedDomain — removes a domain from the allowlist. An empty string returns
+// apierr.ErrEmptyField; removing one that doesn't exist is idempotent and errors nothing
+// (repo already swallows that).
 func RemoveAllowedDomain(
 	ctx context.Context, deps AllowedDomainsDeps, dom string,
 ) error {
@@ -59,8 +60,8 @@ func RemoveAllowedDomain(
 	return nil
 }
 
-// normalizeDomain 去 scheme + 末尾斜杠 + 小写。format 校验交 Caddy；这里
-// 只做最小化处理，让 "https://Example.com/" 也能 add。
+// normalizeDomain strips scheme + trailing slash + lowercases. Format validation is
+// Caddy's job; this only does the minimal cleanup so "https://Example.com/" can be added too.
 func normalizeDomain(dom string) string {
 	s := strings.TrimSpace(dom)
 	s = strings.TrimPrefix(s, "https://")

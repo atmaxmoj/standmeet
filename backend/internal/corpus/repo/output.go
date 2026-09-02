@@ -1,6 +1,7 @@
-// output.go —— OutputRepo：统一 corpus_notes 表上 genre='output' 的 CRUD + path induce。
-// 与 WikiRepo 同构（都绑定各自 genre 调用同一套 db.Note* 方法）。output 是 raw → wiki →
-// output 三层最精炼层，语义上「可原样引用」；source_ids 记从哪些 wiki 提炼来。
+// output.go —— OutputRepo: CRUD + path induce over genre='output' rows in the unified
+// corpus_notes table. Isomorphic to WikiRepo (both bind to their own genre and call the same
+// set of db.Note* methods). output is the most refined of the raw → wiki → output three
+// layers, semantically "quotable as-is"; source_ids records which wikis it was distilled from.
 
 package repo
 
@@ -18,27 +19,27 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// OutputRepo —— corpus_notes(genre='output') CRUD + path induce。
+// OutputRepo —— CRUD + path induce over corpus_notes(genre='output').
 type OutputRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewOutputRepo 构造 OutputRepo。
+// NewOutputRepo constructs an OutputRepo.
 func NewOutputRepo(pool *pgstore.Pool) *OutputRepo { return &OutputRepo{pool: pool} }
 
-// CreateOutputInput —— Create 入参。SourceWikiIDs 记录从哪些 wiki 提炼来。
+// CreateOutputInput —— Create's input. SourceWikiIDs records which wikis it was distilled from.
 type CreateOutputInput struct {
 	OwnerID  string
 	Title    string
 	Body     string
 	ParentID *string
-	// ShowAsSource —— nil = 可引用(默认)。见 CreateWikiInput 上同名字段的说明。
+	// ShowAsSource —— nil = quotable (default). See the same-named field on CreateWikiInput.
 	ShowAsSource  *bool
 	Tags          []string
 	SourceWikiIDs []string
 }
 
-// Create 写一条新 output。
+// Create writes a new output row.
 func (r *OutputRepo) Create(
 	ctx context.Context, in *CreateOutputInput,
 ) (entity.Output, error) {
@@ -68,21 +69,23 @@ func buildOutputCreateParams(in *CreateOutputInput) (db.CreateNoteParams, error)
 		return db.CreateNoteParams{}, fmt.Errorf("parse source wiki ids: %w", err)
 	}
 	return db.CreateNoteParams{
-		OwnerID:    ownerUUID,
-		Genre:      genreOutput,
-		ParentID:   parent,
-		Title:      in.Title,
-		Body:       in.Body,
-		Tags:       nilSafeTags(in.Tags),
-		SourceIds:  sourceWikis,
-		CssClasses: []string{}, // output create 不带 cssclasses(列 NOT NULL,须非 nil)
-		// output 同 wiki:建出来即可引用的 source;藏是之后 UpdateOutput 的例外路径。
-		// 不显式 true 会写零值 false → 被 readCollector gate 误当隐藏条,citation 全丢。
+		OwnerID:   ownerUUID,
+		Genre:     genreOutput,
+		ParentID:  parent,
+		Title:     in.Title,
+		Body:      in.Body,
+		Tags:      nilSafeTags(in.Tags),
+		SourceIds: sourceWikis,
+		// output create carries no cssclasses (column NOT NULL, must be non-nil).
+		CssClasses: []string{},
+		// output mirrors wiki: created as a quotable source by default; hiding is the exception
+		// path via a later UpdateOutput. Without an explicit true, the zero value false gets
+		// written → the readCollector gate mistakes it for a hidden entry and drops all citation.
 		ShowAsSource: citableUnlessHidden(in.ShowAsSource),
 	}, nil
 }
 
-// ListByOwner 返回 owner 的 output（最新 N 条）。
+// ListByOwner returns the owner's outputs (the newest N).
 func (r *OutputRepo) ListByOwner(
 	ctx context.Context, ownerID string, limit int32,
 ) ([]entity.Output, error) {
@@ -104,7 +107,7 @@ func (r *OutputRepo) ListByOwner(
 	return out, nil
 }
 
-// GetByID 拿 owner 的某条 output；不命中返回 ErrOutputNotFound。
+// GetByID fetches one of the owner's outputs; no match returns ErrOutputNotFound.
 func (r *OutputRepo) GetByID(
 	ctx context.Context, ownerID, id string,
 ) (entity.Output, error) {
@@ -129,8 +132,8 @@ func (r *OutputRepo) GetByID(
 	return toDomainOutput(&row), nil
 }
 
-// OutputMeta —— output 的 meta(无 body):懒加载搜/读路径用,镜像 WikiMeta。
-// UpdatedAt 仅 ListAllMeta(sitemap)填,其余路径留 0。
+// OutputMeta —— output's meta (no body): used by lazy-load search/read paths, mirrors WikiMeta.
+// UpdatedAt is only filled by ListAllMeta (sitemap); other paths leave it 0.
 type OutputMeta struct {
 	ParentID    *string
 	ID          string
@@ -141,8 +144,9 @@ type OutputMeta struct {
 	HasChildren bool
 }
 
-// ListChildren —— output 节点的直接子(meta only,无 body);parentID nil = 根层;翻页。
-// 镜像 WikiRepo.ListChildren —— output 跟 wiki 同构,按 path 下钻解析靠它。
+// ListChildren —— an output node's direct children (meta only, no body); parentID nil = root
+// level; paginated. Mirrors WikiRepo.ListChildren — output is isomorphic to wiki, and drilling
+// down by path relies on this.
 func (r *OutputRepo) ListChildren(
 	ctx context.Context, ownerID string, parentID *string, limit, offset int32,
 ) ([]OutputMeta, error) {
@@ -160,7 +164,8 @@ func (r *OutputRepo) ListChildren(
 		})
 }
 
-// GetMetaByID —— output meta(无 body):上溯算 path / 判 ACL 用。不命中 → ErrOutputNotFound。
+// GetMetaByID —— output meta (no body): used to walk up and compute path / evaluate ACL.
+// No match → ErrOutputNotFound.
 func (r *OutputRepo) GetMetaByID(ctx context.Context, ownerID, id string) (OutputMeta, error) {
 	ids, perr := parseSrcAndOwner(id, ownerID)
 	if perr != nil {
@@ -181,7 +186,8 @@ func (r *OutputRepo) GetMetaByID(ctx context.Context, ownerID, id string) (Outpu
 	}, nil
 }
 
-// Search —— 全量 DB 端关键词搜(full-text);返 meta + snippet(无完整 body);翻页。
+// Search —— full-text keyword search on the DB side; returns meta + snippet (no full body);
+// paginated.
 func (r *OutputRepo) Search(
 	ctx context.Context, ownerID, query string, limit, offset int32,
 ) ([]OutputMeta, error) {
@@ -211,7 +217,8 @@ func outputSearchRowMeta(row *db.SearchNotesRow) OutputMeta {
 	}
 }
 
-// ListAllMeta —— 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed output 用。
+// ListAllMeta —— every meta row (no body, no limit): used by the sitemap to enumerate every
+// indexed output.
 func (r *OutputRepo) ListAllMeta(ctx context.Context, ownerID string) ([]OutputMeta, error) {
 	mk := func(row *db.ListAllNoteMetaRow) OutputMeta {
 		return OutputMeta{

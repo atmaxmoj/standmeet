@@ -1,6 +1,9 @@
-// APIError —— 一个带 HTTP status + 机器码的前端错误，adminAPI 在响应非 2xx 时抛它（后端 envelope
-// {error:{code,message}} 的前端镜像）。带 status 才能按业务分流：会话过期(401)→跳登录、冲突(409)→
-// 表单就地提示、其余→toast。只有 message 的话调用方无从判断该怎么反显。
+// APIError —— a frontend error carrying an HTTP status + machine code, thrown by
+// adminAPI when a response is non-2xx (the frontend mirror of the backend envelope
+// {error:{code,message}}). Carrying status is what lets callers branch by business
+// meaning: session expired (401) → login redirect, conflict (409) → inline form
+// notice, everything else → toast. With only message, the caller has no way to
+// tell how to display it back.
 export class APIError extends Error {
   readonly status: number;
   readonly code: string;

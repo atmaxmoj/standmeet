@@ -1,12 +1,16 @@
-// EmailBlock —— /admin/account 的改邮箱那一块。
+// EmailBlock — the change-email piece on /admin/account.
 //
-// 它比另外两块厚，因为改邮箱不是一个字段的事：email 这一列同时是**登录身份**和
-// **恢复短语的收件人**，改它把两样一起搬走。所以这里有三样东西是别处没有的 ——
-//   1. 输两遍（改密码早就要求两遍；同一个面板上同等危险的这一个却不要求，那是缺陷）
-//   2. 待确认那一行（有 SMTP 时后端寄确认信、身份先不动 —— 看不见的话 owner 会以为改完了）
-//   3. 撤销（反悔之后那封信里的链接也跟着死）
+// It's thicker than the other two blocks because changing email isn't a one-field change:
+// the email column is both **login identity** and **where the recovery phrase is sent**,
+// so changing it moves both at once. That's why three things live only here —
+//   1. Type it twice (password change already required this; this equally dangerous field
+//      on the same panel didn't — that was a bug)
+//   2. A pending-confirmation row (with SMTP configured the backend sends a confirmation
+//      email and holds identity — invisible, and the owner will think it already happened)
+//   3. Cancel (backing out also kills the link inside that confirmation email)
 //
-// blurb 必须把后果说全。原来只写 "Your login identity."，漏了后半句。
+// The blurb has to state the consequences in full. It used to just say "Your login
+// identity.", missing the second half.
 
 'use client';
 
@@ -20,15 +24,19 @@ import { useToast } from '@/lib/ui/toast';
 interface EmailBlockProps {
   hook: AccountHook;
   initialValue: string;
-  // pending —— **从 session 传进来，不在这里存**。
+  // pending — **passed in from session, not stored here.**
   //
-  // 第一版把它放在 useState 里，于是：保存成功 → hook 调 sessionStore.reset() →
-  // session 回到 loading → 父组件在 ready 之前不渲染这一块 → EmailBlock 卸载重挂 →
-  // useState 拿着重新算的初值（那时 session 还没回来，是空的）→ 待确认那一行**不出现**。
-  // 后端明明已经写好了 pending、信也发了，屏幕上却什么都没有。
+  // The first version kept it in useState, so: save succeeds → hook calls
+  // sessionStore.reset() → session goes back to loading → the parent skips rendering
+  // this block until ready → EmailBlock unmounts and remounts → useState recomputes its
+  // initial value (session hasn't come back yet, so it's empty) → the pending row
+  // **doesn't appear**. The backend already wrote pending and sent the mail, but the
+  // screen shows nothing.
   //
-  // 这正是"事实归产生它的那一方，别处只查询不记忆"：pending 住在 owners 表里，
-  // 这里只该显示它。存第二份的那一刻就有两个真相，而它们会在最不该的时候分叉。
+  // This is exactly "a fact belongs to whoever produces it; elsewhere only queries it,
+  // never stores a copy": pending lives in the owners table, this component should only
+  // display it. The moment you keep a second copy there are two truths, and they diverge
+  // at the worst possible time.
   pending: string;
 }
 
@@ -43,9 +51,11 @@ export function EmailBlock({ hook, initialValue, pending }: EmailBlockProps) {
   };
   return (
     <AcctBlock title="email" testid="account-email-block"
-      // 这句以前写着"Changing it moves both" —— 那是加待确认流程**之前**的行为。
-      // 在真 prod 上眼验时看见的：机制换了，说明书没换，于是它对 owner 撒谎
-      // （[[names-that-lie]]）。现在两条分支都说得准：能发信就等确认，不能发就当场换。
+      // This line used to say "Changing it moves both" — that was the behavior
+      // **before** the pending-confirmation flow was added. Caught eyeballing real
+      // prod: the mechanism changed, the copy didn't, so it lies to the owner
+      // ([[names-that-lie]]). Both branches are accurate now: it waits for
+      // confirmation when it can send mail, and changes immediately when it can't.
       blurb={'Your login identity — and where your recovery phrase is sent. '
         + 'Changing it needs your current password and the address twice. If this '
         + 'instance can send mail, the new address has to confirm before either moves.'}>
@@ -97,8 +107,9 @@ function FieldHint({ message }: { message: string }) {
   );
 }
 
-// PendingEmailRow —— 待确认那一行。**看不见的待确认状态 = owner 不知道自己按下的
-// 那一下有没有生效**，然后他会以为改完了、把旧地址弃用掉。
+// PendingEmailRow — the pending-confirmation row. **An invisible pending state means the
+// owner doesn't know whether the click they just made took effect**, so they'll think it
+// finished and retire the old address.
 function PendingEmailRow(
   { pending, onCancel }: { pending: string; onCancel: () => void },
 ) {
@@ -131,10 +142,12 @@ async function runSaveEmail(
   saved && finishEmailSave(set, toast, saved);
 }
 
-// finishEmailSave —— 两种结局说两句不同的话。"Email updated" 用在只寄了一封信的时候
-// 就是谎话，而 owner 会照着那句话把旧地址弃用掉。
+// finishEmailSave — the two outcomes need two different messages. "Email updated" is a
+// lie when only a confirmation email went out, and the owner will retire the old address
+// on the strength of that lie.
 //
-// 只清输入框，不碰 pending：那一行的值从 session 来，而 hook 已经 reset 过 session。
+// Only clears the inputs, doesn't touch pending: that row's value comes from session, and
+// the hook has already reset session.
 function finishEmailSave(
   set: EmailSaveSetters,
   toast: { success: (m: string) => void },

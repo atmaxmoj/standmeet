@@ -1,7 +1,9 @@
-// corpus-tree.ts —— admin 语料列表(raw / wiki / output / writings 四 genre 共用)的
-// 树关系 + 摘要净化小工具。地址是 parent 树派生的、删父级联删子孙(见 backend schema
-// parent_id ON DELETE CASCADE),所以删一条前要知道会连带删掉几条。纯逻辑,放 lib
-// (presentation 层不写 if/循环)。
+// corpus-tree.ts —— tree-relationship + excerpt-sanitizing helpers for the admin
+// corpus lists (shared by all four genres: raw / wiki / output / writings). The
+// address is derived from the parent tree, and deleting a parent cascades to
+// delete its descendants (see the backend schema's parent_id ON DELETE CASCADE),
+// so before deleting a row you need to know how many others go with it. Pure
+// logic, lives in lib (the presentation layer doesn't write if/loops).
 
 interface ParentRef {
   id: string;
@@ -48,8 +50,8 @@ export function buildCorpusForest<T extends ParentRef>(rows: readonly T[]): Corp
   return out;
 }
 
-// descendantCounts —— 每个 id → 它的子孙总数(走每条的 parent_id 链上溯,路上
-// 每个祖先 +1)。guard 防环路。
+// descendantCounts —— each id → its total descendant count (walks each row's
+// parent_id chain upward, +1 for every ancestor along the way). Guarded against cycles.
 export function descendantCounts(rows: readonly ParentRef[]): Record<string, number> {
   const parentOf = new Map<string, string>();
   for (const r of rows) {

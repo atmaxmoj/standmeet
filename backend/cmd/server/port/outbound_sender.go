@@ -1,16 +1,21 @@
-// outbound_sender.go —— 内核中立的 `owner.OutboundSender` 背后接的是**注册器的通用 Invoke**。
+// outbound_sender.go — behind the kernel-neutral `owner.OutboundSender` sits the
+// **registry's generic Invoke**.
 //
-// 内核自己要发信(OTP / 找回 / 预约确认),这是 §1.6 承认的场景。但它发信的方式必须是
-// **按名字问注册器要一个连接器,再对它 `Invoke(op, argsJSON)`** —— 不是拿一个 typed 的
-// `contract.MailProxy`。差别不在优雅:
+// The kernel needs to send mail itself (OTP / recovery / booking confirmation), a
+// scenario §1.6 acknowledges. But how it sends must be **ask the registry by name for
+// a connector, then `Invoke(op, argsJSON)` on it** — not hold a typed `contract.MailProxy`.
+// The difference isn't elegance:
 //
-//   - typed proxy 是**编译期**的耦合。内核只要能写出 `proxy.Send(...)`,它就知道有"发信"
-//     这件事、知道一封信由 To/Subject/Body/HTML 构成。名字删掉了,形状还在。
-//   - `Invoke("send", json)` 是**运行期**按字符串取用。内核写得出的只有一个字符串和一段
-//     不透明 JSON;它不知道对面是 SMTP、某个 SaaS,还是根本没接。
+//   - A typed proxy is **compile-time** coupling. As soon as the kernel can write
+//     `proxy.Send(...)`, it knows "sending mail" is a thing, and knows a message is
+//     made of To/Subject/Body/HTML. Delete the name and the shape is still there.
+//   - `Invoke("send", json)` is **run-time** access by string. All the kernel can write
+//     is one string and one opaque JSON blob; it doesn't know whether the other side is
+//     SMTP, some SaaS, or not even connected.
 //
-// 品类名和动词名在这里各出现一次 —— 这里是**组装根**,组装根的职责就是把具体的东西接上去。
-// 它们不出现在 `internal/` 的任何地方,那才是要守的线。
+// The category name and verb name each appear exactly once here — this is the
+// **composition root**, and the composition root's job is to wire in the concrete
+// thing. They don't appear anywhere in `internal/`; that's the line to guard.
 
 package port
 
@@ -27,35 +32,40 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// 组装根在这里把"内核要发信"绑到某个品类的某个动词上。内核侧一个字符串都看不到。
+// The composition root binds "kernel needs to send mail" to one verb of one category
+// here. The kernel side sees not a single string of it.
 const (
 	outboundCategory = "mail"
 	opSend           = "send"
 	opConnected      = "connected"
 )
 
-// categoryInvoker —— 注册器那一口:按品类 + 动词跑一次,收发都是不透明 JSON。
+// categoryInvoker — the registry's port: runs once by category + verb, both sides
+// opaque JSON.
 type categoryInvoker interface {
 	Invoke(
 		ctx context.Context, ownerID, category, verb string, args json.RawMessage,
 	) (json.RawMessage, error)
 }
 
-// OutboundSenderAdapter —— 把注册器的通用 Invoke 包成内核中立的 OutboundSender。
+// OutboundSenderAdapter — wraps the registry's generic Invoke into the kernel-neutral
+// OutboundSender.
 type OutboundSenderAdapter struct{ inv categoryInvoker }
 
-// ChannelName —— 送不出去时让 owner 去连哪一种连接器。**这台实例把出站绑到了哪个品类,
-// 只有这一层知道**;内核转述这个名字,而不是自己编一个("outbound channel" 那个词
-// 在界面上不存在,owner 拿着它找不到任何东西)。
+// ChannelName — which kind of connector the owner should go connect when sending
+// fails. **Only this layer knows which category this instance bound outbound to**;
+// the kernel relays this name rather than inventing its own (the phrase "outbound
+// channel" doesn't exist in the UI — the owner couldn't find anything with it).
 func (OutboundSenderAdapter) ChannelName() string { return outboundCategory }
 
-// Connected —— owner 配没配好可用的出站通道。
+// Connected — whether the owner has a usable outbound channel configured.
 func (a OutboundSenderAdapter) Connected(ctx context.Context, ownerID string) (bool, error) {
 	raw, err := a.inv.Invoke(ctx, ownerID, outboundCategory, opConnected, json.RawMessage(`{}`))
 	if err != nil {
 		return false, outboundErr("connected", err)
 	}
-	// 回参形状由**这一侧的动词**定义(`{"connected":bool}`),组装根照着解。
+	// The reply shape is defined by **this side's verb** (`{"connected":bool}`); the
+	// composition root decodes it accordingly.
 	var out struct {
 		Connected bool `json:"connected"`
 	}
@@ -65,12 +75,15 @@ func (a OutboundSenderAdapter) Connected(ctx context.Context, ownerID string) (b
 	return out.Connected, nil
 }
 
-// Send —— 发一封信。内核不知道对面是 SMTP 还是某个 SaaS,也不知道它叫 mail。
+// Send — sends one message. The kernel doesn't know whether the other side is SMTP
+// or some SaaS, and doesn't know it's called mail.
 func (a OutboundSenderAdapter) Send(
 	ctx context.Context, ownerID string, n owner.OutboundNotice,
 ) error {
-	// 线上字段名在这里定死。内核那个 OutboundMessage 是**内核自己的**词汇,没有 json tag;
-	// 组装根负责把它翻成对面认得的形状 —— 这正是"翻译归组装根"的意思。
+	// The on-the-wire field names are fixed here. The kernel's OutboundMessage is the
+	// **kernel's own** vocabulary, with no json tag; the composition root is responsible
+	// for translating it into the shape the other side understands — that's exactly
+	// what "translation belongs to the composition root" means.
 	args, merr := json.Marshal(outboundWire{To: n.To, Subject: n.Title, Body: n.Body})
 	if merr != nil {
 		return fmt.Errorf("outbound send: encode: %w", merr)
@@ -81,19 +94,24 @@ func (a OutboundSenderAdapter) Send(
 	return nil
 }
 
-// outboundWire —— 一条通知在**线上**长什么样。它是组装根跟渠道之间的约定,不是内核的类型:
-// 内核只有 `owner.OutboundNotice{To,Title,Body}`,那是它自己的词。**Title → subject 这一步
-// 翻译就发生在这儿** —— "标题"是通知的概念,"主题行"是邮件的概念,内核只说得出前者。
+// outboundWire — what one notice looks like **on the wire**. It's a contract between
+// the composition root and the channel, not the kernel's type: the kernel only has
+// `owner.OutboundNotice{To,Title,Body}`, that's its own vocabulary. **The Title →
+// subject translation happens right here** — "title" is a notice concept, "subject
+// line" is an email concept, and the kernel can only say the former.
 type outboundWire struct {
 	To      string `json:"to"`
 	Subject string `json:"subject"`
 	Body    string `json:"body"`
 }
 
-// outboundErr —— 把渠道侧的"没配好"翻成**内核自己的**哨兵。
+// outboundErr — translates the channel side's "not configured" into the **kernel's
+// own** sentinel.
 //
-// 内核 errors.Is 的必须是它自己的错误:借一个名字里带 mail 的哨兵,就等于承认它知道对面是邮件。
-// 翻译在这儿,是因为这里是组装根 —— 它本来就该同时认识两边。
+// What the kernel does errors.Is against must be its own error: borrowing a sentinel
+// with "mail" in the name would be admitting it knows the other side is email. The
+// translation happens here because this is the composition root — it's supposed to
+// know both sides at once.
 func outboundErr(what string, err error) error {
 	if errors.Is(err, consumer.ErrMailNotConfigured) {
 		return fmt.Errorf("outbound %s: %w", what, owner.ErrOutboundNotConfigured)
@@ -101,7 +119,8 @@ func outboundErr(what string, err error) error {
 	return fmt.Errorf("outbound %s: %w", what, err)
 }
 
-// OutboundSender —— 内核中立的发信口,背后是注册器按名字解出来的那个连接器。
+// OutboundSender — the kernel-neutral send port, backed by whichever connector the
+// registry resolves by name.
 func OutboundSender(d *deps.Runtime) OutboundSenderAdapter {
 	return OutboundSenderAdapter{inv: d.ConnectorSlots}
 }

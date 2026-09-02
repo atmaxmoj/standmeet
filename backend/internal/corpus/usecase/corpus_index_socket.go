@@ -1,15 +1,18 @@
-// corpus_index_socket.go —— corpus indexing(检索/导航)的 HOST 侧 compute plumbing (#144/#157)。
+// corpus_index_socket.go — HOST-side compute plumbing for corpus indexing (search / nav)
+// (#144/#157).
 //
-// 外置的消费方插件（沙箱、断网，如 retrieval/summarize）经 bind 进来的 unix socket 调三个 op:
-//   - "corpus_search" → Lister.Search（关键词搜 wiki/output/writing，ACL 在方法内）
-//   - "corpus_read"   → Lister.Get（按 path 取全文，ACL 准入；denied/not-found 分流）
-//   - "corpus_list"   → Lister.List（wiki 树逐层导航 + output/writing 扁平根层）
+// Sandboxed, no-network consumer plugins (e.g. retrieval/summarize) call three ops over the
+// unix socket bound in for them: "corpus_search" (Lister.Search, keyword search over
+// wiki/output/writing, ACL inside the method), "corpus_read" (Lister.Get, fetch full text by
+// path, ACL-gated, denied/not-found handled separately), "corpus_list" (Lister.List, wiki
+// tree nav level by level plus output/writing flat root level).
 //
-// 每个 op 用 session 携来的 corpus-URI scope（role snapshot 的 glob 白名单，经 _meta 转发；
-// frozen，无 staleness）作为 grantedGlobs 调对应方法，返同一套 wire JSON。
+// Each op calls its method with the corpus-URI scope the session carries (the role
+// snapshot's glob allowlist, forwarded via _meta; frozen, no staleness) as grantedGlobs,
+// and returns the same wire JSON shape.
 //
-// #157: Lister 无状态——path→id 每次 DB 现解（wiki/output 下钻、writing 按 path 列），
-// 不再需要 per-conversation 的 retriever 缓存 / seen 续命。旧的 retrieverCache 整体删除。
+// #157: Lister is stateless — path→id resolves fresh against the DB every call, so a
+// per-conversation retriever cache is no longer needed; the old retrieverCache is deleted.
 
 package usecase
 
@@ -24,26 +27,29 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
-// corpusIndexReq —— 插件经 socket 发来的请求。session scope 字段 + 原样转发的 args。
+// corpusIndexReq — the request a plugin sends over the socket. Session-scope fields plus
+// args forwarded as-is.
 type corpusIndexReq struct {
 	OwnerID        string          `json:"owner_id"`
 	ConversationID string          `json:"conversation_id"`
 	Args           json.RawMessage `json:"args"`
-	// CorpusScope —— 整块回来的准入范围（宿主写进 `_meta`，插件原样转发）。
-	// 拆成字段过线的写法已经废弃：漏一个成员不会编译失败，只会静默改变谁能读什么。
+	// CorpusScope — the admission scope, carried whole (host writes it into `_meta`, plugin
+	// forwards it verbatim). Splitting it into separate wire fields is retired: a missing
+	// member wouldn't fail to compile, it would silently change who can read what.
 	CorpusScope access.CorpusScope `json:"corpus_scope"`
 }
 
-// corpusRunner —— 一个 op 的执行体：解析 args、调 lister、返 wire JSON。
+// corpusRunner — the body of one op: parse args, call the lister, return wire JSON.
 type corpusRunner func(context.Context, Lister, *corpusIndexReq) (string, error)
 
-// CorpusHostOpsFor —— prod 那套:从 postgres 的 IndexDeps 装出 pgCorpusLister,再声明这七件事。
+// CorpusHostOpsFor — the prod wiring: assembles a pgCorpusLister from the postgres-backed
+// IndexDeps, then declares these seven ops.
 func CorpusHostOpsFor(deps *IndexDeps) []hostop.Op {
 	return CorpusHostOps(newPGLister(deps))
 }
 
-// newPGLister —— IndexDeps → pgCorpusLister。host ops 和 RefResolver 共用一句,
-// 好让「waypoint 的 evidence_ref 解不解析得出」跟「agent 真读得到什么」是同一套 finder。
+// newPGLister — IndexDeps → pgCorpusLister. Host ops and RefResolver share this one call,
+// so "can a waypoint's evidence_ref resolve" and "what an agent can read" run through it.
 func newPGLister(deps *IndexDeps) *pgCorpusLister {
 	return &pgCorpusLister{
 		wiki: deps.Wiki, output: deps.Output, writing: deps.Writings,
@@ -52,13 +58,12 @@ func newPGLister(deps *IndexDeps) *pgCorpusLister {
 	}
 }
 
-// CorpusHostOps —— 本域开给沙箱能力的读语料那几件事,背后是任意 Lister。
-//
-// prod 经 CorpusHostOpsFor 注入 pgCorpusLister;agentcore 的 eval mini-host 注入一个
-// Driver-backed 的内存 lister,让消费方不碰 postgres 也能装配。
-//
-// 名字保持 canonical(corpus_search 而不是 corpus.search):它们是 retrieval 插件一直在
-// 用的那几个,搬家不改对外的称呼。
+// CorpusHostOps — the corpus-reading ops this domain exposes to sandboxed capabilities,
+// backed by any Lister. Prod injects a pgCorpusLister via CorpusHostOpsFor; agentcore's eval
+// mini-host injects a Driver-backed in-memory lister, so a consumer assembles without ever
+// touching postgres. Names stay canonical (corpus_search, not corpus.search) — these are
+// the same ops the retrieval plugin has always used; moving the wiring doesn't rename the
+// outward contract.
 func CorpusHostOps(lister Lister) []hostop.Op {
 	decl := []struct {
 		run  corpusRunner
@@ -117,7 +122,8 @@ func runCorpusSearch(ctx context.Context, l Lister, req *corpusIndexReq) (string
 func runCorpusRead(ctx context.Context, l Lister, req *corpusIndexReq) (string, error) {
 	var args struct {
 		Path string `json:"path"`
-		// Lang —— 想读哪一种语言(多语笔记)。不给 = 这条笔记的身份语言。
+		// Lang — which language to read (for a multi-language note). Omitted = the note's
+		// identity language.
 		Lang string `json:"lang"`
 	}
 	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
@@ -133,18 +139,19 @@ func runCorpusRead(ctx context.Context, l Lister, req *corpusIndexReq) (string, 
 	return marshalReadResult(readWire(ctx, l, req, &entry, args.Lang)), nil
 }
 
-// readWire —— 装配 corpus_read 的回参:正文里的原生查询就地解析,素材跟着条目一起给。
-//
-// 素材那一步在这里,是因为**走到这里 ACL 已经放行了** —— 可见性继承是结构保证的,
-// 不是又判一次。
+// readWire — assembles the corpus_read response: in-body native queries resolve in place,
+// and assets are handed over with the entry. The asset step lives here because **ACL has
+// already granted access by this point** — visibility inheritance is structural, not a
+// second check.
 func readWire(
 	ctx context.Context, l Lister, req *corpusIndexReq, entry *Entry, want string,
 ) *readResultWire {
 	body := entry.Body
-	if qr, ok := l.(queryResolver); ok { // 服务端解析 standmeet-query 块(ACL-scoped)
+	if qr, ok := l.(queryResolver); ok { // resolves standmeet-query blocks server-side (ACL-scoped)
 		body = ResolveQueryBlocks(ctx, qr, req.OwnerID, corpusScopeOf(req), body)
 	}
-	// 多语:一次一种。两种都灌进上下文 = 同一件事付两遍 token,而且自相矛盾。
+	// Multi-language: one at a time. Feeding both into context pays token cost twice for the
+	// same thing, and contradicts itself.
 	view := ViewFor(body, want, identityLangOf(ctx, l, req.OwnerID, entry.ID), entry.Title)
 	wire := &readResultWire{
 		ID: entry.ID, Genre: entry.Genre, Body: view.Body,
@@ -158,7 +165,8 @@ func readWire(
 	return wire
 }
 
-// identityLangOf —— 这条笔记的身份语言(读不到 → 空,那时落点是第一面)。
+// identityLangOf — this note's identity language (unreadable → empty, in which case the
+// fallback is the first face).
 func identityLangOf(ctx context.Context, l Lister, ownerID, noteID string) string {
 	lr, ok := l.(langReader)
 	if !ok {
@@ -191,12 +199,13 @@ func runCorpusList(ctx context.Context, l Lister, req *corpusIndexReq) (string, 
 	}
 	rows, err := l.List(ctx, req.OwnerID, corpusScopeOf(req), args.Path, args.Page)
 	if err != nil {
-		return corpusListErrWire(err) // 未知地址等 → friendly 行，不 502
+		return corpusListErrWire(err) // unknown address etc. → friendly line, not a 502
 	}
 	return marshalCorpusRows(rows), nil
 }
 
-// corpusListErrWire —— list 的错误（未知地址等）→ friendly tool envelope，永不 502。
+// corpusListErrWire — list's errors (unknown address, etc.) → a friendly tool envelope,
+// never a 502.
 func corpusListErrWire(err error) (string, error) {
 	return errJSON("list: " + err.Error()), nil
 }
@@ -218,16 +227,17 @@ func runCorpusLinks(ctx context.Context, l Lister, req *corpusIndexReq) (string,
 	return marshalLinks(&links), nil
 }
 
-// grepArgs —— corpus_grep 的入参(名字跟插件那侧的 schema 一一对应;对不上不会报错,
-// 只会永远走默认值)。
+// grepArgs — corpus_grep's input (names match the plugin-side schema one-to-one; a
+// mismatch won't error, it'll just silently fall through to the zero value forever).
 type grepArgs struct {
 	Pattern       string `json:"pattern"`
 	Fixed         bool   `json:"fixed"`
 	CaseSensitive bool   `json:"case_sensitive"`
 }
 
-// runCorpusGrep —— corpus_grep:模式 → 每一处命中。模式写坏了是**输入错误**,原样把那句
-// 编译错误往上带(ErrGrepPattern 由面翻成一句人话),不是 500。
+// runCorpusGrep — corpus_grep: pattern → every hit. A malformed pattern is **user input
+// error**; ErrGrepPattern's message carries up verbatim to a human-readable line at the
+// face, not a 500.
 func runCorpusGrep(ctx context.Context, l Lister, req *corpusIndexReq) (string, error) {
 	var args grepArgs
 	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
@@ -238,8 +248,9 @@ func runCorpusGrep(ctx context.Context, l Lister, req *corpusIndexReq) (string, 
 		CaseSensitive: args.CaseSensitive,
 	})
 	if err != nil {
-		// 模式写坏了 → 原样往上带那句话("invalid search pattern: missing closing )")。
-		// 包一层 "corpus grep:" 只会在 agent 读到的那句前面加一个它做不了任何事的词。
+		// Carry a malformed pattern's message up verbatim ("invalid search pattern:
+		// missing closing )"); wrapping it in "corpus grep:" would prefix the agent's
+		// line with a word it can't act on.
 		if errors.Is(err, ErrGrepPattern) {
 			return "", fmt.Errorf("%w", err)
 		}
@@ -248,8 +259,8 @@ func runCorpusGrep(ctx context.Context, l Lister, req *corpusIndexReq) (string, 
 	return marshalGrepHits(hits), nil
 }
 
-// grepRowWire —— 一条命中。lines 是原样的行(带行号),因为这个工具的答案就是"在这一行";
-// matches 是这条笔记里的匹配总数(lines 可能只给了前几条)。
+// grepRowWire — one hit. Lines are the raw lines (numbered), since the answer is "it's on
+// this line"; Matches is the total match count in the note (Lines may carry only the first few).
 type grepRowWire struct {
 	Path    string         `json:"path"`
 	Title   string         `json:"title"`
@@ -286,7 +297,8 @@ func toGrepLines(lines []GrepLine) []grepLineWire {
 	return out
 }
 
-// linksWire —— corpus_links wire:分开 outgoing(本条引用的)/ backlinks(引用本条的)。
+// linksWire — the corpus_links wire shape: separates outgoing (what this entry links to)
+// / backlinks (what links to this entry).
 type linksWire struct {
 	Outgoing  []Row `json:"outgoing"`
 	Backlinks []Row `json:"backlinks"`
@@ -314,17 +326,17 @@ func toCorpusRows(metas []Meta) []Row {
 	return rows
 }
 
-// marshalCorpusRows —— []Meta → 既有 wire（[{path,title,genre,summary?}]）。Snippet
-// 仅 search 填，list 行为空 → omitempty 落掉 summary，复刻旧 list/search wire 差异。
+// marshalCorpusRows — []Meta → the existing wire shape ([{path,title,genre,summary?}]).
+// Snippet fills only from search; list leaves it empty, so omitempty drops summary,
+// reproducing the old list/search wire difference.
 func marshalCorpusRows(metas []Meta) string {
 	return marshalRows(rowsOf(metas))
 }
 
-// corpusScopeOf —— the request's corpus scope, exactly as the host froze it.
-//
-// It used to REBUILD the scope from two fields off the wire, which is how "this identity reads
-// only what the owner published" got lost in transit: a member the rebuild did not know about
-// silently defaulted to false. Now the scope crosses whole and is used whole.
+// corpusScopeOf — the request's corpus scope, exactly as the host froze it. It used to
+// REBUILD the scope from two wire fields, which is how "reads only what the owner published"
+// got lost: a member the rebuild didn't know about silently defaulted to false. Now the
+// scope crosses whole and is used whole.
 func corpusScopeOf(req *corpusIndexReq) access.CorpusScope {
 	return req.CorpusScope
 }

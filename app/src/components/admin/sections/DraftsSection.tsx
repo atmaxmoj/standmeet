@@ -1,10 +1,12 @@
-// DraftsSection —— /admin/drafts。owner 看 job-loop 路径里 Claude 起的
-// resume drafts，每个 card 可"open composer →"进 ResumeComposer。
+// DraftsSection —— /admin/drafts. Owner views resume drafts Claude started along the
+// job-loop path; each card can "open composer →" into ResumeComposer.
 //
-// 设计源 docs/design/project/admin.js DraftsSection + DraftCard。
+// Design source: docs/design/project/admin.js DraftsSection + DraftCard.
 //
-// 数据走 GET /api/admin/drafts 真 fetch（后端 listResumeDraftsByOwner SQL 已落）。Composer 打开的
-// model 走 useDraftDetail → GET /api/admin/drafts/{id} 真详情 fetch（#52，替代了旧 mockDraft 占位）。
+// Data comes from a real GET /api/admin/drafts fetch (backend listResumeDraftsByOwner
+// SQL is already in place). The model the Composer opens with comes from
+// useDraftDetail → a real GET /api/admin/drafts/{id} detail fetch (#52, replacing the
+// old mockDraft placeholder).
 
 'use client';
 
@@ -31,8 +33,9 @@ export function DraftsSection() {
   const [openId, setOpenId] = useState<string | null>(null);
   const detail = useDraftDetail(openId);
   const run = useAction();
-  // onSend —— 真的发。这里以前是 `onSend={onClose}`：确认框逐条许诺了四件事，
-  // 点下去只是关掉面板，一个请求都不发也不报错（F-E-9）。
+  // onSend —— actually send. This used to be `onSend={onClose}`: the confirmation
+  // dialog made four promises item by item, and clicking it just closed the panel —
+  // no request went out and nothing errored (F-E-9).
   const onSend = (id: string) => void run(
     async () => {
       const c = await commitDraft(id);
@@ -71,7 +74,7 @@ function titleCount(n: number, loading: boolean): string {
   return loading ? 'loading…' : `${n} pending`;
 }
 
-// ink —— t.rich 的 <ink> 标签：把句中要强调的词提到 ink 色。
+// ink —— the <ink> tag for t.rich: lifts an emphasized word mid-sentence to ink color.
 const ink = (chunks: React.ReactNode) => (
   <span className="text-(--color-ink)">{chunks}</span>
 );

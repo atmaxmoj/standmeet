@@ -1,11 +1,16 @@
-// code_acl.go —— 一张码的权限收窄:三类拒绝 + 引导目的地。
+// code_acl.go — narrowing a single code's permissions: three kinds of denial + the
+// steering destinations.
 //
-// 拒绝有三种(capability / skill / corpus URI),它们是同一件事的三个维度:在 role 给的
-// 范围上再减一层。三种落在两个仓储方法族上(离散 id 一族、整份 glob 列表一族),按 kind
-// 分派、corpus 那类的读-改-写、以及 waypoints 的"继承 + 覆盖 = 生效"三层合并 —— 这些都
-// 是**这件事怎么算**,不是某个面怎么表达,所以住在域里。
+// There are three kinds of denial (capability / skill / corpus URI); they're three
+// dimensions of the same thing: subtracting one more layer from the scope the role
+// grants. The three land on two repo method families (a discrete-id family and a
+// whole-glob-list family), dispatched by kind; the corpus kind's read-modify-write,
+// and waypoints' three-layer merge of "inherited + overridden = effective" — all of
+// this is **how the thing is computed**, not how some face presents it, so it lives
+// in the domain.
 //
-// 以前它们长在组装根的适配器上,于是同一件事换个入口就可能算得不一样。
+// It used to live on the composition root's adapters, so the same operation could be
+// computed differently depending on which entry point you came in through.
 
 package usecase
 
@@ -17,35 +22,40 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
 )
 
-// 拒绝的三种 kind —— 每个面用同一套词。
+// The three denial kinds — every face uses the same vocabulary.
 const (
 	DenialKindCapability = "capability"
 	DenialKindSkill      = "skill"
 	DenialKindCorpus     = "corpus"
 )
 
-// CodeACLDeps —— 权限收窄这组用例需要的 repos。Roles 用来读 role 授的那一半。
+// CodeACLDeps — repos needed by this group of permission-narrowing use cases. Roles
+// is used to read the half that the role grants.
 type CodeACLDeps struct {
 	Codes   *repo.CodeRepo
 	Denials *repo.CodeDenialRepo
 	Roles   *repo.RoleRepo
 }
 
-// CodeDenials —— 一张码的三类拒绝,外加 role 在语料上**授**了什么。
+// CodeDenials — a code's three kinds of denial, plus what the role **grants** on
+// corpus.
 //
-// 带上 CorpusGranted 是因为收回只有对着正列表看才有意义:owner 要判断"这张码还能看什么",
-// 光看收回列表看不出来。
+// CorpusGranted is included because a revocation list only makes sense read against
+// the positive list: the owner needs to judge "what can this code still see", and
+// that can't be seen from the revocation list alone.
 type CodeDenials struct {
 	CapabilityIDs []string
 	SkillIDs      []string
 	CorpusURIs    []string
 	CorpusGranted []string
-	// CorpusPublishedOnly —— 继承来的那个 role 读的是「owner 发布过的那些」（public 身份）。
-	// 那种 role **没有正列表**，所以光看 CorpusGranted 会得出「什么都不授」——正好是反的。
+	// CorpusPublishedOnly — the inherited role reads "whatever the owner has
+	// published" (the public identity). That kind of role **has no positive
+	// list**, so reading CorpusGranted alone yields "grants nothing" — the
+	// exact opposite of the truth.
 	CorpusPublishedOnly bool
 }
 
-// CodeDenialRef —— 加/删一条拒绝。Kind 取 capability / skill / corpus。
+// CodeDenialRef — add/remove one denial. Kind is capability / skill / corpus.
 type CodeDenialRef struct {
 	OwnerID  string
 	CodeID   string
@@ -53,7 +63,8 @@ type CodeDenialRef struct {
 	TargetID string
 }
 
-// ListCodeDenials —— 读全三类,外加对照用的正列表。**先确认这张码是这个 owner 的**。
+// ListCodeDenials — reads all three kinds, plus the positive list for comparison.
+// **First confirms this code belongs to this owner**.
 func ListCodeDenials(
 	ctx context.Context, d CodeACLDeps, ownerID, codeID string,
 ) (CodeDenials, error) {
@@ -63,7 +74,8 @@ func ListCodeDenials(
 	return listDenials(ctx, d, codeID)
 }
 
-// listDenials —— 三类拒绝的原始读。归属已经确认过的路径走这条,不重复查一次码。
+// listDenials — the raw read of all three denial kinds. Paths where ownership was
+// already confirmed use this, without re-querying the code.
 func listDenials(ctx context.Context, d CodeACLDeps, codeID string) (CodeDenials, error) {
 	caps, cerr := d.Denials.ListCapabilities(ctx, codeID)
 	if cerr != nil {
@@ -84,10 +96,13 @@ func listDenials(ctx context.Context, d CodeACLDeps, codeID string) (CodeDenials
 	}, nil
 }
 
-// grantedCorpusURIs —— 这张码的 role 授的语料正列表。读不到当空:它是对照用的一半,
-// 不该让整个 ACL 读失败。
-// grantedCorpus —— 这张码继承到的语料范围：role 的正列表 + 它是不是「已发布切片」那种身份。
-// 两个值一起回，因为**只看列表推不出范围**：public 的列表是空的，而它授的是已发布的那些。
+// grantedCorpusURIs — the corpus positive list granted by this code's role. Treated
+// as empty when unreadable: it's one half of the comparison, and shouldn't fail the
+// whole ACL read.
+// grantedCorpus — the corpus scope this code inherits: the role's positive list +
+// whether it's the "published slice" kind of identity. Both values are returned
+// together because **the list alone can't tell you the scope**: public's list is
+// empty, yet it grants everything published.
 func grantedCorpus(ctx context.Context, d CodeACLDeps, codeID string) ([]string, bool) {
 	code, err := d.Codes.GetByID(ctx, codeID)
 	if err != nil {
@@ -100,22 +115,23 @@ func grantedCorpus(ctx context.Context, d CodeACLDeps, codeID string) ([]string,
 	return role.CorpusURIs(), entity.ReadsPublishedSlice(role.Name())
 }
 
-// AddCodeDenial —— 加一条。幂等。
+// AddCodeDenial — add one. Idempotent.
 func AddCodeDenial(
 	ctx context.Context, d CodeACLDeps, in *CodeDenialRef,
 ) (CodeDenials, error) {
 	return writeCodeDenial(ctx, d, in, denialAdders(d))
 }
 
-// RemoveCodeDenial —— 撤一条。幂等。
+// RemoveCodeDenial — revoke one. Idempotent.
 func RemoveCodeDenial(
 	ctx context.Context, d CodeACLDeps, in *CodeDenialRef,
 ) (CodeDenials, error) {
 	return writeCodeDenial(ctx, d, in, denialRemovers(d))
 }
 
-// SetCodeCorpusDenials —— 整份替换收回列表。不校验 glob 语法:跟 role 的正列表同一种
-// 语言,而且这是纯减法 —— 写错顶多少读到东西,不会泄露。
+// SetCodeCorpusDenials — replaces the whole revocation list. Doesn't validate glob
+// syntax: it's the same language as the role's positive list, and this is pure
+// subtraction — a mistake here at worst reads less, never leaks.
 func SetCodeCorpusDenials(
 	ctx context.Context, d CodeACLDeps, ownerID, codeID string, uris []string,
 ) (CodeDenials, error) {
@@ -128,8 +144,10 @@ func SetCodeCorpusDenials(
 	return listDenials(ctx, d, codeID)
 }
 
-// denialWrite —— 写一条拒绝。加和删各有一张表(见下),所以往下传的是**要做的那件事**,
-// 而不是一个 add bool —— 布尔控制参数会把"加还是删"的判断一路推到最里层。
+// denialWrite — writes one denial. Add and remove each have their own table (see
+// below), so what's passed down is **the action to take**, not an add bool — a
+// boolean control parameter would push the add-vs-remove decision all the way
+// down to the innermost layer.
 type denialWrite func(ctx context.Context, codeID, target string) error
 
 func denialAdders(d CodeACLDeps) map[string]denialWrite {
@@ -148,11 +166,14 @@ func denialRemovers(d CodeACLDeps) map[string]denialWrite {
 	}
 }
 
-// writeCodeDenial —— 先确认这张码是**这个 owner 的**,再按 kind 取那一类的写法,写完回读整份。
+// writeCodeDenial — first confirms this code is **this owner's**, then picks that
+// kind's write function, writes, and reads back the whole set.
 //
-// 归属这一问一度不在这儿:入参里带着 OwnerID,却一路没人看。后果是拿到任何一个 code id
-// (甚至一个不存在的)就能往上写拒绝 —— 多租户下那是越权写别人的码。ACL 的写路径上,
-// "这东西是不是你的"必须先问,而不是靠调用方只传自己的 id。
+// This ownership check used to be missing here: OwnerID was carried in the input,
+// but nothing ever looked at it. The result: any code id (even a nonexistent one)
+// could have a denial written to it — under multi-tenancy that's an unauthorized
+// write to someone else's code. On the ACL's write path, "is this yours" must be
+// asked up front, not left to the caller only ever passing its own id.
 func writeCodeDenial(
 	ctx context.Context, d CodeACLDeps, in *CodeDenialRef, writes map[string]denialWrite,
 ) (CodeDenials, error) {
@@ -169,8 +190,9 @@ func writeCodeDenial(
 	return listDenials(ctx, d, in.CodeID)
 }
 
-// ownsCode —— 这张码归这个 owner 吗。不存在和不属于你,对外是**同一个**答案:
-// 否则这个端点就成了一台"这个 id 存在吗"的探测器。
+// ownsCode — does this code belong to this owner. "Doesn't exist" and "isn't
+// yours" give the **same** answer externally: otherwise this endpoint becomes a
+// probe for "does this id exist".
 func ownsCode(ctx context.Context, d CodeACLDeps, ownerID, codeID string) error {
 	code, err := d.Codes.GetByID(ctx, codeID)
 	if err != nil {
@@ -182,7 +204,7 @@ func ownsCode(ctx context.Context, d CodeACLDeps, ownerID, codeID string) error 
 	return nil
 }
 
-// corpus 拒绝存的是整份 URI 列表,所以加/删都是读-改-写。
+// Corpus denials store the whole URI list, so add/remove are both read-modify-write.
 func addCorpusURI(d CodeACLDeps) denialWrite {
 	return func(ctx context.Context, codeID, uri string) error {
 		return rewriteCorpusURIs(ctx, d, codeID, func(cur []string) []string {
@@ -222,14 +244,15 @@ func withoutString(xs []string, drop string) []string {
 	return out
 }
 
-// CodeWaypointsView —— 引导目的地的三层:role 继承的、这张码覆盖的、合并后实际生效的。
+// CodeWaypointsView — the three layers of steering destinations: what the role
+// inherits, what this code overrides, and what's effective after the merge.
 type CodeWaypointsView struct {
 	Inherited []entity.Waypoint
 	Overrides []entity.Waypoint
 	Effective []entity.Waypoint
 }
 
-// CodeWaypoints —— 读这张码的三层。
+// CodeWaypoints — reads this code's three layers.
 func CodeWaypoints(
 	ctx context.Context, d CodeACLDeps, ownerID, codeID string,
 ) (CodeWaypointsView, error) {
@@ -240,7 +263,8 @@ func CodeWaypoints(
 	return waypointsView(ctx, d, ownerID, codeID, overrides), nil
 }
 
-// SetCodeWaypoints —— 写覆盖层。空列表 = 清掉覆盖,回到继承 role 的那份。
+// SetCodeWaypoints — writes the override layer. Empty list = clear the override,
+// falling back to the inherited role's set.
 func SetCodeWaypoints(
 	ctx context.Context, d CodeACLDeps, ownerID, codeID string, overrides []entity.Waypoint,
 ) (CodeWaypointsView, error) {
@@ -261,8 +285,8 @@ func waypointsView(
 	}
 }
 
-// inheritedWaypoints —— 这张码的 role 上配的那份。取不到就当没有:它是三层里的一层,
-// 不该让整个读操作失败。
+// inheritedWaypoints — the set configured on this code's role. Treated as absent
+// when unreadable: it's one of three layers, and shouldn't fail the whole read.
 func inheritedWaypoints(
 	ctx context.Context, d CodeACLDeps, ownerID, codeID string,
 ) []entity.Waypoint {

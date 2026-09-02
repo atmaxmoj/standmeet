@@ -1,16 +1,17 @@
-// role.go —— owner-scoped visitor 身份原型。设计 [[iam-role-pivot-plan]]。
+// role.go — the owner-scoped visitor identity archetype. Design: [[iam-role-pivot-plan]].
 //
-// Role = persona (Prompt) + 可见 corpus URI globs + Skills + MCP servers。一张
-// access_code 挂一个 assumed_role_id；session start 时把 role 完整拍下来塞
-// session_data（RoleSnapshot），跟 role 解耦 —— owner 改 role 不影响在跑
-// session，唯一补救 = revoke code。
+// Role = persona (Prompt) + visible corpus URI globs + Skills + MCP servers. An access_code
+// carries one assumed_role_id; at session start the role is snapshotted whole into
+// session_data (RoleSnapshot), decoupling it from the live role — the owner editing a role
+// does not affect a running session, the only remedy is revoke code.
 //
-// public role（is_builtin=true）由 SeedPublicRole 在 owner claim 时种：
-// 公开 corpus 三 glob、无 skill、无 mcp、挂 public prompt。不可删（repo 层挡）。
+// The public role (is_builtin=true) is seeded by SeedPublicRole when the owner claims the
+// instance: three public-corpus globs, no skill, no mcp, the public prompt attached.
+// Cannot be deleted (blocked at the repo layer).
 //
-// LSP / OCP 备忘：Role 本身就是值对象，没有 sub-type。Corpus ACL 评估走
-// AllowsCorpus(uri) 一个 method —— positive-list only，没有 deny / order；
-// 唯一 hardcode 是 raw://** 永远 deny visitor。
+// LSP / OCP note: Role itself is a value object, no sub-type. Corpus ACL evaluation goes
+// through one method, AllowsCorpus(uri) — positive-list only, no deny / no ordering; the
+// one hardcode is raw://** always denying visitors.
 
 package entity
 
@@ -21,7 +22,8 @@ import (
 	"time"
 )
 
-// Role —— roles 行的领域值对象 + 关联的 corpus URIs / skill IDs / mcp server IDs。
+// Role — the domain value object for a roles row + its associated corpus URIs / skill IDs /
+// mcp server IDs.
 type Role struct {
 	createdAt   time.Time
 	updatedAt   time.Time
@@ -29,29 +31,34 @@ type Role struct {
 	ownerID     string
 	name        string
 	description string
-	greeting    string // 访客名字选择器看到的「这是什么」介绍(空=用默认)
-	promptID    string // 空 = 没挂 prompt（public 也是挂的，这里是真的 NULL 的情况）
-	// providerID —— 这个 role 用 owner 本子里的哪一条 provider。空 = 用默认那条。
-	// 挂在码上的那条压过它(码是发出去的那张票,更具体)。
+	greeting    string // the "what is this" intro on the visitor name picker (empty = default)
+	promptID    string // empty = no prompt attached (public has one too; the true-NULL case)
+	// providerID —— which provider in the owner's ledger this role uses. Empty = use the
+	// default one. The one carried on the code overrides it (the code is the ticket that
+	// went out, so it's more specific).
 	providerID   string
 	corpusURIs   []string
 	skillIDs     []string
 	mcpServerIDs []string
-	// waypoints —— ghost-steering 的引导目的地（owner per-role 写）。session freeze 时随
-	// RoleSnapshot 冻结 + 按 corpus glob 过滤（见 FilterWaypointsByCorpus）。
+	// waypoints —— ghost-steering guidance destinations (written by the owner, per-role).
+	// Frozen into RoleSnapshot at session freeze + filtered by corpus glob (see
+	// FilterWaypointsByCorpus).
 	waypoints []Waypoint
-	// dockButtons —— #109/#110 这个 role 的 ≤2 个 chat dock 按钮配置。
+	// dockButtons —— #109/#110 this role's <=2 chat dock button configs.
 	dockButtons []DockButtonConfig
 	isBuiltin   bool
 	hasPrompt   bool
-	// requireGhostEvidence —— F-A-10: 开则「内容型引导 ghost」只提有 evidence_refs 的 waypoint
-	// (空证据的非终点 waypoint 不当 steering ghost);终点/工具 waypoint 不受影响。code 可覆盖。
+	// requireGhostEvidence —— F-A-10: when on, a "content-steering ghost" only offers a
+	// waypoint that has evidence_refs (a non-terminal waypoint with no evidence is not
+	// offered as a steering ghost); terminal/tool waypoints are unaffected. A code may
+	// override it.
 	requireGhostEvidence bool
-	// gasMetered —— 这个 role 挂不挂油表。false(默认)= 一次 gas 查询都不发,跟今天完全同一条路。
+	// gasMetered —— whether this role carries a gas meter. false (default) = zero gas
+	// queries fired, identical to today's path.
 	gasMetered bool
 }
 
-// RoleInit —— 构造参数。
+// RoleInit —— constructor arguments.
 type RoleInit struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -61,7 +68,7 @@ type RoleInit struct {
 	Name        string
 	Description string
 	Greeting    string
-	// ProviderID —— 这个 role 用哪条 provider(空 = owner 默认)。
+	// ProviderID —— which provider this role uses (empty = owner default).
 	ProviderID   string
 	CorpusURIs   []string
 	SkillIDs     []string
@@ -69,19 +76,20 @@ type RoleInit struct {
 	Waypoints    []Waypoint
 	DockButtons  []DockButtonConfig
 	IsBuiltin    bool
-	// 这里以前有 NotifyOwnerOnBooking —— 一个 per-role 的**业务**开关,长在内核实体上,
-	// 一路长到 roles 表的一列。它现在是 calendar.book 在自己 manifest 里声明的 role_config,
-	// 存进 capconfig 的 role scope:access 域连它叫什么都不再知道。
+	// This used to hold NotifyOwnerOnBooking — a per-role **business** switch that had
+	// grown onto the kernel entity, all the way to a column on the roles table. It is now
+	// role_config that calendar.book declares in its own manifest, stored in capconfig's
+	// role scope; the access domain no longer even knows its name.
 	//
-	// RequireGhostEvidence 留着 —— 它管的是 ghost 引导要不要有证据,那是本域自己的规则,
-	// 不属于任何一个能力。
-	// RequireGhostEvidence —— F-A-10 per-role 开关。
+	// RequireGhostEvidence stays — it governs whether ghost guidance needs evidence, and
+	// that is this domain's own rule, not owned by any one capability.
+	// RequireGhostEvidence —— F-A-10 per-role switch.
 	RequireGhostEvidence bool
-	// GasMetered —— 这个 role 挂不挂油表。
+	// GasMetered —— whether this role carries a gas meter.
 	GasMetered bool
 }
 
-// NewRole —— 从 Init 构造。容器字段 defensive clone；nil → 空切片。
+// NewRole —— construct from Init. Container fields are defensively cloned; nil -> empty slice.
 func NewRole(i *RoleInit) Role {
 	r := Role{
 		id:                   i.ID,
@@ -115,23 +123,24 @@ func cloneStrings(s []string) []string {
 	return slices.Clone(s)
 }
 
-// ID —— DB primary key。
+// ID —— DB primary key.
 func (r *Role) ID() string { return r.id }
 
-// OwnerID —— owner-scoped FK。
+// OwnerID —— owner-scoped FK.
 func (r *Role) OwnerID() string { return r.ownerID }
 
-// Name —— role slug（owner 内唯一）。
+// Name —— role slug (unique within an owner).
 func (r *Role) Name() string { return r.name }
 
-// Description —— 一句简介(admin 内部用)。
+// Description —— a one-line summary (admin-internal use).
 func (r *Role) Description() string { return r.description }
 
-// Greeting —— 访客名字选择器看到的「这是什么」介绍(per-role,owner 可改)。
+// Greeting —— the "what is this" intro shown on the visitor name picker (per-role,
+// owner-editable).
 func (r *Role) Greeting() string { return r.greeting }
 
-// PromptID —— 挂的 prompt 的 ID，第二返表是否设了。SET NULL on prompt delete
-// 时 hasPrompt = false。
+// PromptID —— the attached prompt's ID, plus a second return for whether one is set.
+// SET NULL on prompt delete sets hasPrompt = false.
 func (r *Role) PromptID() (string, bool) {
 	if !r.hasPrompt {
 		return "", false
@@ -139,60 +148,61 @@ func (r *Role) PromptID() (string, bool) {
 	return r.promptID, true
 }
 
-// HasPrompt —— 是否挂了 prompt。
+// HasPrompt —— whether a prompt is attached.
 func (r *Role) HasPrompt() bool { return r.hasPrompt }
 
-// CorpusURIs —— 可见 corpus URI glob 列表（defensive copy）。
+// CorpusURIs —— the visible corpus URI glob list (defensive copy).
 func (r *Role) CorpusURIs() []string { return slices.Clone(r.corpusURIs) }
 
-// SkillIDs —— 解锁的 skill id 列表（defensive copy）。
+// SkillIDs —— the unlocked skill id list (defensive copy).
 func (r *Role) SkillIDs() []string { return slices.Clone(r.skillIDs) }
 
-// MCPServerIDs —— 解锁的 MCP server id 列表（defensive copy）。
+// MCPServerIDs —— the unlocked MCP server id list (defensive copy).
 func (r *Role) MCPServerIDs() []string { return slices.Clone(r.mcpServerIDs) }
 
-// DockButtons —— 这个 role 的 ≤2 个 chat dock 按钮配置（defensive copy）。
+// DockButtons —— this role's <=2 chat dock button configs (defensive copy).
 func (r *Role) DockButtons() []DockButtonConfig { return cloneDockButtons(r.dockButtons) }
 
-// Waypoints —— ghost-steering 引导目的地（defensive copy）。freeze 时经
-// FilterWaypointsByCorpus 过滤后进 RoleSnapshot。
+// Waypoints —— ghost-steering guidance destinations (defensive copy). Filtered through
+// FilterWaypointsByCorpus before entering RoleSnapshot at freeze time.
 func (r *Role) Waypoints() []Waypoint { return cloneWaypoints(r.waypoints) }
 
-// IsBuiltin —— 是否种入的 builtin（public 是 true）。
+// IsBuiltin —— whether this was seeded as a builtin (public is true).
 func (r *Role) IsBuiltin() bool { return r.isBuiltin }
 
-// RequireGhostEvidence —— F-A-10: 是否要求内容型引导 ghost 有语料证据(空证据的非终点 waypoint
-// 不当 steering ghost)。per-role,session freeze 时可被 code 覆盖。
+// RequireGhostEvidence —— F-A-10: whether a content-steering ghost requires corpus evidence
+// (a non-terminal waypoint with no evidence is not offered as a steering ghost). Per-role,
+// may be overridden by a code at session freeze.
 func (r *Role) RequireGhostEvidence() bool { return r.requireGhostEvidence }
 
-// ProviderID —— 这个 role 指定的 provider(空 = owner 默认那条)。
+// ProviderID —— the provider this role specifies (empty = owner's default).
 func (r *Role) ProviderID() string { return r.providerID }
 
-// GasMetered —— 这个 role 挂没挂油表。
+// GasMetered —— whether this role carries a gas meter.
 func (r *Role) GasMetered() bool { return r.gasMetered }
 
-// CreatedAt —— 创建时间。
+// CreatedAt —— creation time.
 func (r *Role) CreatedAt() time.Time { return r.createdAt }
 
-// UpdatedAt —— 最后更新时间。
+// UpdatedAt —— last-updated time.
 func (r *Role) UpdatedAt() time.Time { return r.updatedAt }
 
-// HasSkill —— role 是否挂了某 skill。
+// HasSkill —— whether the role has a given skill attached.
 func (r *Role) HasSkill(skillID string) bool {
 	return slices.Contains(r.skillIDs, skillID)
 }
 
-// HasMCPServer —— role 是否挂了某 MCP server。
+// HasMCPServer —— whether the role has a given MCP server attached.
 func (r *Role) HasMCPServer(mcpServerID string) bool {
 	return slices.Contains(r.mcpServerIDs, mcpServerID)
 }
 
-// AllowsCorpus —— 评估 URI 准入。raw://** hardcode deny；其他走 positive-list
-// glob 匹配。corpus_uris 空 = deny 全部。
+// AllowsCorpus —— evaluates URI admission. raw://** is a hardcoded deny; everything else
+// goes through positive-list glob matching. Empty corpus_uris = deny everything.
 //
-// 跟 [[role_snapshot]].AllowsCorpus 同语义；snapshot 是 session 起 freeze
-// 那一刻的拷贝，本 method 是 owner-facing 实时检查（admin 调试时用）。
-// 同 glob 引擎（[[path_acl]] 的 compileGlob）。
+// Same semantics as [[role_snapshot]].AllowsCorpus; the snapshot is the copy frozen at
+// session start, this method is the owner-facing live check (used for admin debugging).
+// Same glob engine ([[path_acl]]'s compileGlob).
 func (r *Role) AllowsCorpus(uri string) bool {
 	if strings.HasPrefix(uri, "raw://") {
 		return false
@@ -205,85 +215,105 @@ func (r *Role) AllowsCorpus(uri string) bool {
 	return false
 }
 
-// PublicRoleName —— builtin public role 的 name（曾叫 "vanilla"，名字太随意、不自我说明，
-// 重命名为 "public"）。SeedPublicRole 用。
+// PublicRoleName —— the builtin public role's name (used to be called "vanilla" — too
+// arbitrary a name, not self-explanatory — renamed to "public"). Used by SeedPublicRole.
 //
-// 为什么叫 "public":每张 access code 是**定向邀请**，冻结一个 owner 指定的 role。而 BYOAI
-// 访客（自带 API key、没被邀请、走 /gate 的默认档）不属于任何邀请 → 落到这个**默认、公开**的
-// role。所以「未被邀请的默认访客 = public」。visitor_public.go 的 public/byoai 路径锁定它。
-// 它是 is_builtin=true：不可删、name 不可改，但 owner **可以改它的 prompt**。
+// Why "public": every access code is a **directed invite**, freezing an owner-specified
+// role. A BYOAI visitor (brings their own API key, never invited, the default path via
+// /gate) belongs to no invite → falls to this **default, public** role. So "an uninvited
+// default visitor = public". Locked in by the public/byoai path in visitor_public.go.
+// It is is_builtin=true: cannot be deleted, name cannot be changed, but the owner **can
+// change its prompt**.
 //
-// **jobsuc 自动发的 application code 不再挂它** —— 那张码印在简历右上角的 QR 里，是**定向邀请**
-// （这份注释上一句自己就是这么定义 code 的）。让一次邀请落到"给未受邀者的兜底档"，在 public
-// 收窄成"只读已发布"之后就变成了：recruiter 扫码进来只看得到公开页。见 InvitedRoleName。
+// **jobsuc's auto-issued application code no longer carries it** — that code is printed in
+// the QR in the top-right corner of a resume, and is a **directed invite** (the sentence
+// right above this one defines code exactly that way). Letting an invite fall onto "the
+// fallback for the uninvited" became, once public narrowed to "reads only what's
+// published": a recruiter scanning the code only sees the public page. See InvitedRoleName.
 //
-// **它的 corpus 范围不是一份可编辑的清单**：public 读到的就是 owner 发布过的那些，
-// 一条一条由笔记自己的 `published` 开关定。这条注释以前写的是「访客身份 role 的 name 跟
-// 内容可见性是两个东西、不同表不同列、不是同一实体」—— 那句话描述的是数据库，被我读成了
-// 产品对访客的承诺，于是"陌生人读到私有笔记"看起来像命名撞车而不是越权（F-D-7）。
-// 现在两者就是同一个数据：**private 的没有码就读不到**。
+// **Its corpus scope is not an editable list**: what public reads is exactly what the owner
+// has published, decided entry-by-entry by each note's own `published` switch. This
+// comment used to read "the visitor-identity role's name and content visibility are two
+// separate things, different tables, different columns, not the same entity" — that
+// sentence described the database, and I read it as a product promise to visitors, so
+// "a stranger reading a private note" looked like a naming collision instead of a privilege
+// escalation (F-D-7). Now the two are the same data: **private with no code stays unreadable**.
 const PublicRoleName = "public"
 
-// ReadsPublishedSlice —— 这个身份的语料范围是不是「owner 发布过的那些」。
+// ReadsPublishedSlice —— whether this identity's corpus scope is "what the owner has
+// published".
 //
-// 一个函数，因为有三处要问同一件事：会话的准入（RoleSnapshot 只有名字）、role 卡片、
-// 码卡片上那句「这张码继承到什么」。分开写的话，某个面迟早会用「正列表空不空」去推，
-// 而那个推法对 public 恰好得出反的结论 —— 码卡片就这么写出过 `(role grants nothing)`。
+// One function, because three places need to ask the same question: session admission
+// (RoleSnapshot only has the name), the role card, and the code card's line about "what
+// this code inherits". Written separately, some surface would eventually infer it from
+// "is the positive list empty", and that inference gives exactly the wrong answer for
+// public — the code card once rendered `(role grants nothing)` because of it.
 func ReadsPublishedSlice(roleName string) bool {
 	return roleName == PublicRoleName
 }
 
-// PublicRoleDescription —— public role 的一句简介。
+// PublicRoleDescription —— a one-line summary of the public role.
 const PublicRoleDescription = "System default. Reads exactly what you have published — " +
 	"each entry's own switch decides. No skills, no MCP. For uninvited BYOAI visitors " +
 	"(access codes are directed invites; this is the fallback)."
 
-// PublicRoleCorpusURIs —— public 身份**不带正列表**：它读到的就是 owner 发布过的那些，
-// 由每条笔记自己的 `published` 开关定（`CorpusScope.PublishedOnly`）。
+// PublicRoleCorpusURIs —— the public identity carries **no positive list**: what it reads
+// is exactly what the owner has published, decided by each note's own `published` switch
+// (`CorpusScope.PublishedOnly`).
 //
-// 这里曾经是 `{wiki://**, output://**, writing://**}` —— 一份**第二数据**，用 glob 重述
-// "谁能读什么"。于是条目上标着 PRIVATE、这份清单说"全部"，两边互不知情：F-D-7 里没有码的
-// 陌生人读到了 573 条标着 PRIVATE 的 wiki，而 /admin/roles 上那三个勾还亮着 "all of it"，
-// 看起来像 owner 做过的决定 —— 他从没选过，是 claim 时种进去的。
+// This used to be `{wiki://**, output://**, writing://**}` — a **second copy of the same
+// data**, restating "who can read what" as globs. So an entry marked PRIVATE and this list
+// saying "everything" knew nothing of each other: under F-D-7, a stranger with no code
+// read 573 notes marked PRIVATE in wiki, while those three checkmarks on /admin/roles still
+// glowed "all of it" — looking like a decision the owner made, when he never chose it; it
+// was seeded in at claim time.
 //
-// 保留成空 slice 而不是删掉这个名字：seed 仍然显式写一次「public 没有正列表」，
-// 让"没设置"和"设成了空"在代码里是同一件被写下来的事。
+// Kept as an empty slice rather than deleting the name: the seed still explicitly writes
+// once that "public has no positive list", so "never set" and "set to empty" stay the same
+// written fact in the code.
 var PublicRoleCorpusURIs = []string{}
 
-// InvitedRoleName —— builtin `invited` role：**产品自己签发**的那些码挂它。
+// InvitedRoleName —— the builtin `invited` role: codes **the product itself issues**
+// carry it.
 //
-// 这个名字划的就是 PublicRoleName 上面那条注释里的线：`public` = 未受邀的兜底档，
-// `invited` = 一次定向邀请。产品有两处替 owner 发码 —— job loop 印在简历 QR 里的那张，
-// 和 owner 批准 gate 申请时发出的那张 —— 两处都是邀请，所以两处都挂这一条。
-// 叫 `invited` 而不是 `applicant`：招聘只是其中一条渠道，而范围问的是"受没受邀"。
+// This name draws exactly the line drawn in the comment above PublicRoleName: `public` =
+// the uninvited fallback, `invited` = a directed invite. The product issues codes on the
+// owner's behalf in two places — the one job loop prints in a resume QR, and the one issued
+// when the owner approves a gate request — both are invites, so both carry this role.
+// Named `invited` rather than `applicant`: hiring is only one channel, and what's being
+// scoped is "invited or not".
 //
-// 它承接的正是 public 在 F-D-7 之前那三条 glob：这次改动**没有动受邀者看到的东西**，
-// 只是把"未受邀"从里面摘了出来。owner 想收窄，就在 /admin/roles 上改这一条 ——
-// 那是一份真正的正列表，改它是个决定。
+// It inherits exactly the three globs public carried before F-D-7: this change **did not
+// touch what an invited visitor sees**, it only pulled "uninvited" out of that scope. If
+// the owner wants to narrow it, they edit this one on /admin/roles — that is a genuine
+// positive list, and editing it is a decision.
 const InvitedRoleName = "invited"
 
-// InvitedRoleDescription —— invited role 的一句简介。
+// InvitedRoleDescription —— a one-line summary of the invited role.
 const InvitedRoleDescription = "System default for the codes StandMeet issues for you — the QR " +
 	"on a résumé, or the code that goes out when you approve a request. A directed invite: it " +
 	"reads your curated corpus, published or not. Narrow it here if invitees should see less."
 
-// InvitedRoleCorpusURIs —— 受邀访客读得到的面（= public 在 F-D-7 之前那三条）。
+// InvitedRoleCorpusURIs —— the surface an invited visitor can read (= public's three
+// pre-F-D-7 entries).
 var InvitedRoleCorpusURIs = []string{
 	"wiki://**",
 	"output://**",
 	"writing://**",
 }
 
-// 这里曾经有过一条 `HiringRole*` —— job loop 要的那条。它不属于内核：`hiring` 是那个
-// 插件的概念，不是一档内核级访问层，而它带的 glob（招聘官读的 CV 在哪）也只有插件说得清。
-// 现在住在 `internal/owner/jobs/jobs_seed.go`，经 capabilities.OwnerSeeder 种下去。
-// 注意 `check-core-agnostic` 的 CORE_DIRS **不含这个包**，所以那次泄漏 lint 是绿的。
+// A `HiringRole*` used to live here — the one job loop needed. It does not belong in the
+// kernel: `hiring` is that plugin's concept, not a kernel-level access tier, and the glob
+// it carries (where a recruiter's CV read is) only the plugin can define. It now lives in
+// `internal/owner/jobs/jobs_seed.go`, seeded through capabilities.OwnerSeeder. Note that
+// `check-core-agnostic`'s CORE_DIRS **does not cover this package**, so that leak stayed
+// green under lint.
 
-// ErrRoleNotFound —— role id 不存在或不属于该 owner。
+// ErrRoleNotFound —— the role id does not exist or does not belong to this owner.
 var ErrRoleNotFound = errors.New("role not found")
 
-// ErrRoleNameTaken —— 同 owner 下 name 重复（unique constraint）。
+// ErrRoleNameTaken —— name is duplicated within the same owner (unique constraint).
 var ErrRoleNameTaken = errors.New("role name already taken in this owner")
 
-// ErrRoleBuiltinImmutable —— 试图删除或改名 builtin role（public）。
+// ErrRoleBuiltinImmutable —— an attempt to delete or rename a builtin role (public).
 var ErrRoleBuiltinImmutable = errors.New("builtin role cannot be deleted or renamed")

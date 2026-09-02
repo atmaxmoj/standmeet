@@ -1,6 +1,8 @@
-// connectors_uploaded.go —— #155 上传 openapi 连接器的存档（spec + JSONata binding）。owner 在
-// UI 贴的连接器持久化在 owner_connectors 的 spec/binding/auth_scheme 列；拉起时重装进 Hub。
-// 内置连接器的这些列为空（manifest 来自 go:embed）。
+// connectors_uploaded.go — #155 storage for uploaded openapi connectors (spec +
+// JSONata binding). Connectors an owner pastes into the UI persist in the
+// spec/binding/auth_scheme columns of owner_connectors; they get reassembled into the
+// Hub on startup. Built-in connectors leave these columns empty (their manifest comes
+// from go:embed).
 
 package connector
 
@@ -15,7 +17,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// SaveUploadedInput —— owner 自建连接器的存储入参（openapi: spec/binding；protocol: protocol）。
+// SaveUploadedInput — storage input for an owner-authored connector (openapi:
+// spec/binding; protocol: protocol).
 type SaveUploadedInput struct {
 	OwnerID            string
 	ConnectorID        string
@@ -29,7 +32,8 @@ type SaveUploadedInput struct {
 	ExposeAsAgentTools bool
 }
 
-// SaveUploaded —— 存一个 owner 自建连接器（openapi 带 spec/binding；protocol 带 protocol）。
+// SaveUploaded — save an owner-authored connector (openapi carries spec/binding;
+// protocol carries protocol).
 func (r *Repo) SaveUploaded(ctx context.Context, in *SaveUploadedInput) error {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
@@ -46,7 +50,8 @@ func (r *Repo) SaveUploaded(ctx context.Context, in *SaveUploadedInput) error {
 	return nil
 }
 
-// UpdateUploaded —— 编辑已建上传连接器的 spec/binding/auth_scheme/category（重新装配后存档）。
+// UpdateUploaded — edit an existing uploaded connector's spec/binding/auth_scheme/
+// category (save after reassembling).
 func (r *Repo) UpdateUploaded(ctx context.Context, in *SaveUploadedInput) error {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
@@ -62,7 +67,8 @@ func (r *Repo) UpdateUploaded(ctx context.Context, in *SaveUploadedInput) error 
 	return nil
 }
 
-// UploadedManifest —— 一个 owner 自建连接器的存档 manifest（拉起重装用）。
+// UploadedManifest — the stored manifest for an owner-authored connector (used to
+// reassemble it on startup).
 type UploadedManifest struct {
 	ConnectorID        string
 	Category           string
@@ -74,9 +80,10 @@ type UploadedManifest struct {
 	ExposeAsAgentTools bool
 }
 
-// GetManifest —— 取一个连接器存档的 manifest 字段（上传连接器用：category/kind/spec/binding/
-// auth_scheme）。无行（或内置无 spec 的行）→ 返回 Spec 为空的零值；调用方据「Spec 空 = 非
-// 上传连接器」判定。
+// GetManifest — fetch the manifest fields for a stored connector (for uploaded
+// connectors: category/kind/spec/binding/auth_scheme). No row (or a built-in row with
+// no spec) → returns the zero value with an empty Spec; callers treat "Spec is empty"
+// as "not an uploaded connector".
 func (r *Repo) GetManifest(
 	ctx context.Context, ownerID, connectorID string,
 ) (UploadedManifest, error) {
@@ -99,7 +106,8 @@ func (r *Repo) GetManifest(
 	}, nil
 }
 
-// DeleteUploaded —— 删一个 owner 自建连接器（行删除）。它填的品类槽随之空。
+// DeleteUploaded — delete an owner-authored connector (row delete). The category slot
+// it filled goes empty along with it.
 func (r *Repo) DeleteUploaded(ctx context.Context, ownerID, connectorID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -113,7 +121,8 @@ func (r *Repo) DeleteUploaded(ctx context.Context, ownerID, connectorID string) 
 	return nil
 }
 
-// ListUploaded —— 所有上传的连接器 manifest（拉起重装，跨 owner；v1 单 owner）。
+// ListUploaded — all uploaded connectors' manifests (for startup reassembly, across
+// owners; v1 is single-owner).
 func (r *Repo) ListUploaded(ctx context.Context) ([]UploadedManifest, error) {
 	rows, err := db.New(r.pool).ListUploadedConnectors(ctx)
 	if err != nil {

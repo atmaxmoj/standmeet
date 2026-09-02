@@ -1,7 +1,9 @@
-// grep.go —— corpus_grep 的扫描面:owner 的每一条 note,连正文。
+// grep.go — the scan surface for corpus_grep: every note the owner has,
+// bodies included.
 //
-// 单独一个文件,因为它跟隔壁 vault_sync 那些"同步一条笔记"的读写是两件事:那边按 id / 路径
-// 取一条,这边一次把全部正文端上来给一个正则扫。
+// Kept in its own file, because it's a different concern from the "sync one
+// note" reads/writes next door in vault_sync: those fetch one note by id/path,
+// this one hands over every body at once for a regex scan.
 
 package repo
 
@@ -14,21 +16,24 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// GrepNoteRow —— 扫描面的一条:leaf id + genre + path 段 + **正文**。
+// GrepNoteRow — one row of the scan surface: leaf id + genre + path segments +
+// **body**.
 type GrepNoteRow struct {
 	ID         string
 	Genre      string
 	Body       string
 	PathTitles []string
-	// Published —— 这一条自己的公开开关。grep 是 never-miss 的:它扫每一条,所以准入
-	// 必须逐条判,而 public 身份的判据就是这个值(access.AllowsCorpusEntry)。
+	// Published — this row's own public/private switch. grep is never-miss: it
+	// scans every note, so admission must be decided row by row, and this value
+	// is the criterion for public identity (access.AllowsCorpusEntry).
 	Published bool
 }
 
-// NotesWithBodies —— owner 的每一条 note,连正文。
+// NotesWithBodies — every note the owner has, bodies included.
 //
-// 没有分页也没有上限:never-miss 说的就是"在的一定找得到",而一个 cap 会把它悄悄换成
-// "通常找得到"。语料的规模问题留给第二阶段的索引解决,不靠少读几条来解决。
+// No pagination, no cap: never-miss means "if it's there, it will be found,"
+// and a cap would quietly turn that into "usually found." The corpus's scale
+// problem is left to the second-phase index to solve, not to reading fewer rows.
 func (r *VaultSyncRepo) NotesWithBodies(
 	ctx context.Context, ownerID string,
 ) ([]GrepNoteRow, error) {
@@ -53,14 +58,16 @@ func (r *VaultSyncRepo) NotesWithBodies(
 	return out, nil
 }
 
-// NoteLang —— 一条笔记的身份语言 + 切换器标签。两者都可以没有(绝大多数笔记就是单语的)。
+// NoteLang — a note's identity language + switcher labels. Both can be absent
+// (most notes are single-language).
 type NoteLang struct {
 	Labels map[string]string
 	Lang   string
 }
 
-// GetLang —— 读那两个 frontmatter 字段。best-effort:读不到就当没写(单语渲染),
-// 一条笔记的语言标签值不了把一次阅读变成 500。
+// GetLang — reads those two frontmatter fields. Best-effort: unreadable is
+// treated as unset (single-language rendering) — a note's language label isn't
+// worth turning a read into a 500.
 func (r *VaultSyncRepo) GetLang(ctx context.Context, ownerID, id string) NoteLang {
 	ids, err := parseSrcAndOwner(id, ownerID)
 	if err != nil {

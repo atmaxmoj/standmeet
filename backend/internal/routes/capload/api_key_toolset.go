@@ -84,10 +84,12 @@ func AssembleAPIKeyToolset(
 	assembleIn := &capreg.AssembleInput{
 		RoleSnapshot: &snap, OwnerID: key.OwnerID,
 		Mode: apiFacadeMode,
-		// 这条路的主体是这把 key 本身。没有它,能力配额在这个面上没有可数的东西 ——
-		// 一把 key 订会一次都不闸(F-B-11)。
+		// The subject on this path is the key itself. Without it, capability quotas have
+		// nothing countable on this facet — a key could book meetings without ever being
+		// gated (F-B-11).
 		Subject: capreg.Subject{Kind: capreg.SubjectAPIKey, ID: key.ID},
-		// 代谁而约。空 = 这一趟没说,能力据此产一场没有客人的 hold(并在回执里说清)。
+		// Who the booking is on behalf of. Empty = unspecified this call, so the capability
+		// produces a hold with no guest (and says so plainly in the receipt).
 		Visitor: in.OnBehalfOf,
 	}
 	bindings := deps.Skills.AssembleVisitor(ctx, assembleIn)

@@ -1,6 +1,8 @@
-// openapi_adapter_test.go —— 后端内部 UT（进程内 httptest，不出服务边界）。钉死归一化的
-// 「最后一公里」：一份 spec+binding 装配出的连接器，**真**实现 contract.CalendarProxy，
-// 且把执行核错映射成 calendar 域错（友好降级）。证明 booker 只认契约、背后 provider 无关。
+// openapi_adapter_test.go — backend-internal unit test (in-process httptest, never crosses the
+// service boundary). Pins down the normalized "last mile": a connector assembled from one
+// spec+binding **actually** implements contract.CalendarProxy, and maps execution-core errors
+// to calendar-domain errors (friendly downgrade). Proves booker only knows the contract, with
+// no idea what provider is behind it.
 
 package connector_test
 
@@ -47,7 +49,7 @@ operations:
     op: events.delete
 `
 
-// fakeStore —— 测试用 ConnectionStore：恒 connected，bearer 凭据 {token}。
+// fakeStore — a test ConnectionStore: always connected, bearer credentials {token}.
 type fakeStore struct{ connected bool }
 
 func (f fakeStore) Get(
@@ -77,7 +79,7 @@ func assembleCal(t *testing.T, h http.Handler) (contract.CalendarProxy, *httptes
 		Spec:    []byte(strings.ReplaceAll(calSpecTmpl, "%SERVER%", srv.URL)),
 		Binding: []byte(calBindingYAML),
 	}
-	loopback := connector.NewEgressAllow([]string{"127.0.0.1"}) // httptest 服务器跑在 loopback
+	loopback := connector.NewEgressAllow([]string{"127.0.0.1"}) // httptest server runs on loopback
 	c, err := connector.AssembleOpenAPI(m, http.DefaultClient, fakeStore{connected: true}, loopback)
 	if err != nil {
 		t.Fatalf("AssembleOpenAPI: %v", err)
@@ -114,7 +116,7 @@ func TestAssembleOpenAPI_CalendarContract_FreeBusy(t *testing.T) {
 func TestAssembleOpenAPI_Calendar_TransientDegrades(t *testing.T) {
 	t.Parallel()
 	cal, srv := assembleCal(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable) // 5xx → 可退避瞬时
+		w.WriteHeader(http.StatusServiceUnavailable) // 5xx → transient, can back off and retry
 	}))
 	defer srv.Close()
 

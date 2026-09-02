@@ -1,7 +1,11 @@
-// ProviderSelect —— "走哪条 provider" 的下拉,码和 role 共用一个。
+// ProviderSelect —— dropdown for "which provider to route through"; shared
+// between access-code and role forms.
 //
-// 空值 = 不指定(码继承 role,role 退 owner 默认)。选项来自 owner 的 provider 本子
-// (/admin/providers)。inherit 那句由调用方给 —— 两处的落点不一样:码落到 role,role 落到默认。
+// Empty value = unspecified (a code inherits its role, a role falls back to
+// the owner default). Options come from the owner's provider list
+// (/admin/providers). The caller supplies the "inherit" copy — the two call
+// sites resolve differently: a code resolves to its role, a role resolves to
+// the default.
 
 'use client';
 
@@ -32,8 +36,9 @@ export function ProviderSelect({
   );
 }
 
-// optionLabel —— label 是 owner 起的名,后面缀模型:两条 "work key" 用不同模型时,
-// 下拉里得分得出哪条是哪条。
+// optionLabel —— label is the name the owner gave it, suffixed with the model:
+// when two "work key" providers use different models, the dropdown must still
+// tell them apart.
 function optionLabel(p: ProviderView): string {
   return p.model === '' ? p.label : `${p.label} · ${p.model}`;
 }

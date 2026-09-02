@@ -1,9 +1,12 @@
-// corpus_grep_test.go —— never-miss 是一条**性质**,所以按性质测,不按例子测。
+// corpus_grep_test.go — never-miss is a **property**, so it's tested as a property, not
+// with examples.
 //
-// 一个手挑的例子("subsystem 找得到")什么也证明不了:它只说明那一个字符串在那一条正文里
-// 被找到了。这里生成一批正文,再从其中任意一条里抠出任意一段,断言它一定被找到 —— 覆盖的是
-// "在的一定找得到"这句话本身。第二阶段换成稀疏索引之后,这个测试一个字不用改:候选集怎么来
-// 不归它管,它管的是判定不许漏。
+// A hand-picked example ("subsystem is found") proves nothing: it only shows that one
+// string was found in that one body. This generates a batch of bodies, carves an arbitrary
+// fragment out of an arbitrary one of them, and asserts it's always found — covering the
+// claim "whatever is present will be found" itself. Once phase two swaps in a sparse index,
+// this test doesn't change a word: it's not this test's job how the candidate set is
+// gathered, its job is that the matching step never misses.
 
 package usecase
 
@@ -14,7 +17,8 @@ import (
 )
 
 const (
-	// grepSeed —— 固定种子。随机是为了覆盖面,不是为了每次不一样;一个偶尔红的测试没人信。
+	// grepSeed — a fixed seed. Randomness is for coverage, not for varying every run; a
+	// test that occasionally goes red is a test nobody trusts.
 	grepSeed      = 20260806
 	grepFragSeed  = 1
 	generatedN    = 200
@@ -25,18 +29,21 @@ const (
 	repeatedLines = 20
 )
 
-// grepWords —— 生成语料的词表。中文两个字的词特意在里面:分词器切不出来的东西正是这条路
-// 存在的理由,而 GrepBody 对它必须跟对 ASCII 一样有效。
+// grepWords — the vocabulary used to generate corpus bodies. Two-character Chinese words
+// are deliberately included: the thing a tokenizer can't segment out is exactly this
+// tool's reason to exist, and GrepBody has to work on it exactly as well as on ASCII.
 //
-//nolint:gosmopolitan // 中文词就是被测对象本身,换成 ASCII 等于不测那一半
+// mean not testing that half at all
+//
+//nolint:gosmopolitan // the Chinese words ARE the thing under test; swapping to ASCII would
 var grepWords = []string{
 	"cybernetics", "ashby", "requisite", "variety", "homeostat", "feedback",
 	"控制论", "反馈回路", "自组织", "SM-4471/b", "C++", "a.b.c", "naive",
 }
 
-// generatedBodies —— 一批像正文的字符串。
+// generatedBodies — a batch of strings that look like note bodies.
 func generatedBodies(seed int64, n int) []string {
-	r := rand.New(rand.NewSource(seed)) //nolint:gosec // 测试语料,不是密码学用途
+	r := rand.New(rand.NewSource(seed)) //nolint:gosec // test corpus, not cryptographic use
 	out := make([]string, 0, n)
 	for range n {
 		out = append(out, oneBody(r))
@@ -56,11 +63,12 @@ func oneBody(r *rand.Rand) string {
 	return b.String()
 }
 
-// TestGrepNeverMisses —— 任取一条正文里的任意一段,grep 一定在那条正文里找到它。
+// TestGrepNeverMisses — for any body and any fragment picked from it, grep must find that
+// fragment in that body.
 func TestGrepNeverMisses(t *testing.T) {
 	t.Parallel()
 	bodies := generatedBodies(grepSeed, generatedN)
-	r := rand.New(rand.NewSource(grepFragSeed)) //nolint:gosec // 同上
+	r := rand.New(rand.NewSource(grepFragSeed)) //nolint:gosec // same reason as above
 	for i := range bodies {
 		fragment, ok := pickFragment(r, bodies[i])
 		if !ok {
@@ -76,7 +84,8 @@ func TestGrepNeverMisses(t *testing.T) {
 	}
 }
 
-// pickFragment —— 正文里随机一段,单行(跨行的片段本来就不在任何一行里,判定按行做)。
+// pickFragment — a random single-line span from the body (a fragment spanning lines
+// isn't on any one line to begin with, and matching is done line by line).
 func pickFragment(r *rand.Rand, body string) (string, bool) {
 	runes := []rune(body)
 	if len(runes) < minFragRunes {
@@ -91,8 +100,9 @@ func pickFragment(r *rand.Rand, body string) (string, bool) {
 	return frag, true
 }
 
-// TestGrepFixedQuotesMetacharacters —— fixed 模式下 "C++" / "a.b.c" 当字面量。
-// 不加这一条,那两个字符串会被当成正则:"C++" 直接编译不过,"a.b.c" 会匹配到不该匹配的地方。
+// TestGrepFixedQuotesMetacharacters — under fixed mode, "C++" / "a.b.c" are taken as
+// literals. Without this test, those two strings would be treated as regex: "C++" would
+// simply fail to compile, and "a.b.c" would match places it shouldn't.
 func TestGrepFixedQuotesMetacharacters(t *testing.T) {
 	t.Parallel()
 	re, err := CompileGrep(&GrepRequest{Pattern: "a.b.c", Fixed: true})
@@ -107,8 +117,9 @@ func TestGrepFixedQuotesMetacharacters(t *testing.T) {
 	}
 }
 
-// TestGrepBadPatternIsAnInputError —— 编译不了 → ErrGrepPattern(面翻成人话),不是 panic
-// 也不是"没找到"。悄悄返回空集是最坏的那种:agent 会当成"语料里没有"。
+// TestGrepBadPatternIsAnInputError — fails to compile → ErrGrepPattern (translated to a
+// human-readable line at the face), not a panic and not "not found". Silently returning
+// an empty set would be the worst outcome: the agent would read it as "not in the corpus".
 func TestGrepBadPatternIsAnInputError(t *testing.T) {
 	t.Parallel()
 	for _, pat := range []string{"unclosed(", "[a-", "*"} {
@@ -121,8 +132,9 @@ func TestGrepBadPatternIsAnInputError(t *testing.T) {
 	}
 }
 
-// TestGrepCountsAndCaps —— 命中总数照实报,但一条笔记里最多回几行。两件事不能混:
-// 截断的是**行**,不是命中的笔记 —— 后者一旦截断,never-miss 就没了。
+// TestGrepCountsAndCaps — the total hit count is reported truthfully, but the number of
+// lines returned per note is capped. The two must never be conflated: what gets truncated
+// is **lines**, not hit notes — truncate the latter and never-miss is gone.
 func TestGrepCountsAndCaps(t *testing.T) {
 	t.Parallel()
 	body := strings.Repeat("needle here\n", repeatedLines)
@@ -139,8 +151,9 @@ func TestGrepCountsAndCaps(t *testing.T) {
 	}
 }
 
-// TestGrepCaseInsensitiveByDefault —— 默认不分大小写(agent 拿到的多半是人说的词),
-// 显式要求时才分。
+// TestGrepCaseInsensitiveByDefault — case-insensitive by default (what the agent gets is
+// mostly a word a human said out loud); case-sensitivity only kicks in when asked for
+// explicitly.
 func TestGrepCaseInsensitiveByDefault(t *testing.T) {
 	t.Parallel()
 	loose, err := CompileGrep(&GrepRequest{Pattern: "Ashby", Fixed: true})

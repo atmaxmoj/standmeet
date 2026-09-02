@@ -1,13 +1,14 @@
-// agent_loop_state.go —— 一个 turn 边走边累的状态，以及改它的那几个小动作。
-// 从 agent_loop.go 拆出来守 350 行上限；驱动那边只剩「消费事件 → 收尾」。
+// agent_loop_state.go —— the state a turn accumulates as it goes, plus the small operations
+// that mutate it. Split out of agent_loop.go to keep under the 350-line cap; that file is left
+// with only "consume events → wrap up".
 
 package inference
 
 import "github.com/cloudwego/eino/schema"
 
-// turnState —— consumeAgentEvents 边走边累的转态。stop 是 ADK 给的
-// FinishReason 翻译；assistantText 是本 turn assistant 流的全部文字
-// (text delta + snapshot 累)。
+// turnState —— the state consumeAgentEvents accumulates as it goes. stop is the translated ADK
+// FinishReason; assistantText is all of this turn's assistant-stream text (accumulated text
+// deltas + snapshots).
 //
 // PROCESS vs PRODUCT (F-A-4 P1): text streamed in a round that ends WITH tool calls is the
 // model narrating its plan — process, never the answer. Only rounds that end WITHOUT tool
@@ -29,16 +30,18 @@ type turnState struct {
 	// evidenceTotal counts ALL results, so the digest can say the record is partial.
 	evidence      []gatheredEvidence
 	evidenceTotal int
-	// inTokens/outTokens —— #106 计费:本 turn 跨 react-loop 每次 LLM 调用的 token 累计
-	// (eino ResponseMeta.Usage)。收尾交给 RecordUsage。
+	// inTokens/outTokens —— #106 billing: token totals across every LLM call in this turn's
+	// react-loop (eino ResponseMeta.Usage). Handed to RecordUsage at the end.
 	inTokens  int
 	outTokens int
-	// cachedTokens —— inTokens 里命中缓存的那部分(上游肯单独报的唯一一项细分)。
-	// 它**已经算在** inTokens 里,记下来只是为了让 owner 看得出这笔账贵在哪。
+	// cachedTokens —— the portion of inTokens that hit cache (the only sub-breakdown the
+	// upstream provider reports separately). It's **already counted** inside inTokens; it's
+	// recorded separately only so the owner can see where the cost actually went.
 	cachedTokens int
-	// forcedFinal / recovered —— 边界那一次无 tool 合成:发过没有、救回来没有。
-	// forcedFinal 防重发(两条路都会想补一次);recovered 决定给访客的收场词,
-	// 因为「预算用完了」跟「预算用完但答案救回来了」不是同一件事(F-A-40)。
+	// forcedFinal / recovered —— the boundary's no-tool synthesis: was it sent, was it
+	// rescued. forcedFinal prevents a second send (both paths would otherwise want to add
+	// one); recovered decides the closing word given to the visitor, because "the budget ran
+	// out" and "the budget ran out but the answer was rescued" aren't the same thing (F-A-40).
 	forcedFinal bool
 	recovered   bool
 }
@@ -66,7 +69,8 @@ func discardRoundText(state *turnState) {
 	state.roundText = ""
 }
 
-// accumUsage —— #106: 把一次 LLM 响应的 token 用量累进 turn(react-loop 会多调,累计)。
+// accumUsage —— #106: accumulates one LLM response's token usage into the turn (the react-loop
+// calls it multiple times, and each call adds on).
 func accumUsage(state *turnState, meta *schema.ResponseMeta) {
 	if meta == nil || meta.Usage == nil {
 		return

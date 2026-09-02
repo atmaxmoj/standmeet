@@ -1,21 +1,27 @@
-// app-version —— 徽标上那个版本号从哪来。
+// app-version —— where the version number on the badge comes from.
 //
-// 答案是:**跑着的那个进程**。前端不许自己带一份常量。
+// The answer is: **whatever process is actually running**. The frontend
+// must not carry its own constant.
 //
-// F-C-4 当初的修法是把两份手打的拷贝合成一份(`APP_VERSION = 'v1.0.0'`),矛盾因此从
-// "两张脸互相矛盾"降级成"一张脸跟事实矛盾" —— 那台机器上真正跑着的是 0.1.0,而
-// /admin/system 的 DEPLOYMENT 一直诚实地这么写着。版本号存在的唯一意义是出事时说得清
-// 自己在哪个 build;一个跟 build 无关的字面量把这个意义整个抵消掉(F-C-10)。
+// The original F-C-4 fix merged two hand-typed copies into one
+// (`APP_VERSION = 'v1.0.0'`), which only downgraded the contradiction from
+// "two faces disagree with each other" to "one face disagrees with reality" —
+// the machine was actually running 0.1.0, and /admin/system's DEPLOYMENT had
+// been honestly saying so the whole time. The only reason a version number
+// exists is to say clearly, when something goes wrong, which build you're on;
+// a literal detached from the build cancels that reason out entirely (F-C-10).
 //
-// 所以这里去 /api/v1/instance 拿后端报的那一份。没拿到就什么都不显示 ——
-// 一个空位说明"不知道",一个假数字说明"我知道",后者更糟。
+// So this fetches the one the backend reports from /api/v1/instance. If that
+// fails, show nothing — an empty slot says "unknown", a fake number says
+// "known", and the latter is worse.
 
 'use client';
 
 import { useEffect, useState } from 'react';
 
-// display —— 后端报 "0.1.0",徽标写 "v0.1.0"。加 v 这件事只做在这一处,
-// 于是登录页和 admin 顶栏不可能一个带 v 一个不带。
+// display —— backend reports "0.1.0", badge shows "v0.1.0". Adding the v
+// happens only here, so the login page and admin header can never disagree
+// on whether it's prefixed.
 function display(raw: string): string {
   return raw === '' ? '' : `v${raw.replace(/^v/i, '')}`;
 }
@@ -30,7 +36,7 @@ export function useAppVersion(): string {
       .then((data: { version?: string }) => {
         alive && setVersion(display(data.version ?? ''));
       })
-      .catch(() => { /* 拿不到就留空:宁可没有,不要一个编出来的数 */ });
+      .catch(() => { /* on failure, leave it blank: no number beats a made-up one */ });
     return () => { alive = false; };
   }, []);
 

@@ -1,5 +1,7 @@
-// BYOAIKeyRow —— gate 的 BYOAI 面板里「API KEY」那一格：输入 + 显示/隐藏 + 形状提示。
-// 从 BYOAIPanel 拆出来守 check-max-lines；那边留装配，这边是这一格自己的行为。
+// BYOAIKeyRow — the "API KEY" field in the gate's BYOAI panel: input + reveal/hide
+// + shape hint.
+// Split out of BYOAIPanel to satisfy check-max-lines; that file keeps the assembly,
+// this file is this field's own behavior.
 
 'use client';
 
@@ -11,7 +13,8 @@ export function KeyRow({
   value: string; onChange: (v: string) => void;
   reveal: boolean; onToggleReveal: () => void;
   placeholder: string;
-  // keyPrefix —— 这家 provider 的 key 长什么样（preset 声明；空 = 自建端点，不判形状）。
+  // keyPrefix — what this provider's key looks like (declared by the preset;
+  // empty = self-hosted endpoint, don't check shape).
   keyPrefix: string;
 }) {
   const t = useTranslations('gate.byoai');
@@ -47,20 +50,26 @@ export function KeyRow({
   );
 }
 
-// KeyShapeHint —— 形状不像这家 provider 的 key 时说一句。
+// KeyShapeHint — say something when the shape doesn't look like this provider's key.
 //
-// preset 里那个 `keyPrefix` 的注释写着「sanity check」，而全仓没有一处检查它 —— 声明了一个
-// 没人接的位子（F-O-4）。访客把 key 粘错时，本来要等落进对话、问出第一个问题、推理失败，
-// 才在三步之外看见一个 provider 的报错；他能修的那一格在这里。
+// The `keyPrefix` comment in the preset says "sanity check", but nothing in the repo
+// actually checks it — it declares a slot no one wires up (F-O-4). When a visitor
+// pastes the wrong key, they'd otherwise wait until it lands in a conversation, the
+// first question fails, and only then — three steps away — see a provider error.
+// The field they can actually fix is right here.
 //
-// **只提示，不拦**：自建端点（ollama / vllm / lm-studio）的 key 可以长成任何样子，把它做成
-// 硬校验会挡住合法配置 —— 那比现在更糟。提交键一直是可按的，这条由测试两个方向钉住。
+// **Hint only, never block**: a self-hosted endpoint (ollama / vllm / lm-studio) key
+// can look like anything, so making this a hard validation would block legitimate
+// configs — that would be worse than the status quo. The submit key stays clickable
+// at all times; a test pins this in both directions.
 function KeyShapeHint({ value, prefix }: { value: string; prefix: string }) {
   return shapeLooksOff(value, prefix) ? <KeyShapeHintLine prefix={prefix} /> : null;
 }
 
-// shapeLooksOff —— 有声明的前缀、访客真填了东西、而它不是那个开头。三者缺一都不提示：
-// 没填别催，自建端点（空前缀）不判形状。
+// shapeLooksOff — there's a declared prefix, the visitor actually typed something,
+// and it doesn't start with that prefix. Miss any of the three and stay quiet:
+// don't nag on an empty field, and don't check shape for a self-hosted endpoint
+// (empty prefix).
 function shapeLooksOff(value: string, prefix: string): boolean {
   const typed = value.trim();
   return prefix !== '' && typed !== '' && !typed.startsWith(prefix);

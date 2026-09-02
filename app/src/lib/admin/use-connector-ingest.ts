@@ -1,16 +1,19 @@
-// use-connector-ingest —— #155 区 A spec 摄入的 client 逻辑（贴/URL 拉 → 后端校验 → candidate /
-// 人类可读错误）。逻辑住这里（非 presentation），ConnectorSpecIngest.tsx 只渲染 + 连线。
+// use-connector-ingest —— #155 area A client logic for spec ingestion (paste/URL
+// fetch → backend validation → candidate / human-readable error). The logic
+// lives here (not presentation); ConnectorSpecIngest.tsx only renders + wires up.
 
 import { useCallback, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
 
-// 这里**不再自己判尺寸**。这一格原来抄了一份 `2 * 1024 * 1024`「跟后端对齐」——
-// 而后端那个数现在是 owner 配得动的旋钮（`CONNECTOR_SPEC_MAX_BYTES`）。两份一旦分叉，
-// 症状是：owner 把上限调到 12 MiB 好装 GitHub 的文档，浏览器仍按自己那份 2 MiB 拒，
-// 而他改的那个旋钮看起来毫无作用（同一个事实两个家）。
-// 上限只有服务端知道，也只由它回答 —— 它那句话已经写得很清楚（"spec is too large…"）。
+// This file **no longer judges size itself**. It used to copy a
+// `2 * 1024 * 1024` value "to match the backend" — and the backend's number
+// is now an owner-adjustable knob (`CONNECTOR_SPEC_MAX_BYTES`). The moment
+// the two diverge, the symptom is: the owner raises the limit to 12 MiB to
+// fit GitHub's docs, the browser still rejects at its own 2 MiB, and the
+// knob they just turned appears to do nothing (one fact, two homes).
+// Only the server knows the limit, and only it should answer — its message already says it clearly ("spec is too large…").
 
 const AuthFieldSchema = z.object({
   key: z.string(),
@@ -57,8 +60,9 @@ export interface ConnectorIngestHook {
   ingestFile: (file: File) => void;
   specText: () => string;
   baseUrl: () => string;
-  // sourceUrl —— spec 是从 URL 抓来的时候,**正文只在后端那次抓取里存在过**;装配得把来源
-  // 一并送去,由后端再抓一次(F-C-25)。贴/上传进来的 spec 这里是空串。
+  // sourceUrl —— when the spec was fetched from a URL, **the body only ever
+  // existed during that one backend fetch**; assembly must send the source
+  // along too, so the backend can fetch it again (F-C-25). For a pasted/uploaded spec this is an empty string.
   sourceUrl: () => string;
 }
 
@@ -87,14 +91,17 @@ async function runValidate(
 export function useConnectorIngest(): ConnectorIngestHook {
   const [state, setState] = useState<IngestState>({ error: '', candidate: null, auth: null });
   const textRef = useRef('');
-  // baseUrlRef —— owner 手填的 base URL。**三条摄入路（贴 / 上传文件 / URL 拉）都带上它**：
-  // 少带一条，owner 就会遇到「贴进去能过、上传同一份文件反而说缺 servers」这种只在某条路上
-  // 存在的行为，而那看起来像文件解析坏了（F-C-22 那次我就是这么误判的）。
+  // baseUrlRef —— the base URL the owner typed in by hand. **All three
+  // ingest paths (paste / file upload / URL fetch) must carry it**: miss one
+  // and the owner hits behavior that exists on only one path — "pasting it
+  // works, uploading the same file complains about a missing servers entry"
+  // — which looks like broken file parsing (that's exactly how I misdiagnosed it during F-C-22).
   const baseUrlRef = useRef('');
   const sourceUrlRef = useRef('');
 
-  // 贴/上传进来的正文把「来源 URL」清掉:否则先抓过一次、再改贴一份别的 spec,装配会送去
-  // 那个陈旧的 URL —— 屏幕上是新 spec 的候选,装出来的却是旧的那个。
+  // A pasted/uploaded body clears the "source URL": otherwise, fetch once,
+  // then paste a different spec instead, and assembly would still send that
+  // stale URL — the screen shows the new spec's candidate, but what gets assembled is the old one.
   const setText = useCallback((t: string) => {
     textRef.current = t;
     sourceUrlRef.current = '';
@@ -107,15 +114,17 @@ export function useConnectorIngest(): ConnectorIngestHook {
   }, []);
 
   const fetchUrl = useCallback((url: string) => {
-    // 记住来源:装配那一步没有正文,只能靠它(F-C-25)。textRef 清空,免得跟上一次贴的混在一起。
+    // Remembers the source: the assembly step has no body, and can only rely
+    // on this (F-C-25). textRef is cleared so it doesn't get mixed up with what was pasted last time.
     sourceUrlRef.current = url;
     textRef.current = '';
     void runValidate({ url, base_url: baseUrlRef.current }).then(setState);
   }, []);
 
   const ingestFile = useCallback((file: File) => {
-    // 文件内容同时进 textRef：装配那一步送的是 spec 原文，不是文件句柄 —— 不同步的话，
-    // 「上传文件 → 候选出现 → 点装配」会送出一份空 spec，而 UI 上一切正常。
+    // The file content also goes into textRef: assembly sends the spec's raw
+    // text, not a file handle — out of sync, and "upload file → candidate
+    // appears → click assemble" would send an empty spec while the UI looks completely fine.
     void file.text().then((t) => {
       textRef.current = t;
       sourceUrlRef.current = '';

@@ -1,11 +1,13 @@
-// ai_provider.go —— admin /ai-provider：owner 设自己的推理 provider + 明文 key
-// （落盘前 AES-GCM 加密），以及内置预设列表（填下拉 + 默认 endpoint/model）。
+// ai_provider.go — admin /ai-provider: lets the owner set their own inference provider +
+// plaintext key (AES-GCM encrypted before it hits disk), plus the built-in preset list
+// (fills the dropdown + default endpoint/model).
 //
-// 能力来自出站收口（通用件在 dispatch.go）。响应里没有 key —— 收口那侧的类型压根没有
-// 这个字段，所以任何一个面都无从把它露出去，不是靠这里记得不写。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go).
+// The response has no key — the type on the convergence side never has this field at all,
+// so no facade can leak it; it's not this file remembering not to write it.
 //
-// 写入是**写下来的单面决定**：它带原始密钥，MCP 是纯 JSON 工具面，不承载这个。
-// presets 是只读的，两个面都有。
+// The write is a **deliberate single-facade decision**: it carries the raw secret key, and
+// MCP is a pure JSON tool facade that doesn't carry that. presets is read-only, on both facades.
 
 package admin
 
@@ -15,12 +17,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// AIProviderDeps —— admin ai-provider 路由的能力来源。
+// AIProviderDeps — capability source for the admin ai-provider route.
 type AIProviderDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountAIProvider 挂 PATCH /ai-provider + GET /ai-provider/presets。
+// MountAIProvider mounts PATCH /ai-provider + GET /ai-provider/presets.
 func (h *Handlers) MountAIProvider(r chi.Router) {
 	face := h.AIProviderAdmin.Face
 	r.Patch("/ai-provider", h.dispatchOp(face, "ai_provider.set", bodyArgs, jsonOK))

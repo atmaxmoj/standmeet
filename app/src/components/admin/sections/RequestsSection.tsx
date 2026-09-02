@@ -1,5 +1,5 @@
-// RequestsSection —— /admin/requests。visitor 在 /<handle>/gate 留的 note
-// 落进来；owner 按 open / replied / closed filter 过 + 标状态。
+// RequestsSection —— /admin/requests. Notes visitors leave at /<handle>/gate
+// land here; the owner filters by open / replied / closed and marks status.
 
 'use client';
 
@@ -215,7 +215,8 @@ function RequestActions(props: ActionsProps) {
 function ActiveActions({ req, hook, canDeliver, onApproved }: ActionsProps) {
   const t = useTranslations('adminAccess');
   const run = useAction();
-  // decline 是状态变更 → 成功/失败都用 toast 收尾（失败不再静默：没标上 owner 必须知道）。
+  // decline is a status change → both success/failure end with a toast (failure is no longer
+  // silent: the owner must know when the mark didn't take).
   const onDecline = () => run(() => hook.mark(req.id, 'closed'), { success: 'Request declined' });
   return (
     <div className="flex items-baseline gap-2 mt-4 flex-wrap" data-testid={`request-approve-${req.id}`}>

@@ -1,10 +1,11 @@
-// /setup —— first-run claim wizard 入口。
+// /setup — entry point for the first-run claim wizard.
 //
-// Setup token 从 query string `?t=...` 读，没 token 就显示"missing token"
-// 提示而不是表单。token 在 backend 启动时打印到 stdout + 写 /srv/first-run.txt，
-// owner 从那里复制 URL 打开。
+// The setup token is read from the query string `?t=...`. With no token, it shows
+// a "missing token" hint instead of the form. The token is printed to stdout on
+// backend startup and written to /srv/first-run.txt; the owner copies the URL
+// from there to open it.
 //
-// useSearchParams 是 client API + Next 15 要求外面包 Suspense。
+// useSearchParams is a client API, and Next 15 requires wrapping it in Suspense.
 
 'use client';
 

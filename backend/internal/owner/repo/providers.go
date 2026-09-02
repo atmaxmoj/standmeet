@@ -1,11 +1,16 @@
-// providers.go —— owner_providers 的读写:owner 的 provider 本子。
+// providers.go —— reads and writes owner_providers: the owner's provider
+// list.
 //
-// 一份 → 一本。原来 owner 行上四列(ai_provider / ai_provider_key_enc / ai_endpoint / ai_model),
-// 现在是一张表、其中一条 is_default。code / role 各自可以指一条,解析顺序
-// `byoai > code > role > 默认` —— 顺序在 usecase 那一侧,这一层只负责取。
+// Went from one → many. Originally four columns on the owner row
+// (ai_provider / ai_provider_key_enc / ai_endpoint / ai_model), now it's
+// one table with one row flagged is_default. A code or a role can each
+// point to a specific entry; the resolution order is
+// `byoai > code > role > default` — that ordering lives in usecase, this
+// layer only fetches.
 //
-// **key_enc 出这一层时仍然是封着的。** 开封只发生在组装那一侧(cmd/server/unseal.go),
-// 这是 §1.5 那条不变量,由 check-core-seals-only.sh 看着。
+// **key_enc stays sealed when it leaves this layer.** Unsealing only
+// happens at the assembly side (cmd/server/unseal.go); that's the §1.5
+// invariant, watched over by check-core-seals-only.sh.
 
 package repo
 
@@ -23,10 +28,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// ProviderRow —— 本子里的一条。KeyEnc 是密文(本域不开封)。
+// ProviderRow —— one entry in the list. KeyEnc is ciphertext (this domain
+// never unseals it).
 //
-// GasTokens 是**加了多少**,不是还剩多少;GasFilledAt 是那次加油的时刻,也就是账期起点。
-// 剩多少不存在这一层 —— 它由用量求和派生(usecase.ProviderRemaining)。
+// GasTokens is **how much was added**, not how much remains; GasFilledAt
+// is the moment of that fill, i.e. the billing-period start. How much
+// remains doesn't exist at this layer — it's derived by summing usage
+// (usecase.ProviderRemaining).
 type ProviderRow struct {
 	GasTokens     *int64
 	GasFilledAt   *time.Time
@@ -41,7 +49,8 @@ type ProviderRow struct {
 	KeyConfigured bool
 }
 
-// CreateProviderInput —— 建一条。Key 是**已经封好的**密文;明文不进这一层。
+// CreateProviderInput —— creates one entry. Key is ciphertext **already
+// sealed**; plaintext never enters this layer.
 type CreateProviderInput struct {
 	OwnerID   string
 	Label     string
@@ -52,14 +61,16 @@ type CreateProviderInput struct {
 	IsDefault bool
 }
 
-// providerKey —— 定位一条 provider 要的两个 uuid。
+// providerKey —— the two uuids needed to locate one provider entry.
 type providerKey struct {
 	owner pgtype.UUID
 	id    pgtype.UUID
 }
 
-// parseProviderKey —— 两个 id 一起解。provider id 解不动**不是**格式错,是
-// "本子里没这条"(调用方给的 id 从哪来的都可能) → ErrProviderNotFound,跟查不到同一个回答。
+// parseProviderKey —— parses both ids together. A provider id that fails
+// to parse is **not** treated as a format error but as "no such entry in
+// the list" (the caller's id could have come from anywhere) →
+// ErrProviderNotFound, the same answer as a genuine lookup miss.
 func parseProviderKey(ownerID, id string) (providerKey, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
@@ -82,8 +93,10 @@ func toProviderRow(p *db.OwnerProvider) ProviderRow {
 	}
 }
 
-// CreateProviderPlainInput —— 带**明文** key 的建条入参。封在这一层做(只封不解,§1.5),
-// 上面那层拿不到密文也不需要知道加密这回事。
+// CreateProviderPlainInput —— input for creating an entry with a
+// **plaintext** key. Sealing happens at this layer (seal only, never
+// unseal, §1.5); the layer above never gets the ciphertext and doesn't
+// need to know encryption is happening at all.
 type CreateProviderPlainInput struct {
 	OwnerID      string
 	Label        string
@@ -94,8 +107,9 @@ type CreateProviderPlainInput struct {
 	IsDefault    bool
 }
 
-// CreateProviderPlain —— 收明文 key,封上再落。空 key = 这条还没配 key(合法:owner 可以先
-// 建条目后填 key)。
+// CreateProviderPlain —— accepts a plaintext key, seals it, then writes the
+// row. An empty key means this entry has no key configured yet (valid:
+// an owner can create the entry first and fill in the key later).
 func (r *Repo) CreateProviderPlain(
 	ctx context.Context, in *CreateProviderPlainInput,
 ) (ProviderRow, error) {
@@ -109,8 +123,10 @@ func (r *Repo) CreateProviderPlain(
 	})
 }
 
-// CreateProvider —— 新建一条。is_default 由调用方决定;要设默认的话调用方先 ClearDefault
-// (两步都在 usecase 里,顺序错了会撞上那条 partial unique index —— 那正是它存在的意义)。
+// CreateProvider —— creates a new entry. is_default is decided by the
+// caller; to set it default the caller must call ClearDefault first
+// (both steps live in usecase — getting the order wrong collides with
+// that partial unique index, which is exactly why it exists).
 func (r *Repo) CreateProvider(
 	ctx context.Context, in *CreateProviderInput,
 ) (ProviderRow, error) {
@@ -129,7 +145,7 @@ func (r *Repo) CreateProvider(
 	return toProviderRow(&row), nil
 }
 
-// ListProviders —— 本子,默认那条在最前。
+// ListProviders —— the whole list, with the default entry first.
 func (r *Repo) ListProviders(ctx context.Context, ownerID string) ([]ProviderRow, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -146,7 +162,7 @@ func (r *Repo) ListProviders(ctx context.Context, ownerID string) ([]ProviderRow
 	return out, nil
 }
 
-// GetProvider —— 一条(owner-scoped)。找不到 → ErrProviderNotFound。
+// GetProvider —— one entry (owner-scoped). Not found → ErrProviderNotFound.
 func (r *Repo) GetProvider(
 	ctx context.Context, ownerID, id string,
 ) (ProviderRow, error) {
@@ -165,8 +181,9 @@ func (r *Repo) GetProvider(
 	return toProviderRow(&row), nil
 }
 
-// DefaultProvider —— 默认那条。一个 owner 没有默认 → ErrProviderNotFound
-// (那是解析链的地板:再往下没有可退的了)。
+// DefaultProvider —— the default entry. An owner with no default →
+// ErrProviderNotFound (that's the floor of the resolution chain: there's
+// nowhere further to fall back to).
 func (r *Repo) DefaultProvider(ctx context.Context, ownerID string) (ProviderRow, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -182,8 +199,9 @@ func (r *Repo) DefaultProvider(ctx context.Context, ownerID string) (ProviderRow
 	return toProviderRow(&row), nil
 }
 
-// UpdateProviderInput —— 部分更新:nil = 不动那个字段。SetGas 是三态的第三态
-// (SetGas=true + GasTokens=nil 才是"取消计量")。
+// UpdateProviderInput —— a partial update: nil means leave that field
+// alone. SetGas is the third state of a tri-state (SetGas=true +
+// GasTokens=nil is what actually means "stop metering").
 type UpdateProviderInput struct {
 	Label     *string
 	Provider  *string
@@ -195,7 +213,8 @@ type UpdateProviderInput struct {
 	SetGas    bool
 }
 
-// UpdateProvider —— 部分更新。找不到 → ErrProviderNotFound(:one 的 no-rows)。
+// UpdateProvider —— a partial update. Not found → ErrProviderNotFound
+// (the :one no-rows case).
 func (r *Repo) UpdateProvider(
 	ctx context.Context, in *UpdateProviderInput,
 ) (ProviderRow, error) {
@@ -232,8 +251,10 @@ func buildUpdateProviderParams(
 	}, nil
 }
 
-// SetProviderKey —— 换一把 key(已封好的密文)。0 行 = 没这条 → ErrProviderNotFound。
-// "key 存好了"说给一条不存在的行听,跟吊销了个不存在的东西是同一种谎。
+// SetProviderKey —— swaps in a new key (already-sealed ciphertext). 0 rows
+// means no such entry → ErrProviderNotFound. Saying "key stored" to a row
+// that doesn't exist is the same kind of lie as revoking something that
+// was never there.
 func (r *Repo) SetProviderKey(ctx context.Context, ownerID, id string, keyEnc []byte) error {
 	key, perr := parseProviderKey(ownerID, id)
 	if perr != nil {
@@ -251,9 +272,12 @@ func (r *Repo) SetProviderKey(ctx context.Context, ownerID, id string, keyEnc []
 	return nil
 }
 
-// SetDefaultProvider —— 把默认挪到这一条:先全清,再设。两步之间那条 partial unique index
-// 保证不会出现两个默认;设那一步 0 行 = 目标不存在,而那会让这个 owner **一个默认都没有** ——
-// 整个 fallback 故事就是踩在它上面的,所以必须报出来。
+// SetDefaultProvider —— moves default to this entry: clear all first, then
+// set. The partial unique index between the two steps guarantees there's
+// never two defaults; if the set step hits 0 rows, the target doesn't
+// exist, and that would leave this owner with **no default at all** —
+// the entire fallback story stands on there being one, so this must be
+// reported.
 func (r *Repo) SetDefaultProvider(ctx context.Context, ownerID, id string) error {
 	key, perr := parseProviderKey(ownerID, id)
 	if perr != nil {
@@ -274,8 +298,10 @@ func (r *Repo) SetDefaultProvider(ctx context.Context, ownerID, id string) error
 	return nil
 }
 
-// DeleteProvider —— 删一条。SQL 自己带 `AND NOT is_default`,所以 0 行有两种可能:
-// 没这条,或者它是默认那条。调用方(usecase)先读一次分得清 —— 这里只报"没删成"。
+// DeleteProvider —— deletes one entry. The SQL itself carries
+// `AND NOT is_default`, so 0 rows has two possible causes: no such entry,
+// or it was the default one. The caller (usecase) reads first to tell
+// which — this layer only reports "delete didn't happen".
 func (r *Repo) DeleteProvider(ctx context.Context, ownerID, id string) error {
 	key, perr := parseProviderKey(ownerID, id)
 	if perr != nil {

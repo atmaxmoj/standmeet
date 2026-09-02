@@ -1,9 +1,11 @@
-// handle_contract_test.go —— connector 重构 · 句柄契约（connector-deps-tests.md §一
-// handle-contract）。注入给插件/能力的「句柄」= 连接器对外暴露的接口（Connector 基面 +
-// 品类契约 CalendarProxy/MailProxy）：只暴露调用法（Connected / FreeBusy / InsertEvent /
-// DeleteEvent / Send），**没有任何掏凭据的 getter**。owner token/secret/密码只活在 connector
-// 包内（解密、注入都是包内逻辑）。本测试盯住这些**导出接口**的 API surface，防有人后来加个
-// Token() / Secret() / Credentials() 把凭据漏出连接器层。
+// handle_contract_test.go — connector refactor · handle contract (connector-deps-tests.md §1
+// handle-contract). The "handle" injected into plugins/capabilities = the interface a connector
+// exposes externally (the Connector base surface + category contracts CalendarProxy/MailProxy):
+// it exposes only call methods (Connected / FreeBusy / InsertEvent / DeleteEvent / Send), **no
+// getter that extracts credentials at all**. Owner tokens/secrets/passwords live only inside
+// the connector package (decryption and injection are both internal package logic). This test
+// watches the API surface of these **exported interfaces**, guarding against someone later
+// adding a Token() / Secret() / Credentials() that leaks credentials out of the connector layer.
 
 package connector_test
 
@@ -21,7 +23,7 @@ var credGetterRe = regexp.MustCompile(`(?i)token|secret|password|passwd|credenti
 
 func assertNoCredentialGetter(t *testing.T, typ reflect.Type) {
 	t.Helper()
-	for m := range typ.Methods() { // 只遍历导出方法 —— 句柄对外面
+	for m := range typ.Methods() { // only iterate exported methods — the handle's external surface
 		require.Falsef(t, credGetterRe.MatchString(m.Name),
 			"%s exposes credential-ish method %q (creds stay in connector)", typ, m.Name)
 	}

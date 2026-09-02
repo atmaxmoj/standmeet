@@ -1,5 +1,5 @@
-// visitor.go —— visitor session 颁发（code tier）。chat / RAG / 流式那一半在
-// visitor_chat.go；公开 (no-code) tier 颁发在 visitor_public.go。
+// visitor.go —— visitor session issuance (code tier). The chat / RAG / streaming half
+// lives in visitor_chat.go; public (no-code) tier issuance lives in visitor_public.go.
 
 package usecase
 
@@ -14,44 +14,50 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// VisitorSessionDeps / VisitorSkillsDeps 拆到 visitor_deps.go 守 max-lines。
+// VisitorSessionDeps / VisitorSkillsDeps are split out to visitor_deps.go to stay under
+// max-lines.
 
-// IssueCodeSessionInput —— code-tier 访客发起 session 的入参。
-// MemberID —— client 上次存的 member_id(尤其匿名者);带上就凭 id 续会,
-// 失效则退到按 VisitorName / 新建匿名。
+// IssueCodeSessionInput —— input for a code-tier visitor starting a session.
+// MemberID —— the member_id the client saved last time (especially for anonymous
+// visitors); if present, resumes the session by id, falling back to VisitorName / a new
+// anonymous member if it's stale.
 type IssueCodeSessionInput struct {
 	Code         string
 	VisitorName  string
-	VisitorEmail string // 可选;访客进入时填的邮箱 → session profile
+	VisitorEmail string // optional; the email the visitor filled in on entry → session profile
 	MemberID     string
-	ClientIP     string // 访客来源 IP（IP 感知）；空 = 未知
+	ClientIP     string // the visitor's source IP (IP-awareness); empty = unknown
 }
 
-// SessionQuota —— 当前 conversation 的 turn 配额；visitor UI 用来渲剩余。
-// MaxTurns == 0 表示无上限（owner 没在 code 上设 max_turns_per_session）。
-// UsedTurns 初始 0（新 conv）；后续 sendMessage 之后 frontend 本地 +1，
-// SSE 没必要再 echo（同一 visitor session 单线性增长，client 自己算准）。
+// SessionQuota —— the turn quota for the current conversation; used by the visitor UI to
+// render what's remaining. MaxTurns == 0 means unlimited (the owner didn't set
+// max_turns_per_session on the code). UsedTurns starts at 0 (new conv); after each
+// subsequent sendMessage the frontend increments it locally, no need for SSE to echo it
+// back (a single visitor session grows linearly, the client can count it exactly).
 type SessionQuota struct {
 	MaxTurns  int32 `json:"max_turns"`
 	UsedTurns int32 `json:"used_turns"`
-	// MaxMembers —— 这张码最多几个名字(0 = 不限);visitor UI 配 members 数渲
-	// "N of M names"。
+	// MaxMembers —— how many names this code allows at most (0 = unlimited); the
+	// visitor UI pairs it with the members count to render "N of M names".
 	MaxMembers int32 `json:"max_members"`
 }
 
-// IssueCodeSessionResult —— IssueCodeSession 返回的成对结果，避免 3-return。
-// Code / VisitorName / Quota 让 visitor UI banner 一次拿全自描述信息，免
-// 二次查询；public/byoai tier 时 Code 空、Quota 留 zero value。
-// 字段顺序：重 sub-struct (Conversation / Session) 在前，slice 中，strings
-// 后，int 末 —— 让 fieldalignment 满意。
+// IssueCodeSessionResult —— the bundled result IssueCodeSession returns, to avoid a
+// 3-return. Code / VisitorName / Quota let the visitor UI banner get all self-describing
+// info in one shot, no follow-up query needed; for public/byoai tier, Code is empty and
+// Quota keeps its zero value. Field order: the heavy sub-structs (Conversation /
+// Session) first, slices in the middle, strings after, int last —— to keep fieldalignment
+// happy.
 type IssueCodeSessionResult struct {
 	Chat      entity.Chat
 	Code      string
 	CodeLabel string
-	// CustomPageSlug —— 这张码开哪一页。**落地决定跟着颁发一起下来**，不是访客到了再问一次：
-	// 每一条领码的路（/gate 提交、名字选择器）都恰好走这一次调用，而只有 intro 带这个字段的话，
-	// 不走 intro 的那条路会静默落回默认对话（[[copied-invalidation-goes-stale]]）。
-	// 空串 = 开默认对话。
+	// CustomPageSlug —— which page this code opens. **The landing decision travels
+	// down with the issuance itself**, not asked again once the visitor arrives: every
+	// path that redeems a code (/gate submission, the name picker) goes through this
+	// exact call, and if only intro carries this field, a path that skips intro
+	// silently falls back to the default conversation ([[copied-invalidation-goes-stale]]).
+	// Empty string = opens the default conversation.
 	CustomPageSlug string
 	VisitorName    string
 	MemberID       string
@@ -61,15 +67,16 @@ type IssueCodeSessionResult struct {
 	Quota          SessionQuota
 }
 
-// codeSessionArtifacts —— issueCodeSessionArtifacts 返回打包，避免 3-return。
+// codeSessionArtifacts —— the bundled return of issueCodeSessionArtifacts, to avoid a
+// 3-return.
 type codeSessionArtifacts struct {
 	Conv   entity.Chat
 	Member access.CodeMember
 	Issued access.IssuedVisitor
 }
 
-// IssueCodeSession —— code-tier session 颁发：查 code → 校验 → 创 conversation
-// + visitor session。
+// IssueCodeSession —— code-tier session issuance: looks up the code → validates →
+// creates the conversation + visitor session.
 func IssueCodeSession(
 	ctx context.Context, deps *VisitorSessionDeps, in *IssueCodeSessionInput,
 ) (IssueCodeSessionResult, error) {
@@ -119,10 +126,12 @@ func finalizeCodeSession(
 	}, nil
 }
 
-// codeSessionQuotaWithUsed —— 在静态配额(max)之上,把 UsedTurns 按后端实际数
-// 出来。新模型下配额是 member 级:UsedTurns 汇总该 member **全部对话**的访客发言
-// (countTurnsForQuota),续会/多 surface 颁发时如实报合计,不再恒 0 也不按单段对话
-// 各算。数不出来(DB 抖)→ 退回 0。
+// codeSessionQuotaWithUsed —— on top of the static quota (max), fills in UsedTurns by
+// actually counting it from the backend. Under the new model the quota is member-level:
+// UsedTurns sums this member's visitor turns across **all conversations**
+// (countTurnsForQuota); on resume / multi-surface issuance it reports the true total,
+// no longer stuck at 0 nor counted per single conversation segment. Uncountable (DB
+// hiccup) → falls back to 0.
 func codeSessionQuotaWithUsed(
 	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
 	conv *entity.Chat,
@@ -146,8 +155,10 @@ func issueCodeSessionArtifacts(
 	if err != nil {
 		return codeSessionArtifacts{}, err
 	}
-	// 冻 role snapshot + 构造会话数据 + 把未指定的 provider 解析成默认那一箱,合成一步 ——
-	// 三件事都可能出错,分开写会让这个函数的圈复杂度越界,而它们本就是"装配这一场会话"的一件事。
+	// Freezing the role snapshot + building the session data + resolving an unspecified
+	// provider down to the default one are merged into one step —— all three can fail,
+	// splitting them apart would push this function's cyclomatic complexity over the
+	// limit, and they're really one thing anyway: "assemble this session."
 	sd, sderr := resolveCodeSessionData(ctx, deps, code, &member, in)
 	if sderr != nil {
 		return codeSessionArtifacts{}, sderr
@@ -170,13 +181,16 @@ func codeSessionQuota(code *access.Code) SessionQuota {
 	return q
 }
 
-// resolveMemberWithQuota —— 三路解析 member:
-//  1. client 带 member_id → 凭 id 续会(尤其匿名者,失效则往下退)。
-//  2. 具名 → 按名字 upsert(满额闸只拦新名字;已有名字续会)。
-//  3. 匿名(skip)→ 每人一个独立 guest member(满额闸:新匿名也占名额)。
+// resolveMemberWithQuota —— resolves member via three paths:
+//  1. client carries member_id → resume by id (especially anonymous ones; falls
+//     through below if stale).
+//  2. named → upsert by name (the quota gate only blocks new names; an existing name
+//     resumes).
+//  3. anonymous (skipped) → a separate guest member per person (quota gate: a new
+//     anonymous member also consumes a slot).
 //
-// CodeMember 没有自己的 revoked 状态,revoke 在 AccessCode 级别(已被 GetByCode
-// 过滤,走不到这里)。
+// CodeMember has no revoked state of its own; revoke is at the AccessCode level
+// (already filtered by GetByCode, never reaches here).
 func resolveMemberWithQuota(
 	ctx context.Context, deps *VisitorSessionDeps,
 	code *access.Code, in *IssueCodeSessionInput,
@@ -198,8 +212,9 @@ func resolveMemberWithQuota(
 	return resolveAnonMember(ctx, deps, code, members)
 }
 
-// resumeByMemberID —— member_id 空 / 查不到 → access.ErrMemberNotFound(caller
-// 据此退到按名字 / 新建);查得到 → 返该 member 续会。
+// resumeByMemberID —— member_id empty / not found → access.ErrMemberNotFound (the
+// caller falls back to by-name / creating a new one accordingly); found → returns that
+// member to resume.
 func resumeByMemberID(
 	ctx context.Context, deps *VisitorSessionDeps, code *access.Code, memberID string,
 ) (access.CodeMember, error) {
@@ -241,8 +256,9 @@ func resolveAnonMember(
 	return m, nil
 }
 
-// checkMemberQuota —— 具名版 max_members 闸:已有名字放行(续会);新名字且已满
-// → 拒。checkAnonQuota —— 匿名版:每次都是新 member,满了就拒。
+// checkMemberQuota —— the named version of the max_members gate: an existing name
+// passes (resume); a new name when already full → rejected. checkAnonQuota —— the
+// anonymous version: every call is a new member, rejected once full.
 func checkMemberQuota(
 	code *access.Code, members []access.CodeMember, name string,
 ) error {
@@ -277,8 +293,9 @@ func memberExists(members []access.CodeMember, name string) bool {
 	return false
 }
 
-// createCodeConversation —— 「一个名字=一段续聊的会」:member 已有未结束的
-// conversation 就续上;没有(新 member / 上一段已 summary 结束)才新建。
+// createCodeConversation —— "one name = one continuing conversation": if the member
+// already has an unfinished conversation, resume it; only create a new one when there
+// isn't one (new member / the previous one has already ended with a summary).
 func createCodeConversation(
 	ctx context.Context, deps *VisitorSessionDeps,
 	code *access.Code, member *access.CodeMember, in *IssueCodeSessionInput,
@@ -321,8 +338,10 @@ func buildCodeSessionData(
 	}
 }
 
-// pickProviderID —— **码压过 role**:码是发出去的那张票,是更具体的声明。
-// 两个都没指 → 空串 = 用 owner 默认那条。这一步只在发会话时做一次,结果冻进 session。
+// pickProviderID —— **the code overrides the role**: the code is the ticket that was
+// actually handed out, so it's the more specific declaration. Neither one specified →
+// empty string = use the owner's default. This resolution happens once at session
+// issuance and the result is frozen into the session.
 func pickProviderID(codeProviderID, roleProviderID string) string {
 	if codeProviderID != "" {
 		return codeProviderID

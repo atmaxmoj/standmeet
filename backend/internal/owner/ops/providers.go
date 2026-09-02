@@ -1,10 +1,12 @@
-// providers.go —— owner 的 provider 本子对外那一组操作。
+// providers.go —— the outward-facing set of operations on the owner's provider book.
 //
-// **建/改 key 那两条只在面板上**(fp.Only "carries a raw provider API key"),跟隔壁
-// ai_provider.set 同一个理由:它们带原始密钥,MCP 是纯 JSON 工具面,不承载这个。
-// 列表 / 标默认 / 删,不碰密钥,两个面都给。
+// **The create/update-key ops are panel-only** (fp.Only "carries a raw provider API key"),
+// same reason as ai_provider.set next door: they carry a raw secret, and MCP is a pure JSON
+// tool face that doesn't carry that. List / set-default / delete don't touch the key, so
+// both faces get them.
 //
-// 出站结构里**没有 key 字段** —— 不是"记得别写",是压根没有,所以任何一个面都无从泄露。
+// The outbound struct **has no key field at all** — not "remember not to write it", it
+// simply doesn't exist, so no face can leak it.
 
 package ops
 
@@ -19,15 +21,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
-// ProvidersDeps —— 这一组要的依赖。
+// ProvidersDeps —— the dependencies this group needs.
 type ProvidersDeps struct {
 	Providers usecase.ProvidersDeps
-	// ModelLister —— 去问某条 provider 有哪些模型（F-R-11）。端口，不是仓储：key 在库里
-	// 是密文而这一侧从不解封，实现落在组装根。nil = 这台实例没有这个能力，说出来而不是假装问过。
+	// ModelLister —— asks a given provider which models it offers (F-R-11). A port,
+	// not a repository: the key is stored encrypted and this side never decrypts it;
+	// the implementation lives at the assembly root. nil = this instance lacks the
+	// capability, and that's stated rather than pretending the question was asked.
 	ModelLister usecase.ProviderModelLister
 }
 
-// Providers —— providers.list / create / update / set_default / delete。
+// Providers —— providers.list / create / update / set_default / delete.
 func Providers(d ProvidersDeps) []fp.Op {
 	return append([]fp.Op{
 		{
@@ -70,7 +74,7 @@ func Providers(d ProvidersDeps) []fp.Op {
 	}, providerWriteOps(d)...)
 }
 
-// providerWriteOps —— 带明文 key 的那两条,只在面板上。
+// providerWriteOps —— the two ops that carry a plaintext key, panel-only.
 func providerWriteOps(d ProvidersDeps) []fp.Op {
 	return []fp.Op{
 		{
@@ -129,10 +133,11 @@ var (
 	}`)
 )
 
-// providerOut —— 出站形状。**没有 key**。
+// providerOut —— outbound shape. **No key**.
 //
-// gas_tokens 是加了多少,gas_remaining 是还剩多少(读时派生)。两个都给:只报剩余,
-// owner 看不出这箱油当初加了多大;只报加了多少,那句"还能聊多久"就得他自己算。
+// gas_tokens is how much was topped up, gas_remaining is how much is left (derived on read).
+// Both are sent: reporting only what's left, the owner can't tell how big the tank started;
+// reporting only the top-up, "how much longer can I chat" is left for him to calculate.
 type providerOut struct {
 	GasTokens     *int64 `json:"gas_tokens"`
 	GasRemaining  *int64 `json:"gas_remaining"`
@@ -193,8 +198,9 @@ func createProvider(d ProvidersDeps) fp.Invoke {
 	}
 }
 
-// marshalProvider —— 一条 + 它的油表读数。写完立刻读一次表:owner 加完油看到的
-// 就是那道闸看到的同一个数,而不是前端自己按加了多少猜一个。
+// marshalProvider —— one entry + its gas-gauge reading. Reads the gauge immediately after a
+// write: what the owner sees right after topping up is the exact number the gate enforces,
+// not a guess the frontend computes from the top-up amount.
 func marshalProvider(
 	ctx context.Context, d ProvidersDeps, row *repo.ProviderRow,
 ) (json.RawMessage, error) {
@@ -206,8 +212,9 @@ func marshalProvider(
 	return json.Marshal(payload)
 }
 
-// providerUpdateArgs —— 部分更新:字段用指针,没给 = 不动。GasTokens 三态:
-// 没给 = 不动;null = 取消计量;数字 = 加到这个量。
+// providerUpdateArgs —— a partial update: fields are pointers, not given = unchanged.
+// GasTokens is three-state: not given = unchanged; null = drop metering; a number = set the
+// tank to that amount.
 type providerUpdateArgs struct {
 	Label     *string `json:"label"`
 	Provider  *string `json:"provider"`
@@ -243,8 +250,9 @@ func parseProviderUpdate(raw json.RawMessage) (providerUpdateArgs, error) {
 	return in, fp.RequireArgs([2]string{"id", in.ID})
 }
 
-// rawHasKey —— 这个键**给没给**(而不是给的值是不是 null)。gas 那一项是三态的,
-// 没给和给了 null 是两件事:前者不动,后者取消计量。
+// rawHasKey —— whether this key **was present at all** (not whether its value is null). The
+// gas field is three-state: not-given and given-as-null are two different things — the
+// former leaves it unchanged, the latter drops metering.
 func rawHasKey(raw json.RawMessage, key string) bool {
 	var probe map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &probe); err != nil {
@@ -290,8 +298,10 @@ func parseProviderID(raw json.RawMessage) (string, error) {
 	return in.ID, fp.RequireArgs([2]string{"id", in.ID})
 }
 
-// providerErr —— 域哨兵翻成收口认得的类别。删默认那条是**冲突**不是坏输入:
-// owner 没写错什么,是这个动作跟"总得有一条可退的"冲突 —— 前端拿 409 就地提示。
+// providerErr —— translates domain sentinels into categories the convergence point
+// recognizes. Deleting the default is a **conflict**, not bad input: the owner didn't get
+// anything wrong, this action conflicts with "there must always be one to fall back to" —
+// the frontend prompts inline on the 409.
 func providerErr(what string, err error) error {
 	switch {
 	case errors.Is(err, entity.ErrProviderIsDefault):

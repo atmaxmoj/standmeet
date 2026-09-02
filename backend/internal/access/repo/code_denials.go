@@ -1,5 +1,6 @@
-// code_denials.go —— code 层 ACL deny 的读写（capability-acl-hierarchy.md）。
-// 纯 deny 稀疏表；owner-scope 由 handler 先校验 code 属本 owner，这里只按 code_id 读写。
+// code_denials.go —— reads and writes the code-level ACL denies (capability-acl-hierarchy.md).
+// Pure deny sparse tables; the handler checks the code belongs to this owner first, so this
+// layer only reads/writes by code_id.
 
 package repo
 
@@ -11,15 +12,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// CodeDenialRepo —— code_capability_denials / code_skill_denials CRUD。
+// CodeDenialRepo —— CRUD for code_capability_denials / code_skill_denials.
 type CodeDenialRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewCodeDenialRepo 构造 CodeDenialRepo。
+// NewCodeDenialRepo constructs a CodeDenialRepo.
 func NewCodeDenialRepo(pool *pgstore.Pool) *CodeDenialRepo { return &CodeDenialRepo{pool: pool} }
 
-// ListCapabilities —— 这张 code deny 掉的 capability id 集（无行 = 完全继承 role）。
+// ListCapabilities —— the set of capability ids this code denies (no rows =
+// fully inherits the role).
 func (r *CodeDenialRepo) ListCapabilities(ctx context.Context, codeID string) ([]string, error) {
 	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
@@ -32,7 +34,7 @@ func (r *CodeDenialRepo) ListCapabilities(ctx context.Context, codeID string) ([
 	return ids, nil
 }
 
-// ListSkills —— 这张 code deny 掉的 skill id 集。
+// ListSkills —— the set of skill ids this code denies.
 func (r *CodeDenialRepo) ListSkills(ctx context.Context, codeID string) ([]string, error) {
 	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
@@ -45,7 +47,7 @@ func (r *CodeDenialRepo) ListSkills(ctx context.Context, codeID string) ([]strin
 	return pgstore.UUIDStrings(rows), nil
 }
 
-// AddCapability —— deny 一个 capability（幂等，PK 冲突 DO NOTHING）。
+// AddCapability —— denies one capability (idempotent, PK conflict does DO NOTHING).
 func (r *CodeDenialRepo) AddCapability(ctx context.Context, codeID, capabilityID string) error {
 	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
@@ -59,7 +61,8 @@ func (r *CodeDenialRepo) AddCapability(ctx context.Context, codeID, capabilityID
 	return nil
 }
 
-// DeleteCapability —— 撤销一个 capability deny（幂等，无行也不报错）。
+// DeleteCapability —— revokes one capability deny (idempotent, no error even
+// with zero rows).
 func (r *CodeDenialRepo) DeleteCapability(ctx context.Context, codeID, capabilityID string) error {
 	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
@@ -73,7 +76,7 @@ func (r *CodeDenialRepo) DeleteCapability(ctx context.Context, codeID, capabilit
 	return nil
 }
 
-// AddSkill —— deny 一个 skill（幂等）。
+// AddSkill —— denies one skill (idempotent).
 func (r *CodeDenialRepo) AddSkill(ctx context.Context, codeID, skillID string) error {
 	cid, err := pgstore.ParseUUID(codeID)
 	if err != nil {
@@ -91,7 +94,7 @@ func (r *CodeDenialRepo) AddSkill(ctx context.Context, codeID, skillID string) e
 	return nil
 }
 
-// DeleteSkill —— 撤销一个 skill deny（幂等）。
+// DeleteSkill —— revokes one skill deny (idempotent).
 func (r *CodeDenialRepo) DeleteSkill(ctx context.Context, codeID, skillID string) error {
 	cid, err := pgstore.ParseUUID(codeID)
 	if err != nil {
@@ -109,8 +112,10 @@ func (r *CodeDenialRepo) DeleteSkill(ctx context.Context, codeID, skillID string
 	return nil
 }
 
-// ListCorpusURIs —— 这张 code 收回的 corpus URI glob 集（无行 = 完全继承 role 的正列表）。
-// ACL 三层的第三类：capability/skill 是离散 id 的 deny 集，corpus 是 glob 的 deny 集 —— 同为纯减法。
+// ListCorpusURIs —— the set of corpus URI globs this code revokes (no rows =
+// fully inherits the role's allow-list).
+// The third of the ACL's three tiers: capability/skill are deny-sets of discrete
+// ids, corpus is a deny-set of globs — both are pure subtraction.
 func (r *CodeDenialRepo) ListCorpusURIs(ctx context.Context, codeID string) ([]string, error) {
 	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
@@ -123,7 +128,8 @@ func (r *CodeDenialRepo) ListCorpusURIs(ctx context.Context, codeID string) ([]s
 	return pats, nil
 }
 
-// SetCorpusURIs —— 全量重设这张 code 的 corpus deny 集（空 = 完全继承 role）。
+// SetCorpusURIs —— fully replaces this code's corpus deny set (empty = fully
+// inherits the role).
 func (r *CodeDenialRepo) SetCorpusURIs(
 	ctx context.Context, codeID string, patterns []string,
 ) error {

@@ -1,8 +1,9 @@
-// Package config 从环境变量读 server 配置。
+// Package config reads server configuration from environment variables.
 //
-// 设计上故意简单：一次读完、不刷新。Owner 不该在运行时改 DB 连接串。
-// 缺失关键 env（DATABASE_URL / REDIS_URL）直接 fail-fast，不给 default
-// 因为本地 dev 也通过 docker-compose 注入。
+// Deliberately simple by design: read once at startup, never refreshed. The
+// owner should not change the DB connection string at runtime. Missing
+// required env vars (DATABASE_URL / REDIS_URL) fail fast with no default,
+// because local dev also injects them via docker-compose.
 package config
 
 import (
@@ -12,21 +13,24 @@ import (
 	"strconv"
 )
 
-// Config 持有进程启动时一次性读完的运行时配置。
+// Config holds the runtime configuration read once at process startup.
 //
-// 故意没有 PublicURL/PUBLIC_URL：删 env-as-config 的"对外 URL"指针。每条
-// owner 的 public_url 在 claim 表单里填、写进 owners 行；SEO / QR 全
-// 从 DB 读，无 env、无 default、无 fallback。
+// Deliberately no PublicURL/PUBLIC_URL: removes the env-as-config "outward
+// URL" pointer. Each owner's public_url is filled in on the claim form and
+// written to the owners row; SEO / QR all read from the DB — no env, no
+// default, no fallback.
 type Config struct {
-	Host            string
-	Port            string
-	DatabaseURL     string
-	RedisURL        string
-	SessionKey      string
-	CustomPagesRoot string // builder 写、backend 读 custom page build artifact 的根
-	// JobFetch*BaseURL —— 各 job-board adapter 的 base URL 覆写。production
-	// 留空走真 URL；e2e/dev 指 docker-compose 起的 external-mock。见
-	// docs/design/job-loop-tests.md T.2。
+	Host        string
+	Port        string
+	DatabaseURL string
+	RedisURL    string
+	SessionKey  string
+	// root dir for custom page build artifacts: builder writes, backend reads
+	CustomPagesRoot string
+	// JobFetch*BaseURL — base URL overrides for each job-board adapter. Left
+	// empty in production to hit the real URL; e2e/dev point at the
+	// external-mock started by docker-compose. See
+	// docs/design/job-loop-tests.md T.2.
 	JobFetchGreenhouseBaseURL      string
 	JobFetchLeverBaseURL           string
 	JobFetchAshbyBaseURL           string
@@ -43,34 +47,40 @@ type Config struct {
 	JobFetchHimalayasBaseURL       string
 	JobFetchWorkingNomadsBaseURL   string
 	JobFetchRecruiteeBaseURL       string
-	// Turnstile* —— Cloudflare Turnstile captcha 配置。两个都设才开启；
-	// 任一为空 = captcha 关闭。不是 fallback：env 是这个 opt-in feature 唯一
-	// 入口。后续若改 UI-driven 配置（DB-stored），这里整组删。
+	// Turnstile* — Cloudflare Turnstile captcha config. Both must be set to
+	// enable it; either being empty disables captcha. Not a fallback: env is
+	// the sole entry point for this opt-in feature. If this later moves to
+	// UI-driven (DB-stored) config, delete this whole group.
 	TurnstileSiteKey string
 	TurnstileSecret  string
-	// SandboxDriver —— skill script 执行后端：'docker' 或 'disabled'。
-	// docker 要求 backend 容器 mount /var/run/docker.sock + docker CLI 可用。
-	// 不显式开 = disabled，skill 调用脚本时返 sandbox.ErrDisabled。
+	// SandboxDriver — the skill-script execution backend: 'docker' or
+	// 'disabled'. docker requires the backend container to mount
+	// /var/run/docker.sock and have the docker CLI available. Not explicitly
+	// enabled = disabled, and skill script calls return sandbox.ErrDisabled.
 	// env: SANDBOX_DRIVER
 	SandboxDriver string
-	// Storage* —— MinIO / S3 客户端配置。Endpoint 空 = 关闭 (assets 上传
-	// 返 storage.ErrDisabled)。PublicURL 是浏览器侧能直连的 host (presign
-	// URL 里 host 替换用；容器内是 minio:9000，浏览器是 localhost:9200)。
+	// Storage* — MinIO / S3 client config. Empty Endpoint = disabled (asset
+	// uploads return storage.ErrDisabled). PublicURL is the host the browser
+	// can reach directly (used to swap the host in presigned URLs; inside
+	// the container it's minio:9000, from the browser it's localhost:9200).
 	StorageEndpoint  string
 	StorageAccessKey string
 	StorageSecretKey string
 	StorageBucket    string
 	StoragePublicURL string
-	// GotenbergURL / PrintBaseURL —— resume PDF 渲染配置。两个都填才生效；
-	// 任一为空 = NoopRenderer，applications.commit 报 ErrNotConfigured。
+	// GotenbergURL / PrintBaseURL — resume PDF rendering config. Both must
+	// be set to take effect; either being empty = NoopRenderer, and
+	// applications.commit reports ErrNotConfigured.
 	//   GOTENBERG_URL  — sidecar HTTP base (compose service "gotenberg")
-	//   PRINT_BASE_URL — app 容器对 gotenberg 暴露的 base URL，print 路由会
-	//                    被拼到这后面（gotenberg 抓 <base>/print/application/<id>?token=…）
+	//   PRINT_BASE_URL — the base URL the app container exposes to
+	//                    gotenberg; the print route is appended after it
+	//                    (gotenberg fetches <base>/print/application/<id>?token=…)
 	GotenbergURL string
 	PrintBaseURL string
-	// TypstBin / ResumeFontPath —— resume PDF 现在走 Typst（typst binary + 内嵌模板）。
-	// TypstBin 空 = PATH 上的 "typst"；ResumeFontPath 指向 Newsreader + JetBrains Mono 字体目录
-	// （让打印跟网页同一套字体）。见 internal/owner/jobs/resumepdf。
+	// TypstBin / ResumeFontPath — resume PDF now goes through Typst (typst
+	// binary + an embedded template). Empty TypstBin = "typst" on PATH;
+	// ResumeFontPath points at the Newsreader + JetBrains Mono font dir (so
+	// print uses the same fonts as the web page). See internal/owner/jobs/resumepdf.
 	TypstBin       string
 	ResumeFontPath string
 	// MarketplaceGitHubBaseURL / MarketplaceSkillsMPBaseURL —— skill
@@ -79,36 +89,45 @@ type Config struct {
 	// proxy never touches the public internet.
 	MarketplaceGitHubBaseURL   string
 	MarketplaceSkillsMPBaseURL string
-	// Meili* —— corpus 词法检索 index(1b crawl face)。两个都空 = 检索退回
-	// Postgres 全文(graceful);写路径的 index 传播也变 no-op。非 required:meili
-	// 是可选加速层,Postgres 仍是 source-of-truth。env: MEILI_URL / MEILI_KEY
+	// Meili* — the corpus lexical-search index (1b crawl face). Both empty =
+	// search falls back to Postgres full-text (graceful); write-path index
+	// propagation also becomes a no-op. Not required: meili is an optional
+	// speed layer, Postgres remains the source of truth. env: MEILI_URL / MEILI_KEY
 	MeiliURL string
 	MeiliKey string
-	// RedeployHookURL —— /admin/system 那个「升级」按钮打给谁。
+	// RedeployHookURL — who the /admin/system "upgrade" button calls.
 	//
-	// 这台实例**没有**宿主的控制权(compose 里 backend 刻意不挂 docker.sock),所以它自己
-	// 拉不动镜像、重建不了容器。真正能做这件事的是编排它的那一方(Coolify / Portainer /
-	// 一条 CI webhook),而权限得由 owner 亲手给:他把那一方给的重新部署 URL 填在这里。
+	// This instance has **no** control over its host (compose deliberately
+	// does not mount docker.sock into backend), so it cannot pull images or
+	// rebuild containers itself. The party that actually can do this is
+	// whatever orchestrates it (Coolify / Portainer / a CI webhook), and
+	// that permission must come from the owner's own hand: they paste the
+	// redeploy URL that party gave them here.
 	//
-	// 产品不发明这个权限,也不假设编排方是谁 —— 只认一个不透明的 URL,POST 它。
-	// 空 = 按钮如实说自己做不到,改成告诉 owner 该跑哪条命令。
+	// The product does not invent this permission, nor assume who the
+	// orchestrator is — it only knows an opaque URL and POSTs it. Empty =
+	// the button honestly says it can't do this, and instead tells the
+	// owner which command to run.
 	// env: STANDMEET_REDEPLOY_HOOK
 	RedeployHookURL string
-	// ReleaseRegistry / ReleaseRepo —— 去哪儿问「有没有新版」。默认官方镜像库;
-	// 自建 fork 的人改 repo,dev/e2e 把 registry 指到本地 mock(一条打公网才成立的
-	// 用例,在没网的机器上红得跟产品坏了一模一样)。
+	// ReleaseRegistry / ReleaseRepo — where to ask "is there a new version".
+	// Defaults to the official image registry; people running their own
+	// fork change the repo, and dev/e2e point the registry at a local mock
+	// (a case that only holds when it can reach the public internet — on a
+	// machine with no network it goes red exactly like the product is broken).
 	// env: STANDMEET_RELEASE_REGISTRY / STANDMEET_RELEASE_REPO
 	ReleaseRegistry string
 	ReleaseRepo     string
-	// QueryQueueMaxConcurrent —— visitor chat agent loop 全局并发上限；
-	// 防一个 owner 的 anthropic 配额被并发访客打爆。≤0 关闭限流（dev 默认）。
+	// QueryQueueMaxConcurrent — global concurrency cap for the visitor chat
+	// agent loop; guards against concurrent visitors blowing an owner's
+	// anthropic quota. ≤0 disables throttling (the dev default).
 	// env: QUERY_QUEUE_MAX_CONCURRENT
 	QueryQueueMaxConcurrent int
 	StorageUseSSL           bool
-	SecureCookie            bool // dev (http) 走 false；prod 必须 true
+	SecureCookie            bool // dev (http) uses false; prod must be true
 }
 
-// 缺关键 env 时返回的 sentinel error。
+// Sentinel errors returned when a required env var is missing.
 var (
 	ErrDatabaseURLRequired      = errors.New("DATABASE_URL is required")
 	ErrRedisURLRequired         = errors.New("REDIS_URL is required")
@@ -118,27 +137,33 @@ var (
 	ErrStorageBucketRequired    = errors.New("STORAGE_BUCKET is required")
 )
 
-// 内网 compose 服务默认 host（私有 docker 网,明文 http 是设计如此,非公网暴露）。
-// 只存 host:port,scheme 在 internalURL 里拼 —— 避免源码里出现裸 http:// URL 字面量。
+// Default hosts for internal compose services (private docker network,
+// plaintext http is deliberate — never exposed to the public internet).
+// Stores only host:port; the scheme is assembled in internalURL, to avoid a
+// bare http:// URL literal appearing in source.
 const (
 	defaultGotenbergHost = "gotenberg:3000"
 	defaultPrintHost     = "app:3000"
 )
 
-// defaultReleaseRegistry / defaultReleaseRepo —— 官方镜像库,`instance.upgrade_check`
-// 去这里问已发布了哪些版本。自己 fork 出去发的人用那两个 env 换掉。
+// defaultReleaseRegistry / defaultReleaseRepo — the official image registry;
+// `instance.upgrade_check` asks here which versions have been published.
+// People who fork and publish their own use those two env vars to override it.
 const (
 	defaultReleaseRegistry = "https://ghcr.io"
 	defaultReleaseRepo     = "atmaxmoj/standmeet-backend"
 )
 
-// internalURL 拼一条内网 compose 服务的 base URL。私有 docker 网内明文 http
-// 是设计如此（这些服务从不对公网暴露），scheme 由此单点决定、不入字面量。
+// internalURL assembles the base URL of an internal compose service.
+// Plaintext http inside the private docker network is deliberate (these
+// services are never exposed to the public internet); the scheme is decided
+// in this one place and never appears as a literal.
 func internalURL(host string) string {
 	return (&url.URL{Scheme: "http", Host: host}).String()
 }
 
-// Load 读 env，返回 Config 或 error。任何 required env 缺失即返回 error。
+// Load reads env vars and returns a Config or an error. Any missing
+// required env var returns an error.
 func Load() (*Config, error) {
 	cfg := &Config{
 		Host:                           envOr("HOST", "0.0.0.0"),
@@ -174,7 +199,9 @@ func Load() (*Config, error) {
 		StorageSecretKey:               os.Getenv("STORAGE_SECRET_KEY"),
 		StorageBucket:                  os.Getenv("STORAGE_BUCKET"),
 		StoragePublicURL:               os.Getenv("STORAGE_PUBLIC_URL"),
-		// #117 部署友好:不设时走标准自托管 compose 服务名,fresh deploy 免逐个填。
+		// #117 deployment-friendly: unset falls back to the standard
+		// self-hosted compose service name, so a fresh deploy needs no
+		// field-by-field filling.
 		TypstBin:                   envOr("TYPST_BIN", "typst"),
 		ResumeFontPath:             envOr("RESUME_FONT_PATH", ""),
 		GotenbergURL:               envOr("GOTENBERG_URL", internalURL(defaultGotenbergHost)),
@@ -191,19 +218,21 @@ func Load() (*Config, error) {
 	if verr := validateRequired(cfg); verr != nil {
 		return nil, verr
 	}
-	// SESSION_KEY 只在登录后续阶段才用，启动时允许空。
+	// SESSION_KEY is only used later in the login flow; empty is allowed at startup.
 	return cfg, nil
 }
 
-// requiredEnvCheck —— 单条 required env 校验表项。字段顺序按 govet
-// fieldalignment：error interface (16B) 先，string (16B) 后。
+// requiredEnvCheck — one row of the required-env validation table. Field
+// order follows govet fieldalignment: error interface (16B) first, string
+// (16B) second.
 type requiredEnvCheck struct {
 	err error
 	val string
 }
 
-// validateRequired —— 表驱动 required env 校验，让 Load 保持 cyclo ≤ 5。
-// SESSION_KEY 不在表里（启动时允许空，登录路径才校验）。
+// validateRequired — table-driven required-env validation, keeping Load's
+// cyclomatic complexity ≤ 5. SESSION_KEY is not in the table (empty is
+// allowed at startup; it's validated on the login path instead).
 func validateRequired(cfg *Config) error {
 	checks := []requiredEnvCheck{
 		{err: ErrDatabaseURLRequired, val: cfg.DatabaseURL},
@@ -228,8 +257,9 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
-// envInt —— env 整数 + 默认值；非整数视为 0 (不取 fallback)，让 ops 看见
-// 解析失败而不是静默回 default。
+// envInt — env integer with a default; a non-integer value is treated as 0
+// (not the fallback), so ops sees the parse failure instead of silently
+// getting the default.
 func envInt(key string, fallback int) int {
 	v := os.Getenv(key)
 	if v == "" {

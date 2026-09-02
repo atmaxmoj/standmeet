@@ -1,7 +1,9 @@
-// SEOEditor —— wiki / output 共用的 public-landing SEO sub-section。
-// 字段：excerpt / published。indexed=true 才进 sitemap + 渲染
-// /wiki/<path> 或 /output/<path>。地址(path)纯树派生(标题 slug + parent 链),
-// owner 不再自设 —— 所以这里没有 path 输入框,改名会同时改公开 URL。
+// SEOEditor —— the public-landing SEO sub-section shared by wiki / output.
+// Fields: excerpt / published. Only indexed=true enters the sitemap and
+// renders /wiki/<path> or /output/<path>. The address (path) is purely
+// derived from the tree (title slug + parent chain) — the owner no longer
+// sets it themselves, so there's no path input field here; renaming also
+// changes the public URL.
 
 'use client';
 
@@ -102,15 +104,21 @@ interface ActionsProps {
   testid: string;
 }
 
-// Actions —— 这张卡自己的提交。
+// Actions —— this card's own submit.
 //
-// 这一屏上**有两个各自独立的 SAVE**：上面那张 CorpusEntryForm（正文/标签/封面）走 `onSubmit`，
-// 这张 PUBLIC LANDING 卡走 `onSave`，两者提交的是不同的东西。而它们原本都只写 `save` ——
-// owner 填完下半张卡，最自然的动作是去按上面那个更显眼的实心按钮，而那个按钮**不管这一半**
-// （UX-60）。屏幕上没有边界提示、没有"未保存"标记，两个提交边界叠在一个滚动面里靠猜。
+// This screen has **two independent SAVEs**: the CorpusEntryForm above
+// (body/tags/cover) goes through `onSubmit`, and this PUBLIC LANDING card
+// goes through `onSave` — they submit different things. Both used to just say
+// "save" — after filling in the bottom half, the owner's most natural move is
+// to click the more prominent solid button above, and that button **doesn't
+// cover this half** (UX-60). Nothing on screen marked the boundary or an
+// "unsaved" state; two submit boundaries stacked in one scrolling pane, left
+// to guesswork.
 //
-// 修法不是再加第三个"全部保存"按钮 —— 那会把两个后端调用藏进一个动作，更难说清。
-// 让每个按钮**自己点名它管哪一半**：这是 owner 唯一能据以判断"我该按哪个"的信息。
+// The fix isn't adding a third "save all" button — that would hide two
+// backend calls inside one action, making things harder to reason about.
+// Instead each button **names which half it owns**: that's the only
+// information the owner can use to judge "which one do I press".
 function Actions(props: ActionsProps) {
   const t = useTranslations('adminCorpus.common');
   return (

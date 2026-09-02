@@ -1,6 +1,7 @@
-// visitor_chat_prompt_test.go —— #104 per-code prompt：一张 code 自带的 prompt 叠加进 session
-// persona。ComposeDynamicPersona 在 role persona 之后追加 code prompt；没挂 code prompt 时输出
-// 与从前逐字一致（守 system-prompt-hash-regression）。
+// visitor_chat_prompt_test.go —— #104 per-code prompt: a code's own prompt stacks into
+// the session persona. ComposeDynamicPersona appends the code prompt after the role
+// persona; when no code prompt is attached, the output stays byte-identical to before
+// (keeps system-prompt-hash-regression honest).
 
 package usecase
 
@@ -55,8 +56,9 @@ func TestComposeDynamicPersona_CodePromptOnly(t *testing.T) {
 	}
 }
 
-// TestComposeDynamicPersona_OwnerIdentityLeads —— UX-66：名字在最前面，而且在 role persona
-// 之前。访客那条路走的是 dynamic 这一支，所以身份必须在**这里**兑现，不能只在 base 那支。
+// TestComposeDynamicPersona_OwnerIdentityLeads —— UX-66: the name comes first, ahead of
+// the role persona. A real visitor goes through the dynamic branch, so identity must be
+// delivered **here**, not only in the base branch.
 func TestComposeDynamicPersona_OwnerIdentityLeads(t *testing.T) {
 	t.Parallel()
 	out := ComposeDynamicPersona(snapWithPrompts("Speak plainly.", ""), "Alice Zhang")

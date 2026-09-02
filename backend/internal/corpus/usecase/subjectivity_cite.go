@@ -1,11 +1,15 @@
-// subjectivity_cite.go —— subjectivity 作为「私有可见性 tier」的 citation 解析。
+// subjectivity_cite.go —— citation resolution for subjectivity as the "private
+// visibility tier."
 //
-// wiki/output 读了就 cite（进 visitor footer）；subjectivity 读了默认**不** cite——它 ground
-// agent 的 voice 但不展示给访客。仅当 owner 把某条 opt-in（show_as_source=true）时才进 footer。
-// 这个 gate 是 server-authoritative 的：不信 client 传的 id，逐个反查 show_as_source 再决定。
+// wiki/output entries get cited on read (into the visitor footer); subjectivity entries
+// are **not** cited by default on read — they ground the agent's voice but aren't shown
+// to visitors. An entry only reaches the footer once the owner opts it in
+// (show_as_source=true). This gate is server-authoritative: it never trusts an id the
+// client sent, it looks up show_as_source for each one and decides from that.
 //
-// dialog（写 cited_subjectivity_ids）与 admin transcript（建 subjectivity_refs）都走这里，
-// 保证「解析 + gate」一处定义。path 用 parent 链上溯派生（同 deriveNotePath）。
+// Both the dialog path (writes cited_subjectivity_ids) and the admin transcript path
+// (builds subjectivity_refs) go through here, so "resolve + gate" has exactly one
+// definition. path is derived by walking up the parent chain (same as deriveNotePath).
 
 package usecase
 
@@ -18,7 +22,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 )
 
-// SubjectivityCiteRef —— 一条已解析、已通过 show_as_source gate 的 subjectivity 引用。
+// SubjectivityCiteRef —— a subjectivity reference that has been resolved and has passed
+// the show_as_source gate.
 type SubjectivityCiteRef struct {
 	ID           string
 	Title        string
@@ -27,22 +32,26 @@ type SubjectivityCiteRef struct {
 	ShowAsSource bool
 }
 
-// SubjectivityCiteLookup —— 把 subjectivity id 解析成 (title/path/body/show_as_source) 的窄接口。
-// publicroutes 不 import postgres，靠接口传具体实现（NewSubjectivityCiteResolver 包 NoteRepo）。
+// SubjectivityCiteLookup —— a narrow interface resolving a subjectivity id to
+// (title/path/body/show_as_source). publicroutes doesn't import postgres directly; the
+// concrete implementation is passed through this interface (NewSubjectivityCiteResolver
+// wraps a NoteRepo).
 type SubjectivityCiteLookup interface {
 	ResolveCite(ctx context.Context, ownerID, id string) (SubjectivityCiteRef, error)
 }
 
-// subjectivityCiteResolver —— SubjectivityCiteLookup 的 postgres 实现：NoteRepo（genre='subjectivity'）
-// 反查 note（含 show_as_source）+ parent 链上溯算树派生 path。
+// subjectivityCiteResolver —— the postgres implementation of SubjectivityCiteLookup:
+// looks the note up via NoteRepo (genre='subjectivity'), including show_as_source, and
+// derives its tree path by walking up the parent chain.
 type subjectivityCiteResolver struct {
 	repo *repo.NoteRepo
 }
 
-// NewSubjectivityCiteResolver —— composition root 用：把 subjectivity NoteRepo 包成 lookup。
-// repo 为 nil 时返 nil（无 subjectivity 装配的调用方走 no-op resolve）。
+// NewSubjectivityCiteResolver —— for the composition root: wraps a subjectivity NoteRepo
+// as a lookup. Returns nil when repo is nil (callers with no subjectivity wiring take
+// the no-op resolve path).
 //
-//nolint:ireturn // nil-safe factory: repo nil 返 nil 接口, 调用方 nil-guard 跳过解析
+//nolint:ireturn // nil-safe factory: nil repo returns nil interface, caller nil-guards around it
 func NewSubjectivityCiteResolver(notes *repo.NoteRepo) SubjectivityCiteLookup {
 	if notes == nil {
 		return nil
@@ -50,7 +59,8 @@ func NewSubjectivityCiteResolver(notes *repo.NoteRepo) SubjectivityCiteLookup {
 	return &subjectivityCiteResolver{repo: notes}
 }
 
-// ResolveCite —— id → (title/body/show_as_source) + 树派生 path。未命中 → ErrSubjectivityNotFound。
+// ResolveCite —— id -> (title/body/show_as_source) plus the tree-derived path. Not found
+// -> ErrSubjectivityNotFound.
 func (r *subjectivityCiteResolver) ResolveCite(
 	ctx context.Context, ownerID, id string,
 ) (SubjectivityCiteRef, error) {

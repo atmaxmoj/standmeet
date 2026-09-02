@@ -1,3 +1,4 @@
-// Package usecase —— access 域的用例/编排 + 窄 consumer 端口（role/code/api-key/access-request/
-// visitor-session 的应用流）。over entity + repo。对外经 internal/access/facade 暴露。
+// Package usecase — the access domain's use cases/orchestration + narrow consumer ports
+// (application flows for role/code/api-key/access-request/visitor-session). Sits over
+// entity + repo. Exposed externally via internal/access/facade.
 package usecase

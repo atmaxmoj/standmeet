@@ -1,7 +1,8 @@
-// use-code-form —— CodeCreateForm / CodeCreateModal 共用的状态。
+// use-code-form —— state shared by CodeCreateForm / CodeCreateModal.
 //
-// A.3-IAM-5 起 code 只挂 assumed_role_id；ACL / capability / skill prompts
-// 全部从 role 推断。permissions / grantedSkills / skillIDs 三套老字段彻底删了。
+// As of A.3-IAM-5, a code only carries assumed_role_id; ACL / capability /
+// skill prompts are all derived from the role. The three old fields
+// permissions / grantedSkills / skillIDs have been removed entirely.
 
 import { useCallback, useState } from 'react';
 
@@ -14,14 +15,16 @@ export interface CodeFormState {
   suggested: string[];
   maxMembers: string;
   maxTurns: string;
-  // maxBookings —— calendar.book quota per code; '' = nil (role 没解锁
-  // calendar.book 时也无意义；string 形态便于跟 input 字段双绑)。
+  // maxBookings —— calendar.book quota per code; '' = nil (also meaningless
+  // when the role hasn't unlocked calendar.book; kept as a string so it binds
+  // directly to the input field).
   maxBookings: string;
-  // assumedRoleID —— 必填；UI 缺省指向 owner 的 public role。
+  // assumedRoleID —— required; the UI defaults to pointing at the owner's public role.
   assumedRoleID: string;
-  // promptID —— #104 per-code prompt；'' = 不挂（persona 只有 role 那份）。引 prompts 库。
+  // promptID —— #104 per-code prompt; '' = not attached (persona is just the
+  // role's). References the prompts library.
   promptID: string;
-  // providerID —— 这张码走哪条 provider；'' = 继承 role，再退 owner 默认。
+  // providerID —— which provider this code uses; '' = inherits the role, then falls back to the owner default.
   providerID: string;
 }
 

@@ -1,12 +1,17 @@
-// ghost_policy.go —— ghost-steering P3: 单个 steering ghost 的 policy(纯 prompt + parse + 落库封装)。
+// ghost_policy.go —— ghost-steering P3: policy for a single steering ghost (pure
+// prompt + parse + persistence wrapper).
 //
-// 分工:LLM 调用(Generate)在 route 闭包(有 cred);本文件出 prompt(versioned,受 hash-regression
-// 纪律约束)、解析 LLM 输出、把 policy ghost 落库(route 不碰 postgres,守 arch)。
-// 设计骨架见 [[ghost-steering]] §"The prompt skeleton"。"ONE GHOST MESSAGE" 是骨架开头,也是
-// mock gateway 认 GhostPolicy 调用的标记 —— 改这句要同步 mock。
+// Division of labor: the LLM call (Generate) lives in the route closure (it holds
+// creds); this file provides the prompt (versioned, subject to hash-regression
+// discipline), parses the LLM output, and persists the policy ghost (route never touches
+// postgres, keeping the architecture boundary). Design skeleton in [[ghost-steering]]
+// §"The prompt skeleton". "ONE GHOST MESSAGE" is both the skeleton's opening line and the
+// marker the mock gateway uses to recognize a GhostPolicy call —— changing this sentence
+// requires updating the mock in sync.
 //
-// ghost 是 conversation 的能力(不是外置 plugin):policy/telemetry 跟 conversation 代码一起住核心。
-// inference 只发通用 EpilogueFrame;route 把本文件出的候选包成 Kind="ghost" 的 epilogue。
+// ghost is a capability of conversation (not an external plugin): policy/telemetry live
+// in core alongside the conversation code. inference only emits a generic
+// EpilogueFrame; the route wraps this file's candidate into a Kind="ghost" epilogue.
 
 package usecase
 
@@ -21,9 +26,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/repo"
 )
 
-// GhostPolicyPrompt —— platform-owned、稳定、versioned 的机制 prompt(part_ids + hash 纪律)。
-// owner 只写 destinations(waypoints),不写机制。骨架开头的 "ONE GHOST MESSAGE" 双重身份:mock
-// 识别标记 + 设计骨架首句。
+// GhostPolicyPrompt —— the platform-owned, stable, versioned mechanism prompt (part_ids +
+// hash discipline). The owner only writes destinations (waypoints), never the mechanism.
+// The skeleton's opening line, "ONE GHOST MESSAGE", has a dual role: mock recognition
+// marker + the design skeleton's first sentence.
 const GhostPolicyPrompt = `You generate at most ONE GHOST MESSAGE: a candidate next message the
 VISITOR might send — written in the visitor's voice, not the owner's.
 
@@ -45,7 +51,7 @@ RULES:
 OUTPUT a single JSON object {"text","target_waypoint","follows_from","is_bridge"}
 or the literal null.`
 
-// GhostCandidate —— GhostPolicy LLM 输出解析后的候选(nil = silence)。
+// GhostCandidate —— candidate parsed from GhostPolicy's LLM output (nil = silence).
 type GhostCandidate struct {
 	Text           string `json:"text"`
 	TargetWaypoint string `json:"target_waypoint"`
@@ -53,7 +59,8 @@ type GhostCandidate struct {
 	IsBridge       bool   `json:"is_bridge"`
 }
 
-// UnvisitedWaypoints —— 冻结 waypoints 里还没到访的(policy 只推这些;全到 → 空 → silence)。
+// UnvisitedWaypoints —— the not-yet-visited ones among the frozen waypoints (policy only
+// pushes these; all visited → empty → silence).
 func UnvisitedWaypoints(waypoints []access.Waypoint, visited []string) []access.Waypoint {
 	out := make([]access.Waypoint, 0, len(waypoints))
 	for i := range waypoints {
@@ -64,9 +71,11 @@ func UnvisitedWaypoints(waypoints []access.Waypoint, visited []string) []access.
 	return out
 }
 
-// SteeringCandidates —— 从冻结 snapshot 取本轮可推的 steering waypoints:先去掉已访问的,再(当
-// snapshot 要求证据时)剔除空证据的非终点 waypoint。F-A-10。开关读自 snapshot(role 值,code 可覆盖),
-// 不作 flag 形参穿过边界。
+// SteeringCandidates —— gets this turn's pushable steering waypoints from the frozen
+// snapshot: first drops already-visited ones, then (when the snapshot requires evidence)
+// removes non-terminal waypoints with no evidence. F-A-10. The switch is read from the
+// snapshot (a role value, overridable by code), never threaded across the boundary as a
+// flag parameter.
 func SteeringCandidates(snap *access.RoleSnapshot, visited []string) []access.Waypoint {
 	unvisited := UnvisitedWaypoints(snap.Waypoints(), visited)
 	if !snap.RequireGhostEvidence() {
@@ -75,9 +84,11 @@ func SteeringCandidates(snap *access.RoleSnapshot, visited []string) []access.Wa
 	return filterSteeringByEvidence(unvisited)
 }
 
-// filterSteeringByEvidence —— 把**非终点**(steering)且 evidence_refs 为空的 waypoint 剔除 —— 让
-// prompt 规则6("no refs → not proposable")从"写着不强制"变成真强制。**终点/工具 waypoint(预约)永远
-// 保留** —— 它们靠工具而非语料完成,本就没有语料证据。
+// filterSteeringByEvidence —— removes **non-terminal** (steering) waypoints whose
+// evidence_refs is empty —— turns prompt rule 6 ("no refs → not proposable") from
+// "written but not enforced" into actually enforced. **Terminal/tool waypoints
+// (booking) are always kept** —— they're completed via a tool, not the corpus, so they
+// have no corpus evidence to begin with.
 func filterSteeringByEvidence(waypoints []access.Waypoint) []access.Waypoint {
 	out := make([]access.Waypoint, 0, len(waypoints))
 	for i := range waypoints {
@@ -88,8 +99,9 @@ func filterSteeringByEvidence(waypoints []access.Waypoint) []access.Waypoint {
 	return out
 }
 
-// BuildGhostContext —— GhostPolicy 的 user 侧上下文:未访问 waypoints(id/描述/权重/terminal)+
-// 本轮末条 assistant 回复(COHERENCE 挂点)。system 侧是 GhostPolicyPrompt。
+// BuildGhostContext —— the user-side context for GhostPolicy: unvisited waypoints
+// (id/description/weight/terminal) + this turn's last assistant reply (the COHERENCE
+// hook point). The system side is GhostPolicyPrompt.
 func BuildGhostContext(unvisited []access.Waypoint, lastMsg string) string {
 	lines := make([]string, 0, len(unvisited)+4)
 	lines = append(lines, "UNVISITED WAYPOINTS (advance exactly one):")
@@ -102,7 +114,8 @@ func BuildGhostContext(unvisited []access.Waypoint, lastMsg string) string {
 	return strings.Join(lines, "\n")
 }
 
-// ParseGhost —— LLM 输出(JSON object 或 "null")→ 候选。解析失败 / null / 缺 text|target → nil。
+// ParseGhost —— LLM output (a JSON object or "null") → candidate. Parse failure / null /
+// missing text|target → nil.
 func ParseGhost(raw string) *GhostCandidate {
 	s := strings.TrimSpace(raw)
 	if s == "" || s == "null" {
@@ -118,12 +131,13 @@ func ParseGhost(raw string) *GhostCandidate {
 	return &c
 }
 
-// validGhost —— HEADING 规则:policy ghost 必须有正文 + 恰一个 target_waypoint 标签。
+// validGhost —— HEADING rule: a policy ghost must have body text + exactly one
+// target_waypoint tag.
 func validGhost(c *GhostCandidate) bool {
 	return c.Text != "" && c.TargetWaypoint != ""
 }
 
-// PolicyGhostInput —— 落一条 policy ghost 的入参。
+// PolicyGhostInput —— input for persisting one policy ghost.
 type PolicyGhostInput struct {
 	OwnerID        string
 	ConversationID string
@@ -132,7 +146,8 @@ type PolicyGhostInput struct {
 	FollowsFrom    string
 }
 
-// RecordPolicyGhost —— 落一条 policy ghost，返回 row id(帧回填给前端 accept)。route 经此不碰 postgres。
+// RecordPolicyGhost —— persists one policy ghost, returns the row id (the frame filled
+// back to the frontend for accept). Via this, route never touches postgres.
 func RecordPolicyGhost(ctx context.Context, deps GhostDeps, in *PolicyGhostInput) (string, error) {
 	row, err := deps.Repo.RecordPolicy(ctx, &repo.RecordPolicyInput{
 		OwnerID: in.OwnerID, ConversationID: in.ConversationID, GhostText: in.Text,

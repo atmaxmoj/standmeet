@@ -1,10 +1,12 @@
-// RoleProviderConfig —— role 卡上的 **provider 选择器 + 油表开关**。
+// RoleProviderConfig —— the **provider selector + gas-metering toggle** on the role card.
 //
-// 两件事放一起是因为它们是同一件事的两半:走哪箱油,以及这箱油上要不要挂表。挂了表而那条
-// provider 没加过油,仍然什么都不发生 —— 两个开关都得在。
+// The two live together because they're two halves of one thing: which tank of gas to draw
+// from, and whether to meter that tank. Metering a provider that was never fueled still does
+// nothing — both switches have to be set.
 //
-// 建 role 时能选、建完改不了 = 那个字段实际上只能写一次(description 就吃过这个亏)。
-// 跟卡上其他局部保存同一形态:改完立刻全量 PUT 回写(走 roleUpdatePayload,其余字段原样)。
+// Selectable at role creation but not after = that field was effectively write-once
+// (description suffered the same bug). Same shape as the card's other local saves: edit →
+// immediate full PUT write-back (via roleUpdatePayload, other fields untouched).
 
 import { useTranslations } from 'next-intl';
 import { useCallback } from 'react';

@@ -1,19 +1,25 @@
-// seo.go —— 资源 seo:这台实例被搜索引擎和分享卡片看见的那一面。
+// seo.go —— the seo resource: the face of this instance that search engines and share cards
+// see.
 //
-// 三件事:owner 全站的设置(站点标题 / robots / sitemap 补充 / og 模板)、各 genre 已公开
-// 条目的计数、以及**一条条目**的公开开关和摘要。
+// Three things: owner-wide settings (site title / robots / sitemap extras / OG template),
+// per-genre counts of published entries, and **one entry's** publish switch and excerpt.
 //
-// 为什么住在 owner 而不是 corpus:公开一条 wiki 的另一半是主页 —— 取消公开要把 pin 着它
-// 的栏目一起摘掉(pinned ⊆ published),那是 owner 的页面。跨域的资源由**能 import 另一边**
-// 的那个域声明(owner → corpus 是既有方向),这样不必再造一个端口加一段组装根的搬运。
+// Why it lives in owner rather than corpus: the other half of publishing a wiki entry is the
+// homepage — unpublishing has to strip it from whatever section pins it too
+// (pinned ⊆ published), and that's the owner's page. A cross-domain resource is declared by
+// **whichever domain can import the other side** (owner → corpus is the existing direction),
+// so this avoids building a new port plus an assembly-root wiring just to move the call.
 //
-// 归一化时收掉的三处:
+// Three inconsistencies collapsed during normalization:
 //
-//   - seo.update_settings 从 MCP 打过来会**洗掉 site_title**:那条 upsert 是整行覆写,
-//     而 MCP 那份入参里根本没有 site_title。三态入参 + 域里的合并之后每个面同一条规则。
-//   - 面板早就把 wiki / output 收成了一条路由(genre 走路径),MCP 那边还是两个 tool。
-//     同一件事,只是条目属于哪个 genre —— 一个 op,genre 是参数。
-//   - 出站载荷里条目的主键,面板叫 id、MCP 叫 wiki_id/output_id。一份载荷,叫 id。
+//   - seo.update_settings coming from MCP used to **wipe out site_title**: that upsert
+//     overwrites the whole row, and MCP's argument never carried site_title at all. A
+//     three-state argument plus a merge in the domain gives every face the same rule now.
+//   - The panel long ago collapsed wiki / output into one route (genre goes in the path),
+//     while MCP still had two tools. It's the same operation, only which genre an entry
+//     belongs to differs — one op, genre is a parameter.
+//   - An entry's primary key in the outbound payload: the panel called it id, MCP called it
+//     wiki_id/output_id. One payload, called id.
 
 package ops
 
@@ -27,26 +33,29 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
-// 条目的两个 genre —— 每个面用同一套词。
+// An entry's two genres — every face uses the same vocabulary.
 const (
 	seoGenreWiki   = "wiki"
 	seoGenreOutput = "output"
 )
 
-// SEODeps —— 设置/计数/条目在 corpus,取消公开时摘 pin 在本域。
+// SEODeps —— settings/counts/entries live in corpus, unpinning on unpublish lives in this
+// domain.
 //
-// Corpus 只为一件事：发布/取消发布**改的是那条笔记**，所以写完要把它的检索索引刷新。
-// 索引里的 `published` 是 public 身份的准入判据(F-D-7)，一份不刷新的索引会让刚发布的
-// 笔记从检索里消失、刚取消发布的笔记继续被搜到。
+// Corpus exists here for one reason: publishing/unpublishing **changes that note**, so the
+// write has to refresh its search index afterward. The index's `published` field is the
+// admission test for the public identity (F-D-7); a stale index leaves a just-published note
+// missing from search, and a just-unpublished note still findable.
 type SEODeps struct {
 	SEO    *corpus.SEORepo
 	Pins   usecase.PagePinDeps
 	Corpus corpus.Deps
 }
 
-// SEO —— get_settings / update_settings / stats / set_entry_seo。
+// SEO —— get_settings / update_settings / stats / set_entry_seo.
 //
-// 收 *SEODeps：这份 deps 现在带着 corpus.Deps（发布要刷索引），按值传会被 gocritic 判 hugeParam。
+// Takes *SEODeps: this deps struct now carries corpus.Deps (publishing needs to refresh the
+// index), and passing it by value would get flagged by gocritic as hugeParam.
 func SEO(d *SEODeps) []fp.Op {
 	return []fp.Op{
 		{
@@ -113,7 +122,7 @@ var (
 	}`)
 )
 
-// seoSettingsOut / seoStatsOut / seoEntryOut —— 出站载荷(每个面同一份)。
+// seoSettingsOut / seoStatsOut / seoEntryOut —— outbound payloads (same for every face).
 type seoSettingsOut struct {
 	SiteTitle     string   `json:"site_title"`
 	OGTemplate    string   `json:"og_template"`
@@ -131,7 +140,8 @@ type seoEntryOut struct {
 	ID      string `json:"id"`
 	Genre   string `json:"genre"`
 	Excerpt string `json:"excerpt"`
-	// UnpinnedSections —— 取消公开时自动摘掉的主页栏目(空 = 本来就没 pin)。
+	// UnpinnedSections —— homepage sections automatically unpinned on unpublish (empty =
+	// it wasn't pinned to begin with).
 	UnpinnedSections []string `json:"unpinned_sections"`
 	Published        bool     `json:"published"`
 }
@@ -180,7 +190,7 @@ func updateSEOSettings(seo *corpus.SEORepo) fp.Invoke {
 	}
 }
 
-// decodeSEOSettings —— 字段全可选:空 body = 什么都不改。
+// decodeSEOSettings —— every field is optional: an empty body = change nothing.
 func decodeSEOSettings(raw json.RawMessage) (seoSettingsArgs, error) {
 	var in seoSettingsArgs
 	if len(raw) == 0 {
@@ -211,7 +221,8 @@ type seoEntryArgs struct {
 	Published bool   `json:"published"`
 }
 
-// setEntrySEO —— genre 决定走哪条:wiki 要连着摘 pin,output 不上主页。
+// setEntrySEO —— genre decides which path: wiki has to unpin along with it, output never
+// appears on the homepage.
 func setEntrySEO(d *SEODeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		in, perr := decodeSEOEntry(raw)
@@ -249,7 +260,8 @@ func setWikiSEO(
 	if err != nil {
 		return nil, seoErr(err)
 	}
-	// 发布状态变了 → 这条笔记的检索文档要跟着变（见 SEODeps.Corpus）。
+	// Publish state changed → this note's search document has to change with it
+	// (see SEODeps.Corpus).
 	corpus.ReindexCorpusNote(ctx, d.Corpus, ownerID, in.ID)
 	return json.Marshal(seoEntryOut{
 		ID: res.Wiki.ID(), Genre: in.Genre, Excerpt: res.Wiki.Excerpt(),
@@ -271,7 +283,8 @@ func setOutputSEO(
 	})
 }
 
-// seoErr —— 域的哨兵 → 协议无关的类别。code 是已经发出去的契约,显式钉住。
+// seoErr —— domain sentinels → protocol-agnostic categories. code is an already-published
+// contract, pinned down explicitly.
 func seoErr(err error) error {
 	for _, c := range seoErrClasses {
 		if errors.Is(err, c.sentinel) {

@@ -1,4 +1,4 @@
-// CodeQRModal —— 显示某个 code 的大 QR + share link。
+// CodeQRModal — shows a large QR + share link for a given code.
 
 'use client';
 

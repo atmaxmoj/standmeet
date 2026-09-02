@@ -1,11 +1,13 @@
-// codes.go —— 资源 codes:owner 发出去的邀请码。
+// codes.go — resource codes: invitation codes the owner issues.
 //
-// 一张码 = 一个访客身份的入口:它指向一个 role(人格 + 语料范围 + 能力),再叠上这张码自己的
-// 配额(几个人、每会话几轮)、per-code 的 ACL 收窄(见 codes_acl.go)、引导目的地
-// (waypoints),以及要不要强制引用证据。
+// A code is an entry point for one visitor identity: it points at a role (persona + corpus
+// scope + capabilities), then layers on the code's own quotas (how many people, turns per
+// session), per-code ACL narrowing (see codes_acl.go), ghost-steering destinations
+// (waypoints), and whether it forces cited evidence.
 //
-// 别的能力想在一张码上放自己的配置(booker 的预约配额是第一个),走 CodeExtras 那个口子 ——
-// 这个域不认识那些能力,见 extras.go。
+// Another capability that wants to store its own config on a code (booker's booking quota was
+// the first) goes through the CodeExtras seam — this domain does not know those capabilities,
+// see extras.go.
 
 package ops
 
@@ -21,14 +23,15 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// CodesDeps —— codes 这个资源要的东西:码本身的用例、ACL 面的用例,以及别的能力在码上占的字段。
+// CodesDeps — what the codes resource needs: the code's own use cases, the ACL-facet use
+// cases, and the fields other capabilities occupy on a code.
 type CodesDeps struct {
 	Extras CodeExtras
 	Codes  usecase.CodesDeps
 	ACL    usecase.CodeACLDeps
 }
 
-// Codes —— 码本身 + 它的 ACL 面。
+// Codes — the code itself + its ACL facet.
 func Codes(d CodesDeps) []fp.Op {
 	return append(codeCoreOps(d), codeACLOps(d.ACL)...)
 }
@@ -162,10 +165,11 @@ var (
 	}`)
 )
 
-// codeRow —— 出站载荷形状(每个面同一份)。
+// codeRow — outbound payload shape (identical on every facade).
 //
-// require_ghost_evidence 和 prompt_id 也在:归一化前 MCP 那份少了这两个,
-// owner 从 Claude Code 看不出这张码有没有强制引用证据。
+// require_ghost_evidence and prompt_id are also here: before normalization the MCP shape was
+// missing these two, so the owner couldn't tell from Claude Code whether a code forced cited
+// evidence.
 type codeRow struct {
 	ExpiresAt            *string `json:"expires_at,omitempty"`
 	MaxMembers           *int32  `json:"max_members,omitempty"`
@@ -178,16 +182,20 @@ type codeRow struct {
 	Label                string  `json:"label"`
 	Status               string  `json:"status"`
 	AssumedRoleID        string  `json:"assumed_role_id"`
-	// ProviderID —— 空 = 这张码没指定,继承 role 再退默认。**出站必须带上**:
-	// owner 能写却看不见的字段,面板下次打开就只能猜。
+	// ProviderID — empty = this code didn't specify one, inherits the role's then falls back
+	// to default. **Must be sent outbound**: a field the owner can write but not see means the
+	// panel can only guess next time it opens.
 	ProviderID string `json:"provider_id"`
-	// CustomPageSlug —— 这张码开哪一页。**空串 = 开默认的访客对话**，不是「没答上来」。
-	// 页那一侧看得到码，这一侧看得到页 —— 只能单向看见的绑定，人会忘了自己建过。
+	// CustomPageSlug — which page this code opens. **Empty string = opens the default visitor
+	// chat**, not "failed to answer". The page side can see the code, this side can see the
+	// page — a binding visible only one way, and people forget they made it.
 	CustomPageSlug string   `json:"custom_page_slug"`
 	Ghosts         []string `json:"ghosts"`
-	// MemberCount —— 已经进来几个人。**上限单独发是不够的**:只有上限的话,一张满了的码
-	// 跟一张全新的码在面板上长得一模一样,而访客那边已经被 member_quota_reached 挡住了
-	// (F-D-2)。访客顶栏一直渲染 "1 / 5 names",owner 侧却拿不到这个数。
+	// MemberCount — how many people have claimed it so far. **Sending the cap alone isn't
+	// enough**: with only the cap, a full code and a brand-new code look identical in the
+	// panel, while the visitor side is already blocked by member_quota_reached (F-D-2). The
+	// visitor header always renders "1 / 5 names", but the owner side had no way to get this
+	// number.
 	MemberCount int32 `json:"member_count"`
 }
 
@@ -205,10 +213,11 @@ func toCodeRow(c *entity.Code, memberCount int32) codeRow {
 	}
 }
 
-// marshalCode —— 一张码 + 已用名额 + 别的能力在它上面那几个字段。
+// marshalCode — a code + its used quota + the fields other capabilities put on it.
 //
-// memberCount 由 caller 数好传进来:写路径(发码/改配额/改 ghost)刚动完这张码,数一次是准的;
-// 列表路径每张码数一次。数不出来不是致命错 —— 见 countMembers 的说明。
+// memberCount is counted by the caller and passed in: on a write path (issue / update quota /
+// update ghost) the code was just touched, so counting once there is accurate; the list path
+// counts once per code. Failing to count isn't fatal — see countMembers below.
 func marshalCode(
 	ctx context.Context, extras CodeExtras, c *entity.Code, memberCount int32,
 ) (json.RawMessage, error) {
@@ -219,9 +228,12 @@ func marshalCode(
 	return withExtraValues(row, extras.Read(ctx, c.ID)), nil
 }
 
-// countMembers —— 这张码进来几个人。数不出来时返回 0 而不是让整个请求失败:一张码的用量
-// 读不到,不该让 owner 打不开码列表。0 会显示成 "0 / N",比整页报错好,但也因此**不能**用它
-// 判断"这张码空着" —— 判满与否永远由后端发码那一步说了算(member_quota_reached)。
+// countMembers — how many people have joined on this code. Returns 0 rather than failing the
+// whole request when the count can't be read: not being able to read one code's usage
+// shouldn't stop the owner from opening the code list. 0 shows as "0 / N", which beats a full
+// page error, but that also means it **must not** be used to decide "this code is empty" —
+// whether a code is full is always decided by the backend's issue-time check
+// (member_quota_reached).
 func countMembers(ctx context.Context, deps usecase.CodesDeps, codeID string) int32 {
 	n, err := deps.Codes.CountMembers(ctx, codeID)
 	if err != nil {
@@ -248,8 +260,8 @@ func listCodes(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
 	}
 }
 
-// codeMemberOut —— 认领了这张码的一个访客。形状跟两个面已经发出去的那份一致
-// (display_name / is_anonymous)。
+// codeMemberOut — one visitor who has claimed this code. Shape matches what both facades
+// already send (display_name / is_anonymous).
 type codeMemberOut struct {
 	LastSeenAt  *string `json:"last_seen_at,omitempty"`
 	ID          string  `json:"id"`
@@ -292,7 +304,8 @@ func parseCodeID(raw json.RawMessage) (string, error) {
 	return in.CodeID, fp.RequireArgs([2]string{"code_id", in.CodeID})
 }
 
-// codeErr —— 域的哨兵 → 协议无关的类别。code 是已经发出去的契约,显式钉住。
+// codeErr — domain sentinel → protocol-agnostic category. code is an already-shipped
+// contract, so it's pinned down explicitly.
 func codeErr(err error) error {
 	for _, c := range codeErrClasses {
 		if errors.Is(err, c.sentinel) {

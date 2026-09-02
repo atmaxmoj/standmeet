@@ -1,20 +1,30 @@
-// key-storage.ts —— **这个浏览器现在能不能替访客保管一把 key**（F-D-14）。
+// key-storage.ts —— **can this browser hold a key on the visitor's behalf
+// right now** (F-D-14).
 //
-// BYOAI 的整条路都压在 `crypto.subtle` 上（`byoai-vault.ts` 用它封 key、`byoai-envelope.ts`
-// 用它封信封）。而 `crypto.subtle` **只在 secure context 存在** —— https，或者 localhost。
-// 一个自托管实例只要还没上 TLS，**任何一个从别的机器打开它的人**（也就是每一个真访客、
-// 以及 owner 自己）拿到的都是没有 `crypto.subtle` 的页面。
+// The entire BYOAI path leans on `crypto.subtle` (`byoai-vault.ts` uses it
+// to wrap the key, `byoai-envelope.ts` uses it to wrap the envelope). But
+// `crypto.subtle` **only exists in a secure context** — https, or
+// localhost. As long as a self-hosted instance hasn't put TLS on, **anyone
+// opening it from another machine** (i.e. every real visitor, and the
+// owner too) gets a page with no `crypto.subtle`.
 //
-// 以前这件事只在**按下按钮之后**才暴露：异常冒到 `use-gate.ts` 的通用兜底，屏幕上说
-// 「Couldn't check that just now. Try again.」—— 而重试一万次都一样。所以判断挪到**进门前**。
+// This used to surface only **after the button was pressed**: the
+// exception bubbled up to `use-gate.ts`'s generic fallback, and the screen
+// said "Couldn't check that just now. Try again." — retrying ten thousand
+// times changes nothing. So the check moved to **before the door**.
 //
-// 断的是**能力本身**（`crypto.subtle` 在不在），不是 `isSecureContext` 这个旗子：要用的是
-// 前者，那就问前者。两者在浏览器里等价，而万一哪天不等价，报错的仍然是真正会失败的那个。
+// What's being tested is **the capability itself** (whether `crypto.subtle`
+// exists), not the `isSecureContext` flag: if that's what's actually used,
+// that's what should be asked. The two are equivalent in browsers today,
+// and if they ever diverge, the error still points at the thing that
+// actually fails.
 
 /**
- * keyStorageAvailable —— 这个 realm 里能不能做 Web Crypto 的封装。
- * SSR（没有 window）返回 true：服务端渲染的那一帧按「正常部署」走，客户端挂载后再纠正，
- * 免得每个 https 访客先闪一下警告。真实结论永远由浏览器给出。
+ * keyStorageAvailable —— can this realm do the Web Crypto wrapping.
+ * Returns true under SSR (no window): the server-rendered frame proceeds
+ * as if it were a normal deployment, and the client corrects it after
+ * mount, so an https visitor doesn't get a flash of a warning first. The
+ * real answer always comes from the browser.
  */
 export function keyStorageAvailable(): boolean {
   if (typeof window === 'undefined') return true;

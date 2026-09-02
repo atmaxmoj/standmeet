@@ -1,10 +1,10 @@
-// use-account —— owner 自助管理账号字段。三个 PATCH endpoint：
+// use-account —— owner self-service management of account fields. Three PATCH endpoints:
 //   PATCH /api/admin/account/full-name    { full_name }
 //   PATCH /api/admin/account/email        { current_password, new_email }
 //   PATCH /api/admin/account/password     { current_password, new_password }
 //
-// 写完后让 sessionStore.refresh() 把 /me 拉回来；admin sidebar / public URL
-// 等读 session 的地方下次访问自动是新值。
+// After a write, sessionStore.refresh() pulls /me back; the admin sidebar /
+// public URL and other places that read the session pick up the new value automatically on their next access.
 
 import { useCallback, useState } from 'react';
 
@@ -14,18 +14,21 @@ import { sessionStore } from '@/lib/admin/use-admin-session';
 import { adminAPI } from '@/lib/api/admin';
 
 const FullNameRespSchema = z.object({ full_name: z.string() });
-// EmailRespSchema —— 回执要说清**发生了什么**：pending_email 非空 = 寄了一封确认信、
-// 身份没动；空 = 当场换好了。界面上那两句话不一样，而一个说不出区别的回执会让 owner
-// 以为已经改完了（non-unique signal）。
-// pending_email 是 optional：后端 omitempty，没有待确认时这个字段根本不出现 ——
-// 用 `.optional()` 而不是 `.default('')`，因为"缺席"和"空串"在这里是同一个意思，
-// 但 schema 得受得住缺席（[[zod-unknown-is-not-optional]]）。
+// EmailRespSchema —— the receipt must say clearly **what happened**:
+// pending_email non-empty = a confirmation email was sent, identity hasn't
+// moved; empty = changed on the spot. The two copy strings on the UI differ,
+// and a receipt that can't tell them apart would leave the owner thinking
+// the change had already gone through (non-unique signal).
+// pending_email is optional: the backend has omitempty, so this field simply
+// doesn't appear when there's nothing pending — `.optional()` rather than
+// `.default('')`, because "absent" and "empty string" mean the same thing
+// here, but the schema has to tolerate the field being absent ([[zod-unknown-is-not-optional]]).
 const EmailRespSchema = z.object({
   email: z.string(),
   pending_email: z.string().optional(),
 });
 
-// EmailChangeResult —— 改邮箱这一下的产物。pending 非空 = 还在等新地址确认。
+// EmailChangeResult —— the outcome of one email change. pending non-empty = still waiting on confirmation of the new address.
 export interface EmailChangeResult {
   email: string;
   pending: string;
@@ -92,7 +95,7 @@ export function useAccount(): AccountHook {
   };
 }
 
-// runUpdate —— 三个 PATCH 共享的 try/catch/状态机模板。
+// runUpdate —— the shared try/catch/state-machine template for the three PATCH calls.
 async function runUpdate<T>(
   setPending: (b: boolean) => void,
   setError: (m: string | null) => void,

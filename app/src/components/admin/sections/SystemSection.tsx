@@ -1,6 +1,8 @@
-// SystemSection —— /admin/system。#101 接真 system-info 后端:deployment(version/uptime)、
-// resources(主机 disk/mem/load + go runtime)、health checks 都走 GET /api/admin/system 真值 + 真 ping。
-// background jobs 表接真 GET /api/admin/stats/jobs(Monitor):只列真正在跑的 cron。
+// SystemSection —— /admin/system. #101 wires up the real system-info backend: deployment
+// (version/uptime), resources (host disk/mem/load + go runtime), and health checks all go
+// through real values + a real ping from GET /api/admin/system.
+// The background jobs table hits the real GET /api/admin/stats/jobs (Monitor): only lists cron
+// jobs actually running.
 
 'use client';
 
@@ -20,8 +22,9 @@ export function SystemSection() {
   const { info } = useSystemInfo();
   return (
     <>
-      {/* 顶栏那个按钮搬进 UpgradePanel 了 —— 它原先没有 onClick,接不上任何东西,
-          而按钮旁边还得有地方说结果(升上去了没有),顶栏那一格放不下。 */}
+      {/* The button that was in the top bar moved into UpgradePanel — it originally had no
+          onClick, wasn't wired to anything, and there also needs to be room next to it to say
+          the outcome (did the upgrade happen or not), which the top bar's slot couldn't fit. */}
       <SectionHeader kicker="settings · runtime" slug="system" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <UpgradePanel />
@@ -141,8 +144,9 @@ function healthTone(status: string): { dot: string; text: string } {
 function HealthRow({ name, status, detail }: { name: string; status: string; detail: string }) {
   const tone = healthTone(status);
   return (
-    // health-row-<name> —— 一项依赖的整行(名字 + 说明 + 状态)。名字和说明是两个 div,
-    // 所以按 innerText 的行去找只拿得到名字;守卫要判的恰恰是**说明里那句话**(F-S-3)。
+    // health-row-<name> —— the whole row for one dependency (name + description + status). Name
+    // and description are two separate divs, so searching by innerText line only gets the name;
+    // what the guard needs to check is exactly **the sentence in the description** (F-S-3).
     <div data-testid={`health-row-${name}`}
       className="flex items-baseline gap-3 pb-2 border-b border-(--color-rule)/60">
       <span data-testid="health-dot" className={`inline-block w-[6px] h-[6px] rounded-full ${tone.dot} shrink-0 relative top-[1px]`} />

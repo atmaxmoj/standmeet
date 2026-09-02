@@ -73,8 +73,8 @@ func classifyDirectStatus(err error) (StreamErrClass, bool) {
 	return StreamErrClass{}, false
 }
 
-// friendlyMessages —— code → 用户面文案。绝不把 raw error / NodeRunError /
-// stack 漏到 UI(CLAUDE.md:errors must be user-friendly)。
+// friendlyMessages —— code → user-facing copy. Never leaks a raw error / NodeRunError / stack
+// trace to the UI (CLAUDE.md: errors must be user-friendly).
 var friendlyMessages = map[string]string{
 	"timeout":              "That took too long — try a shorter, more specific question.",
 	"rate_limited":         "I'm getting rate-limited. Give it a moment and ask again.",
@@ -87,7 +87,7 @@ var friendlyMessages = map[string]string{
 		"isn't allowed.",
 }
 
-// FriendlyMessage —— 未知 code 给中性兜底。
+// FriendlyMessage —— falls back to a neutral message for an unknown code.
 func FriendlyMessage(code string) string {
 	if m, ok := friendlyMessages[code]; ok {
 		return m

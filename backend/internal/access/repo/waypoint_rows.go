@@ -1,9 +1,13 @@
-// waypoint_rows.go —— role_waypoints / code_waypoints 两表**同构行**的唯一映射处。
+// waypoint_rows.go —— the one place that maps the **structurally identical rows**
+// of role_waypoints / code_waypoints.
 //
-// 两表字段一模一样（只有 owner 键不同：role_id vs code_id），所以行→domain 的映射
-// （含 evidence_refs jsonb → []string）只准有一份。第一版是把 hydrateRoleWaypoints 复制了一遍，
-// `dupl` 当场逮住 —— 而这正是 F-R-1 的病根（同一逻辑 4 份副本，改了 3 份，剩下那份继续漏 markup
-// 给 owner 看）。一份实现，两边共用，drift 无处可生。
+// The two tables' fields are identical (only the owner key differs: role_id vs
+// code_id), so the row→domain mapping (including evidence_refs jsonb → []string)
+// is allowed to exist in exactly one place. The first version copied
+// hydrateRoleWaypoints wholesale, and `dupl` caught it on the spot — which is
+// exactly the root cause of F-R-1 (the same logic in 4 copies, 3 of them got
+// fixed, the remaining one kept leaking raw markup to the owner). One
+// implementation, shared by both sides, leaves nowhere for drift to happen.
 
 package repo
 
@@ -14,7 +18,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 )
 
-// waypointRow —— 两表共同的行形状（sqlc 给的是两个独立类型，字段却相同）。
+// waypointRow —— the row shape shared by both tables (sqlc generates two separate
+// types, but their fields are the same).
 type waypointRow struct {
 	WaypointID   string
 	Description  string
@@ -23,7 +28,8 @@ type waypointRow struct {
 	IsTerminal   bool
 }
 
-// waypointsFromRows —— 同构行 → Waypoint，evidence_refs jsonb → []string。
+// waypointsFromRows —— converts the shared row shape → Waypoint, decoding
+// evidence_refs jsonb → []string.
 func waypointsFromRows(rows []waypointRow) ([]entity.Waypoint, error) {
 	out := make([]entity.Waypoint, 0, len(rows))
 	for i := range rows {
@@ -39,7 +45,8 @@ func waypointsFromRows(rows []waypointRow) ([]entity.Waypoint, error) {
 	return out, nil
 }
 
-// decodeEvidenceRefs —— jsonb → []string；空/NULL → 空 slice（no-nil-container）。
+// decodeEvidenceRefs —— jsonb → []string; empty/NULL → empty slice
+// (no-nil-container).
 func decodeEvidenceRefs(raw []byte) ([]string, error) {
 	if len(raw) == 0 {
 		return []string{}, nil

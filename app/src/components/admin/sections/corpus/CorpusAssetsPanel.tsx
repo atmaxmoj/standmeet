@@ -1,12 +1,15 @@
-// CorpusAssetsPanel —— 一条语料的素材区:选文件传上去、看已经挂了哪些、插进正文、
-// 设成封面、撤下来。
+// CorpusAssetsPanel —— the assets section for one corpus entry: pick a file and
+// upload it, see what's already attached, insert into body, set as cover, remove.
 //
-// 这是 owner 在面板上唯一能碰到素材的地方。在它之前,"每个 genre 都能挂素材"这件事
-// 后端做完了、访客页面渲染得出来、e2e 也绿 —— 而 owner 在界面上一个入口都没有。
-// 一个只有 AI 调得动的能力,对着面板的人等于不存在。
+// This is the owner's only way to touch assets from the panel. Before this
+// existed, "every genre can carry assets" was done on the backend, rendered on
+// the visitor page, and green in e2e — while the owner had zero entry point in
+// the UI. A capability only an AI can invoke is, to whoever's on the panel,
+// as good as nonexistent.
 //
-// 每一行都说**文件名 + 真实字节数**:owner 传完之后唯一能核对"上去的是不是我选的那份"
-// 的就是这两样。一句"已上传"不是回执。
+// Every row states **filename + real byte count**: after uploading, those are
+// the only two things the owner can check "is what went up the file I picked".
+// A bare "uploaded" is not a receipt.
 
 'use client';
 
@@ -26,14 +29,17 @@ export interface CorpusAssetsPanelProps {
   genre: string;
   entryID: string;
   testidPrefix: string;
-  // insertIntoBody —— 把 `standmeet-asset:<id>` 引用写进正文。正文的状态在表单那边,
-  // 所以这里只发一个字符串出去,不自己碰 body。
+  // insertIntoBody —— write a `standmeet-asset:<id>` reference into the body.
+  // Body state lives on the form side, so this just sends out a string and
+  // never touches body itself.
   insertIntoBody: (markdown: string) => void;
-  // dropFromBody —— 撤掉素材时把正文里那条引用一并去掉（F-L-50）。**跟 insertIntoBody
-  // 成对**：能往正文里塞的东西，就得能从正文里收回，否则「删掉」只删了一半，而剩下的
-  // 那一半只有访客看得见。
+  // dropFromBody —— when an asset is removed, also remove its reference from
+  // the body (F-L-50). **Pairs with insertIntoBody**: whatever can be inserted
+  // into the body must also be retractable from it, otherwise "delete" only
+  // deletes half, and the remaining half is visible only to visitors.
   dropFromBody: (assetID: string) => void;
-  // 封面是**表单状态**,不是这里自己发的一个请求 —— 单独 PATCH 会把正文清空。
+  // The cover is **form state**, not a request fired from here — a standalone
+  // PATCH would wipe out the body.
   onSetCover: (assetID: string) => void;
   coverAssetID: string;
 }
@@ -119,8 +125,9 @@ function AssetRow(
       <span className="text-(--color-ink) truncate max-w-[16rem]">{asset.original_filename}</span>
       <span className="text-(--color-faint)">{formatBytes(asset.size_bytes)}</span>
       <span className="text-(--color-faint)">{asset.kind}</span>
-      {/* 这个标记有自己的 testid:行里另一颗按钮的文案也含 "cover"，按文本找它的断言
-          在封面撤掉之后照样通过（[[assertion-that-cannot-fail]]）。 */}
+      {/* This marker has its own testid: another button's label in this row also
+          contains "cover", so an assertion that finds it by text would still pass
+          after the cover is unset ([[assertion-that-cannot-fail]]). */}
       {isCover ? (
         <span
           className="text-(--color-accent)"
@@ -135,8 +142,9 @@ function AssetRow(
         testid={`${props.testidPrefix}-asset-remove-${asset.asset_id}`}
         onClick={() => {
           void media.remove(asset.asset_id)
-            // 删成了才动正文：请求失败时正文不该被改（那会让 owner 保存一份跟服务端
-            // 不一致的稿子）。
+            // Only touch the body once the delete actually succeeds: if the request
+            // fails, the body must stay untouched (otherwise the owner could save a
+            // draft that's out of sync with the server).
             .then(() => { props.dropFromBody(asset.asset_id); })
             .catch((e: unknown) => { report(e); });
         }}
@@ -145,10 +153,12 @@ function AssetRow(
   );
 }
 
-// BodyBoundBtns —— 那两个**改的是正文/表单状态**的动作。
+// BodyBoundBtns —— the two actions that **mutate body / form state**.
 //
-// 封面那颗是**开关**:已经是封面时它说的是「撤掉封面」并发空串。原来它只有「设为封面」
-// 这一个方向 —— 设上之后想撤，唯一的办法是把这份素材整个删掉（F-L-38(a) 同一族）。
+// The cover button is a **toggle**: when it's already the cover, it reads
+// "unset cover" and sends an empty string. It used to be one-directional
+// ("set as cover") only — once set, the only way to undo it was deleting the
+// whole asset (same family as F-L-38(a)).
 function BodyBoundBtns(
   { asset, props, isCover }: {
     asset: CorpusAsset; props: CorpusAssetsPanelProps; isCover: boolean;
@@ -162,12 +172,14 @@ function BodyBoundBtns(
         testid={`${props.testidPrefix}-asset-insert-${asset.asset_id}`}
         onClick={() => { props.insertIntoBody(assetMarkdown(asset)); }}
       />
-      {/* 封面开关**只给图片**（F-L-58）。hero 是一张图,一份 PDF 当不了 ——
-          而在真实例上点下去,产品照收:行上出现朱红 `cover` 徽标、按钮翻成
-          `stop using as cover`,下面紧跟着 COVER LINE(往一份 PDF 上压标题句),
-          一句拦阻都没有。
-          判据跟下面 `assetMarkdown` 用的是**同一个**(`kind === 'image'`)—— 一屏之内
-          两颗按钮各判各的,正是它当初漏掉的原因。 */}
+      {/* The cover toggle is **image-only** (F-L-58). Hero is a picture, and a PDF
+          can't stand in for one — yet clicking it on a real instance used to be
+          accepted anyway: a vermillion `cover` badge appeared on the row, the
+          button flipped to `stop using as cover`, and COVER LINE (overlaying a
+          title line onto a PDF) followed right after, with no pushback at all.
+          The check here uses **the same condition** as `assetMarkdown` below
+          (`kind === 'image'`) — the two buttons on one screen each judging it
+          separately is exactly why this was missed in the first place. */}
       {asset.kind === 'image' ? (
         <RowBtn
           label={isCover ? t('unsetCover') : t('setCover')}
@@ -179,8 +191,10 @@ function BodyBoundBtns(
   );
 }
 
-// assetMarkdown —— 图插成 image，附件插成链接。正文里存的是**稳定的 asset URI**,
-// 不是预签名地址 —— 后者会过期,写进正文就是一条迟早打不开的链接。
+// assetMarkdown —— images insert as an image, attachments insert as a link.
+// What's stored in the body is a **stable asset URI**, not a presigned URL —
+// the latter expires, and writing it into the body would leave a link that
+// eventually stops working.
 function assetMarkdown(a: CorpusAsset): string {
   const uri = `standmeet-asset:${a.asset_id}`;
   const label = a.original_filename;

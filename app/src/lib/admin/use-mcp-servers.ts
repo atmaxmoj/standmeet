@@ -1,7 +1,9 @@
-// use-mcp-servers —— owner-registered external MCP servers(agent 出站调的工具)。
-// RoleCreateModal 列 multiselect 用;ApiSection 的 MCPServersPanel 做 CRUD。
-// 后端 GET/POST/DELETE /mcp-servers 全 real;auth header value 落盘加密,view 不回。
-// POST /mcp-servers/{id}/check 是只读探针:拨一次、列一次工具、挂掉(F-D-8)。
+// use-mcp-servers —— owner-registered external MCP servers (tools the agent
+// calls outbound). Used by RoleCreateModal's multiselect list; ApiSection's
+// MCPServersPanel does CRUD. Backend GET/POST/DELETE /mcp-servers are all
+// real; the auth header value is encrypted at rest and never returned in the
+// view. POST /mcp-servers/{id}/check is a read-only probe: dial once, list
+// tools once, tear down (F-D-8).
 
 import { useEffect } from 'react';
 
@@ -27,8 +29,8 @@ export interface CreateMCPServerInput {
   auth_header_value?: string;
 }
 
-// MCPProbeSchema —— 探针的回执:**工具名的清单**。
-// 后端给的是名字而不是数量,因为 owner 要认的是「这是不是我想挂的那一台」。
+// MCPProbeSchema —— the probe's receipt: **a list of tool names**.
+// The backend gives names rather than a count, because what the owner needs to recognize is "is this the server I meant to attach".
 export const MCPProbeSchema = z.object({
   tools: z.array(z.string()).nullish().transform((v) => v ?? []),
 });
@@ -64,8 +66,9 @@ export function useMCPServers(): MCPServersHook {
   };
 }
 
-// checkServer —— 去问那台 server 一句。**抛错**(不吞成一个假答案):够不着跟
-// 「够得着但没有工具」在 owner 眼里是两回事,不能都显示成 0 tools。
+// checkServer —— pings that server. **Throws** (not swallowed into a fake
+// answer): "unreachable" and "reachable but no tools" are two different
+// things to the owner, and both must not display as 0 tools.
 async function checkServer(id: string): Promise<MCPProbe> {
   return adminAPI.post(`/mcp-servers/${id}/check`, {}, MCPProbeSchema);
 }
@@ -82,7 +85,7 @@ async function createServer(
   }
 }
 
-// remove 抛错（不再吞成 false）：调用方用 useAction 收尾（成功 toast / 失败 report）。
+// remove throws (no longer swallowed into false): the caller finishes up with useAction (success toast / failure report).
 async function removeServer(id: string): Promise<void> {
   await adminAPI.deleteVoid(`/mcp-servers/${id}`);
   await mcpServersStore.getState().refresh();

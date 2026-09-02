@@ -1,7 +1,10 @@
-// mail_retry.go —— owner-notify 专用的「重试发信」proxy（D-6 R6）。包一层 MailProxy，
-// 对**瞬时传输错**（连接被断/拒/超时/EOF）按 notifyPolicy 后台重试；ErrMailNotConfigured
-// 等永久错不重。只 owner-notify 走这层 —— 确认信是同步单发、失败即在卡内报错，**不重**。
-// retry 基座只许 connector 用（arch），故重试落这里、不进 usecases/cmd。
+// mail_retry.go — a "retrying send" proxy dedicated to owner-notify (D-6 R6). Wraps a
+// MailProxy, retrying **transient transport errors** (connection dropped/refused/timeout/EOF)
+// in the background per notifyPolicy; permanent errors like ErrMailNotConfigured are not
+// retried. Only owner-notify goes through this layer — a confirmation email is a synchronous
+// single send that reports an error inline on the card on failure, and is **never retried**.
+// The retry base is only allowed for use by connector (architecture), so retrying lives here,
+// not in usecases/cmd.
 
 package connector
 
@@ -17,17 +20,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/retry"
 )
 
-// RetryingMailProxy —— 包一个 contract.MailProxy，Send 按 notifyPolicy 重试瞬时传输错。
+// RetryingMailProxy — wraps a contract.MailProxy; Send retries transient transport errors per
+// notifyPolicy.
 type RetryingMailProxy struct {
 	inner contract.MailProxy
 }
 
-// NewRetryingMailProxy —— composition root 注入底层 MailProxy（owner-notify 用）。
+// NewRetryingMailProxy — composition root injects the underlying MailProxy (used by
+// owner-notify).
 func NewRetryingMailProxy(inner contract.MailProxy) *RetryingMailProxy {
 	return &RetryingMailProxy{inner: inner}
 }
 
-// Connected —— 读类，透传不重。
+// Connected — a read; passed through without retry.
 func (p *RetryingMailProxy) Connected(ctx context.Context, ownerID string) (bool, error) {
 	ok, err := p.inner.Connected(ctx, ownerID)
 	if err != nil {
@@ -36,7 +41,8 @@ func (p *RetryingMailProxy) Connected(ctx context.Context, ownerID string) (bool
 	return ok, nil
 }
 
-// Send —— 按预算重试瞬时传输错；未达对端的连接错重发安全（owner-notify 非幂等敏感）。
+// Send — retries transient transport errors within budget; a connection error that never
+// reached the far side is safe to resend (owner-notify isn't idempotency-sensitive).
 func (p *RetryingMailProxy) Send(
 	ctx context.Context, ownerID string, msg contract.MailMessage,
 ) (contract.MailReceipt, error) {
@@ -54,7 +60,8 @@ func (p *RetryingMailProxy) Send(
 	return rcpt, nil
 }
 
-// mailTransient —— 只重瞬时传输错（连接断/拒/超时/EOF）；ErrMailNotConfigured 等永久错不重。
+// mailTransient — retries only transient transport errors (connection
+// dropped/refused/timeout/EOF); permanent errors like ErrMailNotConfigured are not retried.
 func mailTransient(err error) bool {
 	if err == nil || errors.Is(err, consumer.ErrMailNotConfigured) {
 		return false

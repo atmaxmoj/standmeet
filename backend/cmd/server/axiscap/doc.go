@@ -1,6 +1,8 @@
-// Package axiscap —— 能力轴的接线:内建声明的读入、注册、隔离存储、可配置项、码上的字段与
-// 用量闸、per-session 工作区。
+// Package axiscap — the wiring for the capability axis: reading in built-in declarations,
+// registration, isolated storage, configurable settings, code-side fields and usage gates,
+// per-session workspaces.
 //
-// 能力的**声明**不在这儿 —— 在 backend/capabilities/<id>/manifest.yaml。这个包只负责把声明
-// 接到机制上。跟 axisconn 同形:两根轴,一样的地址结构。
+// A capability's **declaration** doesn't live here — it lives in
+// backend/capabilities/<id>/manifest.yaml. This package only wires declarations to mechanism.
+// Same shape as axisconn: two axes, the same address structure.
 package axiscap

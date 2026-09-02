@@ -1,7 +1,10 @@
-// ProviderBookRow —— 本子里的一条。
+// ProviderBookRow — one entry in the book.
 //
-// 默认那条给徽章不给按钮:它已经是默认了,而且删不掉(后端 409)。其余每条两个动作:
-// 标默认 / 删。删的那句"这是默认那条"由后端说 —— 前端不复述规则,免得两处各说一套。
+// The default entry gets a badge, not a button: it's already the default,
+// and it can't be deleted (backend 409s). Every other entry gets two
+// actions: make default / delete. The "this is the default one" refusal is
+// said by the backend — the frontend doesn't restate the rule, or the two
+// sides could drift apart.
 
 'use client';
 
@@ -22,8 +25,9 @@ interface RowProps extends Props {
   setGas: (id: string, tokens: number | null) => Promise<void>;
 }
 
-// GasGauge —— 这箱油的读数。没挂表就是没挂表:不显示 "0",也不显示进度条 ——
-// 绝大多数 owner 停在这一档,一个空油表会让人以为自己被限着。
+// GasGauge — the reading on this fuel tank. Unmetered is shown as
+// unmetered: no "0", no progress bar — most owners stay on this tier, and
+// an empty gauge would make them think they're being limited.
 function GasGauge({ row }: { row: ProviderView }) {
   const t = useTranslations('adminIntegrations.providerBook');
   return (

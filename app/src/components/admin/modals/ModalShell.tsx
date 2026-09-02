@@ -1,11 +1,15 @@
-// ModalShell —— overlay + close 行为通用部分。
+// ModalShell — shared overlay + close behavior.
 //
-// **渲染到 body（portal），不留在调用它的那棵子树里。**
-// `position: fixed` 的定位基准不是"视口"这么简单：任何一个带 transform / filter / backdrop-filter
-// / contain 的祖先都会把基准换成它自己 —— 而这件事在代码里没有任何一处写着。于是「这个遮罩
-// 到底盖住了什么」只能靠试，而 owner 定的判据是不许靠试（要么看日志，要么架构清晰到一眼看出）。
-// portal 到 body 之后，祖先链只有 <body>，基准永远是视口 —— 这个问题**不再需要问**。
-// 层级同理已经收进 --z-* 量表；两件事合起来，模态压住了谁是读得出来的事实。
+// **Renders into body (portal), not left inside the calling subtree.**
+// `position: fixed` isn't simply anchored to "the viewport": any ancestor with
+// transform / filter / backdrop-filter / contain silently switches the anchor to
+// itself — and nothing in the code says so anywhere. So "what does this overlay
+// actually cover" could only be answered by trial and error, which the owner's
+// standard forbids (either read logs, or the architecture must be legible at a
+// glance). Once portaled to body, the ancestor chain is just <body>, so the anchor
+// is always the viewport — this question **no longer needs asking**.
+// Stacking order is likewise already captured in the --z-* scale; together, which
+// modal sits on top of what is a fact you can read, not one you have to guess.
 
 'use client';
 
@@ -25,8 +29,9 @@ type Props = {
 };
 
 export function ModalShell(props: Props) {
-  // mounted —— SSR 时没有 document；挂载后才 portal。第一帧不渲染模态，而模态本来就是
-  // 交互之后才出现的东西，所以这不影响首屏。
+  // mounted — there's no document during SSR; only portal after mount. The modal
+  // doesn't render on the first frame, but a modal only ever appears after user
+  // interaction anyway, so this doesn't affect the first paint.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   return mounted ? createPortal(<ModalBody {...props} />, document.body) : null;
@@ -41,20 +46,23 @@ function ModalBody({ onClose, kicker, title, maxWidth = 540, children }: Props) 
       onClick={onClose}
       className="fixed inset-0 sm-z-modal flex items-center justify-center bg-[var(--sm-scrim)] fadein p-4"
     >
-      {/* 宽度走 `style` 而不是 `[--max-w:${'${maxWidth}'}px]` 那种拼出来的类名。
-          Tailwind 在**构建期扫源码**,拼接的类它看不见 —— 那串进了 HTML,规则一条都没生成,
-          于是 `.sm-max-w` 一直退到兜底的 `100%`:**每个模态都是满宽,maxWidth 从未生效过**。
-          跟遮罩那次的简写形式是同一个失败形状,而且同样不报错(见 [[names-that-lie]])。
-          动态值必须走 style —— 那是真的内联 CSS,不经过任何扫描。 */}
+      {/* Width goes through `style`, not a computed class like
+          `[--max-w:${'${maxWidth}'}px]`. Tailwind **scans source at build time** and
+          can't see a concatenated class — that string lands in the HTML but generates
+          zero CSS rules, so `.sm-max-w` always falls back to `100%`: **every modal
+          renders full width, maxWidth never took effect**. Same failure shape as the
+          overlay's shorthand form, and just as silent (see [[names-that-lie]]).
+          Dynamic values must go through style — that's real inline CSS, bypassing
+          any scanner. */}
       <div
         onClick={stop}
-        // eslint-disable-next-line no-restricted-syntax -- maxWidth 是入参，只有 style 能承载运行时值；类名形式会一条 CSS 都不生成
+        // eslint-disable-next-line no-restricted-syntax -- maxWidth is a runtime prop; only style can carry a runtime value, a class-name form would generate zero CSS
         style={cssVars({ '--max-w': `${maxWidth}px` })}
         className="flex flex-col w-full max-h-[85vh] overflow-hidden bg-(--color-paper) border border-(--color-rule) rounded-sm rise crosshair sm-max-w"
       >
         <span className="ch-tl" /><span className="ch-br" />
         <ModalHeader kicker={kicker} title={title} onClose={onClose} />
-        {/* 框固定,只这块滚 —— header/close 永远钉在顶上 */}
+        {/* Frame is fixed, only this area scrolls — header/close always stay pinned */}
         <div className="flex-1 overflow-y-auto min-h-0">
           {children}
         </div>

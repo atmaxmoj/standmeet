@@ -1,11 +1,13 @@
-// throbber-label —— tool_started → 人话进度文案。
+// throbber-label —— tool_started → human-readable progress copy.
 //
-// 设计:backend 给每个 tool 注册了 progress_label("searching corpus" /
-// "booking meeting" / ...),那是 throbber 的**默认**文案。corpus 读类
-// (corpus_read / corpus_search)在此之上**加上在读哪个文档**(path / query)+
-// 动词轮换,让长 turn 的等待有信息感(owner: "他到底在读什么要展示一下,
-// verb + document")。其它 tool(calendar / skill / ext)直接用 backend label,
-// 不丢它原本就不错的 per-tool 文案。
+// Design: the backend registers a progress_label ("searching corpus" /
+// "booking meeting" / ...) for each tool — that's the throbber's
+// **default** copy. The corpus-reading family (corpus_read /
+// corpus_search) adds **which document it's reading** (path / query) on
+// top of that, plus a rotating verb, so a long turn's wait feels
+// informative (owner: "show what it's actually reading — verb +
+// document"). Other tools (calendar / skill / ext) use the backend label
+// directly, keeping the already-good per-tool copy they came with.
 
 const READ_VERBS = ['reading', 'pulling up', 'opening', 'checking', 'digging into'] as const;
 
@@ -19,7 +21,8 @@ function readStr(v: unknown): string {
 
 type Formatter = (args: Record<string, unknown>, idx: number) => string;
 
-// 只给 corpus 读类带 document 的增强 formatter;命中则覆盖 backend label。
+// Enhanced formatters that add the document, only for the corpus-reading
+// family; a hit here overrides the backend label.
 const FORMATTERS: Record<string, Formatter> = {
   corpus_read: (a, i) => {
     const p = readStr(a['path']);
@@ -31,8 +34,10 @@ const FORMATTERS: Record<string, Formatter> = {
   },
 };
 
-// throbberLabel —— name + args + backend progressLabel(+ 序号给动词轮换)。
-// corpus 读类走带 document 的增强;否则用 backend label;再不行兜底。
+// throbberLabel —— name + args + backend progressLabel (+ an index for
+// verb rotation). The corpus-reading family gets the document-enhanced
+// copy; otherwise falls back to the backend label; failing that, a
+// generic fallback.
 export function throbberLabel(
   name: string, args: unknown, progressLabel: string | undefined, idx: number,
 ): string {

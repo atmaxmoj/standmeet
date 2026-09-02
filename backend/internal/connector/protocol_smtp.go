@@ -1,9 +1,11 @@
-// protocol_smtp.go —— protocol kind 的 SMTP 连接器：通用协议（任意 SMTP server）实现 mail
-// 品类契约（contract.MailProxy）。跟 openapi 适配器并列——两 kind 都到同一个契约，消费者
-// （mailer 调用方）一概不知背后是 HTTP API 还是 SMTP。
+// protocol_smtp.go — the protocol-kind SMTP connector: a generic protocol (any SMTP server)
+// implementing the mail category contract (contract.MailProxy). Sits alongside the openapi
+// adapter — both kinds land on the same contract, and the consumer (a mailer caller) has no
+// idea whether it's an HTTP API or SMTP behind it.
 //
-// protocol 连接器没有 spec/binding：实现是内置的（net/smtp，复用 mailer），配置（host/port/
-// 凭据）由 SMTPVault 按 (连接器,owner) 解密给出。凭据永不出本层。
+// A protocol connector has no spec/binding: the implementation is built-in (net/smtp, reusing
+// mailer), and configuration (host/port/credentials) comes decrypted from SMTPVault per
+// (connector, owner). Credentials never leave this layer.
 
 package connector
 
@@ -17,8 +19,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector/contract"
 )
 
-// FriendlyVerifyError —— 把连接测试错误映成 owner 友好理由（connect/tls/auth 分类，连接器层认得
-// mailer 的分类 sentinel）；非已知分类 → ""。消费者（connectorsvc）经此把 connect 失败友好化。
+// FriendlyVerifyError — maps a connection-test error to an owner-friendly reason (connect/tls/
+// auth categories; the connector layer recognizes mailer's categorized sentinels); an
+// unrecognized category → "". The consumer (connectorsvc) uses this to make a connect failure
+// friendly.
 func FriendlyVerifyError(err error) string {
 	switch {
 	case errors.Is(err, ErrVerifyAuth):
@@ -32,21 +36,23 @@ func FriendlyVerifyError(err error) string {
 	}
 }
 
-// SMTPConfig —— 一个 SMTP 连接器的解密后配置。
+// SMTPConfig — the decrypted configuration for an SMTP connector.
 type SMTPConfig struct {
 	Host        string
 	Username    string
 	Password    string
 	FromAddress string
 	FromName    string
-	TLS         string // "" | "none" | "starttls" | "tls"（implicit）
+	TLS         string // "" | "none" | "starttls" | "tls" (implicit)
 	Port        int
 }
 
-// Configured —— 是否填了能物理发信的最低配置（有 host）。
+// Configured — whether the minimum configuration to physically send mail is filled in (has a
+// host).
 func (c *SMTPConfig) Configured() bool { return c.Host != "" }
 
-// toMailerConfig —— 解密后配置 → Config（Verify/Send 共用，免去逐处抄字段）。
+// toMailerConfig — decrypted config → Config (shared by Verify/Send, sparing copying fields at
+// every call site).
 func (c *SMTPConfig) toMailerConfig() *Config {
 	return &Config{
 		Host: c.Host, Port: c.Port, Username: c.Username, Password: c.Password,
@@ -54,31 +60,34 @@ func (c *SMTPConfig) toMailerConfig() *Config {
 	}
 }
 
-// SMTPVault —— protocol(smtp) 连接器的连接源：连接状态 + 解密后配置。
+// SMTPVault — the connection source for a protocol(smtp) connector: connection state +
+// decrypted config.
 type SMTPVault interface {
 	Connected(ctx context.Context, connectorID, ownerID string) (bool, error)
 	SMTPConfig(ctx context.Context, connectorID, ownerID string) (SMTPConfig, error)
 }
 
-// smtpConnector —— 实现 Connector 基面 + contract.MailProxy。
+// smtpConnector — implements the Connector base surface + contract.MailProxy.
 type smtpConnector struct {
 	vault SMTPVault
 	id    string
 }
 
-// NewSMTPConnector —— 装配一个 SMTP protocol 连接器。
+// NewSMTPConnector — assemble an SMTP protocol connector.
 func NewSMTPConnector(id string, vault SMTPVault) Connector {
 	return &smtpConnector{vault: vault, id: id}
 }
 
-// Name —— Connector 基面。
+// Name — Connector base surface.
 func (c *smtpConnector) Name() string { return c.id }
 
-// Kind —— protocol 连接器固定 kind=protocol（消费者经此知道底下走内置协议而非 HTTP spec）。
+// Kind — a protocol connector always reports kind=protocol (tells a consumer this runs over a
+// built-in protocol, not an HTTP spec).
 func (*smtpConnector) Kind() string { return "protocol" }
 
-// Verify —— Connector 连接测试：用 owner 存的 SMTP 配置跑一次握手（不发信）。host/port/auth/TLS
-// 任一错 → 错（admin connect 时映射成友好「未连接」）。protocol 连接器的 connect = 这个测试。
+// Verify — Connector connection test: run one handshake with the owner's stored SMTP config (no
+// message sent). Any of host/port/auth/TLS failing → error (mapped to a friendly "not
+// connected" when admin connects). A protocol connector's connect = this test.
 func (c *smtpConnector) Verify(ctx context.Context, ownerID string) error {
 	cfg, err := c.vault.SMTPConfig(ctx, c.id, ownerID)
 	if err != nil {
@@ -93,7 +102,8 @@ func (c *smtpConnector) Verify(ctx context.Context, ownerID string) error {
 	return nil
 }
 
-// Connected —— mail 连接器是否可用（有凭据 + 已验证），委托 vault。
+// Connected — whether the mail connector is usable (has credentials + verified), delegates to
+// vault.
 func (c *smtpConnector) Connected(ctx context.Context, ownerID string) (bool, error) {
 	ok, err := c.vault.Connected(ctx, c.id, ownerID)
 	if err != nil {
@@ -102,10 +112,12 @@ func (c *smtpConnector) Connected(ctx context.Context, ownerID string) (bool, er
 	return ok, nil
 }
 
-// Send —— 用 owner SMTP 连接器发信；未配 → ErrMailNotConfigured。Send 的下限是「有凭据能
-// 物理发出」(Configured)，不是「已验证」(Connected)——验证信本身就在 Connected 之前发。
-// **回执里的 id 是空的**（F-C-55）：SMTP 这条路没有契约能承诺的 message id —— 250 那行
-// 有时带队列号，但那是各家服务器的方言。空 = 这条路给不出，不是发失败了。
+// Send — send mail through the owner's SMTP connector; not configured → ErrMailNotConfigured.
+// The floor for Send is "has credentials that can physically send" (Configured), not "already
+// verified" (Connected) — the verification email itself gets sent before Connected is true.
+// **The id in the receipt is empty** (F-C-55): the SMTP path has no message id the contract can
+// promise — the 250 line sometimes carries a queue number, but that's each server's own
+// dialect. Empty = this path can't give one, not that the send failed.
 func (c *smtpConnector) Send(
 	ctx context.Context, ownerID string, msg contract.MailMessage,
 ) (contract.MailReceipt, error) {
@@ -121,20 +133,25 @@ func (c *smtpConnector) Send(
 		b = b.HTML(msg.HTML)
 	}
 	if serr := b.Send(ctx); serr != nil {
-		// 原始错误留在 %w 链里给日志 —— 面那一侧只读哨兵。
+		// The original error stays in the %w chain for logging — the contract surface only
+		// reads the sentinel.
 		return contract.MailReceipt{}, fmt.Errorf("%w: %w", smtpFailureClass(serr), serr)
 	}
 	return contract.MailReceipt{}, nil
 }
 
-// smtpFailureClass —— 按 SMTP 回码把失败分成「永久」和「暂时」。
+// smtpFailureClass — sorts a failure into "permanent" or "temporary" by SMTP reply code.
 //
-// 这里以前一律归成「暂时不可用」,理由写的是"SMTP 分不出服务器暂时不行和这封被拒"。分得出:
-// 回码的第一位就是这件事 —— 5xx 是永久拒绝(地址不合法 / 被拒收 / 超大),4xx 才是稍后再试。
-// 塌成一类之后,面上那句"改收件人"**永远出不来**:owner 拿到的永远是"过一会儿再试",而这一类
-// 他再试一百次也不会好。一个从来不可能出现的分支跟没写是一回事。
+// This used to classify everything as "temporarily unavailable", reasoning that "SMTP can't
+// tell apart a temporarily-broken server from a rejected message". It can: the leading digit of
+// the reply code is exactly that distinction — 5xx is a permanent rejection (invalid address /
+// refused / too large), only 4xx means try again later. Collapsed into one class, the sentence
+// "change the recipient" **can never come out** on the surface: the owner always gets "try
+// again in a bit", and that class of failure won't improve no matter how many times they retry.
+// A branch that can never occur is the same as never having written it.
 //
-// 拿不到回码(连接被拒 / 网络断 / 超时)→ 暂时:那种失败本来就跟这一封的内容无关。
+// When no reply code is available (connection refused / network down / timeout) → temporary:
+// that kind of failure has nothing to do with this message's content anyway.
 func smtpFailureClass(err error) error {
 	var reply *textproto.Error
 	if errors.As(err, &reply) && reply.Code >= smtpPermanentFloor && reply.Code < smtpCodeCeiling {
@@ -143,7 +160,8 @@ func smtpFailureClass(err error) error {
 	return contract.ErrMailUnavailable
 }
 
-// SMTP 回码的百位就是永久 / 暂时之分:5xx 永久,4xx 暂时。
+// The hundreds digit of an SMTP reply code is the permanent / temporary distinction: 5xx
+// permanent, 4xx temporary.
 const (
 	smtpPermanentFloor = 500
 	smtpCodeCeiling    = 600

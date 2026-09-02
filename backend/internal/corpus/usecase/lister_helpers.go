@@ -1,20 +1,23 @@
-// lister_helpers.go —— corpus-data 塑形 helper：搜索摘要截断 + 一页上限。
-// 原先散在 visitor_chat_tools*，本是 pgCorpusLister 的支撑，随 lister 归 corpus。
+// lister_helpers.go —— corpus-data shaping helpers: search-snippet truncation + page caps.
+// Formerly scattered across visitor_chat_tools*; these back pgCorpusLister and moved
+// into corpus along with the lister.
 
 package usecase
 
 import "strings"
 
-// snippetMaxChars —— corpus_search 摘要截断上限。
+// snippetMaxChars —— truncation cap for a corpus_search snippet.
 const snippetMaxChars = 160
 
-// SearchPageLimit —— corpus_search 一页上限（翻页留给 LLM 用 offset，当前固定首页）。
+// SearchPageLimit —— per-page cap for corpus_search (paging via offset is left to the
+// LLM; currently the first page is fixed).
 const SearchPageLimit = 20
 
-// ListPageLimit —— corpus_list 一页上限。
+// ListPageLimit —— per-page cap for corpus_list.
 const ListPageLimit = 50
 
-// Snippet —— 截断到 snippetMaxChars，给 corpus_search 摘要 / writing 行摘要用。
+// Snippet —— truncates to snippetMaxChars, for a corpus_search snippet or a
+// writing-row summary.
 func Snippet(body string) string {
 	trimmed := strings.TrimSpace(body)
 	if len(trimmed) <= snippetMaxChars {

@@ -1,10 +1,14 @@
-// provider_models.go —— `providers.list_models`：问 owner **已经配好的**那条 provider 有哪些模型。
+// provider_models.go —— `providers.list_models`: asks which models an owner's **already
+// configured** provider offers.
 //
-// 为什么单独一条而不是复用访客那条（F-R-11）：访客那条（`/api/v1/inference/models`）没有 auth，
-// 所以它要求调用方把 key 一起发上来 —— 访客确实自己拿着 key。owner 不是：他的 key 存在库里、
-// 页面永远读不回来。以前面板上那颗按钮打的就是访客那条路，发出去一个空 key，400，屏幕上没话。
+// Why a separate op instead of reusing the visitor one (F-R-11): the visitor op
+// (`/api/v1/inference/models`) has no auth, so it requires the caller to send the key along
+// with the request — a visitor genuinely holds their own key. The owner doesn't: their key
+// is stored in the database and the page can never read it back. The panel button used to
+// hit the visitor path, sending an empty key, getting a 400, with nothing shown on screen.
 //
-// 出站没有 key，也没有 endpoint —— 只有模型名。owner 要的是「我能选哪些」。
+// The outbound reply has no key and no endpoint — only model names. What the owner wants is
+// "which ones can I pick".
 
 package ops
 
@@ -46,12 +50,15 @@ func listProviderModels(lister usecase.ProviderModelLister) fp.Invoke {
 	}
 }
 
-// alreadySaidOr —— 端口那侧已经把话说清楚了就**原样放行**，没说清才由这里兜底。
+// alreadySaidOr —— when the port side has already said it clearly, **pass it through
+// unchanged**; only fall back to this layer's own wording when it hasn't.
 //
-// 为什么需要这一句：provider 那侧的失败带着一句给 owner 看的人话（组装根翻好的），而
-// 一路上每层都习惯性加个前缀。第一版就是这样，屏幕上出现的是
-// `list provider models: list provider models: Couldn't reach the model provider…` ——
-// 三段里只有最后一段是说给人听的（驱 check 3 第三格时看见的）。
+// Why this is needed: a failure on the provider side carries a message already translated
+// for the owner to read (done by the assembly root), while every layer along the way tends
+// to prefix its own text out of habit. The first version did exactly that, and the screen
+// showed `list provider models: list provider models: Couldn't reach the model provider…` —
+// of the three segments, only the last was meant for a human to read (spotted while driving
+// check 3's third cell).
 func alreadySaidOr(err error, what string) error {
 	if fp.IsBadInput(err) {
 		return unwrapToClassified(err)
@@ -59,7 +66,8 @@ func alreadySaidOr(err error, what string) error {
 	return providerErr(what, err)
 }
 
-// unwrapToClassified —— 剥到那一层「自己会说话」的错误，把外面加的前缀留在日志里。
+// unwrapToClassified —— peels down to the layer whose error "speaks for itself", leaving
+// the prefixes added on the way in the logs.
 func unwrapToClassified(err error) error {
 	for {
 		inner := errors.Unwrap(err)
@@ -70,7 +78,8 @@ func unwrapToClassified(err error) error {
 	}
 }
 
-// decodeProviderModelsArgs —— 参数全可选：空 body 也算合法（面板那颗按钮问的就是「默认那条」）。
+// decodeProviderModelsArgs —— every arg is optional: an empty body is valid too (the panel
+// button's question is exactly "the default one").
 func decodeProviderModelsArgs(raw json.RawMessage) (providerModelsArgs, error) {
 	var args providerModelsArgs
 	if len(raw) == 0 {

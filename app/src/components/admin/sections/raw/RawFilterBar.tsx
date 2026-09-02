@@ -1,4 +1,4 @@
-// RawFilterBar —— Raw section 顶部的 filter chips。
+// RawFilterBar — the filter chips at the top of the Raw section.
 
 import type { RawFilter } from '@/lib/admin/use-raw';
 

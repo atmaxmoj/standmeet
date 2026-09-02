@@ -1,5 +1,6 @@
-// inference_usage.go —— #106 计费:inference_usage 表访问。每次 owner-key LLM 调用 Record 一行,
-// admin Summary 拿近 7 天按天×model 聚合,boot 时 Cleanup 清 >7 天老行。
+// inference_usage.go — #106 billing: access to the inference_usage table. Record writes
+// one row per owner-key LLM call; admin Summary pulls the last-7-days day×model aggregate;
+// Cleanup at boot deletes rows older than 7 days.
 
 package repo
 
@@ -15,18 +16,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/stats/entity"
 )
 
-// InferenceUsageRepo —— inference_usage 表入口。
+// InferenceUsageRepo — entry point for the inference_usage table.
 type InferenceUsageRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewInferenceUsageRepo —— DI 构造。
+// NewInferenceUsageRepo — DI constructor.
 func NewInferenceUsageRepo(pool *pgstore.Pool) *InferenceUsageRepo {
 	return &InferenceUsageRepo{pool: pool}
 }
 
-// UsageRow —— 一次 owner-key LLM 调用的用量。ProviderID 空 = 记不到某条 provider 上
-// (旧会话 / 已删的那条);Metered = 这一趟算在那箱油的账上(#7)。
+// UsageRow — usage for one owner-key LLM call. ProviderID empty = couldn't attribute it
+// to a provider (a stale session / one that's been deleted); Metered = this call counts
+// against that "tank of gas" (#7).
 type UsageRow struct {
 	OwnerID      string
 	Model        string
@@ -37,7 +39,7 @@ type UsageRow struct {
 	Metered      bool
 }
 
-// Record —— 记一次 owner-key LLM 调用的用量。
+// Record — records usage for one owner-key LLM call.
 func (r *InferenceUsageRepo) Record(ctx context.Context, in *UsageRow) error {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
@@ -58,8 +60,9 @@ func (r *InferenceUsageRepo) Record(ctx context.Context, in *UsageRow) error {
 	return nil
 }
 
-// SpentSince —— 一条 provider 自某时刻起花掉的计量 token。**没有计数器列**:跟 turn 配额
-// 一样读时求和,所以"加油"只是挪一下起算点,不需要清零任何东西。
+// SpentSince — metered tokens a provider has spent since a given time. **No counter
+// column**: summed on read, same as the turn quota, so "refueling" just moves the
+// start point — nothing needs to be zeroed.
 func (r *InferenceUsageRepo) SpentSince(
 	ctx context.Context, providerID string, since time.Time,
 ) (int64, error) {
@@ -77,7 +80,7 @@ func (r *InferenceUsageRepo) SpentSince(
 	return sum, nil
 }
 
-// Summarize7Day —— 某 owner 近 7 天按天×model 聚合。
+// Summarize7Day — an owner's last-7-days day×model aggregate.
 func (r *InferenceUsageRepo) Summarize7Day(
 	ctx context.Context, ownerID string,
 ) ([]entity.InferenceUsageDay, error) {
@@ -102,7 +105,8 @@ func (r *InferenceUsageRepo) Summarize7Day(
 	return out, nil
 }
 
-// Cleanup —— 删 >7 天的老行(boot 时调;查询本就只看 7 天,清理只为不让表无限涨)。
+// Cleanup — deletes rows older than 7 days (called at boot; the query already only looks
+// at 7 days, cleanup just keeps the table from growing without bound).
 func (r *InferenceUsageRepo) Cleanup(ctx context.Context) error {
 	if err := db.New(r.pool).DeleteInferenceUsageOlderThan7Days(ctx); err != nil {
 		return fmt.Errorf("cleanup inference usage: %w", err)

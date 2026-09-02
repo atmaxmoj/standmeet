@@ -1,7 +1,9 @@
-// host.go —— 本域开给**沙箱能力**的那件事(入站方向)。
+// host.go —— what this domain exposes to **sandboxed capabilities** (inbound direction).
 //
-// 只有一件:读 owner 的**白名单**字段。非白名单一律拒 —— 沙箱能问"owner 在哪个时区",
-// 不能顺手把 owner 的整条记录捞走。白名单写死在这儿,加字段是改这一行的事,评审看得见。
+// Just one thing: reading the owner's **whitelisted** fields. Anything not whitelisted is
+// refused — a sandbox can ask "what timezone is the owner in", it can't scoop up the whole
+// owner record along the way. The whitelist is hardcoded here; adding a field means editing
+// this one line, visible to review.
 
 package ops
 
@@ -14,16 +16,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// MetaLookup —— 取 owner 记录(只读白名单字段)。
+// MetaLookup —— fetches the owner record (whitelisted fields only, read-only).
 type MetaLookup interface {
 	GetByID(ctx context.Context, ownerID string) (entity.Owner, error)
 }
 
-// FullNameOf —— owner 的全名，best-effort：没接 lookup / 取不到 → 空串。
+// FullNameOf —— the owner's full name, best-effort: no lookup wired / lookup fails → empty
+// string.
 //
-// 「这个实例背后是谁」是 persona 的第一句话(UX-66)，而**每条**装配 persona 的路都要问同
-// 一个问题：/sessions 装真访客那份，/diag/session 装它自证的那份。放在这里是为了两边问的
-// 是同一件事 —— 一边悄悄换个字段，另一边报的 hash 就跟真发出去的那份对不上了。
+// "Who is behind this instance" is persona's opening line (UX-66), and **every** path that
+// assembles a persona has to ask the same question: /sessions assembling the one for a real
+// visitor, /diag/session assembling the one it self-verifies against. It lives here so both
+// sides ask the same thing — if one quietly swaps a field, the hash the other reports
+// stops matching what actually went out.
 func FullNameOf(ctx context.Context, owners MetaLookup, ownerID string) string {
 	if owners == nil || ownerID == "" {
 		return ""
@@ -35,7 +40,7 @@ func FullNameOf(ctx context.Context, owners MetaLookup, ownerID string) string {
 	return row.FullName
 }
 
-// HostOps —— owner.meta。
+// HostOps —— owner.meta.
 func HostOps(owners MetaLookup) []hostop.Op {
 	return []hostop.Op{{
 		Name: "owner.meta",
@@ -62,8 +67,9 @@ func readOwnerMeta(owners MetaLookup) hostop.Invoke {
 	}
 }
 
-// whitelistedField —— 白名单在这儿,只有这一份。名字不在表里 → 拒,不是返空值:
-// 沙箱问了个宿主不打算给的东西,该听见"不行",而不是以为 owner 没填。
+// whitelistedField —— the whitelist lives here, one single copy. A name not in the table →
+// refuse, don't return an empty value: a sandbox asking for something the host won't give
+// should hear "not allowed", not be left thinking the owner just never filled it in.
 func whitelistedField(row *entity.Owner, field string) (json.RawMessage, error) {
 	served := map[string]string{
 		"timezone":  row.ProfileTimezone,

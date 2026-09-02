@@ -1,4 +1,4 @@
-// codes.go —— access_codes + code_members + conversations + messages Repository。
+// codes.go —— access_codes + code_members + conversations + messages Repository.
 
 package repo
 
@@ -17,19 +17,20 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// errParseCodeIDPrefix —— "parse code id: %w" 字面在本文件 6+ 处出现，提常量。
+// errParseCodeIDPrefix —— the literal "parse code id: %w" shows up 6+ times in this
+// file, so it's pulled into a constant.
 const errParseCodeIDPrefix = "parse code id: %w"
 
-// CodeRepo —— access_codes CRUD。
+// CodeRepo —— access_codes CRUD.
 type CodeRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewCodeRepo 构造 CodeRepo。
+// NewCodeRepo constructs a CodeRepo.
 func NewCodeRepo(pool *pgstore.Pool) *CodeRepo { return &CodeRepo{pool: pool} }
 
-// CreateCodeInput —— 创建 access code 入参。AssumedRoleID 必填（caller
-// usecase 不显式给则默认指 public）。
+// CreateCodeInput —— inputs for creating an access code. AssumedRoleID is required
+// (the caller usecase defaults to public when it doesn't give one explicitly).
 type CreateCodeInput struct {
 	ExpiresAt          *time.Time
 	MaxMembers         *int32
@@ -46,8 +47,9 @@ type CreateCodeInput struct {
 	Ghosts             []string
 }
 
-// optStr —— 空串 → nil(ParseOptionalUUID 的"没给"形态);非空 → 指针。
-// 可选外键在本域是空串,在 sqlc 那侧是 NULL,这一行就是那道翻译。
+// optStr —— empty string → nil (the "not given" shape ParseOptionalUUID expects);
+// non-empty → pointer. An optional foreign key is an empty string in this domain and
+// NULL on the sqlc side; this function is that translation.
 func optStr(s string) *string {
 	if s == "" {
 		return nil
@@ -55,25 +57,30 @@ func optStr(s string) *string {
 	return &s
 }
 
-// Create 写一条 access_code。
+// Create writes one access_code row.
 func (r *CodeRepo) Create(
 	ctx context.Context, in *CreateCodeInput) (entity.Code, error,
 ) {
 	return createCodeOn(ctx, db.New(r.pool), in)
 }
 
-// CreateAccessCodeTx —— 在调用方**事务内**发码,给跨域调用方(job-loop application-commit:
-// 写 application 行 + 发码必须同一 tx 原子)。access 不让别的域直接碰 access_codes DAO;经此
-// 在共享 pgx.Tx 上发码,既保原子性又守域边界。参数是 pgx 原语(不外泄本域生成的 DBTX 类型)。
+// CreateAccessCodeTx —— issues a code **inside the caller's transaction**, for
+// cross-domain callers (job-loop application-commit: writing the application row and
+// issuing the code must be atomic in the same tx). access doesn't let other domains
+// touch the access_codes DAO directly; going through this to issue a code on a shared
+// pgx.Tx keeps both the atomicity and the domain boundary. Parameters are pgx
+// primitives (this domain's generated DBTX type never leaks out).
 func CreateAccessCodeTx(
 	ctx context.Context, tx pgx.Tx, in *entity.CreateAccessCodeInput,
 ) (entity.Code, error) {
 	return createCodeOn(ctx, db.New(tx), accessInputToCreate(in))
 }
 
-// createCodeOn —— 在任意 DBTX(池连接或事务)上写一条 access_code。Create 与 CreateAccessCodeTx 共用。
+// createCodeOn —— writes one access_code row on any DBTX (pool connection or
+// transaction). Shared by Create and CreateAccessCodeTx.
 func createCodeOn(ctx context.Context, q *db.Queries, in *CreateCodeInput) (entity.Code, error) {
-	// 没给 code 就按 label 派生一个。每条建码路径都汇进这里,所以规则只此一份。
+	// Derive a code from the label when none is given. Every code-creation path
+	// converges here, so this rule exists in exactly one place.
 	in.Code = entity.DeriveCode(in.Code, in.Label)
 	params, perr := buildCreateCodeParams(in)
 	if perr != nil {
@@ -89,16 +96,17 @@ func createCodeOn(ctx context.Context, q *db.Queries, in *CreateCodeInput) (enti
 	return CodeFromRow(&row), nil
 }
 
-// CreateAccessCode —— Create 的 domain-input 包装；MCP cap 用 (mcp 包不能
-// import postgres struct)。内部只是把 CreateAccessCodeInput 复制到
-// access.CreateCodeInput 再 Create。
+// CreateAccessCode —— a domain-input wrapper around Create; used by the MCP cap
+// (the mcp package can't import postgres structs). Internally it just copies
+// CreateAccessCodeInput into an access.CreateCodeInput and calls Create.
 func (r *CodeRepo) CreateAccessCode(
 	ctx context.Context, in *entity.CreateAccessCodeInput,
 ) (entity.Code, error) {
 	return r.Create(ctx, accessInputToCreate(in))
 }
 
-// accessInputToCreate —— CreateAccessCodeInput → CreateCodeInput 平移(字段一一对应)。
+// accessInputToCreate —— translates CreateAccessCodeInput → CreateCodeInput
+// (fields map one-to-one).
 func accessInputToCreate(in *entity.CreateAccessCodeInput) *CreateCodeInput {
 	return &CreateCodeInput{
 		OwnerID:            in.OwnerID,
@@ -116,8 +124,9 @@ func accessInputToCreate(in *entity.CreateAccessCodeInput) *CreateCodeInput {
 	}
 }
 
-// codeCreateIDs —— 建码要解的四个 id(两个必填、两个可选)。单拎出来是为了让
-// buildCreateCodeParams 只剩"拼参数"这一件事。
+// codeCreateIDs —— the four ids that creating a code needs to parse (two required,
+// two optional). Pulled out on its own so buildCreateCodeParams is left doing only
+// one thing: assembling parameters.
 type codeCreateIDs struct {
 	owner    pgtype.UUID
 	role     pgtype.UUID
@@ -152,9 +161,11 @@ func buildCreateCodeParams(in *CreateCodeInput) (*db.CreateAccessCodeParams, err
 	if jerr != nil {
 		return nil, fmt.Errorf("marshal suggested questions: %w", jerr)
 	}
-	// limit_per_period 是可空 jsonb：没设 → period 保持 nil → 存 SQL NULL（= 不限）。
-	// 内联而不抽 helper：一个返回 nil []byte 的 helper 会撞 no-nil-container（happy path
-	// 的容器返回不能是 nil），而这里 nil 恰恰是要的答案。局部 nil 变量不受那条守卫管。
+	// limit_per_period is a nullable jsonb: not set → period stays nil → stored as SQL
+	// NULL (= unlimited). Inlined rather than a helper: a helper that returns a nil
+	// []byte would trip the no-nil-container rule (a happy-path container return must
+	// not be nil), and here nil is exactly the right answer. A local nil variable isn't
+	// governed by that guard.
 	var period []byte
 	if in.LimitPerPeriod != nil {
 		var plerr error
@@ -179,8 +190,9 @@ func buildCreateCodeParams(in *CreateCodeInput) (*db.CreateAccessCodeParams, err
 	}, nil
 }
 
-// UpdateRole —— 改 code 的 assumed_role_id。新 role 必须属于同 owner（caller
-// 校验过）。schema NOT NULL 后 role id 必填。
+// UpdateRole —— changes a code's assumed_role_id. The new role must belong to the
+// same owner (the caller has already checked this). role id is required now that
+// the schema column is NOT NULL.
 func (r *CodeRepo) UpdateRole(
 	ctx context.Context, ownerID, codeID, roleID string,
 ) (entity.Code, error) {
@@ -218,15 +230,17 @@ func buildUpdateCodeRoleParams(
 	}, nil
 }
 
-// UpdatePermissions / buildUpdatePermissionsParams 在 A.3-IAM-5 删 ——
-// corpus_permissions 列已 drop，ACL 走 Role.CorpusURIs。
+// UpdatePermissions / buildUpdatePermissionsParams were removed in A.3-IAM-5 —
+// the corpus_permissions column is dropped; the ACL now runs through Role.CorpusURIs.
 
-// Revoke 把 code.status 改成 'revoked'；GetAccessCode（只查 active）从此跳过它。
+// Revoke flips code.status to 'revoked'; GetAccessCode (which only queries active
+// codes) skips it from then on.
 //
-// 0-row match (wrong owner / unknown code id) 返 ErrCodeInvalid 让上层
-// (admin REST + MCP) 都能统一翻译成"code not found"，而不是默默 OK 让 owner 误以
-// 为撤销成功。原 sqlc-generated RevokeAccessCode 走 Exec 丢弃 CommandTag，看不
-// 到 RowsAffected；这里 bypass 直接 pool.Exec 拿 tag。
+// A 0-row match (wrong owner / unknown code id) returns ErrCodeInvalid so the callers
+// (admin REST + MCP) can both translate it uniformly into "code not found", instead of
+// silently returning OK and letting the owner believe the revoke succeeded. The original
+// sqlc-generated RevokeAccessCode went through Exec and discarded the CommandTag, so it
+// couldn't see RowsAffected; this bypasses that and calls pool.Exec directly for the tag.
 func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -250,10 +264,11 @@ func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 	return nil
 }
 
-// member CRUD (GetOrCreateMember / ListMembers / toDomainMember) 拆到
-// codes_members.go 守 max-lines。
+// member CRUD (GetOrCreateMember / ListMembers / toDomainMember) is split out
+// into codes_members.go to respect the max-lines cap.
 
-// UpdateQuotas 改某 code 的配额；返回新行（让 admin UI 直接刷）。
+// UpdateQuotas changes a code's quotas; returns the new row (so the admin UI can
+// refresh directly).
 func (r *CodeRepo) UpdateQuotas(
 	ctx context.Context, ownerID, codeID string, maxTurns, maxMembers *int32,
 ) (entity.Code, error) {
@@ -279,7 +294,8 @@ func (r *CodeRepo) UpdateQuotas(
 	return CodeFromRow(&row), nil
 }
 
-// SetGhostEvidence —— F-A-10 per-code 覆盖:nil = 继承 role 的开关;非 nil = 显式覆盖。返回新行。
+// SetGhostEvidence —— F-A-10 per-code override: nil = inherits the role's switch;
+// non-nil = explicit override. Returns the new row.
 func (r *CodeRepo) SetGhostEvidence(
 	ctx context.Context, ownerID, codeID string, val *bool,
 ) (entity.Code, error) {
@@ -304,7 +320,7 @@ func (r *CodeRepo) SetGhostEvidence(
 	return CodeFromRow(&row), nil
 }
 
-// Get/List/decode helpers 拆到 codes_query.go 守 max-lines。
+// Get/List/decode helpers are split out into codes_query.go to respect max-lines.
 
 func ptrToTimestamptz(t *time.Time) pgtype.Timestamptz {
 	if t == nil {

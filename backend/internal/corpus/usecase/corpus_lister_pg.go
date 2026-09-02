@@ -33,10 +33,12 @@ type pgCorpusLister struct {
 	output       OutputLister
 	writing      WritingLister
 	subjectivity *repo.NoteRepo
-	queryRepo    *repo.VaultSyncRepo // standmeet-query 跨-genre 过滤 + corpus_links 取邻居 genre/path
-	noteRefs     *repo.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks 邻居
-	searcher     *search.Client      // Meili 词法后端;nil(未配)→ Search 退 Postgres 全文
-	media        *NoteAssetsDeps     // 读到一条语料时顺带给出它的素材(见 corpus_assets_read.go)
+	// standmeet-query cross-genre filter + corpus_links neighbor path.
+	queryRepo *repo.VaultSyncRepo
+	// corpus_links walks note_refs for outgoing/backlink neighbors.
+	noteRefs *repo.NoteRefRepo
+	searcher *search.Client  // Meili lexical backend; nil (unconfigured) → falls back to PG
+	media    *NoteAssetsDeps // reading an entry brings its media (see corpus_assets_read.go)
 }
 
 // allowsCorpusEntry —— the ONE readability test every visitor-facing corpus surface goes through:
@@ -53,9 +55,12 @@ func allowsCorpusEntry(scope access.CorpusScope, genre, path string, published b
 	return access.AllowsCorpusEntry(scope, access.CorpusEntryRef{URI: uri, Published: published})
 }
 
-// Search —— 词法检索。有 Meili(searcher)走 Meili(corpus_notes:wiki/output/subjectivity = vault)
-// + glob ACL,再拼 writings(留在 Postgres 全文,自成一 genre,总是最新、无增量索引负担);Meili
-// 缺失/出错则整条退 Postgres 全文(降级不断)。两条路 ACL 一致:同一个 allowsCorpusURI 逐条过。
+// Search —— lexical retrieval. With Meili (searcher), goes through Meili
+// (corpus_notes: wiki/output/subjectivity = vault) + glob ACL, then appends writings
+// (which stay on Postgres full-text, forming their own genre, always current, no
+// incremental-index burden); if Meili is missing/erroring, the whole call falls back
+// to Postgres full-text (degrading gracefully). ACL is consistent across both paths:
+// the same allowsCorpusURI checks every row.
 func (l *pgCorpusLister) Search(
 	ctx context.Context, ownerID string, scope access.CorpusScope, query string,
 ) ([]Meta, error) {
@@ -67,7 +72,8 @@ func (l *pgCorpusLister) Search(
 	return l.pgSearch(ctx, ownerID, scope, query), nil
 }
 
-// meiliSearch —— Meili 候选(corpus_notes)→ glob ACL 过 → Meta。出错返 (nil,false) 让 caller 降级 PG。
+// meiliSearch —— Meili candidates (corpus_notes) → glob ACL filter → Meta. On error
+// returns (nil, false) so the caller falls back to PG.
 func (l *pgCorpusLister) meiliSearch(
 	ctx context.Context, ownerID string, scope access.CorpusScope, query string,
 ) ([]Meta, bool) {
@@ -88,7 +94,8 @@ func (l *pgCorpusLister) meiliSearch(
 	return out, true
 }
 
-// pgSearch —— Postgres 全文降级路径:4 个 genre 聚合,path 现算,glob ACL 逐条过。
+// pgSearch —— the Postgres full-text fallback path: aggregates 4 genres, computes
+// path on the fly, checks glob ACL per row.
 func (l *pgCorpusLister) pgSearch(
 	ctx context.Context, ownerID string, scope access.CorpusScope, query string,
 ) []Meta {
@@ -184,8 +191,10 @@ func (l *pgCorpusLister) searchWritings(
 	out := make([]Meta, 0, len(hits))
 	for i := range hits {
 		p := hits[i].Path()
-		// writing 的 Search 只回 published（ports.go：writing 按 published 准入），
-		// 但 ACL 仍要拿到那个值 —— 收口在一处判，不靠"这个 lister 只给发布过的"这种口头约定。
+		// writing's Search returns only published rows (ports.go: writing is admitted
+		// by published), but ACL still needs that value passed in — the check is
+		// centralized in one place, not left to the verbal convention "this lister
+		// only ever gives published rows."
 		if !allowsCorpusEntry(scope, "writing", p, hits[i].IsPublished()) {
 			continue
 		}

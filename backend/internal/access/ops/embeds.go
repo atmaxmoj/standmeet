@@ -1,5 +1,5 @@
-// embeds.go —— embed widget 配置的 owner 能力（list / create / update / delete）。
-// embed 指向 code，来源白名单住在 embed 上（embed 规划 2026-09-01）。
+// embeds.go — owner capabilities for embed widget config (list / create / update / delete).
+// An embed points at a code; the origin allowlist lives on the embed (embed plan 2026-09-01).
 
 package ops
 
@@ -13,12 +13,12 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// EmbedsDeps —— embed 能力的数据来源。
+// EmbedsDeps — the data source for embed capabilities.
 type EmbedsDeps struct {
 	Embeds *repo.EmbedRepo
 }
 
-// Embeds —— owner 对 embed 的四个操作。
+// Embeds — the owner's four operations on embeds.
 func Embeds(d EmbedsDeps) []fp.Op {
 	return []fp.Op{
 		{
@@ -85,7 +85,7 @@ var (
 	}`)
 )
 
-// embedArgs —— 这一组共用的入参袋。
+// embedArgs — the shared input bag for this group.
 type embedArgs struct {
 	ID             string   `json:"embed_id"`
 	CodeID         string   `json:"code_id"`
@@ -93,9 +93,10 @@ type embedArgs struct {
 	AllowedOrigins []string `json:"allowed_origins"`
 }
 
-// embedOut —— 出站形状。key_id 是 JWT 的 kid，snippet 里的 widget 靠它 + 私钥签名。
-// PrivateKey 只在**创建**回执里有值（omitempty）——它进 widget 的 JS（不是 code），
-// 服务端只留公钥，list/update 永不带它。
+// embedOut — outbound shape. key_id is the JWT's kid; the widget in the snippet signs with
+// it + the private key. PrivateKey only has a value in the **create** receipt (omitempty) —
+// it goes into the widget's JS (not the code); the server keeps only the public key, and
+// list/update never carry it.
 type embedOut struct {
 	ID             string   `json:"id"`
 	CodeID         string   `json:"code_id"`

@@ -7,7 +7,8 @@ import (
 	"testing"
 )
 
-// withStubResolver —— 临时替换 lookupIPAddr,验 pin/rebind 逻辑(不发真 DNS)。
+// withStubResolver — temporarily swap out lookupIPAddr, to test the pin/rebind logic
+// (without sending real DNS).
 func withStubResolver(ips []net.IPAddr, err error, fn func()) {
 	orig := lookupIPAddr
 	lookupIPAddr = func(context.Context, string) ([]net.IPAddr, error) { return ips, err }
@@ -15,8 +16,9 @@ func withStubResolver(ips []net.IPAddr, err error, fn func()) {
 	fn()
 }
 
-// TestSafeDialAddr_PinsValidatedIP —— 主机名解析到公网 IP → 拨的是**那个 IP**,不是 host
-// (杜绝 dial 时二次解析被 rebind)。这是 TOCTOU 修复的核心断言。
+// TestSafeDialAddr_PinsValidatedIP — hostname resolves to a public IP → what gets
+// dialed is **that IP**, not the host (this shuts out a rebind via re-resolution at
+// dial time). This is the core assertion of the TOCTOU fix.
 func TestSafeDialAddr_PinsValidatedIP(t *testing.T) {
 	withStubResolver([]net.IPAddr{{IP: net.ParseIP("1.2.3.4")}}, nil, func() {
 		got, err := EgressAllow{}.safeDialAddr(context.Background(), "evil.example.com:443")
@@ -29,7 +31,8 @@ func TestSafeDialAddr_PinsValidatedIP(t *testing.T) {
 	})
 }
 
-// TestSafeDialAddr_RebindInternalBlocked —— 解析到内网(169.254.169.254 云元数据)→ 拒。
+// TestSafeDialAddr_RebindInternalBlocked — resolves to an internal address
+// (169.254.169.254, cloud metadata) → rejected.
 func TestSafeDialAddr_RebindInternalBlocked(t *testing.T) {
 	withStubResolver([]net.IPAddr{{IP: net.ParseIP("169.254.169.254")}}, nil, func() {
 		_, err := EgressAllow{}.safeDialAddr(context.Background(), "rebind.example.com:80")
@@ -39,7 +42,8 @@ func TestSafeDialAddr_RebindInternalBlocked(t *testing.T) {
 	})
 }
 
-// TestSafeDialAddr_LiteralIP —— 字面公网 IP 原样拨;字面内网 IP 拒。
+// TestSafeDialAddr_LiteralIP — a literal public IP dials as-is; a literal internal IP
+// is rejected.
 func TestSafeDialAddr_LiteralIP(t *testing.T) {
 	got, err := EgressAllow{}.safeDialAddr(context.Background(), "8.8.8.8:443")
 	if err != nil || got != "8.8.8.8:443" {
@@ -51,7 +55,8 @@ func TestSafeDialAddr_LiteralIP(t *testing.T) {
 	}
 }
 
-// TestSafeDialAddr_Whitelist —— 白名单 host 原样拨(信任,不解析)。
+// TestSafeDialAddr_Whitelist — a whitelisted host dials as-is (trusted, not
+// resolved).
 func TestSafeDialAddr_Whitelist(t *testing.T) {
 	a := EgressAllow{"trusted.example.com": true}
 	wl, werr := a.safeDialAddr(context.Background(), "trusted.example.com:443")

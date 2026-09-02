@@ -1,7 +1,9 @@
-// per_capability.go —— 交给入站收口的那份"这个能力自己的东西":它的隔离存储和它的配置。
+// per_capability.go — the "this capability's own stuff" handed to inbound convergence: its
+// isolated storage and its config.
 //
-// 在能力轴这边构造,而不是在收口那边:绑死到哪个命名空间是**能力轴的知识**,收口只负责
-// 把各处交上来的 op 汇起来发单。
+// Constructed on the capability-axis side, not on the convergence side: which namespace it's
+// bound to is **the capability axis's own knowledge** — convergence only gathers the ops
+// handed up from everywhere and dispatches them.
 
 package axiscap
 
@@ -12,10 +14,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/hostdesk"
 )
 
-// PerCapabilityDeps —— 一个能力**自己的**存储和配置。
+// PerCapabilityDeps — a capability's **own** storage and config.
 //
-// 存储在构造期就绑死到这个能力的命名空间(schema = mcp_<id>),沙箱那侧填不了别人的表。
-// 要不要 provision 由 needsStorage 一处判定 —— 见 storage.go。
+// Storage is bound to this capability's namespace at construction time (schema = mcp_<id>),
+// so the sandbox side can never fill in someone else's table. Whether to provision is decided
+// in exactly one place, needsStorage — see storage.go.
 func PerCapabilityDeps(d *deps.Runtime, m *mcpplugin.Manifest) *hostdesk.PerCapability {
 	per := &hostdesk.PerCapability{}
 	store := CapabilityStorage(d, m)

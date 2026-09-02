@@ -1,5 +1,6 @@
-// RawRowList —— Raw section 列表。空时显示 "no raw entries yet" 提示。
-// row actions: promote → wiki / edit / delete，都已接 backend PATCH/DELETE/POST 端点。
+// RawRowList — Raw section list. Shows the "no raw entries yet" hint when empty.
+// row actions: promote → wiki / edit / delete — all wired to backend
+// PATCH/DELETE/POST endpoints.
 
 'use client';
 
@@ -28,9 +29,10 @@ import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 import type { RawAdminView } from '@/lib/api/admin';
 import type { ResourceStatus } from '@/lib/state/status';
 
-// status —— 这一列的三种结局要分得开（F-N-7）。以前只有 `rows.length === 0 ? 空态 : 列表`，
-// 于是 `/admin/raw` 的 GET 挂掉时页面会说「还没有 raw 条目，从 MCP 客户端推一条」——
-// 一句 owner 会照做的话，而真相是没拉到。
+// status — this column's three outcomes must stay distinct (F-N-7). It used to be just
+// `rows.length === 0 ? emptyState : list`, so when the `/admin/raw` GET failed the page said
+// "no raw entries yet, push one from your MCP client" — a line the owner would act on, when
+// the truth was the fetch failed.
 type Props = { rows: readonly RawAdminView[]; status: ResourceStatus };
 
 export function RawRowList({ rows, status }: Props) {
@@ -168,9 +170,10 @@ interface RowActionsProps {
 function RawRowActions(props: RowActionsProps) {
   const t = useTranslations('adminCorpus.raw');
   const toast = useToast();
-  // 这个按钮以前写着 archive,打的却是 DELETE,而后端的"归档"没有第二半:没有列表
-  // 显示归档的行,也没有恢复的入口。既然做的就是删,名字就得是删 —— 而且确认框要说实话
-  // (owner 按 "archive" 时以为还找得回来)。
+  // This button used to read "archive" but fired DELETE — and the backend has no other half
+  // of "archive": no list shows archived rows, no restore entry point exists. Since the action
+  // is a delete, the label must say delete — and the confirm dialog must tell the truth (the
+  // owner clicking "archive" would assume it's recoverable).
   const onDelete = () => confirm('Delete this raw entry? This cannot be undone.')
     ? void runWith(
       () => props.actions.deleteRaw(props.row.id),
@@ -241,10 +244,11 @@ function EditRow(props: EditRowProps) {
   const [body, setBody] = useState(props.row.body);
   const [tagsRaw, setTagsRaw] = useState(props.row.tags.join(', '));
   const [flagged, setFlagged] = useState(props.row.flagged_private);
-  // 封面跟正文一起存 —— corpus.update 对 hero 之外的字段是整份替换,单发一个 cover
-  // 会把正文清空(跟 wiki/output 那边同一个道理)。
-  // hero 三件套从详情拉 —— 列表行不带它们。**不拉的话表单会把已有的值显示成空**,
-  // owner 看到一个空的 "cover line" 会以为没设过。
+  // Cover is saved together with the body — corpus.update replaces the whole payload for
+  // non-hero fields, so sending only a cover would wipe the body (same reasoning as wiki/output).
+  // The hero triad is fetched from the detail endpoint — list rows don't carry it.
+  // **Without that fetch the form would show existing values as empty**, and the owner seeing
+  // an empty "cover line" would assume none was ever set.
   const heroForm = useRawHeroForm(props.row.id, props.actions);
   const { cover, setCover, coverHeadline, coverHue } = heroForm;
   const toast = useToast();
@@ -263,8 +267,9 @@ function EditRow(props: EditRowProps) {
       data-testid={`raw-edit-form-${props.row.id}`}
     >
       <EditBodyField value={body} onChange={setBody} testid={`raw-edit-body-${props.row.id}`} />
-      {/* 素材区 —— raw 也能挂图和附件(assets 表按 holder_id 挂,一直是 genre 无关的)。
-          倾倒框那边没有它:那时条目还不存在,没有东西可挂。 */}
+      {/* Assets panel — raw entries can also carry images and attachments (the assets table
+          attaches by holder_id and has always been genre-agnostic). The dump box doesn't have
+          this: at that point the entry doesn't exist yet, so there's nothing to attach to. */}
       <CorpusAssetsPanel
         genre="raw"
         entryID={props.row.id}
@@ -274,7 +279,8 @@ function EditRow(props: EditRowProps) {
         onSetCover={setCover}
         coverAssetID={cover}
       />
-      {/* hero 的另外两样 —— 跟 wiki/output 用的是同一个组件,不是这儿手抄一份。 */}
+      {/* The other two hero fields — same shared component as wiki/output, not a hand-copied
+          version here. */}
       <HeroFields
         headline={coverHeadline} hue={coverHue}
         onHeadline={heroForm.setCoverHeadline} onHue={heroForm.setCoverHue}
@@ -300,9 +306,10 @@ function EditBodyField({
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
         {t('body')}
       </span>
-      {/* raw 的行内编辑器有**自己的一份** body 字段（不走 CorpusEntryForm，字段不同），
-          于是 UX-61「正文给 4 行，元数据给整页」在这里还有第三份。补图时在真环境上看见的
-          —— 改一处不等于改完这一类。 */}
+      {/* raw's inline editor has **its own copy** of the body field (it doesn't go through
+          CorpusEntryForm — different fields), so UX-61 ("4 lines for body, a full page for
+          metadata") has a third copy living here too. Found while taking screenshots against
+          the real environment — fixing one spot doesn't fix the whole class. */}
       <textarea
         rows={14} value={value} onChange={(e) => onChange(e.target.value)}
         data-testid={testid} spellCheck={false}

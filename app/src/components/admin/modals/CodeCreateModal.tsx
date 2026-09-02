@@ -1,10 +1,11 @@
-// CodeCreateModal —— "new code" + "edit existing code" 同一个 modal。
-// existing 为 null 时调 onCreate（POST /codes）；非 null 时调 onUpdateQuotas
-// （PATCH /codes/:id/quotas） —— 当前只允许改配额，code 字符串本身不让改
-// （因为外部 share link 都还在）。其他字段（label / scope / tags）以后再加。
+// CodeCreateModal — one modal for both "new code" and "edit existing code".
+// When existing is null it calls onCreate (POST /codes); when non-null it calls
+// onUpdateQuotas (PATCH /codes/:id/quotas) — currently only quotas are editable,
+// the code string itself is locked (external share links still point at it).
+// Other fields (label / scope / tags) are future work.
 //
-// e2e testid 保留：code-form / code-input / code-label / code-tags /
-// code-create / code-max-sessions / code-max-turns / code-save (新增)。
+// e2e testid kept: code-form / code-input / code-label / code-tags /
+// code-create / code-max-sessions / code-max-turns / code-save (added).
 
 'use client';
 

@@ -1,8 +1,10 @@
-// Hero —— 公开页第一屏：identity strip（mono small caps 名字 · 地点）+
-// 大号 serif prose paragraph + AskInput + "some examples" italic 列表。
+// Hero —— the public page's first screen: identity strip (mono small caps
+// name · location) + a large serif prose paragraph + AskInput + an italic
+// "some examples" list.
 //
-// AskInput 状态由 caller 维护（PageShell），方便 Conversation Turn 接收
-// 同一个 onAsk callback 把问题塞进 conversation。
+// AskInput state is kept by the caller (PageShell), so a Conversation Turn
+// can receive the same onAsk callback and push the question into the
+// conversation.
 
 import type { RefObject } from 'react';
 import { useTranslations } from 'next-intl';
@@ -20,7 +22,8 @@ type Props = {
   pending: boolean;
   lockedReason: string | null;
   inputRef: RefObject<HTMLInputElement | null>;
-  // H.13.d: ghost text 三件套从 PageShell 透过来，code-accessor 才非 null。
+  // H.13.d: the ghost-text trio is threaded through from PageShell; it's
+  // non-null only for a code-accessor.
   ghost: string | null;
   onAcceptGhost: (g: string) => void;
 };
@@ -43,9 +46,12 @@ export function Hero(props: Props) {
           inputRef={props.inputRef}
           ghost={props.ghost}
           onAcceptGhost={props.onAcceptGhost}
-          // 首页这个框跟会话里那个**行为不同**（没有 session 时回车 = 交接去 /gate），
-          // 所以它得有自己的名字（F-Q-3）。共用一个名字的时候，按名字找控件的东西
-          // 分不出打的是哪一个，而打错的样子跟「产品坏了」一模一样。
+          // This home-page field **behaves differently** from the one in a
+          // conversation (Enter with no session = hand off to /gate), so it
+          // needs its own name (F-Q-3). When two fields share a name, anything
+          // that finds a control by name can't tell which one it typed into,
+          // and typing into the wrong one looks exactly like "the product is
+          // broken."
           testid="home-ask-field"
         />
         <Examples items={props.content.hero_examples} onPick={props.onAsk} />
@@ -54,7 +60,8 @@ export function Hero(props: Props) {
   );
 }
 
-// nameLed —— 名字已经当大标题在下面出现了，这条 strip 就不再重复它，只留地点。
+// nameLed —— the name already appears below as the large heading, so this
+// strip doesn't repeat it and keeps only the location.
 function IdentityStrip({ owner, nameLed }: { owner: PublicOwnerView; nameLed: boolean }) {
   return (
     <div className="mono text-[10.5px] tracking-[0.2em] uppercase text-(--color-muted) mb-5 flex items-baseline gap-3 flex-wrap">
@@ -77,14 +84,19 @@ function StripLocation({ location, sep }: { location: string; sep: boolean }) {
   );
 }
 
-// HeroName —— **没有 hero prose 时的退化策略**。
+// HeroName —— **the fallback strategy for when there's no hero prose**.
 //
-// 设计源写的是「hero prose + chat input」，而这台实例没配 hero prose，于是那一段整个消失，
-// 首屏最大最显眼的一行变成输入框里的 "Ask anything." —— **一个占位符**。名字则是顶部
-// 一个 10px 的等宽小标签。这个面要替代的是 LinkedIn / 简历 / 博客，而页面的身份从属于
-// 一个输入提示（UX-43）。真正的缺陷是**空态没有设计**：主文案缺席时没人接棒。
+// The design spec calls for "hero prose + chat input", but this instance
+// hasn't configured hero prose, so that whole paragraph disappears and the
+// biggest, most prominent line on the first screen becomes the "Ask
+// anything." placeholder text inside the input — **a placeholder**. The name
+// is reduced to a 10px mono label up top. This page is meant to replace
+// LinkedIn / resume / blog, yet the page's identity ends up subordinate to an
+// input hint (UX-43). The real defect is that **the empty state has no
+// design**: nothing steps in when the primary copy is missing.
 //
-// 名字是这一页永远有的东西，所以由它接棒 —— 用跟 prose 同一档的衬线大号。
+// The name is the one thing this page always has, so it steps in — rendered
+// at the same large serif size as the prose it replaces.
 function HeroName({ name }: { name: string }) {
   return (
     <h1 className="font-serif text-(--color-ink) text-[clamp(26px,3.4vw,38px)] leading-[1.35] font-[380] tracking-[-0.012em] max-w-[26em]">

@@ -1,9 +1,13 @@
-// PinManager —— 一个栏目(insights|projects)的 pin 编辑器。主页那两段是 corpus
-// 的 pin 窗口:这里只维护"哪些已发布条目、什么顺序",内容本身只存在 corpus 里。
+// PinManager — pin editor for one section (insights|projects). Those two
+// sections on the home page are a pin window over the corpus: this component
+// only maintains "which published entries, in what order" — the content
+// itself lives only in the corpus.
 //
-// 挑选池 = usePinnable()(GET /page/pinnable,已发布条目)。加/删/上下移改的是
-// wiki id 列表,交给 usePageEditor.patch dirty 后由 SaveBar 统一 PUT。空池提示
-// owner 先发布一条(不变量 pinned ⊆ published,pin 只能挑已发布)。
+// The candidate pool = usePinnable() (GET /page/pinnable, published entries
+// only). Add/remove/reorder edits a list of wiki ids, handed to
+// usePageEditor.patch; once dirty, SaveBar does one unified PUT. An empty pool
+// prompts the owner to publish something first (invariant: pinned ⊆
+// published — pins can only pick from published entries).
 
 'use client';
 

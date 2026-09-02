@@ -7,10 +7,11 @@ import (
 	"time"
 )
 
-// buildMessage 是发信的 RFC822 渲染。这里锁两件事:① 结构(headers + 空行 +
-// body)② header 注入防护(访客提供的 name / subject 里的 CR/LF 必须被剥掉,
-// 否则能注入 Bcc 等额外 header)。e2e 验真发送闭环(mail-connector.spec);
-// 注入是安全属性,纯逻辑单测锁死。
+// buildMessage is the RFC822 rendering of a sent message. This locks down two things: ① the
+// structure (headers + blank line + body) ② header-injection protection (CR/LF in a
+// visitor-supplied name / subject must be stripped, otherwise an extra header like Bcc could
+// be injected). e2e verifies the real send loop end-to-end (mail-connector.spec); injection is
+// a security property, locked down here with a pure-logic unit test.
 
 const (
 	testSMTPPort  = 587
@@ -63,8 +64,9 @@ func TestBuildMessageStripsHeaderInjectionFromName(t *testing.T) {
 		Body:      "body",
 	}
 	raw := string(buildMessage(&cfg, &msg, fixedTime()))
-	// 注入的判据是"出现了换行开头的新 header 行",不是子串 "Bcc:"——剥掉 CR/LF
-	// 后 "Bcc:" 残留在 To 行文本里是无害的。
+	// The criterion for injection is "a new header line starting after a line break appeared",
+	// not the substring "Bcc:" — once CR/LF is stripped, "Bcc:" left sitting inside the To
+	// line's text is harmless.
 	if strings.Contains(raw, "\r\nBcc:") {
 		t.Fatalf("CR/LF in display name leaked an injected header:\n%s", raw)
 	}

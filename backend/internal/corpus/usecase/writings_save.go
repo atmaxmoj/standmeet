@@ -1,26 +1,21 @@
-// writings_save.go —— transactional writing create / update / delete with assets。
+// writings_save.go — transactional writing create / update / delete with assets.
 //
-// 入口：admin POST/PATCH /api/admin/writings 接 multipart (writing JSON +
-// 内联 image files keyed by client-side pending UUID)。route layer 解
-// multipart 出 SaveWritingInput → 这里：
+// Entry point: admin POST/PATCH /api/admin/writings takes multipart (writing JSON +
+// inline image files keyed by a client-side pending UUID); the route layer parses it
+// into a SaveWritingInput → here:
 //
-//   CREATE / UPDATE:
-//     1. tx：insert writing shell + insert asset 行（uuid 预生成，storage_key
-//        已确定，但 MinIO 还没 PUT）+ update writing body_md（替 pending-id → 真 uuid）
-//     2. tx commit
-//     3. tx commit 之后才 UploadBlobs 把 bytes 真推 MinIO
-//     4. UploadBlobs 失败 → compensating DeleteWritingWithAssets 把 writing 卷掉
-//        + best-effort 删那部分已上传 blob
+//   CREATE/UPDATE: 1) tx: insert writing shell + asset rows (uuid pre-generated,
+//   storage_key fixed, not yet PUT to MinIO) + update body_md (pending-id → real uuid)
+//   2) commit 3) only then does UploadBlobs push the bytes to MinIO 4) upload failure →
+//   compensating DeleteWritingWithAssets rolls the writing back, plus a best-effort
+//   delete of whichever blobs already made it up
 //
-//   DELETE:
-//     1. List storage_keys（无 tx）
-//     2. DeleteBlobsStrict MinIO（任一失败立刻 abort，DB 不动）
-//     3. tx：DELETE asset 行 + DELETE writing 行 → commit
+//   DELETE: 1) list storage_keys (no tx) 2) DeleteBlobsStrict against MinIO (any
+//   failure aborts immediately, DB untouched) 3) tx: DELETE asset rows + writing row
 //
-// invariant: blob 生命周期 ⊆ writing 生命周期。
-// 任何时刻 MinIO 有 blob ⇒ DB 必有对应 writing + asset 行。
-// 失败模式从"silent MinIO orphan"换成"visible broken writing" 或 "owner
-// retry-able delete"。
+// Invariant: a blob's lifetime ⊆ a writing's lifetime — wherever MinIO has a blob, the
+// DB must have the matching writing + asset row. Failure mode: "silent MinIO orphan"
+// becomes "visibly broken writing" or an "owner-retryable delete".
 
 package usecase
 
@@ -36,9 +31,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// FileInput —— 一张上传的图。PendingID 是前端 editor 分配的 client-side
-// UUID，body_md / cover_image_ref 里写 `pending-<id>`（注意是不带前缀
-// `standmeet-asset:` 的 raw id，body_md 里写完整 `standmeet-asset:pending-<id>`）。
+// FileInput — one uploaded image. PendingID is the client-side UUID the frontend editor
+// assigns; body_md / cover_image_ref write `pending-<id>` (the raw id, no
+// `standmeet-asset:` prefix — body_md writes the full `standmeet-asset:pending-<id>`).
 type FileInput struct {
 	PendingID        string
 	ContentType      string
@@ -46,9 +41,8 @@ type FileInput struct {
 	Body             []byte
 }
 
-// SaveWritingInput —— create + update 共用。WritingID 空 = create，非空 = update。
-// CoverImageRef 可以是 pending-<id> 占位（新上传），或已存在 asset 的真
-// UUID（edit 时未改 cover），或空（无 cover）。
+// SaveWritingInput — shared by create + update. Empty WritingID = create, non-empty = update.
+// CoverImageRef: a pending-<id> placeholder, an existing asset's real UUID, or empty (no cover).
 type SaveWritingInput struct {
 	BodyMD        string
 	CoverImageRef string
@@ -68,18 +62,16 @@ type SaveWritingInput struct {
 	Publish       bool
 }
 
-// saveCommitted —— runSaveInTx / saveInTxAndCommit 共用返回。Prepared 是
-// 已 insert 的 asset 行 + 待上传 bytes，tx commit 之后由 UploadBlobs 推上
-// MinIO。
+// saveCommitted — shared return of runSaveInTx / saveInTxAndCommit: Prepared holds
+// already-inserted asset rows + bytes awaiting upload, pushed to MinIO once tx commits.
 type saveCommitted struct {
 	Prepared []PreparedAsset
 	Writing  entity.Writing
 }
 
-// SaveWriting —— 单一 entry 同时处理 create 和 update。
-//
-// 顺序：tx (insert writing + insert asset 行 + update body_md) → commit →
-// UploadBlobs。上传失败做 compensating DeleteWritingWithAssets 把 writing 卷掉。
+// SaveWriting — one entry point handles both create and update. Order: tx (insert
+// writing + insert asset rows + update body_md) → commit → UploadBlobs. An upload
+// failure does a compensating DeleteWritingWithAssets to roll the writing back.
 func SaveWriting(
 	ctx context.Context, deps WritingsTxDeps, in *SaveWritingInput,
 ) (entity.Writing, error) {
@@ -99,9 +91,10 @@ func SaveWriting(
 	return committed.Writing, nil
 }
 
-// validateSaveInput —— create + update 共用一个 entry，但 slug 只在 create
-// 路径上从 input 取（edit UI slug readonly，client 不再 send）；update 时
-// loadExistingWriting 把 slug 从 DB 读出，input.Slug 此时为空是合法的。
+// validateSaveInput — create + update share one entry point, but slug is only taken from
+// the input on the create path (the edit UI's slug field is readonly, so the client no
+// longer sends it); on update, loadExistingWriting reads slug back from the DB, so
+// input.Slug being empty at this point is legitimate.
 func validateSaveInput(in *SaveWritingInput) error {
 	if in.OwnerID == "" || in.Title == "" {
 		return apierr.ErrEmptyField
@@ -112,8 +105,9 @@ func validateSaveInput(in *SaveWritingInput) error {
 	return nil
 }
 
-// saveInTxAndCommit —— 开 tx → 写 writing + 写 asset 行 + 写 body_md → commit。
-// 不动 MinIO。返回 commit 之后待上传的 prepared bytes。
+// saveInTxAndCommit — open a tx → write writing + write asset rows + write body_md →
+// commit. Doesn't touch MinIO. Returns the prepared bytes still awaiting upload after
+// commit.
 func saveInTxAndCommit(
 	ctx context.Context, deps WritingsTxDeps, in *SaveWritingInput,
 ) (saveCommitted, error) {
@@ -134,9 +128,9 @@ func saveInTxAndCommit(
 	return res, nil
 }
 
-// uploadAndCompensate —— tx commit 之后真把 bytes PUT 到 MinIO。任一失败
-// 做 compensating delete：先反删那部分已传 blob (best-effort)，再 cascade
-// 删 writing + 所有 asset 行。
+// uploadAndCompensate — after the tx commits, actually PUTs the bytes to MinIO. Any
+// failure triggers a compensating delete: first undo-delete whichever blobs already
+// uploaded (best-effort), then cascade-delete the writing + all its asset rows.
 func uploadAndCompensate(
 	ctx context.Context, deps WritingsTxDeps, ownerID string, c *saveCommitted,
 ) error {
@@ -145,8 +139,10 @@ func uploadAndCompensate(
 		return nil
 	}
 	DeleteBlobs(ctx, deps.Assets, done)
-	// orphan-row cleanup 失败不能吞:writing 行会指向已删的 blob。这层无 logger,
-	// 把 cleanup 失败折进返回的 error 让边界处 log(比 slog.Default 更贴本 arch)。
+	// A failed orphan-row cleanup can't be swallowed: the writing row would point at a
+	// deleted blob. This layer has no logger, so the cleanup failure is folded into the
+	// returned error and logged at the boundary instead (a better fit for this arch than
+	// slog.Default).
 	if derr := DeleteWritingWithAssets(ctx, deps, ownerID, c.Writing.ID()); derr != nil {
 		return fmt.Errorf(
 			"upload blobs: %w; orphan writing-row cleanup also failed: %w", uerr, derr,
@@ -178,10 +174,10 @@ func runSaveInTx(
 	return saveCommitted{Writing: finalWriting, Prepared: prepared}, nil
 }
 
-// refreshCrossLinks —— 用 finalWriting.BodyMD（已经把 pending-asset / cover
-// ref rewrite 完）抽 `[[X]]`，按 slug / title resolve 到其它 writing.id，重建
-// writing_refs 表里这个 src 的出度。HasCrossLinks 短路避免没用到的 writing
-// 也跑一遍 owner writings 列查询。
+// refreshCrossLinks — extracts `[[X]]` from finalWriting.BodyMD (already rewritten for
+// pending-asset / cover refs), resolves each to another writing.id by slug / title, and
+// rebuilds this src's outgoing edges in the writing_refs table. HasCrossLinks short-circuits
+// so a writing with no links doesn't also pay for the owner-writings list query.
 func refreshCrossLinks(
 	ctx context.Context, deps WritingsTxDeps, tx pgx.Tx, writing *entity.Writing,
 ) error {
@@ -189,7 +185,8 @@ func refreshCrossLinks(
 	writingOwner := writing.OwnerID()
 	writingBody := writing.Body()
 	if !HasCrossLinks(writingBody) {
-		// body 没有 [[ ]] —— 仍要清掉之前可能存的边（owner 删了 link 也算）。
+		// The body has no [[ ]] — still need to clear any edges that used to be stored
+		// (also covers the owner having deleted a link).
 		if err := deps.WritingRefs.ReplaceRefsBySrcTx(
 			ctx, tx, writingID, writingOwner, []string{},
 		); err != nil {
@@ -202,7 +199,8 @@ func refreshCrossLinks(
 		return fmt.Errorf("list owner writings for crosslink resolve: %w", lerr)
 	}
 	dstIDs := resolveAndDedupForOwner(writingBody, candidates)
-	// 排除 self-link（src == dst）—— 没意义且让 backlink UI 显示自指。
+	// Exclude self-links (src == dst) — meaningless, and it would make the backlink UI
+	// show the writing pointing at itself.
 	dstIDs = excludeSelf(dstIDs, writingID)
 	if err := deps.WritingRefs.ReplaceRefsBySrcTx(
 		ctx, tx, writingID, writingOwner, dstIDs,
@@ -222,8 +220,8 @@ func excludeSelf(ids []string, selfID string) []string {
 	return out
 }
 
-// rewriteFromPrepared —— 从 PreparedAsset 列表 build pending-id → real-id
-// 替换 map（PendingID 字段已经在 InsertAssetRowTx 透传进来了）。
+// rewriteFromPrepared — builds a pending-id → real-id replacement map from the
+// PreparedAsset list (the PendingID field was already passed through in InsertAssetRowTx).
 func rewriteFromPrepared(prepared []PreparedAsset) map[string]string {
 	rewrite := make(map[string]string, len(prepared))
 	for i := range prepared {
@@ -232,9 +230,10 @@ func rewriteFromPrepared(prepared []PreparedAsset) map[string]string {
 	return rewrite
 }
 
-// upsertWritingShell —— 第一步：insert/update writing 行（body_md 还带 pending
-// 占位，cover_image_asset_id 设 NULL）。这步只是为了拿到 writing.id 让后面
-// 的 assets 行能挂 holder_id；body_md / cover 真正写在 writeWritingBody。
+// upsertWritingShell — step one: insert/update the writing row (body_md still carries
+// pending placeholders, cover_image_asset_id set to NULL). This step exists only to get
+// a writing.id so later asset rows have a holder_id to hang off; body_md / cover get
+// their real write in writeWritingBody.
 func upsertWritingShell(
 	ctx context.Context, deps WritingsTxDeps, tx pgx.Tx, in *SaveWritingInput,
 ) (entity.Writing, error) {
@@ -249,7 +248,8 @@ func upsertWritingShell(
 }
 
 func buildShellCreateInput(in *SaveWritingInput) *repo.CreateWritingInput {
-	// path 不再存列:writing 折进 corpus_notes 后由 slug 派生 "writings/"+slug。
+	// path is no longer a stored column: now that writing folds into corpus_notes, it's
+	// derived from slug as "writings/"+slug.
 	return &repo.CreateWritingInput{
 		OwnerID: in.OwnerID, Slug: in.Slug, Title: in.Title, Excerpt: in.Excerpt,
 		BodyMD: "", CoverHeadline: in.CoverHeadline,
@@ -270,9 +270,9 @@ func loadExistingWriting(
 	return p, nil
 }
 
-// insertAssetsForWriting —— tx 里 insert 每张 asset 行（不动 MinIO）。
-// PendingID 透传进 PreparedAsset，caller (writeWritingBody) 用
-// rewriteFromPrepared 现做 rewrite map。
+// insertAssetsForWriting — inserts each asset row inside the tx (doesn't touch MinIO).
+// PendingID is passed through into PreparedAsset; the caller (writeWritingBody) builds
+// the rewrite map from it on the spot via rewriteFromPrepared.
 func insertAssetsForWriting(
 	ctx context.Context, deps WritingsTxDeps, tx pgx.Tx,
 	writingID string, files []FileInput,
@@ -292,7 +292,7 @@ func insertAssetsForWriting(
 	return prepared, nil
 }
 
-// writeBodyArgs —— writeWritingBody 参数包，避开 argument-limit 5。
+// writeBodyArgs — the parameter bundle for writeWritingBody, dodging the argument-limit-5 lint.
 type writeBodyArgs struct {
 	Rewrite map[string]string
 	Tx      pgx.Tx
@@ -301,8 +301,8 @@ type writeBodyArgs struct {
 	Deps    WritingsTxDeps
 }
 
-// writeWritingBody —— 用 rewrite map 把 pending 占位换成真 asset id，写最终
-// body_md + cover_image_asset_id。
+// writeWritingBody — uses the rewrite map to swap pending placeholders for real asset
+// ids, then writes the final body_md + cover_image_asset_id.
 func writeWritingBody(ctx context.Context, a *writeBodyArgs) (entity.Writing, error) {
 	body := rewriteRefs(a.In.BodyMD, a.Rewrite)
 	cover := rewriteCoverRef(a.In.CoverImageRef, a.Rewrite)
@@ -321,8 +321,8 @@ func writeWritingBody(ctx context.Context, a *writeBodyArgs) (entity.Writing, er
 	return p, nil
 }
 
-// rewriteRefs —— 替换 body_md 里 standmeet-asset:pending-<id> 为
-// standmeet-asset:<real-id>。
+// rewriteRefs — replaces standmeet-asset:pending-<id> with standmeet-asset:<real-id>
+// throughout body_md.
 func rewriteRefs(body string, rewrite map[string]string) string {
 	for pendingID, realID := range rewrite {
 		body = strings.ReplaceAll(body,
@@ -342,4 +342,4 @@ func rewriteCoverRef(ref string, rewrite map[string]string) *string {
 	return &resolved
 }
 
-// DeleteWritingWithAssets 在 writings_delete.go。
+// DeleteWritingWithAssets lives in writings_delete.go.

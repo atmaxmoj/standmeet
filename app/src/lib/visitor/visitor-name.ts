@@ -1,25 +1,33 @@
-// visitor-name.ts —— VisitorNamePicker 的可见性逻辑。
+// visitor-name.ts —— visibility logic for VisitorNamePicker.
 //
-// defer-issue 模型:扫码把 code 吸进 pending store(还没 issue session)。只要
-// 有 pending code 就弹名字选择器;visitor 提交名字(或 skip)后由
-// use-issue-pending-code 真正 issueCodeSession,pending 被 consume → 自动隐藏。
+// The defer-issue model: scanning a code pulls it into the pending store
+// (a session isn't issued yet). As long as there's a pending code, the name
+// picker pops up; once the visitor submits a name (or skips),
+// use-issue-pending-code actually calls issueCodeSession, pending gets
+// consumed → auto-hides.
 //
-// SSR 时 pending store 的 code 是 null → 不弹(无 hydration mismatch)。
+// During SSR the pending store's code is null → doesn't pop up (no
+// hydration mismatch).
 
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 
-// useShouldAskVisitorName —— 有 pending code(扫码进来还没选名字开会)就弹。
+// useShouldAskVisitorName —— pops up whenever there's a pending code
+// (scanned in but hasn't picked a name and started the session yet).
 export function useShouldAskVisitorName(): boolean {
   return usePendingCodeStore((s) => s.code !== null);
 }
 
-// VISITOR_NAME_KEY —— 上次用的名字。defer-issue 下名字选择器每次扫码都弹,
-// 但同一个人(同浏览器)不该每次重打名字 → 存一份,再开自动 load 进输入框。
+// VISITOR_NAME_KEY —— the last name used. Under defer-issue the name
+// picker pops up every time a code is scanned, but the same person (same
+// browser) shouldn't have to retype their name each time → save one and
+// auto-load it into the input.
 const VISITOR_NAME_KEY = 'standmeet-visitor-name';
-// VISITOR_EMAIL_KEY —— 同理:可选邮箱也存一份,返回访客不用重打(#121)。
+// VISITOR_EMAIL_KEY —— same idea: the optional email is also saved, so a
+// returning visitor doesn't have to retype it (#121).
 const VISITOR_EMAIL_KEY = 'standmeet-visitor-email';
 
-// loadVisitorName —— 读上次存的名字(给名字选择器预填);没有 → 空串。
+// loadVisitorName —— reads the last saved name (to prefill the name
+// picker); none → empty string.
 export function loadVisitorName(): string {
   if (typeof window === 'undefined') return '';
   try {
@@ -29,7 +37,8 @@ export function loadVisitorName(): string {
   }
 }
 
-// loadVisitorEmail —— 读上次存的可选邮箱(预填);没有 → 空串。
+// loadVisitorEmail —— reads the last saved optional email (to prefill);
+// none → empty string.
 export function loadVisitorEmail(): string {
   if (typeof window === 'undefined') return '';
   try {
@@ -39,28 +48,31 @@ export function loadVisitorEmail(): string {
   }
 }
 
-// rememberVisitorEmail —— 提交时存下可选邮箱,下次自动 load。
+// rememberVisitorEmail —— saves the optional email on submit, auto-loaded
+// next time.
 export function rememberVisitorEmail(email: string): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(VISITOR_EMAIL_KEY, email);
   } catch {
-    // LS 满 / 不可用 → silent。
+    // localStorage full / unavailable → silent.
   }
 }
 
-// rememberVisitorName —— 提交名字时存下来,下次自动 load。
+// rememberVisitorName —— saves the name on submit, auto-loaded next time.
 export function rememberVisitorName(name: string): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(VISITOR_NAME_KEY, name);
   } catch {
-    // LS 满 / 不可用 → silent。
+    // localStorage full / unavailable → silent.
   }
 }
 
-// VISITOR_MEMBER_ID_KEY —— 上次拿到的 member id。匿名(skip)访客凭它续会,不会
-// 跟别的匿名者塌成一个;后端按 (member_id, code) 校验,跨码自动失效。
+// VISITOR_MEMBER_ID_KEY —— the last member id received. An anonymous
+// (skip) visitor uses it to continue their session, so they don't collapse
+// into some other anonymous visitor; the backend validates on (member_id,
+// code), auto-invalidating across codes.
 const VISITOR_MEMBER_ID_KEY = 'standmeet-visitor-member-id';
 
 export function loadMemberID(): string {
@@ -77,12 +89,13 @@ export function rememberMemberID(memberID: string): void {
   try {
     window.localStorage.setItem(VISITOR_MEMBER_ID_KEY, memberID);
   } catch {
-    // LS 满 / 不可用 → silent。
+    // localStorage full / unavailable → silent.
   }
 }
 
-// clearNameDismiss —— 旧的 30 天 dismiss 机制在 defer-issue 模型下不再需要
-// (pending code 的 consume 就负责隐藏)。保留一个 no-op 兼容 absorb 调用方。
+// clearNameDismiss —— the old 30-day dismiss mechanism is no longer needed
+// under the defer-issue model (consuming the pending code already handles
+// hiding it). Kept as a no-op so absorb callers stay compatible.
 export function clearNameDismiss(): void {
-  // no-op (kept so use-absorb-code 不用改 import)
+  // no-op (kept so use-absorb-code doesn't need to change its import)
 }

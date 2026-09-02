@@ -1,12 +1,16 @@
-// tool-call-shape —— 把 tool result wire (unknown) narrow 成 UI 想要的形
-// 状的纯数据 helper。ToolCallCards.tsx 是 presentation 层，不准做 if /
-// 类型断言；narrow 在这一层完成。
+// tool-call-shape —— a pure data helper that narrows the tool result wire
+// (unknown) into the shape the UI wants. ToolCallCards.tsx is the
+// presentation layer, not allowed to do if-statements / type assertions;
+// narrowing is done at this layer.
 
-// CardKind —— **legacy** 写死卡 dispatch（仅服务尚未外置的能力；外置后的能力自带
-// ui:// 卡走沙盒渲染，不在这）。booked(calendar_book) 已外置成 booker 插件的 ui:// 卡，
-// 这里只剩 skill_*/ext_* 的通用 debug 兜底。
-//   - 'dump' → GenericDumpCard (skill_* / ext_* debug 框)
-//   - 'none' → 不渲
+// CardKind —— **legacy** hardcoded card dispatch (serves only capabilities
+// not yet externalized; an externalized capability brings its own ui://
+// card through sandboxed rendering and doesn't go here). booked
+// (calendar_book) has already been externalized into the booker plugin's
+// ui:// card; what's left here is the generic debug fallback for
+// skill_*/ext_*.
+//   - 'dump' → GenericDumpCard (skill_* / ext_* debug box)
+//   - 'none' → renders nothing
 export type CardKind = 'dump' | 'none';
 
 export function cardKindFor(name: string): CardKind {
@@ -14,27 +18,37 @@ export function cardKindFor(name: string): CardKind {
   return 'none';
 }
 
-// isRetrievalTool —— corpus_* 检索族。这些工具**不**各渲一张 ui:// 沙盒卡:一个真模型
-// 一轮可能检索十几次,per-call 卡片会竖着堆满屏(UX-10)。它们折叠成一行 RetrievalSummary;
-// 「读了哪些」由 citations footer 承载(原设计:corpus_read 本就不重复渲卡)。
+// isRetrievalTool —— the corpus_* retrieval family. These tools **don't**
+// each render their own ui:// sandbox card: a real model can retrieve a
+// dozen-plus times in one turn, and a per-call card would stack up and
+// fill the screen (UX-10). They fold into one RetrievalSummary line
+// instead; "what got read" is carried by the citations footer (original
+// design: corpus_read never doubly renders a card).
 //
-// 判据是**前缀**,不是一份名单。这里曾经写死 4 个名字,而后端注册的是 8 个
-// (search/read/list/links/map/resolve/peek/grep) —— 后加的那 4 个既不进计数,
-// cardKindFor 又返回 'none',两条分支都不渲,于是完全隐形:真实环境里 agent 一轮跑了
-// 2 次 search + 3 次 grep + 1 次 read,访客看到的是 `searched 2 · read 1`(F-A-29)。
-// 一份手抄的名单会在**每次**新增检索工具时重犯同一个错;前缀不会。
+// The test is a **prefix**, not a name list. This used to hardcode 4
+// names while the backend registers 8 (search/read/list/links/map/
+// resolve/peek/grep) —— the 4 added later weren't counted, and
+// cardKindFor also returned 'none' for them, so neither branch rendered
+// anything, making them completely invisible: in the real environment
+// the agent ran 2 searches + 3 greps + 1 read in a turn, and the visitor
+// saw `searched 2 · read 1` (F-A-29). A hand-copied name list repeats the
+// same mistake **every time** a new retrieval tool is added; a prefix
+// doesn't.
 const RETRIEVAL_PREFIX = 'corpus_';
 
 export function isRetrievalTool(name: string): boolean {
   return name.startsWith(RETRIEVAL_PREFIX);
 }
 
-// ENTRY_READ_TOOLS —— 打开某一条**具体条目**的内容的那些。peek 归这边:它拿的是那条笔记
-// 自己的东西(标题/标签/小标题/出链/首行),只是不要全文 —— 对访客而言那是"看了这条",
-// 不是"找了一圈"。其余(search/list/links/map/resolve/grep)都是在问"哪些条目相关"。
+// ENTRY_READ_TOOLS —— the tools that open a **specific entry's** content.
+// peek belongs here: it pulls that note's own material (title/tags/
+// subheadings/outlinks/first line), just not the full body — from the
+// visitor's point of view that's "looked at this entry", not "searched
+// around". The rest (search/list/links/map/resolve/grep) are all asking
+// "which entries are relevant".
 const ENTRY_READ_TOOLS = new Set(['corpus_read', 'corpus_peek']);
 
-// RetrievalCounts —— 折叠后的检索计数。
+// RetrievalCounts —— retrieval counts after folding.
 export interface RetrievalCounts {
   searches: number;
   reads: number;
@@ -50,8 +64,8 @@ export function retrievalCounts(calls: readonly { name: string }[]): RetrievalCo
   return { searches, reads };
 }
 
-// jsonPretty —— skill/ext result 的 debug-grade pretty print。failure
-// 兜底为字符串化 (toString)。
+// jsonPretty —— debug-grade pretty print for skill/ext results. Falls
+// back to stringification (toString) on failure.
 export function jsonPretty(v: unknown): string {
   try {
     return JSON.stringify(v, null, 2);

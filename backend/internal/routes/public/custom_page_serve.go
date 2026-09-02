@@ -1,15 +1,19 @@
-// custom_page_serve.go —— 把一次构建的产物发出去，两边共用的那一份。
+// custom_page_serve.go —— serves one build's output, the piece shared by both callers.
 //
-// 两个调用方，**差别只在看哪一次构建**：
-//   - `/p/{slug}`                          → live build，任何人
-//   - `/custom-pages/{slug}/preview/{tok}`  → 最近一次构建成功的，凭令牌
+// Two callers, **differing only in which build they look at**:
+//   - `/p/{slug}`                          → the live build, open to anyone
+//   - `/custom-pages/{slug}/preview/{tok}` → the most recent successful build, gated by
+//     token
 //
-// 抽出来是因为下面那段里有**路径逃逸校验**（joinSafeAssetPath）。抄第二份的话，
-// 迟早只有一边被修 —— 而没被修的那一边是能读到 BuildsRoot 之外文件的那一边。
+// Pulled out because the section below carries **path-escape validation**
+// (joinSafeAssetPath). Copy a second version and sooner or later only one side gets
+// patched — and the unpatched side is the one that can read files outside BuildsRoot.
 //
-// **这个文件不认识域**：它要的只是三个值（哪一页、哪一次构建、给不给自带 key），
-// 由调用方算好递进来。认识域就等于面绕过出站收口直接够到域
-// （`check-routes-via-dispatcher`），而它本来也不需要 —— 它是个文件服务器。
+// **This file knows nothing about domains**: all it needs is three values (which page,
+// which build, whether to bring its own key), computed and handed in by the caller.
+// Knowing about a domain would mean bypassing the outbound convergence point to reach a
+// domain directly (`check-routes-via-dispatcher`), and it has no need to anyway — it's a
+// file server.
 
 package public
 
@@ -18,28 +22,32 @@ import (
 	"net/http"
 )
 
-// BuiltAsset —— 要发的是哪一次构建的产物。
+// BuiltAsset —— which build's output is being served.
 type BuiltAsset struct {
 	PageID     string
 	BuildID    string
 	AllowBYOAI bool
 }
 
-// BuildAssetReq —— 发一次构建产物要的全部东西。
+// BuildAssetReq —— everything needed to serve one build's asset.
 type BuildAssetReq struct {
 	Log *slog.Logger
-	// Resolve —— **这一次该看哪一版构建**。两个调用方的唯一区别。
+	// Resolve —— **which build version to look at this time**. The only difference
+	// between the two callers.
 	Resolve    func() (BuiltAsset, error)
 	BuildsRoot string
-	// AssetPath —— URL 里 `*` 那一段（空 = 根入口，要注 <base>）。
+	// AssetPath —— the `*` segment of the URL (empty = root entry point, needs <base>
+	// injected).
 	AssetPath string
-	// BaseHref —— 根入口时注进 <head> 的 base。浏览器地址跟这条路径一致，
-	// vite emit 的 `./assets/...` 才解析得对。**必须带尾斜杠**：没有它
-	// `./` 解析到父目录，路径最后一段被丢掉，脚本 404、页面一片空白。
+	// BaseHref —— the base injected into <head> at the root entry point. The browser
+	// address has to match this path for vite's emitted `./assets/...` to resolve
+	// correctly. **Must carry a trailing slash**: without it `./` resolves to the parent
+	// directory, the path's last segment gets dropped, the script 404s, and the page
+	// goes blank.
 	BaseHref string
 }
 
-// ServeBuildAsset —— 解析构建 → 拼安全路径 → 发文件。
+// ServeBuildAsset —— resolves the build → assembles a safe path → serves the file.
 func ServeBuildAsset(w http.ResponseWriter, _ *http.Request, req *BuildAssetReq) {
 	asset, err := req.Resolve()
 	if err != nil {
@@ -54,7 +62,8 @@ func ServeBuildAsset(w http.ResponseWriter, _ *http.Request, req *BuildAssetReq)
 	serveFile(req.Log, w, fp, pageHead{base: baseOf(req), allowBYOAI: asset.AllowBYOAI})
 }
 
-// baseOf —— 只有根入口才注 base；子资源请求注了反而会把相对路径再拐一层。
+// baseOf —— base is injected only at the root entry point; injecting it on a
+// sub-resource request would bend the relative path one more layer than it should.
 func baseOf(req *BuildAssetReq) string {
 	if req.AssetPath != "" {
 		return ""

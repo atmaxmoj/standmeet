@@ -1,12 +1,14 @@
-// api_keys.go —— 资源 api_keys:owner 发给程序用的钥匙。
+// api_keys.go — resource api_keys: keys the owner issues for programs to use.
 //
-// 一把 key 假装成一个 role(跟邀请码同一个模型),所以它能做什么由那个 role 说了算,
-// 再叠上 per-key 的收窄(见 api_keys_acl.go)。
+// A key impersonates a role (same model as an invitation code), so what it can do is decided
+// by that role, then layered with per-key narrowing (see api_keys_acl.go).
 //
-// 这一组**只在 MCP 上**:api-key facade 是 MCP-first 的(facade-directions.md),
-// 面板上没有它的页面。这是写下来的单面决定,所以 Reach 上写明理由,而不是让 parity 去猜。
+// This group is **MCP-only**: the api-key facade is MCP-first (facade-directions.md), the
+// panel has no page for it. This is a written, single-facade decision, so the reason is spelled
+// out on Reach rather than left for parity checking to guess at.
 //
-// 每个 per-key 的操作都先按 owner 核一遍 key_id(key_id 是调用方给的 —— 不核就是 BOLA)。
+// Every per-key operation first checks key_id against the owner (key_id is caller-supplied —
+// skipping that check is a BOLA).
 
 package ops
 
@@ -22,38 +24,43 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// APIKeysDeps —— key 仓储 + 发钥匙时校验 role 的口子 + "哪些能力可以开给 API 面"。
+// APIKeysDeps — the key repo + the seam for validating a role when issuing a key + "which
+// capabilities may be opened to the API facade".
 //
-// APICandidates 是注入的:能开给 API 的是**哪些能力**,那是能力轴的知识,不是 access 的。
+// APICandidates is injected: **which capabilities** may open to the API facade is knowledge
+// that belongs to the capability axis, not to access.
 type APIKeysDeps struct {
 	Keys  *repo.APIKeyRepo
 	Roles usecase.APIKeyRoleGetter
-	// Extras —— 各能力在**这把 key**上占的字段(calendar.book 的 max_bookings 是第一个)。
-	// 跟码上那一套是同一个口子、同一份声明,只换挂载点。没有它,「这把 key 最多能约几次」
-	// 无处可设,而配额也就无从谈起(F-B-11)。
+	// Extras — the fields each capability occupies on **this key** (calendar.book's
+	// max_bookings was the first). Same seam, same declaration as the one on codes, just a
+	// different mount point. Without it, "how many bookings this key allows at most" has
+	// nowhere to be set, and a quota can't exist (F-B-11).
 	Extras        KeyExtras
 	APICandidates func() []string
 }
 
-// 这一组**两个 owner 面都长**(F-K-1)。
+// This group **grows on both owner facades** (F-K-1).
 //
-// 原来是 `fp.Only("…MCP-first…; the panel has no page for it", "mcp")` —— 后半句拿缺失当依据:
-// reach 限死在 MCP 上因为面板没这个页,而面板没这个页因为没人建。设计判的正好相反
-// (`docs/design/facade-directions.md:202-206`):admin HTTP 的 `/api/admin/api-keys` CRUD +
-// revoke、admin UI 的 api 区(列表/铸/吊销)、以及 owner-MCP **twins** —— 同页还写着
-// 「owner-plane ratchet forces twins by construction」。
+// It used to be `fp.Only("…MCP-first…; the panel has no page for it", "mcp")` — the second half
+// of that sentence used an absence as its justification: reach was pinned to MCP because the
+// panel had no page, and the panel had no page because nobody built one. The design decided the
+// opposite (`docs/design/facade-directions.md:202-206`): admin HTTP's `/api/admin/api-keys`
+// CRUD + revoke, the admin UI's api section (list/mint/revoke), and owner-MCP **twins** — the
+// same page also says "owner-plane ratchet forces twins by construction".
 //
-// 这不是便利问题:只有 MCP 那一半的时候,**一把泄露的 key 只有在 owner 装好并跑起 MCP 客户端
-// 之后才吊销得掉**。
+// This isn't a convenience issue: with only the MCP half, **a leaked key can only be revoked
+// after the owner has installed and is running an MCP client**.
 
-// APIKeys —— create / list / revoke / update,外加 ACL 那半边(api_keys_acl.go)。
+// APIKeys — create / list / revoke / update, plus the ACL half (api_keys_acl.go).
 func APIKeys(d APIKeysDeps) []fp.Op {
 	return append([]fp.Op{
 		{
 			ID: "api_keys.create",
 			Description: "Mint an API key assuming a role. Returns the raw secret ONCE " +
 				"(smk_…) plus its id and prefix; the secret is never retrievable again.",
-			// 各能力在 key 上占的字段跟着长出来(max_bookings…),跟发码那一侧同一套机制。
+			// The fields each capability occupies on the key grow along with it
+			// (max_bookings…), same mechanism as the code-issuing side.
 			InputSchema: withExtraFields(apiKeyCreateSchema, extrasOr(d.Extras).Fields()),
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -118,14 +125,15 @@ var (
 	}`)
 )
 
-// apiKeyCreatedOut —— 明文密钥只在这一次出现,之后再也取不回来。
+// apiKeyCreatedOut — the plaintext secret appears only this once; it can never be retrieved
+// again after this.
 type apiKeyCreatedOut struct {
 	ID     string `json:"id"`
 	Prefix string `json:"prefix"`
 	Secret string `json:"secret"`
 }
 
-// apiKeyOut —— 一把 key 的出站形状(不含密钥)。
+// apiKeyOut — a key's outbound shape (no secret).
 type apiKeyOut struct {
 	RateLimitRPM  *int32 `json:"rate_limit_rpm,omitempty"`
 	ID            string `json:"id"`
@@ -176,8 +184,9 @@ func createAPIKey(d APIKeysDeps) fp.Invoke {
 		if err != nil {
 			return nil, apiKeyErr(err)
 		}
-		// 各能力从原始入参里挑自己的字段(max_bookings…)存到这把 key 上。best-effort:
-		// key 已经铸出来了,一个能力的存储挂了不该让它变成一次失败的铸造。
+		// Each capability picks its own fields (max_bookings…) out of the raw input and
+		// stores them on this key. Best-effort: the key is already minted, so one
+		// capability's storage failing shouldn't turn this into a failed minting.
 		extrasOr(d.Extras).Write(ctx, issued.Key.ID, raw)
 		return json.Marshal(apiKeyCreatedOut{
 			ID: issued.Key.ID, Prefix: issued.Key.Prefix, Secret: issued.Secret,
@@ -200,10 +209,10 @@ func decodeAPIKeyCreate(raw json.RawMessage) (apiKeyCreateArgs, error) {
 	return in, eerr
 }
 
-// parseAPIKeyExpiry —— 空 = 不过期,不是错。
+// parseAPIKeyExpiry — empty = never expires, not an error.
 func parseAPIKeyExpiry(s string) (*time.Time, error) {
 	if s == "" {
-		return nil, nil //nolint:nilnil // 空 = 没设,不是错误
+		return nil, nil //nolint:nilnil // empty = unset, not an error
 	}
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
@@ -231,10 +240,11 @@ func listAPIKeys(d APIKeysDeps) fp.Invoke {
 	}
 }
 
-// marshalAPIKey —— 一把 key + 别的能力在它上面那几个字段(max_bookings…)。
+// marshalAPIKey — a key + the fields other capabilities put on it (max_bookings…).
 //
-// 读回来跟写下去走同一个口子:只写不读的话,owner 设过的上限在列表里看不见,而「看不见的设置」
-// 跟「没设过」在屏幕上长得一模一样。
+// Reading back goes through the same seam as writing: if it only wrote and never read, a cap
+// the owner set would be invisible in the list, and "a setting you can't see" looks identical
+// on screen to "never set".
 func marshalAPIKey(
 	ctx context.Context, extras KeyExtras, k *entity.APIKey,
 ) (json.RawMessage, error) {
@@ -306,7 +316,7 @@ func decodeAPIKeyUpdate(raw json.RawMessage) (apiKeyUpdateArgs, error) {
 	return in, fp.RequireArgs([2]string{"id", in.ID})
 }
 
-// apiKeyErr —— 域的哨兵 → 协议无关的类别。
+// apiKeyErr — domain sentinel → protocol-agnostic category.
 func apiKeyErr(err error) error {
 	for _, c := range apiKeyErrClasses {
 		if errors.Is(err, c.sentinel) {

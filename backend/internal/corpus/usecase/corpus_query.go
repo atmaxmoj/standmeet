@@ -1,6 +1,8 @@
-// corpus_query.go —— 原生语料查询(Dataview-class,over 真 DB)。note body 里的 ` ```standmeet-query `
-// 块在 corpus_read 时**服务端解析**:走现成 ACL-scoped 过滤(QueryNotes + allowsCorpusURI),替换成
-// `- [[Title]]` 列表。ACL by construction —— 查询只返 reader 有权看的条目。
+// corpus_query.go —— native corpus query (Dataview-class, over the real DB). A
+// ` ```standmeet-query ` block in a note body is **resolved server-side** during
+// corpus_read: it goes through the existing ACL-scoped filter (QueryNotes +
+// allowsCorpusURI) and is replaced with a `- [[Title]]` list. ACL by construction —
+// the query only ever returns entries the reader is allowed to see.
 
 package usecase
 
@@ -18,7 +20,7 @@ import (
 
 const queryDefaultLimit = 50
 
-// QuerySpec —— 一个 standmeet-query 块的过滤条件。
+// QuerySpec —— the filter conditions of one standmeet-query block.
 type QuerySpec struct {
 	Genre      string
 	Tag        string
@@ -27,7 +29,8 @@ type QuerySpec struct {
 	Limit      int
 }
 
-// queryResolver —— 能跑原生查询的 lister(pgCorpusLister 实现;eval mini-host 不实现 → 块留原样)。
+// queryResolver —— a lister that can run the native query (pgCorpusLister implements it;
+// the eval mini-host doesn't -> the block is left as-is).
 type queryResolver interface {
 	Query(
 		ctx context.Context, ownerID string, scope access.CorpusScope, spec QuerySpec,
@@ -36,8 +39,9 @@ type queryResolver interface {
 
 var reQueryBlock = regexp.MustCompile("(?s)```standmeet-query[ \t]*\n(.*?)\n?```")
 
-// ResolveQueryBlocks —— body 里每个 standmeet-query 块 → ACL-scoped 结果列表(`- [[Title]]`)。
-// 解析/查询失败 → 该块降级为空(不崩;容错)。
+// ResolveQueryBlocks —— turns every standmeet-query block in body into its ACL-scoped
+// result list (`- [[Title]]`). A parse/query failure degrades that block to empty
+// (never crashes; fault-tolerant).
 func ResolveQueryBlocks(
 	ctx context.Context, qr queryResolver, ownerID string, scope access.CorpusScope, body string,
 ) string {
@@ -54,7 +58,8 @@ func ResolveQueryBlocks(
 	})
 }
 
-// parseQuerySpec —— YAML-ish DSL → QuerySpec。收进 map(重复键后者覆盖、未知键忽略)再取。
+// parseQuerySpec —— YAML-ish DSL -> QuerySpec. Collected into a map first (a repeated
+// key is overwritten by the later one, an unknown key is ignored), then read out.
 func parseQuerySpec(dsl string) QuerySpec {
 	fields := map[string]string{}
 	for line := range strings.SplitSeq(dsl, "\n") {
@@ -83,7 +88,8 @@ func renderQueryList(rows []Meta) string {
 	return strings.Join(lines, "\n")
 }
 
-// Query —— pgCorpusLister 实现 queryResolver:按 spec 过滤 corp note,ACL + children-of + sort + cap。
+// Query —— pgCorpusLister's implementation of queryResolver: filters corp notes by
+// spec, applying ACL + children-of + sort + cap.
 func (l *pgCorpusLister) Query(
 	ctx context.Context, ownerID string, scope access.CorpusScope, spec QuerySpec,
 ) ([]Meta, error) {
@@ -129,7 +135,8 @@ func isChildOf(pathTitles []string, parent string) bool {
 	return len(pathTitles) >= 2 && pathTitles[len(pathTitles)-2] == parent
 }
 
-// capMetas —— 结果上限(默认 + 硬顶 queryDefaultLimit),防无界 dump。
+// capMetas —— caps the result count (default and hard ceiling both queryDefaultLimit),
+// guarding against an unbounded dump.
 func capMetas(metas []Meta, limit int) []Meta {
 	if limit <= 0 || limit > queryDefaultLimit {
 		limit = queryDefaultLimit

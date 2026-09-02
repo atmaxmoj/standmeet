@@ -1,13 +1,17 @@
-// agent_turn_persist.go —— #28: 后端拥有这一轮。agent 事件流末端的「DB sink」。
+// agent_turn_persist.go —— #28: the backend owns this turn. The "DB sink" at the end of the
+// agent event stream.
 //
-// 设计是 stream → (tee) → {显示 sink, 累计}。sseSink 是显示 tap(sink 到浏览器,
-// 断了无所谓);accumSink 包住它,把同一条流累计成一个纯 TurnResult,loop 收尾时
-// 交给注入的 PersistFunc sink 进 conversation 表 —— 那才是 durable 的落点。
+// The design is stream → (tee) → {display sink, accumulation}. sseSink is the display tap
+// (sinks to the browser; fine if the connection drops); accumSink wraps it, accumulating the
+// same stream into one plain TurnResult, which the loop hands to the injected PersistFunc at
+// wrap-up to sink into the conversation table — that's the actual durable landing spot.
 //
-// DDD:inference 只懂「流」,不碰 DB。落库通过注入的 port(PersistFunc)触发,
-// inference 不知道落哪(routes/usecases 层给闭包,走 RecordDialog)。citation /
-// tool_calls 的累计形态跟前端老做法一字不差(corpus_read 结果扒 entry id;
-// tool_calls = [{name, ok, result}]),只是 sink 从「前端当 sink」挪到了流末端。
+// DDD: inference only understands "the stream", it never touches the DB. Persistence fires
+// through an injected port (PersistFunc); inference doesn't know where it lands (the
+// routes/usecases layer supplies the closure, wired through RecordDialog). The accumulated
+// shape of citations / tool_calls matches the old frontend approach byte-for-byte (scrape the
+// entry id from corpus_read results; tool_calls = [{name, ok, result}]) — only the sink itself
+// moved from "the frontend acting as sink" to the end of the stream.
 
 package inference
 
@@ -18,8 +22,9 @@ import (
 	"strings"
 )
 
-// TurnResult —— 一整轮在后端累计出的可落库产物。Question 由 caller 从
-// in.Req.UserMessage 填(accumSink 不知道问句);其余从事件流累出来。
+// TurnResult —— the persistable output an entire turn accumulates on the backend. Question is
+// filled in by the caller from in.Req.UserMessage (accumSink doesn't know the question); the
+// rest is accumulated from the event stream.
 type TurnResult struct {
 	Question             string
 	Answer               string
@@ -30,15 +35,17 @@ type TurnResult struct {
 	CitedSubjectivityIDs []string
 }
 
-// PersistFunc —— 落库 port。RunAgentTurn 在 loop 收尾(且 AI 答出了内容)时调
-// 一次。ctx 是 detached 过的(客户端断开也活着),所以即便流没人收也照样 sink。
+// PersistFunc —— the persistence port. RunAgentTurn calls it once when the loop wraps up (and
+// only when the AI actually produced content). ctx has been detached (stays alive even if the
+// client disconnected), so it sinks even when no one's listening to the stream anymore.
 type PersistFunc func(ctx context.Context, res *TurnResult) error
 
-// TurnUsage —— 一轮跨 react-loop 累计下来的 token 用量。
+// TurnUsage —— token usage accumulated across one turn's react-loop.
 //
-// Cached 是 prompt 里命中缓存的那部分,**上游只肯给到这个粒度**:eino 的 claude adapter 在
-// 到我们之前就把 input + cache_read + cache_creation 加成了一个数(claude.go:1046)。
-// 存我们真拿得到的,不假装有全分辨率。
+// Cached is the portion of the prompt that hit cache — **this is the only granularity upstream
+// is willing to give us**: eino's claude adapter has already summed input + cache_read +
+// cache_creation into one number before it reaches us (claude.go:1046). We store what we can
+// actually get, without pretending to have full resolution.
 type TurnUsage struct {
 	Model  string
 	In     int
@@ -46,43 +53,50 @@ type TurnUsage struct {
 	Cached int
 }
 
-// RecordUsageFunc —— #106 计费 port。DriveAgentLoop 在 turn 收尾把本轮用量交出去;
-// route handler 注入走 inference_usage 表的闭包(它才知道这一趟花的是哪箱油、算不算账)。
+// RecordUsageFunc —— the #106 billing port. DriveAgentLoop hands out this turn's usage when it
+// wraps up; the route handler injects a closure wired to the inference_usage table (it's the
+// only one that knows which tank this trip drew from, and whether it counts against the bill).
 //
-// 入参是结构体不是四个参数:上一版是 (model, in, out) 三个参数,于是"缓存命中多少"没有
-// 地方放,分辨率被签名钉死了。
+// The argument is a struct, not four separate parameters: the previous version took (model, in,
+// out) as three parameters, which left "how much hit cache" with nowhere to go — the signature
+// itself pinned the resolution.
 type RecordUsageFunc func(ctx context.Context, u *TurnUsage)
 
-// MarkWaypointsFunc —— ghost-steering ledger port。turn 收尾把本轮引用(cited note id)+ 本轮成功工具名
-// 命中交出去,route handler 注入的闭包解析 URI + 标 waypoint visited + 存 session。inference 不碰
-// DB/redis。nil = 不标(非 code / 无 waypoints)。
+// MarkWaypointsFunc —— the ghost-steering ledger port. At turn wrap-up, hands out this turn's
+// citations (cited note ids) + this turn's successful tool-name hits; the route handler's
+// injected closure resolves the URI + marks the waypoint visited + saves it to the session.
+// inference never touches DB/redis. nil = don't mark (not code / no waypoints).
 type MarkWaypointsFunc func(ctx context.Context, citedNoteIDs, successfulTools []string)
 
-// persistedToolCall —— 落库形态的一条 tool 调用。result 原样透(整个 tool 输出
-// JSON);ok 从顶层 envelope 取。跟前端 ToolCallView / dialogRequest.tool_calls
-// 对齐,conversation 读模型 + admin transcript 照原样渲。
-// 字段顺序按 govet fieldalignment 排:含指针的(string / slice)连续在前,bool
-// 末尾。JSON 按 key 解,顺序无所谓。
+// persistedToolCall —— the persisted shape of one tool call. result passes through unchanged
+// (the tool's full output JSON); ok is taken from the top-level envelope. Aligned with the
+// frontend's ToolCallView / dialogRequest.tool_calls shape, so the conversation read model +
+// admin transcript render it exactly as-is.
+// Field order follows govet fieldalignment: the ones with pointer-like layouts (string / slice)
+// grouped first, bool last. JSON parses by key, so order doesn't matter there.
 type persistedToolCall struct {
 	Name   string          `json:"name"`
 	Result json.RawMessage `json:"result"`
 	OK     bool            `json:"ok"`
 }
 
-// accumSink —— tee:转发给显示 sink(inner),同时在流末端累计 TurnResult。
-// 纯累计,不碰 DB。tool_calls 按落库形态收;citations 从 corpus_read 结果扒
-// entry id(按 id 去重)。
+// accumSink —— a tee: forwards to the display sink (inner), while also accumulating a
+// TurnResult at the end of the stream. Pure accumulation, never touches the DB. tool_calls are
+// collected in their persisted shape; citations are scraped from corpus_read results as entry
+// ids (de-duplicated by id).
 //
-// answer 只收 PRODUCT(F-A-4 P1):text streamed in a round that ends with tool calls is
+// answer only accepts PRODUCT (F-A-4 P1): text streamed in a round that ends with tool calls is
 // the model narrating its plan — process, not the answer; it must not enter the durable
 // transcript. Mechanically: text accumulates in `segment`; a ToolStarted proves the segment
 // was process → discard; only tool-less tails (incl. the forced-final synthesis) survive
 // into `answer`.
 type accumSink struct {
 	inner AgentSink
-	// onDone —— 流收尾 hook,在把 `done` 帧转发给浏览器**之前**跑(落库)。这样
-	// `done` 帧就代表「这一轮已提交」:浏览器收到 done 后 reload,GET conversation
-	// 必见这轮,无 persist-vs-reload 竞态。RunAgentTurn 注入 = 落库闭包。
+	// onDone —— the stream wrap-up hook, runs (persists) **before** the `done` frame is
+	// forwarded to the browser. This way the `done` frame really means "this turn is
+	// committed": if the browser reloads right after receiving done, a GET conversation is
+	// guaranteed to see this turn — no persist-vs-reload race. RunAgentTurn injects the
+	// persistence closure here.
 	onDone     func()
 	tools      []persistedToolCall
 	wikiIDs    []string
@@ -101,7 +115,8 @@ func newAccumSink(inner AgentSink) *accumSink {
 }
 
 func (a *accumSink) Text(delta string) {
-	// strings.Builder.WriteString 永不返错;显式弃返回值(revive unhandled-error)。
+	// strings.Builder.WriteString never returns an error; discarded explicitly (revive
+	// unhandled-error).
 	_, _ = a.segment.WriteString(delta)
 	a.inner.Text(delta)
 }
@@ -122,9 +137,10 @@ func (a *accumSink) Epilogue(f *EpilogueFrame) { a.inner.Epilogue(f) }
 func (a *accumSink) Retrying(attempt int)      { a.inner.Retrying(attempt) }
 func (a *accumSink) Error(err error)           { a.inner.Error(err) }
 
-// Done —— 先落库(onDone)再转发 `done` 帧。顺序是刻意的:浏览器把 done 当
-// 「turn 提交完成」信号,落库必须在它之前完成。收尾时把最后一个(tool-less)段
-// commit 成 answer —— 那才是 product。
+// Done —— persists (onDone) first, then forwards the `done` frame. The order is deliberate:
+// the browser treats done as the "turn committed" signal, so persistence must complete before
+// it. At wrap-up, the last (tool-less) segment is committed into answer — that's the actual
+// product.
 func (a *accumSink) Done(stop string) {
 	_, _ = a.answer.WriteString(a.segment.String())
 	a.segment.Reset()
@@ -134,8 +150,10 @@ func (a *accumSink) Done(stop string) {
 	a.inner.Done(stop)
 }
 
-// successfulToolNames —— 本轮成功跑过的工具名。inference 不认识哪个是"终点"工具(那是外置能力,
-// 如约成这类终点动作);它只报名字,让注入 ledger port 的 route 层(认得具体能力)去判 terminal 命中。
+// successfulToolNames —— names of the tools that ran successfully this turn. inference doesn't
+// know which one counts as a "terminal" tool (that's an externalized capability's concept, like
+// a booking-confirmed action); it only reports the names, leaving the route layer that injects
+// the ledger port (which does know the specific capabilities) to judge a terminal hit.
 func (a *accumSink) successfulToolNames() []string {
 	out := make([]string, 0, len(a.tools))
 	for i := range a.tools {
@@ -146,8 +164,8 @@ func (a *accumSink) successfulToolNames() []string {
 	return out
 }
 
-// accumulateTool —— 一个 tool 完成:按落库形态收 {name, ok, result},并从
-// corpus_read 结果扒 citation entry id。
+// accumulateTool —— a tool has completed: collects {name, ok, result} in its persisted shape,
+// and scrapes a citation entry id out of corpus_read results.
 func (a *accumSink) accumulateTool(name, result string) {
 	ok := envelopeOK(result)
 	a.tools = append(a.tools, persistedToolCall{
@@ -158,8 +176,9 @@ func (a *accumSink) accumulateTool(name, result string) {
 	}
 }
 
-// envelopeOK —— result 顶层若是带 `ok: bool` 的 envelope 就取它,否则当成功
-// (bare array / flat object / 标量)。跟前端 safeParseToolResult 一致。
+// envelopeOK —— if the result's top level is an envelope carrying `ok: bool`, use that value;
+// otherwise treat it as successful (a bare array / flat object / scalar). Matches the
+// frontend's safeParseToolResult.
 func envelopeOK(result string) bool {
 	var probe map[string]json.RawMessage
 	if json.Unmarshal([]byte(result), &probe) != nil {
@@ -176,17 +195,18 @@ func envelopeOK(result string) bool {
 	return b
 }
 
-// collectCitation —— corpus_read 成功结果(flat object {id, genre, ...})扒
-// entry id,**按 genre 显式归类**,按 id 去重(同 entry 读多次只引一次)。
-// caller 保证只在 ok 时调。
+// collectCitation —— scrapes an entry id from a successful corpus_read result (a flat object
+// {id, genre, ...}), **explicitly bucketed by genre**, de-duplicated by id (reading the same
+// entry multiple times cites it only once). The caller guarantees this is only called when ok.
 //
-// 引用只挂在 corpus_read 上是对的:read 才是"用了这条"的信号(搜索只是找到候选)。
-// corpus_read 不是一种检索方式,它就是"读"这个动作 —— 就像写 paper 只引你真读过
-// 用过的 reference,不引一次文献检索里冒出来的所有条目。
-// 显式路由(非 catch-all):output→outIDs,wiki→wikiIDs,writing→writingIDs,
-// subjectivity→subjIDs。剩下的 genre(raw)不累计。writing 是 public/已发布 blog,
-// 一律进 footer(无 show_as_source gate);subjectivity 是否真展示由 dialog 层
-// show_as_source gate 决定(默认私有)。
+// It's correct that citation only hangs off corpus_read: the read is the signal that "this one
+// was actually used" (a search only finds candidates). corpus_read isn't a kind of retrieval,
+// it IS the act of "reading" — the same way a paper only cites the references you actually read
+// and used, not every entry that surfaced in a literature search.
+// Explicit routing (not a catch-all): output→outIDs, wiki→wikiIDs, writing→writingIDs,
+// subjectivity→subjIDs. Any other genre (raw) isn't accumulated. writing is a public/published
+// blog entry, always goes into the footer (no show_as_source gate); whether subjectivity is
+// actually shown is decided by the dialog layer's show_as_source gate (private by default).
 func (a *accumSink) collectCitation(name, result string) {
 	if name != "corpus_read" {
 		return
@@ -199,15 +219,17 @@ func (a *accumSink) collectCitation(name, result string) {
 	a.routeCitation(c.Genre, c.ID)
 }
 
-// suppressedFromCitation —— readCollector gate:wiki/output 标 show_as_source=false
-// (meta/persona 类)能被 AI read 拿 body,但不进 cited footer。subjectivity 的
-// show_as_source gate 在 dialog 层,这里不碰。
+// suppressedFromCitation —— the readCollector gate: a wiki/output entry marked
+// show_as_source=false (meta/persona-type entries) can still have its body read by the AI, but
+// doesn't go into the cited footer. subjectivity's show_as_source gate lives in the dialog
+// layer; not touched here.
 func suppressedFromCitation(c *citedEntry) bool {
 	return (c.Genre == "wiki" || c.Genre == "output") && !c.ShowAsSource
 }
 
-// routeCitation —— 按 genre 把 entry id 归到对应 slice(bucket 表)。表里没有的 genre
-// (raw 等)不进 footer,丢弃。writing 是 public blog,进 footer。
+// routeCitation —— routes an entry id into its matching slice by genre (a bucket table). A
+// genre not in the table (raw, etc.) doesn't go into the footer and is discarded. writing is a
+// public blog entry, and does go into the footer.
 func (a *accumSink) routeCitation(genre, id string) {
 	bucket := map[string]*[]string{
 		"output":       &a.outIDs,
@@ -216,20 +238,22 @@ func (a *accumSink) routeCitation(genre, id string) {
 		"subjectivity": &a.subjIDs,
 	}[genre]
 	if bucket == nil {
-		return // raw 等不进 citation footer;丢弃。
+		return // raw and similar genres don't go into the citation footer; discarded.
 	}
 	*bucket = append(*bucket, id)
 }
 
-// citedEntry —— corpus_read flat object 里取 citation 用的字段。show_as_source=false
-// 的 wiki/output 能被 read 拿 body,但不进 cited(readCollector gate)。
+// citedEntry —— the fields pulled from a corpus_read flat object for citation purposes. A
+// wiki/output entry with show_as_source=false can still have its body read, but doesn't go
+// into cited (the readCollector gate).
 type citedEntry struct {
 	ID           string `json:"id"`
 	Genre        string `json:"genre"`
 	ShowAsSource bool   `json:"show_as_source"`
 }
 
-// parseCitedEntry —— corpus_read 结果解出 citation entry;解析失败 → 零值。
+// parseCitedEntry —— parses the citation entry out of a corpus_read result; parse failure →
+// zero value.
 func parseCitedEntry(result string) citedEntry {
 	var c citedEntry
 	if json.Unmarshal([]byte(result), &c) != nil {
@@ -242,8 +266,8 @@ func (a *accumSink) answered() bool {
 	return a.answer.Len() > 0
 }
 
-// result —— 累计完一轮后产出 TurnResult。tool_calls 空也给 `[]`(读模型
-// rawOrEmptyArray 期望非 nil)。
+// result —— produces the TurnResult once a turn has finished accumulating. tool_calls gets
+// `[]` even when empty (the read model's rawOrEmptyArray expects non-nil).
 func (a *accumSink) result(question string) *TurnResult {
 	return &TurnResult{
 		Question:             question,
@@ -267,9 +291,10 @@ func (a *accumSink) marshalTools() json.RawMessage {
 	return b
 }
 
-// persistTurn —— loop 收尾把累计的这一轮 sink 进 DB(注入的 PersistFunc)。
-// 只有 AI 真答出内容才落(锁定模型:dialog 持久化 iff 答完);没注入 port
-// (无 conversation 的无状态 smoke 调用)或没答案则跳过。
+// persistTurn —— at the end of the loop, sinks this accumulated turn into the DB (the injected
+// PersistFunc). Only persists when the AI actually produced content (a locked-in model: a
+// dialog persists iff it produced an answer); skipped when the port isn't injected (a
+// stateless smoke call with no conversation) or there's no answer.
 func persistTurn(ctx context.Context, log *slog.Logger, in *AgentTurnInput, acc *accumSink) {
 	if in.Persist == nil || !producedContentForPersist(acc, in.ReturnDirectly) {
 		return
@@ -299,8 +324,8 @@ func (a *accumSink) ranReturnDirectly(returnDirectly map[string]bool) bool {
 	return false
 }
 
-// markWaypointsTurn —— ghost-steering ledger:本轮引用(cited note id)+ 终点命中交给注入的
-// port。nil port(非 code / 无 waypoints)跳过。
+// markWaypointsTurn —— the ghost-steering ledger: hands this turn's citations (cited note ids)
+// + terminal hits to the injected port. Skipped when the port is nil (not code / no waypoints).
 func markWaypointsTurn(ctx context.Context, in *AgentTurnInput, acc *accumSink) {
 	if in.MarkWaypoints == nil {
 		return

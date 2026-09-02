@@ -1,18 +1,26 @@
-// CorpusMedia —— 一条语料身上的素材,在**访客那一侧**的三个渲染位。
+// CorpusMedia —— the three render sites, on the **visitor side**, for the
+// media attached to a piece of corpus.
 //
-// wiki 和 output 用同一份:正文里的 `standmeet-asset:<id>` 展成可访问地址、hero 铺
-// owner 设的封面图、附件渲成带真实字节数的下载区。
+// wiki and output share this one implementation: `standmeet-asset:<id>` in
+// the body expands into a reachable URL, hero lays out the owner-set cover
+// image, and attachments render as a download area with real byte counts.
 //
-// 抽出来是因为 output 那条一开始**根本没接** —— 而 SDK 里那句注释写着"结构跟
-// WikiLandingView 一致"。各写一份的话,下一个 genre 接上来时还会再漏一次;而漏了的样子
-// 是"页面看起来正常,只是图不在" —— 没有报错,没有人会去查。
+// It's pulled out here because the output path **wasn't wired up at all**
+// at first — while the SDK carried a comment claiming "structure matches
+// WikiLandingView". Writing a separate copy per genre means the next genre
+// that gets wired up will drop it again the same way; and a dropped media
+// path looks like "the page looks fine, the image just isn't there" — no
+// error, nobody goes looking.
 
-// **这个文件是 client component。** 两个纯函数(expandBody / coverURL)住在
-// lib/corpus/media.ts —— 它们没有 'use client',所以**服务端组件也调得动**。
+// **This file is a client component.** The two pure functions
+// (expandBody / coverURL) live in lib/corpus/media.ts — they carry no
+// 'use client', so **server components can call them too**.
 //
-// output 的落地页是 Server Component:把纯函数放进这个文件里,它一调用就是
+// output's landing page is a Server Component: putting the pure functions
+// into this file instead would turn any call into
 // "Attempted to call coverURL() from the server but coverURL is on the client",
-// 页面整个 500。而 wiki 那条是 client,不会报 —— 一个只在其中一条路上炸的错误。
+// a full page 500. wiki's path is client, so it wouldn't error — a bug that
+// only blows up on one of the two paths.
 
 'use client';
 
@@ -23,13 +31,16 @@ import { formatBytes } from '@/lib/format/bytes';
 import type { CorpusAsset } from '@/lib/corpus/media';
 
 /**
- * CoverImage —— hero 上铺 owner 设的那张图。
+ * CoverImage —— lays the owner-set image over the hero.
  *
- * `unoptimized`:地址是 owner 自己存储上的预签名 URL(每个部署不同、带过期签名)。
- * Next 的图片优化器对不在 images.remotePatterns 里的 host 回 400,走 /_next/image
- * 就渲成破图(writings 那边踩过,见 Cover.tsx 的 F-I-1)。
+ * `unoptimized`: the URL is a pre-signed URL on the owner's own storage
+ * (different per deployment, with an expiring signature). Next's image
+ * optimizer returns 400 for a host not in images.remotePatterns, and going
+ * through /_next/image renders a broken image (writings hit this already —
+ * see F-I-1 in Cover.tsx).
  *
- * testid 挂在外层 span:testid 是测试的关注点,只能落在真实 DOM 元素上。
+ * testid hangs on the outer span: a testid is the test's concern, and it
+ * can only land on a real DOM element.
  */
 export function CoverImage({ url, testid }: { url?: string; testid: string }) {
   return url ? (
@@ -40,11 +51,14 @@ export function CoverImage({ url, testid }: { url?: string; testid: string }) {
 }
 
 /**
- * Attachments —— 正文底下的下载区。只列 attachment,图片属于正文。
+ * Attachments —— the download area beneath the body. Lists attachments
+ * only; images belong to the body.
  *
- * 每一行说**文件名 + 真实大小** —— 那是访客决定点不点的依据。一个只写"下载"的按钮
- * 把「一份 40 页的 PDF」和「一张截图」显示成同一个东西。一个附件都没有时整块不渲染:
- * 空标题下面一片空白比没有更糟。
+ * Each row states **filename + real size** — that's what a visitor decides
+ * whether to click on. A button that just says "download" makes a 40-page
+ * PDF and a screenshot look like the same thing. The whole block doesn't
+ * render when there are no attachments: an empty heading over blank space
+ * is worse than nothing.
  */
 export function Attachments(
   { assets, testid }: { assets?: readonly CorpusAsset[]; testid: string },

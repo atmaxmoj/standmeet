@@ -1,13 +1,14 @@
-// builds.go —— /internal/builds/* —— 给 builder service 内部用的 endpoints。
-// 不对公网暴露（挂在 /internal 下，Caddy 会拦）；不做鉴权（内网信任）。
+// builds.go —— /internal/builds/* —— internal endpoints for the builder service.
+// Not exposed to the public internet (mounted under /internal, Caddy blocks it);
+// no auth (internal-network trust).
 //
-// 三个 endpoint：
-//   POST /internal/builds/claim         —— builder 轮询拿 pending（原子标
-//                                          building 后返）；无 pending 返 204
-//   PATCH /internal/builds/{id}         —— builder 跑完汇报 built / failed
+// Three endpoints:
+//   POST /internal/builds/claim         —— builder polls for pending (atomically marks
+//                                          it building before returning); no pending -> 204
+//   PATCH /internal/builds/{id}         —— builder reports built / failed when done
 //
-// 接出 sys layer 是因为 sys 已经允许依赖 postgres + usecases；不在 admin /
-// public layer 因为不该走 owner session 鉴权。
+// Placed in the sys layer because sys is already allowed to depend on postgres + usecases;
+// not in the admin / public layer because it must not go through owner-session auth.
 
 package sys
 
@@ -23,21 +24,22 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// BuilderDeps —— /internal/builds/* 需要的 dep。
-// 字段顺序按 govet fieldalignment：把 Log（最常用）放前面对齐 padding。
+// BuilderDeps —— the deps /internal/builds/* needs.
+// Field order follows govet fieldalignment: Log (most-used) goes first to align padding.
 type BuilderDeps struct {
 	Log    *slog.Logger
 	Builds *owner.CustomBuildRepo
 }
 
-// MountBuilds 挂 /internal/builds/* —— caller 已经加 /internal 前缀。
+// MountBuilds mounts /internal/builds/* —— the caller has already added the /internal
+// prefix.
 func MountBuilds(r chi.Router, deps BuilderDeps) {
 	r.Post("/builds/claim", claimBuild(deps))
 	r.Patch("/builds/{id}", patchBuild(deps))
 }
 
-// claimResponse 字段顺序按 govet fieldalignment：map（pointer-heavy）放前，
-// 三个 string 跟在后面让 padding 紧凑。
+// claimResponse field order follows govet fieldalignment: the map (pointer-heavy) goes
+// first, the three strings follow to keep padding tight.
 type claimResponse struct {
 	SourceFiles map[string]string `json:"source_files"`
 	BuildID     string            `json:"build_id"`
@@ -78,7 +80,8 @@ func respondClaim(
 	http.Error(w, "claim build failed", http.StatusInternalServerError)
 }
 
-// pickEntry —— source_files 里看 App.tsx 优先；否则取第一个 .tsx；都没就 'App.tsx'。
+// pickEntry —— prefers App.tsx in source_files; otherwise takes the first .tsx; falls
+// back to 'App.tsx' if neither exists.
 func pickEntry(files map[string]string) string {
 	if _, ok := files["App.tsx"]; ok {
 		return "App.tsx"

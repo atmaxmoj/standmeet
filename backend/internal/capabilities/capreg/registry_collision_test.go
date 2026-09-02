@@ -1,7 +1,9 @@
-// registry_collision_test.go —— Phase H / P.5：内建撞名赢。boot 期 builtin 先
-// 注册、插件后注册；插件 ID 撞上已注册的 builtin → 注册被拒、builtin 不被影子
-// 覆盖（first/builtin wins）。这条 guard 锁死「加 origin 后，撞名解析仍是
-// builtin 赢、不被插件 shadow」。
+// registry_collision_test.go —— Phase H / P.5: the builtin wins a name collision.
+// At boot, builtins register first and plugins register after; a plugin ID that
+// collides with an already-registered builtin gets its registration rejected —
+// the builtin is never shadowed (first/builtin wins). This guard locks down that,
+// after adding origin, collision resolution still favors the builtin and is never
+// shadowed by a plugin.
 package capreg_test
 
 import (
@@ -13,7 +15,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
-// fakeCap —— 最小 Capability，用 tag 区分「先注册的 builtin」vs「撞名的插件」。
+// fakeCap — a minimal Capability, using tag to distinguish "the builtin
+// registered first" from "the colliding plugin".
 type fakeCap struct {
 	id  string
 	tag string

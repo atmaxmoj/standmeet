@@ -1,17 +1,19 @@
-// Package capreg —— 一个 Capability interface + Registry，三处消费：
-// visitor chat tools、owner MCP server、system prompt fragments。详见
-// [[phase-b-capability-registry]] memory。
+// Package capreg —— one Capability interface + Registry, consumed in three
+// places: visitor chat tools, the owner MCP server, system prompt fragments.
+// See the [[phase-b-capability-registry]] memory for detail.
 //
-// B-1 阶段：interface 骨架 + Registry 结构 + 全局 ext-mcp 计数桩。无具体
-// capability 注册；retrieval / booker / ext-mcp / owner-skill / job-loop /
-// MCP parity 由 B-2..B-6 顺序填入。
+// Phase B-1: the interface skeleton + Registry structure + a global ext-mcp
+// counting stub. No concrete capability is registered yet; retrieval / booker /
+// ext-mcp / owner-skill / job-loop / MCP parity are filled in, in order, by
+// B-2..B-6.
 //
-// 设计约束：
-//   - capreg 是 leaf-ish 包，只依赖 inference + domain + std。具体
-//     Capability 实现放在 usecases / mcp 包里，反向 import 本包注册。
-//   - 高层 Capability 实现是闭包形态：构造时持有自己的 deps，VisitorBinding
-//     只接 per-session 上下文（AssembleInput），不接 deps —— 类型安全，
-//     避免 any。
+// Design constraints:
+//   - capreg is a leaf-ish package, depending only on inference + domain + std.
+//     Concrete Capability implementations live in the usecases / mcp packages,
+//     which import this package to register into it, not the other way around.
+//   - A higher-level Capability implementation is closure-shaped: it holds its
+//     own deps at construction time, and VisitorBinding only takes per-session
+//     context (AssembleInput), never deps — type-safe, no `any`.
 package capreg
 
 import (
@@ -23,96 +25,121 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
-// ErrHidden —— VisitorBinding 返此 sentinel 表示 capability 不暴露给本
-// session (干净路径，跟"真错"区分)。registry silently skip；VisitorStates
-// 也跳过不进 capability map。
+// ErrHidden —— VisitorBinding returns this sentinel to mean the capability is
+// not exposed to this session (a clean path, distinct from a "real error").
+// The registry silently skips it; VisitorStates skips it too, leaving it out of
+// the capability map.
 var ErrHidden = errors.New("capreg: capability hidden from session")
 
-// ErrQuotaExhausted —— 隐藏的**一个具体理由**:这个主体的用量到顶了。
+// ErrQuotaExhausted —— **one specific reason** for being hidden: this subject's
+// usage has hit its limit.
 //
-// 它**包着** ErrHidden,所以每一处 `errors.Is(err, ErrHidden)` 的行为一个字都不变(聊天面上
-// 藏起来仍然是对的:别让模型看见一把用不了的工具)。多出来的只是「问得出为什么」——
-// 而这正是 HTTP 那一面欠调用方的:「你这把 key 从来没这个能力」和「你的额度用完了」
-// 该做的事完全不同,不能是同一句话(F-B-11)。
+// It **wraps** ErrHidden, so every `errors.Is(err, ErrHidden)` check keeps
+// behaving exactly the same (staying hidden on the chat face is still correct:
+// don't let the model see a tool it can't use). The only new thing is being able
+// to ask why — which is exactly what the HTTP face owed its callers: "your key
+// never had this capability" and "your quota ran out" call for different
+// actions, and they can't be the same message (F-B-11).
 var ErrQuotaExhausted = fmt.Errorf("%w: usage quota exhausted", ErrHidden)
 
-// AssembleInput —— 装配一次 visitor session 时的上下文。Capability 自身
-// 持有 deps (闭包)，只接收 per-session 字段。
+// AssembleInput —— the context for assembling one visitor session. A
+// Capability holds its own deps (closure-style) and receives only per-session
+// fields.
 //
-// 同路径：dev endpoint 跟 real SendMessage 走同一 AssembleVisitor（cap 实现
-// 内部不能按 caller 是 test 还是 prod 分支 —— 违反 [[feedback-always-clean]]
-// 同路径原则）。capability 有 "shape-only" 需求时（ext-mcp 不想 dial 来取
-// tool name），应该在 register 时把 shape 缓存好。
+// Same path: the dev endpoint and a real SendMessage go through the same
+// AssembleVisitor (a cap implementation must never branch internally on
+// whether the caller is test or prod — that would violate the
+// [[feedback-always-clean]] same-path principle). When a capability has a
+// "shape-only" need (ext-mcp doesn't want to dial just to get its tool name),
+// it should cache the shape at register time instead.
 //
-// ConversationID 在 dev endpoint introspection 时为空（无对话上下文）；
-// real SendMessage 时为当前消息所在 conv。
+// ConversationID is empty during dev-endpoint introspection (no conversation
+// context); on a real SendMessage it's the conversation the current message
+// belongs to.
 type AssembleInput struct {
 	RoleSnapshot *access.RoleSnapshot
 	OwnerID      string
 	Mode         string
-	// Subject —— 这一场会话**以谁的身份**在跑。凡是「每个主体多少次」的规则(能力配额)都挂在
-	// 它上面。以前这里只有 `CodeID`,于是对外 API key 那条路上没有主体可数 —— 一把 key 订会
-	// 一次都不闸(F-B-11)。**主体是参数,不是两套代码**(同 capconfig/scope.go 那句话)。
+	// Subject —— **whose identity** this session runs as. Every "N times per
+	// subject" rule (capability quota) hangs off this. This field used to hold
+	// only `CodeID`, so the external API-key path had no subject to count
+	// against — one key could book meetings with zero gating (F-B-11).
+	// **The subject is a parameter, not two codepaths** (same principle as
+	// capconfig/scope.go).
 	Subject        Subject
 	Visitor        access.VisitorProfile
 	ConversationID string
 }
 
-// BindingTool 定义挪到 binding_tool.go (H.8: 走 eino tool.InvokableTool
-// canonical 接口)。Capability 可暴露多个 tool (如 corpus.retrieval 暴
-// 露 search/read/list 三个)，共享同一 CapabilityState (per-capability
-// 状态比 per-tool 自然)。
+// The BindingTool definition moved to binding_tool.go (H.8: it now goes through
+// eino's tool.InvokableTool canonical interface). A Capability can expose
+// several tools (e.g. corpus.retrieval exposes search/read/list), sharing one
+// CapabilityState (per-capability state is more natural than per-tool).
 
-// Binding —— visitor 侧某 capability 在一次 session 中的实例化。
+// Binding —— the instantiation of a visitor-side capability within one session.
 //
-// nil（VisitorBinding 返 nil）= capability 不暴露给本 session（比如
-// calendar 未装、role 没含 skill）。registry 装配时 nil binding 完全
-// 不出现在 tool spec 与 capability map 里。
+// nil (VisitorBinding returns nil) means the capability is not exposed to this
+// session (e.g. calendar isn't installed, the role's skill doesn't include it).
+// When the registry assembles, a nil binding never shows up in the tool spec or
+// the capability map at all.
 //
-// Close 可选；持外部资源（ext MCP 长连接等）的 binding 在 session
-// 结束时由 registry 统一调用。无资源就 nil。
+// Close is optional; a binding holding an external resource (a long-lived ext
+// MCP connection etc.) has it called uniformly by the registry when the session
+// ends. No resource → nil.
 //
-// （旧 Cited 字段已删：citation 早就由 inference 的 accumSink 从 corpus_read 结果
-// {id,genre} 自行累计，跟能力解耦；retrieval 外置后该字段成死代码，随之删除。）
+// (The old Cited field was removed: citation has long been self-accumulated by
+// inference's accumSink from corpus_read results {id,genre}, decoupled from the
+// capability; once retrieval was externalized this field became dead code and
+// was deleted along with it.)
 type Binding struct {
 	Close func()
-	// ClaimGate —— 这个能力声明的「说了就得做」条件(F-A-37,见 claimgate.go)。跟 ProgressLabel /
-	// ReturnDirectly 一样,是声明数据搭着装配结果往上走;nil = 这个能力不闸主张。
+	// ClaimGate —— the "if it says so, it must do so" condition this capability
+	// declares (F-A-37, see claimgate.go). Like ProgressLabel / ReturnDirectly,
+	// it's declarative data that rides along with the assembly result; nil means
+	// this capability gates no claims.
 	ClaimGate *ClaimGate
 	Tools     []BindingTool
 	State     CapabilityState
 }
 
-// CapabilityState —— pi-pivot 用：一次 session 颁发时回前端 zustand。
-// QuotaRemaining / PolicySummary 是 self-describing，让 LLM 与 UI 都能
-// 同源读。Extra 留 capability 自由发挥（policy details / connector status
-// 等结构化数据），但保持可序列化。
+// CapabilityState —— used by pi-pivot: returned to the frontend zustand store
+// when a session is issued. QuotaRemaining / PolicySummary are self-describing,
+// so both the LLM and the UI can read them from the same source. Extra is free
+// for the capability to use (policy details / connector status and other
+// structured data), but must stay serializable.
 type CapabilityState struct {
 	QuotaRemaining *int32 `json:"quota_remaining,omitempty"`
 	ID             string `json:"id"`
-	// Title —— 人类可读显示名，透传 MCP 工具的 title（#109/#110 dock 按钮 label 用）。
-	// 无 fallback：能力没实现 Titled 就空，那它不够格当 dock 按钮 label。
+	// Title —— a human-readable display name, passed through from the MCP
+	// tool's title (used by the #109/#110 dock button label). No fallback: if a
+	// capability doesn't implement Titled it's empty, meaning it isn't fit to
+	// be a dock button label.
 	Title         string          `json:"title,omitempty"`
 	PolicySummary string          `json:"policy_summary,omitempty"`
 	Extra         json.RawMessage `json:"extra,omitempty"`
 	Enabled       bool            `json:"enabled"`
 }
 
-// Capability —— 一个能力的统一注册口。三处消费方都通过它读。
+// Capability —— the unified registration point for one capability. All three
+// consumers read through it.
 //
-// VisitorBinding 返 (nil, ErrHidden) 表示该 session 不暴露本 capability
-// (calendar 未装 / role 没含 skill / ext server 不可达等)；区别于
-// (nil, realErr) 真错。registry 装配时 ErrHidden silently skip。
+// VisitorBinding returning (nil, ErrHidden) means this session doesn't expose
+// this capability (calendar not installed / role's skill doesn't include it /
+// ext server unreachable, etc.); distinct from (nil, realErr), a true error.
+// When the registry assembles, ErrHidden is silently skipped.
 //
-// OwnerMCPBindings 返 0+ MCPBinding —— 一个 capability 可暴露多 owner MCP
-// tool (例 seo.bundle 暴露 seo.set_wiki_slug + seo.update_settings)；
-// 无返空 slice 表示该 capability 不暴露 owner MCP 面。
+// OwnerMCPBindings returns 0+ MCPBinding — one capability can expose several
+// owner MCP tools (e.g. seo.bundle exposes seo.set_wiki_slug +
+// seo.update_settings); returning an empty slice means this capability exposes
+// no owner MCP face.
 //
-// SystemPromptFragmentID (D-2 加) —— 若 capability 当前 session 贡献一段
-// 来自 prompts/ 的 fragment，返 fragment id (相对路径无后缀，e.g.
-// "capabilities/corpus.retrieval")，否则返 ""。空判定逻辑必须跟
-// SystemPromptFragment 的"返非空文本"判定同步 —— 让前端 part_ids 跟
-// 后端 ComposeSystemPrompt 的实际拼接结果一一对应。
+// SystemPromptFragmentID (added at D-2) — if the capability contributes a
+// fragment from prompts/ to the current session, returns the fragment id (a
+// relative path with no extension, e.g. "capabilities/corpus.retrieval"),
+// otherwise returns "". The emptiness test here must stay in sync with
+// SystemPromptFragment's "returns non-empty text" test — so the frontend's
+// part_ids line up one-to-one with what ComposeSystemPrompt actually splices
+// together on the backend.
 type Capability interface {
 	ID() string
 	Shape() Shape

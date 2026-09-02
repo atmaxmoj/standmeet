@@ -1,10 +1,12 @@
-// Package marketplace —— 市场域(角色可挂载的 MCP server + skill)的对外 facade。薄薄一层,
-// 把内部子包的类型/构造/用例抬上来;别的层只 import 这个 facade 包。实现是同域兄弟子包
-// internal/marketplace/{entity,repo,usecase,db},由 check-domain-facade-boundary 挡住外部直引。
+// Package marketplace -- external facade for the marketplace domain (MCP servers + skills
+// a role can mount). A thin layer: it lifts types/constructors/usecases from internal
+// sibling packages so other layers only import this facade package. The implementation
+// lives in sibling packages internal/marketplace/{entity,repo,usecase,db}; direct outside
+// imports of those are blocked by check-domain-facade-boundary.
 //
-// # 对外协议
+// # External contract
 //
-//   - 实体(entity): Skill / MCPServerConfig / MarketSkill(+ Source/Content)· Err* 域错误
-//   - 仓储(repo): SkillRepo / MCPServerRepo + Create* 入参
-//   - 用例(usecase): skill / mcp-server 的 CRUD + seed + 市场拉取(github / skills.mp 客户端)
+//   - entity: Skill / MCPServerConfig / MarketSkill (+ Source/Content); Err* domain errors
+//   - repo: SkillRepo / MCPServerRepo + Create* input types
+//   - usecase: skill / mcp-server CRUD + seed + marketplace fetch (github / skills.mp clients)
 package marketplace

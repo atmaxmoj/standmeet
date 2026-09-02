@@ -1,8 +1,10 @@
-// role_dock_buttons_test.go —— #109/#110 dock 按钮的 domain 不变量：
-//   - 一个 role 最多两个 dock 按钮（chat 两个位）
-//   - 每个按钮的触发词非空（点了没触发词的按钮没意义）
-//   - entity.RoleSnapshot 冻下 dock 按钮配置（session 起那刻拍死，owner 后改不影响在跑 session）
-// title 解析 + code-deny 过滤在会话装配层，不在这（domain 只管纯配置不变量）。
+// role_dock_buttons_test.go — #109/#110 domain invariants for dock buttons:
+//   - a role has at most two dock buttons (chat has two slots)
+//   - every button's trigger is non-empty (a button with no trigger does nothing when clicked)
+//   - entity.RoleSnapshot freezes the dock button config (fixed at session start, an owner's
+//     later edit does not affect a running session)
+// Title resolution + code-deny filtering happen at the session assembly layer, not here
+// (the domain only owns the pure config invariants).
 
 package entity_test
 

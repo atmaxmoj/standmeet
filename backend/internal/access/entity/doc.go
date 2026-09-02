@@ -1,3 +1,4 @@
-// Package entity —— access 域的值对象/实体 + 域错误 sentinel（Code/Role/CorpusScope/Waypoint …）。
-// 纯 leaf，无 internal 依赖。对外经 internal/access/facade 暴露。
+// Package entity — value objects / entities + domain error sentinels for the access domain
+// (Code/Role/CorpusScope/Waypoint ...). Pure leaf, no internal dependencies. Exposed
+// externally through internal/access/facade.
 package entity

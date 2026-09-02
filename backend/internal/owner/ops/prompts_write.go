@@ -1,5 +1,5 @@
-// prompts_write.go —— 建 / 改一条 prompt。回包形状跟读的那份是同一个,只差调哪个用例、
-// 怎么校验必填。
+// prompts_write.go —— create / update one prompt. The reply shape is the same as the read
+// side; only which use case gets called and how required fields are validated differ.
 
 package ops
 
@@ -59,7 +59,7 @@ func parsePromptWrite(raw json.RawMessage) (promptWriteArgs, error) {
 	return in, fp.RequireArgs([2]string{"name", in.Name}, [2]string{"body", in.Body})
 }
 
-// parsePromptUpdateArgs —— 跟建一条一样,外加必填的 prompt_id。
+// parsePromptUpdateArgs —— same as creating one, plus a required prompt_id.
 func parsePromptUpdateArgs(raw json.RawMessage) (promptWriteArgs, error) {
 	in, err := parsePromptWrite(raw)
 	if err != nil {

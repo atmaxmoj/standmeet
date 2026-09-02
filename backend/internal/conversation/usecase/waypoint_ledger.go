@@ -1,10 +1,15 @@
-// waypoint_ledger.go —— ghost-steering P2: WaypointLedger 的机械化 visited 标记(α≈0,无 LLM 判官)。
+// waypoint_ledger.go —— ghost-steering P2: WaypointLedger's mechanical visited marking
+// (α≈0, no LLM judge).
 //
-// 一轮收尾调:本轮 assistant 的引用(cited note id)解析成 URI,命中冻结 waypoint 的 evidence_refs
-// → 标 visited;终点能力(如约成)命中 → 标 terminal waypoint visited。ledger 挂 redis visitor_session
-// (VisitedWaypoints)。变了才存盘;best-effort —— 失败只 warn,绝不压这轮答复。
+// Called at the end of each turn: this turn's assistant citations (cited note id) are
+// resolved into URIs, and a match against a frozen waypoint's evidence_refs → marks it
+// visited; a hit on a terminal capability (e.g. a booking closed) → marks the terminal
+// waypoint visited. The ledger lives on redis visitor_session (VisitedWaypoints). Only
+// saves when something changed; best-effort —— a failure only warns, never blocks this
+// turn's reply.
 //
-// id→URI 解析复用 crawl-face 的 corpus.SyncNotePath/corpus.DBParentOf(与检索 ACL 同口径,URI 一致)。
+// id→URI resolution reuses crawl-face's corpus.SyncNotePath/corpus.DBParentOf (same
+// convention as the retrieval ACL, URIs match up).
 
 package usecase
 
@@ -17,33 +22,36 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
-// WaypointLedgerDeps —— cited id → URI 解析(VaultSync)+ session 存盘。
+// WaypointLedgerDeps —— cited id → URI resolution (VaultSync) + session persistence.
 type WaypointLedgerDeps struct {
 	Notes    *corpus.VaultSyncRepo
 	Sessions *access.VisitorSessionStore
 	Log      *slog.Logger
 }
 
-// WaypointLedger —— 可注入的 ledger marker,闭住 postgres note repo + session store。
-// composition root 建一个喂 public Handlers —— route 层不碰 postgres(守 arch:publicroutes 不依赖
-// postgres)。route 每轮把本轮引用/终点命中交给 Mark。
+// WaypointLedger —— an injectable ledger marker that closes over the postgres note
+// repo + session store. The composition root builds one and feeds it to public
+// Handlers —— the route layer never touches postgres (keeps the architecture rule that
+// publicroutes doesn't depend on postgres). Each turn, the route hands this turn's
+// citations/terminal hits to Mark.
 type WaypointLedger struct {
 	deps *WaypointLedgerDeps
 }
 
-// NewWaypointLedger —— composition root 用。
+// NewWaypointLedger —— for use by the composition root.
 func NewWaypointLedger(
 	notes *corpus.VaultSyncRepo, sessions *access.VisitorSessionStore, log *slog.Logger,
 ) *WaypointLedger {
 	return &WaypointLedger{deps: &WaypointLedgerDeps{Notes: notes, Sessions: sessions, Log: log}}
 }
 
-// Mark —— 一轮收尾标 visited(委托 MarkWaypointsVisited)。
+// Mark —— marks visited at the end of a turn (delegates to MarkWaypointsVisited).
 func (l *WaypointLedger) Mark(ctx context.Context, in *MarkWaypointsInput) {
 	MarkWaypointsVisited(ctx, l.deps, in)
 }
 
-// MarkWaypointsInput —— 一轮的 ledger 输入。Data 传值(本地改 VisitedWaypoints 再存回)。
+// MarkWaypointsInput —— one turn's ledger input. Data is passed by value (mutated
+// locally, VisitedWaypoints updated, then saved back).
 type MarkWaypointsInput struct {
 	Token        string
 	CitedNoteIDs []string
@@ -51,7 +59,8 @@ type MarkWaypointsInput struct {
 	TerminalOK   bool
 }
 
-// MarkWaypointsVisited —— 见文件头。命中即标,变了才存盘。
+// MarkWaypointsVisited —— see file header. Marks on any hit, saves only if something
+// changed.
 func MarkWaypointsVisited(ctx context.Context, deps *WaypointLedgerDeps, in *MarkWaypointsInput) {
 	waypoints, ok := ledgerWaypoints(in)
 	if !ok {
@@ -68,7 +77,8 @@ func MarkWaypointsVisited(ctx context.Context, deps *WaypointLedgerDeps, in *Mar
 	}
 }
 
-// ledgerWaypoints —— 有 RoleSnapshot 且冻了 waypoints 才走 ledger（否则 ok=false，caller 跳过）。
+// ledgerWaypoints —— only proceeds through the ledger when there's a RoleSnapshot with
+// frozen waypoints (otherwise ok=false, the caller skips it).
 func ledgerWaypoints(in *MarkWaypointsInput) ([]access.Waypoint, bool) {
 	if in.Data.RoleSnapshot == nil {
 		return []access.Waypoint{}, false
@@ -77,8 +87,9 @@ func ledgerWaypoints(in *MarkWaypointsInput) ([]access.Waypoint, bool) {
 	return wps, len(wps) > 0
 }
 
-// markAll —— 引用命中 evidence_refs + 终点命中 → 标 visited。返 changed。
-// in 提供 TerminalOK（走结构体不走裸 bool flag，避 control-coupling）。
+// markAll —— citation hits on evidence_refs + terminal hits → marks visited. Returns
+// changed. TerminalOK comes from `in` (passed via a struct, not a bare bool flag, to
+// avoid control-coupling).
 func markAll(
 	in *MarkWaypointsInput, waypoints []access.Waypoint, cited []string, visited *stringSet,
 ) bool {
@@ -89,8 +100,9 @@ func markAll(
 	return changed
 }
 
-// resolveURIs —— cited note id → genre://path URI(GetSyncNote + corpus.SyncNotePath,与检索 ACL 同口径）。
-// 解析不到的 id 跳过(best-effort)。
+// resolveURIs —— cited note id → genre://path URI (GetSyncNote + corpus.SyncNotePath,
+// same convention as the retrieval ACL). Ids that don't resolve are skipped
+// (best-effort).
 func (d *WaypointLedgerDeps) resolveURIs(
 	ctx context.Context, ownerID string, ids []string,
 ) []string {
@@ -142,7 +154,8 @@ func anyRefIn(refs, cited []string) bool {
 	return false
 }
 
-// stringSet —— 小集合,dedup 加入 + 有序输出(存盘稳定,守 session JSON 无谓 diff）。
+// stringSet —— a small set with dedup-on-add + sorted output (stable persistence,
+// avoids gratuitous diffs in the session JSON).
 type stringSet struct{ m map[string]bool }
 
 func newStringSet(init []string) *stringSet {

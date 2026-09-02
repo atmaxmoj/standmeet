@@ -1,14 +1,20 @@
-// settings.go —— owner 的推理设置。两块合在一起,因为它们回**同一份载荷**:
+// settings.go —— the owner's inference settings. The two halves are combined here because
+// they return **the same payload**:
 //
-//	ai      owner 自己的推理 provider(endpoint / model / 有没有配 key)
-//	byoai   没有邀请码的访客自带 key 时,允许用哪些 provider、页面上写什么
+//	ai      the owner's own inference provider (endpoint / model / whether a key is set)
+//	byoai   which providers are allowed and what the public blurb says, when an uninvited
+//	        visitor brings their own key
 //
-// 分开会留下两份"设置长什么样",而它们本来就是一个信封的两半。迁移时发现过一处**同一个面
-// 内部**的不一致:GET /me 回的 ai 里有 endpoint 和 model,PUT /byoai、PATCH /ai-provider
-// 回的那份没有 —— 前端拿响应换缓存,这两个字段就被抹空。现在只有一处构造。
+// Splitting them would leave two copies of "what settings look like", when they're really
+// two halves of one envelope. During migration a **within-one-face** inconsistency turned
+// up: the ai object GET /me returns has endpoint and model, but the ones PUT /byoai and
+// PATCH /ai-provider return don't — the frontend swapping the response into its cache blanks
+// both fields. Now there's a single constructor.
 //
-// key 只进不出:域收明文、落盘前加密,回来的结构里只有"配没配"这个布尔 —— 出站类型压根
-// 没有 key 字段,所以任何一个面都无从泄露它。写 ai 带**明文 key**,所以那一条写明只在面板。
+// The key goes in, never comes out: the domain accepts plaintext, encrypts it before it's
+// written to disk, and the structure that comes back has only the boolean "is one set" —
+// the outbound type simply has no key field, so no face can leak it. Writing ai carries a
+// **plaintext key**, so that op is spelled out as panel-only.
 
 package ops
 
@@ -23,17 +29,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
-// SettingsDeps —— 这一组要的依赖。
+// SettingsDeps —— the dependencies this group needs.
 //
-// Presets 由组装根填(那份表在 inference 包里,而 inference 反过来依赖 owner —— 域直接
-// import 它会成环)。域里另一处也用同样的手法:ProviderValidator 是个窄口,不是 import。
+// Presets is filled in by the assembly root (the table lives in the inference package, and
+// inference in turn depends on owner — the domain importing it directly would create a
+// cycle). Another spot in the domain uses the same trick: ProviderValidator is a narrow
+// port, not an import.
 type SettingsDeps struct {
 	BYOAI   usecase.BYOAIDeps
 	AI      usecase.AIProviderDeps
 	Presets []AIPreset
 }
 
-// AIPreset —— 一个内建 provider 预设。
+// AIPreset —— one built-in provider preset.
 type AIPreset struct {
 	Name      string `json:"name"`
 	Label     string `json:"label"`
@@ -97,7 +105,8 @@ var (
 	}`)
 )
 
-// settingsOut —— 出站形状。两个写操作回同一份;GET /me 里嵌的也是它。
+// settingsOut —— outbound shape. Both write ops return this; it's also what's embedded in
+// GET /me.
 type settingsOut struct {
 	AI    aiSettingsOut    `json:"ai"`
 	BYOAI byoaiSettingsOut `json:"byoai"`
@@ -116,7 +125,8 @@ type byoaiSettingsOut struct {
 	Enabled     bool     `json:"enabled"`
 }
 
-// SettingsOut —— 给同域别处(me)复用同一份构造,避免第二份"设置长什么样"。
+// SettingsOut —— lets elsewhere in the same domain (me) reuse this one constructor, so a
+// second copy of "what settings look like" never appears.
 func settingsPayload(s *entity.Settings) settingsOut {
 	providers := s.BYOAI.Providers
 	if providers == nil {
@@ -185,7 +195,8 @@ func setAIProvider(deps usecase.AIProviderDeps) fp.Invoke {
 	}
 }
 
-// keyChangeOf —— 三态字符串 → 域的枚举。认不出的一律当 keep:少发一个字段不该变成"把 key 清了"。
+// keyChangeOf —— three-state string → the domain's enum. Anything unrecognized is treated
+// as keep: omitting a field shouldn't turn into "clear the key".
 func keyChangeOf(s string) usecase.KeyChange {
 	switch s {
 	case "set":
@@ -206,7 +217,8 @@ func listAIPresets(presets []AIPreset) fp.Invoke {
 	}
 }
 
-// settingsErr —— owner 不存在 = 这次会话指向的身份没了 → Unauthed(前端据此跳登录),不是 404。
+// settingsErr —— owner not found = the identity this session points at is gone →
+// Unauthed (the frontend redirects to login on it), not a 404.
 func settingsErr(err error) error {
 	switch {
 	case errors.Is(err, entity.ErrOwnerNotFound):

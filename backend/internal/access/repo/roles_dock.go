@@ -1,5 +1,5 @@
-// roles_dock.go —— #109/#110 role 的 dock_buttons jsonb 列 <-> []DockButtonConfig 编解码。
-// 从 roles.go 拆出守 max-lines(350)。
+// roles_dock.go —— #109/#110 encodes/decodes role's dock_buttons jsonb column <->
+// []DockButtonConfig. Split out of roles.go to respect max-lines (350).
 
 package repo
 
@@ -10,8 +10,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 )
 
-// marshalDockButtons —— []DockButtonConfig → jsonb 值（一个 bind 参数，不拼 SQL）。
-// nil/空 → "[]"（跟列的 DEFAULT 对齐，非 NULL）。
+// marshalDockButtons —— []DockButtonConfig → a jsonb value (one bind parameter,
+// no SQL string-building). nil/empty → "[]" (matches the column's DEFAULT, not NULL).
 func marshalDockButtons(buttons []entity.DockButtonConfig) ([]byte, error) {
 	if len(buttons) == 0 {
 		return []byte("[]"), nil
@@ -23,7 +23,8 @@ func marshalDockButtons(buttons []entity.DockButtonConfig) ([]byte, error) {
 	return b, nil
 }
 
-// decodeDockButtons —— jsonb 值 → []DockButtonConfig（row → domain）。空/坏 → 空切片（非 nil）。
+// decodeDockButtons —— a jsonb value → []DockButtonConfig (row → domain).
+// Empty/malformed → an empty slice (never nil).
 func decodeDockButtons(raw []byte) []entity.DockButtonConfig {
 	out := []entity.DockButtonConfig{}
 	if len(raw) == 0 {

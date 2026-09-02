@@ -1,5 +1,6 @@
-// RecoverForm —— #100 account recovery。锁在外面时输 email + recovery phrase 登回来。
-// 成功 → backend 写 session cookie → 进 /admin 改密码。业务逻辑全在 useRecoverForm hook。
+// RecoverForm — #100 account recovery. When locked out, enter email + recovery
+// phrase to sign back in. Success → backend writes a session cookie → land on
+// /admin to change the password. All business logic lives in useRecoverForm.
 
 'use client';
 
@@ -43,8 +44,9 @@ export function RecoverForm() {
   );
 }
 
-// enterAdmin —— 成功后跳进 admin 前 reset sessionStore（同 LoginForm：防前一次 unauthed 探测
-// 缓存把 AdminShell 弹回 /login 死循环）。
+// enterAdmin — reset sessionStore before routing into admin after success
+// (same as LoginForm: guards against a prior unauthed probe caching a state
+// that bounces AdminShell back to /login in a loop).
 function enterAdmin(router: AppRouterInstance): void {
   sessionStore.getState().reset();
   router.push('/admin');

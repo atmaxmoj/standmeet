@@ -1,6 +1,6 @@
-// ChatRoom —— coded / BYOAI visitor 的 focused chat layout。design 源
-// app.js ChatRoom。slim header + ChatWelcome + transcript +
-// sticky ChatComposer。
+// ChatRoom —— the focused chat layout for coded / BYOAI visitors. Design
+// source app.js ChatRoom. slim header + ChatWelcome + transcript +
+// sticky ChatComposer.
 
 'use client';
 
@@ -30,7 +30,8 @@ type Props = { owner: PublicOwnerView; mode: SessionMode };
 export function ChatRoom({ owner, mode }: Props) {
   const derived = useChatRoomDerived();
   const ci = useChatRoomInput(mode);
-  // 从首页带着问题(/gate?q= → 过闸 → /?q=)进来的:mount 时把那个问题接着问掉(不丢)。
+  // For a visitor who arrived with a question (/gate?q= → through the gate →
+  // /?q=): on mount, go ahead and ask that question (don't drop it).
   useConsumeQuestionFromURL(ci.onAsk);
   // Normal-chat behaviour: keep the transcript pinned to the bottom as messages
   // arrive + stream (dialogs is a fresh array each stream tick → fires here),
@@ -50,11 +51,14 @@ export function ChatRoom({ owner, mode }: Props) {
       <main className="flex-1 flex flex-col min-h-0">
         <div className="max-w-[760px] w-full mx-auto px-6 lg:px-0 flex-1 flex flex-col min-h-0">
           {/* scroll area: welcome + transcript scroll here; composer stays docked */}
-          {/* sm-scroll-read：右侧留出滚动条的位置。覆盖式滚动条显示期间会压掉每行
-              最后一个字符（"does a" / "should"），而这一栏是长段衬线散文（UX-71）。 */}
+          {/* sm-scroll-read: reserves space on the right for the scrollbar. An
+              overlay scrollbar, while showing, clips the last character of
+              each line ("does a" / "should"), and this column is long serif
+              prose (UX-71). */}
           <div ref={scrollRef} className="sm-scroll-read flex-1 min-h-0">
-            {/* 欢迎语和输入区读**同一个** showTry：那句「way in」指的就是它下面渲不渲 TRY。
-                各算各的话，两处迟早说不到一块去。 */}
+            {/* The welcome copy and the input area read the **same** showTry:
+                the "way in" line refers to whether TRY renders below it.
+                Computing them separately would eventually go out of sync. */}
             <ChatWelcome
               owner={owner} d={derived}
               hasDialogs={ci.chat.dialogs.length > 0}
@@ -86,10 +90,12 @@ export function ChatRoom({ owner, mode }: Props) {
 
 // ── header ──────────────────────────────────────────────────
 //
-// 这一屏原来在会话横条**上面**再摞一条整宽页眉。两条都是整宽、都是等宽小字、都各画一个
-// live dot —— 一条讲这次会话，一条讲这个站点，加起来 68px 的页眉挡在正文前面（UX-53）。
-// 站点身份和 `FULL PAGE →` 现在挂进会话横条自己的两个槽，一条横条讲完两件事，
-// 而 live dot 只剩一个（会话横条那个）。
+// This screen used to stack a full-width header **on top of** the session
+// strip. Both bars were full-width, both were small mono text, and each drew
+// its own live dot — one for this conversation, one for the site — adding
+// up to a 68px header blocking the content (UX-53). Site identity and
+// `FULL PAGE →` now hang off two slots on the session strip itself, so one
+// bar says both things, and only one live dot remains (the session strip's).
 
 function BrandMark({ handle }: { handle: string }) {
   const t = useTranslations('visitor.chatRoom');
@@ -114,9 +120,11 @@ function FullPageLink() {
 
 // ── welcome ────────────────────────────────────────────────
 
-// 空会话不画介绍语下面那条线。有 transcript 时它是「介绍语到此为止」的分隔；没有时，
-// 它跟输入区顶部那条线一起，把中间那段留白框成一个**有边框的空盒子** —— 读起来不像
-// 「这里还没有内容」，像有东西没加载出来（UX-72）。
+// An empty session doesn't draw the rule below the welcome copy. With a
+// transcript it's a "welcome copy ends here" divider; without one, it would
+// pair with the rule at the top of the input area to frame the space in
+// between as a **bordered empty box** — which reads not as "no content
+// here yet" but as "something failed to load" (UX-72).
 function ChatWelcome({ owner, d, hasDialogs, showTry }: {
   owner: PublicOwnerView; d: ReturnType<typeof useChatRoomDerived>;
   hasDialogs: boolean; showTry: boolean;
@@ -141,12 +149,17 @@ function ChatWelcome({ owner, d, hasDialogs, showTry }: {
 
 const accentTag = (c: React.ReactNode) => <span className="text-(--color-accent)">{c}</span>;
 
-// CodedWelcome —— 最后那句话必须描述**屏幕上真有的那个东西**。
+// CodedWelcome —— the closing sentence must describe **something that's
+// actually on screen**.
 //
-// 原本它无条件写着「Starters below if you need a way in.」，而 TRY 那排 chip 在有 ghost 时
-// 是收起来的（UX-35：两套建议同屏，访客分不出哪条跟刚才那轮有关）。于是最常见的情形 ——
-// 码自己带了建议问题 → 首轮就有 ghost —— 欢迎语指着一个不存在的地方，
-// 而真正的建议就躺在输入框里、且没有任何字说它可以按 Tab 拿走（UX-34 记的正是这件事）。
+// It used to say unconditionally "Starters below if you need a way in.",
+// while the row of TRY chips collapses whenever a ghost is present (UX-35:
+// two sets of suggestions on the same screen leave the visitor unable to
+// tell which one relates to the last turn). So in the most common case —
+// the code itself carries a suggested question → there's a ghost on the
+// first turn — the welcome copy pointed at something that didn't exist,
+// while the real suggestion sat right there in the input, with no text
+// saying it could be taken with Tab (which is exactly what UX-34 records).
 function CodedWelcome({ handle, visitor, codeLabel, showTry }: {
   handle: string; visitor: string | null; codeLabel: string; showTry: boolean;
 }) {
@@ -179,20 +192,26 @@ function ByoaiWelcome({ handle, provider }: { handle: string; provider: string }
 const CODED_STARTERS = ['Walk me through your background.', 'What did you actually own at your last role?', 'What’s a take you hold that most peers disagree with?'];
 const BYOAI_STARTERS = ['What are you working on right now?', 'How do you think about AI replacing engineers?'];
 
-// ComposerProps —— ChatRoom 那条 sticky 输入框的全部 prop。ghost 三件套
-// 是 H.13.d 加的；code-accessor visitor 才会收到非 null ghost。
+// ComposerProps —— all the props for ChatRoom's sticky input box. The ghost
+// trio was added by H.13.d; only a code-accessor visitor ever receives a
+// non-null ghost.
 type ComposerProps = {
   input: string; setInput: (v: string) => void; onSubmit: (q: string) => void;
   pending: boolean; exhausted: boolean;
   ghost: string | null; onAcceptGhost: (g: string) => void;
-  // handle —— 撞到上限那句话要指名道姓：额度是**这个人**发的，续也是找他。
-  // 「contact the owner」对访客来说是一个没有地址的建议。
+  // handle —— the limit-reached sentence must name the person: the quota was
+  // issued by **this person**, and asking for more means going back to them.
+  // "contact the owner" is an address-less suggestion to a visitor.
   handle: string;
 };
 
-// tryVisible —— 有 ghost 时不摆 TRY。两者都在说「你可以问什么」，但含义不同：TRY 是码带的
-// 固定 starters（冷启动的脚手架），ghost 是**刚才那一轮**生成的。上下相邻、两种排版语言，
-// 访客读到的只是"这里有一堆建议"，分不出哪条跟刚才那轮有关（UX-35）。ghost 一出现，脚手架就撤。
+// tryVisible —— don't show TRY while a ghost is present. Both are saying
+// "here's what you can ask", but they mean different things: TRY is the
+// fixed starters carried by the code (cold-start scaffolding), while ghost
+// is generated from **the turn that just happened**. Sitting right next to
+// each other in two different visual languages, the visitor just reads
+// "there's a pile of suggestions" and can't tell which relates to the last
+// turn (UX-35). Once a ghost appears, the scaffolding steps aside.
 function tryVisible(showStarters: boolean, ghost: string | null): boolean {
   return showStarters && (ghost === null || ghost === '');
 }
@@ -210,26 +229,34 @@ function ChatComposer({ showStarters, mode, ...rest }: ComposerProps & { showSta
 }
 
 function ComposerForm(p: ComposerProps) {
-  // blocked 只管 ghost：一轮在飞的时候不摆引导（那条引导是上一轮生成的，已经过时）。
-  // **它不再管输入框能不能打字** —— 见下面 disabled（F-A-42）。
+  // blocked only governs the ghost: don't show a hint while a turn is in
+  // flight (that hint was generated from the previous turn and is stale by
+  // now). **It no longer governs whether the input can be typed into** —
+  // see disabled below (F-A-42).
   const blocked = p.pending || p.exhausted;
   const ghost = pickGhost({ value: p.input, blocked, ghost: p.ghost });
-  // ghost **不进 placeholder**(F-A-25):placeholder 不换行,长一点的引导就在半句话处被裁掉,
-  // 访客读不完也就不知道自己被引向哪儿。它由 GhostText 渲成会换行的覆盖层,而 composerPlaceholder
-  // 在 ghost 在场时把 placeholder 让成空 —— 两层都画会叠字。
+  // The ghost **never goes into placeholder** (F-A-25): placeholder doesn't
+  // wrap, so a longer hint gets clipped mid-sentence and the visitor can't
+  // read it far enough to know what they're being steered toward. It's
+  // rendered instead by GhostText as a wrapping overlay layer, and
+  // composerPlaceholder blanks the placeholder whenever a ghost is present —
+  // rendering both layers would overlap text.
   const placeholder = composerPlaceholder({
     locked: p.exhausted, lockedText: 'session full', ghost, fallback: 'ask…',
   });
   const att = useComposerAttachments();
   const taRef = useRef<HTMLTextAreaElement>(null);
   useAutoGrowTextarea(taRef, p.input);
-  // sendComposed —— 投出去 + 清空附件(input 的清空在 onAsk 里)。
+  // sendComposed —— send it off + clear attachments (clearing the input
+  // happens inside onAsk).
   const sendComposed = (msg: string): void => {
     p.onSubmit(msg);
     att.clear();
   };
-  // submit —— 把输入框文字 + 已挂附件原文拼成最终消息再投。Enter 与点 button
-  // 走同一条;ready 守卫用 && 而非 if(presentation 禁 if)。
+  // submit —— assemble the final message from the input text + any attached
+  // raw text, then send it. Enter and clicking the button go through the
+  // same path; the ready guard uses && rather than if (presentation code
+  // bans if).
   const submit = (): void => {
     const msg = composeMessage(p.input, att.attachments);
     isComposerReady(msg, p.exhausted) && sendComposed(msg);
@@ -237,18 +264,29 @@ function ComposerForm(p: ComposerProps) {
   return (
     <form onSubmit={(e) => { e.preventDefault(); submit(); }} data-testid="chat-input">
       <AttachmentChips attachments={att.attachments} onRemove={att.remove} />
-      {/* 两端各归各位（UX-85）：`›` 标的是「这里开始写」，属于**第一行**；`ASK` 是「写完了按这个」，
-          属于**最后一行**。所以行盒子顶对齐（管住 caret），ASK 自己 `self-end` 沉到底。
-          原来整行是 `items-end`，于是文字一换行，caret 也被拖到了末尾。
-          行高只有一行时两种对齐看不出差别 —— 这个错要等到有人写长句才现形。 */}
+      {/* Each end stays in its own place (UX-85): `›` marks "writing starts
+          here" and belongs to the **first line**; `ASK` means "press this
+          when done" and belongs to the **last line**. So the row box aligns
+          to the top (pinning the caret), while ASK sinks to the bottom on
+          its own via `self-end`. It used to be `items-end` for the whole
+          row, so once the text wrapped, the caret got dragged down to the
+          end too. With only one line of height the two alignments look
+          identical — the bug only surfaces once someone writes a long
+          sentence. */}
       <div className="flex items-start gap-4 py-3 border-t border-b border-(--color-ink) relative">
         <span className="text-(--color-accent) font-serif shrink-0 text-[26px] leading-none pt-1">›</span>
-        {/* ghost 在场时由 GhostText 撑出这一格的高度(它会换行),textarea 浮在它上面;
-            访客一打字 pickGhost 就返回 null,textarea 回到常流,由 useAutoGrowTextarea 管高。
-            **disabled 只认 exhausted**：那是终局(placeholder 会说 session full)。「上一轮还在答」
-            不是终局 —— 访客在等答案时想到下一个问题是常态，产品必须收下(全局第 10 条：接受请求
-            并排队，不要置灰)。以前是 `disabled={blocked}`，于是一个长得完全就绪的框把打进去的字
-            全吃了，而且一吃就是 10–26 秒(F-A-42)。 */}
+        {/* While a ghost is present, GhostText sets this cell's height (it
+            wraps), with the textarea floating on top of it; the moment the
+            visitor types, pickGhost returns null and the textarea returns to
+            normal flow, with useAutoGrowTextarea managing its height.
+            **disabled only checks exhausted**: that's the terminal state
+            (placeholder will say session full). "the previous turn is still
+            answering" is not terminal — a visitor thinking of the next
+            question while waiting for an answer is the common case, and the
+            product must accept it (global rule 10: accept the request and
+            queue it, don't gray it out). It used to be
+            `disabled={blocked}`, so a box that looked perfectly ready ate
+            every keystroke, for 10–26 seconds at a stretch (F-A-42). */}
         <div className="relative flex-1 min-w-0">
           <textarea
             ref={taRef} rows={1} value={p.input}
@@ -273,11 +311,15 @@ function ComposerForm(p: ComposerProps) {
   );
 }
 
-// LimitLine —— 撞到上限时**说清楚是哪个上限、以及接下来找谁**。
+// LimitLine —— when a limit is hit, **say clearly which limit it is, and
+// who to talk to next**.
 //
-// 输入框右边那个 `session full` 是个标签位（等宽小写、一行放得下才行），它说得出「停了」，
-// 说不出「为什么停」和「怎么办」。一个访客读完它只知道自己被挡住了 —— 而这条码是 owner
-// 主动发出去的，续一点额度只是一句话的事。所以句子放在框下面，标签留在框边上。
+// The `session full` label to the right of the input is a tag slot (mono,
+// lowercase, must fit on one line) — it can say "stopped" but not "why it
+// stopped" or "what to do about it". A visitor who reads only that knows
+// they're blocked and nothing else — while this code was issued by the
+// owner on purpose, and extending the quota is a one-sentence ask. So the
+// full sentence goes below the box; the tag stays on the box's edge.
 function LimitLine({ exhausted, handle }: { exhausted: boolean; handle: string }) {
   const t = useTranslations('visitor.chatRoom');
   return exhausted ? (
@@ -290,8 +332,10 @@ function LimitLine({ exhausted, handle }: { exhausted: boolean; handle: string }
   ) : null;
 }
 
-// ghostClass —— ghost 在场时 textarea 绝对定位盖在 GhostText 上(高度由 ghost 决定),
-// 否则回到常流自己撑高。排版两条路必须完全一致,不然接受 ghost 的一瞬文字会跳。
+// ghostClass —— while a ghost is present, the textarea is absolutely
+// positioned over GhostText (which determines the height); otherwise it
+// returns to normal flow and grows its own height. The two typography paths
+// must match exactly, or text jumps at the instant a ghost is accepted.
 const composerTypography = 'bg-transparent text-(--color-ink) placeholder:text-(--color-faint) '
   + 'font-serif text-[22px] leading-[1.4] font-[380] disabled:opacity-60 resize-none';
 
@@ -301,8 +345,10 @@ function ghostClass(ghost: string | null): string {
     : `absolute inset-0 w-full h-full ${composerTypography}`;
 }
 
-// isComposerReady —— 能不能投出去。**pending 不在判据里**（F-A-42）：上一轮在飞时投出的
-// 那一问由 `useChat` 排队并当场进逐字稿，不再被静默丢掉。`exhausted` 仍然挡，因为那是终局。
+// isComposerReady —— whether it can be sent. **pending is not in the
+// criteria** (F-A-42): a question sent while the previous turn is in flight
+// is queued by `useChat` and lands in the transcript right away, no longer
+// silently dropped. `exhausted` still blocks, because that's terminal.
 function isComposerReady(msg: string, exhausted: boolean): boolean {
   return msg.trim() !== '' && !exhausted;
 }
@@ -312,8 +358,10 @@ function ComposerAction({ exhausted }: { exhausted: boolean }) {
   return exhausted ? (
     <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-accent) shrink-0 self-end pb-1">{t('sessionFull')}</span>
   ) : (
-    // 上一轮在飞时**不置灰**：按下去那一问会排队并当场进逐字稿，所以它照旧是「问」
-    // （F-A-42）。置灰只留给 session full 那一支，在上面那个分支里。
+    // **Not grayed out** while the previous turn is in flight: pressing it
+    // queues the question and it lands in the transcript right away, so it
+    // stays "Ask" (F-A-42). Graying out is reserved for the session-full
+    // branch above.
     <button type="submit"
       className="mono text-[11.5px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) transition-colors shrink-0 self-end pb-1">
       {t.rich('ask', { big: (c) => <span className="text-[14px]">{c}</span> })}
@@ -348,8 +396,10 @@ function StarterChip({ q, last, onPick, pending }: { q: string; last: boolean; o
 }
 
 // ── dock buttons (#109/#110) ─────────────────────────────────
-// owner 在 role 上配的 ≤2 个快捷按钮。点击 = 把 owner 写的「触发词」当访客消息发出（跟打字、
-// 跟 owner 在自己 UI 里呼唤同一条路，按钮只是快捷方式）。能力被 ACL 关掉 → 置灰。
+// ≤2 shortcut buttons the owner configures on a role. Clicking = send the
+// owner-written "trigger phrase" as a visitor message (the same path as
+// typing, the same path the owner uses to invoke it in their own UI — the
+// button is just a shortcut). ACL disables the capability → grayed out.
 
 function DockButtons({ onPick, pending }: { onPick: (q: string) => void; pending: boolean }) {
   const buttons = useDockButtonsStore((s) => s.buttons);
@@ -397,7 +447,8 @@ function DockButton({
   );
 }
 
-// capState —— 从 capability store 取某能力的可用/禁用理由。找不到（该 session 没这能力）→ 禁用。
+// capState —— read a capability's enabled/disabled reason from the
+// capability store. Not found (this session lacks the capability) → disabled.
 function capState(
   caps: readonly { id: string; enabled: boolean; policy_summary?: string }[],
   id: string,

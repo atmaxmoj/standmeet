@@ -44,8 +44,10 @@ func (g driverSkillGetter) ListSkillsForRole(
 }
 
 // driverMCPGetter —— MCPServerGetter returning the Driver's one ext-mcp server config.
-// eval 侧的认证头本来就是明文(Driver 自己配的),所以这里直接给 DialableMCPServer ——
-// 跟 prod 一样:装配那侧只接"能拨的样子",开封发生在实现这个端口的地方。
+// On the eval side the auth header is plaintext to begin with (the Driver
+// configures it itself), so this hands over a DialableMCPServer directly —
+// same as prod: the assembly side only accepts "something dialable"; unsealing
+// happens wherever this port is implemented.
 type driverMCPGetter struct {
 	cfg *marketplace.DialableMCPServer
 }

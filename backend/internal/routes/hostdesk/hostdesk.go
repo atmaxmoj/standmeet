@@ -1,18 +1,24 @@
-// Package hostdesk —— 入站收口:沙箱里的能力回头问宿主要东西,只能从这儿要。
+// Package hostdesk — the inbound convergence point: a capability inside the sandbox that
+// needs something back from the host can only ask for it here.
 //
-// 它是出站收口(internal/routes/dispatcher)的镜像:
+// It mirrors the outbound convergence point (internal/routes/dispatcher):
 //
-//	出站  域声明 Op    → facade 再导出 → dispatcher.Collect → 各个面投影
-//	入站  域声明 HostOp → facade 再导出 → hostdesk.Collect   → 各能力的 socket 投影
+//	outbound domain declares Op     → facade re-exports → dispatcher.Collect → per face
+//	inbound  domain declares HostOp → facade re-exports → hostdesk.Collect → per-cap socket
 //
-// 为什么要有这么个地方:能力断了网,只有一根 unix socket 通向宿主。在这之前,**每个能力
-// 自己站一个 socket、自己往上挂动词**,于是"沙箱能问宿主要什么"这个问题没有答案 ——
-// 要读四个手写的接线函数才拼得出来,而且谁都能再挂一个新动词。
+// Why this place exists: a capability has no network of its own, only one unix socket toward
+// the host. Before this, **each capability stood up its own socket and hung its own verbs on
+// it**, so the question "what can the sandbox ask the host for" had no answer — you had to
+// read four hand-wired wiring functions to piece it together, and anyone could hang a new verb
+// on it.
 //
-// 现在这份清单就是那个答案。能力在自己的 manifest 里按名字点单(Transport.Sandbox.HostOps),
-// 宿主按声明发;点了这儿没有的名字 → **启动就炸**,不会等到 owner 点下去才发现。
+// Now this list is that answer. A capability orders by name in its own manifest
+// (Transport.Sandbox.HostOps); the host serves by declaration. Ordering a name that isn't
+// here → **the process blows up at startup**, instead of surfacing only once the owner clicks
+// something.
 //
-// 收口自己不实现任何东西:它 import 各域的正门和两根轴自己的机制,把声明汇起来。
+// The convergence point implements nothing itself: it imports each domain's front door plus
+// the two axes' own mechanisms, and gathers the declarations together.
 package hostdesk
 
 import (
@@ -30,13 +36,16 @@ import (
 	connectorroutes "github.com/atmaxmoj/standmeet/internal/routes/connector"
 )
 
-// SocketDir —— 每个能力的 socket 落在这儿(路径规则在 hostop,装载器照同一条算)。
+// SocketDir — where every capability's socket lands (the path rule lives in hostop; the
+// loader computes the same one).
 const SocketDir = hostop.SocketDir
 
-// Deps —— 各域声明 host op 时要的依赖包,由组装根填。
+// Deps — the dependency bundle each domain needs to declare its host ops; the assembly root
+// fills it in.
 //
-// PerCapability 那两样(自己的存储、自己的配置)在**每个能力**上都不一样(构造期就绑死到
-// 它的命名空间),所以不在这儿,由 Collect 的调用方按能力给。
+// The two things in PerCapability (its own store, its own config) differ per **capability**
+// (bound to its own namespace at construction time), so they don't live here — Collect's
+// caller supplies them per capability.
 type Deps struct {
 	Conversation conversation.OpsHost
 	Corpus       *corpus.IndexDeps
@@ -44,19 +53,24 @@ type Deps struct {
 	Connectors   connectorroutes.Invoker
 }
 
-// PerCapability —— 只属于某一个能力的那两样:它自己的隔离存储、它自己声明的配置。
+// PerCapability — the two things that belong to only one capability: its own isolated store,
+// its own declared config.
 //
-// 它们必须按能力构造 —— 一个能力拿到的 store 已经绑死在自己的命名空间上,所以它填不了
-// 别人的表。这不是每次请求校验出来的隔离,是构造出来的。
+// They must be constructed per capability — the store a capability gets is already bound to
+// its own namespace, so it cannot fill in anyone else's table. This isolation is built in at
+// construction time, not checked per request.
 type PerCapability struct {
 	Store  capstoreroutes.BoundStore
 	Config capconfigroutes.BoundConfig
 }
 
-// Collect —— 宿主开给沙箱的全部 host op。一个来源一行,收口只汇聚。
+// Collect — the full set of host ops the host opens to the sandbox. One line per source; the
+// convergence point only gathers.
 //
-// 某个来源这次给不出东西(这个能力没要存储、没声明配置)由**它自己**返空;收口不替各个
-// 来源记条件 —— 一旦它开始记,再加一个来源就得改这里,而那正是收口该消掉的东西。
+// When a source has nothing to give this time (this capability didn't ask for a store, didn't
+// declare config), **the source itself** returns empty; the convergence point doesn't track
+// conditions for each source — once it starts tracking, adding one more source means editing
+// this file, and that is exactly what the convergence point exists to eliminate.
 func Collect(d *Deps, per *PerCapability) []hostop.Op {
 	if per == nil {
 		per = &PerCapability{}
@@ -70,10 +84,12 @@ func Collect(d *Deps, per *PerCapability) []hostop.Op {
 	return ops
 }
 
-// Serve —— 给一个能力开它**点过名**的那些 op,socket 路径由 id 派生。
+// Serve — opens, for one capability, the ops it **ordered by name**; the socket path is
+// derived from the id.
 //
-// 点了收口没有的名字 → 错误(组装根据此在启动时炸)。少给一个名字的后果是那件事它调不到,
-// 而不是它偷偷能调 —— 默认是关的。
+// Ordering a name the convergence point doesn't have → an error (the assembly root uses this
+// to blow up at startup). Leaving out a name means that call is unreachable — never that it
+// can still be called on the sly. Default is off.
 func Serve(
 	ctx context.Context, log *slog.Logger, pluginID string, want []string, all []hostop.Op,
 ) (*capsocket.Server, error) {
@@ -82,10 +98,11 @@ func Serve(
 	})
 }
 
-// ServeAt —— 同上,但 socket 路径由调用方给。
+// ServeAt — same as above, but the caller supplies the socket path.
 //
-// 为 eval 的 mini-host 开的:那边跑在 macOS 上,没有 /run,而**挑哪几件 op** 那一步必须还是
-// 这一份 —— 词汇表和"点了没有的名字就报错"这条,不能因为换了个路径就变成第二套。
+// Built for eval's mini-host: it runs on macOS, which has no /run, but the step of **picking
+// which ops** must still be this same one — the vocabulary and the "error on an unlisted
+// name" rule cannot become a second, separate set just because the path changed.
 func ServeAt(ctx context.Context, log *slog.Logger, in *ServeInput) (*capsocket.Server, error) {
 	handlers, err := pick(in.PluginID, in.Want, in.All)
 	if err != nil {
@@ -99,7 +116,8 @@ func ServeAt(ctx context.Context, log *slog.Logger, in *ServeInput) (*capsocket.
 	return srv, nil
 }
 
-// ServeInput —— ServeAt 的入参:给谁开、开哪几件、词表是什么、socket 落在哪。
+// ServeInput — ServeAt's arguments: who to open for, which ops, what the vocabulary is, and
+// where the socket lands.
 type ServeInput struct {
 	PluginID string
 	SockPath string
@@ -107,7 +125,8 @@ type ServeInput struct {
 	All      []hostop.Op
 }
 
-// SocketPath —— 一个能力的 socket 落在哪儿。宿主派生,manifest 不写。
+// SocketPath — where one capability's socket lands. The host derives it; the manifest never
+// writes it.
 func SocketPath(pluginID string) string {
 	return hostop.SocketPath(pluginID)
 }
@@ -129,7 +148,7 @@ func pick(
 	return out, nil
 }
 
-// byOpName —— 词表按名字索引一次。
+// byOpName — indexes the vocabulary by name, once.
 func byOpName(all []hostop.Op) map[string]hostop.Invoke {
 	byName := make(map[string]hostop.Invoke, len(all))
 	for i := range all {

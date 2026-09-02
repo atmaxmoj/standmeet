@@ -1,5 +1,6 @@
-// ai_provider.go —— composition root 把 inference preset 表适配成 owner 的
-// ProviderValidator 窄口(owner 不反依赖 inference,避免 inference→owner 成环)。
+// ai_provider.go — composition root adapts the inference preset table into owner's
+// narrow ProviderValidator port (owner doesn't reverse-depend on inference, avoiding
+// an inference→owner cycle).
 
 package port
 
@@ -8,17 +9,19 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// InferenceProviders —— owner.ProviderValidator 实现:provider 名是否是已知 preset。
+// InferenceProviders — owner.ProviderValidator implementation: is the provider
+// name a known preset.
 type InferenceProviders struct{}
 
-// Known —— provider 名在 inference preset 表里即合法。
+// Known — a provider name is valid if it's in the inference preset table.
 func (InferenceProviders) Known(provider string) bool {
 	_, ok := inference.Lookup(provider)
 	return ok
 }
 
-// AiPresets —— 同一张表的另一半:owner 声明 ai_provider.presets 时要把它列出来。
-// 也走组装根搬运,理由同上(owner 不能 import inference)。
+// AiPresets — the other half of the same table: owner needs to list this when it
+// declares ai_provider.presets. Also carried through the composition root, same
+// reason as above (owner can't import inference).
 func AiPresets() []owner.AIPreset {
 	presets := inference.All()
 	out := make([]owner.AIPreset, 0, len(presets))

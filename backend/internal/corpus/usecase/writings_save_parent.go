@@ -1,6 +1,6 @@
-// writings_save_parent.go —— SaveWriting 的 parent_id 相关:落库前校验 parent
-// 合法,两段写时保住 parent 不被 body-write 误清空。从 writings_save.go 拆出守
-// max-lines。
+// writings_save_parent.go —— parent_id concerns for SaveWriting: validates the parent
+// before persisting, and keeps parent from being wiped by the body-write half of a
+// two-phase save. Split out of writings_save.go to stay under the max-lines guard.
 
 package usecase
 
@@ -12,9 +12,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 )
 
-// validateWritingParent —— parent_id 给了就必须是本 owner 的 writing(FK 只保
-// id 存在,不管 owner)。找不到 → ErrParentNotFound,不挂无效父落孤儿。空 → root。
-// 跟 wiki validateWikiParent 同口径。cycle(reparent)留给 admin reparent(#55)。
+// validateWritingParent —— if parent_id is given, it must be a writing owned by this
+// owner (the FK only guarantees the id exists, not the owner). Not found ->
+// ErrParentNotFound; a write must never attach to an invalid parent and end up
+// orphaned. Empty -> root. Same contract as wiki's validateWikiParent. Cycle checking
+// (reparent) is left to admin reparent (#55).
 func validateWritingParent(ctx context.Context, deps WritingsTxDeps, in *SaveWritingInput) error {
 	if in.ParentID == "" {
 		return nil
@@ -25,15 +27,16 @@ func validateWritingParent(ctx context.Context, deps WritingsTxDeps, in *SaveWri
 		}
 		return fmt.Errorf("validate writing parent: %w", err)
 	}
-	// reparent(update 改父):防环 —— 不能把节点挂到自己或自己的子孙下。
+	// reparent (an update changing the parent): guard against a cycle — a node must
+	// not be attached under itself or one of its own descendants.
 	if in.WritingID != "" {
 		return checkNoWritingParentCycle(ctx, deps, in.OwnerID, in.WritingID, in.ParentID)
 	}
 	return nil
 }
 
-// checkNoWritingParentCycle —— 从拟定 parent 沿 parent 链上溯,撞到 nodeID → 环。
-// 跟 wiki checkNoParentCycle 同口径。
+// checkNoWritingParentCycle —— walks up the parent chain from the proposed parent;
+// hitting nodeID means a cycle. Same contract as wiki's checkNoParentCycle.
 func checkNoWritingParentCycle(
 	ctx context.Context, deps WritingsTxDeps, ownerID, nodeID, parentID string,
 ) error {
@@ -55,9 +58,11 @@ func checkNoWritingParentCycle(
 	return nil
 }
 
-// effectiveWritingParent —— body-write 是全字段覆盖,会重写 parent_id。input 显式
-// 给了就用(create / reparent);没给则保留 shell-create / 既有行的 parent,避免
-// 普通编辑误清空(SaveWriting 两段写,a.Writing 已带 shell/既有 parent)。
+// effectiveWritingParent —— the body-write phase overwrites every field, including
+// parent_id. If input explicitly gives one, use it (create / reparent); otherwise
+// keep the parent already on the shell-create or existing row, so a plain edit
+// doesn't wipe it (SaveWriting is a two-phase write; a.Writing already carries the
+// shell's or existing row's parent).
 func effectiveWritingParent(a *writeBodyArgs) string {
 	if a.In.ParentID != "" {
 		return a.In.ParentID

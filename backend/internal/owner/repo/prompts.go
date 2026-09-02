@@ -1,7 +1,8 @@
-// prompts.go —— prompts 表 CRUD。owner-scoped persona library。
+// prompts.go —— prompts table CRUD. An owner-scoped persona library.
 //
-// 设计 [[iam-role-pivot-plan]]：public（is_builtin=true）由 SeedPublicRole
-// 在 owner claim 时 upsert 种入；删除被 repo 层挡（ErrPromptBuiltinImmutable）。
+// Design: [[iam-role-pivot-plan]]. The public one (is_builtin=true) is
+// upserted in by SeedPublicRole at owner claim time; deletion is blocked
+// by the repo layer (ErrPromptBuiltinImmutable).
 
 package repo
 
@@ -18,15 +19,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// PromptRepo —— prompts 表 CRUD。
+// PromptRepo —— prompts table CRUD.
 type PromptRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewPromptRepo 构造。
+// NewPromptRepo constructs one.
 func NewPromptRepo(pool *pgstore.Pool) *PromptRepo { return &PromptRepo{pool: pool} }
 
-// CreatePromptInput —— Create 入参。
+// CreatePromptInput —— Create's input.
 type CreatePromptInput struct {
 	OwnerID     string
 	Name        string
@@ -34,7 +35,8 @@ type CreatePromptInput struct {
 	Body        string
 }
 
-// Create 新建 prompt。name 冲突翻 ErrPromptNameTaken。
+// Create creates a new prompt. A name conflict translates to
+// ErrPromptNameTaken.
 func (r *PromptRepo) Create(ctx context.Context, in *CreatePromptInput) (entity.Prompt, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(in.OwnerID)
 	if oerr != nil {
@@ -52,7 +54,8 @@ func (r *PromptRepo) Create(ctx context.Context, in *CreatePromptInput) (entity.
 	return toDomainPrompt(&row), nil
 }
 
-// UpsertBuiltin —— SeedPublicRole 用。同 (owner_id, name) 覆盖 description / body。
+// UpsertBuiltin —— used by SeedPublicRole. Overwrites description / body
+// for the same (owner_id, name).
 func (r *PromptRepo) UpsertBuiltin(
 	ctx context.Context, ownerID, name, description, body string,
 ) (entity.Prompt, error) {
@@ -69,7 +72,8 @@ func (r *PromptRepo) UpsertBuiltin(
 	return toDomainPrompt(&row), nil
 }
 
-// ListByOwner —— admin /admin/prompts 列表 + visitor session issue 时 lookup。
+// ListByOwner —— used by the admin /admin/prompts list + looked up when a
+// visitor session is issued.
 func (r *PromptRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.Prompt, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
@@ -86,7 +90,7 @@ func (r *PromptRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.
 	return out, nil
 }
 
-// GetByID —— 单条详情；属于 owner 校验。
+// GetByID —— a single prompt's details; verifies owner ownership.
 func (r *PromptRepo) GetByID(ctx context.Context, ownerID, promptID string) (entity.Prompt, error) {
 	args, perr := parsePromptIDArgs(ownerID, promptID)
 	if perr != nil {
@@ -104,7 +108,8 @@ func (r *PromptRepo) GetByID(ctx context.Context, ownerID, promptID string) (ent
 	return toDomainPrompt(&row), nil
 }
 
-// GetByName —— SeedPublicRole 用：public prompt 先 upsert 再 get id 给 Role 引用。
+// GetByName —— used by SeedPublicRole: upsert the public prompt first,
+// then get its id for a Role to reference.
 func (r *PromptRepo) GetByName(ctx context.Context, ownerID, name string) (entity.Prompt, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
@@ -122,7 +127,7 @@ func (r *PromptRepo) GetByName(ctx context.Context, ownerID, name string) (entit
 	return toDomainPrompt(&row), nil
 }
 
-// UpdatePromptInput —— Update 入参。
+// UpdatePromptInput —— Update's input.
 type UpdatePromptInput struct {
 	OwnerID     string
 	PromptID    string
@@ -131,9 +136,10 @@ type UpdatePromptInput struct {
 	Body        string
 }
 
-// Update 改 prompt。builtin 可以改 body / description 但不可 rename —— 这层
-// 检查由 usecase 拦（usecase 调 GetByID 看 IsBuiltin + Name diff → 翻 ErrPromptBuiltinImmutable）。
-// repo 这里只翻 unique 冲突。
+// Update changes a prompt. A builtin prompt can have body / description
+// changed but not be renamed — that check is caught by usecase (usecase
+// calls GetByID, checks IsBuiltin + a Name diff → translates to
+// ErrPromptBuiltinImmutable). repo here only translates unique conflicts.
 func (r *PromptRepo) Update(ctx context.Context, in *UpdatePromptInput) (entity.Prompt, error) {
 	args, perr := parsePromptIDArgs(in.OwnerID, in.PromptID)
 	if perr != nil {
@@ -149,7 +155,8 @@ func (r *PromptRepo) Update(ctx context.Context, in *UpdatePromptInput) (entity.
 	return toDomainPrompt(&row), nil
 }
 
-// mapPromptUpdateErr —— 单独抽出来降 Update 的 cyclomatic complexity。
+// mapPromptUpdateErr —— pulled out separately to lower Update's cyclomatic
+// complexity.
 func mapPromptUpdateErr(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return entity.ErrPromptNotFound
@@ -160,8 +167,10 @@ func mapPromptUpdateErr(err error) error {
 	return fmt.Errorf("update prompt: %w", err)
 }
 
-// Delete —— 只删 non-builtin（SQL 谓词已锁）。builtin 删请求会 DELETE 0 行，
-// 这里不返 error —— usecase 层先 GetByID 看 IsBuiltin 校验，挡在 repo 之前。
+// Delete only deletes non-builtin prompts (the SQL predicate already locks
+// this). A delete request against a builtin will DELETE 0 rows, and this
+// doesn't return an error — the usecase layer already checked IsBuiltin
+// via GetByID and blocked it before reaching repo.
 func (r *PromptRepo) Delete(ctx context.Context, ownerID, promptID string) error {
 	args, perr := parsePromptIDArgs(ownerID, promptID)
 	if perr != nil {

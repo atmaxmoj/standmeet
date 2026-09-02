@@ -1,10 +1,11 @@
-// credform_test.go —— DeriveCredentialForm 对 protocol 连接器的守卫（F-C-2）。
+// credform_test.go — guard for DeriveCredentialForm against protocol connectors (F-C-2).
 //
-// 真机验证发现 GET /connectors/smtp/credential-form → 400
-// "invalid_manifest: unsupported openapi version \"\"": DeriveCredentialForm
-// 无条件跑 openapi.ParseSpec，但 protocol 连接器（smtp/caldav）根本没有 spec。
-// 结果整个内建「mail」连接器的配置表单渲染不出来。之前 e2e 全绿 —— 因为没有一条
-// spec 覆盖内建 protocol 连接器的 credential-form（都打的 openapi 连接器）。
+// Real-environment verification found GET /connectors/smtp/credential-form → 400
+// "invalid_manifest: unsupported openapi version \"\"": DeriveCredentialForm unconditionally ran
+// openapi.ParseSpec, but protocol connectors (smtp/caldav) have no spec at all. The result: the
+// built-in "mail" connector's config form couldn't render at all. e2e was all green before this —
+// because no spec covered credential-form for a built-in protocol connector (they all targeted
+// openapi connectors).
 
 package connector_test
 
@@ -15,8 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// F-C-2 —— protocol(smtp) 连接器必须能派生凭据表单（不跑 openapi 装配、不报错）。
-// 字段 key 要跟保存路径（smtpCredJSON）对上，否则表单填了也进不去连接器。
+// F-C-2 — a protocol(smtp) connector must be able to derive a credential form (no openapi
+// assembly, no error). Field keys must line up with the save path (smtpCredJSON), otherwise
+// filling in the form still can't get the values into the connector.
 func TestDeriveCredentialForm_SMTPProtocol(t *testing.T) {
 	t.Parallel()
 	form, err := connector.DeriveCredentialForm(&connector.Manifest{
@@ -30,7 +32,7 @@ func TestDeriveCredentialForm_SMTPProtocol(t *testing.T) {
 		"smtp form must expose the fields the connector reads on save")
 }
 
-// caldav 是另一个 protocol —— 同样必须出表单（url/username/password）。
+// caldav is another protocol — it must also produce a form (url/username/password).
 func TestDeriveCredentialForm_CalDAVProtocol(t *testing.T) {
 	t.Parallel()
 	form, err := connector.DeriveCredentialForm(&connector.Manifest{

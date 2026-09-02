@@ -1,8 +1,10 @@
-// page_pinnable.go —— 哪些语料条目可以被 pin 到主页。
+// page_pinnable.go — which corpus entries can be pinned to the home page.
 //
-// 规则是 pinned ⊆ published:只有已公开的 wiki 条目能上主页。这条规则本来长在面板那个
-// 候选列表的 handler 里(它自己过滤 published、自己算树路径),于是 owner 从 Claude Code
-// 问"我能 pin 什么"是问不到的 —— 那个面根本没有这件事。规则跟着 pin 走,不跟着某个面走。
+// The rule is pinned ⊆ published: only published wiki entries can go on the home page.
+// This rule used to live inside the panel's candidate-list handler (it filtered published
+// and computed tree paths itself), which meant an owner couldn't ask Claude Code "what can
+// I pin" — that surface simply had no such thing. The rule now travels with pinning
+// itself, not with any one surface.
 
 package usecase
 
@@ -13,14 +15,14 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
-// PinnableEntry —— 一个可 pin 的候选:id、标题、以及它在阅读器里的地址。
+// PinnableEntry — one pinnable candidate: id, title, and its location in the reader.
 type PinnableEntry struct {
 	ID    string
 	Title string
 	Path  string
 }
 
-// ListPinnable —— 列出可以 pin 到主页的条目(已公开的 wiki)。
+// ListPinnable — lists the entries that can be pinned to the home page (published wiki).
 func ListPinnable(
 	ctx context.Context, deps PagePinDeps, ownerID string,
 ) ([]PinnableEntry, error) {

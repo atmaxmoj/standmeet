@@ -1,10 +1,11 @@
-// markdown-callouts.ts —— Obsidian callout(`> [!type] Title` / body)的 remark transform。
+// markdown-callouts.ts — remark transform for Obsidian callouts (`> [!type] Title` / body).
 //
-// DOM 对齐 Obsidian:blockquote → `class="callout" data-callout="<type>"`,首行标题
-// 单拎成 `.callout-title` div。这样 owner 的 snippet(`.callout[data-callout="theorem"]`
-// 之类)在 vault 和 StandMeet 两侧命中同一 DOM。手写 walk(不引 unist-util-visit)。
+// DOM matches Obsidian: blockquote → `class="callout" data-callout="<type>"`, with the
+// first line's title pulled out into its own `.callout-title` div. This way the owner's
+// snippets (e.g. `.callout[data-callout="theorem"]`) hit the same DOM shape on both the
+// vault side and the StandMeet side. Hand-written walk (no unist-util-visit import).
 
-// 首行 marker:`[!type]` + 可选 fold 记号(+/-) + 可选标题。
+// First-line marker: `[!type]` + optional fold marker (+/-) + optional title.
 const CALLOUT_RE = /^\[!([\w-]+)\]([+-]?)[ \t]*([^\n]*)/;
 
 interface MdNode {
@@ -14,7 +15,7 @@ interface MdNode {
   data?: { hName?: string; hProperties?: Record<string, unknown> };
 }
 
-// remarkCallouts —— 把 `[!type]` 开头的 blockquote 变成 callout 容器。
+// remarkCallouts — turns a blockquote that starts with `[!type]` into a callout container.
 export function remarkCallouts() {
   return (tree: MdNode): void => walk(tree);
 }
@@ -43,7 +44,7 @@ function transformCallout(node: MdNode): void {
   }
   const type = m[1]!.toLowerCase();
   const title = m[3]!.trim() || capitalize(m[1]!);
-  // 从正文里剥掉 marker 行(含随后的换行)。
+  // Strip the marker line (plus the newline right after it) out of the body text.
   firstText.value = firstText.value.slice(m[0].length).replace(/^\n/, '');
   node.data = { hProperties: { className: 'callout', 'data-callout': type } };
   node.children!.unshift({

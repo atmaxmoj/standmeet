@@ -1,7 +1,10 @@
-// i18n_test.go —— 容错表一行一条,外加解析器那两个学费换来的陷阱。
+// i18n_test.go — one line per row of the tolerance table, plus the two parser traps
+// that cost real tuition to learn.
 //
-// 这些规则是**文本的纯函数**,所以它们在这里被穷尽地覆盖;e2e 那边只验四个消费方确实
-// 接到了这个函数、并且把结果露出来了 —— 十八个浏览器往返去测一张字符串矩阵没有意义。
+// These rules are **pure functions over text**, so they are covered exhaustively here;
+// the e2e side only checks that the four consumers actually call this function and
+// surface its result — eighteen browser round trips to test a string matrix would be
+// pointless.
 //
 
 package i18n
@@ -16,7 +19,7 @@ const (
 	langZH = "zh"
 )
 
-//nolint:gosmopolitan // 中文样本就是被测对象:多语笔记的另一面本来就是中文
+//nolint:gosmopolitan // Chinese sample is the tested object: the other pane of a bilingual note
 const twoPanes = `> [!i18n]
 > > [!lang] en
 > > # Title
@@ -44,7 +47,8 @@ func hasCode(ds []Diagnostic, code string) bool {
 	return false
 }
 
-// TestMinimumFormNeedsNoFrontmatter —— 契约就是嵌套 callout;frontmatter 一个字都不写也成立。
+// TestMinimumFormNeedsNoFrontmatter — the contract is the nested callout; it still
+// holds even with zero frontmatter written.
 func TestMinimumFormNeedsNoFrontmatter(t *testing.T) {
 	t.Parallel()
 	doc := Parse(twoPanes)
@@ -56,7 +60,8 @@ func TestMinimumFormNeedsNoFrontmatter(t *testing.T) {
 	}
 }
 
-// TestMonolingualNoteIsSilent —— 绝大多数笔记没有多语区块,校验在那儿一个字都不该说。
+// TestMonolingualNoteIsSilent — most notes have no multilingual block; validation
+// must have nothing at all to say there.
 func TestMonolingualNoteIsSilent(t *testing.T) {
 	t.Parallel()
 	body := "# Just a note\n\nOne language, no blocks.\n"
@@ -68,11 +73,12 @@ func TestMonolingualNoteIsSilent(t *testing.T) {
 	}
 }
 
-// TestNeutralProseSurvivesBothLanguages —— 最要紧的一条:区块外的散文是语言中性的,
-// 两种语言下都在。它是"一条笔记 ≠ N 份文档"这句话的全部内容 —— N 份文档的实现会把它复制两遍,
-// 而这条测试是唯一分得出两者的。
+// TestNeutralProseSurvivesBothLanguages — the single most important one: prose
+// outside the block is language-neutral, and appears under both languages. This is
+// the entire content of "one note ≠ N documents" — an N-documents implementation
+// would duplicate it twice, and this test is the only one that tells the two apart.
 //
-//nolint:gosmopolitan,cyclop // 同上:中文那一面是断言对象;分支是 2 语言 × 2 断言
+//nolint:gosmopolitan,cyclop // as above; Chinese pane is the target; 2 langs x 2 asserts
 func TestNeutralProseSurvivesBothLanguages(t *testing.T) {
 	t.Parallel()
 	body := "Intro prose.\n\n" + twoPanes + "\nOutro prose.\n"
@@ -92,7 +98,8 @@ func TestNeutralProseSurvivesBothLanguages(t *testing.T) {
 	}
 }
 
-// TestSeveralRegionsInOneNote —— 一条笔记里多个区块,中间夹着中性散文(真实样本的形状)。
+// TestSeveralRegionsInOneNote — multiple regions in one note, with neutral prose
+// sandwiched between them (the shape of a real sample).
 func TestSeveralRegionsInOneNote(t *testing.T) {
 	t.Parallel()
 	body := twoPanes + "\nBetween the regions.\n\n" + twoPanes
@@ -111,10 +118,11 @@ func TestSeveralRegionsInOneNote(t *testing.T) {
 	}
 }
 
-// TestButtonRowIsDropped —— Obsidian 的那排单选按钮是呈现件,不是内容:一个字符都不该出去
-// (既不当控件,也不当文字)。
+// TestButtonRowIsDropped — Obsidian's radio-button row is a presentation artifact,
+// not content: not one character of it should leak out (neither as a control nor
+// as text).
 //
-//nolint:gosmopolitan // 按钮行里的中文标签是原样样本
+//nolint:gosmopolitan // the Chinese label in the button row is a verbatim sample
 func TestButtonRowIsDropped(t *testing.T) {
 	t.Parallel()
 	body := "> [!i18n]\n" +
@@ -128,7 +136,8 @@ func TestButtonRowIsDropped(t *testing.T) {
 	}
 }
 
-// TestFenceHidesAMarker —— 围栏代码块里的 `[!i18n]` 不是区块(tikz / 教程里就长这样)。
+// TestFenceHidesAMarker — a `[!i18n]` inside a fenced code block is not a region
+// (that's exactly the shape in tikz snippets / tutorials).
 func TestFenceHidesAMarker(t *testing.T) {
 	t.Parallel()
 	body := "Example:\n\n```markdown\n> [!i18n]\n> > [!lang] en\n> > x\n```\n\nDone.\n"
@@ -140,8 +149,8 @@ func TestFenceHidesAMarker(t *testing.T) {
 	}
 }
 
-// TestNestedCalloutInsideAPaneStaysInside —— pane 里可以再套 callout(模板里就有
-// i18n > lang > tip)。深度 3 的东西不是新的 pane。
+// TestNestedCalloutInsideAPaneStaysInside — a pane can nest another callout inside it
+// (templates do have i18n > lang > tip). Something at depth 3 is not a new pane.
 func TestNestedCalloutInsideAPaneStaysInside(t *testing.T) {
 	t.Parallel()
 	body := "> [!i18n]\n> > [!lang] en\n> > # T\n> > > [!tip] Note\n> > > inner\n"
@@ -155,7 +164,7 @@ func TestNestedCalloutInsideAPaneStaysInside(t *testing.T) {
 	}
 }
 
-// —— 容错表 ——
+// — the tolerance table —
 
 func TestLangsDisagreeingWithPanesTrustsThePanes(t *testing.T) {
 	t.Parallel()
@@ -247,24 +256,25 @@ func TestLangMustHaveAPane(t *testing.T) {
 	}
 }
 
-// —— 选择与标签 ——
+// — selection and labels —
 
-//nolint:gosmopolitan // 中文那一面是样本本身
+//nolint:gosmopolitan // the Chinese pane is the sample itself
 func TestResolveFallsBackToLangNotToLangsZero(t *testing.T) {
 	t.Parallel()
 	body := "> [!i18n]\n> > [!lang] zh\n> > 中文\n>\n> > [!lang] en\n> > English\n"
 	doc := Parse(body)
-	// panes 的顺序是 zh, en;身份语言是 en。要一个不存在的语言 → 落到 en,不是 zh。
+	// pane order is zh, en; the identity language is en. Asking for a language that
+	// doesn't exist → falls back to en, not zh.
 	if got := Resolve(&doc, "de", langEN); got != langEN {
 		t.Fatalf("fallback = %q, want the identity language en", got)
 	}
-	// 连身份语言都没写 → 才轮到第一面。
+	// with no identity language written at all → only then does the first pane win.
 	if got := Resolve(&doc, "de", ""); got != langZH {
 		t.Fatalf("with no identity language the first pane wins, got %q", got)
 	}
 }
 
-//nolint:gosmopolitan // 标签规则测的就是中文写法
+//nolint:gosmopolitan // the label rule test is precisely about the Chinese spelling
 func TestLabelUsesVaultRuleThenBuiltinThenUppercase(t *testing.T) {
 	t.Parallel()
 	if got := Label(langZH, map[string]string{langZH: "简体中文"}); got != "简体中文" {
@@ -278,5 +288,6 @@ func TestLabelUsesVaultRuleThenBuiltinThenUppercase(t *testing.T) {
 	}
 }
 
-// doc —— 少写一次 Parse;取地址是因为 Render/Resolve 收指针。
+// doc — saves writing Parse one more time; takes the address because Render/Resolve
+// take pointers.
 func doc(body string) *Doc { d := Parse(body); return &d }

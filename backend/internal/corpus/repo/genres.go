@@ -1,9 +1,13 @@
-// genres.go —— corpus_notes.genre 的五个判别值的**唯一定义处**。五 genre 平级(raw / wiki /
-// output / writing / subjectivity),放一起只是同一个枚举的一处来源,彼此没有特别的分组/配对关系。
-// (之前散在 wiki.go / output.go / corpus_tree.go 三处,还误导性地把 raw+writing 凑一块。)
+// genres.go — the **single definition site** for the five discriminator values of
+// corpus_notes.genre. The five genres (raw / wiki / output / writing / subjectivity) are all
+// peers; grouping them here is only because they're one enum from one source, not because
+// any of them are specially paired or grouped with each other. (They used to be scattered
+// across wiki.go / output.go / corpus_tree.go, which also misleadingly lumped raw+writing
+// together.)
 //
-// 与 DocumentGenre 逐字对齐。subjectivity 之前不在这里 —— 这层就"少了一个 genre",
-// 于是它没有 tree、没有 admin 列表,owner 连自己的 CV 在哪都看不见(F-A-15)。
+// Aligned verbatim with DocumentGenre. subjectivity used to be missing here — this layer was
+// simply "one genre short", so it had no tree and no admin listing, and the owner couldn't
+// even see where their own CV lived (F-A-15).
 
 package repo
 
@@ -23,8 +27,9 @@ const (
 	genreSubjectivity = "subjectivity"
 )
 
-// listNoteMetaBy —— wiki/output 的 ListAllMeta 共用体：按 genre 拉全量 note meta
-// 行，用 mk 把每行映射成各自的 Meta 类型（去重两处近乎一致的实现，dupl-clean）。
+// listNoteMetaBy — the shared body behind wiki/output's ListAllMeta: pulls the full set of
+// note meta rows for a genre, then uses mk to map each row into its own Meta type (dedupes
+// what used to be two near-identical implementations, dupl-clean).
 func listNoteMetaBy[T any](
 	ctx context.Context, pool *pgstore.Pool, ownerID, genre string,
 	mk func(*db.ListAllNoteMetaRow) T,

@@ -4,14 +4,15 @@
 export interface CapabilityState {
   readonly id: string;
   readonly enabled: boolean;
-  // title —— 透传 MCP 工具的人类可读显示名（#109/#110 dock 按钮 label 用）。没实现则缺省。
+  // title —— passthrough of the MCP tool's human-readable display name
+  // (used for the dock button label in #109/#110). Optional if not implemented.
   readonly title?: string;
   readonly quota_remaining?: number;
   readonly policy_summary?: string;
   readonly extra?: unknown;
 }
 
-// ToolResult —— tool 调用结果信封。matches pi-ai shape loosely so
+// ToolResult —— envelope for a tool call's result. matches pi-ai shape loosely so
 // adapters can interop without translation layer.
 export interface ToolResult {
   readonly id: string;
@@ -26,8 +27,8 @@ export interface ToolResult {
 // Conversation message —— pi unified shape, mirrors eino schema.Message
 // + OpenAI chat completions. assistant role MAY carry tool_calls (this
 // turn's tool_use list); tool role carries tool_call_id (which tool_use
-// id the result is for). 不走 marker string —— 字段类型化，跨 wire 1:1
-// 翻给 backend eino。
+// id the result is for). No marker strings — fields are typed, translating
+// 1:1 across the wire to backend eino.
 export interface Message {
   readonly role: 'user' | 'assistant' | 'system' | 'tool';
   readonly content: string;
@@ -35,18 +36,21 @@ export interface Message {
   readonly tool_call_id?: string;
 }
 
-// ToolCallRef —— assistant turn 内调出的一条 tool_use 的小记录，挂在
-// Message.tool_calls 上随 history 来回 (上轮调过的，喂回 backend 当上下文)。
+// ToolCallRef —— small record of one tool_use call made within an
+// assistant turn, attached to Message.tool_calls and carried back and
+// forth with history (a prior turn's call, fed back to backend as context).
 export interface ToolCallRef {
   readonly id: string;
   readonly name: string;
   readonly args: unknown;
 }
 
-// AgentTurnEvent —— H.10: 新 wire 一条 SSE event。pi 端从 /api/v1/agent/turn
-// 接到的形态；TurnStreamer 一个 turn 把整套事件 yield 完。
-// Ghost-steering P4：`ghost`（单数）—— done 之后 backend policy 出**至多一个** steering ghost
-// (替代旧的 `ghosts` 3 条 followup 队列)；字段对齐后端 GhostFrame。
+// AgentTurnEvent —— H.10: one new-wire SSE event. The shape the pi side
+// receives from /api/v1/agent/turn; TurnStreamer yields the whole set of
+// events for one turn.
+// Ghost-steering P4: `ghost` (singular) —— after done, backend policy emits
+// **at most one** steering ghost (replacing the old `ghosts` 3-item
+// followup queue); fields align with the backend GhostFrame.
 export type AgentTurnEvent =
   | { readonly type: 'text'; readonly delta: string }
   | { readonly type: 'tool_started'; readonly id: string; readonly name: string; readonly args: unknown; readonly progressLabel?: string }
@@ -56,34 +60,45 @@ export type AgentTurnEvent =
   | { readonly type: 'done'; readonly stopReason: TurnStopReason }
   | { readonly type: 'error'; readonly code: string; readonly message: string };
 
-// TurnStopReason —— 一轮的收场。三种是模型给的（说完了 / 还要调工具 / 预算用完），
-// **claim_unbacked 是产品自己判的**：这一轮的答案说它做成了一件事，而本轮没有那件事的回执
-// （F-A-37）。它跟前三种走同一条通道，因为消费方本来就按停止原因决定这一轮怎么收场。
-// TURN_STOP_REASONS —— **这是那份名单本身**，类型从它派生。
+// TurnStopReason —— how a turn ends. Three come from the model (finished
+// speaking / still wants to call a tool / ran out of budget).
+// **claim_unbacked is the product's own judgment**: this turn's answer says
+// it accomplished something, but the turn has no receipt for that
+// (F-A-37). It goes through the same channel as the first three, because
+// the consumer already decides how to wrap up the turn based on stop reason.
+// TURN_STOP_REASONS —— **this is the list itself**; the type is derived from it.
 //
-// 为什么是数组而不是手写联合（UX-84 / F-A-35 的续）：解析那侧有一个 `normStop`，
-// 未知值塌成 `end_turn`，它的注释写着「新增停止原因必须加进这一行」。
-// **我今天加 `no_answer` 时照样漏了它** —— 后端判得对、前端映射也写了，中间这一跳
-// 把它悄悄改写成「正常说完了」，于是提示整个不渲染，而任何一层都没报错。
+// Why an array instead of a hand-written union (continuing UX-84 / F-A-35):
+// the parsing side has a `normStop` that collapses unknown values down to
+// `end_turn`, and its comment says "adding a new stop reason must be added
+// to this line too".
+// **I still missed it today when adding `no_answer`** — backend judged it
+// correctly, the frontend mapping was written too, but this hop in between
+// silently rewrote it to "finished normally", so the hint never rendered
+// at all, and no layer errored.
 //
-// 注释挡不住这种漏（[[structure-means-no-responsibility-class]]）。改成一份名单之后，
-// `normStop` 用 `includes` 查这同一份名单：**加一个值只要改这里，解析那侧自动跟上**。
+// A comment can't prevent this kind of gap
+// ([[structure-means-no-responsibility-class]]). After switching to a
+// single list, `normStop` uses `includes` to check against this same list:
+// **adding a value only requires editing here, the parsing side follows
+// automatically**.
 export const TURN_STOP_REASONS = [
   'end_turn',
   'tool_use',
   'max_tokens',
-  // 产品自己判的两种（不是模型给的）：
-  'claim_unbacked', // 说自己办成了一件事，却没有回执（F-A-37）
-  'no_answer', // 一个字都没答出来，也救不回来（F-A-35）
-  'deadline', // 时间用完了，连边界那次救场也没来得及（F-A-44）
+  // The two the product judges itself (not given by the model):
+  'claim_unbacked', // Says it accomplished something, but has no receipt (F-A-37)
+  'no_answer', // Didn't answer at all, and there's no salvaging it (F-A-35)
+  'deadline', // Ran out of time, missed even the last-resort save (F-A-44)
 ] as const;
 
 export type TurnStopReason = (typeof TURN_STOP_REASONS)[number];
 
 // AgentEvent —— observer receives one per state transition. Names align
-// with eval harness scenarios. Ghost-steering P4：`ghost_received`（单数）——
-// VisitorTurnAgent 收到 SSE `ghost` 事件时往 observer 发；UI 拿来把输入框 ghost
-// 换成 policy 那条（不是队列 append）。
+// with eval harness scenarios. Ghost-steering P4: `ghost_received`
+// (singular) —— VisitorTurnAgent sends this to the observer when it
+// receives an SSE `ghost` event; the UI uses it to replace the input box's
+// ghost with the policy one (not queue-append).
 export type AgentEvent =
   | { readonly type: 'iteration_started'; readonly iter: number }
   | { readonly type: 'llm_chunk'; readonly text: string }
@@ -94,8 +109,11 @@ export type AgentEvent =
   | { readonly type: 'retrying'; readonly attempt: number }
   | { readonly type: 'iteration_completed'; readonly iter: number }
   | { readonly type: 'final_text'; readonly text: string }
-  // turn_finished —— 这一轮**怎么**结束的。三种收场里只有 max_tokens 意味着话没说完：
-  // 流正常关闭，正文停在半句上。这个值从 provider 一路传到浏览器，以前在 SSE 解析完
-  // 就被扔了（尾帧只用来置 sawDone），于是半句话冒充了完整答案（F-A-34）。
+  // turn_finished —— **how** this turn ended. Of the stop reasons, only
+  // max_tokens means the reply is unfinished: the stream closes cleanly
+  // but the text stops mid-sentence. This value travels all the way from
+  // the provider to the browser; it used to get discarded right after SSE
+  // parsing (the trailing frame was only used to set sawDone), so a
+  // half-sentence passed itself off as a complete answer (F-A-34).
   | { readonly type: 'turn_finished'; readonly stopReason: TurnStopReason }
   | { readonly type: 'error'; readonly message: string };

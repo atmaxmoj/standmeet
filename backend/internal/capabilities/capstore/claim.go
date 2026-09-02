@@ -1,11 +1,15 @@
-// claim.go —— 单赢占位:同一个 key,同一时刻只有一个调用方拿得到。
+// claim.go —— single-winner claim: for one key, only one caller holds it at a time.
 //
-// 为什么它属于 capstore 而不属于某个能力:任何「先看一眼再动手」的动作都需要它 —— 看和动之间
-// 那个窗口里挤进来第二个人,两边都会看见同一个「空着」。F-B-15 是它的第一份账单:两条同时进来的
-// 订会请求,忙时检查各自都说这一格空着,于是真日历上并排长出两场会,owner 的同一个半小时被占两次。
+// Why this lives in capstore and not in a specific capability: any "peek then act" flow
+// needs it — a second caller can squeeze into the window between the peek and the act, and
+// both sides see the same "empty" slot. F-B-15 is its first bill: two booking requests
+// arrive concurrently, each checks the busy slot and both see it free, so the real calendar
+// ends up with two meetings side by side — the owner's same half hour gets double-booked.
 //
-// 保证由**主键冲突**给,不由代码的先后顺序给:两个并发的 INSERT 只有一个插得进去。过期的占位
-// 可以被抢走(TTL),所以一个中途死掉的调用方不会把这一格永远锁死 —— 那种锁比不锁更难查。
+// The guarantee comes from a **primary-key conflict**, not from code ordering: of two
+// concurrent INSERTs, only one can land. An expired claim can be taken over (TTL), so a
+// caller that dies mid-flight never locks the slot forever — that kind of stuck lock is
+// harder to diagnose than no lock at all.
 
 package capstore
 
@@ -15,13 +19,14 @@ import (
 	"time"
 )
 
-// maxClaimTTL —— 占位最长活多久。占位是为了盖住「看一眼 → 动手」那个窗口,不是为了长期持有;
-// 上限在这儿,免得一个写错的调用方把一格锁到天荒地老。
+// maxClaimTTL —— the longest a claim can live. A claim exists to cover the "peek then act"
+// window, not to hold long-term; the cap is here so a buggy caller can't lock a slot forever.
 const maxClaimTTL = 5 * time.Minute
 
-// ClaimKey —— 占的是谁的哪一格:哪个能力(kind+id)、哪个 collection、哪个 key。
-// 打包成一个类型而不是四个位置参数 —— 调用点数逗号数不清哪个是 id 哪个是 key,
-// 而这两个错位之后是「占了别人的格子」。
+// ClaimKey —— which slot, owned by whom: which capability (kind+id), which collection,
+// which key. Bundled into one type instead of four positional args — at the call site it's
+// easy to lose count of commas and swap id for key, and swapping those two means claiming
+// someone else's slot.
 type ClaimKey struct {
 	Kind       Kind
 	ID         string
@@ -29,10 +34,11 @@ type ClaimKey struct {
 	Key        string
 }
 
-// Claim —— 试着占住 (collection, key)。true = 这一刻它归你。
+// Claim —— try to take (collection, key). true = it's yours right now.
 //
-// 已经被别人占着且还没过期 → false(不是错误:被别人抢先是正常结局,调用方据此换个说法回答)。
-// 过期的占位视同没有,谁先来谁拿走。
+// Already held by someone else and not yet expired → false (not an error: losing the race
+// is a normal outcome, and the caller responds with a different message accordingly).
+// An expired claim counts as free; whoever asks first gets it.
 func (s *Store) Claim(ctx context.Context, c ClaimKey, ttl time.Duration) (bool, error) {
 	kind, id, collection, key := c.Kind, c.ID, c.Collection, c.Key
 	schema, err := schemaName(kind, id)
@@ -48,12 +54,12 @@ func (s *Store) Claim(ctx context.Context, c ClaimKey, ttl time.Duration) (bool,
 	var got bool
 	qerr := s.pool.QueryRow(ctx, sql, collection, key, clampClaimTTL(ttl).String()).Scan(&got)
 	if qerr != nil {
-		return false, nil //nolint:nilerr // 没插进去 = 被别人占着,是正常结局不是故障
+		return false, nil //nolint:nilerr // insert failed = held by someone else, not a fault
 	}
 	return got, nil
 }
 
-// Release —— 提前放掉自己的占位(做完了 / 失败了)。不放也行:TTL 会到期。
+// Release —— give up your claim early (done / failed). Optional: the TTL will expire it anyway.
 func (s *Store) Release(ctx context.Context, c ClaimKey) error {
 	collection, key := c.Collection, c.Key
 	schema, err := schemaName(c.Kind, c.ID)
@@ -67,7 +73,8 @@ func (s *Store) Release(ctx context.Context, c ClaimKey) error {
 	return nil
 }
 
-// clampClaimTTL —— 非正数 → 一分钟(调用方没说就给个够盖住那个窗口的默认);超上限 → 截到上限。
+// clampClaimTTL —— non-positive → one minute (a default that covers the window when the
+// caller doesn't say); over the cap → clamp to the cap.
 func clampClaimTTL(ttl time.Duration) time.Duration {
 	if ttl <= 0 {
 		return time.Minute

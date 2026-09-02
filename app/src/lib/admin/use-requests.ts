@@ -1,7 +1,9 @@
-// use-requests —— /admin/requests 状态。GET 列表 + PATCH 状态。
-// 默认按 status=open 过滤；点 chip 切换"open / replied / closed / all"。
+// use-requests —— /admin/requests state. GET list + PATCH status.
+// Defaults to filtering by status=open; clicking a chip switches between
+// "open / replied / closed / all".
 //
-// zustand 重构：一次拉全部，filter 在 client 走；切 chip 不再走网络。
+// zustand refactor: fetch everything at once, filter runs client-side;
+// switching a chip no longer hits the network.
 
 'use client';
 
@@ -16,7 +18,7 @@ export type RequestStatusFilter = 'all' | 'open' | 'replied' | 'closed';
 
 export type RequestsBodyState = 'loading' | 'error' | 'empty' | 'list';
 
-// pickBodyState —— RequestsSection 用，避免 .tsx 里 if-ladder 触发 cyclo。
+// pickBodyState —— used by RequestsSection, avoids an if-ladder in the .tsx that would trip cyclo.
 export function pickBodyState(
   hook: { status: ResourceStatus; error: string | null; rows: readonly unknown[] },
 ): RequestsBodyState {
@@ -54,7 +56,7 @@ export function useRequests(): RequestsHook {
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   const [filter, setFilter] = useState<RequestStatusFilter>('open');
 
-  // mark 抛错（不再吞掉）：调用方用 useAction 收尾（成功 toast / 失败 report）。
+  // mark throws (no longer swallowed): the caller finishes up with useAction (success toast / failure report).
   const mark = useCallback(async (id: string, status: 'replied' | 'closed'): Promise<void> => {
     const updated = await adminAPI.patch(
       `/access-requests/${id}`, { status }, AccessRequestViewSchema,

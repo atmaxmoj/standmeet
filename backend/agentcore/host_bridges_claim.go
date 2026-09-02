@@ -1,8 +1,11 @@
-// host_bridges_claim.go —— eval 侧的单赢占位。
+// host_bridges_claim.go — single-winner claim on the eval side.
 //
-// 真宿主用一次主键冲突保证「同一个 key 只有一个人拿得到」(见 capstore/claim.go)。这里是
-// mini-host:同一个进程内一张表加一把锁,语义**必须一样** —— 一个只会返 true 的假占位会让
-// 那条守卫在这一侧永远绿,而它守的正是「两个人同时抢一格」(F-B-15,[[stand-in-is-politer-than-reality]])。
+// The real host guarantees "only one caller ever gets a given key" with a
+// primary-key conflict (see capstore/claim.go). This is the mini-host: one
+// table + one lock inside a single process, and the semantics **must match** —
+// a fake claim that only ever returns true would keep the guard for it green
+// forever on this side, and what that guard protects is exactly "two callers
+// racing for the same slot" (F-B-15, [[stand-in-is-politer-than-reality]]).
 
 package agentcore
 
@@ -12,13 +15,14 @@ import (
 	"time"
 )
 
-// claimTable —— 进程内的占位表。key = collection + "\x00" + key。
-var claimTable = struct { //nolint:gochecknoglobals // mini-host 的进程级状态,跟真宿主的一张表对位
+// claimTable — the in-process claim table. key = collection + "\x00" + key.
+var claimTable = struct { //nolint:gochecknoglobals // mini-host state, mirrors real host's table
 	till map[string]time.Time
 	mu   sync.Mutex
 }{till: map[string]time.Time{}}
 
-// Claim —— 拿到返 true;已被别人占着且没过期返 false(不是错误)。
+// Claim — returns true on success; returns false (not an error) if someone
+// else already holds it and it hasn't expired.
 func (storeBridge) Claim(
 	_ context.Context, collection, key string, ttlSeconds int,
 ) (bool, error) {
@@ -32,7 +36,7 @@ func (storeBridge) Claim(
 	return true, nil
 }
 
-// Release —— 放掉自己占的那一格。
+// Release — releases the slot this caller holds.
 func (storeBridge) Release(_ context.Context, collection, key string) error {
 	claimTable.mu.Lock()
 	defer claimTable.mu.Unlock()

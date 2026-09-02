@@ -1,15 +1,22 @@
-// instance-liveness —— 顶栏那颗灯到底在说什么。
+// instance-liveness —— what the dot in the top bar actually says.
 //
-// F-N-6：`TopBar` 的 `LiveDot` 里没有任何输入 —— dev、prod、后端停机，三种情况长得一模一样。
-// 真在 prod 上把 backend 停掉、点侧栏换一节：正文写着这一节加载失败，顶栏还在 `● LIVE`。
-// 一个状态灯不接任何状态，它就不是灯，是装饰；而它占的正是「这台机器现在好不好」那个位置。
+// F-N-6: `TopBar`'s `LiveDot` had no input at all — dev, prod, and a downed
+// backend all looked identical. Stop the backend on prod for real, click a
+// sidebar section: the body reports that section failed to load, while the
+// top bar still shows `● LIVE`.
+// A status dot wired to no status isn't a dot, it's decoration — and it
+// occupies exactly the spot that should answer "is this machine okay right now".
 //
-// 判据从哪来：**每一个 admin 请求都经过 `lib/api/admin`**，那里既知道成功也知道失败。
-// 所以不新造心跳（多一条轮询就多一份可能跟事实不一致的状态），只把已经发生的事记下来：
-//   - 任何一次 2xx  → 这台机器刚刚答过话
-//   - 5xx / 网络断 → 它现在不答话（4xx 不算：那是这次请求本身不成立，机器好着呢）
+// Where the signal comes from: **every admin request goes through
+// `lib/api/admin`**, which already knows both success and failure.
+// So instead of inventing a new heartbeat (one more poll is one more piece of
+// state that can drift from the truth), we just record what already happened:
+//   - any 2xx  → this machine just answered
+//   - 5xx / network failure → it isn't answering right now (4xx doesn't count:
+//     that means this particular request was invalid, the machine is fine)
 //
-// 只有「够不着」才翻灯 —— 把 403 也算进去的话，一次正常的权限拒绝会让整台实例看起来死了。
+// Only "unreachable" flips the dot — counting 403 in would make a normal
+// permission denial look like the whole instance died.
 
 import { create } from 'zustand';
 
@@ -33,7 +40,7 @@ export function markInstanceAnswered(): void {
   useLivenessStore.getState().set('live');
 }
 
-// markInstanceUnreachable —— status 0 表示请求根本没到（网络层）。
+// markInstanceUnreachable —— status 0 means the request never made it out (network layer).
 export function markInstanceUnreachable(status: number): void {
   if (status === 0 || status >= 500) useLivenessStore.getState().set('unreachable');
 }

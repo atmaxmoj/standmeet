@@ -1,5 +1,6 @@
-// proxy_wire.go —— pi-style wire ↔ eino schema 双向翻译 + SSE 帧
-// 写出 helpers。拆出来让 proxy.go 守 max-lines / max-public-structs。
+// proxy_wire.go —— bidirectional translation between the pi-style wire format ↔ eino schema,
+// plus SSE frame-writing helpers. Split out so proxy.go stays under max-lines /
+// max-public-structs.
 
 package inference
 
@@ -17,10 +18,10 @@ import (
 
 const logErrKey = "err"
 
-// toEinoMessages —— pi 风格 messages + system → []*schema.Message。
-// system 作为 schema.System role 放在最前。assistant 调 tool 时的 tool_calls
-// 跟 tool role 的 tool_call_id 1:1 翻给 eino schema (跟 OpenAI 同构)，
-// 不再走 marker string。
+// toEinoMessages —— pi-style messages + system → []*schema.Message. system is placed first as
+// the schema.System role. When an assistant calls a tool, its tool_calls and the tool role's
+// tool_call_id are translated 1:1 into eino schema (isomorphic to OpenAI), no marker string
+// involved anymore.
 func toEinoMessages(system string, in []ChatRequestMsg) ([]*schema.Message, error) {
 	out := make([]*schema.Message, 0, len(in)+1)
 	if system != "" {
@@ -90,7 +91,7 @@ func einoRole(s string) (schema.RoleType, error) {
 	return "", fmt.Errorf("eino: unknown role %q", s)
 }
 
-// toEinoToolInfos —— pi tool spec (raw JSON schema) → eino schema.ToolInfo。
+// toEinoToolInfos —— a pi tool spec (raw JSON schema) → eino schema.ToolInfo.
 func toEinoToolInfos(in []ChatRequestTool) ([]*schema.ToolInfo, error) {
 	out := make([]*schema.ToolInfo, 0, len(in))
 	for i := range in {
@@ -106,13 +107,15 @@ func toEinoToolInfos(in []ChatRequestTool) ([]*schema.ToolInfo, error) {
 	return out, nil
 }
 
-// errEmptyToolSchema —— sentinel: 输入的 input_schema 为空 / 无 type，
-// caller 把对应 ToolInfo.ParamsOneOf 留 nil。返这条 error 不算失败。
+// errEmptyToolSchema —— sentinel: the input input_schema is empty / has no type; the caller
+// leaves the matching ToolInfo.ParamsOneOf nil. Returning this error doesn't count as a
+// failure.
 var errEmptyToolSchema = errors.New("eino: empty tool schema")
 
-// newParamsFromRaw —— input_schema raw JSON → schema.ParamsOneOf 走
-// eino-contrib/jsonschema.Schema (draft-07 兼容)。空 schema 返
-// errEmptyToolSchema 哨兵；caller 通过 errors.Is 区分"无参数"跟"解析失败"。
+// newParamsFromRaw —— input_schema raw JSON → schema.ParamsOneOf, going through
+// eino-contrib/jsonschema.Schema (draft-07 compatible). An empty schema returns the
+// errEmptyToolSchema sentinel; the caller uses errors.Is to distinguish "no parameters" from
+// "parse failure".
 func newParamsFromRaw(raw json.RawMessage) (*schema.ParamsOneOf, error) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil, errEmptyToolSchema
@@ -127,9 +130,9 @@ func newParamsFromRaw(raw json.RawMessage) (*schema.ParamsOneOf, error) {
 	return schema.NewParamsOneOfByJSONSchema(&js), nil
 }
 
-// toolCallCtx —— stream 期间累积 tool_call partial chunks。eino 在
-// stream 模式下 tool_call.Function.Arguments 是逐 chunk 增量；按
-// Index 聚合，stream 收尾时一次性 emit 完整 tool_call event。
+// toolCallCtx —— accumulates partial tool_call chunks during streaming. In stream mode eino
+// returns tool_call.Function.Arguments incrementally, chunk by chunk; aggregated by Index, then
+// emitted as a complete tool_call event once at stream end.
 type toolCallCtx struct {
 	calls map[int]*pendingToolCall
 }
@@ -144,8 +147,8 @@ func newToolCallCtx() *toolCallCtx {
 	return &toolCallCtx{calls: map[int]*pendingToolCall{}}
 }
 
-// processChunk —— 一条 eino chunk：先 emit text delta；tool_call 累
-// 积进 ctx 等收尾。
+// processChunk —— one eino chunk: emits the text delta first; tool_call is accumulated into
+// ctx and handled at wrap-up.
 func processChunk(
 	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
 	chunk *schema.Message, ctx *toolCallCtx,
@@ -211,7 +214,7 @@ func callIndex(c *schema.ToolCall) int {
 	return 0
 }
 
-// emitPendingToolCalls —— stream 收尾时把累积的 tool_call 全部 emit。
+// emitPendingToolCalls —— at stream wrap-up, emits every accumulated tool_call.
 func emitPendingToolCalls(
 	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
 	ctx *toolCallCtx,
@@ -232,15 +235,15 @@ func emitPendingToolCalls(
 	}
 }
 
-// mapFinishReason —— pi 风格 stop_reason 归一化。eino 跨 provider 返
-// 两套风格的 finish_reason：
+// mapFinishReason —— normalizes to a pi-style stop_reason. eino returns two different styles
+// of finish_reason across providers:
 //
-//   - Anthropic 原生 (claude adapter 直接透传)：tool_use / end_turn /
+//   - Anthropic native (the claude adapter passes it through directly): tool_use / end_turn /
 //     max_tokens / stop_sequence
-//   - OpenAI 风格 (openai-compat adapter)：tool_calls / stop / length /
-//     content_filter
+//   - OpenAI style (the openai-compat adapter): tool_calls / stop / length / content_filter
 //
-// pi 协议只认 tool_use / end_turn / max_tokens 三种，其他统一掉 end_turn。
+// The pi protocol only recognizes three kinds — tool_use / end_turn / max_tokens — everything
+// else collapses to end_turn.
 func mapFinishReason(r string) string {
 	switch r {
 	case "tool_use", "tool_calls":
@@ -251,13 +254,16 @@ func mapFinishReason(r string) string {
 	return "end_turn"
 }
 
-// productStops —— **产品自己判出来的**收场原因。它们不来自上游 provider，所以不能走
-// `mapFinishReason` —— 那个函数的 default 会把认不得的值静默改写成「说完了」。
+// productStops —— stop reasons **the product itself judged**. They don't come from the
+// upstream provider, so they must never go through `mapFinishReason` — that function's default
+// branch would silently rewrite an unrecognized value into "finished normally".
 //
-// 名单在这里只有一份：以前这是一串 `||`，旁边写着「加一种就要在这儿加一行」，而那句提醒
-// 没挡住 F-A-35 那次遗漏（后端判得对、前端也写了，这一跳把它改写成 end_turn，提示整个不渲染，
-// 任何一层都没报错）。加一种停止原因现在只需要往这个切片里加，两处都跟着走
-// （[[structure-means-no-responsibility-class]]）。
+// This list exists in exactly one place: it used to be a chain of `||` with a comment next to
+// it saying "add one more kind, add one more line here" — and that reminder didn't stop the
+// F-A-35 omission (the backend judged correctly, the frontend had the code too, but this exact
+// hop rewrote it into end_turn, the prompt just never rendered, and no layer raised an error).
+// Adding a new stop reason now only requires adding to this slice, and both places follow along
+// automatically ([[structure-means-no-responsibility-class]]).
 var productStops = []string{StopClaimUnbacked, StopNoAnswer, StopDeadline}
 
 func normalizedStop(r string) string {
@@ -267,8 +273,8 @@ func normalizedStop(r string) string {
 	return mapFinishReason(r)
 }
 
-// writeSSEFrame —— 一帧 SSE：`event: <type>\ndata: <body-json>\n\n` + flush。
-// body 已 marshalled，调用方负责。
+// writeSSEFrame —— one SSE frame: `event: <type>\ndata: <body-json>\n\n` + flush. body is
+// already marshalled; that's the caller's responsibility.
 func writeSSEFrame(
 	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
 	event string, body []byte,
@@ -282,15 +288,18 @@ func writeSSEFrame(
 	}
 }
 
-// emitDone —— 收尾 done 帧。
+// emitDone —— the wrap-up done frame.
 func emitDone(
 	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
 	finishReason string,
 ) {
-	// 归一化只对**上游给的** finish reason 做。产品自己判出来的收场(claim_unbacked)已经是
-	// wire 值,再过一遍 mapFinishReason 会被它的 default 分支抹成 end_turn —— 也就是后端刚
-	// 判定"这一轮不算数",转手又告诉客户端"正常说完了"(F-A-37 修的时候就踩在这儿:闸门在日志
-	// 里响了,访客那边什么都没有)。同一类塌陷,这是第二个点。
+	// Normalization only applies to a finish reason **given by upstream**. A stop reason the
+	// product judged itself (claim_unbacked) is already a wire value; running it through
+	// mapFinishReason again would get it erased into end_turn by that function's default
+	// branch — i.e. the backend just decided "this turn doesn't count", then immediately turns
+	// around and tells the client "finished normally" (F-A-37's fix stepped on exactly this:
+	// the gate fired in the logs, and the visitor's side saw nothing at all). Same class of
+	// collapse, this is the second instance of it.
 	body, err := json.Marshal(donePayload{StopReason: normalizedStop(finishReason)})
 	if err != nil {
 		log.Error("proxy marshal done", logErrKey, err)
@@ -299,7 +308,7 @@ func emitDone(
 	writeSSEFrame(log, w, flusher, "done", body)
 }
 
-// emitError —— 流中途的 SSE error 帧 (caller 内部用)。
+// emitError —— a mid-stream SSE error frame (used internally by callers).
 func emitError(
 	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher, err error,
 ) {
@@ -315,8 +324,8 @@ func emitError(
 	writeSSEFrame(log, w, flusher, "error", body)
 }
 
-// writeProxyErr —— pre-stream 失败 (cred resolve / model build / msg
-// 解析)：HTTP status + 一帧 SSE error 给浏览器，让它走 catch 路径。
+// writeProxyErr —— a pre-stream failure (cred resolve / model build / msg parsing): HTTP
+// status + one SSE error frame to the browser, so it goes through the catch path.
 func writeProxyErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	cls := ClassifyStreamErr(err)
 	log.Error("proxy pre-stream", logErrKey, err, "code", cls.Code)

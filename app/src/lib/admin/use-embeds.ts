@@ -1,7 +1,8 @@
-// use-embeds —— /admin/embeds 状态。一个 embed 把某张码作为 <standmeet-chat>
-// widget 暴露到别人的网站上；来源白名单住在 embed 上（embed 规划 2026-09-01）。
+// use-embeds —— state for /admin/embeds. An embed exposes a code as a
+// <standmeet-chat> widget on someone else's site; the origin allow-list lives
+// on the embed (embed plan 2026-09-01).
 //
-// 跟 codes/custom-pages 同一套 zustand 样板：createResourceStore + 平级 action。
+// Same zustand boilerplate as codes/custom-pages: createResourceStore + flat actions.
 
 'use client';
 
@@ -17,17 +18,20 @@ const EmbedSchema = z.object({
   id: z.string(),
   code_id: z.string(),
   label: z.string(),
-  // allowed_origins：后端 NOT NULL DEFAULT '[]',正常发数组。nullish 是防旧后端少发字段
-  // 把整份列表打挂（[[zod-unknown-is-not-optional]]）。空数组 = 不限来源。
+  // allowed_origins: the backend has NOT NULL DEFAULT '[]', normally sending
+  // an array. nullish guards against an old backend that omits the field and
+  // crashing the whole list ([[zod-unknown-is-not-optional]]). Empty array = no origin restriction.
   allowed_origins: z.array(z.string()).nullish().transform((v) => v ?? []),
-  // key_id —— 这个 embed 的 JWT kid（防盗凭据的标识）。widget 的 snippet 靠它 + 私钥签名。
+  // key_id —— this embed's JWT kid (the identifier for its anti-theft credential). The widget's snippet signs with this + the private key.
   key_id: z.string().nullish().transform((v) => v ?? ''),
   created_at: z.string(),
 });
 export type EmbedView = z.infer<typeof EmbedSchema>;
 
-// CreatedEmbedSchema —— 建 embed 的回执：比列表行多一个 **只此一次** 的私钥 PEM。
-// 它进 widget 的 snippet（不是 code）；刷新列表就再也拿不到，所以 create 当场把它交出去。
+// CreatedEmbedSchema —— the receipt for creating an embed: one field beyond
+// a list row, a **shown-once** private key PEM.
+// It goes into the widget's snippet (not the code); refreshing the list can
+// never retrieve it again, so create hands it over right there and then.
 const CreatedEmbedSchema = EmbedSchema.extend({ private_key: z.string() });
 export type CreatedEmbed = z.infer<typeof CreatedEmbedSchema>;
 
@@ -47,7 +51,7 @@ export interface EmbedsHook {
   embeds: readonly EmbedView[];
   error: string | null;
   refresh: () => Promise<void>;
-  // createEmbed 回传**回执**：它带着只此一次的私钥，section 拿它当场亮出 snippet。
+  // createEmbed returns **the receipt**: it carries the shown-once private key, and the section uses it to reveal the snippet right there.
   createEmbed: (input: CreateEmbedInput) => Promise<CreatedEmbed>;
   updateEmbed: (id: string, input: UpdateEmbedInput) => Promise<void>;
   removeEmbed: (id: string) => Promise<void>;
@@ -73,8 +77,10 @@ export function useEmbeds(): EmbedsHook {
   };
 }
 
-// mutation 一律抛错，调用方用 useAction/report 收尾（成功 toast / 失败保持表单开着）——
-// 吞成 false 的话，「没建成」跟「建了但白名单没生效」在屏幕上是同一件事。
+// Mutations always throw, and the caller finishes up with useAction/report
+// (success toast / failure keeps the form open) — if it were swallowed into
+// false, "wasn't created" and "was created but the allow-list didn't take
+// effect" would be indistinguishable on screen.
 async function createEmbed(input: CreateEmbedInput): Promise<CreatedEmbed> {
   const created = await adminAPI.post('/embeds/', input, CreatedEmbedSchema);
   embedsStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
@@ -92,9 +98,10 @@ async function removeEmbed(id: string): Promise<void> {
   embedsStore.getState().mutate((prev) => (prev ?? []).filter((e) => e.id !== id));
 }
 
-// EmbedFormHook —— create/edit modal 的本地表单状态。放在 lib 而不是组件里：呈现层不许有
-// `if` / 分支上限 3，而"编辑就用现有值、否则用空值"这几个 `?? ''` 已经把复杂度顶满了
-// （跟 use-code-form 同一个理由）。
+// EmbedFormHook —— local form state for the create/edit modal. Lives in lib,
+// not the component: the presentation layer bans `if` / caps branching at 3,
+// and these few `?? ''` for "use the existing value when editing, blank
+// otherwise" already fill that budget (same reasoning as use-code-form).
 export interface EmbedFormHook {
   editing: boolean;
   codeID: string;
@@ -116,13 +123,15 @@ export function useEmbedForm(existing: EmbedView | null): EmbedFormHook {
   };
 }
 
-// parseOrigins —— textarea 一行一个来源。去空白、丢空行；不做协议校验（后端按精确串比对，
-// owner 贴什么算什么），只把"看不见的空行"清掉，免得白名单里混进一个永远命不中的空串。
+// parseOrigins —— the textarea has one origin per line. Trims whitespace,
+// drops blank lines; does no protocol validation (the backend matches the
+// exact string, whatever the owner pastes is what's used) — this only
+// clears out "invisible blank lines" so the allow-list doesn't end up with an empty string that can never match.
 export function parseOrigins(text: string): string[] {
   return text.split('\n').map((s) => s.trim()).filter((s) => s !== '');
 }
 
-// dispatchEmbedSave —— editing 决定走 update 还是 create。分支挪 lib，让 modal 复杂度 ≤ 3。
+// dispatchEmbedSave —— editing decides whether this goes through update or create. Branching moved to lib so the modal's complexity stays ≤ 3.
 export async function dispatchEmbedSave(
   existing: EmbedView | null,
   form: EmbedFormHook,
@@ -137,7 +146,8 @@ export async function dispatchEmbedSave(
   await onUpdate(existing.id, form.label, origins);
 }
 
-// embedModalText —— modal 头部/按钮文案，按 editing 一次算好。呈现层因此不出现 `editing ? … : …`。
+// embedModalText —— the modal's header/button copy, computed once by
+// editing. The presentation layer therefore never has an `editing ? … : …`.
 export function embedModalText(
   t: (k: string) => string, editing: boolean,
 ): { kicker: string; title: string; save: string } {
@@ -146,17 +156,23 @@ export function embedModalText(
     : { kicker: t('createKicker'), title: t('createTitle'), save: t('save') };
 }
 
-// pemToKeyB64 —— PEM 私钥（多行、带 -----BEGIN----- 头尾）压成单行 base64 DER：正是 PEM 中间那段。
-// widget 的 WebCrypto importKey('pkcs8', ...) 收的就是这段 base64（snippet 里当属性放不下多行）。
+// pemToKeyB64 —— squashes the PEM private key (multi-line, with
+// -----BEGIN-----/-----END----- headers) down to single-line base64 DER: exactly
+// the middle section of the PEM. That's the base64 the widget's WebCrypto
+// importKey('pkcs8', ...) expects (a multi-line value can't fit as a snippet attribute).
 export function pemToKeyB64(pem: string): string {
   return pem.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
 }
 
-// widgetSnippet —— owner 复制走贴进别人网站的那两行。**防盗版：不含明文 code。**
+// widgetSnippet —— the two lines the owner copies and pastes into someone
+// else's site. **Anti-theft: no plaintext code included.**
 //
-// 地址运行时算（owner 的实例在自己的域名上）。带的是**每-embed 的凭据**（embed id + kid + 私钥），
-// widget 现签 JWT、服务端反查出 code —— code 明文从不进这段公开 HTML。私钥只在创建时给一次，
-// 所以这段完整 snippet 也只在创建时拼得出（[[embed-credential-never-carries-the-code]]）。
+// The address is computed at runtime (the owner's instance is on their own
+// domain). It carries the **per-embed credential** (embed id + kid + private
+// key); the widget signs a JWT on the spot and the server looks up the code
+// from it — the plaintext code never enters this public HTML. The private
+// key is given exactly once, at creation, so this full snippet can only ever
+// be assembled at creation time ([[embed-credential-never-carries-the-code]]).
 export function widgetSnippet(
   origin: string, embedID: string, keyID: string, privateKeyPem: string,
 ): string {

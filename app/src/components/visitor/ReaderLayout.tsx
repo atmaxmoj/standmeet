@@ -1,26 +1,41 @@
-// ReaderLayout —— wiki reader 的骨架：**视口居中的正文** + 左侧贴边的树。
+// ReaderLayout —— the skeleton of the wiki reader: **the body centered to
+// the viewport** + the tree hugging the left edge.
 //
-// ── 正文为什么用绝对定位把树挪出去 ───────────────────────────────────────────────
+// ── Why the body uses absolute positioning to move the tree out of the way ──
 //
-// 上一版是 `flex`：aside(可拖宽) + 分隔条 + `main flex-1`。于是正文只在**剩下的那段**里
-// 居中 —— 树占多宽，正文就偏右多少。读者看到的是一篇没对准的文章，而树越宽偏得越狠。
-// 现在正文是 `mx-auto max-w-[920px]`（对**视口**居中，跟 /writings 首页同一口径），
-// 树 `absolute` 挂在它左边的留白里，不参与占位，所以正文的位置跟树宽无关。
+// The previous version was `flex`: aside (resizable) + a divider + `main
+// flex-1`. So the body was centered only within **whatever space was left
+// over** — however wide the tree was, the body drifted right by that much.
+// The reader saw a misaligned article, and the wider the tree the worse the
+// drift. Now the body is `mx-auto max-w-[920px]` (centered to the
+// **viewport**, matching the /writings home page), and the tree hangs
+// `absolute` in the margin to its left, taking up no space — so the body's
+// position is independent of the tree's width.
 //
-// 顺带去掉了那根可拖宽的分隔条：它存在的意义是"树占多宽由读者定"，而树一旦不再挤正文，
-// 这个自由度就不再解决任何问题，只留下一个要维护的拖拽状态。
+// This also removed the resizable divider along the way: its whole reason
+// to exist was "the reader decides how wide the tree is", and once the tree
+// no longer crowds the body, that degree of freedom stops solving anything
+// and just leaves behind drag state to maintain.
 //
-// ── 树被切的时候必须看得出来 ─────────────────────────────────────────────────────
+// ── Cutting off the tree must be visible ──
 //
-// 树 sticky + 自己滚，是一个**取舍**而不是疏忽：要么它跟着整页滚（一个滚动区，什么都
-// 够得到，但翻到文章中段树就滚没了），要么常驻但成为第二个滚动区。选后者。
+// The tree being sticky and scrolling on its own is a **trade-off**, not an
+// oversight: either it scrolls with the whole page (one scroll region,
+// everything reachable, but scrolling to the middle of the article scrolls
+// the tree out of view), or it stays put but becomes a second scroll
+// region. We chose the latter.
 //
-// 代价是真实的，而且被撞到过：树比视口高时下半截被切，鼠标在正文上滚它不动，
-// 读者的结论是「下面明显还有东西，但我滚不下去」。所以切口必须自己说话 ——
-// `styles.railFade` 在底部铺一条渐隐（跟 UX-56 那条 sneak-peek 卡片同一条约定：
-// **一张会被切的东西，切口处要有续读信号**）。少了它，被切读起来像"坏了"而不是"还有"。
+// The cost is real, and has actually been hit: when the tree is taller than
+// the viewport, its bottom half gets cut off, scrolling the mouse over the
+// body doesn't move it, and the reader concludes "there's clearly more
+// below, but I can't scroll to it". So the cutoff has to speak for itself —
+// `styles.railFade` lays a fade-out along the bottom (the same convention
+// as the sneak-peek card in UX-56: **anything that gets cut off needs a
+// continue-reading signal at the cut**). Without it, being cut off reads as
+// "broken" rather than "there's more".
 //
-// aside / children 都由 server page 传进来(client 组件可接 server 子树作 props)。
+// aside / children are both passed in from the server page (a client
+// component can accept a server subtree as props).
 
 'use client';
 
@@ -28,7 +43,8 @@ import type { ReactNode } from 'react';
 
 import styles from '@/components/visitor/ReaderLayout.module.css';
 
-// STICKY_TOP —— SessionStrip 的高(sticky top:0)。树钉在它下面,别重叠。
+// STICKY_TOP —— SessionStrip's height (sticky top:0). The tree pins below
+// it — don't overlap.
 const STICKY_TOP = 'top-[30px] max-h-[calc(100dvh-30px)]';
 
 export function ReaderLayout({ aside, children, mainTestId }: {
@@ -38,11 +54,18 @@ export function ReaderLayout({ aside, children, mainTestId }: {
 }) {
   return (
     <div className="relative">
-      {/* 树：xl 以下整个不渲染 —— 窄屏塞不下一棵树，而挤进来的代价是正文没法读。
-          绝对定位 = 不占位 = 正文的居中跟它无关。 */}
-      {/* `inset-y-0` 而不是 `top-0`：轨道要跟文档一样高，里面那层 sticky 才有得走。
-          只给 top-0 的话轨道自己只有内容那么高，滚过它之后 sticky 无处可粘 ——
-          树留在文档顶端，往下读就整个不见了（第一版就是这样，滚到底一棵树都没有）。 */}
+      {/* Tree: doesn't render at all below xl — a narrow screen can't fit a
+          tree, and squeezing it in makes the body unreadable. Absolute
+          positioning = takes up no space = the body's centering doesn't
+          depend on it. */}
+      {/* `inset-y-0` rather than `top-0`: the track needs to be as tall as
+          the document, or the sticky layer inside it has nowhere to travel.
+          With just top-0 the track would only be as tall as its own
+          content, and once scrolled past, sticky has nothing left to stick
+          to — the tree stays pinned at the top of the document and
+          vanishes entirely as you read further down (that's exactly what
+          the first version did: scroll to the bottom and there's no tree
+          at all). */}
       <aside
         className={`hidden xl:block absolute left-0 inset-y-0 w-[240px] pl-6 ${styles['rail']}`}
         data-testid="wiki-toc"

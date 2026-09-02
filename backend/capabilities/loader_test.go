@@ -1,7 +1,10 @@
-// loader_test.go —— 内建能力的声明拉起时真能 Load,而且**声明里不出现路径**。
+// loader_test.go — the built-in capabilities' declarations really do Load at
+// startup, and **no path ever appears in a declaration**.
 //
-// 这两条是这次外置的全部要点:能力说"我要哪几件事",宿主派生它够得到的那一根 socket。
-// 声明里一旦又出现路径,这个机制就退回了原样(只是换了个文件格式)。
+// These two things are the whole point of this externalization: a capability
+// says "which things I need", and the host derives the one socket it can reach.
+// The moment a path shows up in a declaration again, the mechanism has regressed
+// to the original setup (just wearing a different file format).
 
 package capabilities_test
 
@@ -14,8 +17,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// TestLoad_DerivesTheSocketPath —— 点过 host op 的能力拿到一根**由 id 派生**的 socket;
-// 一个都没点的完全断网(连环境变量都没有)。
+// TestLoad_DerivesTheSocketPath — a capability that ordered a host op gets a
+// socket **derived from its id**; one that ordered none is fully offline (not
+// even the env var is set).
 func TestLoad_DerivesTheSocketPath(t *testing.T) {
 	t.Parallel()
 	ms := mustLoad(t)
@@ -35,10 +39,12 @@ func TestLoad_DerivesTheSocketPath(t *testing.T) {
 	}
 }
 
-// TestLoad_NoPathsInTheDeclarations —— 声明里不许再出现 socket 路径。
+// TestLoad_NoPathsInTheDeclarations — a socket path must never appear in a
+// declaration again.
 //
-// 这正是这轮改掉的东西:manifest 从前写的是"给我挂哪个文件",而一个文件名答不出"这上面有
-// 什么"。宿主因此只能手写四个网关。
+// This is exactly what this round changed: the manifest used to say "mount me
+// this file", and a filename can't answer "what's on it". The host was therefore
+// stuck hand-writing four gateways.
 func TestLoad_NoPathsInTheDeclarations(t *testing.T) {
 	t.Parallel()
 	for _, m := range mustLoad(t) {
@@ -51,8 +57,9 @@ func TestLoad_NoPathsInTheDeclarations(t *testing.T) {
 	}
 }
 
-// TestLoad_OwnerToolSchemasAreValidJSON —— 一份编不动的 schema 会让整张 owner 工具表
-// marshal 失败(历史上真发生过:一个坏 InputSchema 清空了 tools/list)。装载器当场拒。
+// TestLoad_OwnerToolSchemasAreValidJSON — an unmarshalable schema fails marshaling
+// for the whole owner tool table (this really happened before: one bad
+// InputSchema emptied out tools/list). The loader rejects it right at startup.
 func TestLoad_OwnerToolSchemasAreValidJSON(t *testing.T) {
 	t.Parallel()
 	for _, m := range mustLoad(t) {
@@ -65,8 +72,10 @@ func TestLoad_OwnerToolSchemasAreValidJSON(t *testing.T) {
 	}
 }
 
-// TestLoad_QuotaIsCompleteOrAbsent —— 用量声明要么三句话齐,要么没有。半份声明会让宿主
-// 数不出用量,而"数不出"和"没上限"是两件事。
+// TestLoad_QuotaIsCompleteOrAbsent — a usage declaration is either all three
+// fields filled in, or absent entirely. A half-written declaration leaves the
+// host unable to count usage, and "can't count" and "no cap" are two different
+// things.
 func TestLoad_QuotaIsCompleteOrAbsent(t *testing.T) {
 	t.Parallel()
 	for _, m := range mustLoad(t) {
@@ -76,8 +85,9 @@ func TestLoad_QuotaIsCompleteOrAbsent(t *testing.T) {
 	}
 }
 
-// TestLoad_QuotaKeyIsDeclaredOnTheCode —— 用量上限指向的那个键,必须真的是这个能力在码上
-// 声明过的字段。指向一个不存在的键 = 永远读不到上限 = 悄悄不闸。
+// TestLoad_QuotaKeyIsDeclaredOnTheCode — the key a usage cap points at must
+// actually be a field this capability declared in code. Pointing at a key that
+// doesn't exist = the cap can never be read = silently ungated.
 func TestLoad_QuotaKeyIsDeclaredOnTheCode(t *testing.T) {
 	t.Parallel()
 	for _, m := range mustLoad(t) {

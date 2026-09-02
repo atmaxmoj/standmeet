@@ -1,11 +1,14 @@
-// hostdesk.go —— 按各能力**声明**的 host op 开它们的 socket。
+// hostdesk.go — opens the socket for each capability's **declared** host ops.
 //
-// 这里替代了原来四个手写网关(retrieval / summarize / mail-sender / booker):它们各自
-// 站一个 socket、各自往上挂动词,于是"沙箱能问宿主要什么"这个问题只能靠读那四个文件回答。
-// 现在词表在 internal/routes/hostdesk,能力在自己的 manifest 里按名字点单,这里照着发。
+// This replaces the original four hand-written gateways (retrieval / summarize /
+// mail-sender / booker): each stood up its own socket and hung its own verbs on it, so the
+// only way to answer "what can a sandbox ask the host for" was to read those four files.
+// Now the vocabulary lives in internal/routes/hostdesk, each capability orders by name from
+// its own manifest, and this file dispatches accordingly.
 //
-// 点了词表里没有的名字 → **启动就炸**。一个 manifest 声称自己要某件事而宿主根本不提供,
-// 那是一句谎话,不该等到访客点下去才发现。
+// Naming an op that's not in the vocabulary -> **crashes at startup**. A manifest claiming it
+// needs something the host doesn't provide at all is a lie, and it shouldn't wait until a
+// visitor triggers it to be discovered.
 
 package wire
 
@@ -24,7 +27,8 @@ import (
 
 const socketDirMode = 0o700
 
-// HostDesk —— 遍历内建 manifest,给每个声明了 HostOps 的能力开一个 socket。
+// HostDesk — walks the builtin manifests and opens one socket for each capability that
+// declares HostOps.
 func HostDesk(
 	ctx context.Context, d *deps.Runtime, skills *conversation.VisitorSkillsDeps,
 ) {
@@ -39,26 +43,29 @@ func HostDesk(
 	}
 }
 
-// serveHostOps —— 一个能力:装它自己的隔离存储和配置,取它点名的那些 op,开 socket。
+// serveHostOps — one capability: assemble its own isolated storage and config, gather the
+// ops it names, open the socket.
 func serveHostOps(
 	ctx context.Context, d *deps.Runtime, shared *hostdesk.Deps, m *mcpplugin.Manifest,
 ) {
 	want := axiscap.HostOpsOf(m)
 	if len(want) == 0 {
-		return // 不要后端数据的插件:完全断网,连 socket 都没有。
+		return // a plugin that wants no backend data: fully cut off, doesn't even get a socket.
 	}
 	per := axiscap.PerCapabilityDeps(d, m)
 	srv, serr := hostdesk.Serve(ctx, d.Log, m.ID, want, hostdesk.Collect(shared, per))
 	if serr != nil {
-		// 声明了宿主不提供的 op = manifest 在说谎,启动期就该炸。
+		// Declaring an op the host doesn't provide = the manifest is lying; crash at startup.
 		panic(serr)
 	}
 	_ = srv
 }
 
-// sharedHostDeps —— 跟能力无关的那几样(语料、对话、owner、连接器)。
+// sharedHostDeps — the handful of things that don't depend on the capability (corpus,
+// conversation, owner, connectors).
 //
-// LLM 解析器取自访客技能那份 deps:同一份对象,访客工具和沙箱能力走的是同一条凭据解析路径。
+// The LLM resolver comes from the visitor-skills deps: the same object, so visitor tools and
+// sandbox capabilities go through the same credential-resolution path.
 func sharedHostDeps(
 	d *deps.Runtime, skills *conversation.VisitorSkillsDeps,
 ) *hostdesk.Deps {
@@ -72,18 +79,22 @@ func sharedHostDeps(
 	}
 }
 
-// CorpusIndexDeps —— 「读语料」这件事的一份原料,一处装配。
+// CorpusIndexDeps — the single ingredient set for "reading the corpus", assembled in one
+// place.
 //
-// 沙箱能力经 host op 读语料用它;冻 role snapshot 时判 waypoint 的 evidence_ref 指不指得到
-// 真笔记(F-A-26)也用它。两处必须是同一套 —— 「agent 读得到什么」和「引导目的地算不算可达」
-// 一旦各装一份,就会各自漂,而漂开的那天没有任何东西会报错。
+// Sandbox capabilities use it to read the corpus via host ops; freezing a role snapshot also
+// uses it to judge whether a waypoint's evidence_ref actually points to a real note (F-A-26).
+// The two must be the same set — the moment "what can the agent read" and "is the guidance
+// target reachable" are each assembled separately, they drift apart, and nothing will ever
+// error out on the day they do.
 func CorpusIndexDeps(d *deps.Runtime) *corpus.IndexDeps {
 	return &corpus.IndexDeps{
 		Wiki: d.WikiRepo, Output: d.OutputRepo, Writings: d.WritingRepo,
 		Subjectivity: d.SubjectivityRepo, VaultSync: d.VaultSyncRepo,
 		NoteRefs: d.NoteRefRepo, Searcher: d.SearchClient,
-		// 素材:访客读到一条语料时顺带拿到它的图 / 附件。可见性纯继承 —— 读到条目
-		// 那一步已经过了 ACL,素材挂在它后面,不再判第二次。
+		// Media: when a visitor reads a corpus entry, its images / attachments come
+		// along with it. Visibility is pure inheritance — the "reading the entry" step
+		// has already passed ACL, media hangs off the back of it and isn't judged again.
 		Media: &corpus.NoteAssetsDeps{
 			Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
 			Hero:   d.NoteHeroRepo,

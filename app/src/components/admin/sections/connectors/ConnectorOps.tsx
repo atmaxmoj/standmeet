@@ -1,13 +1,18 @@
-// ConnectorOps —— 一张卡上,这个连接器**自己声明**的那些 owner 操作(后端 connector/owner_op.go)。
+// ConnectorOps — on one card, the owner operations this connector **declares itself**
+// (backend connector/owner_op.go).
 //
-// 为什么是通用的一块,而不是 mail 卡上一个写死的「发测试信」按钮:声明本来就是数据 ——
-// smtp 的 manifest 里写了 connectors.mail_test_send,目录就把它带上来,这里照着渲。加一个
-// 动作 = 在那个连接器的 manifest 里加一段,这个文件一行不改。反过来写死的话,通用的这一层
-// 里就会出现 "mail" 这个词,而那正是后端把 owner-op 从注册表上拆下来的理由。
+// Why this is a generic block instead of a hardcoded "send test email" button on the mail
+// card: the declaration is already data — smtp's manifest lists connectors.mail_test_send,
+// the catalog carries it along, and this file just renders it as given. Adding an action
+// means adding an entry to that connector's manifest; this file doesn't change at all.
+// Hardcoding it the other way would put the word "mail" into this generic layer, which is
+// exactly what pulling owner-op out into a registry on the backend was meant to avoid.
 //
-// F-C-12:这块面以前不存在。操作、路由、失败归类在后端全是通的,五条 e2e 也都在跑它 ——
-// 但全走 HTTP/MCP。owner 存完凭据点了 Connect,看到 `connected`,然后没有任何办法知道信到底
-// 发不发得出去,第一封真信就是发给陌生人的那一封。
+// F-C-12: this panel didn't exist before. The operation, its routing, and failure
+// classification were all wired end-to-end on the backend, and five e2e specs already
+// exercised it — but all of them went through HTTP/MCP. The owner saves credentials, clicks
+// Connect, sees `connected`, and then has no way to know whether mail can actually go out —
+// the first real email is sent to a stranger without ever finding out.
 
 'use client';
 
@@ -16,10 +21,13 @@ import { useTranslations } from 'next-intl';
 import type { OwnerOp, OwnerOpField } from '@/lib/admin/use-connector-catalog';
 import { useConnectorOp, type ConnectorOpHook } from '@/lib/admin/use-connector-op';
 
-// onRan —— 跑完一个操作之后，卡片得重新去问一次自己的状态（F-C-45）。
-// 这些操作**会改变连接状态**：撤权之后跑一次探针，后端当场把这一行标成断开，
-// 而卡上那个 `connected` 还是进页面时取的。不通知的话，同一屏上两句话互相矛盾。
-// 跑完就问，不看是成是败 —— 判「这类失败才要问」得让每个操作各记一遍，下一个就会忘。
+// onRan — after an operation finishes, the card has to go re-check its own status
+// (F-C-45). These operations **can change connection state**: run a probe after revoking
+// access and the backend marks this row disconnected right then, while the card's
+// `connected` is still whatever was fetched when the page loaded. Without a refresh, the
+// same screen would show two contradicting statements. Re-check after every run, success or
+// failure — deciding "only this kind of failure needs a re-check" means recording that
+// judgment separately for every operation, and the next one added will forget it.
 export function ConnectorOps({ ops, onRan }: { ops: readonly OwnerOp[]; onRan: () => void }) {
   return ops.length === 0 ? null : (
     <div className="mt-3 border-t border-(--color-rule)/60 pt-3 space-y-3">
@@ -58,8 +66,9 @@ function OpFields({ fields, hook }: { fields: readonly OwnerOpField[]; hook: Con
   );
 }
 
-// inputType —— 声明说这格是数字,就给一个数字控件。声明里能出现的标量只有这三种
-// (派生不出来的字段在装载时就被拒了),所以这里不需要兜底一个「万一呢」的分支。
+// inputType — if the declaration says this field is a number, give it a number control.
+// A declaration's scalar can only be one of these three types (any field that can't be
+// derived gets rejected at load time), so there's no need for a fallback "just in case" branch.
 function inputType(declared: string | null | undefined): 'text' | 'number' {
   return declared === 'integer' || declared === 'number' ? 'number' : 'text';
 }
@@ -77,8 +86,10 @@ function RunButton({ hook }: { hook: ConnectorOpHook }) {
   );
 }
 
-// OpResult —— 跑完之后那一句。三种情况分开说,因为对 owner 是三件不同的事:
-// 请求没走通(他的浏览器到实例这一段)/ 操作跑了但没成(后端归好类的原话)/ 成了(哪一路送的)。
+// OpResult — the line shown after a run. Three cases are worded separately, because to the
+// owner they're three different things: the request never reached the backend (their
+// browser-to-instance leg failed) / the operation ran but failed (the backend's own
+// classified message) / it succeeded (and which path it went out on).
 function OpResult({ hook }: { hook: ConnectorOpHook }) {
   return hook.outcome === null ? null : (
     <p data-testid="connector-op-result" className="mono text-[11px] text-(--color-accent)">
@@ -106,20 +117,24 @@ function reachedSentence(
   return outcome.ok ? successSentence(outcome, t) : failureSentence(outcome.reason, t);
 }
 
-// successSentence —— 操作自己说了一句就用它的。
+// successSentence — use the operation's own sentence when it gives one.
 //
-// 老那句(`sent`)是**邮件口吻**的:「被 {kind} 连接器收下了 —— 去收件箱确认它到了」。
-// 它长在这个通用组件里,于是任何第二个品类的成功都会读成胡话 —— 日历自检没有收件箱。
-// 失败那句早就由操作自己给了(后端归好类),成功这句本该同样如此。
+// The old sentence (`sent`) was written in an **email voice**: "accepted by the {kind}
+// connector — check your inbox to confirm it arrived". It lived in this generic component,
+// so any other category's success message read as nonsense — a calendar self-check has no
+// inbox. The failure sentence has always come from the operation itself (classified on the
+// backend); the success sentence should have worked the same way from the start.
 function successSentence(
   outcome: NonNullable<ConnectorOpHook['outcome']>, t: Translate,
 ): string {
   return outcome.summary === '' ? t('sent', { kind: outcome.viaKind }) : outcome.summary;
 }
 
-// failureSentence —— 失败那句**原样用后端的**:它在后端已经归过类了(改配置 / 换收件人 /
-// 等一会儿再试),这一层再包一次只会把它冲淡。后端没给理由时不编一句糊上去 —— 说清楚它没给,
-// 因为「它没给理由」本身就是排查时要知道的那件事。
+// failureSentence — the failure line is used **verbatim from the backend**: it's already
+// been classified there (fix the config / change the recipient / try again later), and
+// wrapping it again here would only dilute it. When the backend gives no reason, don't make
+// one up — say plainly that none was given, because "it gave no reason" is itself something
+// worth knowing while troubleshooting.
 function failureSentence(reason: string, t: Translate): string {
   return reason === '' ? t('failedNoReason') : reason;
 }

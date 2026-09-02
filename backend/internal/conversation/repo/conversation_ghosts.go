@@ -1,8 +1,9 @@
-// conversation_ghosts.go —— H.13.e: shown ghost text + Tab-accepted
-// 日志的 CRUD。owner_id 在每行 (重复存自 conversation.owner_id) 是为了
-// admin "all ghost shown across my conversations" 这种 owner-scoped 查询
-// 不用 join；shown 路径每次 LLM follow-up emit / 浏览器渲 ghost 都会写，
-// 写入流量比 conversations 高一个数量级。
+// conversation_ghosts.go — H.13.e: CRUD for the shown-ghost-text + Tab-accepted log.
+// owner_id sits on every row (denormalized from conversation.owner_id) so an
+// admin owner-scoped query like "all ghost shown across my conversations" doesn't
+// need a join; the shown path writes on every LLM follow-up emit / every ghost the
+// browser renders, so its write volume is an order of magnitude higher than
+// conversations.
 
 package repo
 
@@ -18,17 +19,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// GhostRepo —— conversation_ghosts 表的访问入口。
+// GhostRepo — access entry point for the conversation_ghosts table.
 type GhostRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewGhostRepo —— DI 构造。
+// NewGhostRepo — DI constructor.
 func NewGhostRepo(pool *pgstore.Pool) *GhostRepo {
 	return &GhostRepo{pool: pool}
 }
 
-// RecordShownInput —— POST sessions/{id}/ghosts/shown 入参。
+// RecordShownInput — input for POST sessions/{id}/ghosts/shown.
 type RecordShownInput struct {
 	OwnerID        string
 	ConversationID string
@@ -37,7 +38,8 @@ type RecordShownInput struct {
 	TurnIndex      int32
 }
 
-// RecordPolicyInput —— ghost-steering P3 policy ghost 落库入参(source='policy' + heading/hook)。
+// RecordPolicyInput — input for persisting a ghost-steering P3 policy ghost
+// (source='policy' + heading/hook).
 type RecordPolicyInput struct {
 	OwnerID        string
 	ConversationID string
@@ -47,8 +49,9 @@ type RecordPolicyInput struct {
 	TurnIndex      int32
 }
 
-// RecordPolicy —— 落一条 policy ghost(target_waypoint + follows_from)。返回 row 让 caller 拿 id
-// 放进 `ghost` 帧(前端 accept 回填)。
+// RecordPolicy — writes one policy ghost (target_waypoint + follows_from). Returns the
+// row so the caller can put its id into the `ghost` frame (frontend fills it back in
+// on accept).
 func (r *GhostRepo) RecordPolicy(
 	ctx context.Context, in *RecordPolicyInput,
 ) (entity.Ghost, error) {
@@ -70,8 +73,8 @@ func (r *GhostRepo) RecordPolicy(
 	return toDomainGhost(&row), nil
 }
 
-// RecordShown —— append-only 写一条 shown 日志。返回 row id 让 caller
-// 拿去后续 accept 调用。
+// RecordShown — append-only write of one shown log entry. Returns the row id so the
+// caller can use it in a subsequent accept call.
 func (r *GhostRepo) RecordShown(
 	ctx context.Context, in *RecordShownInput,
 ) (entity.Ghost, error) {
@@ -96,8 +99,9 @@ func (r *GhostRepo) RecordShown(
 	return toDomainGhost(&row), nil
 }
 
-// MarkAccepted —— visitor 按 Tab 时 owner_id-scoped 更新 accepted_at；
-// 找不到对应行翻 ErrGhostNotFound (route 返 404 / 已被 cascade 删等)。
+// MarkAccepted — updates accepted_at, owner_id-scoped, when the visitor presses Tab;
+// no matching row translates to ErrGhostNotFound (route returns 404 / already
+// cascade-deleted, etc.).
 func (r *GhostRepo) MarkAccepted(
 	ctx context.Context, ownerID, conversationID, ghostID string,
 ) (entity.Ghost, error) {
@@ -135,8 +139,8 @@ func buildAcceptParams(
 	}, nil
 }
 
-// ListByConversation —— admin conversation detail page 拿这个 turn-by-turn
-// log 显。owner_id-scoped 防 cross-tenant 漏读。
+// ListByConversation — the admin conversation detail page fetches this turn-by-turn
+// log to display. owner_id-scoped to prevent a cross-tenant read leak.
 func (r *GhostRepo) ListByConversation(
 	ctx context.Context, ownerID, conversationID string,
 ) ([]entity.Ghost, error) {

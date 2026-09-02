@@ -1,24 +1,32 @@
-// corpus_write_args.go —— 一次写请求的**形状**,以及每个字段「没给」是什么意思。
+// corpus_write_args.go — the **shape** of one write request, and what "not given" means
+// for each field.
 //
-// 这不是把 corpus_write.go 切两半凑行数,它是一个自成一体的问题:`corpus.update` 的 schema
-// 只要求 `genre` + `id`,所以**每一个字段都可能缺席**,而缺席对每个字段的含义并不相同 ——
+// This isn't corpus_write.go split in two to pad line counts, it's a self-contained
+// problem on its own: `corpus.update`'s schema only requires `genre` + `id`, so **every
+// other field may be absent**, and what absence means is different for each field —
 //
-//	body / title      缺席 = 整份替换里的空值(下游用非空校验挡住,见 UpdateRaw / hasBlankCorpusField)
-//	parent_id         缺席 = 不动;给空串 = 挪到根          (F-L-28)
-//	show_as_source    缺席 = 保持可引用                     (契约,不是默认值)
-//	flagged_private   缺席 = 不动                           (F-L-57)
-//	hero 三项          缺席 = 不动                           (既有调用方一个都不带)
+//	body / title      absent = an empty value in a full replace (blocked downstream by
+//	                  non-empty validation, see UpdateRaw / hasBlankCorpusField)
+//	parent_id         absent = leave alone; empty string = move to root      (F-L-28)
+//	show_as_source    absent = stays referenceable                (a contract, not a default)
+//	flagged_private   absent = leave alone                                  (F-L-57)
+//	the 3 hero fields absent = leave alone            (existing callers carry none of them)
 //
-// 这张表被踩出来过四次,每次都是同一个形状:**裸值表达不了「没给」**,于是"没提到"被当成
-// "设成零值",编译不报、回执报成功、屏幕上什么都不说。四次各修了当时那一个字段
-// ([[lesson-not-swept-to-neighbours]])——所以现在它们住在一起,下一个加字段的人先读这段。
+// This table got learned the hard way four times, and every time it was the same shape:
+// **a bare value can't express "not given"**, so "wasn't mentioned" got treated as "set to
+// zero value" — the compiler doesn't catch it, the response reports success, and nothing
+// shows up on screen. Each of the four incidents fixed only the one field at hand
+// ([[lesson-not-swept-to-neighbours]]) — so now they all live together here, and whoever
+// adds the next field should read this first.
 //
-// ⚠️ **这里的指针是手搓的,而房子里已经有现成的**:`fp.OptionalString` / `OptionalBool` /
-// `OptionalInt32`(`internal/infra/facadeparity/optional.go`)干的就是这件事 —— `Set` 记的正是
-// "调用方提没提过这个字段"。`seo.update_settings` 用的是它,而且它的 Description 直接写着
-// 「Omitted fields keep ...」。corpus 和 roles 这两处各自搓了一份等价物 ——
-// 能用但**词汇分叉了**([[vocabulary-must-not-diverge]])。收口到 fp.Optional* 是待办,
-// 不是这一刀的范围;先把这句话留在这儿,别再有第三份。
+// WARNING **the pointers here are hand-rolled, and the house already has a ready-made
+// version**: `fp.OptionalString` / `OptionalBool` / `OptionalInt32`
+// (`internal/infra/facadeparity/optional.go`) do exactly this — `Set` records precisely
+// "did the caller mention this field or not". `seo.update_settings` uses it, and its
+// Description spells out "Omitted fields keep ...". corpus and roles each hand-rolled their
+// own equivalent — it works, but the **vocabulary has forked**
+// ([[vocabulary-must-not-diverge]]). Consolidating onto fp.Optional* is a TODO, not in
+// scope for this change; leaving this note here so a third version doesn't happen.
 
 package ops
 
@@ -30,26 +38,32 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// corpusWriteArgs —— 建和改共用的入参。哪些字段对哪个 genre 有意义,由分派决定。
+// corpusWriteArgs — the shared input shape for create and update. Which fields matter
+// for which genre is decided by the dispatch logic.
 type corpusWriteArgs struct {
-	// hero 三项:没给 = 不动,不是"清空"。既有调用方一个 hero 字段都不带,
-	// 跟着"整份替换"那条规矩走的话,每次改正文都会把 owner 设好的 hero 抹掉。
+	// The 3 hero fields: not given = leave alone, not "clear". Existing callers carry
+	// none of the hero fields, so following the "full replace" rule as-is would wipe the
+	// owner's hero on every single body edit.
 	CoverImageAssetID *string `json:"cover_image_asset_id"`
 	CoverHeadline     *string `json:"cover_headline"`
 	CoverHue          *string `json:"cover_hue"`
-	// FlaggedPrivate —— 同一个道理的第四次:它曾经是裸 bool,于是 owner 的 AI 说一句
-	// 「把这条正文改一下」(`{genre,id,body}`)就把 owner 标的私密**悄悄取消**了,回执还报成功。
+	// FlaggedPrivate — the same lesson for the fourth time: it used to be a bare bool, so
+	// the owner's AI saying "edit this body a bit" (`{genre,id,body}`) would **silently
+	// clear** the owner's private flag, and the response would still report success.
 	FlaggedPrivate *bool  `json:"flagged_private"`
 	Genre          string `json:"genre"`
 	ID             string `json:"id"`
 	Title          string `json:"title"`
 	Body           string `json:"body"`
-	// ParentID —— nil = 请求里没有这个字段 = **不动**;指向 "" = 明确挪到根;指向 id = 挪过去。
+	// ParentID — nil = the request doesn't carry this field = **leave alone**; points to
+	// "" = explicitly move to root; points to an id = move there.
 	//
-	// 它曾经是裸 string,于是「没提到父级」和「挪到根」是同一个值。面板的编辑表单既不显示
-	// 也不回传这一格(F-L-28),owner 改一次正文,笔记就被拍到根 —— 而**树是语料的地址**:
-	// `uriOf` = `genre://<path>`,role/code 的 ACL glob 就长在这个 path 上。一条笔记换了地址,
-	// owner 写的 `wiki://a/b/**` 从此拦不住它,屏幕上什么都不说。
+	// It used to be a bare string, so "parent not mentioned" and "move to root" were the
+	// same value. The panel's edit form neither displays nor sends this field back
+	// (F-L-28), so the owner edits the body once and the note gets slammed to root — and
+	// **the tree IS the corpus address**: `uriOf` = `genre://<path>`, and role/code ACL
+	// globs are built on that path. Once a note's address changes, an owner's
+	// `wiki://a/b/**` rule silently stops covering it, with nothing shown on screen.
 	ParentID     *string  `json:"parent_id"`
 	Source       string   `json:"source"`
 	ShowAsSource *bool    `json:"show_as_source"`
@@ -57,18 +71,21 @@ type corpusWriteArgs struct {
 	CSSClasses   []string `json:"css_classes"`
 }
 
-// showAsSource —— 没给就是 true。
+// showAsSource — not given means true.
 //
-// **这是个契约,不是默认值的选择**:一条语料建出来就是可引用的来源;藏起来(meta/persona 那类)
-// 是 owner 明确要求的例外。genre 参数化之前这里是 `args.ShowAsSource == nil || *args.ShowAsSource`,
-// 参数化时被写成了一个裸 bool —— 于是"没提到这个字段"从"保持可引用"变成了"藏起来",
-// 而且编译不报、改口的人也看不见。
+// **This is a contract, not a default-value choice**: a piece of corpus content is a
+// referenceable source the moment it's created; hiding it (the meta/persona kind) is an
+// exception the owner explicitly asked for. Before genre got parameterized, this was
+// `args.ShowAsSource == nil || *args.ShowAsSource`; during parameterization it got rewritten
+// as a bare bool — so "field not mentioned" flipped from "stays referenceable" to "gets
+// hidden", and the compiler didn't catch it, nor did whoever made the change notice.
 func (a *corpusWriteArgs) showAsSource() bool {
 	return a.ShowAsSource == nil || *a.ShowAsSource
 }
 
-// flaggedPrivate —— **建**的时候没给就是 false(新条目默认不私密)。
-// 改的时候不能用它,要用 keptFlaggedPrivate:那边"没给"的意思是**不动**。
+// flaggedPrivate — on **create**, not given means false (a new entry defaults to
+// non-private). Don't use this on update — use keptFlaggedPrivate instead, where
+// "not given" means **leave alone**.
 func (a *corpusWriteArgs) flaggedPrivate() bool {
 	return a.FlaggedPrivate != nil && *a.FlaggedPrivate
 }
@@ -81,7 +98,8 @@ func decodeCorpusWrite(raw json.RawMessage) (corpusWriteArgs, error) {
 	return in, requireGenre(in.Genre)
 }
 
-// parentOrNil —— **建**的时候:没给 / 给空串都是挂在根上,不是错。
+// parentOrNil — on **create**: not given / given as an empty string both mean attach
+// at root; neither is an error.
 func parentOrNil(id *string) *string {
 	if id == nil || *id == "" {
 		return nil
@@ -89,11 +107,13 @@ func parentOrNil(id *string) *string {
 	return id
 }
 
-// keptParentID —— **改**的时候:请求里没给 parent_id 就沿用它现在的父级(不动),
-// 给了空串才是「挪到根」。
+// keptParentID — on **update**: if the request doesn't carry parent_id, keep the entry's
+// current parent (leave alone); only an explicit empty string means "move to root".
 //
-// 为什么要多读一次:下游 `UpdateWikiInput.ParentID` 的 nil 含义是「挪到根」,那是**建**那条路
-// 定下来的,改它会牵动每个调用点。所以「不动」在这一层解析掉 —— 读回当前值再原样传下去。
+// Why the extra read: downstream, `UpdateWikiInput.ParentID`'s nil means "move to root" —
+// that convention was fixed by the **create** path, and changing it would touch every call
+// site. So "leave alone" gets resolved at this layer instead — read back the current value
+// and pass it through unchanged.
 func keptParentID(
 	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
 ) (*string, error) {
@@ -107,8 +127,9 @@ func keptParentID(
 	return cur.ParentID, nil
 }
 
-// keptFlaggedPrivate —— **改**的时候:请求里没给 flagged_private 就沿用它现在的值(不动)。
-// 跟 keptParentID 同一个形状,同一个理由 —— 只不过这一格错了要人命:它标的是「这条别拿出去」。
+// keptFlaggedPrivate — on **update**: if the request doesn't carry flagged_private, keep
+// its current value (leave alone). Same shape, same reasoning as keptParentID — except
+// getting this one wrong is deadly serious: it's the flag marking "don't let this one out".
 func keptFlaggedPrivate(
 	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
 ) (bool, error) {
@@ -122,14 +143,17 @@ func keptFlaggedPrivate(
 	return cur.FlaggedPrivate, nil
 }
 
-// keptTags / keptCSSClasses —— 同一条规矩的另外两格。
+// keptTags / keptCSSClasses — two more fields under the same rule.
 //
-// **这次一起改,不再一格一格来**:这三个字段是同一个缺陷的三个面(F-L-57),而这份文件顶上
-// 那张表已经数到第四次了。切片天然分得开「没给」(nil)和「明确清空」(`[]`),所以不需要指针 ——
-// 需要的只是有人去读那个区别。
+// **Fixed together this time, not one field at a time**: these three fields are three
+// faces of the same defect (F-L-57), and the table at the top of this file was already
+// counting a fourth occurrence. A slice naturally distinguishes "not given" (nil) from
+// "explicitly cleared" (`[]`), so no pointer is needed here — what's needed is just
+// someone reading that distinction.
 //
-// css_classes 尤其藏得深:owner 面一个读接口都不回传它,而**访客那边在用**
-// (`WikiReaderClient` 按它渲染那条笔记)。改一次正文把它清掉,退化只出现在访客的屏幕上。
+// css_classes is especially well-hidden: no owner-side read endpoint sends it back, yet
+// **the visitor side uses it** (`WikiReaderClient` renders the note by it). Clear it with
+// one body edit, and the regression only ever shows up on the visitor's screen.
 func keptTags(
 	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
 ) ([]string, error) {
@@ -156,7 +180,8 @@ func keptCSSClasses(
 	return cur.CSSClasses, nil
 }
 
-// kept —— 读回这条现在的样子。上面几个 kept* 都要它,读一次的成本远小于「悄悄清掉一格」。
+// kept — reads back this entry's current state. Every kept* function above needs it —
+// the cost of one extra read is far smaller than "silently wiping a field".
 func kept(
 	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
 ) (corpusItemOut, error) {

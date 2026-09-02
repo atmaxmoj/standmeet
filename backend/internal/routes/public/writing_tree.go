@@ -1,6 +1,7 @@
-// writing_tree.go —— GET /api/v1/writing-tree[?parent=ID] —— reader sidebar 的
-// writing 树懒加载分层。parent 空 → roots;parent=ID → ID 的直接子。public:
-// 列 published writing,private 标 locked(草稿不进)。导航按 slug。
+// writing_tree.go —— GET /api/v1/writing-tree[?parent=ID] —— lazy-loaded hierarchy
+// for the reader sidebar's writing tree. Empty parent → roots; parent=ID → ID's
+// direct children. public: lists published writings, private ones are marked locked
+// (drafts never appear). Navigation goes by slug.
 
 package public
 
@@ -30,8 +31,8 @@ func (h *WritingHandlers) getWritingTree() http.HandlerFunc {
 	}
 }
 
-// getWritingTreeContext —— GET /api/v1/writing-tree/context?slug=... —— 一篇
-// writing 的祖先链(breadcrumb)+ 直接子(文章页 reader 框)。
+// getWritingTreeContext —— GET /api/v1/writing-tree/context?slug=... —— one writing's
+// ancestor chain (breadcrumb) + direct children (the article page's reader frame).
 func (h *WritingHandlers) getWritingTreeContext() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		soleOwner, err := owner.LoadSoleOwner(r.Context(), h.Page)

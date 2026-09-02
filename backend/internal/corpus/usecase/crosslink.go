@@ -1,17 +1,18 @@
-// crosslink.go —— writing body_md 里 `[[X]]` 双链的解析 + 渲染期 rewrite。
+// crosslink.go —— parsing + render-time rewrite of `[[X]]` cross-links in writing body_md.
 //
-// **存储**：body_md 永远存原始 `[[X]]`（owner 写啥存啥；Obsidian export
-// round-trip 也保 literal）。
-// **读时（public /writings GET）**：server pre-resolve `[[X]]` → 真 writing
-// slug → rewrite body_md 成 `[Title](/writings/<slug>)` 标准 markdown 再发给
-// 前端；不识别的留 literal `[[X]]` 当文字。
-// **写时（SaveWriting）**：同 tx 抽 [[X]] → resolve → 把 src→dst 边表
-// (writing_refs) 重建。
+// **Storage**: body_md always stores the raw `[[X]]` (whatever the owner wrote is what's
+// stored; an Obsidian export round-trip also keeps it literal).
+// **At read time (public /writings GET)**: the server pre-resolves `[[X]]` → the real writing
+// slug → rewrites body_md into standard markdown `[Title](/writings/<slug>)` before sending it
+// to the frontend; anything unresolved stays as literal `[[X]]` text.
+// **At write time (SaveWriting)**: in the same tx, extract [[X]] → resolve → rebuild the
+// src→dst edge table (writing_refs).
 //
-// Resolution 规则（跟 Quartz CrawlLinks 对齐）：
-//  1. 先按 slug case-insensitive 精确匹配
-//  2. 没中再按 title case-insensitive 匹配
-//  3. 都没中：返 unresolved，render 那侧留原 [[X]]，边表不入这条
+// Resolution rule (aligned with Quartz's CrawlLinks):
+//  1. First try an exact case-insensitive match on slug
+//  2. If no match, fall back to a case-insensitive match on title
+//  3. If neither matches: return unresolved, the render side keeps the original [[X]],
+//     and the edge table gets no entry for it
 
 package usecase
 
@@ -24,27 +25,30 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 )
 
-// CrossLinkRefScheme —— body_md 里的双链字面前缀。
+// CrossLinkRefScheme —— the literal cross-link prefix in body_md.
 const crossLinkOpen = "[["
 
-// crossLinkPattern —— 抓 `[[X]]` / `[[X|alias]]` / `[[X#heading]]`,并捕前导 `!`(embed)。
-// group1 = 前导 `!`(embed 标记),group2 = 目标(含可能的 #heading),group3 = optional alias。
-// 对齐 check-links.sh:embed 不算链接、代码块/行内代码里的不算、#heading 只锚同一目标。
+// crossLinkPattern —— captures `[[X]]` / `[[X|alias]]` / `[[X#heading]]`, and the leading
+// `!` (embed). group1 = leading `!` (embed marker), group2 = target (possibly with #heading),
+// group3 = optional alias.
+// Aligned with check-links.sh: an embed doesn't count as a link, neither does one inside a
+// code block/inline code, and #heading only anchors within the same target.
 var (
 	crossLinkPattern = regexp.MustCompile(`(!?)\[\[([^\]|]+)(?:\|([^\]]*))?\]\]`)
 	codeFenceRe      = regexp.MustCompile("(?s)```.*?```")
 	inlineCodeRe     = regexp.MustCompile("`[^`]*`")
 )
 
-// CrossLinkRef —— 抽出来的一条 [[...]]。
+// CrossLinkRef —— one extracted [[...]].
 type CrossLinkRef struct {
-	Original string // 原文（含 [[ ]]）
-	Target   string // 目标（slug 或 title，已 trim、已剥 #heading）
-	Alias    string // 可选显示文本（"|" 后面），空 = 用 dst 的 title
+	Original string // original text (including [[ ]])
+	Target   string // target (slug or title, already trimmed, #heading already stripped)
+	Alias    string // optional display text (after "|"), empty = use dst's title
 }
 
-// ExtractCrossLinks —— body_md 里所有 `[[X]]` 引用,按出现顺序。先剥代码块/行内代码,跳 `![[embed]]`,
-// 剥 `#heading`(对齐 vault 的 check-links.sh:那些都不是真链接)。
+// ExtractCrossLinks —— all `[[X]]` references in body_md, in order of appearance. Strips
+// code blocks/inline code first, skips `![[embed]]`, strips `#heading` (aligned with the
+// vault's check-links.sh: none of those count as real links).
 func ExtractCrossLinks(body string) []CrossLinkRef {
 	stripped := inlineCodeRe.ReplaceAllString(codeFenceRe.ReplaceAllString(body, ""), "")
 	matches := crossLinkPattern.FindAllStringSubmatch(stripped, -1)
@@ -71,15 +75,15 @@ func crossLinkFromMatch(m []string) (CrossLinkRef, bool) {
 	return CrossLinkRef{Original: m[0], Target: target, Alias: strings.TrimSpace(m[3])}, true
 }
 
-// ResolvedLink —— Resolution 完后的一条 link。dst nil 表示 unresolved。
+// ResolvedLink —— one link after resolution. dst nil means unresolved.
 type ResolvedLink struct {
-	Dst *entity.Writing // nil = unresolved（render 留 literal）
+	Dst *entity.Writing // nil = unresolved (render side keeps it literal)
 	Ref CrossLinkRef
 }
 
-// ResolveCrossLinks —— 一组 ref 解到对应 writing。candidates 是 owner 的所
-// 有 writing（caller 已查过，避免反复 round-trip）。规则 Quartz-style：slug
-// 先（case-insensitive 精确），title fallback（同 normalize）。
+// ResolveCrossLinks —— resolves a set of refs to their target writings. candidates is the
+// owner's full set of writings (already fetched by the caller, to avoid repeated round-trips).
+// Quartz-style rule: slug first (exact, case-insensitive), title as fallback (same normalize).
 func ResolveCrossLinks(
 	refs []CrossLinkRef, candidates []entity.Writing,
 ) []ResolvedLink {
@@ -91,7 +95,7 @@ func ResolveCrossLinks(
 	return out
 }
 
-// writingIndex —— slug+title 两张 case-insensitive 索引打包。
+// writingIndex —— bundles two case-insensitive indexes, by slug and by title.
 type writingIndex struct {
 	bySlug, byTitle map[string]*entity.Writing
 }
@@ -119,9 +123,9 @@ func resolveCrossLinkOne(ref *CrossLinkRef, idx writingIndex) ResolvedLink {
 	return ResolvedLink{Ref: *ref, Dst: nil}
 }
 
-// RewriteCrossLinksToMarkdown —— public /writings render 用：把 body_md 里
-// 每条 `[[X]]` 换成 `[显示文本](/writings/<slug>)`。unresolved 留 literal
-// `[[X]]`。显示文本：alias 优先 > dst.Title。
+// RewriteCrossLinksToMarkdown —— used by public /writings render: replaces every `[[X]]` in
+// body_md with `[display text](/writings/<slug>)`. Unresolved ones stay as literal `[[X]]`.
+// Display text: alias takes priority, else dst.Title.
 func RewriteCrossLinksToMarkdown(body string, resolved []ResolvedLink) string {
 	for i := range resolved {
 		r := &resolved[i]
@@ -138,8 +142,9 @@ func RewriteCrossLinksToMarkdown(body string, resolved []ResolvedLink) string {
 	return body
 }
 
-// DedupResolvedDsts —— 从 resolved 列表抽 dst writing.id 去重（SaveWriting
-// 写 writing_refs 边表时用，避免 (src,dst) 主键撞）。unresolved 跳过。
+// DedupResolvedDsts —— extracts dst writing.id from a resolved list, deduped (used by
+// SaveWriting when writing the writing_refs edge table, to avoid colliding on the (src,dst)
+// primary key). Unresolved entries are skipped.
 func DedupResolvedDsts(resolved []ResolvedLink) []string {
 	seen := make(map[string]struct{}, len(resolved))
 	out := make([]string, 0, len(resolved))
@@ -157,8 +162,9 @@ func DedupResolvedDsts(resolved []ResolvedLink) []string {
 	return out
 }
 
-// resolveAndDedupForOwner —— SaveWriting 用的便捷封装：从 body 抽 refs →
-// resolve against candidates → 输出去重后的 dst id 列表（用来重建边表）。
+// resolveAndDedupForOwner —— convenience wrapper used by SaveWriting: extract refs from
+// body → resolve against candidates → output a deduped dst id list (used to rebuild the
+// edge table).
 func resolveAndDedupForOwner(body string, candidates []entity.Writing) []string {
 	refs := ExtractCrossLinks(body)
 	if len(refs) == 0 {
@@ -167,24 +173,25 @@ func resolveAndDedupForOwner(body string, candidates []entity.Writing) []string 
 	return DedupResolvedDsts(ResolveCrossLinks(refs, candidates))
 }
 
-// HasCrossLinks —— body 里有没有 `[[X]]`。避免没 link 的 writing save 时也
-// 跑 candidate list 查询。
+// HasCrossLinks —— whether body contains any `[[X]]`. Avoids running the candidate list
+// query when saving a writing that has no links.
 func HasCrossLinks(body string) bool {
 	return strings.Contains(body, crossLinkOpen)
 }
 
-// RewriteCrossLinksForRender —— public /writings GET 用：body_md 里 `[[X]]`
-// resolve 到 candidate slug+title → 替换成 `[Title](/writings/<slug>)`
-// 标准 markdown；unresolved 留原文。
+// RewriteCrossLinksForRender —— used by public /writings GET: resolves `[[X]]` in body_md
+// against candidate slug+title → replaces with standard markdown `[Title](/writings/<slug>)`;
+// unresolved ones keep the original text.
 //
-// 跟 SaveWriting 那边走的 ResolveCrossLinks 是同一套 resolver，但只需要 slug
-// + title（不需要 full Writing），所以走自己的轻 index。
+// The same resolution logic as SaveWriting's ResolveCrossLinks, but this only needs
+// slug + title (not the full Writing), so it runs its own lightweight index.
 func RewriteCrossLinksForRender(body string, index []repo.SlugTitle) string {
 	if !HasCrossLinks(body) {
 		return body
 	}
-	// 索引为空不早退 —— 理由同 wiki 那一侧(F-L-25):空索引下每条都解析不到,而"解析不到"
-	// 现在有确定的产物(纯文本),不再是"原样漏出"。
+	// Don't early-return on an empty index — same reasoning as the wiki side (F-L-25): with
+	// an empty index every ref fails to resolve, and "unresolved" now has a defined output
+	// (plain text), not a raw pass-through leak.
 	slim := indexSlugTitle(index)
 	refs := ExtractCrossLinks(body)
 	for i := range refs {
@@ -193,7 +200,7 @@ func RewriteCrossLinksForRender(body string, index []repo.SlugTitle) string {
 	return body
 }
 
-// slugTitleIndex —— SlugTitle 版本的 case-insensitive 双索引。
+// slugTitleIndex —— the SlugTitle version of the case-insensitive dual index.
 type slugTitleIndex struct {
 	bySlug, byTitle map[string]*repo.SlugTitle
 }
@@ -225,16 +232,20 @@ func applyOneCrossLinkRewrite(
 	return strings.ReplaceAll(body, ref.Original, replacement)
 }
 
-// unresolvedCrossLinkText —— 解析不到的 `[[X]]` 退成**纯文本**,不是退成原标记(F-L-25)。
-// wiki reader 和 writings reader 共用这一条:两处曾各自 `return body`,于是各自把方括号
-// 漏给访客。
+// unresolvedCrossLinkText —— an unresolvable `[[X]]` falls back to **plain text**, not back
+// to the original markup (F-L-25). Both the wiki reader and the writings reader share this:
+// each used to `return body` on its own, which leaked the brackets straight to the visitor.
 //
-// 访客不是 Obsidian 用户:`[[ ]]` 是创作机械,不是内容。目标名是 owner 写下的真东西,留着;
-// 方括号没有任何一种读法对访客有用。目标**存在但此处读不到**(例:genre=raw,压根没有 reader
-// 路由)跟目标**根本不存在**,在这一层是同一件事 —— 两者都变不成可点的地址。
+// The visitor is not an Obsidian user: `[[ ]]` is authoring machinery, not content. The
+// target name is real text the owner wrote, so it stays; the brackets have no reading that's
+// useful to a visitor. A target that **exists but isn't readable here** (e.g. genre=raw,
+// which has no reader route at all) and a target that **doesn't exist at all** are the same
+// thing at this layer — neither becomes a clickable address.
 //
-// 顺带把审计那一侧钉死:屏幕上再出现 `[[` 就只剩一个含义 —— **重写器没跑**。
-// vault-links item 要的「解析器坏了 vs 链接悬空必须能区分」因此自动成立,不必去查库分辨。
+// This also pins down the audit side: `[[` appearing on screen now has exactly one meaning —
+// **the rewriter didn't run**. The vault-links item's requirement to distinguish "resolver is
+// broken" from "link is genuinely dangling" therefore holds automatically, with no need to
+// query the database to tell them apart.
 func unresolvedCrossLinkText(ref *CrossLinkRef) string {
 	if ref.Alias != "" {
 		return ref.Alias

@@ -1,8 +1,9 @@
-// write.go —— 通用注册表的写操作:建 / 改 / 删 / 激活 / 断开 / 验 spec
-// (声明在 ops.go)。
+// write.go —— write operations for the generic registry: create / edit / delete /
+// activate / disconnect / validate spec (declared in ops.go).
 //
-// 编排本身在 internal/connector 的 Service 里(抓 spec / 装配 / 落库 / OAuth);这里只解参、
-// 转交、翻回执。
+// The orchestration itself lives in internal/connector's Service (fetching the spec /
+// assembly / persisting / OAuth); this file only parses args, hands off, and
+// translates the receipt.
 
 package axisconn
 
@@ -16,11 +17,12 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// connectorOps —— 通用注册表要的那点东西。
+// connectorOps —— the small set of things the generic registry needs.
 type connectorOps struct {
 	svc *connector.Service
-	// slots —— 只为 connectors.agent_ops 那一条：要问「这个已连上的连接器暴露了哪些
-	// operation」，而那件事住在 live hub 里，不在库里。
+	// slots —— only for connectors.agent_ops: it needs to ask "which operations
+	// does this connected connector expose", and that lives in the live hub, not
+	// in the DB.
 	slots *connector.Slots
 }
 
@@ -128,13 +130,14 @@ var (
 	}`)
 )
 
-// connectorOKOut —— id 型动作的回执。
+// connectorOKOut —— the receipt for an id-shaped action.
 type connectorOKOut struct {
 	ID string `json:"id"`
 	OK bool   `json:"ok"`
 }
 
-// connectorIDAction —— 删 / 激活 / 断开只差调哪个方法;解参和回执同一份。
+// connectorIDAction —— delete / activate / disconnect differ only in which method
+// they call; parsing and the receipt are shared.
 func connectorIDAction(
 	apply func(ctx context.Context, ownerID, id string) error, what string,
 ) fp.Invoke {
@@ -150,14 +153,16 @@ func connectorIDAction(
 	}
 }
 
-// connectorCreateArgs —— kind ""/"openapi" → 传 spec+binding;"protocol" → 协议连接器。
+// connectorCreateArgs —— kind ""/"openapi" → pass spec+binding; "protocol" → a
+// protocol connector. URL: when the spec is fetched from a URL, the caller sends no
+// body and this layer fetches it instead.
 type connectorCreateArgs struct {
 	Kind               string `json:"kind"`
 	Protocol           string `json:"protocol"`
 	Category           string `json:"category"`
 	AuthScheme         string `json:"auth_scheme"`
 	BaseURL            string `json:"base_url"`
-	URL                string `json:"url"` // spec 从 URL 抓来时:调用方没有正文,这一层去抓
+	URL                string `json:"url"`
 	Spec               string `json:"spec"`
 	Binding            string `json:"binding"`
 	ExposeAsAgentTools bool   `json:"expose_as_agent_tools"`
@@ -189,7 +194,8 @@ func createConnector(ops connectorOps) fp.Invoke {
 	}
 }
 
-// createByKind —— protocol 走协议连接器,其余走上传 spec。
+// createByKind —— protocol goes through the protocol connector, everything else
+// goes through the uploaded spec.
 func createByKind(
 	ctx context.Context, ops connectorOps, ownerID string, in *connectorCreateArgs,
 ) (string, error) {
@@ -235,8 +241,9 @@ type connectorValidateArgs struct {
 	BaseURL string `json:"base_url"`
 }
 
-// connectorVerdictOut —— 验 spec 的结果。auth 原样透传:它的形状由那份 spec 决定,
-// 这一层不该看懂,所以是已经编好的 JSON。
+// connectorVerdictOut —— the result of validating a spec. auth passes through
+// as-is: its shape is decided by that spec, this layer isn't meant to understand
+// it, so it's already-marshaled JSON.
 type connectorVerdictOut struct {
 	Title string          `json:"title"`
 	Error string          `json:"error"`
@@ -253,7 +260,8 @@ func validateConnectorSpec(ops connectorOps) fp.Invoke {
 		v := ops.svc.ValidateSpec(ctx, []byte(in.Spec), in.URL, in.BaseURL)
 		auth, aerr := json.Marshal(v.Auth)
 		if aerr != nil {
-			// 认证表单编不出来只该少这一半,不该让 owner 连"这份 spec 行不行"都问不到。
+			// failing to marshal the auth form should only lose this one half —
+			// it shouldn't stop the owner from even learning "is this spec good".
 			auth = json.RawMessage(`null`)
 		}
 		return json.Marshal(connectorVerdictOut{

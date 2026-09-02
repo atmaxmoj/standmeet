@@ -1,11 +1,15 @@
-// corpus_index_deps.go —— corpus indexing 的 host 侧依赖(corpus listers)+ scope 闸。
-// 这是 corpus 自己伸出去的检索/导航接口(search/tree/read over 自己的内容)——core，corpus 拥有它。
-// 消费方(外置沙箱插件，如 corpus 检索 / 会话摘要)断网，靠 bind 进沙箱的窄 socket 回调这些
-// corpus_* host op 跑真活(corpus_index_socket.go)。能力本体(MCP tool / binding / prompt)在插件侧。
+// corpus_index_deps.go —— host-side deps for corpus indexing (corpus listers) + the scope
+// gate. This is the search/navigation interface corpus reaches out with, over its own
+// content (search/tree/read) — it's core, and corpus owns it. Consumers (externalized
+// sandboxed plugins, e.g. corpus retrieval / conversation summarization) are offline, and
+// call back into these corpus_* host ops through a narrow socket bound into the sandbox to
+// do the real work (corpus_index_socket.go). The capability itself (MCP tool / binding /
+// prompt) lives on the plugin side.
 //
-// corpus 业务逻辑(runSearch/runRead/runList，在 visitor_chat*.go)原封不动复用，只是 invoke 从
-// in-process BindingTool 换成 socket op handler。citation 不经能力:inference 的 accumSink 从
-// corpus_read 结果 {id,genre} 自行累计(早已解耦)。
+// corpus's business logic (runSearch/runRead/runList, in visitor_chat*.go) is reused
+// unchanged; only the invocation switches from an in-process BindingTool to a socket op
+// handler. Citation doesn't go through the capability: inference's accumSink accumulates
+// {id,genre} directly from corpus_read results (already decoupled, before this change).
 
 package capload
 
@@ -13,13 +17,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
-// CorpusScopeVisible —— corpus 检索能力的 fragment/enabled 闸：这个 session 的身份**够得着
-// 语料**就算活跃（prompt 贡献 + CapabilityState.Enabled=true）。够不着 → fragment 不进
-// prompt + enabled=false，但 tool 仍暴露（ACL=always；内部准入照样逐条判）。
-// composition root 经 CapHooks.Fragment 注入。
+// CorpusScopeVisible —— the fragment/enabled gate for the corpus retrieval capability:
+// active (contributes to the prompt + CapabilityState.Enabled=true) as long as this
+// session's identity **can reach some corpus content**. If it can't reach anything → the
+// fragment stays out of the prompt and enabled=false, but the tool is still exposed
+// (ACL=always; internal admission is still judged per call). Injected by the composition
+// root via CapHooks.Fragment.
 //
-// 判据问的是 scope 自己（`ReachesAnything`），不是"正列表长度 > 0"：public 身份的范围由
-// 每条笔记的 published 定，它一条 glob 都没有 —— 按长度判会把检索能力对每个无码访客关掉。
+// The test asks about the scope itself (`ReachesAnything`), not "the allow-list length is
+// > 0": a public identity's range is determined by each note's published flag, and it has
+// zero globs — judging by length would turn the retrieval capability off for every
+// codeless visitor.
 func CorpusScopeVisible(in *capreg.AssembleInput) bool {
 	if in.RoleSnapshot == nil {
 		return false

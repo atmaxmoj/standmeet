@@ -1,6 +1,9 @@
-// assemble.go —— manifest → 装配好的连接器。归一化的装配入口：内置（仓库里的 spec+binding
-// 文件）和上传（owner 在 UI 贴的）走**同一个** Assemble，唯一区别是 manifest 数据哪来。
-// 装配 = 解析 spec + binding → 校验自洽 → 选认证策略 → 建 runtime → 按品类包成对应契约适配器。
+// assemble.go — manifest → assembled connector. A unified assembly entry point:
+// built-in (spec+binding files in the repo) and uploaded (pasted by the owner in the
+// UI) both go through the **same** Assemble, the only difference is where the
+// manifest data comes from. Assembly = parse spec + binding → validate self-
+// consistency → pick an auth strategy → build the runtime → wrap it into the matching
+// contract adapter for its category.
 
 package connector
 
@@ -10,33 +13,44 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 )
 
-// errConnectorWrap —— 装配期错误统一前缀（带连接器 id）。
+// errConnectorWrap — the shared prefix for assembly-time errors (carries the
+// connector id).
 const errConnectorWrap = "connector %q: %w"
 
-// Manifest —— 一个连接器的声明（数据，非代码）。openapi: spec+binding（+ owner 选的 AuthScheme）；
-// protocol: 由 Protocol 字段选内置协议 runtime（P3）。内置与上传同构，只是数据来源不同。
+// Manifest — a connector's declaration (data, not code). openapi: spec+binding
+// (+ the owner-picked AuthScheme); protocol: the Protocol field selects a built-in
+// protocol runtime (P3). Built-in and uploaded share the same shape, only the data
+// source differs.
 type Manifest struct {
-	ID         string
-	Kind       string // "openapi" | "protocol"
-	Category   string
-	Protocol   string // protocol kind: "smtp" | "caldav"
-	AuthScheme string // openapi: owner 选中的 securityScheme key（空 = spec 里唯一那个）
+	ID       string
+	Kind     string // "openapi" | "protocol"
+	Category string
+	Protocol string // protocol kind: "smtp" | "caldav"
+	// AuthScheme — openapi: the securityScheme key the owner picked (empty = the
+	// sole one in the spec).
+	AuthScheme string
 	Spec       []byte
 	Binding    []byte
-	// OwnerOps —— 这个连接器自己声明的 owner 侧操作（见 owner_op.go）。空 = 它只有
-	// 通用注册表那套（列/连/断/删），没有品类专属的动作。
-	OwnerOps           []OwnerOp
-	ExposeAsAgentTools bool // openapi: 把 raw operations 暴露成 agent 工具（§3，可无 binding）
+	// OwnerOps — the owner-side operations this connector declares for itself (see
+	// owner_op.go). Empty = it only has the generic registry set (list/connect/
+	// disconnect/delete), no category-specific actions.
+	OwnerOps []OwnerOp
+	// ExposeAsAgentTools — openapi: expose raw operations as agent tools (§3, can
+	// have no binding).
+	ExposeAsAgentTools bool
 }
 
-// parsed —— 解析 + 校验后的 spec/binding（function-result-limit ≤2，用结构体承载）。
+// parsed — the parsed + validated spec/binding (function-result-limit is ≤2, so this
+// carries them as a struct).
 type parsed struct {
 	spec    *openapi.Spec
 	binding *openapi.Binding
 }
 
-// AssembleOpenAPI —— 把一份 openapi manifest 装配成 Connector。解析/校验/选策略任一步失败 → 错
-// （装配期当场拒，回 admin 友好提示）。返回的具体类型按绑定品类是 calendarAdapter / mailAdapter。
+// AssembleOpenAPI — assemble an openapi manifest into a Connector. Any failure in
+// parse/validate/pick-strategy → error (rejected on the spot at assembly time, with a
+// friendly message back to admin). The concrete type returned is calendarAdapter or
+// mailAdapter, depending on the bound category.
 func AssembleOpenAPI(
 	m *Manifest, doer openapi.Doer, store ConnectionStore, allow EgressAllow,
 ) (Connector, error) {
@@ -57,14 +71,17 @@ func AssembleOpenAPI(
 		refresher: buildRefresher(p.spec, m.AuthScheme, doer, store),
 	}
 	if p.binding == nil {
-		// agent-only（§3）：无品类绑定 → 不占品类槽，裸 core 既是 Connector 也是 AgentToolConnector。
+		// agent-only (§3): no category binding → doesn't occupy a category slot, the
+		// bare core is both a Connector and an AgentToolConnector.
 		return core, nil
 	}
 	return adaptByCategory(p.binding.Category, core)
 }
 
-// checkEgress —— 装配期 SSRF 静态校验：servers[].url + oauth token URL 指内网 → 拒（不建连接器）。
-// authorize URL 是浏览器跟的、后端不打，不校验（否则 e2e 的 localhost authorize 会被误伤）。
+// checkEgress — assembly-time static SSRF check: servers[].url + oauth token URL
+// pointing at an internal address → reject (don't build the connector). The authorize
+// URL is followed by the browser, the backend never hits it, so it's not checked
+// (otherwise e2e's localhost authorize would get wrongly blocked).
 func checkEgress(spec *openapi.Spec, schemeName string, allow EgressAllow) error {
 	for _, u := range spec.ServerURLs() {
 		if err := allow.CheckEgressURL(u); err != nil {
@@ -79,7 +96,8 @@ func checkEgress(spec *openapi.Spec, schemeName string, allow EgressAllow) error
 	return nil
 }
 
-// BindingCategory —— 解析 manifest 的 binding，取声明的品类（admin 建上传连接器时用，定占哪个槽）。
+// BindingCategory — parse a manifest's binding and pull out the declared category
+// (used by admin when creating an uploaded connector, to decide which slot it fills).
 func BindingCategory(m *Manifest) (string, error) {
 	b, err := openapi.ParseBinding(m.Binding)
 	if err != nil {
@@ -88,7 +106,8 @@ func BindingCategory(m *Manifest) (string, error) {
 	return b.Category, nil
 }
 
-// parseAndValidate —— 解析 spec → SSRF 出站校验（安全闸先于 binding 语义）→ 解析 binding + 校验自洽。
+// parseAndValidate — parse spec → SSRF egress check (the security gate runs before
+// binding semantics) → parse binding + validate self-consistency.
 func parseAndValidate(m *Manifest, allow EgressAllow) (parsed, error) {
 	spec, err := openapi.ParseSpec(m.Spec)
 	if err != nil {
@@ -98,7 +117,8 @@ func parseAndValidate(m *Manifest, allow EgressAllow) (parsed, error) {
 		return parsed{}, fmt.Errorf(errConnectorWrap, m.ID, eerr)
 	}
 	if len(m.Binding) == 0 {
-		// agent-only 连接器（§3）：无品类 binding，只暴露 raw ops 给 agent。spec+egress 仍校验。
+		// agent-only connector (§3): no category binding, only exposes raw ops to the
+		// agent. spec+egress are still validated.
 		return parsed{spec: spec, binding: nil}, nil
 	}
 	binding, berr := parseBindingFor(m, spec)
@@ -108,7 +128,8 @@ func parseAndValidate(m *Manifest, allow EgressAllow) (parsed, error) {
 	return parsed{spec: spec, binding: binding}, nil
 }
 
-// parseBindingFor —— 解析 binding + 校验它跟 spec 自洽（引用的 op 都在）。
+// parseBindingFor — parse the binding + validate it's self-consistent with the spec
+// (every op it references actually exists).
 func parseBindingFor(m *Manifest, spec *openapi.Spec) (*openapi.Binding, error) {
 	binding, berr := openapi.ParseBinding(m.Binding)
 	if berr != nil {
@@ -120,7 +141,7 @@ func parseBindingFor(m *Manifest, spec *openapi.Spec) (*openapi.Binding, error) 
 	return binding, nil
 }
 
-// resolveAuth —— 选 securityScheme + 建注入策略。
+// resolveAuth — pick a securityScheme + build the injection strategy.
 func resolveAuth(spec *openapi.Spec, schemeName string) (authStrategy, error) {
 	scheme, serr := pickScheme(spec, schemeName)
 	if serr != nil {
@@ -129,9 +150,11 @@ func resolveAuth(spec *openapi.Spec, schemeName string) (authStrategy, error) {
 	return buildAuthStrategy(&scheme)
 }
 
-// pickScheme —— 选 owner 指定的 securityScheme；未指定且唯一 → 用那个；多个未指定 → 拒（决策#3
-// owner 必须选）；一个都没有 → 拒。owner 指定 "manual:*" → 合成方案（F-H-2：厂商 spec 常留空
-// securitySchemes，让 owner 手动挑 bearer/apikey/basic 也能装出可用连接器）。
+// pickScheme — pick the securityScheme the owner named; unnamed and there's only one
+// → use it; unnamed with several candidates → reject (decision #3: the owner must
+// choose); none at all → reject. Owner names "manual:*" → synthesize a scheme
+// (F-H-2: vendor specs often leave securitySchemes empty, so letting the owner
+// manually pick bearer/apikey/basic still lets a usable connector get assembled).
 func pickScheme(spec *openapi.Spec, name string) (openapi.SecurityScheme, error) {
 	if s, ok := openapi.ManualScheme(name); ok {
 		return s, nil
@@ -166,7 +189,8 @@ func soleScheme(schemes map[string]openapi.SecurityScheme) (openapi.SecuritySche
 	return openapi.SecurityScheme{}, errNoAuthScheme
 }
 
-// adaptByCategory —— 按品类把执行核包成对应契约适配器。未知品类 → 错。
+// adaptByCategory — wrap the execution core into the matching contract adapter by
+// category. Unknown category → error.
 func adaptByCategory(category string, core *openapiCore) (Connector, error) {
 	switch category {
 	case "calendar":

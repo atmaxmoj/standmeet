@@ -9,8 +9,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// TestCodedKeepsItsClass —— 钉 code 不能把类别弄丢。面先按类别选状态码,再取 code;
-// 如果包一层之后 IsConflict 认不出来了,409 就会退成 500。
+// TestCodedKeepsItsClass -- pinning a code must not lose the class. A face picks its
+// status code by class first, then reads the code; if wrapping breaks IsConflict's
+// recognition, 409 degrades to 500.
 func TestCodedKeepsItsClass(t *testing.T) {
 	t.Parallel()
 
@@ -25,7 +26,8 @@ func TestCodedKeepsItsClass(t *testing.T) {
 	require.Equal(t, "role_name_taken", code)
 }
 
-// TestUncodedHasNoPinnedCode —— 没钉过就是没钉过,面据此退到类别的默认 code。
+// TestUncodedHasNoPinnedCode -- unpinned stays unpinned; a face falls back to the
+// class's default code accordingly.
 func TestUncodedHasNoPinnedCode(t *testing.T) {
 	t.Parallel()
 
@@ -33,8 +35,9 @@ func TestUncodedHasNoPinnedCode(t *testing.T) {
 	require.False(t, ok)
 }
 
-// TestCodedSurvivesWrapping —— 适配器常把错误再包一层 fmt.Errorf;code 和类别都得还认得出,
-// 否则 409/role_name_taken 会在上抛的路上悄悄退化。
+// TestCodedSurvivesWrapping -- adapters often wrap an error in another fmt.Errorf layer;
+// both the code and the class must still be recognizable, otherwise 409/role_name_taken
+// silently degrades on its way up.
 func TestCodedSurvivesWrapping(t *testing.T) {
 	t.Parallel()
 

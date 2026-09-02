@@ -1,15 +1,16 @@
-// CodePanel —— gate Hero 里的 code + 名字输入栏。
+// CodePanel — the code + name input row in the gate Hero.
 //
-// 同一个 code 可以发给多人，所以 owner 区分访客靠"输入名字"。一个 (code,
-// display_name) 唯一定位 member；后端 GetOrCreateCodeMember upsert。访客填
-// 完两个字段才提交，name 留空走 "anonymous" 路径（实际后端会创一个
-// is_anonymous=true 的 row）。
+// The same code can be handed to multiple people, so the owner tells visitors apart
+// by "typed name". A (code, display_name) pair uniquely locates a member; the
+// backend's GetOrCreateCodeMember upserts it. The visitor fills both fields before
+// submitting; leaving name blank takes the "anonymous" path (the backend actually
+// creates a row with is_anonymous=true).
 //
-// v5 design polish (docs/design/project/gate.js CodeInput)：
-// - 大写归一化 + 只留 [A-Z0-9-]，长度上限 32
-// - paste 触发自动提交（粘贴看似 code-shaped 时 50ms 后 submit）
-// - 错码 → shake + 清空 + refocus
-// - "checking…" / "unknown code" / hint 三态文案
+// v5 design polish (docs/design/project/gate.js CodeInput):
+// - Uppercase-normalize + keep only [A-Z0-9-], max length 32
+// - Paste triggers auto-submit (submits 50ms after a paste that looks code-shaped)
+// - Wrong code -> shake + clear + refocus
+// - Three-state copy: "checking…" / "unknown code" / hint
 
 'use client';
 
@@ -37,11 +38,13 @@ export function CodePanel({ hook }: Props) {
   const router = useRouter();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  // captchaToken —— 被锁之后那道人机校验出的票。后端拿它解锁（`code_guard.go`）；
-  // 在这之前，这条出路只存在于后端，访客屏幕上什么都没有（F-G-3）。
+  // captchaToken — the ticket issued by the human-verification challenge that
+  // appears after being locked. The backend uses it to unlock (`code_guard.go`);
+  // before this ticket exists, that path lives only on the backend — the visitor's
+  // screen shows nothing (F-G-3).
   const [captchaToken, setCaptchaToken] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
-  // 错码 / 网络挂 → 0.4s shake → 清空 + refocus。
+  // Wrong code / network failure -> 0.4s shake -> clear + refocus.
   const shake = useShakeOnError(hook.code.error, () => {
     setCode('');
     inputRef.current?.focus();
@@ -72,17 +75,23 @@ export function CodePanel({ hook }: Props) {
           shake={shake}
           error={hook.code.error !== null}
           inputRef={inputRef}
-          // 被锁住时，票没到手就不让提交：否则访客对着一个看起来正常的按钮反复按，
-          // 每次都收到同一句 429，而屏幕上刚出现的那道校验还没出票 —— 他没法知道
-          // 差的是等一秒，还是这张码真的没用。
+          // When locked, don't allow submit until the ticket is in hand: otherwise
+          // the visitor keeps clicking a button that looks normal, gets the same
+          // 429 every time, and the challenge that just appeared hasn't issued a
+          // ticket yet — they can't tell whether they just need to wait a second
+          // or the code is truly dead.
           blocked={hook.code.locked && captchaToken === ''}
         />
-        {/* 错误行紧贴出错的那个字段。原来它落在 NameRow **之下**，于是
-            `TOO MANY INVALID CODES` 读起来像是「我的名字被拒了」，眼睛得往回跳
-            才能把错误跟码输入框对上 —— 而这是访客第一次接触这个产品的一屏（UX-73）。 */}
+        {/* The error line sits right against the field that caused it. It used to
+            sit **below** NameRow, so "TOO MANY INVALID CODES" read as if it were
+            rejecting the visitor's name — the eye had to jump back up to connect
+            the error to the code input, on the very first screen a visitor sees
+            of this product (UX-73). */}
         <HintStatus busy={hook.code.busy} error={hook.code.error} />
-        {/* 锁住之后才出现：没锁时拦一道人机校验，是拿产品的防线去烦正常访客。
-            后端本来就认这张票（`code_guard.go`），这里只是把那条出路显出来（F-G-3）。 */}
+        {/* Appears only once locked: showing a human-verification challenge before
+            that would make normal visitors run the product's defense for nothing.
+            The backend already accepts this ticket (`code_guard.go`); this just
+            surfaces that path (F-G-3). */}
         <LockedCaptcha locked={hook.code.locked} onToken={setCaptchaToken} />
         <NameRow name={name} setName={setName} />
       </form>
@@ -91,8 +100,10 @@ export function CodePanel({ hook }: Props) {
   );
 }
 
-// LockedCaptcha —— 被锁之后那道人机校验。两个条件缺一不可：这台实例真配了 captcha
-// （否则没有 site key，widget 无从渲染，也没必要），而且这位访客真的被锁了。
+// LockedCaptcha — the human-verification challenge that appears after being locked.
+// Both conditions are required: this instance actually has captcha configured
+// (otherwise there's no site key, the widget can't render, and it's unneeded), and
+// this visitor is actually locked.
 function LockedCaptcha(
   { locked, onToken }: { locked: boolean; onToken: (t: string) => void },
 ) {
@@ -102,9 +113,12 @@ function LockedCaptcha(
     : null;
 }
 
-// LockedCaptchaBox —— 只有那个校验框，没有自己的说明文字。说明由**后端那句拒绝**给
-// （`HintStatus` 就在它上面一行）：那句话是随这次拒绝一起到的，它知道这台实例到底给不给得出
-// 这条出路。这里再写一句，屏幕上就有两句措辞不同的话在说同一件事，中间夹着那个控件。
+// LockedCaptchaBox — just the challenge widget, no explanation text of its own. The
+// explanation comes from **the backend's rejection message** (`HintStatus` sits
+// right above it): that message arrives with the rejection itself, and it knows
+// whether this instance even offers this path out. Writing another sentence here
+// would put two differently-worded sentences on screen saying the same thing, with
+// the widget wedged between them.
 function LockedCaptchaBox(
   { siteKey, onToken }: { siteKey: string; onToken: (t: string) => void },
 ) {
@@ -210,7 +224,7 @@ function NameRow({ name, setName }: { name: string; setName: (v: string) => void
   );
 }
 
-// sample —— hint 里示例码 "OAEN-3K2" 的 rich tag。
+// sample — the rich tag for the example code "OAEN-3K2" in the hint.
 const sample = (chunks: ReactNode) => <span className="text-(--color-muted)">{chunks}</span>;
 
 function Hint() {
@@ -227,9 +241,11 @@ function Hint() {
   );
 }
 
-// HintStatus —— 说后端说的那句话。上一版这里收的是一个布尔,于是它**结构上无法**区分
-// "这码不存在"(401)和"这码满了"(403,而且信封里带着一句写给访客的话)——不是分支写错了,
-// 是信息在类型里就没了(F-A-23)。
+// HintStatus — says whatever the backend said. The previous version took a boolean
+// here, so it **structurally couldn't** distinguish "this code doesn't exist" (401)
+// from "this code is full" (403, with a message for the visitor riding in the
+// envelope) — that's not a branch that was written wrong, it's information that
+// never survived the type (F-A-23).
 function HintStatus({ busy, error }: { busy: boolean; error: string | null }) {
   const t = useTranslations('gate');
   const cls = 'mono text-[10.5px] tracking-[0.16em] uppercase';

@@ -1,8 +1,9 @@
 import { defineConfig } from 'tsup';
 
-// @standmeet/agent-core 是 visitor chat agent loop 的纯 TS 核。
-// 不引 HTTP / fs / DOM / Node API — 行为由 caller 注的 5 个 port 决定。
-// 同 code 同 system prompt 在 prod browser / Node eval harness / 任何 host 跑。
+// @standmeet/agent-core is the pure-TS core of the visitor chat agent loop.
+// It pulls in no HTTP / fs / DOM / Node APIs — behavior is fully determined by
+// the 5 ports the caller injects.
+// The same code and system prompt run in prod browser / Node eval harness / any host.
 export default defineConfig({
   entry: { index: 'src/index.ts' },
   format: ['esm'],

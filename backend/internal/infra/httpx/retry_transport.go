@@ -1,5 +1,6 @@
-// retry_transport.go —— httpx 的 retry RoundTripper。机制沿用 inference 原有实现:
-// 缓冲请求体以便重发、指数退避(可被 ctx 打断)、只重试 transient、绝不重试 ctx 取消/超时。
+// retry_transport.go —— httpx's retry RoundTripper. The mechanism carries over inference's
+// original implementation: buffer the request body for re-send, exponential backoff
+// (interruptible by ctx), only retry transient failures, never retry ctx cancel/timeout.
 
 package httpx
 
@@ -42,11 +43,13 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-// stop —— 这次结果是否终止重试:成功 / 确定性失败 / 最后一次 / 等不起 / ctx 取消。否则
-// (transient 且还有 attempt):回调 + 等,返回 false 继续。
+// stop —— whether this result ends the retry loop: success / deterministic failure / last
+// attempt / can't afford the wait / ctx canceled. Otherwise (transient and attempts remain):
+// fire the callback + wait, return false to continue.
 //
-// 等多久由 retryWait 决定 —— **provider 明说的 Retry-After 优先于我们自己的退避表**。
-// 必须在 fireOnRetry 之前算:那一步会 drain 响应。
+// How long to wait is decided by retryWait — **the provider's explicit Retry-After takes
+// priority over our own backoff table**. Must be computed before fireOnRetry: that step
+// drains the response.
 func (rt *retryTransport) stop(
 	ctx context.Context, resp *http.Response, err error, attempt int,
 ) bool {
@@ -55,18 +58,22 @@ func (rt *retryTransport) stop(
 	}
 	wait := retryWait(resp, rt.baseDelay, attempt)
 	if !waitFitsDeadline(ctx, wait) {
-		return true // 等不到那个时刻 —— 把这次的响应交回去,别把剩下的预算睡掉
+		// can't reach that moment — hand this response back, don't sleep away the budget.
+		return true
 	}
 	rt.fireOnRetry(ctx, resp, err, attempt, waitPlan{
 		d: wait, fromHint: retryAfterDelay(resp) >= wait,
 	})
-	return !sleepCtx(ctx, wait) // ctx 中途取消 → 停
+	return !sleepCtx(ctx, wait) // ctx canceled mid-wait → stop
 }
 
-// retryWait —— 这次重试前等多久:我们自己的指数退避,和 provider 明说的间隔,取**大**的那个。
+// retryWait —— how long to wait before this retry: take the **larger** of our own exponential
+// backoff and the interval the provider explicitly asked for.
 //
-// 取大而不是取 Retry-After 覆盖:头缺失或读不出来时仍然有退避,而头在时我们绝不会更早重打。
-// 比它要求的更早重打正是加重封禁的那个动作 —— 而在这行代码之前,那个头从来没有被读过。
+// Max rather than letting Retry-After override outright: a missing or unreadable header still
+// gets a backoff, and when the header is present we never retry earlier than it says.
+// Retrying earlier than asked is exactly the action that makes a ban worse — and before this
+// line of code, that header had never once been read.
 func retryWait(resp *http.Response, base time.Duration, attempt int) time.Duration {
 	backoff := base * time.Duration(1<<attempt)
 	if hinted := retryAfterDelay(resp); hinted > backoff {
@@ -75,8 +82,9 @@ func retryWait(resp *http.Response, base time.Duration, attempt int) time.Durati
 	return backoff
 }
 
-// retryAfterDelay —— RFC 9110 的两种写法都认:整秒数,或一个 HTTP-date。真 provider 两种都发。
-// 读不出来 → 0(退回自己的退避),因为一个看不懂的头不该让请求停住。
+// retryAfterDelay —— accepts both RFC 9110 forms: a whole number of seconds, or an HTTP-date.
+// Real providers send both. Unparseable → 0 (falls back to our own backoff), because a header
+// we can't understand shouldn't stall the request.
 func retryAfterDelay(resp *http.Response) time.Duration {
 	if resp == nil {
 		return 0
@@ -95,7 +103,7 @@ func retryAfterDelay(resp *http.Response) time.Duration {
 	return nonNegative(time.Until(when))
 }
 
-// nonNegative —— 过去的时刻 / 负数秒数当作「现在就可以」,不是当作错误。
+// nonNegative —— treat a past timestamp / negative seconds as "fine to go now", not an error.
 func nonNegative(d time.Duration) time.Duration {
 	if d < 0 {
 		return 0
@@ -103,9 +111,11 @@ func nonNegative(d time.Duration) time.Duration {
 	return d
 }
 
-// waitFitsDeadline —— 等得起吗。等不起就**别等**:把这次的响应交回调用方(上面渲一句人话),
-// 而不是把剩下的预算全部睡掉再失败 —— 那样调用方既没拿到答案,也没拿到时间。
-// 没有 deadline → 等(ctx 取消仍然打断得了)。
+// waitFitsDeadline —— can we afford the wait? If not, **don't wait**: hand this response back
+// to the caller (so a layer above can render a human sentence), instead of sleeping away the
+// whole remaining budget only to fail anyway — that way the caller gets neither an answer nor
+// the time back.
+// No deadline → wait (ctx cancel can still interrupt it).
 func waitFitsDeadline(ctx context.Context, wait time.Duration) bool {
 	deadline, ok := ctx.Deadline()
 	if !ok {
@@ -114,10 +124,12 @@ func waitFitsDeadline(ctx context.Context, wait time.Duration) bool {
 	return wait <= time.Until(deadline)
 }
 
-// fireOnRetry —— transient 失败:drain 旧响应(连接可复用)+ 调 OnRetry 钩子(attempt 从 1 数起)。
-// drain 失败折进观察到的 err 一并交给钩子。
-// waitPlan —— 这次重试要等多久、那个数字**从哪来**。两个字段是一件事的两半，
-// 所以一起传（拆成两个参数会让 fireOnRetry 越过参数数量闸门，而闸门是对的）。
+// fireOnRetry —— on a transient failure: drain the old response (so the connection can be
+// reused) + call the OnRetry hook (attempt counts from 1).
+// A drain failure is folded into the observed err and passed to the hook together.
+// waitPlan —— how long this retry waits, and **where that number came from**. The two fields
+// are two halves of one fact, so they travel together (splitting them into two parameters
+// would push fireOnRetry over the argument-count gate, and that gate is right to stop it).
 type waitPlan struct {
 	d        time.Duration
 	fromHint bool
@@ -138,8 +150,9 @@ func (rt *retryTransport) fireOnRetry(
 	}
 }
 
-// transientFailure —— 该不该重试。network/transport 错重试,但 ctx 取消/超时不重试
-// (那是 caller 自己的截止,重试只拖久);响应则看 429 / 5xx。
+// transientFailure —— should this be retried. Retry on network/transport errors, but not on
+// ctx cancel/timeout (that's the caller's own deadline; retrying only drags it out longer);
+// for a response, check 429 / 5xx.
 func transientFailure(resp *http.Response, err error) bool {
 	if err != nil {
 		return !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded)
@@ -168,7 +181,8 @@ func rewindReqBody(req *http.Request, body []byte) {
 	}
 }
 
-// drainResp —— 丢弃失败响应 body 让连接可复用。返回 drain/close 错交调用方决定怎么记。
+// drainResp —— discard a failed response's body so the connection can be reused. Returns any
+// drain/close error for the caller to decide how to log.
 func drainResp(resp *http.Response) error {
 	if resp == nil || resp.Body == nil {
 		return nil
@@ -187,7 +201,8 @@ func statusOf(resp *http.Response) int {
 	return resp.StatusCode
 }
 
-// sleepCtx —— 等指定时长,可被 ctx 取消打断。返回 false = ctx 已取消。
+// sleepCtx —— wait the given duration, interruptible by ctx cancel. Returns false = ctx was
+// canceled.
 func sleepCtx(ctx context.Context, d time.Duration) bool {
 	t := time.NewTimer(d)
 	defer t.Stop()

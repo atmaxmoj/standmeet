@@ -1,7 +1,9 @@
-// search_index.go —— corpus 词法检索(Meili)的启动接线:建 index、回填、后台 reconcile。
+// search_index.go — startup wiring for corpus lexical search (Meili): build the index,
+// backfill, background reconcile.
 //
-// 它原来搭在 retrieval_socket.go 里(那个文件因为 retrieval 插件才存在);入站收口把 socket
-// 接线收走以后,这几件事跟"谁在读语料"没关系,自己占一个地址。
+// This used to live in retrieval_socket.go (a file that only existed because of the
+// retrieval plugin); once the inbound convergence point absorbed the socket wiring, these
+// things had nothing to do with "who reads the corpus" and got their own address.
 
 package wire
 
@@ -13,9 +15,10 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// SearchIndex —— boot 时建 Meili index(settings)+ 回填 sole owner 的 corpus。best-effort:
-// Meili 挂/未配都不挡启动(D5:boot 时 Meili down 后端照常起),失败只记日志——写路径 + 健康恢复
-// reconcile 会把 index 补齐。
+// SearchIndex — at boot, builds the Meili index (settings) + backfills the sole owner's
+// corpus. Best-effort: Meili being down or unconfigured never blocks startup (D5: the
+// backend still comes up if Meili is down at boot), failures only log — the write path +
+// health-recovery reconcile will backfill the index.
 func SearchIndex(ctx context.Context, d *deps.Runtime) {
 	if d.SearchClient == nil {
 		return
@@ -26,13 +29,14 @@ func SearchIndex(ctx context.Context, d *deps.Runtime) {
 	}
 	soleOwner, err := owner.LoadSoleOwner(ctx, owner.PageDeps{Owners: d.OwnerRepo})
 	if err != nil {
-		return // 未 claim / 查不到 → 无可回填
+		return // not claimed / not found -> nothing to backfill
 	}
 	if d.CorpusIndexer != nil {
 		d.CorpusIndexer.ReindexOwner(ctx, soleOwner.ID)
 	}
 }
 
-// reconcile 的那个后台循环不在这儿了:它是 corpus 域自己的周期任务声明
-// (corpus.IndexPeriodicJobs),由 wirePeriodicJobs 汇总起调度 —— 顺带第一次进了 Monitor
-// 的后台任务面板(手写的那版从来没登记过,一直在跑却看不见)。
+// The background reconcile loop no longer lives here: it's the corpus domain's own periodic
+// job declaration (corpus.IndexPeriodicJobs), collected and started by wirePeriodicJobs —
+// and it incidentally shows up in the Monitor background-jobs panel for the first time
+// (the hand-written version never registered itself; it ran the whole time but was invisible).

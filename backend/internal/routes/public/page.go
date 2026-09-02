@@ -1,8 +1,9 @@
-// page.go —— GET /api/v1/page —— 访客取 sole owner 的公开页内容。
-// 不需要鉴权（公开）。pre-claim → 404 + owner_not_found。
+// page.go —— GET /api/v1/page —— fetches the sole owner's public page content for a
+// visitor. No auth required (public). pre-claim → 404 + owner_not_found.
 //
-// 删 handle URL 之后：v1 单 owner instance，URL 不再带 handle。前端的
-// 根路由 / 直接 SSR fetch /api/v1/page，没有 sub-route 分支。
+// After removing the handle URL: v1 is a single-owner instance, the URL no longer
+// carries a handle. The frontend's root route / fetches /api/v1/page directly via
+// SSR, no sub-route branching.
 
 package public
 
@@ -19,35 +20,44 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// PageHandlers —— page route 依赖。
+// PageHandlers —— dependencies for the page route.
 type PageHandlers struct {
-	Page        owner.PageDeps
-	Log         *slog.Logger
-	TokenIssuer owner.SetupTokenIssuer // 仅 unclaimed 时调；handler 通过它取 / self-heal plaintext
-	// Outbound —— owner 有没有可用的出站通道,决定 gate 是否
-	// 展示「request access」整块(发不出码就别展示)。
+	Page owner.PageDeps
+	Log  *slog.Logger
+	// TokenIssuer is called only while unclaimed; the handler uses it to fetch /
+	// self-heal the plaintext.
+	TokenIssuer owner.SetupTokenIssuer
+	// Outbound —— whether the owner has a usable outbound channel, deciding whether
+	// the gate shows the whole "request access" section (don't show it if codes
+	// can't be sent out).
 	Outbound owner.OutboundStatusDeps
-	// CaptchaSiteKey —— /api/v1/instance 把这个 echo 给前端；前端非空就渲染
-	// Turnstile widget。composition root 已经从 env 决定了"开/关"，这里
-	// 只读结果。空字符串表示 captcha 关闭。
+	// CaptchaSiteKey —— /api/v1/instance echoes this to the frontend; the frontend
+	// renders the Turnstile widget whenever it's non-empty. The composition root
+	// has already decided on/off from env, this just reads the result. An empty
+	// string means captcha is off.
 	CaptchaSiteKey string
-	// AppVersion —— 跑着的这个进程是哪个版本。/login 和 admin 顶栏的徽标读它,
-	// **而不是各自带一个常量**:前端曾经手打 "v1.0.0"、后端手打 "0.1.0",两个数字
-	// 在同一个页面上互相矛盾,而版本号存在的意义就是出事时说得清自己在哪个 build(F-C-10)。
-	// 组装根从 sysinfo 那一份传进来,于是 /admin/system 和徽标读的是同一个值。
+	// AppVersion —— which version this running process is. The /login and admin
+	// top-bar badges read it, **rather than each carrying their own constant**:
+	// the frontend used to hand-type "v1.0.0" while the backend hand-typed
+	// "0.1.0", the two numbers contradicted each other on the same page, and a
+	// version number's whole purpose is to say clearly which build you're on
+	// when something goes wrong (F-C-10). The composition root passes it in
+	// from the sysinfo copy, so /admin/system and the badge read the same
+	// value.
 	AppVersion string
 }
 
-// Mount 挂 /page + /instance + /appearance.css。caller 负责前缀（/api/v1）。
+// Mount wires /page + /instance + /appearance.css. Caller owns the prefix (/api/v1).
 func (h *PageHandlers) Mount(r chi.Router) {
 	r.Get("/page", h.getPage())
 	r.Get("/instance", h.getInstance())
 	r.Get("/appearance.css", h.getAppearanceCSS())
 }
 
-// getAppearanceCSS —— GET /api/v1/appearance.css:sole owner 的自定义 CSS 作为真正的
-// stylesheet 资源(text/css)返回,reader 页 <link> 它。后端已 sanitize + scope 到
-// .corpus-content;无 owner / 未设 → 空表(无副作用)。
+// getAppearanceCSS —— GET /api/v1/appearance.css: returns the sole owner's custom CSS
+// as a real stylesheet resource (text/css), which the reader page <link>s. Already
+// sanitized and scoped to .corpus-content on the backend; no owner / not set → empty
+// (no side effects).
 func (h *PageHandlers) getAppearanceCSS() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		css := ""
@@ -62,15 +72,17 @@ func (h *PageHandlers) getAppearanceCSS() http.HandlerFunc {
 	}
 }
 
-// getInstance —— v1 单 owner instance 元信息。返回 {claimed, handle, setup_token?}。
-// 前端 / 根路由的 SSR fetch 它：
-//   - claimed=true → 渲染 sole owner 公开页（owner.handle 用来显示）
-//   - claimed=false → server-side redirect 到 /setup?t=<setup_token>，让首次
-//     访问的 operator 不用复制 stdout banner 就能进 claim 流程
+// getInstance —— v1 single-owner instance metadata. Returns {claimed, handle,
+// setup_token?}. Fetched by the frontend's root route via SSR:
+//   - claimed=true → renders the sole owner's public page (owner.handle used for
+//     display)
+//   - claimed=false → server-side redirect to /setup?t=<setup_token>, so a first-time
+//     visiting operator can enter the claim flow without copying the stdout banner
 //
-// setup_token 只在 unclaimed 期返回；一旦 claim 成功 holder 里残值已经
-// 没用（claim 流程清掉了 setup_token_hash，旧 plaintext 任何后续 claim 都
-// 会被 hash 比对失败拒绝），所以哪怕泄漏也不构成实际威胁。
+// setup_token is only returned during the unclaimed period; once a claim succeeds, the
+// leftover value in the holder is already useless (the claim flow clears
+// setup_token_hash, so the old plaintext fails hash comparison on any later claim
+// attempt), so even if it leaks it poses no real threat.
 func (h *PageHandlers) getInstance() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		soleOwner, err := owner.LoadSoleOwner(r.Context(), h.Page)
@@ -93,9 +105,10 @@ func (h *PageHandlers) getInstance() http.HandlerFunc {
 	}
 }
 
-// unclaimedSetupToken —— claimed 时返空串（不暴露 token）。unclaimed 时
-// 经 usecase 拿一个一定可用的 plaintext（必要时 self-heal：当 DB hash 为
-// NULL 或 holder 为空时重新 issue）。
+// unclaimedSetupToken —— returns an empty string once claimed (never exposes the
+// token). While unclaimed, fetches a guaranteed-usable plaintext through the usecase
+// (self-healing when needed: re-issues if the DB hash is NULL or the holder is
+// empty).
 func (h *PageHandlers) unclaimedSetupToken(ctx context.Context, o *owner.Owner) string {
 	if o.ID != "" || h.TokenIssuer == nil {
 		return ""
@@ -112,7 +125,8 @@ func (h *PageHandlers) ensureUnclaimedTokenOrLog(ctx context.Context) string {
 	return plaintext
 }
 
-// ownerCustomCSS —— 已 claim 的 owner 的自定义 CSS(best-effort;未 claim / 错 → 空)。
+// ownerCustomCSS —— an already-claimed owner's custom CSS (best-effort; unclaimed /
+// error → empty).
 func (h *PageHandlers) ownerCustomCSS(ctx context.Context, ownerID string) string {
 	if ownerID == "" {
 		return ""
@@ -124,7 +138,7 @@ func (h *PageHandlers) ownerCustomCSS(ctx context.Context, ownerID string) strin
 	return css
 }
 
-// instanceWriteInput —— writeInstanceInfo 的入参打包。
+// instanceWriteInput —— the packaged input for writeInstanceInfo.
 type instanceWriteInput struct {
 	owner          *owner.Owner
 	setupToken     string
@@ -151,11 +165,12 @@ func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWrit
 }
 
 type instanceInfoView struct {
-	Handle          string `json:"handle"`
-	Name            string `json:"name"`
-	SetupToken      string `json:"setup_token,omitempty"`
-	CaptchaSiteKey  string `json:"captcha_site_key,omitempty"`
-	Version         string `json:"version,omitempty"` // 跑着的这个进程报的版本;徽标读它(F-C-10)
+	Handle         string `json:"handle"`
+	Name           string `json:"name"`
+	SetupToken     string `json:"setup_token,omitempty"`
+	CaptchaSiteKey string `json:"captcha_site_key,omitempty"`
+	// Version is the version this process reports; the badge reads it (F-C-10).
+	Version         string `json:"version,omitempty"`
 	Claimed         bool   `json:"claimed"`
 	CanDeliverCodes bool   `json:"can_deliver_codes"`
 }

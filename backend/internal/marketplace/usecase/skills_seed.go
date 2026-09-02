@@ -1,9 +1,10 @@
-// skills_seed.go —— builtin skill 种子。owner claim 时调一次；server 启动也
-// 跑一次（idempotent UPSERT by owner_id+name 让 prompt 更新能落地）。
+// skills_seed.go —— seed data for builtin skills. Run once when the owner claims the
+// instance; also runs once on server startup (idempotent UPSERT by owner_id+name lets a
+// prompt update land).
 //
-// 种子 prompts 来自 legacy standmeet-server/backend/iam/seed_builtin_skills.py，
-// 字字对齐。owner 可在 admin UI 创建自己的 skill；builtin 不可删（repo
-// DeleteSkill 加了 is_builtin=false 谓词）。
+// Seed prompts come from legacy standmeet-server/backend/iam/seed_builtin_skills.py, word
+// for word. The owner can create their own skills in the admin UI; builtin ones can't be
+// deleted (the repo's DeleteSkill adds an is_builtin=false predicate).
 
 package usecase
 
@@ -14,7 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace/repo"
 )
 
-// SeedBuiltinSkills —— 对一个 owner 幂等 upsert 全部 builtin skills。
+// SeedBuiltinSkills —— idempotently upserts every builtin skill for one owner.
 func SeedBuiltinSkills(ctx context.Context, repo *repo.SkillRepo, ownerID string) error {
 	for i := range builtinSkillSeeds {
 		s := &builtinSkillSeeds[i]
@@ -31,9 +32,10 @@ type builtinSkillSeed struct {
 	Prompt      string
 }
 
-// builtinSkillSeeds —— 5 个 hand-curated builtin skills，源自 legacy。
-// Conversation Report 跟 visitor_summary.go 的 summaryPrompt 共享同一段文案
-// （/summary 走 hardcoded 路径，这里给 owner 看 + 也可绑到普通 invite）。
+// builtinSkillSeeds —— 5 hand-curated builtin skills, carried over from legacy.
+// Conversation Report shares the same copy as visitor_summary.go's summaryPrompt
+// (/summary takes the hardcoded path; this one is shown to the owner + can also be bound
+// to a normal invite).
 var builtinSkillSeeds = []builtinSkillSeed{
 	{
 		Name:        "code-review",

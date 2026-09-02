@@ -32,8 +32,9 @@ type SearchClient interface {
 // SearchDeps —— bundle for the marketplace search REST route.
 type SearchDeps struct {
 	Client SearchClient
-	// Connectors —— 端口:回答「这张卡还缺哪几个连接器」。nil = 这台实例答不上来,
-	// 于是每条结果的 Needs 留 nil(未知),而不是空列表(不缺)。
+	// Connectors —— port: answers "which connectors is this card still missing". nil =
+	// this instance can't answer, so every result's Needs stays nil (unknown), not an
+	// empty list (nothing missing).
 	Connectors ConnectorNeeds
 }
 
@@ -78,8 +79,9 @@ func pageSlice(items []entity.MarketSkill, limit, offset int) []entity.MarketSki
 type InstallSkillDeps struct {
 	Marketplace SearchClient
 	Skills      *repo.SkillRepo
-	// Connectors —— 搜索那一半要的端口(见 ConnectorNeeds)。nil = 这台实例答不出
-	// 「这张卡还缺哪几个连接器」,于是它不说。
+	// Connectors —— the port the search half needs (see ConnectorNeeds). nil = this
+	// instance can't answer "which connectors is this card still missing", so it says
+	// nothing.
 	Connectors ConnectorNeeds
 }
 

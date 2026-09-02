@@ -1,11 +1,16 @@
-// vault_import_receipt.go —— 「上一次 vault 导入」这个事实的读写（UX-62）。
+// vault_import_receipt.go —— reads and writes the fact of "the last vault
+// import" (UX-62).
 //
-// 账：导入是**定义这个产品 ground truth 的那个操作**，而这个事实以前在库里没有落点 ——
-// 导入完屏幕上冒一行 `31 new · 20 updated`，刷新就没了。于是装着 1028 条笔记的实例，
-// 和一个从没导过的空实例，在 /admin/obsidian 上长得一模一样。隔壁 /admin/sources
-// 每一行至少说得出 `never fetched`。
+// The bill: import is **the operation that defines this product's ground
+// truth**, and this fact used to have no place to land in the database —
+// a line like `31 new · 20 updated` flashed on screen when import
+// finished, then vanished on refresh. So an instance holding 1028 notes
+// and an instance that had never been imported looked identical on
+// /admin/obsidian. The neighboring /admin/sources can at least say
+// `never fetched` for every row.
 //
-// 单独成文件而不是塞进 owners.go：它是一个**能力自己的**读写对，不是 owner 设置的一部分。
+// This is its own file instead of living in owners.go: it's a read/write
+// pair belonging **to the capability itself**, not part of owner settings.
 
 package repo
 
@@ -19,10 +24,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// 回执这个类型住在 entity（`vault_import.go`）：仓储写它、用例读它、路由渲它，
-// 三层说的是同一个词。
+// The receipt type lives in entity (`vault_import.go`): repo writes it,
+// usecase reads it, routes render it — all three layers speak the same
+// word.
 
-// RecordVaultImport —— 记下这一次导入。命中 0 行 = owner 不在了，说出来而不是静静成功。
+// RecordVaultImport —— records this import. Hitting 0 rows means the
+// owner is gone; say so instead of silently succeeding.
 func (r *Repo) RecordVaultImport(
 	ctx context.Context, ownerID string, rec entity.VaultImportReceipt,
 ) error {
@@ -46,7 +53,8 @@ func (r *Repo) RecordVaultImport(
 	return nil
 }
 
-// GetVaultImportReceipt —— 读上一次导入。没导过 → 零值 At，由呈现层说成 "never imported"。
+// GetVaultImportReceipt —— reads the last import. Never imported → zero-
+// value At, which the presentation layer renders as "never imported".
 func (r *Repo) GetVaultImportReceipt(
 	ctx context.Context, ownerID string,
 ) (entity.VaultImportReceipt, error) {

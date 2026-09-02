@@ -89,7 +89,7 @@ func (r Reach) Except(classes ...FacadeClass) Reach {
 // Reason —— the OptOut justification for an Only reach (empty otherwise). Surfaced in audits.
 func (r Reach) Reason() string { return r.reason }
 
-// Op / Invoke 的定义在 op.go。
+// Op / Invoke are defined in op.go.
 
 // Facade —— an outgoing surface: a name, the trust plane it faces, the capability classes it CAN
 // carry (its profile), and whether it serves reads and/or actions.
@@ -101,13 +101,15 @@ type Facade struct {
 	ServesActn bool
 }
 
-// Owes —— 这个面欠不欠这个 op?**生成型的面必须用它来筛**,否则"生成"就变成了"全都露出去":
-// 一个写明 Only(reason, "admin") 的 op 会照样出现在 MCP 上,Reach 沦为注释。
-// Conform 里的 missing/leak 两个方向问的是同一件事,所以同一份判断在这儿导出一次。
+// Owes —— does this facade owe this op? **A generative facade must filter through this**, or
+// "generate" degrades into "expose everything": an op declared Only(reason, "admin") would still
+// show up on MCP, and Reach would be reduced to a comment. Conform's missing/leak checks ask the
+// same question from both directions, so the one judgment is exported here once.
 func (f Facade) Owes(op *Op) bool { return f.mustExpose(op) }
 
-// Carries —— 这个面载不载得动某一类东西(浏览器流程 / 明文密钥 / multipart / 要 LLM 在场)。
-// 导出是给收口用:一个面想给 op 递随行字节,得先在档案里说得出自己载得动。
+// Carries —— can this facade carry a given class of thing (browser flow / raw secret /
+// multipart / needs an LLM present)? Exported for the gate: a facade that wants to hand an op
+// accompanying bytes must first be able to say, per its profile, that it can carry them.
 func (f Facade) Carries(c FacadeClass) bool { return slices.Contains(f.CanCarry, c) }
 
 // mustExpose —— does op belong on this facade, per the op's Reach and the facade's profile? First

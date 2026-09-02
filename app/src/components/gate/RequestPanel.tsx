@@ -1,9 +1,11 @@
-// RequestPanel —— gate "no code? leave a note" 双列：左侧解释 + 右侧表单。
-// 设计稿的展示：默认折叠成一个 "write a note ↘" 按钮，点了再展开整个表单。
-// 提交成功后变 "sent" 视觉 + 个性化致谢。
+// RequestPanel — the gate's "no code? leave a note" two-column layout: explanation
+// on the left, form on the right.
+// Per the design mockup: collapses by default into a "write a note ↘" button;
+// clicking it expands the full form. A successful submit switches to "sent"
+// visuals + a personalized thank-you.
 //
-// 提交走 hook.submitRequest → POST /api/v1/access-requests(backend 落 audit log)。
-// 非 stub,covered by gate-request-access.spec.ts。
+// Submit goes through hook.submitRequest -> POST /api/v1/access-requests (backend
+// writes an audit log). Not a stub — covered by gate-request-access.spec.ts.
 
 'use client';
 
@@ -28,7 +30,8 @@ export function RequestPanel({ handle, hook }: Props) {
   const [open, setOpen] = useState(false);
   const [sent, setSent] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
-  // captchaToken —— 发得太多被拦下之后那道校验出的票（F-G-4）。
+  // captchaToken — the ticket issued by the challenge that appears after sending
+  // too many requests (F-G-4).
   const [captchaToken, setCaptchaToken] = useState('');
 
   const setField = useCallback((key: keyof FormState, v: string) => {
@@ -80,8 +83,9 @@ function RequestHeadline({ handle }: { handle: string }) {
   );
 }
 
-// 外面这层 div 不是多余的：按钮是 grid 的直接子项，而 grid item 默认拉伸 ——
-// `inline-flex` 挡不住它，`sm-btn-outline` 的边框会被抻成一个占满整格的大空框。
+// This outer div isn't redundant: the button is a direct grid child, and a grid
+// item stretches by default — `inline-flex` doesn't stop it, and `sm-btn-outline`'s
+// border would get stretched into a big empty box filling the whole cell.
 function OpenButton({ onOpen }: { onOpen: () => void }) {
   const t = useTranslations('gate.request');
   return (
@@ -107,11 +111,14 @@ type RightProps = {
   onToken: (t: string) => void;
 };
 
-// RequestRight —— 右栏永远有东西。
+// RequestRight — the right column always has something in it.
 //
-// 折叠态下这一栏原本渲染 `null`，而「写一张便条」那个按钮挂在左栏文案末尾 —— 于是整页
-// 最后一段是一个窄左栏 + 约 60% 空白右栏，读起来像右半边没加载出来（UX-38）。
-// 按钮搬到**表单将要出现的那个位置**：折叠时它是那一栏的内容，点开后就地长成表单。
+// While collapsed, this column used to render `null`, with the "write a note"
+// button tacked onto the end of the left column's copy — so the page's final
+// section ended up as a narrow left column plus roughly 60% blank right column,
+// which reads as if the right half failed to load (UX-38).
+// The button moved to **the spot where the form will appear**: while collapsed it
+// is that column's content, and clicking it grows the form in place.
 function RequestRight(p: RightProps) {
   return p.sent
     ? <SentConfirmation name={p.form.name} email={p.form.email} />
@@ -127,11 +134,15 @@ function RequestForm(p: RightProps) {
         <EmailField value={p.form.email} onChange={(v) => p.setField('email', v)} />
       </div>
       <WhyField value={p.form.why} onChange={(v) => p.setField('why', v)} />
-      {/* 发得太多被拦下之后才出现：没被拦时拦一道校验，是拿防线去烦一个只想说句话的人。
-          后端本来就认这张票（`request_guard.go`），这里把那条出路显出来（F-G-4）。 */}
-      {/* 先说被拒的理由，再给那个校验框 —— 状态在前，补救在后。理由这句话贴着被拒的那张表：
-          以前它落在整页最底下那个共用的错误行里，既离得远，又同时印在「输入访问码」那一栏
-          下面（F-G-6）。 */}
+      {/* Appears only after being throttled for sending too much: showing the
+          challenge before that would run the product's defense against someone
+          who just wants to say something. The backend already accepts this
+          ticket (`request_guard.go`); this just surfaces that path (F-G-4). */}
+      {/* State the rejection reason before offering the challenge — status first,
+          remedy second. The reason sits right against the form that got
+          rejected: it used to sit in the shared error line at the very bottom of
+          the page, both far away and printed right under the "enter access
+          code" column (F-G-6). */}
       <RequestError message={p.error} />
       <FloodCaptcha locked={p.locked} onToken={p.onToken} />
       <FormFooter
@@ -153,8 +164,10 @@ function RequestError({ message }: { message: string | null }) {
   );
 }
 
-// FloodCaptcha —— 被拦下时那道人机校验。两个条件缺一不可：这台实例真配了 captcha
-// （没有 site key 就渲染不出来，也没必要），而且这次提交真的被拦了。
+// FloodCaptcha — the human-verification challenge shown when throttled. Both
+// conditions are required: this instance actually has captcha configured
+// (without a site key it can't render, and it's unneeded), and this submission
+// was actually throttled.
 function FloodCaptcha(
   { locked, onToken }: { locked: boolean; onToken: (t: string) => void },
 ) {
@@ -164,8 +177,10 @@ function FloodCaptcha(
     : null;
 }
 
-// FloodCaptchaBox —— 只有那个校验框。说明由后端那句拒绝给（`RequestError` 就在它上面一行），
-// 理由同 CodePanel 的 LockedCaptchaBox：两句措辞不同的话说同一件事，读的人会以为是两件事。
+// FloodCaptchaBox — just the challenge widget. The explanation comes from the
+// backend's rejection message (`RequestError` sits right above it) — same
+// reasoning as CodePanel's LockedCaptchaBox: two differently-worded sentences
+// saying the same thing would read to the viewer as two separate things.
 function FloodCaptchaBox(
   { siteKey, onToken }: { siteKey: string; onToken: (t: string) => void },
 ) {
@@ -260,7 +275,7 @@ function FormFooter({ why: _why, busy, valid }: { why: string; busy: boolean; va
   );
 }
 
-// accent —— sent 文案里 email 的 rich tag。
+// accent — the rich tag for the email in the sent copy.
 const accent = (chunks: ReactNode) => <span className="text-(--color-accent)">{chunks}</span>;
 
 function SentConfirmation({ name, email }: { name: string; email: string }) {

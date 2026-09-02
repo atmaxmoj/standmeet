@@ -1,20 +1,30 @@
-// face.go —— 面(face)与结构性 parity。
+// face.go -- faces and structural parity.
 //
-// 过去 parity 是一张手写对照表:每个 op 一行,写着"它在 MCP 上该叫什么、在 admin 上该是哪条
-// 路由",启动时拿真实的工具名和真实路由去跟表比。那张表存在的唯一理由是**两个面各自手写**、
-// 谁也不是谁的投影,于是只能事后人肉对账。
+// Parity used to be a hand-written cross-reference table: one row per op, saying "what
+// it should be called on MCP, which route it should be on admin", checked at startup
+// against the real tool names and real routes. That table's only reason to exist was that
+// **the two faces were each hand-written**, neither a projection of the other, so
+// reconciliation could only happen by hand after the fact.
 //
-// 收口一旦存在,这件事就不该再由任何文件回答。这里的做法是:
+// Once the convergence point exists, no file should have to answer this anymore. Here's
+// how:
 //
-//   - 面向收口注册自己(Attach),拿到一个 Face;
-//   - **取用能力的动作本身就是登记投影的动作** —— 想服务一个 op,只能经 Face 拿到它的 Invoke,
-//     拿的同时就被记下了。没有"拿了忘记登记"这条缝;
-//   - 生成型的面(MCP)走 Face.Ops(),一次拿全部 → 它的完备性是构造出来的;
-//     核对型的面(admin HTTP)照常手写 REST 形状,逐条 Face.Op(id) 取能力 → 取到即登记;
-//   - 启动时 Conform():每个 op 的 Reach 声明了它欠哪些面,跟实际登记比。少一个就红。
+//   - a face registers itself against the convergence point (Attach) and gets back a
+//     Face;
+//   - **the act of pulling a capability is itself the act of registering its
+//     projection** -- serving an op is only possible by getting its Invoke through Face,
+//     and getting it is recorded at the same moment. There's no gap where you pull it and
+//     forget to register it;
+//   - a generated face (MCP) goes through Face.Ops(), pulling everything at once ->
+//     its completeness is constructed, not maintained; a verified face (admin HTTP)
+//     hand-writes its REST shape as usual, pulling capabilities one by one via
+//     Face.Op(id) -> pulling it is registering it;
+//   - at startup, Conform(): each op's Reach declares which faces owe it; that's compared
+//     against what was actually registered. Missing even one goes red.
 //
-// 于是 parity 是结构的性质,不是维护出来的一致。新增一个面时也成立:面一 Attach,它欠的每一个
-// op 立刻被列出来 —— 不需要有人记得去更新什么。
+// So parity is a structural property, not a maintained consistency. It holds for a new
+// face too: the moment it Attaches, every op it owes is immediately listed -- nobody has
+// to remember to update anything.
 
 package dispatcher
 
@@ -22,16 +32,19 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// Face —— 一个对外的面在收口这一侧的把手。profile 声明这个面服务读/动作、能承载什么类别
-// (浏览器流程 / 明文密钥 / multipart),Reach 据此判断这个面欠不欠某个 op。
+// Face -- an outward-facing face's handle on the convergence-point side. profile declares
+// whether this face serves reads/actions and what categories it can carry (browser flow /
+// plaintext secrets / multipart); Reach uses that to decide whether this face owes a given
+// op.
 type Face struct {
 	d       *Dispatcher
 	served  map[string]bool
 	profile fp.Facade
 }
 
-// Attach —— 一个面注册到收口。同名重复注册返回同一个 Face(投影记录累加),
-// 这样一个面的路由分散在几个文件里 wire 也没关系。
+// Attach -- registers a face against the convergence point. Registering the same name
+// twice returns the same Face (its projection record accumulates), so it's fine for a
+// face's routes to be wired across several files.
 func (d *Dispatcher) Attach(profile fp.Facade) *Face {
 	for _, f := range d.faces {
 		if f.profile.Name == profile.Name {
@@ -43,18 +56,20 @@ func (d *Dispatcher) Attach(profile fp.Facade) *Face {
 	return f
 }
 
-// Ops —— 生成型的面用它:一次取走**这个面该服务的**操作,并登记为已投影。MCP 面走这条路,
-// 所以"新增一个 op 忘了在 MCP 上注册"这件事在结构上不存在。
+// Ops -- what a generated face uses: pulls **the operations this face is supposed to
+// serve** all at once, and registers them as projected. The MCP face goes this route, so
+// "added an op and forgot to register it on MCP" is structurally impossible.
 //
-// 注意是"该服务的",不是"全部":筛子就是 Reach + 这个面的档案。少了这道筛,一个写明
-// Only(reason, "admin") 的 op 会照样长到 MCP 上 —— 那样 Reach 就只是注释,而"生成"会变成
-// "凡是收口里有的都露出去",正好是最危险的那种默认。
+// Note it's "supposed to serve", not "all of them": the filter is Reach + this face's
+// profile. Without that filter, an op explicitly marked Only(reason, "admin") would grow
+// onto MCP anyway -- Reach would be a mere comment, and "generated" would degrade into
+// "whatever the convergence point holds gets exposed", exactly the most dangerous default.
 func (f *Face) Ops() []Op {
 	all := f.d.Ops()
 	out := make([]Op, 0, len(all))
 	for i := range all {
 		if !f.profile.Owes(&fp.Op{ID: all[i].ID, Kind: all[i].Kind, Reach: all[i].Reach}) {
-			continue // 这个面不欠它 —— 比如写明只在 admin 上的 op,不该长到 MCP
+			continue // face doesn't owe it -- e.g. an admin-only op must not grow onto MCP
 		}
 		f.served[all[i].ID] = true
 		out = append(out, all[i])
@@ -62,9 +77,11 @@ func (f *Face) Ops() []Op {
 	return out
 }
 
-// Op —— 核对型的面用它:按 id 取一个操作(Invoke 已套好装饰器链),取到即登记为已投影。
-// admin HTTP 面在 wire 一条路由时用它 —— 路由形状、状态码、参数绑定照常手写,
-// 但**能力只能从这儿拿**,于是"这条路由服务了哪个 op"是收口知道的事实,不是注释里的声称。
+// Op -- what a verified face uses: fetch one operation by id (Invoke already wrapped with
+// the decorator chain), and fetching it registers it as projected. The admin HTTP face
+// uses this when wiring a route -- route shape, status codes, and arg binding are still
+// hand-written as usual, but **the capability can only be pulled from here**, so "which op
+// did this route serve" is a fact the convergence point knows, not a claim in a comment.
 func (f *Face) Op(id string) (Op, bool) {
 	op, ok := f.d.lookup(id)
 	if ok {
@@ -73,14 +90,17 @@ func (f *Face) Op(id string) (Op, bool) {
 	return op, ok
 }
 
-// OpFiles —— 取一个操作,并声明这个面会给它**随行的字节**(multipart 之类)。
+// OpFiles -- fetches an operation and declares that this face will supply it
+// **accompanying bytes** (multipart and the like).
 //
-// 跟 Op 的区别只有一条守卫:这个面的档案得真的载得动 fp.Multipart。挡的是"MCP 面也来
-// 递字节"——那条路上没有文件挑选框,owner 递的是地址;能递字节的面就那么几个,让档案说了算,
-// 而不是让每个 handler 自己记得。
+// The only difference from Op is one guard: this face's profile must actually be able to
+// carry fp.Multipart. It blocks "the MCP face also tries to hand over bytes" -- that path
+// has no file picker, an owner hands over a URL there; only a handful of faces can carry
+// bytes, so let the profile decide that, rather than making every handler remember it.
 //
-// 拿到的仍然是同一个 Op、同一条装饰器链:字节走 ctx(见 fp.WithFiles),不是第二个执行入口。
-// 开第二个入口就意味着鉴权/配额/审计要记得也包那一个。
+// What you get back is still the same Op, the same decorator chain: the bytes travel via
+// ctx (see fp.WithFiles), not a second execution entry point. Opening a second entry point
+// would mean auth/quota/audit would have to remember to wrap that one too.
 func (f *Face) OpFiles(id string) (Op, bool) {
 	if !f.profile.Carries(fp.Multipart) {
 		return Op{}, false
@@ -88,8 +108,8 @@ func (f *Face) OpFiles(id string) (Op, bool) {
 	return f.Op(id)
 }
 
-// MustOpFiles —— OpFiles 的断言版,给组装期用。面载不动字节 = 启动就炸,
-// 而不是运行时悄悄回一个 404。
+// MustOpFiles -- the asserting version of OpFiles, for assembly-time use. A face that
+// can't carry bytes means blowing up at startup, not silently returning a 404 at runtime.
 func (f *Face) MustOpFiles(id string) Op {
 	op, ok := f.OpFiles(id)
 	if !ok {
@@ -98,7 +118,8 @@ func (f *Face) MustOpFiles(id string) Op {
 	return op
 }
 
-// MustOp —— Op 的断言版,给组装期用:id 拼错 = 启动就炸,而不是悄悄少一条路由。
+// MustOp -- the asserting version of Op, for assembly-time use: a misspelled id means
+// blowing up at startup, not silently missing a route.
 func (f *Face) MustOp(id string) Op {
 	op, ok := f.Op(id)
 	if !ok {
@@ -107,10 +128,12 @@ func (f *Face) MustOp(id string) Op {
 	return op
 }
 
-// Conform —— 全部已注册的面对着各自 Reach 的应尽之责对一遍账。空 = 一致。
+// Conform -- reconciles every registered face against what its Reach obligates it to
+// serve. Empty = consistent.
 //
-// 三类违规都由 facadeparity 给出:missing(这个面欠这个 op 却没投影)、
-// orphan(投影了一个收口不认识的东西)、leak(owner 面上出现 outward 的 op,反之亦然)。
+// All three violation kinds come from facadeparity: missing (this face owes this op but
+// never projected it), orphan (projected something the convergence point doesn't
+// recognize), leak (an outward op shows up on an owner face, or vice versa).
 func (d *Dispatcher) Conform() []fp.Violation {
 	exposures := make([]fp.Exposure, 0, len(d.faces))
 	for _, f := range d.faces {
@@ -119,7 +142,8 @@ func (d *Dispatcher) Conform() []fp.Violation {
 	return fp.Conform(d.ParityOps(), exposures)
 }
 
-// ConformReport —— 人能读的违规报告(空字符串 = 一致)。组装根启动时打印/panic 用。
+// ConformReport -- a human-readable violation report (empty string = consistent). For the
+// composition root to print/panic on at startup.
 func (d *Dispatcher) ConformReport() string {
 	vs := d.Conform()
 	if len(vs) == 0 {

@@ -1,19 +1,26 @@
-// access-request-status —— 「一条 access request 还等着 owner 处理吗」的**唯一**判据。
+// access-request-status —— the **single** criterion for "is this access
+// request still waiting on the owner".
 //
-// 这个词表以前在两个文件里各写了一遍,而且写得不一样:侧栏徽标数 `'open'`(对),dashboard 的
-// REQUESTS 数 `'new' || 'pending'`(两个值后端从来不产出)。于是同一份数据,徽标显示 1、
-// KPI 显示 0,而那个 0 恒为 0 —— 有多少条待处理都一样(F-C-19)。
+// This vocabulary used to be written once in each of two files, and
+// differently: the sidebar badge counted `'open'` (correct), dashboard's
+// REQUESTS count counted `'new' || 'pending'` (two values the backend never
+// produces). So on the same data, the badge showed 1 while the KPI showed
+// 0 — and that 0 stayed 0 no matter how many were actually pending (F-C-19).
 //
-// 后端的词表写死在 `access_request.go`:`'open' | 'replied' | 'closed'`。这里只认它。
-// 收成一处不是为了少写几个字,是为了**下一次改词表时只有一个地方会漏**。
+// The backend's vocabulary is hardcoded in `access_request.go`:
+// `'open' | 'replied' | 'closed'`. This file recognizes only that. Collecting
+// it into one place isn't about typing less — it's so that **next time the
+// vocabulary changes, there's only one place that can be missed**.
 
-/** 后端 access_requests.status 的取值。 */
+/** The values of the backend's access_requests.status column. */
 export const ACCESS_REQUEST_OPEN = 'open';
 
-/** 还等着 owner 处理的那些（徽标和 KPI 都数这一批）。
+/** Requests still waiting on the owner (both the badge and the KPI count this set).
  *
- * status 收 optional：徽标那侧的 schema 允许缺这一格。缺了就**不算**待处理 ——
- * 一条读不出状态的行,宁可少数一个,也不要让 owner 去找一条不存在的请求。 */
+ * status is accepted as optional: the schema on the badge side allows this
+ * field to be missing. Missing **doesn't count** as pending — a row whose
+ * status can't be read is better undercounted than sending the owner
+ * chasing a request that doesn't exist. */
 export function pendingRequests<T extends { status?: string }>(rows: readonly T[]): T[] {
   return rows.filter((r) => r.status === ACCESS_REQUEST_OPEN);
 }

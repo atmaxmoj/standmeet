@@ -1,7 +1,10 @@
-// ProviderGasControl —— 给一箱油加油,或者把表拆了。
+// ProviderGasControl — top off a fuel tank, or tear the gauge off.
 //
-// 加油写的是"这一箱加了多少",起算点跟着一起挪 —— 所以加满之后读数就是加的那个数,
-// 而不是被之前花掉的量吃掉。拆表(unmeter)= 这条 provider 不再计量,挂着表的 role 也照发。
+// Filling records "how much was added this time", and the baseline moves
+// with it — so right after filling, the reading is exactly what was added,
+// not eaten by whatever was already spent before. Tearing the gauge off
+// (unmeter) means this provider is no longer metered; roles attached to it
+// still work as before.
 
 'use client';
 

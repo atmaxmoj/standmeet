@@ -1,6 +1,6 @@
-// use-roles —— /admin/roles 状态 store + CRUD actions。形态参照
-// use-prompts；多了 corpus_uris + skill_ids + mcp_server_ids 三组 join +
-// active_codes count（read-only，server 算）。
+// use-roles —— /admin/roles state store + CRUD actions. Shaped after
+// use-prompts; adds the three corpus_uris + skill_ids + mcp_server_ids joins
+// + the active_codes count (read-only, computed by the server).
 
 import { useEffect } from 'react';
 
@@ -10,15 +10,17 @@ import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-// DockButtonConfig —— #109/#110 一个 chat dock 按钮的配置：挂哪个能力 + 点击发出的触发词。
+// DockButtonConfig —— #109/#110 config for one chat dock button: which capability it's attached to + the trigger phrase it sends on click.
 export const DockButtonConfigSchema = z.object({
   capability_id: z.string(),
   trigger: z.string(),
 });
 export type DockButtonConfig = z.infer<typeof DockButtonConfigSchema>;
 
-// WaypointConfig —— F-A-7 一个 ghost-steering 引导目的地。owner per-role 写:id + 描述 + 权重 +
-// 是否终点(booking/contact) + 支撑它的 corpus 证据 URI(空 = 无证据;配合 F-A-10 的「需证据」开关)。
+// WaypointConfig —— F-A-7 one ghost-steering waypoint. Written per-role by
+// the owner: id + description + weight + whether it's a terminal
+// (booking/contact) + the corpus evidence URIs backing it (empty = no
+// evidence; pairs with F-A-10's "requires evidence" toggle).
 export const WaypointConfigSchema = z.object({
   waypoint_id: z.string(),
   description: z.string(),
@@ -34,17 +36,18 @@ export const RoleViewSchema = z.object({
   description: z.string(),
   greeting: z.string(),
   prompt_id: z.string().nullable().optional(),
-  // provider_id —— 这个 role 走哪条 provider;'' = owner 默认那条。挂在码上的那条压过它。
+  // provider_id —— which provider this role uses; '' = the owner's default one. The one attached to a code overrides it.
   provider_id: z.string().nullish().transform((v) => v ?? ''),
-  // gas_metered —— 这个 role 挂不挂油表(#7)。false = 一次 gas 查询都不发。
+  // gas_metered —— whether this role has a fuel gauge attached (#7). false = never sends a gas query.
   gas_metered: z.boolean().nullish().transform((v) => v ?? false),
   corpus_uris: z.array(z.string()),
   skill_ids: z.array(z.string()),
   mcp_server_ids: z.array(z.string()),
   dock_buttons: z.array(DockButtonConfigSchema).optional(),
-  // waypoints —— F-A-7: ghost-steering 引导目的地(owner per-role 写)。
+  // waypoints —— F-A-7: ghost-steering waypoints (written per-role by the owner).
   waypoints: z.array(WaypointConfigSchema).optional(),
-  // require_ghost_evidence —— F-A-10: 内容型引导 ghost 是否要求语料证据(空证据非终点 waypoint 不提)。
+  // require_ghost_evidence —— F-A-10: whether content-steering ghosts require
+  // corpus evidence (a non-terminal waypoint with no evidence isn't offered).
   require_ghost_evidence: z.boolean().optional(),
   active_codes: z.number(),
   is_builtin: z.boolean(),
@@ -58,9 +61,9 @@ export interface WriteRoleInput {
   description: string;
   greeting: string;
   prompt_id: string | null;
-  // provider_id —— '' = 不指定,走 owner 默认那条。
+  // provider_id —— '' = unspecified, uses the owner's default.
   provider_id: string;
-  // gas_metered —— 挂不挂油表。
+  // gas_metered —— whether the fuel gauge is attached.
   gas_metered: boolean;
   corpus_uris: string[];
   skill_ids: string[];
@@ -70,10 +73,14 @@ export interface WriteRoleInput {
   require_ghost_evidence?: boolean;
 }
 
-// roleUpdatePayload —— 从当前 RoleView 组一份全量 PUT 载荷,再叠加 overrides。**所有** role 卡上的
-// 局部保存(prompt / corpus / dock / ghost / description …)都必须走这里:每处只表达自己改的那一个
-// 字段,其余原样回写。集中一处 → 加新字段只改这里,结构上杜绝"某个保存漏带某字段把它清零"的 bug 类
-// (F-A-10 的 dock/corpus 保存曾清零 require_ghost_evidence)。
+// roleUpdatePayload —— assembles a full PUT payload from the current
+// RoleView, then layers overrides on top. **Every** partial save on a role
+// card (prompt / corpus / dock / ghost / description …) must go through
+// this: each call site expresses only the one field it changed, everything
+// else is written back unchanged. Centralizing it here means a new field
+// only needs to be added in one place, structurally ruling out the bug class
+// of "a save forgot a field and zeroed it out" (F-A-10's dock/corpus save
+// used to zero out require_ghost_evidence).
 export function roleUpdatePayload(
   role: RoleView, overrides: Partial<WriteRoleInput> = {},
 ): WriteRoleInput {
@@ -124,7 +131,8 @@ export function useRoles(): RolesHook {
   };
 }
 
-// mutation 抛错（不再吞成 null / false）：调用方用 useAction 收尾（成功 toast / 失败 report），或就地 try/catch。
+// The mutation throws (no longer swallowed into null / false): the caller
+// finishes up with useAction (success toast / failure report), or inline try/catch.
 async function createRole(input: WriteRoleInput): Promise<RoleView> {
   const created = await adminAPI.post('/roles/', input, RoleViewSchema);
   rolesStore.getState().mutate((prev) => [...(prev ?? []), created]);

@@ -1,12 +1,14 @@
-// Package owner —— owner(实例主人)域的对外 facade。薄薄一层,把内部子包的类型/构造/用例抬上来;
-// 别的层只 import 这个 facade 包。实现是同域兄弟子包 internal/owner/{entity,repo,usecase,db}
-// (以及 jobs 子域),由 check-domain-facade-boundary 挡住外部直引 guts。
+// Package owner —— the owner (instance owner) domain's outward-facing facade. A thin layer
+// that lifts the types/constructors/usecases from internal sub-packages up to this level;
+// other layers only import this facade package. Implementation lives in sibling sub-packages
+// internal/owner/{entity,repo,usecase,db} (plus the jobs sub-domain); check-domain-facade-boundary
+// blocks external code from reaching the guts directly.
 //
-// # 对外协议
+// # Outward protocol
 //
-//   - 实体(entity): Owner / InstanceSettings / CustomPage / PageContent / Prompt / Keypair /
-//     Err* 域错误 + prompt fragment 加载
-//   - 仓储(repo): Repo / InstanceRepo / CustomPageRepo / KeypairRepo / PromptRepo + 写入入参
-//   - 用例(usecase): account / login / claim / handle / domains / recovery / 出站通知 /
-//     ai-provider / byoai / prompts / custom-page / page(+pins) / seo / css / wiki-tree 等应用流
+//   - Entities (entity): Owner / InstanceSettings / CustomPage / PageContent / Prompt / Keypair /
+//     Err* domain errors + prompt fragment loading
+//   - Repos (repo): Repo / InstanceRepo / CustomPageRepo / KeypairRepo / PromptRepo + write inputs
+//   - Usecases (usecase): account / login / claim / handle / domains / recovery / outbound notify /
+//     ai-provider / byoai / prompts / custom-page / page(+pins) / seo / css / wiki-tree app flows
 package owner

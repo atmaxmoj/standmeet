@@ -1,12 +1,13 @@
-// writings.go —— owner 公开作品 (writing) 写入 + 渲染 use case。
+// writings.go —— owner public-writing (writing) write + render use cases.
 //
-// 单一存储形态：markdown。admin Tiptap 编辑器 round-trip markdown，MCP
-// `writing_create` 直接接 markdown。两条路都走同一个 BodyMD 字段进 repo.Create。
+// Single storage form: markdown. The admin Tiptap editor round-trips markdown, and
+// the MCP `writing_create` tool takes markdown directly. Both paths land on the same
+// BodyMD field going into repo.Create.
 //
-// path 默认 "writings/<slug>"，让 visitor chat retriever 通过这个 path 读
-// 文章 (用 wiki/output 同一套 path-glob ACL)。owner 想让 private writing
-// 仅部分 InviteCode 看见，就给那些 code 的 corpus_permissions 加 allow
-// 规则匹这条 path。
+// Path defaults to "writings/<slug>", so the visitor chat retriever can read an
+// article through that path (using the same path-glob ACL as wiki/output). If the
+// owner wants a private writing visible to only some InviteCodes, they add an allow
+// rule matching that path to those codes' corpus_permissions.
 
 package usecase
 
@@ -20,22 +21,23 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// WritingsDeps —— 只读 / 简单写 (publish / unpublish) 用。retriever / public
-// list / mcp 用这个。
+// WritingsDeps —— for read-only / simple-write (publish / unpublish) use. Used by
+// the retriever, the public list, and MCP.
 type WritingsDeps struct {
 	Writings *repo.WritingRepo
 }
 
-// WritingsTxDeps —— transactional writing CRUD (create + update + delete) 用。
-// 需要 Assets 让 asset 行 + storage blob 跟 writing 同事务维护；需要
-// WritingRefs 同事务重建 [[crosslink]] 边表。
+// WritingsTxDeps —— for transactional writing CRUD (create + update + delete).
+// Needs Assets so the asset row and the storage blob are maintained in the same
+// transaction as the writing; needs WritingRefs to rebuild the [[crosslink]] edge
+// table in that same transaction.
 type WritingsTxDeps struct {
 	Writings    *repo.WritingRepo
 	WritingRefs *repo.WritingRefRepo
 	Assets      AssetsDeps
 }
 
-// PublishWriting —— 草稿 → 已发布。
+// PublishWriting —— draft → published.
 func PublishWriting(
 	ctx context.Context, deps WritingsDeps, ownerID, writingID string,
 ) (entity.Writing, error) {
@@ -49,7 +51,7 @@ func PublishWriting(
 	return p, nil
 }
 
-// UnpublishWriting —— 撤回到草稿。
+// UnpublishWriting —— reverts a writing back to draft.
 func UnpublishWriting(
 	ctx context.Context, deps WritingsDeps, ownerID, writingID string,
 ) (entity.Writing, error) {
@@ -63,7 +65,8 @@ func UnpublishWriting(
 	return p, nil
 }
 
-// ListAllWritings —— admin list 含草稿；按 published_at desc nulls last。
+// ListAllWritings —— admin list, includes drafts; ordered by published_at desc,
+// nulls last.
 func ListAllWritings(
 	ctx context.Context, deps WritingsDeps, ownerID string,
 ) ([]entity.Writing, error) {
@@ -77,7 +80,7 @@ func ListAllWritings(
 	return rows, nil
 }
 
-// ListPublishedWritings —— public list 仅 already-published。
+// ListPublishedWritings —— public list, already-published only.
 func ListPublishedWritings(
 	ctx context.Context, deps WritingsDeps, ownerID string,
 ) ([]entity.Writing, error) {
@@ -91,26 +94,28 @@ func ListPublishedWritings(
 	return rows, nil
 }
 
-// ListPublishedWritingsPageInput —— 分页入参打包。
+// ListPublishedWritingsPageInput —— packages the pagination input.
 type ListPublishedWritingsPageInput struct {
 	Cursor  *time.Time
 	OwnerID string
 	Limit   int32
 }
 
-// ListPublishedWritingsPageResult —— page + 下一页 cursor (nil = 已无更多)。
+// ListPublishedWritingsPageResult —— a page plus the next-page cursor (nil = no
+// more results).
 type ListPublishedWritingsPageResult struct {
 	NextCursor *time.Time
 	Writings   []entity.Writing
 }
 
-// DefaultWritingsPageLimit —— /api/v1/writings 默认 page size。
+// DefaultWritingsPageLimit —— default page size for /api/v1/writings.
 const DefaultWritingsPageLimit = 12
 
-// MaxWritingsPageLimit —— ?limit= 上限，防 DoS。
+// MaxWritingsPageLimit —— ceiling on ?limit=, to prevent DoS.
 const MaxWritingsPageLimit = 50
 
-// ListPublishedWritingsPage —— infinite scroll 用。多取一条判断 has_more。
+// ListPublishedWritingsPage —— for infinite scroll. Fetches one extra row to
+// determine has_more.
 func ListPublishedWritingsPage(
 	ctx context.Context, deps WritingsDeps, in *ListPublishedWritingsPageInput,
 ) (ListPublishedWritingsPageResult, error) {
@@ -153,7 +158,7 @@ func buildWritingsPageResult(
 	return ListPublishedWritingsPageResult{Writings: page, NextCursor: cursor}
 }
 
-// GetWritingBySlug —— public article view 用。
+// GetWritingBySlug —— for the public article view.
 func GetWritingBySlug(
 	ctx context.Context, deps WritingsDeps, ownerID, slug string,
 ) (entity.Writing, error) {
@@ -167,7 +172,7 @@ func GetWritingBySlug(
 	return p, nil
 }
 
-// PublishedAtRFC3339 —— admin / public route 共用的时间格式化。
+// PublishedAtRFC3339 —— time formatting shared by admin and public routes.
 func PublishedAtRFC3339(t *time.Time) string {
 	if t == nil {
 		return ""

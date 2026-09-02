@@ -1,25 +1,29 @@
-// agent_turn_wire.go —— `/agent/turn` 的**线上形状**：浏览器发过来的那份 body。
+// agent_turn_wire.go —— the **on-wire shape** of `/agent/turn`: the body the browser sends.
 //
-// 跟 AgentTurnInput（这一轮跑起来需要什么，由 route handler 装）分开放:一个是外面给的,
-// 一个是里面要的。混在一个文件里时，读的人分不出哪些字段是**调用方能决定的** —— 而这条
-// 边界正是安全判断的起点（system 由客户端拼好发回来这件事，就是 F-B-14 的一半）。
+// Kept separate from AgentTurnInput (what this turn needs to run, filled in by the route
+// handler): one is what comes from outside, the other is what's needed inside. Mixed together
+// in one file, a reader can no longer tell which fields the **caller gets to decide** — and that
+// boundary is exactly where a security judgment starts (that system is assembled by the client
+// and sent back as-is is half of F-B-14).
 
 package inference
 
-// AgentTurnRequest —— 浏览器 POST body。
+// AgentTurnRequest —— the browser's POST body.
 //
-// system + user_message 拼好直接当 ChatModelAgent 的 instruction +
-// user input；history 是上一 turn 之前的对话记录（可能含 assistant
-// tool_calls / tool 结果，用 pi unified shape），传给 ADK 当上下文。
+// system + user_message are used directly, assembled as the ChatModelAgent's instruction + user
+// input; history is the conversation record from before the current turn (may contain assistant
+// tool_calls / tool results, in the pi unified shape), passed to ADK as context.
 //
-// ⚠️ System 是**客户端拼的**：`/sessions` 下发 part id + persona，浏览器取文本组好再发回来。
-// 也就是说它反映的是**发会话那一刻**的世界。会话中途才成立的事实（额度用完了、连接器掉线了）
-// 进不了这个字段 —— 那些走 `AgentTurnInput.SessionNotes`（F-B-14）。
+// Warning: System is **assembled by the client**: `/sessions` hands down a part id + persona,
+// the browser fetches the text and assembles it before sending it back. Which means it reflects
+// the world **as of the moment the session was sent**. Facts that only became true mid-session
+// (quota ran out, a connector went offline) can't get into this field — those go through
+// `AgentTurnInput.SessionNotes` instead (F-B-14).
 //
-// ConversationID —— 持久化的 chat ID (issueSession 时返回的)；backend
-// 内部 tool (calendar_book / dialog persist) 用来把当 turn 的产物关
-// 联到正确的 conversation 行。老 /sessions/{convID}/tools/{name} wire
-// 走 URL path；新 /agent/turn 由 body 透。
+// ConversationID —— the persisted chat ID (returned by issueSession); used by backend-internal
+// tools (calendar_book / dialog persist) to associate this turn's output with the correct
+// conversation row. The old /sessions/{convID}/tools/{name} wire passed it via the URL path; the
+// new /agent/turn passes it through the body.
 type AgentTurnRequest struct {
 	DocContext      *AgentDocContext `json:"doc_context,omitempty"`
 	System          string           `json:"system"`
@@ -30,7 +34,8 @@ type AgentTurnRequest struct {
 	History         []ChatRequestMsg `json:"history,omitempty"`
 }
 
-// AgentDocContext —— 访客当前所在 document 的最小标识(给指代解析用)。
+// AgentDocContext —— the minimal identity of the document the visitor is currently on
+// (used for pronoun reference resolution).
 type AgentDocContext struct {
 	Title string `json:"title"`
 	Path  string `json:"path"`

@@ -1,4 +1,4 @@
-// SaveBar —— sticky bottom 保存条。dirty / lastSaved 状态 + save & revert。
+// SaveBar — sticky bottom save bar. dirty / lastSaved state + save & revert.
 
 'use client';
 

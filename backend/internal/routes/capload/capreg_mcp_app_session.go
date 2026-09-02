@@ -1,6 +1,8 @@
-// capreg_mcp_app_session.go —— 数据型内建插件的可信 session 上下文构造(从 capreg_mcp_app.go
-// 拆出,守 max-lines ≤350)。sessionMetaFor 只给声明了 HostSockets 的内建拿(经 tool-call
-// `_meta` 递进它自己的沙箱,再转宿主窄 socket API);第三方 / 无 socket 插件 → nil,防泄漏。
+// capreg_mcp_app_session.go —— builds the trusted session context for data-backed builtin
+// plugins (split out of capreg_mcp_app.go, to keep it under max-lines ≤350). sessionMetaFor
+// is only handed to a builtin that declared HostSockets (passed in via tool-call `_meta`
+// into its own sandbox, which then relays it to the host's narrow socket API); a third-party
+// / socket-less plugin gets nil, to prevent leaks.
 
 package capload
 
@@ -12,16 +14,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// sessionMetaFor —— 会回头找宿主(manifest 点了 host op)的能力才拿到可信 session 上下文。
-// 没点过(ask_visitor / 第三方)→ nil。
+// sessionMetaFor —— only a capability that calls back to the host (the manifest declares a
+// host op) gets a trusted session context. Not declared (ask_visitor / third-party) → nil.
 func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.SessionContext {
 	if m.Transport.Sandbox == nil || len(m.Transport.Sandbox.HostOps) == 0 {
 		return nil
 	}
 	return &mcpclient.SessionContext{
 		OwnerID: in.OwnerID,
-		// 主体整对过线（种类 + id）。插件把它记进自己写下的行里，宿主照着数用量 ——
-		// 只递 id 的话，两条路的主体在同一个字段里长得一样，而它们不该混着数（F-B-11）。
+		// The subject is passed across the boundary whole (kind + id). The plugin records
+		// it into whatever row it writes, and the host counts usage against that — if only
+		// id were passed, two different paths' subjects would look identical in the same
+		// field, and they must not be counted together (F-B-11).
 		Subject:        mcpclient.Subject{Kind: string(in.Subject.Kind), ID: in.Subject.ID},
 		ConversationID: in.ConversationID,
 		Mode:           in.Mode,
@@ -29,16 +33,19 @@ func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.
 		VisitorEmail:   in.Visitor.Email,
 		RoleID:         roleIDOf(in),
 		CorpusScope:    corpusScopeOf(in),
-		// 这个能力自己那份 per-role 配置(冻在 snapshot 里)。只给它自己的 ——
-		// 一个插件不该看见别的能力的设置。
+		// This capability's own per-role config (frozen in the snapshot). Only its own —
+		// a plugin should never see the settings configured for a different capability.
 		CapConfig: capConfigOf(in, m.ID),
 	}
 }
 
-// capConfigOf —— 这个 session 的 role 上,**这一个能力**的配置。没有 role / 这个能力没有
-// per-role 配置 → nil(沙箱那侧读到"没设过",走它自己的默认值)。
+// capConfigOf —— on this session's role, **this one capability's** config. No role / this
+// capability has no per-role config → nil (the sandbox side reads that as "never
+// configured" and falls back to its own default).
 //
-// 按能力挑出来而不是整张表递过去:递整张表的话,一个第三方插件能读到 owner 给别的能力配的东西。
+// Picked out per-capability rather than passing the whole table across: passing the whole
+// table would let a third-party plugin read what the owner configured for a different
+// capability.
 func capConfigOf(in *capreg.AssembleInput, capID string) json.RawMessage {
 	if in.RoleSnapshot == nil {
 		return nil
@@ -46,7 +53,7 @@ func capConfigOf(in *capreg.AssembleInput, capID string) json.RawMessage {
 	return in.RoleSnapshot.CapConfig()[capID]
 }
 
-// roleIDOf —— 当前 session 的 role id。无 role(public/byoai)→ 空串。
+// roleIDOf —— the current session's role id. No role (public/byoai) → empty string.
 func roleIDOf(in *capreg.AssembleInput) string {
 	if in.RoleSnapshot == nil {
 		return ""
@@ -54,11 +61,13 @@ func roleIDOf(in *capreg.AssembleInput) string {
 	return in.RoleSnapshot.RoleID()
 }
 
-// corpusScopeOf —— 当前 session 冻下的 corpus-ACL scope，**整块**序列化过线。
+// corpusScopeOf —— the current session's frozen corpus-ACL scope, serialized across the
+// boundary as **one whole block**.
 //
-// 不在这里拆成"授了哪些 / 收回哪些"两个列表：那样每加一条准入规则就要在四个接缝上各抄一遍，
-// 而漏抄的那一处不会编译失败（F-D-7 的修复第一次就是这么丢掉 published_only 的）。
-// 无 role → 空 scope（什么都读不到），不是"不带这个字段"。
+// It is deliberately not split here into two lists, "what's granted / what's revoked": that
+// would mean every new admission rule needs copying across four seams, and the one seam
+// that gets missed wouldn't fail to compile (that's exactly how the first fix for F-D-7 lost
+// published_only). No role → an empty scope (reaches nothing), not "the field is absent".
 func corpusScopeOf(in *capreg.AssembleInput) json.RawMessage {
 	if in.RoleSnapshot == nil {
 		return emptyCorpusScope()

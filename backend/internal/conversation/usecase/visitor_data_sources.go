@@ -16,11 +16,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/repo"
 )
 
-// corpus.WikiLister —— owner-scoped wiki corpus for retrieval (buildRetriever)。除了内存
+// corpus.WikiLister —— owner-scoped wiki corpus for retrieval (buildRetriever). Besides in-memory
 
 // ReportStore —— summarize_conversation persistence + the report read path.
-// #129 一会话一份:Upsert 按 conversation 改写原行(revise)，report_id 稳定。eval 的
-// no-op store 忽略入参。
+// #129 one report per conversation: Upsert rewrites the existing row keyed by
+// conversation (revise), report_id stays stable. eval's no-op store ignores its input.
 type ReportStore interface {
 	Upsert(
 		ctx context.Context, in *repo.UpsertReportInput,

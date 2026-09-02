@@ -2,26 +2,37 @@ package mcpplugin
 
 import "unicode"
 
-// ProgressLabel —— 一个能力在跑的时候，**访客**那一行看到什么。
+// ProgressLabel —— what the **visitor**-facing line shows while a capability is
+// running.
 //
-// 住在这里而不是加载器里，是因为这是能力自己的属性：「我在做什么」该由声明这个能力的东西
-// 回答，而不是由碰巧把它装进来的那段代码决定。（routes-cyclo 那条闸门先发现了这件事 ——
-// 它拦的是"face 里长出了分支"，而分支之所以在那儿，正是因为归属放错了地方。）
+// This lives here rather than in the loader because it's the capability's own
+// property: "what I'm doing" should be answered by whatever declares the
+// capability, not decided by whichever code happened to load it in. (The
+// routes-cyclo gate is what first caught this — it blocks "a branch growing inside
+// a face", and the branch was there precisely because ownership was placed wrong.)
 //
-// 优先级：
-//  1. tool 自己在 `_meta.progress_label` 里声明的（外置内建保各自原文案：
-//     corpus_search "searching corpus"）。
-//  2. manifest 的 Title —— **必填、且 owner 已经在 dock 下拉里审过一遍**。
-//  3. 兜底一句人话。
+// Priority:
+//  1. What the tool itself declares in `_meta.progress_label` (externalized
+//     built-ins keep their own original wording: corpus_search says
+//     "searching corpus").
+//  2. The manifest's Title — **mandatory, and the owner has already reviewed it
+//     once in the dock dropdown**.
+//  3. A generic fallback phrase.
 //
-// 为什么第 2 条是关键（UX-55）：这里以前直接跳到一个字面量 `"calling plugin"`，而这行字是
-// **访客**看到的。访客问「能给我一份可以发给团队的总结吗」，屏幕回他一个宿主的架构名词。
-// 而人话名字一直都在 —— `summarize_conversation` 的 manifest 写着
-// `title: Summarize the conversation`，owner 侧的 dock 下拉透传的就是它。
-// **纪律存在、被执行，只是没跟到访客那条路上**（[[move-the-capability-move-its-edges]]）。
+// Why rule 2 matters (UX-55): this used to jump straight to a literal
+// `"calling plugin"`, and this line is what the **visitor** sees. A visitor asks
+// "can I get a summary I can send to my team", and the screen answers with a piece
+// of host architecture jargon. Meanwhile a human-readable name was there all
+// along — `summarize_conversation`'s manifest already had
+// `title: Summarize the conversation`, and the owner-side dock dropdown was
+// already passing it through. **The discipline existed and was enforced, it just
+// never got carried over to the visitor-facing path**
+// ([[move-the-capability-move-its-edges]]).
 //
-// 所以修法不是"再加一个 progress_label 字段等下一个能力去填" —— 那个字段照样会被忘。
-// 退到已经必填的 Title，任何能力都白得一句人话。
+// So the fix isn't "add yet another progress_label field for the next capability
+// to fill in" — that field would just get forgotten the same way. Falling back to
+// Title, which is already mandatory, gets every capability a human-readable phrase
+// for free.
 func ProgressLabel(m *Manifest, declared string) string {
 	if declared != "" {
 		return declared
@@ -32,8 +43,10 @@ func ProgressLabel(m *Manifest, declared string) string {
 	return "working"
 }
 
-// lowerFirst —— throbber 那一行是句中片段（"searching corpus···"），首字母压平，
-// 让 Title 读起来跟其它进度文案同一个调子，而不是一句突兀的标题。
+// lowerFirst —— the throbber line is a mid-sentence fragment
+// ("searching corpus···"), so the first letter is lowercased to make Title read
+// in the same register as the rest of the progress copy, instead of sticking out
+// like a title.
 func lowerFirst(s string) string {
 	r := []rune(s)
 	if len(r) == 0 {

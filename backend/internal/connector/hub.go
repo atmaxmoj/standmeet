@@ -1,22 +1,27 @@
-// hub.go —— 消费者无关的命名连接器注册表（connector 重构 · 接缝）。
+// hub.go — a consumer-agnostic named-connector registry (connector refactor · seam).
 //
-// 动机（为什么有这层，且为什么它必须中性、绝不 import MCP）：
+// Motivation (why this layer exists, and why it must stay neutral and never import MCP):
 //
-// connector 是「持凭据的底座」—— 凭据解密、OAuth 刷新、重试全在连接器内部。**谁来用它
-// 不该被写死成 MCP。** 今天的消费者是访客 chat 的 MCP 能力（经 capreg 的依赖解析 gate
-// 后调 proxy），但 connector 本身不该知道这件事。
+// connector is "the base that holds credentials" — credential decryption, OAuth refresh, and
+// retries all happen inside it. **Who consumes it must not be hard-wired to MCP.** Today's
+// consumer is the visitor-chat MCP capability (calls the proxy after capreg's dependency-
+// resolution gate), but connector itself shouldn't know that.
 //
-// 将来的消费者可能完全不是 MCP。比如一个 **IM Gateway**：owner 在 Discord / Slack 里被
-// @，Gateway（将来）唤起 agent；agent 用该 IM 连接器的凭据 **消费 channel 历史**（read）
-// 进上下文，再用同一凭据 **发消息**（write）回 channel。整条路径不碰 MCP / 访客 session /
-// mcp-ui:tool —— 它只是「另一个消费者」。
+// Future consumers may not be MCP at all. Take an **IM Gateway**: the owner is @-mentioned in
+// Discord / Slack, the Gateway (eventually) wakes an agent; the agent uses that IM connector's
+// credentials to **consume channel history** (read) into context, then uses the same
+// credentials to **send a message** (write) back to the channel. None of that path touches MCP
+// / visitor session / mcp-ui:tool — it's just "another consumer".
 //
-// 所以「按名解析一个连接器 + 拿它的调用句柄」这件事必须住在**中性位置**，任何消费者都能
-// 用，且**不 import capreg（MCP 包）**。capreg 的 enabledCaps gate 只是其中一个消费者，
-// 实现阶段应当把 capreg.DepRegistry 并进本 Hub（一个底座、多个消费者，别各搭一套）。
+// So "resolve a connector by name + get its call handle" must live in a **neutral place**,
+// usable by any consumer, and **must not import capreg (the MCP package)**. capreg's
+// enabledCaps gate is only one of the consumers; the implementation phase should fold
+// capreg.DepRegistry into this Hub (one base, multiple consumers, not a separate setup each
+// time).
 //
-// 凭据永不出 connector：Hub 解析回的是「句柄」（Connector 基面 + 各连接器自己的能力接口），
-// 没有任何凭据 getter；read 和 write 都在连接器内部用解密后的凭据完成。
+// Credentials never leave connector: what Hub resolves back is a "handle" (the Connector base
+// surface + each connector's own capability interface), with no credential getter at all; both
+// read and write are done inside the connector using decrypted credentials.
 
 package connector
 
@@ -25,36 +30,45 @@ import (
 	"sync"
 )
 
-// Connector —— 所有连接器的基面：一个名字 + 能答「这个 owner 连没连」。具体能力（日历的
-// InsertEvent、IM 的 ReadChannel/Send、SMTP 的 Send …）由各连接器**自己的接口**给；消费者
-// 按名解析到 Connector 后，按需类型断言到它要的能力接口。基面上**没有凭据 getter**。
+// Connector — the base surface every connector shares: a name + can answer "is this owner
+// connected". Specific capabilities (calendar's InsertEvent, IM's ReadChannel/Send, SMTP's
+// Send …) are given by each connector's **own interface**; a consumer resolves a Connector by
+// name, then type-asserts it to whichever capability interface it needs. The base surface has
+// **no credential getter**.
 type Connector interface {
 	Name() string
-	Kind() string // "openapi" | "protocol"（消费者经此知道底下走 HTTP spec 还是内置协议）
+	// Kind — "openapi" | "protocol" (tells a consumer whether it runs over an HTTP spec or a
+	// built-in protocol).
+	Kind() string
 	Connected(ctx context.Context, ownerID string) (bool, error)
 }
 
-// Verifier —— 可做连接测试的连接器（protocol 连接器在 connect 时跑：dial + auth 握手）。不实现
-// 它的连接器（oauth/apiKey）connect 无需测试——存即可用。消费者按需类型断言。
+// Verifier — a connector that can run a connection test (a protocol connector runs this on
+// connect: dial + auth handshake). A connector that doesn't implement it (oauth/apiKey) needs
+// no test on connect — saving it is enough to make it usable. Consumers type-assert as needed.
 type Verifier interface {
 	Verify(ctx context.Context, ownerID string) error
 }
 
-// Hub —— 消费者无关的命名连接器注册表。任何消费者（MCP 能力 gate、IM Gateway、未来的任务
-// 编排）都按名解析，拿句柄、调用；凭据 / OAuth / 重试全在连接器内，消费者不感知。
+// Hub — a consumer-agnostic named-connector registry. Any consumer (the MCP capability gate,
+// an IM Gateway, a future task orchestrator) resolves by name, gets a handle, and calls it;
+// credentials / OAuth / retries all stay inside the connector, invisible to the consumer.
 //
-// 并发：Resolve 在每次品类槽解析时被访客/admin 请求 goroutine 读；Upsert 在 owner 运行时建/改
-// 连接器（POST/PUT /connectors）时被 admin goroutine 写。map 无锁则并发读写 → Go runtime 直接
-// fatal「concurrent map read and map write」。故加 RWMutex：读走 RLock，建/改走 Lock。
+// Concurrency: Resolve is read by visitor/admin request goroutines on every category-slot
+// resolution; Upsert is written by an admin goroutine whenever the owner creates/changes a
+// connector at runtime (POST/PUT /connectors). An unlocked map under concurrent read+write
+// makes the Go runtime fatal outright with "concurrent map read and map write". Hence the
+// RWMutex: reads take RLock, creates/changes take Lock.
 type Hub struct {
 	conns map[string]Connector
 	mu    sync.RWMutex
 }
 
-// NewHub —— 空注册表。
+// NewHub — an empty registry.
 func NewHub() *Hub { return &Hub{conns: map[string]Connector{}} }
 
-// Register —— 注册一个命名连接器。重名 panic（boot 期失败比运行时撞名好）。
+// Register — register a named connector. Panics on a duplicate name (failing at boot is
+// better than colliding at runtime).
 func (h *Hub) Register(c Connector) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -65,7 +79,7 @@ func (h *Hub) Register(c Connector) {
 	h.conns[name] = c
 }
 
-// Resolve —— 按名取连接器；未注册 → (nil, false)。
+// Resolve — get a connector by name; not registered → (nil, false).
 func (h *Hub) Resolve(name string) (Connector, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -73,7 +87,8 @@ func (h *Hub) Resolve(name string) (Connector, bool) {
 	return c, ok
 }
 
-// Upsert —— 注册或替换一个命名连接器（上传连接器运行时动态装配 / 拉起重装用，幂等，不 panic）。
+// Upsert — register or replace a named connector (used for runtime dynamic assembly of an
+// uploaded connector / boot-time re-registration; idempotent, never panics).
 func (h *Hub) Upsert(c Connector) {
 	h.mu.Lock()
 	defer h.mu.Unlock()

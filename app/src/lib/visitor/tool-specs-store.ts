@@ -1,11 +1,14 @@
-// tool-specs-store.ts —— G-8: visitor session 发的 tool_specs 全 dump 进
-// 这个 zustand store，按 name 索引；ConversationDeck / ChatRoom 渲 throbber
-// 时按 tool name 读 progress_label。session issue 时 ensureSession 一次性
-// 写满；reset 走 clear。
+// tool-specs-store.ts —— G-8: the visitor session's tool_specs get dumped
+// wholesale into this zustand store, indexed by name; ConversationDeck /
+// ChatRoom read progress_label by tool name when rendering the throbber.
+// ensureSession fills it in one shot when a session is issued; reset goes
+// through clear.
 //
-// 解决 D-5 留的硬编码 THROBBER_LABELS 两份重复：
-//   - tool 跑啥 label 由 backend ToolSpec.ProgressLabel 决定
-//   - frontend 只 observe (zustand subscribe)，不再自己列表
+// Fixes the hardcoded THROBBER_LABELS duplication left over from D-5:
+//   - which label a running tool shows is decided by the backend's
+//     ToolSpec.ProgressLabel
+//   - the frontend only observes (zustand subscribe), no longer maintains
+//     its own list
 
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -13,7 +16,8 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import type { PublicSessionToolSpec } from '@standmeet/sdk-core';
 
 interface ToolSpecsState {
-  // 按 name 索引；undefined 表示 backend 没下发 (fallback "running <name>")
+  // Indexed by name; undefined means the backend didn't send one
+  // (fallback to "running <name>")
   byName: Record<string, PublicSessionToolSpec>;
   setSpecs: (specs: readonly PublicSessionToolSpec[]) => void;
   clear: () => void;
@@ -35,8 +39,9 @@ function indexByName(
   return out;
 }
 
-// uiHtmlForTool —— 这个 tool 自带的 ui:// 卡片 HTML（#134 / MCP Apps，per-tool）。
-// 按 tool 名精确取（插件经 tool `_meta.ui_resource` 声明）；无 → ''（无卡）。
+// uiHtmlForTool —— the ui:// card HTML this tool carries (#134 / MCP Apps,
+// per-tool). Looked up by exact tool name (a plugin declares it via the
+// tool's `_meta.ui_resource`); none → '' (no card).
 export function uiHtmlForTool(
   byName: Record<string, PublicSessionToolSpec>, toolName: string,
 ): string {

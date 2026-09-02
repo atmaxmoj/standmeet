@@ -1,11 +1,12 @@
-// use-ai-provider —— /admin/api-mcp "AI provider" 块的状态。
-// 读 sessionStore 拿当前 provider + 是否设过 key；commit 通过
-// PATCH /admin/ai-provider 落库。明文 key 永远不在前端 state 里停留——
-// submit 一过立刻丢。
+// use-ai-provider —— state for the "AI provider" block on /admin/api-mcp.
+// Reads sessionStore for the current provider + whether a key is set;
+// commit persists via PATCH /admin/ai-provider. The plaintext key never
+// lingers in frontend state — it's dropped the instant submit runs.
 //
-// 现在 PATCH body 加 endpoint + model 两个字段，每次 save 都必须送（server
-// 端必填校验）。UI seed 时如果 sessionStore 里没保存的 endpoint/model（v1
-// 老 /me 不返回这俩），用 preset 默认值兜底，让 owner 至少能 save。
+// The PATCH body now adds two fields, endpoint + model, both required on
+// every save (server-side required-field validation). When seeding the UI,
+// if sessionStore has no saved endpoint/model (an old v1 /me response
+// doesn't return them), preset defaults are used as a fallback, so the owner can at least save.
 
 import { useCallback, useEffect, useState } from 'react';
 
@@ -13,15 +14,16 @@ import { adminAPI, SettingsViewSchema, type MeView } from '@/lib/api/admin';
 import { sessionStore } from '@/lib/admin/use-admin-session';
 import { useResource } from '@/lib/state/create-resource-store';
 
-// AIProviderName —— provider canonical id；现在 string 不收窄（anthropic /
-// openai / deepseek / kimi / groq / siliconflow / openrouter / together /
-// custom）。server 端校验非法值。
+// AIProviderName —— the provider's canonical id; currently a bare string,
+// not narrowed (anthropic / openai / deepseek / kimi / groq / siliconflow /
+// openrouter / together / custom). The server validates invalid values.
 export type AIProviderName = string;
 
 export interface AIProviderState {
   provider: AIProviderName;
-  // endpoint / model —— SoT 优先(owner 存过的 /me 返回值),空则退 preset 默认。
-  // #33:之前 form 只用 preset 默认,owner 存过的 model/endpoint 不回填。
+  // endpoint / model —— the SoT takes priority (the value the owner has
+  // saved, as returned by /me), falling back to the preset default when empty.
+  // #33: the form used to only ever use the preset default; a model/endpoint the owner had saved never got backfilled.
   endpoint: string;
   model: string;
   keyConfigured: boolean;
@@ -36,9 +38,9 @@ export interface AIProviderHook {
   clearKey: () => Promise<boolean>;
 }
 
-// applySaveSuccess —— "save ok 之后跑两个副作用"的 lib-side wrapper，给
-// component 写 `await applySaveSuccess(ok, ...)` 而不是 `ok && (a(), b())`
-// 那种 comma sequence。
+// applySaveSuccess —— a lib-side wrapper for "run some side effects after a
+// successful save", letting the component write `await applySaveSuccess(ok,
+// ...)` instead of a comma-sequence like `ok && (a(), b())`.
 export function applySaveSuccess(
   ok: boolean,
   ...effects: ReadonlyArray<() => void>
@@ -49,9 +51,9 @@ export function applySaveSuccess(
 
 export interface SaveInput {
   provider: AIProviderName;
-  endpoint: string; // 必填 —— server 端校验非空
-  model: string;    // 必填 —— server 端校验非空
-  key: string;      // empty string → 不改 key（只切 provider / endpoint / model）
+  endpoint: string; // required — the server validates it's non-empty
+  model: string;    // required — the server validates it's non-empty
+  key: string;      // empty string → don't change the key (only switches provider / endpoint / model)
 }
 
 
@@ -76,9 +78,10 @@ export function useAIProvider(): AIProviderHook {
     );
   }, []);
 
-  // clearKey —— 把 owner 的 key 清掉，provider 保持当前。clear 仍然要送
-  // endpoint+model 满足 server 必填校验；用 sessionStore 当前的 provider
-  // 配 preset 默认 endpoint/model 兜底。
+  // clearKey —— clears the owner's key, keeping the current provider. clear
+  // still has to send endpoint+model to satisfy the server's required-field
+  // validation; falls back to the preset default endpoint/model for
+  // sessionStore's current provider.
   const clearKey = useCallback(async (): Promise<boolean> => {
     const current = session.data?.settings.ai.provider ?? 'anthropic';
     const { endpoint, model } = defaultsFor(current);
@@ -95,11 +98,13 @@ export function useAIProvider(): AIProviderHook {
   };
 }
 
-// defaultsFor —— 给定 provider 名，从 hardcode preset 表里查默认 endpoint
-// + model。这里特意不 import lib/inference/presets 以保持 admin lib 自包含
-// （preset 在 fetch /presets 后给到组件层；clear 这种边界路径用 preset 中
-// 已知 base 也够，最坏 server 端会报错）。空 string 让 server 走"unknown
-// provider" 报错。这里手抄一份最小映射，新 provider 同步加。
+// defaultsFor —— given a provider name, looks up the default endpoint +
+// model from a hardcoded preset table. lib/inference/presets is deliberately
+// not imported here, to keep admin lib self-contained (presets are handed to
+// the component layer after fetching /presets; an edge path like clear is
+// fine using a known base from presets — worst case the server errors). An
+// empty string sends the server down the "unknown provider" error path. A
+// minimal mapping is hand-copied here; a new provider gets added in both places.
 function defaultsFor(provider: string): { endpoint: string; model: string } {
   const m: Record<string, { endpoint: string; model: string }> = {
     anthropic: {
@@ -141,7 +146,7 @@ function deriveState(
   const preset = defaultsFor(provider);
   return {
     provider,
-    // SoT(owner 存过的)优先;空则 preset 默认,让 owner 至少能 save。
+    // The SoT (what the owner has saved) takes priority; falls back to the preset default when empty, so the owner can at least save.
     endpoint: ai?.endpoint || preset.endpoint,
     model: ai?.model || preset.model,
     keyConfigured: ai?.key_configured ?? false,

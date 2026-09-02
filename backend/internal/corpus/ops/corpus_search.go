@@ -1,15 +1,19 @@
-// corpus_search.go —— owner 侧的「按内容找一条」。
+// corpus_search.go —— the owner side's "find an entry by its content".
 //
-// 为什么它得存在（F-L-39/40/41）：owner 的语料有 575 条 wiki + 450 条 raw，而他这一侧原先
-// 只有两个读口 —— `corpus.list`（最新的一页，上限 200，**没有 offset**）和 `corpus.get`
-// （必须已经知道 id）。于是「打开我那条 good-regulator-theorem」这件事，在 owner 的 AI 客户端
-// 里做不到，在 `/admin/wiki` 上也只能靠标签筛 + 用眼睛扫两列网格。
+// Why it has to exist (F-L-39/40/41): the owner's corpus holds 575 wiki entries + 450 raw
+// entries, and this side used to have only two read ops — `corpus.list` (the newest page, capped
+// at 200, **no offset**) and `corpus.get` (which requires already knowing the id). So "open my
+// good-regulator-theorem note" was impossible from the owner's AI client, and on `/admin/wiki`
+// the only tools were a tag filter plus eyeballing a two-column grid.
 //
-// 而**访客那一侧一直有搜索**（答案头上就印着 `SEARCHED 2 · READ 2`），底下 `repo.*.Search`
-// 的全文检索也一直在。缺的从来不是能力，是 owner 这一侧没接线。
+// Meanwhile **the visitor side has always had search** (the answer header prints
+// `SEARCHED 2 · READ 2`), and the full-text search underneath, `repo.*.Search`, has always been
+// there too. What was missing was never the capability — it was that the owner side was never
+// wired to it.
 //
-// 语义：一个 genre 内按关键词全文搜，返回跟 `corpus.list` **同一种行**（多带一个 snippet），
-// 带 offset 翻页 —— 翻页在这里不是可选项：一条命中的东西够不到，跟没搜到没有区别。
+// Semantics: full-text keyword search within one genre, returning **the same row shape** as
+// `corpus.list` (plus a snippet), with offset paging — paging here isn't optional: a hit you
+// can't reach is no different from not finding it.
 
 package ops
 
@@ -34,15 +38,19 @@ var corpusSearchSchema = json.RawMessage(`{
 	"required":["genre","query"]
 }`)
 
-// CorpusSearch —— 单独一个构造器（而不是塞进 CorpusReads）：读那一组现在有三件事，
-// 分开注册让「谁提供了什么」在装配点上是看得见的。
+// CorpusSearch —— its own constructor (rather than folded into CorpusReads): the read group now
+// has three things, and registering them separately keeps "who provides what" visible at the
+// assembly point.
 func CorpusSearch(deps usecase.Deps) []fp.Op {
 	return []fp.Op{{
 		ID: "corpus.search",
-		// 说明里必须写清它会漏 —— 跟访客那条 `corpus_search` 同一个理由（F-S-2）：这是一条
-		// **词法**索引，`to_tsvector('english', …)` 切不动词中子串、紧贴标点的词、以及 CJK。
-		// owner 的 vault 按 `> [!i18n]` 契约整段带中文，所以这不是边角情况。
-		// 空结果**不等于**语料里没有，而读这句话的是 owner 的 AI —— 它据此决定要不要换个词再问。
+		// The description must spell out where it misses — same reason as the visitor-side
+		// `corpus_search` (F-S-2): this is a **lexical** index, and `to_tsvector('english', …)`
+		// can't tokenize substrings inside a word, terms glued to punctuation, or CJK. The
+		// owner's vault carries whole Chinese passages under the `> [!i18n]` convention, so
+		// this isn't an edge case. An empty result does **not** mean the material isn't in the
+		// corpus — and it's the owner's AI reading this line, deciding from it whether to
+		// retry with a different word.
 		Description: "Find corpus entries by what they say. Full-text over title + body " +
 			"inside one genre, with offset paging. Use this when you know roughly what a note " +
 			"says but not its id — corpus.list only shows the newest page. This is a lexical " +

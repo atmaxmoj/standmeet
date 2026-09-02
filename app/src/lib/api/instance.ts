@@ -1,9 +1,10 @@
-// instance.ts —— 拿 instance 元信息（v1 单 owner instance：claimed + handle +
-// 仅 unclaimed 时携带的 setup_token）。
+// instance.ts —— fetches instance metadata (v1 single-owner instance: claimed +
+// handle + a setup_token that's only present while unclaimed).
 //
-// 根路由 / 的 server component 用 setup_token 做 server-side redirect 到
-// /setup?t=<token>，让 operator 首次部署后打开域名 / 就自动进 claim 流程。
-// claimed 之后 setup_token 永远不返回。
+// The root route /'s server component uses setup_token for a server-side
+// redirect to /setup?t=<token>, so an operator who opens the domain right after
+// first deploy lands in the claim flow automatically.
+// Once claimed, setup_token is never returned again.
 
 import { z } from 'zod';
 
@@ -12,12 +13,14 @@ import { safeJson } from '@/lib/api/typed-json';
 const InstanceInfoSchema = z.object({
   claimed: z.boolean(),
   handle: z.string(),
-  // name —— owner 全名(by-line 用,如 wiki 元信息「by Sijie Wang」)。
+  // name —— the owner's full name (used for by-lines, e.g. wiki metadata
+  // "by Sijie Wang").
   name: z.string().optional().default(''),
   setup_token: z.string().optional(),
   captcha_site_key: z.string().optional(),
-  // can_deliver_codes —— owner 有 connected 的 mail connector(能发码邮件)。
-  // gate 据此决定是否展示「request access」整块。默认 false(发不出就不展示)。
+  // can_deliver_codes —— the owner has a connected mail connector (can send code
+  // emails). /gate uses this to decide whether to show the "request access"
+  // block at all. Defaults to false (don't show it if it can't send).
   can_deliver_codes: z.boolean().optional().default(false),
 });
 export type InstanceInfo = z.infer<typeof InstanceInfoSchema>;

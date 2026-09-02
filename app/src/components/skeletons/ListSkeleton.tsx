@@ -1,5 +1,7 @@
-// ListSkeleton —— /admin/conversations /admin/requests 那种"按行的列表"loading。
-// 每行：圆点（status）+ 标题（visitor name）+ 副文本（time/code）+ trailing meta。
+// ListSkeleton — the "row-based list" loading state used by
+// /admin/conversations and /admin/requests.
+// Each row: dot (status) + title (visitor name) + subtext (time/code) +
+// trailing meta.
 
 import { Skel } from '@/components/skeletons/Skel';
 

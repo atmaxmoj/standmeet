@@ -1,7 +1,10 @@
-// FormSkeleton —— /admin/page /admin/api-mcp owner's-ai panel 等表单 loading。
-// 一组 label + input 占位重复 N 次，撑出表单大致高度。
+// FormSkeleton — form loading state for /admin/page, /admin/api-mcp, the
+// owner's-ai panel, etc.
+// A label + input placeholder pair repeats N times to approximate the
+// form's height.
 //
-// 如果具体表单比较短（如 single input + button），用 InlineSkeleton。
+// For a short form (e.g. a single input + button), use InlineSkeleton
+// instead.
 
 import { Skel } from '@/components/skeletons/Skel';
 

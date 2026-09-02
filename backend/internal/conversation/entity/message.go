@@ -1,18 +1,23 @@
-// message.go —— Message：messages 表的一行 row。一个 Dialog 落 2 条
-// (visitor + assistant)。
+// message.go —— Message: one row of the messages table. One Dialog writes
+// 2 rows (visitor + assistant).
 //
-// Message 是持久层细节，但又不能彻底封到 postgres package：admin
-// transcript 接口对外仍按 "messages 数组" 暴露 (老 frontend 形态 + 兼容
-// 旧 SSE)。所以放在 domain 但留作内部 row 类型，prefer Dialog 作为 domain
-// 第一公民。
+// Message is a persistence-layer detail, but it can't be fully sealed into
+// the postgres package: the admin transcript API still exposes it
+// externally as a "messages array" (the old frontend shape + backward
+// compat with the old SSE). So it lives in the domain but stays an
+// internal row type — Dialog is preferred as the domain's first-class
+// citizen.
 
 package entity
 
 import "time"
 
-// Message —— conversation 内一条消息 row。ToolCalls 是 assistant 那条本轮跑过的
-// tool 调用(opaque jsonb,前端 [{name,ok,result}] 原样存取),属于这段对话的
-// 一部分:owner 回看 / visitor 续看都要看见 AI search 了啥、read 了哪篇。
+// Message —— one message row within a conversation. ToolCalls is the set
+// of tool calls the assistant message ran this turn (opaque jsonb, stored
+// and read back verbatim by the frontend as [{name,ok,result}]); it's part
+// of this dialog — both the owner reviewing later and the visitor
+// continuing the chat need to see what the AI searched and which article
+// it read.
 type Message struct {
 	CreatedAt            time.Time
 	ID                   string
@@ -23,8 +28,9 @@ type Message struct {
 	CitedWritingIDs      []string
 	CitedOutputIDs       []string
 	CitedSubjectivityIDs []string
-	// GroundedSubjectivityIDs —— 塑造了这一轮但没 opt-in 的 subjectivity(F-A-27)。
-	// 只进 owner 的 transcript,访客侧永不读。
+	// GroundedSubjectivityIDs —— subjectivity notes that shaped this turn
+	// but weren't opted in (F-A-27). Goes only into the owner's transcript,
+	// never read on the visitor side.
 	GroundedSubjectivityIDs []string
 	ToolCalls               []byte
 }

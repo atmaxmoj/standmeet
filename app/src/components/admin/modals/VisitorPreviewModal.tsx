@@ -1,8 +1,9 @@
-// VisitorPreviewModal —— owner 看 visitor 拿这个 code 落地时的样子 + 可
-// 以"试一聊"。点 "test this code" 按真访客身份起 session（visitor_name
-// = "(owner test)"），发一条 message，看 streamed reply。
+// VisitorPreviewModal — lets the owner see what a visitor lands on with this code,
+// and try a chat. Clicking "test this code" starts a session as a real visitor
+// (visitor_name = "(owner test)"), sends one message, shows the streamed reply.
 //
-// owner 之前只能开隐身浏览器假装访客 —— 现在卡里就能跑一遍。
+// Previously the owner could only open an incognito window and pretend to be a
+// visitor — now they can run through it right from the card.
 
 'use client';
 

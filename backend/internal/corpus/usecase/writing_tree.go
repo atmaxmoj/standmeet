@@ -1,15 +1,18 @@
-// writing_tree.go —— reader sidebar 的 writing 树懒加载分层。跟 wiki 树同形
-// (nodesUnder/effectiveParent),但 ACL 口径不同:
-//   - 可见性 = published(草稿不进公开树)。输入已是 published 列表 → 全可见。
-//   - private(visibility != public)**仍在树里显示**,标 Locked(设计要 show
-//     locked 节点,italic),跟 wiki「不泄露 gated 标题」相反。
-//   - 导航按 slug(writing landing 是 /writings/<slug>),不像 wiki 用 tree-path。
+// writing_tree.go —— lazy-loaded layering of the writing tree for the reader sidebar. Shares
+// its shape with the wiki tree (nodesUnder/effectiveParent), but ACL rules differ:
+//   - Visibility = published (drafts don't enter the public tree). The input is already a
+//     published list → everything in it is visible.
+//   - private (visibility != public) **still shows in the tree**, marked Locked (the design
+//     calls for showing locked nodes in italic) — the opposite of wiki's "don't leak gated
+//     titles".
+//   - Navigation is by slug (writing landing is /writings/<slug>), unlike wiki which uses
+//     tree-path.
 
 package usecase
 
 import "github.com/atmaxmoj/standmeet/internal/corpus/entity"
 
-// WritingTreeNode —— 树一层的一个节点。Locked = private(teaser only)。
+// WritingTreeNode —— one node at one level of the tree. Locked = private (teaser only).
 type WritingTreeNode struct {
 	ID          string
 	Title       string
@@ -18,8 +21,9 @@ type WritingTreeNode struct {
 	Locked      bool
 }
 
-// WritingTreeChildren —— published 列表里 parentID 的直接子(parentID="" → roots)。
-// parent 不在 published 集内(草稿/删)→ 子升为 root。
+// WritingTreeChildren —— the direct children of parentID within the published list
+// (parentID="" → roots). If parent isn't in the published set (draft/deleted), its
+// children get promoted to root.
 func WritingTreeChildren(writings []entity.Writing, parentID string) []WritingTreeNode {
 	present := writingIDSet(writings)
 	hasKids := writingParentsWithChild(writings, present)
@@ -39,7 +43,7 @@ func writingNode(w *entity.Writing, hasKids map[string]bool) WritingTreeNode {
 	}
 }
 
-// writingIDSet —— published 集内的 id。
+// writingIDSet —— the ids within the published set.
 func writingIDSet(writings []entity.Writing) map[string]bool {
 	out := make(map[string]bool, len(writings))
 	for i := range writings {
@@ -48,7 +52,8 @@ func writingIDSet(writings []entity.Writing) map[string]bool {
 	return out
 }
 
-// writingEffectiveParent —— parent 在集内 → 真 parent;否则当 root。
+// writingEffectiveParent —— if parent is in the set → the real parent;
+// otherwise treat as root.
 func writingEffectiveParent(w *entity.Writing, present map[string]bool) string {
 	pid, ok := w.ParentID()
 	if ok && present[pid] {
@@ -57,7 +62,8 @@ func writingEffectiveParent(w *entity.Writing, present map[string]bool) string {
 	return ""
 }
 
-// writingParentsWithChild —— 有 ≥1 子的 parent id 集(算 HasChildren)。
+// writingParentsWithChild —— the set of parent ids with ≥1 child
+// (used to compute HasChildren).
 func writingParentsWithChild(
 	writings []entity.Writing, present map[string]bool,
 ) map[string]bool {

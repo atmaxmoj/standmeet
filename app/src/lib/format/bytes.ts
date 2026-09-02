@@ -1,10 +1,12 @@
-// bytes.ts —— 把字节数写成人读得懂的大小。
+// bytes.ts — turns a byte count into a human-readable size.
 //
-// 住在中立的 lib/format 而不是 lib/admin 或 lib/visitor:面板上的素材行和访客页面的
-// 下载区说的是**同一件事**(这份文件多大)。各写一份的话,两边迟早在某个边界上不一致 ——
-// 而"1023 B 在一处显示 1023 B、在另一处显示 1.0 KB"这种差别没人会去报告。
+// Lives in the neutral lib/format instead of lib/admin or lib/visitor: the asset row
+// in the admin panel and the download area on the visitor page describe **the same
+// thing** (how big this file is). Writing it twice would eventually drift out of
+// sync at some boundary — and a difference like "1023 B shown as 1023 B in one place
+// and 1.0 KB in the other" is not the kind of thing anyone reports.
 
-/** formatBytes —— 1023 B / 4.8 KB / 3.4 MB。 */
+/** formatBytes — 1023 B / 4.8 KB / 3.4 MB. */
 export function formatBytes(n: number): string {
   if (n < 1024) return `${String(n)} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;

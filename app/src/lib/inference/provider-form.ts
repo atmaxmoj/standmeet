@@ -1,26 +1,33 @@
-// provider-form.ts —— BYOAI panel + admin AIProviderPanel 共享的表单状态
-// 推导逻辑。两个组件都是"选 provider → preset 默认填 endpoint；如果用户
-// 改过就保留"这条规则；抽出来一份，组件只负责渲染。
+// provider-form.ts —— shared form-state derivation logic for the BYOAI
+// panel + the admin AIProviderPanel. Both components follow the same rule
+// ("pick provider → preset default fills endpoint; keep it if the user has
+// edited it"); this is that rule factored out, so the components only
+// handle rendering.
 //
-// **model 字段不自动填**：preset 表已删 defaultModel，切 provider 时只
-// 重置 endpoint。model 留给用户自己输（或点 "Load models" button 拉真实
-// 列表）。这条改动是为了避免默认 model 过时 / 不可用而用户不自知。
+// **The model field is not auto-filled**: the preset table has no
+// defaultModel anymore, so switching provider only resets endpoint. model
+// is left for the user to type themselves (or click "Load models" to pull
+// the real list). This change avoids silently pointing at a stale /
+// unavailable default model.
 //
-// 设计选择：state 形态不强绑 lib/inference/presets.ts 的 InferencePreset
-// 类型 —— admin 那边 preset 是 fetch 来的 server view (AIProviderPresetView)，
-// 字段名也不一样 (base_url vs baseUrl)。这里走 PresetDefaults 一个最小
-// 抽象，两边各自把自家 preset 形态 adapt 一下。
+// Design choice: the state shape is not tied to the InferencePreset type
+// from lib/inference/presets.ts — on the admin side, the preset is a
+// fetched server view (AIProviderPresetView) with different field names
+// (base_url vs baseUrl). This goes through a minimal PresetDefaults
+// abstraction instead, and each side adapts its own preset shape to it.
 
 export interface PresetDefaults {
   endpoint: string;
 }
 
-// EMPTY_DEFAULTS —— 找不到 preset（如 custom）时的兜底，全空字符串。
+// EMPTY_DEFAULTS —— fallback for when no preset is found (e.g. custom); all
+// fields empty strings.
 export const EMPTY_DEFAULTS: PresetDefaults = { endpoint: '' };
 
-// ProviderFormState —— provider 切换型表单的最小状态。lastDefaults 是"上次
-// 自动填的 preset 默认值"，用于判断 endpoint 是否被用户手动改过。model
-// 永远是用户输入，不参与 "自动重填" 逻辑。
+// ProviderFormState —— minimal state for a provider-switching form.
+// lastDefaults is "the preset default last auto-filled", used to detect
+// whether the user manually edited endpoint. model is always user input and
+// never participates in the "auto-refill" logic.
 export interface ProviderFormState {
   provider: string;
   endpoint: string;
@@ -28,8 +35,9 @@ export interface ProviderFormState {
   lastDefaults: PresetDefaults;
 }
 
-// initialProviderForm —— 初始化 form：把当前 provider 的 preset 默认 endpoint
-// 灌进去，同时记到 lastDefaults。model 永远从空起步（用户手输 / Load models）。
+// initialProviderForm —— initializes the form: pours the current provider's
+// preset default endpoint in, and records it into lastDefaults too. model
+// always starts empty (user types it, or Load models fills it).
 export function initialProviderForm(
   provider: string, defaults: PresetDefaults,
 ): ProviderFormState {
@@ -41,9 +49,11 @@ export function initialProviderForm(
   };
 }
 
-// seededProviderForm —— 从 SoT(/me 返回的 owner 存过的 endpoint/model)播种表单,
-// 让 owner 重开设置时看到自己上次存的值,而不是 preset 默认。lastDefaults 仍用
-// preset 默认,供切 provider 时判断 endpoint 是否被 owner 改过(#33)。
+// seededProviderForm —— seeds the form from the SoT (the owner's saved
+// endpoint/model returned by /me), so the owner sees their last-saved
+// values when reopening settings, not the preset default. lastDefaults
+// still uses the preset default, for detecting whether the owner has edited
+// endpoint when switching provider (#33).
 export function seededProviderForm(
   provider: string, endpoint: string, model: string, presetEndpoint: string,
 ): ProviderFormState {
@@ -55,11 +65,14 @@ export function seededProviderForm(
   };
 }
 
-// switchProvider —— 选 provider 时的 state transition：
-//   - 用户改过 endpoint（prev 值 != 上次自动填的默认）就保留 user value
-//   - 没改过就重填新 preset 默认 endpoint
-//   - lastDefaults 永远更新到新 preset 默认 endpoint（下次切换的判断基线）
-//   - model 直接清空 —— provider 变了上一个 model id 几乎肯定不适用
+// switchProvider —— the state transition when picking a provider:
+//   - if the user edited endpoint (prev value != the last auto-filled
+//     default), keep the user value
+//   - if not edited, refill with the new preset default endpoint
+//   - lastDefaults always updates to the new preset default endpoint (the
+//     baseline for the next switch's comparison)
+//   - model is cleared outright — once provider changes, the previous model
+//     id is almost certainly no longer valid
 export function switchProvider(
   prev: ProviderFormState, provider: string, next: PresetDefaults,
 ): ProviderFormState {
@@ -74,7 +87,8 @@ function pickEndpoint(prev: ProviderFormState, next: PresetDefaults): string {
   return prev.endpoint === prev.lastDefaults.endpoint ? next.endpoint : prev.endpoint;
 }
 
-// setEndpoint / setModel —— 单字段更新，让组件不用手写 spread。
+// setEndpoint / setModel —— single-field updates, so components don't have
+// to hand-write a spread.
 export function setEndpoint(prev: ProviderFormState, v: string): ProviderFormState {
   return { ...prev, endpoint: v };
 }

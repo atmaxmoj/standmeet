@@ -1,10 +1,10 @@
-// use-recover-form —— #100 account recovery 状态机（镜像 use-login-form）。
+// use-recover-form —— #100 account recovery state machine (mirrors use-login-form).
 //
-// 业务规则:
-//   - email + recovery phrase 非空
-//   - submit 调 /api/admin/recover，成功后 backend 写 session cookie（跟 login 同）
-//   - error 走单 string field（401 = "email or recovery phrase incorrect"）
-// busy 锁防重发。
+// Business rules:
+//   - email + recovery phrase must be non-empty
+//   - submit calls /api/admin/recover; on success the backend writes a session cookie (same as login)
+//   - error goes through a single string field (401 = "email or recovery phrase incorrect")
+// The busy lock prevents double submission.
 
 import { useCallback, useState } from 'react';
 

@@ -1,8 +1,11 @@
-// connection_codec.go —— 连接行的**存取编码**：at-rest 加解密 + 行 → Connection。
+// connection_codec.go — the **storage encoding** for connection rows: at-rest
+// encrypt/decrypt + row → Connection.
 //
-// 从 connection_repo.go 拆出来的（那边到了 350 行的上限，而闸门指的方向是对的）：
-// repo 管的是「怎么读写这张表」，这里管的是「一行字节怎么变成一个 Connection」——
-// 两件事，各自的理由不一样。AAD 绑 owner、`ErrTampered` 该翻译成什么状态，都住这边。
+// Split out of connection_repo.go (which had hit the 350-line ceiling, and the gate
+// was pointing the right way): repo owns "how to read/write this table", this file
+// owns "how a row of bytes becomes a Connection" — two different concerns, each with
+// its own reasoning. AAD binding to owner, and what status `ErrTampered` should
+// translate into, both live here.
 
 package connector
 
@@ -16,9 +19,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// ─── 加解密 helpers ───
+// ─── encrypt/decrypt helpers ───
 
-// aad = owner_id: 密文绑到 owner，行被调包到别的 owner 时 decrypt tamper-fail(#AAD debt)。
+// aad = owner_id: ciphertext is bound to the owner, so if a row gets swapped onto a
+// different owner, decrypt tamper-fails (#AAD debt).
 func encBytes(b, aad []byte) ([]byte, error) {
 	if len(b) == 0 {
 		return []byte{}, nil
@@ -75,8 +79,9 @@ func decodeScopes(raw []byte) ([]string, error) {
 	return scopes, nil
 }
 
-// unreadableConn —— 密钥读不出来时的那一行：身份照给（明文列），密钥留空，带上 Unreadable。
-// 见 Connection.Unreadable 那段。
+// unreadableConn — the row shape for when the secrets can't be decoded: identity is
+// still given (plaintext columns), secrets are left blank, Unreadable is set.
+// See the Connection.Unreadable comment.
 func unreadableConn(row *db.OwnerConnector) Connection {
 	return Connection{
 		ConnectorID: row.ConnectorID, Category: row.Category, Kind: row.Kind,
@@ -88,17 +93,20 @@ func unreadableConn(row *db.OwnerConnector) Connection {
 	}
 }
 
-// secrets —— 一行里那两团密文解出来之后的样子。`Unreadable` 为真时另外两格没有意义。
+// secrets — what a row's two ciphertext blobs look like once decoded. When
+// `Unreadable` is true the other two fields carry no meaning.
 type secrets struct {
 	Token      tokenBlob
 	Creds      []byte
 	Unreadable bool
 }
 
-// decodeSecrets —— 解这一行的两团密文。
+// decodeSecrets — decode the two ciphertext blobs on this row.
 //
-// **只有认证失败算「读不懂」**（换了密钥 / 密文被动过 —— AES-GCM 分不出这两者）。
-// JSON 解不开之类仍然是错误：那是数据坏了，不是这台实例读不懂。
+// **Only an auth failure counts as "can't be read"** (key rotated / ciphertext
+// tampered — AES-GCM can't tell these two apart). A JSON decode failure and the like
+// still count as real errors: that means the data is corrupt, not that this instance
+// merely can't read it.
 func decodeSecrets(row *db.OwnerConnector, aad []byte) (secrets, error) {
 	creds, err := decBytes(row.CredentialsEnc, aad)
 	if errors.Is(err, cryptobox.ErrTampered) {

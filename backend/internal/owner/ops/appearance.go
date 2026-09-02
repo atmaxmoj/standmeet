@@ -1,10 +1,13 @@
-// appearance.go —— owner 给自己公开语料页写的自定义 CSS(像 Obsidian 的 CSS snippet)。
+// appearance.go —— custom CSS the owner writes for their own public corpus pages (like an
+// Obsidian CSS snippet).
 //
-// 写入会 sanitize + scope 到内容区再落库,读回来的就是那个安全版本 —— 不是原样回显。
-// 这条规矩属于域,三个入口(面板 / MCP / vault 同步)共用同一份实现。
+// A write sanitizes + scopes it to the content area before storing, and a read returns that
+// safe version — never an unmodified echo. This rule belongs to the domain, and all three
+// entry points (panel / MCP / vault sync) share the one implementation.
 //
-// op 的 id 就是 MCP 工具名,保持历史名字(`set_owner_css` 和 `appearance.get_css` 不一致
-// 也保持:改名等于改 owner 客户端已经在用的接口)。
+// The op's id is the MCP tool name; the historical name is kept (and the mismatch between
+// `set_owner_css` and `appearance.get_css` is kept too: renaming means changing an interface
+// owner clients already use).
 
 package ops
 
@@ -16,7 +19,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
-// Appearance —— 读 / 写自定义 CSS。
+// Appearance —— read / write custom CSS.
 func Appearance(store usecase.CSSStore) []fp.Op {
 	return []fp.Op{
 		{
@@ -56,8 +59,8 @@ func getCSS(store usecase.CSSStore) fp.Invoke {
 	}
 }
 
-// setCSS —— 存完回读:调用方看到的是**真正生效**的那份(sanitize + scope 之后),
-// 不是它自己发来的原文。
+// setCSS —— reads back after storing: the caller sees the version that **actually takes
+// effect** (post sanitize + scope), not the raw text it sent.
 func setCSS(store usecase.CSSStore) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var in cssPayload

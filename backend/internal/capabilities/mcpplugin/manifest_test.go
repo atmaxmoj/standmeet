@@ -1,6 +1,7 @@
-// manifest_test.go —— C1: PluginManifest 解析 + 版本闸 + 校验的纯逻辑测试。
-// 跑在确定环境 → 断言一律 require.*（无 if 分支）。C1 是纯数据层（无流），
-// 覆盖 happy + 全 corner cases；error-stream（中途出错）从 C2 起（传输/dial）。
+// manifest_test.go —— C1: pure-logic tests for PluginManifest parsing + version
+// gate + validation. Runs in a deterministic environment → assertions are all
+// require.* (no if branches). C1 is the pure data layer (no stream); it covers
+// happy + all corner cases. Error-stream (mid-run failure) starts at C2 (transport/dial).
 package mcpplugin_test
 
 import (
@@ -13,15 +14,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// ownerRW —— 测试临时配置文件权限（owner 读写）。
+// ownerRW —— permission for the test's temp config file (owner read/write).
 const ownerRW os.FileMode = 0o600
 
-// wrap —— 把单条 plugin JSON 包成完整配置文档。
+// wrap —— wraps a single plugin JSON into a full config document.
 func wrap(plugin string) []byte {
 	return []byte(`{"plugins":[` + plugin + `]}`)
 }
 
-// --- happy：stdio + http 两种 transport 全字段解析 ---
+// --- happy: full-field parsing for both stdio and http transports ---
 
 func TestParseConfig_StdioAndHttp(t *testing.T) {
 	t.Parallel()
@@ -59,7 +60,7 @@ func TestParseConfig_StdioAndHttp(t *testing.T) {
 	require.Equal(t, "Bearer x", w.Transport.Headers["Authorization"])
 }
 
-// --- corner：畸形 JSON → 整体报错（唯一 fail-closed 情形）---
+// --- corner: malformed JSON → error on the whole doc (the only fail-closed case) ---
 
 func TestParseConfig_MalformedJSON(t *testing.T) {
 	t.Parallel()
@@ -67,7 +68,7 @@ func TestParseConfig_MalformedJSON(t *testing.T) {
 	require.Error(t, err)
 }
 
-// --- corner：空 / 缺 plugins → 空 Result，无 error ---
+// --- corner: empty / missing plugins → empty Result, no error ---
 
 func TestParseConfig_EmptyPlugins(t *testing.T) {
 	t.Parallel()
@@ -81,7 +82,7 @@ func TestParseConfig_EmptyPlugins(t *testing.T) {
 	require.Empty(t, res2.Manifests)
 }
 
-// --- corner：逐条校验失败 = 跳过 + 记 reason（fail-open per-manifest）---
+// --- corner: per-entry validation failure = skip + record reason (fail-open per-manifest) ---
 
 func TestParseConfig_PerManifestRejections(t *testing.T) {
 	t.Parallel()
@@ -130,7 +131,7 @@ func TestParseConfig_PerManifestRejections(t *testing.T) {
 	}
 }
 
-// --- corner：重复 id → 第二条被跳，第一条留下 ---
+// --- corner: duplicate id → the second entry is skipped, the first stays ---
 
 func TestParseConfig_DuplicateID(t *testing.T) {
 	t.Parallel()
@@ -147,7 +148,7 @@ func TestParseConfig_DuplicateID(t *testing.T) {
 	require.Equal(t, "duplicate id", res.Skipped[0].Reason)
 }
 
-// --- corner：好坏混合 → 好的进、坏的滤，互不影响 ---
+// --- corner: mix of good and bad → good one passes, bad one is filtered, independently ---
 
 func TestParseConfig_MixedValidInvalid(t *testing.T) {
 	t.Parallel()
@@ -163,7 +164,7 @@ func TestParseConfig_MixedValidInvalid(t *testing.T) {
 	require.Equal(t, "bad", res.Skipped[0].ID)
 }
 
-// --- happy：Load 读真实合法文件 → 解析出 manifest ---
+// --- happy: Load reads a real, valid file → parses out a manifest ---
 
 func TestLoad_ReadsValidFile(t *testing.T) {
 	t.Parallel()
@@ -178,7 +179,8 @@ func TestLoad_ReadsValidFile(t *testing.T) {
 	require.Equal(t, "x", res.Manifests[0].ID)
 }
 
-// --- corner：来源缺失 / 空路径 → 空 Result，无 error（部署默认无插件，合法）---
+// --- corner: missing source / empty path → empty Result, no error
+// (a deployment with no plugins by default is valid) ---
 
 func TestLoad_MissingOrEmpty(t *testing.T) {
 	t.Parallel()

@@ -7,32 +7,38 @@ package contract
 
 import "errors"
 
-// ErrCalendarNotConnected —— owner 还没完成 OAuth / 没连接日历。
+// ErrCalendarNotConnected —— the owner hasn't finished OAuth / hasn't connected a calendar.
 var ErrCalendarNotConnected = errors.New("calendar connector not connected")
 
-// ErrCalendarRevoked —— refresh_token 失效 (用户在 Google 那边 revoke 了)。
+// ErrCalendarRevoked —— the refresh_token is invalid (the user revoked it on Google's side).
 var ErrCalendarRevoked = errors.New("calendar oauth revoked")
 
-// ErrCalendarUnavailable —— 日历服务瞬时不可用（5xx / 网络抖动）且重试预算用尽。
+// ErrCalendarUnavailable —— the calendar service is transiently unavailable (5xx / network
+// jitter) and the retry budget is exhausted.
 var ErrCalendarUnavailable = errors.New("calendar temporarily unavailable")
 
-// ErrCalendarBadRequest —— 请求本身不合法（pre-flight：binding 求出的 body 缺必填字段等）。
+// ErrCalendarBadRequest —— the request itself is invalid (pre-flight: the body the binding
+// built is missing required fields, etc).
 var ErrCalendarBadRequest = errors.New("calendar request invalid")
 
-// ErrCalendarBlockedEgress —— 连接器出站目标落在内网（SSRF 守卫拦下）。消息固定干净（不回显
-// 被拦的内网 URL，防 metadata 路径外泄）。
+// ErrCalendarBlockedEgress —— the connector's outbound target resolves inside the private
+// network (blocked by the SSRF guard). The message is fixed and clean (it never echoes the
+// blocked internal URL, to keep metadata-endpoint paths from leaking).
 var ErrCalendarBlockedEgress = errors.New(
 	"calendar connector blocked: target resolves to an internal/private address",
 )
 
-// mail 这一侧的对应物。calendar 早就有这套分类,mail 没有 —— 于是发信失败只能原样把
-// provider 的错误往上抛(里面有状态码、主机名,有时还有栈)。面上要么把它整段透出去
-// (对 owner 没意义,对旁观者是情报),要么整段吞掉(只说"失败",他不知道该改什么)。
-// 分了类才有第三种选择:说一句他改得动的话。
+// The mail-side counterpart. Calendar already had this classification; mail didn't — so a
+// send failure could only propagate the provider's error verbatim (status codes, hostnames,
+// sometimes a stack trace, all in there). The surface then had to either dump the whole thing
+// (meaningless to the owner, intel to an onlooker) or swallow it whole (just says "failed",
+// giving the owner nothing to act on). Classifying it opens a third option: say one thing the
+// owner can actually fix.
 
-// ErrMailUnavailable —— 送信方暂时不可用(5xx / 网络抖动 / 重试预算用尽)。owner 无需改配置。
+// ErrMailUnavailable —— the sender is temporarily unavailable (5xx / network jitter / retry
+// budget exhausted). The owner doesn't need to change any configuration.
 var ErrMailUnavailable = errors.New("mail provider temporarily unavailable")
 
-// ErrMailRejected —— 送信方拒收这一封(4xx:地址不合法、被列入黑名单、内容被拒)。
-// 是**这封信**的问题,不是连接坏了。
+// ErrMailRejected —— the sender refused this particular message (4xx: invalid address,
+// blocklisted, content rejected). It's a problem with **this message**, not the connection.
 var ErrMailRejected = errors.New("mail provider rejected the message")

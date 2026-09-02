@@ -1,12 +1,13 @@
-// asset_refs.go —— body_md 里的 `standmeet-asset:<uuid>` URI scheme 工具。
+// asset_refs.go — utilities for the `standmeet-asset:<uuid>` URI scheme embedded in body_md.
 //
-// 设计目的：markdown body 不存 presigned URL (会 TTL 失效)，存 stable
-// URI；API response 时 resolve 成 presigned。这样 owner 编辑、re-save 都不破。
+// Design intent: the markdown body never stores a presigned URL (it would expire via TTL); it
+// stores a stable URI instead, resolved to a presigned URL at API response time. That way owner
+// edits and re-saves never break a link.
 //
-// 引用完整性不靠 scan：每张 asset 行通过 holder_id 挂在某个 holder 上，
-// holder CRUD usecase 同事务维护 assets 行 + storage blob。所以这里**只**
-// 暴露 "解 URI" / "提 ID" 这种纯字符串 helper —— scan/GC/orphan 的概念
-// 已经废弃。
+// Reference integrity does not rely on scanning: every asset row hangs off some holder via
+// holder_id, and the holder's CRUD usecase maintains the assets row + storage blob in the same
+// transaction. So this file **only** exposes pure string helpers — "parse the URI" / "extract the
+// ID" — the scan/GC/orphan concept is deprecated.
 
 package usecase
 
@@ -19,11 +20,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 )
 
-// AssetURIScheme —— markdown body 里的 stable 引用前缀。
+// AssetURIScheme — the stable reference prefix used inside a markdown body.
 const AssetURIScheme = "standmeet-asset:"
 
-// assetURIPattern —— 命中已落库的 asset (真 UUID v4) 或 pending- 占位
-// (multipart save 时前端用)。
+// assetURIPattern — matches either an already-persisted asset (real UUID v4) or a pending-
+// placeholder (used by the frontend during multipart save).
 var assetURIPattern = regexp.MustCompile(
 	`standmeet-asset:(` +
 		`pending-[0-9a-zA-Z_-]+|` +
@@ -32,8 +33,8 @@ var assetURIPattern = regexp.MustCompile(
 		`)`,
 )
 
-// ScanAssetReferences —— 从 body_md 抽出所有引用的 asset ID / pending-id
-// (去重，首次出现先)。
+// ScanAssetReferences — extracts every referenced asset ID / pending-id from body_md
+// (deduplicated, first occurrence wins).
 func ScanAssetReferences(bodyMD string) []string {
 	matches := assetURIPattern.FindAllStringSubmatch(bodyMD, -1)
 	seen := make(map[string]struct{}, len(matches))
@@ -48,9 +49,8 @@ func ScanAssetReferences(bodyMD string) []string {
 	return out
 }
 
-// WritingAssetIDs —— 一篇 writing 里所有 asset 引用：body_md 里的
-// standmeet-asset URI + cover_image_asset_id（如果设了）。route layer batch
-// resolve 用。
+// WritingAssetIDs — every asset reference in one writing: the standmeet-asset URIs in body_md
+// plus cover_image_asset_id (if set). Used by the route layer for batch resolve.
 func WritingAssetIDs(bodyMD string, coverImageAssetID *string) []string {
 	ids := ScanAssetReferences(bodyMD)
 	if coverImageAssetID != nil && *coverImageAssetID != "" {
@@ -59,8 +59,9 @@ func WritingAssetIDs(bodyMD string, coverImageAssetID *string) []string {
 	return ids
 }
 
-// ResolveAssetURLs —— 给一组真 asset ID 批量颁发 presigned URL。pending-*
-// 占位不会出现在这里（caller 已经 rewrite 完）。缺 ID 用 best-effort 跳过。
+// ResolveAssetURLs — issues presigned URLs in batch for a set of real asset IDs. pending-*
+// placeholders never appear here (the caller has already rewritten them). A missing ID is
+// skipped best-effort.
 func ResolveAssetURLs(
 	ctx context.Context, repo *repo.AssetRepo, store *storage.Client,
 	ids []string,

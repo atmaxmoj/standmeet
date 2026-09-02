@@ -1,11 +1,12 @@
 // skills.go —— owner-curated AI Skills CRUD。
 //
-// Skill = 一段附加 system prompt（+ 未来 sandbox 脚本）。owner 通过 admin /
-// MCP CRUD；InviteCode 通过 code_skills 选若干个；visitor session 颁发时把
-// 选中 skill.prompt 列表固化到 session（[[skill]] domain type）。
+// Skill = a chunk of appended system prompt (+ a future sandbox script). The owner creates
+// them via admin / MCP CRUD; InviteCode selects some through code_skills; when a visitor
+// session is issued, the selected skill.prompt list is frozen into the session ([[skill]]
+// domain type).
 //
-// builtin skill 在 owner 首次 claim 时 seed，is_builtin=true，不可删（repo
-// DeleteSkill 加了 is_builtin=false 谓词）。
+// builtin skills are seeded on the owner's first claim, is_builtin=true, and can't be
+// deleted (the repo's DeleteSkill adds an is_builtin=false predicate).
 
 package usecase
 
@@ -20,14 +21,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace/repo"
 )
 
-// SkillsDeps —— skills CRUD 需要的 repo 集合。Code 用来 SetCodeSkills 时
-// 校验 code 属于同 owner。
+// SkillsDeps —— the repo bundle skills CRUD needs. Code is used to validate that a code
+// belongs to the same owner when SetCodeSkills runs.
 type SkillsDeps struct {
 	Skills *repo.SkillRepo
 	Codes  *access.CodeRepo
 }
 
-// CreateSkillReq —— skill.create 入参。
+// CreateSkillReq —— skill.create input.
 type CreateSkillReq struct {
 	OwnerID      string
 	Name         string
@@ -37,7 +38,7 @@ type CreateSkillReq struct {
 	Scripts      []entity.SkillScript
 }
 
-// CreateSkill 新建 owner-curated skill。
+// CreateSkill creates a new owner-curated skill.
 func CreateSkill(
 	ctx context.Context, deps SkillsDeps, in *CreateSkillReq,
 ) (entity.Skill, error) {
@@ -61,7 +62,7 @@ func CreateSkill(
 	return skill, nil
 }
 
-// UpdateSkillReq —— skill.update 入参。
+// UpdateSkillReq —— skill.update input.
 type UpdateSkillReq struct {
 	OwnerID      string
 	SkillID      string
@@ -71,11 +72,14 @@ type UpdateSkillReq struct {
 	AllowedTools []string
 }
 
-// UpdateSkill —— 改一份 owner 自己的技能：正文，以及**它可以调哪些工具**。
+// UpdateSkill —— edit one of the owner's own skills: its body, and **which tools it can
+// call**.
 //
-// 后者是 owner 唯一能把一个连接器的 operation 授出去的地方：会话的工具闸比的是
-// 「这个角色挂的技能的 allowed_tools 里有没有 `op_<id>`」，而角色本身没有工具清单。
-// 以前这条路只有市场导入和 owner-MCP 走得通，GUI 一个入口都没有（F-C-57）。
+// The latter is the only place the owner can grant a connector operation: the session's
+// tool gate checks "does the allowed_tools of the skills attached to this role contain
+// `op_<id>`", and the role itself carries no tool list of its own. This path used to be
+// reachable only through marketplace import and owner-MCP — the GUI had no entry point at
+// all (F-C-57).
 func UpdateSkill(
 	ctx context.Context, deps SkillsDeps, in *UpdateSkillReq,
 ) (entity.Skill, error) {
@@ -87,8 +91,9 @@ func UpdateSkill(
 		Description: in.Description, Prompt: in.Prompt, AllowedTools: in.AllowedTools,
 	})
 	if err != nil {
-		// 一律包一层，但用 %w —— 哨兵照样穿得过去，上面按 errors.Is 分文案的那张表
-		// （ops/skills.go 的 skillErrClasses）一个字都不用改。
+		// Always wrap it, but with %w — the sentinel still passes through, so the table
+		// upstream that maps errors.Is to copy (ops/skills.go's skillErrClasses) doesn't
+		// need a single character changed.
 		return entity.Skill{}, fmt.Errorf("update skill: %w", err)
 	}
 	return skill, nil
@@ -108,8 +113,9 @@ func ListSkills(
 	return rows, nil
 }
 
-// DeleteSkill —— admin / MCP skill.delete。builtin skill 删不掉（repo 加
-// is_builtin=false 谓词 → 命中 0 行，但当前返 nil；调用方先 GetByID 校验）。
+// DeleteSkill —— admin / MCP skill.delete. A builtin skill can't be deleted (the repo adds
+// an is_builtin=false predicate → 0 rows hit, but currently returns nil; the caller
+// validates via GetByID first).
 func DeleteSkill(
 	ctx context.Context, deps SkillsDeps, ownerID, skillID string,
 ) error {
@@ -125,7 +131,8 @@ func DeleteSkill(
 	return nil
 }
 
-// SetSkillEnabled —— #48-2: owner 全局开/关一个 skill(builtin 也可开关,只是删不掉)。
+// SetSkillEnabled —— #48-2: the owner globally enables/disables one skill (builtin skills
+// can be toggled too, they just can't be deleted).
 func SetSkillEnabled(
 	ctx context.Context, deps SkillsDeps, ownerID, skillID string, enabled bool,
 ) (entity.Skill, error) {
@@ -152,5 +159,5 @@ func checkSkillDeletable(
 	return nil
 }
 
-// A.3-IAM-5: SetCodeSkillsInput / SetCodeSkills 等 都删了 —— skills 通过
-// role_skills 挂在 Role 上，code 不再直接持 skill_ids。
+// A.3-IAM-5: SetCodeSkillsInput / SetCodeSkills and friends are all gone — skills now
+// attach via role_skills on the Role, a code no longer holds skill_ids directly.

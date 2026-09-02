@@ -1,16 +1,17 @@
-// visitor_history.go —— 会话聚合读模型(凭 session token → member → open chat
-// → conversation)。概念三层 code → session → conversation:
+// visitor_history.go —— conversation aggregate read model (session token → member →
+// open chat → conversation), three layers code → session → conversation:
 //
-//   VisitorView { Session{ VisitorName, Code{ 配额 } }, Conversation{ Dialogs… } }
+//   VisitorView { Session{ VisitorName, Code{ quota } }, Conversation{ Dialogs… } }
 //
-// 规则:
-//   - count = len(Dialogs),没有 used 字段(前端自己数)。
-//   - dialog 持久化 iff 这轮产出了内容:answer 非空,或 return_directly 工具的结果
-//     (summarize 报告卡 —— 空 answer + 非空 tool_calls;F-A-19)。纯 narration 轮不落。
-//   - 引用属于 dialog,从 messages.cited_* 解析成树派生 path,刷新不丢。
-//   - visitor_name 归 session;配额归 code;summary 是独立 chat_reports artifact
-//     (一会话一份),不挂 conversation 视图。
-//   - 时间戳一律 serverside(message.CreatedAt / chat.StartedAt)。
+// Rules:
+//   - count = len(Dialogs), no used field (frontend counts it itself).
+//   - a dialog persists iff the turn produced content: non-empty answer, or a
+//     return_directly tool's empty-answer report card (F-A-19). No content, no persist.
+//   - citations belong to the dialog, resolved from messages.cited_* into a tree-derived
+//     path, not lost on refresh.
+//   - visitor_name belongs to session; quota belongs to code; summary is a separate
+//     chat_reports artifact (one per conversation), not attached here.
+//   - timestamps are always server-side (CreatedAt / StartedAt).
 
 package usecase
 
@@ -27,8 +28,9 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
-// HistoryDeps —— 会话读模型的窄依赖(#131):code 配额 + chat 事务 + 三类 corpus
-// lister(citation 反查树派生 path)。VisitorSessionDeps.History() 收窄成这个。
+// HistoryDeps —— narrow dependency for the conversation read model (#131): code quota,
+// chat transactions, and three corpus listers for resolving citations to tree-derived
+// paths. VisitorSessionDeps.History() narrows down to this.
 type HistoryDeps struct {
 	Codes   *access.CodeRepo
 	Chats   *repo.ChatRepo
@@ -37,21 +39,20 @@ type HistoryDeps struct {
 	Output  corpus.OutputLister
 }
 
-// DialogGhost —— 这条 question 之前显示的一个候选 ghost + 是否被选中。
+// DialogGhost —— a candidate ghost shown before this question, plus whether it was chosen.
 type DialogGhost struct {
 	Text     string
 	Selected bool
 }
 
-// DialogCitation —— 一条引用:genre + 树派生 path + title。
+// DialogCitation —— one citation: genre + tree-derived path + title.
 type DialogCitation struct {
 	Genre string
 	Path  string
 	Title string
 }
 
-// ConvDialog —— 一段答完的交换:ghosts → question → answer + 引用 + 本轮 tool
-// 调用(opaque jsonb)+ serverside 时间。
+// ConvDialog —— one exchange: ghosts, question, answer, citations, tool calls, timestamp.
 type ConvDialog struct {
 	CreatedAt time.Time
 	Ghosts    []DialogGhost
@@ -61,11 +62,11 @@ type ConvDialog struct {
 	ToolCalls []byte
 }
 
-// Conversation / ConvCode / ConvSession / VisitorView 这几个 view 类型拆到
-// conversation_view.go(本文件 max-public-structs 限制)。
+// Conversation / ConvCode / ConvSession / VisitorView types live in conversation_view.go
+// (max-public-structs limit for this file).
 
-// LoadVisitorView —— 凭 session data 拼出 {session, conversation}。无 code
-// (public/byoai)→ Code 留零值;还没开会 → Conversation.Dialogs 空。
+// LoadVisitorView —— assembles {session, conversation} from session data. No code
+// (public/byoai) → Code keeps its zero value; no session opened yet → Dialogs is empty.
 func LoadVisitorView(
 	ctx context.Context, deps *HistoryDeps, data *access.VisitorSessionData,
 ) (VisitorView, error) {
@@ -83,8 +84,8 @@ func LoadVisitorView(
 	}, nil
 }
 
-// memberUsedTurns —— 该 member 跨全部对话的访客发言合计(member 级 used)。无
-// member(public/byoai)/ 数不出来 → 0。前端 strip 据此显 used。
+// memberUsedTurns —— this member's total visitor turns summed across every conversation
+// (member-level used, shown by the frontend strip). No member / uncountable → 0.
 func memberUsedTurns(ctx context.Context, deps *HistoryDeps, memberID string) int32 {
 	if memberID == "" {
 		return 0
@@ -111,7 +112,7 @@ func codeView(ctx context.Context, deps *HistoryDeps, codeID string) ConvCode {
 	}
 }
 
-// posInt32 —— *int32 取正值,nil / ≤0 → 0(0 = 不限,前端不画 gauge)。
+// posInt32 —— positive value of *int32; nil/≤0 → 0 (0 = unlimited, no gauge drawn).
 func posInt32(p *int32) int32 {
 	if p != nil && *p > 0 {
 		return *p
@@ -127,8 +128,8 @@ func countCodeMembers(ctx context.Context, deps *HistoryDeps, codeID string) int
 	return len(members)
 }
 
-// loadConversation —— member → open chat → messages → 配对(只配答完的轮,带引用)。
-// 还没开会(ErrChatNotFound)→ 空 conversation(不是错误)。
+// loadConversation —— member → open chat → messages → pairing (completed turns only,
+// with citations). No session opened yet (ErrChatNotFound) → empty conversation, not an error.
 func loadConversation(
 	ctx context.Context, deps *HistoryDeps, memberID, ownerID string,
 ) (Conversation, error) {
@@ -145,8 +146,8 @@ func loadConversation(
 	return ForChat(ctx, deps, ownerID, chat.ID)
 }
 
-// ForChat —— 把某一段 conversation(按 id,owner-scoped)组装成视图
-// (dialogs + citations)。主聊天恢复走 loadConversation,浮窗那段对话走这个。
+// ForChat —— assembles a given conversation (by id, owner-scoped) into a view (dialogs +
+// citations). Main-chat restore uses loadConversation; the floating widget uses this.
 func ForChat(
 	ctx context.Context, deps *HistoryDeps, ownerID, chatID string,
 ) (Conversation, error) {
@@ -162,9 +163,8 @@ func ForChat(
 	}, nil
 }
 
-// cardEvents —— 这段对话里 role='event' 的那些（F-B-9）。`pairDialogs` 按设计只收
-// visitor/assistant 成对的那些，所以事件要单独走一趟 —— 不这样的话它们会在恢复时消失，
-// 而「消失」正是这条缺陷本身。
+// cardEvents —— the role='event' messages in this conversation (F-B-9). pairDialogs only
+// collects paired visitor/assistant messages, so events need this pass, or vanish on restore.
 func cardEvents(msgs []entity.Message) []ConvEvent {
 	out := make([]ConvEvent, 0)
 	for i := range msgs {
@@ -175,7 +175,7 @@ func cardEvents(msgs []entity.Message) []ConvEvent {
 	return out
 }
 
-// dialogAnswer —— visitor 问句后面那条 assistant 答的几件套(避开多 return）。
+// dialogAnswer —— assistant answer bundle following a visitor question (avoids a multi-return).
 type dialogAnswer struct {
 	CreatedAt time.Time
 	Body      string
@@ -183,12 +183,14 @@ type dialogAnswer struct {
 	ToolCalls []byte
 }
 
-// pairDialogs —— 每条 visitor 问句配它后面那条 assistant 答;收「答完的」轮:answer 非空 **或**
-// 带 tool_calls(F-A-19:return_directly 工具如 summarize 无答案文本,产物就是 tool 结果那张报告卡 —
-// 空 body 但 tool_calls 非空;丢掉它就等于 reload 后访客丢了自己生成的报告)。ghosts 本轮先留空。
-//
-// 只有 return_directly 轮会以「空 body + tool_calls」落库(persistTurn 的 producedContentForPersist:
-// 纯 grounding narration 不落),所以这里放行带 tool 的空答案不会把 F-A-4 的规划旁白放进来。
+// pairDialogs —— pairs each visitor question with the assistant answer following it;
+// collects "completed" turns: answer non-empty, or carrying tool_calls (F-A-19: a
+// return_directly tool like summarize has no answer text — its output IS the tool
+// result's report card, empty body but non-empty tool_calls; dropping it would lose the
+// visitor's generated report on reload). Ghosts are left empty for now.
+// Only return_directly turns persist as "empty body + tool_calls" (persistTurn's
+// producedContentForPersist skips pure grounding narration), so an empty answer with a
+// tool here can't let F-A-4's planning narration slip in.
 func pairDialogs(msgs []entity.Message, r *citationResolver) []ConvDialog {
 	out := make([]ConvDialog, 0, len(msgs))
 	for i := range msgs {
@@ -206,7 +208,7 @@ func pairDialogs(msgs []entity.Message, r *citationResolver) []ConvDialog {
 	return out
 }
 
-// toolCallsNonEmpty —— 落库的 tool_calls JSON 是否携带真内容(非 nil / `null` / `[]`)。
+// toolCallsNonEmpty —— whether persisted tool_calls JSON carries real content (not nil/null/[]).
 func toolCallsNonEmpty(raw []byte) bool {
 	s := strings.TrimSpace(string(raw))
 	return s != "" && s != "null" && s != "[]"
@@ -222,8 +224,8 @@ func answerAfter(msgs []entity.Message, i int, r *citationResolver) dialogAnswer
 	return dialogAnswer{Citations: []DialogCitation{}}
 }
 
-// citationResolver —— cited id → DialogCitation(树派生 path + title)。整段会话
-// 只 load 一次全树建表;没有任何引用就不 load,空表直接返空。
+// citationResolver —— cited id → DialogCitation (tree-derived path + title). Loads the
+// whole tree and builds the maps once per conversation; no citations → skips the load.
 type citationResolver struct {
 	wikiPaths     map[string]string
 	wikiTitles    map[string]string
@@ -233,7 +235,7 @@ type citationResolver struct {
 	outputTitles  map[string]string
 }
 
-// maxRAGWikis / maxRAGOutputs —— citation 反查时载入 owner 语料算树派生 path 的窗口上限。
+// maxRAGWikis / maxRAGOutputs —— cap on owner corpus loaded to compute tree-derived paths.
 const (
 	maxRAGWikis   = 50
 	maxRAGOutputs = 50
@@ -325,7 +327,7 @@ func outputTitleMap(os []corpus.Output) map[string]string {
 	return m
 }
 
-// writingPathMap —— writing 自带 slug 派生的 path 列("writings/"+slug),不用上溯树。
+// writingPathMap —— writing has its own slug-derived path ("writings/"+slug), no tree walk.
 func writingPathMap(ws []corpus.Writing) map[string]string {
 	m := make(map[string]string, len(ws))
 	for i := range ws {

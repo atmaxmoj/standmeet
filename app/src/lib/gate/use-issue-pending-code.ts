@@ -1,11 +1,14 @@
-// use-issue-pending-code —— defer-issue 模型的「开会点」。
+// use-issue-pending-code —— the "meeting point" of the defer-issue model.
 //
-// 扫码/链接进来只把 code 吸进 pending store、不立刻 issue session(见
-// use-absorb-code)。名字选择器提交(或 skip)时才走这里:拿 pending code +
-// 选好的名字真正 issueCodeSession —— 这样名字**真的进后端** = 一个人一个具名
-// member = 一段续聊的会。name=null 表示 skip(匿名)。
+// Scanning a code / clicking a link only pulls the code into the pending
+// store, without issuing a session right away (see use-absorb-code). This
+// module runs when the name picker is submitted (or skipped): it takes the
+// pending code plus the chosen name and actually calls issueCodeSession —
+// that way the name **genuinely lands in the backend** = one person = one
+// named member = one continuable chat. name=null means skip (anonymous).
 //
-// member_quota_reached(这张码名字数满了)→ 返 'full',picker 显 "code 已满"。
+// member_quota_reached (this code's name slots are full) → returns 'full',
+// and the picker shows "code full".
 
 'use client';
 
@@ -21,14 +24,20 @@ import {
   loadMemberID, rememberMemberID, rememberVisitorName, rememberVisitorEmail,
 } from '@/lib/visitor/visitor-name';
 
-// IssueOutcome —— ok 成功;full 名字满了(picker 显 "code 已满");invalid 码无效
-// /过期(丢掉 pending、回落 public);error 其它(网络抖动,保留 pending 可重试)。
+// IssueOutcome —— ok: succeeded; full: name slots are full (picker shows
+// "code full"); invalid: the code is invalid/expired (drop pending, fall
+// back to public); error: anything else (network hiccup, keep pending so
+// it can be retried).
 export type IssueOutcome = 'ok' | 'full' | 'invalid' | 'error';
 
-// submitPickerName —— 名字选择器 START 的决策。名字跟当前 session 一样 → 续聊:
-// 只关窗(consume pending),**不 re-issue** —— 后端本就同 member 同 open chat,
-// re-issue 反而触发前端 startedAt-reset 清屏 + issue 响应 used_turns=0 看着像归零。
-// 名字不一样 / 还没 session → 真 issue(新名字 = 新 member = 新对话)。
+// submitPickerName —— the decision behind the name picker's START button.
+// If the name matches the current session → continue the chat: just close
+// the picker (consume pending), **don't re-issue** — the backend already
+// has the same member and open chat, and re-issuing would trigger the
+// frontend's startedAt-reset (clearing the screen) plus an issue response
+// with used_turns=0 that looks like it reset to zero. A different name /
+// no session yet → actually issue (a new name = a new member = a new
+// conversation).
 export async function submitPickerName(
   name: string, email: string,
   issue: (name: string | null, email: string) => Promise<IssueOutcome>,
@@ -44,9 +53,11 @@ export async function submitPickerName(
   return issue(trimmed, email.trim());
 }
 
-// dismissPicker —— skip / 点窗外。已有 session(换人窗)→ 取消,保持原 session
-// (consume,不 issue 匿名,免得凭空多一个 guest member + 新对话)。还没 session
-// (首次)→ skip = 匿名 issue。
+// dismissPicker —— skip / click outside the modal. Already has a session
+// (the switch-person modal) → cancel, keep the original session (consume,
+// don't issue anonymously — otherwise a guest member + new conversation
+// would appear out of nowhere). No session yet (first time) → skip =
+// anonymous issue.
 export async function dismissPicker(
   issue: (name: string | null, email: string) => Promise<IssueOutcome>,
 ): Promise<IssueOutcome> {
@@ -69,8 +80,10 @@ export function useIssuePendingCode(): IssuePending {
     if (code === null) return 'error';
     setBusy(true);
     try {
-      // 具名:按名字解析(名字就是身份,改名能改人)。匿名(skip):带上次存的
-      // member_id 续会(没有就后端新建一个独立 guest member)。email 可选。
+      // Named: resolved by name (the name is the identity; changing the
+      // name changes the person). Anonymous (skip): continue with the
+      // previously stored member_id (if there is none, the backend creates
+      // a fresh guest member). email is optional.
       const sess = await issueCodeSession(
         name === null
           ? { code, member_id: loadMemberID() || undefined }
@@ -87,7 +100,9 @@ export function useIssuePendingCode(): IssuePending {
         visitor: sess.visitor_name ?? null,
         byoai: false,
         byoaiProvider: '',
-        // 换名字重开会话也要带上这张码的名字 —— 否则 strip 会在换人之后退回兜底（UX-68）。
+        // Switching names and reopening the session must also carry this
+        // code's label — otherwise the strip falls back to the default
+        // after switching people (UX-68).
         label: sess.code_label ?? null,
         used: sess.quota.used_turns,
         max: sess.quota.max_turns,
@@ -97,14 +112,17 @@ export function useIssuePendingCode(): IssuePending {
         email: email || '',
         ownerCanDeliver: sess.owner_can_deliver ?? false,
       });
-      // 匿名:把后端给的 member_id 存下,下次 skip 凭它续同一个 guest member。
+      // Anonymous: store the member_id the backend gave us, so the next
+      // skip can continue with the same guest member.
       if (name === null) {
         rememberMemberID(sess.member_id ?? '');
       }
       usePendingCodeStore.getState().consume();
-      // 这张码挂了页 → 就地换成那一页。**扫出来看到的就该是那一页**；留在默认对话上，
-      // owner 建的那个渲染等于没建。整页导航（不是 router.push）是有意的：那一页是构建产物，
-      // 不在这个 Next 应用的路由树里。
+      // If this code is bound to a page → switch to that page in place.
+      // **What you scanned into should be what you land on**; staying on
+      // the default chat means the rendering the owner built might as well
+      // not exist. A full-page navigation (not router.push) is deliberate:
+      // that page is a build artifact, not part of this Next app's route tree.
       goToCodeLanding(sess.custom_page_slug ?? '');
       return 'ok';
     } catch (e) {
@@ -122,9 +140,10 @@ function goToCodeLanding(slug: string): void {
   window.location.assign(href);
 }
 
-// classifyIssueError —— 403 名字满 → 'full'(保留 pending,picker 显满额);
-// 401 码无效/过期 → 丢掉 pending(picker 隐藏)回落 public;其它 → 'error' 保留
-// pending 让 visitor 重试。
+// classifyIssueError —— 403 name slots full → 'full' (keep pending, picker
+// shows it's at capacity); 401 code invalid/expired → drop pending (picker
+// hides) and fall back to public; anything else → 'error', keeping pending
+// so the visitor can retry.
 function classifyIssueError(e: unknown): IssueOutcome {
   if (isStatus(e, 403)) return 'full';
   if (isStatus(e, 401)) {
@@ -138,7 +157,8 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object';
 }
 
-// isStatus —— issueCodeSession 抛的 error 带后端 status(sdk client 挂的)。
+// isStatus —— the error thrown by issueCodeSession carries the backend
+// status (attached by the sdk client).
 function isStatus(e: unknown, status: number): boolean {
   return isRecord(e) && e['status'] === status;
 }

@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
-// @standmeet/sdk React 包装：复用 sdk-core 的 fetch + SSE，外层提供
-// useStandMeetClient 上下文 hook 让 Next / 任意 React app 拿到客户端实例。
+// @standmeet/sdk React wrapper: reuses sdk-core's fetch + SSE, and adds the
+// useStandMeetClient context hook so Next / any React app can get the client instance.
 export default defineConfig({
   entry: { index: 'src/index.ts' },
   format: ['esm'],

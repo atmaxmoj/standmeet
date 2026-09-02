@@ -27,7 +27,8 @@ async function doFetch(method: string, path: string, body?: unknown): Promise<Re
     body: body === undefined ? undefined : JSON.stringify(body),
     credentials: 'include',
   }).catch((e: unknown) => {
-    // 请求没到（网络层）：顶栏那颗灯要知道这件事，然后把错误照常抛出去。
+    // Request never landed (network layer): the top-bar indicator needs to know
+    // about this, then rethrow the error as usual.
     markInstanceUnreachable(0);
     throw e;
   });
@@ -55,8 +56,10 @@ const ErrorBodySchema = z.object({
   error: z.object({ code: z.string().optional(), message: z.string().optional() }).optional(),
 });
 
-// throwAPIError —— 非 2xx → 抛带 status+code 的 APIError（读后端 envelope 的 code/message；读不出用
-// 兜底句）。带 status 让调用方能分流（401 跳登录 / 409 就地 / 其余 toast）。恒抛，返回 never。
+// throwAPIError —— non-2xx → throws an APIError carrying status+code (reads code/message
+// from the backend envelope; falls back to a canned sentence when it can't). Carrying status
+// lets the caller branch (401 → login redirect / 409 → inline / everything else → toast).
+// Always throws, return type is never.
 async function throwAPIError(res: Response, op: string): Promise<never> {
   let code = '';
   let message = '';
@@ -65,23 +68,30 @@ async function throwAPIError(res: Response, op: string): Promise<never> {
     code = body.error?.code ?? '';
     message = body.error?.message ?? '';
   } catch {
-    // envelope 读不出（非 JSON / 网络层）→ message 留空，下面给人话
+    // Envelope couldn't be read (not JSON / network layer) → leave message empty,
+    // the fallback below supplies a human sentence.
   }
-  // 请求行只进日志：owner 要定位问题时它在控制台里，而屏幕上不该出现 HTTP 动词和内部路径。
+  // The request line goes to the log only: the owner needs it in the console
+  // to locate the problem, but the screen must never show HTTP verbs or internal paths.
   logger.error(`admin api ${op} → ${res.status}`, message);
   markInstanceUnreachable(res.status);
   throw new APIError(res.status, code, message === '' ? humanFallback(res.status) : message);
 }
 
-// humanFallback —— 后端没给出一句话时，**这里**必须给一句人能读的。
+// humanFallback —— when the backend doesn't supply a sentence, **this** must give
+// one a human can read.
 //
-// 原来的兜底是 `${method} ${path} failed: ${status}`，而二十来处 section 直接把 message
-// 印在屏幕上 —— prod 上真停一次 backend，`/admin/wiki` 写的就是 `GET /corpus/wiki failed: 500`
-// （F-N-5）。CLAUDE.md 的规矩逐字写着「No raw stack traces, no exit codes, no technical
-// jargon shown to the user」。这条经验产品里已经写过一次（`use-obsidian.ts:70`：
-// 「a human sentence, never `import failed: 400`. The owner is not debugging」），只是没扫到邻居。
+// The old fallback was `${method} ${path} failed: ${status}`, and about twenty
+// sections printed message straight to the screen — when the backend actually
+// went down in prod, `/admin/wiki` showed `GET /corpus/wiki failed: 500`
+// (F-N-5). CLAUDE.md spells out the rule verbatim: "No raw stack traces, no exit
+// codes, no technical jargon shown to the user." This lesson was already written
+// into the product once (`use-obsidian.ts:70`: "a human sentence, never
+// `import failed: 400`. The owner is not debugging"), it just hadn't been swept
+// to this neighbor.
 //
-// 按状态分档，因为**下一步动作**不同：5xx 等一会儿再来，4xx 是这次请求本身不成立。
+// Bucketed by status because the **next action** differs: 5xx means wait a
+// moment and retry, 4xx means this particular request is invalid.
 function humanFallback(status: number): string {
   if (status >= 500) {
     return 'the instance didn’t answer that — nothing was changed. Try again in a moment.';
@@ -161,7 +171,8 @@ export const SettingsViewSchema = z.object({ ai: AISettingsViewSchema, byoai: BY
 export const OwnerProfileViewSchema = z.object({
   owner_id: z.string(), email: z.string(), handle: z.string(), full_name: z.string(),
   public_url: z.string(),
-  // pending_email —— 后端 omitempty,没有待确认时字段不出现 → optional。
+  // pending_email —— backend omitempty; the field is absent when there's nothing
+  // pending confirmation → optional.
   pending_email: z.string().optional(),
 });
 
@@ -183,8 +194,9 @@ export const AllowedDomainsRespSchema = z.object({ domains: z.array(z.string()) 
 
 export type { PageWhere, PageContact } from '@/lib/api/public';
 
-// AdminPage / pinnable —— admin /page 编辑面的形状 + pin 候选。insights/projects
-// 在这一面是 corpus pin 列表(wiki id),渲染面在公开 /api/v1/page 才 join 成卡。
+// AdminPage / pinnable —— shape of the admin /page editing surface + pin candidates.
+// insights/projects on this surface are corpus pin lists (wiki id); they only get
+// joined into rendered cards on the public /api/v1/page surface.
 import {
   AdminPageSchema, PinnableListSchema,
   type AdminPage, type PinnableEntry,

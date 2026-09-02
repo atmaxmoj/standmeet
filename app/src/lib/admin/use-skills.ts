@@ -1,6 +1,6 @@
-// use-skills —— /admin/skills 的状态。zustand store 管 list + status；
-// action：create / delete + setCodeSkills (在 CodesSection / CodeCreateModal
-// 那边读 attach 列表)。
+// use-skills —— state for /admin/skills. A zustand store manages list + status;
+// actions: create / delete + setCodeSkills (the attach list is read over on the
+// CodesSection / CodeCreateModal side).
 
 import { useEffect } from 'react';
 
@@ -58,7 +58,8 @@ export function useSkills(): SkillsHook {
   };
 }
 
-// mutation 抛错（不再吞成 false）：调用方用 useAction 收尾（成功 toast / 失败 report），或就地内联。
+// The mutation throws (no longer swallowed into false): the caller finishes
+// up with useAction (success toast / failure report), or inlines it in place.
 async function createSkill(input: CreateSkillInput): Promise<void> {
   const created = await adminAPI.post('/skills/', input, SkillViewSchema);
   skillsStore.getState().mutate((prev) => [...(prev ?? []), created]);

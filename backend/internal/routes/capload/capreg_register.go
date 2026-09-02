@@ -1,14 +1,14 @@
-// capreg_register.go —— Phase B: capreg.Registry 的 builtin 注册口。
-// composition root (cmd/server/boot_wireup.go) 在 buildPublicDeps 之后调
-// RegisterAgentSkills(reg, &visitor) 一次，把 visitor-side 内建 capability
-// 全部 register 进去。
+// capreg_register.go —— Phase B: the builtin registration entry point for capreg.Registry.
+// The composition root (cmd/server/boot_wireup.go) calls
+// RegisterAgentSkills(reg, &visitor) once, after buildPublicDeps, to register every
+// visitor-side builtin capability.
 //
-// 各 B-N 在这里 append 一行：
-//   B-2: corpus.retrieval (✓)
+// Each B-N appends one line here:
+//   B-2: corpus.retrieval (done)
 //   B-3: calendar.book / ext.<server> / skill.<name>
 //   B-5: job-loop owner-only
 //   B-6: MCP parity
-//   B-7: resume.read (访客侧，招聘官按码读这一份 application 的简历)
+//   B-7: resume.read (visitor side; the recruiter reads this one application's résumé by code)
 
 package capload
 
@@ -17,19 +17,22 @@ import (
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
 
-// RegisterVisitorSkills —— 注册口。跟 prod 同一组 capability 构造
-// (newRetrievalCapability / booker / skill-runner / ext-mcp)，按各 capability 的
-// 窄 deps 从 conversation.VisitorSkillsDeps 取料。
+// RegisterVisitorSkills —— the registration entry point. Constructs the same set of
+// capabilities as prod (newRetrievalCapability / booker / skill-runner / ext-mcp), each
+// drawing its material from conversation.VisitorSkillsDeps via its own narrow deps.
 //
-// 四个 leaf 能力（ask_visitor / summarize / calendar.book / corpus.retrieval）已**全部**
-// 外置成沙箱插件（mcp-servers/*），由 composition root 走统一 sandbox_stdio 路径以
-// origin=builtin 加载，主 app 内不再有任何 specific MCP 能力代码。要后端数据的
-// （summarize / booker / retrieval）留 host socket op（capreg_*_socket.go），不在这里
-// 注册成 capability。booker 的 per-session 暴露闸（connector+quota）以 capreg.SessionGate
-// 由 composition root 注入（NewBookerGate）。
+// The four leaf capabilities (ask_visitor / summarize / calendar.book / corpus.retrieval)
+// are now **entirely** externalized as sandboxed plugins (mcp-servers/*), loaded by the
+// composition root through the unified sandbox_stdio path with origin=builtin; no
+// specific-MCP-capability code remains in the main app at all. The ones that need backend
+// data (summarize / booker / retrieval) keep a host socket op (capreg_*_socket.go) instead
+// of being registered here as a capability. booker's per-session exposure gate
+// (connector+quota) is injected by the composition root as a capreg.SessionGate
+// (NewBookerGate).
 //
-// 这里只剩 skill.runner + ext.mcp —— 它们是 loader/机制（装载第三方 skill / MCP server），
-// 不是 leaf 能力，故不外置。sumChats 第三参已不消费（透传保签名）。
+// What's left here is just skill.runner + ext.mcp — they are loaders/mechanisms (loading
+// third-party skills / MCP servers), not leaf capabilities, so they aren't externalized.
+// sumChats' third parameter is no longer consumed (kept only to preserve the signature).
 func RegisterVisitorSkills(
 	reg *capreg.Registry, deps *conversation.VisitorSkillsDeps, _ conversation.Getter,
 ) {
@@ -40,8 +43,9 @@ func RegisterVisitorSkills(
 	if deps.AgentConnectors != nil {
 		reg.MustRegister(newOpenapiAgentToolsCapability(deps.AgentConnectors))
 	}
-	// 访客侧简历读取（B-7）：招聘官会话按码反查这一份 application 的简历。nil → 不暴露
-	// （eval facade / 没接 job-loop 的装配），跟 openapi 那条同理 fail-closed。
+	// Visitor-side résumé reading (B-7): a recruiter session resolves this one application's
+	// résumé by code. nil → not exposed (an eval facade / an assembly not wired to job-loop),
+	// fail-closed the same way as the openapi one.
 	if deps.Resumes != nil {
 		reg.MustRegister(newResumeReadCapability(deps.Resumes))
 	}

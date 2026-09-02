@@ -1,7 +1,8 @@
-// deps_wired.go —— 启动时确认每一组 dep 都真的被接上了。
+// deps_wired.go — confirms at startup that every dep group has actually been connected.
 //
-// 机制在 internal/infra/depcheck（面上只留声明和调用）。为什么需要它、以及
-// 2026-08-31 漏掉 `EmailChange` 那一行的后果，写在那个包的头上。
+// The mechanism lives in internal/infra/depcheck (this facade keeps only the declaration
+// and the call). Why it's needed, and the consequence of the missing `EmailChange` line
+// on 2026-08-31, are written at the top of that package.
 
 package admin
 
@@ -11,8 +12,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/depcheck"
 )
 
-// AssertDepsWired —— 每一组 dep 至少有一个成员非 nil。装配根在开始服务之前调；
-// 失败就不起来（一个装配漏了一条的实例，比一个起不来的实例难查得多）。
+// AssertDepsWired checks that every dep group has at least one non-nil member. The
+// assembly root calls this before it starts serving; a failure means it doesn't start
+// (an instance with one missing wire is far harder to debug than one that refuses to boot).
 func (h *Handlers) AssertDepsWired() error {
 	return depcheck.AllWired(reflect.ValueOf(h).Elem())
 }

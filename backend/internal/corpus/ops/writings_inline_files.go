@@ -1,16 +1,23 @@
-// writings_inline_files.go —— writing_create 的内联配图:按 https 地址取回字节。
+// writings_inline_files.go — writing_create's inline images: fetching bytes back by an
+// https address.
 //
-// **这就是"字节流"的真相**:进来的是一串地址,不是流。取回来的这一步一直在服务端,
-// 所以这条操作从来都能当一个普通的 JSON op 声明 —— 见 writings_create.go 的说明。
+// **This is the real story behind "byte stream"**: what comes in is a list of addresses,
+// not a stream. The fetch step has always lived on the server, so this operation has always
+// been declarable as an ordinary JSON op — see the note in writings_create.go.
 //
-// 守卫**不在这里**,在 usecase.FetchMedia:取一份素材要过的那几关(只认 https、
-// 不许够到内网、白名单而不是前缀匹配、不信对方声明的类型、上限按 kind 分)对
-// "一篇 writing 的配图"和"一条 wiki 的配图"是同一件事。
+// The guard **doesn't live here**, it lives in usecase.FetchMedia: the checks a piece of
+// media must pass to be fetched (https only, no reaching into the internal network,
+// allowlist rather than prefix matching, don't trust the declared content type, size caps
+// split by kind) are the exact same thing for "an image on a writing" and "an image on a
+// wiki entry".
 //
-// 这里曾经有过自己的一套,而且是错的:`strings.HasPrefix(ct, "image/")` 会放 image/svg+xml
-// 进来,SVG 里能塞 <script>,存下来再由我们的地址发出去就是存储型 XSS;声明的 Content-Type
-// 又被当成证据,声明 image/png 实际发 SVG 字节也能过。两条都是"只有一个调用方,于是守卫
-// 只按那一个调用方写"的产物 —— 素材成为独立一步之后,守卫也该只有一份。
+// This file used to have its own version of that, and it was wrong:
+// `strings.HasPrefix(ct, "image/")` lets image/svg+xml through, SVG can carry a <script>
+// tag, and storing it then serving it back from our own address is stored XSS; on top of
+// that, the declared Content-Type was trusted as evidence, so declaring image/png while
+// actually sending SVG bytes also got through. Both bugs came from the same source: "only
+// one caller exists, so the guard was written for just that one caller" — now that media
+// fetching is its own independent step, the guard should be a single shared one too.
 
 package ops
 
@@ -26,8 +33,8 @@ type writingFileRef struct {
 	URL       string `json:"url"`
 }
 
-// fetchInlineFiles —— writing_create 的 files 数组按 URL 拉 bytes →
-// 返 []FileInput 给 SaveWriting。任一失败 → 整批 fail (atomic)。
+// fetchInlineFiles — pulls bytes by URL for each entry in writing_create's files array →
+// returns []FileInput for SaveWriting. Any single failure → the whole batch fails (atomic).
 func fetchInlineFiles(
 	ctx context.Context, files []writingFileRef,
 ) ([]usecase.FileInput, error) {

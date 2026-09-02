@@ -1,13 +1,13 @@
-// import_parse.go —— 单个 .md 文件的解析 + image ref 改写。从 import.go
-// 拆出来守 350-line cap。
+// import_parse.go — parsing a single .md file + rewriting its image refs. Split out of
+// import.go to stay under the 350-line cap.
 //
-// 流程：
+// Flow:
 //  1. SplitFrontmatter → frontmatter YAML + body
 //  2. ParseFrontmatter → Frontmatter struct
-//  3. body 里的 image ref（`![alt](path)` 或 `![[file.png]]`）→ 在
-//     attachments 索引按 basename 查 → 没找到的 ref 留原文，找到的 rewrite
-//     成 `![alt](standmeet-asset:pending-<uuid>)` 等 SavePost 来 ingest
-//  4. frontmatter cover_image 同样处理 → 出 CoverImageRef = pending-<uuid>
+//  3. image refs in the body (`![alt](path)` or `![[file.png]]`) → looked up by
+//     basename in the attachments index → an unmatched ref is left as-is; a matched
+//     one is rewritten to `![alt](standmeet-asset:pending-<uuid>)` for SavePost to ingest
+//  4. frontmatter cover_image gets the same treatment → yields CoverImageRef = pending-<uuid>
 
 package obsidian
 
@@ -20,8 +20,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// parsedVault —— parseVaultMarkdown 的输出（避开 funcresult-limit）。
-// fieldalignment: 大 struct (Frontmatter) 最后，slice / string 先。
+// parsedVault — the output of parseVaultMarkdown (avoids the funcresult-limit lint).
+// fieldalignment: the large struct (Frontmatter) goes last; slices/strings come first.
 type parsedVault struct {
 	files []corpus.FileInput
 	body  string
@@ -45,10 +45,10 @@ func parseVaultMarkdown(
 	return parsedVault{fm: fm, body: body, files: files, cover: cover}, nil
 }
 
-// rewriteBodyAttachments —— body 里所有 image ref → 在 attachments 里查
-// bytes，找到的生成 pending-<uuid> 并把 ref 替成
-// `![alt](standmeet-asset:pending-<uuid>)`。SavePost 那条 multipart 路径
-// 在 tx 里 insert asset 行 + commit 后 upload blob。
+// rewriteBodyAttachments — for every image ref in the body, look up its bytes in
+// attachments; a match gets a pending-<uuid> and its ref is rewritten to
+// `![alt](standmeet-asset:pending-<uuid>)`. SavePost's multipart path inserts the
+// asset row inside the tx and uploads the blob after commit.
 func rewriteBodyAttachments(
 	body string, attachments map[string]VaultFile,
 ) (string, []corpus.FileInput) {

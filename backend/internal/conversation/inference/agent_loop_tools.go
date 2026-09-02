@@ -1,6 +1,6 @@
-// agent_loop_tools.go —— agent loop 里 assistant streaming 期间的 tool_call
-// 累积 + 流尾 emit。从 agent_loop.go 抽出(压行数);只服务 routeMessageVariant
-// 那条消费链。
+// agent_loop_tools.go —— tool_call accumulation during assistant streaming in the agent loop,
+// plus the end-of-stream emit. Extracted from agent_loop.go (to cut line count); serves only the
+// routeMessageVariant consumption chain.
 
 package inference
 
@@ -11,9 +11,9 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
-// assistantAccum —— streaming 期间累积 assistant message 里的 tool_calls。
-// eino chunk 增量返 ToolCall.Function.Arguments，按 Index 聚合，流尾一次
-// emit 完整 ToolStarted。
+// assistantAccum —— accumulates the tool_calls inside an assistant message during streaming.
+// eino returns ToolCall.Function.Arguments incrementally per chunk; aggregated by Index, then
+// emitted as complete ToolStarted events once at stream end.
 type assistantAccum struct {
 	calls map[int]*pendingToolCall
 }
@@ -40,38 +40,46 @@ func accumulateAssistantToolCalls(calls []schema.ToolCall, accum *assistantAccum
 	}
 }
 
-// emitToolStarted —— 流尾把累积的 tool_call 全部灌 sink。progress_label
-// 走 em.labels 查表 (H.11)；缺则前端 fallback "running <name>"。
+// emitToolStarted —— at stream end, feeds every accumulated tool_call into the sink.
+// progress_label is looked up via em.labels (H.11); missing → frontend falls back to
+// "running <name>".
 func emitToolStarted(em *loopEmit, accum *assistantAccum) {
 	for _, pc := range accum.calls {
 		args := pc.Args
 		if args == "" {
 			args = "{}"
 		}
-		// tool 级日志:看清 agent 这一步在跑什么(corpus_read 的 path / search 的
-		// query / ext / skill ...)。turn 级 start/done 之外的可观测性(#12)。
-		// call_id —— 这一轮里同名工具可能被调用多次(真模型一条消息里就派好几个),没有它
-		// start 和 done 配不上对(F-S-1)。id 本来就在手上,一直只传给了 sink。
+		// Tool-level logging: makes visible what step the agent is actually running
+		// (corpus_read's path / search's query / ext / skill ...). Observability beyond the
+		// turn-level start/done (#12).
+		// call_id —— the same-named tool can be called multiple times within this turn (a
+		// real model can dispatch several in one message); without it, start and done can't
+		// be paired up (F-S-1). The id was already in hand — it was just never passed on to
+		// the sink before.
 		em.log.Info("agent tool start", "call_id", pc.ID, "name", pc.Name, "args", args)
 		em.sink.ToolStarted(pc.ID, pc.Name, em.labels[pc.Name], json.RawMessage(args))
 	}
 }
 
-// emitToolCompleted —— ADK 发 Role=Tool event 时调；content 是 tool
-// 执行返回的字符串 (capability binding 一般是 JSON envelope，消费方
-// 自己解)。
+// emitToolCompleted —— called when ADK sends a Role=Tool event; content is the string a tool's
+// execution returned (a capability binding is typically a JSON envelope, parsed by the
+// consumer itself).
 func emitToolCompleted(em *loopEmit, mv *adk.MessageVariant, state *turnState) {
 	msg, err := mv.GetMessage()
 	if err != nil {
 		em.log.Error("agent turn tool result message", logErrKey, err)
 		return
 	}
-	// 完成日志:调用 id + 名字 + 结果字节数(结果可能很大,如 corpus_read 的 body,不全打)。
+	// Completion log: call id + name + result byte count (the result can be large, e.g.
+	// corpus_read's body — not logged in full).
 	//
-	// **call_id 是这一行的要点**(F-S-1)。名字 + 字节数分辨不出并行的同名调用:驱 corpus-search
-	// 时一轮里 `recursive convergence` 和 `递归收敛` 同时发出,回来一条空一条 7883,而两条 done
-	// 行逐字相同 —— 于是「中文查询到底命中没有」在日志里无法回答。字节数也不能当身份:两次调用
-	// 完全可能返回一样多的字节。
+	// **call_id is the point of this line** (F-S-1). Name + byte count can't distinguish
+	// parallel same-named calls: driving corpus-search once had `recursive convergence` and
+	// its Chinese equivalent `递归收敛` dispatched together in one turn, one coming back empty
+	// and the other 7883 bytes, with the two done lines otherwise identical — so "did the
+	// Chinese-language query actually hit anything" became unanswerable from the logs. Byte
+	// count can't serve as identity either: two calls can easily return the same number of
+	// bytes.
 	em.log.Info("agent tool done",
 		"call_id", msg.ToolCallID, "name", mv.ToolName, "result_bytes", len(msg.Content))
 	// Keep the finding: if this turn later exhausts its iteration budget, the forced

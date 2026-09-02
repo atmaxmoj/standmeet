@@ -1,15 +1,18 @@
-// password_reset.go —— 紧急密码重置的 usecase。
+// password_reset.go — the usecase for an emergency password reset.
 //
-// 流程：
-//   1. operator 在 server 上跑 `standmeet password-reset` 子命令 → 生成
-//      32-byte token，SHA-256 hash 存进 owners.password_reset_hash，
-//      password_reset_at = NOW()。stdout 打印 plaintext + URL。
-//   2. owner 打开 URL → /account/reset?t=... → 前端读 t + 输入新密码 →
-//      POST /api/v1/account/reset-password { token, new_password }。
-//   3. 这个 usecase：找 sole owner，TTL 检查 (<= 30min)，SHA-256 const-time
-//      比对，过了就 HashPassword(new) + repo.UpdatePasswordHash + clear。
+// Flow:
+//   1. The operator runs the `standmeet password-reset` subcommand on the server ->
+//      generates a 32-byte token, stores its SHA-256 hash in
+//      owners.password_reset_hash, sets password_reset_at = NOW(). stdout prints the
+//      plaintext + URL.
+//   2. The owner opens the URL -> /account/reset?t=... -> the frontend reads t + takes
+//      a new password -> POST /api/v1/account/reset-password { token, new_password }.
+//   3. This usecase: finds the sole owner, checks the TTL (<= 30min), does a SHA-256
+//      const-time comparison, and on success does HashPassword(new) +
+//      repo.UpdatePasswordHash + clear.
 //
-// 失败一律返 ErrUnauthorized（不告诉 token 错 vs 过期 vs 用过）。
+// Any failure returns ErrUnauthorized across the board (never telling apart wrong token
+// vs. expired vs. already used).
 
 package usecase
 
@@ -26,19 +29,21 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// PasswordResetDeps —— ConsumePasswordResetToken 的依赖。
+// PasswordResetDeps — dependencies for ConsumePasswordResetToken.
 type PasswordResetDeps struct {
 	Owners *repo.Repo
 }
 
-// PasswordResetTTL —— token 颁发后多久内有效；CLI stdout 跟前端 / 文档要
-// 显示这个值。30min 给 operator 足够时间从 server 切回浏览器；再长就拖
-// 攻击者爆破窗口。
+// PasswordResetTTL — how long the token stays valid after issuance; the CLI stdout
+// and the frontend / docs must display this value. 30min gives the operator enough time
+// to switch from the server back to a browser; any longer widens an attacker's
+// brute-force window.
 const PasswordResetTTL = 30 * time.Minute
 
-// ConsumePasswordResetToken —— 拿明文 token + 新密码：验证 + 改密码 + 清。
-// 任何步骤失败统一返 ErrUnauthorized；ErrPasswordTooShort 单独保留
-// 给前端 inline hint 区分（密码太短不算 "auth failure"）。
+// ConsumePasswordResetToken — takes the plaintext token + new password: verify +
+// change password + clear. Any step failing returns ErrUnauthorized uniformly;
+// ErrPasswordTooShort is kept separate for the frontend's inline hint (a too-short
+// password isn't an "auth failure").
 func ConsumePasswordResetToken(
 	ctx context.Context, deps PasswordResetDeps, tokenPlaintext, newPassword string,
 ) error {
@@ -85,6 +90,6 @@ func applyNewPassword(
 	return nil
 }
 
-// ErrNoActiveResetToken —— sole owner 没颁发 reset token；caller 应翻
-// ErrUnauthorized。导出让 repo 实现可返。
+// ErrNoActiveResetToken — the sole owner has no issued reset token; the caller should
+// translate this to ErrUnauthorized. Exported so repo implementations can return it.
 var ErrNoActiveResetToken = errors.New("no active password reset token")

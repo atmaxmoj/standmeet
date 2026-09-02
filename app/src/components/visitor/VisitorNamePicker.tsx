@@ -1,10 +1,14 @@
-// VisitorNamePicker —— code-mode visitor 第一次进 chat-capable surface 时
-// 弹窗问名字。owner 在 /admin/conversations 看 transcript 时需要知道是谁。
+// VisitorNamePicker —— pops up a modal asking for a name the first time a
+// code-mode visitor enters a chat-capable surface. The owner needs to know
+// who's who when reading transcripts in /admin/conversations.
 //
-// 触发条件 / 持久化逻辑全在 lib/visitor/visitor-name.ts；这里纯渲染。
+// The trigger condition / persistence logic all lives in
+// lib/visitor/visitor-name.ts; this component is pure rendering.
 //
-// 设计源 docs/design/project/app.js VisitorNamePicker。expected[] prop 留位 ——
-// 现在 store 没存 code members 列表，先不渲染候选；以后 server 返了再开。
+// Design source: docs/design/project/app.js VisitorNamePicker. The
+// expected[] prop is a placeholder — the store doesn't currently store the
+// code's member list, so candidates aren't rendered yet; enable once the
+// server returns them.
 
 'use client';
 
@@ -31,7 +35,9 @@ export function VisitorNamePicker() {
 }
 
 function Modal() {
-  // 初值从 localStorage load 上次用的名字 + 可选邮箱(同一个人再开自动带出来)。
+  // Initial values load the last-used name + optional email from
+  // localStorage (the same person opening it again gets them back
+  // automatically).
   const [name, setName] = useState(loadVisitorName);
   const [email, setEmail] = useState(loadVisitorEmail);
   const [full, setFull] = useState(false);
@@ -41,7 +47,9 @@ function Modal() {
   const onSubmit = () => { void settleOutcome(submitPickerName(name, email, issue), setFull); };
   const onDismiss = () => { void settleOutcome(dismissPicker(issue), setFull); };
   return (
-    // 点窗外(backdrop,非 card)= dismiss:换人窗取消保持原 session,首次则 skip。
+    // Clicking outside the modal (the backdrop, not the card) = dismiss:
+    // for a switch-person modal, cancel keeps the original session; for the
+    // first-time modal, it's skip.
     <div
       className="sm-fadein sm-visitor-name-overlay"
       data-testid="visitor-name-overlay"
@@ -61,8 +69,9 @@ function Modal() {
   );
 }
 
-// settleOutcome —— 提交/dismiss 的收尾:'full' → 显满额。'ok' 已 consume pending
-// → picker 自动隐藏;'error' → busy 复位可重试。
+// settleOutcome —— the wrap-up for submit/dismiss: 'full' → show the
+// full-capacity state. 'ok' already consumed the pending code → the picker
+// hides itself automatically; 'error' → busy resets so it can be retried.
 async function settleOutcome(
   p: Promise<IssueOutcome>, setFull: (v: boolean) => void,
 ): Promise<void> {
@@ -70,7 +79,8 @@ async function settleOutcome(
   (outcome === 'full') && setFull(true);
 }
 
-// PickerHeader —— access kicker → owner 设的「这是什么」greeting → "Who's reading?"。
+// PickerHeader —— access kicker → the owner-set "what this is" greeting →
+// "Who's reading?".
 function PickerHeader({ code, greeting }: { code: string | null; greeting: string }) {
   const t = useTranslations('visitor.visitorNamePicker');
   return (
@@ -108,7 +118,8 @@ function PickerBody(props: BodyProps) {
   );
 }
 
-// PickerFull —— 这张码名字数满了:进不来,讲清楚 + 让 visitor 找分享码的人。
+// PickerFull —— this code's member cap is reached: they can't get in, so
+// explain that clearly + point the visitor to whoever shared the code.
 function PickerFull() {
   const t = useTranslations('visitor.visitorNamePicker');
   return (

@@ -6,9 +6,10 @@ import (
 	"time"
 )
 
-// Embed —— 一个 embed widget 配置。**embed 指向 code**：它是包着某张码的对外配置,
-// 引用它暴露的那张码,再在外面加来源限制。owner 在 Access 下管理它,拿到 copy-paste 片段
-// 贴到别人网站上（embed 规划 2026-09-01）。
+// Embed — one embed widget configuration. **An embed points at a code**: it is the
+// outward-facing config that wraps a code, referencing the code it exposes and adding an
+// origin restriction on top. The owner manages it under Access and gets a copy-paste
+// snippet to drop onto someone else's site (embed plan 2026-09-01).
 type Embed struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
@@ -21,52 +22,61 @@ type Embed struct {
 	AllowedOrigins []string
 }
 
-// EmbedCreated —— 建一个 embed 的结果：embed 本体 + **只在这一次返回**的私钥 PEM。
-// 私钥进 widget 的 JS（不是 code）；服务端只留公钥。
+// EmbedCreated — the result of creating an embed: the embed itself + the private key PEM,
+// which is **returned only this once**. The private key goes into the widget's JS
+// (not the code); the server keeps only the public key.
 type EmbedCreated struct {
 	PrivateKey string
 	Embed      Embed
 }
 
-// EmbedAuth —— 按 JWT 的 kid 反查到的一组：验签公钥 + 来源白名单 + 它暴露的码。
-// session 签发时 code 明文只在这一步、服务端拿到。
+// EmbedAuth — the set looked up by a JWT's kid: the verification public key + origin
+// allowlist + the code it exposes. The plaintext code is available server-side only at
+// this step, during session issuance.
 type EmbedAuth struct {
 	PublicKey      string
 	Code           string
 	AllowedOrigins []string
 }
 
-// OriginAllowed —— EmbedAuth 侧的同名判断（跟 Embed.OriginAllowed 同一套规则）。
+// OriginAllowed — the same check on the EmbedAuth side (the same rules as Embed.OriginAllowed).
 func (a *EmbedAuth) OriginAllowed(origin string) bool {
 	e := Embed{AllowedOrigins: a.AllowedOrigins}
 	return e.OriginAllowed(origin)
 }
 
-// ErrEmbedNotFound —— embed 本子里没有这一条（id 不对、或不属于这个 owner）。
+// ErrEmbedNotFound — this row is not in the embed ledger (bad id, or not owned by this owner).
 var ErrEmbedNotFound = errors.New("embed not found")
 
-// ErrEmbedOriginNotAllowed —— 这张 embed 码不许在这个来源站上用（403）。
+// ErrEmbedOriginNotAllowed — this embed code is not permitted to be used from this origin (403).
 var ErrEmbedOriginNotAllowed = errors.New("embed origin not allowed")
 
-// ErrCodeAlreadyEmbedded —— 这张码已经被一个 embed 暴露了（code_id 唯一）。一张码只能有一份
-// 来源白名单 —— 再挂一个 embed 就会有第二份白名单，而哪份生效是未定义的。想要第二份，发第二张码。
+// ErrCodeAlreadyEmbedded — this code is already exposed by an embed (code_id is unique). A
+// code can carry only one origin allowlist — attaching a second embed would create a second
+// allowlist, and which one wins would be undefined. Wanting a second one means issuing a
+// second code.
 var ErrCodeAlreadyEmbedded = errors.New("code already exposed by an embed")
 
-// ErrPeriodLimitReached —— 这张码这个周期的额度用完了（403，可再生）。
+// ErrPeriodLimitReached — this code has used up its quota for the current period (403,
+// refillable).
 var ErrPeriodLimitReached = errors.New("period limit reached")
 
-// ErrEmbedTokenInvalid —— embed 的 JWT 凭据没通过（签名坏 / 过期 / 重放 / alg 不对 / kid 不存在
-// / origin 与头不一致）。一句 sentinel，不细分是哪一步——不给攻击者一个探测预言机（401）。
+// ErrEmbedTokenInvalid — the embed's JWT credential failed validation (bad signature /
+// expired / replayed / wrong alg / unknown kid / origin mismatch with the header). One
+// sentinel, not broken down by which step failed — this avoids handing an attacker a
+// probing oracle (401).
 var ErrEmbedTokenInvalid = errors.New("embed token invalid")
 
-// OriginAllowed —— 一个来源能不能用这个 embed。
+// OriginAllowed — whether an origin may use this embed.
 //
-//   - AllowedOrigins 空 = 不限,任何来源都放行（今天的行为）。
-//   - 非空 = origin 必须精确命中表里某一条。空 origin（没带 Origin 头）在受限时一律拒:
-//     一个受限的 embed,连来源都报不出的请求没有理由放行。
+//   - AllowedOrigins empty = unrestricted, any origin passes (today's behavior).
+//   - Non-empty = origin must exactly match one entry in the list. An empty origin (no
+//     Origin header sent) is always rejected once restricted: a restricted embed has no
+//     reason to admit a request that cannot even report where it came from.
 //
-// 精确匹配（scheme+host+port 全等），不做子域/通配 —— embed 的来源集是 owner 明确列的,
-// 通配会把"我只想给 alice.example"悄悄放宽成"给所有 *.example"。
+// Exact match (scheme+host+port all equal), no subdomain / wildcard — an embed's origin
+// set is explicitly listed by the owner, and wildcarding would silently widen "only for
+// alice.example" into "for all of *.example".
 func (e *Embed) OriginAllowed(origin string) bool {
 	if len(e.AllowedOrigins) == 0 {
 		return true

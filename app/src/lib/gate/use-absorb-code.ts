@@ -1,15 +1,21 @@
-// use-absorb-code —— visitor 带着 `?code=ABC` 进站时的入口。
+// use-absorb-code —— the entry point for a visitor arriving with
+// `?code=ABC` in the URL.
 //
-// mount 一次:把 URL 上的 code 吸进 usePendingCodeStore + 立刻
-// history.replaceState 删 query(明文不留在 URL / history / 截图 / referer 上)。
+// Runs once on mount: pulls the code from the URL into usePendingCodeStore,
+// then immediately does history.replaceState to strip the query (so the
+// plaintext code doesn't stay in the URL / history / screenshots / referer).
 //
-// **不在这里 issue session**(defer-issue):扫码只先存下 code;由名字选择器
-// (use-issue-pending-code)等 visitor 选好名字后才真正 issueCodeSession ——
-// 这样名字真的进后端 = 一个人一个具名 member = 一段续聊的会。skip 也走那条
-// (匿名 issue)。
+// **Does not issue a session here** (defer-issue): scanning the code only
+// stores it for now; the name picker (use-issue-pending-code) is what
+// actually calls issueCodeSession, once the visitor has picked a name —
+// that way the name genuinely lands in the backend = one person = one
+// named member = one continuable chat. Skip goes through that same path
+// too (anonymous issue).
 //
-// 安全:URL 上 `?code=` 不安全(截图/分享/referer/history 全会泄漏纯码),
-// 所以入口立刻 replaceState 删掉,code 暂存进内存 store。
+// Security: `?code=` in the URL is not safe (screenshots / sharing /
+// referer / history can all leak the plain code), so the entry point does
+// replaceState immediately to remove it, stashing the code in an in-memory
+// store instead.
 
 'use client';
 
@@ -27,19 +33,23 @@ export function useAbsorbCodeFromURL(): void {
   }, []);
 }
 
-// absorbFromURL —— 仅一次:读 location.search 里的 code,set 进 pending store,
-// 然后 history.replaceState 把 query 上的 code 删掉(保留其它 query/hash)。
+// absorbFromURL —— runs once: reads the code from location.search, sets it
+// into the pending store, then history.replaceState removes the code from
+// the query (keeping the rest of the query/hash intact).
 function absorbFromURL(): void {
   if (typeof window === 'undefined') return;
   const url = new URL(window.location.href);
   const code = url.searchParams.get('code');
   if (code === null || code === '') return;
-  // F-A-5: 已经在这张**同一码**的具名 session 里(via /gate 或上次选过名字)= visitor
-  // 已解析 → 重开 ?code= 链接不该再弹身份选择器盖在活跃会话上。仍然把 code 从 URL 剥掉。
+  // F-A-5: already in a named session for **this same code** (via /gate or
+  // having previously picked a name) = the visitor is already resolved →
+  // reopening the ?code= link shouldn't pop the identity picker over an
+  // active session. The code still gets stripped from the URL either way.
   if (!alreadyInNamedSession(code)) {
     usePendingCodeStore.getState().setCode(code);
-    // 新 code(扫 QR / 点分享链接)= 新场景 → 清掉上次 skip 的 30 天 dismiss,
-    // 让 VisitorNamePicker 重新问名字。
+    // A new code (scanning a QR / clicking a shared link) = a new scenario
+    // → clear the previous skip's 30-day dismissal so VisitorNamePicker
+    // asks for a name again.
     clearNameDismiss();
   }
   url.searchParams.delete('code');
@@ -49,12 +59,15 @@ function absorbFromURL(): void {
   landOnRendering(code);
 }
 
-// landOnRendering —— 第二次打开同一条链接（已经在这张码的具名会话里，上面那一支
-// 早退了、不会再颁发一次）也要落到这张码的页上。
+// landOnRendering —— opening the same link a second time (already in a
+// named session for this code, so the branch above returns early and never
+// issues again) still needs to land on this code's page.
 //
-// 落地在颁发那一刻存进了 session，所以这里读的是同一个事实，不是另算一遍。
-// **漏掉这一支的话，缺陷只在「回访」时出现**：第一次扫码好好的，第二次点同一个链接
-// 落在默认对话上 —— 而 owner 手上只有一张码，试一次是试不出来的。
+// The landing target was stored in the session at issuance, so this reads
+// the same fact rather than recomputing it. **Miss this branch and the bug
+// only shows up on a "return visit"**: the first scan works fine, but
+// clicking the same link a second time lands on the default chat instead —
+// and since the owner only has one code, testing it once won't catch it.
 function landOnRendering(code: string): void {
   if (!alreadyInNamedSession(code)) return;
   const href = codeLandingHref(loadStoredSession()?.custom_page_slug ?? '');
@@ -62,8 +75,10 @@ function landOnRendering(code: string): void {
   window.location.assign(href);
 }
 
-// alreadyInNamedSession —— 当前是否已有一张**同码且已具名**的活跃 session。
-// peekStoredSession 直接同步读 LS,绕开 zustand hydrate 时序(与 absorb effect 同 mount)。
+// alreadyInNamedSession —— whether there's already an active session that's
+// **for this same code and already named**. peekStoredSession reads
+// localStorage synchronously, sidestepping zustand hydrate timing (which
+// mounts at the same time as the absorb effect).
 function alreadyInNamedSession(code: string): boolean {
   const active = peekStoredSession();
   return active?.code === code && Boolean(active?.visitor);

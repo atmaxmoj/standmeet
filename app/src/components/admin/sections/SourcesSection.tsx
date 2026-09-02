@@ -1,9 +1,9 @@
-// SourcesSection —— /admin/sources。design 源 admin.js SourcesSection
-// (1305-1343) + SourceConfigModal (1223-1303)。job 拉数据的 feed 源列表 +
-// "+ board" / "+ rss/scraper" 入口。表格 (source / kind / new / total / last / status)。
+// SourcesSection —— /admin/sources. Design source admin.js SourcesSection
+// (1305-1343) + SourceConfigModal (1223-1303). List of feed sources jobs pulls data from +
+// "+ board" / "+ rss/scraper" entry points. Table (source / kind / new / total / last / status).
 //
-// 走真数据:useAdminSources → GET /api/admin/job-sources/(jobsadmin routes)。空态是真
-// 空态(没注册 source),不是占位。covered by admin-sources.spec.ts。
+// Runs on real data: useAdminSources → GET /api/admin/job-sources/ (jobsadmin routes). The empty
+// state is a genuine empty state (no source registered), not a placeholder. covered by admin-sources.spec.ts.
 
 'use client';
 
@@ -76,10 +76,11 @@ function SourceRow({ source }: { source: AdminSourceRow }) {
   );
 }
 
-// SourceState —— 这一行右侧那句话。**三种状态，三句不同的话**：
-// 从没试过 / 上次试了但失败（带原因）/ 上次成了（带日期）。
-// 以前只有 `last_fetched_at` 一个来源，于是「每次都 400 的源」和「从没被碰过的源」
-// 都印 `never fetched` —— 而这一页存在的理由就是回答「我这个源还活着吗」（F-E-18）。
+// SourceState —— the text on the right side of this row. **Three states, three different messages**:
+// never tried / last try failed (with reason) / last try succeeded (with date).
+// It used to have only `last_fetched_at` as a source, so a "source that 400s every time" and a
+// "source that's never been touched" both printed `never fetched` — while the whole reason this
+// page exists is to answer "is this source still alive" (F-E-18).
 function SourceState({ source }: { source: AdminSourceRow }) {
   const tone = sourceFailed(source) ? 'text-(--color-accent)' : 'text-(--color-faint)';
   return (
@@ -96,7 +97,7 @@ function SourceState({ source }: { source: AdminSourceRow }) {
 // contradicted this page's own copy — job sources are registered via the jobs.register_source
 // MCP tool (Claude Code), not an admin form. Removed; the Intro + empty state direct to MCP.
 
-// mono —— t.rich 的 <mono> 标签：把 MCP 工具名渲染成等宽 ink。
+// mono —— the <mono> tag for t.rich: renders MCP tool names as monospace ink.
 const mono = (chunks: React.ReactNode) => (
   <span className="mono text-(--color-ink)">{chunks}</span>
 );

@@ -1,15 +1,18 @@
-// WritingEditor —— admin /writings 用的 Tiptap 编辑器。
+// WritingEditor —— the Tiptap editor used by admin /writings.
 //
-// 单一数据形态：markdown。value 是 body_md (含 standmeet-asset:<id> URI
-// 引用，<id> 可能是真 UUID（已存）或 pending-<uuid>（本次 session 内新粘
-// 的图）)。onChange 出 markdown 同形态。owner 点 save 时 WritingForm 通过
-// onPendingFiles 取出 pending files，跟 body_md + cover 一起 multipart
-// POST/PATCH。
+// Single data shape: markdown. value is body_md (containing
+// standmeet-asset:<id> URI references, where <id> may be a real UUID
+// (already stored) or pending-<uuid> (newly pasted image within this
+// session)). onChange emits markdown in the same shape. When the owner
+// clicks save, WritingForm pulls the pending files out via onPendingFiles
+// and multipart POST/PATCHes them together with body_md + cover.
 //
-// 显示：editor 内 image node 的 src 是 URI 形态，浏览器自己渲染不了。
-// 通过 expandURIsToURLs(body, urlMap) 转 https 给 Tiptap 看（urlMap 含
-// 已存 assets 的 presigned URL + pending uploads 的 blob URL）。
-// onUpdate 时 contractURLsToURIs 再转回 URI 形态送到 onChange。
+// Display: the image node's src inside the editor is in URI shape, which
+// the browser can't render on its own. expandURIsToURLs(body, urlMap)
+// converts it to https for Tiptap to see (urlMap contains the presigned
+// URL of already-stored assets + the blob URL of pending uploads).
+// On onUpdate, contractURLsToURIs converts it back to URI shape before
+// sending it to onChange.
 
 'use client';
 
@@ -35,8 +38,9 @@ import type { PendingFile } from '@/lib/writings/upload-asset';
 interface Props {
   value: string;
   onChange: (md: string) => void;
-  // assetURLs —— server-provided 已存 asset 的 presigned URL map（edit 时
-  // writing.asset_urls）；新粘的 pending image 走 onPending 单独 track。
+  // assetURLs —— server-provided presigned URL map for already-stored
+  // assets (writing.asset_urls when editing); newly pasted pending images
+  // are tracked separately via onPending.
   assetURLs?: Record<string, string>;
   onPending?: (pending: PendingFile) => void;
   placeholder?: string;
@@ -47,9 +51,9 @@ import { getMarkdownFromEditor } from '@/lib/writings/markdown-storage';
 export function WritingEditor({
   value, onChange, placeholder, onPending, assetURLs,
 }: Props) {
-  // urlMapRef 跨渲染 stable：server-provided 真 id → presigned URL +
-  // pending-id → blob URL（新粘的）。display 时 expand 用，emit 时 invert
-  // 后 contract 回 URI。
+  // urlMapRef is stable across renders: server-provided real id ->
+  // presigned URL, plus pending-id -> blob URL (newly pasted). Used to
+  // expand on display; on emit it's inverted then contracted back to URI.
   const urlMapRef = useRef<Record<string, string>>({ ...assetURLs });
   const initialContent = expandURIsToURLs(value, urlMapRef.current);
 

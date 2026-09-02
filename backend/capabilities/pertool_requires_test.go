@@ -1,7 +1,10 @@
-// pertool_requires_test.go —— F-B-8：`visitor_tools` 的两种写法都要收，而且**两种都要有对象**。
+// pertool_requires_test.go — F-B-8: both spellings of `visitor_tools` must be
+// accepted, and **both must carry test coverage**.
 //
-// 这里守的不是"能解析"，是**粒度**：只读授权下该消失的是订会那几个动作，
-// 而「列时段」必须留着 —— 那件事在只读下本来就是好的，藏掉它等于为了修一个缺陷造出另一个。
+// What this guards is not "can it parse", it's **granularity**: under a
+// read-only grant, the booking actions are the ones that should disappear,
+// while "list slots" must stay — that action was already fine read-only, and
+// hiding it too would trade one defect for another.
 
 package capabilities_test
 
@@ -15,14 +18,15 @@ import (
 const (
 	insertScope = "calendar:events.insert"
 	deleteScope = "calendar:events.delete"
-	// bookerVisitorTools —— booker 摆给访客的工具数。写死是有意的：这个数字变了，
-	// 说明有人加了或删了一个访客能按的动作，那件事应当有人看一眼。
+	// bookerVisitorTools — the count of tools booker offers the visitor. Hardcoding
+	// it is deliberate: if this number changes, someone added or removed an action
+	// the visitor can trigger, and that deserves a human look.
 	bookerVisitorTools = 7
 )
 
 func TestBothSpellingsParse(t *testing.T) {
 	t.Parallel()
-	// 混写（裸名字 + 映射）不能让任何一条掉队。
+	// Mixed spellings (bare names + mappings) must not drop any entry.
 	if got := loadBooker(t).VisitorTools; len(got) != bookerVisitorTools {
 		t.Fatalf("visitor tool names = %v, want all %d", got, bookerVisitorTools)
 	}
@@ -44,14 +48,16 @@ func TestWriteToolsNameTheActionTheyNeed(t *testing.T) {
 
 func TestReschedulingNeedsBothActions(t *testing.T) {
 	t.Parallel()
-	// 改期 = 先删旧的再插新的。
+	// Rescheduling = delete the old one, then insert the new one.
 	if got := loadBooker(t).VisitorToolRequires["calendar_reschedule"]; len(got) != 2 {
 		t.Errorf("calendar_reschedule requires = %v, want both insert and delete", got)
 	}
 }
 
-// ★ 这一条是这个文件真正的理由：**读操作不许被牵连**。
-// 它们没有额外要求，所以只读授权下必须还在 —— 一起藏掉就是拿掉一个做得到的动作。
+// ★ This one is this file's real reason to exist: **read actions must never be
+// caught up in this**. They carry no extra requirement, so they must still be
+// there under a read-only grant — hiding them along with the writes removes an
+// action that already worked.
 func TestReadToolsCarryNoExtraRequirement(t *testing.T) {
 	t.Parallel()
 	reqs := loadBooker(t).VisitorToolRequires

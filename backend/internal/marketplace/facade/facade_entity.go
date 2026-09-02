@@ -2,7 +2,7 @@ package marketplace
 
 import "github.com/atmaxmoj/standmeet/internal/marketplace/entity"
 
-// 类型（实现:entity）.
+// Types (implemented by: entity).
 type (
 	DialableMCPServer = entity.DialableMCPServer
 	MCPAuthHeader     = entity.MCPAuthHeader
@@ -13,7 +13,7 @@ type (
 	SkillScriptParam  = entity.SkillScriptParam
 )
 
-// 错误/变量（实现:entity）.
+// Errors/vars (implemented by: entity).
 var (
 	ErrMCPServerNameTaken    = entity.ErrMCPServerNameTaken
 	ErrMCPServerNotFound     = entity.ErrMCPServerNotFound

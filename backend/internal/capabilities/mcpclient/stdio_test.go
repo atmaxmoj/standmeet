@@ -1,8 +1,9 @@
-// stdio_test.go —— C2: mcpclient stdio 传输的集成测试（spawn 真 MCP server 子进程）。
-// 测试替身 = mock-stack/mcp --stdio（含 echo / ping_external + 故障注入）。
-// 覆盖 happy（initialize/list/call）+ corner（stderr 不破帧）+ error-stream
-// （进程 mid-session 退出 / initialize 卡死 → 干净报错；Close 幂等 + 关后调用报错）。
-// 跑在确定环境 → 断言一律 require.*（无 if）。
+// stdio_test.go —— C2: integration tests for mcpclient's stdio transport (spawns a
+// real MCP server subprocess). Test double = mock-stack/mcp --stdio (has echo /
+// ping_external + fault injection). Covers happy (initialize/list/call) + corner
+// (stderr doesn't break framing) + error-stream (process exits mid-session /
+// initialize hangs → clean error; Close is idempotent + calling after close errors).
+// Runs in a deterministic environment → assertions are all require.* (no if).
 
 package mcpclient_test
 
@@ -20,12 +21,13 @@ import (
 
 const marker = "[EXT-MCP-MARKER]"
 
-// buildMockStdio —— 把 mock-stack 的 mcp server 编译成临时二进制（它是独立
-// module，跨 module 用 go build 而非 import）。返回二进制路径。
+// buildMockStdio —— compiles mock-stack's mcp server into a temp binary (it's a
+// separate module, so cross-module uses go build rather than import). Returns the
+// binary's path.
 func buildMockStdio(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "mcpmock")
-	//nolint:gosec // test：把已知 mock server 编译进 t.TempDir()，命令固定。
+	//nolint:gosec // test: compiles a known mock server into t.TempDir(), command is fixed.
 	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", bin, "./mcp")
 	cmd.Dir = "../../../../mock-stack"
 	out, err := cmd.CombinedOutput()
@@ -33,7 +35,7 @@ func buildMockStdio(t *testing.T) string {
 	return bin
 }
 
-// dialMock —— build + DialStdio 一个 --stdio 的 mock server，注册 Close 清理。
+// dialMock —— build + DialStdio a --stdio mock server, registering Close for cleanup.
 func dialMock(t *testing.T, env map[string]string) *mcpclient.Session {
 	t.Helper()
 	bin := buildMockStdio(t)
@@ -53,7 +55,7 @@ func toolNames(tools []mcpclient.Tool) []string {
 	return out
 }
 
-// happy：initialize 成功 + list 出两个 tool。
+// happy: initialize succeeds + list returns two tools.
 func TestStdio_InitializeAndListTools(t *testing.T) {
 	t.Parallel()
 	sess := dialMock(t, nil)
@@ -64,8 +66,8 @@ func TestStdio_InitializeAndListTools(t *testing.T) {
 	require.Contains(t, names, "ping_external")
 }
 
-// Session.Instructions() —— server 的 initialize instructions 原样浮出（外置能力
-// 携带 system-prompt fragment 的载体）。
+// Session.Instructions() —— the server's initialize instructions surface unchanged
+// (the vehicle an externalized capability uses to carry a system-prompt fragment).
 func TestStdio_SurfacesServerInstructions(t *testing.T) {
 	t.Parallel()
 	sess := dialMock(t, nil)
@@ -74,8 +76,9 @@ func TestStdio_SurfacesServerInstructions(t *testing.T) {
 		sess.Instructions())
 }
 
-// Tool.Meta —— tool 的 `_meta` 自定义字段被透传（外置能力声明 ReturnDirectly 的
-// 载体）。clarify 带 return_directly=true；echo 不带 → Meta 为 nil。
+// Tool.Meta —— a tool's custom `_meta` fields pass through (the vehicle an
+// externalized capability uses to declare ReturnDirectly). clarify carries
+// return_directly=true; echo doesn't → Meta is nil.
 func TestStdio_SurfacesToolMeta(t *testing.T) {
 	t.Parallel()
 	sess := dialMock(t, nil)
@@ -90,8 +93,9 @@ func TestStdio_SurfacesToolMeta(t *testing.T) {
 	require.Empty(t, byName["echo"].Meta, "echo tool has no _meta")
 }
 
-// ReadResource —— resources/read 传输通：取回资源文本内容。真正的 ui:// 卡片
-// 由外置能力 server 自带，这里只验传输层。
+// ReadResource —— resources/read transport works: fetches back the resource's text
+// content. The real ui:// card comes from the externalized capability server itself;
+// this only verifies the transport layer.
 func TestStdio_ReadResource(t *testing.T) {
 	t.Parallel()
 	sess := dialMock(t, nil)
@@ -100,7 +104,7 @@ func TestStdio_ReadResource(t *testing.T) {
 	require.Contains(t, text, marker+":resource")
 }
 
-// happy：call echo → 回 marker:text。
+// happy: call echo → returns marker:text.
 func TestStdio_CallEcho(t *testing.T) {
 	t.Parallel()
 	sess := dialMock(t, nil)
@@ -109,7 +113,8 @@ func TestStdio_CallEcho(t *testing.T) {
 	require.Contains(t, out, marker+":hi")
 }
 
-// corner：mock 启动往 stderr 写 banner；若 stderr 串进 stdout 帧，list 会解析失败。
+// corner: mock writes a banner to stderr on startup; if stderr bleeds into the stdout
+// frames, list will fail to parse.
 func TestStdio_StderrDoesNotBreakFraming(t *testing.T) {
 	t.Parallel()
 	sess := dialMock(t, nil)
@@ -117,7 +122,8 @@ func TestStdio_StderrDoesNotBreakFraming(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// error-stream：进程在第 2 次调用时退出 → 第 1 次 OK，第 2 次干净报错（不 hang/panic）。
+// error-stream: the process exits on the 2nd call → 1st call OK, 2nd call errors
+// cleanly (no hang/panic).
 func TestStdio_ProcessExitMidSession(t *testing.T) {
 	t.Parallel()
 	sess := dialMock(t, map[string]string{"MOCK_MCP_EXIT_AFTER": "2"})
@@ -127,7 +133,7 @@ func TestStdio_ProcessExitMidSession(t *testing.T) {
 	require.Error(t, err2)
 }
 
-// edge：command 不存在 → DialStdio 返错（不 panic / 不 hang）。
+// edge: command doesn't exist → DialStdio returns an error (no panic / no hang).
 func TestStdio_DialBadCommandErrors(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -136,7 +142,8 @@ func TestStdio_DialBadCommandErrors(t *testing.T) {
 	require.Error(t, err)
 }
 
-// error-stream：进程起来但 initialize 永不响应 → DialStdio 必须超时返错，不永久 hang。
+// error-stream: the process comes up but initialize never responds → DialStdio must
+// time out and return an error, never hanging forever.
 func TestStdio_InitializeTimeoutOnHang(t *testing.T) {
 	t.Parallel()
 	bin := buildMockStdio(t)
@@ -147,7 +154,7 @@ func TestStdio_InitializeTimeoutOnHang(t *testing.T) {
 	require.Error(t, err)
 }
 
-// error-stream/lifecycle：Close 幂等；关后再调 → 报错（不 panic）。
+// error-stream/lifecycle: Close is idempotent; calling again after close → errors (no panic).
 func TestStdio_CloseIdempotentThenCallErrors(t *testing.T) {
 	t.Parallel()
 	sess := dialMock(t, nil)

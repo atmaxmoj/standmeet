@@ -39,7 +39,7 @@ export function DraftThumb({ row }: { row: AdminDraftRow }) {
         job={draftToJobContext(model)}
         qrURL={PREVIEW_QR_URL}
         pageIndex={0}
-        // 缩略图只画第一页 —— 它就是这一张的全部，所以总数是 1。
+        // The thumbnail renders only the first page — it is the whole card, so the count is 1.
         pageCount={1}
         scale={THUMB_SCALE}
       />
@@ -47,8 +47,9 @@ export function DraftThumb({ row }: { row: AdminDraftRow }) {
   );
 }
 
-// previewModel —— 走跟 composer **同一个**映射（`toDraftModel`）。抄一份的话，卡片和
-// 打开之后看到的东西会慢慢分家，而那正是这条缺陷本来的样子。
+// previewModel — routes through the **same** mapping as the composer (`toDraftModel`).
+// A copied mapping would let the card and the opened draft drift apart over time —
+// which is exactly the shape of the original bug.
 function previewModel(row: AdminDraftRow): DraftModel {
   return toDraftModel({
     id: row.id, company: row.company, role: row.role,

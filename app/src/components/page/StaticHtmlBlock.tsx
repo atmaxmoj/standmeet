@@ -1,6 +1,8 @@
-// StaticHtmlBlock —— ` ```standmeet-html ` 块:owner 预烤的静态 HTML,sanitize 后渲进正文
-// (Obsidian-ecosystem leverage #2,pre-render-at-export)。内容是 static,进 .corpus-content
-// 后 owner CSS 照样命中。sanitize 在 @/lib/render/static-html(剥 script/iframe/on*/js-url)。
+// StaticHtmlBlock —— the ` ```standmeet-html ` block: owner-prebaked static
+// HTML, sanitized then rendered into the body (Obsidian-ecosystem leverage
+// #2, pre-render-at-export). The content is static, and once it's inside
+// .corpus-content owner CSS still hits it. Sanitizing happens in
+// @/lib/render/static-html (strips script/iframe/on*/js-url).
 
 'use client';
 

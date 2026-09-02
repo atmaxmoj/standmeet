@@ -1,5 +1,5 @@
-// gate-client —— gate 页的 client 部分（拆出来让 page.tsx 可 SSR fetch handle）。
-// owner handle 仅用于显示文案（"you've reached <handle>'s corpus"），不再决定路由。
+// gate-client — the client part of the /gate page (split out so page.tsx can SSR-fetch the handle).
+// owner handle is display copy only ("you've reached <handle>'s corpus") — it no longer drives routing.
 
 'use client';
 
@@ -38,18 +38,20 @@ export function GateClient({ handle, canDeliverCodes, publicWiki, publicWritings
         <div className="max-w-[920px] mx-auto px-6 lg:px-10 py-14 lg:py-20">
           <Hero handle={handle} hook={hook} canDeliverCodes={canDeliverCodes} />
           <Sep />
-          {/* 读排在 BYOAI 前面：这三扇门按门槛从低到高排。已经公开的东西不需要任何凭据，
-              而 BYOAI 要访客自己掏一把 API key。把最便宜的那扇门排在后面（或者像以前那样
-              根本不给），等于让「读一读他写了什么」比「去弄一把 key」还费劲。 */}
+          {/* Read comes before BYOAI: these three doors are ordered by rising cost. Public
+              content needs no credential at all, while BYOAI asks the visitor for their
+              own API key. Putting the cheapest door last (or omitting it, as before) made
+              "read what they wrote" harder to reach than "go get a key". */}
           <ReadPanel publicWiki={publicWiki} publicWritings={publicWritings} />
           <BYOAIPanel hook={hook} />
           <WhatsBehind />
-          {/* request-access 整块仅在 owner 能发码(connected mail connector)时展示 —— 发不出就别让访客白填 */}
+          {/* The whole request-access block only shows when the owner can deliver codes
+              (a connected mail connector) — don't let visitors fill a form that can't send. */}
           {canDeliverCodes ? <RequestPanel handle={handle} hook={hook} /> : null}
-          {/* 这里以前挂着一个页面级的错误行。三扇门共读一份 state 时它是唯一的出口，
-              但它离每一扇门都很远，而且哪扇门出错都由它来喊 —— 现在每扇门自己说自己的话
-              （CodePanel 的 HintStatus / BYOAIError / RequestError），这一行就是多余的
-              第三份复读（F-G-6）。 */}
+          {/* A page-level error line used to live here. It was the only error surface when the
+              three doors shared one piece of state, but it sat far from each door and spoke for
+              whichever one failed — now each door reports for itself (CodePanel's HintStatus /
+              BYOAIError / RequestError), making this line a redundant third echo (F-G-6). */}
           <Footnote handle={handle} />
         </div>
       </main>
@@ -100,7 +102,7 @@ function Sep() {
   return <div className="mt-14 pt-12 border-t border-(--color-rule)" aria-hidden="true" />;
 }
 
-// muted —— footnote 里 "how this works" 那半句的 rich tag。
+// muted — rich-text tag for the "how this works" half of the footnote.
 const muted = (chunks: ReactNode) => <span className="text-(--color-muted)">{chunks}</span>;
 
 function Footnote({ handle }: { handle: string }) {

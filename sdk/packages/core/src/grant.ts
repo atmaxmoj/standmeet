@@ -1,22 +1,29 @@
-// grant.ts —— **访客手里已经有的那份授权**，以及自定义页面据此该给什么。
+// grant.ts —— **the grant the visitor already holds**, and what a custom
+// page should give them based on it.
 //
-// 一张码可以绑一个自定义页：扫出来看到的不是默认对话，而是那一页。既然如此，
-// 那一页上的 agent 就**必须是这张码的 agent** —— 同一份授权、同一个角色、同一套配额、
-// 同一份记账。做法不是让每个页面作者自己去 URL 上捞 `?code=`（捞得到也会忘，
-// 忘了就静默退回匿名，而屏幕上看不出差别），而是：颁发那一刻浏览器已经存下了这场 session，
-// 页面直接**接手**它。页面作者什么都不用做，也没有做错的余地。
+// A code can be bound to a custom page: scanning it lands on that page
+// instead of the default chat. Given that, the agent on that page **must be
+// this code's agent** —— the same grant, the same role, the same quota, the
+// same accounting. The approach isn't to make every page author go fish
+// `?code=` off the URL themselves (they'd get it, then forget, then silently
+// fall back to anonymous with no visible difference on screen) —— instead,
+// the moment the session was issued, the browser already stored it, and the
+// page **adopts** it directly. The page author does nothing, and there's no
+// room to get it wrong.
 //
-// 存在哪：`standmeet:visitor-session`，由实例自己的 gate 在颁发时写。同源，所以
-// `/p/<slug>` 读得到。这个键名是**协议的一部分**，两边必须是同一个字符串，
-// 所以它的定义在这里，app 那一侧引用它。
+// Where it lives: `standmeet:visitor-session`, written by the instance's own
+// gate at issue time. Same-origin, so `/p/<slug>` can read it. This key name
+// is **part of the protocol** —— both sides must use the same string, so it's
+// defined here and the app side references it.
 
 const SESSION_KEY = 'standmeet:visitor-session';
 
-/** VISITOR_SESSION_STORAGE_KEY —— 已颁发 session 的落点。写的那一侧也用这个常量。 */
+/** VISITOR_SESSION_STORAGE_KEY —— where an issued session lands. The writing side uses this same constant. */
 export const VISITOR_SESSION_STORAGE_KEY = SESSION_KEY;
 
-// AdoptedSession —— 接手一场已有 session 所需要的全部东西：往哪发（conversation）、
-// 凭什么发（token）、以及这一场的 system prompt 怎么拼。
+// AdoptedSession —— everything needed to adopt an existing session: where to
+// send (conversation), what to authenticate with (token), and how to compose
+// this session's system prompt.
 export interface AdoptedSession {
   readonly conversation_id: string;
   readonly session_token: string;
@@ -24,11 +31,13 @@ export interface AdoptedSession {
   readonly system_prompt_persona?: string;
 }
 
-// adoptStoredSession —— 浏览器里有没有一场已经颁发的 session。没有 / 读不动 / 形状不对
-// → null，调用方照常自己开一场。
+// adoptStoredSession —— is there an already-issued session in the browser?
+// Missing / unreadable / wrong shape → null, and the caller opens its own
+// session as usual.
 //
-// 不做校验之外的任何加工：这里多一层「顺手补个默认值」就等于替 owner 决定了准入
-// （[[invented-default-grants-privilege]]）。
+// Does nothing beyond validation: adding a "helpfully fill in a default"
+// layer here would mean deciding admission on the owner's behalf
+// ([[invented-default-grants-privilege]]).
 export function adoptStoredSession(): AdoptedSession | null {
   const raw = readRaw();
   if (raw === null) return null;
@@ -43,24 +52,29 @@ export function adoptStoredSession(): AdoptedSession | null {
   };
 }
 
-// hasVisitorGrant —— 这个读者是带着授权来的吗。**页面自己的设置只在没人带授权时才作数**：
-// 挂了码，准入全走码；这个判断是那条规则唯一的落点。
+// hasVisitorGrant —— did this reader arrive with a grant already? **The
+// page's own settings only count when nobody arrived with a grant**: with a
+// code attached, admission runs entirely through the code; this check is the
+// sole place that rule lands.
 export function hasVisitorGrant(): boolean {
   return adoptStoredSession() !== null;
 }
 
-// pageAllowsBYOAI —— 这一页允不允许读者自带 key。
+// pageAllowsBYOAI —— does this page allow the reader to bring their own key?
 //
-// 值来自**服务这一次请求时**注入 index.html 的那个 meta（见后端 custom_pages.go）：
-// 页面被撤下、设置被改，下一次请求就是新值 —— 页面里不存快照，也没有第二个端点要问。
+// The value comes from the meta tag injected into index.html **when this
+// request was served** (see backend custom_pages.go): if the page is taken
+// down or the setting changes, the next request gets the new value —— the
+// page keeps no snapshot, and there's no second endpoint to ask.
 export function pageAllowsBYOAI(): boolean {
   if (typeof document === 'undefined') return false;
   const el = document.querySelector('meta[name="standmeet-page-byoai"]');
   return el?.getAttribute('content') === 'true';
 }
 
-// byoaiOffered —— 这一页该不该给读者「自带 key」这条路。
-// 带着授权来的人不该被问 —— 他手里那份比自带 key 大，而且是 owner 给的。
+// byoaiOffered —— should this page offer the reader the "bring your own key"
+// path? Someone who arrived with a grant shouldn't be asked —— what they
+// hold outranks a bring-your-own key, and it came from the owner.
 export function byoaiOffered(): boolean {
   return !hasVisitorGrant() && pageAllowsBYOAI();
 }

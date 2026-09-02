@@ -1,34 +1,37 @@
-// content.go —— Wiki / Output / Writing 共用的"内容"sub-object: title + body
-// + tags。
+// content.go —— the "content" sub-object shared by Wiki / Output / Writing: title + body
+// + tags.
 //
-// LSP contract：
-//   - Title 跨 Genre 同语义 "human-readable label"，可为空字符串（Raw 没标题
-//     字段时跳过这层用空，但 Raw 不通过 Content sub-object，直接处理 body
-//     这部分 —— Raw 形态本来就没标题概念）。
-//   - Body 跨 Genre 同语义 "the document's primary text content"。Writing 内
-//     是 markdown 原文，Wiki/Output 是 plain text body。
-//   - Tags 永远返非 nil slice (defensive copy)。
+// LSP contract:
+//   - Title carries the same "human-readable label" semantics across Genres, and can be
+//     an empty string (Raw has no title field, so it skips this layer and uses an empty
+//     value — but Raw doesn't go through the Content sub-object at all; it handles body
+//     directly, since the Raw shape has no title concept to begin with).
+//   - Body carries the same "the document's primary text content" semantics across
+//     Genres. For Writing it's the raw markdown; for Wiki/Output it's the plain-text
+//     body.
+//   - Tags always returns a non-nil slice (defensive copy).
 
 package entity
 
 import "slices"
 
-// Content —— corpus document 的内容部分。
+// Content —— the content portion of a corpus document.
 type Content struct {
 	title, body string
 	tags        []string
 	cssClasses  []string
 }
 
-// ContentInit —— 构造参数。
+// ContentInit —— constructor params.
 type ContentInit struct {
 	Title, Body string
 	Tags        []string
 	CSSClasses  []string
 }
 
-// NewContent —— 构造 Content；Tags / CSSClasses defensive clone 进内部存储。
-// 保持内部永远非 nil 不变性。pointer 入参跟主 NewX 一致。
+// NewContent —— builds a Content; Tags / CSSClasses are defensively cloned into internal
+// storage, keeping the non-nil invariant intact. Pointer param, matching the other NewX
+// constructors.
 func NewContent(i *ContentInit) Content {
 	return Content{
 		title: i.Title, body: i.Body,
@@ -43,24 +46,26 @@ func cloneNonNil(s []string) []string {
 	return slices.Clone(s)
 }
 
-// Title —— 文档标题。Raw 用 "" 实现。
+// Title —— the document title. Raw implements this as "".
 func (c *Content) Title() string { return c.title }
 
-// Body —— 文档主体文本。Wiki / Output / Writing 各自的"原文"。
+// Body —— the document's main text. Each of Wiki / Output / Writing's own "source text".
 func (c *Content) Body() string { return c.body }
 
-// Tags —— 标签列表。永远返非 nil slice (空也返 []string{})。
-// defensive copy 避免 caller mutate 影响内部状态。
+// Tags —— the tag list. Always returns a non-nil slice (empty returns []string{} too).
+// Defensive copy, so callers mutating the result can't touch internal state.
 func (c *Content) Tags() []string {
 	return slices.Clone(c.tags)
 }
 
-// CSSClasses —— per-note cssclasses(呈现钩子)。永远返非 nil slice。defensive copy。
+// CSSClasses —— per-note cssclasses (a presentation hook). Always returns a non-nil
+// slice. Defensive copy.
 func (c *Content) CSSClasses() []string {
 	return slices.Clone(c.cssClasses)
 }
 
-// HasTag —— 是否含某 tag。caller filter 用，避免 range + 自己比较。
+// HasTag —— whether a given tag is present. For callers filtering, so they don't have to
+// range + compare by hand.
 func (c *Content) HasTag(tag string) bool {
 	return slices.Contains(c.tags, tag)
 }

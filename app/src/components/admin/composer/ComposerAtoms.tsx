@@ -1,5 +1,7 @@
-// ComposerAtoms —— ResumeComposer 那八个面板共用的小件：段、字段、空态说明、加一条。
-// 从 ComposerPanels 拆出来守 350 行上限；它们本来就是被每个面板复用的东西。
+// ComposerAtoms —— small pieces shared by ResumeComposer's eight panels: section,
+// field, empty-state note, add-one button.
+// Split out of ComposerPanels to keep it under the 350-line cap; these were
+// already reused by every panel.
 
 'use client';
 
@@ -33,12 +35,13 @@ export function Field({
   );
 }
 
-// EmptyHint —— 这一段为什么是空的，以及空着会怎样。
+// EmptyHint —— why this section is empty, and what leaving it empty does.
 //
-// 起草那一步只会从语料里**带日期的条目**填 experience / education，而 owner 的履历
-// 只以散文形态活着，于是它交回来的是空数组（F-E-22）。以前这里什么都不显示：owner
-// 看到一个空面板，没有任何东西告诉他这一跳归他，也没有地方可以做 —— 连「加一条」
-// 的按钮都不存在。
+// The draft step only fills experience / education from **dated entries** in the
+// corpus, and an owner's history often lives purely as prose, so it comes back as
+// an empty array (F-E-22). Previously this rendered nothing: the owner saw a blank
+// panel with no hint that this step was theirs to do, and no way to do it — not
+// even an "add one" button existed.
 export function EmptyHint(
   { show, what, testid }: { show: boolean; what: string; testid: string },
 ) {

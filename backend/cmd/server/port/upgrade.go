@@ -1,14 +1,17 @@
-// upgrade.go —— /admin/system 那个「升级」按钮背后的两件外部事:
+// upgrade.go — the two external things behind /admin/system's "upgrade" button:
 //
-//	问镜像库还有没有更新的版本   (ReleaseChannel)
-//	让编排这台实例的那一方重新部署 (Redeployer)
+//	ask the image registry whether there's a newer version   (ReleaseChannel)
+//	ask whatever orchestrates this instance to redeploy       (Redeployer)
 //
-// 两件都在组装根,不在域里:域看见的是两个窄接口,出站 HTTP 和 owner 填的那个 URL
-// 都不进 stats 域。
+// Both live in the composition root, not in the domain: the domain sees two narrow
+// interfaces, and neither the outbound HTTP nor the URL the owner fills in ever
+// enters the stats domain.
 //
-// **这台实例没有宿主控制权**:compose 里 backend 刻意不挂 docker.sock。所以升级这件事
-// 它自己做不了,只能请编排方做。权限由 owner 亲手给(STANDMEET_REDEPLOY_HOOK),
-// 产品不发明它,也不假设编排方是 Coolify 还是别的什么 —— 只认一个不透明的 URL。
+// **This instance has no host control**: compose deliberately doesn't mount
+// docker.sock into backend. So it can't upgrade itself — it can only ask the
+// orchestrator to. The permission is handed over by the owner personally
+// (STANDMEET_REDEPLOY_HOOK); the product doesn't invent this and doesn't assume the
+// orchestrator is Coolify or anything else — it only knows an opaque URL.
 
 package port
 
@@ -31,16 +34,19 @@ import (
 
 const upgradeHTTPBudget = 15 * time.Second
 
-// ReleaseChannel —— 从 OCI 镜像库读已发布的版本列表(匿名 pull token,公开镜像)。
+// ReleaseChannel — reads the list of released versions from an OCI image registry
+// (anonymous pull token, public image).
 type ReleaseChannel struct {
 	http *http.Client
 	base string
 	repo string
 }
 
-// NewReleaseChannel —— base 是镜像库的根("https://ghcr.io"),repo 形如
-// "atmaxmoj/standmeet-backend"。base 可配是为了 dev/e2e 指到本地那个 mock:
-// 一条**打公网才成立**的用例,在没网的机器上红得跟产品坏了一模一样。
+// NewReleaseChannel — base is the registry's root ("https://ghcr.io"), repo looks like
+// "atmaxmoj/standmeet-backend". base is configurable so dev/e2e can point it at the
+// local mock: a use case that **only holds when reaching the public internet** would
+// otherwise fail red, on an offline machine, in a way indistinguishable from the
+// product being broken.
 func NewReleaseChannel(base, repo string) *ReleaseChannel {
 	return &ReleaseChannel{
 		base: strings.TrimSuffix(base, "/"), repo: repo,
@@ -48,7 +54,7 @@ func NewReleaseChannel(base, repo string) *ReleaseChannel {
 	}
 }
 
-// LatestVersion —— 已发布里最新的那个**发行版本**。
+// LatestVersion — the newest **release version** among what's published.
 func (c *ReleaseChannel) LatestVersion(ctx context.Context) (string, error) {
 	token, err := c.pullToken(ctx)
 	if err != nil {
@@ -61,8 +67,9 @@ func (c *ReleaseChannel) LatestVersion(ctx context.Context) (string, error) {
 	return newest(tags), nil
 }
 
-// Newer —— candidate 比 current 新吗。非发行版本号(比如未盖章的 "dev")一律返 false:
-// 拿不准的时候不宣布有新版,而不是反过来。**但"比不了"要另说** —— 见 Released。
+// Newer — is candidate newer than current. A non-release version string (like the
+// unstamped "dev") always returns false: when unsure, don't announce a new version —
+// not the other way around. **But "can't compare" is a separate matter** — see Released.
 func (c *ReleaseChannel) Newer(current, candidate string) bool {
 	if !c.Released(current) || !c.Released(candidate) {
 		return false
@@ -70,13 +77,15 @@ func (c *ReleaseChannel) Newer(current, candidate string) bool {
 	return compare(current, candidate) < 0
 }
 
-// Released —— 这个字符串是个发行版本号吗。"比不了"和"已经最新"是两件事,
-// 而 Newer 一个 bool 说不清:未盖章的构建在它眼里跟最新版长得一模一样。
+// Released — is this string a release version number. "Can't compare" and "already
+// the newest" are two different things, and Newer's single bool can't tell them
+// apart: an unstamped build would look identical to the newest version to it.
 func (*ReleaseChannel) Released(version string) bool {
 	return releaseTag.MatchString(version)
 }
 
-// pullToken —— 公开镜像的匿名 pull token。没有它 /v2/ 一律 401。
+// pullToken — the anonymous pull token for a public image. Without it /v2/ always
+// returns 401.
 func (c *ReleaseChannel) pullToken(ctx context.Context) (string, error) {
 	q := url.Values{"scope": {"repository:" + c.repo + ":pull"}}.Encode()
 	res, err := c.okBody(ctx, c.base+"/token?"+q, "")
@@ -108,8 +117,10 @@ func (c *ReleaseChannel) tags(ctx context.Context, token string) ([]string, erro
 	return body.Tags, nil
 }
 
-// okBody —— 发请求 + 判状态,把还没读的 body 交出来。**解码不在这里**:调用方知道自己
-// 要什么形状,而"帮所有人解码"只能靠 any —— 那正是这套代码禁掉它的理由。
+// okBody — fires the request + checks status, hands back the unread body.
+// **Decoding doesn't happen here**: the caller knows what shape it wants, and
+// "decode for everyone" can only be done via any — which is exactly why this
+// codebase forbids it.
 func (c *ReleaseChannel) okBody(ctx context.Context, u, token string) (*http.Response, error) {
 	res, err := c.get(ctx, u, token)
 	if err != nil {
@@ -122,8 +133,10 @@ func (c *ReleaseChannel) okBody(ctx context.Context, u, token string) (*http.Res
 	return res, nil
 }
 
-// closeBody —— 读完之后关 body 的返回值动不了(连接池无论如何都会回收)。
-// 走一个丢弃口而不是 `_ =`,errcheck 认这个;将来要挂遥测也只有这一处要改。
+// closeBody — the return value of closing the body after reading can't be acted on
+// (the connection pool reclaims it regardless). Routed through a discard function
+// rather than `_ =` because errcheck accepts this; also the only place to touch
+// later if telemetry gets hooked in.
 func closeBody(c io.Closer) { discardClose(c.Close()) }
 
 func discardClose(_ error) {}
@@ -143,12 +156,14 @@ func (c *ReleaseChannel) get(ctx context.Context, u, token string) (*http.Respon
 	return res, nil
 }
 
-// releaseTag —— 只认 `vN.N.N`。库里还躺着 `latest` 和 `v0.1.1-dirty`
-// (`git describe --dirty` 漏出去的那一个) —— 把它们当成版本会让实例宣布一个
-// 根本不该存在的"新版"。
+// releaseTag — only recognizes `vN.N.N`. The registry also holds `latest` and
+// `v0.1.1-dirty` (the one leaked out by `git describe --dirty`) — treating those as
+// versions would make the instance announce a "new version" that shouldn't exist
+// at all.
 var releaseTag = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
 
-// newest —— 按数值比较,不按字典序:字典序下 v0.1.10 排在 v0.1.9 前面。
+// newest — compares numerically, not lexicographically: lexicographic order would
+// put v0.1.10 before v0.1.9.
 func newest(tags []string) string {
 	var rel []string
 	for _, t := range tags {
@@ -163,7 +178,8 @@ func newest(tags []string) string {
 	return rel[len(rel)-1]
 }
 
-// compare —— a 跟 b 谁旧。负 = a 旧。两边都已经过 releaseTag,所以三段都解析得出。
+// compare — which of a and b is older. Negative = a is older. Both have already
+// passed releaseTag, so all three segments parse cleanly.
 func compare(a, b string) int {
 	pa, pb := parts(a), parts(b)
 	for i := range pa {
@@ -174,8 +190,10 @@ func compare(a, b string) int {
 	return 0
 }
 
-// parts —— `v1.2.3` → [1 2 3]。调用方已经过 releaseTag,三段都是纯数字,
-// 所以解析不出来这件事在这里不可能发生;真发生了当 0 处理,不让一个坏 tag 拖垮整次比较。
+// parts — `v1.2.3` → [1 2 3]. The caller has already passed releaseTag, so all
+// three segments are pure digits, meaning a parse failure can't happen here; if it
+// somehow does, treat it as 0 rather than letting one bad tag wreck the whole
+// comparison.
 func parts(tag string) [3]int {
 	var out [3]int
 	for i, s := range strings.SplitN(strings.TrimPrefix(tag, "v"), ".", 3) {
@@ -192,30 +210,37 @@ func zeroOnErr(n int, err error) int {
 	return n
 }
 
-// ErrRedeployNotConfigured —— owner 没给过重新部署的路。这不是故障:大多数部署方式下
-// 升级本来就是在实例外面做的。面板要**照这句话如实说**,不许把按钮画成能按的样子。
+// ErrRedeployNotConfigured — the owner never gave a redeploy path. This isn't a
+// fault: under most deployment methods, upgrading is done outside the instance to
+// begin with. The panel must **say exactly that**, and must not draw the button as
+// if it were pressable.
 var ErrRedeployNotConfigured = errors.New("no redeploy hook configured for this instance")
 
-// Redeployer —— owner 填的那个重新部署 URL。空 = 这台实例没有这条路。
+// Redeployer — the redeploy URL the owner filled in. Empty = this instance has no
+// such path.
 type Redeployer struct {
 	http *http.Client
 	hook string
 }
 
-// NewRedeployer —— 重新部署这条请求**不重试**:编排方那边多半不是幂等的,重打一次
-// 可能就是重新部署两次。发一次,结果由浏览器去量。
+// NewRedeployer — the redeploy request **never retries**: the orchestrator side is
+// likely not idempotent, so firing it again could mean redeploying twice. Send it
+// once; the browser measures the outcome.
 func NewRedeployer(hook string) *Redeployer {
 	return &Redeployer{hook: hook, http: httpx.NewClient(httpx.Options{
 		Timeout: upgradeHTTPBudget, NoRetry: true,
 	})}
 }
 
-// Configured —— owner 给过这条路吗。面板据此决定按钮是「升级」还是「这是你该跑的命令」。
+// Configured — has the owner given this path. The panel decides based on this
+// whether the button reads "upgrade" or "here's the command you should run".
 func (r *Redeployer) Configured() bool { return r.hook != "" }
 
-// Trigger —— POST 那个 URL。**只报"打出去了"**:重新部署要几十秒,而且这个进程自己
-// 就在被替换的东西里 —— 它活不到能回答"升成功了没有"。真回执由浏览器去量
-// (打完轮询 /api/v1/instance 的 version),那一端在重启中活着。
+// Trigger — POSTs that URL. **Only reports "it was fired"**: a redeploy takes tens
+// of seconds, and this very process is among the things being replaced — it won't
+// survive long enough to answer "did the upgrade succeed". The real receipt is
+// measured by the browser (polling /api/v1/instance's version after firing), which
+// stays alive through the restart.
 func (r *Redeployer) Trigger(ctx context.Context) error {
 	if !r.Configured() {
 		return ErrRedeployNotConfigured

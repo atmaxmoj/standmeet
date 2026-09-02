@@ -1,14 +1,18 @@
-// inference_models.go —— POST /api/v1/inference/models —— 访客在 BYOAI 面板里选 provider +
-// 输 key + endpoint 之后调这个端点拉真实可用 model 列表（"Load models" 按钮）。
-// 无 auth：调用方必须自己知道 (endpoint, key) 才能调，server 只 proxy 上游 /v1/models，
-// 不持有任何风险态。
+// inference_models.go —— POST /api/v1/inference/models —— once the visitor picks a
+// provider and enters key + endpoint in the BYOAI panel, this endpoint is called to
+// pull the real, available model list (the "Load models" button). No auth: the caller
+// must already know (endpoint, key) to call it, the server only proxies the upstream
+// /v1/models, and holds no risk state of its own.
 //
-// **owner 那一面不走这条路**（F-R-11）：他的 key 存在库里、页面永远读不回来，所以那边是
-// `providers.list_models`（组装根开封，见 cmd/server/provider_models.go）。拉列表本身两边
-// 共用 `infra/providermodels`。
+// **The owner side never takes this path** (F-R-11): their key lives in the database
+// and the page never reads it back, so that side is `providers.list_models` (unwrapped
+// by the composition root, see cmd/server/provider_models.go). Pulling the list itself
+// is shared by both sides through `infra/providermodels`.
 //
-// 故意不给 default model fallback：列不出来就让 UI 提示用户自己输。Anthropic 没暴露
-// /v1/models → 400 + 错误信息，UI 翻成 "this provider doesn't expose models; type manually"。
+// Deliberately no default-model fallback: when the list can't be produced, the UI just
+// prompts the user to type their own. Anthropic doesn't expose /v1/models → 400 + an
+// error message, which the UI translates to "this provider doesn't expose models; type
+// manually".
 
 package public
 
@@ -39,8 +43,10 @@ func (h *Handlers) listInferenceModels() http.HandlerFunc {
 		}
 		models, err := providermodels.List(r.Context(), req.Provider, req.Endpoint, req.Key)
 		if err != nil {
-			// err 是 DisplayError（fetch 层自带回显信息）：Warn 记的是 Error()（含底层 cause，ops 看得到
-			// 真实上游 HTTP body / dial 错），Classify 只把 DisplayMessage 发给浏览器。
+			// err is a DisplayError (the fetch layer carries its own display message):
+			// Warn logs Error() (including the underlying cause, so ops can see the real
+			// upstream HTTP body / dial error), while Classify only sends DisplayMessage
+			// to the browser.
 			h.Log.Warn("list models", "provider", req.Provider, "err", err)
 			writeError(h.Log, w, apierr.Classify(err, nil))
 			return
@@ -64,8 +70,10 @@ func parseListModelsReq(
 	return &req, true
 }
 
-// missingListModelsField —— 这条路上 key 是**必须**的：它没有 auth，调用方就是钥匙的持有人。
-// owner 那条路反过来（他不带 key，服务端开封库里那把），所以两条路各有各的必填项。
+// missingListModelsField —— on this path key is **required**: it has no auth, and the
+// caller is the one holding the key. The owner path is the opposite (they never send a
+// key, the server unwraps the one in the database), so each path has its own required
+// fields.
 func missingListModelsField(req *listModelsRequest) string {
 	switch {
 	case req.Provider == "":

@@ -11,9 +11,11 @@ import { safeJson } from '@/lib/api/typed-json';
 
 const PeriodSchema = z.object({ start: z.string(), end: z.string().nullable().optional() });
 
-// ResumeContentSchema / toDraftModel 都是 **export** 的：列表那条路（缩略图）读的是同一份
-// `resume_content`，而它以前画的是一份写死的假简历（F-E-20）。两处各写一份映射的话，
-// 卡片和 composer 会慢慢画出两种东西 —— 而这里的"两种东西"正是那条缺陷的形状。
+// ResumeContentSchema / toDraftModel are both **exported**: the list path
+// (thumbnail) reads the same `resume_content`, which used to render a
+// hardcoded fake resume (F-E-20). If each site wrote its own mapping, the
+// card and the composer would drift into rendering two different things —
+// and that "two different things" is exactly the shape of that defect.
 export const ResumeContentSchema = z.object({
   identity: z.object({
     name: z.string(), email: z.string(), phone: z.string(),

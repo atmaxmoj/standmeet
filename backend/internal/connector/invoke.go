@@ -1,10 +1,14 @@
-// invoke.go —— 连接器 reach-back 的 verb 派发器。#135 constrained-reachback：沙箱能力
-// 消费连接器的**唯一**形状 —— `Invoke(category, verb, argsJSON)`。容器只按**名**用:host
-// 按 category 解析 owner 的 active 连接器，按 verb 分派到品类契约的 typed 方法，回原始 JSON。
-// 消费者永远拿不到 typed proxy（不像旧的 BookerDeps.Proxy 那样把接口塞进 deps）。
+// invoke.go — the verb dispatcher for connector reach-back. #135 constrained-reachback: the
+// **only** shape a sandboxed capability uses to consume a connector — `Invoke(category, verb,
+// argsJSON)`. The container only uses it **by name**: the host resolves the owner's active
+// connector by category, dispatches by verb to the category contract's typed method, and
+// returns raw JSON. Consumers never get a typed proxy (unlike the old BookerDeps.Proxy, which
+// stuffed the interface into deps).
 //
-// typed CalendarProxy/MailProxy 在这里退成连接器层内部细节:args 解成契约的 typed 请求、
-// 结果编回 JSON，跨 socket 的两端都只见 JSON。未知 category/verb → 错（caller 折成 tool 错）。
+// The typed CalendarProxy/MailProxy is demoted here to an internal connector-layer detail: args
+// are decoded into the contract's typed request, the result is encoded back to JSON, and both
+// sides of the socket only ever see JSON. An unknown category/verb → error (the caller folds
+// this into a tool error).
 
 package connector
 
@@ -19,7 +23,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
-// calVerb / mailVerb —— 单个 verb 的分派器（map 派发，避免大 switch 抬圈复杂度）。
+// calVerb / mailVerb — dispatcher for a single verb (map dispatch, avoids the cyclomatic
+// complexity of a big switch).
 type calVerb func(
 	ctx context.Context, cal contract.CalendarProxy, ownerID string, args json.RawMessage,
 ) (json.RawMessage, error)
@@ -28,7 +33,8 @@ type mailVerb func(
 	ctx context.Context, m contract.MailProxy, ownerID string, args json.RawMessage,
 ) (json.RawMessage, error)
 
-// 品类名在**连接器轴内部**各出现一次。轴外(内核 / 路由 / 组装根)只传字符串。
+// Category names each appear exactly once **inside the connector axis**. Outside the axis
+// (kernel / routing / composition root) they're passed only as strings.
 const (
 	categoryCalendar = "calendar"
 	categoryMail     = "mail"
@@ -46,26 +52,31 @@ var mailVerbs = map[string]mailVerb{
 	"send":      mailSend,
 }
 
-// Invoke —— 按 category 解析 active 连接器、按 verb 分派、回原始 JSON。这是 reach-back
-// gateway 的 `connector.invoke` op 的后端。
+// Invoke — resolve the active connector by category, dispatch by verb, return raw JSON. This is
+// the backend for the reach-back gateway's `connector.invoke` op.
 func (s *Slots) Invoke(
 	ctx context.Context, ownerID, category, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {
 	out, err := s.dispatchCategory(ctx, ownerID, category, verb, args)
 	if err != nil {
-		// 失败**带着类别**交出去。沙箱那一侧断了网，只能凭这个 code 分岔；没有它，
-		// 「owner 没配过」和「配了但这一刻拨不通」到了访客屏幕上是同一句话，
-		// 而其中一句是假的（F-C-42）。分类归这里：哨兵是这个域的，
-		// 路由那层薄壳按设计不认识它们。
+		// The failure is handed out **with its category attached**. The sandbox side of the
+		// wire is cut off and can only branch on this code; without it, "owner never
+		// configured this" and "configured but unreachable right now" become the same
+		// sentence on the visitor's screen, and one of the two would be a lie (F-C-42). The
+		// classification belongs here: the sentinels belong to this domain, and the thin
+		// routing shell by design doesn't know them.
 		return nil, &hostop.FaultError{Code: faultOf(err), Err: err}
 	}
 	return out, nil
 }
 
-// verbCanPerform —— **跨品类**的那一问：「这个 owner 的授权，做不做得了这一个 operation」。
+// verbCanPerform — the **cross-category** question: "can this owner's grant perform this one
+// operation".
 //
-// 为什么不放进 calendarVerbs / mailVerbs：这句话跟品类无关，答它的也不是品类契约而是连接行上
-// 的授权（`Slots.CanPerform`）。抄进每个品类一份，第二个品类迟早忘了抄（F-B-10）。
+// Why it isn't put into calendarVerbs / mailVerbs: this question has nothing to do with
+// category, and it's answered not by a category contract but by the grant on the connection row
+// (`Slots.CanPerform`). Copying it into each category means the second category eventually
+// forgets to copy it (F-B-10).
 const verbCanPerform = "can_perform"
 
 func (s *Slots) dispatchCategory(
@@ -84,8 +95,9 @@ func (s *Slots) dispatchCategory(
 	}
 }
 
-// faultOf —— 哪一类。**只分两类**：「这条路没搭起来」和「搭了但这一刻做不到」——
-// 因为下游据此说的那两句话就只有两种。想说得更细属于句子的事，不属于类别。
+// faultOf — which class. **Only two classes**: "this path was never wired up" and "it's wired
+// but can't do it right now" — because the downstream message built off this only ever has two
+// forms. Saying it more precisely is a matter for the sentence, not the class.
 func faultOf(err error) string {
 	if errors.Is(err, consumer.ErrMailNotConfigured) ||
 		errors.Is(err, contract.ErrCalendarNotConnected) {
@@ -94,7 +106,8 @@ func faultOf(err error) string {
 	return hostop.FaultUnavailable
 }
 
-// InvokeByIDInput —— 按 id 直打一个连接器要的东西(打包:参数超过 argument-limit)。
+// InvokeByIDInput — everything needed to call a connector directly by id (packed because the
+// argument count exceeds the argument-limit).
 type InvokeByIDInput struct {
 	OwnerID  string
 	ID       string
@@ -103,12 +116,15 @@ type InvokeByIDInput struct {
 	Args     json.RawMessage
 }
 
-// InvokeByID —— 按**连接器 id**跑一次品类动词(不经 active 槽)。
+// InvokeByID — run a category verb by **connector id** (bypassing the active slot).
 //
-// 跟 Invoke 的差别只有"打谁":Invoke 打品类的 active 槽,这条直接打指定的那一个。
-// diag 要的是后者 —— owner 刚传上来一份绑定,要验它本身对不对,不该被"哪个是 active"干扰。
+// The only difference from Invoke is "who it targets": Invoke targets the category's active
+// slot, this targets the specified one directly. diag needs the latter — the owner just
+// submitted a binding and wants it verified on its own merits, without interference from
+// "which one is active".
 //
-// 出参跟 Invoke 完全一样(那份归一 JSON),所以调用方一个品类类型都不必认识。
+// The output shape is identical to Invoke's (that same unified JSON), so the caller doesn't
+// need to know a single category type.
 func (s *Slots) InvokeByID(
 	ctx context.Context, in *InvokeByIDInput,
 ) (json.RawMessage, error) {
@@ -162,12 +178,15 @@ func dispatchMail(
 	return fn(ctx, m, ownerID, args)
 }
 
-// canPerformVerb —— `{"operation":"events.insert"}` → `{"can":true|false}`。
+// canPerformVerb — `{"operation":"events.insert"}` → `{"can":true|false}`.
 //
-// 沙箱侧要它做什么：一个能力可能提供**读**和**写**两种动作，而 owner 的授权可能只覆盖读。
-// 那时写的那把工具已经不在工具表里（F-B-8），但**卡片**还在（卡挂在读工具上），上面每颗
-// chip 仍然写着「点一下就订」—— 一个做不到的动作的入口。有了这一问，卡自己就能收起那个
-// 入口，跟已约卡按 `can_email` 决定要不要渲确认信 widget 是同一个做法。
+// What the sandbox side needs this for: a capability may offer both **read** and **write**
+// actions, while the owner's grant may cover only read. In that case the write tool is already
+// gone from the tool table (F-B-8), but the **card** is still there (it's attached to the read
+// tool), and every chip on it still says "tap to book" — an entry point into an action that
+// can't be performed. With this question, the card can retract that entry point itself, the
+// same way a booked card decides whether to render the confirmation-email widget based on
+// `can_email`.
 func (s *Slots) canPerformVerb(
 	ctx context.Context, ownerID, category string, args json.RawMessage,
 ) (json.RawMessage, error) {
@@ -235,7 +254,8 @@ func calInsertEvent(
 	return b, nil
 }
 
-// delEventArgs —— delete_event 的入参形状（品类契约无 typed 请求，就这两个串）。
+// delEventArgs — the input shape for delete_event (the category contract has no typed request
+// for it, just these two strings).
 type delEventArgs struct {
 	EventID       string `json:"event_id"`
 	AttendeeEmail string `json:"attendee_email"`
@@ -277,12 +297,14 @@ func mailSend(
 	if err != nil {
 		return nil, fmt.Errorf("mail send: %w", err)
 	}
-	// 回执带上 provider 给的 id（F-C-55）。空 = 这条路（SMTP）给不出，不是失败。
+	// The receipt carries the id the provider gave (F-C-55). Empty = this path (SMTP) can't
+	// produce one, not a failure.
 	return marshalSendReceipt(rcpt.ProviderID)
 }
 
-// marshalSendReceipt —— `{"ok":true,"provider_id":"…"}`。跟隔壁那几个 marshal helper 一样
-// 收具体类型、就地包错（wrapcheck 要外部包的错在本包被包一次）。
+// marshalSendReceipt — `{"ok":true,"provider_id":"…"}`. Like its neighboring marshal helpers,
+// takes a concrete type and wraps errors in place (wrapcheck requires an external package's
+// error to be wrapped once within this package).
 func marshalSendReceipt(providerID string) (json.RawMessage, error) {
 	b, err := json.Marshal(struct {
 		ProviderID string `json:"provider_id,omitempty"`
@@ -294,7 +316,7 @@ func marshalSendReceipt(providerID string) (json.RawMessage, error) {
 	return b, nil
 }
 
-// ─── marshal helpers（都收具体类型，不碰 forbidigo 禁的 any）───
+// ─── marshal helpers (all take concrete types, never touch the forbidigo-banned any) ───
 
 func marshalBool(key string, v bool) (json.RawMessage, error) {
 	b, err := json.Marshal(map[string]bool{key: v})

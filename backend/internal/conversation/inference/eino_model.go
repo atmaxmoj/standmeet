@@ -1,23 +1,21 @@
-// Package inference —— LLM 调用层。统一走 cloudwego/eino 的
-// model.ToolCallingChatModel 抽象；provider (anthropic / openai-
-// compat / gemini / ollama) 由 Cred.Provider 选 adapter。两个调用
-// 形态：
+// Package inference —— the LLM call layer. Uniformly goes through cloudwego/eino's
+// model.ToolCallingChatModel abstraction; the provider (anthropic / openai-compat / gemini /
+// ollama) picks the adapter via Cred.Provider. Two call shapes:
 //
-//   - Stream (proxy.go)   —— 流式 SSE，给浏览器 pi-agent-core 跑
-//     chat agent loop
-//   - Generate (generate.go) —— 一次性返 text，给 visitor_summary
-//     / 未来 capability 复用
+//   - Stream (proxy.go)   —— streaming SSE, drives the browser's pi-agent-core chat agent
+//     loop
+//   - Generate (generate.go) —— returns text in one shot, reused by visitor_summary / future
+//     capabilities
 //
-// Cred + Resolver 在 resolver.go；errors.go 是 sentinel + 状态分类。
+// Cred + Resolver live in resolver.go; errors.go holds the sentinels + status classification.
 //
-// eino_model.go —— 按 owner / visitor BYOAI cred 构造一个
-// eino model.ToolCallingChatModel。背后选 provider-specific adapter
-// (claude / openai / openai-compat via baseURL override)，对调用方
-// 暴露统一 ChatModel 接口。
+// eino_model.go —— constructs one eino model.ToolCallingChatModel from an owner / visitor
+// BYOAI cred. Selects the provider-specific adapter underneath (claude / openai / openai-compat
+// via baseURL override), exposing a uniform ChatModel interface to callers.
 //
-// 不缓存 model 实例 —— 每个 chat 请求构造一次，构造代价低 (只是
-// 装 HTTP client + 配置)，省去 cache 失效跟 owner 改 cred 后清空
-// 的复杂度。
+// Model instances aren't cached — one is constructed per chat request; construction is cheap
+// (just wiring up an HTTP client + config), which avoids the complexity of cache invalidation
+// and clearing it out after the owner changes their cred.
 package inference
 
 import (
@@ -33,41 +31,45 @@ import (
 )
 
 const (
-	// defaultMaxTokens —— 单次回复的输出上限。1024 会把几百词的实质回答从句子
-	// 中间截断（eval 面试里每条答案都被切）。4096 给完整 chat 回答足够余量，
-	// 又不至于让单 turn 成本失控。
+	// defaultMaxTokens —— the output cap for one reply. 1024 would cut a substantial
+	// several-hundred-word answer off mid-sentence (every answer got truncated in eval
+	// interviews). 4096 gives a complete chat reply enough headroom, without letting a single
+	// turn's cost run away.
 	defaultMaxTokens = 4096
 	providerOpenAI   = "openai"
 	providerAnthrop  = "anthropic"
 )
 
-// BoundaryMaxTokens —— 边界那一次合成（forceFinalAnswer）自己的输出预算。
+// BoundaryMaxTokens —— the boundary synthesis's (forceFinalAnswer's) own output budget.
 //
-// **为什么它不能用默认那个 4096**：prod 上驱 F-A-40 的 ⑤ 时量到的 —— 边界确实点着了
-// （`forcing synthesis from evidence evidence_items:24`），40 秒之后回来的却是**空串、
-// 没有报错**，于是那一轮照旧 `answer_chars:0`。owner 这台用的是 reasoning 模型
-// （deepseek-v4-pro），思考 token 跟正文共用同一个输出预算：让它把二十多条证据合成成
-// 一段话，4096 全花在思考上，content 一个字都没剩。
+// **Why it can't use the default 4096**: measured while driving F-A-40's item 5 in prod — the
+// boundary did fire (`forcing synthesis from evidence evidence_items:24`), but 40 seconds later
+// came back **an empty string, no error**, so that turn still ended up `answer_chars:0`. The
+// owner's setup uses a reasoning model (deepseek-v4-pro), whose thinking tokens share the same
+// output budget as the body text: asking it to synthesize twenty-odd evidence items into one
+// passage burned all 4096 on thinking, leaving not a single character for content.
 //
-// 这正是这条缺陷自己的道理**又发生了一遍**：任何预算都会被耗尽，所以救场的那一步
-// 不能跟它要救的那一步共用同一个额度。边界给自己一份更大的。
+// This is literally this very defect's own lesson **happening again**: any budget can be
+// exhausted, so the rescue step must not share its budget with the step it's trying to rescue.
+// The boundary gets its own, larger allowance.
 const BoundaryMaxTokens = 12288
 
-// BuildChatModel —— 按 cred 选具体 adapter。anthropic 走自家
-// Messages API；其它 provider (deepseek / kimi / groq / together /
-// openrouter / siliconflow / custom self-host) 全走 openai-compat
-// /v1/chat/completions API，BaseURL 由 cred.Endpoint 决定。
+// BuildChatModel —— picks the specific adapter based on cred. anthropic goes through its own
+// Messages API; every other provider (deepseek / kimi / groq / together / openrouter /
+// siliconflow / custom self-host) goes through the openai-compat /v1/chat/completions API,
+// with BaseURL decided by cred.Endpoint.
 //
-//nolint:ireturn // dispatch by provider; caller 持 model.ToolCallingChatModel interface
+//nolint:ireturn // dispatch by provider; caller holds the model.ToolCallingChatModel interface
 func BuildChatModel(ctx context.Context, cred *Cred) (model.ToolCallingChatModel, error) {
 	return BuildChatModelBudgeted(ctx, cred, 0)
 }
 
-// BuildChatModelBudgeted —— 同上，但调用方可以指定这一次的输出预算（0 = 用默认）。
-// 只有边界那次合成需要它（见 BoundaryMaxTokens）：其余每一处都该用同一个默认值，
-// 不然「一次回答能有多长」就变成散落各处的常数了。
+// BuildChatModelBudgeted —— same as above, but the caller can specify this call's output
+// budget (0 = use the default). Only the boundary synthesis needs this (see
+// BoundaryMaxTokens): everywhere else should use the same default value, otherwise "how long
+// can one answer be" turns into constants scattered all over the place.
 //
-//nolint:ireturn // dispatch by provider; caller 持 model.ToolCallingChatModel interface
+//nolint:ireturn // dispatch by provider; caller holds the model.ToolCallingChatModel interface
 func BuildChatModelBudgeted(
 	ctx context.Context, cred *Cred, maxTokens int,
 ) (model.ToolCallingChatModel, error) {
@@ -87,7 +89,8 @@ func BuildChatModelBudgeted(
 	return buildOpenAICompatModel(ctx, cred, tok)
 }
 
-// outputBudget —— 调用方给了就用它，没给就用默认。「一次回答能有多长」只在这里定一次。
+// outputBudget —— uses what the caller gave if it gave something, the default otherwise.
+// "How long can one answer be" is defined exactly once, right here.
 func outputBudget(requested int) int {
 	if requested > 0 {
 		return requested
@@ -146,9 +149,10 @@ func buildOpenAICompatModel(
 		APIKey:    cred.Key,
 		Model:     cred.Model,
 		MaxTokens: &maxTok,
-		// 重试 transport:transient(连接错 / 429 / 5xx)在响应头到达前自动重试,
-		// 不重试 ctx 取消、不重读已 stream 的 token。见 http_retry.go。untrusted(BYOAI)
-		// endpoint → 装 SSRF 守卫 dialer(DNS-rebind 也拦)。
+		// The retry transport: automatically retries a transient failure (connection error /
+		// 429 / 5xx) before response headers arrive, never retries a ctx cancellation or
+		// already-streamed tokens. See http_retry.go. An untrusted (BYOAI) endpoint gets an
+		// SSRF-guarding dialer wired in (blocks DNS-rebind too).
 		HTTPClient: retryHTTPClient(cred.Untrusted),
 	}
 	if cred.Endpoint != "" {

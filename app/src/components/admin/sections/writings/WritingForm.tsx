@@ -1,10 +1,10 @@
-// WritingForm —— admin writings 共用表单。Create / Edit 两个调用方共用 fields
-// state + atoms；不同点：
-//   - Create: slug 可编辑 + 有 publish checkbox + onSubmit 走 createWriting
-//   - Edit:   slug readonly + 无 publish 切换 (走单独 publish endpoint) +
-//             onSubmit 走 updateWriting
+// WritingForm —— the shared form for admin writings. Create / Edit callers
+// share the fields state + atoms; the differences:
+//   - Create: slug is editable + has a publish checkbox + onSubmit goes through createWriting
+//   - Edit:   slug is readonly + no publish toggle (uses a separate publish endpoint) +
+//             onSubmit goes through updateWriting
 //
-// initial 是预填值（edit 必传，create 不传），由调用方组成。
+// initial is the prefill value (required for edit, omitted for create), built by the caller.
 
 'use client';
 
@@ -34,14 +34,14 @@ export interface WritingFormValues {
   publish: boolean;
 }
 
-// ParentOption —— 「设父」下拉的一项(别的 writing)。
+// ParentOption —— one entry in the "set parent" dropdown (another writing).
 export interface ParentOption {
   id: string;
   title: string;
 }
 
-// WritingFormSubmit —— values + 待上传 files。caller 在 WritingsSection 里
-// 把这个转 WritingSaveBundle 进 createWriting / updateWriting。
+// WritingFormSubmit —— values + files pending upload. The caller in
+// WritingsSection converts this into a WritingSaveBundle for createWriting / updateWriting.
 export interface WritingFormSubmit {
   values: WritingFormValues;
   files: PendingFile[];
@@ -61,10 +61,11 @@ interface Props {
   showPublishToggle: boolean;
   submitLabel: string;
   submitTestId: string;
-  // parentOptions —— 「设父」下拉的候选(别的 writing;edit 时已排除自己)。
+  // parentOptions —— candidates for the "set parent" dropdown (other writings;
+  // self already excluded on edit).
   parentOptions: ParentOption[];
-  // assetURLs —— editor body 内 standmeet-asset:<id> 引用的预解析 URL map。
-  // create 时空（{}），edit 时由 caller 从 AdminWritingView.asset_urls 传。
+  // assetURLs —— pre-resolved URL map for standmeet-asset:<id> refs inside the editor body.
+  // Empty ({}) on create; passed by the caller from AdminWritingView.asset_urls on edit.
   assetURLs?: Record<string, string>;
   onClose: () => void;
   onSubmit: (s: WritingFormSubmit) => Promise<void>;
@@ -118,7 +119,7 @@ function WritingFormBody({
         <WritingField label="title" value={values.title}
           onChange={(v) => set('title', v)} placeholder="Writing title" />
       </WritingFieldRow>
-      {/* excerpt 一处写，卡片 / og / cover 副标题共用 */}
+      {/* excerpt is written once, shared by the card / og / cover subline */}
       <WritingField label="excerpt" value={values.excerpt}
         onChange={(v) => set('excerpt', v)} placeholder="One-line summary (also the cover subline)" />
       <WritingField label="cover headline" value={values.coverHeadline}
@@ -166,7 +167,8 @@ function isValid(v: WritingFormValues): boolean {
   return v.slug !== '' && v.title !== '';
 }
 
-// 提交：成功 → toast + 关；失败 → report + **保持表单开着**（owner 可能有大段草稿，别丢）。
+// Submit: success → toast + close; failure → report + **keep the form open**
+// (the owner may have a long draft in it — don't lose it).
 async function doSubmit(
   values: WritingFormValues, files: PendingFile[],
   props: Props, toast: ReturnType<typeof useToast>, report: Reporter,

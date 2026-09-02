@@ -1,4 +1,5 @@
-// source.go —— 发现来源：从装机配置（文件 / 字节）解析出 Manifest 列表。
+// source.go —— discovery source: parses a Manifest list out of the install
+// config (file / bytes).
 
 package mcpplugin
 
@@ -8,13 +9,14 @@ import (
 	"os"
 )
 
-// Result —— 一次解析的产出：通过校验的 Manifests + 被跳过的 Skipped（带 reason）。
+// Result —— the output of one parse: Manifests that passed validation +
+// Skipped ones (with reason).
 type Result struct {
 	Manifests []Manifest
 	Skipped   []Skip
 }
 
-// Skip —— 一条被跳过的 manifest 及原因（caller 负责 log）。
+// Skip —— one skipped manifest and why (the caller is responsible for logging it).
 type Skip struct {
 	ID     string
 	Reason string
@@ -47,15 +49,18 @@ type rawTransport struct {
 
 type rawSandbox struct {
 	PluginDir string `json:"plugin_dir"`
-	// HostOps —— 第三方插件也按名字点单;宿主只发词表里有的,没有的名字启动就炸。
-	// (原来这里是 host_sockets:一串文件路径。声明成文件,机制就答不出"这文件上有什么"。)
+	// HostOps —— third-party plugins also order by name; the host only dispatches
+	// names in the word list, and starting with a name not in it fails loudly.
+	// (This used to be host_sockets: a list of file paths. Declared as files, the
+	// mechanism couldn't answer "what sits on this file".)
 	HostOps   []string `json:"host_ops"`
 	AllowNet  bool     `json:"allow_net"`
 	Workspace bool     `json:"workspace"`
 }
 
-// Load —— 从配置文件路径读 + 解析。空路径 / 文件不存在 → 空 Result（部署默认无
-// 插件，合法）；读失败（权限等）→ error。
+// Load —— reads + parses from a config file path. Empty path / file doesn't
+// exist → empty Result (a deployment with no plugins by default is valid); a read
+// failure (permissions, etc.) → error.
 func Load(path string) (Result, error) {
 	if path == "" {
 		return Result{}, nil
@@ -70,7 +75,8 @@ func Load(path string) (Result, error) {
 	return ParseConfig(data)
 }
 
-// ParseConfig —— 解析配置字节。整份解析不了 → error；单条不过 → 进 Skipped。
+// ParseConfig —— parses config bytes. The whole thing fails to parse → error;
+// a single entry failing validation → goes into Skipped.
 func ParseConfig(data []byte) (Result, error) {
 	var doc configDoc
 	if err := json.Unmarshal(data, &doc); err != nil {
@@ -139,8 +145,8 @@ func transportReason(t *rawTransport) string {
 	}
 }
 
-// sandboxStdioReason —— sandbox_stdio 要有容器内启动 command + sandbox.plugin_dir
-// （代码目录）。
+// sandboxStdioReason —— sandbox_stdio requires an in-container start command +
+// sandbox.plugin_dir (the code directory).
 func sandboxStdioReason(t *rawTransport) string {
 	if t.Command == "" {
 		return "sandbox_stdio transport missing command"
@@ -151,8 +157,8 @@ func sandboxStdioReason(t *rawTransport) string {
 	return ""
 }
 
-// normalizeACL —— 空 / 未知 → 默认 role_granted（最严，跟 echoer 同）。只有显式
-// "always" 才放开成无条件暴露。
+// normalizeACL —— empty / unknown → defaults to role_granted (the strictest,
+// same as echoer). Only an explicit "always" relaxes it to unconditional exposure.
 func normalizeACL(acl string) string {
 	if acl == ACLAlways {
 		return ACLAlways

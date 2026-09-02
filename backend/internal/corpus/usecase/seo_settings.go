@@ -1,9 +1,11 @@
-// seo_settings.go —— 改 owner 全站的对外设置这件事本身。
+// seo_settings.go — the act of changing the owner's site-wide outward-facing settings.
 //
-// 底下那条是 upsert,**整行覆写**。于是"调用方没提到的字段"必须先读回当前值填上,
-// 否则少发一个字段就等于把它清空。这条规则以前不在域里:面板每次发全量所以看不出来,
-// MCP 那条路径不发 site_title —— owner 从 Claude Code 改一下 robots,自己写的站点标题
-// 就没了。规则住在域里,哪个入口来都一样。
+// The op below is an upsert that **overwrites the whole row**. So any field the caller
+// didn't mention must be read back from the current value first — otherwise omitting a
+// field is the same as clearing it. This rule used to live outside the domain: the admin
+// panel always sends the full set so the gap never showed, but the MCP path doesn't send
+// site_title — the owner tweaks robots from Claude Code and their own hand-written site
+// title disappears. The rule now lives in the domain, so every entry point gets it alike.
 
 package usecase
 
@@ -14,13 +16,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 )
 
-// SEOSettingsStore —— 改设置需要的最小口(corpus.SEORepo 满足)。
+// SEOSettingsStore — the minimal port needed to change settings (corpus.SEORepo satisfies it).
 type SEOSettingsStore interface {
 	GetSettings(ctx context.Context, ownerID string) (entity.SEOSettings, error)
 	UpsertSettings(ctx context.Context, in *entity.SEOSettings) (entity.SEOSettings, error)
 }
 
-// SEOSettingsPatch —— 每个字段三态:没提到 = 保持原值,显式空 = 清空。
+// SEOSettingsPatch — each field is tri-state: unmentioned = keep current value, explicit
+// empty = clear.
 type SEOSettingsPatch struct {
 	OwnerID       string
 	SiteTitle     OptionalText
@@ -29,19 +32,19 @@ type SEOSettingsPatch struct {
 	IndexRobots   OptionalFlag
 }
 
-// OptionalText / OptionalFlag / OptionalTextList —— 三态字段。Set=false 表示没提到。
+// OptionalText / OptionalFlag / OptionalTextList — tri-state fields. Set=false means unmentioned.
 type OptionalText struct {
 	Value string
 	Set   bool
 }
 
-// OptionalFlag —— 三态开关。
+// OptionalFlag — a tri-state toggle.
 type OptionalFlag struct {
 	Value bool
 	Set   bool
 }
 
-// OptionalTextList —— 三态列表。
+// OptionalTextList — a tri-state list.
 type OptionalTextList struct {
 	Value []string
 	Set   bool
@@ -68,7 +71,7 @@ func (o OptionalTextList) or(current []string) []string {
 	return current
 }
 
-// PatchSEOSettings —— 合并当前值后整行写回。
+// PatchSEOSettings — merges onto the current value, then writes the whole row back.
 func PatchSEOSettings(
 	ctx context.Context, store SEOSettingsStore, in *SEOSettingsPatch,
 ) (entity.SEOSettings, error) {

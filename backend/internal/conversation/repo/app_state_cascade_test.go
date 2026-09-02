@@ -1,13 +1,15 @@
-// app_state_cascade_test.go —— mcp_app_state 删除级联是 schema 不变量。
+// app_state_cascade_test.go — mcp_app_state delete cascade is a schema invariant.
 //
-// MCP App 状态挂在 member（session 背后的耐久身份）上。两条边界：
-//   - session（Redis token）过期/登出 **不** 删 state —— state 要跨刷新存活，这是它存在
-//     的理由；下次进来同 member 还读得到。
-//   - member 被删（code 清理 / owner 注销 / code 撤销 → code_members 级联）→ 其全部 app
-//     state 必须跟着没：不留孤儿、不把状态泄漏给复用同一行的将来身份。
+// MCP App state hangs off member (the durable identity behind a session). Two boundaries:
+//   - session (Redis token) expiry/logout does **not** delete state — state must survive
+//     across refreshes, that's the reason it exists; the same member reads it back next visit.
+//   - member deleted (code cleanup / owner deregistration / code revocation → code_members
+//     cascade) → all its app state must disappear too: no orphans, and no leaking state to
+//     whatever future identity reuses that same row.
 //
-// 后端无 DB 测试 harness（UT 全 pure），故这里把级联当 schema 文本不变量断言：表必须对
-// code_members 与 owners 都声明 ON DELETE CASCADE。真删除行为由 postgres FK 保证。
+// The backend has no DB test harness (UTs are all pure), so here the cascade is asserted
+// as a schema-text invariant: the table must declare ON DELETE CASCADE for both
+// code_members and owners. The real delete behavior is guaranteed by the postgres FK.
 
 package repo_test
 

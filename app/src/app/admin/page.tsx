@@ -1,5 +1,5 @@
-// /admin —— 根落地跳 dashboard 总览(returning owner 想先看全局状态,
-// 不是直接掉进 public-face 编辑器)。
+// /admin — root landing redirects to the dashboard overview (a returning owner
+// wants to see global status first, not land straight in the public-face editor).
 
 import { redirect } from 'next/navigation';
 

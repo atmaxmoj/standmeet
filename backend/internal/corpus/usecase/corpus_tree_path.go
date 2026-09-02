@@ -1,10 +1,11 @@
-// corpus_tree_path.go —— document 的地址 = 它在 parent 树里的位置算出来的 path,
-// 每段是 slug 化的 title。一个概念、一个词:path。
+// corpus_tree_path.go —— a document's address = the path computed from its position in the
+// parent tree, each segment being a slugified title. One concept, one word: path.
 //
-// 不存进文档、不靠可空的列:corpus 是 filesystem,文件路径来自它在哪个目录下。
-// root(无 parent / parent 不在集合内)= 自己一段;有 parent = parent路径 + '/' +
-// 自己段。永远非空、永远可寻址,不存在孤儿文档。retriever(visitor chat)和
-// citation 反查(dialog)都用这套算 path,口径一致。
+// Not stored on the document, not backed by a nullable column: corpus is a filesystem, and a
+// file's path comes from which directory it's in. root (no parent / parent not in the set) =
+// itself as a single segment; has parent = parent's path + '/' + its own segment. Always
+// non-empty, always addressable, no orphan documents exist. The retriever (visitor chat) and
+// citation lookup (dialog) both compute path this same way, so the convention stays consistent.
 
 package usecase
 
@@ -18,14 +19,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/textcut"
 )
 
-// TreeMaxDepth —— 防环路 / 异常深树。
+// TreeMaxDepth —— guards against cycles / abnormally deep trees.
 const TreeMaxDepth = 32
 
-// pathSegmentMaxLen —— 单段截断,够表意又不失控(单位:字符)。
+// pathSegmentMaxLen —— per-segment truncation length, expressive enough without going
+// unbounded (unit: characters).
 const pathSegmentMaxLen = 80
 
-// pathNode —— 算 path 只需要 id / title / parent。Wiki 和 Output
-// 同构两棵树,各自折成 pathNode 后共用一套计算。
+// pathNode —— computing path only needs id / title / parent. Wiki and Output are two
+// isomorphic trees; each folds down to pathNode and shares one computation.
 type pathNode struct {
 	id        string
 	title     string
@@ -33,9 +35,10 @@ type pathNode struct {
 	hasParent bool
 }
 
-// WikiTreePaths / OutputTreePaths —— 给一组同 owner 的 document 算 id→树路径
-// 地址表(见 treePathsFor)。retriever 报地址(search/read/ACL)、citation 反查、
-// 公开页 landing、admin 浏览全查这张表 —— 一套树派生口径,不存列。
+// WikiTreePaths / OutputTreePaths —— computes an id→tree-path address table for a set of
+// documents belonging to the same owner (see treePathsFor). The retriever reporting addresses
+// (search/read/ACL), citation lookup, the public landing page, and admin browsing all query
+// this same table — one derived-from-the-tree convention, no stored column.
 func WikiTreePaths(ws []entity.Wiki) map[string]string {
 	nodes := make([]pathNode, len(ws))
 	for i := range ws {
@@ -45,7 +48,7 @@ func WikiTreePaths(ws []entity.Wiki) map[string]string {
 	return treePathsFor(nodes)
 }
 
-// OutputTreePaths —— WikiTreePaths 的 output 孪生(同一套树派生口径)。
+// OutputTreePaths —— the output twin of WikiTreePaths (same tree-derived convention).
 func OutputTreePaths(os []entity.Output) map[string]string {
 	nodes := make([]pathNode, len(os))
 	for i := range os {
@@ -55,8 +58,9 @@ func OutputTreePaths(os []entity.Output) map[string]string {
 	return treePathsFor(nodes)
 }
 
-// RawTreePaths —— WikiTreePaths 的 raw 孪生:raw 现是 corpus_notes 的 genre='raw' 节点,
-// 同一套树派生口径(parent 链 + slug(title))。admin /raw 列表用它算每条地址。
+// RawTreePaths —— the raw twin of WikiTreePaths: raw is now a genre='raw' node in
+// corpus_notes, using the same tree-derived convention (parent chain + slug(title)).
+// The admin /raw list uses this to compute each row's address.
 func RawTreePaths(rs []entity.Raw) map[string]string {
 	nodes := make([]pathNode, len(rs))
 	for i := range rs {
@@ -66,13 +70,14 @@ func RawTreePaths(rs []entity.Raw) map[string]string {
 	return treePathsFor(nodes)
 }
 
-// WikiMetaTreePaths / OutputMetaTreePaths —— 同一套树派生口径,但吃 meta(无 body)。
-// landing/sitemap 用全量 meta(ListAllMeta,无 50-cap)算 path,不必 load 全量 body。
+// WikiMetaTreePaths / OutputMetaTreePaths —— the same tree-derived convention, but taking
+// meta (no body). landing/sitemap uses the full meta set (ListAllMeta, no 50-cap) to compute
+// path, without needing to load the full body.
 func WikiMetaTreePaths(metas []repo.WikiMeta) map[string]string {
 	return treePathsFor(wikiMetaNodes(metas))
 }
 
-// OutputMetaTreePaths —— WikiMetaTreePaths 的 output 孪生。
+// OutputMetaTreePaths —— the output twin of WikiMetaTreePaths.
 func OutputMetaTreePaths(metas []repo.OutputMeta) map[string]string {
 	nodes := make([]pathNode, len(metas))
 	for i := range metas {
@@ -96,9 +101,10 @@ func metaNode(id, title string, parentID *string) pathNode {
 	return pathNode{id: id, title: title, parentID: *parentID, hasParent: true}
 }
 
-// treePathsFor —— path = 从根到该节点每段 slug 化的 title,'/' 连接。撞 path(同
-// 父下同 slug)按出现顺序加 -2/-3 去重(seen 仅构造期用,保证 path→id 单射)。
-// 返回 id→path。
+// treePathsFor —— path = the slugified title of every segment from root to this node,
+// joined with '/'. A path collision (same slug under the same parent) gets deduped by
+// appending -2/-3 in order of appearance (seen is only used during construction, to
+// guarantee path→id is injective). Returns id→path.
 func treePathsFor(nodes []pathNode) map[string]string {
 	byNodeID := make(map[string]pathNode, len(nodes))
 	for _, n := range nodes {
@@ -114,8 +120,9 @@ func treePathsFor(nodes []pathNode) map[string]string {
 	return byID
 }
 
-// computePath —— 走 parent 链(限定在本集合内)拼出 root→self 的 path。parent
-// 不在集合内(被删 / ACL 切掉)就当 root,从那段起。
+// computePath —— walks the parent chain (bounded to this set) to build the root→self path.
+// If parent isn't in the set (deleted / cut off by ACL), treat this node as root and start
+// the path from here.
 func computePath(n pathNode, byID map[string]pathNode) string {
 	segs := make([]string, 0, TreeMaxDepth)
 	cur := n
@@ -133,7 +140,8 @@ func computePath(n pathNode, byID map[string]pathNode) string {
 	return strings.Join(segs, "/")
 }
 
-// uniquePath —— base 没占用就用 base,否则 base-2 / base-3 … 直到空位。
+// uniquePath —— use base if it's free, otherwise base-2 / base-3 …
+// until a free slot is found.
 func uniquePath(base string, taken map[string]string) string {
 	if _, used := taken[base]; !used {
 		return base
@@ -146,20 +154,24 @@ func uniquePath(base string, taken map[string]string) string {
 	}
 }
 
-// SlugifyTitle —— PathSegment 的导出包装。eval fixture 给某条 corpus 算授权 URI 时
-// 用,跟 retriever 的 WikiPathByID/OutputPathByID(flat fixture 无 parent → 单段
-// PathSegment(title))对齐,免得 grant 用旧 uri-path 而 retriever 用 title 派生 path
-// 对不上 → ACL 全拒。
+// SlugifyTitle —— the exported wrapper for PathSegment. Used by eval fixtures when computing
+// the authorized URI for a corpus entry, kept aligned with the retriever's
+// WikiPathByID/OutputPathByID (a flat fixture with no parent → a single PathSegment(title)
+// segment), so a grant using the old uri-path and the retriever's title-derived path don't
+// mismatch and reject everything under ACL.
 func SlugifyTitle(title string) string { return PathSegment(title) }
 
-// PathSegment —— title 转一个 URL-safe path 段:小写;字母/数字(含 unicode,path
-// 列 citext 收得下)为词,其余字符全当分隔 → FieldsFunc 切词 + '-' 连(自动去首尾
-// /合并连续分隔)。截断到 pathSegmentMaxLen。空(纯符号 title)→ "untitled" 兜底。
+// PathSegment —— converts a title into a URL-safe path segment: lowercase; letters/digits
+// (including unicode, since the citext path column can hold it) count as words, everything
+// else counts as a separator → FieldsFunc splits words + joins with '-' (automatically trims
+// the ends / collapses consecutive separators). Truncated to pathSegmentMaxLen. Empty (a
+// title of pure symbols) falls back to "untitled".
 func PathSegment(title string) string {
 	words := strings.FieldsFunc(strings.ToLower(title), isPathSeparator)
 	out := strings.Join(words, "-")
-	// 按字符切,且**不留省略号** —— 这一段要进地址。按字节切的话,一个中文标题会在第 80
-	// 字节处被劈成半个字,写进 citext 的 path 列时 postgres 整条拒掉。
+	// Cut by character, and **leave no ellipsis** — this segment goes into an address. Cutting
+	// by byte would split a CJK title mid-character at byte 80, and postgres rejects the whole
+	// row when that gets written into the citext path column.
 	out = strings.Trim(textcut.Runes(out, pathSegmentMaxLen), "-")
 	if out == "" {
 		return "untitled"
@@ -167,7 +179,8 @@ func PathSegment(title string) string {
 	return out
 }
 
-// isPathSeparator —— 非字母非数字都当 path 段内的分隔符。
+// isPathSeparator —— anything that's not a letter or digit counts as a separator within a
+// path segment.
 func isPathSeparator(r rune) bool {
 	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 }

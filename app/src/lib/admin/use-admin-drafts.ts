@@ -1,5 +1,5 @@
-// use-admin-drafts —— /admin/drafts 的 fetch hook。
-// admin session cookie 已经在 AdminShell 层校验过，这里直 fetch + parse。
+// use-admin-drafts —— fetch hook for /admin/drafts.
+// The admin session cookie is already validated at the AdminShell layer, so this just fetches + parses directly.
 
 import { useCallback, useEffect, useState } from 'react';
 
@@ -10,9 +10,11 @@ import { safeJson } from '@/lib/api/typed-json';
 
 export type DraftStatus = 'reviewing' | 'draft' | 'sent';
 
-// resume_content —— 卡片上那张缩略图画的就是它。**必填**：可选的话，后端哪天不再发它，
-// 缩略图会安静地退回一份空文档，而 owner 看到的仍然是一张"像简历的图"（F-E-20 的教训是
-// 那张图**看起来越真越危险**）。
+// resume_content —— this is what the card's thumbnail renders. **Required**:
+// if it were optional, the day the backend stops sending it, the thumbnail
+// would quietly fall back to an empty document, and the owner would still be
+// looking at something that "looks like a resume" (F-E-20's lesson: the more
+// real that image looks, the more dangerous it is).
 const AdminDraftRowSchema = z.object({
   id: z.string(), company: z.string(), role: z.string(), for_job: z.string(),
   updated_at: z.string(),
@@ -30,8 +32,9 @@ interface State {
   error: string | null;
 }
 
-// reload —— commit 之后这一列必须重新拉：那一笔事务把草稿删掉了，而屏幕上还留着它，
-// owner 会以为没成功、再点一次（F-E-9）。
+// reload —— after a commit, this list must be refetched: that transaction
+// deleted the draft, and if it's still on screen the owner will think it
+// failed and click again (F-E-9).
 export function useAdminDrafts(): State & { reload: () => void } {
   const [state, setState] = useState<State>({ rows: [], loading: true, error: null });
   const reload = useCallback(() => { void load(setState); }, []);

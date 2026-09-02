@@ -1,16 +1,17 @@
-// visitor_chat_prompt.go —— system prompt base persona 构造 + cited helpers。
+// visitor_chat_prompt.go —— builds the system prompt's base persona + cited helpers.
 //
-// 拼装顺序（registry.ComposeSystemPrompt 内部）：
+// Assembly order (inside registry.ComposeSystemPrompt):
 //   ComposeBasePersona(snapshot)
-//   + 每个 capability 的 SystemPromptFragment (注册顺序)
+//   + each capability's SystemPromptFragment (registration order)
 //
-// ComposeBasePersona = visitorHeader + role.PromptBody + skillPrompts。
-// Tool 使用说明走 capability fragment（retrieval cap 贡献 corpus_search/read/
-// list 三 tool 的描述），不在 base 里。
+// ComposeBasePersona = visitorHeader + role.PromptBody + skillPrompts.
+// Tool usage instructions go through the capability fragment (the retrieval cap
+// contributes the descriptions for the three corpus_search/read/list tools), not in
+// base.
 //
-// dev endpoint (/internal/test/visitor-capabilities) 跟 real SendMessage
-// 走同一 ComposeBasePersona + registry.ComposeSystemPrompt，hash 真实反映
-// 下行 prompt。
+// The dev endpoint (/internal/test/visitor-capabilities) goes through the same
+// ComposeBasePersona + registry.ComposeSystemPrompt as the real SendMessage, so its hash
+// truly reflects the downstream prompt.
 
 package usecase
 
@@ -21,15 +22,19 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// ComposeBasePersona —— system prompt 的 "non-capability" 部分：**你是谁** + visitor
-// header + role persona body + skill prompts。snapshot nil 时只返身份 + header。
-// Capability fragments 由 registry.ComposeSystemPrompt 顺序追加。
+// ComposeBasePersona —— the "non-capability" part of the system prompt: **who you are**
+// + visitor header + role persona body + skill prompts. When snapshot is nil, returns
+// only identity + header. Capability fragments are appended in order by
+// registry.ComposeSystemPrompt.
 //
-// ownerName 排在最前面（UX-66）。header 逐字要求「你就是 owner，用第一人称答」，却从头到尾
-// 没说过 owner 是谁 —— 身份一直靠检索的副作用兑现：public 身份以前能读整个 wiki，随便哪条
-// 笔记都把人物带出来了。公开切片收窄到 owner 真正发布过的那几条之后，这个实例上只剩 1 条、
-// 里面没有他这个人，于是这个 AI 会对着陌生人说「我的笔记里没有叫 Sijie 的人」。
-// **承诺要有机制兑现**：名字来自 owner 那一行，跟语料范围无关。
+// ownerName comes first (UX-66). The header demands, verbatim, "you ARE the owner,
+// answer in first person" — yet never once says who the owner actually is —— identity
+// used to be delivered purely as a side effect of retrieval: the public identity used to
+// be able to read the whole wiki, and any random note would surface the person. Once the
+// public slice was narrowed down to only what the owner actually published, this
+// instance was left with 1 entry that didn't mention him at all, so the AI would tell a
+// stranger "there's no one named Sijie in my notes." **A promise needs a mechanism to
+// back it**: the name comes from the owner's own field, independent of corpus scope.
 func ComposeBasePersona(snapshot *access.RoleSnapshot, ownerName string) string {
 	parts := appendTrimmed([]string{}, ownerIdentity(ownerName))
 	parts = append(parts, visitorHeader())
@@ -37,8 +42,9 @@ func ComposeBasePersona(snapshot *access.RoleSnapshot, ownerName string) string 
 	return strings.Join(parts, "\n\n---\n\n")
 }
 
-// ownerIdentity —— 「你是谁」那一句。名字为空（还没 claim 完的实例）→ 空串，不进 join，
-// 老 prompt 逐字不变（守 system-prompt-hash-regression）。
+// ownerIdentity —— the "who you are" sentence. When the name is empty (an instance
+// that hasn't finished being claimed) → empty string, excluded from the join, so the old
+// prompt stays byte-identical (keeps system-prompt-hash-regression honest).
 func ownerIdentity(ownerName string) string {
 	name := strings.TrimSpace(ownerName)
 	if name == "" {
@@ -50,17 +56,20 @@ func ownerIdentity(ownerName string) string {
 		"fact about your life that the corpus doesn't hold; say that plainly when it comes up."
 }
 
-// ComposeDynamicPersona —— role 动态部分: **你是谁** + PromptBody + SkillPrompts，
-// 不含 visitor-header (那条走 fragment id)。frontend pi-agent-core
-// 拼 system prompt 时把这段当 inline persona 段，跟 part_ids 拉的 .md
-// fragment 一起组成完整 system prompt。
+// ComposeDynamicPersona —— the dynamic part of role: **who you are** + PromptBody +
+// SkillPrompts, without visitor-header (that goes through a fragment id). When the
+// frontend pi-agent-core assembles the system prompt, it treats this segment as the
+// inline persona block, combined with the .md fragments pulled by part_ids to form the
+// full system prompt.
 //
-// 跟 ComposeBasePersona 的区别：base 含 visitor-header；dynamic 不含
-// (避免重复，因为 frontend 已经按 part_ids fetch visitor-header 了)。
+// Difference from ComposeBasePersona: base includes visitor-header; dynamic doesn't
+// (to avoid duplication, since the frontend already fetches visitor-header via
+// part_ids).
 //
-// 身份在**这里**也要有一份（UX-66）：真访客的 prompt 走的是这条路，base 那条只服务
-// diag 与 standalone launch。名字是静态 .md fragment 拼不出来的（要按 owner 取），
-// 所以它属于这段 inline persona。
+// Identity needs a copy **here** too (UX-66): a real visitor's prompt goes through this
+// path, base only serves diag and standalone launch. The name can't be baked into a
+// static .md fragment (it has to be fetched per-owner), so it belongs to this inline
+// persona segment.
 func ComposeDynamicPersona(snapshot *access.RoleSnapshot, ownerName string) string {
 	parts := appendTrimmed([]string{}, ownerIdentity(ownerName))
 	parts = append(parts, snapshotPromptParts(snapshot)...)
@@ -70,16 +79,17 @@ func ComposeDynamicPersona(snapshot *access.RoleSnapshot, ownerName string) stri
 	return strings.Join(parts, "\n\n---\n\n")
 }
 
-// snapshotPromptParts —— role persona body + 这张 code 自带 prompt（#104）+ 每条 skill prompt，
-// 去空 trim。
+// snapshotPromptParts —— role persona body + this code's own prompt (#104) + each skill
+// prompt, trimmed of empties.
 func snapshotPromptParts(snapshot *access.RoleSnapshot) []string {
 	if snapshot == nil {
 		return []string{}
 	}
 	out := make([]string, 0, 2+len(snapshot.SkillPrompts()))
 	out = appendTrimmed(out, snapshot.PromptBody())
-	// code prompt 叠加在 role persona 之后（specialize this code）。空 → 不追加，非-code / 无 code
-	// prompt 的 session persona 逐字不变（守 system-prompt-hash-regression）。
+	// code prompt is layered on after role persona (specialize this code). Empty →
+	// not appended, so a non-code / no-code-prompt session's persona stays
+	// byte-identical (keeps system-prompt-hash-regression honest).
 	out = appendTrimmed(out, snapshot.CodePromptBody())
 	for _, p := range snapshot.SkillPrompts() {
 		out = appendTrimmed(out, p)
@@ -87,7 +97,8 @@ func snapshotPromptParts(snapshot *access.RoleSnapshot) []string {
 	return out
 }
 
-// appendTrimmed —— trim 后非空才追加（空 persona 段不进 join，守逐字稳定）。
+// appendTrimmed —— only appends if non-empty after trim (an empty persona segment
+// doesn't enter the join, keeping it byte-stable).
 func appendTrimmed(out []string, s string) []string {
 	if t := strings.TrimSpace(s); t != "" {
 		return append(out, t)
@@ -96,12 +107,13 @@ func appendTrimmed(out []string, s string) []string {
 }
 
 func visitorHeader() string {
-	// Phase D-1: 单一源 prompts/visitor-header.md
+	// Phase D-1: single source prompts/visitor-header.md
 	return owner.MustLoadPromptFragment("visitor-header")
 }
 
-// CitedRef —— done event 推给前端的引用信息：id + title。/dialogs commit
-// 时 frontend 把 retriever 累积的 cited 列表 POST 上来，用这个 shape。
+// CitedRef —— citation info pushed to the frontend in the done event: id + title. On
+// /dialogs commit the frontend POSTs the retriever's accumulated cited list up in this
+// shape.
 type CitedRef struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`

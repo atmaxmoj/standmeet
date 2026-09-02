@@ -1,6 +1,7 @@
-// buffer.go —— cappedBuffer 给 sandbox stdout/stderr 兜底，避免一个失控
-// 脚本吐 GB 级输出把 backend 内存撑爆。超过 cap 后丢弃后续写入，stdout
-// 末尾追"…[truncated]" 让 caller 知道。
+// buffer.go —— cappedBuffer backstops sandbox stdout/stderr so a runaway
+// script dumping GB-scale output can't blow up the backend's memory. Past
+// the cap, further writes are dropped, and "…[truncated]" is appended to
+// stdout so the caller knows.
 
 package sandbox
 
@@ -12,7 +13,7 @@ type cappedBuffer struct {
 	buf  []byte
 	mu   sync.Mutex
 	cap  int
-	done bool // 已经写过 truncated 标记
+	done bool // truncated mark already written
 }
 
 func newCappedBuffer(capBytes int) *cappedBuffer {
@@ -23,7 +24,7 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.done {
-		// 假装写了，让 exec 不阻塞 stdout pipe。
+		// Pretend the write succeeded so exec doesn't block on the stdout pipe.
 		return len(p), nil
 	}
 	room := b.cap - len(b.buf)

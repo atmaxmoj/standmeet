@@ -1,13 +1,13 @@
-// /wiki/<slug> —— SEO landing for a specific public wiki entry。
+// /wiki/<slug> — SEO landing for a specific public wiki entry.
 //
-// SSR fetch /api/v1/wiki/:slug；404 走 RestrictedDoc。<head> 加 og:title /
-// description / canonical 让爬虫拿到完整 metadata。owner handle 用 sole owner
-// (v1 单 owner instance)。
+// SSR fetches /api/v1/wiki/:slug; a 404 falls through to RestrictedDoc. <head> gets
+// og:title / description / canonical so crawlers get full metadata. owner handle uses
+// the sole owner (v1 single-owner instance).
 //
-// 版式对齐设计 wiki.js:OG cover(21:9 hue hero)→ breadcrumb(← writing)→
-// metadata strip(date · by + serif h1 + italic excerpt)→ article-body
-// (编辑级阅读排版,走 ChatMarkdown variant="article")→ about box。
-// ask composer(AskAboutThis + FloatingChatDock)按 owner 要求**保留现状**。
+// Layout follows design wiki.js: OG cover (21:9 hue hero) -> breadcrumb (<- writing) ->
+// metadata strip (date · by + serif h1 + italic excerpt) -> article-body
+// (editorial-grade reading typography, via ChatMarkdown variant="article") -> about box.
+// The ask composer (AskAboutThis + FloatingChatDock) stays **as-is** per owner's request.
 
 import type { Metadata } from 'next';
 
@@ -16,10 +16,10 @@ import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiContext, fetchWikiLanding } from '@/lib/api/public';
 import { parseWikiLanding } from '@/lib/visitor/wiki-landing';
 
-// catch-all [...path]：path 可含 `/` (projects/lucerna 这种分组)。
+// catch-all [...path]: path can contain `/` (grouping like projects/lucerna).
 type Params = { path: string[] };
-// Search —— `?lang=zh`。多语笔记服务端就选好那一面:爬虫和 agent 抓到的是内容,
-// 不是一段等 JS 的骨架。
+// Search — `?lang=zh`. The server picks the right side of a multilingual note upfront:
+// crawlers and agents get real content, not a skeleton waiting on JS.
 type Search = { lang?: string };
 
 export async function generateMetadata(
@@ -34,7 +34,7 @@ export async function generateMetadata(
   } : { title: 'not found' };
 }
 
-// wantedLang —— `?lang=`;没给 = 按这条笔记的身份语言(后端决定)。
+// wantedLang — `?lang=`; if absent, use this note's identity language (backend decides).
 function wantedLang(search: Search): string {
   return search.lang ?? '';
 }
@@ -48,15 +48,18 @@ export default async function WikiLandingPage(
   // SSR fetches anonymously (published-only, for crawlers/SEO). WikiReaderClient re-fetches WITH the
   // stored visitor token when this comes back null, so an invited viewer reads in-scope gated entries
   // (F-L-11 bearer-aware reader) while published entries keep their fast SSR path.
-  // 树和顶栏在 `wiki/layout.tsx` 里自己取数据 —— 这一页不再需要 stats。
+  // The tree and top bar fetch their own data in `wiki/layout.tsx` — this page no longer
+  // needs stats.
   const [wiki, instance, ctx] = await Promise.all([
     fetchWikiLanding(slug, want), fetchInstance(), fetchWikiContext(slug),
   ]);
   return (
     <WikiReaderClient
-      // parseWikiLanding —— 带 token 重取那条路用的**同一个**解析。以前这里把载荷直接递
-      // 进去,reader 那边的类型又刚好宽到收得下,于是已发布笔记的 hero 图 / hero 那句话 /
-      // 正文配图全部到不了页面上,而且没有任何一处报错(F-L-33)。
+      // parseWikiLanding — the **same** parser used by the token-bearing refetch path.
+      // Previously the raw payload was passed straight through, and the reader-side type
+      // happened to be loose enough to accept it, so a published note's hero image / hero
+      // line / inline body images never reached the page at all, with no error anywhere
+      // (F-L-33).
       initialWiki={parseWikiLanding(wiki)}
       handle={instance.handle}
       ownerName={instance.name || instance.handle}

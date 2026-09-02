@@ -15,48 +15,64 @@ import { logger } from '@/lib/logger';
 
 export type Citation = {
   genre: 'wiki' | 'output' | 'writing';
-  // id —— entry 稳定标识,落 admin transcript 的 cited_*_ids 用它(不用 path
-  // 反查,绕开树路径在 ACL 子集下对不上的坑)。path 只给 UI 显示。
+  // id —— stable entry identifier, used for the cited_*_ids in the admin
+  // transcript (not reverse-looked-up from path, which sidesteps a pitfall
+  // where tree paths don't line up under an ACL subset). path is only for
+  // UI display.
   id: string;
   path: string;
-  // slug —— writings 才有,**给链接用**(`corpusHref`)。path 那一栏是给人看的位置,
-  // 不是地址:writings 在公开站上按 slug 寻址,拿 path 去拼会 404。
+  // slug —— only writings have one, **used for linking** (`corpusHref`).
+  // The path column is a human-readable location, not an address: on the
+  // public site writings are addressed by slug, and building a URL from
+  // path 404s.
   slug: string;
   title: string;
-  // G-3: corpus_read 已经把 body 拿到手；存进 citation 让 UI 点击直接展
-  // 开原文，免一次额外后端 fetch (+ 二次 ACL 评估)。
+  // G-3: corpus_read already has body in hand; storing it on the citation
+  // lets the UI expand the original text on click, saving an extra backend
+  // fetch (+ a second ACL evaluation).
   body: string;
 };
 
-// Answer —— assistant 这一轮的全部产出:散文段落 + 引用 + 它调的工具。访客只
-// 产生 q;tool call 永远是 assistant 发起的,所以 toolCalls 属于 Answer。ACL /
-// 切片在检索层就锁死了(agent 读不到范围外的东西),不存在"生成完再标 private"
-// 这一步,所以这里没有 private/byoaiBlocked 标志。
+// Answer —— everything the assistant produced this turn: prose paragraphs +
+// citations + the tools it called. The visitor only ever produces q; a tool
+// call is always assistant-initiated, so toolCalls belongs to Answer. ACL /
+// slicing is already locked down at the retrieval layer (the agent can't
+// read outside its scope), so there's no "mark private after generation"
+// step, and hence no private/byoaiBlocked flag here.
 export type Answer = {
   paras: string[];
   citations: readonly Citation[];
   toolCalls: readonly ToolCallView[];
-  // notice —— 这一轮**没有正常收尾**时说给访客的那句话,挂在已经流出来的内容旁边。
-  // 分成独立一格而不是塞进 paras:一段被截断的文字和「它被截断了」是两件事,合在一起
-  // 读起来就像作者自己那么写的(F-A-32)。空 = 这一轮正常结束。
+  // notice —— the line told to the visitor when this turn **didn't wrap up
+  // normally**, hung next to whatever content already streamed out. It's a
+  // separate field rather than folded into paras: a truncated passage and
+  // "it got truncated" are two different things, and mixing them reads as
+  // if the author wrote it that way on purpose (F-A-32). Empty = the turn
+  // ended normally.
   notice?: string;
 };
 
-// ToolCallView —— G-4: tool_completed 累到 Dialog；UI 按 name dispatch
-// 渲染 (corpus_search hits / calendar_book confirmation / generic JSON
-// dump for skill_* / ext_*)。result 是 raw unknown，渲染层自己 narrow。
+// ToolCallView —— G-4: tool_completed accumulates into Dialog; the UI
+// dispatches on name to render it (corpus_search hits / calendar_book
+// confirmation / generic JSON dump for skill_* / ext_*). result is raw
+// unknown; the rendering layer narrows it itself.
 //
-// result 是 **optional**:检索族(corpus_*)的结果根本不下发给访客(F-A-28,里面是笔记正文),
-// 直播那一路给空串、刷新恢复那一路整格不给。界面对这些调用也只数个数、不渲正文,所以"没有
-// result"是这条通道的**常态**,不是异常。写成必填会让类型撒谎,而那个谎正是恢复整段挂掉的地方。
+// result is **optional**: results from the retrieval family (corpus_*)
+// are never sent to the visitor at all (F-A-28, they contain note bodies) —
+// the live stream sends an empty string, and refresh-restore omits the
+// field entirely. The UI only counts these calls, never renders their
+// body, so "no result" is the **normal** state on this channel, not an
+// anomaly. Making it required would make the type lie, and that lie is
+// exactly where restore used to fall apart.
 export type ToolCallView = {
   name: string;
   ok: boolean;
   result?: unknown;
 };
 
-// ToolThrobberView —— per-tool 进度行:name 给 `tool-throbber-<name>` testid,
-// label 是已拼好的人话文案(throbber-label.ts)。
+// ToolThrobberView —— a per-tool progress row: name feeds the
+// `tool-throbber-<name>` testid, label is the already-assembled
+// human-readable copy (throbber-label.ts).
 export type ToolThrobberView = {
   name: string;
   label: string;
@@ -67,18 +83,24 @@ export type Dialog = {
   q: string;
   time: string;
   pending: boolean;
-  // answer 始终在场(开局空对象);流式期间 paras/toolCalls 往里加,pending 表示
-  // 还没收尾。toolCalls 在 answer 里(assistant 产出),不再是 Dialog 顶层字段。
+  // answer is always present (starts as an empty object); during
+  // streaming, paras/toolCalls get added to it, and pending means it
+  // hasn't wrapped up yet. toolCalls lives inside answer (assistant
+  // output), no longer a top-level Dialog field.
   answer: Answer;
-  // throbber = observer 对 agent 的**实时**观察:只持「当前」活动 —— 最近一次
-  // tool_started,新 tool 来即替换,turn 落地清成 null。纯 UI 瞬态,不持久
-  // (持久回执是 answer.toolCalls)。label 由 throbber-label.ts 拼。
+  // throbber = the observer's **real-time** view of the agent: holds only
+  // the "current" activity — the most recent tool_started, replaced as
+  // soon as the next tool starts, cleared to null once the turn lands.
+  // Pure UI transient state, not persisted (the persistent receipt is
+  // answer.toolCalls). label is assembled by throbber-label.ts.
   currentTool: ToolThrobberView | null;
-  // retrying —— backend transport 正在重试一次 transient LLM 失败;throbber
-  // 显 "retrying" 而非 "retrieving"。下一条 text/tool 进度事件自然清掉。
+  // retrying —— the backend transport is retrying a transient LLM
+  // failure; the throbber shows "retrying" instead of "retrieving". The
+  // next text/tool progress event clears it naturally.
   retrying: boolean;
-  // failed —— 这一轮没答成(error 兜底 / 掐断)。strip 的 used 计数把它排除:
-  // 答完的轮才算(count = 数 dialogs 里 !pending && !failed 的)。
+  // failed —— this turn didn't produce an answer (error fallback /
+  // cut off). The strip's used count excludes it: only turns that
+  // finished count (count = number of dialogs with !pending && !failed).
   failed: boolean;
 };
 
@@ -87,29 +109,42 @@ export interface DialogAccumulator {
   body: string;
   citations: Citation[];
   seenCitedIDs: Set<string>;
-  // currentTool —— 当前 throbber 活动(最近一次 tool_started);toolSeq 是单调
-  // 计数,只为 corpus_read 的动词轮换(reading / pulling up / ...)留个稳定 idx。
+  // currentTool —— the current throbber activity (most recent
+  // tool_started); toolSeq is a monotonic counter, kept only to give
+  // corpus_read's verb rotation (reading / pulling up / ...) a stable idx.
   currentTool: ToolThrobberView | null;
   toolSeq: number;
   toolCalls: ToolCallView[];
   retrying: boolean;
-  // errorMsg —— backend 出 `error` 事件(含 stream-cut 兜底)时的人话消息;
-  // 非空 → dialog 收尾渲成回答段落,而不是空白。
+  // errorMsg —— the human-readable message from a backend `error` event
+  // (including the stream-cut fallback); non-empty → the dialog wraps up
+  // rendered as an answer paragraph instead of blank.
   errorMsg: string;
-  // ghostReceived —— 这一 turn 是否收到过 `ghost_received` 帧。F-A-9:policy 沉默(没帧)的 turn
-  // 收尾时要**清掉**上一条 ghost,否则输入框会一直挂着已访问 waypoint 的陈旧 ghost。
+  // ghostReceived —— whether this turn received a `ghost_received` frame.
+  // F-A-9: when policy stays silent (no frame) for a turn, wrap-up must
+  // **clear** the previous ghost, or the input box keeps showing a stale
+  // ghost for an already-visited waypoint.
   ghostReceived: boolean;
-  // stopReason —— 这一轮**为什么**停（done 帧原样带来的那个值）。
+  // stopReason —— **why** this turn stopped (the value carried verbatim
+  // by the done frame).
   //
-  // 存的是原值而不是一个 `truncated: boolean`（UX-84）：布尔只能回答「是不是没说完」，
-  // 而访客要知道的是**哪一种墙** —— 输出预算用完和一路调工具调到墙，对他意味着不同的下一步。
-  // 收窄成布尔的那一刻，「每种撞墙写自己的原因」这件事就已经做不到了
-  // （同 [[empty-is-not-json-null]]：把区别抹平在入口，下游再想分就没有依据）。
+  // Stores the raw value rather than a `truncated: boolean` (UX-84): a
+  // boolean can only answer "did it finish or not", but what the visitor
+  // needs to know is **which kind of wall** — running out of output
+  // budget vs. hitting the wall while chaining tool calls mean different
+  // next steps for them. The moment it's narrowed to a boolean, "each kind
+  // of wall gets to state its own reason" becomes impossible
+  // (same as [[empty-is-not-json-null]]: flattening the distinction at the
+  // entry point leaves downstream with no way to tell them apart).
   //
-  // `end_turn` = 正常说完；其余值查 STOP_NOTICE，查不到就不显示提示。
+  // `end_turn` = finished normally; other values are looked up in
+  // STOP_NOTICE, and if not found, no notice is shown.
   stopReason: string;
-  // claimUnbacked —— 这一轮的答案说它办成了一件事，而本轮**没有那件事的回执**（done 帧的
-  // stop_reason=claim_unbacked）。判定在后端，因为只有它知道这一轮调过哪些工具、回执成没成。
+  // claimUnbacked —— this turn's answer claims it accomplished something,
+  // but this turn **has no receipt for it** (the done frame's
+  // stop_reason=claim_unbacked). Decided on the backend, because only it
+  // knows which tools this turn called and whether they came back with a
+  // receipt.
   claimUnbacked: boolean;
 }
 
@@ -125,9 +160,10 @@ export function makeAccumulator(): DialogAccumulator {
 export function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
   if (ev.type === 'llm_chunk') {
     accum.body += ev.text;
-    // 答案开始流出 → 清 throbber 让位给答案(throbber 从 tool_started 撑到这里)。
+    // Answer starts streaming out → clear the throbber to make room for
+    // the answer (the throbber holds on from tool_started up to here).
     accum.currentTool = null;
-    accum.retrying = false; // 进度恢复
+    accum.retrying = false; // progress resumed
     return;
   }
   if (ev.type === 'tool_started') {
@@ -135,7 +171,8 @@ export function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void
     // narrating its plan: process, not the answer. Fold it out of the answer body (matches
     // what the backend persists, 122e922); the throbber takes over as the activity indicator.
     accum.body = '';
-    // 替换,不累积:throbber 永远只反映 agent 此刻在跑的那个 tool。
+    // Replace, don't accumulate: the throbber always reflects only the
+    // tool the agent is running right now.
     accum.currentTool = {
       name: ev.name,
       label: throbberLabel(ev.name, ev.args, ev.progressLabel, accum.toolSeq),
@@ -150,21 +187,26 @@ export function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void
       name: ev.result.name, ok: ev.result.ok, result: ev.result.result,
     });
     pushCitationFromTool(ev.result, accum);
-    // 不在 tool_completed 清 throbber:保留到 llm_chunk(答案开始)才清,让
-    // "reading X" 撑过「读完→LLM 组织答案」那段(DeepSeek 几十秒的大头),否则
-    // 工具往返一瞬就没了、根本看不见。tool 之间 currentTool 由下一个 tool_started
-    // 替换;首个 tool 之前是 null → thinking 词。
+    // Don't clear the throbber on tool_completed: keep it up until
+    // llm_chunk (answer starts) clears it, so "reading X" carries through
+    // the "done reading → LLM composes the answer" stretch (the tens of
+    // seconds DeepSeek can take there) — otherwise the tool round trip
+    // flashes by and is never actually seen. Between tools, currentTool is
+    // replaced by the next tool_started; before the first tool it's null
+    // → the thinking word shows.
     accum.retrying = false;
     return;
   }
   if (ev.type === 'retrying') {
-    // backend 在重试一次 transient LLM 失败 → throbber 显 "retrying"。
+    // The backend is retrying a transient LLM failure → the throbber
+    // shows "retrying".
     accum.retrying = true;
     return;
   }
   if (ev.type === 'error') {
-    // backend `error` 事件(含前端 stream-cut 兜底):人话消息收尾渲出来,
-    // 不让对话空白。clear retrying。
+    // A backend `error` event (including the frontend's stream-cut
+    // fallback): render the human-readable message as the wrap-up instead
+    // of leaving the dialog blank. Clear retrying.
     accum.errorMsg = ev.message;
     accum.retrying = false;
     return;
@@ -174,19 +216,25 @@ export function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void
     return;
   }
   if (ev.type === 'turn_finished') {
-    // 收场原因**原样留下**。这个值一路从 provider 经后端 sink.Done 传到浏览器，
-    // 以前在 SSE 解析完就被扔了 —— 于是没人知道这一段是收尾了还是被截断（F-A-34）；
-    // 后来我把它收成一个 `truncated` 布尔，那又把「哪一种墙」抹掉了（UX-84）。
-    // 存原值，由 STOP_NOTICE 决定说什么。
+    // Keep the stop reason **verbatim**. This value travels all the way
+    // from the provider through the backend's sink.Done to the browser —
+    // it used to get thrown away once the SSE parse finished, so nobody
+    // could tell whether a turn wrapped up or got truncated (F-A-34);
+    // later I collapsed it into a `truncated` boolean, which erased
+    // "which wall" again (UX-84). Store the raw value; STOP_NOTICE decides
+    // what to say.
     accum.stopReason = ev.stopReason;
-    // claim_unbacked 不是模型给的收场，是**产品判的**：这一轮说它办成了一件事，而本轮没有
-    // 那件事的回执（F-A-37）。
+    // claim_unbacked isn't a stop the model gave — it's **the product's own
+    // judgment**: this turn's answer claims it accomplished something, but
+    // this turn has no receipt for it (F-A-37).
     accum.claimUnbacked = ev.stopReason === 'claim_unbacked';
     return;
   }
   if (ev.type === 'ghost_received') {
-    // Ghost P4: code-accessor 答完一轮，backend policy 出**单条** steering ghost；
-    // 把输入框 ghost 换成这条（非 code visitor backend 不发，这里 dead branch）。
+    // Ghost P4: after code-accessor finishes a turn, backend policy emits
+    // **a single** steering ghost; swap the input-box ghost for this one
+    // (non-code visitor backends never send this, so this is a dead
+    // branch there).
     accum.ghostReceived = true;
     useGhostsStore.getState().setPolicy(ev.text, ev.ghostId, ev.targetWaypoint);
   }
@@ -199,7 +247,8 @@ function pushCitationFromTool(
   if (!result.ok || result.name !== 'corpus_read') return;
   const r = pickCorpusReadShape(result.result);
   if (r === null || !citableCorpusRead(r)) return;
-  // 按 id 去重 + 落库:同一 entry 读多次只引一次。
+  // Dedup by id before storing: reading the same entry multiple times
+  // cites it only once.
   if (r.id === '' || accum.seenCitedIDs.has(r.id)) return;
   accum.seenCitedIDs.add(r.id);
   accum.citations.push({
@@ -219,8 +268,9 @@ export function newPendingDialog(id: string, q: string): Dialog {
   };
 }
 
-// turnSucceeded —— 这一 turn 算不算"成功回复":拿到非空回答且没走 error 兜底。
-// 决定要不要消耗配额(只有成功才 record + bump)。
+// turnSucceeded —— whether this turn counts as a "successful reply": got a
+// non-empty answer and didn't go through the error fallback. Decides
+// whether to consume quota (only a success gets recorded + bumped).
 export function turnSucceeded(accum: DialogAccumulator): boolean {
   return accum.errorMsg === '' && accum.body !== '';
 }
@@ -235,74 +285,111 @@ export function updateDialog(
 function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean): Dialog {
   return {
     ...d,
-    // error / answer 已有内容 → 不再 pending;retrying 期间 body 空仍 pending。
+    // error / answer already has content → no longer pending; while
+    // retrying, body stays empty but it's still pending.
     pending: stillPending && accum.body === '' && accum.errorMsg === '',
     retrying: stillPending && accum.retrying,
-    // throbber 是 observer 对 agent 的**实时**观察:observer 还在收事件
-    // (stillPending)时反映当前工具;turn 一落地(finalize,stillPending=false)
-    // 就清成 null —— agent 不动了就没什么可观察的。持久回执是下面的 toolCalls
-    // (tool_completed),不靠这个。
+    // The throbber is the observer's **real-time** view of the agent: it
+    // reflects the current tool while the observer is still receiving
+    // events (stillPending); the moment a turn lands (finalize,
+    // stillPending=false) it's cleared to null — once the agent stops
+    // moving there's nothing left to observe. The persistent receipt is
+    // toolCalls below (tool_completed), not this.
     currentTool: stillPending ? accum.currentTool : null,
-    // error 兜底(errorMsg 非空)= 这轮没答成,不计数。
+    // The error fallback (errorMsg non-empty) = this turn didn't produce
+    // an answer, doesn't count.
     failed: accum.errorMsg !== '',
-    // answer 始终在场:一个字都没流出来 → 只渲那句人话;已经流出来了一部分 → **两样都留**
-    // (残缺的正文 + 引用 + 一句「它没说完」);正常则散文 + 引用。toolCalls 一律带上
-    // (跑过的卡片即使最终报错也该留着)。
+    // answer is always present: not a single character streamed out →
+    // render only the human-readable line; some already streamed out →
+    // **keep both** (the partial body + citations + a line saying "it
+    // didn't finish"); normal case → prose + citations. toolCalls are
+    // always included (cards that ran should stay even if the turn
+    // ultimately errored).
     answer: answerFor(accum),
   };
 }
 
-// answerFor —— 见 withAnswer。拆出来让 withAnswer 的分支保持可读。
+// answerFor —— see withAnswer. Split out to keep withAnswer's branches
+// readable.
 //
-// F-A-32:以前这里是「有 errorMsg 就整段换成那句话」,于是一次跑了 47 次读、攒了 43 条引用
-// 的turn 一旦没收尾,访客眼前的东西会**全部消失**,只剩一句「连接断了」。反过来同样糟:什么都
-// 不说的话,半截的计划旁白就冒充成了答案。两样都留才对。
-// TRUNCATED_NOTICE —— 输出预算用完时挂在答案下面的那句话。
+// F-A-32: this used to be "if there's an errorMsg, swap the whole thing for
+// that line", so a turn that had run 47 reads and accumulated 43 citations
+// would have **everything vanish** from the visitor's view the moment it
+// failed to wrap up, leaving only "connection dropped". The opposite is
+// just as bad: saying nothing lets a half-finished plan narration pass
+// itself off as the answer. Keeping both is correct.
+// TRUNCATED_NOTICE —— the line hung below the answer when the output
+// budget runs out.
 //
-// **这句话的措辞和形状不是这里发明的**（UX-84）：它跟「这场问完了」是同一类事情 ——
-// 一次配额到头，产品停下来告诉访客。50/50 之后那一侧说的是 `session full`
-// （`ChatRoom.tsx` 的 `ComposerAction`，朱红等宽小写），所以这一侧说 `turn full`，
-// 同一个词根、同一套字。**一件事一种说法**：我原来在这里自造了一句
-// 「this answer was cut short — ask for the rest, or narrow the question」，
-// 那既没设计过，还多许了一个「rest」——`answer_chars=0` 的时候根本没有 rest。
+// **This line's wording and shape weren't invented here** (UX-84): it's
+// the same kind of event as "this session is done" — a quota ran out and
+// the product stops to tell the visitor. The other side of that, after
+// 50/50, says `session full` (`ChatRoom.tsx`'s `ComposerAction`, vermillion
+// monospace lowercase), so this side says `turn full` — same root word,
+// same lettering. **One event, one way of saying it**: I originally wrote
+// my own line here, "this answer was cut short — ask for the rest, or
+// narrow the question" — that was never designed, and it promised an extra
+// "rest" that doesn't exist when `answer_chars=0`.
 //
-// 走的是 F-A-32 建的同一个 notice 槽（残缺正文 + 引用 + 一句人话都留着）。
-// STOP_NOTICE —— **每一种撞墙自己写自己的原因**（UX-84）。
+// Uses the same notice slot F-A-32 built (partial body + citations + a
+// human-readable line, all kept).
+// STOP_NOTICE —— **each kind of wall states its own reason** (UX-84).
 //
-// 不写死一句：撞墙不止一种，而「为什么停」正是访客唯一想知道的事。写死一句的话，
-// 下一种停法出现时只会沿用上一种的说法 —— 那正是这条缺陷的来历（我原来给
-// `stop_reason=max_tokens` 写了一句「ask for the rest」，而 `answer_chars=0` 时没有 rest）。
+// Don't hardcode one line: there's more than one kind of wall, and "why
+// did it stop" is exactly what the visitor wants to know. Hardcoding one
+// line means the next kind of wall just inherits the previous line's
+// wording — that's exactly how this bug happened (I once wrote "ask for
+// the rest" for `stop_reason=max_tokens`, and there's no rest when
+// `answer_chars=0`).
 //
-// 词根跟隔壁那个到头态对齐（`ChatRoom.tsx` 的 `SESSION FULL`）：一次配额到头就是
-// `… FULL`，其余各说各的。后端加一种停法 → 这里加一行；**没登记的停法不显示提示**
-// （宁可不说，也不要拿别人的理由顶上）。
+// The root word matches the neighboring quota-exhausted state
+// (`ChatRoom.tsx`'s `SESSION FULL`): running out of quota is always
+// `… FULL`, everything else speaks for itself. Backend adds a new stop
+// kind → add one line here; **an unregistered stop kind shows no notice**
+// (better to say nothing than to borrow someone else's reason).
 //
-// 后端那侧的对应物是 `normalizedStop`（proxy_wire.go）：产品自己判出来的原样透传，
-// 上游的走归一化。两边加的是同一件事的两半。
+// The backend-side counterpart is `normalizedStop` (proxy_wire.go): it
+// passes through the product's own judgment verbatim, and normalizes what
+// comes from upstream. Both sides add the two halves of the same thing.
 const STOP_NOTICE: Readonly<Record<string, string>> = {
-  // 模型的输出预算用完，**正文在、只是没说完** —— 跟「这场问完了」同一类，一次配额到头。
+  // The model ran out of output budget, **the body is there, just
+  // unfinished** — same category as "this session is done", a quota ran
+  // out.
   max_tokens: 'turn full · output budget',
-  // 一直在调工具、到墙为止，正文在（F-A-35 的第一个现场是它的空答案版本）。
+  // Kept calling tools until it hit the wall, the body is there (F-A-35's
+  // first sighting was its empty-answer variant).
   tool_use: 'turn full · spent on lookups',
-  // **一个字都没答出来，也救不回来**（后端 `doneStop` 判的，F-A-35）。
+  // **Not a single character came back, and there's nothing to recover**
+  // (decided by the backend's `doneStop`, F-A-35).
   //
-  // 措辞跟上面两条**不同**是有意的：那两条说「没说完」，可以问「剩下的呢」；这一条说
-  // 「什么都没有」，唯一有用的下一步是把问题缩小。以前这一类跟它们共用一句
-  // 「ask for the rest」—— 在没有 rest 的时候许诺了一个 rest。
+  // The wording is **deliberately different** from the two above: those
+  // two say "didn't finish", so you can ask "what about the rest"; this
+  // one says "there's nothing", and the only useful next step is to
+  // narrow the question. This case used to share "ask for the rest" with
+  // the other two — promising a rest that doesn't exist.
   no_answer: 'no answer this turn · try a narrower question',
-  // **时间用完了**，而且边界那次救场也没来得及（F-A-44）。真实环境里的样子：读了 64 条笔记，
-  // 六分钟后访客读到 *"The connection dropped before a reply came back. Please try asking
-  // again."* —— 连接好好的，撞的是时间墙，而「再问一次」会撞同一堵墙。
+  // **Ran out of time**, and even the deadline-side rescue didn't make it
+  // in time (F-A-44). What it looks like in the real environment: it read
+  // 64 notes, and six minutes later the visitor sees *"The connection
+  // dropped before a reply came back. Please try asking again."* — the
+  // connection was fine, it hit the time wall, and "ask again" would hit
+  // the same wall.
   //
-  // 措辞跟 `no_answer` 分开：那一条是「什么都没找到」，这一条是「找到了很多、没来得及拼起来」，
-  // 而屏幕上那行 `SEARCHED n · READ m` 还在，访客看得见它到底做了多少。
+  // Wording kept separate from `no_answer`: that one is "found nothing
+  // at all", this one is "found a lot, didn't get to put it together in
+  // time" — and the `SEARCHED n · READ m` line on screen is still there,
+  // so the visitor can see how much it actually did.
   deadline: 'out of time · it read a lot and couldn’t finish · ask about one piece of it',
 };
 
-// UNBACKED_CLAIM_NOTICE —— 上面那段话说它替你办成了一件事，而这一轮**没有那件事的回执**
-// （F-A-37：真实环境里 "Booked. ✅ … Invite went to …" 那一轮一个工具都没调，日历上什么都
-// 没有）。已经流出去的字收不回来，所以产品在旁边把话说清楚：**别照着它安排你的时间**。
-// 判定在后端（done 帧的 stop_reason=claim_unbacked），这里只负责说人话。
+// UNBACKED_CLAIM_NOTICE —— the answer above claims it did something for
+// you, and this turn **has no receipt for it** (F-A-37: in the real
+// environment, a turn that said "Booked. ✅ … Invite went to …" never
+// called a single tool, and there was nothing on the calendar). The
+// characters that already streamed out can't be taken back, so the
+// product spells it out next to them: **don't plan your time around it**.
+// Decided on the backend (the done frame's stop_reason=claim_unbacked),
+// this side only has to say it in plain language.
 const UNBACKED_CLAIM_NOTICE =
   'nothing was actually done for this one — the reply above says otherwise, '
   + 'but no action went through. Please ask again, and don’t rely on it until it confirms.';
@@ -324,8 +411,10 @@ function answerFor(accum: DialogAccumulator): Answer {
   };
 }
 
-// noticeFor —— 这一轮要不要在答案旁边挂一句产品自己的话。**无据的主张排在截断前面**：
-// 一段没说完的话让人再问一次，一句没发生的承诺让人白等一场会。
+// noticeFor —— whether this turn should hang a line from the product next
+// to the answer. **An unbacked claim outranks truncation**: a passage
+// that didn't finish makes someone ask again; a promise that never
+// happened makes someone show up to a meeting for nothing.
 function noticeFor(accum: DialogAccumulator): string {
   if (accum.claimUnbacked) return UNBACKED_CLAIM_NOTICE;
   return STOP_NOTICE[accum.stopReason] ?? '';
@@ -340,7 +429,8 @@ function errorAnswer(msg: string): Answer {
   return { paras: [`error: ${msg}`], citations: [], toolCalls: [] };
 }
 
-// splitParas —— body 文本按空行拆段(dialog 渲染用;restore 重建历史也用它)。
+// splitParas —— splits body text into paragraphs on blank lines (used for
+// dialog rendering; restore also uses it to rebuild history).
 export function splitParas(body: string): string[] {
   return body.split(/\n{2,}/).map((s) => s.trim()).filter((s) => s !== '');
 }

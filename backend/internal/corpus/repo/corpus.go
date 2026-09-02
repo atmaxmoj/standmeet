@@ -1,6 +1,7 @@
-// corpus.go —— RawRepo + Wiki/Output 共享 helper (loadByPath / UUID utils
-// / formatUUIDList)。WikiRepo 在 wiki.go，OutputRepo 在 output.go。
-// raw 已折进 corpus_notes(genre='raw'，#151);RawRepo 是它在 inbox 语义上的 CRUD 视图。
+// corpus.go — RawRepo + shared Wiki/Output helpers (loadByPath / UUID utils
+// / formatUUIDList). WikiRepo lives in wiki.go, OutputRepo in output.go.
+// raw is folded into corpus_notes (genre='raw', #151); RawRepo is its CRUD view
+// under inbox semantics.
 
 package repo
 
@@ -20,19 +21,19 @@ import (
 )
 
 const (
-	maxPathDepth   = 32 // 防 parent 环路或异常深 tree
-	rawTitleMaxLen = 60 // raw 从 body 派生 title 的截断长度(单位:字符)
+	maxPathDepth   = 32 // guard against parent cycles or abnormally deep trees
+	rawTitleMaxLen = 60 // truncation length for the title derived from raw body (in characters)
 )
 
-// RawRepo —— corpus_notes(genre='raw')的 inbox CRUD。
+// RawRepo — inbox CRUD over corpus_notes(genre='raw').
 type RawRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewRawRepo 构造 RawRepo。
+// NewRawRepo constructs a RawRepo.
 func NewRawRepo(pool *pgstore.Pool) *RawRepo { return &RawRepo{pool: pool} }
 
-// CreateRawInput 是 Create 入参（避免直接暴露 sqlc params）。
+// CreateRawInput is the input to Create (avoids exposing sqlc params directly).
 type CreateRawInput struct {
 	OwnerID        string
 	Body           string
@@ -41,8 +42,9 @@ type CreateRawInput struct {
 	FlaggedPrivate bool
 }
 
-// Create 写一条新 raw(corpus_notes genre='raw')。pointer 接收避免 hugeParam。
-// corpus_notes.title NOT NULL,故从 body 派生一个 title(首非空行截断)。
+// Create writes a new raw entry (corpus_notes genre='raw'). Pointer receiver avoids hugeParam.
+// corpus_notes.title is NOT NULL, so a title is derived from body (first non-empty
+// line, truncated).
 func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (entity.Raw, error) {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
@@ -64,12 +66,13 @@ func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (entity.Raw, e
 	return toDomainRaw(&row), nil
 }
 
-// rawTitleFromBody —— raw 无独立 title,从 body 派生:首非空行 trim 到 <=60 个**字符**,
-// 空则 "untitled"。
+// rawTitleFromBody — raw has no independent title, so it's derived from body: the first
+// non-empty line, trimmed to <=60 **characters**; falls back to "untitled" if empty.
 //
-// 按字符切,不是按字节:`line[:60]` 会把第 60 字节处的多字节字符劈开,postgres 收到半个
-// 字符就整条拒掉(invalid byte sequence for encoding "UTF8"),而报错里一个字都没提标题。
-// 中文一行 21 个字就到 63 字节 —— 对中文 vault 这是常态,不是边角。
+// Cut by character, not by byte: `line[:60]` would split a multi-byte character at byte
+// 60, and postgres rejects the whole row on a half character (invalid byte sequence for
+// encoding "UTF8"), with an error that never mentions the title. A Chinese line hits 63
+// bytes at just 21 characters — for a Chinese vault that's the common case, not an edge case.
 func rawTitleFromBody(body string) string {
 	for line := range strings.SplitSeq(body, "\n") {
 		line = strings.TrimSpace(line)
@@ -81,8 +84,9 @@ func rawTitleFromBody(body string) string {
 	return "untitled"
 }
 
-// nilSafeTags —— postgres text[] NOT NULL 列拒 NULL；这里把 nil slice 转
-// 空 slice（pgx 序列化成 '{}'）。MCP caller 没传 tags 时不该爆。
+// nilSafeTags — the postgres text[] NOT NULL column rejects NULL; this converts a nil
+// slice to an empty slice (pgx serializes it as '{}'). An MCP caller that omits tags
+// shouldn't blow up.
 func nilSafeTags(s []string) []string {
 	if s == nil {
 		return []string{}
@@ -90,7 +94,7 @@ func nilSafeTags(s []string) []string {
 	return s
 }
 
-// ListByOwner 返回 owner 未 archive 的 raw（最新 N 条）。
+// ListByOwner returns the owner's non-archived raw entries (newest N).
 func (r *RawRepo) ListByOwner(
 	ctx context.Context, ownerID string, limit int32,
 ) ([]entity.Raw, error) {
@@ -110,11 +114,14 @@ func (r *RawRepo) ListByOwner(
 	return out, nil
 }
 
-// Search —— raw 的全文搜（title + body），返 meta + 命中片段;翻页。
+// Search — full-text search over raw (title + body); returns meta + matched snippet;
+// paginated.
 //
-// wiki / output / subjectivity 早就有这一条,raw **没有** —— 而 raw 恰恰是条数最多、
-// 标题多半是自动生成的那一类（这个实例里 450 条）。owner 想找回自己扔进去的某段话时,
-// 最需要搜的就是它（F-L-39/41）。底下的 `SearchNotes` 本来就按 genre 参数化,缺的只是这一层。
+// wiki / output / subjectivity already had this, raw **did not** — yet raw is exactly
+// the genre with the most entries and mostly auto-generated titles (450 entries in this
+// instance). When the owner wants to find some passage they dumped in, this is the one
+// they most need to search (F-L-39/41). The underlying `SearchNotes` was already
+// parameterized by genre; only this layer was missing.
 func (r *RawRepo) Search(
 	ctx context.Context, ownerID, query string, limit, offset int32,
 ) ([]NoteMeta, error) {
@@ -139,7 +146,7 @@ func (r *RawRepo) Search(
 	return out, nil
 }
 
-// GetByID 拿 owner 的某条 raw；不命中返回 ErrRawNotFound。
+// GetByID fetches a raw entry belonging to owner; returns ErrRawNotFound on a miss.
 func (r *RawRepo) GetByID(ctx context.Context, ownerID, id string) (entity.Raw, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -160,7 +167,7 @@ func (r *RawRepo) GetByID(ctx context.Context, ownerID, id string) (entity.Raw, 
 	return toDomainRaw(&row), nil
 }
 
-// MarkPromoted 写 corpus_notes(genre='raw').promoted_to。
+// MarkPromoted writes corpus_notes(genre='raw').promoted_to.
 func (r *RawRepo) MarkPromoted(ctx context.Context, ownerID, rawID, wikiID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -183,10 +190,12 @@ func (r *RawRepo) MarkPromoted(ctx context.Context, ownerID, rawID, wikiID strin
 	return nil
 }
 
-// path-string lookup(byPathQuery/loadByPath)退役了:地址树派生,不再按 path
-// 列反查 entry;cite/寻址走 id(GetByID),公开 landing 走 usecases load 全树算地址。
+// path-string lookup (byPathQuery/loadByPath) is retired: the address is derived from
+// the tree, no longer looked up by a path column; cite/addressing goes through id
+// (GetByID), and the public landing page has usecases load the whole tree to compute
+// addresses.
 
-// toDomainRaw —— corpus_notes(genre='raw')行 → Raw。inbox_source→Source。
+// toDomainRaw — converts a corpus_notes(genre='raw') row → Raw. inbox_source → Source.
 func toDomainRaw(r *db.CorpusNote) entity.Raw {
 	in := entity.RawInit{
 		ID:             pgstore.FormatUUID(r.ID),

@@ -1,10 +1,12 @@
-// EmbedCreateModal —— "new embed" + "edit embed" 同一个 modal。
+// EmbedCreateModal — one modal for both "new embed" and "edit embed".
 //
-// create：挑一张码 + label + 白名单来源 → POST /embeds。
-// edit：码不让改（换码就是**另一个** embed，外面站点上贴的标签还指着老码）——
-//   只改 label + 白名单，对上后端 update op 只收这两样。
+// create: pick a code + label + allowed origins → POST /embeds.
+// edit: the code is locked (swapping it would make **another** embed — the tag
+//   pasted on the outside site still points at the old code) — only label +
+//   allowed origins are editable, matching what the backend update op accepts.
 //
-// 表单状态 / 存档分派 / 文案都在 use-embeds（lib）：呈现层不许有 `if`、分支上限 3。
+// Form state / save dispatch / copy all live in use-embeds (lib): the presentation
+// layer must have no `if`, branch count capped at 3.
 
 'use client';
 
@@ -62,7 +64,8 @@ function CodePicker({ form, codes }: { form: EmbedFormHook; codes: readonly Code
   return (
     <label className="block space-y-2">
       <FieldKicker text={t('codeField')} />
-      {/* 编辑时码锁死：换码 = 另一个 embed，外面贴的标签还指着老码。 */}
+      {/* Code is locked while editing: swapping it = another embed, the tag pasted
+          on the outside site still points at the old code. */}
       <SelectField
         className="w-full" value={form.codeID} testid="embed-code"
         onChange={(e) => form.setCodeID(e.target.value)} disabled={form.editing}

@@ -1,8 +1,10 @@
-// access_approval.go —— 批准一条 gate 访问请求:发一张 AccessCode,并把它**送到**申请人手上。
+// access_approval.go — approve a gate access request: issue an AccessCode, and **deliver**
+// it to the requester.
 //
-// 发码是核心的事(AccessCode 是产品自己的东西);**怎么送出去不是**。送走这一步只经
-// `OutboundSender` —— 一个收件人、一句标题、一段正文。这个包因此不知道对面是邮件、是 IM、
-// 还是别的什么,也不知道 owner 配的是哪个连接器。
+// Issuing the code is core business (AccessCode is the product's own thing); **how it gets
+// delivered is not**. Delivery goes only through `OutboundSender` — one recipient, one title
+// line, one body. This package therefore never knows whether the other side is email, IM,
+// or something else, nor which connector the owner has configured.
 
 package usecase
 
@@ -27,16 +29,20 @@ const (
 	inviteMaxMembers   = 1
 )
 
-// 送不出去时用 ErrOutboundNotConfigured(见 outbound.go) —— 内核自己的哨兵。
+// Use ErrOutboundNotConfigured (see outbound.go) when delivery is impossible — the
+// core's own sentinel.
 
-// OutboundStatusDeps —— 只读出站通道的可用性(给公共 gate 配置用)。
+// OutboundStatusDeps — read-only availability of the outbound channel (used by the
+// public gate config).
 type OutboundStatusDeps struct {
 	Proxy OutboundSender
 }
 
-// CanDeliverCodes —— owner 有没有一条可用的出站通道,能把发出的码送到申请人手上。
-// gate 用它决定要不要展示「request access」整块:送不出去就别让访客白填。
-// 读失败按"送不了"处理(保守 + 不暴露错误到公共端点)。
+// CanDeliverCodes — whether the owner has a working outbound channel that can get an
+// issued code to the requester. gate uses this to decide whether to show the "request
+// access" block at all: don't let a visitor fill in a form that can't go anywhere.
+// A read failure is treated as "cannot deliver" (conservative + no error leaks to the
+// public endpoint).
 func CanDeliverCodes(ctx context.Context, deps OutboundStatusDeps, ownerID string) bool {
 	if ownerID == "" {
 		return false
@@ -48,8 +54,10 @@ func CanDeliverCodes(ctx context.Context, deps OutboundStatusDeps, ownerID strin
 	return ok
 }
 
-// ApproveRequestDeps —— approve 闭环依赖(跨 requests / codes / roles / owners + 出站口)。
-// Proxy 一个口管两件事:预检"送不送得出去"(Connected),和真正把通知送走(Send)。
+// ApproveRequestDeps — dependencies for the approve loop (spans requests / codes / roles /
+// owners + the outbound port).
+// Proxy handles two things through one port: the "can it be delivered" precheck (Connected),
+// and actually sending the notice (Send).
 type ApproveRequestDeps struct {
 	Reqs   *access.RequestRepo
 	Codes  *access.CodeRepo
@@ -58,15 +66,16 @@ type ApproveRequestDeps struct {
 	Proxy  OutboundSender
 }
 
-// ApproveResult —— 发码闭环结果(回 admin UI 展示)。
+// ApproveResult — result of the issue-code loop (shown back in the admin UI).
 type ApproveResult struct {
 	Code string
 	Link string
 }
 
-// ApproveAccessRequest —— 批准一条 gate 请求:issue AccessCode + 把它送给申请人
-// (含码 + /<page>?code= 链接)+ 状态置 replied。出站通道必须先可用,否则
-// ErrOutboundNotConfigured(送不出去就不发码,避免发了码没人知道)。
+// ApproveAccessRequest — approve a gate request: issue an AccessCode + deliver it to the
+// requester (code + /<page>?code= link) + set status to replied. The outbound channel must
+// already be available, otherwise ErrOutboundNotConfigured (don't issue a code that can't be
+// delivered — a code nobody was told about is worse than no code).
 func ApproveAccessRequest(
 	ctx context.Context, deps ApproveRequestDeps, ownerID, requestID string,
 ) (ApproveResult, error) {
@@ -133,10 +142,12 @@ func loadApprovalContext(
 	return approvalContext{req: req, owner: ownerRow}, nil
 }
 
-// issueInviteCode —— owner 批准了一条 gate 申请，产品替他发一张码。
+// issueInviteCode — the owner approved a gate request, so the product issues a code for them.
 //
-// 它挂 `invited` 而不是 public：owner 刚刚**亲手同意**跟这个人说话，那正是一次定向邀请。
-// 挂 public 的话，在 public 收窄成"只读已发布"之后，被批准的人拿到的跟没申请时一模一样。
+// It attaches `invited`, not `public`: the owner just **personally agreed** to talk to this
+// person, which is exactly a targeted invitation. Attaching `public` would give the approved
+// person the same access they'd have had without ever asking, now that public has been
+// narrowed to "read only what's published".
 func issueInviteCode(ctx context.Context, deps ApproveRequestDeps, ownerID string) (string, error) {
 	invited, verr := deps.Roles.GetByName(ctx, ownerID, access.InvitedRoleName)
 	if verr != nil {
@@ -158,8 +169,8 @@ func issueInviteCode(ctx context.Context, deps ApproveRequestDeps, ownerID strin
 	return code, nil
 }
 
-// generateInviteCode —— "inv-XXXXXX" lowercase base32(URL-safe,肉眼可读),
-// 跟 application code 同范式。
+// generateInviteCode — "inv-XXXXXX" lowercase base32 (URL-safe, eyeball-readable),
+// the same pattern as an application code.
 func generateInviteCode() (string, error) {
 	buf := make([]byte, inviteCodeRandSize)
 	if _, err := rand.Read(buf); err != nil {
@@ -173,8 +184,9 @@ func buildCodeLink(publicURL, code string) string {
 	return strings.TrimRight(publicURL, "/") + "?code=" + code
 }
 
-// buildApprovalNotice —— 通知的**内容**是产品自己的(是 StandMeet 在告诉申请人他拿到了码),
-// 所以它属于内核。属于渠道的是"怎么送",那一步在 OutboundSender 后面。
+// buildApprovalNotice — the notice's **content** belongs to the product (it's StandMeet
+// telling the requester they got a code), so it lives in the core. What belongs to the
+// channel is "how to send it", and that step sits behind OutboundSender.
 func buildApprovalNotice(req *access.Request, code, link string) OutboundNotice {
 	greeting := "Hi there,"
 	if req.Name != "" {

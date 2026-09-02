@@ -1,30 +1,35 @@
-// presets.ts —— inference provider preset 表（visitor BYOAI panel + admin
-// AI provider editor 共享）。
+// presets.ts —— inference provider preset table (shared by the visitor
+// BYOAI panel + the admin AI provider editor).
 //
-// Mirror server-side `backend/internal/inference/presets.go`：admin UI 也会
-// 从 GET /api/admin/ai-provider/presets 实时拉一份；这里硬编一份做 visitor
-// 侧的兜底（visitor 没有公开 preset 端点，且 SSR 不便额外 fetch）。两端值
-// 必须保持一致，新增 provider 同步改两边。
+// Mirrors the server-side `backend/internal/inference/presets.go`: the
+// admin UI also pulls a live copy from GET /api/admin/ai-provider/presets;
+// this hardcoded copy is the fallback for the visitor side (visitors have
+// no public preset endpoint, and SSR makes an extra fetch awkward). The two
+// sides' values must stay in sync — adding a provider means updating both.
 //
-// **故意没有 default model 字段**：owner / visitor 必须自己输 model（防止
-// 因为默认指过时 / 错误模型而不自知）。UI 上有 "Load models" button 调
-// POST /api/v1/inference/models 拉真实可用列表帮选；不点就保留 text input
-// 让用户手输。
+// **Deliberately no default model field**: the owner / visitor must type
+// the model themselves (to prevent silently pointing at a stale / wrong
+// default model). The UI has a "Load models" button that calls
+// POST /api/v1/inference/models to pull the real available list and help
+// pick one; if it's not clicked, the text input stays for manual entry.
 //
-// 用途：
-//   - UI 列下拉（label 显示文本）
-//   - 选某项时把 baseUrl 填进 endpoint input；model 始终留空让用户输
-//   - 切 provider 时如果 owner / visitor 没改过 endpoint（值 == 旧 preset
-//     默认），自动重填新默认；改过则保留
+// Uses:
+//   - lists the UI dropdown (label is the display text)
+//   - selecting an entry fills baseUrl into the endpoint input; model
+//     always stays empty for the user to type
+//   - when switching provider, if the owner / visitor hasn't touched the
+//     endpoint (value == the old preset default), auto-refill the new
+//     default; if they have touched it, keep their value
 //
-// **endpoint** 不带 `/v1/...` 路径后缀（OpenAI-compat adapter 内部拼）。
-// 让 custom owner 只填 "http://localhost:11434" 这种 base。
+// **endpoint** carries no `/v1/...` path suffix (the OpenAI-compat adapter
+// appends it internally). This lets a custom owner just type a base like
+// "http://localhost:11434".
 
 export interface InferencePreset {
   readonly name: string;        // canonical id ('openai' / 'custom' / ...)
-  readonly label: string;       // UI 显示
-  readonly baseUrl: string;     // 默认 base URL；custom 是 ''
-  readonly keyPrefix: string;   // sanity check ('sk-' / 'gsk_' / ...)；空跳过
+  readonly label: string;       // UI display text
+  readonly baseUrl: string;     // default base URL; '' for custom
+  readonly keyPrefix: string;   // sanity check ('sk-' / 'gsk_' / ...); empty skips it
 }
 
 export const PRESETS: readonly InferencePreset[] = [
@@ -66,8 +71,9 @@ export const PRESETS: readonly InferencePreset[] = [
   },
 ];
 
-// lookupPreset —— provider name → preset。未知 provider 返 undefined（caller
-// 决定 fallback 行为；通常是当作 'custom' 处理，要求 owner 自填 endpoint+model）。
+// lookupPreset —— provider name → preset. Returns undefined for an unknown
+// provider (the caller decides the fallback behavior; usually treated as
+// 'custom', requiring the owner to fill in endpoint+model themselves).
 export function lookupPreset(name: string): InferencePreset | undefined {
   return PRESETS.find((p) => p.name === name);
 }

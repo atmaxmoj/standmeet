@@ -1,11 +1,13 @@
-// crosslink-command —— Tiptap suggestion extension: `[[`, picker, insert
-// `[[slug]]` 字面 on pick。Crosslink rewrite at render-time handled by
-// backend usecase (writing_refs + RewriteCrossLinksForRender)。
+// crosslink-command — Tiptap suggestion extension: `[[`, picker, insert
+// `[[slug]]` literal on pick. Crosslink rewrite at render-time handled by
+// backend usecase (writing_refs + RewriteCrossLinksForRender).
 //
-// 这一版从 v1 改成 mark-based char `[`（单字符）+ allowSpaces false + items
-// 同步读 indexCache，避免 prod build 下用 multi-char `[[` 触发 Suggestion
-// regex 编译或 async items 解 unbox 出问题。第二个 `[` 由用户继续打字
-// 进入 query；当 query 以 `]` 收尾时让 picker dismissExit。
+// This version switches from v1's mark-based char `[` (single char) +
+// allowSpaces false + items reading indexCache synchronously, to avoid
+// issues under prod build where a multi-char `[[` trigger hits Suggestion
+// regex compilation or async items unboxing problems. The second `[` is
+// typed by the user and enters the query naturally; when the query ends
+// with `]`, the picker dismissExits.
 
 import { Extension } from '@tiptap/core';
 import type { Editor, Range } from '@tiptap/core';
@@ -18,10 +20,11 @@ import { ReactRenderer } from '@tiptap/react';
 import tippy from 'tippy.js';
 import type { Instance as TippyInstance } from 'tippy.js';
 
-// 不同的 PluginKey 是关键 —— WritingEditor 同时挂 SlashCommand 和这个
-// CrosslinkCommand，两个 Suggestion 插件如果用同一 default key 会在
-// ProseMirror plugins set 里撞 key，editor mount 直接 throw（prod build
-// 下整页崩成 "Application error"）。
+// A distinct PluginKey is essential — WritingEditor mounts both SlashCommand
+// and this CrosslinkCommand at the same time. If the two Suggestion plugins
+// shared the same default key, they'd collide in the ProseMirror plugins
+// set and editor mount would throw immediately (crashing the whole page
+// into "Application error" under prod build).
 const CROSSLINK_PLUGIN_KEY = new PluginKey('crosslinkSuggestion');
 
 import {
@@ -43,15 +46,15 @@ interface Storage {
   popup: TippyInstance | null;
 }
 
-// 单例 cache。primeIndex 是 fire-and-forget；items 同步读，初次没装好就
-// 空数组（picker 显示 no match）。
+// Singleton cache. primeIndex is fire-and-forget; items reads synchronously,
+// so on first load before it's ready it's an empty array (picker shows no match).
 let indexCache: readonly PostSlugEntry[] = [];
 
 function primeIndex(): void {
   if (typeof window === 'undefined') return;
   void fetchAdminPostSlugs()
     .then((rows) => { indexCache = rows; })
-    .catch(() => { /* silent: picker 仍可用 */ });
+    .catch(() => { /* silent: picker still usable */ });
 }
 
 export const CrosslinkCommand = Extension.create<{ suggestion: Opt }>({
@@ -67,17 +70,20 @@ export const CrosslinkCommand = Extension.create<{ suggestion: Opt }>({
   },
 });
 
-// 用单字符 `[` 做 trigger，第二个 `[` 自然走 query 第一个字符。query 真起
-// 来时第一个 char 必为 `[`（用户输入"[[ "中的第二个"["）。items 过滤前用
-// query.replace(/^\[/, '') 把"占位 [" 去掉。这样既绕开 multi-char trigger
-// 在 v3 下的不稳，也不影响 picker 用户体验。
+// Uses the single char `[` as trigger; the second `[` naturally becomes the
+// query's first character. Once the query actually starts, its first char
+// must be `[` (the second "[" of the user's typed "[["). Before filtering
+// items, query.replace(/^\[/, '') strips off that "placeholder [". This
+// sidesteps the multi-char trigger's instability under v3, without
+// affecting the picker's UX.
 function defaultOptions(): Opt {
   return {
     char: '[',
     startOfLine: false,
     allowSpaces: true,
     pluginKey: CROSSLINK_PLUGIN_KEY,
-    // query 第一个 char 必为 '[' 才视作 crosslink 触发（防误触：单 `[` 不弹）
+    // The query's first char must be '[' to count as a crosslink trigger
+    // (prevents accidental triggers: a lone `[` doesn't pop the picker)
     items: ({ query }) => {
       if (!query.startsWith('[')) return [];
       const real = query.slice(1);

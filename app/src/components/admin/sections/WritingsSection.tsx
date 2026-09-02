@@ -1,6 +1,6 @@
-// WritingsSection —— /admin/writings。owner 手写 markdown writing + edit +
-// delete + publish/unpublish + cover image。MCP handoff 同一套 backend，所以
-// 这里是 owner 不开 Claude Desktop 时的 web 备用路径。
+// WritingsSection —— /admin/writings. The owner hand-writes markdown writings + edits +
+// deletes + publish/unpublish + cover image. MCP handoff goes through the same backend, so
+// this is the web fallback path for when the owner isn't running Claude Desktop.
 
 'use client';
 
@@ -225,7 +225,8 @@ function ActionBtn({
 
 type Run = ReturnType<typeof useAction>;
 
-// publish/unpublish 是离散一键动作 → 成功/失败都用 run 收尾（失败不再静默：owner 得知道没生效）。
+// publish/unpublish is a discrete one-click action → both success/failure are wrapped up by run
+// (failure is no longer silent: the owner needs to know when it didn't take).
 function useTogglePublish(writing: AdminWritingView, hook: WritingsHook, run: Run) {
   return useCallback(
     () => run(() => flipPublishOp(writing, hook),
@@ -301,7 +302,8 @@ function WritingEditModal({
   );
 }
 
-// parentOptionsFor —— 「设父」候选 = 别的 writing(排除自己,防自挂;深层成环后端拦)。
+// parentOptionsFor —— candidates for "set parent" = other writings (excludes self, to prevent
+// self-parenting; deep cycles are blocked by the backend).
 function parentOptionsFor(
   writings: WritingsHook['writings'], excludeID: string,
 ): ParentOption[] {
@@ -331,9 +333,9 @@ function lookupAssetURL(id: string, map: Record<string, string>): string {
   return map[id] ?? '';
 }
 
-// toBundle —— WritingForm 提交回来 (values + pending files) → 转
-// WritingSaveBundle 给 createWriting/updateWriting。create 时附带 slug +
-// publish 字段，edit 时不带（走单独 publish endpoint，slug 在 URL）。
+// toBundle —— what WritingForm submits back (values + pending files) → converted into a
+// WritingSaveBundle for createWriting/updateWriting. On create it includes slug +
+// publish fields; on edit it doesn't (that goes through a separate publish endpoint, slug is in the URL).
 function toBundle(s: WritingFormSubmit, isCreate: boolean): WritingSaveBundle {
   return { data: toSaveData(s.values, isCreate), files: s.files };
 }

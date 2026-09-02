@@ -1,9 +1,13 @@
-// MCPDownloadPanel —— 把 owner 的真 MCP 端点交到手上(Claude Desktop / Cursor 指过去)。
-// 诚实修正:原先假装有可下载的 standmeet-mcp 二进制 —— 4 个平台链接全指向不存在的
-// github.com/standmeet/mcp-client,文件名/大小(11 MB 等)全是编的,点了是死链。端点本身是真的
-// (#143 as-MCP-server facade:/mcp,Sigv1 auth)。stdio 客户端(npx @standmeet/mcp-client)已发布
-// 并由上方 MCPClientPanel 的 config 使用,所以 note 如实说明它就是那条路径(F-M-1:原文案说
-// "wrapper 尚未发布",与同页服务的 config 自相矛盾)。
+// MCPDownloadPanel — hands owner the real MCP endpoint (what Claude Desktop
+// / Cursor point at). Honesty fix: it used to pretend a downloadable
+// standmeet-mcp binary existed — all 4 platform links pointed at a
+// nonexistent github.com/standmeet/mcp-client, the filename/size (11 MB etc.)
+// were all made up, and clicking them was a dead link. The endpoint itself
+// is real (#143 as-MCP-server facade: /mcp, Sigv1 auth). The stdio client
+// (npx @standmeet/mcp-client) is already published and used by the config in
+// MCPClientPanel above, so the note now honestly says that's the actual path
+// (F-M-1: the old copy said "wrapper not yet published", contradicting the
+// config served on the same page).
 
 'use client';
 
@@ -12,7 +16,9 @@ import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 
-// useMcpEndpoint —— 本实例的 MCP 端点(单域部署下 origin/mcp)。mount 后读 window 避免 SSR 不一致。
+// useMcpEndpoint — this instance's MCP endpoint (origin/mcp under a
+// single-domain deployment). Reads window only after mount to avoid an
+// SSR mismatch.
 function useMcpEndpoint(): string {
   const [origin, setOrigin] = useState('');
   useEffect(() => { setOrigin(window.location.origin); }, []);

@@ -37,12 +37,14 @@ export function MarketplaceCard({
   );
 }
 
-// hintable —— 这张卡该说哪几个连接器。
+// hintable —— which connectors this card should mention.
 //
-// needs 已经是**差集**（服务端算的：这个技能要的连接器减去 owner 连上的）。这里不再自己
-// 减一次 —— 减法要的两半都在服务端，客户端要算就得自己养一张连接器对照表（F-F-4）。
-// null（服务端答不上来）跟 []（不缺）都是「不说」，装过的也不说：那时该连什么已经是安装
-// 之后的事了。
+// needs is already a **difference set** (computed server-side: connectors the skill
+// wants, minus the ones the owner already has). Don't subtract again here — both
+// halves of that subtraction live on the server; doing it client-side would mean
+// maintaining a second connector lookup table here (F-F-4).
+// null (server can't answer) and [] (nothing missing) both mean "say nothing", and
+// so does installed: what to connect is a post-install concern by then.
 function hintable(skill: MarketSkillView, installed: boolean): readonly string[] {
   return installed ? [] : (skill.needs ?? []);
 }
@@ -63,9 +65,11 @@ function CardHead({ skill }: { skill: MarketSkillView }) {
   );
 }
 
-// RepoStars —— 数的是技能所在**仓库**的星数,所以标签要说 repo:同一个仓库里的兄弟技能
-// 共享一个数,不说清楚的话,一列相同的数字读起来就是"这些技能一样受欢迎"。
-// 源报不出来(null)就什么都不印 —— 上一版印 `★ 0`,那是把"不知道"说成"零颗星"(F-F-2)。
+// RepoStars —— counts stars on the skill's **repo**, so the label must say repo:
+// sibling skills in the same repo share one number, and without the label a
+// column of identical numbers reads as "these skills are equally popular".
+// When the source can't report it (null), print nothing — the previous version
+// printed `★ 0`, which turned "unknown" into "zero stars" (F-F-2).
 function RepoStars({ stars }: { stars: number | null }) {
   const t = useTranslations('adminIntegrations.marketplaceCard');
   return stars === null ? null : (
@@ -81,9 +85,11 @@ function CardFoot({
   const t = useTranslations('adminIntegrations.marketplaceCard');
   return (
     <footer className={styles.foot}>
-      {/* market-author,不是 market-skill-author:`market-skill-` 是**卡片**的命名空间
-          (`market-skill-<id>`),卡片里面的字段再叫这个前缀,数卡片的选择器就会连字段一起数进去
-          —— 每张卡片算两个。那正是 F-F-2 当年被记成"后端结果重复"的原因。 */}
+      {/* market-author, not market-skill-author: `market-skill-` is the **card's**
+          namespace (`market-skill-<id>`). If a field inside the card reused that
+          prefix, a selector counting cards would count the field too — each card
+          would count as two. That's exactly what F-F-2 was once misdiagnosed as
+          "duplicate backend results". */}
       <span className={styles.author} data-testid="market-author">
         {skill.version
           ? t('author', { author: skill.author, version: skill.version })
@@ -117,7 +123,8 @@ function InstallBtn({
   );
 }
 
-// MissingHint —— 空就不渲染这一格（连元素都不出现，守卫据此断「它不提示」）。
+// MissingHint —— renders nothing when empty (the element itself is absent, so a
+// guard can assert "no hint shown" from that).
 function MissingHint({ missing }: { missing: readonly string[] }) {
   return missing.length === 0 ? null : <MissingHintText missing={missing} />;
 }

@@ -1,10 +1,13 @@
-// corpus_views.go —— 树视图 / 分页视图的 item 形状与转换器。
+// corpus_views.go — item shapes and converters for the tree view / page view.
 //
-// 这两个视图是**面板独有**的浏览形态(懒加载的树节点、按页取),不经出站收口:收口给的是
-// "一条语料",它们要的是"这一层有哪些节点、还有没有下一层"。所以 item 里有 has_children,
-// 那是位置信息,不是语料的属性。
+// These two views are browsing shapes **unique to the panel** (lazily-loaded tree nodes,
+// fetched by page) and don't go through the outbound convergence point: the convergence
+// point gives "one corpus entry", these views need "which nodes are at this layer, is
+// there another layer below". That's why item carries has_children — that's positional
+// information, not an attribute of the corpus entry itself.
 //
-// 语料本身的形状在 internal/corpus/ops —— 列表 / 详情 / 写 全部经收口,两个面同一份。
+// The corpus entry's own shape lives in internal/corpus/ops — list / detail / write all go
+// through the convergence point, both facades share the same one.
 
 package admin
 
@@ -16,10 +19,11 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
-// timeRFC3339 —— 这两个视图的时间戳跟收口那份对齐。
+// timeRFC3339 — keeps these two views' timestamps aligned with the convergence point's.
 const timeRFC3339 = "2006-01-02T15:04:05Z07:00"
 
-// excerptMaxLen —— 卡片上那段干净首段的长度(跟域里的 previewMaxLen 同值)。
+// excerptMaxLen — length of the clean lead paragraph shown on the card (same value as
+// the domain's previewMaxLen).
 const excerptMaxLen = 200
 
 type rawListItem struct {
@@ -28,12 +32,14 @@ type rawListItem struct {
 	CreatedAt string  `json:"created_at"`
 	ID        string  `json:"id"`
 	Body      string  `json:"body"`
-	// Preview —— 干净的首段(LeadLine:剥掉标记和结构),卡片显示它;Body 是给就地编辑用的原文。
+	// Preview — the clean lead paragraph (LeadLine: strips markup and structure), shown
+	// on the card; Body is the raw text used for in-place editing.
 	Preview string   `json:"preview"`
 	Source  string   `json:"source"`
 	Status  string   `json:"status"`
 	Tags    []string `json:"tags"`
-	// HasChildren —— 树视图专有:这个节点还能往下钻(懒加载那一层)。
+	// HasChildren — tree-view only: whether this node can still be drilled into (the
+	// lazily-loaded layer).
 	HasChildren bool `json:"has_children,omitempty"`
 }
 
@@ -77,7 +83,8 @@ func rawItemFromDomain(r *corpus.Raw) rawListItem {
 	}
 }
 
-// rawStatus —— 侧栏那个"待收拾"角标数的就是它:promote 过就算处理完了。
+// rawStatus — what the sidebar's "to process" badge counts: once promoted, it counts as
+// handled.
 func rawStatus(r *corpus.Raw) string {
 	if r.IsPromoted() {
 		return "promoted"
@@ -85,13 +92,15 @@ func rawStatus(r *corpus.Raw) string {
 	return "unprocessed"
 }
 
-// wikiItemFromDomain —— path 由 caller 传(树派生地址,从 parent 链算)。
+// wikiItemFromDomain — path is passed in by the caller (a tree-derived address, computed
+// from the parent chain).
 func wikiItemFromDomain(w *corpus.Wiki, path string) wikiListItem {
 	return wikiListItem{
 		ID:    w.ID(),
 		Title: w.Title(),
-		// Excerpt 是**另写**的那份(可能为空);Preview 是正文派生的兜底,卡片在 Excerpt
-		// 为空时才显示它 —— 截断出来的东西永远不是摘要本身。
+		// Excerpt is the **separately written** one (can be empty); Preview is the
+		// body-derived fallback, shown by the card only when Excerpt is empty —
+		// something truncated out of the body is never the summary itself.
 		Excerpt:      w.Excerpt(),
 		Preview:      corpus.LeadLine(w.Body(), excerptMaxLen),
 		Tags:         ensureSlice(w.Tags()),
@@ -118,8 +127,9 @@ func outputItemFromDomain(o *corpus.Output, path string) outputListItem {
 	}
 }
 
-// optionalToPtr —— 域的 (string, bool) getter(如 ParentID)→ *string,给 JSON 的
-// omitempty 用。传方法引用而不是调用结果,是为了避开 revive 把 ok 当控制布尔的误判。
+// optionalToPtr converts a domain (string, bool) getter (like ParentID) → *string, for
+// JSON's omitempty. It takes a method reference rather than the call's result to dodge a
+// revive false positive that flags ok as a control boolean.
 func optionalToPtr(get func() (string, bool)) *string {
 	v, ok := get()
 	if !ok {
@@ -129,7 +139,7 @@ func optionalToPtr(get func() (string, bool)) *string {
 	return &cp
 }
 
-// ptrIfNonEmpty —— 空串 → nil(JSON null / 省略),非空 → 指针。
+// ptrIfNonEmpty — an empty string → nil (JSON null / omitted), non-empty → a pointer.
 func ptrIfNonEmpty(s string) *string {
 	if s == "" {
 		return nil
@@ -144,20 +154,22 @@ func ensureSlice(s []string) []string {
 	return s
 }
 
-// logEncodeErr —— 收口 json encode error 的 slog 调用,每个 helper 自带 msg。
+// logEncodeErr centralizes the slog call for a json encode error; each helper supplies
+// its own msg.
 func logEncodeErr(log *slog.Logger, msg string, err error) {
 	if err != nil {
 		log.Error(msg, "err", err)
 	}
 }
 
-// treeItem —— 树/分页视图会出的三种 item。写成具名约束而不是 any:这个写出口只服务这三种,
-// 钉死了就没人能顺手把别的东西从这儿发出去。
+// treeItem — the three item kinds the tree/page views can emit. Written as a named
+// constraint rather than any: this write path only ever serves these three, and pinning
+// it down means no one can casually send something else out through it.
 type treeItem interface {
 	rawListItem | wikiListItem | outputListItem
 }
 
-// writeItemsJSON —— 树/分页视图统一的 200 + 数组。
+// writeItemsJSON — the tree/page views' shared 200 + array response.
 func writeItemsJSON[T treeItem](log *slog.Logger, w http.ResponseWriter, msg string, items []T) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

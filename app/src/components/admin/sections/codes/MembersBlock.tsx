@@ -1,8 +1,9 @@
-// MembersBlock —— CodeCard 底部的"members"展开块。
+// MembersBlock — the "members" disclosure block at the bottom of CodeCard.
 //
-// owner 点 "members ↓" 拉出当前 code 下所有访客（按 last_seen 排），只读。
-// revoke 是 AccessCode 级别的（卡顶 revoke 按钮），不针对单个 member——member
-// 只是 (code, name) 落地痕迹，不是单独可管的实体。
+// The owner clicks "members ↓" to expand every visitor under this code (sorted by
+// last_seen), read-only. Revoke operates at the AccessCode level (the revoke button at the
+// top of the card), not on an individual member — a member is just the (code, name)
+// footprint left behind, not a separately manageable entity.
 
 'use client';
 

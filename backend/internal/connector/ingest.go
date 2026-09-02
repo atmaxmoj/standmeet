@@ -1,20 +1,23 @@
-// ingest.go —— 把 openapi spec 摄入校验提到 connector 包面（arch：connectorsvc/adminroutes 经
-// connector 用，不直接碰 connector/openapi 子包）。薄转发，归一到同一个 3.0 parser。
+// ingest.go — lifts openapi spec ingestion validation up onto the connector package surface
+// (architecture: connectorsvc/adminroutes go through connector, never touch the connector/openapi
+// subpackage directly). A thin forward, unified onto the same 3.0 parser.
 
 package connector
 
 import "github.com/atmaxmoj/standmeet/internal/connector/openapi"
 
-// MaxSpecBytes —— 这台实例收多大的 spec。**不再是编译期常量**：owner 用
-// `CONNECTOR_SPEC_MAX_BYTES` 配得动（默认 2 MiB，见 openapi/ingest.go）。
-// 这里仍然是薄转发 —— 值只有一处产生。
+// MaxSpecBytes — how large a spec this instance accepts. **No longer a compile-time constant**:
+// the owner can configure it via `CONNECTOR_SPEC_MAX_BYTES` (default 2 MiB, see
+// openapi/ingest.go). This is still a thin forward — the value is produced in one place only.
 var MaxSpecBytes = openapi.MaxSpecBytes
 
-// AuthForms / AuthSchemeForm / AuthFieldForm —— 派生的凭据表单描述（别名透传 openapi 类型，让
-// connectorsvc/adminroutes 经 connector 用，不直接 import openapi 子包）。
+// AuthForms / AuthSchemeForm / AuthFieldForm — derived credential-form descriptions (aliases
+// passing through the openapi types, so connectorsvc/adminroutes can use them via connector
+// without importing the openapi subpackage directly).
 type AuthForms = openapi.AuthForms
 
-// IngestVerdict —— 摄入校验结果（owner 友好）：OK → Title + 派生凭据表单；否则 Reason 是拒绝理由。
+// IngestVerdict — the ingestion validation result (owner-friendly): OK → Title + derived
+// credential form; otherwise Reason is the rejection reason.
 type IngestVerdict struct {
 	Title  string
 	Reason string
@@ -22,7 +25,8 @@ type IngestVerdict struct {
 	OK     bool
 }
 
-// ValidateIngestSpec —— 校验一份待摄入 spec + 派生凭据表单。错误转成 owner 友好 verdict。
+// ValidateIngestSpec — validate a spec pending ingestion + derive its credential form. Errors
+// are converted into an owner-friendly verdict.
 func ValidateIngestSpec(raw []byte) IngestVerdict {
 	title, err := openapi.ValidateIngest(raw)
 	if err != nil {

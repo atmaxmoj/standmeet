@@ -1,7 +1,9 @@
-// WritingTreeAside —— reader 左侧 240px writing 树导航。复用通用 LazyTree,接
-// writing 数据口(fetchWritingTree)+ writing label(Link 到 /writings/<slug>,
-// 当前条高亮,private 标 locked 斜体)。证明 LazyTree 真复用:跟 WikiTreeAside
-// 同一个组件,只换 loader/label。
+// WritingTreeAside —— the reader's left-side 240px writing tree nav. Reuses
+// the generic LazyTree, wired to the writing data source
+// (fetchWritingTree) + writing label (Link to /writings/<slug>, current
+// entry highlighted, private entries shown italic and locked). Proves
+// LazyTree is genuinely reused: it's the same component as WikiTreeAside,
+// only the loader/label swapped.
 
 'use client';
 

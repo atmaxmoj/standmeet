@@ -1,12 +1,15 @@
-// corpus_write_media.go —— 语料的写里跟**素材**有关的那一半:hero 区,以及删条目时素材
-// 跟着一起没。
+// corpus_write_media.go — the half of corpus writes that deals with **media**: the hero
+// block, and media getting deleted along with an entry.
 //
-// hero 跟条目本身是**两件事**,写路径也得分开:条目那半是"整份替换"(没给的字段就是清空),
-// hero 这半是"只覆盖这次给了的"。把两者混在一个替换里会出一个很难看的结果 —— owner 只是
-// 给一条 wiki 配了张图,结果标题和正文被一份空入参洗掉了。
+// hero and the entry itself are **two different things**, so the write paths must stay
+// separate too: the entry half is a "full replace" (a field that isn't given is cleared),
+// the hero half is "only overwrite what's given this time". Mixing the two into one
+// replace produces an ugly result — the owner just wanted to set a picture on a wiki entry,
+// and instead the title and body got wiped by an empty payload.
 //
-// 反过来也一样:既有的调用方(改正文,一个 hero 字段都不带)不该把 owner 设好的 hero 抹掉。
-// 所以入参里 hero 三项是指针,nil = 不动。
+// The reverse must also hold: an existing caller (editing the body, carrying no hero
+// fields at all) must not wipe out a hero the owner already set. So the three hero fields
+// in the input are pointers, nil = leave alone.
 
 package ops
 
@@ -17,17 +20,18 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// heroPatch —— 这次要改 hero 的哪几项。
+// heroPatch — which hero fields this call is changing.
 func (a *corpusWriteArgs) heroPatch() usecase.HeroPatch {
 	return usecase.HeroPatch{
 		CoverAssetID: a.CoverImageAssetID, CoverHeadline: a.CoverHeadline, CoverHue: a.CoverHue,
 	}
 }
 
-// entryTouched —— 这次动没动条目本身(而不是只动 hero)。
+// entryTouched — whether this call touches the entry itself (as opposed to only
+// touching hero).
 //
-// 只改 hero 时不能顺手跑一遍整份替换:那会拿一份空的 title/body 把条目洗掉 ——
-// "只是给它配了张图"变成"把它清空了"。
+// A hero-only edit must not also run a full replace as a side effect: that would wipe the
+// entry with an empty title/body — "just gave it a picture" turns into "wiped it clean".
 func (a *corpusWriteArgs) entryTouched() bool {
 	given := []bool{
 		a.Title != "", a.Body != "", a.ParentID != nil,
@@ -41,9 +45,11 @@ func (a *corpusWriteArgs) entryTouched() bool {
 	return false
 }
 
-// applyCorpusUpdate —— hero 和条目本身是两件事,分开落。
+// applyCorpusUpdate — hero and the entry itself are two separate things, and land
+// separately.
 //
-// 只给了 hero 就只改 hero,再把条目现值读回来当回执 —— 而不是拿一份空入参跑整份替换。
+// Given only hero fields, change only hero, then read the entry's current value back as
+// the response — instead of running a full replace with an empty payload.
 func applyCorpusUpdate(
 	ctx context.Context, deps usecase.Deps, ownerID string, in *corpusWriteArgs,
 ) (corpusItemOut, error) {
@@ -69,10 +75,12 @@ func writeHero(
 	return usecase.SetNoteHero(ctx, deps.Media, ownerID, id, hero)
 }
 
-// dropEntryAssets —— 删条目之前先把它名下的素材删干净。
+// dropEntryAssets — cleans out an entry's media before deleting the entry itself.
 //
-// 素材先没,条目后没。反过来会留下"条目已删、字节还在"的孤儿 —— 那种字节谁也不认识,
-// 只能靠扫才找得回来;反之则是一条少了配图的语料,看得见、补得回。
+// Media goes first, the entry goes second. Doing it the other way around leaves an orphan
+// — "entry deleted, bytes still there" — bytes nobody can identify anymore, recoverable
+// only by scanning; doing it this order instead just leaves a corpus entry missing its
+// picture, which is visible and fixable.
 func dropEntryAssets(ctx context.Context, deps usecase.Deps, id string) error {
 	if !deps.HasMedia() {
 		return nil

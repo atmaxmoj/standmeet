@@ -1,25 +1,32 @@
-// errors.go —— 收口把错误分成**协议无关的几类**,再具体的形态是各个面自己的事。
+// errors.go — the gate sorts errors into a few **protocol-agnostic categories**; the concrete
+// shape is each facade's own business.
 //
-// 类别表:
+// Category table:
 //
-//	BadInput  调用方给错了        → HTTP 400 / MCP isError
-//	Unauthed  这个身份不再有效    → HTTP 401 / MCP isError(前端据此跳登录)
-//	NotFound  要的东西不存在      → HTTP 404 / MCP isError
-//	Forbidden 这个东西不许被这么动  → HTTP 403 / MCP isError
-//	Conflict  跟已有状态冲突      → HTTP 409 / MCP isError
-//	Upstream  依赖的外部服务失败  → HTTP 502 / MCP isError(消息可以直接给人看)
-//	其余      这台机器出错了      → HTTP 500(细节进日志,不外泄)/ MCP isError
+//	BadInput  caller's input is wrong       → HTTP 400 / MCP isError
+//	Unauthed  this identity no longer valid → HTTP 401 / MCP isError (frontend redirects to login)
+//	NotFound  the requested thing is gone   → HTTP 404 / MCP isError
+//	Forbidden this action isn't allowed here → HTTP 403 / MCP isError
+//	Conflict  conflicts with existing state → HTTP 409 / MCP isError
+//	Upstream  a dependency failed           → HTTP 502 / MCP isError (message is safe to show)
+//	other     this machine broke            → HTTP 500 (logged, not exposed) / MCP isError
 //
-// 收口不认识状态码,也不认识 isError。它只说清是哪一类,翻译留给面。
+// The gate doesn't know status codes, doesn't know isError. It only states which category;
+// translation is left to the facade.
 //
-// 为什么需要它:admin 面把校验从 handler 搬进收口之后,handler 仍然要回 400/404/409 而不是
-// 一律 500。没有这个区分,两边就得各留一份错误分类 —— 那正是收口要消灭的重复。
+// Why this exists: once the admin facade moved validation from the handler into the gate, the
+// handler still had to return 400/404/409 instead of a blanket 500. Without this distinction,
+// both sides would keep their own error taxonomy — exactly the duplication the gate exists to
+// eliminate.
 //
-// **加一类的标准是"有没有面因此行为不同",不是"话说得一样不一样"。** 409 是真类别:前端拿
-// status 分流(401 跳登录 / 409 就地处理 / 其余 toast),塌成 400 会改掉它的行为。502 也是:
-// 它带的是能直接给人看的话("抓不到这个 skill,检查来源"),塌成 500 会变成"internal error"。
-// 反过来,"邮件连接器没配好"跟"缺必填字段"对每个面的行为完全相同 —— 那是**消息内容**,
-// 不该变成新类别。每加一类,每个面都要跟着加一条翻译。
+// **The bar for adding a category is "does a facade behave differently because of it", not
+// "does the wording differ".** 409 is a real category: the frontend branches on status (401 →
+// redirect to login / 409 → handle in place / everything else → generic toast); collapsing it
+// into 400 would change that behavior. 502 too: it carries a message safe to show directly
+// ("couldn't fetch this skill, check the source"), and collapsing it into 500 turns it into
+// "internal error". Conversely, "mail connector isn't configured" vs. "missing required field"
+// behave identically for every facade — that's **message content**, not a new category. Every
+// category added means every facade has to add a matching translation.
 
 package facadeparity
 
@@ -28,102 +35,113 @@ import (
 	"fmt"
 )
 
-// badInputError —— 调用方给的入参不对(缺必填、格式错、id 不存在这类)。
+// badInputError —— the caller's input is wrong (missing required field, bad format, id doesn't
+// exist, that kind of thing).
 type badInputError struct{ msg string }
 
 func (e badInputError) Error() string { return e.msg }
 
-// BadInput —— 造一个"调用方给错了"的错误。消息直接面向调用方,要能读懂。
+// BadInput —— make a "caller got it wrong" error. The message faces the caller directly and
+// must be understandable.
 func BadInput(msg string) error { return badInputError{msg: msg} }
 
-// IsBadInput —— 这个错误是调用方的问题吗?面据此选状态码。
+// IsBadInput —— is this error the caller's fault? The facade picks its status code off this.
 func IsBadInput(err error) bool {
 	var t badInputError
 	return errors.As(err, &t)
 }
 
-// notFoundError —— 要操作的东西不存在(id 对不上、已被删)。
+// notFoundError —— the thing being operated on doesn't exist (id doesn't match, already deleted).
 type notFoundError struct{ msg string }
 
 func (e notFoundError) Error() string { return e.msg }
 
-// NotFound —— 造一个"找不到"的错误。消息直接面向调用方。
+// NotFound —— make a "not found" error. The message faces the caller directly.
 func NotFound(msg string) error { return notFoundError{msg: msg} }
 
-// IsNotFound —— 面据此回 404 而不是 400/500。
+// IsNotFound —— the facade returns 404 off this, instead of 400/500.
 func IsNotFound(err error) bool {
 	var t notFoundError
 	return errors.As(err, &t)
 }
 
-// conflictError —— 跟已经存在的状态冲突(重名、重复安装这类)。
+// conflictError —— conflicts with state that already exists (duplicate name, already installed,
+// that kind of thing).
 type conflictError struct{ msg string }
 
 func (e conflictError) Error() string { return e.msg }
 
-// Conflict —— 造一个"跟现状冲突"的错误。前端拿 409 就地处理,不走通用 toast。
+// Conflict —— make a "conflicts with current state" error. The frontend handles 409 in place,
+// not through the generic toast.
 func Conflict(msg string) error { return conflictError{msg: msg} }
 
-// IsConflict —— 面据此回 409。
+// IsConflict —— the facade returns 409 off this.
 func IsConflict(err error) bool {
 	var t conflictError
 	return errors.As(err, &t)
 }
 
-// unauthedError —— 这次请求的身份不再成立(会话指向的 owner 已经不存在这类)。
-// 跟 Forbidden 的区别是:Forbidden 说"你是谁我认,但这件事不许做",这个说"你是谁我已经不认了"。
-// 前端拿 401 会跳登录,所以它必须跟 403 分开。
+// unauthedError —— this request's identity no longer holds (the session's owner no longer
+// exists, that kind of thing). The difference from Forbidden: Forbidden says "I recognize who
+// you are, but this action isn't allowed"; this one says "I no longer recognize who you are".
+// The frontend redirects to login on 401, so it must stay separate from 403.
 type unauthedError struct{ msg string }
 
 func (e unauthedError) Error() string { return e.msg }
 
-// Unauthed —— 造一个"身份不再有效"的错误。
+// Unauthed —— make an "identity no longer valid" error.
 func Unauthed(msg string) error { return unauthedError{msg: msg} }
 
-// IsUnauthed —— 面据此回 401(而不是 403/404)。
+// IsUnauthed —— the facade returns 401 off this (not 403/404).
 func IsUnauthed(err error) bool {
 	var t unauthedError
 	return errors.As(err, &t)
 }
 
-// forbiddenError —— 请求本身没问题、东西也在,但这个操作对它不允许(内置的不许改/不许删)。
-// 跟 BadInput 的区别是它不是"你写错了",跟 NotFound 的区别是它确实存在 —— 面回 403。
+// forbiddenError —— nothing wrong with the request, the thing exists too, but this action isn't
+// allowed on it (built-in items that can't be edited/deleted). The difference from BadInput is
+// it isn't "you wrote it wrong"; the difference from NotFound is the thing genuinely exists —
+// the facade returns 403.
 type forbiddenError struct{ msg string }
 
 func (e forbiddenError) Error() string { return e.msg }
 
-// Forbidden —— 造一个"不许这么动"的错误。
+// Forbidden —— make a "not allowed to do this" error.
 func Forbidden(msg string) error { return forbiddenError{msg: msg} }
 
-// IsForbidden —— 面据此回 403。
+// IsForbidden —— the facade returns 403 off this.
 func IsForbidden(err error) bool {
 	var t forbiddenError
 	return errors.As(err, &t)
 }
 
-// upstreamError —— 我们依赖的外部服务失败了(抓不到远端 skill、上游超时)。
-// 消息是写给人看的,可以原样外露 —— 它说的不是我们的内部实现,而是"外面那边不行"。
+// upstreamError —— an external service we depend on failed (couldn't fetch a remote skill,
+// upstream timeout). The message is written for a human and can be surfaced as-is — it
+// describes not our internals but "the other side is down".
 type upstreamError struct{ msg string }
 
 func (e upstreamError) Error() string { return e.msg }
 
-// Upstream —— 造一个"外部依赖失败"的错误。
+// Upstream —— make an "external dependency failed" error.
 func Upstream(msg string) error { return upstreamError{msg: msg} }
 
-// IsUpstream —— 面据此回 502,并把消息给出去(不像 500 那样藏起来)。
+// IsUpstream —— the facade returns 502 off this, and surfaces the message (unlike 500, which
+// hides it).
 func IsUpstream(err error) bool {
 	var t upstreamError
 	return errors.As(err, &t)
 }
 
-// OpErr —— 每个 op 的统一包法:说清楚是哪一步坏的,同时保住 errors.Is
-// (域把自己的哨兵翻成上面那些类别,包一层不能把它挡掉)。
+// OpErr —— the uniform wrap for every op: states which step broke while keeping errors.Is
+// working (a domain translates its own sentinel into one of the categories above; one layer of
+// wrapping must not block that).
 func OpErr(what string, err error) error {
 	return fmt.Errorf("%s: %w", what, err)
 }
 
-// RequireArgs —— 缺哪个必填字段就报哪个。这一层只管"给没给";给了之后合不合法
-// (格式、枚举、存不存在)是域自己判。
+// RequireArgs —— reports whichever required field is missing. This layer only checks
+// "was it given"; whether a given value is actually valid (format, enum, existence) is the
+// domain's own call.
 func RequireArgs(pairs ...[2]string) error {
 	for _, p := range pairs {
 		if p[1] == "" {

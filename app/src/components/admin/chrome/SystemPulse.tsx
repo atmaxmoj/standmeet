@@ -1,6 +1,9 @@
-// SystemPulse —— sidebar 上方的"语料库脉搏"。接真 GET /api/admin/stats/growth:14 天 corpus
-// 新增 ASCII 火花线 + 分层总量 + 7 天增量。数据/格式化在 use-corpus-growth(lib),组件无 if。
-// 诚实:未加载显 '·' 占位串 + '—',不再编假的 14 天曲线。
+// SystemPulse — the "corpus pulse" panel above the sidebar. Wired to the real
+// GET /api/admin/stats/growth: 14-day corpus additions as an ASCII sparkline,
+// plus tiered totals and the 7-day delta. Data/formatting lives in
+// use-corpus-growth (lib); the component has no if-branches.
+// Honest about loading state: shows a '·' placeholder string + '—' instead of
+// faking a 14-day curve while data is unavailable.
 
 'use client';
 
@@ -15,10 +18,13 @@ export function SystemPulse() {
   return (
     <aside
       data-testid="system-pulse"
-      // shrink-0 —— 这块面板挂在一个 `flex flex-col` 的 sidebar 里,而 flex 子项默认可以被压缩。
-      // 导航项一多(这里有 26 个),它就被压成只剩标题那一行:火花线、总量、分层计数都还在 DOM 里,
-      // 只是被裁在 30px 的框外 —— 真环境上 owner 从来没看见过那几个数字(F-C-11)。
-      // 读文本的断言分不出"渲染了"和"被压扁了",所以那一条也换成了几何判据。
+      // shrink-0 — this panel sits in a `flex flex-col` sidebar, and flex children
+      // shrink by default. With enough nav items (26 here), it gets squeezed down
+      // to just the title row: the sparkline, total, and tier counts are still in
+      // the DOM, just clipped outside a 30px box — in the real environment the
+      // owner never actually saw those numbers (F-C-11).
+      // A text assertion can't tell "rendered" apart from "squashed", so that
+      // assertion was replaced with a geometry check.
       className="crosshair shrink-0 border border-(--color-rule) p-4 bg-(--color-surface)/40 scanline mb-6"
     >
       <span className="ch-tl" /><span className="ch-br" />
@@ -36,12 +42,15 @@ export function SystemPulse() {
       <div className="mono text-[15px] leading-none tracking-[0.15em] text-(--color-accent) mb-1">
         {v.spark}
       </div>
-      {/* 火花线画的是**每天新增**,而下面那个大数字是**累计总量**。两者挨着放而没人说明,
-          于是曲线看起来像"语料一直只有 1 条"(UX-16)。这一行就是那句说明。 */}
+      {/* The sparkline plots **daily additions**, while the big number below it is
+          the **cumulative total**. Placed side by side with no label, the curve
+          reads as "the corpus only ever has 1 item" (UX-16). This line is that
+          missing label. */}
       <div className="mono text-[9px] tracking-[0.08em] text-(--color-faint) mb-2">
         {t('sparkWindow')}
       </div>
-      {/* 232px 宽放不下"大数字 + 三段分层"并排:它们会叠在一起。竖着排。 */}
+      {/* 232px isn't wide enough for "big number + three tier segments" side by
+          side — they'd overlap. Stack them vertically instead. */}
       <div className="font-serif text-[22px] leading-none text-(--color-ink)">{v.total}</div>
       <div
         className="mono text-[9.5px] tracking-[0.08em] text-(--color-faint) mt-1"

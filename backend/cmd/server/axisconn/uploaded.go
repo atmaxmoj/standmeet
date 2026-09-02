@@ -1,5 +1,7 @@
-// uploaded.go —— 拉起时把 DB 里 owner 自建（上传）连接器装回 Hub。拆出
-// register.go 守 max-lines；故障隔离的边界逻辑（坏连接器跳过不拖垮 boot）独立在此。
+// uploaded.go —— at boot, assembles owner-built (uploaded) connectors from the DB
+// back into the Hub. Split out of register.go to keep it under the max-lines guard;
+// the fault-isolation boundary logic (a bad connector is skipped, not letting it
+// take down boot) lives here on its own.
 
 package axisconn
 
@@ -10,21 +12,26 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
-// registerUploadedConnectors —— 拉起重装 DB 里 owner 自建的连接器（跟内置同一路 assembleConnector）。
-// **故障隔离**：永不 abort boot——装不起来的连接器只跳过 + 留痕，不拖垮其余、更不拖垮整实例。
+// registerUploadedConnectors —— reassembles the owner-built connectors from the DB
+// at boot (through the same assembleConnector path as the built-ins).
+// **Fault isolation**: never aborts boot — a connector that can't be assembled is
+// only skipped + logged, and never takes down the others, let alone the instance.
 func registerUploadedConnectors(
 	ctx context.Context, hub *connector.Hub, repo *connector.Repo,
 	deps *assembleDeps, log *slog.Logger,
 ) {
 	uploaded, err := repo.ListUploaded(ctx)
 	if err != nil {
-		log.Error("load uploaded connectors", "err", err) // 跳过上传，内置照常
+		// skip uploads, built-ins proceed as normal
+		log.Error("load uploaded connectors", "err", err)
 		return
 	}
 	for i := range uploaded {
 		u := &uploaded[i]
 		if _, isBuiltin := hub.Resolve(u.ConnectorID); isBuiltin {
-			continue // 内置的「连接行」（owner 连了内置 smtp/gcal）：非上传定义，已装好
+			// a built-in's "connection row" (owner connected built-in smtp/gcal):
+			// not an uploaded definition, already assembled
+			continue
 		}
 		m := &connector.Manifest{
 			ID: u.ConnectorID, Kind: u.Kind, Category: u.Category, Protocol: u.Protocol,
@@ -34,7 +41,7 @@ func registerUploadedConnectors(
 		c, aerr := assembleConnector(m, deps)
 		if aerr != nil {
 			log.Error("skip unassemblable uploaded connector", "id", u.ConnectorID, "err", aerr)
-			continue // 单个坏连接器跳过，不 abort
+			continue // skip this one bad connector, don't abort
 		}
 		hub.Upsert(c)
 	}

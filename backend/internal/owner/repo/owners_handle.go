@@ -1,9 +1,10 @@
-// owners_handle.go —— Repo 改 handle 的事务路径。从 owners.go 拆出来
-// 让本体文件守 350 行上限。
+// owners_handle.go —— Repo's transactional path for changing handle. Split
+// out of owners.go to keep that file under its 350-line cap.
 //
-// UpdateHandle = 一次性原子地把 owners.handle 改成新值 + 把旧 handle 写
-// handle_aliases，让老链接仍可 resolve（详见 internal/postgres/auth.go
-// GetByHandle）。唯一约束冲突翻 ErrHandleTaken。
+// UpdateHandle atomically, in one shot, changes owners.handle to the new
+// value + writes the old handle into handle_aliases, so old links still
+// resolve (see internal/postgres/auth.go GetByHandle). A unique-constraint
+// conflict translates to ErrHandleTaken.
 
 package repo
 
@@ -20,9 +21,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// UpdateHandle —— owner 改 handle 一组 atomic：先读旧 handle、UPDATE owners
-// 设新 handle、把旧 handle 写进 handle_aliases。一个事务里完成；唯一约束
-// 冲突（handle 被别人占）翻译成 ErrHandleTaken。
+// UpdateHandle —— owner changing handle is one atomic group: read the old
+// handle, UPDATE owners with the new handle, write the old handle into
+// handle_aliases. Done in one transaction; a unique-constraint conflict
+// (handle taken by someone else) translates to ErrHandleTaken.
 func (r *Repo) UpdateHandle(
 	ctx context.Context, ownerID, newHandle string,
 ) (entity.Owner, error) {
@@ -38,8 +40,9 @@ func (r *Repo) UpdateHandle(
 	return commitOrRollback(ctx, tx, &ownerRow, txErr, "commit update handle")
 }
 
-// commitOrRollback —— tx 收尾通用 helper：txErr 非 nil 就 rollback；nil 就
-// commit。让 UpdateHandle 自己 cyclo 友好。ownerRow 用 pointer 避免 hugeParam。
+// commitOrRollback —— a generic tx-finishing helper: rollback if txErr is
+// non-nil, commit otherwise. Keeps UpdateHandle itself cyclo-friendly.
+// ownerRow is a pointer to avoid hugeParam.
 func commitOrRollback(
 	ctx context.Context, tx pgx.Tx, ownerRow *entity.Owner, txErr error, commitTag string,
 ) (entity.Owner, error) {

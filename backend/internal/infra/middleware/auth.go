@@ -1,5 +1,6 @@
-// Package middleware 提供 chi 中间件，包括 owner auth + CSRF。
-// 中间件不做业务，只把 ctx-bound 信息（current owner、CSRF token）注入。
+// Package middleware provides chi middleware, including owner auth + CSRF.
+// Middleware carries no business logic — it only injects ctx-bound info
+// (current owner, CSRF token).
 package middleware
 
 import (
@@ -12,7 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 )
 
-// 内部 ctx key 类型，避免和别的包冲突。
+// Internal ctx key type, to avoid colliding with other packages.
 type ctxKey struct{ name string }
 
 var (
@@ -20,12 +21,13 @@ var (
 	ctxKeySession = ctxKey{name: "ownerSession"}
 )
 
-// SessionCookieName 是 owner session 的 cookie 名（设计稿 E 已定）。
+// SessionCookieName is the owner session cookie name (fixed by design doc E).
 const SessionCookieName = "smt_session"
 
-// WithOwner 是 admin 路由的鉴权 gate：从 cookie 拿 session token、Redis
-// lookup、把 owner_id + 完整 SessionData 注入 ctx。无 session 或失效
-// 返回 401 envelope。
+// WithOwner is the auth gate for admin routes: it takes the session token
+// from the cookie, looks it up in Redis, and injects owner_id + the full
+// SessionData into ctx. No session, or an expired one, returns a 401
+// envelope.
 func WithOwner(store *session.OwnerSessionStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +44,7 @@ func WithOwner(store *session.OwnerSessionStore) func(http.Handler) http.Handler
 	}
 }
 
-// lookupSession 辅助 WithOwner 保持 cyclo ≤ 3。
+// lookupSession helps WithOwner stay at cyclo ≤ 3.
 func lookupSession(
 	r *http.Request, store *session.OwnerSessionStore,
 ) (session.OwnerSessionData, bool) {
@@ -52,7 +54,8 @@ func lookupSession(
 	}
 	data, err := store.Get(r.Context(), cookie.Value)
 	if err != nil {
-		// Redis 故障也当 401 —— 不让 owner 在 Redis 挂时也能 access。
+		// Treat a Redis failure as 401 too — don't let the owner keep access
+		// while Redis is down.
 		if !errors.Is(err, session.ErrSessionNotFound) {
 			slog.Default().Warn("session lookup error (treating as 401)", "err", err)
 		}
@@ -61,8 +64,9 @@ func lookupSession(
 	return data, true
 }
 
-// OwnerIDFrom 从 ctx 取 owner_id；用在 handler 里调 Repository / usecase。
-// 没值（中间件没跑）返回空字符串，caller 当 server bug 处理。
+// OwnerIDFrom reads owner_id from ctx; used inside handlers when calling a
+// Repository / usecase. No value (middleware didn't run) returns an empty
+// string, and the caller should treat that as a server bug.
 func OwnerIDFrom(ctx context.Context) string {
 	v, ok := ctx.Value(ctxKeyOwnerID).(string)
 	if !ok {
@@ -71,7 +75,8 @@ func OwnerIDFrom(ctx context.Context) string {
 	return v
 }
 
-// SessionFrom 从 ctx 取整个 SessionData（含 csrf_token / expires_at）。
+// SessionFrom reads the whole SessionData from ctx (includes csrf_token /
+// expires_at).
 func SessionFrom(ctx context.Context) (session.OwnerSessionData, bool) {
 	v, ok := ctx.Value(ctxKeySession).(session.OwnerSessionData)
 	return v, ok

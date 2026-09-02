@@ -1,16 +1,15 @@
-// page.go —— 资源 page:owner 的公开主页,以及这台实例对外的两个地址(handle、public URL)。
+// page.go —— the page resource: owner's public homepage + this instance's two outward
+// addresses (handle, public URL).
 //
-// 主页的 insights / projects 是**语料的 pin 列表**(想法只存一份,主页放引用)。
-// 所以这一组有两种写:整段配置的 put,和逐条的 pin / unpin。
+// Homepage insights/projects are pin lists over the corpus (a thought lives once; the
+// homepage references it): page.put replaces the whole block, page.pin/unpin edit one entry.
 //
-// 归一化时收掉的三处:
-//
-//   - page.get 两个面给的东西不一样:MCP 那份是**join 过的**(pin 连着标题、摘要、地址),
-//     面板那份是裸的 id 列表。owner 从哪边看到的主页应该是同一个。
-//   - "能 pin 什么"(已公开的 wiki)只有面板有,而且那条规则写在它的 handler 里。
-//     从 Claude Code 问"我能 pin 什么"问不到 —— 现在每个面都有,规则在域里。
-//   - page.put 在 MCP 那边**拒绝** pin 列表(怕绕开单一维护点),面板那边整段一起存。
-//     两条路的不变量其实都由域守着(ValidatePagePins / PinToPage),所以统一成都接。
+// Normalization fixed three inconsistencies: page.get now returns the same joined view
+// (id+title+excerpt+path) on every face, not MCP-joined vs panel-bare-ids. "What can be
+// pinned" (published wiki entries) moved from the panel handler into the domain, so every
+// face has it. page.put now accepts a pin list on both faces — MCP used to refuse it to
+// protect the single point of maintenance, but ValidatePagePins/PinToPage already guard that
+// invariant in the domain.
 
 package ops
 
@@ -27,7 +26,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
-// PageOpsDeps —— 主页内容 + pin 的 join,外加改地址那两条。
+// PageOpsDeps —— homepage content + the pin join, plus the two address-changing ops.
 type PageOpsDeps struct {
 	Owners    *repo.Repo
 	Pins      usecase.PagePinDeps
@@ -35,7 +34,7 @@ type PageOpsDeps struct {
 	PublicURL usecase.PublicURLDeps
 }
 
-// Page —— 主页内容(get / put / pinnable / pin / unpin)+ 对外地址(handle / public URL)。
+// Page —— homepage content (get/put/pinnable/pin/unpin) + outward addresses (handle/public URL).
 func Page(d PageOpsDeps) []fp.Op {
 	return append(pageContentOps(d), pageAddressOps(d)...)
 }
@@ -153,21 +152,21 @@ var (
 	}`)
 )
 
-// pinCandidateOut —— 一个可以 pin 到主页的条目。
+// pinCandidateOut —— one entry that can be pinned to the homepage.
 type pinCandidateOut struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 	Path  string `json:"path"`
 }
 
-// ownerAddressOut —— 这台实例对外的地址:handle 是路径前缀,public URL 是 QR 和 canonical 用的。
+// ownerAddressOut —— outward addresses: handle is the path prefix, public URL is for QR/links.
 type ownerAddressOut struct {
 	OwnerID   string `json:"owner_id"`
 	Handle    string `json:"handle"`
 	PublicURL string `json:"public_url"`
 }
 
-// pinnedOut —— pin / unpin 的回执:动完之后这个栏目是什么样。
+// pinnedOut —— the pin / unpin receipt: what this section looks like after the change.
 type pinnedOut struct {
 	Section string   `json:"section"`
 	Pinned  []string `json:"pinned"`
@@ -189,7 +188,7 @@ func putPage(d PageOpsDeps) fp.Invoke {
 		if err != nil {
 			return nil, pageErr(err)
 		}
-		// 覆盖式合并:入参里出现的字段盖掉当前值,没出现的保持原样。
+		// Overwrite-merge: fields present in the input override, fields absent stay as they were.
 		if uerr := json.Unmarshal(raw, &content); uerr != nil {
 			return nil, fp.BadInput("invalid page content: " + uerr.Error())
 		}
@@ -201,7 +200,7 @@ func putPage(d PageOpsDeps) fp.Invoke {
 	}
 }
 
-// joinedPageView —— pin 的 id 连上它在语料里的标题 / 摘要 / 地址。每个面拿到的都是这一份。
+// joinedPageView —— joins a pin id to title/excerpt/path; every face gets this shape.
 func joinedPageView(
 	ctx context.Context, d PageOpsDeps, ownerID string, content *entity.PageContent,
 ) (json.RawMessage, error) {
@@ -239,7 +238,7 @@ type pinArgs struct {
 	WikiID  string `json:"wiki_id"`
 }
 
-// pinWrite —— pin 和 unpin 只差调哪个用例;解参和回包形状同一份。
+// pinWrite —— pin and unpin differ only in which use case runs; decode/reply shape match.
 type pinWrite func(
 	ctx context.Context, pins usecase.PagePinDeps, ownerID, section, wikiID string,
 ) ([]string, error)
@@ -307,15 +306,15 @@ func toOwnerAddressOut(o *entity.Owner) ownerAddressOut {
 	return ownerAddressOut{OwnerID: o.ID, Handle: o.Handle, PublicURL: o.PublicURL}
 }
 
-// pageErr —— 域的哨兵 → 协议无关的类别。code 是已经发出去的契约,显式钉住。
+// pageErr —— domain sentinels to protocol-agnostic categories; code is a published contract.
 func pageErr(err error) error {
 	for _, c := range pageErrClasses {
 		if errors.Is(err, c.sentinel) {
 			return c.as()
 		}
 	}
-	// 校验失败:域已经写好了给人看的话(handle 的字符范围之类),原样带出去 ——
-	// 这一层再写一遍就成了第二份文案。
+	// Validation failure: domain already wrote the human-readable message (e.g. handle's
+	// allowed chars); pass through unchanged, not a second copy of the wording.
 	if errors.Is(err, apierr.ErrEmptyField) {
 		return fp.BadInput(err.Error())
 	}

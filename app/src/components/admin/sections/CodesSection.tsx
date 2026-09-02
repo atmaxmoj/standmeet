@@ -1,6 +1,6 @@
-// CodesSection —— /admin/codes 的设计稿版本。
-// SectionHeader + intro 文案 + 网格的 CodeCard。"+ new code" 打开 CodeCreateModal。
-// modal save 调 useCodes.createCode；QR / Preview modal 也接进来。
+// CodesSection —— the design-spec version of /admin/codes.
+// SectionHeader + intro copy + a grid of CodeCard. "+ new code" opens CodeCreateModal.
+// Modal save calls useCodes.createCode; the QR / Preview modals are wired in too.
 
 'use client';
 
@@ -25,7 +25,8 @@ export function CodesSection() {
   const modals = useCodeModalState();
   const run = useAction();
   useEffectErrorToast(hook.error);
-  // revoke 是一键破坏性动作 → 成功/失败都用 toast 收尾（失败不再静默：撤销没生效 owner 必须知道）。
+  // revoke is a one-click destructive action → toast on both success and failure
+  // (no more silent failure: if the revoke didn't take effect, the owner must know).
   const revokeWithToast = useCallback(
     (id: string) => run(() => hook.revokeCode(id), { success: 'Code revoked' }),
     [hook, run],
@@ -61,8 +62,9 @@ export function CodesSection() {
 
 function NewCodeBtn({ open }: { open: () => void }) {
   const t = useTranslations('adminAccess');
-  // Btn 把 onClick 调时会传 MouseEvent；openCreate(existing?) 不能把
-  // 事件当成 existing 传进去（会让 modal 以为是 edit）。包一层裸调用。
+  // Btn's onClick passes a MouseEvent; openCreate(existing?) must not receive that
+  // event as `existing` (it would make the modal think this is an edit). Wrap it in
+  // a bare call.
   return <Btn kind="solid" onClick={() => open()}>{t('codes.new')}</Btn>;
 }
 
@@ -153,8 +155,9 @@ function CodeCreateModalSlot({
 }) {
   const toast = useToast();
   const report = useReportError();
-  // modal：成功 → toast + 关；失败 → report + **保持开着**（原来无论成败都 onClose，等于失败也
-  // 静默关掉像成功了）。让 owner 看见错、改了重试。
+  // modal: success → toast + close; failure → report + **stay open** (it used to
+  // call onClose either way, so a failure silently closed and looked like a success).
+  // Let the owner see the error, fix it, and retry.
   const onCreate = useCallback(async (input: Parameters<CodesHook['createCode']>[0]) => {
     try {
       await createCode(input);

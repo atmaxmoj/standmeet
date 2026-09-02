@@ -1,11 +1,15 @@
-// MCPServersPanel —— owner-registered external MCP servers(agent 出站调的工具)
-// 的 CRUD。owner 把别处拿到的 MCP server(URL + 可选 auth header)装载进来,
-// 再在 roles 里挂给 access code。后端 /mcp-servers 全 real;auth value 加密落盘。
+// MCPServersPanel — CRUD for owner-registered external MCP servers (tools
+// the agent calls outbound). owner loads in an MCP server obtained elsewhere
+// (URL + optional auth header), then attaches it to an access code via
+// roles. The `/mcp-servers` backend is fully real; auth value is encrypted
+// at rest.
 //
-// 跟 connector panel 同视觉(crosshair 卡 + mono kicker)。
+// Same visual language as the connector panel (crosshair card + mono
+// kicker).
 //
-// 每一行还带一颗**只读探针**(check):去问那台 server 答不答话、有哪些工具。没有它,
-// 一行 ext-MCP 上的全部证据就是 owner 自己粘进去的那个 URL(F-D-8)。
+// Each row also carries a **read-only probe** (check): ask that server
+// whether it answers and what tools it has. Without it, all the evidence
+// on an ext-MCP row is the URL owner himself pasted in (F-D-8).
 
 'use client';
 
@@ -24,7 +28,9 @@ const EMPTY: FormState = { name: '', url: '', authName: '', authValue: '' };
 export function MCPServersPanel() {
   const hook = useMCPServers();
   const run = useAction();
-  // remove 是破坏性动作 → 成功/失败都用 toast 收尾（失败不再静默：删除没生效 owner 必须知道）。
+  // remove is a destructive action → both success and failure end in a
+  // toast (failure is no longer silent: owner must know a delete didn't
+  // take).
   const removeWithToast = useCallback(
     (id: string) => run(() => hook.remove(id), { success: 'Server removed' }),
     [hook, run],
@@ -84,8 +90,9 @@ function ServerListEmpty() {
   return <p className="mono text-[11.5px] text-(--color-faint) mb-4">{t('empty')}</p>;
 }
 
-// Probe —— 这一行「问过没有、问到了什么」。idle 什么都不显示:一台还没问过的 server
-// 是**没有证据**,不是「不可达」—— 那两件事不能长一个样。
+// Probe — "was it asked, and what did it answer" for this row. idle shows
+// nothing at all: a server that was never asked is **no evidence**, not
+// "unreachable" — the two must never look the same.
 type Probe =
   | { state: 'idle' }
   | { state: 'asking' }
@@ -147,8 +154,9 @@ async function runProbe(
   }
 }
 
-// probeFailure —— 一个抛出来的东西读成「失败了，因为什么、属于哪一类」。
-// code 空串 = 不是 API 答的（网络断了之类），那时只有 reason 可说。
+// probeFailure — reads a thrown value as "it failed, for what reason, of
+// what kind". An empty code means it wasn't the API answering (e.g. network
+// down), and then reason is all there is to say.
 function probeFailure(e: unknown): Probe {
   return {
     state: 'failed',
@@ -157,8 +165,11 @@ function probeFailure(e: unknown): Probe {
   };
 }
 
-// ProbeLine —— 探针的回执。**说出真结果**:答上了报工具名(owner 要认的是「这是不是我
-// 想挂的那一台」,数量认不出来),没答上报真原因。「点了没反应」是这一行以前的样子。
+// ProbeLine — the probe's receipt. **State the real result**: if it
+// answered, report tool names (owner needs to recognize "is this the one I
+// meant to attach", a count alone doesn't let him); if it didn't answer,
+// report the real reason. "Clicked and nothing happened" is what this row
+// used to look like.
 function ProbeLine({ probe }: { probe: Probe }) {
   return probe.state === 'idle' ? null : <ProbeSaid probe={probe} />;
 }
@@ -176,8 +187,9 @@ function ProbeDone({ probe }: { probe: DoneProbe }) {
     : <ProbeAnswered tools={probe.tools} />;
 }
 
-// ProbeAsking 挂**自己**的 testid:「正在问」不是一个结果。共用 `check-result` 的话,
-// 那个名字就会在还没有答案的时候指着一句进行时(同 [[names-that-lie]])。
+// ProbeAsking gets **its own** testid: "asking" is not a result. Sharing
+// `check-result` would point that name at an in-progress sentence before
+// there's any answer yet (same failure as [[names-that-lie]]).
 function ProbeAsking() {
   const t = useTranslations('adminIntegrations.mcpServers');
   return (
@@ -190,9 +202,13 @@ function ProbeAsking() {
   );
 }
 
-// ProbeFailed —— 失败也分种类，而 owner 要做的事不同（F-D-15）:凭据被拒 → 去改 token；
-// 没人应答 → 去改 URL。**按 code 分，不按文案分** —— 匹配句子的话，服务端换个措辞就悄悄
-// 掉回默认那句。默认那句留着:遇到没见过的 code 时，说出真原因仍然比说「出错了」强。
+// ProbeFailed — failures come in kinds, and owner's next move differs by
+// kind (F-D-15): credential rejected → go fix the token; no one answered →
+// go fix the URL. **Branch on code, not on message text** — matching
+// sentence text would silently fall back to the default line the moment the
+// server rewords its message. The default line stays: for an unrecognized
+// code, telling the real reason is still better than saying "something
+// went wrong".
 const PROBE_SAID: Record<string, string> = {
   mcp_server_refused_auth: 'checkRefused',
   mcp_server_no_answer: 'checkNoAnswer',
@@ -218,7 +234,8 @@ function ProbeAnswered({ tools }: { tools: readonly string[] }) {
   );
 }
 
-// ProbeText —— 探针**答完之后**那一行(成功或失败)。进行时不走这里。
+// ProbeText — the row shown **after the probe finishes** (success or
+// failure). The in-progress state never goes through here.
 function ProbeText({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
     <p
@@ -240,8 +257,10 @@ function toneClass(tone: Tone): string {
   return tone === 'accent' ? 'text-(--color-accent)' : 'text-(--color-faint)';
 }
 
-// RowAction —— 一行右侧的动作。check 跟 remove 长一个样(mono 小字),因为它们是同一类
-// 东西:对这一行的直接操作。区别只在颜色 —— remove 是破坏性的,所以它是那个红字。
+// RowAction — the action on the right of a row. check and remove look the
+// same (small mono text) because they're the same category of thing: a
+// direct action on this row. The only difference is color — remove is
+// destructive, so it gets the accent (red) text.
 function RowAction({
   testid, labelKey, onClick, tone, disabled = false,
 }: {
@@ -328,8 +347,10 @@ function AddButton({ disabled, onAdd }: { disabled: boolean; onAdd: () => void }
       disabled={disabled}
       onClick={onAdd}
       data-testid="mcp-server-add"
-      // ADD 是这一段唯一的提交动作，跟 GENERATE / SAVE 是同一类，所以长一个样（UX-76②）。
-      // 原来挂 ghost（灰字无边框）—— 在一排填好的输入框旁边读起来像被禁用了。
+      // ADD is the one submit action in this section, same category as
+      // GENERATE / SAVE, so it looks the same (UX-76②). It used to be
+      // ghost-styled (gray text, no border) — next to a row of filled-in
+      // inputs that read as disabled.
       className="sm-btn sm-btn-solid sm-btn-sm"
     >
       {t('add')}

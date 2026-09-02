@@ -1,10 +1,14 @@
-// diag_sandbox.go —— GET  /internal/diag/sandbox/workspaces  列活跃 per-session 工作区
-//                   —— POST /internal/diag/sandbox/workspace-ttl  设后端可控的工作区 TTL
-//                   —— POST /internal/diag/sandbox/sweep          按需跑一次 cron 清扫
+// diag_sandbox.go —— GET  /internal/diag/sandbox/workspaces  lists active per-session
+//                                                             workspaces
+//                   —— POST /internal/diag/sandbox/workspace-ttl  sets the backend-
+//                                                                 controlled workspace TTL
+//                   —— POST /internal/diag/sandbox/sweep          runs a cron sweep on
+//                                                                 demand
 //
-// 沙箱 per-session 工作区的生命周期面（#148）。TTL 后端可控、cron 周期清扫过期目录；
-// 这里是诊断 / 测试钩子（按需 sweep + 列出当前），#147 的 admin 沙箱面板再在 UI 包它。
-// /internal 不经外部 proxy 暴露，无 auth（同 /diag/registry）。
+// The lifecycle face for sandbox per-session workspaces (#148). TTL is backend-controlled;
+// cron periodically sweeps expired dirs. This file is the diagnostic / test hook (sweep
+// on demand + list current state); #147's admin sandbox panel wraps this in the UI later.
+// /internal isn't exposed by the external proxy, no auth (same as /diag/registry).
 
 package sys
 
@@ -25,7 +29,8 @@ type DiagSandboxDeps struct {
 	Log        *slog.Logger
 }
 
-// MountDiagSandbox —— 挂三个 endpoint。Workspaces 为 nil（未配工作区子系统）→ 不挂。
+// MountDiagSandbox —— mounts the three endpoints. Workspaces is nil (workspace
+// subsystem not configured) -> don't mount.
 func MountDiagSandbox(r chi.Router, deps DiagSandboxDeps) {
 	if deps.Workspaces == nil {
 		return
@@ -35,9 +40,10 @@ func MountDiagSandbox(r chi.Router, deps DiagSandboxDeps) {
 	r.Post("/diag/sandbox/sweep", diagWorkspaceSweepHandler(deps))
 }
 
-// MountAdminSandbox —— #147 owner-authed admin sandbox 面。复用同一批 handler,挂在
-// /api/admin/sandbox/*(server 在 WithOwner+RequireCSRF group 内调,故天然 owner-authed +
-// CSRF 保护)。Workspaces 为 nil(未配工作区子系统)→ 不挂。
+// MountAdminSandbox —— #147's owner-authed admin sandbox face. Reuses the same handlers,
+// mounted under /api/admin/sandbox/* (the server calls this inside a WithOwner+RequireCSRF
+// group, so it's naturally owner-authed + CSRF-protected). Workspaces is nil (workspace
+// subsystem not configured) -> don't mount.
 func MountAdminSandbox(r chi.Router, deps DiagSandboxDeps) {
 	if deps.Workspaces == nil {
 		return

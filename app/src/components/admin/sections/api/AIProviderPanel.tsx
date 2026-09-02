@@ -1,15 +1,17 @@
-// AIProviderPanel —— /admin/api-mcp 上的 "owner's AI" block。
+// AIProviderPanel — the "owner's AI" block on /admin/api-mcp.
 //
-// owner 选 provider（anthropic / openai / deepseek / kimi / groq /
-// siliconflow / openrouter / together / custom）+ 填 endpoint + model + 贴
-// key。明文 key 不在 response 里回；only "● key set" 状态。重设 key 直接
-// fill 新值，旧 key 被替换。点 "clear" 清 key（provider / endpoint / model
-// 保留）。
+// owner picks a provider (anthropic / openai / deepseek / kimi / groq /
+// siliconflow / openrouter / together / custom) + fills endpoint + model +
+// pastes a key. Plaintext key never comes back in the response; only an
+// "● key set" status. Resetting the key just fills the new value, replacing
+// the old one. "clear" wipes the key (provider / endpoint / model kept).
 //
-// preset 列表从 GET /api/admin/ai-provider/presets 拉；选某项时 endpoint
-// 自动填默认。model 永远手输（或点 "Load models" 拉真实可用列表）。如果
-// owner 之前没改过 endpoint（值 == 上个 preset 默认），切到新 provider 时
-// 重填新默认；改过则保留 owner 值（switchProvider 在 lib/inference/provider-form.ts 里实现）。
+// preset list comes from GET /api/admin/ai-provider/presets; picking one
+// auto-fills the default endpoint. model is always typed by hand (or click
+// "Load models" to pull the real available list). If owner hasn't edited the
+// endpoint (value == the previous preset's default), switching provider
+// refills the new default; if they edited it, their value is kept
+// (switchProvider lives in lib/inference/provider-form.ts).
 
 'use client';
 
@@ -66,8 +68,9 @@ function Loading() {
   return <InlineSkeleton width="w-48" />;
 }
 
-// defaultsForName —— 在 fetched preset 列表里查给定 name 的默认 endpoint。
-// model 不再有默认（preset 表已删 default_model）；owner 手输或点 "Load models"。
+// defaultsForName — look up the default endpoint for a given name in the
+// fetched preset list. model has no default anymore (preset table dropped
+// default_model); owner types it by hand or clicks "Load models".
 function defaultsForName(
   name: string, presets: readonly AIProviderPresetView[],
 ) {
@@ -78,8 +81,9 @@ function defaultsForName(
 function PanelForm({
   hook, presets,
 }: { hook: AIProviderHook; presets: readonly AIProviderPresetView[] }) {
-  // #33:从 SoT(hook.state.endpoint/model,/me 返回 owner 存过的)播种,而不是
-  // preset 默认 —— owner 重开设置看到自己上次存的 endpoint + MODEL。
+  // #33: seed from the SoT (hook.state.endpoint/model, what /me reports as
+  // owner's saved values) rather than the preset default — reopening
+  // settings should show owner's last-saved endpoint + MODEL.
   const [form, setForm] = useState<ProviderFormState>(
     () => seededProviderForm(
       hook.state.provider, hook.state.endpoint, hook.state.model,
@@ -87,8 +91,9 @@ function PanelForm({
     ),
   );
   const [keyText, setKeyText] = useState('');
-  // 失败留在**按钮底下**，不进角落的 toast：手在这颗按钮上，眼睛也在这颗按钮上
-  // （UX-82 在 gate 那面收过同一条，admin 这面当时没跟上 —— F-R-11 的第二半）。
+  // Failure stays **right under this button**, not in a corner toast: the
+  // hand is on this button, and so is the eye (UX-82 caught the same issue
+  // for gate; admin hadn't caught up yet — the second half of F-R-11).
   const [modelsError, setModelsError] = useState('');
   const models = useModelList(setModelsError);
   return (
@@ -130,8 +135,9 @@ function PanelFormBody({
         value={form.model}
         onChange={(v) => setForm((p) => setModel(p, v))}
         models={models}
-        // 已经存过 key 就走 owner 那条路（服务端拿库里那把去问）；还没存过就把刚敲的
-        // 那串发上去 —— 第一次配置的时候，服务端确实还没有它（F-R-11）。
+        // If a key is already saved, take the owner path (server looks up
+        // its stored key); if not saved yet, send what was just typed —
+        // on first-time setup the server genuinely doesn't have it (F-R-11).
         onLoad={() => void (keyText === '' && hook.state.keyConfigured
           ? models.loadOwn()
           : models.load({
@@ -261,7 +267,8 @@ function KeyRow({
   );
 }
 
-// ModelsError —— 列不出来时那句话，就在按钮底下（UX-82 在 gate 那面定的规矩）。
+// ModelsError — the message shown when the list can't be fetched, right
+// under the button (the rule UX-82 set for gate).
 function ModelsError({ message }: { message: string }) {
   return message === '' ? null : (
     <p
@@ -317,8 +324,9 @@ function SaveBtn({
       onClick={onSave}
       disabled={disabled}
       data-testid="ai-provider-save"
-      // 这一串手抄的 mono/uppercase/bg-ink/hover-accent 逐字就是 `.sm-btn.sm-btn-solid`。
-      // 各处各抄一遍，就是同一页三种按钮长相的成因 —— 走原子，别再抄。
+      // This hand-copied mono/uppercase/bg-ink/hover-accent string is exactly
+      // `.sm-btn.sm-btn-solid`. Copying it in each place is why the same page
+      // ended up with three button looks — use the atom, stop copying.
       className="sm-btn sm-btn-solid sm-btn-sm"
     >
       {hook.state.saving ? 'saving…' : 'save'}

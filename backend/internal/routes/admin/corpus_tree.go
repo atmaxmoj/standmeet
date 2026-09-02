@@ -1,7 +1,10 @@
-// corpus_tree.go —— GET /corpus/{genre}/tree?parent=ID —— admin 语料树的懒加载一层
-// (parent 空 = 根层)。owner-scoped、全状态。每展开一个节点发一次请求,永不一次性拉全树,
-// 让 admin 在大 corpus 下 scale-safe。返回结构 = flat list item + has_children（能否下钻）。
-// path 由 root→leaf 标题链服务端 slug（SlugifyTitle 唯一源,不与前端各算，防 drift）。
+// corpus_tree.go — GET /corpus/{genre}/tree?parent=ID — one lazily-loaded layer of the
+// admin corpus tree (an empty parent means the root layer). Owner-scoped, stateless.
+// Expanding each node fires one request; the full tree is never pulled at once, keeping
+// admin scale-safe on a large corpus. The response shape is a flat list item +
+// has_children (can it be drilled into). path is the root→leaf title chain slugified
+// server-side (SlugifyTitle is the single source, so the frontend never computes its own
+// copy — prevents drift).
 
 package admin
 
@@ -84,7 +87,9 @@ func rawTreeItem(c *corpus.TreeChild[corpus.Raw]) rawListItem {
 	return it
 }
 
-// slugJoin —— root→leaf 标题链 slug 后拼成地址;SlugifyTitle 是唯一 slug 源,前后端不各算。
+// slugJoin — joins the root→leaf title chain into an address after slugifying;
+// SlugifyTitle is the single slug source, so frontend and backend never compute it
+// separately.
 func slugJoin(titles []string) string {
 	if len(titles) == 0 {
 		return ""
@@ -96,7 +101,7 @@ func slugJoin(titles []string) string {
 	return strings.Join(segs, "/")
 }
 
-// optParent —— ?parent= 空 → nil（根层），非空 → 指针。
+// optParent — an empty ?parent= → nil (the root layer); non-empty → a pointer.
 func optParent(r *http.Request) *string {
 	p := r.URL.Query().Get("parent")
 	if p == "" {

@@ -1,8 +1,11 @@
-// use-lazy-tree —— LazyTree 的取数副作用(放 lib,组件层禁 if)。
+// use-lazy-tree —— LazyTree's data-fetching side effect (lives in lib; the
+// component layer is not allowed conditional fetch logic).
 //
-// useTreeLayer(load, parentId, enabled):enabled 为 true 且本层还没取过时,取一次
-// load(parentId) 那一层。enabled=false → 不取(懒加载:节点没展开就不碰它 children)。
-// 取过就不再取(nodes 非 null 即缓存)。返回 null = 还没取/加载中。
+// useTreeLayer(load, parentId, enabled): when enabled is true and this layer
+// hasn't been fetched yet, fetches load(parentId) once. enabled=false → don't
+// fetch (lazy loading: an unexpanded node's children are left untouched).
+// Once fetched, never fetched again (nodes non-null means cached). Returns
+// null = not yet fetched / still loading.
 
 'use client';
 

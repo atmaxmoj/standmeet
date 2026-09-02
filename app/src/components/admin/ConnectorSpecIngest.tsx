@@ -1,6 +1,7 @@
-// ConnectorSpecIngest —— #155 区 A：spec 摄入。owner 贴 / 上传 / URL 拉一份 OpenAPI spec →
-// 后端校验（同一个 3.0 parser，归一）→ 显示 connector candidate（品类标题）或人类可读拒绝理由。
-// spec-driven 装配的第一步：把任意作者搓的 spec 喂进来。
+// ConnectorSpecIngest —— #155 area A: spec ingestion. owner pastes / uploads / URL-fetches an
+// OpenAPI spec -> backend validates it (same 3.0 parser, normalized) -> shows a connector
+// candidate (category title) or a human-readable rejection reason.
+// First step of spec-driven assembly: feed in a spec from any author's hand.
 
 'use client';
 
@@ -17,16 +18,20 @@ import { FilePicker } from '@/components/admin/atoms/FilePicker';
 import { ConnectorCredForm } from '@/components/admin/ConnectorCredForm';
 import { ConnectorCard } from '@/components/admin/sections/connectors/ConnectorCard';
 
-// ConnectorSpecIngest —— **添加连接器只有这一个表单**（F-C-21）。以前品类卡下面还有第二个
-// 形状不同的 `{spec, binding}` 文本框，走过去会把这里填的全清空；现在 AssembleView 渲染的就是
-// 这个组件本身。「只留一个表单」指的是一份**实现**，不是一个位置 —— 同一个组件出现在两处不是
-// 漂移，两份不同的实现才是。
+// ConnectorSpecIngest —— **there is exactly one form for adding a connector** (F-C-21). There
+// used to be a second, differently-shaped `{spec, binding}` textarea under the category card;
+// navigating to it wiped out whatever was filled in here. Now AssembleView renders this same
+// component. "Only one form" means one **implementation**, not one location — the same
+// component appearing in two places isn't drift; two different implementations would be.
 //
-// onAssemble —— 装配（建连接器 + 存凭据）。校验通过、出了候选之后才可点：
-// 这个表单**收齐了组装需要的全部东西**（spec、可选 binding、base URL、认证方案、凭据），
-// 以前却唯独没有出口。
-// onCandidate —— 校验出候选（owner 已经选定「自带 spec」这条路）时通知外层。品类卡下面的
-// 协议表单据此收起来：两套表单的字段 testid 同名空间，同屏并存迟早撞车（见 AssembleView）。
+// onAssemble —— assembly (create the connector + store credentials). Only clickable once
+// validation passes and a candidate exists: this form **collects everything assembly needs**
+// (spec, optional binding, base URL, auth scheme, credentials) — it was previously missing an
+// exit for all of it.
+// onCandidate —— notifies the parent when validation yields a candidate (the owner has picked
+// the "bring your own spec" path). The protocol form under the category card collapses in
+// response: the two forms' field testids share the same namespace, and having both on screen at
+// once would eventually collide (see AssembleView).
 export function ConnectorSpecIngest({ onAssemble, onCandidate, assemble }: {
   onAssemble?: (input: AssembleInput) => void;
   onCandidate?: (has: boolean) => void;
@@ -42,13 +47,15 @@ export function ConnectorSpecIngest({ onAssemble, onCandidate, assemble }: {
     : <AssembledCard id={state.id} />;
 }
 
-// NO_ASSEMBLE —— 没传 assemble 时的空态（纯摄入/凭据表单那两条调用路用不到装配）。
-// 常量而不是内联可选链：那一串 `?.` 每个都算一次分支，超 complexity 闸。
+// NO_ASSEMBLE —— the empty state when no assemble is passed (the plain-ingest / plain-cred-form
+// call paths never need assembly). A constant instead of inline optional chaining: each `?.` in
+// that chain counts as a branch and would trip the complexity gate.
 const NO_ASSEMBLE: AssembleState = { id: null, error: '' };
 
-// AssembledCard —— 装配完成之后**表单让位给这张卡**。卡是凭据 + Connect 的唯一归属；
-// 让摄入表单继续留在屏幕上的话，它派生的那个 connector-connect-button（`ConnectMaybe` 渲染的、
-// 没有 onClick 的那个）会和卡上真正能用的那个同时存在 —— 一个死按钮压在一个活按钮旁边。
+// AssembledCard —— once assembly finishes, **the form yields to this card**. The card is the
+// sole home for credentials + Connect; leaving the ingest form on screen would let its derived
+// connector-connect-button (the one `ConnectMaybe` renders with no onClick) coexist with the
+// card's real, working one — a dead button sitting next to a live one.
 function AssembledCard({ id }: { id: string }) {
   return <ConnectorCard entry={{ id, category: '', kind: 'openapi' }} />;
 }
@@ -62,16 +69,18 @@ function IngestForm({ onAssemble, onCandidate, assembleError }: {
   const bindingRef = useRef('');
   const schemeRef = useRef('');
   const credsRef = useRef<Record<string, string>>({});
-  // scopesRef —— oauth2 勾选的 scope。跟凭据一起存进新连接器；漏了它，授权跳转就少了范围，
-  // 而界面上一切正常（复选框勾了、看着已生效）。
+  // scopesRef —— the oauth2 scopes checked. Stored into the new connector alongside the
+  // credentials; missing it means the authorization redirect requests fewer scopes than
+  // intended, while the UI looks entirely normal (checkboxes checked, appears to have taken).
   const scopesRef = useRef<Set<string>>(new Set());
   const [expose, setExpose] = useState(false);
   const [useless, setUseless] = useState(false);
   const hasCandidate = hook.candidate !== null;
   useEffect(() => { onCandidate?.(hasCandidate); }, [hasCandidate, onCandidate]);
-  // buildInput —— 把表单上收齐的东西装成一次装配的入参。
-  // authScheme：没动过下拉 → 用派生表单里的第一个方案。留空的话后端在三个 manual 候选里挑不出
-  // 唯一一个，连接器建得出来却派生不了凭据表单。
+  // buildInput —— packages everything collected on the form into one assembly call's input.
+  // authScheme: if the dropdown was never touched, use the first scheme from the derived form.
+  // Leaving it blank means the backend can't pick a unique one among three manual candidates —
+  // the connector gets created but the credential form fails to derive.
   const buildInput = (): AssembleInput => ({
     spec: hook.specText(), url: hook.sourceUrl(),
     binding: bindingRef.current, baseUrl: hook.baseUrl(),
@@ -80,8 +89,9 @@ function IngestForm({ onAssemble, onCandidate, assembleError }: {
     credentials: credsRef.current,
     scopes: [...scopesRef.current],
   });
-  // assemble —— 装出来的东西必须**有人能用**（规则在 isAssemblable，属于装配语义，不在这一层）。
-  // 不能用就当场拒并说清缺哪一样，而不是建出一个谁都调不到的死物。
+  // assemble —— what gets assembled must be **usable by someone** (the rule lives in
+  // isAssemblable, which is assembly semantics, not this layer). If it isn't usable, reject on
+  // the spot and say what's missing, rather than creating a dead object nobody can call.
   const assemble = () => {
     const input = buildInput();
     setUseless(!isAssemblable(input));
@@ -118,9 +128,10 @@ function IngestForm({ onAssemble, onCandidate, assembleError }: {
   );
 }
 
-// ExposeRow —— 「把这份 spec 的接口开给访客的 AI」。**默认关，必须 owner 自己勾**（设计源 §3：
-// 这条路是 opt-in）。它把厂商文档里的每一个 operation 都变成访客 AI 能调的工具 —— Cal.com v2
-// 是 211 条 —— 所以这是一次对外授权，不该从「binding 空不空」去推断 owner 的意思。
+// ExposeRow —— "expose this spec's operations to the visitor AI". **Off by default, the owner
+// must check it explicitly** (design source §3: this path is opt-in). It turns every operation
+// in the vendor's docs into a tool the visitor AI can call — Cal.com v2 alone has 211 — so this
+// is a real grant of external access and must not be inferred from whether binding is empty.
 function ExposeRow({ show, checked, onChange }: {
   show: boolean;
   checked: boolean;
@@ -141,8 +152,9 @@ function ExposeRow({ show, checked, onChange }: {
   ) : null;
 }
 
-// AssembleFailure —— 装配真的失败了（后端拒了）的那句话，**落在模态里**。
-// 页面级 toast 不够：模态盖着整页，owner 看不到它 —— 于是「点了装配、什么都没发生」（F-C-26）。
+// AssembleFailure —— the message when assembly genuinely fails (the backend rejected it),
+// **shown inside the modal**. A page-level toast isn't enough: the modal covers the whole page
+// and the owner can't see it — resulting in "I clicked assemble and nothing happened" (F-C-26).
 function AssembleFailure({ message }: { message: string }) {
   return message === '' ? null : (
     <p
@@ -154,7 +166,8 @@ function AssembleFailure({ message }: { message: string }) {
   );
 }
 
-// UselessWarning —— 无 binding 且未勾选时的拒绝。说的是**缺哪一样**，不是「操作失败」。
+// UselessWarning —— the rejection shown when there's no binding and expose isn't checked. It
+// names **what's missing**, not "operation failed".
 function UselessWarning({ show }: { show: boolean }) {
   const t = useTranslations('adminShell.specIngest');
   return show ? (
@@ -167,20 +180,23 @@ function UselessWarning({ show }: { show: boolean }) {
   ) : null;
 }
 
-// authForms —— 派生出的方案列表（没有则空）。拆出来只为把可选链的分支数摊开：
-// `auth?.forms?.[0]?.scheme ?? ''` 一行里有四个分支，超 complexity 闸。
+// authForms —— the derived list of schemes (empty if none). Split out only to flatten the
+// optional-chain branch count: `auth?.forms?.[0]?.scheme ?? ''` has four branches in one line,
+// which trips the complexity gate.
 function authForms(auth: AuthForms | null): AuthScheme[] {
   return auth === null ? [] : (auth.forms ?? []);
 }
 
-// defaultScheme —— 派生表单里的第一个方案（owner 没主动选时的生效值，跟 SchemePicker 的
-// 默认选中保持一致）。没有派生出任何方案 → 空串（spec 自己声明了唯一方案的那种）。
+// defaultScheme —— the first scheme in the derived form (the effective value when the owner
+// hasn't actively chosen one, kept consistent with SchemePicker's default selection). No scheme
+// derived at all -> empty string (the case where the spec itself declares a single scheme).
 function defaultScheme(auth: AuthForms | null): string {
   return authForms(auth)[0]?.scheme ?? '';
 }
 
-// AssembleRow —— 装配动作。**只在有候选时出现**：spec 还没校验通过就给一个能点的按钮，
-// 等于把「点了没反应」当成产品行为。
+// AssembleRow —— the assembly action. **Only appears once there's a candidate**: showing a
+// clickable button before the spec has passed validation would make "click and nothing happens"
+// the product's behavior.
 function AssembleRow({ show, onClick }: { show: boolean; onClick: () => void }) {
   const t = useTranslations('adminShell.specIngest');
   return show ? (
@@ -196,8 +212,10 @@ function AssembleRow({ show, onClick }: { show: boolean; onClick: () => void }) 
   ) : null;
 }
 
-// BaseUrlRow —— spec 没写 `servers` 时 owner 手填的 base URL（F-C-22）。**常驻**，不是等到
-// 报错才出现：一个只在失败之后才现身的输入框，owner 第一次读到那句拒绝时仍然无处可填。
+// BaseUrlRow —— the base URL the owner fills in by hand when the spec doesn't declare `servers`
+// (F-C-22). **Always present**, not something that only appears after an error: an input that
+// only shows up after failure still leaves the owner with nowhere to type on the first read of
+// that rejection.
 function BaseUrlRow({ onText }: { onText: (t: string) => void }) {
   const t = useTranslations('adminShell.specIngest');
   return (
@@ -216,11 +234,12 @@ function BaseUrlRow({ onText }: { onText: (t: string) => void }) {
   );
 }
 
-// BindingTextarea —— 这一格以前**只有占位符没有标签**（UX-81）：同一扇弹窗里，上面那格有
-// `PASTE AN OPENAPI SPEC` + 一句解释、下面那格有 `BASE URL —— ONLY IF…`，唯独它没有。
-// 而占位符里那句 "maps operations to a category contract" 是这一格**唯一的解释**，
-// owner 一打字它就消失了 —— placeholder-as-label。
-// 现在标签常驻、解释常驻，占位符退回去只举一个例子。
+// BindingTextarea —— this field used to have **only a placeholder, no label** (UX-81): in the
+// same modal, the field above had `PASTE AN OPENAPI SPEC` + an explanatory line, the field
+// below had `BASE URL —— ONLY IF…`, and this one alone had neither. And the placeholder text
+// "maps operations to a category contract" was this field's **only** explanation — it vanished
+// the moment the owner started typing, the classic placeholder-as-label problem.
+// The label and explanation are now permanent; the placeholder is back to being just an example.
 function BindingTextarea({ onText }: { onText: (t: string) => void }) {
   const t = useTranslations('adminShell.specIngest');
   return (
@@ -297,8 +316,9 @@ function SubmitButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-// FileInput —— 上传一份 spec 文件。UX-81 在这里抓到浏览器原生的 `Choose File / No file chosen`，
-// 现在走 FilePicker atom（同样的东西还站在另外两个地方，见 atom 的说明）。
+// FileInput —— uploads a spec file. UX-81 caught the browser's native `Choose File / No file
+// chosen` here; now it goes through the FilePicker atom (the same fix stands in two other
+// places too — see the atom's docs).
 function FileInput({ onFile }: { onFile: (f: File) => void }) {
   const t = useTranslations('adminShell.specIngest');
   return (
@@ -329,9 +349,11 @@ function SpecUrlRow({ onFetch }: { onFetch: (url: string) => void }) {
           className="sm-field-input sm-mono"
         />
       </label>
-      {/* FETCH 跟 USE THIS SPEC 是**并列的两条路**（把 spec 交进来），以前一个是深色实心按钮、
-          一个是最右边的浅色文字链 —— 权重差了一个量级（UX-81）。两条都是「提交这一格里的东西」，
-          所以给同一种描边按钮：主次留给它们下面那个真正的主动作（ASSEMBLE）。 */}
+      {/* FETCH and USE THIS SPEC are **two parallel paths** for submitting a spec; one used to
+          be a dark solid button and the other a light text link tucked at the right — a whole
+          weight class apart (UX-81). Both mean "submit what's in this field", so they get the
+          same outline button; primary/secondary weight is reserved for the real primary action
+          below them (ASSEMBLE). */}
       <button
         type="button" onClick={() => onFetch(url)}
         data-testid="connector-spec-fetch-button"

@@ -122,8 +122,10 @@ func (l driverCorpusLister) Get(
 	}, nil
 }
 
-// Grep —— never-miss 在这一侧同样成立:枚举全量(SearchCorpus("")),逐条 ACL,再拿同一个
-// GrepBody 判定。判定那一步跟 prod 是同一个函数,所以 eval 里"找得到"和线上"找得到"是同一件事。
+// Grep — the never-miss guarantee holds here too: enumerate everything
+// (SearchCorpus("")), ACL each one, then judge with the same GrepBody. That
+// judging step is the same function as prod, so "findable" in eval and
+// "findable" in production are the same thing.
 func (l driverCorpusLister) Grep(
 	ctx context.Context, _ string, scope access.CorpusScope, req *corpus.GrepRequest,
 ) ([]corpus.GrepHit, error) {
@@ -131,7 +133,7 @@ func (l driverCorpusLister) Grep(
 	if cerr != nil {
 		return nil, fmt.Errorf("grep pattern: %w", cerr)
 	}
-	all, err := l.driver.SearchCorpus(ctx, "") // 空查询 = 枚举全量
+	all, err := l.driver.SearchCorpus(ctx, "") // empty query = enumerate everything
 	if err != nil {
 		return nil, fmt.Errorf("driver enumerate corpus: %w", err)
 	}
@@ -144,10 +146,13 @@ func (l driverCorpusLister) Grep(
 	return out, nil
 }
 
-// Links —— 在 eval Driver 语料上算真链图（不靠 prod 的 note_refs 表）：subject 的 [[X]] 出度
-// 用 slug/title 解析成条目（Outgoing），全语料反扫谁 [[link]] 指向 subject（Backlinks）。用
-// 既有 corpus.ExtractCrossLinks + SlugifyTitle，跟 prod 的 crosslink 解析同源。SearchCorpus("")
-// 空查询枚举全量（见 EvalDriver）。ACL 逐条过（同 Get/filterHits）。语料小，线性扫无碍。
+// Links — computes a real link graph over the eval Driver's corpus (not backed
+// by prod's note_refs table): the subject's [[X]] out-edges resolve to entries by
+// slug/title (Outgoing); a full-corpus reverse scan finds whose [[link]] points at
+// the subject (Backlinks). Uses the existing corpus.ExtractCrossLinks +
+// SlugifyTitle, sharing the same crosslink-parsing source as prod. SearchCorpus("")
+// with an empty query enumerates everything (see EvalDriver). ACL is checked per
+// entry (same as Get/filterHits). The corpus is small, so a linear scan is fine.
 func (l driverCorpusLister) Links(
 	ctx context.Context, ownerID string, scope access.CorpusScope, path string,
 ) (corpus.Links, error) {
@@ -155,7 +160,7 @@ func (l driverCorpusLister) Links(
 	if err != nil {
 		return corpus.Links{}, err
 	}
-	all, serr := l.driver.SearchCorpus(ctx, "") // 空查询 = 枚举全量
+	all, serr := l.driver.SearchCorpus(ctx, "") // empty query = enumerate everything
 	if serr != nil {
 		return corpus.Links{}, fmt.Errorf("driver enumerate corpus: %w", serr)
 	}
@@ -165,7 +170,8 @@ func (l driverCorpusLister) Links(
 	}, nil
 }
 
-// outgoingLinks —— subject body 里的 [[X]] 解析成语料条目（slug 或 title 命中，ACL 过、去重）。
+// outgoingLinks — resolves the [[X]] refs in the subject body into corpus
+// entries (matched by slug or title, ACL-checked, deduped).
 func outgoingLinks(
 	body string, all []CorpusHit, scope access.CorpusScope,
 ) []corpus.Meta {
@@ -183,7 +189,8 @@ func outgoingLinks(
 	return out
 }
 
-// backlinks —— 反扫全语料：谁的 body [[link]] 指向 subject（按 subject 的 slug/title），谁是 backlink。
+// backlinks — reverse-scans the whole corpus: whoever's body has a [[link]]
+// pointing at the subject (matched by the subject's slug/title) is a backlink.
 func (l driverCorpusLister) backlinks(
 	ctx context.Context, subjectPath, subjectTitle string,
 	all []CorpusHit, scope access.CorpusScope,
@@ -200,7 +207,8 @@ func (l driverCorpusLister) backlinks(
 	return out
 }
 
-// entryLinksTo —— 一条语料 entry 是否 [[link]] 指向 subject（跳过 subject 自己 + ACL 拒的）。
+// entryLinksTo — whether one corpus entry [[link]]s to the subject (skips the
+// subject itself + anything ACL denies).
 func (l driverCorpusLister) entryLinksTo(
 	ctx context.Context, e *CorpusHit, subjectPath string,
 	targets map[string]bool, scope access.CorpusScope,
@@ -215,7 +223,8 @@ func (l driverCorpusLister) entryLinksTo(
 	return bodyLinksTo(doc.Body, targets)
 }
 
-// resolveRef —— 把一个 [[X]] target 解析成语料条目：slug（末段 path）或 title-slug 命中。
+// resolveRef — resolves one [[X]] target into a corpus entry: matched by
+// slug (the path's last segment) or by title-slug.
 func resolveRef(target string, all []CorpusHit) (*CorpusHit, bool) {
 	slug := corpus.SlugifyTitle(target)
 	for i := range all {
@@ -248,8 +257,9 @@ func hitToMeta(h *CorpusHit) corpus.Meta {
 	}
 }
 
-// grepOne —— 一条枚举结果:过 ACL、取正文、判定。正文取不到 → 不命中(eval 语料里那是
-// 一条刚被删掉的条目)。
+// grepOne — one enumerated result: pass through ACL, fetch the body, judge it.
+// Body fetch fails → no match (in the eval corpus that means the entry was just
+// deleted).
 func (l driverCorpusLister) grepOne(
 	ctx context.Context, scope access.CorpusScope, re *regexp.Regexp, hit *CorpusHit,
 ) (corpus.GrepHit, bool) {

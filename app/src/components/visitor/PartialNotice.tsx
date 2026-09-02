@@ -1,14 +1,21 @@
-// PartialNotice —— 「这一轮到头了」。跟正文分开渲，因为**一段被截断的文字**和**它被截断了**
-// 是两件事；混进正文就读成了作者自己那么写的（F-A-32）。
+// PartialNotice —— "this turn hit its limit". Rendered separately from
+// the answer body, because **a chunk of truncated text** and **the fact
+// that it was truncated** are two different things; mixed into the body
+// it reads as if the author wrote it that way on purpose (F-A-32).
 //
-// 长相不是这里发明的（UX-84）：这跟「这场问完了」是同一类事情 —— 一次配额到头，产品停下来
-// 说一句。50/50 之后那一侧是 `SESSION FULL`（`ChatRoom.tsx` 的 `ComposerAction`：朱红、等宽、
-// 大写、字距 0.16em），所以这一侧用同一套字。原来那版是我自造的朱红竖条 + 小写长句，
-// 既没设计过，也让同一类事情在两处长成两个样。
+// The look isn't invented here (UX-84): this is the same category of event
+// as "this session is done" — a quota ran out and the product pauses to
+// say so. On the other side of that 50/50 split is `SESSION FULL`
+// (`ChatRoom.tsx`'s `ComposerAction`: vermillion, mono, uppercase, 0.16em
+// tracking), so this side uses the same type treatment. The original
+// version was a self-invented vermillion vertical bar + a lowercase
+// sentence — never actually designed, and it made the same category of
+// event look like two different things in two places.
 //
-// 为什么是组件：两个 chat 面（`ChatTranscript` 和 `ConversationDeck`）本来各抄了一份
-// **一模一样**的实现和 testid —— 那意味着下一次改动只会跟到其中一处
-// （[[lesson-not-swept-to-neighbours]]）。
+// Why a component: the two chat surfaces (`ChatTranscript` and
+// `ConversationDeck`) used to each carry their own copy of an **identical**
+// implementation and testid — which meant the next change would only ever
+// reach one of them ([[lesson-not-swept-to-neighbours]]).
 
 export function PartialNotice({ notice }: { notice?: string }) {
   return notice === undefined || notice === '' ? null : (

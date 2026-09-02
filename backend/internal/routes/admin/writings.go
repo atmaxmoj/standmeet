@@ -1,14 +1,18 @@
-// writings.go —— admin /writings:列出 / 建 / 改 / 发布 / 删。
+// writings.go — admin /writings: list / create / edit / publish / delete.
 //
-// 建和改收 multipart:form field "data" 是 JSON,form field `file:<pending-id>` 是内联
-// 图片的字节,正文里的占位是 `standmeet-asset:pending-<id>`。
+// Create and edit accept multipart: form field "data" is JSON, form field
+// `file:<pending-id>` is an inline image's bytes, and the body's placeholder is
+// `standmeet-asset:pending-<id>`.
 //
-// **这两条以前直连域**(自己调 corpus.SaveWriting、自己拼视图),因为收口没有携带字节的
-// 通道。通道建好之后它们跟别的路由一样了:形状照常手写(multipart 怎么拆、什么状态码),
-// 能力经 Face 取 —— 字节挂在这次调用上(见 dispatcher.WithFiles),op 那边跟 MCP 给的
-// 一串地址合流。
+// **These two used to connect straight to the domain** (calling corpus.SaveWriting
+// itself, assembling the view itself), because the convergence point had no channel for
+// carrying bytes. Once that channel was built, they became like every other route: the
+// shape is still hand-written as before (how to unpack multipart, which status code),
+// capability is taken through the Face — the bytes ride along with this call (see
+// dispatcher.WithFiles), and the op side merges them with the address list MCP supplies.
 //
-// 树和分页那两条还直连(writings_tree.go):它们是面板独有的视图,没有对应的 op。
+// The tree and page routes still connect directly (writings_tree.go): they're views
+// unique to the panel with no corresponding op.
 
 package admin
 
@@ -21,13 +25,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// WritingsAdminDeps 的定义在 writings_tree.go —— 它剩下的那个域依赖(解素材地址)
-// 只服务树 / 分页那两条视图路由,跟它们住在一起;保存这条已经不碰域了。
+// WritingsAdminDeps is defined in writings_tree.go — its one remaining domain
+// dependency (resolving asset addresses) only serves the tree / page view routes, so it
+// lives alongside them; the save route no longer touches the domain at all.
 
-// opWritingSave —— 建和改是**同一个 op**:给了 writing_id 就是改。
+// opWritingSave — create and edit are **the same op**: giving a writing_id means edit.
 const opWritingSave = "writing_create"
 
-// MountWritings 挂 /writings 子路由。
+// MountWritings mounts the /writings subrouter.
 func (h *Handlers) MountWritings(r chi.Router) {
 	face := h.WritingsAdmin.Face
 	save := h.saveWritingViaFace(face)
@@ -46,9 +51,11 @@ func (h *Handlers) MountWritings(r chi.Router) {
 	})
 }
 
-// saveWritingViaFace —— 建 / 改共用一个处理器。idParam 空 = 建(URL 上没有 id)。
+// saveWritingViaFace — create / edit share one handler. An empty idParam means create
+// (no id in the URL).
 //
-// 组装期就取好 op:这个面载不动字节的话立刻炸,而不是等 owner 点保存才回一个 404。
+// The op is taken at assembly time: if this facade can't carry bytes, it panics
+// immediately, rather than waiting until the owner clicks save to return a 404.
 func (h *Handlers) saveWritingViaFace(
 	face *dispatcher.Face,
 ) func(status int, idParam string) http.HandlerFunc {
@@ -63,7 +70,7 @@ func (h *Handlers) saveWritingViaFace(
 	}
 }
 
-// writingSaveCall —— 一次保存要的三样(避开 argument-limit)。
+// writingSaveCall — the three things one save needs (dodges argument-limit).
 type writingSaveCall struct {
 	Invoke  dispatcher.Invoke
 	IDParam string
@@ -78,7 +85,8 @@ func (h *Handlers) runWritingSave(
 		writeError(h.Log, w, envBadReq(perr.Error()))
 		return
 	}
-	// 字节随行:op 那边按 field 名 `file:<pending-id>` 跟正文里的占位对上。
+	// The bytes ride along: the op side matches them to the body's placeholder by the
+	// field name `file:<pending-id>`.
 	ctx := dispatcher.WithFiles(r.Context(), parsed.Files)
 	out, err := call.Invoke(ctx, middleware.OwnerIDFrom(r.Context()), parsed.Data)
 	if err != nil {
@@ -88,7 +96,8 @@ func (h *Handlers) runWritingSave(
 	writeStatusBody(h.Log, w, call.Status, out)
 }
 
-// readWritingSave —— 拆信封 + 把 URL 上的 id 补进入参。返回的 Data 就是给 op 的那份。
+// readWritingSave unpacks the envelope + fills the URL's id into the args. The returned
+// Data is exactly what goes to the op.
 func readWritingSave(
 	w http.ResponseWriter, r *http.Request, idParam string,
 ) (parsedMultipart, error) {
@@ -104,7 +113,8 @@ func readWritingSave(
 	return parsed, nil
 }
 
-// writingIDFrom —— 改的时候 id 在 URL 上(PATCH /writings/{id});建的时候没有。
+// writingIDFrom — on edit the id is in the URL (PATCH /writings/{id}); on create there's
+// none.
 func writingIDFrom(r *http.Request, param string) string {
 	if param == "" {
 		return ""

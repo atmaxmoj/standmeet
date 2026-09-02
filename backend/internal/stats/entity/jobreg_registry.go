@@ -1,5 +1,7 @@
-// jobreg_registry.go —— 进程内后台计划任务登记表(Monitor/stats background-jobs)。
-// cron 启动时 Register,每次跑完 Report(status);admin /stats/jobs 读快照。
+// jobreg_registry.go — in-process registry for background scheduled jobs
+// (Monitor/stats background-jobs).
+// A cron job calls Register on startup and Report(status) after each run;
+// admin /stats/jobs reads the snapshot.
 
 package entity
 
@@ -17,16 +19,17 @@ type jobState struct {
 	lastStatus string
 }
 
-// JobRegistry —— 线程安全的计划任务登记表。
+// JobRegistry — a thread-safe registry of scheduled jobs.
 type JobRegistry struct {
 	jobs map[string]*jobState
 	mu   sync.Mutex
 }
 
-// NewJobRegistry 构造一个空登记表。
+// NewJobRegistry builds an empty registry.
 func NewJobRegistry() *JobRegistry { return &JobRegistry{jobs: make(map[string]*jobState)} }
 
-// Register —— 声明一个计划任务（幂等；未跑过时 last_run=nil、status='scheduled'）。
+// Register — declares a scheduled job (idempotent; before its first run,
+// last_run=nil and status='scheduled').
 func (r *JobRegistry) Register(name, schedule string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -35,7 +38,8 @@ func (r *JobRegistry) Register(name, schedule string) {
 	}
 }
 
-// Report —— 记录一次运行结果，戳当前时间为 last_run。未注册的名字忽略。
+// Report — records the result of one run, stamping last_run with the current
+// time. An unregistered name is ignored.
 func (r *JobRegistry) Report(name, status string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -48,7 +52,7 @@ func (r *JobRegistry) Report(name, status string) {
 	j.lastStatus = status
 }
 
-// ScheduledJobs —— 当前所有任务快照，按名字排序。
+// ScheduledJobs — a snapshot of all current jobs, sorted by name.
 func (r *JobRegistry) ScheduledJobs() []ScheduledJob {
 	r.mu.Lock()
 	defer r.mu.Unlock()

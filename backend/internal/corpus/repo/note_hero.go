@@ -1,9 +1,10 @@
-// note_hero.go —— 一条 corpus note 的 hero 区,以及正文(里面的素材引用)。
+// note_hero.go — the hero section of a corpus note, plus its body (which holds the asset
+// references).
 //
-// **跨 genre**:素材这件事对 genre 是无差别的 —— 一条 raw 和一篇 writing 挂图的方式一样。
-// cover_image_asset_id / cover_headline / cover_hue 三列本来就在共享的 corpus_notes 表上,
-// 以前只有 writing 那条路写它们,于是"每个 genre 都能有 hero"这句话在数据上成立、在代码里
-// 不成立。
+// **Cross-genre**: assets don't care which genre they're on — a raw note and a writing attach
+// a cover image the same way. The three columns cover_image_asset_id / cover_headline /
+// cover_hue already lived on the shared corpus_notes table, but only the writing path ever
+// wrote them, so "every genre can have a hero" was true in the data but not true in the code.
 
 package repo
 
@@ -20,15 +21,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// NoteHeroRepo —— 任意 genre 的一条 note 上的 hero 区。
+// NoteHeroRepo — the hero section on a note, for any genre.
 type NoteHeroRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewNoteHeroRepo 构造。
+// NewNoteHeroRepo constructs one.
 func NewNoteHeroRepo(pool *pgstore.Pool) *NoteHeroRepo { return &NoteHeroRepo{pool: pool} }
 
-// Get —— 读一条 note 的正文 + hero 三件套。不存在 / 不是这个 owner 的 → ErrEntryNotFound。
+// Get — read a note's body plus the three hero fields. Missing / not this owner's →
+// ErrEntryNotFound.
 func (r *NoteHeroRepo) Get(ctx context.Context, ownerID, noteID string) (entity.NoteHero, error) {
 	ids, perr := heroIDs(ownerID, noteID)
 	if perr != nil {
@@ -51,8 +53,10 @@ func (r *NoteHeroRepo) Get(ctx context.Context, ownerID, noteID string) (entity.
 	}, nil
 }
 
-// Set —— 整份写回 hero 三件套。**调用方负责先 Get 再只覆盖这次给了的那几项** ——
-// 三列一次写全,所以没提到的字段必须由调用方带着现值回来,否则会被顺手抹掉。
+// Set — writes back all three hero fields as a whole. **The caller is responsible for
+// Get-ing first and overwriting only the fields it means to change** — all three columns
+// are written in one go, so any field the caller doesn't mean to touch must come back with
+// its current value, or it gets silently wiped.
 func (r *NoteHeroRepo) Set(ctx context.Context, ownerID, noteID string, h *entity.NoteHero) error {
 	ids, perr := heroIDs(ownerID, noteID)
 	if perr != nil {
@@ -75,7 +79,7 @@ func (r *NoteHeroRepo) Set(ctx context.Context, ownerID, noteID string, h *entit
 	return nil
 }
 
-// heroIDs —— 两个 id 一起解析,省得每处写两遍。
+// heroIDs — parses both ids together, so each call site doesn't repeat the pair.
 type heroIDPair struct{ note, owner pgtype.UUID }
 
 func heroIDs(ownerID, noteID string) (heroIDPair, error) {
@@ -90,7 +94,7 @@ func heroIDs(ownerID, noteID string) (heroIDPair, error) {
 	return heroIDPair{note: noteUUID, owner: ownerUUID}, nil
 }
 
-// optionalAssetUUID —— 空串 = 摘掉 hero 图(写 NULL)。
+// optionalAssetUUID — empty string means "remove the hero image" (write NULL).
 func optionalAssetUUID(id string) (pgtype.UUID, error) {
 	if id == "" {
 		return pgtype.UUID{}, nil

@@ -5,9 +5,12 @@ import (
 	"testing"
 )
 
-// TestPingCheck —— health.OK 真实反映 ping 结果,不是硬编 true。这正是之前 e2e 证不了的点
-// (e2e 里依赖恒在 → ok===true 跟硬编 true 不可区分;杀共享 db 又太破坏)。纯函数单测直接钉死:
-// nil err → OK true;非 nil err(ping 失败)→ OK false。db.Ping 是 err 来源(见 healthChecks)。
+// TestPingCheck — health.OK genuinely reflects the ping result, not a hardcoded true.
+// This is exactly the point a prior e2e couldn't prove (in e2e the dependency is
+// always up → ok===true is indistinguishable from a hardcoded true; killing the
+// shared db would be too destructive). A plain function unit test nails it down
+// directly: nil err → OK true; non-nil err (ping failed) → OK false. db.Ping is the
+// source of err (see healthChecks).
 func TestPingCheck(t *testing.T) {
 	up := pingCheck("database", "postgres", nil)
 	if !up.OK {

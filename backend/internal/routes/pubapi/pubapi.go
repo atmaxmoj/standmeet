@@ -63,7 +63,7 @@ type Handlers struct {
 	d *Deps
 }
 
-// New 构造 facade handlers。
+// New constructs the facade handlers.
 func New(d *Deps) *Handlers { return &Handlers{d: d} }
 
 // Mount —— /api/pub/v1 with api-key auth + rate + assembly as middleware on every route.
@@ -94,9 +94,11 @@ func (h *Handlers) authRate(next http.Handler) http.Handler {
 			return
 		}
 		if allowed, wait := h.rateVerdict(r.Context(), &key); !allowed {
-			// Retry-After —— **说清什么时候能再试**(F-K-2)。只说"你被限了"的话,守规矩的客户端
-			// 也只能猜,而最常见的猜法是立刻重试 —— 恰恰是限流要防的那件事。
-			// 这个秒数不是估的:它是那把 Redis 计数键的剩余 TTL,也就是窗口真正还剩多久。
+			// Retry-After —— **states exactly when to retry** (F-K-2). Saying only "you're
+			// rate-limited" leaves even a well-behaved client to guess, and the most common
+			// guess is to retry immediately — exactly what the rate limit exists to prevent.
+			// This number isn't estimated: it's the remaining TTL on the Redis counter key,
+			// i.e. how much of the window is actually left.
 			w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
 			h.writeErr(w, http.StatusTooManyRequests, "rate_limited",
 				"rate limit exceeded — retry after the window resets")
@@ -153,15 +155,18 @@ func toolsetFromCtx(ctx context.Context) *capload.APIToolset {
 // rateVerdict —— per-key fixed-window limiter. Fail-open on Redis error (authenticated keys →
 // availability over throttling, unlike login_guard which fails closed).
 //
-// 拒绝时**一并给出还要等多久**:那是这把计数键的剩余 TTL,即这个窗口真正还剩的时间。
-// 调用方拿它填 `Retry-After`(F-K-2)—— 不给这个数,客户端只能猜,而猜的结果通常是立刻重试。
-// 两个返回值类型不同(bool / Duration),所以不必起名 —— 起了反而撞 nonamedreturns。
-// 计数那一段拆进 bumpWindow:面上的函数要守 cyclo ≤3,而"数一次"本来也是独立的一件事。
+// A rejection **also states how much longer to wait**: that's the remaining TTL on the counter
+// key, i.e. how much of the window is actually left. The caller uses it to fill `Retry-After`
+// (F-K-2) — without that number the client can only guess, and the usual guess is to retry
+// immediately. The two return values have different types (bool / Duration), so they don't need
+// names — naming them would only collide with nonamedreturns. The counting step is split out
+// into bumpWindow: the top-level function must keep cyclo ≤3, and "count one call" is a
+// naturally separate step anyway.
 func (h *Handlers) rateVerdict(ctx context.Context, key *access.APIKey) (bool, time.Duration) {
 	rkey := "ratelimit:apikey:" + key.ID
 	n, counted := h.bumpWindow(ctx, rkey)
 	if !counted {
-		return true, 0 // fail-open：redis 抖不该把已认证的调用方挡在门外
+		return true, 0 // fail-open: a Redis blip must not lock out an already-authenticated caller
 	}
 	if n <= int64(keyLimit(key, h.d.DefaultRPM)) {
 		return true, 0
@@ -169,8 +174,9 @@ func (h *Handlers) rateVerdict(ctx context.Context, key *access.APIKey) (bool, t
 	return false, h.windowLeft(ctx, rkey)
 }
 
-// bumpWindow —— 这个窗口内的第几次调用;第一次顺手把 TTL 装上。
-// 第二个返回值是"数到了没有":redis 出错时返 false,由调用方决定放行(fail-open)。
+// bumpWindow —— which call this is within the current window; the first call also sets the TTL.
+// The second return value is "did the count actually happen": false on a Redis error, leaving
+// the caller to decide whether to allow it through (fail-open).
 func (h *Handlers) bumpWindow(ctx context.Context, rkey string) (int64, bool) {
 	n, err := h.d.Redis.Incr(ctx, rkey).Result()
 	if err != nil {
@@ -183,8 +189,9 @@ func (h *Handlers) bumpWindow(ctx context.Context, rkey string) (int64, bool) {
 	return n, true
 }
 
-// windowLeft —— 这把计数键还有多久过期。取不到(键刚好没了 / redis 抖)就退回整窗:
-// 宁可让调用方多等一会儿,也**不要给一个 0** —— 0 的意思是"现在就可以重试",那是假话.
+// windowLeft —— how long until this counter key expires. If that can't be read (the key just
+// expired / a Redis blip), fall back to the full window: better to make the caller wait a bit
+// longer than to **return a 0** — 0 means "you can retry right now," which would be a lie.
 func (h *Handlers) windowLeft(ctx context.Context, rkey string) time.Duration {
 	ttl, err := h.d.Redis.TTL(ctx, rkey).Result()
 	if err != nil || ttl <= 0 {
@@ -226,7 +233,7 @@ func (h *Handlers) writeErr(w http.ResponseWriter, status int, reason, detail st
 	h.writeJSON(w, status, errResp{Reason: reason, Detail: detail})
 }
 
-//nolint:forbidigo // json.Encoder.Encode 必须 interface{}; 集中此处放行（同 admin/helpers.go）。
+//nolint:forbidigo // json.Encoder.Encode needs interface{}; allowed here (as in admin/helpers.go).
 func (h *Handlers) writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

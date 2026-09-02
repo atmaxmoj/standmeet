@@ -1,18 +1,24 @@
-// agent_instruction_datetime_test.go —— 通用 instruction 里**不许出现任何一个能力的名字**。
+// agent_instruction_datetime_test.go —— the generic instruction **must not name any specific
+// capability**.
 //
-// 内核拼的这段是"现在几点、owner 在哪个时区、访客在哪个时区" —— 每一轮都拼,跟访客被授了什么
-// 能力无关。它却一直写着"the owner's **calendar** runs in this timezone"和"before proposing or
-// **scheduling** times":一个没被授予预约能力的访客,他的 system prompt 里照样躺着一句关于日程的
-// 指示。check-core-agnostic 的基线上最后那一条就是它
-// (conversation/inference/agent_instruction.go<TAB>calendar)。
+// What the kernel assembles here is "the current time, owner's timezone, visitor's timezone" —
+// added on every turn, regardless of which capabilities the visitor was granted. It used to keep
+// saying "the owner's **calendar** runs in this timezone" and "before proposing or
+// **scheduling** times": so a visitor never granted the booking capability still had a
+// scheduling instruction sitting in their system prompt. That was the last entry left on the
+// check-core-agnostic baseline (conversation/inference/agent_instruction.go<TAB>calendar).
 //
-// 时区上下文本身是通用的(简历、经历、"最近"都要锚今天),该搬走的是**那句指示**:怎么换算、
-// 什么时候反问、要不要双显 —— 那是会排期的那个能力自己的事,由它在自己的 instructions 里说。
+// The timezone context itself is generic (résumé, experience, "recent" all need to anchor to
+// today) — what had to move out is **that instruction sentence**: how to convert, when to ask
+// back, whether to show both, that's the business of the capability that actually schedules, said
+// in its own instructions.
 //
-// 下面两组断言是一对,缺一不可:
-//   - 说了该说的(日期、owner 时区、把"今天"锚住、访客时区是个事实)
-//   - 没说不该说的(任何具体能力的词)
-// 只有后者的话,把整段删掉也能绿 —— 那是一条自己给自己放水的测试。
+// The two assertion groups below are a pair, neither optional on its own:
+//   - it says what it should (the date, the owner's timezone, anchoring "today", stating the
+//     visitor's timezone as a fact)
+//   - it doesn't say what it shouldn't (any specific capability word)
+// With only the second group, deleting the whole section would also pass — that would be a test
+// that lets itself off the hook.
 
 package inference
 
@@ -31,13 +37,14 @@ const (
 	dtMinute  = 30
 )
 
-// dtNow —— 固定的"现在"。日期本身不重要,重要的是它必须原样出现在那段上下文里
-// (下面断言的 "2026-08-05" 就是它)。
+// dtNow —— a fixed "now". The date itself doesn't matter; what matters is that it must appear
+// verbatim in that context block (the "2026-08-05" asserted below is it).
 func dtNow() time.Time {
 	return time.Date(dtYear, time.August, dtDay, dtHour, dtMinute, 0, 0, time.UTC)
 }
 
-// 具体能力的词。内核这一段一个都不该出现 —— 它不知道访客被授了什么。
+// Words naming specific capabilities. The kernel's section here must contain none of them —
+// it doesn't know what the visitor was granted.
 var capabilityWords = []string{
 	"calendar", "schedul", "booking", "book a", "meeting", "appointment",
 }
@@ -59,16 +66,17 @@ func TestInstructionWithDateTime_NamesNoCapability(t *testing.T) {
 	}
 }
 
-// 该说的还得说 —— 否则"不含 calendar"靠删光整段也能满足。
+// What should be said still has to be said — otherwise "contains no 'calendar'" could be
+// satisfied by deleting the whole section.
 func TestInstructionWithDateTime_StillAnchorsNow(t *testing.T) {
 	t.Parallel()
 	got := instructionWithDateTime(dtPersona, dtNow(), ownerTZ, "")
 
 	for _, want := range []string{
-		dtPersona,          // 原 persona 不能被吃掉
-		"2026-08-05",       // 今天是哪天
-		ownerTZ,            // owner 的时区
-		"nearest upcoming", // 无年份的日期锚到将来,不是训练期的某个过去年份
+		dtPersona,          // the original persona must not be swallowed
+		"2026-08-05",       // what today's date is
+		ownerTZ,            // the owner's timezone
+		"nearest upcoming", // a yearless date anchors to the future, not some past training year
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("datetime context lost %q:\n%s", want, got)
@@ -76,7 +84,8 @@ func TestInstructionWithDateTime_StillAnchorsNow(t *testing.T) {
 	}
 }
 
-// 访客时区是**事实**,不是指示:知道就说一句,不知道就不说(要不要因此反问,由会排期的能力决定)。
+// The visitor's timezone is a **fact**, not an instruction: state it when known, say nothing when
+// not (whether to ask back over it is the scheduling capability's call).
 func TestVisitorTZClause_StatesAFactOrNothing(t *testing.T) {
 	t.Parallel()
 	if got := visitorTZClause("", ownerTZ); got != "" {

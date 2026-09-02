@@ -1,5 +1,5 @@
-// WikiRowForms —— wiki row 内 edit / promote 两个 inline form 子组件。
-// 从 WikiSection.tsx 拆出来守 350 行 max-lines。
+// WikiRowForms — the two inline form subcomponents (edit / promote) inside a wiki row.
+// Split out of WikiSection.tsx to stay under the 350-line max-lines limit.
 
 'use client';
 
@@ -30,8 +30,10 @@ export function WikiEditForm({
     () => actions.updateWiki(entry.id, input),
     () => { toast.success('Wiki updated'); onDone(); },
   );
-  // `wiki-edit-loaded-${id}` 只挂在**真的加载完**的那一支上。它以前在外层 div —— 于是 loading…
-  // 期间它也在，一个自称 "loaded" 却不追踪 loaded 的标记。等它的测试会在表单还没渲染时就动手。
+  // `wiki-edit-loaded-${id}` is attached only to the branch that has ACTUALLY finished
+  // loading. It used to sit on the outer div, so it was present during the loading… state
+  // too — a marker that claims "loaded" but never tracked loading. A test waiting on it
+  // would act before the form rendered.
   return (
     <div className="mt-4" data-testid={`wiki-edit-${entry.id}-slot`}>
       {detail ? (
@@ -49,9 +51,10 @@ export function WikiEditForm({
               cover_hue: detail.cover_hue,
             }}
             busy={actions.pending}
-            // "save entry" 而不是 "save"：这一屏下面还有一张 PUBLIC LANDING 卡，
-            // 带**它自己**的提交。两个都只写 save 的时候，owner 填完下半张最自然会去按
-            // 上面这个更显眼的按钮，而它不管那一半（UX-60）。
+            // "save entry" instead of "save": this screen also has a PUBLIC LANDING card
+            // below with its OWN submit. When both just said "save", after filling the
+            // bottom half an owner would naturally click this more prominent button above,
+            // which doesn't cover that half (UX-60).
             heading={tf('entryHeading')}
             submitLabel="save entry"
             testidPrefix={`wiki-edit-form-${entry.id}`}
@@ -86,11 +89,12 @@ export function WikiEditForm({
   );
 }
 
-// saveWikiSEO —— 保存 + **说出这一次真的做成了什么**。
+// saveWikiSEO — save + REPORT what this action actually did.
 //
-// 取消发布一条被 pin 的笔记会把它从首页那几个栏目里摘掉（不变量的另一端）。owner 一次点击
-// 做成了两件事，而上一版只回一句 "Wiki saved" —— 他下次打开 landing page 会看见一个空掉的
-// 区块，没有任何线索说是什么时候没的（F-L-31）。回执后端一直在发，是客户端把响应扔了。
+// Unpublishing a pinned note also drops it from the homepage sections (the other side of
+// the invariant). One owner click does two things, but the old version only replied "Wiki
+// saved" — next time they open the landing page they'd find an empty section with no clue
+// when it disappeared (F-L-31). The backend always sent the receipt; the client discarded it.
 async function saveWikiSEO(
   id: string,
   actions: CorpusActionsHook,

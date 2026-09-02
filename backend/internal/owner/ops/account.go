@@ -1,10 +1,13 @@
-// account.go —— owner 自己的账号:读 me、改名、改时区、改邮箱、改密码、生成恢复口令。
+// account.go —— the owner's own account: read me, rename, set timezone, change email,
+// change password, generate a recovery phrase.
 //
-// 带**当前密码**或**新生成的密钥**的那三个是写下来的单面决定:只在面板上。MCP 是纯 JSON
-// 工具面,不承载原始凭据。
+// The three ops carrying a **current password** or a **freshly generated secret** are a
+// written-down single-face decision: panel-only. MCP is a pure JSON tool face and doesn't
+// carry raw credentials.
 //
-// 迁移前 MCP 的 `me` 是**手拼字符串**出来的 JSON,只有四个字段,而且没有转义 —— 名字里带
-// 一个引号就会拼出非法 JSON。现在跟面板的 GET /me 同一份形状、同一个序列化器。
+// Before the migration, MCP's `me` was **hand-assembled string** JSON, only four fields,
+// with no escaping — a quote in a name would produce invalid JSON. Now it shares the same
+// shape and the same serializer as the panel's GET /me.
 
 package ops
 
@@ -19,18 +22,20 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
-// AccountDeps —— 这一组要的依赖。改邮箱 / 改密码要当前密码,生成恢复口令要发信,
-// 所以横跨 account 和 recovery 两套。
+// AccountDeps —— the dependencies this group needs. Changing email / password needs the
+// current password, generating a recovery phrase needs to send mail, so it spans both the
+// account and recovery sets.
 type AccountDeps struct {
 	Account  usecase.AccountDeps
 	Recovery usecase.RecoveryDeps
-	// EmailChange —— 改邮箱要问"发得出信吗"(有 mail connector 就走待确认,没有就当场换),
-	// 所以它比 Account 多一个出站口。
+	// EmailChange —— changing email needs to ask "can we send mail?" (a mail connector
+	// means a pending confirmation, none means an immediate swap), so it has one more
+	// outbound port than Account.
 	EmailChange usecase.EmailChangeDeps
 }
 
 // Account —— me / set_full_name / set_timezone / change_email / change_password /
-// generate_recovery。
+// generate_recovery.
 func Account(deps AccountDeps) []fp.Op {
 	return append(accountReadOps(deps), accountCredentialOps(deps)...)
 }
@@ -66,7 +71,8 @@ func accountReadOps(deps AccountDeps) []fp.Op {
 	}
 }
 
-// accountCredentialOps —— 带凭据的三个:只在面板上,理由写在每条的 Reach 里。
+// accountCredentialOps —— the three carrying credentials: panel-only, reason spelled out
+// in each entry's Reach.
 func accountCredentialOps(deps AccountDeps) []fp.Op {
 	credentialed := func(why string) fp.Reach { return fp.Only(why, "admin") }
 	return []fp.Op{
@@ -142,8 +148,9 @@ var (
 	}`)
 )
 
-// accountErr —— 域的哨兵 → 协议无关的类别。owner 不存在 / 密码不对 = 这次会话的身份不成立
-// → Unauthed(前端据此跳登录);code 是已经发出去的契约。
+// accountErr —— domain sentinels → protocol-agnostic categories. Owner not found / wrong
+// password = this session's identity doesn't hold → Unauthed (the frontend redirects to
+// login on it); code is an already-published contract.
 func accountErr(err error) error {
 	for _, c := range accountErrClasses {
 		if errors.Is(err, c.sentinel) {
@@ -160,10 +167,13 @@ var accountErrClasses = []struct {
 	{entity.ErrOwnerNotFound, func() error {
 		return fp.Coded(fp.Unauthed("owner not found"), "unauthorized")
 	}},
-	// 这一族 op 里 ErrUnauthorized 只有一个来源：**当前密码填错了**。owner 已经带着
-	// session 进来了，他在这一步唯一提供的凭据就是那一个字段。所以说"invalid credentials"
-	// 是把一句他能照着做的话，换成了一句他得猜的话 —— 而 CLAUDE.md 要求错误是人话。
-	// 这里也没有枚举风险：能走到这一步的人本来就已经登录了。
+	// In this op family, ErrUnauthorized has exactly one source: **the current
+	// password field was wrong**. The owner is already in with a session; the one
+	// credential he supplies at this step is that single field. So saying
+	// "invalid credentials" swaps a message he can act on for one he has to guess
+	// at — and CLAUDE.md requires errors to read like human language.
+	// No enumeration risk here either: whoever reaches this step is already
+	// logged in.
 	{entity.ErrUnauthorized, func() error {
 		return fp.Coded(fp.Unauthed("current password is incorrect"), "unauthorized")
 	}},
@@ -178,7 +188,8 @@ var accountErrClasses = []struct {
 	}},
 }
 
-// ownerFieldOut —— 改完一个字段之后回它的新值(面板一直是这个形状)。
+// ownerFieldOut —— after a field is changed, reply with its new value (the panel has
+// always used this shape).
 type ownerFieldOut struct {
 	FullName string `json:"full_name,omitempty"`
 	Email    string `json:"email,omitempty"`
@@ -200,7 +211,7 @@ func setFullName(deps usecase.AccountDeps) fp.Invoke {
 	}
 }
 
-// setTimezone —— 空串 = UTC(域那侧的约定)。
+// setTimezone —— an empty string = UTC (the convention on the domain side).
 func setTimezone(deps usecase.AccountDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var in struct {

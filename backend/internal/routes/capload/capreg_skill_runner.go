@@ -1,19 +1,21 @@
-// capreg_skill_runner.go —— Phase C: skillRunnerCapability（faithful Agent
-// Skills + progressive disclosure）。
+// capreg_skill_runner.go —— Phase C: skillRunnerCapability (faithful Agent
+// Skills + progressive disclosure).
 //
-// role 授权且 enabled 的 skill 只把 name+description 进系统提示（L1，见
-// visitor_role_snapshot.collectRoleSkillBundle）。这个 capability 暴露**两个
-// 通用 tool**（替换旧的「每脚本一 tool」eager 模型）：
+// A skill that's role-granted and enabled only puts name+description into the system
+// prompt (L1, see visitor_role_snapshot.collectRoleSkillBundle). This capability exposes
+// **two generic tools** (replacing the old "one tool per script" eager model):
 //
-//   • skill_use({name})          —— L2：把该 skill render 成标准 SKILL.md
-//                                   （frontmatter name+description + body）回给
-//                                   agent 按需读正文。
-//   • skill_run_script({name,     —— L3：正文引用的脚本经 sandbox.Runner 按需
-//      script,args})                跑，只回 stdout/stderr/exit_code。
+//   • skill_use({name})          —— L2: renders the skill as a standard SKILL.md
+//                                   (frontmatter name+description + body) and returns
+//                                   it to the agent to read its body on demand.
+//   • skill_run_script({name,     —— L3: a script referenced by the body is run on
+//      script,args})                demand via sandbox.Runner, returning only
+//                                   stdout/stderr/exit_code.
 //
-// 一个 capability、两个 tool。role 含 ≥1 enabled skill → enabled；否则 ErrHidden。
-// per-skill ACL 在 tool 内做：name 不在本 session 授权集 → 回错误，绝不披露。
-// Shape=visitor_only；owner 没必要通过 MCP 调自己的 skill。
+// One capability, two tools. Role contains ≥1 enabled skill → enabled; otherwise
+// ErrHidden. Per-skill ACL is enforced inside the tool: a name not in this session's
+// granted set → returns an error, and never reveals it exists. Shape=visitor_only; the
+// owner has no need to call their own skill through MCP.
 
 package capload
 
@@ -45,7 +47,8 @@ const skillRunScriptSchema = `{"type":"object","properties":{` +
 	`"args":{"type":"object","description":"arguments passed to the script as JSON"}},` +
 	`"required":["name","script"]}`
 
-// skillRunnerDeps —— 窄依赖(#131):owner skill 目录 + 跑脚本的 sandbox。
+// skillRunnerDeps —— narrow deps (#131): the owner's skill directory + the sandbox that
+// runs scripts.
 type skillRunnerDeps struct {
 	Skills  conversation.SkillGetter
 	Sandbox sandbox.Runner
@@ -71,8 +74,8 @@ func (*skillRunnerCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 func (*skillRunnerCapability) SystemPromptFragment(
 	_ context.Context, _ *capreg.AssembleInput,
 ) string {
-	// L1（name+description）走 ComposeBasePersona 的 SkillPrompts 通道注入，
-	// 不在这里;capability fragment 留空避免重复。
+	// L1 (name+description) is injected through ComposeBasePersona's SkillPrompts
+	// channel, not here; the capability fragment stays empty to avoid duplication.
 	return ""
 }
 
@@ -82,8 +85,8 @@ func (*skillRunnerCapability) SystemPromptFragmentID(
 	return ""
 }
 
-// VisitorBinding —— role 含 ≥1 enabled skill → 暴露 skill_use + skill_run_script
-// 两个通用 tool;否则 ErrHidden（capability 隐藏）。
+// VisitorBinding —— role contains ≥1 enabled skill → exposes the two generic tools
+// skill_use + skill_run_script; otherwise ErrHidden (the capability is hidden).
 func (c *skillRunnerCapability) VisitorBinding(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (*capreg.Binding, error) {
@@ -116,8 +119,9 @@ func (c *skillRunnerCapability) VisitorBinding(
 	}, nil
 }
 
-// loadSkillsForBinding —— 按 snapshot.SkillIDs（已是 enabled-granted）加载 skill
-// 全量（含 body + scripts），供两个 tool 内查 name。已删 skill id（race）→ skip。
+// loadSkillsForBinding —— loads the full skill records (body + scripts included) by
+// snapshot.SkillIDs (already enabled-granted), for the two tools to look up by name
+// internally. A skill id that was deleted (a race) → skip.
 func loadSkillsForBinding(
 	ctx context.Context, skills conversation.SkillGetter, in *capreg.AssembleInput,
 ) []marketplace.Skill {
@@ -129,14 +133,15 @@ func loadSkillsForBinding(
 	for _, id := range ids {
 		s, err := skills.GetByID(ctx, in.OwnerID, id)
 		if err != nil {
-			continue // race: skill deleted after session issue
+			continue // race: skill deleted after the session was issued
 		}
 		out = append(out, s)
 	}
 	return out
 }
 
-// skillsByName —— name → *skill（指针指进 slice，调用期不再改 slice）。
+// skillsByName —— name → *skill (the pointer points into the slice; the slice is not
+// mutated after this call).
 func skillsByName(skills []marketplace.Skill) map[string]*marketplace.Skill {
 	m := make(map[string]*marketplace.Skill, len(skills))
 	for i := range skills {
@@ -162,8 +167,8 @@ func makeSkillUse(skills []marketplace.Skill) capreg.RunFn {
 	}
 }
 
-// parseSkillName —— 解 {name}（bool 返回避免 nilerr：解析失败不当 Go error，
-// 由 caller 折成 tool-result envelope）。
+// parseSkillName —— parses {name} (returns bool to avoid nilerr: a parse failure is not
+// treated as a Go error, and is folded by the caller into the tool-result envelope).
 func parseSkillName(argsJSON string) (string, bool) {
 	var a struct {
 		Name string `json:"name"`
@@ -182,10 +187,10 @@ func skillUsePayload(s *marketplace.Skill) string {
 	return string(out)
 }
 
-// renderSkillMD —— DB skill row → 标准 Anthropic Agent Skills 的 SKILL.md
-// （YAML frontmatter: name + description；正文 = body；脚本清单附后）。这是
-// P.1e 的「render 成 SKILL.md 喂 runtime」—— DB 仍是管理存储，喂给 agent 的是
-// SKILL.md。
+// renderSkillMD —— a DB skill row → a standard Anthropic Agent Skills SKILL.md (YAML
+// frontmatter: name + description; body = body; a script list appended after). This is
+// P.1e's "render into SKILL.md to feed the runtime" — the DB remains the management
+// store, but what's fed to the agent is SKILL.md.
 func renderSkillMD(s *marketplace.Skill) string {
 	lines := []string{"---", "name: " + s.Name}
 	if d := strings.TrimSpace(s.Description); d != "" {
@@ -198,8 +203,9 @@ func renderSkillMD(s *marketplace.Skill) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-// renderSkillScriptsSection —— 正文末尾列出可跑脚本，引导 agent 用
-// skill_run_script(name, script) 调它们（L3）。无脚本则空。
+// renderSkillScriptsSection —— lists the runnable scripts at the end of the body,
+// directing the agent to call them via skill_run_script(name, script) (L3). Empty if
+// there are no scripts.
 func renderSkillScriptsSection(s *marketplace.Skill) string {
 	if len(s.Scripts) == 0 {
 		return ""
@@ -221,14 +227,15 @@ func renderSkillScriptsSection(s *marketplace.Skill) string {
 
 // ─── L3: skill_run_script ────────────────────────────────────────
 
-// runScriptArgs —— skill_run_script 的入参。
+// runScriptArgs —— skill_run_script's input arguments.
 type runScriptArgs struct {
 	Name   string          `json:"name"`
 	Script string          `json:"script"`
 	Args   json.RawMessage `json:"args"`
 }
 
-// scriptArgsJSON —— 透传给 sandbox 的脚本 args；空 → "{}"。
+// scriptArgsJSON —— the script args passed through to the sandbox verbatim; empty →
+// "{}".
 func (r *runScriptArgs) scriptArgsJSON() string {
 	s := strings.TrimSpace(string(r.Args))
 	if s == "" {
@@ -237,7 +244,7 @@ func (r *runScriptArgs) scriptArgsJSON() string {
 	return s
 }
 
-// parseRunScriptArgs —— 解 {name,script,args}（bool 返回避免 nilerr）。
+// parseRunScriptArgs —— parses {name,script,args} (returns bool to avoid nilerr).
 func parseRunScriptArgs(argsJSON string) (runScriptArgs, bool) {
 	var a runScriptArgs
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
@@ -277,10 +284,10 @@ func findSkillScript(s *marketplace.Skill, filename string) *marketplace.SkillSc
 	return nil
 }
 
-// skillRunToToolResult —— sandbox 错误折成 errJSON 进 tool_result，让 LLM
-// 看到 "tool failed" 而不是 abort agent loop。
+// skillRunToToolResult —— folds a sandbox error into errJSON inside tool_result, so the
+// LLM sees "tool failed" instead of the agent loop aborting.
 //
-//nolint:nilerr // tool-result envelope: err 进 JSON text，Go err return nil
+//nolint:nilerr // tool-result envelope: err goes into the JSON text, Go err return nil
 func skillRunToToolResult(r *sandbox.Result, err error) (string, error) {
 	if err != nil {
 		return errJSON("skill script: " + err.Error()), nil
@@ -288,7 +295,7 @@ func skillRunToToolResult(r *sandbox.Result, err error) (string, error) {
 	return formatSkillRunResult(r), nil
 }
 
-// skillRunPayload —— sandbox 执行结果的 wire 形态。
+// skillRunPayload —— the wire shape of a sandbox execution result.
 type skillRunPayload struct {
 	Stdout   string `json:"stdout"`
 	Stderr   string `json:"stderr"`

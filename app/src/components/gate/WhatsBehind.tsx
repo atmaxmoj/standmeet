@@ -1,5 +1,7 @@
-// WhatsBehind —— 3 行解释这页背后到底是个啥。设计稿的语义：明确告诉访客
-// 这不是 résumé / chatbot demo，是 owner 亲自审 transcript 的对话。
+// WhatsBehind — 3 lines explaining what's actually behind this page. Per the
+// design mockup's intent: tell the visitor plainly that this isn't a
+// résumé / chatbot demo, it's a conversation the owner personally reviews the
+// transcript of.
 
 import { useTranslations } from 'next-intl';
 
@@ -9,8 +11,9 @@ interface BehindRow {
   body: string;
 }
 
-// useRows —— 三行文案从消息目录取。key 一条条显式写出（不拼模板字符串），
-// 这样 grep 找得到，将来接第二种语言时也扫得出来。
+// useRows — the three lines of copy come from the message catalog. Each key is
+// written out explicitly (not assembled via template strings), so grep can find
+// them, and a scan can still find them when a second language is added later.
 function useRows(): BehindRow[] {
   const t = useTranslations('gate.whatsBehind');
   return [

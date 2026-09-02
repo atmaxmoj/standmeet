@@ -1,8 +1,9 @@
-// atoms —— /admin/account 三块表单共用的小件。
+// atoms — small pieces shared by the three forms on /admin/account.
 //
-// 从 AccountSection.tsx 拆出来，因为 email 那一块自己成了一个文件（改邮箱现在有
-// 确认框 + 待确认行 + 撤销），而它跟 full-name / password 两块共用这三件。
-// 放在 AccountSection 里让 EmailBlock 去 import 会成环。
+// Split out of AccountSection.tsx because the email block grew into its own file
+// (changing email now has a confirm field + pending row + cancel), and it shares
+// these three pieces with the full-name and password blocks. Leaving them in
+// AccountSection and having EmailBlock import from there would create a cycle.
 
 'use client';
 
@@ -16,9 +17,10 @@ export function AcctBlock(
   { title: string; blurb?: string; children: ReactNode; testid?: string },
 ) {
   return (
-    // testid 挂在 section 上,**包住 blurb** —— "这一块说了什么"包括那句说明,
-    // 而说明恰恰是唯一说得出"改邮箱会一起搬走恢复渠道"的地方。
-    // 挂在内层的话断言看不到它,而看不到跟没写在产品上长得一模一样。
+    // testid is on the section, **wrapping the blurb** — "what this block says"
+    // includes that copy, and the copy is the only place that states "changing
+    // email moves the recovery channel too." Put it on an inner element instead
+    // and assertions can't see it, and unseen looks identical to unwritten.
     <section className="mt-10 first:mt-0" data-testid={testid}>
       <div className="mb-7 flex items-baseline gap-4 flex-wrap">
         <h2 className="font-serif text-(--color-ink) text-[22px] font-medium tracking-[-0.012em]">{title}</h2>

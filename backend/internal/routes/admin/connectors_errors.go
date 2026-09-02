@@ -1,5 +1,7 @@
-// connectors_errors.go —— connectorsvc sentinel → HTTP envelope 的集中映射。拆出来让 connectors.go
-// 守 max-lines，也把「错误怎么对外」收在一处：加一种连接器错只动这里，handler 不必碰。
+// connectors_errors.go — the centralized mapping from connectorsvc sentinel errors to
+// HTTP envelopes. Split out so connectors.go stays under max-lines, and also so "how
+// errors face outward" lives in one place: adding a new connector error touches only
+// this file, handlers stay untouched.
 
 package admin
 
@@ -11,7 +13,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// connErrCases —— sentinel → envelope（table-driven，apierr.Classify 派发；无匹配 → 500）。
+// connErrCases — sentinel → envelope (table-driven, dispatched by apierr.Classify; no
+// match → 500).
 var connErrCases = []apierr.Case{
 	{Match: connector.ErrNotFound, Envelope: apierr.Envelope{
 		Status: http.StatusNotFound, Code: "not_found", Message: "not found",
@@ -36,12 +39,15 @@ var connErrCases = []apierr.Case{
 		Code:    "builtin_readonly",
 		Message: "this connector is built-in and cannot be edited or deleted",
 	}},
-	// ErrInvalidManifest 不在表里：writeConnErr 特判它，回 err.Error()（带装配失败的具体原因，
-	// owner 才知道改哪），比表里的通用文案有用。
+	// ErrInvalidManifest isn't in the table: writeConnErr special-cases it and returns
+	// err.Error() (carrying the specific assembly-failure reason, so the owner knows what
+	// to fix), which is more useful than the table's generic message.
 }
 
-// writeConnErr —— 把 connectorsvc sentinel 翻成 HTTP envelope（dispatch 集中此处，handler 保 ≤3）。
-// 装配失败带上底层原因（坏 JSONata / 未知 op / 未知品类 / 不完整），owner 才知道改哪。
+// writeConnErr translates a connectorsvc sentinel into an HTTP envelope (dispatch is
+// centralized here, keeping handlers at cyclo ≤3). An assembly failure carries the
+// underlying reason (bad JSONata / unknown op / unknown category / incomplete), so the
+// owner knows what to fix.
 func (h *Handlers) writeConnErr(w http.ResponseWriter, err error) {
 	if errors.Is(err, connector.ErrInvalidManifest) {
 		writeError(h.Log, w, apierr.Envelope{

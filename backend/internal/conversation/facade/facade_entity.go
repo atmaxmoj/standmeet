@@ -2,7 +2,7 @@ package conversation
 
 import "github.com/atmaxmoj/standmeet/internal/conversation/entity"
 
-// 类型（实现:entity）.
+// Types (impl: entity).
 type (
 	AppStateRef       = entity.AppStateRef
 	Chat              = entity.Chat
@@ -12,15 +12,17 @@ type (
 	Message           = entity.Message
 )
 
-// 函数（实现:entity）.
+// Functions (impl: entity).
 var (
-	// VisitorToolCalls —— 一轮的 tool_calls 里可以下发给访客的那一份(F-A-28)。
+	// VisitorToolCalls -- the subset of a turn's tool_calls that may be sent down to the
+	// visitor (F-A-28).
 	VisitorToolCalls = entity.VisitorToolCalls
-	// VisitorToolResult —— 直播那一路的同一条规则:检索结果不发给访客。
+	// VisitorToolResult -- same rule on the live-stream path: retrieval results are never
+	// sent to the visitor.
 	VisitorToolResult = entity.VisitorToolResult
 )
 
-// 错误/变量（实现:entity）.
+// Errors/vars (impl: entity).
 var (
 	ErrChatNotFound       = entity.ErrChatNotFound
 	ErrGhostNotFound      = entity.ErrGhostNotFound

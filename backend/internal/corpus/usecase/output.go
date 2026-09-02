@@ -1,8 +1,9 @@
-// output.go —— raw → wiki → output 三层中"最精炼层"的 promote 路径。
+// output.go — the promote path into output, the most refined of the raw → wiki → output layers.
 //
-// PromoteWikiToOutput：从已 curated 的 wiki 提炼成 output。
-// promote 不动 wiki（不像 raw.promoted_to 那种标记）—— 一个 wiki 可能衍生多个
-// output，wiki 自己仍可被 chat retrieval 用。output.source_wiki_ids 记反链。
+// PromoteWikiToOutput: distills an already-curated wiki into an output.
+// Promoting leaves the wiki untouched (unlike raw.promoted_to's marker) — one wiki can spawn
+// several outputs, and the wiki itself stays usable by chat retrieval. output.source_wiki_ids
+// records the backlink.
 
 package usecase
 
@@ -16,21 +17,22 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// PromoteToOutputInput —— promote_wiki_to_output 入参。Title 必填（不像 raw→
-// wiki 那次 owner 可能想换 title，这里直接复用原 wiki title 也行；owner 的
-// AI 客户端往往会重写一遍）。
+// PromoteToOutputInput — the promote_wiki_to_output input. Title is required (unlike the raw→
+// wiki promote, where the owner might want a new title, here reusing the original wiki title is
+// fine too; the owner's AI client will often rewrite it anyway).
 type PromoteToOutputInput struct {
 	OwnerID  string
 	WikiID   string
 	Title    string
 	ParentID *string
-	// ShowAsSource —— nil = 可引用(默认)。见 PromoteInput 上同名字段的说明。
+	// ShowAsSource — nil = referenceable (default). See the same-named field on PromoteInput.
 	ShowAsSource *bool
 	Tags         []string
 }
 
-// PromoteWikiToOutput 把指定 wiki 提炼为新 output entry：读 wiki → create
-// output 携带 wiki_id 反链。wiki 不动（不像 raw.promoted_to 那种标记）。
+// PromoteWikiToOutput distills the given wiki into a new output entry: read the wiki → create
+// the output carrying a wiki_id backlink. The wiki itself is left untouched (unlike
+// raw.promoted_to's marker).
 func PromoteWikiToOutput(
 	ctx context.Context, deps Deps, in *PromoteToOutputInput,
 ) (entity.Output, error) {

@@ -1,20 +1,29 @@
-// registry_visitor_bundle_test.go —— 开一场会话时,各能力的实例化必须**并发**。
+// registry_visitor_bundle_test.go —— when a session opens, capability
+// instantiation must happen **concurrently**.
 //
-// `/api/v1/sessions` 要拿到全部能力的 tool spec,所以它躲不开"每个能力都拨一次" ——
-// 但没有理由一个一个拨。每个外置能力实例化 = 起一个 bwrap 沙箱(冷启约 1 秒),串行就是
-// N 秒起步;实测负载下 `/api/v1/sessions` 要 13.9 秒,而访客侧 15 秒就放弃 —— 差一点点,
-// 表现成"会话偶尔打不开"。
+// `/api/v1/sessions` needs every capability's tool spec, so there's no avoiding
+// "dial each one" — but there's no reason to dial them one at a time. Each
+// externalized capability instantiation spawns a bwrap sandbox (~1s cold start),
+// so serial dialing means N seconds just to start; measured under load,
+// `/api/v1/sessions` took 13.9 seconds while the visitor side gives up at 15 —
+// a close call that shows up as "the session occasionally fails to open".
 //
-// (#17 收的是**单次工具调用**那条路 —— 只拨提供该 tool 的那一个。会话打开这条要全部,
-// 所以那次的办法在这里不适用,能省的只有等待方式。)
+// (#17 addressed the **single tool call** path — dial only the one that serves
+// that tool. Session-open needs all of them, so that approach doesn't apply
+// here; the only thing left to save is how the wait is spent.)
 //
-// **断言是结构性的,不掐秒表**:秒表随机器飘,而且"快了"不等于"并发了"。判据是
-// **同时在飞的峰值**:串行恒为 1(一个进一个出),并发才等于 n。
+// **The assertion is structural, not a stopwatch**: a stopwatch drifts with the
+// machine, and "faster" doesn't prove "concurrent". The test is **peak
+// in-flight**: serial is always 1 (one in, one out), only concurrent reaches n.
 //
-// 第一版我拿"四个都到过屏障"当判据,结果它**绿了** —— 而装配明明是串行的:串行时最后一个
-// 到达也让"四个都到过"成立。那是一条不会红的断言(见 [[assertion-that-cannot-fail]]),
-// 而且我还顺手把耗时阈值也算错了(串行是 (n-1)×timeout,不是 n×)。留在这里当反面样本:
-// **"都发生过"和"同时发生"是两回事**,而只有后者是并发。
+// My first version used "all four reached the barrier" as the test, and it
+// **passed** — even though assembly was actually serial: under serial execution
+// the last one to arrive still makes "all four reached it" true. That's an
+// assertion that can never go red (see [[assertion-that-cannot-fail]]), and I
+// also got the duration threshold wrong in the same pass (serial is
+// (n-1)×timeout, not n×). Kept here as a counterexample: **"all happened" and
+// "happened at the same time" are different things**, and only the latter is
+// concurrency.
 
 package capreg_test
 
@@ -29,10 +38,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
-// inFlight —— 记"同时在 VisitorBinding 里面的能力数"和它的峰值。
+// inFlight —— tracks "how many capabilities are inside VisitorBinding right
+// now" and its peak.
 //
-// **峰值才是判据**:串行恒为 1(一个进一个出),并发才会大于 1。第一版我拿"四个都到过屏障"
-// 当判据,那是一条**不会红的断言** —— 串行时最后一个到达也满足它。
+// **The peak is the test**: serial is always 1 (one in, one out), only
+// concurrent goes above 1. My first version used "all four reached the
+// barrier" as the test, which is **an assertion that can never go red** —
+// under serial execution the last one to arrive still satisfies it.
 type inFlight struct {
 	mu   sync.Mutex
 	now  int
@@ -60,8 +72,10 @@ func (f *inFlight) max() int {
 	return f.peak
 }
 
-// barrierCap —— 进 VisitorBinding 就报到并停住,等所有人到齐(或超时)。
-// 停住是为了让"同时在飞"这件事可观测:一进一出的话峰值永远是 1,并发也看不出来。
+// barrierCap —— checks in and blocks as soon as it enters VisitorBinding,
+// waiting for everyone else to arrive (or a timeout). It blocks so that "in
+// flight at the same time" is observable: with an immediate in-and-out, the
+// peak would always be 1 and concurrency would be invisible.
 type barrierCap struct {
 	flight  *inFlight
 	arrived *sync.WaitGroup
@@ -84,8 +98,8 @@ func (c *barrierCap) VisitorBinding(
 		go func() { c.arrived.Wait(); close(c.allHere) }()
 	})
 	select {
-	case <-c.allHere: // 大家都在里面 —— 并发
-	case <-time.After(c.timeout): // 串行:没人会跟上来,等到超时自己走
+	case <-c.allHere: // everyone is in — concurrent
+	case <-time.After(c.timeout): // serial: nobody else will show up, time out and leave
 	}
 	return &capreg.Binding{
 		Tools: []capreg.BindingTool{capreg.NewTool(c.id+"_tool", c.id, "", nil, nil)},
@@ -104,7 +118,8 @@ func (*barrierCap) SystemPromptFragmentID(_ context.Context, _ *capreg.AssembleI
 
 const barrierWait = 300 * time.Millisecond
 
-// 四个能力必须**同时**在飞。判据是在飞峰值:串行恒为 1,并发才是 4。
+// The four capabilities must be in flight **at the same time**. The test is
+// peak in-flight: serial is always 1, only concurrent reaches 4.
 func TestAssembleVisitorBundle_DialsCapabilitiesConcurrently(t *testing.T) {
 	t.Parallel()
 	ids := []string{"cap.a", "cap.b", "cap.c", "cap.d"}
@@ -120,7 +135,8 @@ func TestAssembleVisitorBundle_DialsCapabilitiesConcurrently(t *testing.T) {
 			"opening one session pays N sandbox cold starts back to back")
 }
 
-// barrierRegistry —— n 个互相等待的假能力 + 它们共用的在飞计数。
+// barrierRegistry —— n fake capabilities that wait on each other, plus the
+// in-flight counter they share.
 func barrierRegistry(ids []string) (*capreg.Registry, *inFlight) {
 	reg := capreg.NewRegistry()
 	flight := &inFlight{}
@@ -137,8 +153,10 @@ func barrierRegistry(ids []string) (*capreg.Registry, *inFlight) {
 	return reg, flight
 }
 
-// 顺序是契约的一部分:AssembleVisitor 的注释写着"返回顺序与 Register 顺序一致",
-// 前端的能力列表、prompt part 的拼接顺序都靠它。并发化最容易弄丢的就是这个。
+// Order is part of the contract: AssembleVisitor's doc comment says "return
+// order matches Register order", and both the frontend's capability list and
+// the prompt part splice order depend on it. It's the thing concurrency most
+// easily loses.
 func TestAssembleVisitorBundle_KeepsRegistrationOrder(t *testing.T) {
 	t.Parallel()
 	ids := []string{"cap.a", "cap.b", "cap.c", "cap.d"}

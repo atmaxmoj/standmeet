@@ -1,7 +1,7 @@
-// WikiSection —— /admin/wiki。raw → wiki → output 三层中第二层。
-// 设计源 docs/design/project/admin.js WikiSection：tag-chip filter
-// 行 + 2-col grid card。每张 card 头部带 ● public/private visibility dot；
-// 底部 meta（sources count · last-edited）；hover/active 显 edit/promote/delete。
+// WikiSection —— /admin/wiki. The second of the three tiers raw → wiki → output.
+// Design source docs/design/project/admin.js WikiSection: tag-chip filter
+// row + 2-col grid card. Each card header has a ● public/private visibility dot;
+// footer has meta (sources count · last-edited); hover/active shows edit/promote/delete.
 
 'use client';
 
@@ -135,17 +135,20 @@ function ReadyBody({
   setActiveTag: (t: string | null) => void;
 }) {
   const [view, setView] = useCorpusView('wiki');
-  // 标签行来自**整个 genre**,不是已加载的那一页 —— 后者让只存在于那一页之外的标签连 chip
-  // 都没有,于是点不到、也无从发现自己漏了什么(F-L-23 的后半条)。
+  // The tag row comes from **the whole genre**, not just the loaded page — the latter would mean
+  // a tag that only exists outside that page gets no chip at all, so it's neither clickable nor
+  // discoverable as missing (the second half of F-L-23).
   const tags = useGenreTags('wiki');
-  // 选标签 = 切到网格（F-L-30）。树是**地址层级**且懒加载,`CorpusLazyTree` 根本不收 rows,
-  // 所以在树上"筛"出来的东西会被原样扔掉:chip 亮着、树一行没变 —— 屏幕在说一句假话。
-  // 标签是一个**扁平查询**,它的答案就是网格。切视图是看得见的,而看得见的诚实好过看不见的筛选。
+  // Picking a tag = switch to grid view (F-L-30). The tree is **address hierarchy** and lazy
+  // loaded, `CorpusLazyTree` doesn't take rows at all, so "filtering" on the tree would just be
+  // thrown away silently: the chip lights up, the tree doesn't change a single row — the screen
+  // would be lying. A tag is a **flat query**, and its answer is the grid. Switching views is
+  // visible, and a visible honest switch beats an invisible filter.
   const pickTag = useCallback((t: string | null) => {
     setActiveTag(t);
     t === null || setView('grid');
   }, [setActiveTag, setView]);
-  // 「装的是哪一份集合、从哪儿翻页」由 corpusListing 推导（那不是渲染）。
+  // "Which collection is being shown, where does paging come from" is derived by corpusListing (that's not rendering).
   const search = useCorpusSearch('wiki');
   const listing = corpusListing({
     search, searchRows: search.rows, tagRows: filterByTag(rows, activeTag), view,
@@ -153,15 +156,16 @@ function ReadyBody({
       pagePath: taggedPagePath('/corpus/wiki/page', activeTag), schema: WikiSummarySchema,
     },
   });
-  // 地址树派生 + 级联删:每条算子孙数,删它时警告会连带删掉几条。
+  // Address tree is derived + cascading delete: count descendants for each entry, warn how many
+  // will also be deleted when it's deleted.
   const childCounts = descendantCounts(listing.rows);
   return (
     <>
       <CorpusSearchRow hook={search} />
       <div className="flex items-baseline justify-between gap-4 mb-5 flex-wrap">
         <TagFilterRow tags={tags} activeTag={activeTag} setActiveTag={pickTag} />
-        {/* 搜索时网格是被强制的,开关就得显示 grid —— 否则它写着 TREE 而屏幕上是卡片,
-            那是控件在说一句假话。 */}
+        {/* During search, grid is forced, so the toggle must show grid — otherwise it would say
+            TREE while cards are on screen, and the control would be lying. */}
         <CorpusViewToggle view={listing.view} onChange={setView} />
       </div>
       <CorpusTreeGrid
@@ -338,7 +342,7 @@ function ViewLiveLink({ path, indexed }: { path?: string | null; indexed: boolea
   ) : null;
 }
 
-// RowBtn —— label 已由调用方本地化（含 ↗ 后缀），这里只渲染。
+// RowBtn —— label is already localized by the caller (including the ↗ suffix), this just renders it.
 function RowBtn({ label, onClick, testid }: { label: string; onClick: () => void; testid: string }) {
   return (
     <button
@@ -371,7 +375,8 @@ function DeleteBtn({
   );
 }
 
-// deleteWikiPrompt —— 有子孙时警告会连带删掉几条(级联删,地址树派生不留孤儿)。
+// deleteWikiPrompt —— when there are descendants, the warning says how many will also be
+// deleted (cascading delete, no orphans left because the address tree is derived).
 function deleteWikiPrompt(title: string, childCount: number): string {
   const warn = childCount > 0
     ? ` This also deletes its ${childCount} child ${childCount === 1 ? 'entry' : 'entries'}.`

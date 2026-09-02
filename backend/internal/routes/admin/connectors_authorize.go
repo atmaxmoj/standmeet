@@ -1,8 +1,12 @@
-// connectors_authorize.go —— oauth2 dance 的回程入口（callback）。dance 本身由前端 window.location
-// 跳到 provider（POST /connect 返回的 auth_url），provider 同意后带 code+state 回这里换 token。
-// dance 是浏览器导航，错误不能回 JSON 错误页（会把原始报文晾给 owner），一律 302 回 connectors 区
-// （常量目标，避免把 provider 的 auth_url 或 path 参数喂进 Location 头）；失败带 connect_error=1，
-// 前端据 sessionStorage 记的「正在连哪个」把友好错误落到对应卡片。
+// connectors_authorize.go — the return leg of the oauth2 dance (the callback). The dance
+// itself starts with the frontend's window.location jumping to the provider (the auth_url
+// returned by POST /connect); once the provider consents, it comes back here with
+// code+state to exchange for a token. The dance is a browser navigation, so an error
+// can't return a JSON error page (it would dump the raw response on the owner) — it
+// always 302s back to the connectors area (a constant target, to avoid feeding the
+// provider's auth_url or path parameters into the Location header); a failure carries
+// connect_error=1, and the frontend uses the "which one I'm connecting" it kept in
+// sessionStorage to land a friendly error on the right card.
 
 package admin
 
@@ -12,8 +16,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// connectorOAuthCallback —— provider 带 code+state 回程 → 换 token。provider 拒绝（?error=）/ state
-// 不符 / 换 token 失败 → 302 回 connectors 区带 connect_error=1。
+// connectorOAuthCallback — the provider returns with code+state → exchange for a token.
+// A provider rejection (?error=) / a state mismatch / a token exchange failure all →
+// 302 back to the connectors area with connect_error=1.
 func (h *Handlers) connectorOAuthCallback() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("error") != "" {
@@ -25,8 +30,10 @@ func (h *Handlers) connectorOAuthCallback() http.HandlerFunc {
 			r.URL.Query().Get("code"), r.URL.Query().Get("state"),
 		)
 		if err != nil {
-			// 回程一律 302（不把报文晾给 owner），但失败要留痕——否则 Redis/token 端基建故障
-			// 会跟「用户重放了个过期 state」一样无声，运维查无可查。
+			// The return leg always 302s (never dumps the response on the owner), but
+			// a failure still has to leave a trace — otherwise a Redis/token-side
+			// infra fault would be as silent as "the user replayed an expired state",
+			// and ops would have nothing to go on.
 			h.Log.Warn("connector oauth callback", logErrKey, err)
 			http.Redirect(w, r, "/admin/connectors?connect_error=1", http.StatusFound)
 			return

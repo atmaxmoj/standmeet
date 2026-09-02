@@ -1,8 +1,9 @@
-// writings_text.go —— markdown text helpers: strip-to-plain (for visitor chat
-// retriever bag-of-words 索引) + read-time 估算 (~225 wpm)。
+// writings_text.go —— markdown text helpers: strip-to-plain (for the visitor chat
+// retriever's bag-of-words index) + read-time estimation (~225 wpm).
 //
-// 不引 goldmark：retrieval 精度只需 bag-of-words，30 行 regex 够用。如果未来
-// 需要 AST 级语义（比如 cross-ref 解析），再换 goldmark。
+// No goldmark import: retrieval precision only needs bag-of-words, and 30 lines of
+// regex cover that. Switch to goldmark if AST-level semantics (e.g. cross-ref
+// resolution) become necessary later.
 
 package usecase
 
@@ -13,8 +14,9 @@ import (
 
 const readWPM = 225
 
-// estimateReadMinutes —— 粗算阅读时间。整段 markdown 上数 word，markdown 符号
-// 占比小 (<10%) 误差可忽略；至少 1 分钟。
+// estimateReadMinutes —— rough read-time estimate. Counts words over the raw
+// markdown body; markdown syntax is a small enough share (<10%) that the error
+// is negligible. Floors at 1 minute.
 func estimateReadMinutes(bodyMD string) int32 {
 	if bodyMD == "" {
 		return 0
@@ -23,8 +25,9 @@ func estimateReadMinutes(bodyMD string) int32 {
 	return max(int32((words+readWPM-1)/readWPM), 1)
 }
 
-// markdownStripPatterns —— 顺序敏感：fence block 必须先于其他规则吃掉
-// （fence 内 ` 是 literal 不应当 inline code 处理）。
+// markdownStripPatterns —— order-sensitive: the fence-block pattern must consume
+// fenced code before any other rule runs (a backtick inside a fence is literal
+// text, not inline code, and must not be treated as such).
 var markdownStripPatterns = []*regexp.Regexp{
 	regexp.MustCompile("(?s)```[a-zA-Z0-9_+-]*\n.*?\n```"), // fenced code block
 	regexp.MustCompile("`[^`]+`"),                          // inline code
@@ -42,14 +45,16 @@ var markdownStripPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`~~([^~]+)~~`),                      // strike
 }
 
-// markdownStripReplacements —— 跟 markdownStripPatterns index 对齐。空串 = 整段
-// 删；"$1" = 抽出捕获组（链接文本 / alt / bold 内文等）。
+// markdownStripReplacements —— index-aligned with markdownStripPatterns. Empty
+// string = delete the whole match; "$1" = keep the captured group (link text,
+// alt text, bold/italic inner text, etc).
 var markdownStripReplacements = []string{
 	"", "$1", "$1", "$1", "", "", "", "", "", "$1", "$1", "$1", "$1", "$1",
 }
 
-// StripMarkdown —— 把 markdown 砸成 plain text。给 retriever bag-of-words /
-// 估算 word count 用。不保证语义完整，保证不漏字。
+// StripMarkdown —— reduces markdown to plain text, for the retriever's
+// bag-of-words index and for word-count estimation. Does not guarantee semantic
+// fidelity, but does guarantee no words are dropped.
 func StripMarkdown(md string) string {
 	out := md
 	for i, p := range markdownStripPatterns {

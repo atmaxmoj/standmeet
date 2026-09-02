@@ -1,7 +1,8 @@
-// HandleEditor —— /admin/page · site block 里的"URL handle"行。
-// 默认显示当前 handle + 一个 change 按钮；点开是 inline 输入框 +
-// hint + save/cancel。保存成功后 onChanged 让父级更新本地 handle，
-// 老 handle 仍由 backend handle_aliases 自动 resolve。
+// HandleEditor — the "URL handle" row in /admin/page's site block.
+// Shows the current handle + a change button by default; clicking opens an
+// inline input + hint + save/cancel. On successful save, onChanged lets the
+// parent update the local handle; the old handle still auto-resolves via the
+// backend's handle_aliases.
 
 'use client';
 

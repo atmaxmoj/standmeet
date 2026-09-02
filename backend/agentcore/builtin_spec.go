@@ -1,11 +1,14 @@
-// builtin_spec.go —— 用**产品自己发的那份 manifest** 造一个 eval 的 PluginSpec。
+// builtin_spec.go — builds an eval PluginSpec from **the manifest the product
+// itself ships**.
 //
-// 在这之前每个 eval 挂插件都手抄一遍它的属性(host ops / raw 工具名 / ACL 档)。手抄的那份
-// 不会跟着 manifest 变:manifest 改了 acl,eval 还按旧档装,于是 eval 测的是一个产品里
-// 不存在的配置 —— 而它会一直绿。
+// Before this, every eval that mounted a plugin hand-copied its properties
+// (host ops / raw tool names / ACL tier). The hand-copied version didn't
+// track the manifest: the manifest changed its acl, eval still loaded the
+// old tier, so eval was testing a configuration that doesn't exist in the
+// product — and it stayed green forever.
 //
-// 声明只有一份:backend/capabilities/<id>/manifest.yaml,go:embed 进二进制,prod 和 eval
-// 读的是同一份字节。
+// There is one declaration: backend/capabilities/<id>/manifest.yaml,
+// embedded via go:embed into the binary — prod and eval read the same bytes.
 
 package agentcore
 
@@ -16,7 +19,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// BuiltinManifest —— 按 id 取一份内建能力声明。找不到 → error(拼错了 id 该当场知道)。
+// BuiltinManifest — fetches a builtin capability's declaration by id.
+// Not found → error (a misspelled id should surface immediately).
 func BuiltinManifest(id string) (mcpplugin.Manifest, error) {
 	all, err := capabilities.Load()
 	if err != nil {
@@ -30,11 +34,12 @@ func BuiltinManifest(id string) (mcpplugin.Manifest, error) {
 	return mcpplugin.Manifest{}, fmt.Errorf("no builtin capability %q", id)
 }
 
-// BuiltinPluginSpec —— 内建能力的 manifest → eval 的 PluginSpec。
+// BuiltinPluginSpec — a builtin capability's manifest → an eval PluginSpec.
 //
-// command 是**这台机器上编好的**插件二进制(manifest 里那个 /plugin/xxx 是 prod 的沙箱内
-// 路径),sock 是 mini-host 的 socket。其余全部照 manifest:点了哪些 host op、工具名加不加
-// 前缀、ACL 是哪一档。
+// command is the plugin binary **built on this machine** (the /plugin/xxx path
+// in the manifest is prod's in-sandbox path); sock is the mini-host's socket.
+// Everything else follows the manifest: which host ops it calls, whether tool
+// names get a prefix, which ACL tier applies.
 func BuiltinPluginSpec(id, command, sock string) (PluginSpec, error) {
 	m, err := BuiltinManifest(id)
 	if err != nil {

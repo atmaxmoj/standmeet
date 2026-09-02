@@ -1,5 +1,5 @@
 // creds.ts —— load Ed25519 credentials from JSON file pointed to by
-// $STANDMEET_CREDS_PATH。同 youteacher 形态：
+// $STANDMEET_CREDS_PATH. Same shape as youteacher:
 //   {
 //     "keyId": "<uuid>",
 //     "privateKeyPem": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"

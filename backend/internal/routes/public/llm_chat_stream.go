@@ -1,16 +1,16 @@
 // llm_chat_stream.go —— POST /api/v1/llm/chat/stream
 //
-// H.2: 新 chat 入口；走 eino model.ToolCallingChatModel 抽象，对
-// 浏览器 pi-agent-core provider-agnostic。
+// H.2: the new chat entry point; runs through the eino model.ToolCallingChatModel
+// abstraction, provider-agnostic to the browser's pi-agent-core.
 //
-// Handler 自己只做 4 件事：
-//  1. visitor session 鉴权
-//  2. 解 body (pi 平字符串 messages + tools)
-//  3. 解算 cred (owner row 或 byoai envelope)
-//  4. 调 inference.Stream 让它跑 eino + 流回 pi-style SSE
+// The handler itself does only 4 things:
+//  1. visitor session auth
+//  2. decode the body (pi flat-string messages + tools)
+//  3. resolve cred (owner row or byoai envelope)
+//  4. call inference.Stream to run eino and stream pi-style SSE back
 //
-// 跟老 /inference/stream byte proxy 并存。H.5 浏览器 pi-agent-core 切
-// 到这条；H.3 删老 path。
+// Coexists with the old /inference/stream byte proxy. H.5 cuts the browser's
+// pi-agent-core over to this route; H.3 deletes the old path.
 
 package public
 
@@ -43,8 +43,8 @@ func runLLMChatStream(
 ) {
 	cred, cerr := resolveLLMCred(r, h, auth)
 	if cerr != nil {
-		// inference.Stream caller 写 SSE error 帧；这里我们没进 Stream
-		// 就失败了，自己写。
+		// inference.Stream's caller writes the SSE error frame; here we failed before
+		// ever entering Stream, so we write it ourselves.
 		writeLLMPreStreamErr(h, w, cerr)
 		return
 	}

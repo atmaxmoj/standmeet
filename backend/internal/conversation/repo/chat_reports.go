@@ -1,6 +1,7 @@
-// chat_reports.go —— I.3: chat_reports 表的 CRUD。#129 一会话一份:按
-// conversation_id upsert —— 第二次 summarize_conversation 改写原行(revise)，
-// report_id 稳定，不 append 出重复报告。
+// chat_reports.go — I.3: CRUD for the chat_reports table. #129 one report per
+// conversation: upsert by conversation_id — a second summarize_conversation call
+// revises the existing row (revise); report_id stays stable, no duplicate report
+// gets appended.
 
 package repo
 
@@ -16,25 +17,26 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// ChatReportRepo —— chat_reports 表的访问入口。
+// ChatReportRepo — access entry point for the chat_reports table.
 type ChatReportRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewChatReportRepo —— DI 构造。
+// NewChatReportRepo — DI constructor.
 func NewChatReportRepo(pool *pgstore.Pool) *ChatReportRepo {
 	return &ChatReportRepo{pool: pool}
 }
 
-// UpsertReportInput —— Upsert 入参。
+// UpsertReportInput — Upsert input.
 type UpsertReportInput struct {
 	OwnerID        string
 	ConversationID string
 	HTML           string
 }
 
-// Upsert —— #129 一会话一份:conversation 已有 report 则改写 html(revise) 返同一行,
-// 否则新建。返 ChatReport(report_id 稳定)。
+// Upsert — #129 one report per conversation: if the conversation already has a
+// report, rewrite its html (revise) and return the same row; otherwise create one.
+// Returns a ChatReport (report_id stays stable).
 func (r *ChatReportRepo) Upsert(
 	ctx context.Context, in *UpsertReportInput,
 ) (entity.ChatReport, error) {
@@ -55,9 +57,9 @@ func (r *ChatReportRepo) Upsert(
 	return toDomainChatReport(&row), nil
 }
 
-// GetByID —— GET /report/{id} 拿。找不到翻 ErrReportNotFound。
-// 调用方校 owner_id 跟 session 的 owner 一致 (visitor session 不该
-// 通过 id 跨 owner 读)。
+// GetByID — fetches for GET /report/{id}. Not found translates to ErrReportNotFound.
+// Caller checks owner_id matches the session's owner (a visitor session must not be
+// able to read across owners via id).
 func (r *ChatReportRepo) GetByID(
 	ctx context.Context, reportID string,
 ) (entity.ChatReport, error) {

@@ -1,17 +1,24 @@
-// agent_loop_repeat.go —— **工具循环和压缩互相追着跑**那条路的边界（F-D-14）。
+// agent_loop_repeat.go —— the boundary for the path where **the tool loop and compaction chase
+// each other** (F-D-14).
 //
-// prod 上量到的（真第三方 DeepWiki）：一轮里同一次 `read_wiki_contents` 被派发 **8 次**，每次
-// 回 374871 字节，中间夹着 **8 次** `context compacted`，两者交替，整轮 248 秒。机制不神秘：
-// 那份结果**作为消息本身就活不过 32K 窗口**，压缩必然吃掉它（tailPlainTurns 连工具痕迹一起
-// 丢，见 agent_compaction.go），模型发现证据没了就再取一遍 —— 而再取一遍又把窗口顶爆。
+// What was measured in prod (real third-party DeepWiki): within one turn, the same
+// `read_wiki_contents` call was dispatched **8 times**, each returning 374871 bytes, interleaved
+// with **8** `context compacted` events, alternating, the whole turn taking 248 seconds. The
+// mechanism isn't mysterious: that result **as a message alone doesn't fit inside the 32K
+// window**, so compaction inevitably drops it (tailPlainTurns discards tool traces along with
+// everything else, see agent_compaction.go), the model finds the evidence gone and fetches it
+// again — and fetching again blows out the window again.
 //
-// **重取不是缺陷**：eval 那侧量过，那是模型正常的恢复动作。缺陷是**没有任何东西打断这个
-// 循环**。所以这里补的不是「禁止重复调用」，是一份**这一轮自己的台账**：同一次调用第二次
-// 来的时候，不再打到对面，而是回一份**有界的、活得过压缩的**摘要。
+// **Re-fetching itself isn't the defect**: measured on the eval side, that's the model's normal
+// recovery move. The defect is that **nothing ever interrupts the loop**. So what's added here
+// isn't "forbid repeated calls", it's a **per-turn ledger**: the second time the same call comes
+// in, it no longer hits the other side, it gets back a **bounded summary that survives
+// compaction** instead.
 //
-// **只管大结果**（oversizedResultBytes）。小结果重复调用必须照常派发：「约完之后再查一次
-// 时段」是真实且正确的动作，一刀切按 (name,args) 去重会把它一起拿掉，而那种闸门 CI 全绿、
-// 闸门不响（[[gate-granularity-removes-working-action]]）。
+// **Only large results are handled** (oversizedResultBytes). A repeated call on a small result
+// must still dispatch normally: "check the slot again after booking" is a real and correct
+// action, and de-duplicating flatly by (name,args) would remove that too — the kind of gate that
+// leaves CI green while doing nothing ([[gate-granularity-removes-working-action]]).
 
 package inference
 
@@ -26,35 +33,42 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/textcut"
 )
 
-// oversizedResultBytes —— 大到「一个人就能把窗口顶爆」的结果，从阈值**推**出来而不是手填：
-// 压缩线是 contextTokenThreshold 个 token，按 eino 自己的 chars/4 估算换成字节，取一半 ——
-// 也就是「这一条结果吃掉半个窗口」。手填一个 64000 会在阈值改动的那天悄悄失准
-// （[[computed-class-generates-nothing]] 那一族：名字说它在表达某个量，实际是个常量）。
+// oversizedResultBytes —— a result large enough to "blow out the window by itself", **derived**
+// from the threshold rather than hand-filled: the compaction line is contextTokenThreshold
+// tokens, converted to bytes via eino's own chars/4 estimate, then halved — i.e. "this one result
+// eats half the window". Hand-filling a 64000 would silently drift out of sync the day the
+// threshold changes ([[computed-class-generates-nothing]]'s family: the name claims to express a
+// quantity while actually being a constant).
 const oversizedResultBytes = contextTokenThreshold * 4 / 2
 
-// repeatSliceBytes —— 每次交出去一段有多大。同样从窗口**推**出来：「大到撑爆」的一半，
-// 也就是窗口的四分之一。
+// repeatSliceBytes —— how large a section handed out per call is. Also **derived** from the
+// window: half of "large enough to blow it out", i.e. a quarter of the window.
 //
-// 第一版填的是 6000，而窗口是 12 万字节 —— 谨慎得没有道理，代价是 prod 上那一轮答不出
-// 「怎么跑一个」。判据是「这一段活得过压缩」，不是「这一段越小越安全」。
+// The first version hand-filled 6000, against a 120000-byte window — needlessly cautious, at the
+// cost of that prod turn never getting to answer "how do I run one". The criterion is "this
+// section survives compaction", not "smaller is always safer".
 const repeatSliceBytes = oversizedResultBytes / 2
 
-// repeatLedger —— 这一轮派发过的**大**结果：(工具名, 参数) → 全文 + 读到哪儿了。
+// repeatLedger —— the **large** results dispatched this turn: (tool name, args) → full text +
+// how far it's been read.
 //
-// 它是 Go 侧的状态，不是消息 —— 所以压缩碰不到它。这正是要点：被压掉的那件事，
-// 记在压缩够不着的地方。
+// This is Go-side state, not a message — so compaction can't touch it. That's the whole point:
+// the thing compaction drops gets recorded somewhere compaction can't reach.
 //
-// **为什么存全文 + 游标，而不是一份固定摘要**：⑤ 在 prod 上量出来的。第一版每次重复
-// 都回**同一个开头**，于是那一轮的答案从「七个 server + 四种跑法带命令」退成「六个
-// server + 我看不到跑法那一段」—— 循环是断了，答案也变差了。回头看那八次重取才明白：
-// 模型再问一遍**要的是后面**，八次取回来的其实是在跨压缩**翻页**。所以把这件事做成
-// 它本来的样子：第二次给第二段，第三次给第三段，翻完为止。
+// **Why store the full text plus a cursor, rather than one fixed summary**: measured directly in
+// prod. The first version returned **the same opening section** on every repeat, and that turn's
+// answer degraded from "seven servers + four ways to run them with commands" to "six servers +
+// I can't see the run-it section" — the loop was broken but the answer got worse too. Looking
+// back at those eight re-fetches, what the model wanted the second time was **what came after**;
+// the eight fetches were really **paging through** the result across compactions. So this makes
+// the mechanism match what it actually is: hand over section two the second time, section three
+// the third time, until it's done.
 type repeatLedger struct {
 	seen map[string]*repeatEntry
 	mu   sync.Mutex
 }
 
-// repeatEntry —— 一次大结果的全文，以及已经交出去多少字节。
+// repeatEntry —— the full text of one large result, plus how many bytes have been handed out.
 type repeatEntry struct {
 	body   string
 	offset int
@@ -64,16 +78,18 @@ func newRepeatLedger() *repeatLedger {
 	return &repeatLedger{seen: map[string]*repeatEntry{}}
 }
 
-// repeatSlice —— nextSlice 的答复：这次交出去的一段、后面还有没有、这个 key 认不认识。
-// 三件事装一个值：revive 只许两个返回值，而把 known 挤掉会让「没见过」和「翻完了」
-// 变成同一种答案 —— 那正好是这条边界最不能混的两种。
+// repeatSlice —— nextSlice's answer: the section handed out this time, whether more remains,
+// and whether this key is known at all. Three facts in one value: revive only allows two return
+// values, and squeezing out `known` would make "never seen" and "fully paged through" collapse
+// into the same answer — exactly the two this boundary can least afford to conflate.
 type repeatSlice struct {
 	text  string
 	more  bool
 	known bool
 }
 
-// nextSlice —— 这一次调用之前做过吗；做过就把**下一段**交出去，并说清还有没有更多。
+// nextSlice —— has this call been made before? If so, hand out the **next** section, and state
+// plainly whether more remains.
 func (l *repeatLedger) nextSlice(key string) repeatSlice {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -82,7 +98,7 @@ func (l *repeatLedger) nextSlice(key string) repeatSlice {
 		return repeatSlice{}
 	}
 	if e.offset >= len(e.body) {
-		return repeatSlice{known: true} // 翻完了：一个字都没有了，得如实说
+		return repeatSlice{known: true} // fully paged through: nothing left, must say so honestly
 	}
 	end := min(e.offset+repeatSliceBytes, len(e.body))
 	text := textcut.BytesMark(e.body[e.offset:end], repeatSliceBytes)
@@ -90,9 +106,10 @@ func (l *repeatLedger) nextSlice(key string) repeatSlice {
 	return repeatSlice{text: text, more: e.offset < len(e.body), known: true}
 }
 
-// remember —— 只记**大**结果。游标从 **0** 起：第一次那份全文模型确实收到过，但压缩把它
-// 吃掉了 —— 它现在手上什么都没有，所以翻页从头翻，不是从「它见过的地方」往后。
-// 小结果不记：它自己活得过压缩，模型再问一次是它的事。
+// remember —— only records **large** results. The cursor starts at **0**: the model did
+// genuinely receive that first full text, but compaction ate it — it now has nothing in hand, so
+// paging starts from the beginning, not from "where it left off". Small results aren't recorded:
+// they survive compaction on their own, and if the model asks again that's its own business.
 func (l *repeatLedger) remember(key, result string) {
 	if len(result) < oversizedResultBytes {
 		return
@@ -102,18 +119,20 @@ func (l *repeatLedger) remember(key, result string) {
 	l.seen[key] = &repeatEntry{body: result, offset: 0}
 }
 
-// repeatKey —— 一次调用的身份是**名字加参数**，不是名字。
-// 只按名字去重会把「换个参数再查一次」也吃掉（[[read-the-key-not-the-name]]）。
+// repeatKey —— a call's identity is **name plus arguments**, not name alone.
+// De-duplicating by name alone would also swallow "query again with different arguments"
+// ([[read-the-key-not-the-name]]).
 func repeatKey(name, args string) string {
 	return name + "\x00" + args
 }
 
-// repeatNote —— 第二次来的时候回给模型的东西。
+// repeatNote —— what's returned to the model the second time this call comes in.
 //
-// 措辞照着「模型接下来该做什么」写：说清**已经取过**、给出**当时取到的开头**、并且点明
-// 它取不到更多了 —— 否则它只会把同一次调用再发一遍（那正是这条边界要断的循环）。
-// 跟 evidenceDigest 一样，**如实说这是部分内容**：把缺口读成「不存在」是更坏的失败
-// （chain-exhaustion eval 抓到过那一次）。
+// Worded around "what the model should do next": state plainly that this **was already
+// fetched**, hand over **the section fetched this time**, and make clear whether more remains —
+// otherwise it just re-issues the same call again (exactly the loop this boundary exists to
+// break). Like evidenceDigest, **state honestly that this is partial content**: reading a gap as
+// "doesn't exist" is a worse failure (the chain-exhaustion eval caught exactly that once).
 func repeatNote(name string, s repeatSlice) string {
 	tail := "That is the end of the result — there is no more of it. Answer the visitor from " +
 		"what you have, and say plainly which part of their question it doesn't cover."
@@ -128,7 +147,8 @@ func repeatNote(name string, s repeatSlice) string {
 		name, s.text, tail)
 }
 
-// exhaustedNote —— 翻完了还在问。说清楚「没有更多了」，别让它以为再来一次就有。
+// exhaustedNote —— it's still asking after everything has already been paged through. State
+// plainly "there is nothing more", so it doesn't assume one more call will produce something.
 func exhaustedNote(name string) string {
 	return fmt.Sprintf(
 		"You have already been handed every section of %s's result for these arguments this "+
@@ -136,7 +156,8 @@ func exhaustedNote(name string) string {
 			"have, and say plainly which part of their question the material doesn't cover.", name)
 }
 
-// repeatGuardedTool —— 一个工具的外壳：先问台账，没做过才真派发。
+// repeatGuardedTool —— a wrapper around one tool: check the ledger first, only really dispatch
+// if it hasn't been done before.
 type repeatGuardedTool struct {
 	inner  tool.InvokableTool
 	ledger *repeatLedger
@@ -144,7 +165,7 @@ type repeatGuardedTool struct {
 }
 
 func (t *repeatGuardedTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
-	return t.inner.Info(ctx) //nolint:wrapcheck // 纯转发，包一层只会让错误更难读
+	return t.inner.Info(ctx) //nolint:wrapcheck // pure passthrough; wrapping obscures the error
 }
 
 func (t *repeatGuardedTool) InvokableRun(
@@ -159,16 +180,18 @@ func (t *repeatGuardedTool) InvokableRun(
 	}
 	out, err := t.inner.InvokableRun(ctx, args, opts...)
 	if err != nil {
-		return out, err //nolint:wrapcheck // 工具自己的错误原样上浮，这层不改写它
+		return out, err //nolint:wrapcheck // the tool's own error surfaces as-is, unrewritten
 	}
 	t.ledger.remember(key, out)
 	return out, nil
 }
 
-// guardRepeats —— 给这一轮的工具集套上台账。
+// guardRepeats —— wraps this turn's tool set with the ledger.
 //
-// **只包 invokable 的**：流式工具包成非流式会悄悄换掉它的行为，而这条边界跟流式无关
-// （[[move-the-capability-move-its-edges]]：搬家时不跟着走的那些边，失效时不报错）。
+// **Only wraps invokable tools**: wrapping a streaming tool as non-streaming would silently
+// change its behavior, and this boundary has nothing to do with streaming
+// ([[move-the-capability-move-its-edges]]: the edges that don't move with a relocation fail
+// silently, not loudly).
 func guardRepeats(ctx context.Context, tools []tool.BaseTool) []tool.BaseTool {
 	ledger := newRepeatLedger()
 	out := make([]tool.BaseTool, 0, len(tools))
@@ -183,9 +206,10 @@ func guardRepeats(ctx context.Context, tools []tool.BaseTool) []tool.BaseTool {
 	return out
 }
 
-// guardOne —— 包得住就返回外壳，包不住返回 false（caller 原样放行）。
-// 不返回 `tool.BaseTool`：那样每一个「放行」分支都得再造一次接口值，读的人也分不清
-// 「包过了」和「原样过」。
+// guardOne —— returns the wrapper if it could wrap it, false if not (caller passes it through
+// unchanged). Doesn't return `tool.BaseTool`: that would force every "pass through" branch to
+// re-construct an interface value, and readers couldn't tell "wrapped" from "passed through
+// as-is" apart.
 func guardOne(
 	ctx context.Context, t tool.BaseTool, ledger *repeatLedger,
 ) (*repeatGuardedTool, bool) {

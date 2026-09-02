@@ -1,11 +1,13 @@
-// access_requests_ports.go —— 访客留言绑定到 sole owner 只需 ownerID 的窄口。
+// access_requests_ports.go — narrow port for binding a visitor message to the sole
+// owner; needs only ownerID.
 
 package usecase
 
 import "context"
 
-// SoleOwnerLookup —— 取单-owner 实例的 owner id(绑定 access request 用)。
-// composition root 用 owner.Repo(FirstHandle→GetByHandle→ID)适配,access 不反依赖 owner。
+// SoleOwnerLookup — fetches the owner id for a single-owner instance (used to bind
+// an access request). The composition root adapts this via owner.Repo
+// (FirstHandle→GetByHandle→ID); access does not reverse-depend on owner.
 type SoleOwnerLookup interface {
 	SoleOwnerID(ctx context.Context) (string, error)
 }

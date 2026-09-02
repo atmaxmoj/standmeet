@@ -1,10 +1,12 @@
-// mcp_binding.go —— Capability 暴露给 owner-facing MCP server 的接口形态。
-// adapter（mcp/adapter.go）负责 owner_id resolve + panic recover + envelope
-// translation；Handler 拿到的 raw 已经是合法 args JSON (mcp-go 已 unmarshal
-// 过)，ownerID 已经验过。
+// mcp_binding.go — the interface shape a Capability exposes to the
+// owner-facing MCP server. The adapter (mcp/adapter.go) handles owner_id
+// resolve + panic recover + envelope translation; the raw a Handler receives
+// is already valid args JSON (mcp-go has already unmarshaled it), and ownerID
+// has already been verified.
 //
-// Result.OK=false 时 Text 当作 error 消息走 mcpgo.NewToolResultError；
-// OK=true 时 Text 当作 success payload 走 mcpgo.NewToolResultText。
+// When Result.OK=false, Text is treated as an error message and goes through
+// mcpgo.NewToolResultError; when OK=true, Text is treated as the success
+// payload and goes through mcpgo.NewToolResultText.
 
 package capreg
 
@@ -13,7 +15,7 @@ import (
 	"encoding/json"
 )
 
-// MCPBinding —— owner-facing MCP server 注册口。
+// MCPBinding — the registration entry for the owner-facing MCP server.
 type MCPBinding struct {
 	Handler     MCPHandler
 	Name        string
@@ -21,38 +23,39 @@ type MCPBinding struct {
 	InputSchema json.RawMessage
 }
 
-// MCPHandler —— Capability 暴露给 owner MCP server 的执行口。
-// raw 是 tool input JSON args；返回 MCPResult。
+// MCPHandler — the execution entry a Capability exposes to the owner MCP
+// server. raw is the tool input JSON args; returns an MCPResult.
 type MCPHandler func(ctx context.Context, ownerID string, raw json.RawMessage) MCPResult
 
-// MCPResult —— Handler 返回结果。
-//   - OK=true → Text 走 NewToolResultText (success payload, JSON-encoded)；
-//     Embeddings 走 NewEmbeddedResource 跟在 Text 后面 (e.g. applications.commit
-//     的 PDF blob)。
-//   - OK=false → Text 走 NewToolResultError (error message string)；
-//     Embeddings 忽略。
+// MCPResult — a Handler's return value.
+//   - OK=true → Text goes through NewToolResultText (success payload,
+//     JSON-encoded); Embeddings go through NewEmbeddedResource, following
+//     Text (e.g. the PDF blob from applications.commit).
+//   - OK=false → Text goes through NewToolResultError (error message string);
+//     Embeddings is ignored.
 type MCPResult struct {
 	Text       string
 	Embeddings []MCPEmbedded
 	OK         bool
 }
 
-// MCPEmbedded —— 二进制资源 (e.g. PDF / image)。Blob 走 base64 编码。
-// URI 是 client-side 引用 (e.g. "standmeet://application/<id>")，MIMEType
-// 给 client 决定怎么 render。
+// MCPEmbedded — a binary resource (e.g. PDF / image). Blob is base64-encoded.
+// URI is a client-side reference (e.g. "standmeet://application/<id>"),
+// MIMEType lets the client decide how to render it.
 type MCPEmbedded struct {
 	URI      string
 	MIMEType string
 	Blob     []byte
 }
 
-// MCPSuccess —— 简短构造 success result (text only)。
+// MCPSuccess — a short constructor for a success result (text only).
 func MCPSuccess(payload string) MCPResult { return MCPResult{Text: payload, OK: true} }
 
-// MCPSuccessWithEmbeddings —— success result with text + 一/多 binary embed。
+// MCPSuccessWithEmbeddings — a success result with text + one or more binary
+// embeds.
 func MCPSuccessWithEmbeddings(payload string, embs []MCPEmbedded) MCPResult {
 	return MCPResult{Text: payload, Embeddings: embs, OK: true}
 }
 
-// MCPError —— 简短构造 error result。
+// MCPError — a short constructor for an error result.
 func MCPError(msg string) MCPResult { return MCPResult{Text: msg, OK: false} }

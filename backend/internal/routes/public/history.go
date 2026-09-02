@@ -1,10 +1,12 @@
 // history.go —— GET /api/v1/conversations/{id}
 //
-// 凭 session token 找到 member 的 open chat,返回整个会话聚合(session + code +
-// conversation 三块,各占一块不混)。前端载入时一次性 hydrate。范围由 token
-// 锁定,URL {id} 仅做 RESTful 形态。
+// Finds the member's open chat by session token, and returns the whole session
+// aggregate (session + code + conversation, three separate blocks, never mixed
+// together). The frontend hydrates in one shot on load. Scope is locked by the token,
+// the URL {id} exists only for RESTful shape.
 //
-// 还没开过会 → conversation.dialogs 空数组。timestamps serverside 出(RFC3339)。
+// No conversation held yet → conversation.dialogs is an empty array. Timestamps are
+// produced server-side (RFC3339).
 
 package public
 
@@ -40,8 +42,10 @@ type dialogResp struct {
 type conversationResp struct {
 	StartedAt string       `json:"started_at"`
 	Dialogs   []dialogResp `json:"dialogs"`
-	// Events —— 这段对话里发生过的事（卡上取消 / 发确认信）。前端刷新之后把它们折回
-	// 模型看的那串消息，否则重新打开页面 agent 就又不知道了（F-B-9）。
+	// Events —— things that happened in this conversation (a cancel on the card / a
+	// confirmation email sent). After a refresh, the frontend folds these back into the
+	// message string the model sees, otherwise reopening the page leaves the agent
+	// unaware of them again (F-B-9).
 	Events []eventResp `json:"events"`
 }
 
@@ -135,7 +139,8 @@ func toDialogResps(ds []conversation.ConvDialog) []dialogResp {
 			Answer:    ds[i].Answer,
 			Ghosts:    toGhostResps(ds[i].Ghosts),
 			Citations: toCitationResps(ds[i].Citations),
-			// F-A-28:检索调用的 result 不下发给访客 —— 那里面是笔记正文,包括私有的。
+			// F-A-28: a retrieval call's result is never sent down to the visitor — it
+			// contains the note body, including private ones.
 			ToolCalls: conversation.VisitorToolCalls(ds[i].ToolCalls),
 		}
 	}
@@ -158,5 +163,5 @@ func toCitationResps(cs []conversation.DialogCitation) []citationResp {
 	return out
 }
 
-// 空 tool_calls → `[]` 由 VisitorToolCalls 一并兜掉(前端要合法数组而不是 null),
-// 所以这里不再有单独的 rawOrEmptyArray。
+// An empty tool_calls → `[]` is already handled by VisitorToolCalls (the frontend
+// needs a valid array, not null), so there's no separate rawOrEmptyArray here anymore.

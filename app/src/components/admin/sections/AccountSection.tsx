@@ -1,8 +1,9 @@
-// AccountSection —— /admin/account。owner 自助管理身份字段：full_name /
-// email / password。
+// AccountSection —— /admin/account. Owner self-manages identity fields: full_name /
+// email / password.
 //
-// 三个独立 form block；email 和 password 都先输当前密码再写。前端验证
-// 最浅（前端只挡明显错的，最终 backend 在 usecase 兜）。
+// Three independent form blocks; both email and password require the current
+// password first. Frontend validation is shallow (it only blocks obvious
+// errors; the backend usecase is the real guard).
 
 'use client';
 
@@ -47,9 +48,10 @@ function pickEmail(s: ReturnType<typeof useAdminSession>): string {
   return s.kind === 'ready' ? s.session.email : '';
 }
 
-// pickPendingEmail —— 有没有一次待确认的改动。**从 session 读**,不在组件里另存一份:
-// owner 关掉标签页再回来,那个待确认状态还在库里,而组件的 useState 早没了
-// (事实归产生它的那一方,别处只查询不记忆)。
+// pickPendingEmail —— whether an unconfirmed change exists. **Read from the session**,
+// never store a second copy in the component: if the owner closes the tab and comes
+// back, the pending state is still in the DB, but a component useState would be gone
+// (a fact belongs to whoever produces it; everywhere else only queries it).
 function pickPendingEmail(s: ReturnType<typeof useAdminSession>): string {
   return s.kind === 'ready' ? (s.session.pendingEmail ?? '') : '';
 }

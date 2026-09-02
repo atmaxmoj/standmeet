@@ -1,9 +1,10 @@
-// corpus_crud.go —— admin UI 调的 corpus 三层 Update / Delete / Create wiki+output
-// 入口。raw 的 Update 走"改 body + tags + private"；wiki / output 的 Update
-// 改 title/body/tags/parent/show_as_source。Create wiki / output 是给 owner 在
-// admin UI 起一条新条目（不从 raw promote）；source 字段为空。
-// retrieval-redesign：visibility 字段全部砍掉；path / show_as_source 落地
-// 在 SEORepo.UpdateWikiSEO / UpdateOutputSEO 和这里的 ShowAsSource 字段。
+// corpus_crud.go —— entry points for the corpus three-layer Update / Delete / Create
+// wiki+output that admin UI calls. raw's Update takes "change body + tags + private";
+// wiki / output's Update changes title/body/tags/parent/show_as_source. Create wiki /
+// output lets the owner start a new
+// entry directly from the admin UI (not promoted from raw); the source field stays empty.
+// retrieval-redesign: the visibility field is dropped entirely; path / show_as_source now live
+// in SEORepo.UpdateWikiSEO / UpdateOutputSEO and the ShowAsSource field here.
 
 package usecase
 
@@ -19,7 +20,7 @@ import (
 
 // ─── raw ────────────────────────────────────────────────────
 
-// UpdateRawReq —— admin 改 raw 入参。
+// UpdateRawReq —— input for admin's raw update.
 type UpdateRawReq struct {
 	OwnerID        string
 	ID             string
@@ -28,7 +29,7 @@ type UpdateRawReq struct {
 	FlaggedPrivate bool
 }
 
-// UpdateRaw 改 raw_entries 的 body + tags + flagged_private。
+// UpdateRaw changes raw_entries' body + tags + flagged_private.
 func UpdateRaw(
 	ctx context.Context, deps Deps, in *UpdateRawReq,
 ) (entity.Raw, error) {
@@ -45,12 +46,13 @@ func UpdateRaw(
 	return raw, nil
 }
 
-// DeleteRaw 删一条 raw。**真删,跟 wiki / output 一样。**
+// DeleteRaw deletes one raw entry. **A real delete, same as wiki / output.**
 //
-// 这里以前是 ArchiveRaw:置一个 archived 标志、把行留着。那个"软删"没有第二半 ——
-// 没有列表显示归档的行(ListRaw 永远 archived=false),没有恢复的入口,面板上那个写着
-// archive 的按钮打的就是 DELETE。所以它不是一种更温和的删,是同一件事换了个名字,
-// 外加一行谁也读不到的墓碑。
+// This used to be ArchiveRaw: set an archived flag, keep the row. That "soft delete" never
+// had a second half — no listing surfaces archived rows (ListRaw always filters
+// archived=false), no way to restore, and the button on the panel labeled archive already
+// fired DELETE. So it wasn't a gentler kind of delete, it was the same thing under a
+// different name, plus a tombstone row nobody ever reads.
 func DeleteRaw(ctx context.Context, deps Deps, ownerID, rawID string) error {
 	if ownerID == "" || rawID == "" {
 		return apierr.ErrEmptyField
@@ -64,7 +66,7 @@ func DeleteRaw(ctx context.Context, deps Deps, ownerID, rawID string) error {
 
 // ─── wiki ───────────────────────────────────────────────────
 
-// CreateWikiReq —— admin 直接起一条 wiki（不 promote）。SourceRawIDs 空。
+// CreateWikiReq —— admin starts a wiki entry directly (not promoted). SourceRawIDs stays empty.
 type CreateWikiReq struct {
 	OwnerID  string
 	ParentID *string
@@ -73,7 +75,7 @@ type CreateWikiReq struct {
 	Tags     []string
 }
 
-// CreateWiki 起一条新 wiki（admin UI"+new wiki"按钮的入口）。
+// CreateWiki starts a new wiki entry (the entry point behind admin UI's "+new wiki" button).
 func CreateWiki(
 	ctx context.Context, deps Deps, in *CreateWikiReq,
 ) (entity.Wiki, error) {
@@ -96,8 +98,8 @@ func CreateWiki(
 	return wiki, nil
 }
 
-// preflightCreateWiki —— create 前两道关:必填字段 + parent 合法。合在一处让
-// CreateWiki 的 cyclo 不超标。
+// preflightCreateWiki —— two gates before create: required fields + parent validity. Combined
+// here so CreateWiki's cyclomatic complexity stays under the limit.
 func preflightCreateWiki(ctx context.Context, deps Deps, in *CreateWikiReq) error {
 	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
 		return apierr.ErrEmptyField
@@ -105,7 +107,7 @@ func preflightCreateWiki(ctx context.Context, deps Deps, in *CreateWikiReq) erro
 	return validateWikiParent(ctx, deps, in.OwnerID, in.ParentID)
 }
 
-// UpdateWikiReq —— admin 改 wiki 入参。
+// UpdateWikiReq —— input for admin's wiki update.
 type UpdateWikiReq struct {
 	OwnerID      string
 	ID           string
@@ -117,7 +119,7 @@ type UpdateWikiReq struct {
 	ShowAsSource bool
 }
 
-// UpdateWiki 改 wiki 主字段。
+// UpdateWiki changes wiki's main fields.
 func UpdateWiki(
 	ctx context.Context, deps Deps, in *UpdateWikiReq,
 ) (entity.Wiki, error) {
@@ -139,9 +141,10 @@ func UpdateWiki(
 	return wiki, nil
 }
 
-// preflightUpdateWiki —— UpdateWiki 前三道关:必填字段 + reparent 合法(存在/同
-// owner/防环)+ 同 slug 兄弟不撞(改名/改 parent 都可能撞,排除自己)。合一处让
-// UpdateWiki 的 cyclo 不超标。
+// preflightUpdateWiki —— three gates before UpdateWiki: required fields + reparent validity
+// (exists / same owner / no cycle) + no sibling slug collision (renaming or reparenting can
+// both collide; excludes itself). Combined here so UpdateWiki's cyclomatic complexity stays
+// under the limit.
 func preflightUpdateWiki(ctx context.Context, deps Deps, in *UpdateWikiReq) error {
 	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
 		return apierr.ErrEmptyField
@@ -154,12 +157,13 @@ func preflightUpdateWiki(ctx context.Context, deps Deps, in *UpdateWikiReq) erro
 	})
 }
 
-// hasBlankCorpusField —— UpdateWiki / UpdateOutput 共用的"必填字段空"检查。
+// hasBlankCorpusField —— the shared "required field is blank" check for
+// UpdateWiki / UpdateOutput.
 func hasBlankCorpusField(vals ...string) bool {
 	return slices.Contains(vals, "")
 }
 
-// DeleteWiki 硬删一条 wiki。
+// DeleteWiki hard-deletes one wiki entry.
 func DeleteWiki(ctx context.Context, deps Deps, ownerID, wikiID string) error {
 	if ownerID == "" || wikiID == "" {
 		return apierr.ErrEmptyField
@@ -173,7 +177,8 @@ func DeleteWiki(ctx context.Context, deps Deps, ownerID, wikiID string) error {
 
 // ─── output ─────────────────────────────────────────────────
 
-// CreateOutputReq —— admin 直接起一条 output（不 promote）。SourceWikiIDs 空。
+// CreateOutputReq —— admin starts an output entry directly (not promoted).
+// SourceWikiIDs stays empty.
 type CreateOutputReq struct {
 	OwnerID  string
 	ParentID *string
@@ -182,7 +187,7 @@ type CreateOutputReq struct {
 	Tags     []string
 }
 
-// CreateOutput 起一条新 output（admin UI"+new output"按钮的入口）。
+// CreateOutput starts a new output entry (the entry point behind admin UI's "+new output" button).
 func CreateOutput(
 	ctx context.Context, deps Deps, in *CreateOutputReq,
 ) (entity.Output, error) {
@@ -202,7 +207,7 @@ func CreateOutput(
 	return out, nil
 }
 
-// UpdateOutputReq —— admin 改 output 入参。
+// UpdateOutputReq —— input for admin's output update.
 type UpdateOutputReq struct {
 	OwnerID      string
 	ID           string
@@ -213,7 +218,7 @@ type UpdateOutputReq struct {
 	ShowAsSource bool
 }
 
-// UpdateOutput 改 output 主字段。
+// UpdateOutput changes output's main fields.
 func UpdateOutput(
 	ctx context.Context, deps Deps, in *UpdateOutputReq,
 ) (entity.Output, error) {
@@ -235,7 +240,7 @@ func UpdateOutput(
 	return out, nil
 }
 
-// DeleteOutput 硬删一条 output。
+// DeleteOutput hard-deletes one output entry.
 func DeleteOutput(ctx context.Context, deps Deps, ownerID, outputID string) error {
 	if ownerID == "" || outputID == "" {
 		return apierr.ErrEmptyField

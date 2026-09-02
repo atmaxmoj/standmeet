@@ -1,5 +1,6 @@
-// stdio.go —— C2: MCP stdio 传输（core 把插件当子进程拉起来，走 stdin/stdout）。
-// 跟 Dial(http) 同一 Session/Initialize 形态，只是 transport 是 spawn 的进程。
+// stdio.go —— C2: MCP stdio transport (core spawns the plugin as a subprocess and
+// talks over stdin/stdout). Same Session/Initialize shape as Dial(http), just with a
+// spawned-process transport.
 
 package mcpclient
 
@@ -13,7 +14,7 @@ import (
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 )
 
-// initRequest —— 共用的 MCP initialize 参数（http / stdio 同一握手）。
+// initRequest —— the shared MCP initialize params (http / stdio use the same handshake).
 func initRequest() mcpgo.InitializeRequest {
 	return mcpgo.InitializeRequest{
 		Params: mcpgo.InitializeParams{
@@ -25,13 +26,17 @@ func initRequest() mcpgo.InitializeRequest {
 	}
 }
 
-// dialTiming —— 拨号失败时把「花了多久」和「是谁取消的」写进错误串。
+// dialTiming —— on a dial failure, writes "how long it took" and "who canceled it"
+// into the error string.
 //
-// 为什么需要:失败日志只说 `stdio initialize: transport error: context canceled`,
-// 而 `context canceled`(父 ctx 被取消) 跟 `deadline exceeded`(撞我们自己的 dialTimeout)
-// 是完全不同的病 —— 前者是**调用方先放弃**(HTTP 请求断了),后者是插件真的起不来。
-// 光看这一行分不出冷启动到底花了多久、也分不出该调大预算还是该加速 spawn。
-// 一并带上父 ctx 的状态,让根因从日志里可读,不必靠推测。
+// Why this is needed: the failure log alone just says `stdio initialize: transport
+// error: context canceled`, and `context canceled` (the parent ctx got canceled) versus
+// `deadline exceeded` (hit our own dialTimeout) are completely different diseases ——
+// the former is **the caller giving up first** (the HTTP request got cut), the latter
+// is the plugin genuinely failing to come up. That one line alone can't tell how long
+// the cold start actually took, nor whether the fix is a bigger budget or a faster
+// spawn. Carrying the parent ctx's state along makes the root cause readable straight
+// from the log, instead of needing a guess.
 func dialTiming(parent context.Context, spawnMS int64, initStart time.Time) string {
 	cause := "parent-live"
 	switch {
@@ -45,16 +50,18 @@ func dialTiming(parent context.Context, spawnMS int64, initStart time.Time) stri
 		spawnMS, time.Since(initStart).Milliseconds(), dialTimeout, cause)
 }
 
-// closeQuietly —— 关 client 忽略错误（释放子进程 / transport）。
+// closeQuietly —— closes the client ignoring the error (releases the subprocess / transport).
 func closeQuietly(cli *mcpgoclient.Client) {
 	cerr := cli.Close()
 	_ = cerr
 }
 
-// DialStdio —— spawn command（带 args/env）作 MCP server 子进程，走 stdio 传输，
-// Initialize 后返 Session。env 是在 os.Environ() 之上追加的额外变量（mcp-go
-// 自己合并继承）。命令不存在 / initialize 超时（ctx 或 dialTimeout 先到）→ 返
-// ErrUnreachable 并回收已 spawn 的子进程，不留僵尸、不永久 hang。
+// DialStdio —— spawns command (with args/env) as an MCP server subprocess over the
+// stdio transport, returning a Session after Initialize. env is extra variables
+// appended on top of os.Environ() (mcp-go merges the inheritance itself). Command
+// doesn't exist / initialize times out (whichever of ctx or dialTimeout hits first) →
+// returns ErrUnreachable and reaps the already-spawned subprocess, leaving no zombie
+// and never hanging forever.
 func DialStdio(
 	ctx context.Context, command string, args []string, env map[string]string,
 ) (*Session, error) {
@@ -79,7 +86,7 @@ func DialStdio(
 	}, nil
 }
 
-// envSlice —— map → []string{"K=V"}（mcp-go 在 os.Environ() 上追加这些）。
+// envSlice —— map → []string{"K=V"} (mcp-go appends these on top of os.Environ()).
 func envSlice(env map[string]string) []string {
 	out := make([]string, 0, len(env))
 	for k, v := range env {

@@ -1,10 +1,12 @@
-// corpus_rows.go —— 各 genre 的行 → 那一份统一形状(声明在 corpus.go)。
+// corpus_rows.go — each genre's row → the one unified shape (declared in corpus.go).
 //
-// 四个 genre:raw / wiki / output / subjectivity。subjectivity 的写口另有一条
-// (subjectivity_write),但读、删、挂素材都跟其余三个走同一条路。
+// Four genres: raw / wiki / output / subjectivity. subjectivity has its own separate
+// write entry point (subjectivity_write), but reads, deletes, and attaching media all go
+// through the same path as the other three.
 //
-// 地址(path)是**树派生**的:列表一次算全窗口的路径表,详情单条算。owner 不能自设地址,
-// 所以这儿没有"path 字段",只有算出来的那个。
+// The address (path) is **tree-derived**: a listing computes the path table for the whole
+// window at once, a detail view computes it for one entry. The owner can't set an address
+// directly, so there's no "path field" here — only the one that gets computed.
 
 package ops
 
@@ -18,7 +20,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/usecase"
 )
 
-// rawStatus —— 侧栏那个"待收拾"角标数的就是它:promote 过就算处理完了。
+// rawStatus — this is exactly what the sidebar's "needs sorting" badge counts:
+// once promoted, it counts as handled.
 func rawStatus(r *entity.Raw) string {
 	if r.IsPromoted() {
 		return "promoted"
@@ -75,23 +78,31 @@ func outputItem(o *entity.Output, path string) corpusItemOut {
 	return item
 }
 
-// ── 搜索命中的行（meta）→ 同一份形状 ────────────────────────────────────────
-// 全文搜返回的是 **meta**：有 snippet、没有完整 body（一次搜几百条不该把正文都拖出来）。
-// 客户端不该因此分两种解析，所以这里映射成跟列表一模一样的行，只是 `preview` 装的是
-// 命中片段。**空的字段是「这条路没带回来」，不是「这条笔记没有」** —— tags/来源 id 留空数组，
-// 想要就走 corpus.get（[[empty-is-not-json-null]] 的反面：别把没取当成没有）。
+// ── Search hit rows (meta) → the same unified shape ──────────────────────
+// Full-text search returns **meta**: a snippet, no full body (searching a few hundred hits
+// shouldn't drag the whole body along for each). The client shouldn't need two parsing
+// paths for that, so this maps hits into a row identical to the listing shape, just with
+// `preview` holding the hit snippet. **An empty field means "this path didn't bring it
+// back", not "this note doesn't have one"** — tags/source ids are left as empty arrays;
+// fetch corpus.get if you need them (the flip side of [[empty-is-not-json-null]]: don't
+// treat "wasn't fetched" as "doesn't exist").
 
-// **地址（path）留空是有意的**：搜索命中的是一条一条散落的行，它们的祖先链没跟着回来，
-// 而 path 是**从祖先链派生**的。凭手上这点信息拼一个出来就是编。行里的 `id` 已经够打开它
-// （`corpus.get` / 面板的编辑表单都按 id）。
+// **Leaving the address (path) empty is deliberate**: search hits are scattered
+// individual rows, their ancestor chain doesn't come back with them, and path is
+// **derived from the ancestor chain**. Assembling one from what little we have on hand
+// would just be making it up. The row's `id` is already enough to open it
+// (`corpus.get` / the panel's edit form both key on id).
 
-// metaPreview —— 命中片段要走**跟列表同一套**的清洗再当预览。
+// metaPreview — a hit snippet goes through **the same cleanup as listings** before
+// becoming a preview.
 //
-// 直接把 `ts_headline` 的原文塞进 preview，owner 在后台看到的是
-// `> [!i18n] > <label><input type="radio" name="ashby-lang" checked>EN</label>…`
-// —— 真 vault 的笔记正文开头就是那段 i18n callout 的 HTML。**原始标记漏到 owner 眼前**
-// 是这一族缺陷的老样子，而且是我加搜索时自己引进来的（⑤ 眼验当场抓到）。
-// 片段全是结构 → LeadLine 返回空 → 卡片不显示预览，跟普通列表的行为一致。
+// Dropping the raw `ts_headline` output straight into preview means the owner sees
+// `> [!i18n] > <label><input type="radio" name="ashby-lang" checked>EN</label>…` in the
+// admin panel — that's literally the start of the i18n callout HTML from the real vault
+// note's body. **Raw markup leaking in front of the owner** is the classic shape of this
+// whole defect family, and I introduced this instance myself when adding search (caught
+// live by ⑤ visual inspection). When a snippet is pure structure → LeadLine returns
+// empty → the card shows no preview, matching ordinary listing behavior.
 func metaPreview(snippet string) string {
 	return usecase.SearchSnippet(snippet, previewMaxLen)
 }
@@ -118,13 +129,16 @@ func outputMetaItem(m *repo.OutputMeta) corpusItemOut {
 	}
 }
 
-// noteMetaItem —— raw 和 subjectivity 走的是同一份 meta 形状。
+// noteMetaItem — raw and subjectivity go through the same meta shape.
 //
-// 四个 genre 现在都带 UpdatedAt（搜索那条查询把它取上了），取不到时**留空**。
-// 这里原来写着「搜索那条查询没取它，**空着比填一个假时间诚实**」—— 道理是对的，
-// 只是当初只扫到了 raw/subjectivity 两个 genre，wiki/output 照旧把零值渲成
-// `1970-01-01T00:00:00Z` 发出去（F-L-46 / [[lesson-not-swept-to-neighbours]]）。
-// 现在四个 genre 共用 `rfc3339OrEmpty`，那条道理由一个函数落实，不靠记性。
+// All four genres now carry UpdatedAt (the search query fetches it), and it's **left
+// empty** when it can't be fetched. This comment used to say "the search query doesn't
+// fetch it, and leaving it empty is more honest than filling in a fake time" — the
+// reasoning was right, but at the time it had only been swept through raw/subjectivity,
+// and wiki/output kept rendering the zero value as `1970-01-01T00:00:00Z` on the wire
+// (F-L-46 / [[lesson-not-swept-to-neighbours]]). Now all four genres share
+// `rfc3339OrEmpty`, so that reasoning is enforced by one function instead of relying on
+// memory.
 func noteMetaItem(m *repo.NoteMeta, genre string) corpusItemOut {
 	return corpusItemOut{
 		Genre: genre, ID: m.ID, Title: m.Title,
@@ -136,9 +150,10 @@ func noteMetaItem(m *repo.NoteMeta, genre string) corpusItemOut {
 	}
 }
 
-// rfc3339OrEmpty —— 0 = 这条路没取到时间，**留空**。零值渲成 `1970-01-01T00:00:00Z`
-// 是把「不知道」说成一个具体日期（F-L-46）。搜索那条查询现在取 updated_at 了，
-// 所以正常情况下不会走到空的那一支；留着它是因为「没有值」永远好过「假值」。
+// rfc3339OrEmpty — 0 = this path didn't fetch a time, **leave it empty**. Rendering the
+// zero value as `1970-01-01T00:00:00Z` states "unknown" as a specific date (F-L-46). The
+// search query now fetches updated_at, so the empty branch shouldn't normally be hit;
+// it's kept because "no value" always beats "a fake value".
 func rfc3339OrEmpty(unix int64) string {
 	if unix <= 0 {
 		return ""
@@ -232,8 +247,9 @@ func getOutputItem(
 	return item, nil
 }
 
-// subjectivityItem —— 一条自我模型的那份统一形状。它没有 published / excerpt / 来源边:
-// 那是它跟别的 genre 真实的差别,不适用的留零值。
+// subjectivityItem — the unified shape for one self-model entry. It has no
+// published / excerpt / source edges: that's a real difference from the other genres,
+// not applicable, so those fields are left at zero value.
 func subjectivityItem(row *repo.Note) corpusItemOut {
 	return corpusItemOut{
 		Genre: genreSubjectivity, ID: row.ID, Title: row.Title, Body: row.Body,
@@ -258,12 +274,13 @@ func listSubjectivityItems(
 	return out, nil
 }
 
-// getSubjectivityItem —— 读回一条自我模型。
+// getSubjectivityItem — reads back one self-model entry.
 //
-// 它以前读不回来:corpus.get 的 genre 白名单只有 raw/wiki/output,错误信息还写着
-// "genre must be 'raw', 'wiki' or 'output'" —— 一句否认这个 genre 存在的话。
-// 于是它能写(subjectivity_write)、能删(corpus.delete),就是**读不回来**,
-// 也因此挂不了素材(挂完没有任何路能看见)。
+// It used to be unreadable: corpus.get's genre allowlist was only raw/wiki/output, and
+// the error message even read "genre must be 'raw', 'wiki' or 'output'" — a sentence
+// denying this genre existed at all. So it could be written (subjectivity_write) and
+// deleted (corpus.delete), just **not read back**, which also meant no media could be
+// attached to it (nothing could ever see the attachment afterward).
 func getSubjectivityItem(
 	ctx context.Context, deps usecase.Deps, ownerID, id string,
 ) (corpusItemOut, error) {
@@ -274,7 +291,9 @@ func getSubjectivityItem(
 	return subjectivityItem(&row), nil
 }
 
-// entryPath —— 单条的树派生地址。算不出就空:地址是展示用的一半,不该让详情打不开。
+// entryPath — the tree-derived address for a single entry. Empty if it can't be
+// computed: the address is only display-side sugar, and it shouldn't block a detail view
+// from opening.
 func entryPath(ctx context.Context, deps usecase.Deps, genre, ownerID, id string) string {
 	var (
 		path string

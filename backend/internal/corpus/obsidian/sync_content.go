@@ -1,26 +1,30 @@
-// sync_content.go —— 一个节点「该落成什么样」:从 vault 文件派生的内容,以及 vault 没说的
-// 那些字段该怎么办。从 sync.go 拆出来守 max-lines 350 的上限。
+// sync_content.go — what a node "should end up as": content derived from the vault
+// file, and what to do about fields the vault never mentioned. Split out of sync.go
+// to stay under the max-lines-350 limit.
 //
-// reconcile 的动作在 sync.go;这里只回答「desired 是什么」。
+// The reconcile action lives in sync.go; this file only answers "what is desired".
 
 package obsidian
 
-// nodeContent —— 一个节点的落库内容;file==nil(自动补的中间节点)= 空结构节点。
+// nodeContent — the persisted content for one node; file==nil (an auto-filled
+// intermediate node) = an empty structural node.
 type nodeContent struct {
 	langLabels map[string]string
 	body       string
 	excerpt    string
 	srcPath    string
-	// rawFM —— vault 里那一块 frontmatter 的原文。产品不认识的 key 和它们的形态只活在这里；
-	// 导出照着它写回去，否则同步一次就把 owner 自己写的键删了（F-L-67）。
+	// rawFM —— the raw text of the vault's frontmatter block. Keys the product
+	// doesn't recognize, and their exact form, live only here; export writes
+	// them back verbatim, or one sync deletes keys the owner wrote by hand (F-L-67).
 	rawFM      string
 	lang       string
 	tags       []string
 	cssClasses []string
 	aliases    []string
 	published  bool
-	// publishSet —— vault 到底说了没有(见 corpFM.PublishSet)。没说时 published 这一格不作数,
-	// 要用库里已有的值填(keepPublish)。
+	// publishSet —— whether the vault actually said anything (see corpFM.PublishSet).
+	// When it didn't, this published field doesn't count — fill it from the value
+	// already in the DB instead (keepPublish).
 	publishSet bool
 }
 
@@ -38,22 +42,26 @@ func contentOf(n *desiredNode) nodeContent {
 	}
 }
 
-// keepPublish —— frontmatter 没提 publish 时,沿用这条 note 现在的值。
+// keepPublish — when frontmatter doesn't mention publish, carry forward this
+// note's current value.
 //
-// 「缺席 = false」会让一次例行同步把 owner 在网页上发布的东西全部撤下来,而 vault 从头到尾
-// 没有表达过否定的意思(F-L-22):真 vault 的 574 条 wiki 一个 publish 键都没有,而发布是网页上
-// 的编辑。新建的 note 没有「现在的值」,那时 false 才是对的默认。
+// Treating "absent = false" would let a routine sync unpublish everything the owner
+// published on the web, when the vault never expressed a negative intent (F-L-22):
+// the real vault's 574 wiki notes carry no publish key at all — publishing is a web
+// edit. A newly created note has no "current value", so false is the right default
+// only in that case.
 //
-// 补写回去的那一半在 export(export_corpus.go 写 `publish: %t`)—— 缺了就补上,下一次往返
-// 就是显式的。
+// The other half — writing it back — lives in export (export_corpus.go writes
+// `publish: %t`): if it's missing, fill it in, so the next round trip is explicit.
 func keepPublish(c *nodeContent, existing bool) {
 	if !c.publishSet {
 		c.published = existing
 	}
 }
 
-// inboxSourceFor —— genre='raw' 的节点带 vault 来源标签 "obsidian:<srcPath>";其它 genre 空。
-// 落进 corpus_notes.inbox_source(vault raw 幂等 upsert 的 conflict key)。
+// inboxSourceFor — a genre='raw' node carries the vault-origin tag
+// "obsidian:<srcPath>"; other genres get empty. Lands in corpus_notes.inbox_source
+// (the conflict key for vault raw's idempotent upsert).
 func inboxSourceFor(genre string, c *nodeContent) string {
 	if genre == genreRaw && c.srcPath != "" {
 		return "obsidian:" + c.srcPath

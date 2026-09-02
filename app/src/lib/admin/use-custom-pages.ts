@@ -1,4 +1,4 @@
-// use-custom-pages —— /admin/custom-pages 状态。
+// use-custom-pages —— state for /admin/custom-pages.
 
 'use client';
 
@@ -14,32 +14,35 @@ import type { ResourceStatus } from '@/lib/state/status';
 const CustomPageSummarySchema = z.object({
   id: z.string(), slug: z.string(), title: z.string(), status: z.string(),
   has_live: z.boolean(), has_staging: z.boolean(), live_build_id: z.string().optional(),
-  // bound_codes —— 哪些码开这一页（绑定的另一头）。nullish 是为了不让旧后端把整份列表打挂
-  // （[[zod-unknown-is-not-optional]]：服务端少发一个字段，客户端整份 schema 静默失败）。
+  // bound_codes —— which codes open this page (the other end of the
+  // binding). nullish so an old backend doesn't crash the whole list
+  // ([[zod-unknown-is-not-optional]]: a missing field from the server silently fails the whole schema).
   bound_codes: z.array(z.string()).nullish(),
   allow_byoai: z.boolean().nullish(),
-  // latest_build_id —— 面板靠它判"预览该刷新了"：agent 每次 build 产生一个新 id，
-  // 那是唯一跟着 owner 指挥的这件事变的值。optional：后端 omitempty，
-  // 而少一个字段不该把整份列表打挂（[[zod-unknown-is-not-optional]]）。
+  // latest_build_id —— the panel uses this to decide "the preview should
+  // refresh now": the agent produces a new id on every build, the only value
+  // that changes along with what the owner directs. optional: the backend
+  // has omitempty, and a missing field shouldn't crash the whole list ([[zod-unknown-is-not-optional]]).
   latest_build_id: z.string().optional(),
   latest_build_status: z.string().optional(),
-  // preview_url —— 面板那块 iframe 的 src，令牌已经签在里面。**不在前端拼**：
-  // 令牌要服务端的钥匙，而前端自己拼的地址迟早跟服务端格式漂移，
-  // 漂移之后的样子是预览一片空白而没有任何东西报错。
+  // preview_url —— the src for the panel's iframe, with the token already
+  // signed into it. **Never assembled on the frontend**: the token needs the
+  // server's key, and an address the frontend assembles on its own is bound
+  // to drift from the server's format eventually — after which the preview goes blank with nothing erroring.
   preview_url: z.string().optional(),
   created_at: z.string(), updated_at: z.string(),
 });
 export type CustomPageSummary = z.infer<typeof CustomPageSummarySchema>;
 
-// PreviewView —— 预览那一块要的三个值。
+// PreviewView —— the three values the preview block needs.
 export interface PreviewView {
   src: string;
   buildID: string;
   status: string;
 }
 
-// previewView —— 三个 optional 字段各自的落点。落在 lib 而不是组件里：
-// 呈现层的分支上限是 3，而三个 `??` 就已经到顶 —— 判断归这儿，组件只负责摆。
+// previewView —— where each of the three optional fields resolves to. Lives
+// in lib, not the component: the presentation layer's branching cap is 3, and three `??` already fill it — judgment lives here, the component only lays it out.
 export function previewView(page: CustomPageSummary): PreviewView {
   return {
     src: page.preview_url ?? '',
@@ -48,13 +51,16 @@ export function previewView(page: CustomPageSummary): PreviewView {
   };
 }
 
-// usePinnedPreviewSrc —— 预览 iframe 的 src，钉在 buildID 上。
+// usePinnedPreviewSrc —— the preview iframe's src, pinned to buildID.
 //
-// preview_url 里的令牌是后端每次请求现签的（time.Now()），而这一页每 3 秒轮询一次 ——
-// 于是同一次构建的 src 每 3 秒换一个新令牌。iframe 的 key 稳定但 src 一变，React 就更新
-// src attribute → 整个 iframe 重新加载，owner 看到预览每 3 秒闪一下。这里只在 buildID
-// 真的变了（落了一次新构建）时才换 src；令牌 churn 不动它。逻辑落在 lib 而不是组件里，
-// 因为呈现层不许有 if（复杂度上限 3）。
+// The token in preview_url is signed fresh by the backend on every request
+// (time.Now()), and this page polls every 3 seconds — so the same build's
+// src gets a new token every 3 seconds. The iframe's key stays stable, but
+// the moment src changes, React updates the src attribute → the whole
+// iframe reloads, and the owner watches the preview flicker every 3 seconds.
+// This only swaps src when buildID actually changes (a new build has
+// landed); token churn leaves it alone. The logic lives in lib, not the
+// component, because the presentation layer bans if (complexity capped at 3).
 export function usePinnedPreviewSrc(buildID: string, src: string): string {
   const pinned = useRef({ buildID: '', src: '' });
   if (buildID !== '' && buildID !== pinned.current.buildID) {
@@ -90,20 +96,24 @@ export const customPagesStore = createResourceStore<CustomPageSummary[]>({
   fetcher: () => adminAPI.get('/custom-pages', z.array(CustomPageSummarySchema)),
 });
 
-// pollEveryMs —— owner 在**别处**（Claude 那边）下指令，这一页没有任何事件可以等，
-// 所以只能问。3 秒：一次构建要几十秒，这个间隔足够让"它开始建了 / 建好了"及时出现，
-// 又不至于把面板变成一个刷新器。
+// pollEveryMs —— the owner gives instructions **elsewhere** (on the Claude
+// side), so this page has no event to wait on and can only ask. 3 seconds:
+// one build takes tens of seconds, and this interval is short enough for
+// "it started building / it's built" to show up promptly, without turning
+// the panel into a refresh machine.
 //
-// 换成 SSE 更省，但那要后端多开一条推送 —— 而这条路上没有第二个消费者，
-// 现在多建一条通道是为一个还不存在的需求付账。
+// SSE would be cheaper, but that means the backend opening another push
+// channel — and there's no second consumer on this path, so building
+// another channel now would be paying for a need that doesn't exist yet.
 const pollEveryMs = 3_000;
 
 export function useCustomPages(): CustomPagesHook {
   const r = useResource(customPagesStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
-  // owner 打开这一页的时候，往往正在另一个窗口指挥 agent 改它。不轮询的话，
-  // 他得自己刷新才看得到 —— 而"我得自己去刷"正是他抱怨的那件事。
+  // The owner is often directing an agent to change this in another window
+  // when they open this page. Without polling, they'd have to refresh
+  // manually to see it — and "I have to refresh it myself" is exactly what they complained about.
   useEffect(() => {
     const t = setInterval(() => { void customPagesStore.getState().refresh(); }, pollEveryMs);
     return () => clearInterval(t);
@@ -115,8 +125,9 @@ export function useCustomPages(): CustomPagesHook {
   };
 }
 
-// mutation 一律抛错，由调用方用 useAction 收尾（成功 toast / 失败 report）——
-// 吞成 false 的话，「构建没跑起来」跟「构建跑了但失败」在屏幕上是同一件事。
+// A mutation always throws, finished up by the caller with useAction
+// (success toast / failure report) — if it were swallowed into false, "the
+// build never ran" and "the build ran but failed" would be indistinguishable on screen.
 async function createPage(slug: string, title: string): Promise<void> {
   await adminAPI.post('/custom-pages/', { slug, title }, z.object({ slug: z.string() }));
   await customPagesStore.getState().refresh();
@@ -140,11 +151,13 @@ async function promote(slug: string, buildID: string): Promise<void> {
   await customPagesStore.getState().refresh();
 }
 
-// publishPage —— 建 → 写 → 构建 → 轮询 → 成功才上线，整条序列。
+// publishPage —— the whole sequence: create → write → build → poll → go live only on success.
 //
-// 放在这一层而不是组件里：**构建是异步的**，而「在跑 / 成了 / 失败了」的判定是逻辑不是呈现。
-// onTick 把每一次轮询的结果交回去，因为 owner 要看的正是「它还在跑」——
-// 一个点下去没反应的按钮，跟一次失败的构建在屏幕上是同一件事。
+// Lives at this layer, not the component: **the build is async**, and
+// deciding "running / succeeded / failed" is logic, not presentation. onTick
+// hands each poll's result back, because what the owner needs to see is
+// exactly "it's still running" — a button that does nothing when clicked
+// looks identical on screen to a failed build.
 export async function publishPage(
   slug: string, source: string, onTick: (b: BuildView) => void,
 ): Promise<BuildView> {
@@ -157,14 +170,18 @@ export async function publishPage(
   return settled;
 }
 
-// ensurePage —— 发布序列的第一步是「**这个页在不在**」，不是「建一个新页」。
+// ensurePage —— the first step of the publish sequence is "**does this page
+// exist**", not "create a new page".
 //
-// 改一版再发一次是这一屏最常做的事。上一版把 createPage 写死在第一步，于是第二次发
-// 同一个 slug 撞 409，整条序列停在那里：源码没写上去、构建没跑、线上还是旧的 ——
-// 面板上那个唯一的按钮对一个已经存在的页面**永远不工作**（F-P-2）。
+// The most common thing on this screen is revising and republishing. The
+// previous version hardcoded createPage as step one, so publishing the same
+// slug a second time hit a 409 and the whole sequence stopped right there:
+// the source never got written, the build never ran, production stayed old
+// — the panel's one and only button **never worked** on an already-existing page (F-P-2).
 //
-// 只咽 409 这一种。别的失败照旧抛出去：一个 500 被当成「已经有了」的话，
-// 接下来的写和构建都会打在一个不存在的页上，而 owner 只会看到一次莫名其妙的构建失败。
+// Only a 409 is swallowed. Every other failure is still rethrown: treating a
+// 500 as "it already exists" would send the subsequent write and build
+// against a page that doesn't exist, and the owner would just see an unexplainable build failure.
 async function ensurePage(slug: string): Promise<void> {
   try {
     await createPage(slug, slug);
@@ -182,8 +199,8 @@ async function pollBuild(id: string, onTick: (b: BuildView) => void): Promise<Bu
   }
 }
 
-// promoteIfBuilt —— 只有构建成功才上线。**失败不许动线上**：
-// 一次失败的构建把已经在服务的页面换掉，是最坏的一种"成功"。
+// promoteIfBuilt —— goes live only on a successful build. **A failure must
+// never touch production**: a failed build replacing a page already in service would be the worst kind of "success".
 async function promoteIfBuilt(slug: string, settled: BuildView): Promise<void> {
   if (settled.status !== 'built') return;
   await promote(slug, settled.build_id);
@@ -191,12 +208,15 @@ async function promoteIfBuilt(slug: string, settled: BuildView): Promise<void> {
 
 const POLL_MS = 1500;
 
-// rollback / removePage —— **撤下**。owner 在面板上发得出去，就得在面板上撤得回来：
-// 少了这两个，「admin 撤了访客就访问不到」这条规矩在面板上根本执行不了，
-// owner 得开一个 Claude 会话去调 MCP 才能把自己刚发的东西拿下来（F-P-4）。
+// rollback / removePage —— **taking something down**. If the owner can
+// publish from the panel, they must be able to unpublish from the panel too:
+// without these two, the rule "admin takes it down, visitors lose access" is
+// simply unenforceable from the panel — the owner would have to open a
+// Claude session and call MCP just to take down something they just published (F-P-4).
 //
-// rollback 只下线（构建还在，可以再上）；delete 是整页没了。两个动作分开摆，
-// 因为它们的后果不一样。
+// rollback only unpublishes (the build still exists, can go live again);
+// delete removes the whole page. The two actions are kept separate because
+// their consequences are different.
 async function rollback(slug: string): Promise<void> {
   await adminAPI.post(`/custom-pages/${slug}/rollback`, {}, z.object({}).passthrough());
   await customPagesStore.getState().refresh();
@@ -214,9 +234,12 @@ async function setByoai(slug: string, allow: boolean): Promise<void> {
 }
 
 export function pickCustomPagesBodyState(hook: CustomPagesHook): CustomPagesBodyState {
-  // 已经有数据就一直显列表 —— 3 秒轮询每次把 status 翻成 'loading',若那时用骨架替换列表,
-  // 整列（含预览 iframe）每 3 秒卸载重挂 → 预览每 3 秒闪一下重载（pentest / owner 反馈
-  // 2026-09-01）。骨架只属于**首次加载**（还没有任何数据）；后台刷新不该打断已经在看的东西。
+  // Once there's data, the list keeps showing — the 3-second poll flips
+  // status to 'loading' every time, and if the list were swapped for a
+  // skeleton then, the whole row (preview iframe included) would unmount and
+  // remount every 3 seconds → the preview flickering and reloading every 3
+  // seconds (pentest / owner feedback 2026-09-01). The skeleton belongs only
+  // to the **first load** (before any data exists); a background refresh shouldn't interrupt what's already being viewed.
   if (hook.rows.length > 0) return 'list';
   if (hook.status === 'idle' || hook.status === 'loading') return 'loading';
   if (hook.status === 'error') return 'error';

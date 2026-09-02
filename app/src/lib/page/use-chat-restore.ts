@@ -1,15 +1,22 @@
-// use-chat-restore —— 载入恢复 + reconcile。凭 conversation id + token 拉后端
-// 会话聚合(GET /sessions/<conv>):
-//   - 重建 transcript(历史 Q&A,带引用)
-//   - 把 strip 的 used / max / 名额 / 名字 按后端权威值纠回(后端 conversation +
-//     code 是唯一 source of truth)
-//   - token 已失效(401)→ 清掉旧身份,按有没有 code 回入口流程
+// use-chat-restore —— load-time restore + reconcile. Fetches the backend's
+// session aggregate (GET /sessions/<conv>) using conversation id + token:
+//   - rebuilds the transcript (historical Q&A, with citations)
+//   - corrects the strip's used / max / seat / name against the backend's
+//     authoritative values (the backend conversation + code is the one
+//     source of truth)
+//   - if the token is already invalid (401) → clear the old identity, go
+//     back to the entry flow depending on whether there's a code
 //
-// 竞态防护:聚合是 mount 时刻发的异步请求,resolve 可能晚于用户随手问的一轮。
-// 那一轮本地把 used +1、往 transcript 塞了新对话,迟到的旧聚合不能盖回去 ——
-// used 只在 fetch 期间没被本地动过时才采纳;transcript 只在当前为空时才重建。
+// Race protection: the aggregate is an async request fired at mount time,
+// and it can resolve later than a turn the user asked on a whim in the
+// meantime. That turn already bumped used +1 locally and pushed a new
+// dialog into the transcript, and the late-arriving old aggregate must
+// not overwrite it — used is only adopted if it hasn't been touched
+// locally during the fetch; the transcript is only rebuilt if it's
+// currently empty.
 //
-// splitParas 也搬这儿(use-chat 的 withAnswer 也用,反过来 import)。
+// splitParas also lives here (use-chat's withAnswer uses it too, importing
+// it back).
 
 'use client';
 
@@ -32,10 +39,13 @@ import { useToolSpecsStore } from '@/lib/visitor/tool-specs-store';
 
 type DialogSetter = Dispatch<SetStateAction<Dialog[]>>;
 
-// seedEphemeralStores —— 开局(mount/刷新)把 stored blob 的临时投影补回各 store：
-// ghosts / tool_specs(含 per-tool ui_html) / dock 按钮 / capabilities。ensureSession 是
-// lazy(只在发问时跑)，不补这一勺初始 chat 屏这些就空(按钮渲不出、外置卡渲不出)。返回
-// stored 供 caller 拉 token/conv 重建 transcript。
+// seedEphemeralStores —— on startup (mount/refresh), restore the stored
+// blob's ephemeral projections into each store: ghosts / tool_specs
+// (including per-tool ui_html) / dock buttons / capabilities.
+// ensureSession is lazy (only runs on asking a question), so without this
+// seeding the initial chat screen would be empty (buttons wouldn't
+// render, externalized cards wouldn't render). Returns stored so the
+// caller can pull token/conv to rebuild the transcript.
 export function seedEphemeralStores(): ReturnType<typeof loadStoredSession> {
   const stored = loadStoredSession();
   useGhostsStore.getState().seed(stored?.ghosts ?? []);
@@ -46,8 +56,9 @@ export function seedEphemeralStores(): ReturnType<typeof loadStoredSession> {
 }
 
 
-// restoreSession —— 载入时拉会话:活着 → reconcile + 重建 transcript;失效 →
-// 清身份回入口;抖动(error)→ 保持现状不崩。
+// restoreSession —— pull the session at load time: alive → reconcile +
+// rebuild transcript; invalid → clear identity, back to entry flow;
+// jittery (error) → leave things as they are, don't crash.
 export async function restoreSession(
   conversationID: string, token: string, setDialogs: DialogSetter,
   setHistory: HistorySetter = () => undefined,
@@ -64,17 +75,24 @@ export async function restoreSession(
 
 export type HistorySetter = (msgs: Message[]) => void;
 
-// historyFrom —— 把取回来的逐字稿折回**模型看的那串消息**（F-A-46）。
+// historyFrom —— folds the fetched-back transcript into **the message
+// array the model sees** (F-A-46).
 //
-// 为什么必须有：这段对话是客户端驱动的，每一轮把手里那串消息当 History 发出去。刷新之后
-// 逐字稿是重建的（`applyView`），而那串消息**是空的** —— 于是屏幕上明明还写着刚才问过什么，
-// 模型却一个字都看不见，访客的下一句追问落在真空里。
+// Why this must exist: this conversation is client-driven — every turn
+// sends the message array it's holding as History. After a refresh the
+// transcript gets rebuilt (`applyView`), but that message array **is
+// empty** — so the screen still shows what was just asked, but the model
+// sees none of it, and the visitor's next follow-up lands in a vacuum.
 //
-// 只折 Q/A + 事件：引用、tool 卡这些是**呈现**，模型那一侧本来就靠工具结果自己拿；
-// 而访客在卡上做过的事（取消了那场会 / 发了确认信）没有别的地方能让模型知道 —— 不折回来，
-// 刷新之后 agent 又会当那场会还在（F-B-9）。
+// Only folds Q/A + events: citations and tool cards are **presentation**,
+// and the model side already gets what it needs from tool results
+// directly; but something the visitor did on a card (canceled that
+// meeting / sent the confirmation email) has no other way to reach the
+// model — without folding it back in, after a refresh the agent will
+// think that meeting still stands (F-B-9).
 //
-// 按时间归并，不是把事件甩到末尾：模型读到的顺序就是发生的顺序。
+// Merged by time, not events dumped at the end: the order the model reads
+// them in must match the order they happened in.
 function historyFrom(v: VisitorView): Message[] {
   const timed = [...dialogMsgs(v.dialogs), ...eventMsgs(v.events)];
   timed.sort((a, b) => a.at - b.at);
@@ -99,8 +117,10 @@ function eventMsgs(es: readonly ConvEvent[]): TimedMsg[] {
   }));
 }
 
-// revalidateSession —— 一轮 chat 出错后回头确认会话是否还活着(失效 → 收口),
-// 不重建 transcript(当前对话还在内存,别动)。
+// revalidateSession —— after a chat turn errors, checks back whether the
+// session is still alive (invalid → wind down), without rebuilding the
+// transcript (the current conversation is still in memory, leave it
+// alone).
 export async function revalidateSession(conversationID: string, token: string): Promise<void> {
   const res = await fetchConversation(conversationID, token);
   if (res.status === 'invalid') {
@@ -110,8 +130,9 @@ export async function revalidateSession(conversationID: string, token: string): 
   if (res.status === 'ok') reconcileView(res.view);
 }
 
-// revalidateStored —— 同上,但 conv id + token 从 stored session 取(catch 分支
-// 拿不到 sess 时用)。无凭据 → 跳过。
+// revalidateStored —— same as above, but pulls conv id + token from the
+// stored session (used in the catch branch when sess isn't available).
+// No credentials → skip.
 export async function revalidateStored(): Promise<void> {
   const stored = loadStoredSession();
   const token = stored?.session_token ?? '';
@@ -121,14 +142,19 @@ export async function revalidateStored(): Promise<void> {
 
 function applyView(v: VisitorView, setDialogs: DialogSetter): void {
   reconcileView(v);
-  // transcript 只在当前为空时重建 —— 别盖掉 fetch 期间用户刚问的那轮。
+  // Rebuild the transcript only if it's currently empty — don't overwrite
+  // a turn the user just asked during the fetch.
   if (v.dialogs.length > 0) setDialogs((prev) => (prev.length === 0 ? toDialogs(v) : prev));
 }
 
-// reconcileView —— 用后端权威值覆盖本地展示缓存(身份 + code 配额 + member 级
-// used)。used 取后端 **member 级** 合计(多对话下不能从单 surface 本地 dialogs
-// 数);只在 load / 失败收口时跑,不跟成功 turn 的乐观 +1 抢。byoai(无 code,
-// 无限额)不碰。名字后端给空就保留本地(匿名兜底)。
+// reconcileView —— overwrites the local display cache (identity + code
+// quota + member-level used) with the backend's authoritative values.
+// used is taken as the backend's **member-level** total (can't be counted
+// from a single surface's local dialogs under multiple conversations);
+// only runs at load / failure wind-down, never competing with a
+// successful turn's optimistic +1. byoai (no code, no quota) is left
+// untouched. If the backend name is empty, keeps the local one
+// (anonymous fallback).
 function reconcileView(v: VisitorView): void {
   const cur = useVisitorSessionStore.getState().session;
   if (cur === null || cur.byoai) return;
@@ -139,9 +165,12 @@ function mergeView(cur: VisitorSession, v: VisitorView): VisitorSession {
   return {
     ...cur,
     max: v.maxTurns,
-    // used 以后端 **member 级** 合计为准(多对话下不能从单 surface 本地 dialogs
-    // 数,会少算)。reconcile 只在 load / 失败收口时跑,不跟成功 turn 的乐观 +1
-    // 抢,所以这里直接采纳后端值不会盖掉刚发那轮。
+    // used is authoritative as the backend's **member-level** total
+    // (undercounts if computed from a single surface's local dialogs
+    // under multiple conversations). reconcile only runs at load /
+    // failure wind-down, never competing with a successful turn's
+    // optimistic +1, so adopting the backend value directly here won't
+    // overwrite the turn just sent.
     used: v.usedTurns,
     maxMembers: v.maxMembers,
     memberCount: v.memberCount,
@@ -160,13 +189,19 @@ function toDialogs(v: VisitorView): Dialog[] {
   }));
 }
 
-// toCitations —— 聚合里的引用(genre/path/title)重建成前端 Citation。id/body
-// restore 时拿不到也不需要(CitationRow 只用 genre/path 算链接、title 显示)。
+// toCitations —— rebuilds the aggregate's citations (genre/path/title)
+// into a frontend Citation. id/body aren't available on restore and
+// aren't needed (CitationRow only uses genre/path to compute the link,
+// and title for display).
 //
-// slug 恒空,而这里**不是**在偷懒:存下来的那份 `DialogCitationSchema` 的 genre 枚举只有
-// `wiki | output` —— writings 压根不在持久化的逐字稿里,所以这条路到不了需要 slug 的那一格。
-// （顺带说明了 href 那个缺陷为什么只在实时那一轮暴露：刷新之后 writing 的引用整条就没了。
-//   那是同一族的另一个缺口，单独记着，不在这一趟里扩。）
+// slug is always empty, and this is **not** a shortcut being cut: the
+// stored `DialogCitationSchema`'s genre enum only has `wiki | output` —
+// writings never appear in the persisted transcript at all, so this path
+// never reaches the branch that would need slug.
+// (This incidentally explains why that href bug only ever showed up on
+// the live turn: after a refresh, a writing citation disappears entirely.
+// That's a separate gap in the same family — noted, not expanded on in
+// this pass.)
 function toCitations(cites: readonly DialogCitation[] | undefined): Citation[] {
   return (cites ?? []).map((c): Citation => ({
     genre: c.genre, id: '', path: c.path, slug: '', title: c.title, body: '',

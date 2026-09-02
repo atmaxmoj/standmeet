@@ -1,33 +1,39 @@
-// use-corpus-scope-tree —— corpus 准入 picker 的数据面：**一个 URI 一棵真树**。
+// use-corpus-scope-tree —— the data side of the corpus access picker: **one URI, one real tree**.
 //
-// 为什么存在（F-A-14）：role 的授权和 code 的收回过去都是一个裸 textarea，owner 得默写 scheme 和
-// 一条笔记确切的**服务端 slug**（`subjectivity://cv`）。没有发现性、没有补全、没有校验，而且打错是
-// **静默**的 —— 收回那侧静默少读，授权那侧静默少授。corpus 本来就是一棵树，就该从树上勾。
+// Why this exists (F-A-14): granting a role and withdrawing a code both used
+// to be a bare textarea, and the owner had to recall the scheme and a note's
+// exact **server-side slug** (`subjectivity://cv`) from memory. No
+// discoverability, no autocomplete, no validation, and a typo was
+// **silent** — a withdrawal silently withheld less, a grant silently
+// granted less. The corpus is already a tree; access should be checked off from that tree.
 //
-// 关键的对齐：URI **必须**是后端 `domain.FormatURI(genre, path)` 那一份，而 path 是服务端 slug 过
-// 的（`slugJoin`，SlugifyTitle 是唯一源）。所以 picker 只用树行里带的 `path`，绝不拿 title 自己拼
-// —— 自己拼就是第二份 slug 实现，必然与匹配器漂移。
+// A critical alignment: the URI **must** be the backend's own
+// `domain.FormatURI(genre, path)`, and path is slugged server-side
+// (`slugJoin`, with SlugifyTitle as the single source). So the picker only
+// ever uses the `path` carried on a tree row, and never assembles one from
+// the title itself — doing that would be a second slug implementation, bound to drift from the matcher.
 
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
 
-// ScopeNode —— picker 只需要这四个字段；四个 genre 的树都能塌成这个形状。
+// ScopeNode —— the picker only needs these four fields; all four genres' trees collapse to this shape.
 export const ScopeNodeSchema = z.object({
   id: z.string(),
   title: z.string(),
-  // path —— 服务端 slug 过的地址（root→leaf）。URI = `${genre}://${path}`。
+  // path —— the server-slugged address (root→leaf). URI = `${genre}://${path}`.
   path: z.string().nullable().optional(),
   has_children: z.boolean().optional(),
 });
 export type ScopeNode = z.infer<typeof ScopeNodeSchema>;
 
-// SCOPE_GENRES —— ACL 认得的 genre。raw 不在：`raw://**` 对 visitor 是硬编码 deny
-// （MatchesAnyCorpusGlob 第一行），给它一个勾只会骗人。
+// SCOPE_GENRES —— the genres the ACL recognizes. raw is not among them:
+// `raw://**` is a hardcoded deny for visitors (MatchesAnyCorpusGlob's first
+// line), so giving it a checkbox would only mislead.
 export const SCOPE_GENRES = ['wiki', 'output', 'writing', 'subjectivity'] as const;
 export type ScopeGenre = typeof SCOPE_GENRES[number];
 
-// treePath —— writing 的树自成一条路由（它不在 /corpus/{genre} 的分派里）；其余走统一那条。
+// treePath —— writing's tree has its own route (it's not in /corpus/{genre}'s dispatch); everything else uses the unified one.
 function treePath(genre: ScopeGenre, parentID: string): string {
   const qs = parentID === '' ? '' : `?parent=${encodeURIComponent(parentID)}`;
   return genre === 'writing' ? `/writings/tree${qs}` : `/corpus/${genre}/tree${qs}`;
@@ -37,14 +43,16 @@ export function loadScopeLayer(genre: ScopeGenre, parentID: string): Promise<Sco
   return adminAPI.get(treePath(genre, parentID), z.array(ScopeNodeSchema));
 }
 
-// uriOf —— 这一行代表的 URI。与 domain.FormatURI 逐字一致。
+// uriOf —— the URI this row represents. Byte-for-byte consistent with domain.FormatURI.
 export function uriOf(genre: ScopeGenre, node: ScopeNode): string {
   return `${genre}://${node.path ?? ''}`;
 }
 
-// subtreeGlobOf —— 「这条**以及它底下的一切**」。glob 方言里 `g://p/**` 编译成 `^g://p/.*$`，
-// **不**匹配 `g://p` 本身 —— 所以「一条 + 它的子树」天生是两条 glob，不是一条。勾一个有子节点的
-// 节点时两条都要发，否则 owner 以为授了整棵、实际漏了那个 folder-note 自己。
+// subtreeGlobOf —— "this entry **plus everything under it**". In the glob
+// dialect, `g://p/**` compiles to `^g://p/.*$`, which does **not** match
+// `g://p` itself — so "this entry + its subtree" is inherently two globs,
+// not one. Checking a node with children must send both, or the owner will
+// think they granted the whole tree while actually missing the folder-note itself.
 export function subtreeGlobOf(genre: ScopeGenre, node: ScopeNode): string {
   return `${genre}://${node.path ?? ''}/**`;
 }
@@ -53,22 +61,27 @@ export function genreGlob(genre: ScopeGenre): string {
   return `${genre}://**`;
 }
 
-// globsFor —— 勾一行 = 它自己 +（有子节点时）它的整棵子树。
+// globsFor —— checking a row = itself + (when it has children) its entire subtree.
 export function globsFor(genre: ScopeGenre, node: ScopeNode): string[] {
   return node.has_children === true
     ? [uriOf(genre, node), subtreeGlobOf(genre, node)]
     : [uriOf(genre, node)];
 }
 
-// isTreeExpressible —— 这条 glob **有没有可能**是某个勾产生的。按形状判断，不必把整棵树拉下来：
-//   `g://**`      整个 genre 的勾
-//   `g://a/b`     某一行（无通配）
-//   `g://a/b/**`  那一行的子树
-// 别的形状（`wiki://legacy/*/draft` 这种中间带 `*` 的）没有任何一个勾能产生，所以树上不会有勾为它
-// 亮起来 —— 得如实告诉 owner「它还在，只是不在树上」，而不是让它看起来凭空消失。
+// isTreeExpressible —— **could** this glob have been produced by some
+// checkbox. Judged by shape, without pulling the whole tree down:
+//   `g://**`      a checkbox for the whole genre
+//   `g://a/b`     one row (no wildcard)
+//   `g://a/b/**`  that row's subtree
+// No other shape (like `wiki://legacy/*/draft`, with a `*` in the middle)
+// could ever come from any checkbox, so no checkbox on the tree will light
+// up for it — the owner must be told honestly "it's still there, it just
+// isn't on the tree", not left thinking it vanished out of nowhere.
 //
-// 只看前缀不够（picker 第一版就是那样，于是 `wiki://legacy/*/draft` 被当成树能表达的）：它确实以
-// `wiki://` 开头，却不是任何一行。判定住在这里而不是组件里 —— 这是 glob 方言的知识，不是渲染。
+// Checking the prefix alone isn't enough (the first version of the picker
+// did exactly that, so `wiki://legacy/*/draft` was treated as tree-expressible):
+// it does start with `wiki://`, but it isn't any row. The judgment lives
+// here, not in the component — this is knowledge about the glob dialect, not rendering.
 export function isTreeExpressible(glob: string): boolean {
   const genre = SCOPE_GENRES.find((x) => glob.startsWith(`${x}://`));
   const rest = genre === undefined ? '' : glob.slice(`${genre}://`.length);
@@ -76,7 +89,7 @@ export function isTreeExpressible(glob: string): boolean {
   return genre !== undefined && (rest === '**' || !body.includes('*'));
 }
 
-// foreignGlobs —— value 里树表达不了的那些（原样保留，且要显示给 owner）。
+// foreignGlobs —— the ones in value that the tree can't express (kept as-is, and must be shown to the owner).
 export function foreignGlobs(value: readonly string[]): string[] {
   return value.filter((g) => !isTreeExpressible(g));
 }

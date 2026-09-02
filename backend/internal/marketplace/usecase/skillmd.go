@@ -257,7 +257,7 @@ func (fm *frontmatter) addToolIf(curKey, item string) {
 
 type kv struct{ key, val string }
 
-// splitKV —— `key: value` → kv。无冒号返空 key(caller 跳过)。
+// splitKV —— `key: value` → kv. No colon returns an empty key (caller skips it).
 func splitKV(line string) kv {
 	idx := strings.Index(line, ":")
 	if idx <= 0 {
@@ -268,7 +268,8 @@ func splitKV(line string) kv {
 
 const inlineListCap = 4
 
-// parseInlineList —— `[a, b]` 或 `a, b` → ["a","b"]. 空 / block-list 起头返空切片。
+// parseInlineList —— `[a, b]` or `a, b` → ["a","b"]. Empty, or a block-list starter,
+// returns an empty slice.
 func parseInlineList(val string) []string {
 	out := make([]string, 0, inlineListCap)
 	v := strings.TrimSpace(strings.Trim(strings.TrimSpace(val), "[]"))

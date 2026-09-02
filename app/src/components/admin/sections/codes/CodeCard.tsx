@@ -1,5 +1,5 @@
-// CodeCard —— Codes section 列表卡。
-// 顶部：label + status pill；下面 scope chips + suggested questions + QR tile。
+// CodeCard — list card for the Codes section.
+// Top: label + status pill; below: scope chips + suggested questions + QR tile.
 
 import { CodeCorpusConfig } from '@/components/admin/sections/codes/CodeCorpusConfig';
 import Link from 'next/link';
@@ -27,11 +27,13 @@ type Props = {
   onRevoke: (c: CodeView) => void;
 };
 
-// 一张吊销的码卡**要退到后面去**(UX-88)。这一页回答的是「现在谁进得来」,而 13 张卡里
-// 有 7 张已经吊销 —— 以前它们跟活着的码同样浓:同样的标题字重、同样的二维码、同样的配额条,
-// 只差一个小词。眼睛没法在一屏里分出哪几张还算数。
+// A revoked code card **must recede visually** (UX-88). This page answers "who can get in
+// right now" — and 7 of 13 cards here are already revoked. Before this change they were just
+// as visually loud as live codes: same title weight, same QR code, same quota bar, differing
+// only by one small word. The eye couldn't tell which cards still counted on a single screen.
 //
-// 退的是**浓度**不是内容:owner 还要能查一张旧码当初开了什么(所以不折叠、不隐藏)。
+// What recedes is **visual weight**, not content: owner must still be able to inspect what an
+// old code once granted (so this never collapses or hides the card).
 const DEAD_CARD = 'opacity-55 saturate-50';
 
 export function CodeCard({ code, onEdit, onPreview, onShowQR, onRevoke }: Props) {
@@ -144,8 +146,9 @@ function CodeCardBody({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeVi
   );
 }
 
-// GhostEvidenceCol —— F-A-10 per-code 覆盖 ghost-evidence 规则。3 态:inherit(继承 role,null) /
-// require(强制带证据,true) / allow(全放行,false)。code 优先于 role。存 → PATCH /ghost-evidence。
+// GhostEvidenceCol — F-A-10 per-code override of the ghost-evidence rule. 3 states:
+// inherit (inherits from role, null) / require (evidence mandatory, true) / allow (no
+// restriction, false). Code overrides role. Save → PATCH /ghost-evidence.
 function GhostEvidenceCol({ code }: { code: CodeView }) {
   const t = useTranslations('adminAccess');
   const { setGhostEvidence } = useCodes();
@@ -171,7 +174,8 @@ function GhostEvidenceCol({ code }: { code: CodeView }) {
   );
 }
 
-// PromptCol —— #104：这张码挂的 per-code prompt（引 prompts 库）。没挂 → 不渲染。
+// PromptCol — #104: the per-code prompt attached to this code (references the prompts
+// library). Nothing attached → renders nothing.
 function PromptCol({ code }: { code: CodeView }) {
   const hook = usePrompts();
   const name = resolvePromptName(hook.prompts, code.prompt_id);
@@ -209,11 +213,14 @@ function RoleCol({ code }: { code: CodeView }) {
   );
 }
 
-// RoleLink —— 这张码假定的 role，**按名字**。原来印的是 `roleID.slice(0, 8)}…`，一截 UUID：
-// 卡上其它每一处都是人话，唯独这里要 owner 拿 `e1db285a…` 去跟 /admin/roles 对。role 的名字正是
-// owner 自己起的（"public"/"ext-mcp-verify"），是这张码给谁看的唯一线索。
-// rolesStore 是共享 resource store，每张卡都调也只有一次 GET。
-// roleLabel —— 名字优先；还没拉到就先退回一截 ID（宁可难看，不给一个会跳的空白）。
+// RoleLink — the role this code assumes, shown **by name**. It used to print
+// `roleID.slice(0, 8)}…`, a truncated UUID: every other spot on the card reads in plain
+// language, but here the owner had to cross-reference `e1db285a…` against /admin/roles.
+// The role's name is exactly what the owner named it ("public"/"ext-mcp-verify") — the only
+// clue to who this code is meant for.
+// rolesStore is a shared resource store, so every card calling it still fires only one GET.
+// roleLabel — prefer the name; fall back to a truncated ID before it loads (better ugly than
+// a blank that jumps).
 function roleLabel(roles: readonly { id: string; name: string }[], roleID: string): string {
   return roles.find((r) => r.id === roleID)?.name ?? `${roleID.slice(0, 8)}…`;
 }
@@ -253,11 +260,14 @@ function MembersCol({ codeID, code }: { codeID: string; code: string }) {
   );
 }
 
-// QRCol —— 卡片上那张小 QR **就是**分享的入口：点开是大图 + 可复制的链接 + 打印（F-D-12）。
+// QRCol — the small QR on the card **is** the share entry point: clicking it opens a large
+// image + a copyable link + print (F-D-12).
 //
-// 在此之前 `CodeCard` 把 `onShowQR` 签收成 `_onShowQR`（「故意不用」的写法）：整条线拉到了
-// 卡片就断了，于是 `CodeQRModal` —— 产品里**唯一**带 copy link 的地方 —— 谁也打不开，
-// 而 owner 要把码递出去只能自己从卡片上抄那行 URL。72px 的 QR 也不是拿来扫的。
+// Before this fix, `CodeCard` accepted `onShowQR` as `_onShowQR` (the "deliberately unused"
+// convention): the whole wire was cut right at the card, so `CodeQRModal` — the **only**
+// place in the product with a copy-link action — was unreachable, and the owner had to hand
+// out a code by copying that URL off the card by hand. A 72px QR isn't meant to be scanned
+// anyway.
 function QRCol({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeView) => void }) {
   const t = useTranslations('adminAccess');
   const link = buildShareLink(code.code);
@@ -276,12 +286,14 @@ function QRCol({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeView) => 
   );
 }
 
-// OpensCol —— 这张码扫出来是什么。默认是访客对话；挂上一页，就换成那一页
-// （"pages 给了 code 一个渲染"）。
+// OpensCol — what this code opens when scanned. Defaults to the visitor chat; attaching a
+// page switches it to that page ("pages give a code a rendering").
 //
-// **绑定住在码上**，所以「一张码至多一页」是这个下拉框的形状本身 —— 单选，选新的顶掉旧的，
-// 没有「再加一页」这个动作可做。空选项 = 解绑，明说成「访客对话」：不写的话，
-// 「没挂页」和「这一版还不显示绑定」在屏幕上是同一件事。
+// **The binding lives on the code**, so "at most one page per code" is baked into this
+// dropdown's shape itself — single-select, picking a new one replaces the old one, there is
+// no "add another page" action available. The empty option = unbind, spelled out explicitly
+// as "visitor chat": without that, "no page attached" and "this build just doesn't show the
+// binding yet" would look identical on screen.
 function OpensCol({ code }: { code: CodeView }) {
   const t = useTranslations('adminAccess');
   const { setCustomPage } = useCodes();
@@ -292,9 +304,10 @@ function OpensCol({ code }: { code: CodeView }) {
     { success: `${code.code} now opens ${slug === '' ? 'the visitor chat' : `/p/${slug}`}` },
   );
   return (
-    // col-span-full —— 这一格装的是**一个地址**（`/p/reading-room`），不是一个短词。
-    // 挤在三列里的时候它把自己的值截成了 `the visitor ch⌄`：一个读不完的下拉框，
-    // owner 看不出这张码到底开哪一页（UX-99）。
+    // col-span-full — this cell holds **an address** (`/p/reading-room`), not a short word.
+    // Squeezed into a three-column grid it truncated its own value to `the visitor ch⌄`: a
+    // dropdown the owner can't finish reading, unable to tell which page this code opens
+    // (UX-99).
     <MetaPair label={t('codeCard.opensLabel')} className="col-span-full sm:col-span-2">
       <SelectField
         className="w-full"
@@ -314,9 +327,10 @@ function OpensCol({ code }: { code: CodeView }) {
 
 function QuotaBar({ code }: { code: CodeView }) {
   const t = useTranslations('adminAccess');
-  // 名额说的是 **用了几个 / 共几个**,不是"共几个"。只写上限的话,一张满了的码跟一张全新的码
-  // 在这张卡上完全一样,而访客那头已经被 member_quota_reached 挡住了 —— 两边都看不见,
-  // 谁也没法处理(F-D-2)。访客顶栏一直是这么写的:"1 / 5 names"。
+  // The quota reads **used / total**, not just "total". Showing only the cap makes a full
+  // code and a brand-new code look identical on this card, while the visitor side is
+  // already blocked by member_quota_reached — neither side can see it, so no one can act on
+  // it (F-D-2). The visitor header bar has always shown it this way: "1 / 5 names".
   const sessions = usageSummary(code.member_count, code.max_members, 'names');
   const turns = quotaSummary(code.max_turns_per_session, 'turns');
   const filled = fillPercent(code.member_count, code.max_members);
@@ -325,11 +339,13 @@ function QuotaBar({ code }: { code: CodeView }) {
       <div className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) mb-1.5">{t('codeCard.quota')}</div>
       <div className="flex items-center gap-3">
         <div className="flex-1 h-[4px] bg-(--color-rule) rounded-full overflow-hidden">
-          {/* 宽度是这张码的真实用量比例(0–100):每张卡不同、随成员加入而变。Tailwind 的固定
-              档位表达不了它 —— 而"表达不了"正是上一版把它写成 w-0 的原因(F-D-2)。 */}
+          {/* Width is this code's real usage ratio (0-100): differs per card, changes as
+              members join. Tailwind's fixed step scale can't express it — and that
+              inability to express it is exactly why the previous version hardcoded w-0
+              (F-D-2). */}
           <div
             className="h-full bg-(--color-ink) rounded-full"
-            // eslint-disable-next-line no-restricted-syntax -- 运行时算出来的比例,见上
+            // eslint-disable-next-line no-restricted-syntax -- ratio computed at runtime, see above
             style={{ width: `${filled}%` }}
             data-testid={`code-quota-fill-${code.code}`}
           />
@@ -346,18 +362,20 @@ function quotaSummary(n: number | null | undefined, label: string): string {
   return n && n > 0 ? `${n} ${label}` : `unlimited ${label}`;
 }
 
-// usageSummary —— 有上限就写 "用了 / 共"; 没上限也要写用了几个:无限的码同样值得知道有多少人进来。
+// usageSummary — write "used / total" when there's a cap; even uncapped codes should show
+// how many joined: an unlimited code is still worth knowing the headcount for.
 function usageSummary(used: number, cap: number | null | undefined, label: string): string {
   return cap && cap > 0 ? `${used} / ${cap} ${label}` : `${used} ${label} · unlimited`;
 }
 
-// fillPercent —— 无上限时不填(填多少都是假的);有上限时封顶 100:11/10 这种情况真实存在过,
-// 让它撑破容器不如让它显示成满。
+// fillPercent — leave it empty when uncapped (any fill value would be fake); cap at 100 when
+// there's a limit: 11/10 has really happened, and showing it as full beats blowing out the
+// container.
 function fillPercent(used: number, cap: number | null | undefined): number {
   return cap && cap > 0 ? Math.min(100, Math.round((used / cap) * 100)) : 0;
 }
 
-// A.3-IAM-5: ScopeBlock / PathPerm / UnrestrictedHint 删 —— ACL 从 role 推断。
+// A.3-IAM-5: ScopeBlock / PathPerm / UnrestrictedHint removed — ACL is inferred from role.
 
 
 
@@ -383,8 +401,9 @@ function FooterTop({ status, link, expiresAt }: {
   );
 }
 
-// ExpiryText —— 显式标过期:有 expires_at 显日期,没有显「no expiry」。过期由
-// expires_at 计算(domain 注释:不写 status 字段),owner 一眼看清这码什么时候失效。
+// ExpiryText — expiry shown explicitly: with expires_at, show the date; without it, show
+// "no expiry". Expiry is computed from expires_at (domain note: no separate status field),
+// so the owner can see at a glance when this code stops working.
 function ExpiryText({ iso }: { iso?: string }) {
   return (
     <span className="ml-2 text-(--color-muted)" data-testid="code-expiry">

@@ -1,8 +1,10 @@
-// registry_visitor_state.go —— capability → CapabilityState 那一层投影。
+// registry_visitor_state.go —— the capability → CapabilityState projection.
 //
-// 前端 zustand 拿的就是这份列表:哪些能力在、哪些置灰、还剩多少 quota。它跟
-// AssembleVisitor 的区别是**不需要一个会话** —— 报得出自己 state 的能力
-// (StateReporter)就不用为了这份列表起一个沙箱再关掉(见 registry_tool_dispatch.go)。
+// This is exactly the list the frontend's zustand store consumes: which
+// capabilities exist, which are greyed out, how much quota is left. What sets it
+// apart from AssembleVisitor is that it **needs no session** — a capability that
+// can report its own state (StateReporter) doesn't have to spin up a sandbox
+// just to close it right back down for this list (see registry_tool_dispatch.go).
 
 package capreg
 
@@ -11,8 +13,9 @@ import (
 	"errors"
 )
 
-// VisitorStates —— 本 session 的 CapabilityState 列表（pi-pivot 前端 zustand 用）。
-// enabled=false 的 capability 仍然出现 —— 让前端能渲 "disabled because ..." 提示。
+// VisitorStates —— the CapabilityState list for this session (used by the
+// pi-pivot frontend zustand store). An enabled=false capability still appears —
+// so the frontend can render a "disabled because ..." hint.
 func (r *Registry) VisitorStates(
 	ctx context.Context, in *AssembleInput,
 ) []CapabilityState {
@@ -26,12 +29,14 @@ func (r *Registry) VisitorStates(
 	return out
 }
 
-// visitorStateFor —— 返 (state, true) = 该 capability 应出现在前端
-// capability map；返 (_, false) = 该 capability 完全不暴露 (ErrHidden 或
-// nil binding)。其他 error = 暴露但 enabled=false (让前端能渲降级提示)。
+// visitorStateFor —— returns (state, true) meaning this capability should
+// appear in the frontend's capability map; returns (_, false) meaning it's not
+// exposed at all (ErrHidden or a nil binding). Any other error means exposed but
+// enabled=false (so the frontend can render a degraded hint).
 //
-// 报得出 state 的能力(StateReporter)不拨号 —— 为了拿 {id,enabled,quota} 起一个
-// 沙箱再关掉,是访客那 19 秒里的一半(见 registry_tool_dispatch.go)。
+// A capability that can report its own state (StateReporter) is never dialed —
+// spinning up a sandbox just to get {id,enabled,quota} and close it again was
+// half of the visitor's 19 seconds (see registry_tool_dispatch.go).
 func visitorStateFor(
 	ctx context.Context, c Capability, in *AssembleInput,
 ) (CapabilityState, bool) {
@@ -41,7 +46,8 @@ func visitorStateFor(
 	return dialedStateFor(ctx, c, in)
 }
 
-// dialedStateFor —— 报不出 state 的能力只能实例化一次再读它的 binding。
+// dialedStateFor —— a capability that can't report its own state has to be
+// instantiated once so its binding can be read.
 func dialedStateFor(
 	ctx context.Context, c Capability, in *AssembleInput,
 ) (CapabilityState, bool) {
@@ -59,15 +65,17 @@ func dialedStateFor(
 	return state, true
 }
 
-// setCapTitle —— 能力实现 Titled 就把 title 透进 state（disabled 的也带，让 dock 按钮有 label）。
+// setCapTitle —— if the capability implements Titled, pass its title through
+// into the state (disabled ones carry it too, so the dock button still has a label).
 func setCapTitle(state *CapabilityState, c Capability) {
 	if t, ok := c.(Titled); ok {
 		state.Title = t.Title()
 	}
 }
 
-// finalizeBindingState —— 从一个已建好的 binding 取 state,顺手把它关掉(这条路只要
-// state,会话留着就是泄漏)。
+// finalizeBindingState —— reads state from an already-built binding and closes
+// it right away (this path only wants the state; leaving the session open would
+// be a leak).
 func finalizeBindingState(b *Binding, capID string) CapabilityState {
 	state := b.State
 	if state.ID == "" {

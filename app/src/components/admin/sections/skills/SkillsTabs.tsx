@@ -1,6 +1,7 @@
-// SkillsTabs —— /admin/skills 的 tab 条：my skills（这份 registry 的 CRUD 列表）· marketplace
-// （搜索 + 安装）。从合并前的 AgentSkillsSection.TabsBar 抽出来（skill registry 只有一个门，
-// 见 SkillsSection 头注释 / rot-D1）。testid 用 `skills-tab-*`（agent-skills 那套随合并一起退休）。
+// SkillsTabs — the tab bar for /admin/skills: my skills (this registry's CRUD list) ·
+// marketplace (search + install). Extracted from the pre-merge AgentSkillsSection.TabsBar
+// (skill registry has only one entry point, see SkillsSection header comment / rot-D1).
+// testid uses `skills-tab-*` (the agent-skills set retires along with the merge).
 
 'use client';
 

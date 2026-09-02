@@ -1,12 +1,16 @@
-// code_waypoints.go —— ghost-steering 目的地的 **per-code 覆盖层**（mirrors role_joins.go 的
-// role_waypoints 三面：Set / hydrate）。
+// code_waypoints.go —— the **per-code override layer** for ghost-steering destinations
+// (mirrors role_joins.go's role_waypoints trio: Set / hydrate).
 //
-// role 是「这个受众」的目的地，code 是「这一次邀约」的：一张招聘码想给通用 role 加一个只属于
-// 本次的目的地、或把某条 weight 调高，不该被迫复制整份清单。合并语义在 MergeWaypoints
-// （同 waypoint_id → code 覆盖，新 id → 追加），授权过滤仍由冻结那刻的
-// FilterWaypointsByCorpus 统一执行 —— code 覆盖不能松掉授权下限。
+// A role's destinations belong to "this audience"; a code's belong to "this one
+// invitation": a recruiting code wants to add one destination that's only for this
+// occasion, or bump one weight, on top of a generic role — without being forced to
+// duplicate the whole list. The merge semantics live in MergeWaypoints (same
+// waypoint_id → code overrides, new id → appended); authorization filtering is still
+// enforced uniformly by FilterWaypointsByCorpus at freeze time — a code override can
+// never loosen the authorization floor.
 //
-// 这里只存/读 **覆盖层本身**（不含继承来的 role 的）；合并发生在 snapshot 装配。
+// This file only stores/reads the **override layer itself** (not the inherited role's
+// entries); the merge happens at snapshot assembly.
 
 package repo
 
@@ -22,7 +26,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// SetWaypoints —— clear + 逐条 insert code_waypoints（空 slice = 清空覆盖层 → 完全继承 role）。
+// SetWaypoints —— clear + insert code_waypoints one row at a time (empty slice
+// = clears the override layer → fully inherits the role).
 func (r *CodeRepo) SetWaypoints(
 	ctx context.Context, codeID string, waypoints []entity.Waypoint,
 ) error {
@@ -58,7 +63,8 @@ func attachCodeWaypoint(
 	return nil
 }
 
-// Waypoints —— 读一张 code 的覆盖层。没配 → 空 slice（caller 合并时等于完全继承 role）。
+// Waypoints —— reads one code's override layer. Unconfigured → empty slice
+// (equals fully inheriting the role once the caller merges it).
 func (r *CodeRepo) Waypoints(ctx context.Context, codeID string) ([]entity.Waypoint, error) {
 	codeUUID, perr := pgstore.ParseUUID(codeID)
 	if perr != nil {
@@ -67,7 +73,8 @@ func (r *CodeRepo) Waypoints(ctx context.Context, codeID string) ([]entity.Waypo
 	return hydrateCodeWaypoints(ctx, db.New(r.pool), codeUUID)
 }
 
-// hydrateCodeWaypoints —— 读 code_waypoints → domain（行映射共用 waypointsFromRows）。
+// hydrateCodeWaypoints —— reads code_waypoints → domain (row mapping shares
+// waypointsFromRows).
 func hydrateCodeWaypoints(
 	ctx context.Context, q *db.Queries, codeID pgtype.UUID,
 ) ([]entity.Waypoint, error) {

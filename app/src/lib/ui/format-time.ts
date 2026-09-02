@@ -1,24 +1,29 @@
-// format-time —— 这个产品**只有**这三种时间写法，全部住在这里。
+// format-time —— this product has **only** these three time formats, and they all live here.
 //
-// 为什么这个模块存在（UX-46）：owner 一次会话经过的三个面上出现了三种写法 ——
-// transcript 模态 `8/8/2026, 10:16:07 AM`（美式 locale + 秒 + AM/PM）、dashboard 的
-// 「最近来访」`2026-08-07T01:09:14Z`（ISO + Z，那是给机器看的）、同页标题 `last refresh · now`
-// （相对）。这是 [[vocabulary-must-not-diverge]] 的视觉版：一个概念一种写法。
+// Why this module exists (UX-46): across three surfaces in one owner session, three different
+// formats showed up — the transcript modal's `8/8/2026, 10:16:07 AM` (US locale + seconds +
+// AM/PM), the dashboard's "last visit" `2026-08-07T01:09:14Z` (ISO + Z, meant for machines), and
+// the same page's title `last refresh · now` (relative). This is the visual counterpart of
+// [[vocabulary-must-not-diverge]]: one concept, one format.
 //
-// 成因跟 UX-47（下拉五种写法）/ UX-59（输入框两种长相）一样 —— **没有这一层**，
-// 于是每个面各自 `toISOString().slice(0,10)` / `toLocaleString()`（前者被复制了四份）。
+// Same root cause as UX-47 (five dropdown styles) / UX-59 (two input-field looks) — **without
+// this layer**, every surface independently reaches for `toISOString().slice(0,10)` /
+// `toLocaleString()` (the former got copy-pasted four times).
 //
-// 三种写法，按**读者要拿它做什么**分：
-//   - `ago()`     —— 列表和卡片里的"多久以前"。扫的时候要的是新鲜度，不是坐标。
-//                    精确值放进 title，鼠标停下来就能看到。
-//   - `stampMinute()` —— 转录、引用、要被贴进别处的场合。分钟够，秒不够用还添乱。
-//   - `stampDay()`    —— 只关心哪一天的行（创建于、更新于）。
+// Three formats, split by **what the reader is using it for**:
+//   - `ago()`         —— "how long ago" in lists and cards. Scanning wants freshness, not a
+//                        coordinate. The exact value goes in the title, visible on hover.
+//   - `stampMinute()` —— transcripts, quotes, anything meant to be pasted elsewhere. Minutes
+//                        are enough; seconds add noise without adding use.
+//   - `stampDay()`    —— rows that only care which day (created on, updated on).
 //
-// 全部按**本地时区**渲染：读它的是 owner，不是机器。`toISOString()` 是 UTC，
-// 在东八区会把当地的凌晨算成前一天 —— 那是原来那四份复制品共同带的 bug。
+// All rendered in the **local timezone**: the reader is the owner, not a machine. `toISOString()`
+// is UTC, which in UTC+8 turns a local early-morning timestamp into the previous day — that was
+// the bug shared by all four of the original copy-pasted call sites.
 //
-// 坏输入原样返回：一个显示函数不该把 owner 的数据吞掉（[[display-fallback-reintroduces-the-bug]]
-// 说的是反面 —— 这里返回原串是让坏数据**可见**，不是拿它冒充好数据）。
+// Bad input is returned unchanged: a display function shouldn't swallow the owner's data
+// ([[display-fallback-reintroduces-the-bug]] is about the opposite failure — here, returning the
+// raw string keeps bad data **visible**, instead of passing it off as good data).
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -34,27 +39,27 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-/** stampDay —— `2026-08-08`。本地时区的那一天。 */
+/** stampDay —— `2026-08-08`. The day, in the local timezone. */
 export function stampDay(iso: string): string {
   const d = parse(iso);
   return d ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` : iso;
 }
 
-/** stampMinute —— `2026-08-08 10:16`。要被引用/贴走的场合用这个。 */
+/** stampMinute —— `2026-08-08 10:16`. Use this where the value gets quoted or pasted elsewhere. */
 export function stampMinute(iso: string): string {
   const d = parse(iso);
   return d ? `${stampDay(iso)} ${pad(d.getHours())}:${pad(d.getMinutes())}` : iso;
 }
 
 /**
- * ago —— `just now` / `12m ago` / `3h ago` / `2d ago`，超过一周退回 `stampDay`。
- * `now` 只为可测性存在；调用点不传。
+ * ago —— `just now` / `12m ago` / `3h ago` / `2d ago`, falling back to `stampDay` past a week.
+ * `now` exists only for testability; call sites don't pass it.
  */
 export function ago(iso: string, now: number = Date.now()): string {
   const d = parse(iso);
   if (!d) return iso;
   const delta = now - d.getTime();
-  if (delta < 0) return stampMinute(iso);          // 未来时间：相对说法读不通
+  if (delta < 0) return stampMinute(iso);          // future timestamp: a relative phrasing wouldn't read right
   if (delta < MINUTE) return 'just now';
   if (delta < HOUR) return `${Math.floor(delta / MINUTE)}m ago`;
   if (delta < DAY) return `${Math.floor(delta / HOUR)}h ago`;

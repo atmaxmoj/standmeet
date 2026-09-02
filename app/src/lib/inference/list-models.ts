@@ -1,15 +1,18 @@
-// list-models.ts —— POST /api/v1/inference/models 客户端封装。
+// list-models.ts —— client wrapper for POST /api/v1/inference/models.
 //
-// "Load models" button 调用入口：UI 选 provider + 填 endpoint + key 之后
-// 点 button，server 端 proxy 上游 OpenAI-compat /v1/models 拉真实可用列表，
-// UI 把 input 换成 dropdown。**无 auth**：调用方必须知道 (endpoint, key)
-// 才能调，server 只是 proxy，不持有任何风险态。
+// Entry point for the "Load models" button: UI picks a provider + fills in
+// endpoint + key, then clicks the button; the server proxies the upstream
+// OpenAI-compat /v1/models to pull the real available list, and the UI
+// swaps the input for a dropdown. **No auth**: the caller must know
+// (endpoint, key) to call it — the server is just a proxy and holds no
+// risky state.
 //
-// 错误处理：HTTP 4xx/5xx → throw Error with server's message。典型场景：
-//   - Anthropic 没暴露 /v1/models → "list models: provider does not expose
-//     a model list; type model id manually"
-//   - 上游 401/403 → "list models: upstream 401: ..."
-// 调用方拿 error.message 直接 toast。
+// Error handling: HTTP 4xx/5xx → throw Error with server's message. Typical
+// scenarios:
+//   - Anthropic doesn't expose /v1/models → "list models: provider does not
+//     expose a model list; type model id manually"
+//   - upstream 401/403 → "list models: upstream 401: ..."
+// The caller takes error.message and toasts it directly.
 
 import { z } from 'zod';
 
@@ -27,11 +30,14 @@ export interface ListModelsInput {
 const ListModelsResponseSchema = z.object({ models: z.array(z.string()) });
 const ErrorEnvelopeSchema = z.object({ error: z.object({ message: z.string().optional() }).optional() });
 
-// listOwnerModels —— owner 那一面：**不发 key**。
+// listOwnerModels —— the owner's side: **sends no key**.
 //
-// 他的 key 存在服务端、页面永远读不回来，所以以前这颗按钮发出去的是一个空 key，后端
-// `key required` 400，屏幕上什么都没有 —— 保存过一次之后就再也点不动了（F-R-11）。
-// 这条走 owner 自己那条带 auth 的路，服务端拿库里存的那把去问上游。
+// The owner's key lives on the server and the page never reads it back, so
+// this button used to send an empty key, the backend returned `key
+// required` 400, and nothing showed up on screen — once saved once, the
+// button was never clickable again (F-R-11). This path uses the owner's own
+// authenticated route instead: the server takes the key it has stored and
+// asks upstream with it.
 export async function listOwnerModels(): Promise<string[]> {
   const body = await adminAPI.post('/providers/models', {}, ListModelsResponseSchema);
   return body.models;

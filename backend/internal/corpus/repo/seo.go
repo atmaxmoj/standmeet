@@ -1,11 +1,11 @@
-// seo.go —— wiki/output landing 反查 + seo_settings 读写 + path 字段 patch。
+// seo.go — wiki/output landing-page lookups + seo_settings read/write + path field patches.
 //
-// GetWikiByPath / GetOutputByPath: 给访客 (/<handle>/wiki/<path>) 解析；
-//   只放 published=true 的（公开 landing 是 crawler 友好可见面，准入靠
-//   retrieval ACL 走另一条路）。
-// ListIndexedPaths: 给 /sitemap.xml 用。
-// SEOSettings.Get/Upsert: owner 自己的全局开关。
-// UpdateWikiPath / UpdateOutputPath: 给 admin / MCP 改 path + SEO 描述 + indexed。
+// GetWikiByPath / GetOutputByPath: resolve for a visitor (/<handle>/wiki/<path>); only
+//   published=true entries are exposed (the public landing page is the crawler-visible
+//   surface — admission for the retrieval path is governed separately by the retrieval ACL).
+// ListIndexedPaths: used by /sitemap.xml.
+// SEOSettings.Get/Upsert: the owner's own global toggles.
+// UpdateWikiPath / UpdateOutputPath: for admin / MCP to change path + SEO description + indexed.
 
 package repo
 
@@ -23,19 +23,20 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// SEORepo —— seo_settings + wiki/output landing 查询。
+// SEORepo — seo_settings queries plus wiki/output landing-page lookups.
 type SEORepo struct {
 	pool *pgstore.Pool
 }
 
-// NewSEORepo 构造。
+// NewSEORepo constructs one.
 func NewSEORepo(pool *pgstore.Pool) *SEORepo { return &SEORepo{pool: pool} }
 
-// 公开 landing 反查 + sitemap 列表已移到 usecases/seo.go：地址纯树派生
-// (load 全树 → WikiTreePaths/OutputTreePaths),不再读已退役的 path 列。
-// SEORepo 只剩 seo_settings 读写 + path 列 patch（patch 增量 3 随列一起退）。
+// The public landing-page lookups and the sitemap listing moved to usecases/seo.go: the
+// address is now purely tree-derived (load the full tree → WikiTreePaths/OutputTreePaths)
+// and no longer reads the now-retired path column. SEORepo now only handles seo_settings
+// read/write plus the path-column patch (patch increment 3 retires with the column).
 
-// GetSettings —— singleton-per-owner；不存在返默认（IndexRobots=true）。
+// GetSettings — one row per owner; returns the default (IndexRobots=true) when missing.
 func (r *SEORepo) GetSettings(
 	ctx context.Context, ownerID string,
 ) (entity.SEOSettings, error) {
@@ -54,7 +55,7 @@ func (r *SEORepo) GetSettings(
 	return toDomainSEOSettings(&row)
 }
 
-// UpsertSettings —— admin PUT /api/admin/seo 落地。
+// UpsertSettings — the write path behind admin PUT /api/admin/seo.
 func (r *SEORepo) UpsertSettings(
 	ctx context.Context, in *entity.SEOSettings,
 ) (entity.SEOSettings, error) {
@@ -80,8 +81,9 @@ func (r *SEORepo) UpsertSettings(
 	return toDomainSEOSettings(&row)
 }
 
-// UpdateWikiSEO —— 给 admin / MCP 改 SEO 描述 + indexed 开关。地址树派生,
-// owner 不再自设 path,所以没有 path 冲突(ErrPathTaken)这回事。
+// UpdateWikiSEO — for admin / MCP to change the SEO description + indexed toggle. The
+// address is tree-derived; the owner no longer sets path directly, so there's no such
+// thing as a path conflict (ErrPathTaken) anymore.
 func (r *SEORepo) UpdateWikiSEO(
 	ctx context.Context, ownerID, wikiID, description string, indexed bool,
 ) (entity.Wiki, error) {
@@ -105,7 +107,7 @@ func (r *SEORepo) UpdateWikiSEO(
 	return toDomainWiki(&row), nil
 }
 
-// UpdateOutputSEO —— 跟 UpdateWikiSEO 同套路。
+// UpdateOutputSEO — follows the same pattern as UpdateWikiSEO.
 func (r *SEORepo) UpdateOutputSEO(
 	ctx context.Context, ownerID, outputID, description string, indexed bool,
 ) (entity.Output, error) {
@@ -156,15 +158,16 @@ func toDomainSEOSettings(row *db.SeoSetting) (entity.SEOSettings, error) {
 	}, nil
 }
 
-// PublishedCounts —— 各 tier 已公开条目数（SEO indexing stats 用）。
+// PublishedCounts — the published-entry count per tier (used by SEO indexing stats).
 type PublishedCounts struct {
 	Wiki     int64
 	Outputs  int64
 	Writings int64
 }
 
-// CountPublished —— owner 各 tier 的 published 条目数。SEO 面 stats 直接读，
-// scope（选哪些 tier / 求和）交给调用方（owner 在 UI 选，默认全含）。
+// CountPublished — the owner's published-entry count per tier. Read directly by the SEO
+// panel's stats; scope (which tiers to select / sum) is left to the caller (the owner
+// picks in the UI, defaulting to all tiers included).
 func (r *SEORepo) CountPublished(ctx context.Context, ownerID string) (PublishedCounts, error) {
 	pgID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {

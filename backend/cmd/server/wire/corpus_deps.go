@@ -1,7 +1,9 @@
-// corpus_deps.go —— corpus 域的依赖包,组装根这边只建一次。
+// corpus_deps.go — the corpus domain's deps struct, built once on the assembly root side.
 //
-// 它以前在三处各拼一份(owner-MCP 的 deps、admin 的 deps、收口的适配器),字段一多就会
-// 出现"这份少接了一个 repo"的差别 —— 那种差别编译不报,只在运行时表现成某个功能悄悄不工作。
+// It used to be assembled separately in three places (owner-MCP's deps, admin's deps, the
+// dispatcher's adapter); as the fields grew, "this copy is missing a repo" discrepancies would
+// creep in — a discrepancy that doesn't fail to compile, only shows up at runtime as some
+// feature quietly not working.
 
 package wire
 
@@ -14,7 +16,7 @@ func corpusDepsOf(d *deps.Runtime) corpus.Deps {
 	return corpus.Deps{
 		Raw: d.RawRepo, Wiki: d.WikiRepo, Output: d.OutputRepo, NoteRefs: d.NoteRefRepo,
 		Subjectivity: d.SubjectivityRepo, Index: d.CorpusIndexer,
-		// 素材:任意 genre 的一条语料都能挂图 / 附件 / hero。
+		// Media: an entry of any genre can carry images / attachments / a hero image.
 		Media: &corpus.NoteAssetsDeps{
 			Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
 			Hero:   d.NoteHeroRepo,

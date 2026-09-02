@@ -1,23 +1,32 @@
-// corpus_index_tooldesc.go —— 语料检索工具**给 agent 读的那句话**。
+// corpus_index_tooldesc.go —— **the sentence the agent reads** for the corpus search tool.
 //
-// 从 corpus_index_socket.go 拆出来:那边是接线(谁跑、叫什么、参数怎么解),这边是**选择依据**。
-// agent 是在读说明的那一刻决定用哪条检索路的,所以这句话的措辞跟运行时行为一样是产品的一部分,
-// 不是注释。分开放,改说明时不必碰接线,改接线时也不会顺手把说明改短。
+// Split out of corpus_index_socket.go: that file is the wiring (who runs, what it's
+// called, how the params parse), this file is the **basis for choosing**. The agent
+// decides which retrieval path to use at the moment it reads this description, so the
+// wording is as much a part of the product as runtime behavior is — not a comment. Kept
+// separate so editing the description never touches the wiring, and editing the wiring
+// never accidentally shortens the description.
 
 package usecase
 
-// searchToolDesc —— corpus_search 的说明。**必须写明它会漏**(F-S-2)。
+// searchToolDesc —— the description of corpus_search. **Must say up front that it can
+// miss** (F-S-2).
 //
-// 这是一条词法索引:命中与否取决于分词器,而分词器切不动的东西(词中子串、紧贴标点、CJK 双字)
-// 会直接查不到 —— 空结果因此**不等于**语料里没有这个主题。真实证据:`递归收敛` 在一份带整段
-// 中文的语料上返回 `[]`,同一轮的英文查询却拿回 7883 字节,而 agent 不知道该换路,那半个问题
-// 就静默地没被回答。
+// This is a lexical index: whether something hits depends on the tokenizer, and anything
+// the tokenizer can't cut (a substring inside a word, a term glued to punctuation, a CJK
+// bigram) simply won't be found — an empty result therefore does **not** mean the topic
+// is absent from the corpus. Real evidence: `递归收敛` returned `[]` against a corpus
+// containing a full Chinese passage, while an English query in the same turn got back
+// 7883 bytes, and the agent had no way to know it should switch paths — half the question
+// went silently unanswered.
 //
-// 名字要出现在这句话里:corpus_grep 是为这个建的第二条路(never-miss)。
-// **提示只能挂在这里**:空数组那条 wire 被 `tool-endpoint-corpus.spec.ts:146` 钉死
-// (scope 里没东西必须回 `[]`),而那条约束有正当理由 —— 于是"scope 里没有"和"分词器表示不了"
-// 这两种空今天挤在同一个值上,分不开。分开它们要给检索工具加第二条「为什么空」的通道,
-// 那是产品决策,记在 F-S-2。
+// The name needs to appear in this sentence: corpus_grep is the second path (never-miss)
+// built for exactly this. **The hint can only live here**: the "empty scope must return
+// `[]`" wire is pinned down by `tool-endpoint-corpus.spec.ts:146`, and that constraint is
+// legitimate — so today "nothing in scope" and "the tokenizer can't represent it" are
+// squeezed into the same value and can't be told apart. Separating them means giving the
+// search tool a second "why is it empty" channel, which is a product decision, tracked
+// under F-S-2.
 const searchToolDesc = "Search the corpus under this session's ACL scope. This is a lexical " +
 	"index, so a hit depends on how the text was tokenized: substrings inside a word, terms " +
 	"glued to punctuation, and CJK bigrams can all miss. An empty result therefore does NOT " +

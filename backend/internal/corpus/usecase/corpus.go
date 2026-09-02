@@ -1,6 +1,6 @@
-// corpus.go —— raw / wiki use cases。
-// 当前实现 RawDump + PromoteToWiki + List。其余 (UploadMedia / SetTags 等)
-// 等真用到再加。
+// corpus.go — raw / wiki use cases.
+// Currently implements RawDump + PromoteToWiki + List. The rest (UploadMedia /
+// SetTags, etc.) get added only when actually needed.
 
 package usecase
 
@@ -14,25 +14,29 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// Deps —— raw + wiki + output + path 操作需要的 repo 集合。
+// Deps — the set of repos that raw + wiki + output + path operations need.
 type Deps struct {
 	Raw          *repo.RawRepo
 	Wiki         *repo.WikiRepo
 	Output       *repo.OutputRepo
 	NoteRefs     *repo.NoteRefRepo
 	Subjectivity *repo.NoteRepo
-	VaultSync    *repo.VaultSyncRepo // Obsidian vault sync: 跨-genre reconcile(仅 admin 侧装配)
-	Index        Indexer             // Meili 索引传播;nil = 未配 Meili,写路径不索引(best-effort)
-	// Media —— 一条语料身上的素材(图 / 附件 / hero)。**任意 genre 都能有** ——
-	// 底下的 assets 表按 holder_id 挂,没有 genre 列,一直是通用的;缺的只是接线。
+	// VaultSync — Obsidian vault sync: cross-genre reconcile (admin-side wiring only).
+	VaultSync *repo.VaultSyncRepo
+	// Index — Meili index propagation; nil = Meili not configured, write path
+	// skips indexing (best-effort).
+	Index Indexer
+	// Media — the assets (images / attachments / hero) attached to a piece of corpus content.
+	// **Any genre can have them** — the underlying assets table keys off holder_id, has no
+	// genre column, and has always been generic; the only thing missing is the wiring.
 	Media *NoteAssetsDeps
 }
 
-// HasMedia —— 这次装配接了素材没有。没接(某些只读路径)→ 读写素材的那几步跳过,
-// 而不是空指针。
+// HasMedia — whether this wiring has media plugged in. If not (some read-only
+// paths), the steps that read/write media are skipped instead of nil-panicking.
 func (d Deps) HasMedia() bool { return d.Media.ready() }
 
-// RawDumpInput 是 raw_dump 入参。
+// RawDumpInput is the raw_dump input.
 type RawDumpInput struct {
 	OwnerID        string
 	Body           string
@@ -41,7 +45,8 @@ type RawDumpInput struct {
 	FlaggedPrivate bool
 }
 
-// RawDump 写一条新 raw_entries。MCP 工具调它；source label 由 owner 的 AI 客户端给。
+// RawDump writes a new raw_entries row. Called by the MCP tool; the source
+// label comes from the owner's AI client.
 func RawDump(ctx context.Context, deps Deps, in *RawDumpInput) (entity.Raw, error) {
 	if in.OwnerID == "" || in.Body == "" {
 		return entity.Raw{}, apierr.ErrEmptyField
@@ -63,23 +68,25 @@ func RawDump(ctx context.Context, deps Deps, in *RawDumpInput) (entity.Raw, erro
 	return raw, nil
 }
 
-// PromoteInput 是 promote_to_wiki 入参。
+// PromoteInput is the promote_to_wiki input.
 //
-// path / show_as_source 不在这层 —— MCP 工具层接 path 后调 PromoteToWiki
-// 再单独调 SEORepo.UpdateWikiSEO / WikiRepo.Update 设置（多步写各自原子）。
+// path / show_as_source live outside this layer — the MCP tool layer takes
+// path, calls PromoteToWiki, then separately calls SEORepo.UpdateWikiSEO /
+// WikiRepo.Update to set it (each multi-step write stays its own atomic unit).
 type PromoteInput struct {
 	OwnerID  string
 	RawID    string
 	Title    string
 	ParentID *string
-	// ShowAsSource —— nil = 可引用(默认)。提升出来的条目默认就是能被引用的来源;
-	// 藏(meta/persona 那类)必须由调用方明确要求。
+	// ShowAsSource — nil = citable (default). A promoted entry is citable by
+	// default; hiding it (the meta/persona kind) must be an explicit caller request.
 	ShowAsSource *bool
 	Tags         []string
 }
 
-// PromoteToWiki 把指定 raw 提升为新 wiki entry：读原 raw → create wiki
-// 携带 raw_id 反链 → mark raw promoted_to。
+// PromoteToWiki promotes the given raw entry into a new wiki entry: read the
+// original raw → create the wiki entry carrying a raw_id back-link → mark the
+// raw as promoted_to.
 func PromoteToWiki(
 	ctx context.Context, deps Deps, in *PromoteInput,
 ) (entity.Wiki, error) {
@@ -109,7 +116,8 @@ func PromoteToWiki(
 	return wiki, nil
 }
 
-// promoteFinish —— finishPromote 入参打包(避免 argument-limit 超 5)。
+// promoteFinish — bundles finishPromote's input (keeps the argument count under
+// the argument-limit of 5).
 type promoteFinish struct {
 	OwnerID string
 	RawID   string
@@ -117,8 +125,10 @@ type promoteFinish struct {
 	Body    string
 }
 
-// finishPromote —— mark raw promoted + 重建这条 wiki 的 [[X]] 出度边。body 用
-// raw.Body()(Create 返回的 wiki 不一定回填 body)。合一处让 PromoteToWiki cyclo 不超标。
+// finishPromote — marks the raw as promoted, then rebuilds this wiki entry's
+// [[X]] outgoing edges. Uses raw.Body() (the wiki entry Create returns doesn't
+// necessarily have body filled back in). Kept in one place so PromoteToWiki's
+// cyclomatic complexity stays within budget.
 func finishPromote(ctx context.Context, deps Deps, f promoteFinish) error {
 	if perr := deps.Raw.MarkPromoted(ctx, f.OwnerID, f.RawID, f.WikiID); perr != nil {
 		return fmt.Errorf("mark promoted: %w", perr)
@@ -130,8 +140,9 @@ func finishPromote(ctx context.Context, deps Deps, f promoteFinish) error {
 	return nil
 }
 
-// preflightPromote —— promote 前的三道关:必填字段 + parent 合法 + 同 slug 兄弟
-// 不撞。合在一处让 PromoteToWiki 的 cyclo 不超标。
+// preflightPromote — the three gates before a promote: required fields present,
+// parent valid, and no sibling-slug collision. Kept in one place so
+// PromoteToWiki's cyclomatic complexity stays within budget.
 func preflightPromote(ctx context.Context, deps Deps, in *PromoteInput) error {
 	if err := validatePromoteInput(in); err != nil {
 		return err
@@ -144,12 +155,14 @@ func preflightPromote(ctx context.Context, deps Deps, in *PromoteInput) error {
 	})
 }
 
-// siblingScanLimit —— 撞名检查扫同一 parent 下的兄弟。一个目录下手工 curate 的
-// 文档不会上千;给个宽上限一次扫完(不翻页),够覆盖任何现实树。
+// siblingScanLimit — the collision check scans siblings under the same parent.
+// A hand-curated directory won't hold thousands of documents; a generous cap
+// lets us scan them all in one pass (no pagination), enough for any real tree.
 const siblingScanLimit = 10_000
 
-// siblingSlugCheck —— ensureSiblingSlugFree 入参打包(避免 argument-limit 超 5)。
-// ExcludeID 给 update 自查用:改名成自己当前的 slug 不算撞,空表示纯新建。
+// siblingSlugCheck — bundles ensureSiblingSlugFree's input (keeps the argument
+// count under the argument-limit of 5). ExcludeID is for update's self-check:
+// renaming to your own current slug isn't a collision; empty means a pure create.
 type siblingSlugCheck struct {
 	OwnerID   string
 	ParentID  *string
@@ -157,10 +170,12 @@ type siblingSlugCheck struct {
 	ExcludeID string
 }
 
-// ensureSiblingSlugFree —— Obsidian 语义的写时撞名防护:同一 parent(含 root)下
-// 不允许两条 title slug 相同的兄弟,否则地址 path 不再 1↔1。slug 不入库(树派生),
-// 没法在 SQL 里按 slug 查 → 取该 parent 的兄弟在 Go 里比 PathSegment。撞 →
-// ErrSiblingSlugTaken。
+// ensureSiblingSlugFree — Obsidian-semantics write-time collision guard: under
+// the same parent (root included), two siblings can't share a title slug, or
+// the address path stops being 1:1. The slug isn't stored (it's tree-derived),
+// so it can't be queried by slug in SQL — instead we pull that parent's
+// siblings and compare PathSegment in Go. A collision returns
+// ErrSiblingSlugTaken.
 func ensureSiblingSlugFree(ctx context.Context, deps Deps, c siblingSlugCheck) error {
 	slug := PathSegment(c.Title)
 	sibs, err := deps.Wiki.ListChildren(ctx, c.OwnerID, c.ParentID, siblingScanLimit, 0)
@@ -185,9 +200,11 @@ func validatePromoteInput(in *PromoteInput) error {
 	return nil
 }
 
-// validateWikiParent —— parent_id 给了就必须是本 owner 的 wiki(FK 只保证 id
-// 存在于 corpus_notes,不管 owner;跨 owner 父会绕过)。找不到 → ErrParentNotFound,
-// 不允许挂无效父落孤儿。空 parent(root)放行。
+// validateWikiParent — if parent_id is given it must be a wiki entry owned by
+// this owner (the FK only guarantees the id exists in corpus_notes, not that it
+// belongs to this owner; a cross-owner parent would slip through). Not found →
+// ErrParentNotFound; an invalid parent must never be allowed to orphan the
+// entry. An empty parent (root) is allowed through.
 func validateWikiParent(
 	ctx context.Context, deps Deps, ownerID string, parentID *string,
 ) error {
@@ -203,8 +220,9 @@ func validateWikiParent(
 	return nil
 }
 
-// validateWikiReparent —— UpdateWiki 改 parent 用:存在性 + 同 owner
-// (validateWikiParent)+ 防环(不能把 nodeID 挂到自己或自己的子孙下)。
+// validateWikiReparent — used by UpdateWiki when changing parent: existence +
+// same-owner (validateWikiParent) + cycle guard (nodeID can't be attached under
+// itself or its own descendants).
 func validateWikiReparent(
 	ctx context.Context, deps Deps, ownerID, nodeID string, parentID *string,
 ) error {
@@ -217,8 +235,9 @@ func validateWikiReparent(
 	return checkNoParentCycle(ctx, deps, ownerID, nodeID, *parentID)
 }
 
-// checkNoParentCycle —— 从拟定 parent 沿 parent 链上溯到根,路上撞到 nodeID 就
-// 是环(把节点挂到了自己 / 自己的子孙下)→ ErrParentCycle。
+// checkNoParentCycle — walks up the parent chain from the proposed parent to
+// the root; hitting nodeID along the way means a cycle (the node would be
+// attached under itself / its own descendants) → ErrParentCycle.
 func checkNoParentCycle(
 	ctx context.Context, deps Deps, ownerID, nodeID, parentID string,
 ) error {
@@ -253,7 +272,8 @@ func loadRawForPromote(
 	return raw, nil
 }
 
-// mergeTags 把 raw.tags 和 promote 时指定的 extra tags 合并去重（顺序保留）。
+// mergeTags merges raw.tags with the extra tags given at promote time,
+// deduplicating while preserving order.
 func mergeTags(a, b []string) []string {
 	seen := make(map[string]bool, len(a)+len(b))
 	out := make([]string, 0, len(a)+len(b))

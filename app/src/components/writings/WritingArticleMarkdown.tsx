@@ -1,13 +1,16 @@
-// WritingArticleMarkdown —— react-markdown 的 component override 集合。
-// 从 WritingArticle 拆出来守 350-line cap。所有样式落在
-// WritingArticleMarkdown.module.css —— 这个文件只组装 element + 处理 inline /
-// fence code 分流 + 外链 rel 注入，不再 carry typography 数字。
+// WritingArticleMarkdown —— the react-markdown component override set.
+// Split out of WritingArticle to stay under the 350-line cap. All styling
+// lives in WritingArticleMarkdown.module.css — this file only assembles
+// elements + routes inline vs. fence code + injects external-link rel,
+// and no longer carries typography numbers.
 //
-// markdown body 整体挂 styles.body class（caller 由 WritingArticle 提供）；
-// 描述性 selectors `.body h1` / `.body p` 等接管字体 / 间距。
+// The markdown body gets the styles.body class as a whole (the caller,
+// WritingArticle, supplies it); descriptive selectors like `.body h1` /
+// `.body p` take over font / spacing from there.
 //
-// I.2: ```` ```mermaid ```` fence → lazy MermaidBlock (跟 chat 渲染同套)；
-// math 走 remarkMath + rehypeKatex (在 WritingArticle 加 plugin)。
+// I.2: a ```` ```mermaid ```` fence → lazy MermaidBlock (same set used by
+// chat rendering); math goes through remarkMath + rehypeKatex (plugin added
+// in WritingArticle).
 
 'use client';
 
@@ -23,11 +26,12 @@ const MermaidBlock = lazy(async () => {
 
 export { styles as markdownStyles };
 
-// markdownComponents —— 喂给 <Markdown components={...}>。WritingArticle 在调
-// react-markdown 前已把 `standmeet-asset:<id>` URI expand 成 https presigned
-// URL（react-markdown 默认 urlTransform 会 strip 非标准 scheme）。这里只关
-// 心 element 形态，不关心 src 解析；样式都由 module CSS descendant 规则接管。
-// XSS 默认安全（react-markdown 默认 escape raw HTML）。
+// markdownComponents —— fed to <Markdown components={...}>. WritingArticle
+// already expands `standmeet-asset:<id>` URIs to https presigned URLs before
+// calling react-markdown (react-markdown's default urlTransform strips
+// non-standard schemes). This file only cares about element shape, not src
+// resolution; all styling is taken over by module CSS descendant rules.
+// XSS-safe by default (react-markdown escapes raw HTML by default).
 export const markdownComponents = {
   table: Table,
   code: CodeInlineOrBlock,
@@ -37,10 +41,11 @@ export const markdownComponents = {
 
 interface CodeProps { className?: string; children?: ReactNode }
 
-// CodeInlineOrBlock —— react-markdown 给 `inline code` 和 ```fence``` 都用
-// <code>；带 language-* className = fence 上下文，需要保留好让 syntax
-// highlighter 之类未来工具能识别。
-// I.2: language-mermaid 走 lazy MermaidBlock，渲 SVG。
+// CodeInlineOrBlock —— react-markdown uses <code> for both `inline code`
+// and ```fence``` blocks; a language-* className means fence context, and
+// needs to be preserved so a future tool like a syntax highlighter can
+// recognize it.
+// I.2: language-mermaid goes through lazy MermaidBlock, rendering SVG.
 function CodeInlineOrBlock({ className, children }: CodeProps) {
   const cls = className ?? '';
   return isMermaidCode(cls)
@@ -69,7 +74,8 @@ function isFenceClass(className?: string): boolean {
 
 interface AnchorProps { href?: string; children?: ReactNode }
 
-// Anchor —— 外链强制 noopener noreferrer + target=_blank；内链不动。
+// Anchor —— external links force noopener noreferrer + target=_blank;
+// internal links are left untouched.
 function Anchor({ href, children }: AnchorProps) {
   const isExternal = !!href && /^https?:\/\//i.test(href);
   return (
@@ -88,8 +94,9 @@ function Img({ src, alt }: ImgProps) {
   return <img src={typeof src === 'string' ? src : undefined} alt={alt ?? ''} />;
 }
 
-// Table —— 包一层 .tableWrap 给宽表横向滚（mobile），内层 <table> 走
-// module CSS 的 .body table descendant selector。
+// Table —— wraps a .tableWrap around it so wide tables can scroll
+// horizontally (mobile); the inner <table> goes through the module CSS's
+// .body table descendant selector.
 function Table({ children }: { children?: ReactNode }) {
   return (
     <div className={styles.tableWrap}>

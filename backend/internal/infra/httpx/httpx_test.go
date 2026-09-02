@@ -13,7 +13,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 )
 
-// stubRT —— 可编程 base RoundTripper:按 responses 序列返回,记录尝试次数与最后请求体。
+// stubRT —— a programmable base RoundTripper: returns per the responses sequence, records
+// attempt count and the last request body.
 type stubRT struct {
 	lastBody  string
 	responses []stubResp
@@ -22,7 +23,8 @@ type stubRT struct {
 
 type stubResp struct {
 	err error
-	// retryAfter —— 非空则作为 `Retry-After` 头随这条响应发出(provider 说「等这么久再来」)。
+	// retryAfter —— when non-empty, sent as the `Retry-After` header on this response (the
+	// provider saying "come back after this long").
 	retryAfter string
 	status     int
 }
@@ -49,7 +51,8 @@ func (s *stubRT) RoundTrip(req *http.Request) (*http.Response, error) {
 	}, nil
 }
 
-// fastClient —— 极小退避,让重试测试不空等;经 NewClient 走完整公共表面。
+// fastClient —— a tiny backoff so retry tests don't idle; goes through NewClient's full
+// public surface.
 func fastClient(
 	base http.RoundTripper, onRetry func(context.Context, httpx.RetryInfo),
 ) *http.Client {
@@ -71,7 +74,8 @@ func newReq(t *testing.T, method, body string) *http.Request {
 	return req
 }
 
-// run —— 打一次请求,成功则 drain+close body(带错误检查)返状态码,否则返 error。
+// run —— fire one request; on success drain+close the body (with error checking) and return
+// the status code, otherwise return the error.
 func run(t *testing.T, c *http.Client, method, body string) (int, error) {
 	t.Helper()
 	resp, err := c.Do(newReq(t, method, body))

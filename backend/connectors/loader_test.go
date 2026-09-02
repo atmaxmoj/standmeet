@@ -1,5 +1,7 @@
-// loader_test.go —— 后端内部 UT：内置连接器数据拉起时真能 Load + 装配（不出服务边界，
-// 不打网络——只验 manifest 自洽 + AssembleOpenAPI 成功）。证明「外置成数据、拉起时组装」成立。
+// loader_test.go —— backend-internal UT: builtin connector data really does Load +
+// assemble at launch (no service boundary crossed, no network hit — only checks manifest
+// self-consistency + AssembleOpenAPI succeeding). Proves "externalized into data, assembled
+// at launch" holds.
 
 package connectors_test
 

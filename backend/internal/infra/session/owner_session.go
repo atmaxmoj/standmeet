@@ -1,9 +1,10 @@
-// owner_session.go —— owner login 后的 Redis-backed session。
+// owner_session.go —— Redis-backed session created after owner login.
 //
-// Session token：32 字节随机 base64url，前缀 `sms_`。
-// Redis key：`session:{token}`，value 是 JSON-encoded ownerSessionData。
-// TTL：24h slide（每次访问刷 expires_at + Redis TTL 同步刷）。
-// 撤销：DEL key 即可。
+// Session token: 32 random bytes, base64url, prefix `sms_`.
+// Redis key: `session:{token}`, value is JSON-encoded ownerSessionData.
+// TTL: 24h sliding window (each access refreshes expires_at + Redis TTL
+// together).
+// Revocation: just DEL the key.
 
 package session
 
@@ -27,36 +28,38 @@ const (
 	csrfTokenBytes     = 32
 )
 
-// ErrSessionNotFound —— Redis 里没这个 session（已 expire 或 logout）。
+// ErrSessionNotFound —— this session isn't in Redis (expired or logged out).
 var ErrSessionNotFound = errors.New("session not found")
 
-// OwnerSessionData 是存在 Redis 里的 session payload。
-// 字段顺序按 time.Time / string / string 对齐 fieldalignment。
+// OwnerSessionData is the session payload stored in Redis.
+// Field order is time.Time / string / string to satisfy fieldalignment.
 type OwnerSessionData struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	OwnerID   string    `json:"owner_id"`
 	CSRFToken string    `json:"csrf_token"`
 }
 
-// IssuedSession 把 Issue 返回的 plaintext token + session data 打包，
-// 让函数返回 ≤ 2 个值。
+// IssuedSession bundles the plaintext token + session data that Issue
+// returns, so the function returns at most 2 values.
 type IssuedSession struct {
 	Token string
 	Data  OwnerSessionData
 }
 
-// OwnerSessionStore wrap Redis client 提供 session CRUD。无业务逻辑。
+// OwnerSessionStore wraps a Redis client to provide session CRUD. No
+// business logic.
 type OwnerSessionStore struct {
 	rdb *redis.Client
 }
 
-// NewOwnerSessionStore 构造 store。
+// NewOwnerSessionStore constructs a store.
 func NewOwnerSessionStore(rdb *redis.Client) *OwnerSessionStore {
 	return &OwnerSessionStore{rdb: rdb}
 }
 
-// Issue 颁发一个新 session。返回的 IssuedSession 含 plaintext token（caller
-// 写 cookie）和 SessionData（含 csrf_token，给 GET /csrf 返回）。
+// Issue issues a new session. The returned IssuedSession holds the
+// plaintext token (caller writes it as a cookie) and SessionData
+// (including csrf_token, returned by GET /csrf).
 func (s *OwnerSessionStore) Issue(ctx context.Context, ownerID string) (IssuedSession, error) {
 	token, err := randomToken(ownerTokenBytes, ownerTokenPrefix)
 	if err != nil {
@@ -78,7 +81,8 @@ func (s *OwnerSessionStore) Issue(ctx context.Context, ownerID string) (IssuedSe
 	return IssuedSession{Token: token, Data: data}, nil
 }
 
-// Get 读 session；slide TTL（重置到 24h）。session 不存在返回 ErrSessionNotFound。
+// Get reads the session and slides the TTL (resets to 24h). Returns
+// ErrSessionNotFound if the session doesn't exist.
 func (s *OwnerSessionStore) Get(ctx context.Context, token string) (OwnerSessionData, error) {
 	raw, err := s.rdb.Get(ctx, ownerSessionKeyPfx+token).Bytes()
 	if err != nil {
@@ -98,7 +102,8 @@ func (s *OwnerSessionStore) Get(ctx context.Context, token string) (OwnerSession
 	return data, nil
 }
 
-// Revoke 删 session（logout）。不存在的 token 当成功（idempotent）。
+// Revoke deletes the session (logout). A nonexistent token counts as
+// success (idempotent).
 func (s *OwnerSessionStore) Revoke(ctx context.Context, token string) error {
 	if err := s.rdb.Del(ctx, ownerSessionKeyPfx+token).Err(); err != nil {
 		return fmt.Errorf("redis del session: %w", err)

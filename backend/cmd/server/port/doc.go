@@ -1,7 +1,10 @@
-// Package port —— 组装根**实现某个域声明的窄口**。
+// Package port — the composition root **implements the narrow ports a domain declares**.
 //
-// 域说"我需要这么一件事"(一个接口),这里用手上的具体东西满足它。域因此不必反过来认识
-// owner / inference / redis —— 那种反向依赖会让"谁是底座"这件事失效。
+// A domain says "I need this one thing" (an interface); this package satisfies it with
+// whatever concrete thing is on hand. The domain therefore never needs to know about
+// owner / inference / redis in return — that reverse dependency would break the notion
+// of "who is the foundation".
 //
-// 这里没有业务:每个文件都是"把 A 包成 B",而 A 和 B 都在别处定义。
+// There's no business logic here: every file is "wrap A as B", and both A and B are
+// defined elsewhere.
 package port

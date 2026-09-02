@@ -1,14 +1,15 @@
-// /gate —— 访客没有 code 或想 BYOAI 的入口（v1 单 owner instance）。
+// /gate — entry point for a visitor with no code, or who wants BYOAI (v1 single-owner instance).
 //
-// 视觉对齐 docs/design/project/gate.html：
-//   - TopBar 带 "private" indicator + dark toggle
-//   - Hero: Seal 左 + "This isn't open." 大号 serif headline + code 输入
-//   - WhatsBehind: 3 行 01/02/03 解释这页背后是什么
-//   - BYOAIPanel: 设计稿那种 provider chip + reveal/hide key
-//   - RequestPanel: 折叠的"write a note ↘"，展开后写表单
+// Visually matches docs/design/project/gate.html:
+//   - TopBar with "private" indicator + dark toggle
+//   - Hero: Seal on the left + "This isn't open." large serif headline + code input
+//   - WhatsBehind: 3 lines, 01/02/03, explaining what's behind this page
+//   - BYOAIPanel: the design's provider chip + reveal/hide key
+//   - RequestPanel: collapsed "write a note ↘", expands into a form
 //
-// 业务逻辑（POST /api/v1/sessions / access-requests）走 useGate；这里只装配。
-// owner handle 从 /api/v1/instance SSR fetch 拿（仅用于显示，不影响路由）。
+// Business logic (POST /api/v1/sessions / access-requests) goes through useGate; this file
+// only assembles the page. owner handle comes from an SSR fetch of /api/v1/instance
+// (display only, doesn't affect routing).
 
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiTreeStats, fetchWritingsPage } from '@/lib/api/public';
@@ -16,8 +17,9 @@ import { fetchWikiTreeStats, fetchWritingsPage } from '@/lib/api/public';
 import { GateClient } from '@/app/gate/gate-client';
 
 export default async function GatePage() {
-  // 匿名身份取（不带 token）—— 这两个数说的正是「**没有码**的人能读到多少」，
-  // 而这一页上的人恰好就是没有码的人。带 token 取到的是别人的视角。
+  // Fetch anonymously (no token) — these two numbers say exactly how much a person
+  // **without a code** can read, and that's exactly who's on this page. Fetching with
+  // a token would show someone else's view.
   const [instance, wikiStats, writings] = await Promise.all([
     fetchInstance(), fetchWikiTreeStats(), fetchWritingsPage(),
   ]);

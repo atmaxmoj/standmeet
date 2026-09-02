@@ -1,22 +1,28 @@
-// use-ghost-logger —— H.13.e: visitor 浏览器把 ghost text shown +
-// accept 日志写到 backend，admin 详情页能看每 turn 推了什么、是否被接受。
+// use-ghost-logger —— H.13.e: the visitor browser writes ghost text shown +
+// accept logs to the backend, so the admin detail page can see what was
+// suggested each turn and whether it was accepted.
 //
-// 行为:
-//   - watch useCurrentGhostMeta() — ghost 变了 (初始 seed 触发) → POST
-//     /api/v1/sessions/{conv_id}/ghosts/shown → 拿回 row id 存 store (markShown)。
-//     policy 帧（P4 单条 steering ghost）已在后端 policy 落库、帧带 id，setPolicy 直接
-//     markShown，这里 shownIDs 已有就跳过，不重复落 row。
-//   - acceptCurrent() — Tab 触发；按 store 里最近 shown 的 text 反查 id
-//     → POST .../ghosts/{sid}/accept (204)
+// Behavior:
+//   - watch useCurrentGhostMeta() — the ghost changes (also triggered by
+//     the initial seed) → POST /api/v1/sessions/{conv_id}/ghosts/shown →
+//     get back a row id and store it (markShown). The policy frame (P4's
+//     single steering ghost) is already persisted by backend policy and
+//     the frame carries an id, so setPolicy calls markShown directly; if
+//     shownIDs already has it here, skip and don't write a duplicate row.
+//   - acceptCurrent() — triggered by Tab; looks up the id for the most
+//     recently shown text in the store → POST .../ghosts/{sid}/accept (204)
 //
-// non-code mode visitor 永远 ghost = null → 不发请求；同套代码兼容三种 mode。
+// A non-code-mode visitor always has ghost = null → sends no request; the
+// same code supports all three modes.
 //
-// session 信息走 loadStoredSession (localStorage)；useChat 的 ensureSession
-// 只有 ask 时才跑，但 ghost 在 ask 前就要渲，所以走 storage 不走 sessionRef。
+// Session info comes from loadStoredSession (localStorage); useChat's
+// ensureSession only runs on ask, but the ghost needs to render before
+// ask, so this goes through storage rather than sessionRef.
 //
-// 重复抑制走 store 而不是组件局部 ref：mode 切换 (LongScroll → ChatRoom)
-// 时 hook 重 mount，局部 ref 都重置 → 同一 ghost 会被 POST 第二次。store
-// 是 cross-instance，shownIDs[text] 已经有就跳过。
+// Dedup goes through the store, not a component-local ref: on a mode
+// switch (LongScroll → ChatRoom) the hook remounts, and any local ref
+// would reset — the same ghost would get POSTed a second time. The store
+// is cross-instance, so if shownIDs[text] already exists, it's skipped.
 
 'use client';
 
@@ -28,8 +34,9 @@ import {
 } from '@/lib/visitor/ghosts-store';
 
 export interface GhostLogger {
-  // acceptCurrent —— Tab 时调；按 current ghost text 在 store shownIDs
-  // 找对应 row id 调 backend accept。还没 shown response 回来 → noop。
+  // acceptCurrent —— called on Tab; looks up the row id for the current
+  // ghost text in the store's shownIDs and calls backend accept. If the
+  // shown response hasn't come back yet → noop.
   acceptCurrent: () => void;
 }
 
@@ -52,8 +59,9 @@ export function useGhostLogger(): GhostLogger {
 }
 
 async function recordShown(text: string, source: GhostSource): Promise<void> {
-  // store-level dedup：text 已有 id 不再发；多实例 mount (LongScroll →
-  // ChatRoom switch) 都跑同样代码也只一次落 row。
+  // store-level dedup: if text already has an id, don't send again; even
+  // when multiple instances mount (LongScroll → ChatRoom switch) and both
+  // run the same code, only one row gets written.
   if (useGhostsStore.getState().shownIDs[text] !== undefined) return;
   const sess = loadStoredSession();
   if (sess === null) return;

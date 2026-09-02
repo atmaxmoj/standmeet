@@ -1,12 +1,14 @@
-// workspaces.go —— per-session 沙箱工作区子系统接线（#148）。
+// workspaces.go — wiring for the per-session sandbox workspace subsystem (#148).
 //
-// 建一个 sandboxws.Manager（root 来自 SANDBOX_WORKSPACE_ROOT，默认 /srv/sandbox-
-// workspaces），把它的 Provision 注入给 usecases 的沙箱 dial 路径（manifest
-// workspace=true 的插件按 conversation_id 懒建工作区 bind 进 /workspace）。TTL 后端可控
-// （diag/admin 端点改）。env 未配 root → 跳过（无工作区子系统）。
+// Builds a sandboxws.Manager (root from SANDBOX_WORKSPACE_ROOT, defaulting to
+// /srv/sandbox-workspaces), and injects its Provision into the usecases sandbox dial path
+// (a plugin with manifest workspace=true lazily creates a workspace per conversation_id and
+// binds it into /workspace). TTL is controllable at the backend (changed via the diag/admin
+// endpoint). No root configured in env → skip (no workspace subsystem).
 //
-// 过期目录的周期清扫**不在这儿**:那是 sandboxws 自己的声明(它自己的 periodic.go),
-// 组装根只负责把它跟别处的声明一起交给调度。
+// Periodic sweeping of expired directories **doesn't live here**: that's sandboxws's own
+// declaration (its own periodic.go); the assembly root just hands it to the scheduler
+// alongside every other declaration.
 
 package axiscap
 
@@ -25,7 +27,8 @@ const (
 	defaultWorkspaceTTL  = time.Hour
 )
 
-// SandboxWorkspaces —— 建 per-session 沙箱工作区子系统并注入分配器。
+// SandboxWorkspaces — builds the per-session sandbox workspace subsystem and injects the
+// provisioner.
 func SandboxWorkspaces(d *deps.Runtime) {
 	root := os.Getenv("SANDBOX_WORKSPACE_ROOT")
 	if root == "" {
@@ -33,11 +36,13 @@ func SandboxWorkspaces(d *deps.Runtime) {
 	}
 	mgr, err := sandboxws.New(root, defaultWorkspaceTTL)
 	if err != nil {
-		// 工作区子系统起不来不该拖垮 boot：记日志、继续（沙箱插件无 /workspace）。
+		// The workspace subsystem failing to start shouldn't take down boot: log it and
+		// continue (sandbox plugins just get no /workspace).
 		d.Log.Error("sandbox workspaces init", "root", root, "err", err)
 		return
 	}
 	d.SandboxWorkspaces = mgr
 	capload.SetWorkspaceProvisioner(mgr.Provision)
-	// 清扫由 mgr 自己声明(sandboxws.PeriodicJobs),wirePeriodicJobs 汇总起调度。
+	// Sweeping is declared by mgr itself (sandboxws.PeriodicJobs); wirePeriodicJobs gathers
+	// it up and schedules it.
 }

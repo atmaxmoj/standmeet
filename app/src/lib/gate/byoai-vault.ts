@@ -2,25 +2,30 @@ import { z } from 'zod';
 
 // byoai-vault.ts —— browser-only encrypted store for the visitor's BYOAI cred.
 //
-// XSS-resistant 设计：
-//   - 一把 non-extractable AES-256-GCM CryptoKey 存 IndexedDB (db: "standmeet-byoai",
-//     store: "wrap", key: "v1")。CryptoKey object 在 JS 里看不到 raw bytes —
-//     即使 XSS 拿到 indexedDB handle，也只能调 encrypt/decrypt，导不出 key
-//     再外发到 attacker server。
-//   - BYOAI api key 明文先用这个 CryptoKey AES-GCM 加密成 {iv, ct}，序列化
-//     成 JSON 后放 localStorage key `standmeet:byoai:v2` 一坨（meta: provider /
-//     endpoint / model 跟密文同行，方便 chat 走 SSE 时一次性拿全）。localStorage
-//     单独被 dump 也没用（缺 CryptoKey），IndexedDB 单独被读也没用（缺 ciphertext）。
+// XSS-resistant design:
+//   - A non-extractable AES-256-GCM CryptoKey lives in IndexedDB (db:
+//     "standmeet-byoai", store: "wrap", key: "v1"). A CryptoKey object never
+//     exposes its raw bytes to JS — even if XSS gets an indexedDB handle, it
+//     can only call encrypt/decrypt, never export the key to send to an
+//     attacker's server.
+//   - The BYOAI api key plaintext is first AES-GCM encrypted with that
+//     CryptoKey into {iv, ct}, serialized to JSON, and stored as one blob
+//     under localStorage key `standmeet:byoai:v2` (meta: provider / endpoint
+//     / model sit alongside the ciphertext so chat can grab everything in
+//     one read over SSE). localStorage alone is useless if dumped (missing
+//     the CryptoKey); IndexedDB alone is useless if read (missing the
+//     ciphertext).
 //
-// v1 → v2 升级：v1 只存 {provider, iv, ct}，多 provider + endpoint/model 必须
-// 重谈。v1 没 prod 用户，直接清掉，不做 migration。
+// v1 → v2 upgrade: v1 only stored {provider, iv, ct}; supporting multiple
+// providers plus endpoint/model required renegotiating the shape. v1 had no
+// prod users, so it's simply cleared, no migration.
 //
-// 用法：
-//   await storeBYOAI({provider, endpoint, model, key});  // 进 vault
-//   readBYOAIVaultMeta() === {provider, endpoint, model} // 同步 UI 元信息
-//   await readBYOAICredFull() === {...meta, key}          // chat 一次性拿全
+// Usage:
+//   await storeBYOAI({provider, endpoint, model, key});  // into the vault
+//   readBYOAIVaultMeta() === {provider, endpoint, model} // sync UI metadata
+//   await readBYOAICredFull() === {...meta, key}          // chat grabs it all at once
 //
-// 只支持现代浏览器；不做 crypto.subtle 缺失 fallback。
+// Modern browsers only; no fallback for missing crypto.subtle.
 
 const LS_KEY = 'standmeet:byoai:v2';
 const LS_KEY_LEGACY_V1 = 'standmeet:byoai:v1';
@@ -29,8 +34,9 @@ const IDB_STORE = 'wrap';
 const IDB_KEY = 'v1';
 const IV_LEN = 12;
 
-// BYOAIVaultMeta —— vault 里 non-secret 部分：UI 渲染、chat header 全用得着，
-// 没必要 await decrypt。endpoint / model 跟 provider 同时落 / 同时清。
+// BYOAIVaultMeta —— the non-secret part of the vault: UI rendering and the
+// chat header both need it, and neither needs to await decrypt. endpoint /
+// model are written / cleared together with provider.
 export interface BYOAIVaultMeta {
   provider: string;
   endpoint: string;
@@ -46,8 +52,9 @@ interface StoredEnvelope extends BYOAIVaultMeta {
   ct: string; // base64 (no padding, URL-safe)
 }
 
-// storeBYOAI —— 第一次 / 覆盖写入 vault。若 IndexedDB 里还没 wrap key，
-// 现场 generate 一个 non-extractable 的塞进去；然后用它 encrypt plaintext。
+// storeBYOAI —— first write / overwrite into the vault. If IndexedDB
+// doesn't have a wrap key yet, generate a non-extractable one on the spot
+// and store it; then use it to encrypt the plaintext.
 export async function storeBYOAI(input: BYOAICredFull): Promise<void> {
   const wrap = await loadOrCreateWrapKey();
   const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
@@ -61,16 +68,17 @@ export async function storeBYOAI(input: BYOAICredFull): Promise<void> {
   window.localStorage.setItem(LS_KEY, JSON.stringify(env));
 }
 
-// readBYOAIVaultMeta —— sync；UI / chat header 读 provider+endpoint+model
-// 用。明文 key 不在这里返。
+// readBYOAIVaultMeta —— sync; used by UI / chat header to read
+// provider+endpoint+model. The plaintext key is never returned here.
 export function readBYOAIVaultMeta(): BYOAIVaultMeta | null {
   const env = readEnvelope();
   return env ? { provider: env.provider, endpoint: env.endpoint, model: env.model } : null;
 }
 
-// readBYOAICredFull —— async；chat 发请求前一次拿齐 4 个 header 所需字段
-// （provider + endpoint + model + 明文 key）。任一不全返 null，外层走"未配
-// BYOAI" 路径。
+// readBYOAICredFull —— async; before chat sends a request it grabs all 4
+// header fields at once (provider + endpoint + model + plaintext key). If
+// any is missing, returns null and the caller falls back to the "BYOAI not
+// configured" path.
 export async function readBYOAICredFull(): Promise<BYOAICredFull | null> {
   const env = readEnvelope();
   if (!env) return null;
@@ -83,7 +91,8 @@ export async function readBYOAICredFull(): Promise<BYOAICredFull | null> {
 
 function readEnvelope(): StoredEnvelope | null {
   if (typeof window === 'undefined') return null;
-  // 顺手清掉 legacy v1 残留（不做 migration —— v1 没 endpoint/model 缺字段）。
+  // Clear any leftover legacy v1 while we're here (no migration — v1 is
+  // missing the endpoint/model fields).
   if (window.localStorage.getItem(LS_KEY_LEGACY_V1) !== null) {
     window.localStorage.removeItem(LS_KEY_LEGACY_V1);
   }
@@ -141,7 +150,7 @@ async function loadWrapKey(): Promise<CryptoKey | null> {
 }
 
 // ─── IndexedDB helpers ──────────────────────────────────────────────────
-// 用 Promise wrapper 把 IDBRequest 的 onsuccess/onerror 转 awaitable。
+// A Promise wrapper turns IDBRequest's onsuccess/onerror into awaitable calls.
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -188,9 +197,9 @@ function b64encode(bytes: Uint8Array): string {
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-// b64decode —— 显式返 Uint8Array<ArrayBuffer> 而不是默认的
-// Uint8Array<ArrayBufferLike>，否则 lib.dom 里 Web Crypto BufferSource
-// 不接受（拒掉 SharedArrayBuffer-backed view）。
+// b64decode —— explicitly returns Uint8Array<ArrayBuffer> instead of the
+// default Uint8Array<ArrayBufferLike>; otherwise Web Crypto's BufferSource
+// in lib.dom rejects it (it rejects SharedArrayBuffer-backed views).
 function b64decode(s: string): Uint8Array<ArrayBuffer> {
   const padded = s.replace(/-/g, '+').replace(/_/g, '/')
     + '='.repeat((4 - (s.length % 4)) % 4);

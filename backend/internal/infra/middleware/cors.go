@@ -2,18 +2,25 @@ package middleware
 
 import "net/http"
 
-// PublicCORS —— 公开访客面 (/api/v1/*) 的 wide-open CORS。
+// PublicCORS is the wide-open CORS policy for the public visitor surface
+// (/api/v1/*).
 //
-// D.2:@standmeet/embed / @standmeet/sdk 从任意第三方站点的 origin 加载，浏览器
-// 会对跨源的 session/chat/SSE 请求发 preflight。没有 CORS 头，浏览器直接把响应挡在
-// JS 之外，embed 完全 bootstrap 不起来（真实验证 F-O-1:OPTIONS → 405，零 ACAO）。
+// D.2: @standmeet/embed / @standmeet/sdk load from any third-party site's
+// origin, so the browser sends a preflight for cross-origin session/chat/SSE
+// requests. Without CORS headers the browser blocks the response from JS
+// outright, and embed can't bootstrap at all (verified for real: F-O-1,
+// OPTIONS → 405, zero ACAO).
 //
-// SDK 用 /sessions 返回的 Bearer token 认证（不靠 cookie，见 core client.ts），所以
-// Allow-Origin: * 安全——不需要 credentials 模式，也就不用把 origin 收窄。
+// The SDK authenticates with the Bearer token returned by /sessions (not
+// cookies — see core client.ts), so Allow-Origin: * is safe — it doesn't
+// need credentials mode, so there's no need to narrow the origin either.
 //
-// 挂在 /api/v1 组的**最外层**（BanGuard/RateGuard 之前）:即便后面 403/429，浏览器也
-// 得先能读到 ACAO 才能把真实状态码交给 embed，否则跨源失败会糊成一个 opaque CORS 错。
-// OPTIONS preflight 在这里短路成 204（否则 chi 对只有 POST 的路由回 405）。
+// Mounted at the **outermost** layer of the /api/v1 group (before
+// BanGuard/RateGuard): even when a later step returns 403/429, the browser
+// still needs to read ACAO first before it can hand the real status code to
+// embed — otherwise a cross-origin failure blurs into one opaque CORS
+// error. OPTIONS preflight short-circuits to 204 here (otherwise chi
+// returns 405 for a route that only defines POST).
 func PublicCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()

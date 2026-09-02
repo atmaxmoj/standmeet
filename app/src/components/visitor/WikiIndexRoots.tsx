@@ -1,12 +1,18 @@
-// WikiIndexRoots —— /wiki 索引正文里的根条目列表。
+// WikiIndexRoots —— the root-entry list in the /wiki index body.
 //
-// 为什么它必须是客户端组件:访客的 session token 只存在浏览器里,SSR 看不见。页面在服务端
-// 用匿名身份取根条目,拿回来的只有 published 的那些 —— 于是一个 role 授了 `wiki://**` 的受邀
-// 访客,在侧栏树里列得出全部四个根、每个条目页都打得开、聊天还引用了 11 条笔记,而**索引**
-// 只给他一条,脚注写着「222 GATED」。四个面对同一个问题给了两种答案(F-L-14)。
+// Why it has to be a client component: the visitor's session token only
+// exists in the browser, invisible to SSR. The page fetches root entries
+// server-side under an anonymous identity, getting back only the published
+// ones — so an invited visitor whose role grants `wiki://**` can see all
+// four roots in the sidebar tree, open every entry page, and even get chat
+// answers citing 11 notes, while the **index** shows just one, with a
+// footnote reading "222 GATED". Four surfaces giving two different answers
+// to the same question (F-L-14).
 //
-// 修法跟 F-L-11(reader 正文)和 F-L-13(子条目栏)是同一条:SSR 给匿名那一份保底(SEO 要它),
-// 挂载后带 token 再取一次,有更多就换上。
+// The fix follows the same pattern as F-L-11 (reader body) and F-L-13
+// (sub-entry rail): SSR provides the anonymous version as a fallback (SEO
+// needs it), then a second fetch with the token after mount, swapping in
+// whatever more it finds.
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -40,7 +46,8 @@ export function WikiIndexRoots({ roots, stats }: {
           </li>
         ))}
       </ul>
-      {/* 空列表自己说明为什么 —— 那句话以前只在侧栏里，而侧栏在窄屏上不存在。 */}
+      {/* An empty list explains why on its own — that sentence used to
+          live only in the sidebar, which doesn't exist on narrow screens. */}
       <WikiIndexEmpty stats={stats} empty={shown.length === 0} />
     </>
   );

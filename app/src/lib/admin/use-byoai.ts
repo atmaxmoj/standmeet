@@ -1,8 +1,10 @@
-// use-byoai —— BYOAIEditor 的 state hook。
-// 初始值从 sessionStore（/me）读；save → PUT /byoai → 让 sessionStore 重拉。
+// use-byoai —— state hook for BYOAIEditor.
+// Initial value is read from sessionStore (/me); save → PUT /byoai → makes
+// sessionStore refetch.
 //
-// zustand 重构：BYOAI form state 是 per-form 的（每次 mount 重置 baseline
-// 到 /me），不上 global store；但 baseline 走全应用共享的 sessionStore。
+// zustand refactor: BYOAI form state is per-form (baseline resets to /me on
+// every mount), not backed by a global store; but the baseline goes through
+// the app-wide shared sessionStore.
 
 import { useCallback, useEffect, useState } from 'react';
 
@@ -44,7 +46,7 @@ export function useBYOAI(): BYOAIHook {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 当 sessionStore 第一次 ready 时把 BYOAI baseline seed 进 local form state。
+  // Seed the BYOAI baseline into local form state the first time sessionStore becomes ready.
   useEffect(() => {
     if (session.status === 'ready' && session.data) {
       setState(byoaiFromMe(session.data));

@@ -1,7 +1,7 @@
-// ai_provider.go —— owner 切换 / 配置自己的 AI provider 的 usecase。
+// ai_provider.go — the usecase for an owner switching / configuring their own AI provider.
 //
-// 校验 provider 合法 + 跟 repo 通信；明文 key 不写入 log，只透传给 repo
-// 走 AES-GCM 加密。
+// Validates that the provider is legit + talks to repo; the plaintext key never gets
+// written to a log, only passed through to repo where it's encrypted via AES-GCM.
 
 package usecase
 
@@ -14,26 +14,28 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// AIProviderDeps —— UpdateOwnerAIProvider 依赖。
+// AIProviderDeps — dependencies for UpdateOwnerAIProvider.
 type AIProviderDeps struct {
 	Owners    *repo.Repo
 	Providers ProviderValidator
 }
 
-// ProviderValidator —— 校验 provider 名是否是已知 preset 的窄口。owner 不反依赖
-// inference(inference→owner 会成环);composition root 用 inference.Lookup 适配进来。
+// ProviderValidator — the narrow port that validates whether a provider name is a known
+// preset. owner does not depend back on inference (inference→owner would form a cycle);
+// the composition root adapts inference.Lookup in through this interface.
 type ProviderValidator interface {
 	Known(provider string) bool
 }
 
-// UpdateOwnerAIProviderInput —— 入参。
-//   - Provider:  preset 表里任意 Name（anthropic / openai / deepseek / kimi /
-//     groq / siliconflow / openrouter / together / custom），server 校验。
-//   - Endpoint:  base URL（不带 /v1/...）。frontend 选 provider 时用 preset
-//     默认预填；custom 必须 owner 自填。**必须非空**。
-//   - Model:     model id。frontend 同样 preset 预填；owner 可改。**必须非空**。
-//   - KeyChange: KeyKeep（不动）/ KeySet（设新 key）/ KeyClear（删 key）
-//   - Key:       当 KeyChange=KeySet 时给明文 key；其它情况忽略
+// UpdateOwnerAIProviderInput — input.
+//   - Provider:  any Name from the preset table (anthropic / openai / deepseek / kimi /
+//     groq / siliconflow / openrouter / together / custom), validated server-side.
+//   - Endpoint:  base URL (without /v1/...). The frontend prefills it from the preset
+//     when a provider is picked; custom requires the owner to fill it in. **Must be non-empty**.
+//   - Model:     model id. Also prefilled from the preset by the frontend; the owner can
+//     change it. **Must be non-empty**.
+//   - KeyChange: KeyKeep (leave alone) / KeySet (set a new key) / KeyClear (delete the key)
+//   - Key:       the plaintext key when KeyChange=KeySet; ignored otherwise
 type UpdateOwnerAIProviderInput struct {
 	OwnerID   string
 	Provider  string
@@ -43,19 +45,20 @@ type UpdateOwnerAIProviderInput struct {
 	KeyChange KeyChange
 }
 
-// KeyChange —— 三态枚举，对应"保持不动 / 设新 key / 清空 key"。
+// KeyChange — a three-state enum for "leave alone / set a new key / clear the key".
 type KeyChange int
 
-// KeyKeep / KeySet / KeyClear 是 KeyChange 的三个值。
+// KeyKeep / KeySet / KeyClear are the three values of KeyChange.
 const (
 	KeyKeep KeyChange = iota
 	KeySet
 	KeyClear
 )
 
-// UpdateOwnerAIProvider —— 调 repo 落库。返回新 OwnerSettings（不含明文 key）。
-// 校验：provider 必须在 inference preset 表里；endpoint + model 必须非空
-// （preset 给 UI 默认填值，server 端不做 fallback，避免 DB 落部分 row）。
+// UpdateOwnerAIProvider — calls repo to persist. Returns the new OwnerSettings (no
+// plaintext key). Validation: provider must be in the inference preset table; endpoint +
+// model must be non-empty (the preset supplies UI defaults, but the server never falls
+// back to them — that would risk persisting a partial row).
 func UpdateOwnerAIProvider(
 	ctx context.Context, deps AIProviderDeps, in *UpdateOwnerAIProviderInput,
 ) (entity.Settings, error) {

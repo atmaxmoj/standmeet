@@ -1,6 +1,6 @@
-// PageSection —— /admin/page 的设计稿版本。
-// 用 Block 包装每个区段：domain / byoai / hero / insights / projects / where / contact。
-// hero_prose 是 e2e 路径 —— 保留 testid。其他字段也通过 usePageEditor.patch 改并参与 dirty。
+// PageSection —— the design-mockup version of /admin/page.
+// Wraps each section with Block: domain / byoai / hero / insights / projects / where / contact.
+// hero_prose is the e2e path — keep the testid. Other fields also change via usePageEditor.patch and participate in dirty tracking.
 
 'use client';
 

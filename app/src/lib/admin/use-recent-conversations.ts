@@ -1,13 +1,17 @@
-// use-recent-conversations —— 仪表盘「recent visitors」那一格的数据层。
+// use-recent-conversations —— data layer for the dashboard's "recent visitors" tile.
 //
-// **三种结局各有各的样子**：`undefined` 还没拉到 · `null` 拉失败 · 数组 拉到了（可能是空的）。
+// **Three outcomes, each with its own shape**: `undefined` not fetched yet ·
+// `null` fetch failed · array fetched (possibly empty).
 //
-// 初值曾经是 `[]`，也就是「拉到了，一个访客都没有」—— 于是加载中那一帧就写着
-// 「no conversations yet — visitors will appear here once they start chatting」（F-L-52）。
-// 组件那边早就分开处理了 null 和空，而**初值把第三种情形悄悄归进了「空」**。
+// The initial value used to be `[]`, i.e. "fetched, zero visitors" — so the
+// loading frame would read "no conversations yet — visitors will appear
+// here once they start chatting" (F-L-52). The component already handled
+// null and empty separately, but **the initial value silently folded the
+// third case into "empty"**.
 //
-// 从组件文件搬到这里：它是取数，不是呈现（呈现层守 cyclo ≤ 3 + 禁 if，
-// 分支和 effect 都不该住在那儿）。
+// Moved out of the component file into here: this is data-fetching, not
+// presentation (the presentation layer holds to cyclo ≤ 3 + bans if —
+// branches and effects don't belong there).
 
 'use client';
 

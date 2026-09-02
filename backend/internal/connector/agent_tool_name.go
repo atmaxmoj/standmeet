@@ -1,14 +1,18 @@
-// agent_tool_name.go —— operationId → LLM 工具名。
+// agent_tool_name.go — operationId → LLM tool name.
 //
-// provider 对 `tools[].name` 的约束是 `^[a-zA-Z0-9_-]{1,64}$`，而且**整个数组一起拒**：
-// 一条不合法，这一轮所有工具（订会、检索、发信）都不进模型。所以名字要按目标那一侧的
-// **字符集**规范化，而不是逐个字符打补丁 —— 以前这里只换点号（`ReplaceAll(id, ".", "_")`），
-// 而 GitHub 整套 REST 的 operationId 是 `gists/list` 这种带斜杠的形状（F-C-58）。
+// The provider's constraint on `tools[].name` is `^[a-zA-Z0-9_-]{1,64}$`, and it
+// **rejects the whole array together**: one bad name and none of this turn's tools
+// (booking, retrieval, sending mail) reach the model. So names must be normalized to
+// the target side's **character set**, not patched character-by-character — this used
+// to only replace dots (`ReplaceAll(id, ".", "_")`), but GitHub's whole REST API uses
+// operationIds shaped like `gists/list`, with slashes in them (F-C-58).
 //
-// 规范化会把不同的 operationId 压成同一个名字（`gists/list` 和 `gists.list`），而
-// `Spec.Operations()` 的顺序来自 map 遍历、每次调用都不一样。所以消歧**不能靠先来后到**：
-// 那会让同一个 op 这次叫 `op_x`、下次叫 `op_x_2`，而 owner 授权用的正是这个名字。
-// 撞名时带的后缀从 operationId 自己算，跟遍历顺序无关。
+// Normalizing can collapse different operationIds onto the same name (`gists/list`
+// and `gists.list`), and `Spec.Operations()` iterates a map, so its order changes on
+// every call. So disambiguation **cannot depend on arrival order**: that would make
+// the same op get called `op_x` one time and `op_x_2` the next, and it's this exact
+// name the owner grants authorization to. The suffix used on a collision is computed
+// from the operationId itself, independent of iteration order.
 
 package connector
 
@@ -21,15 +25,15 @@ import (
 )
 
 const (
-	// agentToolNameMax —— provider 的名字长度上限。
+	// agentToolNameMax — the provider's max name length.
 	agentToolNameMax = 64
-	// agentToolHashLen —— 撞名时那段摘要的长度。
+	// agentToolHashLen — the length of the digest suffix used on a name collision.
 	agentToolHashLen = 6
 )
 
 var agentToolIllegal = regexp.MustCompile(`[^A-Za-z0-9_-]`)
 
-// agentToolNames —— 一组 operation → 各自的工具名（下标对齐 ops）。
+// agentToolNames — a set of operations → their tool names (index-aligned with ops).
 func agentToolNames(ops []openapi.OpInfo) []string {
 	shared := collidingBases(ops)
 	out := make([]string, len(ops))
@@ -45,12 +49,13 @@ func agentToolNames(ops []openapi.OpInfo) []string {
 	return out
 }
 
-// agentToolBase —— 规范化之后的名字（还没消歧）。
+// agentToolBase — the normalized name (not yet disambiguated).
 func agentToolBase(opID string) string {
 	return clampToolName("op_"+agentToolIllegal.ReplaceAllString(opID, "_"), agentToolNameMax)
 }
 
-// clampToolName —— 截到上限。截断本身也会制造撞名，所以它排在消歧之前。
+// clampToolName — truncate to the limit. Truncation itself can also create
+// collisions, so it runs before disambiguation.
 func clampToolName(s string, limit int) string {
 	if len(s) <= limit {
 		return s
@@ -58,7 +63,7 @@ func clampToolName(s string, limit int) string {
 	return s[:limit]
 }
 
-// collidingBases —— 被多于一个 operationId 共用的 base。
+// collidingBases — bases shared by more than one operationId.
 func collidingBases(ops []openapi.OpInfo) map[string]bool {
 	owner := make(map[string]string, len(ops))
 	shared := map[string]bool{}
@@ -74,7 +79,8 @@ func collidingBases(ops []openapi.OpInfo) map[string]bool {
 	return shared
 }
 
-// opIDDigest —— operationId 自己的摘要。跟遍历顺序无关，所以同一份 spec 每次算出同一个名字。
+// opIDDigest — the operationId's own digest. Independent of iteration order, so the
+// same spec computes the same name every time.
 func opIDDigest(opID string) string {
 	sum := sha256.Sum256([]byte(opID))
 	return hex.EncodeToString(sum[:])[:agentToolHashLen]

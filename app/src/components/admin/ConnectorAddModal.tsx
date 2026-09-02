@@ -1,8 +1,8 @@
-// ConnectorAddModal —— admin connectors "+ add" 模态。
-// 分类 tab 过滤 catalog，点 connector tile 进入 ConnectorConfigForm。
+// ConnectorAddModal —— the admin connectors "+ add" modal.
+// Category tabs filter the catalog; clicking a connector tile opens ConnectorConfigForm.
 //
-// 设计源 docs/design/project/admin.js ConnectorAddModal。
-// installed: id[] 让 builtin / 已装的不弹"connect"。
+// Design source: docs/design/project/admin.js ConnectorAddModal.
+// installed: id[] keeps builtin / already-installed connectors from offering "connect" again.
 
 'use client';
 
@@ -27,8 +27,9 @@ interface Props {
   onClose: () => void;
   onConnect: (id: string, values: Record<string, string>) => void;
   onAssemble: (input: AssembleInput) => void;
-  // assemble —— 一次装配的结果：id 非 null 时表单让位给那张卡（凭据 + Connect）；
-  // error 非空时把失败摆在模态里（模态盖着整页，页面级 toast owner 看不到）。
+  // assemble —— the result of one assembly: when id is non-null, the form yields to that card
+  // (credentials + Connect); when error is non-empty, the failure is shown inside the modal
+  // (the modal covers the whole page, so a page-level toast wouldn't be seen by the owner).
   assemble: AssembleState;
 }
 
@@ -54,8 +55,9 @@ export function ConnectorAddModal(
   );
 }
 
-// PickedView —— 品类装配卡（assemble）走归一 AssembleView（OpenAPI 上传 或 内置协议）；protocol
-// 连接器（SMTP）走固定表单 + 连接测试；其余走通用 catalog 配置表单。
+// PickedView —— a category-assembly card (assemble) goes through the unified AssembleView
+// (OpenAPI upload or a built-in protocol); a protocol connector (SMTP) goes through a fixed
+// form + connection test; everything else goes through the generic catalog config form.
 function PickedView({
   entry, onBack, onConnect, onAssemble, assemble,
 }: {

@@ -1,9 +1,13 @@
-// export_fm_patch.go —— 把 vault 原文里**变过的那几行**换掉，其余一个字节不动。
+// export_fm_patch.go — replaces only the LINES THAT ACTUALLY CHANGED in the vault's
+// original text; every other byte stays untouched.
 //
-// 判「变没变」用的是同一个解析器（parseFMLines）：原文自己说 tags 是什么，跟 DB 现在说的
-// 比一比。相等就别碰那几行 —— 碰了就等于把 `tags: [a, b]` 改写成缩进 list，而值根本没变。
-// 用另一套判断（比如「网页动过没有」的时间戳）也 work，但那要引入第二个真相来源；
-// 这里只问一句「这个 key 的值现在还是原文说的那个吗」。
+// Whether something "changed" is judged with the same parser (parseFMLines): what
+// the raw text itself says tags are, compared against what the DB says now. Equal
+// means leave those lines alone — touching them would rewrite `tags: [a, b]` into
+// an indented list even though the value never changed. A different judgment (say,
+// a "has the web edited this" timestamp) would also work, but that introduces a
+// second source of truth; here the only question asked is "does this key's value
+// still match what the raw text said?"
 
 package obsidian
 
@@ -14,14 +18,15 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
-// patchFrontmatter —— 拿 vault 原文，换掉产品拥有且已经变了的 key，返回新的块（不含围栏）。
+// patchFrontmatter — takes the vault's raw text, swaps out product-owned keys that
+// have changed, and returns the new block (fences excluded).
 func patchFrontmatter(raw string, n *corpus.SyncNote) string {
 	was := parseFMLines(raw)
 	lines := strings.Split(raw, newline)
 	appended := []string{}
 	for _, f := range ownedFrontmatter(n) {
 		if f.sameAsVault(&was) {
-			continue // 值没变 → 原文那几行原样留着，形态一并保住
+			continue // value unchanged → leave the raw lines as-is, form preserved too
 		}
 		var replaced bool
 		lines, replaced = replaceKeyLines(lines, f.key, f.lines)
@@ -46,8 +51,9 @@ func sameLabels(a, b map[string]string) bool {
 	return true
 }
 
-// replaceKeyLines —— 把 `key:` 那一行连同它后面的缩进 list 一起换成 want。
-// 找不到这个 key → 原样返回 + false（由调用方追加到块尾）。
+// replaceKeyLines — replaces the `key:` line, together with the indented list
+// following it, with want.
+// Key not found → returns unchanged + false (the caller appends it to the block's tail).
 func replaceKeyLines(lines []string, key string, want []string) ([]string, bool) {
 	at := indexOfKey(lines, key)
 	if at < 0 {
@@ -72,12 +78,13 @@ func indexOfKey(lines []string, key string) int {
 	return -1
 }
 
-// isContinuationLine —— 属于上一个 key 的续行（缩进的 `- x` 或 `k: v`）。
+// isContinuationLine — a line that belongs to the previous key's continuation
+// (an indented `- x` or `k: v`).
 func isContinuationLine(line string) bool {
 	return line != "" && (line[0] == ' ' || line[0] == '\t' || line[0] == '-')
 }
 
-// sortedKeys —— map 的键排序输出（见 pairLines 上的说明）。
+// sortedKeys — sorts a map's keys for deterministic output (see the note on pairLines).
 func sortedKeys(m map[string]string) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

@@ -1,19 +1,22 @@
-// ghost-text —— H.13.d ghost text 三件套的 presentation helper。components
-// 层禁 `if` + complexity 限 3，把 ghost 渲选 / placeholder 选 / keyboard
-// dispatch 这点条件逻辑抽到 lib 这边。所有 AskInput / ChatRoom 输入框 /
-// FloatingChatDock 输入框共用。
+// ghost-text —— presentation helper for the H.13.d ghost text trio. The
+// components layer bans `if` and caps complexity at 3, so this bit of
+// conditional logic — picking which ghost to render, picking the
+// placeholder, keyboard dispatch — is extracted here. Shared by every
+// AskInput / ChatRoom input box / FloatingChatDock input box.
 
 import type { KeyboardEvent } from 'react';
 
 interface GhostGate {
-  // value === '' 才显 ghost；非空 visitor 已经在打字。
+  // The ghost only shows when value === ''; a non-empty value means the
+  // visitor is already typing.
   value: string;
-  // pending / locked / disabled 任一为 true → 不渲 ghost (输入框 dim)。
+  // pending / locked / disabled being true → don't render the ghost (the
+  // input box is dimmed).
   blocked: boolean;
   ghost: string | null | undefined;
 }
 
-// pickGhost —— 当下应渲的 ghost；null 表示不渲。
+// pickGhost —— the ghost that should render right now; null means none.
 export function pickGhost(g: GhostGate): string | null {
   if (g.blocked) return null;
   if (g.value !== '') return null;
@@ -22,28 +25,33 @@ export function pickGhost(g: GhostGate): string | null {
 }
 
 interface PlaceholderInputs {
-  // locked = quota 用尽之类的硬锁；显 lockedText。
+  // locked = a hard lock like quota exhaustion; shows lockedText.
   locked: boolean;
   lockedText: string;
-  // ghost 非空 → 当 placeholder 渲；空 → fallback。
+  // A non-empty ghost renders as the placeholder; empty falls back.
   ghost: string | null;
   fallback: string;
 }
 
-// pickPlaceholder —— 三态选 (locked > ghost > fallback)。
+// pickPlaceholder —— three-state pick (locked > ghost > fallback).
 export function pickPlaceholder(p: PlaceholderInputs): string {
   if (p.locked) return p.lockedText;
   if (p.ghost !== null && p.ghost !== '') return p.ghost;
   return p.fallback;
 }
 
-// composerPlaceholder —— ghost 由覆盖层渲的那些输入框用这个,而不是 pickPlaceholder。
+// composerPlaceholder —— used by the input boxes whose ghost is rendered by
+// an overlay layer, instead of pickPlaceholder.
 //
-// ghost 在场时 placeholder 必须**让位成空**:两层都画就会叠字。prod 上就是这样 ——
-// ghost 的第一行和 "ask…" 糊在一起,读出来是 "Ẏsḵu.mentioned"。e2e 只量了 ghost 元素的几何,
-// 量不出它背后还压着另一串字,是拿眼睛看出来的。
+// When a ghost is present, the placeholder must **yield to empty**:
+// drawing both layers overlaps text. That's exactly what happened in
+// prod — the ghost's first line ran into "ask…" and read as
+// "Ẏsḵu.mentioned". e2e only measured the ghost element's geometry, which
+// can't detect another string sitting behind it — that was caught by eye.
 //
-// locked 仍然压过一切:锁住时输入框是禁用的,pickGhost 早就返回 null 了,这里只是把顺序写死。
+// locked still overrides everything: when locked the input box is
+// disabled and pickGhost already returns null, so this just hardcodes the
+// ordering.
 export function composerPlaceholder(p: PlaceholderInputs): string {
   if (p.locked) return p.lockedText;
   if (p.ghost !== null && p.ghost !== '') return '';
@@ -54,8 +62,9 @@ interface GhostHandlers {
   onAccept: (g: string) => void;
 }
 
-// dispatchGhostKey —— Tab 派发（P4 单条 ghost：Esc 不再 cycle，没有下一条可切）。命中 Tab 调
-// onAccept + preventDefault；其他键 / ghost 空时无操作。
+// dispatchGhostKey —— Tab dispatch (P4 single ghost: Esc no longer cycles,
+// there's no next one to switch to). Tab calls onAccept + preventDefault;
+// any other key, or an empty ghost, is a no-op.
 export function dispatchGhostKey(
   e: KeyboardEvent<HTMLElement>,
   ghost: string | null,

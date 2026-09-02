@@ -1,20 +1,27 @@
-// corpus-changed —— 语料一变,必须跟着作废的东西**都在这里**。
+// corpus-changed —— **everything** that must invalidate whenever the corpus
+// changes lives here.
 //
-// 为什么要有这个文件:作废动作以前是**手抄**的。`useCorpusActions.run()` 里有一行
-// `bumpCorpusEpoch()`,而 quick-dump 走的是另一条路(`use-raw.ts` 的 doAddRaw),它旁边跟着
-// 一句诚实的注释 ——「dump bypasses useCorpusActions — bump so the lazy tree refetches」——
-// 然后抄了同一行。于是后来往 run() 里加计数作废的时候,dump 那条路一个字都没跟上:
-// owner 粘一条进来,列表多一行,而标题、四个 tab、侧栏 badge、pulse 栏全都还报旧数(F-L-16)。
+// Why this file exists: the invalidation action used to be **hand-copied**.
+// `useCorpusActions.run()` had a line calling `bumpCorpusEpoch()`, and
+// quick-dump went through a different path (`use-raw.ts`'s doAddRaw), which
+// carried an honest comment next to it — "dump bypasses useCorpusActions —
+// bump so the lazy tree refetches" — and then copied that same line. So later,
+// when counting invalidation was added to run(), the dump path didn't follow
+// along at all: the owner pastes something in, the list gets one more row,
+// but the title, the four tabs, the sidebar badge, and the pulse bar all keep
+// reporting the old numbers (F-L-16).
 //
-// 抄一次的代价不是当时那一行,是**以后每一次新增都会漏掉第二个调用方**,而且不报错。
-// 所以这里只留一个函数:两条路都调它,下次再多一样要作废的东西,加在这一处。
+// The cost of copying it once wasn't that one line at the time — it's that
+// **every future addition will miss the second caller**, and nothing will
+// error. So only one function lives here: both paths call it, and the next
+// thing that needs invalidating gets added in exactly this one place.
 
 import { bumpCorpusEpoch } from '@/lib/admin/corpus-tree-epoch';
 import { refreshCorpusGrowth } from '@/lib/admin/use-corpus-growth';
 
 export function onCorpusChanged(): void {
-  // 懒加载的树:已经取过的那几层作废,展开时重取。
+  // Lazy-loaded tree: invalidate the levels already fetched, refetch on expand.
   bumpCorpusEpoch();
-  // 计数:/admin/raw 的标题数、四个 tab、侧栏 badge、pulse 栏读的都是这一份。
+  // Counts: /admin/raw's header count, the four tabs, the sidebar badge, and the pulse bar all read this one.
   void refreshCorpusGrowth();
 }

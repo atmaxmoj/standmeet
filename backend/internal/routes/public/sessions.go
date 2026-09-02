@@ -1,7 +1,6 @@
-// sessions.go —— POST /api/v1/sessions —— visitor session 颁发。
-// 按 tier 分发：'code' 走 IssueCodeSession（访问码）、'public' 走
-// IssuePublicSession（无码，public visibility 切片）。
-// 鉴权：颁发不需要 token；后续 /messages 用返回的 session_token bearer。
+// sessions.go —— POST /api/v1/sessions —— visitor session issuance. Dispatched by tier:
+// 'code' → IssueCodeSession (access code), 'public' → IssuePublicSession (no code,
+// public-visibility slice). Needs no token; later /messages calls bear session_token.
 
 package public
 
@@ -20,21 +19,23 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// createSessionRequest —— POST /api/v1/sessions 入参。BYOAIKey 字段已删 ——
-// browser 自己保管 key（IndexedDB Web Crypto wrap），不上传 server。
-// BYOAIProvider 仅用来判 tier(带 provider → mode=byoai);provider 本身是
-// visitor/session 的属性(前端 session-store + per-request cred),不落 conv 行。
+// createSessionRequest —— input for POST /api/v1/sessions. BYOAIKey was removed — the
+// browser holds the key (IndexedDB Web Crypto wrap), never uploaded. BYOAIProvider only
+// decides tier (present → mode=byoai); the provider is a property of the visitor/session
+// (frontend store + per-request cred), never landed on a row.
 type createSessionRequest struct {
 	Mode          string `json:"mode"` // 'code' | 'public' | 'byoai'
 	Code          string `json:"code,omitempty"`
 	VisitorName   string `json:"visitor_name,omitempty"`
-	VisitorEmail  string `json:"visitor_email,omitempty"` // 可选;进入时填的邮箱
+	VisitorEmail  string `json:"visitor_email,omitempty"` // optional; the email filled in on entry
 	MemberID      string `json:"member_id,omitempty"`
 	BYOAIProvider string `json:"byoai_provider,omitempty"`
-	// CaptchaToken —— #169 兑换失败超阈值后,captcha 启用时靠它解锁(关闭时忽略)。
+	// CaptchaToken —— #169: unlocks access once redemption failures pass the threshold,
+	// when captcha is enabled (ignored when off).
 	CaptchaToken string `json:"captcha_token,omitempty"`
-	// EmbedToken —— widget 的 EdDSA JWT 凭据（防盗）。带它就**不带明文 code**：服务端验签后
-	// 反查出 code。见 [[embed-credential-never-carries-the-code]]。
+	// EmbedToken —— widget's EdDSA JWT credential (anti-theft): server verifies the
+	// signature and looks the code up from it, so plaintext code is never carried.
+	// See [[embed-credential-never-carries-the-code]].
 	EmbedToken string `json:"embed_token,omitempty"`
 }
 
@@ -56,36 +57,37 @@ type createSessionResponse struct {
 	MemberID       string `json:"member_id,omitempty"`
 	CodeLabel      string `json:"code_label,omitempty"`
 	VisitorName    string `json:"visitor_name,omitempty"`
-	// CustomPageSlug —— 这张码扫出来看到的是哪一页。**空串 = 默认对话**，恒发（不 omitempty）：
-	// 少一个字段和「就是空」在读者那一侧长得一样，而这一个字段决定访客下一跳去哪。
+	// CustomPageSlug —— page this code opens when scanned. Empty = default conversation;
+	// always sent (never omitempty) since missing vs. genuinely-empty must stay distinct.
 	CustomPageSlug      string                   `json:"custom_page_slug"`
 	SystemPromptPersona string                   `json:"system_prompt_persona"`
 	Members             []sessionMemberResp      `json:"members"`
 	Capabilities        []capreg.CapabilityState `json:"capabilities"`
 	ToolSpecs           []capreg.VisitorToolSpec `json:"tool_specs"`
 	SystemPromptPartIDs []string                 `json:"system_prompt_part_ids"`
-	// Ghosts —— H.13.b: code 创建时 owner 设的"刚进来可问什么"
-	// 列表；前端 ghost text 拿第一条当初始 ghost。code-mode 之外都是空数组
-	// (json 走 "ghosts": [])。
+	// Ghosts —— H.13.b: owner's "what to ask when you first arrive" list; frontend's
+	// ghost text takes the first entry. Empty array outside code mode ("ghosts": []).
 	Ghosts []string `json:"ghosts"`
-	// DockButtons —— #109/#110 owner 在 role 上配的 ≤2 个 chat dock 按钮（已过滤 code-deny、
-	// 解析出 title）。前端渲染成两个位的按钮；点击把 trigger 当访客消息发出。
+	// DockButtons —— #109/#110: up to 2 chat dock buttons from the role config
+	// (code-deny filtered, title resolved); clicking one sends trigger as a message.
 	DockButtons []dockButtonResp `json:"dock_buttons"`
 	Quota       sessionQuotaResp `json:"quota"`
-	// OwnerCanDeliver —— owner 有可用的出站通道。前端据此决定约成卡片要不要
-	// 显"发确认邮件"那块(#122:没配就根本不渲染那张卡)。
+	// OwnerCanDeliver —— whether the owner has a usable outbound channel; gates the
+	// booking-confirmed card's "send confirmation email" section (#122: else hidden).
 	OwnerCanDeliver bool `json:"owner_can_deliver"`
 }
 
-// dockButtonResp —— 一个可渲染的 dock 按钮：能力 id + 显示名（透传 MCP title）+ 触发词。
+// dockButtonResp —— one renderable dock button: capability id + display name (from
+// MCP title) + trigger phrase.
 type dockButtonResp struct {
 	CapabilityID string `json:"capability_id"`
 	Title        string `json:"title"`
 	Trigger      string `json:"trigger"`
 }
 
-// resolveDockButtons —— 冻下的 dock 配置 → 可渲染按钮：只保留能力仍在本 session 可用集里的
-// （code-deny 的能力不在 caps → 其按钮不渲染，D2）；title 从对应 CapabilityState 透传。
+// resolveDockButtons —— frozen dock config → renderable buttons: keeps only
+// capabilities still in this session's available set (code-denied → absent from caps →
+// button doesn't render, D2); title passes through from the matching CapabilityState.
 func resolveDockButtons(
 	cfg []access.DockButtonConfig, caps []capreg.CapabilityState,
 ) []dockButtonResp {
@@ -94,7 +96,7 @@ func resolveDockButtons(
 	for i := range cfg {
 		t, ok := title[cfg[i].CapabilityID]
 		if !ok {
-			continue // 能力被 code deny / 本 session 没有 → 按钮不渲染
+			continue // capability is code-denied / absent from this session → button doesn't render
 		}
 		out = append(out, dockButtonResp{
 			CapabilityID: cfg[i].CapabilityID, Title: t, Trigger: cfg[i].Trigger,
@@ -103,7 +105,7 @@ func resolveDockButtons(
 	return out
 }
 
-// capTitleMap —— capability id → title（dock 按钮解析 label 用）。
+// capTitleMap —— capability id → title (used to resolve dock button labels).
 func capTitleMap(caps []capreg.CapabilityState) map[string]string {
 	m := make(map[string]string, len(caps))
 	for i := range caps {
@@ -133,14 +135,15 @@ type codeIntroRequest struct {
 type codeIntroResponse struct {
 	Label    string `json:"label"`
 	Greeting string `json:"greeting"`
-	// CustomPageSlug —— 这张码开哪一页。**空串 = 开默认对话**，不是「没答上来」。
+	// CustomPageSlug —— which page this code opens. Empty string means the default
+	// conversation, not "no answer".
 	CustomPageSlug string `json:"custom_page_slug"`
 	MaxMembers     int32  `json:"max_members"`
 	MemberCount    int32  `json:"member_count"`
 }
 
-// codeIntro —— 名字选择器 pre-issue peek:code(走 body)→ greeting + 名字上限/
-// 已用。code 无效 → handleVisitorErr(code_invalid),前端优雅回落(不显 intro)。
+// codeIntro —— name picker's pre-issue peek: code (in body) → greeting + name cap/used.
+// Invalid code → handleVisitorErr(code_invalid); frontend falls back (no intro shown).
 func (h *Handlers) codeIntro() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req codeIntroRequest
@@ -169,14 +172,12 @@ func writeCodeIntro(
 	}
 }
 
-// OpenCodeSession —— 拿一张码换一场会话，交回**装配好的能力入参**。
-//
-// 住在这里的理由：这个文件是这个实例所有「码 → 会话」的去处。访客 MCP 面
-// （mcp_visitor.go）要的是同一件事，只是它没有 HTTP body、只有一个 Authorization 头 ——
-// 那是**传输**的差别，不是业务的差别。各写一份的话，配额、成员解析、失败措辞会各飘各的。
-//
-// 回 nil 表示没开成，第二个返回值是那句要给对面看的话（走 visitorErrCases，
-// 跟其他面同一张表）。
+// OpenCodeSession —— trades a code for a session, and hands back the already-assembled
+// capability input. Lives here because this file runs every "code → session" exchange
+// in this instance; the visitor MCP face (mcp_visitor.go) wants the same thing, differing
+// only in transport (Authorization header, no HTTP body) — writing it twice would let
+// quota, member resolution, and failure wording drift apart. Nil return means it never
+// opened; the envelope carries the message for the other side, via visitorErrCases.
 func (h *Handlers) OpenCodeSession(
 	ctx context.Context, code, visitorName, ip string,
 ) (OpenedCodeSession, apierr.Envelope) {
@@ -195,23 +196,25 @@ func (h *Handlers) OpenCodeSession(
 	}, apierr.Envelope{}
 }
 
-// OpenedCodeSession —— 开成了的那一场。In 为 nil 表示没开成（看同时回的那个信封）。
+// OpenedCodeSession —— the session that got opened; nil In means it never opened
+// (check the envelope returned alongside it).
 type OpenedCodeSession struct {
 	In     *capreg.AssembleInput
 	ConvID string
 }
 
-// recordVisitorMCPFail —— 只有**码本身不对**才计一次。名额满了、码过期，都不是在猜码，
-// 把它们一起计进去等于拿一个正当访客的失败去锁他自己的地址。
+// recordVisitorMCPFail —— counts a failure only when the code itself is wrong. A full
+// roster or expired code isn't code-guessing; counting those would lock out a
+// legitimate visitor for their own unrelated failure.
 func (h *Handlers) recordVisitorMCPFail(ctx context.Context, ip string, err error) {
 	if errors.Is(err, access.ErrCodeInvalid) {
 		h.CodeGuard.RecordFail(ctx, ip)
 	}
 }
 
-// dispatchIssueSession 按 tier 派发到对应 usecase。
-// tier=='code' → IssueCodeSession（带 access code）。
-// mode=='public' / 'byoai' / 空 → IssuePublicSession，BYOAI 字段透传到 session data。
+// dispatchIssueSession dispatches to the matching usecase by tier: tier=='code' →
+// IssueCodeSession (with an access code); mode=='public'/'byoai'/empty →
+// IssuePublicSession, BYOAI fields pass straight through into session data.
 func dispatchIssueSession(
 	ctx context.Context, deps *conversation.VisitorSessionDeps,
 	req *createSessionRequest, clientIP string,
@@ -247,10 +250,10 @@ func toMemberResps(members []access.CodeMember) []sessionMemberResp {
 	return out
 }
 
-// clientIP —— 访客来源 IP，写进 conversations.client_ip 给 owner 做 IP 感知 + 封禁。
-// 结论在 clientaddr 中间件里产生：**要么是访客的地址，要么是空串（不知道）**。
-// 这里绝不自己去拆 RemoteAddr —— 没有转发头时那是 app 那一跳，拿它冒充访客会让
-// owner 的 IP 栏和封禁按钮同时变成谎话（F-F-5）。
+// clientIP —— visitor's source IP, written into conversations.client_ip for owner IP
+// awareness + banning. Produced by the clientaddr middleware: the visitor's real address,
+// or empty (unknown). Never parses RemoteAddr itself — with no forwarded header that's the
+// app hop, and passing it off as the visitor would lie in the IP column + ban button (F-F-5).
 func clientIP(r *http.Request) string {
 	return clientaddr.Of(r.Context())
 }
@@ -273,8 +276,9 @@ func writeCreateSession(
 	canEmail := owner.CanDeliverCodes(ctx,
 		owner.OutboundStatusDeps{Proxy: h.Outbound}, res.Session.Data.OwnerID)
 	in := assembleInputFromSession(&res.Session.Data, res.Chat.ID)
-	// 一次 walk 出三样(States/ToolSpecs/PromptPartIDs):分别调会把每个外置插件
-	// 冷拨两遍,两个网络沙箱插件能把 /sessions 顶到 ~16s(超 e2e 15s 等待)。
+	// One walk produces all three (States/ToolSpecs/PromptPartIDs): calling separately
+	// cold-dials every external plugin twice — with two networked sandbox plugins that
+	// pushed /sessions to ~16s, past the e2e's 15s wait.
 	bundle := deps.AgentSkills.AssembleVisitorBundle(ctx, in)
 	resp := createSessionResponse{
 		SessionToken:   res.Session.Token,
@@ -301,8 +305,8 @@ func writeCreateSession(
 			res.Session.Data.RoleSnapshot.DockButtons(), bundle.States,
 		),
 	}
-	// session token 也落一份 HttpOnly cookie(bearer 之外的兜底:跨 tab / 活过刷新 /
-	// SSR);Set-Cookie 必须在 WriteHeader 前。
+	// Session token also lands in an HttpOnly cookie (fallback beyond bearer: works
+	// across tabs / survives refresh / SSR); Set-Cookie must precede WriteHeader.
 	setVisitorSessionCookie(w, res.Session.Token, res.Session.Data.ExpiresAt, h.SecureCookie)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -311,9 +315,8 @@ func writeCreateSession(
 	}
 }
 
-// nonNilStringSlice —— wire JSON 上 `ghosts: null` 跟 `[]`
-// 对前端是不同 case；nil 强转 [] 保证浏览器永远拿到 array (project
-// principle: 空容器不 nil)。
+// nonNilStringSlice —— `ghosts: null` vs `[]` on the wire is a different case for the
+// frontend; forcing nil to [] guarantees an array (project principle: empty ≠ nil).
 func nonNilStringSlice(s []string) []string {
 	if s == nil {
 		return []string{}
@@ -321,10 +324,9 @@ func nonNilStringSlice(s []string) []string {
 	return s
 }
 
-// assembleInputFromSession —— 把 freshly issued VisitorSessionData 折成
-// capreg.AssembleInput；ConversationID 来自 res.Chat 不在 data
-// 里。跟 dev /internal/test/visitor-capabilities 一致，让两处 capability
-// shape 完全同源。
+// assembleInputFromSession —— folds a freshly issued VisitorSessionData into
+// capreg.AssembleInput; ConversationID comes from res.Chat, not data. Kept consistent
+// with dev's /internal/test/visitor-capabilities, so capability shape stays same-source.
 func assembleInputFromSession(
 	data *access.VisitorSessionData, conversationID string,
 ) *capreg.AssembleInput {
@@ -332,7 +334,7 @@ func assembleInputFromSession(
 		RoleSnapshot: data.RoleSnapshot,
 		OwnerID:      data.OwnerID,
 		Mode:         data.Mode,
-		// 访客这条路的主体是他手里那张码(public / byoai 没有码 → 空主体,不闸)。
+		// Subject is the code the visitor holds (public/byoai have none → ungated).
 		Subject:        capreg.Subject{Kind: capreg.SubjectCode, ID: data.CodeID},
 		Visitor:        data.Visitor,
 		ConversationID: conversationID,

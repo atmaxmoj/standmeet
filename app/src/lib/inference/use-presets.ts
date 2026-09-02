@@ -1,7 +1,10 @@
-// use-presets —— provider preset 列表(GET /admin/ai-provider/presets)拉一次。
+// use-presets —— fetches the provider preset list
+// (GET /admin/ai-provider/presets) once.
 //
-// 两个面用它:默认那条的表单,和 provider 本子的新建行。返 null = 还没拿到
-// (调用方据此显示骨架);失败弹 toast 并保持 null —— preset 拉不到就没法选 provider。
+// Two surfaces use it: the default form, and the new-row form in the
+// provider table. Returns null = not fetched yet (the caller shows a
+// skeleton for this); on failure it toasts and stays null — with no preset
+// list there's no way to pick a provider.
 
 'use client';
 
@@ -24,7 +27,8 @@ export function usePresets(): readonly AIProviderPresetView[] | null {
   return presets;
 }
 
-// endpointForPreset —— 选中某个 preset 时该填的 base URL(表里没有 = 空,owner 手输)。
+// endpointForPreset —— the base URL to fill in when a preset is selected
+// (missing from the table = empty string, owner types it by hand).
 export function endpointForPreset(
   name: string, presets: readonly AIProviderPresetView[],
 ): string {

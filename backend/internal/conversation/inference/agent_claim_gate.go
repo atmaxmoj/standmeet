@@ -1,14 +1,18 @@
-// agent_claim_gate.go —— F-A-37：一轮答案宣称完成了某个动作，这一轮就必须有那个工具的成功
-// 回执，否则宿主判这一轮不算数。
+// agent_claim_gate.go — F-A-37: when a turn's answer claims it completed some action, that
+// turn must carry a success receipt from that tool, or the host rules the turn invalid.
 //
-// 为什么需要装置而不是一句 prompt：真实环境里，连约四场之后第五次的回答是 *"Booked. ✅
-// Monday, August 31 · 13:00–13:30 UTC … Invite went to …"*，那一轮**一个工具都没调**，真日历
-// 整天空的。浏览器回放的历史只有 `{role, content}` —— 模型读回去的是四条自己写过的
-// "Booked"，看不见任何工具痕迹，于是要补全的成了**那句话**。prompt 里加一句「不要编」只是把
-// 概率往下压一点；能力做的是「发生了 / 没发生」的动作，判据必须是回执。
+// Why this needs a mechanism, not a prompt line: in the real environment, after booking four
+// meetings, the fifth reply was *"Booked. ✅ Monday, August 31 · 13:00–13:30 UTC … Invite went
+// to …"* — that turn called **zero tools**, and the real calendar stayed empty all day. The
+// browser only replays history as `{role, content}` — the model reads back its own four earlier
+// "Booked" messages and sees no trace of any tool call, so it completes the pattern with **that
+// sentence**. Adding "don't make things up" to the prompt only nudges the probability down a
+// little; a capability's job is the "did it happen / not" action, and the judging criterion has
+// to be the receipt.
 //
-// 内核这一侧只认两样东西：本轮哪些工具**成功**回过、以及能力声明的那几句「完成态」说法。
-// 它不知道 booking 是什么（gates 由能力在 manifest 里声明，装配期带进来）。
+// The kernel side only recognizes two things: which tools got a **successful** result this turn,
+// and the "completion" phrasings a capability declares. It doesn't know what booking is (gates
+// are declared by capabilities in their manifest, brought in at assembly time).
 
 package inference
 
@@ -17,20 +21,23 @@ import (
 	"strings"
 )
 
-// StopClaimUnbacked —— 停止原因：这一轮说自己做成了一件事，却没有那件事的回执。
+// StopClaimUnbacked — stop reason: this turn claims it did something, with no receipt for it.
 //
-// 它跟 end_turn / max_tokens 并列走同一条通道（`done` 帧的 stop），因为客户端**已经**在按
-// stop 决定这一轮怎么收场（F-A-34 的截断提示就走这条）。访客那边渲的是产品自己的话，不是
-// 模型的 —— 那句已经流出去的 "Booked" 收不回来，但「这一轮算不算数」由产品判。
+// It sits on the same channel as end_turn / max_tokens (the `done` frame's stop), because the
+// client **already** decides how to present a turn based on stop (F-A-34's truncation notice
+// uses this same path). What the visitor renders is the product's own wording, not the model's —
+// the "Booked" that already streamed out can't be pulled back, but whether the turn counts is
+// the product's call.
 const StopClaimUnbacked = "claim_unbacked"
 
-// ClaimGate —— 带进这一轮的必要条件。Tool 有成功回执 = 这类主张有据。
+// ClaimGate — a necessary condition brought into this turn. A successful receipt from Tool
+// means this kind of claim is backed.
 type ClaimGate struct {
 	Tool    string
 	Phrases []string
 }
 
-// claims —— 这段答案有没有断言动作已完成（小写子串）。
+// claims — whether this answer asserts the action is already complete (lowercase substring).
 func (g *ClaimGate) claims(answer string) bool {
 	low := strings.ToLower(answer)
 	for _, p := range g.Phrases {
@@ -41,8 +48,9 @@ func (g *ClaimGate) claims(answer string) bool {
 	return false
 }
 
-// applyClaimGate —— 收尾判一次：主张没有回执 → 这一轮的收场由产品改写，并留一行日志说明
-// 是哪个工具缺了回执（不留的话，运维只会看到一个正常收尾的 turn）。
+// applyClaimGate — one judgment at wrap-up: an unbacked claim → the product rewrites how this
+// turn ends, and logs one line saying which tool's receipt was missing (skip that and ops only
+// ever sees a normally-ended turn).
 func applyClaimGate(log *slog.Logger, state *turnState, gates []ClaimGate) {
 	g := unbackedClaim(state, gates)
 	if g == nil {
@@ -54,10 +62,12 @@ func applyClaimGate(log *slog.Logger, state *turnState, gates []ClaimGate) {
 	state.stop = StopClaimUnbacked
 }
 
-// unbackedClaim —— 本轮违反的那道闸（没有则 nil）。
+// unbackedClaim — the gate this turn violated (nil if none).
 //
-// 判据是**必要条件**，不是「模型说得对不对」：答案里有完成态的说法、而本轮该工具没有成功
-// 回执 → 这一轮不算数。反过来不闸：调了工具却没说，或者只是提议/提问，都不是主张。
+// The criterion is a **necessary condition**, not "was the model right": the answer contains a
+// completion phrase, and this turn's tool has no successful receipt → the turn doesn't count.
+// The converse isn't gated: calling the tool without saying so, or merely proposing/asking, is
+// not a claim.
 func unbackedClaim(state *turnState, gates []ClaimGate) *ClaimGate {
 	answer := strings.TrimSpace(state.product)
 	if answer == "" {
@@ -71,7 +81,8 @@ func unbackedClaim(state *turnState, gates []ClaimGate) *ClaimGate {
 	return nil
 }
 
-// violates —— 这一道闸被这一轮违反了吗。声明不全的闸不判（判不了时「不闸」比「瞎闸」对）。
+// violates — did this turn violate this gate. An incompletely declared gate is never judged
+// (when it can't be judged, "don't gate" beats "gate blindly").
 func violates(g *ClaimGate, answer string, okTools map[string]bool) bool {
 	if g.Tool == "" || len(g.Phrases) == 0 {
 		return false
@@ -79,11 +90,13 @@ func violates(g *ClaimGate, answer string, okTools map[string]bool) bool {
 	return g.claims(answer) && !okTools[g.Tool]
 }
 
-// markToolOK —— 记下「这个工具本轮成功回过一次」。失败的回执不算回执：能力的错误约定是
-// `{"ok":false,...}`，那种回执支撑不了「已经完成」。
+// markToolOK — record "this tool returned successfully once this turn." A failed receipt
+// doesn't count as a receipt: the capability error convention is `{"ok":false,...}`, and that
+// kind of receipt can't back "already completed."
 //
-// 单独记一份而不是复用 evidence：evidence 是**有上限**的（长爬时头尾保留、中段丢弃），拿它
-// 当回执会让一轮工具很多的会话里，闸门凭空放行。
+// Recorded separately rather than reusing evidence: evidence is **capped** (on a long crawl it
+// keeps head and tail, drops the middle), and using it as the receipt would let the gate pass
+// vacuously in a turn with many tool calls.
 func markToolOK(state *turnState, tool, result string) {
 	if tool == "" || toolResultFailed(result) {
 		return
@@ -94,7 +107,8 @@ func markToolOK(state *turnState, tool, result string) {
 	state.okTools[tool] = true
 }
 
-// toolResultFailed —— 回执自称失败了吗。各能力统一的错误约定是顶层 `"ok": false`。
+// toolResultFailed — does the receipt claim it failed. The uniform error convention across
+// capabilities is a top-level `"ok": false`.
 func toolResultFailed(result string) bool {
 	compact := strings.ReplaceAll(result, " ", "")
 	return strings.Contains(compact, `"ok":false`)

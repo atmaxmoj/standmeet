@@ -1,16 +1,23 @@
-// capreg_mcp_app_allowance.go —— 用量到顶的那一场，这个能力对模型说什么。
+// capreg_mcp_app_allowance.go —— what this capability tells the model when its allowance
+// runs out.
 //
-// F-B-14（prod 上真出过）：额度用尽时宿主把这个能力**整个藏起来**，而它的说明书从不问闸 ——
-// 于是那一轮的 agent 读到「你会订会」，手上却没有那把工具，**也没有一句话说明发生了什么**。
-// 「从来没有这把工具」和「额度用完了」是同一份证据，而模型对这份证据最自然的修复，是怀疑
-// 自己刚才的输出：它当着访客的面，把两场**真的**会说成「其实没订成、邀请也没发过」——
-// 而那两场会好好地在 owner 的日历上。
+// F-B-14 (actually happened in prod): once quota is spent, the host **hides this capability
+// entirely**, and its instructions never ask the gate — so that turn's agent reads "you can
+// book meetings" while holding no such tool, **with not one sentence explaining what
+// happened**. "This tool never existed" and "the allowance ran out" are the same evidence
+// from the model's point of view, and its most natural fix for that evidence is to doubt
+// its own just-produced output: in front of the visitor, it recast two **real** meetings as
+// "actually never booked, no invite ever sent" — while those two meetings sat fine on the
+// owner's calendar the whole time.
 //
-// 藏工具是对的（别让模型看见一把用不了的工具）；**沉默不是回答**。同一件事今天在 HTTP 那一面
-// 修过一次：额度用尽回 429 `quota_exhausted` 而不是「你从来没这个能力」（F-B-11）。会话这一面
-// 还多欠一半 —— API 调用方不需要，访客需要：**已经做成的那些算数**。
+// Hiding the tool is correct (never let the model see a tool it can't use); **silence is not
+// an answer**. The same issue was already fixed once on the HTTP side today: when quota is
+// spent it returns 429 `quota_exhausted` instead of "you never had this capability"
+// (F-B-11). The session side still owed the other half — API callers don't need it, but
+// visitors do: **what's already been done still counts**.
 //
-// 宿主不认识 booking：这句话用能力自己的 Title 说，换个能力照样成立。
+// The host doesn't know what "booking" is: this sentence is phrased using the capability's
+// own Title, so it holds for any other capability too.
 
 package capload
 
@@ -21,18 +28,22 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
-// SessionNote —— capreg.SessionNoter：这一场里这个能力非说不可的那句话。
+// SessionNote —— capreg.SessionNoter: the sentence this capability must say in this session,
+// no matter what.
 //
-// 走这条路而不是只改说明书，是因为**访客那份 system prompt 在会话开始时就冻住了**（客户端
-// 拼好再发回来）。会话中途才成立的事实只能经每一轮的 instruction 进去 —— 那正是这个接口存在
-// 的理由，也是 F-B-14 里那句话原来根本到不了模型手上的原因。
+// This route exists instead of just editing the instructions because **the visitor's system
+// prompt is frozen at session start** (assembled client-side and sent back as-is). A fact
+// that only becomes true mid-session can only get in through each turn's instruction — that
+// is exactly why this interface exists, and exactly why the F-B-14 sentence never reached the
+// model in the first place.
 func (c *mcpAppCapability) SessionNote(
 	ctx context.Context, in *capreg.AssembleInput,
 ) string {
 	return c.spentAllowanceNote(ctx, in)
 }
 
-// spentAllowanceNote —— 用量到顶时，**替**这个能力的说明书说的那一句。空 = 没到顶，照常发说明书。
+// spentAllowanceNote —— when the allowance is spent, the sentence said **in place of** this
+// capability's instructions. Empty = not spent, send the instructions as usual.
 func (c *mcpAppCapability) spentAllowanceNote(
 	ctx context.Context, in *capreg.AssembleInput,
 ) string {
@@ -46,10 +57,12 @@ func (c *mcpAppCapability) spentAllowanceNote(
 		"code, and point them at the owner if they need another."
 }
 
-// quotaSpent —— 闸是不是因为**用量到顶**把这个能力藏了。没挂闸 / 别的理由 → false。
+// quotaSpent —— whether the gate hid this capability **because the allowance ran out**. No
+// gate attached / hidden for some other reason → false.
 //
-// 问的是同一个闸(同一份计数)，不是另算一遍：两处各算一次的话，说明书说的和工具表做的
-// 迟早会不一致，而不一致的那一刻正是这条缺陷发生的时刻。
+// This asks the same gate (the same count), not a second computation: if the two places
+// computed it separately, what the instructions say and what the tool table does would
+// eventually drift apart — and that drift is exactly the moment this bug happens.
 func (c *mcpAppCapability) quotaSpent(ctx context.Context, in *capreg.AssembleInput) bool {
 	if c.gate == nil {
 		return false
@@ -58,8 +71,9 @@ func (c *mcpAppCapability) quotaSpent(ctx context.Context, in *capreg.AssembleIn
 	return !ok && errors.Is(err, capreg.ErrQuotaExhausted)
 }
 
-// allowanceLabel —— 这句话里怎么称呼这个能力。Title 是给人看的名字；没有就退回 id，
-// 而不是留一个空洞（"used up their allowance for  on this access code"）。
+// allowanceLabel —— what to call this capability in the sentence. Title is the human-facing
+// name; if there is none, fall back to id rather than leaving a hole ("used up their
+// allowance for  on this access code").
 func (c *mcpAppCapability) allowanceLabel() string {
 	if c.m.Title != "" {
 		return c.m.Title

@@ -1,12 +1,12 @@
-// path_acl.go —— 现在只剩 compileGlob：URI glob 编译成 regex，给
-// [[role]] / [[role_snapshot]].AllowsCorpus 用。
+// path_acl.go — only compileGlob is left now: compiles a URI glob into a regex, used by
+// [[role]] / [[role_snapshot]].AllowsCorpus.
 //
-// 旧的 PathACL / PathPermission / AllowsPath / AllowsEntry 在 A.3-IAM-5 删除。
-// ACL 现在统一走 RoleSnapshot.AllowsCorpus(uri)，每张 access_code 必挂
-// assumed_role_id（NOT NULL）。
+// The old PathACL / PathPermission / AllowsPath / AllowsEntry were removed in A.3-IAM-5.
+// ACL now goes uniformly through RoleSnapshot.AllowsCorpus(uri); every access_code must
+// carry assumed_role_id (NOT NULL).
 //
-// Glob 方言：`**` 跨 `/` 递归 (`.*`)，`*` 不跨 `/` (`[^/]*`)，`?` 不跨 `/`
-// (`[^/]`)；其他元字符 escape。
+// Glob dialect: `**` recurses across `/` (`.*`), `*` does not cross `/` (`[^/]*`), `?`
+// does not cross `/` (`[^/]`); other metacharacters are escaped.
 
 package entity
 
@@ -16,8 +16,9 @@ import (
 	"sync"
 )
 
-// globRegexCache —— pattern → 编译好的 regex。ACL 是 corpus 读的热路径(每次读 × 每条 glob),
-// 之前每次都 regexp.MustCompile 重编。glob 集合小且稳定(role 的 granted globs),缓存一次即可。
+// globRegexCache — pattern -> the compiled regex. ACL is the hot path for a corpus read
+// (every read x every glob); it used to call regexp.MustCompile fresh every time. The glob
+// set is small and stable (a role's granted globs), so compiling once and caching is enough.
 var globRegexCache sync.Map // string → *regexp.Regexp
 
 // MatchesAnyCorpusGlob —— positive-list corpus ACL rule in one place: raw://** is
@@ -25,8 +26,8 @@ var globRegexCache sync.Map // string → *regexp.Regexp
 // → deny all (A.3-IAM-5). RoleSnapshot.AllowsCorpus delegates here, and the slim
 // CorpusLister (#157) calls it directly with the role's granted globs — so search/read/
 // list and snapshot ACL can never diverge.
-// rawURIPrefix —— raw 永远不进访客检索。两条准入分支都要否决它，所以它是一个常量，
-// 不是两处各写一遍的字面量。
+// rawURIPrefix — raw never enters visitor retrieval. Both admission branches must veto it,
+// so it's one constant, not a literal each writes for itself.
 const rawURIPrefix = "raw://"
 
 // MatchesAnyCorpusGlob —— positive-list corpus ACL rule in one place: raw://** is
@@ -44,7 +45,7 @@ func MatchesAnyCorpusGlob(patterns []string, uri string) bool {
 	return false
 }
 
-// compileGlob —— pattern → regex，带缓存(热路径避免重编)。
+// compileGlob — pattern -> regex, cached (avoids recompiling on the hot path).
 func compileGlob(pattern string) *regexp.Regexp {
 	if cached, ok := globRegexCache.Load(pattern); ok {
 		if re, isRE := cached.(*regexp.Regexp); isRE {
@@ -56,8 +57,8 @@ func compileGlob(pattern string) *regexp.Regexp {
 	return re
 }
 
-// buildGlobRegex —— 转换 glob → regex。`**` 跨 `/` (`.*`)，`*` 不跨 `/` (`[^/]*`)，
-// `?` 不跨 `/` (`[^/]`)；其他元字符 escape。
+// buildGlobRegex — converts glob -> regex. `**` crosses `/` (`.*`), `*` does not cross `/`
+// (`[^/]*`), `?` does not cross `/` (`[^/]`); other metacharacters are escaped.
 func buildGlobRegex(pattern string) *regexp.Regexp {
 	const globstarToken = "\x00"
 	escaped := regexp.QuoteMeta(pattern)
@@ -68,61 +69,77 @@ func buildGlobRegex(pattern string) *regexp.Regexp {
 	return regexp.MustCompile("^" + escaped + "$")
 }
 
-// CorpusScope —— 一个 visitor session 的 corpus 准入范围：role 授的正列表 + 这张 code 收回的。
-// 两者正交而非相减：glob 的减法删不掉列表项（`subjectivity://cv` 减不掉 `subjectivity://**`），
-// 只能在匹配时判。
-// json tag 是**过线契约**：这个 scope 会整块序列化递给沙箱里的检索插件，再原样回到宿主。
+// CorpusScope — one visitor session's corpus admission range: the role's granted positive
+// list + what this code takes back. The two are orthogonal, not subtracted from each
+// other: glob subtraction cannot remove a list entry (`subjectivity://cv` cannot be
+// subtracted from `subjectivity://**`) — it can only be checked at match time.
+// The json tags are a **crossing-the-boundary contract**: this scope is serialized whole
+// and handed to the retrieval plugin inside the sandbox, then comes back to the host as-is.
 type CorpusScope struct {
 	Granted []string `json:"granted"`
 	Denied  []string `json:"denied"`
-	// PublishedOnly —— 这个身份读到的就是 **owner 发布过的那些**，由每条笔记自己的
-	// `published` 开关决定（owner 在 /admin/wiki 上翻的那一个）。
+	// PublishedOnly —— this identity reads exactly **what the owner has published**,
+	// decided by each note's own `published` switch (the one the owner flips on
+	// /admin/wiki).
 	//
-	// 它**不是**一份"公开清单"。builtin `public` 身份（未受邀访客 + BYOAI）以前带着
-	// `wiki://** output://** writing://**` 三条 glob —— 那是把"谁能读什么"这件事**存了
-	// 第二份**：条目上标着 PRIVATE，而这份清单说"全部"，两边谁也不知道对方在。F-D-7
-	// 就是这么发生的：没有码的陌生人读到了 573 条标着 PRIVATE 的 wiki。
+	// It is **not** a "public list". The builtin `public` identity (uninvited visitor +
+	// BYOAI) used to carry the three globs `wiki://** output://** writing://**` — that
+	// stored **a second copy** of "who can read what": an entry marked PRIVATE, this list
+	// saying "everything", neither side knowing the other existed. That is exactly how
+	// F-D-7 happened: a stranger with no code read 573 notes marked PRIVATE in wiki.
 	//
-	// 所以这里存的是**一个 bit：去问条目**，而不是一份被复述出来的范围。
+	// So what this field stores is **one bit: go ask the entry**, not a restated scope.
 	PublishedOnly bool `json:"published_only"`
 }
 
-// CorpusEntryRef —— 被判定的那一条：它的 URI，和它自己的公开开关。
+// CorpusEntryRef — the one entry being judged: its URI, and its own publish switch.
 //
-// 做成一个值而不是多一个 bool 参数：`published` 不是模式开关，它是**这条笔记的属性**，
-// 跟 URI 一样属于"被判的东西"那一侧。调用处读起来也就成了「这个 scope 能不能读这条」。
+// Made a value instead of an extra bool parameter: `published` is not a mode switch, it is
+// **a property of this note**, belonging on the same side as URI as "the thing being
+// judged". At the call site it reads as "can this scope read this entry".
 type CorpusEntryRef struct {
 	URI       string
 	Published bool
 }
 
-// ReachesAnything —— 这个身份**够得着语料吗**（能力闸用：够不着就别把检索工具挂上）。
+// ReachesAnything — **can this identity reach the corpus at all** (used by the capability
+// gate: if it can't reach anything, don't attach the retrieval tool).
 //
-// 判据必须问 scope 自己。以前闸门问的是「正列表空不空」，而 public 身份的范围根本不是列表 ——
-// 于是它一改成 published-only，检索能力对每一个无码访客整个关掉，表现成"搜什么都没有"。
-// 一个规则新增一条成立方式，判定它的地方就得跟着知道；把判定放在规则身上，它就不会不知道。
+// The verdict must ask the scope itself. The gate used to ask "is the positive list
+// empty", but the public identity's scope is not a list at all — so once it switched to
+// published-only, the retrieval capability turned off entirely for every no-code visitor,
+// showing up as "search returns nothing no matter what". Every time a rule grows a new way
+// to hold, whatever judges it has to learn about it too; putting the judgment on the rule
+// itself means it never falls behind.
 func (s CorpusScope) ReachesAnything() bool {
 	return s.PublishedOnly || len(s.Granted) > 0
 }
 
-// AllowsCorpusEntry —— corpus 准入的唯一真值（ACL 三层里的 corpus 那类）：
+// AllowsCorpusEntry — the single source of truth for corpus admission (the corpus kind of
+// the three ACL tiers):
 //
-//	readable(entry) = 这个身份读得到它  AND  不命中本码的任一 deny
+//	readable(entry) = this identity can read it  AND  it hits none of this code's denies
 //
-// 「读得到」有两种来源，取决于身份：
-//   - **受邀身份**（owner 指定的 role）：命中 role 授的任一 glob。
-//   - **public 身份**（未受邀 + BYOAI）：`PublishedOnly` —— 看**这条笔记自己**发布没有。
-//     私有的没有码就读不到，而"私有"只有条目上那一个数据说了算。
+// "Can read it" has two sources, depending on identity:
+//   - **an invited identity** (an owner-specified role): matches any glob the role grants.
+//   - **the public identity** (uninvited + BYOAI): `PublishedOnly` — looks at whether
+//     **this note itself** is published. Private with no code stays unreadable, and only
+//     the one datum on the entry decides what "private" means.
 //
-// `entry.Published` 必须由 caller 从那一行上取来。它是必填而不是可选项：编译器因此逼每一个
-// 读取面回答"这条发布了吗"，漏一个不会静默放行 —— 只会编不过。
+// `entry.Published` must be pulled from that row by the caller. It is required, not
+// optional: the compiler therefore forces every read surface to answer "is this one
+// published" — missing it does not silently pass, it fails to compile.
 //
-// **纯减法**：deny 只能让可读的更少，code 开不了 role 没给的 —— 跟 capability/skill 的 deny 集同构，
-// 也跟 A.4 定的"纯 AND、code 只能 deny"一致。
+// **Pure subtraction**: deny can only shrink what's readable, a code cannot open what its
+// role never gave — isomorphic to the deny sets for capability/skill, and consistent with
+// A.4's rule of "pure AND, a code can only deny".
 //
-// **顺序无关**：deny 和 grant 分两遍算，不是一张混排列表里 first-match-wins。A.2 当初 defer corpus
-// 层级收窄，理由正是"顺序敏感、first-match-wins"；那描述的是 deny 行混进 glob 列表的方案（owner
-// 也明确 reject 了它）。分开两个列表 = 集合交，没有顺序可言，所以那条顾虑在这里不成立。
+// **Order-independent**: deny and grant are computed in two separate passes, not
+// first-match-wins in one interleaved list. A.2 originally deferred corpus-level
+// narrowing for exactly the reason "order-sensitive, first-match-wins"; that described a
+// design where deny lines are mixed into the glob list (which the owner explicitly
+// rejected too). Two separate lists = set intersection, no ordering involved, so that
+// concern does not apply here.
 func AllowsCorpusEntry(scope CorpusScope, entry CorpusEntryRef) bool {
 	if !grantsCorpusEntry(scope, entry) {
 		return false
@@ -130,8 +147,9 @@ func AllowsCorpusEntry(scope CorpusScope, entry CorpusEntryRef) bool {
 	return !MatchesAnyCorpusGlob(scope.Denied, entry.URI)
 }
 
-// grantsCorpusEntry —— 准入的"正"那一半。raw 永远不可读这条规则在
-// MatchesAnyCorpusGlob 里，published 那一支也要走它，所以两支都经过同一个否决。
+// grantsCorpusEntry — the "positive" half of admission. The rule "raw is never readable"
+// lives in MatchesAnyCorpusGlob, and the published branch routes through it too, so both
+// branches go through the same veto.
 func grantsCorpusEntry(scope CorpusScope, entry CorpusEntryRef) bool {
 	if scope.PublishedOnly {
 		return entry.Published && !strings.HasPrefix(entry.URI, rawURIPrefix)

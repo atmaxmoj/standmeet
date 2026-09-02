@@ -1,10 +1,13 @@
-// appearance.go —— admin /appearance/css：owner 自定义 CSS 的读/写。
+// appearance.go — admin /appearance/css: read/write for the owner's custom CSS.
 //
-// 写时经域的 SetOwnerCSS sanitize + scope 后落库，读回的是那个安全版本。
-// owner CSS 三面（admin UI / MCP / vault sync）写同一处（owners.custom_css）。
+// On write it goes through the domain's SetOwnerCSS sanitize + scope before landing in the
+// DB; the read returns that sanitized version.
+// All three owner-CSS facades (admin UI / MCP / vault sync) write to the same place
+// (owners.custom_css).
 //
-// 能力来自出站收口（通用件在 dispatch.go）。PUT 现在也回一份载荷 ——
-// 就是**存好之后**的那份 CSS，让调用方看到真正生效的东西，而不是自己刚发出去的原文。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go).
+// PUT now also returns a payload — the CSS **as it landed after storage**, so the caller
+// sees what actually took effect instead of just echoing what it sent.
 
 package admin
 
@@ -14,12 +17,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// AppearanceAdminDeps —— admin appearance handlers 的能力来源。
+// AppearanceAdminDeps — capability source for the admin appearance handlers.
 type AppearanceAdminDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountAppearance —— /appearance 子路由。
+// MountAppearance — the /appearance subrouter.
 func (h *Handlers) MountAppearance(r chi.Router) {
 	face := h.AppearanceAdmin.Face
 	r.Route("/appearance", func(r chi.Router) {

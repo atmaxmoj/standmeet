@@ -1,11 +1,13 @@
-// slash-command.ts —— Tiptap suggestion extension：触发字符 `/`，下拉
-// 列表 = filterItems(query)，命中 → 调 item.insert(editor, range)。
+// slash-command.ts — Tiptap suggestion extension: trigger character `/`,
+// dropdown list = filterItems(query), on match → call item.insert(editor, range).
 //
-// tippy.js 接 ProseMirror clientRect (用户输 `/` 的光标位置)，浮窗
-// 跟随。SlashMenu React 组件用 reactRenderer 挂载。
+// tippy.js reads the ProseMirror clientRect (cursor position where the
+// user typed `/`), and the popup follows it. The SlashMenu React component
+// mounts via reactRenderer.
 //
-// 设计：extension 只负责"接 suggestion API + 调度 menu"，菜单条目本身
-// 全在 slash-items.ts。加新 block 类型不动这层。
+// Design: the extension only handles "wire up the suggestion API + drive
+// the menu"; the menu items themselves all live in slash-items.ts. Adding
+// a new block type doesn't touch this layer.
 
 import { Extension } from '@tiptap/core';
 import type { Editor, Range } from '@tiptap/core';
@@ -50,9 +52,10 @@ function defaultSuggestionOptions(): SlashSuggestionOptions {
   };
 }
 
-// items() 必须返一个能被 command props 收到的形态。我们把 SlashItem 自己
-// 当 item，并在每条上挂 `insert`（已经在 SlashItem 上有）。Suggestion 的
-// props 类型即 SlashCommandProps，把 insert 桥过去。
+// items() must return a shape the command props can receive. We use
+// SlashItem itself as the item, with `insert` attached on each entry
+// (already present on SlashItem). Suggestion's props type is
+// SlashCommandProps, which bridges insert through.
 function toSuggestionItem(item: SlashItem): SlashItem & SlashCommandProps {
   return { ...item, insert: item.insert };
 }

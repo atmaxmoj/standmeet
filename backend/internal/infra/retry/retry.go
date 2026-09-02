@@ -1,11 +1,14 @@
-// Package retry —— 通用可配重试（#132）。connector 代调（第三方易抖）按 call-class
-// 配策略架在它之上：底座只管「按退避重试、硬封顶、可打断」，connector 只配不改。
+// Package retry -- generic configurable retry (#132). Connector call-outs (flaky third
+// parties) layer their per-call-class policy on top: this base only handles "retry on
+// backoff, hard-capped, interruptible" -- connectors configure it, never modify it.
 //
-// 硬封顶（决策点 D-7）：① 次数封顶 MaxAttempts ② 退避有 MaxInterval 上限（不指数
-// 无限涨）③ 总时长封顶 MaxTotal（到点立即停 + 返回，即使次数没用完）。绝不无上限。
+// Hard caps (decision D-7): (1) attempt count capped at MaxAttempts (2) backoff capped
+// at MaxInterval (no unbounded exponential growth) (3) total duration capped at MaxTotal
+// (stops and returns immediately once hit, even with attempts remaining). Never uncapped.
 //
-// 幂等由 caller 负责：写操作（events.insert / smtp send）只该用「仅发送前连接失败可
-// 重」的 Retryable，或带幂等键 —— 底座不替它判。
+// Idempotency is the caller's responsibility: write operations (events.insert / smtp
+// send) should only use a Retryable that allows retry for "pre-send connection failure
+// only", or carry an idempotency key -- this base does not judge that for them.
 package retry
 
 import (
@@ -14,7 +17,8 @@ import (
 	"time"
 )
 
-// Policy —— 一次重试的配置。零值不可用（MaxAttempts 必须 ≥ 1）。
+// Policy -- configuration for one retry. The zero value is not usable (MaxAttempts must
+// be >= 1).
 type Policy struct {
 	Retryable   func(error) bool
 	sleep       func(context.Context, time.Duration) error
@@ -25,8 +29,9 @@ type Policy struct {
 	MaxTotal    time.Duration
 }
 
-// Do —— 按 policy 重试 fn，直到成功、错误不可重、次数用尽、或总时长到点。返回最后
-// 一次的 error（成功则 nil）。ctx 取消 → 立即返回 ctx.Err()。
+// Do -- retries fn per policy until it succeeds, the error is non-retryable, attempts
+// are exhausted, or the total duration deadline hits. Returns the error from the last
+// attempt (nil on success). ctx cancelled -> returns ctx.Err() immediately.
 func Do(ctx context.Context, p Policy, fn func() error) error {
 	bo := newBackoff(p)
 	var last error
@@ -36,13 +41,15 @@ func Do(ctx context.Context, p Policy, fn func() error) error {
 		}
 		last = fn()
 		if done, err := bo.advance(ctx, p, last, attempt); done {
-			return firstErr(err, last) // ctx 打断 → err；否则收尾 → last（成功为 nil）
+			// ctx interrupted -> err; otherwise normal finish -> last (nil on success)
+			return firstErr(err, last)
 		}
 	}
 	return last
 }
 
-// firstErr —— a 非 nil 取 a，否则 b（退避被 ctx 打断 → a；正常收尾 → b=最后一次结果）。
+// firstErr -- returns a if non-nil, else b (backoff interrupted by ctx -> a; normal
+// finish -> b = the last attempt's result).
 func firstErr(a, b error) error {
 	if a != nil {
 		return a
@@ -50,13 +57,16 @@ func firstErr(a, b error) error {
 	return b
 }
 
-// nonRetryable —— Retryable 判 false 的 error → 立即返回，不重（invalid_grant、4xx 等）。
+// nonRetryable -- an error Retryable judges false returns immediately, no retry
+// (invalid_grant, 4xx, etc).
 func nonRetryable(p Policy, err error) bool {
 	return p.Retryable != nil && !p.Retryable(err)
 }
 
-// backoff —— 退避状态机：每次等当前退避（封顶 MaxInterval + 不越 MaxTotal），再翻倍。把
-// Do 的分支挪进来，压住 Do 的认知复杂度。只持自己要的字段（不抓整个 Policy，免重复存）。
+// backoff -- the backoff state machine: each round waits the current backoff (capped
+// at MaxInterval, never past MaxTotal), then doubles it. Moved Do's branching in here
+// to keep Do's cognitive complexity down. Holds only the fields it needs (not the whole
+// Policy, to avoid duplicate storage).
 type backoff struct {
 	sleep       func(context.Context, time.Duration) error
 	now         func() time.Time
@@ -81,8 +91,9 @@ func newBackoff(p Policy) *backoff {
 	}
 }
 
-// advance —— 一次尝试后的决策：成功 / 不可重 / 到次数上限 → (true, nil) 停（caller 返
-// last）；否则退避等下一次 —— 总时长到点 → (true, nil) 停；被 ctx 打断 → (true, err)。
+// advance -- the decision after one attempt: success / non-retryable / attempt-count
+// cap hit -> (true, nil) stop (caller returns last); otherwise back off for the next
+// try -- total duration deadline hit -> (true, nil) stop; ctx interrupted -> (true, err).
 func (b *backoff) advance(ctx context.Context, p Policy, last error, attempt int) (bool, error) {
 	if last == nil || nonRetryable(p, last) || attempt == p.MaxAttempts {
 		return true, nil
@@ -91,8 +102,9 @@ func (b *backoff) advance(ctx context.Context, p Policy, last error, attempt int
 	return stop || err != nil, err
 }
 
-// pause —— 等下一次重试前的退避。返 (stop, err)：总时长到点 → (true, nil) 停；sleep 被
-// ctx 打断 → (false, err) 让 Do 直接返回。
+// pause -- the backoff wait before the next retry. Returns (stop, err): total duration
+// deadline hit -> (true, nil) stop; sleep interrupted by ctx -> (false, err) so Do
+// returns directly.
 func (b *backoff) pause(ctx context.Context) (bool, error) {
 	wait := b.capped()
 	if wait < 0 {
@@ -105,7 +117,8 @@ func (b *backoff) pause(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// capped —— 当前退避压在 MaxInterval 内、不越 MaxTotal 截止；已到点返 -1。
+// capped -- clamps the current backoff to MaxInterval and the MaxTotal deadline;
+// returns -1 once the deadline has passed.
 func (b *backoff) capped() time.Duration {
 	wait := b.delay
 	if b.maxInterval > 0 && wait > b.maxInterval {
@@ -114,7 +127,8 @@ func (b *backoff) capped() time.Duration {
 	return b.withinTotal(wait)
 }
 
-// withinTotal —— 把 wait 压在 MaxTotal 剩余内；已到点返 -1；无 MaxTotal 原样返。
+// withinTotal -- clamps wait to the remaining MaxTotal budget; returns -1 once the
+// deadline has passed; returns wait unchanged when there is no MaxTotal.
 func (b *backoff) withinTotal(wait time.Duration) time.Duration {
 	if b.maxTotal <= 0 {
 		return wait

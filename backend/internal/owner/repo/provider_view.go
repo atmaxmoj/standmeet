@@ -1,10 +1,15 @@
-// provider_view.go —— "owner 的 AI provider"这句话的落点,以及 resolver 那一侧要的 view。
+// provider_view.go —— where the phrase "the owner's AI provider" resolves
+// to, plus the view the resolver side needs.
 //
-// 跟 providers.go 的分工:那边是**本子的存取**(增删改查、谁是默认),这边是**那句话指向谁**
-// —— setup 向导 / claim / admin 那张老表单说的"owner 的 provider",指的是默认那一条;
-// 一场会话说的"用哪条",是发会话时定好冻进去的那个 id。
+// Division of labor with providers.go: that file is **CRUD on the list**
+// (create/read/update/delete, who's default); this file is **who that
+// phrase points to** — the setup wizard / claim / the old admin form all
+// say "the owner's provider" meaning the default entry; a session's
+// "which entry to use" is the id decided and frozen in at the time the
+// session was issued.
 //
-// 封 key 在这里(sealProviderKey),开封在组装那一侧(cmd/server/unseal.go)。只封不解(§1.5)。
+// Key sealing happens here (sealProviderKey); unsealing happens at the
+// assembly side (cmd/server/unseal.go). Seal only, never unseal (§1.5).
 
 package repo
 
@@ -17,10 +22,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// UpdateAIProviderInput —— admin "AI provider" 表单的 commit 入参。说的是**默认那一条**。
-// KeyPlaintext == nil 表示不动 key（只改 provider / endpoint / model）；
-// 空 string 显式清掉 key。Endpoint 仅 provider='custom' 必填；Model 留空
-// 时 inference resolver 走 preset 默认。
+// UpdateAIProviderInput —— the commit input for the admin "AI provider"
+// form. This refers to **the default entry**. KeyPlaintext == nil means
+// leave the key alone (only change provider / endpoint / model); an
+// explicit empty string clears the key. Endpoint is required only when
+// provider='custom'; when Model is left empty the inference resolver
+// falls back to the preset default.
 type UpdateAIProviderInput struct {
 	KeyPlaintext *string
 	OwnerID      string
@@ -29,17 +36,20 @@ type UpdateAIProviderInput struct {
 	Model        string
 }
 
-// AIProviderView —— inference resolver 需要的最小信息。KeyEnc 是密文,**本域不开封**:
-// owner 域只封(写路径 cryptobox.Encrypt)不解,开封在组装那一侧
-// (cmd/server 的 openAIProviderKey)。Endpoint + Model 仅 custom 或 owner 显式覆盖
-// preset 默认时非空。
+// AIProviderView —— the minimal info the inference resolver needs. KeyEnc
+// is ciphertext, **this domain never unseals it**: the owner domain only
+// seals (via cryptobox.Encrypt on the write path); unsealing happens at
+// the assembly side (cmd/server's openAIProviderKey). Endpoint + Model are
+// non-empty only for custom, or when the owner explicitly overrides the
+// preset default.
 type AIProviderView struct {
-	// GasTokens —— 这箱油还剩多少 token。nil = 不计量(#7 的默认路径)。
+	// GasTokens —— how much fuel is left in this tank, in tokens. nil =
+	// unmetered (the #7 default path).
 	GasTokens  *int64
 	Provider   string
 	Endpoint   string
 	Model      string
-	ProviderID string // 记用量时要写回哪一箱
+	ProviderID string // which tank to write usage back to
 	KeyEnc     []byte
 }
 
@@ -50,19 +60,22 @@ func providerViewOf(p *ProviderRow) AIProviderView {
 	}
 }
 
-// GetAIProviderView —— **默认那条** provider 的最小信息。
-// resolver 不该 import postgres，所以这个方法返一个独立的 view 类型；
-// cmd/server 用 adapter 把它包成 inference.OwnerKeyView。
+// GetAIProviderView —— the minimal info for the **default** provider.
+// resolver shouldn't import postgres, so this method returns a standalone
+// view type; cmd/server wraps it via an adapter into
+// inference.OwnerKeyView.
 //
-// 按 code / role 覆盖解析的那条路在 ResolveProviderView —— 这个方法是它的地板。
+// The path that resolves code / role overrides is ResolveProviderView —
+// this method is its floor.
 func (r *Repo) GetAIProviderView(
 	ctx context.Context, ownerID string,
 ) (AIProviderView, error) {
 	def, err := r.DefaultProvider(ctx, ownerID)
 	if err != nil {
 		if errors.Is(err, entity.ErrProviderNotFound) {
-			// 没有默认 = 还没配。resolver 那边把"没 key"翻成 ErrOwnerProviderUnconfigured,
-			// 跟以前四列全空是同一种状态。
+			// No default = not configured yet. The resolver side translates
+			// "no key" into ErrOwnerProviderUnconfigured, the same state as
+			// the old four-columns-all-empty case.
 			return AIProviderView{}, nil
 		}
 		return AIProviderView{}, err
@@ -70,11 +83,15 @@ func (r *Repo) GetAIProviderView(
 	return providerViewOf(&def), nil
 }
 
-// ProviderViewByID —— 指名要哪一条;空 id 或那条已经不在了 → 退默认。
+// ProviderViewByID —— names which entry to use; an empty id or a deleted
+// entry falls back to default.
 //
-// **谁压过谁不在这一层。** `code > role` 那一步在发会话时就评估完、冻进 session 了
-// (跟 RoleSnapshot 同一个模型),所以这里收到的已经是"这一场会话该用哪条"。
-// 指着的那条被删了 → 退默认,不是报错:owner 删掉一条地址,订单还是要发出去的。
+// **Which one overrides which is not decided at this layer.** The
+// `code > role` step is already evaluated and frozen into the session
+// when it's issued (same model as RoleSnapshot), so what arrives here is
+// already "which entry this session should use". If the entry pointed to
+// was deleted → fall back to default, not an error: the owner deleted an
+// address, but the order still has to ship.
 func (r *Repo) ProviderViewByID(
 	ctx context.Context, ownerID, providerID string,
 ) (AIProviderView, error) {
@@ -91,11 +108,15 @@ func (r *Repo) ProviderViewByID(
 	return r.GetAIProviderView(ctx, ownerID)
 }
 
-// UpdateAIProvider —— commit owner 的**默认** provider。KeyPlaintext 非 nil 时同步换 key；
-// 为 nil 时保留原 key（仅切 provider）。返回新 OwnerSettings（聚合的独立切面）。
+// UpdateAIProvider —— commits the owner's **default** provider. When
+// KeyPlaintext is non-nil, the key is swapped along with it; when nil,
+// the old key is kept (only provider is switched). Returns the new
+// OwnerSettings (a separate facet of the aggregate).
 //
-// provider 变成一本之后这个入口没有消失:setup 向导、claim、admin 那张表单说的都是
-// "owner 的 AI provider",而那句话现在指的是默认那一条。没有默认就建一条并标默认。
+// This entry point didn't disappear when provider became a list: the
+// setup wizard, claim, and the admin form all say "the owner's AI
+// provider", and that phrase now refers to the default entry. If there's
+// no default yet, one is created and flagged default.
 func (r *Repo) UpdateAIProvider(
 	ctx context.Context, in *UpdateAIProviderInput,
 ) (entity.Settings, error) {
@@ -109,7 +130,8 @@ func (r *Repo) UpdateAIProvider(
 	return r.updateDefaultProvider(ctx, &def, in)
 }
 
-// createDefaultProvider —— 这个 owner 还没有任何 provider:建一条,标默认。
+// createDefaultProvider —— this owner has no provider at all yet: create
+// one, mark it default.
 func (r *Repo) createDefaultProvider(
 	ctx context.Context, in *UpdateAIProviderInput,
 ) (entity.Settings, error) {
@@ -126,7 +148,8 @@ func (r *Repo) createDefaultProvider(
 	return r.GetSettings(ctx, in.OwnerID)
 }
 
-// updateDefaultProvider —— 改默认那条。KeyPlaintext 为 nil = 不动 key。
+// updateDefaultProvider —— changes the default entry. KeyPlaintext == nil
+// means leave the key alone.
 func (r *Repo) updateDefaultProvider(
 	ctx context.Context, def *ProviderRow, in *UpdateAIProviderInput,
 ) (entity.Settings, error) {
@@ -149,15 +172,19 @@ func (r *Repo) updateDefaultProvider(
 	return r.GetSettings(ctx, in.OwnerID)
 }
 
-// defaultProviderLabel —— setup 向导/claim 建的那条默认项的名字。owner 之后可以改。
+// defaultProviderLabel —— the name of the default entry created by the
+// setup wizard / claim. The owner can rename it later.
 const defaultProviderLabel = "default"
 
-// sealProviderKey —— nil / 空 = 空密文(没配 key);非空 → 封上。
+// sealProviderKey —— nil / empty = empty ciphertext (no key configured);
+// non-empty → seal it.
 //
-// **AAD = owner_id**,跟开封那侧(cmd/server/unseal.go 的 openAIProviderKey)一致:
-// 密文绑到这个 owner,被搬到别的 owner 行时开封 tamper-fail。这一对必须一起改 ——
-// 封的时候不给 AAD、解的时候给,是解不开的,而症状会是"key 突然失效"。
-// **只封不解**:这一侧永远不开封(§1.5)。
+// **AAD = owner_id**, matching the unseal side (cmd/server/unseal.go's
+// openAIProviderKey): the ciphertext is bound to this owner, so moving it
+// to a different owner's row fails the tamper check on unseal. This pair
+// must change together — sealing without AAD and unsealing with it is
+// simply unsolvable, and the symptom looks like "the key suddenly stopped
+// working". **Seal only, never unseal**: this side never unseals (§1.5).
 func sealProviderKey(ownerID string, key *string) ([]byte, error) {
 	if key == nil || *key == "" {
 		return []byte{}, nil

@@ -1,5 +1,5 @@
-// agent-turn-sse.ts —— parse backend /api/v1/agent/turn SSE 流为
-// agent-core AgentTurnEvent。
+// agent-turn-sse.ts —— parse the backend /api/v1/agent/turn SSE stream into
+// agent-core AgentTurnEvent.
 //
 // Frame shapes (backend internal/inference/agent_turn.go):
 //
@@ -98,7 +98,7 @@ function parseToolCompleted(d: Record<string, unknown>): AgentTurnEvent {
   };
 }
 
-// parseGhost —— Ghost P4: 单条 policy steering ghost 帧（后端 GhostFrame）。text 空 → 丢帧。
+// parseGhost —— Ghost P4: a single policy-steering ghost frame (backend GhostFrame). Empty text → drop the frame.
 function parseGhost(d: Record<string, unknown>): AgentTurnEvent | null {
   const text = stringOr(d['text'], '');
   if (text === '') return null;
@@ -125,13 +125,18 @@ function parseError(d: Record<string, unknown>): AgentTurnEvent {
   };
 }
 
-// normStop —— 未知值塌成 end_turn，认得的原样放行。
+// normStop —— an unrecognized value collapses to end_turn; a recognized one
+// passes through unchanged.
 //
-// **名单不在这儿**：查的是 agent-core 导出的 `TURN_STOP_REASONS`。
-// 这里以前手抄了一份，注释写着「新增停止原因必须加进这一行」—— 而那句提醒**没挡住**
-// 今天加 `no_answer` 时的遗漏：后端判得对、前端映射也写了，这一跳把它悄悄改写成
-// 「正常说完了」，提示整个不渲染，任何一层都没报错。
-// 现在加一个停止原因只需要改 agent-core 那份名单，这里自动跟上。
+// **The list of valid values doesn't live here** — this checks against
+// `TURN_STOP_REASONS` exported by agent-core. This file used to hand-copy its
+// own list, with a comment saying "adding a new stop reason must also update
+// this line" — and that reminder **didn't stop** today's omission when
+// `no_answer` was added: the backend classified it correctly, the frontend
+// mapping was written too, but this step silently rewrote it into "finished
+// normally," so the hint never rendered at all, with no layer reporting an
+// error. Now adding a stop reason only requires updating agent-core's list;
+// this file follows automatically.
 function normStop(s: string): TurnStopReason {
   return (TURN_STOP_REASONS as readonly string[]).includes(s) ? (s as TurnStopReason) : 'end_turn';
 }

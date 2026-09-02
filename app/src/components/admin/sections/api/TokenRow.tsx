@@ -1,6 +1,7 @@
-// TokenRow —— Phase C: 一个 MCP key 的行视图。显 label (token.name)，
-// key_id (token.id) — 公开 identifier，credentials.json 里写它。私钥不存
-// server, owner generate 时已经 Download .pem，list 这里不再有 plaintext 可看。
+// TokenRow — Phase C: row view of one MCP key. Shows label (token.name),
+// key_id (token.id) — the public identifier, written into credentials.json.
+// The private key isn't stored server-side; owner already Downloaded the
+// .pem at generate time, so this list has no plaintext to show.
 
 'use client';
 
@@ -48,7 +49,8 @@ function TokenRowHead({ token, deleteToken }: Props) {
 }
 
 function RevokeBtn({ token, deleteToken }: Props) {
-  // 一键破坏性动作 → useAction 收尾（成功 toast / 失败 report），删失败不再静默。
+  // A one-click destructive action → useAction handles the outcome
+  // (success toast / failure report); a failed delete is no longer silent.
   const run = useAction();
   const t = useTranslations('adminIntegrations.tokenRow');
   return (

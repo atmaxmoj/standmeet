@@ -47,8 +47,10 @@ type SkillGetter interface {
 // this narrow port so the eval can inject a fixture server pointed at a real MCP
 // endpoint (the dial stays real — only the registry lookup is fixtured).
 //
-// 返回的是 DialableMCPServer —— 认证头**已经开好**。开封发生在实现这个端口的那一侧
-// (组装根),不在装配里:内侧只封不解,拿到的是能直接拨的东西,不是打开它的钥匙。
+// Returns a DialableMCPServer —— the auth header is **already unsealed**. Unsealing
+// happens on the side that implements this port (the composition root), not here in
+// wiring: the inner side only seals, never unseals, so what it gets is something ready
+// to dial directly, not the key to unlock it.
 type MCPServerGetter interface {
 	GetByID(ctx context.Context, ownerID, serverID string) (marketplace.DialableMCPServer, error)
 }

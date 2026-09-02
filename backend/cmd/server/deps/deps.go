@@ -1,4 +1,4 @@
-// deps.go —— Runtime 结构体本身。(包说明在 doc.go。)
+// deps.go —— the Runtime struct itself. (Package doc lives in doc.go.)
 
 package deps
 
@@ -33,7 +33,8 @@ import (
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
-// Runtime —— serve 的全部依赖。字段导出,因为组装根的各组是各自的包。
+// Runtime —— all of serve's dependencies. Fields are exported because the composition
+// root's groups each live in their own package.
 type Runtime struct {
 	Log                *slog.Logger
 	SandboxWorkspaces  *sandboxws.Manager
@@ -97,36 +98,49 @@ type Runtime struct {
 	PrintStore         *printsess.Store
 	MarketplaceClient  *marketplace.Client
 	AgentSkills        *capreg.Registry
-	// Upgrade —— /admin/system 的升级那一格:去哪儿问有没有新版,以及请谁重新部署这台实例。
-	// 两个都在组装根构造(port/upgrade.go),因为它们一个走出站 HTTP、
-	// 一个拿的是 owner 填的部署凭据,都不属于 stats 域。
+	// Upgrade —— the upgrade section of /admin/system: where to ask whether a newer
+	// version exists, and who to ask to redeploy this instance. Both are constructed in
+	// the composition root (port/upgrade.go), because one makes outbound HTTP calls and
+	// the other reads deploy credentials the owner entered — neither belongs to the
+	// stats domain.
 	Upgrade stats.UpgradeSources
-	// DepRegistry —— 命名依赖(连接器)注册表。registerAgentSkills 建好后回填:
-	// 装配期的 Requires 闸、ext-mcp 的 dep-grant 闸、市场卡的「还缺哪个连接器」共用这一份。
+	// DepRegistry —— the named-dependency (connector) registry. Backfilled once
+	// registerAgentSkills finishes building it: the assembly-time Requires gate, the
+	// ext-mcp dep-grant gate, and the marketplace card's "which connector is still
+	// missing" all share this one instance.
 	DepRegistry *capreg.DepRegistry
-	// ConnectorNeeds —— 市场搜索问的那句「这张卡还缺哪几个连接器」(F-F-4)。
-	// 实现在组装根(connector_needs.go),它持 Runtime,到调用时才去取上面那两张表。
+	// ConnectorNeeds —— answers marketplace search's question "which connectors is
+	// this card still missing" (F-F-4). Implemented in the composition root
+	// (connector_needs.go), which holds Runtime and reads the two tables above only
+	// when called.
 	ConnectorNeeds marketplace.ConnectorNeeds
-	// MCPProber —— 去问一台已注册的外部 MCP server:答不答话、有哪些工具(F-D-8)。
-	// 域声明这个端口,实现在组装根(mcp_probe.go)—— 那台 server 的认证头是密文,
-	// 只有根这一侧开得了。两个装配点(收口和插件注册表)必须拿**同一个**实现,
-	// 所以它挂在 Runtime 上,而不是各自 new 一个。
+	// MCPProber —— asks a registered external MCP server whether it responds and what
+	// tools it has (F-D-8). The domain declares this port; the implementation lives in
+	// the composition root (mcp_probe.go) because that server's auth header is stored
+	// encrypted and only the root side can decrypt it. Both call sites (the convergence
+	// point and the plugin registry) must use the **same** implementation, so it hangs
+	// off Runtime instead of each constructing its own.
 	MCPProber marketplace.MCPServerProber
-	// ProviderModels —— 去问 owner 已配好的那条 provider:有哪些模型(F-R-11)。
-	// 同一条规矩:那把 key 在库里是密文,只有根这一侧开得了,所以域只声明端口。
+	// ProviderModels —— asks the owner's configured provider which models it has
+	// (F-R-11). Same rule: that key is stored encrypted and only the root side can
+	// decrypt it, so the domain only declares the port.
 	ProviderModels owner.ProviderModelLister
-	// Dispatch —— 出站收口。assembleRuntime 之后由 main 回填(跟 PluginRegistry 同理);
-	// 全进程唯一一个,各个面都从它投影。
+	// Dispatch —— the outbound convergence point. Backfilled by main after
+	// assembleRuntime (same pattern as PluginRegistry); one per process, every facade
+	// projects from it.
 	Dispatch *dispatcher.Dispatcher
-	// CapStores —— 每个**声明了要存储**的能力自己的隔离存储(schema = mcp_<id>),
-	// 启动期 provision 一次;之后 host 侧四条路都从这里取同一份。
+	// CapStores —— the isolated storage (schema = mcp_<id>) for each capability that
+	// **declares it needs storage**, provisioned once at startup; all four host-side
+	// paths then read the same instance from here.
 	CapStores      map[string]*capstore.Store
-	SearchClient   *search.Client // corpus 词法检索(Meili);nil = 未配 → 退 Postgres 全文
-	CorpusIndexer  corpus.Indexer // 写路径索引传播;nil = 未配 Meili
+	SearchClient   *search.Client // corpus lexical search (Meili); nil = unset, falls to Postgres
+	CorpusIndexer  corpus.Indexer // write-path index propagation; nil = Meili unconfigured
 	CaptchaSiteKey string
 	BuildsRoot     string
-	// SessionKey —— 服务端那把钥匙。预览令牌用它签（HMAC 派生，不落表）。
-	SessionKey     string
-	SecureCookie   bool
-	CaptchaEnabled bool // #169 captcha 是否真启用(非 noop)—— code guard 的 escape 层
+	// SessionKey —— the server's own signing key. Preview tokens are signed with it
+	// (HMAC-derived, never stored in a table).
+	SessionKey   string
+	SecureCookie bool
+	// #169 whether captcha is really on (not noop) — escape hatch for code guard
+	CaptchaEnabled bool
 }

@@ -1,4 +1,4 @@
-// Pill —— mono uppercase 圆角小标签。SystemPulse / banner 用。
+// Pill —— mono uppercase rounded small tag. Used by SystemPulse / banner.
 
 import type { ReactNode } from 'react';
 

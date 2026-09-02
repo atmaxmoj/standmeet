@@ -1,15 +1,18 @@
-// ComposerPanels —— ResumeComposer 左侧 8 个 panel 的编辑器集合。
-// 每个 panel 是 plain form：header / summary / skills / experience /
-// education / social / custom / cover。改动通过 onPatch* 回传到
-// ResumeComposer 持的 draft model。
+// ComposerPanels —— the editor collection for ResumeComposer's 8 left-side panels.
+// Each panel is a plain form: header / summary / skills / experience /
+// education / social / custom / cover. Edits flow back through onPatch* to
+// the draft model held by ResumeComposer.
 //
-// 设计源 docs/design/project/admin.js ResumeComposer。
+// Design source: docs/design/project/admin.js ResumeComposer.
 //
-// experience / education **加得进、删不掉**（删要等 inline ✕）。注释以前写着「push-only」，
-// 而实际上连 push 都没有：这两段是空的时候面板上什么都没有 —— 没有一条说明，也没有
-// 一颗按钮。而在这个实例上「空」是常态：起草那一步只认语料里带日期的条目，owner 的履历
-// 只以散文形态活着，于是它交回来的一直是空数组（F-E-22）。「这一跳该谁做」没有归属，
-// 是因为**产品里没有做这一跳的地方**。
+// experience / education entries **can be added but not deleted** (deletion is
+// waiting on an inline ✕). The comment here used to say "push-only", but in
+// practice there wasn't even push: when these sections are empty the panel shows
+// nothing at all — no explanatory note, no button. And "empty" is the common case
+// for this instance: the draft step only recognizes dated entries in the corpus,
+// while the owner's history lives purely as prose, so it keeps coming back as an
+// empty array (F-E-22). "Whose job is this step" has no owner, because
+// **the product has no place to do this step**.
 
 'use client';
 

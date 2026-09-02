@@ -1,9 +1,10 @@
-// wiki_crosslink.go —— wiki body 里 Obsidian `[[Title]]` 的渲染期 rewrite。
-// 镜像 crosslink.go(writings),但 wiki 无 slug:只按 title 解析,目标是树派生
-// path → `[Title](/wiki/<path>)`。存储永远存原始 `[[X]]`(owner 写啥存啥),读时
-// 才 rewrite;unresolved 退成纯文本(F-L-25:方括号不出这一层)。
+// wiki_crosslink.go — render-time rewrite of Obsidian `[[Title]]` links inside a wiki body.
+// Mirrors crosslink.go (writings), but wiki has no slug: it resolves by title only, and the
+// target is the tree-derived path → `[Title](/wiki/<path>)`. Storage always keeps the raw
+// `[[X]]` (whatever the owner wrote), and the rewrite happens only at read time; an unresolved
+// link falls back to plain text (F-L-25: brackets never leak out of this layer).
 //
-// 解析与抽取复用 crosslink.go 的 ExtractCrossLinks / HasCrossLinks / CrossLinkRef。
+// Parsing and extraction reuse crosslink.go's ExtractCrossLinks / HasCrossLinks / CrossLinkRef.
 
 package usecase
 
@@ -16,26 +17,28 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 )
 
-// wikiLinkPrefix —— rewrite 出来的 markdown 链接前缀(reader 路由 /wiki/<path>)。
+// wikiLinkPrefix — the markdown link prefix produced by the rewrite (reader route /wiki/<path>).
 const wikiLinkPrefix = "/wiki/"
 
-// WikiPathTitle —— 一条 wiki 的 title + 树派生 path,给 `[[Title]]` 解析用。
+// WikiPathTitle — a wiki's title + tree-derived path, used for `[[Title]]` resolution.
 type WikiPathTitle struct {
 	Title string
 	Path  string
 }
 
-// RewriteWikiCrossLinksForRender —— public wiki landing render:body 里每条
-// `[[Title]]`(或 `[[Title|alias]]`)按 title(case-insensitive)解析到 wiki 的
-// 树派生 path,换成 `[显示文本](/wiki/<path>)`。unresolved 退成纯文本 —— 见
-// crosslink.go 的 unresolvedCrossLinkText(两个 reader 共用同一条)。
+// RewriteWikiCrossLinksForRender — public wiki landing render: every `[[Title]]` (or
+// `[[Title|alias]]`) in the body is resolved by title (case-insensitive) to the wiki's
+// tree-derived path and swapped for `[display text](/wiki/<path>)`. An unresolved link falls
+// back to plain text — see crosslink.go's unresolvedCrossLinkText (shared by both readers).
 func RewriteWikiCrossLinksForRender(body string, index []WikiPathTitle) string {
 	if !HasCrossLinks(body) {
 		return body
 	}
-	// 索引为空**不是**早退的理由(F-L-25):一个条目全部 gated 的实例走的就是这条路,而
-	// 早退会把整篇的 `[[X]]` 原样漏给访客 —— 跟单条解析不到是同一个缺陷的另一扇门。
-	// 空索引照常往下走:每条都解析不到,于是每条都退成纯文本。
+	// An empty index is **not** grounds for an early return (F-L-25): an instance where every
+	// entry is gated takes exactly this path, and an early return would leak the whole body's
+	// `[[X]]` verbatim to the visitor — a different door onto the same defect as a single
+	// unresolved link. Proceed normally on an empty index: every link fails to resolve, so
+	// every link falls back to plain text.
 	byTitle := indexWikiByTitle(index)
 	refs := ExtractCrossLinks(body)
 	for i := range refs {
@@ -67,8 +70,9 @@ func applyOneWikiRewrite(
 	return strings.ReplaceAll(body, ref.Original, replacement)
 }
 
-// WikiPathTitleIndex —— 从全树 + 派生 path 抽出可作链接目标的 (title, path) 列。
-// 只收 published:公开链接目标必须可访问,否则点进去 404。
+// WikiPathTitleIndex — extracts the (title, path) rows usable as link targets from the full
+// tree + derived paths. Only published entries qualify: a public link target must be
+// reachable, otherwise clicking it 404s.
 func WikiPathTitleIndex(wikis []entity.Wiki, paths map[string]string) []WikiPathTitle {
 	out := make([]WikiPathTitle, 0, len(wikis))
 	for i := range wikis {
@@ -79,15 +83,19 @@ func WikiPathTitleIndex(wikis []entity.Wiki, paths map[string]string) []WikiPath
 	return out
 }
 
-// WikiMetaPathTitleIndex —— WikiPathTitleIndex 的 meta 版(无 body):landing 渲染 [[X]] 用全量 meta
-// 建 title→path,deep entry 的链接也不断。
+// WikiMetaPathTitleIndex — the meta version of WikiPathTitleIndex (no body): landing-page [[X]]
+// rendering builds title→path from the full meta set, so deep-entry links don't break either.
 //
-// F-L-12:**收全部条目,不再只收 published**。理由:老逻辑"只收 published,否则点进去 404"是错的 ——
-// 一条 gated `/wiki/<path>` 渲的是 RestrictedDoc(带 code-entry 引导的正经受限页),不是 404。全语料
-// gated(published=0)时旧逻辑让索引空掉,RewriteWikiCrossLinksForRender 原样返回 → `[[theory]]` 成死
-// 字面文本(corpus-as-vault reader 的核心导航失效)。收全部后:受邀访客点进去看到条目(在 scope),匿名
-// 访客点进去被 RestrictedDoc 接住去要码 —— 两者都比死字面强。目标条目的**内容**准入仍在导航时按 scope
-// 兜(链接只暴露 title/path,而 title 本来就字面写在 body 里,无新泄露)。
+// F-L-12: **includes every entry, no longer published-only**. Rationale: the old logic ("only
+// published, otherwise clicking 404s") was wrong — a gated `/wiki/<path>` renders RestrictedDoc
+// (a proper restricted page with a code-entry prompt), not a 404. When the whole corpus is
+// gated (published=0), the old logic left the index empty, so RewriteWikiCrossLinksForRender
+// returned the body unchanged → `[[theory]]` became dead literal text (breaking core navigation
+// for the corpus-as-vault reader). Including every entry: an invited visitor who clicks through
+// sees the entry (if in scope), and an anonymous visitor who clicks through lands on
+// RestrictedDoc and is prompted for a code — both beat dead literal text. Admission to the
+// target entry's **content** is still gated by scope at navigation time (the link only exposes
+// title/path, and the title is already literally present in the body, so nothing new leaks).
 func WikiMetaPathTitleIndex(
 	metas []repo.WikiMeta, paths map[string]string,
 ) []WikiPathTitle {
@@ -98,18 +106,20 @@ func WikiMetaPathTitleIndex(
 	return out
 }
 
-// RebuildNoteRefs —— note 写后(promote/create/update)重建这条的出度边:抽 body 的 `[[Title]]`
-// → 按 title 解析到 owner 语料里任一 genre 的 id（**跨-genre**:wiki 可引用 output/subjectivity）
-// → 重写 note_refs（wiki_refs 表已 FK corpus_notes、src/dst 任意 genre）。没 `[[]]` 也要清空旧边。
-// 边表是派生索引,不要求跟写同事务。
+// RebuildNoteRefs — after a note write (promote/create/update), rebuild this note's outgoing
+// edges: extract `[[Title]]` from the body → resolve by title to an id in any genre of the
+// owner's corpus (**cross-genre**: wiki can reference output/subjectivity) → rewrite note_refs
+// (the wiki_refs table already FKs corpus_notes, src/dst can be any genre). Even with no `[[]]`
+// the old edges must still be cleared. The edge table is a derived index; it need not share a
+// transaction with the write.
 func RebuildNoteRefs(
 	ctx context.Context, deps Deps, ownerID, srcID, body string,
 ) error {
 	if !HasCrossLinks(body) {
 		return clearNoteRefs(ctx, deps, ownerID, srcID)
 	}
-	// 全量(无 cap):[[X]] 可指向语料里任一 genre 的任一条,deep target 也要解析得到边,否则
-	// backlink/related 静默漏。
+	// Full set (no cap): [[X]] can point to any entry in any genre of the corpus, and a deep
+	// target must resolve to an edge too, otherwise backlink/related silently misses it.
 	titles, err := deps.NoteRefs.OwnerNoteTitles(ctx, ownerID)
 	if err != nil {
 		return fmt.Errorf("list notes for crosslink: %w", err)
@@ -128,8 +138,8 @@ func clearNoteRefs(ctx context.Context, deps Deps, ownerID, srcID string) error 
 	return nil
 }
 
-// resolveNoteDstIDs —— body 的 `[[Title]]` 按 title(case-insensitive)解析到 owner 语料 id（跨
-// genre）,去重 + 排除 self-link。
+// resolveNoteDstIDs — resolves the body's `[[Title]]` links by title (case-insensitive) to
+// owner-corpus ids (cross-genre), deduplicated and excluding self-links.
 func resolveNoteDstIDs(body string, titles []repo.OwnerNoteTitleRow, selfID string) []string {
 	cr := crossResolver{
 		byTitle:  noteTitleToCandidates(titles),
@@ -145,7 +155,8 @@ func resolveNoteDstIDs(body string, titles []repo.OwnerNoteTitleRow, selfID stri
 	return out
 }
 
-// crossResolver —— 一次重建的解析上下文(候选索引 + 源 id/genre),收进 receiver 免 argument-limit。
+// crossResolver — the resolution context for one rebuild (candidate index + source id/genre),
+// bundled into a receiver to stay under the argument-count limit.
 type crossResolver struct {
 	byTitle  map[string][]repo.OwnerNoteTitleRow
 	selfID   string
@@ -164,17 +175,21 @@ func (cr *crossResolver) add(out []string, seen map[string]struct{}, target stri
 	return append(out, id)
 }
 
-// noteTitleToCandidates —— name(lower)→ 所有同名候选(跨 genre)。name 既是 title 也是
-// **frontmatter 别名** —— owner 在 vault 里靠 Obsidian 的别名解析写链接,`[[旧名字]]` /
-// `[[流向不动点的动力学]]` 都得解到本条。别名以前解出来就被丢了(frontmatter.go 读进结构体,
-// 没有任何人用),于是这类链接同步进来就断成一段字面量。
+// noteTitleToCandidates — name (lowercased) → every same-name candidate (cross-genre). A name
+// is both the title and a **frontmatter alias** — the owner writes links in the vault relying
+// on Obsidian's alias resolution, so `[[old name]]` / `[[dynamics of flow toward the fixed
+// point]]` both need to resolve to this note. Aliases used to be parsed and then discarded
+// (frontmatter.go read them into the struct but nothing consumed them), so this class of link
+// broke into a literal string the moment it synced in.
 //
-// 真 vault 的同名碰撞都是跨 genre(wiki/ 与 raw/ 镜像同一主题树),所以一个 name 可能对多条,
-// 解析按 proximity 消歧(F-L-10:旧版是 map[title]id 的 last-write-wins,任意落到 raw 草稿,
-// hub 笔记 backlinks 全空)。
+// Same-name collisions in the real vault are always cross-genre (wiki/ and raw/ mirror the same
+// topic tree), so one name can map to multiple candidates; resolution disambiguates by
+// proximity (F-L-10: the old version was a map[title]id with last-write-wins, landing
+// arbitrarily on a raw draft and leaving hub-note backlinks entirely empty).
 //
-// **别名走同一张候选表、同一套消歧** —— 不给它第二套排序规则,否则就是在重犯 F-L-10。
-// 同一条笔记的多个别名都指向它自己,resolveNoteDstIDs 的 seen 集合负责去重成一条边。
+// **Aliases go through the same candidate table and the same disambiguation** — do not give
+// them a second ranking rule, or this repeats F-L-10. A note's several aliases all point back
+// to itself; resolveNoteDstIDs's seen set is what collapses them into one edge.
 func noteTitleToCandidates(
 	titles []repo.OwnerNoteTitleRow,
 ) map[string][]repo.OwnerNoteTitleRow {
@@ -187,8 +202,8 @@ func noteTitleToCandidates(
 	return m
 }
 
-// namesOf —— 一条笔记可以被哪些名字指到:标题 + 全部别名(都小写)。空别名跳过 ——
-// 一个空字符串会变成"所有 `[[]]` 都指向这条"。
+// namesOf — every name a note can be referenced by: title + all aliases (all lowercased). An
+// empty alias is skipped — an empty string would otherwise mean "every `[[]]` points here".
 func namesOf(row *repo.OwnerNoteTitleRow) []string {
 	out := make([]string, 0, 1+len(row.Aliases))
 	out = append(out, strings.ToLower(row.Title))
@@ -209,9 +224,11 @@ func genreOfID(titles []repo.OwnerNoteTitleRow, id string) string {
 	return ""
 }
 
-// pickByProximity —— Obsidian 式歧义消解:**同 genre(≈同顶层文件夹)的非自身候选优先**,否则取
-// 第一个非自身候选。genre 映射到 wiki/ raw/ 等顶层目录,所以同 genre 优先就把 wiki 笔记的 [[X]]
-// 落到 wiki 兄弟而非 raw 草稿。同 genre 内基名 sibling-unique,故至多一条,无需再比路径。
+// pickByProximity — Obsidian-style disambiguation: **a same-genre (≈ same top-level folder)
+// non-self candidate wins**, otherwise the first non-self candidate. genre maps to top-level
+// dirs like wiki/ raw/, so preferring same-genre makes a wiki note's [[X]] land on a wiki
+// sibling instead of a raw draft. Within one genre, base names are sibling-unique, so there is
+// at most one match — no need to compare paths further.
 func pickByProximity(
 	cands []repo.OwnerNoteTitleRow, srcGenre, selfID string,
 ) (string, bool) {

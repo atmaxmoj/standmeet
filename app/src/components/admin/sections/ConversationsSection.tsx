@@ -1,7 +1,7 @@
-// ConversationsSection —— /admin/conversations。design 源 admin.js
-// ConversationsSection (990-1021)。ad-table (visitor / via code / turns /
-// sentiment / flags / last) + click → transcript modal。
-// ?code=LABEL-NNN filter 走 URL query。
+// ConversationsSection —— /admin/conversations. Design source: admin.js
+// ConversationsSection (990-1021). ad-table (visitor / via code / turns /
+// sentiment / flags / last) + click → transcript modal.
+// ?code=LABEL-NNN filter goes through the URL query.
 
 'use client';
 

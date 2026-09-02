@@ -1,13 +1,16 @@
-// page_owner_view.go —— owner 看到的主页。
+// page_owner_view.go — the home page as the owner sees it.
 //
-// 跟访客那份(PageContentView)的区别只有一处,但很要紧:栏目里既给 **id 列表**、也给
-// join 好的**卡片**。
+// There's only one difference from the visitor's version (PageContentView), but it
+// matters: each section carries both the **id list** and the joined **cards**.
 //
-//   - id 是 owner 编辑的东西 —— 读回来改一改再存回去,进出同一个字段名,不用翻译。
-//   - 卡片是 owner 的 AI 想看的 —— "这张 pin 指向哪篇、写的什么"。
+//   - The ids are what the owner edits — read them back, tweak, save again, same field
+//     name in and out, no translation needed.
+//   - The cards are what the owner's AI wants to see — "what does this pin point to,
+//     what does it say".
 //
-// 以前这两半分给了两个面:面板拿裸 id,MCP 拿卡片。同一个主页,两边看到的不是一个东西,
-// 而且谁也不能拿对方那份存回去。
+// These two halves used to be split across two surfaces: the panel got bare ids, MCP got
+// cards. The same home page looked like two different things to the two sides, and
+// neither side could save back what the other one had.
 
 package usecase
 
@@ -18,7 +21,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// OwnerPageView —— owner 面的主页载荷。
+// OwnerPageView — the home page payload for the owner surface.
 type OwnerPageView struct {
 	UpdatedAt    time.Time            `json:"updated_at"`
 	Where        entity.PageWhere     `json:"where"`
@@ -32,7 +35,7 @@ type OwnerPageView struct {
 	ProjectCards []entity.PagePinCard `json:"project_cards"`
 }
 
-// BuildOwnerPageView —— 存储形 → owner 面载荷(id + join 好的卡片)。
+// BuildOwnerPageView — storage shape -> owner-surface payload (ids + joined cards).
 func BuildOwnerPageView(
 	ctx context.Context, deps PageDeps, ownerID string, content *entity.PageContent,
 ) (OwnerPageView, error) {

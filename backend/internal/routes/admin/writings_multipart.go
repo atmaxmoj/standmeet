@@ -1,13 +1,16 @@
-// writings_multipart.go —— admin POST/PATCH /writings 接的 multipart 解析。
+// writings_multipart.go — multipart parsing for admin POST/PATCH /writings.
 //
-// 形态：
-//   field "data"            —— JSON writing fields（原样往下传,不在这一层解形状）
-//   field "file:<pending>"  —— 每张内联 image 一个 form field，pending-id
-//                              对应 body_md / cover_image_ref 里的占位
+// Shape:
+//   field "data"            — JSON writing fields (passed straight through, this layer
+//                              never parses their shape)
+//   field "file:<pending>"  — one form field per inline image; the pending-id
+//                              corresponds to a placeholder in body_md / cover_image_ref
 //
-// 这一层**只拆信封**:JSON 段原样交给 op(schema 是 op 的事,不是路由的),字节段变成
-// 随行文件(dispatcher.File)。以前它解成域的 corpus.FileInput、再自己调 SaveWriting ——
-// 那是绕过收口的那条路,原因是收口当时没有携带字节的通道。
+// This layer **only unpacks the envelope**: the JSON segment is handed to the op verbatim
+// (the schema is the op's business, not the route's), and the byte segment becomes a
+// carried file (dispatcher.File). It used to parse into the domain's corpus.FileInput and
+// call SaveWriting itself — that was the path that bypassed the convergence point, because
+// the convergence point had no channel for carrying bytes back then.
 
 package admin
 
@@ -25,24 +28,28 @@ import (
 
 const maxWritingMultipartSize = 50 << 20
 
-// filePendingPrefix —— 内联图片的 form field 前缀。op 那边按同一个前缀取 pending-id
-// (见 corpus/ops/writings_create.go 的 carriedFilePrefix) —— **两处必须一致**,
-// 不一致的表现是:图传上去了、正文里的占位没被替换,页面上一个空图位。
+// filePendingPrefix — the form field prefix for an inline image. The op side extracts
+// the pending-id using the same prefix (see carriedFilePrefix in
+// corpus/ops/writings_create.go) — **the two must stay in sync**; when they don't, the
+// symptom is: the image uploads, the placeholder in the body never gets replaced, and
+// the page shows an empty image slot.
 const filePendingPrefix = "file:"
 
-// parsedMultipart —— 拆开的信封:JSON 段 + 随行字节。
+// parsedMultipart — the unpacked envelope: the JSON segment + the carried bytes.
 type parsedMultipart struct {
 	Data  json.RawMessage
 	Files []dispatcher.File
 }
 
 func parseWritingMultipart(w http.ResponseWriter, r *http.Request) (parsedMultipart, error) {
-	// ParseMultipartForm 自身只 cap 内存里那段；用 MaxBytesReader 限 reader
-	// 上游，超过返 413 不爆内存。w 传过去让 net/http 在超限时把连接标记为
-	// 已损坏 (返 413 后客户端不再尝试 keepalive)。gosec G120 的告警跟这层
-	// 防御冲突 —— 已经有 MaxBytesReader 兜底，suppress 标记说明性 nolint。
+	// ParseMultipartForm itself only caps the in-memory portion; MaxBytesReader bounds
+	// the reader upstream, returning 413 on overage instead of blowing up memory.
+	// Passing w lets net/http mark the connection as broken on overage (after a 413 the
+	// client no longer attempts keepalive). gosec G120's warning conflicts with this
+	// defense — MaxBytesReader already backstops it, so the suppression is an
+	// explanatory nolint.
 	r.Body = http.MaxBytesReader(w, r.Body, maxWritingMultipartSize)
-	// #nosec G120 -- 上游已有 MaxBytesReader bound。
+	// #nosec G120 -- already bounded upstream by MaxBytesReader.
 	if err := r.ParseMultipartForm(maxWritingMultipartSize); err != nil {
 		return parsedMultipart{}, parseMultipartErr(err)
 	}
@@ -65,8 +72,9 @@ func parseMultipartErr(err error) error {
 	return errors.New("parse multipart: " + err.Error())
 }
 
-// writingDataField —— 取出 JSON 段。**只验它是不是合法 JSON**,字段对不对是 op 的事:
-// 在这儿再验一遍就是第二份 schema,而两份 schema 迟早说不到一块儿去。
+// writingDataField extracts the JSON segment. **It only validates that it's legal
+// JSON**; whether the fields are correct is the op's business — validating that again
+// here would just be a second schema, and two schemas eventually stop agreeing.
 func writingDataField(r *http.Request) (json.RawMessage, error) {
 	raw := r.FormValue("data")
 	if raw == "" {
@@ -78,14 +86,16 @@ func writingDataField(r *http.Request) (json.RawMessage, error) {
 	return json.RawMessage(raw), nil
 }
 
-// writingSaveArgs —— 面板递上来的 JSON → op 的入参。
+// writingSaveArgs — the JSON handed up by the panel → the op's args.
 //
-// 只做两件事:补上 URL 上的 writing_id,和把 `cover_image_ref` 改名成 op 的
-// `cover_image_asset_id`。**其余字段原样透传** —— 逐字段抄一遍就是在这一层再造一份形状,
-// 而那正是同一个能力在两个面长成两个样子的开头。
+// Only does two things: fills in the URL's writing_id, and renames `cover_image_ref` to
+// the op's `cover_image_asset_id`. **Every other field passes through verbatim** —
+// copying it field by field would just build a second shape at this layer, and that's
+// exactly how the same capability starts growing two different forms on two facades.
 //
-// 那个改名本身是一笔小债:面板的字段叫 ref(它可以是 `pending-<id>` 占位),op 的叫
-// asset_id。同一个东西两个名字,先在这里对上,别让它继续往下传。
+// That rename is itself a small debt: the panel's field is called ref (it can be a
+// `pending-<id>` placeholder), the op's is called asset_id. Same thing, two names —
+// reconciled here so it doesn't keep propagating downward.
 func writingSaveArgs(data json.RawMessage, writingID string) (json.RawMessage, error) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(data, &fields); err != nil {
@@ -100,8 +110,9 @@ func writingSaveArgs(data json.RawMessage, writingID string) (json.RawMessage, e
 	return out, nil
 }
 
-// renameCoverRef —— 面板叫 cover_image_ref(可以是 `pending-<id>` 占位),op 叫
-// cover_image_asset_id。同一个东西两个名字,在这里对上,别让它继续往下传。
+// renameCoverRef — the panel calls it cover_image_ref (it can be a `pending-<id>`
+// placeholder), the op calls it cover_image_asset_id. Same thing, two names —
+// reconciled here so it doesn't keep propagating downward.
 func renameCoverRef(fields map[string]json.RawMessage) {
 	ref, ok := fields["cover_image_ref"]
 	if !ok {
@@ -111,7 +122,7 @@ func renameCoverRef(fields map[string]json.RawMessage) {
 	fields["cover_image_asset_id"] = ref
 }
 
-// putWritingID —— 改的时候 id 在 URL 上,不在 body 里;建的时候没有。
+// putWritingID — on edit the id is in the URL, not the body; on create there's none.
 func putWritingID(fields map[string]json.RawMessage, writingID string) {
 	if writingID == "" {
 		return
@@ -140,8 +151,8 @@ func collectFileFields(
 	return out, nil
 }
 
-// errSkipFile —— sentinel：这个 form field 不是 file:<pending> 形态，跳过。
-// 用 sentinel 避免 nilnil lint （返 (nil, nil) 没意义）。
+// errSkipFile — sentinel: this form field isn't in file:<pending> shape, skip it.
+// A sentinel avoids the nilnil lint (returning (nil, nil) would be meaningless).
 var errSkipFile = errors.New("skip-non-file-field")
 
 func appendOneFile(
@@ -170,8 +181,9 @@ func filePendingFieldMatch(name string, fhs []*multipart.FileHeader) bool {
 	return strings.HasPrefix(name, filePendingPrefix) && len(fhs) > 0
 }
 
-// readOneFile —— field 名**原样**带过去(`file:<pending-id>`)。这一层不拆它:
-// pending-id 怎么跟正文里的占位对上,是 op 的知识。
+// readOneFile carries the field name **verbatim** (`file:<pending-id>`). This layer
+// doesn't unpack it further: how pending-id matches up with the body's placeholder is
+// the op's knowledge.
 func readOneFile(field string, fh *multipart.FileHeader) (dispatcher.File, error) {
 	f, oerr := fh.Open()
 	if oerr != nil {

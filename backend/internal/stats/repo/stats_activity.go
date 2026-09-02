@@ -1,11 +1,15 @@
-// stats_activity.go —— 近期活动流（ActivityTicker）的数据源。自成 domain：从现有行 UNION
-// 派生最近 N 条事件（访客加入 code_members / corpus 写入 corpus_notes），最新在前。
-// 裸 pgx（同 stats_growth 的 sqlc-bypass 先例）——不值当往共享 dbq 加聚合查询。
+// stats_activity.go — data source for the recent activity feed (ActivityTicker). Its own
+// domain: derives the most recent N events via a UNION over existing rows (visitor joins
+// in code_members / corpus writes in corpus_notes), newest first.
+// Raw pgx (same sqlc-bypass precedent as stats_growth) — not worth adding an aggregate
+// query to the shared dbq for this.
 //
-// #135: 预约事件曾来自 code_bookings,但 booking 已 100% 落 booker 的隔离 capstore(code_bookings
-// 已废)。activity 层不该反向耦合 booker 的 capstore schema —— 所以这里先摘掉 booking 分支
-// (它对空的 code_bookings 本就 0 行,行为不变)。要在 feed 里恢复 booking 事件,走注入式
-// booking-activity 源(组装根接 capstore),是独立的 feature pass。
+// #135: booking events used to come from code_bookings, but booking has fully moved to
+// booker's isolated capstore (code_bookings is retired). The activity layer shouldn't
+// couple back to booker's capstore schema — so the booking branch is dropped here for now
+// (it was already 0 rows against the now-empty code_bookings, so behavior is unchanged).
+// Restoring booking events in the feed belongs to an injected booking-activity source
+// (assembly root wired to capstore) — that's a separate feature pass.
 
 package repo
 
@@ -19,12 +23,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// ActivityRepo —— 近期活动流。
+// ActivityRepo — recent activity feed.
 type ActivityRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewActivityRepo 构造。
+// NewActivityRepo — constructor.
 func NewActivityRepo(pool *pgstore.Pool) *ActivityRepo { return &ActivityRepo{pool: pool} }
 
 const activityQuery = `
@@ -40,7 +44,7 @@ const activityQuery = `
 	ORDER BY at DESC
 	LIMIT $2`
 
-// RecentActivity —— owner-scoped 最近 limit 条事件，最新在前。
+// RecentActivity — owner-scoped, most recent `limit` events, newest first.
 func (r *ActivityRepo) RecentActivity(
 	ctx context.Context, ownerID string, limit int,
 ) ([]entity.ActivityEvent, error) {
@@ -56,8 +60,9 @@ func (r *ActivityRepo) RecentActivity(
 	return scanActivityEvents(rows)
 }
 
-// graphQuery —— 每条 note + 它的链接度（note_refs 里 src 或 dst 触到它的边数）。degree
-// 降序取前 N（最 hub 的 note）。LEFT JOIN 让 0 链接的 note 也计为 degree 0。
+// graphQuery — each note + its link degree (count of note_refs edges touching it, as src
+// or dst). Top N by degree descending (the most hub-like notes). LEFT JOIN lets a note
+// with 0 links still score degree 0.
 const graphQuery = `
 	SELECT n.id, n.title, n.genre, count(r.src_id) AS degree
 	FROM corpus_notes n
@@ -67,7 +72,7 @@ const graphQuery = `
 	ORDER BY degree DESC, n.title ASC
 	LIMIT $2`
 
-// CorpusGraph —— owner 的语料链接图前 limit 个 hub 节点（degree 降序）。
+// CorpusGraph — the owner's corpus link graph, top `limit` hub nodes (degree descending).
 func (r *ActivityRepo) CorpusGraph(
 	ctx context.Context, ownerID string, limit int,
 ) ([]entity.GraphNode, error) {

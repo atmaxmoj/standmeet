@@ -1,6 +1,7 @@
-// CorpusConstellation —— TopBar 中部,替代旧的 ActivityTicker。**外观跟原 ticker 完全一样**
-// (统一小字、flowing);只是内容从「活动事件」换成「按链接数排序的语料节点标题」——
-// 链接最多的排在前。空显 "no links yet"。
+// CorpusConstellation — center of the TopBar, replaces the old ActivityTicker.
+// **Looks exactly like the original ticker** (same small mono type, flowing);
+// only the content changes, from "activity events" to "corpus node titles sorted
+// by link count" — most-linked first. Shows "no links yet" when empty.
 
 'use client';
 

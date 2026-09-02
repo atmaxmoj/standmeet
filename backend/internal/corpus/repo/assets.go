@@ -1,7 +1,7 @@
-// assets.go —— assets 表 CRUD。bytes 不进库 (在 MinIO)；这里只搬元数据。
-// 每行必须挂 holder_id (post.id / wiki.id / ...)；CRUD 永远在 holder 操作
-// 的同事务里完成。所以所有 method 都接 db.DBTX（可以是 pool，也可以是
-// 进行中的 tx）。
+// assets.go —— CRUD for the assets table. Bytes don't go into the DB (they live in MinIO);
+// this only moves metadata. Every row must carry a holder_id (post.id / wiki.id / ...);
+// CRUD always runs in the same transaction as the holder operation. So every method
+// takes a db.DBTX (can be the pool, or an in-flight tx).
 
 package repo
 
@@ -17,18 +17,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// AssetRepo —— assets 表 CRUD。pool 是 fallback，单独读不需要 tx 时用；
-// 写 path 都接 DBTX 让 caller 传进 tx。
+// AssetRepo —— CRUD for the assets table. pool is the fallback, used for standalone
+// reads that don't need a tx; every write path takes a DBTX so the caller can pass in a tx.
 type AssetRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewAssetRepo 构造。
+// NewAssetRepo constructs a repo.
 func NewAssetRepo(pool *pgstore.Pool) *AssetRepo { return &AssetRepo{pool: pool} }
 
-// CreateAssetInput —— Create 入参。caller 已 generate UUID (要先 storage.Put
-// 拿 key) + 上传 bytes 到 MinIO + 算好 sha256；holder_id 是这张图归属的
-// 实体 (post.id / wiki.id / ...)。
+// CreateAssetInput —— Create's input. The caller has already generated the UUID (needs
+// storage.Put first to get the key) + uploaded the bytes to MinIO + computed the sha256;
+// holder_id is the entity this image belongs to (post.id / wiki.id / ...).
 type CreateAssetInput struct {
 	ID               string
 	HolderID         string
@@ -40,8 +40,9 @@ type CreateAssetInput struct {
 	SizeBytes        int64
 }
 
-// CreateTx —— 在 caller 给的 tx 里写一条 assets 行。create / update post
-// 的事务用它，跟 post 行 insert/update 同事务，rollback 也一起。
+// CreateTx —— writes one assets row inside the caller's tx. Used by the create / update
+// post transaction, in the same transaction as the post row insert/update, so it rolls
+// back together too.
 func (*AssetRepo) CreateTx(
 	ctx context.Context, tx db.DBTX, in *CreateAssetInput,
 ) (entity.Asset, error) {
@@ -74,8 +75,9 @@ func buildCreateAssetParams(in *CreateAssetInput) (*db.CreateAssetParams, error)
 	}, nil
 }
 
-// defaultKind —— 没说就是配图。这一列是后加的,既有行都是配图;空串进库会让读的人
-// 看到一个"没有种类"的素材,那不是一种状态。
+// defaultKind —— unspecified means it's an inline image. This column was added later, so
+// every existing row is an inline image; letting an empty string into the DB would show
+// readers an asset with "no kind", which isn't a real state.
 func defaultKind(k string) string {
 	if k == "" {
 		return entity.AssetKindImage
@@ -83,7 +85,8 @@ func defaultKind(k string) string {
 	return k
 }
 
-// GetByID —— 单条读。caller 不需要 tx 时直接走 pool；tx 进行中也能用。
+// GetByID —— reads a single row. Goes straight through the pool when the caller has no
+// tx; also usable while a tx is in flight.
 func (r *AssetRepo) GetByID(ctx context.Context, assetID string) (entity.Asset, error) {
 	assetUUID, perr := pgstore.ParseUUID(assetID)
 	if perr != nil {
@@ -99,16 +102,18 @@ func (r *AssetRepo) GetByID(ctx context.Context, assetID string) (entity.Asset, 
 	return toDomainAsset(&row), nil
 }
 
-// ListByHolderTx —— 列一个 holder 名下所有 asset 行。delete holder 前用来
-// 收 storage_key 给后置 MinIO 清；update body 后 diff old refs 也用。
+// ListByHolderTx —— lists every asset row under one holder. Used before deleting a holder
+// to collect storage_keys for the follow-up MinIO cleanup; also used to diff old refs
+// after an update body.
 func (*AssetRepo) ListByHolderTx(
 	ctx context.Context, tx db.DBTX, holderID string,
 ) ([]entity.Asset, error) {
 	return listByHolderUsing(ctx, tx, holderID)
 }
 
-// ListByHolder —— 走 pool（无 tx 上下文时用）。DELETE 路径先列 keys 删
-// MinIO 再开 tx 删 DB，列这步不需要 tx 隔离 —— 用这条。
+// ListByHolder —— goes through the pool (used when there's no tx context). The DELETE
+// path lists keys and removes MinIO first, then opens a tx to delete from the DB; this
+// listing step doesn't need tx isolation — use this one for it.
 func (r *AssetRepo) ListByHolder(
 	ctx context.Context, holderID string,
 ) ([]entity.Asset, error) {
@@ -133,8 +138,8 @@ func listByHolderUsing(
 	return out, nil
 }
 
-// DeleteByHolderTx —— 在 tx 里删一个 holder 的所有 asset 行；返 storage_keys
-// 让 caller commit 后批删 MinIO blob。
+// DeleteByHolderTx —— deletes every asset row for one holder inside a tx; returns
+// storage_keys so the caller can batch-delete the MinIO blobs after commit.
 func (*AssetRepo) DeleteByHolderTx(
 	ctx context.Context, tx db.DBTX, holderID string,
 ) ([]string, error) {
@@ -149,8 +154,8 @@ func (*AssetRepo) DeleteByHolderTx(
 	return keys, nil
 }
 
-// DeleteByIDsTx —— 在 tx 里删指定 asset id 集合；返 storage_keys。update
-// body 时 diff 出来的 removed refs 用。
+// DeleteByIDsTx —— deletes a given set of asset ids inside a tx; returns storage_keys.
+// Used for the removed refs diffed out during an update body.
 func (*AssetRepo) DeleteByIDsTx(
 	ctx context.Context, tx db.DBTX, ids []string,
 ) ([]string, error) {
@@ -180,22 +185,26 @@ func toDomainAsset(row *db.Asset) entity.Asset {
 	}
 }
 
-// Create —— 走 pool 写一条 assets 行(无 tx 上下文时用)。
+// Create —— writes one assets row through the pool (used when there's no tx context).
 //
-// 素材是**独立挂上去**的一步:先确认条目在、再取字节、再落这一行 —— 不跟条目的写入同事务。
-// writing 那条老路是"正文和图一起 multipart 提交"所以需要同事务;按地址取的这条不是。
+// Attaching an asset is a **separate** step: confirm the entry exists, then fetch the
+// bytes, then write this row — not in the same transaction as the entry's write. The old
+// writing path submits body text and images together as one multipart request, so it needs
+// the same transaction; this address-based path doesn't.
 func (r *AssetRepo) Create(
 	ctx context.Context, in *CreateAssetInput,
 ) (entity.Asset, error) {
 	return r.CreateTx(ctx, r.pool, in)
 }
 
-// DeleteByHolder —— 走 pool 删一个 holder 的所有 asset 行；返 storage_keys。
+// DeleteByHolder —— goes through the pool to delete every asset row for one holder;
+// returns storage_keys.
 func (r *AssetRepo) DeleteByHolder(ctx context.Context, holderID string) ([]string, error) {
 	return r.DeleteByHolderTx(ctx, r.pool, holderID)
 }
 
-// DeleteByIDs —— 走 pool 删指定 asset id 集合；返 storage_keys。
+// DeleteByIDs —— goes through the pool to delete a given set of asset ids;
+// returns storage_keys.
 func (r *AssetRepo) DeleteByIDs(ctx context.Context, ids []string) ([]string, error) {
 	return r.DeleteByIDsTx(ctx, r.pool, ids)
 }

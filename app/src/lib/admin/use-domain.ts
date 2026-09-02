@@ -1,11 +1,14 @@
-// use-domain —— allowed_domains 白名单管理(app 只拥有「哪些域名放行」这半边)。
-// GET /allowed-domains 加载；POST 加；DELETE /allowed-domains/{domain} 删。
-// 加进白名单后,部署 provider 的反代(on-demand-TLS)自己经 /internal/tls-ask 确认并签证书
-// —— **签证书是 provider 的活,不是 app 的**(prod-deploy dropped)。前端只显示 "in allow-list",
-// 没有独立的 DNS 验证步骤要 app 做。
+// use-domain —— allowed_domains allow-list management (the app only owns the
+// "which domains are allowed" half). GET /allowed-domains loads it; POST
+// adds; DELETE /allowed-domains/{domain} removes. Once added to the
+// allow-list, the deployment provider's reverse proxy (on-demand-TLS)
+// confirms and issues the certificate on its own via /internal/tls-ask —
+// **issuing the certificate is the provider's job, not the app's**
+// (prod-deploy dropped). The frontend only shows "in allow-list"; there's no
+// separate DNS verification step for the app to do.
 //
-// zustand 重构：domainsStore 共享 allow-list（全 app 一份）；input + 临时
-// status 留 local（form-state 本质）。
+// zustand refactor: domainsStore shares the allow-list (one copy app-wide);
+// input + temporary status stay local (they're inherently form state).
 
 import { useCallback, useEffect, useState } from 'react';
 
@@ -69,7 +72,7 @@ export function useDomain(initial: string = ''): DomainHook {
     valid,
     loading: r.status === 'idle' || r.status === 'loading',
     saving,
-    error: r.error, // verify/remove 现在抛错 → 就地内联反显（DomainEditor 自己 catch），这里只留 fetch error。
+    error: r.error, // verify/remove now throw → reflected inline in place (DomainEditor catches it itself), only the fetch error is kept here.
     allowed,
     setDomain, verify, reset, remove,
   };
@@ -81,7 +84,7 @@ function computeStatus(
   return sanitized && allowed.includes(sanitized) ? 'verified' : local;
 }
 
-// runVerify —— 抛错（不再吞进 setError）：状态回 'unset' 后 rethrow，DomainEditor 就地内联反显。
+// runVerify —— throws (no longer swallowed into setError): status resets to 'unset' then rethrows, DomainEditor reflects it inline in place.
 async function runVerify(
   sanitized: string,
   setStatus: (s: DomainStatus) => void,

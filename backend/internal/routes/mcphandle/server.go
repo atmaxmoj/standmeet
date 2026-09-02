@@ -1,12 +1,14 @@
-// Package mcphandle 提供 owner 的 AI 客户端用的 MCP server（owner 自管理工具的
-// controller 层，住 internal/routes/ 下与 admin/public/sys 并列）。
+// Package mcphandle provides the MCP server used by the owner's AI client (the
+// controller layer for the owner's self-service tools, living under
+// internal/routes/ alongside admin/public/sys).
 //
-// Auth：Bearer API token（mcp:write/mcp:read/mcp:pages 在 v1 不分粒度，所有
-// token 一视同仁）。token 校验通过 HTTPContextFunc 注 ownerID 到 ctx，tool
-// handler 从 ctx 取。
+// Auth: Bearer API token (mcp:write/mcp:read/mcp:pages are not split by
+// granularity in v1 — every token is treated the same). Token verification
+// injects ownerID into ctx via HTTPContextFunc; the tool handler reads it
+// from ctx.
 //
-// Transport：mcp-go 的 streamable HTTP。/mcp/ 同 endpoint 处理 POST request +
-// 可选 SSE。
+// Transport: mcp-go's streamable HTTP. The single /mcp/ endpoint handles
+// both POST requests and optional SSE.
 package mcphandle
 
 import (
@@ -25,24 +27,30 @@ type ctxKey struct{ name string }
 
 var ctxKeyOwnerID = ctxKey{name: "mcpOwnerID"}
 
-// Deps —— MCP server 需要的业务依赖。#135 起 owner tool 全部外置到 ownercore 插件，
-// registerTools 只 walk AgentSkills（reg.OwnerMCPBindings()），所以 core server 只需:
-//   - Keypairs: Sigv1 验签
-//   - AgentSkills: owner MCP facade 的唯一工具来源（core cap + 插件 owner 工具汇成单端点）
+// Deps —— the business dependencies the MCP server needs. Since #135, owner
+// tools are all externalized into ownercore plugins, and registerTools only
+// walks AgentSkills (reg.OwnerMCPBindings()), so the core server only needs:
+//   - Keypairs: Sigv1 signature verification
+//   - AgentSkills: the owner MCP facade's sole tool source (core caps + plugin
+//     owner tools converge into a single endpoint)
 type Deps struct {
 	Keypairs    owner.KeypairDeps
 	AgentSkills *capreg.Registry
-	// Dispatcher —— 出站收口:所有对外能力(域操作 / connector 能力 / capreg 能力)在这一处
-	// 声明,MCP 面是它的投影(generated)。见 internal/routes/dispatcher。
+	// Dispatcher —— the outbound convergence point: every outbound-facing
+	// capability (domain ops / connector caps / capreg caps) is declared here,
+	// and the MCP face is its projection (generated). See internal/routes/dispatcher.
 	Dispatcher *dispatcher.Dispatcher
 	Log        *slog.Logger
 }
 
-// New 构造一个挂好工具的 http.Handler，调用方挂到 /mcp/* 路由。
+// New builds an http.Handler with the tools already mounted; the caller
+// mounts it at the /mcp/* route.
 //
-// 包两层：authMiddleware (Sigv1 验签，失败 401 立即 return) → mcp-go
-// streamable HTTP server。authContextFunc 已被 middleware 取代 (verifies
-// + sets ctx)，HTTPContextFunc 只把 ownerID 从 request ctx 转到 mcp ctx。
+// Two wrapping layers: authMiddleware (Sigv1 verification, on failure a 401
+// returns immediately) → the mcp-go streamable HTTP server. authContextFunc
+// has been replaced by the middleware (which verifies + sets ctx);
+// HTTPContextFunc now only carries ownerID from the request ctx to the mcp
+// ctx.
 func New(deps *Deps) http.Handler {
 	mcpSrv := server.NewMCPServer(
 		"standmeet",
@@ -59,11 +67,13 @@ func New(deps *Deps) http.Handler {
 	return authMiddleware(deps, httpSrv)
 }
 
-// authMiddleware 在 mcp-go 上层做 Sigv1 验签：失败 401 立即返不进 mcp-go；
-// 通过则把 ownerID 塞 request ctx，HTTPContextFunc 再 propagate 到 mcp ctx。
+// authMiddleware does Sigv1 verification ahead of mcp-go: on failure it
+// returns 401 immediately without entering mcp-go; on success it puts
+// ownerID into the request ctx, and HTTPContextFunc then propagates it to
+// the mcp ctx.
 //
-// Phase C：legacy Bearer PAT 路径已删；只认 `Authorization: Sigv1 keyId=X,
-// ts=N,sig=base64`。
+// Phase C: the legacy Bearer PAT path has been removed; only
+// `Authorization: Sigv1 keyId=X, ts=N,sig=base64` is recognized.
 func authMiddleware(deps *Deps, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -77,8 +87,9 @@ func authMiddleware(deps *Deps, next http.Handler) http.Handler {
 	})
 }
 
-// propagateOwnerCtx —— HTTPContextFunc：从 request ctx 取 ownerID (middleware
-// 已校验通过塞进去) 转移到 mcp ctx (tool handler 用 OwnerIDFrom 读)。
+// propagateOwnerCtx —— HTTPContextFunc: takes ownerID from the request ctx
+// (already verified and put there by the middleware) and moves it to the
+// mcp ctx (the tool handler reads it via OwnerIDFrom).
 func propagateOwnerCtx(ctx context.Context, r *http.Request) context.Context {
 	v, ok := r.Context().Value(ctxKeyOwnerID).(string)
 	if !ok {
@@ -87,7 +98,8 @@ func propagateOwnerCtx(ctx context.Context, r *http.Request) context.Context {
 	return context.WithValue(ctx, ctxKeyOwnerID, v)
 }
 
-// OwnerIDFrom 从 ctx 取 owner_id；tool handler 用。空字符串表示未鉴权。
+// OwnerIDFrom reads owner_id from ctx; used by tool handlers. An empty
+// string means unauthenticated.
 func OwnerIDFrom(ctx context.Context) string {
 	v, ok := ctx.Value(ctxKeyOwnerID).(string)
 	if !ok {
@@ -96,11 +108,15 @@ func OwnerIDFrom(ctx context.Context) string {
 	return v
 }
 
-// registerTools 把所有 owner tool 注册到 mcpSrv。两个来源:
-//   - capreg.Registry —— capability 轴上真正的能力(插件声明的 owner 工具等);
-//   - dispatcher —— 出站收口,MCP 面是它的投影(generated,见 from_dispatcher.go)。
+// registerTools registers every owner tool into mcpSrv. Two sources:
+//   - capreg.Registry —— capabilities that are real on the capability axis
+//     (owner tools declared by plugins, etc.);
+//   - dispatcher —— the outbound convergence point; the MCP face is its
+//     projection (generated, see from_dispatcher.go).
 //
-// 迁移期两者并存:每把一个资源搬进收口,ownercore 就少注册一个,直到 ownercore 整包删除。
+// During the migration both coexist: every resource moved into the
+// convergence point means ownercore registers one fewer, until ownercore
+// is deleted entirely.
 func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	registerCapabilities(mcpSrv, deps.AgentSkills, deps.Log)
 	registerDispatcherOps(mcpSrv, deps.Dispatcher, deps.Log)

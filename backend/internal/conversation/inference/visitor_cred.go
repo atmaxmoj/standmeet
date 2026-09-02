@@ -1,27 +1,34 @@
-// visitor_cred.go —— 访客自带的 provider 凭据(BYOAI)。
+// visitor_cred.go —— the provider credential a visitor brings themselves (BYOAI).
 //
-// **信任级别由类型承载,不由字段承载。** 这个类型的每一份都来自访客,所以它解析出来的
-// `Cred` 一定是 Untrusted —— 调用方没有"忘了标"这个选项,因为标不标不归它管。
+// **The trust level is carried by the type, not by a field.** Every instance of this type
+// comes from a visitor, so the `Cred` resolved from it is always Untrusted — the caller has no
+// "forgot to mark it" option, because marking it isn't its call to make.
 //
-// 之前这里是 `owner.AICredential`:一个住在 owner 域、由 owner facade 导出、同时装
-// **owner 自己的 key** 和 **访客的 key** 的结构。两个问题叠在一起:
+// This used to be `owner.AICredential`: a structure living in the owner domain, exported by the
+// owner facade, that held **both the owner's own key and the visitor's key**. Two problems
+// stacked together:
 //
-//   - owner 域内部**一个使用者都没有** —— 它住在那儿纯粹是为了被交出去。而 facade 是
-//     "域对外的协议",于是"明文 API key 的容器"成了 owner 域协议的一部分:谁 import
-//     owner facade 谁白拿,编译器不会问一句为什么。
-//   - 两种信任级别共用一个类型,只能靠 `Cred.Untrusted` 这个布尔事后区分。一个布尔的
-//     默认值是 false,也就是"可信" —— 一条新的构造路径忘了置它,失败方向是**放行**。
+//   - the owner domain had **not a single internal consumer** for it — it lived there purely
+//     to be handed out. And a facade is "the domain's contract with the outside world", so "a
+//     container for a plaintext API key" became part of the owner domain's contract: anyone who
+//     imports the owner facade gets it for free, and the compiler never asks why.
+//   - both trust levels shared one type, distinguishable only after the fact via the
+//     `Cred.Untrusted` boolean. A boolean's zero value is false, i.e. "trusted" — a new
+//     construction path that forgets to set it fails in the direction of **letting it through**.
 //
-// 现在:owner 那份是本包的 unexported `ownerCred`(域内解、域内用,不跨任何门面);
-// 访客这份是本类型。两条路各自的信任级别在**构造处**就定死了。
+// Now: the owner's copy is this package's unexported `ownerCred` (resolved within the domain,
+// used within the domain, never crossing any facade); the visitor's copy is this type. Each
+// path's trust level is fixed at **its construction site**.
 
 package inference
 
-// VisitorCred —— 访客在 BYOAI 模式下自带的 provider 凭据(路由层从
-// X-Byoai-* header 经 HKDF 信封解出)。**永远是不可信的**:Endpoint 由访客控制,
-// 所以它的出站要过 SSRF 闸,地址要预校验。
+// VisitorCred —— the provider credential a visitor brings themselves under BYOAI mode
+// (unpacked by the route layer from the X-Byoai-* header via an HKDF envelope). **Always
+// untrusted**: Endpoint is visitor-controlled, so its outbound traffic must pass through the
+// SSRF gate, with the address pre-validated.
 //
-// 明文 key 只在一次请求的生命周期里存在;服务端不持久化访客的 key。
+// The plaintext key exists only for the lifetime of one request; the server never persists a
+// visitor's key.
 type VisitorCred struct {
 	Provider string
 	Key      string
@@ -29,13 +36,16 @@ type VisitorCred struct {
 	Endpoint string
 }
 
-// HasKey —— 访客到底带没带 key。没带 → 退回 owner 自己配的 provider。
+// HasKey —— whether the visitor actually brought a key. No key → falls back to the owner's
+// own configured provider.
 func (c *VisitorCred) HasKey() bool {
 	return c != nil && c.Key != ""
 }
 
-// ownerCred —— owner 自己配的 provider 凭据,从 owners 行的密文解出来。
-// **不导出**:它一步都不该离开本包 —— 明文凭据跨域走得越远,能看见它的代码就越多。
+// ownerCred —— the provider credential the owner configured themselves, unsealed from the
+// owners row's ciphertext. **Never exported**: it must never take a single step outside this
+// package — the further a plaintext credential travels across domains, the more code gets to
+// see it.
 type ownerCred struct {
 	Provider string
 	Key      string

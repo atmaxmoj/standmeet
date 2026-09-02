@@ -4,7 +4,8 @@
 // gotenberg prints it.
 //
 // Design source: docs/design/project/admin.js ResumePage +
-// chat1.md iteration 2026-05-28 (字号缩到真印刷比例 / 连续竖滚预览).
+// chat1.md iteration 2026-05-28 (font size shrunk to true print scale /
+// continuous vertical scroll preview).
 //
 // Page geometry locked at 612×792pt = 612×792px (PDF point ≈ px at 96dpi
 // when CSS sizes use px and the print viewport is set to US Letter). To
@@ -37,11 +38,14 @@ export interface ResumePageProps {
   /** 0 = main resume, 1 = cover letter. */
   pageIndex: 0 | 1;
   /**
-   * 这份文档**一共**几页。页脚的 `page N / M` 里的 M 用它，不再写死。
+   * Total page count of this document. The footer's `page N / M` uses this
+   * for M instead of a hardcoded value.
    *
-   * 写死的时候是 `"page 1 / 2"` 一个 i18n 字符串 —— 而第二页是**有条件**渲染的
-   * （没写 cover letter 就没有），于是一页的简历页脚写着「1 / 2」，收到的人会去找
-   * 那不存在的第二页（F-E-14）。**总数是个能算出来的量，不该手填。**
+   * Hardcoding used to mean a single i18n string `"page 1 / 2"` — but the
+   * second page renders conditionally (only when a cover letter is written),
+   * so a one-page resume footer would read "1 / 2" and the recipient would
+   * go looking for a second page that doesn't exist (F-E-14). **The total
+   * is a derivable value; it must not be hand-filled.**
    */
   pageCount: number;
   /** Display scale (default 1 = print-true). */
@@ -205,9 +209,11 @@ function flattenSkills(sets: ResumeContent['skills'] | undefined): readonly stri
   return (sets ?? []).flatMap((set) => set.items);
 }
 
-// 空的段落**整段不出现** —— 标题也不印（F-E-21）。这是给招聘方的文档：底下什么都没有的
-// `EDUCATION` 读起来像「渲染坏了」或者「他没上过学」，而不是「这一段不适用」。
-// 跟 landing page 那条早就定过的原则同一条（[[page-corpus-pinning-design]]:空的区块不显示）。
+// An empty section **does not render at all** — not even its heading
+// (F-E-21). This is a document for recruiters: an `EDUCATION` heading with
+// nothing under it reads as "rendering broke" or "no education", not as
+// "this section doesn't apply". Same principle already settled for the
+// landing page ([[page-corpus-pinning-design]]: hide empty sections).
 function SkillsRail({ items }: { items: readonly string[] }) {
   const t = useTranslations('adminJobs');
   return items.length === 0 ? null : (

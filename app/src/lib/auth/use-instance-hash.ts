@@ -1,9 +1,11 @@
-// use-instance-hash —— DeployStrip 显示的"instance" fingerprint。
+// use-instance-hash —— the "instance" fingerprint shown by DeployStrip.
 //
-// 这是装饰性的（让 self-host 感觉真实），不是安全/鉴权用，所以前端 random
-// + sessionStorage 即可。SSR-safe：初始 state 是空串，hydration 后填充。
+// This is purely decorative (makes self-host feel real), not for
+// security/auth, so client-side random + sessionStorage is enough.
+// SSR-safe: initial state is an empty string, filled in after hydration.
 //
-// host 同理：SSR 拿不到 window.location，挂载后读。
+// Same reasoning for host: SSR can't reach window.location, so it's read
+// after mount.
 
 'use client';
 

@@ -1,17 +1,19 @@
-// writings_delete.go —— 物理删 writing + 它名下所有 asset（MinIO blob + DB 行）。
+// writings_delete.go —— physically deletes a writing + every asset under it (MinIO blob +
+// DB row).
 //
-// 顺序：list keys（无 tx）→ DeleteBlobsStrict（MinIO，任一失败 abort）→
-// tx (DELETE asset 行 + DELETE writing 行) → commit。
+// Order: list keys (no tx) → DeleteBlobsStrict (MinIO, abort on any failure) →
+// tx (DELETE asset rows + DELETE writing row) → commit.
 //
-// 顺序刻意是 "blob 先删，DB 后删" —— invariant 是 blob 生命周期 ⊆ writing
-// 生命周期，避免 DB 行已删 / MinIO blob 残留的 silent orphan 情形。
+// The order is deliberately "blob first, DB second" — the invariant is blob lifetime ⊆
+// writing lifetime, avoiding the silent-orphan case where the DB row is gone but a MinIO
+// blob is left behind.
 //
-// 失败模式：
-//   - MinIO 删一半挂 → DB 不动；owner retry，MinIO 幂等 (S3 spec 204 even
-//     for non-existent) + DB 幂等 → 安全
-//   - DB tx commit 挂（已删完 MinIO blob）→ DB 行还在但 blob 已空 → 后续
-//     retry 走同路径：list 还能列到 asset 行（DB 没动），MinIO 删返 204
-//     OK，DB tx 这次成功 → 闭合
+// Failure modes:
+//   - MinIO deletion dies partway through → DB untouched; owner retries, MinIO is
+//     idempotent (S3 spec returns 204 even for a non-existent key) + DB is idempotent → safe
+//   - DB tx commit dies (MinIO blobs already deleted) → DB row still there but the blob is
+//     already gone → the retry takes the same path: list still finds the asset row (DB
+//     untouched), MinIO delete returns 204 OK, the DB tx succeeds this time → closed
 
 package usecase
 
@@ -23,7 +25,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// DeleteWritingWithAssets —— 物理删 writing + 它名下所有 assets。详见文件 doc。
+// DeleteWritingWithAssets —— physically deletes a writing + every asset under it. See the
+// file doc for details.
 func DeleteWritingWithAssets(
 	ctx context.Context, deps WritingsTxDeps, ownerID, writingID string,
 ) error {

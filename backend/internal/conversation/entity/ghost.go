@@ -1,12 +1,13 @@
-// conversation_ghost.go —— H.13.e: visitor 输入框 ghost text 的
-// shown / accept 日志 domain。owner admin 详情页用这个看每 turn 推了什么、
-// visitor 是否接受。
+// conversation_ghost.go —— H.13.e: the domain for shown/accept logging of
+// visitor input-box ghost text. The owner admin detail page uses this to
+// see what was suggested each turn and whether the visitor accepted it.
 //
-// Source 区分初始队列 (KindInitial：源 access_codes.ghosts)
-// 和后续 follow-up (KindFollowup：源 SSE `ghosts` 帧)。
+// Source distinguishes the initial queue (KindInitial: sourced from
+// access_codes.ghosts) from later follow-ups (KindFollowup: sourced from
+// the SSE `ghosts` frame).
 //
-// AcceptedAt nil = visitor 只看到没按 Tab；非 nil = visitor 按 Tab 接受
-// 的时刻 (server now())。
+// AcceptedAt nil = the visitor saw it but didn't press Tab; non-nil = the
+// moment (server now()) the visitor pressed Tab to accept.
 
 package entity
 
@@ -15,26 +16,29 @@ import (
 	"time"
 )
 
-// GhostSource —— ghost 来源；持久化为字符串。
+// GhostSource —— where a ghost came from; persisted as a string.
 type GhostSource string
 
 const (
-	// GhostInitial 来自 owner 在建码时填的 ghosts。
+	// GhostInitial comes from the ghosts the owner filled in when
+	// creating the code.
 	GhostInitial GhostSource = "initial"
-	// GhostFollowup 来自 backend agent_turn 收尾的 inference.Generate
-	// 子调用 (每轮 AI 答完追加 3 条 follow-up)。
+	// GhostFollowup comes from the inference.Generate sub-call at the end
+	// of the backend's agent_turn (3 follow-ups appended after each AI
+	// answer).
 	GhostFollowup GhostSource = "followup"
 )
 
-// ErrInvalidGhostSource —— shown route 收到非法 source 字串时返。
+// ErrInvalidGhostSource —— returned when the shown route receives an
+// invalid source string.
 var ErrInvalidGhostSource = errors.New("invalid ghost source")
 
-// ErrGhostNotFound —— accept route 找不到 ghost id (visitor
-// 给错 / row 已被 cascade 删) 返 404。
+// ErrGhostNotFound —— returned as 404 when the accept route can't find the
+// ghost id (visitor passed a wrong one / row already deleted by cascade).
 var ErrGhostNotFound = errors.New("ghost not found")
 
-// Ghost —— 一条 shown 日志。AcceptedAt 后续 accept route
-// 把 nil → 真时刻。
+// Ghost —— one shown log entry. AcceptedAt later flips from nil to a real
+// timestamp via the accept route.
 type Ghost struct {
 	ShownAt        time.Time
 	AcceptedAt     *time.Time
@@ -46,19 +50,21 @@ type Ghost struct {
 	TurnIndex      int32
 }
 
-// Accepted —— visitor 是否按 Tab 接受过 (admin UI 用)。
+// Accepted —— whether the visitor pressed Tab to accept it (used by the
+// admin UI).
 func (s *Ghost) Accepted() bool {
 	return s.AcceptedAt != nil
 }
 
-// GhostWaypointStat —— ghost-steering telemetry: 一个 waypoint 的漏斗(policy ghost shown vs accepted)。
+// GhostWaypointStat —— ghost-steering telemetry: the funnel for one
+// waypoint (policy ghost shown vs accepted).
 type GhostWaypointStat struct {
 	TargetWaypoint string
 	Shown          int64
 	Accepted       int64
 }
 
-// AcceptanceRate —— accepted/shown，四舍五入到小数(shown=0 → 0)。
+// AcceptanceRate —— accepted/shown, as a decimal (shown=0 → 0).
 func (s *GhostWaypointStat) AcceptanceRate() float64 {
 	if s.Shown == 0 {
 		return 0
@@ -66,7 +72,8 @@ func (s *GhostWaypointStat) AcceptanceRate() float64 {
 	return float64(s.Accepted) / float64(s.Shown)
 }
 
-// ParseGhostSource —— route 输入校验；非法返 sentinel。
+// ParseGhostSource —— route input validation; returns the sentinel error
+// on an invalid value.
 func ParseGhostSource(s string) (GhostSource, error) {
 	switch GhostSource(s) {
 	case GhostInitial, GhostFollowup:

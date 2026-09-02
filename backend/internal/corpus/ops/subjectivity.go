@@ -1,11 +1,17 @@
-// Package ops —— corpus 域对外能做的事,由域**自己**声明。
+// Package ops — what the corpus domain can do, declared by the domain
+// **itself**.
 //
-// 一个操作在这里是完整的一份:稳定 id、给调用方看的说明、入参 schema、语义类别、
-// 暴露意图(哪些面欠它),以及实现 —— 实现就是调本域的用例,不经任何中间形状。
+// One operation is a complete unit here: a stable id, a caller-facing
+// description, an input schema, a semantic kind, exposure intent (which
+// surfaces owe it), and an implementation — the implementation just calls
+// this domain's use case, through no intermediate shape.
 //
-// 为什么在域里而不是在收口里:收口若替各域声明,它就得复述每个域已有的入参和出参,
-// 于是每加一个操作就多一份"同一个概念的第二个名字",而两份一定会飘。域说自己会什么,
-// 收口只负责把这些声明汇起来、加装饰器、投影到各个面。
+// Why here and not at the convergence point: if the convergence point
+// declared for each domain, it would have to restate every domain's existing
+// inputs and outputs, so each new operation would add a second name for the
+// same concept, and the two would inevitably drift. A domain says what it can
+// do; the convergence point only gathers these declarations, adds decorators,
+// and projects them onto each surface.
 package ops
 
 import (
@@ -19,26 +25,34 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// Subjectivity —— 自我模型这一 genre 的操作。
+// Subjectivity — operations for the self-model genre.
 //
-// 只在 MCP 上,是产品决定:自我模型是 owner 跟自己的 AI 边想边写出来的,不是在表单里填的。
+// MCP-only is a product decision: the self-model is something the owner
+// works out in conversation with their own AI, not something typed into a
+// form.
 func Subjectivity(deps usecase.Deps) []fp.Op {
 	return []fp.Op{{
-		// id 保持 owner 的 AI 一直在用的那个名字 —— 搬家不该改对外的称呼。
+		// Keep the id the name the owner's AI has always used — a relocation
+		// shouldn't rename the public-facing label.
 		ID: "subjectivity_write",
 		Description: "Write (create or update) a subjectivity note — the owner's self-model: " +
 			"taste, judgment, what they care about. Prose; the address is derived from the " +
 			"title and the tree. Private unless show_as_source says otherwise.",
 		InputSchema: subjectivitySchema,
 		Kind:        fp.Action,
-		// **这是个历史别名,不是一条能力上的限制。**
+		// **This is a historical alias, not a capability restriction.**
 		//
-		// 它以前的理由写着"自我模型是边想边写出来的,不是填出来的" —— 那是一句被写进代码的
-		// 偏好,据此把 subjectivity 挡在面板外面。那个限制没了:subjectivity 跟其余三个
-		// genre 一样走 corpus.create / corpus.update,面板上建得了也改得了。
+		// Its old rationale said "the self-model is worked out in
+		// conversation, not typed into a form" — that was a preference
+		// baked into code, and it used to keep subjectivity out of the
+		// panel. That restriction is gone: subjectivity now goes through
+		// corpus.create / corpus.update like the other three genres, so
+		// the panel can create and edit it too.
 		//
-		// 这个 id 留着,是因为 owner 的 AI 一直按这个名字调它(CLAUDE.md 里也写着)。
-		// 面板不需要第二条路,所以它只投影到 mcp —— 差别在**名字**上,不在能力上。
+		// This id stays because the owner's AI already calls it by this
+		// name (CLAUDE.md says so too). The panel needs no second path,
+		// so this only projects to mcp — the difference is in the
+		// **name**, not the capability.
 		Reach: fp.Only(
 			"a historical tool name the owner's AI already calls; the panel writes this genre "+
 				"through corpus.create / corpus.update like every other genre", "mcp"),
@@ -67,10 +81,13 @@ var subjectivitySchema = json.RawMessage(`{
 	"required":["title","body"]
 }`)
 
-// subjectivityArgs —— 线上的入参。show_as_source 用指针,因为这个 genre 的默认是
-// **私有**,跟 wiki / output 相反 —— 靠 bool 零值表达不了"没提到"。
-// hero 三项是**指针**:没给 = 不动,不是"清空"。跟 corpus.update 那边同一个规矩 ——
-// 既有调用方一个 hero 字段都不带,那样每次改正文都会把 owner 设好的封面抹掉。
+// subjectivityArgs — the wire-level input. show_as_source is a pointer
+// because this genre's default is **private**, the opposite of wiki / output
+// — a bool's zero value can't express "not mentioned".
+// The three hero fields are **pointers**: omitted means leave alone, not
+// "clear it". Same rule as corpus.update — existing callers omit every hero
+// field, so treating that as clearing would wipe the owner's cover on every
+// body edit.
 type subjectivityArgs struct {
 	ShowAsSource      *bool    `json:"show_as_source"`
 	CoverImageAssetID *string  `json:"cover_image_asset_id"`
@@ -84,7 +101,8 @@ type subjectivityArgs struct {
 	CSSClasses        []string `json:"css_classes"`
 }
 
-// hero —— 这次要改的 hero 项。全 nil = 没提到 hero,一步数据库都不碰。
+// hero — the hero fields to change this call. All nil means hero wasn't
+// mentioned at all, and touches the database not once.
 func (in *subjectivityArgs) hero() usecase.HeroPatch {
 	return usecase.HeroPatch{
 		CoverAssetID: in.CoverImageAssetID, CoverHeadline: in.CoverHeadline,
@@ -109,8 +127,10 @@ func writeSubjectivity(deps usecase.Deps) fp.Invoke {
 	}
 }
 
-// applySubjectivityHero —— hero 在语料落库**之后**写:它挂在这条笔记身上,
-// 笔记还没有 id 时无处可挂。一个 hero 字段都没带就一步数据库都不碰。
+// applySubjectivityHero — the hero fields are written **after** the corpus
+// entry is persisted: they attach to this note, and there's nowhere to attach
+// them before the note has an id. If no hero field was given at all, this
+// touches the database not once.
 func applySubjectivityHero(
 	ctx context.Context, deps usecase.Deps, ownerID, id string, args *subjectivityArgs,
 ) error {
@@ -121,7 +141,8 @@ func applySubjectivityHero(
 	return writeHero(ctx, deps, ownerID, id, &hero)
 }
 
-// subjectivityOut —— 写完给调用方的:这条笔记的 id 和它的地址。
+// subjectivityOut — what's returned to the caller after a write: this note's
+// id and its address.
 type subjectivityOut struct {
 	ID   string `json:"subjectivity_id"`
 	Path string `json:"path"`
@@ -153,8 +174,10 @@ func (in *subjectivityArgs) toInput(ownerID string) *usecase.WriteSubjectivityIn
 	return out
 }
 
-// subjectivityErr —— 本域的哨兵 → 协议无关的错误类别。翻译在域里,因为知道
-// "这个哨兵意味着调用方给错了还是东西不存在"的是域。
+// subjectivityErr — this domain's sentinels → protocol-agnostic error
+// classes. The translation lives in the domain, because the domain is what
+// knows whether a given sentinel means the caller got it wrong or the thing
+// just doesn't exist.
 func subjectivityErr(err error) error {
 	switch {
 	case errors.Is(err, entity.ErrParentNotFound):

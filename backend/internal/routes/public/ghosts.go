@@ -1,14 +1,16 @@
 // ghosts.go —— POST /api/v1/sessions/{id}/ghosts/shown
 //                    POST /api/v1/sessions/{id}/ghosts/{sid}/accept
 //
-// visitor 浏览器在 ghost text 实际渲到输入框时调一次 shown (拿回 row id)；
-// visitor 按 Tab 接受时调 accept (路径里带 row id)。
+// The visitor's browser calls shown once, the moment the ghost text actually renders in
+// the input box (gets a row id back); the visitor calls accept when they press Tab to
+// accept it (the row id travels in the path).
 //
-// Auth: Bearer visitor session token，跟 dialogs / summary 一套。
+// Auth: Bearer visitor session token, same as dialogs / summary.
 //
-// 路径里的 {id} 是 conversation id (URL 风格沿用现有 sessions/{id}/* 习惯)，
-// 不是 session token —— route 在解 auth 后校 conv_id 必须等于 session 当前
-// 的 conversation_id 防 cross-conv 写入。
+// The {id} in the path is the conversation id (URL style follows the existing
+// sessions/{id}/* convention), not the session token — after resolving auth the route
+// checks conv_id must equal the session's current conversation_id, to guard against a
+// cross-conversation write.
 
 package public
 
@@ -51,7 +53,8 @@ func dispatchShown(h *Handlers, w http.ResponseWriter, r *http.Request) {
 	runRecordShown(h, w, r, &shownArgs{av: av, req: req, convID: chi.URLParam(r, "id")})
 }
 
-// shownArgs —— runRecordShown 入参 bundle，避开 argument-limit (max 5)。
+// shownArgs —— the input bundle for runRecordShown, to stay under the argument-limit
+// (max 5).
 type shownArgs struct {
 	av     authedVisitor
 	req    *shownRequest

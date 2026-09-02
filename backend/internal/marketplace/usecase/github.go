@@ -30,8 +30,8 @@ type ghContentItem struct {
 	HTMLURL     string `json:"html_url"`
 	Description string `json:"-"`
 	Version     string `json:"-"`
-	// AllowedTools —— frontmatter 的 allowed-tools（同一次 enrichment 里就读到了）。
-	// nil = 这次 enrichment 没成功,不是「它没声明工具」。
+	// AllowedTools —— the frontmatter's allowed-tools (read during this same enrichment pass).
+	// nil = this enrichment attempt failed, not "it declared no tools".
 	AllowedTools []string `json:"-"`
 }
 
@@ -102,12 +102,13 @@ func (c *Client) enrichOne(ctx context.Context, it *ghContentItem) {
 	}
 	it.Description = content.Description
 	it.Version = content.Version
-	// 空列表也要落下来:parseSkillMD 对「没有 allowed-tools」返回的是空切片,而它跟
-	// 「这次没读到」是两回事 —— 后者这一行整个不会走到。
+	// An empty list must be recorded too: parseSkillMD returns an empty slice for "no
+	// allowed-tools", and that's different from "this pass never read it" — the latter
+	// never reaches this line at all.
 	it.AllowedTools = emptyIfNil(content.AllowedTools)
 }
 
-// emptyIfNil —— nil → []。给「读过了,它没声明」一个跟 nil 不同的形状。
+// emptyIfNil —— nil → []. Gives "we read it, it declared nothing" a shape distinct from nil.
 func emptyIfNil(v []string) []string {
 	if v == nil {
 		return []string{}
@@ -162,8 +163,10 @@ func ghContentToMarketSkill(it *ghContentItem) entity.MarketSkill {
 		Version:     it.Version, // from the skill's SKILL.md frontmatter (enrichment)
 		Category:    "",
 		Description: it.Description, // ditto — so the card isn't blank (UX-13)
-		// AllowedTools —— 这条源在填目录缓存时就把每份 SKILL.md 读过了,所以「这个技能要用
-		// 哪些工具」在搜索时就答得出;SkillsMP 那条源答不出(它没有正文端点,搜索时也不逐个抓)。
+		// AllowedTools —— this source already reads every SKILL.md while filling the directory
+		// cache, so "which tools does this skill use" can be answered at search time; the
+		// SkillsMP source can't (it has no content endpoint, and doesn't fetch each one at
+		// search time either).
 		AllowedTools: it.AllowedTools,
 		SourceURL:    it.HTMLURL,
 		Source:       entity.MarketSourceGitHub,

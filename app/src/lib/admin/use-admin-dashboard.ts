@@ -1,8 +1,9 @@
-// use-admin-dashboard —— fan-out fetch 4 个已有 admin list endpoints,
-// 返 KPI 计数。轻量做法（vs 单 aggregator endpoint）：每个列表 < 几百
-// 行，浏览器 parallel 起 4 个 fetch + count = 单次刷新够用。
+// use-admin-dashboard —— fans out fetches across 4 existing admin list
+// endpoints, returning KPI counts. A lightweight approach (vs. a single
+// aggregator endpoint): each list has < a few hundred rows, so the browser
+// firing 4 parallel fetches + counting is good enough for a single refresh.
 //
-// list sizes 长起来再考虑加 `/api/admin/dashboard/stats` 单独 SUM 查询。
+// Once list sizes grow, consider adding `/api/admin/dashboard/stats` as a separate SUM query.
 
 import { useEffect, useState } from 'react';
 
@@ -18,28 +19,37 @@ export interface DashboardStats {
   requestsNew: number;
   conversationsCount: number;
   draftsReviewing: number;
-  // pulse —— 近 14 天每天(UTC)的 corpus 新增，来自 /stats/growth 的真 series（rot-A1：曾经画的是
-  // 硬编码的 MOCK_14D，而这条真数据早就在同一个 endpoint 里，被 schema 丢掉了）。
+  // pulse —— corpus additions per day (UTC) over the last 14 days, from
+  // /stats/growth's real series (rot-A1: this used to render the hardcoded
+  // MOCK_14D, while the real data had been sitting in the same endpoint all along, dropped by the schema).
   pulse: readonly number[];
-  // pulseDays —— 与 pulse 对齐的日期(每点的 x 标签)，让 sparkline 的 hover tooltip 显示
-  // 「日期 · 值」，owner 读得出具体哪天多少条（F-C-5：一条读不出数字的图等于只有形状）。
+  // pulseDays —— the dates aligned with pulse (each point's x label), so the
+  // sparkline's hover tooltip can show "date · value" — letting the owner
+  // read exactly how many on which day (F-C-5: a chart you can't read numbers off of is just a shape).
   pulseDays: readonly string[];
-  // aiProviderUsable —— 这台实例还答得了访客吗(本子里至少有一条配了 key)。
-  // 答不了的时候访客收到 503,而 owner 那边曾经**没有任何提示** —— 表单空着,看起来像"还没配过",
-  // 于是一个接一个的访客被赶走而他毫不知情(F-A-24)。这一条就是那个提示的数据源。
+  // aiProviderUsable —— can this instance still answer a visitor (at least
+  // one entry in the registry has a key configured).
+  // When it can't, visitors get a 503, and the owner side used to have **no
+  // indication at all** — the form sat empty, looking like "never configured
+  // yet", so visitor after visitor got turned away without him knowing (F-A-24). This is the data source for that indicator.
   aiProviderUsable: boolean;
 }
 
-// State.stats —— **null = 还没拿到**，不是「拿到了，全是零」（F-L-52）。
+// State.stats —— **null = not fetched yet**, not "fetched, and it's all
+// zeros" (F-L-52).
 //
-// 以前这里坐着一份全零的 `EMPTY_STATS` 当初始值，于是同一屏上出现过这种东西：
-// 标题写着 `dashboard · loading…`、四个大数字诚实地印着 `—`，而由这些数字长出来的每一句话
-// 都在断言零 —— `↑ 0 total`、`at zero`、`0 entries · total`、`nothing new in 14d`、
-// 最狠的一句是「Nothing pending — corpus is current.」。左边侧栏那条 rail 同时写着 `+2 in 7d`。
-// 数字知道自己在加载，从数字长出来的句子不知道（[[lesson-not-swept-to-neighbours]]）。
+// A fully-zero `EMPTY_STATS` used to sit here as the initial value, so the
+// same screen once showed things like: the header saying `dashboard ·
+// loading…`, the four big numbers honestly printing `—`, and every sentence
+// grown from those numbers asserting zero — `↑ 0 total`, `at zero`, `0
+// entries · total`, `nothing new in 14d`, and worst of all "Nothing pending
+// — corpus is current." Meanwhile the sidebar rail said `+2 in 7d` at the
+// same time. The numbers knew they were loading; the sentences grown from
+// them didn't ([[lesson-not-swept-to-neighbours]]).
 //
-// 修法不是给每一处再补一个 `loading &&` —— 那还是纪律。让它**算不出来**：没有数就没有
-// 这个对象，每个读者都得先面对 null。
+// The fix isn't sprinkling another `loading &&` everywhere — that's still
+// discipline, not a structural fix. It's making it **impossible to compute**:
+// no number means no object, and every reader has to face null first.
 interface State {
   stats: DashboardStats | null;
   loading: boolean;
@@ -53,15 +63,16 @@ const GrowthSchema = z.object({
     raw: z.number(), wiki: z.number(), output: z.number(),
     raw_unprocessed: z.number().optional().default(0),
   }),
-  // series —— 近 14 天每天的新增（date_trunc GROUP BY）。之前 schema 没声明它，真数据被丢，
-  // 仪表盘改画 MOCK_14D（rot-A1）。现在解析它、喂给 corpus-pulse。
+  // series —— additions per day over the last 14 days (date_trunc GROUP BY).
+  // This wasn't declared in the schema before, so the real data was dropped,
+  // and the dashboard fell back to rendering MOCK_14D (rot-A1). It's now parsed and fed into corpus-pulse.
   series: z.array(z.object({ day: z.string(), count: z.number() })).optional().default([]),
 });
 const CodeRowSchema = z.object({ id: z.string(), status: z.string() });
 const RequestRowSchema = z.object({ id: z.string(), status: z.string() });
 const ConvRowSchema = z.object({ id: z.string() });
 const DraftRowSchema = z.object({ id: z.string(), status: z.string().optional() });
-// key_configured 是"这条能不能真去调"的唯一凭据 —— 一条没有 key 的 provider 行答不了访客。
+// key_configured is the only credential for "can this entry actually be called" — a provider row with no key can't answer a visitor.
 const ProviderRowSchema = z.object({ id: z.string(), key_configured: z.boolean() });
 
 export function useAdminDashboard(): State {
@@ -86,8 +97,9 @@ function pluralize(n: number, singular: string, plural: string): string {
 
 export function allActionItems(stats: DashboardStats): ActionItem[] {
   return [
-    // 排第一,因为它一条就让整台实例答不了任何人:访客发第一句话就收到 503。
-    // 这一行存在的意义就是**打破沉默** —— F-A-24 里 owner 唯一能察觉的方式是自己去当访客。
+    // Listed first, because on its own it can make the whole instance unable
+    // to answer anyone: a visitor's very first message gets a 503.
+    // This row exists to **break the silence** — in F-A-24 the only way the owner could notice was to go be a visitor themself.
     { key: 'ai', count: stats.aiProviderUsable ? 0 : 1,
       label: 'no usable AI provider',
       sub: 'visitors are being turned away — set a key under api · mcp',
@@ -95,8 +107,9 @@ export function allActionItems(stats: DashboardStats): ActionItem[] {
     { key: 'requests', count: stats.requestsNew,
       label: `${stats.requestsNew} access ${pluralize(stats.requestsNew, 'request', 'requests')}`,
       sub: 'visitors waiting on a code', href: '/admin/requests' },
-    // F-C-6: 原文案 "promote, edit, or archive" 撒谎 —— raw 没有 archive 功能;且把 raw 框成
-    // 待办队列。raw 是发酵池:放着不动是合法状态,文案要说出来。
+    // F-C-6: the original copy "promote, edit, or archive" was a lie — raw
+    // has no archive feature; and it framed raw as a to-do queue. raw is a
+    // fermentation pool: leaving something untouched is a valid state, and the copy should say so.
     { key: 'raw', count: stats.rawUnprocessed,
       label: `${stats.rawUnprocessed} raw ${pluralize(stats.rawUnprocessed, 'entry', 'entries')} unprocessed`,
       sub: 'promote, edit, or let them ferment', href: '/admin/raw' },
@@ -132,20 +145,24 @@ async function load(setState: (s: State) => void): Promise<void> {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'load dashboard failed';
-    // 失败也是 null：**「没拉到」跟「拿到了，是空的」不许长一个样**，这正是这个文件
-    // 隔壁 `admin-load-failure-not-empty` 那一族守的东西。错误另行显示。
+    // Failure is also null: **"failed to fetch" and "fetched, and it's
+    // empty" must never look the same** — that's exactly what the
+    // `admin-load-failure-not-empty` family next to this file guards. The error is displayed separately.
     setState({ stats: null, loading: false, error: msg });
   }
 }
 
 const WrappedListSchema = z.object({ items: z.array(z.unknown()).optional() });
 
-// fetchGrowth —— 走**共享的** growth store，不再自己 fetch 一次（F-C-31）。
+// fetchGrowth —— goes through the **shared** growth store, no longer fetches its own copy (F-C-31).
 //
-// 侧栏那条 rail 和这张 pulse 卡画的是同一份计数。各拉各的时候，两次请求落在两个时刻，
-// 中间进了一条语料就够了：rail 写 `+2 in 7d`，卡片同时写 `nothing new in 14d` ——
-// 而 7 天是 14 天的子集，两句话不可能同时为真。`refresh()` 而不是 `ensureLoaded()`：
-// 进 dashboard 就是要看最新的数，缓存住的旧值正是这类矛盾的另一半。
+// The sidebar rail and this pulse card draw from the same count. Fetching
+// separately meant the two requests landed at two different moments, and one
+// corpus entry landing in between was enough: the rail said `+2 in 7d` while
+// the card simultaneously said `nothing new in 14d` — and since 7 days is a
+// subset of 14 days, both statements can't be true at once. `refresh()`
+// rather than `ensureLoaded()`: entering dashboard means wanting the latest
+// number, and a cached stale value is exactly the other half of this contradiction.
 async function fetchGrowth(): Promise<z.infer<typeof GrowthSchema>> {
   await growthStore.getState().refresh();
   const data = growthStore.getState().data;

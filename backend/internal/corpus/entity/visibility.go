@@ -1,34 +1,38 @@
-// visibility.go —— Writing 的可见性 sub-object。
+// visibility.go —— Writing's visibility sub-object.
 //
-// Visibility 决定 visitor (无 code 或 code 不匹) 看到 writing 时的形态：
-//   - Public：body_md 全开
-//   - Private：前端只渲 LockedBody 字段当 teaser，body_md 不返
+// Visibility determines the shape a visitor (no code, or a mismatched code)
+// sees a writing in:
+//   - Public: body_md is fully open
+//   - Private: the frontend renders only the LockedBody field as a teaser,
+//     body_md is not returned
 //
-// 真 access control 走 [[iam-role-pivot-plan]] 的 corpus URI ACL（A.3-IAM
-// 实做）；这里的 Visibility 只是"前端按啥渲"提示。
+// Real access control goes through the corpus URI ACL from
+// [[iam-role-pivot-plan]] (A.3-IAM implementation); Visibility here is only a
+// "how the frontend should render" hint.
 
 package entity
 
-// VisibilityMode —— 可见性模式枚举。pre-launch 只两档，未来可扩 unlisted /
-// timed-release 等。
+// VisibilityMode —— visibility mode enum. Only two tiers pre-launch; can extend
+// to unlisted / timed-release etc. later.
 const (
 	VisibilityPublic  = "public"
 	VisibilityPrivate = "private"
 )
 
-// Visibility —— Writing 的可见性 + 锁定状态下的 teaser 文本。
+// Visibility —— Writing's visibility + the teaser text shown while locked.
 type Visibility struct {
 	mode       string
-	lockedBody string // private 时显示给 visitor 的 teaser
+	lockedBody string // the teaser shown to visitors when private
 }
 
-// VisibilityInit —— 构造参数。
+// VisibilityInit —— constructor params.
 type VisibilityInit struct {
 	Mode       string
 	LockedBody string
 }
 
-// NewVisibility —— 从 Init 构造；Mode 不在白名单 → fallback public。
+// NewVisibility —— constructs from Init; Mode outside the allowlist falls back
+// to public.
 func NewVisibility(i *VisibilityInit) Visibility {
 	return Visibility{
 		mode:       normalizeMode(i.Mode),
@@ -43,14 +47,14 @@ func normalizeMode(m string) string {
 	return VisibilityPublic
 }
 
-// Mode —— 可见性模式字符串 (public / private)。
+// Mode —— the visibility mode string (public / private).
 func (v Visibility) Mode() string { return v.mode }
 
-// LockedBody —— private 模式下展示的 teaser；public 时无意义。
+// LockedBody —— the teaser shown in private mode; meaningless when public.
 func (v Visibility) LockedBody() string { return v.lockedBody }
 
-// IsPublic —— 是否 public 模式。
+// IsPublic —— whether it's in public mode.
 func (v Visibility) IsPublic() bool { return v.mode == VisibilityPublic }
 
-// IsPrivate —— 是否 private 模式。
+// IsPrivate —— whether it's in private mode.
 func (v Visibility) IsPrivate() bool { return v.mode == VisibilityPrivate }

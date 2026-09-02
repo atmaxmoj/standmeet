@@ -1,12 +1,15 @@
-// openapi_can_perform.go —— 「这个 owner 的授权，做不做得了这一个 operation」。
+// openapi_can_perform.go — "can this owner's grant perform this one operation".
 //
-// 为什么单独一问（F-B-8 ⭐⭐）：`Connected` 说的是**我们手里有一个可用连接**，
-// 那不等于**这个连接做得了你要它做的事**。owner 只授了 `calendar.readonly` 时，
-// 连接是好的、读是通的、列时段也是好的，**只有写永远 403** —— 而产品照旧把「订会」
-// 摆在访客面前，还告诉他「过一会儿再问」（那句话永远不会成真）。
+// Why this is a separate question (F-B-8 ⭐⭐): `Connected` says **we're holding a usable
+// connection**, and that's not the same as **this connection can do what you're asking it to
+// do**. When an owner has only granted `calendar.readonly`, the connection is good, reads work,
+// listing free/busy works, **only writes are permanently 403** — while the product still puts
+// "book a meeting" in front of the visitor and tells them "try again in a bit" (a sentence that
+// will never come true).
 //
-// 两边现在都是数据：**需要什么**在 spec 的 per-op `security` 里，**授到了什么**在连接行上。
-// 谁也没被抄进 Go —— 抄进来就会有第二份真相，而它迟早跟 spec 分叉。
+// Both sides are now data: **what's needed** lives in the spec's per-op `security`, **what was
+// granted** lives on the connection row. Neither side gets copied into Go — copying it in would
+// create a second source of truth, and it would eventually drift from the spec.
 
 package connector
 
@@ -15,7 +18,8 @@ import (
 	"fmt"
 )
 
-// CanPerform —— spec 没为这个 op 声明 scope → true（这一步不要求额外权限）。
+// CanPerform — the spec declares no scope for this op → true (this step needs no extra
+// permission).
 func (c *openapiCore) CanPerform(ctx context.Context, ownerID, operationID string) (bool, error) {
 	need := c.runtime.ScopesFor(operationID)
 	if len(need) == 0 {
@@ -28,7 +32,7 @@ func (c *openapiCore) CanPerform(ctx context.Context, ownerID, operationID strin
 	return grantCovers(conn.Scopes, need), nil
 }
 
-// grantCovers —— 授到的 ⊇ 需要的。
+// grantCovers — granted ⊇ needed.
 func grantCovers(granted, need []string) bool {
 	have := make(map[string]bool, len(granted))
 	for _, g := range granted {

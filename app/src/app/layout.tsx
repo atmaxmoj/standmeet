@@ -1,7 +1,7 @@
-// Root layout —— 全局字体（Newsreader + JetBrains Mono）+ 全局 CSS。
+// Root layout — global fonts (Newsreader + JetBrains Mono) + global CSS.
 //
-// Fonts 通过 next/font 自托管，避免在 docker / CI 里向 Google CDN 拉资源
-// 让 build 变慢 + privacy-friendly。fallback Georgia / ui-monospace 兜底。
+// Fonts are self-hosted via next/font, avoiding a Google CDN fetch in docker / CI
+// that would slow the build; also privacy-friendly. Georgia / ui-monospace as fallback.
 
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
@@ -32,8 +32,9 @@ export const metadata: Metadata = {
   description: 'A personal page that argues back.',
 };
 
-// RootLayout —— async：locale 由 next-intl 的 request config 给（现在恒为 'en'）。
-// `<html lang>` 跟着它走，不写死 —— 写死的那一刻，加第二种语言就又多一处要记得改的地方。
+// RootLayout — async: locale comes from next-intl's request config (currently always 'en').
+// `<html lang>` follows it instead of being hardcoded — hardcoding it would add one more
+// place to remember when a second language is added.
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
   return (
@@ -41,7 +42,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <NextIntlClientProvider>
           <ToastProvider>
-            {/* 明暗挂在这里,每一面都有,谁都不用记得(UX-94)。 */}
+            {/* Dark/light mounts here, present on every surface, */}
+            {/* so nobody has to remember it (UX-94). */}
             <ThemeSync />
             {children}
             <Toaster />

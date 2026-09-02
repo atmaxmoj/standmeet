@@ -2,7 +2,8 @@ package entity
 
 import "time"
 
-// InferenceUsageDay —— #106 近 7 天某一天×某 model 的 LLM 用量聚合(admin 计费面板一行)。
+// InferenceUsageDay — #106 LLM usage aggregated per day x model over the last
+// 7 days (one row of the admin billing panel).
 type InferenceUsageDay struct {
 	Day          time.Time
 	Model        string

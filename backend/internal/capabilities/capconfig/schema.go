@@ -1,8 +1,12 @@
-// schema.go —— 把一个配置项的**声明**翻成它在入参里的 JSON Schema 片段。
+// schema.go — translates a config field's **declaration** into its JSON Schema
+// fragment in the input args.
 //
-// 翻译只有这一处。手写那一份的问题不是麻烦,是它跟声明是两个事实:booker 的
-// max_bookings 曾经在组装根手写成 `{"type":["integer","null"],...}`,而它的类型、说明、
-// 取值范围都已经在声明里写着了 —— 两份东西说同一件事,就总有一天说得不一样。
+// This is the only place the translation happens. Hand-writing that fragment
+// separately isn't just tedious — it makes the fragment and the declaration two
+// separate facts: booker's max_bookings used to be hand-written in the assembly
+// root as `{"type":["integer","null"],...}`, while its type, description, and
+// range were already written in the declaration — two things saying the same
+// thing eventually say it differently.
 
 package capconfig
 
@@ -14,9 +18,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// jsonTypeOf —— 声明的类型 → JSON Schema 的类型。表外的类型不该存在
-// (mcpplugin 的常量是全集),兜底成 string 而不是崩:一个显示不对的表单
-// 好过一台起不来的实例。
+// jsonTypeOf — declared type → JSON Schema type. A type outside the table
+// shouldn't exist (mcpplugin's constants are the full set); it falls back to
+// string instead of crashing — a form that renders wrong beats an instance
+// that won't start.
 func jsonTypeOf(t string) string {
 	switch t {
 	case mcpplugin.ConfigTypeInt:
@@ -25,14 +30,15 @@ func jsonTypeOf(t string) string {
 		return "boolean"
 	case mcpplugin.ConfigTypeStringList:
 		return "array"
-	default: // string / time 都是字符串
+	default: // string / time are both strings
 		return "string"
 	}
 }
 
-// schemaOf —— 一个字段的 schema 片段。
+// schemaOf — the schema fragment for one field.
 //
-// 类型永远带 "null":码上的字段是可选的,"不设"跟"设成 0"是两件事(0 会被读成已用尽)。
+// The type always includes "null": a field on a code is optional, and "unset"
+// is different from "set to 0" (0 would be read as already exhausted).
 func schemaOf(f *mcpplugin.ConfigField) json.RawMessage {
 	parts := []string{
 		`"type":["` + jsonTypeOf(f.Type) + `","null"]`,
@@ -50,7 +56,8 @@ func schemaOf(f *mcpplugin.ConfigField) json.RawMessage {
 	return json.RawMessage("{" + strings.Join(parts, ",") + "}")
 }
 
-// quote —— 说明文字进 JSON 字面量。编码不了就给个空串,schema 仍然合法。
+// quote — puts description text into a JSON literal. If it can't be encoded,
+// fall back to an empty string so the schema stays valid.
 func quote(s string) string {
 	b, err := json.Marshal(s)
 	if err != nil {

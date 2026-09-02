@@ -1,7 +1,9 @@
-// Package ops —— security 域对外能做的事,由域自己声明。
+// Package ops -- what the security domain can do, declared by the domain itself.
 //
-// 一个操作在这里是完整的一份:id、说明、入参 schema、语义类别、暴露意图、实现。
-// 实现就是调本域的函数,不经任何中间形状 —— 收口只负责汇聚、加装饰器、投影到各个面。
+// One op here is a complete unit: id, description, input schema, semantic kind,
+// exposure intent, implementation. The implementation just calls this domain's
+// functions, no intermediate shape in between -- the collection point only
+// aggregates, decorates, and projects onto each facade.
 package ops
 
 import (
@@ -13,10 +15,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/security/ban"
 )
 
-// IPBans —— 封禁源 IP 这一组:列出 / 封 / 解封。
+// IPBans -- the source-IP ban group: list / ban / unban.
 //
-// 载荷形状即契约,两个面拿同一份:expires_at 永久封禁时是 null(不是字段消失),
-// 解封回 {"ok":true}。
+// The payload shape is the contract, and both facades get the same one:
+// expires_at is null for a permanent ban (the field never disappears),
+// and unban returns {"ok":true}.
 func IPBans(repo *ban.BannedIPRepo) []fp.Op {
 	return []fp.Op{
 		{
@@ -67,7 +70,7 @@ var (
 	}`)
 )
 
-// ipBanOut —— 一条封禁的出站形状。
+// ipBanOut -- the outbound shape of one ban.
 type ipBanOut struct {
 	ExpiresAt *time.Time `json:"expires_at"`
 	CreatedAt time.Time  `json:"created_at"`
@@ -134,10 +137,10 @@ func decodeIPBanAdd(ownerID string, raw json.RawMessage) (*ban.IPInput, error) {
 	return out, nil
 }
 
-// optionalRFC3339 —— 空 = 不设(永久),不是错。
+// optionalRFC3339 -- empty means unset (permanent), not an error.
 func optionalRFC3339(s string) (*time.Time, error) {
 	if s == "" {
-		return nil, nil //nolint:nilnil // 空 = 没设,不是错误
+		return nil, nil //nolint:nilnil // empty = unset, not an error
 	}
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {

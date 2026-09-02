@@ -1,15 +1,19 @@
-// client.ts —— createClient 工厂：给定 baseURL 返回一组业务方法。caller
-// （Next.js SSR、React app、Web Component embed）只用 client 实例，不
-// 自己写 fetch / URL 拼接。
+// client.ts —— the createClient factory: given a baseURL, returns a set of
+// business methods. Callers (Next.js SSR, React apps, Web Component embeds)
+// only use the client instance and never write their own fetch / URL
+// assembly.
 //
-// 设计上 client 是无状态轻量对象，每次方法调用都新发 fetch；session token
-// 由 caller 自己保存，作为参数传进 streamMessage。
+// By design the client is a stateless, lightweight object; every method call
+// issues a fresh fetch. The session token is kept by the caller and passed
+// as a parameter into streamMessage.
 //
-// baseURL 为空串时所有请求走相对路径（让 Next rewrites / app proxy
-// 透传）；非空时走绝对路径（SSR、Web Component 在第三方域名下）。
+// When baseURL is an empty string, every request goes through a relative
+// path (letting Next rewrites / an app proxy pass it through); when
+// non-empty, requests go through an absolute path (SSR, Web Component on a
+// third-party domain).
 //
-// v1 单 owner instance —— page / wiki landing / session 等 API 都不带
-// handle 参数：sole owner 直接在 server 端 resolve。
+// v1 is a single-owner instance —— the page / wiki landing / session APIs
+// carry no handle parameter: the sole owner is resolved directly server-side.
 
 import type {
   PublicPageView,
@@ -20,42 +24,53 @@ import type {
   SSEEvent,
 } from './types.js';
 
-// ClientOptions —— createClient 的入参。baseURL 默认空串。
+// ClientOptions —— createClient's input. baseURL defaults to an empty string.
 export interface ClientOptions {
   baseURL?: string;
   fetchImpl?: typeof fetch;
 }
 
-// IssueSessionInput —— 三种 session mode 统一入参。mode 决定哪些字段是必需的：
-//   public —— 无字段
+// IssueSessionInput —— the unified input for the three session modes. mode
+// decides which fields are required:
+//   public —— no fields
 //   code   —— code (+ visitor_name optional)
-//   byoai  —— byoai_provider（key / endpoint / model 不上传 server；browser
-//             自己 vault 保管，chat header 里走）
+//   byoai  —— byoai_provider (key / endpoint / model are never uploaded to
+//             the server; the browser keeps them in its own vault and sends
+//             them through the chat header)
 export interface IssueSessionInput {
   mode: SessionMode;
   code?: string;
   visitor_name?: string;
-  // member_id —— 上次拿到的 member id;带上凭 id 续会(尤其匿名者),失效后端
-  // 自动退到按 visitor_name / 新建。
+  // member_id —— the member id obtained last time; bring it along to
+  // continue the session by id (especially for anonymous visitors) —— if
+  // it's no longer valid, the backend automatically falls back to matching
+  // by visitor_name / creating a new one.
   member_id?: string;
   byoai_provider?: string;
-  // captcha_token —— 一次通过校验的人机校验票。**它是解锁用的**：同一 IP 连续试错码超过
-  // 阈值后后端会锁 15 分钟，而带上一张有效票就能立刻过（`code_guard.go` 的
-  // `Locked = enabled && overThreshold && captchaFails`）。captcha 没开时后端不看这个字段。
+  // captcha_token —— a captcha ticket from a passed verification. **It's for
+  // unlocking**: once the same IP crosses the threshold of consecutive
+  // failed code attempts, the backend locks it for 15 minutes, and
+  // presenting a valid ticket clears it immediately (see `code_guard.go`'s
+  // `Locked = enabled && overThreshold && captchaFails`). When captcha is
+  // disabled, the backend ignores this field.
   captcha_token?: string;
-  // embed_token —— widget 的 EdDSA JWT 凭据（防盗）。带它就**不带明文 code**：服务端验签后
-  // 反查出 code。widget 用每-embed 私钥现签，绑定 origin + 短过期 + 一次性 jti。
+  // embed_token —— the widget's EdDSA JWT credential (anti-theft). Sending
+  // it means **not** sending the plaintext code: the server verifies the
+  // signature and looks the code up from it. The widget signs it fresh with
+  // a per-embed private key, bound to origin + a short expiry + a one-time
+  // jti.
   embed_token?: string;
 }
 
-// BYOAIHeaders —— streamMessage 在 mode=byoai 时透传 4 个 header（**全部必填**，
-// 缺任一 server 401）：
+// BYOAIHeaders —— the 4 headers streamMessage passes through when
+// mode=byoai (**all required**, the server 401s if any is missing):
 //   X-BYOAI-Provider —— preset name ('openai' / 'deepseek' / 'custom' / ...)
-//   X-BYOAI-Endpoint —— base URL（不带 /v1/... 后缀）
+//   X-BYOAI-Endpoint —— base URL (without the /v1/... suffix)
 //   X-BYOAI-Model    —— model id
-//   X-BYOAI-Key      —— caller 用 session_token HKDF 派生 AES-256 key、AES-GCM
-//                       封装 plaintext 后的 base64 (URL-safe no padding)
-// SDK 不参与 key 封装；caller 负责。
+//   X-BYOAI-Key      —— base64 (URL-safe, no padding) of the plaintext key
+//                       after the caller derives an AES-256 key via HKDF
+//                       from session_token and wraps it with AES-GCM
+// The SDK takes no part in key wrapping; that's the caller's responsibility.
 export interface BYOAIHeaders {
   provider: string;
   endpoint: string;
@@ -63,12 +78,15 @@ export interface BYOAIHeaders {
   wrappedKey: string;
 }
 
-// StandMeetClient —— 业务接口。consumer 通过 createClient 拿到的实例
-// 满足这个 shape；不直接暴露内部字段。
+// StandMeetClient —— the business interface. The instance a consumer gets
+// from createClient satisfies this shape; internal fields aren't exposed
+// directly.
 export interface StandMeetClient {
   fetchPage(): Promise<PublicPageView>;
-  // fetchWikiLanding —— lang 可选:多语笔记按它选一面;这条笔记没有那一面就退回它的
-  // 身份语言(`lang:`)。**是查询参数不是路径段** —— 不是每条笔记都有同一套语言。
+  // fetchWikiLanding —— lang is optional: a multi-language note picks the
+  // matching face by it; if this note has no such face, it falls back to
+  // its identity language (`lang:`). **It's a query parameter, not a path
+  // segment** —— not every note carries the same set of languages.
   fetchWikiLanding(slug: string, lang?: string): Promise<WikiLandingView | null>;
   fetchOutputLanding(slug: string): Promise<OutputLandingView | null>;
   issueSession(input: IssueSessionInput): Promise<PublicSessionResponse>;
@@ -79,29 +97,39 @@ export interface StandMeetClient {
     system: string,
     byoai?: BYOAIHeaders,
   ): AsyncGenerator<SSEEvent, void, unknown>;
-  // composeSystem —— 这一场的 system prompt（fragment + persona）。一场拼一次，整场复用。
-  // 收的是它**真正读的那两个字段**，不是整份颁发回执：接手一场已有 session 的页面
-  // 手上只有存下来的那几项，而这里从来没用过 quota / members。
+  // composeSystem —— this session's system prompt (fragment + persona).
+  // Composed once per session, reused for the whole session. Takes only
+  // **the two fields it actually reads**, not the full issuance receipt: a
+  // page adopting an already-existing session only has the few stored
+  // items on hand, and this has never used quota / members.
   composeSystem(session: SystemPromptSource): Promise<string>;
 }
 
-// TurnMsg —— 发给后端的一条历史消息（后端 `ChatRequestMsg` 的线上形状）。
+// TurnMsg —— one history message sent to the backend (the wire shape of the
+// backend's `ChatRequestMsg`).
 export interface TurnMsg { role: 'user' | 'assistant'; content: string }
 
-// maxHistoryMsgs —— 往回带多少条。够撑起指代（「他」「它」「那个」）和几轮追问，
-// 又不至于让请求随会话无限长。
+// maxHistoryMsgs —— how many messages to carry back. Enough to support
+// pronoun references ("he", "it", "that") and a few rounds of follow-up,
+// without letting the request grow unbounded with the conversation.
 const maxHistoryMsgs = 24;
 
 export function createClient(opts: ClientOptions = {}): StandMeetClient {
   const baseURL = opts.baseURL ?? '';
   const f = opts.fetchImpl ?? fetch;
-  // histories —— 每个 conversation 一份逐字稿，**客户端自己记**（F-O-7）。
+  // histories —— one transcript per conversation, **kept by the client
+  // itself** (F-O-7).
   //
-  // 为什么不做成 `streamMessage` 的第 N 个参数：以前它连这个参数都没有，请求体里
-  // `history: []` 是硬编码，于是 SDK 的**三个面**（核心客户端、web component、React 绑定）
-  // 全都在发一场没有记忆的对话 —— 第二问里的「他」「它」指谁，模型说它不知道。
-  // 加个参数只是把「记得传」变成每个调用方的纪律，而这条纪律刚刚已经被三个调用方同时违反
-  // 过一次（[[structure-means-no-responsibility-class]]）。所以记忆归客户端，调用方想忘也忘不了。
+  // Why this isn't just the Nth parameter of `streamMessage`: it used to not
+  // even have this parameter —— `history: []` was hardcoded in the request
+  // body, so all **three faces** of the SDK (core client, web component,
+  // React bindings) were sending a conversation with no memory —— when the
+  // second question said "he" or "it", the model had no idea who. Adding a
+  // parameter would only turn "remember to pass it" into a discipline every
+  // caller has to keep, and that exact discipline was just violated by all
+  // three callers at once ([[structure-means-no-responsibility-class]]). So
+  // memory belongs to the client instead —— a caller can't forget it even if
+  // it wants to.
   const histories = new Map<string, TurnMsg[]>();
   return {
     fetchPage: () => fetchPage(f, baseURL),
@@ -114,11 +142,12 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
   };
 }
 
-// rememberTurn —— 一轮说完之后把「问 + 答」接进这场的逐字稿，超长从头截。
+// rememberTurn —— after a turn finishes, append "question + answer" to this
+// session's transcript, trimming from the front once it's too long.
 function rememberTurn(
   histories: Map<string, TurnMsg[]>, id: string, question: string, answer: string,
 ): void {
-  if (answer === '') return; // 没答成的一轮不进历史：下一轮不该背着半截空回合走
+  if (answer === '') return; // No answer: skip history, don't carry a half-empty round forward
   const next = [...(histories.get(id) ?? []),
     { role: 'user' as const, content: question },
     { role: 'assistant' as const, content: answer }];
@@ -159,11 +188,15 @@ async function issueSession(
     body: JSON.stringify(input),
   });
   if (!res.ok) {
-    // 后端的错误信封是 `{"error":{"code","message"}}`,而上一版读的是顶层 `body.code` ——
-    // 那个字段根本不存在,于是 code 永远是空串,message 一路被丢掉。信封里那句
-    // 「this code is full — no more names available」是**写给访客看的**,却从来没到过屏幕上:
-    // gate 只剩一个布尔,把每一种失败都说成 "unknown code",拿着有效邀请、只是名额满了的人
-    // 被告知他的码不存在(F-A-23)。code 和 message 都带上。
+    // The backend's error envelope is `{"error":{"code","message"}}`, but the
+    // previous version read the top-level `body.code` —— that field never
+    // existed, so code was always an empty string and message got dropped
+    // entirely. The envelope's "this code is full — no more names available"
+    // is **written for the visitor to read**, yet it never reached the
+    // screen: the gate was left with just a boolean, calling every failure
+    // "unknown code" —— someone holding a valid invitation, just out of
+    // available names, was told their code didn't exist (F-A-23). Carry both
+    // code and message.
     const body = (await res.json().catch(() => ({}))) as {
       error?: { code?: unknown; message?: unknown };
     };
@@ -177,16 +210,23 @@ async function issueSession(
   return (await res.json()) as PublicSessionResponse;
 }
 
-// streamMessage —— 一轮对话，走 **POST /api/v1/agent/turn**：跟 owner 自己那张页面同一条路。
+// streamMessage —— one conversational turn, going through
+// **POST /api/v1/agent/turn**: the same path the owner's own page uses.
 //
-// 它以前打的是 `/api/v1/llm/chat/stream`，body 里 `system: ''`，注释还写着 "No tool loop; this
-// is a single-turn smoke test path" —— 那条路是**已退役**的裸模型代理（backend 的
-// routes/public/chat.go:109-110 说得很清楚：SDK 切过来之后它就退役）。app 那半边早就切了，
-// SDK 这半边没跟：于是**发出去给别人嵌进自己站点的那个组件**，没有检索、没有工具、没有人格 ——
-// 在异源页面上问「这个语料是干什么的」，答回来的是一段 NLP 教科书定义（F-O-2）。
+// It used to hit `/api/v1/llm/chat/stream`, with `system: ''` in the body,
+// and a comment that still read "No tool loop; this is a single-turn smoke
+// test path" —— that path is a **retired** bare model proxy (the backend's
+// routes/public/chat.go:109-110 spells it out: it was retired once the SDK
+// switched over). The app side had already switched; the SDK side hadn't ——
+// so **the component shipped for other people to embed in their own sites**
+// had no retrieval, no tools, no persona: asked "what is this corpus for" on
+// a foreign-origin page, it answered with an NLP-textbook definition (F-O-2).
 //
-// system 由调用方传：它得先 `composeSystem(session)` 把这一场的 fragment + persona 拼出来。
-// 不在这里偷偷拼，是因为那要多打几个 HTTP，调用方通常一场只拼一次、复用整场。
+// system is passed in by the caller: it has to call `composeSystem(session)`
+// first to assemble this session's fragment + persona. It's not composed
+// secretly in here, because that would cost extra HTTP round trips, and a
+// caller usually composes once per session and reuses it for the whole
+// session.
 async function* streamMessage(
   f: typeof fetch, baseURL: string,
   conversationID: string, sessionToken: string, content: string,
@@ -200,22 +240,30 @@ async function* streamMessage(
       system,
       user_message: content,
       conversation_id: conversationID,
-      // 这一场之前说过的话（F-O-7）。后端拿 `req.History` 拼模型消息，**不会**按
-      // conversation_id 回补 —— 这里空着，模型就永远在回答一场刚开始的对话。
+      // What was said earlier in this session (F-O-7). The backend uses
+      // `req.History` to assemble the model messages, and **won't**
+      // backfill it by conversation_id —— leave this empty and the model
+      // will forever be answering a conversation that just started.
       history: histories.get(conversationID) ?? [],
     }),
   });
-  // 状态码挂在 error 上，不只是拼进 message（F-O-5）。
+  // The status code hangs off the error, not just folded into message (F-O-5).
   //
-  // 调用方要**分类**才能说对话：429 是「这一场正忙着」——上一轮还在流，等它完再问；
-  // 其余是别的事。以前这里只 `new Error('send message: 429')`，于是 embed 那侧只有一个
-  // catch，把所有失败塌成一句「没发出去，再试一次」——**发出去了，而且立刻再试只会再被拒**
-  // （[[collapsed-error-class-kills-its-own-branch]]）。
-  // 同一个文件里的 `issueSession` 早就是这么做的；这条只是没跟上。
+  // The caller needs to **classify** the failure to talk about it: 429 means
+  // "this session is busy right now" —— the previous turn is still
+  // streaming, wait for it to finish and ask again; everything else is
+  // something different. This used to just be
+  // `new Error('send message: 429')`, so the embed side had a single catch
+  // that collapsed every failure into "didn't send, try again" —— **it did
+  // send, and retrying immediately just gets rejected again**
+  // ([[collapsed-error-class-kills-its-own-branch]]).
+  // `issueSession` in this same file already did it this way; this one just
+  // hadn't caught up.
   if (!res.ok || !res.body) {
     throw await turnError(res);
   }
-  // 边流边攒这一轮的答案，收场时接进逐字稿 —— 下一轮就带着它走。
+  // Accumulate this turn's answer as it streams, then append it to the
+  // transcript when it finishes —— the next turn carries it forward.
   let answer = '';
   for await (const ev of translateAgentSSE(res.body)) {
     if (ev.kind === 'token') answer += ev.text;
@@ -224,15 +272,21 @@ async function* streamMessage(
   rememberTurn(histories, conversationID, content, answer);
 }
 
-// turnError —— 一轮被拒时抛出的错误。**message 就是后端写给读者的那句话。**
+// turnError —— the error thrown when a turn is rejected. **message is
+// exactly the sentence the backend wrote for the reader.**
 //
-// 上一版抛的是 `send message: 403`，状态码留下了、那句话扔了 —— 而调用方渲染的正是
-// `error.message`，于是每一个用这个 SDK 建的页面都拿一个数字招呼读者：
-// 「配额用完了」「码被撤销了」「这一场正忙」在屏幕上全是三位数（F-P-5）。
-// 同一个文件里的 `issueSession` 早就把信封读出来了；这条一直没跟上。
+// The previous version threw `send message: 403` —— the status code
+// survived, the sentence was thrown away —— and what the caller renders is
+// exactly `error.message`, so every page built on this SDK greeted its
+// reader with a number: "quota exhausted", "code revoked", "session busy",
+// all showing up as three digits on screen (F-P-5). `issueSession` in this
+// same file had already been reading the envelope out; this one just hadn't
+// caught up.
 //
-// status / code 仍然挂在错误上：调用方要**分类**（429 是「这一场正忙着」，等它完再问）
-// 靠的是它们，不是那句话的措辞。信封读不出来才退回状态码那句。
+// status / code still hang off the error: the caller needs them to
+// **classify** (429 means "this session is busy right now", wait for it to
+// finish and ask again) —— not the wording of the sentence. Falling back to
+// the status-code sentence only happens when the envelope can't be read.
 async function turnError(res: Response): Promise<Error> {
   const env = await readErrEnvelope(res);
   const said = typeof env.message === 'string' ? env.message.trim() : '';
@@ -245,23 +299,27 @@ async function turnError(res: Response): Promise<Error> {
 
 interface ErrEnvelope { code?: unknown; message?: unknown }
 
-// readErrEnvelope —— 后端写给读者的那句话，**两种信封都认**。
+// readErrEnvelope —— the sentence the backend wrote for the reader,
+// **recognizing both envelope shapes**.
 //
-// 一轮被拒有两种落法，形状不一样：
-//   - 流还没开 → `text/event-stream` + `event: error / data: {code, message}`
-//     （`llm_chat_stream.go` 的 `writeLLMPreStreamErr`）
-//   - 其余 → `{"error": {code, message}}`
+// A rejected turn lands in one of two shapes:
+//   - stream never opened → `text/event-stream` +
+//     `event: error / data: {code, message}`
+//     (`llm_chat_stream.go`'s `writeLLMPreStreamErr`)
+//   - everything else → `{"error": {code, message}}`
 //
-// 这里原来只读后一种。前一种撞上 `res.json()` 直接抛，被 `.catch` 吞成空信封，
-// 于是退回 `send message: 503` —— 正是这个函数的注释说它修好了的那件事
-// （F-P-5：拿三位数招呼读者）。而 provider 类的错**全都**走前一种信封。
-// 兄弟那条路上的同一处失明见 `agent-adapters.ts` 的 `streamAgentTurnHTTP`。
+// This used to read only the latter. The former makes `res.json()` throw
+// directly, swallowed by `.catch` into an empty envelope, falling back to
+// `send message: 503` —— exactly the thing this function's comment claims
+// it fixed (F-P-5: greeting the reader with three digits). And provider-side
+// errors **all** go through the former envelope shape. The same blind spot
+// on the sibling path is at `streamAgentTurnHTTP` in `agent-adapters.ts`.
 async function readErrEnvelope(res: Response): Promise<ErrEnvelope> {
   const raw = await res.text().catch(() => '');
   if (raw === '') return {};
   const direct = parseErrJSON(raw);
   if (direct !== null) return direct.error ?? direct;
-  // SSE：取 `event: error` 那一帧的 data 行。
+  // SSE: take the data line from the `event: error` frame.
   for (const line of raw.split('\n')) {
     if (!line.startsWith('data:')) continue;
     const frame = parseErrJSON(line.slice('data:'.length).trim());
@@ -279,11 +337,15 @@ function parseErrJSON(s: string): (ErrEnvelope & { error?: ErrEnvelope }) | null
   }
 }
 
-// composeSystem —— 这一场的 system prompt：先按 `system_prompt_part_ids` 逐段取回固定
-// fragment（visitor-header + 每个能力一段），再把这一场**动态**的那一段 persona 接在后面
-// （role 人格 + 这张码自己的 prompt + 授权 skill 的清单）。顺序要紧：persona 是 owner 为这个
-// 受众写的东西，压在通用说明之上 —— 跟 agent-core 里那条路一模一样，只是那边给的是 React 宿主。
-// SystemPromptSource —— 拼这一场 system prompt 要的全部输入。
+// composeSystem —— this session's system prompt: first fetches the fixed
+// fragments segment by segment via `system_prompt_part_ids` (visitor-header
+// + one segment per capability), then appends this session's **dynamic**
+// persona segment after them (role persona + this code's own prompt + the
+// granted skill list). Order matters: persona is what the owner wrote for
+// this audience, layered on top of the general instructions —— identical to
+// the path in agent-core, except that one serves a React host.
+// SystemPromptSource —— everything needed to compose this session's system
+// prompt.
 export interface SystemPromptSource {
   readonly system_prompt_part_ids?: readonly string[];
   readonly system_prompt_persona?: string;
@@ -294,8 +356,10 @@ async function composeSystem(
 ): Promise<string> {
   const parts: string[] = [];
   for (const id of session.system_prompt_part_ids ?? []) {
-    // 每段一个路径**段**地编码：id 长这样 `capabilities/corpus.retrieval`,整串 encode 会把
-    // 斜杠变成 %2F,路由匹配不上 → 404 → 这一段静默丢掉,模型少收到一整块说明。
+    // Encode one path **segment** at a time: an id looks like
+    // `capabilities/corpus.retrieval`, and encoding the whole string would
+    // turn the slash into %2F, missing the route match → 404 → this segment
+    // silently dropped, and the model misses a whole block of instructions.
     const path = id.split('/').map(encodeURIComponent).join('/');
     const res = await f(`${baseURL}/api/v1/prompts/${path}`);
     if (res.ok) parts.push((await res.text()).trim());
@@ -305,16 +369,25 @@ async function composeSystem(
   return parts.filter((p) => p !== '').join('\n\n');
 }
 
-// translateAgentSSE —— agent turn 的 SSE → 这个 SDK 的事件。`text` / `done` / `error` 三种直接
-// 对上；agent 路还会发 `tool_started` / `tool_completed` / `ghost` / `retrying`，**这个最简消费者
-// 先忽略**（embed 只渲文字）。忽略不等于丢：要渲工具卡的宿主该用 agent-core 那条路。
+// translateAgentSSE —— agent turn's SSE → this SDK's events. `text` / `done`
+// / `error` map directly across; the agent path also sends `tool_started` /
+// `tool_completed` / `ghost` / `retrying`, which **this minimal consumer
+// ignores for now** (embed only renders text). Ignoring isn't dropping: a
+// host that wants to render tool cards should use the agent-core path
+// instead.
 //
-// **`done` 一到就收工，并且把连接放掉**（F-A-42）。以前这里读到 EOF 才结束 —— 而后端在
-// `done` 之后还要跑 epilogue（ghost 是一次真的 LLM 调用，prod 上实测 10–26 秒），流当然
-// 还开着。于是调用方的 `for await` 一直不返回，widget 的输入框跟着多锁了那么久：
-// **拿流的寿命当轮的寿命**（[[nonunique-signal-not-a-receipt]]）。
-// 这个最简消费者本来就不渲 ghost，替一条它要丢掉的帧握着别人页面上的一条连接毫无道理。
-// 要 ghost / 工具卡的宿主走 agent-core 那条路，那边自己读到流末尾。
+// **Wraps up and releases the connection the moment `done` arrives**
+// (F-A-42). This used to keep reading until EOF —— but the backend still
+// runs an epilogue after `done` (ghost is a real LLM call, measured at
+// 10–26 seconds in prod), so the stream is of course still open. The
+// caller's `for await` would then never return, and the widget's input box
+// stayed locked for that whole extra stretch: **mistaking the stream's
+// lifetime for the turn's lifetime**
+// ([[nonunique-signal-not-a-receipt]]). This minimal consumer was never
+// going to render ghost anyway, so there's no reason for it to hold open
+// someone else's page's connection for a frame it's going to discard. A
+// host that wants ghost / tool cards should use the agent-core path, which
+// reads to the end of the stream itself.
 async function* translateAgentSSE(
   body: ReadableStream<Uint8Array>,
 ): AsyncGenerator<SSEEvent, void, unknown> {

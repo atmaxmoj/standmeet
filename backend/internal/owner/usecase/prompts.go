@@ -1,8 +1,10 @@
-// prompts.go —— owner-curated Prompt (persona library) CRUD。
+// prompts.go — owner-curated Prompt (persona library) CRUD.
 //
-// Prompt = persona / instruction 片段，可挂到 Role 让 visitor session 拼
-// system prompt。owner 通过 admin / MCP CRUD；public（is_builtin=true）由
-// claim 时 SeedPublicRole 种入，不可删 / 不可改 name（repo + usecase 双护栏）。
+// Prompt = a persona / instruction fragment that can attach to a Role so a visitor
+// session's system prompt is assembled from it. The owner does CRUD via admin / MCP;
+// public ones (is_builtin=true) are seeded in by SeedPublicRole at claim time, and
+// can't be deleted / can't have their name changed (guarded doubly, by both repo and
+// usecase).
 
 package usecase
 
@@ -16,12 +18,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// PromptsDeps —— prompts CRUD 需要的 repo。
+// PromptsDeps — the repo prompts CRUD needs.
 type PromptsDeps struct {
 	Prompts *repo.PromptRepo
 }
 
-// CreatePromptInputReq —— prompt.create 入参。
+// CreatePromptInputReq — input for prompt.create.
 type CreatePromptInputReq struct {
 	OwnerID     string
 	Name        string
@@ -29,7 +31,7 @@ type CreatePromptInputReq struct {
 	Body        string
 }
 
-// CreatePrompt 新建 prompt。
+// CreatePrompt creates a new prompt.
 func CreatePrompt(
 	ctx context.Context, deps PromptsDeps, in *CreatePromptInputReq,
 ) (entity.Prompt, error) {
@@ -49,7 +51,7 @@ func CreatePrompt(
 	return prompt, nil
 }
 
-// ListPrompts —— admin / MCP prompt.list。
+// ListPrompts — for admin / MCP prompt.list.
 func ListPrompts(
 	ctx context.Context, deps PromptsDeps, ownerID string,
 ) ([]entity.Prompt, error) {
@@ -63,7 +65,7 @@ func ListPrompts(
 	return rows, nil
 }
 
-// GetPrompt —— admin / MCP prompt.get 单条详情。
+// GetPrompt — a single prompt's detail, for admin / MCP prompt.get.
 func GetPrompt(
 	ctx context.Context, deps PromptsDeps, ownerID, promptID string,
 ) (entity.Prompt, error) {
@@ -77,7 +79,7 @@ func GetPrompt(
 	return prompt, nil
 }
 
-// UpdatePromptInputReq —— prompt.update 入参。
+// UpdatePromptInputReq — input for prompt.update.
 type UpdatePromptInputReq struct {
 	OwnerID     string
 	PromptID    string
@@ -86,8 +88,8 @@ type UpdatePromptInputReq struct {
 	Body        string
 }
 
-// UpdatePrompt —— builtin (public) 可改 body / description，不可改 name。
-// repo Update 不挡，本层先 GetByID 校验。
+// UpdatePrompt — a builtin (public) prompt can have body / description changed, but
+// not name. repo Update doesn't block this, so this layer does a GetByID check first.
 func UpdatePrompt(
 	ctx context.Context, deps PromptsDeps, in *UpdatePromptInputReq,
 ) (entity.Prompt, error) {
@@ -104,8 +106,8 @@ func UpdatePrompt(
 	return prompt, nil
 }
 
-// validateUpdatePromptInput —— 必填检查 + builtin rename 拦。提出来降
-// UpdatePrompt 的 cyclo。
+// validateUpdatePromptInput — required-field check + blocks builtin renames. Pulled
+// out to lower UpdatePrompt's cyclo.
 func validateUpdatePromptInput(
 	ctx context.Context, deps PromptsDeps, in *UpdatePromptInputReq,
 ) error {
@@ -115,7 +117,7 @@ func validateUpdatePromptInput(
 	return checkPromptRenameAllowed(ctx, deps, in)
 }
 
-// checkPromptRenameAllowed —— builtin prompt 不能 rename；其它都行。
+// checkPromptRenameAllowed — a builtin prompt can't be renamed; everything else is fine.
 func checkPromptRenameAllowed(
 	ctx context.Context, deps PromptsDeps, in *UpdatePromptInputReq,
 ) error {
@@ -129,8 +131,8 @@ func checkPromptRenameAllowed(
 	return nil
 }
 
-// DeletePrompt —— builtin 不能删；repo Delete SQL 谓词也挡，但 usecase 先
-// 检查 IsBuiltin 给清晰错。
+// DeletePrompt — builtin can't be deleted; repo Delete's SQL predicate blocks it too,
+// but the usecase checks IsBuiltin first to give a clear error.
 func DeletePrompt(
 	ctx context.Context, deps PromptsDeps, ownerID, promptID string,
 ) error {
@@ -143,8 +145,8 @@ func DeletePrompt(
 	return nil
 }
 
-// validatePromptDeletable —— 必填 + 存在 + 非 builtin 三件事。提出来降
-// DeletePrompt 的 cyclo。
+// validatePromptDeletable — three checks: required fields + exists + not builtin.
+// Pulled out to lower DeletePrompt's cyclo.
 func validatePromptDeletable(
 	ctx context.Context, deps PromptsDeps, ownerID, promptID string,
 ) error {

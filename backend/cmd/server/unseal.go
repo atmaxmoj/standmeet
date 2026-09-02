@@ -1,15 +1,21 @@
-// unseal.go —— 开封**只在这个文件里发生**。
+// unseal.go —— unsealing **only happens in this file**.
 //
-// §1.5:内侧只封,不解。owner 在面板上填一份凭据 → 加密进库 → 内侧从此只见得到密文;
-// 要花它的时候,在这里开一次,交出去的是**能用的东西**,不是打开它的钥匙。
+// §1.5: the core only seals, never unseals. The owner fills in a credential on the
+// panel → it's encrypted into the DB → from then on the core only ever sees
+// ciphertext. When it's needed, it's unsealed once, right here, and what gets handed
+// out is **the usable thing itself**, never the key that opens it.
 //
-// 把两处开封摆在一起,是为了让"内侧到底有没有别的口子"变成一眼能数清的事。闸
-// (infra/scripts/check-core-seals-only.sh)扫的是 backend/internal;这个文件在
-// cmd/ 下,是组装根 —— 它不在内侧,也不该有第三个同类文件。
+// Keeping both unseal sites together makes "does the core actually have any other
+// opening" something countable at a glance. The gate
+// (infra/scripts/check-core-seals-only.sh) scans backend/internal; this file lives
+// under cmd/, the composition root — it isn't inside the core, and there shouldn't
+// be a third file like it.
 //
-// 交出去的形状讲究一件事:**别交一个能开任意 owner 的函数**。以前 AI 那条就是 ——
-// 组装根注一个 cryptobox.Decrypt 闭包进内核,内核自己去开。那不是"内核解了一次密",
-// 是内核拿着一把万能钥匙。
+// One thing matters about the shape of what gets handed out: **never hand out a
+// function that can unseal any owner**. That was the old AI-provider path's mistake —
+// the composition root injected a cryptobox.Decrypt closure into the core, and the
+// core did its own unsealing. That isn't "the core decrypted once", it's "the core
+// is holding a skeleton key".
 
 package main
 
@@ -21,11 +27,13 @@ import (
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
-// openAIProviderKey —— 开封 owner 的 AI provider key。
+// openAIProviderKey —— unseals the owner's AI provider key.
 //
-// ownerID 作 AAD:密文绑到该 owner,被搬到别的 owner 行时开封 tamper-fail。
-// 空密文 = owner 没配,返空串让 resolver 走 ErrOwnerProviderUnconfigured ——
-// "没配"跟"开不开"是两件事,不能都报成开封失败。
+// ownerID is used as AAD: the ciphertext is bound to that owner, so unsealing
+// tamper-fails if it's ever moved to another owner's row. Empty ciphertext means the
+// owner hasn't configured one; returns an empty string so the resolver takes the
+// ErrOwnerProviderUnconfigured path — "not configured" and "failed to unseal" are two
+// different things and must not both be reported as an unseal failure.
 func openAIProviderKey(ownerID string, enc []byte) (string, error) {
 	if len(enc) == 0 {
 		return "", nil
@@ -37,16 +45,19 @@ func openAIProviderKey(ownerID string, enc []byte) (string, error) {
 	return string(plain), nil
 }
 
-// mcpServerStore —— 本适配器需要的那一点仓储面。窄到只有一个方法,是为了让
-// "这里除了读一行什么都不干"在类型上就成立。
+// mcpServerStore —— the sliver of the repo surface this adapter needs. Narrowed to
+// one method on purpose, so that "this does nothing but read one row" holds true at
+// the type level.
 type mcpServerStore interface {
 	GetByID(ctx context.Context, ownerID, serverID string) (marketplace.MCPServerConfig, error)
 }
 
-// dialableMCPServers —— 把"存起来的样子"翻成"可以去拨的样子":认证头在这里开封。
+// dialableMCPServers —— translates "the stored shape" into "the shape you can dial":
+// the auth header is unsealed right here.
 //
-// 装配那一侧(internal/routes/capload)于是永远见不到密文,也不需要会开封 —— 它拿到
-// 的 DialableMCPServer 直接就能拨。这跟 AI provider key 是同一条规矩,同一处落地。
+// The assembly side (internal/routes/capload) therefore never sees ciphertext and
+// never needs to know how to unseal — the DialableMCPServer it receives is directly
+// dialable. Same rule as the AI provider key, landing in the same place.
 type dialableMCPServers struct {
 	repo mcpServerStore
 }
@@ -68,9 +79,10 @@ func (d *dialableMCPServers) GetByID(
 	}, nil
 }
 
-// openMCPAuthHeader —— 开封那台 server 的认证头。没配头 = 这台 server 不要认证,
-// 返空 header(不是错):**"不需要认证"跟"开不开"是两件事**,混在一起的话,一台
-// 不设防的 server 会被报成凭据故障。
+// openMCPAuthHeader —— unseals that server's auth header. No header configured means
+// that server doesn't require auth; returns an empty header (not an error): **"no
+// auth needed" and "failed to unseal" are two different things** — conflate them and
+// an undefended server gets reported as a credential failure.
 func openMCPAuthHeader(cfg *marketplace.MCPServerConfig) (marketplace.MCPAuthHeader, error) {
 	if cfg.AuthHeaderName == "" || len(cfg.AuthHeaderValueEnc) == 0 {
 		return marketplace.MCPAuthHeader{}, nil

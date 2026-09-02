@@ -32,11 +32,15 @@ import styles from '@/app/wiki/[...path]/wiki-landing.module.css';
 
 export type WikiRef = { path: string; title: string };
 
-// WikiEntry —— reader 读的那条笔记,**就是** landing 载荷解析出来的形状(见
-// `parseWikiLanding`)。这里以前另有一份手写的 camelCase 类型 + 一个只有客户端重取那条路
-// 会调的映射函数;SSR 那条路把后端载荷直接传进来,而两边同名的字段刚好够类型检查通过 ——
-// 已发布笔记的 hero 图、hero 那句话、正文配图于是一声不响地全没了(F-L-33)。
-// 一个形状,没有第二份可漏。
+// WikiEntry —— the note the reader reads, **exactly** the shape parsed
+// from the landing payload (see `parseWikiLanding`). This used to have a
+// separate hand-written camelCase type plus a mapping function that only
+// the client-side refetch path ever called; the SSR path passed the
+// backend payload straight through, and the fields that happened to share
+// names on both sides were just enough to pass the type check — so a
+// published note's hero image, hero headline, and inline images all
+// silently vanished (F-L-33). One shape, with no second copy to drop
+// fields from.
 export type WikiEntry = WikiLandingEntry;
 
 export function WikiReaderClient({
@@ -45,15 +49,21 @@ export function WikiReaderClient({
   initialWiki: WikiEntry | null; handle: string; ownerName: string; slug: string;
   initialCtx: TreeContext; lang?: string;
 }) {
-  // **派生，不是把 prop 抄进 state。**
+  // **Derived, not a prop copied into state.**
   //
-  // 这里原本是 `useState(initialWiki)`，而 `useState` 的初值**只在首次挂载时被读一次**：
-  // 之后 prop 再变，state 一动不动。整页重载的时候这没暴露 —— 每次导航都是一次新挂载，
-  // 初值天然是新的。切换器改成客户端导航之后，React 复用同一个组件实例，服务端已经
-  // 换成中文那一面的 `initialWiki` 被静静忽略，地址变了、屏幕上还是英文。
+  // This used to be `useState(initialWiki)`, and `useState`'s initial value
+  // is **only ever read on the first mount**: after that, if the prop
+  // changes, the state doesn't budge. Full page reloads never exposed
+  // this — every navigation was a fresh mount, so the initial value was
+  // naturally new each time. Once the switcher moved to client-side
+  // navigation, React reused the same component instance, and the
+  // server's already-updated `initialWiki` for the Chinese version was
+  // silently ignored — the URL changed but the screen stayed in English.
   //
-  // 形状跟这个仓库里同类的地方对齐（`WikiIndexRoots` 的 `scoped ?? roots`、
-  // `TreeStats` 的 `scoped ?? stats`）：SSR 那一份是匿名视角的保底，带 token 的重取覆盖它。
+  // The shape matches the same pattern elsewhere in this repo
+  // (`WikiIndexRoots`'s `scoped ?? roots`, `TreeStats`'s `scoped ?? stats`):
+  // the SSR copy is the anonymous-view fallback, overridden by the
+  // token-bearing refetch.
   const { wiki, ctx } = useScopedLanding(slug, initialWiki, initialCtx, lang);
   return wiki
     ? (
@@ -64,7 +74,8 @@ export function WikiReaderClient({
     : <RestrictedDoc genre="wiki" slug={slug} />;
 }
 
-// useScopedLanding —— SSR 那一份(匿名视角)配上带 token 的重取(受邀视角),后者有就用后者。
+// useScopedLanding —— pairs the SSR copy (anonymous view) with a
+// token-bearing refetch (invited view); use the latter when it's available.
 function useScopedLanding(
   slug: string, initialWiki: WikiEntry | null, initialCtx: TreeContext, lang: string,
 ): { wiki: WikiEntry | null; ctx: TreeContext } {
@@ -80,9 +91,12 @@ function useScopedLanding(
 function WikiLandingContent({ wiki, handle, ownerName, slug, ctx }: {
   wiki: WikiEntry; handle: string; ownerName: string; slug: string; ctx: TreeContext;
 }) {
-  // 顶栏 / 会话条 / 树都搬去了 `wiki/layout.tsx`：Next 在同级页面之间导航时**保留 layout**，
-  // 所以换一篇文章不再重挂整个外壳（树不闪、每层不重拉），而且外壳固定、只有正文自己滚。
-  // 这里只出这一篇自己的内容。
+  // Top bar / session strip / tree have all moved to `wiki/layout.tsx`:
+  // Next **preserves the layout** when navigating between sibling pages,
+  // so switching articles no longer remounts the whole shell (the tree
+  // doesn't flash, nothing refetches per level), and the shell stays fixed
+  // with only the body scrolling on its own. This component renders only
+  // this one article's own content.
   return (
     <div data-testid="wiki-landing" className="pt-10 pb-24">
       <Breadcrumb ancestors={ctx.ancestors} current={wiki.title} />
@@ -108,26 +122,36 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx }: {
   );
 }
 
-// OgCoverMaybe —— hero 是 owner **设出来的**东西:三件套(图 / 压在图上那句 / 色调)
-// 一件都没设 = 这条笔记没有 hero,顶上什么也不渲。
+// OgCoverMaybe —— the hero is something the owner **set on purpose**: the
+// trio (image / headline sitting on the image / hue). None of them set =
+// this note has no hero, and nothing renders up top.
 //
-// 以前它无条件铺一块 21:9(约 400px)。没有封面图时那块是按 slug 哈希生成的渐变,上面只印
-// 标题和日期 —— 而这两样下面那条 meta 里各有一份。真 vault 的一条稠密数学笔记,第一屏几乎
-// 全是空色块,正文被顶到折叠线以下。corpus-media 的 check 4 把这件事逐字写了两遍:
-// 「An entry with no hero renders no empty hero shell」(F-L-32)。
+// It used to unconditionally lay down a 21:9 (about 400px) block. With no
+// cover image, that block was a slug-hashed gradient printing only the
+// title and date — both of which already have a copy in the meta line
+// below. On a real vault's dense math note, the first screen was almost
+// entirely an empty colored block, pushing the body below the fold.
+// corpus-media's check 4 spelled this out twice, verbatim: "An entry with
+// no hero renders no empty hero shell" (F-L-32).
 function OgCoverMaybe({ entry, seed }: { entry: WikiEntry; seed: string }) {
   return hasHero(entry) ? <OgCover entry={entry} seed={seed} /> : null;
 }
 
-// hasHero —— owner **写进去过**东西才算他要这块 hero:一张封面图,或者压在上面那句话。
+// hasHero —— only something the owner **actually wrote in** counts as
+// wanting this hero: a cover image, or the headline sitting on top of it.
 //
-// ⚠️ **色调不算证据**,哪怕它有值。`corpus_notes.cover_hue` 是 `NOT NULL DEFAULT 'amber'`
-// (`backend/db/schema.sql:192`),所以每一条笔记读回来都带着 `amber` —— 包括 owner 从没打开过
-// 编辑器的那 575 条。把「hue 非空」当成「他挑过色调」,这个判断对整个真实语料**恒为真**,
-// F-L-32 的修法就等于没改(admin 表单里那个 `— default —` 选项同理:存进去也还是 amber,
-// 那个「未设置」的状态在库里根本表达不出来)。
-// 这一条是在真实环境驱 corpus-acl-editing 时,从表单上看到「HUE: amber」而那条笔记
-// 显然没有封面,才顺着 schema 查出来的。
+// ⚠️ **The hue is not evidence**, even when it has a value.
+// `corpus_notes.cover_hue` is `NOT NULL DEFAULT 'amber'`
+// (`backend/db/schema.sql:192`), so every note reads back with `amber` —
+// including all 575 of them the owner never opened the hero editor for.
+// Treating "hue is non-empty" as "he picked a hue" makes this check
+// **vacuously true** across the entire real corpus, which would make
+// F-L-32's fix a no-op (same trap as the `— default —` option in the admin
+// form: saving it still writes `amber`; the "unset" state simply has no
+// representation in the database at all). This was found by driving
+// corpus-acl-editing in the real environment: the form showed "HUE: amber"
+// for a note that clearly had no cover, which led back through the schema
+// to this.
 function hasHero(entry: WikiEntry): boolean {
   return entry.cover_image_asset_id !== '' || entry.cover_headline !== '';
 }
@@ -152,16 +176,23 @@ function OgCover({ entry, seed }: { entry: WikiEntry; seed: string }) {
   );
 }
 
-// CoverVeilMaybe —— 有封面图才铺护字层（UX-83）。**位置就是层级**：排在图之后、四段文字之前。
+// CoverVeilMaybe —— lays a text-protection veil only when there's a cover
+// image (UX-83). **Position is layering**: after the image, before the
+// four text lines.
 //
-// 为什么需要它：真环境上给一条笔记设了一张密排文字的真照片当封面，`cover_headline` 直接压上去，
-// 字和底图糊在一起。CI 永远问不出这条 —— 它的 fixture 是 1×1 像素，任何字压上去都「通过」。
-// 没有图时不渲：那种封面本来就是纸色 + hue 渐变，没有要护的东西。
+// Why it's needed: in the real environment, a note was set up with a
+// busy, text-dense real photo as its cover, and `cover_headline` was laid
+// directly on top — text and background image blurred together
+// illegibly. CI can never surface this — its fixture is a 1×1 pixel, so
+// any text laid over it "passes". Doesn't render without an image: that
+// kind of cover is just paper color + a hue gradient, and there's nothing
+// to protect.
 function CoverVeilMaybe({ id }: { id: string }) {
   return id === '' ? null : <div className={styles['veil']} />;
 }
 
-// coverTag —— 封面左上角那行小标。没有 tag 就只写 genre。
+// coverTag —— the small label in the cover's top-left corner. No tag →
+// write just the genre.
 function coverTag(tags: readonly string[]): string {
   return tags[0] ? `wiki · ${tags[0]}` : 'wiki';
 }
@@ -194,15 +225,21 @@ function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }
   );
 }
 
-// Breadcrumb —— **只回答「我在哪」**。
+// Breadcrumb —— **answers only "where am I"**.
 //
-// 它右端曾经还挂着 `{date} · {count} sources cited`，而同样这两件事在下面那条 meta 里
-// 各有一份（`… · BY … · 0 CORPUS SOURCES`）—— 同一屏说两遍、还换了一套词（UX-85）。
-// 这份重复以前被记成「留给 owner 定」，理由是 `wiki-meta-row.spec.ts` 那条守卫的名字
-// 逐字写着两处各说一遍。**那条守卫记录的是这份重复本身，不是产品要求**
-// （[[parked-test-carries-a-wrong-diagnosis]]）：判据（一件事一屏说一遍）赢，守卫跟着改。
+// It used to also carry `{date} · {count} sources cited` on the right
+// end, while the same two facts each had their own copy in the meta line
+// below (`… · BY … · 0 CORPUS SOURCES`) — saying the same thing twice on
+// one screen, in different words to boot (UX-85). This duplication used
+// to be recorded as "left for the owner to decide", on the grounds that
+// the `wiki-meta-row.spec.ts` guard's name explicitly said both places
+// each say it once. **That guard was recording the duplication itself,
+// not a product requirement** ([[parked-test-carries-a-wrong-diagnosis]]):
+// the criterion (say each fact once per screen) wins, and the guard was
+// changed to match.
 //
-// 分工现在是死的：面包屑导航，meta 行讲这条笔记（谁写的、什么时候、引了几条）。
+// The division of labor is now fixed: the breadcrumb is navigation, the
+// meta line talks about this note (who wrote it, when, how many citations).
 function Breadcrumb({ ancestors, current }: {
   ancestors: TreeNode[]; current: string;
 }) {
@@ -268,9 +305,11 @@ function WikiBody(
   { body, assetURLs, cssClasses }:
   { body: string; assetURLs?: Readonly<Record<string, string>>; cssClasses?: readonly string[] },
 ) {
-  // 正文存的是稳定的 `standmeet-asset:<id>` URI（不会过期），渲染前才换成预签名地址。
-  // 不换的话 react-markdown 的 urlTransform 会把这个非标准 scheme 剥掉 —— 图位是空的，
-  // 而且不报错，所以这一步漏了没人看得出来。
+  // The body stores the stable `standmeet-asset:<id>` URI (never expires),
+  // swapped for a pre-signed URL only at render time. Without this swap,
+  // react-markdown's urlTransform strips this non-standard scheme — the
+  // image slot ends up empty, with no error, so skipping this step goes
+  // unnoticed by anyone.
   const rendered = expandBody(body, assetURLs);
   return (
     <div className="reading" data-testid="wiki-body">
@@ -281,9 +320,12 @@ function WikiBody(
   );
 }
 
-// heroHue —— 上色用哪一个。**owner 选的那个优先**:他在 hero 编辑器里挑了 acid,后端存了、
-// 载荷也发了,而这里以前直接按 slug 哈希 —— 那个选择从来没到过页面上(F-L-34)。
-// 他没挑(只设了图或只写了句话)才按 slug 派一个,同一条笔记每次都是同一个色。
+// heroHue —— which hue to use for coloring. **The owner's own pick takes
+// priority**: he picked "acid" in the hero editor, the backend stored it,
+// and the payload carried it — while this used to just hash the slug
+// directly, so that choice never made it to the page (F-L-34). Only when
+// he didn't pick one (set only an image, or only wrote a headline) does it
+// derive one from the slug — the same note always gets the same color.
 function heroHue(chosen: string, seed: string): Hue {
   return isHue(chosen) ? chosen : hashHue(seed);
 }

@@ -1,9 +1,9 @@
-// generate.go —— 一次性非流式 LLM 调用。caller (visitor_summary) 喂
-// ChatRequest，返一段 text。走 eino model.BaseChatModel.Generate；
-// provider 由 cred.Provider 决定，跟 proxy.Stream 同源。
+// generate.go —— a one-shot, non-streaming LLM call. The caller (visitor_summary) feeds in a
+// ChatRequest and gets back a piece of text. Goes through eino model.BaseChatModel.Generate;
+// the provider is decided by cred.Provider, sharing the same source as proxy.Stream.
 //
-// 跟 Stream 的差别只有"不开 SSE / 不 yield chunk"——request shape 一样，
-// 这里直接复用 ChatRequest + toEinoMessages，省一套类型。
+// The only difference from Stream is "no SSE opened / no chunks yielded" — the request shape is
+// identical, so this reuses ChatRequest + toEinoMessages directly, saving a whole set of types.
 
 package inference
 
@@ -12,8 +12,9 @@ import (
 	"fmt"
 )
 
-// Generate —— build ChatModel + run Generate；返 assistant content。
-// Tools 字段允许带 (eino 会发给上游)，但目前 visitor_summary 不带。
+// Generate —— builds a ChatModel + runs Generate; returns the assistant content.
+// The Tools field is allowed to carry tools (eino will send them upstream), but
+// visitor_summary currently doesn't pass any.
 func Generate(ctx context.Context, cred *Cred, req *ChatRequest) (string, error) {
 	cm, err := BuildChatModelBudgeted(ctx, pickModelCred(cred, req.Model), req.MaxTokens)
 	if err != nil {

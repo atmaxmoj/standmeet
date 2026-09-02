@@ -1,6 +1,7 @@
-// use-ip-bans —— /admin/ip-bans 状态 store + ban/unban actions（#58-5）。形态
-// 参照 use-prompts（zustand resource store + create/delete）。后端 GET/POST/
-// DELETE /api/admin/ip-bans；封禁后公开面对该 IP 一律 403。
+// use-ip-bans —— /admin/ip-bans state store + ban/unban actions (#58-5).
+// Shaped after use-prompts (zustand resource store + create/delete). Backend
+// GET/POST/DELETE /api/admin/ip-bans; once banned, the public surface returns
+// 403 to that IP across the board.
 
 import { useEffect } from 'react';
 
@@ -50,8 +51,10 @@ export function useIPBans(): IPBansHook {
   };
 }
 
-// mutation 抛错（不再吞成 false/null）：调用方用 useAction 收尾（成功 toast / 失败 report）。
-// 这是 SECURITY 动作 —— 静默失败会让滥用者继续畅通，所以反显是重点。
+// The mutation throws (no longer swallowed into false/null): the caller finishes
+// up with useAction (success toast / failure report).
+// This is a SECURITY action — a silent failure would leave an abuser free to
+// keep going, so surfacing the failure is the whole point.
 async function banIP(input: BanInput): Promise<void> {
   const created = await adminAPI.post(
     '/ip-bans/', { ip: input.ip, reason: input.reason }, BanViewSchema,
@@ -64,7 +67,7 @@ async function unbanIP(id: string): Promise<void> {
   ipBansStore.getState().mutate((prev) => (prev ?? []).filter((b) => b.id !== id));
 }
 
-// upsertByIP —— ban 是 upsert（同 IP 重封覆盖），列表也按 IP 去重，新的置顶。
+// upsertByIP —— a ban is an upsert (re-banning the same IP overwrites), the list dedupes by IP too, newest on top.
 function upsertByIP(prev: readonly BanView[], b: BanView): BanView[] {
   return [b, ...prev.filter((x) => x.ip !== b.ip)];
 }

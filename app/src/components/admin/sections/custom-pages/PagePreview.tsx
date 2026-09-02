@@ -1,17 +1,22 @@
-// PagePreview —— 这一页现在长什么样。
+// PagePreview — what this page looks like right now.
 //
-// **为什么这一块要存在**：这个面板以前只是一张表 —— slug、绑了哪些码、有没有 live。
-// 一个字都不说这一页长什么样。而真正在写这些页的是 Claude（面板 intro 自己写着
-// "creates / builds / promotes via MCP"），于是 owner 处在最糟的位置上：他在下指令，
-// 而反馈只有一行 "has_live: true"。owner 的原话：
-// "让我有 panel 能看效果，然后我在指挥 agent 改的时候实时能让我看到就好。"
+// **Why this block exists**: this panel used to be just a table — slug, which codes are
+// bound, whether it's live. Not a word about what the page looks like. And the one
+// actually writing these pages is Claude (the panel's own intro says "creates / builds /
+// promotes via MCP"), so the owner sat in the worst spot: he gives the instructions,
+// and the only feedback is a single line "has_live: true". The owner's own words:
+// "let me have a panel to see the effect, and let me see it live while I'm directing
+// the agent to make changes."
 //
-// 看的是**最近一次构建成功的**那一版，不是 live —— agent 刚建好、还没 promote 的那版
-// 才是他要看的（看完才决定上不上线）。后端那条路由：`/api/admin/custom-pages/{slug}/preview`。
+// It shows the version from **the most recent successful build**, not live — the build
+// the agent just finished and hasn't promoted yet is what he wants to see (he decides
+// whether to publish after looking). Backend route: `/api/admin/custom-pages/{slug}/preview`.
 //
-// **刷新靠 key，不靠 reload()**：把 build id 编进 key，新构建落地时 React 把 iframe
-// 整个换掉。手动调 contentWindow.location.reload() 要拿到 iframe 的 DOM 句柄，
-// 而那在跨源 / 未加载完时会静默失败 —— 换 key 是"重建一个新元素"，没有失败的分支。
+// **Refresh goes through the key, not reload()**: the build id is baked into the key, so
+// when a new build lands React swaps the whole iframe. Calling contentWindow.location.
+// reload() manually needs the iframe's DOM handle, which fails silently across origins
+// or before load finishes — swapping the key "rebuilds a new element" instead, with no
+// failure branch.
 
 'use client';
 
@@ -23,7 +28,8 @@ import {
 
 export function PagePreview({ page }: { page: CustomPageSummary }) {
   const t = useTranslations('adminPages.customPages');
-  // 地址由**后端**给（令牌签在里面）。前端只负责什么时候换一个新的。
+  // The URL is issued by the **backend** (token signed into it). The frontend only
+  // decides when to swap in a new one.
   const view = previewView(page);
   return (
     <div className="border-t border-(--color-rule)/60">
@@ -38,8 +44,9 @@ export function PagePreview({ page }: { page: CustomPageSummary }) {
   );
 }
 
-// BuildState —— agent 正在建的时候，owner 要看得见"它在动"。
-// 没有这一行，一次几十秒的构建期间屏幕完全静止，跟"我的指令没送到"分不开。
+// BuildState — while the agent is building, the owner needs to see "it's moving".
+// Without this line, the screen sits completely still for tens of seconds during a
+// build, indistinguishable from "my instruction never arrived".
 function BuildState({ status }: { status: string }) {
   const t = useTranslations('adminPages.customPages');
   return (
@@ -56,7 +63,8 @@ function PreviewFrame(
   { slug, buildID, src }: { slug: string; buildID: string; src: string },
 ) {
   const t = useTranslations('adminPages.customPages');
-  // src 钉在 buildID 上：令牌每 3 秒 churn 一次不该重载 iframe（逻辑在 usePinnedPreviewSrc）。
+  // src is pinned to buildID: the token churning every 3s should not reload the iframe
+  // (logic lives in usePinnedPreviewSrc).
   const shownSrc = usePinnedPreviewSrc(buildID, src);
   return shownSrc === '' ? (
     <div
@@ -67,15 +75,15 @@ function PreviewFrame(
     </div>
   ) : (
     <iframe
-      // key 里带 build id：新构建落地 → React 换一个新 iframe，
-      // 而不是让旧的自己去 reload。
+      // key carries the build id: when a new build lands, React swaps in a fresh iframe
+      // instead of letting the old one reload itself.
       key={buildID}
       data-testid={`custom-page-preview-${slug}`}
       src={shownSrc}
       title={slug}
-      // 沙箱：这是 owner 自己写的代码，但它跑在 admin 的来源上 ——
-      // 不给 allow-same-origin，页面就碰不到 owner 的 session
-      // （跟 widget-descriptor.ts 的 resolveDefaults 同一条理由）。
+      // Sandbox: this is the owner's own code, but it runs on admin's origin —
+      // without allow-same-origin, the page can't touch the owner's session
+      // (same reasoning as resolveDefaults in widget-descriptor.ts).
       sandbox="allow-scripts"
       className="w-full h-[420px] border-0 bg-(--color-paper)"
     />

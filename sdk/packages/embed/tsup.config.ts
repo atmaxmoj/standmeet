@@ -1,8 +1,8 @@
 import { defineConfig } from 'tsup';
 
-// @standmeet/embed —— Web Components 包装。给非 React 站点用：一个 <script>
-// 引入，DOM 里 <standmeet-chat handle="alice">…</standmeet-chat> 就能挂载。
-// 内部走 sdk-core（无 React 依赖）；React UI 太重，这里手写 vanilla DOM。
+// @standmeet/embed — Web Components wrapper. For non-React sites: one <script>
+// tag, and <standmeet-chat handle="alice">…</standmeet-chat> mounts in the DOM.
+// Built on sdk-core (no React dependency); the React UI is too heavy, so this is hand-written vanilla DOM.
 export default defineConfig({
   entry: { embed: 'src/embed.ts' },
   format: ['esm', 'iife'],

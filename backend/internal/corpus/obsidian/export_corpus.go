@@ -1,5 +1,7 @@
-// export_corpus.go —— corp note(wiki/subjectivity/output)反向渲染成 vault .md 写进 export zip,
-// 跟 sync import 互逆:genre folder + 节点树 + folder-note(有子节点写成 foo/foo.md)+ frontmatter。
+// export_corpus.go -- renders corp notes (wiki/subjectivity/output) back
+// into vault .md files written into the export zip. Inverse of sync
+// import: genre folder + node tree + folder-notes (a node with children is
+// written as foo/foo.md) + frontmatter.
 
 package obsidian
 
@@ -13,15 +15,19 @@ import (
 
 const notePathMaxDepth = 64
 
-// noteIndex —— export 用的节点索引:id→节点 + 每节点子数(判 folder-note)。
+// noteIndex -- the node index used by export: id -> node, plus each node's
+// child count (to decide folder-note).
 type noteIndex struct {
 	byID       map[string]*corpus.SyncNote
 	childCount map[string]int
 }
 
-// writeCorpusNotes —— 把 owner 的 corp note 写进 zip。writing 折进 corpus_notes(#151)后也在
-// ListAllForExport 里,但 writing 有专属 export(writeAllWritings → writings/<slug>.md,带附件 +
-// cover/visibility frontmatter),故这条通用路径先滤掉 genre='writing' 免得重复导出。
+// writeCorpusNotes -- writes an owner's corp notes into the zip. Now that
+// writing has folded into corpus_notes (#151), writing also shows up in
+// ListAllForExport, but writing has its own dedicated export
+// (writeAllWritings -> writings/<slug>.md, with attachments +
+// cover/visibility frontmatter), so this generic path filters out
+// genre='writing' first to avoid double export.
 func writeCorpusNotes(notes []corpus.SyncNote, zw *zip.Writer) error {
 	notes = nonWritingNotes(notes)
 	idx := &noteIndex{
@@ -41,7 +47,8 @@ func writeCorpusNotes(notes []corpus.SyncNote, zw *zip.Writer) error {
 	return nil
 }
 
-// nonWritingNotes —— 滤掉 genre='writing'(走专属 export,不在通用 corp-note 路径重复导出)。
+// nonWritingNotes -- filters out genre='writing' (it goes through its own
+// dedicated export, not re-exported on this generic corp-note path).
 func nonWritingNotes(notes []corpus.SyncNote) []corpus.SyncNote {
 	out := make([]corpus.SyncNote, 0, len(notes))
 	for i := range notes {
@@ -64,15 +71,21 @@ func writeOneNote(n *corpus.SyncNote, idx *noteIndex, zw *zip.Writer) error {
 	return nil
 }
 
-// notePathInVault —— 这条笔记该写回 vault 的哪个路径。
+// notePathInVault -- which vault path this note should be written back to.
 //
-// 树能推出**两种**都合法的写法：`x/y.md`（同级）和 `x/y/y.md`（folder-note，笔记住在同名
-// 文件夹里）。有子节点时只有后者说得通，那一条一直是对的。分歧在**没有子节点**的那一格：
-// 光看树会写成 `x/y.md`，而 owner 的 vault 里它可能本来就住在 `x/y/` 里（真 vault 上 22 篇
-// 是这个形状 —— 一个只装着自己的文件夹）。
+// The tree alone can justify **two** equally valid forms: `x/y.md` (a
+// sibling file) and `x/y/y.md` (a folder-note, the note living inside a
+// folder of the same name). When there are children, only the latter makes
+// sense, and that case has always been handled correctly. The disagreement
+// is in the **no-children** cell: looking at the tree alone would write
+// `x/y.md`, but in the owner's vault it may already live in `x/y/` (22
+// notes in the real vault have exactly this shape -- a folder containing
+// only itself).
 //
-// 所以这里先问**它是从哪儿来的**：来路还指向同一个位置的 folder-note 形状，就照原样写回去。
-// 镜像的职责是映回去，不是替 owner 决定文件夹该不该留（F-L-68）。
+// So here we first ask **where it came from**: if the source path still
+// points to the same location in folder-note form, it's written back
+// as-is. The mirror's job is to map the note back, not to decide on the
+// owner's behalf whether the folder should stay (F-L-68).
 func notePathInVault(n *corpus.SyncNote, idx *noteIndex) string {
 	path := notePath(n, idx.byID)
 	base := n.Genre + "/" + strings.Join(path, "/")
@@ -86,7 +99,8 @@ func notePathInVault(n *corpus.SyncNote, idx *noteIndex) string {
 	return base + ".md"
 }
 
-// notePath —— 从根到本节点的 title 链(深度上限防环)。
+// notePath -- the title chain from root to this node (depth cap guards
+// against cycles).
 func notePath(n *corpus.SyncNote, byID map[string]*corpus.SyncNote) []string {
 	rev := []string{}
 	for cur, depth := n, 0; cur != nil && depth < notePathMaxDepth; depth++ {
@@ -103,23 +117,33 @@ func notePath(n *corpus.SyncNote, byID map[string]*corpus.SyncNote) []string {
 	return out
 }
 
-// renderNoteMD —— frontmatter + body,格式跟 import 侧对称。
+// renderNoteMD -- frontmatter + body, in a format symmetric with the
+// import side.
 //
-// 「对称」这句话以前是假的（F-L-59）：导入解析并存下了 `lang` 和 `aliases`，导出只写
-// publish + tags，于是真 vault 的 575 条 wiki 每条都带的三个键，在导出的 575 条里一个都
-// 没有。而 item 的往返判据下一步就是「把导出再导回来」—— 那一步会把双语配对和
-// `[[别名]]` 的解析输入在真语料上抹平。所以对称必须**逐个字段**成立，不是一句注释。
+// The word "symmetric" used to be a lie (F-L-59): import parses and stores
+// `lang` and `aliases`, but export only wrote publish + tags, so all three
+// keys present on every one of the real vault's 575 wiki notes were absent
+// from all 575 exported ones. And the round-trip test for an item is
+// exactly "export it, then import it back" -- that step would wipe out the
+// bilingual pairing and the `[[alias]]` resolution input on real corpus
+// data. So symmetry has to hold **field by field**, not as a comment
+// claiming it does.
 func renderNoteMD(n *corpus.SyncNote) string {
-	// raw 两侧都 fm-exempt。导入侧早就是了（sync_classify.go 的 `toRawVaultNote`：
-	// **整个文件都是 body**，连 `---` 分隔符也是），而这里以前不分 genre 一律先写一块
-	// `---publish---` —— 于是每往返一次就在顶上多叠一块，无上限（F-L-66）。
+	// raw is frontmatter-exempt on both sides. The import side already was
+	// (sync_classify.go's `toRawVaultNote`: **the whole file is body**,
+	// including the `---` delimiters), while this side used to write a
+	// `---publish---` block regardless of genre -- so every round trip
+	// stacked one more block on top, unbounded (F-L-66).
 	//
-	// 代价不只是文件变长：第一轮之后，笔记自己的 `tags` / `status` 不再是 frontmatter，
-	// 它们成了正文。Obsidian 的属性和标签图谱对这些笔记当场失效。
+	// The cost wasn't just growing files: after the first round trip, the
+	// note's own `tags` / `status` stopped being frontmatter and became
+	// body text. Obsidian's Properties panel and tag graph broke for these
+	// notes instantly.
 	//
-	// 往这里写 frontmatter 本来也是**只写不读**：raw 的导入根本不解析 frontmatter，
-	// 所以写出去的 `publish:` / `tags:` 下一次导入只会被当成正文 —— 它从来没有承载过
-	// 任何东西，只是在制造那个环。
+	// Writing frontmatter here was also **write-only, never read**: raw's
+	// import never parses frontmatter at all, so the `publish:` / `tags:`
+	// written out would just be treated as body text on the next import --
+	// it never carried any information, it only fed the loop.
 	if n.Genre == genreRaw {
 		return ensureTrailingNewline(n.Body)
 	}
@@ -127,8 +151,10 @@ func renderNoteMD(n *corpus.SyncNote) string {
 		fmDelim + newline + newline + ensureTrailingNewline(n.Body)
 }
 
-// frontmatterBlock —— 这一块的内容（不含围栏）。来自 vault 的笔记走补丁，
-// 网页/MCP 新建的走渲染。两条路的分界就是「有没有原文」，不是 genre 也不是时间戳。
+// frontmatterBlock -- this block's content (fence excluded). A note that
+// came from the vault goes through the patch path; one newly created via
+// web/MCP goes through rendering. The line between the two paths is
+// whether original text exists, not genre and not a timestamp.
 func frontmatterBlock(n *corpus.SyncNote) string {
 	if n.Frontmatter == "" {
 		return renderOwnedBlock(n)
@@ -136,7 +162,8 @@ func frontmatterBlock(n *corpus.SyncNote) string {
 	return patchFrontmatter(strings.TrimRight(n.Frontmatter, newline), n)
 }
 
-// ensureTrailingNewline —— body 末尾补一个换行（避免 owner 编辑器警告）。
+// ensureTrailingNewline -- appends a trailing newline to body (avoids
+// owner editor warnings).
 func ensureTrailingNewline(body string) string {
 	if strings.HasSuffix(body, newline) {
 		return body

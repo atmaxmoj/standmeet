@@ -1,12 +1,18 @@
-// capreg_ext_mcp_deps.go —— ext-mcp 工具的 connector-dep 闸（§一 ext-mcp 默认不接 dep）。
+// capreg_ext_mcp_deps.go —— the connector-dep gate for ext-mcp tools (§1: ext-mcp does not
+// wire deps by default).
 //
-// ext-mcp 是最低信任：别人写的进程，owner 只是注册了 URL。它的工具即便经 `_meta.requires`
-// 声明依赖某 connector（如 calendar）且该 connector 已连，默认也**不**注入句柄——连接器
-// 句柄带 owner 权限，自动给任意注册 server 等于把 owner 账号借出去。两个条件同时满足才放行：
-//   ① owner 在 server.GrantedDeps 里**显式授权**了这个 dep（默认空 = 全拒）；
-//   ② 该 dep 已连（连没连查 DepRegistry）。
-// 任一不满足 → 隐藏该工具。无 requires 的工具不受此闸。逻辑收在这一处，跟 ext-mcp 工具
-// 暴露同模块（capreg_ext_mcp.go 的 absorb 调本文件）。
+// ext-mcp is lowest trust: someone else's process, where the owner only registered a URL.
+// Even when its tool declares a dependency on some connector (like calendar) via
+// `_meta.requires` and that connector is already connected, the handle is **not** injected
+// by default — a connector handle carries owner privileges, and auto-granting it to any
+// registered server would be handing out the owner's account. Both conditions must hold
+// before it's allowed through:
+//   ① the owner **explicitly granted** this dep in server.GrantedDeps (default empty = deny
+//      everything);
+//   ② the dep is already connected (checked against DepRegistry).
+// Either unmet → hide the tool. A tool with no requires is unaffected by this gate. The
+// logic is collected here, in the same module as ext-mcp tool exposure (capreg_ext_mcp.go's
+// absorb calls into this file).
 
 package capload
 
@@ -19,14 +25,17 @@ import (
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 
-// DepConnected —— 命名 connector 依赖是否已连（capreg.DepRegistry 满足）。grant 在
-// server config，connected 查这里；两者都过工具才放行。
+// DepConnected —— whether a named connector dependency is connected (satisfied by
+// capreg.DepRegistry). The grant lives in server config; connected status is checked here;
+// a tool is allowed through only when both pass.
 type DepConnected interface {
 	AllConnected(ctx context.Context, ownerID string, deps []string) (bool, error)
 }
 
-// extToolDepsAllowed —— 该 ext-mcp 工具的 connector-dep 是否放行（最低信任，默认拒）：
-// requires 必须 owner 全部显式 grant + 连接器已连。无 requires 的工具不受闸。
+// extToolDepsAllowed —— whether this ext-mcp tool's connector-dep is allowed through
+// (lowest trust, deny by default): every dep in requires must be explicitly granted by the
+// owner AND its connector already connected. A tool with no requires is unaffected by this
+// gate.
 func extToolDepsAllowed(
 	ctx context.Context, cfg *marketplace.DialableMCPServer, connected DepConnected,
 	t *mcpclient.Tool,
@@ -36,16 +45,17 @@ func extToolDepsAllowed(
 		return true
 	}
 	if !allDepsGranted(cfg.GrantedDeps, requires) {
-		return false // owner 没显式授权 → 拒（默认全拒）
+		return false // owner did not explicitly grant it → deny (default: deny everything)
 	}
 	if connected == nil {
-		return false // 没装 connected 查询 → 保守拒（连没连不确定不暴露能调外部的工具）
+		return false // no connected query wired in → deny conservatively (never expose a
+		// tool that can call out externally when connectivity is unknown)
 	}
 	conn, err := connected.AllConnected(ctx, cfg.OwnerID, requires)
 	return err == nil && conn
 }
 
-// allDepsGranted —— requires 是否都在 owner 显式授权的 granted 里。
+// allDepsGranted —— whether every dep in requires is in the owner's explicitly granted set.
 func allDepsGranted(granted, requires []string) bool {
 	for _, dep := range requires {
 		if !slices.Contains(granted, dep) {
@@ -55,9 +65,10 @@ func allDepsGranted(granted, requires []string) bool {
 	return true
 }
 
-// toolRequires —— 读 ext-mcp tool `_meta.requires`（JSON []string）。无 / 形状不对 → 空。
-// 经 JSON round-trip 抽成 []string（避开对 map[string]any 值做 any/interface{} 断言：
-// 那会撞 forbidigo-禁-any 与 revive-要-any 的对冲）。
+// toolRequires —— reads an ext-mcp tool's `_meta.requires` (JSON []string). Absent / wrong
+// shape → empty. Extracted to []string via a JSON round-trip (avoiding an any/interface{}
+// assertion on a map[string]any value: that would hit the forbidigo-bans-any vs.
+// revive-wants-any tradeoff).
 func toolRequires(t *mcpclient.Tool) []string {
 	v, ok := t.Meta["requires"]
 	if !ok {

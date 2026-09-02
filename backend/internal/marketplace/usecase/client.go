@@ -130,8 +130,9 @@ func preferable(cand, cur *entity.MarketSkill) bool {
 	return starsOrZero(cand) > starsOrZero(cur)
 }
 
-// starsOrZero —— 只在"谁更值得留下"这个排序里把未知当 0。展示层不许这么做:
-// 那里 nil 必须继续是 nil,否则 `★ 0` 会把"不知道"说成"零颗星"(F-F-2)。
+// starsOrZero —— treats unknown as 0, but only within this "who deserves to survive"
+// ordering. The display layer must not do the same: there nil must stay nil, or `★ 0`
+// would turn "unknown" into "zero stars" (F-F-2).
 func starsOrZero(s *entity.MarketSkill) int {
 	if s.RepoStars == nil {
 		return 0

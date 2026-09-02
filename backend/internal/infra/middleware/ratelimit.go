@@ -15,30 +15,39 @@ const (
 	publicRateWindow = time.Minute
 )
 
-// publicRatePolicy —— 公开端点的 per-IP 每分钟上限。key = "METHOD PATH"，精确
-// 匹配 r.Method+" "+r.URL.Path；未命中 → 不限流（GET 读放行）。
+// publicRatePolicy is the per-IP per-minute cap for public endpoints. key =
+// "METHOD PATH", matched exactly against r.Method+" "+r.URL.Path; no match
+// → not rate-limited (GET reads pass through).
 //
-// 阈值留得比正常访客宽、比脚本滥用窄。e2e 在每个 spec reset 时 flushRedis，
-// 单 spec 内的累计远低于这些上限，所以不会误伤测试。
+// Thresholds are set wider than a normal visitor, narrower than scripted
+// abuse. e2e flushRedis on every spec reset, and a single spec's cumulative
+// count stays well under these caps, so tests aren't caught by mistake.
 //
-// 这是一张刻意集中、可 grep 的公开滥用策略表；改公开路由路径时记得同步这里。
+// This is a deliberately centralized, grep-able table of public abuse
+// policy; remember to keep it in sync when a public route's path changes.
 var publicRatePolicy = map[string]int64{
 	"POST /api/v1/sessions":    120,
 	"POST /api/v1/codes/intro": 120,
-	// access-requests 前面还压着 `RequestGuard`（5 次 /15 分钟，见 request_guard.go）——
-	// **这里的 30 实际上走不到**，它只是「每分钟窗口」这一层的兜底，别把它读成这个口子的上限。
+	// access-requests already has `RequestGuard` in front of it (5 per 15
+	// minutes, see request_guard.go) — **the 30 here is effectively
+	// unreachable**, it's only a backstop at this "per-minute window"
+	// layer, don't read it as this endpoint's real cap.
 	"POST /api/v1/access-requests":        30,
 	"POST /api/v1/agent/turn":             120,
 	"POST /api/v1/account/reset-password": 20,
 }
 
-// PublicRateGuard —— 路由感知的 per-IP fixed-window 限流 middleware。挂在
-// /api/v1 公开组上；按 publicRatePolicy 决定某请求是否计数 + 限流，超限返 429。
+// PublicRateGuard is a route-aware per-IP fixed-window rate-limit
+// middleware. Mounted on the /api/v1 public group; publicRatePolicy decides
+// whether a given request is counted + rate-limited, returning 429 over
+// the limit.
 //
-// redis 故障 fail-open（记 warn 放行）：公开访客面可用性优先。高危 auth 端点
-// (login) 走 LoginGuard，那条 fail-closed —— 安全 > 可用。
+// Fail-open on a redis failure (logged as warn, then allowed): the public
+// visitor surface prioritizes availability. The high-risk auth endpoint
+// (login) goes through LoginGuard instead, which fails closed — there,
+// security beats availability.
 //
-// rdb 必填；nil 直接 panic（composition root bug）。
+// rdb is required; nil panics immediately (a composition root bug).
 func PublicRateGuard(rdb *redis.Client) func(http.Handler) http.Handler {
 	if rdb == nil {
 		panic("PublicRateGuard: redis client is nil")
@@ -77,8 +86,9 @@ func servePublicRate(
 	next.ServeHTTP(w, r)
 }
 
-// incrWithinLimit —— fixed-window：INCR 后只在第一次（n==1）设 TTL，避免每次
-// 刷新续命。返回 true=放行，false=已超限。
+// incrWithinLimit is fixed-window: TTL is set only on the first INCR
+// (n==1), so a refresh doesn't keep extending the window. Returns
+// true=allowed, false=over the limit.
 func incrWithinLimit(
 	ctx context.Context, rdb *redis.Client, key string, maxN int64, window time.Duration,
 ) (bool, error) {

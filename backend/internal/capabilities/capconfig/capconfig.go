@@ -1,15 +1,22 @@
-// Package capconfig —— 能力的可配置项:**通用**的存取,host 不认识任何一个字段的含义。
+// Package capconfig — a capability's configurable fields: **generic**
+// storage and retrieval where the host doesn't know the meaning of any field.
 //
-// 一个能力在自己的 manifest 里声明有哪些配置项(mcpplugin.ConfigField:键、类型、默认值),
-// owner 在面板上填,值存进**这个能力自己的隔离存储**(capstore 的一个固定 collection)。
-// 读的时候拿声明的默认值兜底。
+// A capability declares which config fields it has in its own manifest
+// (mcpplugin.ConfigField: key, type, default), the owner fills them in on the
+// panel, and the values are stored in **this capability's own isolated
+// storage** (a fixed collection in capstore). Reads fall back to the
+// declared default.
 //
-// host 这一侧从头到尾没有一个业务词:没有 "working_hours"、没有 "booking"。
-// 它只知道"某个能力声明了一组键,owner 覆盖了其中几个"。
+// The host side never contains a single business word — no "working_hours",
+// no "booking". It only knows "this capability declared a set of keys, and the
+// owner overrode some of them."
 //
-// 为什么要有这个包:在此之前能力想要"可设置"是没有路的,只能在 host 手写一整套 ——
-// 实体、默认值、读写、路由、表单。手写那份必然飘(booker 的策略就已经飘了:
-// host 说到 18:00、缓冲 15,沙箱按 17:00、缓冲 0)。这跟当初补 OwnerTools 是同一个洞。
+// Why this package exists: before it, a capability that wanted to be
+// "configurable" had no path — the host had to hand-write the whole thing:
+// entity, default, read/write, routing, form. A hand-written copy inevitably
+// drifts (booker's policy had already drifted: the host said 18:00 with a
+// 15-minute buffer, the sandbox parsed 17:00 with a 0 buffer). This is the
+// same hole as the earlier OwnerTools patch.
 package capconfig
 
 import (
@@ -22,48 +29,57 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// Store —— **绑死到一个能力**的配置读写口。
+// Store — a config read/write handle **bound to one capability**.
 //
-// collection 名固定而不是每个能力自选:host 要能通用地读写它(见 scope.go)。
+// The collection name is fixed rather than each capability picking its own:
+// the host needs to be able to read/write it generically (see scope.go).
 //
-// 构造期就定死 (kind, capID) —— 跟 capstore 的 BoundStore 同形:调用方拿到的口子只能操作
-// 这一个能力的配置,填不了别人的 id。
+// (kind, capID) is fixed at construction time — the same shape as capstore's
+// BoundStore: the handle a caller gets can only operate on this one
+// capability's config, and can't be filled in with someone else's id.
 type Store struct {
 	store *capstore.Store
 	kind  capstore.Kind
 	capID string
 }
 
-// New —— 把底层 capstore 绑到某个能力的命名空间上。
+// New — binds the underlying capstore to one capability's namespace.
 func New(store *capstore.Store, kind capstore.Kind, capID string) *Store {
 	return &Store{store: store, kind: kind, capID: capID}
 }
 
-// Field —— 一个配置项的**声明 + 当前值**,面板照它渲染一行。
+// Field — a config field's **declaration + current value**, one row the panel
+// renders from.
 type Field struct {
 	Key         string
 	Label       string
 	Type        string
 	Description string
-	// Value —— 当前生效的值(JSON 字面量)。owner 没设过就是声明里的默认值。
+	// Value — the value currently in effect (JSON literal). If the owner never
+	// set it, this is the declared default.
 	Value string
-	// Default —— 声明里的默认值(JSON 字面量),面板据此显示"恢复默认"。
+	// Default — the declared default (JSON literal); the panel uses this to
+	// show a "restore default" option.
 	Default string
-	// Overridden —— owner 是否显式设过。false = 现在用的是默认值。
+	// Overridden — whether the owner explicitly set this. false = currently
+	// using the default.
 	Overridden bool
 }
 
-// Get —— 某能力在某个 owner 名下当前的全部配置项(声明 ∪ owner 覆盖)。
+// Get — all of a capability's current config fields under one owner
+// (declaration ∪ owner overrides).
 func (s *Store) Get(
 	ctx context.Context, ownerID string, decl []mcpplugin.ConfigField,
 ) ([]Field, error) {
 	return s.GetScoped(ctx, OwnerScope(ownerID), decl)
 }
 
-// GetScoped —— 某能力在某个挂载点上当前的全部配置项(声明 ∪ 覆盖)。
+// GetScoped — all of a capability's current config fields at one attachment
+// point (declaration ∪ overrides).
 //
-// 以**声明**为准:声明里没有的键即使存过也不返回 —— 能力删掉一个配置项之后,
-// 旧值不该继续从面板上冒出来。
+// The **declaration** is authoritative: a key not in the declaration is never
+// returned even if a value was stored for it — after a capability removes a
+// config field, the old value shouldn't keep surfacing on the panel.
 func (s *Store) GetScoped(
 	ctx context.Context, scope Scope, decl []mcpplugin.ConfigField,
 ) ([]Field, error) {
@@ -86,14 +102,18 @@ func (s *Store) GetScoped(
 	return out, nil
 }
 
-// defaultOf —— 没写默认值的字段,默认值是 JSON 的 null,**不是空串**。
+// defaultOf — for a field with no declared default, the default is JSON
+// null, **not an empty string**.
 //
-// 空串不是合法的 JSON 字面量:读它的人拿去解码,得到的是"意外的输入结束",而那个错误会被
-// 读成"这项配置坏了"。真相是"这项没设过"。一个没写默认值的声明不该把读它的每一条路径都变成
-// 失败 —— 它只是没有值。
+// An empty string isn't a valid JSON literal: whoever decodes it gets
+// "unexpected end of input," and that error reads as "this config is broken."
+// The truth is "this was never set." A declaration with no default shouldn't
+// turn every read path into a failure — it just has no value.
 //
-// 这个洞真的咬过:booker 的 per-code 配额没写默认值,于是**没设过配额的码**上,读上限这一步
-// 直接报错,闸把 calendar_book 整个藏了起来 —— 症状是"授了权的工具不见了"。
+// This hole really did bite: booker's per-code quota had no declared default,
+// so on a code where the quota was never set, reading the limit failed
+// outright, and the gate hid calendar_book entirely — the symptom read as "a
+// tool the visitor was authorized for just disappeared".
 func defaultOf(f *mcpplugin.ConfigField) string {
 	if f.Default == "" {
 		return "null"
@@ -101,14 +121,15 @@ func defaultOf(f *mcpplugin.ConfigField) string {
 	return f.Default
 }
 
-// Values —— 只要键值(能力实现读它)。同样以声明为准、默认值兜底。
+// Values — just the key/value pairs (a capability's implementation reads
+// these). Same rule: declaration is authoritative, default is the fallback.
 func (s *Store) Values(
 	ctx context.Context, ownerID string, decl []mcpplugin.ConfigField,
 ) (map[string]json.RawMessage, error) {
 	return s.ValuesScoped(ctx, OwnerScope(ownerID), decl)
 }
 
-// ValuesScoped —— 某个挂载点上的键值。
+// ValuesScoped — the key/value pairs at one attachment point.
 func (s *Store) ValuesScoped(
 	ctx context.Context, scope Scope, decl []mcpplugin.ConfigField,
 ) (map[string]json.RawMessage, error) {
@@ -123,7 +144,7 @@ func (s *Store) ValuesScoped(
 	return out, nil
 }
 
-// Set —— 覆盖 owner 对某能力的配置。
+// Set — overrides an owner's config for a capability.
 func (s *Store) Set(
 	ctx context.Context, ownerID string,
 	decl []mcpplugin.ConfigField, values map[string]json.RawMessage,
@@ -131,10 +152,12 @@ func (s *Store) Set(
 	return s.SetScoped(ctx, OwnerScope(ownerID), decl, values)
 }
 
-// SetScoped —— 覆盖某个挂载点上的配置(单例文档:先删旧的,再插新的)。
+// SetScoped — overrides the config at one attachment point (a singleton
+// document: delete the old one, then insert the new one).
 //
-// 只接受声明里有的键;声明外的键直接拒 —— 调用方发来一个不存在的字段是它的错,
-// 不该悄悄存下来变成永远没人读的垃圾。
+// Only accepts keys that are in the declaration; a key outside it is rejected
+// outright — the caller sending a field that doesn't exist is the caller's
+// fault, and it shouldn't be silently stored as garbage no one ever reads.
 func (s *Store) SetScoped(
 	ctx context.Context, scope Scope,
 	decl []mcpplugin.ConfigField, values map[string]json.RawMessage,
@@ -155,7 +178,8 @@ func (s *Store) SetScoped(
 	return nil
 }
 
-// writable —— 写之前的两问:有没有挂载点、写的键值合不合声明。
+// writable — two questions before a write: is there an attachment point, and
+// do the key/values being written match the declaration.
 func writable(
 	scope Scope, decl []mcpplugin.ConfigField, values map[string]json.RawMessage,
 ) error {
@@ -165,8 +189,9 @@ func writable(
 	return check(decl, values)
 }
 
-// check —— 写之前的全部把关:键必须是声明过的,值必须符合声明。
-// 声明外的键不该悄悄存下来变成永远没人读的垃圾。
+// check — every gate before a write: the key must be declared, the value
+// must match the declaration. A key outside the declaration shouldn't be
+// silently stored as garbage no one ever reads.
 func check(decl []mcpplugin.ConfigField, values map[string]json.RawMessage) error {
 	declared := map[string]bool{}
 	for i := range decl {
@@ -180,7 +205,8 @@ func check(decl []mcpplugin.ConfigField, values map[string]json.RawMessage) erro
 	return validate(decl, values)
 }
 
-// stored —— 这个挂载点上显式设过的那些键。没设过 / 无挂载点 → 空表(不是错)。
+// stored — the keys explicitly set at this attachment point. Never set / no
+// attachment point → an empty table (not an error).
 func (s *Store) stored(
 	ctx context.Context, scope Scope,
 ) (map[string]json.RawMessage, error) {
@@ -198,7 +224,8 @@ func (s *Store) stored(
 	return decodeStored(recs, scope.key)
 }
 
-// decodeStored —— 单例文档 → 键值表。没有记录 → 空表(不是错)。
+// decodeStored — singleton document → key/value table. No record → an empty
+// table (not an error).
 func decodeStored(
 	recs []json.RawMessage, scopeKey string,
 ) (map[string]json.RawMessage, error) {

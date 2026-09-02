@@ -1,7 +1,9 @@
-// Projects —— "what I'm building"。projects 跟 insights 一样是 corpus 的 pin
-// 窗口(docs/design/page-corpus-pinning.md):每张卡是被 pin 的已发布条目,
-// name=title 链去 /wiki/<path>,excerpt 走左侧 1px rule 的阅读区。
-// 空栏目(没 pin)整个不渲染,标题也不渲。
+// Projects —— "what I'm building". Like insights, projects is a pin window
+// over the corpus (docs/design/page-corpus-pinning.md): each card is a
+// pinned published entry, with name=title linking to /wiki/<path>, and the
+// excerpt shown in a reading area with a left 1px rule.
+// An empty section (nothing pinned) doesn't render at all, not even the
+// heading.
 
 import Link from 'next/link';
 

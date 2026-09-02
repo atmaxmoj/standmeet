@@ -1,15 +1,16 @@
-// ConversationDeck —— inline 累加的 Q/A 流，每个 Dialog 一张卡：
+// ConversationDeck —— an inline, accumulating Q/A stream, one card per Dialog:
 //   you · HH:MM
 //   <serif italic question>
 //   alice's ai
 //   <answer body  OR  retrieving · · ·>
-//   <citations 列表>
+//   <citations list>
 //
-// 这是公开页 chat 的"主表演" —— visitor 问完不滚出去看个 modal，而是在
-// 页面 inline 累加，跟 Hero 同一根纵向阅读流上，符合设计稿"transcript
-// flow, not alternating bubbles"。
+// This is the "main performance" of the public-page chat — after asking, the
+// visitor doesn't get scrolled off into a modal; the answer accumulates
+// inline on the page, on the same vertical reading flow as the Hero, matching
+// the design spec's "transcript flow, not alternating bubbles."
 //
-// 命名 (G-1.5)：Turn → Dialog；Citation.kind → genre, Citation.id → path。
+// Naming (G-1.5): Turn → Dialog; Citation.kind → genre, Citation.id → path.
 
 'use client';
 
@@ -27,10 +28,12 @@ import type { Answer, Citation, Dialog, ToolThrobberView } from '@/lib/page/use-
 type Props = {
   ownerHandle: string;
   dialogs: Dialog[];
-  // onAsk —— I.1: ask_visitor 卡里的 button click 走这条把选中项当作下
-  // 一 turn 投出去；不传 → ask_visitor 卡不渲 (功能未启用)。
+  // onAsk —— I.1: a button click inside an ask_visitor card goes through
+  // this to submit the selected option as the next turn; omit → the
+  // ask_visitor card doesn't render (feature disabled).
   onAsk?: (q: string) => void;
-  // conversationID —— #122: 这段对话 id,BookCard 发约成确认信时带上。
+  // conversationID —— #122: this conversation's id, attached when BookCard
+  // sends a booking confirmation.
   conversationID?: string;
 };
 
@@ -96,9 +99,12 @@ function AssistantBody({ dialog, ownerHandle, onAsk, conversationID }: {
   dialog: Dialog; ownerHandle: string; onAsk?: (q: string) => void;
   conversationID?: string;
 }) {
-  // throbber 是 observer 对 agent 的实时观察:只显 agent 此刻在跑的那个 tool,
-  // turn 落地即被 use-chat 清成 null 而消失,由 AnswerOrError 里折叠的 searched
-  // 卡当持久回执。绝不堆一串、也绝不冻在 transcript 里跟答案并排。
+  // The throbber is a live observation of the agent: it only shows the one
+  // tool the agent is running right now, and disappears the moment the turn
+  // lands (use-chat clears it to null); the collapsed "searched" card inside
+  // AnswerOrError serves as the persistent receipt instead. Never stack
+  // multiple throbbers, and never freeze one in the transcript next to the
+  // answer.
   return (
     <>
       <ToolThrobber tool={dialog.currentTool} />
@@ -112,9 +118,10 @@ function AssistantBody({ dialog, ownerHandle, onAsk, conversationID }: {
   );
 }
 
-// ToolThrobber —— agent 当前在跑的那一个 tool 的进度行。label 已在 use-chat 按
-// name+args+backend progress_label 拼好;name 给 `tool-throbber-<name>` testid。
-// tool 为 null(没在跑 / turn 落地)→ 不渲。
+// ToolThrobber —— the progress line for the one tool the agent is currently
+// running. The label is already assembled in use-chat from
+// name+args+backend progress_label; name feeds the `tool-throbber-<name>`
+// testid. tool is null (nothing running / turn landed) → renders nothing.
 function ToolThrobber({ tool }: { tool: ToolThrobberView | null }) {
   return tool === null ? null : (
     <div
@@ -156,10 +163,13 @@ function AssistantLabel({ ownerHandle }: { ownerHandle: string }) {
   );
 }
 
-// Thinking —— LLM 在想(没具体 tool 在跑)时的进度行。词从 thinking-words 词库
-// 每 3 秒轮换;retrying 时(backend 重试 transient LLM 失败)固定显 "retrying"。
-// 有 tool 在跑(currentTool≠null)→ 不渲:ToolThrobber 已显 reading/searching,
-// 同一时刻只一个进度指示,免得读文档时还并排显 thinking。
+// Thinking —— the progress line for when the LLM is thinking (no specific
+// tool running). The word rotates from the thinking-words vocabulary every
+// 3 seconds; while retrying (backend retrying a transient LLM failure) it
+// pins to "retrying". A tool running (currentTool≠null) → renders nothing:
+// ToolThrobber already shows reading/searching, and there should only ever
+// be one progress indicator at a time, so a document read doesn't also show
+// thinking alongside it.
 function Thinking({ retrying, tool }: { retrying: boolean; tool: ToolThrobberView | null }) {
   const word = useThinkingWord();
   return tool !== null ? null : (
@@ -216,11 +226,14 @@ function Citations({ citations }: { citations: readonly Citation[] }) {
   );
 }
 
-// CitationRow —— 点引用 = 跳到那篇 document 在 owner 站上的公开页，新标签打开。
+// CitationRow —— clicking a citation jumps to that document's public page on
+// the owner's site, opened in a new tab.
 //
-// 地址由 `citationHref` 算，这里不拼。上一版是 `/${c.genre}/${c.path}`（这个文件一份、
-// ChatTranscript 一份），它把体裁名当成了路由名 —— writings 的体裁是单数、路由是复数，
-// 于是 prod 上那唯一一篇公开 writing 的引用点开是 404。
+// The address is computed by `citationHref`, not assembled here. The
+// previous version was `/${c.genre}/${c.path}` (one copy in this file, one
+// in ChatTranscript), which treated the genre name as the route name —
+// writings' genre is singular but its route is plural, so the one publicly
+// published writing in prod produced a 404 when its citation was clicked.
 function CitationRow({ c }: { c: Citation }) {
   const href = useCitationHref();
   return (

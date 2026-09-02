@@ -1,12 +1,16 @@
-// writings_tree.go —— writings 的懒树 + grid keyset 分页(跟 raw/wiki/output 同套 scale-safe
-// 机制,只是 writings 有自己的 /writings 路由 + 更重的 item:slug/cover/asset URL)。
-// GET /writings/tree?parent= 一层懒加载;GET /writings/page?cursor= 一页。writings 是
-// corpus_notes 的 genre='writing',所以后端复用 TreeChild/PageCursor 那套。
+// writings_tree.go — writings's lazy tree + grid keyset pagination (the same scale-safe
+// mechanism as raw/wiki/output, except writings has its own /writings route + a heavier
+// item: slug/cover/asset URL). GET /writings/tree?parent= is one lazily-loaded layer;
+// GET /writings/page?cursor= is one page. writings is corpus_notes's genre='writing',
+// so the backend reuses the TreeChild/PageCursor machinery.
 //
-// **本域最后一处直连域 facade 的地方。** 保存那条已经搬进收口(见 writings.go),
-// 树和分页还没有对应的 op —— 它们是面板独有的视图(懒加载一层 / keyset 一页),
-// MCP 那边不需要,所以还没人为它们声明过操作。writingView 这一族 helper 跟着住在这里:
-// 它们只服务这两条路由,搬到别处只会把这笔债摊到干净的文件上。
+// **The last place in this domain that connects straight to the domain's facade.** The
+// save route has already moved into the convergence point (see writings.go); the tree
+// and page routes have no corresponding op yet — they're views unique to the panel (one
+// lazily-loaded layer / one keyset page), MCP doesn't need them, so nobody has declared
+// an operation for them yet. The writingView family of helpers lives here alongside them
+// for the same reason: they only serve these two routes, and moving them elsewhere would
+// just spread this debt onto an otherwise clean file.
 
 package admin
 
@@ -23,11 +27,12 @@ import (
 
 const timeFmt = time.RFC3339
 
-// WritingsAdminDeps —— admin writings handlers 依赖。
+// WritingsAdminDeps — dependencies for the admin writings handlers.
 //
-// Face 给一切经收口的能力(列出 / 保存 / 发布 / 删除)。WritingsTx 只剩一个用处:
-// 给树 / 分页那两条视图解素材地址 —— 所以它跟着那笔债住在这个文件里,而不是留在
-// writings.go 上让那边看起来还连着域。
+// Face provides every capability that goes through the convergence point (list / save /
+// publish / delete). WritingsTx has exactly one remaining use: resolving asset addresses
+// for the tree / page view routes — so it lives alongside that debt in this file, rather
+// than staying in writings.go and making that file look like it still touches the domain.
 type WritingsAdminDeps struct {
 	Face       *dispatcher.Face
 	WritingsTx corpus.WritingsTxDeps
@@ -90,7 +95,8 @@ func resolveWritingAssetURLs(
 	return urls
 }
 
-// writingParentIDOr —— parent id 或 ""(root)。editor 回填「设父」用。
+// writingParentIDOr — the parent id, or "" (root). Used by the editor to pre-fill "set
+// parent".
 func writingParentIDOr(wg *corpus.Writing) string {
 	pid, _ := wg.ParentID()
 	return pid
@@ -118,7 +124,8 @@ func toWritingView(wg *corpus.Writing) writingView {
 	}
 }
 
-// WritingsTreeProvider —— 懒树一层 + 分页一页(concrete *corpus.WritingRepo 实现)。
+// WritingsTreeProvider — one lazy-tree layer + one page (implemented concretely by
+// *corpus.WritingRepo).
 type WritingsTreeProvider interface {
 	ListChildrenTree(
 		ctx context.Context, ownerID string, parentID *string,

@@ -1,6 +1,6 @@
-// crosslink_query.go —— public /writings 渲染 [[crosslink]] 时用的查询封装。
-// 让 publicroutes 不必直接 import postgres —— 通过 usecases 拿
-// resolution index 和 backlink list。
+// crosslink_query.go —— query wrapper used when public /writings renders [[crosslink]].
+// Lets publicroutes avoid importing postgres directly — it gets the
+// resolution index and backlink list through usecases instead.
 
 package usecase
 
@@ -12,21 +12,21 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// CrossLinkQueryDeps —— public /writings GET 渲 [[crosslink]] 用的查询依赖。
-// 跟 WritingsTxDeps 分开，因为 public 路径不需要 Assets / tx。
+// CrossLinkQueryDeps —— query deps used when public /writings GET renders [[crosslink]].
+// Kept separate from WritingsTxDeps because the public path doesn't need Assets / tx.
 type CrossLinkQueryDeps struct {
 	Writings    *repo.WritingRepo
 	WritingRefs *repo.WritingRefRepo
 }
 
-// BacklinkRef —— 一条 backlink (src writing 的 slug + title)。
+// BacklinkRef —— one backlink (the source writing's slug + title).
 type BacklinkRef struct {
 	Slug  string
 	Title string
 }
 
-// LoadCrossLinkIndex —— 取 owner 全部 published writing 的 (slug, title)，
-// 给 `[[X]]` rewrite 用。空 owner / 无 writing → 空切片。
+// LoadCrossLinkIndex —— fetches (slug, title) for all of the owner's published writings,
+// for `[[X]]` rewrite to use. Empty owner / no writings → empty slice.
 func LoadCrossLinkIndex(
 	ctx context.Context, deps CrossLinkQueryDeps, ownerID string,
 ) ([]repo.SlugTitle, error) {
@@ -44,7 +44,7 @@ func LoadCrossLinkIndex(
 	return out, nil
 }
 
-// ListBacklinks —— 列指向 writingID 的所有 published 源 writing (slug+title)。
+// ListBacklinks —— lists every published source writing (slug+title) that links to writingID.
 func ListBacklinks(
 	ctx context.Context, deps CrossLinkQueryDeps, ownerID, writingID string,
 ) ([]BacklinkRef, error) {

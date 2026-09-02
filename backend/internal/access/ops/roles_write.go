@@ -1,7 +1,9 @@
-// roles_write.go —— 建 / 改一个 role 的解参与转交(声明在 roles.go)。
+// roles_write.go — arg decoding and forwarding for create / update a role (declared in
+// roles.go).
 //
-// waypoints / dock_buttons 是本域自己的结构,所以在这里直接解成域类型 —— 归一化前它们要
-// 先在收口那侧当作不透明 JSON 透传一次,再在组装根解一次。
+// waypoints / dock_buttons are this domain's own structures, so they're decoded straight into
+// domain types here — before normalization they had to pass through the convergence point
+// once as opaque JSON, then get decoded a second time at the assembly root.
 
 package ops
 
@@ -18,16 +20,20 @@ import (
 
 type roleWriteArgs struct {
 	PromptID *string `json:"prompt_id"`
-	// 这两样是**指针**:裸 bool 分不出「没提到」和「明确关掉」,而这两格都是安全开关 ——
-	// 「答话前必须有引证」被一次改名顺手关掉过(F-Q-3)。nil = 不动。
+	// These two are **pointers**: a bare bool can't distinguish "not mentioned" from
+	// "explicitly turned off", and both of these gates are safety switches — "must have
+	// cited evidence before answering" was turned off as a side effect of a rename once
+	// (F-Q-3). nil = leave unchanged.
 	RequireGhostEvidence *bool `json:"require_ghost_evidence"`
-	// GasMetered —— 这个 role 挂不挂油表(false = 一次 gas 查询都不发,跟今天同一条路)。
+	// GasMetered — whether this role has the gas meter attached (false = never sends a gas
+	// query, same as today's path).
 	GasMetered  *bool  `json:"gas_metered"`
 	RoleID      string `json:"role_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Greeting    string `json:"greeting"`
-	// ProviderID —— 这个 role 用哪条 provider(空 = owner 默认);挂在码上的那条压过它。
+	// ProviderID — which provider this role uses (empty = owner default); the one set on
+	// a code overrides it.
 	ProviderID   string                    `json:"provider_id"`
 	CorpusURIs   []string                  `json:"corpus_uris"`
 	SkillIDs     []string                  `json:"skill_ids"`
@@ -44,7 +50,7 @@ func decodeRoleCreate(raw json.RawMessage) (roleWriteArgs, error) {
 	return in, fp.RequireArgs([2]string{"name", in.Name})
 }
 
-// decodeRoleUpdate —— 跟 create 一样,外加必填的 role_id。
+// decodeRoleUpdate — same as create, plus the required role_id.
 func decodeRoleUpdate(raw json.RawMessage) (roleWriteArgs, error) {
 	in, err := decodeRoleCreate(raw)
 	if err != nil {
@@ -53,7 +59,8 @@ func decodeRoleUpdate(raw json.RawMessage) (roleWriteArgs, error) {
 	return in, fp.RequireArgs([2]string{"role_id", in.RoleID})
 }
 
-// roleWriteApply —— create / update 只差调哪个用例;解参、转换和回包是同一份。
+// roleWriteApply — create and update differ only in which use case gets called; decoding,
+// conversion, and response are identical.
 type roleWriteApply func(
 	ctx context.Context, deps usecase.RolesDeps, in *usecase.RoleWriteInput,
 ) (entity.Role, error)
@@ -74,14 +81,17 @@ func writeRole(
 		if err != nil {
 			return nil, roleErr(err)
 		}
-		// 各能力自己那几个字段:整份原始入参递过去让它们自己挑。写失败不回滚 role ——
-		// role 已经建好了,设置可以再改(失败在那一层留日志)。
+		// Each capability's own fields: the whole raw input gets handed over for them to
+		// pick from. A write failure doesn't roll back the role — the role is already
+		// built, its settings can be changed later (a failure there is logged at that
+		// layer).
 		extras.Write(ctx, rl.ID(), raw)
 		return marshalRole(ctx, d.Roles, extras, &rl)
 	}
 }
 
-// boolOr —— 建的那条路上没给就是这个默认值(改那条路已经在 keepUnmentioned 里填过了)。
+// boolOr — on the create path, not given means this default (the update path has already
+// filled it in via keepUnmentioned).
 func boolOr(p *bool, def bool) bool {
 	if p == nil {
 		return def
@@ -89,26 +99,31 @@ func boolOr(p *bool, def bool) bool {
 	return *p
 }
 
-// keepUnmentioned —— **改**一个 role 的时候,请求里没提到的授权字段沿用它现在的值。
+// keepUnmentioned — when **updating** a role, an authorization field not mentioned in the
+// request keeps its current value.
 //
-// 为什么必须这样(F-Q-3):`role_update` 收的必填只有 `role_id` + `name`,所以 owner 的 AI
-// 说一句「把这个角色改个名」发的就是那两样。在这之前,缺席一律被当成"设成空" ——
-// 于是**改个名字就把这个 role 的语料 ACL 清空、技能摘掉、外部 MCP server 摘掉,
-// 并把「答话前必须有引证」这条安全开关关掉**,而回执报成功。
+// Why this has to work this way (F-Q-3): `role_update` only requires `role_id` + `name`, so
+// when the owner's AI says "rename this role", that's all it sends. Before this fix, an
+// absent field was always treated as "set to empty" — so **renaming a role would wipe its
+// corpus ACL, strip its skills, strip its external MCP servers, and turn off the "must have
+// cited evidence before answering" safety switch**, while the receipt reported success.
 //
-// **「沿用」是这里唯一不发明授权的选择**:它永远不会多给什么,只会保住 owner 已经给过的
-// (对照 [[invented-default-grants-privilege]] —— 会出事的是顺手发明的那个默认值,
-// 而"静默撤销"同样是一次没人要求的授权变更)。
+// **"Keep the current value" is the only choice here that doesn't invent authorization**: it
+// never grants more than before, it only preserves what the owner already granted (compare
+// [[invented-default-grants-privilege]] — what causes trouble is a default invented on the
+// side, and a "silent revocation" is equally an authorization change nobody asked for).
 //
-// 建的那条路不走这里:新 role 没有"现在的值"可沿用,缺席就是空,那是对的。
+// The create path doesn't go through here: a new role has no "current value" to keep, so an
+// absent field being empty is correct there.
 //
-// 清空仍然做得到,而且面板一直就是这么做的:**显式发 `[]`**。JSON 分得开"没这个字段"(nil)
-// 和"给了空数组"—— 需要的只是有人去读那个区别。
+// Clearing is still possible, and the panel has always done it this way: **send `[]`
+// explicitly**. JSON distinguishes "field absent" (nil) from "given an empty array" — all it
+// takes is someone reading that distinction.
 func keepUnmentioned(
 	ctx context.Context, d RolesDeps, ownerID string, in *roleWriteArgs,
 ) error {
 	if in.RoleID == "" {
-		return nil // create:没有前值可沿用
+		return nil // create: no prior value to keep
 	}
 	cur, err := usecase.GetRole(ctx, d.Roles, ownerID, in.RoleID)
 	if err != nil {
@@ -119,16 +134,18 @@ func keepUnmentioned(
 	return nil
 }
 
-// keepIDs —— 「请求里没这个字段(nil)就沿用现在的;给了 `[]` 就是明确清空」。
-// 三组 id 列表共用它 —— 同一句话抄三遍的话,漏掉一个不会有人发现。
-// 泛型版本被 forbidigo 挡下:`any` 在业务代码里是禁词。
+// keepIDs — "field absent in the request (nil) keeps the current value; given `[]` means
+// explicit clear". Shared by all three id lists — copy-pasting the same logic three times
+// means a missed spot goes unnoticed. A generic version is blocked by forbidigo: `any` is a
+// banned word in business code.
 func keepIDs(dst *[]string, cur []string) {
 	if *dst == nil {
 		*dst = cur
 	}
 }
 
-// keepGrants —— 这个 role 被授予了什么(语料 ACL / 技能 / 外部 server / 引导点 / dock 按钮)。
+// keepGrants — what this role has been granted (corpus ACL / skills / external servers /
+// steering waypoints / dock buttons).
 func keepGrants(cur *entity.Role, in *roleWriteArgs) {
 	keepIDs(&in.CorpusURIs, cur.CorpusURIs())
 	keepIDs(&in.SkillIDs, cur.SkillIDs())
@@ -141,9 +158,10 @@ func keepGrants(cur *entity.Role, in *roleWriteArgs) {
 	}
 }
 
-// keepSwitches —— 这个 role 上的两个开关。分开写不只是为了绕过复杂度上限:
-// 它们跟上面那组的**失手代价不一样** —— 少一条 ACL 是少给,而 require_ghost_evidence
-// 被关掉是**多给**(AI 不再需要引证就能答)。
+// keepSwitches — the two switches on this role. Written separately not just to dodge the
+// complexity ceiling: their **cost of a mistake differs** from the group above — one missing
+// ACL entry is under-granting, while require_ghost_evidence getting turned off is
+// **over-granting** (the AI can answer without evidence again).
 func keepSwitches(cur *entity.Role, in *roleWriteArgs) {
 	if in.RequireGhostEvidence == nil {
 		v := cur.RequireGhostEvidence()
@@ -164,8 +182,9 @@ func toRoleWriteInput(d RolesDeps, ownerID string, in *roleWriteArgs) *usecase.R
 		MCPServerIDs: nonNilStrings(in.MCPServerIDs),
 		Waypoints:    nonNilWaypoints(in.Waypoints),
 		DockButtons:  nonNilDockButtons(in.DockButtons),
-		// dock 按钮上能挂哪些能力,由能力注册表回答 —— 每次写都现问一次,而且**按这个 role
-		// 的技能问**(`acl: role_granted` 的能力要技能授了才算)。
+		// Which capabilities may be mounted on dock buttons is answered by the capability
+		// registry — asked fresh on every write, and **asked scoped to this role's
+		// skills** (an `acl: role_granted` capability only counts once its skill grants it).
 		DockableCapabilityIDs: d.ValidCapabilityIDs,
 		RequireGhostEvidence:  boolOr(in.RequireGhostEvidence, false),
 		ProviderID:            in.ProviderID,
@@ -173,10 +192,11 @@ func toRoleWriteInput(d RolesDeps, ownerID string, in *roleWriteArgs) *usecase.R
 	}
 }
 
-// roleErr —— 域的哨兵 → 协议无关的类别。
+// roleErr — domain sentinel → protocol-agnostic category.
 //
-// 挂载引用那三条走的是本域端口自己的哨兵(见 usecase/role_ports.go):owner 和
-// marketplace 已经依赖 access,access 再认它们的错误名字就成了反向依赖。
+// The three mount-reference errors use this domain's own port sentinels (see
+// usecase/role_ports.go): owner and marketplace already depend on access, so access
+// recognizing their error names would become a reverse dependency.
 func roleErr(err error) error {
 	for _, c := range roleErrClasses {
 		if errors.Is(err, c.sentinel) {
@@ -186,8 +206,9 @@ func roleErr(err error) error {
 	return fp.OpErr("role op", err)
 }
 
-// roleDeleteErr —— 删和改共用 ErrRoleBuiltinImmutable 这一个哨兵,但给人看的话得跟
-// 当下这件事对上:删 builtin 回"不能删",不是"不能改名"。
+// roleDeleteErr — delete and update share the one sentinel ErrRoleBuiltinImmutable, but the
+// message shown to a person must match what's actually happening: deleting a builtin returns
+// "cannot delete", not "cannot rename".
 func roleDeleteErr(err error) error {
 	if errors.Is(err, entity.ErrRoleBuiltinImmutable) {
 		return fp.Coded(
@@ -207,9 +228,11 @@ var roleErrClasses = []struct {
 	{entity.ErrDockButtonEmptyTrigger, func() error {
 		return fp.BadInput("dock button needs a trigger")
 	}},
-	// 两种情况共用这一句，而它对两种都是真话：id 拼错了，或者这个能力要 role 的技能授权而
-	// 这个 role 没授。上一版说的是「unknown dock capability」—— 对后一种是假的（那个能力好好
-	// 地装在实例上），而 owner 会去找一个根本不存在的拼写错误（F-D-13）。
+	// Both cases share this one message, and it's true for both: either the id is
+	// misspelled, or this capability needs the role's skill to grant it and this role
+	// hasn't granted it. The previous version said "unknown dock capability" — false
+	// for the second case (that capability is installed fine on the instance), and the
+	// owner would go hunting for a typo that doesn't exist (F-D-13).
 	{entity.ErrUnknownDockCapability, func() error {
 		return fp.BadInput(
 			"this role can't show that capability — check the id, or grant it to the role's skills")
@@ -223,8 +246,9 @@ var roleErrClasses = []struct {
 	{usecase.ErrRefMCPServerNotFound, func() error {
 		return fp.BadInput("one or more mcp server ids not found")
 	}},
-	// 这三个的 code 是**已经发出去的契约**(前端 / e2e 按 code 分流),所以显式钉住 ——
-	// 不能退成类别默认的 not_found / forbidden / conflict,那样载荷说的话就变少了。
+	// The code on these three is an **already-shipped contract** (frontend / e2e branch
+	// on the code), so it's pinned down explicitly — it can't fall back to the category
+	// default of not_found / forbidden / conflict, which would say less in the payload.
 	{entity.ErrRoleNotFound, func() error {
 		return fp.Coded(fp.NotFound("role not found"), "role_not_found")
 	}},

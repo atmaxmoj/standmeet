@@ -1,8 +1,11 @@
-// ComposerAttachments —— 长粘贴附件的两块对称表现:
-//   AttachmentChips —— composer 输入框上方挂的可撤 chip(发问前)。
-//   VisitorQuestion —— transcript 里 you 气泡,把 composed 消息拆回
-//     「问句 + 折叠粘贴块」(发问后),不让一份 JD 变成文字墙。
-// 从 ChatRoom 抽出,既复用又压行数。
+// ComposerAttachments —— the two symmetric presentations of a long-paste
+// attachment:
+//   AttachmentChips —— a removable chip hanging above the composer input
+//     (before the question is sent).
+//   VisitorQuestion —— the you-bubble in the transcript, splitting the
+//     composed message back into "question + collapsible pasted block"
+//     (after the question is sent), so a JD doesn't turn into a wall of text.
+// Pulled out of ChatRoom, for reuse and to trim line count.
 
 'use client';
 
@@ -10,8 +13,10 @@ import { useTranslations } from 'next-intl';
 
 import { attachmentLabel, splitComposedMessage, type Attachment } from '@/lib/visitor/composer-attachments';
 
-// AttachmentChips —— 长粘贴收成的附件,挂输入框上方;每枚显字数/行数/首行
-// 预览 + 一个 ✕ 撤掉。发问时附件原文照样进消息(composeMessage)。
+// AttachmentChips —— attachments collected from long pastes, hanging above
+// the input; each shows char count / line count / a first-line preview,
+// plus an ✕ to remove it. On submit the attachment's raw text still goes
+// into the message (composeMessage).
 export function AttachmentChips({ attachments, onRemove }: {
   attachments: readonly Attachment[]; onRemove: (id: string) => void;
 }) {
@@ -41,8 +46,10 @@ function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove: (id: string)
   );
 }
 
-// VisitorQuestion —— you 气泡。普通问句直接渲;带粘贴附件的(composed 消息)
-// 拆成「问句 + 折叠的 pasted 块」,跟 composer 的 chip 对称,避免一面文字墙。
+// VisitorQuestion —— the you-bubble. A plain question renders as-is; a
+// question with pasted attachments (a composed message) splits into
+// "question + collapsible pasted block", symmetric with the composer's
+// chip, to avoid a wall of text.
 export function VisitorQuestion({ q }: { q: string }) {
   const { text, pastes } = splitComposedMessage(q);
   return (

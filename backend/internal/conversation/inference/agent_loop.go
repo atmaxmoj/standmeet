@@ -1,15 +1,15 @@
-// agent_loop.go —— transport-agnostic agentic core。把 H.9 的 eino ADK
-// agent loop 从 HTTP/SSE 解耦：
+// agent_loop.go —— transport-agnostic agentic core. Decouples the H.9 eino ADK agent loop from
+// HTTP/SSE:
 //
-//   - BuildAgentIterator —— pre-stream：建 chat model + summarization mw +
-//     ADK ChatModelAgent + runner，返事件 iterator。
-//   - DriveAgentLoop     —— 消费 iterator，把事件灌进一个 AgentSink；
-//     收尾跑 H.13 follow-up ghosts + Done。不碰 http。
+//   - BuildAgentIterator —— pre-stream: builds the chat model + summarization mw + ADK
+//     ChatModelAgent + runner, returns the event iterator.
+//   - DriveAgentLoop     —— consumes the iterator, feeds events into an AgentSink; at the end
+//     runs H.13 follow-up ghosts + Done. Never touches http.
 //
-// prod (RunAgentTurn) 注入 sseSink 写浏览器 pi SSE；eval-harness 注入
-// transcript sink 审真实行为。loop 一字不差共享，AgentSink 是唯一注入点
-// (对应原 D/F 设计里 agent-core 的 EventObserver port，只是落在 backend
-// Go loop 上)。
+// prod (RunAgentTurn) injects sseSink to write pi SSE to the browser; eval-harness injects a
+// transcript sink to audit real behavior. The loop is shared verbatim — AgentSink is the only
+// injection point (corresponds to the EventObserver port on agent-core in the original D/F
+// design, just landed on the backend's Go loop).
 
 package inference
 
@@ -28,45 +28,48 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
-// CompactionLogMsg —— 压缩真触发时打的那一行。
+// CompactionLogMsg —— the line logged when compaction actually fires.
 //
-// **导出成常量**是因为 eval 靠 grep 它断言"压缩发生过":2026-07-25 这句话从
-// "context summarized" 改成了现在这句,而 eval 那侧的 grep 没跟着改 —— 那条断言从此
-// 不可能变绿,而且没有任何东西会提醒你。一个改名就能让测试永久失效,说明那个字符串
-// 不该有第二份。
+// **Exported as a constant** because eval greps for it to assert "compaction happened": on
+// 2026-07-25 this string changed from "context summarized" to the current text, and the eval
+// side's grep wasn't updated along with it — that assertion became permanently unable to go
+// green, with nothing to alert you. A rename alone can permanently break a test, which is
+// exactly why that string must not have a second copy.
 const CompactionLogMsg = "agent turn: context compacted"
 
-// contextTokenThreshold —— H.9b: ChatModelAgent 的 summarization
-// middleware 触发阈值。按 [[feedback-no-anthropic-assumption]] 取最
-// 小可行 provider 偏保守的数：DeepSeek-V3 64K / GPT-4o 128K / Claude
-// 200K 都富余；Llama 8K local 会早 compact 但不会撞 provider 上限。
+// contextTokenThreshold —— H.9b: the trigger threshold for ChatModelAgent's summarization
+// middleware. Per [[feedback-no-anthropic-assumption]], pick a conservative number for the
+// smallest viable provider: DeepSeek-V3 64K / GPT-4o 128K / Claude 200K all have headroom;
+// Llama 8K local compacts earlier but never hits the provider ceiling.
 const contextTokenThreshold = 32000
 
-// AgentSink —— agent loop 的事件出口 (observer)。loop 只对这个接口编程，
-// 不知道运行在 http handler 还是 eval-harness 进程里：
+// AgentSink —— the agent loop's event outlet (observer). The loop only programs against this
+// interface, unaware whether it runs inside an http handler or an eval-harness process:
 //
-//   - prod: sseSink (agent_turn.go) 把每条事件写成 pi SSE 帧给浏览器
-//   - eval: harness 给个 transcript sink，打印 / 落 JSONL 审 prompt + 行为
+//   - prod: sseSink (agent_turn.go) writes each event as a pi SSE frame to the browser
+//   - eval: the harness supplies a transcript sink, prints / logs JSONL to audit prompt +
+//     behavior
 //
-// 方法语义跟 pi SSE event 一一对应；progressLabel 由 caller 查好传入
-// (H.11 throbber 文案)，sink 不自己查表。
+// Method semantics map one-to-one to pi SSE events; progressLabel is looked up and passed in by
+// the caller (H.11 throbber copy) — the sink doesn't look it up itself.
 type AgentSink interface {
 	Text(delta string)
 	ToolStarted(id, name, progressLabel string, args json.RawMessage)
 	ToolCompleted(name, result string)
-	// Ghost —— ghost-steering P4: done 之后 policy 出的**单个** steering ghost 帧（唯一 ghost 通道；
-	// 旧的 Ghosts 多条 followup 已删）。
+	// Ghost —— ghost-steering P4: the **single** steering ghost frame the policy produces after
+	// done (the only ghost channel; the old multi-frame followup Ghosts is gone).
 	Epilogue(f *EpilogueFrame)
-	// Retrying —— transport 重试一次 transient LLM 失败时调(attempt 从 1
-	// 数起)。prod sink emit `retrying` SSE 帧让 throbber 显 "retrying";
-	// 进度恢复(下一条 text/tool 事件)后前端自然清掉。
+	// Retrying —— called when the transport retries a transient LLM failure once (attempt
+	// counts from 1). The prod sink emits a `retrying` SSE frame so the throbber shows
+	// "retrying"; it clears naturally once progress resumes (the next text/tool event).
 	Retrying(attempt int)
 	Error(err error)
 	Done(stop string)
 }
 
-// loopEmit —— consume 链共用的小包 (log + sink + labels)，避开多参
-// (revive 5-arg 上限)。labels 给 emitToolStarted 查 progress_label。
+// loopEmit —— a small bundle (log + sink + labels) shared across the consume chain, to avoid a
+// too-many-args signature (revive's 5-arg cap). labels is looked up by emitToolStarted for
+// progress_label.
 type loopEmit struct {
 	log    *slog.Logger
 	sink   AgentSink
@@ -74,10 +77,10 @@ type loopEmit struct {
 	labels map[string]string
 }
 
-// BuildAgentIterator —— pre-stream：建 chat model + summarization mw +
-// ADK ChatModelAgent + runner，返事件 iterator。失败 (cred / model build /
-// msg 解析) 在写任何事件之前返回，caller 决定怎么报 (HTTP status vs
-// transcript)。
+// BuildAgentIterator —— pre-stream: builds the chat model + summarization mw + ADK
+// ChatModelAgent + runner, returns the event iterator. A failure (cred / model build / msg
+// parsing) returns before any event is written, leaving it to the caller how to report it (HTTP
+// status vs transcript).
 func BuildAgentIterator(
 	ctx context.Context, in *AgentTurnInput,
 ) (*adk.AsyncIterator[*adk.AgentEvent], error) {
@@ -85,10 +88,12 @@ func BuildAgentIterator(
 	if err != nil {
 		return nil, fmt.Errorf("eino: build chat model: %w", err)
 	}
-	// 压缩的配置（**保住什么** + 留几条原话）在 agent_compaction.go —— 默认配置会把
-	// 276 条压成 2 条、开头那些事实一个不留（F-A-45）。
-	// Callback 只在压缩真触发时调（context 超阈值）；打一行 observability。
-	// 短对话不触发，prod 常规流量零噪音。
+	// The compaction config (**what to keep** + how many turns verbatim) lives in
+	// agent_compaction.go — the default config would compress 276 messages down to 2 and keep
+	// none of the opening facts (F-A-45).
+	// The callback fires only when compaction actually triggers (context over threshold); logs
+	// one observability line. Short conversations never trigger it — zero noise on normal prod
+	// traffic.
 	mw, mwerr := summarization.New(ctx, summarizationConfig(cm, contextTokenThreshold,
 		func(_ context.Context, before, after adk.ChatModelAgentState) error {
 			slog.Default().Info(CompactionLogMsg,
@@ -112,7 +117,7 @@ func BuildAgentIterator(
 		),
 		Model: cm,
 		ToolsConfig: adk.ToolsConfig{
-			// guardRepeats —— 同一次大结果调用在这一轮里只真的打一次（F-D-14）。
+			// guardRepeats: same large-result call dispatches only once per turn (F-D-14).
 			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: guardRepeats(ctx, in.Tools)},
 			ReturnDirectly:  in.ReturnDirectly,
 		},
@@ -130,9 +135,9 @@ func BuildAgentIterator(
 	return runner.Run(ctx, msgs), nil
 }
 
-// turnInputMessages —— pi history + 当 turn user_message → ADK 喂入的
-// []*schema.Message。复用 toEinoMessages (system 不带，instruction 那
-// 边走)，再 append 当前 user_message。
+// turnInputMessages —— pi history + this turn's user_message → the []*schema.Message fed into
+// ADK. Reuses toEinoMessages (no system included — that goes through instruction instead), then
+// appends the current user_message.
 func turnInputMessages(req *AgentTurnRequest) ([]*schema.Message, error) {
 	msgs, err := toEinoMessages("", req.History)
 	if err != nil {
@@ -142,37 +147,43 @@ func turnInputMessages(req *AgentTurnRequest) ([]*schema.Message, error) {
 	return msgs, nil
 }
 
-// DriveAgentLoop —— HTTP-free：消费事件 iterator 灌进 sink，收尾跑 H.13 follow-up
-// ghosts + emit Done。caller (RunAgentTurn / eval-harness) 先 BuildAgentIterator 拿 iter。
+// DriveAgentLoop —— HTTP-free: consumes the event iterator into the sink, then at the end runs
+// H.13 follow-up ghosts + emits Done. The caller (RunAgentTurn / eval-harness) calls
+// BuildAgentIterator first to get iter.
 func DriveAgentLoop(
 	ctx context.Context, log *slog.Logger,
 	in *AgentTurnInput, iter *adk.AsyncIterator[*adk.AgentEvent], sink AgentSink,
 ) {
 	em := &loopEmit{log: log, sink: sink, in: in, labels: in.ProgressLabels}
 	state := consumeAgentEvents(ctx, em, iter)
-	// 边界在 claim gate 之前：救回来的那句合成也是这一轮的答案，claim gate 要看得到它
-	// （F-A-40）。流正常关闭但一个字都没产出的那条路以前从这里直接走到 Done。
+	// This boundary runs before the claim gate: a rescued synthesis is still this turn's
+	// answer, and the claim gate needs to see it (F-A-40). The path where the stream closed
+	// normally but produced nothing used to fall straight through here to Done.
 	ensureProduct(ctx, em, state)
 	// The claim gate runs BEFORE Done: an answer that says the action happened, in a turn that
 	// holds no receipt for it, does not get to end as a normal turn (F-A-37).
 	applyClaimGate(log, state, in.ClaimGates)
 	logTurnStop(log, state)
-	// Done 先发 —— 让访客这一轮立刻收尾(能发下一轮);#106 计费是后台,绝不压在关键路径上。
+	// Done is sent first — lets the visitor's turn wrap up immediately (able to send the next
+	// one); #106 billing is background work, never on the critical path.
 	sink.Done(doneStop(state))
-	// ghost-steering P3: policy 在 done **之后** 跑(persist-at-completion:done=已提交,ledger 也已在
-	// onDone 里更新过 visited),据本轮末条回复出至多一个 steering ghost,发单独的 `ghost` 帧。
+	// ghost-steering P3: the policy runs **after** done (persist-at-completion: done means
+	// committed, and the ledger has already had `visited` updated in onDone); it produces at
+	// most one steering ghost from this turn's final reply, sent as a standalone `ghost` frame.
 	emitEpilogue(ctx, sink, in, state)
 	recordTurnUsage(ctx, in, state)
 }
 
-// recordTurnUsage 在 agent_loop_budget.go —— 用量跟预算是同一件事,也守 max-lines 350。
+// recordTurnUsage lives in agent_loop_budget.go —— usage and budget are the same concern, and
+// it also keeps under the max-lines 350 gate.
 
-// turnState 和它那几个小动作在 agent_loop_state.go —— 这个文件也守 max-lines 350。
+// turnState and its handful of small operations live in agent_loop_state.go —— this file also
+// keeps under the max-lines 350 gate.
 
-// consumeAgentEvents —— ADK iter → sink。每条 AgentEvent 看 Output
-// (assistant text streaming / tool result) / Err，对应灌 sink。返当 turn
-// 收尾的 state；Done 由 caller (DriveAgentLoop) 负责，让 caller 有机会在
-// done 之前补 ghosts。
+// consumeAgentEvents —— ADK iter → sink. Inspects each AgentEvent's Output (assistant text
+// streaming / tool result) / Err and feeds the sink accordingly. Returns the state at the end of
+// the turn; Done is the caller's (DriveAgentLoop's) responsibility, so the caller gets a chance
+// to add ghosts before done.
 func consumeAgentEvents(
 	ctx context.Context, em *loopEmit, iter *adk.AsyncIterator[*adk.AgentEvent],
 ) *turnState {
@@ -200,11 +211,11 @@ func routeAgentEvent(
 	return routeMessageVariant(ctx, em, ev.Output.MessageOutput, state)
 }
 
-// routeMessageVariant —— event 里携带的消息分三类：
-//   - Role=Assistant + IsStreaming：模型生成的 text/tool_call 流，逐 chunk
-//     灌 Text；流尾如 ToolCalls 非空灌 ToolStarted 一组
-//   - Role=Assistant + 非 streaming：完整 final message，单条灌 + ToolCalls
-//   - Role=Tool：tool 执行结果，灌 ToolCompleted
+// routeMessageVariant —— the message carried in an event falls into three kinds:
+//   - Role=Assistant + IsStreaming: the model's generated text/tool_call stream, fed into Text
+//     chunk by chunk; at stream end, a non-empty ToolCalls feeds a batch of ToolStarted
+//   - Role=Assistant + non-streaming: a complete final message, fed as one piece + ToolCalls
+//   - Role=Tool: a tool's execution result, fed into ToolCompleted
 func routeMessageVariant(
 	ctx context.Context, em *loopEmit, mv *adk.MessageVariant, state *turnState,
 ) bool {
@@ -283,4 +294,5 @@ func emitAssistantSnapshot(em *loopEmit, msg *schema.Message, state *turnState) 
 	}
 }
 
-// assistant streaming 期间的 tool_call 累积 + 流尾 emit 在 agent_loop_tools.go。
+// tool_call accumulation during assistant streaming + the end-of-stream emit live in
+// agent_loop_tools.go.

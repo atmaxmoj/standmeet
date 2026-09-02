@@ -1,8 +1,10 @@
-// use-writings-feed —— /writings index 的客户端 store。SSR 拿到
-// initialWritings + initialCursor 进 hydrate；infinite-scroll observer 触发
-// loadMore，store append writings + 推进 cursor。
+// use-writings-feed —— client-side store for the /writings index. SSR's
+// initialWritings + initialCursor go through hydrate; the infinite-scroll
+// observer triggers loadMore, and the store appends writings and
+// advances the cursor.
 //
-// 走 zustand 因为 lint 禁 useMemo / useState 派生状态在 presentation 层。
+// Uses zustand because lint bans useMemo / useState derived state in
+// the presentation layer.
 
 import { create } from 'zustand';
 

@@ -1,11 +1,13 @@
-// Package ban —— security 域的 IP 封禁内部实现(实体 + repo)。外部只经 security facade 访问。
+// Package ban — internal implementation of IP banning in the security domain (entity + repo).
+// Accessed externally only through the security facade.
 package ban
 
 import "time"
 
-// BannedIP —— owner 封掉的一个来源 IP。命中的 IP 在公开 /api/v1 面被 403 挡掉。
-// ExpiresAt nil = 永久封；非 nil = 到点自动失效（enforcement 查询带 now() 过滤）。
-// Reason 是 owner 自己的备注。
+// BannedIP — a source IP the owner has banned. A matching IP gets a 403 on the
+// public /api/v1 surface. ExpiresAt nil = permanent ban; non-nil = auto-expires
+// at that time (the enforcement query filters with now()). Reason is the
+// owner's own note.
 type BannedIP struct {
 	ExpiresAt *time.Time
 	CreatedAt time.Time
@@ -15,7 +17,7 @@ type BannedIP struct {
 	Reason    string
 }
 
-// Active —— 该封禁此刻是否生效（永久，或还没到期）。
+// Active — whether this ban is in effect right now (permanent, or not yet expired).
 func (b *BannedIP) Active(now time.Time) bool {
 	return b.ExpiresAt == nil || b.ExpiresAt.After(now)
 }

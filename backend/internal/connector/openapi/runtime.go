@@ -1,14 +1,15 @@
-// runtime.go —— 通用 openapi 连接器 runtime（**一个**，通吃所有 openapi 连接器）。
+// runtime.go — the generic openapi connector runtime (one runtime, handles every openapi
+// connector).
 //
-// Call 一次契约方法的全过程：
-//   typed 入参 → JSON → request JSONata 渲染成请求体
-//     → spec 把 operationId 解析成 method+path，拼 base URL
-//     → authInjector 注入认证（OAuth bearer / apiKey 头…，由凭据 + securityScheme 决定）
-//     → 发 HTTP → 按状态码归一错误（429/5xx = 可退避瞬时；其余 4xx = 永久）
-//     → response JSONata 抽成契约出参 → JSON → 解进 typed dst
+// Call flow: typed input → JSON → request JSONata builds the body → spec resolves
+// operationId into method+path, joins base URL → authInjector adds auth (OAuth bearer /
+// apiKey header…, per credential + securityScheme) → HTTP send → status-code error
+// normalization (429/5xx transient w/ retry backoff, other 4xx permanent) → response
+// JSONata extracts contract output → JSON → decoded into typed dst.
 //
-// 入参/出参对包外是**带类型**的（dst 是调用方的结构体指针）；schemaless 的 `any` 只活在本包
-// 内的 JSON 中转里，不外泄。provider 的一切都在 spec+binding 数据里，没有任何 gcal/SendGrid 字样。
+// Input/output are typed outside this package (dst is the caller's struct pointer);
+// schemaless `any` stays internal to this package's JSON transit. Everything
+// provider-specific lives in spec+binding data — no gcal/SendGrid literal appears here.
 
 package openapi
 
@@ -24,16 +25,18 @@ import (
 	"regexp"
 )
 
-// Doer —— 出站 HTTP 抽象（prod 用 *http.Client）。
+// Doer — outbound HTTP abstraction (prod uses *http.Client).
 type Doer interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// AuthInjector —— 给请求加认证（解密后的凭据 + securityScheme 决定怎么加）。凭据永不出本层。
+// AuthInjector — adds auth to a request (the decrypted credential + securityScheme decide
+// how). The credential never leaves this layer.
 type AuthInjector func(req *http.Request) error
 
-// Runtime —— 一份 spec + 一份 binding + 出站客户端 = 一个可调的连接器实现。认证**不**存在
-// 这里：一个连接器服务多 owner，token 随 owner/请求变，所以 AuthInjector 是每次 Call 传入的。
+// Runtime — one spec + one binding + an outbound client = one callable connector
+// implementation. Auth does **not** live here: one connector serves multiple owners and
+// the token varies per owner/request, so AuthInjector is passed in on every Call.
 type Runtime struct {
 	spec    *Spec
 	binding *Binding
@@ -41,7 +44,8 @@ type Runtime struct {
 	baseURL string
 }
 
-// NewRuntime —— 组装 runtime。spec 无 server → 拒（出站没地址）。
+// NewRuntime — assembles a runtime. spec has no server → reject (nowhere to send outbound
+// requests).
 func NewRuntime(spec *Spec, binding *Binding, doer Doer) (*Runtime, error) {
 	base := spec.serverURL()
 	if base == "" {
@@ -50,7 +54,8 @@ func NewRuntime(spec *Spec, binding *Binding, doer Doer) (*Runtime, error) {
 	return &Runtime{spec: spec, binding: binding, doer: doer, baseURL: base}, nil
 }
 
-// StatusError —— 非 2xx 的归一错误。Transient=true（429/5xx）→ 契约适配器映射成「稍后再试」。
+// StatusError — the normalized error for non-2xx. Transient=true (429/5xx) → the contract
+// adapter maps it to "try again later".
 type StatusError struct {
 	Code      int
 	Transient bool
@@ -60,16 +65,19 @@ func (e *StatusError) Error() string {
 	return fmt.Sprintf("connector upstream returned status %d", e.Code)
 }
 
-// boundOp —— resolve 的结果：契约方法对应的绑定 + 具体 HTTP 操作。
+// boundOp — the result of resolve: the binding for a contract method + the concrete HTTP
+// operation.
 type boundOp struct {
 	binding  opBinding
 	resolved resolvedOp
 }
 
-// ScopesFor 在 scopes.go —— 「这一步要什么权限」跟「怎么发这个请求」是两件事。
+// ScopesFor lives in scopes.go — "what permission this step needs" and "how to send this
+// request" are two different things.
 
-// Call —— 执行一个契约方法。op = 契约方法名（list_busy/create_event/send…）；input 是带类型
-// 入参（marshal 成 JSON 喂 request JSONata）；dst 非 nil 时把契约出参解进它。
+// Call — executes one contract method. op = the contract method name (list_busy/create_event/
+// send…); input is typed input (marshaled to JSON to feed the request JSONata); when dst is
+// non-nil, the contract output is decoded into it.
 func (r *Runtime) Call(ctx context.Context, op string, input, dst any, auth AuthInjector) error {
 	bo, err := r.resolve(op)
 	if err != nil {
@@ -90,9 +98,9 @@ func (r *Runtime) Call(ctx context.Context, op string, input, dst any, auth Auth
 	return decodeInto(out, dst)
 }
 
-// Invoke —— Call 的 **JSON 进 / JSON 出** 版:op = 绑定操作名,argsJSON 原样喂 request JSONata,
-// 回契约出参的 JSON。泛型 connector 调用面用它 —— 消费方只见 (op, argsJSON) → JSON,不碰任何
-// typed 契约结构(CalendarProxy 那种)。走同一条 resolve→build→send,只是两端换成 JSON。
+// Invoke — the JSON in / JSON out version of Call: op is the binding operation name, argsJSON
+// feeds the request JSONata as-is, returns contract output as JSON. Used by the generic
+// connector call surface (op, argsJSON) → JSON, never a typed struct; same resolve→build→send.
 func (r *Runtime) Invoke(
 	ctx context.Context, op string, argsJSON json.RawMessage, auth AuthInjector,
 ) (json.RawMessage, error) {
@@ -115,7 +123,8 @@ func (r *Runtime) Invoke(
 	return marshalInvokeOut(op, out)
 }
 
-// decodeInvokeArgs —— 空 args → nil；否则解成 JSON 值(JSONata 输入形态)。
+// decodeInvokeArgs — empty args → nil; otherwise decodes into a JSON value (the JSONata
+// input shape).
 func decodeInvokeArgs(op string, argsJSON json.RawMessage) (any, error) {
 	if len(argsJSON) == 0 {
 		return nil, nil
@@ -135,7 +144,8 @@ func marshalInvokeOut(op string, out any) (json.RawMessage, error) {
 	return res, nil
 }
 
-// resolve —— 契约方法名 → 绑定 + 具体 HTTP 操作。绑定缺该方法 / spec 缺该 op → 错。
+// resolve — contract method name → binding + concrete HTTP operation. Binding missing that
+// method / spec missing that op → error.
 func (r *Runtime) resolve(op string) (boundOp, error) {
 	ob, ok := r.binding.Operations[op]
 	if !ok {
@@ -148,7 +158,7 @@ func (r *Runtime) resolve(op string) (boundOp, error) {
 	return boundOp{binding: ob, resolved: resolved}, nil
 }
 
-// buildRequest —— 渲染请求体 + 拼 URL + 注入认证。
+// buildRequest — renders the request body + assembles the URL + injects auth.
 func (r *Runtime) buildRequest(
 	ctx context.Context, bo *boundOp, input any, auth AuthInjector,
 ) (*http.Request, error) {
@@ -166,8 +176,8 @@ func (r *Runtime) buildRequest(
 	})
 }
 
-// outbound —— 一次出站请求的全部材料。凑成一个结构而不是六个参数：媒体类型是后加的
-// （F-C-54），加完就顶到了参数个数的闸 —— 而这几样本来就描述同一件事。
+// outbound — all material for one outbound request, in a struct not six params: media type
+// arrived later (F-C-54) and tripped the parameter-count gate; these fields describe one thing.
 type outbound struct {
 	auth   AuthInjector
 	body   io.Reader
@@ -176,8 +186,8 @@ type outbound struct {
 	media  string
 }
 
-// newHTTPRequest —— 组装 *http.Request：有体则声明**spec 说的那个** content-type，最后注入认证。
-// 没声明的按 JSON（既有连接器行为一字不变）。
+// newHTTPRequest — assembles *http.Request: with a body, sets Content-Type to what the spec
+// declares (undeclared → JSON, existing behavior), then injects auth last.
 func newHTTPRequest(ctx context.Context, o *outbound) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, o.method, o.url, o.body)
 	if err != nil {
@@ -192,15 +202,15 @@ func newHTTPRequest(ctx context.Context, o *outbound) (*http.Request, error) {
 	return req, nil
 }
 
-// requestURL / renderQuery 在 runtime_query.go；请求体那一族（renderBody / 按 spec 声明的
-// 媒体类型编码 / 必填 pre-flight）在 runtime_body.go —— 都是守 max-lines 350 拆出去的。
+// requestURL / renderQuery live in runtime_query.go; renderBody / media-type encoding /
+// required-field pre-flight live in runtime_body.go — both split out for the 350-line gate.
 
 func fieldMissing(m map[string]any, field string) bool {
 	v, present := m[field]
 	return !present || v == nil
 }
 
-// injectAuth —— 注入认证（无 injector → 直接放行）。
+// injectAuth — injects auth (no injector → passes through unchanged).
 func injectAuth(req *http.Request, auth AuthInjector) error {
 	if auth == nil {
 		return nil
@@ -211,7 +221,8 @@ func injectAuth(req *http.Request, auth AuthInjector) error {
 	return nil
 }
 
-// send —— 发请求、关体、读解。关体错若是首个错则冒出来（codebase 惯用法，无 named return）。
+// send — sends the request, closes the body, reads and decodes. If the close error is the
+// first error, it surfaces (codebase convention, no named return).
 func (r *Runtime) send(req *http.Request, ob *opBinding) (any, error) {
 	resp, derr := r.doer.Do(req)
 	if derr != nil {
@@ -224,7 +235,8 @@ func (r *Runtime) send(req *http.Request, ob *opBinding) (any, error) {
 	return out, perr
 }
 
-// readAndParse —— 读体、按状态码归一错误、用 response JSONata 抽契约出参。
+// readAndParse — reads the body, normalizes errors by status code, extracts contract output
+// with the response JSONata.
 func readAndParse(resp *http.Response, ob *opBinding) (any, error) {
 	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if rerr != nil {
@@ -240,7 +252,7 @@ func readAndParse(resp *http.Response, ob *opBinding) (any, error) {
 	return ob.evalResponse(decoded)
 }
 
-// statusError —— 非 2xx → 归一错误（429/5xx 标 Transient）。2xx → nil。
+// statusError — non-2xx → normalized error (429/5xx marked Transient). 2xx → nil.
 func statusError(code int) error {
 	if code < http.StatusBadRequest {
 		return nil
@@ -249,7 +261,7 @@ func statusError(code int) error {
 	return &StatusError{Code: code, Transient: transient}
 }
 
-// decodeJSON —— 空体 → nil；否则解成 JSON 值。
+// decodeJSON — empty body → nil; otherwise decodes into a JSON value.
 func decodeJSON(raw []byte) (any, error) {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return nil, nil
@@ -261,7 +273,7 @@ func decodeJSON(raw []byte) (any, error) {
 	return decoded, nil
 }
 
-// toJSONValue —— 把带类型入参 marshal+unmarshal 成 JSON 值（JSONata 的输入形态）。
+// toJSONValue — marshal+unmarshal typed input into a JSON value (the JSONata input shape).
 func toJSONValue(v any) (any, error) {
 	if v == nil {
 		return nil, nil
@@ -277,9 +289,9 @@ func toJSONValue(v any) (any, error) {
 	return out, nil
 }
 
-// decodeInto —— 把契约出参（JSON 值）解进调用方的 typed dst。dst nil → 丢弃。SaaS 形状不符
-// （该回 object 却回 array → 求值出的值塞不进标量字段）时**优雅降级**：dst 保持零值、不报错，
-// 契约方法返回空结果而非 5xx（§8-C：shape mismatch degrades cleanly, no garbage）。
+// decodeInto — decodes contract output (a JSON value) into the caller's typed dst; dst nil →
+// discarded. Shape mismatch (e.g. SaaS returns an array where an object was expected) degrades
+// gracefully: dst keeps its zero value, no error, empty result instead of 5xx (§8-C).
 func decodeInto(value, dst any) error {
 	if dst == nil {
 		return nil
@@ -292,22 +304,23 @@ func decodeInto(value, dst any) error {
 	return nil
 }
 
-// decodeOrEmpty —— best-effort 解 JSON 进 dst；形状不符 → dst 留零值（§8-C：provider 回的形状跟
-// 契约 dst 不符按「无数据」处理，不是故障，不上报，契约方法返空而非 5xx）。
+// decodeOrEmpty — best-effort decode into dst; shape mismatch → dst keeps its zero value
+// (§8-C: treat a provider/contract shape mismatch as "no data", not a failure — empty, not 5xx).
 func decodeOrEmpty(raw []byte, dst any) {
 	if err := json.Unmarshal(raw, dst); err != nil {
 		return
 	}
 }
 
-// maxResponseBytes —— 出站响应体读取上限（防恶意/失控 provider）。
+// maxResponseBytes — the read cap on an outbound response body (guards against a
+// malicious/runaway provider).
 const maxResponseBytes = 4 << 20 // 4 MiB
 
-// pathParamRE —— 路径里的 {param} 占位（如 /events/{eventId}）。
+// pathParamRE — the {param} placeholder in a path (e.g. /events/{eventId}).
 var pathParamRE = regexp.MustCompile(`\{([^}]+)\}`)
 
-// substitutePath —— 把路径里的 {param} 用契约入参里的同名字段替换（gcal 的 {eventId} 等）。
-// 入参不是对象、或字段缺失 → 原样保留（上游会 404，走友好降级）。
+// substitutePath — replaces {param} in the path with the same-named contract-input field
+// (gcal's {eventId} etc); missing/non-object input → left as-is (upstream 404s gracefully).
 func substitutePath(path string, input any) string {
 	m, ok := input.(map[string]any)
 	if !ok {
@@ -316,8 +329,8 @@ func substitutePath(path string, input any) string {
 	return pathParamRE.ReplaceAllStringFunc(path, func(match string) string {
 		key := match[1 : len(match)-1]
 		if v, found := m[key]; found {
-			// PathEscape:param 值可能含 `/`、`?`、`#` 等 —— 转义防 path-injection
-			// (如 eventId="../../admin" 逃出预期路径)。
+			// PathEscape: value may contain `/`, `?`, `#` etc — escape to prevent path
+			// injection (e.g. eventId="../../admin" escaping the intended path).
 			return url.PathEscape(fmt.Sprint(v))
 		}
 		return match

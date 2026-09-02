@@ -1,10 +1,13 @@
-// providers.go —— admin /providers:owner 的 provider 本子(增删改 + 标默认)。
+// providers.go — admin /providers: the owner's provider notebook (create/edit/delete +
+// mark default).
 //
-// 隔壁 /ai-provider 说的是**默认那一条**(setup 向导、claim、那张老表单都走它),
-// 这里管的是本子本身。两条路写的是同一张表。
+// The neighboring /ai-provider talks about **the default entry** (the setup wizard,
+// claim, and that old form all go through it); this file manages the notebook itself.
+// Both routes write to the same table.
 //
-// 建那一条带明文 key,所以跟 ai_provider.set 一样只在这个面上;响应里没有 key ——
-// 收口那侧的出站类型压根没有这个字段。
+// Creating an entry carries the plaintext key, so like ai_provider.set it lives only on
+// this facade; the response carries no key — the outbound type on the convergence point
+// side never has that field at all.
 
 package admin
 
@@ -14,17 +17,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// ProvidersAdminDeps —— 路由的能力来源。
+// ProvidersAdminDeps — capability source for the route.
 type ProvidersAdminDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountProviders 挂 /providers 那一组。
+// MountProviders mounts the /providers group.
 func (h *Handlers) MountProviders(r chi.Router) {
 	face := h.ProvidersAdmin.Face
 	r.Route("/providers", func(r chi.Router) {
-		// 列表回的是**裸数组**(前端的 provider 本子直接 map 它),不包一层 —— 这个面上
-		// 两种都有先例,选按调用方最省事的那种。
+		// The list returns a **bare array** (the frontend's provider notebook maps it
+		// directly) with no wrapper — this facade has precedent for both shapes, so it
+		// picks whichever is least work for the caller.
 		r.Get("/", h.dispatchOp(face, "providers.list", emptyArgs, jsonOK))
 		r.Post("/", h.dispatchOp(face, "providers.create", bodyArgs, jsonCreated))
 		r.Patch("/{id}",
@@ -33,9 +37,11 @@ func (h *Handlers) MountProviders(r chi.Router) {
 			h.dispatchOp(face, "providers.delete", urlParamArgs("id"), noContent))
 		r.Post("/{id}/default",
 			h.dispatchOp(face, "providers.set_default", urlParamArgs("id"), jsonOK))
-		// models —— 「这条 provider 有哪些模型」。**owner 这一面不带 key**：服务端拿库里
-		// 存的那把去问（F-R-11）。访客那条（`/api/v1/inference/models`）反过来，key 跟着
-		// 请求进来 —— 那边没有 auth，调用方就是钥匙的持有人。
+		// models — "which models does this provider have". **The owner's facade carries
+		// no key**: the server queries using the one already stored in the database
+		// (F-R-11). The visitor route (`/api/v1/inference/models`) is the reverse — the
+		// key travels with the request, because that route has no auth and the caller
+		// is the key's holder.
 		r.Post("/{id}/models",
 			h.dispatchOp(face, "providers.list_models", urlParamArgs("id"), jsonOK))
 		r.Post("/models", h.dispatchOp(face, "providers.list_models", emptyArgs, jsonOK))

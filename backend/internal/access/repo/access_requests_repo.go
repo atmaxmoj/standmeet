@@ -1,6 +1,6 @@
-// access_requests.go —— access_requests CRUD。
-// 形状对齐 codes.go：Create / List / UpdateStatus 三个最薄方法，DB →
-// domain 映射在底部的 toDomainAccessRequest。
+// access_requests.go —— access_requests CRUD.
+// Shape mirrors codes.go: three thin methods, Create / List / UpdateStatus, with the
+// DB → domain mapping in toDomainAccessRequest at the bottom.
 
 package repo
 
@@ -16,17 +16,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// RequestRepo —— access_requests 表的 Repository。
+// RequestRepo —— Repository for the access_requests table.
 type RequestRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewAccessRequestRepo 构造 RequestRepo。
+// NewAccessRequestRepo constructs a RequestRepo.
 func NewAccessRequestRepo(pool *pgstore.Pool) *RequestRepo {
 	return &RequestRepo{pool: pool}
 }
 
-// Create —— 落一条 access request。
+// Create —— persists one access request.
 func (r *RequestRepo) Create(
 	ctx context.Context, in *entity.CreateAccessRequestInput,
 ) (entity.Request, error) {
@@ -48,7 +48,7 @@ func (r *RequestRepo) Create(
 	return toDomainAccessRequest(&row), nil
 }
 
-// ListByOwner —— admin list；status 为空字符串视为"全部"。
+// ListByOwner —— admin list; an empty status string means "all".
 func (r *RequestRepo) ListByOwner(
 	ctx context.Context, ownerID, status string,
 ) ([]entity.Request, error) {
@@ -71,8 +71,9 @@ func (r *RequestRepo) ListByOwner(
 	return out, nil
 }
 
-// GetByID —— 按 (owner, id) 取一条 request；不命中返 ErrAccessRequestNotFound。
-// approve 流程先取出 email/name 再 issue+发信。
+// GetByID —— fetches one request by (owner, id); a miss returns
+// ErrAccessRequestNotFound. The approve flow reads email/name here before
+// issuing a code and sending the mail.
 func (r *RequestRepo) GetByID(
 	ctx context.Context, ownerID, id string,
 ) (entity.Request, error) {
@@ -95,7 +96,7 @@ func (r *RequestRepo) GetByID(
 	return toDomainAccessRequest(&row), nil
 }
 
-// UpdateStatus —— admin 标记 status；不命中返 ErrAccessRequestNotFound。
+// UpdateStatus —— admin marks the status; a miss returns ErrAccessRequestNotFound.
 func (r *RequestRepo) UpdateStatus(
 	ctx context.Context, ownerID, id, status string,
 ) (entity.Request, error) {
@@ -122,7 +123,8 @@ func (r *RequestRepo) UpdateStatus(
 	return toDomainAccessRequest(&row), nil
 }
 
-// statusFilter —— "" 表示不过滤；其它原样下发到 db.Status (*string)。
+// statusFilter —— "" means no filter; anything else passes through as-is to
+// db.Status (*string).
 func statusFilter(status string) *string {
 	if status == "" {
 		return nil

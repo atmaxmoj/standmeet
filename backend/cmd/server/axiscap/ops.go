@@ -1,18 +1,23 @@
-// ops.go —— 资源 capabilities:owner 的"访客能用什么"面板,由**能力轴**自己声明。
+// ops.go — resource capabilities: the owner's "what can visitors use" panel, declared by the
+// **capability axis** itself.
 //
-// 这一组没有域可归:它读的是能力注册表和连接器槽 —— 两根插件轴,按设计就住在组装根这边。
-// 所以声明也在这里,而不是在收口里(收口只汇聚各域的正门)。
+// This group has no domain to belong to: it reads the capability registry and the connector
+// slots — two plugin axes that by design live on the assembly-root side. So the declaration
+// lives here too, not in the convergence layer (which only gathers each domain's front door).
 //
-// 一行可能是三种东西之一(kind 区分):
+// One row can be one of three kinds (distinguished by kind):
 //
-//	capability  能力注册表里**面向访客**的那些(owner-only 的不在此列:owner-enable 闸
-//	            只作用于访客装配,给 owner-only 放开关是个不起作用的开关)
-//	connector   平台托管的连接器槽(日历 / 邮件),可关不可删
-//	skill       owner 自己写的 skill,enabled 读的是 skill 自己的全局开关
+//	capability  visitor-facing rows from the capability registry (owner-only rows are excluded:
+//	            the owner-enable gate only applies to visitor assembly, so a toggle on an
+//	            owner-only row would do nothing)
+//	connector   platform-managed connector slots (calendar / mail); can be disabled, not deleted
+//	skill       an owner-authored skill; its enabled reads the skill's own global toggle
 //
-// 归一化前 MCP 面比 admin 少两样:**connector 行整类缺席**,而且依赖状态只给一个
-// dependency_connected 布尔、没有名字。也就是说 owner 从 Claude Code 看这张表,
-// 看不到日历/邮件槽,也不知道某个能力等的是哪个连接器。现在只有一份形状。
+// Before normalization, the MCP facade was missing two things the admin facade had:
+// **the connector row kind was entirely absent**, and dependency status gave only a single
+// dependency_connected boolean with no name. So an owner looking at this table from Claude
+// Code couldn't see the calendar/mail slots, and couldn't tell which connector a capability
+// was waiting on. Now there's only one shape.
 
 package axiscap
 
@@ -26,7 +31,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// CapabilityResource —— list / set_enabled / delete。
+// CapabilityResource — list / set_enabled / delete.
 func CapabilityResource(d *deps.Runtime) dispatcher.Resource {
 	ops := newCapabilityOps(d)
 	return dispatcher.Resource{Name: "capabilities", Ops: []fp.Op{
@@ -78,7 +83,7 @@ var (
 	}`)
 )
 
-// capabilityRow / capabilityDependency —— 表里的一行,以及它等的那个连接器。
+// capabilityRow / capabilityDependency — one row in the table, and the connector it's waiting on.
 type capabilityRow struct {
 	Dependency *capabilityDependency `json:"dependency,omitempty"`
 	ID         string                `json:"id"`
@@ -94,8 +99,8 @@ type capabilityDependency struct {
 	Connected bool   `json:"connected"`
 }
 
-// capabilityListOut —— admin 一直是包一层 {"capabilities": [...]} 发出去的,
-// 那是已经发出去的契约,所以每个面都用它。
+// capabilityListOut — admin has always sent this wrapped in {"capabilities": [...]}; that's
+// an already-shipped contract, so every facade uses it.
 type capabilityListOut struct {
 	Capabilities []capabilityRow `json:"capabilities"`
 }

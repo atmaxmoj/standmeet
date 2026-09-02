@@ -1,6 +1,6 @@
-// post-slug-index —— writings editor 的 `[[crosslink]]` autocomplete 用的
-// (slug, title) 索引。fetch owner 所有 writing（含 draft），filter 由
-// 调用方按 query 做。
+// post-slug-index — the (slug, title) index used by the writings editor's
+// `[[crosslink]]` autocomplete. Fetches all of the owner's writings
+// (including drafts); the caller does the filtering by query.
 
 import { z } from 'zod';
 

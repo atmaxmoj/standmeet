@@ -1,7 +1,8 @@
 package entity
 
-// AppStateRef —— 一格 MCP App 状态的定位坐标：member（session 背后的耐久身份）×
-// mcp_id（后端从 tool 派生）× key。owner 随 member 走（多租户 + 级联）。upsert 用它。
+// AppStateRef —— locates one cell of MCP App state: member (the durable
+// identity behind a session) x mcp_id (derived by the backend from the
+// tool) x key. owner follows member (multi-tenancy + cascade). Used by upsert.
 type AppStateRef struct {
 	OwnerID  string
 	MemberID string

@@ -1,6 +1,6 @@
-// DashboardSection —— /admin/dashboard。design 源 admin.js DashboardSection
-// (199-311)：row 1 = 4 KPI stats; row 2 = corpus pulse sparkline (14d) +
-// jobs heat card; row 3 = recent visitors table + needs-your-hand action list。
+// DashboardSection —— /admin/dashboard. Design source: admin.js DashboardSection
+// (199-311): row 1 = 4 KPI stats; row 2 = corpus pulse sparkline (14d) +
+// jobs heat card; row 3 = recent visitors table + needs-your-hand action list.
 
 'use client';
 
@@ -50,8 +50,9 @@ export function DashboardSection() {
   );
 }
 
-// KpiRow —— 值和它下面那行小字都由 `kpiCards` 一处算好（F-L-52）。
-// 这一层只渲：没有数的时候，那行小字**根本不存在**，不需要这里再判一次。
+// KpiRow —— the value and the small line below it are both computed in one place,
+// `kpiCards` (F-L-52). This layer only renders: when there's no data, that small
+// line **simply doesn't exist**, so there's no need to check for it again here.
 function KpiRow({ stats }: { stats: DashboardStats | null }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" data-testid="dashboard-kpis">
@@ -131,13 +132,12 @@ function CorpusPulse({ stats }: { stats: DashboardStats | null }) {
   );
 }
 
-// PulseVerdict —— 这张卡右上角那句话，**读的是它旁边那条线**。
-//
-// 它以前是一个无条件的 `<span>{t('corpusActive')}</span>` —— 不管 14 天里进了多少条，
-// 永远朱红地写着 `↑ corpus active`，包括一条都没进的时候（UX-41：断言一件自己不追踪的事，
-// [[names-that-lie]]）。一个恒真的判断不是判断，是装饰；而它占的正是"图给我的结论"那个位置。
-// verdict 为 undefined = 序列还没到。**这时候一句结论都不许下** —— `nothing new in 14d`
-// 是一句关于世界的陈述，而此刻它什么都不知道（F-L-52）。判空在 `pulseView` 里做完了。
+// PulseVerdict —— the top-right line **reads the line right next to it**. It used to
+// be an unconditional `↑ corpus active` in vermillion regardless of the 14-day count,
+// even at zero (UX-41: asserting something it never tracked, [[names-that-lie]]). An
+// always-true verdict is decoration, not a conclusion. verdict === undefined means the
+// series hasn't arrived, and no conclusion may be stated then — `nothing new in 14d`
+// is a claim, and it knows nothing at that moment (F-L-52). Empty check is in `pulseView`.
 function PulseVerdict({ verdict }: { verdict: PulseView['verdict'] }) {
   return verdict === undefined ? null : (
     <VerdictText active={verdict.active} added={verdict.added} />
@@ -157,8 +157,10 @@ function VerdictText({ active, added }: { active: boolean; added: number }) {
   );
 }
 
-// CorpusSparkline —— 画**真** series（rot-A1）。空实例 → 空 pulse → 平线，正是诚实的形态；
-// 曾经这里是硬编码的 MOCK_14D，一条永远不动、跟 corpus 无关的锯齿。
+// CorpusSparkline —— draws the **real** series (rot-A1). An empty instance → an
+// empty pulse → a flat line, which is exactly the honest shape; this used to be a
+// hardcoded MOCK_14D, a jagged line that never moved and had nothing to do with the
+// corpus.
 function CorpusSparkline({ pulse, days }: { pulse: readonly number[]; days: readonly string[] }) {
   return <Sparkline data={pulse} labels={days} width={260} height={48} label="corpus pulse · 14d" />;
 }
@@ -183,7 +185,7 @@ function JobsHeat() {
       } />
       <div className="grid grid-cols-2 gap-3 mt-2">
         <div>
-          {/* 词汇跟 /admin/listings 对齐:那边写 "in pool",产品里没有 shortlist 这个东西。 */}
+          {/* Vocabulary aligned with /admin/listings: that page writes "in pool" — there is no such thing as a "shortlist" in the product. */}
           <div className="sm-smallcaps mb-1">{t('inPool')}</div>
           <div
             className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none"
@@ -198,7 +200,7 @@ function JobsHeat() {
         </div>
       </div>
       <div className="mt-3 pt-3 border-t border-(--color-rule)/60">
-        {/* 「top match」是 Claude 排的,StandMeet 排不出来 —— 所以这里报的是池子里最新的一条。 */}
+        {/* "top match" is ranked by Claude — StandMeet can't rank it, so this reports the newest item in the pool instead. */}
         <div className="sm-smallcaps mb-1">{t('newestInPool')}</div>
         <PoolHead state={poolHeadState(loop)} />
       </div>
@@ -206,9 +208,11 @@ function JobsHeat() {
   );
 }
 
-// CountState —— 三态，不是「数字或空」。「还在拉」和「没拉到」必须分开：把两者并成同一个空值，
-// 就没人能分清此刻是 loading 还是 failed —— 连测试都分不清（这条 spec 的第一版正是这么假绿的）。
-// 「0 sent」是一句关于事实的陈述；GET 挂了的时候事实不是 0，是不知道（F-A-13 的同类）。
+// CountState —— three states, not "a number or nothing". "Still fetching" and
+// "failed to fetch" must be kept apart: collapse both into the same empty value and
+// no one can tell loading from failed — not even a test (the first version of this
+// spec passed for exactly this false-green reason). "0 sent" is a factual claim;
+// when the GET fails, the fact isn't 0, it's unknown (the same class as F-A-13).
 type CountState =
   | { kind: 'loading' }
   | { kind: 'error' }
@@ -224,7 +228,8 @@ function useApplicationCount(): { sent: CountState } {
   return { sent };
 }
 
-// StatCount —— 三态各有各的字面：'…' 还在拉、'—' 没拉到、数字 = 真数字。'—' **只**代表失败。
+// StatCount —— each of the three states has its own literal: '…' still fetching,
+// '—' failed to fetch, a number = a real number. '—' **only** means failure.
 function StatCount({ state, testid }: { state: CountState; testid: string }) {
   return (
     <div
@@ -236,8 +241,10 @@ function StatCount({ state, testid }: { state: CountState; testid: string }) {
   );
 }
 
-// PoolHead —— 这一行说的是池子此刻的真状态。五个分支各说各的话,尤其把"一个源都没有"
-// 和"源有了但没 fetch"分开 —— 上一版把两者(以及其余三种)都说成"去注册源"(F-E-2)。
+// PoolHead —— this line states the pool's real state right now. Each of the five
+// branches says its own thing, in particular separating "no sources at all" from
+// "sources exist but never fetched" — the previous version said "go register
+// sources" for both of those (and the other three) alike (F-E-2).
 function PoolHead({ state }: { state: PoolHeadState }) {
   const t = useTranslations('adminShell.dashboard');
   const lines = {
@@ -322,9 +329,7 @@ function RecentVisitorRow({ row }: { row: DashboardRecentRow }) {
     <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0">
       <div>
         <div className="font-serif text-[15px] text-(--color-ink)">{row.visitor}</div>
-        {/* 「最近来访」是一眼扫新鲜度的列表，所以给相对时间；精确值放 title，
-            鼠标停下来就能看到。原来这里直接印后端的 `2026-08-07T01:09:14Z` ——
-            ISO-with-Z 是给机器看的（UX-46）。 */}
+        {/* "Recent visitors" is scanned at a glance for freshness, so give relative time; the exact value goes in the title, visible on hover. This used to print the backend's `2026-08-07T01:09:14Z` directly — ISO-with-Z is meant for machines to read (UX-46). */}
         <div className="mono text-[10px] text-(--color-muted) mt-0.5" title={stampMinute(row.last)}>
           {t('visitorMeta', { label: row.code_label, turns: row.turns, last: ago(row.last) })}
         </div>
@@ -341,9 +346,12 @@ function RecentVisitorFlags({ hits }: { hits: number }) {
     : null;
 }
 
-// NeedsYourHand —— 这一屏最会被当真的一句话住在这儿：说「没什么要你管」，owner 就真的不管了。
-// 所以 `stats` 还没到的时候**这句话不许出口**（F-L-52：它曾经在 loading 那一帧写着
-// 「Nothing pending — corpus is current.」，而那一刻它连语料有几条都不知道）。
+// NeedsYourHand —— the sentence on this screen most likely to be taken at face value
+// lives here: say "nothing needs your attention" and the owner genuinely stops
+// checking. So **this sentence must not be spoken** before `stats` has arrived
+// (F-L-52: it used to write "Nothing pending — corpus is current." during the
+// loading frame, at a moment when it didn't even know how many entries the corpus
+// had).
 function NeedsYourHand({ stats }: { stats: DashboardStats | null }) {
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="needs-hand">
@@ -353,9 +361,11 @@ function NeedsYourHand({ stats }: { stats: DashboardStats | null }) {
   );
 }
 
-// items 为 undefined = stats 还没到。**空数组和"还不知道"必须分开**：
-// 空数组说的是「都看过了，没事」，owner 据此收工；undefined 说的是「还不知道」，
-// 那一刻不许说任何一句（F-L-52）。用跟大数字同一个记号 `—`，一个横杠不断言任何事。
+// items being undefined means stats hasn't arrived yet. **An empty array and "still
+// unknown" must be kept apart**: an empty array says "all checked, nothing's up",
+// and the owner can stand down on that; undefined says "still unknown", and nothing
+// is allowed to be said at that moment (F-L-52). Use the same mark as the big
+// numbers, `—` — a dash asserts nothing.
 function NeedsList({ items }: { items: ActionItem[] | undefined }) {
   return items === undefined
     ? <p className="mono text-[11px] text-(--color-faint) mt-2">—</p>

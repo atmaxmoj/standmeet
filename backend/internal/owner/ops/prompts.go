@@ -1,11 +1,15 @@
-// prompts.go —— owner 写的 system prompt 片段(AI 的人格指令),挂到 role / 邀请码上
-// 决定访客见到的那个 AI 怎么说话。内置的那几条不许改名、不许删。
+// prompts.go —— system-prompt fragments the owner writes (the AI's persona instructions),
+// attached to a role / access code to decide how the visitor-facing AI speaks. The builtin
+// ones cannot be renamed or deleted.
 //
-// 迁移前两个面的载荷各写各的:MCP 的 prompt_list 只给 {prompt_id,name,description,
-// is_builtin} —— **没有 body**,owner 从 Claude Code 列一遍看不到自己写的正文;
-// create 只回 {prompt_id,name};delete 回 {ok:true}。面板那边一直是完整的一条。现在一份。
+// Before the migration each face wrote its own payload: MCP's prompt_list returned only
+// {prompt_id,name,description,is_builtin} — **no body**, so listing from Claude Code
+// couldn't show the owner what they'd actually written; create returned only
+// {prompt_id,name}; delete returned {ok:true}. The panel always had the full entry. Now
+// there's one shape.
 //
-// op 的 id 就是 MCP 工具名,保持历史名字(prompt_create / prompts.get 这种不一致也保持)。
+// The op's id is the MCP tool name; historical names are kept (including the inconsistency
+// between prompt_create and prompts.get).
 
 package ops
 
@@ -21,7 +25,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
-// Prompts —— list / get / create / update / delete。
+// Prompts —— list / get / create / update / delete.
 func Prompts(deps usecase.PromptsDeps) []fp.Op {
 	return append(promptReadOps(deps), promptWriteOps(deps)...)
 }
@@ -83,7 +87,8 @@ var promptIDSchema = json.RawMessage(`{
 	"required":["prompt_id"]
 }`)
 
-// create 和 update 的 schema 只差一个必填的 prompt_id。共用字段写一次。
+// create's and update's schemas differ only by a required prompt_id. Shared fields are
+// written once.
 const promptWriteProps = `
 	"name":{"type":"string","description":"Prompt name, unique per owner."},
 	"body":{"type":"string",
@@ -107,7 +112,7 @@ var (
 	}`)
 )
 
-// promptOut —— 一条 prompt 的出站形状(两个面同一份)。
+// promptOut —— outbound shape for one prompt (same for both faces).
 type promptOut struct {
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
@@ -183,8 +188,9 @@ func parsePromptID(raw json.RawMessage) (string, error) {
 	return in.PromptID, nil
 }
 
-// promptErr —— 域的哨兵 → 协议无关的类别。内置 prompt 不许改名/删是 403 而不是 400:
-// 请求没写错,东西也在,就是不许这么动。code 是已经发出去的契约,显式钉住。
+// promptErr —— domain sentinels → protocol-agnostic categories. A builtin prompt refusing
+// rename/delete is a 403, not a 400: the request wasn't malformed and the thing exists, it's
+// just not allowed. code is an already-published contract, pinned down explicitly.
 func promptErr(err error) error {
 	for _, c := range promptErrClasses {
 		if errors.Is(err, c.sentinel) {

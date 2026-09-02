@@ -1,7 +1,8 @@
-// ProviderBookPanel —— /admin/api-mcp 上的 "provider book" 块。
+// ProviderBookPanel — the "provider book" block on /admin/api-mcp.
 //
-// 上面那块("owner's ai")编的是**默认那一条**;这一块是本子本身:还有哪些条目、谁是默认、
-// 删哪条。码和 role 的下拉里选的就是这里的条目。
+// The block above ("owner's ai") edits **the default entry**; this block is
+// the book itself: what other entries exist, which is default, which to
+// delete. The entries picked in code and role dropdowns come from here.
 
 'use client';
 

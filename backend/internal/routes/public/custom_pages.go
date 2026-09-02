@@ -1,12 +1,13 @@
-// custom_pages.go —— 访客访问 /p/<slug> 时由 app middleware 反代到
-// GET /api/v1/custom-pages/{slug}/{*path}。本文件负责从共享
-// /srv/custom-pages/<page_id>/<build_id>/dist/* 读文件返回。
+// custom_pages.go —— when a visitor hits /p/<slug>, app middleware reverse-proxies it
+// to GET /api/v1/custom-pages/{slug}/{*path}. This file is responsible for reading the
+// file back from the shared /srv/custom-pages/<page_id>/<build_id>/dist/* tree.
 //
-// 安全：assetPath 必须不含 ..；path 拼装用 filepath.Clean 后强校验仍在
-// BuildsRoot 子树下；只 serve build 已 built + 是 live。
+// Security: assetPath must not contain ..; the joined path is filepath.Clean'd and then
+// strictly checked to still be under the BuildsRoot subtree; only a build that is both
+// built and live is served.
 //
-// 这一层保持 cyclo ≤ 3：sole-owner→build 链路集中在 usecases，文件
-// resolve 用 helper 拆开，content-type 用 map 查。
+// This layer stays at cyclo ≤ 3: the sole-owner→build chain lives in usecases, file
+// resolution is split into a helper, content-type is a map lookup.
 
 package public
 
@@ -28,11 +29,12 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// logErr —— slog key 常量，避免 "err" literal 在本文件出现过多次触发
-// revive add-constant。集中一个出口对未来 structured log 迁移也更友好。
+// logErr —— a slog key constant, to keep the "err" literal from appearing too many
+// times in this file and tripping revive add-constant. Funneling through one place is
+// also friendlier for a future structured-log migration.
 const logErr = "err"
 
-// CustomPageHandlers —— 访客 custom page asset 路由依赖。
+// CustomPageHandlers —— dependencies for the visitor custom-page asset route.
 type CustomPageHandlers struct {
 	Deps       owner.CustomPageDeps
 	Owners     owner.SoleOwnerLookup
@@ -40,7 +42,8 @@ type CustomPageHandlers struct {
 	BuildsRoot string
 }
 
-// Mount 挂 /custom-pages/{slug}/* 到 /api/v1。owner 是 sole owner，URL 不带 handle。
+// Mount wires /custom-pages/{slug}/* onto /api/v1. The owner is a sole owner, so the
+// URL carries no handle.
 func (h *CustomPageHandlers) Mount(r chi.Router) {
 	r.Get("/custom-pages/{slug}", h.serveAsset())
 	r.Get("/custom-pages/{slug}/*", h.serveAsset())
@@ -48,13 +51,17 @@ func (h *CustomPageHandlers) Mount(r chi.Router) {
 
 func (h *CustomPageHandlers) serveAsset() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// **不许被当成快照。** owner 撤下（rollback / delete）之后，这个地址就该停止服务；
-		// 而这一路以前一个 Cache-Control 都没发 —— 没有头，浏览器按启发式自己缓存，
-		// 于是撤下的页面照样打得开。那不是「浏览器自己缓存了」，是我们没说别缓存。
-		// 唯一该落在我们控制之外的，是读者已经存进本地的那一份。
+		// **Must never be treated as a snapshot.** Once the owner takes it down
+		// (rollback / delete), this address should stop serving; and this route used to
+		// send no Cache-Control header at all — with no header, the browser caches it by
+		// heuristic on its own, so a taken-down page kept opening fine. That isn't "the
+		// browser caching it on its own", it's us never having said not to. The only
+		// thing that should fall outside our control is a copy a reader has already
+		// saved locally.
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-		// 文件那一段跟 admin 预览共用一份（custom_page_serve.go）——
-		// 差别只在**看哪一次构建**，而路径逃逸校验只能有一份。
+		// The file-serving part is shared with the admin preview
+		// (custom_page_serve.go) — they differ only in **which build to look at**, and
+		// path-escape validation must only ever exist once.
 		ctx := r.Context()
 		ServeBuildAsset(w, r, &BuildAssetReq{
 			Log:        h.Log,
@@ -76,28 +83,33 @@ func (h *CustomPageHandlers) serveAsset() http.HandlerFunc {
 	}
 }
 
-// pageHead —— 服务 index.html 时要注进 <head> 的东西。空 base = 这一次不是根入口
-// （子资源请求），什么都不注。
+// pageHead —— what gets injected into <head> when serving index.html. Empty base =
+// this isn't the root entry point this time (a sub-resource request), nothing gets
+// injected.
 type pageHead struct {
 	base       string
 	allowBYOAI bool
 }
 
-// tags —— 注进 <head> 的那几行。
+// tags —— the lines injected into <head>.
 //
-// byoai 那一条**每次请求现读**：owner 在面板上关掉自带 key，下一次打开这一页就是新值 ——
-// 页面里不存快照，也不必再多问一个端点。这跟不发缓存头是同一件事的两半
-// （撤下的东西必须立刻停止生效）。
+// The byoai line is **read fresh on every request**: if the owner flips off "bring
+// your own key" on the panel, the next time this page opens it's the new value — no
+// snapshot stored in the page, and no need for one more endpoint to ask. This is the
+// other half of the same thing as sending no cache header (something taken down must
+// stop taking effect immediately).
 func (p pageHead) tags() string {
 	return `<base href="` + html.EscapeString(p.base) + `">` +
 		`<meta name="standmeet-page-byoai" content="` + strconv.FormatBool(p.allowBYOAI) + `">`
 }
 
-// 这里曾经有过 resolveAsset / headFor / baseHrefFor / resolvedAsset —— 它们做的事
-// 现在归 custom_page_serve.go 那一份（两个调用方共用），这里只剩"看哪一次构建"。
+// resolveAsset / headFor / baseHrefFor / resolvedAsset used to live here — what they
+// did now belongs to custom_page_serve.go (shared by both callers), leaving only
+// "which build to look at" here.
 
-// joinSafeAssetPath —— 把 owner-provided assetPath 拼成 host 文件路径，强校验
-// 最终路径仍在 BuildsRoot 内。filepath.Clean + HasPrefix containment 兜底。
+// joinSafeAssetPath —— joins the owner-provided assetPath into a host file path,
+// strictly checking the final path is still inside BuildsRoot. Backed by
+// filepath.Clean + HasPrefix containment.
 func joinSafeAssetPath(root, pageID, buildID, assetPath string) (string, error) {
 	cleaned, ok := normalizeAssetRel(assetPath)
 	if !ok {
@@ -160,8 +172,9 @@ func streamFile(log *slog.Logger, w io.Writer, f io.Reader) {
 	}
 }
 
-// writeHTMLWithBase —— 流式读 index.html，遇到 `<head>` 后插 `<base href>`，
-// 让 vite 的 ./assets/... 永远以 /p/<slug>/ 为基址（实例单 owner，URL 不带 handle —— F-L-44）。
+// writeHTMLWithBase —— streams index.html, and once it hits `<head>` inserts
+// `<base href>`, so vite's ./assets/... always resolves against /p/<slug>/ as its base
+// (a single-owner instance, so the URL carries no handle — F-L-44).
 func writeHTMLWithBase(log *slog.Logger, w http.ResponseWriter, f io.Reader, head pageHead) {
 	body, err := io.ReadAll(f)
 	if err != nil {
@@ -174,9 +187,10 @@ func writeHTMLWithBase(log *slog.Logger, w http.ResponseWriter, f io.Reader, hea
 	}
 }
 
-// injectHead —— 把 <base> 和这一页的设置注进 <head>。
-// html.EscapeString 把 baseHref 里可能的 " < > & 转义，杜绝攻击者用
-// 畸形 URL（比如 handle 含 quote）注入额外属性 → XSS。
+// injectHead —— injects <base> and this page's settings into <head>.
+// html.EscapeString escapes any " < > & inside baseHref, preventing an attacker from
+// using a malformed URL (e.g. a handle containing a quote) to inject extra attributes
+// → XSS.
 func injectHead(htmlBody string, head pageHead) string {
 	tag := head.tags()
 	if i := strings.Index(htmlBody, "<head>"); i >= 0 {
@@ -200,7 +214,8 @@ func closeAndLog(log *slog.Logger, f *os.File) {
 	}
 }
 
-// contentTypeByExt —— 顶层 map 让 contentTypeFor 走查表，cyclo 保持 1。
+// contentTypeByExt —— a top-level map so contentTypeFor is a table lookup, keeping
+// cyclo at 1.
 var contentTypeByExt = map[string]string{
 	".html": "text/html; charset=utf-8",
 	".js":   "application/javascript; charset=utf-8",
@@ -234,7 +249,7 @@ func writeAssetErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	})
 }
 
-// notFoundErrs —— 用 slice 而非 switch，让 isNotFoundErr cyclo 留在 2。
+// notFoundErrs —— a slice instead of a switch, keeping isNotFoundErr's cyclo at 2.
 var notFoundErrs = []error{
 	owner.ErrCustomPageNotFound,
 	owner.ErrOwnerNotFound,

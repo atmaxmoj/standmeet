@@ -1,16 +1,21 @@
-// provider_models.go —— 「这条 provider 有哪些模型可用」，问的是 owner **已经配好的**那一条。
+// provider_models.go — "what models does this provider have available" asks about the
+// one the owner has **already configured**.
 //
-// 为什么需要它（F-R-11）：面板上那颗 `LOAD MODELS` 一直打的是访客那条无 auth 的路
-// （`/api/v1/inference/models`），而那条路要求调用方**把 key 一起发上来** —— 访客确实是
-// 自己拿着 key 的。owner 不是：他的 key 存在库里、页面永远读不回来（那是对的）。于是他
-// 保存之后再点这颗按钮，客户端发的是一个空 key，后端 400 `key required`，屏幕上什么都没有。
-// 那把 key 明明在，每一轮访客对话都在用它。
+// Why this is needed (F-R-11): the `LOAD MODELS` button in the panel had always been
+// hitting the visitor's no-auth path (`/api/v1/inference/models`), which requires the
+// caller to **send the key along with the request** — a visitor genuinely holds their
+// own key. The owner does not: his key is stored in the DB and the page can never read
+// it back (which is correct). So after saving, clicking this button sent an empty key
+// from the client, the backend replied 400 `key required`, and nothing showed on
+// screen — even though that key genuinely exists and every visitor turn is using it.
 //
-// Lister 是**端口不是仓储**：key 在库里是密文，而这一侧从不解封（跟 MCPServerProber 同一条
-// 规矩）。实现落在组装根 —— 那里既有开封器（`unseal.go` 的 openAIProviderKey），也有拉列表
-// 的那段无状态代码（`infra/providermodels`）。
+// Lister is a **port, not a repository**: the key is ciphertext in the DB, and this
+// side never unseals it (same rule as MCPServerProber). The implementation lives in the
+// composition root, where both the unsealer (`unseal.go`'s openAIProviderKey) and the
+// stateless list-fetching code (`infra/providermodels`) live.
 //
-// 没接实现（nil）时说清楚这台实例没有这个能力，而不是假装问过。
+// When no implementation is wired up (nil), say clearly that this instance lacks the
+// capability, rather than pretending to have asked.
 
 package usecase
 
@@ -20,15 +25,16 @@ import (
 	"fmt"
 )
 
-// ProviderModelLister —— 去问 owner 已配好的那条 provider：你有哪些模型。
+// ProviderModelLister — asks the owner's already-configured provider: what models do
+// you have.
 type ProviderModelLister interface {
 	ListModels(ctx context.Context, ownerID, providerID string) ([]string, error)
 }
 
-// ErrNoModelLister —— 这台实例没接模型探针。
+// ErrNoModelLister — this instance has no model probe wired up.
 var ErrNoModelLister = errors.New("this instance cannot list models")
 
-// ListProviderModels —— 端口的调用点。providerID 空 = 那条默认的。
+// ListProviderModels — the call site for the port. An empty providerID = the default one.
 func ListProviderModels(
 	ctx context.Context, lister ProviderModelLister, ownerID, providerID string,
 ) ([]string, error) {

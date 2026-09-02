@@ -1,6 +1,7 @@
-// ProtocolConnectorForm —— #155 §8-E：protocol 连接器（SMTP/CalDAV）的固定凭据表单 + 连接测试。
-// 固定字段（非 spec 派生）走通用 ConnectorConfigForm 渲染；save 建连接器 + 存凭据，随后出
-// Connect 按钮做真连接测试 → status / 友好错误（connect/tls/auth）。
+// ProtocolConnectorForm —— #155 §8-E: fixed credential form + connection test for protocol
+// connectors (SMTP/CalDAV). Fixed fields (not spec-derived) render through the generic
+// ConnectorConfigForm; save creates the connector + stores credentials, then a Connect button
+// does a real connection test -> status / a friendly error (connect/tls/auth).
 
 'use client';
 
@@ -40,7 +41,8 @@ function ConnectStep({
 }
 
 function StatusLine({ status }: { status: string }) {
-  // not-connected 文案不能含 "connected" 子串（测试 .not.toHaveText(/connected/i)）。
+  // The not-connected copy must not contain the substring "connected" (test asserts
+  // .not.toHaveText(/connected/i)).
   return (
     <p data-testid="connector-status" className="mono text-[12px] text-(--color-muted)">
       {status === 'connected' ? 'connected' : 'not linked yet'}

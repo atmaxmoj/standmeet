@@ -1,12 +1,13 @@
-// conversations_funnel.go —— ghost-steering 遥测的出站载荷。
+// conversations_funnel.go — the outbound payload for ghost-steering telemetry.
 //
-// MCP 那份以前只有一个裸数组,没有总计;面板那份有 {waypoints, totals}。一份载荷。
+// The MCP side used to be a bare array with no totals; the panel side had
+// {waypoints, totals}. Now there's one payload.
 
 package ops
 
 import "github.com/atmaxmoj/standmeet/internal/conversation/entity"
 
-// waypointFunnelOut —— 一个引导目的地的漏斗。
+// waypointFunnelOut — the funnel for one steering destination.
 type waypointFunnelOut struct {
 	TargetWaypoint string  `json:"target_waypoint"`
 	Shown          int64   `json:"shown"`
@@ -14,14 +15,14 @@ type waypointFunnelOut struct {
 	AcceptanceRate float64 `json:"acceptance_rate"`
 }
 
-// funnelTotalsOut —— 全部目的地加起来。
+// funnelTotalsOut — all destinations summed.
 type funnelTotalsOut struct {
 	Shown          int64   `json:"shown"`
 	Accepted       int64   `json:"accepted"`
 	AcceptanceRate float64 `json:"acceptance_rate"`
 }
 
-// ghostFunnelOut —— 逐个目的地 + 总计。
+// ghostFunnelOut — per-destination breakdown plus totals.
 type ghostFunnelOut struct {
 	Waypoints []waypointFunnelOut `json:"waypoints"`
 	Totals    funnelTotalsOut     `json:"totals"`

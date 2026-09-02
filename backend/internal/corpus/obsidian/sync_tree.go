@@ -1,6 +1,8 @@
-// sync_tree.go —— vault 文件批 → 期望的 corp 节点树(对齐 B)。
-// folder-note `a/a.md` = 节点 [a](约定 A);leaf `a/b/c.md` = 节点 [a,b,c];缺 folder-note 的中间段
-// → 自动补空占位节点(backfill 语义,容忍)。节点按深度浅→深排,保证 upsert 时父先于子。
+// sync_tree.go — a batch of vault files → the desired corp node tree (aligns with B).
+// folder-note `a/a.md` = node [a] (convention A); leaf `a/b/c.md` = node [a,b,c]; an
+// intermediate segment missing its folder-note gets an auto-filled empty placeholder
+// node (backfill semantics, tolerant). Nodes sort shallow→deep so upsert writes parents
+// before children.
 
 package obsidian
 
@@ -9,20 +11,24 @@ import (
 	"strings"
 )
 
-// vaultNote —— 一个待同步的 corp 文件(已解析)。segs = genre 下的路径段(含文件名,去 .md)。
+// vaultNote — a corp file awaiting sync (already parsed). segs = the path segments
+// under the genre (includes the filename, with .md stripped).
 type vaultNote struct {
 	genre      string
 	sourcePath string
 	body       string
-	// rawFM —— 这个文件的 frontmatter **原文**（不含 `---` 围栏）。
-	// `fm` 是解析后的结果，它只留下产品认识的那十几个 key；导出要写回 owner 自己写的
-	// `langs` / `aliases-zh` / `owns`，以及内联数组这类形态，只能靠这一份原文（F-L-67）。
+	// rawFM —— this file's frontmatter, VERBATIM (the `---` fences excluded).
+	// `fm` is the parsed result, which keeps only the dozen-odd keys the product
+	// understands; export must write back owner-authored keys like `langs` /
+	// `aliases-zh` / `owns`, plus forms like inline arrays, and only this raw
+	// text can supply that (F-L-67).
 	rawFM string
 	segs  []string
 	fm    corpFM
 }
 
-// desiredNode —— 期望树的一个节点。file == nil = 自动补的中间节点(无 backing 文件)。
+// desiredNode — one node of the desired tree. file == nil = an auto-filled
+// intermediate node (no backing file).
 type desiredNode struct {
 	file        *vaultNote
 	genre       string
@@ -31,7 +37,8 @@ type desiredNode struct {
 	hasChildren bool
 }
 
-// nodePathFor —— 从 segs 推节点路径:folder-note(文件名 == 所在文件夹名)= 那个文件夹节点;否则 leaf。
+// nodePathFor — derives the node path from segs: a folder-note (filename ==
+// its containing folder's name) = that folder node; otherwise a leaf.
 func nodePathFor(segs []string) []string {
 	if len(segs) == 0 {
 		return []string{}
@@ -48,7 +55,8 @@ func nodeKey(genre string, path []string) string {
 	return genre + "\x00" + strings.Join(path, "/")
 }
 
-// treeBuilder —— 物化期望节点集的累加器(去重 + 保序)。
+// treeBuilder — accumulator that materializes the desired node set (dedupes,
+// preserves order).
 type treeBuilder struct {
 	byKey map[string]*desiredNode
 	order []*desiredNode
@@ -78,7 +86,8 @@ func (b *treeBuilder) addNote(note *vaultNote) {
 	}
 }
 
-// buildDesiredTree —— 物化期望节点集(含容忍补的中间节点),父先子后返回。
+// buildDesiredTree — materializes the desired node set (including tolerantly
+// backfilled intermediate nodes), returned parent-before-child.
 func buildDesiredTree(notes []vaultNote) []*desiredNode {
 	b := &treeBuilder{byKey: map[string]*desiredNode{}, order: []*desiredNode{}}
 	for i := range notes {

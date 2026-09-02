@@ -2,7 +2,7 @@ package owner
 
 import "github.com/atmaxmoj/standmeet/internal/owner/entity"
 
-// 类型（实现:entity）.
+// Types (impl: entity).
 type (
 	CustomPage      = entity.CustomPage
 	CustomPageBuild = entity.CustomPageBuild
@@ -13,17 +13,17 @@ type (
 	PageWhere       = entity.PageWhere
 	Prompt          = entity.Prompt
 	Settings        = entity.Settings
-	// VaultImportReceipt —— 上一次 vault 导入（UX-62）。At 零值 = 从没导过。
+	// VaultImportReceipt —— the most recent vault import (UX-62). At zero value = never imported.
 	VaultImportReceipt = entity.VaultImportReceipt
 )
 
-// 构造/函数（实现:entity）.
+// Constructors/functions (impl: entity).
 var (
 	LoadPromptFragment     = entity.LoadPromptFragment
 	MustLoadPromptFragment = entity.MustLoadPromptFragment
 )
 
-// 错误/变量（实现:entity）.
+// Errors/vars (impl: entity).
 var (
 	ErrCustomPageBuildNotFound  = entity.ErrCustomPageBuildNotFound
 	ErrCustomPageNotFound       = entity.ErrCustomPageNotFound

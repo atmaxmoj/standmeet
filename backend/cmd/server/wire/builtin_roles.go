@@ -1,11 +1,14 @@
-// builtin_roles.go —— boot 时把 builtin role 补齐给**已经存在**的 owner。
+// builtin_roles.go — at boot, backfills builtin roles onto owners that **already exist**.
 //
-// 种子本来只在 claim 时跑一次。加一个新的 builtin（`invited`）之后，那意味着已经部署的实例
-// 升级完就少一条 —— 而少的那条正是发码时的默认档，于是 owner 一发码就撞上「invited role:
-// not found」。功能在新实例上完好、在**所有老实例上**坏掉，是最难发现的一种坏法。
+// The seed used to run only once, at claim time. After adding a new builtin (`invited`), that
+// meant an already-deployed instance would be missing one row after upgrading — and the
+// missing row is exactly the default profile used when issuing a code, so the owner would hit
+// "invited role: not found" the first time they issued one. The feature works fine on a fresh
+// instance and breaks on **every existing instance** — the hardest kind of breakage to notice.
 //
-// SeedPublicRole 全程是 upsert（prompt / role / role_corpus_uris 都幂等），所以每次启动跑一遍
-// 是安全的，而且顺带把 F-D-7 那三条遗留 glob 从老实例的 public 上清掉。
+// SeedPublicRole is an upsert throughout (prompt / role / role_corpus_uris are all
+// idempotent), so running it on every startup is safe, and it incidentally clears the three
+// leftover F-D-7 globs off an old instance's public role.
 
 package wire
 
@@ -17,18 +20,20 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// BuiltinRoles —— 对本实例那个 owner 重跑一次 builtin 种子。best-effort：
-// 未 claim（还没有 owner）直接跳过；失败只记日志，不挡启动。
+// BuiltinRoles — reruns the builtin seed for this instance's owner. Best-effort: not yet
+// claimed (no owner yet) simply skips; failure only logs, never blocks startup.
 func BuiltinRoles(ctx context.Context, d *deps.Runtime) {
 	soleOwner, err := owner.LoadSoleOwner(ctx, owner.PageDeps{Owners: d.OwnerRepo})
 	if err != nil {
-		return // 还没 claim → 没有 owner 可种；claim 那条路自己会种
+		return // not claimed yet -> no owner to seed; the claim path seeds on its own
 	}
 	if serr := owner.SeedPublicRole(ctx, d.PromptRepo, d.RoleRepo, soleOwner.ID); serr != nil {
 		d.Log.Error("reseed builtin roles at boot", "owner_id", soleOwner.ID, "err", serr)
 	}
-	// 插件那份同理:加一个新的插件 builtin 之后,**已经部署的实例**升级完会少一条,
-	// 而少的那条正是发码时要挂的档 —— 功能在新实例上完好、在所有老实例上坏掉。
+	// Same story for plugins: after adding a new plugin builtin, **an already-deployed
+	// instance** is missing one row after upgrading — and the missing row is exactly the
+	// profile a code needs to attach at issue time. The feature works on a fresh instance
+	// and breaks on every existing instance.
 	if perr := d.PluginRegistry.SeedAllOwners(ctx, soleOwner.ID); perr != nil {
 		d.Log.Error("reseed plugin builtins at boot", "owner_id", soleOwner.ID, "err", perr)
 	}

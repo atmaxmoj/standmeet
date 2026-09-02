@@ -1,4 +1,4 @@
-// EditField —— label + input/textarea。multiline=N 时是 textarea。
+// EditField — label + input/textarea. When multiline=N, renders a textarea.
 
 type Props = {
   label: string;

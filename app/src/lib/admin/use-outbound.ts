@@ -1,17 +1,23 @@
-// use-outbound.ts —— owner 有没有一条**送得出去**的出站通道。
+// use-outbound.ts —— whether the owner has an outbound channel that **can actually send**.
 //
-// 面板上只有两处问这件事：批准 gate 请求（要把码送给申请人）和账号找回（要把 phrase 送给
-// owner）。两处问的都是同一个是非题，所以这里只回答这一个：`connected`。
+// Only two places on the panel ask this: approving a gate request (needs to
+// send the code to the applicant) and account recovery (needs to send the
+// phrase to the owner). Both ask the same yes/no question, so this file
+// answers only that one thing: `connected`.
 //
-// 这个文件以前叫 `use-mail.ts`，导出 saveCredentials / disconnect / otp{send,verify} 一整套。
-// 那套里 **四条都打在死路由上**：`/connectors/mail/credentials` 和 `/disconnect` 用的是死 id
-// `mail`（真 id 是 `smtp`，见下），`/connectors/mail/send-otp` 和 `/verify-otp` 后端**根本没有**
-// 这两条路由。而且**没有任何组件调用它们** —— 两个消费者都只读 `.connected`。
-// 一套指向死路由的死接口，随时会被下一个人接上去，所以删掉，不是留着。
+// This file used to be called `use-mail.ts`, exporting a full set of
+// saveCredentials / disconnect / otp{send,verify}. **All four hit dead
+// routes**: `/connectors/mail/credentials` and `/disconnect` used the dead id
+// `mail` (the real id is `smtp`, see below), and `/connectors/mail/send-otp`
+// and `/verify-otp` **didn't exist on the backend at all**. And **no
+// component called any of them** — both consumers only ever read
+// `.connected`. A dead interface pointing at dead routes could be wired up
+// by the next person any time, so it was deleted, not kept around.
 //
-// 同理删掉的还有 `MailCredsInput{host,port,username,password,from_address,from_name}` 和
-// `MailStatusSchema` 里那几个从来没被填过的字段 —— 那是**一封信和一台 SMTP 服务器的形状**，
-// 后端刚把它从内核类型里去掉，没有理由让它在前端原样活着。
+// Also deleted for the same reason: `MailCredsInput{host,port,username,password,from_address,from_name}`
+// and the never-filled-in fields on `MailStatusSchema` — that's **the shape
+// of one email and one SMTP server**, and the backend had just removed it
+// from the core types, leaving no reason for it to keep living unchanged on the frontend.
 
 import { useEffect } from 'react';
 
@@ -21,17 +27,20 @@ import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-// OutboundStatus —— 只有一个是非题：送不送得出去。
+// OutboundStatus —— just one yes/no question: can it actually send?
 const OutboundStatusSchema = z.object({
   connected: z.boolean(),
   hasCredentials: z.boolean(),
 });
 export type OutboundStatus = z.infer<typeof OutboundStatusSchema>;
 
-// 出站连接器的规范 id 是 `smtp`（品类 `mail`），**不是** `mail` —— 打 `/connectors/mail/status`
-// 解的是一个死 id，永远回 connected:false，于是即使 owner 配好了能真发信的连接器，
-// 批准闸和找回闸也一直锁着（F-C-7）。所以从**权威的连接器列表**里推：
-// 品类为出站、已连接且是 active 的那一个。
+// The canonical id of the outbound connector is `smtp` (category `mail`),
+// **not** `mail` — hitting `/connectors/mail/status` resolves a dead id,
+// always returning connected:false, so even after the owner set up a
+// connector that could actually send mail, the approve gate and the
+// recovery gate stayed locked forever (F-C-7). So this derives it from the
+// **authoritative connector list** instead: the one whose category is
+// outbound, connected, and active.
 const OutboundRowSchema = z.object({
   category: z.string(),
   has_credentials: z.boolean().nullish(),
@@ -42,8 +51,9 @@ const ConnectorsListSchema = z.object({
   connectors: z.array(OutboundRowSchema).nullish(),
 });
 
-// outboundCategory —— 送通知走哪个品类。**只有这一个字符串**，因为列表是按品类分的；
-// 它不代表这一层知道 SMTP 或者一封信长什么样。
+// outboundCategory —— which category notifications go through. **Just this
+// one string**, because the list is organized by category; it doesn't mean
+// this layer knows what SMTP or an email looks like.
 const outboundCategory = 'mail';
 
 const outboundStatusStore = createResourceStore<OutboundStatus>({
@@ -64,11 +74,11 @@ export interface OutboundHook {
   status: OutboundStatus | null;
 }
 
-/** useOutbound —— owner 有没有一条送得出去的出站通道。 */
+/** useOutbound —— whether the owner has an outbound channel that can actually send. */
 export function useOutbound(): OutboundHook {
   const r = useResource(outboundStatusStore);
   const ensureLoaded = r.ensureLoaded;
-  // 不拉就永远是 null,而 null 会被读成"送不出去" —— 批准闸和找回闸就一直锁着。
+  // Without fetching, this stays null forever, and null reads as "can't send" — the approve gate and the recovery gate would stay locked forever.
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return { statusKind: r.status, status: r.data ?? null };
 }

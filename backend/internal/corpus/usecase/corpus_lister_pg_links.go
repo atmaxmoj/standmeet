@@ -1,9 +1,13 @@
-// corpus_lister_pg_links.go —— pgCorpusLister.Links: corpus_links 的 1 跳 backlinks 检索。
+// corpus_lister_pg_links.go —— pgCorpusLister.Links: 1-hop backlinks lookup over corpus_links.
 //
-// 主体(path)的准入直接复用 Get(denied/not-found 同语义)。邻居顺 note_refs 取 outgoing(本条引用的)
-// + backlinks(引用本条的),**每个邻居逐条过 grantedGlobs ACL** —— 这是防泄漏关键:backlinks 那侧,
-// 一个越权的源不得因为链到可见条就暴露。note_refs 只连 corpus_notes 且写时已排 self-link,所以这里
-// 不必再排自己;dedup 因主键 (src,dst) 唯一、不会重复。只 1 跳:agent 要更深自己对邻居再调。
+// Admission for the subject (path) reuses Get directly (same denied/not-found semantics).
+// Neighbors come from note_refs: outgoing (what this entry references) + backlinks (what
+// references this entry). **Each neighbor is individually checked against grantedGlobs ACL**
+// — this is the anti-leak key: on the backlinks side, an entry the caller isn't authorized
+// for must not be exposed just because it links to a visible one. note_refs only connects
+// corpus_notes and already excludes self-links at write time, so there's no need to exclude
+// self here again; dedup happens for free since the (src,dst) primary key is unique. Only
+// 1 hop: an agent that wants to go deeper calls again on the neighbors itself.
 
 package usecase
 
@@ -18,7 +22,7 @@ import (
 func (l *pgCorpusLister) Links(
 	ctx context.Context, ownerID string, scope access.CorpusScope, path string,
 ) (Links, error) {
-	// Get:准入 + 拿 subject id(denied/not-found 透传)
+	// Get: admission + fetch subject id (denied/not-found propagate through)
 	subject, err := l.Get(ctx, ownerID, scope, path)
 	if err != nil {
 		return Links{}, err
@@ -53,7 +57,8 @@ func (l *pgCorpusLister) backlinkRefs(ctx context.Context, ownerID, id string) [
 	return refs
 }
 
-// neighborMetas —— 邻居 ref(id+title)→ 补 genre/path → 逐条过 ACL → Meta。越权邻居剔除。
+// neighborMetas —— neighbor ref (id+title) → fill in genre/path → check ACL per
+// entry → Meta. Unauthorized neighbors are dropped.
 func (l *pgCorpusLister) neighborMetas(
 	ctx context.Context, ownerID string, scope access.CorpusScope, refs []repo.NoteRef,
 ) []Meta {

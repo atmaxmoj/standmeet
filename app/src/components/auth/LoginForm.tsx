@@ -1,4 +1,4 @@
-// LoginForm —— owner sign-in 表单。业务逻辑全在 useLoginForm hook 里。
+// LoginForm — owner sign-in form. All business logic lives in the useLoginForm hook.
 
 'use client';
 
@@ -156,9 +156,10 @@ function submitDisabled(busy: boolean, siteKey: string, captchaToken: string): b
   return busy || (siteKey !== '' && captchaToken === '');
 }
 
-// enterAdmin —— login 成功后跳进 admin 前必须 reset sessionStore。前一次
-// /admin 探测可能把它缓存成 'error'（未授权），不 reset 的话 AdminShell
-// 挂载时立刻判定 unauthed → 重新跳 /login，登录死循环。
+// enterAdmin — must reset sessionStore before routing into admin after a
+// successful login. A prior /admin probe may have cached it as 'error'
+// (unauthorized); without the reset, AdminShell mounts and immediately
+// judges unauthed → bounces back to /login, an infinite login loop.
 function enterAdmin(router: AppRouterInstance): void {
   sessionStore.getState().reset();
   router.push('/admin');

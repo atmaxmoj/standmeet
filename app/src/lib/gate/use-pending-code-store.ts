@@ -1,13 +1,18 @@
-// use-pending-code-store —— visitor 带着 `?code=ABC` 进站时，code 不留在
-// URL 也不直接走参数到下游；先吸进这个内存 store，由 use-absorb-code 这条
-// effect 链负责 issue session + clear。
+// use-pending-code-store —— when a visitor arrives with `?code=ABC` in the
+// URL, the code neither stays in the URL nor passes as a parameter
+// straight downstream; it's first pulled into this in-memory store, and
+// the use-absorb-code effect chain handles issuing the session + clearing it.
 //
-// 为什么走 store：URL 上 `?code=` 不安全（截图 / 分享 / referer / history
-// 全会泄漏纯码），所以入口 hook 立刻 `history.replaceState` 删 URL —— 但
-// 此时 issue session 是 async，需要一个地方暂存 code 让下游 effect 拿到。
-// localStorage 不合适（持久化不必要、刷新会复用旧 pending code）；普通
-// useState 也不行（hook 之间传不了）。zustand store 是最小的"页面级临时
-// state"，符合"客户端状态走 store 不挂 URL" 规约。
+// Why a store: `?code=` in the URL is not safe (screenshots / sharing /
+// referer / history can all leak the plain code), so the entry hook does
+// `history.replaceState` to remove it from the URL right away — but
+// issuing a session at that point is async, and something needs to hold
+// the code for the downstream effect to pick up. localStorage doesn't fit
+// (no need for persistence, and a refresh would reuse a stale pending
+// code); plain useState doesn't work either (can't pass between hooks). A
+// zustand store is the smallest form of "page-level temporary state",
+// consistent with the convention that client-side state goes through a
+// store, not the URL.
 
 import { create } from 'zustand';
 

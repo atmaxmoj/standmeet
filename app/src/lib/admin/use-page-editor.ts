@@ -1,16 +1,16 @@
-// use-page-editor —— /admin/page 的状态机。
+// use-page-editor —— the /admin/page state machine.
 //
-// zustand 重构：server baseline（GET /api/admin/page）走全应用共享的
-// pageContentStore（[[create-resource-store]] factory，跟 sessionStore /
-// codesStore 同形状）。form 状态（mutable copy + dirty + savedAt）仍是
-// per-component local useState —— 跟 use-byoai 的 pattern 对齐：编辑流是
-// per-form 的，不该上 global store。
+// zustand refactor: the server baseline (GET /api/admin/page) goes through
+// the app-wide shared pageContentStore (the [[create-resource-store]]
+// factory, same shape as sessionStore / codesStore). Form state (mutable
+// copy + dirty + savedAt) stays as per-component local useState — matching
+// the use-byoai pattern: the edit flow is per-form and shouldn't be a global store.
 //
-// 保留对外 PageEditorState 离散联合 (loading|loaded|saving|error)，让
-// PageSection 不用改。
+// Keeps the external PageEditorState discriminated union
+// (loading|loaded|saving|error) so PageSection doesn't need to change.
 //
-// save 路径仍调 PUT /page，整段 content 上传；成功后把新 baseline
-// `mutate` 进 store cache，避免再 GET 一次。
+// The save path still calls PUT /page, uploading the whole content; on
+// success the new baseline is `mutate`d into the store cache, avoiding another GET.
 
 import { useCallback, useEffect, useState } from 'react';
 
@@ -19,9 +19,11 @@ import { AdminPageSchema } from '@/lib/api/public-schemas';
 import { pageContentStore } from '@/lib/admin/page-content-store';
 import { useResource } from '@/lib/state/create-resource-store';
 
-// 把 readonly 字段转成可写副本，状态机内部需要 patch。深度脱 readonly。
-// insights/projects 是 corpus pin 列表(wiki id) —— pin manager 增删/排序,
-// 不再自由文本编辑(内容只存一份,在 corpus 里)。
+// Converts readonly fields into a writable copy; the state machine needs to
+// patch it internally. Strips readonly deeply.
+// insights/projects are corpus pin lists (wiki ids) — the pin manager
+// adds/removes/reorders them, no more free-text editing (the content is
+// stored once, in the corpus).
 export interface MutableWhere   { location_line: string; status_prose: string; closing: string; looking_for: string[] }
 export interface MutableContact { email: string; chat_line: string; recruiter_prose: string; casual_prose: string }
 
@@ -66,9 +68,10 @@ export function usePageEditor(): PageEditorHook {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // 当 store 第一次 ready，或 server baseline 换了（mutate 之后 updated_at
-  // 变），seed/reseed 本地 form。已经在编辑的 form 不被打断 —— 用
-  // baselineUpdatedAt 当 "我已经基于这版做了哪些改" 的指纹。
+  // Seed/reseed the local form when the store first becomes ready, or when
+  // the server baseline changes (updated_at changes after a mutate). A form
+  // already being edited isn't interrupted — baselineUpdatedAt is used as the
+  // fingerprint for "what changes have I made based on this version".
   useEffect(() => {
     if (resource.status === 'ready' && resource.data) {
       const incoming = resource.data;

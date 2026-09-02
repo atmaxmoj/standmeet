@@ -1,7 +1,8 @@
-// SetupForm —— first-run claim wizard。4 步：identity / credentials /
-// ai-provider / verify。业务逻辑全在 useSetupForm hook 里；这里只组装 JSX。
+// SetupForm — first-run claim wizard. 4 steps: identity / credentials /
+// ai-provider / verify. All business logic lives in useSetupForm; this file
+// only assembles the JSX.
 //
-// 设计源 docs/design/project/auth.js Setup。
+// Design source: docs/design/project/auth.js Setup.
 
 'use client';
 
@@ -285,15 +286,19 @@ function VerifyIntro() {
   );
 }
 
-// CaptchaBlock 曾经在这里：一道 `5 + 4 = ?` 的算术框（F-H-1）。
+// CaptchaBlock used to live here: a `5 + 4 = ?` arithmetic box (F-H-1).
 //
-// 删了，因为它**后端不验**：`routes/admin/claim.go` 的 `claimRequest` 里没有校验字段。
-// 真正的授权是一次性 setup token（打印在后端日志里，只有能读服务器的人拿得到）。
-// 于是那道算术拦不住任何 bot —— 能读到 token 的东西当然会算加法 ——
-// 只拦得住 owner 自己挂的 agent，而这个产品要的正是能被它纯自动驱动。
+// Removed because the backend never validated it — `claimRequest` in
+// `routes/admin/claim.go` has no field checking it. The real authorization is a
+// one-time setup token (printed in the server log, reachable only by whoever
+// can read the server). So that arithmetic box blocked no bot — anything that
+// can read the token can obviously add two numbers — it only blocked the
+// owner's own agent, and this product is meant to be driven by exactly that
+// kind of pure automation.
 //
-// **对外的防护一层没动**：login 的 Turnstile（`LoginForm.tsx`，服务端真验）
-// 和 gate / login 的 per-IP 锁定都还在。删的只是这一道装饰。
+// The outward-facing protection layer is untouched: login's Turnstile
+// (`LoginForm.tsx`, verified server-side for real) and the per-IP lockouts on
+// gate / login both remain. Only this decorative step was removed.
 function SummaryBlock({ form }: { form: SetupFormHook }) {
   const f = form.form;
   return (

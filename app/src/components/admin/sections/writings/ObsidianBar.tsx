@@ -1,9 +1,10 @@
-// ObsidianBar —— WritingsSection 顶部的两个 button：
-//   - export to Obsidian: 触发 zip 下载
-//   - import from Obsidian: <input type="file" webkitdirectory> 选 vault 目录上传
+// ObsidianBar —— the two buttons at the top of WritingsSection:
+//   - export to Obsidian: triggers a zip download
+//   - import from Obsidian: <input type="file" webkitdirectory> picks a vault
+//     directory to upload
 //
-// 实现 1:1 主流 (obsidian-importer + Quartz) 形态：owner 手动 click，
-// 没有 watcher / 没有 git。
+// Mirrors the mainstream shape 1:1 (obsidian-importer + Quartz): owner clicks
+// manually, no watcher, no git.
 
 'use client';
 
@@ -30,12 +31,15 @@ export function ObsidianBar({ onImported }: Props) {
     onImported();
   };
   const importer = useObsidianImport(onImportDone);
-  // 导入失败别只是悄悄复位 spinner —— report 反显（uploadVault 现在把 rejection 传上来）。
+  // On import failure, don't just quietly reset the spinner — surface it via
+  // report (uploadVault now propagates the rejection upward).
   const onFiles = (files: FileList) => importer.importVault(files).catch(report);
   return (
-    // import 在前、实心；export 在后、ghost。两个动作**后果不对称**：import 会 upsert 语料
-    // （本轮 vault-sync 记着它还能删），export 只是下载一个 zip。它们原来是两段同字号同灰度的
-    // 文字链接，看不出哪个会改东西（UX-63）。
+    // import comes first, solid; export comes after, ghost. The two actions have
+    // **asymmetric consequences**: import upserts the corpus (and, per this round's
+    // vault-sync, can also delete), export just downloads a zip. They used to be two
+    // text links at the same size and grayscale, with no way to tell which one
+    // changes anything (UX-63).
     <div className="flex items-baseline gap-3 mb-5" data-testid="obsidian-bar">
       <ImportBtn
         busy={importer.busy}
@@ -102,7 +106,7 @@ function StatusDone({ result }: { result: ImportResult }) {
       className="mono text-[10px] text-(--color-muted)"
       data-testid="obsidian-import-result"
     >
-      {/* deleted 也报，哪怕是 0：四个数里只有它不可逆（F-L-62）。 */}
+      {/* Report deleted too, even when 0: of the four counts, it's the only irreversible one (F-L-62). */}
       {t('result', {
         created: result.created, updated: result.updated,
         deleted: result.deleted, skipped: result.skipped,

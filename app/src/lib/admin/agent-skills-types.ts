@@ -12,16 +12,20 @@ export interface MarketSkillView {
   id: string;
   name: string;
   author: string;
-  // repoStars —— 技能所在**仓库**的星数;null = 这个源报不出来(GitHub 那一源就是),
-  // 这时候一个数都不许印 —— `★ 0` 读起来是"零颗星",不是"不知道"(F-F-2)。
+  // repoStars —— star count of the **repository** the skill lives in; null =
+  // this source can't report it (the GitHub source is one such case),
+  // in which case no number may be printed — `★ 0` reads as "zero stars",
+  // not "unknown" (F-F-2).
   repoStars: number | null;
   version: string;
   marketplace: Marketplace;
   category: SkillCategory;
   blurb: string;
   source_url: string;
-  // needs —— owner 还没连、而这个技能要用的连接器名。**null 是一个值**:服务端答不上来
-  // (没读过这个技能的 SKILL.md)。[] 是「答得上,不缺」。两者卡片上都不出提示,但别把它们
-  // 合成一个类型 —— 合了就没人分得出「不知道」和「没问题」(F-F-4)。
+  // needs —— connector names this skill uses that the owner hasn't connected
+  // yet. **null is itself a value**: the server couldn't answer (it hasn't
+  // read this skill's SKILL.md). [] means "answered, nothing missing". Neither
+  // case shows a prompt on the card, but don't merge them into one type —
+  // merging them makes "unknown" and "nothing wrong" indistinguishable (F-F-4).
   needs: readonly string[] | null;
 }

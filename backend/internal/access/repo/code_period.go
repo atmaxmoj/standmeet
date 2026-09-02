@@ -1,8 +1,10 @@
-// code_period.go —— 码级每周期速率闸的求值（embed 规划 2026-09-01）。
+// code_period.go —— evaluates the per-code, per-period rate gate (embed plan 2026-09-01).
 //
-// 跟 gas 的关系：gas 是**总量**（花完手动续）；这个是**每周期自动回满**的桶。没有计数器列 ——
-// 剩多少读时从 dialogs 求和派生（跟 gas / turn 配额同一个做法：没有第二处状态，就没有
-// "计数器跟事实对不上"这种 bug）。窗口是**滚动式**：数这张码在过去 period_seconds 内的量。
+// Relation to gas: gas is a **total pool** (spent down, refilled manually); this is a
+// bucket that **auto-refills every period**. There's no counter column — how much is
+// left is derived at read time by summing dialogs (the same approach as the gas / turn
+// quota: no second piece of state means no "counter drifted from the fact" bug). The
+// window is **rolling**: it counts this code's volume over the past period_seconds.
 
 package repo
 
@@ -18,7 +20,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// turnsSince —— 这张码自某时刻起累计了多少轮（跨这张码的所有会话）。一个 dialog = 一轮。
+// turnsSince —— how many turns this code has accumulated since some moment
+// (across all of this code's sessions). One dialog = one turn.
 func (r *CodeRepo) turnsSince(ctx context.Context, codeID string, since time.Time) (int64, error) {
 	cid, err := pgstore.ParseUUID(codeID)
 	if err != nil {
@@ -34,13 +37,17 @@ func (r *CodeRepo) turnsSince(ctx context.Context, codeID string, since time.Tim
 	return n, nil
 }
 
-// PeriodLimitExceeded —— 这张码这个周期的额度用完了没。
+// PeriodLimitExceeded —— whether this code has used up its quota for this period.
 //
-//   - 码没挂周期闸（limit_per_period IS NULL）→ false，一次查询都不发（跟今天同一条路）。
-//   - 挂了 turns 闸 → 数过去 period_seconds 内的轮数，>= amount 即 true（该拒）。
-//   - unit=='gas' 暂不在这里判（gas 走 provider gas 表，后续接）；unit 不认识 → 当作不限。
+//   - Code has no period gate attached (limit_per_period IS NULL) → false, without
+//     issuing a single query (same fast path as today).
+//   - A turns gate is attached → count the turns in the past period_seconds; >= amount
+//     is true (should deny).
+//   - unit=='gas' isn't judged here yet (gas runs through the provider gas table, to be
+//     wired in later); an unrecognized unit is treated as unlimited.
 //
-// 最后一轮可能超一点点：闸在写之前查，用量在答完之后落。跟 gas / turn 配额同一种取舍。
+// The final turn can overshoot slightly: the gate is checked before the write, but usage
+// lands only after the answer completes. Same trade-off as the gas / turn quota.
 func (r *CodeRepo) PeriodLimitExceeded(ctx context.Context, codeID string) (bool, error) {
 	code, err := r.GetByID(ctx, codeID)
 	if err != nil {
@@ -58,9 +65,11 @@ func (r *CodeRepo) PeriodLimitExceeded(ctx context.Context, codeID string) (bool
 	return used >= w.Amount, nil
 }
 
-// CheckPeriodLimit —— turn preflight 用，返回一个可直接给 handleVisitorErr 的错误。
-// 空 codeID（public/byoai 会话）→ nil。额度用完 → ErrPeriodLimitReached（上层翻 403）。
-// 逻辑住在 repo：路由层圈复杂度上限 3，这里替它把"该不该拦"判完。
+// CheckPeriodLimit —— used by the turn preflight; returns an error that can go straight
+// to handleVisitorErr. An empty codeID (public/byoai session) → nil. Quota used up →
+// ErrPeriodLimitReached (the caller translates it to a 403). The logic lives in the repo:
+// the route layer has a cyclomatic-complexity cap of 3, so this decides "should this be
+// blocked" on its behalf.
 func (r *CodeRepo) CheckPeriodLimit(ctx context.Context, codeID string) error {
 	if codeID == "" {
 		return nil

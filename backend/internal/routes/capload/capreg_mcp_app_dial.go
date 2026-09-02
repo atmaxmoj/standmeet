@@ -1,7 +1,8 @@
-// capreg_mcp_app_dial.go —— mcpAppCapability 的 transport 拨号子关注：把一条 manifest
-// 的 Transport（stdio / http / in_process / sandbox_stdio）dial 成一个 mcpclient
-// 会话。从 capreg_mcp_app.go 拆出来守 max-lines 350 cap。归一：四类走同一入口
-// dialMCPApp，只是底层不同。
+// capreg_mcp_app_dial.go —— mcpAppCapability's transport-dialing sub-concern: dials a
+// manifest's Transport (stdio / http / in_process / sandbox_stdio) into an mcpclient
+// session. Split out of capreg_mcp_app.go to keep it under the max-lines 350 cap. Unified:
+// all four kinds go through the same entry point, dialMCPApp, only the underlying
+// implementation differs.
 
 package capload
 
@@ -16,13 +17,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
-// transportDialers —— 每种 transport 一个拨号器，dialMCPApp 查表分发。in_process
-// 内存直连同进程 server；sandbox_stdio 经 bwrap 隔离起第三方 server。workspaceDir 是
-// 这次 session 懒建出来的 per-session 工作区（仅 sandbox_stdio + manifest workspace=true
-// 时非空），非沙箱 dialer 忽略它。
+// transportDialers —— one dialer per transport kind; dialMCPApp dispatches via this table.
+// in_process connects in-memory directly to a same-process server; sandbox_stdio starts a
+// third-party server isolated through bwrap. workspaceDir is this session's lazily
+// provisioned per-session workspace (non-empty only for sandbox_stdio + manifest
+// workspace=true); non-sandbox dialers ignore it.
 //
-// 拨号器收的是整份 manifest 而不只是 Transport：沙箱要 bind 的那个 host socket 路径由
-// **宿主信任的 id** 派生（hostop.SocketPath），不从 manifest 的字段里取。
+// The dialer takes the whole manifest, not just Transport: the host socket path the sandbox
+// needs to bind is derived from the **host-trusted id** (hostop.SocketPath), not read from a
+// manifest field.
 var transportDialers = map[string]func(
 	context.Context, *mcpplugin.Manifest, string,
 ) (*mcpclient.Session, error){
@@ -32,8 +35,8 @@ var transportDialers = map[string]func(
 	mcpplugin.TransportSandboxStdio: dialSandboxStdio,
 }
 
-// dialMCPApp —— 查 transportDialers 分发。未知 kind → error。错误被 VisitorBinding
-// 收成 ErrHidden,这里只负责 dial。
+// dialMCPApp —— looks up transportDialers and dispatches. Unknown kind → error. The error
+// is folded into ErrHidden by VisitorBinding; this function is only responsible for dialing.
 func dialMCPApp(
 	ctx context.Context, m *mcpplugin.Manifest, workspaceDir string,
 ) (*mcpclient.Session, error) {
@@ -63,10 +66,12 @@ func dialInProcess(
 	return sess, wrapDial(err)
 }
 
-// dialSandboxStdio —— 主进程把第三方 server 起在 bubblewrap 隔离环境里（只读 host
-// 运行时 + 只读插件代码 + per-session workspace + tmpfs /tmp + 默认无网，碰不了
-// host）；stdio 透明走 bwrap 的 stdin/stdout，dial 仍是普通 DialStdio，只是命令被包
-// 了一层 `bwrap`。workspaceDir 非空 → bind 进沙箱的 /workspace（可写、跨 turn 持久）。
+// dialSandboxStdio —— the main process starts the third-party server inside a bubblewrap
+// isolation environment (read-only host runtime + read-only plugin code + a per-session
+// workspace + tmpfs /tmp + no network by default, unable to touch the host); stdio passes
+// transparently through bwrap's stdin/stdout, so dialing is still a plain DialStdio, just
+// with the command wrapped in `bwrap`. A non-empty workspaceDir gets bound into the
+// sandbox's /workspace (writable, persists across turns).
 func dialSandboxStdio(
 	ctx context.Context, m *mcpplugin.Manifest, workspaceDir string,
 ) (*mcpclient.Session, error) {
@@ -78,23 +83,26 @@ func dialSandboxStdio(
 	return sess, wrapDial(derr)
 }
 
-// sandboxStdioArgv —— 把 manifest 的沙箱声明 + 容器内启动命令拼成 `bwrap ...` argv
-// （只读 host 运行时 / 只读插件代码 / tmpfs / 网络策略），交给 DialStdio。
+// sandboxStdioArgv —— assembles the manifest's sandbox declaration + the in-container start
+// command into a `bwrap ...` argv (read-only host runtime / read-only plugin code / tmpfs /
+// network policy), handed off to DialStdio.
 func sandboxStdioArgv(m *mcpplugin.Manifest, workspaceDir string) ([]string, error) {
 	t := &m.Transport
 	if t.Sandbox == nil {
 		return nil, errors.New("plugin: sandbox_stdio missing sandbox config")
 	}
 	launch := &sandbox.StdioLaunch{
-		CodeDir: t.Sandbox.PluginDir, // 插件代码（MinIO materialize 出来的只读 artifact）
-		// WorkspaceDir —— per-session 懒建工作区（manifest workspace=true 才有），bind
-		// 进沙箱 /workspace；空则该 session 无持久工作区（只有 ephemeral tmpfs /tmp）。
+		CodeDir: t.Sandbox.PluginDir, // plugin code (a read-only artifact materialized by MinIO)
+		// WorkspaceDir —— the lazily-provisioned per-session workspace (present only when
+		// manifest workspace=true), bound into the sandbox's /workspace; empty means this
+		// session has no persistent workspace (only ephemeral tmpfs /tmp).
 		WorkspaceDir: workspaceDir,
-		Workspace:    t.Sandbox.Workspace, // 想要 /workspace（无 session 时 tmpfs 兜底）
+		Workspace:    t.Sandbox.Workspace, // wants /workspace (falls back to tmpfs with no session)
 		Command:      t.Command,
 		Args:         t.Args,
 		AllowNet:     t.Sandbox.AllowNet,
-		// 声明了 host op 的能力才 bind 它那一根 socket；路径由 id 派生，manifest 不写路径。
+		// Only a capability that declared a host op gets that one socket bound; the path is
+		// derived from id, the manifest never writes a path.
 		HostSockets: hostSocketsFor(m),
 	}
 	argv, err := launch.BwrapArgv()
@@ -104,8 +112,9 @@ func sandboxStdioArgv(m *mcpplugin.Manifest, workspaceDir string) ([]string, err
 	return argv, nil
 }
 
-// hostSocketsFor —— 这个能力要 bind 进沙箱的 host socket。点过 host op 才有，一根；
-// 没点过 → 空（完全断网、连回头的路都没有）。
+// hostSocketsFor —— the host socket this capability needs bound into the sandbox. Only
+// present, and only one, if it declared a host op; not declared → empty (fully offline,
+// with no path back at all).
 func hostSocketsFor(m *mcpplugin.Manifest) []string {
 	if m.Transport.Sandbox == nil || len(m.Transport.Sandbox.HostOps) == 0 {
 		return []string{}
@@ -113,17 +122,19 @@ func hostSocketsFor(m *mcpplugin.Manifest) []string {
 	return []string{hostop.SocketPath(m.ID)}
 }
 
-// workspaceProvisioner —— composition root 注入的 per-session 工作区分配器（由
-// internal/sandboxws.Manager.Provision 实现）。nil = 无工作区子系统（eval / 未配）。
+// workspaceProvisioner —— the per-session workspace allocator injected by the composition
+// root (implemented by internal/sandboxws.Manager.Provision). nil = no workspace subsystem
+// (eval / not configured).
 var workspaceProvisioner func(sessionID string) (string, error)
 
-// SetWorkspaceProvisioner —— composition root 注入工作区分配器。
+// SetWorkspaceProvisioner —— composition root injects the workspace allocator.
 func SetWorkspaceProvisioner(fn func(sessionID string) (string, error)) {
 	workspaceProvisioner = fn
 }
 
-// provisionWorkspaceFor —— manifest 声明 workspace=true 且有 session id 时，懒建并返回
-// 这次 session 的工作区 host 路径；否则 / 失败 → 空（沙箱无 /workspace）。
+// provisionWorkspaceFor —— when the manifest declares workspace=true and there's a session
+// id, lazily provisions and returns this session's workspace host path; otherwise / on
+// failure → empty (the sandbox has no /workspace).
 func provisionWorkspaceFor(m *mcpplugin.Manifest, sessionID string) string {
 	if !wantsWorkspace(m, sessionID) {
 		return ""
@@ -135,8 +146,8 @@ func provisionWorkspaceFor(m *mcpplugin.Manifest, sessionID string) string {
 	return dir
 }
 
-// wantsWorkspace —— 这次 dial 该不该分配持久工作区：插件声明了 workspace、有 session id、
-// 且注入了 provisioner。
+// wantsWorkspace —— whether this dial should get a persistent workspace allocated: the
+// plugin declares workspace, there's a session id, and a provisioner is injected.
 func wantsWorkspace(m *mcpplugin.Manifest, sessionID string) bool {
 	s := m.Transport.Sandbox
 	return s != nil && s.Workspace && sessionID != "" && workspaceProvisioner != nil

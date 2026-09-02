@@ -1,9 +1,10 @@
-// ghosts.go —— H.13.e: shown / accept 两条薄 usecase。把 owner_id
-// 校验 + repo 调用收成一层，让 routes/public 不必直接依赖 postgres 包。
+// ghosts.go —— H.13.e: two thin use cases, shown / accept. Collects owner_id
+// validation + repo calls into one layer so routes/public don't need to depend on the
+// postgres package directly.
 //
-// 这一层不是单纯 passthrough：shown 时校 source 合法 (initial / followup)；
-// accept 时校 ownership (repo 的 WHERE 已经带 owner_id 但 usecase 把
-// not-found 翻成 domain sentinel)。
+// This layer isn't pure passthrough: shown validates source is legal (initial /
+// followup); accept validates ownership (the repo's WHERE already carries owner_id, but
+// the usecase translates not-found into a domain sentinel).
 
 package usecase
 
@@ -16,14 +17,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// GhostDeps —— routes 注入。
+// GhostDeps —— injected by routes.
 type GhostDeps struct {
 	Repo *repo.GhostRepo
 }
 
-// RecordGhostShownInput —— POST sessions/{id}/ghosts/shown 入参。
-// OwnerID / ConversationID 由 session auth 解出来的；GhostText / Source /
-// TurnIndex 来自 visitor 浏览器 body。
+// RecordGhostShownInput —— input for POST sessions/{id}/ghosts/shown.
+// OwnerID / ConversationID are resolved from session auth; GhostText / Source /
+// TurnIndex come from the visitor browser's body.
 type RecordGhostShownInput struct {
 	OwnerID        string
 	ConversationID string
@@ -32,7 +33,7 @@ type RecordGhostShownInput struct {
 	TurnIndex      int32
 }
 
-// RecordGhostShown —— 校 source 合法 → 写一行。
+// RecordGhostShown —— validates source is legal → writes one row.
 func RecordGhostShown(
 	ctx context.Context, deps *GhostDeps, in *RecordGhostShownInput,
 ) (entity.Ghost, error) {
@@ -56,8 +57,7 @@ func RecordGhostShown(
 	return row, nil
 }
 
-// AcceptGhost —— 翻 accepted_at = now()；找不到翻
-// ErrGhostNotFound。
+// AcceptGhost —— sets accepted_at = now(); returns ErrGhostNotFound when not found.
 func AcceptGhost(
 	ctx context.Context, deps *GhostDeps,
 	ownerID, conversationID, ghostID string,
@@ -69,7 +69,7 @@ func AcceptGhost(
 	return row, nil
 }
 
-// ListGhostsForConversation —— admin conversation detail 用。
+// ListGhostsForConversation —— used by admin conversation detail.
 func ListGhostsForConversation(
 	ctx context.Context, deps *GhostDeps, ownerID, conversationID string,
 ) ([]entity.Ghost, error) {

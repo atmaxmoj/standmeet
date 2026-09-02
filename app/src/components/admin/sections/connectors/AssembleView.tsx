@@ -1,14 +1,17 @@
-// AssembleView —— 归一装配视图（一个品类一套）。owner 二选一：上传一份 OpenAPI spec 装配一个
-// per-SaaS 连接器（openapi 路），或填内置协议（CalDAV/SMTP）的固定表单直接连（protocol 路）。
-// 归一鈦：两 kind 同一个视图，连上后跑同一品类契约。
+// AssembleView — the unified assembly view (one per category). Owner picks one of two paths:
+// upload an OpenAPI spec to assemble a per-SaaS connector (openapi path), or fill the fixed
+// form of a built-in protocol (CalDAV/SMTP) to connect directly (protocol path).
+// Unification: both kinds share one view and, once connected, run the same category contract.
 //
-// **openapi 那一半渲染的是 ConnectorSpecIngest 本尊，不是这里自己搓的第二个表单**（F-C-21）。
-// 原来这里有一个只收 `{ spec, binding }` 整块 JSON 的文本框 —— 跟目录层那个表单的 payload 形状
-// 不是一个东西，而且从目录层走过来时会把已填的候选/方案/token 全部清空。两份实现就是漂移本身。
+// **The openapi half renders the real ConnectorSpecIngest, not a second form hand-rolled here**
+// (F-C-21). This used to have a textbox that only accepted one JSON blob `{ spec, binding }` —
+// a different payload shape from the catalog-level form, and it wiped whatever candidate/plan/
+// token was already filled when arriving from the catalog. Two implementations is drift itself.
 //
-// 品类卡这个入口留着是有理由的：owner 点进 Calendar 只看得见 CalDAV 的话，不会知道还能自带一份
-// OpenAPI 日历。但**品类对 openapi 这条路不起作用** —— 品类由 binding 声明（后端 BindingCategory），
-// 跟点了哪张卡无关。
+// The category-card entry point stays for a reason: an owner clicking into Calendar who only
+// sees CalDAV won't know they can bring their own OpenAPI calendar too. But **category has no
+// effect on the openapi path** — category is declared by the binding (backend BindingCategory),
+// not by which card was clicked.
 
 'use client';
 
@@ -38,20 +41,24 @@ export function AssembleView({ category, onAssemble, assemble }: {
   );
 }
 
-// ProtocolFormMaybe —— spec 校验出候选之后就把协议表单收起来。两个理由，一个产品一个机制：
+// ProtocolFormMaybe — collapses the protocol form once the spec validates into a candidate.
+// Two reasons, one product-facing and one mechanical:
 //
-// 产品 —— owner 已经选定了「自带一份 OpenAPI」这条路，屏幕上再摆一套 CalDAV 凭据框，就是
-// item 的 LOOK 行说的那种「两个做同一件事、做法却不同的表单」。
+// Product — the owner already picked "bring your own OpenAPI"; showing a CalDAV credentials
+// form on the same screen is exactly the "two forms doing the same thing, differently" item
+// the LOOK line warns about.
 //
-// 机制 —— 两套表单的字段 testid 同名空间（connector-field-{key}）。今天恰好不撞是因为
-// oauth2 派生出 client_id/client_secret 而 CalDAV 是 url/username/password；一份声明 basic
-// 认证的 spec 会派生出 username/password，当场撞车。**靠字段名恰好不重来保证唯一性**不是保证。
+// Mechanical — both forms share the same field testid namespace (connector-field-{key}).
+// They happen not to collide today because oauth2 derives client_id/client_secret while
+// CalDAV uses url/username/password; a spec declaring basic auth would derive username/
+// password and collide on the spot. **Relying on field names happening not to repeat**
+// is not a guarantee.
 function ProtocolFormMaybe({ category, hidden }: { category: string; hidden: boolean }) {
   return hidden ? null : <ProtocolForm category={category} />;
 }
 
-// ProtocolForm —— 内置协议（CalDAV/SMTP）的固定凭据表单 + connect（use-protocol-connect 建连接器 +
-// 存凭据 + 连接测试）。
+// ProtocolForm — fixed credentials form for a built-in protocol (CalDAV/SMTP) + connect
+// (use-protocol-connect creates the connector, stores credentials, and runs the connect test).
 function ProtocolForm({ category }: { category: string }) {
   const proto = protocolForCategory(category);
   return proto === undefined ? null : <ProtocolFields category={category} proto={proto} />;
@@ -85,7 +92,8 @@ function TextField({ field, onChange }: { field: AssembleField; onChange: (v: st
   );
 }
 
-// ConnectRow —— 协议路的 Connect 按钮 + 状态/错误。save() 建连接器+存凭据，随后真连接测试。
+// ConnectRow — the Connect button + status/error for the protocol path. save() creates the
+// connector and stores credentials, then runs the real connect test.
 function ConnectRow({ hook, onConnect }: { hook: ProtocolConnectHook; onConnect: () => void }) {
   const t = useTranslations('adminIntegrations.common');
   return (
@@ -106,7 +114,8 @@ function ConnectRow({ hook, onConnect }: { hook: ProtocolConnectHook; onConnect:
   );
 }
 
-// protoStatusText —— connecting… 不含 "connected" 子串，让 expectConnected 真等到 connect 落定。
+// protoStatusText — "connecting…" has no "connected" substring, so expectConnected really
+// waits for connect to settle.
 function protoStatusText(status: string): string {
   return status === 'connected' ? 'connected' : status === 'connecting' ? 'connecting…' : 'not connected';
 }

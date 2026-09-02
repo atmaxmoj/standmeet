@@ -1,5 +1,8 @@
-// Package axisconn —— 连接器轴的接线:内置与 owner 上传的连接器、品类操作、品类依赖注册表。
+// Package axisconn —— wiring for the connector axis: built-in and owner-uploaded
+// connectors, category operations, the category dependency registry.
 //
-// 连接器的**声明**不在这儿 —— 在 backend/connectors/<id>/manifest.yaml。这个包只负责把声明
-// 接到机制上:装配进 Hub、把品类契约上的动作接上实现、让"这个品类连上了没有"有个可问的地方。
+// The connector's **declaration** doesn't live here — it's in
+// backend/connectors/<id>/manifest.yaml. This package only wires the declaration to the
+// mechanism: assembling it into the Hub, hooking implementations onto the category
+// contract's actions, giving "is this category connected" a place to ask.
 package axisconn

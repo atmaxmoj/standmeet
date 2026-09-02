@@ -1,26 +1,36 @@
-// pertool.go —— **动作级**的那一层闸：能力过了闸，不代表它的每一个动作都做得了。
+// pertool.go — the **action-level** gate: a capability clearing the gate
+// doesn't mean every one of its actions can be performed.
 //
-// 为什么要有这一层（F-B-8 ⭐⭐）：`Requires` 是能力级的，只答「连没连」。owner 只授了
-// `calendar.readonly` 时，日历连接是好的、列时段是好的，**只有写永远 403** ——
-// 而产品照旧把「订会」摆在访客面前，还告诉他「过一会儿再问」（那句话永远不会成真）。
+// Why this layer is needed (F-B-8 ⭐⭐): `Requires` is capability-level, it
+// only answers "connected or not". When an owner has granted only
+// `calendar.readonly`, the calendar connection is fine, listing slots is
+// fine, **only writes always 403** — yet the product would still put "book a
+// meeting" in front of the visitor, and tell them "try again later" (a
+// promise that never comes true).
 //
-// 为什么不能把要求提到能力级：那会**连列时段一起藏掉**，而它在只读授权下本来是好的。
-// 为了修「提供了做不到的动作」而拿掉一个「做得到的动作」，不是修复。产品在邮件那边
-// 早就按动作办：确认邮件那一块不渲染，预约本身照旧在。
+// Why the requirement can't just be raised to capability level: that would
+// **hide listing slots too**, even though it's fine under a read-only grant.
+// Removing a "doable action" to fix "an offered action that can't be
+// performed" is not a fix. The product already handles this by action on the
+// email side: the confirmation-email part just doesn't render, the booking
+// itself still goes through.
 
 package capreg
 
 import "context"
 
-// RequiresPerTool —— 可选接口：这个能力的**某几个工具**各自还额外要什么依赖。
+// RequiresPerTool — optional interface: which **specific tools** of this
+// capability each need some extra dependency.
 //
-// 返回的表只放**点了名的那几个**；不在表里 = 没有额外要求（那是绝大多数）。
+// The returned table only holds the **explicitly named** ones; not being in
+// the table = no extra requirement (true for most).
 type RequiresPerTool interface {
 	ToolRequires() map[string][]string
 }
 
-// dropUnperformableTools —— 按工具各自声明的依赖再筛一遍：做不了的那一个不出现，
-// 做得了的照旧在。没声明的一律留着。
+// dropUnperformableTools — filters once more by each tool's own declared
+// dependencies: the one that can't be performed doesn't show up, the ones
+// that can stay. Anything undeclared is always kept.
 func (r *Registry) dropUnperformableTools(
 	ctx context.Context, c Capability, in *AssembleInput, b *Binding,
 ) {
@@ -37,8 +47,9 @@ func (r *Registry) dropUnperformableTools(
 	b.Tools = kept
 }
 
-// perToolRequires —— 这个能力有没有动作级声明，以及这一场有没有 owner 上下文可判。
-// 任一不成立 → 空表 → 一个都不筛。
+// perToolRequires — whether this capability has an action-level declaration,
+// and whether this session has owner context to judge by. Either not holding
+// → empty table → nothing gets filtered.
 func perToolRequires(c Capability, in *AssembleInput) map[string][]string {
 	pr, ok := c.(RequiresPerTool)
 	if !ok || in == nil || in.OwnerID == "" {
@@ -47,9 +58,10 @@ func perToolRequires(c Capability, in *AssembleInput) map[string][]string {
 	return pr.ToolRequires()
 }
 
-// toolPerformable —— 这一个工具点名的依赖都满足吗。没点名 → 留着。
-// 解析出错按**做不了**处理（fail-closed，跟能力级那一层同一条纪律）：
-// 说不清能不能做的时候，不把它摆给访客。
+// toolPerformable — are all the dependencies this one tool names satisfied.
+// Not named → keep it. A resolution error is treated as **can't perform**
+// (fail-closed, the same discipline as the capability-level layer): when it's
+// unclear whether it can be done, don't put it in front of the visitor.
 func (r *Registry) toolPerformable(
 	ctx context.Context, c Capability, in *AssembleInput, names []string,
 ) bool {

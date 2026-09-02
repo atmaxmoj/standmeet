@@ -1,5 +1,6 @@
-// oauth.go —— connectorsvc 的 OAuth dance 内部件：读 client_id、拼 redirect_uri、state 存取、
-// code 换 token + 存。endpoints/client 来自 manifest spec + owner 存的凭据，不写死 provider。
+// oauth.go — connectorsvc's OAuth dance internals: reading client_id, building redirect_uri,
+// state storage/retrieval, exchanging code for a token + storing it. Endpoints/client come from
+// the manifest's spec + the owner's stored credentials; no provider is hardcoded.
 
 package connector
 
@@ -17,10 +18,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// pkceVerifierBytes —— 32 字节随机 → base64url 43 个字符，正好是 RFC 7636 的下限。
+// pkceVerifierBytes — 32 random bytes → 43 base64url characters, exactly RFC 7636's floor.
 const pkceVerifierBytes = 32
 
-// oauthCred —— oauth2 连接器凭据（owner 的 OAuth app）+ owner 勾选的 scope 子集（带进 dance）。
+// oauthCred — oauth2 connector credentials (the owner's OAuth app) + the scope subset the owner
+// checked (carried into the dance).
 type oauthCred struct {
 	ClientID     string   `json:"client_id"`
 	ClientSecret string   `json:"client_secret"`
@@ -44,7 +46,7 @@ func (s *Service) loadOAuthCred(ctx context.Context, ownerID, id string) (oauthC
 	return cred, nil
 }
 
-// redirectURI —— full redirect_uri = owner.PublicURL + callback path。
+// redirectURI — full redirect_uri = owner.PublicURL + callback path.
 func (s *Service) redirectURI(ctx context.Context, ownerID, id string) (string, error) {
 	base, err := s.d.Owners.PublicURL(ctx, ownerID)
 	if err != nil {
@@ -61,8 +63,9 @@ func randomState() (string, error) {
 	return hex.EncodeToString(buf), nil
 }
 
-// pendingDance —— 一次 dance 在 Redis 里存着的东西：谁、哪个连接器、这次的 PKCE verifier。
-// verifier **只能待在服务端**：它就是那个「只有发起方知道」的秘密，跟着 URL 走一遍就没意义了。
+// pendingDance — what one dance has stored in Redis: who, which connector, this round's PKCE
+// verifier. The verifier **must stay server-side only**: it's the secret that "only the
+// initiator knows", and sending it along the URL would defeat its whole purpose.
 type pendingDance struct {
 	OwnerID     string
 	ConnectorID string
@@ -77,8 +80,8 @@ func (s *Service) persistState(ctx context.Context, state string, d *pendingDanc
 	return nil
 }
 
-// newVerifier —— PKCE 的 code_verifier：43–128 个 unreserved 字符（RFC 7636 §4.1）。
-// 32 字节随机 → base64url 出 43 个字符，正好是下限。
+// newVerifier — PKCE's code_verifier: 43–128 unreserved characters (RFC 7636 §4.1).
+// 32 random bytes → base64url yields 43 characters, exactly the floor.
 func newVerifier() (string, error) {
 	buf := make([]byte, pkceVerifierBytes)
 	if _, err := rand.Read(buf); err != nil {
@@ -87,15 +90,18 @@ func newVerifier() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
-// challengeFor —— S256(verifier)，也就是发给 provider 的那一半。
+// challengeFor — S256(verifier), the half sent to the provider.
 func challengeFor(verifier string) string {
 	sum := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
-// consumeState —— 校验 + 一次性消费 state（防重放）。返回 (ownerID, err)：空 ownerID = state 无效
-// （空/过期/不匹配，预期态）；err 仅在 Redis **故障**时非空——基建错要吵闹，不能跟「state 不存在」
-// 混成一个空值掩盖掉。（ownerID 是 UUID，永不为空串，故空串可当「无效」信号，免第三个返回值。）
+// consumeState — validates + consumes state exactly once (anti-replay). Returns
+// (ownerID, err): empty ownerID = invalid state (empty/expired/mismatched, an expected state);
+// err is non-nil only on a Redis **fault** — infrastructure errors must be loud, never masked
+// into an empty value alongside "state doesn't exist". (ownerID is a UUID and is never an empty
+// string, so an empty string can serve as the "invalid" signal without needing a third return
+// value.)
 func (s *Service) consumeState(ctx context.Context, state, id string) (pendingDance, error) {
 	if state == "" {
 		return pendingDance{}, nil
@@ -103,16 +109,17 @@ func (s *Service) consumeState(ctx context.Context, state, id string) (pendingDa
 	val, err := s.d.Redis.GetDel(ctx, stateKey(state)).Result()
 	switch {
 	case errors.Is(err, redis.Nil):
-		return pendingDance{}, nil // key 不存在（过期/已用/重放）= 预期态，非故障
+		// key doesn't exist (expired/used/replayed) = expected state, not a fault
+		return pendingDance{}, nil
 	case err != nil:
-		return pendingDance{}, fmt.Errorf("read oauth state: %w", err) // Redis 故障 → 上报
+		return pendingDance{}, fmt.Errorf("read oauth state: %w", err) // Redis fault → reported
 	}
 	return danceFromState(val, id), nil
 }
 
-// danceFromState —— state 值 "ownerID|connectorID|verifier" 解回来；连接器不匹配 →
-// 零值（OwnerID 为空 = 无效）。verifier 那一段是后加的，老值（只有两段）解出空 verifier，
-// 行为跟从前一致。
+// danceFromState — decodes the state value "ownerID|connectorID|verifier" back; connector
+// mismatch → zero value (empty OwnerID = invalid). The verifier segment was added later; an old
+// value (only two segments) decodes to an empty verifier, keeping prior behavior unchanged.
 func danceFromState(val, id string) pendingDance {
 	ownerID, rest, found := strings.Cut(val, "|")
 	if !found {
@@ -127,7 +134,8 @@ func danceFromState(val, id string) pendingDance {
 
 func stateKey(state string) string { return "connector:oauth:" + state }
 
-// initDance —— 起一次 dance：读凭据、拼 redirect_uri、开两个秘密、拼同意页 URL。
+// initDance — starts one dance: reads credentials, builds redirect_uri, generates the two
+// secrets, builds the consent-page URL.
 func (s *Service) initDance(
 	ctx context.Context, ownerID, id string, ep OAuthEndpoints,
 ) (ConnectResult, error) {
@@ -150,14 +158,15 @@ func (s *Service) initDance(
 	return ConnectResult{AuthURL: url, State: open.State}, nil
 }
 
-// openedDance —— 起一次 dance 产出的两个秘密。
+// openedDance — the two secrets produced by starting one dance.
 type openedDance struct {
 	State    string
 	Verifier string
 }
 
-// openDance —— `state` 防 CSRF，跟着 URL 走一圈回来；PKCE 的 `verifier` 防授权码被截走，
-// **只待在服务端**。两个一起存进 Redis，callback 那一步凭 state 把 verifier 取回来。
+// openDance — `state` guards against CSRF and travels the URL round trip; PKCE's `verifier`
+// guards against the authorization code being intercepted, and **stays server-side only**. Both
+// are stored together in Redis, and the callback step retrieves the verifier by state.
 func (s *Service) openDance(ctx context.Context, ownerID, id string) (openedDance, error) {
 	state, serr := randomState()
 	if serr != nil {
@@ -175,7 +184,7 @@ func (s *Service) openDance(ctx context.Context, ownerID, id string) (openedDanc
 	return openedDance{State: state, Verifier: verifier}, nil
 }
 
-// danceCtx —— dance 三件套（endpoints + 凭据 + redirect_uri）。
+// danceCtx — the dance's three-piece bundle (endpoints + credentials + redirect_uri).
 type danceCtx struct {
 	cred     oauthCred
 	redirect string
@@ -206,7 +215,8 @@ func (s *Service) exchangeAndStore(ctx context.Context, d *pendingDance, code st
 	return nil
 }
 
-// danceContext —— 取 dance 三件套（endpoints + 凭据 + redirect_uri）。
+// danceContext — fetches the dance's three-piece bundle (endpoints + credentials +
+// redirect_uri).
 func (s *Service) danceContext(ctx context.Context, ownerID, id string) (danceCtx, error) {
 	m, merr := s.manifestFor(ctx, ownerID, id)
 	if merr != nil {

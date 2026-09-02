@@ -1,11 +1,15 @@
-// impls.go —— 连接器在 manifest 里声明的 owner 操作,在这一侧的实现。
+// impls.go —— this side's implementation of the owner operations a connector
+// declares in its manifest.
 //
-// 声明和实现分两处是有意的:声明是**数据**(连接器自己的 manifest 说它出哪个操作、长什么样),
-// 实现按**品类契约**接上(mail.test_send → contract.MailProxy)。通用注册表因此不认识任何
-// 品类;认识品类的只有这张表,而这一侧本来就是放两根插件轴的地方。
+// The declaration and the implementation are kept in two separate places on
+// purpose: the declaration is **data** (the connector's own manifest says which
+// operation it offers and what it looks like), the implementation wires up through
+// the **category contract** (mail.test_send → contract.MailProxy). The generic
+// registry therefore knows no category at all; only this table knows any category,
+// and this side is exactly where the two plugin axes belong.
 //
-// manifest 声明了一个这里没有的 op = 启动就炸(见 connectorDeclaredOps),不会等到 owner
-// 点下去才发现。
+// A manifest that declares an op not in this table panics at boot (see
+// connectorDeclaredOps) — it's never discovered only after the owner clicks it.
 
 package axisconn
 
@@ -23,7 +27,7 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// connectorOpImpls —— 品类契约操作 → 实现。
+// connectorOpImpls —— category contract operation → implementation.
 func connectorOpImpls(d *deps.Runtime) map[string]fp.Invoke {
 	return map[string]fp.Invoke{
 		"mail.test_send": mailTestSend(d),
@@ -31,8 +35,9 @@ func connectorOpImpls(d *deps.Runtime) map[string]fp.Invoke {
 	}
 }
 
-// calendarFailureReason —— 归类后的一句话,给 owner 看。跟 mailFailureReason 同一套纪律:
-// 每一句都指出下一步,措辞里不放状态码、主机名、栈。
+// calendarFailureReason —— a classified sentence, for the owner to read. Same
+// discipline as mailFailureReason: every sentence points to the next step, and the
+// wording never carries a status code, hostname, or stack trace.
 func calendarFailureReason(err error) string {
 	switch {
 	case errors.Is(err, contract.ErrCalendarNotConnected):
@@ -42,7 +47,8 @@ func calendarFailureReason(err error) string {
 	case errors.Is(err, contract.ErrCalendarBadRequest):
 		return "the calendar rejected this request — check the booking policy"
 	default:
-		// 含 ErrCalendarUnavailable 和还没归过类的:对 owner 都是同一件事,等一会儿再试。
+		// covers ErrCalendarUnavailable and anything not yet classified: to the
+		// owner they're the same thing — try again in a bit.
 		return "couldn't reach the calendar — please try again later"
 	}
 }
@@ -51,24 +57,31 @@ type calendarCheckArgs struct {
 	Days int `json:"days"`
 }
 
-// calendarCheckOut —— 通了就报**它到底说了什么**(往后看几天、其中几段是忙的),没通就报一句人话。
+// calendarCheckOut —— on success, reports **what the calendar actually said**
+// (how many days ahead, how many of those slots are busy); on failure, reports one
+// plain-language sentence.
 //
-// 为什么回执要带 BusyCount 而不是一句 ok:owner 要判的是「这条链现在还活着吗」,而 "ok" 这个词
-// 一个本地短路也答得出来。忙时段的条数只能来自 provider 那一头,所以它才是回执。
+// Why the receipt carries BusyCount instead of a bare ok: what the owner needs to
+// judge is "is this chain still alive right now", and the word "ok" can be answered
+// by a local short-circuit too. The count of busy slots can only come from the
+// provider's side, which is what makes it a real receipt.
 type calendarCheckOut struct {
 	Reason string `json:"reason,omitempty"`
-	// Summary —— 成功那一句,**这个操作自己说**。通用的那一层原本只会说邮件那句
-	// 「去收件箱确认」,对日历自检是胡话。
+	// Summary —— the success sentence, **spoken by this operation itself**. The
+	// generic layer would otherwise only know the mail sentence "check your
+	// inbox to confirm", which is nonsense for a calendar self-check.
 	Summary   string `json:"summary,omitempty"`
 	Days      int    `json:"days,omitempty"`
 	BusyCount int    `json:"busy_count"`
 	OK        bool   `json:"ok"`
 }
 
-// checkWindowDays —— 默认往后看多久。一周足够碰到大多数人的日程,又不至于让 provider 慢下来。
+// checkWindowDays —— how far ahead to look by default. A week is enough to catch
+// most people's schedule without slowing the provider down.
 const checkWindowDays = 7
 
-// plural —— 回执要读得像句话。「1 busy blocks」会让 owner 停一下去想是不是哪儿错了。
+// plural —— the receipt needs to read like a sentence. "1 busy blocks" would make
+// the owner stop and wonder if something's wrong.
 func plural(n int, one, many string) string {
 	if n == 1 {
 		return one
@@ -76,13 +89,17 @@ func plural(n int, one, many string) string {
 	return many
 }
 
-// calendarCheck —— 拿存着的凭据向日历问一段 free/busy。
+// calendarCheck —— asks the calendar for a free/busy window using the stored
+// credentials.
 //
-// **只读**:不建事件、不改任何东西。一次成功把整条链一起证了 —— 凭据是真的、token 有效或已被
-// 透明刷新、scope 够用、账号可达。这正是卡片上那个 "connected" 声称、却从不检查的东西。
+// **Read-only**: creates no event, changes nothing. One success proves the whole
+// chain at once — the credential is real, the token is valid or has been
+// transparently refreshed, the scope is enough, the account is reachable. This is
+// exactly what the card's "connected" claim asserts and never actually checks.
 //
-// 问不到**不是**这台机器的错(授权被撤销 / provider 抖动都算常态),所以回 ok:false 而不是报错:
-// owner 要的就是这个答案。
+// A failure to reach it is **not** this machine's fault (a revoked grant / a
+// provider hiccup both count as normal), so it returns ok:false instead of an error
+// — that's the answer the owner actually wants.
 func calendarCheck(d *deps.Runtime) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var in calendarCheckArgs
@@ -98,7 +115,8 @@ func calendarCheck(d *deps.Runtime) fp.Invoke {
 			TimeMin: now, TimeMax: now.AddDate(0, 0, days),
 		})
 		if ferr != nil {
-			// 原始错误进日志(排查的人要);面上给归类后的一句话。
+			// the raw error goes to the log (that's for whoever debugs it); the
+			// surface gets the classified sentence.
 			d.Log.Warn("connectors.calendar_check", "err", ferr)
 			return json.Marshal(calendarCheckOut{OK: false, Reason: calendarFailureReason(ferr)})
 		}
@@ -111,10 +129,12 @@ func calendarCheck(d *deps.Runtime) fp.Invoke {
 	}
 }
 
-// mailFailureReason —— 归类后的一句话,给 owner 看。
+// mailFailureReason —— a classified sentence, for the owner to read.
 //
-// **每一句都要能指出下一步**:改配置 / 换收件人 / 等一会儿再试。措辞里不放状态码、
-// 主机名、栈 —— 那些对 owner 没有意义,而这条消息会一路渲到浏览器上。
+// **Every sentence has to point to a next step**: fix the config / change the
+// recipient / try again in a bit. The wording never carries a status code,
+// hostname, or stack trace — those mean nothing to the owner, and this message gets
+// rendered all the way to the browser.
 func mailFailureReason(err error) string {
 	switch {
 	case errors.Is(err, consumer.ErrMailNotConfigured):
@@ -122,8 +142,8 @@ func mailFailureReason(err error) string {
 	case errors.Is(err, contract.ErrMailRejected):
 		return "the mail provider rejected this message — check the recipient address"
 	default:
-		// 含 ErrMailUnavailable,也含还没归过类的:两者对 owner 是同一件事 ——
-		// 他改不了,过一会儿再试。
+		// covers ErrMailUnavailable, and anything not yet classified: both are
+		// the same thing to the owner — nothing he can fix, try again later.
 		return "couldn't reach the mail provider — please try again later"
 	}
 }
@@ -134,28 +154,35 @@ type mailTestSendArgs struct {
 	Text    string `json:"text"`
 }
 
-// mailTestSentOut —— 发成了就报是哪种 mail kind 送的(证明发信这条路跟 kind 无关);
-// 没发成就报一句**人话的原因**。
+// mailTestSentOut —— on a successful send, reports which mail kind delivered it
+// (proving the send path doesn't care about the kind); on failure, reports one
+// **plain-language reason**.
 //
-// Reason 以前不存在:发失败只回 {ok:false}。owner 点了"发一封测试信",面板只能显示
-// "失败" —— 是 SMTP 连不上、凭据过期、还是对方拒收这个地址?他分不出来,也就不知道该改什么。
-// 一个诊断按钮不给诊断,等于只告诉他"你已经知道的那件事"。
+// Reason didn't used to exist: a failed send only returned {ok:false}. The owner
+// clicks "send a test email", and the panel can only show "failed" — is SMTP
+// unreachable, are the credentials expired, or did the recipient reject that
+// address? He can't tell, and so doesn't know what to fix. A diagnostic button that
+// gives no diagnosis just tells him what he already knew.
 //
-// 原因是**归类后的一句话**,不是把 provider 的原始错误透出去:那里面有状态码、主机名、
-// 有时还有栈 —— 对 owner 没有意义,对旁观者是情报。
+// The reason is a **classified sentence**, not the provider's raw error leaking
+// through: that raw text carries a status code, a hostname, sometimes a stack trace
+// — meaningless to the owner, but intelligence to an onlooker.
 type mailTestSentOut struct {
 	ViaKind string `json:"via_kind,omitempty"`
 	Reason  string `json:"reason,omitempty"`
-	// MessageID —— provider 为这封信发的 id（F-C-55）。**空是一个答案**：SMTP 那条路给不出。
-	// 有它 owner 才能拿着去 provider 的日志里对上这一封，而不是只知道"没报错"。
+	// MessageID —— the id the provider issued for this message (F-C-55). **Empty
+	// is itself an answer**: the SMTP path can't produce one. With it, the owner
+	// can go match this exact message in the provider's own logs, instead of
+	// only knowing "no error was reported".
 	MessageID string `json:"message_id,omitempty"`
 	OK        bool   `json:"ok"`
 }
 
-// mailTestSend —— 经当前激活的邮件连接器发一封测试信。
+// mailTestSend —— sends a test email through the currently active mail connector.
 //
-// 发不出去**不是**这台机器的错(SMTP 挂了 / 凭据不对都算常态),所以回 ok:false 而不是报错:
-// owner 要的就是这个答案。
+// A failed send is **not** this machine's fault (SMTP being down / bad credentials
+// both count as normal), so it returns ok:false instead of an error — that's the
+// answer the owner actually wants.
 func mailTestSend(d *deps.Runtime) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var in mailTestSendArgs
@@ -168,7 +195,8 @@ func mailTestSend(d *deps.Runtime) fp.Invoke {
 		rcpt, serr := d.ConnectorSlots.Mail().Send(ctx, ownerID,
 			contract.MailMessage{To: in.To, Subject: in.Subject, Body: in.Text})
 		if serr != nil {
-			// 原始错误进日志(owner 要的不是它,排查的人要);面上给归类后的一句话。
+			// the raw error goes to the log (not what the owner needs, but what
+			// whoever debugs it needs); the surface gets the classified sentence.
 			d.Log.Warn("connectors.mail_test_send", "err", serr)
 			return json.Marshal(mailTestSentOut{OK: false, Reason: mailFailureReason(serr)})
 		}

@@ -1,16 +1,14 @@
-// role_snapshot.go —— RoleSnapshot：session 起 freeze 的 Role 状态。
+// role_snapshot.go — RoleSnapshot: the Role state frozen at session start.
 //
-// 设计 [[iam-role-pivot-plan]] · Session freeze 节：
-//   - Session issue 时把 Role 完整状态（corpus URIs / prompt body / skill prompts
-//     / allowed tools / skill ids / mcp server ids / role id+name+frozen_at）
-//     拍下来塞 session_data
-//   - Session 整个生命周期不再回头读 role 行
-//   - Owner 改 role / prompt / skill / mcp → 不影响在跑 session；只影响后续新
-//     issue 的 session
-//   - 唯一补救 = revoke code（access_code.status='revoked'）
+// Design: [[iam-role-pivot-plan]] Session freeze section. At session issue, the Role's
+// complete state (corpus URIs / prompt body / skill prompts / allowed tools / skill ids /
+// mcp server ids / role id+name+frozen_at) snapshots whole into session_data. The session
+// never reads the role row again for its lifetime; owner edits to role/prompt/skill/mcp
+// affect only sessions issued afterward. The only remedy is revoke code
+// (access_code.status='revoked').
 //
-// ACL 评估：positive-list only，raw://** hardcode deny；其他走 glob 匹配。
-// Glob 方言跟 [[path_acl]] 共享（compileGlob 在 path_acl.go）。
+// ACL evaluation: positive-list only, raw://** hardcoded deny; everything else goes through
+// glob matching, dialect shared with [[path_acl]] (compileGlob lives in path_acl.go).
 
 package entity
 
@@ -21,65 +19,69 @@ import (
 	"time"
 )
 
-// RoleSnapshot —— session 起 freeze 的 Role 状态。所有字段不可变；通过
-// NewRoleSnapshot 构造，slice 容器走 defensive clone。
+// RoleSnapshot — the Role state frozen at session start. All fields are immutable;
+// constructed only through NewRoleSnapshot, slice containers are defensively cloned.
 type RoleSnapshot struct {
-	// capConfig —— 冻下的**各能力自己的 per-role 配置**:能力 id → 它那份配置(JSON 对象)。
-	//
-	// 本域**不认识任何一个键**。这里以前是一个 notifyOwnerOnBooking bool —— 一个业务开关
-	// 长在内核快照上,还一路长到了 roles 表的一列;而 mcpclient 那侧的注释同时写着"host 既不
-	// 发也不知道 booking notify 是什么"。名字和事实互相打架的地方就是这儿。
-	//
-	// 为什么要冻:capconfig 是活存储,owner 随时能改。冻一份下来,访客整场会话按他进来那一刻
-	// 的配置走 —— 跟 corpus 白名单、waypoints 冻结是同一个理由。
-	//
-	// (排在最前是 fieldalignment 的要求,不是重要性排序。)
+	// capConfig —— frozen per-capability, per-role config: capability id -> JSON config.
+	// This domain knows none of the keys. Used to be a notifyOwnerOnBooking bool — a
+	// business switch grown onto the kernel snapshot, even a roles-table column — while
+	// mcpclient's own comment said "the host neither sends nor knows what booking notify
+	// is". Name and fact were fighting each other.
+	// Frozen because capconfig is live storage the owner can change anytime; a visitor's
+	// session must run on the config as it stood at entry — same reasoning as freezing the
+	// corpus allowlist and waypoints. (Listed first: fieldalignment, not importance.)
 	capConfig      map[string]json.RawMessage
 	frozenAt       time.Time
 	roleID         string
 	roleName       string
 	promptBody     string
 	codePromptBody string
-	// providerID —— 冻下 role 指定的 provider(空 = owner 默认)。码上那条压过它,
-	// 但压制发生在会话装配层,这里只记 role 自己说了什么。
+	// providerID —— the provider the role specified, frozen (empty = owner default). The
+	// one on the code overrides it, but that override happens at the session assembly
+	// layer — this field only records what the role itself said.
 	providerID   string
 	corpusURIs   []string
 	skillPrompts []string
 	allowedTools []string
-	// deniedCapabilities —— ACL code 层：这张 code 显式 deny 的 capability id。
-	// 跟 allowedTools 正交：能力暴露门 = baseGrant(ACL=always 或 allowedTools 含它)
-	// **且 不在 deniedCapabilities**。单独存（不从 allowedTools 减），因为 ACL=always
-	// 的能力(retrieval/ask_visitor)根本不进 allowedTools，减不掉，只能在门上挡。
+	// deniedCapabilities —— code-tier ACL: capability ids this code explicitly denies.
+	// Orthogonal to allowedTools: exposure gate is baseGrant (ACL=always, or allowedTools
+	// contains it) AND NOT denied. Stored separately (not subtracted from allowedTools)
+	// since an ACL=always capability (retrieval/ask_visitor) never enters allowedTools —
+	// nothing to subtract; it can only be blocked at the gate.
 	deniedCapabilities []string
-	// deniedCorpusURIs —— ACL 三层的 corpus 那类：这张 code 从 role 的正列表里**收回**的 glob。
-	// 跟 corpusURIs 正交(不是从它里面删)：glob 的减法删不掉列表项 —— `subjectivity://cv` 减不掉
-	// `subjectivity://**` —— 只能在匹配时判。判定见 AllowsCorpus：命中 grant **且** 不命中 deny。
+	// deniedCorpusURIs —— corpus tier of the three-tier ACL: globs this code takes back
+	// from the role's positive list. Orthogonal to corpusURIs (not removed from it): glob
+	// subtraction can't remove a list entry (`subjectivity://cv` can't subtract from
+	// `subjectivity://**`); checked at match time. AllowsCorpus: matches a grant AND no deny.
 	deniedCorpusURIs []string
 	skillIDs         []string
 	mcpServerIDs     []string
-	// dockButtons —— #109/#110 owner 在 role 上配的 ≤2 个 chat dock 按钮（冻结）。
+	// dockButtons —— #109/#110 the role's <=2 chat dock button configs, as configured by
+	// the owner (frozen).
 	dockButtons []DockButtonConfig
-	// waypoints —— ghost-steering 的引导目的地（冻结）。构造前经 FilterWaypointsByCorpus
-	// 过滤：evidence_refs 全越授权 glob 的 waypoint 在冻结那刻整条丢弃（授权下限）。
+	// waypoints —— ghost-steering guidance destinations (frozen). FilterWaypointsByCorpus
+	// drops any waypoint whose evidence_refs are all outside the authorized glob (the floor).
 	waypoints []Waypoint
-	// requireGhostEvidence —— F-A-10: 冻下的「内容型引导 ghost 需有证据」开关(role 值经 code 覆盖)。
-	// ghost 选择时据此把空证据的非终点 waypoint 从 steering 候选里剔除;终点/工具 waypoint 不受影响。
+	// requireGhostEvidence —— F-A-10: frozen "content-steering ghost needs evidence" switch
+	// (role's value, overridable by a code). Ghost selection excludes a non-terminal
+	// waypoint with no evidence from candidates; terminal/tool waypoints unaffected.
 	requireGhostEvidence bool
-	// gasMetered —— 冻下 role 挂没挂油表。
+	// gasMetered —— whether the role carries a gas meter, frozen.
 	gasMetered bool
 }
 
-// RoleSnapshotInit —— NewRoleSnapshot 入参。
+// RoleSnapshotInit —— input for NewRoleSnapshot.
 type RoleSnapshotInit struct {
-	// CapConfig —— 各能力在这个 role 上的配置(能力 id → JSON 对象)。冻结那一刻从
-	// capconfig 的 role scope 读一次。本域不解释里面任何一个键。
+	// CapConfig —— each capability's config on this role (capability id -> JSON object).
+	// Read once from capconfig's role scope at the moment of freezing. This domain does
+	// not interpret any of the keys inside.
 	CapConfig      map[string]json.RawMessage
 	FrozenAt       time.Time
 	RoleID         string
 	RoleName       string
 	PromptBody     string
 	CodePromptBody string
-	// ProviderID —— role 指定的 provider(空 = owner 默认),原样冻下。
+	// ProviderID —— the provider the role specifies (empty = owner default), frozen as-is.
 	ProviderID           string
 	CorpusURIs           []string
 	SkillPrompts         []string
@@ -91,11 +93,12 @@ type RoleSnapshotInit struct {
 	DockButtons          []DockButtonConfig
 	Waypoints            []Waypoint
 	RequireGhostEvidence bool
-	// GasMetered —— role 挂没挂油表,原样冻下。
+	// GasMetered —— whether the role carries a gas meter, frozen as-is.
 	GasMetered bool
 }
 
-// NewRoleSnapshot —— 从 Init 构造。slice 字段 defensive clone；空 input → 空切片。
+// NewRoleSnapshot —— construct from Init. Slice fields are defensively cloned; empty input
+// -> empty slice.
 func NewRoleSnapshot(i *RoleSnapshotInit) RoleSnapshot {
 	return RoleSnapshot{
 		frozenAt:             i.FrozenAt,
@@ -119,8 +122,9 @@ func NewRoleSnapshot(i *RoleSnapshotInit) RoleSnapshot {
 	}
 }
 
-// cloneCapConfig —— defensive copy。nil → 空表:"这个 role 没有任何能力配置"跟"配置丢了"
-// 得是同一个安全答案,而不是一个能让调用方崩掉的 nil。
+// cloneCapConfig —— defensive copy. nil -> an empty map: "this role has no capability
+// config" and "the config went missing" must be the same safe answer, not a nil that can
+// crash the caller.
 func cloneCapConfig(in map[string]json.RawMessage) map[string]json.RawMessage {
 	out := make(map[string]json.RawMessage, len(in))
 	for k, v := range in {
@@ -129,63 +133,73 @@ func cloneCapConfig(in map[string]json.RawMessage) map[string]json.RawMessage {
 	return out
 }
 
-// RequireGhostEvidence —— F-A-10: 冻下的开关。ghost 选择据此过滤空证据的非终点 waypoint。
+// RequireGhostEvidence —— F-A-10: the frozen switch. Ghost selection uses it to filter out
+// a non-terminal waypoint with no evidence.
 func (s *RoleSnapshot) RequireGhostEvidence() bool { return s.requireGhostEvidence }
 
-// ProviderID —— 冻下的 role provider(空 = owner 默认那条)。
+// ProviderID —— the frozen role provider (empty = owner's default).
 func (s *RoleSnapshot) ProviderID() string { return s.providerID }
 
-// GasMetered —— 冻下的油表开关。
+// GasMetered —— the frozen gas-meter switch.
 func (s *RoleSnapshot) GasMetered() bool { return s.gasMetered }
 
-// CapConfig —— 冻下的各能力 per-role 配置(defensive copy)。装配层把它按能力递进 tool-call
-// 的 `_meta`,沙箱插件读自己那一份。本域不解释任何一个键。
+// CapConfig —— the frozen per-capability, per-role config (defensive copy). The assembly
+// layer hands each capability its slice via the tool-call's `_meta`; the sandboxed plugin
+// reads its own share. This domain does not interpret any of the keys.
 func (s *RoleSnapshot) CapConfig() map[string]json.RawMessage {
 	return cloneCapConfig(s.capConfig)
 }
 
-// Waypoints —— 冻下的引导目的地（defensive copy，evidence_refs 也各自 clone）。
+// Waypoints —— the frozen guidance destinations (defensive copy, evidence_refs cloned too).
 func (s *RoleSnapshot) Waypoints() []Waypoint { return cloneWaypoints(s.waypoints) }
 
-// FrozenAt —— session issue 时刻；admin /admin/codes 卡上 "issued with role
-// @ ... (frozen)" 显示用。
+// FrozenAt —— the moment of session issue; used by the admin /admin/codes card's
+// "issued with role @ ... (frozen)" display.
 func (s *RoleSnapshot) FrozenAt() time.Time { return s.frozenAt }
 
-// RoleID —— 拍下来的 role id（owner 改名后 admin 还能跳过去）。
+// RoleID —— the snapshotted role id (admin can still jump to it after the owner renames
+// the role).
 func (s *RoleSnapshot) RoleID() string { return s.roleID }
 
-// RoleName —— 拍下来那一刻的 role 名（display 用）。
+// RoleName —— the role's name at the moment of the snapshot (for display).
 func (s *RoleSnapshot) RoleName() string { return s.roleName }
 
-// PromptBody —— 拍下来的 prompt.body 全文，0..1（public 时是 public body，
-// 没挂 prompt 的 role 就是 ""）。visitor_chat.buildSystemPrompt 拼这条。
+// PromptBody —— the snapshotted prompt.body in full, 0..1 (the public body when this is
+// public; "" for a role with no prompt attached). visitor_chat.buildSystemPrompt assembles
+// it in.
 func (s *RoleSnapshot) PromptBody() string { return s.promptBody }
 
-// CodePromptBody —— 这张 access code 自带的 prompt 全文，0..1（#104）。session persona
-// 在 role persona 之后**叠加**它；没挂则空串（persona 逐字不变，守 prompt-hash 回归）。
+// CodePromptBody —— the prompt text this access code carries of its own, 0..1 (#104). The
+// session persona **layers** it on after the role persona; empty when none is attached
+// (persona stays byte-identical, guarded by the prompt-hash regression).
 func (s *RoleSnapshot) CodePromptBody() string { return s.codePromptBody }
 
-// DockButtons —— 冻下的 ≤2 个 dock 按钮配置（defensive copy）。会话装配层据此解析 title +
-// 过滤 code-deny 后，出到 session payload。
+// DockButtons —— the frozen <=2 dock button configs (defensive copy). The session assembly
+// layer resolves titles + filters code-deny from this before it goes out in the session
+// payload.
 func (s *RoleSnapshot) DockButtons() []DockButtonConfig { return cloneDockButtons(s.dockButtons) }
 
-// CorpusURIs —— 拍下来的 URI glob 白名单（defensive copy）。
+// CorpusURIs —— the snapshotted URI glob allowlist (defensive copy).
 func (s *RoleSnapshot) CorpusURIs() []string { return slices.Clone(s.corpusURIs) }
 
-// SkillPrompts —— 拍下来的所有 skill.prompt 拼系统 prompt 用（defensive copy）。
+// SkillPrompts —— all snapshotted skill.prompt values, for assembling the system prompt
+// (defensive copy).
 func (s *RoleSnapshot) SkillPrompts() []string { return slices.Clone(s.skillPrompts) }
 
-// AllowedTools —— 拍下来的 skill.allowed_tools 合并去重（defensive copy）。
+// AllowedTools —— the snapshotted skill.allowed_tools, merged and deduplicated (defensive
+// copy).
 func (s *RoleSnapshot) AllowedTools() []string { return slices.Clone(s.allowedTools) }
 
-// DeniedCapabilities —— code 层显式 deny 的 capability id（defensive copy）。
-// 能力暴露门据此把 baseGrant 通过的能力再挡掉（含 ACL=always 的）。
+// DeniedCapabilities —— capability ids the code tier explicitly denies (defensive copy).
+// The capability-exposure gate uses it to block a capability that passed baseGrant
+// (including an ACL=always one).
 func (s *RoleSnapshot) DeniedCapabilities() []string { return slices.Clone(s.deniedCapabilities) }
 
-// AllowsCapability —— ACL 三层里 frozen 那部分的能力暴露判定（global 活闸在外另算）：
-// baseGrant（aclAlways 恒真，否则 allowedTools 含它）**且** 不被 code deny。这是
-// 三层 ACL 的真值之锚（capability-acl-hierarchy.md §3）：code 只能减，连 ACL=always
-// 的能力也能被 deny 挡下（它们不进 allowedTools，只能在门上挡）。
+// AllowsCapability —— capability-exposure verdict for the frozen part of the three-tier ACL
+// (the live gate is computed elsewhere): baseGrant (aclAlways, or allowedTools contains it)
+// AND not code-denied. Truth anchor for the three-tier ACL (capability-acl-hierarchy.md §3):
+// a code can only subtract; even ACL=always can be denied (never in allowedTools, so only
+// stoppable at the gate).
 func (s *RoleSnapshot) AllowsCapability(capID string, aclAlways bool) bool {
 	if slices.Contains(s.deniedCapabilities, capID) {
 		return false
@@ -193,31 +207,33 @@ func (s *RoleSnapshot) AllowsCapability(capID string, aclAlways bool) bool {
 	return aclAlways || slices.Contains(s.allowedTools, capID)
 }
 
-// SkillIDs —— 拍下来的 skill id 列表，agent invoke 时 capability gating 用。
+// SkillIDs —— the snapshotted skill id list, used for capability gating at agent invoke time.
 func (s *RoleSnapshot) SkillIDs() []string { return slices.Clone(s.skillIDs) }
 
-// MCPServerIDs —— 拍下来的 MCP server id 列表，mcp client wiring 用。
+// MCPServerIDs —— the snapshotted MCP server id list, used for mcp client wiring.
 func (s *RoleSnapshot) MCPServerIDs() []string { return slices.Clone(s.mcpServerIDs) }
 
-// IsZero —— session 没挂 RoleSnapshot（fallback path 用）。
+// IsZero —— whether the session has no RoleSnapshot attached (used on the fallback path).
 func (s *RoleSnapshot) IsZero() bool {
 	return s.roleID == "" && len(s.corpusURIs) == 0
 }
 
-// AllowsCorpus —— 评估一条笔记的准入。raw://** hardcode deny；受邀身份走 positive-list
-// glob 匹配（corpus_uris 空 = deny 全部），public 身份看这条笔记自己发布没有。
+// AllowsCorpus —— evaluates admission for one note. raw://** hardcoded deny; an invited
+// identity goes through positive-list glob matching (empty corpus_uris = deny everything),
+// the public identity looks at whether this note itself is published.
 //
-// Pattern 跟 entry URI 都包含 scheme（"wiki://thinking/lucerna"）；compileGlob
-// 把 "wiki://thinking/**" 转成 "^wiki://thinking/.*$" regex 直接 match URI。
+// Both the pattern and the entry URI include the scheme ("wiki://thinking/lucerna");
+// compileGlob turns "wiki://thinking/**" into the "^wiki://thinking/.*$" regex and matches
+// the URI directly.
 func (s *RoleSnapshot) AllowsCorpus(uri string, published bool) bool {
 	return AllowsCorpusEntry(s.CorpusScope(), CorpusEntryRef{URI: uri, Published: published})
 }
 
-// CorpusScope —— 冻下的 corpus 准入范围（role 授的正列表 + 这张 code 收回的）。
-//
-// **public 身份不带正列表**：它的范围由每条笔记自己的 `published` 定（PublishedOnly），
-// 见 CorpusScope 的注释。判据是冻在快照里的 role name —— builtin public 不可改名、
-// 每个 owner 下 name 唯一，所以它认得准，而且 name 本来就在 Redis 的 wire 里。
+// CorpusScope —— frozen corpus admission range (role's granted positive list + what this
+// code takes back). The public identity carries no positive list: its range is decided by
+// each note's own `published` field (PublishedOnly). Verdict comes from the role name
+// frozen into the snapshot — the builtin public role can't be renamed and is unique within
+// an owner, so this check is reliable, and the name is already in the Redis wire form.
 func (s *RoleSnapshot) CorpusScope() CorpusScope {
 	return CorpusScope{
 		Granted:       s.CorpusURIs(),
@@ -226,11 +242,11 @@ func (s *RoleSnapshot) CorpusScope() CorpusScope {
 	}
 }
 
-// DeniedCorpusURIs —— code 层收回的 glob（defensive copy）。
+// DeniedCorpusURIs —— the globs the code tier takes back (defensive copy).
 func (s *RoleSnapshot) DeniedCorpusURIs() []string { return slices.Clone(s.deniedCorpusURIs) }
 
-// MarshalJSON / UnmarshalJSON —— session 存 Redis 用 JSON，encapsulation
-// 类型默认不可序列化，sidecar wire 形态把字段映出来。
+// MarshalJSON / UnmarshalJSON —— sessions are stored in Redis as JSON; the encapsulated
+// type is not serializable by default, so a sidecar wire form maps the fields out.
 func (s *RoleSnapshot) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(roleSnapshotWire{
 		FrozenAt:             s.frozenAt,
@@ -258,7 +274,7 @@ func (s *RoleSnapshot) MarshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-// UnmarshalJSON —— 反序列化走 NewRoleSnapshot defensive clone 路径。
+// UnmarshalJSON —— deserialization goes through NewRoleSnapshot's defensive-clone path.
 func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 	var w roleSnapshotWire
 	if err := json.Unmarshal(data, &w); err != nil {
@@ -287,18 +303,19 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// roleSnapshotWire —— JSON sidecar。字段顺序按 fieldalignment：time 在前
-// (time.Time = 24B with monotonic clock)、string 中、slice 末。
+// roleSnapshotWire —— the JSON sidecar. Field order follows fieldalignment: time first
+// (time.Time = 24B with monotonic clock), string in the middle, slice last.
 type roleSnapshotWire struct {
-	// CapConfig —— 各能力冻下的 per-role 配置。同样必须过江:漏了它,快照走一趟 JSON 往返
-	// 之后能力就拿到空配置,而"空"跟"owner 没开"长得一模一样 —— 开着的开关会静默关掉。
+	// CapConfig —— frozen per-capability, per-role config. Must survive the round trip:
+	// miss it and a capability gets an empty config after one JSON round trip — "empty"
+	// looks identical to "never turned on", so an enabled switch would silently turn off.
 	CapConfig      map[string]json.RawMessage `json:"capability_config,omitempty"`
 	FrozenAt       time.Time                  `json:"frozen_at"`
 	RoleID         string                     `json:"role_id"`
 	RoleName       string                     `json:"role_name"`
 	PromptBody     string                     `json:"prompt_body,omitempty"`
 	CodePromptBody string                     `json:"code_prompt_body,omitempty"`
-	// ProviderID —— 冻下的 role provider(空 = owner 默认)。
+	// ProviderID —— the frozen role provider (empty = owner default).
 	ProviderID         string             `json:"provider_id,omitempty"`
 	CorpusURIs         []string           `json:"corpus_uris,omitempty"`
 	SkillPrompts       []string           `json:"skill_prompts,omitempty"`
@@ -309,8 +326,9 @@ type roleSnapshotWire struct {
 	MCPServerIDs       []string           `json:"mcp_server_ids,omitempty"`
 	DockButtons        []DockButtonConfig `json:"dock_buttons,omitempty"`
 	Waypoints          []Waypoint         `json:"waypoints,omitempty"`
-	// 布尔型 role 配置也必须过江:之前 wire 漏了它们,快照一旦走 JSON 往返就静默退回 false
-	// —— 冻结的开关"看起来还在",实际已经丢了(F-A-10 的 require_ghost_evidence 同样中招)。
+	// Boolean role config must survive the round trip too: the wire form used to miss them,
+	// so a snapshot silently reverted to false after one JSON round trip — looked frozen but
+	// was lost (F-A-10's require_ghost_evidence hit this exact bug).
 	RequireGhostEvidence bool `json:"require_ghost_evidence,omitempty"`
 	GasMetered           bool `json:"gas_metered,omitempty"`
 }

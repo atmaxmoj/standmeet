@@ -1,6 +1,6 @@
-// wiki.go —— WikiRepo：统一 corpus_notes 表上 genre='wiki' 的 CRUD + path induce。
-// 与 OutputRepo 同构（都绑定各自 genre 调用同一套 db.Note* 方法）；path-string lookup
-// 共用 corpus.go 里的 loadByPath helper。
+// wiki.go — WikiRepo: CRUD + path induction over genre='wiki' on the unified corpus_notes
+// table. Isomorphic to OutputRepo (both bind their own genre and call the same set of
+// db.Note* methods); path-string lookup shares the loadByPath helper in corpus.go.
 
 package repo
 
@@ -18,31 +18,32 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// WikiRepo —— corpus_notes(genre='wiki') CRUD + path induce。
+// WikiRepo — CRUD + path induction over corpus_notes(genre='wiki').
 type WikiRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewWikiRepo 构造 WikiRepo。
+// NewWikiRepo constructs a WikiRepo.
 func NewWikiRepo(pool *pgstore.Pool) *WikiRepo { return &WikiRepo{pool: pool} }
 
-// CreateWikiInput 是 Create 入参。
+// CreateWikiInput is the input to Create.
 type CreateWikiInput struct {
 	OwnerID  string
 	Title    string
 	Body     string
 	ParentID *string
-	// ShowAsSource —— nil = 可引用(默认)。只有调用方**明确**要藏(meta/persona 那类)才给 false。
-	// 指针不是讲究:裸 bool 表达不了"没给",而"没给"和"要藏"必须分得开。
+	// ShowAsSource — nil = citable (default). Only set false when the caller **explicitly**
+	// wants it hidden (meta/persona-style entries). The pointer isn't fussiness: a bare bool
+	// can't express "not given", and "not given" must stay distinct from "wants it hidden".
 	ShowAsSource *bool
 	Tags         []string
 	SourceRawIDs []string
 }
 
-// citableUnlessHidden —— 没给就是可引用。见 CreateWikiInput.ShowAsSource。
+// citableUnlessHidden — citable by default when not given. See CreateWikiInput.ShowAsSource.
 func citableUnlessHidden(v *bool) bool { return v == nil || *v }
 
-// Create 写一条新 wiki。pointer 接收避免 hugeParam。
+// Create writes a new wiki entry. Pointer receiver avoids hugeParam.
 func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (entity.Wiki, error) {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
@@ -58,16 +59,19 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (entity.Wiki
 	}
 	q := db.New(r.pool)
 	row, err := q.CreateNote(ctx, db.CreateNoteParams{
-		OwnerID:    ownerUUID,
-		Genre:      genreWiki,
-		ParentID:   parent,
-		Title:      in.Title,
-		Body:       in.Body,
-		Tags:       nilSafeTags(in.Tags),
-		SourceIds:  sourceRaws,
-		CssClasses: []string{}, // wiki create 不带 cssclasses(列 NOT NULL,须非 nil)
-		// wiki 建出来即是可引用的 source;藏(meta/persona)是**调用方明确要求**的例外。
-		// 不显式给就是 true —— 写零值 false 会被 readCollector gate 误当隐藏条,citation 全丢。
+		OwnerID:   ownerUUID,
+		Genre:     genreWiki,
+		ParentID:  parent,
+		Title:     in.Title,
+		Body:      in.Body,
+		Tags:      nilSafeTags(in.Tags),
+		SourceIds: sourceRaws,
+		// wiki create carries no cssclasses (NOT NULL column, must be non-nil).
+		CssClasses: []string{},
+		// A wiki entry is a citable source by construction; hiding it (meta/persona) is an
+		// exception that the caller must **explicitly** request.
+		// Not given defaults to true — writing the zero value false would make readCollector's
+		// gate mistake it for a hidden entry, and citations would all be lost.
 		ShowAsSource: citableUnlessHidden(in.ShowAsSource),
 	})
 	if err != nil {
@@ -76,7 +80,7 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (entity.Wiki
 	return toDomainWiki(&row), nil
 }
 
-// ListByOwner 返回 owner 的 wiki（最新 N 条）。
+// ListByOwner returns the owner's wiki entries (newest N).
 func (r *WikiRepo) ListByOwner(
 	ctx context.Context, ownerID string, limit int32,
 ) ([]entity.Wiki, error) {
@@ -98,7 +102,7 @@ func (r *WikiRepo) ListByOwner(
 	return out, nil
 }
 
-// GetByID 拿 owner 的某条 wiki；不命中返回 ErrWikiNotFound。
+// GetByID fetches a wiki entry belonging to owner; returns ErrWikiNotFound on a miss.
 func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (entity.Wiki, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -121,8 +125,9 @@ func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (entity.Wiki
 	return toDomainWiki(&row), nil
 }
 
-// WikiMeta —— 一条 wiki 的轻量 meta(**无 body**),给懒加载树导航 / 搜索用。读正文
-// 单独走 GetByID。Snippet 只在搜索结果里有值。
+// WikiMeta — lightweight meta for one wiki entry (**no body**), for lazy-loaded tree
+// navigation / search. Reading the body goes through GetByID separately. Snippet is
+// populated only in search results.
 type WikiMeta struct {
 	ParentID    *string
 	ID          string
@@ -133,7 +138,8 @@ type WikiMeta struct {
 	HasChildren bool
 }
 
-// ListChildren —— 某节点的直接子(meta,无 body);parentID nil = 根层;limit/offset 翻页。
+// ListChildren — direct children of a node (meta, no body); parentID nil = root level;
+// limit/offset paginate.
 func (r *WikiRepo) ListChildren(
 	ctx context.Context, ownerID string, parentID *string, limit, offset int32,
 ) ([]WikiMeta, error) {
@@ -151,7 +157,8 @@ func (r *WikiRepo) ListChildren(
 		})
 }
 
-// GetMetaByID —— 一条 wiki 的 meta(无 body):上溯算 path / 判 ACL 用。不命中 → ErrWikiNotFound。
+// GetMetaByID — meta for one wiki entry (no body): used to walk up and compute path /
+// check ACL. Miss → ErrWikiNotFound.
 func (r *WikiRepo) GetMetaByID(ctx context.Context, ownerID, id string) (WikiMeta, error) {
 	ids, perr := parseSrcAndOwner(id, ownerID)
 	if perr != nil {
@@ -172,7 +179,8 @@ func (r *WikiRepo) GetMetaByID(ctx context.Context, ownerID, id string) (WikiMet
 	}, nil
 }
 
-// Search —— 全量 DB 端关键词搜(full-text);返 meta + snippet(无完整 body);翻页。
+// Search — full DB-side keyword search (full-text); returns meta + snippet
+// (no full body); paginated.
 func (r *WikiRepo) Search(
 	ctx context.Context, ownerID, query string, limit, offset int32,
 ) ([]WikiMeta, error) {
@@ -201,14 +209,15 @@ func wikiSearchRowMeta(row *db.SearchNotesRow) WikiMeta {
 	}
 }
 
-// WikiStats —— 侧栏脚定位计数(纯聚合,不 load 树)。
+// WikiStats — sidebar footer counts (pure aggregation, doesn't load the tree).
 type WikiStats struct {
 	Entries int
 	Roots   int
 	Gated   int
 }
 
-// CountStats —— owner 的 wiki 总数 / 根数 / 非公开(gated)数。一句 COUNT,零内存。
+// CountStats — owner's total wiki count / root count / non-public (gated) count.
+// A single COUNT query, zero memory.
 func (r *WikiRepo) CountStats(ctx context.Context, ownerID string) (WikiStats, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -223,8 +232,8 @@ func (r *WikiRepo) CountStats(ctx context.Context, ownerID string) (WikiStats, e
 	return WikiStats{Entries: int(row.Entries), Roots: int(row.Roots), Gated: int(row.Gated)}, nil
 }
 
-// ListAllMeta —— 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed + landing
-// 的 [[X]] title→path 索引用。不带 newest-N cap。
+// ListAllMeta — full meta set (no body, no limit): used to enumerate every indexed entry
+// for the sitemap plus the landing page's [[X]] title→path index. No newest-N cap.
 func (r *WikiRepo) ListAllMeta(ctx context.Context, ownerID string) ([]WikiMeta, error) {
 	mk := func(row *db.ListAllNoteMetaRow) WikiMeta {
 		return WikiMeta{

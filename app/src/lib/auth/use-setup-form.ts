@@ -1,36 +1,46 @@
-// use-setup-form —— first-run setup wizard 状态机。
+// use-setup-form —— first-run setup wizard state machine.
 //
-// 设计源 docs/design/project/auth.js Setup。4-step：
+// Design source: docs/design/project/auth.js Setup. 4 steps:
 //   1. identity      —— name + handle + publicUrl
 //   2. credentials   —— email + password + confirm
-//   3. ai provider   —— provider chip + key + model（可跳，admin 后台可补）
-//   4. review        —— summary 卡 → claim
+//   3. ai provider   —— provider chip + key + model (skippable, can be filled in later from the admin panel)
+//   4. review        —— summary card → claim
 //
-// Step 3 的 provider/model/key 跟 claim 同一次请求送出去，服务端在 claim 成功后
-// 立刻落库（`routes/admin/claim.go` 的 setupAIProvider）。
-// **这里以前写的是「claim 之后顺手 PATCH 一次」—— 那一"顺手"从来没发生过**（F-H-2）：
-// 注释描述了一个不存在的行为，而界面上没有任何东西否认它。
+// Step 3's provider/model/key ship in the same request as claim; the server
+// persists it immediately after claim succeeds (`setupAIProvider` in
+// `routes/admin/claim.go`).
+// **This used to say "a follow-up PATCH after claim" — that "follow-up" never
+// actually happened** (F-H-2): the comment described a behavior that didn't
+// exist, and nothing in the UI contradicted it.
 //
-// **step 4 曾经还有一道算术 captcha，已经删掉（F-H-1）。**
-// 它是 client-only 的：`routes/admin/claim.go` 的 `claimRequest` 只有
-// token/email/password/handle/full_name/public_url —— **后端从头到尾没见过那个答案**。
-// 而真正的授权是**一次性 setup token**（打印在后端日志里，只有能读服务器的人拿得到），
-// 所以 claim 连 loginGuard 都不套。
+// **Step 4 used to have an arithmetic captcha too; it's been removed
+// (F-H-1).**
+// It was client-only: `claimRequest` in `routes/admin/claim.go` only has
+// token/email/password/handle/full_name/public_url —— **the backend never
+// saw that answer at all**. The real authorization is the **one-time setup
+// token** (printed in the backend log, reachable only by someone who can
+// read the server), so claim doesn't even go through loginGuard.
 //
-// 于是那道算术的收益是负的：能读到 token 的自动化当然会算加法，它一个 bot 都拦不住；
-// 唯一拦住的是**合法的、owner 自己挂的 agent** —— 而这个产品的既定目标就是能被
-// owner 的 AI 客户端纯自动驱动（job loop 整条链只有 MCP 一条路，正是这个设计）。
+// So that arithmetic captcha had negative value: automation that can read
+// the token can obviously do addition too, so it stops zero bots; the only
+// thing it blocked was **a legitimate agent the owner themselves hooked
+// up** — and being driven purely automatically by the owner's AI client is
+// the product's stated goal (the whole job-loop chain has exactly one path,
+// through MCP, by design).
 //
-// **删的只是这一道装饰。** 对外的防护一层没动：gate / login 的 per-IP 锁定、
-// 以及后端 turnstile（如开启）都还在 —— 那些是服务端真的会验的。
+// **Only this one decorative piece was removed.** Nothing on the outward
+// defenses changed: gate/login's per-IP lockout, and the backend turnstile
+// (when enabled), are both still there — those are checks the server
+// actually enforces.
 //
-// 业务规则：
-//   - step 1：name + handle + publicUrl 必填，handle 只允许 [a-z0-9-]
-//   - step 2：email + password + confirm，password ≥ 8，两次输入一致
-//   - step 3：选了 provider 必须有 key（ollama 例外，本地无 key）；可整步跳过
-//   - step 4：只是复核 summary 卡，随时可以提交
+// Business rules:
+//   - step 1: name + handle + publicUrl required, handle allows only [a-z0-9-]
+//   - step 2: email + password + confirm, password >= 8, both entries must match
+//   - step 3: a chosen provider must have a key (ollama is the exception, no key needed locally); the whole step can be skipped
+//   - step 4: just a review of the summary card, submittable at any time
 //
-// 摆 lib/ 是因为 components/ + app/**/*.tsx 禁 `if`，wizard 的分支控制走 hook 干净。
+// Placed in lib/ because components/ + app/**/*.tsx forbid `if`, so the
+// wizard's branch logic lives cleanly in a hook instead.
 
 import { useCallback, useState } from 'react';
 
@@ -154,8 +164,10 @@ export function useSetupForm(setupToken: string): SetupFormHook {
         handle: form.handle,
         full_name: form.full,
         public_url: normalizePublicURL(form.publicUrl),
-        // F-H-2：第 3 步收的 key 以前到这里就断了 —— 这一行以前不存在，
-        // 于是 review 卡照印 provider、claim 照样成功，而 key 一个字都没落地。
+        // F-H-2: the key collected in step 3 used to stop right here —
+        // this line didn't used to exist, so the review card still showed
+        // the provider and claim still succeeded, while the key never
+        // landed anywhere.
         ai_provider: form.aiProvider,
         ai_model: form.aiModel,
         ai_key: form.aiKey.trim(),
@@ -176,9 +188,11 @@ export function useSetupForm(setupToken: string): SetupFormHook {
   };
 }
 
-// stepCanAdvance —— 实时禁用 PrimaryBtn 的判定。step 1 看 identity 三项
-// 必填 + url 是 http；step 2 看 password/confirm 是否填且一致；step 3
-// 总是允许（key 可空，跳到 review 现场补）；step 4 是复核，随时可提交。
+// stepCanAdvance —— the real-time check that disables PrimaryBtn. Step 1
+// checks the three required identity fields + that the url is http; step 2
+// checks that password/confirm are filled and match; step 3 always allows
+// advancing (key can be empty, filled in later on the review step); step 4
+// is just review, submittable at any time.
 function stepCanAdvance(step: SetupStep, f: SetupFormState): boolean {
   if (step === 1) return identityComplete(f);
   if (step === 2) return credentialsComplete(f);
@@ -230,13 +244,13 @@ function validateCredentials(f: SetupFormState): string | null {
 function validateProvider(f: SetupFormState): string | null {
   const p = SETUP_PROVIDERS.find((x) => x.id === f.aiProvider) ?? SETUP_PROVIDERS[0]!;
   if (!p.needsKey) return null;
-  if (f.aiKey.trim() === '') return null; // key 留空 = 跳过，admin 后台可补
+  if (f.aiKey.trim() === '') return null; // empty key = skip, can be filled in later from the admin panel
   if (f.aiKey.trim().length < 8) return 'that key looks too short';
   return null;
 }
 
-// handleSetupSubmit —— SetupForm form 提交分发：step < 4 → next；
-// step 4 → submit claim 并跳 admin。
+// handleSetupSubmit —— dispatches SetupForm's form submit: step < 4 → next;
+// step 4 → submit claim and navigate to admin.
 export async function handleSetupSubmit(
   form: SetupFormHook,
   push: (path: string) => void,

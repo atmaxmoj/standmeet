@@ -1,17 +1,25 @@
-// RoleCorpusConfig —— role 卡上的 **corpus URI 编辑器**（gate 1 的 owner 控制面）。
+// RoleCorpusConfig —— the **corpus URI editor** on the role card (the owner's control panel
+// for gate 1).
 //
-// corpus 准入是这个产品的核心访问控制：role = "a positive list of corpus URIs the agent can read"
-// （/admin/roles 自己的原话）。但这个正列表**过去只能在「+ NEW ROLE」弹窗里写一次** —— role 建好
-// 之后卡片上只剩 `CORPUS · N URIs` 这个只读数字，owner 再也改不了（F-A-11）。
+// Corpus admission is this product's core access control: a role = "a positive list of
+// corpus URIs the agent can read" (in /admin/roles's own words). But this positive list
+// **used to be writable only once, in the "+ NEW ROLE" modal** — once the role existed, the
+// card kept only the read-only number `CORPUS · N URIs`, and the owner could never edit it
+// again (F-A-11).
 //
-// 后果不是"不方便"：owner 无法收窄一条过宽的授权。`subjectivity://**` 会把 record 笔记（CV：真名/
-// 学历/雇主）跟 stance 一起授出去，而唯一的修法就是把它改成逐条 —— 那个编辑动作在 GUI 上不存在。
+// The consequence isn't "inconvenient": the owner had no way to narrow an over-broad grant.
+// `subjectivity://**` grants record notes (CV: real name / education / employer) alongside
+// stance notes together, and the only fix is to make it per-entry — that edit action didn't
+// exist in the GUI.
 //
-// 所有 genre 一视同仁（wiki / output / writing / subjectivity 是同一套 glob，没有谁特殊）：
-//   wiki://thinking/**            某个 branch 整棵
-//   subjectivity://standpoint     只授这一条（match-any 的正列表，粒度任意细）
+// All genres are treated the same (wiki / output / writing / subjectivity share one glob
+// syntax, none is special):
+//   wiki://thinking/**            an entire branch
+//   subjectivity://standpoint     grants just this one entry (a match-any positive list,
+//                                 granularity as fine as needed)
 //
-// 形态照抄 RoleDockConfig：卡上 inline 编辑 → 全量 PUT 回写（只有 corpus_uris 变），冻进后续 session。
+// Shape copied from RoleDockConfig: inline edit on the card → full PUT write-back (only
+// corpus_uris changes), frozen into subsequent sessions.
 
 import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
@@ -20,17 +28,22 @@ import { CorpusScopePicker } from '@/components/admin/sections/corpus/CorpusScop
 import { roleUpdatePayload, useRoles, type RoleView } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
-// PUBLIC_ROLE_NAME —— builtin public 的 name（后端 access.PublicRoleName，不可改名）。
+// PUBLIC_ROLE_NAME —— the builtin public role's name (backend access.PublicRoleName, must
+// not be renamed).
 const PUBLIC_ROLE_NAME = 'public';
 
-// RoleCorpusConfig —— public 身份**没有正列表**，所以它这一格不是编辑器而是一句陈述。
+// RoleCorpusConfig —— the public identity **has no positive list**, so this slot isn't an
+// editor, it's a statement.
 //
-// 以前它跟别的 role 一样摆一排勾选框，里面亮着 `wiki — all of it`。那三条是 claim 时种进去的
-// 默认值，owner 从没选过 —— 但它长在设置页上、勾着、写着 all of it，看起来像一个决定。
-// 于是同一件事有了两份数据：条目上的 `published` 开关，和这份 glob 清单。两边互不知情，
-// 结果是没有码的陌生人读到了标着 PRIVATE 的笔记（F-D-7）。
+// It used to show the same row of checkboxes as other roles, with `wiki — all of it` lit
+// up. Those three entries were default values seeded at claim time that the owner never
+// chose — but sitting on the settings page, checked, saying "all of it", they read like a
+// decision. So the same fact ended up with two copies of data: the per-entry `published`
+// toggle, and this glob list. Neither side knew about the other, and the result was a
+// stranger with no code reading notes marked PRIVATE (F-D-7).
 //
-// 现在这一格只说出那唯一的数据在哪：**owner 在每条自己的卡上翻的那个开关**。
+// Now this slot just states where the one true source of that data lives: **the toggle the
+// owner flips on each entry's own card**.
 export function RoleCorpusConfig({ role }: { role: RoleView }) {
   return role.name === PUBLIC_ROLE_NAME
     ? <PublicCorpusNote />
@@ -76,8 +89,9 @@ function EditableCorpusConfig({ role }: { role: RoleView }) {
           {t('roleCorpus.help')}
         </p>
         {/*
-          从真树上勾（F-A-14）。手写框留着并并排同步显示 —— picker 认不出来的 glob（树上没有哪一行
-          对应它的那种）只能在那里改，而且 owner 得看得见这份授权的全文。
+          Check boxes on the real tree (F-A-14). The hand-typed box stays and stays synced
+          side-by-side — a glob the picker can't recognize (no tree row corresponds to it)
+          can only be edited there, and the owner needs to see the full text of the grant.
         */}
         <CorpusScopePicker
           value={parseURIs(text)}
@@ -104,7 +118,8 @@ function EditableCorpusConfig({ role }: { role: RoleView }) {
   );
 }
 
-// parseURIs —— textarea → 正列表（一行一条，trim，丢空行）。同 RoleCreateModal 的解析。
+// parseURIs —— textarea → positive list (one entry per line, trimmed, blank lines dropped).
+// Same parsing as RoleCreateModal.
 function parseURIs(text: string): string[] {
   return text.split('\n').map((s) => s.trim()).filter((s) => s !== '');
 }

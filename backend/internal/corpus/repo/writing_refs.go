@@ -1,8 +1,8 @@
-// writing_refs.go —— `[[crosslink]]` 边表 CRUD。
+// writing_refs.go —— CRUD for the `[[crosslink]]` edge table.
 //
-// SaveWriting 同事务调 ReplaceRefsBySrcTx 重建 src 出度（delete old + insert
-// new）；public /writings GET 调 BacklinksFor 查入度。FK cascade 保证 writing
-// 删了对应边自动消。
+// SaveWriting calls ReplaceRefsBySrcTx in the same transaction to rebuild the src's out-degree
+// (delete old + insert new); the public /writings GET calls BacklinksFor to look up in-degree.
+// FK cascade guarantees a deleted writing's edges vanish automatically.
 
 package repo
 
@@ -16,27 +16,28 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// WritingRefRepo —— writing_refs 表 CRUD。
+// WritingRefRepo —— CRUD for the writing_refs table.
 type WritingRefRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewWritingRefRepo 构造。
+// NewWritingRefRepo constructs one.
 func NewWritingRefRepo(pool *pgstore.Pool) *WritingRefRepo { return &WritingRefRepo{pool: pool} }
 
-// WritingRef —— 一条 backlink / outbound ref 返回值（slug + title）。
+// WritingRef —— one backlink / outbound ref return value (slug + title).
 type WritingRef struct {
 	Slug  string
 	Title string
 }
 
-// srcOwnerUUIDs —— parseSrcAndOwner 的返回打包，避免 result-limit。
+// srcOwnerUUIDs —— packs parseSrcAndOwner's return to avoid the Go result-count limit.
 type srcOwnerUUIDs struct {
 	Src, Owner pgtype.UUID
 }
 
-// ReplaceRefsBySrcTx —— delete + insert 重建 src writing 的出度。同 SaveWriting
-// tx 内调，跟 writing 行更新一起 commit。dstIDs 必须已去重（caller 负责）。
+// ReplaceRefsBySrcTx —— rebuilds src writing's out-degree via delete + insert. Called within
+// the same tx as SaveWriting, committed together with the writing row update. dstIDs must
+// already be deduplicated (caller's responsibility).
 func (*WritingRefRepo) ReplaceRefsBySrcTx(
 	ctx context.Context, tx db.DBTX,
 	srcID, ownerID string, dstIDs []string,
@@ -92,8 +93,8 @@ func insertOneRef(
 	return nil
 }
 
-// BacklinksFor —— 列指向 dstID 的所有 (源 writing slug, 源 writing title)。
-// 只列源 writing 已 published（visitor 看不到草稿 backlink）。
+// BacklinksFor —— lists every (source writing slug, source writing title) pointing at dstID.
+// Only lists source writings that are already published (a visitor never sees a draft backlink).
 func (r *WritingRefRepo) BacklinksFor(
 	ctx context.Context, ownerID, dstID string,
 ) ([]WritingRef, error) {

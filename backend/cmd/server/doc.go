@@ -1,42 +1,60 @@
-// Package main —— standmeet backend 的组装根。它**只做装配**:把各处声明的东西接起来,
-// 自己不实现业务。进程入口在 main.go。
+// Package main —— the composition root for the standmeet backend. It **only does
+// assembly**: wires together things declared elsewhere, implements no business logic
+// itself. The process entry point is main.go.
 //
-// # 目录就是章程
+// # The directory layout is the charter
 //
-// 这个目录长到三十几个文件后没有规矩可循:光看文件名答不出"这个文件在这儿干什么"。
-// 现在分成五个包,每个包一句话说得清自己是干嘛的:
+// Once this directory grew past thirty-odd files there was no rule left to follow:
+// the filename alone couldn't answer "what does this file do here". It's now split
+// into five packages, each summed up in one sentence:
 //
-//	deps/      跑着的那一堆东西(连接池、各域仓储、两根轴的注册表、两个收口)。
-//	           **只有数据,没有装配** —— 它是叶子,谁也不 import,所以下面四个包都能收同一个引用。
-//	port/      组装根**实现某个域声明的窄口**:域说"我需要这么一件事",这里用手上的具体东西
-//	           满足它。域因此不必反过来认识 owner / inference / redis。
-//	axisconn/  连接器轴:内置与 owner 上传的连接器、品类操作、品类依赖注册表。
-//	axiscap/   能力轴:内建声明的读入、注册、隔离存储、可配置项、码上的字段与用量闸、工作区。
-//	wire/      把**一个机制**接起来。一个机制一个文件:出站收口、入站收口、周期任务、
-//	           语料依赖、检索索引。
+//	deps/      Everything that's running (connection pools, each domain's repos, the
+//	           two axes' registries, the two convergence points). **Data only, no
+//	           assembly** — it's a leaf, nothing imports it, so all four packages
+//	           below can receive the same reference.
+//	port/      The composition root **implementing a narrow port a domain declares**:
+//	           a domain says "I need this one thing", and this package satisfies it
+//	           with something concrete on hand. The domain therefore never has to
+//	           know about owner / inference / redis in return.
+//	axisconn/  The connector axis: builtin and owner-uploaded connectors, category
+//	           operations, the category dependency registry.
+//	axiscap/   The capability axis: reading in builtin declarations, registration,
+//	           isolated storage, configurable options, on-code fields and usage
+//	           gates, workspaces.
+//	wire/      Wiring together **one mechanism** per file: outbound convergence,
+//	           inbound convergence, periodic jobs, corpus dependencies, search index.
 //
-// 根目录只剩启动序列本身:main.go(入口)、boot_*(依赖装配 / HTTP / 日志 / 总接线)、
-// cmd_*(CLI 子命令)。
+// The root directory itself keeps only the boot sequence: main.go (entry point),
+// boot_* (dependency assembly / HTTP / logging / overall wiring), cmd_*
+// (CLI subcommands).
 //
-// # 依赖是单向的
+// # Dependencies are one-directional
 //
 //	deps ← port ← axisconn ← axiscap ← wire ← main
 //
-// 这不是约定,是编译器管的事:包之间有环就编不过。把它们摊在一个包里的时候,任何一段都能
-// 直接够到任何一段,"谁该认识谁"只能靠人记。
+// This isn't a convention, it's the compiler's job: a cycle between packages fails to
+// build. When these were all flattened into one package, any section could reach any
+// other section directly, and "who's supposed to know about whom" was only kept
+// straight by memory.
 //
-// # 两根轴,一样的形状
+// # Two axes, the same shape
 //
-// 两根插件轴的**声明**都不在这儿:它们在 backend/capabilities/<id>/manifest.yaml 和
-// backend/connectors/<id>/manifest.yaml。这两个包只负责把声明接到机制上。声明写进组装根
-// 是这轮之前的样子 —— 能力自己的知识长在装配的地方,加一个能力就要改装配。
+// Neither plugin axis's **declarations** live here: they live in
+// backend/capabilities/<id>/manifest.yaml and backend/connectors/<id>/manifest.yaml.
+// These two packages only wire the declarations to the mechanism. Declarations living
+// in the composition root was how things looked before this round — a capability's
+// own knowledge grew wherever it was assembled, so adding a capability meant editing
+// assembly.
 //
-// # 两个收口
+// # Two convergence points
 //
-//	出站  internal/routes/dispatcher —— 面从这儿取能力
-//	入站  internal/routes/hostdesk   —— 沙箱里的能力从这儿回头问宿主要东西
+//	outbound  internal/routes/dispatcher —— where faces draw capabilities from
+//	inbound   internal/routes/hostdesk   —— where a sandboxed capability reaches back
+//	          to ask the host for something
 //
-// 各建**一个**,别处一律从它投影。收口存在的前提是没有别的路;所以这个目录不许自己挂动词、
-// 自己开 socket、自己起 ticker —— 三条都有门禁看着(check-routes-via-dispatcher /
-// check-hostops-via-desk / check-periodic-via-scheduler)。
+// Build exactly **one** of each; everywhere else projects from it. A convergence point
+// only exists on the premise that there is no other path; so this directory is not
+// allowed to hang its own verbs, open its own socket, or start its own ticker — all
+// three are watched by a gate (check-routes-via-dispatcher / check-hostops-via-desk /
+// check-periodic-via-scheduler).
 package main

@@ -1,11 +1,16 @@
-// dispatch.go —— admin 面从出站收口 wire 一条路由的通用件。
+// dispatch.go — the shared plumbing the admin facade uses to wire a route from the
+// outbound convergence point.
 //
-// 分工是固定的:**能力**来自收口(声明一次,MCP 面也拿同一份),**协议形状**留在这个面 ——
-// 路径、方法、参数在 body 还是 path、成功回 200 带载荷还是 204 空身、错误怎么翻状态码,
-// 都还是照常手写。收口不认识这些,它只给一个「入 JSON → 出 JSON / 错误」的函数。
+// The division of labor is fixed: **capability** comes from the convergence point
+// (declared once, MCP's facade takes the same copy), **protocol shape** stays on this
+// facade — the path, the method, whether a parameter goes in body or path, whether a
+// success returns 200 with a payload or 204 empty, how an error translates to a status
+// code: all of that is still hand-written as before. The convergence point knows nothing
+// about any of this; it only gives a function of "JSON in → JSON out / error".
 //
-// 于是新增一条 admin 路由的写法不变,只是能力的来源变了:不再直接 import 域的 facade
-// (check-routes-via-dispatcher 会拦),而是 face.MustOp("resource.op")。
+// So writing a new admin route stays the same, only where the capability comes from
+// changes: instead of importing the domain's facade directly (check-routes-via-dispatcher
+// blocks that), it's face.MustOp("resource.op").
 
 package admin
 
@@ -24,16 +29,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// argsFrom —— 把一个 HTTP 请求翻成收口要的 args JSON。REST 把参数放在 body / path / query
-// 的哪儿是本面的决定,这几个小函数就是那个决定的落点。
+// argsFrom translates an HTTP request into the args JSON the convergence point wants.
+// Whether REST puts a parameter in body / path / query is this facade's decision; these
+// small functions are where that decision lands.
 type argsFrom func(r *http.Request) (json.RawMessage, error)
 
-// renderOK —— 成功时怎么回。带载荷回 200,还是空身回 204,是本面的决定。
+// renderOK — how to respond on success. Returning 200 with a payload, or 204 empty, is
+// this facade's decision.
 type renderOK func(log logger, w http.ResponseWriter, body json.RawMessage)
 
-// logger —— 只用到 Error 的窄口(handler 持的是 *slog.Logger)。
+// logger — a narrow interface using only Error (handlers actually hold a *slog.Logger).
 type logger interface {
-	Error(msg string, args ...any) //nolint:forbidigo // slog 的签名就是 ...any
+	Error(msg string, args ...any) //nolint:forbidigo // this is slog's actual signature
 }
 
 func emptyArgs(*http.Request) (json.RawMessage, error) {
@@ -48,8 +55,9 @@ func bodyArgs(r *http.Request) (json.RawMessage, error) {
 	return raw, nil
 }
 
-// queryArgs —— query string(?status=open)搬进 args JSON。缺省就是空串,
-// 跟收口那边"空 = 不过滤"的约定一致。
+// queryArgs moves the query string (?status=open) into the args JSON. A missing value
+// becomes an empty string, matching the convergence point's convention that "empty means
+// no filter".
 func queryArgs(names ...string) argsFrom {
 	return func(r *http.Request) (json.RawMessage, error) {
 		vals := map[string]string{}
@@ -64,9 +72,13 @@ func queryArgs(names ...string) argsFrom {
 	}
 }
 
-// queryArgsRenamed —— query string 搬进 args JSON,并允许改名:REST 的 ?q= 对应收口的 "query"。
-// 名字不一样是本面的历史包袱,不该逼收口跟着改 —— 换名字落在这一处。
-// numeric 里的项按数字解(收口那边是 integer 字段);解不动就整个略过,由收口取默认值。
+// queryArgsRenamed moves the query string into the args JSON, allowing a rename: REST's
+// ?q= maps to the convergence point's "query". The name mismatch is this facade's
+// historical baggage, and shouldn't force the convergence point to change to match —
+// the renaming lands here.
+// Entries in numeric are parsed as numbers (the convergence point side has an integer
+// field); a failed parse is simply dropped, letting the convergence point apply its
+// default.
 func queryArgsRenamed(rename map[string]string, numeric ...string) argsFrom {
 	return func(r *http.Request) (json.RawMessage, error) {
 		q := r.URL.Query()
@@ -83,8 +95,9 @@ func queryArgsRenamed(rename map[string]string, numeric ...string) argsFrom {
 	}
 }
 
-// addNumericQuery —— 数字型 query 项。解不动就整个略过,由收口取它的默认值 ——
-// ?limit=abc 不该是个错误,它只是"没说"。
+// addNumericQuery handles the numeric query entries. A failed parse is simply dropped,
+// letting the convergence point apply its default — ?limit=abc shouldn't be an error,
+// it's just "unstated".
 func addNumericQuery(fields map[string]json.RawMessage, q url.Values, names []string) {
 	for _, n := range names {
 		if v, err := strconv.Atoi(q.Get(n)); err == nil {
@@ -93,8 +106,10 @@ func addNumericQuery(fields map[string]json.RawMessage, q url.Values, names []st
 	}
 }
 
-// bodyWithURLParam —— body 里的字段 + 路径参数合成一份 args。REST 习惯把资源 id 放路径、
-// 其余放 body(PATCH /x/{id} + {"status":...}),收口只认一份扁平 args,合并落在这儿。
+// bodyWithURLParam merges the body's fields + path parameters into one args. REST's
+// convention puts the resource id in the path and everything else in the body
+// (PATCH /x/{id} + {"status":...}); the convergence point only accepts one flat args
+// shape, and the merge lands here.
 func bodyWithURLParam(names ...string) argsFrom {
 	return func(r *http.Request) (json.RawMessage, error) {
 		fields, err := decodeBodyFields(r)
@@ -105,7 +120,7 @@ func bodyWithURLParam(names ...string) argsFrom {
 	}
 }
 
-// mergeURLParams —— 路径参数覆盖到 body 字段上,合成一份扁平 args。
+// mergeURLParams overlays path parameters onto the body's fields, producing one flat args.
 func mergeURLParams(
 	r *http.Request, fields map[string]json.RawMessage, names []string,
 ) (json.RawMessage, error) {
@@ -119,8 +134,9 @@ func mergeURLParams(
 	return out, nil
 }
 
-// decodeBodyFields —— body 解成扁平字段表。空 body 合法(有些 PATCH 只靠路径参数),
-// 解不动才是调用方给错了。服务端的 r.Body 永远非 nil(至多是 http.NoBody)。
+// decodeBodyFields decodes the body into a flat field table. An empty body is legal
+// (some PATCH routes rely on path parameters alone); a genuine decode failure is what
+// counts as the caller's mistake. The server's r.Body is never nil (at most http.NoBody).
 func decodeBodyFields(r *http.Request) (map[string]json.RawMessage, error) {
 	fields := map[string]json.RawMessage{}
 	if err := json.NewDecoder(r.Body).Decode(&fields); err != nil && !errors.Is(err, io.EOF) {
@@ -129,7 +145,7 @@ func decodeBodyFields(r *http.Request) (map[string]json.RawMessage, error) {
 	return fields, nil
 }
 
-// urlParamArgs —— 路径参数(/{id})搬进 args JSON 的那一格。
+// urlParamArgs moves the path parameter (/{id}) into its slot in the args JSON.
 func urlParamArgs(name string) argsFrom {
 	return func(r *http.Request) (json.RawMessage, error) {
 		out, err := json.Marshal(map[string]string{name: chi.URLParam(r, name)})
@@ -140,7 +156,8 @@ func urlParamArgs(name string) argsFrom {
 	}
 }
 
-// jsonOK —— 200 + 收口给的载荷原样写出(不解开重编:重编就是又造了一份形状)。
+// jsonOK — 200 + writes the convergence point's payload out verbatim (never decode and
+// re-encode it: re-encoding would just build a second copy of the shape).
 func jsonOK(log logger, w http.ResponseWriter, body json.RawMessage) {
 	writeStatusBody(log, w, http.StatusOK, body)
 }
@@ -153,8 +170,10 @@ func writeStatusBody(log logger, w http.ResponseWriter, status int, body json.Ra
 	}
 }
 
-// jsonListOK —— 200 + 把收口给的数组包一层 {"<key>": [...]}。有些 admin 路由历史上就这么回,
-// 前端按这个契约写的;收口那边是一个裸数组(MCP 面要的是那个)。包这一层是本面的形状决定。
+// jsonListOK — 200 + wraps the convergence point's array in {"<key>": [...]}. Some admin
+// routes have historically returned it this way, and the frontend is written against that
+// contract; the convergence point side is a bare array (which is what MCP's facade
+// wants). Adding this wrapper is this facade's own shape decision.
 func jsonListOK(key string) renderOK {
 	return func(log logger, w http.ResponseWriter, body json.RawMessage) {
 		wrapped, err := json.Marshal(map[string]json.RawMessage{key: body})
@@ -166,18 +185,21 @@ func jsonListOK(key string) renderOK {
 	}
 }
 
-// jsonCreated —— 201 + 载荷。建资源的路由历史上就这么回。
+// jsonCreated — 201 + payload. Resource-creating routes have historically returned it
+// this way.
 func jsonCreated(log logger, w http.ResponseWriter, body json.RawMessage) {
 	writeStatusBody(log, w, http.StatusCreated, body)
 }
 
-// noContent —— 204 空身。有些 admin 路由历史上就这么回,前端按这个契约写的。
+// noContent — 204 empty. Some admin routes have historically returned it this way, and
+// the frontend is written against that contract.
 func noContent(_ logger, w http.ResponseWriter, _ json.RawMessage) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// dispatchOp —— 从 Face 取能力 → 调 → 翻译。取不到 op 就在挂路由时炸(MustOp),
-// 而不是运行时静悄悄少一条路由。
+// dispatchOp takes capability from the Face → calls it → translates the result. Failing
+// to find the op panics while mounting routes (MustOp), instead of silently missing a
+// route at runtime.
 func (h *Handlers) dispatchOp(
 	face *dispatcher.Face, id string, args argsFrom, render renderOK,
 ) http.HandlerFunc {
@@ -197,8 +219,9 @@ func (h *Handlers) dispatchOp(
 	}
 }
 
-// writeOpError —— 收口只给协议无关的类别,状态码是本面的翻译:
-// 调用方给错了 → 400,找不到 → 404,其余是这台机器的问题 → 500(细节进日志,不外泄)。
+// writeOpError — the convergence point only gives a protocol-agnostic category; the
+// status code is this facade's own translation: the caller's fault → 400, not found → 404,
+// everything else is this machine's problem → 500 (details go to the log, never leak out).
 func (h *Handlers) writeOpError(w http.ResponseWriter, id string, err error) {
 	env, ok := opErrEnvelope(err)
 	if !ok {
@@ -208,10 +231,13 @@ func (h *Handlers) writeOpError(w http.ResponseWriter, id string, err error) {
 	writeError(h.Log, w, env)
 }
 
-// opErrClasses —— 收口的错误类别 → 本面的状态码。**一类一行**:这就是 errors.go 里说的
-// "每加一类,每个面加一条翻译"的那条。写成数据而不是分支,是因为它本来就是一张对照表。
+// opErrClasses — the convergence point's error categories → this facade's status codes.
+// **One category, one line**: this is the rule stated in errors.go, "every added category
+// gets one translation line per facade". It's written as data rather than branches because
+// it's genuinely a lookup table.
 //
-// 不在表里 = 这台机器出错了 → 通用 500,消息不外泄(细节进日志)。
+// Not in the table = this machine had a problem → generic 500, no message leaks out
+// (the details go to the log).
 var opErrClasses = []struct {
 	is     func(error) bool
 	code   string
@@ -225,10 +251,12 @@ var opErrClasses = []struct {
 	{dispatcher.IsUpstream, "upstream_failed", http.StatusBadGateway},
 }
 
-// opErrEnvelope —— 查表。ok=false 表示"不是任何一类",调用方据此记日志 + 回 500。
+// opErrEnvelope looks up the table. ok=false means "none of the categories match", and
+// the caller logs it + returns 500 on that basis.
 //
-// code 优先用错误上显式钉的那个(dispatcher.Coded):像 role_name_taken 这种是已经发出去的
-// 契约,前端按它分流。没钉过才退到类别的默认 code。
+// code prefers whatever was explicitly pinned on the error (dispatcher.Coded): something
+// like role_name_taken is an already-shipped contract that the frontend branches on. Only
+// falls back to the category's default code when nothing was pinned.
 func opErrEnvelope(err error) (apierr.Envelope, bool) {
 	for _, c := range opErrClasses {
 		if c.is(err) {
@@ -240,7 +268,8 @@ func opErrEnvelope(err error) (apierr.Envelope, bool) {
 	return apierr.Envelope{}, false
 }
 
-// pinnedOr —— 显式钉过的 code 优先,没钉过用类别默认的。
+// pinnedOr prefers an explicitly pinned code; falls back to the category's default when
+// nothing was pinned.
 func pinnedOr(err error, fallback string) string {
 	if pinned, ok := dispatcher.CodeOf(err); ok {
 		return pinned

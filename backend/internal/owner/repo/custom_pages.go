@@ -1,7 +1,8 @@
-// custom_pages.go —— custom_pages + custom_page_builds CRUD。
+// custom_pages.go —— custom_pages + custom_page_builds CRUD.
 //
-// 所有 query 返 sqlc 统一的 db.CustomPage / db.CustomPageBuild，repo 把它们
-// 映射成 typed domain 类型，让 usecase 不见 pgtype。
+// Every query returns sqlc's uniform db.CustomPage / db.CustomPageBuild;
+// repo maps them to typed domain types so the usecase layer never sees
+// pgtype.
 
 package repo
 
@@ -18,18 +19,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// errParsePageID —— fmt 模板常量，对应 page_id 解析失败。
+// errParsePageID —— fmt template constant for a page_id parse failure.
 const errParsePageID = "parse page id: %w"
 
-// CustomPageRepo —— custom_pages 表。
+// CustomPageRepo —— the custom_pages table.
 type CustomPageRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewCustomPageRepo 构造。
+// NewCustomPageRepo constructs one.
 func NewCustomPageRepo(pool *pgstore.Pool) *CustomPageRepo { return &CustomPageRepo{pool: pool} }
 
-// Create —— 落 owner+slug；slug 冲突翻译成 ErrCustomPageSlugTaken。
+// Create writes owner+slug; a slug conflict translates to
+// ErrCustomPageSlugTaken.
 func (r *CustomPageRepo) Create(
 	ctx context.Context, ownerID, slug, title string,
 ) (entity.CustomPage, error) {
@@ -49,7 +51,7 @@ func (r *CustomPageRepo) Create(
 	return toDomainCustomPage(&row), nil
 }
 
-// GetBySlug —— owner_id + slug 反查。
+// GetBySlug looks up by owner_id + slug.
 func (r *CustomPageRepo) GetBySlug(
 	ctx context.Context, ownerID, slug string,
 ) (entity.CustomPage, error) {
@@ -69,7 +71,7 @@ func (r *CustomPageRepo) GetBySlug(
 	return toDomainCustomPage(&row), nil
 }
 
-// GetByID —— 通过 page_id 反查。
+// GetByID looks up by page_id.
 func (r *CustomPageRepo) GetByID(ctx context.Context, id string) (entity.CustomPage, error) {
 	pgID, perr := pgstore.ParseUUID(id)
 	if perr != nil {
@@ -85,7 +87,7 @@ func (r *CustomPageRepo) GetByID(ctx context.Context, id string) (entity.CustomP
 	return toDomainCustomPage(&row), nil
 }
 
-// ListByOwner —— owner 的所有 active 页。
+// ListByOwner —— all of the owner's active pages.
 func (r *CustomPageRepo) ListByOwner(
 	ctx context.Context, ownerID string,
 ) ([]entity.CustomPage, error) {
@@ -104,8 +106,10 @@ func (r *CustomPageRepo) ListByOwner(
 	return out, nil
 }
 
-// listedCustomPage —— 列表那一条比其余多一样：**哪些码开这一页**。
-// 它是绑定的另一头 —— 码那一侧看得到页，页这一侧看得到码，一个事实两处读、谁也不存第二份。
+// listedCustomPage —— a list row carries one thing the rest don't:
+// **which codes unlock this page**. It's the other end of the binding —
+// codes can see the page, and the page can see its codes; one fact read
+// from two sides, and neither side keeps a second copy of it.
 func listedCustomPage(row *db.ListCustomPagesByOwnerRow) entity.CustomPage {
 	page := toDomainCustomPage(&db.CustomPage{
 		ID: row.ID, OwnerID: row.OwnerID, Slug: row.Slug, Title: row.Title,
@@ -117,8 +121,9 @@ func listedCustomPage(row *db.ListCustomPagesByOwnerRow) entity.CustomPage {
 	return page
 }
 
-// buildRefIDs —— SetLive / SetStaging 共用：把 page id + build id 一次解析成
-// pgtype.UUID。用 struct 而非多值返回，让 revive function-result-limit 不抱怨。
+// buildRefIDs —— shared by SetLive / SetStaging: parses page id + build id
+// into pgtype.UUID in one shot. Uses a struct instead of a multi-value
+// return so revive's function-result-limit doesn't complain.
 type buildRefIDs struct {
 	Page  pgtype.UUID
 	Build pgtype.UUID
@@ -136,7 +141,8 @@ func parseBuildRefIDs(pageID, buildID string) (buildRefIDs, error) {
 	return buildRefIDs{Page: pageUUID, Build: buildUUID}, nil
 }
 
-// SetLive —— promote_to_live：当前 live 落到 previous，设新 live。
+// SetLive —— promote_to_live: the current live build moves to previous,
+// and the new one becomes live.
 func (r *CustomPageRepo) SetLive(
 	ctx context.Context, pageID, buildID string,
 ) (entity.CustomPage, error) {
@@ -153,8 +159,9 @@ func (r *CustomPageRepo) SetLive(
 	return toDomainCustomPage(&row), nil
 }
 
-// SetByoai —— 这一页在无人出示 grant 时给不给读者用自己的 key。
-// 无行 = 这个 owner 没有这个 slug（或已删）→ ErrCustomPageNotFound，不是静默成功。
+// SetByoai —— whether this page lets a visitor use their own key when no
+// grant is presented. No matching row = this owner has no such slug (or it
+// was deleted) → ErrCustomPageNotFound, not a silent success.
 func (r *CustomPageRepo) SetByoai(
 	ctx context.Context, ownerID, slug string, allow bool,
 ) (entity.CustomPage, error) {
@@ -174,7 +181,7 @@ func (r *CustomPageRepo) SetByoai(
 	return toDomainCustomPage(&row), nil
 }
 
-// SetStaging —— promote_to_staging。
+// SetStaging —— promote_to_staging.
 func (r *CustomPageRepo) SetStaging(
 	ctx context.Context, pageID, buildID string,
 ) (entity.CustomPage, error) {
@@ -191,7 +198,8 @@ func (r *CustomPageRepo) SetStaging(
 	return toDomainCustomPage(&row), nil
 }
 
-// Rollback —— previous_live_build_id → live；没 previous 时返 ErrCustomPageNotFound。
+// Rollback —— previous_live_build_id → live; returns ErrCustomPageNotFound
+// if there is no previous build.
 func (r *CustomPageRepo) Rollback(
 	ctx context.Context, pageID string) (entity.CustomPage, error,
 ) {
@@ -209,7 +217,7 @@ func (r *CustomPageRepo) Rollback(
 	return toDomainCustomPage(&row), nil
 }
 
-// Delete —— 软删（status='deleted'）。
+// Delete —— soft delete (status='deleted').
 func (r *CustomPageRepo) Delete(ctx context.Context, pageID string) error {
 	pgID, perr := pgstore.ParseUUID(pageID)
 	if perr != nil {
@@ -223,7 +231,8 @@ func (r *CustomPageRepo) Delete(ctx context.Context, pageID string) error {
 
 // --- mapping helpers -------------------------------------------------------
 //
-// custom_page_builds CRUD 在 custom_builds.go；这里只放 page 自己。
+// custom_page_builds CRUD lives in custom_builds.go; this file holds only
+// the page itself.
 
 func toDomainCustomPage(row *db.CustomPage) entity.CustomPage {
 	page := entity.CustomPage{

@@ -1,13 +1,14 @@
 // report.go —— GET /api/v1/report/{id}
 //
-// I.3: 一份 chat report 的读取入口。visitor 浏览器 /report/[id] 独立路
-// 由 fetch 这条；返 {id, conversation_id, html, created_at}。
+// I.3: the read entry point for one chat report. The visitor browser's independent
+// /report/[id] route fetches it; returns {id, conversation_id, html, created_at}.
 //
-// Auth: visitor session token (Bearer)。session.owner_id 必须等于 report
-// 行的 owner_id；不等翻 404 (跟 not_found 同 envelope 避免确认 id 存在的
-// 信息泄漏)。
+// Auth: visitor session token (Bearer). session.owner_id must equal the report row's
+// owner_id; if not, returns 404 (same envelope as not_found to avoid leaking whether
+// the id exists).
 //
-// owner-side 独立 admin route 后续 commit 加；此处仅 visitor 侧。
+// The owner-side standalone admin route is added in a later commit; this is visitor
+// side only.
 
 package public
 
@@ -49,10 +50,13 @@ func dispatchGetReport(h *Handlers, w http.ResponseWriter, r *http.Request) {
 	writeReport(h, w, &report)
 }
 
-// fetchOwnedReport —— GetByID + 归属校；不可见翻 ErrReportNotFound (跟 not_found 同包，
-// 避免 id 存在性泄漏)。#170 BOLA fix：不只校 owner_id —— 单 owner 实例下所有访客同 owner，
-// 只校 owner 会让任意访客凭 id 读到别人的对话摘要 report。改为校「report 的会话属于**发起
-// 请求的 member**」，访客只能读自己会话的 report。
+// fetchOwnedReport —— GetByID + an ownership check; invisible → ErrReportNotFound
+// (bundled with not_found to avoid leaking id existence). #170 BOLA fix: checking
+// owner_id alone isn't enough — on a single-owner instance every visitor shares the
+// same owner, so an owner-only check would let any visitor read someone else's
+// conversation-summary report just by knowing the id. Changed to check "the report's
+// conversation belongs to **the requesting member**", so a visitor can only read
+// reports for their own conversation.
 func fetchOwnedReport(
 	h *Handlers, r *http.Request, id, ownerID, memberID string,
 ) (conversation.ChatReport, error) {
@@ -66,7 +70,8 @@ func fetchOwnedReport(
 	return conversation.ChatReport{}, conversation.ErrReportNotFound
 }
 
-// reportVisibleTo —— report 属于该 owner 且其会话由该 member 拥有。
+// reportVisibleTo —— the report belongs to this owner and its conversation is owned
+// by this member.
 func reportVisibleTo(
 	h *Handlers, r *http.Request, report *conversation.ChatReport, ownerID, memberID string,
 ) bool {
@@ -74,7 +79,8 @@ func reportVisibleTo(
 		conversationOwnedByMember(h, r, ownerID, report.ConversationID, memberID)
 }
 
-// conversationOwnedByMember —— report.ConversationID 指向的会话 member_id 是否 == 请求者。
+// conversationOwnedByMember —— whether the member_id of the conversation
+// report.ConversationID points to == the requester.
 func conversationOwnedByMember(
 	h *Handlers, r *http.Request, ownerID, convID, memberID string,
 ) bool {

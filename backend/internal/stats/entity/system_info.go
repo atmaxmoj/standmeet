@@ -1,22 +1,24 @@
 package entity
 
-// SystemInfo —— /admin/system 的真实运行时快照:go runtime + 真 health ping + 主机资源
-// (磁盘/内存/负载 —— 自托管 owner 的第一眼运维数据)。
+// SystemInfo — a real runtime snapshot for /admin/system: go runtime + real
+// health pings + host resources (disk/memory/load — the self-hosted owner's
+// first-glance ops data).
 type SystemInfo struct {
 	Version       string
 	Health        []HealthCheck
 	UptimeSeconds int64
-	MemAllocMB    int64 // Go 进程堆(runtime),≠ 主机 RAM
-	DiskTotalMB   int64 // 主机数据盘总量
-	DiskFreeMB    int64 // 主机数据盘空闲
-	MemTotalMB    int64 // 主机物理内存总量
-	MemUsedMB     int64 // 主机物理内存已用
+	MemAllocMB    int64 // Go process heap (runtime), != host RAM
+	DiskTotalMB   int64 // host data disk total capacity
+	DiskFreeMB    int64 // host data disk free space
+	MemTotalMB    int64 // host physical memory total
+	MemUsedMB     int64 // host physical memory used
 	LoadAvg1      float64
 	Goroutines    int
 	NumCPU        int
 }
 
-// HealthCheck —— 一项依赖的真实健康(db/redis/storage 真 ping,不再写死 "ok")。
+// HealthCheck — the real health of one dependency (db/redis/storage really
+// pinged, not a hardcoded "ok").
 type HealthCheck struct {
 	Name   string
 	Detail string

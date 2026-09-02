@@ -1,22 +1,28 @@
-// Package textcut —— 切一段文本,一处实现。
+// Package textcut -- cuts a piece of text, one implementation.
 //
-// 为什么值得有个包:`s[:n]` 按**字节**切,n 落在一个多字节字符中间就切出半个字符。后果按
-// 落点不同:一个坏了的 title 一路传到 postgres,整条 INSERT 被拒(`invalid byte sequence
-// for encoding "UTF8"`),owner 那边看到的是"这条笔记存不进去",而错误里没有一个字提到标题。
-// 中文每字 3 字节,所以对中文 vault 这不是边角:一行 21 个汉字就踩上了。
+// Why this deserves a package: `s[:n]` cuts by **byte**, and if n lands mid-way through a
+// multi-byte character it slices that character in half. The consequence depends on where
+// it lands: a corrupted title propagates all the way to postgres and the whole INSERT gets
+// rejected (`invalid byte sequence for encoding "UTF8"`), so the owner just sees "this note
+// won't save", with not a single word in the error about the title. Chinese characters are
+// 3 bytes each, so for a Chinese vault this isn't an edge case: one line of 21 Chinese
+// characters already trips it.
 //
-// 这个错在这个仓库里犯过至少四次(job 抓取的标题、raw 的派生标题、wiki 的 path 段、证据
-// 摘要),每次都在原地补一个私有 helper —— 于是同一件事有四份写法、三种语义。这里收成一处:
-// 单位说清楚(字符 / 字节),截断了要不要留记号说清楚。
+// This bug has happened in this repo at least four times (job-scraped titles, raw's derived
+// titles, wiki's path segments, evidence summaries), and each time a private helper got
+// patched in on the spot -- so the same thing ended up with four implementations and three
+// different semantics. This consolidates it into one place: the unit is explicit (characters
+// vs bytes), and whether truncation leaves a mark is explicit too.
 package textcut
 
 import "unicode/utf8"
 
-// Mark —— 截断留下的记号。人看的文本用它明示"后面还有";机器读的地址(path 段、slug)
-// 不能带它,那种场合用 Runes。
+// Mark -- the marker left by truncation. Use it in human-facing text to signal "there's
+// more"; machine-read addresses (path segments, slugs) must not carry it -- use Runes there.
 const Mark = "…"
 
-// Runes —— 最多 n 个字符,**不留记号**。给 path 段 / slug 这类要进地址的东西用。
+// Runes -- at most n characters, **leaves no mark**. For things that go into an address,
+// like path segments / slugs.
 func Runes(s string, n int) string {
 	if n <= 0 {
 		return ""
@@ -27,7 +33,8 @@ func Runes(s string, n int) string {
 	return string([]rune(s)[:n])
 }
 
-// RunesMark —— 最多 n 个字符,切了就在末尾加一个 Mark。给标题这类给人看的短文本用。
+// RunesMark -- at most n characters; if cut, appends a Mark at the end. For human-facing
+// short text like titles.
 func RunesMark(s string, n int) string {
 	cut := Runes(s, n)
 	if cut == s {
@@ -36,10 +43,12 @@ func RunesMark(s string, n int) string {
 	return cut + Mark
 }
 
-// BytesMark —— 最多 n **字节**,且绝不切开一个字符;切了就加一个 Mark。
+// BytesMark -- at most n **bytes**, and never slices a character in half; if cut, appends
+// a Mark.
 //
-// 单位是字节而不是字符,因为它的调用方是**预算**(证据摘要、片段上限):算的是这段东西
-// 占多大,不是它有几个字。记号本身不算进 n。
+// The unit is bytes rather than characters because its callers are **budgets** (evidence
+// summaries, snippet caps): what matters is how much space this takes up, not how many
+// characters it has. The mark itself doesn't count against n.
 func BytesMark(s string, n int) string {
 	if n <= 0 {
 		return ""

@@ -1,5 +1,6 @@
-// custom_pages_authoring.go —— 写一个自定义页的那几步:建 → 写文件 → 构建 → 上 staging
-// → 上线 / 回滚 / 删。构建器是异步的,所以构建那步回一个 build_id 让调用方轮询。
+// custom_pages_authoring.go —— the steps to author a custom page: create → write file →
+// build → promote to staging → go live / roll back / delete. The builder is asynchronous,
+// so the build step returns a build_id for the caller to poll.
 
 package ops
 
@@ -16,7 +17,7 @@ func customPageAuthoringOps(deps usecase.CustomPageDeps) []fp.Op {
 	return append(customPageSettingOps(deps), customPageBuildOps(deps)...)
 }
 
-// customPageSettingOps —— 页面自己的设置（不涉及构建）。
+// customPageSettingOps —— the page's own settings (nothing build-related).
 func customPageSettingOps(deps usecase.CustomPageDeps) []fp.Op {
 	return []fp.Op{
 		{
@@ -36,9 +37,10 @@ func customPageBuildOps(deps usecase.CustomPageDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "custom_page.create",
-			// F-L-44：这里曾写 `/<handle>/p/<slug>` —— 那个地址 404，真地址是 `/p/<slug>`
-			// （实例是单 owner，URL 不带 handle）。**owner 的 AI 只读 description**，
-			// 所以一个说错的地址就是它转告给 owner 的地址。
+			// F-L-44: this used to say `/<handle>/p/<slug>` — that address 404s, the
+			// real address is `/p/<slug>` (the instance is single-owner, the URL
+			// carries no handle). **The owner's AI only reads the description**, so a
+			// wrong address here is the address it relays to the owner.
 			Description: "Create a custom page, served at /p/<slug>.",
 			InputSchema: pageCreateSchema,
 			Kind:        fp.Action,
@@ -97,7 +99,8 @@ func customPageBuildOps(deps usecase.CustomPageDeps) []fp.Op {
 	}
 }
 
-// createCustomPage —— 不给标题就用 slug 当标题(建页时通常只想到地址)。
+// createCustomPage —— no title given → use the slug as the title (creating a page usually
+// means only the address was on the caller's mind).
 func createCustomPage(deps usecase.CustomPageDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		in, perr := decodePageSlug(raw)
@@ -148,7 +151,8 @@ func buildCustomPage(deps usecase.CustomPageDeps) fp.Invoke {
 	}
 }
 
-// promoteFn —— staging / live 两个方向在域里是两个函数;这一层只选其一。
+// promoteFn —— staging / live are two separate functions in the domain; this layer just
+// picks one.
 type promoteFn func(
 	ctx context.Context, deps usecase.CustomPageDeps, ownerID, slug, buildID string,
 ) (entity.CustomPage, error)
@@ -194,7 +198,8 @@ func deleteCustomPage(deps usecase.CustomPageDeps) fp.Invoke {
 	}
 }
 
-// setCustomPageByoai —— 这一页在无人出示 grant 时给不给用自己的 key。
+// setCustomPageByoai —— whether this page allows a reader's own key when no grant is
+// presented.
 func setCustomPageByoai(deps usecase.CustomPageDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		in, perr := decodePageSlug(raw)
@@ -213,7 +218,7 @@ func setCustomPageByoai(deps usecase.CustomPageDeps) fp.Invoke {
 	}
 }
 
-// deletedPageOut —— 删除的回执:删掉了哪一个。
+// deletedPageOut —— the delete receipt: which one got deleted.
 type deletedPageOut struct {
 	Slug    string `json:"slug"`
 	Deleted bool   `json:"deleted"`

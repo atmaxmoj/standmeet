@@ -1,6 +1,6 @@
-// custom_page_resolve.go —— 给 routes/public/custom_pages.go 用：把
-// sole-owner→page→live_build 的多步链路集中在 usecase 层，让 handler
-// 保持 cyclo ≤ 3。
+// custom_page_resolve.go — used by routes/public/custom_pages.go: centralizes the
+// multi-step sole-owner→page→live_build chain in the usecase layer so the handler
+// stays at cyclo <= 3.
 
 package usecase
 
@@ -12,14 +12,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// SoleOwnerLookup —— ResolveLiveBuild 用，取 sole owner（v1 单 owner instance）。
-// 让 routes 层不必直接依赖 postgres。
+// SoleOwnerLookup — used by ResolveLiveBuild to fetch the sole owner (v1 single-owner
+// instance). Lets the routes layer avoid depending on postgres directly.
 type SoleOwnerLookup interface {
 	FirstHandle(ctx context.Context) (string, error)
 	GetByHandle(ctx context.Context, handle string) (entity.Owner, error)
 }
 
-// ResolveLiveBuild —— 返回 sole owner 公开页里 slug 对应的 live build + 这一页的设置。
+// ResolveLiveBuild — returns the live build for the given slug on the sole owner's
+// public page + that page's settings.
 func ResolveLiveBuild(
 	ctx context.Context, deps CustomPageDeps, owners SoleOwnerLookup, slug string,
 ) (LivePage, error) {
@@ -40,9 +41,11 @@ func ResolveLiveBuild(
 	return resolveByOwner(ctx, deps, soleOwner.ID, slug)
 }
 
-// LivePage —— 正在服务的这一页：哪一次构建的产物，加上**这一刻**页自己的设置。
-// 两样一起返回，是因为服务一次请求的两个决定（读哪些文件、这一页给不给自带 key）
-// 用的是同一行记录 —— 分两次查会给出两个时刻的答案。
+// LivePage — the page currently being served: which build's artifacts, plus that page's
+// own settings **at this instant**. The two are returned together because the two
+// decisions involved in serving a request (which files to read, whether this page allows
+// bring-your-own-key) both come from the same row — querying them separately could give
+// answers from two different moments.
 type LivePage struct {
 	Build      entity.CustomPageBuild
 	AllowBYOAI bool
@@ -65,18 +68,23 @@ func resolveByOwner(
 	return LivePage{Build: build, AllowBYOAI: page.AllowBYOAI}, nil
 }
 
-// ResolvePreviewBuild —— **owner 预览用**的那一版：这一页最近一次构建成功的。
+// ResolvePreviewBuild — the version used **for owner preview**: this page's most
+// recently successful build.
 //
-// 为什么要单独一条：`/p/{slug}` 服务的是 live（resolveByOwner 读 LiveBuildID），
-// 于是 agent 建完到 owner 点头之间的那一版，owner **没有任何地方看得见** ——
-// 而那恰恰是他要看的那一版（看完才决定上不上线）。
+// Why this needs its own function: `/p/{slug}` serves live (resolveByOwner reads
+// LiveBuildID), so between the agent finishing a build and the owner giving the go-ahead,
+// the owner has **no way to see that version anywhere** — and that's exactly the version
+// he wants to see (he decides whether to publish after looking at it).
 //
-// **一条规则，没有 fallback 链**：最近一次构建成功的，就这一条。
-//   - 不看 staging_build_id：那要 agent 记得多调一次 promote_to_staging，
-//     忘了 owner 就什么都看不见、而且不知道为什么。而 owner 要的是"看到它刚做了什么"。
-//   - 只看 built：pending / building / failed 没有产物，渲出来是一片空白，
-//     owner 会以为是自己写的页坏了。最近一次**成功**的那版仍然是他上次看到的东西，
-//     而构建失败该由构建状态那一行说话，不是靠预览变白。
+// **One rule, no fallback chain**: the most recently successful build, period.
+//   - Does not look at staging_build_id: that would require the agent to remember an
+//     extra promote_to_staging call, and if it forgets, the owner sees nothing and has
+//     no idea why. What the owner wants is "see what it just did".
+//   - Only looks at built: pending / building / failed have no artifact, so rendering
+//     them yields a blank page, and the owner would think the page he wrote is broken.
+//     The most recently **successful** build is still what he saw last time, and a
+//     build failure should be communicated by the build-status row, not by making the
+//     preview go blank.
 func ResolvePreviewBuild(
 	ctx context.Context, deps CustomPageDeps, ownerID, slug string,
 ) (LivePage, error) {

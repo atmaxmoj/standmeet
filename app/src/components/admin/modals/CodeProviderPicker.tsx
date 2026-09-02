@@ -1,7 +1,9 @@
-// CodeProviderPicker —— code create modal 里的 provider 下拉。
+// CodeProviderPicker — the provider dropdown inside the code create modal.
 //
-// 空选项 = 不指定,这张码继承 role 的那条,role 也没有就走 owner 默认。选了就**压过 role**:
-// 码是发出去的那张票,它说得更具体。条目来自 /admin/providers(那一面的 "provider book")。
+// Empty option = unspecified: this code inherits the role's provider, or the owner
+// default if the role has none either. Picking one **overrides the role** — the code
+// is the ticket that's actually handed out, so it's more specific. Options come from
+// /admin/providers (that page's "provider book").
 
 import { useTranslations } from 'next-intl';
 

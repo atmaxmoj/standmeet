@@ -1,11 +1,15 @@
-// nav —— admin 每一节的**名字**只在这里写一次。
+// nav —— every admin section's **name** is written exactly once, here.
 //
-// 侧栏那块牌子和点进去之后的大标题，说的是同一件事：这一节叫什么。以前它们是两份手写的字符串，
-// 于是 F-N-3：牌子早就改成了 `landing page` / `custom pages`，而门后的标题还是 `page` / `pages` ——
-// owner 是**点进去**的，点完之后屏幕上最大的那个词才是他读到的东西，而那个词恰好是这个模块
-// 存在的理由（两个只差一个复数的名字）。26 节里另外 24 节手抄得一模一样，正好说明它本来就该是一份。
+// The sidebar's label and the big heading once you've clicked in are saying
+// the same thing: what this section is called. They used to be two
+// hand-written strings, hence F-N-3: the label had already been changed to
+// `landing page` / `custom pages`, while the heading behind the door still
+// said `page` / `pages` — the owner **clicks in**, and once they do, the
+// biggest word on screen is what they actually read, and that word is
+// exactly why the module exists (two names differing by just a plural). The
+// other 24 of 26 sections were hand-copied identically, which is exactly the proof it should have been one string all along.
 //
-// 所以：`SectionHeader` 收 slug、自己去问 `navLabel`。想改一节的名字，改这里，两处一起动。
+// So: `SectionHeader` takes a slug and asks `navLabel` itself. To rename a section, change it here, and both places move together.
 
 export type AdminSlug =
   | 'raw' | 'wiki' | 'subjectivity' | 'output' | 'conversations' | 'codes' | 'requests'
@@ -36,8 +40,9 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { slug: 'raw', label: 'raw', badgeTestId: 'badge-raw' },
       { slug: 'wiki', label: 'wiki' },
-      // subjectivity 只读:它的写口是 MCP(自我模型是边想边写出来的,不是填出来的)。
-      // 有这一条是为了"看得见 + 挂得上文件" —— 在它之前面板上一个界面都没有。
+      // subjectivity is read-only: its write path is MCP (the self-model is
+      // written while thinking out loud, not filled in through a form).
+      // This entry exists for "visible + attachable to the file" — before it, the panel had no interface at all.
       { slug: 'subjectivity', label: 'subjectivity' },
       { slug: 'writings', label: 'writings' },
       { slug: 'output', label: 'outputs' },
@@ -51,12 +56,14 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { slug: 'roles', label: 'roles' },
       { slug: 'prompts', label: 'prompts' },
       { slug: 'requests', label: 'requests', badgeTestId: 'badge-requests' },
-      // custom pages 归 access,不归 corpus:它不是语料的一层,它是**访客落到哪儿**。
-      // 一个 custom page 可以绑到某个 code 上(custom-page-code-binding),
-      // 跟它做邻居的是 codes 和 preview,不是 raw/wiki/output。
+      // custom pages belongs under access, not corpus: it isn't a layer of
+      // the corpus, it's **where a visitor lands**. A custom page can be
+      // bound to a code (custom-page-code-binding), and its neighbors are
+      // codes and preview, not raw/wiki/output.
       { slug: 'custom-pages', label: 'custom pages' },
-      // embeds 归 access:一个 embed 把某张码作为 <standmeet-chat> widget 暴露到别人网站上,
-      // 邻居是 codes(它挂的码)和 custom-pages,不是语料。
+      // embeds belongs under access: an embed exposes a code as a
+      // <standmeet-chat> widget on someone else's site, and its neighbors
+      // are codes (the code it's attached to) and custom-pages, not the corpus.
       { slug: 'embeds', label: 'embeds' },
       { slug: 'preview', label: 'preview' },
     ],
@@ -91,18 +98,21 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   },
 ];
 
-// ADMIN_SLUGS —— 侧栏**渲染出来的**那些 slug，从 NAV_GROUPS 算，不另抄一份。
+// ADMIN_SLUGS —— the slugs the sidebar **actually renders**, computed from
+// NAV_GROUPS, not copied separately.
 //
-// F-N-1：`AdminShell` 曾自己维护第二份 `KNOWN_SLUGS` 用来把路径映射成"当前节"，
-// 而那份漏了 `subjectivity` —— 于是 `/admin/subjectivity` 走「未知 → dashboard」的兜底，
-// 侧栏高亮的是 dashboard。侧栏渲得出这一节，路径映射却不认识它：**同一份事实两份存**。
-// 现在只有 NAV_GROUPS 一份，加一节就自动被认识。
+// F-N-1: `AdminShell` used to maintain a second `KNOWN_SLUGS` on its own to
+// map a path to "the current section", and that copy was missing
+// `subjectivity` — so `/admin/subjectivity` fell through the "unknown →
+// dashboard" default, and the sidebar highlighted dashboard. The sidebar
+// could render this section, but the path mapping didn't recognize it: **one
+// fact, stored twice**. Now there's only NAV_GROUPS; adding a section is automatically recognized.
 export const ADMIN_SLUGS: readonly AdminSlug[] =
   NAV_GROUPS.flatMap((g) => g.items.map((i) => i.slug));
 
-// navLabel —— 这一节叫什么。侧栏的牌子和这一节的大标题都问它。
+// navLabel —— what this section is called. Both the sidebar's label and this section's heading ask it.
 export function navLabel(slug: AdminSlug): string {
   const found = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.slug === slug);
-  // 类型上到不了这里；真到了就把 slug 印出来，好过静默显示空标题。
+  // The type system can't reach here; if it ever does, print the slug — better than silently showing an empty title.
   return found?.label ?? slug;
 }

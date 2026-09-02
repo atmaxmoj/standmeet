@@ -1,18 +1,27 @@
-// corpus_assets.go —— 面板往一条语料上挂文件、把挂错的撤下来。
+// corpus_assets.go — lets the panel attach a file to a corpus entry, and take back one
+// attached by mistake.
 //
-// 挂文件有**两条来路,同一件事**:
+// Attaching a file has **two routes, one thing**:
 //
-//	owner 通过 AI    给的是一个 https 地址(图在图床上)—— JSON body,直接走收口那条 op
-//	owner 在面板上   给的是字节(文件在他机器里)—— multipart,走这里
+//	owner via AI     hands over an https address (the image lives on an image host) —
+//	                 JSON body, goes straight through the convergence point's op
+//	owner in panel   hands over bytes (the file is on their machine) — multipart, goes
+//	                 through here
 //
-// 为什么不逼面板也交地址:那要求 owner 先把文件传到别处、拿到公网链接、再贴回来。
-// 那不是一个人会用的东西 —— 面板上他手里只有一个文件挑选框。
+// Why not force the panel to hand over an address too: that would require the owner to
+// first upload the file elsewhere, get a public link, and paste it back in. That's not
+// something a person would do — in the panel all they have is a file picker.
 //
-// 两条走的是**同一个 op**(assets.upload)。字节不塞进 args,而是作为随行文件挂在这次调用
-// 上(fp.WithFiles),op 那边合流。这样面板这条也在收口的账上,装饰器链照套 ——
-// 而不是像 writings 那条 multipart 一样直连域、绕过收口(它还在基线里欠着)。
+// Both routes go through **the same op** (assets.upload). The bytes aren't stuffed into
+// args; they ride along as a file attached to this call (fp.WithFiles), and the op merges
+// them. This keeps the panel's route on the convergence point's books too, with the
+// decorator chain applying the same way — instead of connecting straight to the domain
+// and bypassing the convergence point the way the writings multipart route still does
+// (still owed against the baseline).
 //
-// 这一层只负责把 multipart 拆开,不判能不能收 —— 判两遍就是两套判据,迟早分叉。
+// This layer's only job is to unpack the multipart form; it never decides whether the
+// upload is acceptable — judging that twice means two sets of criteria, which will
+// eventually diverge.
 
 package admin
 
@@ -28,17 +37,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// maxAssetUploadSize —— 这一层的粗闸,拦住"整台机器被一个请求吃掉"。
-// 真正按 kind 分的上限在 usecase 的素材守卫里 —— 那才是判据,这里只是别让内存先炸。
+// maxAssetUploadSize — this layer's coarse gate, stopping "one request eats the whole
+// machine's memory". The real per-kind limits live in the usecase's asset guard — that's
+// the actual criterion; this is just to keep memory from blowing up first.
 const maxAssetUploadSize = 60 << 20
 
 const assetFileField = "file"
 
 const opAssetsUpload = "assets.upload"
 
-// attachCorpusAsset —— POST /corpus/{genre}/{id}/assets。按 Content-Type 分两条来路,
-// **同一个 op**:JSON 走普通取用,multipart 走 OpFiles(这个面的档案得载得动 fp.Multipart,
-// 载不动就在组装期炸,而不是运行时静静回一个 404)。
+// attachCorpusAsset — POST /corpus/{genre}/{id}/assets. Splits into two routes by
+// Content-Type, **the same op**: JSON goes through the ordinary invocation, multipart
+// goes through OpFiles (this facade's registration must be able to carry fp.Multipart —
+// if it can't, it panics at assembly time, not silently return a 404 at runtime).
 func (h *Handlers) attachCorpusAsset() http.HandlerFunc {
 	byURL := h.dispatchOp(h.Corpus.Face, opAssetsUpload, corpusEntryArgs, jsonCreated)
 	withFiles := h.Corpus.Face.MustOpFiles(opAssetsUpload)
@@ -68,7 +79,8 @@ func (h *Handlers) attachUploadedFile(op *dispatcher.Op) http.HandlerFunc {
 	}
 }
 
-// assetRequest —— 这次上传的两半:路径/表单来的入参,加上随行的那份字节。
+// assetRequest — the two halves of this upload: the args from the path/form, plus the
+// bytes riding along with it.
 type assetRequest struct {
 	Args   json.RawMessage
 	Upload assetUpload
@@ -86,7 +98,8 @@ func readAssetRequest(w http.ResponseWriter, r *http.Request) (assetRequest, err
 	return assetRequest{Args: args, Upload: upload}, nil
 }
 
-// uploadArgs —— 这次上传的 op 入参：路径上的 genre + id，外加表单里选的类别。
+// uploadArgs — this upload's op args: genre + id from the path, plus the kind picked in
+// the form.
 func uploadArgs(r *http.Request, kind string) (json.RawMessage, error) {
 	args, err := corpusEntryArgs(r)
 	if err != nil {
@@ -95,16 +108,19 @@ func uploadArgs(r *http.Request, kind string) (json.RawMessage, error) {
 	return argsWithKind(args, kind)
 }
 
-// argsWithKind —— 把表单里选的类别并进 op 的入参。
+// argsWithKind merges the kind picked in the form into the op's args.
 //
-// 这一步以前不存在（F-L-48）：`kind` 从 multipart 里读进 `assetUpload.Kind`，然后**没有
-// 任何人读那个字段** —— `corpusEntryArgs` 只从路径拼 genre + id。于是面板上传的每一份文件
-// 到 op 那儿 kind 都是空的，媒体守卫按默认的 image 白名单查，PDF 一律被拒
-// （*"content-type application/pdf is not accepted for image"*）。屏幕上那个 attachment
-// 选项因此是个装饰：owner 在面板上永远挂不上一份 PDF，而 attachment 这个类别就是为它存在的。
+// This step didn't used to exist (F-L-48): `kind` was read from the multipart form into
+// `assetUpload.Kind`, and then **nothing ever read that field** — `corpusEntryArgs` only
+// assembled genre + id from the path. So every file the panel uploaded arrived at the op
+// with an empty kind; the media guard checked it against the default image allowlist, and
+// every PDF was rejected (*"content-type application/pdf is not accepted for image"*).
+// The attachment option on screen was therefore decorative: the owner could never attach
+// a PDF from the panel, even though the attachment kind exists specifically for it.
 //
-// e2e 没抓到，是因为面板那几条用例**从没碰过那个下拉框**，一直用默认类别传图；MCP 那条路
-// 自己在 JSON 里带 kind，所以那一侧一直是对的（[[test-covers-capability-not-face]]）。
+// e2e never caught it because the panel's test cases **never touched that dropdown** —
+// they always uploaded images with the default kind; MCP's path carries kind in its JSON
+// itself, so that side was always correct ([[test-covers-capability-not-face]]).
 func argsWithKind(args json.RawMessage, kind string) (json.RawMessage, error) {
 	if kind == "" {
 		return args, nil
@@ -120,21 +136,24 @@ func argsWithKind(args json.RawMessage, kind string) (json.RawMessage, error) {
 func (h *Handlers) runAssetUpload(
 	w http.ResponseWriter, r *http.Request, invoke dispatcher.Invoke, req *assetRequest,
 ) {
-	// 字节随行:op 那边靠它分辨这次是"面板递的文件"还是"AI 递的地址"。
+	// The bytes ride along: the op side uses their presence to tell "the panel handed a
+	// file" apart from "AI handed an address".
 	ctx := dispatcher.WithFiles(r.Context(), []dispatcher.File{{
 		Field: assetFileField, Filename: req.Upload.Filename,
 		ContentType: req.Upload.ContentType, Body: req.Upload.Body,
 	}})
 	out, err := invoke(ctx, middleware.OwnerIDFrom(r.Context()), req.Args)
 	if err != nil {
-		// 跟其它经收口的路由同一条翻译:收口只给协议无关的类别,状态码是本面的事。
+		// Same translation as every other convergence-point route: the convergence point
+		// only gives a protocol-agnostic category, the status code is this facade's own
+		// business.
 		h.writeOpError(w, opAssetsUpload, err)
 		return
 	}
 	writeStatusBody(h.Log, w, http.StatusCreated, out)
 }
 
-// assetUpload —— multipart 里拆出来的那一份文件。
+// assetUpload — the file unpacked from the multipart form.
 type assetUpload struct {
 	Filename    string
 	ContentType string
@@ -142,10 +161,13 @@ type assetUpload struct {
 	Body        []byte
 }
 
-// readAssetUpload —— 拆 multipart:一个 file field,外加 kind(可选,默认 image)。
+// readAssetUpload unpacks the multipart form: one file field, plus an optional kind
+// (defaults to image).
 //
-// ContentType 取**浏览器报的那个**,原样往下传 —— 下游按字节签名核对它,对不上就拒。
-// 在这里先信一遍再传下去,等于给守卫喂一个已经被认可过的值。
+// ContentType is taken **as the browser reported it** and passed straight through —
+// downstream checks it against the byte signature and rejects a mismatch. Trusting it
+// once here before passing it on would just be feeding the guard a value that's already
+// been vouched for.
 func readAssetUpload(w http.ResponseWriter, r *http.Request) (assetUpload, error) {
 	if err := parseAssetForm(w, r); err != nil {
 		return assetUpload{}, err
@@ -154,10 +176,10 @@ func readAssetUpload(w http.ResponseWriter, r *http.Request) (assetUpload, error
 }
 
 func parseAssetForm(w http.ResponseWriter, r *http.Request) error {
-	// ParseMultipartForm 只 cap 内存里那段;MaxBytesReader 限 reader 上游,
-	// 超了返 413 而不是把内存吃光。
+	// ParseMultipartForm only caps the in-memory portion; MaxBytesReader bounds the
+	// reader upstream, so an overage returns 413 instead of exhausting memory.
 	r.Body = http.MaxBytesReader(w, r.Body, maxAssetUploadSize)
-	// #nosec G120 -- 上游已有 MaxBytesReader bound。
+	// #nosec G120 -- already bounded upstream by MaxBytesReader.
 	if err := r.ParseMultipartForm(maxAssetUploadSize); err != nil {
 		return errors.New("could not read the uploaded file: " + err.Error())
 	}

@@ -1,5 +1,5 @@
-// use-writings —— /admin/writings 的状态。zustand store 管 list cache +
-// status；action: create / update / publish / unpublish / delete。
+// use-writings —— state for /admin/writings. A zustand store manages list cache +
+// status; actions: create / update / publish / unpublish / delete.
 
 import { useEffect } from 'react';
 
@@ -36,10 +36,11 @@ export function loadWritingTreeChildren(parentID: string): Promise<AdminWritingV
   return adminAPI.get(`/writings/tree${qs}`, z.array(AdminWritingViewSchema));
 }
 
-// WritingSaveData —— multipart POST/PATCH 的 `data` JSON 字段。create 用
-// publish + slug；edit 时 slug 是 URL，publish 不在这（走单独 endpoint）。
-// cover_image_ref 可以是 pending-<id>（新上传，对应 files 里的一个）或
-// 已存在 asset 的真 UUID（edit 时未改 cover）。
+// WritingSaveData —— the `data` JSON field of the multipart POST/PATCH.
+// create uses publish + slug; on edit slug is the URL, and publish isn't
+// here (it goes through a separate endpoint). cover_image_ref can be
+// pending-<id> (a new upload, matching one entry in files) or the real UUID
+// of an existing asset (cover unchanged during edit).
 export interface WritingSaveData {
   slug?: string;
   title: string;
@@ -56,7 +57,7 @@ export interface WritingSaveData {
   publish?: boolean;
 }
 
-// WritingSaveBundle —— 调 createWriting/updateWriting 时同时携带的数据 + 待上传 files。
+// WritingSaveBundle —— the data + pending-upload files carried together when calling createWriting/updateWriting.
 export interface WritingSaveBundle {
   data: WritingSaveData;
   files: PendingFile[];
@@ -96,7 +97,8 @@ export function useWritings(): WritingsHook {
   };
 }
 
-// mutation 抛错（不再吞成 false）：调用方用 useAction 收尾（一键动作），或就地 try/catch（表单：失败保持开着）。
+// The mutation throws (no longer swallowed into false): the caller finishes
+// up with useAction (one-click actions), or inline try/catch (forms: stay open on failure).
 async function updateWriting(id: string, bundle: WritingSaveBundle): Promise<void> {
   const fd = buildWritingFormData(bundle);
   const updated = await adminAPI.patchForm(`/writings/${id}`, fd, AdminWritingViewSchema);
@@ -105,11 +107,14 @@ async function updateWriting(id: string, bundle: WritingSaveBundle): Promise<voi
   bumpCorpusEpoch();
 }
 
-// createWriting —— 建完必须让**树**也失效，不只是那张扁平列表。
-// 树的每一层是按 corpus epoch 缓存的（useAdminTreeLayer）。只 mutate 扁平 store 的话：计数变成
-// 「2 writings」，而树还是旧的那一层 —— 父节点不知道自己多了个孩子，**连展开箭头都不长**，于是
-// owner 刚建的那条在界面上直接消失。计数说 2、列表显示 1，正是 owner 早就点过名的那一类
-// （F-D-1：codes 列表说 "No codes yet" 而 KPI 数着 3）。
+// createWriting —— once created, the **tree** must be invalidated too, not
+// just the flat list. Each level of the tree is cached by corpus epoch
+// (useAdminTreeLayer). Mutating only the flat store means: the count says
+// "2 writings", but the tree is still on its old layer — the parent node
+// doesn't know it gained a child, **it doesn't even grow an expand arrow**,
+// so what the owner just created simply vanishes on screen. Count says 2,
+// list shows 1 — exactly the class of bug the owner already flagged (F-D-1:
+// the codes list said "No codes yet" while the KPI counted 3).
 async function createWriting(bundle: WritingSaveBundle): Promise<void> {
   const fd = buildWritingFormData(bundle);
   const created = await adminAPI.postForm('/writings/', fd, AdminWritingViewSchema);

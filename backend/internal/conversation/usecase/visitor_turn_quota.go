@@ -1,7 +1,8 @@
 // visitor_turn_quota.go —— per-session turn quota preflight check.
 //
-// 老 SendMessage 在 server-side agent loop 前查这个；G-Y.6 pi-pivot 后
-// /messages 路由没了，改成 /dialogs commit 前 check 一次。
+// The old SendMessage checked this before the server-side agent loop; after the
+// G-Y.6 pi-pivot the /messages route is gone, and it's now checked once before
+// /dialogs commit instead.
 
 package usecase
 
@@ -14,18 +15,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/entity"
 )
 
-// TurnQuotaInput —— EnforceTurnQuota 入参 (拆出来让外部 caller pi-pivot
-// /inference/stream 一行调进来)。
+// TurnQuotaInput —— input for EnforceTurnQuota (split out so an external caller in
+// pi-pivot's /inference/stream can call it in one line).
 type TurnQuotaInput struct {
 	OwnerID        string
 	ConversationID string
 }
 
-// EnforceTurnQuota —— 检查 turns/session 配额。返:
-//   - nil = OK 继续
-//   - access.ErrTurnQuotaReached = 已用完 max_turns_per_session
-//   - access.ErrCodeInvalid = code 被 revoke
-//   - 其他 = DB error
+// EnforceTurnQuota —— checks the turns/session quota. Returns:
+//   - nil = OK, proceed
+//   - access.ErrTurnQuotaReached = max_turns_per_session already used up
+//   - access.ErrCodeInvalid = the code was revoked
+//   - other = a DB error
 func EnforceTurnQuota(
 	ctx context.Context, deps *VisitorSessionDeps, in *TurnQuotaInput,
 ) error {
@@ -76,8 +77,9 @@ func turnQuotaCheck(
 	return nil
 }
 
-// countTurnsForQuota —— member 级配额:有 member 就汇总该人全部对话的访客发言
-// (多段对话共享预算);无 member(anon / public)退回按单段对话数。
+// countTurnsForQuota —— member-level quota: if there's a member, sums that person's
+// visitor turns across all conversations (multi-conversation shares one budget); no
+// member (anon / public) falls back to counting the single conversation.
 func countTurnsForQuota(
 	ctx context.Context, deps *VisitorSessionDeps, conv *entity.Chat,
 ) (int32, error) {

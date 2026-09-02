@@ -1,10 +1,13 @@
-// /confirm-email —— 点开确认信里的链接就落在这里。
+// /confirm-email — lands here when the owner opens the link in the confirmation email.
 //
-// **公开页**：owner 点开这封信的时候可能在另一台设备上、没登录。要求先登录才能确认，
-// 等于要求他先用**还没换过去的那个身份**登进来 —— 而他改邮箱常常正是因为旧地址快用不了了。
+// **Public page**: the owner may open this email on another device, not logged in.
+// Requiring login before confirming would force him to log in with the identity he
+// hasn't switched to yet — and he's often changing email precisely because the old
+// address is about to stop working.
 //
-// ⚠️ `<Suspense>` 不是装饰：面板读 `useSearchParams()`（token 在 query 里），
-// 而 Next 静态预渲染时拿不到 query，没有边界就直接 build 失败。
+// WARNING: `<Suspense>` is not decorative: the panel reads `useSearchParams()` (the
+// token lives in the query string), and Next's static prerender can't see the query.
+// Without the boundary, the build fails outright.
 
 import { Suspense } from 'react';
 

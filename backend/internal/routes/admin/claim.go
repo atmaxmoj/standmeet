@@ -1,8 +1,8 @@
-// Package admin 提供 /api/admin/* 路由。当前覆盖 first-run claim、
-// login / me / logout / tokens 等。
+// Package admin provides the /api/admin/* routes. Currently covers first-run claim,
+// login / me / logout / tokens, and more.
 //
-// handler cyclo ≤ 3（routes 层强制）；业务逻辑放 usecase，error 翻译
-// 走 internal/apierr/ 的 table-driven Classify。
+// Handler cyclo is capped at ≤3 (enforced at the routes layer); business logic lives in
+// the usecase, and error translation goes through internal/apierr/'s table-driven Classify.
 package admin
 
 import (
@@ -20,7 +20,7 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// Handlers 是 admin handlers 需要的依赖。
+// Handlers holds the dependencies the admin handlers need.
 type Handlers struct {
 	AccessRequests    AccessRequestsDeps
 	APIKeysAdmin      APIKeysAdminDeps
@@ -42,13 +42,15 @@ type Handlers struct {
 	AccountAdmin      AccountDeps
 	Recovery          owner.RecoveryDeps
 	EmailChange       owner.EmailChangeDeps
-	// SeedPlugins —— claim 之后让每个 plugin 种下自己那份 builtin。
+	// SeedPlugins — lets each plugin seed its own builtins after claim.
 	//
-	// 由**装配根**注入：插件注册表住在那儿，而这一层够不到它。内核那份种子
-	// （SeedPublicRole）在 usecase 里自己跑；插件那份只能从外面递进来 ——
-	// 否则插件的东西又会落进内核，只因为种子在那儿。
+	// Injected by the **assembly root**: that's where the plugin registry lives, and this
+	// layer can't reach it. The kernel's own seed (SeedPublicRole) runs itself inside the
+	// usecase; the plugins' seed can only be handed in from outside — otherwise plugin
+	// stuff would fall back into the kernel, just because the seeding happens there.
 	//
-	// nil = 没有插件要种（老的装配路径 / 测试）。best-effort：失败只记日志，不挡 claim。
+	// nil = no plugins to seed (old assembly path / tests). Best-effort: a failure only
+	// logs, it never blocks claim.
 	SeedPlugins     func(ctx context.Context, ownerID string) error
 	PromptsAdmin    PromptsAdminDeps
 	Domains         DomainsDeps
@@ -61,22 +63,25 @@ type Handlers struct {
 	PageAdmin       PageAdminDeps
 	IPBansAdmin     IPBansAdminDeps
 	ConnectorsAdmin ConnectorsAdminDeps
-	InstanceAdmin   InstanceAdminDeps // 观测面：system / usage / stats.*
+	InstanceAdmin   InstanceAdminDeps // Observation facade: system / usage / stats.*
 	AppearanceAdmin AppearanceAdminDeps
-	// CapabilityConfigAdmin —— 通用的能力配置面(取代每个能力一套手写路由)。
+	// CapabilityConfigAdmin — the generic capability-config facade (replaces a
+	// hand-written route set per capability).
 	CapabilityConfigAdmin CapabilityConfigAdminDeps
 	SecureCookie          bool
 }
 
-// 免登录那几条路的挂载在 mount_unauthed.go —— 那是"哪条路裹哪层 guard"的问题，
-// 跟 claim 这个处理器本身不是一件事。
+// The mounting of the no-login-required routes lives in mount_unauthed.go — that's a
+// question of "which guard layer wraps which route", a separate concern from this claim
+// handler itself.
 
-// MountAuthed 挂需要 owner session 的 endpoint。caller 负责先用
-// middleware.WithOwner 包这个 router。
+// MountAuthed mounts the endpoints that need an owner session. The caller is responsible
+// for wrapping this router with middleware.WithOwner first.
 //
-// credGuard 只裹改凭据那两条（email / password）—— 见 MountAccount。收在这里而不是
-// 在 MountAccount 里自己 new，是因为它要 redis，而 redis 住在装配根；跟 MountUnauthed
-// 收 loginGuard 是同一个约定。
+// credGuard only wraps the two credential-change routes (email / password) — see
+// MountAccount. It's collected here instead of being `new`'d inside MountAccount because
+// it needs redis, and redis lives at the assembly root; this is the same convention as
+// MountUnauthed collecting loginGuard.
 func (h *Handlers) MountAuthed(r chi.Router, credGuard func(http.Handler) http.Handler) {
 	h.MountMe(r)
 	r.Post("/me/logout", h.logout())
@@ -121,10 +126,12 @@ type claimRequest struct {
 	Handle    string `json:"handle"`
 	FullName  string `json:"full_name"`
 	PublicURL string `json:"public_url"`
-	// 向导第 3 步的 AI provider。可空(那一步明说可跳)，非空就必须落地 ——
-	// F-H-2：以前前端收了这三个值就扔了，owner 看到 review 卡印着 provider、
-	// claim 也成功，key 却从没写进去。endpoint 不在这里收：它由服务端从
-	// ai_provider.presets 那张唯一的表里查，客户端无从自己编一个。
+	// AI provider from wizard step 3. Optional (that step is explicitly skippable), but
+	// once non-empty it must land — F-H-2: the frontend used to collect these three
+	// values and then drop them; the owner would see the provider printed on the review
+	// card and claim would succeed, but the key never actually got written. endpoint
+	// isn't collected here: the server looks it up from the single ai_provider.presets
+	// table, so the client can never make one up itself.
 	AIProvider string `json:"ai_provider"`
 	AIModel    string `json:"ai_model"`
 	AIKey      string `json:"ai_key"`
@@ -138,13 +145,13 @@ type claimResponse struct {
 	PublicURL string `json:"public_url"`
 }
 
-// envelope helpers 让 line-length 不超 100。
+// envelope helpers keep line length under 100.
 func envBadReq(msg string) apierr.Envelope {
 	return apierr.Envelope{Status: http.StatusBadRequest, Code: "bad_request", Message: msg}
 }
 
-// claimErrCases 把 ClaimInstance 可能 propagate 的 sentinel error 翻译成
-// HTTP envelope。顺序无关（errors.Is 走的是 unwrap chain）。
+// claimErrCases translates the sentinel errors ClaimInstance may propagate into HTTP
+// envelopes. Order doesn't matter (errors.Is walks the unwrap chain).
 var claimErrCases = []apierr.Case{
 	{
 		Match:    apierr.ErrEmptyField,
@@ -180,9 +187,10 @@ var claimErrCases = []apierr.Case{
 	},
 }
 
-// claim 是 first-run claim 的 thin handler：解 body、调 usecase、翻译错误 +
-// 顺便登录（claim 成功 = owner 凭 setup token 证明了对 instance 的所有权，
-// 让 owner 再次输同一份 email/password 是 UX 浪费）。
+// claim is the thin handler for first-run claim: decode the body, call the usecase,
+// translate errors, and log in as a side effect (a successful claim already means the
+// owner proved instance ownership via the setup token — making them type the same
+// email/password again would be wasted UX).
 func (h *Handlers) claim() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req claimRequest
@@ -194,9 +202,10 @@ func (h *Handlers) claim() http.HandlerFunc {
 	}
 }
 
-// seedPluginsForOwner —— claim 之后让插件种下自己那份 builtin（jobs 的 hiring
-// role/prompt 就是这么来的）。best-effort：失败只记日志，不把 claim 顶回去 ——
-// 跟 seedClaimPublicRole 同一个姿势，而且 boot 那一遍还会再补。
+// seedPluginsForOwner lets plugins seed their own builtins after claim (that's how the
+// jobs plugin's hiring role/prompt get created). Best-effort: a failure only logs, it
+// never bounces the claim back — the same posture as seedClaimPublicRole, and the boot
+// pass will fill it in again anyway.
 func (h *Handlers) seedPluginsForOwner(ctx context.Context, ownerID string) {
 	if h.SeedPlugins == nil {
 		return
@@ -206,7 +215,7 @@ func (h *Handlers) seedPluginsForOwner(ctx context.Context, ownerID string) {
 	}
 }
 
-// runClaimAndAutoLogin —— 把 cyclo 控在 ≤3：handler 只做 decode + 派发。
+// runClaimAndAutoLogin keeps cyclo at ≤3: the handler only does decode + dispatch.
 func (h *Handlers) runClaimAndAutoLogin(
 	w http.ResponseWriter, r *http.Request, req *claimRequest,
 ) {
@@ -233,15 +242,16 @@ func (h *Handlers) runClaimAndAutoLogin(
 	writeJSONClaim(h.Log, w, &claimed)
 }
 
-// setupAIProvider —— 把向导第 3 步的 provider/model/key 落地。
+// setupAIProvider lands the provider/model/key from wizard step 3.
 //
-// 排在 claim 之后而不是里面:instance 已经归属，token 已经消耗，这一步再失败也
-// 不能把 owner 挡在门外。失败**不静默**:这里记 Error 日志，而 owner 那侧
-// dashboard 的 NEEDS YOUR HAND 会直说「no usable AI provider — visitors are
-// being turned away」。
+// It runs after claim, not inside it: instance ownership is already established, the
+// token is already consumed, and a failure here still must not lock the owner out.
+// The failure is **not silent**: it logs an Error here, and the owner-side dashboard's
+// NEEDS YOUR HAND will say plainly "no usable AI provider — visitors are being turned
+// away".
 func (h *Handlers) setupAIProvider(ctx context.Context, ownerID string, req *claimRequest) {
 	if req.AIKey == "" {
-		return // 第 3 步可跳过(向导自己这么写的)，跳了就什么都不做
+		return // step 3 is skippable (the wizard says so itself); skip it, do nothing
 	}
 	if err := h.applyAIProvider(ctx, ownerID, req); err != nil {
 		h.Log.Error("claim: the AI provider from setup did not land",
@@ -267,8 +277,8 @@ func (h *Handlers) applyAIProvider(
 	return err
 }
 
-// presetEndpoint —— provider 名 → base URL，问的是**同一张 preset 表**
-// (`ai_provider.presets`)，不是这一层手抄的第二份。
+// presetEndpoint — provider name → base URL, queried from **the same preset table**
+// (`ai_provider.presets`), not a second copy hand-transcribed at this layer.
 func (h *Handlers) presetEndpoint(
 	ctx context.Context, ownerID, provider string,
 ) (string, error) {

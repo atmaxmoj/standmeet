@@ -1,10 +1,11 @@
-// PasswordResetForm —— /account/reset?t=... 表单。
+// PasswordResetForm — /account/reset?t=... form.
 //
-// 流程：服务器上 operator 跑 `standmeet password-reset` 子命令颁发 token，
-// 拷链接来浏览器打开。这里从 query 读 token + 输入新密码两次 → POST
-// /api/v1/account/reset-password { token, new_password }。
-// 成功 → /login。失败统一显示 "invalid or expired"。
-// token 缺失 → 提示用 server CLI。
+// Flow: an operator on the server runs the `standmeet password-reset`
+// subcommand to issue a token, then opens the copied link in a browser.
+// Here we read the token from the query + take the new password twice →
+// POST /api/v1/account/reset-password { token, new_password }.
+// Success → /login. Any failure shows a unified "invalid or expired".
+// Missing token → point the owner at the server CLI.
 
 'use client';
 

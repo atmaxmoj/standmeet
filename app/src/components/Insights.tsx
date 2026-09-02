@@ -1,7 +1,9 @@
-// Insights —— "things I've been thinking about"。insights 是 corpus 的 pin
-// 窗口(docs/design/page-corpus-pinning.md):每张卡是被 pin 的已发布条目的
-// title + excerpt,链去 /wiki/<path> 的 reader —— 不是第二份内容。
-// 空栏目(没 pin)整个不渲染,标题也不渲。
+// Insights —— "things I've been thinking about". Insights is a pin window
+// over the corpus (docs/design/page-corpus-pinning.md): each card is the
+// title + excerpt of a pinned published entry, linking to the /wiki/<path>
+// reader — not a second copy of the content.
+// An empty section (nothing pinned) doesn't render at all, not even the
+// heading.
 
 import Link from 'next/link';
 
@@ -23,9 +25,11 @@ export function Insights({ insights }: { insights: readonly PagePinCard[] }) {
   );
 }
 
-// numbered —— 只有一条时不占序号槽。一条内容配上区标题的计数和左栏的 `01`，
-// 是**两处序号 + 一条内容**，读起来像列表没加载完（UX-44）。序号是给"第几条"用的，
-// 只有一条时没有"第几条"。
+// numbered —— with a single item, no ordinal slot is used. Pairing one item
+// with both the section heading's count and a left-column `01` gives
+// **two ordinals for one item**, which reads like a list that didn't finish
+// loading (UX-44). The ordinal exists to say "which one of several"; with
+// only one item there is no "which one".
 function InsightRow({ idx, card, numbered }: {
   idx: number; card: PagePinCard; numbered: boolean;
 }) {

@@ -1,10 +1,11 @@
-// writings.go —— public GET /api/v1/writings (list 已 published 文章) +
-// GET /api/v1/writings/{slug} (article 详情，private 文章按 visibility +
-// 后端不在此层做 code 鉴权：前端拿到后按 visibility=private 渲染 LockedView，
-// 实际解锁需要 ?c=CODE 走 visitor session)。
+// writings.go —— public GET /api/v1/writings (lists published articles) + GET
+// /api/v1/writings/{slug} (article detail; a private article respects visibility —
+// the backend does no code authentication at this layer: the frontend renders a
+// LockedView when it sees visibility=private, and actually unlocking it needs
+// ?c=CODE through a visitor session).
 //
-// owner 通过 handle 隐式确定 (v1 single-owner instance；从 page deps
-// LoadSoleOwner 拿)。
+// The owner is resolved implicitly by handle (v1 is a single-owner instance; fetched
+// from page deps' LoadSoleOwner).
 
 package public
 
@@ -24,7 +25,7 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// WritingHandlers —— public writings endpoints。
+// WritingHandlers —— the public writings endpoints.
 type WritingHandlers struct {
 	Writings  corpus.WritingsDeps
 	CrossLink corpus.CrossLinkQueryDeps
@@ -33,7 +34,7 @@ type WritingHandlers struct {
 	Log       *slog.Logger
 }
 
-// backlinkView —— /writings/<slug> "linked from" 用。
+// backlinkView —— used by /writings/<slug>'s "linked from".
 type backlinkView struct {
 	Slug  string `json:"slug"`
 	Title string `json:"title"`
@@ -53,9 +54,11 @@ type writingView struct {
 	Path              string            `json:"path"`
 	LockedBody        string            `json:"locked_body,omitempty"`
 	AssetURLs         map[string]string `json:"asset_urls"`
-	// Lang / Languages —— 这份正文是哪一种语言,以及这条有哪些语言可选(切换器用)。
-	// 形状跟 landing 那条线一致(`languageView`),读者页共用同一个 `LanguageSwitch`。
-	// 单语:lang 空、languages 空数组 —— **永不为 null**,null 会被读成"这个字段坏了"。
+	// Lang / Languages —— which language this body is in, and which languages this
+	// entry offers (used by the switcher). Same shape as the landing path's
+	// (`languageView`), so the reader page shares one `LanguageSwitch`.
+	// Single-language: lang empty, languages an empty array — **never null**, a
+	// null would be read as "this field is broken".
 	Lang        string         `json:"lang"`
 	Languages   []languageView `json:"languages"`
 	Tags        []string       `json:"tags"`
@@ -69,10 +72,11 @@ type writingsPageResp struct {
 	Writings   []writingView `json:"writings"`
 }
 
-// Mount 挂 /writings。
+// Mount wires /writings.
 func (h *WritingHandlers) Mount(r chi.Router) {
 	r.Get("/writings", h.list())
-	// writing-tree —— reader sidebar 懒加载分层 + 节点上下文(writing_tree.go)。
+	// writing-tree —— lazy-loaded hierarchy + node context for the reader sidebar
+	// (writing_tree.go).
 	r.Get("/writing-tree", h.getWritingTree())
 	r.Get("/writing-tree/context", h.getWritingTreeContext())
 	r.Get("/writings/{slug}", h.get())
@@ -156,8 +160,9 @@ func buildWritingsPageResp(
 	return resp
 }
 
-// loadCrossLinkIndex —— 一次拉 owner published writing 的 slug+title 表，给
-// 这页所有 writing 的 body_md rewrite 复用，避开 N+1。空 page / index 失败 → 空 slice。
+// loadCrossLinkIndex —— pulls the owner's published-writing slug+title table once,
+// reused by every writing's body_md rewrite on this page, avoiding N+1. Empty page /
+// index failure → empty slice.
 func loadCrossLinkIndex(
 	ctx context.Context, h *WritingHandlers, page *corpus.ListPublishedWritingsPageResult,
 ) []corpus.SlugTitle {
@@ -204,10 +209,13 @@ func writeWritingResp(
 	}
 }
 
-// applyWritingI18n —— 选一面正文，**并且把"还有哪些语言"一起带上**。
+// applyWritingI18n —— picks one language's body, **and carries "what other languages
+// exist" along with it**.
 //
-// F-R-6：上一刀只接了 `.Body`，`Lang` / `Languages` 被丢在返回值里，于是读者拿到英文那一面、
-// 无从知道还有中文 —— 而 wiki reader 一直有那对按钮。修一层露出下一层，边没接就是没接。
+// F-R-6: the previous cut only wired `.Body`, leaving `Lang` / `Languages` stranded in
+// the return value, so a reader got the English version with no way to know a Chinese
+// one existed — while the wiki reader always had that pair of buttons. Fixing one
+// layer exposes the next; an unwired edge stays unwired.
 func applyWritingI18n(r *http.Request, view *writingView) {
 	got := corpus.I18nViewFor(view.BodyMD, r.URL.Query().Get("lang"), "", view.Title)
 	view.BodyMD = got.Body
@@ -215,10 +223,12 @@ func applyWritingI18n(r *http.Request, view *writingView) {
 	view.Languages = toWritingLanguageViews(got.Languages)
 }
 
-// toWritingLanguageViews —— 语言集 → 切换器项。标签走跟 landing 同一个 `I18nLabel`,
-// 于是 vault 里、landing 上、reader 上看到的是同一套字。
-// labels 传 nil:writings 这条线还没有 vault 的 lang-labels(跟 identity 同一个缺口),
-// `I18nLabel` 会退到内置表(zh→中文)。**写下来,别让它悄悄变成"就该这样"**。
+// toWritingLanguageViews —— language set → switcher entries. Labels go through the
+// same `I18nLabel` as landing, so the vault, landing, and reader all show the same
+// wording. labels is passed nil: the writings path doesn't yet have the vault's
+// lang-labels (the same gap identity has), so `I18nLabel` falls back to the built-in
+// table (zh→中文). **Written down deliberately, so it doesn't quietly become "that's
+// just how it works"**.
 func toWritingLanguageViews(codes []string) []languageView {
 	out := make([]languageView, 0, len(codes))
 	for _, code := range codes {
@@ -227,8 +237,9 @@ func toWritingLanguageViews(codes []string) []languageView {
 	return out
 }
 
-// rewriteBodyWithCrossLinks —— body_md 里 [[X]] → [Title](/writings/slug)。
-// 失败（DB 错）→ 留原文不破坏 render。
+// rewriteBodyWithCrossLinks —— rewrites [[X]] in body_md → [Title](/writings/slug).
+// Failure (a DB error) → leaves the original text intact rather than break the
+// render.
 func rewriteBodyWithCrossLinks(
 	ctx context.Context, h *WritingHandlers, ownerID, body string,
 ) string {
@@ -243,8 +254,9 @@ func rewriteBodyWithCrossLinks(
 	return corpus.RewriteCrossLinksForRender(body, index)
 }
 
-// loadBacklinks —— 拉指向当前 writing 的所有 (源 published writing 的) backlink。
-// 失败 log + 返空（不阻塞主 render）。
+// loadBacklinks —— pulls every backlink pointing at the current writing (from
+// published source writings). Failure logs + returns empty (never blocks the main
+// render).
 func loadBacklinks(
 	ctx context.Context, h *WritingHandlers, ownerID, writingID string,
 ) []backlinkView {
@@ -260,9 +272,10 @@ func loadBacklinks(
 	return out
 }
 
-// toWritingViewResolved —— build response 时 batch resolve body_md 里所有
-// `standmeet-asset:<id>` 引用 → presigned URL map。前端 renderer 用这个
-// map 把 URI 换成 https URL，浏览器直 hit MinIO（绕 backend redirect）。
+// toWritingViewResolved —— while building the response, batch-resolves every
+// `standmeet-asset:<id>` reference in body_md → a presigned URL map. The frontend
+// renderer uses this map to swap URIs for https URLs, and the browser hits MinIO
+// directly (bypassing a backend redirect).
 func toWritingViewResolved(
 	r *http.Request, h *WritingHandlers, wg *corpus.Writing,
 ) writingView {

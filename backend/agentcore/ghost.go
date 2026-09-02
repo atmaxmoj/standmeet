@@ -1,6 +1,8 @@
-// usecases.go —— ghost-steering facade。eval-harness 只 import agentcore(never internal/)，所以 ghost
-// 帧类型 + policy 入口 + generic-epilogue 桥都从这里过一手。inference 已不认识 "ghost"：它只发通用
-// EpilogueFrame{Kind,Payload}；ghost 是其中一种 epilogue，Kind="ghost"，Payload = 下面的 GhostFrame。
+// usecases.go — the ghost-steering facade. eval-harness only imports agentcore
+// (never internal/), so the ghost frame type, policy entry point, and generic-
+// epilogue bridge all pass through here. inference no longer knows about
+// "ghost": it only emits the generic EpilogueFrame{Kind,Payload}; ghost is one
+// kind of epilogue, Kind="ghost", Payload = the GhostFrame below.
 
 package agentcore
 

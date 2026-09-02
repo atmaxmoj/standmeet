@@ -1,11 +1,14 @@
-// host.go —— 本域开给**沙箱能力**的那几件事(入站方向)。
+// host.go — the inbound side of what this domain opens to **sandboxed capabilities**.
 //
-// 沙箱里的能力断了网,只能经一根 unix socket 回头问宿主。宿主开哪些口,由域自己说 ——
-// 跟出站那半边同一条规矩(conversations.go 是出站,这里是入站)。谁能点这些口,由能力
-// 在自己的 manifest 里声明,宿主按声明发;点了词表里没有的名字,启动就炸。
+// A sandboxed capability has no network access; it can only call back to the host over a
+// unix socket. The domain itself decides which ops the host exposes — the same rule as the
+// outbound half (conversations.go is outbound, this is inbound). Which of these ops a
+// capability may call is declared in that capability's own manifest, and the host dispatches
+// by that declaration; calling a name outside the declared list crashes at startup.
 //
-// 这三件都是 summarize 那类能力要的:读本次会话的逐字稿、借 owner 的 LLM 跑一次生成、
-// 把生成的报告交回来存。**凭据永远不出宿主** —— 沙箱拿到的是结果,不是 key。
+// All three ops serve capabilities like summarize: read this conversation's transcript, run
+// one generation on the owner's LLM, and hand back the generated report to store.
+// **Credentials never leave the host** — the sandbox gets a result, not a key.
 
 package ops
 
@@ -20,14 +23,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
-// HostDeps —— 这三件事各自要的那点东西。
+// HostDeps — what each of these three ops needs.
 type HostDeps struct {
 	Chats    ChatGetter
 	Resolver infcore.Resolver
 	Reports  usecase.ReportStore
 }
 
-// ChatGetter —— 读一次会话的 owner-scoped 逐字稿(窄口,组装根注入 chatRepo)。
+// ChatGetter — reads one conversation's owner-scoped transcript (a narrow port; the
+// composition root injects chatRepo).
 type ChatGetter interface {
 	GetWithMessages(
 		ctx context.Context, ownerID, chatID string,
@@ -58,7 +62,7 @@ func HostOps(d HostDeps) []hostop.Op {
 	}
 }
 
-// sockMessage —— socket 上交换的一条消息(role/content)。
+// sockMessage — one message exchanged over the socket (role/content).
 type sockMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
@@ -81,8 +85,9 @@ func readConversation(chats ChatGetter) hostop.Invoke {
 	}
 }
 
-// marshalTranscript —— 逐字稿上线:只有 role + content。会话行上别的字段(内部 id、
-// 计费、工具轨迹)不出宿主 —— 沙箱要的是"说了什么",不是那一行。
+// marshalTranscript — puts the transcript on the wire: role + content only. Other fields
+// on a message row (internal id, billing, tool trace) never leave the host — the sandbox
+// needs "what was said," not the row.
 func marshalTranscript(bundle *repo.ChatWithMessages) (json.RawMessage, error) {
 	msgs := make([]sockMessage, len(bundle.Messages))
 	for i := range bundle.Messages {

@@ -1,5 +1,7 @@
-// sync_note.go —— vault sync 的容错 frontmatter 解析。对齐真实 vault 的 .scripts 契约:frontmatter
-// 容错(畸形不崩,对齐 F)。`[[link]]` 提取复用 corpus.ExtractCrossLinks(已对齐 check-links.sh)。
+// sync_note.go -- fault-tolerant frontmatter parsing for vault sync.
+// Matches the real vault's .scripts contract: frontmatter tolerates
+// malformed input without crashing (aligned with F). `[[link]]` extraction
+// reuses corpus.ExtractCrossLinks (already aligned with check-links.sh).
 
 package obsidian
 
@@ -8,7 +10,8 @@ import (
 	"strings"
 )
 
-// corpFM —— 一条 corp note 的 frontmatter 精华(sync 只关心这几项;其余 key 忽略,不报错)。
+// corpFM -- the essential frontmatter of one corp note (sync only cares
+// about these fields; other keys are ignored, no error).
 type corpFM struct {
 	LangLabels map[string]string
 	Excerpt    string
@@ -18,25 +21,34 @@ type corpFM struct {
 	CSSClasses []string
 	Aliases    []string
 	Publish    bool
-	// PublishSet —— frontmatter 里**有没有** publish 这个键。
+	// PublishSet -- whether the frontmatter **has** a publish key at all.
 	//
-	// 缺席不是否定。真 vault 的 574 条 wiki 一个 publish 键都没有,而发布是 owner 在网页上做的
-	// 编辑;把「没说」读成 false,一次同步就能把整个站点撤下来(F-L-22)。所以缺键时保持原状,
-	// 由 export 把 `publish: %t` 补写回去 —— 缺了就补上,下一次往返就是显式的。
+	// Absence is not negation. None of the real vault's 574 wiki notes have
+	// a publish key, and publishing is an edit the owner makes on the web;
+	// reading "unsaid" as false would let a single sync take the entire
+	// site down (F-L-22). So the missing key leaves the current state
+	// untouched, and export writes `publish: %t` back in -- once it's
+	// filled in, the next round trip is explicit.
 	PublishSet bool
 }
 
-// parsedNote —— parseCorpNote 的结果(避免多返回名/无名之争)。
+// parsedNote -- the result of parseCorpNote (avoids the multiple-named vs.
+// unnamed return debate).
 type parsedNote struct {
 	body string
-	// rawFM —— frontmatter 原文（不含 `---` 围栏）。解析会丢掉不认识的 key 和形态，
-	// 而导出要把 owner 写的东西原样送回去，所以原文必须一起带出来（F-L-67）。
+	// rawFM -- the frontmatter's original text (fence excluded). Parsing
+	// drops keys and forms it doesn't recognize, but export has to send
+	// the owner's writing back verbatim, so the original text must be
+	// carried along too (F-L-67).
 	rawFM string
 	fm    corpFM
 }
 
-// parseCorpNote —— 容错地拆 frontmatter + body(复用包内 SplitFrontmatter:只认文件头第一段
-// `---\n…\n---`,拿不到就整体当 body,body 里的 --- 水平线不误当闭合),再容错解析 frontmatter。
+// parseCorpNote -- fault-tolerantly splits frontmatter + body (reuses the
+// package's SplitFrontmatter: only recognizes the file's leading
+// `---\n...\n---` block, falls back to treating everything as body if that
+// fails, and doesn't mistake a `---` horizontal rule in body for a closing
+// fence), then fault-tolerantly parses the frontmatter.
 func parseCorpNote(raw []byte) parsedNote {
 	text := strings.ReplaceAll(string(raw), "\r\n", newline)
 	text = strings.ReplaceAll(text, "\r", newline)
@@ -46,8 +58,10 @@ func parseCorpNote(raw []byte) parsedNote {
 
 var reListItem = regexp.MustCompile(`^\s*-\s*(.+?)\s*$`)
 
-// parseFMLines —— 行式容错解析。key: value;tags 支持 list / 内联数组 / 逗号串 / 单值;
-// publish 与老名 seo_indexed 都强转 bool;未知 key 直接忽略(不报错)。重复 key 后者覆盖。
+// parseFMLines -- line-based fault-tolerant parsing. key: value; tags
+// supports list / inline array / comma-separated string / single value;
+// publish and its old name seo_indexed both coerce to bool; unknown keys
+// are simply ignored (no error). A repeated key, the later one wins.
 func parseFMLines(fm string) corpFM {
 	out := corpFM{}
 	lines := strings.Split(fm, newline)
@@ -57,7 +71,7 @@ func parseFMLines(fm string) corpFM {
 			continue
 		}
 		if into := listFieldOf(&out, kv.key); into != nil {
-			*into = parseTags(kv.val, lines, i) // list-form 值需向后看(缩进 `- x`)
+			*into = parseTags(kv.val, lines, i) // a list-form value looks ahead (indented `- x`)
 			continue
 		}
 		if isLangKey(kv.key) {
@@ -69,7 +83,8 @@ func parseFMLines(fm string) corpFM {
 	return out
 }
 
-// applyScalarFM —— 写标量 frontmatter(publish/excerpt/visibility + 老名);未知 key 忽略不报错。
+// applyScalarFM -- writes scalar frontmatter (publish/excerpt/visibility +
+// old names); an unknown key is ignored, no error.
 func applyScalarFM(out *corpFM, key, val string) {
 	switch key {
 	case "publish", "seo_indexed":
@@ -82,19 +97,21 @@ func applyScalarFM(out *corpFM, key, val string) {
 	}
 }
 
-// kvLine —— 一行 frontmatter 的解析结果。
+// kvLine -- the parse result of one frontmatter line.
 type kvLine struct {
 	key string
 	val string
 	ok  bool
 }
 
-// isTopLevelLine —— 非空、非缩进、非 list item 的顶层行(才可能是 key: value)。
+// isTopLevelLine -- a top-level line that's non-empty, unindented, and not
+// a list item (only these can possibly be key: value).
 func isTopLevelLine(line string) bool {
 	return line != "" && line[0] != ' ' && line[0] != '\t' && line[0] != '-'
 }
 
-// splitKV —— 顶层 `key: value`(key 是字母数字/下划线/连字符)。缩进行(list item 等)不是 kv。
+// splitKV -- a top-level `key: value` (key is alphanumeric/underscore/hyphen).
+// An indented line (list item, etc.) is not a kv.
 func splitKV(line string) kvLine {
 	if !isTopLevelLine(line) {
 		return kvLine{}
@@ -114,11 +131,14 @@ var reBareKey = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 func isBareKey(k string) bool { return reBareKey.MatchString(k) }
 
-// listFieldOf —— 走 list 解析的那几个 key → 该写进哪个字段。不认识的 key 返 nil(交给标量那条)。
+// listFieldOf -- for the keys parsed as lists, which field each writes
+// into. An unrecognized key returns nil (falls through to the scalar path).
 //
-// 三个 key(tags / cssclasses / aliases)的值形态**完全一样**(内联数组 / 逗号串 / 单值 /
-// 缩进 list),所以它们共用 parseTags;一人一个 if 分支只是把同一件事写了三遍,而且每加一个
-// list 型 frontmatter key 就把这个函数的复杂度再推高一格。
+// All three keys (tags / cssclasses / aliases) have **exactly the same**
+// value shape (inline array / comma-separated string / single value /
+// indented list), so they share parseTags; giving each its own if branch
+// would just write the same logic three times, and every new list-type
+// frontmatter key would push this function's complexity up one more notch.
 func listFieldOf(fm *corpFM, key string) *[]string {
 	switch key {
 	case "tags":
@@ -132,8 +152,10 @@ func listFieldOf(fm *corpFM, key string) *[]string {
 	}
 }
 
-// parseTags —— tags 值:内联数组 `[a, b]` / 逗号串 `a, b` / 单值 `a` / 空(→ 跟随的缩进 `- x` list)。
-// i 只向后看 list item(主循环随后遇到缩进行会因非 kv 而跳过,不重复处理)。
+// parseTags -- tags value: inline array `[a, b]` / comma-separated `a, b`
+// / single value `a` / empty (-> the following indented `- x` list).
+// i only looks ahead for list items (when the main loop later hits an
+// indented line it skips it as non-kv, avoiding double processing).
 func parseTags(val string, lines []string, i int) []string {
 	val = strings.TrimSpace(val)
 	if val == "" {
@@ -189,10 +211,13 @@ func unquote(v string) string {
 	return v
 }
 
-// parseInlineMap —— `{en: EN, zh: 中文}` 或 `en: EN, zh: 中文` → map。
+// parseInlineMap -- `{en: EN, zh: Chinese}` or `en: EN, zh: Chinese` -> map.
 //
-// 只认行内那一种:vault 的模板就是这么写的,而缩进式 map 在这份行式解析器里要另开一套
-// 前瞻逻辑 —— 为一个"没人写过的写法"付那个复杂度不值。认不出来 → 空表,按码生成标签。
+// Only the inline form is recognized: that's how the vault's template
+// writes it, and an indented map would need a whole separate lookahead
+// path in this line-based parser -- not worth paying that complexity for a
+// form nobody actually writes. Unrecognized -> empty map, labels are
+// generated from the code.
 func parseInlineMap(val string) map[string]string {
 	trimmed := strings.TrimSpace(val)
 	trimmed = strings.TrimSuffix(strings.TrimPrefix(trimmed, "{"), "}")
@@ -208,14 +233,15 @@ func parseInlineMap(val string) map[string]string {
 	return out
 }
 
-// langLabel —— lang-labels 里的一项。ok=false = 这一项没写全(码或字缺一个),当没写。
+// langLabel -- one entry in lang-labels. ok=false means this entry wasn't
+// fully written (code or label missing), treated as unwritten.
 type langLabel struct {
 	code  string
 	label string
 	ok    bool
 }
 
-// labelPair —— `en: EN` → 一项。
+// labelPair -- `en: EN` -> one entry.
 func labelPair(pair string) langLabel {
 	k, v, cut := strings.Cut(pair, ":")
 	if !cut {
@@ -226,14 +252,16 @@ func labelPair(pair string) langLabel {
 	return langLabel{code: code, label: label, ok: code != "" && label != ""}
 }
 
-// isLangKey —— 这个键归不归多语那一支管。跟 listFieldOf 同一个套路:分派写在外面,
-// 免得那个 switch 每加一个键就再长一格。
+// isLangKey -- whether this key belongs to the multilingual branch. Same
+// pattern as listFieldOf: dispatch is written outside so that switch
+// doesn't grow one notch longer with every added key.
 func isLangKey(key string) bool {
 	return key == "lang" || key == "lang-labels"
 }
 
-// applyLangFM —— 多语那两个 frontmatter 键。单拎出来是为了让隔壁那个 switch 不再长 ——
-// 它已经是"每加一个标量键就多一格复杂度"的形状了。
+// applyLangFM -- the two multilingual frontmatter keys. Pulled out on its
+// own so the neighboring switch doesn't keep growing -- it's already
+// shaped like "one more notch of complexity per added scalar key".
 func applyLangFM(out *corpFM, key, val string) bool {
 	switch key {
 	case "lang":

@@ -1,4 +1,4 @@
-// use-output —— /admin/output 状态。GET /api/admin/corpus/output 返 list。
+// use-output —— /admin/output state. GET /api/admin/corpus/output returns a list.
 
 'use client';
 

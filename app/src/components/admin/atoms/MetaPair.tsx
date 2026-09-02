@@ -1,4 +1,4 @@
-// MetaPair —— mono uppercase 标签 + serif 内容 的横向键值对。
+// MetaPair —— horizontal key-value pair: mono uppercase label + serif content.
 
 import type { ReactNode } from 'react';
 

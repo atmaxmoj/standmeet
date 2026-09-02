@@ -1,12 +1,15 @@
-// config.go —— 资源 capability_config:**任意**能力的可设置项,由能力轴自己声明。
+// config.go — resource capability_config: the settings for **any** capability, declared by
+// the capability axis itself.
 //
-// 这是面板给能力留的那个通用口子。能力在自己的 manifest 里声明有哪些配置项(键/类型/默认值),
-// 这里通用地读回和写入 —— 这一层不认识任何一个字段的含义,更不认识 "booking"、
-// "working_hours" 这种词。
+// This is the generic slot the panel leaves open for capabilities. A capability declares its
+// settings (key/type/default) in its own manifest; this layer reads and writes them generically
+// — it doesn't know the meaning of any field, and doesn't know words like "booking" or
+// "working_hours".
 //
-// 它取代的是"每个能力一套手写路由 + 表单":booker 的预约策略以前就是那样,host 手写了
-// 实体、默认值、读写、路由、表单,沙箱那边还有自己的一份,两份飘了。声明化之后,
-// 加一个可配置项 = 在 manifest 里加一行,面板和存储自动跟上。
+// It replaces "one hand-written route + form per capability": booker's booking policy used to
+// work that way — host hand-wrote the entity, defaults, read/write, routing, and form, and the
+// sandbox side kept its own copy, and the two drifted. Once declarative, adding a configurable
+// field = adding one line in the manifest; the panel and storage pick it up automatically.
 
 package axiscap
 
@@ -20,7 +23,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// CapabilityConfigResource —— list / get / set。
+// CapabilityConfigResource — list / get / set.
 func CapabilityConfigResource(d *deps.Runtime) dispatcher.Resource {
 	ops := newCapConfigOps(d)
 	return dispatcher.Resource{Name: "capability_config", Ops: []fp.Op{
@@ -75,7 +78,7 @@ var (
 	}`)
 )
 
-// configFieldOut / configOut —— 出站载荷形状(每个面同一份)。
+// configFieldOut / configOut — the outbound payload shape (same across every facade).
 type configFieldOut struct {
 	Key         string          `json:"key"`
 	Label       string          `json:"label"`
@@ -115,7 +118,7 @@ func listConfigurable(ops capConfigOps) fp.Invoke {
 	}
 }
 
-// capConfigTarget —— 指名要读/写哪个能力的配置。
+// capConfigTarget — names which capability's config to read/write.
 type capConfigTarget struct {
 	CapabilityID string `json:"capability_id"`
 }

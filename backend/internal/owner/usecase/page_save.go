@@ -1,11 +1,13 @@
-// page_save.go —— 读一份主页内容、存一份主页内容,这两件事**本身**的规则。
+// page_save.go — the rules **for reading one home page's content and saving one home
+// page's content**, in themselves.
 //
-// 两条以前长在面上:
+// Two rules used to live on a surface:
 //
-//   - 还没有内容时给一份默认草稿(owner 基于它改,而不是从空白起步)。
-//   - 存之前要校验 pin 列表:pin 的每一条都得是已公开的(pinned ⊆ published)。
+//   - When there's no content yet, hand back a default draft (the owner edits from that,
+//     rather than starting from a blank slate).
+//   - Before saving, validate the pin list: every pin must be published (pinned ⊆ published).
 //
-// 谁来存都一样,所以住在域里。
+// It's the same regardless of who's saving, so it lives in the domain.
 
 package usecase
 
@@ -18,7 +20,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// PageContentOrDefault —— 当前内容;还没有就给默认草稿。
+// PageContentOrDefault — the current content; if there is none yet, hand back a
+// default draft.
 func PageContentOrDefault(
 	ctx context.Context, owners *repo.Repo, ownerID string,
 ) (entity.PageContent, error) {
@@ -32,7 +35,7 @@ func PageContentOrDefault(
 	return entity.PageContent{}, fmt.Errorf("read page content: %w", err)
 }
 
-// SavePageContent —— 校验 pin 列表后整段存下。
+// SavePageContent — validates the pin list, then saves the whole thing.
 func SavePageContent(
 	ctx context.Context, pins PagePinDeps, ownerID string, content *entity.PageContent,
 ) (entity.PageContent, error) {

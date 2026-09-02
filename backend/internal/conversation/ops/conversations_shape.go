@@ -1,10 +1,13 @@
-// conversations_shape.go —— 对话的出站载荷形状(每个面同一份),以及域实体 → 它们的映射。
+// conversations_shape.go — the outbound payload shape for a conversation (one shape for
+// every face), and the mapping from domain entities to it.
 //
-// 合并前:面板那份带 refs(标题 + 地址)和 ghost 日志、MCP 那份带被引条目的**正文**
-// (owner 拿它 debug 检索),谁也不是谁的子集;列表里的 code_id / code_value / client_ip
-// 也只有面板有。现在一份。
+// Before the merge: the panel's version carried refs (title + path) and the ghost log; the
+// MCP version carried the cited entries' **body text** (the owner used it to debug
+// retrieval). Neither was a subset of the other. code_id / code_value / client_ip in the
+// list were also panel-only. Now there is one shape.
 //
-// ghost 日志和被引条目的正文都是 best-effort:它们是旁证,取不到不该让整份逐字稿失败。
+// Both the ghost log and cited entries' body text are best-effort: they're corroborating
+// evidence, and failing to fetch one shouldn't fail the whole transcript.
 
 package ops
 
@@ -18,7 +21,7 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
 
-// conversationOut —— 对话列表里的一行。
+// conversationOut — one row in the conversation list.
 type conversationOut struct {
 	CodeID      *string `json:"code_id,omitempty"`
 	CodeLabel   *string `json:"code_label,omitempty"`
@@ -34,7 +37,7 @@ type conversationOut struct {
 	PrivateHits int32   `json:"private_hits"`
 }
 
-// messageOut —— 逐字稿里的一条消息,连同它引了哪些条目。
+// messageOut — one message in the transcript, along with which entries it cited.
 type messageOut struct {
 	CreatedAt            string   `json:"created_at"`
 	ID                   string   `json:"id"`
@@ -46,8 +49,9 @@ type messageOut struct {
 	CitedSubjectivityIDs []string `json:"cited_subjectivity_ids"`
 }
 
-// citedRefOut —— 一条被引条目。Body 是 owner debug 检索时最想看的那半边(以前只有 MCP 有);
-// 取不到就是空串 —— 一条引用读不出正文,不该让整份逐字稿失败。
+// citedRefOut — one cited entry. Body is the half the owner most wants when debugging
+// retrieval (previously MCP-only); empty string when unavailable — one ref failing to
+// load its body shouldn't fail the whole transcript.
 type citedRefOut struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
@@ -55,7 +59,8 @@ type citedRefOut struct {
 	Body  string `json:"body"`
 }
 
-// ghostShownOut —— 给这次对话打过的一条 ghost 提示,以及访客有没有接。
+// ghostShownOut — one ghost hint shown during this conversation, and whether the visitor
+// took it.
 type ghostShownOut struct {
 	AcceptedAt *string `json:"accepted_at,omitempty"`
 	ID         string  `json:"id"`
@@ -66,7 +71,7 @@ type ghostShownOut struct {
 	Accepted   bool    `json:"accepted"`
 }
 
-// transcriptOut —— 一整份逐字稿。
+// transcriptOut — one complete transcript.
 type transcriptOut struct {
 	Conversation     conversationOut `json:"conversation"`
 	Messages         []messageOut    `json:"messages"`
@@ -74,8 +79,9 @@ type transcriptOut struct {
 	WritingRefs      []citedRefOut   `json:"writing_refs"`
 	OutputRefs       []citedRefOut   `json:"output_refs"`
 	SubjectivityRefs []citedRefOut   `json:"subjectivity_refs"`
-	// GroundingRefs —— 塑造了这一轮、但没 opt-in 的 subjectivity(F-A-27)。只有标题和地址,
-	// 没有正文 —— owner 要判的是「哪几条在起作用」,私有正文不复制进这份回参。
+	// GroundingRefs — subjectivity that shaped this turn but wasn't opted in (F-A-27). Only
+	// title and path, no body — the owner needs to judge "which entries were in play," and
+	// private body text isn't copied into this response.
 	GroundingRefs []citedRefOut   `json:"grounding_refs"`
 	Ghosts        []ghostShownOut `json:"ghosts"`
 }
@@ -91,8 +97,8 @@ func buildTranscript(
 	return transcriptOut{
 		Conversation: summaryFromBundle(&bundle.ConvBundle),
 		Messages:     msgs,
-		// wiki / output 的正文按 id 回读(用例给的 ref 只带标题和地址)。writing 没有这条
-		// 读法,保持无正文 —— 不假装有。
+		// wiki / output bodies are read back by id (the usecase's ref carries only title and
+		// path). writing has no such read path, so it stays bodyless — no pretending otherwise.
 		WikiRefs:         citedRefs(ctx, ownerID, bundle.WikiRefs, wikiBody(d.Corpus)),
 		OutputRefs:       citedRefs(ctx, ownerID, bundle.OutputRefs, outputBody(d.Corpus)),
 		WritingRefs:      citedRefs(ctx, ownerID, bundle.WritingRefs, noBody),
@@ -102,7 +108,8 @@ func buildTranscript(
 	}
 }
 
-// ghostsFor —— 这次对话打过的 ghost。取不到只记一行:正文不该因为旁证失败而打不开。
+// ghostsFor — the ghosts shown during this conversation. A fetch failure just logs a line:
+// the transcript body shouldn't fail to open because corroborating evidence failed.
 func ghostsFor(
 	ctx context.Context, d *ConversationsDeps, ownerID, convID string,
 ) []ghostShownOut {
@@ -114,7 +121,7 @@ func ghostsFor(
 	return toGhostsShown(rows)
 }
 
-// bodyOf —— 按 id 取正文。取不到当空串。
+// bodyOf — fetches body text by id. Empty string when unavailable.
 type bodyOf func(ctx context.Context, ownerID, id string) string
 
 func noBody(context.Context, string, string) string { return "" }
@@ -172,7 +179,8 @@ func summaryFromBundle(bundle *repo.ChatWithMessages) conversationOut {
 	}
 }
 
-// countVisitorTurns —— turn 数从 dialog 派生(一条 visitor 消息 = 一轮),不存计数字段。
+// countVisitorTurns — turn count is derived from the dialog (one visitor message = one
+// turn); there's no stored counter field.
 func countVisitorTurns(msgs []entity.Message) int32 {
 	var n int32
 	for i := range msgs {

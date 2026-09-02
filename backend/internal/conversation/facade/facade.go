@@ -1,14 +1,18 @@
-// Package conversation —— 会话域(访客与 AI 的对话 + 记录)的对外 facade。薄薄一层,把内部子包的
-// 类型/构造/用例抬上来;别的层只 import 这个 facade 包。实现是同域兄弟子包
-// internal/conversation/{entity,repo,usecase,db}（以及 inference 子模块）,由
-// check-domain-facade-boundary 挡住外部直引 guts。
+// Package conversation is the external facade for the conversation domain (visitor-AI
+// dialog + records). It is a thin layer that lifts the internal sub-packages'
+// types/constructors/usecases up; other layers import only this facade package. The
+// implementation lives in the sibling sub-packages internal/conversation/{entity,repo,usecase,db}
+// (plus the inference sub-module); check-domain-facade-boundary blocks outside code from
+// reaching into the guts directly.
 //
-// # 对外协议
+// # External contract
 //
-//   - 实体(entity): Chat / Dialog / Message / Citation / ChatReport / Ghost / ChatMode …
-//   - 仓储(repo): ChatRepo / ChatReportRepo / GhostRepo / AppStateRepo + 查询/写入类型
-//   - 用例(usecase): 访客对话编排(visitor chat / history / turn-quota / role-snapshot / prompt) +
-//     会话视图 + dialog + ghost policy/ledger + summarize report(#135 待外置残留)
+//   - Entities: Chat / Dialog / Message / Citation / ChatReport / Ghost / ChatMode …
+//   - Repos: ChatRepo / ChatReportRepo / GhostRepo / AppStateRepo + query/write types
+//   - Usecases: visitor chat orchestration (visitor chat / history / turn-quota /
+//     role-snapshot / prompt) + conversation view + dialog + ghost policy/ledger +
+//     summarize report (#135 externalization leftover)
 //
-// LLM 调用/agent-loop 在 inference 子模块(自有边界),不经本 facade。
+// LLM calls / the agent loop live in the inference sub-module (its own boundary),
+// not routed through this facade.
 package conversation

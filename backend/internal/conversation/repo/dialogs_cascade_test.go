@@ -1,12 +1,16 @@
-// dialogs_cascade_test.go —— dialog 中间层的删除级联是 schema 不变量。
+// dialogs_cascade_test.go — the dialog middle layer's delete cascade is a schema invariant.
 //
-// 层级：conversation → dialog → message（一轮「人问 + AI 答」= 一个 dialog，内容留 messages）。
-// 三条必须成立的边界（后端无 DB 测试 harness，UT 全 pure，故把级联当 schema 文本断言，真删除
-// 行为由 postgres FK 保证）：
-//   - 删 conversation → 其 dialogs 全没（dialogs.conversation_id ON DELETE CASCADE）。
-//   - 删 dialog → 其 messages 全没（messages.dialog_id ON DELETE CASCADE）——链不断、无孤儿。
-//   - 删 member **不**连带删对话历史（conversations.member_id ON DELETE SET NULL）：member 是
-//     session 背后的身份，被清理时对话（含 dialog/message）要留下，只把归属置空。
+// Hierarchy: conversation → dialog → message (one "person asks + AI answers" turn = one
+// dialog, content lives in messages). Three boundaries that must hold (the backend has no
+// DB test harness, UTs are all pure, so the cascade is asserted as schema text; the real
+// delete behavior is guaranteed by the postgres FK):
+//   - delete conversation → all its dialogs gone (dialogs.conversation_id ON DELETE CASCADE).
+//   - delete dialog → all its messages gone (messages.dialog_id ON DELETE CASCADE) — chain
+//     unbroken, no orphans.
+//   - delete member does **not** delete conversation history along with it
+//     (conversations.member_id ON DELETE SET NULL): member is the identity behind a
+//     session; when it's cleaned up the conversation (including dialog/message) must
+//     stay, only its ownership gets nulled out.
 
 package repo_test
 

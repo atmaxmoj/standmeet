@@ -1,8 +1,9 @@
-// capreg_mcp_app_test.go —— C3: mcpAppCapability 适配器测试。
-// 用真 stdio mock(mock-stack/mcp --stdio)dial,不 stub Session。覆盖 happy
-// (ID/Shape、dial→list→暴露 tool)+ ui→Extra + ACL(role 授权/未授权/无 role)
-// + error(dial 失败 / 空 tool → ErrHidden)。tool-call 中途失败折成 errJSON 的
-// error-stream 在 C4 e2e(真 chat)断言 + 继承自 ext-mcp。require.*(无 if)。
+// capreg_mcp_app_test.go —— C3: tests for the mcpAppCapability adapter.
+// Dials with a real stdio mock (mock-stack/mcp --stdio), never stubbing Session. Covers
+// happy paths (ID/Shape, dial→list→expose tool) + ui→Extra + ACL (role granted / not
+// granted / no role) + error cases (dial failure / empty tools → ErrHidden). The
+// error-stream where a mid-call tool failure folds into errJSON is asserted by the C4 e2e
+// (real chat) suite and inherited from ext-mcp. require.* only (no if).
 
 package capload
 
@@ -27,7 +28,7 @@ const echoerID = "echoer"
 func buildPluginMock(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "mcpmock")
-	//nolint:gosec // test：把已知 mock server 编译进 t.TempDir()，命令固定。
+	//nolint:gosec // test: compiles a known mock server into t.TempDir(), a fixed command.
 	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", bin, "./mcp")
 	cmd.Dir = "../../../../mock-stack"
 	out, err := cmd.CombinedOutput()
@@ -45,8 +46,8 @@ func stdioManifest(id, bin string) *mcpplugin.Manifest {
 	}
 }
 
-// grantInput —— 一个 code 访客的 AssembleInput，其 role 授权了 pluginID
-// (AllowedTools 含它)。没授权就过不了 ACL gate。
+// grantInput —— a code visitor's AssembleInput whose role grants pluginID (AllowedTools
+// contains it). Without the grant, it can't pass the ACL gate.
 func grantInput(pluginID string) *capreg.AssembleInput {
 	snap := access.NewRoleSnapshot(&access.RoleSnapshotInit{
 		AllowedTools: []string{pluginID},
@@ -62,7 +63,8 @@ func bindingToolNames(b *capreg.Binding) string {
 	return strings.Join(parts, ",")
 }
 
-// noRoleInput —— public 访客（无 role）。ACL=always 的能力即便如此也该暴露。
+// noRoleInput —— a public visitor (no role). An ACL=always capability should still be
+// exposed even so.
 func noRoleInput() *capreg.AssembleInput {
 	return &capreg.AssembleInput{OwnerID: "o", Mode: "public"}
 }
@@ -76,7 +78,8 @@ func findTool(b *capreg.Binding, name string) (capreg.BindingTool, bool) {
 	return capreg.BindingTool{}, false
 }
 
-// B1: ACL=always → 无 role 也暴露（外置内建基础能力，所有 mode）。
+// B1: ACL=always → exposed even without a role (an externalized builtin base capability,
+// for every mode).
 func TestMCPApp_ACLAlwaysExposesWithoutRole(t *testing.T) {
 	t.Parallel()
 	m := stdioManifest(echoerID, buildPluginMock(t))
@@ -92,7 +95,7 @@ func TestMCPApp_ACLAlwaysExposesWithoutRole(t *testing.T) {
 	require.Contains(t, bindingToolNames(b), "echo")
 }
 
-// B1: RawToolNames=true → 工具用 server 原名，不加 <id>_ 前缀。
+// B1: RawToolNames=true → tools use the server's original name, no <id>_ prefix added.
 func TestMCPApp_RawToolNames(t *testing.T) {
 	t.Parallel()
 	m := stdioManifest(echoerID, buildPluginMock(t))
@@ -111,7 +114,7 @@ func TestMCPApp_RawToolNames(t *testing.T) {
 	require.False(t, prefixed, "no <id>_ prefix when RawToolNames")
 }
 
-// B1: tool `_meta.return_directly` → BindingTool.ReturnDirectly=true（clarify 带）。
+// B1: tool `_meta.return_directly` → BindingTool.ReturnDirectly=true (clarify has it).
 func TestMCPApp_ReturnDirectlyFromMeta(t *testing.T) {
 	t.Parallel()
 	m := stdioManifest(echoerID, buildPluginMock(t))
@@ -132,9 +135,10 @@ func TestMCPApp_ReturnDirectlyFromMeta(t *testing.T) {
 	require.False(t, echo.ReturnDirectly, "echo has no return_directly meta")
 }
 
-// in-process 走**同一条** RegisterDiscoveredPlugins + mcpAppCapability + dialMCPApp
-// （归一）：manifest.Transport.Kind=in_process + 一个同进程 server 对象，VisitorBinding
-// 内存直连、暴露 tool。不开进程/线程/网络。
+// in_process goes through **the exact same** RegisterDiscoveredPlugins + mcpAppCapability +
+// dialMCPApp (unified): manifest.Transport.Kind=in_process plus a same-process server
+// object, VisitorBinding connects in-memory directly and exposes tools. No process/thread/
+// network gets opened.
 func TestMCPApp_InProcessUnifiedPath(t *testing.T) {
 	t.Parallel()
 	srv := mcpgoserver.NewMCPServer("inproc-cap", "1.0.0",
@@ -166,7 +170,8 @@ func TestMCPApp_InProcessUnifiedPath(t *testing.T) {
 	require.Contains(t, bindingToolNames(b), "do_thing")
 }
 
-// B2: RegisterDiscoveredPlugins 按传入 origin 注册（bundled 内建 → builtin）。
+// B2: RegisterDiscoveredPlugins registers with whatever origin is passed in (a bundled
+// builtin → builtin).
 func TestMCPApp_RegisterWithBuiltinOrigin(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
@@ -178,20 +183,22 @@ func TestMCPApp_RegisterWithBuiltinOrigin(t *testing.T) {
 	require.Equal(t, capreg.OriginBuiltin, origin)
 }
 
-// B1: SystemPromptFragment ← server initialize instructions（prompt 自包含于 server）。
+// B1: SystemPromptFragment ← server initialize instructions (the prompt is self-contained
+// within the server).
 func TestMCPApp_PromptFromInstructions(t *testing.T) {
 	t.Parallel()
 	c := newMCPAppCapability(stdioManifest(echoerID, buildPluginMock(t)))
 	frag := c.SystemPromptFragment(context.Background(), grantInput(echoerID))
 	require.Contains(t, frag, "Mock server instructions")
-	// FragmentID = "capabilities/<id>"：externalize 后 server 的 initialize
-	// instructions 经 registry PromptFragmentText 兜底，按这个 part-id 喂给前端
-	// （/prompts/capabilities/<id>），统一走 part-id 加载通道。
+	// FragmentID = "capabilities/<id>": after externalization, the server's initialize
+	// instructions are served via the registry's PromptFragmentText fallback, fed to the
+	// frontend under this part-id (/prompts/capabilities/<id>), through the unified
+	// part-id loading channel.
 	require.Equal(t, "capabilities/echoer",
 		c.SystemPromptFragmentID(context.Background(), grantInput(echoerID)))
 }
 
-// happy：ID / Shape 直接来自 manifest（不 dial）。
+// happy: ID / Shape come straight from the manifest (no dial).
 func TestMCPApp_IDAndShape(t *testing.T) {
 	t.Parallel()
 	c := newMCPAppCapability(&mcpplugin.Manifest{
@@ -201,7 +208,7 @@ func TestMCPApp_IDAndShape(t *testing.T) {
 	require.Equal(t, capreg.ShapeVisitorOnly, c.Shape())
 }
 
-// happy：role 授权 → dial 真 stdio mock → list → 把 echo 暴露成 binding tool。
+// happy: role granted → dial the real stdio mock → list → expose echo as a binding tool.
 func TestMCPApp_DialsAndExposesTools(t *testing.T) {
 	t.Parallel()
 	c := newMCPAppCapability(stdioManifest(echoerID, buildPluginMock(t)))
@@ -216,13 +223,14 @@ func TestMCPApp_DialsAndExposesTools(t *testing.T) {
 	require.Contains(t, bindingToolNames(b), "echo")
 }
 
-// happy：tool 经 `_meta.ui_resource` 声明 ui:// 卡（MCP Apps，per-tool）→ 装配期
-// resources/read 取到 HTML 挂到该 tool 的 BindingTool.UIHTML。mock 的 clarify tool
-// 声明了它，断言读到的内容嵌进 UIHTML。
+// happy: a tool declares a ui:// card via `_meta.ui_resource` (MCP Apps, per-tool) →
+// resources/read at assembly time gets the HTML attached to that tool's
+// BindingTool.UIHTML. The mock's clarify tool declares it, and the assertion checks the
+// read content is embedded into UIHTML.
 func TestMCPApp_PerToolUIHTML(t *testing.T) {
 	t.Parallel()
 	m := stdioManifest(echoerID, buildPluginMock(t))
-	m.RawToolNames = true // canonical 名（clarify/echo），不加 <id>_ 前缀
+	m.RawToolNames = true // canonical names (clarify/echo), no <id>_ prefix added
 	c := newMCPAppCapability(m)
 	b, err := c.VisitorBinding(context.Background(), grantInput(echoerID))
 	require.NoError(t, err)
@@ -236,7 +244,7 @@ func TestMCPApp_PerToolUIHTML(t *testing.T) {
 	require.Empty(t, toolUIHTMLByName(b, "echo"), "tool without ui_resource carries no card")
 }
 
-// toolUIHTMLByName —— binding 里按名取某 tool 的 UIHTML（测试 helper）。
+// toolUIHTMLByName —— fetches a tool's UIHTML from a binding by name (a test helper).
 func toolUIHTMLByName(b *capreg.Binding, name string) string {
 	for i := range b.Tools {
 		if b.Tools[i].Name == name {
@@ -246,7 +254,8 @@ func toolUIHTMLByName(b *capreg.Binding, name string) string {
 	return ""
 }
 
-// ACL：role 授权了别的、不含本插件 → ErrHidden（即使 mock 在、可 dial）。
+// ACL: role granted something else, not this plugin → ErrHidden (even though the mock is
+// present and dialable).
 func TestMCPApp_NotGrantedHidden(t *testing.T) {
 	t.Parallel()
 	c := newMCPAppCapability(stdioManifest(echoerID, buildPluginMock(t)))
@@ -254,7 +263,7 @@ func TestMCPApp_NotGrantedHidden(t *testing.T) {
 	require.ErrorIs(t, err, capreg.ErrHidden)
 }
 
-// ACL：无 role（public / byoai，RoleSnapshot=nil）→ ErrHidden。
+// ACL: no role (public / byoai, RoleSnapshot=nil) → ErrHidden.
 func TestMCPApp_NoRoleHidden(t *testing.T) {
 	t.Parallel()
 	c := newMCPAppCapability(stdioManifest(echoerID, buildPluginMock(t)))
@@ -263,7 +272,8 @@ func TestMCPApp_NoRoleHidden(t *testing.T) {
 	require.ErrorIs(t, err, capreg.ErrHidden)
 }
 
-// error：role 授权但 dial 不通（命令不存在）→ ErrHidden（隐藏，不阻塞 chat）。
+// error: role granted but dial fails (command doesn't exist) → ErrHidden (hidden, without
+// blocking chat).
 func TestMCPApp_DialFailHidden(t *testing.T) {
 	t.Parallel()
 	c := newMCPAppCapability(stdioManifest("broken", "/nonexistent/mcp-bin"))
@@ -271,7 +281,8 @@ func TestMCPApp_DialFailHidden(t *testing.T) {
 	require.ErrorIs(t, err, capreg.ErrHidden)
 }
 
-// lifecycle：Binding 必须带 Close hook 释放 dial 出的子进程（防资源泄漏）。
+// lifecycle: a Binding must carry a Close hook that releases the dialed subprocess (to
+// prevent a resource leak).
 func TestMCPApp_BindingHasCloseHook(t *testing.T) {
 	t.Parallel()
 	c := newMCPAppCapability(stdioManifest(echoerID, buildPluginMock(t)))
@@ -281,7 +292,7 @@ func TestMCPApp_BindingHasCloseHook(t *testing.T) {
 	b.Close()
 }
 
-// edge：role 授权但插件 list 出 0 个 tool → ErrHidden（ext-mcp parity）。
+// edge: role granted but the plugin lists 0 tools → ErrHidden (ext-mcp parity).
 func TestMCPApp_NoToolsHidden(t *testing.T) {
 	t.Parallel()
 	m := stdioManifest("empty", buildPluginMock(t))
@@ -291,9 +302,10 @@ func TestMCPApp_NoToolsHidden(t *testing.T) {
 	require.ErrorIs(t, err, capreg.ErrHidden)
 }
 
-// F-A-1 观测性守卫：dial 不通(sandbox 起不来)在折成 ErrHidden 前必须把真因喂给
-// dialErrLog(否则像 prod bwrap 那样静默 0 工具、日志查无此事);而干净的「0 tool」是
-// 合法隐藏,不该报错。
+// F-A-1 observability guard: before a dial failure (the sandbox won't start) folds into
+// ErrHidden, the real cause must be fed to dialErrLog (otherwise it's silent 0-tools with
+// nothing in the logs, just like the prod bwrap case); whereas a clean "0 tools" is
+// legitimately hidden and must not report an error.
 func TestMCPApp_DialFail_FiresDialErrLog(t *testing.T) {
 	t.Parallel()
 	var gotID string
@@ -305,7 +317,7 @@ func TestMCPApp_DialFail_FiresDialErrLog(t *testing.T) {
 	require.Equal(t, "broken", gotID, "dial failure must report the cap id")
 	require.Error(t, gotErr, "dial failure must report the underlying error")
 
-	// 干净的「0 tool」是合法隐藏，不触发 dialErrLog。
+	// A clean "0 tools" is legitimately hidden, and must not fire dialErrLog.
 	m := stdioManifest("empty", buildPluginMock(t))
 	m.Transport.Env = map[string]string{"MOCK_MCP_NO_TOOLS": "1"}
 	c2 := newMCPAppCapability(m)

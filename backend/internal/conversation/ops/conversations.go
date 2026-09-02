@@ -1,17 +1,23 @@
-// Package ops —— conversation 域对外能做的事,由域自己声明。
+// Package ops — what the conversation domain can do externally, declared by the domain itself.
 //
-// 一个操作在这里是完整的一份:id、说明、入参 schema、语义类别、暴露意图、实现。
+// An op here is a complete unit: id, description, input schema, semantic kind, exposure
+// intent, implementation.
 //
-// 资源 conversations 有三件事:列出对话、读一整份逐字稿(连同 AI 当时引了哪些语料)、
-// 以及 ghost-steering 的漏斗。
+// The conversations resource does three things: list conversations, read one full
+// transcript (along with which corpus entries the AI cited at the time), and the
+// ghost-steering funnel.
 //
-// 归一化时收掉的两处:
+// Two things collapsed during normalization:
 //
-//   - 同一份逐字稿两个面差得很远。面板那份带 refs(标题 + 地址)和 ghost 日志;MCP 那份带
-//     被引条目的**正文**(owner 拿它 debug 检索)。谁也不是谁的子集,于是 owner 从哪边看
-//     都缺一半。现在是一份:refs 自带正文,ghost 日志每个面都有。
-//   - 列表里的 code_id / code_value / client_ip 只有面板有 —— 从 Claude Code 看不出
-//     "这次对话是哪张码进来的、从哪个 IP"。同一份载荷之后两边都看得到。
+//   - The same transcript used to differ a lot between the two faces. The panel side
+//     carried refs (title + path) and the ghost log; the MCP side carried the cited
+//     entries' **body text** (the owner used it to debug retrieval). Neither was a
+//     subset of the other, so the owner was missing half no matter which side they
+//     looked from. Now it's one shape: refs carry their body text, and the ghost log
+//     is on every face.
+//   - code_id / code_value / client_ip in the list used to be panel-only — from Claude
+//     Code you couldn't tell "which code this conversation came in on, from which IP."
+//     Now both sides see the same payload.
 package ops
 
 import (
@@ -26,7 +32,8 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// ConversationsDeps —— 对话本身 + ghost 日志 + 回读被引条目正文要用的语料仓储。
+// ConversationsDeps — conversations themselves + the ghost log + the corpus repo used to
+// read back cited entries' body text.
 type ConversationsDeps struct {
 	Chats  usecase.ConversationsDeps
 	Ghosts usecase.GhostDeps
@@ -34,7 +41,7 @@ type ConversationsDeps struct {
 	Log    *slog.Logger
 }
 
-// Conversations —— list / get / ghost_telemetry。全是只读。
+// Conversations — list / get / ghost_telemetry. All read-only.
 func Conversations(d *ConversationsDeps) []fp.Op {
 	return []fp.Op{
 		{
@@ -88,11 +95,12 @@ type convLimitArgs struct {
 	Limit int32 `json:"limit"`
 }
 
-// convLimit —— 只把数字解出来。**不**在这儿定默认值和上限:那条规则在域里
-// (clampConvLimit)。0 就是"没说",域自己兜 —— 面各写一份 clamp 就成了三处规则。
+// convLimit — only decodes the number. Default and upper bound are **not** set here:
+// that rule lives in the domain (clampConvLimit). 0 means "unspecified" and the domain
+// covers it — if each face wrote its own clamp, that'd be three copies of one rule.
 func convLimit(raw json.RawMessage) int32 {
 	var in convLimitArgs
-	// 解不出就当没说,交给域兜默认值。
+	// Undecodable means unspecified — the domain fills in the default.
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return 0
 	}
@@ -145,7 +153,8 @@ func ghostTelemetry(deps usecase.GhostDeps) fp.Invoke {
 	}
 }
 
-// convErr —— 域的哨兵 → 协议无关的类别。code 是已经发出去的契约,显式钉住。
+// convErr — domain sentinel error → protocol-agnostic category. The code is an already-
+// shipped contract, pinned explicitly.
 func convErr(err error) error {
 	if errors.Is(err, entity.ErrChatNotFound) {
 		return fp.Coded(fp.NotFound("conversation not found"), "not_found")

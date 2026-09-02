@@ -1,6 +1,8 @@
-// load-wiki-children —— LazyTree 的 wiki 数据口。每次取某层时读当前 stored
-// session token(有 code → 带上走 role scope;无 → 匿名只 published),交给
-// fetchWikiTree。逻辑在 lib(组件层禁 if)。
+// load-wiki-children —— the wiki data port for LazyTree. Each time a level
+// is fetched, it reads the current stored session token (with a code →
+// send it along for role scope; without one → anonymous, published only)
+// and hands off to fetchWikiTree. Logic lives in lib (the components layer
+// bans if).
 
 import { fetchWikiContext, fetchWikiTree, fetchWikiTreeStats } from '@/lib/api/public';
 import type { WikiTreeStats } from '@/lib/api/public';
@@ -12,15 +14,19 @@ export function loadWikiChildren(parentID: string): Promise<TreeNode[]> {
   return fetchWikiTree(parentID, token);
 }
 
-// storedToken —— 访客的 session token 只存在浏览器里,SSR 看不见。这就是为什么每一处
-// "受邀访客该看见更多"的地方都要在客户端补一次(F-L-11 的 reader、F-L-13 的子条目栏,
-// 现在还有 F-L-14 的 /wiki 索引和脚注)。
+// storedToken —— the visitor's session token only lives in the browser;
+// SSR can't see it. This is why every place where "an invited visitor
+// should see more" needs a client-side follow-up fetch (F-L-11's reader,
+// F-L-13's child-entry sidebar, and now F-L-14's /wiki index and footer
+// stats).
 function storedToken(): string {
   return loadStoredSession()?.session_token ?? '';
 }
 
-// subscribeScopedRoots —— /wiki 索引根列表的渐进增强口。SSR 拿不到 token,只能列 published 的
-// 那些;有 session 就按这位访客的 grant 重取一遍。无 token → no-op(SSR 的结果即最终)。
+// subscribeScopedRoots —— the progressive-enhancement port for the /wiki
+// index's root list. SSR has no token, so it can only list the published
+// ones; if there's a session, refetch once with this visitor's grant. No
+// token → no-op (the SSR result is final).
 export function subscribeScopedRoots(
   onRoots: (nodes: TreeNode[]) => void,
 ): () => void {
@@ -33,7 +39,8 @@ export function subscribeScopedRoots(
   return () => { live = false; };
 }
 
-// subscribeScopedStats —— 侧栏脚计数同理:GATED 那个数说的是**对这位访客**关着几条。
+// subscribeScopedStats —— same idea for the sidebar footer count: the
+// GATED number tells how many entries are closed **to this visitor**.
 export function subscribeScopedStats(
   onStats: (stats: WikiTreeStats) => void,
 ): () => void {
@@ -46,10 +53,15 @@ export function subscribeScopedStats(
   return () => { live = false; };
 }
 
-// subscribeScopedChildren —— F-L-13 reader 子条目栏的渐进增强口:有 stored session token 才按访客 scope
-// 重取 context children(补上 SSR 匿名看不到的 gated 子条目),回调交出结果。无 token → no-op(SSR 的
-// published children 即最终)。返回 cleanup 关掉 in-flight(unmount / slug 变时防 setState-after-unmount)。
-// 逻辑归 lib:presentation 层禁 `if`,组件 effect 只 return 这一个订阅。
+// subscribeScopedChildren —— the progressive-enhancement port for F-L-13's
+// reader child-entry sidebar: only when there's a stored session token does
+// it refetch context children with the visitor's scope (filling in gated
+// children that SSR-anonymous couldn't see), handing results to the
+// callback. No token → no-op (the SSR published children are final).
+// Returns a cleanup that cancels the in-flight request (guards against
+// setState-after-unmount on unmount / slug change). Logic lives in lib:
+// the presentation layer bans `if`, the component effect just returns this
+// one subscription.
 export function subscribeScopedChildren(
   slug: string, onChildren: (nodes: TreeNode[]) => void,
 ): () => void {

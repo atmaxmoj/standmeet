@@ -16,7 +16,8 @@ import { vaultImportLine } from '@/lib/admin/vault-import-state';
 
 export function ObsidianSection() {
   const t = useTranslations('adminCorpus.obsidian');
-  // reloadKey —— 导入完把回执重新拉一遍：屏幕上那句话必须来自**存下来的事实**。
+  // reloadKey —— re-fetches the receipt after an import completes: what's shown on
+  // screen must come from **a fact that's actually been persisted**.
   const [reloadKey, setReloadKey] = useState(0);
   const importState = useVaultImportState(reloadKey);
   return (
@@ -30,17 +31,22 @@ export function ObsidianSection() {
           </span>
         }
       />
-      {/* 这段说明以前在卡**里面**、10px mono、最淡的灰、42em 里再折一次 —— 而全页最重要的
-          那句就在里头：*"No live sync / file watcher — two manual actions."* 那是产品主动说
-          自己不做什么，也是 owner 判断「我是不是该等它自动同步」的唯一依据，它不该是全页最小
-          的字（UX-63 的后一半）。
-          隔壁 /admin/sources 描述同一类事情用的是衬线正文（`reading text-[14.5px]`）——
-          两个兄弟页对同一类东西说话，声音要一样。这里照抄那一处的写法，不是新发明一种。 */}
+      {/* This explanation used to be **inside** the card, 10px mono, the faintest
+          gray, wrapped again inside a 42em box — while the most important line on
+          the whole page was buried in there: *"No live sync / file watcher — two
+          manual actions."* That's the product actively saying what it doesn't do,
+          and it's the owner's only basis for deciding whether to wait for auto-sync
+          — it shouldn't be the smallest text on the page (the second half of
+          UX-63). The neighboring /admin/sources page describes the same kind of
+          thing with serif body text (`reading text-[14.5px]`) — two sibling pages
+          talking about the same kind of thing should sound alike. This copies that
+          page's approach rather than inventing a new one. */}
       <p className="reading text-[14.5px] text-(--color-muted) mb-2 max-w-[54em]"
         data-testid="obsidian-intro">
         {t('help')}
       </p>
-      {/* 「不做实时同步」单独一句、墨色：它是这一页最该被读到的一句，而不是说明的尾巴。 */}
+      {/* "No live sync" gets its own line, in ink color: it's the sentence most
+          worth reading on this page, not a tail-end of the explanation. */}
       <p className="reading text-[14.5px] text-(--color-ink) mb-6 max-w-[54em]"
         data-testid="obsidian-no-sync">
         {t('noSync')}
@@ -48,9 +54,11 @@ export function ObsidianSection() {
       <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 max-w-[640px]">
         <div className="sm-smallcaps mb-3">{t('importExport')}</div>
         <ObsidianBar onImported={() => setReloadKey((k) => k + 1)} />
-        {/* UX-62：**这件事发生过没有**。以前这一屏没有任何过去时态 —— 装着 1028 条笔记的
-            实例跟一个空实例长得一模一样，而导入完那行计数刷新就没了。措辞照 /admin/sources
-            那一族（`never fetched` / `last · <日期>`），不新发明一种。 */}
+        {/* UX-62: **did this thing ever happen**. This screen used to have no past
+            tense at all — an instance carrying 1028 notes looked identical to an
+            empty one, and the count from an import vanished the moment the refresh
+            happened. Copy follows the /admin/sources family
+            (`never fetched` / `last · <date>`), not a new invention. */}
         <p className="mono text-[10.5px] tracking-[0.12em] uppercase text-(--color-muted) mt-3"
           data-testid="obsidian-last-import">
           {vaultImportLine(importState)}

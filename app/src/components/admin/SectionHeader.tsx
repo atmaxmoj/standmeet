@@ -1,10 +1,12 @@
-// SectionHeader —— admin 每个 section 的标题块。
-// design 版：kicker (mono uppercase) + title (serif large) + 可选 count + 可选 action。
+// SectionHeader —— the heading block for every admin section.
+// design version: kicker (mono uppercase) + title (serif large) + optional count + optional
+// action.
 //
-// 标题**不收字符串，收 slug**：这一节叫什么由侧栏那份 `NAV_GROUPS` 说了算（F-N-3）。
-// 手写标题的时候，26 节里有 24 节抄得跟牌子一模一样，剩下两节抄错了 —— 而错的那两节
-// (`landing page`→`page` / `custom pages`→`pages`) 恰好是"两个名字只差一个复数"这个
-// 缺陷本身。现在它们不是两份互相追赶的字符串，而是同一份。
+// The title prop **doesn't accept a string, it accepts a slug**: what a section is called is
+// decided by the sidebar's `NAV_GROUPS` (F-N-3). When titles were hand-written, 24 of 26
+// sections copied the label exactly and 2 copied it wrong — and those two wrong copies
+// (`landing page`->`page` / `custom pages`->`pages`) were exactly the defect of "two names that
+// differ by only a plural". Now they're not two strings chasing each other, they're one.
 
 import type { ReactNode } from 'react';
 
@@ -22,9 +24,10 @@ export function SectionHeader(props: Props) {
   return (
     <div
       data-testid="section-header"
-      // flex-wrap：窄屏上标题这一组和右上角那个动作按钮放不进一行。不换行的话按钮
-      // `shrink-0` 会把标题挤成一列窄字（`+ NEW CODE` 那格甚至压在标题上面）。
-      // 换行之后按钮落到第二行，一个动作都不少。
+      // flex-wrap: on narrow screens the title group and the top-right action button don't fit
+      // in one row. Without wrapping, the button's `shrink-0` would squeeze the title into a
+      // narrow column of characters (the `+ NEW CODE` field would even overlap the title).
+      // With wrapping, the button drops to a second line and no action is lost.
       className="flex flex-wrap items-baseline justify-between border-b border-(--color-rule) pb-4 mb-7 gap-x-6 gap-y-3"
     >
       <SectionHeaderTitle
@@ -53,8 +56,9 @@ function SectionHeaderTitle(props: {
 function SectionTitleLine({ title, count }: { title: string; count?: ReactNode }) {
   return (
     <h1 className="font-serif text-(--color-ink) text-[32px] tracking-[-0.018em] leading-none">
-      {/* 标题单独挂 testid：header 的文本层里 kicker 在前、count 在后，靠切分取标题
-          会把 `api · mcp` 这种本身带分隔符的标题切坏（F-N-3 的守卫要读的就是它）。 */}
+      {/* The title gets its own testid: in the header's text layer, kicker comes before it and
+          count comes after, so slicing text to extract the title would break a title like
+          `api · mcp` that already contains a separator (F-N-3's guard reads this testid). */}
       <span data-testid="section-title">{title}</span>
       {/* real space so the a11y/text layer reads "raw · 50", not "raw· 50" (UX-12) */}
       {' '}
@@ -63,9 +67,10 @@ function SectionTitleLine({ title, count }: { title: string; count?: ReactNode }
   );
 }
 
-// 计数在窄屏上**自成一行**。跟在 32px 衬线标题后面走内联时，`connectors ·
-// calendar · mail live · upload your own` 这种会散成三四行长短不一的碎块，
-// 读起来像标题本身断了。占一整行之后它是一行读得完的元数据。
+// The count **gets its own line** on narrow screens. Running inline after the 32px serif title,
+// something like `connectors · calendar · mail live · upload your own` would scatter into three
+// or four ragged lines, reading as if the title itself had broken. Given a full line of its own,
+// it's metadata that reads as one line.
 function SectionCount({ count }: { count?: ReactNode }) {
   return count != null
     ? (

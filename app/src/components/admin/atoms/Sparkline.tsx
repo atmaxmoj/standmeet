@@ -1,11 +1,14 @@
-// Sparkline —— SVG polyline 折线图 + 真轴 + 真 hover tooltip(F-C-5 二次返工)。
+// Sparkline —— SVG polyline chart + real axis + real hover tooltip (F-C-5, second pass).
 //
-// 第一版只放了峰值数字 + 原生 SVG <title>,owner 打回:「没有轴,没有 hover tooltip 显示具体数字」——
-// <title> 要悬停在被拉伸的 1.6px 圆点上等 ~1s,等于没有。现在:
-//   - 轴:基线 + 中线 + 峰线三条网格线(SVG),0 / mid / max 三个刻度值(HTML 覆盖层 —— svg 被
-//     preserveAspectRatio="none" 拉伸,文字放里面会变形,所以刻度用绝对定位 HTML)。
-//   - tooltip:整图 onMouseMove 吸附最近点(nearestSparkIndex),渲染十字线 + 高亮点(SVG)+
-//     鼠标上方的数值框「日期 · 值」(HTML)。离开即消失。
+// The first version only had a peak number + a native SVG <title>; the owner sent it
+// back: "no axis, no hover tooltip showing the actual number" — a <title> needs
+// hovering over the stretched 1.6px dot for ~1s, which is effectively unusable. Now:
+//   - Axis: baseline + midline + peakline, three grid lines (SVG), plus 0 / mid / max
+//     tick values (HTML overlay — the svg is stretched by preserveAspectRatio="none",
+//     so text inside it would distort; ticks use absolutely-positioned HTML instead).
+//   - Tooltip: onMouseMove over the whole chart snaps to the nearest point
+//     (nearestSparkIndex), rendering a crosshair + highlighted dot (SVG) plus a value
+//     box "date · value" above the cursor (HTML). Disappears on mouse leave.
 
 'use client';
 
@@ -16,11 +19,11 @@ import {
   nearestSparkIndex, sparkHoverPt, sparklinePoints, sparkTip,
 } from '@/lib/admin/sparkline';
 
-const PAD = 2; // 与 sparklinePoints 的 pad 对齐:max → y=PAD,0 → y=h-PAD
+const PAD = 2; // matches sparklinePoints' pad: max → y=PAD, 0 → y=h-PAD
 
 type Props = {
   data: readonly number[];
-  labels?: readonly string[];   // 每点的 x 标签(日期);对齐 data,缺省则 tooltip 只显值
+  labels?: readonly string[];   // per-point x label (date); aligned to data, tooltip shows value-only if omitted
   width?: number;
   height?: number;
   label?: string;
@@ -44,7 +47,7 @@ export function Sparkline({ data, labels, width = 260, height = 48, label }: Pro
   );
 }
 
-// useSparkHover —— 整图 hover 吸附:mousemove → 最近点下标;离开清空。
+// useSparkHover —— whole-chart hover snap: mousemove → nearest point index; leave clears it.
 function useSparkHover(n: number) {
   const [hover, setHover] = useState<number | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -60,7 +63,7 @@ function setHoverFromEvent(
   r && set(nearestSparkIndex((e.clientX - r.left) / r.width, n));
 }
 
-// TipSlot —— hover 命中时渲染数值框;未命中渲染 null(空槽)。
+// TipSlot —— renders the value box on hover hit; renders null (empty slot) otherwise.
 function TipSlot({ pts, labels, hover, width }: {
   pts: readonly SparkPoint[]; labels?: readonly string[]; hover: number | null; width: number;
 }) {
@@ -102,7 +105,8 @@ function ChartSVG({ pts, width, height, label, hover }: {
   );
 }
 
-// AxisGrid —— 三条参考线:峰线(y=PAD)、中线、基线(y=h-PAD),加左缘 y 轴。刻度值在 AxisLabels(HTML)。
+// AxisGrid —— three reference lines: peakline (y=PAD), midline, baseline (y=h-PAD),
+// plus a y-axis at the left edge. Tick values live in AxisLabels (HTML).
 function AxisGrid({ width, height }: { width: number; height: number }) {
   const mid = PAD + (height - PAD * 2) / 2;
   return (
@@ -115,7 +119,7 @@ function AxisGrid({ width, height }: { width: number; height: number }) {
   );
 }
 
-// HoverMark —— 吸附点的十字线 + 高亮环(SVG 侧)。
+// HoverMark —— crosshair + highlight ring for the snapped point (SVG side).
 function HoverMark({ pt, height }: { pt: SparkPoint; height: number }) {
   return (
     <g data-testid="sparkline-hover-mark">
@@ -128,11 +132,14 @@ function HoverMark({ pt, height }: { pt: SparkPoint; height: number }) {
   );
 }
 
-// AxisLabels —— y 轴刻度(max / mid / 0),HTML 绝对定位贴左缘(不进被拉伸的 svg,字不变形)。
+// AxisLabels —— y-axis ticks (max / mid / 0), HTML absolutely positioned against the
+// left edge (kept out of the stretched svg so the text doesn't distort).
 //
-// 中间那格**画不出来就不画**:`max` 小的时候 `round(max/2)` 会撞上另外两格 —— `max=1`
-// 时三格读作 `1 … 1 … 0`,同一个刻度出现两次,而这恰恰是语料刚起步、图最需要被读懂的时候
-// (UX-42)。一个重复的刻度比没有刻度更糟:它让人以为自己看错了。
+// The middle tick is **omitted when it can't be drawn cleanly**: when `max` is small,
+// `round(max/2)` collides with the other two ticks — at `max=1` the three ticks would
+// read `1 … 1 … 0`, the same value shown twice, right when the corpus is just starting
+// and the chart most needs to be legible (UX-42). A duplicated tick is worse than a
+// missing one: it makes the reader think they misread it.
 function midTick(max: number): number | null {
   const mid = Math.round(max / 2);
   return mid > 0 && mid < max ? mid : null;
@@ -154,7 +161,8 @@ function AxisLabels({ max }: { max: number }) {
   );
 }
 
-// HoverTip —— 吸附点正上方的数值框「日期 · 值」。位置随点动(runtime-dynamic → inline style)。
+// HoverTip —— value box "date · value" directly above the snapped point.
+// Position tracks the point (runtime-dynamic → inline style).
 function HoverTip({ fracX, text }: { fracX: number; text: string }) {
   const leftPct = `${Math.min(92, Math.max(8, fracX * 100))}%`;
   return (

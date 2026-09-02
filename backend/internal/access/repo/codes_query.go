@@ -1,5 +1,5 @@
-// codes_query.go —— access_codes Get / List + CodeFromRow 转换 + JSON
-// decode helpers。从 codes.go 拆出守 max-lines。
+// codes_query.go —— access_codes Get / List + the CodeFromRow conversion + JSON
+// decode helpers. Split out of codes.go to respect max-lines.
 
 package repo
 
@@ -16,8 +16,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// GetByID 拿 code（按 UUID，含 revoked）；不命中返 ErrCodeInvalid。turn quota
-// check 用：旧 conversation 还要查到背后 code 的 max_turns。
+// GetByID fetches a code (by UUID, including revoked ones); a miss returns
+// ErrCodeInvalid. Used by the turn quota check: an old conversation still needs
+// to look up its underlying code's max_turns.
 func (r *CodeRepo) GetByID(ctx context.Context, codeID string) (entity.Code, error) {
 	codeUUID, perr := pgstore.ParseUUID(codeID)
 	if perr != nil {
@@ -34,19 +35,25 @@ func (r *CodeRepo) GetByID(ctx context.Context, codeID string) (entity.Code, err
 	return CodeFromRow(&row), nil
 }
 
-// GetByCode 拿 code（active only）；不命中时**分得出是哪一种**：这张码根本不存在 →
-// ErrCodeInvalid；存在但被撤销了 → ErrCodeRevoked。
+// GetByCode fetches a code (active only); on a miss it **distinguishes which kind**:
+// the code doesn't exist at all → ErrCodeInvalid; it exists but was revoked →
+// ErrCodeRevoked.
 //
-// 以前这里只按 status='active' 查一次,两种都是 no-rows,于是访客那句拒绝只能合成
-// 「invalid or revoked」—— 而这两种人的下一步是相反的:打错字该重新粘一次,被撤销该去要
-// 一张新的。分支在这一层就没了,上面再怎么写文案也分不出来(F-D-6)。
+// Previously this queried status='active' just once, and both cases came back as
+// no-rows, so the visitor's rejection message could only be a merged "invalid or
+// revoked" — even though the two people's next steps are opposite: a typo should be
+// re-pasted, a revocation should be re-requested. The branch was already gone at
+// this layer, so no amount of copywriting above it could tell them apart (F-D-6).
 //
-// 代价是「码不对」这条路多一次查询。这条路本来就是失败路径(正常访客第一次就命中 active),
-// 不在热路上。
+// The cost is one extra query on the "code is wrong" path. That path is already the
+// failure path (a normal visitor hits active on the first try), so it's off the hot
+// path.
 func (r *CodeRepo) GetByCode(ctx context.Context, code string) (entity.Code, error) {
 	q := db.New(r.pool)
-	// 带页的那一版：多一个 LEFT JOIN 取 slug。落地决定（这张码开哪一页）要在访客带码
-	// 进来的那一刻就答得出来，而 slug 在页那张表上 —— 在 SQL 层取，访客这条路就不必跨域。
+	// The page-aware version: one extra LEFT JOIN to fetch the slug. The landing
+	// decision (which page this code opens) has to be answerable the instant a visitor
+	// arrives with a code, and the slug lives on the page table — fetching it at the
+	// SQL layer means this visitor path doesn't have to cross domains.
 	row, err := q.GetAccessCodeWithPage(ctx, code)
 	if err == nil {
 		c := CodeFromRow(&db.AccessCode{
@@ -67,9 +74,10 @@ func (r *CodeRepo) GetByCode(ctx context.Context, code string) (entity.Code, err
 	return entity.Code{}, r.missingCodeReason(ctx, code)
 }
 
-// missingCodeReason —— active 那次没命中之后,再问一次「这张码到底存不存在」。
-// 查不到 → 不存在;查得到 → 是被撤销/停用了。第二次查询本身出错时退回 ErrCodeInvalid:
-// 说不清就说最保守的那一种,不编一个更具体的原因。
+// missingCodeReason —— after the active query misses, asks once more "does this
+// code exist at all". Not found → doesn't exist; found → was revoked/disabled.
+// When the second query itself errors, falls back to ErrCodeInvalid: when it can't
+// tell, say the most conservative thing, don't invent a more specific reason.
 func (r *CodeRepo) missingCodeReason(ctx context.Context, code string) error {
 	row, err := db.New(r.pool).GetAccessCodeAnyStatus(ctx, code)
 	if err != nil {
@@ -81,7 +89,7 @@ func (r *CodeRepo) missingCodeReason(ctx context.Context, code string) error {
 	return entity.ErrCodeInvalid
 }
 
-// ListByOwner 给 admin 列 codes。
+// ListByOwner lists codes for the admin view.
 func (r *CodeRepo) ListByOwner(
 	ctx context.Context, ownerID string) ([]entity.Code, error,
 ) {
@@ -90,8 +98,9 @@ func (r *CodeRepo) ListByOwner(
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	q := db.New(r.pool)
-	// 带页的那一版：多一个 LEFT JOIN 取 slug，好让**码那一侧**也看得到自己开哪一页。
-	// 绑定是一个事实，两个面板读同一处（[[names-that-lie]] 的反面：不存第二份）。
+	// The page-aware version: one extra LEFT JOIN to fetch the slug, so the **code
+	// side** can also see which page it opens. The binding is one fact; both panels
+	// read from the same place ([[names-that-lie]]'s inverse: never store a second copy).
 	rows, err := q.ListAccessCodesWithPageByOwner(ctx, ownerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list access codes: %w", err)
@@ -117,8 +126,9 @@ func codeFromListRow(row *db.ListAccessCodesWithPageByOwnerRow) entity.Code {
 	return c
 }
 
-// CodeFromRow —— db.AccessCode 行 → access.Code 领域对象。jobs 的 application-commit
-// (同步 issue 邀请码) 也复用这个映射,故导出。
+// CodeFromRow —— maps a db.AccessCode row → an access.Code domain object. Exported
+// because jobs' application-commit (which issues an invitation code in the same
+// step) also reuses this mapping.
 func CodeFromRow(c *db.AccessCode) entity.Code {
 	out := entity.Code{
 		ID:                   pgstore.FormatUUID(c.ID),
@@ -135,7 +145,8 @@ func CodeFromRow(c *db.AccessCode) entity.Code {
 		AssumedRoleID:        pgstore.FormatUUID(c.AssumedRoleID),
 		PromptID:             pgstore.OptUUIDStr(c.PromptID),
 		InlinePrompt:         c.InlinePrompt,
-		// 空串 = 没指(那一列 NULL,或者指着的那条被删了 —— ON DELETE SET NULL)。
+		// Empty string = not specified (that column is NULL, or the row it pointed to
+		// was deleted — ON DELETE SET NULL).
 		ProviderID:     pgstore.UUIDStrOrEmpty(c.ProviderID),
 		LimitPerPeriod: decodePeriodLimit(c.LimitPerPeriod),
 	}
@@ -146,7 +157,8 @@ func CodeFromRow(c *db.AccessCode) entity.Code {
 	return out
 }
 
-// decodePeriodLimit —— jsonb → *PeriodLimit。NULL / 空 / 坏 → nil（不限）。
+// decodePeriodLimit —— jsonb → *PeriodLimit. NULL / empty / malformed → nil
+// (unlimited).
 func decodePeriodLimit(raw []byte) *entity.PeriodLimit {
 	if len(raw) == 0 {
 		return nil

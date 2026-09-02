@@ -1,6 +1,7 @@
-// @standmeet/sdk-core —— headless API client + SSE 解析 + 公开类型。
-// 给 @standmeet/sdk（React 包装）和 @standmeet/embed（Web Component 包装）
-// 共享；也可直接被 Node / Deno 服务端代码消费。
+// @standmeet/sdk-core —— headless API client + SSE parsing + public types.
+// Shared by @standmeet/sdk (the React wrapper) and @standmeet/embed (the Web
+// Component wrapper); can also be consumed directly by Node / Deno
+// server-side code.
 
 export { createClient } from './client.js';
 export type {
@@ -11,13 +12,15 @@ export type {
   SystemPromptSource,
 } from './client.js';
 export { readSSE } from './sse.js';
-// grant —— 访客手里已有的那份授权。自定义页面接手它，而不是自己重新开一场匿名的。
+// grant —— the grant the visitor already holds. A custom page adopts it
+// rather than opening a fresh anonymous session of its own.
 export {
   adoptStoredSession, hasVisitorGrant, pageAllowsBYOAI, byoaiOffered,
   VISITOR_SESSION_STORAGE_KEY,
 } from './grant.js';
 export type { AdoptedSession } from './grant.js';
-// parseAnswerText —— 两个渲染面共用的那一半（F-O-8）：解析在这里，渲染各自实现。
+// parseAnswerText —— the half shared by both rendering faces (F-O-8):
+// parsing lives here, rendering is implemented separately by each.
 export { parseAnswerText } from './answer-text.js';
 export type { AnswerSpan, AnswerParagraphs } from './answer-text.js';
 export type {

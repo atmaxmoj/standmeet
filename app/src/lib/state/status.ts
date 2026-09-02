@@ -1,14 +1,16 @@
-// status —— 所有 store 共享的 status 枚举。每个 resource store 都有
-//   - idle:     还没 fetch 过（用 ensureLoaded 触发首拉）
-//   - loading:  正在 fetch（首次或显式 refresh）
-//   - ready:    有 data；可能同时带 error（局部失败，旧数据仍在）
-//   - error:    fetch 失败且没有 cached data
+// status —— the status enum shared by every store. Each resource store has
+//   - idle:     not fetched yet (ensureLoaded triggers the first pull)
+//   - loading:  currently fetching (first load or an explicit refresh)
+//   - ready:    has data; may also carry error (partial failure, stale data stays)
+//   - error:    fetch failed and there's no cached data
 //
-// 之前 13 个 hook 各自发明 shape，现在所有 store 都讲这一套语言。
+// Previously 13 hooks each invented their own shape; now every store speaks
+// this one vocabulary.
 //
-// Discriminated union for state.kind 在简单 idle/loading/error/ready 四态时
-// 写得啰嗦，这里用 status flag + 可选 data + 可选 error 三字段平铺；selector
-// 模式 + skeleton 模式都更顺。
+// A discriminated union on state.kind gets verbose for the simple four-state
+// idle/loading/error/ready case, so this flattens it into a status flag plus
+// optional data plus optional error fields; both the selector pattern and the
+// skeleton pattern read more smoothly this way.
 
 export type ResourceStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -16,12 +18,16 @@ export interface ResourceShape<T> {
   status: ResourceStatus;
   data: T | undefined;
   error: string | null;
-  // errorStatus —— 失败那次的 HTTP 状态码（非 APIError 的失败是 null，例如网络断了）。
+  // errorStatus —— the HTTP status code of the failed request (null for a
+  // non-APIError failure, e.g. the network dropped).
   //
-  // 为什么单独留一格：**「没权限」和「服务器不在」不是同一件事**，而它们的补救方式正好相反
-  // （401 → 去登录；500 → 登录也没用，等服务回来）。只留一句 message 的时候，读它的人
-  // 只能把所有失败当成一类 —— F-N-2 就是这么把一次 500 渲染成「你没登录」并把 owner
-  // 踢回登录页的。信息本来就在（`APIError.status`），是在这一层被丢掉的。
+  // Why this gets its own field: **"not authorized" and "server is down" are
+  // not the same thing**, and their remedies are opposite (401 → go log in;
+  // 500 → logging in won't help, wait for the service to come back). With
+  // only a message string, the reader can only treat every failure as one
+  // class — that's exactly how F-N-2 rendered a 500 as "you're not logged in"
+  // and bounced the owner to the login page. The information was already
+  // there (`APIError.status`); it just got dropped at this layer.
   errorStatus: number | null;
-  lastFetched: number | null; // Date.now() at last successful fetch; null 未拉过
+  lastFetched: number | null; // Date.now() at last successful fetch; null if never fetched
 }

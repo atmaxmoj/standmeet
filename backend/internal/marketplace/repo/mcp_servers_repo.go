@@ -1,6 +1,6 @@
-// mcp_servers.go —— mcp_servers + code_mcp_servers CRUD。auth_header_value
-// 是 cryptobox AES-256-GCM 密文，repo 只搬 bytes 进出，加/解密由 caller
-// (usecase) 完成。
+// mcp_servers.go — CRUD for mcp_servers + code_mcp_servers. auth_header_value
+// is cryptobox AES-256-GCM ciphertext; the repo only moves bytes in and out,
+// encryption/decryption is done by the caller (usecase).
 
 package repo
 
@@ -17,16 +17,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace/entity"
 )
 
-// MCPServerRepo —— mcp_servers 表 + code_mcp_servers join 表 CRUD。
+// MCPServerRepo — CRUD for the mcp_servers table + the code_mcp_servers join table.
 type MCPServerRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewMCPServerRepo 构造。
+// NewMCPServerRepo constructs one.
 func NewMCPServerRepo(pool *pgstore.Pool) *MCPServerRepo { return &MCPServerRepo{pool: pool} }
 
-// CreateMCPServerInput —— Create 入参；caller 已用 cryptobox 加密 auth
-// header value (空 = 无 auth)。
+// CreateMCPServerInput — input for Create; the caller has already encrypted the
+// auth header value with cryptobox (empty = no auth).
 type CreateMCPServerInput struct {
 	OwnerID            string
 	Name               string
@@ -35,7 +35,7 @@ type CreateMCPServerInput struct {
 	AuthHeaderValueEnc []byte
 }
 
-// Create 新建 mcp_server 行。name 冲突翻 ErrMCPServerNameTaken。
+// Create inserts a new mcp_server row. A name conflict maps to ErrMCPServerNameTaken.
 func (r *MCPServerRepo) Create(
 	ctx context.Context, in *CreateMCPServerInput,
 ) (entity.MCPServerConfig, error) {
@@ -56,7 +56,7 @@ func (r *MCPServerRepo) Create(
 	return toDomainMCPServer(&row), nil
 }
 
-// ListByOwner —— admin / MCP list。
+// ListByOwner — admin / MCP list.
 func (r *MCPServerRepo) ListByOwner(
 	ctx context.Context, ownerID string,
 ) ([]entity.MCPServerConfig, error) {
@@ -75,7 +75,7 @@ func (r *MCPServerRepo) ListByOwner(
 	return out, nil
 }
 
-// GetByID —— 单条；属于 owner 校验。
+// GetByID — a single row; verifies it belongs to the owner.
 func (r *MCPServerRepo) GetByID(
 	ctx context.Context, ownerID, serverID string,
 ) (entity.MCPServerConfig, error) {
@@ -95,7 +95,7 @@ func (r *MCPServerRepo) GetByID(
 	return toDomainMCPServer(&row), nil
 }
 
-// Delete —— 删除 owner 自己的 server。
+// Delete — removes an owner's own server.
 func (r *MCPServerRepo) Delete(ctx context.Context, ownerID, serverID string) error {
 	args, perr := parseOwnerAndServerID(ownerID, serverID)
 	if perr != nil {
@@ -126,10 +126,12 @@ func parseOwnerAndServerID(ownerID, serverID string) (serverIDArgs, error) {
 	return serverIDArgs{ownerUUID: ownerUUID, serverUUID: serverUUID}, nil
 }
 
-// A.3-IAM-5: SetCodeMCPServers / ListIDsForCode / ListForCode 都删了 ——
-// code_mcp_servers 表已 drop。MCP servers 通过 role_mcp_servers 挂在 Role 上。
+// A.3-IAM-5: SetCodeMCPServers / ListIDsForCode / ListForCode were all removed —
+// the code_mcp_servers table has been dropped. MCP servers attach to a Role via
+// role_mcp_servers.
 
-// GrantDep —— owner 显式授权这个 server 接某 connector 依赖（幂等 append）。
+// GrantDep — owner explicitly authorizes this server to satisfy a connector
+// dependency (idempotent append).
 func (r *MCPServerRepo) GrantDep(ctx context.Context, ownerID, serverID, dep string) error {
 	args, perr := parseOwnerAndServerID(ownerID, serverID)
 	if perr != nil {

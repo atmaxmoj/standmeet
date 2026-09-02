@@ -1,14 +1,19 @@
-// Package capquota —— 按声明执行的 per-code 用量上限。宿主这一侧没有一个业务词。
+// Package capquota — per-code usage caps enforced by declaration. The host side has no
+// business vocabulary of its own for this.
 //
-// 一个能力在自己的 manifest 里说清三件事(mcpplugin.QuotaDecl):上限取码上的哪个配置键、
-// 用量数自己存储里的哪个 collection、那些文档里哪个字段记着码。这个包照着数,给出两个答案:
+// A capability states three things in its own manifest (mcpplugin.QuotaDecl): which config key
+// on the code holds the limit, which collection in its own store holds the usage count, and
+// which field on those documents records the code. This package reads that and gives two
+// answers:
 //
-//	Allow     —— 这次会话还能不能用(达上限 → 隐藏工具,而不是点了再报错)
-//	Remaining —— 还剩几次(填进 capability_state,前端照着显示)
+//	Allow     — can this session still use it (at the cap → hide the tool, don't error on click)
+//	Remaining — how many uses are left (feeds capability_state, the frontend just displays it)
 //
-// **两个答案共用同一条计数**。它们曾经是组装根里两段各自写的代码,而且写坏过:#135 把
-// booker 外置时两个钩子一起被摘掉,后来只补回了闸,余量从此永远是 nil —— 前端契约还在,
-// 供给没了。一份计数两个出口,就不会再补回一半。
+// **Both answers share the same count.** They used to be two separately-written pieces of code
+// in the composition root, and that broke once: #135 removed both hooks together when it
+// externalized the booker, then only the gate got added back — Remaining has been nil ever
+// since. The frontend contract is still there, nothing feeds it. One count with two outputs
+// means you can't accidentally restore only half.
 package capquota
 
 import (
@@ -21,31 +26,34 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// Counter —— 数这个能力自己存储里的用量(构造期绑死到它的命名空间)。
+// Counter — counts usage in this capability's own store (bound to its namespace at construction).
 type Counter struct {
 	store *capstore.Store
 	cfg   *capconfig.Store
 	decl  *mcpplugin.QuotaDecl
 	capID string
 	kind  capstore.Kind
-	// subjectFields —— 这个能力在一个主体上占的那几个字段的声明(上限就是其中一个)。
-	// 码和 key 用同一份声明:同一个字段挂在不同主体上,不是两套字段。
+	// subjectFields — the declaration of the fields this capability occupies on a subject
+	// (the limit is one of them). Code and key share one declaration: the same field mounted
+	// on different subjects, not two separate field sets.
 	subjectFields []mcpplugin.ConfigField
 }
 
-// Bind —— 一次绑定要的全部东西。打包成 struct 而不是六个位置参数:调用点数逗号数不清
-// 哪个是 kind 哪个是 capID,而这两个正是"填不了别人的表"所依赖的那两个。
+// Bind — everything one binding needs. Packaged as a struct instead of six positional args:
+// call sites lose count of which comma is kind and which is capID, and those two are exactly
+// the pair that "can't fill in someone else's form" depends on.
 type Bind struct {
 	Store  *capstore.Store
 	Config *capconfig.Store
 	Decl   *mcpplugin.QuotaDecl
 	CapID  string
 	Kind   capstore.Kind
-	// SubjectFields —— 见 Counter.subjectFields。
+	// SubjectFields — see Counter.subjectFields.
 	SubjectFields []mcpplugin.ConfigField
 }
 
-// New —— 把一份声明绑到某个能力的存储上。声明不完整 / 无声明 → nil(这个能力不闸用量)。
+// New — binds a declaration to a capability's store. Incomplete / absent declaration → nil
+// (this capability does not gate on usage).
 func New(b *Bind) *Counter {
 	if !b.Decl.Usable() {
 		return nil
@@ -56,22 +64,25 @@ func New(b *Bind) *Counter {
 	}
 }
 
-// Allow —— 这个主体还能不能再用一次。无主体 / 无上限 → 放行。读失败 → 报错(调用方决定)。
+// Allow — can this subject use it once more? No subject / no limit → allow. Read failure →
+// error (caller decides what to do).
 //
-// 主体以**挂载点**的形式传进来(`capconfig.CodeScope(id)` / `KeyScope(id)`):这个包不认识
-// 有几种主体,也不该认识 —— 是谁、挂在哪,由看得见两边的组装根说。
+// The subject arrives as a **mount point** (`capconfig.CodeScope(id)` / `KeyScope(id)`): this
+// package does not know how many kinds of subject exist, and should not — who it is and where
+// it mounts is the composition root's call, since only it sees both sides.
 func (c *Counter) Allow(ctx context.Context, subject capconfig.Scope) (bool, error) {
 	left, err := c.Remaining(ctx, subject)
 	if err != nil {
 		return false, err
 	}
 	if left == nil {
-		return true, nil // nil = 不限
+		return true, nil // nil means unlimited
 	}
 	return *left > 0, nil
 }
 
-// Remaining —— 还剩几次。nil = 不限(或无主体)—— **不是 0**:0 会被读成"已用尽"。
+// Remaining — how many uses are left. nil = unlimited (or no subject) — **not 0**: 0 would be
+// read as "already exhausted".
 func (c *Counter) Remaining(ctx context.Context, subject capconfig.Scope) (*int32, error) {
 	limit, err := c.limitOf(ctx, subject)
 	if err != nil || limit == nil {
@@ -81,15 +92,16 @@ func (c *Counter) Remaining(ctx context.Context, subject capconfig.Scope) (*int3
 	if cerr != nil {
 		return nil, cerr
 	}
-	// 夹到 0:超额时报负数会被前端读成一个奇怪的余额。
+	// Clamp to 0: reporting a negative number when over the cap would read to the frontend as
+	// a strange balance.
 	left := max(*limit-int32(used), 0)
 	return &left, nil
 }
 
-// limitOf —— 这个主体上的上限。没设 / null / ≤ 0 → nil(不限)。
+// limitOf — the limit on this subject. Unset / null / ≤ 0 → nil (unlimited).
 func (c *Counter) limitOf(ctx context.Context, subject capconfig.Scope) (*int32, error) {
 	if subject.ID() == "" {
-		return nil, nil //nolint:nilnil // 无主体 = 不限,不是错误
+		return nil, nil //nolint:nilnil // no subject = unlimited, not an error
 	}
 	values, err := c.cfg.ValuesScoped(ctx, subject, c.subjectFields)
 	if err != nil {
@@ -97,7 +109,7 @@ func (c *Counter) limitOf(ctx context.Context, subject capconfig.Scope) (*int32,
 	}
 	raw, ok := values[c.decl.ConfigKey]
 	if !ok {
-		return nil, nil //nolint:nilnil // 没这个键 = 不限
+		return nil, nil //nolint:nilnil // key absent = unlimited
 	}
 	return decodeLimit(raw)
 }
@@ -108,12 +120,12 @@ func decodeLimit(raw json.RawMessage) (*int32, error) {
 		return nil, fmt.Errorf("capquota limit decode: %w", err)
 	}
 	if limit == nil || *limit <= 0 {
-		return nil, nil //nolint:nilnil // null / ≤0 = 不限
+		return nil, nil //nolint:nilnil // null / ≤0 = unlimited
 	}
 	return limit, nil
 }
 
-// used —— 这个主体已经用掉多少(数能力自己存储里的行)。
+// used — how many this subject has already used (counts rows in the capability's own store).
 func (c *Counter) used(ctx context.Context, subjectID string) (int64, error) {
 	filter, merr := json.Marshal(map[string]string{c.decl.SubjectField: subjectID})
 	if merr != nil {

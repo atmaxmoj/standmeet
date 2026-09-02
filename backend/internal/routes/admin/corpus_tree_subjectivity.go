@@ -1,11 +1,15 @@
-// corpus_tree_subjectivity.go —— GET /corpus/subjectivity/tree?parent=ID —— subjectivity 的懒加载一层。
+// corpus_tree_subjectivity.go — GET /corpus/subjectivity/tree?parent=ID — subjectivity's
+// lazily-loaded layer.
 //
-// 为什么它此前不存在:subjectivity 是作为 ACL / 检索的一个 partition 加进来的,从没有过 owner 侧的
-// 面。于是「owner 的 CV 住在哪个 genre」在 admin 里既列不出也点不开,更没法从树上勾它对哪张码可见
-// (F-A-15)。ACL 那边先长出了 corpus URI 的编辑器,却指望着一棵没人建过的树。
+// Why it didn't exist before: subjectivity was added as an ACL / retrieval partition, and
+// never got an owner-side facade. So "which genre does the owner's CV live in" could
+// neither be listed nor opened in admin, and there was no way to check from a tree which
+// codes it's visible to (F-A-15). The ACL side had already grown a corpus URI editor, but
+// it was pointing at a tree nobody had ever built.
 //
-// 形状与 wiki / output 的 tree 逐字一致(flat list item + has_children + 服务端 slug 过的 path),
-// 好让前端的 CorpusLazyTree / 准入 picker 一视同仁 —— subjectivity 不是特例,它只是第五个 genre。
+// The shape is verbatim identical to wiki / output's tree (flat list item + has_children +
+// a server-slugified path), so the frontend's CorpusLazyTree / admission picker can treat
+// it uniformly — subjectivity isn't a special case, it's just the fifth genre.
 
 package admin
 
@@ -16,8 +20,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 )
 
-// subjectivityListItem —— 一条 subjectivity 笔记的 owner 视图。字段是 wiki 那份的子集:
-// 通用 NoteRepo 没有 genre 专属字段,少给不如给假的。
+// subjectivityListItem — the owner view of one subjectivity note. The fields are a subset
+// of wiki's: the generic NoteRepo has no genre-specific fields, and giving fewer beats
+// giving fake ones.
 type subjectivityListItem struct {
 	ParentID     *string  `json:"parent_id"`
 	Path         *string  `json:"path"`
@@ -46,7 +51,8 @@ func (h *Handlers) treeSubjectivity() http.HandlerFunc {
 	}
 }
 
-// subjectivityTreeItem —— one child → list item（path 走 slugJoin，与其它 genre 同一个 slug 源）。
+// subjectivityTreeItem — one child → list item (path goes through slugJoin, the same slug
+// source as every other genre).
 func subjectivityTreeItem(c *corpus.TreeChild[corpus.Note]) subjectivityListItem {
 	n := &c.Entry
 	it := subjectivityListItem{

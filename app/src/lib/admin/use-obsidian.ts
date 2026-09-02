@@ -1,10 +1,10 @@
-// use-obsidian.ts —— Obsidian vault 双向同步的 admin hook。
+// use-obsidian.ts —— the admin hook for two-way Obsidian vault sync.
 //
-// export: GET /api/admin/obsidian/export → application/zip。browser 走
-//   anchor[download] 触发下载。
-// import: POST /api/admin/obsidian/import multipart，每个 file field 名
-//   format 是 'file:<index>'，FileHeader.filename = webkitRelativePath
-//   (path 从 vault root 算)。response = { created, updated, skipped, errors }。
+// export: GET /api/admin/obsidian/export → application/zip. The browser
+//   triggers the download via anchor[download].
+// import: POST /api/admin/obsidian/import multipart, each file field is
+//   named in the format 'file:<index>', FileHeader.filename =
+//   webkitRelativePath (the path counted from the vault root). response = { created, updated, skipped, errors }.
 
 import { useEffect, useState } from 'react';
 
@@ -29,8 +29,8 @@ const ImportResultSchema = z.object({
 });
 export type ImportResult = z.infer<typeof ImportResultSchema>;
 
-// triggerExport —— 直接走 anchor[download] 触发；不经 fetch + blob 路径，
-// 避免大 vault 把 zip 全部读进内存。
+// triggerExport —— triggers directly via anchor[download]; doesn't go
+// through fetch + blob, so a large vault's zip is never read entirely into memory.
 export function triggerExport(): void {
   if (typeof window === 'undefined') return;
   const a = document.createElement('a');
@@ -42,14 +42,17 @@ export function triggerExport(): void {
   document.body.removeChild(a);
 }
 
-// uploadVault —— owner 通过 <input type="file" webkitdirectory> 选了整个
-// vault 目录，browser 给一组 File，每个 File.webkitRelativePath 是 vault 内
-// 相对路径（含 vault 名前缀）。这里组装 multipart 上传。
+// uploadVault —— the owner selects the entire vault directory through
+// <input type="file" webkitdirectory>; the browser hands back a set of
+// Files, each File.webkitRelativePath being the path relative to inside the
+// vault (with the vault name as a prefix). This assembles the multipart upload.
 export async function uploadVault(files: FileList): Promise<ImportResult> {
   const fd = new FormData();
   for (const f of syncableVaultFiles(files)) {
-    // vault 内相对路径放进 form field 名(server 从 field 名恢复目录):Go multipart 会 filepath.Base
-    // 掉 filename 的目录(防穿越),路径存不下,只能靠 field 名传。
+    // The path relative to inside the vault goes into the form field name
+    // (the server reconstructs the directory from the field name): Go
+    // multipart runs filepath.Base on the filename's directory (path
+    // traversal protection), so the path can't survive there — it can only be carried through the field name.
     const rel = relPathOf(f);
     fd.append(rel, f, rel);
   }
@@ -141,15 +144,16 @@ export function syncableVaultFiles(files: FileList): File[] {
   return out;
 }
 
-// useObsidianImport —— UI 用：picker 触发的 batch 上传，loading + 结果显示。
-// useVaultImportState —— 「上次导入是什么时候」（UX-62）。**每次进这一页都重新拉**：
-// 判据是「刷新之后它还说得出来」，所以它必须来自服务端的事实，不是上一次点击的余温。
+// useObsidianImport —— for the UI: the batch upload triggered by the picker, loading + result display.
+// useVaultImportState —— "when was the last import" (UX-62). **Refetched
+// every time this page is entered**: the standard is "it can still answer
+// after a refresh", so it has to come from a server-side fact, not the residual warmth of the last click.
 export function useVaultImportState(reloadKey: number): VaultImportState | null {
   const [state, setState] = useState<VaultImportState | null>(null);
   useEffect(() => {
     let live = true;
-    // 走 schema 解析而不是断言：服务端哪天收窄了形状，这里要**红**，不是静默变成
-    // 一个字段都读不出来的对象（[[zod-unknown-is-not-optional]]）。
+    // Uses schema parsing, not a type assertion: the day the server narrows
+    // the shape, this must **go red**, not silently turn into an object with no readable fields ([[zod-unknown-is-not-optional]]).
     void fetch('/api/admin/obsidian/state', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((v: unknown) => { if (live) setState(VaultImportStateSchema.nullable().parse(v)); })

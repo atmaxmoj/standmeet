@@ -1,26 +1,30 @@
-// optional.go —— 入参里"没提到"和"显式设成空"是两件事的那种字段。
+// optional.go —— for input fields where "not mentioned" and "explicitly set to empty" are two
+// different things.
 //
-// 起因是配额:同一个 op,面板每次把所有字段都发出来、null 意思是"不限";MCP 那边省略的
-// 字段意思是"别动这个"。JSON 本来就分得清"字段没出现"和"字段是 null",Go 的 *T 分不清
-// —— 于是以前两个面各写各的(面板盲写、MCP 先读回来合并),同一件事两套规则,而盲写那条
-// 会把没发的那个字段悄悄清掉。
+// The origin is quotas: for the same op, the admin panel sends every field on every call, and
+// null means "unlimited"; on the MCP side an omitted field means "leave this alone". JSON
+// already distinguishes "field absent" from "field is null", but Go's *T can't — so previously
+// the two facades each wrote their own rule (panel blind-writes everything, MCP reads back first
+// and merges), two rule sets for the same thing, and the blind-write path would silently wipe
+// out a field it never sent.
 //
-// 放在这里跟 Op / RequireArgs 一起:声明操作的那个包就是解参的那个包,域拿它不需要
-// 认识路由。
+// Kept here alongside Op / RequireArgs: the package that declares an operation is the same
+// package that parses its args, so a domain using it doesn't need to know about routing.
 
 package facadeparity
 
 import "encoding/json"
 
-// OptionalInt32 —— 三态:没提到(Set=false,保持原值) / 显式 null(Set=true、Value=nil,
-// 清成"不限") / 数字(设值)。
+// OptionalInt32 —— three states: not mentioned (Set=false, keep the original value) / explicit
+// null (Set=true, Value=nil, clear to "unlimited") / a number (set the value).
 type OptionalInt32 struct {
 	Value *int32
 	Set   bool
 }
 
-// UnmarshalJSON —— 字段出现过就 Set=true(值可能是 null);没出现过这个方法根本不会被调用,
-// 零值 Set=false 就是"没提到"。
+// UnmarshalJSON —— Set=true whenever the field appeared (the value may be null); when the field
+// never appeared this method is never called at all, so the zero value Set=false means
+// "not mentioned".
 func (o *OptionalInt32) UnmarshalJSON(b []byte) error {
 	o.Set = true
 	if string(b) == "null" {
@@ -35,7 +39,7 @@ func (o *OptionalInt32) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Or —— 没提到就用 current 顶上。
+// Or —— use current to fill in when not mentioned.
 func (o *OptionalInt32) Or(current *int32) *int32 {
 	if o.Set {
 		return o.Value
@@ -43,15 +47,17 @@ func (o *OptionalInt32) Or(current *int32) *int32 {
 	return current
 }
 
-// OptionalString / OptionalBool / OptionalStrings —— 同一件事,给另外三种字段。
-// 底下是整行覆写的 SQL(UPDATE ... SET / upsert)时,"没提到"必须读回原值,否则
-// 少发一个字段就等于把它清空 —— seo 的 site_title 就是这么被 MCP 那条路径洗掉的。
+// OptionalString / OptionalBool / OptionalStrings —— the same idea, for three more field types.
+// When the backing SQL rewrites the whole row (UPDATE ... SET / upsert), "not mentioned" must
+// read back the original value, or omitting a field is the same as clearing it — that's exactly
+// how seo's site_title got wiped out via the MCP path.
 type OptionalString struct {
 	Value string
 	Set   bool
 }
 
-// UnmarshalJSON —— 出现即 Set;null 当空串(这类字段没有"空"和"无"的区别)。
+// UnmarshalJSON —— appearing at all means Set; null is treated as an empty string (this kind of
+// field has no distinction between "empty" and "absent").
 func (o *OptionalString) UnmarshalJSON(b []byte) error {
 	o.Set = true
 	if string(b) == "null" {
@@ -64,7 +70,7 @@ func (o *OptionalString) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Or —— 没提到就用 current 顶上。
+// Or —— use current to fill in when not mentioned.
 func (o *OptionalString) Or(current string) string {
 	if o.Set {
 		return o.Value
@@ -72,13 +78,13 @@ func (o *OptionalString) Or(current string) string {
 	return current
 }
 
-// OptionalBool —— 三态开关。
+// OptionalBool —— a three-state switch.
 type OptionalBool struct {
 	Value bool
 	Set   bool
 }
 
-// UnmarshalJSON —— 出现即 Set;null 当 false。
+// UnmarshalJSON —— appearing at all means Set; null is treated as false.
 func (o *OptionalBool) UnmarshalJSON(b []byte) error {
 	o.Set = true
 	if string(b) == "null" {
@@ -91,7 +97,7 @@ func (o *OptionalBool) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Or —— 没提到就用 current 顶上。
+// Or —— use current to fill in when not mentioned.
 func (o *OptionalBool) Or(current bool) bool {
 	if o.Set {
 		return o.Value
@@ -99,13 +105,14 @@ func (o *OptionalBool) Or(current bool) bool {
 	return current
 }
 
-// OptionalStrings —— 三态列表。null 和 [] 都是"清空",跟"没提到"分得开。
+// OptionalStrings —— a three-state list. Both null and [] mean "clear", kept distinct from
+// "not mentioned".
 type OptionalStrings struct {
 	Value []string
 	Set   bool
 }
 
-// UnmarshalJSON —— 出现即 Set;null 当空列表。
+// UnmarshalJSON —— appearing at all means Set; null is treated as an empty list.
 func (o *OptionalStrings) UnmarshalJSON(b []byte) error {
 	o.Set = true
 	if string(b) == "null" {
@@ -118,7 +125,7 @@ func (o *OptionalStrings) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Or —— 没提到就用 current 顶上。
+// Or —— use current to fill in when not mentioned.
 func (o *OptionalStrings) Or(current []string) []string {
 	if o.Set {
 		return o.Value

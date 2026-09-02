@@ -187,7 +187,8 @@ function SourceSegmentBtn({
 }
 
 function ResultsGrid({ hook }: { hook: AgentSkillsHook }) {
-  // install 现在抛错 → useAction 收尾（成功 toast / 失败 report），装败不再只清 spinner 假装没事。
+  // install now throws → useAction handles it (success toast / failure report);
+  // a failed install no longer just clears the spinner and pretends it worked.
   const run = useAction();
   return hook.marketResults.length === 0 ? (
     <EmptyState />

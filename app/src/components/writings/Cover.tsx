@@ -1,6 +1,8 @@
-// Cover —— typographic writing 封面。container-query 让同组件在 article
-// hero 宽 + index lead 窄都 render 正常。radial gradient 三色 hue。
-// owner 上传了 cover image → <img> 背景；没传 → 纯 typographic + gradient。
+// Cover —— typographic writing cover. Container queries let the same
+// component render correctly both wide (article hero) and narrow (index
+// lead). Radial gradient uses a three-color hue.
+// Owner uploaded a cover image → <img> background; none uploaded → pure
+// typographic + gradient.
 
 'use client';
 
@@ -13,7 +15,8 @@ import { coverURL } from '@/lib/corpus/media';
 import styles from '@/components/writings/Cover.module.css';
 
 interface Props {
-  // 副标题就是 writing 的 excerpt（卡片 excerpt / og / cover 副标题共用一个字段）。
+  // The subtitle is just the writing's excerpt (card excerpt / og / cover
+  // subtitle all share one field).
   cover: Pick<WritingView, 'cover_headline' | 'excerpt' | 'cover_hue' | 'cover_image_asset_id'>;
   assetURLs?: Record<string, string>;
   locked?: boolean;
@@ -21,8 +24,9 @@ interface Props {
 }
 
 export function Cover({ cover, locked, no, assetURLs }: Props) {
-  // coverURL 是 corpus 那套共用的那一个 —— 这里以前有一份自己的 resolveCoverImageURL,
-  // 一模一样。同一件事两份实现,改一处就会漏另一处。
+  // coverURL is the shared one from the corpus module — this file used to have
+  // its own resolveCoverImageURL, identical in every way. Two implementations
+  // of the same thing means a change to one leaks a gap in the other.
   const imgURL = coverURL(cover.cover_image_asset_id, assetURLs);
   return (
     <div
@@ -43,7 +47,9 @@ export function Cover({ cover, locked, no, assetURLs }: Props) {
   );
 }
 
-// CoverVeilMaybe —— 有图才铺护字层（UX-83）。没有图的封面本来就是纸色底，不需要护。
+// CoverVeilMaybe —— lay a text-protection veil only when there's an image
+// (UX-83). A cover with no image is already paper-colored underneath, so it
+// needs no veil.
 function CoverVeilMaybe({ url }: { url?: string }) {
   return url ? <div className={styles.veil} /> : null;
 }
@@ -68,41 +74,55 @@ function CoverLockOverlayMaybe({ locked }: { locked?: boolean }) {
 
 function CoverRule() { return <div className={styles.rule} />; }
 
-// fitCqi —— 这段字该用多大的字号（单位 cqi，相对封面宽度）。
+// fitCqi —— what font size this text should use (unit: cqi, relative to
+// cover width).
 //
-// 为什么要算：封面是**固定比例**的框（21/9 + overflow:hidden），而字号原本只跟容器宽度走
-// （`clamp(20px, 7.5cqi, 64px)`）。短标题（"wedge."）好看，一整句就爆框 ——
-// prod 上那篇 essay 的 excerpt 是 125 个字符，`.sub` 锚在 `bottom:14%` 往上长，
-// 直接从封面顶端溢出去被切掉，第一行读不到。字号不跟**文本有多少**走，这是必然的。
+// Why this needs computing: the cover is a **fixed-aspect-ratio** box
+// (21/9 + overflow:hidden), while font size originally tracked only
+// container width (`clamp(20px, 7.5cqi, 64px)`). A short headline
+// ("wedge.") looks great, but a full sentence blows out the box —
+// in prod, one essay's excerpt was 125 characters; `.sub`, anchored at
+// `bottom:14%` and growing upward, overflowed straight past the top of the
+// cover and got clipped, so the first line was unreadable. Font size not
+// tracking **how much text there is** was bound to break eventually.
 //
-// 关系是推出来的，不是试出来的：宽 W 的列里 N 个字符、字号 F，行数 ≈ N·k·F/W，
-// 高度 ≈ N·k·F²/W。要它等于可用高度 H，就得到 **F ∝ √(H·W/N)** —— 也就是 F ∝ 1/√N。
-// K 由「现有那个设计好的短标题不许变样」定：上限仍是原来的 clamp，长文本才往下走。
+// The relationship is derived, not tuned by trial: in a column of width W
+// with N characters at font size F, line count ≈ N·k·F/W, and height ≈
+// N·k·F²/W. Setting that equal to the available height H gives
+// **F ∝ √(H·W/N)** — i.e. F ∝ 1/√N.
+// K is fixed by the constraint that the existing, already-designed short
+// headline must not change: the ceiling stays the original clamp, and only
+// longer text scales down from there.
 function fitCqi(text: string, maxCqi: number): number {
   const n = Math.max(text.trim().length, 1);
   return Math.min(maxCqi, FIT_K / Math.sqrt(n));
 }
 
-// FIT_K —— 由「一个 6 字符的标题应当撑到设计上限」定出来的比例常数（11 × √6 ≈ 27，
-// 取 45 让中等长度不至于缩得过快；上限那一侧由各自的 clamp 兜着，所以它只影响长文本）。
+// FIT_K —— proportionality constant derived from "a 6-character headline
+// should reach the design ceiling" (11 × √6 ≈ 27; picked 45 instead so
+// medium-length text doesn't shrink too fast — the ceiling side is still
+// capped by each element's own clamp, so this constant only affects long
+// text).
 const FIT_K = 45;
 
-// fitStyle —— 把算出来的字号交给 CSS。自定义属性不在 `CSSProperties` 的键里，所以类型
-// 走 `Record`，不写类型断言（闸门禁 `as`，而断言在这里也确实只是把编译器说服了）。
+// fitStyle —— hands the computed font size to CSS. Custom properties aren't
+// among the keys of `CSSProperties`, so the type is `Record` instead of a
+// type assertion (the gate bans `as`, and an assertion here would really
+// just be talking the compiler into it anyway).
 function fitStyle(text: string, maxCqi: number): Record<string, string> {
   return { '--fit-cqi': String(fitCqi(text, maxCqi)) };
 }
 
 function CoverHeadline({ text }: { text: string }) {
   return (
-    // eslint-disable-next-line no-restricted-syntax -- 字号由内容长度算出,运行时才知道
+    // eslint-disable-next-line no-restricted-syntax -- font size is computed from content length, only known at runtime
     <span className={styles.headline} style={fitStyle(text, 11)}>{text}</span>
   );
 }
 
 function CoverSub({ text }: { text: string }) {
   return (
-    // eslint-disable-next-line no-restricted-syntax -- 同上:这一个值只能在拿到文本后算
+    // eslint-disable-next-line no-restricted-syntax -- same as above: this value can only be computed once the text is available
     <span className={styles.sub} style={fitStyle(text, 7.5)}>{text}</span>
   );
 }

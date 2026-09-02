@@ -1,9 +1,13 @@
-// egress.go —— connector 出站 SSRF 守卫。owner 自托管、可上传任意 OpenAPI spec，spec 里的
-// servers[].url / oauth token URL 若指向 loopback / link-local / 私网，后端就成了打内网的跳板
-// （cloud metadata 169.254.169.254 / localhost / 10.x …）。两道闸：
-//   1. 装配期静态校验（CheckEgressURL）：servers + token URL 指内网 → 拒装配（连接器不建）。
-//   2. 运行期 dialer 守卫（GuardedHTTPClient）：DNS 解析/重定向跑到内网 → 拒绝出站。
-// allow-list 按 hostname 放行（e2e 的 external-mock 是私网 IP，但显式放行，prod 留空全拦）。
+// egress.go — the connector's outbound SSRF guard. The owner self-hosts and can upload any
+// OpenAPI spec; if a spec's servers[].url / oauth token URL points at loopback / link-local /
+// a private network, the backend becomes a pivot into the internal network (cloud metadata
+// 169.254.169.254 / localhost / 10.x …). Two gates:
+//  1. Static check at assembly time (CheckEgressURL): servers + token URL point internal →
+//     refuse assembly (the connector is never built).
+//  2. Runtime dialer guard (GuardedHTTPClient): DNS resolves, or a redirect lands, internal →
+//     refuse the outbound call.
+// The allow-list admits by hostname (the e2e external-mock is a private IP but explicitly
+// allowed; prod leaves it empty and blocks everything).
 
 package connector
 
@@ -20,20 +24,25 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 )
 
-// ErrBlockedEgress —— 出站目标落在内网（被 SSRF 守卫拦下）。**只**用于「这个目标是内网地址」
-// 这个判断,因为面向 owner 的那句话是照它选的:说错了就是把人支去找一个不存在的内网问题。
+// ErrBlockedEgress — the outbound target lands in the internal network (blocked by the SSRF
+// guard). Used **only** for the judgment "this target is an internal address", because the
+// owner-facing message is chosen based on it: getting this wrong sends someone off chasing a
+// nonexistent internal-network problem.
 var ErrBlockedEgress = errors.New("egress target is an internal/private address (blocked)")
 
-// ErrEgressUnresolvable —— 主机名解析不了 / 解析出零个地址。**不是**「内网」:一个不存在的域名
-// 跟一个指向内网的域名是两件事,以前它们共用 ErrBlockedEgress,于是上层无从分辨(F-C-23)。
+// ErrEgressUnresolvable — the hostname can't be resolved / resolves to zero addresses. This is
+// **not** "internal": a nonexistent domain and a domain that points internal are two different
+// things, and they used to share ErrBlockedEgress, leaving the caller unable to tell them apart
+// (F-C-23).
 var ErrEgressUnresolvable = errors.New("egress target could not be resolved")
 
 const egressDialTimeout = 10 * time.Second
 
-// EgressAllow —— 按 hostname 放行的白名单（绕过内网拦截）。e2e 注入 external-mock；prod 留空。
+// EgressAllow — an allow-list by hostname (bypasses the internal-network block). e2e injects
+// external-mock; prod leaves it empty.
 type EgressAllow map[string]bool
 
-// NewEgressAllow —— 从逗号分隔的 hostname 列表建白名单。
+// NewEgressAllow — build an allow-list from a comma-separated hostname list.
 func NewEgressAllow(hosts []string) EgressAllow {
 	a := make(EgressAllow, len(hosts))
 	for _, h := range hosts {
@@ -44,8 +53,10 @@ func NewEgressAllow(hosts []string) EgressAllow {
 	return a
 }
 
-// CheckEgressURL —— 装配期静态校验一个出站 URL（servers / token）。内网 → ErrBlockedEgress。
-// 空 URL 放行（无出站面）。解析不出 host 视作非法。不做 DNS（字面 IP + 内网主机名足够拦装配期）。
+// CheckEgressURL — static check at assembly time of one outbound URL (servers / token).
+// Internal → ErrBlockedEgress. Empty URL is allowed (no outbound surface). A host that fails
+// to parse is treated as invalid. No DNS lookup here (literal IPs + internal hostnames are
+// enough to block at assembly time).
 func (a EgressAllow) CheckEgressURL(rawURL string) error {
 	if strings.TrimSpace(rawURL) == "" {
 		return nil
@@ -64,9 +75,10 @@ func (a EgressAllow) CheckEgressURL(rawURL string) error {
 	return nil
 }
 
-// GuardedHTTPClient —— 运行期出站客户端：每次拨号校验解析出的 IP（白名单 host 跳过），且
-// 重定向跳到内网 → 拒。装配期 CheckEgressURL 拦不到的「DNS 解析到内网 / 运行时 302 跳内网」
-// 在这里兜底。所有 connector（内置 + 上传）共用它，归一。
+// GuardedHTTPClient — runtime outbound client: validates the resolved IP on every dial
+// (allow-listed hosts are skipped), and refuses a redirect that jumps internal. This backstops
+// what CheckEgressURL can't catch at assembly time — "DNS resolves internal" / "a runtime 302
+// jumps internal". Every connector (built-in + uploaded) shares this, so it's uniform.
 func (a EgressAllow) GuardedHTTPClient() *http.Client {
 	base := &net.Dialer{Timeout: egressDialTimeout}
 	transport := &http.Transport{
@@ -75,13 +87,14 @@ func (a EgressAllow) GuardedHTTPClient() *http.Client {
 			if derr != nil {
 				return nil, derr
 			}
-			// 拨**验证过的 IP**,不让 base.DialContext 二次解析 host —— 杜绝 check→dial 之间
-			// DNS 被 rebind 到内网(TOCTOU)。
+			// Dial the **validated IP**, don't let base.DialContext resolve the host a second
+			// time — that would let DNS get rebound to internal between check and dial (TOCTOU).
 			return base.DialContext(ctx, network, dialAddr)
 		},
 	}
-	// 经 httpx 归一(统一 client + SSRF transport 组合)。NoRetry —— connector 层带幂等键
-	// 自己管重试,transport 再重试会双重发。
+	// Unified through httpx (the standard client + SSRF transport combo). NoRetry — the
+	// connector layer manages its own retries with idempotency keys; a retrying transport
+	// would double-send.
 	client := httpx.NewClient(httpx.Options{Base: transport, NoRetry: true})
 	client.CheckRedirect = func(req *http.Request, _ []*http.Request) error {
 		if a.staticBlocked(req.URL.Hostname()) {
@@ -92,7 +105,8 @@ func (a EgressAllow) GuardedHTTPClient() *http.Client {
 	return client
 }
 
-// staticBlocked —— 不做 DNS 的拦截判定：白名单优先；IP 字面量查内网段；否则查内网主机名。
+// staticBlocked — DNS-free block decision: allow-list first; a literal IP is checked against
+// internal ranges; otherwise checked against internal hostnames.
 func (a EgressAllow) staticBlocked(host string) bool {
 	if a[strings.ToLower(host)] {
 		return false
@@ -103,16 +117,17 @@ func (a EgressAllow) staticBlocked(host string) bool {
 	return blockedHostName(host)
 }
 
-// safeDialAddr —— 拨号前校验 + 返回**要真拨的地址**。主机名 → 解析、验所有 IP、把验过的一个 IP
-// pin 进返回地址(host:port → validatedIP:port),底层 dialer 不再二次解析,杜绝 TOCTOU。
-// 白名单 host / 字面公网 IP → 原样返回。
+// safeDialAddr — validate before dialing + return **the address to actually dial**. Hostname →
+// resolve, validate every IP, pin one validated IP into the returned address
+// (host:port → validatedIP:port), so the underlying dialer never resolves it a second time —
+// no TOCTOU. Allow-listed host / literal public IP → returned unchanged.
 func (a EgressAllow) safeDialAddr(ctx context.Context, addr string) (string, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return "", fmt.Errorf("%w: bad dial addr %q: %w", ErrBlockedEgress, addr, err)
 	}
 	if a[strings.ToLower(host)] {
-		return addr, nil // 白名单 host,信任,原样拨
+		return addr, nil // allow-listed host, trusted, dial as-is
 	}
 	if a.staticBlocked(host) {
 		return "", fmt.Errorf("%w: %q", ErrBlockedEgress, host)
@@ -120,12 +135,13 @@ func (a EgressAllow) safeDialAddr(ctx context.Context, addr string) (string, err
 	return pinnedDialAddr(ctx, host, port, addr)
 }
 
-// pinnedDialAddr —— 字面公网 IP 原样返;主机名 → 解析验过后 pin 第一个安全 IP 进 addr。
+// pinnedDialAddr — a literal public IP is returned unchanged; a hostname is resolved,
+// validated, and the first safe IP is pinned into addr.
 func pinnedDialAddr(
 	ctx context.Context, host, port, addr string,
 ) (string, error) {
 	if net.ParseIP(host) != nil {
-		return addr, nil // 字面公网 IP,无需解析
+		return addr, nil // literal public IP, no resolution needed
 	}
 	ip, rerr := resolveSafeIP(ctx, host)
 	if rerr != nil {
@@ -134,11 +150,13 @@ func pinnedDialAddr(
 	return net.JoinHostPort(ip, port), nil
 }
 
-// lookupIPAddr —— 可替换的解析钩子(测试注入假 resolver 验 pin/rebind 逻辑)。
+// lookupIPAddr — a replaceable resolution hook (tests inject a fake resolver to validate the
+// pin/rebind logic).
 var lookupIPAddr = net.DefaultResolver.LookupIPAddr
 
-// resolveSafeIP —— 解析主机名,任一 IP 落内网 → 拒(防 DNS rebinding / 解析到私网);全过 →
-// 返回第一个 IP 作为拨号目标(pin)。
+// resolveSafeIP — resolve the hostname; any IP landing internal → refuse (guards against DNS
+// rebinding / resolving to a private network); if all pass → return the first IP as the dial
+// target (pin).
 func resolveSafeIP(ctx context.Context, host string) (string, error) {
 	ips, lerr := lookupIPAddr(ctx, host)
 	if lerr != nil {
@@ -156,13 +174,15 @@ func resolveSafeIP(ctx context.Context, host string) (string, error) {
 	return ips[0].IP.String(), nil
 }
 
-// isInternalIP —— loopback / 私网(RFC1918+ULA) / link-local(含 169.254.169.254) / 未指定 → 内网。
+// isInternalIP — loopback / private network (RFC1918+ULA) / link-local (includes
+// 169.254.169.254) / unspecified → internal.
 func isInternalIP(ip net.IP) bool {
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
 		ip.IsLinkLocalMulticast() || ip.IsUnspecified()
 }
 
-// blockedHostName —— 不是 IP 字面量的内网主机名（localhost / *.internal / *.local / metadata）。
+// blockedHostName — internal hostnames that aren't IP literals (localhost / *.internal /
+// *.local / metadata).
 func blockedHostName(host string) bool {
 	h := strings.ToLower(host)
 	if h == "localhost" || h == "metadata.google.internal" {

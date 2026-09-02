@@ -1,8 +1,9 @@
-// TagFilterRow —— 语料后台顶上那排标签 chip。
+// TagFilterRow —— the row of tag chips at the top of the corpus admin.
 //
-// 从 WikiSection 拆出来守 max-lines。标签行取的是**整个 genre** 的标签（`useGenreTags`），
-// 不是已加载的那一页 —— 后者会让只存在于那一页之外的标签连 chip 都没有，
-// 于是点不到、也无从发现自己漏了什么（F-L-23 的后半条）。
+// Split out of WikiSection to stay under max-lines. The tag row pulls tags for
+// the **whole genre** (`useGenreTags`), not just the currently loaded page —
+// the latter would leave tags that only exist outside that page without a chip
+// at all, unclickable and undiscoverable (the second half of F-L-23).
 
 'use client';
 

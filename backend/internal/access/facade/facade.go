@@ -1,26 +1,33 @@
-// Package access —— 访客准入域的对外 facade。薄薄一层,只把内部子包的类型/构造/用例抬上来,
-// 一眼看全协议;别的层只 import 这个 facade 包、只用这里的符号。实现是同域兄弟子包
-// internal/access/{entity,repo,usecase,db},由 check-domain-facade-boundary 挡住外部直接引用。
+// Package access —— the outward facade for the visitor-access domain. A thin layer that only
+// lifts internal subpackages' types/constructors/use cases up so the whole protocol is visible
+// at a glance; every other layer imports only this facade package and uses only these symbols.
+// The implementation lives in sibling subpackages internal/access/{entity,repo,usecase,db},
+// and check-domain-facade-boundary blocks external code from importing them directly.
 //
-// # 对外协议
+// # Public protocol
 //
-// 实体 / 值对象(实现:entity)——
-//   - Code(邀请码 = invitation) · CodeMember(一码多人) · CreateAccessCodeInput
-//   - Request(无码请求) · CreateAccessRequestInput · APIKey(BYOAI key) + Create/UpdateAPIKeyInput
-//   - Role + RoleSnapshot(ACL 快照) · CorpusScope(article-read 授权) · DockButtonConfig · Waypoint
-//   - AllowsCorpusScope / MergeWaypoints / ValidateWaypoints / ValidateDockButtons 等纯函数
-//   - Public* 内建 role 常量 · Err*(域错误 sentinel)
+// Entities / value objects (impl: entity) ——
+//   - Code (access code = invitation) · CodeMember (one code, multiple members) ·
+//     CreateAccessCodeInput
+//   - Request (codeless request) · CreateAccessRequestInput · APIKey (BYOAI key) +
+//     Create/UpdateAPIKeyInput
+//   - Role + RoleSnapshot (ACL snapshot) · CorpusScope (article-read grant) · DockButtonConfig ·
+//     Waypoint
+//   - AllowsCorpusScope / MergeWaypoints / ValidateWaypoints / ValidateDockButtons and other
+//     pure functions
+//   - Public* built-in role constants · Err* (domain error sentinels)
 //
-// 仓储(实现:repo)——
-//   - RoleRepo / CodeRepo / APIKeyRepo / CapabilityRepo / CodeDenialRepo / RequestRepo + 各 New*
-//   - CreateCodeInput / CreateRoleInput / UpdateRoleInput / UpsertBuiltinInput(写入入参)
+// Repositories (impl: repo) ——
+//   - RoleRepo / CodeRepo / APIKeyRepo / CapabilityRepo / CodeDenialRepo / RequestRepo + their
+//     New* constructors
+//   - CreateCodeInput / CreateRoleInput / UpdateRoleInput / UpsertBuiltinInput (write inputs)
 //
-// 用例 / 编排(实现:usecase)——
-//   - role: Create/Update/Delete/Get/ListRoles + SetRoleDockButtons(over RolesDeps)
-//   - request: SubmitForOwner / ListForOwner / UpdateAccessRequestStatus(over RequestsDeps)
-//   - api key: IssueAPIKey / ResolveAPIKey(over 窄 store 端口)
+// Use cases / orchestration (impl: usecase) ——
+//   - role: Create/Update/Delete/Get/ListRoles + SetRoleDockButtons (over RolesDeps)
+//   - request: SubmitForOwner / ListForOwner / UpdateAccessRequestStatus (over RequestsDeps)
+//   - api key: IssueAPIKey / ResolveAPIKey (over a narrow store port)
 //   - visitor session: NewVisitorSessionStore / VisitorSessionStore / VisitorSessionData
-//   - RefValidator / SoleOwnerLookup 等 role 写入时的窄 consumer 端口
+//   - RefValidator / SoleOwnerLookup and other narrow consumer ports used when writing a role
 //
-// 新增能力:实现落对应子包,协议在此加一行转发。
+// New capability: implement it in the matching subpackage, then add one forwarding line here.
 package access

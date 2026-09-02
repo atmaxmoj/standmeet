@@ -1,6 +1,6 @@
-// access_code.go —— 访客访问码（aggregate root）+ 子实体 CodeMember。
-// revoke 只在 code 级别（status='revoked'）做；单 member 不可单独 revoke ——
-// 那种复杂度不值。
+// access_code.go — the visitor access code (aggregate root) + its CodeMember child entity.
+// Revoke happens only at the code level (status='revoked'); a single member cannot be revoked
+// on its own — that complexity is not worth it.
 
 package entity
 
@@ -9,16 +9,20 @@ import (
 	"time"
 )
 
-// Code —— 访客访问码。
+// Code — a visitor access code.
 //
-//   - MaxMembers nil → 不限；这张码最多容纳几个不同名字(member = 一个人 =
-//     一段续聊的会)。满了之后新名字被拒(visitor 见 "code 已满");已有名字续。
-//   - MaxTurnsPerSession   nil → 不限；单 session 内 visitor turn 上限。
-//   - Status 'active' / 'revoked'（过期由 ExpiresAt 计算，不写状态字段）。
-//   - AssumedRoleID 必填，指向 owner 的 roles 行 id；session issue 时 freeze
-//     出 [[role_snapshot]]。owner 不显式选 → usecase 默认绑 public。
+//   - MaxMembers nil -> unlimited; how many distinct names this code can hold (member = one
+//     person = one continuing chat). Once full, a new name is rejected (visitor sees "code is
+//     full"); an existing name may continue.
+//   - MaxTurnsPerSession   nil -> unlimited; the visitor-turn cap within a single session.
+//   - Status is 'active' / 'revoked' (expiry is computed from ExpiresAt, not a written
+//     status field).
+//   - AssumedRoleID is required and points at one of the owner's roles rows; session issue
+//     freezes it into a [[role_snapshot]]. If the owner does not pick one explicitly, the
+//     usecase defaults to public.
 //
-// #135:per-code 预约配额不在内核 —— booker 能力自管(它的 capstore),内核不认。
+// #135: per-code booking quota is not in the kernel — the booker capability owns it
+// (its own capstore), the kernel does not know about it.
 type Code struct {
 	CreatedAt            time.Time
 	ExpiresAt            *time.Time
@@ -40,24 +44,26 @@ type Code struct {
 	Ghosts               []string
 }
 
-// PeriodLimit —— 一张码每个周期能花多少(可再生速率闸)。max_turns_per_session 是每场、
-// gas 是总量;这一个是**每周期自动回满**的桶。公开 embed 码用它防被薅。
+// PeriodLimit — how much a code may spend per period (a refillable rate gate).
+// max_turns_per_session is per-session, gas is a total; this one is a bucket that
+// **auto-refills every period**. A public embed code uses it to guard against abuse.
 type PeriodLimit struct {
-	// Unit —— 'turns' 或 'gas'。turns 数 dialog 条数,gas 数 token 用量。
+	// Unit — 'turns' or 'gas'. turns counts dialog entries, gas counts token usage.
 	Unit          string `json:"unit"`
 	Amount        int64  `json:"amount"`
 	PeriodSeconds int64  `json:"period_seconds"`
 }
 
-// TurnsWindow —— 一个有效 turns 闸的两个数：额度 + 滚动窗口秒。
+// TurnsWindow — the two numbers of a valid turns gate: the quota + the rolling window in seconds.
 type TurnsWindow struct {
 	Amount        int64
 	PeriodSeconds int64
 }
 
-// TurnsCap —— 若这是一个有效的 turns 闸，返回 *TurnsWindow；否则 nil（没挂 / 不是 turns /
-// 数值非法）。nil 接收者安全（没挂闸就是没挂闸）。用指针而不是 (amount, period, ok) 三返回值：
-// 返回值上限是 2，一个 nil 指针就把"有没有"说清楚了（跟 EmbedForCode 同一种取舍）。
+// TurnsCap — returns *TurnsWindow if this is a valid turns gate; otherwise nil (not set /
+// not turns / bad values). A nil receiver is safe (no gate set just means no gate set).
+// A pointer instead of an (amount, period, ok) triple: the return count stays at 2, and a
+// nil pointer already says "is there one or not" (the same tradeoff as EmbedForCode).
 func (p *PeriodLimit) TurnsCap() *TurnsWindow {
 	if p == nil || p.Unit != "turns" || p.Amount <= 0 || p.PeriodSeconds <= 0 {
 		return nil
@@ -65,9 +71,9 @@ func (p *PeriodLimit) TurnsCap() *TurnsWindow {
 	return &TurnsWindow{Amount: p.Amount, PeriodSeconds: p.PeriodSeconds}
 }
 
-// CreateAccessCodeInput —— 创建 access code 入参 (domain-level，供 MCP cap +
-// 任何下游写入 Code 用)。access.CreateCodeInput 是 repo-local 镜像，
-// CodeRepo.CreateAccessCode 把本类型转过去。
+// CreateAccessCodeInput — input for creating an access code (domain-level, used by the MCP
+// cap + any downstream writer of Code). access.CreateCodeInput is a repo-local mirror;
+// CodeRepo.CreateAccessCode converts this type into that one.
 type CreateAccessCodeInput struct {
 	ExpiresAt          *time.Time
 	MaxMembers         *int32
@@ -79,14 +85,14 @@ type CreateAccessCodeInput struct {
 	Purpose            string
 	AssumedRoleID      string
 	InlinePrompt       string
-	// ProviderID —— 这张码指定的 provider(空 = 继承 role,再默认)。
+	// ProviderID —— the provider this code specifies (empty = inherit from role, then default).
 	ProviderID string
 	Ghosts     []string
 }
 
-// CodeMember —— 一个 access code 下的一个具名访客（Code 聚合子实体）。
-// 同一个 code 同一个 display_name 是唯一 row。revoke 只在 Code 级别
-// 做（code.status='revoked'），不针对单个 member——后者复杂度不值。
+// CodeMember — one named visitor under an access code (a child entity of the Code aggregate).
+// The same code + the same display_name is a unique row. Revoke happens only at the Code
+// level (code.status='revoked'), never for a single member — that complexity is not worth it.
 type CodeMember struct {
 	LastSeenAt  time.Time
 	ID          string
@@ -96,39 +102,45 @@ type CodeMember struct {
 	IsAnonymous bool
 }
 
-// CodeStatusActive / CodeStatusRevoked —— access_codes.status 的词表(schema CHECK 与此一致)。
+// CodeStatusActive / CodeStatusRevoked —— the vocabulary for access_codes.status (matches the
+// schema CHECK constraint).
 const (
 	CodeStatusActive  = "active"
 	CodeStatusRevoked = "revoked"
 )
 
-// ErrCodeInvalid —— 这张 access code **不存在**。
+// ErrCodeInvalid — this access code **does not exist**.
 //
-// 曾经它同时表示「已撤销」,于是访客那句拒绝只能合成「invalid or revoked」—— 而这两种人的
-// 下一步是相反的:打错字该重新粘一次,被撤销该去要一张新的(F-D-6)。撤销现在是 ErrCodeRevoked。
+// It used to also mean "revoked", which forced the visitor-facing refusal to read
+// "invalid or revoked" — but the two callers need opposite next steps: a typo should be
+// re-pasted, a revocation should be replaced with a new code (F-D-6). Revoked is now
+// ErrCodeRevoked.
 var ErrCodeInvalid = errors.New("access code invalid")
 
-// ErrCodeRevoked —— 这张 access code 存在,但 owner 撤销了它。
+// ErrCodeRevoked — this access code exists, but the owner revoked it.
 var ErrCodeRevoked = errors.New("access code revoked")
 
-// ErrCodeTaken —— code 已被占用（access_codes.code unique）。
+// ErrCodeTaken — the code string is already taken (access_codes.code is unique).
 var ErrCodeTaken = errors.New("access code already exists")
 
-// ErrCodeExpired —— access code 过期。
+// ErrCodeExpired — the access code has expired.
 var ErrCodeExpired = errors.New("access code expired")
 
-// ErrMemberQuotaReached —— 这张码的名字(member)数已满 max_members,新名字被拒。
+// ErrMemberQuotaReached — this code's member (distinct-name) count is at max_members, a new
+// name is rejected.
 var ErrMemberQuotaReached = errors.New("member quota reached for code")
 
-// ErrMemberNotFound —— 按 id 找 member 没找到(client 存的 member_id 失效)。
+// ErrMemberNotFound — looking up a member by id found nothing (a client-stored member_id
+// went stale).
 var ErrMemberNotFound = errors.New("code member not found")
 
-// ErrDenialKindUnknown —— 一条拒绝的 kind 不是 capability / skill / corpus 之一。
+// ErrDenialKindUnknown — a denial's kind is none of capability / skill / corpus.
 var ErrDenialKindUnknown = errors.New("denial kind must be capability, skill or corpus")
 
-// ErrTurnQuotaReached —— 这个 session 已用满 max_turns_per_session。
+// ErrTurnQuotaReached — this session has used up its max_turns_per_session.
 var ErrTurnQuotaReached = errors.New("turn quota reached for session")
 
-// ErrGasExhausted —— 这一场挂的那箱油空了(#7)。跟轮数用满是同一类:不是出错,
-// 是"这次不能发",所以也走 403 + 一句人话,而不是 5xx。
+// ErrGasExhausted — the gas tank attached to this session ran dry (#7). It's the same class
+// as running out of turns: not an error, just "cannot send this time", so it also goes
+// through 403 + a human-readable message instead of a 5xx.
 var ErrGasExhausted = errors.New("provider gas exhausted")

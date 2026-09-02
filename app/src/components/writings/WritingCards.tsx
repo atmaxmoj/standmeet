@@ -1,5 +1,5 @@
-// WritingCards —— /writings index 用到的 lead card + archive row + lead meta。
-// 从 WritingsIndex 拆出来守 350-line cap。
+// WritingCards —— the lead card + archive row + lead meta used by the
+// /writings index. Split out of WritingsIndex to stay under the 350-line cap.
 
 'use client';
 

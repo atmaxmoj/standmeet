@@ -1,6 +1,7 @@
-// use-admin-sources —— /admin/job-sources 的 fetch hook(#51)。
-// admin session cookie 在 AdminShell 层校验过,这里直 fetch + parse。
-// 注册源走 MCP jobs.register_source;admin 只读列表。
+// use-admin-sources —— fetch hook for /admin/job-sources (#51).
+// The admin session cookie is validated at the AdminShell layer, so this
+// just fetches + parses directly. Registering a source goes through MCP
+// jobs.register_source; admin only reads the list.
 
 import { useEffect, useState } from 'react';
 
@@ -13,8 +14,9 @@ const AdminSourceRowSchema = z.object({
   kind: z.string(),
   label: z.string(),
   last_fetched_at: z.string().nullable().optional(),
-  // 上一次**试过**是什么时候、结果如何（空串 = 成了）。少了这两个，界面分不出
-  // 「每次都失败」和「从没试过」（F-E-18）。
+  // When it was last **attempted** and how it turned out (empty string =
+  // succeeded). Without these two fields the UI can't tell "always fails"
+  // apart from "never attempted" (F-E-18).
   last_attempted_at: z.string().nullable().optional(),
   last_error: z.string().optional(),
   created_at: z.string(),
@@ -37,7 +39,7 @@ export function useAdminSources(): State {
 
 export type SourcesBodyState = 'loading' | 'error' | 'empty' | 'list';
 
-// pickSourcesBodyState —— component 用,避免 .tsx 里 if-ladder 触发 no-if/cyclo。
+// pickSourcesBodyState —— used by the component, avoids an if-ladder in the .tsx that would trip no-if/cyclo.
 export function pickSourcesBodyState(
   count: number, loading: boolean, error: string | null,
 ): SourcesBodyState {

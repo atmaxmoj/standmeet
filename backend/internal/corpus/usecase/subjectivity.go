@@ -1,6 +1,8 @@
-// subjectivity.go —— subjectivity genre 的 usecase：owner 写(建/改)一条自我模型笔记。
-// 走通用 NoteRepo（genre='subjectivity'）。parent 校验 + 防环 + 树派生 path 都做成 genre-通用
-// （validateNoteParent/…、deriveNotePath），wiki/output 之后收敛到 NoteRepo 时可复用。
+// subjectivity.go —— use cases for the subjectivity genre: the owner writes
+// (creates/edits) a self-model note. Goes through the generic NoteRepo
+// (genre='subjectivity'). Parent validation + cycle prevention + tree-derived path
+// are all built genre-generic (validateNoteParent/…, deriveNotePath), so they're
+// reusable once wiki/output converge onto NoteRepo too.
 
 package usecase
 
@@ -15,9 +17,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// WriteSubjectivityInput —— subjectivity_write 入参。ID 空 = 建;非空 = 改/改父。
-// ShowAsSource：opt 这条 subjectivity 进 visitor cited footer。默认 false（私有）——
-// cap 层在 arg 省略时传 false，与 wiki/output 的默认 true 相反。
+// WriteSubjectivityInput —— input for subjectivity_write. Empty ID = create;
+// non-empty = update/reparent.
+// ShowAsSource: opts this subjectivity note into the visitor-cited footer. Defaults
+// to false (private) — the capability layer passes false when the arg is omitted,
+// the opposite of wiki/output's default of true.
 type WriteSubjectivityInput struct {
 	OwnerID      string
 	ID           string
@@ -29,13 +33,14 @@ type WriteSubjectivityInput struct {
 	ShowAsSource bool
 }
 
-// SubjectivityResult —— 建/改后返回 id + 树派生 path（供 MCP 回显、访客按 path 寻址）。
+// SubjectivityResult —— returns id + tree-derived path after create/update (for MCP
+// to echo back, and for visitor addressing by path).
 type SubjectivityResult struct {
 	ID   string
 	Path string
 }
 
-// DeleteSubjectivity 硬删一条 subjectivity 笔记（子孙经 FK 级联）。
+// DeleteSubjectivity hard-deletes a subjectivity note (descendants cascade via FK).
 func DeleteSubjectivity(ctx context.Context, deps Deps, ownerID, id string) error {
 	if err := deps.Subjectivity.Delete(ctx, ownerID, id); err != nil {
 		return fmt.Errorf("delete subjectivity: %w", err)
@@ -44,7 +49,7 @@ func DeleteSubjectivity(ctx context.Context, deps Deps, ownerID, id string) erro
 	return nil
 }
 
-// WriteSubjectivity 建或改一条 subjectivity 笔记。
+// WriteSubjectivity creates or updates a subjectivity note.
 func WriteSubjectivity(
 	ctx context.Context, deps Deps, in *WriteSubjectivityInput,
 ) (SubjectivityResult, error) {
@@ -58,8 +63,9 @@ func WriteSubjectivity(
 	return finishSubjectivityWrite(ctx, deps, in.OwnerID, note.ID, in.Body)
 }
 
-// finishSubjectivityWrite —— 写后:重建 `[[X]]` 出度边 + 算树派生 path。拆出让 WriteSubjectivity
-// 的 cyclo 不超标。
+// finishSubjectivityWrite —— post-write: rebuilds `[[X]]` outbound edges + computes
+// the tree-derived path. Split out so WriteSubjectivity's cyclomatic complexity
+// stays under the limit.
 func finishSubjectivityWrite(
 	ctx context.Context, deps Deps, ownerID, id, body string,
 ) (SubjectivityResult, error) {
@@ -117,7 +123,8 @@ func updateNote(
 	return note, nil
 }
 
-// validateNoteParent —— parent 给了就必须是本 owner 同 genre 的一条笔记，否则 ErrParentNotFound。
+// validateNoteParent —— if a parent is given, it must be a note of the same genre
+// owned by this owner, or ErrParentNotFound.
 func validateNoteParent(
 	ctx context.Context, notes *repo.NoteRepo, ownerID string, parentID *string,
 ) error {
@@ -133,7 +140,8 @@ func validateNoteParent(
 	return nil
 }
 
-// validateNoteReparent —— 改父：存在性 + 同 owner + 防环（不能挂到自己/自己的子孙下）。
+// validateNoteReparent —— reparenting: existence + same owner + cycle prevention
+// (can't be attached under itself or its own descendants).
 func validateNoteReparent(
 	ctx context.Context, notes *repo.NoteRepo, ownerID, nodeID string, parentID *string,
 ) error {
@@ -166,7 +174,8 @@ func checkNoteCycle(
 	return nil
 }
 
-// deriveNotePath —— 从笔记沿 parent 链上溯，各段 slug 化 title，拼成树派生 path。
+// deriveNotePath —— walks up the note's parent chain, slugifies each segment's
+// title, and joins them into the tree-derived path.
 func deriveNotePath(
 	ctx context.Context, notes *repo.NoteRepo, ownerID, id string,
 ) (string, error) {

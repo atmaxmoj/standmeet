@@ -2,7 +2,7 @@ package owner
 
 import "github.com/atmaxmoj/standmeet/internal/owner/repo"
 
-// 类型（实现:repo）.
+// Types (impl: repo).
 type (
 	CustomBuildRepo = repo.CustomBuildRepo
 	CustomPageRepo  = repo.CustomPageRepo
@@ -10,12 +10,13 @@ type (
 	KeypairRepo     = repo.KeypairRepo
 	PromptRepo      = repo.PromptRepo
 	Repo            = repo.Repo
-	// ProviderRow —— 本子里的一条。KeyEnc 仍是密文：**开封只发生在组装根**
-	// （`cmd/server/unseal.go`），这里出来的只是那一行的样子（F-R-11）。
+	// ProviderRow —— one row from that ledger. KeyEnc stays ciphertext: **unsealing happens
+	// only at the composition root** (`cmd/server/unseal.go`); what comes out here is just
+	// that row's shape (F-R-11).
 	ProviderRow = repo.ProviderRow
 )
 
-// 构造/函数（实现:repo）.
+// Constructors/functions (impl: repo).
 var (
 	NewCustomBuildRepo = repo.NewCustomBuildRepo
 	NewCustomPageRepo  = repo.NewCustomPageRepo

@@ -1,12 +1,14 @@
-// access_requests.go —— 资源 access_requests:/gate 上访客递交的准入申请,owner 在这儿
-// 看 / 改状态 / 批准。
+// access_requests.go —— the access_requests resource: /gate access requests visitors
+// submit, which the owner views / changes status on / approves here.
 //
-// 这个资源横跨两个域:申请这份数据在 access,而 approve 的闭环(发一张码、把码 + 链接发给
-// 申请人、把申请置 replied)在 owner —— 它要 owner 的公开地址,也要 owner 配好的出站通道。
-// 声明跟着**做事的那一半**走,所以住在这里;读和改状态直接转交 access。
+// This resource spans two domains: the request data itself lives in access, while approve's
+// full loop (issue a code, send the code + link to the requester, mark the request replied)
+// lives in owner — it needs the owner's public address and the owner's configured outbound
+// channel. The declaration follows **the half that does the work**, so it lives here; list
+// and status-update just delegate to access.
 //
-// 出站通道没配好是**调用方的问题**(owner 得先去配),所以走 BadInput,每个面都把这句话
-// 原样给出来。
+// An unconfigured outbound channel is **the caller's problem** (the owner has to go set it
+// up), so it goes through BadInput, and every face passes that message through verbatim.
 
 package ops
 
@@ -22,7 +24,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
-// AccessRequestsDeps —— 读改那一半在 access,批准那一半在本域。
+// AccessRequestsDeps —— the read/update half lives in access, the approve half in this
+// domain.
 type AccessRequestsDeps struct {
 	Requests access.RequestsDeps
 	Approve  usecase.ApproveRequestDeps
@@ -87,7 +90,7 @@ var (
 	}`)
 )
 
-// accessRequestOut —— 出站载荷形状(每个面同一份)。
+// accessRequestOut —— outbound payload shape (same for every face).
 type accessRequestOut struct {
 	CreatedAt string `json:"created_at"`
 	ID        string `json:"id"`
@@ -110,7 +113,7 @@ type accessRequestListArgs struct {
 	Status string `json:"status"`
 }
 
-// decodeStatusFilter —— 参数可选:空 body = 不筛。
+// decodeStatusFilter —— the arg is optional: an empty body = no filter.
 func decodeStatusFilter(raw json.RawMessage) (string, error) {
 	if len(raw) == 0 {
 		return "", nil
@@ -167,7 +170,8 @@ type accessRequestIDArgs struct {
 	ID string `json:"id"`
 }
 
-// approvedOut —— 批准的产物:发出去的码,和访客可点的链接。
+// approvedOut —— the product of approval: the issued code, and the link the visitor can
+// click.
 type approvedOut struct {
 	Code string `json:"code"`
 	Link string `json:"link"`
@@ -184,16 +188,18 @@ func approveAccessRequest(deps usecase.ApproveRequestDeps) fp.Invoke {
 		}
 		out, err := usecase.ApproveAccessRequest(ctx, deps, ownerID, in.ID)
 		if err != nil {
-			// 送不出去时要说清楚该去连**什么** —— 名字由装配根经 Proxy 转述,
-			// 这一层不知道那是邮件还是别的。
+			// When delivery fails, say clearly **what** to go connect — the name is
+			// relayed by the assembly root via Proxy; this layer doesn't know whether
+			// it's mail or something else.
 			return nil, approveErr(err, deps.Proxy.ChannelName())
 		}
 		return json.Marshal(approvedOut{Code: out.Code, Link: out.Link})
 	}
 }
 
-// accessRequestErr —— 域的错误词汇 → 协议无关的类别。出站通道没配好也是调用方的问题:
-// owner 得先去配,不是这台机器坏了。
+// accessRequestErr —— domain error vocabulary → protocol-agnostic category. An unconfigured
+// outbound channel is also the caller's problem: the owner has to go set it up, it isn't
+// this machine being broken.
 func accessRequestErr(err error) error {
 	for _, c := range accessRequestErrClasses {
 		if errors.Is(err, c.sentinel) {
@@ -218,8 +224,9 @@ var accessRequestErrClasses = []struct {
 	}},
 }
 
-// approveErr —— approve 独有的那一类:送不出去。消息里要出现 owner 在**连接器页面上
-// 找得到的那个名字**;"an outbound channel" 是个界面上不存在的词,他拿着它找不到东西。
+// approveErr —— the class unique to approve: delivery failure. The message must name what
+// the owner **finds on the connectors page**; "an outbound channel" is a term that doesn't
+// exist in the UI, and he can't find anything by looking for it.
 func approveErr(err error, channel string) error {
 	if errors.Is(err, usecase.ErrOutboundNotConfigured) {
 		return fp.BadInput("connect and verify a " + channel + " connector first")

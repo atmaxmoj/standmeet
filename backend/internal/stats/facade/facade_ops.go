@@ -1,12 +1,12 @@
-// facade_ops.go —— 本域对外能做的事,再导出给收口。
+// facade_ops.go -- the things this domain can do externally, re-exported for the convergence point.
 //
-// 门面还是门面:只有别名。声明在 internal/stats/ops。
+// Still just a facade: aliases only. Declared in internal/stats/ops.
 
 package stats
 
 import "github.com/atmaxmoj/standmeet/internal/stats/ops"
 
-// 声明操作时要的类型（实现:ops）.
+// Types needed to declare operations (implemented by: ops).
 type (
 	InstanceDeps     = ops.InstanceDeps
 	SystemInfoSource = ops.SystemInfoSource
@@ -16,7 +16,7 @@ type (
 	Redeploy         = ops.Redeploy
 )
 
-// 操作组（实现:ops）.
+// Operation groups (implemented by: ops).
 var (
 	InstanceOps = ops.Instance
 	UpgradeOps  = ops.Upgrade

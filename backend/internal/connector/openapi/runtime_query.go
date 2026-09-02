@@ -1,8 +1,11 @@
-// runtime_query.go —— 把绑定的 query JSONata 渲染成 URL 查询串。拆出 runtime.go 守 max-lines。
+// runtime_query.go — renders the binding's query JSONata into a URL query string. Split out
+// of runtime.go to stay under max-lines.
 //
-// 为什么需要这一段：有些 SaaS 把动作的一半放在查询参数里。Google Calendar 的「通知与会者」
-// 就是 `?sendUpdates=all` —— 建会和取消都靠它，请求体里没有任何地方能表达。绑定语言原本
-// 只有 op/request/response，这个开关于是在连接器外置时无声无息地消失了（F-B-7）。
+// Why this segment exists: some SaaS APIs put half of an action in query parameters.
+// Google Calendar's "notify attendees" is exactly `?sendUpdates=all` — both creating and
+// cancelling an event depend on it, and there's nowhere in the request body to express it.
+// The binding language originally had only op/request/response, so this switch silently
+// vanished when the connector was externalized (F-B-7).
 
 package openapi
 
@@ -11,7 +14,8 @@ import (
 	"strconv"
 )
 
-// requestURL —— base + 路径（{param} 替换）+ 查询串。一个操作的目标地址在这里拼齐。
+// requestURL — base + path ({param} substitution) + query string. An operation's target
+// address is fully assembled here.
 func (r *Runtime) requestURL(bo *boundOp, input any) (string, error) {
 	query, err := renderQuery(&bo.binding, input)
 	if err != nil {
@@ -20,8 +24,10 @@ func (r *Runtime) requestURL(bo *boundOp, input any) (string, error) {
 	return r.baseURL + substitutePath(bo.resolved.Path, input) + query, nil
 }
 
-// renderQuery —— query JSONata → `?a=1&b=2`（已编码）。空/无 → 空串。值为 null 或空串的键
-// 直接丢掉：「有邮箱才通知」这类条件写成 JSONata 三元式，求值成空就是不带这个参数。
+// renderQuery — query JSONata → `?a=1&b=2` (encoded). Empty/none → empty string. A key
+// whose value is null or an empty string is dropped outright: a condition like "notify only
+// when there's an email" is written as a JSONata ternary, and evaluating to empty just means
+// this parameter is omitted.
 func renderQuery(ob *opBinding, input any) (string, error) {
 	m, err := ob.evalQuery(input)
 	if err != nil {
@@ -39,10 +45,11 @@ func renderQuery(ob *opBinding, input any) (string, error) {
 	return "?" + values.Encode(), nil
 }
 
-// float64Bits —— JSON 数字解出来就是 float64；格式化时按原精度写回。
+// float64Bits — a JSON number decodes as float64; formatted back at full precision.
 const float64Bits = 64
 
-// queryValue —— 查询参数值只收标量；null / 对象 / 数组 → 空串（= 不带这个键）。
+// queryValue — a query parameter value accepts only scalars; null / object / array → empty
+// string (= this key is omitted).
 func queryValue(v any) string {
 	switch t := v.(type) {
 	case string:

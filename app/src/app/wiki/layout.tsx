@@ -1,20 +1,29 @@
-// /wiki 的外壳 —— 顶栏 + 会话条 + 左侧树，**一次挂载，跨文章不动**。
+// The /wiki shell — top bar + session strip + left tree, **mounted once,
+// stable across articles**.
 //
-// 为什么必须是 layout 而不是每页各渲一份：
+// Why this has to be a layout and not re-rendered per page:
 //
-// 之前顶栏和树写在 `wiki/page.tsx` 和 `wiki/[...path]/page.tsx` 各自里面。Next 在同级页面
-// 之间导航时**会保留 layout、只换 page**，但那两样当时住在 page 里，于是点一篇文章 =
-// 整个骨架重挂：树重新渲、每一层重新拉，屏幕上是"树刷了一下"。
-// （`admin` 早就是 layout 了，所以 admin 换分区侧栏不闪 —— 同一个结构，wiki 这边一直没有。）
+// The top bar and tree used to live inside `wiki/page.tsx` and
+// `wiki/[...path]/page.tsx` separately. Next **keeps the layout and only
+// swaps the page** when navigating between sibling pages, but those two
+// pieces lived in the page back then, so clicking into an article meant the
+// whole shell remounted: the tree re-rendered, every level refetched, and
+// the screen showed "the tree flashing."
+// (`admin` was already a layout, which is why switching admin sections
+// doesn't flicker its sidebar — same structure, wiki just never had it.)
 //
-// 搬进来之后还顺带解决了滚动：外壳固定，**只有正文那一列自己滚**，读者往下读的时候
-// 顶栏和树留在原地，而不是被一起卷走。三个区域各自独立：
-//   顶栏 + 会话条 —— 不滚
-//   树           —— 自己滚（比视口高时）
-//   正文         —— 自己滚
+// Moving it up here also fixed scrolling as a side effect: the shell is
+// fixed, **only the body column scrolls on its own**, so as the reader
+// scrolls down the top bar and tree stay put instead of scrolling away with
+// it. The three regions are independent:
+//   top bar + session strip — does not scroll
+//   tree                    — scrolls on its own (when taller than viewport)
+//   body                    — scrolls on its own
 //
-// 树的高亮从 **URL** 派生（`WikiTreeView` 内部 `usePathname`），不再由 page 传 prop ——
-// 传 prop 的话 layout 就得跟着当前文章变，那它又变回"每篇文章重渲一次"了。
+// The tree's highlight is derived from the **URL** (`usePathname` inside
+// `WikiTreeView`), no longer passed as a prop from the page — passing it as
+// a prop would force the layout to change with the current article, which
+// puts us right back to "re-render per article."
 
 import type { ReactNode } from 'react';
 
@@ -34,17 +43,24 @@ export default async function WikiLayout({ children }: { children: ReactNode }) 
       <WikiTopBar handle={instance.handle} />
       <SessionStrip />
       <div className="flex-1 flex min-h-0 relative">
-        {/* 树：绝对定位，不占版面宽度 —— 正文因此是对**视口**居中，而不是在树剩下的那段里居中。
-            宽度 = 那条留白本身（见 wiki-shell.module.css）：屏幕越宽树越好读，且永远压不到正文。
-            留白不够 260px 时整个不渲染 —— 判据是「这棵树有没有地方站」，不是「屏幕算不算大」。 */}
+        {/* Tree: absolutely positioned, takes no layout width — the body is
+            therefore centered on the **viewport**, not in whatever's left
+            after the tree. Its width = the margin itself (see
+            wiki-shell.module.css): the wider the screen, the more readable
+            the tree, and it can never crowd the body. It doesn't render at
+            all when the margin is under 260px — the test is "does this tree
+            have room to stand," not "is the screen big." */}
         <aside className={styles['rail']} data-testid="wiki-toc">
           <WikiTreeView stats={stats} />
         </aside>
         <main className="flex-1 min-w-0 overflow-y-auto" data-testid="wiki-scroll">
           <div className="mx-auto max-w-[920px] px-6">{children}</div>
         </main>
-        {/* 右栏「问这篇」，跟左边的树对称。**没会话时也渲**：那时它是 BYOAI 的入口 ——
-            读者填自己的 key 就能开始问，而不是只有滑到正文最底下才看得见一句提示。 */}
+        {/* Right rail "ask about this," symmetric with the tree on the left.
+            **Renders even with no session**: at that point it's the BYOAI
+            entry point — the reader fills in their own key and can start
+            asking, rather than only seeing a hint once they scroll to the
+            very bottom of the body. */}
         <ReaderChatRail>{null}</ReaderChatRail>
       </div>
     </div>

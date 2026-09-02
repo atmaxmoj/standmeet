@@ -1,12 +1,16 @@
-// capability_config.go —— /api/admin/capabilities/{id}/config：**任意**能力的可设置项。
+// capability_config.go — /api/admin/capabilities/{id}/config: the settable fields for
+// **any** capability.
 //
-//	GET   /api/admin/capabilities/config          → 哪些能力有可设置项
-//	GET   /api/admin/capabilities/{id}/config     → 该能力的字段（声明 + 当前值 + 默认值）
-//	PATCH /api/admin/capabilities/{id}/config     → 写回
+//	GET   /api/admin/capabilities/config          → which capabilities have settable fields
+//	GET   /api/admin/capabilities/{id}/config     → that capability's fields (declaration
+//	                                                 + current value + default value)
+//	PATCH /api/admin/capabilities/{id}/config     → write it back
 //
-// 这是面板给能力留的通用口子。**这个文件里没有任何一个能力的名字**：字段是能力在自己的
-// manifest 里声明的，面板按 type 渲染。以前每个能力要可设置就得在 admin 手写一套路由 +
-// 表单（booker 的预约策略就是这么来的，然后跟沙箱那份飘了）。
+// This is the generic slot the panel leaves for capabilities. **No capability's name
+// appears in this file**: the fields are declared in the capability's own manifest, and
+// the panel renders by type. Before this, every settable capability needed its own
+// hand-written route set + form in admin (that's how the booker's booking policy came
+// about, and it later drifted from the sandboxed copy).
 
 package admin
 
@@ -16,12 +20,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// CapabilityConfigAdminDeps —— admin 通用配置面的能力来源。
+// CapabilityConfigAdminDeps — capability source for admin's generic config facade.
 type CapabilityConfigAdminDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountCapabilityConfig 挂通用配置面（caller 前缀 /api/admin）。
+// MountCapabilityConfig mounts the generic config facade (caller prefix /api/admin).
 func (h *Handlers) MountCapabilityConfig(r chi.Router) {
 	face := h.CapabilityConfigAdmin.Face
 	r.Route("/capabilities/config", func(r chi.Router) {

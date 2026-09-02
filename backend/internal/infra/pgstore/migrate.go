@@ -1,33 +1,45 @@
-// migrate.go —— 部署时把这一版带来的 schema 改动打进库。
+// migrate.go — applies the schema changes a release brings, into the DB, at deploy time.
 //
-// **为什么必须由后端自己在启动时做**：`schema.sql` 只在**全新的 pg 卷**上被 postgres
-// 跑一次（infra/db/Dockerfile 的注释写着这件事）。已经在跑的实例升级不走那条路 ——
-// 而在这之前，`backend/db/migrations/` 里的文件**没有任何东西会去跑它们**：
-// 那意味着自托管的 owner 拉个新镜像重启之后，代码要新列、库里没有，后端起不来。
-// 让他自己去手打 SQL 是把系统的缺陷转嫁成他的纪律。
+// **Why the backend has to do this itself at startup**: `schema.sql` only runs once,
+// and only on a **brand-new pg volume** (infra/db/Dockerfile's comment says so). An
+// already-running instance's upgrade doesn't go through that path — and before this file
+// existed, **nothing** ran the files under `backend/db/migrations/`: that meant a
+// self-hosted owner pulling a new image and restarting would have code that wants a new
+// column, no column in the DB, and a backend that won't start. Making the owner hand-type
+// SQL himself is pushing the system's defect onto his own discipline.
 //
-// **为什么用 go:embed 而不是读磁盘**：这样 migration 跟代码是**同一个产物**。
-// 读磁盘的话它们能各自漂移 —— 而漂移出来的样子是"新代码配旧 schema"，那正是
-// 后端启动不了的那一种。编进去之后，"部署了这一版"和"这一版的 schema 改动打过了"
-// 是同一件事，没有第二个需要有人记得的步骤。
+// **Why go:embed instead of reading off disk**: this way the migrations and the code are
+// **the same artifact**. Reading off disk lets them drift apart independently — and the
+// shape that drift takes is "new code against old schema," which is exactly the shape of
+// a backend that won't start. Once embedded, "this version got deployed" and "this
+// version's schema changes got applied" are the same event, with no second step anyone
+// has to remember.
 //
-// **失败就不服务**：一个 schema 打了一半的实例，比一个起不来的实例更难查 ——
-// 它会在某一条具体的查询上炸，而错误指向那条查询，不指向这里。
+// **Fail means don't serve**: an instance with a half-applied schema is harder to
+// diagnose than one that won't boot — it blows up on some specific query later, and the
+// error points at that query, not at this file.
 //
-// # 账本
+// # Ledger
 //
-// `schema_migrations` 记下哪些跑过；没记过的就打一遍，**一条都不假设**。
+// `schema_migrations` records which ones ran; anything unrecorded gets applied,
+// **assuming nothing**.
 //
-// ⚠️ 这里曾经有一个"基线"分支：第一次见到一个库（账本表还不存在）时，把当下所有 migration
-// 记成已应用而不跑 —— 理由是"新卷由 schema.sql 建、老实例之前手工打过，两种都已经包含了
-// 它们的结果"。在 dev 上第一次跑就证伪了：那台实例没有账本，**而且真的缺一条**，
-// 于是那一条被永久记成打过了，列还是不存在，什么都没报。而这正是每台老实例第一次
-// 启动时走的分支 —— 最不该靠假设的那一个。
+// Warning: this used to have a "baseline" branch — the first time it saw a DB (the ledger
+// table didn't exist yet), it marked every current migration as already applied without
+// running them, on the reasoning that "a new volume is built by schema.sql, an old
+// instance was hand-patched before, both already contain their migrations' results."
+// The first run on dev disproved that: that instance had no ledger, **and it genuinely
+// was missing one migration** — so that migration got permanently marked as applied, the
+// column still didn't exist, and nothing reported it. And that's exactly the branch every
+// old instance hits on its first startup — the one branch that should never rely on an
+// assumption.
 //
-// 现在没有这个分支：所有 migration 都写成可重入的（`IF NOT EXISTS` / `DO $$` 守卫），
-// 所以在一个已经是新形状的库上跑一遍等于什么都没做，而在一个缺东西的库上跑一遍就补上了。
-// 唯一一条带数据回填的（`2026-08-16-cover-hue-never-chosen.sql`）重跑也安全 ——
-// 它清的那种状态产品给不出来（封面只存在于 writing，而它的 WHERE 是 `genre <> 'writing'`）。
+// There's no such branch now: every migration is written to be reentrant (`IF NOT
+// EXISTS` / `DO $$` guards), so running one against a DB already in the new shape is a
+// no-op, and running it against a DB missing something fills the gap. The one migration
+// that backfills data (`2026-08-16-cover-hue-never-chosen.sql`) is also safe to rerun —
+// the state it cleans up can't be produced by the product (covers only exist on writing,
+// and its WHERE clause is `genre <> 'writing'`).
 
 package pgstore
 
@@ -43,8 +55,8 @@ import (
 	"github.com/atmaxmoj/standmeet/db"
 )
 
-// migrationsFS —— 编进二进制的那一份，声明在 migration 文件旁边
-// （`go:embed` 够不到包目录以外，见 backend/db/embed.go）。
+// migrationsFS — the copy embedded into the binary, declared next to the migration files
+// (`go:embed` can't reach outside its own package dir, see backend/db/embed.go).
 var migrationsFS = db.Migrations
 
 const ledgerDDL = `CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -52,7 +64,8 @@ const ledgerDDL = `CREATE TABLE IF NOT EXISTS schema_migrations (
 	applied_at  timestamptz NOT NULL DEFAULT now()
 )`
 
-// Migrate —— 把还没跑过的 migration 按文件名顺序打完。启动时调，**在开始服务之前**。
+// Migrate — applies every not-yet-run migration in filename order. Called at startup,
+// **before serving begins**.
 func Migrate(ctx context.Context, pool *Pool, log *slog.Logger) error {
 	files, err := migrationNames()
 	if err != nil {
@@ -64,8 +77,9 @@ func Migrate(ctx context.Context, pool *Pool, log *slog.Logger) error {
 	return applyPending(ctx, pool, log, files)
 }
 
-// migrationNames —— 按文件名排序。文件名以 ISO 日期开头，所以字典序就是时间序；
-// 同一天两条靠后缀区分，而那也是它们被写下的顺序。
+// migrationNames — sorted by filename. Filenames start with an ISO date, so lexical
+// order is chronological order; two on the same day are distinguished by suffix, and
+// that's also the order they were written in.
 func migrationNames() ([]string, error) {
 	entries, err := migrationsFS.ReadDir("migrations")
 	if err != nil {
@@ -81,7 +95,7 @@ func migrationNames() ([]string, error) {
 	return out, nil
 }
 
-// applyPending —— 只跑账本里没有的那些，每条一个事务。
+// applyPending — runs only the ones missing from the ledger, one transaction per migration.
 func applyPending(ctx context.Context, pool *Pool, log *slog.Logger, files []string) error {
 	done, err := appliedSet(ctx, pool)
 	if err != nil {
@@ -119,8 +133,9 @@ func appliedSet(ctx context.Context, pool *Pool) (map[string]bool, error) {
 	return out, nil
 }
 
-// applyOne —— 一条 migration 一个事务：**SQL 和它的账本行一起提交**。
-// 分开提交的话，中间挂掉会留下"跑过但没记"或"记了但没跑"，两种都要人去猜。
+// applyOne — one transaction per migration: **the SQL and its ledger row commit together**.
+// Committing them separately would let a mid-way crash leave "ran but not recorded" or
+// "recorded but not run," and either one leaves a human guessing.
 func applyOne(ctx context.Context, pool *Pool, name string) error {
 	body, err := migrationsFS.ReadFile("migrations/" + name)
 	if err != nil {
@@ -130,9 +145,10 @@ func applyOne(ctx context.Context, pool *Pool, name string) error {
 	if terr != nil {
 		return fmt.Errorf("begin migration %s: %w", name, terr)
 	}
-	// Rollback 的错误无处可去：提交成功时它必然返回 ErrTxClosed，而失败路径上
-	// 真正要报的是**下面那个**错误，不是回滚本身。
-	defer func() { _ = tx.Rollback(ctx) }() //nolint:errcheck // 见上
+	// Rollback's error has nowhere useful to go: on a successful commit it's bound to
+	// return ErrTxClosed, and on the failure path the error actually worth reporting is
+	// the **one below**, not the rollback itself.
+	defer func() { _ = tx.Rollback(ctx) }() //nolint:errcheck // see above
 	if rerr := runInTx(ctx, tx, name, body); rerr != nil {
 		return rerr
 	}
@@ -142,7 +158,7 @@ func applyOne(ctx context.Context, pool *Pool, name string) error {
 	return nil
 }
 
-// runInTx —— 事务里的两句：migration 本体 + 它的账本行。
+// runInTx — the two statements inside the transaction: the migration body + its ledger row.
 func runInTx(ctx context.Context, tx pgx.Tx, name string, body []byte) error {
 	if _, err := tx.Exec(ctx, string(body)); err != nil {
 		return fmt.Errorf("apply migration %s: %w", name, err)

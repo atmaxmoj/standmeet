@@ -1,8 +1,10 @@
-// visitor_code_intro.go —— 名字选择器 pre-issue 的公开 peek。
+// visitor_code_intro.go —— the public peek the name picker does before session issue.
 //
-// defer-issue 下,访客扫码后名字选择器先弹、还没开 session,但要展示「这是什么」
-// (per-role greeting)和「这张码给几个人用、已用几个」。这条 usecase 不开 session、
-// 不建 member,只读 code + role + member 数返回。
+// Under defer-issue, after a visitor scans the code the name picker pops up first,
+// before any session opens, but it still needs to show "what is this" (per-role greeting)
+// and "how many people can use this code, how many have already." This use case doesn't
+// open a session or create a member — it only reads code + role + member count and
+// returns them.
 
 package usecase
 
@@ -13,21 +15,23 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
-// CodeIntroResult —— 名字选择器展示用。
+// CodeIntroResult —— for the name picker's display.
 type CodeIntroResult struct {
 	Label    string
 	Greeting string
-	// CustomPageSlug —— 这张码开哪一页。空 = 开默认的访客对话（今天的行为）。
-	// 落地决定在这里给出，因为访客带码进来时前端**已经**在调 codes/intro 了：
-	// 不必为「去哪」再加一次往返，也不必让页面自己去问「我该不该存在」。
+	// CustomPageSlug —— which page this code opens. Empty = opens the default
+	// visitor conversation (today's behavior). The landing decision is given here
+	// because the frontend is **already** calling codes/intro when a visitor arrives
+	// with a code: no need for another round trip just for "where to," and no need for
+	// the page to ask itself "should I even exist."
 	CustomPageSlug string
 	MaxMembers     int32
 	MemberCount    int32
 }
 
-// CodeIntro —— code → label + greeting(role 的;空则按 owner handle 拼默认)+
-// max_members + 已有 member 数。code 无效 / 撤销 → access.ErrCodeInvalid(route
-// 翻 404)。
+// CodeIntro —— code → label + greeting (the role's; if empty, assembles a default from
+// the owner handle) + max_members + existing member count. Invalid / revoked code →
+// access.ErrCodeInvalid (the route translates it to 404).
 func CodeIntro(
 	ctx context.Context, deps *VisitorSessionDeps, codeStr string,
 ) (CodeIntroResult, error) {
@@ -48,7 +52,8 @@ func CodeIntro(
 	}, nil
 }
 
-// resolveCodeGreeting —— role 设了 greeting 就用,否则按 owner handle 拼默认。
+// resolveCodeGreeting —— uses the role's greeting if it set one, otherwise assembles a
+// default from the owner handle.
 func resolveCodeGreeting(
 	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
 ) string {

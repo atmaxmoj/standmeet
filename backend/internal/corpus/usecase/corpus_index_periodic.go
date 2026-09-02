@@ -1,8 +1,11 @@
-// corpus_index_periodic.go —— 本域的周期任务:Meili 恢复后补齐 down 期间漏索引的写。
+// corpus_index_periodic.go —— this domain's periodic job: once Meili recovers, backfill
+// the writes that missed indexing while it was down.
 //
-// 这个循环一直在跑,但**从来没有出现在 Monitor 的后台任务面板上** —— 它是手写的 ticker,
-// 而登记那一句只有记得写的人才会写。现在它跟别的周期任务同一条路:域声明,宿主调度并簿记,
-// 于是"这进程里有什么在定期跑"这个问题第一次对它也成立。
+// This loop has always been running, but **it never once showed up on Monitor's background
+// jobs panel** — it was a hand-rolled ticker, and the registration line only gets written
+// by whoever remembers to write it. It now takes the same path as every other periodic
+// job: the domain declares it, the host schedules and books it, so the question "what's
+// running periodically in this process" holds true for it too, for the first time.
 
 package usecase
 
@@ -14,17 +17,22 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 )
 
-// reconcileEvery —— Meili 恢复后,这个间隔内把 down 期间的写补上。
+// reconcileEvery —— after Meili recovers, backfill the down-period writes within this
+// interval.
 const reconcileEvery = 8 * time.Second
 
-// SoleOwnerID —— 拿本实例那个 owner 的 id(窄口:本域不认识 owner 域)。
+// SoleOwnerID —— gets this instance's owner id (a narrow port: this domain doesn't know
+// the owner domain).
 //
-// **实例还没被 claim 时返回空串,不是 error** —— 那不是失败,是没有可重建的东西。两者分开,
-// 面板上才不会给一台崭新的实例每 8 秒盖一个红章;真出错时也才看得见。
+// **Returns an empty string, not an error, when the instance hasn't been claimed yet** —
+// that isn't a failure, it's "nothing to rebuild". Keeping the two separate means a
+// brand-new instance doesn't get a red stamp on the panel every 8 seconds, and a real
+// error stays visible when it happens.
 type SoleOwnerID func(ctx context.Context) (string, error)
 
-// IndexPeriodicJobs —— 本域开出去的周期任务。indexer 为 nil(未配 Meili)→ 一件也不开:
-// 面板上不该出现一个永远 ok 却什么都没做的任务。
+// IndexPeriodicJobs —— the periodic jobs this domain exposes. indexer is nil (Meili not
+// configured) → expose none: the panel shouldn't show a job that's always ok but does
+// nothing.
 func IndexPeriodicJobs(indexer Indexer, soleOwner SoleOwnerID) []periodic.Job {
 	if indexer == nil || soleOwner == nil {
 		return []periodic.Job{}
@@ -37,7 +45,7 @@ func IndexPeriodicJobs(indexer Indexer, soleOwner SoleOwnerID) []periodic.Job {
 				return fmt.Errorf("corpus index reconcile: %w", err)
 			}
 			if ownerID == "" {
-				return nil // 还没 claim,没有可重建的语料
+				return nil // not claimed yet, no corpus to rebuild
 			}
 			indexer.Reconcile(ctx, ownerID)
 			return nil

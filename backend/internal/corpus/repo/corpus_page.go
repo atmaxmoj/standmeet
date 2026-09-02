@@ -1,6 +1,8 @@
-// corpus_page.go —— admin 语料 grid 的 keyset 分页（infinite scroll）。一次取一页
-// (created_at DESC, id DESC 复合游标),配 path_titles 让服务端 slug 出地址(半页也对)。
-// 跟懒树共用 TreeChild 载体(grid 不需要 has_children,留 false)。owner-scoped、全状态。
+// corpus_page.go —— keyset pagination (infinite scroll) for the admin corpus grid. Fetches
+// one page at a time (created_at DESC, id DESC composite cursor), paired with path_titles so
+// the server can slug out an address (correct even for a half-loaded page). Shares the
+// TreeChild carrier with the lazy tree (grid doesn't need has_children, leaves it false).
+// Owner-scoped, all statuses.
 
 package repo
 
@@ -27,8 +29,9 @@ type pageReq struct {
 	cursor  *PageCursor
 	ownerID string
 	genre   string
-	// tag —— "" = 不过滤。过滤必须发生在**取这一页的时候**:客户端拿到一页再筛,筛的就只是那一页,
-	// 而面板会把结果当成整个语料的答案(F-L-23:137 条 math 笔记显示成 1 条)。
+	// tag —— "" = no filter. Filtering must happen **when the page is fetched**: if the client
+	// gets a page and filters afterward, it's only filtering that page, yet the panel treats
+	// the result as the answer for the whole corpus (F-L-23: 137 math notes showed as 1).
 	tag   string
 	limit int32
 }
@@ -78,8 +81,9 @@ func pageCursorParams(c *PageCursor) (cursorPg, error) {
 	return cursorPg{ts: pgtype.Timestamptz{Time: c.CreatedAt, Valid: true}, id: id}, nil
 }
 
-// listGenreTags —— every tag used anywhere in one genre. 语料级,不是某一页:标签行如果从
-// 已加载的那一页推,只存在于那一页之外的标签就连 chip 都没有(F-L-23 的后半条)。
+// listGenreTags —— every tag used anywhere in one genre. Corpus-wide, not page-scoped: if the
+// tag row is derived from the already-loaded page, a tag that exists only outside that page
+// never even gets a chip (the second half of F-L-23).
 func listGenreTags(
 	ctx context.Context, pool *pgstore.Pool, ownerID, genre string,
 ) ([]string, error) {

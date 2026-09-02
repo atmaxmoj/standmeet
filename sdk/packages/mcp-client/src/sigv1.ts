@@ -1,7 +1,8 @@
 // sigv1.ts —— sign Ed25519 challenge for `Authorization: Sigv1 keyId=X,
-// ts=N,nonce=UUID,sig=base64`. 每请求独立签 (无 session cache)；ts 5 min 窗口 +
-// 一次性 nonce 防 replay。载荷 `standmeet-sigv1\n<keyId>\n<ts>\n<nonce>`,
-// 同 backend internal/usecases/keypairs.go + e2e/fixtures/sigv1.ts 一致。
+// ts=N,nonce=UUID,sig=base64`. Each request is signed independently (no
+// session cache); a 5 min ts window plus a one-time nonce guard against
+// replay. Payload is `standmeet-sigv1\n<keyId>\n<ts>\n<nonce>`, matching
+// backend internal/usecases/keypairs.go + e2e/fixtures/sigv1.ts.
 
 import { createPrivateKey, randomUUID, sign as cryptoSign } from 'node:crypto';
 

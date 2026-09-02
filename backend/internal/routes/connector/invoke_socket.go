@@ -1,7 +1,10 @@
-// Package connector —— "connector.invoke" 的 controller。断网沙箱 cap 经 unix-socket 按名(category)
-// 调 owner 的 active 连接器的一个 verb。这是 **socket 入站 API 的 controller 层**(跟 internal/routes/
-// 的 HTTP controller 同层):薄壳 —— 只解 socket 参数 + 转发进 connector 业务域(Invoker,由业务域的
-// connector.Slots 结构满足)。业务逻辑留在 internal/connector,不进这里。组装根按每个需要连接器的 cap 挂它。
+// Package connector -- controller for "connector.invoke". A network-isolated sandboxed cap calls
+// one verb of the owner's active connector, by name (category), over a unix socket. This is the
+// **controller layer of the socket inbound API** (same layer as the HTTP controllers under
+// internal/routes/): a thin shell -- it only parses socket args and forwards into the connector
+// business domain (Invoker, satisfied by the business domain's connector.Slots struct). Business
+// logic stays in internal/connector, not here. The composition root wires this in for every cap
+// that needs a connector.
 package connector
 
 import (
@@ -12,11 +15,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
-// Invoker —— 按名调用连接器(category+verb+args→json)。业务域 connector.Slots 满足它。
+// Invoker -- invokes a connector by name (category+verb+args -> json). The business domain's
+// connector.Slots struct satisfies it.
 //
-// InvokeBackground —— 立刻返回、调用在后台跑并按策略重试。给"结果不该挡住调用方"的调用用
-// (约成后的 owner 通知信)。**必须由 host 持有**:沙箱能力的进程只活这一轮,起在它里面的
-// 重试 goroutine 会随进程回收一起消失。
+// InvokeBackground -- returns immediately; the call runs in the background and retries per
+// policy. Use it for calls where "the result must not block the caller" (e.g. an owner
+// notification after a booking is confirmed). **Must be host-held**: a sandboxed capability's
+// process lives only for that one call, so a retry goroutine started inside it is reclaimed
+// along with the process.
 type Invoker interface {
 	Invoke(
 		ctx context.Context, ownerID, category, verb string, args json.RawMessage,
@@ -26,10 +32,12 @@ type Invoker interface {
 	)
 }
 
-// Ops —— connector.invoke。能力说"替我用日历做这件事",宿主找 owner 当前激活的那个连接器
-// 去做 —— 能力不认识具体连接器,凭据也不出宿主。
+// Ops -- connector.invoke. The capability says "do this for me with the calendar"; the host finds
+// the owner's currently active connector for that category and does it -- the capability doesn't
+// know which specific connector, and credentials never leave the host.
 //
-// background=true → 不等结果直接回 {ok:true},调用在宿主后台跑(带重试)。
+// background=true -> returns {ok:true} immediately without waiting for the result; the call runs
+// in the host background (with retries).
 func Ops(inv Invoker) []hostop.Op {
 	return []hostop.Op{{
 		Name: "connector.invoke",
@@ -62,10 +70,12 @@ func invokeHandler(inv Invoker) hostop.Invoke {
 			// Name the owner/category/verb: "not configured" is meaningless without knowing WHICH
 			// owner was asked about — a stale or wrong owner id looks identical to a missing
 			// connector from here.
-			// `%w` 包住的是**业务域已经分好类的**那个错误（`hostop.Fault`）——
-			// 类别因此穿得过这一层，一路到 socket 信封上的 `code`。
-			// 分类不在这里做：这个薄壳按设计不认识连接器域的任何哨兵
-			// （`connectorroutes: mayDependOn: [hostop]`），要在这儿判就得把域拖进来。
+			// `%w` wraps the error the **business domain has already classified**
+			// (`hostop.Fault`) -- so the category passes through this layer intact, all the
+			// way to the `code` field on the socket envelope.
+			// Classification doesn't happen here: this thin shell is designed not to know any
+			// of the connector domain's sentinels (`connectorroutes: mayDependOn: [hostop]`);
+			// judging it here would mean pulling the domain in.
 			return nil, fmt.Errorf("connector.invoke %s/%s owner=%s: %w",
 				req.Category, req.Verb, req.OwnerID, err)
 		}

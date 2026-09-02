@@ -1,6 +1,6 @@
-// seo.go —— SEO 业务薄包装，让 routes/public/seo.go 不直接 import postgres。
-// path-based (替代旧 slug)：landing URL 形如 /<handle>/wiki/<path>，path
-// 可含 `/`（前端路由用 catch-all），同 retrieval ACL 复用同一列。
+// seo.go — thin business wrapper for SEO, so routes/public/seo.go doesn't import postgres
+// directly. Landing URLs are path-based (replacing the old slug): /<handle>/wiki/<path>,
+// path may contain `/` (frontend router uses a catch-all), reusing the retrieval ACL column.
 
 package usecase
 
@@ -13,25 +13,25 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// SEODeps —— SEO usecases 所需。Wiki/Output 用来 load 全树算公开 landing 地址
-// (纯树派生,不读已退役的 path 列)。
+// SEODeps — what the SEO usecases need. Wiki/Output load the full tree and compute public
+// landing addresses (pure tree derivation; doesn't read the retired path column).
 type SEODeps struct {
 	Owners   *repo.Repo
 	SEO      *corpus.SEORepo
 	Wiki     *corpus.WikiRepo
 	Output   *corpus.OutputRepo
 	NoteRefs *corpus.NoteRefRepo
-	// Media —— 这条语料身上的素材。**任意 genre 都能挂**,所以 reader 也得能渲:
-	// 正文里那些 `standmeet-asset:<id>` 引用要解析成可访问地址,否则访客看到的是一段
-	// 渲不出来的 URI。以前只有 writing 那条路带这份数据,于是"每个 genre 都能配图"
-	// 在后端成立、在访客眼里不成立。
+	// Media — assets attached to this corpus entry. Any genre can have some, so the reader
+	// must resolve `standmeet-asset:<id>` refs in the body into reachable addresses, or the
+	// visitor sees a URI that renders as nothing. Used to travel only through the writing
+	// path, so "every genre can carry images" held on the backend but not visibly.
 	Media *corpus.NoteAssetsDeps
-	// Vault —— 多语渲染要的那两个 frontmatter 字段(身份语言 + 切换器标签)。可空:
-	// 没接上就当每条笔记都没写 lang,落点退成第一个语言面。
+	// Vault — the two frontmatter fields multi-language rendering needs (identity language +
+	// switcher labels). Nil means every note is treated as lang-unset, falling back to face 1.
 	Vault *corpus.VaultSyncRepo
 }
 
-// FirstOwner —— 取首位 owner 给 robots / sitemap 用；空 / err 都返 (Owner{}, false)。
+// FirstOwner — fetches the first owner, for robots/sitemap. Empty/error return (Owner{}, false).
 func FirstOwner(ctx context.Context, deps SEODeps) (entity.Owner, bool) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil || handle == "" {
@@ -44,7 +44,7 @@ func FirstOwner(ctx context.Context, deps SEODeps) (entity.Owner, bool) {
 	return soleOwner, true
 }
 
-// FirstOwnerSettings —— SEO 渲染入口：拿首位 owner 的 SEOSettings。
+// FirstOwnerSettings — the SEO rendering entry point: fetches the first owner's SEOSettings.
 func FirstOwnerSettings(ctx context.Context, deps SEODeps) (corpus.SEOSettings, bool) {
 	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
@@ -57,7 +57,7 @@ func FirstOwnerSettings(ctx context.Context, deps SEODeps) (corpus.SEOSettings, 
 	return settings, true
 }
 
-// PublicReady —— 集中 robots/sitemap readiness check。
+// PublicReady — a centralized robots/sitemap readiness check.
 func PublicReady(ctx context.Context, deps SEODeps) (entity.Owner, bool) {
 	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok || soleOwner.PublicURL == "" {
@@ -70,52 +70,54 @@ func PublicReady(ctx context.Context, deps SEODeps) (entity.Owner, bool) {
 	return soleOwner, true
 }
 
-// WikiLanding —— landing 查询结果:wiki 实体 + 渲染好的 body(Obsidian `[[Title]]`
-// 已 rewrite 成 /wiki/<path> 链接)+ 出链(Related)/入链(CitedBy)。
+// WikiLanding — the landing query result: wiki entity + rendered body (Obsidian
+// `[[Title]]` rewritten into /wiki/<path> links) + outbound (Related)/inbound (CitedBy) links.
 type WikiLanding struct {
-	// AssetURLs —— 正文里的 `standmeet-asset:<id>` 引用 + hero 图 → 可访问地址。
-	// 渲染那一侧照这张表把 URI 换成 URL。
+	// AssetURLs — `standmeet-asset:<id>` refs in the body + the hero image, mapped to
+	// reachable addresses. Rendering swaps URIs for URLs using this table.
 	AssetURLs map[string]string
 	Body      string
 	Related   []corpus.WikiPathTitle
 	CitedBy   []corpus.WikiPathTitle
-	// Assets —— 挂在这条上的文件清单(文件名 + 真实字节数 + 地址)。下载按钮要的就是这几项。
+	// Assets — this entry's file list (filename + byte size + address); the download button's data.
 	Assets []corpus.AssetView
-	// I18n —— 这条笔记的多语视图:选中的那一面 + 有哪些语言 + 切换器标签。
-	// 单语笔记 Languages 为空,读者页据此不出切换器。
+	// I18n — this note's multi-language view: selected face + which languages exist +
+	// switcher labels. Single-language note -> Languages is empty -> no switcher shown.
 	I18n LandingI18n
-	// Hero —— 封面图 / 压在图上那句话 / 色调。**任意 genre 都能有**,住在共享的 hero 表上。
+	// Hero — cover image / overlay line / color tone. Any genre can have one, backed by
+	// the shared hero table.
 	Hero corpus.NoteHero
 	Wiki corpus.Wiki
 }
 
-// LandingI18n —— 读者页要的那几项。Body 已经按选中的语言渲染好(在 WikiLanding.Body 里),
-// 这里只带"选了哪个 / 有哪些 / 各自显示成什么"。
+// LandingI18n — what the reader page needs. Body is already rendered in the selected
+// language (WikiLanding.Body); this only carries which was picked/exist/displays as.
 type LandingI18n struct {
 	Labels    map[string]string
 	Lang      string
 	Languages []string
 }
 
-// wikiRefSides —— 一条 wiki 的出链 + 入链(给 landing 返回用)。
+// wikiRefSides — one wiki entry's outbound + inbound links (for the landing response).
 type wikiRefSides struct {
 	Related []corpus.WikiPathTitle
 	CitedBy []corpus.WikiPathTitle
 }
 
-// GetWikiLanding —— 公开 landing 查询：path → wiki entry + 渲染好的 body + read-next/cited-by。
-// 地址纯树派生:一次 load 全树,既定位目标条,又建 title→path 索引给双链解析用。
-//
-// scope 决定一条能不能被这个查看者读到（F-L-11 bearer-aware reader）:匿名 = PublicWikiScope
-// (只 published,给爬虫/SEO);带有效 code bearer = RoleWikiScope(该 code role 的 corpus glob 内
-// 的条目,不论 published) —— owner 的访问模型是「published(匿名)+ code(受邀 scope)」。
+// GetWikiLanding — the public landing query: path -> wiki entry + rendered body +
+// read-next/cited-by. Addresses are pure tree derivation: one full-tree load both locates
+// the target entry and builds the title->path index for cross-link resolution.
+// scope decides whether this viewer can read a given entry (F-L-11 bearer-aware reader):
+// anonymous = PublicWikiScope (published only, for crawlers/SEO); a valid code bearer =
+// RoleWikiScope (entries inside that role's corpus glob, regardless of published) — the
+// access model is "published (anonymous) + code (invited scope)".
 func GetWikiLanding(
 	ctx context.Context, deps SEODeps, path string, scope WikiTreeScope,
 ) (WikiLanding, error) {
 	return GetWikiLandingInLang(ctx, deps, path, scope, "")
 }
 
-// GetWikiLandingInLang —— 同上,外加访客要的语言(`?lang=`)。
+// GetWikiLandingInLang — same as above, plus the language the visitor wants (`?lang=`).
 func GetWikiLandingInLang(
 	ctx context.Context, deps SEODeps, path string, scope WikiTreeScope, lang string,
 ) (WikiLanding, error) {
@@ -126,8 +128,9 @@ func GetWikiLandingInLang(
 	if !ok {
 		return WikiLanding{}, entity.ErrOwnerNotFound
 	}
-	// 全量 meta(无 body、无 50-cap):算树派生 path 定位条目 + 建 [[X]] 渲染 title 索引。
-	// deep entry(超出旧 newest-50)也找得到,链接也不断。正文单独 GetByID 拉。
+	// Full meta (no body, no 50-cap): computes tree-derived paths to locate the entry and
+	// build the title index for rendering [[X]] links. A deep entry (beyond the old
+	// newest-50 cap) is findable too, and links don't break; body is fetched via GetByID.
 	metas, err := deps.Wiki.ListAllMeta(ctx, soleOwner.ID)
 	if err != nil {
 		return WikiLanding{}, fmt.Errorf("list wiki meta: %w", err)
@@ -136,12 +139,13 @@ func GetWikiLandingInLang(
 		&landingLocate{scope: scope, path: path, metas: metas, lang: lang})
 }
 
-// landingLocate —— 定位一条 landing 的输入(全量 meta + 目标 path + 查看者 scope)。打包成一个入参
-// 让 assembleWikiLanding 守 argument-limit。字段序为 fieldalignment。
+// landingLocate — input for locating one landing (full meta + target path + viewer
+// scope). Bundled into one param so assembleWikiLanding respects argument-limit. Field
+// order follows fieldalignment.
 type landingLocate struct {
 	scope WikiTreeScope
 	path  string
-	// lang —— 访客要的语言(`?lang=`)。空 = 按这条笔记的身份语言。
+	// lang — the language the visitor wants (`?lang=`); empty uses this note's identity language.
 	lang  string
 	metas []corpus.WikiMeta
 }
@@ -174,13 +178,12 @@ func assembleWikiLanding(
 	}, nil
 }
 
-// landingMedia —— 这条语料身上跟素材有关的全部:引用解析出的地址、hero 三件套、附件清单。
-//
-// 以前这里只取 URLs,把 hero 和附件扔了 —— 于是 owner 设的封面图到不了访客页面(那边永远
-// 是按 slug hash 生成的色块),附件更是连字段都没有。**读的时候三样一起取,是因为它们本来
-// 就是一次查询的结果**;只带走一样,另外两样就得再开一条路。
-//
-// 取不到只当没有:一份素材出问题不该让整个页面打不开。没接素材存储(某些只读装配)同理。
+// landingMedia — everything media-related on this corpus entry: resolved reference
+// addresses, the hero trio, the attachment list. All three come from one query together —
+// splitting them used to drop hero and attachments (a cover image never reached the
+// visitor page; it showed a slug-hash color block instead, and attachments had no field).
+// A failure to fetch is treated as absence — one broken asset, or unwired media storage
+// (some read-only compositions), shouldn't take down the whole page.
 func landingMedia(
 	ctx context.Context, deps SEODeps, ownerID, noteID string,
 ) corpus.NoteMediaView {
@@ -191,8 +194,9 @@ func landingMedia(
 	return media
 }
 
-// indexedWikiIDAtPath —— 全量 meta + 派生 path 里挑 path 命中且**这个查看者能看到**的那条 id。
-// 可见性交给 scope(匿名 = 只 published;code = role glob 内),不再写死 published（F-L-11）。
+// indexedWikiIDAtPath — from full meta + derived paths, picks the id whose path matches
+// and that this viewer is allowed to see. Visibility is delegated to scope (anonymous =
+// published only; code = inside the role glob), no longer hardcoded to published (F-L-11).
 func indexedWikiIDAtPath(
 	metas []corpus.WikiMeta, paths map[string]string, path string, scope WikiTreeScope,
 ) (string, bool) {
@@ -204,8 +208,8 @@ func indexedWikiIDAtPath(
 	return "", false
 }
 
-// loadWikiRefSides —— 取这条 wiki 的出链(OutboundFor)+ 入链(BacklinksFor),
-// ref 的 id 用全树派生 path 映射成 (title, path)。
+// loadWikiRefSides — fetches this wiki entry's outbound (OutboundFor) + inbound
+// (BacklinksFor) links; each ref's id maps to (title, path) via the full-tree derived paths.
 func loadWikiRefSides(
 	ctx context.Context, deps SEODeps, ownerID, wikiID string, paths map[string]string,
 ) (wikiRefSides, error) {
@@ -231,13 +235,13 @@ func wikiRefsToPathTitle(refs []corpus.NoteRef, paths map[string]string) []corpu
 	return out
 }
 
-// LandingURL —— 一条 indexed landing 的 sitemap URL (wiki 或 output 通用)。
+// LandingURL — the sitemap URL for one indexed landing (works for either wiki or output).
 type LandingURL struct {
 	Path      string
 	UpdatedAt int64
 }
 
-// IndexedWikiLandings —— 给 sitemap.xml 列 sole owner 所有 indexed path（树派生）。
+// IndexedWikiLandings — for sitemap.xml, lists every indexed path for the owner (tree-derived).
 func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {
@@ -257,10 +261,10 @@ func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	return out
 }
 
-// OutputLanding —— 一条 output 的落地页。**跟 WikiLanding 一样带素材** ——
-// 以前它只回一个 corpus.Output,于是访客那边正文里的 standmeet-asset 渲不出来、
-// owner 设的封面到不了前端、附件连字段都没有。底下的机制一直是 genre 无关的,
-// 缺的只是这里没把 media 带出去。
+// OutputLanding — one output's landing page. Carries media just like WikiLanding: it
+// used to return only a corpus.Output, so a visitor's standmeet-asset refs in the body
+// wouldn't render, the cover never reached the frontend, and attachments had no field.
+// The underlying mechanism was always genre-agnostic; media just wasn't carried out here.
 type OutputLanding struct {
 	AssetURLs map[string]string
 	Assets    []corpus.AssetView
@@ -268,7 +272,7 @@ type OutputLanding struct {
 	Output    corpus.Output
 }
 
-// GetOutputLanding —— 公开 output landing 查询(同 wiki 的树派生口径),连同它身上的素材。
+// GetOutputLanding — the public output landing query (same tree-derivation as wiki), plus media.
 func GetOutputLanding(
 	ctx context.Context, deps SEODeps, path string,
 ) (OutputLanding, error) {
@@ -289,7 +293,7 @@ func GetOutputLanding(
 	}, nil
 }
 
-// resolveOutputLanding —— 全量 meta 定位 indexed + path 命中那条,正文 GetByID 拉。
+// resolveOutputLanding — locates the entry matching path in full meta, fetches via GetByID.
 func resolveOutputLanding(
 	ctx context.Context, deps SEODeps, ownerID, path string,
 ) (corpus.Output, error) {
@@ -308,7 +312,7 @@ func resolveOutputLanding(
 	return o, nil
 }
 
-// indexedOutputIDAtPath —— wiki 的 output 孪生:全量 meta 里挑 indexed + path 命中的 id。
+// indexedOutputIDAtPath — the wiki version's twin: indexed id matching path, from full meta.
 func indexedOutputIDAtPath(
 	metas []corpus.OutputMeta, paths map[string]string, path string,
 ) (string, bool) {
@@ -320,7 +324,7 @@ func indexedOutputIDAtPath(
 	return "", false
 }
 
-// IndexedOutputLandings —— sitemap.xml 列 indexed output landing（树派生）。
+// IndexedOutputLandings — for sitemap.xml, lists indexed output landings (tree-derived).
 func IndexedOutputLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok {

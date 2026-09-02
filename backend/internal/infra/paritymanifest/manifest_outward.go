@@ -16,13 +16,15 @@ import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 const (
 	FacadeChat = "chat"
 	FacadeAPI  = "api"
-	// FacadeMCPVisitor —— 访客把**自己的** AI 客户端指过来的那一面（`/mcp/visitor`，
-	// 认一张码）。跟 api 同属对外平面、同样是程序面（LLM 在对面，不在我们这儿），
-	// 所以它渲染的是同一组非 Agentic 的对外能力。
+	// FacadeMCPVisitor —— the face where a visitor points **their own** AI client
+	// (`/mcp/visitor`, authenticated by an access code). Same outward plane as api, same
+	// programmatic face (the LLM sits on the other side, not on ours), so it renders the same
+	// set of non-Agentic outward capabilities.
 	//
-	// 它在这里登记，是因为「以后加一个面也从这边出」只有登记了才成立：
-	// 上一版这一面是**建完就挂上去**的，没有任何东西保证它跟别的对外面报出同一套东西，
-	// 也没有任何东西拦住有人往它上面挂一个 owner 能力。
+	// It's registered here because "any future face also comes from this registry" only holds
+	// once it's registered: the previous version of this face was **built and mounted
+	// directly**, with nothing guaranteeing it reported the same set as the other outward
+	// faces, and nothing stopping someone from mounting an owner capability onto it.
 	FacadeMCPVisitor = "mcp-visitor"
 )
 
@@ -66,16 +68,19 @@ func apiFacade() fp.Facade {
 	return fp.Facade{Name: FacadeAPI, Plane: fp.PlaneOutward, ServesRead: true, ServesActn: true}
 }
 
-// mcpVisitorFacade —— 访客 MCP 面的画像。跟 api 同一档：对外平面、程序面（不载 Agentic）、
-// 读和动作都服务。**同一档就该报同一套东西** —— 两个对外面各报各的，正是这条轴要防的事。
+// mcpVisitorFacade —— the profile of the visitor MCP face. Same tier as api: outward plane,
+// programmatic face (no Agentic), serves both reads and actions. **Same tier should report the
+// same set** — two outward faces each reporting their own set is exactly what this axis guards
+// against.
 func mcpVisitorFacade() fp.Facade {
 	return fp.Facade{
 		Name: FacadeMCPVisitor, Plane: fp.PlaneOutward, ServesRead: true, ServesActn: true,
 	}
 }
 
-// MCPVisitorMissing —— 按 Reach 本该出现在访客 MCP 面、却没有被任何一个活工具实现的 op。
-// 跟 APIMissing 同一个形状、同一个棘轮：从渲染器里掉一个工具，它就重新长出来 → 红。
+// MCPVisitorMissing —— ops that per their Reach should appear on the visitor MCP face but aren't
+// realized by any live tool. Same shape, same ratchet as APIMissing: drop a tool from the
+// renderer and it regrows → RED.
 func MCPVisitorMissing(liveTools []string) []string {
 	exposure := fp.Exposure{Facade: mcpVisitorFacade(), Exposed: exposedAPIOps(liveTools)}
 	return missingOnFacade(fp.Conform(ManifestOutward(), []fp.Exposure{exposure}),
@@ -153,8 +158,9 @@ func missingAPIOps(vs []fp.Violation) []string {
 	return missingOnFacade(vs, FacadeAPI)
 }
 
-// missingOnFacade —— 某一个面上「本该有却没有」的那些 op。两个对外面共用一份提取，
-// 是因为它们问的是同一个问题；各写一份的话，加第三个面时又会各飘各的。
+// missingOnFacade —— the ops "that should be there but aren't" on one facade. The two outward
+// faces share one extraction because they're asking the same question; writing one each would
+// let them drift apart when a third face is added.
 func missingOnFacade(vs []fp.Violation, facade string) []string {
 	out := []string{}
 	for _, v := range vs {

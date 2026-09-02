@@ -1,8 +1,10 @@
-// boot_wireup_diag.go —— 把连接器轴的按-id invoke 接到 diag 路由上,并在这里翻译错误。
+// boot_wireup_diag.go — wires the connector axis's invoke-by-id into the diag route,
+// and translates its errors here.
 //
-// 翻译放在组装根,是为了让 `internal/routes/sys` 不必 import 连接器包:那条路由唯一需要
-// 分辨的事是"地址错了"(404)还是"事没成"(200 + ok:false),它用自己的 sentinel 表达这件事,
-// 由这里把连接器侧的对应错误映过去。
+// The translation lives in the composition root so `internal/routes/sys` doesn't have
+// to import the connector package: the only thing that route needs to distinguish is
+// "wrong address" (404) from "the thing didn't happen" (200 + ok:false); it expresses
+// that with its own sentinel, and this file maps the connector-side error onto it.
 
 package main
 

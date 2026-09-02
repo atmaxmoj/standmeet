@@ -1,6 +1,7 @@
-// ConnectorCard —— 一张连接器卡（内置或上传）：派生凭据表单（connector-field-{key}）+ oauth2 的
-// redirect-uri（只读）/ scope 多选 + Connect/Disconnect + 状态/错误。归一鈦：任何 kind/auth 一套
-// 卡。逻辑在 use-connector-card；这里只渲染 + 连线（eslint：无 if、复杂度 ≤3）。
+// ConnectorCard — one connector card (built-in or uploaded): derived credentials form
+// (connector-field-{key}) + oauth2's redirect-uri (read-only) / scope checklist +
+// Connect/Disconnect + status/error. Unification: one card for any kind/auth. Logic lives
+// in use-connector-card; this file only renders + wires up (eslint: no if, complexity <=3).
 
 'use client';
 
@@ -25,14 +26,16 @@ export function ConnectorCard({ entry }: { entry: CatalogEntry }) {
   );
 }
 
-// ConnectorCardBody —— 一张卡的主体：状态 + 派生凭据表单 + Connect/Disconnect。
+// ConnectorCardBody — a card's body: status + derived credentials form + Connect/Disconnect.
 //
-// **内置的和 owner 自己传进来的共用这一份**（F-C-47）。传进来的那一族原先只渲染
-// 「品类 / 来源 / kind / 状态 / 删除」—— 于是产品让 owner 建一个**它不给任何办法去连**
-// 的连接器，而那一节的导语正写着 "upload your own (OpenAPI / protocol) connector"。
-// 缺的从来不是能力：`/{id}/credential-form`、`/{id}/credentials`、`/{id}/connect`
-// 对任何 id 都在，表单也本来就是**后端按连接器自己的声明派生**的 —— 所以这里没有为
-// caldav 或任何一种 kind 写第二套 UI，只是把同一个主体接到了另一族行上。
+// **Built-in and owner-uploaded connectors share this same body** (F-C-47). The uploaded
+// family used to render only "category / origin / kind / status / delete" — so the product
+// let an owner create a connector **with no way to connect it**, while that section's own
+// intro read "upload your own (OpenAPI / protocol) connector". The capability was never
+// missing: `/{id}/credential-form`, `/{id}/credentials`, `/{id}/connect` all exist for any
+// id, and the form is already **derived by the backend from the connector's own declaration**
+// — so there's no second UI written here for caldav or any other kind, this just wires the
+// same body to the other family of rows.
 export function ConnectorCardBody({ entry }: { entry: CatalogEntry }) {
   const hook = useConnectorCard(entry.id);
   return (
@@ -51,15 +54,19 @@ export function ConnectorCardBody({ entry }: { entry: CatalogEntry }) {
   );
 }
 
-// cardName —— 这张卡叫什么。
+// cardName — what this card is called.
 //
-// 一直渲的是 `category`，而**没绑品类契约的上传连接器 category 是空串** —— GitHub 那种落不到
-// calendar/mail 上的厂商只有「暴露成 agent 工具」这一条路，于是它在列表里是一行没有名字的框；
-// 两条并排时 owner 分不出哪条是哪个厂商，也就不知道该给哪一条填凭据（F-C-56）。
+// It always rendered `category`, and **an uploaded connector with no category contract has
+// an empty category string** — a vendor like GitHub, which doesn't map onto calendar/mail,
+// has only the "expose as an agent tool" path, so it showed up as a nameless box in the list;
+// with two rows side by side the owner couldn't tell which vendor was which, and so couldn't
+// tell which one to fill credentials for (F-C-56).
 //
-// 有品类的仍然按品类叫（`calendar` / `mail` 是 owner 的用语，比厂商名更贴近他要做的事）；
-// 只有在没品类时才退到厂商名。两样都没有 → 退到 id，**不留空**：一个没有名字的可操作对象，
-// 在屏幕上跟「加载失败」长得一样。
+// A connector with a category is still named by category (`calendar` / `mail` are the owner's
+// own vocabulary, closer to what they're trying to do than a vendor name); it only falls back
+// to the vendor name when there's no category. When neither exists, fall back to the id —
+// **never leave it blank**: a nameless actionable object looks, on screen, exactly like a
+// load failure.
 function cardName(entry: CatalogEntry): string {
   const named = [entry.category, entry.title ?? '', entry.id].filter((s) => s !== '');
   return named[0] ?? '';
@@ -70,9 +77,11 @@ function CardHead(
 ) {
   return (
     <div className="flex items-center justify-between mb-3">
-      {/* 卡名要比卡里的字段重。以前是 `text-sm`，跟右边的 `not connected`、下面的
-          `bearer` / `TOKEN` 几乎平起平坐 —— 而这张卡是一个**可操作的对象**，字段是它的
-          内容。同一段里 GOOGLE CALENDAR 那张已经是这个层级，三张品类卡当时没跟上。 */}
+      {/* The card name needs more weight than the fields inside it. It used to be `text-sm`,
+          nearly level with the "not connected" to its right and the `bearer` / `TOKEN` below
+          it — but this card is an **actionable object**, the fields are its content. The
+          GOOGLE CALENDAR card in this same batch was already at this level; the three
+          category cards just hadn't caught up yet. */}
       <span
         data-testid="connector-card-name"
         className="font-serif text-[17px] tracking-[-0.01em] text-(--color-ink)"
@@ -86,24 +95,29 @@ function CardHead(
   );
 }
 
-// UnreadableNote —— 这台实例读不懂这份凭据了（F-C-41）。
+// UnreadableNote — this instance can no longer read this credential (F-C-41).
 //
-// prod 上真轮换过一次 `INSTANCE_SECRET`：后端正常起来，而这一页把**每一张卡**都渲成
-// `not connected` + 一排空框，屏幕上一个字都没有 —— 一句关于世界的假话（库里密文和
-// `connected_at` 都还在），而且它指向一个动作（重填凭据），于是 owner 会在一份自己
-// 没读到的配置上面动手。
+// `INSTANCE_SECRET` really did get rotated once in prod: the backend came up fine, but this
+// page rendered **every card** as `not connected` plus a row of empty boxes, not a single
+// word about why on screen — a lie about the state of the world (the encrypted value and
+// `connected_at` were both still there in the DB), and one that points to an action (re-enter
+// credentials), so the owner ends up acting on a configuration they never actually read.
 //
-// 这句话就摆在卡名下面，因为出问题的是**这张卡**（跟 F-C-23 把拒绝贴在出错的框下面同一条规矩）。
-// 措辞不提密钥、不提密文：owner 要做的只是重新连一次。
-// ScopeShortfallNote —— 紧贴在 `connected` 下面那一行：**这个授权做不了什么**（F-B-8）。
+// This line sits right under the card name, because the problem is **this card**
+// (same rule as F-C-23 putting a rejection right under the field that caused it). The wording
+// never mentions the key or the ciphertext: all the owner needs to do is reconnect.
+// ScopeShortfallNote — sits right below `connected`: **what this authorization can't do**
+// (F-B-8).
 //
-// 为什么排在这儿：`connected` 说的是「我们手里有一个 token」，而 owner 读它的时候以为
-// 说的是「这个连接能干它被要求干的事」。只授了 `calendar.readonly` 时那两件事分叉 ——
-// 读是通的、列时段是好的，只有写永远做不了，而访客那一侧因此少了订会（F-B-8 已按工具摘掉）。
-// owner 唯一能看见这件事的地方就是这张卡，所以这句话必须挨着那个词。
+// Why here: `connected` says "we're holding a token", but the owner reads it as "this
+// connection can do whatever it's asked to do". Granting only `calendar.readonly` splits
+// those apart — reads work, listing slots works, but writes never will, and that's why
+// visitors lose the ability to book a meeting (F-B-8, already pulled from the tool list).
+// This card is the only place the owner can see this at all, so the sentence has to sit
+// right next to that word.
 //
-// 说**缺哪个 scope**，不说「有些动作不可用」：owner 的下一步是把它勾上再连一次，
-// 而没有名字的话他无从下手。
+// It names **which scope is missing**, not "some actions are unavailable": the owner's next
+// step is to check that box and reconnect, and they can't do that without a name.
 function ScopeShortfallNote({ missing }: { missing: readonly string[] }) {
   const t = useTranslations('adminShell.connectorCard');
   return missing.length === 0 ? null : (
@@ -127,14 +141,17 @@ function UnreadableNote({ reason }: { reason: string }) {
   );
 }
 
-// statusText —— connecting…（dance 进行中，不含 "connected" 子串，让 expectConnected 真等回程）/
-// connected / not connected。
+// statusText — connecting… (dance in progress; no "connected" substring, so expectConnected
+// really waits for the round trip) / connected / not connected.
 function statusText(connected: boolean, connecting: boolean): string {
   return connecting ? 'connecting…' : connected ? 'connected' : 'not connected';
 }
 
-// SchemeSelect —— 多 securityScheme 时让 owner 选认证方式（单 scheme 也渲染，装配测试要选一下）。
-// 非受控：连接用的是连接器装配时定的 scheme（单 scheme 即唯一那个）；选项在则 selectOption 可用。
+// SchemeSelect — lets the owner pick an auth method when there's more than one securityScheme
+// (renders even for a single scheme, so the assembly test still has something to select).
+// Uncontrolled: the connection uses whichever scheme was set when the connector was assembled
+// (a single scheme is the only one there is); the option being present is enough for
+// selectOption to use it.
 function SchemeSelect({ schemes }: { schemes: readonly string[] }) {
   return schemes.length === 0 ? null : (
     <SelectField
@@ -150,9 +167,10 @@ function SchemeSelect({ schemes }: { schemes: readonly string[] }) {
 
 function Fields({ hook }: { hook: ConnectorCardHook }) {
   return (
-    // space-y-4 而不是 space-y-2：加了标签之后，一格的高度变成「标签 + 6px 内距 + 文字 + 下划线」，
-    // 于是每个标签离**上一格的线**比离**自己的线**还近，眼睛把它归到上面那格去了。
-    // 字段之间要比字段内部松 —— 这是分组，不是留白偏好。
+    // space-y-4, not space-y-2: once labels were added, one field's height became
+    // "label + 6px padding + text + underline", so each label sat closer to the **line above
+    // it** than to its **own line** — the eye grouped it with the field above. Fields need
+    // more room between them than within them — that's grouping, not a whitespace preference.
     <div className="space-y-4 mb-3">
       <StoredCredsNote show={hook.hasCredentials} />
       {hook.fields.map((key) => <CredField key={key} name={key} onChange={hook.setField} />)}
@@ -160,18 +178,23 @@ function Fields({ hook }: { hook: ConnectorCardHook }) {
   );
 }
 
-// CredField —— 一格凭据，**带一个留得住的标签**。
+// CredField — one credential field, **with a label that stays**.
 //
-// 这几格原来只有 placeholder：`host` / `port` / `username` / `password` / `from_address` /
-// `from_name` / `tls` 七个一模一样的框，而 placeholder 在你一开始打字的瞬间就消失 ——
-// 填到第四格就说不清哪格是哪格了（UX-58 的一半）。字段名一直在手里，只是没渲染成标签。
+// These fields used to have only a placeholder: `host` / `port` / `username` / `password` /
+// `from_address` / `from_name` / `tls` were seven identical-looking boxes, and a placeholder
+// vanishes the instant you start typing — by the fourth field you can no longer tell which is
+// which (half of UX-58). The field name was always in hand, it just never got rendered as a
+// label.
 //
-// **这一条只做得了这一半**：UX-58 还说了「没有分组（连接参数 vs 发信身份）」和
-// 「`tls` 那一格从表单上根本答不出来（布尔？starttls？端口？）」—— 那两条要连接器**声明**
-// 分组和字段说明（`CredentialForm` 现在只有 `Fields []string`），是新数据，归 Result 列。
+// **This only fixes that half**: UX-58 also flagged "no grouping (connection params vs. send
+// identity)" and "the `tls` field can't be answered from the form at all (boolean? starttls?
+// port?)" — those two need the connector to **declare** its own grouping and field
+// descriptions (`CredentialForm` currently only has `Fields []string`), which is new data and
+// belongs to the Result column.
 //
-// 文本输入在这个产品里只有一种长相：下划线（`.sm-field-input`）。凭据这几格曾是**整框**，
-// 于是同一种控件隔一屏就是两个标准（UX-59）。
+// Text input has exactly one look in this product: an underline (`.sm-field-input`). These
+// credential fields used to be **boxed**, so the same control had two different standards a
+// screen apart (UX-59).
 function CredField({ name, onChange }: {
   name: string; onChange: (k: string, v: string) => void;
 }) {
@@ -188,15 +211,17 @@ function CredField({ name, onChange }: {
   );
 }
 
-// StoredCredsNote —— 「这个连接器已经存了凭据」。
+// StoredCredsNote — "this connector already has credentials saved".
 //
-// 后端**从不回**凭据的值，只回 `has_credentials: true`（connector-security 验过：
-// credential-form 回的是字段名、连打码的值都没有 —— 那比打码更强，是对的）。
-// 但代价没被界面接住：一张写着 `connected` 的卡下面摆着一排空框，
-// **「已存但隐藏」和「什么都没配」长得一模一样**（UX-65）。
-// owner 因此没法判断"我到底要不要重填"，而重填一次就把好凭据覆盖掉了。
+// The backend **never returns** a credential's value, only `has_credentials: true`
+// (verified in connector-security: credential-form only returns field names, not even a
+// masked value — stronger than masking, which is correct). But the UI never caught that
+// trade-off: a card that says `connected` sits above a row of empty boxes, and **"stored but
+// hidden" looks exactly like "nothing configured"** (UX-65). The owner can't tell whether
+// they need to re-enter it, and re-entering overwrites good credentials with nothing.
 //
-// 保密不变，只是把**已知的事实**说出来：值不回来，但"有"这件事后端一直在说。
+// Secrecy is unchanged; this just says out loud a fact the backend already knows: the value
+// doesn't come back, but the backend has always been saying whether one **exists**.
 function StoredCredsNote({ show }: { show: boolean }) {
   const t = useTranslations('adminShell.connectorCard');
   return show ? (
@@ -209,14 +234,15 @@ function StoredCredsNote({ show }: { show: boolean }) {
   ) : null;
 }
 
-// isSecret —— 凭据里该遮的字段（密钥/口令/token）。
+// isSecret — which credential fields should be masked (key/password/token).
 function isSecret(key: string): boolean {
   return /secret|token|password|key/i.test(key);
 }
 
-// RedirectUri —— oauth2 才有：owner 拿去 SaaS 注册 OAuth client 的回调地址（只读）。
-// **必须是绝对地址**：provider 的控制台只收完整 URI（F-C-32）。origin 取自 owner 此刻
-// 访问这一页用的那个地址 —— 见 lib/admin/redirect-uri.ts。
+// RedirectUri — oauth2 only: the callback URL the owner registers with the SaaS's OAuth
+// client (read-only). **Must be an absolute URL**: the provider's console only accepts a
+// full URI (F-C-32). Origin comes from whatever address the owner is currently using to
+// visit this page — see lib/admin/redirect-uri.ts.
 function RedirectUri({ id, authType }: { id: string; authType: string }) {
   const uri = useConnectorRedirectURI(id);
   return authType === 'oauth2' ? (
@@ -237,10 +263,13 @@ function Scopes({ hook }: { hook: ConnectorCardHook }) {
           <input
             type="checkbox"
             data-testid={`connector-scope-${scope}`}
-            // 已授的要勾上（F-C-33）。以前这里既没有 checked 也没有 defaultChecked ——
-            // 于是这排框只能往里写、读不出来，一条连着的连接看起来像什么权限都没有。
-            // 用 defaultChecked + key 而不是受控：勾选状态归浏览器管（setScope 已经在存），
-            // 而 key 带上 granted，表单**重新拉到**已授范围时这一排会按新值重建。
+            // Already-granted scopes must show checked (F-C-33). This used to have neither
+            // checked nor defaultChecked — so these boxes could only be written to, never
+            // read back, and a live connection looked like it had no permissions at all.
+            // Uses defaultChecked + key instead of a controlled input: checked state is owned
+            // by the browser (setScope is already persisting it), and key carries `granted` so
+            // that when the form re-fetches the granted scopes, this row rebuilds with the
+            // new values.
             key={`${scope}:${hook.granted.includes(scope)}`}
             defaultChecked={hook.granted.includes(scope)}
             onChange={(e) => hook.setScope(scope, e.target.checked)}
@@ -256,9 +285,11 @@ function Actions({ hook }: { hook: ConnectorCardHook }) {
   const t = useTranslations('adminIntegrations.common');
   return (
     <div className="flex gap-2">
-      {/* 派生表单没回来之前按不动:那一帧的 Connect 不知道自己该走 dance 还是原地连,
-          按下去会把一个 oauth2 连接器送进非 dance 那条路,owner 读到的是一句
-          「The connection test failed.」—— 属于另一条路的话（F-C-60）。 */}
+      {/* Disabled until the derived form comes back: before that, Connect doesn't know
+          whether it should go through the OAuth dance or connect in place, and pressing it
+          sends an oauth2 connector down the non-dance path — the owner reads
+          "The connection test failed.", a message that belongs to a different path
+          (F-C-60). */}
       <button
         type="button" onClick={hook.connect} disabled={!hook.ready}
         data-testid="connector-connect-button"

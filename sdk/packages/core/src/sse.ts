@@ -1,6 +1,7 @@
-// sse.ts —— 解析 backend 发的 text/event-stream 字节流。pure：不知道
-// 任何 HTTP 细节，只接 ReadableStream<Uint8Array>，按 SSE 协议吐
-// SSEEvent。streamMessages 在 client.ts 里包一层 fetch。
+// sse.ts —— parses the text/event-stream byte stream sent by the backend.
+// pure: knows nothing about HTTP details, only takes a
+// ReadableStream<Uint8Array> and emits SSEEvent per the SSE protocol.
+// streamMessages wraps this with a fetch call in client.ts.
 
 import type {
   SSEEvent,
@@ -10,8 +11,9 @@ import type {
   CitedRef,
 } from './types.js';
 
-// readSSE —— 把一段 ReadableStream<Uint8Array> 转成 SSEEvent 生成器。
-// 一个 SSE block 由 \n\n 划界；最后一段 partial 留下次循环继续 buffer。
+// readSSE —— turns a ReadableStream<Uint8Array> into an SSEEvent generator.
+// One SSE block is delimited by \n\n; the last partial segment stays
+// buffered for the next loop iteration.
 export async function* readSSE(
   body: ReadableStream<Uint8Array>,
 ): AsyncGenerator<SSEEvent, void, unknown> {

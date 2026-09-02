@@ -1,6 +1,8 @@
-// use-sandbox —— #147 admin 管理 MCP 沙箱。GET /api/admin/sandbox/workspaces 列活跃
-// per-session 工作区;POST /sandbox/ttl 设后端可控 TTL;POST /sandbox/sweep 按需清扫过期。
-// 形态参照 use-ip-bans(zustand resource store + mutation actions)。
+// use-sandbox —— #147 admin management of the MCP sandbox. GET
+// /api/admin/sandbox/workspaces lists active per-session workspaces; POST
+// /sandbox/ttl sets the backend-controlled TTL; POST /sandbox/sweep sweeps
+// expired ones on demand. Shaped after use-ip-bans (zustand resource store +
+// mutation actions).
 
 import { useEffect } from 'react';
 
@@ -46,7 +48,8 @@ export function useSandbox(): SandboxHook {
   };
 }
 
-// mutation 抛错(不吞):调用方用 useAction 收尾(成功 toast / 失败 report)。
+// The mutation throws (not swallowed): the caller finishes up with useAction
+// (success toast / failure report).
 async function sweep(): Promise<void> {
   await adminAPI.post('/sandbox/sweep', {}, SweepSchema);
   await sandboxStore.getState().refresh();

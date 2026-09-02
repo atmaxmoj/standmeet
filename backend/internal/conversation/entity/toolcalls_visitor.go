@@ -1,29 +1,38 @@
-// toolcalls_visitor.go —— 一轮的 tool_calls 里,哪些能给**访客**看。
+// toolcalls_visitor.go -- of a round's tool_calls, which parts are safe to show the
+// **visitor**.
 //
-// F-A-28:访客自己的会话回参把落库的 tool_calls 原样吐了出去,里面是 corpus_read 的完整结果 ——
-// 含私有 subjectivity 笔记的正文,和它自己那句 `"show_as_source":false`。同一份回参里 citations
-// 是空的:引用那道闸做对了,而这条通道绕开了它。直播那一轮同理。
+// F-A-28: the visitor's own conversation response echoed the persisted tool_calls
+// verbatim, including the full corpus_read result -- the body text of private
+// subjectivity notes, and its own `"show_as_source":false` flag. The citations field
+// in that same response was empty: the citation gate did its job, but this channel
+// bypassed it entirely. The live-stream round had the same bug.
 //
-// 为什么剥掉整个 result,而不是按 show_as_source 过滤:
-//   • 访客侧**根本不需要**检索结果 —— 界面把 corpus_* 折叠成「searched N · read M」两个数,
-//     正文一个字都不渲(tool-call-shape.ts)。发出去的东西没有任何用途,只有风险。
-//   • 一条「带着正文、但会遮住私有那些」的通道,离下一个同类缺陷只差一个被忘掉的分支。
-//     不带正文的通道没有这个问题。
+// Why strip the entire result instead of filtering by show_as_source:
+//   • The visitor side **never needs** the raw retrieval result at all -- the UI
+//     collapses corpus_* calls into two numbers, "searched N · read M", and never
+//     renders any body text (tool-call-shape.ts). Sending it serves no purpose and
+//     carries only risk.
+//   • A channel that carries body text but tries to mask the private ones is one
+//     forgotten branch away from the next instance of this same bug. A channel that
+//     carries no body text at all doesn't have this problem.
 //
-// 非检索工具(booker 的报告卡、summarize 的 html、skill_*/ext_*)的 result 照常保留 —— 那些
-// 本来就是渲给访客看的产物。
+// Non-retrieval tools (booker's report card, summarize's html, skill_*/ext_*) keep
+// their result as-is -- those are already meant to be rendered for the visitor.
 
 package entity
 
 import "encoding/json"
 
-// corpusToolPrefix —— 检索族工具的名字前缀。corpus 是内核自己的东西(不是外置能力),
-// 所以这一层认识它;认识 booker / mail 那类具体能力才是越界。
+// corpusToolPrefix -- the name prefix for the retrieval family of tools. corpus is a
+// kernel-owned concept (not an externalized capability), so this layer is allowed to
+// know about it; knowing about specific capabilities like booker / mail would be overreach.
 const corpusToolPrefix = "corpus_"
 
-// VisitorToolCalls —— 落库的 tool_calls JSON → 可以下发给访客的那一份。
+// VisitorToolCalls -- the persisted tool_calls JSON, mapped to the subset that's safe
+// to send to the visitor.
 //
-// 解析不动就回一个空数组:宁可访客少看见一块折叠计数,也不要把没看懂的东西整段透出去。
+// If parsing fails, return an empty array: better the visitor misses one collapsed-count
+// block than we leak something we failed to understand, unparsed and whole.
 func VisitorToolCalls(raw []byte) []byte {
 	if len(raw) == 0 {
 		return []byte("[]")
@@ -42,8 +51,10 @@ func VisitorToolCalls(raw []byte) []byte {
 	return out
 }
 
-// VisitorToolResult —— 直播那一路:一次工具调用的 result 能不能原样发给访客。
-// 检索族回空串(界面只数个数);其余原样 —— 那些是渲给访客看的产物。
+// VisitorToolResult -- the live-stream path: whether one tool call's result can be sent
+// to the visitor as-is. Retrieval-family calls return an empty string (the UI only
+// counts them); everything else passes through as-is -- those results are meant to be
+// rendered.
 func VisitorToolResult(name, result string) string {
 	if isCorpusToolName(name) {
 		return ""
@@ -55,7 +66,8 @@ func isCorpusToolName(name string) bool {
 	return len(name) >= len(corpusToolPrefix) && name[:len(corpusToolPrefix)] == corpusToolPrefix
 }
 
-// stripCorpusResult —— 是检索调用就把 result 拿掉,名字和 ok 留着(界面只用它们数数)。
+// stripCorpusResult -- for a retrieval call, drops the result but keeps name and ok
+// (the UI only uses those two to count).
 func stripCorpusResult(call map[string]json.RawMessage) {
 	if !isCorpusCall(call) {
 		return

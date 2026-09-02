@@ -10,8 +10,9 @@ import { loadStoredSession } from '@/lib/gate/use-gate';
 import { parseWikiLanding, type WikiLandingEntry } from '@/lib/visitor/wiki-landing';
 import type { TreeContext } from '@/lib/corpus/tree';
 
-// 形状和解析住在 `wiki-landing.ts` —— 这个文件 import 了 use-gate(client hook),
-// 服务端那条路 import 不得(见那边开头的说明)。
+// The shape and its parsing live in `wiki-landing.ts` — this file imports
+// use-gate (a client hook), which the server-side path must not import
+// (see the note at the top of that file).
 export type { WikiLandingEntry } from '@/lib/visitor/wiki-landing';
 export { parseWikiLanding } from '@/lib/visitor/wiki-landing';
 

@@ -1,15 +1,16 @@
-// writing.go —— owner 公开发表的"作品"（前身为 Post / blog 文章）。
+// writing.go —— the "work" the owner publishes publicly (formerly Post / blog article).
 //
-// LSP contract（4 个 Genre 共契约）：
-//   - Writing.Title() 非空（owner save 时必填 title）
-//   - Writing.IsPublished() 看 published_at 是否非 nil（其它 Genre 永远 true）
-//   - 其它 method 按 Document 一般约定
+// LSP contract (shared across all 4 Genres):
+//   - Writing.Title() is non-empty (title is required when the owner saves)
+//   - Writing.IsPublished() checks whether published_at is non-nil (other Genres
+//     always return true)
+//   - other methods follow the general Document convention
 //
-// Writing-specific 字段：Slug / Path / Cover / Visibility / Excerpt /
-// ReadMinutes / CrossRefs。Obsidian sync 通过 Integrations 通用机制挂上去
-// （从前的 ObsidianSourcePath / ObsidianImportedAt 字段现在内部走
-// Integration interface，caller 通过 Integrations().Find(connector.IntegrationObsidian)
-// 拿）。
+// Writing-specific fields: Slug / Path / Cover / Visibility / Excerpt /
+// ReadMinutes / CrossRefs. Obsidian sync attaches through the generic
+// Integrations mechanism (the former ObsidianSourcePath / ObsidianImportedAt
+// fields now go through the Integration interface internally; callers get them
+// via Integrations().Find(connector.IntegrationObsidian)).
 
 package entity
 
@@ -21,7 +22,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
-// Writing —— writings 表的值对象。
+// Writing —— value object for the writings table.
 type Writing struct {
 	timestamps   Timestamps
 	cover        Cover
@@ -39,9 +40,10 @@ type Writing struct {
 	hasParent    bool
 }
 
-// WritingInit —— 构造参数 (postgres mapper 用)。Excerpt / ReadMinutes /
-// CrossRefs 是 Writing 独有的几个 leaf 字段，留 flat；其它走嵌套 Init。
-// fieldalignment: 嵌入 Init 大字段先，slice，string，int 末。
+// WritingInit —— constructor params (used by the postgres mapper). Excerpt /
+// ReadMinutes / CrossRefs are the few leaf fields unique to Writing, kept flat;
+// everything else goes through a nested Init.
+// fieldalignment: embedded Init big fields first, then slice, then string, int last.
 type WritingInit struct {
 	Timestamps   TimestampsInit
 	Cover        CoverInit
@@ -60,8 +62,9 @@ type WritingInit struct {
 	ReadMinutes  int32
 }
 
-// NewWriting —— 从 Init 构造。CrossRefs defensive clone。各 sub-object 自己
-// 内部 normalize / defensive copy。pointer 入参避开 hugeParam。
+// NewWriting —— constructs from Init. CrossRefs is defensive-cloned. Each
+// sub-object normalizes / defensive-copies internally on its own. Pointer param
+// avoids hugeParam.
 func NewWriting(i *WritingInit) Writing {
 	refs := []string{}
 	if len(i.CrossRefs) > 0 {
@@ -85,78 +88,80 @@ func NewWriting(i *WritingInit) Writing {
 	}
 }
 
-// --- Document interface (flat 转发) ---
+// --- Document interface (flat forwarding) ---
 
-// URI —— writing://<slug>。
+// URI —— writing://<slug>.
 func (w *Writing) URI() string { return FormatURI(GenreWriting, w.slug) }
 
-// Genre —— 永远返 GenreWriting。
+// Genre —— always returns GenreWriting.
 func (*Writing) Genre() DocumentGenre { return GenreWriting }
 
-// ID —— DB primary key。
+// ID —— DB primary key.
 func (w *Writing) ID() string { return w.id }
 
-// OwnerID —— owner-scoped corpus FK。
+// OwnerID —— owner-scoped corpus FK.
 func (w *Writing) OwnerID() string { return w.ownerID }
 
-// Title —— writing 标题。
+// Title —— the writing's title.
 func (w *Writing) Title() string { return w.content.Title() }
 
-// Body —— writing markdown 主体。
+// Body —— the writing's markdown body.
 func (w *Writing) Body() string { return w.content.Body() }
 
-// Tags —— 标签列表 (defensive copy)。
+// Tags —— tag list (defensive copy).
 func (w *Writing) Tags() []string { return w.content.Tags() }
 
-// CreatedAt —— 创建时间。
+// CreatedAt —— creation time.
 func (w *Writing) CreatedAt() time.Time { return w.timestamps.CreatedAt() }
 
-// UpdatedAt —— 最后更新时间。
+// UpdatedAt —— last-updated time.
 func (w *Writing) UpdatedAt() time.Time { return w.timestamps.UpdatedAt() }
 
-// Integrations —— 挂的 integration 列表 (defensive copy)，例如 Obsidian sync。
+// Integrations —— attached integration list (defensive copy), e.g. Obsidian sync.
 func (w *Writing) Integrations() []connector.Integration { return w.integrations.All() }
 
 // --- Writing-specific accessors ---
 
-// Slug —— URL-friendly 标识，per-owner unique。
+// Slug —— URL-friendly identifier, unique per owner.
 func (w *Writing) Slug() string { return w.slug }
 
-// Path —— retriever URI 用的 path (例 "writings/my-slug")。SaveWriting
-// 时 postgres mapper 拼好塞进 Init。
+// Path —— the path used for the retriever URI (e.g. "writings/my-slug"). The
+// postgres mapper assembles it and stuffs it into Init at SaveWriting time.
 func (w *Writing) Path() string { return w.path }
 
-// ParentID —— 树父节点 id + 是否有父(root → "", false)。reader sidebar 嵌套
-// + cycle 校验用。跟 Wiki.ParentID 同形。
+// ParentID —— tree parent node id + whether it has one (root → "", false). Used
+// by the reader sidebar's nesting and cycle validation. Same shape as Wiki.ParentID.
 func (w *Writing) ParentID() (string, bool) { return w.parentID, w.hasParent }
 
-// Excerpt —— 短摘要 / chat answer summary / index 卡片副标题。
+// Excerpt —— short summary / chat answer summary / index card subtitle.
 func (w *Writing) Excerpt() string { return w.excerpt }
 
-// ReadMinutes —— 阅读时长估算 (StripMarkdown 算 word 除以 225 wpm)。
+// ReadMinutes —— estimated reading time (StripMarkdown counts words, divided by
+// 225 wpm).
 func (w *Writing) ReadMinutes() int32 { return w.readMinutes }
 
-// CrossRefs —— 关联文章 slug 列表 (Writing-side relations)，defensive copy。
+// CrossRefs —— related-article slug list (Writing-side relations), defensive copy.
 func (w *Writing) CrossRefs() []string {
 	return slices.Clone(w.crossRefs)
 }
 
-// Cover —— 封面 sub-object (4 字段) 整体返。
+// Cover —— returns the cover sub-object (4 fields) as a whole.
 func (w *Writing) Cover() Cover { return w.cover }
 
-// Visibility —— 可见性 sub-object 整体返。
+// Visibility —— returns the visibility sub-object as a whole.
 func (w *Writing) Visibility() Visibility { return w.visibility }
 
-// PublishedAt —— 发布时间 (time, ok)。未发布 ok=false。
+// PublishedAt —— publish time (time, ok). ok=false when unpublished.
 func (w *Writing) PublishedAt() (time.Time, bool) {
 	return w.timestamps.PublishedAt()
 }
 
-// IsPublished —— 是否已发布。
+// IsPublished —— whether it has been published.
 func (w *Writing) IsPublished() bool { return w.timestamps.IsPublished() }
 
-// Obsidian —— writing 是否从 Obsidian vault sync 来的；type-assert helper
-// 让 caller 不用每次 Find + assert。返 (Obsidian{}, false) 表示非 vault。
+// Obsidian —— whether this writing was synced from an Obsidian vault; a
+// type-assert helper so callers don't have to Find + assert every time.
+// Returns (Obsidian{}, false) when it isn't from a vault.
 func (w *Writing) Obsidian() (connector.Obsidian, bool) {
 	in, ok := w.integrations.Find(connector.IntegrationObsidian)
 	if !ok {
@@ -166,46 +171,49 @@ func (w *Writing) Obsidian() (connector.Obsidian, bool) {
 	return ob, ok
 }
 
-// HasObsidian —— Obsidian() 的 ok-only 版本。
+// HasObsidian —— the ok-only version of Obsidian().
 func (w *Writing) HasObsidian() bool { return w.integrations.Has(connector.IntegrationObsidian) }
 
-// CoverHeadline —— 封面 headline，convenience 让 mapper / view 不用先取
-// Cover() 再取字段。
+// CoverHeadline —— cover headline; a convenience so mapper / view code doesn't
+// have to fetch Cover() first and then the field.
 func (w *Writing) CoverHeadline() string { return w.cover.Headline() }
 
-// CoverHue —— 封面色调。
+// CoverHue —— cover hue.
 func (w *Writing) CoverHue() string { return w.cover.Hue() }
 
-// CoverImageAssetID —— 封面图 asset id (空字符串表示没传)。
+// CoverImageAssetID —— cover image asset id (empty string means none was set).
 func (w *Writing) CoverImageAssetID() string { return w.cover.ImageAssetID() }
 
-// VisibilityMode —— Visibility().Mode() convenience。
+// VisibilityMode —— convenience for Visibility().Mode().
 func (w *Writing) VisibilityMode() string { return w.visibility.Mode() }
 
-// LockedBody —— Visibility().LockedBody() convenience。
+// LockedBody —— convenience for Visibility().LockedBody().
 func (w *Writing) LockedBody() string { return w.visibility.LockedBody() }
 
-// IsPrivate —— Visibility().IsPrivate() convenience。
+// IsPrivate —— convenience for Visibility().IsPrivate().
 func (w *Writing) IsPrivate() bool { return w.visibility.IsPrivate() }
 
-// --- Constants (re-exported 给 caller，跟 sub-object 内常量保持唯一来源) ---
+// --- Constants (re-exported for callers; the sub-object's constants remain the
+// single source) ---
 
-// WritingVisibilityPublic / WritingVisibilityPrivate —— 兼容现有 caller
-// 习惯的常量名。底层一律走 VisibilityPublic / VisibilityPrivate (visibility.go)。
+// WritingVisibilityPublic / WritingVisibilityPrivate —— constant names kept for
+// compatibility with existing caller usage. Underlying values always flow
+// through VisibilityPublic / VisibilityPrivate (visibility.go).
 const (
 	WritingVisibilityPublic  = VisibilityPublic
 	WritingVisibilityPrivate = VisibilityPrivate
 )
 
-// WritingCoverHueAmber / Violet / Acid —— 同样的兼容常量。
+// WritingCoverHueAmber / Violet / Acid —— same kind of compatibility constants.
 const (
 	WritingCoverHueAmber  = CoverHueAmber
 	WritingCoverHueViolet = CoverHueViolet
 	WritingCoverHueAcid   = CoverHueAcid
 )
 
-// ErrWritingNotFound —— writing id / slug 不存在或不属于该 owner。
+// ErrWritingNotFound —— the writing id / slug doesn't exist or doesn't belong to
+// this owner.
 var ErrWritingNotFound = errors.New("writing not found")
 
-// ErrWritingSlugTaken —— 同 owner 下 slug 重复 (unique constraint)。
+// ErrWritingSlugTaken —— slug collision within the same owner (unique constraint).
 var ErrWritingSlugTaken = errors.New("writing slug already taken in this owner")

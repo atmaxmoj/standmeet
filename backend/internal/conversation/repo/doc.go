@@ -1,3 +1,3 @@
-// Package repo —— conversation 域的仓储层（Chat/Report/Ghost/AppState，over db + pgstore）。
-// 对外经 internal/conversation/facade 暴露。
+// Package repo — the repository layer for the conversation domain (Chat/Report/Ghost/AppState,
+// over db + pgstore). Exposed externally via internal/conversation/facade.
 package repo

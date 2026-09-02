@@ -1,5 +1,6 @@
-// sidebar-badge-for —— AdminSidebar presentation 层不准跑 if，business
-// logic 抽到 lib/。给 SidebarItem 算 badge 数字。
+// sidebar-badge-for —— the AdminSidebar presentation layer must not run
+// `if`; business logic is pulled out into lib/. Computes the badge number
+// for a SidebarItem.
 
 import type { SidebarBadges } from '@/components/admin/AdminSidebar';
 

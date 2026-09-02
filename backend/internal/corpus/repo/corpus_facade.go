@@ -1,14 +1,16 @@
-// corpus_facade.go —— Corpus: 跨 Genre 的统一访问入口。
+// corpus_facade.go — Corpus: the unified cross-genre access entry point.
 //
-// 把 Raw / Wiki / Output / WritingRepo 4 个 repo 包到一个 facade 后面，
-// 对外按 URI / Genre 寻址。集合操作返 []Document（type-erased），
-// caller 不再分 Genre 写对称代码。
+// Wraps the 4 repos Raw / Wiki / Output / WritingRepo behind one facade,
+// addressed externally by URI / genre. Collection operations return []Document
+// (type-erased), so the caller no longer writes genre-symmetric code by hand.
 //
-// 类型本身就叫 Corpus（无 Repo 后缀） —— 它对应 corpus 集合本身。
-// 调用方写 `Get(uri)` 自然，比 `corpusRepo.Get` 啰嗦少。
+// The type itself is named Corpus (no Repo suffix) — it stands for the corpus
+// collection itself. `Get(uri)` reads naturally at the call site, less noisy
+// than `corpusRepo.Get`.
 //
-// **A.2 阶段不接进 retriever**（保持现有 retriever / route 调用不变），只立
-// facade 骨架。A.3-IAM 把 retriever 内核切到 Document/Corpus + URI ACL 一起做。
+// **Not wired into the retriever during phase A.2** (existing retriever / route
+// calls stay unchanged) — this only stands up the facade skeleton. A.3-IAM
+// switches the retriever's core to Document/Corpus together with URI ACL.
 
 package repo
 
@@ -21,7 +23,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// Corpus —— 统一 corpus 访问入口。
+// Corpus — the unified corpus access entry point.
 type Corpus struct {
 	raw      *RawRepo
 	wiki     *WikiRepo
@@ -29,28 +31,30 @@ type Corpus struct {
 	writings *WritingRepo
 }
 
-// NewCorpus —— 构造 facade。caller (composition root) 把 4 个 repo 传进来。
+// NewCorpus — constructs the facade. The caller (composition root) supplies the 4 repos.
 func NewCorpus(
 	raw *RawRepo, wiki *WikiRepo, output *OutputRepo, writings *WritingRepo,
 ) *Corpus {
 	return &Corpus{raw: raw, wiki: wiki, output: output, writings: writings}
 }
 
-// ErrCorpusGenreNotSupported —— URI scheme 解析出非 4 个 genre 的形态。
-// 通常是 caller 拼错 URI 或者新加 genre 后 facade 没扩 dispatch。
+// ErrCorpusGenreNotSupported — the URI scheme parsed to a shape outside the 4 genres.
+// Usually means the caller mistyped the URI, or a new genre was added without extending
+// the facade's dispatch.
 var ErrCorpusGenreNotSupported = errors.New("corpus genre not supported")
 
-// Get —— 按 URI 拿一个 document。dispatch by Genre。
+// Get — fetches one document by URI. Dispatch by genre.
 //
-// URI 形态 (见 ParseURI)：
+// URI shapes (see ParseURI):
 //   - raw://<uuid>        → RawRepo.GetByID(ownerID, uuid)
-//   - wiki://<path>       → WikiRepo 找 path 一样的 entry；fallback wiki://<id>
-//   - output://<path>     → 同 wiki 逻辑
+//   - wiki://<path>       → WikiRepo looks up the entry with a matching path;
+//     falls back to wiki://<id>
+//   - output://<path>     → same logic as wiki
 //   - writing://<slug>    → WritingRepo.GetBySlug(ownerID, slug)
 //
-// **注意**：这里需要 ownerID 因为所有 corpus 表都 owner-scoped；URI 本身不
-// 带 owner（pre-launch single-owner instance，多 tenant 后 URI 也不会带 —
-// owner scope 来自 visitor session）。
+// **Note**: ownerID is required here because every corpus table is owner-scoped; the URI
+// itself carries no owner (pre-launch this is a single-owner instance, and even after
+// multi-tenant the URI still won't carry one — owner scope comes from the visitor session).
 func (c *Corpus) Get(ctx context.Context, ownerID, uri string) (entity.Document, error) {
 	ref, perr := entity.ParseURI(uri)
 	if perr != nil {
@@ -63,15 +67,15 @@ func (c *Corpus) Get(ctx context.Context, ownerID, uri string) (entity.Document,
 	return getter(ctx, ownerID, ref.Path)
 }
 
-// genreGetter —— dispatch by genre 拍平到 map 里，避免 Get switch 的
-// cyclomatic 上限。每个值是把对应 repo 包成统一签名的 closure。
+// genreGetter — flattens dispatch-by-genre into a map to stay under Get's switch-statement
+// cyclomatic ceiling. Each value is a closure wrapping the matching repo in a uniform signature.
 type genreGetter func(ctx context.Context, ownerID, idOrPath string) (entity.Document, error)
 
-// List —— 列 owner 的 documents，过滤指定 genres。空 genres → 全部 4 个 genre。
-// 返 []Document type-erased，caller 通过 Document.Genre() 知道每条来源。
+// List — lists an owner's documents, filtered to the given genres. Empty genres → all 4.
+// Returns []Document type-erased; the caller learns each entry's origin via Document.Genre().
 //
-// A.2 阶段 List 走 repo 现有 ListByOwner，未来要支持 limit/cursor 时改这里。
-// **不接 retriever / route** —— 那是 A.3-IAM。
+// During phase A.2, List goes through the repos' existing ListByOwner; this is where to add
+// limit/cursor support later. **Not wired into retriever / route** — that's A.3-IAM.
 func (c *Corpus) List(
 	ctx context.Context, ownerID string, genres []entity.DocumentGenre,
 ) ([]entity.Document, error) {
@@ -92,7 +96,7 @@ func (c *Corpus) List(
 	return out, nil
 }
 
-// genreSet —— 空 genres 列表当"全要"；否则按列表精确过滤。
+// genreSet — an empty genres list means "everything"; otherwise filters exactly to the list.
 func genreSet(genres []entity.DocumentGenre) map[entity.DocumentGenre]struct{} {
 	if len(genres) == 0 {
 		out := make(map[entity.DocumentGenre]struct{}, len(entity.AllGenres))
@@ -108,8 +112,9 @@ func genreSet(genres []entity.DocumentGenre) map[entity.DocumentGenre]struct{} {
 	return out
 }
 
-// listLimitDefault —— Corpus.List 调底层 repo 的 limit；A.2 阶段固定 1000，
-// pre-launch 数据量级远低于这个。A.3 起加 cursor pagination 取代。
+// listLimitDefault — the limit Corpus.List passes to the underlying repos; fixed at 1000
+// for phase A.2, well above pre-launch data volume. Replaced by cursor pagination from
+// A.3 onward.
 const listLimitDefault = 1000
 
 func (c *Corpus) appendRawIfWanted(
@@ -182,11 +187,12 @@ func (c *Corpus) appendWritingsIfWanted(
 
 // ─── per-genre Get dispatchers ──────────────────────────────────────
 
-// getterFor —— Get 的 dispatch entry。返 (genreGetter, true) 或 (nil, false)
-// 表示不识别。switch 长度 = AllGenres 长度，加 genre 时需要在此扩 case。
+// getterFor — the dispatch entry for Get. Returns (genreGetter, true), or (nil, false) when
+// unrecognized. Switch length = len(AllGenres); adding a genre means extending the case here.
 func (c *Corpus) getterFor(g entity.DocumentGenre) (genreGetter, bool) {
-	// map lookup 而非 switch：cyclo=1，且加 genre 只需在 map 里加一行。subjectivity 不在表内
-	// （私有 tier，走专用 SubjectivityCiteLookup），未命中 → (nil, false)。
+	// A map lookup instead of a switch: cyclo=1, and adding a genre only needs one more
+	// map entry. subjectivity is intentionally absent (a private tier that goes through its
+	// own SubjectivityCiteLookup); a miss here → (nil, false).
 	getter, ok := map[entity.DocumentGenre]genreGetter{
 		entity.GenreRaw:     c.getRaw,
 		entity.GenreWiki:    c.getWiki,
@@ -206,8 +212,9 @@ func (c *Corpus) getRaw(
 	return &r, nil
 }
 
-// getWiki / getOutput —— 按 id 拿。地址树派生、不稳定,cite/寻址一律按
-// wiki://<id> / output://<id>(见 domain.URI),所以 ref 永远是 uuid。
+// getWiki / getOutput — fetch by id. The address is tree-derived and unstable, so citing /
+// addressing always goes through wiki://<id> / output://<id> (see domain.URI), which means
+// ref is always a uuid.
 func (c *Corpus) getWiki(
 	ctx context.Context, ownerID, id string,
 ) (entity.Document, error) {
@@ -228,9 +235,10 @@ func (c *Corpus) getOutput(
 	return &o, nil
 }
 
-// getWriting —— writing 的规范地址是 writing://<slug>（public reader 寻址），但
-// dialog cited 落库/反查按 uuid 走（cited_writing_ids 是 uuid[]，与 wiki/output 对齐）。
-// 故 uuid → GetByID，slug → GetBySlug；slug 从不是合法 uuid，两条路不会撞。
+// getWriting — a writing's canonical address is writing://<slug> (how the public reader
+// addresses it), but a dialog's cited references persist / look up by uuid
+// (cited_writing_ids is a uuid[], matching wiki/output). So uuid → GetByID,
+// slug → GetBySlug; a slug is never a valid uuid, so the two paths never collide.
 func (c *Corpus) getWriting(
 	ctx context.Context, ownerID, idOrSlug string,
 ) (entity.Document, error) {

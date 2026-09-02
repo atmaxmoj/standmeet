@@ -6,7 +6,8 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 )
 
-// setRequired —— Load 的 fail-fast 必填项(不填这些 Load 直接报错)。测默认值前先满足。
+// setRequired — the fail-fast required fields for Load (Load errors out
+// immediately if these aren't set). Satisfy them before testing defaults.
 func setRequired(t *testing.T) {
 	t.Helper()
 	t.Setenv("DATABASE_URL", "postgres://x")
@@ -17,8 +18,10 @@ func setRequired(t *testing.T) {
 	t.Setenv("STORAGE_BUCKET", "b")
 }
 
-// TestLoadDefaultsGotenbergAndPrintBaseURL —— #117 部署友好:GOTENBERG_URL / PRINT_BASE_URL
-// 不设时走 prod 默认(标准自托管 compose 服务名),而不是空串(空 = PDF 渲染静默关掉)。
+// TestLoadDefaultsGotenbergAndPrintBaseURL — #117 deployment-friendly:
+// GOTENBERG_URL / PRINT_BASE_URL fall back to the prod default (the
+// standard self-hosted compose service name) when unset, not an empty
+// string (empty = PDF rendering silently disabled).
 func TestLoadDefaultsGotenbergAndPrintBaseURL(t *testing.T) {
 	setRequired(t)
 	t.Setenv("GOTENBERG_URL", "")
@@ -36,7 +39,8 @@ func TestLoadDefaultsGotenbergAndPrintBaseURL(t *testing.T) {
 	}
 }
 
-// TestLoadGotenbergOverride —— 显式 env 覆写默认(e2e/自定义部署)。
+// TestLoadGotenbergOverride — an explicit env var overrides the default
+// (e2e / custom deployments).
 func TestLoadGotenbergOverride(t *testing.T) {
 	setRequired(t)
 	t.Setenv("GOTENBERG_URL", "http://custom:9999")

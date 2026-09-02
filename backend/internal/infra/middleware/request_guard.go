@@ -1,15 +1,24 @@
-// request_guard.go —— 留言口（`POST /access-requests`）的 per-IP 闸（F-G-4）。
+// request_guard.go — the per-IP gate on the access-request endpoint
+// (`POST /access-requests`) (F-G-4).
 //
-// 那个口子是**不鉴权的写入**，而它写进的队列是 owner **一条条亲手读**的（gate 上的原话：
-// "Read by hand, not a queue."）。在此之前它唯一的保护是 30/min/IP 的通用限流，而那层
-// **fail-open**：redis 一抖就整个放行。prod 上实测同一个 IP 连发 34 条，前 30 条全部落库。
+// That endpoint is an **unauthenticated write**, and the queue it writes
+// into is one the owner **reads by hand, one at a time** (the gate's own
+// words: "Read by hand, not a queue."). Before this, its only protection
+// was the generic 30/min/IP rate limit, and that layer **fails open**: one
+// redis hiccup and everything gets through. Verified in prod: the same IP
+// sent 34 requests back to back, and the first 30 all landed in the table.
 //
-// 跟码兑换那道闸的区别只有一处：那边数的是**失败**（猜码），这边数的是**提交**——
-// 留言没有对错，多才是信号。机制共用 ipTally，不再抄一份（抄出来的第二份会各自漂）。
+// The one difference from the code-redemption gate: that one counts
+// **failures** (guessed codes); this one counts **submissions** — an
+// access request has no right or wrong answer, volume itself is the
+// signal. The mechanism reuses ipTally rather than copying it again (a
+// copied second version drifts on its own).
 //
-// 阈值定在「一个真人一刻钟内不会发这么多」的量级：真要说的话，一封就够了。
-// captcha 开着 → 超阈值可用一张有效票放行（人还能说话，脚本要付代价）；
-// captcha 关着 → 纯硬锁，跟码兑换同样的取舍。
+// The threshold is pitched at "a real person wouldn't send this many in a
+// quarter hour" — honestly, one message is enough. Captcha on → exceeding
+// the threshold can be lifted with a valid token (a person can still get
+// through, a script pays a cost); captcha off → pure hard lock, the same
+// trade-off as code redemption.
 
 package middleware
 
@@ -21,16 +30,19 @@ import (
 )
 
 const (
-	// requestMax —— 同一 IP 在窗口内允许的留言条数。
+	// requestMax — the number of access requests allowed from one IP
+	// within the window.
 	requestMax = 5
-	// requestWindow —— 计数窗口（也就是锁定持续时长）。
+	// requestWindow — the counting window (i.e. the lockout duration).
 	requestWindow = 15 * time.Minute
 )
 
-// RequestGuard —— 留言口的 per-IP 闸。rdb nil → no-op。
+// RequestGuard is the per-IP gate for the access-request endpoint. rdb nil
+// → no-op.
 type RequestGuard struct{ t ipTally }
 
-// NewRequestGuard —— composition root 装配；captchaOn 表示是否真启用了 captcha（非 noop）。
+// NewRequestGuard — composition-root wiring; captchaOn says whether
+// captcha is really enabled (not the noop).
 func NewRequestGuard(rdb *redis.Client, verifier CaptchaVerifier, captchaOn bool) *RequestGuard {
 	return &RequestGuard{t: ipTally{
 		rdb: rdb, verifier: verifier, captchaOn: captchaOn,
@@ -38,7 +50,7 @@ func NewRequestGuard(rdb *redis.Client, verifier CaptchaVerifier, captchaOn bool
 	}}
 }
 
-// Locked —— 这个 IP 现在该不该被拦。
+// Locked — whether this IP should currently be blocked.
 func (g *RequestGuard) Locked(ctx context.Context, ip, captchaToken string) bool {
 	if g == nil {
 		return false
@@ -46,12 +58,14 @@ func (g *RequestGuard) Locked(ctx context.Context, ip, captchaToken string) bool
 	return g.t.blocked(ctx, ip, captchaToken)
 }
 
-// HasLift —— 这台实例现在给不给得出那条出路（captcha 开着才有）。拒绝那句话按它选词。
+// HasLift — whether this instance can currently offer that way out (only
+// when captcha is on). The refusal message picks its wording from this.
 func (g *RequestGuard) HasLift() bool {
 	return g != nil && g.t.hasLift()
 }
 
-// RecordSubmit —— 记一次提交。**成功也计**：这里数的是量，不是错误。
+// RecordSubmit — logs one submission. **Counts successes too**: this
+// counts volume, not errors.
 func (g *RequestGuard) RecordSubmit(ctx context.Context, ip string) {
 	if g != nil {
 		g.t.record(ctx, ip)

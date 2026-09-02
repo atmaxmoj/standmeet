@@ -1,15 +1,19 @@
-// Package periodic —— 进程里的周期任务:一份调度,谁都不再自己写循环。
+// Package periodic — in-process periodic tasks: one scheduler, nobody hand-rolls their own loop.
 //
-// 在这之前每个周期任务都自带一整套:一个 ticker goroutine、一个 boot 时先跑一次、一对
-// Register/Report 的簿记、两个常量(间隔 + 一句给面板看的 "every 5m")。抄了三遍,于是:
+// Before this, every periodic task carried its own full kit: a ticker goroutine, a run-once-at-boot
+// step, a pair of Register/Report bookkeeping calls, and two constants (the interval + a
+// panel-facing string like "every 5m"). That got copied three times over, hence:
 //
-//   - 那句 schedule 是**手写**的,跟真正的间隔各存一份 —— 它可以说 "every 5m" 而实际每小时
-//     跑一次,面板照样理直气壮。这里由间隔**算出来**,少一处能说谎的地方。
-//   - 少写一句 Register,这个任务就从 Monitor 面板上消失,而它照跑不误。corpus 的 Meili
-//     reconcile 循环就是这样:一直在跑,面板上从来没有过它。
+//   - The schedule string was **hand-written**, stored separately from the real interval — it
+//     could say "every 5m" while actually running hourly, and the panel would show it with a
+//     straight face. Here it's **derived** from the interval, removing one place that could lie.
+//   - Skip one Register call and the task vanishes from the Monitor panel while still running
+//     fine. That's exactly what happened to corpus's Meili reconcile loop: it kept running, but
+//     never once showed up on the panel.
 //
-// 分工是固定的:**做什么**由声明它的那一方给(域 / 插件 / 轴自己的机制);**多久做一次、以及
-// 簿记**归宿主。声明是数据,跟 OwnerTools / Config / HostOps 同一个套路。
+// The division of labor is fixed: **what to do** comes from whoever declares the task (a domain /
+// plugin / axis's own logic); **how often, plus bookkeeping** belongs to the host. The declaration
+// is data, the same pattern as OwnerTools / Config / HostOps.
 package periodic
 
 import (
@@ -19,24 +23,27 @@ import (
 	"time"
 )
 
-// Run —— 任务真正做的事。返回 error → 这一轮记 "error",循环继续(一次失败不停表)。
+// Run — what the task actually does. Returning error → this round is logged "error",
+// but the loop keeps going (one failure doesn't stop the clock).
 type Run func(ctx context.Context) error
 
-// Job —— 一个周期任务的声明。
+// Job — the declaration of one periodic task.
 type Job struct {
 	Run   Run
-	Name  string // Monitor 面板上的身份,如 "resume-draft sweep"
+	Name  string // identity on the Monitor panel, e.g. "resume-draft sweep"
 	Every time.Duration
 }
 
-// Board —— 簿记面(stats 的 JobRegistry 满足它)。声明方不认识 stats。
+// Board — the bookkeeping surface (stats's JobRegistry satisfies it). The declaring side
+// doesn't know about stats.
 type Board interface {
 	Register(name, schedule string)
 	Report(name, status string)
 }
 
-// Start —— 登记 + boot 先跑一遍(让 last_run 立刻有确定值)+ 起周期循环。
-// ctx 取消(进程退出)即停。Every ≤ 0 的任务跳过并记日志:那是声明写错了,不是"跑得很快"。
+// Start — registers each job, runs it once at boot (so last_run has a definite value right
+// away), then starts its periodic loop. Stops when ctx is canceled (process exit). A job with
+// Every <= 0 is skipped and logged: that's a declaration bug, not "runs very fast".
 func Start(ctx context.Context, board Board, log *slog.Logger, jobs []Job) {
 	for i := range jobs {
 		job := jobs[i]
@@ -50,15 +57,16 @@ func Start(ctx context.Context, board Board, log *slog.Logger, jobs []Job) {
 	}
 }
 
-// scheduleOf —— 面板上那句话由间隔算出来,不是另写一份。
+// scheduleOf — the panel string is derived from the interval, not written separately.
 //
-// Duration.String() 会给 "1h0m0s" 这种,面板上读着刺眼;把整段的零头去掉 → "1h" / "5m"。
-// 只是显示,不改语义 —— 间隔仍然只有 Every 那一个来源。
+// Duration.String() gives things like "1h0m0s", which reads badly on the panel; strip the
+// trailing zero parts → "1h" / "5m". This only affects display — the interval still has exactly
+// one source, Every.
 func scheduleOf(every time.Duration) string {
 	return "every " + tidyDuration(every)
 }
 
-// tidyDuration —— 整小时 → "1h",整分 → "5m",其余原样。
+// tidyDuration — a whole hour → "1h", a whole minute → "5m", anything else left as-is.
 func tidyDuration(d time.Duration) string {
 	switch {
 	case d%time.Hour == 0:
@@ -92,12 +100,12 @@ func runOnce(ctx context.Context, board Board, log *slog.Logger, job *Job) {
 	board.Report(job.Name, "ok")
 }
 
-// Named —— 声明一个任务的简写,省得每个声明点重复三行字段名。
+// Named — shorthand for declaring a task, so each call site skips repeating three field names.
 func Named(name string, every time.Duration, run Run) Job {
 	return Job{Name: name, Every: every, Run: run}
 }
 
-// Wrap —— 把一个不返回 error 的动作包成 Run(如只记日志的 best-effort 重建)。
+// Wrap — wraps an action that returns no error into a Run (e.g. a log-only best-effort rebuild).
 func Wrap(fn func(ctx context.Context)) Run {
 	return func(ctx context.Context) error {
 		fn(ctx)

@@ -1,17 +1,23 @@
-// Package capabilities —— 随产品发的内建能力**声明**,自成一个顶层目录(跟 Dockerfile 平级),
-// 不埋在 internal/ 里。跟 backend/connectors/ 同形:两根插件轴,一样的地址结构。
+// Package capabilities — the built-in capability **declarations** shipped with the
+// product, its own top-level directory (a sibling of Dockerfile), not buried under
+// internal/. Same shape as backend/connectors/: two plugin axes, the same address
+// structure.
 //
-// 每个子目录是一个能力,只有数据(manifest.yaml),go:embed 进二进制,拉起时经通用的
-// mcpplugin 装载路径装配 —— 宿主不 import 任何插件代码,契约只有这份 manifest + 运行时
-// MCP 协议。内建和第三方走**完全同一条** sandbox_stdio 路径,只是 manifest 的来源不同。
+// Each subdirectory is one capability, data only (manifest.yaml), go:embed'd into
+// the binary, assembled at startup through the shared mcpplugin loading path — the
+// host imports no plugin code; the contract is only this manifest plus the runtime
+// MCP protocol. Built-in and third-party capabilities take **exactly the same**
+// sandbox_stdio path; only the manifest's source differs.
 //
-// 这些声明以前是组装根里的 Go 字面量:能力的身份、它点了哪些
-// host op、它在码上占哪个字段,全长在组装根里 —— 而组装根本该只做装配。
+// These declarations used to be Go literals in the composition root: a
+// capability's identity, which host ops it ordered, which field it occupies in
+// code — all of it lived in the composition root, which should only assemble.
 package capabilities
 
 import "embed"
 
-// builtinFS —— 每个子目录一个内建能力。逐个列出,免得把本目录的 .go 文件也 embed 进去。
+// builtinFS — one built-in capability per subdirectory. Listed one by one so the
+// .go files in this directory don't also get embedded.
 //
 //go:embed ask_visitor calendar.book corpus.retrieval mail.send summarize_conversation
 var builtinFS embed.FS

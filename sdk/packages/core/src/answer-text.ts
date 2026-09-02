@@ -1,21 +1,32 @@
-// answer-text.ts —— 把模型答案里那点行内标记**解析**成段落和片段。只解析，不渲染。
+// answer-text.ts —— **parses** the light inline markup in a model answer
+// into paragraphs and spans. Parsing only, no rendering.
 //
-// 为什么住在 core（F-O-8）：这个 SDK 有两个渲染面 —— web component 自己拼 DOM 节点，
-// React 绑定把文本交给宿主。之前只有 web component 认得 `**粗**` 和 `` `码` ``，于是同一个
-// 产品在两个面上一个渲成排版、一个把星号原样印给访客（F-O-6 的症状，换了个面又长出来一次）。
+// Why it lives in core (F-O-8): this SDK has two rendering faces —— the web
+// component assembles its own DOM nodes, the React bindings hand text to
+// the host. Previously only the web component recognized `**bold**` and
+// `` `code` ``, so the same product rendered as formatted text on one face
+// and printed literal asterisks to the visitor on the other (a recurrence
+// of the F-O-6 symptom on a different face).
 //
-// 解析和渲染分开，是因为**两个面能共用的只有解析**：一个要 `document.createElement`，
-// 另一个要 React 元素。把解析放在共用处、渲染各自实现，比让某一面去 import 另一面的 DOM 代码
-// 干净，也比让两边各写一遍正则可靠 —— 那第二份迟早跟第一份漂开
-// （[[test-only-helper-rots-non-test-callers]] 的同一族：抽出不依赖宿主的核，两边都走它）。
+// Parsing and rendering are kept separate because **parsing is the only
+// part the two faces can share**: one needs `document.createElement`, the
+// other needs React elements. Putting parsing in the shared spot and letting
+// each face implement its own rendering is cleaner than having one face
+// import the other's DOM code, and more reliable than writing the same
+// regex twice on each side —— the second copy would eventually drift from
+// the first ([[test-only-helper-rots-non-test-callers]]'s same family:
+// extract a host-independent core, and route both sides through it).
 //
-// 只认三样：段落（空行分段）、`**粗体**`、`` `行内代码` ``。**不引 markdown 库**：渲染这一侧
-// 全部走 `textContent` / React 文本节点，注入面从根上不存在，不需要再挂一层消毒。
+// Recognizes only three things: paragraphs (split on blank lines),
+// `**bold**`, and `` `inline code` ``. **No markdown library**: the
+// rendering side goes entirely through `textContent` / React text nodes, so
+// injection is impossible from the ground up and no extra sanitization
+// layer is needed.
 
-/** 一段文字里的一个片段：普通文本、粗体、斜体，或行内代码。 */
+/** One span within a chunk of text: plain text, bold, italic, or inline code. */
 export interface AnswerSpan { kind: 'text' | 'bold' | 'italic' | 'code'; text: string }
 
-/** 解析后的答案：段落数组，每段是片段数组。 */
+/** A parsed answer: an array of paragraphs, each an array of spans. */
 export type AnswerParagraphs = AnswerSpan[][];
 
 export function parseAnswerText(raw: string): AnswerParagraphs {
@@ -27,11 +38,14 @@ export function parseAnswerText(raw: string): AnswerParagraphs {
   return out;
 }
 
-// splitSpans —— 一遍正则，成对才算标记（落单的星号/反引号照旧当普通字符）。
+// splitSpans —— one regex pass; only a matched pair counts as markup (a
+// lone asterisk/backtick stays a plain character).
 //
-// **`**粗**` 必须排在 `*斜*` 前面**：交替是从左往右试的，反过来的话 `*` 会先咬掉
-// `**` 的第一颗星，粗体从此再也匹配不上（[[lookahead-rule-eats-the-neighbour]]）。
-// 斜体那一支还禁掉了星号和换行，免得跨段吞字。
+// **`**bold**` must come before `*italic*`**: alternation is tried
+// left-to-right, and the other way around, `*` would grab `**`'s first star
+// first, and bold would never match again
+// ([[lookahead-rule-eats-the-neighbour]]). The italic branch also excludes
+// asterisks and newlines, so it can't swallow text across paragraphs.
 function splitSpans(s: string): AnswerSpan[] {
   const out: AnswerSpan[] = [];
   const re = /\*\*([^*]+)\*\*|\*([^*\n]+)\*|`([^`]+)`/g;

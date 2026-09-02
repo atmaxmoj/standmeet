@@ -1,5 +1,6 @@
-// embeds.go —— embed widget 配置的仓储。embed 指向 code（embeds.code_id），
-// 来源白名单住在 embed 上（embed 规划 2026-09-01）。
+// embeds.go —— repository for embed widget configuration. An embed points to a
+// code (embeds.code_id); the origin allow-list lives on the embed (embed plan
+// 2026-09-01).
 
 package repo
 
@@ -19,12 +20,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// EmbedRepo —— embeds 表的仓储。
+// EmbedRepo —— repository for the embeds table.
 type EmbedRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewEmbedRepo 构造 EmbedRepo。
+// NewEmbedRepo constructs an EmbedRepo.
 func NewEmbedRepo(pool *pgstore.Pool) *EmbedRepo { return &EmbedRepo{pool: pool} }
 
 func embedFromRow(e *db.Embed) entity.Embed {
@@ -48,7 +49,8 @@ func derefStr(s *string) string {
 	return *s
 }
 
-// newEmbedKey —— 一把新的 embed Ed25519 密钥：kid（入库）+ 公钥 PEM（入库）+ 私钥 PEM（给一次）。
+// newEmbedKey —— one new embed Ed25519 key: kid (stored) + public-key PEM (stored)
+// + private-key PEM (handed out once).
 type newEmbedKey struct {
 	pub  string
 	priv string
@@ -67,8 +69,10 @@ func mintEmbedKey() (newEmbedKey, error) {
 	return newEmbedKey{kid: kid, pub: pems.PublicPEM, priv: pems.PrivatePEM}, nil
 }
 
-// Create —— 建一个 embed（挂在某张码上），同时铸一把每-embed Ed25519 密钥。返回体含私钥 PEM,
-// **只此一次**：它进 widget 的 JS（不是 code），服务端只留公钥。
+// Create —— creates an embed (attached to a code), minting a per-embed Ed25519 key
+// at the same time. The return value includes the private-key PEM, **only this
+// once**: it goes into the widget's JS (not the code), the server keeps only the
+// public key.
 func (r *EmbedRepo) Create(
 	ctx context.Context, ownerID, codeID, label string, origins []string,
 ) (entity.EmbedCreated, error) {
@@ -94,8 +98,9 @@ func (r *EmbedRepo) Create(
 	return entity.EmbedCreated{Embed: embedFromRow(&row), PrivateKey: key.priv}, nil
 }
 
-// AuthByKeyID —— 按 JWT 的 kid 反查验签所需：公钥 + 白名单 + 它暴露的码。
-// kid 解析不了 / 不存在 → ErrEmbedTokenInvalid（不泄露是哪一种，401）。
+// AuthByKeyID —— looks up, from a JWT's kid, what signature verification needs:
+// the public key + allow-list + the code it exposes. A kid that fails to parse /
+// doesn't exist → ErrEmbedTokenInvalid (doesn't leak which one, just 401s).
 func (r *EmbedRepo) AuthByKeyID(ctx context.Context, keyID string) (entity.EmbedAuth, error) {
 	kid, err := pgstore.ParseUUID(keyID)
 	if err != nil {
@@ -115,8 +120,10 @@ func (r *EmbedRepo) AuthByKeyID(ctx context.Context, keyID string) (entity.Embed
 	}, nil
 }
 
-// createEmbedErr —— 建 embed 的写错映射。code_id 撞唯一约束 → ErrCodeAlreadyEmbedded
-// （一张码已经挂了一个 embed）；其余原样包上。抽出来让 Create 的圈复杂度低。
+// createEmbedErr —— maps write errors from creating an embed. code_id hitting the
+// unique constraint → ErrCodeAlreadyEmbedded (a code already has an embed attached);
+// everything else is wrapped as-is. Pulled out to keep Create's cyclomatic
+// complexity low.
 func createEmbedErr(err error) error {
 	if name, hit := pgstore.UniqueViolation(err); hit && name == "embeds_code_uniq" {
 		return entity.ErrCodeAlreadyEmbedded
@@ -124,7 +131,7 @@ func createEmbedErr(err error) error {
 	return fmt.Errorf("create embed: %w", err)
 }
 
-// Get —— 按 id 取（owner-scoped）。
+// Get —— fetches by id (owner-scoped).
 func (r *EmbedRepo) Get(ctx context.Context, ownerID, id string) (entity.Embed, error) {
 	ids, err := twoUUIDs(id, ownerID)
 	if err != nil {
@@ -140,7 +147,7 @@ func (r *EmbedRepo) Get(ctx context.Context, ownerID, id string) (entity.Embed, 
 	return embedFromRow(&row), nil
 }
 
-// ListByOwner —— owner 的所有 embed。
+// ListByOwner —— all of an owner's embeds.
 func (r *EmbedRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.Embed, error) {
 	oid, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -157,7 +164,7 @@ func (r *EmbedRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.E
 	return out, nil
 }
 
-// Update —— 改 label + allowed_origins。
+// Update —— changes label + allowed_origins.
 func (r *EmbedRepo) Update(
 	ctx context.Context, ownerID, id, label string, origins []string,
 ) (entity.Embed, error) {
@@ -181,7 +188,7 @@ func (r *EmbedRepo) Update(
 	return embedFromRow(&row), nil
 }
 
-// Delete —— 删一个 embed（不删它挂的码）。
+// Delete —— deletes an embed (not the code it's attached to).
 func (r *EmbedRepo) Delete(ctx context.Context, ownerID, id string) error {
 	ids, err := twoUUIDs(id, ownerID)
 	if err != nil {
@@ -194,7 +201,8 @@ func (r *EmbedRepo) Delete(ctx context.Context, ownerID, id string) error {
 	return nil
 }
 
-// twoUUIDs —— 解两个 uuid（顺序即返回顺序）。省得每个方法各写一遍。
+// twoUUIDs —— parses two uuids (return order matches argument order). Saves each
+// method from writing this out itself.
 func twoUUIDs(a, b string) ([2]pgtype.UUID, error) {
 	var out [2]pgtype.UUID
 	var err error
@@ -207,7 +215,8 @@ func twoUUIDs(a, b string) ([2]pgtype.UUID, error) {
 	return out, nil
 }
 
-// marshalOrigins —— []string → jsonb bytes，nil/空都发 `[]`（列 NOT NULL DEFAULT '[]'）。
+// marshalOrigins —— []string → jsonb bytes; nil/empty both emit `[]` (the column
+// is NOT NULL DEFAULT '[]').
 func marshalOrigins(origins []string) ([]byte, error) {
 	if origins == nil {
 		origins = []string{}

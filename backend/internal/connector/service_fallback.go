@@ -1,5 +1,6 @@
-// service_fallback.go —— 断开 active 连接后的品类槽回退（promote 下一个 connected 候选）。
-// 从 service.go 拆出，保持后者 ≤350 行。
+// service_fallback.go — category-slot fallback after disconnecting the active connection
+// (promotes the next connected candidate). Split out of service.go to keep the latter ≤350
+// lines.
 
 package connector
 
@@ -8,7 +9,8 @@ import (
 	"fmt"
 )
 
-// promoteFallback —— 品类槽无 active 但还有 connected 候选 → 把第一个候选设为 active（回退）。
+// promoteFallback — the category slot has no active connector but there's still a connected
+// candidate → set the first candidate active (fallback).
 func (s *Service) promoteFallback(ctx context.Context, ownerID, category string) error {
 	conns, err := s.d.Repo.ListByCategory(ctx, ownerID, category)
 	if err != nil {
@@ -19,7 +21,7 @@ func (s *Service) promoteFallback(ctx context.Context, ownerID, category string)
 	}
 	cand := firstConnectedID(conns)
 	if cand == "" {
-		return nil // 无 connected 候选 → 槽空，复闸
+		return nil // no connected candidate → the slot goes empty, re-gated
 	}
 	if serr := s.d.Repo.SetActive(ctx, ownerID, cand, category); serr != nil {
 		return fmt.Errorf("promote fallback connector: %w", serr)

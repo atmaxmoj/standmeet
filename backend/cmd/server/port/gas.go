@@ -1,10 +1,14 @@
-// gas.go —— composition root 把"一箱油还剩多少"接到访客那条路上(#7)。
+// gas.go — composition root wires "how much gas is left in the tank" into the
+// visitor path (#7).
 //
-// 油箱在 owner 域(owner_providers),用量在 stats 域(inference_usage),挡人的闸在
-// conversation 域。三个域谁也不该 import 另外两个,所以那句算术留在 owner 域(它管着油箱),
-// conversation 只声明一个"还剩多少"的窄口,组装根在这里把它接上。
+// The tank lives in the owner domain (owner_providers), usage lives in the stats
+// domain (inference_usage), and the gate blocking visitors lives in the conversation
+// domain. None of the three domains should import the other two, so that arithmetic
+// stays in the owner domain (it owns the tank); conversation only declares a narrow
+// "how much is left" port, and the composition root wires it up here.
 //
-// **算术只有一份**:面板上给 owner 看的读数和挡住访客的这道闸,走的是同一个函数。
+// **The arithmetic exists in exactly one place**: the reading shown to the owner on
+// the panel and the gate that blocks visitors run through the same function.
 
 package port
 
@@ -15,12 +19,13 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// OwnerGas —— conversation.GasGauge 实现。
+// OwnerGas — conversation.GasGauge implementation.
 type OwnerGas struct {
 	Providers owner.ProvidersUseDeps
 }
 
-// Remaining —— 这条 provider 还剩多少 token。nil = 没挂表(不计量)。
+// Remaining — how many tokens are left on this provider. nil = no meter attached
+// (unmetered).
 func (g OwnerGas) Remaining(
 	ctx context.Context, ownerID, providerID string,
 ) (*int64, error) {
@@ -31,9 +36,11 @@ func (g OwnerGas) Remaining(
 	return left, nil
 }
 
-// DefaultProviderID —— owner 默认那条 provider 的 id（没配 provider 时空串）。
-// 访客会话签发时用它把"未指定 provider"冻成具体那一箱,否则匿名花销对 gas 记账隐形
-// (见 owner/usecase 的同名函数)。跟 Remaining 同一个 Providers 依赖,复用这个 adapter。
+// DefaultProviderID — the id of the owner's default provider (empty string when no
+// provider is configured). Used when issuing a visitor session to freeze "unspecified
+// provider" into one concrete tank, otherwise anonymous spend is invisible to gas
+// accounting (see the same-named function in owner/usecase). Shares the same
+// Providers dependency as Remaining, so this adapter is reused.
 func (g OwnerGas) DefaultProviderID(ctx context.Context, ownerID string) (string, error) {
 	id, err := owner.DefaultProviderID(ctx, g.Providers, ownerID)
 	if err != nil {

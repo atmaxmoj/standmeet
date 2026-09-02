@@ -1,15 +1,16 @@
-// raw.go —— owner 通过 MCP 推上来的"半成品" corpus 条目（curate 前）。
+// raw.go —— the "half-finished" corpus entry the owner pushes up via MCP (pre-curate).
 //
-// LSP contract（4 个 Genre 共契约）：
-//   - Raw.Title() 永远 "" (Raw 形态本身无标题概念)
-//   - Raw.UpdatedAt() == Raw.CreatedAt() (Raw immutable post-dump，无独立 update
-//     时间)
-//   - Raw.IsPublished() 永远 false (Raw 没有 publish 概念)
-//   - Raw.Integrations() 现在返空 slice，但 schema 支持未来从 clipboard /
-//     IM bridge 同步进 Raw 后挂 integration 而不动接口
+// LSP contract (shared across all 4 Genres):
+//   - Raw.Title() is always "" (the Raw shape has no title concept)
+//   - Raw.UpdatedAt() == Raw.CreatedAt() (Raw is immutable post-dump, no separate
+//     update time)
+//   - Raw.IsPublished() is always false (Raw has no publish concept)
+//   - Raw.Integrations() currently returns an empty slice, but the schema supports
+//     future syncing from clipboard / IM bridge into Raw with an integration
+//     attached, without touching the interface
 //
-// Raw-specific 字段（不进 Document interface）：Source / FlaggedPrivate /
-// Archived / PromotedTo —— caller type-assert 回 Raw 用。
+// Raw-specific fields (not in the Document interface): Source / FlaggedPrivate /
+// Archived / PromotedTo — for callers that type-assert back to Raw.
 
 package entity
 
@@ -20,7 +21,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
-// Raw —— owner 通过 MCP push 进 corpus 的"半成品"，未整理。
+// Raw —— the "half-finished", uncurated entry the owner pushes into the corpus via MCP.
 type Raw struct {
 	timestamps     Timestamps
 	promotedTo     *string
@@ -34,7 +35,7 @@ type Raw struct {
 	archived       bool
 }
 
-// RawInit —— 构造参数 (postgres mapper 用)。
+// RawInit —— constructor params (used by the postgres mapper).
 type RawInit struct {
 	CreatedAt      time.Time
 	PromotedTo     *string
@@ -50,8 +51,9 @@ type RawInit struct {
 	Archived       bool
 }
 
-// NewRaw —— 从 Init 构造。PromotedTo defensive copy。Timestamps 自动把
-// CreatedAt 同时塞给 updatedAt（Raw 不变 LSP）。pointer 入参避免 hugeParam。
+// NewRaw —— constructs from Init. PromotedTo is defensive-copied. Timestamps
+// automatically feeds CreatedAt into updatedAt too (the Raw-immutable LSP contract).
+// Pointer param avoids hugeParam.
 func NewRaw(i *RawInit) Raw {
 	var promotedTo *string
 	if i.PromotedTo != nil {
@@ -81,41 +83,41 @@ func NewRaw(i *RawInit) Raw {
 	}
 }
 
-// --- Document interface implementation (flat 转发) ---
+// --- Document interface implementation (flat forwarding) ---
 
-// URI —— raw://<uuid>。
+// URI —— raw://<uuid>.
 func (r *Raw) URI() string { return FormatURI(GenreRaw, r.id) }
 
-// Genre —— 永远返 GenreRaw。
+// Genre —— always returns GenreRaw.
 func (*Raw) Genre() DocumentGenre { return GenreRaw }
 
-// ID —— DB primary key。
+// ID —— DB primary key.
 func (r *Raw) ID() string { return r.id }
 
-// OwnerID —— corpus 永远 owner-scoped。
+// OwnerID —— the corpus is always owner-scoped.
 func (r *Raw) OwnerID() string { return r.ownerID }
 
-// Title —— Raw 无标题，永远 ""。
+// Title —— Raw has no title, always "".
 func (r *Raw) Title() string { return r.content.Title() }
 
-// Body —— dump 进来的原文。
+// Body —— the raw text that was dumped in.
 func (r *Raw) Body() string { return r.content.Body() }
 
-// Tags —— 标签 (defensive copy)，永远非 nil。
+// Tags —— tag list (defensive copy), always non-nil.
 func (r *Raw) Tags() []string { return r.content.Tags() }
 
-// CreatedAt —— dump 时间。
+// CreatedAt —— dump time.
 func (r *Raw) CreatedAt() time.Time { return r.timestamps.CreatedAt() }
 
-// UpdatedAt —— 同 CreatedAt (Raw 不变 LSP contract)。
+// UpdatedAt —— same as CreatedAt (the Raw-immutable LSP contract).
 func (r *Raw) UpdatedAt() time.Time { return r.timestamps.UpdatedAt() }
 
-// Integrations —— 挂的 integration 副本（defensive copy），永远非 nil。
+// Integrations —— copy of the attached integrations (defensive copy), always non-nil.
 func (r *Raw) Integrations() []connector.Integration { return r.integrations.All() }
 
 // --- Raw-specific accessors ---
 
-// Source —— ingest source 标签 (e.g. "claude-desktop" / "clipboard" / "mcp")。
+// Source —— the ingest source label (e.g. "claude-desktop" / "clipboard" / "mcp").
 func (r *Raw) Source() string { return r.source }
 
 // ParentID —— tree parent (raw is now a corpus_notes node); ok=false at the root. Mirrors Wiki.
@@ -126,14 +128,14 @@ func (r *Raw) ParentID() (string, bool) {
 	return *r.parentID, true
 }
 
-// FlaggedPrivate —— owner 标记"私密"的 dump。retriever 跳过这种。
+// FlaggedPrivate —— a dump the owner marked "private". The retriever skips these.
 func (r *Raw) FlaggedPrivate() bool { return r.flaggedPrivate }
 
-// Archived —— owner 归档的 dump，不进 retriever 候选。
+// Archived —— a dump the owner archived; excluded from retriever candidates.
 func (r *Raw) Archived() bool { return r.archived }
 
-// PromotedTo —— 如果 raw 被 promote 成 wiki/output，返目标 id；否则
-// ("", false)。
+// PromotedTo —— if this raw was promoted into a wiki/output, returns the target
+// id; otherwise ("", false).
 func (r *Raw) PromotedTo() (string, bool) {
 	if r.promotedTo == nil {
 		return "", false
@@ -141,8 +143,9 @@ func (r *Raw) PromotedTo() (string, bool) {
 	return *r.promotedTo, true
 }
 
-// IsPromoted —— 是否被 promote 过。语义版 PromotedTo() ok。
+// IsPromoted —— whether this was ever promoted. The semantic-named version of the
+// PromotedTo() ok flag.
 func (r *Raw) IsPromoted() bool { return r.promotedTo != nil }
 
-// ErrRawNotFound —— 按 id 查 raw 未命中。
+// ErrRawNotFound —— lookup of a raw entry by id missed.
 var ErrRawNotFound = errors.New("raw entry not found")

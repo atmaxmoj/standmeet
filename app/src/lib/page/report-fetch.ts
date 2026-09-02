@@ -1,5 +1,6 @@
-// report-fetch —— I.3: /report/[id] 客户端拿 chat_report 的小 helper。
-// 从 lib 抽出来让组件层守 no-`if` + complexity ≤ 3。
+// report-fetch —— I.3: small helper for the /report/[id] client to fetch a
+// chat_report. Pulled out of the component layer so it can keep to no-`if`
+// + complexity ≤ 3.
 
 import { loadStoredSession } from '@/lib/gate/use-gate';
 

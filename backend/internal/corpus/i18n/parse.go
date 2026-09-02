@@ -1,7 +1,8 @@
-// parse.go —— 正文 → Doc。纯字符串处理,不认识 markdown 渲染器。
+// parse.go —— body -> Doc. Pure string processing, no markdown renderer involved.
 //
-// 只按**行**看:blockquote 的每一层前缀是 "> ",所以 `[!i18n]` 在深度 1、`[!lang]` 在深度 2。
-// 深度 3 及以上的 callout 是 pane 里面的东西(模板里就有 `i18n > lang > tip`),不是 pane。
+// Reads by **line** only: each blockquote nesting level adds a "> " prefix, so `[!i18n]`
+// sits at depth 1 and `[!lang]` at depth 2. A callout at depth 3+ is something living
+// inside a pane (the template itself nests `i18n > lang > tip`), not a pane itself.
 
 package i18n
 
@@ -10,29 +11,33 @@ import (
 	"strings"
 )
 
-// Pane —— 一个语言面:语言码 + 这一面的 markdown(已去掉 callout 前缀)。
+// Pane —— one language face: a language code plus that face's markdown
+// (callout prefix stripped).
 type Pane struct {
 	Lang string
 	Body string
 }
 
-// Region —— 正文里的一段。Panes 为空 = 语言中性的散文(每种语言下都出现)。
+// Region —— one segment of the body. Empty Panes = language-neutral prose
+// (shown under every language).
 type Region struct {
 	Neutral string
 	Panes   []Pane
 }
 
-// Doc —— 一条笔记的多语结构。
+// Doc —— the multilingual structure of one note.
 type Doc struct {
-	// Langs —— 出现过的语言码,按第一次出现的顺序。空 = 这条笔记是单语的。
+	// Langs —— language codes seen, in order of first appearance.
+	// Empty = this note is monolingual.
 	Langs   []string
 	Regions []Region
 }
 
-// Multilingual —— 这条笔记有没有多语区块。
+// Multilingual —— whether this note has any multilingual block.
 func (d *Doc) Multilingual() bool { return len(d.Langs) > 0 }
 
-// Parse —— 正文拆成"中性散文"和"多语区块"两种段落,按出现顺序。
+// Parse —— splits the body into "neutral prose" and "multilingual block" segments,
+// in order of appearance.
 func Parse(body string) Doc {
 	doc := Doc{Regions: []Region{}, Langs: []string{}}
 	var neutral []string
@@ -74,15 +79,16 @@ func (d *Doc) addRegion(r Region) {
 	}
 }
 
-// regionOf —— 一个 `[!i18n]` 区块的行 → 它的 pane。
+// regionOf —— the lines of one `[!i18n]` block -> its panes.
 //
-// 按钮行(`<label><input type=radio>` 那一串)在深度 1 上,不属于任何 pane —— 它是 Obsidian
-// 的呈现件,我们自己出切换器,所以这里直接丢掉:它连"中性散文"都不是。
+// The button row (the `<label><input type=radio>` string) sits at depth 1 and belongs to
+// no pane — it's Obsidian's own rendering widget, and we ship our own switcher, so it's
+// dropped outright here: it doesn't even count as "neutral prose".
 func regionOf(lines []string) Region {
 	panes := []Pane{}
-	open := -1 // 当前 pane 在 panes 里的下标;-1 = 还没进任何 pane
+	open := -1 // index of the currently open pane in panes; -1 = not inside any pane yet
 	var buf []string
-	for _, raw := range lines[1:] { // lines[0] 是 `> [!i18n]`
+	for _, raw := range lines[1:] { // lines[0] is `> [!i18n]`
 		inner := strings.TrimPrefix(strings.TrimPrefix(raw, ">"), " ")
 		if code, ok := langOpener(inner); ok {
 			panes = closePane(panes, open, buf)
@@ -92,14 +98,15 @@ func regionOf(lines []string) Region {
 			continue
 		}
 		if open < 0 {
-			continue // 按钮行 / 空行:区块里、任何 pane 之外
+			continue // button row / blank line: inside the block, outside any pane
 		}
 		buf = append(buf, strings.TrimPrefix(strings.TrimPrefix(inner, ">"), " "))
 	}
 	return Region{Panes: closePane(panes, open, buf)}
 }
 
-// closePane —— 把攒下的行写进第 open 个 pane。open < 0(还没进过 pane)时原样返回。
+// closePane —— writes the buffered lines into pane index open. Returns unchanged if
+// open < 0 (never entered a pane).
 func closePane(panes []Pane, open int, buf []string) []Pane {
 	if open < 0 {
 		return panes
@@ -108,7 +115,7 @@ func closePane(panes []Pane, open int, buf []string) []Pane {
 	return panes
 }
 
-// isI18nOpener —— 深度 1 的 `[!i18n]`。
+// isI18nOpener —— a depth-1 `[!i18n]`.
 func isI18nOpener(line string) bool {
 	inner, ok := stripQuote(line)
 	if !ok {
@@ -118,7 +125,7 @@ func isI18nOpener(line string) bool {
 	return len(m) > 1 && strings.EqualFold(m[1], "i18n")
 }
 
-// langOpener —— 区块里某一行是不是一个 pane 的开头(深度 2 的 `[!lang] code`)。
+// langOpener —— whether a line inside a block opens a pane (a depth-2 `[!lang] code`).
 func langOpener(inner string) (string, bool) {
 	rest, ok := stripQuote(inner)
 	if !ok {
@@ -131,7 +138,7 @@ func langOpener(inner string) (string, bool) {
 	return strings.ToLower(strings.TrimSpace(m[2])), true
 }
 
-// stripQuote —— 去掉一层 "> "。不是引用行 → false。
+// stripQuote —— strips one level of "> ". Not a quote line -> false.
 func stripQuote(line string) (string, bool) {
 	t := strings.TrimLeft(line, " \t")
 	if !strings.HasPrefix(t, ">") {
@@ -140,7 +147,8 @@ func stripQuote(line string) (string, bool) {
 	return strings.TrimPrefix(strings.TrimPrefix(t, ">"), " "), true
 }
 
-// blockEnd —— 从 start 起第一行不属于这个引用块的行号(即区块的开区间右端)。
+// blockEnd —— the index of the first line after start that no longer belongs to this
+// quote block (the open-interval right edge of the block).
 func blockEnd(lines []string, start int) int {
 	i := start + 1
 	for ; i < len(lines); i++ {
@@ -151,8 +159,9 @@ func blockEnd(lines []string, start int) int {
 	return i
 }
 
-// stillInBlock —— 第 i 行还属不属于这个引用块。空行只有在后面还有引用行时才算块内
-// (区块内部用空行分隔 pane);非引用的实体行一律是块外。
+// stillInBlock —— whether line i still belongs to this quote block. A blank line only
+// counts as inside the block if a quote line follows later (blank lines separate panes
+// inside a block); any non-quote content line is always outside the block.
 func stillInBlock(lines []string, i int) bool {
 	if _, ok := stripQuote(lines[i]); ok {
 		return true
@@ -160,7 +169,8 @@ func stillInBlock(lines []string, i int) bool {
 	return strings.TrimSpace(lines[i]) == "" && continuesQuote(lines, i)
 }
 
-// continuesQuote —— 空行之后还有没有引用行(区块内部允许空行分隔 pane)。
+// continuesQuote —— whether a quote line follows after this blank line (a block may
+// use blank lines internally to separate panes).
 func continuesQuote(lines []string, i int) bool {
 	for j := i + 1; j < len(lines); j++ {
 		if strings.TrimSpace(lines[j]) == "" {
@@ -172,8 +182,9 @@ func continuesQuote(lines []string, i int) bool {
 	return false
 }
 
-// fenceSpan —— i 起是不是一个围栏代码块;是则返回结束行号。围栏里的一切原样当中性散文,
-// 里面的 `[!i18n]` 不是区块。
+// fenceSpan —— whether a fenced code block starts at i; if so, returns its end line.
+// Everything inside a fence is treated verbatim as neutral prose — a `[!i18n]` inside
+// one is not a block.
 func fenceSpan(lines []string, i int) (int, bool) {
 	if !reFence.MatchString(lines[i]) {
 		return 0, false
@@ -184,7 +195,7 @@ func fenceSpan(lines []string, i int) (int, bool) {
 			return j, true
 		}
 	}
-	return len(lines) - 1, true // 没闭合:到文件末尾都算围栏里
+	return len(lines) - 1, true // unclosed: everything to end of file counts as inside the fence
 }
 
 func normalizeNewlines(s string) string {

@@ -1,6 +1,8 @@
-// banned_ips.go —— banned_ips repo（#58-3）。owner 封掉的来源 IP 的持久层。
-// enforcement middleware 走 IsBanned 查；admin CRUD 走 Ban / List / Unban。
-// ip 存 text，精确匹配 chi.RealIP 解出的 host（跟 conversations.client_ip 同口径）。
+// banned_ips.go — banned_ips repo (#58-3). Persistence layer for source IPs the
+// owner has banned. The enforcement middleware queries via IsBanned; admin CRUD
+// goes through Ban / List / Unban.
+// ip is stored as text, exact-matched against the host chi.RealIP resolves
+// (same convention as conversations.client_ip).
 
 package ban
 
@@ -13,15 +15,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/security/db"
 )
 
-// BannedIPRepo —— banned_ips 表 repo。
+// BannedIPRepo — repo for the banned_ips table.
 type BannedIPRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewBannedIPRepo 构造 BannedIPRepo。
+// NewBannedIPRepo constructs a BannedIPRepo.
 func NewBannedIPRepo(pool *pgstore.Pool) *BannedIPRepo { return &BannedIPRepo{pool: pool} }
 
-// IPInput —— owner 封一个 IP 的入参。ExpiresAt nil = 永久。
+// IPInput — input for the owner banning one IP. ExpiresAt nil = permanent.
 type IPInput struct {
 	ExpiresAt *time.Time
 	OwnerID   string
@@ -29,7 +31,8 @@ type IPInput struct {
 	Reason    string
 }
 
-// Ban —— upsert（重复封同一 IP 覆盖 reason/expires_at）。返回落库后的行。
+// Ban — upsert (banning the same IP again overwrites reason/expires_at).
+// Returns the row as persisted.
 func (r *BannedIPRepo) Ban(ctx context.Context, in *IPInput) (BannedIP, error) {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
@@ -47,7 +50,8 @@ func (r *BannedIPRepo) Ban(ctx context.Context, in *IPInput) (BannedIP, error) {
 	return decodeBannedIP(&row), nil
 }
 
-// List —— owner 的全部封禁（含已过期的，给 admin 看历史；最近的在前）。
+// List — all of the owner's bans (including expired ones, so admin can see
+// history; most recent first).
 func (r *BannedIPRepo) List(ctx context.Context, ownerID string) ([]BannedIP, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -64,7 +68,7 @@ func (r *BannedIPRepo) List(ctx context.Context, ownerID string) ([]BannedIP, er
 	return out, nil
 }
 
-// Unban —— 按 id 解封（owner-scoped）。不存在视同成功（幂等）。
+// Unban — unban by id (owner-scoped). Nonexistent id counts as success (idempotent).
 func (r *BannedIPRepo) Unban(ctx context.Context, ownerID, id string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -81,7 +85,7 @@ func (r *BannedIPRepo) Unban(ctx context.Context, ownerID, id string) error {
 	return nil
 }
 
-// IsBanned —— enforcement 查询：owner 是否封了这个 IP 且未过期。
+// IsBanned — enforcement query: has the owner banned this IP and is it still unexpired.
 func (r *BannedIPRepo) IsBanned(ctx context.Context, ownerID, ip string) (bool, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -95,8 +99,9 @@ func (r *BannedIPRepo) IsBanned(ctx context.Context, ownerID, ip string) (bool, 
 	return banned, nil
 }
 
-// IsBannedAnywhere —— 公开面 enforcement：这个 IP 在本实例上是否被封且未过期
-// （不分 owner；v1 单 owner）。middleware 每个公开请求调一次。
+// IsBannedAnywhere — public-surface enforcement: is this IP banned and unexpired
+// anywhere on this instance (owner-agnostic; v1 is single-owner). The middleware
+// calls this once per public request.
 func (r *BannedIPRepo) IsBannedAnywhere(ctx context.Context, ip string) (bool, error) {
 	banned, qerr := db.New(r.pool).IsIPBannedAnywhere(ctx, ip)
 	if qerr != nil {

@@ -1,9 +1,12 @@
-// agent_turn_preflight.go —— 这一轮该不该放行。
+// agent_turn_preflight.go —— whether this turn is allowed to proceed.
 //
-// 三道闸,顺序是有意的:先问这段对话是不是你的(越权),再问油箱(#7),最后问轮数。
-// 全部在**写之前**,所以被挡下的一轮不会留下半条记录,也不会消耗任何配额。
+// Three gates, in a deliberate order: first ask whether this conversation is yours
+// (authorization), then ask about the gas tank (#7), and last ask about turn count.
+// All of this happens **before any write**, so a blocked turn leaves no partial record
+// behind and consumes no quota.
 //
-// 从 agent_turn.go 拆出来:那个文件管的是"这一轮怎么跑",这个文件管的是"这一轮能不能跑"。
+// Split out of agent_turn.go: that file owns "how this turn runs", this file owns
+// "whether this turn may run".
 
 package public
 
@@ -13,22 +16,26 @@ import (
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
 
-// preflightAgentTurnQuota —— #28: 落库挪到 /agent/turn 后,配额也在这查
-// (pre-stream,清晰 4xx,跟原 /dialogs 一致)。convID 空(无状态 smoke 调用)跳过。
-// 返 false = 已写错误响应、caller 收手。
+// preflightAgentTurnQuota —— #28: now that persistence moved to /agent/turn, quota is
+// also checked here (pre-stream, a clean 4xx, consistent with the old /dialogs). Skipped
+// when convID is empty (stateless smoke-test calls). Returns false = an error response
+// has already been written, caller backs off.
 func preflightAgentTurnQuota(
 	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
 ) bool {
-	// 油量闸**在 convID 判空之前**:油箱是按 provider 记的,跟这一轮属于哪段对话无关。
-	// 放在后面的话,每开一段新对话的第一轮都绕过它 —— 一道每次都能被绕开的闸。
-	// (越权和轮数两道确实需要一段对话才有意义:没有 conv 就没有归属,也没有轮数可数。)
+	// The gas gate runs **before the convID empty-check**: the gas tank is tracked per
+	// provider, unrelated to which conversation this turn belongs to. Putting it after
+	// would let the first turn of every new conversation bypass it — a gate that can
+	// always be sidestepped.
+	// (The ownership and turn-count gates genuinely need a conversation to mean anything:
+	// no conv means no ownership to check and no turn count to count.)
 	if !enforceGasQuotaOrWrite(r, h, auth, w) {
 		return false
 	}
 	if convID == "" {
 		return true
 	}
-	// 一道闸一行。顺序即优先级,读得出来。
+	// One gate per line. Order is priority, and it reads that way.
 	return allPass([]gate{
 		func() bool { return checkConvOwnership(r, h, auth, w, convID) },
 		func() bool { return enforceTurnQuotaOrWrite(r, h, auth, w, convID) },
@@ -36,17 +43,20 @@ func preflightAgentTurnQuota(
 	})
 }
 
-// enforceCodePeriodOrWrite —— 码级每周期速率闸（embed 规划 2026-09-01）。挂了周期闸的**码**
-// 才走查询;没挂的一次查询都不发。按码共享(跟哪个会话/访客无关) —— 所以只认 CodeID,不认 convID:
-// 公开 embed 码在很多访客/会话上被用,限的是这张码每周期的总量。
+// enforceCodePeriodOrWrite —— the per-code per-period rate gate (embed plan, 2026-09-01).
+// Only a **code** with a period gate attached goes through the query; one without never
+// issues a single query. Shared by code (regardless of session/visitor) — so it keys off
+// CodeID only, never convID: a public embed code gets used across many visitors/sessions,
+// and what's limited is that code's total volume per period.
 func enforceCodePeriodOrWrite(
 	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter,
 ) bool {
 	if h.Visitor.Codes == nil {
-		return true // 测试可能不接 Codes；生产总在
+		return true // tests may not wire Codes; production always does
 	}
-	// CheckPeriodLimit 内部处理空 codeID（public/byoai 会话）+ 判额度,返回可直接给
-	// handleVisitorErr 的错误（ErrPeriodLimitReached → 403）。多条件的判断在 repo,不在这里。
+	// CheckPeriodLimit internally handles an empty codeID (public/byoai sessions) +
+	// checks the quota, returning an error handleVisitorErr can pass straight through
+	// (ErrPeriodLimitReached → 403). The multi-condition logic lives in the repo, not here.
 	if err := h.Visitor.Codes.CheckPeriodLimit(r.Context(), auth.Data.CodeID); err != nil {
 		handleVisitorErr(h.Log, w, err)
 		return false
@@ -54,7 +64,8 @@ func enforceCodePeriodOrWrite(
 	return true
 }
 
-// gate —— 一道准入检查:放行返 true;拦下的那一道自己已经写好响应了。
+// gate —— one admission check: passing returns true; whichever gate blocks has already
+// written its own response.
 type gate func() bool
 
 func allPass(gates []gate) bool {
@@ -66,12 +77,13 @@ func allPass(gates []gate) bool {
 	return true
 }
 
-// enforceGasQuotaOrWrite —— #7 油表。挂了表的会话才会走到查询;没挂表的一次查询都不发,
-// 跟今天完全同一条路。跟轮数配额并排放,因为它们是同一件事的两个量纲。
+// enforceGasQuotaOrWrite —— #7 gas gauge. Only a session with a gauge attached reaches
+// the query; one without never issues a single query, exactly the same path as today.
+// Placed alongside the turn quota because they're two dimensions of the same thing.
 func enforceGasQuotaOrWrite(
 	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter,
 ) bool {
-	// byoai 花的是访客自己的钱,不动 owner 的油箱。
+	// byoai spends the visitor's own money, it never touches the owner's gas tank.
 	if auth.Data.Mode == "byoai" {
 		return true
 	}
@@ -98,9 +110,12 @@ func enforceTurnQuotaOrWrite(
 	return true
 }
 
-// checkConvOwnership —— 多对话模型:code 访客可有多段对话且 conversation_id 由
-// 客户端传,必须校验这段属于该 member,防借别人的 id 发 turn。无 member(public/
-// byoai)没 member 可比对,沿用既有信任(conversation 由 owner-scoped session 锁)。
+// checkConvOwnership —— multi-conversation model: a code visitor can have several
+// conversations and conversation_id is sent by the client, so this must verify the
+// conversation belongs to that member, guarding against borrowing someone else's id to
+// send a turn. With no member (public/byoai) there's no member to compare against, so it
+// falls back to the existing trust boundary (conversation is locked by the owner-scoped
+// session).
 func checkConvOwnership(
 	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
 ) bool {

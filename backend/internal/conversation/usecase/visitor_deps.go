@@ -1,5 +1,6 @@
-// visitor_deps.go —— #131: visitor 有界上下文的两个 deps 聚合（会话生命周期 +
-// capability 接线原料）。从 visitor.go 拆出守 max-lines；类型定义无逻辑。
+// visitor_deps.go —— #131: the two deps aggregates for the visitor bounded context
+// (session lifecycle + capability wiring raw materials). Split out of visitor.go to stay
+// under max-lines; type definitions only, no logic.
 
 package usecase
 
@@ -17,59 +18,70 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// VisitorSessionDeps —— #131: visitor **会话生命周期**那一有界上下文所需(发码会话 /
-// 公开会话 / 续会 / 历史恢复 / 配额派生 / code intro)。不含任何 tool/capability 依赖
-// (那些走各 capability 的窄 deps + VisitorSkillsDeps)。god-struct 拆出来的一半。
+// VisitorSessionDeps —— #131: what the visitor **session lifecycle** bounded context
+// needs (code-issued session / public session / resume / history restore / quota
+// derivation / code intro). Carries no tool/capability dependencies (those go through
+// each capability's narrow deps + VisitorSkillsDeps). Half of the split-out god-struct.
 type VisitorSessionDeps struct {
 	Codes    *access.CodeRepo
 	Chats    *repo.ChatRepo
 	Owners   OwnerGetter
-	Skills   SkillGetter // role snapshot freeze 读 ListSkillsForRole
+	Skills   SkillGetter // role snapshot freeze reads ListSkillsForRole
 	Roles    *access.RoleRepo
 	Prompts  *owner.PromptRepo
 	Sessions *access.VisitorSessionStore
-	Wiki     corpus.WikiLister // 历史恢复 hydrate conversation view
+	Wiki     corpus.WikiLister // history restore hydrates the conversation view
 	Writing  corpus.WritingLister
 	Output   corpus.OutputLister
-	// AgentSkills —— session 装配时算 capability states / tool specs(retrieval /
-	// booker / ext-mcp / owner-skill)。
+	// AgentSkills —— computes capability states / tool specs (retrieval / booker /
+	// ext-mcp / owner-skill) at session assembly time.
 	AgentSkills *capreg.Registry
-	// CodeDenials —— ACL hierarchy 的 code 层(capability-acl-hierarchy.md)。
-	// buildRoleSnapshotForCode 冻结前据此从 role grant 里相减。可空(无 code 的
-	// public + byoai 路径、或老 facade 没接 → 视作零 deny)。
+	// CodeDenials —— the code layer of the ACL hierarchy (capability-acl-hierarchy.md).
+	// buildRoleSnapshotForCode subtracts from the role grant based on this before
+	// freezing. May be nil (the code-less public + byoai paths, or an older facade that
+	// hasn't wired it → treated as zero denies).
 	CodeDenials CodeDenialReader
-	// RoleCapConfig —— 冻结 role snapshot 时读"各能力在这个 role 上的配置"。
-	// 可空 = 没有能力声明过 per-role 配置(完全正常的一台实例)。
+	// RoleCapConfig —— reads "each capability's config on this role" when freezing the
+	// role snapshot. Nil = no capability has ever declared per-role config (a perfectly
+	// normal instance).
 	RoleCapConfig RoleCapConfigReader
-	// Gas —— 油表(#7)。可空 = 这台实例读不到油量,于是每一场都当作没挂表 ——
-	// 读不到油量就把所有人挡在门外,是拿一个诊断问题去惩罚访客。
+	// Gas —— the gas gauge (#7). Nil = this instance can't read gas level, so every
+	// session is treated as unmetered —— failing to read gas level and locking everyone
+	// out over it would punish the visitor for a diagnostic problem.
 	Gas GasGauge
-	// ProviderDefault —— 把未指定 provider 的会话冻成默认那一箱（见 providerDefaulter）。
-	// 可空 = 不解析（老 facade 没接），那就退回今天的行为：provider_id 留空。
+	// ProviderDefault —— freezes a session with no specified provider into the default
+	// one (see providerDefaulter). Nil = doesn't resolve (an older facade hasn't wired
+	// it), falls back to today's behavior: provider_id stays empty.
 	ProviderDefault providerDefaulter
-	// CorpusRefs —— 冻 waypoints 时问「这条 evidence_ref 指得到真笔记吗」(F-A-26)。
-	// 可空 = 不做可行性过滤(见 feasibleWaypoints)。
+	// CorpusRefs —— asks "does this evidence_ref resolve to a real note" when freezing
+	// waypoints (F-A-26). Nil = no feasibility filtering (see feasibleWaypoints).
 	CorpusRefs CorpusRefResolver
 }
 
-// GasGauge —— 一箱油还剩多少 token。nil = 这箱油没挂表。
+// GasGauge —— how many tokens are left in a tank. nil = this tank has no metering
+// attached.
 //
-// 这一层不认识 owner_providers,也不认识用量表:那道算术在 owner 域(它管着油箱),
-// 实现由组装根接上。这里只问一句"还剩多少",因为要拦的是"这一场还能不能发"。
+// This layer knows nothing about owner_providers, nor about the usage table: that
+// arithmetic lives in the owner domain (which manages the tank), the implementation is
+// wired by the composition root. It only asks "how much is left," because what it
+// blocks is "can this session send another one".
 type GasGauge interface {
 	Remaining(ctx context.Context, ownerID, providerID string) (*int64, error)
 }
 
-// providerDefaulter —— owner 默认那条 provider 的 id（没配返空串）。
-// 会话签发时把"未指定 provider"冻成具体那一箱，否则匿名/public 花的是默认 key 的钱，
-// 却对 gas 记账和闸门隐形（pentest 2026-09-01）。
+// providerDefaulter —— the owner's default provider id (returns empty string if
+// unconfigured). At session issuance, "unspecified provider" gets frozen into a specific
+// one, otherwise anonymous/public spending on the default key stays invisible to gas
+// accounting and gates (pentest 2026-09-01).
 type providerDefaulter interface {
 	DefaultProviderID(ctx context.Context, ownerID string) (string, error)
 }
 
-// resolveSessionProviderID —— 会话要冻的 provider id。已指定就用它；空则冻成 owner
-// 默认那条，让匿名/public 花的默认 key 对 gas 记账和闸门可见（pentest 2026-09-01）。
-// deps.ProviderDefault 为 nil（老 facade 没接）时退回原样，返回 raw —— 跟今天一致。
+// resolveSessionProviderID —— the provider id to freeze into the session. Uses it if
+// already specified; if empty, freezes it to the owner's default so anonymous/public
+// spending on the default key is visible to gas accounting and gates (pentest
+// 2026-09-01). When deps.ProviderDefault is nil (an older facade hasn't wired it), falls
+// back unchanged, returns raw —— same as today.
 func resolveSessionProviderID(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID, raw string,
 ) (string, error) {
@@ -83,10 +95,13 @@ func resolveSessionProviderID(
 	return id, nil
 }
 
-// resolveCodeSessionData —— 冻 snapshot、构造会话数据,并把未指定的 provider 冻成 owner
-// 默认那条。码/role 都没指 provider 时,空串会让这场会话花的默认 key 对 gas 记账/闸门隐形
-// （pentest 2026-09-01）—— 所以在这里解析成具体那一箱。住在这里而不是 visitor.go:
-// 它是"装配一场会话"的 plumbing,跟 resolveSessionProviderID 同族,而 visitor.go 已到行数上限。
+// resolveCodeSessionData —— freezes the snapshot, builds the session data, and freezes
+// an unspecified provider into the owner's default one. When neither the code nor the
+// role specifies a provider, an empty string would make this session's spending on the
+// default key invisible to gas accounting/gates (pentest 2026-09-01) —— so it's resolved
+// to a specific one right here. Lives here rather than in visitor.go: it's "assemble a
+// session" plumbing, the same family as resolveSessionProviderID, and visitor.go has
+// already hit the line-count cap.
 func resolveCodeSessionData(
 	ctx context.Context, deps *VisitorSessionDeps,
 	code *access.Code, member *access.CodeMember, in *IssueCodeSessionInput,
@@ -106,20 +121,24 @@ func resolveCodeSessionData(
 	return sd, nil
 }
 
-// RoleCapConfigReader —— 按 role 读各能力自己的配置:**能力 id** → 它那份配置(JSON 对象)。
+// RoleCapConfigReader —— reads each capability's own config, keyed by role: **capability
+// id** → its config (a JSON object).
 //
-// 这一层**不解释里面任何一个键**,也不该知道有哪些能力 —— 所以口子只有一个方法,返回的是
-// 不透明的 JSON。实现在组装根(它才认识 capconfig 和 manifest 声明)。
+// This layer **never interprets any key inside it**, and shouldn't even know which
+// capabilities exist —— so the seam has exactly one method, returning opaque JSON. The
+// implementation lives in the composition root (only it knows capconfig and manifest
+// declarations).
 //
-// 方法叫 ReadByCapability 而不是 Read:同一个实现上还有一个 Read,返回的是**拍平的字段表**
-// (字段名 → 值),Go 类型跟这个一模一样。名字撞上的话,接错了编译器一句话都不会说,
-// 而症状是每个能力都读到一份不属于自己的配置。
+// The method is named ReadByCapability, not Read: the same implementation also has a
+// Read that returns a **flattened field table** (field name → value), with the exact
+// same Go type. If the names collided, a wrong wiring would compile silently, with the
+// symptom that every capability reads a config that isn't its own.
 type RoleCapConfigReader interface {
 	ReadByCapability(ctx context.Context, roleID string) map[string]json.RawMessage
 }
 
-// History —— 收窄成会话读模型的窄依赖(HistoryDeps),喂
-// LoadVisitorView / ConversationForChat。
+// History —— narrows down to the session read model's narrow dependency (HistoryDeps),
+// feeding LoadVisitorView / ConversationForChat.
 func (d *VisitorSessionDeps) History() *HistoryDeps {
 	return &HistoryDeps{
 		Codes: d.Codes, Chats: d.Chats,
@@ -127,37 +146,44 @@ func (d *VisitorSessionDeps) History() *HistoryDeps {
 	}
 }
 
-// CodeDenialReader —— 读一张 code 的 deny 集(capability / skill id)。纯 deny：
-// code 只能从所选 role 授的里再砍。access.CodeDenialRepo 实现它。
+// CodeDenialReader —— reads a code's deny set (capability / skill id). Pure deny: a code
+// can only cut further from what the chosen role already grants. access.CodeDenialRepo
+// implements it.
 type CodeDenialReader interface {
 	ListCapabilities(ctx context.Context, codeID string) ([]string, error)
 	ListSkills(ctx context.Context, codeID string) ([]string, error)
-	// ListCorpusURIs —— ACL 三类里的 corpus 那类：这张 code 从 role 的正列表收回的 glob。
+	// ListCorpusURIs —— the corpus category among the three ACL kinds: the globs this
+	// code retracts from the role's allow-list.
 	ListCorpusURIs(ctx context.Context, codeID string) ([]string, error)
 }
 
-// VisitorSkillsDeps —— #131: 注册 visitor capability 时所需的**原料**(capability
-// 接线那一半)。RegisterVisitorSkills 据此构造各 capability 的窄 deps。prod wireup +
-// eval facade 都构造它。不漏进业务逻辑,只在注册口用一次。
+// VisitorSkillsDeps —— #131: the **raw materials** needed to register visitor
+// capabilities (the capability-wiring half). RegisterVisitorSkills builds each
+// capability's narrow deps from this. Both prod wireup + the eval facade construct it.
+// Doesn't leak into business logic, used only once at the registration seam.
 type VisitorSkillsDeps struct {
 	Wiki     corpus.WikiLister
 	Output   corpus.OutputLister
 	Writings corpus.WritingLister
-	// #135: booker 外置到沙箱后,它的原料(CalendarProxy / booking store / owner /
-	// owner-notify)不再进这里 —— booker 经固定词表 reach-back 网关自取。
+	// #135: after booker was externalized to the sandbox, its raw materials
+	// (CalendarProxy / booking store / owner / owner-notify) no longer enter here ——
+	// booker fetches them itself through the fixed-vocabulary reach-back gateway.
 	Skills     SkillGetter
 	Sandbox    sandbox.Runner
 	MCPServers MCPServerGetter
 	Reports    ReportStore
 	Resolver   inference.Resolver
-	// DepConnected —— 命名 connector 依赖连通查询（ext-mcp dep-grant 闸用：工具声明
-	// _meta.requires 时按 grant+connected 放行）。prod 注 connector DepRegistry；eval
-	// facade 留 nil → ext-mcp 依赖工具一律 fail-closed 隐藏。
+	// DepConnected —— the named-connector dependency connectivity query (used by the
+	// ext-mcp dep-grant gate: when a tool declares _meta.requires, it's allowed through
+	// based on grant+connected). prod wires the connector DepRegistry; the eval facade
+	// leaves it nil → ext-mcp dependent tools are always fail-closed hidden.
 	DepConnected DepConnected
-	// AgentConnectors —— openapi 连接器的 raw ops 暴露成 agent 工具（§3）的来源。prod 注
-	// composition root 的适配器（ConnectorRepo + Hub）；nil → 不暴露任何 agent 工具。
+	// AgentConnectors —— the source that exposes an openapi connector's raw ops as
+	// agent tools (§3). prod wires the composition root's adapter (ConnectorRepo +
+	// Hub); nil → no agent tools exposed at all.
 	AgentConnectors AgentConnectorSource
-	// Resumes —— 访客侧简历读取能力的来源：按 application 的码取这一份简历 JSON。prod 注
-	// composition root 的适配器（port.ResumesByCode）；nil → 该能力永远隐藏。
+	// Resumes —— the source for the visitor-side resume-reading capability: fetches
+	// this resume's JSON by the application's code. prod wires the composition root's
+	// adapter (port.ResumesByCode); nil → this capability stays hidden permanently.
 	Resumes ResumeSource
 }

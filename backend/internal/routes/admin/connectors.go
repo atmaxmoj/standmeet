@@ -1,6 +1,8 @@
-// connectors.go —— #155 通用连接器 admin 路由（替代 gcal/mail-specific 路由）。一套端点管任意
-// kind/品类的连接器。handler 只做表现（cyclo ≤3）；编排（oauth dance / 凭据 / 槽位）全在
-// internal/connectorsvc。OAuth callback 走 GET /{id}/callback → 服务换 token → 回 /admin/connectors。
+// connectors.go — #155 generic connector admin routes (replaces the gcal/mail-specific
+// routes). One set of endpoints handles connectors of any kind/category. Handlers only do
+// presentation (cyclo ≤3); orchestration (oauth dance / credentials / slots) all lives in
+// internal/connectorsvc. The OAuth callback goes through GET /{id}/callback → the service
+// exchanges the token → redirects to /admin/connectors.
 
 package admin
 
@@ -19,29 +21,32 @@ import (
 
 const (
 	maxCredBytes = 64 << 10 // 64 KiB
-	// maxSpecBodyBytes —— 建/改连接器的请求体上限（spec 文本 + JSON 信封余量）。
+	// maxSpecBodyBytes — request body cap for creating/editing a connector (spec text +
+	// JSON envelope headroom).
 	maxSpecBodyBytes = 4 << 20 // 4 MiB
 	paramID          = "id"
 )
 
-// ConnectorsAdminDeps —— 通用连接器路由依赖。
+// ConnectorsAdminDeps — dependencies for the generic connector routes.
 //
-// Face —— 连接器的能力经出站收口取(声明在连接器轴那边)。Svc 只剩浏览器专属的那几条还在用:
-// OAuth 跳转、明文凭据表单 —— 它们本来就只在这个面上。
+// Face — connector capability is taken through the outbound convergence point (declared
+// on the connector axis). Svc still serves only the browser-specific handful: OAuth
+// redirects, the plaintext credential form — those only ever belonged on this facade.
 type ConnectorsAdminDeps struct {
 	Svc  *connector.Service
 	Face *dispatcher.Face
 }
 
-// MountConnectors —— /connectors 子路由。
+// MountConnectors — the /connectors subrouter.
 func (h *Handlers) MountConnectors(r chi.Router) {
 	r.Route("/connectors", func(r chi.Router) {
 		face := h.ConnectorsAdmin.Face
 		r.Get("/", h.dispatchOp(face, "connectors.list", emptyArgs, jsonListOK("connectors")))
 		r.Get("/catalog",
 			h.dispatchOp(face, "connectors.catalog", emptyArgs, jsonListOK("connectors")))
-		// 已连上的连接器各自暴露了哪些 operation —— 技能编辑器据此给出可授权的清单，
-		// 而不是请 owner 手打一个产品自己规范化出来的名字（F-C-57）。
+		// Which operations each connected connector exposes — the skill editor uses this
+		// to offer an authorizable list, instead of asking the owner to hand-type a name
+		// the product itself normalized (F-C-57).
 		r.Get("/agent-ops",
 			h.dispatchOp(face, "connectors.agent_ops", emptyArgs, jsonListOK("connectors")))
 		r.Post("/", h.dispatchOp(face, "connectors.create", connectorWriteArgs, jsonCreated))
@@ -51,26 +56,32 @@ func (h *Handlers) MountConnectors(r chi.Router) {
 	})
 }
 
-// mountDeclaredOps —— 把各连接器声明的 owner 操作挂成路由:`POST /connectors/ops/<后缀>`。
+// mountDeclaredOps mounts each connector's declared owner operations as routes:
+// `POST /connectors/ops/<suffix>`.
 //
-// 以前这里是一条写死的 `POST /mail/test-send` → `connectors.mail_test_send`。发一封测试信是
-// **邮件连接器**的事,不是"连接器注册表"的事;它长在通用注册表上,注册表就得认识 mail ——
-// 于是通用的那一层里出现了一个品类的名字。现在名字从声明来,这一层一个都不写。
+// This used to be a hardcoded `POST /mail/test-send` → `connectors.mail_test_send`.
+// Sending a test email is the **mail connector's** business, not the "connector
+// registry's" business; it lived on the generic registry, which then had to know about
+// mail — so a category's name showed up in the generic layer. Now the name comes from the
+// declaration; this layer writes none.
 func (h *Handlers) mountDeclaredOps(r chi.Router, face *dispatcher.Face) {
 	for _, opID := range h.ConnectorsAdmin.Svc.DeclaredOwnerOpIDs() {
 		seg, ok := strings.CutPrefix(opID, declaredOpPrefix)
 		if !ok {
-			continue // 不是这条命名规范下的,不挂
+			continue // not under this naming convention, don't mount it
 		}
 		r.Post("/ops/"+seg, h.dispatchOp(face, opID, bodyArgs, jsonOK))
 	}
 }
 
-// declaredOpPrefix —— 连接器声明的 owner 操作统一以此开头(见 connector.OwnerOp.Name)。
+// declaredOpPrefix — every connector-declared owner operation starts with this uniformly
+// (see connector.OwnerOp.Name).
 const declaredOpPrefix = "connectors."
 
-// mountConnectorItem —— /{id} 那一组。前四条经收口;后四条是浏览器专属的(OAuth 跳转、
-// 明文凭据),只在这个面上,所以照常直连编排服务。
+// mountConnectorItem — the /{id} group. The first four routes go through the convergence
+// point; the last four are browser-specific (OAuth redirect, plaintext credentials),
+// belonging only on this facade, so they connect straight to the orchestration service as
+// before.
 func (h *Handlers) mountConnectorItem(r chi.Router, face *dispatcher.Face) {
 	r.Route("/{id}", func(r chi.Router) {
 		r.Put("/", h.dispatchOp(face, "connectors.update", connectorUpdateArgs, jsonOK))
@@ -87,27 +98,32 @@ func (h *Handlers) mountConnectorItem(r chi.Router, face *dispatcher.Face) {
 	})
 }
 
-// connectorWriteReq —— Kind ""/"openapi" → 上传 spec+binding；"protocol" → 协议连接器（Protocol
-// 选 caldav/smtp，Category 显式给；openapi 的品类由 binding 定）。
+// connectorWriteReq — Kind ""/"openapi" → uploads spec+binding; "protocol" → a protocol
+// connector (Protocol picks caldav/smtp, Category is given explicitly; an openapi
+// connector's category comes from the binding).
 type connectorWriteReq struct {
-	AuthScheme         string          `json:"auth_scheme"`
-	BaseURL            string          `json:"base_url"` // spec 没写 servers 时 owner 手填的
-	SpecURL            string          `json:"url"`      // 从 URL 抓的 spec:面板没有正文
-	Kind               string          `json:"kind"`
-	Protocol           string          `json:"protocol"`
-	Category           string          `json:"category"`
-	SpecText           string          `json:"spec_text"`    // admin UI 贴的原文（JSON/YAML），优先于 Spec
-	BindingText        string          `json:"binding_text"` // admin UI 贴的绑定原文（YAML），优先于 Binding
+	AuthScheme string `json:"auth_scheme"`
+	BaseURL    string `json:"base_url"` // hand-filled by the owner when the spec has no servers
+	SpecURL    string `json:"url"`      // spec fetched from a URL: no body from the panel
+	Kind       string `json:"kind"`
+	Protocol   string `json:"protocol"`
+	Category   string `json:"category"`
+	// raw text (JSON/YAML) pasted in the admin UI, takes priority over Spec
+	SpecText string `json:"spec_text"`
+	// raw binding text (YAML) pasted in the admin UI, takes priority over Binding
+	BindingText        string          `json:"binding_text"`
 	Spec               json.RawMessage `json:"spec"`
 	Binding            json.RawMessage `json:"binding"`
 	ExposeAsAgentTools bool            `json:"expose_as_agent_tools"`
 }
 
-// connectorWriteArgs / connectorUpdateArgs —— 面板的 body → 收口要的 args。
+// connectorWriteArgs / connectorUpdateArgs — panel body → the args the convergence point
+// wants.
 //
-// 面板贴的是**原文**(spec_text / binding_text,YAML 不必前端解析),e2e 直 POST 走
-// spec / binding 对象。收口那边只认一份:spec / binding 两个字符串。这个换算是这个面的
-// 历史包袱,所以落在这一处。
+// The panel pastes in **raw text** (spec_text / binding_text — YAML doesn't need frontend
+// parsing); e2e POSTs the spec / binding objects directly. The convergence point side
+// only accepts one shape: two strings, spec / binding. This conversion is this facade's
+// historical baggage, so it lands here.
 func connectorWriteArgs(r *http.Request) (json.RawMessage, error) {
 	body, err := decodeConnectorWrite(r)
 	if err != nil {
@@ -133,7 +149,8 @@ func decodeConnectorWrite(r *http.Request) (connectorWriteReq, error) {
 	return body, nil
 }
 
-// connectorOpArgs —— 收口那边 connectors.create / connectors.update 的入参形状。
+// connectorOpArgs — the input shape connectors.create / connectors.update expect on the
+// convergence point side.
 type connectorOpArgs struct {
 	ID                 string `json:"id,omitempty"`
 	Kind               string `json:"kind,omitempty"`
@@ -170,7 +187,8 @@ type connectInitResp struct {
 	Connected bool   `json:"connected"`
 }
 
-// rawOrText —— 优先用原文（admin UI 贴的 JSON/YAML），否则用 JSON 对象（e2e 直 POST）。
+// rawOrText — prefers the raw text (JSON/YAML pasted in the admin UI), otherwise falls
+// back to the JSON object (e2e's direct POST).
 func rawOrText(raw json.RawMessage, text string) []byte {
 	if text != "" {
 		return []byte(text)
@@ -187,11 +205,13 @@ type credFormResp struct {
 	Fields   []credFormField `json:"fields"`
 	Scopes   []string        `json:"scopes"`
 	Schemes  []string        `json:"schemes"`
-	// GrantedScopes —— 已授的那些（Scopes 是可选清单，这是实际授出去的）。面板据此把
-	// 勾选框勾上；少了它，一条连着的连接看起来像什么权限都没有（F-C-33）。
+	// GrantedScopes — the ones actually granted (Scopes is the optional full list, this
+	// is what was actually granted). The panel uses this to check the checkboxes;
+	// without it, a connected connection looks like it has no permissions at all (F-C-33).
 	GrantedScopes []string `json:"granted_scopes"`
-	// Shortfall —— 这个授权做不了的那几个动作 + 各自还差哪个 scope（F-B-8）。卡上据此说出
-	// 「写着 connected，但这个授权做不了 X」；空 = 声明过的每一件事它都做得了。
+	// Shortfall — the actions this authorization can't do + which scope each one is
+	// still missing (F-B-8). The card uses this to say "shows connected, but this
+	// authorization can't do X"; empty means it can do everything it declared.
 	Shortfall []shortfallView `json:"shortfall"`
 }
 
@@ -208,7 +228,8 @@ func toShortfallViews(in []connector.ScopeShortfall) []shortfallView {
 	return out
 }
 
-// connectorCredentialForm —— 派生的凭据表单（owner 该填哪些字段连这个连接器）。
+// connectorCredentialForm — the derived credential form (which fields the owner needs to
+// fill to connect this connector).
 func (h *Handlers) connectorCredentialForm() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
@@ -236,7 +257,8 @@ func toCredFormResp(f *connector.CredentialForm) credFormResp {
 	}
 }
 
-// orEmpty —— nil slice → 空切片（JSON 出 [] 而非 null；check-no-nil-container）。
+// orEmpty — nil slice → empty slice (so JSON comes out as [] rather than null;
+// check-no-nil-container).
 func orEmpty(s []string) []string {
 	if s == nil {
 		return []string{}

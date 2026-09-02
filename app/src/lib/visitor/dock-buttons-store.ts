@@ -1,6 +1,8 @@
-// dock-buttons-store.ts —— #109/#110 visitor session 的 chat dock 按钮全局 store。
-// POST /api/v1/sessions 响应里的 dock_buttons（owner 在 role 上配的 ≤2 个，已过滤 code-deny）
-// 首次 set；ChatRoom 读它渲染两个位的按钮，点击把 trigger 当访客消息发出。
+// dock-buttons-store.ts —— #109/#110 global store for the visitor session's
+// chat dock buttons. Set once from the `dock_buttons` field in the POST
+// /api/v1/sessions response (the ≤2 the owner configured on the role,
+// already filtered by code-deny); ChatRoom reads it to render the two
+// button slots, and a click sends the trigger as a visitor message.
 
 import { create } from 'zustand';
 

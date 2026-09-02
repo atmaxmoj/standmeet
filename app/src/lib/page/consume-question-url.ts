@@ -1,14 +1,16 @@
-// consume-question-url —— `/?q=...&from=...` 落地时把 q 一次性喂进 chat
-// + replaceState 清 URL。被 PageShell mount 时调一次。
+// consume-question-url —— on landing on `/?q=...&from=...`, feed q into chat
+// once + replaceState to clean the URL. Called once when PageShell mounts.
 //
-// "URL 只承载 entry，状态进 store" —— 跟 use-absorb-code 同模式。
+// "URL only carries the entry point, state goes into the store" —— same
+// pattern as use-absorb-code.
 
 import { useEffect } from 'react';
 
 export function useConsumeQuestionFromURL(ask: (q: string) => void): void {
   useEffect(() => {
     consumeOnce(ask);
-    // 只跑一次：ask 函数闭包变化不该让 starter 再 fire 一遍。
+    // Run only once: a change in the ask function's closure shouldn't
+    // make the starter fire again.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot URL consumer
   }, []);
 }

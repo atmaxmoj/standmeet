@@ -1,15 +1,16 @@
-// facade_ops.go —— 本域对外能做的事,再导出给收口。
+// facade_ops.go — the actions this domain exposes outward, re-exported for the convergence point.
 //
-// 门面还是门面:只有别名。声明在 internal/corpus/ops,收口 import 这里把它们汇走。
+// Still just a facade: aliases only. Declared in internal/corpus/ops; the convergence point
+// imports this file to gather them.
 
 package corpus
 
 import "github.com/atmaxmoj/standmeet/internal/corpus/ops"
 
-// 声明操作时要的类型（实现:ops）.
+// Types needed when declaring operations (implemented in: ops).
 type OpsWritingsDeps = ops.WritingsDeps
 
-// 操作组（实现:ops）.
+// Operation groups (implemented in: ops).
 var (
 	AssetOps        = ops.AssetOps
 	CorpusReadOps   = ops.CorpusReads

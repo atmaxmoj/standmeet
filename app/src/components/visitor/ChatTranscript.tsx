@@ -1,11 +1,15 @@
-// ChatTranscript —— 主 chat(ChatRoom)和浮窗(FloatingChatDock)共用的 transcript
-// 渲染:you 问 + ai 答(走真 ChatMarkdown,md/latex/code 全有)+ ToolCallCards 折叠
-// searched 卡 + CitationsList references。进度行(ChatProgress)是 turn 内当前动作
-// (ToolThrobber reading/searching / ThinkingDots 词库轮换)。
+// ChatTranscript —— the transcript rendering shared by the main chat
+// (ChatRoom) and the floating dock (FloatingChatDock): you-question + ai-
+// answer (through real ChatMarkdown — md/latex/code all supported) +
+// ToolCallCards' collapsible searched card + CitationsList references. The
+// progress line (ChatProgress) is the "current action within this turn"
+// observer (ToolThrobber reading/searching / ThinkingDots word rotation).
 //
-// #35:浮窗以前自己写了简陋版(纯文本拼接、假 thinking、无 citations),现在两边
-// 同一套组件 —— 大 chat 的渲染行为在小 chat 上也成立(同 testid:answer-body /
-// tool-throbbers / citations / answer-pending)。compact 由调用方 CSS 缩。
+// #35: the floating dock used to have its own crude implementation (plain
+// text concatenation, fake thinking, no citations) — now both sides share
+// one set of components, so the big chat's rendering behavior holds on the
+// small chat too (same testids: answer-body / tool-throbbers / citations /
+// answer-pending). compact is shrunk via the caller's CSS.
 
 'use client';
 
@@ -22,7 +26,8 @@ import type { Citation, Dialog, ToolThrobberView } from '@/lib/page/use-chat';
 export function ChatTranscript({ dialogs, onAsk, conversationID, noteEvent }: {
   dialogs: readonly Dialog[]; onAsk: (q: string) => void;
   conversationID?: string;
-  // noteEvent —— 卡上做的事要进这段对话的历史，否则 agent 下一轮不知道（F-B-9）。
+  // noteEvent —— what happens on the card must go into this conversation's
+  // history, or the agent won't know about it on the next turn (F-B-9).
   noteEvent?: (text: string) => void;
 }) {
   return (
@@ -48,10 +53,13 @@ function DialogCard({ dialog, onAsk, conversationID, noteEvent }: {
         <span className="text-(--color-ink)">{t('you')}</span>
       </div>
       <VisitorQuestion q={dialog.q} />
-      {/* 说话人标签属于这一**轮**,不属于答案正文,所以它排在遥测和工具卡之前:读者要先知道
-          是谁在说,再看这一轮做了什么(UX-31 —— 以前是 `SEARCHED n · READ m` 先出现,`AI` 在
-          它下面,而这个产品的整个论点是「AI 用 owner 的声音回答」)。它也因此在 pending 期间
-          就在场:AI 一开始动作就该署名。 */}
+      {/* The speaker label belongs to this **turn**, not to the answer body,
+          so it comes before the telemetry and tool cards: the reader needs
+          to know who's speaking before seeing what this turn did (UX-31 —
+          it used to be `SEARCHED n · READ m` appearing first with `AI`
+          below it, while this product's whole thesis is "AI answers in the
+          owner's voice"). It's therefore also present during pending: the AI
+          should be credited the moment it starts acting. */}
       <SpeakerLabel />
       <ToolCallCards
         calls={dialog.answer.toolCalls}
@@ -62,9 +70,10 @@ function DialogCard({ dialog, onAsk, conversationID, noteEvent }: {
   );
 }
 
-// ChatProgress —— turn 内「当前动作」观察者,贴在输入栏正上方。最后一条 dialog
-// 还 pending 时显:有 tool → reading/searching(throbber),没 tool → thinking
-// 词库轮换。turn 落地即整条消失。
+// ChatProgress —— the "current action within this turn" observer, sitting
+// right above the input bar. Shows while the last dialog is still pending:
+// with a tool → reading/searching (throbber), without one → thinking word
+// rotation. The whole line disappears once the turn lands.
 export function ChatProgress({ dialogs }: { dialogs: readonly Dialog[] }) {
   const last = dialogs.at(-1);
   return last !== undefined && last.pending ? <ProgressLine dialog={last} /> : null;
@@ -80,7 +89,8 @@ function ProgressLine({ dialog }: { dialog: Dialog }) {
   );
 }
 
-// ToolThrobber —— agent 当前在跑那一个 tool 的进度行。label 已在 use-chat 拼好。
+// ToolThrobber —— the progress line for the one tool the agent is currently
+// running. The label is already assembled in use-chat.
 function ToolThrobber({ tool }: { tool: ToolThrobberView | null }) {
   return tool === null ? null : (
     <div
@@ -97,7 +107,8 @@ function ToolThrobber({ tool }: { tool: ToolThrobberView | null }) {
   );
 }
 
-// ThinkingDots —— LLM 在想(没具体 tool)时的进度行。词每 3 秒轮换;retrying 固定显。
+// ThinkingDots —— the progress line while the LLM is thinking (no specific
+// tool). The word rotates every 3 seconds; retrying always shows.
 function ThinkingDots({ retrying, tool }: { retrying: boolean; tool: ToolThrobberView | null }) {
   const word = useThinkingWord();
   return tool !== null ? null : (
@@ -112,7 +123,8 @@ function ThinkingDots({ retrying, tool }: { retrying: boolean; tool: ToolThrobbe
   );
 }
 
-// SpeakerLabel —— 「AI」。属于这一轮,不属于答案正文(见 DialogCard 里的说明)。
+// SpeakerLabel —— "AI". Belongs to this turn, not to the answer body (see
+// the note in DialogCard).
 function SpeakerLabel() {
   const t = useTranslations('visitor.chatTranscript');
   return (
@@ -139,8 +151,9 @@ function AnswerView({ answer }: { answer: Dialog['answer'] }) {
   );
 }
 
-// CitationsList —— 答案下一条安静的 "references · N" 折叠行(normal-AI-chat 风),
-// 展开是来源列表;每条跳那篇 document 的公开页。
+// CitationsList —— a quiet "references · N" collapsible line under the
+// answer (normal-AI-chat style); expanding shows the source list, each
+// linking to that document's public page.
 function CitationsList({ citations }: { citations?: readonly Citation[] }) {
   const t = useTranslations('visitor.chatTranscript');
   return citations && citations.length > 0 ? (

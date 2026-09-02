@@ -1,5 +1,6 @@
-// use-system-info —— #101 /admin/system 数据层。GET /api/admin/system 拿真 version /
-// uptime / go runtime + 真 health ping。只读,mount 时拉一次。
+// use-system-info —— #101 data layer for /admin/system. GET /api/admin/system
+// fetches real version / uptime / go runtime + real health pings. Read-only,
+// fetched once on mount.
 
 'use client';
 
@@ -46,7 +47,7 @@ export function useSystemInfo(): SystemInfoHook {
   return { info: data ?? null, loading: status === 'loading' };
 }
 
-// formatUptime —— 秒 → "2h 13m" / "45s" 之类的紧凑显示。
+// formatUptime —— seconds → a compact display like "2h 13m" / "45s".
 export function formatUptime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -54,7 +55,7 @@ export function formatUptime(seconds: number): string {
   return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-// deployView —— info → deployment 行显示串(null → 占位)。放这里让组件不含分支。
+// deployView —— info → deployment row display strings (null → placeholder). Lives here so the component has no branches.
 export function deployView(
   info: SystemInfo | null,
 ): { version: string; cpus: string; uptime: string } {
@@ -68,7 +69,7 @@ export function deployView(
   };
 }
 
-// healthList —— info → health 行(空/未加载给一条 loading 占位)。
+// healthList —— info → health rows (empty/not loaded gives one loading placeholder row).
 export function healthList(info: SystemInfo | null): HealthCheck[] {
   if (info === null || info.health.length === 0) {
     return [{ name: '—', detail: 'loading…', ok: true }];
@@ -90,8 +91,9 @@ function pct(part: number, whole: number): string {
   return whole > 0 ? `${Math.round((part / whole) * 100)}%` : '—';
 }
 
-// resourceStats —— info → 资源行(主机 disk/mem/load + go runtime)。放这里让组件不含分支。
-// null(未加载)全给占位;分支/格式化都在 lib。
+// resourceStats —— info → resource rows (host disk/mem/load + go runtime).
+// Lives here so the component has no branches.
+// null (not loaded) gives placeholders throughout; branching/formatting all live in lib.
 export function resourceStats(info: SystemInfo | null): ResourceStatView[] {
   if (info === null) {
     return [

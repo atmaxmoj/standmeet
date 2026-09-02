@@ -1,11 +1,12 @@
 // diag_registry.go —— GET /internal/diag/registry
 //                    —— GET /internal/diag/ext-mcp-stats
 //
-// 操作面诊断 endpoint: 列已注册 Capability + shape (前者) / 读 ext MCP
-// dial/close 计数 (后者)。owner 排错 + e2e invariants spec 都用得着。
+// Ops-facing diagnostic endpoints: lists registered Capabilities + shape (the first),
+// reads ext MCP dial/close counts (the second). Useful for owner troubleshooting and
+// e2e invariants specs alike.
 //
-// /internal 默认不被外部 reverse proxy 暴露，所以无 auth；同 /healthz、
-// /tls-ask、/builds 一样属 sysroutes。
+// /internal is not exposed by the external reverse proxy by default, so no auth;
+// it belongs to sysroutes the same way /healthz, /tls-ask, /builds do.
 
 package sys
 
@@ -19,14 +20,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
-// DiagRegistryDeps —— deps for /diag/registry + /diag/ext-mcp-stats。
+// DiagRegistryDeps —— deps for /diag/registry + /diag/ext-mcp-stats.
 type DiagRegistryDeps struct {
 	Registry *capreg.Registry
 	Log      *slog.Logger
 }
 
-// MountDiagRegistry —— /diag/registry + /diag/ext-mcp-stats。两个 endpoint
-// 共享同一 deps 挂同一文件下避免 wireup 噪声。
+// MountDiagRegistry —— /diag/registry + /diag/ext-mcp-stats. Both endpoints share the
+// same deps and are mounted in the same file to avoid wireup noise.
 func MountDiagRegistry(r chi.Router, deps DiagRegistryDeps) {
 	r.Get("/diag/registry", diagRegistryListHandler(deps))
 	r.Get("/diag/ext-mcp-stats", diagExtMCPStatsHandler(deps))

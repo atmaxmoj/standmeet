@@ -1,13 +1,16 @@
-// BYOAIPanel —— gate "no code? BYOAI"：左侧解释 + 右侧 provider/key 表单。
+// BYOAIPanel — gate "no code? BYOAI": left-side explanation + right-side
+// provider/key form.
 //
-// 4 个字段 (provider / endpoint / model / key) 全提交：endpoint 选 preset
-// 时自动预填（custom 必须自填），model 永远手输或点 "Load models" 拉真实
-// 列表。e2e selector：byoai-provider / byoai-endpoint / byoai-model /
-// byoai-key / byoai-load-models / byoai-model-select / byoai-submit。
+// All 4 fields (provider / endpoint / model / key) submit together: endpoint
+// auto-fills when a preset is picked (custom requires manual entry), model is
+// always typed by hand or fetched via "Load models". e2e selectors:
+// byoai-provider / byoai-endpoint / byoai-model / byoai-key /
+// byoai-load-models / byoai-model-select / byoai-submit.
 //
-// 切 provider 时的"用户改过没"判断在 lib/inference/provider-form.ts 里；
-// load-models 状态机在 lib/inference/use-model-list.ts 里；model 行的三态
-// 渲染在 components/inference/ModelLoaderRow.tsx 里。
+// The "did the user edit this" check on provider switch lives in
+// lib/inference/provider-form.ts; the load-models state machine lives in
+// lib/inference/use-model-list.ts; the three-state model row render lives in
+// components/inference/ModelLoaderRow.tsx.
 
 'use client';
 
@@ -48,25 +51,29 @@ export function BYOAIPanel({ hook }: Props) {
   const [form, setForm] = useState<ProviderFormState>(initialForm);
   const [apiKey, setApiKey] = useState('');
   const [reveal, setReveal] = useState(false);
-  // modelError —— `LOAD MODELS` 失败时说的那句话，**留在这一页里**（UX-82）。
+  // modelError — the message `LOAD MODELS` fails with, **kept on this page** (UX-82).
   //
-  // 以前它走 `toast.error`：按的是 BYOAI 面板里的按钮，而
-  // `✗ ERR provider does not expose a model list; type model id manually`
-  // 出现在**视口右下角** —— 视线在按钮上，那儿没人看。而这个产品别处都把拒绝**贴在出错的
-  // 控件下面**（`/gate` 的码错误、connectors 弹窗里那句 SSRF 拒绝就在 URL 框正下方，
-  // 同一文件里 F-G-6 那段注释讲的也是这件事）。这里换了一种规矩，还换成最容易被错过的那种。
+  // It used to go through `toast.error`: the click lands on a button in the BYOAI panel,
+  // but `✗ ERR provider does not expose a model list; type model id manually` appears in
+  // the **bottom-right corner of the viewport** — attention is on the button, nobody looks
+  // there. Everywhere else in this product a rejection is **pinned under the control that
+  // failed** (the `/gate` code error, the SSRF rejection in the connectors modal sits right
+  // under the URL field, and the F-G-6 comment in this same file makes the same point).
+  // This spot broke that convention, and picked the easiest-to-miss alternative.
   const [modelError, setModelError] = useState<string | null>(null);
   const onModelError = useCallback((m: string) => setModelError(m), []);
   const models = useModelList(onModelError);
-  // 挂载后再问浏览器「这里存得住 key 吗」（F-D-14）。SSR 那一帧按正常部署走，
-  // 否则每个 https 访客都要先闪一下不该看见的警告。
+  // Ask the browser "can this origin store a key" only after mount (F-D-14). The SSR
+  // frame assumes a normal deployment, otherwise every https visitor would see a flash
+  // of a warning that doesn't apply to them.
   const [canStore, setCanStore] = useState(true);
   useEffect(() => setCanStore(keyStorageAvailable()), []);
 
   const onProvider = useCallback((name: string) => {
     setForm((prev) => switchProvider(prev, name, defaultsFor(name)));
     models.reset();
-    // 换了 provider，上一家的那句拒绝就不再成立 —— 留着它会让人以为新选的这家也不行。
+    // On a provider switch, the previous provider's rejection no longer applies —
+    // leaving it up would suggest the newly picked provider fails too.
     setModelError(null);
   }, [models]);
   const onEndpoint = useCallback((v: string) => setForm((p) => setEndpoint(p, v)), []);
@@ -79,11 +86,14 @@ export function BYOAIPanel({ hook }: Props) {
 
   return (
     <section id="byoai" data-testid="byoai-panel">
-      {/* 两列还是一列，看**这一格有多宽**（`@md`），不是看视口有多宽（`md:`）。
-          原来是 `md:grid-cols-[1fr_2fr]`：视口一过 768 就必两列 —— 而这个面板现在也长在
-          阅读器右栏那条 380px 的轨道里，1920 的屏上它照样判成"宽"，于是塌成两列窄栏，
-          每行一两个词，端点和 key 的输入框直接溢出到屏幕外。
-          组件被搬到别处时，跟着它走的是标记，不是它当初那个版面的宽度。 */}
+      {/* One column vs. two is decided by **how wide this container is** (`@md`), not
+          how wide the viewport is (`md:`). It used to be `md:grid-cols-[1fr_2fr]`:
+          any viewport past 768 forced two columns — but this panel now also lives in
+          the reader's 380px right rail, where a 1920px screen still counts as "wide",
+          collapsing into two narrow columns of one or two words per line, with the
+          endpoint and key inputs overflowing off-screen.
+          When a component moves to a new home, its markup travels with it — the
+          layout width it was designed against does not. */}
       <div className="@container">
         <div className="grid grid-cols-1 @md:grid-cols-[1fr_2fr] gap-10">
           <BYOAIHeadline />
@@ -138,9 +148,11 @@ type FormProps = {
   busy: boolean;
   error: string | null;
   models: ModelListHook;
-  // modelError —— `LOAD MODELS` 的拒绝，贴在那个按钮下面而不是视口角落（UX-82）。
+  // modelError — the `LOAD MODELS` rejection, pinned under that button instead
+  // of the viewport corner (UX-82).
   modelError: string | null;
-  // canStore —— 这个浏览器存不存得住 key（F-D-14）。存不住时整条 BYOAI 路都走不通。
+  // canStore — whether this browser can store a key (F-D-14). If it can't, the
+  // whole BYOAI path is a dead end.
   canStore: boolean;
 };
 
@@ -150,10 +162,13 @@ function BYOAIForm(p: FormProps) {
     // autoComplete off on the form + new-password on the key (below) stop the browser's
     // login-form heuristic autofilling a saved email→model / password→key (UX-8).
     <form onSubmit={p.onSubmit} className="rise" autoComplete="off">
-      {/* 这四格**必须一柱到底**。试过排成 2×2 想压低这一段的纵向占地（UX-37：没有码的人
-          才走的备用路，却是整页占地最大的一块）—— 在 1280 视口下这一栏只有约 350px，
-          对半劈开后端点被截断、`LOAD MODELS` 压在 API KEY 上。要真的降它的重心，得折叠
-          或重排整页，那两条都会改交互和测试，不属于设计列。 */}
+      {/* These four fields **must stack in a single column**. A 2x2 layout was tried
+          to shrink this section's vertical footprint (UX-37: this is a fallback path
+          only visitors without a code take, yet it's the tallest block on the page) —
+          at a 1280 viewport this column is only ~350px wide, so splitting it in half
+          truncates the endpoint and crushes `LOAD MODELS` into API KEY. Actually
+          lowering its footprint needs collapsing or restructuring the page, both of
+          which change interaction and tests and are out of scope for the design lane. */}
       <ProviderRow value={p.form.provider} onChange={p.onProvider} />
       <EndpointRow value={p.form.endpoint} onChange={p.onEndpoint} placeholder={ph.endpoint} />
       <ModelRow
@@ -171,8 +186,9 @@ function BYOAIForm(p: FormProps) {
         placeholder={ph.key}
         keyPrefix={ph.keyPrefix}
       />
-      {/* 这一句以前落在整页最底下那个共用的错误行里 —— 离出错的表单一千多像素，而访客的
-          眼睛在按钮上。现在它贴着自己的提交键（F-G-6）。 */}
+      {/* This message used to land in the shared error line at the very bottom of the
+          page — over a thousand pixels from the form that failed, while the visitor's
+          eyes are on the button. Now it's pinned next to its own submit key (F-G-6). */}
       <BYOAIError message={p.error} />
       <InsecureOriginNote canStore={p.canStore} />
       <ReadyRow
@@ -183,10 +199,12 @@ function BYOAIForm(p: FormProps) {
   );
 }
 
-// InsecureOriginNote —— 这一页是用 http 从别的机器打开的，于是这个浏览器**没有** `crypto.subtle`，
-// 那把 key 无处可存（F-D-14）。它出现在按钮**上方**、按钮同时禁用：这条路走不通的时候，
-// 不该让人一路填完再撞一句「再试一次」——那句话在这里是谎话，重试永远不会成功。
-// 说的是出路（找 owner 要 https 地址），不是状态。
+// InsecureOriginNote — this page was opened over http from another machine, so this
+// browser **has no** `crypto.subtle`, and the key has nowhere to be stored (F-D-14).
+// It appears **above** the button, with the button also disabled: when a path is a
+// dead end, the visitor shouldn't fill out the whole form only to hit "try again" —
+// that message would be a lie here, retrying can never succeed.
+// It states the way out (ask the owner for an https address), not a transient state.
 function InsecureOriginNote({ canStore }: { canStore: boolean }) {
   const t = useTranslations('gate.byoai');
   return canStore ? null : (
@@ -213,7 +231,8 @@ function BYOAIError({ message }: { message: string | null }) {
 interface Placeholders {
   endpoint: string;
   key: string;
-  // keyPrefix —— 原样透出来给形状提示用（占位符里那个 `…` 版本读起来是例子，不是判据）。
+  // keyPrefix — passed through as-is for the shape hint (the `…` version in the
+  // placeholder reads as an example, not a validation rule).
   keyPrefix: string;
 }
 
@@ -245,8 +264,9 @@ function ProviderRow({ value, onChange }: { value: string; onChange: (p: string)
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
         {t('chooseModel')}
       </div>
-      {/* 这里原本是 `provider-pick is-on` —— 近黑实心,是整个 gate 页最重的色块(UX-36)。
-          一个"选哪家"的下拉不该比"进来"那个动作更抢眼。换成全 app 同一个下拉。 */}
+      {/* This used to be `provider-pick is-on` — a near-black solid fill, the heaviest
+          block of color on the whole gate page (UX-36). A "pick a provider" dropdown
+          shouldn't outweigh the "get in" action. Switched to the app-wide dropdown. */}
       <SelectField
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -309,8 +329,9 @@ function ModelRow({
         models={models} onLoad={onLoad}
         testidPrefix="byoai"
         loadDisabled={loadDisabled}
-        // flex-wrap：`LOAD MODELS` 跟输入框并排，而这个面板现在也长在 380px 的阅读器
-        // 右栏里 —— 不换行的话按钮被切在容器外，读者根本点不到它。
+        // flex-wrap: `LOAD MODELS` sits beside the input, and this panel now also
+        // lives in the reader's 380px right rail — without wrapping, the button gets
+        // clipped outside the container and readers can't click it at all.
         className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-(--color-rule) pb-1"
         inputClassName={MODEL_INPUT_CLASS}
       />
@@ -319,8 +340,9 @@ function ModelRow({
   );
 }
 
-// ModelError —— `LOAD MODELS` 的拒绝，**贴着那个按钮**（UX-82）。
-// 没有错误时这一格仍占住底部间距，免得出现错误时下面整段跳一下。
+// ModelError — the `LOAD MODELS` rejection, **pinned next to that button** (UX-82).
+// The slot reserves its bottom margin even with no error, so the section below
+// doesn't jump when an error appears.
 function ModelError({ message }: { message: string | null }) {
   return message === null ? <div className="mb-5" /> : (
     <p
@@ -338,8 +360,9 @@ function ReadyRow({
   apiKey: string; endpoint: string; model: string; busy: boolean; canStore: boolean;
 }) {
   const trimmedKey = apiKey.trim();
-  // 存不住 key 的时候「填齐了」也不算 ready —— 那句 `ready · using ●●●●99c2` 曾经在
-  // 密文一个字节都没落盘的情况下照常显示（F-D-14 同一屏的第二句谎）。
+  // When the browser can't store a key, "fields all filled" doesn't count as ready —
+  // `ready · using ●●●●99c2` used to render even though not a single byte of the
+  // ciphertext had actually been persisted (the same screen's second lie, F-D-14).
   const valid = isValid(trimmedKey, endpoint, model) && canStore;
   return (
     <div className="mt-4 mono text-[10px] tracking-[0.06em] text-(--color-muted) flex items-baseline justify-between gap-3 flex-wrap">
@@ -353,9 +376,10 @@ function isValid(key: string, endpoint: string, model: string): boolean {
   return key.length > 12 && endpoint.trim() !== '' && model.trim() !== '';
 }
 
-// ReadyHint —— 存不住 key 时整条让位给上面那句朱红说明（F-D-14）。留着它会变成第三句错话：
-// 三个字段明明填满了，它却在喊「fill endpoint, model + key」—— 指使人去做一件已经做完、
-// 而且做完也没用的事。
+// ReadyHint — when the browser can't store a key, this whole line yields to the
+// vermillion note above it (F-D-14). Leaving it up would be a third lie: all three
+// fields are filled, yet it would still shout "fill endpoint, model + key" — telling
+// the visitor to redo work that's already done and wouldn't help anyway.
 function ReadyHint(
   { valid, apiKey, canStore }: { valid: boolean; apiKey: string; canStore: boolean },
 ) {
@@ -391,9 +415,9 @@ function SubmitButton({ disabled, busy }: { disabled: boolean; busy: boolean }) 
   );
 }
 
-// trySubmit —— "form 已经填齐才发"的 wrapper；放在文件级让 onSubmit 这个
-// useCallback 复杂度保持 1。invalid 直接 noop，UI 上 submit button 已经
-// disabled，这里是双保险。
+// trySubmit — a wrapper that only submits once the form is fully filled; kept at
+// file scope so the onSubmit useCallback stays at complexity 1. Invalid input is a
+// plain noop — the UI already disables the submit button, this is a second guard.
 async function trySubmit(args: {
   form: ProviderFormState;
   apiKey: string;
@@ -416,7 +440,8 @@ async function runBYOAISubmit(
   router: ReturnType<typeof useRouter>,
 ): Promise<void> {
   const ok = await hook.submitBYOAI(input);
-  // 落根 / —— byoai 状态在 localStorage（use-gate.persistSession），
-  // page-shell mount 时读 store，URL 不挂 flag。带回首页问题 ?q=(跟 code 一致)。
+  // Lands on / — byoai state lives in localStorage (use-gate.persistSession),
+  // read by the store on page-shell mount; the URL carries no flag. Carries the
+  // homepage question through as ?q= (same as the code path).
   ok && router.push(postGateHref());
 }

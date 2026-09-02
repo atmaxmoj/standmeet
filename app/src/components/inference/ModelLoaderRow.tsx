@@ -1,12 +1,12 @@
-// ModelLoaderRow —— BYOAIPanel + AIProviderPanel 共用的 model 字段渲染。
+// ModelLoaderRow — model field rendering shared by BYOAIPanel + AIProviderPanel.
 //
-// 三种 UI 态由 models.state.options 区分：
-//   - null  → text <input> + "Load models" button
-//   - 非空  → <select> dropdown + "↻" 重 fetch + "type" 切回 input
-//   - loading → button 显示 "loading…" / "…" disabled
+// Three UI states distinguished by models.state.options:
+//   - null    → text <input> + "Load models" button
+//   - non-null → <select> dropdown + "↻" re-fetch + "type" switch back to input
+//   - loading → button shows "loading…" / "…" disabled
 //
-// testid prefix 让两边 panel 自己决定：byoai 传 "byoai"，admin 传
-// "ai-provider"。对应 testid：
+// The testid prefix lets each panel decide for itself: byoai passes "byoai",
+// admin passes "ai-provider". Corresponding testids:
 //   - input:    `{prefix}-model`
 //   - select:   `{prefix}-model-select`
 //   - load btn: `{prefix}-load-models`
@@ -26,12 +26,13 @@ interface RowProps {
   models: ModelListHook;
   onLoad: () => void;
   testidPrefix: ModelTestidPrefix;
-  /** 外层 wrapper className —— BYOAI 是 baseline+rule 风格，admin 是
-   *  border-b focus 风格。把外观留给调用方。 */
+  /** Outer wrapper className — BYOAI uses baseline+rule styling, admin uses
+   *  border-b focus styling. Appearance is left to the caller. */
   className: string;
   inputClassName: string;
-  /** loadDisabled —— 没法拉 model list 时禁用 "load models"(#41:BYOAI 没填 key
-   *  就拉不了 model,禁用 + 提示;调用方不传 = false,行为不变)。 */
+  /** loadDisabled — disables "load models" when the model list can't be fetched
+   *  (#41: BYOAI can't load models without a key filled in; disable + hint.
+   *  Callers that don't pass it default to false, unchanged behavior). */
   loadDisabled?: boolean;
 }
 
@@ -85,8 +86,9 @@ function ModelInput({
   );
 }
 
-// ModelSelect —— 不吃 inputClassName:那串类里既有布局(flex-1)也有观感(下划线、字号),
-// 而观感现在归 SelectField 管。只留下布局那一半 —— 两个调用方给的都是 flex-1。
+// ModelSelect — doesn't take inputClassName: that class string mixes layout
+// (flex-1) with appearance (underline, font size), and appearance is now owned
+// by SelectField. Only the layout half remains — both callers pass flex-1.
 function ModelSelect({
   value, onChange, options, prefix,
 }: {
@@ -147,8 +149,10 @@ function LoadButton({
       disabled={loading || loadDisabled}
       title={loadTitle(loadDisabled)}
       data-testid={`${prefix}-load-models`}
-      // 这是个动作，而它原来是 `text-(--color-faint)` —— 整行里最轻的东西（UX-76③）。
-      // 走 outline：比旁边的说明文字重，又不跟提交动作（solid）抢主次。
+      // This is an action, and it used to be `text-(--color-faint)` — the
+      // lightest thing on the whole row (UX-76③). Use outline: heavier than
+      // the adjacent caption text, but doesn't compete with the submit
+      // action (solid) for primacy.
       className="sm-btn sm-btn-outline sm-btn-sm shrink-0"
     >
       {loading ? 'loading…' : 'load models'}

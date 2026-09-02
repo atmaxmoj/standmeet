@@ -1,7 +1,10 @@
-// corpus_scope_test.go —— ACL 三类里的 corpus 那类：身份读得到什么 + code 收回了什么。
+// corpus_scope_test.go — the corpus kind of the three ACL kinds: what an identity can read +
+// what a code takes back.
 //
-// 这是 gate 1 的代数，错一处就是泄露，所以它在这里被逐条钉死：纯减法、顺序无关、code 开不了
-// role 没给的。**public 身份那一支也在这里**：它不看 glob，看条目自己的 published（F-D-7）。
+// This is gate 1's algebra — one mistake here is a leak, so it is pinned down clause by
+// clause: pure subtraction, order-independent, a code cannot open what its role never
+// granted. **The public-identity branch lives here too**: it ignores glob, it looks at the
+// entry's own published flag (F-D-7).
 
 package entity_test
 
@@ -12,7 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 这几条 URI 在下面反复出现（每个 case 都要一个"授了的"和一个"被收回的"）；提成常量。
+// These URIs repeat below (every case needs one "granted" and one "taken back"); pulled into
+// constants.
 const (
 	globWikiAll   = "wiki://**"
 	globSubjAll   = "subjectivity://**"
@@ -21,20 +25,23 @@ const (
 	globWikiPriv  = "wiki://private/**"
 )
 
-// 受邀身份的那些 case 里 published 是**无关**的（owner 是故意把这条授出去的），
-// 所以统一传 unpublished —— 让"glob 授权不看发布状态"这件事在每一行上都看得见。
+// In the invited-identity cases published is **irrelevant** (the owner deliberately granted
+// this entry), so unpublished is passed uniformly — making "a glob grant ignores publish
+// state" visible on every line.
 const (
 	unpublished = false
 	published   = true
 )
 
-// allows —— 把「scope + 这一条」读成一行，省得每个断言里都摊开一个 struct literal。
+// allows — reads "scope + this entry" as one line, so every assertion need not spell out
+// a struct literal.
 func allows(scope entity.CorpusScope, uri string, isPublished bool) bool {
 	return entity.AllowsCorpusEntry(scope, entity.CorpusEntryRef{URI: uri, Published: isPublished})
 }
 
-// TestAllowsCorpusEntry_CodeNarrowsRole —— 真实动机：一张 role 授了整个 subjectivity（stances 都要
-// 给），但某张码不该看见 record 笔记（CV：真名/学历/雇主）。owner 在这张码上收回 `subjectivity://cv`。
+// TestAllowsCorpusEntry_CodeNarrowsRole — real motivation: a role grants all of subjectivity
+// (all stances should be given), but a particular code should not see the record note
+// (CV: real name / education / employer). The owner takes back `subjectivity://cv` on that code.
 func TestAllowsCorpusEntry_CodeNarrowsRole(t *testing.T) {
 	t.Parallel()
 	scope := entity.CorpusScope{
@@ -49,8 +56,9 @@ func TestAllowsCorpusEntry_CodeNarrowsRole(t *testing.T) {
 		"other genres are untouched")
 }
 
-// TestAllowsCorpusEntry_DenyCannotOpen —— 纯减法的另一半，也是 A.4 的铁律：code 只能减。
-// 一条 deny 列表里的 glob 不会因为"被提到了"就变得可读；role 没授的照样不可读。
+// TestAllowsCorpusEntry_DenyCannotOpen — the other half of pure subtraction, also A.4's iron
+// rule: a code can only subtract. A glob in the deny list does not become readable just by
+// being "mentioned"; whatever the role never granted stays unreadable.
 func TestAllowsCorpusEntry_DenyCannotOpen(t *testing.T) {
 	t.Parallel()
 	scope := entity.CorpusScope{
@@ -61,9 +69,10 @@ func TestAllowsCorpusEntry_DenyCannotOpen(t *testing.T) {
 		"role never granted subjectivity — mentioning a subjectivity glob in DENY opens nothing")
 }
 
-// TestAllowsCorpusEntry_OrderIndependent —— A.2 当初 defer corpus 层级收窄，理由是"顺序敏感、
-// first-match-wins"。那描述的是 deny 行混进一张 glob 列表的方案。两个独立列表 = 集合交，
-// **排列顺序不影响结果** —— 这条测试就是那个理由不成立的证据。
+// TestAllowsCorpusEntry_OrderIndependent — A.2 originally deferred corpus-level narrowing,
+// citing "order-sensitive, first-match-wins". That described a design where deny lines are
+// mixed into one glob list. Two independent lists = set intersection, **ordering does not
+// change the result** — this test is the proof that reasoning no longer holds.
 func TestAllowsCorpusEntry_OrderIndependent(t *testing.T) {
 	t.Parallel()
 	const uri = uriCV
@@ -71,7 +80,7 @@ func TestAllowsCorpusEntry_OrderIndependent(t *testing.T) {
 		Granted: []string{globSubjAll, globWikiAll},
 		Denied:  []string{uriCV, globWikiPriv},
 	}
-	b := entity.CorpusScope{ // 两个列表都反着写
+	b := entity.CorpusScope{ // both lists written in reverse order
 		Granted: []string{globWikiAll, globSubjAll},
 		Denied:  []string{globWikiPriv, uriCV},
 	}
@@ -82,8 +91,9 @@ func TestAllowsCorpusEntry_OrderIndependent(t *testing.T) {
 	require.False(t, allows(a, uri, unpublished))
 }
 
-// TestAllowsCorpusEntry_DenyGlobTakesSubtree —— deny 的单位跟 grant 同一种语言（glob，不是 note id）：
-// 一条 `subjectivity://**` 就把整个 genre 从这张码收回，逐条写也行。
+// TestAllowsCorpusEntry_DenyGlobTakesSubtree — deny speaks the same language as grant (glob,
+// not note id): one `subjectivity://**` takes the whole genre back from this code; writing
+// entries one by one also works.
 func TestAllowsCorpusEntry_DenyGlobTakesSubtree(t *testing.T) {
 	t.Parallel()
 	scope := entity.CorpusScope{
@@ -95,8 +105,8 @@ func TestAllowsCorpusEntry_DenyGlobTakesSubtree(t *testing.T) {
 	require.True(t, allows(scope, "wiki://public/thing", unpublished))
 }
 
-// TestAllowsCorpusEntry_EmptyDenyIsInheritance —— 没配 deny = 完全继承 role（向后兼容：既有的码
-// 一行 deny 都没有，行为必须逐字不变）。
+// TestAllowsCorpusEntry_EmptyDenyIsInheritance — no deny configured = full inheritance from
+// role (backward compat: an existing code with zero deny lines must behave identically).
 func TestAllowsCorpusEntry_EmptyDenyIsInheritance(t *testing.T) {
 	t.Parallel()
 	granted := []string{globWikiAll, globSubjAll}
@@ -107,8 +117,8 @@ func TestAllowsCorpusEntry_EmptyDenyIsInheritance(t *testing.T) {
 	}
 }
 
-// TestAllowsCorpusEntry_RawStillHardDenied —— raw://** 是硬编码 deny，不因为 grant 写了它就开。
-// deny 层不该动摇这条既有的地板。
+// TestAllowsCorpusEntry_RawStillHardDenied — raw://** is a hardcoded deny, writing it into
+// grant does not open it. The deny layer must not shake this existing floor.
 func TestAllowsCorpusEntry_RawStillHardDenied(t *testing.T) {
 	t.Parallel()
 	scope := entity.CorpusScope{Granted: []string{"raw://**", globWikiAll}}
@@ -116,11 +126,12 @@ func TestAllowsCorpusEntry_RawStillHardDenied(t *testing.T) {
 		"raw is denied to visitors regardless of the grant list")
 }
 
-// TestAllowsCorpusEntry_PublicReadsOnlyPublished —— **F-D-7 的代数**。
+// TestAllowsCorpusEntry_PublicReadsOnlyPublished — **F-D-7's algebra**.
 //
-// public 身份（无码访客 + BYOAI）没有正列表：一条读不读得到，看它自己发布没有。
-// 以前它带着 `wiki://**`，于是标着 PRIVATE 的笔记照样被读走 —— 那份 glob 是同一件事的
-// 第二份数据，而两份数据里错的那一份没人会发现。
+// The public identity (no-code visitor + BYOAI) has no positive list: whether an entry is
+// readable comes down to its own publish state. It used to carry `wiki://**`, which let
+// notes marked PRIVATE be read anyway — that glob was a second copy of the same fact, and
+// nobody notices when the wrong one of two copies goes stale.
 func TestAllowsCorpusEntry_PublicReadsOnlyPublished(t *testing.T) {
 	t.Parallel()
 	scope := entity.CorpusScope{PublishedOnly: true}
@@ -132,9 +143,10 @@ func TestAllowsCorpusEntry_PublicReadsOnlyPublished(t *testing.T) {
 		"raw stays denied on this branch too")
 }
 
-// TestAllowsCorpusEntry_PublicIgnoresAStaleGrantList —— 老实例的 role_corpus_uris 里还留着
-// 那三条 glob（seed 只在 claim 时跑）。它们**不得**再让 public 读到未发布的东西：
-// 判据是身份，不是那张表里剩下什么。
+// TestAllowsCorpusEntry_PublicIgnoresAStaleGrantList — an old instance's role_corpus_uris
+// still has those three glob rows sitting in it (seed only runs at claim time). They
+// **must not** let public read unpublished material anymore: the verdict comes from
+// identity, not from whatever is left in that table.
 func TestAllowsCorpusEntry_PublicIgnoresAStaleGrantList(t *testing.T) {
 	t.Parallel()
 	scope := entity.CorpusScope{
@@ -145,8 +157,9 @@ func TestAllowsCorpusEntry_PublicIgnoresAStaleGrantList(t *testing.T) {
 		"a leftover wiki://** row must not reopen what the owner never published")
 }
 
-// TestAllowsCorpusEntry_PublicStillObeysCodeDenials —— public 身份也走 deny 那一半：
-// 自动签发的 application code 挂的就是 public，owner 在那张码上收回的必须仍然收得回来。
+// TestAllowsCorpusEntry_PublicStillObeysCodeDenials — the public identity also goes through
+// the deny half: an auto-issued application code is assigned public, and whatever the owner
+// takes back on that code must still be taken back.
 func TestAllowsCorpusEntry_PublicStillObeysCodeDenials(t *testing.T) {
 	t.Parallel()
 	scope := entity.CorpusScope{
@@ -158,8 +171,10 @@ func TestAllowsCorpusEntry_PublicStillObeysCodeDenials(t *testing.T) {
 		"published, but this code took the subtree back")
 }
 
-// TestAllowsCorpusEntry_InvitedReadsUnpublished —— 反方向也要钉住，否则"全都按 published 过"
-// 这种偷懒实现也能让上面几条过：**受邀**身份读得到未发布的笔记，那正是发一张码的意义。
+// TestAllowsCorpusEntry_InvitedReadsUnpublished — the reverse direction needs pinning too,
+// otherwise a lazy "treat everything as published" implementation would also pass the
+// cases above: the **invited** identity can read unpublished notes — that is the whole
+// point of issuing a code.
 func TestAllowsCorpusEntry_InvitedReadsUnpublished(t *testing.T) {
 	t.Parallel()
 	scope := entity.CorpusScope{Granted: []string{globWikiAll}}

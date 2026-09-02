@@ -1,22 +1,28 @@
-// jobs-loop-view —— dashboard 上「JOBS · ACTIVE LOOP」那一格的取值。
+// jobs-loop-view —— the value for the "JOBS · ACTIVE LOOP" cell on the dashboard.
 //
-// 那一格原来一个字都不看状态:`JobsTopMatch()` 不收参数、不读 state、没有分支,永远渲染
-// "register sources to start matching";旁边 SHORTLIST 底下那个 `0` 是 JSX 字面量(F-E-2)。
-// 于是 owner 在源已经注册好、池子里躺着工作的时候,读到的还是"去注册源"—— 被指使去做一件
-// 已经做完的事,而真正缺的那一步(fetch)一次都没被说出来。
+// That cell used to not look at state at all: `JobsTopMatch()` took no
+// parameters, read no state, had no branches, and always rendered "register
+// sources to start matching"; the `0` under SHORTLIST next to it was a JSX
+// literal (F-E-2). So when the owner already had sources registered and jobs
+// sitting in the pool, they'd still read "go register a source" — told to do
+// something already done, while the step actually missing (fetch) was never mentioned once.
 //
-// 对的那句话产品里本来就有:/admin/listings 在同样的状态下写的是"源有了,去 fetch",还点名了
-// 要跑哪个命令。所以这里不是缺文案,是缺一个**看状态的地方**。这个文件就是那个地方。
+// The right message already existed elsewhere in the product: /admin/listings,
+// in the same state, says "sources are set up, go fetch" and even names the
+// command to run. So this wasn't missing copy, it was missing **a place that
+// looks at state**. This file is that place.
 //
-// 词汇也跟着改齐:池子那一列在 /admin/listings 叫 "in pool",这里就不叫 "shortlist"
-// (产品里没有 shortlist 这个东西);而排序是 Claude 的活,StandMeet 只是状态持有者,
-// 所以这里报的是**池子里最新的一条**,不是一个它算不出来的 "top match"。
+// Vocabulary was also brought in line: the pool column is called "in pool"
+// on /admin/listings, so it isn't called "shortlist" here either (there's no
+// such thing as a shortlist in this product); and ranking is Claude's job,
+// StandMeet is only a state holder, so this reports **the latest entry in
+// the pool**, not a "top match" it has no way to compute.
 
 import type { AdminListingRow } from '@/lib/admin/use-admin-listings';
 
-// PoolHeadState —— 池子那一栏此刻在说的话。
-// loading 和 error 必须跟 "0" 分开:"池子是空的" 是一句关于事实的陈述,而拉挂了的时候
-// 事实是不知道。
+// PoolHeadState —— what the pool column says right now.
+// loading and error must stay separate from "0": "the pool is empty" is a
+// factual claim, and when the fetch failed, the fact is that it's unknown.
 export type PoolHeadState =
   | { kind: 'loading' }
   | { kind: 'error' }
@@ -40,8 +46,9 @@ export function poolHeadState(in_: JobsLoopInput): PoolHeadState {
   return { kind: 'job', title: top.title, company: top.company, where: top.location };
 }
 
-// headline / hint —— 只有 job 这一支有真数据要拼;其余几支的文案在组件里按 kind 取,
-// 因为它们要走 i18n,而 lib 层不碰 next-intl。
+// headline / hint —— only the job branch has real data to assemble; the copy
+// for the other branches is looked up by kind in the component, because it
+// goes through i18n, and the lib layer doesn't touch next-intl.
 export function jobHeadline(state: PoolHeadState): string {
   return state.kind === 'job' ? `${state.title} · ${state.company}` : '';
 }
@@ -50,8 +57,9 @@ export function jobHint(state: PoolHeadState): string {
   return state.kind === 'job' ? state.where : '';
 }
 
-// poolCountLabel —— 池子里有几条。loading/error 各有各的字面:'…' 还在拉、'—' 没拉到。
-// 拿 '0' 当占位就是在说"池子是空的",那是一句可能不成立的陈述。
+// poolCountLabel —— how many entries are in the pool. loading/error each get
+// their own literal: '…' still fetching, '—' failed to fetch.
+// Using '0' as a placeholder would assert "the pool is empty", a claim that might not hold.
 export function poolCountLabel(in_: JobsLoopInput): string {
   return in_.loading ? '…' : in_.error !== null ? '—' : String(in_.listings.length);
 }

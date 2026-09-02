@@ -1,8 +1,10 @@
-// agent_instruction.go —— 通用 instruction 的组合器:把"访客在看哪篇 doc / 现在
-// 几点 + owner & 访客时区 / 该 member 其他对话的 digest"这些**与 capability 无关**的
-// 上下文,层层拼进每一轮 ChatModelAgent 的 instruction。
+// agent_instruction.go —— composer for the generic instruction: layers **capability-agnostic**
+// context — which doc the visitor is currently viewing / the current time plus owner & visitor
+// timezone / a digest of this member's other conversations — onto every ChatModelAgent turn's
+// instruction.
 //
-// 从 agent_turn.go 拆出来:那边是 HTTP/SSE 出口,这边纯拼 prompt,两个关注点。
+// Split out of agent_turn.go: that file is the HTTP/SSE boundary, this one is pure prompt
+// assembly — two separate concerns.
 
 package inference
 
@@ -11,8 +13,9 @@ import (
 	"time"
 )
 
-// instructionWithDoc —— persona instruction 末尾拼一段「访客正看着 X」的位置上下文,
-// 让代词指代("this page"/"这篇"/"这个项目")解析到那篇 doc。doc 为 nil / 空 → 原样返。
+// instructionWithDoc —— appends a "the visitor is currently looking at X" location note to the
+// end of the persona instruction, so pronoun references ("this page"/"this one"/"this project")
+// resolve to that doc. doc nil / empty → returned unchanged.
 func instructionWithDoc(system string, doc *AgentDocContext) string {
 	if doc == nil || doc.Title == "" {
 		return system
@@ -27,17 +30,23 @@ func instructionWithDoc(system string, doc *AgentDocContext) string {
 	return system + loc
 }
 
-// instructionWithDateTime —— 把"现在的日期时间 + owner 所在时区 + 访客时区"作为**通用**
-// 上下文注入每一轮 instruction(与 capability 无关)。技术 / 简历 / 经历都有
-// 时效性:agent 必须知道"今天"才能正确回答"最近""N 年经验"这类问题,也才能把
-// "6 月 18 号"这种无年份的相对日期锚到将来而不是某个过去的年份
-// (实测里模型会默认 fallback 到训练期的年份,谎报 avail)。tz 空 / 非法 → UTC。
+// instructionWithDateTime —— injects "the current date/time + owner's timezone + visitor's
+// timezone" as **generic** context on every turn's instruction (capability-agnostic). Skills /
+// résumé / experience are all time-sensitive: the agent must know "today" to correctly answer
+// "recent" / "N years of experience" questions, and to anchor a yearless relative date like
+// "June 18th" to the future rather than some past year (observed in practice: the model
+// otherwise defaults to falling back to its training-period year and misreports availability).
+// tz empty / invalid → UTC.
 //
-// **这里只陈述事实,不下指示。** 原来它还写着"For scheduling, the owner's calendar runs in
-// this timezone",以及在访客时区未知时"先问访客时区再提议时间"—— 一个只被授了语料的访客,
-// 系统提示里凭空多出一句关于日程的指示,而他连日程工具都看不见。怎么换算、什么时候反问、
-// 要不要双显,是**会排期的那个能力**自己的事:它在自己的 MCP instructions 里说,授了才出现
-// (mcp-servers/booker/content.go)。内核不知道有没有那个能力,也就不该替它说话。
+// **This states facts only, never gives instructions.** It used to also say "For scheduling,
+// the owner's calendar runs in this timezone", and, when the visitor's timezone was unknown,
+// "ask the visitor's timezone before proposing a time" — so a visitor granted only corpus
+// access got a scheduling instruction dropped into their system prompt out of nowhere, despite
+// not even being able to see a scheduling tool. How to convert, when to ask back, whether to
+// show both — that is the business of **the capability that actually schedules**: it says so in
+// its own MCP instructions, which only appear once that capability is granted
+// (mcp-servers/booker/content.go). The kernel doesn't know whether that capability exists, so it
+// must not speak on its behalf.
 func instructionWithDateTime(system string, now time.Time, ownerTZ, visitorTZ string) string {
 	loc, label := time.UTC, "UTC"
 	if ownerTZ != "" {
@@ -54,8 +63,10 @@ func instructionWithDateTime(system string, now time.Time, ownerTZ, visitorTZ st
 		"past year)." + visitorTZClause(visitorTZ, label)
 }
 
-// visitorTZClause —— 访客在哪个时区,**是个事实,不是指示**:知道就说一句,不知道就不说。
-// 未知时该不该反问、换算之后要不要两边都报,取决于这一轮有没有会排期的能力 —— 那由它自己说。
+// visitorTZClause —— which timezone the visitor is in **is a fact, not an instruction**: state
+// it when known, say nothing when not. Whether to ask back when unknown, or show both sides
+// after converting, depends on whether this turn has a scheduling capability — that's for the
+// capability itself to say.
 func visitorTZClause(visitorTZ, ownerLabel string) string {
 	if visitorTZ == "" {
 		return ""
@@ -66,14 +77,19 @@ func visitorTZClause(visitorTZ, ownerLabel string) string {
 	return " The visitor's timezone is " + visitorTZ + "."
 }
 
-// instructionWithSessionNotes —— 把**这一场此刻**才成立的事实拼进 instruction。
+// instructionWithSessionNotes —— appends facts that only became true **right now, this
+// session** onto the instruction.
 //
-// 为什么不能只写在 system prompt 里:访客那份 prompt 在**发会话时**就定下了(客户端按 part id
-// 拼好再发回来)。会话中途才变真的事 —— 额度用完了、连接器掉线了 —— 从那条路进不来。于是
-// 一个额度用尽的会话里,模型看见的说明书还写着「你会订会」,手上却没有那把工具,而它对这份
-// 证据最自然的修复是怀疑自己刚才的输出:F-B-14 里它把两场**真的**会说成没订成。
+// Why this can't just live in the system prompt: the visitor-side prompt is fixed **at the time
+// the message is sent** (the client assembles it by part id and sends it back as-is). Anything
+// that becomes true mid-session — quota ran out, a connector went offline — has no way in
+// through that path. So in a quota-exhausted session the model still sees a system prompt
+// saying "you can book meetings" while the tool is no longer in its hands, and the most natural
+// way for it to reconcile that evidence is to doubt its own recent output: in F-B-14 it reported
+// two meetings it had **actually** booked as not booked.
 //
-// 空 → 原样返回:没有新事实时不动那份 instruction(prompt hash 的确定性也靠这一点)。
+// Empty → returned unchanged: don't touch the instruction when there's no new fact (this also
+// keeps the prompt hash deterministic).
 func instructionWithSessionNotes(system string, notes []string) string {
 	if len(notes) == 0 {
 		return system
@@ -81,9 +97,10 @@ func instructionWithSessionNotes(system string, notes []string) string {
 	return system + "\n\nTrue right now in this session:\n" + strings.Join(notes, "\n")
 }
 
-// instructionWithCrossConv —— 「互通」:把该 member 其他对话的 digest 拼进 instruction,
-// 让 AI 像「同一个人继续聊」那样跨对话连贯,但不把别段的内容混进当前 transcript。
-// digest 空(public / 无 member / 没别的对话)→ 原样返回。
+// instructionWithCrossConv —— "cross-talk": appends a digest of this member's other
+// conversations to the instruction, so the AI stays coherent across conversations like "the
+// same person continuing to talk", without mixing other threads' content into the current
+// transcript. digest empty (public / no member / no other conversations) → returned unchanged.
 func instructionWithCrossConv(system, digest string) string {
 	if digest == "" {
 		return system

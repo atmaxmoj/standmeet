@@ -1,9 +1,11 @@
-// code_derive.go —— 不传 code 时按 label 派生 'LABEL-XXX' 形态的人类可读 code。
+// code_derive.go — when no code is given, derive a human-readable 'LABEL-XXX' code from label.
 //
-// 这条规则住在域里。它先是只长在 admin 面上(于是 MCP 那边 code 必填),后来被搬进出站
-// 收口 —— 那仍然是"只有走那条路的调用方才有"。建码有三个入口(面板、MCP、job-loop 的
-// CreateAccessCodeTx),规则放在任何一个入口上,另外两个就得各写一份,然后飘。
-// 它是**建码这件事本身**的一部分,所以跟着建码走。
+// This rule lives in the domain. It first grew only on the admin panel (so the MCP side had
+// to make code required), then got moved into the outbound convergence point — that was
+// still "only the caller going through that one path has it". Code creation has three
+// entry points (the panel, MCP, job-loop's CreateAccessCodeTx); putting the rule on any one
+// of them means the other two each need their own copy, and those copies drift.
+// This rule is part of **the act of creating a code itself**, so it travels with creation.
 
 package entity
 
@@ -15,19 +17,22 @@ import (
 
 const (
 	codeLabelMaxLen = 12
-	// codeSuffixBytes —— 系统派生码的随机后缀字节数。
+	// codeSuffixBytes — random suffix byte count for a system-derived code.
 	//
-	// **8 字节 = 64 bit**，不是 2。pentest 2026-09-01 实证：一张走 `invited` role 的码
-	// 读得到全部私有语料，而这种码印在简历 QR 上（公开材料）。16 bit（原值）在锁定下
-	// 单 IP 约 68 天可破、僵尸网络更快 —— 对一个授予全私有语料的 URL bearer 太弱。
-	// 64 bit 让在线暴破的期望远超任何现实时限。旧码是精确匹配的存储串，加长后仍可用。
+	// **8 bytes = 64 bit**, not 2. Pentest 2026-09-01 proved it: a code on the `invited`
+	// role can read the entire private corpus, and this kind of code gets printed in a QR
+	// on a resume (public material). 16 bit (the old value) is crackable from a single IP
+	// in about 68 days under rate-limiting, faster with a botnet — too weak for a URL
+	// bearer that grants the whole private corpus. 64 bit pushes the expected time for
+	// online brute-forcing far past any realistic deadline. Old codes are exact-match
+	// stored strings, so they still work after the suffix got longer.
 	codeSuffixBytes  = 8
-	codeSuffixDigits = codeSuffixBytes * 2 // 每字节两个 hex 字符
+	codeSuffixDigits = codeSuffixBytes * 2 // two hex characters per byte
 	hexShift         = 4                   // hex nibble: low/high split per byte
 	hexLowMask       = 0x0F                // hex nibble mask
 )
 
-// codeRand —— wrapped for test injection; defaults to crypto/rand。
+// codeRand —— wrapped for test injection; defaults to crypto/rand.
 var codeRand = cryptoRandRead
 
 func cryptoRandRead(b []byte) (int, error) {
@@ -38,7 +43,7 @@ func cryptoRandRead(b []byte) (int, error) {
 	return n, nil
 }
 
-// DeriveCode —— 没给 code 时按 label 派生一个。给了就原样用。
+// DeriveCode — derive one from label when no code is given. Use it as-is when given.
 func DeriveCode(code, label string) string {
 	if code != "" {
 		return code
@@ -88,12 +93,13 @@ func isDigit(c rune) bool      { return c >= '0' && c <= '9' }
 func randomCodeSuffix() string {
 	buf := make([]byte, codeSuffixBytes)
 	if _, err := codeRand(buf); err != nil {
-		// rand 失败极罕见。返回可辨认的哨兵 + 一个错误标记,不返回"看起来正常"的低熵串
-		// (那会让一张碰巧全 0 的弱码混进来)。长度跟正常后缀一致,方便一眼认出。
+		// rand failing is extremely rare. Return a recognizable sentinel + an error marker,
+		// not a low-entropy string that "looks normal" (that would let a weak all-zero
+		// code slip through). Same length as a normal suffix, so it's spottable at a glance.
 		return strings.Repeat("0", codeSuffixDigits)
 	}
 	const hex = "0123456789ABCDEF"
-	// 每字节两个 nibble。跟着 codeSuffixBytes 走,改字节数不用再动这里。
+	// Two nibbles per byte. Follows codeSuffixBytes — changing the byte count needs no edit here.
 	out := make([]byte, 0, codeSuffixDigits)
 	for _, b := range buf {
 		out = append(out, hex[b>>hexShift], hex[b&hexLowMask])

@@ -1,16 +1,21 @@
-// baseurl.go —— owner 手填的 base URL,在**边界**上并进 spec。
+// baseurl.go — the owner-supplied base URL, merged into the spec at the **boundary**.
 //
-// 真厂商文档常常不带可用的 `servers`(Cal.com v2 写的是显式的 `"servers": []`),而摄入闸要求
-// 它必须有(ingest.go)。owner 唯一的出路本来是手改 vendor 的文件 —— 那正是 connector-assembly
-// check 2 明确禁止的事(F-C-22)。
+// Real vendor docs often ship without a usable `servers` field (Cal.com v2 writes an explicit
+// `"servers": []`), while the ingest gate requires one (ingest.go). The owner's only workaround
+// would be to hand-edit the vendor's file — exactly what connector-assembly check 2 explicitly
+// forbids (F-C-22).
 //
-// **为什么是「归一化」而不是「往下游穿一个 override」:** 校验、装配、运行时、出站 SSRF 静态
-// 校验、凭据表单派生 —— 这五处都读同一份 spec 字节。多一个 override 参数就要在五处都记得它
-// 存在,漏一处就是「装配时有 base URL、运行时没有」这种只在真调用时才炸的洞。在入口把它并进
-// 文档,下游全都看到一份**普通的 spec**,一个字都不用改。
+// **Why "normalize" instead of "thread an override downstream":** validation, assembly, runtime,
+// outbound SSRF static checks, credential-form derivation — all five read the same spec bytes.
+// An extra override parameter means all five sites must remember it exists; missing one produces
+// the "base URL present at assembly time, absent at runtime" hole that only blows up on a real
+// call. Merging it into the document at the entry point means every downstream site sees one
+// **plain spec** — nothing there has to change.
 //
-// **幂等由结构保证:** 设一个 map 键,而不是往文本里插一段。spec 本来就有 `servers` 时是覆盖,
-// 绝不会产出两个 `servers` 键 —— 手工插一段正是这么炸的(重复键,YAML 解析器合法地拒绝)。
+// **Idempotence comes from structure, not text:** we set a map key instead of splicing text.
+// When the spec already has `servers`, we overwrite it, so we never produce two `servers` keys —
+// which is exactly how a hand-spliced insert breaks (duplicate key, legally rejected by the YAML
+// parser).
 
 package openapi
 
@@ -22,12 +27,14 @@ import (
 	yaml "go.yaml.in/yaml/v3"
 )
 
-// errSpecNotAMapping —— 文档顶层不是一个映射(比如是个列表或标量),没有地方安放 servers。
+// errSpecNotAMapping — the document's top level isn't a mapping (e.g. a list or a scalar),
+// so there's nowhere to put servers.
 var errSpecNotAMapping = errors.New("the spec is not an object at its top level")
 
-// ApplyBaseURL —— 把 owner 填的 base URL 写进 spec 的 `servers`,返回归一化后的文档字节。
-// baseURL 为空 → 原样返回(零改动,连解析都不做)。JSON 也走这条路:YAML 是 JSON 的超集,
-// 解出来是同一个 map,回写成 YAML 后 ParseSpec 一样认。
+// ApplyBaseURL — writes the owner-supplied base URL into the spec's `servers`, returning the
+// normalized document bytes. baseURL empty → returned as-is (zero changes, not even parsed).
+// JSON goes through this path too: YAML is a superset of JSON, so it decodes into the same map,
+// and ParseSpec accepts it just the same after being re-marshaled as YAML.
 func ApplyBaseURL(raw []byte, baseURL string) ([]byte, error) {
 	trimmed := strings.TrimSpace(baseURL)
 	if trimmed == "" {

@@ -1,8 +1,9 @@
-// TerminalBox —— Setup 页面的"$ standmeet deploy ..."终端块。scanline 扫
-// 描线 + corner crosshair + blink cursor = 让访客一眼看到这是个真实 self-
-// host 部署，不是 SaaS 注册。
+// TerminalBox — the "$ standmeet deploy ..." terminal block on the Setup page.
+// Scanline + corner crosshair + blink cursor = signals at a glance that this
+// is a real self-host deployment, not a SaaS signup.
 //
-// host 通过 hook 拿（SSR 安全），让"ready at localhost:38127"那行显示真实。
+// host comes from a hook (SSR-safe) so the "ready at localhost:38127" line
+// shows something real.
 
 'use client';
 

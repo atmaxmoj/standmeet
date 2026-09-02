@@ -1,10 +1,10 @@
-// use-login-form —— owner sign-in 状态机。
+// use-login-form —— owner sign-in state machine.
 //
-// 业务规则:
-//   - email + password 非空
-//   - submit 调 /api/admin/login，成功后 backend 写 session cookie
-//   - error 走单 string field（401 = "wrong email or password"）
-// busy 锁防重发。
+// Business rules:
+//   - email + password must be non-empty
+//   - submit calls /api/admin/login; on success the backend writes a session cookie
+//   - error goes through a single string field (401 = "wrong email or password")
+// The busy lock prevents double submission.
 
 import { useCallback, useState } from 'react';
 

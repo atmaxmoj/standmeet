@@ -1,12 +1,15 @@
-// custom_pages.go —— /api/admin/custom-pages：owner 的 React 自定义页。
+// custom_pages.go — /api/admin/custom-pages: the owner's custom React pages.
 //
-// 读 + **写**。写这一组曾经只在 MCP 上，例外的理由是「面板没有这个界面」——
-// 用现状解释现状，而且写在棘轮读得到的地方，于是缺口从此不再被报（见
-// internal/owner/ops/custom_pages.go 那段注释）。例外删掉之后，收口在启动时点名要这八条，
-// 服务器在它们挂上之前直接拒绝启动。
+// Read + **write**. The write group used to live only on MCP; the given exception was
+// "the panel has no UI for this" — explaining the status quo with the status quo, and
+// writing it somewhere the ratchet could read, so the gap stopped being reported from
+// then on (see the comment in internal/owner/ops/custom_pages.go). Once the exception was
+// removed, the convergence point names these eight routes by name at startup, and the
+// server flatly refuses to boot until they're mounted.
 //
-// 能力来自出站收口（通用件在 dispatch.go）；这个面只决定 REST 形状：
-// 建一个回 201、其余回 200，资源 id 走路径、其余进 body。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// this facade only decides the REST shape: create returns 201, everything else returns
+// 200, the resource id goes in the path, everything else goes in the body.
 
 package admin
 
@@ -16,12 +19,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// CustomPagesDeps —— admin custom-pages handler 的能力来源。
+// CustomPagesDeps — capability source for the admin custom-pages handlers.
 type CustomPagesDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountCustomPages 挂 /custom-pages 子路由。
+// MountCustomPages mounts the /custom-pages subrouter.
 func (h *Handlers) MountCustomPages(r chi.Router) {
 	face := h.CustomPagesAdmin.Face
 	r.Route("/custom-pages", func(r chi.Router) {
@@ -33,7 +36,8 @@ func (h *Handlers) MountCustomPages(r chi.Router) {
 	})
 }
 
-// mountCustomPageItem —— /{slug} 那一组。slug 走路径，其余进 body，跟 skills 那一面同形。
+// mountCustomPageItem — the /{slug} group. slug goes in the path, everything else goes in
+// the body, the same shape as the skills facade.
 func (h *Handlers) mountCustomPageItem(r chi.Router, face *dispatcher.Face) {
 	r.Route("/{slug}", func(r chi.Router) {
 		r.Put("/files",

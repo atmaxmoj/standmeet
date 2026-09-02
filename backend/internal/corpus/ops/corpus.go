@@ -1,14 +1,17 @@
-// corpus.go —— 资源 corpus:owner 的语料本身。raw(想到就倒)/ wiki(收拾过的)/
-// output(对外成品)三个 genre 是**同一件事的参数**,不是三套东西 —— 面板早就是
-// `/corpus/{genre}` 一条路由,MCP 那边还是 list_recent_raw / list_recent_wiki /
-// list_recent_output 三个工具。这里收成一个。
+// corpus.go —— the resource corpus:owner, the owner's corpus itself. raw (dump-as-you-think) /
+// wiki (tidied) / output (public-facing final) are **parameters of the same thing**, not three
+// separate things — the admin panel has long been one route, `/corpus/{genre}`, while MCP still
+// exposes three tools: list_recent_raw / list_recent_wiki / list_recent_output. This file
+// consolidates them into one.
 //
-// 一个条目在三个 genre 下是**同一份形状**(corpusItemOut):不适用的字段留零值。
-// 三份形状才是这次要消掉的东西 —— 归一化前 admin 的 wikiListItem / outputListItem /
-// rawListItem 跟 MCP 的 wikiCapView / rawCapView 是五份,彼此都差一点。
+// One entry has **the same shape** (corpusItemOut) across all three genres: a field that
+// doesn't apply is left at its zero value. Those three separate shapes are exactly what this
+// pass eliminates — before normalization, admin had wikiListItem / outputListItem / rawListItem
+// and MCP had wikiCapView / rawCapView: five shapes, each slightly different from the rest.
 //
-// body 只在 raw 的列表里带:raw 卡片可以就地编辑,所以列表就得有正文;wiki / output 的
-// 列表只给 preview(干净的首段),正文要 corpus.get。这是产品差别,不是两个面在打架。
+// body ships only on the raw list: a raw card can be edited in place, so the list has to carry
+// the body; wiki / output lists only give a preview (a clean lead paragraph) — the full body
+// needs corpus.get. That's a product distinction, not two surfaces fighting each other.
 
 package ops
 
@@ -25,17 +28,18 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// genre 常量 + 每条口收哪几个,都在 genres.go —— 那件事被三处各自答过一遍,现在只有一处。
+// The genre constants + which genres each op accepts all live in genres.go — that question used
+// to be answered separately in three places, now it's answered in one.
 
 const (
-	// defaultCorpusLimit / maxCorpusLimit —— 列表窗口。面板和 MCP 用同一套上下限。
+	// defaultCorpusLimit / maxCorpusLimit —— the list window. Admin and MCP share one bound.
 	defaultCorpusLimit = 50
 	maxCorpusLimit     = 200
-	// previewMaxLen —— 卡片上那段干净首段的长度。
+	// previewMaxLen —— length of the clean lead paragraph shown on a card.
 	previewMaxLen = 200
 )
 
-// CorpusReads —— list / get。写那半边在 corpus_write.go。
+// CorpusReads —— list / get. The write half lives in corpus_write.go.
 func CorpusReads(deps usecase.Deps) []fp.Op {
 	return []fp.Op{
 		{
@@ -82,14 +86,16 @@ var (
 	}`)
 )
 
-// corpusItemOut —— 一条语料在每个面上的那一份形状。
+// corpusItemOut —— the one shape a corpus entry takes on every surface.
 //
-// 三个 genre 共用它:raw 没有 title / excerpt,wiki 没有 source_wiki_ids,output 没有
-// status —— 不适用的就是零值。字段名全是已经发出去的那些(面板的 zod schema 按它们读)。
+// Shared by all three genres: raw has no title / excerpt, wiki has no source_wiki_ids, output has
+// no status — whatever doesn't apply is just the zero value. Every field name here is already
+// shipped (the admin panel's zod schema reads them by these names).
 type corpusItemOut struct {
 	ParentID *string `json:"parent_id"`
 	Path     *string `json:"path"`
-	// hero 区 —— 图 + 压在图上那句话 + 色调。三样都在共享表上,**任意 genre 都能有**。
+	// The hero block — image + the headline overlaid on it + a hue. All three live on the
+	// shared table, so **any genre can have them**.
 	CoverImageAssetID *string           `json:"cover_image_asset_id,omitempty"`
 	AssetURLs         map[string]string `json:"asset_urls,omitempty"`
 	Genre             string            `json:"genre"`
@@ -105,27 +111,30 @@ type corpusItemOut struct {
 	CoverHeadline     string            `json:"cover_headline,omitempty"`
 	CoverHue          string            `json:"cover_hue,omitempty"`
 	Tags              []string          `json:"tags"`
-	// CSSClasses —— wiki 的 per-note 呈现类。owner 面以前不回传它,而**访客那边在用**
-	// (`WikiReaderClient` 按它渲染)——于是"改一次正文顺手清掉它"的退化只出现在访客屏幕上,
-	// owner 这边什么都看不见(F-L-57 的第三格)。
+	// CSSClasses —— wiki's per-note presentation classes. The owner surface used to never send
+	// this back, while **the visitor side depends on it** (`WikiReaderClient` renders by it) —
+	// so the regression of "edit the body once, and this silently gets cleared" only showed up
+	// on visitor screens; the owner side saw nothing wrong (F-L-57's third box).
 	CSSClasses    []string `json:"css_classes,omitempty"`
 	SourceRawIDs  []string `json:"source_raw_ids"`
 	SourceWikiIDs []string `json:"source_wiki_ids"`
 	Outbound      []refOut `json:"outbound,omitempty"`
 	Backlinks     []refOut `json:"backlinks,omitempty"`
-	// 素材 —— 挂在这条语料上的图 / 附件。依附文章,可见性继承文章。
+	// Assets — images / attachments hung on this entry. They belong to the article;
+	// visibility is inherited from it.
 	Assets       []usecase.AssetView `json:"assets,omitempty"`
 	ShowAsSource bool                `json:"show_as_source"`
 	Published    bool                `json:"published"`
 	HasChildren  bool                `json:"has_children,omitempty"`
-	// FlaggedPrivate —— raw 的「这条别拿出去」。**以前一个读接口都不回传它**:面板拿不到
-	// (`RawAdminViewSchema` 于是 `.default(false)`,每条都显示成不私密),owner 的 AI 也拿不到 ——
-	// 所以连"读回来再原样发回去"这条自救的路都没有(F-L-57)。设得了、读不回的字段,
-	// 等于一个没有回执的开关。
+	// FlaggedPrivate —— raw's "don't let this one out" flag. **No read endpoint used to send
+	// it back at all**: the admin panel couldn't get it (`RawAdminViewSchema` defaulted it to
+	// `false`, so every entry displayed as not-private), and the owner's AI couldn't get it
+	// either — so there was no self-rescue path of "read it back and resend it unchanged"
+	// (F-L-57). A field you can set but never read back is a switch with no receipt.
 	FlaggedPrivate bool `json:"flagged_private"`
 }
 
-// refOut —— 一条 note 之间的边(读下一条 / 被谁引)。
+// refOut —— an edge between notes (read-next / who links here).
 type refOut struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
@@ -141,8 +150,9 @@ func decodeCorpusList(raw json.RawMessage) (corpusListArgs, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return in, fp.BadInput("invalid arguments: " + err.Error())
 	}
-	// 读的口认四个 —— 列表跟 get 是同一件事的两个粒度,一个认 subjectivity、
-	// 另一个不认的话,面板能读到单条却列不出来。
+	// The read ops accept four genres — list and get are two granularities of the same
+	// thing; if one accepted subjectivity and the other didn't, the panel could fetch a
+	// single entry but never list it.
 	if err := requireGenre(in.Genre); err != nil {
 		return in, err
 	}
@@ -150,7 +160,7 @@ func decodeCorpusList(raw json.RawMessage) (corpusListArgs, error) {
 	return in, nil
 }
 
-// clampCorpusLimit —— 没说 / 说了个不合法的数 = 默认窗口;上限钉死。
+// clampCorpusLimit —— unset / invalid → the default window; the upper bound is fixed.
 func clampCorpusLimit(n int32) int32 {
 	if n <= 0 {
 		return defaultCorpusLimit
@@ -216,7 +226,8 @@ func getCorpus(deps usecase.Deps) fp.Invoke {
 		if err != nil {
 			return nil, corpusErr(err)
 		}
-		// 边(读下一条 / 被谁引)是旁证:取不到只当没有,不该让整条详情打不开。
+		// Edges (read-next / backlinks) are supplementary: if they can't be fetched, treat
+		// it as none — that shouldn't block the whole detail view from opening.
 		refs := noteRefsOf(ctx, deps, ownerID, in.ID)
 		item.Outbound, item.Backlinks = refs.Outbound, refs.Backlinks
 		fillMedia(ctx, deps, ownerID, in.ID, &item)
@@ -224,9 +235,10 @@ func getCorpus(deps usecase.Deps) fp.Invoke {
 	}
 }
 
-// fillMedia —— 把这条语料的 hero 和素材填进出参。
+// fillMedia —— fill this entry's hero and assets into the output.
 //
-// 取不到只当没有:一份素材出问题不该让整条语料读不出来 —— 跟边那几行同一个道理。
+// If it can't be fetched, treat it as none: one broken asset shouldn't stop the whole entry
+// from being readable — same reasoning as the edges above.
 func fillMedia(
 	ctx context.Context, deps usecase.Deps, ownerID, noteID string, item *corpusItemOut,
 ) {
@@ -257,7 +269,7 @@ func getByGenre(
 	}
 }
 
-// noteRefsPair —— 一条 note 的两侧边。
+// noteRefsPair —— the two sides of a note's edges.
 type noteRefsPair struct {
 	Outbound  []refOut
 	Backlinks []refOut
@@ -274,7 +286,7 @@ func noteRefsOf(
 	return noteRefsPair{Outbound: toRefOuts(out), Backlinks: toRefOuts(back)}
 }
 
-// nonNilStrings —— nil 切片序列化成 null,调用方要的是 []。
+// nonNilStrings —— a nil slice marshals to null; callers want [].
 func nonNilStrings(in []string) []string {
 	if in == nil {
 		return []string{}
@@ -290,7 +302,8 @@ func toRefOuts(refs []repo.NoteRef) []refOut {
 	return out
 }
 
-// corpusErr —— 域的哨兵 → 协议无关的类别。code 是已经发出去的契约,显式钉住。
+// corpusErr —— domain sentinel → protocol-agnostic category. The code strings are an already
+// shipped contract, so each one is pinned explicitly.
 func corpusErr(err error) error {
 	for _, c := range corpusErrClasses {
 		if errors.Is(err, c.sentinel) {
@@ -300,8 +313,9 @@ func corpusErr(err error) error {
 	return fp.OpErr("corpus op", err)
 }
 
-// code 全是**已经发出去的**那些(面板按 raw_not_found / sibling_name_taken 分流),
-// 所以逐条钉住 —— 归一化前 MCP 那边一律回一句 "corpus entry not found",是更差的那份。
+// The codes are all **already shipped** (the panel branches on raw_not_found /
+// sibling_name_taken), so each one is pinned individually — before normalization, MCP just
+// returned one blanket "corpus entry not found", which was the worse version.
 var corpusErrClasses = []struct {
 	sentinel error
 	as       func() error
@@ -324,5 +338,5 @@ var corpusErrClasses = []struct {
 	}},
 }
 
-// nowRFC3339 —— 出站时间戳统一 UTC + RFC3339。
+// nowRFC3339 —— outbound timestamps are uniformly UTC + RFC3339.
 func rfc3339(t time.Time) string { return t.UTC().Format(time.RFC3339) }

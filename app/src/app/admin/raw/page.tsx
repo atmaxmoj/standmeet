@@ -1,4 +1,4 @@
-// /admin/raw —— owner 通过 MCP push 进来的"原始倾倒"列表。
+// /admin/raw — the "raw dump" list the owner pushes in via MCP.
 
 import { RawSection } from '@/components/admin/sections/RawSection';
 

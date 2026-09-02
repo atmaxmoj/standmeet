@@ -1,31 +1,33 @@
-// upload-asset.ts —— editor 内 image 处理 helper（前端内存里挂 File，不
-// 立即上传）。
+// upload-asset.ts —— image handling helper inside the editor (keeps
+// the File in front-end memory, doesn't upload right away).
 //
-// 流程：owner 粘/拖图 → ImageUpload extension 分配 client-side `pending-<id>`
-// → 文件存进内存 Map → editor body_md 写 `standmeet-asset:pending-<id>` →
-// 显示用 URL.createObjectURL(File) 拿本地 blob URL。
+// Flow: owner pastes/drags an image → ImageUpload extension assigns a
+// client-side `pending-<id>` → the file is stored in an in-memory Map →
+// the editor's body_md gets `standmeet-asset:pending-<id>` → display
+// uses URL.createObjectURL(File) for a local blob URL.
 //
-// owner 点 save → WritingForm 把 body_md + pending Files 一并 multipart POST/
-// PATCH 到 /api/admin/writings/ → server 同事务上传 + insert + rewrite → 返
-// 新 body_md（含真 asset id）+ asset_urls (presigned)。
+// owner clicks save → WritingForm sends body_md + the pending Files
+// together as a multipart POST/PATCH to /api/admin/writings/ → the
+// server uploads + inserts + rewrites in one transaction → returns the
+// new body_md (with real asset ids) + asset_urls (presigned).
 
 export const ASSET_URI_SCHEME = 'standmeet-asset:';
 
-// PendingFile —— 编辑器内存里的待保存 file。
+// PendingFile —— a file in the editor's memory, pending save.
 export interface PendingFile {
   id: string; // 'pending-' + uuid
   file: File;
   objectURL: string; // URL.createObjectURL(file)
 }
 
-// newPendingID —— 给一张新粘进来的 image 分配 client-side id。format
-// 必须跟 backend 的 standmeet-asset regex 一致（pending-[0-9a-zA-Z_-]+）。
+// newPendingID —— assigns a client-side id to a newly pasted image. The
+// format must match the backend's standmeet-asset regex (pending-[0-9a-zA-Z_-]+).
 export function newPendingID(): string {
   const rand = crypto.randomUUID();
   return 'pending-' + rand;
 }
 
-// assetURI —— 构造 markdown 里写的 URI。
+// assetURI —— builds the URI written into markdown.
 export function assetURI(id: string): string {
   return ASSET_URI_SCHEME + id;
 }

@@ -1,13 +1,16 @@
-// api_keys_acl.go —— 一把 key 的权限收窄 + 哪些能力开给了 API 面(声明在 api_keys.go)。
+// api_keys_acl.go — a key's permission narrowing + which capabilities are opened to the API
+// facade (declared in api_keys.go).
 //
-// 两件事:
+// Two things:
 //
-//   - per-key 的拒绝清单(capability / skill),跟邀请码那半边同一个模型:在 role 授的范围上
-//     再减一层。
-//   - owner 级的"开给 API 面"(候选 → 开 / 关)。能开的是哪些能力由能力轴说,所以那张清单
-//     是注入进来的,不是这个域写死的。
+//   - The per-key denylist (capability / skill), same model as the invitation-code half:
+//     subtracting one more layer from what the role granted.
+//   - The owner-level "open to the API facade" (candidate → open / close). Which capabilities
+//     may be opened is decided by the capability axis, so that list is injected in, not
+//     hardcoded by this domain.
 //
-// 每个 per-key 的操作都先按 owner 核一遍 key_id:key_id 是调用方给的,不核就是 BOLA。
+// Every per-key operation first checks key_id against the owner: key_id is caller-supplied,
+// skipping that check is a BOLA.
 
 package ops
 
@@ -19,20 +22,23 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// 拒绝的两种 kind —— key 上只有这两类(语料收窄在 role 上)。
+// The two denial kinds — a key only has these two (corpus narrowing lives on the role).
 const (
 	keyDenialKindCapability = "capability"
 	keyDenialKindSkill      = "skill"
 )
 
-// denialsMCPOnly —— 这一组暂时只长在 MCP 上。
+// denialsMCPOnly — this group grows only on MCP for now.
 //
-// **理由是范围,不是缺席**(F-K-1 那次把这两者搞混了):CRUD 那四个已经两面都长了,因为一把
-// 泄露的 key 必须在网页上就能吊销。per-key 的拒绝清单和 api-open 的候选开关是**调优**,
-// 不在"出事了怎么止血"那条路上,所以先留在 MCP,等 admin 的 api 区长出 candidates 那一块再搬。
+// **The reason is scope, not absence** (F-K-1 conflated the two once): the four CRUD ops
+// already grow on both facades, because a leaked key must be revocable straight from the
+// webpage. The per-key denylist and the api-open candidate toggle are **tuning**, not on the
+// "how do we stop the bleeding" path, so they stay on MCP for now until the admin api section
+// grows its own candidates block.
 //
-// 设计确实要它们也上 admin(`facade-directions.md:202-206` 连 denials 和 open/close 一起写了),
-// 所以这句理由是**一张欠条,不是一个论证** —— 别把它读成"这样就对了"。
+// The design does want them on admin too (`facade-directions.md:202-206` lists denials and
+// open/close together), so this reason is **an IOU, not an argument** — don't read it as "this
+// is how it should be".
 func denialsMCPOnly() fp.Reach {
 	return fp.Only(
 		"tuning, not incident response: revocation is the admin path (F-K-1); "+
@@ -125,7 +131,8 @@ var (
 	}`)
 )
 
-// ownedKey —— owner 核对:不是这个 owner 的 key,一律当"找不到"(不泄露它存在)。
+// ownedKey — owner check: a key that isn't this owner's is always treated as "not found"
+// (never leaks that it exists).
 func ownedKey(ctx context.Context, d APIKeysDeps, ownerID, keyID string) error {
 	if _, err := d.Keys.GetByID(ctx, keyID, ownerID); err != nil {
 		return fp.NotFound("api key not found")
@@ -205,7 +212,8 @@ func parseKeyDenial(raw json.RawMessage) (keyDenialArgs, error) {
 	return in, nil
 }
 
-// keyDenialWrite —— 写一条拒绝。加和删各有一张表,所以往下传的是**要做的那件事**。
+// keyDenialWrite — writes one denial. Add and remove each have their own table, so what gets
+// passed down is **the action to perform**.
 type keyDenialWrite func(ctx context.Context, keyID, target string) error
 
 func keyDenialAdders(d APIKeysDeps) map[string]keyDenialWrite {
@@ -222,8 +230,8 @@ func keyDenialRemovers(d APIKeysDeps) map[string]keyDenialWrite {
 	}
 }
 
-// keyDenialOut —— 回执说清"对哪把 key 的哪一条做完了什么"。加和删各自的动词在
-// verb 里(denied / removed),形状同一份。
+// keyDenialOut — the receipt states plainly "what was done, to which entry, on which key".
+// Add and remove each have their own verb in verb (denied / removed); the shape is identical.
 type keyDenialOut struct {
 	KeyID    string `json:"key_id"`
 	Kind     string `json:"kind"`
@@ -232,7 +240,7 @@ type keyDenialOut struct {
 	Removed  bool   `json:"removed,omitempty"`
 }
 
-// 回执里的动词 —— 已经发出去的字段名就是这两个。
+// The verbs in the receipt — these are the field names already shipped.
 const (
 	keyDenialVerbDenied  = "denied"
 	keyDenialVerbRemoved = "removed"

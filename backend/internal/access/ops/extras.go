@@ -1,18 +1,23 @@
-// extras.go —— 一个主体(一张码 / 一个 role)上,**别的能力**自管的配置。
+// extras.go — config that **other capabilities** self-manage on a subject (a code / a role).
 //
-// 起因是 max_bookings:它是 booker 自己存的 per-code 配额(内核的 access_code 表里没有
-// 这一列),但 owner 眼里它就是"这张码"上的一个数字,发码时一起填、列表里一起看。
-// role 那侧的第一个是 notify_owner —— 它以前**真的**是内核 roles 表上的一列。
+// This started from max_bookings: it's a per-code quota booker stores itself (the kernel's
+// access_code table has no such column), but in the owner's eyes it's just a number on "this
+// code" — filled in when issuing the code, seen together in the list. The role side's first
+// one was notify_owner — it used to **really** be a column on the kernel's roles table.
 //
-// access 不认识 booker,连字段叫什么都不认识:它拿到的是一个口子 —— 声明期问"你要在这个
-// 主体的载荷里占哪些字段",出站时问"这个主体上你那几个字段是什么值",入站时把原始入参整份
-// 递过去让它自己挑。组装根把每个声明了这类配置的能力接上来。
+// access doesn't know booker, doesn't even know what the field is called: what it gets is a
+// seam — at declaration time it asks "which fields do you want to occupy in this subject's
+// payload", outbound it asks "what are the values of your fields on this subject", inbound it
+// hands over the whole raw input and lets the capability pick its own fields. The assembly
+// root wires up every capability that declares this kind of config.
 //
-// 同一个口子用两次(码一次、role 一次)。主体是**参数**,不是两套接口 —— 这跟 capconfig
-// 那边"挂在谁身上是参数"是同一句话的另一半。
+// The same seam is used twice (once for codes, once for roles). The subject is a **parameter**,
+// not two separate interfaces — this is the other half of the same point capconfig makes about
+// "what it's mounted on is a parameter".
 //
-// 读写都是 best-effort:那是另一个能力的存储,取不到不该让整张码 / 整个 role 打不开,
-// 写不进也不该挡住创建 —— 东西已经建好了,配置可以再设。
+// Both read and write are best-effort: that storage belongs to another capability. Failing to
+// read shouldn't stop the whole code / role from opening, and failing to write shouldn't block
+// creation — the thing is already built, its config can be set later.
 
 package ops
 
@@ -22,30 +27,36 @@ import (
 	"maps"
 )
 
-// SubjectExtras —— 能力在一个主体(码 / role)上占的字段。
+// SubjectExtras — the fields a capability occupies on a subject (a code / a role).
 type SubjectExtras interface {
-	// Fields —— 字段名 → 这个字段的 JSON Schema 片段。声明期调一次。
+	// Fields — field name → that field's JSON Schema fragment. Called once at declaration
+	// time.
 	Fields() map[string]json.RawMessage
-	// Read —— 这个主体上那几个字段的值。取不到就少几个键。
+	// Read — the values of those fields on this subject. Missing keys if they can't be read.
 	Read(ctx context.Context, id string) map[string]json.RawMessage
-	// Write —— 从原始入参里挑自己的字段写下去。没提到就不动。
+	// Write — pick your own fields out of the raw input and write them. Untouched if not
+	// mentioned.
 	Write(ctx context.Context, id string, args json.RawMessage)
 }
 
-// CodeExtras —— 能力在一张码上占的字段(SubjectExtras 的别名)。分开命名是为了 deps 上
-// 读得出挂在谁身上;类型是同一个,所以不会长出第二套机制。
+// CodeExtras — the fields a capability occupies on a code (an alias of SubjectExtras). Named
+// separately so deps make it clear what it's mounted on; the type is the same, so this doesn't
+// grow a second mechanism.
 type CodeExtras = SubjectExtras
 
-// RoleExtras —— 能力在一个 role 上占的字段(同上,只换挂载点)。
+// RoleExtras — the fields a capability occupies on a role (same as above, different mount
+// point).
 type RoleExtras = SubjectExtras
 
-// KeyExtras —— 能力在一把对外 API key 上占的字段(同上,第三个挂载点)。
+// KeyExtras — the fields a capability occupies on an outward-facing API key (same as above,
+// a third mount point).
 //
-// 它存在的理由是 F-B-11:「这个主体最多能约几次」以前只挂得上码,于是对外 key 那条路上
-// 一次都不闸。上限要挂得上,也要设得了。
+// It exists because of F-B-11: "how many times this subject may be booked at most" used to
+// only be mountable on a code, so the outward-key path never gated it at all. The cap has to
+// be mountable there too, and settable there too.
 type KeyExtras = SubjectExtras
 
-// noExtras —— 没有任何能力在这类主体上声明配置时的那个"没有"。
+// noExtras — the "nothing" for when no capability has declared config on this kind of subject.
 type noExtras struct{}
 
 func (noExtras) Fields() map[string]json.RawMessage {
@@ -58,7 +69,9 @@ func (noExtras) Read(_ context.Context, _ string) map[string]json.RawMessage {
 
 func (noExtras) Write(_ context.Context, _ string, _ json.RawMessage) {}
 
-//nolint:ireturn // 这个口子本来就是接口:没接上任何能力时给一个"什么都没有"
+// is wired up
+//
+//nolint:ireturn // this seam is an interface by design: gives a "nothing" when no capability
 func extrasOr(e SubjectExtras) SubjectExtras {
 	if e == nil {
 		return noExtras{}
@@ -66,7 +79,7 @@ func extrasOr(e SubjectExtras) SubjectExtras {
 	return e
 }
 
-// withExtraFields —— 把能力声明的字段并进一份 schema 的 properties。
+// withExtraFields — merge the fields a capability declared into a schema's properties.
 func withExtraFields(base json.RawMessage, fields map[string]json.RawMessage) json.RawMessage {
 	if len(fields) == 0 {
 		return base
@@ -83,7 +96,7 @@ func withExtraFields(base json.RawMessage, fields map[string]json.RawMessage) js
 	return remarshal(schema, base)
 }
 
-// mergedProperties —— 原有的属性 + 能力加的那几个。
+// mergedProperties — the original properties + the ones a capability adds.
 func mergedProperties(
 	base json.RawMessage, fields map[string]json.RawMessage,
 ) map[string]json.RawMessage {
@@ -95,7 +108,7 @@ func mergedProperties(
 	return props
 }
 
-// withExtraValues —— 把能力那几个字段的值并进一份已经序列化好的载荷。
+// withExtraValues — merge a capability's field values into an already-serialized payload.
 func withExtraValues(payload json.RawMessage, values map[string]json.RawMessage) json.RawMessage {
 	if len(values) == 0 {
 		return payload
@@ -108,7 +121,8 @@ func withExtraValues(payload json.RawMessage, values map[string]json.RawMessage)
 	return remarshal(obj, payload)
 }
 
-// remarshal —— 编不回去就退回原样:多几个字段不值得让整个操作失败。
+// remarshal — falls back to the original on a re-encode failure: a few extra fields aren't
+// worth failing the whole operation.
 func remarshal(obj map[string]json.RawMessage, fallback json.RawMessage) json.RawMessage {
 	out, err := json.Marshal(obj)
 	if err != nil {

@@ -1,9 +1,11 @@
 // Footer —— "N entries · updated 3 days ago · grounded retrieval, no
-// open-web fallback · admin↗"。设计稿里它是页面信任落脚点：让 visitor
-// 知道答的话源于固定 corpus，不是 ChatGPT 凭空说。
+// open-web fallback · admin↗". In the design spec this is the page's trust
+// anchor: it lets the visitor know the answer comes from a fixed corpus,
+// not something ChatGPT made up on the spot.
 //
-// corpusSize + lastUpdated 后续 backend extend `/api/v1/page` 时再注入；
-// 现在 props 可选，缺省 fallback 到不带数字的版本。
+// corpusSize + lastUpdated will be injected once the backend extends
+// `/api/v1/page`; for now the props are optional and default to falling
+// back to the version without numbers.
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -21,8 +23,9 @@ export function Footer({ corpusSize, lastUpdated }: Props) {
         <FooterStats corpusSize={corpusSize} lastUpdated={lastUpdated} />
         <div className="flex items-baseline gap-3">
           <span className="text-(--color-faint)">{t('brand')}</span>
-          {/* 没有 admin 链接：访客 / recruiter 不该看到 admin 入口；owner
-              自己输 /admin（书签）。e2e fixture 用 adminPage 模拟同一行为。 */}
+          {/* No admin link: visitors / recruiters shouldn't see an admin entry
+              point; the owner types /admin themselves (bookmark). The e2e
+              fixture simulates the same behavior with adminPage. */}
           <Link className="hover:text-(--color-ink) transition-colors" href="/gate">
             {t('footer.requestAccess')}
           </Link>

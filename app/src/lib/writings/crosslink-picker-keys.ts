@@ -1,5 +1,6 @@
-// crosslink-picker-keys —— CrosslinkPicker 的键盘控制流。
-// presentation 层不准跑 if / complexity > 3，所以抽到 lib/。
+// crosslink-picker-keys — keyboard control flow for CrosslinkPicker.
+// The presentation layer bans `if` / complexity > 3, so this is pulled
+// out into lib/.
 
 import type { PostSlugEntry } from '@/lib/writings/post-slug-index';
 

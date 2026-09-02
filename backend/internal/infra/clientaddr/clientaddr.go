@@ -1,26 +1,30 @@
-// Package clientaddr —— 判定「这个请求的来源地址是不是访客自己的」，并且只判定一次。
+// Package clientaddr decides whether a request's source address is truly the visitor's
+// own, and decides it exactly once.
 //
-// chi.RealIP 会把 X-Forwarded-For / X-Real-IP 解到 RemoteAddr 上。没有那类头时，
-// RemoteAddr 停在**上一跳**——而自托管的出厂形态恰恰是
+// chi.RealIP resolves X-Forwarded-For / X-Real-IP into RemoteAddr. Without those headers,
+// RemoteAddr stops at the **previous hop** — and the self-hosted default shape is exactly:
 //
-//	浏览器 → app（Next 的 /api/:path* rewrite）→ backend
+//	browser → app (Next's /api/:path* rewrite) → backend
 //
-// 中间没有人写转发头（`make prod-up` 写着 "TLS/domain is external"，反代是 owner
-// 自带的）。于是每一个访客都被记成同一个地址：app 容器自己。
+// Nothing in between writes a forwarding header (`make prod-up` says "TLS/domain is
+// external", the reverse proxy is the owner's own). So every visitor gets recorded as
+// the same address: the app container itself.
 //
-// 那个地址被当真会出三件事，都不是难看而已：
-//   - owner 的 /admin/conversations 有一栏叫 IP，而 /admin/ip-bans 教他
-//     "Find offending IPs in conversations" —— 照做就是封掉全部访客；
-//   - per-IP 的访问码失败锁定变成一个**全局桶**：一个人打错 10 次，15 分钟内
-//     所有人（包括拿着真码来面试的）都进不来；
-//   - owner 自己的登录限流同样共用那一个桶。
+// Taking that address at face value causes three problems, and none of them is cosmetic:
+//   - owner's /admin/conversations has an IP column, and /admin/ip-bans tells them to
+//     "Find offending IPs in conversations" — doing that bans every visitor;
+//   - the per-IP access-code failure lockout becomes one **global bucket**: 10 wrong
+//     tries by one person locks everyone out (including someone with a real code headed
+//     to an interview) for 15 minutes;
+//   - the owner's own login rate limiting shares that same bucket.
 //
-// 所以这里的规矩是：**要么是访客的地址，要么就是不知道。** 拿不准时返回空串，
-// 让下游按「未知」处理（conversations.client_ip 的契约本来就是「空 = 未知」），
-// 绝不拿中间那一跳冒充访客。
+// So the rule here is: **either it's the visitor's address, or it's unknown.** When unsure,
+// return an empty string and let downstream treat it as "unknown" (conversations.client_ip's
+// contract already is "empty = unknown") — never pass off the intermediate hop as the visitor.
 //
-// 判不出来的那一次会 WARN 一条（每进程一次），把后果和解法都写在日志里 —— 这个
-// 分叉以前没有任何地方说过，而运维只会在日志里找部署的真相。
+// The one time it can't be determined, we WARN once (once per process) and put both the
+// consequence and the fix in the log — nobody has documented this fork before, and ops
+// only ever finds deployment truth in the logs.
 package clientaddr
 
 import (
@@ -33,12 +37,14 @@ import (
 
 type ctxKey struct{}
 
-// forwardHeaders —— chi.RealIP 认的那几个头。**有没有**这些头决定 RemoteAddr 是
-// 访客的地址还是上一跳的地址；这里只看有无，值的解析仍然归 RealIP。
+// forwardHeaders — the headers chi.RealIP recognizes. **Whether** these headers are present
+// decides if RemoteAddr is the visitor's address or the previous hop's; this only checks
+// presence, RealIP still owns parsing the value.
 var forwardHeaders = []string{"X-Forwarded-For", "X-Real-IP", "True-Client-IP"}
 
-// Middleware —— 排在 chi.RealIP 之后：判一次「来源地址是不是访客的」，把结论放进
-// context。结论只在这里产生，读的人（会话记账 / 访问码锁 / 登录限流）拿的是同一个答案。
+// Middleware — runs after chi.RealIP: decides once whether the source address is the
+// visitor's, and puts the verdict into context. The verdict is produced only here; every
+// reader (session accounting / access-code lock / login rate limiting) gets the same answer.
 func Middleware(log *slog.Logger) func(http.Handler) http.Handler {
 	var once sync.Once
 	return func(next http.Handler) http.Handler {
@@ -52,8 +58,9 @@ func Middleware(log *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// Of —— 读结论。空串 = 不知道（不是 0.0.0.0，也不是上一跳的地址）。
-// 没经过 Middleware 的请求（单测里直接构造的）也返回空串：宁可未知，不可冒充。
+// Of — reads the verdict. Empty string = unknown (not 0.0.0.0, and not the previous hop's
+// address). A request that never went through Middleware (built directly in a unit test)
+// also returns empty: better unknown than impersonated.
 func Of(ctx context.Context) string {
 	addr, ok := ctx.Value(ctxKey{}).(string)
 	if !ok {
@@ -62,17 +69,19 @@ func Of(ctx context.Context) string {
 	return addr
 }
 
-// verdict —— 一次判定的结果。addr 是访客的地址（空 = 不知道），peer 是这一跳的对端
-// （只给日志用，绝不当访客地址）。
+// verdict — the result of one determination. addr is the visitor's address (empty =
+// unknown); peer is this hop's remote end (log-only, never treated as the visitor's address).
 type verdict struct {
 	addr   string
 	peer   string
 	hidden bool
 }
 
-// worthWarning —— 该不该拿这一次去点名部署分叉。只为**可能是访客**的请求点名：
-// 容器自己的健康检查走环回、也没有转发头，它会抢走那条"每进程一次"的警告，然后
-// peer 写着 127.0.0.1 —— 内容对、指的对象不对，运维会当成健康检查的噪音划掉。
+// worthWarning — whether this instance should call out the deployment fork. Only calls it
+// out for requests that **could be a visitor**: the container's own healthcheck goes over
+// loopback with no forwarding header either, and would steal that "once per process"
+// warning — with peer showing 127.0.0.1, correct content but the wrong subject, so ops
+// would dismiss it as healthcheck noise.
 func (v verdict) worthWarning() bool {
 	if !v.hidden {
 		return false
@@ -81,11 +90,12 @@ func (v verdict) worthWarning() bool {
 	return ip == nil || !ip.IsLoopback()
 }
 
-// resolve —— 三种情形：
+// resolve — three cases:
 //
-//	有转发头        → RealIP 已经解过了，host 就是访客的地址
-//	私网/环回的对端 → 没有转发头时那只可能是我自己这一侧的跳，判为不知道
-//	其它            → 直连过来的公网客户端
+//	has forwarding header  → RealIP already resolved it, host is the visitor's address
+//	private/loopback peer  → with no forwarding header that can only be my own side's
+//	                          hop, treat as unknown
+//	otherwise              → a public client connecting directly
 func resolve(r *http.Request) verdict {
 	host := hostOf(r.RemoteAddr)
 	if forwarded(r) {
@@ -109,22 +119,24 @@ func forwarded(r *http.Request) bool {
 func hostOf(remoteAddr string) string {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
-		return remoteAddr // 本来就是裸 IP
+		return remoteAddr // it was already a bare IP
 	}
 	return host
 }
 
-// isInternalHop —— 私网 / 环回 / 链路本地。公网访客不可能带着这种源地址到达，
-// 所以这类地址加上「没有转发头」只可能是自己这一侧的跳。
+// isInternalHop — private / loopback / link-local. A public visitor can never arrive with
+// this kind of source address, so this address class plus "no forwarding header" can only
+// be this side's own hop.
 func isInternalHop(host string) bool {
 	ip := net.ParseIP(host)
 	if ip == nil {
-		return true // 连地址都不是（unix socket 之类）—— 同样不是访客的地址
+		return true // not even an address (e.g. a unix socket) — also not the visitor's address
 	}
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()
 }
 
-// warnHidden —— 每进程一次。说清楚**丢了什么能力**，以及怎么拿回来。
+// warnHidden — once per process. Spells out **what capability is lost**, and how to get
+// it back.
 func warnHidden(log *slog.Logger, remoteAddr string) {
 	log.Warn("visitor IP not visible: no forwarding header on the proxy hop",
 		"peer", remoteAddr,

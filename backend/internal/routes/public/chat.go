@@ -1,15 +1,15 @@
-// chat.go —— /api/v1/* 路由挂载 + visitor 错误码表 + auth/bearer helper。
-// Chat 数据流（#28 之后）：
-//   - POST /sessions                颁发 visitor session
-//   - POST /agent/turn              eino ADK driven 整 turn;**自己**在流末端
-//                                   把这段 Dialog sink 进 conversation 表(配额
-//                                   也在入口查)。backend 拥有这一轮,前端只显示。
-//   - POST /sessions/{id}/tools/..  单 tool 执行
-//   - GET  /report/{id}             读一份 chat report (I.3)
+// chat.go —— /api/v1/* route mounting + visitor error-code table + auth/bearer helper.
+// Chat data flow (post-#28):
+//   - POST /sessions                issues a visitor session
+//   - POST /agent/turn              eino ADK whole turn; sinks Dialog to the conversation
+//                                   table at stream end (quota checked at entry) —
+//                                   backend owns the turn, frontend only displays
+//   - POST /sessions/{id}/tools/..  single tool execution
+//   - GET  /report/{id}             read one chat report (I.3)
 //
-// 老 POST /sessions/{id}/dialogs(前端自落库)#28 退役 —— 落库整个挪到
-// /agent/turn 流末端,单一 sink、无双写。老 POST /summary I.3 删,改走
-// summarize_conversation capability。
+// POST /sessions/{id}/dialogs (frontend self-persists) is retired by #28: persistence is
+// now one sink, at /agent/turn stream end. POST /summary (I.3) is gone too, replaced by
+// the summarize_conversation capability.
 
 package public
 
@@ -35,9 +35,9 @@ import (
 // Handlers —— public routes deps.
 type Handlers struct {
 	Visitor  conversation.VisitorSessionDeps
-	Outbound owner.OutboundSender // 送得出去吗 —— /sessions 回参里那个开关
-	// Owners —— persona 第一句「你是谁」的名字来源(UX-66)。它跟语料范围无关，
-	// 所以取自 owner 那一行，不指望检索碰巧捞到一条自我介绍。
+	Outbound owner.OutboundSender // can it be sent out — the switch in /sessions's response
+	// Owners —— name source for persona's opening "who are you" line (UX-66); unrelated to
+	// corpus scope, so it's read straight off the owner row, not hoped for from retrieval.
 	Owners       owner.OpsHostLookup
 	Usage        UsageRecorder
 	Reports      conversation.ReportStore
@@ -48,10 +48,12 @@ type Handlers struct {
 	Resolver     inference.Resolver
 	CodeGuard    CodeGuard
 	Sessions     *access.VisitorSessionStore
-	// Embeds —— embed 来源白名单：code 模式签发会话时,若这张码被某个 embed 暴露,
-	// 只放行 Origin 在白名单里的请求（embed 是公开 HTML,钉住来源才能防泄露的码乱用）。
+	// Embeds —— embed-origin allowlist: issuing a session for a code exposed via an embed
+	// only passes if Origin is allowlisted (embed HTML is public; pinning the origin is
+	// the only stop against a leaked code being abused).
 	Embeds *access.EmbedRepo
-	// EmbedNonce —— embed JWT 的一次性 jti 记录（防重放，fail-closed）。跟 Sigv1 共用 Redis store。
+	// EmbedNonce —— one-time jti record for embed JWTs (replay protection, fail-closed).
+	// Shares a Redis store with Sigv1.
 	EmbedNonce   access.EmbedNonceStore
 	QueryQueue   *session.QueryQueue
 	Ledger       *conversation.WaypointLedger
@@ -60,68 +62,77 @@ type Handlers struct {
 	SecureCookie bool
 }
 
-// CodeGuard —— 访问码兑换失败锁定端口(#169)。impl = middleware.CodeGuard,注入进来。
+// CodeGuard —— lockout port for failed access-code redemption (#169). impl =
+// middleware.CodeGuard, injected in.
 type CodeGuard interface {
 	Locked(ctx context.Context, ip, captchaToken string) bool
-	// HasLift —— 被锁住的人此刻有没有一条自己走得通的出路（captcha 开着才有）。
-	// 拒绝那句话按它选词，否则它会去描述一个屏幕上不存在的控件。
+	// HasLift —— true only when captcha is enabled; the rejection message's wording
+	// follows this, else it'd describe a control that isn't on the screen.
 	HasLift() bool
 	RecordFail(ctx context.Context, ip string)
 	Reset(ctx context.Context, ip string)
 }
 
-// UsageRecorder —— #106 计费 port:记一次 owner-key LLM 用量。BYOAI 不经此(访客自付)。
-// 入参是一整行(含 provider + 算不算油钱),不是几个参数 —— 那正是分辨率丢在签名上的地方。
+// UsageRecorder —— #106 billing port: records one owner-key LLM usage (BYOAI never goes
+// through this — visitor-paid). Takes a whole row, not loose params, so provider + gas-
+// spend flag don't get lost in the signature.
 type UsageRecorder interface {
 	Record(ctx context.Context, row *stats.UsageRow) error
 }
 
-// Mount 挂 /api/v1/* 路由。caller 负责前缀。需要访客 session 的路由统一套
-// withVisitorSession 装饰器(校验 + 把 authedVisitor 塞 ctx);不需要的(发 session /
-// peek code / 列模型)裸挂。
+// Mount wires /api/v1/* routes. Caller owns the prefix. Every route needing a visitor
+// session is wrapped uniformly in the withVisitorSession decorator (validates + stuffs
+// authedVisitor into ctx); the rest (issue session / peek code / list models) are bare.
 func (h *Handlers) Mount(r chi.Router) {
-	// ── 无需 session ──
+	// ── no session required ──
 	r.Post("/sessions", h.createSession())
-	// codes/intro —— 名字选择器 pre-issue 的公开 peek(code 走 body 不入 URL log)。
+	// codes/intro —— public pre-issue peek for the name picker (code travels in the body,
+	// never lands in the URL log).
 	r.Post("/codes/intro", h.codeIntro())
 	r.Post("/inference/models", h.listInferenceModels())
 
-	// ── 需要访客 session(装饰器统一校验) ──
-	// F-L-11 liveness probe:读者/聊天 mount 时探一下 stored token 还活着没(TTL 过期 → 401),
-	// 让前端丢掉过期 session 的假「unlocked」chrome,而不是无限信任 localStorage。
+	// ── requires a visitor session (validated uniformly by the decorator) ──
+	// F-L-11 liveness probe on reader/chat mount: checks whether the stored token is
+	// still alive (TTL expired → 401), so the frontend drops the fake "unlocked" chrome
+	// of an expired session instead of trusting localStorage indefinitely.
 	r.Get("/session", h.withVisitorSession(h.getSessionInfo()))
-	// 刷新恢复:返回整个会话聚合(session + code + conversation),前端一次性
-	// hydrate。范围由 token 锁定(member → open chat),URL {id} 仅做 RESTful 形态。
+	// refresh recovery: returns the whole session aggregate (session + code + conversation)
+	// so the frontend hydrates in one shot. Scope is locked by the token (member → open
+	// chat); the URL {id} exists only for RESTful shape.
 	r.Get("/conversations/{id}", h.withVisitorSession(h.getConversation()))
-	// 多对话模型:浮窗在某篇 doc 上 find-or-create 自己那段对话(跟主聊天独立,
-	// 共享 member 级配额)。body {doc_key} → {conversation_id, conversation}。
+	// multi-conversation model: a floating panel on a doc finds-or-creates its own
+	// conversation (independent of main chat, sharing member-level quota).
+	// body {doc_key} → {conversation_id, conversation}.
 	r.Post("/conversations", h.withVisitorSession(h.openDocConversation()))
-	// 同一 dispatch handler 挂 POST + QUERY。QUERY（RFC 10008）是只读工具（corpus_search/
-	// read/list/links）的语义正确入口（安全/幂等 + 带 body）；会改状态的工具走 QUERY → 405
-	// （gate 在 tools.go）。POST 对全工具照旧（向后兼容）。
+	// Same dispatch handler wired for POST and QUERY. QUERY (RFC 10008) is the
+	// semantically correct entry for read-only tools (corpus_search/read/list/links) —
+	// safe/idempotent + carries a body; a state-changing tool via QUERY → 405 (gated in
+	// tools.go). POST still works for every tool (backward compatible).
 	toolDisp := h.withVisitorSession(h.toolDispatch())
 	r.Post("/sessions/{id}/tools/{tool_name}", toolDisp)
 	r.Method(methodQuery, "/sessions/{id}/tools/{tool_name}", toolDisp)
-	// MCP App 跨刷新状态：沙箱卡经 host 对自己 mcp 那格增删改查。mcp_id 由 {tool} 派生。
+	// MCP App state across refreshes: a sandboxed card CRUDs its own MCP slot through the
+	// host. mcp_id is derived from {tool}.
 	r.Get("/sessions/{id}/app-state/{tool}", h.withVisitorSession(h.getAppState()))
 	r.Put("/sessions/{id}/app-state/{tool}/{key}", h.withVisitorSession(h.setAppState()))
 	r.Delete("/sessions/{id}/app-state/{tool}/{key}", h.withVisitorSession(h.deleteAppState()))
-	// #122/#123: 约成后访客点卡上的按钮(发确认信 / 取消)→ 直接经 mcp-ui:tool 派给沙箱 booker
-	// 自己的工具(send_confirmation / calendar_cancel),host 不再有对应的 REST 路由。
-	// 两条老路由都已退役 —— 取消那条曾经在 host 留了两份实现(owner 侧 + 访客侧),
-	// 跟沙箱里那份是同一件事的三种写法。
-	// #123: 访客取消自己约的会议。隔离在 usecase(owner+code+member 解析 event_id),
-	// 不属于本 member → 404。AI 不参与。
-	// I.3: /report/{id} 拿一份 chat_reports 行 (visitor 浏览器
-	// /report/[id] 独立路由 fetch；owner 端走 admin route 后续单独加)。
+	// #122/#123: once a booking is confirmed, a card button (send confirmation email /
+	// cancel) dispatches straight to the sandboxed booker's own tool via mcp-ui:tool
+	// (send_confirmation / calendar_cancel) — no matching REST route on the host anymore.
+	// The old cancel route had two host-side implementations (owner + visitor) plus the
+	// sandbox's own copy, three ways of writing the same thing; both are retired.
+	// #123: a visitor cancels a meeting they booked — isolated in a usecase (resolves
+	// event_id via owner+code+member); not this member's → 404. No AI involved.
+	// I.3: /report/{id} fetches one chat_reports row (visitor browser via the standalone
+	// /report/[id] route; owner side gets its own admin route later).
 	r.Get("/report/{id}", h.withVisitorSession(h.getReport()))
 	r.Get("/report/{id}/pdf", h.withVisitorSession(h.getReportPDF()))
 	r.Post("/llm/chat/stream", h.withVisitorSession(h.llmChatStream()))
-	// H.9: 新 agent turn 入口；走 eino ADK ChatModelAgent。SDK 在 H.10
-	// 切到这条；H.10 land 后 /llm/chat/stream 退役。
+	// H.9: new agent-turn entry point, runs through eino ADK ChatModelAgent. SDK cuts
+	// over in H.10; /llm/chat/stream retires once H.10 lands.
 	r.Post("/agent/turn", h.withVisitorSession(h.agentTurn()))
-	// H.13.e: ghost text 日志写路径。shown 在浏览器渲 ghost 时一次性
-	// 写一行；accept 在 visitor 按 Tab 时调；owner admin 详情页读这些。
+	// H.13.e: ghost-text logging write path. shown writes one row the moment the browser
+	// renders a ghost; accept fires on Tab; owner admin detail page reads these.
 	r.Post("/sessions/{id}/ghosts/shown", h.withVisitorSession(h.postGhostShown()))
 	r.Post("/sessions/{id}/ghosts/{sid}/accept", h.withVisitorSession(h.postGhostAccept()))
 }
@@ -133,14 +144,15 @@ var visitorErrCases = []apierr.Case{
 	{Match: access.ErrCodeInvalid, Envelope: apierr.Envelope{
 		Status: http.StatusUnauthorized,
 		Code:   "code_invalid",
-		// 「不存在」和「被撤销」曾经共用一句 "invalid or revoked" —— 而这两种人的下一步
-		// 相反:打错字重新粘一次,被撤销去要一张新的。合成一句,谁都不知道该做什么(F-D-6)。
+		// "doesn't exist" and "was revoked" used to share one message, "invalid or
+		// revoked" — but the next step differs: a typo means paste again, a revocation
+		// means go get a new one. Merged, neither person knew what to do (F-D-6).
 		Message: "no such access code — check it and paste it again",
 	}},
 	{Match: access.ErrCodeRevoked, Envelope: apierr.Envelope{
 		Status: http.StatusUnauthorized,
 		Code:   "code_revoked",
-		// 指下一步,而不是复述状态:这张码不会再好用了,再试多少次都一样。
+		// Names the next step, not the state: retrying never works again.
 		Message: "this access code was revoked — ask the owner for a new one",
 	}},
 	{Match: access.ErrCodeExpired, Envelope: apierr.Envelope{
@@ -159,8 +171,8 @@ var visitorErrCases = []apierr.Case{
 	{Match: access.ErrGasExhausted, Envelope: apierr.Envelope{
 		Status: http.StatusForbidden,
 		Code:   "gas_exhausted",
-		// 访客读到的那句。不说 token、不说油箱、不说是谁的钱 —— 他做不了任何事;
-		// 也不许诺"已通知 owner",那是一句没人去实现的承诺。
+		// Says nothing about tokens/gas/whose money — nothing the visitor can do about
+		// it — and promises no "owner notified", a promise nobody implements.
 		Message: "this conversation has reached its usage limit",
 	}},
 	{Match: access.ErrPeriodLimitReached, Envelope: apierr.Envelope{
@@ -176,7 +188,8 @@ var visitorErrCases = []apierr.Case{
 	{Match: access.ErrEmbedTokenInvalid, Envelope: apierr.Envelope{
 		Status: http.StatusUnauthorized,
 		Code:   "embed_token_invalid",
-		// 一句 sentinel，不说是签名坏 / 过期 / 重放 —— 不给探测预言机。widget 会重签一张。
+		// A single sentinel message — doesn't say bad/expired/replayed, so gives no
+		// oracle to probe; the widget just re-signs a new one.
 		Message: "this widget could not be verified — reload the page and try again",
 	}},
 	{Match: owner.ErrOwnerNotFound, Envelope: apierr.Envelope{
@@ -208,13 +221,15 @@ type authedVisitor struct {
 	Token string
 }
 
-// visitorCtxKey —— withVisitorSession 把 authedVisitor 塞进 request context 的 key。
+// visitorCtxKey —— the key withVisitorSession uses to stuff authedVisitor into the
+// request context.
 type visitorCtxKey struct{}
 
-// withVisitorSession —— 访客 session 校验**装饰器**(中间件):bearer-token → Redis
-// Sessions.Get 验过 → 把 authedVisitor 塞进 ctx 交给 next handler;验不过 → 401
-// (响应已写,不进 handler)。所有需要 session 的访客路由统一套这一层,校验逻辑只此
-// 一处 —— cookie 化 / 失效清理(401/403 清凭证)将来也只改这里。
+// withVisitorSession —— the visitor session validation **decorator** (middleware):
+// bearer-token → validated via Redis Sessions.Get → authedVisitor stuffed into ctx and
+// passed to next handler; fails validation → 401 (response written, handler never runs).
+// Every session-needing route is wrapped uniformly in this one layer, so cookie changes
+// and failure cleanup (401/403 clearing credentials) only ever change here.
 func (h *Handlers) withVisitorSession(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		av, ok := h.resolveVisitor(w, r)
@@ -225,9 +240,9 @@ func (h *Handlers) withVisitorSession(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// resolveVisitor —— 真校验:bearer-token → VisitorSessionData(Redis)。token 留着给
-// chat handler 派 BYOAI 信封的 HKDF 共享密钥。缺 token / session 失效(过期/evict/
-// 删)→ 401,已写响应。
+// resolveVisitor —— the real validation: bearer-token → VisitorSessionData (Redis). Token
+// is kept for the chat handler to derive the BYOAI envelope's HKDF shared secret. Missing
+// token / invalidated session (expired/evicted/deleted) → 401, response already written.
 func (h *Handlers) resolveVisitor(
 	w http.ResponseWriter, r *http.Request,
 ) (authedVisitor, bool) {
@@ -238,7 +253,8 @@ func (h *Handlers) resolveVisitor(
 	}
 	data, err := h.Sessions.Get(r.Context(), token)
 	if err != nil {
-		// session 失效(TTL 过期 / evict / 删)→ 顺手清掉浏览器 cookie,别再揣着死 token。
+		// session invalidated (TTL expired / evicted / deleted) → clear the browser
+		// cookie while we're at it, don't let it keep carrying a dead token.
 		clearVisitorSessionCookie(w)
 		writeError(h.Log, w, unauthorizedEnv("invalid session"))
 		return authedVisitor{}, false
@@ -246,11 +262,11 @@ func (h *Handlers) resolveVisitor(
 	return authedVisitor{Token: token, Data: &data}, true
 }
 
-// visitorSessionCookie —— 访客 session token 的 cookie 名。
+// visitorSessionCookie —— the cookie name for the visitor session token.
 const visitorSessionCookie = "sm_vsession"
 
-// visitorToken —— 取访客 token:Authorization Bearer 优先,session cookie 兜底
-// (跨 tab / 活过刷新 / SSR 都认)。
+// visitorToken —— fetches the visitor token: Authorization Bearer first, session cookie
+// as fallback (works across tabs, survives refresh, recognized by SSR too).
 func visitorToken(r *http.Request) (string, bool) {
 	if t, ok := bearerToken(r); ok {
 		return t, true
@@ -266,8 +282,9 @@ func cookieToken(r *http.Request) (string, bool) {
 	return c.Value, true
 }
 
-// setVisitorSessionCookie —— 发 session 时把 token 写进 HttpOnly cookie,寿命跟
-// session 一致。HttpOnly = JS 读不到(防 XSS 偷),浏览器自动随请求带。
+// setVisitorSessionCookie —— on session issue, writes the token into an HttpOnly cookie
+// with a matching lifetime. HttpOnly = JS can't read it (guards XSS theft); the browser
+// sends it automatically with every request.
 func setVisitorSessionCookie(
 	w http.ResponseWriter, token string, expiresAt time.Time, secure bool,
 ) {
@@ -277,7 +294,8 @@ func setVisitorSessionCookie(
 	})
 }
 
-// clearVisitorSessionCookie —— session 失效(401)时回写一个过期 cookie 清掉它。
+// clearVisitorSessionCookie —— when a session is invalidated (401), writes back an
+// expired cookie to clear it.
 func clearVisitorSessionCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name: visitorSessionCookie, Value: "", Path: "/",
@@ -285,8 +303,9 @@ func clearVisitorSessionCookie(w http.ResponseWriter) {
 	})
 }
 
-// authVisitorWithToken —— handler 取 withVisitorSession 已验好的 authedVisitor
-// (从 ctx 读)。保留旧名 + 签名,handler body 不动;装饰器没套到的路由 → 防御性 401。
+// authVisitorWithToken —— fetches the authedVisitor already validated by withVisitorSession
+// (read from ctx); keeps the old name/signature so handler bodies don't change. A route
+// the decorator didn't wrap → defensive 401.
 func authVisitorWithToken(
 	h *Handlers, w http.ResponseWriter, r *http.Request,
 ) (authedVisitor, bool) {
@@ -323,4 +342,4 @@ func handleVisitorErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, env)
 }
 
-// envBadReq / writeError 拆到 errors.go 守 max-lines 350。
+// envBadReq / writeError are split into errors.go to stay under the max-lines-350 limit.

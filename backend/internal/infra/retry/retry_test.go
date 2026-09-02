@@ -1,5 +1,6 @@
-// retry_test.go —— 通用重试 infra 单测（connector-deps-tests.md §五 retry-infra）。
-// 退避时长用注入的假 sleep 记录，不真睡；时钟也注入（经 retry.WithClock），确定性。
+// retry_test.go -- unit tests for the generic retry infra (connector-deps-tests.md
+// §5 retry-infra). Backoff durations are recorded via an injected fake sleep, never a
+// real sleep; the clock is injected too (via retry.WithClock), for determinism.
 
 package retry_test
 
@@ -20,7 +21,8 @@ const (
 	capProbeAttempts = 5
 )
 
-// recorder —— 注入的假 sleep + 假时钟：记录每次退避，并把虚拟时间往前推。
+// recorder -- the injected fake sleep + fake clock: records each backoff and advances
+// the virtual time.
 type recorder struct {
 	clock time.Time
 	waits []time.Duration
@@ -42,7 +44,8 @@ func basePolicy(rec *recorder) retry.Policy {
 	}, rec.sleep, rec.now)
 }
 
-// retry-read-transient-recovers —— 瞬时错 → 重试 → 第 N 次成功，返回 nil。
+// retry-read-transient-recovers -- transient error -> retries -> succeeds on the Nth
+// attempt, returns nil.
 func TestDo_TransientThenSuccess(t *testing.T) {
 	t.Parallel()
 	rec := &recorder{}
@@ -60,7 +63,8 @@ func TestDo_TransientThenSuccess(t *testing.T) {
 		"backoff 1s, 2s between the 3 attempts")
 }
 
-// retry-exhausted-degrades —— 一直失败 → 用尽 MaxAttempts → 返回最后的 error。
+// retry-exhausted-degrades -- always fails -> MaxAttempts exhausted -> returns the
+// last error.
 func TestDo_ExhaustsAttempts(t *testing.T) {
 	t.Parallel()
 	rec := &recorder{}
@@ -75,13 +79,14 @@ func TestDo_ExhaustsAttempts(t *testing.T) {
 	require.Len(t, rec.waits, 2, "waits only between tries (N-1)")
 }
 
-// 退避 max-interval 上限 —— 翻倍不会涨过 MaxInterval。
+// Backoff max-interval cap -- doubling never grows past MaxInterval.
 func TestDo_BackoffCappedAtMaxInterval(t *testing.T) {
 	t.Parallel()
 	rec := &recorder{}
 	p := basePolicy(rec)
-	p.MaxAttempts = capProbeAttempts // 1s,2s,4s,4s（本应 8s→封顶 4s）
-	p.MaxTotal = 0                   // 本例只验退避封顶，关总时长闸
+	p.MaxAttempts = capProbeAttempts // 1s,2s,4s,4s (would be 8s -> capped at 4s)
+	// this case only verifies the backoff cap, so gate off the total-duration deadline
+	p.MaxTotal = 0
 	calls := 0
 	err := retry.Do(context.Background(), p, func() error { calls++; return errors.New("x") })
 	require.Error(t, err)
@@ -90,15 +95,17 @@ func TestDo_BackoffCappedAtMaxInterval(t *testing.T) {
 		rec.waits, "backoff capped at MaxInterval=4s, no further growth")
 }
 
-// retry-sync-hard-cap —— 总时长到点立即停，即使次数没用完（D-7 硬封顶）。
+// retry-sync-hard-cap -- stops immediately once the total duration deadline hits,
+// even with attempts remaining (D-7 hard cap).
 func TestDo_TotalDeadlineStops(t *testing.T) {
 	t.Parallel()
 	rec := &recorder{}
 	p := basePolicy(rec)
-	p.MaxAttempts = 100 // 次数很大
+	p.MaxAttempts = 100 // a large attempt count
 	p.BaseDelay = testSlowDelay
 	p.MaxInterval = testSlowDelay
-	p.MaxTotal = testMaxTotal // 第一次等 6s，第二次只剩 4s → 等 4s 后到点停
+	// first wait is 6s, second only has 4s left -> waits 4s then hits the deadline and stops
+	p.MaxTotal = testMaxTotal
 	calls := 0
 	err := retry.Do(context.Background(), p, func() error { calls++; return errors.New("x") })
 	require.Error(t, err)
@@ -110,7 +117,8 @@ func TestDo_TotalDeadlineStops(t *testing.T) {
 	require.LessOrEqual(t, total, testMaxTotal, "summed backoff stays within MaxTotal")
 }
 
-// retry-invalid-grant-no-retry —— Retryable 判 false 的 error 立即返回，不重。
+// retry-invalid-grant-no-retry -- an error Retryable judges false returns
+// immediately, no retry.
 func TestDo_NonRetryableStopsImmediately(t *testing.T) {
 	t.Parallel()
 	rec := &recorder{}
@@ -124,7 +132,8 @@ func TestDo_NonRetryableStopsImmediately(t *testing.T) {
 	require.Empty(t, rec.waits, "no backoff")
 }
 
-// ctx 取消打断 —— 取消后立即返回 ctx.Err()，不再试。
+// ctx cancellation interrupt -- once cancelled, returns ctx.Err() immediately,
+// no further tries.
 func TestDo_ContextCancelled(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())

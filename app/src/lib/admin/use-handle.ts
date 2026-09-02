@@ -1,9 +1,9 @@
 import { z } from 'zod';
-// use-handle —— owner 改 URL handle。
-// PATCH /api/admin/handle；backend 在 handle_aliases 里留旧值，老链接仍可
-// resolve（详见 internal/postgres/auth.go GetByHandle）。
+// use-handle —— owner changes the URL handle.
+// PATCH /api/admin/handle; the backend keeps the old value in handle_aliases,
+// so old links still resolve (see internal/postgres/auth.go GetByHandle).
 //
-// 合法 handle = `[a-z0-9-]{2,64}`（跟 backend usecases.UpdateOwnerHandle 对齐）。
+// A valid handle = `[a-z0-9-]{2,64}` (matches backend usecases.UpdateOwnerHandle).
 
 import { useCallback, useState } from 'react';
 
@@ -61,21 +61,22 @@ export function handleHint(sanitized: string, current: string): HandleHint {
     : { cls: 'text-(--color-muted)', text: `old /${current} will keep resolving via alias` };
 }
 
-// canSaveHandle —— SaveBtn 是否可点：合法 + 已变 + 未在保存。把
-// 分支条件挪到 lib，让 component 内复杂度 ≤ 3。
+// canSaveHandle —— whether SaveBtn is clickable: valid + changed + not
+// currently saving. Branching moved to lib so the component's complexity stays ≤ 3.
 export function canSaveHandle(sanitized: string, current: string, pending: boolean): boolean {
   if (pending) return false;
   if (sanitized === current) return false;
   return isValidHandle(sanitized);
 }
 
-// pickHandle —— 拼有效 handle：override > sessionHandle > 兜底 'me'。
+// pickHandle —— assembles the effective handle: override > sessionHandle > fallback to 'me'.
 export function pickHandle(override: string | null, fromSession: string): string {
   return override ?? fromSession ?? 'me';
 }
 
-// commitHandle —— PATCH 调用 + 成功 callback；HandleEditor 直接调。
-// onSuccess 让组件挂 toast（lib 不直接依赖 toast，避免循环 import）。
+// commitHandle —— the PATCH call + success callback; called directly by
+// HandleEditor. onSuccess lets the component hang a toast off it (lib
+// doesn't depend on toast directly, to avoid a circular import).
 export async function commitHandle(
   sanitized: string,
   hook: HandleHook,

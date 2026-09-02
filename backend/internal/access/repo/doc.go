@@ -1,3 +1,4 @@
-// Package repo —— access 域的仓储层（Role/Code/APIKey/CapabilitySettings/AccessRequest 的持久化，
-// over internal/access/db + pgstore）。对外经 internal/access/facade 暴露。
+// Package repo —— the access domain's repository layer (persistence for
+// Role/Code/APIKey/CapabilitySettings/AccessRequest, over internal/access/db +
+// pgstore). Exposed externally through internal/access/facade.
 package repo

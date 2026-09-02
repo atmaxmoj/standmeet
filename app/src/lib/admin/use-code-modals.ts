@@ -1,5 +1,5 @@
-// use-code-modals —— Codes section 的 modal switchboard。
-// 一次只一个开着 —— creating / qrCode / previewCode 互斥。
+// use-code-modals —— modal switchboard for the Codes section.
+// Only one is open at a time — creating / qrCode / previewCode are mutually exclusive.
 
 import { useCallback, useState } from 'react';
 

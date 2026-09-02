@@ -1,8 +1,9 @@
-// use-code-test —— admin /admin/codes VisitorPreviewModal 里的"试一下"。
-// owner 想在不开隐身浏览器的情况下亲自跑一次 code session：
-//   - 起 session（visitor_name = "(owner test)"，跟真访客在 conversations
-//     列表里靠 visitor_name 一眼区分开）
-//   - 发一条 message，订阅 SSE 流，把 token / done 拼到 reply
+// use-code-test —— the "try it" button in admin /admin/codes's
+// VisitorPreviewModal. Lets the owner personally run a code session without
+// opening a private browser window:
+//   - opens a session (visitor_name = "(owner test)", so it's told apart at a
+//     glance from real visitors in the conversations list by visitor_name)
+//   - sends a message, subscribes to the SSE stream, appends token / done into reply
 
 import { useCallback, useRef, useState } from 'react';
 
@@ -82,8 +83,10 @@ async function streamReplyInto(
 ): Promise<void> {
   try {
     let body = '';
-    // owner 在面板上试一张码,看到的必须跟访客看到的是**同一件事** —— 所以这里也要拼
-    // system(fragment + 这张码的 persona)。少了它,自测预览会比真实访客体验"干净"一截。
+    // What the owner sees when trying a code in the panel must be **the exact
+    // same thing** a visitor sees — so this also assembles the system prompt
+    // (fragment + this code's persona). Without it, the self-test preview
+    // would look "cleaner" than the real visitor experience.
     const system = await composeChatSystem(sess);
     for await (const ev of streamChatMessage(
       sess.conversation_id, sess.session_token, text, system,

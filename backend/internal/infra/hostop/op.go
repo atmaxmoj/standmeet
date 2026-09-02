@@ -1,12 +1,16 @@
-// Package hostop —— 宿主开给沙箱能力的那套词汇(入站方向)。
+// Package hostop — the vocabulary the host exposes to sandboxed capabilities (inbound direction).
 //
-// 出站有 facadeparity:域声明自己会做什么,收口汇聚,各面投影。入站是它的镜像:沙箱里的
-// 能力断了网,只能经一个 unix socket 回头问宿主要东西(读语料、发信、存自己的数据)。
-// 这套词汇让**域说得出**它开了哪几件事,而域不必 import 路由,也不必 import 能力轴。
+// Outbound has facadeparity: a domain declares what it does, a single convergence point
+// collects it, and facades project it. Inbound is its mirror: a capability inside the sandbox
+// has no network, so it can only call back to the host over a unix socket to ask for things
+// (read the corpus, send mail, store its own data). This vocabulary lets **a domain say for
+// itself** which operations it exposes, without the domain importing routing or importing
+// the capability axis.
 //
-// 为什么不复用 facadeparity.Op:出站的身份是 owner,入站的身份是**会话**(owner +
-// conversation,由宿主种在工具调用的 _meta 上、插件原样转进来)。两个身份混成一个类型,
-// 读的人就分不清某个 op 到底是替谁在动。
+// Why not reuse facadeparity.Op: outbound's identity is the owner; inbound's identity is
+// **the session** (owner + conversation, planted by the host on the tool call's _meta and
+// passed through unchanged by the plugin). Mixing the two identities into one type leaves
+// the reader unable to tell who a given op is actually acting on behalf of.
 package hostop
 
 import (
@@ -15,25 +19,29 @@ import (
 	"path/filepath"
 )
 
-// SocketDir / SocketPath —— 一个能力的 socket 落在哪儿,由**宿主信任的 id** 派生。
+// SocketDir / SocketPath — where a capability's socket lands, derived from an **id the
+// host trusts**.
 //
-// 路径不写进 manifest:声明说的是"我要哪几件事",不是"给我挂哪个文件"。开 socket 的
-// (收口)和把它 bind 进沙箱的(装载器)照同一条规则算,所以两边不会各写一份路径。
+// The path isn't written into the manifest: the declaration says "which operations I want,"
+// not "which file to mount for me." The side that opens the socket (the convergence point)
+// and the side that binds it into the sandbox (the loader) both compute it from the same
+// rule, so the two sides never end up with two different paths.
 const SocketDir = "/run/standmeet"
 
-// SocketPath —— 派生某个能力的 socket 路径。
+// SocketPath — derives the socket path for a given capability.
 func SocketPath(pluginID string) string {
 	return filepath.Join(SocketDir, pluginID+".sock")
 }
 
-// Invoke —— 一个 host op 真正做的事。入参出参都是不透明 JSON:身份在请求体里,
-// 这套词汇跟传输无关。
+// Invoke — what a host op actually does. Both the request and response are opaque JSON:
+// identity lives in the request body, and this vocabulary is transport-agnostic.
 type Invoke func(ctx context.Context, req json.RawMessage) (json.RawMessage, error)
 
-// Op —— 宿主开给沙箱的一件事。
+// Op — one thing the host exposes to the sandbox.
 //
-// Name 是固定词表里的一项(如 "conversation.read")。能力在自己的 manifest 里按名字点单,
-// 点了词表里没有的名字 —— 启动就炸,不会等到 owner 点下去才发现。
+// Name is an entry from the fixed vocabulary (e.g. "conversation.read"). A capability orders
+// by name in its own manifest; ordering a name that isn't in the vocabulary blows up at
+// startup, not later when the owner actually clicks it.
 type Op struct {
 	Invoke      Invoke
 	Name        string

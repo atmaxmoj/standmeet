@@ -5,9 +5,10 @@ import (
 	"testing"
 )
 
-// instructionWithDoc —— #36 位置感知的核心:把访客当前 doc 注进 instruction 让代词
-// 指代解析。e2e(floating-chat-dock)验请求带了 doc_context;这里验 backend 真把它
-// 拼进 instruction(eval gateway 在 CI 跑不了,单测锁住注入逻辑)。
+// instructionWithDoc —— the core of #36 location-awareness: injects the visitor's current doc
+// into the instruction for pronoun reference resolution. e2e (floating-chat-dock) verifies the
+// request carries doc_context; this file verifies the backend really appends it into the
+// instruction (the eval gateway can't run in CI, so a unit test locks down the injection logic).
 const docTestPersona = "You are the owner."
 
 func TestInstructionWithDocNil(t *testing.T) {

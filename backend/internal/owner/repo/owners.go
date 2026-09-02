@@ -1,6 +1,6 @@
-// Repo wrap sqlc 生成的 db.Queries。
-// 把 pgtype.* 映射到 Owner 纯 Go 类型，让 usecase / routes 层
-// 不用知道 pgtype。
+// Repo wraps the sqlc-generated db.Queries.
+// It maps pgtype.* to plain-Go Owner types, so the usecase / routes
+// layers never need to know about pgtype.
 
 package repo
 
@@ -17,23 +17,27 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// pgxErrNoRows —— helper：避免直接在多处 import pgx.ErrNoRows，让 grep 起点一致。
+// pgxErrNoRows —— helper: avoids importing pgx.ErrNoRows directly in
+// multiple places, so grep has one consistent starting point.
 func pgxErrNoRows() error { return pgx.ErrNoRows }
 
-// parseOwnerIDErrFmt —— "parse owner id" 字面在本文件多次出现，提取常量。
+// parseOwnerIDErrFmt —— the literal "parse owner id" recurs multiple times
+// in this file, so it's pulled into a constant.
 const parseOwnerIDErrFmt = "parse owner id: %w"
 
-// Repo 提供 owner CRUD（当前只用 Create 和 Count；后续扩展）。
+// Repo provides owner CRUD (currently only Create and Count are used; more
+// to come).
 type Repo struct {
 	pool *pgstore.Pool
 }
 
-// NewRepo 构造 Repo。
+// NewRepo constructs a Repo.
 func NewRepo(pool *pgstore.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-// Count 返回 owners 表行数（用于"是否有 owner"的判定）。
+// Count returns the row count of the owners table (used to determine
+// "is there an owner yet").
 func (r *Repo) Count(ctx context.Context) (int64, error) {
 	q := db.New(r.pool)
 	n, err := q.CountOwners(ctx)
@@ -43,8 +47,9 @@ func (r *Repo) Count(ctx context.Context) (int64, error) {
 	return n, nil
 }
 
-// FirstHandle 返最早 owner 的 handle；表为空返 ""（不报错，app 根路径
-// 据此判断是否引导用户去 /setup）。
+// FirstHandle returns the earliest owner's handle; an empty table returns
+// "" (not an error — the app root route uses this to decide whether to
+// redirect the user to /setup).
 func (r *Repo) FirstHandle(ctx context.Context) (string, error) {
 	q := db.New(r.pool)
 	handle, err := q.GetFirstOwnerHandle(ctx)
@@ -57,11 +62,13 @@ func (r *Repo) FirstHandle(ctx context.Context) (string, error) {
 	return handle, nil
 }
 
-// pgUniqueViolation 检测 pgx unique constraint 冲突，返回 constraint 名 +
-// 是否命中。让 caller 把 DB-level 错误翻译成 domain sentinel error。
-// toDomainOwner 把 sqlc 生成的 db.Owner（带 pgtype.UUID / Timestamptz）
-// 映射到 Owner（纯 Go 类型，identity only）。
-// settings 字段通过 toOwnerSettings 单独解（同一行 owners 表 row 拆两面）。
+// pgUniqueViolation detects a pgx unique-constraint conflict, returning the
+// constraint name + whether it hit. Lets the caller translate a DB-level
+// error into a domain sentinel error.
+// toDomainOwner maps sqlc's generated db.Owner (with pgtype.UUID /
+// Timestamptz) to Owner (plain Go types, identity only).
+// The settings fields are decoded separately via toOwnerSettings (the same
+// owners table row split into two facets).
 func toDomainOwner(o *db.Owner) entity.Owner {
 	return entity.Owner{
 		ID:              pgstore.FormatUUID(o.ID),
@@ -76,8 +83,10 @@ func toDomainOwner(o *db.Owner) entity.Owner {
 	}
 }
 
-// derefString —— nullable 列取值。空指针出空串:调用方要区分的是"有没有待确认",
-// 而不是 NULL 和 ” 的区别(那个区别在这一列上没有含义)。
+// derefString —— reads a nullable column's value. A nil pointer yields an
+// empty string: what the caller needs to distinguish is "is there a
+// pending confirmation," not the difference between NULL and "" (that
+// distinction has no meaning on this column).
 func derefString(p *string) string {
 	if p == nil {
 		return ""
@@ -85,12 +94,16 @@ func derefString(p *string) string {
 	return *p
 }
 
-// toOwnerSettings —— owners 行的 byoai_* + **默认那条 provider** 拼成 Settings。
+// toOwnerSettings —— assembles Settings from an owners row's byoai_* +
+// **the default provider**.
 //
-// AI 那一面以前直接读 owners 行上的四列;provider 变成一本之后,"owner 的 AI 设置"
-// 说的就是**默认那一条**(其余是本子里的别的条目,由 providers.* 那组操作管)。
-// def 为 nil = 这个 owner 还没有任何 provider(claim 之前),AI 那一面出零值。
-// 明文 key 不出 repo,外层只看 KeyConfigured。
+// The AI facet used to read the four columns on the owners row directly;
+// now that provider is a list, "the owner's AI settings" means **the
+// default entry** (the rest are other entries in the list, managed by the
+// providers.* group of operations). def == nil means this owner has no
+// provider yet (before claim); the AI facet reports zero values.
+// The plaintext key never leaves repo — the outer layer only sees
+// KeyConfigured.
 func toOwnerSettings(o *db.Owner, def *ProviderRow) entity.Settings {
 	out := entity.Settings{
 		BYOAI: entity.BYOAISettings{
@@ -108,8 +121,9 @@ func toOwnerSettings(o *db.Owner, def *ProviderRow) entity.Settings {
 	return out
 }
 
-// decodeProviders 把 byoai_providers jsonb 解到 []string。空 / 解失败返空 slice；
-// usecase 视空为 "default providers"，handler 编码时按 [] 输出。
+// decodeProviders decodes the byoai_providers jsonb into []string. Empty or
+// a decode failure returns an empty slice; usecase treats empty as
+// "default providers", and the handler encodes it as [] on output.
 func decodeProviders(raw []byte) []string {
 	if len(raw) == 0 {
 		return []string{}
@@ -121,8 +135,9 @@ func decodeProviders(raw []byte) []string {
 	return out
 }
 
-// UpdateBYOAIInput —— Update 入参。字段顺序按 govet fieldalignment：
-// strings 先（ptr at 0），slice 紧跟（ptr at 0 也连续），bool 末尾。
+// UpdateBYOAIInput —— Update's input. Field order follows govet
+// fieldalignment: strings first (ptr at 0), slice right after (ptr at 0
+// too, keeping them contiguous), bool last.
 type UpdateBYOAIInput struct {
 	OwnerID   string
 	Blurb     string
@@ -130,8 +145,9 @@ type UpdateBYOAIInput struct {
 	Enabled   bool
 }
 
-// UpdateBYOAI 更新 owner 行的 byoai_enabled / providers / blurb；返回新
-// OwnerSettings（不是整个 Owner，settings 是聚合的独立切面）。
+// UpdateBYOAI updates the owner row's byoai_enabled / providers / blurb;
+// returns the new OwnerSettings (not the whole Owner — settings is a
+// separate facet of the aggregate).
 func (r *Repo) UpdateBYOAI(
 	ctx context.Context, in *UpdateBYOAIInput,
 ) (entity.Settings, error) {
@@ -150,8 +166,9 @@ func (r *Repo) UpdateBYOAI(
 	return r.settingsFor(ctx, &row), nil
 }
 
-// GetSettings —— 拉 owner 行的 settings 切面（不含 identity）。
-// /me 端要 owner + settings 拼起来时调它，跟 GetByID 各自只取自己那半。
+// GetSettings —— pulls the settings facet of the owner row (identity
+// excluded). Called when the /me endpoint needs owner + settings combined;
+// GetByID fetches its own half separately.
 func (r *Repo) GetSettings(
 	ctx context.Context, ownerID string,
 ) (entity.Settings, error) {
@@ -170,8 +187,8 @@ func (r *Repo) GetSettings(
 	return r.settingsFor(ctx, &row), nil
 }
 
-// buildBYOAIParams 把入参 normalize + marshal 一气呵成，让 UpdateBYOAI
-// 自己 cyclo ≤ 5。
+// buildBYOAIParams normalizes + marshals the input in one pass, keeping
+// UpdateBYOAI's own cyclo ≤ 5.
 func buildBYOAIParams(in *UpdateBYOAIInput) (db.UpdateOwnerBYOAIParams, error) {
 	ownerUUID, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
@@ -193,9 +210,10 @@ func buildBYOAIParams(in *UpdateBYOAIInput) (db.UpdateOwnerBYOAIParams, error) {
 	}, nil
 }
 
-// UpdatePublicURL —— owner 改部署的 canonical public URL（claim 后改域名时调）。
-// 没有 alias 表（public_url 不参与 routing；只用作 QR / SEO canonical），
-// 单条 UPDATE 即可。
+// UpdatePublicURL —— owner changes the deployment's canonical public URL
+// (called when the domain changes after claim). No alias table needed
+// (public_url doesn't participate in routing; it's only used for QR / SEO
+// canonical), so a single UPDATE suffices.
 func (r *Repo) UpdatePublicURL(
 	ctx context.Context, ownerID, normalized string,
 ) (entity.Owner, error) {
@@ -213,8 +231,10 @@ func (r *Repo) UpdatePublicURL(
 	return toDomainOwner(&row), nil
 }
 
-// settingsFor —— 读默认 provider 再拼 Settings。没有默认(还没 claim / 刚删空)不是错:
-// AI 那一面出零值,owner 面板据此显示"还没配"。
+// settingsFor —— reads the default provider then assembles Settings. No
+// default (not yet claimed / just deleted down to empty) is not an error:
+// the AI facet reports zero values, and the owner panel shows "not
+// configured yet" based on that.
 func (r *Repo) settingsFor(ctx context.Context, o *db.Owner) entity.Settings {
 	def, err := r.DefaultProvider(ctx, pgstore.FormatUUID(o.ID))
 	if err != nil {
@@ -223,5 +243,6 @@ func (r *Repo) settingsFor(ctx context.Context, o *db.Owner) entity.Settings {
 	return toOwnerSettings(o, &def)
 }
 
-// provider 那一组(view / 解析链 / 写默认那条 / 封 key)都在 providers.go 和
-// provider_view.go —— 这个文件只管 owner 本身:身份、byoai、settings 那一面。
+// The provider group (view / resolution chain / writing the default entry /
+// sealing keys) all lives in providers.go and provider_view.go — this file
+// only handles the owner itself: identity, byoai, the settings facet.

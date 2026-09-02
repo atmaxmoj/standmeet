@@ -1,8 +1,10 @@
-// PublicURLEditor —— /admin/page · site block 里的"public URL"行。
-// owner.public_url 是 instance 部署的 canonical 入口；QR / SEO canonical /
-// 简历右上角二维码全用它。claim 时填了一次，部署到新域名后从这里改。
+// PublicURLEditor — the "public URL" row in /admin/page's site block.
+// owner.public_url is the canonical entry point for the instance deployment;
+// QR / SEO canonical / the QR in the resume's top-right corner all use it.
+// Filled once at claim time; edited from here after deploying to a new domain.
 //
-// 跟 HandleEditor 同构：默认显示当前值 + change 按钮；点开 inline 输入框。
+// Same shape as HandleEditor: shows the current value + a change button by
+// default; clicking opens an inline input.
 
 'use client';
 

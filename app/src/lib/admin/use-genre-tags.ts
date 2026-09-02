@@ -1,10 +1,15 @@
-// use-genre-tags —— 一个 genre 用过的**全部**标签(语料级),给面板的标签行用。
+// use-genre-tags —— **all** tags a genre has ever used (corpus-level), for
+// the panel's tag row.
 //
-// 标签行以前是 `distinctTags(rows)` —— 从已加载的那一页推。于是只存在于那一页之外的标签
-// **连 chip 都没有**:点不到,也就无从发现自己漏了什么。真 vault 上 `rate-reduction` 就是这样
-// 消失的,而它所在的那条笔记正是我要去驱的目标(F-L-23 的后半条)。
+// The tag row used to be `distinctTags(rows)` — derived from the page already
+// loaded. So a tag that only existed outside that page **didn't even get a
+// chip**: it couldn't be clicked, and there was no way to discover it was
+// missing. That's exactly how `rate-reduction` disappeared on the real vault,
+// and the note carrying it is the very target I need to drive to (the second
+// half of F-L-23).
 //
-// 语料变了要重取:跟分页共用 corpus epoch,一次写入之后标签行不会停在旧答案上。
+// Refetch whenever the corpus changes: shares the corpus epoch with
+// pagination, so the tag row never gets stuck on a stale answer after a write.
 
 'use client';
 
@@ -16,7 +21,7 @@ import { useCorpusEpoch } from '@/lib/admin/corpus-tree-epoch';
 
 const TagsSchema = z.object({ tags: z.array(z.string()) });
 
-/** 一个 genre 的全部标签。取不到就回空数组 —— 标签行少一行,好过整页崩掉。 */
+/** All tags for a genre. Falls back to an empty array on failure — a missing tag row beats crashing the whole page. */
 export function useGenreTags(genre: string): readonly string[] {
   const epoch = useCorpusEpoch();
   const [tags, setTags] = useState<readonly string[]>([]);

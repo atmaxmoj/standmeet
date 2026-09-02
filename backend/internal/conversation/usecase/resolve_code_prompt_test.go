@@ -1,5 +1,8 @@
-// resolve_code_prompt_test.go —— #104 扩展的取值语义：内联 per-code prompt 优先于 prompt_id 库引用。
-// 内联非空时**直接返回、不碰 deps**（发码方随码带的 persona，不查库）——core 无脑注入这段，不知语义。
+// resolve_code_prompt_test.go —— resolution semantics from the #104 extension: an inline
+// per-code prompt wins over a prompt_id library reference. When inline is non-empty,
+// **returns it directly, without touching deps** (the persona the code-issuer attached to
+// the code, no library lookup) —— core injects this segment blindly, unaware of the
+// semantics.
 
 package usecase
 
@@ -12,7 +15,8 @@ import (
 
 func TestResolveCodePromptInlineWins(t *testing.T) {
 	t.Parallel()
-	// InlinePrompt 非空 → 原样返回，且不触碰 deps（nil-safe）：证明内联优先且不查库。
+	// InlinePrompt non-empty → returned verbatim, without touching deps (nil-safe):
+	// proves inline wins and skips the library lookup.
 	code := &access.Code{
 		InlinePrompt: "You are speaking with a recruiter for Backend Engineer.",
 	}

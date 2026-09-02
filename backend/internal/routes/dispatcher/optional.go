@@ -1,17 +1,19 @@
-// optional.go —— 三态入参的别名。定义在 internal/infra/facadeparity(域声明操作时
-// 要解同样的参,那边不能反过来依赖路由)。还没搬进域的那几个资源在用这些名字。
+// optional.go -- aliases for tri-state input args. Defined in internal/infra/facadeparity
+// (a domain declaring an operation has to parse the same args, and that side must not
+// depend on routing in return). The handful of resources not yet moved into a domain still
+// use these names.
 
 package dispatcher
 
 import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 
 type (
-	// OptionalInt32 —— 三态数字:没提到 / 显式 null / 有值。
+	// OptionalInt32 -- tri-state number: omitted / explicit null / has a value.
 	OptionalInt32 = fp.OptionalInt32
-	// OptionalString —— 三态字符串。
+	// OptionalString -- tri-state string.
 	OptionalString = fp.OptionalString
-	// OptionalBool —— 三态开关。
+	// OptionalBool -- tri-state switch.
 	OptionalBool = fp.OptionalBool
-	// OptionalStrings —— 三态列表。
+	// OptionalStrings -- tri-state list.
 	OptionalStrings = fp.OptionalStrings
 )

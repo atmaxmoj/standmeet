@@ -1,7 +1,8 @@
-// owner_public_url.go —— owner 改部署的 canonical public URL 的 usecase。
-// 校验同 claim：必须 http(s):// + 非空 host。normalize 去末尾斜杠。
-// QR / SEO canonical 都以 owner.public_url 为单一来源 —— 见
-// applications.go 的 buildQRURL。
+// owner_public_url.go — the usecase for an owner changing the deployment's canonical
+// public URL. Validation matches claim: must be http(s):// + non-empty host. normalize
+// strips the trailing slash.
+// QR / SEO canonical both use owner.public_url as their single source — see
+// buildQRURL in applications.go.
 
 package usecase
 
@@ -15,14 +16,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// PublicURLDeps —— UpdateOwnerPublicURL 的依赖。
+// PublicURLDeps — dependencies for UpdateOwnerPublicURL.
 type PublicURLDeps struct {
 	Owners *repo.Repo
 }
 
-// UpdateOwnerPublicURL —— admin "change public URL" 入口。raw 经 trim/normalize
-// 后做 scheme 校验；通过则写库返回新 owner row。
-// 复用 ErrPublicURLInvalid（claim 同款 sentinel），让 routes 翻译 400。
+// UpdateOwnerPublicURL — the entry point for admin's "change public URL". raw goes
+// through trim/normalize then a scheme check; on success, writes to DB and returns the
+// new owner row.
+// Reuses ErrPublicURLInvalid (the same sentinel as claim) so routes can translate it to 400.
 func UpdateOwnerPublicURL(
 	ctx context.Context, deps PublicURLDeps, ownerID, raw string,
 ) (entity.Owner, error) {

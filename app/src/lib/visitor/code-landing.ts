@@ -1,15 +1,20 @@
-// code-landing —— 一张码扫出来看到的是什么。
+// code-landing —— what you see when a code gets scanned.
 //
-// 默认是访客对话；owner 给这张码挂了一个自定义页，看到的就是那一页
-// （**pages 给了 code 一个渲染**）。授权一点没变：同一个角色、同一套配额、同一份记账 ——
-// 变的只有读者眼前的那张纸。
+// The default is the visitor chat; if the owner attached a custom page to
+// this code, that's what shows instead (**pages give a code a rendering**).
+// Authorization is unchanged: same role, same quota, same billing — only
+// the page in front of the reader changes.
 //
-// 领码有两条路（/gate 上提交、带 `?code=` 进站后的名字选择器）。两条都要落到同一个地方，
-// 所以「去哪」只由这一个函数说了算 —— 各写一遍的话，改一条另一条会静默留在旧行为上
-// （[[copied-invalidation-goes-stale]]）。
+// A code is redeemed via two paths (submitting on /gate, or the name picker
+// after entering with `?code=`). Both must land on the same place, so where
+// to go is decided by this one function alone — writing it twice means a
+// change to one path silently leaves the other on old behavior
+// ([[copied-invalidation-goes-stale]]).
 
-// codeLandingHref —— 空 slug 返回空串，表示「这张码没有自己的落地，按各自的默认走」。
-// 不在这里编一个默认值：两条路的默认不一样（一条要把 ?q= 串回去，另一条已经在首页上了）。
+// codeLandingHref —— an empty slug returns an empty string, meaning "this
+// code has no landing of its own, fall back to whatever each path defaults
+// to". No default is invented here: the two paths' defaults differ (one
+// needs to carry ?q= forward, the other is already on the home page).
 export function codeLandingHref(slug: string): string {
   return slug === '' ? '' : `/p/${slug}`;
 }

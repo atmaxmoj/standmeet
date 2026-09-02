@@ -1,14 +1,18 @@
-// registry_tool_dispatch_test.go —— 访客点一次卡片按钮,应该只起**一个**沙箱。
+// registry_tool_dispatch_test.go —— a visitor pressing one card button should
+// spawn **one** sandbox, not more.
 //
-// 这条 guard 锁的是一个只在负载下才现形的退化:一次 POST /sessions/{id}/tools/{name}
-// 原来把每个能力都实例化一遍(AssembleVisitor),执行完为了回一份 CapabilityState 又
-// 逐个实例化一遍(VisitorStates) —— 一次点击 2N 次拨号,N 是装上的外置能力数。外置能力
-// 实例化 = 起一个 bwrap 沙箱,空闲时约 1s,机器压满时整段实测到过 19 秒。
+// This guard locks down a degradation that only shows up under load: one POST
+// /sessions/{id}/tools/{name} used to instantiate every capability once
+// (AssembleVisitor), then, to return a CapabilityState afterward, instantiate
+// every one of them again (VisitorStates) — one click, 2N dials, where N is the
+// number of installed externalized capabilities. Externalized capability
+// instantiation spawns a bwrap sandbox, ~1s idle, measured up to 19 seconds when
+// the machine is under load.
 //
-// 所以这里数的是**拨号次数**,不是耗时:耗时随机器变,拨号次数是结构性的。
-// 两条各自对应一个 N:
-//   - AssembleVisitorForTool 只拨可能提供该 tool 的能力
-//   - VisitorStates 对 StateReporter 完全不拨
+// So what's counted here is **dial count**, not duration: duration drifts with
+// the machine, dial count is structural. Each of the two paths owns its own N:
+//   - AssembleVisitorForTool only dials capabilities that might serve that tool
+//   - VisitorStates never dials a StateReporter at all
 
 package capreg_test
 
@@ -21,8 +25,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
-// dialCountingCap —— 一个记账的假能力:每次 VisitorBinding 记一次"拨号",暴露
-// toolNames 里那些 tool。knowsNames=false 模拟"还没拨过、说不出自己有什么 tool"。
+// dialCountingCap —— a bookkeeping fake capability: each VisitorBinding call
+// counts one "dial" and exposes the tools in toolNames. knowsNames=false
+// simulates "hasn't been dialed yet, can't say what tools it has".
 type dialCountingCap struct {
 	dials      *int
 	stateCalls *int
@@ -64,7 +69,7 @@ func (*dialCountingCap) SystemPromptFragmentID(
 	return ""
 }
 
-// KnownToolNames —— capreg.ToolNameKnower。knowsNames=false = 还没拨过。
+// KnownToolNames —— capreg.ToolNameKnower. knowsNames=false = not dialed yet.
 func (c *dialCountingCap) KnownToolNames() ([]string, bool) {
 	if !c.knowsNames {
 		return []string{}, false
@@ -72,7 +77,7 @@ func (c *dialCountingCap) KnownToolNames() ([]string, bool) {
 	return c.toolNames, true
 }
 
-// VisitorStateOnly —— capreg.StateReporter：不拨号就报 state。
+// VisitorStateOnly —— capreg.StateReporter: reports state without dialing.
 func (c *dialCountingCap) VisitorStateOnly(
 	_ context.Context, _ *capreg.AssembleInput,
 ) (capreg.CapabilityState, bool) {
@@ -91,8 +96,10 @@ func input() *capreg.AssembleInput {
 	return &capreg.AssembleInput{OwnerID: "owner-1", Mode: "code"}
 }
 
-// 假能力与它们的 tool 名。取名字而不是到处写字面量:哪个能力提供哪个 tool 是这些用例的
-// 全部内容,散成字符串就看不出 capA 的 tool 和 capB 的 tool 是两拨。
+// Fake capabilities and their tool names. Named constants instead of literals
+// scattered everywhere: which capability serves which tool IS the whole point of
+// these test cases, and scattered string literals would hide that capA's tools
+// and capB's tools are two separate groups.
 const (
 	capA      = "plugin.a"
 	capB      = "plugin.b"
@@ -103,7 +110,8 @@ const (
 	toolCOnly = "c_only"
 )
 
-// 三个能力,访客点的是第二个的按钮 —— 另外两个一次都不该被起起来。
+// Three capabilities, the visitor presses the second one's button — the other
+// two must never be spun up, not even once.
 func TestAssembleVisitorForTool_DialsOnlyTheOwner(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
@@ -120,8 +128,10 @@ func TestAssembleVisitorForTool_DialsOnlyTheOwner(t *testing.T) {
 	require.Equal(t, toolBSend, bindings[0].Tools[0].Name)
 }
 
-// 还说不出自己有什么 tool 的能力(冷启第一次)必须照拨 —— 宁可白拨,不能漏掉:
-// 漏掉的话访客得到的是 capability_not_enabled,一个能力凭空消失。
+// A capability that still can't say what tools it has (its first cold start)
+// must still be dialed — better a wasted dial than a missed one: missing it
+// means the visitor gets capability_not_enabled and a capability vanishes for no
+// reason.
 func TestAssembleVisitorForTool_DialsUnknownCaps(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
@@ -136,8 +146,9 @@ func TestAssembleVisitorForTool_DialsUnknownCaps(t *testing.T) {
 	require.Len(t, bindings, 1)
 }
 
-// 没实现 ToolNameKnower 的能力(内建的 in-process 那类)同样照拨 —— 这里把它包在一个
-// 只暴露 Capability 的匿名结构里,两个可选接口都断言不上。
+// A capability that doesn't implement ToolNameKnower (the builtin in-process
+// kind) is likewise dialed regardless — here it's wrapped in an anonymous struct
+// that only exposes Capability, so neither optional interface type-asserts.
 func TestAssembleVisitorForTool_DialsCapsWithoutTheInterface(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
@@ -152,8 +163,9 @@ func TestAssembleVisitorForTool_DialsCapsWithoutTheInterface(t *testing.T) {
 	require.Len(t, bindings, 1)
 }
 
-// 找不到时 caller 要能回 capability_not_enabled —— 而且已知 tool 名的能力一个都
-// 不用拨(拨了也白拨)。
+// When nothing is found, the caller must be able to return
+// capability_not_enabled — and none of the capabilities with known tool names
+// should be dialed (dialing them would be wasted anyway).
 func TestAssembleVisitorForTool_UnknownToolDialsNobody(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
@@ -167,14 +179,20 @@ func TestAssembleVisitorForTool_UnknownToolDialsNobody(t *testing.T) {
 	require.Equal(t, 0, dials, "a tool nobody serves must spawn no sandbox at all")
 }
 
-// MCPIDForTool —— 一张卡读写自己那格 app-state,只是要知道"这个 tool 属于哪个 mcp"。
+// MCPIDForTool —— a card reading or writing its own app-state slot only needs
+// to know "which mcp does this tool belong to".
 //
-// 这是第三条同类的路(前两条:单次工具调用、会话打开)。`GET/PUT /sessions/{id}/app-state/{tool}`
-// 原来先 AssembleVisitor 全量装配一遍,只为从 binding 里把 tool 名映射成 capability id ——
-// 卡片每动一下,整排外置能力的沙箱冷启一次。实测一次 app-state 读花了 6 秒,卡片内容一直空着。
+// This is the third path in the same family (the first two: single tool call,
+// session open). `GET/PUT /sessions/{id}/app-state/{tool}` used to run a full
+// AssembleVisitor just to map a tool name to a capability id from the bindings —
+// every time a card moved, the whole row of externalized capability sandboxes
+// cold-started. Measured, one app-state read took 6 seconds while the card's
+// content stayed empty.
 //
-// 名字→归属是**静态信息**,大多数能力不拨号就说得出(ToolNameKnower);说不出的才拨。
-// 所以这里数的还是拨号次数:一格 app-state 最多拨一次,理想是零。
+// Name → owner is **static information**; most capabilities can state it without
+// dialing (ToolNameKnower); only the ones that can't get dialed. So what's
+// counted here is still dial count: reading one app-state slot dials at most
+// once, ideally zero.
 func TestMCPIDForTool_DoesNotDialEverybody(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
@@ -191,7 +209,8 @@ func TestMCPIDForTool_DoesNotDialEverybody(t *testing.T) {
 		"reading one card's app-state must not spawn a sandbox per capability")
 }
 
-// 同一个 mcp 的多个 tool 映到同一格(calendar_book / calendar_list_slots 共享)。
+// Several tools of the same mcp map to the same slot (calendar_book /
+// calendar_list_slots share one).
 func TestMCPIDForTool_SiblingToolsShareOneBucket(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
@@ -206,7 +225,8 @@ func TestMCPIDForTool_SiblingToolsShareOneBucket(t *testing.T) {
 	require.Equal(t, first, second, "two tools of one capability share one app-state bucket")
 }
 
-// 没人提供的 tool → caller 回 tool_not_enabled,而且一个沙箱都不该起。
+// A tool nobody serves → the caller returns tool_not_enabled, and not a single
+// sandbox should spin up.
 func TestMCPIDForTool_UnknownToolDialsNobody(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
@@ -220,8 +240,9 @@ func TestMCPIDForTool_UnknownToolDialsNobody(t *testing.T) {
 	require.Equal(t, 0, dials, "a tool nobody serves must spawn no sandbox at all")
 }
 
-// 回一份 state 不需要一个会话。这是那 2N 里的另一个 N:工具跑完前端要立刻看到
-// quota 变化,原来为了这个把每个能力又起了一遍。
+// Returning a state doesn't need a session. This is the other N of that 2N:
+// after a tool runs, the frontend needs to see the quota change immediately, and
+// this used to spin up every capability again just for that.
 func TestVisitorStates_DoesNotDialStateReporters(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()

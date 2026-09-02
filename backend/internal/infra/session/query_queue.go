@@ -1,13 +1,17 @@
-// query_queue.go —— visitor chat 推理请求的双层限流。设计源自 legacy
-// standmeet-server/gateway/src/session/query-queue.ts。
+// query_queue.go —— two-tier rate limiting for visitor chat inference
+// requests. Design ported from legacy
+// standmeet-server/gateway/src/session/query-queue.ts.
 //
-//   1. 全局 concurrent cap：同时只允许 maxConcurrent 个 inference query
-//      在跑（owner 的 anthropic/openai 配额防爆）。
-//   2. Per-session in-flight cap：同一个 visitor session 同时最多 1 个
-//      query（防 visitor 连发 SSE，每个都跑 agent loop 把 owner 账单烧光）。
+//  1. Global concurrent cap: at most maxConcurrent inference queries run
+//     at once (guards against blowing the owner's anthropic/openai quota).
+//  2. Per-session in-flight cap: a single visitor session may have at
+//     most 1 query in flight (stops a visitor firing multiple SSE
+//     streams, each running its own agent loop and burning the owner's
+//     bill).
 //
-// 排队规则：拿不到位 → 等到 timeout 触发 ErrQueueTimeout。caller (visitor_chat)
-// 走 HTTP 503 / "server busy" 友好降级，不挂 SSE error event。
+// Queueing rule: can't get a slot -> wait until timeout fires
+// ErrQueueTimeout. The caller (visitor_chat) degrades gracefully to
+// HTTP 503 / "server busy" instead of hanging an SSE error event.
 
 package session
 
@@ -19,30 +23,35 @@ import (
 	"time"
 )
 
-// ErrQueueTimeout —— 等位超时；caller 翻成 HTTP 503 / "server busy"。
+// ErrQueueTimeout —— timed out waiting for a slot; caller maps this to
+// HTTP 503 / "server busy".
 var ErrQueueTimeout = errors.New("query queue timeout")
 
-// ErrSessionBusy —— 该 session 已有 in-flight query；caller 翻成 429。
-// 跟 ErrQueueTimeout 区分：前者是"自己 session 撞墙"，后者是"全局满"。
+// ErrSessionBusy —— this session already has an in-flight query; caller
+// maps this to 429. Distinct from ErrQueueTimeout: the former means
+// "this session hit its own wall", the latter means "the global cap is
+// full".
 var ErrSessionBusy = errors.New("session already has an in-flight query")
 
-// QueryQueue —— 双层 cap：global maxConcurrent + per-session 唯一性。
+// QueryQueue —— two-tier cap: global maxConcurrent + per-session uniqueness.
 type QueryQueue struct {
-	cond          *sync.Cond          // 等位唤醒
-	active        map[string]struct{} // sessionID → in-flight 标记
+	cond          *sync.Cond          // wakes waiters
+	active        map[string]struct{} // sessionID -> in-flight marker
 	maxConcurrent int
 	mu            sync.Mutex
 }
 
-// NewQueryQueue —— maxConcurrent 全局上限；≤0 视为不限流（dev 默认）。
+// NewQueryQueue —— maxConcurrent is the global cap; <=0 means unlimited
+// (dev default).
 func NewQueryQueue(maxConcurrent int) *QueryQueue {
 	q := &QueryQueue{maxConcurrent: maxConcurrent, active: map[string]struct{}{}}
 	q.cond = sync.NewCond(&q.mu)
 	return q
 }
 
-// Acquire —— sessionID 入队 + 等待位子。timeout 到了返 ErrQueueTimeout。
-// 同 sessionID 重入直接返 ErrSessionBusy（不等位）。
+// Acquire —— enqueues sessionID and waits for a slot. Returns
+// ErrQueueTimeout once timeout elapses. A re-entrant call with the same
+// sessionID returns ErrSessionBusy immediately (no waiting).
 func (q *QueryQueue) Acquire(ctx context.Context, sessionID string, timeout time.Duration) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -56,8 +65,9 @@ func (q *QueryQueue) Acquire(ctx context.Context, sessionID string, timeout time
 	return nil
 }
 
-// waitForSlot —— cond.Wait 配 deadline；用单独 goroutine 在 deadline 或
-// ctx cancel 时 Broadcast 让所有 waiter 重新 evaluate 条件并失败退出。
+// waitForSlot —— cond.Wait paired with a deadline; a separate goroutine
+// Broadcasts on deadline or ctx cancel so every waiter re-evaluates its
+// condition and exits with a failure.
 func waitForSlot(ctx context.Context, cond *sync.Cond, deadline time.Time) error {
 	if time.Until(deadline) <= 0 {
 		return ErrQueueTimeout
@@ -91,7 +101,7 @@ func checkWaitResult(ctx context.Context, deadline time.Time) error {
 	return nil
 }
 
-// Release —— query 完了释放位子，唤醒一个 waiter。
+// Release —— query finished, frees the slot and wakes one waiter.
 func (q *QueryQueue) Release(sessionID string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -99,15 +109,15 @@ func (q *QueryQueue) Release(sessionID string) {
 	q.cond.Signal()
 }
 
-// Active —— 当前 in-flight query 数；admin / metrics 用。
+// Active —— current in-flight query count; used by admin / metrics.
 func (q *QueryQueue) Active() int {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	return len(q.active)
 }
 
-// waitCapacity —— maxConcurrent ≤ 0 直接通过；否则 cond.Wait 到位子或超时。
-// 调用方必须持 q.mu。
+// waitCapacity —— passes through immediately when maxConcurrent <= 0;
+// otherwise cond.Wait until a slot opens or timeout. Caller must hold q.mu.
 func (q *QueryQueue) waitCapacity(ctx context.Context, timeout time.Duration) error {
 	if q.maxConcurrent <= 0 {
 		return nil

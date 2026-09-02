@@ -1,16 +1,17 @@
-// use-shake-on-error —— 错码（或网络挂）触发 0.4s shake → 清空 + refocus。
-// presentation 层不准跑 `if` / useEffect 的 control flow，所以抽到 lib/。
+// use-shake-on-error —— a wrong code (or the network dying) triggers a
+// 0.4s shake → clear + refocus. The presentation layer is not allowed to
+// run `if` / useEffect control flow, so this is pulled out into lib/.
 //
-// 行为 mirror docs/design/project/gate.js CodeInput 的 setState('error')
-// → setTimeout 1100ms → clear + focus；我们用 400ms 跟 .shake CSS 动画
-// 时长对齐。
+// Behavior mirrors docs/design/project/gate.js CodeInput's setState('error')
+// → setTimeout 1100ms → clear + focus; we use 400ms to line up with the
+// .shake CSS animation duration.
 
 import { useEffect, useState } from 'react';
 
 export function useShakeOnError(error: string | null, onShakeEnd: () => void): boolean {
   const [shake, setShake] = useState(false);
   useEffect(() => triggerShake(error, setShake, onShakeEnd),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- onShakeEnd 是 inline closure，shake 只跟 error 边沿
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onShakeEnd is an inline closure; the shake only follows the error edge
     [error]);
   return shake;
 }

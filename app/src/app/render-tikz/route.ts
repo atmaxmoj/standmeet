@@ -1,6 +1,7 @@
-// /render-tikz —— TikZ 源码 → SVG。放非 /api 路径(Next rewrites 只反代 /api/* 到后端),
-// 这条 Next 自己处理(Node runtime,node-tikzjax 用 WASM TeX 引擎)。渲染逻辑在 usecase
-// (@/lib/render/tikz);controller 只解 body + 透传结果。
+// /render-tikz -- TikZ source -> SVG. Lives outside /api (Next rewrites only proxy
+// /api/* to the backend); this route is handled by Next itself (Node runtime,
+// node-tikzjax uses a WASM TeX engine). Render logic lives in the usecase
+// (@/lib/render/tikz); the controller only parses the body + passes through the result.
 
 import { NextResponse } from 'next/server';
 

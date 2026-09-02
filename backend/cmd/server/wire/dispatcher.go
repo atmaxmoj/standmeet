@@ -1,15 +1,21 @@
-// dispatcher.go —— 建出站收口:这台实例对外能做的每一件事,在这里汇成一处。
+// dispatcher.go — builds the outbound convergence point: every action this instance can take
+// outward converges here.
 //
-// 这份清单就是"对外能做什么"的全集 —— 它是交付物,不是脚手架。
+// This list is the complete set of "what this instance can do outward" — it is a deliverable,
+// not scaffolding.
 //
-// 这个文件只做**装配**:把跑着的 repo 装成各域的依赖包,交给收口;收口去各域的 facade 取
-// 它们自己声明的操作。这里不该出现任何"这件事怎么算" —— 那在域里。
+// This file only does **assembly**: it wraps the running repos into each domain's deps struct
+// and hands them to the dispatcher; the dispatcher pulls the operations each domain's facade
+// declares itself. No "how this counts" logic should appear here — that lives in the domain.
 //
-// dispatcher.New(append(resources, ...)) 里剩下的几行是**旧形状**:声明和实现被摊在收口和
-// 这里,每个资源一个 wire_disp_*.go。它们正在一个个搬回域里,搬完一个就从这里消失一行。
+// The remaining lines inside dispatcher.New(append(resources, ...)) are the **old shape**:
+// declaration and implementation are spread across the dispatcher and here, one wire_disp_*.go
+// per resource. They are being moved back into their domains one by one; each one moved removes
+// a line from here.
 //
-// 装饰器(鉴权/配额/审计/危险操作)统一挂在这里:每个面拿能力都只能经收口,所以策略有唯一的
-// 施加点,不会出现"某个 endpoint 忘了加"。
+// Decorators (auth/quota/audit/dangerous-op) are all mounted here uniformly: every facet can
+// only obtain a capability through the dispatcher, so policy has a single application point —
+// no endpoint can forget to add it.
 
 package wire
 
@@ -32,12 +38,14 @@ import (
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
-// BuildDispatcher —— 组装出站收口。
+// BuildDispatcher — assembles the outbound convergence point.
 //
-// 组装根只做一件事:把 repo 装成各域的依赖包交给收口(dispatcher.Collect),收口去各域的
-// facade 取它们自己声明的操作。下面那一长串 `dispatcher.X(newXOps(d))` 是**旧形状**:
-// 声明和实现被摊在收口和这里,每个资源一个 wire_disp_*.go。它们正在一个个搬回域里,
-// 搬完一个就从这里消失一行。
+// The assembly root does one thing only: it wraps the repos into each domain's deps struct and
+// hands them to the dispatcher (dispatcher.Collect); the dispatcher pulls the operations each
+// domain's facade declares itself. The long list of `dispatcher.X(newXOps(d))` below is the
+// **old shape**: declaration and implementation are spread across the dispatcher and here, one
+// wire_disp_*.go per resource. They are being moved back into their domains one by one; each
+// one moved removes a line from here.
 func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 	resources := dispatcher.Collect(&dispatcher.Deps{
 		Corpus:         corpusDepsOf(d),
@@ -47,23 +55,22 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		Prompts:        owner.PromptsDeps{Prompts: d.PromptRepo},
 		Settings: owner.SettingsDeps{
 			BYOAI: owner.BYOAIDeps{Owners: d.OwnerRepo},
-			// Providers 不能漏:域用它校验 provider 名是不是已知 preset。少给这个字段
-			// 不会编译报错,只会在第一次写入时 nil 解引用 —— 装配期的坑。
+			// Providers must not be left out: the domain uses it to validate provider names.
+			// Omitting it compiles fine but nil-dereferences on first write — an assembly trap.
 			AI: owner.AIProviderDeps{
 				Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
 			},
 			Presets: port.AiPresets(),
 		},
-		// Providers —— 同一个 Owners 仓储 + 同一把 provider 名校验尺子(本子里每一条
-		// 都要过它,不只是默认那条)。Spend 是油表那一半:owner 域管油箱,用量表在 stats,
-		// 两边在这里合上(#7)。
+		// Providers — same Owners repo + provider-name validation ruler every entry must pass.
+		// Spend is the other half: owner manages the tank, stats meters usage; joined here (#7).
 		Providers: owner.OpsProviders{
 			Providers: owner.ProvidersUseDeps{
 				Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
 				Spend: d.InferenceUsageRepo,
 			},
-			// ModelLister —— 「这条 provider 有哪些模型」那颗探针。开封在根这一侧
-			// （跟 MCP 探针同一条规矩），所以它从 deps 里进来，域只见到端口（F-R-11）。
+			// ModelLister — the probe for "which models does this provider have"; unsealed on
+			// the root side (same rule as MCP probe), so it comes in via deps (F-R-11).
 			ModelLister: d.ProviderModels,
 		},
 		Account: owner.OpsAccountDeps{
@@ -73,19 +80,20 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		},
 		CustomPages: owner.CustomPageDeps{
 			Pages: d.CustomPageRepo, Builds: d.CustomBuildRepo,
-			// 列表要签预览地址 —— 令牌用服务端这把钥匙签，前端不自己拼。
+			// The list must sign the preview URL — the token is signed with this
+			// server-side key; the frontend never assembles it itself.
 			PreviewSigningKey: d.SessionKey,
 		},
 		Writings: writingsDepsOf(d),
 		MCPServers: marketplace.MCPServersDeps{
 			Servers: d.MCPServerRepo, Codes: d.CodeRepo, Prober: d.MCPProber,
 		},
-		// skill 用例要 skill repo + code repo(删之前得看有没有邀请码还在用它)。
+		// The skill use case needs the skill repo + code repo (check no code still uses it).
 		Skills: marketplace.SkillsDeps{Skills: d.SkillRepo, Codes: d.CodeRepo},
-		// 装一个市场 skill = 抓远端 SKILL.md + 落成一个自己的 skill,所以两头都要。
+		// Installing a marketplace skill fetches the remote SKILL.md + lands it as one's own.
 		Marketplace: marketplace.InstallSkillDeps{
 			Marketplace: d.MarketplaceClient, Skills: d.SkillRepo,
-			// Connectors —— 搜索结果上那句「还缺哪几个连接器」由它答(F-F-4)。
+			// Connectors — answers the "which connectors are still missing" line (F-F-4).
 			Connectors: d.ConnectorNeeds,
 		},
 		Page:           pageDepsOf(d),
@@ -104,8 +112,9 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 			System: port.NewSysInfoProvider(d), UpgradeSources: d.Upgrade,
 		},
 	})
-	// 两根插件轴自己的那两个资源:它们没有域可归(读的是能力注册表和连接器槽),
-	// 所以声明也在这一侧 —— 见 axiscap/ops.go / axiscap/config.go。
+	// The two resources belonging to the two plugin axes themselves: they have no domain
+	// to belong to (they read the capability registry and connector slots), so their
+	// declaration also lives on this side — see axiscap/ops.go / axiscap/config.go.
 	return dispatcher.New(append(
 		resources,
 		axiscap.CapabilityResource(d),
@@ -134,17 +143,21 @@ func pageDepsOf(d *deps.Runtime) owner.OpsPage {
 	}
 }
 
-// seoDepsOf —— 公开一条 wiki 的另一半是主页:取消公开要把 pin 着它的栏目一起摘掉。
+// seoDepsOf — the other half of publishing a wiki entry is the home page: unpublishing must
+// also remove it from any section pinning it.
 func seoDepsOf(d *deps.Runtime) owner.OpsSEO {
 	return owner.OpsSEO{
 		SEO:  d.SEORepo,
 		Pins: owner.PagePinDeps{Owners: d.OwnerRepo, Wiki: d.WikiRepo},
-		// 发布改的是那条笔记 → 写完刷它的检索文档（索引里的 published 是 public 身份的准入判据）。
+		// Publishing changes that note -> after the write, refresh its search document
+		// (the `published` field in the index is the admission criterion for public
+		// identity).
 		Corpus: corpusDepsOf(d),
 	}
 }
 
-// accessRequestDepsOf —— 申请这份数据在 access,批准的闭环(发码 + 发信 + 置 replied)在 owner。
+// accessRequestDepsOf — the request data lives in access; the approval loop (issue code +
+// send mail + set replied) lives in owner.
 func accessRequestDepsOf(d *deps.Runtime) owner.OpsAccessRequests {
 	return owner.OpsAccessRequests{
 		Requests: access.RequestsDeps{
@@ -157,18 +170,21 @@ func accessRequestDepsOf(d *deps.Runtime) owner.OpsAccessRequests {
 	}
 }
 
-// apiKeyDepsOf —— 能开给 API 面的是哪些能力,那是能力轴的知识,所以从这一侧注入。
+// apiKeyDepsOf — which capabilities can be opened to the API facet is knowledge of the
+// capability axis, so it's injected from this side.
 func apiKeyDepsOf(d *deps.Runtime) access.OpsAPIKeys {
 	return access.OpsAPIKeys{
 		Keys: d.APIKeyRepo, Roles: d.RoleRepo,
-		// 各能力在这把 key 上占的字段(max_bookings…)。跟码那一侧同一份声明、同一个口子,
-		// 只换挂载点 —— 没有它,配额挂在 key 上就无处可设(F-B-11)。
+		// The fields each capability occupies on this key (max_bookings...). Same
+		// declaration, same mechanism as the code side, only the mount point changes —
+		// without it, a quota attached to a key would have nowhere to be set (F-B-11).
 		Extras:        axiscap.KeyFieldSurface(d),
 		APICandidates: paritymanifest.APICandidateCapabilities,
 	}
 }
 
-// conversationDepsOf —— 逐字稿要回读被引条目的正文,所以连着语料仓储一起给。
+// conversationDepsOf — the transcript needs to read back the body of cited entries, so the
+// corpus repo is passed along with it.
 func conversationDepsOf(d *deps.Runtime) conversation.OpsConversations {
 	return conversation.OpsConversations{
 		Chats: conversation.ConversationsDeps{
@@ -182,8 +198,10 @@ func conversationDepsOf(d *deps.Runtime) conversation.OpsConversations {
 	}
 }
 
-// roleDepsOf —— ValidCapabilityIDs 存的是**闭包**:能力注册表要等 registerAgentSkills
-// 跑完才齐,而收口在那之前就建好了。存快照的话 dock 按钮会拿到一张空的合法能力表。
+// roleDepsOf — ValidCapabilityIDs stores a **closure**: the capability registry isn't
+// complete until registerAgentSkills finishes running, and the dispatcher is built before
+// that. Storing a snapshot instead would leave the dock button with an empty table of valid
+// capabilities.
 func roleDepsOf(d *deps.Runtime) access.OpsRoles {
 	return access.OpsRoles{
 		Roles: access.RolesDeps{
@@ -191,27 +209,32 @@ func roleDepsOf(d *deps.Runtime) access.OpsRoles {
 			Refs:  port.NewRoleRefValidator(d),
 		},
 		ValidCapabilityIDs: dockableCapabilitiesOf(d),
-		// 各能力在一个 role 上占的字段(calendar.book 的 notify_owner 是第一个),按 manifest
-		// 的 RoleConfig 声明合成一个通用面 —— 跟码那份同一个机制,只换挂载点。
+		// The fields each capability occupies on a role (calendar.book's notify_owner is
+		// the first one), composed into one generic facet per the manifest's RoleConfig
+		// declaration — same mechanism as the code side, only the mount point changes.
 		Extras: axiscap.RoleFieldSurface(d),
 	}
 }
 
-// dockableCapabilitiesOf —— 「技能是这几个的 role，dock 上挂得住哪些能力」。
+// dockableCapabilitiesOf — "given a role's set of skills, which capabilities can be mounted
+// on the dock".
 //
-// 两件事在这里合起来，因为**只有根同时看得见它们**：能力注册表知道谁是 `acl: always`、谁要
-// 授权；技能库知道这些技能授出了哪些工具。域那边只声明「给我一个能回答这个问题的函数」。
+// The two things are joined here because **only the root can see both at once**: the
+// capability registry knows which are `acl: always` and which need authorization; the skill
+// library knows which tools these skills grant. The domain side only declares "give me a
+// function that can answer this question".
 //
-// 读技能失败时**退到只认无条件暴露的那几个**（最严），而不是放行整张表：宽松的那一侧正是
-// F-D-13 的病灶 —— 收下一颗访客永远看不到的按钮。
+// When reading skills fails, **fall back to recognizing only the unconditionally exposed
+// ones** (the strictest option), rather than letting the whole table through: the lenient
+// side is exactly the F-D-13 pathology — accepting a button the visitor can never see.
 func dockableCapabilitiesOf(d *deps.Runtime) func(context.Context, string, []string) []string {
 	return func(ctx context.Context, ownerID string, skillIDs []string) []string {
 		return d.AgentSkills.DockableCapabilityIDs(roleAllowedTools(ctx, d, ownerID, skillIDs))
 	}
 }
 
-// roleAllowedTools —— 这些技能一共授出了哪些工具（跟会话装配那侧同一个并集，见
-// `collectRoleSkillBundle`）。
+// roleAllowedTools — the union of all tools these skills grant (the same union as the
+// session-assembly side, see `collectRoleSkillBundle`).
 func roleAllowedTools(
 	ctx context.Context, d *deps.Runtime, ownerID string, skillIDs []string,
 ) []string {
@@ -239,14 +262,16 @@ func codeDepsOf(d *deps.Runtime) access.OpsCodes {
 		ACL: access.CodeACLDeps{
 			Codes: d.CodeRepo, Denials: d.CodeDenialRepo, Roles: d.RoleRepo,
 		},
-		// 各能力在码上占的字段(booker 的 max_bookings 是第一个),按 manifest 的 CodeConfig
-		// 声明合成一个通用面 —— 见 wire_code_config.go。
+		// The fields each capability occupies on a code (booker's max_bookings is the
+		// first one), composed into one generic facet per the manifest's CodeConfig
+		// declaration — see wire_code_config.go.
 		Extras: axiscap.CodeFieldSurface(d),
 	}
 }
 
-// AdminFace —— admin HTTP 面在 parity 里的档案。它是浏览器应用,所以能承载浏览器流程、
-// 明文密钥、multipart 这三类 MCP 承载不了的东西(Reach 的 .Except(...) 据此放行)。
+// AdminFace — the admin HTTP facet's record in parity. It's a browser app, so it can carry
+// browser flows, plaintext secrets, and multipart — the three things MCP cannot carry
+// (Reach's .Except(...) allows them on this basis).
 func AdminFace(d *dispatcher.Dispatcher) *dispatcher.Face {
 	return d.Attach(fp.Facade{
 		Name: "admin", Plane: fp.PlaneOwner, ServesRead: true, ServesActn: true,

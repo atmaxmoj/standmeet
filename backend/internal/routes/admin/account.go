@@ -1,10 +1,12 @@
-// account.go —— /api/admin/account/* + GET /me：owner 自己的账号。
+// account.go — /api/admin/account/* + GET /me: the owner's own account.
 //
-// 能力来自出站收口（通用件在 dispatch.go）。改邮箱 / 改密码 / 生成恢复口令都带凭据，
-// 是写下来的单面决定：只在 admin 上，MCP 不承载原始凭据。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go).
+// Changing email / changing password / generating a recovery phrase all carry credentials —
+// a deliberate single-facade decision: admin only, MCP never carries raw credentials.
 //
-// GET /me 回 {owner, settings} —— 迁移前 MCP 的 `me` 是手拼字符串出来的四字段 JSON，
-// 而且没有转义（名字里一个引号就拼出非法 JSON）；现在两个面同一份形状、同一个序列化器。
+// GET /me returns {owner, settings} — before the migration, MCP's `me` was a hand-built
+// four-field JSON string with no escaping (a single quote in the name produced invalid JSON);
+// now both facades share the same shape and the same serializer.
 
 package admin
 
@@ -16,16 +18,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// AccountDeps —— admin account handlers 的能力来源。
+// AccountDeps — capability source for the admin account handlers.
 type AccountDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountAccount 挂 /account/*（caller 前缀 /api/admin）。
+// MountAccount mounts /account/* (caller prefix /api/admin).
 //
-// email / password 两条**都**裹 credGuard：它们通向同一件事（改凭据），只裹一条等于
-// 没裹 —— 换个入口就绕开（[[gate-after-early-return-is-walkable]]）。
-// full-name / timezone 不裹：它们不验当前密码，没有爆破面。
+// email / password **both** wrap credGuard: they lead to the same thing (changing
+// credentials), so wrapping only one is the same as wrapping none — a different entry
+// point walks right around it ([[gate-after-early-return-is-walkable]]).
+// full-name / timezone don't wrap it: they don't verify the current password, so there's
+// no brute-force surface.
 func (h *Handlers) MountAccount(r chi.Router, credGuard func(http.Handler) http.Handler) {
 	face := h.AccountAdmin.Face
 	r.Route("/account", func(r chi.Router) {
@@ -38,16 +42,18 @@ func (h *Handlers) MountAccount(r chi.Router, credGuard func(http.Handler) http.
 			r.Patch("/password",
 				h.dispatchOp(face, "account.change_password", bodyArgs, noContent))
 		})
-		// 撤销待确认的改邮箱。不裹 credGuard：它不验密码,没有爆破面。
+		// Cancels a pending email change. Doesn't wrap credGuard: it doesn't verify the
+		// password, so there's no brute-force surface.
 		r.Post("/email/cancel",
 			h.dispatchOp(face, "account.cancel_email_change", emptyArgs, jsonOK))
-		// #100: 生成 recovery phrase（只存 hash，明文邮给 owner）。
+		// #100: generates a recovery phrase (only the hash is stored; the plaintext is
+		// emailed to the owner).
 		r.Post("/recovery",
 			h.dispatchOp(face, "account.generate_recovery", emptyArgs, jsonOK))
 	})
 }
 
-// MountMe 挂 GET /me（caller 前缀 /api/admin）。
+// MountMe mounts GET /me (caller prefix /api/admin).
 func (h *Handlers) MountMe(r chi.Router) {
 	r.Get("/me", h.dispatchOp(h.AccountAdmin.Face, "me", emptyArgs, jsonOK))
 }

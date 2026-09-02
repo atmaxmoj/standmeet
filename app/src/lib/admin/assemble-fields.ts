@@ -1,5 +1,7 @@
-// assemble-fields —— 品类 → 内置协议（calendar=CalDAV，mail=SMTP）的固定凭据字段。归一装配视图
-// （AssembleView）用它渲染协议路的表单；openapi 路的字段是从上传 spec 派生的，不在这。
+// assemble-fields —— fixed credential fields for the category → built-in
+// protocol mapping (calendar=CalDAV, mail=SMTP). The unified assemble view
+// (AssembleView) uses this to render the protocol-path form; the openapi
+// path's fields are derived from an uploaded spec and don't live here.
 
 export interface AssembleField {
   k: string;
@@ -14,10 +16,10 @@ export interface ProtocolSpec {
   fields: readonly AssembleField[];
 }
 
-// TLS 是纯文本字段（none | starttls | tls），不用 select —— 装配测试一律 .fill() 填值。
+// TLS is a plain text field (none | starttls | tls), not a select — assemble tests always fill it with .fill().
 const TLS_FIELD: AssembleField = { k: 'tls', label: 'TLS (none | starttls | tls)', default: 'starttls' };
 
-// PROTOCOL_BY_CATEGORY —— 品类的内置协议 + 它的固定凭据字段（admin 填）。
+// PROTOCOL_BY_CATEGORY —— a category's built-in protocol + its fixed credential fields (filled in by admin).
 export const PROTOCOL_BY_CATEGORY: Record<string, ProtocolSpec> = {
   calendar: {
     protocol: 'caldav',
@@ -41,17 +43,17 @@ export const PROTOCOL_BY_CATEGORY: Record<string, ProtocolSpec> = {
   },
 };
 
-// protocolForCategory —— 品类的内置协议规格（未知品类 → undefined）。
+// protocolForCategory —— a category's built-in protocol spec (unknown category → undefined).
 export function protocolForCategory(category: string): ProtocolSpec | undefined {
   return PROTOCOL_BY_CATEGORY[category];
 }
 
-// fieldDefault —— 字段初值（default > 首个 option > 空）。
+// fieldDefault —— the field's initial value (default > first option > empty).
 export function fieldDefault(field: AssembleField): string {
   return field.default ?? field.options?.[0] ?? '';
 }
 
-// seedDefaults —— 字段默认值预置进一个 values map（select 的 default 不触发 onChange，否则提交时丢）。
+// seedDefaults —— pre-seeds field defaults into a values map (a select's default doesn't fire onChange, so it would otherwise be lost on submit).
 export function seedDefaults(fields: readonly AssembleField[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const f of fields) {

@@ -1,11 +1,11 @@
-// depresolver.go —— host 命名依赖 provider 注册表（connector 重构）。
+// depresolver.go — the host's registry of named-dependency providers (connector rework).
 //
-// 设计（docs/design/connector-deps-tests.md）：插件 manifest 声明 `Requires:[...]`
-// 命名 in-app 依赖（"calendar" / "smtp" …），每个名字背后是一个 connector。host
-// 把这些 provider 注册进本表；`enabledCaps` 解析每个 cap 的 Requires：任一未连 →
-// 该 cap 不进 enabledCaps（global 单点闸）→ 对所有 session 一律隐藏（决策点 D-2）。
-//
-// 凭据永不进本层：provider 只回「连没连」(Connected) 与「调用句柄」(非 token)。
+// Design (docs/design/connector-deps-tests.md): a plugin manifest declares `Requires:[...]`,
+// naming in-app dependencies ("calendar" / "smtp" …), each backed by a connector. The host
+// registers providers into this table; `enabledCaps` resolves each cap's Requires: any one
+// not-connected excludes that cap from enabledCaps (one global choke point, D-2) — hidden from
+// every session alike. Credentials never enter this layer: a provider only answers "connected
+// or not" (Connected) and hands back a "call handle" (never a token).
 
 package capreg
 
@@ -16,29 +16,31 @@ import (
 	"strings"
 )
 
-// RequiresDeps —— 可选接口：一个 capability 声明它依赖哪些命名 in-app 依赖
-// （connector 名，如 "calendar" / "smtp"）。enabledCaps 据此 gate：任一未连 → 该
-// cap 不进 enabledCaps（global 单点闸，D-2）。pluginCapability 从 manifest.Requires
-// 取；不实现本接口的 cap 永不被 connector-gate。
+// RequiresDeps — optional interface: a capability declares which named in-app dependencies it
+// needs (connector names, e.g. "calendar" / "smtp"). enabledCaps gates on this: any one
+// not-connected excludes the cap (global choke point, D-2). pluginCapability pulls it from
+// manifest.Requires; a cap not implementing this is never connector-gated.
 type RequiresDeps interface {
 	Requires() []string
 }
 
-// ProvidesVisitorTools —— 可选接口:这个能力在访客侧提供哪些工具**名字**(声明,不是拨号
-// 拿到的)。装配之前就要回答「这个工具是谁的」的地方靠它 —— 比如一个 skill 声明
-// `allowed-tools: [calendar_book]`,产品要答得出「那需要 calendar 连接器」(F-F-4)。
-//
-// 跟 RequiresDeps 成对:一个说「我提供哪些工具」,一个说「我要哪些连接器」,合起来才有
-// 「这个工具背后要哪个连接器」。不实现本接口的能力(第三方插件默认)在这条路上是**未知**,
-// 不是「不需要」—— 调用方必须把这两件事分开。
+// ProvidesVisitorTools — optional interface: which tool **names** this capability provides on
+// the visitor side (declared, not learned by dialing). Anywhere that must answer "who owns this
+// tool" before assembly relies on it — e.g. a skill declares `allowed-tools: [calendar_book]`,
+// and the product must answer "that needs the calendar connector" (F-F-4). Pairs with
+// RequiresDeps: one says "which tools I provide", the other "which connectors I need" — only
+// together do you get "which connector does this tool need". A capability not implementing
+// this interface (third-party plugins by default) is **unknown** here, not "needs nothing" —
+// keep the two facts separate.
 type ProvidesVisitorTools interface {
 	VisitorToolNames() []string
 }
 
-// DepsForTools —— 这些工具名背后,一共要哪些命名依赖(连接器名)。纯内存,不碰网络也不碰库。
+// DepsForTools — behind these tool names, which named dependencies (connector names) are
+// needed, altogether. Pure in-memory, touches neither network nor DB.
 //
-// 只数得出**声明过自己工具名**的能力;没声明的那些在这里是查不到的,而查不到只说明这张表
-// 不认识那个工具,不代表那个工具不需要连接器。
+// Only counts capabilities that **have declared their own tool names**; a miss only means this
+// table doesn't recognize that tool — not that the tool needs no connector.
 func (r *Registry) DepsForTools(tools []string) []string {
 	want := make(map[string]struct{}, len(tools))
 	for _, t := range tools {
@@ -52,14 +54,14 @@ func (r *Registry) DepsForTools(tools []string) []string {
 	return out
 }
 
-// appendDepsIfProvides —— c 提供了 want 里的任一工具 → 把它的 Requires 并进 out(去重)。
+// appendDepsIfProvides — c provides any tool in want → merge its Requires into out (deduped).
 func appendDepsIfProvides(
 	out []string, seen map[string]struct{}, c Capability, want map[string]struct{},
 ) []string {
 	return appendNewDeps(out, seen, depsOfProvider(c, want))
 }
 
-// depsOfProvider —— c 声明了自己的工具、其中有 want 里的 → 返回它要的连接器;否则空。
+// depsOfProvider — c's own tools include one in want → its needed connectors; else empty.
 func depsOfProvider(c Capability, want map[string]struct{}) []string {
 	pv, isProvider := c.(ProvidesVisitorTools)
 	rd, hasReqs := c.(RequiresDeps)
@@ -89,10 +91,11 @@ func providesAny(names []string, want map[string]struct{}) bool {
 	return false
 }
 
-// depsConnected —— 该 cap 的所有 Requires 依赖是否都已连（gate 半边）。判定：
-//   - cap 不声明 Requires / 没装 depReg / 无 owner 上下文 → true（不 gate）。
-//   - 任一未连 → false（隐藏）。AllConnected 返 error（E1：DB 读错等）→ 当未连隐藏
-//   - log（fail-closed：连没连不确定时不暴露能调外部的工具）。
+// depsConnected — whether all of this cap's Requires dependencies are connected (half of the
+// gate). Rules: no declared Requires / no depReg installed / no owner context → true (not
+// gated); any one not-connected → false (hidden); AllConnected error (E1: DB read error, etc.)
+// → treated as not-connected, hidden + logged (fail-closed: uncertain connected state never
+// exposes a tool that can call out externally).
 func (r *Registry) depsConnected(ctx context.Context, c Capability, in *AssembleInput) bool {
 	rd, ok := c.(RequiresDeps)
 	if !ok || len(rd.Requires()) == 0 {
@@ -101,8 +104,8 @@ func (r *Registry) depsConnected(ctx context.Context, c Capability, in *Assemble
 	return r.requiredDepsConnected(ctx, c, in, rd.Requires())
 }
 
-// requiredDepsConnected —— 解析 names 这组依赖：没装 depReg / 无 owner 上下文 → true（不
-// gate）；AllConnected 出错（E1）→ false + log（fail-closed）；否则按解析结果。
+// requiredDepsConnected — resolves this set of names: no depReg / no owner context → true (not
+// gated); AllConnected errors (E1) → false + log (fail-closed); else follows the resolved result.
 func (r *Registry) requiredDepsConnected(
 	ctx context.Context, c Capability, in *AssembleInput, names []string,
 ) bool {
@@ -121,44 +124,47 @@ func (r *Registry) requiredDepsConnected(
 	return connected
 }
 
-// DepProvider —— 一个命名 in-app 依赖（"calendar" / "smtp"），背后是一个持凭据的
-// connector。host 用它解析插件的 manifest Requires。
+// DepProvider — a named in-app dependency ("calendar"/"smtp"), backed by a connector holding
+// credentials. The host uses it to resolve a plugin's manifest Requires.
 type DepProvider interface {
-	// Name —— 依赖名，跟 manifest Requires 里的字符串对应。
+	// Name — the dependency name, matches the string in manifest Requires.
 	Name() string
-	// Connected —— 该 owner 是否有一个「可用」连接（已授权 + 已验证）。gate 半边只
-	// 看这个；未连 → 依赖它的 cap 隐藏。返 error = 解析失败（E1：当未连处理 + log）。
+	// Connected — whether this owner has a "usable" connection (authorized + verified). The
+	// gate's connected half looks only at this; not-connected → the depending cap is hidden.
+	// Error = resolution failed (E1: treated as not-connected + logged).
 	Connected(ctx context.Context, ownerID string) (bool, error)
 }
 
-// RequiresPerTool 在 pertool.go —— 动作级那一层的声明和筛选放一处。
+// RequiresPerTool lives in pertool.go — action-level declaration and filtering stay together.
 
-// OpProvider —— 除了「连没连」，还答得出**「这个 owner 做不做得了这一个动作」**。
+// OpProvider — beyond "connected or not", also answers **"can this owner actually perform this
+// one action"**. Why a second question (F-B-8 ⭐⭐): `Connected` says "we have a usable
+// connection" — not the same as "this connection can do what you're asking". An owner granting
+// only `calendar.readonly` still has a fine connection, reads work, writes always 403 — yet the
+// product would still show "book a meeting" and promise "try again later", a promise that
+// never comes true.
 //
-// 为什么需要第二个问题（F-B-8 ⭐⭐）：`Connected` 说的是「我们手里有一个可用连接」，
-// 那**不等于**「这个连接做得了你要它做的事」。owner 只授了 `calendar.readonly` 时，
-// 连接是好的、读也是通的，而写永远 403 —— 产品却照旧把「订会」摆在访客面前，
-// 还告诉他「过一会儿再问」（那句话永远不会成真）。
-//
-// 能力用 `Requires: ["calendar:events.insert"]` 点名它要**哪一个动作**；不带冒号的
-// 名字行为跟从前完全一样。内核在这里不认识任何具体品类或 scope —— 它只知道
-// 「有的依赖答得出动作级的问题」，答案怎么算是连接器轴那边的事。
+// A capability names **which specific action** it needs via `Requires:
+// ["calendar:events.insert"]`; no colon behaves as before. The kernel doesn't know about any
+// concrete category or scope — only that some dependencies answer action-level questions;
+// computing the answer is the connector axis's business.
 type OpProvider interface {
 	DepProvider
-	// CanPerform —— 这个 owner 现在的授权做不做得了 op（形如 spec 的 operationId）。
+	// CanPerform — can this owner's current authorization actually perform op (shaped like a
+	// spec's operationId).
 	CanPerform(ctx context.Context, ownerID, op string) (bool, error)
 }
 
-// splitDep —— `"calendar:events.insert"` → ("calendar", "events.insert")；
-// 不带冒号 → (name, "")。
-func splitDep(name string) (string, string) { //nolint:revive // dep + op, 顺序在文档注释里
+// splitDep — `"calendar:events.insert"` → ("calendar","events.insert"); no colon → (name, "").
+func splitDep(name string) (string, string) { //nolint:revive // dep + op, order is in the doc comment
 	dep, op, _ := strings.Cut(name, ":")
 	return dep, op
 }
 
-// NamedProvider —— 把一个 (name, Connected 闭包) 包成 DepProvider。composition root
-// 用它把 connector proxy 的 Connected 方法（calendar / smtp）注册成命名依赖，无需让
-// connector 包反向 import capreg。凭据从不经此 —— 闭包只回「连没连」。
+// NamedProvider — wraps a (name, Connected closure) pair as a DepProvider. The composition
+// root uses it to register a connector proxy's Connected method (calendar / smtp) as a named
+// dependency, without the connector package importing capreg back. Credentials never pass
+// through this — the closure only answers "connected or not".
 func NamedProvider(
 	name string, connected func(ctx context.Context, ownerID string) (bool, error),
 ) DepProvider {
@@ -175,8 +181,9 @@ func (p funcProvider) Connected(ctx context.Context, ownerID string) (bool, erro
 	return p.connected(ctx, ownerID)
 }
 
-// NamedOpProvider —— 同 NamedProvider，外加一个「做不做得了这个动作」的闭包。
-// 组装根用它把连接器轴那边算好的答案接进来；内核照旧不认识品类和 scope。
+// NamedOpProvider — same as NamedProvider, plus a "can it perform this action" closure. The
+// composition root wires in the answer the connector axis already computed; the kernel still
+// knows nothing about categories or scopes.
 func NamedOpProvider(
 	name string,
 	connected func(ctx context.Context, ownerID string) (bool, error),
@@ -188,8 +195,9 @@ func NamedOpProvider(
 	}
 }
 
-// 组合而不是内嵌：内嵌要排在普通字段之前，而那样排 fieldalignment 又不答应 ——
-// 两条闸门在这个结构上互相顶。显式转发一行，比为了迁就排布再加一层豁免干净。
+// Composition instead of embedding: an embedded field would need to sort before plain fields,
+// but fieldalignment forbids that ordering too — the two lint gates conflict here. An explicit
+// one-line forward beats another exemption just for field order.
 type funcOpProvider struct {
 	canPerform func(context.Context, string, string) (bool, error)
 	inner      funcProvider
@@ -205,18 +213,19 @@ func (p funcOpProvider) CanPerform(ctx context.Context, ownerID, op string) (boo
 	return p.canPerform(ctx, ownerID, op)
 }
 
-// DepRegistry —— host 持有的命名依赖 provider 注册表。enabledCaps 查它做 gate；
-// boot 期用 Unknown 校验 manifest Requires 名字都已知（fail-fast）。
+// DepRegistry — the named-dependency provider registry the host holds. enabledCaps queries it
+// to gate; at boot, Unknown validates that all manifest Requires names are known (fail-fast).
 type DepRegistry struct {
 	providers map[string]DepProvider
 }
 
-// NewDepRegistry —— 空注册表。
+// NewDepRegistry — an empty registry.
 func NewDepRegistry() *DepRegistry {
 	return &DepRegistry{providers: map[string]DepProvider{}}
 }
 
-// Register —— 注册一个命名 provider。重名 panic（boot 期失败比运行时撞名好）。
+// Register — registers a named provider. Duplicate name panics (failing at boot beats
+// colliding at runtime).
 func (r *DepRegistry) Register(p DepProvider) {
 	name := p.Name()
 	if _, dup := r.providers[name]; dup {
@@ -225,13 +234,14 @@ func (r *DepRegistry) Register(p DepProvider) {
 	r.providers[name] = p
 }
 
-// Lookup —— 按名取 provider；未注册 → (nil, false)。
+// Lookup — fetch a provider by name; unregistered → (nil, false).
 func (r *DepRegistry) Lookup(name string) (DepProvider, bool) {
 	p, ok := r.providers[name]
 	return p, ok
 }
 
-// Unknown —— 返 names 里所有「未注册」的名字（boot 校验：非空 = 拒绝注册该插件）。
+// Unknown — returns all "unregistered" names among names (boot validation: non-empty = reject
+// registering the plugin that declared it).
 func (r *DepRegistry) Unknown(names []string) []string {
 	var out []string
 	for _, n := range names {
@@ -241,9 +251,9 @@ func (r *DepRegistry) Unknown(names []string) []string {
 			out = append(out, n)
 			continue
 		}
-		// 点名了动作，而这个 provider 答不出动作级的问题 —— 那也是「不认识」。
-		// **在 boot 期拦下**：这种搭配在运行时的表现是「能力静默消失」，
-		// 而那跟「owner 没连」长得一模一样，排查时分不出来。
+		// An action was named but this provider can't answer action-level questions — also
+		// "not recognized". Caught at boot: at runtime this would show as a capability
+		// silently vanishing, indistinguishable from "owner isn't connected" when debugging.
 		if _, isOp := p.(OpProvider); op != "" && !isOp {
 			out = append(out, n)
 		}
@@ -251,15 +261,16 @@ func (r *DepRegistry) Unknown(names []string) []string {
 	return out
 }
 
-// AllConnected —— names 里的依赖**全部**已连才返 true（AND 语义）。任一 provider 未
-// 注册 → false（防御）。任一 Connected 返 error → (false, err)（E1：caller 当未连
-// 隐藏 + log）。空 names → (true, nil)（无依赖的 cap 不被 gate）。
+// AllConnected — returns true only if **all** dependencies in names are connected (AND
+// semantics). Provider not registered → false (defensive). Connected returning an error →
+// (false, err) (E1: caller treats it as not-connected, hides it, + logs). Empty names →
+// (true, nil) (a cap with no dependencies isn't gated).
 func (r *DepRegistry) AllConnected(
 	ctx context.Context, ownerID string, names []string,
 ) (bool, error) {
 	for _, n := range names {
-		// 跟 lacks 走同一条判断 —— 两处各写一遍的话，「带动作的依赖」迟早只在
-		// 其中一处生效，而两处都是 gate（一处答是非、一处答名字）。
+		// Same check as lacks — a separate copy would let "a dependency naming an action"
+		// drift to work in only one of the two gates (one yes/no, the other names).
 		missing, err := r.lacks(ctx, ownerID, n)
 		if err != nil {
 			return false, err
@@ -271,12 +282,13 @@ func (r *DepRegistry) AllConnected(
 	return true, nil
 }
 
-// Unconnected —— names 里这个 owner **还没连**的那些。
+// Unconnected — the ones among names that this owner has **not yet connected**. The other
+// answer to the same question AllConnected answers: that one only needs a yes/no (usable or
+// not), this one needs **names** (the owner needs to know which to go connect) — the "needs X
+// connector" line on a marketplace card wants the latter.
 //
-// 跟 AllConnected 是同一个问题的两种答案:那个只要一个是非（能不能用），这个要**名字**
-// （owner 得知道去连哪一个）。市场卡上那句 "needs X connector" 要的是后者。
-//
-// 没注册的名字算「缺」:这台实例给不出那个依赖,对 owner 来说跟没连是一回事。
+// An unregistered name counts as "missing": this instance can't supply that dependency at all,
+// same as not-connected from the owner's point of view.
 func (r *DepRegistry) Unconnected(
 	ctx context.Context, ownerID string, names []string,
 ) ([]string, error) {
@@ -293,10 +305,10 @@ func (r *DepRegistry) Unconnected(
 	return out, nil
 }
 
-// lacks —— 这个 owner 缺不缺这一个依赖。
-//
-// 名字带动作（`calendar:events.insert`）时问的是**做不做得了那个动作**，而不是
-// 「连没连」—— 后者对一个只授了只读的连接会说「连着呢」，然后每一次写都 403（F-B-8）。
+// lacks — whether this owner is missing this one dependency. When the name carries an action
+// (`calendar:events.insert`), the question is **can it actually perform that action**, not
+// "connected or not" — the latter would tell a read-only connection "yes, you're connected"
+// and then every write 403s (F-B-8).
 func (r *DepRegistry) lacks(ctx context.Context, ownerID, name string) (bool, error) {
 	dep, op := splitDep(name)
 	p, ok := r.providers[dep]
@@ -313,10 +325,11 @@ func (r *DepRegistry) lacks(ctx context.Context, ownerID, name string) (bool, er
 	return !connected, nil
 }
 
-// lacksOp —— 动作级的那一问。provider 答不出（没实现 OpProvider）时**当缺**：
-// manifest 点名了一个动作，而这台实例的那个依赖回答不了「做不做得了」——
-// 那就不该把这个能力放出去。Unknown() 在 boot 期就会把这种搭配拦下来，
-// 所以运行时走到这里只会是装配根漏接了闭包。
+// lacksOp — the action-level question. When the provider can't answer it (doesn't implement
+// OpProvider), it **counts as missing**: the manifest named an action this dependency can't
+// answer "can it be done" for, so the capability shouldn't be exposed at all. Unknown() already
+// catches this combination at boot; reaching here at runtime means the composition root forgot
+// to wire the closure.
 func lacksOp(
 	ctx context.Context, ownerID string, p DepProvider, dep, op string,
 ) (bool, error) {

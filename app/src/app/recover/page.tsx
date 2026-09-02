@@ -1,4 +1,4 @@
-// /recover —— #100 account recovery。owner 锁在外面时用 recovery phrase 登回来。
+// /recover — #100 account recovery. Owner uses the recovery phrase to sign back in when locked out.
 
 import { AuthShell } from '@/components/auth/AuthShell';
 import { RecoverForm } from '@/components/auth/RecoverForm';

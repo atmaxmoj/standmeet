@@ -1,6 +1,7 @@
-// capreg_mcp_app_state.go —— mcpAppCapability 的 tool-wrapping + CapabilityState 子关注：
-// 把 dial 出来的 MCP tool 包成 capreg.BindingTool，组装 CapabilityState（id/enabled/ui +
-// stateHook overlay）。从 capreg_mcp_app.go 拆出来守 max-lines 350 cap。
+// capreg_mcp_app_state.go —— mcpAppCapability's tool-wrapping + CapabilityState sub-concern:
+// wraps the dialed MCP tools as capreg.BindingTool, and assembles CapabilityState
+// (id/enabled/ui + stateHook overlay). Split out of capreg_mcp_app.go to keep it under the
+// max-lines 350 cap.
 
 package capload
 
@@ -15,10 +16,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// KnownToolNames —— capreg.ToolNameKnower：首拨缓存过 specs 之后,不拨号就说得出
-// 自己暴露哪些 tool。名字走 composeMCPAppToolName —— 跟 wrapMCPAppTools 同一个函数,
-// 不是另抄一份拼法(抄一份的话哪天前缀规则变了,这条能力会被静默跳过)。
-// 第二个返回值 false = 还没拨过,调度那侧只能照拨。
+// KnownToolNames —— capreg.ToolNameKnower: once specs are cached from the first dial, this
+// can name its exposed tools without dialing. Names go through composeMCPAppToolName — the
+// same function wrapMCPAppTools uses, not a second copy of the naming logic (a second copy
+// would silently drift out of sync the day the prefix rule changes, and this capability
+// would go silently skipped). The second return value false = not dialed yet, so the caller
+// has no choice but to dial for real.
 func (c *mcpAppCapability) KnownToolNames() ([]string, bool) {
 	specs, known := c.knownToolSpecs()
 	if !known {
@@ -27,8 +30,8 @@ func (c *mcpAppCapability) KnownToolNames() ([]string, bool) {
 	return composeMCPAppToolNames(&c.m, specs), true
 }
 
-// composeMCPAppToolNames —— specs → 暴露出去的 tool 名(空的丢掉,跟 wrapMCPAppTools
-// 一致)。
+// composeMCPAppToolNames —— specs → the exposed tool names (empty ones dropped, matching
+// wrapMCPAppTools).
 func composeMCPAppToolNames(m *mcpplugin.Manifest, specs []mcpclient.Tool) []string {
 	names := make([]string, 0, len(specs))
 	for i := range specs {
@@ -39,15 +42,17 @@ func composeMCPAppToolNames(m *mcpplugin.Manifest, specs []mcpclient.Tool) []str
 	return names
 }
 
-// VisitorStateOnly —— capreg.StateReporter：不起沙箱就报 state。
+// VisitorStateOnly —— capreg.StateReporter: reports state without starting the sandbox.
 //
-// 闸走的是**同一个** exposable(role 授权 + SessionGate 的 connector/quota),所以
-// "订完最后一次名额按钮当场置灰"这类 cascade 跟拨号那条路一字不差。省掉的只是为了
-// 拿 {id,enabled,quota} 而起一个沙箱再关掉。
+// This runs through the exact **same** exposable gate (role grant + SessionGate's
+// connector/quota), so a cascade like "the button greys out the instant the last slot is
+// booked" matches the dial path word for word. What's skipped is only the cost of starting
+// a sandbox and then closing it, just to get {id,enabled,quota}.
 //
-// 跟 VisitorBinding 的唯一差别:沙箱起不来时这里照样报 enabled(拨号那条路会隐藏)。
-// 那是 infra 故障,不是 owner 的配置意图 —— 让按钮消失只会让访客困惑,点下去拿一条
-// 工具失败的回执反而说得清。
+// The one difference from VisitorBinding: when the sandbox fails to start, this still
+// reports enabled (the dial path would hide it). That's an infra fault, not the owner's
+// configured intent — making the button vanish would only confuse the visitor, whereas
+// clicking it and getting a "tool failed" receipt is clearer.
 func (c *mcpAppCapability) VisitorStateOnly(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (capreg.CapabilityState, bool) {
@@ -63,7 +68,7 @@ func wrapMCPAppTools(
 	tools []mcpclient.Tool, sessionMeta *mcpclient.SessionContext,
 ) []capreg.BindingTool {
 	out := make([]capreg.BindingTool, 0, len(tools))
-	uiCache := map[string]string{} // per-assembly dedup of resources/read（同 uri 只读一次）
+	uiCache := map[string]string{} // per-assembly dedup of resources/read (same uri read only once)
 	for i := range tools {
 		t := &tools[i]
 		name := composeMCPAppToolName(m, t.Name)
@@ -77,21 +82,24 @@ func wrapMCPAppTools(
 			t.InputSchema,
 			makeExtMCPRun(sess, t.Name, sessionMeta, toolCallBudget(t)),
 		)
-		// ReturnDirectly —— server 经 tool `_meta.return_directly` 声明：调完直接
-		// 结束 agent loop，把 result 当 final 推浏览器（ask_visitor 那套语义）。
+		// ReturnDirectly —— declared by the server via tool `_meta.return_directly`: once
+		// called, end the agent loop right away and push the result to the browser as
+		// final (the same semantics as ask_visitor).
 		if toolReturnsDirectly(t) {
 			bt.ReturnDirectly = true
 		}
-		// UIHTML —— MCP Apps：ui 挂 tool（`_meta.ui_resource`）。装配时读卡片 HTML。
+		// UIHTML —— MCP Apps: a ui card attached to the tool (`_meta.ui_resource`). Its
+		// HTML is read at assembly time.
 		bt.UIHTML = toolUIHTML(ctx, sess, t, uiCache)
-		// ReadOnly —— server 的 `annotations.readOnlyHint`：安全读工具可走 HTTP QUERY。
+		// ReadOnly —— the server's `annotations.readOnlyHint`: a safe read-only tool may go
+		// via HTTP QUERY.
 		bt.ReadOnly = t.ReadOnly
 		out = append(out, bt)
 	}
 	return out
 }
 
-// toolReturnsDirectly —— 读 server 在 tool `_meta` 里声明的 return_directly。
+// toolReturnsDirectly —— reads the return_directly a server declares in a tool's `_meta`.
 func toolReturnsDirectly(t *mcpclient.Tool) bool {
 	v, ok := t.Meta["return_directly"].(bool)
 	return ok && v
@@ -107,8 +115,9 @@ func toolCallBudget(t *mcpclient.Tool) time.Duration {
 	return 0
 }
 
-// toolUIHTML —— 读 tool `_meta.ui_resource` 指向的 ui:// 卡片 HTML（per-tool，对齐
-// MCP Apps）。无声明 → 空（无卡）；读不到 → 空（降级，不阻塞 chat）。同 uri 走 cache。
+// toolUIHTML —— reads the ui:// card HTML pointed to by a tool's `_meta.ui_resource`
+// (per-tool, matching MCP Apps). Not declared → empty (no card); unreadable → empty
+// (degrades gracefully, without blocking chat). Same uri goes through the cache.
 func toolUIHTML(
 	ctx context.Context, sess *mcpclient.Session, t *mcpclient.Tool, cache map[string]string,
 ) string {
@@ -121,7 +130,8 @@ func toolUIHTML(
 	}
 	html, err := sess.ReadResource(ctx, uri)
 	if err != nil {
-		// 读不到不致命（card 降级，不阻塞 chat），但记一笔——不静默吞。
+		// Failing to read isn't fatal (the card degrades gracefully, without blocking chat),
+		// but it's still logged — never swallowed silently.
 		slog.Default().Warn("read ui card resource", "tool", t.Name, "uri", uri, "err", err)
 		return ""
 	}
@@ -129,14 +139,17 @@ func toolUIHTML(
 	return html
 }
 
-// toolProgressLabel —— server 在 tool `_meta.progress_label` 里声明的 throbber 文案
-// （外置内建保各自原文案：corpus_search "searching corpus" 等）。未声明 → 退到 manifest
-// 的 Title。
+// toolProgressLabel —— the throbber text a server declares in a tool's
+// `_meta.progress_label` (externalized builtins keep their own original text:
+// corpus_search's "searching corpus" etc). Not declared → falls back to the manifest's
+// Title.
 //
-// **选哪一句归 `mcpplugin.ProgressLabel`** —— 那是能力自己的属性（「我在做什么」该由声明
-// 这个能力的东西回答），不是加载器的决定。这里只把 tool 声明的那一份取出来递过去。
-// routes-cyclo 那条闸门先发现了归属放错：它拦的是"face 里长出了分支"，而分支之所以在这儿，
-// 正是因为这段判断本来就不属于这一层。
+// **Which sentence gets used belongs to `mcpplugin.ProgressLabel`** — that's the
+// capability's own property ("what am I doing" should be answered by whatever declares
+// this capability), not the loader's decision. This function only pulls out what the tool
+// declared and passes it along. The routes-cyclo gate is what first caught this
+// misattribution: what it blocks is "a branch growing inside a face", and the branch was
+// there in the first place because this judgment never belonged at this layer.
 func toolProgressLabel(m *mcpplugin.Manifest, t *mcpclient.Tool) string {
 	declared, ok := t.Meta["progress_label"].(string)
 	if !ok {
@@ -145,8 +158,9 @@ func toolProgressLabel(m *mcpplugin.Manifest, t *mcpclient.Tool) string {
 	return mcpplugin.ProgressLabel(m, declared)
 }
 
-// composeMCPAppToolName —— RawToolNames 时用 server 原名（外置内建保 canonical
-// 名）；否则加 <id>_ 前缀（多个第三方 server 防撞名）。
+// composeMCPAppToolName —— when RawToolNames is set, use the server's original name
+// (externalized builtins keep their canonical name); otherwise add an <id>_ prefix (to
+// prevent name collisions across multiple third-party servers).
 func composeMCPAppToolName(m *mcpplugin.Manifest, tool string) string {
 	if m.RawToolNames {
 		return sanitizeToolName(tool)
@@ -162,7 +176,8 @@ func mcpAppToolDescription(pluginID string, t *mcpclient.Tool) string {
 	return prefix + strings.TrimSpace(t.Description)
 }
 
-// overlayCapState —— 把 stateHook 算出来的非零字段叠到通用 state 上（id/enabled 不动）。
+// overlayCapState —— overlays stateHook's non-zero fields onto the generic state
+// (id/enabled left untouched).
 func overlayCapState(dst, extra *capreg.CapabilityState) {
 	if extra.QuotaRemaining != nil {
 		dst.QuotaRemaining = extra.QuotaRemaining
@@ -175,8 +190,9 @@ func overlayCapState(dst, extra *capreg.CapabilityState) {
 	}
 }
 
-// mcpAppState —— 通用 CapabilityState（id/enabled）。#134：ui 卡片已挪到 per-tool
-// （tool `_meta.ui_resource` → tool_spec.UIHTML），不再挂在 capability 上。
+// mcpAppState —— the generic CapabilityState (id/enabled). #134: the ui card has moved to
+// per-tool (tool `_meta.ui_resource` → tool_spec.UIHTML) and is no longer attached to the
+// capability.
 func mcpAppState(m *mcpplugin.Manifest, enabled bool) capreg.CapabilityState {
 	return capreg.CapabilityState{ID: m.ID, Enabled: enabled}
 }

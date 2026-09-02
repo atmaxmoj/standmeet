@@ -1,11 +1,13 @@
-// commit-draft —— 面板上那颗 `SEND →` 的落点：POST /api/admin/drafts/{id}/commit。
+// commit-draft —— where the panel's `SEND →` button lands: POST /api/admin/drafts/{id}/commit.
 //
-// 为什么这个文件存在（F-E-9）：`DraftsSection` 原来把 `onSend` 传成了 `onClose`。
-// 于是那张确认框逐条许诺「冻结快照 / 渲染带 QR 的 PDF / 写 application 行 /
-// 自动发一张 180 天的码」，点下去只是把面板关掉 —— 一个请求都不发，也不报错。
-// owner 会以为自己投出去了。
+// Why this file exists (F-E-9): `DraftsSection` used to pass `onSend` in as
+// `onClose`. So the confirmation dialog promised, line by line, "freeze the
+// snapshot / render a PDF with a QR / write an application row / auto-issue
+// a 180-day code" — but clicking it just closed the panel. No request was
+// sent, and nothing errored. The owner would think they'd applied.
 //
-// 后端两条路打的是**同一个** usecase（`jobsuc.CommitApplication`），这里只是把面板接上去。
+// Both backend paths hit the **same** usecase (`jobsuc.CommitApplication`);
+// this file just wires the panel up to it.
 
 import { z } from 'zod';
 

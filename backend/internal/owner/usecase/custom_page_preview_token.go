@@ -1,16 +1,19 @@
-// custom_page_preview_token.go —— 预览地址自带的那个凭据。
+// custom_page_preview_token.go — the credential carried inline in the preview URL.
 //
-// **为什么不能用 session cookie**：预览跑在一个 `sandbox="allow-scripts"` 的 iframe 里
-// （不给 allow-same-origin —— 否则 owner 的 AI 写出来的页面能拿着 owner 的 admin session
-// 去做任何事）。而沙箱化的不透明来源，**子资源请求不带 cookie**：文档本身 200，
-// 里面那句 `<script src="./assets/index-*.js">` 401，页面一片空白。
-// 实测日志：`/preview` → 200 441B，`/preview/assets/index-CQtbe4hQ.js` → 401 70B。
+// **Why a session cookie won't work**: the preview runs inside a `sandbox="allow-scripts"`
+// iframe (no allow-same-origin — otherwise a page the owner's AI wrote could take the
+// owner's admin session and do anything with it). And a sandboxed opaque origin's
+// **subresource requests carry no cookies**: the document itself gets 200, but the
+// `<script src="./assets/index-*.js">` inside it gets 401 and the page renders blank.
+// Observed in real logs: `/preview` -> 200 441B, `/preview/assets/index-CQtbe4hQ.js` -> 401 70B.
 //
-// 所以凭据必须走 **URL**。而且必须在**路径**里，不是 query：`<base href>` 上的 query
-// 不会被相对路径继承（`./assets/x.js` 解析出来就把它丢了）。
+// So the credential has to travel via the **URL**. And it must be in the **path**, not
+// the query: query params on `<base href>` are not inherited by relative paths
+// (`./assets/x.js` resolves and drops them).
 //
-// 令牌是**派生的，不是存的**：HMAC(server key, owner|slug|exp)。没有表、没有生命周期、
-// 没有"忘了清理"的那一类问题。exp 让一个被复制走的地址不会永久有效。
+// The token is **derived, not stored**: HMAC(server key, owner|slug|exp). No table, no
+// lifecycle, none of the "forgot to clean it up" class of problems. exp keeps a copied
+// URL from staying valid forever.
 
 package usecase
 
@@ -25,10 +28,12 @@ import (
 	"time"
 )
 
-// PreviewTokenTTL —— 一个预览地址活多久。
+// PreviewTokenTTL — how long a preview URL stays alive.
 //
-// 10 分钟：owner 盯着面板看 agent 改页面，是分钟级的事；面板每次重挂 iframe 都会带上
-// 一个新令牌，所以对他是无感的。而一个被复制粘贴走的地址十分钟后就打不开了。
+// 10 minutes: the owner watching the panel while the agent edits the page is a
+// minutes-scale activity, and the panel mounts a fresh token every time it remounts the
+// iframe, so this is invisible to him. Meanwhile a copy-pasted URL stops working after
+// ten minutes.
 const PreviewTokenTTL = 10 * time.Minute
 
 const (
@@ -36,12 +41,13 @@ const (
 	bitsInInt64 = 64
 )
 
-// ErrPreviewTokenInvalid —— 令牌对不上、过期、或者格式不对。**三种合成一个**：
-// 对拿着错令牌的人，区分它们只是在告诉他离对的形状有多远。
+// ErrPreviewTokenInvalid — the token doesn't match, has expired, or is malformed.
+// **All three collapse into one**: distinguishing them for whoever holds a bad token
+// would only tell an attacker how close their token is to the right shape.
 var ErrPreviewTokenInvalid = errors.New("preview token invalid")
 
-// NewPreviewToken —— 给这个 owner 的这一页签一个。形如 `<ownerID>.<exp>.<sig>`，
-// 都是 URL-safe 的，所以整段可以直接放进路径。
+// NewPreviewToken — signs one for this owner's page. Shaped like `<ownerID>.<exp>.<sig>`,
+// all URL-safe, so the whole thing can go straight into the path.
 func NewPreviewToken(key, ownerID, slug string, now time.Time) string {
 	exp := strconv.FormatInt(now.Add(PreviewTokenTTL).Unix(), decimalBase)
 	return fmt.Sprintf("%s.%s.%s",
@@ -51,10 +57,10 @@ func NewPreviewToken(key, ownerID, slug string, now time.Time) string {
 	)
 }
 
-// VerifyPreviewToken —— 令牌对得上就返回它属于哪个 owner。
+// VerifyPreviewToken — if the token matches, returns which owner it belongs to.
 //
-// slug 参与签名：一个 slug 的预览令牌换个 slug 用不了 —— 否则拿到任意一页的令牌
-// 就等于拿到了所有页。
+// slug is part of the signature: a preview token for one slug won't work on another —
+// otherwise getting a token for any one page would mean getting every page.
 func VerifyPreviewToken(key, slug, token string, now time.Time) (string, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
@@ -71,7 +77,7 @@ func VerifyPreviewToken(key, slug, token string, now time.Time) (string, error) 
 	return ownerID, expiredOr(parts[1], now)
 }
 
-// expiredOr —— 过期也归 ErrPreviewTokenInvalid：对外只有一种说法。
+// expiredOr — expiry also maps to ErrPreviewTokenInvalid: only one story goes out externally.
 func expiredOr(exp string, now time.Time) error {
 	unix, perr := strconv.ParseInt(exp, decimalBase, bitsInInt64)
 	if perr != nil || now.Unix() > unix {
@@ -82,10 +88,11 @@ func expiredOr(exp string, now time.Time) error {
 
 func previewSig(key, ownerID, slug, exp string) string {
 	mac := hmac.New(sha256.New, []byte(key))
-	// 分隔符必须是不会出现在任一段里的字符，否则 `a|b` + `c` 和 `a` + `b|c`
-	// 签出同一个值（[[one-bad-element-voids-the-array]] 的同族问题）。
-	// ownerID 是 UUID、slug 是 [a-z0-9-]、exp 是数字，都不含 `\n`。
-	// hash.Hash 的 Write 永不返回 error（文档保证）。
+	// The separator must be a character that can never appear inside any segment, or
+	// `a|b` + `c` and `a` + `b|c` sign to the same value (the same family of problem as
+	// [[one-bad-element-voids-the-array]]).
+	// ownerID is a UUID, slug is [a-z0-9-], exp is numeric — none contain `\n`.
+	// hash.Hash's Write never returns an error (guaranteed by the docs).
 	mac.Write([]byte(ownerID + "\n" + slug + "\n" + exp))
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }

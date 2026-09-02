@@ -1,9 +1,11 @@
-// use-mcp-app-card —— Phase F: 沙盒 ui:// 卡片的 postMessage 协议（business logic，
-// 放 lib，组件只拿 ref/height 渲染）。
-//   卡 ready → 父注入 {type:'mcp-ui:data', data:<tool result>}
-//   卡 submit → onAsk(value)（访客选择进下一 turn）
-//   卡 tool  → host 带 session context 派发具名 tool，结果 post 回卡（mcp-ui:tool-result）
-//   卡 height → 自适应高度
+// use-mcp-app-card —— Phase F: the postMessage protocol for a sandboxed
+// ui:// card (business logic lives in lib; the component only takes
+// ref/height to render).
+//   card ready → parent injects {type:'mcp-ui:data', data:<tool result>}
+//   card submit → onAsk(value) (the visitor's choice feeds the next turn)
+//   card tool  → the host dispatches the named tool with session context,
+//                posts the result back to the card (mcp-ui:tool-result)
+//   card height → self-sizing height
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -40,26 +42,37 @@ interface Ctx {
   tool: string;
   conversationID: string;
   onAsk: (q: string) => void;
-  // noteEvent —— 把卡上发生的事写进这段对话的历史（F-B-9）。见 runCardTool。
+  // noteEvent —— writes what happened on the card into this conversation's
+  // history (F-B-9). See runCardTool.
   noteEvent: (text: string) => void;
   setHeight: (h: number) => void;
 }
 
 const HANDLERS: Record<string, (c: Ctx) => void> = {
-  // ready → 父注入 {data:<tool result>, tool, state:<本卡跨刷新状态>}。tool 名让一张
-  // 卡服务多个同形工具(corpus_search/corpus_list)时自挑 label/testid。state 让卡作为
-  // 「能跨刷新存活的小应用」render 出上次落下的态（booked 卡读 state[event_id].cancelled）。
+  // ready → the parent injects {data:<tool result>, tool, state:<this
+  // card's cross-refresh state>}. The tool name lets one card serve
+  // several same-shape tools (corpus_search/corpus_list) and pick its own
+  // label/testid. state lets the card act as a "small app that survives a
+  // refresh", rendering the state it left off in (a booked card reads
+  // state[event_id].cancelled).
   'mcp-ui:ready': (c) => { void runCardReady(c); },
   'mcp-ui:submit': ({ data, onAsk }) =>
     { typeof data['value'] === 'string' && onAsk(data['value']); },
-  // tool → 卡发具名 tool（calendar_cancel / send_confirmation），host 凭访客 session
-  // 派发，结果 post 回卡。沙盒卡断网，连接器调用全经 host（凭据不进卡）。
+  // tool → the card sends a named tool (calendar_cancel /
+  // send_confirmation), the host dispatches it with the visitor's session,
+  // and posts the result back to the card. A sandboxed card has no network
+  // — every connector call goes through the host (credentials never enter
+  // the card).
   'mcp-ui:tool': (c) => { void runCardTool(c); },
-  // state-set → 卡对**自己 mcp 那格**写一个 key（host 凭 session + tool 派生 mcp，卡碰
-  // 不到别的 mcp）。booked 卡取消成功后落 {event_id:{cancelled:true}}，刷新后据此重渲。
+  // state-set → the card writes a key into **its own mcp slot** (mcp is
+  // derived by the host from session + tool, so a card can't touch another
+  // mcp's slot). A booked card writes {event_id:{cancelled:true}} after a
+  // successful cancel, and re-renders from it after a refresh.
   'mcp-ui:state-set': (c) => { void runCardStateSet(c); },
-  // link → 卡请求父开一个 URL（沙盒 iframe 无 allow-popups/top-navigation，开窗只能
-  // 父代劳）。href 来自插件卡(可信，见信任边界 P.4)；report「open as page」用。
+  // link → the card asks its parent to open a URL (the sandboxed iframe
+  // has no allow-popups/top-navigation, so opening a window can only be
+  // done by the parent). href comes from a plugin card (trusted — see
+  // trust boundary P.4); used by report's "open as page".
   'mcp-ui:link': ({ data }) => { openLink(data['href']); },
   'mcp-ui:height': ({ data, setHeight }) => {
     const h = clampHeight(data['height']);
@@ -73,12 +86,15 @@ function openLink(href: unknown): void {
   }
 }
 
-// runCardTool —— 派发卡发来的具名 tool，结果（含 requestId 回执）post 回卡，
-// **并把这件事记进这段对话的历史**（F-B-9）。
+// runCardTool —— dispatches the named tool the card sent, posts the result
+// (with a requestId receipt) back to the card, **and records the event
+// into this conversation's history** (F-B-9).
 //
-// 这条路不经过对话：`POST /sessions/{id}/tools/{name}` 执行完就返回。少了最后那一步的话，
-// 访客在卡上取消掉的那场会，对 agent 来说从没发生过 —— 它下一句照旧说「你那场还在」，
-// 就写在同屏那张 `CANCELLED` 的卡下面。
+// This path doesn't go through the conversation: `POST
+// /sessions/{id}/tools/{name}` returns once it executes. Without that last
+// step, a booking the visitor cancelled on the card never happened as far
+// as the agent is concerned — its next reply would still say "your booking
+// still stands", right under the same-screen card that reads `CANCELLED`.
 async function runCardTool(c: Ctx): Promise<void> {
   const name = typeof c.data['name'] === 'string' ? c.data['name'] : '';
   const requestId = c.data['requestId'];
@@ -89,15 +105,18 @@ async function runCardTool(c: Ctx): Promise<void> {
   c.win.postMessage({ type: 'mcp-ui:tool-result', requestId, result }, '*');
 }
 
-// cardEventText —— 给模型读的一句话。**带上工具名和原始结果**：措辞由模型自己组织，
-// 而它要判断的是「这件事到底成没成、动的是哪一条」，所以事实原样给，不在这里替它总结。
+// cardEventText —— a sentence for the model to read. **Includes the tool
+// name and the raw result**: the model composes its own wording, but it
+// needs to judge "did this actually succeed, and which one did it touch",
+// so the facts are given as-is instead of being summarized here.
 function cardEventText(name: string, result: Record<string, unknown>): string {
   if (name === '') return '';
   return `[card action] The visitor used "${name}" on a card in this conversation. `
     + `Result: ${JSON.stringify(result)}`;
 }
 
-// runCardReady —— 卡 ready 时拉本卡跨刷新状态，连同 tool result 一起注入 mcp-ui:data。
+// runCardReady —— when the card is ready, pulls this card's cross-refresh
+// state and injects it into mcp-ui:data together with the tool result.
 async function runCardReady(c: Ctx): Promise<void> {
   const token = loadStoredSession()?.session_token ?? '';
   const state = await getAppCardState(c.conversationID, token, c.tool);
@@ -106,9 +125,12 @@ async function runCardReady(c: Ctx): Promise<void> {
   );
 }
 
-// runCardStateSet —— 卡对自己 mcp 那格写一个 key（mcp 由 host 从 tool 派生，隔离）。
-// 写完回 ack（带 requestId），让卡在状态**真落库后**再进终态 —— 否则「显示已取消」
-// 早于持久化，紧接着刷新会读到旧态（race）。
+// runCardStateSet —— the card writes a key into its own mcp slot (mcp is
+// derived by the host from the tool, keeping cards isolated). Replies with
+// an ack (carrying requestId) once written, so the card only reaches its
+// final state **after the write is actually persisted** — otherwise
+// "showing cancelled" would precede persistence, and an immediate refresh
+// would read the stale state back (a race).
 async function runCardStateSet(c: Ctx): Promise<void> {
   const key = typeof c.data['key'] === 'string' ? c.data['key'] : '';
   const requestId = c.data['requestId'];
@@ -124,8 +146,10 @@ function dispatch(c: Ctx): void {
 
 const NOOP = (): void => undefined;
 
-/** CardWiring —— 一张卡要挂的四根线。**默认值住在这儿**：调用它的组件只负责转发，
- *  每个可选 prop 在那边补一次 `??` 的话，圈复杂度闸门迟早（正当地）拦住那个组件。 */
+/** CardWiring —— the four wires a card needs hooked up. **Defaults live
+ *  here**: the component calling this just forwards them — if each
+ *  optional prop got its own `??` fallback over there, the cyclomatic
+ *  complexity gate would (rightly) catch up with that component eventually. */
 export interface CardWiring {
   result: unknown;
   tool: string;

@@ -1,9 +1,12 @@
-// store.go —— per-plugin 隔离文档存储的 DB 操作。每个 (kind,id) 一个独立 schema,一张通用
-// `records(id, collection, doc jsonb, created_at)` 表。存的是不透明 JSONB 文档 —— capstore
-// **不认识**任何业务概念(没有 "booking")。消费者按 collection + JSONB 字段 filter 查。
+// store.go —— DB operations for per-plugin isolated document storage. One dedicated schema
+// per (kind,id), one generic `records(id, collection, doc jsonb, created_at)` table. What's
+// stored is an opaque JSONB document — capstore **knows nothing** about business concepts
+// (no "booking"). Consumers query by collection + a JSONB field filter.
 //
-// ⚠️ schema 名一律经 schemaName((kind,id)) 推 + 校验(见 schema.go);DDL 里 schema 名只能内插
-// (不能 $1 参数化),所以名字必须先被 droppableRe 约束死,才能安全拼进 SQL。Drop 见其三条硬规则。
+// ⚠️ Schema names are always derived + validated through schemaName((kind,id)) (see
+// schema.go); in DDL a schema name can only be interpolated (never $1-parameterized), so the
+// name must be locked down by droppableRe before it's safe to splice into SQL. See Drop's
+// three hard rules.
 
 package capstore
 
@@ -16,26 +19,30 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Store —— 落在共享 Postgres 上的 per-plugin 文档存储。
+// Store —— per-plugin document storage sitting on the shared Postgres.
 type Store struct {
 	pool *pgxpool.Pool
 }
 
-// New —— composition root 注入共享连接池。
+// New —— the composition root injects the shared connection pool.
 func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
-// Provision —— 装 connector/mcp 时建它的隔离 schema + records/claims 两张表(幂等)。名字非法 → 错,不建。
+// Provision —— when a connector/mcp is installed, create its isolated schema plus the
+// records/claims tables (idempotent). An invalid name → error, nothing gets built.
 //
-// claims 是**单赢占位**:同一个 key 同一时刻只有一个调用方拿得到。它跟 records 分开一张表,
-// 因为它要的是主键冲突这条硬保证 —— 而 records 存的是不透明文档,没有、也不该有唯一约束。
-// 谁需要它:任何「先看一眼再动手」的动作 —— 中间那个窗口里挤进来第二个人,两次都会看见空的
-// (F-B-15:两条同时进来的订会请求,忙时检查各自都说空着,真日历上并排长出两场)。
+// claims is a **single-winner claim**: for one key, only one caller holds it at a time. It's
+// a separate table from records because it needs the hard guarantee of a primary-key
+// conflict — whereas records stores opaque documents and has, and should have, no unique
+// constraint. Who needs it: any "peek then act" flow — a second caller can squeeze into the
+// window in between and both sides see the same "empty" slot (F-B-15: two booking requests
+// arrive concurrently, each checks the busy slot and both see it free, so the real calendar
+// ends up with two meetings side by side).
 func (s *Store) Provision(ctx context.Context, kind Kind, id string) error {
 	schema, err := schemaName(kind, id)
 	if err != nil {
 		return err
 	}
-	q := schema // 已过 droppableRe:^(connector|mcp)_[a-z0-9_]+$,内插安全
+	q := schema // already passed droppableRe: ^(connector|mcp)_[a-z0-9_]+$, safe to interpolate
 	ddl := fmt.Sprintf(
 		`CREATE SCHEMA IF NOT EXISTS %[1]s;
 		 CREATE TABLE IF NOT EXISTS %[1]s.records (
@@ -60,19 +67,22 @@ func (s *Store) Provision(ctx context.Context, kind Kind, id string) error {
 	return nil
 }
 
-// Drop —— 卸 connector/mcp 时删它的整个 schema(CASCADE,连数据)。
+// Drop —— when a connector/mcp is uninstalled, delete its entire schema (CASCADE, data
+// included).
 //
-// ⚠️ 删库级操作。三条硬规则:
-//  1. schema 名从 host 可信的 (kind,id) 推,绝不取自 plugin 请求(本函数签名就不收裸名字)。
-//  2. 推出的名字先过 assertDroppable:非保留前缀 / 空 / 核心 schema 一律拒,绝不 DROP。
-//  3. 这里是**唯一**跑 `DROP SCHEMA` 的地方;别处不许 DROP schema。
+// ⚠️ A database-level delete operation. Three hard rules:
+//  1. The schema name is derived from the host-trusted (kind,id), never taken from a plugin
+//     request (this function's signature doesn't even accept a raw name).
+//  2. The derived name is checked by assertDroppable first: no reserved prefix / empty /
+//     core schema all get refused, never DROPped.
+//  3. This is the **only** place that runs `DROP SCHEMA`; nowhere else may DROP a schema.
 func (s *Store) Drop(ctx context.Context, kind Kind, id string) error {
-	schema, err := schemaName(kind, id) // rule 1+2:推导 + 内含 assertDroppable
+	schema, err := schemaName(kind, id) // rule 1+2: derive + assertDroppable is called inside
 	if err != nil {
 		return err
 	}
 	if aerr := assertDroppable(schema); aerr != nil {
-		return aerr // 双保险:即使 schemaName 变了,删前再挡一次核心
+		return aerr // belt-and-suspenders: re-guard core before delete even if schemaName changes
 	}
 	dropSQL := fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schema)
 	if _, eerr := s.pool.Exec(ctx, dropSQL); eerr != nil {
@@ -81,7 +91,7 @@ func (s *Store) Drop(ctx context.Context, kind Kind, id string) error {
 	return nil
 }
 
-// Insert —— 往 (kind,id) 的 collection 里塞一份 JSONB 文档,返回记录 id。
+// Insert —— push one JSONB document into the (kind,id)'s collection, return the record id.
 func (s *Store) Insert(
 	ctx context.Context, kind Kind, id, collection string, doc json.RawMessage,
 ) (string, error) {
@@ -99,7 +109,8 @@ func (s *Store) Insert(
 	return recID, nil
 }
 
-// Query —— 取 collection 里 doc 满足 filter(JSONB containment `@>`)的所有文档。空 filter = 全取。
+// Query —— fetch every doc in the collection matching filter (JSONB containment `@>`).
+// An empty filter means fetch everything.
 func (s *Store) Query(
 	ctx context.Context, kind Kind, id, collection string, filter json.RawMessage,
 ) ([]json.RawMessage, error) {
@@ -119,7 +130,7 @@ func (s *Store) Query(
 	return scanDocs(rows)
 }
 
-// Count —— 数 collection 里 doc 满足 filter 的文档数(配额闸用)。
+// Count —— count docs in the collection matching filter (used by the quota gate).
 func (s *Store) Count(
 	ctx context.Context, kind Kind, id, collection string, filter json.RawMessage,
 ) (int64, error) {
@@ -137,9 +148,12 @@ func (s *Store) Count(
 	return n, nil
 }
 
-// Delete —— 删 collection 里 doc 满足 filter 的记录,返删除行数。**只删本 cap schema 内的
-// 行**(schema 名经 schemaName 校验),绝非 DROP schema —— 跟 Drop 的删库级操作两码事。
-// 空 filter → 拒(不允许清空整个 collection,防手滑),要清空请显式传 `{}`? 不,这里空=拒。
+// Delete —— delete records in the collection matching filter, return the row count deleted.
+// **Only deletes rows within this cap's own schema** (the schema name is validated through
+// schemaName); this is never a DROP schema — a different operation entirely from Drop's
+// database-level delete. An empty filter → refused (clearing an entire collection outright
+// is not allowed, to guard against a slip); to actually clear it, pass `{}` explicitly? No —
+// here empty always means refused.
 func (s *Store) Delete(
 	ctx context.Context, kind Kind, id, collection string, filter json.RawMessage,
 ) (int64, error) {
@@ -158,7 +172,8 @@ func (s *Store) Delete(
 	return tag.RowsAffected(), nil
 }
 
-// containment —— 空 filter 归一成 `{}`(matches all);否则原样(调用方保证是 JSON object)。
+// containment —— normalize an empty filter to `{}` (matches all); otherwise pass through
+// unchanged (the caller guarantees it's a JSON object).
 func containment(filter json.RawMessage) json.RawMessage {
 	if len(filter) == 0 {
 		return json.RawMessage(`{}`)

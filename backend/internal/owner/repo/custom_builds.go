@@ -1,7 +1,8 @@
-// custom_builds.go —— custom_page_builds CRUD。从 custom_pages.go 拆出来
-// 避免单文件超 350 行。
+// custom_builds.go —— custom_page_builds CRUD. Split out of custom_pages.go
+// to keep that single file under the 350-line limit.
 //
-// 所有 query 返 sqlc 的 db.CustomPageBuild，repo 把它映射成 domain 类型。
+// Every query returns sqlc's db.CustomPageBuild; repo maps it to the domain
+// type.
 
 package repo
 
@@ -18,15 +19,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// CustomBuildRepo —— custom_page_builds 表。
+// CustomBuildRepo —— the custom_page_builds table.
 type CustomBuildRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewCustomBuildRepo 构造。
+// NewCustomBuildRepo constructs one.
 func NewCustomBuildRepo(pool *pgstore.Pool) *CustomBuildRepo { return &CustomBuildRepo{pool: pool} }
 
-// Create —— 落一条 pending build；返 build_id 让 caller poll 状态。
+// Create writes a pending build row; returns build_id so the caller can
+// poll its status.
 func (r *CustomBuildRepo) Create(
 	ctx context.Context, pageID string, sourceFiles map[string]string,
 ) (entity.CustomPageBuild, error) {
@@ -47,7 +49,8 @@ func (r *CustomBuildRepo) Create(
 	return toDomainBuild(&row)
 }
 
-// GetLatestForPage —— page 最新 build；没有时返 ErrCustomPageBuildNotFound。
+// GetLatestForPage —— the page's most recent build; returns
+// ErrCustomPageBuildNotFound if there is none.
 func (r *CustomBuildRepo) GetLatestForPage(
 	ctx context.Context, pageID string,
 ) (entity.CustomPageBuild, error) {
@@ -65,10 +68,12 @@ func (r *CustomBuildRepo) GetLatestForPage(
 	return toDomainBuild(&row)
 }
 
-// GetLatestBuiltForPage —— 这一页**最近一次构建成功的**。owner 预览看的就是它。
+// GetLatestBuiltForPage —— this page's **most recent successful build**.
+// This is what the owner's preview shows.
 //
-// 跟 GetLatestForPage 的差别是筛了状态：那一条会拿到 pending / building / failed，
-// 而那些没有产物 —— owner 看到的是一片空白，还以为是自己写的页有问题。
+// Differs from GetLatestForPage by filtering on status: that one can return
+// pending / building / failed rows, none of which have output — the owner
+// would see a blank page and think the page they wrote is broken.
 func (r *CustomBuildRepo) GetLatestBuiltForPage(
 	ctx context.Context, pageID string,
 ) (entity.CustomPageBuild, error) {
@@ -86,7 +91,7 @@ func (r *CustomBuildRepo) GetLatestBuiltForPage(
 	return toDomainBuild(&row)
 }
 
-// GetByID —— builder / MCP poll 状态。
+// GetByID —— used by the builder / MCP to poll status.
 func (r *CustomBuildRepo) GetByID(
 	ctx context.Context, id string) (entity.CustomPageBuild, error,
 ) {
@@ -104,12 +109,14 @@ func (r *CustomBuildRepo) GetByID(
 	return toDomainBuild(&row)
 }
 
-// ClaimPending —— 原子地拿一条 pending build，标 'building' 后返。无 pending
-// 时返 ErrCustomPageBuildNotFound 让 caller 翻译 204。
+// ClaimPending atomically grabs one pending build, marks it 'building', and
+// returns it. Returns ErrCustomPageBuildNotFound if there's no pending
+// build, so the caller can translate that to 204.
 func (r *CustomBuildRepo) ClaimPending(ctx context.Context) (entity.CustomPageBuild, error) {
-	// 用 SELECT ... FOR UPDATE SKIP LOCKED + UPDATE 简化版：先 SELECT 一条
-	// pending，再 SetBuilding。两次往返但 SKIP LOCKED 让并发安全；builder
-	// 只一实例，先这样。
+	// A simplified SELECT ... FOR UPDATE SKIP LOCKED + UPDATE: first SELECT
+	// one pending row, then SetBuilding. Two round trips, but SKIP LOCKED
+	// keeps it concurrency-safe; the builder only runs one instance for now,
+	// so this is fine as-is.
 	q := db.New(r.pool)
 	pending, err := q.ClaimPendingBuild(ctx)
 	if err != nil {
@@ -125,7 +132,8 @@ func (r *CustomBuildRepo) ClaimPending(ctx context.Context) (entity.CustomPageBu
 	return toDomainBuild(&row)
 }
 
-// MarkBuilt —— builder 跑完 vite 后回标，output_path 是相对路径。
+// MarkBuilt —— the builder marks a build done after vite finishes;
+// output_path is a relative path.
 func (r *CustomBuildRepo) MarkBuilt(
 	ctx context.Context, id, outputPath string,
 ) (entity.CustomPageBuild, error) {
@@ -142,7 +150,8 @@ func (r *CustomBuildRepo) MarkBuilt(
 	return toDomainBuild(&row)
 }
 
-// MarkFailed —— builder 失败回标，error 是 stderr 头 2KB。
+// MarkFailed —— the builder marks a build failed; error is the first 2KB
+// of stderr.
 func (r *CustomBuildRepo) MarkFailed(
 	ctx context.Context, id, errMsg string,
 ) (entity.CustomPageBuild, error) {

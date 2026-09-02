@@ -1,10 +1,10 @@
-// RawSection —— /admin/raw 设计稿对齐版。
+// RawSection —— version aligned with the /admin/raw design mockup.
 // SectionHeader (kicker + title + N unprocessed) + 4-tab status filter
-// (all/unprocessed/flagged-private/promoted) + DumpBox + RawRowList。
+// (all/unprocessed/flagged-private/promoted) + DumpBox + RawRowList.
 //
-// 设计源 docs/design/project/admin.js RawSection。
-// 删了 ListFilterBar (search + sort) —— inbox 是流式排空场景，filter chips
-// + 行级 delete 就够；search 在数量真大时再加。
+// Design source docs/design/project/admin.js RawSection.
+// Removed ListFilterBar (search + sort) — the inbox is a stream-and-drain scenario, filter chips
+// + row-level delete are enough; add search once volume is genuinely large.
 
 'use client';
 

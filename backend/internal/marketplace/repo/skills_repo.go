@@ -1,4 +1,4 @@
-// skills.go —— skills + code_skills CRUD。
+// skills.go — CRUD for skills + code_skills.
 
 package repo
 
@@ -16,16 +16,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace/entity"
 )
 
-// SkillRepo —— skills 表 + code_skills join 表 CRUD。
+// SkillRepo — CRUD for the skills table + the code_skills join table.
 type SkillRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewSkillRepo 构造 SkillRepo。
+// NewSkillRepo constructs a SkillRepo.
 func NewSkillRepo(pool *pgstore.Pool) *SkillRepo { return &SkillRepo{pool: pool} }
 
-// CreateSkillInput —— Create 入参。owner-curated skill；scripts/metadata
-// optional。字段顺序按 govet fieldalignment 排。
+// CreateSkillInput — input for Create. An owner-curated skill; scripts/metadata
+// are optional. Field order follows govet fieldalignment.
 type CreateSkillInput struct {
 	Metadata     map[string]string
 	OwnerID      string
@@ -39,7 +39,7 @@ type CreateSkillInput struct {
 	Scripts      []entity.SkillScript
 }
 
-// Create 写一条 owner-curated skill。name 冲突翻 ErrSkillNameTaken。
+// Create writes one owner-curated skill. A name conflict maps to ErrSkillNameTaken.
 func (r *SkillRepo) Create(ctx context.Context, in *CreateSkillInput) (entity.Skill, error) {
 	params, perr := buildCreateSkillParams(in)
 	if perr != nil {
@@ -79,8 +79,9 @@ func buildCreateSkillParams(in *CreateSkillInput) (*db.CreateSkillParams, error)
 	}, nil
 }
 
-// UpsertBuiltin —— seed builtin skills 用。idempotent by (owner_id, name)；
-// description/prompt 字段会被新 seed 覆写让后续调整生效。
+// UpsertBuiltin — used to seed builtin skills. Idempotent by (owner_id, name);
+// the description/prompt fields get overwritten by each new seed, so later
+// adjustments take effect.
 func (r *SkillRepo) UpsertBuiltin(
 	ctx context.Context, ownerID, name, description, prompt string,
 ) (entity.Skill, error) {
@@ -97,7 +98,7 @@ func (r *SkillRepo) UpsertBuiltin(
 	return toDomainSkill(&row), nil
 }
 
-// ListByOwner —— admin 列 owner 所有 skill (builtin 先，自定义后)。
+// ListByOwner — admin lists every skill for an owner (builtins first, custom after).
 func (r *SkillRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.Skill, error) {
 	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
 	if oerr != nil {
@@ -114,8 +115,9 @@ func (r *SkillRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.S
 	return out, nil
 }
 
-// Delete —— owner-curated skill 删除；builtin 不可删 (sqlc query 加了
-// is_builtin=false 谓词，命中 0 行 → 返 ErrSkillBuiltinImmutable / NotFound)。
+// Delete — removes an owner-curated skill; builtins cannot be deleted (the
+// sqlc query adds an is_builtin=false predicate, so a 0-row hit maps to
+// ErrSkillBuiltinImmutable / NotFound).
 func (r *SkillRepo) Delete(ctx context.Context, ownerID, skillID string) error {
 	args, perr := parseOwnerAndSkillID(ownerID, skillID)
 	if perr != nil {
@@ -129,7 +131,7 @@ func (r *SkillRepo) Delete(ctx context.Context, ownerID, skillID string) error {
 	return nil
 }
 
-// UpdateSkillInput —— Update 入参。字段顺序按 govet fieldalignment 排。
+// UpdateSkillInput — input for Update. Field order follows govet fieldalignment.
 type UpdateSkillInput struct {
 	OwnerID      string
 	SkillID      string
@@ -139,12 +141,14 @@ type UpdateSkillInput struct {
 	AllowedTools []string
 }
 
-// Update —— 改一份 owner 自己的技能（正文 + 它可以调的工具）。builtin 改不了
-// （query 带 `is_builtin = false`）→ 无行 → ErrSkillBuiltinImmutable。
+// Update — edits an owner's own skill (body + the tools it may call). Builtins
+// cannot be edited (the query carries `is_builtin = false`) → 0 rows →
+// ErrSkillBuiltinImmutable.
 //
-// 这条路以前**只有 sqlc 那一层存在，一个调用者都没有** —— 于是设计源写着的
-// 「安装完可以改 prompt 或 allowed-tools」在产品里一直没有落点，而 owner 自己传的连接器
-// 只能靠一份声明了它 operation 名字的技能才调得到（F-C-57）。
+// This path used to **exist only at the sqlc layer, with zero callers** — so the
+// design doc's promise that "prompt or allowed-tools can be edited after install"
+// never had anywhere to land in the product, and an owner-supplied connector could
+// only be invoked via a skill that declared its operation name (F-C-57).
 func (r *SkillRepo) Update(ctx context.Context, in *UpdateSkillInput) (entity.Skill, error) {
 	args, perr := parseOwnerAndSkillID(in.OwnerID, in.SkillID)
 	if perr != nil {
@@ -161,7 +165,8 @@ func (r *SkillRepo) Update(ctx context.Context, in *UpdateSkillInput) (entity.Sk
 	return toDomainSkill(&row), nil
 }
 
-// updateSkillErr —— 把 pg 的两种拒绝翻成本域的哨兵。无行 = 谓词把 builtin 挡下了。
+// updateSkillErr — maps pg's two rejection shapes to this domain's sentinel
+// errors. 0 rows means the predicate blocked a builtin.
 func updateSkillErr(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return entity.ErrSkillBuiltinImmutable
@@ -189,12 +194,14 @@ func parseOwnerAndSkillID(ownerID, skillID string) (skillIDArgs, error) {
 	return skillIDArgs{ownerUUID: ownerUUID, skillUUID: skillUUID}, nil
 }
 
-// A.3-IAM-5: SetCodeSkills / ListSkillIDsForCode / ListSkillsForCode 都删了
-// —— code_skills 表已 drop。Role 通过 role_skills 持 skill ids；
-// ListSkillsForRole 是 RoleSnapshot 构造时唯一的 skill 列表来源。
+// A.3-IAM-5: SetCodeSkills / ListSkillIDsForCode / ListSkillsForCode were all
+// removed — the code_skills table has been dropped. A Role holds skill ids via
+// role_skills; ListSkillsForRole is the sole skill-list source when building a
+// RoleSnapshot.
 
-// ListSkillsForRole —— RoleSnapshot 构造时拼 prompt / allowed_tools 用。
-// 跟 ListSkillsForCode 同形态，db.ListRoleSkills 在 roles.sql 已声明。
+// ListSkillsForRole — used when building a RoleSnapshot to assemble
+// prompt / allowed_tools. Same shape as ListSkillsForCode; db.ListRoleSkills is
+// already declared in roles.sql.
 func (r *SkillRepo) ListSkillsForRole(
 	ctx context.Context, roleID string) ([]entity.Skill, error,
 ) {
@@ -213,7 +220,7 @@ func (r *SkillRepo) ListSkillsForRole(
 	return out, nil
 }
 
-// GetByID —— admin / MCP get 单条。
+// GetByID — admin / MCP fetch a single row.
 func (r *SkillRepo) GetByID(
 	ctx context.Context, ownerID, skillID string) (entity.Skill, error,
 ) {
@@ -233,7 +240,7 @@ func (r *SkillRepo) GetByID(
 	return toDomainSkill(&row), nil
 }
 
-// SetEnabled —— #48-2: owner 全局开/关一个 skill。
+// SetEnabled — #48-2: owner globally enables/disables a skill.
 func (r *SkillRepo) SetEnabled(
 	ctx context.Context, ownerID, skillID string, enabled bool,
 ) (entity.Skill, error) {

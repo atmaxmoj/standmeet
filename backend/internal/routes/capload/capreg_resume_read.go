@@ -1,16 +1,23 @@
-// capreg_resume_read.go —— 访客侧的简历读取能力（in-host，跟 openapi agent-tools cap 同一条进法）。
+// capreg_resume_read.go —— the visitor-side résumé-reading capability (in-host, entering
+// through the same path as the openapi agent-tools cap).
 //
-// 招聘官扫简历上的 QR → 落进一个用 application 自动签发的 hiring 码开的访客会话。这个能力让那个
-// 会话的 agent 读到**这一份** application 的定制简历，而 conversation / access / corpus 三个域都
-// 不认识"简历"这回事：
+// A recruiter scans the QR code on a résumé → lands in a visitor session opened by a
+// hiring code that was auto-issued for an application. This capability lets that session's
+// agent read **this one** application's tailored résumé, while none of the conversation /
+// access / corpus domains know what a "résumé" is:
 //
-//   - 发现：agent 知道这个工具存在，跟它知道任何工具一样 —— 工具带着描述进了本会话的 exposed set。
-//     没有任何 prompt 告诉它"有简历"。
-//   - 暴露：只在 subject 是一张能反查到 application 的 code 时暴露（自声明 gate，ErrHidden 自隐藏）。
-//     普通码、api-key、匿名会话都看不到它，于是别的层不必知道简历存在。
-//   - "哪一份"+隔离：是同一件事。工具**不接受任何入参** —— 简历从冻结的 session subject 反查
-//     （code → application，收在 port.ResumeReader 里），不从 LLM 递来的参数取。于是一个会话只
-//     可能读到它自己那份，跨会话读取无法表达（见 [[owner-scope-not-visitor-scope]] 的 BOLA 教训）。
+//   - Discovery: the agent learns this tool exists the same way it learns about any
+//     tool — the tool, with its description, entered this session's exposed set. No
+//     prompt ever tells it "there is a résumé".
+//   - Exposure: only exposed when the subject is a code that can be reverse-resolved to
+//     an application (a self-declared gate; ErrHidden self-hides it). An ordinary code,
+//     an api-key, or an anonymous session can't see it, so no other layer needs to know
+//     résumés exist.
+//   - "Which one" and isolation are the same thing. The tool **takes no arguments at
+//     all** — the résumé is resolved from the frozen session subject (code → application,
+//     held in port.ResumeReader), never from an LLM-supplied parameter. So a session can
+//     only ever read its own résumé; reading across sessions has no way to be expressed
+//     (see the BOLA lesson in [[owner-scope-not-visitor-scope]]).
 
 package capload
 
@@ -21,22 +28,25 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
-// ResumeReadTool —— 招聘官 agent 调的工具名。
+// ResumeReadTool —— the tool name the recruiter's agent calls.
 const ResumeReadTool = "resume_read"
 
 const capResumeReadID = "resume.read"
 
-// resumeReadDesc —— agent 发现这个工具的唯一信号（它是招聘官会话里"有一份定制简历"的全部提示）。
+// resumeReadDesc —— the only signal by which the agent discovers this tool (it's the
+// entire hint, in a recruiter session, that "there is a tailored résumé").
 const resumeReadDesc = "Read the tailored résumé submitted with the job application whose access " +
 	"code opened this chat — the candidate's summary, work history, education, skills, and cover " +
 	"letter for the role you are viewing. Takes no arguments; it always returns THIS " +
 	"application's résumé."
 
-// resumeArgsSchema —— 无参数：入参改变不了"哪一份"，解析只认 session subject。
+// resumeArgsSchema —— no parameters: input args cannot change "which one"; resolution
+// only ever looks at the session subject.
 var resumeArgsSchema = json.RawMessage(`{"type":"object"}`)
 
-// resumeSource —— 按 session 的 access code 取这一份 application 的简历 JSON。err → fail-closed
-// 隐藏（普通码没绑 application、或真失败）。由 composition root 的 port.ResumeReader 满足。
+// resumeSource —— fetches this application's résumé JSON by the session's access code.
+// err → fail-closed hidden (an ordinary code has no bound application, or a real failure).
+// Satisfied by the composition root's port.ResumeReader.
 type resumeSource interface {
 	ResumeForCode(ctx context.Context, ownerID, codeID string) ([]byte, error)
 }
@@ -71,8 +81,9 @@ func (*resumeReadCapability) SystemPromptFragmentID(
 	return ""
 }
 
-// VisitorBinding —— 自声明 gate：subject 是一张能反查到 application 的 code 才暴露简历工具；
-// 其余一律 ErrHidden（干净隐藏 —— 工具根本不出现，别的层无需知道简历存在）。
+// VisitorBinding —— a self-declared gate: the résumé tool is exposed only when the subject
+// is a code that resolves to an application; every other case → ErrHidden (a clean hide —
+// the tool simply never appears, and no other layer needs to know résumés exist).
 func (c *resumeReadCapability) VisitorBinding(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (*capreg.Binding, error) {
@@ -88,7 +99,8 @@ func (c *resumeReadCapability) VisitorBinding(
 	}, nil
 }
 
-// resolve —— (content, true) 当会话的码反查得到一份简历；否则 (nil, false) 隐藏。
+// resolve —— (content, true) when the session's code resolves to a résumé; otherwise
+// (nil, false), hidden.
 func (c *resumeReadCapability) resolve(
 	ctx context.Context, in *capreg.AssembleInput,
 ) ([]byte, bool) {
@@ -99,8 +111,8 @@ func (c *resumeReadCapability) resolve(
 	return c.fetch(ctx, in.OwnerID, codeID)
 }
 
-// fetch —— 拿这张码绑的简历。fail-closed：not-found 和真错误都隐藏 —— 拿不准就不暴露一个
-// 能读私有简历的工具。
+// fetch —— gets the résumé bound to this code. fail-closed: both not-found and a real
+// error are hidden — when unsure, never expose a tool that can read a private résumé.
 func (c *resumeReadCapability) fetch(
 	ctx context.Context, ownerID, codeID string,
 ) ([]byte, bool) {
@@ -111,8 +123,8 @@ func (c *resumeReadCapability) fetch(
 	return content, true
 }
 
-// codeSubjectID —— session subject 是一张非空 code → (code-id, true)；否则 ("", false)。
-// api-key / 匿名(空 id) → false，简历工具据此隐藏。
+// codeSubjectID —— the session subject is a non-empty code → (code-id, true); otherwise
+// ("", false). api-key / anonymous (empty id) → false, and the résumé tool hides on that.
 func codeSubjectID(in *capreg.AssembleInput) (string, bool) {
 	if in == nil || in.Subject.Kind != capreg.SubjectCode {
 		return "", false
@@ -120,8 +132,9 @@ func codeSubjectID(in *capreg.AssembleInput) (string, bool) {
 	return in.Subject.ID, in.Subject.ID != ""
 }
 
-// resumeRunFn —— 工具 handler。完全忽略 args：简历在 bind 时已从 session subject 定死，
-// LLM 参数里塞另一份 application 的 id 也改不了返回的内容。
+// resumeRunFn —— the tool handler. Ignores args entirely: the résumé was already fixed
+// from the session subject at bind time, so an LLM stuffing another application's id into
+// the parameters cannot change what's returned.
 func resumeRunFn(content []byte) capreg.RunFn {
 	return func(_ context.Context, _ string) (string, error) {
 		return string(content), nil

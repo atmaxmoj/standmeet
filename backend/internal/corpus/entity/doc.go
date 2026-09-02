@@ -1,3 +1,4 @@
-// Package entity —— corpus 域的值对象/实体 + 域错误（各 genre 的 aggregate: Raw/Wiki/Writing/
-// Output/Asset + Document/Visibility/TreeNode …）。对外经 internal/corpus/facade 暴露。
+// Package entity —— value objects/entities + domain errors for the corpus domain (each
+// genre's aggregate: Raw/Wiki/Writing/Output/Asset + Document/Visibility/TreeNode …).
+// Exposed externally via internal/corpus/facade.
 package entity

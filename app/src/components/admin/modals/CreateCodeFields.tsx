@@ -1,6 +1,6 @@
-// CreateCodeFields —— CodeCreateModal 的字段块。A.3-IAM-5：code 只挂
-// assumed_role_id；老 permissions / skills / agent-skills picker 全删，
-// ACL / capability gating 全部从 role 推断。
+// CreateCodeFields — the field block for CodeCreateModal. A.3-IAM-5: a code only
+// carries assumed_role_id; the old permissions / skills / agent-skills pickers are
+// all removed — ACL / capability gating is entirely derived from the role.
 
 import { useTranslations } from 'next-intl';
 
@@ -123,10 +123,12 @@ function QuotasField({ form }: Props) {
   );
 }
 
-// QuotaInput —— 三个配额格并排。**条件写在 hint 里,不写在占位符里**(UX-88):
-// 占位符是**例子**,不是说明 —— 它一打字就没,而且这一格只有约 220px 宽,
-// `e.g. 3 (role must have calendar.book skill)` 在屏幕上被切成 `e.g. 3 (role must have cal`,
-// **切掉的正是那个条件本身**。同一个形状 UX-49 在 role 的触发词那格出现过一次。
+// QuotaInput — three quota fields side by side. **The condition goes in the hint,
+// not the placeholder** (UX-88): a placeholder is an **example**, not an explanation —
+// it disappears the moment you type, and this field is only ~220px wide, so
+// `e.g. 3 (role must have calendar.book skill)` gets clipped on screen to
+// `e.g. 3 (role must have cal`, **cutting off exactly the condition itself**.
+// The same shape (UX-49) showed up once before in the role's trigger-word field.
 function QuotaInput({
   label, testid, placeholder, hint, value, onChange,
 }: {

@@ -20,7 +20,7 @@ import "context"
 // Driver —— the environment a visitor-agent launch runs against. Methods are the
 // external effects + data that vary by environment (persona/corpus, skill execution,
 // owner-registered ext-mcp, LLM cred). The bridge wires each onto the real capability
-// assembly; the agent never sees who's behind it (P.12 入口无关).
+// assembly; the agent never sees who's behind it (P.12 entry-point-agnostic).
 type Driver interface {
 	// Persona —— the owner voice (RoleBody → composed prompt) + curated corpus the
 	// visitor is grounded in (→ granted CorpusURIs on the role snapshot / ACL).
@@ -51,9 +51,12 @@ type Driver interface {
 
 // Persona —— owner voice + grounding corpus, plain data.
 //
-// OwnerName —— **谁**在说话。它跟语料**没有关系**，所以单独在这儿(UX-66)：以前身份只能靠
-// 检索碰巧捞到一条介绍自己的笔记；公开切片收窄之后那条不在里面，于是这个 AI 会对着陌生人说
-// 它不认识 owner。"用 owner 的声音回答"是个承诺，承诺得有机制兑现，不能靠副作用。
+// OwnerName — **who** is speaking. It has **no relation** to the corpus, so it
+// lives here on its own (UX-66): identity used to depend on retrieval happening
+// to surface a self-introduction note; once the public slice narrowed, that note
+// fell out of it, and the AI would tell a stranger it didn't know the owner.
+// "Answer in the owner's voice" is a promise, and a promise needs a mechanism
+// to keep it — it can't ride on a side effect.
 type Persona struct {
 	OwnerName string
 	RoleBody  string

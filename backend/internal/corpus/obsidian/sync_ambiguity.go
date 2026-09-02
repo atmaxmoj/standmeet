@@ -1,16 +1,24 @@
-// sync_ambiguity.go —— 「这个标题指得准吗」。
+// sync_ambiguity.go — "does this title point at exactly one thing?"
 //
-// reconcile 默认按 title 跨 genre 认领,那正是 move 得以**就地**发生的原因(wiki/x.md 改到
-// subjectivity/x.md,同一行改 genre,而不是删一条建一条)。代价是:标题一旦不唯一,按 title 认
-// 就是抓阄 —— `GetNoteByTitleAnyGenre` 拿的是最老的那条。
+// reconcile claims by title across genres by default, which is exactly what lets
+// move happen IN PLACE (wiki/x.md moving to subjectivity/x.md changes genre on the
+// same row, instead of deleting one row and creating another). The cost: once a
+// title isn't unique, claiming by title is a lottery — `GetNoteByTitleAnyGenre`
+// grabs the oldest match.
 //
-// 判据在**语料**,不在这一批上传(F-L-61)。这里以前只数上传树里的碰撞:整份传的时候两条同名
-// 文件都在,数得出来;而 owner 只传其中一条时,这一批里那个标题唯一,于是按 title 认领 ——
-// 认到了另一个 genre 里那条同名的、这次根本没上传的笔记,把它 UPDATE 成了本次上传的 genre。
-// prod 上量到的代价:一次两文件的子集上传,`raw 482→479 · wiki 575→578`,回执还说 deleted 0。
-// genre 就是访客 ACL 授权的边界,raw 是私料 —— 一次部分喂入把三条私料搬到了已发布那一侧。
+// The criterion lives in the CORPUS, not in this upload batch (F-L-61). This used
+// to only count collisions within the upload tree: when the whole vault is
+// uploaded, both same-name files are present and the collision is countable; but
+// when the owner uploads just one of them, that title is unique within this batch,
+// so claiming by title matches the same-name note sitting in a different genre —
+// one never uploaded this time — and UPDATES it into this upload's genre. Cost
+// measured in prod: a two-file subset upload turned into `raw 482→479 · wiki
+// 575→578`, with the receipt still saying deleted 0. genre is the boundary visitor
+// ACL authorizes on, and raw is private material — one partial feed moved three
+// private notes to the published side.
 //
-// 上传树里的碰撞仍要数:两条同名的新文件同一批进来时,语料里还没有它们(F-L-2)。
+// Collisions within the upload tree still must be counted: when two new same-name
+// files arrive in the same batch, the corpus doesn't have either of them yet (F-L-2).
 
 package obsidian
 
@@ -20,8 +28,9 @@ import (
 	"strings"
 )
 
-// ambiguousTitles —— 这次 reconcile 里「不能按 title 认领」的标题集合(小写)。
-// 语料里已经重名的 ∪ 这批上传里自己撞名的。
+// ambiguousTitles — the set of titles (lowercased) that "can't be claimed by title"
+// for this reconcile. Titles already duplicated in the corpus ∪ titles colliding
+// within this upload batch.
 func ambiguousTitles(
 	ctx context.Context, deps *SyncDeps, ownerID string, tree []*desiredNode,
 ) (map[string]bool, error) {

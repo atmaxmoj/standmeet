@@ -1,6 +1,7 @@
-// invoke_test.go —— reach-back verb 派发器 UT。证明「字符串 category+verb → 按名解析 active
-// 连接器 → 调 typed 方法 → 回 JSON」这条唯一消费路成立;未知 category/verb → 错(词表封闭)。
-// 复用 slots_test.go 的 fakeCalConnector / fakeSlotStore。
+// invoke_test.go — unit tests for the reach-back verb dispatcher. Proves the one consumption
+// path holds: "string category+verb → resolve the active connector by name → call the typed
+// method → return JSON"; unknown category/verb → error (closed vocabulary). Reuses
+// fakeCalConnector / fakeSlotStore from slots_test.go.
 
 package connector_test
 

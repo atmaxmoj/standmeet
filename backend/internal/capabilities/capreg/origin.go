@@ -1,23 +1,28 @@
-// origin.go —— Phase H / P.5：每个注册的 capability 带一个 Origin（来源），
-// 管理面据此分组（OriginOf）+ 决定可删性。Origin 在 Register 时定（默认
-// builtin）；插件发现的走 managed，owner 自己 author 的走 owner。
+// origin.go — Phase H / P.5: every registered capability carries an Origin,
+// which the admin surface groups by (OriginOf) + uses to decide deletability.
+// Origin is set at Register time (default builtin); plugin-discovered
+// capabilities get managed, owner-authored ones get owner.
 
 package capreg
 
-// Origin —— capability 的来源。决定管理面徽章 + 删除入口（P.6：存在性由
-// Origin 控；只有 owner-origin 可删）。
+// Origin — where a capability comes from. Determines the admin surface's
+// badge + delete entry point (P.6: existence is controlled by Origin; only
+// owner-origin can be deleted).
 type Origin string
 
 const (
-	// OriginBuiltin —— 随产品发的内建能力（corpus.retrieval / calendar.book …）。
-	// 可关不可删（P.7）。
+	// OriginBuiltin — a built-in capability shipped with the product
+	// (corpus.retrieval / calendar.book …). Can be turned off but not deleted
+	// (P.7).
 	OriginBuiltin Origin = "builtin"
-	// OriginManaged —— 平台托管的集成/连接器类型（Google Calendar / SMTP）。
-	// 可关不可删；删 = 断开连接，不是删能力。
+	// OriginManaged — a platform-managed integration/connector type (Google
+	// Calendar / SMTP). Can be turned off but not deleted; deleting means
+	// disconnecting, not removing the capability.
 	OriginManaged Origin = "managed"
-	// OriginOwner —— owner 自己 author 的（skill / 注册的 MCP server）。可删。
+	// OriginOwner — authored by the owner themselves (a skill / a registered
+	// MCP server). Can be deleted.
 	OriginOwner Origin = "owner"
 )
 
-// Deletable —— 仅 owner-origin 可删（P.6）。
+// Deletable — only owner-origin can be deleted (P.6).
 func (o Origin) Deletable() bool { return o == OriginOwner }

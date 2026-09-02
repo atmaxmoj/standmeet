@@ -1,26 +1,29 @@
-// consumer_agnostic_test.go —— 守卫：connector 是**消费者无关、双向**的底座。
+// consumer_agnostic_test.go — guard: connector is a **consumer-agnostic, bidirectional** base.
 //
-// 动机（详见 hub.go）：把连接器拉到一个**完全非 MCP** 的消费路径 + **双向**（read+write），
-// 锁死两件事，任何后续改动都不许破：
+// Motivation (see hub.go for detail): pull the connector layer down to a **fully non-MCP**
+// consumption path + **bidirectional** (read+write), locking down two things no later change may
+// break:
 //
-//  1. 一个**不 import capreg（MCP 包）**的消费者 —— 这里的 fakeGateway，代表将来的 IM
-//     Gateway / 任务编排 —— 也能按名解析连接器、双向用它。本测试文件的 import 列表里**没有
-//     capreg**，这就是编译期的证明：连接器跟 MCP 完全解耦。
+//  1. A consumer that **does not import capreg (the MCP package)** — here, fakeGateway, standing
+//     in for a future IM Gateway / task orchestrator — can still resolve a connector by name and
+//     use it both ways. This test file's import list has **no capreg**, which is the
+//     compile-time proof that the connector layer is fully decoupled from MCP.
 //
-//  2. 凭据从不出连接器：Gateway / agent 侧拿到的是句柄（Connector + 能力接口），read 和
-//     write 都不漏 token / secret —— 句柄面上根本没有掏凭据的方法。
+//  2. Credentials never leave the connector: what the Gateway / agent side gets is a handle
+//     (Connector + capability interface), and neither read nor write leaks a token / secret —
+//     the handle's surface has no method that extracts credentials at all.
 //
-// 场景（owner 在 IM 被 @ → Gateway 唤起 agent → agent 用连接器凭据消费 channel 记录，
-// 再用同一凭据发回）：
+// Scenario (owner is @-mentioned in an IM → Gateway wakes the agent → agent consumes channel
+// history using the connector's credentials, then replies with the same credentials):
 //
-//	IM Gateway ──唤起──> agent
-//	                      │ ① ReadChannel：用连接器凭据消费 channel 历史（进上下文）
-//	                      │ ② Send：用同一凭据把回复发回 channel
+//	IM Gateway ──wakes──> agent
+//	                      │ ① ReadChannel: consume channel history via connector creds
+//	                      │ ② Send: reply to the channel via the same creds
 //	                      ▼
-//	                 discord 连接器（持 bot token，双向，凭据只在内部）
+//	                 discord connector (holds the bot token, bidirectional, creds stay internal)
 //
-// 一个底座、多个消费者：capreg 的 enabledCaps gate 是「MCP 那个消费者」，本测试是「IM
-// Gateway 那个消费者」，将来共用同一个 Hub。
+// One base, multiple consumers: capreg's enabledCaps gate is "the MCP consumer"; this test is
+// "the IM Gateway consumer" — both will share the same Hub eventually.
 
 package connector_test
 
@@ -41,8 +44,9 @@ var (
 	errNotMessenger = errors.New("gateway: discord connector is not a messenger")
 )
 
-// fakeDiscord —— 一个**双向** IM 连接器：持 bot token（凭据只活在连接器内部），能 read
-// channel 历史 + send 消息。对外（句柄面）**没有任何掏 token 的方法**。
+// fakeDiscord — a **bidirectional** IM connector: holds a bot token (creds live only inside the
+// connector), can read channel history + send messages. Externally (on the handle surface) it
+// **has no method that extracts the token**.
 type fakeDiscord struct {
 	history  map[string][]string
 	sent     map[string][]string
@@ -56,28 +60,31 @@ func (d *fakeDiscord) Connected(_ context.Context, _ string) (bool, error) {
 	return d.botToken != "", nil
 }
 
-// ReadChannel —— 用 botToken 调 IM API 拉 channel 历史（此处省略真调用）。
+// ReadChannel — call the IM API with botToken to pull channel history (the real call is omitted
+// here).
 func (d *fakeDiscord) ReadChannel(_ context.Context, _, channel string) ([]string, error) {
-	_ = d.botToken // 凭据在内部使用
+	_ = d.botToken // credential used internally
 	return d.history[channel], nil
 }
 
-// Send —— 用 botToken 把消息发回 channel。
+// Send — use botToken to send a message back to the channel.
 func (d *fakeDiscord) Send(_ context.Context, _, channel, msg string) error {
 	_ = d.botToken
 	d.sent[channel] = append(d.sent[channel], msg)
 	return nil
 }
 
-// messenger —— 消费者眼里 IM 连接器的能力接口（read + write）。消费者按名解析到
-// connector.Connector 后，类型断言到它。**接口里没有任何凭据 getter**。
+// messenger — the capability interface (read + write) an IM connector presents to a consumer.
+// A consumer resolves a connector.Connector by name, then type-asserts it to this. **The
+// interface has no credential getter at all**.
 type messenger interface {
 	ReadChannel(ctx context.Context, ownerID, channel string) ([]string, error)
 	Send(ctx context.Context, ownerID, channel, msg string) error
 }
 
-// fakeGateway —— 代表将来的 IM Gateway / 任务编排：owner 在 IM 被 @ 唤起 → 用连接器凭据
-// 消费 channel 记录进上下文 →（agent 处理）→ 用同一凭据发回复（全程不碰 MCP / capreg）。
+// fakeGateway — stands in for a future IM Gateway / task orchestrator: owner is @-mentioned in
+// an IM, waking it up → consumes channel history into context via connector creds → (agent
+// processes it) → replies using the same creds (never touches MCP / capreg throughout).
 type fakeGateway struct{ hub *connector.Hub }
 
 func (g *fakeGateway) handleMention(
@@ -91,11 +98,11 @@ func (g *fakeGateway) handleMention(
 	if !ok {
 		return nil, errNotMessenger
 	}
-	history, err := im.ReadChannel(ctx, owner, channel) // ① 用凭据消费 channel 记录
+	history, err := im.ReadChannel(ctx, owner, channel) // ① consume channel history via creds
 	if err != nil {
 		return nil, fmt.Errorf("gateway read: %w", err)
 	}
-	if serr := im.Send(ctx, owner, channel, agentReply); serr != nil { // ② 用同一凭据发回去
+	if serr := im.Send(ctx, owner, channel, agentReply); serr != nil { // ② send back via same creds
 		return nil, fmt.Errorf("gateway send: %w", serr)
 	}
 	return history, nil
@@ -117,14 +124,15 @@ func TestConnector_ConsumerAgnostic_BidirectionalGateway(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// 双向都通：read 拿到了 channel 历史（进 agent 上下文）……
+	// Both directions work: read got the channel history (into agent context)…
 	require.Equal(t, []string{"hi", "anyone around?"}, history,
 		"agent read channel history via the connector creds")
-	// ……send 把回复发了出去。
+	// …and send sent the reply out.
 	require.Equal(t, []string{"hello from the agent"}, disc.sent["#general"],
 		"agent sent the reply back via the same creds")
 
-	// 凭据不泄漏：Gateway 拿到的句柄（messenger 接口）面上没有任何掏 token 的方法。
+	// No credential leak: the handle the Gateway got (the messenger interface) exposes no
+	// method that extracts the token.
 	assertHandleHasNoCredGetter(t, reflect.TypeFor[messenger]())
 	assertHandleHasNoCredGetter(t, reflect.TypeFor[connector.Connector]())
 }

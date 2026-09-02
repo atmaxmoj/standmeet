@@ -1,9 +1,11 @@
 import { z } from 'zod';
-// use-public-url —— owner 改部署的 canonical public URL。
-// PATCH /api/admin/public-url；backend 同款校验 + normalize（去末尾斜杠）。
+// use-public-url —— owner changes the deployment's canonical public URL.
+// PATCH /api/admin/public-url; the backend runs the matching validation +
+// normalize (strips trailing slash).
 //
-// 合法 public URL：以 http:// 或 https:// 开头，host 非空。详细校验放
-// backend；前端只挡明显错的（空 / 无 scheme），减少往返。
+// A valid public URL: starts with http:// or https://, host non-empty.
+// Detailed validation lives on the backend; the frontend only blocks the
+// obviously wrong (empty / no scheme) to cut down on round trips.
 
 import { useCallback, useState } from 'react';
 
@@ -69,8 +71,9 @@ export function canSavePublicURL(
   return isValidPublicURL(sanitized);
 }
 
-// commitPublicURL —— PATCH 调用 + 成功 callback；PublicURLEditor 直接调。
-// onSuccess 让组件挂 toast（lib 不直接依赖 toast，避免循环 import）。
+// commitPublicURL —— the PATCH call + success callback; called directly by
+// PublicURLEditor. onSuccess lets the component hang a toast off it (lib
+// doesn't depend on toast directly, to avoid a circular import).
 export async function commitPublicURL(
   sanitized: string,
   hook: PublicURLHook,

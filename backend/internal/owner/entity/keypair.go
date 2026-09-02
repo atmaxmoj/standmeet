@@ -1,8 +1,9 @@
-// keypair.go —— Phase C: Owner Ed25519 keypair domain value。私钥永远不
-// 入 domain (owner 自己保管 PEM)；本结构只承载 owner 看得到的 metadata +
-// backend 验签需要的公钥 PEM。
+// keypair.go —— Phase C: Owner Ed25519 keypair domain value. The private key
+// never enters the domain (owner keeps the PEM); this struct only carries
+// the metadata the owner can see + the public key PEM the backend needs to
+// verify signatures.
 //
-// 撤销 = hard delete (无 status 字段)。对齐 youteacher 极简风格。
+// Revoke = hard delete (no status field). Matches youteacher's minimalist style.
 
 package entity
 
@@ -11,11 +12,12 @@ import (
 	"time"
 )
 
-// ErrKeypairUnauthorized —— 通用 sigv1 验失败 (key 不存在 / sig 不通 /
-// ts 超窗口 / header 形态错)。caller 翻 HTTP 401。
+// ErrKeypairUnauthorized —— generic sigv1 verification failure (key not
+// found / bad signature / timestamp outside window / malformed header).
+// Caller translates to HTTP 401.
 var ErrKeypairUnauthorized = errors.New("keypair: unauthorized")
 
-// Keypair —— DB 一行。PublicKeyPEM 用 PKCS8 Ed25519 编码。
+// Keypair —— one DB row. PublicKeyPEM is PKCS8 Ed25519 encoded.
 type Keypair struct {
 	LastUsedAt   *time.Time
 	CreatedAt    time.Time
@@ -26,8 +28,10 @@ type Keypair struct {
 	Label        string
 }
 
-// KeypairMetadata —— admin list 用：去掉 PEM + ownerID，只剩 owner UI
-// 关心的字段。永远不返公钥 (owner 已下载 PEM 自己保管，不需要看 server side)。
+// KeypairMetadata —— for the admin list: drops PEM + ownerID, keeps only
+// the fields the owner UI cares about. Never returns the public key (owner
+// already downloaded the PEM and keeps it themselves; no need to see the
+// server-side copy).
 type KeypairMetadata struct {
 	LastUsedAt *time.Time
 	CreatedAt  time.Time

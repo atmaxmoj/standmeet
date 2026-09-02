@@ -12,7 +12,7 @@
 // `/forms/chromium/convert/url` with `url=<printURL>` + a few fixed page
 // options (US Letter, no margins, wait until `networkidle`).
 //
-// PDF永远 ephemeral —— the bytes flow straight back through MCP to
+// The PDF is always ephemeral —— the bytes flow straight back through MCP to
 // Claude; we do not write them to disk.
 package gotenberg
 
@@ -34,8 +34,8 @@ import (
 // rip-out commit even while task 11 is still on the bench.
 var ErrNotConfigured = errors.New("gotenberg renderer not configured")
 
-// Renderer —— matches jobsuc.PDFRenderer (J.2 起 PDFRenderer 接口随
-// applications usecase 搬到 plugins/jobs/jobsuc/)。Defined here too so the
+// Renderer —— matches jobsuc.PDFRenderer (as of J.2, the PDFRenderer interface
+// moved with the applications usecase to plugins/jobs/jobsuc/). Defined here too so the
 // gotenberg package can be referenced standalone in tests / fakes
 // without dragging in the jobsuc package.
 type Renderer interface {
@@ -66,7 +66,7 @@ const (
 	gotenbergTimeout = 60 * time.Second
 	paperWidthIn     = "8.5"
 	paperHeightIn    = "11"
-	// printScale —— Chromium默认 1 CSS px = 0.75 PDF pt (96dpi → 72dpi).
+	// printScale —— Chromium's default is 1 CSS px = 0.75 PDF pt (96dpi → 72dpi).
 	// Our ResumePage uses px so values match the design admin.js literal
 	// (612 px page width = the PDF point grid). scale=1.333 makes the
 	// viewport 612 CSS px wide instead of 816, so the 612px element fills

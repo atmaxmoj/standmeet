@@ -1,5 +1,6 @@
-// Contact —— "how to talk to me"。chat_line + "jump to chat ↑"（让 visitor
-// 跳回 Hero AskInput），email mailto，recruiter / casual prose 各一段。
+// Contact —— "how to talk to me". chat_line + "jump to chat ↑" (lets the visitor
+// jump back to the Hero AskInput), email mailto, one paragraph each for
+// recruiter / casual prose.
 
 'use client';
 
@@ -14,10 +15,14 @@ type Props = {
   onFocusChat: () => void;
 };
 
-// UX-44 的后半句提过「这一区只剩一句指路时就别渲染了」—— **不要那么做**。
-// `public-page.spec.ts:80` 断言这一区在只有 chat_line 时仍然在，旁边写着理由：
-// 那句话指向的聊天框是真实存在的，所以它不是空指路。这个决定已经做过并且被测试钉住了；
-// 改它不属于设计列（会改掉一条现有断言），要改得先推翻那个产品决定。
+// The second half of UX-44 suggests "don't render this section when all it
+// has left is one line pointing elsewhere" — **do not do that here**.
+// `public-page.spec.ts:80` asserts this section still renders with only
+// chat_line present, with the rationale written alongside: the chat box that
+// line points to genuinely exists, so it isn't an empty pointer. This
+// decision has already been made and is pinned by a test; changing it isn't
+// a design-column change (it would break an existing assertion) — changing
+// it requires first overturning that product decision.
 export function Contact({ contact, onFocusChat }: Props) {
   return (
     <section className="mt-24">
@@ -48,8 +53,10 @@ function ChatLine({ line, onFocusChat }: { line: string; onFocusChat: () => void
   );
 }
 
-// DirectLine —— email 没配就整行不渲："Or directly:" 空挂着 + 空 mailto 是
-// 未配置实例给 visitor 看的空壳（F-A-21 同类）。
+// DirectLine —— when email isn't configured, the whole line stays unrendered:
+// an "Or directly:" hanging with nothing after it plus an empty mailto is an
+// empty shell shown to visitors of an unconfigured instance (same class as
+// F-A-21).
 function DirectLine({ email }: { email: string }) {
   const t = useTranslations('page');
   return email === '' ? null : (
@@ -65,7 +72,7 @@ function DirectLine({ email }: { email: string }) {
   );
 }
 
-// MutedProse —— 同上：空段落不渲。
+// MutedProse —— same as above: an empty paragraph stays unrendered.
 function MutedProse({ text }: { text: string }) {
   return text === '' ? null : <p className="text-(--color-muted)">{text}</p>;
 }

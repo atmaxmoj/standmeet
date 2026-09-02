@@ -1,7 +1,9 @@
-// use-connector-list —— owner 已配的连接器列表（上传 openapi + 协议）。GET /api/admin/connectors
-// → 行（按 connector_id）。create（上传 spec+binding 原文）/ remove(id) / refresh。origin 由 id
-// 前缀判定（CreateUploaded/CreateProtocol 都用 "up-" → uploaded；否则内置）。catalog 预览那张
-// （use-connectors 的 SEED）是另一回事，不动。
+// use-connector-list —— the list of connectors the owner has configured
+// (uploaded openapi + protocol). GET /api/admin/connectors → rows (keyed by
+// connector_id). create (uploads the spec+binding text) / remove(id) /
+// refresh. origin is decided by the id prefix (CreateUploaded/CreateProtocol
+// both use "up-" → uploaded; otherwise built-in). The catalog preview card
+// (use-connectors's SEED) is a separate thing, left untouched.
 
 import { useCallback } from 'react';
 import { z } from 'zod';
@@ -13,8 +15,9 @@ const ConnectorRowSchema = z.object({
   id: z.string(),
   category: z.string(),
   kind: z.string(),
-  // title —— 厂商自己给这份 API 起的名字。绑了品类契约的连接器不需要它（名字就是品类），
-  // 没绑的 category 是空串 —— 这是它唯一的名字（F-C-56）。
+  // title —— the name the vendor gave this API themselves. A connector bound
+  // to a category contract doesn't need it (the name is just the category);
+  // for one that isn't bound, category is an empty string — this is its only name (F-C-56).
   title: z.string().nullish(),
   connected: z.boolean(),
   has_credentials: z.boolean().nullish(),
@@ -25,22 +28,27 @@ const CreatedSchema = z.object({ id: z.string() });
 
 export type ConnectorRow = z.infer<typeof ConnectorRowSchema>;
 
-// UploadInput —— 装配一个 openapi 连接器要送的东西。
+// UploadInput —— what's sent to assemble one openapi connector.
 //
-// baseUrl —— spec 没写 servers 时 owner 手填的（F-C-22）。authScheme —— spec 没声明认证时
-// owner 选的 manual 方案；不带它的话，后端派生凭据表单时在三个候选里挑不出唯一一个，
-// 连接器建出来却填不了凭据。
+// baseUrl —— filled in by hand by the owner when the spec has no servers
+// entry (F-C-22). authScheme —— the manual scheme the owner picks when the
+// spec declares no auth; without it, the backend deriving the credentials
+// form can't pick a unique one among three candidates, and the connector gets created with no way to fill in credentials.
 export interface UploadInput {
   specText: string;
-  // specUrl —— spec 从 URL 抓来时的来源；面板手上没有正文，由后端按它再抓一次（F-C-25）。
+  // specUrl —— the source when the spec was fetched from a URL; the panel
+  // has no body on hand, and the backend refetches by this (F-C-25).
   specUrl?: string;
   bindingText: string;
   baseUrl?: string;
   authScheme?: string;
-  // exposeAsAgentTools —— owner **明确勾选**「把这份 spec 的接口开给访客的 AI」。
-  // 设计源写明这条路是 opt-in（`docs/design/connector.md` §3）：它把厂商文档里的**每一个**
-  // operation 变成访客 AI 能调的工具（Cal.com v2 是 211 条），是一次对外授权，不是排版选项。
-  // 一度我按「没写 binding 就自动打开」来推断 owner 的意思 —— 那是替 owner 点头。
+  // exposeAsAgentTools —— the owner **explicitly checked** "expose this
+  // spec's endpoints to the visitor's AI". The design source states this
+  // path is opt-in (`docs/design/connector.md` §3): it turns **every**
+  // operation in the vendor's docs into a tool the visitor AI can call
+  // (Cal.com v2 has 211), which is a grant of external access, not a
+  // formatting option. At one point I inferred the owner's intent as "auto-on
+  // when binding isn't written" — that was nodding on the owner's behalf.
   exposeAsAgentTools?: boolean;
 }
 
@@ -53,7 +61,7 @@ export interface ConnectorListHook {
   remove: (id: string) => Promise<void>;
 }
 
-// originOf —— owner 自建（上传/协议）连接器 id 以 "up-" 起头；其余是内置。
+// originOf —— an owner-created (uploaded/protocol) connector's id starts with "up-"; everything else is built-in.
 export function originOf(row: ConnectorRow): 'uploaded' | 'built-in' {
   return row.id.startsWith('up-') ? 'uploaded' : 'built-in';
 }
@@ -63,10 +71,11 @@ export function useConnectorList(): ConnectorListHook {
     items: connectors, loaded, loadError, refresh,
   } = useLatestList<ConnectorRow>('/connectors', ListSchema);
 
-  // create —— 建一个 openapi 连接器,**返回它的 id**。以前这里是 postVoid,把回执扔了 ——
-  // 于是「建完之后把 owner 填的 token 存进这个连接器」根本无从下手(同 [[write-with-no-receipt]])。
+  // create —— creates an openapi connector, **returns its id**. This used to
+  // be postVoid, discarding the receipt — leaving "store the token the owner
+  // typed into this connector after it's created" with no way to proceed (same as [[write-with-no-receipt]]).
   //
-  // expose_as_agent_tools 原样透传 owner 的勾选,**不从 binding 空不空去推断**。
+  // expose_as_agent_tools is passed through exactly as the owner checked it, **never inferred from whether binding is empty**.
   const create = useCallback(async (input: UploadInput): Promise<string> => {
     const r = await adminAPI.post('/connectors', {
       kind: 'openapi',

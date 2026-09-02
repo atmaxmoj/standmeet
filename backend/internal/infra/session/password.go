@@ -1,8 +1,10 @@
-// Argon2id 密码 hash + verify。
+// Argon2id password hashing + verification.
 //
-// 参数选择对齐设计稿 E.2 推荐：time=3, memory=64 MB, threads=4, keyLen=32。
-// 输出格式：$argon2id$v=19$m=65536,t=3,p=4$<base64-salt>$<base64-hash>
-// 这是 standard "PHC" string format，passlib / argon2-cffi 等也认这个。
+// Parameters follow the design doc's E.2 recommendation: time=3,
+// memory=64 MB, threads=4, keyLen=32.
+// Output format: $argon2id$v=19$m=65536,t=3,p=4$<base64-salt>$<base64-hash>
+// This is the standard "PHC" string format, also recognized by
+// passlib / argon2-cffi and similar libraries.
 
 package session
 
@@ -28,13 +30,14 @@ const (
 	phcFieldCount = 6
 )
 
-// ErrPasswordMismatch —— password 不对（不区分用户存在与否，留给 caller 翻译）。
+// ErrPasswordMismatch —— wrong password (doesn't distinguish "user exists
+// or not"; that distinction is left to the caller to translate).
 var (
 	ErrPasswordMismatch = errors.New("password mismatch")
 	errMalformedPHC     = errors.New("verify password: malformed phc string")
 )
 
-// HashPassword 用 Argon2id hash + 随机 salt，返回 PHC 字符串。
+// HashPassword hashes with Argon2id + a random salt, returning a PHC string.
 func HashPassword(plaintext string) (string, error) {
 	salt := make([]byte, argonSaltLen)
 	if _, err := rand.Read(salt); err != nil {
@@ -51,8 +54,9 @@ func HashPassword(plaintext string) (string, error) {
 	return encoded, nil
 }
 
-// VerifyPassword 用 constant-time compare 校验明文密码与 PHC 字符串。
-// 错误时返回 ErrPasswordMismatch（或解析失败的 wrap）。
+// VerifyPassword checks a plaintext password against a PHC string using a
+// constant-time compare. Returns ErrPasswordMismatch on mismatch (or a
+// wrapped parse error).
 func VerifyPassword(plaintext, encoded string) error {
 	parts := strings.Split(encoded, "$")
 	params, err := parsePHC(parts)
@@ -79,8 +83,9 @@ type phcParams struct {
 	threads uint8
 }
 
-// parsePHC 把 split 后的 6 段拆成结构化 params。拆成三个 sub-helper 让
-// 每个函数 cyclo ≤ 4（cyclop 全局上限 5）。
+// parsePHC splits the 6 fields into structured params. Split into three
+// sub-helpers so each function stays at cyclo <= 4 (cyclop's global cap
+// is 5).
 func parsePHC(parts []string) (phcParams, error) {
 	if err := validatePHCFrame(parts); err != nil {
 		return phcParams{}, err
@@ -98,8 +103,9 @@ func parsePHC(parts []string) (phcParams, error) {
 	return p, nil
 }
 
-// phcBytes 把 decodePHCBase64 的两个 []byte 返回打包成单个结构，
-// 同时满足 confusing-results 和 nonamedreturns 两个 revive rule。
+// phcBytes bundles decodePHCBase64's two []byte returns into a single
+// struct, satisfying both the confusing-results and nonamedreturns
+// revive rules at once.
 type phcBytes struct {
 	salt []byte
 	want []byte

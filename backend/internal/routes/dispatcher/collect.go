@@ -1,9 +1,12 @@
-// collect.go —— 收口做的全部事情:import 各域的 facade,把它们声明的操作汇成资源。
+// collect.go -- everything the convergence point does: import each domain's facade,
+// gather what they declare into resources.
 //
-// 这个文件是"这台实例对外能做的每一件事"的目录页 —— 一个域一行。它不认识任何域的
-// 内部结构,只认识各域的正门;操作长什么样、怎么做,是域自己说的。
+// This file is the table of contents for "everything this instance can do outward" --
+// one line per domain. It knows nothing of any domain's internal structure, only each
+// domain's front door; what an operation looks like and how it works is up to the domain.
 //
-// Deps 由组装根填(它知道哪些 repo 在跑)。收口不构造任何东西。
+// Deps is filled by the composition root (it knows which repos are running). The
+// convergence point constructs nothing.
 
 package dispatcher
 
@@ -17,7 +20,8 @@ import (
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
-// Deps —— 各域对外声明操作时需要的依赖包,由组装根填。
+// Deps -- the dependency bundle each domain needs to declare its outward operations,
+// filled by the composition root.
 type Deps struct {
 	AccessRequests owner.OpsAccessRequests
 	Codes          access.OpsCodes
@@ -44,7 +48,8 @@ type Deps struct {
 	Settings       owner.SettingsDeps
 }
 
-// Collect —— 把各域声明的操作汇成资源清单。一个资源一行。
+// Collect -- gathers each domain's declared operations into the resource list. One
+// resource per line.
 func Collect(d *Deps) []Resource {
 	return []Resource{
 		{Name: "subjectivity", Ops: corpus.SubjectivityOps(d.Corpus)},
@@ -62,7 +67,8 @@ func Collect(d *Deps) []Resource {
 		{Name: "account", Ops: owner.AccountOps(d.Account)},
 		{Name: "custom_pages", Ops: owner.CustomPageOps(d.CustomPages)},
 		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},
-		// 升级那两个口也姓 instance —— 同一个资源,两组声明。
+		// The two upgrade endpoints belong to instance too -- one resource, two
+		// declaration groups.
 		{Name: "instance", Ops: append(
 			stats.InstanceOps(d.Instance), stats.UpgradeOps(d.Upgrade)...)},
 		{Name: "mcp_servers", Ops: marketplace.MCPServerOps(d.MCPServers)},

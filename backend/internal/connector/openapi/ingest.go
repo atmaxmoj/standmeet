@@ -1,7 +1,9 @@
-// ingest.go —— #155 区 A：spec 摄入校验。owner 在 admin UI 贴/传一份 OpenAPI spec，这里给出
-// 人类可读的接受/拒绝判定（再走绑定/装配）。复用 ParseSpec（同一个 3.0/3.1 parser，JSON+YAML），
-// 叠加摄入特有的闸：尺寸上限、servers 必填、每个 operation 要有唯一 operationId、$ref 不得外部。
-// 错误文案直接给 owner 看（不漏栈），故用普通 error 文本而非 sentinel。
+// ingest.go — #155 area A: spec ingest validation. The owner pastes/uploads an OpenAPI spec
+// in the admin UI; this gives a human-readable accept/reject verdict (before it goes on to
+// binding/assembly). Reuses ParseSpec (the same 3.0/3.1 parser, JSON+YAML), layering on
+// ingest-specific gates: a size cap, servers required, every operation needs a unique
+// operationId, no external $ref. Error text goes straight to the owner (no stack leaks), so
+// it uses plain error text rather than sentinels.
 
 package openapi
 
@@ -17,23 +19,30 @@ import (
 	yaml "go.yaml.in/yaml/v3"
 )
 
-// defaultMaxSpecBytes —— 摄入 spec 的尺寸上限的默认值（防超大/失控 spec）。
+// defaultMaxSpecBytes — the default size cap for an ingested spec (guards against an
+// oversized/runaway spec).
 const defaultMaxSpecBytes = 2 << 20 // 2 MiB
 
-// MaxSpecBytes —— 这台实例实际收多大的 spec。**owner 配得动**（`CONNECTOR_SPEC_MAX_BYTES`）。
+// MaxSpecBytes — how large a spec this instance actually accepts. **The owner can configure
+// it** (`CONNECTOR_SPEC_MAX_BYTES`).
 //
-// 为什么它不能是常量：这一节的导语邀请 owner「upload your own OpenAPI connector」，而真世界里
-// 的厂商文档常常远超 2 MiB —— GitHub 自己发布的 `api.github.com.json` 是 **12 MB**，于是这个
-// 产品对它最常见的一个 API 直接说「装不了」，而 owner 没有任何旋钮可拧（F-C-53）。
-// 上限本身是对的（一份失控的文档不该拖垮实例），**「多大」是部署的事，不是编译期的事**。
-// **名字必须以字面量出现在 `os.Getenv("…")` 里**：`check-knobs-reachable` 就是这么找旋钮的。
-// 第一版写成 `envBytesOr("CONNECTOR_SPEC_MAX_BYTES", …)`（名字进了 helper 的参数），闸门当场
-// 看不见它 —— 而那道闸今早才刚从「只扫 config.go」放宽。**加固过的闸门被下一个新写法绕开**，
-// 所以取值的辅助函数只收**值**，不收 key。
+// Why it can't be a constant: this section's copy invites the owner to "upload your own
+// OpenAPI connector", and real-world vendor docs often run far past 2 MiB — GitHub's own
+// published `api.github.com.json` is **12 MB** — so this product would flatly say "can't
+// install it" for one of its most common APIs, with no knob for the owner to turn (F-C-53).
+// The cap itself is correct (a runaway document shouldn't be able to bring down the
+// instance); **"how large" is a deployment concern, not a compile-time one.**
+// **The name must appear as a literal in `os.Getenv("…")`**: `check-knobs-reachable` finds
+// knobs exactly that way. The first version wrote `envBytesOr("CONNECTOR_SPEC_MAX_BYTES", …)`
+// (the name went into the helper's parameter), and the gate went blind to it on the spot —
+// that gate had only just been widened that same morning from "scan only config.go". **A
+// hardened gate gets routed around by the next new way of writing it**, so the value-reading
+// helper takes only the **value**, never the key.
 var MaxSpecBytes = bytesOr(os.Getenv("CONNECTOR_SPEC_MAX_BYTES"), defaultMaxSpecBytes)
 
-// bytesOr —— 把一个字节数环境变量的值读成正整数；空/非法/非正 → 用默认值。
-// 非法值不静默吞：日志说一句再走默认（一个打错的旋钮不该把实例锁死在 0 上）。
+// bytesOr — reads a byte-count env var's value as a positive integer; empty/invalid/non-
+// positive → falls back to the default. An invalid value is never swallowed silently: it
+// logs once, then falls back (a typo'd knob shouldn't lock the instance at 0).
 func bytesOr(raw string, def int) int {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -48,7 +57,8 @@ func bytesOr(raw string, def int) int {
 	return n
 }
 
-// ValidateIngest —— 校验一份待摄入的 spec，OK → 返回候选标题（info.title）；否则 → 人类可读 error。
+// ValidateIngest — validates a spec pending ingest. OK → returns the candidate title
+// (info.title); otherwise → a human-readable error.
 func ValidateIngest(raw []byte) (string, error) {
 	if len(raw) > MaxSpecBytes {
 		return "", fmt.Errorf("spec is too large (over the %d MiB size limit)", MaxSpecBytes>>20)
@@ -63,10 +73,12 @@ func ValidateIngest(raw []byte) (string, error) {
 	return spec.Title(), nil
 }
 
-// SpecTitle —— 厂商自己给这份 API 起的名字（info.title）。读不出来 → 空串。
+// SpecTitle — the name the vendor gave this API themselves (info.title). Unreadable → empty
+// string.
 //
-// 这正是摄入那一刻显示在 `CONNECTOR CANDIDATE` 上的那个串。装配时再取一次存下来，
-// 列表就不必为了一个名字去重解析一份 12.9 MB 的文档（F-C-56）。
+// This is exactly the string shown on `CONNECTOR CANDIDATE` at the moment of ingest. It's
+// fetched again and stored at assembly time, so the list doesn't have to re-parse a 12.9 MB
+// document just to get a name (F-C-56).
 func SpecTitle(raw []byte) string {
 	spec, err := ParseSpec(raw)
 	if err != nil {
@@ -75,7 +87,8 @@ func SpecTitle(raw []byte) string {
 	return spec.Title()
 }
 
-// checkIngestSemantics —— parse 后的摄入语义闸：servers 必填、operationId 齐且唯一、$ref 不外部。
+// checkIngestSemantics — post-parse ingest semantic gates: servers required, operationId
+// present and unique, no external $ref.
 func checkIngestSemantics(spec *Spec, raw []byte) error {
 	if len(spec.ServerURLs()) == 0 {
 		return errors.New("the spec defines no servers (a base URL is required)")
@@ -86,8 +99,9 @@ func checkIngestSemantics(spec *Spec, raw []byte) error {
 	return checkNoExternalRefs(raw)
 }
 
-// ingestParseError —— 把 ParseSpec 的错映成摄入文案：版本不符 → 点出只收 3.0/3.1；空 paths → 点出
-// 无 operation；其余 → 无法解析。
+// ingestParseError — maps a ParseSpec error into ingest-facing copy: version mismatch →
+// points out only 3.0/3.1 is accepted; empty paths → points out there are no operations;
+// everything else → could not parse.
 func ingestParseError(err error) error {
 	msg := err.Error()
 	switch {
@@ -100,7 +114,8 @@ func ingestParseError(err error) error {
 	}
 }
 
-// checkOperationIDs —— 每个 operation 必须有 operationId 且全局唯一（绑定靠它唯一指向）。
+// checkOperationIDs — every operation must have an operationId and it must be globally
+// unique (a binding points to it uniquely).
 func checkOperationIDs(spec *Spec) error {
 	seen := map[string]struct{}{}
 	for _, methods := range spec.Paths {
@@ -124,11 +139,13 @@ func registerOpID(seen map[string]struct{}, id string) error {
 	return nil
 }
 
-// checkNoExternalRefs —— 走整份文档找 $ref，凡是不以 "#" 开头（外部文件/URL）→ 拒，无法解析。
+// checkNoExternalRefs — walks the whole document for $ref; any that doesn't start with "#"
+// (an external file/URL) → rejected, cannot parse.
 func checkNoExternalRefs(raw []byte) error {
 	var doc any
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
-		return fmt.Errorf("scan spec refs: %w", err) // 实际不会到（ParseSpec 已校过可解析性）
+		return fmt.Errorf("scan spec refs: %w", err) // unreachable in practice (ParseSpec
+		// already validated parseability)
 	}
 	if externalRefIn(doc) {
 		return errors.New("the spec has an external $ref that cannot be resolved " +
@@ -137,7 +154,7 @@ func checkNoExternalRefs(raw []byte) error {
 	return nil
 }
 
-// externalRefIn —— 递归找任意 "$ref" 值不以 "#" 开头。
+// externalRefIn — recursively finds any "$ref" value that doesn't start with "#".
 func externalRefIn(node any) bool {
 	switch v := node.(type) {
 	case map[string]any:
@@ -160,7 +177,8 @@ func externalRefInMap(m map[string]any) bool {
 	return false
 }
 
-// isExternalRef —— $ref 值是字符串且不以 "#"（同文档）开头 → 外部引用。
+// isExternalRef — the $ref value is a string and doesn't start with "#" (same document) →
+// external reference.
 func isExternalRef(val any) bool {
 	ref, ok := val.(string)
 	return ok && !strings.HasPrefix(ref, "#")

@@ -1,16 +1,17 @@
-// turnstile.go —— Cloudflare Turnstile siteverify 实现。
+// turnstile.go — Cloudflare Turnstile siteverify implementation.
 //
-// API 文档：https://developers.cloudflare.com/turnstile/get-started/server-side-validation/
-// 请求：POST https://challenges.cloudflare.com/turnstile/v0/siteverify
+// API docs: https://developers.cloudflare.com/turnstile/get-started/server-side-validation/
+// Request: POST https://challenges.cloudflare.com/turnstile/v0/siteverify
 //   body (application/x-www-form-urlencoded):
 //     secret   — server-side secret
-//     response — 前端 widget callback 得到的 token
-//     remoteip — 客户端 IP（可选，建议给）
-// 响应 JSON：
+//     response — token the frontend widget callback received
+//     remoteip — client IP (optional, recommended)
+// Response JSON:
 //   { success: bool, error-codes: [...], hostname, action, cdata }
 //
-// 失败 → 一律包成 ErrCaptchaFailed 抛回；handler 翻成 401。详细错误码写日志
-// 不外吐，避免给攻击者侧通道。
+// Any failure is wrapped as ErrCaptchaFailed and returned; the handler
+// translates it to 401. Detailed error codes go to the log only, never to
+// the client, to avoid handing an attacker a side channel.
 
 package captcha
 

@@ -1,6 +1,6 @@
-// /writings —— Stripe-Press 风文章索引页。SSR 拉首页；infinite scroll 后续
-// 页客户端补。交互 (tag filter / open article / scroll loader) 在 WritingsIndex
-// 里。
+// /writings — Stripe-Press-style article index page. SSR fetches the first
+// page; infinite scroll fills in later pages client-side. Interaction (tag
+// filter / open article / scroll loader) lives in WritingsIndex.
 
 import { fetchWritingsPage } from '@/lib/api/public';
 import { WritingsIndex } from '@/components/writings/WritingsIndex';
@@ -8,8 +8,9 @@ import { WritingTreeAside } from '@/components/writings/WritingTreeAside';
 
 export const dynamic = 'force-dynamic';
 
-// reader 设计:240px writing 树 sidebar(复用 LazyTree)+ 主栏 blog index。
-// reader = writing 的入口页(owner 拍板),纯阅读、no chat。
+// reader design: 240px writing tree sidebar (reuses LazyTree) + main blog
+// index column. reader is the entry page for writings (owner's call) —
+// read-only, no chat.
 export default async function WritingsIndexPage() {
   const initial = await fetchWritingsPage();
   return (

@@ -9,16 +9,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector"
 )
 
-// hubStubConn —— 最小 Connector，供 Hub 并发测试用。
+// hubStubConn — a minimal Connector, for use in Hub concurrency tests.
 type hubStubConn struct{ name string }
 
 func (c hubStubConn) Name() string                                  { return c.name }
 func (hubStubConn) Kind() string                                    { return "openapi" }
 func (hubStubConn) Connected(context.Context, string) (bool, error) { return true, nil }
 
-// TestHubConcurrentUpsertResolve —— owner 运行时建/改连接器（Upsert，写 map）与访客品类槽解析
-// （Resolve，读 map）会并发发生。Hub 无锁时 go test -race 必红「concurrent map read and map
-// write」（且 prod 会直接 fatal）。加锁后此测试干净通过——即这条并发不变量的守护。
+// TestHubConcurrentUpsertResolve — an owner creating/changing a connector at runtime (Upsert,
+// writes the map) and a visitor's category-slot resolution (Resolve, reads the map) happen
+// concurrently. With an unlocked Hub, go test -race must fail red with "concurrent map read and
+// map write" (and prod would fatal outright). With locking added, this test passes cleanly —
+// it's the guard for that concurrency invariant.
 func TestHubConcurrentUpsertResolve(t *testing.T) {
 	t.Parallel()
 	h := connector.NewHub()

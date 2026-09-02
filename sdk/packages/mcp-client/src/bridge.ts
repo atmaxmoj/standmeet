@@ -1,11 +1,12 @@
-// bridge.ts —— stdio JSON-RPC ↔ streamable HTTP forwarder。
+// bridge.ts —— stdio JSON-RPC ↔ streamable HTTP forwarder.
 //
-// Claude Desktop / Cursor spawn 这个进程，通过 stdio JSON-RPC 跟 MCP server
-// 说话。每条 stdin line 是一个 JSON-RPC message → POST 到 backend /mcp
-// (带 Sigv1 sig + Mcp-Session-Id) → 解响应 (JSON 或 SSE data:) → 写一行
-// JSON 回 stdout。
+// Claude Desktop / Cursor spawn this process and talk to it over stdio
+// JSON-RPC. Each stdin line is a JSON-RPC message → POST to backend /mcp
+// (with Sigv1 sig + Mcp-Session-Id) → parse the response (JSON or SSE
+// data:) → write one line of JSON back to stdout.
 //
-// 设计：保持 session_id 跨 request；其他 state (包括 sig) 全 stateless。
+// Design: keep session_id across requests; all other state (including the
+// sig) is stateless.
 
 import { createInterface } from 'node:readline';
 
@@ -53,8 +54,9 @@ async function forward(
   };
 }
 
-// Backend 在 streamable HTTP 下既可返 application/json 也可 text/event-stream。
-// SSE 模式响应体形如 `event: message\ndata: {...}\n\n`，挑 `data:` 行 trim。
+// Under streamable HTTP the backend can return either application/json or
+// text/event-stream. SSE responses look like `event: message\ndata: {...}\n\n`;
+// pick out the `data:` line and trim it.
 function parseMCPText(text: string): string | undefined {
   const trimmed = text.trim();
   if (trimmed === '') return undefined;

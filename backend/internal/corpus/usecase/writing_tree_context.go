@@ -1,19 +1,20 @@
-// writing_tree_context.go —— 一篇 writing 的上下文:祖先链(breadcrumb)+ 直接子
-// (sub-rail / 文章页树框)。跟 writing 树同口径(published + locked 标记),按 slug
-// 定位。reader 文章页 SSR 拿这个画 breadcrumb。
+// writing_tree_context.go — the context of one writing: its ancestor chain (breadcrumb) +
+// direct children (sub-rail / the article page's tree frame). Uses the same rules as the
+// writing tree (published + locked markers), located by slug. The reader's article-page SSR
+// uses this to draw the breadcrumb.
 
 package usecase
 
 import "github.com/atmaxmoj/standmeet/internal/corpus/entity"
 
-// WritingContext —— 节点上下文。Ancestors 是 root→parent 顺序(不含自己)。
+// WritingContext — a node's context. Ancestors is in root→parent order (excluding self).
 type WritingContext struct {
 	Ancestors []WritingTreeNode
 	Children  []WritingTreeNode
 }
 
-// WritingNodeContext —— published 列表里 slug 那条的祖先链 + 直接子。slug 不在
-// published 集 → 空上下文。
+// WritingNodeContext — the ancestor chain + direct children of the entry matching slug in the
+// published list. slug not in the published set → empty context.
 func WritingNodeContext(writings []entity.Writing, slug string) WritingContext {
 	empty := WritingContext{Ancestors: []WritingTreeNode{}, Children: []WritingTreeNode{}}
 	idx, found := writingIndexAtSlug(writings, slug)
@@ -27,7 +28,7 @@ func WritingNodeContext(writings []entity.Writing, slug string) WritingContext {
 	}
 }
 
-// writingIndexAtSlug —— slug 命中那条的下标。
+// writingIndexAtSlug — the index of the entry matching slug.
 func writingIndexAtSlug(writings []entity.Writing, slug string) (int, bool) {
 	for i := range writings {
 		if writings[i].Slug() == slug {
@@ -37,7 +38,8 @@ func writingIndexAtSlug(writings []entity.Writing, slug string) (int, bool) {
 	return 0, false
 }
 
-// writingAncestorsOf —— 沿 effective-parent 链上溯,收祖先,root→parent 排序。
+// writingAncestorsOf — walks up the effective-parent chain collecting ancestors, ordered
+// root→parent.
 func writingAncestorsOf(
 	writings []entity.Writing, present map[string]bool, idx int,
 ) []WritingTreeNode {
@@ -57,7 +59,7 @@ func writingAncestorsOf(
 	return chain
 }
 
-// writingIndexByID —— id → 下标。
+// writingIndexByID — id → index.
 func writingIndexByID(writings []entity.Writing) map[string]int {
 	out := make(map[string]int, len(writings))
 	for i := range writings {

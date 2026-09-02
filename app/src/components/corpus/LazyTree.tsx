@@ -1,14 +1,18 @@
-// LazyTree —— 通用懒加载树。数据源中性(TreeLoader),label 渲染交给调用方
-// (renderLabel),所以 wiki sidebar / reader / output 树都能复用同一个组件。
+// LazyTree — generic lazy-loading tree. Data source is neutral (TreeLoader); label
+// rendering is delegated to the caller (renderLabel), so the wiki sidebar / reader /
+// output trees can all reuse this one component.
 //
-// 行为(owner 拍板):**默认全合上**,点 ▸ 才展开;**展开某节点才取它 children**
-// (懒加载,大 corpus 不一次拉整棵);ACL 由 loader 后端评估,不在 scope 的条目
-// 整条不出现。缩进靠嵌套 <ul> 的 padding(CSS),不用 inline style。
+// Behavior (owner decision): **collapsed by default**, expand only on clicking ▸;
+// **expanding a node fetches its children** (lazy load — a large corpus isn't pulled
+// whole at once); ACL is evaluated by the loader's backend, entries out of scope don't
+// appear at all. Indentation relies on nested <ul> padding (CSS), not inline style.
 //
-// openPaths —— 初始就展开的 path 集(给 reader「自动展开到当前条」用):只有这条
-// 祖先链被预取,不破坏懒加载。
+// openPaths — the set of paths open on initial mount (for reader's "auto-expand to
+// the current entry"): only that ancestor chain is prefetched, so lazy loading stays
+// intact.
 //
-// 组件层禁 if:分支全走三元 + 抽小组件;取数副作用在 effect 里用三元收口。
+// No `if` at the component layer: every branch goes through a ternary + an extracted
+// small component; fetch side effects are wrapped in a ternary inside the effect.
 
 'use client';
 
@@ -30,9 +34,10 @@ interface LazyTreeProps {
 export function LazyTree({ load, renderLabel, openPaths }: LazyTreeProps) {
   const t = useTranslations('reader');
   const roots = useTreeLayer(load, '', true);
-  // 「自动展开到当前这一条」喂给 store,而不是当每个 NodeItem 的初值 ——
-  // 后者会在每次导航重挂时把读者手动展开的支全部盖掉。`ensureOpen` 只加不减,
-  // 所以它不会掰开读者刚收起来的那一支。
+  // Feed "auto-expand to the current entry" into the store, rather than using it as
+  // each NodeItem's initial value — the latter would wipe out every branch the reader
+  // manually expanded on each remount from navigation. `ensureOpen` only adds, never
+  // removes, so it never re-opens a branch the reader just collapsed.
   const ensureOpen = useTreeOpenStore((st) => st.ensureOpen);
   useEffect(() => { ensureOpen([...(openPaths ?? [])]); }, [ensureOpen, openPaths]);
   return roots === null
@@ -57,18 +62,22 @@ function NodeList({ nodes, load, renderLabel, openPaths }: NodeListProps) {
   );
 }
 
-// 展开状态从 store 读，**不是** `useState`。
+// Expanded state reads from the store, **not** `useState`.
 //
-// 上一版是 `useState(() => openPaths?.has(node.path))`：换一篇文章是一次导航，整棵树连同
-// 每个 NodeItem 一起重挂，初值重新读一遍 openPaths（"只展开到当前这条"），读者手动展开的
-// 那几支全部塌回去、每层再拉一次。屏幕上就是「切文章的时候树重新加载了」。
-// 展开是**这一趟浏览的状态**，得活得比任何一次挂载久（[[names-that-lie]] 的邻居：
-// 一个看起来是组件状态的东西，其实不属于组件）。
+// The previous version used `useState(() => openPaths?.has(node.path))`: switching
+// articles is a navigation, so the whole tree — and every NodeItem — remounts and
+// re-reads openPaths from its initial value ("expand only to the current entry").
+// Every branch the reader had manually expanded collapsed back down, and each level
+// refetched. On screen this looked like "the tree reloads every time you switch
+// articles." Expansion is state for **this browsing session** and must outlive any
+// single mount (a cousin of [[names-that-lie]]: something that looks like component
+// state actually isn't).
 function NodeItem({ node, load, renderLabel, openPaths }: { node: TreeNode } & Omit<NodeListProps, 'nodes'>) {
   const open = useTreeOpenStore((s) => s.open.has(node.path));
   const toggle = useTreeOpenStore((s) => s.toggle);
   const onToggle = useCallback(() => { toggle(node.path); }, [toggle, node.path]);
-  // 懒加载:open=true 才取这一层(useTreeLayer 内部 enabled 守门 + 缓存)。
+  // Lazy load: this level is only fetched once open=true (useTreeLayer gates on
+  // `enabled` internally and caches the result).
   const children = useTreeLayer(load, node.id, open);
   return (
     <li className={styles['item']} data-testid={`tree-node-${node.path}`}>

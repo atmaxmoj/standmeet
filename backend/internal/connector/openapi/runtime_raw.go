@@ -1,6 +1,7 @@
-// runtime_raw.go —— agent 路（§3）的无 binding 执行：按 operationId 直调 SaaS，args 原样作
-// 请求体，回原始响应（LLM 直接消费 SaaS 形状，无契约/JSONata 映射）。跟 runtime.go 同 Runtime，
-// 拆出来守 max-lines。
+// runtime_raw.go — bindingless execution for the agent path (§3): calls the SaaS directly by
+// operationId, args go through as the request body unchanged, returns the raw response (the
+// LLM consumes the SaaS shape directly, no contract/JSONata mapping). Same Runtime as
+// runtime.go, split out to stay under max-lines.
 
 package openapi
 
@@ -13,11 +14,14 @@ import (
 	"net/http"
 )
 
-// Operations —— spec 里所有 operation 的 agent-facing 元数据（agent 路把每个 op 暴露成工具）。
+// Operations — agent-facing metadata for every operation in the spec (the agent path exposes
+// each op as a tool).
 func (r *Runtime) Operations() []OpInfo { return r.spec.Operations() }
 
-// RawCall —— 无 binding 的 agent 路（§3）：按 operationId 直接调 SaaS，args 原样作请求体（无
-// JSONata 映射），回原始响应 JSON（LLM 直接消费 SaaS 形状）。auth 注入同 Call。GET 不带体。
+// RawCall — the bindingless agent path (§3): calls the SaaS directly by operationId, args go
+// through as the request body unchanged (no JSONata mapping), returns the raw response JSON
+// (the LLM consumes the SaaS shape directly). Auth injection is the same as Call. GET carries
+// no body.
 func (r *Runtime) RawCall(
 	ctx context.Context, operationID string, args json.RawMessage, auth AuthInjector,
 ) (json.RawMessage, error) {
@@ -56,7 +60,8 @@ func (r *Runtime) buildRawRequest(
 	return req, nil
 }
 
-// rawBody —— GET/DELETE 或无 args → 无体；否则 args 原样作请求体。
+// rawBody — GET/DELETE or no args → no body; otherwise args go through as the request body
+// unchanged.
 func rawBody(method string, args json.RawMessage) io.Reader {
 	if method == http.MethodGet || method == http.MethodDelete || len(args) == 0 {
 		return nil
@@ -64,7 +69,8 @@ func rawBody(method string, args json.RawMessage) io.Reader {
 	return bytes.NewReader(args)
 }
 
-// sendRaw —— 发请求、关体、按状态码归一错误，回原始响应体（不过 response JSONata）。
+// sendRaw — sends the request, closes the body, normalizes errors by status code, returns
+// the raw response body (does not go through response JSONata).
 func (r *Runtime) sendRaw(req *http.Request) (json.RawMessage, error) {
 	resp, derr := r.doer.Do(req)
 	if derr != nil {
@@ -80,7 +86,8 @@ func (r *Runtime) sendRaw(req *http.Request) (json.RawMessage, error) {
 	return json.RawMessage(raw), nil
 }
 
-// readAndClose —— 读响应体（限长）+ 关体；读错优先，否则关体错。
+// readAndClose — reads the response body (length-capped) + closes it; a read error takes
+// priority, otherwise a close error.
 func readAndClose(resp *http.Response) ([]byte, error) {
 	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	cerr := resp.Body.Close()

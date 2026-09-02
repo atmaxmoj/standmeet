@@ -1,22 +1,24 @@
 package entity
 
-// CorpusDayCount —— 某一天的 corpus 新增条数（raw+wiki+output 合计）。
+// CorpusDayCount — new corpus entries on a given day (raw+wiki+output combined).
 type CorpusDayCount struct {
 	Day   string // YYYY-MM-DD (UTC)
 	Count int
 }
 
-// CorpusTierCounts —— 各 genre 当前总量（真 COUNT(*)，非分页页长）+ raw 待处理数。
-// 供 dashboard KPI / sidebar 徽章 / genre 头计数用 —— 这些绝不能数「已加载的第一页」。
+// CorpusTierCounts — current total per genre (a real COUNT(*), not a page
+// length) + count of unprocessed raw. Used by dashboard KPIs / sidebar
+// badges / genre header counts — these must never count "the first page
+// already loaded".
 type CorpusTierCounts struct {
 	Raw            int
 	Wiki           int
 	Output         int
 	Writing        int
-	RawUnprocessed int // genre='raw' 且未 promote、未 archive —— 对齐 sidebar 徽章语义
+	RawUnprocessed int // raw genre, not yet promoted/archived — matches badge semantics
 }
 
-// CorpusGrowth —— SystemPulse 数据：14 天新增序列 + 7 天增量 + 分层总量。
+// CorpusGrowth — SystemPulse data: 14-day new-entry series + 7-day delta + per-tier totals.
 type CorpusGrowth struct {
 	Series  []CorpusDayCount
 	ByTier  CorpusTierCounts

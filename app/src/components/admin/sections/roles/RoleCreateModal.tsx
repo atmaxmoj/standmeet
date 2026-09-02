@@ -1,6 +1,6 @@
-// RoleCreateModal —— /admin/roles 创建 modal。从 RolesSection.tsx 拆出守
-// max-lines。RoleCreateModalShell 拆 inputs；RoleField / Dropdown /
-// MultiSelect 三个原子。
+// RoleCreateModal —— the create modal on /admin/roles. Split out of RolesSection.tsx to
+// keep it under max-lines. RoleCreateModalShell splits out the inputs; RoleField / Dropdown /
+// MultiSelect are the three atoms.
 
 'use client';
 
@@ -93,7 +93,8 @@ function RoleCreateModalShell({
   );
 }
 
-// RoleTextFields —— 三个纯文本字段(名字 / 说明 / 招呼语)。拆出来守 shell 的 max-lines。
+// RoleTextFields —— the three plain-text fields (name / description / greeting). Split out
+// to keep the shell under max-lines.
 function RoleTextFields({
   form, setForm,
 }: {
@@ -166,8 +167,9 @@ function RolePromptDropdown({
   );
 }
 
-// RoleProviderDropdown —— 这个 role 走哪条 provider(空 = owner 默认那条)。
-// 挂在码上的那条压过它 —— 那句话在码那一面说,这里不重复。
+// RoleProviderDropdown —— which provider this role runs on (empty = the owner's default
+// one). The one attached to a code overrides this — that's said on the code side, not
+// repeated here.
 function RoleProviderDropdown({
   value, onChange,
 }: { value: string; onChange: (v: string) => void }) {
@@ -213,7 +215,8 @@ function RoleCorpusURIsField({
   );
 }
 
-// RoleMultiSelect 现在住在自己的文件里 —— 卡片上的编辑器要用同一个控件（F-D-9）。
+// RoleMultiSelect now lives in its own file — the card editor needs to reuse the same
+// control (F-D-9).
 
 function RoleModalFooter({
   form, onClose, onCreate,

@@ -1,5 +1,5 @@
-// Where —— "where I am"。location_line + status_prose + 一个 list 是
-// hiring 过滤条件（左侧 accent 2px rule），结尾一句 italic 收。
+// Where —— "where I am". location_line + status_prose + a list of hiring
+// filter criteria (left accent 2px rule), closed with one italic line.
 
 import { useTranslations } from 'next-intl';
 
@@ -8,8 +8,10 @@ import type { PageWhere } from '@/lib/api/public';
 import { DeckHeader } from '@/components/page/DeckHeader';
 
 export function Where({ where }: { where: PageWhere }) {
-  // 整段空(未配置实例,defaultWhere 是 F-A-21 空壳)→ 连标题都不渲染:visitor
-  // 面不给空栏目留占位,跟 insights/projects 的空态规则一致。
+  // When the whole section is empty (unconfigured instance, defaultWhere is
+  // an F-A-21-style empty shell) → not even the heading renders: the visitor
+  // side never leaves a placeholder for an empty section, matching the
+  // empty-state rule used by insights/projects.
   return isWhereEmpty(where) ? null : (
     <section className="mt-24">
       <DeckHeader kicker="where I am" />
@@ -28,8 +30,9 @@ function isWhereEmpty(where: PageWhere): boolean {
   return proses.every((s) => s === '') && where.looking_for.length === 0;
 }
 
-// ProseLine —— 空串不渲：未配置的行不能给 visitor 留空白段落（F-A-21 同类，
-// 空壳占位也算泄漏）。
+// ProseLine —— an empty string doesn't render: an unconfigured line must not
+// leave a blank paragraph for the visitor (same class as F-A-21 — an empty
+// shell placeholder counts as a leak too).
 function ProseLine({ text, className }: { text: string; className?: string }) {
   return text === '' ? null : <p className={className}>{text}</p>;
 }

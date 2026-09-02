@@ -1,5 +1,6 @@
-// TopBar —— standmeet · <handle> · live ● 左对齐，dark/light 切换右对齐。
-// 每个 visitor 看公开页的第一眼，"live" pulse 让"这是个活实例"的感觉立住。
+// TopBar —— standmeet · <handle> · live ● left-aligned, dark/light toggle
+// right-aligned. The first thing every visitor sees on the public page; the
+// "live" pulse establishes the feeling that this is a live instance.
 
 'use client';
 

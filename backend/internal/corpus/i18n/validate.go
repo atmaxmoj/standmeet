@@ -1,12 +1,15 @@
-// validate.go —— 一条笔记的多语结构诊断。
+// validate.go —— structural diagnostics for one note's multilingual layout.
 //
-// 分寸只有一句:**推断缺的,报告不一致的,绝不改写写着的**。
-// 所以 langs 缺了就从 pane 推(不报),langs 跟 pane 对不上就报(但按 pane 渲染),
-// 而"把一段内容贴到另一个语言标签下"这种事一次都不做 —— 宁可整条退回单语。
+// One rule governs the balance: **infer what's missing, report what disagrees, never
+// rewrite what's written**. So a missing `langs` is inferred from the panes (not
+// reported); `langs` disagreeing with the panes is reported (but rendering still
+// follows the panes); and "attach this content to a different language label" is never
+// done — the whole note falls back to monolingual instead.
 //
-// error 与 warning 的分界也只有一句:**渲染还成不成立**。结构坏了(pane 是空的、
-// 声明的落点不存在)是 error;翻译质量类(某一面短得多、链接数量不一致)是 warning ——
-// 它们值得让 owner 看见,但不该拦住一次写入。
+// The error/warning line is also one rule: **does rendering still hold together**.
+// Structural breakage (an empty pane, a declared fallback with no pane) is an error;
+// translation-quality issues (one face much shorter, mismatched link counts) are
+// warnings — worth surfacing to the owner, but not worth blocking a write.
 
 package i18n
 
@@ -15,7 +18,7 @@ import (
 	"strings"
 )
 
-// 诊断码。给机器分流用;人读的那句在 Message 里。
+// Diagnostic codes, for machine routing; the human-readable line lives in Message.
 const (
 	CodeLangsWithoutBlock = "langs_without_block"
 	CodeLangsMismatch     = "langs_mismatch"
@@ -27,15 +30,17 @@ const (
 	CodeShortPane         = "short_pane"
 )
 
-// diagHint —— 诊断切片的初始容量(一条笔记通常一两条)。
+// diagHint —— initial capacity of the diagnostics slice (a note usually carries one or two).
 const diagHint = 4
 
-// shortPaneRatio —— 一面比最长的那面短到这个比例以下 → 提醒一句(多半是漏译了)。
+// shortPaneRatio —— a pane shorter than this ratio of the longest pane gets flagged
+// (usually a sign of a missed translation).
 const shortPaneRatio = 0.35
 
-// Validate —— 这条笔记的全部诊断(error + warning)。空 = 没问题。
+// Validate —— all diagnostics (error + warning) for this note. Empty = no issues.
 //
-// 单语笔记(一个 `[!i18n]` 都没有)返回空:绝大多数笔记走的就是这条路,校验不该在那儿说话。
+// A monolingual note (no `[!i18n]` at all) returns empty: that's the path the vast
+// majority of notes take, and validation should stay silent on it.
 func Validate(fm *Frontmatter, body string) []Diagnostic {
 	doc := Parse(body)
 	out := make([]Diagnostic, 0, diagHint)
@@ -45,7 +50,8 @@ func Validate(fm *Frontmatter, body string) []Diagnostic {
 	return out
 }
 
-// HasError —— 有没有到"渲染不成立"那一档。MCP 写入据此拒绝。
+// HasError —— whether any diagnostic reaches the "rendering doesn't hold" tier. MCP
+// writes are rejected on this.
 func HasError(ds []Diagnostic) bool {
 	for i := range ds {
 		if ds[i].Severity == SeverityError {
@@ -55,7 +61,7 @@ func HasError(ds []Diagnostic) bool {
 	return false
 }
 
-// declaredVsPanes —— frontmatter 说的和正文里真有的对不对得上。
+// declaredVsPanes —— whether what frontmatter declares matches what the body actually has.
 func declaredVsPanes(fm *Frontmatter, doc *Doc) []Diagnostic {
 	if fm == nil {
 		return []Diagnostic{}
@@ -73,7 +79,8 @@ func declaredVsPanes(fm *Frontmatter, doc *Doc) []Diagnostic {
 	return append(out, fallbackLangMissing(fm, doc)...)
 }
 
-// langsMismatch —— 声明了、但正文里没有那一面。信 pane,报一句。
+// langsMismatch —— a language is declared but the body has no pane for it. Trust the
+// panes, but report it.
 func langsMismatch(fm *Frontmatter, doc *Doc) []Diagnostic {
 	missing := missingFrom(fm.Langs, doc.Langs)
 	if len(missing) == 0 {
@@ -88,7 +95,8 @@ func langsMismatch(fm *Frontmatter, doc *Doc) []Diagnostic {
 	}}
 }
 
-// fallbackLangMissing —— lang 是所有退路的落点;它自己没有面的话,退无可退。
+// fallbackLangMissing —— lang is where every fallback lands; if it has no pane of its
+// own, there's nowhere left to fall back to.
 func fallbackLangMissing(fm *Frontmatter, doc *Doc) []Diagnostic {
 	if fm.Lang == "" || !doc.Multilingual() || contains(doc.Langs, fm.Lang) {
 		return []Diagnostic{}
@@ -101,7 +109,8 @@ func fallbackLangMissing(fm *Frontmatter, doc *Doc) []Diagnostic {
 	}}
 }
 
-// paneShape —— pane 自己的毛病:没写码、空的、重复的、明显短一截的。
+// paneShape —— problems intrinsic to a pane itself: no code, empty, duplicate, or
+// noticeably short.
 func paneShape(doc *Doc) []Diagnostic {
 	out := make([]Diagnostic, 0, diagHint)
 	for r := range doc.Regions {
@@ -140,7 +149,8 @@ func onePaneShape(p *Pane, seen map[string]bool, longest int) []Diagnostic {
 	return out
 }
 
-// paneCodeShape —— 语言码本身的毛病:没写(渲染不出来 → error),或者重复(用第一面 → warning)。
+// paneCodeShape —— problems with the language code itself: missing (can't render ->
+// error), or duplicate (the first pane wins -> warning).
 func paneCodeShape(p *Pane, seen map[string]bool) []Diagnostic {
 	switch {
 	case p.Lang == "":
@@ -169,8 +179,9 @@ func longestPane(panes []Pane) int {
 	return longest
 }
 
-// orphanPanes —— `[!lang]` 长在 `[!i18n]` 外面。它会当成一个普通 callout 渲染出来(不崩),
-// 但 owner 多半是想写一个语言面 —— 报一句,让它别静悄悄地变成一个装饰框。
+// orphanPanes —— a `[!lang]` sitting outside any `[!i18n]`. It renders as a plain
+// callout (no crash), but the owner most likely meant it as a language pane — flag it
+// so it doesn't silently turn into a decorative box.
 func orphanPanes(doc *Doc, body string) []Diagnostic {
 	inRegions := 0
 	for r := range doc.Regions {
@@ -187,8 +198,9 @@ func orphanPanes(doc *Doc, body string) []Diagnostic {
 	return []Diagnostic{}
 }
 
-// countLangMarkers —— 正文里一共有几行 `[!lang]`(任何引用深度,围栏里的不算)。
-// 跟区块内数出来的那些一比,差额就是长在外面的。
+// countLangMarkers —— total `[!lang]` lines anywhere in the body (any quote depth,
+// excluding fences). Compared against the count found inside blocks, the difference
+// is what's sitting outside.
 func countLangMarkers(body string) int {
 	n := 0
 	lines := strings.Split(normalizeNewlines(body), "\n")
@@ -206,7 +218,7 @@ func countLangMarkers(body string) int {
 	return n
 }
 
-// missingFrom —— declared 里有、found 里没有的那些。
+// missingFrom —— entries present in declared but absent from found.
 func missingFrom(declared, found []string) []string {
 	out := []string{}
 	for _, d := range declared {

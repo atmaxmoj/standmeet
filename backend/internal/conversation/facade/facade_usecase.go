@@ -2,12 +2,13 @@ package conversation
 
 import "github.com/atmaxmoj/standmeet/internal/conversation/usecase"
 
-// 类型（实现:usecase）.
+// Types (impl: usecase).
 type (
 	APIKeyDenialReader = usecase.APIKeyDenialReader
 	CodeIntroResult    = usecase.CodeIntroResult
 	ConvDialog         = usecase.ConvDialog
-	// ConvEvent —— 这段对话里发生过的事（卡上取消 / 发确认信），F-B-9。
+	// ConvEvent -- something that happened during this conversation (a cancel on the card,
+	// sending a confirmation letter), F-B-9.
 	ConvEvent               = usecase.ConvEvent
 	Conversation            = usecase.Conversation
 	ConversationsDeps       = usecase.ConversationsDeps
@@ -41,7 +42,7 @@ type (
 	WaypointLedger          = usecase.WaypointLedger
 )
 
-// 构造/函数（实现:usecase）.
+// Constructors/functions (impl: usecase).
 var (
 	AcceptGhost               = usecase.AcceptGhost
 	BuildAPIKeyRoleSnapshot   = usecase.BuildAPIKeyRoleSnapshot
@@ -66,7 +67,8 @@ var (
 	OpenConversationForDoc    = usecase.OpenConversationForDoc
 	ParseGhost                = usecase.ParseGhost
 	RecordDialog              = usecase.RecordDialog
-	// RecordCardEvent —— 访客在沙盒卡上做的事落进这段对话（F-B-9）。
+	// RecordCardEvent -- records what the visitor did on the sandboxed card into this
+	// conversation (F-B-9).
 	RecordCardEvent      = usecase.RecordCardEvent
 	RecordGhostShown     = usecase.RecordGhostShown
 	RecordPolicyGhost    = usecase.RecordPolicyGhost
@@ -76,5 +78,5 @@ var (
 	UnvisitedWaypoints   = usecase.UnvisitedWaypoints
 )
 
-// 常量（实现:usecase）.
+// Constants (impl: usecase).
 const GhostPolicyPrompt = usecase.GhostPolicyPrompt

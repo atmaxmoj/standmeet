@@ -1,6 +1,8 @@
-// note_nav.go —— genre-通用的 path→id 解析（走 NoteRepo.ListChildren 逐段下钻）。镜像
-// wiki_lazy_nav.go 的 ResolveWikiNodeID，但对通用 NoteRepo/NoteMeta，供 subjectivity（及日后
-// 收敛的 wiki/output）复用。地址纯树派生:path 的每段 = 该层某子节点 title 的 slug。
+// note_nav.go — genre-agnostic path→id resolution (descends segment by segment via
+// NoteRepo.ListChildren). Mirrors wiki_lazy_nav.go's ResolveWikiNodeID, but for the
+// generic NoteRepo/NoteMeta, so subjectivity (and wiki/output once they converge onto it
+// later) can reuse it. The address is purely tree-derived: each path segment is the slug
+// of some child node's title at that level.
 
 package usecase
 

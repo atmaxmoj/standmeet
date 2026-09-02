@@ -1,8 +1,9 @@
-// ConvTranscriptModal —— 弹层显示一个 conversation 完整 transcript。
-// 每条 assistant message 下面挂 "cited · <genre> · <title>" 列表：**四种体裁都在**
-// （output / wiki / subjectivity / writing），title 按 `message.cited[genre]` 里的 id
-// 去 `transcript.refs[genre]` 索引里查。曾经这里只认 wiki 和 output，于是一轮引用了
-// 6 条 subjectivity 的答复在 owner 的逐字稿上一行引用都没有（F-A-39）。
+// ConvTranscriptModal — modal showing one conversation's full transcript.
+// Each assistant message carries a "cited · <genre> · <title>" list below it: **all four
+// genres are included** (output / wiki / subjectivity / writing); title is looked up by
+// the id in `message.cited[genre]` against the `transcript.refs[genre]` index. This used
+// to recognize only wiki and output, so a reply citing 6 subjectivity notes showed zero
+// citations on the owner's transcript (F-A-39).
 
 'use client';
 
@@ -101,18 +102,22 @@ function MessageItem({
   );
 }
 
-// EVENT_PREFIX —— 事件正文自带的前缀（模型靠它认出这是一件发生过的事，不是谁说的话）。
-// owner 这一面已经有标签在说同一件事，正文里不必再印一遍。
+// EVENT_PREFIX — the prefix the event body carries (the model uses it to recognize this
+// as something that happened, not something someone said). The owner-side label already
+// says the same thing, so the body text doesn't need to repeat it.
 const EVENT_PREFIX = '[card action] ';
 
-// EVENT_LABEL —— 跟旁边的 `visitor` / `ai` 一样是**等宽小标签**，不是句子：这一族标签
-// 在设计语言里是终端式的元数据，三个一起看才读得出「谁/什么」，所以它们同属一类、
-// 同样不翻译。
+// EVENT_LABEL — like the neighboring `visitor` / `ai`, this is a **small mono label**,
+// not a sentence: this family of labels is terminal-style metadata in the design
+// language — only reading all three together tells you "who/what" — so they share
+// one class and, like the others, stay untranslated.
 const EVENT_LABEL = 'card action';
 
-// EventLine —— 这段对话里**发生过的一件事**：访客在沙盒卡上点了取消 / 发了确认信（F-B-9）。
-// 它没有说话人，所以不摆成一轮问答 —— 一条竖线 + 等宽小字，跟旁边的 visitor / ai 明确不同。
-// 上一版把它当 assistant 渲染，于是逐字稿写着「AI」说了这句 —— 一句 AI 从没说过的话。
+// EventLine — **something that happened** in this conversation: the visitor clicked
+// cancel on a sandbox card / sent a confirmation email (F-B-9). It has no speaker, so
+// it isn't laid out as a question-answer turn — a vertical bar + small mono text,
+// visibly distinct from visitor / ai. The previous version rendered it as an assistant
+// message, so the transcript read as if "AI" said this line — a line the AI never said.
 function EventLine({ body, at }: { body: string; at: string }) {
   return (
     <div data-testid="conv-event-line" className="border-l-2 border-(--color-faint) pl-3 py-1">
@@ -129,18 +134,21 @@ function EventLine({ body, at }: { body: string; at: string }) {
   );
 }
 
-// MessageBody —— 访客的问句是一句话,原样排版;AI 的回答是 markdown,**走访客那边同一个
-// 渲染器**。上一版两边都塞进 <p>{body}</p>,于是 owner 读到的是 `## 标题` `**加粗**` 的源码,
-// 而同一段正文在访客聊天和 report 页都渲染得好好的(F-C-8)。这里复用 ChatMarkdown 而不是
-// 再写一个,正是因为"一份正文四个渲染器"就是那个 bug 本身。
+// MessageBody — the visitor's question is plain text, rendered as-is; the AI's answer
+// is markdown, rendered through **the same renderer as the visitor side**. The previous
+// version stuffed both into <p>{body}</p>, so the owner read raw `## Heading` `**bold**`
+// source, while the same body rendered fine in visitor chat and the report page (F-C-8).
+// Reusing ChatMarkdown here instead of writing another one is the fix — "one body,
+// four renderers" was the bug itself.
 function MessageBody({ role, body }: { role: 'visitor' | 'assistant'; body: string }) {
   return role === 'visitor' ? (
     <p className="reading sm-measure text-(--color-ink) mt-2 font-[380] text-[20px] italic">{body}</p>
   ) : (
     <div className="reading sm-measure text-(--color-ink) mt-2 font-[380] text-[16.5px] not-italic">
-      {/* 这是 owner 回看逐字稿的地方 —— 图编译不过的报错要**在这里**显出来。
-          访客那一侧同一个渲染器把它藏掉了（正文自己站得住），但问题不能就此消失：
-          owner 是唯一能去改 prompt / 改 skill 的人。 */}
+      {/* This is where the owner reviews the transcript — a diagram compile error must
+          show up **here**. The same renderer on the visitor side hides it (the body
+          still stands on its own), but the problem can't just disappear: the owner
+          is the only one who can fix the prompt / the skill. */}
       <DiagramDiagnostics><ChatMarkdown source={body} /></DiagramDiagnostics>
     </div>
   );
@@ -160,14 +168,16 @@ function MessageLabel({ role, at }: { role: 'visitor' | 'assistant'; at: string 
   );
 }
 
-// CITED_ORDER —— 显示顺序：output 排前面（"polished, quote verbatim"，跟 visitor chat
-// 优先级一致），然后 wiki，然后 owner 自己的两类。**四种全在**：以前这里只有 wiki 和
-// output，于是一轮引用了 6 条 subjectivity 的答复在逐字稿上一行引用都没有（F-A-39）。
+// CITED_ORDER — display order: output comes first ("polished, quote verbatim", matching
+// visitor chat's priority), then wiki, then the owner's own two genres. **All four
+// genres are included**: this used to have only wiki and output, so a reply citing
+// 6 subjectivity notes showed zero citations on the transcript (F-A-39).
 const CITED_ORDER: readonly CitedGenre[] = ['output', 'wiki', 'subjectivity', 'writing'];
 
-// CitedTail —— 一条答复引用了哪些条目，四种体裁走**同一条**渲染路（多抄一份就是下一个
-// 会漏掉的体裁）。某个 id 在 refs 索引里找不到 title（数据脏 / 已删除）就跳过那条 ——
-// 显示 "<missing>" 比让 UI 整块崩好，但实际上很难触发。
+// CitedTail — which items a reply cited; all four genres go through **the one** render
+// path (a second copy is exactly how the next genre gets missed). If an id has no title
+// in the refs index (dirty data / already deleted), that item is skipped — better than
+// showing "<missing>" and crashing the whole UI block, though this is rare in practice.
 function CitedTail({
   cited, refs,
 }: {
@@ -198,14 +208,19 @@ function CitedTail({
 }
 
 
-// GroundingBlock —— 塑造了这段对话、但没进访客脚注的 subjectivity 笔记(F-A-27)。
+// GroundingBlock — subjectivity notes that shaped this conversation but never made it
+// into the visitor-facing citation footnotes (F-A-27).
 //
-// 为什么要有这一块:subjectivity 的设计就是「塑造声音、不当引用」,那是故意的 —— 可另一头
-// 又假设「读了哪些」由引用脚注承载。两条合起来,owner 写了一堆 standpoint 笔记来定语气,却
-// 在任何界面上都看不到它们参与过。这一块就是那个缺掉的观察点。
+// Why this block exists: subjectivity is designed to "shape the voice, not be cited" —
+// that's intentional — but the other side assumes "what was read" is always carried by
+// citation footnotes. Put the two together and the owner wrote a pile of standpoint
+// notes to set the tone, yet no interface ever shows they were involved. This block is
+// that missing observation point.
 //
-// 只渲**标题**:owner 要判的是哪几条在起作用,私有正文不必复制到这儿来(后端也没给)。
-// 跟 CITED 分开一块,而不是混进同一张清单 —— 它们不是引用,混在一起会让人以为访客也看得到。
+// Renders **titles only**: the owner needs to judge which notes are in play; the
+// private body doesn't need to be copied here (the backend doesn't send it either).
+// Kept separate from CITED rather than merged into one list — these aren't citations,
+// and merging them would make it look like visitors can see them too.
 function GroundingBlock({ titles }: { titles: readonly string[] }) {
   const t = useTranslations('adminAccess');
   return titles.length === 0 ? null : (
@@ -230,9 +245,10 @@ function GroundingBlock({ titles }: { titles: readonly string[] }) {
   );
 }
 
-// GhostsBlock —— H.13.e: owner 后台观测 ghost text 日志。code 对话
-// 才会有；其他 mode 空数组 → block 整段不渲。每行：text · source ·
-// shown_at · accepted? (accepted 时显勾 + 时间，否则灰 dash)。
+// GhostsBlock — H.13.e: owner-side observation of the ghost text log. Only code
+// conversations have entries; other modes get an empty array → the whole block
+// doesn't render. Each row: text · source · shown_at · accepted? (a check + time
+// when accepted, otherwise a grey dash).
 function GhostsBlock({ ghosts }: { ghosts: readonly GhostLog[] }) {
   const t = useTranslations('adminAccess');
   return ghosts.length === 0 ? null : (

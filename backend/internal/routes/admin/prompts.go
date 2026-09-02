@@ -1,10 +1,12 @@
-// prompts.go —— /api/admin/prompts CRUD。
+// prompts.go — /api/admin/prompts CRUD.
 //
-// 能力来自出站收口（通用件在 dispatch.go）；这个面只决定 REST 形状：
-// 建一个回 201、其余回 200，资源 id 走路径。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// this facade only decides the REST shape: create returns 201, everything else returns
+// 200, the resource id goes in the path.
 //
-// 出站载荷跟 MCP 面是同一份 —— 迁移前 MCP 的 prompt_list **不带 body**，
-// owner 从 Claude Code 列一遍看不到自己写的正文；现在只有一份形状。
+// The outbound payload is the same one MCP's facade uses — before the migration, MCP's
+// prompt_list **carried no body**, so listing from Claude Code showed the owner none of
+// what they'd written; now there's only one shape.
 
 package admin
 
@@ -14,12 +16,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// PromptsAdminDeps —— admin prompts handlers 的能力来源。
+// PromptsAdminDeps — capability source for the admin prompts handlers.
 type PromptsAdminDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountPrompts 挂 /prompts 子路由。
+// MountPrompts mounts the /prompts subrouter.
 func (h *Handlers) MountPrompts(r chi.Router) {
 	face := h.PromptsAdmin.Face
 	r.Route("/prompts", func(r chi.Router) {

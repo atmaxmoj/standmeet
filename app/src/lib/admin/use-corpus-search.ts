@@ -1,12 +1,17 @@
-// use-corpus-search —— 后台「按内容找一条」。
+// use-corpus-search —— admin-side "find one entry by content".
 //
-// 为什么它得存在（F-L-39/40/41）：语料上千条，而这一侧原先只有标签 chip 和一个两列网格。
-// 要打开一条**名字已知**的笔记，owner 得先猜它挂了哪些标签，筛完还剩几十条，再用眼睛扫。
-// 我在审计里为了找一条笔记连开四次页面、筛两个标签、翻两屏都没找到 —— 而访客那一侧
-// 一直有搜索。后端的全文检索也一直在（`repo.*.Search`），缺的只是 owner 这一侧的接线。
+// Why this needs to exist (F-L-39/40/41): the corpus has thousands of
+// entries, and this side used to have only tag chips and a two-column grid.
+// To open a note **whose name is already known**, the owner had to guess
+// which tags it carried, filter down to a few dozen, then scan by eye. While
+// auditing, I opened the page four times, filtered by two tags, and scrolled
+// two screens without finding one note — while the visitor side had had
+// search all along. The backend's full-text search was also there all
+// along (`repo.*.Search`); all that was missing was wiring it up on the owner side.
 //
-// 形状跟列表**同一种行**（`WikiSummary`），所以搜索结果直接喂给同一个网格，
-// 不必为「搜出来的东西」再写一套卡片。
+// The shape is **the same row type** as the list (`WikiSummary`), so search
+// results feed straight into the same grid — no need to write a second set
+// of cards for "what got searched up".
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
@@ -14,8 +19,10 @@ import { z } from 'zod';
 import { adminAPI } from '@/lib/api/admin';
 import { WikiSummarySchema, type WikiSummary } from '@/lib/admin/use-wiki';
 
-// 停顿多久才发请求。**不是省流量**：一边打字一边发，回来的顺序不保证，
-// 后到的旧结果会盖掉新结果 —— 那是「搜到的东西跟输入框对不上」的经典来源。
+// How long to pause before sending the request. **Not about saving
+// bandwidth**: sending on every keystroke has no guaranteed return order, and
+// a stale result arriving late can overwrite a newer one — a classic source
+// of "what got found doesn't match what's in the box".
 const DEBOUNCE_MS = 250;
 
 export type CorpusSearchStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -26,15 +33,16 @@ export interface CorpusSearchHook {
   status: CorpusSearchStatus;
   rows: readonly WikiSummary[];
   error: string | null;
-  /** active —— 输入框里有词：网格该显示搜索结果而不是那一页列表。 */
+  /** active —— there's text in the input: the grid should show search results, not that page's list. */
   active: boolean;
 }
 
 /**
- * searchMessageKey —— 这一刻该说哪句话 + 那句话要的值。
+ * searchMessageKey —— which message applies right now + the values that message needs.
  *
- * 放在 hook 这一层而不是组件里：**「现在是什么状态」是推导，不是渲染**。
- * 组件只负责把 key 交给 i18n。（表现层不许写 `if` —— 那条 lint 规则说的就是这件事。）
+ * Lives at the hook layer, not the component: **"what state is this right
+ * now" is a derivation, not rendering**. The component only hands the key
+ * off to i18n. (The presentation layer bans writing `if` — that lint rule is exactly about this.)
  */
 export function searchMessageKey(hook: CorpusSearchHook): {
   key: string; values: Record<string, string | number>;
@@ -44,16 +52,17 @@ export function searchMessageKey(hook: CorpusSearchHook): {
     idle: { key: 'idleHint', values: {} },
     loading: { key: 'searching', values: {} },
     error: { key: 'failed', values: { reason: hook.error ?? '' } },
-    // 一页封顶时**不许说「共 N 条」** —— 那个 N 是这一页的行数，不是命中总数。
-    // 「50 entries match」在真语料上正好撞满上限，而 owner 会把它读成总数
-    // （[[names-that-lie]]：标签声称了它并不追踪的东西）。
+    // At the page cap, **"N total" must not be said** — that N is this
+    // page's row count, not the total hit count. "50 entries match" on the
+    // real corpus lands exactly at the cap, and the owner would read it as
+    // the total ([[names-that-lie]]: a label asserting something it isn't actually tracking).
     ready: readyMessage(hook.rows.length, query),
   };
   return hook.active ? byStatus[hook.status] : byStatus.idle;
 }
 
-// PAGE_LIMIT —— 服务端一页的上限（`corpus.search` 的默认窗口）。行数等于它 = **可能还有**，
-// 所以那一刻的措辞必须换。
+// PAGE_LIMIT —— the server's per-page cap (`corpus.search`'s default
+// window). A row count equal to it = **there might be more**, so the wording at that point must change.
 const PAGE_LIMIT = 50;
 
 function readyMessage(count: number, query: string): {
@@ -76,7 +85,7 @@ export function useCorpusSearch(genre: string): CorpusSearchHook {
   const [status, setStatus] = useState<CorpusSearchStatus>('idle');
   const [rows, setRows] = useState<readonly WikiSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
-  // seq —— 只认最后一次发出去的那一次。**没有它就会有过期结果盖新结果**。
+  // seq —— only the most recently sent request counts. **Without it, a stale result would overwrite a fresh one**.
   const seq = useRef(0);
 
   const run = useCallback(async (q: string, mine: number) => {

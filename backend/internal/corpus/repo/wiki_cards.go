@@ -1,5 +1,5 @@
-// wiki_cards.go —— page-pin join 的 repo 面:按 id 集取被 pin 条目的卡内容
-// (title / excerpt / published)。顺序由 usecase 按 pin 列表重排。
+// wiki_cards.go —— repo side of the page-pin join: fetch pinned entries' card content
+// (title / excerpt / published) by id set. Order is re-sorted by the usecase per the pin list.
 
 package repo
 
@@ -13,11 +13,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// WikiCard —— 一条被 pin 条目的卡内容。Published 是渲染侧兜底过滤输入
-// (不变量 pinned ⊆ published 由写入端维护)。
+// WikiCard —— one pinned entry's card content. Published is a fallback filter input on the
+// render side (the invariant pinned ⊆ published is maintained by the write side).
 //
-// Body 在这里,是因为卡上那句话**owner 没写就从正文派生**(F-L-47):真 vault 的 1047 条笔记
-// excerpt 全空,同步不产生它。派生放在 usecase 那一层(repo 不决定显示什么),这里只负责把料带上。
+// Body is here because the card's blurb **is derived from the body when the owner didn't write
+// one** (F-L-47): all 1047 notes in the real vault have an empty excerpt; sync doesn't produce
+// one. Derivation lives at the usecase layer (the repo doesn't decide what to display) — here we
+// just carry the raw material along.
 type WikiCard struct {
 	ID        string
 	Title     string
@@ -26,8 +28,8 @@ type WikiCard struct {
 	Published bool
 }
 
-// ListCardsByIDs —— ids 集 → 卡内容 map(乱序;caller 按 pin 序取)。
-// 未命中的 id 不在 map 里(条目已删 → caller 跳过)。
+// ListCardsByIDs —— id set → card content map (unordered; caller reads it in pin order).
+// An id with no match isn't in the map (entry was deleted → caller skips it).
 func (r *WikiRepo) ListCardsByIDs(
 	ctx context.Context, ownerID string, ids []string,
 ) (map[string]WikiCard, error) {

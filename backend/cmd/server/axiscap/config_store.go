@@ -1,7 +1,8 @@
-// config_store.go —— 任意能力的可设置项怎么读写(声明在 config.go)。
+// config_store.go — how any capability's settings get read and written (declared in config.go).
 //
-// 这儿把两样东西对上:能力的**声明**(manifest 的 Config)和它**自己的隔离存储**。
-// 除此之外它什么都不知道 —— 没有一个字段名是写死的,加一个可配置项只需要在 manifest 里加一行。
+// This matches up two things: a capability's **declaration** (the manifest's Config) and its
+// **own isolated store**. It knows nothing beyond that — no field name is hard-coded, and adding
+// a configurable field only needs one line in the manifest.
 
 package axiscap
 
@@ -20,8 +21,8 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// configField —— 一个配置项的声明 + 当前值。Value / Default 是 JSON 字面量;
-// Overridden=false 时两者相同。
+// configField — one setting's declaration + current value. Value / Default are JSON literals;
+// when Overridden=false the two are equal.
 type configField struct {
 	Key         string
 	Label       string
@@ -37,8 +38,9 @@ type capConfigOps struct {
 	decls map[string][]mcpplugin.ConfigField
 }
 
-// newCapConfigOps —— 从内建能力的 manifest 里收集所有 Config 声明。
-// 没声明 Config 的能力不进这张表 —— 面板上也就不会出现一个空的设置页。
+// newCapConfigOps — collects all Config declarations from the built-in capabilities' manifests.
+// A capability with no Config declared never enters this table — so the panel never shows an
+// empty settings page for it.
 func newCapConfigOps(d *deps.Runtime) capConfigOps {
 	decls := map[string][]mcpplugin.ConfigField{}
 	manifests := BuiltinManifests()
@@ -55,7 +57,8 @@ func (a capConfigOps) Configurable(_ context.Context) []string {
 	for id := range a.decls {
 		out = append(out, id)
 	}
-	slices.Sort(out) // 稳定顺序:面板和 golden 都不该看运行时 map 的脸色
+	// stable order: neither the panel nor golden files should depend on map iteration order
+	slices.Sort(out)
 	return out
 }
 
@@ -95,19 +98,19 @@ func (a capConfigOps) Set(
 	return nil
 }
 
-// isCapConfigCallerErr —— 这两类都是"面板发来的东西不对",不是这台机器的问题。
+// isCapConfigCallerErr — both classes mean "what the panel sent is wrong", not a server fault.
 func isCapConfigCallerErr(err error) bool {
 	return errors.Is(err, capconfig.ErrUnknownField) || errors.Is(err, capconfig.ErrInvalidValue)
 }
 
-// boundConfig —— 一个能力的声明 + 绑死到它自己命名空间的存储。
+// boundConfig — one capability's declaration + storage bound to its own namespace.
 type boundConfig struct {
 	store *capconfig.Store
 	decl  []mcpplugin.ConfigField
 }
 
-// bind —— 把 capID 解成它的声明 + 存储。
-// 没声明过配置的 id 直接当"找不到" —— 不是"配置为空"。
+// bind — resolves capID into its declaration + storage.
+// An id with no config ever declared is treated as "not found" — not "config is empty".
 func (a capConfigOps) bind(capID string) (boundConfig, error) {
 	decl, ok := a.decls[capID]
 	if !ok {

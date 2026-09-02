@@ -1,27 +1,33 @@
-// EmbedPanel —— 把这台实例的 chat 放到**别人的网站**上要写的那两行。
+// EmbedPanel — the two lines needed to put this instance's chat on
+// **someone else's website**.
 //
-// **为什么这一块要存在**：CLAUDE.md 承诺 embed 是"单个 `<script>` 标签 drop-in"，
-// 而在这一块之前，owner 在产品里找不到那个标签长什么样 —— 而 `/embed.js` 当时还是 404
-// （2026-08-30 实测）。承诺写在文档里、包构建得出来、中间那一段不存在。
+// **Why this block has to exist**: CLAUDE.md promises embed is a "single
+// `<script>` tag drop-in", but before this block, owner had no place in the
+// product to see what that tag looked like — and `/embed.js` was still a 404
+// at the time (verified live 2026-08-30). The promise was in the docs, the
+// bundle built fine, and the piece in between just didn't exist.
 //
-// 地址是**运行时算的**，不是写死的：owner 的实例装在他自己的域名上，写死 localhost
-// 的话他复制走的那段代码在自己站点上根本不指向他。而 e2e 就从这段代码里把 src
-// 取出来再去访问它 —— 一个"我们记得有个 /embed.js"式的断言，路径改了就悄悄验错东西
-// （[[ref-resolves-not-a-string]]）。
+// The address is **computed at runtime**, never hardcoded: owner's instance
+// runs on his own domain, so a hardcoded localhost would mean the code he
+// copies onto his own site never points back at him. And the e2e test pulls
+// src out of this exact snippet to visit it — a "we remember there's an
+// /embed.js" assertion that would silently verify the wrong thing if the
+// path ever changed ([[ref-resolves-not-a-string]]).
 
 'use client';
 
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
-// EMBED_PATH —— 由 app/public/embed.js 发出（scripts/copy-embed-bundle.mjs 搬进去的），
-// next.config 的 headers 给它开了跨源。
+// EMBED_PATH — served from app/public/embed.js (put there by
+// scripts/copy-embed-bundle.mjs); next.config's headers open CORS for it.
 const EMBED_PATH = '/embed.js';
 
 export function EmbedPanel() {
   const t = useTranslations('adminIntegrations.embed');
   const [origin, setOrigin] = useState('');
-  // 在浏览器里才知道这台实例对外是什么地址。SSR 时留空，渲染成相对路径也仍然正确。
+  // Only the browser knows this instance's outward-facing address. Left
+  // blank during SSR, which still renders a correct relative path.
   useEffect(() => { setOrigin(window.location.origin); }, []);
   return (
     <section>
@@ -39,8 +45,9 @@ export function EmbedPanel() {
   );
 }
 
-// snippet —— owner 复制走的那两行。第二行同等重要：只给一个 <script>，
-// 他还是不知道接下来在页面上写什么。
+// snippet — the two lines owner copies out. The second line matters just as
+// much: give him only the <script> tag, and he still won't know what to
+// write on the page after that.
 function snippet(origin: string): string {
   return [
     `<script src="${origin}${EMBED_PATH}"></script>`,

@@ -1,15 +1,17 @@
-// csrf.go —— double-submit cookie CSRF 防御。
+// csrf.go — double-submit cookie CSRF defense.
 //
-// 流程：
-//  1. login 成功后，server 在 response 同时设两个 cookie：
-//     - smt_session (HttpOnly, signed): session 凭证
-//     - csrftoken   (NOT HttpOnly):     CSRF token，JS 可读
-//  2. admin 前端在 mutating 请求（POST/PUT/PATCH/DELETE）的 header 里
-//     带 `X-Csrftoken: <从 cookie 读到的值>`。
-//  3. server 比对 cookie 里的 csrf 和 header 里的 csrf 一致才放行。
+// Flow:
+//  1. On successful login, the server sets two cookies on the response:
+//     - smt_session (HttpOnly, signed): the session credential
+//     - csrftoken   (NOT HttpOnly):     the CSRF token, readable by JS
+//  2. On mutating requests (POST/PUT/PATCH/DELETE), the admin frontend
+//     sends `X-Csrftoken: <value read from the cookie>` in the header.
+//  3. The server allows the request only if the CSRF value in the cookie
+//     matches the one in the header.
 //
-// CSRFHeaderName 是 canonical form ("X-Csrftoken")；HTTP header 本身
-// case-insensitive，外部客户端用 "X-CSRFToken" 也能匹配。
+// CSRFHeaderName is the canonical form ("X-Csrftoken"); HTTP headers
+// themselves are case-insensitive, so an external client using
+// "X-CSRFToken" still matches.
 
 package middleware
 
@@ -19,23 +21,26 @@ import (
 	"net/http"
 )
 
-// CSRFCookieName 是 CSRF cookie 名（Django / Rails convention）。
-// CSRFHeaderName 用 Go canonical 大小写（http.Header.Get 内部会 canonicalize，
-// 外部 client 用 "X-CSRFToken" 也能匹配，因为 HTTP header case-insensitive）。
+// CSRFCookieName is the CSRF cookie name (Django / Rails convention).
+// CSRFHeaderName uses Go's canonical casing (http.Header.Get canonicalizes
+// internally, so an external client using "X-CSRFToken" still matches,
+// since HTTP headers are case-insensitive).
 const (
 	CSRFCookieName = "csrftoken"
 	CSRFHeaderName = "X-Csrftoken"
 )
 
-// safeMethods 是不需要 CSRF 校验的方法（不改 server 状态）。
+// safeMethods are the methods that don't need CSRF validation (they don't
+// change server state).
 var safeMethods = map[string]bool{
 	http.MethodGet:     true,
 	http.MethodHead:    true,
 	http.MethodOptions: true,
 }
 
-// RequireCSRF 是 mutating 请求的 CSRF gate。Cookie 和 header 缺失 / 不一致
-// 都返回 403 csrf_invalid。Safe method（GET/HEAD/OPTIONS）放行。
+// RequireCSRF is the CSRF gate for mutating requests. A missing or
+// mismatched cookie / header both return 403 csrf_invalid. Safe methods
+// (GET/HEAD/OPTIONS) are allowed through.
 func RequireCSRF(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if safeMethods[r.Method] {

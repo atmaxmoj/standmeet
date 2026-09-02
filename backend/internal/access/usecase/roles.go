@@ -1,14 +1,15 @@
-// roles.go —— owner-curated Role (visitor 身份原型) CRUD。
+// roles.go — CRUD for the owner-curated Role (a visitor identity prototype).
 //
-// Role = persona (Prompt) + 可见 corpus URI globs + skills + mcp servers。
-// AccessCode 引 assumed_role_id；session start 时 freeze [[role_snapshot]]。
+// Role = persona (Prompt) + visible corpus URI globs + skills + mcp servers.
+// AccessCode references assumed_role_id; session start freezes [[role_snapshot]].
 //
-// public（is_builtin=true）由 claim 时 SeedPublicRole 种入，不可删 / 不可改
-// name；其它字段（corpus URIs / skills / mcp / description / prompt）owner 可改。
+// public (is_builtin=true) is seeded by SeedPublicRole at claim time: can't be
+// deleted / renamed, but corpus URIs / skills / mcp / description / prompt stay
+// owner-editable.
 //
-// Create / Update 都接 corpus_uris + skill_ids + mcp_server_ids 一并设置 join
-// 表。校验：prompt + skill + mcp 都属于同 owner；空 corpus_uris 允许 (owner
-// 显式选了"啥都不开"，等同 deny-all)。
+// Create / Update both take corpus_uris + skill_ids + mcp_server_ids and set the
+// join tables together. Validation: prompt + skill + mcp must belong to the same
+// owner; empty corpus_uris is allowed (owner chose "expose nothing", = deny-all).
 
 package usecase
 
@@ -22,45 +23,42 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// RolesDeps —— roles CRUD 需要的 repos。Skills / MCPServers / Prompts 用来
-// 在 Create/Update 时校验 join 项的 owner 归属。
+// RolesDeps — repos needed by roles CRUD. Skills / MCPServers / Prompts validate
+// join items' owner ownership on Create/Update.
 type RolesDeps struct {
 	Roles *repo.RoleRepo
 	Refs  RefValidator
 }
 
-// RoleWriteInput —— Create / Update 共用的入参形态。Update 时 RoleID 必填，
-// Create 时 RoleID 空。
+// RoleWriteInput — the shared input shape for Create / Update. RoleID is required
+// on Update, empty on Create.
 type RoleWriteInput struct {
-	PromptID *string // 0..1；nil = 不挂 prompt
-	// DockableCapabilityIDs —— 「一个技能列表长这样的 role，dock 上挂得住哪些能力」。
-	//
-	// 是个**函数**而不是名单：`acl: role_granted` 的能力要这个 role 的技能真的授了它才算数，
-	// 所以只有拿到**这次写入的** SkillIDs 才答得出来。传名单的那一版问的是「这台实例注册了
-	// 哪些访客能力」，比会话那一侧宽，差集里的按钮后台收得下、访客永远看不到（F-D-13）。
-	// nil = 不校验（内部调用方自己保证）。
+	PromptID *string // 0..1; nil = no prompt mounted
+	// DockableCapabilityIDs — "given this role's skill list, which capabilities can
+	// the dock hold". A **function**, not a fixed list: an `acl: role_granted`
+	// capability only counts if this write's SkillIDs actually grant it. A fixed
+	// list would ask "which capabilities does this instance register" instead —
+	// broader than the session side — letting the admin panel offer a button the
+	// visitor could never see (F-D-13). nil = skip validation (caller guarantees it).
 	DockableCapabilityIDs func(ctx context.Context, ownerID string, skillIDs []string) []string
 	OwnerID               string
-	RoleID                string // Update 才填
+	RoleID                string // filled only on Update
 	Name                  string
 	Description           string
 	Greeting              string
-	// ProviderID —— 这个 role 用哪条 provider(空 = owner 默认)。码上那条压过它。
-	ProviderID   string
-	CorpusURIs   []string
-	SkillIDs     []string
-	MCPServerIDs []string
-	// Waypoints —— ghost-steering 引导目的地（owner per-role 写）。
-	Waypoints []entity.Waypoint
-	// DockButtons —— #109/#110 ≤2 个 chat dock 按钮。
-	DockButtons []entity.DockButtonConfig
-	// RequireGhostEvidence —— F-A-10 per-role 开关。
-	RequireGhostEvidence bool
-	// GasMetered —— 挂不挂油表。false = 一次 gas 查询都不发。
-	GasMetered bool
+	// ProviderID — which provider this role uses (empty = owner's default). The
+	// one on the code overrides this.
+	ProviderID           string
+	CorpusURIs           []string
+	SkillIDs             []string
+	MCPServerIDs         []string
+	Waypoints            []entity.Waypoint         // ghost-steering destinations, per-role
+	DockButtons          []entity.DockButtonConfig // #109/#110, up to 2 chat dock buttons
+	RequireGhostEvidence bool                      // F-A-10 per-role switch
+	GasMetered           bool                      // false = never issues a gas query
 }
 
-// CreateRole 新建 role + 同步三组 join 表。
+// CreateRole creates a new role + syncs the three join tables.
 func CreateRole(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
 ) (entity.Role, error) {
@@ -100,10 +98,11 @@ func createRoleRow(
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
 		DockButtons: in.DockButtons, ProviderID: in.ProviderID,
 		GasMetered: in.GasMetered,
-		// RequireGhostEvidence —— 建的时候也要传（F-Q-4）。这一格以前只在**改**那条路上
-		// 传（`updateRoleRow`），建那条路把它漏了：`role_create {require_ghost_evidence:true}`
-		// 建出来的 role，这个开关是关的 —— 而它管的是「AI 答话前必须先有引证」。
-		// 旁边的 GasMetered / ProviderID 都传了，只有它没有，编译当然不报。
+		// RequireGhostEvidence — must be passed on create too (F-Q-4): it used to be
+		// passed only on the update path, so `role_create
+		// {require_ghost_evidence:true}` silently came out with the switch off —
+		// the one that gates "the AI must have evidence before it answers" — while
+		// GasMetered/ProviderID beside it were passed. The compiler couldn't catch it.
 		RequireGhostEvidence: in.RequireGhostEvidence,
 	})
 	if err != nil {
@@ -115,7 +114,7 @@ func createRoleRow(
 	return role, nil
 }
 
-// ListRoles —— admin / MCP role.list。
+// ListRoles — admin / MCP role.list.
 func ListRoles(
 	ctx context.Context, deps RolesDeps, ownerID string,
 ) ([]entity.Role, error) {
@@ -129,7 +128,7 @@ func ListRoles(
 	return rows, nil
 }
 
-// GetRole —— admin / MCP role.get。
+// GetRole — admin / MCP role.get.
 func GetRole(
 	ctx context.Context, deps RolesDeps, ownerID, roleID string,
 ) (entity.Role, error) {
@@ -143,8 +142,9 @@ func GetRole(
 	return role, nil
 }
 
-// UpdateRole —— 改 role 主表 + 重设三组 join。builtin (public) 可改 prompt /
-// corpus_uris / skills / mcp / description，但不可改 name（usecase 拦）。
+// UpdateRole — changes the role main table + resets the three join sets. builtin
+// (public) can change prompt/corpus_uris/skills/mcp/description, not name (blocked
+// by usecase).
 func UpdateRole(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
 ) (entity.Role, error) {
@@ -179,7 +179,8 @@ func validateUpdateRoleInput(
 	return validateRoleJoinOwnership(ctx, deps, in)
 }
 
-// updateRoleMissingRequired —— Update 必填字段是否缺（抽出降 validateUpdateRoleInput 的 cyclo）。
+// updateRoleMissingRequired — whether Update's required fields are missing (split
+// out to lower validateUpdateRoleInput's cyclomatic complexity).
 func updateRoleMissingRequired(in *RoleWriteInput) bool {
 	return in.OwnerID == "" || in.RoleID == "" || in.Name == ""
 }
@@ -201,8 +202,8 @@ func updateRoleRow(
 	return role, nil
 }
 
-// DeleteRole —— builtin 不能删；FK ON DELETE RESTRICT 让正在用此 role 的
-// access_codes 阻止删（commit 3 commit 之后正常情况，先 reassign 再 delete）。
+// DeleteRole — builtin can't be deleted; FK ON DELETE RESTRICT means access_codes
+// still using this role block the delete (normal case: reassign, then delete).
 func DeleteRole(
 	ctx context.Context, deps RolesDeps, ownerID, roleID string,
 ) error {
@@ -215,7 +216,7 @@ func DeleteRole(
 	return nil
 }
 
-// validateRoleDeletable —— 必填 + 存在 + 非 builtin 检查。
+// validateRoleDeletable — checks required fields + existence + non-builtin.
 func validateRoleDeletable(
 	ctx context.Context, deps RolesDeps, ownerID, roleID string,
 ) error {
@@ -232,7 +233,7 @@ func validateRoleDeletable(
 	return nil
 }
 
-// CountActiveCodesForRole —— /admin/roles 卡上 "N active codes" 指标。
+// CountActiveCodesForRole — the "N active codes" metric on the /admin/roles card.
 func CountActiveCodesForRole(
 	ctx context.Context, deps RolesDeps, ownerID, roleID string,
 ) (int64, error) {
@@ -246,7 +247,7 @@ func CountActiveCodesForRole(
 	return count, nil
 }
 
-// reloadRole —— 主表 + join 表合一的查询，Create/Update 末尾用。
+// reloadRole — combined main-table + join-table query, used at end of Create/Update.
 func reloadRole(
 	ctx context.Context, deps RolesDeps, ownerID, roleID string,
 ) (entity.Role, error) {
@@ -257,7 +258,8 @@ func reloadRole(
 	return role, nil
 }
 
-// syncRoleJoins —— 同步 corpus_uris / skill_ids / mcp_server_ids 三组 join。
+// syncRoleJoins — syncs the three join sets: corpus_uris / skill_ids /
+// mcp_server_ids.
 func syncRoleJoins(
 	ctx context.Context, deps RolesDeps, roleID string, in *RoleWriteInput,
 ) error {
@@ -276,7 +278,7 @@ func syncRoleJoins(
 	return nil
 }
 
-// checkRoleRenameAllowed —— builtin role 不能 rename。
+// checkRoleRenameAllowed — a builtin role can't be renamed.
 func checkRoleRenameAllowed(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
 ) error {
@@ -290,8 +292,8 @@ func checkRoleRenameAllowed(
 	return nil
 }
 
-// validateRoleJoinOwnership —— PromptID / SkillIDs / MCPServerIDs 都必须属于
-// 同 owner（防御 owner_id forge）。
+// validateRoleJoinOwnership — PromptID/SkillIDs/MCPServerIDs must all belong to the
+// same owner (defends against owner_id forgery).
 func validateRoleJoinOwnership(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
 ) error {

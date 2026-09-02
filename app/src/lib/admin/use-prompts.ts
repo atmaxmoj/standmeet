@@ -1,6 +1,6 @@
-// use-prompts —— /admin/prompts 状态 store + CRUD actions。形态参照
-// use-skills（zustand resource store + create/delete actions）。Update 走
-// PUT /prompts/{id}。
+// use-prompts —— /admin/prompts state store + CRUD actions. Shaped after
+// use-skills (zustand resource store + create/delete actions). Update goes
+// through PUT /prompts/{id}.
 
 import { useEffect } from 'react';
 
@@ -57,7 +57,8 @@ export function usePrompts(): PromptsHook {
   };
 }
 
-// mutation 抛错（不再吞成 null / false）：调用方用 useAction 收尾（成功 toast / 失败 report），或就地内联。
+// The mutation throws (no longer swallowed into null / false): the caller finishes
+// up with useAction (success toast / failure report), or inlines it in place.
 async function createPrompt(input: WritePromptInput): Promise<PromptView> {
   const created = await adminAPI.post('/prompts/', input, PromptViewSchema);
   promptsStore.getState().mutate((prev) => [...(prev ?? []), created]);

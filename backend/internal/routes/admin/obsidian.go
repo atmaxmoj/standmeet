@@ -1,14 +1,14 @@
-// obsidian.go —— admin /obsidian endpoint: export vault as zip / import vault
-// from multipart upload。
+// obsidian.go — admin /obsidian endpoint: export vault as zip / import vault
+// from multipart upload.
 //
-// GET  /api/admin/obsidian/export  → application/zip 流（zip 内 writings/<slug>.md
-//                                    + attachments/<id>.<ext>）
-// POST /api/admin/obsidian/import  → multipart form-data，每个 file field
-//                                    携带 vault 内相对路径（webkitRelativePath）；
+// GET  /api/admin/obsidian/export  → an application/zip stream (inside the zip:
+//                                    writings/<slug>.md + attachments/<id>.<ext>)
+// POST /api/admin/obsidian/import  → multipart form-data, each file field carries its
+//                                    path relative to the vault (webkitRelativePath);
 //                                    response JSON { created, updated, skipped, errors }
 //
-// 形态对齐主流做法（Quartz / obsidian-importer）：两个 button 各自 batch，
-// owner 触发，没有 file watcher / live sync。
+// The shape matches mainstream practice (Quartz / obsidian-importer): each button is its
+// own batch, owner-triggered, no file watcher / live sync.
 
 package admin
 
@@ -30,7 +30,7 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// ObsidianDeps —— admin obsidian handlers 依赖。
+// ObsidianDeps — dependencies for the admin obsidian handlers.
 type ObsidianDeps struct {
 	Writings   *corpus.WritingRepo
 	Assets     *corpus.AssetRepo
@@ -38,16 +38,18 @@ type ObsidianDeps struct {
 	Corpus     corpus.Deps    // sync face: VaultSync(notes) + Raw + WikiRefs(refs)
 	CSS        owner.CSSStore // .obsidian/snippets harvest → owner CSS
 	WritingsTx corpus.WritingsTxDeps
-	// PagePins —— sync 是 published 的第三条写路径(frontmatter 可翻 publish);
-	// 批量 reconcile 后清扫失效 pin,保住 pinned ⊆ published(渲染过滤只是兜底)。
+	// PagePins — sync is published's third write path (frontmatter can flip publish);
+	// after a batch reconcile, stale pins get swept to keep pinned ⊆ published (the
+	// render-time filter is only a fallback).
 	PagePins owner.PagePinDeps
-	// ImportReceipt —— 「上一次导入」这个事实的落点（UX-62）。没有它，装着 1028 条
-	// 笔记的实例和一个空实例在这一屏上长得一模一样。
+	// ImportReceipt — where the fact "when was the last import" lands (UX-62). Without
+	// it, an instance holding 1028 notes and an empty instance look identical on this
+	// screen.
 	ImportReceipt owner.VaultImportStore
 	Log           *slog.Logger
 }
 
-// cssSyncAdapter —— SyncCSSPort:harvest 的 CSS 经 SetOwnerCSS(sanitize+scope)。
+// cssSyncAdapter — SyncCSSPort: harvested CSS goes through SetOwnerCSS (sanitize+scope).
 type cssSyncAdapter struct{ store owner.CSSStore }
 
 func (a cssSyncAdapter) SetCSS(ctx context.Context, ownerID, rawCSS string) error {
@@ -57,7 +59,8 @@ func (a cssSyncAdapter) SetCSS(ctx context.Context, ownerID, rawCSS string) erro
 	return nil
 }
 
-// refsSyncAdapter —— obsidian.SyncRefsPort over RebuildNoteRefs：整批 upsert 后重建一条的出度边。
+// refsSyncAdapter — obsidian.SyncRefsPort over RebuildNoteRefs: rebuilds one note's
+// outbound edges after a batch upsert.
 type refsSyncAdapter struct{ deps corpus.Deps }
 
 func (a refsSyncAdapter) RebuildForNote(ctx context.Context, ownerID, noteID, body string) error {
@@ -67,7 +70,8 @@ func (a refsSyncAdapter) RebuildForNote(ctx context.Context, ownerID, noteID, bo
 	return nil
 }
 
-// writingsSyncAdapter —— obsidian.SyncWritingsPort over ImportVault：writing/ 子树 → writings 表。
+// writingsSyncAdapter — obsidian.SyncWritingsPort over ImportVault: the writing/ subtree
+// → the writings table.
 type writingsSyncAdapter struct {
 	tx     corpus.WritingsTxDeps
 	setter *corpus.WritingRepo
@@ -85,7 +89,7 @@ func (a writingsSyncAdapter) ImportWritings(
 // boundary that keeps the connector layer usecase-independent.
 var _ connector.SyncIngester = (*ObsidianDeps)(nil)
 
-// toSyncFiles —— parsed vault files → connector-layer DTOs (RelPath/Body match 1:1).
+// toSyncFiles converts parsed vault files → connector-layer DTOs (RelPath/Body match 1:1).
 func toSyncFiles(files []obsidian.VaultFile) []connector.SyncFile {
 	out := make([]connector.SyncFile, len(files))
 	for i, f := range files {
@@ -94,7 +98,8 @@ func toSyncFiles(files []obsidian.VaultFile) []connector.SyncFile {
 	return out
 }
 
-// Ingest —— connector.SyncIngester: build the vault SyncDeps, run the sync, rebuild the index.
+// Ingest — connector.SyncIngester: build the vault SyncDeps, run the sync, rebuild the
+// index.
 func (d *ObsidianDeps) Ingest(
 	ctx context.Context, ownerID string, files []connector.SyncFile, opts connector.SyncOpts,
 ) (connector.SyncResult, error) {
@@ -108,7 +113,8 @@ func (d *ObsidianDeps) Ingest(
 		Writings: writingsSyncAdapter{tx: d.WritingsTx, setter: d.Writings},
 		CSS:      cssSyncAdapter{store: d.CSS},
 	}, ownerID, vfiles, obsidian.SyncMode{Authoritative: opts.Authoritative})
-	// 批量 sync 后整批重建 Meili index(反映新增/改/删,漂移不留)。best-effort。
+	// After a batch sync, rebuild the whole Meili index (reflects additions/edits/
+	// deletions, leaves no drift). Best-effort.
 	corpus.ReindexCorpusOwner(ctx, d.Corpus, ownerID)
 	d.sweepPinsAfterSync(ctx, ownerID)
 	d.recordImportReceipt(ctx, ownerID, &res)
@@ -118,10 +124,12 @@ func (d *ObsidianDeps) Ingest(
 	}, nil
 }
 
-// recordImportReceipt —— 把这一次导入记下来（UX-62）。
+// recordImportReceipt records this import (UX-62).
 //
-// best-effort，跟 reindex / sweepPins 一样：**记账失败不该让一次成功的导入变成失败** ——
-// 笔记已经进库了，回执没写上是可观测性的损失，不是数据的损失。但它必须**出声**。
+// Best-effort, same as reindex / sweepPins: **a bookkeeping failure must not turn a
+// successful import into a failed one** — the notes are already in the database; a
+// missing receipt is a loss of observability, not a loss of data. But it must **make
+// noise**.
 func (d *ObsidianDeps) recordImportReceipt(
 	ctx context.Context, ownerID string, res *obsidian.ImportResult,
 ) {
@@ -133,7 +141,8 @@ func (d *ObsidianDeps) recordImportReceipt(
 	}))
 }
 
-// logReceiptErr —— 记账失败只出声，不改变这一次导入的结局。
+// logReceiptErr — a bookkeeping failure only makes noise; it never changes this import's
+// outcome.
 func (d *ObsidianDeps) logReceiptErr(err error) {
 	if err == nil || d.Log == nil {
 		return
@@ -141,29 +150,31 @@ func (d *ObsidianDeps) logReceiptErr(err error) {
 	d.Log.Error("record vault import receipt", "err", err)
 }
 
-// sweepPinsAfterSync —— sync 可能 unpublish/删除已 pin 条目 → 清扫主页 pin
-// (pinned ⊆ published)。best-effort。
+// sweepPinsAfterSync — sync may unpublish/delete an already-pinned entry → sweeps the
+// homepage's pins (pinned ⊆ published). Best-effort.
 func (d *ObsidianDeps) sweepPinsAfterSync(ctx context.Context, ownerID string) {
 	if serr := owner.SweepPagePins(ctx, d.PagePins, ownerID); serr != nil && d.Log != nil {
 		d.Log.Error("sweep page pins after vault sync", "err", serr)
 	}
 }
 
-const maxObsidianImportSize = 200 << 20 // 200 MB — vault 整个上传，比 writing save 大。
+// 200 MB — the whole vault uploaded at once, bigger than a writing save.
+const maxObsidianImportSize = 200 << 20
 
-// MountObsidian 挂 /obsidian 子路由。
+// MountObsidian mounts the /obsidian subrouter.
 func (h *Handlers) MountObsidian(r chi.Router) {
 	r.Route("/obsidian", func(r chi.Router) {
 		r.Get("/export", h.exportObsidian())
 		r.Post("/import", h.importObsidian())
-		// state —— 「上一次导入是什么时候」（UX-62）。这一屏此前**没有任何**过去时态：
-		// 导入完屏幕上那行计数刷新就没，于是 1028 条笔记的实例跟空实例长得一样。
+		// state — "when was the last import" (UX-62). This screen previously had
+		// **no** past tense at all: the moment the import-finished count faded from
+		// the screen, an instance with 1028 notes looked identical to an empty one.
 		r.Get("/state", h.obsidianState())
 	})
 }
 
-// 那一问的读面（`GET /obsidian/state`）住在 obsidian_state.go：这里是动作，那里是
-// 关于动作的事实。
+// The read facade for that question (`GET /obsidian/state`) lives in
+// obsidian_state.go: this file is the action, that one is the fact about the action.
 
 func (h *Handlers) exportObsidian() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -176,7 +187,8 @@ func (h *Handlers) exportObsidian() http.HandlerFunc {
 		}
 		if err := obsidian.WriteZip(r.Context(), deps, ownerID, w); err != nil {
 			logEncodeErr(h.Log, "obsidian export", err)
-			// header 已 flush 出去；这里只能停止写，client 拿到 truncated zip。
+			// The headers are already flushed; all we can do here is stop writing —
+			// the client gets a truncated zip.
 		}
 	}
 }
@@ -191,17 +203,20 @@ type importResultView struct {
 	Deleted int `json:"deleted"`
 }
 
-// vaultImportWriteBudget —— 一次 vault 导入允许写多久。
+// vaultImportWriteBudget — how long a single vault import is allowed to take to write.
 //
-// `http.Server.WriteTimeout` 是 **30 秒**，压在每一条响应上。对常规 endpoint 合理，对这一条
-// 不是：它的耗时随 owner 的 vault 大小长，而真 vault（1082 篇）实测就在 16–30 秒这一档 ——
-// 一直贴着墙。撞上去的样子很难认：服务端把连接掐了，浏览器拿到的是一个网络错误，
-// 而**导入其实做完了**（库里已经写好，只有回执写不出去，日志里是 "context canceled"）。
-// owner 会以为失败了，然后再导一次。
+// `http.Server.WriteTimeout` is **30 seconds**, pressed onto every response. That's
+// reasonable for a regular endpoint, but not for this one: its duration scales with the
+// owner's vault size, and a real vault (1082 entries) measured in at 16–30 seconds —
+// constantly pressed against the wall. Hitting it is hard to recognize: the server cuts
+// the connection, the browser sees a network error, and **the import actually finished**
+// (the database is already written, only the receipt fails to write out, and the log
+// shows "context canceled"). The owner thinks it failed and imports again.
 //
-// 这跟 F-L-7（1000 个 part 的墙）是同一类：一个没人声明过的数字，让真实规模的 vault 用不了。
-// 也跟 agent turn 那次（`extendStreamWriteDeadline`）是同一个解法：把**这条连接**的写期限推开，
-// 真正的上限交给 ctx。
+// This is the same class of bug as F-L-7 (the 1000-part wall): a number nobody ever
+// declared, breaking a real-scale vault. It's also the same fix as the agent-turn case
+// (`extendStreamWriteDeadline`): push out **this connection's** write deadline, and hand
+// the real limit off to ctx.
 const vaultImportWriteBudget = 10 * time.Minute
 
 func (h *Handlers) importObsidian() http.HandlerFunc {
@@ -230,8 +245,9 @@ func (h *Handlers) importObsidian() http.HandlerFunc {
 	}
 }
 
-// extendImportWriteDeadline —— 把这条连接的写期限推到 vaultImportWriteBudget。
-// 不支持 deadline 的 writer（httptest 等）返 ErrNotSupported —— 记一行即可。
+// extendImportWriteDeadline pushes this connection's write deadline out to
+// vaultImportWriteBudget. A writer that doesn't support a deadline (httptest, etc.)
+// returns ErrNotSupported — just log a line for it.
 func extendImportWriteDeadline(log *slog.Logger, w http.ResponseWriter) {
 	rc := http.NewResponseController(w)
 	if err := rc.SetWriteDeadline(time.Now().Add(vaultImportWriteBudget)); err != nil {
@@ -245,7 +261,7 @@ func writeImportJSON(log *slog.Logger, w http.ResponseWriter, r *obsidian.Import
 	w.WriteHeader(http.StatusOK)
 	errs := r.Errors
 	if errs == nil {
-		errs = []string{} // JSON: 别让 nil slice 序列化成 null，client 都按 [] 处理
+		errs = []string{} // JSON: don't let a nil slice serialize to null; clients expect []
 	}
 	view := importResultView{
 		Created: r.Created, Updated: r.Updated,
@@ -265,5 +281,6 @@ func isAuthoritativeUpload(r *http.Request) bool {
 	return r.FormValue("authoritative") == "true"
 }
 
-// multipart 的流式读取住在 obsidian_multipart.go —— 一个上千 part 的请求怎么读完
-// 而不整份物化，是跟这两个 endpoint 的编排不同的一件事。
+// The streaming multipart read lives in obsidian_multipart.go — how a request with
+// thousands of parts gets read without materializing the whole thing is a different
+// concern from orchestrating these two endpoints.

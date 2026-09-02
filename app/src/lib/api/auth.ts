@@ -1,10 +1,11 @@
-// auth.ts —— admin auth API：claim (first-run) + login。
+// auth.ts —— admin auth API: claim (first-run) + login.
 //
-// claim 拿一次性 setup token + owner profile，副作用是 owners 表加一行。
-// login 拿 email + password，副作用是 server-side session cookie。
+// claim takes the one-time setup token + owner profile; its side effect is
+// adding a row to the owners table.
+// login takes email + password; its side effect is a server-side session cookie.
 //
-// 都是 client-side（pages 是 'use client'）；和 backend 同源 origin，浏览器
-// 自动带 cookie。
+// Both are client-side (the pages are 'use client'); same-origin with the
+// backend, so the browser carries the cookie automatically.
 
 import { z } from 'zod';
 
@@ -17,8 +18,10 @@ export interface ClaimInput {
   handle: string;
   full_name: string;
   public_url: string;
-  // 向导第 3 步收的 AI provider，跟 claim 同一次请求送过去。留空 = 那一步跳过了。
-  // endpoint 不在这里 —— 服务端从自己的 preset 表查，前端不编第二份。
+  // The AI provider collected in wizard step 3, sent along with the same
+  // claim request. Empty = that step was skipped.
+  // endpoint isn't here — the server looks it up in its own preset table,
+  // the frontend doesn't keep a second copy.
   ai_provider: string;
   ai_model: string;
   ai_key: string;
@@ -43,8 +46,9 @@ export async function claim(input: ClaimInput): Promise<ClaimResult> {
 export interface LoginInput {
   email: string;
   password: string;
-  // captcha_token 仅在 instance 装了 Turnstile 时由 LoginForm 提供；空 string
-  // 让 backend LoginGuard 走 noop 路径（feature off 时不验）。
+  // captcha_token is supplied by LoginForm only when the instance has Turnstile
+  // installed; an empty string sends backend LoginGuard down the noop path
+  // (no verification when the feature is off).
   captcha_token?: string;
 }
 
@@ -70,8 +74,10 @@ export interface RecoverInput {
   recovery_phrase: string;
 }
 
-// recover —— #100 锁在外面时用 email + recovery phrase 登回来；成功后 backend 写 session cookie
-// (跟 login 一样)。走 public 路径(与 login 同套 LoginGuard 限速),不需要既有 session。
+// recover —— #100 lets an owner locked out log back in with email + recovery
+// phrase; on success the backend writes a session cookie (same as login). Goes
+// through the public path (rate-limited by the same LoginGuard as login), no
+// existing session required.
 export async function recover(input: RecoverInput): Promise<LoginResult> {
   const res = await fetch('/api/admin/recover', {
     method: 'POST',
@@ -82,10 +88,12 @@ export async function recover(input: RecoverInput): Promise<LoginResult> {
   return safeJson(res, LoginResultSchema);
 }
 
-// ConfirmEmailResult —— 确认改邮箱的结果。**返回判别值，不抛** ——
-// 调用方要按 code 说三句不同的话（换好了 / 过期了 / 这封信不是给你的），
-// 而 readError 只给一句人话字符串，分辨不出来。把三类压成一类，
-// 为其中一类准备的那句指引就永远出不来。
+// ConfirmEmailResult —— result of confirming an email change. **Returns a
+// discriminated value, doesn't throw** — the caller needs to say one of three
+// different things based on code (changed / expired / this email wasn't meant
+// for you), and readError only gives a single human-readable string, which
+// can't distinguish between them. Collapsing three cases into one means the
+// guidance meant for one of them can never surface.
 export type ConfirmEmailResult =
   | { ok: true; email: string }
   | { ok: false; code: string };
@@ -101,8 +109,9 @@ export async function confirmEmail(token: string): Promise<ConfirmEmailResult> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token }),
   });
-  // 走 schema 而不是类型断言：这个回执两种形状，而断言只是把编译器噤声，
-  // 服务端换了形状照样静默走到底（[[zod-unknown-is-not-optional]]）。
+  // Goes through a schema, not a type assertion: this response has two possible
+  // shapes, and an assertion only silences the compiler — if the server changes
+  // shape it would still sail through silently ([[zod-unknown-is-not-optional]]).
   const parsed = ConfirmEmailBodySchema.safeParse(await res.json().catch(() => ({})));
   const body = parsed.success ? parsed.data : {};
   return res.ok
@@ -115,8 +124,8 @@ export interface ResetPasswordInput {
   new_password: string;
 }
 
-// resetPassword —— /account/reset?t=... 表单调；走 public 路径不需要 session
-// cookie。token 本身就是凭据。
+// resetPassword —— called by the /account/reset?t=... form; goes through the
+// public path, no session cookie needed. The token itself is the credential.
 export async function resetPassword(input: ResetPasswordInput): Promise<void> {
   const res = await fetch('/api/v1/account/reset-password', {
     method: 'POST',

@@ -1,6 +1,7 @@
-// conversations.go —— admin 视角的 conversation list / transcript 查询。
-// 业务逻辑薄到几乎只是 repo 转发 + 默认参数 clamp；这里独立成 use case 是
-// 为了和 routes 层解耦，未来加 "filter / search / pagination" 不污染 handler。
+// conversations.go —— conversation list / transcript queries from the admin's viewpoint.
+// The business logic is thin enough to be almost just repo forwarding + default param
+// clamping; it's still its own use case to decouple from the routes layer, so adding
+// "filter / search / pagination" later won't pollute the handler.
 
 package usecase
 
@@ -14,9 +15,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
-// ConversationsDeps —— ListConversations / GetTranscript 需要的 repo。
-// Wiki + Writing + Output 是给 transcript 把 cited_*_ids 解到 id+title 用；Subjectivity 解
-// cited_subjectivity_ids（仅 opt-in 的会落进 message，此处只做 id→ref 展示）。
+// ConversationsDeps —— repos needed by ListConversations / GetTranscript.
+// Wiki + Writing + Output are for the transcript to resolve cited_*_ids into id+title;
+// Subjectivity resolves cited_subjectivity_ids (only opt-in ones get recorded onto the
+// message; this is purely id→ref display).
 type ConversationsDeps struct {
 	Chats        *repo.ChatRepo
 	Wiki         *corpus.WikiRepo
@@ -25,18 +27,19 @@ type ConversationsDeps struct {
 	Subjectivity corpus.SubjectivityCiteLookup
 }
 
-// TitledRef —— TranscriptBundle 暴露的 (id, title)；上层 (routes / mcp)
-// 不直接 import postgres，所以 usecases 给一个对应类型。字段跟
-// postgres.TitledRef 同名同序，转换是字段-by-字段。
+// TitledRef —— the (id, title) TranscriptBundle exposes; upper layers (routes / mcp)
+// don't import postgres directly, so usecases provides a corresponding type. Fields have
+// the same names and order as postgres.TitledRef; the conversion is field-by-field.
 type TitledRef struct {
 	ID    string
 	Title string
 	Path  string
 }
 
-// SubjectivityRef —— transcript 里 opt-in subjectivity 的解析 ref。带 Body（subjectivity_refs
-// 暴露 {id,path,title,body}）——只有 show_as_source=true 的才进 message.cited_subjectivity_ids，
-// 故这里出现的 body 一定是 owner 明确 opt-in 的，非私有泄漏。
+// SubjectivityRef —— resolved ref for opt-in subjectivity in the transcript. Carries Body
+// (subjectivity_refs exposes {id,path,title,body}) —— only show_as_source=true entries
+// ever enter message.cited_subjectivity_ids, so any body appearing here is one the owner
+// explicitly opted in, never a private leak.
 type SubjectivityRef struct {
 	ID    string
 	Title string
@@ -44,15 +47,17 @@ type SubjectivityRef struct {
 	Body  string
 }
 
-// TranscriptBundle —— GetConversationTranscript 返：conversation + messages
-// + cited wiki / output / subjectivity 的 id→ref 索引（hydration 一次性，前端按需查）。
+// TranscriptBundle —— what GetConversationTranscript returns: conversation + messages
+// + the id→ref index for cited wiki / output / subjectivity (hydrated once, frontend
+// looks up as needed).
 type TranscriptBundle struct {
 	ConvBundle       repo.ChatWithMessages
 	WikiRefs         []TitledRef
 	WritingRefs      []TitledRef
 	OutputRefs       []TitledRef
 	SubjectivityRefs []SubjectivityRef
-	// GroundingRefs —— 塑造了声音但没 opt-in 的 subjectivity,只带 title/path(F-A-27)。
+	// GroundingRefs —— subjectivity that shaped the voice but wasn't opt-in, carrying
+	// only title/path (F-A-27).
 	GroundingRefs []TitledRef
 }
 
@@ -61,8 +66,8 @@ const (
 	maxConvListLimit     = 200
 )
 
-// ListConversations —— admin 列 owner 所有 conversation。limit ≤ 0 用默认；
-// 超 max 截断。
+// ListConversations —— admin lists all of the owner's conversations. limit ≤ 0 uses the
+// default; over max gets clamped.
 func ListConversations(
 	ctx context.Context, deps ConversationsDeps, ownerID string, limit int32,
 ) ([]repo.ChatSummary, error) {
@@ -76,10 +81,10 @@ func ListConversations(
 	return rows, nil
 }
 
-// GetConversationTranscript —— 拿 conversation + messages 全量 + hydrate
-// 出 cited wiki/output 的 title 索引。convID 不存在 / 不属于 owner 返
-// domain.ErrConversationNotFound。Hydrate 失败不致命：refs 返空，前端
-// fallback 显 id。
+// GetConversationTranscript —— fetches the full conversation + messages and hydrates the
+// title index for cited wiki/output. When convID doesn't exist / doesn't belong to owner,
+// returns domain.ErrConversationNotFound. A hydrate failure isn't fatal: refs come back
+// empty and the frontend falls back to showing the id.
 func GetConversationTranscript(
 	ctx context.Context, deps ConversationsDeps, ownerID, convID string,
 ) (TranscriptBundle, error) {
@@ -102,8 +107,9 @@ func GetConversationTranscript(
 	}, nil
 }
 
-// subjectivityCitedRefs —— cited subjectivity id → {id,path,title,body}。这些 id 已是 opt-in
-// 的（写入 message 前过了 show_as_source gate），此处纯 hydrate。lookup 未注入 / 解析失败 → 略过。
+// subjectivityCitedRefs —— cited subjectivity id → {id,path,title,body}. These ids are
+// already opt-in (passed the show_as_source gate before being written to the message);
+// this is pure hydration. lookup not wired / resolution failed → skipped.
 func subjectivityCitedRefs(
 	ctx context.Context, lookup corpus.SubjectivityCiteLookup, ownerID string, ids []string,
 ) []SubjectivityRef {
@@ -123,11 +129,13 @@ func subjectivityCitedRefs(
 	return out
 }
 
-// groundingRefs —— grounded subjectivity id → {id,title,path}。**不取 body**。
+// groundingRefs —— grounded subjectivity id → {id,title,path}. **Doesn't take body**.
 //
-// 这些是没 opt-in 的私有 standpoint 笔记:它们塑造了这一轮的声音,而 owner 以前在任何界面
-// 上都看不到它们参与过(F-A-27)。owner 要判的是「哪几条在起作用」,那用标题就够 —— 正文不
-// 复制进 transcript 的回参,私有内容留在它自己那张表里。
+// These are private standpoint notes that weren't opt-in: they shaped this turn's voice,
+// and the owner previously had no view anywhere showing they'd been involved (F-A-27).
+// What the owner needs to judge is "which ones were in play" — a title is enough for
+// that —— the body isn't copied into the transcript's response; private content stays in
+// its own table.
 func groundingRefs(
 	ctx context.Context, lookup corpus.SubjectivityCiteLookup, ownerID string, ids []string,
 ) []TitledRef {
@@ -145,13 +153,16 @@ func groundingRefs(
 	return out
 }
 
-// wikiCitedRefs —— 把 cited wiki id 解成 (id, title, 树派生 path)。地址纯树派生
-// (load 全树 → corpus.WikiTreePaths),不读已退役的 path 列。load 失败 / id 已删 → 略过,
-// transcript 主数据已在手,前端 fallback 显 id,不该让整个 transcript 502。
+// wikiCitedRefs —— resolves cited wiki ids into (id, title, tree-derived path). The
+// address is purely tree-derived (load the whole tree → corpus.WikiTreePaths), doesn't
+// read the retired path column. load failure / id already deleted → skipped; the
+// transcript's main data is already in hand, the frontend falls back to showing the id,
+// the whole transcript shouldn't 502 over this.
 func wikiCitedRefs(
 	ctx context.Context, repo *corpus.WikiRepo, ownerID string, ids []string,
 ) []TitledRef {
-	// 只对真 cited 的 id 逐个上溯算 path + meta(无 50-cap;超出内存窗口的也算得出)。
+	// Only walk up to compute path + meta for the ids that are actually cited, one by
+	// one (no 50-cap; ones beyond the in-memory window still resolve).
 	titles := make(map[string]string, len(ids))
 	paths := make(map[string]string, len(ids))
 	for _, id := range ids {
@@ -169,9 +180,10 @@ func wikiCitedRefs(
 	return refsFor(ids, titles, paths)
 }
 
-// writingCitedRefs —— cited writing id 解成 (id, title, path)。writing 自带 slug 派生的
-// path 列("writings/"+slug),不用上溯树;逐个 GetByID 拿 title+slug。写不进 message 前
-// 无 gate（writing 是 public/已发布 blog）。repo 未注入 / id 已删 → 略过。
+// writingCitedRefs —— resolves cited writing ids into (id, title, path). writing has its
+// own slug-derived path column ("writings/"+slug), no need to walk the tree; GetByID one
+// by one for title+slug. No gate before it's written into the message (writing is a
+// public/published blog). repo not wired / id already deleted → skipped.
 func writingCitedRefs(
 	ctx context.Context, repo *corpus.WritingRepo, ownerID string, ids []string,
 ) []TitledRef {
@@ -189,8 +201,9 @@ func writingCitedRefs(
 	return out
 }
 
-// outputCitedRefs —— wiki 的 output 孪生:逐个 cited id 上溯算 path + meta(无 50-cap;
-// 超出内存窗口的 cited output 也解得出)。
+// outputCitedRefs —— output's twin of wiki: walk up to compute path + meta for each
+// cited id, one by one (no 50-cap; a cited output beyond the in-memory window still
+// resolves).
 func outputCitedRefs(
 	ctx context.Context, repo *corpus.OutputRepo, ownerID string, ids []string,
 ) []TitledRef {
@@ -211,8 +224,9 @@ func outputCitedRefs(
 	return refsFor(ids, titles, paths)
 }
 
-// refsFor —— cited id → TitledRef,按 title/path 表填;不在表里(已删)的略过,
-// 保持旧 GetTitlesByIDs「只回存在的」语义。
+// refsFor —— cited id → TitledRef, filled from the title/path maps; ones not in the maps
+// (already deleted) are skipped, preserving the old GetTitlesByIDs "only returns existing
+// ones" semantics.
 func refsFor(ids []string, titles, paths map[string]string) []TitledRef {
 	out := make([]TitledRef, 0, len(ids))
 	for _, id := range ids {
@@ -225,21 +239,23 @@ func refsFor(ids []string, titles, paths map[string]string) []TitledRef {
 	return out
 }
 
-// citedIDs —— collectCitedIDs 的各组返结果，避开 named-return + 多-return。
+// citedIDs —— the grouped results returned by collectCitedIDs, avoiding named-return +
+// multi-return.
 type citedIDs struct {
 	wikis          []string
 	writings       []string
 	outputs        []string
 	subjectivities []string
-	// grounded —— 没 opt-in 的 subjectivity(F-A-27)。跟 subjectivities 分开收:它们走
-	// 不同的 hydrate(只要标题和路径,不要 body),也渲在不同一块上。
+	// grounded —— subjectivity that wasn't opt-in (F-A-27). Collected separately from
+	// subjectivities: they go through different hydration (only title and path, no
+	// body) and render in a different block too.
 	grounded []string
 }
 
 const citedSetInitialCap = 16
 
-// collectCitedIDs —— 扫所有 message 的 CitedWikiIDs / CitedWritingIDs / CitedOutputIDs /
-// CitedSubjectivityIDs，去重。
+// collectCitedIDs —— scans every message's CitedWikiIDs / CitedWritingIDs /
+// CitedOutputIDs / CitedSubjectivityIDs, deduplicated.
 func collectCitedIDs(messages []entity.Message) citedIDs {
 	wikiSet := make(map[string]struct{}, citedSetInitialCap)
 	writingSet := make(map[string]struct{}, citedSetInitialCap)

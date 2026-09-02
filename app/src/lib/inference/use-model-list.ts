@@ -1,16 +1,16 @@
-// use-model-list —— "Load models" button 的状态机。两个 panel 共用：
-// BYOAIPanel (visitor) + AIProviderPanel (admin owner)。
+// use-model-list —— state machine for the "Load models" button. Shared by
+// two panels: BYOAIPanel (visitor) + AIProviderPanel (admin owner).
 //
-// 三种 UI 形态：
-//   1) options == null → 文本 input，旁边一个 "Load models" button
-//   2) options != null → dropdown <select>，旁边一个 "↻" 重新 fetch + "type
-//      manually" 切回 text input
-//   3) loading == true → button 显示 "loading…" disabled
+// Three UI shapes:
+//   1) options == null → text input, with a "Load models" button next to it
+//   2) options != null → dropdown <select>, with a "↻" refetch + "type
+//      manually" switch back to text input next to it
+//   3) loading == true → button shows "loading…" disabled
 //
-// 失败：caller 传 onError(message) 在 toast 里弹，options 保持原状（null
-// 仍 null / 已加载仍是上次的列表）。
+// On failure: the caller passes onError(message) to pop a toast, and
+// options stays as-is (still null, or still the previously loaded list).
 //
-// 网络层走 list-models.ts；这里只管状态。
+// The network layer is list-models.ts; this only handles state.
 
 import { useCallback, useState } from 'react';
 
@@ -26,8 +26,10 @@ export interface ModelListState {
 export interface ModelListHook {
   state: ModelListState;
   load: (input: ListModelsInput) => Promise<void>;
-  // loadOwn —— owner 那一面：**不发 key**，服务端拿它自己存的那把去问（F-R-11）。
-  // 访客那面反过来（key 跟着请求走），所以两条路各有一个入口而不是一个带标志位的。
+  // loadOwn —— the owner's side: **sends no key**, the server asks upstream
+  // with the key it has stored (F-R-11). The visitor side is the reverse
+  // (the key travels with the request), so each path gets its own entry
+  // point rather than one entry point with a flag.
   loadOwn: () => Promise<void>;
   reset: () => void;
 }

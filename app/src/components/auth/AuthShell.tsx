@@ -1,9 +1,9 @@
-// AuthShell —— /setup 和 /login 共享的页面外壳。
+// AuthShell — page shell shared by /setup and /login.
 //
-// 视觉对齐 docs/design/project/login.html：
-//   - DeployStrip（顶部）: standmeet / self-hosted · v + 部署 host + instance hash
-//   - 双列 grid（lg+）: 主表单 + SidePanel "what you get"
-//   - Footer: docs / source 链接
+// Visually matches docs/design/project/login.html:
+//   - DeployStrip (top): standmeet / self-hosted · v + deploy host + instance hash
+//   - Two-column grid (lg+): main form + SidePanel "what you get"
+//   - Footer: docs / source links
 
 'use client';
 

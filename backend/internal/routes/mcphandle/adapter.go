@@ -1,8 +1,9 @@
-// adapter.go —— Phase B-4: 把 capreg.MCPBinding 绑到 mcp-go server。
+// adapter.go — Phase B-4: binds capreg.MCPBinding to the mcp-go server.
 //
-// 每个 capability 实现 OwnerMCPBinding 返一份 {Name, Description,
-// InputSchema, Handler}；本 adapter 统一做 owner_id resolve + panic recover
-// + result translation；Handler 拿到的 ownerID 已经验过、raw 是 args JSON。
+// Each capability implements OwnerMCPBinding and returns a
+// {Name, Description, InputSchema, Handler}; this adapter uniformly does
+// owner_id resolve + panic recover + result translation; the Handler
+// receives an already-verified ownerID, with raw as the args JSON.
 
 package mcphandle
 
@@ -20,14 +21,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 )
 
-// PanicResultMarker —— handler panic 后返给客户端的错误前缀。导出是给守卫用:
-// e2e 逐个调用每个 owner 工具,靠这个标记把"工具崩了"跟"工具正常拒绝了空入参"分开。
-// 没有它,两者都只是一条 isError,守卫就成了睁眼瞎。
+// PanicResultMarker — the error prefix returned to the client after a
+// handler panics. Exported for the guard: e2e calls every owner tool one
+// by one and uses this marker to tell "the tool crashed" apart from "the
+// tool correctly rejected an empty input". Without it, both are just an
+// isError, and the guard is blind.
 const PanicResultMarker = "internal error: capability handler panicked"
 
-// registerCapabilities —— walk registry.OwnerMCPBindings() 把每个 binding
-// 装进 mcp-go server。corpus / page / job-loop 等若也有 MCP 面，自动出现
-// 在 owner MCP 的 tools/list。
+// registerCapabilities —— walks registry.OwnerMCPBindings() and installs
+// each binding into the mcp-go server. If corpus / page / job-loop etc.
+// also have an MCP face, it automatically shows up in the owner MCP's
+// tools/list.
 func registerCapabilities(srv *server.MCPServer, reg *capreg.Registry, log *slog.Logger) {
 	for _, b := range reg.OwnerMCPBindings() {
 		mcpTool := mcpgo.NewToolWithRawSchema(b.Name, b.Description, b.InputSchema)
@@ -35,18 +39,22 @@ func registerCapabilities(srv *server.MCPServer, reg *capreg.Registry, log *slog
 	}
 }
 
-// wrapCapabilityHandler —— 标准的 owner-side MCP 执行包装：
-//   - panic recover (handler bug 不该 take down 整个 MCP server)
-//   - owner_id resolve (HTTPContextFunc 已经塞 ctx，这里取出)
-//   - args JSON marshal (mcp-go 拿到 map[string]any，统一序列化成 raw 给 Handler)
-//   - MCPResult → *CallToolResult 翻译
+// wrapCapabilityHandler —— the standard owner-side MCP execution wrapper:
+//   - panic recover (a handler bug should not take down the whole MCP server)
+//   - owner_id resolve (HTTPContextFunc already put it in ctx; read it out here)
+//   - args JSON marshal (mcp-go hands over map[string]any; uniformly
+//     serialize it into raw for the Handler)
+//   - MCPResult → *CallToolResult translation
 func wrapCapabilityHandler(
 	h capreg.MCPHandler, toolName string, log *slog.Logger,
 ) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
-		// 结果用闭包变量接,recover 里改写它 —— 本仓库禁具名返回值,而"panic 后仍要返回
-		// 一个结果"必须有个地方落。原来只 log 不赋值,panic 后函数返回 (nil, nil):owner 的
-		// MCP 客户端收到"成功但空",崩掉的工具跟"这个工具本来就没输出"长得一模一样。
+		// The result is captured via a closure variable, rewritten inside recover —
+		// this repo bans named return values, and "must still return a result
+		// after a panic" needs somewhere to land it. It used to only log without
+		// assigning, so after a panic the function returned (nil, nil): the
+		// owner's MCP client got "success but empty" — a crashed tool looked
+		// identical to "this tool just has no output".
 		var out *mcpgo.CallToolResult
 		func() {
 			defer func() {
@@ -83,8 +91,8 @@ func runCapabilityHandler(
 	return buildMultiContentResult(&result)
 }
 
-// buildMultiContentResult —— text + N binary embed → CallToolResult。E-12 起
-// applications.commit 用 (text JSON + PDF blob)。
+// buildMultiContentResult —— text + N binary embeds → CallToolResult. Since
+// E-12, applications.commit uses (text JSON + PDF blob).
 func buildMultiContentResult(r *capreg.MCPResult) *mcpgo.CallToolResult {
 	content := make([]mcpgo.Content, 0, 1+len(r.Embeddings))
 	content = append(content,

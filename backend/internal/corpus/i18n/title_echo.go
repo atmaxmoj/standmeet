@@ -1,19 +1,24 @@
-// title_echo.go —— 正文开头又把标题说了一遍的那一行,不渲染。
+// title_echo.go — strip the line at the start of the body that just repeats the title.
 //
-// vault 里的笔记在 Obsidian 里是**自足**的:那儿没有页头,所以作者在正文开头再写一次
-// `# 标题`。搬到读者页上,页头已经印了标题,于是同一句话上下挨着说两遍(UX-85)。
+// A vault note is **self-sufficient** inside Obsidian: there is no page header there,
+// so the author writes `# Title` again at the top of the body. Moved to a reader page,
+// the header already prints the title, so the same sentence gets said twice, right
+// next to each other (UX-85).
 //
-// **只去同字的那一份。** 这条规矩是从 vault 量出来的,不是想出来的:
+// **Strip only the ones that match verbatim.** This rule was measured from the vault,
+// not invented:
 //
-//   - 985 个 pane 的开头是**另一句话**(`the-business-model-wedge` 这条笔记的英文面开头是
-//     `# Attack the business model, not the feature list`)—— 那是内容,是这条笔记在那种
-//     语言下真正的标题句,一个字都不许动。
-//   - 199 个 pane + 141 条单语笔记的开头跟文件名同字(`recursive-harness` /
-//     `# Recursive harness`)—— 这些才是重复。
+//   - 985 panes open with **a different sentence** (the English pane of the
+//     `the-business-model-wedge` note opens with
+//     `# Attack the business model, not the feature list`) — that is content, the
+//     note's real title sentence in that language, and must not be touched at all.
+//   - 199 panes plus 141 monolingual notes open with the same text as the filename
+//     (`recursive-harness` / `# Recursive harness`) — these are the actual duplicates.
 //
-// 同字的判法是**归一化后相等**:只留字母和数字(CJK 也是字母),大小写和连字符都不算数。
-// 于是 `recursive-harness` 认得出 `Recursive harness`,而 `Recursive harness in agents`
-// 认不出 —— 后者多说了话,它是内容。
+// "Same text" is decided by **equality after normalization**: keep only letters and
+// digits (CJK counts as letters too), case and hyphens don't count. So
+// `recursive-harness` recognizes `Recursive harness`, while
+// `Recursive harness in agents` is not recognized — the latter says more, it is content.
 
 package i18n
 
@@ -22,10 +27,12 @@ import (
 	"unicode"
 )
 
-// StripTitleEcho —— 把每个 pane 开头那句"又说一遍标题"去掉(就地改 doc)。
+// StripTitleEcho — strips the "repeats the title again" line at the start of every
+// pane (edits doc in place).
 //
-// 每个 pane 都看,不只第一个:按 i18n 契约,pane 开头那行 `# …` 就是这一面的标题,
-// 它跟笔记标题同字时是重复,在第几个区块里都一样。
+// Checks every pane, not just the first one: by the i18n contract, the `# …` line at
+// the start of a pane is that pane's title, and when it matches the note's title
+// verbatim it is a duplicate — no matter which region it's in.
 func StripTitleEcho(doc *Doc, title string) {
 	for r := range doc.Regions {
 		for p := range doc.Regions[r].Panes {
@@ -34,10 +41,12 @@ func StripTitleEcho(doc *Doc, title string) {
 	}
 }
 
-// StripLeadingTitle —— 一份单语正文开头那句"又说一遍标题"去掉。不同字就原样返回。
+// StripLeadingTitle — strips the "repeats the title again" line at the start of a
+// single-language body. Returns it unchanged when the text doesn't match.
 //
-// 只看**第一个非空行**:重复的形状是"正文开头就把标题重说一遍"。正文中段一个同名小标题
-// 是结构(「Definitions」那节),不是重复。
+// Only looks at the **first non-blank line**: the duplicate's shape is "the body opens
+// by restating the title". A same-named subheading further down is structure (a
+// "Definitions" section), not a duplicate.
 func StripLeadingTitle(body, title string) string {
 	want := normalizeTitle(title)
 	if want == "" {
@@ -56,17 +65,18 @@ func StripLeadingTitle(body, title string) string {
 	return body
 }
 
-// isTitleEcho —— 这一行是不是"一个 ATX 标题,而且跟标题同字"。
+// isTitleEcho — is this line "an ATX heading, and does it match the title verbatim".
 func isTitleEcho(line, want string) bool {
 	text := strings.TrimLeft(strings.TrimSpace(line), "#")
-	if len(text) == len(strings.TrimSpace(line)) { // 一个 # 都没有 → 不是标题行
+	if len(text) == len(strings.TrimSpace(line)) { // no leading # at all → not a heading line
 		return false
 	}
 	return normalizeTitle(text) == want
 }
 
-// normalizeTitle —— 只留字母和数字并小写。`recursive-harness` 与 `Recursive harness`
-// 归一到同一串;`递归 Harness` 里的汉字是 unicode.IsLetter,照留。
+// normalizeTitle — keeps only letters and digits, lowercased. `recursive-harness` and
+// `Recursive harness` normalize to the same string; the CJK characters in `递归
+// Harness` are unicode.IsLetter, so they are kept as-is.
 func normalizeTitle(s string) string {
 	out := make([]rune, 0, len(s))
 	for _, r := range s {

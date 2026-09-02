@@ -1,7 +1,9 @@
-// vault_sync.go —— Obsidian vault sync 的跨-genre corpus_notes reconcile 仓储。
-// 不绑 genre：sync 要按 title(basename)跨 genre 认「同一条」，且移动可改 genre —— 所以独立于
-// genre-bound NoteRepo。只暴露 reconcile 三面：按 title 认领、create、update(relocate + 重写)。
-// vault 是 single live source:reconcile 一律以 vault 为准,没有 web-wins(F-L-6)。
+// vault_sync.go —— the cross-genre corpus_notes reconcile repo for Obsidian vault sync.
+// Not bound to a genre: sync must claim "the same note" across genres by title (basename), and
+// a move can change the genre — so it's kept separate from the genre-bound NoteRepo. Exposes
+// only the three reconcile faces: claim by title, create, update (relocate + rewrite).
+// The vault is the single live source: reconcile always defers to the vault, there's no
+// web-wins path (F-L-6).
 
 package repo
 
@@ -18,13 +20,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// VaultSyncRepo —— vault sync 的 corpus_notes 仓储。
+// VaultSyncRepo —— the corpus_notes repo for vault sync.
 type VaultSyncRepo struct{ pool *pgstore.Pool }
 
-// NewVaultSyncRepo 构造。
+// NewVaultSyncRepo constructs one.
 func NewVaultSyncRepo(pool *pgstore.Pool) *VaultSyncRepo { return &VaultSyncRepo{pool: pool} }
 
-// SyncNote —— reconcile 视图：认领(title) + 变更比对 + 定位(genre/parent)。
+// SyncNote —— the reconcile view: claim (by title) + diff comparison + location (genre/parent).
 type SyncNote struct {
 	ImportedAt time.Time
 	UpdatedAt  time.Time
@@ -34,21 +36,25 @@ type SyncNote struct {
 	Title      string
 	Body       string
 	Excerpt    string
-	// Lang / Aliases —— 导出要写回 frontmatter 的两样（F-L-59）。
+	// Lang / Aliases —— the two things export must write back to frontmatter (F-L-59).
 	//
-	// 它们**不是装饰**：aliases 是链接解析的输入（`[[别名]]` 靠它解开），lang 是多语言
-	// 渲染契约的一半。以前这个视图没有它们，于是导出连读都没读 —— 而 owner 用「导出」
-	// 再导回来，就会把真语料上的这两样抹平。
+	// They are **not decoration**: aliases is the input to link resolution (`[[alias]]`
+	// resolves through it), and lang is half of the multilingual render contract. This view
+	// used to lack them, so export never even read them — and an owner running "export" then
+	// re-importing would flatten both of these on the real corpus.
 	Lang string
-	// Excerpt / CSSClasses / LangLabels —— 产品**存着**却从来没导出过的三样（F-L-67）。
-	// 上一次修这个形状（F-L-59）只扫到了 lang/aliases 两个字段，邻居原样留着。
+	// Excerpt / CSSClasses / LangLabels —— three things the product **stores** but has never
+	// exported (F-L-67). The last fix to this shape (F-L-59) only caught the lang/aliases pair;
+	// their neighbors were left as-is.
 	CSSClasses []string
 	LangLabels map[string]string
-	// SourcePath —— 这条笔记来自 vault 里的哪个文件。导出用它保住**布局**：
-	// 「文件夹里只有它自己」的 folder-note 在树上没有子节点，光看树会被写成同级文件（F-L-68）。
+	// SourcePath —— which vault file this note came from. Export uses it to preserve
+	// **layout**: a folder-note ("only itself inside its folder") has no children in the tree,
+	// and looking at the tree alone would write it out as a sibling file instead (F-L-68).
 	SourcePath string
-	// Frontmatter —— vault 里那一块 frontmatter 的原文（不含 `---` 围栏）。导出照着它打补丁，
-	// 保住产品不认识的 key 和它们的形态（F-L-67）。空 = 这条笔记不是从 vault 来的。
+	// Frontmatter —— the verbatim frontmatter block from the vault (without the `---` fence).
+	// Export patches against it to preserve keys the product doesn't recognize and their
+	// original shape (F-L-67). Empty = this note didn't come from the vault.
 	Frontmatter string
 	Tags        []string
 	Aliases     []string
@@ -56,11 +62,11 @@ type SyncNote struct {
 	Published   bool
 }
 
-// ErrSyncNoteNotFound —— GetByTitle 没认领到(不是错误,是「新建」信号)。
+// ErrSyncNoteNotFound —— GetByTitle found no claim (not an error — a "create new" signal).
 var ErrSyncNoteNotFound = errors.New("sync note not found")
 
-// GetByTitle —— 按 owner+title 认领 reconcile 目标(跨 genre;basename 全 vault 唯一)。
-// 没有 → ErrSyncNoteNotFound。
+// GetByTitle —— claims a reconcile target by owner+title (cross-genre; basename is unique
+// across the whole vault). No match → ErrSyncNoteNotFound.
 func (r *VaultSyncRepo) GetByTitle(ctx context.Context, ownerID, title string) (SyncNote, error) {
 	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -78,9 +84,10 @@ func (r *VaultSyncRepo) GetByTitle(ctx context.Context, ownerID, title string) (
 	return syncNoteFromRow(&row), nil
 }
 
-// GetBySourcePath —— 按 owner + vault 相对路径认领 reconcile 目标。title(basename)不是
-// 全 vault 唯一时用它:不同文件夹下同名文件各有唯一 source_path,据此认对行而非拒绝碰撞。
-// 没有 → ErrSyncNoteNotFound。
+// GetBySourcePath —— claims a reconcile target by owner + vault-relative path. Used when
+// title (basename) isn't unique across the whole vault: same-named files in different folders
+// each have a unique source_path, so this claims the right row instead of rejecting on
+// collision. No match → ErrSyncNoteNotFound.
 func (r *VaultSyncRepo) GetBySourcePath(
 	ctx context.Context, ownerID, sourcePath string,
 ) (SyncNote, error) {
@@ -100,7 +107,8 @@ func (r *VaultSyncRepo) GetBySourcePath(
 	return syncNoteFromRow(&row), nil
 }
 
-// GetSyncNote —— 按 id 取一条 corpus note(任一 genre)。search 索引单条 + 走父链算 path 用。
+// GetSyncNote —— fetches one corpus note by id (any genre). Used to index a single search
+// entry, and to walk the parent chain and compute a path.
 func (r *VaultSyncRepo) GetSyncNote(ctx context.Context, ownerID, id string) (SyncNote, error) {
 	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -122,7 +130,7 @@ func (r *VaultSyncRepo) GetSyncNote(ctx context.Context, ownerID, id string) (Sy
 	return syncNoteFromRow(&row), nil
 }
 
-// CreateSyncNoteInput —— vault sync create。ParentID "" = 根。
+// CreateSyncNoteInput —— input for a vault sync create. ParentID "" = root.
 type CreateSyncNoteInput struct {
 	ParentID    *string
 	OwnerID     string
@@ -131,12 +139,13 @@ type CreateSyncNoteInput struct {
 	Body        string
 	Excerpt     string // frontmatter `excerpt:` — the separate authored summary
 	SourcePath  string
-	InboxSource string // genre='raw' 的 vault 来源标签 "obsidian:<path>";其它 genre 空
-	// Frontmatter —— 这个文件在 vault 里那一块 frontmatter 的**原文**（不含 `---` 围栏）。
-	// 产品不认识的 key 只活在这里，形态（内联数组 / 键序）也只活在这里。见 schema 上的注释。
+	InboxSource string // genre='raw' vault-origin tag "obsidian:<path>"; empty for other genres
+	// Frontmatter —— the **verbatim** frontmatter block for this file in the vault (without the
+	// `---` fence). Keys the product doesn't recognize, and their shape (inline arrays / key
+	// order), live only here. See the comment on the schema.
 	Frontmatter string
-	// Lang / LangLabels —— frontmatter 的 `lang:` / `lang-labels:`(见 schema 上的注释:
-	// 语言**集**不存,它从正文的语言面推)。
+	// Lang / LangLabels —— frontmatter's `lang:` / `lang-labels:` (see the schema comment: the
+	// language **set** isn't stored — it's derived from the body's language facets).
 	Lang       string
 	Tags       []string
 	CSSClasses []string
@@ -145,7 +154,7 @@ type CreateSyncNoteInput struct {
 	Published  bool
 }
 
-// Create —— 建一条 sync note，返 id。
+// Create —— creates one sync note, returns its id.
 func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (string, error) {
 	owner, err := pgstore.ParseUUID(in.OwnerID)
 	if err != nil {
@@ -170,8 +179,8 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 	return pgstore.FormatUUID(row.ID), nil
 }
 
-// UpdateSyncNoteInput —— vault sync update(relocate + 重写)。
-// Frontmatter 同 CreateSyncNoteInput：vault 里那一块的原文。
+// UpdateSyncNoteInput —— input for a vault sync update (relocate + rewrite).
+// Frontmatter is the same as CreateSyncNoteInput: the verbatim block from the vault.
 type UpdateSyncNoteInput struct {
 	ParentID    *string
 	OwnerID     string
@@ -180,7 +189,7 @@ type UpdateSyncNoteInput struct {
 	Body        string
 	Excerpt     string // frontmatter `excerpt:` — the separate authored summary
 	SourcePath  string
-	InboxSource string // genre='raw' 的 vault 来源标签 "obsidian:<path>";其它 genre 空
+	InboxSource string // genre='raw' vault-origin tag "obsidian:<path>"; empty for other genres
 	Frontmatter string
 	Lang        string
 	Tags        []string
@@ -190,7 +199,8 @@ type UpdateSyncNoteInput struct {
 	Published   bool
 }
 
-// Update —— reconcile 更新一条(genre/parent 可变 = 移动;body/tags/publish 刷新;重盖 obsidian 元数据)。
+// Update —— reconcile-updates one row (genre/parent can change = a move; body/tags/publish
+// refresh; obsidian metadata is overwritten wholesale).
 func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) error {
 	ids, perr := parseSrcAndOwner(in.ID, in.OwnerID)
 	if perr != nil {
@@ -214,7 +224,8 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 	return nil
 }
 
-// jsonOrEmpty —— nil → `{}`。jsonb 列不收 NULL,而"没写 lang-labels"是**空表**,不是坏值。
+// jsonOrEmpty —— nil → `{}`. The jsonb column rejects NULL, and "no lang-labels written" is
+// an **empty map**, not a bad value.
 func jsonOrEmpty(b []byte) []byte {
 	if len(b) == 0 {
 		return []byte("{}")
@@ -253,8 +264,8 @@ func (r *VaultSyncRepo) PruneAbsentVaultNotes(
 	return int(n), nil
 }
 
-// QueryNoteRow —— 原生查询命中的一条:leaf id + genre + root→leaf 的 path 段 + 它自己的
-// 公开开关(准入要问这一个,见 access.AllowsCorpusEntry)。
+// QueryNoteRow —— one row from a raw query: leaf id + genre + the root→leaf path segments +
+// its own publish toggle (admission checks this one, see access.AllowsCorpusEntry).
 type QueryNoteRow struct {
 	ID         string
 	Genre      string
@@ -262,7 +273,8 @@ type QueryNoteRow struct {
 	Published  bool
 }
 
-// QueryNotes —— 按 genre/tag(空串 = 不筛)查 corp note,path 在 SQL 里沿 parent 链算好。
+// QueryNotes —— queries corpus notes by genre/tag (empty string = no filter); the path is
+// computed in SQL by walking the parent chain.
 func (r *VaultSyncRepo) QueryNotes(
 	ctx context.Context, ownerID, genre, tag string,
 ) ([]QueryNoteRow, error) {
@@ -288,7 +300,8 @@ func (r *VaultSyncRepo) QueryNotes(
 	return out, nil
 }
 
-// GetCSSClasses —— 一条 note 的 cssclasses(best-effort,corpus_read 补进 Entry;错→空)。
+// GetCSSClasses —— a note's cssclasses (best-effort, corpus_read merges it into Entry;
+// error → empty slice).
 func (r *VaultSyncRepo) GetCSSClasses(ctx context.Context, ownerID, id string) []string {
 	ids, err := parseSrcAndOwner(id, ownerID)
 	if err != nil {
@@ -303,7 +316,8 @@ func (r *VaultSyncRepo) GetCSSClasses(ctx context.Context, ownerID, id string) [
 	return classes
 }
 
-// ListAllForExport + decodeLangLabels 住在 vault_sync_export.go —— 导出是另一件事。
+// ListAllForExport + decodeLangLabels live in vault_sync_export.go —— export is
+// a separate concern.
 
 func syncNoteFromRow(n *db.CorpusNote) SyncNote {
 	out := SyncNote{

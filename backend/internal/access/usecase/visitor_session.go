@@ -1,9 +1,10 @@
-// visitor_session.go —— 访客 session（code-tier 或 byoai）的 Redis 存储。
+// visitor_session.go — Redis storage for visitor sessions (code-tier or byoai).
 //
-// Token：32 字节随机 base64url，前缀 `smv_`。
-// Redis key：`vsession:{token}`，value 是 JSON-encoded visitorSessionData。
-// TTL：60min 滑动，max 8h（简化版只滑 60min，max 后续再加）。
-// 撤销：DEL key。
+// Token: 32 random bytes, base64url, prefixed `smv_`.
+// Redis key: `vsession:{token}`, value is JSON-encoded visitorSessionData.
+// TTL: slides 60min, max 8h (this simplified version only slides 60min; the max
+// comes later).
+// Revocation: DEL the key.
 
 package usecase
 
@@ -28,68 +29,79 @@ const (
 	codeSessionsKeyPfx   = "vsessions:code:"
 )
 
-// ErrVisitorSessionNotFound —— Redis 里没这个 session（已 expire 或 revoke）。
+// ErrVisitorSessionNotFound — no such session in Redis (expired or revoked).
 var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 
-// VisitorSessionData —— Redis 里存的 visitor session payload。
+// VisitorSessionData — the visitor session payload stored in Redis.
 //
-// 准入字段：
-//   - Mode: 'code' / 'public' / 'byoai'。三者都强制挂 RoleSnapshot（A.3-IAM-5
-//     起 ACL 全部走 [[role_snapshot]].AllowsCorpus URI-glob）。public / byoai
-//     走 owner 的 public role；code 走 access_code.assumed_role_id。
-//   - RoleSnapshot: session issue 时 freeze 出 role 当时的完整状态（corpus
-//     URIs / prompt / skills / mcp）。session 整个生命周期不再回头读 role
-//     行 —— 唯一补救 = revoke code。
+// Admission fields:
+//   - Mode: 'code' / 'public' / 'byoai'. All three mandatorily carry a RoleSnapshot
+//     (since A.3-IAM-5, ACL runs entirely through [[role_snapshot]].AllowsCorpus
+//     URI-glob). public / byoai use the owner's public role; code uses
+//     access_code.assumed_role_id.
+//   - RoleSnapshot: frozen out of the role's full state at session-issue time
+//     (corpus URIs / prompt / skills / mcp). The session never reads the role row
+//     back again for its whole lifetime — the only remedy is revoking the code.
 //
-// **不存** BYOAI provider + key —— 这两个都在 browser 一处保管
-// (localStorage 加密 vault)。visitor 每次 chat 在 `X-BYOAI-Provider` +
-// `X-BYOAI-Key` headers 把 provider 名 + 信封过的 key 带过来，server
-// 用 HKDF(session_token) 派生的 AES-GCM 解封即用即丢。
-// 集中存储：browser 一处，session 不分摊。
+// **Does not store** the BYOAI provider + key — both are kept in one place, the
+// browser (an encrypted vault in localStorage). On every chat, the visitor carries
+// the provider name + an enveloped key in the `X-BYOAI-Provider` + `X-BYOAI-Key`
+// headers; the server unseals with AES-GCM derived via HKDF(session_token), uses it
+// once, and discards it.
+// Centralized storage lives in one place, the browser — not spread across sessions.
 type VisitorSessionData struct {
-	// 这里**不放任何能力自己的配额**。曾经有一个 `MaxBookings *int32` ——
-	// booker 的 per-code 上限,写进访客会话的载荷里。它最后无写无读地留在这儿:
-	// 码上的那一列早就没了(见 access/ops/extras.go 的通用 CodeExtras),字段却留下了。
-	// 一个能力要在码上占字段,走 manifest 的 CodeConfig 声明,不长在这个结构体上。
+	// **No capability-specific quota lives here.** There used to be a
+	// `MaxBookings *int32` — booker's per-code limit — written into the visitor
+	// session payload. It ended up sitting here unwritten and unread: the column
+	// on the code was long gone (see the generic CodeExtras in
+	// access/ops/extras.go), but the field itself stayed. A capability that
+	// needs a field on the code declares it via the manifest's CodeConfig, it
+	// does not live on this struct.
 	ExpiresAt    time.Time            `json:"expires_at"`
 	RoleSnapshot *entity.RoleSnapshot `json:"role_snapshot"`
 	OwnerID      string               `json:"owner_id"`
 	Mode         string               `json:"mode"`
 	CodeID       string               `json:"code_id"`
 	MemberID     string               `json:"member_id"`
-	// ProviderID —— 这场会话用 owner 本子里的哪一条 provider。空 = 默认那条。
-	// **发会话时解析一次就冻住**(码 > role > 默认),跟 RoleSnapshot 同一个模型:
-	// 会话中途 owner 改了配置,这一场按他进来那一刻的算。
-	// (指着的那条后来被删了 → 取的时候退默认,那是 provider 本子自己的规矩。)
+	// ProviderID — which provider from the owner's book this session uses. Empty
+	// = the default one. **Resolved once at session-issue time and frozen**
+	// (code > role > default), same model as RoleSnapshot: if the owner changes
+	// the config mid-session, this session still goes by the state at the
+	// moment the visitor came in.
+	// (If the provider it points to is later deleted → falls back to default on
+	// lookup, that's the provider book's own rule.)
 	ProviderID string `json:"provider_id,omitempty"`
-	// Visitor —— 访客自述身份(name + 可选 email)。挂 session(visitor 身份),
-	// 不挂 chat。booker 拿 Email 当 visitor_email 兜底。
+	// Visitor — the visitor's self-declared identity (name + optional email).
+	// Carried on the session (a visitor's identity), not on the chat. booker
+	// falls back to Email as visitor_email.
 	Visitor entity.VisitorProfile `json:"visitor"`
-	// VisitedWaypoints —— ghost-steering 的 waypoint ledger:已到访的 waypoint_id 集
-	// (引用命中 evidence_refs / booking 命中 terminal → 加入)。ghost policy 只推未访问的;
-	// 全到 = destination reached。机械标记,无 LLM 判官(α≈0)。
+	// VisitedWaypoints — the ghost-steering waypoint ledger: the set of visited
+	// waypoint_ids (a reference hitting evidence_refs / a booking hitting a
+	// terminal → added). ghost policy only nudges toward unvisited ones; all
+	// visited = destination reached. A mechanical marker, no LLM judge (α≈0).
 	VisitedWaypoints []string `json:"visited_waypoints,omitempty"`
-	// GasMetered —— 这场会话挂不挂油表(role 上的开关,同样冻住)。false = 一次 gas 查询都不发。
+	// GasMetered — whether this session carries the gas meter (a switch on the
+	// role, likewise frozen at issue time). false = never issues a gas query.
 	GasMetered bool `json:"gas_metered,omitempty"`
 }
 
-// VisitorSessionStore wrap Redis 提供 visitor session CRUD。
+// VisitorSessionStore wraps Redis to provide visitor session CRUD.
 type VisitorSessionStore struct {
 	rdb *redis.Client
 }
 
-// NewVisitorSessionStore 构造 store。
+// NewVisitorSessionStore constructs the store.
 func NewVisitorSessionStore(rdb *redis.Client) *VisitorSessionStore {
 	return &VisitorSessionStore{rdb: rdb}
 }
 
-// IssuedVisitor —— Issue 返回（plaintext token + data）。
+// IssuedVisitor — Issue's return value (plaintext token + data).
 type IssuedVisitor struct {
 	Token string
 	Data  VisitorSessionData
 }
 
-// Issue 颁发新 visitor session。
+// Issue mints a new visitor session.
 func (s *VisitorSessionStore) Issue(
 	ctx context.Context, data *VisitorSessionData,
 ) (IssuedVisitor, error) {
@@ -105,9 +117,10 @@ func (s *VisitorSessionStore) Issue(
 	return IssuedVisitor{Token: token, Data: *data}, nil
 }
 
-// DeleteByCode —— revoke code 时清掉这张 code 的所有 visitor session。token 真死后,
-// 下一请求 resolveVisitor 的 Sessions.Get miss → 401 + 清 cookie(失效清理是「被发现
-// 无效」时做,不是 revoke 直接碰浏览器)。
+// DeleteByCode — clears all of a code's visitor sessions when the code is revoked.
+// Once the token is truly dead, the next request's resolveVisitor Sessions.Get
+// misses → 401 + clears the cookie (invalidation cleanup happens when it's "found
+// invalid", revoke doesn't touch the browser directly).
 func (s *VisitorSessionStore) DeleteByCode(ctx context.Context, codeID string) error {
 	if codeID == "" {
 		return nil
@@ -126,7 +139,7 @@ func (s *VisitorSessionStore) DeleteByCode(ctx context.Context, codeID string) e
 	return nil
 }
 
-// Get 读 + 滑动 TTL；不存在返 ErrVisitorSessionNotFound。
+// Get reads + slides the TTL; returns ErrVisitorSessionNotFound if absent.
 func (s *VisitorSessionStore) Get(ctx context.Context, token string) (VisitorSessionData, error) {
 	raw, err := s.rdb.Get(ctx, visitorSessionKeyPfx+token).Bytes()
 	if err != nil {
@@ -146,7 +159,8 @@ func (s *VisitorSessionStore) Get(ctx context.Context, token string) (VisitorSes
 	return data, nil
 }
 
-// Save —— 把改过的 session data 写回(刷新 TTL)。ghost waypoint ledger 标 visited 后存盘用。
+// Save — writes modified session data back (refreshing the TTL). Used after the
+// ghost waypoint ledger marks something visited.
 func (s *VisitorSessionStore) Save(
 	ctx context.Context, token string, data *VisitorSessionData,
 ) error {
@@ -171,8 +185,8 @@ func (s *VisitorSessionStore) persist(
 	return s.indexByCode(ctx, data.CodeID, token)
 }
 
-// indexByCode —— 把 token 记进这张 code 的 session 集合,供 revoke 一次清掉。无 code
-// (public/byoai)跳过。
+// indexByCode — records the token into this code's session set, so revoke can clear
+// them all at once. Skipped when there's no code (public/byoai).
 func (s *VisitorSessionStore) indexByCode(ctx context.Context, codeID, token string) error {
 	if codeID == "" {
 		return nil
@@ -196,7 +210,8 @@ func (s *VisitorSessionStore) delTokens(ctx context.Context, tokens []string) er
 	return nil
 }
 
-// randomToken —— crypto-random token(prefix + base64url)。访客 session 自持,不借 session 包的。
+// randomToken — a crypto-random token (prefix + base64url). Visitor sessions hold
+// their own, not borrowed from the session package.
 func randomToken(byteLen int, prefix string) (string, error) {
 	buf := make([]byte, byteLen)
 	if _, err := rand.Read(buf); err != nil {

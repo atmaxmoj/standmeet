@@ -1,12 +1,12 @@
-// facade_ops.go —— 本域对外能做的事,再导出给收口。
+// facade_ops.go —— the operations this domain exposes outward, re-exported for convergence.
 //
-// 门面还是门面:只有别名。声明在 internal/owner/ops。
+// Still just a facade: aliases only. Declared in internal/owner/ops.
 
 package owner
 
 import "github.com/atmaxmoj/standmeet/internal/owner/ops"
 
-// 声明操作时要的类型（实现:ops）.
+// Types needed when declaring ops (impl: ops).
 type (
 	AIPreset          = ops.AIPreset
 	OpsAccountDeps    = ops.AccountDeps
@@ -18,12 +18,12 @@ type (
 	OpsProviders      = ops.ProvidersDeps
 )
 
-// 操作组（实现:ops）.
+// Op groups (impl: ops).
 var (
 	AccessRequestOps = ops.AccessRequests
-	// HostOps —— 开给沙箱能力的:读 owner 的白名单字段。
+	// HostOps —— exposed to sandboxed capabilities: reads owner's whitelisted fields.
 	HostOps = ops.HostOps
-	// FullNameOf —— persona 第一句「你是谁」要的那个名字(UX-66)。
+	// FullNameOf —— the name persona's opening "who are you" line needs (UX-66).
 	FullNameOf    = ops.FullNameOf
 	AccountOps    = ops.Account
 	AppearanceOps = ops.Appearance

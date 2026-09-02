@@ -1,8 +1,11 @@
-// validate.go —— 按**声明**校验 owner 填的值。
+// validate.go — validates the values the owner filled in against the
+// **declaration**.
 //
-// 校验规则来自 ConfigField(类型、取值范围),不是每个能力自己手写一遍 ——
-// booker 以前就是手写的:host 的 booking-policy handler 里有一句 min_lead_days ≥ 1,
-// 沙箱那边没有。声明化之后,规则和默认值一样只有一处。
+// Validation rules come from ConfigField (type, range) instead of each
+// capability hand-writing its own — booker used to hand-write it: the host's
+// booking-policy handler had a min_lead_days >= 1 check, and the sandbox side
+// didn't. Once declared, the rule lives in exactly one place, same as the
+// default.
 
 package capconfig
 
@@ -14,10 +17,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
 )
 
-// hhmmParts —— 'HH:MM' 的段数。
+// hhmmParts — the number of segments in 'HH:MM'.
 const hhmmParts = 2
 
-// validate —— 逐个字段按声明校验。第一处不合法就返回(面板一次改一个字段,不需要收集全部)。
+// validate — checks each field against its declaration. Returns at the first
+// invalid one (the panel edits one field at a time; no need to collect all of
+// them).
 func validate(decl []mcpplugin.ConfigField, values map[string]json.RawMessage) error {
 	byKey := map[string]*mcpplugin.ConfigField{}
 	for i := range decl {
@@ -31,7 +36,8 @@ func validate(decl []mcpplugin.ConfigField, values map[string]json.RawMessage) e
 	return nil
 }
 
-// validators —— 声明的类型 → 怎么校验。一类一行;表外的类型按字符串处理。
+// validators — declared type → how to validate it. One line per type; a type
+// outside the table is treated as a string.
 type fieldValidator func(*mcpplugin.ConfigField, string, json.RawMessage) error
 
 var validators = map[string]fieldValidator{
@@ -74,7 +80,8 @@ func checkBounds(f *mcpplugin.ConfigField, key string, n int) error {
 	return nil
 }
 
-// validateTime —— 'HH:MM'。只认这一种写法:两个面和沙箱都按它解析。
+// validateTime — 'HH:MM'. Only this one form is accepted: both panels and the
+// sandbox parse it this way.
 func validateTime(key string, raw json.RawMessage) error {
 	var s string
 	if err := json.Unmarshal(raw, &s); err != nil {
@@ -101,9 +108,10 @@ func isTwoDigits(s string) bool {
 	return s[0] >= '0' && s[0] <= '9' && s[1] >= '0' && s[1] <= '9'
 }
 
-// validateShape —— 值能不能解成声明的类型。into 只用来试解,不取值。
+// validateShape — whether the value can decode into the declared type. into
+// is only used to attempt the decode, its value is never read.
 //
-//nolint:forbidigo // into 要能是任何一种声明类型,这里只拿它试解
+//nolint:forbidigo // into has to be able to hold any declared type; only used to try decoding
 func validateShape(key string, raw json.RawMessage, into any, want string) error {
 	if err := json.Unmarshal(raw, into); err != nil {
 		return fmt.Errorf("%w: %q must be %s", ErrInvalidValue, key, want)

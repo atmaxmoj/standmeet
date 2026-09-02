@@ -22,7 +22,7 @@ type APIKeyRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewAPIKeyRepo 构造 APIKeyRepo。
+// NewAPIKeyRepo constructs an APIKeyRepo.
 func NewAPIKeyRepo(pool *pgstore.Pool) *APIKeyRepo { return &APIKeyRepo{pool: pool} }
 
 // Create —— mint a key row. Returns the persisted row (with generated id + created_at).

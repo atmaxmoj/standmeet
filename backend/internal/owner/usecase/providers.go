@@ -1,12 +1,16 @@
-// providers.go —— owner 的 provider 本子:增删改、标默认。
+// providers.go — the owner's provider book: add/delete/edit, mark default.
 //
-// "owner 的 AI provider"那一条(ai_provider.set / setup 向导 / claim)说的是**默认那一条**,
-// 它在 ai_provider.go 没变。这个文件管的是本子本身:多出来的那些条目、谁是默认、删哪条。
+// "The owner's AI provider" (ai_provider.set / the setup wizard / claim) refers to the
+// **default one**, which is unchanged in ai_provider.go. This file manages the book
+// itself: the extra entries beyond that, which one is default, which one to delete.
 //
-// 两条规矩:
-//   · 删掉一条被引用的 → code/role 上的引用置空(schema 的 ON DELETE SET NULL),读时退默认。
-//     所以删之前**不需要**先解绑,owner 也不需要知道谁引用了它。
-//   · **默认那条删不掉** —— 删了就没有可退的了。owner 要么先把默认挪到别条,要么留着。
+// Two rules:
+//   · Deleting one that's referenced -> the reference on code/role is set to null
+//     (schema's ON DELETE SET NULL), falls back to default on read. So there's **no
+//     need** to unbind first before deleting, and the owner doesn't need to know who
+//     references it.
+//   · **The default one can't be deleted** — deleting it would leave nothing to fall
+//     back to. The owner must either move the default elsewhere first, or keep it.
 
 package usecase
 
@@ -21,17 +25,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// ProvidersDeps —— 这一组要的依赖。Validator 跟 AIProviderDeps 同一个窄口
-// (owner 不反依赖 inference,组装根适配)。
+// ProvidersDeps — what this group needs. Validator is the same narrow port as
+// AIProviderDeps (owner doesn't depend back on inference; the composition root adapts it).
 type ProvidersDeps struct {
 	Owners    *repo.Repo
 	Providers ProviderValidator
-	// Spend —— 用量求和(stats 域实现,组装根接上)。nil = 这个实例不记用量,
-	// 于是每箱油都读作"没挂表" —— 而不是读作"满的"。
+	// Spend — sums usage (implemented by the stats domain, wired up by the composition
+	// root). nil = this instance doesn't record usage, so every tank reads as
+	// "unmetered" — not as "full".
 	Spend SpendReader
 }
 
-// CreateProviderInput —— 新建一条。Key 是**明文**,repo 那层封上;出站永远只有 KeyConfigured。
+// CreateProviderInput — creates a new entry. Key is **plaintext**; repo's layer seals
+// it; outbound is always just KeyConfigured.
 type CreateProviderInput struct {
 	OwnerID   string
 	Label     string
@@ -42,14 +48,16 @@ type CreateProviderInput struct {
 	IsDefault bool
 }
 
-// ProviderWithGas —— 本子里的一条 + 这箱油还剩多少(nil = 没挂表)。
-// 剩余不在行上,所以它跟着行一起出去,而不是让每个调用方各自再算一遍。
+// ProviderWithGas — one entry in the book + how much fuel is left in it (nil = no
+// meter attached). Remaining isn't stored on the row, so it travels alongside the row
+// instead of making every caller recompute it.
 type ProviderWithGas struct {
 	Remaining *int64
 	Row       repo.ProviderRow
 }
 
-// ListProviders —— owner 的本子(默认那条在最前),每条带上油表读数。
+// ListProviders — the owner's book (the default entry first), each entry with its
+// gas-meter reading attached.
 func ListProviders(
 	ctx context.Context, d ProvidersDeps, ownerID string,
 ) ([]ProviderWithGas, error) {
@@ -68,7 +76,8 @@ func ListProviders(
 	return out, nil
 }
 
-// GasRemaining —— 某一条 provider 还剩多少(nil = 没挂表)。挡住访客的那道闸走这条。
+// GasRemaining — how much is left on a given provider (nil = no meter attached). The
+// gate that blocks visitors goes through this.
 func GasRemaining(
 	ctx context.Context, d ProvidersDeps, ownerID, providerID string,
 ) (*int64, error) {
@@ -79,16 +88,20 @@ func GasRemaining(
 	return ProviderRemaining(ctx, d.Spend, &row)
 }
 
-// DefaultProviderID —— owner 默认那条 provider 的 id。
+// DefaultProviderID — the id of the owner's default provider.
 //
-// **为什么访客那条路要问它**（pentest 2026-09-01）：一场没指定 provider 的会话
-// （public / 匿名 / 没绑 provider 的 code）在 turn 时会**回落到默认那条**并真花 owner 的钱。
-// 可它的会话里 provider_id 一直是空串 —— 于是用量记不上这一箱、gas 闸（metered && id!=""）
-// 也永不触发。owner 就算给默认那条配了油表，也拦不住匿名花销。会话签发时把这个 id 冻进去，
-// 下游的记账和闸门才看得见花的是哪箱油。
+// **Why the visitor path needs to ask this** (pentest 2026-09-01): a session that
+// specifies no provider (public / anonymous / a code with no provider bound) **falls
+// back to the default one** at turn time and genuinely spends the owner's money. But
+// provider_id stayed an empty string throughout its session — so usage never got
+// charged against that tank, and the gas gate (metered && id!="") never fired either.
+// Even if the owner set a meter on the default provider, it did nothing to stop
+// anonymous spending. Freezing this id in at session-issue time is what lets downstream
+// accounting and the gate see which tank is actually being drawn from.
 //
-// 没有 provider 时返 ""＋nil：那是正常状态（实例还没配 key），不是错误 ——
-// 留空串，turn 到时候自己报"未配置"，跟今天一样。
+// When there's no provider, returns "" + nil: that's a normal state (the instance
+// hasn't configured a key yet), not an error — leave it empty, and turn will report
+// "not configured" on its own when the time comes, same as today.
 func DefaultProviderID(ctx context.Context, d ProvidersDeps, ownerID string) (string, error) {
 	row, err := d.Owners.DefaultProvider(ctx, ownerID)
 	if err != nil {
@@ -100,18 +113,21 @@ func DefaultProviderID(ctx context.Context, d ProvidersDeps, ownerID string) (st
 	return row.ID, nil
 }
 
-// CreateProvider —— 建一条。provider 名要在 preset 表里(跟改默认那条同一把尺子);
-// label 是 owner 自己起的名,同一 owner 内唯一(DB 那条 UNIQUE 兜底)。
+// CreateProvider — creates one entry. The provider name must be in the preset table
+// (same ruler as changing the default one); label is a name the owner picks himself,
+// unique within that owner (backstopped by a DB UNIQUE constraint).
 //
-// IsDefault=true 时**先清再设**:那条 partial unique index 让"两个默认"根本存在不了,
-// 所以顺序错了会撞索引 —— 这正是它该干的事。
+// When IsDefault=true, **clear first, then set**: the partial unique index makes "two
+// defaults" outright impossible to persist, so getting the order wrong hits the index —
+// which is exactly what it's there to do.
 func CreateProvider(
 	ctx context.Context, d ProvidersDeps, in *CreateProviderInput,
 ) (repo.ProviderRow, error) {
 	if verr := validateProviderInput(d, in); verr != nil {
 		return repo.ProviderRow{}, verr
 	}
-	// 本子里第一条一定是默认:否则这个 owner 有 provider 却没有可退的那一条。
+	// The book's first entry is always the default: otherwise this owner would have a
+	// provider with no fallback to retreat to.
 	makeDefault, ferr := shouldBeDefault(ctx, d, in)
 	if ferr != nil {
 		return repo.ProviderRow{}, ferr
@@ -119,7 +135,7 @@ func CreateProvider(
 	row, cerr := d.Owners.CreateProviderPlain(ctx, &repo.CreateProviderPlainInput{
 		OwnerID: in.OwnerID, Label: in.Label, Provider: in.Provider,
 		Endpoint: in.Endpoint, Model: in.Model, KeyPlaintext: in.Key,
-		IsDefault: false, // 先建成非默认,再走 SetDefault 那条"先清后设"
+		IsDefault: false, // created non-default; goes through SetDefault's clear-then-set
 	})
 	if cerr != nil {
 		return repo.ProviderRow{}, fmt.Errorf("create provider: %w", cerr)
@@ -130,7 +146,7 @@ func CreateProvider(
 	return markDefault(ctx, d, &row)
 }
 
-// shouldBeDefault —— owner 要它当默认,或者这是本子里的第一条。
+// shouldBeDefault — either the owner wants it as default, or it's the book's first entry.
 func shouldBeDefault(
 	ctx context.Context, d ProvidersDeps, in *CreateProviderInput,
 ) (bool, error) {
@@ -140,7 +156,8 @@ func shouldBeDefault(
 	return firstProviderForOwner(ctx, d, in.OwnerID)
 }
 
-// markDefault —— 把刚建的这条设成默认(走"先清后设"那一步),回带上标记的行。
+// markDefault — sets the just-created entry as default (goes through the "clear then
+// set" step), returns the marked row.
 func markDefault(
 	ctx context.Context, d ProvidersDeps, row *repo.ProviderRow,
 ) (repo.ProviderRow, error) {
@@ -167,14 +184,15 @@ func validateProviderInput(d ProvidersDeps, in *CreateProviderInput) error {
 		return apierr.ErrEmptyField
 	}
 	if d.Providers != nil && !d.Providers.Known(in.Provider) {
-		// 跟改默认那条同一种报法(apierr.ErrEmptyField 是这个域"入参不对"的统一码),
-		// 免得同一件错事在两条路上翻成两种回应。
+		// Same reporting style as changing the default one (apierr.ErrEmptyField is this
+		// domain's unified code for "bad input"), so the same mistake doesn't translate
+		// into two different responses on two different paths.
 		return fmt.Errorf("%w: unknown provider %q", apierr.ErrEmptyField, in.Provider)
 	}
 	return nil
 }
 
-// SetDefaultProvider —— 把默认挪到这一条。
+// SetDefaultProvider — moves the default to this entry.
 func SetDefaultProvider(ctx context.Context, d ProvidersDeps, ownerID, id string) error {
 	if err := d.Owners.SetDefaultProvider(ctx, ownerID, id); err != nil {
 		return fmt.Errorf("set default provider: %w", err)
@@ -182,7 +200,7 @@ func SetDefaultProvider(ctx context.Context, d ProvidersDeps, ownerID, id string
 	return nil
 }
 
-// UpdateProvider —— 部分更新(含加油:SetGas)。
+// UpdateProvider — a partial update (including topping up fuel: SetGas).
 func UpdateProvider(
 	ctx context.Context, d ProvidersDeps, in *repo.UpdateProviderInput,
 ) (repo.ProviderRow, error) {
@@ -193,8 +211,9 @@ func UpdateProvider(
 	return row, nil
 }
 
-// DeleteProvider —— 删一条。默认那条拦住(ErrProviderIsDefault),让面回 409 + 一句人话;
-// 其余照删,引用它的 code/role 自然退默认。
+// DeleteProvider — deletes one entry. The default one is blocked (ErrProviderIsDefault),
+// letting the surface return 409 + a human sentence; everything else deletes normally,
+// and any code/role referencing it falls back to default naturally.
 func DeleteProvider(ctx context.Context, d ProvidersDeps, ownerID, id string) error {
 	row, gerr := d.Owners.GetProvider(ctx, ownerID, id)
 	if gerr != nil {

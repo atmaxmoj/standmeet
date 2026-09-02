@@ -1,9 +1,13 @@
-// WidgetBlock —— ` ```standmeet-widget ` 沙箱 iframe 块(rendering-and-extensibility.md §25-28)。
+// WidgetBlock —— the ` ```standmeet-widget ` sandboxed iframe block
+// (rendering-and-extensibility.md §25-28).
 //
-// 块内是 JSON descriptor(src / height / sandbox,解析在 @/lib/render/widget-descriptor)。渲染成
-// **sandboxed <iframe>** —— widget 内容 user-provided,必须 sandbox 隔离(isolation-first)。
-// **mount-guard**:只在客户端挂(useEffect 后),SSR HTML 里没 iframe → `seo:false`(不被爬虫
-// 索引,design 非-negotiable §44)。v1:iframe-mount + sandbox + descriptor;postMessage 协议后置。
+// The block contains a JSON descriptor (src / height / sandbox, parsed in
+// @/lib/render/widget-descriptor). Renders into a **sandboxed <iframe>** —
+// widget content is user-provided, so it must be sandbox-isolated
+// (isolation-first). **mount-guard**: only mounts client-side (after
+// useEffect), so the SSR HTML has no iframe → `seo:false` (not indexed by
+// crawlers, design non-negotiable §44). v1: iframe-mount + sandbox +
+// descriptor; a postMessage protocol is deferred.
 
 'use client';
 

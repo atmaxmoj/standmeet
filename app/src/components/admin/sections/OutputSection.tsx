@@ -1,8 +1,9 @@
-// OutputSection —— /admin/output。raw → wiki → output 三层最精炼那层。
-// 设计源 docs/design/project/admin.js OutputsSection：2-col card
-// grid，每张 card 顶 cover-strip + visibility pill；底版面 provenance + actions。
-// visibility 用现有 schema 推导：published=true → public；!published &&
-// show_as_source → unlisted；其他 → private。
+// OutputSection —— /admin/output. The most refined of the raw → wiki → output
+// three layers. Design source: docs/design/project/admin.js OutputsSection:
+// a 2-col card grid, each card topped with a cover-strip + visibility pill; the
+// bottom row lays out provenance + actions. Visibility is derived from the
+// existing schema: published=true → public; !published && show_as_source →
+// unlisted; otherwise → private.
 
 'use client';
 
@@ -63,9 +64,10 @@ function Header({ hook, actions }: { hook: OutputHook; actions: CorpusActionsHoo
   );
 }
 
-// Intro —— `slugPath` 走 ICU 参数而不是 rich tag：文案里那段是字面的 `<slug>`，
-// 直接写进 message 会被 rich-tag 解析器当成标签吃掉（catalog 里那一条用 ICU
-// 单引号转义 `'<'` 才能吐出字面的尖括号）。
+// Intro —— `slugPath` goes through an ICU parameter, not a rich tag: that part of
+// the copy is a literal `<slug>`; writing it straight into the message would get
+// eaten by the rich-tag parser as a tag (the catalog entry uses ICU single-quote
+// escaping `'<'` to emit a literal angle bracket).
 function Intro() {
   const t = useTranslations('adminCorpus.output');
   return (

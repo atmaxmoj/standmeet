@@ -1,6 +1,6 @@
-// writings.go —— corpus_notes(genre='writing') CRUD 视图。writing 折进统一
-// note 基座(#151):body(markdown text 直存)对应旧 body_md；cover_image_asset_id
-// 可空 (typographic-only writing 不挂图)。slug 冲突翻 ErrWritingSlugTaken。
+// writings.go — a CRUD view over corpus_notes(genre='writing'), folded into the unified
+// note base (#151): body is raw markdown (was body_md); cover_image_asset_id is nullable
+// (typographic-only writing). A slug conflict surfaces as ErrWritingSlugTaken.
 
 package repo
 
@@ -18,19 +18,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// WritingRepo —— corpus_notes(genre='writing') CRUD 视图。
+// WritingRepo — a CRUD view over corpus_notes(genre='writing').
 type WritingRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewWritingRepo 构造。
+// NewWritingRepo constructs one.
 func NewWritingRepo(pool *pgstore.Pool) *WritingRepo { return &WritingRepo{pool: pool} }
 
-// Pool —— usecase 开 tx 用。create / update writing 跟 assets 写需要同事务。
+// Pool — lets the usecase layer open a tx shared with writing the writing's assets.
 func (r *WritingRepo) Pool() *pgstore.Pool { return r.pool }
 
-// CreateWritingInput —— Create 入参。BodyMD 是 markdown 原文，本层透传。
-// path 不再是入参:writing 折进 corpus_notes 后 path 派生自 slug,不存列。
+// CreateWritingInput — Create's parameters. BodyMD is raw markdown, passed through
+// unchanged. path isn't an input: since folding into corpus_notes, it derives from slug.
 type CreateWritingInput struct {
 	CoverImageAssetID *string
 	OwnerID           string
@@ -49,15 +49,15 @@ type CreateWritingInput struct {
 	Publish           bool
 }
 
-// Create —— 新建 writing 行 (no tx)。
+// Create — inserts a new writing row (no tx).
 func (r *WritingRepo) Create(
 	ctx context.Context, in *CreateWritingInput,
 ) (entity.Writing, error) {
 	return r.CreateTx(ctx, r.pool, in)
 }
 
-// CreateTx —— 在 caller 给的 tx 里新建 writing，跟 assets 写同事务用。
-// Publish=true 一并 published_at=now。slug 冲突翻 ErrWritingSlugTaken。
+// CreateTx — inserts a writing inside the caller's tx (shared with writing its assets).
+// Publish=true also sets published_at=now. A slug conflict surfaces as ErrWritingSlugTaken.
 func (*WritingRepo) CreateTx(
 	ctx context.Context, tx db.DBTX, in *CreateWritingInput,
 ) (entity.Writing, error) {
@@ -115,14 +115,12 @@ func optAssetUUID(id *string) (pgtype.UUID, error) {
 	return u, nil
 }
 
-// nowTimestamptz —— published_at=now() 的便利构造。caller (Create) 已经
-// 在 input.Publish=false 时不调本函数。
+// nowTimestamptz — constructs published_at=now(); Create skips it when Publish=false.
 func nowTimestamptz() pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: time.Now(), Valid: true}
 }
 
-// UpdateWritingInput —— Update 入参。不动 slug / publish 状态 / created_at。
-// path 不再是入参:折进 corpus_notes 后 path 派生自 slug,不存列。
+// UpdateWritingInput — never touches slug/publish state/created_at; path derives from slug.
 type UpdateWritingInput struct {
 	CoverImageAssetID *string
 	OwnerID           string
@@ -140,14 +138,14 @@ type UpdateWritingInput struct {
 	ReadMinutes       int32
 }
 
-// Update —— 全字段覆盖 (no tx)。
+// Update — overwrites all fields (no tx).
 func (r *WritingRepo) Update(
 	ctx context.Context, in *UpdateWritingInput,
 ) (entity.Writing, error) {
 	return r.UpdateTx(ctx, r.pool, in)
 }
 
-// UpdateTx —— 全字段覆盖 (除 slug / 发布状态)，tx 版。assets 同事务写。
+// UpdateTx — overwrites fields except slug/publish state, tx version (assets share this tx).
 func (*WritingRepo) UpdateTx(
 	ctx context.Context, tx db.DBTX, in *UpdateWritingInput,
 ) (entity.Writing, error) {
@@ -189,7 +187,7 @@ func buildUpdateWritingParams(in *UpdateWritingInput) (*db.UpdateWritingParams, 
 	}, nil
 }
 
-// Publish —— published_at = now，slug/body 保留。
+// Publish — sets published_at = now; slug/body are left as-is.
 func (r *WritingRepo) Publish(
 	ctx context.Context, ownerID, writingID string,
 ) (entity.Writing, error) {
@@ -203,7 +201,7 @@ func (r *WritingRepo) Publish(
 	return toDomainWritingOrErr(&row, err)
 }
 
-// Unpublish —— published_at = NULL，撤回到草稿。
+// Unpublish — sets published_at = NULL, reverting to draft.
 func (r *WritingRepo) Unpublish(
 	ctx context.Context, ownerID, writingID string,
 ) (entity.Writing, error) {
@@ -227,14 +225,13 @@ func toDomainWritingOrErr(row *db.CorpusNote, err error) (entity.Writing, error)
 	return toDomainWriting(row), nil
 }
 
-// Delete —— 物理删 (no tx)。usecase 层会先 list+delete assets 同事务再调
-// 这个，所以这里只删 writings 行本身。
+// Delete — a hard delete (no tx); the usecase layer deletes assets in its own tx first.
 func (r *WritingRepo) Delete(ctx context.Context, ownerID, writingID string) error {
 	return r.DeleteTx(ctx, r.pool, ownerID, writingID)
 }
 
-// DeleteTx —— 物理删 writing 行（tx 版）。caller 必须在同事务先 DELETE assets
-// WHERE holder_id = writingID（usecase 层负责）。
+// DeleteTx — a hard delete of the writing row (tx version); caller must first DELETE
+// assets WHERE holder_id = writingID in the same tx (usecase layer's job).
 func (*WritingRepo) DeleteTx(ctx context.Context, tx db.DBTX, ownerID, writingID string) error {
 	args, perr := parseOwnerAndWritingID(ownerID, writingID)
 	if perr != nil {
@@ -248,7 +245,7 @@ func (*WritingRepo) DeleteTx(ctx context.Context, tx db.DBTX, ownerID, writingID
 	return nil
 }
 
-// GetByID —— admin 取单条；属于 owner 校验。
+// GetByID — admin fetches a single row; checked against the owner.
 func (r *WritingRepo) GetByID(
 	ctx context.Context, ownerID, writingID string,
 ) (entity.Writing, error) {
@@ -268,7 +265,7 @@ func (r *WritingRepo) GetByID(
 	return toDomainWriting(&row), nil
 }
 
-// GetBySlug —— public 取单条；按 owner+slug 唯一索引查。
+// GetBySlug — public fetches a single row; looked up by the owner+slug unique index.
 func (r *WritingRepo) GetBySlug(
 	ctx context.Context, ownerID, slug string,
 ) (entity.Writing, error) {
@@ -288,7 +285,7 @@ func (r *WritingRepo) GetBySlug(
 	return toDomainWriting(&row), nil
 }
 
-// ListByOwner —— admin 列表 (含未发布草稿)，按 published_at desc nulls last。
+// ListByOwner — the admin listing (includes drafts), ordered by published_at desc nulls last.
 func (r *WritingRepo) ListByOwner(
 	ctx context.Context, ownerID string,
 ) ([]entity.Writing, error) {
@@ -303,8 +300,7 @@ func (r *WritingRepo) ListByOwner(
 	return rowsToDomainWritings(rows), nil
 }
 
-// ListPublishedByOwner —— public list (只 already-published)；不分页 (visitor
-// chat retriever 用)。
+// ListPublishedByOwner — the public list (published only); unpaginated (visitor chat retriever).
 func (r *WritingRepo) ListPublishedByOwner(
 	ctx context.Context, ownerID string,
 ) ([]entity.Writing, error) {
@@ -319,15 +315,14 @@ func (r *WritingRepo) ListPublishedByOwner(
 	return rowsToDomainWritings(rows), nil
 }
 
-// ListPublishedPageInput —— infinite-scroll 分页入参。Cursor 是上一页末
-// 条 published_at；首页传 nil 拿最新 limit 条。
+// ListPublishedPageInput — pagination params: cursor=prev page's published_at; nil=first page.
 type ListPublishedPageInput struct {
 	Cursor  *time.Time
 	OwnerID string
 	Limit   int32
 }
 
-// ListPublishedPageByOwner —— /api/v1/writings?cursor=...&limit=... 用。
+// ListPublishedPageByOwner — used by /api/v1/writings?cursor=...&limit=....
 func (r *WritingRepo) ListPublishedPageByOwner(
 	ctx context.Context, in *ListPublishedPageInput,
 ) ([]entity.Writing, error) {

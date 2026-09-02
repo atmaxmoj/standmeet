@@ -1,6 +1,8 @@
-// app-state.ts —— MCP App 跨刷新状态的访客客户端。卡（ui:// 沙箱）经 host 对**自己 mcp
-// 那一格**读/写；mcp_id 由后端从 tool 派生（卡碰不到别的 mcp）。状态是增强（跨刷新存
-// 活），失败一律静默成空/false —— 不该因状态 I/O 让卡崩。
+// app-state.ts —— visitor client for MCP App state that survives refresh. A card
+// (ui:// sandbox) reads/writes **its own mcp's slot** through the host; mcp_id is
+// derived by the backend from the tool (a card can't touch another mcp's slot).
+// State is a nice-to-have (survives refresh); any failure silently degrades to
+// empty/false — a card must never crash over state I/O.
 
 import { baseURL } from '@/lib/api/public';
 
@@ -8,13 +10,14 @@ function isRecordValue(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
-// appStateURL —— /sessions/{conv}/app-state/{tool}[/{key}]。mcp_id 后端从 tool 派生。
+// appStateURL —— /sessions/{conv}/app-state/{tool}[/{key}]. mcp_id is derived by
+// the backend from the tool.
 function appStateURL(conversationID: string, tool: string, key?: string): string {
   const base = `${baseURL()}/api/v1/sessions/${conversationID}/app-state/${encodeURIComponent(tool)}`;
   return key === undefined ? base : `${base}/${encodeURIComponent(key)}`;
 }
 
-// getAppCardState —— 读该 tool 所属 mcp 那格的 {key:value}。
+// getAppCardState —— reads the {key:value} slot of the mcp this tool belongs to.
 export async function getAppCardState(
   conversationID: string, sessionToken: string, tool: string,
 ): Promise<Record<string, unknown>> {
@@ -31,7 +34,8 @@ export async function getAppCardState(
   }
 }
 
-// setAppCardState —— 写一格（mcp_id 由后端从 tool 派生，卡碰不到别的 mcp）。
+// setAppCardState —— writes one slot (mcp_id is derived by the backend from the
+// tool; a card can't touch another mcp's slot).
 export async function setAppCardState(
   conversationID: string, sessionToken: string, tool: string, key: string, value: unknown,
 ): Promise<boolean> {

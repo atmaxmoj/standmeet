@@ -1,7 +1,9 @@
-// writings_retrieval.go —— WritingRepo 的 visitor 检索路径:corpus_search 的全量
-// full-text 搜 + corpus_read 的按 path 读。writing 折进 corpus_notes 后 path 不存列,
-// 由 slug 派生 "writings/<slug>";GetPublishedByPath 剥前缀取 slug 再按 slug 查(retriever
-// 传的仍是 path,签名不变)。从 writings.go 拆出来守 350-line cap。
+// writings_retrieval.go — WritingRepo's visitor retrieval paths: the full-text search
+// used by corpus_search, plus the by-path read used by corpus_read. After writing was
+// folded into corpus_notes, path has no column and is derived from slug as
+// "writings/<slug>"; GetPublishedByPath strips the prefix to recover the slug and then
+// queries by slug (the retriever still passes path, so the signature is unchanged).
+// Split out of writings.go to stay under the 350-line cap.
 
 package repo
 
@@ -18,8 +20,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// GetPublishedByPath —— retriever corpus_read 按 path 读 published writing。path 派生自 slug
-// ("writings/<slug>"),故剥前缀取 slug 再查;不带前缀的 path 认不到 → ErrWritingNotFound。
+// GetPublishedByPath — reads a published writing by path for the retriever's corpus_read.
+// path is derived from slug ("writings/<slug>"), so we strip the prefix and query by slug;
+// a path without that prefix is unrecognized -> ErrWritingNotFound.
 func (r *WritingRepo) GetPublishedByPath(
 	ctx context.Context, ownerID, path string,
 ) (entity.Writing, error) {
@@ -43,7 +46,8 @@ func (r *WritingRepo) GetPublishedByPath(
 	return toDomainWriting(&row), nil
 }
 
-// Search —— retriever corpus_search 全量搜 published writing(DB full-text)。
+// Search — full-text search over published writings for the retriever's corpus_search
+// (DB full-text).
 func (r *WritingRepo) Search(
 	ctx context.Context, ownerID, query string, limit, offset int32,
 ) ([]entity.Writing, error) {

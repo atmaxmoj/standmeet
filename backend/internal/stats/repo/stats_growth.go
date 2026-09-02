@@ -1,6 +1,7 @@
-// stats_growth.go —— corpus 增长脉搏（SystemPulse）的数据源。自成 domain：只读聚合，
-// 走裸 pgx（跟 calendar_bookings 一样的 sqlc-bypass 先例）—— 一个 date_trunc GROUP BY
-// 不值当往共享 dbq 加查询。三层 raw/wiki/output 各有 owner_id + created_at。
+// stats_growth.go — data source for the corpus growth pulse (SystemPulse). Its own
+// domain: read-only aggregates, raw pgx (same sqlc-bypass precedent as calendar_bookings)
+// — a single date_trunc GROUP BY isn't worth adding to the shared dbq. The three tiers
+// raw/wiki/output each carry owner_id + created_at.
 
 package repo
 
@@ -14,21 +15,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// corpusGrowthDays —— SystemPulse 序列窗口（今天往前数 14 天）。
+// corpusGrowthDays — SystemPulse series window (14 days back from today).
 const corpusGrowthDays = 14
 
-// corpusDeltaDays —— 「近增量」窗口（末 7 天）。
+// corpusDeltaDays — the "recent delta" window (last 7 days).
 const corpusDeltaDays = 7
 
-// GrowthRepo —— corpus 增长统计。
+// GrowthRepo — corpus growth statistics.
 type GrowthRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewGrowthRepo 构造。
+// NewGrowthRepo — constructor.
 func NewGrowthRepo(pool *pgstore.Pool) *GrowthRepo { return &GrowthRepo{pool: pool} }
 
-// CorpusGrowth —— 分层总量 + 14 天新增序列 + 7 天增量。owner-scoped。
+// CorpusGrowth — per-tier totals + 14-day new-note series + 7-day delta. Owner-scoped.
 func (r *GrowthRepo) CorpusGrowth(
 	ctx context.Context, ownerID string,
 ) (entity.CorpusGrowth, error) {
@@ -58,7 +59,8 @@ func (r *GrowthRepo) CorpusGrowth(
 	return assembleCorpusGrowth(tiers, byDay), nil
 }
 
-// corpusByDay —— 近 14 天每天(UTC)的三层合计新增，返 day→count（缺的天不出现）。
+// corpusByDay — combined new-note count across the three tiers per day (UTC) for the
+// last 14 days; returns day→count (missing days are absent).
 func (r *GrowthRepo) corpusByDay(
 	ctx context.Context, ownerUUID pgtype.UUID,
 ) (map[string]int, error) {
@@ -90,7 +92,8 @@ func (r *GrowthRepo) corpusByDay(
 	return byDay, nil
 }
 
-// assembleCorpusGrowth —— 铺满 14 天序列（缺天补 0）、算 7 天增量、组装分层总量。
+// assembleCorpusGrowth — fills out the 14-day series (zero-fill missing days), computes
+// the 7-day delta, and assembles the per-tier totals.
 func assembleCorpusGrowth(tiers entity.CorpusTierCounts, byDay map[string]int) entity.CorpusGrowth {
 	now := time.Now().UTC()
 	series := make([]entity.CorpusDayCount, corpusGrowthDays)

@@ -1,5 +1,5 @@
-// keypairs.go —— KeypairRepo wrap sqlc 生成的 dbq query。
-// Create / List / GetByKeyID / Touch / Delete。
+// keypairs.go —— KeypairRepo wraps sqlc-generated dbq queries.
+// Create / List / GetByKeyID / Touch / Delete.
 
 package repo
 
@@ -18,17 +18,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// KeypairRepo 提供 owner Ed25519 keypair CRUD。
+// KeypairRepo provides CRUD for an owner's Ed25519 keypairs.
 type KeypairRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewKeypairRepo 构造。
+// NewKeypairRepo constructs one.
 func NewKeypairRepo(pool *pgstore.Pool) *KeypairRepo {
 	return &KeypairRepo{pool: pool}
 }
 
-// CreateKeypairInput —— Create 入参。
+// CreateKeypairInput —— Create's input.
 type CreateKeypairInput struct {
 	OwnerID      string
 	KeyID        string
@@ -36,7 +36,8 @@ type CreateKeypairInput struct {
 	Label        string
 }
 
-// Create 写入新 keypair (caller 已在外面生成 key_id + 公钥 PEM)。
+// Create writes a new keypair (the caller has already generated the
+// key_id + public-key PEM outside this call).
 func (r *KeypairRepo) Create(
 	ctx context.Context, in *CreateKeypairInput,
 ) (entity.Keypair, error) {
@@ -57,7 +58,7 @@ func (r *KeypairRepo) Create(
 	return toDomainKeypair(&row), nil
 }
 
-// ListByOwner —— admin UI 用，metadata only (无 PEM)。
+// ListByOwner —— used by the admin UI, metadata only (no PEM).
 func (r *KeypairRepo) ListByOwner(
 	ctx context.Context, ownerID string,
 ) ([]entity.KeypairMetadata, error) {
@@ -77,8 +78,9 @@ func (r *KeypairRepo) ListByOwner(
 	return out, nil
 }
 
-// GetByKeyID —— sigv1 验签用 (caller 拿公钥 PEM 验)。不命中返
-// ErrKeypairUnauthorized 让上层翻 401 不泄露存在性。
+// GetByKeyID —— used for sigv1 signature verification (the caller uses the
+// public-key PEM to verify). Returns ErrKeypairUnauthorized on a miss, so
+// the layer above can translate to 401 without revealing existence.
 func (r *KeypairRepo) GetByKeyID(
 	ctx context.Context, keyID string,
 ) (entity.Keypair, error) {
@@ -93,7 +95,8 @@ func (r *KeypairRepo) GetByKeyID(
 	return toDomainKeypair(&row), nil
 }
 
-// Touch —— best-effort 更新 last_used_at；失败 log warn 不影响验签结果。
+// Touch —— best-effort update of last_used_at; a failure logs a warning
+// and doesn't affect the verification result.
 func (r *KeypairRepo) Touch(
 	ctx context.Context, log *slog.Logger, keypairID string,
 ) {
@@ -108,8 +111,9 @@ func (r *KeypairRepo) Touch(
 	}
 }
 
-// Delete —— hard delete (= revoke)。owner_id 同时 WHERE 防止跨 owner 删。
-// 0-row 命中也不报错 (调用方自己先 GetByKeyID 验存在性)。
+// Delete —— hard delete (= revoke). owner_id is also in the WHERE clause,
+// preventing a cross-owner delete. A 0-row hit is not an error either
+// (the caller already verified existence via GetByKeyID first).
 func (r *KeypairRepo) Delete(ctx context.Context, ownerID, keyID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {

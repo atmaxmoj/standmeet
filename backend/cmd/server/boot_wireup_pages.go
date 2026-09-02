@@ -1,7 +1,9 @@
-// boot_wireup_pages.go —— 公开侧**自定义页**那一族的装配。
+// boot_wireup_pages.go —— assembly for the public-side **custom pages** family.
 //
-// 从 boot_wireup.go 拆出来：那份到了 350 行上限，而这两个是同一件事的两个面 ——
-// `/p/{slug}` 服务 live，预览凭令牌服务最近一次构建成功的。放一起，改一个时看得见另一个。
+// Split out of boot_wireup.go: that file was at its 350-line cap, and these two are
+// two faces of the same thing — `/p/{slug}` serves the live build, preview serves the
+// most recent successful one, token-gated. Kept together so a change to one stays
+// visible next to the other.
 
 package main
 
@@ -29,8 +31,10 @@ func buildPublicCustomPagePreviewDeps(d *deps.Runtime) publicroutes.CustomPagePr
 	return publicroutes.CustomPagePreviewHandlers{
 		Log:        d.Log,
 		BuildsRoot: d.BuildsRoot,
-		// 两个函数在这里合上域：面那一层只拿答案，不认识域
-		// （check-routes-via-dispatcher —— 面直接够到域就是绕过出站收口）。
+		// The two closures close over the domain right here: the face layer only
+		// receives the answer, it never gets to know the domain (see
+		// check-routes-via-dispatcher — a face reaching the domain directly is
+		// bypassing the outbound convergence point).
 		VerifyToken: func(slug, token string) (string, error) {
 			return owner.VerifyPreviewToken(d.SessionKey, slug, token, time.Now())
 		},

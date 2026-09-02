@@ -1,5 +1,5 @@
-// boot_deps.go —— composition root 的 repo bundle + assemble helpers。
-// 从 main.go 拆出守 350 行 max-lines。
+// boot_deps.go — the composition root's repo bundle + assemble helpers.
+// Split out of main.go to hold the 350-line max-lines gate.
 
 package main
 
@@ -37,8 +37,8 @@ import (
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
-// repoSet —— 所有 postgres Repository 的 bundle，让 wireAndServe 不必逐行
-// `xxxRepo := postgres.NewXxx(c.db)`，cyclo / function-length 友好。
+// repoSet —— a bundle of every postgres Repository, so wireAndServe does not need
+// a `xxxRepo := postgres.NewXxx(c.db)` line for each one. Cyclo / function-length friendly.
 type repoSet struct {
 	instance       *owner.InstanceRepo
 	owner          *owner.Repo
@@ -123,9 +123,9 @@ func newRepos(db *pgstore.Pool) *repoSet {
 	}
 }
 
-// deferredWiring —— 在 newRepos 之后才能装的运行期对象（resolver 依赖
-// owner repo；setup token holder 在 ensureSetupToken 后才有 plaintext；
-// storage client 启动时 ensure bucket）。
+// deferredWiring —— runtime objects that can only be assembled after newRepos
+// (the resolver depends on the owner repo; the setup token holder only has
+// plaintext after ensureSetupToken; the storage client ensures its bucket at startup).
 type deferredWiring struct {
 	providerResolver inference.Resolver
 	setupTokenHolder *session.SetupTokenHolder
@@ -138,7 +138,7 @@ func assembleRuntimeDeps(
 	captchaVerifier := security.NewFromConfig(
 		security.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil)
 	printStore := printsess.New(c.rdb, 0)
-	// 词法检索(Meili)。MEILI_URL 空 → searchClient/indexer 为 nil,检索退 Postgres 全文、写不索引。
+	// Lexical search (Meili): empty MEILI_URL → nil search fields, falls back to Postgres FTS.
 	searchClient := search.New(cfg.MeiliURL, cfg.MeiliKey)
 	corpusIndexer := corpus.NewCorpusIndexer(searchClient, repos.vaultSync, log)
 	return deps.Runtime{
@@ -199,25 +199,27 @@ func assembleRuntimeDeps(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL),
 		AgentSkills: capreg.NewRegistry(),
 		Upgrade:     upgradeSources(cfg),
-		// 两颗探针造在这里:开封器只在组装根拿得到(见 deps.go 上那两个字段)。
+		// The two probes built here: unsealer reachable only from deps.go's composition root.
 		MCPProber:      &mcpServerProbe{servers: &dialableMCPServers{repo: repos.mcpServer}},
 		ProviderModels: &providerModelLister{owners: repos.owner},
-		// capStores —— wireCapabilityStorage 按各能力的声明填(provision 一次)。
+		// capStores —— wireCapabilityStorage fills this per capability, provisioned once.
 		CapStores:    map[string]*capstore.Store{},
 		SearchClient: searchClient, CorpusIndexer: corpusIndexer,
-		// J.5: pluginRegistry 在 assembleRuntimeDeps 返回后由 caller 用全
-		// 套 deps 构造 (jobs.Plugin 需要 *jobsuc.JobsDeps 等闭包持引用)。
-		// 这里留 nil 让 lint 看到字段被用；wirePluginRegistry 后再回填。
+		// J.5: pluginRegistry is built by the caller after assembleRuntimeDeps returns, using the
+		// full deps set (jobs.Plugin needs closures holding refs to *jobsuc.JobsDeps etc.). Left
+		// nil here so lint sees the field used; wirePluginRegistry backfills it after.
 	}
 }
 
-// buildPluginRegistry —— 注册当前启用的所有 outbound plugins。J 期起新增
-// outbound type 都往这里加一行 (reg.Register(pluginX.New(...)))，wireup 通
-// 过 registry 迭代拿 lifecycle，不要在 composition root 散嵌入逻辑。
+// buildPluginRegistry —— registers every outbound plugin currently enabled. From phase J
+// on, each new outbound type adds one line here (reg.Register(pluginX.New(...))); wireup
+// gets lifecycle by iterating the registry — don't scatter embedded logic across the
+// composition root.
 //
-// 入参 *runtimeDeps：jobs.Plugin 需要 *jobsuc.JobsDeps / ResumeDeps /
-// ApplicationsDeps 等闭包持引用；这些 Deps 字段在 assembleRuntimeDeps
-// 跑完之后才齐，所以本函数在 assemble 之后再调一次。
+// Param *runtimeDeps: jobs.Plugin needs closures holding references to
+// *jobsuc.JobsDeps / ResumeDeps / ApplicationsDeps etc.; those Deps fields are only
+// complete after assembleRuntimeDeps finishes, so this function is called once more,
+// after assemble.
 func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 	reg := capabilities.NewRegistry()
 	jobsDeps := jobsuc.JobsDeps{
@@ -236,12 +238,14 @@ func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 		DraftsRepo:   d.ResumeDraftRepo,
 		AppsRepo:     d.ApplicationRepo,
 		SourcesRepo:  d.JobSourceRepo,
-		// 这个插件自己要种的那两条 builtin（hiring prompt + role）走 OwnerSeeder。
+		// The two builtins this plugin itself seeds (hiring prompt + role) go
+		// through OwnerSeeder.
 		Seed: jobsuc.SeedDeps{Prompts: d.PromptRepo, Roles: d.RoleRepo},
 		Log:  d.Log,
 	}))
-	// 这儿曾经还有一句 ownercore —— 那个包装着全部 owner-MCP 能力,一个跨域的大杂烩。
-	// 它的最后一个操作(写长文)已经回 corpus 域了,包整个删掉。
+	// There used to be a line here for ownercore — the package that wrapped every
+	// owner-MCP capability, a cross-domain grab-bag. Its last operation (writing long-form)
+	// has moved back into the corpus domain, and the whole package was deleted.
 	return reg
 }
 
@@ -262,10 +266,13 @@ func buildReportPDFRenderer(cfg *config.Config) publicroutes.ReportPDFRenderer {
 	return gotenberg.New(cfg.GotenbergURL)
 }
 
-// buildPDFRenderer —— resume PDF 现在走 **Typst**（typst binary + 内嵌模板，见 resumepdf）。
-// 排版质量 + 可定制模板 + 内容/呈现分离，都在一条数据驱动的管线上。gotenberg 那条（React→
-// Chromium 打印页）退役给 report 下载路（buildReportPDFRenderer 仍用它）。printsess.Store 不再
-// 参与简历渲染。typst 缺失时不静默出空 PDF —— compile 报错，commit 响亮失败。
+// buildPDFRenderer —— resume PDFs now go through **Typst** (typst binary + embedded
+// template, see resumepdf). Typesetting quality + customizable templates + content/
+// presentation separation, all on one data-driven pipeline. The gotenberg path (React→
+// Chromium print page) is retired for resumes, handed off to the report-download route
+// (buildReportPDFRenderer still uses it). printsess.Store no longer takes part in resume
+// rendering. When typst is missing this does not silently emit an empty PDF — compile
+// errors, and commit fails loudly.
 //
 //nolint:ireturn // composition root deliberately returns interface
 func buildPDFRenderer(

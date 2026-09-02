@@ -1,30 +1,35 @@
-// fault.go —— 一次 host op 失败的**类别**，跟着回执一起穿过 socket。
+// fault.go — the **category** of one host op failure, carried across the socket alongside
+// the receipt.
 //
-// 为什么需要它：沙箱断了网，它对宿主的每一次回头问话都只拿回
-// `{"error":"<一句话>"}`。**一句话不是一个类** —— 沙箱那一侧只能把所有失败当成同一种，
-// 于是「owner 没配邮件」和「邮件连接器这一刻拨不通」在访客屏幕上说的是同一句话，
-// 而其中一句是假的（F-C-42）。
+// Why it's needed: the sandbox has no network, so every callback it makes to the host only
+// gets back `{"error":"<one sentence>"}`. **One sentence is not a category** — the sandbox
+// side can only treat every failure as the same kind, so "owner hasn't configured mail" and
+// "the mail connector can't be reached right now" come out as the same sentence on the
+// visitor's screen, and one of those sentences is false (F-C-42).
 //
-// 宿主本来就分得开（`connector` 域有 `errNoActiveConnector` → `ErrMailNotConfigured`）；
-// 丢分类的地方是**边界**。所以修在边界上：错误带一个码过去，沙箱按码分岔。
+// The host already distinguishes them (the `connector` domain has `errNoActiveConnector` →
+// `ErrMailNotConfigured`); the place the category gets lost is **the boundary**. So the fix
+// goes at the boundary: the error carries a code across, and the sandbox branches on the code.
 //
-// 码是**给沙箱看的稳定词表**，不是给人读的句子 —— 句子照旧在 Error() 里，
-// 而且句子随时可以改措辞，不会把沙箱的分支改坏（[[collapsed-error-class-kills-its-own-branch]]）。
+// The code is **a stable vocabulary for the sandbox**, not a sentence for a human — the
+// sentence still lives in Error(), and its wording can change anytime without breaking the
+// sandbox's branch ([[collapsed-error-class-kills-its-own-branch]]).
 
 package hostop
 
-// 固定词表。加一项之前先问：**沙箱拿它会做出不同的事吗**？
-// 只是想说得更细一点，那属于 Error() 里的那句话，不属于这里。
+// A fixed vocabulary. Before adding an entry, ask: **would the sandbox act differently on it?**
+// If you just want more detail, that belongs in the Error() sentence, not here.
 const (
-	// FaultNotConfigured —— owner 没有配这件事（没有 active 连接器）。
-	// 沙箱据此可以说「这条路还没搭起来」。
+	// FaultNotConfigured — the owner hasn't configured this (no active connector).
+	// The sandbox can use it to say "this path isn't set up yet".
 	FaultNotConfigured = "not_configured"
-	// FaultUnavailable —— 配了，但这一刻做不到（拨不通、被拒、超时）。
-	// 沙箱据此该说「现在做不了，稍后再试」，**不能**说成没配过。
+	// FaultUnavailable — it's configured, but can't be done right now (unreachable, rejected,
+	// timed out). The sandbox should say "can't do this right now, try again later" —
+	// **must not** say it was never configured.
 	FaultUnavailable = "unavailable"
 )
 
-// FaultError —— 带类别的 host op 错误。
+// FaultError — a host op error carrying a category.
 type FaultError struct {
 	Err  error
 	Code string
@@ -34,7 +39,8 @@ func (f *FaultError) Error() string { return f.Err.Error() }
 
 func (f *FaultError) Unwrap() error { return f.Err }
 
-// FaultCode —— 传输层按**方法**认它，不按类型认。
-// socket 那一层是严格 leaf（`.go-arch-lint.yml` 里 `capsocket: mayDependOn: []`），
-// 它连这个包都不许 import；有了这个方法，它只要声明一个同形的本地接口就够了。
+// FaultCode — the transport layer recognizes it by **method**, not by type.
+// The socket layer is a strict leaf (`capsocket: mayDependOn: []` in `.go-arch-lint.yml`) —
+// it isn't even allowed to import this package; with this method, it only needs to declare
+// a local interface of the same shape.
 func (f *FaultError) FaultCode() string { return f.Code }

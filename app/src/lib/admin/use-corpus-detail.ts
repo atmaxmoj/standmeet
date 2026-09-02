@@ -1,16 +1,23 @@
-// use-corpus-detail —— EditForm 展开时 lazy-fetch 单条 entry 的 hook。
-// 拿到 body 后回填，避免 owner 再手抄一遍。
+// use-corpus-detail —— the hook that lazy-fetches a single entry when
+// EditForm expands. Once the body arrives, it's backfilled into the form so
+// the owner doesn't have to retype it.
 //
-// **依赖那个函数，不是整个 actions 对象**（F-A-17）。use-corpus-actions 每次渲染都 return 一个新的
-// 对象字面量（里面的函数各自 useCallback 过，对象本身没有），所以 `[id, actions]` 会在每次渲染后
-// 重跑。而 fetchDetail 自己会 setPending → 重渲染 → 新对象 → 再跑：一个**无限的 render+fetch 环**。
-// 后端日志里是同一条 GET 每 6ms 一发，没有尽头。
+// **Depend on that one function, not the whole actions object** (F-A-17).
+// use-corpus-actions returns a new object literal on every render (the
+// functions inside it are each individually useCallback'd, but the object
+// itself is not), so `[id, actions]` would rerun after every render. And
+// fetchDetail itself calls setPending → rerender → new object → rerun: an
+// **infinite render+fetch loop**. In the backend logs it was the same GET
+// firing every 6ms, with no end.
 //
-// 更糟的是它**看起来像在加载**：每轮 cleanup 都在 promise 落地前把 alive 置 false，于是 setDetail
-// 一次都不执行，表单永远停在 loading…。owner 看到的是"慢"，不是"坏"，所以不会有人报告它。
+// Worse, it **looked like it was still loading**: every round's cleanup set
+// alive to false before the promise landed, so setDetail never ran even
+// once, and the form stayed stuck on loading… forever. What the owner saw
+// looked like "slow", not "broken", so nobody reported it.
 //
-// 失败同理：原来 `.then()` 后面一个 catch 都没有 —— 请求挂了也是一个永恒的 loading…（外加一条没人
-// 接的 unhandled rejection）。现在失败经 report 反显给 owner。
+// Failure had the same shape: `.then()` used to have no catch after it at
+// all — a failed request was also an eternal loading… (plus an unhandled
+// rejection nobody caught). Failure now gets reflected to the owner through report.
 
 'use client';
 
@@ -36,10 +43,12 @@ export function useWikiDetail(id: string, actions: CorpusActionsHook): WikiDetai
   return detail;
 }
 
-// RawHeroForm —— raw 行内编辑框里 hero 那三样的可编辑状态。
+// RawHeroForm —— the editable state of the three hero fields in raw's inline edit box.
 //
-// `loaded` 是**载入时**的那一份,提交时要拿它比对:三格都是指针字段,「他从没设过」
-// 和「他刚撤掉」都是空串,只有跟载入值比才分得开(见 [[hero-field]] 那个函数的注释)。
+// `loaded` is the value **as loaded**, compared against on submit: all three
+// fields are pointer fields, and "he never set this" and "he just cleared
+// it" are both an empty string — only comparing against the loaded value
+// tells them apart (see the comment on the [[hero-field]] function).
 export interface RawHeroForm {
   cover: string;
   coverHeadline: string;
@@ -50,10 +59,13 @@ export interface RawHeroForm {
   setCoverHue: (v: string) => void;
 }
 
-// useRawHeroForm —— 拉一次详情(列表行不带 hero),回填成可编辑状态。
+// useRawHeroForm —— fetches the detail once (the list row doesn't carry
+// hero), backfilling it into editable state.
 //
-// 回填这一步放在 hook 里而不是组件里:渲染层不写控制流。而且**必须回填** ——
-// 不回填的话表单把已有的值显示成空,owner 看到一个空的 "cover line" 会以为没设过。
+// The backfill step lives in the hook, not the component: the render layer
+// doesn't write control flow. And it **must** backfill — without it the form
+// would display existing values as empty, and the owner seeing a blank
+// "cover line" would think it had never been set.
 export function useRawHeroForm(id: string, actions: CorpusActionsHook): RawHeroForm {
   const [cover, setCover] = useState('');
   const [coverHeadline, setCoverHeadline] = useState('');
@@ -78,8 +90,9 @@ export function useRawHeroForm(id: string, actions: CorpusActionsHook): RawHeroF
 
 const EMPTY_HERO = { cover: '', coverHeadline: '', coverHue: '' };
 
-// heroInput —— 表单状态 → 更新入参。发什么由 heroField 判:跟**载入时**的值比,
-// 而不是跟空比 —— 否则 owner 撤不掉自己设过的封面/那句话/色调(F-L-38(a))。
+// heroInput —— form state → the update input. What gets sent is decided by
+// heroField: compared against the value **as loaded**, not against empty —
+// otherwise the owner could never clear a cover/line/tone they'd already set (F-L-38(a)).
 export function heroInput(f: RawHeroForm): {
   cover_image_asset_id?: string; cover_headline?: string; cover_hue?: string;
 } {

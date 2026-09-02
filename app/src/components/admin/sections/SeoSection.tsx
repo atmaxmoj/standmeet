@@ -1,16 +1,17 @@
-// SeoSection —— /admin/seo，接真后端（#102）。
+// SeoSection —— /admin/seo, wired to the real backend (#102).
 //
-// site_title 是 owner 自写、可编辑并持久化的字段；og:description 与 canonical
-// host 是**只读镜像**——分别复用 page 的 **hero prose**(`hero_prose`) / owner.public_url，
-// 在各自的 section 编辑（这里只展示 + 跳转链接，避免同一个值两处可改）。
+// site_title is an owner-authored field, editable and persisted; og:description and canonical
+// host are **read-only mirrors** — they reuse page's **hero prose** (`hero_prose`) / owner.public_url
+// respectively, and are edited in their own section (here they're just shown + a jump link,
+// to avoid the same value being editable in two places).
 //
-// 这块的文案以前写的是 "your page tagline"，而产品里没有任何叫 tagline 的东西：hero 段里
-// 那个字段标签是 `prose`，后端字段是 `hero_prose`。owner 照着那句话点进 /admin/page，
-// 找不到它说的东西。robots 是真开关，
-// indexing stats 是真计数 + owner 可选统计范围（默认全含）。
+// This copy used to say "your page tagline", but nothing in the product is called a tagline:
+// the field's label in the hero section is `prose`, and the backend field is `hero_prose`. An
+// owner following that copy into /admin/page wouldn't find what it described. robots is a real
+// toggle, and indexing stats are real counts + an owner-selectable scope (all tiers included by default).
 //
-// 已删：regenerate-sitemap 按钮（sitemap 实时算，无「待重算」）、twitter handle
-// （死字段）。
+// Removed: the regenerate-sitemap button (the sitemap is computed live, there's no "pending
+// regeneration" state), and twitter handle (a dead field).
 
 'use client';
 
@@ -72,9 +73,10 @@ function DefaultsCard({ form, setForm, onSave }: {
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 flex flex-col gap-4">
       <div className="sm-smallcaps">{t('seo.defaults')}</div>
-      {/* 这张卡真正**拥有**的只有这两个字段，而它们原本一个字的说明都没有 —— 而旁边两个
-          只读镜像各配了一句话加一条跳转（UX-57：照顾的方向反了）。空着会怎样、什么算好的
-          值，得在这里说。 */}
+      {/* This card only **owns** these two fields, and they used to have zero explanation —
+          while the two read-only mirrors next to it each got a sentence plus a jump link
+          (UX-57: the care went the wrong direction). What an empty value does and what counts
+          as a good value need to be said here. */}
       <LabeledInput label="site title" testid="seo-site-title" value={form.site_title}
         onChange={(v) => setForm({ ...form, site_title: v })} placeholder="Your public site title"
         hint={t('seo.siteTitleHint')} />
@@ -103,8 +105,9 @@ function LabeledInput({ label, testid, value, onChange, placeholder, hint }: {
       <input type="text" data-testid={testid} value={value} placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className="sm-field-input" />
-      {/* 不贴 `reading` —— 那个类自带 20px，说明会比它解释的那个字段还大。
-          说明是次要文本，字号必须真的比正文小。 */}
+      {/* Don't use `reading` — that class comes with 20px, which would make the hint text
+          bigger than the field it's explaining. A hint is secondary text; its font size must
+          actually be smaller than body text. */}
       <p className="font-serif text-[13px] leading-[1.5] text-(--color-faint) mt-1.5 max-w-[46em]">{hint}</p>
     </label>
   );
@@ -121,11 +124,13 @@ function RobotsToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   );
 }
 
-// MirrorEditLink —— 「这个值在别处编辑」那条链接，**只有这一处**。
+// MirrorEditLink —— the "this value is edited elsewhere" link, **defined in one place only**.
 //
-// 之前 og:description 那条是大号衬线（跟着说明段的排版走），canonical host 那条是小号等宽
-// （跟着主机名的排版走）—— 同样的去处、同样的语义，长成两种东西（UX-74①）。原因是它们
-// 各自继承父段落的字体，而不是自己声明。这里把它固定成一种，跟周围正文用什么字体无关。
+// Previously the og:description one was large serif (following the hint paragraph's typography),
+// while the canonical host one was small mono (following the hostname's typography) — same
+// destination, same meaning, but rendered as two different things (UX-74①). The cause was each
+// one inheriting its parent paragraph's font instead of declaring its own. This pins it to a
+// single form, independent of whatever font the surrounding body text uses.
 function MirrorEditLink({ testid }: { testid: string }) {
   const t = useTranslations('adminCorpus.seo');
   return (
@@ -136,7 +141,7 @@ function MirrorEditLink({ testid }: { testid: string }) {
   );
 }
 
-// DescriptionMirror —— og:description 复用 page 的 hero prose，只读 + 跳 /admin/page 编辑。
+// DescriptionMirror —— og:description reuses page's hero prose, read-only + jumps to /admin/page to edit.
 function DescriptionMirror() {
   const t = useTranslations('adminCorpus.seo');
   return (
@@ -150,7 +155,7 @@ function DescriptionMirror() {
   );
 }
 
-// CanonicalMirror —— canonical host = owner.public_url，只读 + 跳 /admin/domain 编辑。
+// CanonicalMirror —— canonical host = owner.public_url, read-only + jumps to /admin/domain to edit.
 function CanonicalMirror() {
   const t = useTranslations('adminCorpus.seo');
   const session = useAdminSession();
@@ -184,7 +189,8 @@ function tierRow(
   return { key: t.key, label: t.label, on: scope[t.key] ?? false, value: statOf(stats, t.key) };
 }
 
-// IndexingCard —— 真计数 + owner 选统计范围（默认三 tier 全含），总数按 scope 求和。
+// IndexingCard —— real counts + an owner-selectable stat scope (all three tiers included by
+// default), total is summed according to scope.
 function IndexingCard({ stats }: { stats: SEOStats | null }) {
   const t = useTranslations('adminCorpus.seo');
   const [scope, setScope] = useState<Record<string, boolean>>(

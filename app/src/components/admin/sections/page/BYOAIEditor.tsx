@@ -1,5 +1,5 @@
-// BYOAIEditor —— enable toggle + provider chips + public blurb。
-// 完全 client-side state（useBYOAI），无 backend 持久化。
+// BYOAIEditor — enable toggle + provider chips + public blurb.
+// Fully client-side state (useBYOAI), no backend persistence.
 
 'use client';
 

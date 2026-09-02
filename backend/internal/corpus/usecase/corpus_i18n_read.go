@@ -1,10 +1,13 @@
-// corpus_i18n_read.go —— 读一条语料时,多语那一层。
+// corpus_i18n_read.go —— the multilingual layer when reading one corpus entry.
 //
-// **一次给一种语言。** 把两种语言都塞进 agent 的上下文里,等于每条笔记付两遍 token,而且
-// 那两份还互相矛盾地讲同一件事;把它们拆成两条命中,则同一条笔记会在检索结果里出现两次。
-// 所以这里跟读者页走同一个函数:选一面,中性散文照留。
+// **One language at a time.** Stuffing both languages into the agent's context means
+// paying token cost twice per note, and the two versions would tell the same story in
+// ways that contradict each other; splitting them into two separate hits would make the
+// same note show up twice in search results. So this goes through the same function as
+// the reader page: pick one side, leave language-neutral prose as-is.
 //
-// 有哪些语言**也要报出去** —— 不然 agent 没法"自己决定"(它连有几种都不知道)。
+// Which languages exist **must also be reported** — otherwise the agent can't "decide
+// for itself" (it doesn't even know how many there are).
 
 package usecase
 
@@ -14,13 +17,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/i18n"
 )
 
-// langReader —— 一条笔记的身份语言 + 切换器标签(pgCorpusLister 经 vault-sync 仓储实现)。
-// best-effort:读不到就当没写,按第一面渲染。
+// langReader —— one note's identity language plus its switcher labels (pgCorpusLister
+// implements this via the vault-sync repository). Best-effort: if it can't be read,
+// treat it as unset and render the first side.
 type langReader interface {
 	NoteLang(ctx context.Context, ownerID, noteID string) (string, map[string]string)
 }
 
-// NoteLang —— 实现 langReader。
+// NoteLang —— implements langReader.
 func (l *pgCorpusLister) NoteLang(
 	ctx context.Context, ownerID, noteID string,
 ) (string, map[string]string) {
@@ -31,18 +35,22 @@ func (l *pgCorpusLister) NoteLang(
 	return got.Lang, got.Labels
 }
 
-// I18nView —— 一条正文的多语视图:选中的那一面 + 有哪些语言可选。
+// I18nView —— the multilingual view of one body: the selected side plus which languages
+// are available.
 type I18nView struct {
 	Body      string
 	Lang      string
 	Languages []string
 }
 
-// ViewFor —— 按 want 选一面。不是多语笔记 → 原样返回,Languages 空(读者页据此不出切换器)。
+// ViewFor —— picks one side according to want. Not a multilingual note -> returned as-is,
+// Languages empty (the reader page uses this to skip showing a switcher).
 //
-// title 是这条笔记的标题:**正文开头再说一遍标题的那一行不发出去**(UX-85)——
-// 页头已经印了它。判据是同字(`i18n.StripTitleEcho`),不同字的开头是内容,原样留着。
-// 收在这里而不是各读者页各删一遍:这一个函数是读者页、检索、agent 上下文共同的那条路。
+// title is the note's title: **the line at the top of the body that repeats the title is
+// not emitted** (UX-85) — the page header already prints it. The criterion is an exact
+// match (`i18n.StripTitleEcho`); an opening line that differs is content and is left as
+// is. Handled here rather than stripped separately by each reader page: this one function
+// is the shared path for the reader page, search, and the agent's context.
 func ViewFor(body, want, identity, title string) I18nView {
 	doc := i18n.Parse(body)
 	if !doc.Multilingual() {

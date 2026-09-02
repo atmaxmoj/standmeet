@@ -1,6 +1,8 @@
-// visitor_conversations.go —— 一个 member 多段对话。浮窗在某篇 doc 上 find-or-create
-// 自己那段对话(跟主聊天 / 别篇 doc 各自独立,transcript 不串),共享 member 级 turn
-// 配额。docKey='' 是主聊天,session issue 时已建,不走这里。
+// visitor_conversations.go —— one member, multiple conversation segments. The floating
+// widget on a given doc does a find-or-create for its own conversation segment
+// (independent from the main chat / other docs, transcripts don't mix), sharing the
+// member-level turn quota. docKey='' is the main chat, already created at session issue,
+// doesn't go through this path.
 
 package usecase
 
@@ -16,12 +18,15 @@ import (
 )
 
 const (
-	crossConvMaxMessages = 24   // 最多取该 member 其他对话末尾这么多条
-	crossConvMaxChars    = 1500 // digest 总字符封顶,不让 prompt 爆
-	crossConvBodyCap     = 240  // 单条 body 截断(rune 计)
+	// crossConvMaxMessages caps how many messages are taken from the tail of the member's
+	// other conversations.
+	crossConvMaxMessages = 24
+	crossConvMaxChars    = 1500 // digest total char cap, keeps the prompt from ballooning
+	crossConvBodyCap     = 240  // per-message body truncation (counted in runes)
 )
 
-// OpenConvForDocInput —— 浮窗开/续某 doc 那段对话的入参(从 visitor session 拿)。
+// OpenConvForDocInput —— input for the floating widget opening/resuming a doc's
+// conversation segment (taken from the visitor session).
 type OpenConvForDocInput struct {
 	OwnerID     string
 	CodeID      string
@@ -31,9 +36,9 @@ type OpenConvForDocInput struct {
 	DocKey      string
 }
 
-// OpenConversationForDoc —— 该 member 在 docKey 这个 surface 上的对话:已有未结束
-// 的就续上,没有就新建。仅限 code 访客(有 member);缺 owner/member/docKey 返
-// apierr.ErrEmptyField。
+// OpenConversationForDoc —— this member's conversation on the docKey surface: resumes
+// an unfinished one if it exists, otherwise creates a new one. Code visitors only (has a
+// member); missing owner/member/docKey returns apierr.ErrEmptyField.
 func OpenConversationForDoc(
 	ctx context.Context, deps *VisitorSessionDeps, in *OpenConvForDocInput,
 ) (entity.Chat, error) {
@@ -72,9 +77,11 @@ func createDocConversation(
 	return chat, nil
 }
 
-// BuildCrossConvDigest —— 「互通」digest:把该 member **其他**对话(排除当前 convID)
-// 的近期消息压成一段紧凑文本,喂进 instruction 让 AI 跨对话连贯。空 member / 没别的
-// 对话 → 空串。有界:只取末尾若干条、每条截断、总长封顶。
+// BuildCrossConvDigest —— the "cross-linked" digest: compresses this member's recent
+// messages from **other** conversations (excluding the current convID) into a compact
+// block of text, fed into the instruction so the AI stays coherent across conversations.
+// Empty member / no other conversations → empty string. Bounded: only the last N
+// messages, each truncated, total length capped.
 func BuildCrossConvDigest(
 	ctx context.Context, deps *VisitorSessionDeps, memberID, excludeConvID string,
 ) (string, error) {
@@ -121,8 +128,9 @@ func capRunes(s string, n int) string {
 	return string(r[:n]) + "…"
 }
 
-// ChatBelongsToMember —— turn handler 归属校验:这段 conversation 是否属于该
-// member(owner-scoped 加载)。防访客借别人的 conversation_id 发 turn。
+// ChatBelongsToMember —— ownership check for the turn handler: whether this
+// conversation belongs to this member (loaded owner-scoped). Prevents a visitor from
+// borrowing someone else's conversation_id to send a turn.
 func ChatBelongsToMember(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID, convID, memberID string,
 ) (bool, error) {

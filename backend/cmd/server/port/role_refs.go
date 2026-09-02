@@ -1,9 +1,12 @@
-// role_refs.go —— composition-root 适配器:把 owner/marketplace repo 的 GetByID 按 kind
-// 收窄成 access.RefValidator(存在性校验)。role 写入只需"引用是否存在",不需实体 —— 这层
-// 适配让 access 既不为每种引用持类型化 surface,也不反依赖 owner/marketplace。
+// role_refs.go — composition-root adapter: narrows owner/marketplace repos' GetByID,
+// by kind, into access.RefValidator (existence checking). Writing a role only needs
+// "does this reference exist", not the entity — this adapter layer lets access avoid
+// both holding a typed surface per reference kind and reverse-depending on
+// owner/marketplace.
 //
-// "找不到"要翻成 access 那个口子自己的哨兵:调用方(access 的 role ops)据此说人话,而不必
-// 认识 owner / marketplace 的错误名字 —— 认了就是反向依赖。
+// A "not found" gets translated into access's own sentinel: the caller (access's role
+// ops) can then phrase it in plain language without needing to know owner's /
+// marketplace's error names — knowing them would be a reverse dependency.
 
 package port
 
@@ -18,21 +21,24 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// RoleRefValidator —— role 引用的存在性校验:prompt / skill / mcp server 各按 kind 查一下在不在。
+// RoleRefValidator — existence checking for role references: checks prompt / skill /
+// mcp server each by their own kind.
 type RoleRefValidator struct {
 	prompts *owner.PromptRepo
 	skills  *marketplace.SkillRepo
 	servers *marketplace.MCPServerRepo
 }
 
-// NewRoleRefValidator —— 构造。role 写入只要"这个引用在不在",不要实体。
+// NewRoleRefValidator — constructor. Writing a role only needs "does this reference
+// exist", not the entity.
 func NewRoleRefValidator(d *deps.Runtime) RoleRefValidator {
 	return RoleRefValidator{
 		prompts: d.PromptRepo, skills: d.SkillRepo, servers: d.MCPServerRepo,
 	}
 }
 
-// RefExists —— 这个 kind 下的这个 id 在不在。只回存在性,不回实体。
+// RefExists — does this id exist under this kind. Returns only existence, never
+// the entity.
 func (v RoleRefValidator) RefExists(ctx context.Context, ownerID, kind, id string) error {
 	byKind := map[string]func(context.Context, string, string) error{
 		access.RefPrompt:    v.promptExists,

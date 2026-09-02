@@ -1,11 +1,15 @@
-// provider_gas.go —— 一箱油还剩多少。
+// provider_gas.go — how much fuel is left in the tank.
 //
-// **没有计数器列。** 剩余 = 加了多少 − 自加油那一刻起记在这条 provider 上的计量用量。
-// 跟 turn 配额同一个做法(那边 "turn 数不再存,读时从 messages 派生"):没有第二处状态,
-// 也就没有"计数器跟事实对不上"这种 bug;加油只是把起算点往前挪,不需要清零任何东西。
+// **No counter column.** Remaining = how much was topped up - the metered usage
+// recorded against this provider since the moment of that top-up. Same approach as the
+// turn quota (there, "turn count is no longer stored, it's derived from messages on
+// read"): no second piece of state, so there's no "counter disagrees with reality" bug
+// class; topping up just moves the starting point forward, nothing needs to be zeroed.
 //
-// 用量表属于 stats 域,这个域不认识它 —— 所以这里只声明一个窄口(SpendReader),
-// 组装根接上。同一份算术只有这一处:面板上的读数和挡住访客的那道闸走的是同一个函数。
+// The usage table belongs to the stats domain, which this domain doesn't know about —
+// so this only declares a narrow port (SpendReader), wired up by the composition root.
+// There's exactly one place this arithmetic lives: the reading shown in the panel and
+// the gate that blocks visitors go through the same function.
 
 package usecase
 
@@ -17,20 +21,23 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// SpendReader —— 一条 provider 自某时刻起花掉的计量 token(stats 域实现)。
+// SpendReader — the metered tokens a provider has spent since a given moment
+// (implemented by the stats domain).
 type SpendReader interface {
 	SpentSince(ctx context.Context, providerID string, since time.Time) (int64, error)
 }
 
-// ProviderRemaining —— 这条 provider 还剩多少 token。nil = 这箱油没挂表(不计量)。
+// ProviderRemaining — how many tokens this provider has left. nil = this tank has no
+// meter attached (unmetered).
 //
-// 负数夹到 0:最后那一轮可以超一点点(闸门在写之前,用量在写之后),而"还剩 -37"
-// 对任何读它的人都不是一句有用的话。
+// A negative number clamps to 0: the last round can go a little over (the gate checks
+// before the write, usage is recorded after), and "-37 remaining" isn't a useful
+// sentence to whoever reads it.
 func ProviderRemaining(
 	ctx context.Context, spend SpendReader, row *repo.ProviderRow,
 ) (*int64, error) {
 	if row.GasTokens == nil || spend == nil {
-		return nil, nil //nolint:nilnil // nil = 不计量,是这个域里的正常答案
+		return nil, nil //nolint:nilnil // nil = unmetered, a normal answer in this domain
 	}
 	spent, err := spend.SpentSince(ctx, row.ID, gasPeriodStart(row))
 	if err != nil {
@@ -40,8 +47,9 @@ func ProviderRemaining(
 	return &left, nil
 }
 
-// gasPeriodStart —— 从哪一刻起算账。老行(加过油但没记时刻)退到零时:那时候整张表还没有
-// 计量行,求和结果一样。
+// gasPeriodStart — the moment accounting starts from. An old row (topped up but never
+// recorded a timestamp) falls back to the zero time: at that point the metering table
+// had no rows yet anyway, so the sum comes out the same.
 func gasPeriodStart(row *repo.ProviderRow) time.Time {
 	if row.GasFilledAt == nil {
 		return time.Time{}

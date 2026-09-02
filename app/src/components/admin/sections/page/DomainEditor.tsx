@@ -1,7 +1,9 @@
-// DomainEditor —— 自定义域名 allow-list 编辑(读写已接:GET/POST/DELETE /allowed-domains)。
-// "verified" badge 是 cosmetic —— app 只管「哪些域名放行」,真正签证书(ACME)是部署 provider
-// 的反代经 /internal/tls-ask 自己做的(prod-deploy dropped,不是 app 的活)。**不是 DNS-TXT 挑战,
-// 也不是被阻塞的待办** —— app 这半边已完整,另一半属 provider territory。
+// DomainEditor — custom domain allow-list editor (read/write wired: GET/POST/DELETE
+// /allowed-domains). The "verified" badge is cosmetic — the app only tracks which
+// domains are allowed; actual cert issuance (ACME) is done by the deploy provider's
+// reverse proxy via /internal/tls-ask (prod-deploy dropped, not the app's job).
+// **Not a DNS-TXT challenge, and not a blocked TODO** — this half of the app is
+// complete; the other half is provider territory.
 
 'use client';
 
@@ -16,7 +18,8 @@ import {
 
 type Props = { handle: string };
 
-// useVerifyInline —— verify 现在抛错；就地内联反显（单一 settings 字段，内联比一闪而过的 toast 更贴切）。
+// useVerifyInline — verify now throws; show it inline in place (a single settings
+// field, so inline reads better than a fleeting toast).
 function useVerifyInline(verify: () => Promise<void>) {
   const [error, setError] = useState<string | null>(null);
   const run = useCallback(async () => {
@@ -91,7 +94,8 @@ function CustomCard({
   );
 }
 
-// VerifyError —— verify 失败就地内联反显（挨着输入框，不是一闪而过的 toast）。
+// VerifyError — show a verify failure inline in place (next to the input, not a
+// fleeting toast).
 function VerifyError({ message }: { message: string | null }) {
   return message ? (
     <p data-testid="domain-verify-error" className="mono text-[10.5px] tracking-[0.04em] text-(--color-accent) mt-2">

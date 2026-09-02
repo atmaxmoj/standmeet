@@ -1,13 +1,16 @@
-// use-seo —— /admin/seo 站点 SEO 设置 + indexing stats（#102，真后端）。
+// use-seo —— /admin/seo site SEO settings + indexing stats (#102, real backend).
 //
 //   GET  /seo        → { site_title, og_template, sitemap_extras, index_robots }
-//   PUT  /seo        → 存（site_title 是 owner 自写的；og:description / canonical
-//                      不在此——分别复用 page 的 hero prose（hero_prose）/ owner.public_url）
-//   GET  /seo/stats  → { wiki, outputs, writings } 各 tier 已 published 计数；
-//                      owner 在 UI 选统计范围（默认全含），求和在组件侧。
+//   PUT  /seo        → saves (site_title is owner-authored; og:description /
+//                      canonical are not here — they reuse page's hero prose
+//                      (hero_prose) / owner.public_url respectively)
+//   GET  /seo/stats  → { wiki, outputs, writings } published counts per tier;
+//                      the owner picks the stat scope in the UI (defaults to
+//                      including all), the sum is computed on the component side.
 //
-// 写失败 throw（组件用 useAction 决定 toast），从不吞。载入失败落 error 态，
-// 组件用 useEffectErrorToast 反显。
+// A write failure throws (the component uses useAction to decide the toast),
+// never swallowed. A load failure lands in error state, and the component
+// reflects it with useEffectErrorToast.
 
 import { useCallback, useEffect, useState } from 'react';
 

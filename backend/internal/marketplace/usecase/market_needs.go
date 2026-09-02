@@ -1,8 +1,11 @@
-// market_needs.go —— 市场卡上那句「还需要哪个连接器」怎么算出来的（F-F-4）。
+// market_needs.go —— how the marketplace card's "still needs which connector" line gets
+// computed (F-F-4).
 //
-// 真值是推导出来的，链条三段：技能声明它要用哪些**工具**（SKILL.md 的 `allowed-tools`）→
-// 提供那些工具的**能力**要哪些连接器（manifest 的 `requires`）→ 这个 owner 连了没有。
-// 三段没有一段在这个域里，所以这里只声明一个端口，组装根去答。
+// The truth is derived, in a three-stage chain: the skill declares which **tools** it uses
+// (SKILL.md's `allowed-tools`) → the **capabilities** that provide those tools need which
+// connectors (the manifest's `requires`) → has this owner connected them. None of the three
+// stages live in this domain, so here we only declare a port and let the composition root
+// answer it.
 
 package usecase
 
@@ -14,26 +17,31 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/marketplace/entity"
 )
 
-// ConnectorNeeds —— 端口：一个技能声明要用这些工具，那它背后要哪些连接器、这个 owner 还
-// 缺哪几个。
+// ConnectorNeeds —— port: given a skill that declares it uses these tools, which connectors
+// does it need behind the scenes, and which of those is this owner still missing.
 //
-// 为什么答的是「还缺哪几个」而不是「要哪几个」：这两半以前是分开发出去的 —— 服务端发要求
-// （从来没发过），客户端自己拿连接器列表做差集，还顺手把 category 手工映成 'Calendar' /
-// 'Email' 第三种叫法。同一个问题的两半在两台机器上，注定要漂。
+// Why the answer is "which ones are still missing" rather than "which ones does it need":
+// these two halves used to be shipped separately — the server sent the requirement (it never
+// actually did), the client took the connector list and computed the set difference itself,
+// and along the way hand-mapped category into a third naming, 'Calendar' / 'Email'. Two
+// halves of the same question living on two different machines are bound to drift apart.
 type ConnectorNeeds interface {
-	// DepsForTools —— 这些工具背后的连接器名。纯内存。
+	// DepsForTools —— the connector names behind these tools. Pure in-memory.
 	DepsForTools(tools []string) []string
-	// Unconnected —— 这些连接器里,这个 owner 还没连的那些。
+	// Unconnected —— of these connectors, the ones this owner hasn't connected yet.
 	Unconnected(ctx context.Context, ownerID string, deps []string) ([]string, error)
 }
 
-// fillNeeds —— 给这一页里**读过正文**的结果填上「还缺哪几个连接器」。
+// fillNeeds —— fill in "which connectors are still missing" for the results on this page
+// whose **body has been read**.
 //
-// 一次问完:整页的连接器名先并成一份,只问一次「哪些没连」,再分给各条结果。逐条问的话,
-// 一页 12 张卡就是 12 轮同样的检查。
+// Asked in one shot: the page's connector names are unioned first, "which ones aren't
+// connected" is asked once, then the answer is split back out to each result. Asking
+// per-result instead would turn one page of 12 cards into 12 rounds of the same check.
 //
-// 答不上来时(没接端口 / 没有 owner 上下文 / 检查出错)**什么都不填**:Needs 留 nil = 未知。
-// 填成空列表就是把「不知道」说成「不缺」,而那正是这个字段以前的样子。
+// When it can't answer (no port wired / no owner context / the check errored), **fill in
+// nothing**: Needs stays nil = unknown. Filling in an empty list would say "unknown" as
+// "nothing missing" — which is exactly what this field used to do.
 func fillNeeds(
 	ctx context.Context, port ConnectorNeeds, ownerID string, page []entity.MarketSkill,
 ) {
@@ -48,8 +56,9 @@ func fillNeeds(
 	assignNeeds(port, missing, page)
 }
 
-// assignNeeds —— 把整页那份「还没连的」按各条结果自己要的连接器切开。
-// 没读过正文的那些跳过 —— 它们的答案是「不知道」,而 nil 就是那个答案。
+// assignNeeds —— split the page-wide "not connected yet" set out by each result's own
+// connector needs. Skips results whose body wasn't read — their answer is "unknown", and
+// nil is that answer.
 func assignNeeds(port ConnectorNeeds, missing []string, page []entity.MarketSkill) {
 	for i := range page {
 		if page[i].AllowedTools == nil {
@@ -59,7 +68,8 @@ func assignNeeds(port ConnectorNeeds, missing []string, page []entity.MarketSkil
 	}
 }
 
-// unconnectedForPage —— 整页要用到的连接器里,这个 owner 还没连的那些。
+// unconnectedForPage —— of the connectors this whole page needs, the ones this owner
+// hasn't connected yet.
 func unconnectedForPage(
 	ctx context.Context, port ConnectorNeeds, ownerID string, page []entity.MarketSkill,
 ) ([]string, error) {
@@ -71,7 +81,8 @@ func unconnectedForPage(
 	return missing, nil
 }
 
-// pageDeps —— 这一页(读过正文的那些)一共要用到哪些连接器,去重。
+// pageDeps —— the full set of connectors this page (the results whose body was read)
+// needs, deduplicated.
 func pageDeps(port ConnectorNeeds, page []entity.MarketSkill) []string {
 	seen := map[string]struct{}{}
 	all := []string{}
@@ -95,8 +106,9 @@ func appendNew(out []string, seen map[string]struct{}, more []string) []string {
 	return out
 }
 
-// intersect —— want 里出现在 missing 中的那些,顺序按 want。恒返非 nil:走到这里就说明
-// 这条结果的正文读过了,所以「不缺」是个答案,不是「不知道」。
+// intersect —— the entries of want that also appear in missing, ordered by want. Always
+// returns non-nil: reaching this point means this result's body was already read, so
+// "nothing missing" is an answer, not "unknown".
 func intersect(missing, want []string) []string {
 	lack := make(map[string]struct{}, len(missing))
 	for _, m := range missing {

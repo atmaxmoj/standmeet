@@ -1,7 +1,8 @@
-// CapabilitiesPanel —— Phase H 管理面「能力」卡。列全部 capability + connector +
-// skill，每行：名字 + origin 徽章（builtin/managed/owner）+ owner-enable 开关
-// （builtin 可关不可删，P.7）+ connector 依赖状态 + 仅 owner-origin 的删除入口
-// （P.6）。沿用 connector 卡的视觉语言（crosshair + mono kicker）。
+// CapabilitiesPanel — Phase H admin "capabilities" card. Lists every capability + connector +
+// skill, one row each: name + origin badge (builtin/managed/owner) + owner-enable toggle
+// (builtin can be disabled but not deleted, P.7) + connector dependency status + delete entry
+// for owner-origin rows only (P.6). Follows the connector card's visual language (crosshair +
+// mono kicker).
 
 'use client';
 
@@ -45,9 +46,11 @@ function Header() {
   );
 }
 
-// Body —— 这一面板本来就把三种结局分对了（它是产品里少数几个做对的地方之一）。
-// 之所以仍然收进 ListPane：**做对的方式是手写**，而手写的正确性下一次改动没人保得住。
-// 顺序归一处之后，这里只剩「拉的时候显示什么」和「真空了说什么」两句话（F-N-7）。
+// Body — this panel already gets the three outcomes right on its own (one of the few places
+// in the product that does). It still goes through ListPane because: **doing it right by hand**
+// is correct today, but nothing keeps hand-written correctness intact through the next change.
+// Once the ordering lives in one place, this is down to two sentences: what to show while
+// loading, and what to say when it's really empty (F-N-7).
 function Body({ hook }: { hook: CapabilitiesHook }) {
   return (
     <ListPane
@@ -69,8 +72,10 @@ function Msg({ text, accent = false }: { text: string; accent?: boolean }) {
   );
 }
 
-// available —— 本面板是「availability」平面：依赖某 connector 的能力，只在依赖连上时才显示（连上
-// 才真能用；删 provider / 没连 → 复闸隐藏）。无依赖的能力恒显。API 仍列全（带 dependency 状态）。
+// available — this panel is the "availability" plane: a capability that depends on a connector
+// only shows once that dependency is connected (it's only really usable once connected; delete
+// the provider / disconnect → hide again). Capabilities with no dependency always show. The API
+// still lists everything (with dependency status attached).
 function available(row: CapabilityRow): boolean {
   return !row.dependency || row.dependency.connected;
 }
@@ -103,13 +108,16 @@ function CapabilityItem({ row, hook }: { row: CapabilityRow; hook: CapabilitiesH
   );
 }
 
-// capabilityLabel —— 这一行叫什么。
+// capabilityLabel — what this row is called.
 //
-// 内建能力的 id 本身就是人话(`mail.send`),所以直接渲 id 一直看着没问题;owner 自己写的
-// skill 的 id 是 UUID,于是那一行就只剩一串十六进制,而它旁边正是开关和删除 —— owner 得在
-// 一个认不出来的名字上决定关掉还是删掉。同一个 skill 在 /admin/skills 上是有名字的。
+// A built-in capability's id already reads like a human sentence (`mail.send`), so rendering
+// the id directly has always looked fine; an owner-written skill's id is a UUID, so that row
+// is left with a block of hex — right next to the toggle and the delete button, forcing the
+// owner to decide enable/delete on a name they can't recognize. The same skill already has a
+// name on /admin/skills.
 //
-// title 早就在这张表的 schema 里(dock 按钮下拉在用),这一面从来没读过它。
+// `title` has been in this table's schema all along (the dock button dropdown uses it); this
+// panel had just never read it.
 function capabilityLabel(row: CapabilityRow): string {
   return row.title === undefined || row.title === '' ? row.id : row.title;
 }
@@ -132,7 +140,8 @@ function KindBadge({ row }: { row: CapabilityRow }) {
     : <span className={`${BADGE_BASE} text-(--color-muted) border-(--color-rule)`}>{row.kind}</span>;
 }
 
-// connector 行的 enabled 反映连接状态、不可手动切（连/断在各自 connector 卡做）。
+// A connector row's `enabled` reflects connection state and can't be toggled by hand
+// (connect/disconnect happens on that connector's own card).
 function toggleTrackClass(enabled: boolean, locked: boolean): string {
   const tint = enabled
     ? 'bg-(--color-ink) border-(--color-ink)'
@@ -149,8 +158,10 @@ function toggleKnobClass(enabled: boolean): string {
 function EnableToggle({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHook }) {
   const report = useReportError();
   const locked = row.kind === 'connector';
-  // 悲观开关：store 控制（无乐观 mutate），只有服务端确认后才动。失败别静默（原来 void 吞掉 →
-  // 关掉的能力可能还活着，安全隐患）；不加成功 toast——开关动了本身就是反馈。
+  // Pessimistic toggle: store-driven (no optimistic mutate), only moves once the server
+  // confirms. Never swallow a failure (the old `void` swallowed it → a "disabled" capability
+  // could still be live, a safety hole); no success toast either — the toggle moving is
+  // already the feedback.
   return (
     <button
       type="button"

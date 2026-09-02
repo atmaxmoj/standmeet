@@ -1,9 +1,10 @@
-// SlashMenu —— slash menu UI。tippy.js 接 ProseMirror coord → 浮窗定位；
-// 键盘 ↑↓ Enter Esc 在 slash-command extension 的 onKeyDown 转发到 selectByIndex
-// (通过 imperativeHandle 暴露)。
+// SlashMenu —— slash menu UI. tippy.js takes the ProseMirror coord → positions
+// the floating popup. Keyboard ↑↓ Enter Esc are forwarded from the
+// slash-command extension's onKeyDown to selectByIndex (exposed via
+// imperativeHandle).
 //
-// 设计语言：mono 标签 + cream paper + ink + vermillion，无圆角 / 无阴影 /
-// 跟 admin 其他列表同款。
+// Design language: mono labels + cream paper + ink + vermillion, no rounded
+// corners / no shadow / same look as the other admin lists.
 
 'use client';
 
@@ -21,8 +22,8 @@ interface Props {
   command: (item: SlashItem) => void;
 }
 
-// keyHandlers —— key name → action. 给 keydown 用 lookup 代替链式 ternary，
-// 控制 complexity 在 1。
+// keyHandlers —— key name → action. Gives keydown a lookup instead of a
+// chained ternary, to keep complexity at 1.
 type KeyAction = (ctx: KeyContext) => boolean;
 interface KeyContext {
   items: SlashItem[];

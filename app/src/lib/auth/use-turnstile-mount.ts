@@ -1,11 +1,13 @@
-// use-turnstile-mount —— Cloudflare Turnstile widget 的挂载/销毁副作用。
+// use-turnstile-mount —— mount/unmount side effect for the Cloudflare
+// Turnstile widget.
 //
-// 抽出来当 lib hook 是因为 presentation 层（TurnstileWidget）不允许出现
-// imperative branch（`if`）。所有 imperative widget API 调用集中在这里：
-//   1. 把 turnstile script tag 插一次到 document.head；
-//   2. poll window.turnstile 直到就绪；
-//   3. 调 turnstile.render，token callback 转发给 onToken；
-//   4. unmount 时 turnstile.remove 清掉 widget。
+// Pulled out into a lib hook because the presentation layer
+// (TurnstileWidget) isn't allowed to contain an imperative branch (`if`).
+// All imperative widget API calls are centralized here:
+//   1. insert the turnstile script tag into document.head once;
+//   2. poll window.turnstile until it's ready;
+//   3. call turnstile.render, forwarding the token callback to onToken;
+//   4. call turnstile.remove to clean up the widget on unmount.
 
 import { useEffect, useRef } from 'react';
 
@@ -74,9 +76,12 @@ async function mountWhenReady(
   api && (widgetIDRef.current = renderWidget(api, host, siteKey, onToken));
 }
 
-// renderWidget —— 渲一次，并且**说出结果**。没有这一句时，一个渲不出来的校验框在页面上
-// 就是一段空白：访客看见「过一次校验就放你过去」却没有可点的东西，而控制台一片安静 ——
-// 于是只能靠猜。widget id 是产品这一侧唯一拿得到的回执，拿到就报，拿不到也报。
+// renderWidget —— render once, and **report the outcome**. Without this
+// line, a challenge box that fails to render is just a blank space on the
+// page: the visitor sees "pass this challenge to proceed" with nothing to
+// click, and the console stays silent — leaving nothing but guesswork.
+// The widget id is the only receipt this side of the product can get, so
+// log it whether it comes back or not.
 function renderWidget(
   api: TurnstileAPI, host: HTMLElement, siteKey: string, onToken: (t: string) => void,
 ): string | null {

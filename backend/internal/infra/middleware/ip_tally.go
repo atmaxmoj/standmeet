@@ -1,12 +1,20 @@
-// ip_tally.go —— 「同一个来源做同一件事太多次 → 拦下，一次人机校验放行」的那台机器。
+// ip_tally.go — the machine behind "the same source does the same thing too
+// many times → block it, one solved human check lifts it".
 //
-// 它是从 code_guard 里抽出来的：那套逻辑（按 IP 计数 / 到阈值就拦 / captcha 开着时一张有效
-// 票放行 / redis 抖动 fail-closed / 判不出地址就退到一个具名共用桶）跟「被数的是什么」无关。
-// 访问码兑换数的是**失败**，留言口数的是**提交**——差别只有名字、阈值和窗口。
+// It's extracted from code_guard: that logic (count per IP / block at
+// threshold / a valid captcha token lifts it when captcha is on / fail
+// closed on redis hiccups / fall back to a named shared bucket when the
+// address can't be resolved) doesn't depend on **what** is being counted.
+// Access-code redemption counts **failures**; the access-request endpoint
+// counts **submissions** — the only differences are the name, threshold,
+// and window.
 //
-// 抽出来的理由不是整洁：留言口原本一道闸都没有（F-G-4），而当时最省事的写法是把 code_guard
-// 抄一遍。抄出来的第二份会各自漂——一边修了 fail-closed，另一边没有；一边接了 captcha
-// 解锁，另一边留着永久硬锁。这个仓库已经吃过好几次同样的亏。
+// The extraction wasn't done for tidiness — the access-request endpoint
+// originally had no gate at all (F-G-4), and the cheapest write at the time
+// would have been to copy code_guard. A copied second version drifts on its
+// own: one side gets a fail-closed fix, the other doesn't; one side wires
+// up the captcha unlock, the other stays permanently hard-locked. This repo
+// has paid for that same mistake more than once.
 
 package middleware
 
@@ -18,7 +26,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// ipTally —— 一个具名的 per-IP 计数闸。
+// ipTally is one named per-IP counting gate.
 type ipTally struct {
 	rdb       *redis.Client
 	verifier  CaptchaVerifier
@@ -28,12 +36,17 @@ type ipTally struct {
 	captchaOn bool
 }
 
-// enabled —— 真接了 redis 才作数。nil → no-op（可选/可测）。
+// enabled — only counts when redis is actually wired up. nil → no-op
+// (optional/testable).
 func (t *ipTally) enabled() bool { return t != nil && t.rdb != nil }
 
-// key —— 分桶键。空 ip = clientaddr 判不出访客地址（没有反代设转发头的出厂形态），
-// 此时**所有人共用一个桶**：关掉闸门等于把这个口子交给脚本，所以宁可 fail-closed。
-// 但那个桶要有名字 —— 它曾经悄悄挂在 app 容器的地址上，看着像在按 IP 分（F-F-5）。
+// key is the bucketing key. Empty ip = clientaddr couldn't resolve the
+// visitor's address (the out-of-the-box shape, with no reverse proxy
+// setting a forwarded header); at that point **everyone shares one
+// bucket**: turning the gate off would hand this endpoint to scripts, so
+// fail-closed is the better trade. But that bucket needs a name — it once
+// silently landed on the app container's own address, looking like it was
+// bucketing by IP when it wasn't (F-F-5).
 func (t *ipTally) key(ip string) string {
 	if ip == "" {
 		ip = unknownIPBucket
@@ -41,7 +54,8 @@ func (t *ipTally) key(ip string) string {
 	return t.keyPrefix + ip
 }
 
-// record —— 记一次。best-effort：首次落键时设窗口过期。
+// record — logs one occurrence. Best-effort: sets the window expiry only
+// the first time the key is written.
 func (t *ipTally) record(ctx context.Context, ip string) {
 	if !t.enabled() {
 		return
@@ -52,24 +66,30 @@ func (t *ipTally) record(ctx context.Context, ip string) {
 	}
 }
 
-// reset —— 清零。best-effort。
+// reset — clears the count. Best-effort.
 func (t *ipTally) reset(ctx context.Context, ip string) {
 	if t.enabled() {
 		t.rdb.Del(ctx, t.key(ip))
 	}
 }
 
-// hasLift —— 被拦下的人**现在有没有一条自己走得通的出路**。有 captcha 才有；关着时这把锁
-// 只能等窗口过期。写拒绝那句话的人要问它：说「过一次人机校验就放你过去」而屏幕上没有校验，
-// 跟说「稍后再试」而其实一秒就能过去，是同一种谎的两个方向（[[names-that-lie]]）。
+// hasLift — whether the blocked person **currently has a way out they can
+// walk themselves**. Only true when captcha is on; when it's off, this lock
+// can only be waited out until the window expires. Whoever writes the
+// refusal message needs to ask this: saying "clear one human check and
+// you're through" when there's no check on screen, and saying "try again
+// later" when it actually clears in a second, are the same lie pointed in
+// two directions ([[names-that-lie]]).
 func (t *ipTally) hasLift() bool { return t != nil && t.captchaOn }
 
-// blocked —— 该 IP 现在该不该被拦：接了 redis 且 已过阈值 且 captcha 没放行。
+// blocked — whether this IP should currently be blocked: redis is wired
+// up, and it's over threshold, and captcha hasn't lifted it.
 func (t *ipTally) blocked(ctx context.Context, ip, captchaToken string) bool {
 	return t.enabled() && t.overThreshold(ctx, ip) && t.captchaFails(ctx, captchaToken, ip)
 }
 
-// overThreshold —— 窗口内是否已达上限。redis 错 → fail-closed（抖动时不放行）。
+// overThreshold — whether the window has already hit the cap. A redis
+// error → fail-closed (don't allow through during a hiccup).
 func (t *ipTally) overThreshold(ctx context.Context, ip string) bool {
 	n, err := t.rdb.Get(ctx, t.key(ip)).Int()
 	if errors.Is(err, redis.Nil) {
@@ -81,8 +101,9 @@ func (t *ipTally) overThreshold(ctx context.Context, ip string) bool {
 	return n >= t.max
 }
 
-// captchaFails —— captcha 关（默认部署）→ 恒 true（纯硬锁，因为没有校验可解）；
-// 开 → 只有拿得出一张有效票才放行。
+// captchaFails — captcha off (the default deployment) → always true (a
+// pure hard lock, since there's no check to solve); captcha on → only lets
+// through when a valid token is presented.
 func (t *ipTally) captchaFails(ctx context.Context, captchaToken, ip string) bool {
 	return !t.captchaOn || t.verifier.Verify(ctx, captchaToken, ip) != nil
 }

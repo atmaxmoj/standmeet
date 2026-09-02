@@ -1,5 +1,7 @@
-// tikz.ts —— TikZ 源码 → SVG 的 server-side usecase(node-tikzjax = obsidian-tikzjax 同引擎)。
-// **只在服务端 import**(route.ts);重 WASM TeX 引擎不进客户端 bundle。
+// tikz.ts — server-side usecase for TikZ source → SVG (node-tikzjax = same engine as
+// obsidian-tikzjax).
+// **Import only on the server** (route.ts); the heavy WASM TeX engine must not ship in
+// the client bundle.
 
 import tex2svg from 'node-tikzjax';
 import { z } from 'zod';
@@ -11,7 +13,8 @@ export interface TikzResult {
   payload: { svg?: string; error?: string };
 }
 
-// renderTikz —— 校验 + 渲染;返回 status + payload,controller 直接透传。
+// renderTikz — validate + render; returns status + payload, which the controller
+// passes straight through.
 export async function renderTikz(raw: unknown): Promise<TikzResult> {
   const parsed = TikzReqSchema.safeParse(raw);
   return parsed.success
@@ -21,44 +24,55 @@ export async function renderTikz(raw: unknown): Promise<TikzResult> {
 
 const RENDER_TIMEOUT_MS = 25_000;
 
-// FONT_CSS_URL —— 这一版 SVG 里的文字是 `<text>` + `font-family: cmr10 / cmsy10 / …`,而字符
-// 是 **TeX 字体的槽位**,不是 Unicode:`$\to$` 在 cmsy10 里落在 0x21,也就是 `!`。字体不加载
-// 就退回系统字体,箭头当场变成惊叹号,字距也按错的度量排,词被拆开(`stochastic`→`sto chastic`)。
+// FONT_CSS_URL — in this SVG output, text is `<text>` + `font-family: cmr10 / cmsy10 / …`,
+// and the characters are **slots in the TeX fonts**, not Unicode: `$\to$` lands at 0x21 in
+// cmsy10, which is `!`. If the font doesn't load, the browser falls back to a system font,
+// the arrow instantly becomes an exclamation mark, kerning is computed from the wrong
+// metrics, and words get split apart (`stochastic` → `sto chastic`).
 //
-// 包里 `embedFontCss` 默认 false,默认的 fontCssUrl 还指着 jsDelivr。这是个**自托管**产品:
-// 离线的实例取不到,而且每张图都会替 owner 的读者向第三方发一次请求。所以字体由本实例发
-// (scripts/copy-tikz-fonts.mjs 跟着 build 把它们搬进 public/)。
+// The package's `embedFontCss` defaults to false, and its default fontCssUrl still points
+// at jsDelivr. This is a **self-hosted** product: an offline instance can't reach it, and
+// every diagram would fire a third-party request on behalf of the owner's readers. So the
+// fonts are served by this instance instead (scripts/copy-tikz-fonts.mjs copies them into
+// public/ as part of the build).
 const FONT_CSS_URL = '/tikz-fonts/fonts.css';
 
-// wrapDocument —— reader 里的 tikz 块是 `\begin{tikzpicture}…`;node-tikzjax 要整个
-// `\begin{document}…\end{document}`(它给 documentclass/preamble)。已是全文档就不重复包。
+// wrapDocument — a tikz block in the reader is just `\begin{tikzpicture}…`; node-tikzjax
+// needs the full `\begin{document}…\end{document}` (it supplies documentclass/preamble).
+// If it's already a full document, don't wrap it again.
 function wrapDocument(source: string): string {
   return source.includes('\\begin{document}')
     ? source
     : `\\begin{document}\n${source}\n\\end{document}`;
 }
 
-// queue —— node-tikzjax 的 WASM TeX 引擎是**进程内单例**,不可重入:两次渲染同时进去会
-// 互相踩,双方一起抛 `TeX engine render failed`。线上实测同一份源码单发 200、并发 2 个时
-// 两个都 422(0.6s 就回,连超时都没到)。
+// queue — node-tikzjax's WASM TeX engine is a **per-process singleton**, not reentrant:
+// two renders entering at once trample each other and both throw
+// `TeX engine render failed`. Verified in production: sending the same source once gets
+// 200, sending it twice concurrently gets 422 on both (returns in 0.6s, doesn't even
+// reach the timeout).
 //
-// 而**一页有几张图,浏览器就同时发几个请求** —— 于是读者看到的是「有的图渲出来了,有的
-// 印着一整段 LaTeX 源码」,哪几张失败还是随机的。图越多越容易撞。所以串行不是调优,
-// 是这个引擎的使用前提。
+// And **a page with several diagrams fires that many requests at once from the browser** —
+// so the reader sees "some diagrams rendered, others show a wall of raw LaTeX source", and
+// which ones fail is essentially random. The more diagrams, the more likely a collision.
+// So serializing isn't a performance tweak — it's a hard requirement of this engine.
 //
-// ponytail: 每进程一条队列。多进程/多副本时各串各的,而单例本来就是进程内的,够用;
-// 真到要跨副本限流再上共享锁。
+// ponytail: one queue per process. Multiple processes/replicas each serialize
+// independently, which is fine since the singleton is process-local anyway; add a shared
+// lock only if cross-replica throttling is actually needed.
 let queue: Promise<unknown> = Promise.resolve();
 
 function renderValidated(source: string): Promise<TikzResult> {
   const run = queue.then(() => renderExclusive(source));
-  // 队列只用来排队,不传播失败 —— 一次渲染挂了不该把后面所有图一起带走。
+  // The queue only sequences work, it doesn't propagate failure — one render crashing
+  // shouldn't take down every diagram queued behind it.
   queue = run.catch(() => undefined);
   return run;
 }
 
-// renderExclusive —— 计时从**真正开跑**那一刻起,不含排队等待:否则一页图一多,
-// 排在后面的还没轮到就被判超时。
+// renderExclusive — the timer starts from the moment it **actually starts running**,
+// excluding queue wait time: otherwise, on a page with many diagrams, one that hasn't
+// gotten its turn yet would be judged timed out before it even started.
 function renderExclusive(source: string): Promise<TikzResult> {
   const rendered = tex2svg(wrapDocument(source), {
     showConsole: false, embedFontCss: true, fontCssUrl: FONT_CSS_URL,
@@ -71,7 +85,8 @@ function renderExclusive(source: string): Promise<TikzResult> {
     }));
 }
 
-// timeout —— TeX 引擎冷启动/资产缺失时别让请求挂死;超时降级成 error(client 显示源码)。
+// timeout — don't let the request hang forever if the TeX engine cold-starts or assets
+// are missing; on timeout, degrade to an error (client falls back to showing the source).
 function timeout(ms: number): Promise<TikzResult> {
   return new Promise((_resolve, reject) => {
     setTimeout(() => reject(new Error('tikz render timeout')), ms);

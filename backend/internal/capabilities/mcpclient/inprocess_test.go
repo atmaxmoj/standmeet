@@ -1,6 +1,7 @@
-// inprocess_test.go —— 验 in-process 加载：构造一个同进程 mcp-go server（带 tool /
-// instructions / resource），用 DialInProcess 内存直连，断言 tools/instructions/
-// resource 都通。无网络、无子进程、无 goroutine —— 这就是内建能力的加载方式。
+// inprocess_test.go —— verifies in-process loading: builds a same-process mcp-go
+// server (with a tool / instructions / resource), connects with DialInProcess over the
+// in-memory transport, and asserts tools/instructions/resource all work. No network, no
+// subprocess, no goroutine —— this is exactly how built-in capabilities load.
 
 package mcpclient_test
 

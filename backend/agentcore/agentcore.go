@@ -42,8 +42,10 @@ type (
 	ChatRequestMsg = inference.ChatRequestMsg
 )
 
-// CompactionLogMsg —— 上下文压缩真触发时内核打的那一行。eval 靠它断言压缩发生过,所以
-// 那句话只有一份:改名的时候两边一起变,而不是留下一条永远不会绿的断言。
+// CompactionLogMsg — the line the kernel logs when context compaction
+// actually fires. eval asserts on it to prove compaction happened, so that
+// string exists in exactly one place: rename it and both sides change
+// together, instead of leaving behind an assertion that can never go green.
 const CompactionLogMsg = inference.CompactionLogMsg
 
 // NewAgentDocContext builds the visitor's current-doc context (title/path/genre)

@@ -1,5 +1,6 @@
-// InferenceUsagePanel —— #106 计费:owner 近 7 天 LLM 用量小表(按天×model)+ 合计。
-// owner-key 调用才计(BYOAI 访客自付不计)。数据 GET /api/admin/inference-usage。
+// InferenceUsagePanel — #106 billing: owner's last-7-days LLM usage table
+// (by day x model) + totals. Only owner-key calls count (BYOAI visitors pay their
+// own way and aren't counted). Data via GET /api/admin/inference-usage.
 
 'use client';
 
@@ -21,9 +22,10 @@ export function InferenceUsagePanel() {
     >
       <AdminSectionHead className="mb-3">{t('title')}</AdminSectionHead>
       <UsageTotals total={usage.total} />
-      {/* 三态交给 ListPane（F-L-53）：还在拉 → 骨架；没拉到 → 说没拉到；
-          拉到了且是空的 → 才说「过去 7 天没有调用」。那句话是关于世界的陈述，
-          只有真的知道的时候才配说。 */}
+      {/* The three states go through ListPane (F-L-53): still fetching → skeleton;
+          fetch failed → say so; fetched and empty → only then say "no calls in the
+          last 7 days". That's a claim about the world, and it's only earned once we
+          actually know it. */}
       <ListPane
         status={usage.status}
         count={usage.rows.length}
@@ -54,8 +56,10 @@ export function InferenceUsagePanel() {
   );
 }
 
-// total 为 null = 还没拉到。三个数一起变成 `—`：**报一个零就是断言这台实例没花过钱**，
-// 而那一刻它还不知道（F-L-53）。跟仪表盘四个大数字用的是同一个记号。
+// total === null means not fetched yet. All three numbers become `—` together:
+// **reporting a zero would assert this instance has never spent a cent**, and at
+// that moment it doesn't actually know (F-L-53). Same convention as the dashboard's
+// four big numbers.
 function UsageTotals({ total }: { total: UsageTotal | null }) {
   const t = useTranslations('adminShell.inferenceUsage');
   const cells = totalCells(total, { calls: t('colCalls'), in: t('colIn'), out: t('colOut') });

@@ -1,6 +1,6 @@
-// depresolver_test.go —— connector 重构 · 依赖 provider 注册表单测。
-// 对应 connector-deps-tests.md §一：dep-registry / requires-boot-reject(注册表面) /
-// enabledcaps-multi-dep(AllConnected AND) / connected-errors(E1)。
+// depresolver_test.go — connector rework unit tests for the dep provider registry. Covers
+// connector-deps-tests.md §1: dep-registry, requires-boot-reject, enabledcaps-multi-dep (AND),
+// connected-errors (E1).
 
 package capreg_test
 
@@ -18,9 +18,9 @@ const calendarDep = "calendar"
 
 func okConnected(context.Context, string) (bool, error) { return true, nil }
 
-// requires-boot-reject —— 一个插件 manifest 声明了 core 给不了的命名依赖
-// （Requires 含 "weather"），boot 校验应把它挑出来拒绝（fail-fast）。校验逻辑 =
-// 拿真解析出来的 manifest.Requires 去 DepRegistry.Unknown；非空 → 该插件该被拒 + log。
+// requires-boot-reject — a manifest declares a dep core can't provide (Requires includes
+// "weather"); boot validation flags it and rejects (fail-fast): run the real, parsed
+// manifest.Requires through DepRegistry.Unknown — non-empty → reject + log this plugin.
 func TestRequiresBootReject_UnknownDepFlagged(t *testing.T) {
 	t.Parallel()
 	depReg := capreg.NewDepRegistry()
@@ -40,7 +40,7 @@ func TestRequiresBootReject_UnknownDepFlagged(t *testing.T) {
 		depReg.Unknown(res.Manifests[0].Requires),
 		"boot validation surfaces the dep core can't provide -> plugin rejected")
 
-	// 依赖全已知 → Unknown 空 → 收。
+	// All deps known -> Unknown empty -> accepted.
 	ok := []byte(`{"plugins":[
 	  {"id":"booking","version":"1","shape":"visitor_only",
 	   "transport":{"kind":"stdio","command":"booking-plugin"},
@@ -51,7 +51,7 @@ func TestRequiresBootReject_UnknownDepFlagged(t *testing.T) {
 	require.Empty(t, depReg.Unknown(res2.Manifests[0].Requires), "all deps known -> accepted")
 }
 
-// fakeProvider —— 测试用命名 provider，连接状态/错误可控。
+// fakeProvider — a named provider for tests, with controllable connected state/error.
 type fakeProvider struct {
 	err       error
 	name      string
@@ -63,8 +63,9 @@ func (p fakeProvider) Connected(context.Context, string) (bool, error) {
 	return p.connected, p.err
 }
 
-// NamedProvider —— 把 (name, Connected 闭包) 包成 DepProvider，透传 name + ownerID。
-// composition root 用它把 connector proxy 的 Connected 注册成命名依赖。
+// NamedProvider — wraps a (name, Connected closure) pair as a DepProvider, passing name +
+// ownerID through. The composition root uses it to register a connector proxy's Connected
+// method as a named dependency.
 func TestNamedProvider_Delegates(t *testing.T) {
 	t.Parallel()
 	var gotOwner string
@@ -79,7 +80,7 @@ func TestNamedProvider_Delegates(t *testing.T) {
 	require.Equal(t, "owner-9", gotOwner, "ownerID passed through to the closure")
 }
 
-// dep-registry —— register → lookup 命中；未知 → not found。
+// dep-registry — register → lookup hits; unknown → not found.
 func TestDepRegistry_RegisterLookup(t *testing.T) {
 	t.Parallel()
 	r := capreg.NewDepRegistry()
@@ -93,7 +94,7 @@ func TestDepRegistry_RegisterLookup(t *testing.T) {
 	require.False(t, ok, "unknown provider not found")
 }
 
-// dep-registry —— 重名 → panic（boot 期失败）。
+// dep-registry — duplicate name → panic (fails at boot).
 func TestDepRegistry_DuplicatePanics(t *testing.T) {
 	t.Parallel()
 	r := capreg.NewDepRegistry()
@@ -103,8 +104,8 @@ func TestDepRegistry_DuplicatePanics(t *testing.T) {
 	})
 }
 
-// requires-boot-reject（注册表面）—— Unknown 把未注册的依赖名挑出来（boot 校验：
-// 非空 → 拒绝注册声明它的插件）。
+// requires-boot-reject (registration surface) — Unknown picks out unregistered dependency
+// names (boot validation: non-empty → reject the plugin that declared it).
 func TestDepRegistry_Unknown(t *testing.T) {
 	t.Parallel()
 	r := capreg.NewDepRegistry()
@@ -117,7 +118,8 @@ func TestDepRegistry_Unknown(t *testing.T) {
 		"one unknown name surfaced")
 }
 
-// enabledcaps-multi-dep —— AllConnected 是 AND：A 连 B 未连 → false；都连 → true。
+// enabledcaps-multi-dep — AllConnected is AND: A connected, B not → false;
+// both connected → true.
 func TestDepRegistry_AllConnected_AND(t *testing.T) {
 	t.Parallel()
 	r := capreg.NewDepRegistry()
@@ -137,7 +139,8 @@ func TestDepRegistry_AllConnected_AND(t *testing.T) {
 	require.True(t, ok, "no requires → not gated (true)")
 }
 
-// enabledcaps-multi-dep —— 依赖名未注册 → false（防御，不当已连）。
+// enabledcaps-multi-dep — an unregistered dependency name → false (defensive,
+// not treated as connected).
 func TestDepRegistry_AllConnected_UnknownNameFalse(t *testing.T) {
 	t.Parallel()
 	r := capreg.NewDepRegistry()
@@ -148,8 +151,8 @@ func TestDepRegistry_AllConnected_UnknownNameFalse(t *testing.T) {
 	require.False(t, ok, "unknown dep name → not connected")
 }
 
-// connected-errors (E1) —— provider.Connected 返 error → 透传 (false, err)，caller
-// 当未连隐藏 + log。
+// connected-errors (E1) — provider.Connected returns an error → propagated as
+// (false, err); the caller treats it as not-connected, hides it, and logs.
 func TestDepRegistry_AllConnected_ProviderError(t *testing.T) {
 	t.Parallel()
 	sentinel := errors.New("db read failed")
@@ -161,8 +164,8 @@ func TestDepRegistry_AllConnected_ProviderError(t *testing.T) {
 	require.False(t, ok, "error → not connected")
 }
 
-// fakeVisitorCap —— 最小 visitor-facing cap：VisitorBinding 返真 binding（不隐藏）。depCap
-// 嵌它再加 Requires（实现 RequiresDeps）；noReqCap 就是它本身（不实现 RequiresDeps）。
+// fakeVisitorCap — a minimal visitor-facing cap: VisitorBinding returns a real binding (not
+// hidden). depCap embeds it + adds Requires (implementing RequiresDeps); noReqCap is it alone.
 type fakeVisitorCap struct{ id string }
 
 func (c fakeVisitorCap) ID() string        { return c.id }
@@ -184,7 +187,7 @@ func (fakeVisitorCap) SystemPromptFragmentID(context.Context, *capreg.AssembleIn
 	return ""
 }
 
-// depCap —— 声明 Requires → 受 connector-gate。
+// depCap — declares Requires → subject to connector-gate.
 type depCap struct {
 	fakeVisitorCap
 
@@ -193,7 +196,7 @@ type depCap struct {
 
 func (c depCap) Requires() []string { return c.requires }
 
-// noReqCap —— 不声明 Requires → 永不被 connector-gate。
+// noReqCap — does not declare Requires → never connector-gated.
 type noReqCap struct{ fakeVisitorCap }
 
 func stateIDs(states []capreg.CapabilityState) []string {
@@ -204,7 +207,7 @@ func stateIDs(states []capreg.CapabilityState) []string {
 	return out
 }
 
-// regWithCalendar —— 注册一个 cap + 一个 calendar provider。
+// regWithCalendar — registers one cap + one calendar provider.
 func regWithCalendar(c capreg.Capability, p fakeProvider) *capreg.Registry {
 	reg := capreg.NewRegistry()
 	reg.MustRegister(c)
@@ -221,8 +224,8 @@ func calendarBookCap() depCap {
 	}
 }
 
-// enabledcaps-connector —— `Requires:[calendar]` 未连 → 不进 enabledCaps（VisitorStates
-// 不含）；已连 → 进。这就是 D-2：connector gating 收进 global 单点闸。
+// enabledcaps-connector — `Requires:[calendar]` not connected → excluded from enabledCaps
+// (VisitorStates omits it); connected → included. D-2: gating is one global choke point.
 func TestEnabledCaps_ConnectorGate(t *testing.T) {
 	t.Parallel()
 	in := &capreg.AssembleInput{OwnerID: "o1"}
@@ -236,10 +239,11 @@ func TestEnabledCaps_ConnectorGate(t *testing.T) {
 	require.Equal(t, []string{"calendar.book"}, stateIDs(shown), "calendar connected -> exposed")
 }
 
-// arbitrariness（命门）—— gating 机制对 dep 名无知：换一个跟 calendar/smtp 毫不相干
-// 的全新名字 "weather"，注册 provider + 一个 Requires:[weather] 的 cap，未连→隐藏、
-// 已连→暴露，跟 calendar 一模一样。证明 connector gating 是**通用命名依赖**机制，没
-// 写死 calendar/smtp —— 任何底座给的命名依赖都经同一个单点闸 gate。
+// arbitrariness (the crux) — the gating mechanism knows nothing about specific dep names:
+// swap in a brand-new, unrelated name "weather" — not-connected → hidden, connected →
+// exposed, identical to calendar. Proves gating is **generic named-dependency**, not
+// hardcoded to calendar/smtp — any named dependency the host supplies routes through the
+// same single choke point.
 func TestEnabledCaps_ArbitraryDepName_GatesIdentically(t *testing.T) {
 	t.Parallel()
 	const weatherDep = "weather"
@@ -259,8 +263,9 @@ func TestEnabledCaps_ArbitraryDepName_GatesIdentically(t *testing.T) {
 		"arbitrary dep connected -> exposed (same mechanism as calendar)")
 }
 
-// errBindCap —— VisitorBinding 返可控 error，模拟注入 handle / injector 构造失败（E3）。
-// 不 embed fakeVisitorCap（避开 fieldalignment × embeddedstructfieldcheck 互冲），直接实现接口。
+// errBindCap — VisitorBinding returns a controllable error, simulating an injected handle /
+// injector construction failure (E3). Implements the interface directly instead of embedding
+// fakeVisitorCap (avoids a fieldalignment × embeddedstructfieldcheck conflict).
 type errBindCap struct {
 	err error
 	id  string
@@ -285,13 +290,16 @@ func (errBindCap) SystemPromptFragmentID(context.Context, *capreg.AssembleInput)
 	return ""
 }
 
-// connector-errors (E3) —— 注入 handle 构造失败：VisitorBinding 返**非-ErrHidden** error →
-// cap 不崩、以 Enabled:false 降级暴露（friendly，前端可渲降级提示）；返 ErrHidden → 完全隐藏。
+// connector-errors (E3) — injected handle construction fails: VisitorBinding
+// returns a **non-ErrHidden** error → the cap doesn't crash, it degrades to
+// exposed with Enabled:false (friendly — the frontend can render a degraded
+// hint); returns ErrHidden → fully hidden.
 func TestVisitorState_BindBuildFailure_DegradesNotCrash(t *testing.T) {
 	t.Parallel()
 	in := &capreg.AssembleInput{OwnerID: "o1"}
 
-	// 通用 build 失败 → 降级可见（Enabled:false），不被丢弃、不 panic。
+	// A generic build failure -> stays visible but degraded (Enabled:false),
+	// not dropped, no panic.
 	reg := capreg.NewRegistry()
 	reg.MustRegister(errBindCap{id: "flaky.cap", err: errors.New("handle build failed")})
 	states := reg.VisitorStates(context.Background(), in)
@@ -299,13 +307,14 @@ func TestVisitorState_BindBuildFailure_DegradesNotCrash(t *testing.T) {
 	require.Equal(t, "flaky.cap", states[0].ID)
 	require.False(t, states[0].Enabled, "build failure → Enabled:false (friendly degrade)")
 
-	// ErrHidden → 完全隐藏。
+	// ErrHidden -> fully hidden.
 	reg2 := capreg.NewRegistry()
 	reg2.MustRegister(errBindCap{id: "hidden.cap", err: capreg.ErrHidden})
 	require.Empty(t, reg2.VisitorStates(context.Background(), in), "ErrHidden → fully hidden")
 }
 
-// connected-errors (E1) 在 enabledCaps 层 —— Connected 返 error → 隐藏（fail-closed）。
+// connected-errors (E1) at the enabledCaps layer — Connected returns an
+// error → hidden (fail-closed).
 func TestEnabledCaps_ConnectorError_Hides(t *testing.T) {
 	t.Parallel()
 	in := &capreg.AssembleInput{OwnerID: "o1"}
@@ -315,18 +324,20 @@ func TestEnabledCaps_ConnectorError_Hides(t *testing.T) {
 	require.Empty(t, stateIDs(states), "Connected errored -> hide when uncertain")
 }
 
-// enabledcaps-global-override 的「不 gate」边界 ——
-//   - cap 不声明 Requires → 永不被 connector-gate（即便 provider 未连）。
-//   - 无 owner 上下文（OwnerID 空）→ 无法解析 → 不 gate（present）。
+// enabledcaps-global-override's "not gated" boundary —
+//   - a cap that doesn't declare Requires → never connector-gated (even if the
+//     provider isn't connected).
+//   - no owner context (OwnerID empty) → can't resolve → not gated (present).
 func TestEnabledCaps_ConnectorGate_NotGatedCases(t *testing.T) {
 	t.Parallel()
-	// 不声明 Requires 的 cap：provider 断也照样在。
+	// A cap that doesn't declare Requires: stays present even if the provider
+	// is down.
 	always := noReqCap{fakeVisitorCap{id: "always"}}
 	noReq := regWithCalendar(always, fakeProvider{name: calendarDep, connected: false}).
 		VisitorStates(context.Background(), &capreg.AssembleInput{OwnerID: "o1"})
 	require.Equal(t, []string{"always"}, stateIDs(noReq), "no Requires -> not connector-gated")
 
-	// 有 Requires 但无 owner 上下文：解析不了，不 gate。
+	// Has Requires but no owner context: can't resolve, so not gated.
 	disc := fakeProvider{name: calendarDep, connected: false}
 	noOwner := regWithCalendar(calendarBookCap(), disc).
 		VisitorStates(context.Background(), &capreg.AssembleInput{OwnerID: ""})

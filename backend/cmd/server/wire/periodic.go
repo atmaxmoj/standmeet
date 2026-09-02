@@ -1,11 +1,13 @@
-// periodic.go —— 汇齐各处**声明**的周期任务,交给宿主那一份调度起。
+// periodic.go — collects the periodic jobs **declared** in each place and hands them to the
+// one host-side scheduler.
 //
-// 这里替代了两段手写的 cron(resume_draft_sweep.go 和工作区接线里的清扫循环)
-// 加一段**根本没登记过**的循环(corpus 的 Meili reconcile —— 它一直在跑,Monitor 面板上却
-// 从来没有它)。三段各写一遍 ticker、各写一遍 Register/Report、各手写一句 "every 5m"。
+// This replaces two hand-written crons (resume_draft_sweep.go and the sweep loop in the
+// workspace wiring) plus one loop that was **never registered at all** (corpus's Meili
+// reconcile — it ran the whole time, yet never once showed up in the Monitor panel). Each of
+// the three wrote its own ticker, its own Register/Report, its own hand-typed "every 5m".
 //
-// 现在:做什么由声明它的那一方给,多久一次和簿记归 internal/infra/periodic。这个文件只负责
-// 把声明汇起来 —— 一个来源一行。
+// Now: what to do comes from whoever declares it, and the how-often + bookkeeping belongs to
+// internal/infra/periodic. This file only collects the declarations — one line per source.
 
 package wire
 
@@ -22,12 +24,12 @@ import (
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
-// PeriodicJobs —— 收齐 + 起。
+// PeriodicJobs — collect + start.
 func PeriodicJobs(ctx context.Context, d *deps.Runtime) {
 	periodic.Start(ctx, d.JobRegistry, d.Log, collectPeriodicJobs(d))
 }
 
-// collectPeriodicJobs —— 一个来源一行。
+// collectPeriodicJobs — one line per source.
 func collectPeriodicJobs(d *deps.Runtime) []periodic.Job {
 	jobs := d.PluginRegistry.AllPeriodicJobs()
 	jobs = append(jobs, corpus.IndexPeriodicJobs(d.CorpusIndexer, soleOwnerID(d))...)
@@ -38,11 +40,13 @@ func collectPeriodicJobs(d *deps.Runtime) []periodic.Job {
 	return jobs
 }
 
-// soleOwnerID —— 把 owner 域的"本实例那个 owner"翻成 corpus 认识的窄口。翻译落在组装根:
-// corpus 不认识 owner 域,owner 域也不该知道谁在定期重建索引。
+// soleOwnerID — translates the owner domain's "this instance's owner" into the narrow port
+// corpus understands. The translation lives on the assembly root: corpus doesn't know the
+// owner domain, and the owner domain shouldn't know who periodically rebuilds the index.
 //
-// 还没 claim(ErrOwnerNotFound)翻成空串而不是 error:那是一台崭新实例的正常状态,不是故障。
-// 别的失败照实往上报 —— 一次真的读不到 owner 该在面板上看得见。
+// Not-yet-claimed (ErrOwnerNotFound) translates to an empty string rather than an error:
+// that's the normal state of a brand-new instance, not a fault. Every other failure is
+// reported as-is — a genuine failure to read the owner should be visible on the panel.
 func soleOwnerID(d *deps.Runtime) corpus.SoleOwnerID {
 	return func(ctx context.Context) (string, error) {
 		row, err := owner.LoadSoleOwner(ctx, owner.PageDeps{Owners: d.OwnerRepo})

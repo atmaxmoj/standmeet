@@ -1,16 +1,17 @@
-// facade_ops.go —— 本域对外能做的事,再导出给收口。
+// facade_ops.go —— the actions this domain exposes outward, re-exported here for the
+// convergence point.
 //
-// 门面还是门面:只有别名。声明在 internal/access/ops。
+// Still just a facade: aliases only. Declared in internal/access/ops.
 
 package access
 
 import "github.com/atmaxmoj/standmeet/internal/access/ops"
 
-// 类型（实现:ops）.
+// Types (impl: ops).
 type (
 	CodeExtras = ops.CodeExtras
 	RoleExtras = ops.RoleExtras
-	// KeyExtras —— 能力在一把对外 API key 上占的字段（F-B-11）。
+	// KeyExtras —— fields a capability occupies on an outward-facing API key (F-B-11).
 	KeyExtras  = ops.KeyExtras
 	OpsAPIKeys = ops.APIKeysDeps
 	OpsCodes   = ops.CodesDeps
@@ -18,7 +19,7 @@ type (
 	OpsRoles   = ops.RolesDeps
 )
 
-// 操作组（实现:ops）.
+// Operation groups (impl: ops).
 var (
 	APIKeyOps = ops.APIKeys
 	CodeOps   = ops.Codes

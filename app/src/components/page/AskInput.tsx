@@ -1,14 +1,18 @@
-// AskInput —— Hero 里的"Ask anything." 输入条。`›` 大号 accent caret +
-// 上下两道 1.5px ink 边线 + 右侧 "ask ↵" mono 提示。访客最先互动的元件。
+// AskInput —— the "Ask anything." input bar in the Hero. `›` large accent caret +
+// 1.5px ink borders above and below + "ask ↵" mono hint on the right. The visitor's
+// first interactive element.
 //
-// 受控：value/onChange 由 parent 管；提交走 onSubmit(value)。disabled 时
-// 输入框 + button 都 dim 掉，避免重复发送 + 让视觉知道"在思考中"。
+// Controlled: value/onChange are owned by the parent; submit goes through
+// onSubmit(value). While disabled, the input + button both dim to avoid
+// duplicate sends and to signal "thinking" visually.
 //
-// H.13.d: ghost 是当前应渲的灰色 ghost text (code-accessor visitor 进
-// 来时 backend 给的 ghosts[0]，每轮 AI 答完 follow-up 帧
-// 追加；其他 mode 永远 null)。input 空 + 非 disabled / locked 时渲；按
-// **Tab** → onAcceptGhost(ghost) 填进 input 不自动 submit；**Esc** →
-// onCycleGhost() 走下一条。开始打字 → ghost 被 value 自然遮住。
+// H.13.d: ghost is the grey ghost text currently due to render (given by the
+// backend as ghosts[0] when a code-accessor visitor arrives, appended each
+// round after the AI finishes a follow-up frame; null in every other mode).
+// Renders when input is empty and not disabled/locked. **Tab** →
+// onAcceptGhost(ghost) fills it into the input without auto-submitting;
+// **Esc** → onCycleGhost() advances to the next one. Typing anything
+// naturally covers the ghost with the real value.
 
 'use client';
 
@@ -22,18 +26,22 @@ type Props = {
   onChange: (v: string) => void;
   onSubmit: (q: string) => void;
   disabled: boolean;
-  // lockedReason —— quota 用尽 / 其它 long-term lock。设置后输入框 dim +
-  // 右侧 "ask ↵" 换成 lockedReason 文案 + chat input 整体不可投。
-  // 不设 = null → 走 transient `disabled` (pending 中) 逻辑。
+  // lockedReason —— quota exhausted / other long-term lock. When set, the
+  // input dims and the "ask ↵" on the right becomes the lockedReason text;
+  // the chat input can't submit at all.
+  // Unset = null → falls through to the transient `disabled` (pending) logic.
   lockedReason?: string | null;
   inputRef?: RefObject<HTMLInputElement | null>;
-  // H.13.d ghost text 三件套；不传 → 整套 ghost 关闭。
+  // H.13.d ghost text trio; omit to turn the whole ghost feature off.
   ghost?: string | null;
   onAcceptGhost?: (ghost: string) => void;
-  // testid —— **这一个框叫什么**（F-Q-3）。同一个组件被两处用：首页那个（没有 session 时
-  // 回车= 交接去 /gate）和会话里那个（回车 = 发这一轮）。两种行为共用一个名字的时候，
-  // 任何按名字找控件的东西都分不出自己打的是哪一个，而打错的后果长得**完全像产品坏了**
-  // —— 它骗掉过两趟真环境驱动。会话那个不传，用默认。
+  // testid —— **what this box is called** (F-Q-3). This same component is
+  // used in two places: the homepage one (no session yet — Enter hands off
+  // to /gate) and the in-session one (Enter sends this turn). When both
+  // instances share one name, anything looking a control up by name can't
+  // tell which one it hit, and the wrong hit looks **exactly like the
+  // product being broken** — it has already fooled two real-environment
+  // drives. The in-session one omits this and takes the default.
   testid: string;
 };
 

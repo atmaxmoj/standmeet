@@ -1,12 +1,14 @@
-// roles.go —— /api/admin/roles CRUD。
+// roles.go — /api/admin/roles CRUD.
 //
-// 能力来自出站收口（通用件在 dispatch.go）；这个面只决定 REST 形状：
-// 建一个回 201、其余回 200，资源 id 走路径、其余进 body。
+// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// this facade only decides the REST shape: create returns 201, everything else returns
+// 200, the resource id goes in the path, everything else goes in the body.
 //
-// 出站载荷跟 MCP 面是同一份。迁移前这是差得最多的一个资源：MCP 的 role_list 只给
-// skill/mcp 的**计数**，role_update 连 waypoints / dock_buttons /
-// require_ghost_evidence 都收不了 —— 也就是说 owner 从 Claude Code 既看不见也改不了
-// require_ghost_evidence 这种安全相关的 per-role 开关。
+// The outbound payload is the same one MCP's facade uses. Before the migration this was
+// the resource with the biggest drift: MCP's role_list only gave the **count** of
+// skill/mcp, and role_update couldn't even accept waypoints / dock_buttons /
+// require_ghost_evidence — meaning the owner could neither see nor change a
+// security-relevant per-role switch like require_ghost_evidence from Claude Code.
 
 package admin
 
@@ -16,12 +18,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// RolesAdminDeps —— admin roles handlers 的能力来源。
+// RolesAdminDeps — capability source for the admin roles handlers.
 type RolesAdminDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountRoles 挂 /roles 子路由。
+// MountRoles mounts the /roles subrouter.
 func (h *Handlers) MountRoles(r chi.Router) {
 	face := h.RolesAdmin.Face
 	r.Route("/roles", func(r chi.Router) {
