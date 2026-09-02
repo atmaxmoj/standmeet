@@ -1,12 +1,12 @@
 @import "tailwindcss";
 @import "./sm-atoms.css";
 @import "./sm-mobile.css";
-/* KaTeX 渲染样式 (chat markdown 用) */
+/* KaTeX render styles (used by chat markdown) */
 @import "katex/dist/katex.min.css";
 
-/* StandMeet design tokens —— canonical source: docs/design/project/sm-tokens.css。
-   warm cream paper + ink + vermillion accent + amber/violet/acid 辅助色；
-   Newsreader serif (body) + JetBrains Mono (label/meta) 双字体。 */
+/* StandMeet design tokens —— canonical source: docs/design/project/sm-tokens.css.
+   warm cream paper + ink + vermillion accent + amber/violet/acid supporting colors;
+   two-font system: Newsreader serif (body) + JetBrains Mono (label/meta). */
 @theme {
   --color-paper:        #F3EFE6;
   --color-surface:      #ECE6D8;
@@ -25,25 +25,31 @@
   --font-mono:  'JetBrains Mono', ui-monospace, monospace;
 }
 
-/* —— 跟 Tailwind 不挂钩的设计 token：type scale / tracking / motion。
-   组件用 `var(--t-h-l)` / `var(--tk-cap)` 之类直接消费；放 :root 让
-   sm-atoms.css 跟所有 component CSS 都看得见。 */
+/* —— Design tokens not wired into Tailwind: type scale / tracking / motion.
+   Components consume them directly as `var(--t-h-l)` / `var(--tk-cap)` etc.; placed on
+   :root so sm-atoms.css and all component CSS can see them. */
 :root {
-  /* --sm-scrim —— 模态遮罩。**一个来源**：四处 overlay 原本各写一条
-     `color-mix(in oklab, var(--color-ink) 40%, transparent)`，四条字面量谁也不知道彼此
-     存在，改一处就会分叉（UX-48）。
-     40% 墨压在纸色底上，底层正文仍在可读区间 —— 截图里能读出模态背后的表格行和
-     `subjectivity://cv`，owner 分不出哪一层在前。提到 66%。 */
+  /* --sm-scrim —— the modal overlay. **One source**: four overlays each used to write their
+     own `color-mix(in oklab, var(--color-ink) 40%, transparent)` literal, none of the four
+     aware of the others, so editing one would silently diverge from the rest (UX-48).
+     40% ink over the paper background left the underlying content still readable —
+     screenshots showed table rows and `subjectivity://cv` bleeding through the modal, and
+     the owner couldn't tell which layer was on top. Raised to 66%. */
   --sm-scrim: color-mix(in oklab, var(--color-ink) 66%, transparent);
 
-  /* --sm-cover-veil —— 封面上的**护字层**。跟 --sm-scrim 是两件事，所以是两个 token：
-     scrim 的职责是**遮住底下**（模态背后的东西不该被读），veil 的职责是**保住图像**
-     ——它要让压在照片上的标题认得出来，同时那张照片仍然是一张照片。
-     拿 66% 墨去铺封面会把图糊掉，那是把「遮」当成「护」用。
-     形状是从标题那个角出发的渐变：字所在的左上最厚，往右下退到全透明。
-     为什么需要它（UX-83）：真环境上给一条笔记设了一张**密排文字的真照片**当封面，
-     标题直接压上去，字和底图的正文糊在一起。CI 永远问不出这条 —— 它的 fixture 是
-     1×1 像素，任何字压上去都「通过」。 */
+  /* --sm-cover-veil —— the **text-legibility layer** over a cover image. This is a
+     different job from --sm-scrim, hence a separate token: scrim's job is to **hide what's
+     underneath** (a modal's background shouldn't be readable), while veil's job is to
+     **protect the image** — it makes the title sitting on top of a photo legible while the
+     photo underneath still reads as a photo.
+     Laying 66% ink over a cover would muddy the image — that's using "hide" where the job
+     called for "protect".
+     The shape is a gradient radiating from the title's corner: thickest where the text
+     sits in the upper-left, fading to fully transparent toward the lower-right.
+     Why it's needed (UX-83): in the real environment a note was given a **densely-texted
+     real photo** as its cover, and the title sat directly on top, so the text and the
+     photo's own content blurred together. CI could never catch this — its fixture is a
+     1×1 pixel, and any text laid over that always "passes". */
   --sm-cover-veil: linear-gradient(
     145deg,
     color-mix(in oklab, var(--color-paper) 88%, transparent) 0%,
@@ -51,37 +57,47 @@
     transparent 78%
   );
 
-  /* --sm-chevron —— 下拉的箭头**形状**（不是颜色）。
-     原生箭头是系统件，`appearance: none` 之后要自己画；而 data URI 里塞不进 `var()`，
-     所以这里若写 `stroke='%23B5391C'` 就等于把朱红抄了第二份。
-     解法：这个 SVG 只当 **mask** 用 —— 只取它的 alpha（形状），颜色由
-     `.sm-select-shell::after` 的 `background-color: var(--color-accent)` 给。
-     于是下面这个 `%23000` 完全不影响成色，换主题也不用动它。 */
+  /* --sm-chevron —— the dropdown arrow's **shape** (not its color).
+     The native arrow is a system-drawn element; once `appearance: none` removes it we have
+     to draw our own, and a data URI can't embed a `var()` — so writing
+     `stroke='%23B5391C'` here would just be a second, hardcoded copy of the vermillion.
+     Fix: this SVG is used only as a **mask** — it contributes only its alpha (the shape),
+     while the color comes from `.sm-select-shell::after`'s
+     `background-color: var(--color-accent)`.
+     So the `%23000` below has zero effect on the final color, and switching themes never
+     needs to touch it. */
   --sm-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 6'%3E%3Cpath d='M0.75 0.75 4.5 4.5 8.25 0.75' fill='none' stroke='%23000' stroke-width='1.5'/%3E%3C/svg%3E");
 
-  /* —— 层级量表：**「谁在谁上面」只在这里声明一次**。
-     之前 19 处魔数散在 CSS 和 TSX 两种语言里，没有一处说明顺序，于是「模态盖没盖住底层」
-     只能靠试 —— 而 owner 定的判据是「不可以通过实验判别，要么看日志，要么架构清晰到一眼
-     看出来」。这张表就是那个「一眼」。闸门 check-one-layer-scale.sh 禁止裸值。
+  /* —— The z-index scale: **"what sits above what" is declared here, and only here**.
+     19 magic numbers used to be scattered across both CSS and TSX, with nothing anywhere
+     stating the intended order, so "does the modal actually cover what's behind it" could
+     only be checked by trial — and the owner's own standard is "never diagnose by
+     experiment; either read a log or make the architecture obvious at a glance". This
+     table is that "at a glance". The check-one-layer-scale.sh gate forbids bare literals.
 
-     两个原来读不出来、写下来才暴露的错：
-     ① 「模态遮罩」有三个不同的 z（内联 40 / ModalShell 50 / CSS overlay 60）—— 不是同一层。
-     ② toast 原本 50，**低于** CSS 模态的 60 —— 模态里的失败弹了 toast 也看不见（F-C-26 的
-        真正机制）。所以 toast 必须排在 modal 之上：它要报告的正是模态里那次操作的结果。
+     Two bugs that were invisible until this was written down:
+     ① The "modal overlay" had three different z-values (inline 40 / ModalShell 50 / CSS
+        overlay 60) — they were not actually the same layer.
+     ② toast used to be 50, **below** the CSS modal's 60 — a failure toast fired from
+        inside a modal was invisible (the real mechanism behind F-C-26). So toast must sit
+        above modal: it exists to report the outcome of an action that just happened
+        inside that modal.
 
-     带内排序用 .sm-z-<band>-1..9（sm-atoms.css 里每层定义满 0–9）。层与层之间隔 10，所以
-     同一带里的几个东西可以互相排先后，而排不出自己那一层；+10 就撞上下一层了，闸门因此
-     禁止偏移 ≥ 10。跨层的事在这张表里改，带内的事在用它的地方写。 */
-  --z-local:        0;  /* 不参与全局排序：就地造一个层叠上下文（0 ≠ auto） */
-  --z-raised:      10;  /* 页内抬起：sticky 保存条 */
-  --z-sticky:      20;  /* 吸顶栏 */
-  --z-dock:        30;  /* 吸底输入坞 / composer */
-  --z-strip:       35;  /* 会话状态条 */
-  --z-float:       40;  /* 悬浮触发器（面板贴着它 → 用 .sm-z-float-1，不另设 token） */
-  --z-overlay:     50;  /* 半屏遮罩（composer） */
-  --z-modal:       60;  /* 模态遮罩 —— 所有模态同一层 */
-  --z-toast:       70;  /* 通知 —— **必须高于 modal** */
-  --z-confirm:     80;  /* 二次确认 —— 压住它要确认的那个模态 */
+     Within-band ordering uses .sm-z-<band>-1..9 (sm-atoms.css fills 0–9 for each band).
+     Bands are spaced 10 apart, so items within one band can be ordered against each other
+     but never escape their own band; +10 would collide with the next band, so the gate
+     forbids an offset ≥ 10. Cross-band changes happen in this table; within-band changes
+     happen at the call site. */
+  --z-local:        0;  /* Not part of the global order: just creates a local stacking context (0 ≠ auto) */
+  --z-raised:      10;  /* Raised within the page: the sticky save bar */
+  --z-sticky:      20;  /* The sticky top bar */
+  --z-dock:        30;  /* The bottom-docked input / composer */
+  --z-strip:       35;  /* The session-status strip */
+  --z-float:       40;  /* Floating triggers (a panel anchored to one uses .sm-z-float-1, no separate token) */
+  --z-overlay:     50;  /* The half-screen overlay (composer) */
+  --z-modal:       60;  /* The modal overlay —— every modal shares this one layer */
+  --z-toast:       70;  /* Notifications —— **must sit above modal** */
+  --z-confirm:     80;  /* Confirmation dialogs —— sit above the modal they're confirming */
 
   --t-mono-9:  9px;
   --t-mono-10: 10px;
@@ -109,10 +125,10 @@
   --m-snap:   .15s ease;
 }
 
-/* Tailwind v4 的 Preflight 把 <button> 默认 cursor 从 pointer 改成 default,
-   于是一堆没套 .sm-btn 的裸 button(close / revoke / sidebar nav / tab …)
-   都没了手型。全局补回:可点的 button / role=button / summary 一律 pointer,
-   disabled 的不给(走默认箭头)。 */
+/* Tailwind v4's Preflight changes the default <button> cursor from pointer to default,
+   so any bare button not wrapped in .sm-btn (close / revoke / sidebar nav / tab …) lost
+   its hand cursor. Restore it globally: any clickable button / role=button / summary gets
+   pointer; disabled elements keep the default arrow. */
 @layer base {
   button:not(:disabled),
   [role="button"]:not(:disabled),
@@ -121,9 +137,9 @@
   }
 }
 
-/* dark mode via .dark class on <html> (TopBar 切换写 localStorage)。系统
-   级 prefers-color-scheme 不再走 @media —— useTheme hook 首次访问读
-   一次 prefers，之后由 user 在 TopBar 切换控制。 */
+/* dark mode via .dark class on <html> (the TopBar toggle writes localStorage). System-level
+   prefers-color-scheme no longer goes through @media —— the useTheme hook reads prefers
+   once on first visit, and after that the user's TopBar toggle is in control. */
 html.dark {
   --color-paper:        #14110D;
   --color-surface:      #1C1812;
@@ -142,16 +158,19 @@ html.dark {
 html, body {
   background: var(--color-paper);
   color: var(--color-ink);
-  /* accent-color —— 原生控件（checkbox / radio / range / progress）的强调色。
-     在这之前**一处都没声明过** —— 不是哪里覆盖错了，是从来没覆盖。于是勾选框在纸色 + 墨色 +
-     朱红的版面上渲染成系统蓝（UX-50），跟默认焦点环（UX-33）、原生 select（UX-47）是同一件事：
-     原生控件整体没有纳入这套视觉语言。声明在 html/body 上继承给全部后代，一处管全部。 */
+  /* accent-color —— the accent color for native controls (checkbox / radio / range /
+     progress). Before this, **it was never declared anywhere** — not a wrong override, just
+     no override at all. So checkboxes rendered as system blue (UX-50) on a page built from
+     paper + ink + vermillion, the same underlying issue as the default focus ring (UX-33)
+     and the native select (UX-47): native controls as a class were never brought into this
+     visual language. Declared on html/body so every descendant inherits it from one place. */
   accent-color: var(--color-accent);
 }
 
-/* 焦点环 —— 键盘用户每一次操作都会看到它，所以它不能是外来的系统蓝（UX-33）。
-   用 :focus-visible 而不是 :focus：鼠标点击不该画环，键盘导航必须画。
-   一处声明，组件不许各写各的（跟 --sm-scrim / --z-* 同一个原则）。 */
+/* The focus ring —— keyboard users see this on every single action, so it can't be the
+   foreign system blue (UX-33). Uses :focus-visible rather than :focus: a mouse click
+   shouldn't draw the ring, keyboard navigation must. Declared in one place; components are
+   not allowed to write their own (same principle as --sm-scrim / --z-*). */
 *:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
@@ -163,7 +182,7 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* serif fine-tuning —— hero / insight body / project lines 用这个。 */
+/* serif fine-tuning —— used by hero / insight body / project lines. */
 .reading {
   font-family: var(--font-serif);
   font-size: 20px;
@@ -183,7 +202,7 @@ body {
   background: color-mix(in oklab, var(--color-accent) 28%, transparent);
 }
 
-/* caret for chat input + streaming assistant message。 */
+/* caret for chat input + streaming assistant message. */
 @keyframes caret { 0%,49%{opacity:1} 50%,100%{opacity:0} }
 .caret::after {
   content: '▍';
@@ -195,13 +214,13 @@ body {
   top: -1px;
 }
 
-/* thinking dots —— pending state（pre-token、tool 调用中）。 */
+/* thinking dots —— pending state (pre-token, tool call in progress). */
 @keyframes dot { 0%,80%,100%{opacity:.25;transform:translateY(0)} 40%{opacity:1;transform:translateY(-2px)} }
 .dot { display: inline-block; animation: dot 1.2s ease-in-out infinite; }
 .dot:nth-child(2) { animation-delay: .15s }
 .dot:nth-child(3) { animation-delay: .3s }
 
-/* paragraph reveal —— 流式 token 出现时的微动画。 */
+/* paragraph reveal —— the micro-animation as streamed tokens appear. */
 @keyframes rise {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -209,7 +228,7 @@ body {
 
 .rise { animation: rise .55s cubic-bezier(.2,.7,.2,1) forwards; }
 
-/* sticky chat input dock —— 上方淡出让对话从下面读上去。 */
+/* sticky chat input dock —— fades out above it so the transcript reads up from below. */
 .input-dock {
   background: linear-gradient(to bottom,
     color-mix(in oklab, var(--color-paper) 0%, transparent) 0,
@@ -261,23 +280,23 @@ body {
 input, textarea, select { caret-color: var(--color-accent); }
 input:focus, textarea:focus, select:focus { outline: none; }
 
-/* live-dot —— TopBar / banner 里指示"live"系统状态的脉冲。 */
+/* live-dot —— the pulse in TopBar / banner that indicates "live" system status. */
 @keyframes live-pulse {
   0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-accent) 55%, transparent); }
   100% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--color-accent) 0%, transparent); }
 }
 .live-dot { animation: live-pulse 1.6s ease-out infinite; }
 
-/* insight expand fade-in —— [read more] 展开 body 时柔和上浮。 */
+/* insight expand fade-in —— a soft rise when [read more] expands the body. */
 @keyframes fadein-rise {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .fadein { animation: fadein-rise .35s cubic-bezier(.2,.7,.2,1) forwards; }
 
-/* skeleton placeholder —— subtle 呼吸感的灰块，loading 期间撑 layout 而不
-   是一行字。color-mix 出 surface 跟 rule 之间一档；prefers-reduced-motion
-   关掉 animation 但保留色块。 */
+/* skeleton placeholder —— a subtly breathing gray block that holds the layout's shape
+   during loading instead of just a line of text. color-mix produces a shade between
+   surface and rule; prefers-reduced-motion turns off the animation but keeps the block. */
 @keyframes skel-pulse {
   0%, 100% { opacity: .55; }
   50%      { opacity: .9; }
@@ -291,7 +310,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   .skel { animation: none; opacity: .7; }
 }
 
-/* tech-vitality corner crosshairs banner —— BYOAI / coded session banner 用。 */
+/* tech-vitality corner crosshairs banner —— used by the BYOAI / coded-session banner. */
 .crosshair-banner::before,
 .crosshair-banner::after {
   content: '';
@@ -303,7 +322,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .crosshair-banner::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
 .crosshair-banner::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
 
-/* crosshair —— 四个角的小 L 形装饰，比 .crosshair-banner 完整四个角 */
+/* crosshair —— small L-shaped corner decorations, all four corners, unlike .crosshair-banner */
 .crosshair { position: relative; }
 .crosshair::before,
 .crosshair::after,
@@ -320,7 +339,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .crosshair > .ch-tl { bottom: -1px; left: -1px;  border-bottom: 1px solid; border-left: 1px solid; }
 .crosshair > .ch-br { bottom: -1px; right: -1px; border-bottom: 1px solid; border-right: 1px solid; }
 
-/* terminal scanline —— Setup 终端块的扫描线 */
+/* terminal scanline —— the scanline for the Setup terminal block */
 @keyframes scanline {
   0%   { transform: translateY(-100%); opacity: 0; }
   10%  { opacity: 1; }
@@ -339,11 +358,11 @@ input:focus, textarea:focus, select:focus { outline: none; }
   opacity: 0.5;
 }
 
-/* blink —— 终端 cursor 闪烁 */
+/* blink —— the terminal cursor blink */
 @keyframes blink { 50% { opacity: 0; } }
 .blink { animation: blink 1s steps(1) infinite; }
 
-/* rise —— 大段视图入场轻微上浮 */
+/* rise —— a slight rise as a large view enters */
 @keyframes rise {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -367,7 +386,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   animation-play-state: paused;
 }
 
-/* shake —— Gate 错码摇头 */
+/* shake —— the Gate's shake on a wrong access code */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-4px); }
@@ -375,7 +394,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 }
 .shake { animation: shake .4s ease both; }
 
-/* code cell —— gate 7 位 access code 输入格 */
+/* code cell —— one cell of the gate's 7-character access code input */
 .codecell {
   width: 38px; height: 48px;
   border: 1px solid var(--color-rule);
@@ -396,12 +415,14 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .codecell.is-filled { border-color: var(--color-ink); }
 .codecell.is-error  { border-color: var(--color-accent); color: var(--color-accent); }
 
-/* `.provider-pick` 曾在这里 —— gate BYOAI 那个 provider 下拉专用的一套样式,
-   `is-on` 是近黑实心。它的唯一使用者已改用 SelectField(UX-36 / UX-47),规则随之作废。
-   死 CSS 没有任何工具会报 —— knip 看不见样式表 —— 所以搬走能力时得**手动**把它的边也搬走
-   (见 [[move-the-capability-move-its-edges]])。 */
+/* `.provider-pick` used to live here —— a set of styles dedicated to the gate's BYOAI
+   provider dropdown, with `is-on` as a near-black fill. Its only caller has since moved to
+   SelectField (UX-36 / UX-47), so these rules went dead along with it.
+   No tool flags dead CSS —— knip can't see stylesheets —— so relocating a capability means
+   its edges have to be **manually** carried along too (see
+   [[move-the-capability-move-its-edges]]). */
 
-/* keydot —— BYOAI 已脱敏 key 的 6 个 dots */
+/* keydot —— the 6 dots representing a BYOAI key that's already been redacted */
 .keydot {
   display: inline-block;
   width: 6px;
@@ -411,7 +432,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
   margin: 0 1px;
 }
 
-/* seal —— gate 页面顶部"封口"图，三层圆环 */
+/* seal —— the "seal" graphic at the top of the gate page, three concentric rings */
 .seal {
   --r: 96px;
   width: calc(var(--r) * 2);
@@ -452,14 +473,18 @@ input:focus, textarea:focus, select:focus { outline: none; }
   line-height: 1.5;
 }
 
-/* ── owner 的 Obsidian 词汇表（F-L-36）────────────────────────────────────────
-   owner 的 snippet 是照 Obsidian 的变量方言写的，那是他 vault 里 lint 过的东西 ——
-   **合规的是他的 CSS，缺契约的是这一侧**。以前站点收下 snippet、消毒、加 `.corpus-content`
-   前缀，然后规则里的 `var(--background-modifier-border)` / `--callout-color` 一个都没人定义：
-   管道通了、载荷落空，同一篇里 `[!definition]`(他定义为绿) 和 `[!theorem]`(蓝) 渲成同一块淡红。
+/* ── The owner's Obsidian vocabulary (F-L-36) ─────────────────────────────────
+   The owner's snippets are written in Obsidian's own variable dialect — the dialect his
+   vault already lints against. **His CSS is the compliant side; this site was the one
+   missing the contract.** The site used to accept a snippet, sanitize it, prefix it with
+   `.corpus-content`, and then leave `var(--background-modifier-border)` /
+   `--callout-color` completely undefined: the pipe was connected but nothing flowed
+   through it, so in the same article `[!definition]` (his green) and `[!theorem]` (his
+   blue) rendered as the same pale red.
 
-   所以在 scope 锚点上把 Obsidian 那套名字铺出来，值映射到站点自己的调色板 ——
-   owner 的 snippet 于是按他写的样子生效，而没写 snippet 的笔记外观一点不变。 */
+   So this lays out Obsidian's own variable names on the scope anchor, mapped onto the
+   site's own palette — the owner's snippet then renders the way he wrote it, and any note
+   without a snippet looks exactly as it did before. */
 .corpus-content {
   --background-primary: var(--color-paper);
   --background-primary-alt: var(--color-raised);
@@ -476,8 +501,8 @@ input:focus, textarea:focus, select:focus { outline: none; }
   --interactive-normal: var(--color-surface);
   --font-monospace: var(--font-mono);
   --font-text: var(--font-serif);
-  /* Obsidian 的 callout 颜色是 **`R, G, B` 三元组**（`rgb(var(--callout-color))` 用），
-     不是一个颜色值。默认给站点的 vermillion #B5391C，这样没被 snippet 覆盖的 callout
-     跟以前长得一模一样。 */
+  /* Obsidian's callout color is an **`R, G, B` triple** (used as `rgb(var(--callout-color))`),
+     not a single color value. Defaults to the site's vermillion #B5391C, so a callout not
+     overridden by a snippet looks exactly as it did before. */
   --callout-color: 181, 57, 28;
 }

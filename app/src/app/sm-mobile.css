@@ -1,6 +1,6 @@
-/* sm-mobile.css —— cross-surface mobile adaptations。挂到 globals.css 之后
- * 加载，让 design 在窄屏上自适应。canonical source:
- * docs/design/project/sm-mobile.css (handoff bundle)。
+/* sm-mobile.css — cross-surface mobile adaptations. Loaded after globals.css
+ * so the design adapts on narrow screens. canonical source:
+ * docs/design/project/sm-mobile.css (handoff bundle).
  *
  * Breakpoints:
  *   - ≤ 720px : phone portrait
@@ -9,8 +9,10 @@
  */
 
 /* ── viewport hardening ─────────────────────────────────────────── */
-/* overflow-x: clip(不是 hidden)—— 一样挡横向溢出,但 clip 不建立滚动容器,所以
-   wiki reader 的 sticky toc 还能贴住视口(hidden 会让 body 变滚动容器,sticky 失效)。 */
+/* overflow-x: clip (not hidden) — blocks horizontal overflow the same way, but
+   clip doesn't establish a scroll container, so the wiki reader's sticky toc
+   can still stick to the viewport (hidden would turn body into a scroll
+   container and break sticky). */
 html, body { overflow-x: clip; }
 body { padding-bottom: env(safe-area-inset-bottom, 0); }
 

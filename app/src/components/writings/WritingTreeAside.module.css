@@ -1,5 +1,6 @@
-/* WritingTreeAside.module.css —— 240px sticky reader 左栏。同 wiki 树视觉
-   (mono 抬头 + serif 截断链接 + active accent),加 private 节点 locked 斜体。 */
+/* WritingTreeAside.module.css —— the 240px sticky reader left column. Shares the wiki
+   tree's visual language (mono heading + serif truncated links + active accent), plus
+   italic "locked" styling for private nodes. */
 
 .aside {
   position: sticky;
@@ -45,7 +46,7 @@
   font-weight: 500;
 }
 
-/* private —— teaser only,斜体 + 弱化,设计要 show locked 节点。 */
+/* private —— teaser only: italic + de-emphasized, per the design's requirement to still show locked nodes. */
 .link[data-locked='true'] {
   font-style: italic;
   color: var(--color-faint);

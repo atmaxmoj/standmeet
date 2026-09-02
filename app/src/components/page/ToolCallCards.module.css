@@ -1,6 +1,7 @@
-/* ToolCallCards.module.css —— G-4 tool 调用结果卡的样式。
-   设计：跟 .reading + chat-md 共存，配 design palette。卡片轻一点不抢
-   answer 主戏：用 paper-tinted 底 + small mono kicker + 减弱字号。 */
+/* ToolCallCards.module.css —— styles for the G-4 tool-call result cards.
+   Design: coexists with .reading + chat-md, matches the design palette. Cards stay light
+   so they don't upstage the answer: a paper-tinted background + a small mono kicker +
+   a reduced font size. */
 
 .stack {
   margin-top: 0.6em;
@@ -18,8 +19,9 @@
   margin-bottom: 0.4em;
 }
 
-/* retrieval summary —— corpus_* 检索折叠成的单行（UX-10）。一行、极轻、不堆叠：
-   mono small kicker，横排 "searched N · read M"。取代过去每次检索一张 ui:// 沙盒卡。 */
+/* retrieval summary —— a corpus_* retrieval collapsed into a single line (UX-10). One
+   line, very light, no stacking: a small mono kicker, laid out as "searched N · read M".
+   Replaces the old design where every retrieval got its own ui:// sandbox card. */
 .retrievalSummary {
   display: flex;
   align-items: baseline;
@@ -33,12 +35,14 @@
   margin-bottom: 0;
 }
 
-/* booked confirmation 卡已外置成 booker 插件的 ui:// 沙盒卡（自带样式），写死的
-   React BookCard + 其 .bookCard/.bookTime/.bookLink/.cancel* 样式随之删除。 */
+/* The booked-confirmation card has been externalized to the booker plugin's own ui://
+   sandbox card (which brings its own styles); the hardcoded React BookCard component and
+   its .bookCard/.bookTime/.bookLink/.cancel* styles were removed along with it. */
 
-/* generic skill / ext dump —— debug 风：mono、paper 底、size 收。
-   **默认收起**（F-D-10）：这张卡的受众是 owner，但它长在访客的逐字稿里；
-   摊开时那一大块原始 JSON 会把访客要读的答案挤到下面去。 */
+/* generic skill / ext dump —— a debug-style look: mono, paper background, reduced size.
+   **Collapsed by default** (F-D-10): this card's audience is the owner, but it lives in
+   the visitor's transcript; expanded, the large block of raw JSON would push the answer
+   the visitor actually wants to read further down. */
 .genericCard {
   padding: 0.6em 0.9em;
   background: color-mix(in oklab, var(--color-ink) 3%, transparent);
@@ -50,7 +54,7 @@
   cursor: pointer;
   list-style: none;
 }
-/* 收起/展开要看得出来：跟树那边的 `▸` 同一个记号。 */
+/* Collapsed/expanded must be visually distinguishable: uses the same `▸` marker as the tree view. */
 .genericCard > summary::-webkit-details-marker { display: none; }
 .genericCard > summary::before {
   content: '▸ ';

@@ -1,7 +1,9 @@
-/* 卡片撑满它在网格里的那一格，footer 靠 margin-top:auto 沉底 —— 于是同一行的
-   `INSTALL` 对齐在同一条线上。原来卡高由 blurb 的长度决定，同一行两张卡差 5 倍高，
-   四个 INSTALL 分别落在 y=484 / 464 / 680 / 875，想扫一眼"哪里能装"得追一条锯齿线
-   （UX-54）。 */
+/* The card fills its grid cell, and the footer sits pinned to the bottom via
+   margin-top:auto — so every `INSTALL` button in a row lines up on the same
+   baseline. Previously card height was driven by blurb length, so two cards in
+   the same row could differ 5x in height, with four INSTALL buttons landing at
+   y=484 / 464 / 680 / 875 — scanning for "what can I install" meant chasing a
+   jagged line (UX-54). */
 .card {
   border: 1px solid var(--color-rule);
   border-radius: 3px;
@@ -52,10 +54,13 @@
   white-space: nowrap;
 }
 
-/* blurb 截到三行。这一格装的**常常不是一句介绍** —— 有的 skill 把自己的提示词原样放进
-   `description`（`TRIGGER — read BEFORE opening the target file…`，约 1000 字符的机器指令）。
-   我们改不了别人仓库里的 frontmatter，能做的是不让它决定这张卡多高。
-   `line-clamp` 自带省略号，切口处有续读信号 —— 不是硬裁（同 check-peek-signals-more 的道理）。 */
+/* Blurb is clamped to three lines. What lands in this slot is **often not a
+   one-line description** — some skills paste their raw prompt straight into
+   `description` (`TRIGGER — read BEFORE opening the target file…`, roughly 1000
+   characters of machine instructions). We can't change the frontmatter in
+   someone else's repo, but we can stop it from dictating this card's height.
+   `line-clamp` provides its own ellipsis, so the cut carries a "there's more"
+   signal — it's not a hard truncation (same idea as check-peek-signals-more). */
 .blurb {
   font-family: var(--font-serif);
   font-size: 13.5px;

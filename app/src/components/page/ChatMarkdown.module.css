@@ -1,12 +1,14 @@
-/* ChatMarkdown.module.css —— ChatMarkdown 输出的 scope。设计语言
-   (warm cream + ink + vermillion) 应用到 markdown 默认元素 (table /
-   code / blockquote / a / ul / hr)，跟 .reading serif body 共存。
+/* ChatMarkdown.module.css — scope for ChatMarkdown's output. Applies the
+   design language (warm cream + ink + vermillion) to default markdown
+   elements (table / code / blockquote / a / ul / hr), coexisting with the
+   .reading serif body.
 
-   parent 容器 className={styles.body}。 */
+   Parent container carries className={styles.body}. */
 
-/* headings —— chat answer 偶尔有 outline 结构；mono kicker style 跟 deck
-   header 一致 (newspaper kicker)。h1-h3 用 mono small-caps，h4-h6 用 serif
-   保留语义但不撑大字号 (chat 不是 essay)。 */
+/* headings — a chat answer occasionally has outline structure; the mono
+   kicker style matches the deck header (newspaper kicker). h1-h3 use mono
+   small-caps, h4-h6 use serif to keep the semantics without inflating the
+   font size (chat isn't an essay). */
 .body h1, .body h2, .body h3 {
   font-family: var(--font-mono);
   font-size: 0.78em;
@@ -53,7 +55,7 @@
   font-style: italic;
 }
 
-/* inline code —— mono + 微弱 paper-tint 底；不抢戏。 */
+/* inline code — mono + a faint paper-tint background; stays out of the way. */
 .body :not(pre) > code {
   font-family: var(--font-mono);
   font-size: 0.88em;
@@ -62,8 +64,9 @@
   border-radius: 2px;
 }
 
-/* fenced code block —— paper-tinted block, mono, 不上 syntax highlighting
-   (chat agent 输出代码罕见；真用了用户能识别 indent 就行)。 */
+/* fenced code block — paper-tinted block, mono, no syntax highlighting
+   (a chat agent rarely outputs code; when it does, readable indentation
+   is enough). */
 .body pre {
   margin: 0.8em 0;
   padding: 0.7em 0.9em;
@@ -77,8 +80,9 @@
 }
 .body pre code { background: transparent; padding: 0; }
 
-/* GFM table —— rule-style 横线 (跟 newspaper / journal 风格一致)；不画
-   cell border，靠 row 横线分隔，更"阅读 transcript"少一点 spreadsheet。 */
+/* GFM table — rule-style horizontal lines (matching the newspaper / journal
+   style); no cell borders, rows are separated by rule lines instead, so it
+   reads more like a transcript and less like a spreadsheet. */
 .body table {
   border-collapse: collapse;
   margin: 0.8em 0;
@@ -99,23 +103,29 @@
   color: var(--color-muted);
 }
 
-/* hr —— 同样 rule-style 横线；不打实心 1px box。 */
+/* hr — same rule-style horizontal line; not a solid 1px box. */
 .body hr {
   border: 0;
   border-top: 1px solid var(--color-rule);
   margin: 1em 0;
 }
 
-/* KaTeX display —— **完全用 katex.min.css 的标准**(globals.css 已 import):
-   `margin: 1em 0; text-align: center`。这里**不要任何自定义 override**:
-   - 原先的 `text-align: left; margin: 0.6em` 太挤 → 高公式压相邻行(F-R-3 第一半);
-   - 我一度加的 `overflow-y: hidden` 会**裁掉 ∑ 的上下限**,把大 Σ 切成一个小弧(F-R-3 第二半)。
-   标准本身就把居中、间距、大 operator 都处理好了 —— 不碰它就对。宽公式若溢出阅读列,
-   将来用**外层容器** `overflow-x` 处理,绝不在 .katex-display 自身设 overflow(会连带纵向裁切)。 */
+/* KaTeX display — **use katex.min.css's own defaults, unchanged** (already
+   imported by globals.css): `margin: 1em 0; text-align: center`. Add
+   **no custom overrides** here:
+   - the earlier `text-align: left; margin: 0.6em` was too tight → tall
+     formulas crowded adjacent lines (F-R-3, first half);
+   - an `overflow-y: hidden` added at one point **clipped the top/bottom
+     limits of ∑**, cutting a large Σ down to a small arc (F-R-3, second half).
+   The default already handles centering, spacing, and large operators
+   correctly — leave it alone. If a wide formula ever overflows the reading
+   column, handle it with an **outer wrapper's** `overflow-x`, never by
+   setting overflow on .katex-display itself (that clips vertically too). */
 
-/* mermaid / tikz SVG figure —— 限宽避免溢出阅读列 + **居中**(F-R-3 同批:插图不居中)。
-   diagram 是图示,居中读起来才对。MermaidBlock / TikZBlock 内层 div 是全局 testid,
-   CSS module 要 :global 穿透。 */
+/* mermaid / tikz SVG figure — width-capped to avoid overflowing the reading
+   column, and **centered** (same F-R-3 batch: figures weren't centered
+   before). A diagram reads better centered. MermaidBlock / TikZBlock's inner
+   div carries a global testid, so the CSS module needs :global to reach it. */
 .body :global([data-testid="mermaid-svg"]),
 .body :global([data-testid="tikz-svg"]) {
   text-align: center;
@@ -123,14 +133,15 @@
 }
 .body :global([data-testid="mermaid-svg"]) svg,
 .body :global([data-testid="tikz-svg"]) svg {
-  display: block;      /* SVG 默认 inline;设 block + margin auto 才能真正居中(text-align 管不到定宽 block) */
+  display: block;      /* SVG is inline by default; block + margin auto is what actually centers it (text-align can't center a fixed-width block) */
   margin: 0 auto;
   max-width: 100%;
   height: auto;
 }
 
-/* mermaid render error —— 失败时显错而不是 silent，但配色不要 alarm；
-   用 muted accent + paper-tinted block (跟普通 pre code 形态一致)。 */
+/* mermaid render error — show the error on failure instead of failing
+   silently, but keep the color scheme non-alarming; muted accent +
+   paper-tinted block (matching the look of a normal pre code block). */
 .body :global([data-testid="mermaid-error"]) {
   color: var(--color-accent);
   background: color-mix(in oklab, var(--color-accent) 6%, transparent);
@@ -143,8 +154,10 @@
   border-radius: 2px;
 }
 
-/* image / 插图 —— 限宽避免破布局,且**居中**(margin auto):vault 里的图基本是图示/
-   diagram,居中读起来才对(F-R-3 同批:原先 `margin: 0.6em 0` 左对齐)。 */
+/* image / figure — width-capped to avoid breaking the layout, and
+   **centered** (margin auto): most images in the vault are diagrams/figures,
+   which read better centered (same F-R-3 batch: previously left-aligned
+   with `margin: 0.6em 0`). */
 .body img {
   max-width: 100%;
   height: auto;
@@ -152,11 +165,12 @@
   margin: 1.4em auto;
 }
 
-/* ── article variant (wiki / writing 长文) ───────────────────────────
-   编辑级阅读排版，对齐设计 wiki.js/blog.js 的 .article-body：大字号 serif
-   正文 + serif subhead + accent pull-quote。声明在 .body 规则之后 → 同特异性
-   下源序靠后胜出，覆盖 chat 的紧凑排版(h2 mono kicker / blockquote 小)。
-   父容器同时带 .body + .article。 */
+/* ── article variant (wiki / long-form writing) ─────────────────────
+   Editorial-grade reading typography, matching the design's wiki.js /
+   blog.js .article-body: large serif body text + serif subhead + accent
+   pull-quote. Declared after the .body rules → at equal specificity, later
+   source order wins, overriding chat's compact typography (h2 mono kicker /
+   small blockquote). The parent container carries both .body and .article. */
 .article p {
   font-size: 21px;
   line-height: 1.65;
@@ -184,14 +198,17 @@
   border-left: 3px solid var(--color-accent);
 }
 
-/* Obsidian callout —— remark-callouts 把 `> [!type]` blockquote 转成
-   `.callout[data-callout]` + `.callout-title`。:global 因为 class 是 remark 注入的
-   (非 CSS-module 哈希名)。
+/* Obsidian callout — remark-callouts turns a `> [!type]` blockquote into
+   `.callout[data-callout]` + `.callout-title`. :global is needed because the
+   class is injected by remark (not a CSS-module hashed name).
 
-   **颜色走 `--callout-color`**（Obsidian 的契约：一个 `R, G, B` 三元组），默认值在
-   `globals.css` 的 `.corpus-content` 上给的是站点 vermillion，所以没被覆盖的 callout
-   跟以前一模一样。owner 的 snippet 写 `.callout[data-callout="theorem"]{--callout-color:79,140,230}`
-   就真的变蓝 —— 以前这里硬编码 `var(--color-accent)`，他设的颜色**没有任何读者**（F-L-36）。 */
+   **Color runs through `--callout-color`** (Obsidian's contract: an `R, G, B`
+   triple); the default, set on `.corpus-content` in `globals.css`, is the
+   site's vermillion, so a callout nobody overrides looks exactly as before.
+   An owner snippet like
+   `.callout[data-callout="theorem"]{--callout-color:79,140,230}` really does
+   turn it blue — previously this was hardcoded to `var(--color-accent)`,
+   so a color the owner set here **had no reader at all** (F-L-36). */
 .body :global(.callout),
 .article :global(.callout) {
   border-left: 3px solid rgb(var(--callout-color, 181, 57, 28));

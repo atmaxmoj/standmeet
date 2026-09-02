@@ -1,27 +1,32 @@
-/* sm-atoms.css —— 共享 design-system 原子 utility 类。
- * canonical source: docs/design/project/sm-tokens.css (handoff bundle)。
+/* sm-atoms.css — shared design-system atomic utility classes.
+ * canonical source: docs/design/project/sm-tokens.css (handoff bundle).
  *
- * 这里只放**跨组件复用**的 atom（chip / pill / btn / banner / gauge /
- * composer / 等）；组件 specific 的 CSS 仍放 co-located .module.css。
- * 命名带 `sm-` 前缀，避免跟 Tailwind utility 撞。
+ * This file holds only atoms reused **across components** (chip / pill / btn / banner / gauge /
+ * composer / etc.); component-specific CSS still lives in the co-located .module.css.
+ * Names carry an `sm-` prefix to avoid colliding with Tailwind utilities.
  *
- * 用法：组件 className="sm-btn sm-btn-accent" / className="sm-chip is-active"。
- * Tailwind v4 把这个文件视为 normal CSS imported from globals.css。
+ * Usage: className="sm-btn sm-btn-accent" / className="sm-chip is-active" on the component.
+ * Tailwind v4 treats this file as normal CSS imported from globals.css.
  *
- * 维护规则：design bundle (docs/design/project/sm-tokens.css) 变更时，
- * 这里 mirror 一份。tokens (color/type/tracking/motion) 在 globals.css。 */
+ * Maintenance rule: when the design bundle (docs/design/project/sm-tokens.css) changes,
+ * mirror the change here. Tokens (color/type/tracking/motion) live in globals.css. */
 
-/* ── layer （层级）────────────────────────────────────────────────────
- * 用的地方只写名字：`className="fixed inset-0 sm-z-modal"`。
- * 数值只在 globals.css 的量表里出现一次；这里把它翻成一组可读的类。
+/* ── layer (z-index tiers) ────────────────────────────────────────────
+ * Call sites only write the name: `className="fixed inset-0 sm-z-modal"`.
+ * The numeric value appears exactly once, in the scale in globals.css; this file
+ * translates it into a set of readable classes.
  *
- * 带内排序用后缀 `-1`…`-9`（层间隔 10，所以排得出先后、排不出自己那一层）。
+ * Within-tier ordering uses the `-1`…`-9` suffixes (tiers are spaced 10 apart, so
+ * you can order within a tier but never escape it).
  *
- * **每一层都定义满 0–9，一个不缺。** 一开始我只手加了当下要用的那一个 `.sm-z-float-1` ——
- * 那是个只为当前用例存在的特例，下一个人要加 `-2` 时得先判断"这样加对不对"，而这种判断
- * 正是规则烂掉的入口。要么把偏移做成参数，要么每层定义全；选了后者，因为用的地方读到的是
- * 名字而不是表达式，闸门也因此能把词汇收成一个封闭集合。没用到的类不会进产物（Tailwind
- * 的 content 扫描按实际出现的类名产出）。
+ * **Every tier defines the full 0–9 range, none skipped.** The first version only hand-added
+ * the one suffix the current use case needed, `.sm-z-float-1` — a special case that existed
+ * only for that call site. The next person adding `-2` would first have to judge "is this the
+ * right way to add it", and that judgment call is exactly where the rule rots. The choice was
+ * either turn the offset into a parameter or define every tier in full; this file takes the
+ * latter, because call sites read a name instead of an expression, which also lets a gate
+ * close the vocabulary to a fixed set. Unused classes never reach the build output (Tailwind's
+ * content scan only emits classes that actually appear in source).
  */
 .sm-z-local   { z-index: var(--z-local); }
 .sm-z-local-1 { z-index: calc(var(--z-local) + 1); }
@@ -159,17 +164,22 @@
 }
 
 /* ── section heading ───────────────────────────────────────────────────
-   一个**面之内**的大节标题(`SectionHeader` 是整页的标题,这个是它下面的分段)。
+   A major section heading **within a panel** (`SectionHeader` is the whole-page title;
+   this sits below it, for a subsection).
 
-   在这之前没有这一层:六处各自手抄同一行 `mono text-[10px] tracking-[0.2em] uppercase
-   text-(--color-ink) border-b`,而字段标签是 `.sm-smallcaps`(同样 mono、同样 10px、
-   同样 uppercase,只差一档灰度)。10px 上那一档灰度看不出来 —— 于是 `/admin/api-mcp`
-   整页是一根没有骨架的长柱子(UX-76①),而它偏偏是全后台最长、装了三个概念的一页。
+   Before this class existed there was no such layer: six call sites each hand-copied the
+   same line, `mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink) border-b`,
+   while field labels used `.sm-smallcaps` (same mono, same 10px, same uppercase, differing
+   only by one shade of gray). At 10px that one shade of gray is imperceptible — so the whole
+   `/admin/api-mcp` page read as a long column with no skeleton (UX-76①), and that page happens
+   to be the longest in the whole admin backend, carrying three separate concepts.
 
-   给大节真正的分量,同时不离开这套语言:
-     - 字号 12px vs 字段名 10px —— 差一档能一眼分出的量,而不是靠灰度;
-     - 左侧一小段朱红竖条 —— 已有的强调色,扫页时是"这里开始新的一节"的锚点;
-     - 下方细线通栏 —— 原来就有,保留。 */
+   To give a section real weight without leaving this visual language:
+     - font-size 12px vs. the 10px field label — a step big enough to read at a glance,
+       instead of relying on grayscale;
+     - a small vermillion bar on the left — the existing accent color, an anchor that reads
+       as "a new section starts here" when scanning the page;
+     - the thin rule underneath — already present, kept as is. */
 .sm-section-h {
   display: flex;
   align-items: center;
@@ -191,23 +201,28 @@
 }
 
 /* ── measure ───────────────────────────────────────────────────────────
-   一段**给人读的散文**的最大行长。
+   Maximum line length for a block of **prose meant to be read**.
 
-   访客那一侧的正文栏一直是 760px 上下(约 65 字符/行),而 owner 的 transcript 模态把
-   同一段散文铺满整个模态宽 —— 约 1250px、一行 150 字符上下(UX-45)。这不是口味:
-   这套设计语言把 Newsreader 衬线定为"给人读的正文",而 150 字符的行长把它取消了
-   （眼睛回到行首会跳行）。而 owner 恰恰是**要逐字读转录的那个人**。
+   The visitor-side content column has always sat around 760px (roughly 65 characters per
+   line), but the owner's transcript modal stretched the same prose across the full modal
+   width — about 1250px, roughly 150 characters per line (UX-45). This isn't a matter of
+   taste: this design language declares the Newsreader serif as "prose meant to be read",
+   and a 150-character line length cancels that out (the eye loses the line when it returns
+   to the start). And the owner is precisely **the person who has to read the transcript word
+   for word**.
 
-   宽屏上多出来的宽度留白,不要用来加长每一行。 */
+   On wide screens, the extra width should stay as whitespace, not stretch every line longer. */
 .sm-measure { max-width: 68ch; }
 
 /* ── reading scroll column ─────────────────────────────────────────────
-   一栏**长段衬线散文**的滚动容器。
+   Scroll container for a column of **long serif prose**.
 
-   `overflow-y: auto` 单独用会出事:macOS/移动端的**覆盖式**滚动条压在内容上,滚动期间
-   每一行的最后一个字符被盖住(*"does **a**"* / *"shou**l**d"*),滚动条淡出后又完整 ——
-   看起来像渲染坏了(UX-71)。`scrollbar-gutter: stable` 只对经典滚动条留位,覆盖式的
-   照压不误,所以还要真的给右边留出内边距。两条一起才管两种滚动条。 */
+   `overflow-y: auto` alone breaks things: macOS/mobile's **overlay** scrollbar sits on top
+   of the content, and while scrolling it covers the last character of every line
+   (*"does **a**"* / *"shou**l**d"*), then the line is whole again once the scrollbar fades —
+   which reads as a rendering bug (UX-71). `scrollbar-gutter: stable` only reserves space for
+   classic scrollbars; an overlay scrollbar still covers content regardless, so this also
+   needs real right padding. Both are needed together to handle both scrollbar styles. */
 .sm-scroll-read {
   overflow-y: auto;
   scrollbar-gutter: stable;
@@ -215,12 +230,15 @@
 }
 
 /* ── match gauge (resume composer) ─────────────────────────────────────
-   `match NN / 100` 是这一屏**唯一**可能让 owner 改主意不发这份申请的数字,而它原来借的是
-   访客配额条的排版(等宽灰字),跟旁边那句"已保存"同一族重量 —— 而 `SEND` 是实心黑块。
-   一个左右不可逆外发动作的判据,比那个动作本身轻两档(UX-51)。
+   `match NN / 100` is the **only** number on this screen that could make the owner change
+   their mind about sending this application, yet it originally borrowed the visitor quota
+   bar's layout (gray monospace) — the same visual weight as the "saved" label next to it,
+   while `SEND` is a solid black block. A judgment call that decides an irreversible outbound
+   action was two visual weight classes lighter than the action itself (UX-51).
 
-   这里只做一件事:把那个数字变成这条栏上最大的东西。衬线 + tabular + 墨色,
-   跟正文数字同族(后台其它地方的大数也是这个处理,见 `IndexStat`)。 */
+   This does exactly one thing: makes that number the largest thing on the bar. Serif,
+   tabular figures, ink color — the same treatment as body-text numbers elsewhere in the
+   admin backend (see `IndexStat` for the same pattern applied to other large numbers). */
 .sm-match-num {
   font-family: var(--font-serif);
   font-size: 22px;
@@ -229,8 +247,9 @@
   color: var(--color-ink);
 }
 
-/* 一条栏里把不同**种类**的东西分开:这是什么 | 对它的判断 | 对它的动作。
-   三类等距排开、无分隔时,眼睛得逐个读过去才知道哪个是哪个(UX-52)。 */
+/* Separates different **kinds** of thing on one bar: what this is | the judgment on it |
+   the action to take on it. When the three categories are laid out at equal spacing with
+   no divider, the eye has to read through each one in turn to tell which is which (UX-52). */
 .sm-bar-sep {
   flex: none;
   width: 1px;
@@ -239,14 +258,17 @@
 }
 
 /* ── empty state ───────────────────────────────────────────────────────
-   「这里还没有东西 + 怎么让它有」这张卡,**只有这一处**。
+   The "there's nothing here yet + how to add something" card. **Only one definition, here.**
 
-   在这之前是五处各写各的:三种边框(虚线 / 实线 + 面色 / 无)、两种内距、而**每一处都
-   `text-center`** —— 而后台其余全部左对齐。于是一份左对齐的文档里凭空多出一条轴线
-   (UX-75①,在 `/admin/listings` 和 `/admin/drafts` 上一模一样,是一类不是一处)。
+   Before this, five call sites each wrote their own version: three different border styles
+   (dashed / solid-plus-fill / none), two different paddings, and **every single one used
+   `text-center`** — while the rest of the admin backend is entirely left-aligned. That put
+   an extra axis into an otherwise left-aligned document for no reason (UX-75①; identical on
+   `/admin/listings` and `/admin/drafts`, so it's a class of bug, not one instance).
 
-   居中在这里也不只是对齐问题:空态卡的正文是**下一步该做什么**,它是要被读的指令,
-   不是标语。左对齐让它跟页面上其它段落进同一条阅读线。 */
+   Centering here isn't only an alignment issue either: the empty-state body copy is
+   **what to do next** — an instruction meant to be read, not a slogan. Left-aligning it
+   puts it on the same reading line as the rest of the page's paragraphs. */
 .sm-empty {
   border: 1px dashed var(--color-rule);
   border-radius: 3px;
@@ -465,11 +487,15 @@
   font-size: 13px;
   letter-spacing: 0.02em;
 }
-/* 两个尺码修饰符,来自 UX-87 的清点:41 处手抄的下划线输入里,字号已经分裂成九种。
-   把它们收回来时只有两种尺码是**真需要**的,其余都是随手写的差别:
-     · sm-field-lg —— 一张卡片的主字段(账户里的名字、语料条目的标题):它是那一屏的题目。
-     · sm-field-xs —— 一行里的密集元字段(waypoint 的证据、provider 的油量数字)。
-   要第三种尺码之前先问它是不是又一次"随手写的差别"。 */
+/* Two size modifiers, from the UX-87 inventory: across 41 hand-copied underline inputs, the
+   font size had already split into nine variants.
+   Reeling them in, only two sizes turned out to be **actually needed**; the rest were just
+   incidental differences:
+     · sm-field-lg — a card's primary field (an account's name, a corpus entry's title):
+       it's the headline of that screen.
+     · sm-field-xs — a dense metadata field in a list row (a waypoint's evidence, a
+       provider's remaining-quota number).
+   Before adding a third size, ask first whether it's just another "incidental difference." */
 .sm-field-input.sm-field-lg {
   font-size: var(--t-body-l);
   font-weight: 500;
@@ -481,23 +507,30 @@
 }
 
 /* ── select ────────────────────────────────────────────────────────────
-   下拉此前是全 app 唯一不守这套视觉语言的控件(UX-47):19 个 `<select>`,**五种**
-   互不知道的写法 —— 盒子边框 / 小盒子 / 下划线 / sm-field-input / gate 那个近黑实心。
-   不是某处漏改,是**没有这一层**,于是每个面各自决定怎么办。
+   Dropdowns were previously the only control in the whole app that didn't follow this
+   visual language (UX-47): 19 `<select>` elements, **five** mutually unaware styles —
+   boxed border / small box / underline / sm-field-input / the near-black solid one on gate.
+   It wasn't a missed spot; there simply **was no such layer**, so each surface decided for
+   itself.
 
-   下拉复用 `.sm-field-input` 的线 —— 那条线只有一处定义,输入框和下拉共用同一条,
-   于是"这条线长什么样"以后只会改一个地方。`.sm-select` 只加**下拉独有**的那部分。
+   The dropdown reuses `.sm-field-input`'s underline — that line is defined in exactly one
+   place, and the text input and the dropdown share it, so "what does this line look like"
+   only ever changes in one spot going forward. `.sm-select` adds only the part that's
+   **dropdown-specific**.
 
-   箭头必须自己画:原生箭头是系统件,`appearance: none` 之后才轮得到我们。
-   而 `<select>` 挂不住 `::after` —— 这就是为什么这里必须有一个 shell,
-   也就是 UX-47 判的"缺一个组件"。 */
+   The arrow has to be drawn by hand: the native arrow is a system element, and only after
+   `appearance: none` do we get to draw our own. And `<select>` can't host a `::after` —
+   which is exactly why a shell is required here, the "missing component" that UX-47
+   diagnosed. */
 .sm-select-shell {
   position: relative;
   display: block;
 }
-/* 箭头用 **mask** 而不是 background-image:data URI 里塞不进 `var()`,若直接写死
-   `stroke='%23B5391C'` 就等于把朱红抄了第二份,而抄第二份必然分叉。
-   mask 只取 SVG 的 alpha(形状),颜色由 background-color 给 —— token 仍然是唯一来源。 */
+/* The arrow uses **mask** rather than background-image: a data URI can't take a `var()`
+   inside it, and hard-coding `stroke='%23B5391C'` would copy the vermillion value a second
+   time, and a second copy inevitably drifts.
+   The mask only takes the SVG's alpha (its shape); the color comes from background-color —
+   so the token stays the single source. */
 .sm-select-shell::after {
   content: '';
   position: absolute;
@@ -534,11 +567,14 @@
   border: 1px solid var(--color-rule);
   border-radius: 4px;
 }
-/* 段本身按**子元素**选，不按 `button` 选：只读的分段（application 的 status）渲染成
-   `<span>`，因为一个不落库的东西不该看起来能点。规则挂在 `button` 上的时候，那一版
-   一条都没生效 —— padding / 等宽 / 大写 / 字距 / 选中反白全丢，四个状态退回默认衬线体
-   连成一串「committed submitted failed withdrawn」，owner 看不出当前是哪个（F-E-10）。
-   能力搬了家，它的边要跟着走（[[move-the-capability-move-its-edges]]）。 */
+/* Segments are selected by **child element**, not by `button`: a read-only segment (e.g. an
+   application's status) renders as a `<span>`, because something that isn't written to the
+   database shouldn't look clickable. When the rule was scoped to `button`, that version had
+   none of it apply — padding / monospace / uppercase / letter-spacing / selected-inverted all
+   gone, so all four states fell back to the default serif font and ran together into a single
+   string, "committed submitted failed withdrawn," leaving the owner unable to tell which state
+   was current (F-E-10).
+   When a capability moves, its edges have to move with it ([[move-the-capability-move-its-edges]]). */
 .sm-seg > * {
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -771,10 +807,10 @@
 .sm-gauge.is-warn .sm-gauge-value { color: var(--color-accent); }
 
 /* ── session quota strip · used by every visitor surface ──────────────
- * Sticky 横条钉在 TopBar 底下，左 code/BYOAI 标签 + visitor 名，右 used/max
- * 进度条 + actions（>80% 红 + "request more"）。BYOAI 紫色 + "visitor-paid ·
- * unlimited"。组件订阅 zustand visitor session store + cross-tab storage
- * event 实时同步。 */
+ * A sticky bar pinned below the TopBar: left side shows the code/BYOAI tag + visitor name,
+ * right side shows the used/max progress bar + actions (turns red above 80% + "request more").
+ * BYOAI mode is violet and reads "visitor-paid · unlimited". The component subscribes to the
+ * zustand visitor session store and syncs live via cross-tab storage events. */
 .sm-session-strip {
   position: sticky;
   top: 0;
@@ -851,8 +887,9 @@
   letter-spacing: 0.04em;
   font-size: 10px;
 }
-/* 名字可点 = 换人:虚下划线提示可交互,hover 转 accent。继承 strip 字体/字号,
-   不带 button 默认底色/边框/padding。 */
+/* Clicking the name switches the visitor: a dotted underline signals it's interactive,
+   turning accent color on hover. Inherits the strip's font/size, without a button's
+   default background/border/padding. */
 .sm-session-strip-switch {
   font: inherit;
   background: none;
@@ -874,7 +911,7 @@
 .sm-session-strip-link.is-exit:hover { color: var(--color-accent); }
 .sm-session-strip-link.is-request { color: var(--color-accent); }
 
-/* gauge sub-elements (no inline styles)。 */
+/* gauge sub-elements (no inline styles). */
 .sm-session-strip-used { color: var(--color-ink); }
 .sm-session-strip.is-warn .sm-session-strip-used { color: var(--color-accent); }
 .sm-session-strip-turns-suffix {
@@ -886,7 +923,7 @@
 .sm-session-strip-byoai-unlimited { color: var(--color-violet); }
 .sm-session-strip-sep { color: var(--color-faint); }
 
-/* ── floating chat dock · visitor 在 blog/wiki/output 不离页 chat ───── */
+/* ── floating chat dock · lets the visitor chat without leaving the blog/wiki/output page ───── */
 .sm-floating-chat-trigger {
   position: fixed;
   right: 18px;
@@ -921,7 +958,7 @@
   position: fixed;
   right: 18px;
   bottom: 64px;
-  z-index: calc(var(--z-float) + 1);  /* 贴着它的触发器（同 .sm-z-float-1） */
+  z-index: calc(var(--z-float) + 1);  /* sits right above its trigger (same tier as .sm-z-float-1) */
   width: 380px;
   max-width: calc(100vw - 36px);
   max-height: 70vh;
@@ -955,8 +992,9 @@
   color: var(--color-muted);
   line-height: 1.55;
 }
-/* sm-floating-chat-compact —— #35:浮窗复用主 chat 的 ChatTranscript,但缩小版:
-   收紧 DialogCard 的大 padding + 答案字号(高特异性 override Tailwind 显式尺寸)。 */
+/* sm-floating-chat-compact — #35: the floating panel reuses the main chat's ChatTranscript,
+   but in a compact form: tightens DialogCard's large padding + the answer font size
+   (high-specificity override of Tailwind's explicit sizing). */
 .sm-floating-chat-compact article { padding-top: 14px; padding-bottom: 14px; }
 .sm-floating-chat-compact [data-testid='answer-body'] .reading { font-size: 15px; }
 .sm-floating-chat-compact [data-testid='chat-progress'] { padding-left: 0; padding-right: 0; }
@@ -1005,7 +1043,7 @@
   }
 }
 
-/* ── application detail modal · /admin/applications click → 详情 ──── */
+/* ── application detail modal · /admin/applications click → detail view ──── */
 .sm-app-modal-overlay {
   position: fixed;
   inset: 0;
@@ -1363,8 +1401,8 @@
   padding: 20px 28px;
   border-bottom: 1px solid var(--color-rule);
 }
-/* sm-visitor-name-greeting —— owner 设的「这是什么」介绍,放在 access kicker
-   和 "Who's reading?" 之间;serif 正文、稍淡。 */
+/* sm-visitor-name-greeting — the owner-set "what this is" intro, placed between the access
+   kicker and "Who's reading?"; serif body text, slightly muted. */
 .sm-visitor-name-greeting {
   font-family: var(--font-serif);
   font-size: 16px;
@@ -1385,8 +1423,9 @@
   margin-bottom: 14px;
   color: var(--color-ink);
 }
-/* sm-visitor-name-note —— 多人共用 / 同名续聊的次要说明,比主 blurb 小一号、
-   淡一档,strong 用 accent 点出 same/different name。 */
+/* sm-visitor-name-note — secondary copy for shared use / resuming under the same name,
+   one size smaller and one shade lighter than the main blurb; strong uses accent color
+   to call out same/different name. */
 .sm-visitor-name-note {
   font-size: 13.5px;
   line-height: 1.55;
@@ -1469,9 +1508,9 @@
 }
 
 /* ── runtime-dynamic value utilities ─────────────────────────
- * 替代 inline style={{ }}。组件用 Tailwind arbitrary-property 语法
- * 设 CSS var：className="sm-fill [--fill:83%]"，class 读 var 作用。
- * 好处：不需要 eslint-disable no-restricted-syntax。 */
+ * Replaces inline style={{ }}. Components set the CSS var using Tailwind's arbitrary-property
+ * syntax: className="sm-fill [--fill:83%]", and the class reads that var to apply it.
+ * Benefit: no need for eslint-disable no-restricted-syntax. */
 
 .sm-fill { width: var(--fill, 0%); display: block; }
 .sm-heat-fill {

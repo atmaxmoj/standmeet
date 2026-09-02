@@ -1,6 +1,8 @@
-/* BookingEmailPrompt —— #122 约成卡里的"发确认邮件吗"那一截。
-   寄生在 .bookCard 内,顶部一道淡分隔线把它跟 event 信息分开。
-   anti-SaaS:mono 小标 + 朴素描边按钮,vermillion 落在主动作上。 */
+/* BookingEmailPrompt — #122's "send confirmation email?" segment inside the
+   booked-meeting card. Lives inside .bookCard; a faint divider at the top
+   separates it from the event info.
+   anti-SaaS: mono small-caps label + plain outlined button, vermillion on the
+   primary action only. */
 
 .prompt {
   margin-top: 0.7em;

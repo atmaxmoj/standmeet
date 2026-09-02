@@ -1,6 +1,7 @@
-/* react-markdown 渲染单篇 essay 用。
-   parent <article> 加 styles.body，下面按 element 套 standmeet 字体 +
-   Stripe-Press 风密度。pixel-for-pixel 接住旧版手写 inline-style。 */
+/* Used by react-markdown to render a single essay.
+   The parent <article> gets styles.body, and elements below it are styled
+   with the standmeet fonts + Stripe-Press-style density. Matches the old
+   hand-written inline styles pixel-for-pixel. */
 
 .body h1 {
   font-family: var(--font-serif);

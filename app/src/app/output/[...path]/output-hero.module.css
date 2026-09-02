@@ -1,9 +1,10 @@
-/* output-hero.module.css —— output 落地页 hero 的色调。
-   跟 wiki 的 hero 和 writings 的 Cover 同一套写法:**按 data-hue 出渐变**,
-   属性即机制 —— 页面上写着 acid 就一定是 acid 那块渐变。
+/* output-hero.module.css — color treatment for the output landing page hero.
+   Same approach as the wiki hero and the writings Cover: **gradient driven by data-hue**,
+   the attribute IS the mechanism — if the page carries acid, it renders the acid gradient.
 
-   owner 在 hero 编辑器里挑的色调以前到不了这条路上:output 的 hero 一直是一块固定底色,
-   三件套里的第三件在 output 上根本没有渲染位(F-L-34)。 */
+   Previously, the hue the owner picked in the hero editor never reached this path: the output
+   hero was always a fixed background color. The third piece of the trio has no render slot on
+   output at all (F-L-34). */
 
 .hero[data-hue='amber'] {
   background:

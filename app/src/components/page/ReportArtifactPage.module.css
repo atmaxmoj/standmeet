@@ -1,4 +1,4 @@
-/* ReportArtifactPage.module.css —— /report/[id] 全屏渲染。 */
+/* ReportArtifactPage.module.css —— full-screen render for /report/[id]. */
 
 .shell {
   min-height: 100vh;
@@ -24,8 +24,9 @@
   color: var(--color-ink);
 }
 
-/* actions —— 对这份报告的两个动作是**一组**，一起挂右端；
-   身份（左）和动作（右）之间才是这条栏真正的那条缝。 */
+/* actions —— the two actions on this report are **one group**, anchored
+   together at the right edge; the real seam in this bar is between
+   identity (left) and actions (right). */
 .actions {
   display: flex;
   align-items: baseline;

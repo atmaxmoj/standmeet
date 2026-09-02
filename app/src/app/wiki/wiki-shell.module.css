@@ -1,22 +1,30 @@
-/* wiki-shell.module.css —— 阅读器外壳的左侧树轨。
+/* wiki-shell.module.css —— left-hand tree rail of the reader shell.
  *
- * ── 宽度跟着留白走，不是一个定值 ───────────────────────────────────────────────
+ * ── Width follows the margin, it is not a fixed value ───────────────────────
  *
- * 正文是 920px、对视口居中，所以左边那条留白的宽度**由视口决定**：
- *   1280px 视口 → 180px      1536 → 308      1920 → 500      2560 → 820
+ * Body copy is 920px, centered in the viewport, so the width of the left
+ * margin **is determined by the viewport**:
+ *   1280px viewport → 180px      1536 → 308      1920 → 500      2560 → 820
  *
- * 上一版给了固定的 240px。宽屏上它浪费掉几百像素的留白，而窄屏上它比留白还宽、
- * 直接压到正文上。更要命的是深层嵌套：`logic → chomsky-hierarchy → regular-languages
- * → regular-equivalences → kleene-theorem` 这种，缩进吃掉大半，每个标签折成两三行，
- * 一棵树读起来像一列碎词。
+ * The previous version used a fixed 240px. On wide screens that wasted
+ * hundreds of pixels of margin, while on narrow screens it was wider than
+ * the margin and spilled onto the body copy. Worse, with deep nesting like
+ * `logic → chomsky-hierarchy → regular-languages → regular-equivalences →
+ * kleene-theorem`, indentation eats most of the width, each label wraps to
+ * two or three lines, and the tree reads as a column of broken words.
  *
- * 现在轨道**就是那条留白**（减去两侧呼吸），所以屏幕越宽树越好读，而它永远压不到正文。
+ * The rail now **is** that margin (minus breathing room on both sides), so
+ * the wider the screen the more readable the tree, and it never spills onto
+ * the body copy.
  *
- * ── 为什么是 1500px 而不是 Tailwind 的 xl(1280) ────────────────────────────────
+ * ── Why 1500px and not Tailwind's xl (1280) ─────────────────────────────────
  *
- * 1280 的留白只有 180px —— 放一棵带缩进的树是不够的，渲出来就是那列碎词。
- * 门槛按**留白够不够用**定（≥ 260px），反解出来视口要 ≥ 920 + 2×290 = 1500。
- * 拿断点当判据的话，判的是"屏幕算不算大"，而真正的问题是"这棵树有没有地方站"。 */
+ * At 1280 the margin is only 180px — not enough room for an indented tree;
+ * it renders as that column of broken words. The threshold is set by
+ * **whether the margin is wide enough** (≥ 260px), which back-solves to a
+ * viewport of ≥ 920 + 2×290 = 1500. A plain breakpoint would be judging
+ * "is the screen big", when the real question is "does this tree have room
+ * to stand". */
 
 .rail {
   position: absolute;
@@ -25,7 +33,8 @@
   bottom: 0;
   display: none;
   overflow-y: auto;
-  /* 留白减去左右呼吸；上限 380 —— 再宽的树只会让眼睛横跳。 */
+  /* Margin minus breathing room on both sides; capped at 380 — a wider tree
+     would just make the eye jump further. */
   width: min(380px, calc((100vw - 920px) / 2 - 2.5rem));
   padding-left: 1.5rem;
   padding-right: 0.5rem;
@@ -36,9 +45,10 @@
   .rail { display: block; }
 }
 
-/* 切口处的渐隐 —— 树比视口高时下半截被切，切口必须自己说"下面还有"。
- * 跟 UX-56 那张 sneak-peek 卡片同一条约定。挂在**滚动容器自己**身上：
- * 被切的是谁，信号就长在谁身上。 */
+/* Fade at the cut edge — when the tree is taller than the viewport, the
+ * bottom half gets cut off, and the cut edge must say for itself "there's
+ * more below". Same convention as the UX-56 sneak-peek card. Attached to
+ * **the scroll container itself**: whoever gets cut carries the signal. */
 .rail::after {
   content: '';
   position: sticky;

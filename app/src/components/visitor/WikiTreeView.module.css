@@ -1,7 +1,8 @@
-/* WikiTreeView.module.css —— 对齐设计 wiki.js TreeAside + WIKI_TREE_CSS。
-   抬头(mono)/ 节点(serif,可换行不省略)/ 缩进虚线导引 / 当前 accent / gated
-   斜体+红点 / 统计脚注(mono)。aside 自身只管内边距,border-right + 滚动在
-   ReaderLayout 的 <aside> 上。 */
+/* WikiTreeView.module.css — matches the design's wiki.js TreeAside +
+   WIKI_TREE_CSS. Header (mono) / node (serif, wraps instead of truncating) /
+   dotted indent guide / accent on current item / gated items in italic with
+   a red dot / stats footer (mono). The aside itself only handles padding —
+   border-right and scroll live on ReaderLayout's <aside>. */
 
 .aside {
   padding: 28px 20px 28px 26px;
@@ -52,7 +53,8 @@
   padding: 0;
 }
 
-/* 子层:左移 6 + 内缩 16 + 虚线导引,对齐设计 borderLeft dotted。 */
+/* Child level: shift left 6 + indent 16 + dotted guide, matching the design's
+   borderLeft dotted. */
 .children {
   margin-left: 6px;
   padding-left: 16px;
@@ -99,7 +101,8 @@
   color: var(--color-accent);
 }
 
-/* 链接:serif,允许换行(设计里长标题是折行,不是省略号)。 */
+/* Link: serif, allows wrapping (in the design, long titles wrap instead of
+   being truncated with an ellipsis). */
 .link {
   flex: 1;
   min-width: 0;

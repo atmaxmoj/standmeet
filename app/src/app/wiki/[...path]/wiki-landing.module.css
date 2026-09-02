@@ -1,7 +1,8 @@
-/* wiki-landing.module.css —— /wiki/<slug> 的 OG cover hero。对齐设计
-   wiki.js 的 .og-cover：21:9、hue 渐变(amber/violet/acid)、四角定位的
-   mono tag / 日期 + 大 serif 标题 + italic 副标。container-type 让里头的
-   clamp(cqi) 随卡宽缩放。token 用 app 的 --color-*。 */
+/* wiki-landing.module.css — the OG cover hero for /wiki/<slug>. Matches the
+   design's wiki.js .og-cover: 21:9, hue gradient (amber/violet/acid), a
+   corner-positioned mono tag / date + a large serif title + an italic
+   subtitle. container-type lets the clamp(cqi) values inside scale with
+   card width. Tokens use the app's --color-*. */
 
 .cover {
   aspect-ratio: 21 / 9;
@@ -11,13 +12,18 @@
   container-type: inline-size;
 }
 
-/* .veil —— 封面图之上、所有文字之下的护字层（UX-83）。
-   只在**有封面图**时才渲（组件那边判），没有图的封面本来就是纸色 + hue 渐变。
-   颜色来自 --sm-cover-veil 这一个来源 —— 它跟模态用的 --sm-scrim 是两件事：
-   scrim 遮住底下，veil 保住图像。两处 hero（writings 的 Cover、这里的 OgCover）
-   用同一个 token，免得下次只改到其中一处。
-   **层级靠 DOM 顺序**：图和文字都没有 z-index（auto），同一个绘制层按文档顺序画，
-   所以 veil 排在图之后、文字之前就够了。给它 z-index 反而会把字一起盖住。 */
+/* .veil — the text-legibility layer above the cover image and below all
+   text (UX-83). Only renders when there **is** a cover image (the component
+   decides that); a cover with no image is already paper color + hue
+   gradient. The color comes from a single source, --sm-cover-veil — a
+   separate concern from --sm-scrim, which the modal uses: scrim darkens
+   what's underneath, veil preserves the image. Both hero spots (writings'
+   Cover and this OgCover) share the same token so a future change doesn't
+   land in only one of them.
+   **Stacking relies on DOM order, not z-index**: neither the image nor the
+   text has a z-index (both auto), so they paint in the same layer in
+   document order — the veil coming after the image and before the text is
+   enough on its own. Giving it a z-index would cover the text too. */
 .veil {
   position: absolute;
   inset: 0;
@@ -73,9 +79,9 @@
   text-align: right;
 }
 
-/* 色调按 data-hue 出 —— 跟 writings 的 Cover.module.css 同一套写法。
-   属性即机制:页面上写着 data-hue="acid" 就一定是 acid 那块渐变,不会出现
-   "标记说一个、上色是另一个"。 */
+/* Hue comes from data-hue — the same pattern as writings' Cover.module.css.
+   The attribute IS the mechanism: a page marked data-hue="acid" always gets
+   the acid gradient, so the tag and the color applied can never disagree. */
 .cover[data-hue='amber'] {
   background:
     radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--color-amber) 30%, transparent), transparent 70%),

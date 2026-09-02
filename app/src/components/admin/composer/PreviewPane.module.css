@@ -16,10 +16,12 @@
   border-bottom: 1px solid var(--color-rule);
 }
 
-/* fileName —— 产物的名字，可以很长（`resume_american-academy-of-achievement.pdf` 是 44 个
-   大写字符）。它**让位给右边的控件**：缩放和页数是 owner 要按的东西，名字只是身份，
-   而公司名再长一点就会把它们挤出去（UX-52 的右半边）。所以这里 min-width:0 + 截断，
-   完整的名字留在 title 上。 */
+/* fileName —— the artifact's name, which can be long (`resume_american-academy-of-
+   achievement.pdf` is 44 uppercase characters). It **yields to the controls on the
+   right**: zoom and page count are what the owner actually needs to click, the name is
+   just identity, and a slightly longer company name would push those controls off-screen
+   (the right half of UX-52). So min-width:0 plus truncation here, with the full name kept
+   on the title attribute. */
 .fileName {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -32,8 +34,9 @@
   white-space: nowrap;
 }
 
-/* right —— 不许被压缩：flex 默认允许收缩，于是长名字会先把缩放按钮挤扁再挤没
-   （[[text-assertion-cannot-see-layout]] 那条的同一种物理）。 */
+/* right —— must not be allowed to shrink: flex allows shrinking by default, so a long name
+   would first squash the zoom buttons and then push them out entirely (the same physics as
+   [[text-assertion-cannot-see-layout]]). */
 .right {
   display: flex;
   align-items: center;

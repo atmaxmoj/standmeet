@@ -1,6 +1,7 @@
-/* typographic post 封面：21:9 aspect + hue radial gradient + optional 上层
-   image。runtime image URL 通过 `--cover-img` 单点 inline-style threading
-   （Cover.tsx 配 eslint-disable）；其余维度都走 data-attribute 切换。 */
+/* typographic post cover: 21:9 aspect + hue radial gradient + an optional
+   image layer on top. The runtime image URL threads through as a single
+   inline style, `--cover-img` (Cover.tsx pairs it with an eslint-disable);
+   every other dimension switches via data-attributes. */
 
 .cover {
   position: relative;
@@ -45,11 +46,16 @@
   z-index: var(--z-local);
 }
 
-/* .veil —— 只在**有封面图**时才铺（没有图的封面是纯排版 + 渐变，压什么都没有）。
-   颜色来自 --sm-cover-veil 那一个来源（不是 --sm-scrim，两者职责不同，见 globals.css）。
-   **层级靠 DOM 顺序，不靠更大的 z-index**：`--z-local` 是 0，而标题/副标/角标都没有 z-index
-   （即 auto）—— auto 和 0 在同一个绘制层里按文档顺序画。所以 veil 跟图同层、排在图之后、
-   文字之前就正好。给它 +1 反而会连字一起盖住（我第一版就是这么写的）。 */
+/* .veil — only laid down when there **is** a cover image (a cover with no
+   image is just typography + gradient, with nothing to darken). The color
+   comes from a single source, --sm-cover-veil (not --sm-scrim — the two have
+   different jobs, see globals.css).
+   **Stacking relies on DOM order, not a higher z-index**: `--z-local` is 0,
+   and the title/subtitle/corner tags have no z-index at all (i.e. auto) —
+   auto and 0 paint in the same layer, in document order. So the veil sits in
+   the same layer as the image, after the image and before the text — that's
+   exactly right. Giving it +1 would cover the text too (that's how my first
+   version had it). */
 .veil {
   position: absolute;
   inset: 0;
@@ -73,7 +79,8 @@
   position: absolute;
   top: 14%; left: 6%; max-width: 76%;
   font-family: var(--font-serif);
-  /* --fit-cqi 由组件按文本长度算（见 Cover.tsx 的 fitCqi）；没设时退回原来的 11cqi。 */
+  /* --fit-cqi is computed by the component from text length (see fitCqi in
+     Cover.tsx); falls back to the original 11cqi when unset. */
   font-size: clamp(20px, calc(var(--fit-cqi, 11) * 1cqi), 96px);
   font-weight: 400;
   letter-spacing: -0.025em;
@@ -87,7 +94,8 @@
   text-align: right;
   font-family: 'Newsreader', serif;
   font-style: italic;
-  /* 同上。这一格是那篇 essay 爆框的地方：excerpt 125 字符 × 64px，从顶端溢出被切掉。 */
+  /* Same as above. This is the field where that one essay overflowed its box:
+     a 125-character excerpt at 64px overflowed from the top and got clipped. */
   font-size: clamp(15px, calc(var(--fit-cqi, 7.5) * 1cqi), 64px);
   font-weight: 400;
   letter-spacing: -0.025em;

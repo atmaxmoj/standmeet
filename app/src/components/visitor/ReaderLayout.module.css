@@ -1,29 +1,39 @@
-/* ReaderLayout.module.css —— 左侧树轨的续读信号。
+/* ReaderLayout.module.css — a "more below" cue for the left tree rail.
  *
- * 树 sticky + 自己滚，比视口高时下半截被切。切口原本什么都不说 —— 读者滚到页面底，
- * 看见树断在半途，而鼠标在正文上滚它不动，于是结论是「下面明显还有东西，我滚不下去」。
+ * The tree is sticky and scrolls on its own; when it's taller than the viewport, the bottom
+ * half gets cut off. Originally the cut edge said nothing — a reader scrolls to the bottom of
+ * the page, sees the tree stop mid-list, and since the mouse is over the body content it
+ * doesn't scroll the tree, so the natural conclusion is "there's clearly more below and I
+ * can't reach it."
  *
- * 这条渐隐跟 UX-56 那张 sneak-peek 卡片是**同一条约定**：一张会被切的东西，
- * 切口处要有续读信号。少了它，被切读起来像"坏了"而不是"还有"。
+ * This fade is **the same convention** as the sneak-peek card in UX-56: anything that can get
+ * cut off needs a continuation cue at the cut edge. Without it, a cut-off list reads as
+ * "broken" instead of "there's more."
  *
- * ⚠️ 伪元素必须挂在**内层那个滚动容器**上，而且用 `position: sticky; bottom: 0`。
- * 第一版挂在外层轨道（`absolute` 的那个）上：轨道跟文档一样高、根本不是被切的那一个，
- * 于是渐隐落在文档底部而不是树的切口上 —— 线上验的时候树在底部仍然是硬切
- * （`principles` 直接断在边缘）。被切的是谁，信号就得长在谁身上。 */
+ * Warning: the pseudo-element must attach to the **inner scroll container**, using
+ * `position: sticky; bottom: 0`. The first version attached it to the outer rail (the
+ * `absolute`-positioned one) instead: that rail is as tall as the whole document and isn't
+ * the thing being cut off, so the fade landed at the bottom of the document instead of at the
+ * tree's cut edge — verified live, the tree still had a hard cut at the bottom (`principles`
+ * broke right at the edge). The cue has to live on whatever is actually being cut off. */
 
 .rail {
-  /* 轨道只负责定位，本身不画东西。 */
+  /* The rail only handles positioning; it doesn't paint anything itself. */
 }
 
 .railInner {
-  /* 让 ::after 相对这个滚动容器定位 —— sticky 的包含块就是它。 */
+  /* Lets ::after position itself relative to this scroll container — it's the containing
+   * block for the sticky element. */
   position: relative;
-  /* 滚动条不占版面宽度，也不在纸色底上画一条灰槽。 */
+  /* Keeps the scrollbar from taking up layout width, and from drawing a gray groove on the
+   * paper-colored background. */
   scrollbar-width: thin;
 }
 
-/* 切口处的渐隐：sticky 贴着滚动容器的底边，内容滚过去它不动。
- * `margin-top: -3rem` 让它盖在最后几行字上，而不是把内容往上推。 */
+/* The fade at the cut edge: sticky, pinned to the scroll container's bottom edge, and stays
+ * put while the content scrolls past it.
+ * `margin-top: -3rem` overlaps it onto the last few lines of text instead of pushing content
+ * up. */
 .railInner::after {
   content: '';
   position: sticky;
