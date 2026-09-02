@@ -1,16 +1,21 @@
-// account-gate-is-not-brute-forceable.spec.ts —— 那道当前密码闸门本身要能扛住爆破。
+// account-gate-is-not-brute-forceable.spec.ts —— the current-password gate itself must be
+// able to withstand a brute-force attempt.
 //
-// 缺陷（审计 2026-08-31）：`/api/admin/login` 和 `/api/admin/recover` 都挂了 `loginGuard`
-// （每 IP 限速 + 等时响应，`routes/admin/claim.go:63`）。而 `/account/email` 和
-// `/account/password` **一个都没挂**（`routes/admin/account.go:29-31`）。
+// The defect (audited 2026-08-31): both `/api/admin/login` and `/api/admin/recover` have
+// `loginGuard` attached (per-IP rate limiting + constant-time response,
+// `routes/admin/claim.go:63`). But `/account/email` and `/account/password` have **neither**
+// (`routes/admin/account.go:29-31`).
 //
-// 有人会说这两条在 session 后面，攻击者得先有 session。**那正是问题所在** ——
-// 当前密码闸门存在的全部理由就是"偷到 session 也不等于接管账号"。而现在偷到 session 的人
-// 可以对着 `/account/password` 无限次、全速试密码，一次限速都不吃。
-// 前门装了锁，里面那道保险柜的密码盘可以随便转。
+// One could argue these two sit behind a session, so an attacker needs a session first.
+// **That's exactly the problem** — the whole reason the current-password gate exists is that
+// "stealing a session should not equal taking over the account." But right now, whoever
+// steals a session can hammer `/account/password` at full speed, unlimited attempts, with no
+// rate limiting at all. There's a lock on the front door, but the combination dial on the
+// safe inside can be spun freely.
 //
-// 判据：不断"某一次被拒了"——那本来就会被拒。断的是**连续错误之后这条路被挡住**，
-// 而且挡法跟前门一致（同一个 loginGuard，不是另写一套）。
+// The criterion: not "some single attempt got rejected" — that would happen anyway. What's
+// asserted is that **this path gets blocked after repeated failures**, and blocked the same
+// way as the front door (the same loginGuard, not a separately written one).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -49,7 +54,7 @@ test.describe('account · the current-password gate is rate limited like the fro
   test('a stolen session cannot grind the current-password gate at full speed',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      // 攻击者手上有一个合法 session —— 这正是这道闸门要防的场景。
+      // The attacker holds a valid session — this is exactly the scenario this gate exists to prevent.
       const { csrf } = await login(request, OWNER.email, OWNER.password);
 
       const codes: number[] = [];
@@ -57,12 +62,14 @@ test.describe('account · the current-password gate is rate limited like the fro
         codes.push(await guessPassword(request, csrf, `guess-number-${i}`));
       }
 
-      // 前面几次是 401/403（密码不对）；到某一次必须变成 429（被限速挡住）。
-      // 断"出现过 429"而不是"最后一次是 429"—— 阈值是运维取舍，这里只要求它存在。
+      // The first few are 401/403 (wrong password); at some point it must turn into 429
+      // (blocked by rate limiting). Assert "a 429 appeared" rather than "the last one is
+      // 429" — the exact threshold is an ops tradeoff; here it's only required to exist.
       expect(codes, `12 次全速猜测一次都没被挡：${codes.join(',')}`).toContain(429);
 
-      // 而且被限速之后，**正确的密码也不该马上放行** —— 否则限速只是延后了成功，
-      // 攻击者拿对了照样过。
+      // And once rate-limited, **the correct password should not go through right away
+      // either** — otherwise rate limiting only delays success, and the attacker still gets
+      // through once they guess right.
       const afterBlock = await guessPassword(request, csrf, OWNER.password);
       expect(afterBlock).toBe(429);
 
@@ -71,8 +78,9 @@ test.describe('account · the current-password gate is rate limited like the fro
 
   test('the same guard covers the email gate, not only the password gate',
     async ({ playwright }) => {
-      // 两条路通向同一件事（改凭据）。只挡一条等于没挡
-      // —— [[gate-after-early-return-is-walkable]]：换个入口就绕开。
+      // Both paths lead to the same thing (changing credentials). Blocking only one is the
+      // same as blocking neither — [[gate-after-early-return-is-walkable]]: switch entry
+      // points and you route around it.
       const request = await playwright.request.newContext();
       const { csrf } = await login(request, OWNER.email, OWNER.password);
 

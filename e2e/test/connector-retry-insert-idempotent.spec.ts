@@ -1,12 +1,12 @@
-// connector-retry-insert-idempotent.spec.ts —— §五 重试矩阵 · 写类不双订
+// connector-retry-insert-idempotent.spec.ts —— §five, retry matrix: a write must not double-book
 //
 // events.insert is a SYNC, NON-IDEMPOTENT write. Blind retries double-book.
-// Per the locked design (§五 写幂等): only retry on a "connection failed
+// Per the locked design (§five, write idempotency): only retry on a "connection failed
 // BEFORE send" or with an idempotency key — never blindly. So under a
 // TRANSIENT connection error around events.insert the booking must still
 // succeed AND create EXACTLY ONE event (no double-book).
 //
-// 重试下不双订: mock GCal injects a transient connection error around
+// Must not double-book under retry: mock GCal injects a transient connection error around
 // events.insert; after the retry exactly ONE event exists (getMockEvents
 // length === 1).
 //

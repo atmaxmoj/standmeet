@@ -1,4 +1,4 @@
-// api-key-security.spec.ts —— 【对外】adversarial probes on the API-key facade: brute-force,
+// api-key-security.spec.ts -- [external] adversarial probes on the API-key facade: brute-force,
 // DoS (per-key rate limit + body-size bound), and no-leak (a valid outward key must never reach the
 // owner control plane). GREEN = the boundary holds.
 
@@ -88,17 +88,22 @@ async function checkRateLimit(r: APIRequestContext): Promise<void> {
   await checkRetryAfter(r, limited.secret);
 }
 
-// checkRetryAfter —— 429 要说**什么时候**能再试,不只是「你被限了」(F-K-2)。
+// checkRetryAfter -- a 429 must say **when** to retry, not just "you're rate-limited"
+// (F-K-2).
 //
-// 拿不到时间的客户端只能猜,而最常见的猜法是立刻重试 —— 恰恰是限流要防的那件事。
-// 这一条不是礼貌问题:同一个仓库的推理传输层**要求上游给 `Retry-After` 并据此退避**
-// (F-A-31),我们不能要求别人给、自己这一侧不给。
+// A client that can't get a time can only guess, and the most common guess is to retry
+// immediately -- exactly what rate limiting is supposed to prevent.
+// This isn't just politeness: this same repo's inference transport layer **requires**
+// upstream to send `Retry-After` and back off based on it (F-A-31); we can't require that
+// of others while not sending it ourselves.
 //
-// 断言的是**头**而不是响应体里的措辞:头是机器读的那一份,而会照做的正是机器。
+// Asserts on the **header**, not the wording in the response body: the header is the part
+// a machine reads, and a machine is exactly what will comply.
 async function checkRetryAfter(r: APIRequestContext, limitedKey: string): Promise<void> {
   const res = await facadeQuery(r, limitedKey, { query: 'x' });
-  // 正对照:这一次确实是被限了。缺了它,下面的断言在「限流根本没生效」时会红得莫名其妙,
-  // 而红的原因会被记到缺头上（[[red-in-the-wrong-place]]）。
+  // Positive control: this call really was rate-limited. Without it, the assertion below
+  // would go red for no obvious reason whenever rate limiting simply isn't wired up, and
+  // that red would get blamed on the missing header ([[red-in-the-wrong-place]]).
   expect(res.status(), 'still over the cap for this assertion to mean anything').toBe(429);
   const retryAfter = res.headers()['retry-after'];
   expect(retryAfter, 'a 429 carries Retry-After').toBeDefined();

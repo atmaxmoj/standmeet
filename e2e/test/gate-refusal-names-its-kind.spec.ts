@@ -1,18 +1,25 @@
-// gate-refusal-names-its-kind.spec.ts —— F-D-6:每一种拒绝要说出自己那一类。
+// gate-refusal-names-its-kind.spec.ts -- F-D-6: every refusal must name its own kind.
 //
-// 拿着码的人,「打错字」和「被 owner 吊销」该做的事是**相反**的:前者重新粘一次,后者别再试、
-// 去要一张新的。而 gate 对这两种回的是同一句 `access code invalid or revoked` —— 两种人都不
-// 知道下一步。
+// For someone holding a code, "mistyped it" and "the owner revoked it" call for **opposite**
+// actions: the former just retypes it, the latter should stop trying and ask for a new one.
+// But the gate returns the same string, `access code invalid or revoked`, for both -- neither
+// person knows what to do next.
 //
-// 分支在数据层就没了:`codes_query.go` 的 GetByCode 只查 active,于是「被吊销」和「不存在」
-// 都是 no-rows,收敛成同一个 ErrCodeInvalid。所以这不是文案没写好,是那句话**永远写不出来**。
+// The distinction is gone at the data layer: `codes_query.go`'s GetByCode only queries
+// active rows, so "revoked" and "doesn't exist" both come back as no-rows, collapsing into
+// the same ErrCodeInvalid. So this isn't a copy problem, it's that the sentence **can never
+// be written** as things stand.
 //
-// 这条从 GUI 走,读访客真正看到的那句 —— 后端回什么 code 是实现细节,访客看到的是措辞。
+// This test goes through the GUI, reading the exact string the visitor sees -- what code the
+// backend returns is an implementation detail; what the visitor sees is the wording.
 //
-// 满员那一种已经是对的(`this code is full`),一并断住:它是这条 item 点名要防的那一类
-// (「有效邀请被报成坏码」),不能在修吊销那条时被顺手合并回去。
+// The "full" case is already correct (`this code is full`); this test locks that in too --
+// it is exactly the kind of case this item names as something to protect ("a valid invite
+// gets reported as a bad code"), and it must not get folded back together while fixing the
+// revoked case.
 //
-// RED(修复前):吊销那条读到的是跟不存在完全相同的句子 → 第二个 test 红。
+// RED (before the fix): the revoked case reads back the exact same sentence as "doesn't
+// exist" -> the second test fails.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -37,8 +44,9 @@ const FULL_CODE = 'REFUSE-FULL';
 let seeded: { request: APIRequestContext; csrf: string } | null = null;
 
 test.beforeAll(async ({ playwright }) => {
-  // 装配里有一次真开会话(占掉那个唯一名额),而开会话要串行冷启沙箱 —— 新实例上远超默认的
-  // 30s hook 上限。放宽的是**前置条件**的时间,不是断言的时间。
+  // Setup opens a real session (to take that one seat), and opening a session means a
+  // serial cold-start of the sandbox -- on a fresh instance this blows well past the default
+  // 30s hook limit. What's being widened is the time for **setup**, not for the assertion.
   test.setTimeout(180_000);
   seeded = await setup(playwright);
 });
@@ -57,30 +65,33 @@ test.describe('gate · every refusal names its own kind (F-D-6)', () => {
     const unknown = await refusalFor(page, 'NOSUCH-998', 'Stranger');
     const revoked = await refusalFor(page, REVOKED_CODE, 'Holder');
 
-    // 断「两句不一样」,而不是断某个具体措辞 —— 措辞是产品的选择,「分得出来」才是不变量。
+    // Assert "the two strings differ", not any specific wording -- wording is the product's
+    // choice, "being distinguishable" is the invariant.
     expect(
       revoked,
       'a revoked code and an unknown code must not read identically — '
       + 'one means retype it, the other means ask for a new one',
     ).not.toBe(unknown);
-    // 而且要说得出「撤销」这件事,不能只是换个说法的同一个意思。
+    // And it must actually say "revoked" -- not just be a different phrasing of the same meaning.
     expect(revoked, 'the revoked case must name revocation').toMatch(/revok|withdraw|no longer/i);
   });
 
   test('a full code is still reported as full, not as a bad code', async ({ page }) => {
-    // 这一条是 item 点名要防的那一类:有效邀请被报成坏码。修吊销那条时不许把它合并回去。
+    // This is exactly the kind of case the item names as something to protect: a valid
+    // invite reported as a bad code. Must not get merged back in while fixing the revoked case.
     const msg = await refusalFor(page, FULL_CODE, 'SecondSeat');
     expect(msg, 'a full code must say it is full').toMatch(/full/i);
   });
 });
 
-// refusalFor —— 在 gate 上填码 + 名字、提交,回读访客看到的那句拒绝。
+// refusalFor -- fills in code + name on the gate, submits, and reads back the exact refusal
+// text the visitor sees.
 async function refusalFor(page: Page, code: string, name: string): Promise<string> {
   await goto(page, '/gate');
   await page.getByTestId('gate-code').fill(code);
   await page.getByTestId('gate-visitor-name').fill(name);
   await page.getByTestId('gate-code-submit').click();
-  // gate-error 在页面上不止一处(code 面板 / request 面板各一),收窄到 code 面板里那条。
+  // gate-error appears more than once on the page (one in the code panel, one in the request panel); scope down to the one in the code panel.
   const err = page.getByTestId('code-panel').getByTestId('gate-error');
   await expect(err, 'the gate must show a refusal').toBeVisible({ timeout: 10_000 });
   return (await err.innerText()).trim();
@@ -95,10 +106,10 @@ async function setup(playwright: Playwright): Promise<{ request: APIRequestConte
   });
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   await createCode(request, csrf, { code: LIVE_CODE, label: 'live' });
-  // 满员:名额 1,先用掉。
+  // Full: capacity of 1, used up first.
   await createCode(request, csrf, { code: FULL_CODE, label: 'full', max_members: 1 });
   await enterOnce(request, FULL_CODE, 'FirstSeat');
-  // 吊销:建出来再撤。
+  // Revoked: created, then revoked.
   const gone = await createCode(request, csrf, { code: REVOKED_CODE, label: 'gone' });
   const res = await request.post(`${BACKEND}/api/admin/codes/${gone.id}/revoke`, {
     headers: { 'X-Csrftoken': csrf },
@@ -107,7 +118,7 @@ async function setup(playwright: Playwright): Promise<{ request: APIRequestConte
   return { request, csrf };
 }
 
-// enterOnce —— 占掉一个名额(走发码会话接口,不必开浏览器)。
+// enterOnce -- takes up one seat (through the code session-issuing endpoint, no browser needed).
 async function enterOnce(request: APIRequestContext, code: string, name: string): Promise<void> {
   const res = await request.post(`${BACKEND}/api/v1/sessions`, {
     data: { handle: OWNER.handle, mode: 'code', code, visitor_name: name },

@@ -1,12 +1,16 @@
-// code-card-public-scope.spec.ts —— 挂 public 的码，卡上不许说它"什么都读不到"（UX-67）。
+// code-card-public-scope.spec.ts -- a code assigned the public role must not have its card
+// say it "reads nothing" (UX-67).
 //
-// F-D-7 之后 `public` 身份**没有正列表**：它读的是 owner 发布过的那些，由每条笔记自己的
-// 开关定。码卡片上「CORPUS · INHERITED FROM ROLE」那一格直接渲染那份列表，空了就打印
-// `(role grants nothing)` —— 于是一张公开码被写成"什么都看不到"，而它明明读得到已发布的条目。
+// After F-D-7, the `public` identity **has no allow-list**: it reads whatever the owner has
+// published, decided by each note's own toggle. The code card's "CORPUS · INHERITED FROM
+// ROLE" field renders that list directly, and prints `(role grants nothing)` when it's
+// empty -- so a public code gets described as "sees nothing", even though it can clearly
+// read every published entry.
 //
-// 这句话是 owner 判断「这张码能看什么」的唯一依据，所以它说反了不是文案问题。
+// This line is the owner's only way to tell "what can this code see", so getting it
+// backwards is not a copy nit.
 //
-// RED（修之前）：public 那张卡上出现 `(role grants nothing)`。
+// RED (before the fix): the public card shows `(role grants nothing)`.
 
 import type { Page } from '@playwright/test';
 
@@ -35,11 +39,11 @@ test.describe('codes · the card says what the code can actually read', () => {
     });
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     const publicRole = await getRoleByName(request, 'public');
-    // 一张显式挂 public 的码（owner 决定"这个人只看公开面"）。
+    // A code explicitly assigned the public role (owner decided "this person only sees the public slice").
     await createCode(request, csrf, {
       code: 'PUBCARD-1', label: 'pubcard', assumed_role_id: publicRole.id,
     });
-    // 一张留空的（= invited），当对照：它有真正的正列表。
+    // A code left blank (= invited), as the control: it has a real allow-list.
     await createCode(request, csrf, { code: 'INVCARD-1', label: 'invcard' });
     await request.dispose();
   });
@@ -48,7 +52,8 @@ test.describe('codes · the card says what the code can actually read', () => {
     await gotoAdminSection(adminPage, 'codes');
     const pub = adminPage.getByTestId('code-corpus-PUBCARD-1');
     await expect(pub).toBeVisible({ timeout: 10_000 });
-    // 正向对照先跑：invited 那张确实列出 glob —— 否则下面那条"没说 nothing"可能只是这一格没渲染。
+    // Run the positive control first: the invited card really does list globs -- otherwise
+    // the "doesn't say nothing" assertion below could just mean this field never rendered.
     await expectInheritedGlobs(adminPage);
     await expect(
       pub,

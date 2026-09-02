@@ -1,10 +1,10 @@
-// chat-welcome.spec.ts —— ChatWelcome 渲染不同 mode 的欢迎语。
+// chat-welcome.spec.ts — ChatWelcome renders the greeting for each mode.
 //
-// 用户故事：
-//   1. coded mode → 显示 code label + scope 说明 + "ask anything"
-//   2. BYOAI mode → 显示 provider name + "public slice only"
-//   3. coded + 有 visitor name → "Hi, {firstName}"
-//   4. coded + 无 visitor name → "Hi"
+// User stories:
+//   1. coded mode → shows the code label + scope description + "ask anything"
+//   2. BYOAI mode → shows the provider name + "public slice only"
+//   3. coded + a visitor name is present → "Hi, {firstName}"
+//   4. coded + no visitor name → "Hi"
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';

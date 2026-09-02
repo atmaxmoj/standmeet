@@ -1,6 +1,8 @@
-// admin-system-pulse.spec.ts —— Monitor/observability。SystemPulse(sidebar 语料库脉搏)接真
-// GET /api/admin/stats/growth:corpus 14d 增长序列 + 7d delta + 分层计数。RED 直到端点落地
-// (现在 404)。绿=脉搏显真数,不再 "growth metrics not yet wired"。诚实:无数据也返 0 序列。
+// admin-system-pulse.spec.ts -- Monitor/observability. SystemPulse (the sidebar corpus
+// pulse) wires to the real GET /api/admin/stats/growth: 14d corpus growth series + 7d
+// delta + per-tier counts. RED until the endpoint lands (currently 404). Green = the
+// pulse shows real numbers, not "growth metrics not yet wired". Honest: no data still
+// returns a zero series.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -31,7 +33,8 @@ async function initOwnerWithCorpus(playwright: Playwright): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'pulse-seed');
   const sid = await initMCP(request, token);
-  // 两条 corpus(每条 seedWiki 落 raw + wiki）→ 至少 2 raw + 2 wiki 今天新增。
+  // Two corpus entries (each seedWiki writes both raw + wiki) → at least 2 raw + 2 wiki
+  // added today.
   await seedWiki(request, token, sid, { title: 'Pulse Doc One', body: 'growth pulse content one' });
   await seedWiki(request, token, sid, { title: 'Pulse Doc Two', body: 'growth pulse content two' });
   await request.dispose();
@@ -46,13 +49,14 @@ test.describe('admin · SystemPulse corpus-growth stats', () => {
     expect(res.status(), 'growth endpoint 200').toBe(200);
     const g = await res.json() as Growth;
 
-    // 分层计数是真的(seed 了 ≥2 raw + ≥2 wiki)。
+    // The per-tier counts are real (seeded >=2 raw + >=2 wiki).
     expect(g.by_tier.raw, 'raw count reflects seeded raws').toBeGreaterThanOrEqual(2);
     expect(g.by_tier.wiki, 'wiki count reflects seeded wikis').toBeGreaterThanOrEqual(2);
     expect(g.total, 'total = sum of tiers').toBe(
       g.by_tier.raw + g.by_tier.wiki + g.by_tier.output,
     );
-    // 14 天序列,今天(末位)有新增,7d delta 覆盖刚 seed 的。
+    // A 14-day series, today (the last entry) has additions, and the 7d delta covers what
+    // was just seeded.
     expect(g.series.length, '14-day series').toBe(14);
     expect(g.series[13]?.count, 'today has the seeded entries').toBeGreaterThanOrEqual(4);
     expect(g.delta_7d, '7d delta includes just-seeded entries').toBeGreaterThanOrEqual(4);
@@ -64,24 +68,33 @@ test.describe('admin · SystemPulse corpus-growth stats', () => {
       const pulse = adminPage.getByTestId('system-pulse');
       await expect(pulse).toBeVisible();
       await expect(pulse).not.toContainText(/not yet wired|coming/i);
-      // 断到真数据渲染:tiers 串只有加载出真计数才出现("N raw · …"),占位是 "loading…"。
-      // 避免 /\d/ 的 false-green —— 那被静态标题 "corpus pulse · 14d" 满足,证明不了真数。
+      // Asserts real data actually rendered: the tiers string only appears once real
+      // counts have loaded ("N raw · ..."), the placeholder is "loading...".
+      // Avoids a false-green on /\d/ -- that regex would already be satisfied by the
+      // static heading "corpus pulse · 14d" and wouldn't prove real numbers.
       await expect(pulse).toContainText(/\d+\s*raw/);
     });
 
-  // F-C-7 —— 这块面板上并排放着两个孤零零的时间窗口:标题写 `CORPUS PULSE · 14D`,右边用
-  // accent 色写 `+0 · 7d`。两个 range 令牌挨在一起,一个"选中"一个"可选" —— 它读起来就是个
-  // 范围切换器,我在冷扫时点了 `7d`,什么都没发生。它不是一个坏掉的控件,它压根不是控件:
-  // 一个是火花线的窗口,另一个是增量的窗口,两件不相干的事被排版成了一对选项。
+  // F-C-7 -- this panel places two unrelated time windows side by side: the heading reads
+  // `CORPUS PULSE · 14D`, and to the right, in accent color, `+0 · 7d`. Two range tokens
+  // sitting next to each other, one "selected" one "selectable" -- it reads exactly like a
+  // range toggle, and during a cold sweep I clicked `7d` and nothing happened. It isn't a
+  // broken control, it isn't a control at all: one is the sparkline's window, the other is
+  // the delta's window, and two unrelated facts got laid out to look like a pair of options.
   //
-  // 断言:每个数字自己说清楚量的是什么窗口,面板上不再有两个裸露的 range 令牌并排。
-  // F-C-11 —— 这块面板的正文**根本没被看见过**。DOM 里火花线、总量、分层计数都在(所以
-  // 上面那两条读 innerText 的断言全绿),但 `aside` 在 `flex flex-col` 的 sidebar 里没有
-  // `shrink-0`,导航项一多就把它压成只剩标题那一行 —— 30px 高,其余全被裁掉。
-  // 真环境上 owner 看到的一直是 `CORPUS PULSE  +0 in 7d` 一行,而 407 / `184 raw · 223 wiki`
-  // 就在下面几像素之外。⑤ 手工回归时用眼睛发现的:读文本的断言分不出"渲染了"和"被压扁了"。
+  // Assertion: each number states its own window clearly, and the panel no longer has two
+  // bare range tokens side by side.
+  // F-C-11 -- this panel's body content **has never actually been seen**. The DOM has the
+  // sparkline, the total, and the per-tier counts (so the two innerText assertions above
+  // are both green), but the `aside` inside the `flex flex-col` sidebar is missing
+  // `shrink-0`, so once the nav has enough items it gets squeezed down to just its heading
+  // row -- 30px tall, everything else clipped off. On the real environment the owner has
+  // only ever seen the single line `CORPUS PULSE  +0 in 7d`, with the 407 / `184 raw · 223
+  // wiki` sitting just a few pixels below, out of view. Found by eye during a manual
+  // regression pass: a text-reading assertion can't tell "rendered" apart from "squashed".
   //
-  // 判据是几何:分层计数那一行必须落在面板自己的框**里面**。
+  // The criterion is geometric: the per-tier-count row must fall **inside** the panel's
+  // own box.
   test('the pulse rail is tall enough to show what it renders (F-C-11)',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'system');
@@ -103,7 +116,8 @@ test.describe('admin · SystemPulse corpus-growth stats', () => {
       await gotoAdminSection(adminPage, 'system');
       const text = (await adminPage.getByTestId('system-pulse').innerText()).toLowerCase();
       expect(text, '增量必须自己说清楚它数的是哪一段时间').toMatch(/in 7d/);
-      // 裸露 = 前面没有一个说明词。`+0 · 7d` 是裸的(读起来像个可选项),`+0 in 7d` 不是。
+      // Bare = no qualifying word in front of it. `+0 · 7d` is bare (reads like a
+      // selectable option), `+0 in 7d` is not.
       const bare = [...text.matchAll(/(\S+)\s+(\d+d)\b/g)]
         .filter((m) => m[1] !== 'in' && m[1] !== 'last');
       expect(

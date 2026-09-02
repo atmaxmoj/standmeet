@@ -1,28 +1,35 @@
-// connector-security.spec.ts —— #155 §8 区 H（安全）。已实现，绿（原为 RED 契约）。
+// connector-security.spec.ts -- #155 §8 zone H (security). Implemented, green
+// (originally a RED contract).
 //
-// 「owner 上传任意 OpenAPI spec」把三道安全门逼出来；这三道在 spec-driven
-// connector 实现里必须成立，本文件钉住它们（原为 RED 靶子，实现后转绿）：
+// "The owner uploads an arbitrary OpenAPI spec" forces out three security gates; these
+// three must hold in a spec-driven connector implementation, and this file pins them
+// down (originally RED targets, went green once implemented):
 //
-//   1. ⚠️ SSRF —— 上传的 spec 里 `servers[].url`（以及 oauth2 的 token/authorize
-//      URL）若指向 loopback / link-local / 私网，后端 **拒装配或拒发起出站请求**。
-//      owner 不该能借「自托管、无中心审核」的上传通道把实例当 SSRF 跳板打内网
-//      （cloud metadata 169.254.169.254 / localhost / 10.x / 127.x）。
-//   2. 凭据永不外泄 —— 一个 user-uploaded openapi connector 连上后，存的
-//      client_secret / api key 经 list / status / 任意 admin 读路径返回时**打码**，
-//      原文绝不出现；也绝不出现在任何访客可见产物里。扩 handle_contract_test.go +
-//      connector-secret-no-leak.spec.ts 的精神到「上传的」连接器。
-//   3. per-owner 隔离 —— 上传的 connector + 其 connection 归一个 owner。v1 单 owner，
-//      所以在 API 层钉 owner_id scoping：未鉴权 / 跨 session 拿不到、用不了。
+//   1. Warning: SSRF -- if the uploaded spec's `servers[].url` (or oauth2's
+//      token/authorize URL) points at loopback / link-local / a private network, the
+//      backend must **refuse assembly or refuse to make the outbound request**. The
+//      owner must not be able to use the "self-hosted, no central review" upload
+//      channel to turn the instance into an SSRF pivot into the internal network
+//      (cloud metadata 169.254.169.254 / localhost / 10.x / 127.x).
+//   2. Credentials never leak -- once a user-uploaded openapi connector is connected,
+//      its stored client_secret / api key must be **masked** wherever it's returned via
+//      list / status / any admin read path; the raw value must never appear there, and
+//      never appear on any visitor-visible surface. Extends the spirit of
+//      handle_contract_test.go + connector-secret-no-leak.spec.ts to "uploaded" connectors.
+//   3. Per-owner isolation -- an uploaded connector and its connection belong to one
+//      owner. v1 is single-owner, so this pins owner_id scoping at the API layer:
+//      unauthenticated / cross-session requests can neither read nor use it.
 //
-// 对齐 §8 接口草图：
-//   POST   /api/admin/connectors            （从 spec 建）
+// Aligned with the §8 interface sketch:
+//   POST   /api/admin/connectors            (create from a spec)
 //   POST   /api/admin/connectors/{id}/credentials
-//   POST   /api/admin/connectors/{id}/connect      （起 oauth）
+//   POST   /api/admin/connectors/{id}/connect      (start oauth)
 //   GET    /api/admin/connectors/{id}/status
-//   GET    /api/admin/connectors                    （list）
+//   GET    /api/admin/connectors                    (list)
 //   DELETE /api/admin/connectors/{id}/disconnect
 //
-// 「从 spec POST 建任意 connector」的上传路径已实现，本测真编译、真跑、真绿。
+// The "create any connector via POST from a spec" upload path is implemented; this
+// test actually compiles, actually runs, and is actually green.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -55,7 +62,8 @@ async function uploadSpec(
 ): Promise<string> {
   const res = await request.post(`${BACKEND}/api/admin/connectors`, {
     headers: { 'X-Csrftoken': csrf },
-    // 统一上传契约 {spec 对象, binding 对象}（spec 内联串成 JSON，这里解回对象）。
+    // The unified upload contract is {spec object, binding object} (the spec is
+    // inlined as a JSON string above; here it's parsed back into an object).
     data: { spec: JSON.parse(spec), binding: BENIGN_BINDING },
   });
   if (res.status() < 200 || res.status() >= 300) {
@@ -67,9 +75,11 @@ async function uploadSpec(
 }
 
 test.describe('connector · §8 area H security (SSRF / no credential leak / per-owner isolation)', () => {
-  // #155 §8 H 落地：spec-driven connector 上传的安全门（装配期 SSRF 静态拦 + 凭据打码 +
-  // owner_id scoping）。consume-time / OAuth-dance 重定向到内网的两条（运行期 dialer 守卫已建，
-  // 但还缺 mock 的 302→内网 端点）暂留 fixme。
+  // #155 §8 H implemented: security gates for spec-driven connector uploads
+  // (assembly-time SSRF static blocking + credential masking + owner_id scoping). The
+  // two consume-time / OAuth-dance internal-net redirect cases (the runtime dialer
+  // guard is built, but a mock 302->internal-net endpoint is still missing) stay fixme
+  // for now.
 
   test.beforeAll(async ({ playwright }) => {
     await initOwner(playwright);
@@ -85,29 +95,30 @@ test.describe('connector · §8 area H security (SSRF / no credential leak / per
   test('SSRF · no leftover connector after rejection (list excludes the rejected spec)',
     ({ playwright }) => ssrfRejectLeavesNoConnector(playwright));
 
-  // ── 2. 凭据永不外泄（扩 handle_contract / secret-no-leak 到 user-uploaded） ──
+  // -- 2. credentials never leak (extends handle_contract / secret-no-leak to user-uploaded) --
   test('no credential leak · an uploaded connector api key is masked in status/list, raw never returned',
     ({ playwright }) => secretMaskedInAdminReads(playwright));
 
   test('no credential leak · an uploaded connector secret never appears on any visitor-visible surface',
     ({ playwright }) => secretNotInVisitorSurface(playwright));
 
-  // ── 1b. consume-time SSRF（upload/connect 过了，运行时调用才打内网） ──
-  // 运行期 dialer 守卫（GuardedHTTPClient 拦解析到内网 + 拒内网重定向）+ mock 的 302→内网 端点。
+  // -- 1b. consume-time SSRF (upload/connect passed; only the runtime call hits the internal net) --
+  // Runtime dialer guard (GuardedHTTPClient blocks resolving to the internal net +
+  // refuses internal-net redirects) + a mock 302->internal-net endpoint.
   test('SSRF · a runtime API call resolving/redirecting to an internal net → runtime refuses egress',
     ({ playwright }) => ssrfConsumeTimeRejected(playwright));
 
   test('SSRF · provider redirecting the callback/token exchange to an internal net mid-dance → rejected',
     ({ playwright }) => ssrfOAuthDanceRedirectRejected(playwright));
 
-  // ── 2b. 实例密钥换过之后（check 3 / F-C-41） ──
+  // -- 2b. after the instance key is rotated (check 3 / F-C-41) --
   test('rotation · a credential this instance can no longer read asks for a reconnect',
     ({ playwright }) => unreadableCredentialAsksReconnect(playwright));
 
   test('rotation · one unreadable connector does not take the whole list down',
     ({ playwright }) => unreadableCredentialDoesNotSinkTheList(playwright));
 
-  // ── 3. per-owner 隔离（v1 单 owner → API 层 owner_id scoping） ──
+  // -- 3. per-owner isolation (v1 single-owner -> owner_id scoping at the API layer) --
   test('isolation · an unauthenticated request cannot read an owner-uploaded connector',
     ({ playwright }) => unauthCannotReadConnector(playwright));
 
@@ -268,21 +279,27 @@ async function secretMaskedInAdminReads(playwright: Playwright): Promise<void> {
 
 // ── check 3 / F-C-41 ──────────────────────────────────────────────────────
 //
-// **为什么改字节而不是真换 INSTANCE_SECRET**：AES-GCM 的认证失败，「密钥不对」和「密文被动过」
-// 在密码学上**就是同一件事** —— 产品拿到的是同一个 `cryptobox.ErrTampered`，分不出来，也不该
-// 假装分得出来。所以改一个字节走的正是轮换那条分支。item 自己的 Mock gap 也把这一步定成
-// 「在 harness 里复现：用一个 key 加密、另一个 key 启动」。
+// **Why corrupt a byte instead of actually rotating INSTANCE_SECRET**: AES-GCM's auth
+// failure makes "wrong key" and "tampered ciphertext" **cryptographically the same
+// event** -- the product gets back the same `cryptobox.ErrTampered` either way, cannot
+// tell them apart, and shouldn't pretend to. So corrupting one byte walks exactly the
+// same branch as rotation. The item's own Mock gap also defines this step as
+// "reproduce it in the harness: encrypt with one key, boot with another".
 //
-// prod 上真轮换过一次（换 `.env` 的 INSTANCE_SECRET + 重建 backend），看到的就是这一幕：
-// 后端正常起来，`/admin/connectors` 上那张卡写着 `not connected`、凭据框空着、**一句话都没有**，
-// 而库里密文和 `connected_at` 都还在。
+// This was actually rotated once in prod (swapping `.env`'s INSTANCE_SECRET + rebuilding
+// the backend), and this is exactly what was seen: the backend came up fine, but the
+// card on `/admin/connectors` said `not connected`, the credentials box was empty, and
+// **there was not one word of explanation** -- while the ciphertext and `connected_at`
+// were both still sitting in the DB.
 //
-// **判据断的是「owner 收到一句能照做的话」**，不是「没崩」。反方向那条（真的没连过的连接器
-// 仍然只说 not connected、不喊重连）在下面，缺了它，一个「所有连接器都喊重连」的实现也能转绿。
+// **The criterion asserts "the owner gets a sentence they can act on"**, not "it didn't
+// crash". The reverse case (a connector that was genuinely never connected still just
+// says not connected, without demanding a reconnect) is below; without it, an
+// implementation that tells every connector to reconnect could also go green.
 const RECONNECT_RE = /reconnect|connect it again|no longer read/i;
 
-// corruptStoredCredential —— 把某个连接器存着的密文动一个字节。
-// `execSQL` 存在的理由就是这个：这种前置状态没有任何 API 造得出来，也不该有。
+// corruptStoredCredential -- flips one byte of a connector's stored ciphertext.
+// This is exactly why `execSQL` exists: no API can build this pre-state, and none should.
 function corruptStoredCredential(connectorID: string): void {
   execSQL(
     `UPDATE owner_connectors
@@ -298,7 +315,8 @@ async function unreadableCredentialAsksReconnect(playwright: Playwright): Promis
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf }, data: { api_key: BENIGN_API_KEY_SECRET },
   });
-  // 先证「连上了」—— 否则下面断言的红可能只是因为这个连接器压根没配过（假红）。
+  // Prove it's "connected" first -- otherwise a red below might just mean this
+  // connector was never configured (a false red).
   const before = await request.get(`${BACKEND}/api/admin/connectors/${id}/status`, {
     headers: { 'X-Csrftoken': csrf },
   });
@@ -320,8 +338,9 @@ async function unreadableCredentialAsksReconnect(playwright: Playwright): Promis
   await request.dispose();
 }
 
-// unreadableCredentialDoesNotSinkTheList —— prod 上最刺眼的那一半：**一个**读不懂的连接器
-// 让 `connectors.list` 整个 500，于是**每一张卡**都渲成「没连过」。
+// unreadableCredentialDoesNotSinkTheList -- the more glaring half of what happened in
+// prod: **one** unreadable connector took `connectors.list` down with a 500, so
+// **every card** rendered as "never connected".
 async function unreadableCredentialDoesNotSinkTheList(playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
   const { csrf } = await login(request, OWNER.email, OWNER.password);
@@ -407,10 +426,12 @@ async function initOwner(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-// diagInvoke —— 打 owner-authed 的连接器 diag 口。**这是一条绕过真实链路的后门**
-// (真实路径是 访客 chat → agent → booker 沙箱 → connector.invoke)，所以它**故意**
-// 内联在这里、不抽成共用 fixture:抽出去等于给"绕过"发许可证,下一个人就更容易用它。
-// 这条后门本身的去留见 task「diag 后门」。
+// diagInvoke -- hits the owner-authed connector diag endpoint. **This is a back door
+// that bypasses the real path** (the real path is visitor chat -> agent -> booker
+// sandbox -> connector.invoke), so it's **deliberately** kept inline here rather than
+// extracted into a shared fixture: extracting it would license the bypass, making it
+// easier for the next person to reach for it. Whether this back door itself stays or
+// goes is tracked in the "diag back door" task.
 async function diagInvoke(
   request: APIRequestContext, csrf: string, id: string,
   category: string, op: string, args: Record<string, unknown>,

@@ -1,17 +1,17 @@
-// llm-chat-stream-endpoint.spec.ts —— H.2: 新 chat 入口
-// POST /api/v1/llm/chat/stream，走 eino model.ToolCallingChatModel。
-// 浏览器 pi-agent-core 在 H.5 切到这条；老 /inference/stream byte
-// proxy 在 H.3 删。
+// llm-chat-stream-endpoint.spec.ts -- H.2: the new chat entry point
+// POST /api/v1/llm/chat/stream, which goes through eino model.ToolCallingChatModel.
+// The browser's pi-agent-core switches to this in H.5; the old /inference/stream byte
+// proxy gets deleted in H.3.
 //
-// 验：
-//   - happy: 无 tools，发 user message → 至少 1 个 text 帧 + done
+// Verifies:
+//   - happy: no tools, sends a user message -> at least 1 text frame + a done frame with
 //     stop_reason=end_turn
-//   - tool surfacing: 带 corpus_search tool 且 mock gateway 脚本注入
-//     一个 calendar_book tool_call → tool_call 帧 + done stop_reason=
-//     tool_use
-//   - 异常: no Bearer → 401
-//   - 异常: bad token → 401
-//   - 异常: invalid JSON body → 400
+//   - tool surfacing: with a corpus_search tool, and the mock gateway script injects a
+//     calendar_book tool_call -> a tool_call frame + a done frame with
+//     stop_reason=tool_use
+//   - error: no Bearer -> 401
+//   - error: bad token -> 401
+//   - error: invalid JSON body -> 400
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

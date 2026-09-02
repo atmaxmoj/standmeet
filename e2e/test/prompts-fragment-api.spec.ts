@@ -1,17 +1,22 @@
-// prompts-fragment-api.spec.ts —— GET /api/v1/prompts/{id} 给前端 (pi
-// agent loop) 拿 NON-capability system prompt fragment 文本 (visitor-header 等)。
+// prompts-fragment-api.spec.ts —— GET /api/v1/prompts/{id} is how the frontend
+// (the pi agent loop) fetches NON-capability system prompt fragment text
+// (visitor-header, etc.).
 //
-// 归一(#144)后：四个 leaf 能力的 prompt fragment 随能力外置进了各自插件的 MCP
-// `instructions`，**不再**由 /api/v1/prompts/{id} 端点提供 (capabilities/* 全 404)。
-// 它们仍经 mcp-app 适配器的 SystemPromptFragment 拼进 system_prompt_full —— 所以
-// corpus fragment 还在 full 里 (有 corpus scope 时)，只是来源从 prompts/*.md 换成了
-// 插件 instructions。本 spec 用 full 里的 verbatim 文案核对，不再从端点取期望值。
+// After the normalization (#144), the four leaf capabilities' prompt fragments
+// moved out to their respective plugin's MCP `instructions` alongside the
+// capability itself, and are **no longer** served by the
+// /api/v1/prompts/{id} endpoint (capabilities/* all 404 now). They're still
+// stitched into system_prompt_full via the mcp-app adapter's
+// SystemPromptFragment — so the corpus fragment is still present in full
+// (when a corpus scope exists), just sourced from plugin instructions instead
+// of prompts/*.md. This spec checks against the verbatim text inside full,
+// rather than fetching expected values from the endpoint.
 //
-// 验证手段：
-//   1. GET /api/v1/prompts/visitor-header 返 md 文本 (非能力 fragment 仍在端点)
-//   2. capabilities/* 已外置 → 端点 404
-//   3. system_prompt_full = 真实下行 LLM 的拼接结果，含 corpus fragment verbatim
-//      (有 corpus scope 时)，无 scope 时不含。
+// Verification approach:
+//   1. GET /api/v1/prompts/visitor-header returns md text (non-capability fragments are still on the endpoint)
+//   2. capabilities/* have been externalized → endpoint 404s
+//   3. system_prompt_full = the actual concatenated result sent to the LLM, containing the
+//      corpus fragment verbatim (when a corpus scope exists), absent when there's no scope.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -31,9 +36,10 @@ const OWNER = {
 
 const CODE = 'PROMPTS-001';
 
-// CORPUS_FRAGMENT_MARK —— corpus.retrieval fragment 的 verbatim 开头 (插件
-// instructions = 旧 corpus.retrieval.md 一字不差)。端点不再提供该 fragment，
-// 故用这个 marker 在 system_prompt_full 里核对它在/不在。
+// CORPUS_FRAGMENT_MARK —— the verbatim opening of the corpus.retrieval fragment
+// (the plugin instructions text is word-for-word the old corpus.retrieval.md).
+// The endpoint no longer serves this fragment, so this marker is used to check
+// its presence/absence inside system_prompt_full.
 const CORPUS_FRAGMENT_MARK =
   'The owner\'s corpus is a LINKED TREE of notes';
 
@@ -71,7 +77,7 @@ test.describe('prompts fragment API · single source of truth', () => {
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const text = await fetchPrompt(request, 'visitor-header');
-      // 已知约定：visitor header 文本一句话开头
+      // Known convention: the visitor header text opens with this sentence
       expect(text).toContain('You are answering');
       expect(text.length).toBeGreaterThan(20);
       await request.dispose();
@@ -80,8 +86,10 @@ test.describe('prompts fragment API · single source of truth', () => {
   test('GET /api/v1/prompts/capabilities/corpus.retrieval returns tool description',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      // fragment 已外置进插件 instructions（无 .md），但 prompts 端点经 registry
-      // fallback 仍按 id 服务它 —— 前端按 part-id 取得到，拼进 system prompt。
+      // The fragment has been externalized into plugin instructions (no .md file
+      // backs it anymore), but the prompts endpoint still serves it by id via a
+      // registry fallback — so the frontend can still fetch it by part-id and
+      // splice it into the system prompt.
       const text = await fetchPrompt(request, 'capabilities/corpus.retrieval');
       expect(text).toContain('corpus_search');
       expect(text).toContain('corpus_read');
@@ -105,8 +113,8 @@ test.describe('prompts fragment API · single source of truth', () => {
       const body = await fetchVisitorCapabilities(request, sess.session_token);
       expect(typeof body.system_prompt_full).toBe('string');
       expect(body.system_prompt_full.length).toBeGreaterThan(0);
-      // header (端点 fragment) + corpus retrieval fragment (插件 instructions) 都应
-      // 原文出现在 full 里。
+      // Both header (endpoint fragment) and the corpus retrieval fragment
+      // (plugin instructions) should appear verbatim in full.
       const header = await fetchPrompt(request, 'visitor-header');
       expect(body.system_prompt_full).toContain(header.trim());
       expect(body.system_prompt_full).toContain(CORPUS_FRAGMENT_MARK);
@@ -128,7 +136,7 @@ test.describe('prompts fragment API · single source of truth', () => {
         handle: OWNER.handle, code: 'PROMPTS-EMPTY', visitor_name: 'V',
       });
       const body = await fetchVisitorCapabilities(request, sess.session_token);
-      // header 还在；corpus fragment 因无 corpus scope (enabled=false) 不该出现
+      // header is still there; the corpus fragment should be absent because there's no corpus scope (enabled=false)
       expect(body.system_prompt_full).not.toContain(CORPUS_FRAGMENT_MARK);
       await request.dispose();
     });

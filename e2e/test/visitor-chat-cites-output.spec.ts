@@ -1,12 +1,17 @@
-// visitor-chat-cites-output.spec.ts —— visitor 提问时 grounding 拉 output 层。
+// visitor-chat-cites-output.spec.ts -- when a visitor asks a question,
+// grounding pulls from the output layer.
 //
-// 用户故事：
-//   owner 把一条思考 promote 到 output 层（"可在对话里完整原样引用" 的成品）。
-//   recruiter 拿 code 进来问问题；assistant 的 message 里 cited_output_ids
-//   非空 —— 证明 output 真的进 grounding 了，不只是文件柜。
+// User story:
+//   the owner promotes a piece of thinking into the output layer (a
+//   finished piece "quotable in full, verbatim, in conversation").
+//   A recruiter enters with a code and asks a question; the assistant's
+//   message has a non-empty cited_output_ids -- proving the output entry
+//   really entered grounding, not just sitting in a file cabinet.
 //
-// 验证手段：mock provider 不 echo prompt，所以走 admin conversations
-// transcript endpoint 直接看 assistant message.cited_output_ids 是否含 output id。
+// Verification method: the mock provider doesn't echo the prompt, so this
+// goes through the admin conversations transcript endpoint and reads
+// assistant message.cited_output_ids directly to check whether it contains
+// the output id.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -66,7 +71,7 @@ test.describe('visitor chat retrieval pulls output entries', () => {
       });
       const stream = await sendMessage(request, sess, `tell me about local-first${tag}`);
       await stream.body();
-      // 新 request context 没 session cookie：单独 login 一次拿 csrf。
+      // A new request context has no session cookie: log in separately to get a csrf.
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const cited = await fetchAssistantCitedOutputs(request, csrf, sess.conversation_id);
       expect(cited).toContain(outputID);

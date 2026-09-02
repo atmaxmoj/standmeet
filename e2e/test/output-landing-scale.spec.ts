@@ -1,10 +1,13 @@
-// output-landing-scale.spec.ts —— 公开 output landing + sitemap 的 newest-50 cap(wiki
-// landing 的孪生)。GetOutputLanding / IndexedOutputLandings 现在还吃 50-cap:
-//   - 深链接打开最旧的 indexed output → 404
-//   - sitemap.xml 漏掉 newest-50 之外的 indexed output
-// needle output 最先种(最旧)+ 52 filler 推出最新 50,再直接打开 + 查 sitemap。
+// output-landing-scale.spec.ts —— the newest-50 cap on the public output landing +
+// sitemap (the wiki landing's twin). GetOutputLanding / IndexedOutputLandings still
+// eats the 50-cap:
+//   - deep-linking to the oldest indexed output → 404
+//   - sitemap.xml misses indexed output beyond the newest-50
+// The needle output is seeded first (oldest), then 52 fillers push it past the newest 50;
+// open it directly + check the sitemap.
 //
-// 现在(50-cap):landing 404 + sitemap 缺 → **红**;改 DB 端按 path 解析后:绿。
+// Currently (50-cap): landing 404 + missing from sitemap → **red**; once the DB side
+// resolves by path instead: green.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

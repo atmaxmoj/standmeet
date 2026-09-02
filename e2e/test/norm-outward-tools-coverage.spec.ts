@@ -1,16 +1,17 @@
-// norm-outward-tools-coverage.spec.ts —— 【对外】自管理 MCP handles 里**之前零覆盖**
-// 的 7 个工具的守护测试。
+// norm-outward-tools-coverage.spec.ts —— [outward] guard tests for the 7 tools in
+// the self-managed MCP handles that **previously had zero coverage**.
 //
-// 覆盖审计发现这 7 个 owner-MCP 工具没有任何 e2e 行为测试 —— 把对外 handles 搬进
-// routes/mcphandle/ 当 controller 时,它们坏了没测试逮。这条把它们补上(现在就绿,
-// 搬完保持绿):
+// A coverage audit found these 7 owner-MCP tools had no e2e behavior test at
+// all — when the outward handles get moved into routes/mcphandle/ as
+// controllers, a break there would go uncaught. This case fills them in (green
+// now, and stays green once the move happens):
 //   skills        → skill_list · skill_delete
 //   mcp_servers   → mcp_server_list · mcp_server_delete
 //   writings      → writings.publish
 //   custom_page   → custom_page.build
 //   seo           → seo.update_settings
 //
-// 前置(create 等)用的是已被测的工具,只为把"黑"工具调起来验行为。
+// The setup (create, etc.) uses already-tested tools, purely to exercise the "dark" tools and verify their behavior.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -28,8 +29,8 @@ const OWNER = {
 let token = '';
 let sid = '';
 
-// setupOwnerMCP —— claim + login + API token + MCP init,返 token/sid(从 describe
-// 抽出守 max-lines-per-function)。
+// setupOwnerMCP —— claim + login + API token + MCP init, returns token/sid
+// (pulled out of the describe block to respect max-lines-per-function).
 async function setupOwnerMCP(playwright: Playwright): Promise<void> {
   resetInstance();
   const request = await playwright.request.newContext();

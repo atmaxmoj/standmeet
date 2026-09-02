@@ -1,10 +1,11 @@
-// quota-warn-lockdown.spec.ts —— quota 到 80% warn + 用尽 lockdown + 无限
+// quota-warn-lockdown.spec.ts — quota reaching 80% warns + running out locks down +
+// unlimited
 //
-// 用户故事：
-//   1. turns 到 80% → SessionStrip 变 warn + "request more ↗" 出现
-//   2. quota 用尽 → composer locked + 友好提示
-//   3. max_turns = 0 (无限制) → 永不 lock
-//   4. owner 改 quota 值 → 下次 session 生效
+// User story:
+//   1. turns reach 80% → SessionStrip switches to warn + "request more ↗" appears
+//   2. quota runs out → composer locked + a friendly message
+//   3. max_turns = 0 (unlimited) → never locks
+//   4. owner changes the quota value → takes effect on the next session
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -65,8 +66,10 @@ test.describe('quota warn at 80% + lockdown + unlimited', () => {
       const input = page.locator('[data-testid="chat-input-field"]');
       await expect(input).toBeDisabled();
       await expect(page.getByText('session full')).toBeVisible();
-      // 标签说「停了」，句子说**哪个上限、找谁续**。只有标签的时候，访客读完只知道自己
-      // 被挡住 —— 而这条码是 owner 主动发出去的，续一点额度只是一句话的事。
+      // A bare label says "stopped"; a sentence says **which limit, and who to ask
+      // for more**. With only a label, all a visitor learns is that they're blocked
+      // — but this code was issued by the owner on purpose, and extending the quota
+      // a bit is only a one-line ask.
       const line = page.getByTestId('limit-reached');
       await expect(line).toBeVisible();
       await expect(line, '要说清是哪一种上限').toContainText(/turn limit/i);

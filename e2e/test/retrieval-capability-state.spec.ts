@@ -1,19 +1,24 @@
-// retrieval-capability-state.spec.ts —— Phase B-2 契约：corpus.retrieval
-// capability 出现在 visitor-capabilities 端点，且 enabled gating 走
-// RoleSnapshot.CorpusURIs（非空 = enabled=true，空 = enabled=false 但仍
-// 出现以渲降级提示）。
+// retrieval-capability-state.spec.ts -- Phase B-2 contract: the
+// corpus.retrieval capability appears on the visitor-capabilities endpoint,
+// and its enabled gating goes through RoleSnapshot.CorpusURIs (non-empty =
+// enabled=true; empty = enabled=false but still present so the frontend can
+// render a degraded-state hint).
 //
-// 业务故事：
-//   alice 建 role R1 corpus_uris=['wiki://**', 'output://**', 'writing://**']，
-//   发码 CORPUS-001 → visitor 颁发 session V1，/visitor-capabilities 必返：
+// Business story:
+//   alice creates role R1 with corpus_uris=['wiki://**', 'output://**', 'writing://**'],
+//   issues code CORPUS-001 -> a visitor gets session V1, and
+//   /visitor-capabilities must return:
 //     - capabilities[?].id=='corpus.retrieval' enabled=true
-//     - tool_specs 含 corpus_search / corpus_read / corpus_list 三项
-//   alice 建 role R0 corpus_uris=[]（空 list），发码 EMPTY-001 → visitor V2：
+//     - tool_specs contains all three of corpus_search / corpus_read / corpus_list
+//   alice creates role R0 with corpus_uris=[] (an empty list), issues code
+//   EMPTY-001 -> visitor V2:
 //     - capabilities[?].id=='corpus.retrieval' enabled=false
-//     - tool_specs 仍含三项（spec 永远暴露，ACL 拦由内部）
+//     - tool_specs still contains all three (the spec is always exposed; the
+//       ACL blocks internally)
 //
-// 既有 retrieval 行为回归靠 visitor-chat-cites-output / hidden-source /
-// raw-deny / freeze 等 spec 兜底；这里只验 B-2 引入的 capability map 契约。
+// Regression coverage for existing retrieval behavior is backstopped by
+// specs like visitor-chat-cites-output / hidden-source / raw-deny / freeze;
+// this spec only verifies the capability-map contract introduced by B-2.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -76,8 +81,10 @@ test.describe('Phase B-2 RetrievalCapability state contract', () => {
       const corpusCap = body.capabilities.find((c) => c.id === 'corpus.retrieval');
       expect(corpusCap, 'corpus.retrieval must still appear').toBeDefined();
       expect(corpusCap?.enabled).toBe(false);
-      // tool_specs 仍暴露 —— LLM 还是能调，被内部 ACL 拒（snapshot.AllowsCorpus
-      // 对空 uris 永远返 false）；前端用 enabled=false 渲 "no corpus access" 提示。
+      // tool_specs is still exposed -- the LLM can still call it, and gets
+      // denied by the internal ACL (snapshot.AllowsCorpus always returns
+      // false for empty uris); the frontend renders a "no corpus access"
+      // hint from enabled=false.
       const toolNames = body.tool_specs.map((t) => t.name);
       expect(toolNames).toContain('corpus_search');
       expect(toolNames).toContain('corpus_read');
@@ -87,9 +94,10 @@ test.describe('Phase B-2 RetrievalCapability state contract', () => {
 
   test('system_prompt_hash differs between full vs empty corpus roles',
     async ({ playwright }) => {
-      // 两 role 的 RoleSnapshot 不同（PromptBody 一致 = 空，但 corpus_uris
-      // 不同应影响 retrieval fragment → 影响 hash）。即使 PromptBody 都空，
-      // capability state 不一样也应让 hash 走开。
+      // The two roles' RoleSnapshots differ (PromptBody is identical -- both
+      // empty -- but different corpus_uris should affect the retrieval
+      // fragment -> affect the hash). Even with both PromptBody empty,
+      // differing capability state should still make the hashes diverge.
       const request = await playwright.request.newContext();
       const sessFull = await issueSession(request, {
         handle: OWNER.handle, code: FULL_CODE, visitor_name: 'A',

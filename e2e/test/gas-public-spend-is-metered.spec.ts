@@ -1,16 +1,24 @@
-// gas-public-spend-is-metered.spec.ts —— owner 的花销上限必须管得住匿名/public 访客。
+// gas-public-spend-is-metered.spec.ts — the owner's spend cap must actually cap
+// anonymous/public visitors.
 //
-// pentest 2026-09-01：一场没指定 provider 的会话（public / 匿名）在 turn 时**回落到 owner
-// 默认那条 provider** 并真花钱。可它的会话里 provider_id 一直是空串，于是：
-//   · 用量行记的 provider_id 是空的 → 按 provider 求和的 gas 记账数不到这笔花销；
-//   · gas 闸的条件是 `metered && provider_id != ""` → 对 public 会话永不触发。
-// 结果：owner 就算给默认那条配了油表，也拦不住匿名访客烧他的 key。
+// pentest 2026-09-01: a session with no provider specified (public / anonymous)
+// **falls back to the owner's default provider** at turn time and really spends
+// money. But its session's provider_id stays an empty string, so:
+//   · the usage row's provider_id is empty → gas accounting summed per-provider never
+//     counts this spend;
+//   · the gas gate's condition is `metered && provider_id != ""` → it never fires for
+//     public sessions.
+// Net effect: even if the owner metered the default provider, nothing stops an
+// anonymous visitor from burning their key.
 //
-// 修复（会话签发时把空 provider 冻成 owner 默认那条的 id）后，这两条成立：
-//   ① 一次 public turn 的用量行带上默认 provider 的 id（不再是空）；
-//   ② 把 public role 挂表 + 默认 provider 只给几个 token，第二次 public turn 被油尽挡住。
+// After the fix (freeze an empty provider to the owner's default provider's id at
+// session-issue time), these two hold:
+//   ① a public turn's usage row carries the default provider's id (no longer empty);
+//   ② once the public role is metered + the default provider is given only a few
+//      tokens, a second public turn is blocked by exhaustion.
 //
-// RED（修复前）：用量行 provider_id 为空；油尽闸对 public 不触发，第二次 turn 照样 200。
+// RED (before the fix): the usage row's provider_id is empty; the exhaustion gate
+// never fires for public, and a second turn still returns 200.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -56,7 +64,8 @@ test.describe('gas · an anonymous/public visitor spends the owner default provi
 
       const defaultID = querySQL(`SELECT id FROM owner_providers WHERE is_default`);
       expect(defaultID, '前置：实例有一条默认 provider').not.toBe('');
-      // 修复前这里是空串 —— 花的是默认 key 的钱，用量却不归属任何 provider。
+      // Before the fix this was an empty string — the default key's money was spent,
+      // but the usage was attributed to no provider at all.
       const attributed = querySQL(
         `SELECT provider_id FROM inference_usage ORDER BY created_at DESC LIMIT 1`,
       );
@@ -67,19 +76,26 @@ test.describe('gas · an anonymous/public visitor spends the owner default provi
 
   test('once the owner meters the public tier and the default tank runs low, a public turn is refused',
     async () => {
-      // owner 的意图：给 public role 挂表，默认那条只剩 1 个 token。
-      // 直接改库造前置状态（没有"把油放到几乎见底"的 API，也不该有）。
+      // The owner's intent: meter the public role, and leave the default provider
+      // with only 1 token. This edits the database directly to set up that
+      // precondition (there is no API to "run the tank down to almost empty", and
+      // there shouldn't be one).
       //
-      // gas=1 而不是几十：闸门是"写之前查，只要 Remaining>0 就放行"（最后一轮可超支 ——
-      // 想不超一个 token 就得在答之前知道要花多少，不可能）。所以要让**下一次**被挡住，
-      // 油必须小于**一次** turn 的花销。留 1，一次 turn 就把它打穿。
+      // gas=1 rather than dozens: the gate checks "before write, if Remaining>0 then
+      // allow" (the last turn can overspend — knowing exactly how much a turn will
+      // cost before it answers is impossible, so staying under one token isn't
+      // achievable). So to get the **next** turn blocked, the tank must hold less
+      // than **one** turn's cost. Leaving 1 means a single turn drains it.
       execSQL(`UPDATE roles SET gas_metered = true WHERE name = 'public'`);
       execSQL(`UPDATE owner_providers SET gas_tokens = 1, gas_filled_at = now() WHERE is_default`);
 
-      // 第一次 public turn 允许（油 > 0），一次就把 1 token 打穿（超支落库）。
+      // The first public turn is allowed (tank > 0), and it alone drains the 1 token
+      // (the overspend is persisted).
       expect(await publicTurn(request, 'first '), '油还有时第一次放行').toBe(200);
-      // 第二次必须被油尽挡住 —— 这正是修复前对 public 永不触发的那道闸。
-      // gas_exhausted 走 403（不是限流的 429）：它不是"太频繁",是"这箱油空了"。
+      // The second turn must be blocked by exhaustion — this is exactly the gate that
+      // never fired for public before the fix.
+      // gas_exhausted returns 403 (not the rate-limit's 429): it's not "too frequent",
+      // it's "this tank is empty".
       const second = await publicTurn(request, 'second ');
       expect(second, '油尽后匿名 turn 必须被挡（403 gas_exhausted），否则 owner 的花销上限对 public 无效')
         .toBe(403);

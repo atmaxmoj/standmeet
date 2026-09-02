@@ -1,12 +1,15 @@
-// visitor-chat-throbber-clears.spec.ts —— throbber 是「turn 进行中」的临时进度,
-// turn 落地后必须消失,由折叠的 `searched · N entries` 卡接管。
+// visitor-chat-throbber-clears.spec.ts —— the throbber is transient "turn in
+// progress" feedback; it must disappear once the turn lands, replaced by the
+// collapsed `searched · N entries` card.
 //
-// 复现的 bug:ConversationDeck 把 <ToolThrobbers> 渲在 pending gate 之外,且
-// withAnswer 把 toolStarted 留在 finalized dialog 上 —— 结果回答出完了,那串
-// SEARCHING / PULLING UP / READING 还冻在 transcript 里跟答案并排。
+// The bug reproduced: ConversationDeck rendered <ToolThrobbers> outside the pending
+// gate, and withAnswer left toolStarted on the finalized dialog — so once the answer
+// had fully arrived, that string of SEARCHING / PULLING UP / READING stayed frozen in
+// the transcript sitting right beside the answer.
 //
-// 不变量:答案卡(tool-card-corpus_search,只在 !pending 时渲)一出现 = turn 已
-// 落地,此刻 tool-throbbers 必须 count==0。
+// Invariant: the moment the answer card (tool-card-corpus_search, only rendered when
+// !pending) appears, the turn has landed, and at that point tool-throbbers must have
+// count==0.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -67,15 +70,18 @@ test.describe('throbber 在 turn 落地后清掉,不冻在 transcript 里', () =
       await input.fill(`tell me about lucerna${searchTag}${readTag}`);
       await input.press('Enter');
 
-      // 折叠的 retrieval-summary(UX-10:检索不再渲 per-tool iframe 卡)+ citation
-      // 出现 = 这轮真检索 + 回答了。
+      // The collapsed retrieval-summary appearing (UX-10: retrieval no longer renders
+      // a per-tool iframe card) + citation showing up = this turn genuinely retrieved
+      // and answered.
       const searchCard = page.getByTestId('retrieval-summary');
       await expect(searchCard).toBeVisible({ timeout: 20_000 });
       await expect(page.getByTestId('citations')).toBeVisible();
 
-      // 不变量:throbber 是实时观察,turn 一落地(finalize)就清成 null 而消失。
-      // toHaveCount(0) 会一直 retry 等它消失 —— 旧 bug 下它永不消失 → 超时挂;
-      // 修好后 finalize 清掉 → 通过。绝不跟答案并排冻在 transcript 里。
+      // Invariant: the throbber is a live-observation state, and disappears once the
+      // turn finalizes and it gets cleared to null. toHaveCount(0) keeps retrying
+      // until it disappears — under the old bug it never disappears, so this times
+      // out and fails; once fixed, finalize clears it and this passes. It must never
+      // be left frozen in the transcript sitting beside the answer.
       await expect(page.getByTestId('tool-throbbers')).toHaveCount(0, { timeout: 20_000 });
 
       await ctx.close();

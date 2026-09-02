@@ -1,16 +1,24 @@
-// sync-d-publish.spec.ts —— D. `publish` 是**可见性**闸,不是入库闸(F-L-8)。
+// sync-d-publish.spec.ts -- D. `publish` is a **visibility** gate, not a storage gate
+// (F-L-8).
 //
-// 两个正交的决定,曾经被同一个 frontmatter flag 绑死:
-//   - 落库(入 corpus)—— vault 里路由进来的 .md **一律**落库。agent 要能 ground 它。
-//   - 公开(published,旧名 seo_indexed)—— 只管**匿名访客**看不看得见 / 进不进 sitemap。
-//     `可见性走 scope:匿名只 published,有 code 走 role corpus_uris glob 准入`(wiki_tree.go)。
-//     published=false ≠ 不存在,而是「要 code 才能看」——公共 /wiki 自己就写着 `... AS gated`。
+// Two orthogonal decisions used to be locked together by the same frontmatter flag:
+//   - stored (enters the corpus) -- every .md routed in from the vault is **always**
+//     stored. The agent needs to be able to ground on it.
+//   - public (published, formerly named seo_indexed) -- controls only whether
+//     **anonymous visitors** can see it / whether it enters the sitemap.
+//     `Visibility goes through scope: anonymous sees only published entries, a code goes
+//     through the role's corpus_uris glob admission` (wiki_tree.go). published=false does
+//     not mean "doesn't exist", it means "needs a code to see" -- the public /wiki route
+//     itself is labeled `... AS gated`.
 //
-// 以前 publish:false / 没写 publish 的 leaf **根本不入库**,后果:owner 想把一篇笔记喂给 agent,
-// 就必须同时把它公开给整个互联网。真 vault 上的代价 —— 223 篇 wiki 里 `publish:` 一个都没写,
-// 173 篇叶子永远进不来,corpus 只剩 50 个文件夹节点。
+// Previously, a leaf with publish:false / no publish field at all **never entered the
+// corpus**, with the consequence: if the owner wanted to feed a note to the agent, they
+// had to simultaneously make it public to the entire internet. The cost on the real
+// vault -- none of the 223 wiki notes had `publish:` written at all, 173 leaves could
+// never get in, leaving the corpus with only 50 folder nodes.
 //
-// folder-note(结构节点)照旧:无视 publish 建为树节点(否则子节点没父、路径断)。
+// Folder-notes (structural nodes) behave as before: built as tree nodes regardless of
+// publish (otherwise child nodes would have no parent and paths would break).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

@@ -1,24 +1,33 @@
-// application-status-persist.spec.ts —— /admin/applications 详情 modal 的 "status" 分段控件不能
-// **假装保存**：点一下 `is-on` 亮到那个段，看起来像存了，一 reload 就悄悄退回原值。
+// application-status-persist.spec.ts —— the "status" segmented control in the
+// /admin/applications detail modal must not **pretend to save**: clicking lights up
+// `is-on` on that segment, looking saved, then a reload silently reverts it.
 //
-// rot-C1（MEDIUM）：ApplicationDetailModal 的 status 只挂在组件本地 useState 上
-// （ApplicationDetailModal.tsx:26 `useState<ApplicationStatus>(app.status)`；:208
-// `StatusSegmented value={status} onChange={onStatus}`；:213-228 按钮 `onChange → setStatus`）。
-// **没有任何持久化**——后端 `/applications` 路由 GET-only（jobsadmin/routes.go:59），真写入走 MCP
-// `applications.commit`，根本没有 status-write endpoint。文件头注释却写 "status PATCH 走后端"。
+// rot-C1 (MEDIUM): ApplicationDetailModal's status lives only in component-local
+// useState (ApplicationDetailModal.tsx:26 `useState<ApplicationStatus>(app.status)`;
+// :208 `StatusSegmented value={status} onChange={onStatus}`; :213-228 button
+// `onChange → setStatus`). **There is no persistence at all** — the backend
+// `/applications` route is GET-only (jobsadmin/routes.go:59); real writes go through
+// MCP `applications.commit`, and there is no status-write endpoint. Yet the file-header
+// comment still says "status PATCH goes through the backend".
 //
-// 选定诠释 = **make-honest**（不是「补一条持久化」），依据是设计源本身：
-// docs/design/project/admin.js 的 ApplicationDetailModal 把这个段控写成 `onChange={()=>{}}`——
-// 一个 no-op，它从来只想**显示**当前状态、从不写。而后端 `status` 列是机器生命周期
-// （pending → submitted → failed/withdrawn，domain/application.go），跟 modal 的
-// silent/reviewing/replied/rejected/offer 是两套词表，parseAppStatus 把真 commit 行全兜底成
-// `silent`——今天没有任何地方能一致地存 `replied`/`offer`。
+// Chosen interpretation = **make-honest** (not "add the missing persistence"), based on
+// the design source itself: docs/design/project/admin.js writes this segmented control's
+// ApplicationDetailModal as `onChange={()=>{}}` — a no-op. It only ever meant to
+// **display** the current status, never to write it. Meanwhile the backend `status`
+// column is a machine lifecycle (pending → submitted → failed/withdrawn,
+// domain/application.go), a different vocabulary from the modal's
+// silent/reviewing/replied/rejected/offer; parseAppStatus falls every real commit row
+// back to `silent` — today nothing can consistently store `replied`/`offer`.
 //
-// RED 判据（fix-agnostic 一致性/存活不变式）：打开申请、读亮着的状态、点一个**不同**的段、读点完
-// 之后亮的状态；关掉 modal、**reload**（真读实例存了什么）、重开、再读。断言「点完之后亮的」==
-// 「reload 之后亮的」。诚实的两种收尾都过：(a) 点击真落库→reload 仍是 target；(b) 控件只读/不提交
-// →点击本就是 no-op、`is-on` 没动。唯一挂掉的就是现状：点完亮 `offer`（像存了）、reload 退回
-// `silent`——modal 声称了一个实例从没存过的状态。当前代码 → 不相等 → RED。
+// RED criterion (fix-agnostic consistency/survival invariant): open an application, read
+// the lit status, click a **different** segment, read what's lit after the click; close
+// the modal, **reload** (a real read of what the instance actually stored), reopen, read
+// again. Assert "lit after the click" == "lit after the reload". Both honest endings
+// pass: (a) the click really persists → still `target` after reload; (b) the control is
+// read-only/non-submitting → the click is a no-op, `is-on` never moves. The only thing
+// that fails is the current behavior: clicking lights up `offer` (looking saved), reload
+// reverts to `silent` — the modal claimed a status the instance never stored. Current
+// code → not equal → RED.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Locator, Page, Playwright } from '@playwright/test';
@@ -37,16 +46,21 @@ const OWNER = {
   fullName: 'App Status Owner',
 };
 
-// status 枚举跟 applications-model 的 SUBMISSION_STATES 对齐（稳定契约，不 import app 内部）。
-// StatusSegmented 每一段 data-testid=`status-<s>`，选中项带 `is-on` class。
+// The status enum matches applications-model's SUBMISSION_STATES (a stable contract, no
+// importing app internals). Every StatusSegmented segment has data-testid=`status-<s>`,
+// and the selected one carries the `is-on` class.
 //
-// **这份清单曾经落后于产品**：轴从「recruiter 回没回」(silent/reviewing/replied/rejected/offer)
-// 换成「投递到哪一步」(committed/submitted/failed/withdrawn) 之后（F-E-3），改名只跟到了编译
-// 得到的那一半，这里的硬编码没动 —— 于是 `litStatus` 永远返回空串，这条 spec 从那天起一直红着，
-// 而红的原因跟它要守的东西无关（[[harness-drifts-when-vocabulary-changes]]）。
+// **This list once fell behind the product**: after the axis changed from "did the
+// recruiter reply" (silent/reviewing/replied/rejected/offer) to "how far the submission
+// got" (committed/submitted/failed/withdrawn) (F-E-3), the rename only followed the half
+// the compiler could see — the hardcoded list here never moved. So `litStatus` always
+// returned an empty string, and this spec has been red ever since, for a reason
+// unrelated to what it's meant to guard
+// ([[harness-drifts-when-vocabulary-changes]]).
 const STATUSES = ['committed', 'submitted', 'failed', 'withdrawn'] as const;
 
-// commit 后拿到的真 application_id —— 列表行 testid=`application-row-<id>`。
+// The real application_id obtained after commit — the list row's testid is
+// `application-row-<id>`.
 let appId = '';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -61,13 +75,16 @@ test.describe('admin /applications · the status control must not claim a status
   test('「我到底发出去了什么」在这张卡上答得出来', snapshotShowsWhatWasSent);
 });
 
-// snapshotShowsWhatWasSent —— F-E-23。**「RESUME SENT · SNAPSHOT」那块要真的显示那一份。**
+// snapshotShowsWhatWasSent —— F-E-23. **The "RESUME SENT · SNAPSHOT" block must actually
+// show that resume.**
 //
-// 它以前是一个标题、一条横线，底下一片空白：渲的是 `resumeDelta`，而那个字段在前端
-// 只被赋成空串。内容一直都在申请行里（commit 那一刻的 PDF 就是从它渲的），
-// 于是「我到底发出去了什么」在整个产品里一处都答不出来。
+// It used to be a heading, a divider, and blank space below it: it rendered
+// `resumeDelta`, and the frontend only ever assigned that field an empty string. The
+// content was always in the application row (the PDF at commit time was rendered from
+// it), so "what did I actually send" had no answer anywhere in the product.
 //
-// 断的是**内容**（种进去的那份简历里的字），不是「那块在不在」—— 空盒子也在。
+// This asserts the **content** (the actual text from the resume that was seeded), not
+// just "the block exists" — an empty box also exists.
 async function snapshotShowsWhatWasSent({ adminPage: page }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(page, 'applications');
   await expect(page.getByTestId('applications-list')).toBeVisible({ timeout: 10_000 });
@@ -75,26 +92,31 @@ async function snapshotShowsWhatWasSent({ adminPage: page }: { adminPage: Page }
 
   const snap = modal.getByTestId('application-resume-snapshot');
   await expect(snap, 'precondition: 那块在屏幕上').toBeVisible();
-  // sampleResumeContent 的名字 / 雇主 / 学校。ResumePage 把名字渲成小写。
+  // The name / employer / school from sampleResumeContent. ResumePage renders the name
+  // in lowercase.
   await expect(snap, '发出去的那份的名字').toContainText('alice anderson');
   await expect(snap, '发出去的那份的经历').toContainText('Acme');
   await expect(snap, '发出去的那份的学历').toContainText('UC Berkeley');
 }
 
-// modalActionsAreHonest —— F-E-12 + F-E-13。**这张弹窗上任何看起来能点的东西，要么真能做，
-// 要么明说做不了。**
+// modalActionsAreHonest —— F-E-12 + F-E-13. **Anything on this modal that looks
+// clickable either really does something, or says plainly that it can't.**
 //
-// 第一版只遍历 `.sm-app-modal-foot button`，于是它绿着，而同一张弹窗上另外三颗死按钮
-// （`PING IN CHAT` / `VIEW FULL` / `DOWNLOAD PDF`）**就在扫描范围之外一节** ——
-// 闸门自己犯了它要防的那个错（[[gate-can-go-blind]]）。范围现在是整张弹窗。
+// The first version only walked `.sm-app-modal-foot button`, so it stayed green while
+// three other dead buttons on the same modal (`PING IN CHAT` / `VIEW FULL` /
+// `DOWNLOAD PDF`) **sat one section outside the scan** — the gate made exactly the
+// mistake it existed to catch ([[gate-can-go-blind]]). Scope is now the whole modal.
 //
-// 五颗当时都没有 onClick：点下去状态不变、一个请求都不发、连一句提示都没有。
-// `WITHDRAW` 还是朱红的危险色，owner 点完会以为撤回了。
-// 而 `DOWNLOAD PDF` 更深一层：`applications` 表根本没有 PDF 列，那份产物只在 commit 的
-// 回参里出现一次 —— 不是忘了接线，是背后没有东西可接。
+// At the time none of the five had an onClick: clicking did nothing, sent no request,
+// and gave no message. `WITHDRAW` was still styled in the vermillion danger color, so an
+// owner who clicked it would believe they'd withdrawn.
+// `DOWNLOAD PDF` goes a layer deeper: the `applications` table has no PDF column at
+// all — that artifact only ever appears once, in commit's return payload. It isn't a
+// missed wiring, there's nothing behind it to wire to.
 //
-// 断的是**每一颗**按钮自己的 disabled，不是「有没有那句解释」：文案会改，属性是行为。
-// 遍历而不是点名 —— 将来加一颗照样得给出答案。
+// This asserts **each button's own** disabled state, not "is there an explanatory
+// sentence": copy can be rewritten, but a property is behavior. Iterating rather than
+// naming buttons one by one means a future addition still has to answer for itself.
 async function modalActionsAreHonest({ adminPage: page }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(page, 'applications');
   await expect(page.getByTestId('applications-list')).toBeVisible({ timeout: 10_000 });
@@ -107,7 +129,8 @@ async function modalActionsAreHonest({ adminPage: page }: { adminPage: Page }): 
   for (let i = 0; i < n; i++) {
     const b = buttons.nth(i);
     const label = ((await b.textContent()) ?? '').trim();
-    // CLOSE 真的会做事（关掉弹窗），它该是活的。其余的必须要么真能做，要么禁用。
+    // CLOSE really does something (closes the modal), so it should be live. Everything
+    // else must either really work, or be disabled.
     if (/close/i.test(label)) continue;
     const wired = await b.evaluate((el) => el.onclick !== null);
     if (wired) continue;
@@ -119,16 +142,20 @@ async function modalActionsAreHonest({ adminPage: page }: { adminPage: Page }): 
   }
 }
 
-// notesDoNotPretendToSave —— F-E-11，check 3 的那一格。
+// notesDoNotPretendToSave —— F-E-11, the box for check 3.
 //
-// 真环境：往 PRIVATE NOTES 里写一句话 → 关 → reload → 重开，字没了，而打字那一段后端
-// 一个写请求都没有。没有保存按钮，也没有任何字样说它不保存。
+// In the real environment: type a line into PRIVATE NOTES → close → reload → reopen,
+// and the text is gone — typing there never sent a single write request. There's no
+// save button, and nothing says it doesn't save either.
 //
-// 三层都是空的：前端纯 useState，列表把 notes 硬编码成 ''，后端整个 jobs 包 `notes` 零命中。
-// 设计里这一格是有的（job-loop.md 的 schema + applications.update_status），但那个写口从没建过。
+// All three layers are empty: the frontend is plain useState, the list hardcodes notes
+// to `''`, and the whole backend `jobs` package has zero hits on `notes`. The design
+// does call for this field (job-loop.md's schema + applications.update_status), but that
+// write path was never built.
 //
-// 所以断的是 item 给的另一种合格形态：**看得出来不提交**。判据取 `readOnly`/`disabled`
-// 这类**元素自己**的属性，而不是找一句提示文案 —— 文案会被改写，属性是行为。
+// So this asserts the other acceptable shape: **it visibly does not submit**. The
+// criterion is the `readOnly`/`disabled` property on the **element itself**, not a
+// hunt for an explanatory sentence — copy can be rewritten, but a property is behavior.
 async function notesDoNotPretendToSave({ adminPage: page }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(page, 'applications');
   await expect(page.getByTestId('applications-list')).toBeVisible({ timeout: 10_000 });
@@ -146,14 +173,19 @@ async function notesDoNotPretendToSave({ adminPage: page }: { adminPage: Page })
   ).toBe(false);
 }
 
-// litSegmentLooksDifferent —— F-E-10。**判据必须是计算样式，不能是文本或类名。**
+// litSegmentLooksDifferent —— F-E-10. **The criterion must be computed style, never
+// text or a class name.**
 //
-// 真环境上这一格是一个框里挤着 `committed submitted failed withdrawn` —— 四个词连成一串、
-// 没有分隔、看不出当前是哪个。而 DOM 一直是对的：`is-on` 在、`data-testid` 在，
-// 所以任何读文本 / 读类名的断言从头到尾都是绿的（[[text-assertion-cannot-see-layout]]）。
+// In the real environment this box is `committed submitted failed withdrawn` crammed
+// together — four words run together with no separator, giving no clue which one is
+// current. The DOM is correct the whole time though: `is-on` is there, `data-testid` is
+// there, so any assertion that reads text or class names stays green start to finish
+// ([[text-assertion-cannot-see-layout]]).
 //
-// 原因：`sm-atoms.css` 里分段样式全挂在 `.sm-seg button` 上，而组件为了「不落库的东西
-// 不该看起来能点」渲染的是 `<span>`。能力搬了家，它的边没跟着走。
+// Cause: `sm-atoms.css` hangs all the segmented styling off `.sm-seg button`, but the
+// component renders a `<span>` instead — because "something that isn't persisted
+// shouldn't look clickable". The capability moved house and its styling boundary didn't
+// move with it.
 async function litSegmentLooksDifferent({ adminPage: page }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(page, 'applications');
   await expect(page.getByTestId('applications-list')).toBeVisible({ timeout: 10_000 });
@@ -175,33 +207,40 @@ async function litSegmentLooksDifferent({ adminPage: page }: { adminPage: Page }
   ).not.toBe(await paint(dim));
 }
 
-// statusMustNotOutliveReload —— 换状态 → 读点后亮的 → 关掉 → reload → 重开 → 读 reload 后亮的，
-// 断言两者相等（诚实控件的不变式；现状的假保存违反它）。
+// statusMustNotOutliveReload —— change status → read what's lit after the click → close
+// → reload → reopen → read what's lit after the reload, and assert the two are equal
+// (the invariant an honest control must satisfy; the current fake-save violates it).
 async function statusMustNotOutliveReload({ adminPage: page }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(page, 'applications');
   await expect(page.getByTestId('applications-list')).toBeVisible({ timeout: 10_000 });
 
   const modal = await openApplication(page);
   const before = await litStatus(modal);
-  // 现状 sanity：段控里确实有一个亮着的状态（selector 打错就在这里红，避免静默变绿）。
+  // Sanity check on the current state: the segmented control does have one lit status
+  // (a wrong selector would fail right here, instead of silently passing).
   expect(STATUSES, 'the seeded application should show a lit status segment').toContain(before);
 
-  // 点一个跟当前**不同**的状态。tolerant：诚实修法把控件改成只读/禁用时，这里就是 no-op。
+  // Click a status **different** from the current one. Tolerant: once an honest fix
+  // makes the control read-only/disabled, this click is simply a no-op.
   const target = STATUSES.find((s) => s !== before)!;
   const targetBtn = modal.getByTestId(`status-${target}`);
   if (await targetBtn.count() > 0 && await targetBtn.isEnabled()) await targetBtn.click();
   const afterClick = await litStatus(modal);
 
-  // 关掉 modal，**reload**（重新 fetch 实例真正存了什么），再打开同一份申请。
+  // Close the modal, **reload** (re-fetches what the instance actually stored), then
+  // reopen the same application.
   await modal.getByTestId('application-detail-close').click();
   await expect(page.getByTestId('application-detail-modal')).toHaveCount(0);
   await page.reload();
   await expect(page.getByTestId('applications-list')).toBeVisible({ timeout: 10_000 });
   const afterReload = await litStatus(await openApplication(page));
 
-  // 诚实不变式：owner 动作之后 modal 显示的状态，必须等于 reload 之后显示的状态。
-  // 说谎 = 点完亮 `target`（像存了），reload 退回 `before`（本地 useState 随 modal 卸载丢失，
-  // 因为没有任何持久化 —— /applications 是 GET-only，写入走 MCP applications.commit）。
+  // Honest invariant: the status the modal shows after an owner action must equal what
+  // it shows after a reload.
+  // Lying = lights up `target` after the click (looking saved), then reload reverts to
+  // `before` (the local useState is lost when the modal unmounts, because there is no
+  // persistence at all — /applications is GET-only, writes go through MCP
+  // applications.commit).
   expect(
     afterReload,
     `the status the modal showed after the click ("${afterClick}") did not survive a reload — it `
@@ -211,7 +250,8 @@ async function statusMustNotOutliveReload({ adminPage: page }: { adminPage: Page
   ).toBe(afterClick);
 }
 
-// openApplication —— 打开 appId 那一行的详情 modal（行的主按钮），返回 modal locator。
+// openApplication —— opens the detail modal for the appId row (the row's primary
+// button), and returns the modal locator.
 async function openApplication(page: Page): Promise<Locator> {
   await page.getByTestId(`application-row-${appId}`).getByRole('button').first().click();
   const modal = page.getByTestId('application-detail-modal');
@@ -219,7 +259,8 @@ async function openApplication(page: Page): Promise<Locator> {
   return modal;
 }
 
-// litStatus —— 读段控里当前带 `is-on` 的那个状态 testid（缺失/无按钮时容错返回空串）。
+// litStatus —— reads the status testid currently carrying `is-on` in the segmented
+// control (tolerantly returns an empty string when missing/no buttons).
 async function litStatus(modal: Locator): Promise<string> {
   for (const s of STATUSES) {
     const btn = modal.getByTestId(`status-${s}`);
@@ -230,8 +271,9 @@ async function litStatus(modal: Locator): Promise<string> {
   return '';
 }
 
-// seed —— claim fresh owner，再经 MCP 落一份真 application（jobs.fetch_new → resume.draft →
-// applications.commit），返回它的 application_id。列表 GET /api/admin/applications 能读到这行。
+// seed —— claims a fresh owner, then lands a real application through MCP
+// (jobs.fetch_new → resume.draft → applications.commit), and returns its
+// application_id. The list's GET /api/admin/applications can read this row.
 async function seed(playwright: Playwright): Promise<string> {
   await claimFreshOwner(playwright, OWNER);
   const request = await playwright.request.newContext();

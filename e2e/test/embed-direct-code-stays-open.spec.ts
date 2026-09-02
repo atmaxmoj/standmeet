@@ -1,20 +1,28 @@
 // embed-direct-code-stays-open.spec.ts —— embedding a code must NOT lock its direct use.
 //
-// 背景（2026-09-01，防盗上线后发现）：origin 白名单一度也 gate 了**明文 code 直连**那条路。
-// 但防盗设计（[[embed-credential-never-carries-the-code]]）之后，code 明文**从不**出现在第三方
-// 站点的 HTML 里——widget 走的是 embed_token（JWT）。所以明文 code 那条路只剩 owner 自己的用途：
-// 扫 QR / 点分享链接落到实例页（同源）、直接粘码。这些都不该被 embed 的 partner 白名单挡住。
+// Background (2026-09-01, found after the anti-theft feature shipped): the origin
+// allowlist had at one point also gated **plaintext code direct-use**. But after the
+// anti-theft design ([[embed-credential-never-carries-the-code]]), the plaintext code
+// **never** appears in a third-party site's HTML — the widget goes through embed_token
+// (a JWT) instead. So the plaintext-code path only serves the owner's own uses: scanning
+// a QR / clicking a share link that lands on the instance page (same-origin), or pasting
+// the code directly. None of these should be blocked by the embed's partner allowlist.
 //
-// 之前的行为：给一张码挂了 embed（白名单 partner.example），从实例自己的 origin 直连这张码 → 403。
-// 于是 QR / 分享链接全断——把「加了个 widget」变成「这张码的直连全废」。这就是 gate 粒度过粗
-// 拿掉了一个本来做得到的动作（[[gate-granularity-removes-working-action]]）。
+// Previous behavior: attach an embed to a code (allowlisting partner.example), then
+// direct-use that code from the instance's own origin -> 403. That broke every QR / share
+// link — turning "we added a widget" into "direct use of this code is now dead
+// everywhere". That's a gate whose granularity is too coarse, removing an action that
+// used to work ([[gate-granularity-removes-working-action]]).
 //
-// 正确模型：**白名单只 gate widget/token 那条路**（origin 折进 JWT、按白名单校，见
-// embed-token-auth.spec.ts）。**明文 code 直连不受 origin 限制**——它跟没有 embed 时一模一样，
-// 泄露了就 revoke。
+// The correct model: **the allowlist only gates the widget/token path** (origin is
+// folded into the JWT and checked against the allowlist, see embed-token-auth.spec.ts).
+// **Plaintext code direct-use is not restricted by origin at all** — it behaves exactly
+// as if there were no embed; if it leaks, revoke it.
 //
-// 判据（正对照）：一张**被 embed 暴露**的码，明文直连从**任何** origin 都成——含实例自己、
-// 白名单外、没有 Origin 头。RED（修之前）：这些从非白名单 origin 直连拿到 403。
+// Criterion (positive control): a code that **has been exposed via embed** must still
+// allow plaintext direct-use from **any** origin — including the instance itself, origins
+// outside the allowlist, and no Origin header at all. RED (before the fix): these
+// direct-uses from non-allowlisted origins got a 403.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -46,7 +54,8 @@ async function createEmbed(
   return res.status();
 }
 
-// directSession —— 明文 code 直连（不是 embed_token）。origin 可传空（不带 Origin 头）。
+// directSession — plaintext code direct-use (not embed_token). origin may be null (no
+// Origin header sent).
 async function directSession(
   request: APIRequestContext, code: string, origin: string | null,
 ): Promise<number> {
@@ -75,7 +84,8 @@ test.describe('embed · embedding a code leaves its direct (plaintext) use open 
       code: EMBEDDED_CODE, label: 'embedded', assumed_role_id: role.id,
     });
     embeddedCodeID = code.id;
-    // 给它挂一个钉了 partner 来源的 embed —— 这不该影响明文直连。
+    // Attach an embed pinned to the partner origin — this should not affect plaintext
+    // direct-use.
     expect(await createEmbed(request, csrf, code.id, [ALLOWED]), '建 embed 必须成功').toBe(201);
   });
   test.afterAll(async () => { await request.dispose(); });
@@ -95,7 +105,8 @@ test.describe('embed · embedding a code leaves its direct (plaintext) use open 
       '没有 Origin 头（原生客户端）也该能直连').toBe(200);
   });
 
-  // 一张码只能被一个 embed 暴露：来源白名单/密钥才有唯一确定的那一份。
+  // A code can only be exposed by one embed: only that way does the origin
+  // allowlist/secret have a single, unambiguous owner.
   test('a code cannot be exposed by a second embed', async () => {
     expect(await createEmbed(request, csrf, embeddedCodeID, ['https://second.example']),
       '一张码已挂了 embed，再挂一个必须被拒（409）').toBe(409);

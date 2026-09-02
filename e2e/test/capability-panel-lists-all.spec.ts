@@ -1,6 +1,7 @@
-// capability-panel-lists-all.spec.ts —— Phase H / P.5：能力面板列**全部**
-// capability + connector + skill，每行透出 origin 徽章（builtin/managed/owner）。
-// 锁 ListByOrigin 透到前端 + 三种 kind 都在一张表里。
+// capability-panel-lists-all.spec.ts -- Phase H / P.5: the capability panel lists **all**
+// capabilities + connectors + skills, each row surfacing an origin badge (builtin/managed/
+// owner). Locks that ListByOrigin reaches the frontend, and that all three kinds sit in
+// one table.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

@@ -1,8 +1,8 @@
-// iam-prompt-validation.spec.ts —— admin /api/admin/prompts 的拒绝路径：
-//   - publicRow 不可改名 → 403 prompt_builtin_immutable
-//   - publicRow 改名以外的字段（body/desc）可改 → 200
-//   - publicRow 不可删 → 403 prompt_builtin_immutable
-//   - 同 owner 重 name → 409 prompt_name_taken
+// iam-prompt-validation.spec.ts -- admin /api/admin/prompts rejection paths:
+//   - publicRow's name cannot be changed -> 403 prompt_builtin_immutable
+//   - publicRow's other fields (body/desc) besides name can be changed -> 200
+//   - publicRow cannot be deleted -> 403 prompt_builtin_immutable
+//   - a duplicate name under the same owner -> 409 prompt_name_taken
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

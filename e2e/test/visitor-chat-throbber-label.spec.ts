@@ -1,16 +1,23 @@
-// visitor-chat-throbber-label.spec.ts —— throbber 反映的是 agent 的实时行为:
-// 它是 /agent/turn SSE 流里 tool_started 事件的 1:1 视图(单值,后来的顶替前面
-// 的)。throbber 文案 = backend 每个 tool 注册的 progress_label + corpus 读类再
-// 叠上「在读哪个 document」(throbber-label.ts)。
+// visitor-chat-throbber-label.spec.ts —— the throbber reflects the agent's
+// real-time behavior: it's a 1:1 view of tool_started events on the
+// /agent/turn SSE stream (a single value, each new one replacing the last).
+// The throbber's copy = the progress_label registered by the backend for each
+// tool, plus, for a corpus read, "which document is being read" layered on top
+// (throbber-label.ts).
 //
-// 验法:**发问前先挂一个 SSE response listener**,把 /agent/turn 整条流录下来 ——
-// agent 每一步都实打实在网络上流过,跟 React 画不画无关(mock 零延迟 turn 里
-// 中间帧会被 batch 掉,DOM 上根本来不及画,但事件流一条不少)。断言流里 agent
-// 按序 emit 了 corpus_search(带 backend progress_label)→ corpus_read(args.path
-// = 在读的 document),这正是 throbber 逐帧显示的内容来源。
+// Verification: **hook an SSE response listener before asking the question**,
+// recording the entire /agent/turn stream — every step the agent takes really
+// does flow over the network regardless of whether React paints it (in a
+// zero-latency mock turn the intermediate frames get batched away and the DOM
+// never gets a chance to paint them, but the event stream doesn't drop a
+// single one). Assert the stream emits, in order, corpus_search (carrying the
+// backend's progress_label) → corpus_read (args.path = the document being
+// read) — this is exactly the source of what the throbber displays frame by frame.
 //
-// throbber 的「单值不堆叠」是结构性保证(use-chat 的 currentTool 是单值,类型
-// 上不可能堆);「turn 落地即清」由 visitor-chat-throbber-clears 专门兜。
+// The throbber's "single value, never stacks" property is a structural
+// guarantee (use-chat's currentTool is a single value, stacking is impossible
+// by type); "clears the instant the turn lands" is covered separately by
+// visitor-chat-throbber-clears.
 
 import { test, expect } from '@/fixtures/test';
 import type { Response } from '@playwright/test';
@@ -66,8 +73,9 @@ test.describe('throbber label 走 backend BindingTool.ProgressLabel registry', (
       await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
-      // 发问前先挂 listener:录整条 /agent/turn SSE。事件流不会被 React batch 掉,
-      // 瞬时也好、零延迟也好,agent 的每一步都在里头。
+      // Hook the listener before asking the question: records the entire
+      // /agent/turn SSE. The event stream is never batched away by React —
+      // transient or zero-latency, every step the agent takes is in there.
       const turnRespPromise = page.waitForResponse(
         (r) => r.url().includes('/agent/turn') && r.status() === 200,
         { timeout: 20_000 },
@@ -90,13 +98,13 @@ test.describe('throbber label 走 backend BindingTool.ProgressLabel registry', (
 
       const search = started.find((t) => t.name === 'corpus_search');
       const read = started.find((t) => t.name === 'corpus_read');
-      // corpus_search 现过,带 backend 注册的 progress_label(throbber 默认文案源)。
+      // corpus_search appeared, carrying the backend-registered progress_label (the throbber's default copy source).
       expect(search).toBeDefined();
       expect(search?.progressLabel ?? '').not.toBe('');
-      // corpus_read 现过,args.path = 在读的那个 document(owner: "他到底在读什么")。
+      // corpus_read appeared, args.path = the document being read (owner's question: "what exactly is it reading").
       expect(read).toBeDefined();
       expect(read?.path).toBe(TARGET_PATH);
-      // 顺序:先 search 再 read。
+      // Order: search first, then read.
       expect(started.findIndex((t) => t.name === 'corpus_search'))
         .toBeLessThan(started.findIndex((t) => t.name === 'corpus_read'));
 
@@ -104,8 +112,8 @@ test.describe('throbber label 走 backend BindingTool.ProgressLabel registry', (
     });
 });
 
-// collectToolStarted —— 读完整条 SSE(stream 结束 = turn 落地),抽出所有
-// tool_started 帧:event: tool_started / data: {name,args,progress_label}。
+// collectToolStarted —— reads the entire SSE (stream ends = turn landed),
+// extracting all tool_started frames: event: tool_started / data: {name,args,progress_label}.
 async function collectToolStarted(resp: Response): Promise<ToolStarted[]> {
   const raw = await resp.text();
   const out: ToolStarted[] = [];

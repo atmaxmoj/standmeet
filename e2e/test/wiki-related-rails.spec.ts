@@ -1,9 +1,12 @@
-// wiki-related-rails.spec.ts —— F2:wiki reader 底部两条 related rail。
-//   - read next  = 出链(本条 [[X]] 指向的)= landing.related
-//   - cited by   = 入链(指向本条的别人)= landing.cited_by
-// 后端 landing 早就返了 related/cited_by(wiki_refs 边图),这条测前端把它们渲成 rail。
+// wiki-related-rails.spec.ts — F2: the two related rails at the bottom of the wiki
+// reader.
+//   - read next  = outbound links (what this entry's [[X]] points to) = landing.related
+//   - cited by   = inbound links (others pointing at this entry) = landing.cited_by
+// The backend's landing endpoint has long returned related/cited_by (the wiki_refs edge
+// graph); this test checks that the frontend renders them as rails.
 //
-// 边:Entry A 的 body 含 [[Target B]] → A→B。所以 A 的 read next 有 B;B 的 cited by 有 A。
+// The edge: Entry A's body contains [[Target B]] → A→B. So A's read next has B; B's
+// cited by has A.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -32,7 +35,8 @@ test.describe('F2 wiki reader related rails (read next / cited by)', () => {
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     mcpToken = await createAPIToken(request, csrf, 'rails-seed');
     const sid = await initMCP(request, mcpToken);
-    // B 先种(让 A 的 [[Target B]] 解析得到);再种 A(promote 时建 A→B 边)。
+    // Seed B first (so A's [[Target B]] can resolve); then seed A (the A→B edge gets
+    // built at promote time).
     const b = await seedWiki(request, mcpToken, sid, {
       title: 'Target B', body: 'The target entry body.',
     });
@@ -51,7 +55,7 @@ test.describe('F2 wiki reader related rails (read next / cited by)', () => {
     await expect(rail).toBeVisible();
     await expect(rail.getByRole('link', { name: /Target B/ }))
       .toHaveAttribute('href', '/wiki/target-b');
-    // A 没有入链 → cited by rail 不出现。
+    // A has no inbound links → the cited by rail doesn't appear.
     await expect(page.getByTestId('related-rail-cited-by')).toHaveCount(0);
   });
 

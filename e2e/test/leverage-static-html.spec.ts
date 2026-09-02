@@ -1,13 +1,15 @@
 // leverage-static-html.spec.ts —— Obsidian-ecosystem leverage #2: pre-render-at-export。
 //
-// 设计([[rendering-and-extensibility]] §31/§39):plugin(Dataview/etc.)在 owner 的 Obsidian 侧
-// export 时预渲染成**静态结果**,StandMeet 只 ingest 那个结果、从不跑插件。烤成 markdown 的
-// (Dataview Publisher → markdown 表)本来就渲(见 render-static-passthrough);烤成 **HTML** 的
-// (Digital Garden / 某些 HTML 导出)现在被 rehype-sanitize 剥掉 → 这就是 StandMeet 侧要建的:
-// 一个 ` ```standmeet-html ` 块,内容是 owner 预烤的静态 HTML,**sanitize 后**渲进正文
-// (安全标签留下、script/iframe/on* 剥掉)。
+// Design ([[rendering-and-extensibility]] §31/§39): plugins (Dataview/etc.) pre-render to a
+// **static result** on the owner's Obsidian side at export time; StandMeet only ingests that
+// result and never runs the plugin. Cases that bake to markdown (Dataview Publisher ->
+// markdown table) already render fine (see render-static-passthrough); cases that bake to
+// **HTML** (Digital Garden / some HTML exports) currently get stripped by rehype-sanitize ->
+// this is what StandMeet needs to build: a ` ```standmeet-html ` block whose content is the
+// owner's pre-baked static HTML, rendered into the body **after sanitizing** (safe tags kept,
+// script/iframe/on* stripped).
 //
-// ⚠️ RED until standmeet-html 块实现。
+// ⚠️ RED until the standmeet-html block is implemented.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -19,10 +21,12 @@ import { claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
 const OWNER = syncOwner('leveragehtml');
 
 test.describe('leverage · pre-rendered static HTML (baked at export) renders, sanitized', () => {
-  // 这条用例一个人要走完 reset → claim → 上传 vault → 开 reader 页面，而 reader 那页要等
-  // `load`（字体 + 懒加载的 mermaid）。默认 30 秒在全套负载下不够，单跑 42 秒。
-  // **不把 `goto` 放宽成 domcontentloaded** —— 那样会把 F-A-43 那类「字体落地之后才发生」的
-  // 布局缺陷从整套里藏起来。给这条用例它自己需要的时间，边界留在它自己身上。
+  // This one test alone has to walk through reset -> claim -> upload vault -> open the
+  // reader page, and the reader page waits on `load` (fonts + lazy-loaded mermaid). The
+  // default 30s isn't enough under full-suite load; it takes 42s solo.
+  // **Do not loosen `goto` to domcontentloaded** -- that would hide the class of "only
+  // happens after fonts land" layout bugs like F-A-43 from the whole suite. Give this test
+  // the time it needs, and keep that boundary local to itself.
   test.setTimeout(90_000);
 
   test.beforeEach(async ({ request }) => {

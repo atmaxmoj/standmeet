@@ -1,14 +1,16 @@
-// visitor-reschedule-booking.spec.ts —— ④: 访客把**自己本对话**那笔预约改到一个新的
-// owner-available 时间。
+// visitor-reschedule-booking.spec.ts —— ④: a visitor moves **their own
+// conversation's** booking to a new owner-available time.
 //
-// 原子性是重点(先订新、再删旧):
-//   - happy: 约 T1 → 改到 T2(空闲)→ 恰 1 个 event、在 T2,旧 T1 那条 event 消失(旧 slot 释放)。
-//   - 原子性: T2 已被别人占 → 改 T1→T2 失败(conflict),**原 T1 预约完好无损**(没把访客弄丢)。
-//   - 隔离(同 #123): Mallory(同码另一 member)改不了 Dana 的预约 —— resolveConvBooking 的
-//     conversation 归属门挡下,Dana 的 event 仍在。
+// Atomicity is the focus (book the new slot first, then delete the old one):
+//   - happy: book T1 → reschedule to T2 (free) → exactly 1 event, at T2, the old T1 event is gone (old slot freed).
+//   - atomicity: T2 already taken by someone else → rescheduling T1→T2 fails (conflict), **the original T1 booking survives intact** (the visitor isn't left with nothing).
+//   - isolation (same as #123): Mallory (another member on the same code) cannot
+//     reschedule Dana's booking — resolveConvBooking's conversation-ownership
+//     gate blocks it, Dana's event remains.
 //
-// 全程 API-driven: booking / reschedule 都走 tool-dispatch(卡上 mcp-ui:tool 落到后端的同一条路),
-// 可观察副作用 = mock GCal 的 event(真跑了没)。
+// Entirely API-driven: both booking / reschedule go through tool-dispatch (the
+// same backend path a card's mcp-ui:tool ends up on); the observable side
+// effect is the mock GCal event (did it really run).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -119,15 +121,20 @@ async function dispatch(
   return body.result ?? {};
 }
 
-// futureWeekday —— **往后数第 n 个工作日**（Mon–Fri），定在 hour:00 UTC。避开周末的
-// booking policy（weekday-only #125），让 slot 稳定可约。
+// futureWeekday —— **counts forward the n-th weekday** (Mon–Fri), fixed at
+// hour:00 UTC. Avoids the weekend-only booking policy (weekday-only #125), so
+// the slot is reliably bookable.
 //
-// **数工作日，不是「加 n 天再顺延」**：原来那种写法会把不同的 n 折到同一天上 ——
-// 今天是周六时，`+7` 落在周六、`+8` 落在周日，两个都顺延到**同一个周一**。
-// 于是两条用例订的是同一格，而 `resetMockGCal` 只清替身，清不掉产品自己的预约和占位，
-// 第二条就被「这一格已经有人了」挡下 —— 红在「bob 订一个空闲格」上，看起来像产品坏了。
-// 而它**只在某些日期发生**，所以平时看着像闪断（2026-08-22 周六撞上）。
-// 数工作日之后，不同的 n 永远是不同的天。
+// **Counts weekdays, not "add n days then roll forward"**: the old approach
+// folded different values of n onto the same day — when today is a Saturday,
+// `+7` lands on a Saturday, `+8` lands on a Sunday, and both roll forward to
+// **the very same Monday**. So two different cases would book the same slot,
+// and `resetMockGCal` only clears the stand-in, not the product's own bookings
+// and holds, so the second case gets blocked by "this slot is already taken" —
+// red on "bob books a free slot", which looks like the product is broken.
+// And it **only happens on certain dates**, so most of the time it looks like
+// a flake (hit on Saturday 2026-08-22). Counting weekdays makes different
+// values of n always land on different days.
 function futureWeekday(nth: number, hour: number): string {
   const d = new Date();
   let counted = 0;

@@ -1,12 +1,11 @@
-// job-fetch-jba.spec.ts —— J.6a: owner registers a "jba" source 走
-// JobBoardAggregator chunked archive；fetch_new 拿到 manifest + gzip chunk，
-// 按 config 的 title_keywords / location / ats filter 过 5 条 fixture jobs，
-// 验证只匹配的回来。
+// job-fetch-jba.spec.ts —— J.6a: owner registers a "jba" source that goes through the
+// JobBoardAggregator chunked archive; fetch_new pulls the manifest + gzip chunk, filters 5
+// fixture jobs against the config's title_keywords / location / ats filters, and verifies
+// only the matches come back.
 //
-// JBA fixture：e2e/fixtures/job-boards/jba/{jobs_manifest.json,
-// jobs_chunk_0.json.gz}；mock 服务挂 /jba/data/chunks/{filename}
-// (mock-stack/job-board/main.go serveJBA)。Backend env JBA_BASE_URL 指
-// 到 mock。
+// JBA fixture: e2e/fixtures/job-boards/jba/{jobs_manifest.json, jobs_chunk_0.json.gz}; the
+// mock service serves /jba/data/chunks/{filename} (mock-stack/job-board/main.go serveJBA).
+// Backend env JBA_BASE_URL points at the mock.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -36,10 +35,10 @@ test.describe('jobs.fetch_new (jba) filters chunked archive locally', () => {
       const token = await createAPIToken(request, csrf, 'jba-spec');
       const sid = await initMCP(request, token);
 
-      // fixture chunk 含 5 条 (titles: Senior Go Engineer / Backend Engineer (Go) /
-      // Frontend Engineer / Staff Platform Engineer / Data Scientist；ats:
-      // 2 Ashby + 2 Greenhouse + 1 Lever)。filter "go" + ats=Ashby 应返 1 条
-      // (Senior Go Engineer @ acme-rockets, Ashby)。
+      // The fixture chunk holds 5 entries (titles: Senior Go Engineer / Backend Engineer (Go) /
+      // Frontend Engineer / Staff Platform Engineer / Data Scientist; ats: 2 Ashby + 2
+      // Greenhouse + 1 Lever). filter "go" + ats=Ashby should return exactly 1
+      // (Senior Go Engineer @ acme-rockets, Ashby).
       const src = await jobsRegisterSource(request, token, sid, {
         kind: 'jba',
         label: 'JBA Ashby Go',

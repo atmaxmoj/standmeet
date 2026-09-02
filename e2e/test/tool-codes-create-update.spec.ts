@@ -1,8 +1,8 @@
 // tool-codes-create-update.spec.ts —— Phase E-13 MCP parity: owner issues access
 // codes + updates quotas via MCP (Claude Code conversation), not just admin REST.
 //
-// E-13 同时修了 CodeRepo.Revoke 的 0-row bug —— 已经在 b6-codes-revoke-mcp
-// 之外用本 spec 也间接覆盖 update_quotas 的同类 not-found 路径。
+// E-13 also fixed CodeRepo.Revoke's 0-row bug — beyond b6-codes-revoke-mcp, this spec also
+// indirectly covers the same kind of not-found path for update_quotas.
 
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
@@ -18,8 +18,8 @@ const OWNER = {
   handle: 'codes-mcp', fullName: 'Codes MCP Owner',
 };
 
-// seedCodesMCP —— claim + login + role + API token + MCP session。抽出
-// beforeAll 让 describe 回调 < 70 行 (max-lines-per-function)。
+// seedCodesMCP — claim + login + role + API token + MCP session. Extracted out of beforeAll
+// to keep the describe callback under 70 lines (max-lines-per-function).
 async function seedCodesMCP(
   playwright: Playwright,
 ): Promise<{ sid: string; apiToken: string; roleID: string }> {
@@ -40,9 +40,10 @@ async function seedCodesMCP(
   return { sid, apiToken, roleID: role.id };
 }
 
-// 两个面同一份载荷之后，MCP 拿到的就是**整行码**（跟面板 /codes/ 一样的形状）：
-// 行的主键叫 `id`，不是以前 MCP 私有那份的 `code_id`。入参仍叫 code_id —— 那是
-// "对哪张码"，不是行里的字段。
+// Once both faces share one payload, what MCP gets back is **the whole code row** (the same
+// shape as the /codes/ panel): the row's primary key is called `id`, not the old
+// MCP-private `code_id`. The input parameter is still named code_id — that names "which
+// code", not a field on the row.
 interface CreateResp { id: string; code: string; label: string }
 interface UpdateQuotasResp {
   id: string;
@@ -52,7 +53,8 @@ interface UpdateQuotasResp {
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// expectQuotaUpdate —— 内核自己那几个配额（成员数 / 每会话轮次）改一个，另一个不受影响。
+// expectQuotaUpdate — changing one of the kernel's own quotas (member count / turns per
+// session) leaves the other one unaffected.
 async function expectQuotaUpdate(
   request: APIRequestContext, apiToken: string, sid: string, roleID: string,
 ): Promise<void> {
@@ -72,12 +74,15 @@ async function expectQuotaUpdate(
   expect(updated.max_members).toBe(3);
 }
 
-// expectCodeFieldRoundTrip —— 能力在码上占的字段（booker 的 max_bookings 是第一个）走
-// CodeConfig 声明：写下去要能原样读回来。
+// expectCodeFieldRoundTrip — a field a capability owns on a code (booker's max_bookings is
+// the first one) is declared through CodeConfig: whatever gets written must read back
+// unchanged.
 //
-// 这条**两个方向都没覆盖过** —— 从前只有"配额到了工具消失"那一条；写进去的值有没有回到码上、
-// 入参 schema 里还有没有这个字段，都没人问。而 schema 现在是从声明算出来的，一旦算错，唯一的
-// 症状就是这个字段安静地消失。
+// **Neither direction of this was covered before** — the only prior test was "quota hits
+// zero → tool disappears"; nobody asked whether the written value actually made it back onto
+// the code, or whether the field still shows up in the input schema. And since the schema is
+// now computed from the declaration, the one symptom of getting that computation wrong is
+// this field quietly vanishing.
 async function expectCodeFieldRoundTrip(
   request: APIRequestContext, apiToken: string, sid: string, roleID: string,
 ): Promise<void> {

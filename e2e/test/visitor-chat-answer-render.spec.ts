@@ -1,16 +1,18 @@
-// visitor-chat-answer-render.spec.ts —— G-X: mock provider 流出含
-// markdown / katex / mermaid 的 reply → 真 visitor chat 路径
-// (PageShell → ConversationDeck → AnswerParas → ChatMarkdown) 渲染对。
+// visitor-chat-answer-render.spec.ts -- G-X: the mock provider streams a reply
+// containing markdown / katex / mermaid -> the real visitor chat path
+// (PageShell -> ConversationDeck -> AnswerParas -> ChatMarkdown) renders it correctly.
 //
-// 之前 chat-render-* / document-render 系列都走 wiki landing 或者删
-// 掉的 /dev/chat-render fixture path；从来没人验过"agent 文本回复带
-// markdown" 这条线 (会过 splitParas 把 body 拆成多段、每段 ChatMarkdown
-// 分别渲)。这个 spec 把 mock reply 设为含 5 个 markdown feature 的一段
-// 体，verify 答案区里每个 feature 都正确渲染。
+// The earlier chat-render-* / document-render series all went through the wiki
+// landing page or a since-deleted /dev/chat-render fixture path; nobody had ever
+// verified "an agent's plain-text reply carries markdown" (which goes through
+// splitParas, breaking the body into multiple paragraphs, each rendered separately by
+// ChatMarkdown). This spec sets the mock reply to one body containing 5 markdown
+// features, and verifies each one renders correctly in the answer area.
 //
-// next_reply scripting endpoint 是 next_tool 的对称扩展 (同一套 keyword KV，按
-// 消息里嵌的 keyword 隔离)，不是新加 test-only endpoint —— mock provider 整个
-// codepath 已经是 env-gated 的 dev/test 路径。
+// The next_reply scripting endpoint is a symmetric extension of next_tool (the same
+// keyword-KV setup, isolated by a keyword embedded in the message), not a new
+// test-only endpoint -- the mock provider's whole codepath is already an env-gated
+// dev/test path.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Browser } from '@playwright/test';
@@ -28,9 +30,10 @@ const OWNER = {
 
 const CODE = 'INTRO-001';
 
-// MARKDOWN_REPLY —— 一段含 5 大 feature 的 mock reply。注意每个块要被
-// `\n\n` 隔开因为 useChat.splitParas 是按段拆 (mermaid fenced + math
-// display 各自一段，避免跨段)。
+// MARKDOWN_REPLY -- one mock reply body carrying 5 major features. Note each block
+// must be separated by `\n\n`, because useChat.splitParas splits by paragraph
+// (mermaid-fenced and math-display each get their own paragraph, so they never span
+// across one).
 const MARKDOWN_REPLY = [
   '# Heading',
   '',
@@ -71,7 +74,7 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
 
   test('mock reply 含 markdown/gfm/katex/mermaid → answer-body 全渲染对',
     async ({ browser, request }) => {
-      // script mock reply 在 next /inference/stream 时流出
+      // Scripts the mock reply to stream out on the next /inference/stream call
       const tag = await scriptMockReplyText(request, MARKDOWN_REPLY);
 
       const ctx = await browser.newContext();
@@ -87,14 +90,15 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
       await input.fill(`show me everything${tag}`);
       await input.press('Enter');
 
-      // answer 出现
+      // The answer appears
       const answer = page.locator('[data-testid="answer-body"]').first();
       await expect(answer).toBeVisible({ timeout: 20_000 });
 
-      // 各 markdown feature 都渲染对。mock provider 在 reply 前会 echo
-      // 完整 [system:...] system prompt (capability fragments)，markdown
-      // 渲完里头也有 <strong>/<em>/<code> 节点；assertion 走 hasText
-      // 精确匹配本 spec 自己塞的 token (bold / italic / "inline code")。
+      // Each markdown feature renders correctly. The mock provider echoes the full
+      // [system:...] system prompt (capability fragments) before the reply, and that
+      // also contains <strong>/<em>/<code> nodes once rendered as markdown; the
+      // assertions use hasText to exact-match tokens this spec itself planted (bold /
+      // italic / "inline code").
       // heading
       await expect(answer.locator('h1')).toContainText('Heading');
       // bold / italic / inline code
@@ -125,19 +129,25 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
       await ctx.close();
     });
 
-  // 一个模型迟早会写出编译不过的 mermaid —— 它是生成出来的文本，不是人校对过的源码。
-  // 那时访客该看见的是**正文**（图只能是补充），而不是 mermaid 库的原始解析错误。
+  // Sooner or later a model writes mermaid that fails to compile -- it's generated
+  // text, not source a human has proofread. When that happens, what the visitor
+  // should see is **the prose** (the diagram can only ever be supplementary), not the
+  // mermaid library's raw parse error.
   //
-  // 今天红在这里：`MermaidBlock.tsx` 编译失败时把库的报错原样印出来，还用的是
-  // `text-red-600`（连调色板都不是）。这跟「错误必须对用户友好」是同一条规矩，
-  // 只是这一处的用户是访客，而漏出去的是第三方库的内部消息。
+  // What's red today: when compilation fails, `MermaidBlock.tsx` prints the library's
+  // error verbatim, in `text-red-600` no less (not even from the palette). This is the
+  // same rule as "errors must be user-friendly" -- just that the user here is a
+  // visitor, and what's leaking is a third-party library's internal message.
   test('编译不过的图不以报错形态出现在访客面前，正文照常读得到', brokenDiagramStaysHidden);
 
-  // 语料正文里到处是 `[[wikilink]]`（vault 就是这么写的），模型照着写出来，于是访客答案里
-  // 出现一串方括号 slug：点不动、也不解释自己是什么（F-R-7，prod 上真见过）。
-  // 判据不是「变成链接」—— public 场里那条笔记访客未必读得到，渲成链接等于造一个进不去的
-  // 入口；判据是**访客面前不出现 vault 的书写语法**，而**代码块里必须原样保留**（那是源码，
-  // 不是正文）。
+  // The corpus body is full of `[[wikilink]]` (that's just how the vault writes it),
+  // the model copies the style, and a bracket-wrapped slug shows up in the visitor's
+  // answer: unclickable, and never explaining what it is (F-R-7, actually seen in prod).
+  // The criterion isn't "turn it into a link" -- in a public setting the visitor may
+  // not even be able to read the target note, so rendering it as a link would just
+  // build an entrance nobody can walk through; the criterion is that **the vault's
+  // writing syntax must never appear in front of a visitor**, while **inside a code
+  // fence it must be preserved verbatim** (that's source, not prose).
   test('vault 的 [[wikilink]] 语法不出现在访客面前，代码块里原样保留', wikilinksStayOutOfProse);
 });
 
@@ -160,11 +170,12 @@ async function brokenDiagramStaysHidden(
 
   const answer = page.locator('[data-testid="answer-body"]').first();
   await expect(answer).toBeVisible({ timeout: 20_000 });
-  // 先断正文真的到了 —— 不然下面那条「看不到报错」在页面还空着时也算通过
-  // （[[negated-assertion-passes-while-absent]]）。
+  // First assert the prose actually arrived -- otherwise the "no error visible" check
+  // below would also pass while the page is still empty
+  // ([[negated-assertion-passes-while-absent]]).
   await expect(answer).toContainText('three stages', { timeout: 10_000 });
 
-  // 好结果：这一格什么都不出现，而**不是**一段 mermaid 报错。
+  // The good outcome: this slot shows nothing at all, and **not** a mermaid error.
   await expect(
     answer.getByTestId('mermaid-error'),
     '访客不该看见 mermaid 库的原始解析错误',
@@ -174,11 +185,13 @@ async function brokenDiagramStaysHidden(
     '也不该以任何形式漏出解析器的措辞',
   ).not.toContainText(/parse error|syntax error|expecting/i);
 
-  // **判据必须是整页，不是那一格**（F-R-8）。上面两条只看 `answer` 里面 —— 而 mermaid
-  // 解析失败时把自己的错误图贴在 `document.body` 上，正好在这个范围之外。真环境抓到的样子：
-  // owner 公开页底部用 Newsreader 印着 `Syntax error in text` + `mermaid version 11.15.0`
-  // （`sdk-embed/shots/se3-12`）。闸门查的范围比缺陷小，就只是看着在
-  // （[[verifier-can-lie-about-its-own-coverage]]）。
+  // **The criterion must cover the whole page, not just that one slot** (F-R-8). The
+  // two checks above only look inside `answer` -- while mermaid, on a parse failure,
+  // pastes its own error diagram onto `document.body`, right outside that scope. What
+  // was actually caught in a real environment: the owner's public page footer, in
+  // Newsreader, printed `Syntax error in text` + `mermaid version 11.15.0`
+  // (`sdk-embed/shots/se3-12`). A gate whose coverage is narrower than the defect just
+  // looks like it's watching ([[verifier-can-lie-about-its-own-coverage]]).
   await expect(
     page.locator('body'),
     '库自己也不许往页面上画报错（mermaid 的 suppressErrorRendering）',
@@ -205,15 +218,18 @@ async function wikilinksStayOutOfProse(
 
   const answer = page.locator('[data-testid="answer-body"]').first();
   await expect(answer).toBeVisible({ timeout: 20_000 });
-  // 正对照：正文真的到了，而且**名字还在**（判据是去掉语法，不是把内容删了）。
+  // Positive control: the prose really arrived, and **the name is still there**
+  // (the criterion is stripping syntax, not deleting content).
   await expect(answer).toContainText('pc-well-founded-recursion', { timeout: 10_000 });
   await expect(
     answer, '写了别名的那条，显示的应当是别名而不是路径',
   ).toContainText('the safe recursion theorem');
 
-  // 断言收窄到**本 spec 自己塞的那两段**：mock provider 会把整份 system prompt 回显进
-  // answer-body，而那里面本来就带方括号 —— 对整个 answer 断言「不含 [[」会红在回显上，
-  // 红得不知所以然（[[red-in-the-wrong-place]]）。
+  // Narrow the assertion down to **the two paragraphs this spec itself planted**: the
+  // mock provider echoes the full system prompt into answer-body, and that already
+  // contains brackets -- asserting "no [[" against the whole answer would go red on
+  // the echo instead, red for a reason nobody could trace
+  // ([[red-in-the-wrong-place]]).
   await expect(
     answer.locator('p', { hasText: 'pc-well-founded-recursion' }).first(),
     'vault 的书写语法不该出现在访客面前 —— 那串方括号点不动，也不解释自己是什么',
@@ -223,7 +239,8 @@ async function wikilinksStayOutOfProse(
     '带别名的那种也一样',
   ).not.toContainText('[[');
 
-  // 代码块里那是**源码**，不是正文：原样保留，否则就是产品在改访客看到的代码。
+  // Inside a code fence that's **source**, not prose: preserve it verbatim, or the
+  // product is rewriting code in front of a visitor.
   await expect(
     answer.locator('pre code'),
     'inside a fence it is source, and source is quoted verbatim',
@@ -231,8 +248,9 @@ async function wikilinksStayOutOfProse(
   await ctx.close();
 }
 
-// WIKILINK_REPLY —— 语料正文里到处是这种写法，模型照着写出来。三种形态各一：裸的、
-// 带别名的、以及**代码块里**那个（后者必须原样留着）。
+// WIKILINK_REPLY -- the corpus body is full of this style, and the model copies it.
+// One of each of the three forms: bare, aliased, and the one **inside a code fence**
+// (which must stay untouched).
 const WIKILINK_REPLY = [
   'A weak seam is where coupling is low — that is what [[pc-well-founded-recursion]] is about.',
   '',
@@ -243,8 +261,9 @@ const WIKILINK_REPLY = [
   '```',
 ].join('\n');
 
-// BROKEN_DIAGRAM_REPLY —— 一段带**编译不过**的 mermaid 的回答。正文自己站得住
-// （图是补充，不是唯一答案），所以图渲不出来时访客仍然读得到该读的东西。
+// BROKEN_DIAGRAM_REPLY -- an answer whose mermaid **fails to compile**. The prose
+// stands on its own (the diagram is supplementary, not the only answer), so when the
+// diagram fails to render, the visitor can still read what they need to.
 const BROKEN_DIAGRAM_REPLY = [
   'The pipeline runs in three stages: fetch, curate, publish.',
   '',

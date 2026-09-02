@@ -1,13 +1,15 @@
-// security-path-traversal.spec.ts —— pentest。owner-built custom page 的静态资源经
-// GET /api/v1/custom-pages/{slug}/{*path} 读盘;必须把 `../` / 编码穿越 / 绝对路径挡在
-// build 根目录内(joinSafeAssetPath),不能读到宿主机文件。绿=穿越被挡;红=任意读盘。
+// security-path-traversal.spec.ts — pentest. An owner-built custom page's static assets
+// are read from disk via GET /api/v1/custom-pages/{slug}/{*path}; `../` / encoded
+// traversal / absolute paths must be confined inside the build root
+// (joinSafeAssetPath), never reaching host files. Green = traversal is blocked; red =
+// arbitrary file read.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// 各种穿越 payload:相对、编码、双编码、绝对、混合。
+// Various traversal payloads: relative, encoded, double-encoded, absolute, mixed.
 const TRAVERSALS = [
   '../../../../etc/passwd',
   '..%2f..%2f..%2f..%2fetc%2fpasswd',
@@ -29,10 +31,11 @@ test.describe('pentest · custom-page asset path traversal', () => {
       const request = await playwright.request.newContext();
       for (const payload of TRAVERSALS) {
         const { status, body } = await fetchAsset(request, 'anypage', payload);
-        // 绝不返回宿主机敏感文件内容。
+        // Must never return the content of sensitive host files.
         expect(body, `no /etc/passwd content for: ${payload}`).not.toMatch(/root:.*:0:0:/);
         expect(body, `no shadow/host markers for: ${payload}`).not.toMatch(/\/bin\/(ba)?sh\b/);
-        // 且不是 2xx 泄漏——穿越应被挡(4xx)或落回 build 根内不存在(404)。
+        // And no 2xx leak either — traversal should be blocked (4xx) or land on a
+        // nonexistent path inside the build root (404).
         expect(status, `traversal must not 2xx: ${payload}`).toBeGreaterThanOrEqual(400);
       }
       await request.dispose();

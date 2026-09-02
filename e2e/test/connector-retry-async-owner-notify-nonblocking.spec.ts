@@ -1,15 +1,20 @@
-// connector-retry-async-owner-notify-nonblocking.spec.ts —— §五 重试矩阵 R6
-// owner-notify 邮件按 D-6 声明 **async**(10×~30–60s 后台预算),**不堵 booking**:
-//   ① 即便 notify 在重试,booking 立即返回(book-card 即出,不被通知重试拖住),
-//   ② notify 在后台重试,**绝不**因为通知失败而回滚/失败 booking。
-// 跟 R4(确认信同步、卡内可见)正交:这条管 owner 侧异步通知的「不阻塞 + 后台重试 +
-// 失败不连坐 booking」。
+// connector-retry-async-owner-notify-nonblocking.spec.ts —— §5 retry matrix R6.
+// Per D-6, the owner-notify email is declared **async** (10x ~30–60s background budget) and
+// must **not block booking**:
+//   ① even while notify is retrying, booking returns immediately (the book-card appears
+//      right away, not held up by notify retries),
+//   ② notify retries in the background, and **never** rolls back or fails the booking
+//      because the notification failed.
+// Orthogonal to R4 (confirmation email is synchronous, visible in-card): this test covers
+// the owner-side async notification's "non-blocking + background retry + failure doesn't
+// implicate the booking" behavior.
 //
 // Retry R6: owner-notify email runs async with the long retry budget — the
 // booking returns immediately (not blocked by notify retries) and the notify is
 // retried in the background without ever failing the booking.
 //
-// RED / TDD：依赖 owner-notify 走 async 后台重试且对 booking 非阻塞/不连坐落地后转绿。
+// RED / TDD: goes green once owner-notify runs async background retries that are
+// non-blocking and non-implicating for booking.
 
 import { test, expect } from '@/fixtures/test';
 import type { Browser, FrameLocator, Page, Playwright } from '@playwright/test';
@@ -40,8 +45,8 @@ test.describe('connector retry · owner-notify async, non-blocking, retried in b
       granted_skills: ['calendar.book'],
     });
     await configureMailConnector(seed.request, OWNER.email, OWNER.password);
-    // configureMailConnector 重新 login 轮换 CSRF —— 刷新 seed.csrf,否则
-    // 后面 issueCodeWithSkills 拿旧 token 会 403(同 booking-owner-notify)。
+    // configureMailConnector logs in again and rotates CSRF — refresh seed.csrf, otherwise
+    // issueCodeWithSkills below gets a 403 using the stale token (same as booking-owner-notify).
     seed.csrf = (await login(seed.request, OWNER.email, OWNER.password)).csrf;
   });
   test.afterAll(async () => { await resetSMTPFault(seed.request); await teardownSeed(seed); });
@@ -77,7 +82,7 @@ test.describe('connector retry · owner-notify async, non-blocking, retried in b
     });
 });
 
-// enterAndBook —— ?code 入口 → 填名字 → script calendar_book → 触发 → 等 BookCard。
+// enterAndBook — ?code entry → fill in name → script calendar_book → trigger → wait for BookCard.
 async function enterAndBook(
   browser: Browser, code: string, name: string, hour: number,
 ): Promise<Page> {

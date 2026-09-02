@@ -2,7 +2,7 @@
 // as "unlocked". Visitor sessions expire in Redis (sliding TTL) while the browser keeps the token in
 // localStorage indefinitely; the reader/chat surface used to render full "unlocked" chrome from
 // localStorage and fetch scoped data anonymously (→ empty body under a boastful header — owner-flagged
-// "这个可不行"). On mount the SessionStrip now probes GET /api/v1/session; a 401 (token no longer in
+// "this won't do"). On mount the SessionStrip now probes GET /api/v1/session; a 401 (token no longer in
 // Redis) clears the stored session so the strip drops to the honest anonymous state.
 //
 // This drives a REAL chat-capable surface (the public homepage, which mounts SessionStrip): a DEAD

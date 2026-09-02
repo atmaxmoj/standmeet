@@ -1,9 +1,9 @@
 // byoai-errors.spec.ts —— BYOAI error flows: empty key, bad format, private topic.
 //
-// 用户故事：
-//   1. BYOAI 空 key 提交 → 按钮 disabled
-//   2. BYOAI key 格式错 → client-side 提示
-//   3. BYOAI visitor 问 private topic → "need a code" 响应
+// User story:
+//   1. BYOAI empty key submit → button disabled
+//   2. BYOAI key wrong format → client-side hint
+//   3. BYOAI visitor asks a private topic → "need a code" response
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -36,14 +36,19 @@ test.describe('BYOAI error flows', () => {
       await expect(submitBtn).toBeDisabled();
     });
 
-  // 上一版这条用例叫「invalid key format → client-side error shown」，而它 race 了两个
-  // `.catch(() => null)` 之后**什么都不断言** —— 发生什么它都绿（[[assertion-that-cannot-fail]]）。
-  // 名字还说产品会做客户端格式校验，实际不做：`presets.ts:27` 把 keyPrefix 注释成
-  // 「sanity check」，但全仓没有一处检查它 —— 声明了一个没人接的位子（F-O-4）。
+  // The previous version of this case was named "invalid key format → client-side
+  // error shown", and it raced two `.catch(() => null)` calls then **asserted
+  // nothing** — it went green no matter what happened
+  // ([[assertion-that-cannot-fail]]). The name also implied the product does
+  // client-side format validation; it doesn't: `presets.ts:27` comments keyPrefix
+  // as a "sanity check", but nothing in the whole repo actually checks it — a
+  // declared slot nobody wired up (F-O-4).
   //
-  // 判据两条，缺一不可：形状不像时**说一句**（访客能在填的那一格就发现，而不是三步之后
-  // 第一轮推理才失败）；同时**不许拦** —— 自建端点的 key 可以长成任何样子，把提示做成硬拦
-  // 会挡住合法配置，那比现在更糟。
+  // Two criteria, both required: when the shape looks wrong, **say so** (the
+  // visitor should see it right in the field, not three steps later after the
+  // first inference round fails); and at the same time it must **never block** —
+  // a self-hosted endpoint's key can look like anything, and turning the hint
+  // into a hard gate would block legitimate configs, which is worse than today.
   test('key that does not look like the provider’s → a hint, and still submittable',
     async ({ page }) => {
       await page.getByRole('link', { name: 'request access ↗' }).click();
@@ -69,7 +74,7 @@ test.describe('BYOAI error flows', () => {
       await page.getByTestId('byoai-provider').selectOption('anthropic');
       await page.getByTestId('byoai-model').fill('claude-haiku-4-5-20251001');
       await page.getByTestId('byoai-key').fill('sk-ant-looks-right');
-      // 正对照：不然「一直显示提示」也能让上面那条过。
+      // Positive control: otherwise "the hint is always shown" would also pass the case above.
       await expect(page.getByTestId('byoai-key-hint')).toHaveCount(0);
     });
 });

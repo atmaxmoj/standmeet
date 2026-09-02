@@ -1,10 +1,13 @@
-// wiki-landing.spec.ts —— owner 给一条 public wiki 设 seo_slug + indexed，
-// 爬虫 / 深度链接能稳定打开 /<handle>/wiki/<slug> 看到内容。
+// wiki-landing.spec.ts —— the owner sets seo_slug + indexed on a public wiki entry,
+// and a crawler / deep link can reliably open /<handle>/wiki/<slug> and see the
+// content.
 //
-// 用户故事：
-//   alice 写了一条"为什么我离开香港"的 wiki，想让搜索能 index 这条。在
-//   AI client 里调 MCP seo.set_wiki_seo(wiki_id, slug='leaving-hk', indexed=true)。
-//   稍后访客 google 搜到这条 → 点链接 → 看到标题 + 全文 + 引导回主页。
+// User story:
+//   Alice wrote a wiki entry titled "Why I Left Hong Kong" and wants search engines to
+//   index it. In her AI client, she calls MCP
+//   seo.set_wiki_seo(wiki_id, slug='leaving-hk', indexed=true). Later a visitor
+//   googles their way to it → clicks the link → sees the title + full text + a way
+//   back to the home page.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from "@playwright/test";
@@ -25,7 +28,8 @@ const OWNER = {
 const WIKI = {
   title: 'Why I Left Hong Kong',
   body: 'It came down to where I wanted my kids to grow up.',
-  // URL 纯树派生:path = 标题 slug。'Why I Left Hong Kong' → why-i-left-hong-kong。
+  // The URL is derived purely from the tree: path = the title's slug.
+  // 'Why I Left Hong Kong' → why-i-left-hong-kong.
   slug: 'why-i-left-hong-kong',
   description: 'A personal note on the move from HK to Canada.',
 };

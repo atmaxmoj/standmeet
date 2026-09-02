@@ -1,30 +1,47 @@
-// norm-outward-toolset.spec.ts —— 【对外】自管理 MCP handles 的 **tools/list 工具面
-// golden**(真实 MCP 客户端发现路径)。
+// norm-outward-toolset.spec.ts -- [outward] the **tools/list toolset golden**
+// for owner-facing self-managed MCP handles (the real MCP client discovery
+// path).
 //
-// 这条守的是 owner 用真实 MCP 客户端(Claude Desktop / Cursor)连进来时,tools/list
-// 实际返回的工具清单。它跟 norm-outward-handles.spec.ts(走 diag/registry 看 capability
-// id)是**两条不同的路径**:
-//   - registry 那条:能力注册对不对(进程内视角)。
-//   - 这条:工具被序列化、经 HTTP 传输、被客户端发现 —— **能不能真用起来**。
+// This guards the tool list tools/list actually returns when the owner
+// connects with a real MCP client (Claude Desktop / Cursor). It is **a
+// different path** from norm-outward-handles.spec.ts (which goes through
+// diag/registry to check capability ids):
+//   - the registry path: is the capability registered correctly (an
+//     in-process view).
+//   - this path: is the tool serialized, transported over HTTP, and
+//     discovered by the client -- **can it actually be used**.
 //
-// 为什么单列:tools/list 会把**全部**工具的 InputSchema 一次性 marshal。任何一个工具
-// 的 InputSchema 是坏 JSON,整张表 marshal 失败 → 返空 body → 客户端一个工具都发现不
-// 了(owner MCP 整个不可用)。这正是历史上真实发生过的 bug(skill_create 的 schema 在
-// backtick 原始串里误用了 Go 字符串拼接 `"+`)。Go 侧有 schema_valid_test 兜底,这条在
-// e2e 把"真客户端能发现完整工具面"钉死。
+// Why this is a separate spec: tools/list marshals the InputSchema of
+// **every** tool in one shot. If any single tool's InputSchema is bad JSON,
+// the whole marshal fails -> an empty body is returned -> the client
+// discovers zero tools (owner MCP becomes entirely unusable). This is a bug
+// that really happened historically (skill_create's schema misused Go string
+// concatenation `"+` inside a backtick raw string). The Go side has
+// schema_valid_test as a backstop; this spec pins down "a real client can
+// discover the complete toolset" at the e2e level.
 //
-// golden = 全部 owner_only 工具(内建 132 + jobs 插件 10 + 连接器 manifest 声明的 1 = 143)。
-// 加/删 owner 工具时这条会红 —— 那是**有意**的:逼你同步更新工具面预期。
+// golden = every owner_only tool (132 built-in + 10 from the jobs plugin + 1
+// declared by a connector manifest = 143). This spec goes red when an owner
+// tool is added or removed -- that's **deliberate**: it forces you to update
+// the toolset expectation in sync.
 //
-// ⚠️ **这份手写清单已经第三次过期了**（F-P-6）。它是一个「必须有人记得更新」的检查器 ——
-// 而同一个事实已经有一个不会忘的家：`internal/infra/paritymanifest` 是 owner 能力的
-// 单一真源，`server.New` 启动时就拿它跟活着的两个面对一遍，不合就 panic。
-// 这里再抄一份，抄的人一忘就静默飘掉。结构版见 F-P-6：把预期**从清单派生**，
-// 而不是手写（[[structure-means-no-responsibility-class]]）。
+// WARNING: **this hand-written list has gone stale for the third time now**
+// (F-P-6). It's a checker that "requires someone to remember to update it" --
+// and the same fact already has a home that never forgets:
+// `internal/infra/paritymanifest` is the single source of truth for owner
+// capabilities, and `server.New` checks it against both live facades at
+// startup, panicking on mismatch.
+// This is yet another copy, and whoever copies it will one day forget and
+// let it silently drift. See F-P-6 for the structural fix: derive the
+// expectation **from the manifest** instead of hand-writing it
+// ([[structure-means-no-responsibility-class]]).
 //
-// **owner 工具有三个来源**,不是两个:host 侧写死的、能力插件的、以及**连接器 manifest 里的
-// `owner_ops:`**。第三个来源是后加的(F-C-16 的 connectors.calendar_check),而那次没更新这份
-// golden —— 于是这条从那时起一直红着,直到手工驱 owner-mcp 数了一遍工具才被发现。
+// **Owner tools have three sources**, not two: hardcoded on the host side,
+// contributed by capability plugins, and **`owner_ops:` declared in a
+// connector manifest**. The third source was added later (F-C-16's
+// connectors.calendar_check), and that change never updated this golden --
+// so this spec has been red ever since, unnoticed until owner-mcp was driven
+// manually and its tools were counted by hand.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -37,67 +54,91 @@ const OWNER = {
   handle: 'normtoolset', fullName: 'Norm Toolset Owner',
 };
 
-// GOLDEN —— tools/list 必须逐字返回这 139 个 owner 工具(排序后比,顺序噪声由 mcp-go
-// 注册顺序决定、不在本条职责内)。facade-parity 全额付清后(56→0):每个 admin 面的
-// owner 能力都有一个 owner-MCP 孪生工具。新增/删除 owner 工具必须同步更新本 golden。
+// GOLDEN -- tools/list must return exactly these 139 owner tools (compared
+// after sorting; ordering noise is decided by mcp-go's registration order,
+// which is out of this spec's responsibility). Once facade-parity debt was
+// fully paid off (56 -> 0): every admin-facade owner capability has an
+// owner-MCP twin tool. Adding/removing an owner tool must update this golden
+// in lockstep.
 const GOLDEN_TOOLSET: readonly string[] = [
   // me / seo / codes
   'me',
-  // wiki / output 合成一个 op（genre 是参数）——面板早就是一条路由。
+  // wiki / output are merged into one op (genre is a parameter) -- the admin
+  // panel has long been a single route for this.
   'seo.set_entry_seo', 'seo.update_settings',
   'seo.get_settings', 'seo.stats',
   'codes.create', 'codes.revoke', 'codes.update_quotas',
   'codes.list', 'codes.list_members',
   'codes.list_denials', 'codes.add_denial', 'codes.remove_denial',
-  // 这四条以前只有面板有（waypoints 读写 / ghost-evidence / corpus 收回整份），
-  // 既没有 MCP 孪生也没进台账。搬进收口之后两个面同时欠它们。
+  // These four used to exist only on the admin panel (waypoints read/write /
+  // ghost-evidence / revoking corpus entirely), with neither an MCP twin nor
+  // an entry in the ledger. After moving into the convergence point, both
+  // facades owe them at once.
   'codes.set_corpus_denials', 'codes.set_ghost_evidence',
-  // codes.set_custom_page —— 这张码扫出来开哪一页（页是码的一个渲染）。
+  // codes.set_custom_page -- which page opens when this code is scanned
+  // (a page is one rendering of a code).
   'codes.set_custom_page',
   'codes.waypoints', 'codes.set_waypoints',
-  // corpus —— genre 是**参数**,不是三套工具:归一化前这里是 11 个工具
+  // corpus -- genre is a **parameter**, not three separate tool sets: before
+  // normalization there were 11 tools here
   // (raw_dump / list_recent_{raw,wiki,output} / update_{wiki,output} /
   //  delete_{wiki,output} / promote_to_wiki / promote_wiki_to_output / corpus_get_entry),
-  // 而且 MCP 上建不了 wiki、改不了 raw —— 那四个格子是收成一个参数之后自动补齐的。
+  // and MCP couldn't create a wiki entry or edit a raw one -- those four gaps
+  // got filled automatically once genre collapsed into one parameter.
   'subjectivity_write',
   'corpus.list', 'corpus.get', 'corpus.search',
   'corpus.create', 'corpus.update', 'corpus.delete', 'corpus.promote',
-  // check_i18n —— 多语结构只看不写。owner 的 AI 在写一条带 `> [!i18n]` 的笔记之前先问一次,
-  // 拿到的诊断跟 corpus.create 拒绝时用的是同一份(两处各判一套的话,"检查过了却写不进去"
-  // 迟早发生,而 agent 只会重试)。
+  // check_i18n -- inspects the multilingual structure without writing. The
+  // owner's AI queries it once before writing a note with `> [!i18n]`, and
+  // gets back the same diagnostic corpus.create would use to reject it (if
+  // the two checks used separate logic, "checked out fine but still couldn't
+  // write" would eventually happen, and the agent would just keep retrying).
   'corpus.check_i18n',
-  // 素材 —— **任意 genre** 都能挂图 / 附件 / hero。以前挂图只有一条路(写一篇 writing 时
-  // 把内联图地址跟表单一起交上去),于是"素材"不是一件独立的事,一条 raw 想配张图没有说法。
-  // 现在它是独立一步:先 assets.upload 拿 id,再在正文里引 standmeet-asset:<id>,或设成 hero 图。
-  // assets.delete —— 传错一份得撤得下来。只有"挂上去"没有"撤下来"的话,owner 唯一的补救
-  // 是连整条语料一起删。
+  // Assets -- **any genre** can carry an image / attachment / hero. There
+  // used to be only one path for attaching an image (submitting the inline
+  // image URL together with the form when writing a writing entry), so
+  // "asset" wasn't its own thing, and there was no way at all for a raw
+  // entry to carry an image. Now it's its own step: assets.upload first to
+  // get an id, then reference standmeet-asset:<id> in the body, or set it as
+  // the hero image.
+  // assets.delete -- uploading the wrong one has to be undoable. With only
+  // "attach" and no "detach", the owner's only recourse would be deleting
+  // the whole entry.
   'assets.upload', 'assets.delete',
   // chat / conversations / prompts / roles
-  // 一份逐字稿两个面同一份载荷之后,读它的 op 就叫 conversations.get
-  // (原 chat.show_grounding 只是 MCP 那份的名字)。
+  // After both facades share one transcript payload, the op that reads it is
+  // named conversations.get (chat.show_grounding was just the MCP side's old name).
   'conversations.list', 'conversations.get', 'conversations.ghost_telemetry',
   'prompt_create', 'prompt_list', 'prompt_delete', 'prompt_update', 'prompts.get',
-  // providers —— owner 的 provider 本子。**没有 providers.create**:建一条要带原始 API key,
-  // 而 MCP 是纯 JSON 工具面,不承载密钥(跟 ai_provider.set 同一个理由,见 owner/ops)。
-  // 列 / 改 / 标默认 / 删都不碰密钥,所以两个面都给。
-  // providers.list_models —— 拿这条 provider 已存的 key 去问它「你有哪些模型」（F-R-11）。
-  // 只读、不碰密钥：key 在库里是密文，开封只在组装根发生，这个面只收到模型名。
+  // providers -- the owner's provider registry. **No providers.create**:
+  // creating one requires the raw API key, and MCP is a pure JSON tool
+  // surface that doesn't carry secrets (same reasoning as ai_provider.set --
+  // see owner/ops). List / update / set-default / delete never touch the
+  // secret, so both facades get them.
+  // providers.list_models -- takes this provider's stored key and asks it
+  // "what models do you have" (F-R-11). Read-only, never touches the secret:
+  // the key is stored encrypted, decryption only happens at the composition
+  // root, and this surface only ever receives model names.
   'providers.list', 'providers.update', 'providers.set_default', 'providers.delete',
   'providers.list_models',
   'role_create', 'role_list', 'role_delete', 'role_update', 'roles.get',
   'roles.set_dock_buttons',
   // mcp servers / skills / capabilities
-  // mcp_server_check —— 注册完之后唯一能问的一句:那台 server 答不答话、有哪些工具。
-  // 没有它,一行 ext-MCP 上的证据只有 owner 自己粘进去的那个 URL(F-D-8)。
+  // mcp_server_check -- the only thing you can ask once registered: does that
+  // server respond, and what tools does it have. Without it, the only
+  // evidence on an ext-MCP row is the URL the owner pasted in themselves
+  // (F-D-8).
   'mcp_server_create', 'mcp_server_list', 'mcp_server_check', 'mcp_server_delete',
   'mcp_server_grant_dep',
-  // skill_update —— 2026-08-22 随「owner 能把连接器的接口授出去」一起加的，
-  // **而这份 golden 当时没跟着改**（第三次了，见文件头那段）。
+  // skill_update -- added on 2026-08-22 alongside "the owner can grant a
+  // connector's interface out", and **this golden did not get updated at the
+  // same time** (the third time now -- see the file header).
   'skill_create', 'skill_update', 'skill_list', 'skill_delete', 'skill_set_enabled',
   'capabilities.list', 'capabilities.set_enabled', 'capabilities.delete',
   // writings
-  // save 还是 writing_create(multipart 那半边没搬,见 res_writings.go 的说明);
-  // 其余四个搬进收口后按资源统一叫 writings.*。
+  // save is still writing_create (the multipart half hasn't moved -- see the
+  // note in res_writings.go); the other four are named writings.* uniformly
+  // by resource after moving into the convergence point.
   'writing_create',
   'writings.list', 'writings.publish', 'writings.unpublish', 'writings.delete',
   // custom page
@@ -105,16 +146,20 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'custom_page.write_file', 'custom_page.build', 'custom_page.delete',
   'custom_page.promote_to_staging', 'custom_page.promote_to_live',
   'custom_page.rollback',
-  // custom_page.set_byoai —— 这一页允不允许读者自带 key（挂了码之后作废，由码定）。
+  // custom_page.set_byoai -- whether this page allows readers to bring their
+  // own key (voided once a code is attached, which then decides instead).
   'custom_page.set_byoai',
   // page / calendar / booking / appearance
   'page.get', 'page.put', 'page.set_public_url',
   'page.pin', 'page.unpin',
-  // 改 handle 跟改 public URL 是同一类事(这台实例对外的地址),所以叫 set_handle
-  // 而不是 update_handle;pinnable 以前只有面板有。
+  // Changing the handle and changing the public URL are the same kind of
+  // thing (this instance's outward-facing address), hence set_handle rather
+  // than update_handle; pinnable used to exist only on the admin panel.
   'page.set_handle', 'page.pinnable',
-  // booker 的三个 owner 工具都由**沙箱**提供(OwnerTools 声明,实现在它自己那儿):
-  // 列表和取消曾经在 host 各有一份实现,跟沙箱那份是同一件事的不同写法。
+  // The booker's three owner tools are all provided by the **sandbox**
+  // (declared as OwnerTools, implemented on its own side): list and cancel
+  // used to each have a separate implementation on the host, a different
+  // way of writing the same thing the sandbox already had.
   'calendar.list_slots', 'calendar.cancel_booking', 'bookings.list',
   'set_owner_css', 'appearance.get_css',
   // connectors
@@ -122,23 +167,30 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'connectors.create', 'connectors.update', 'connectors.delete',
   'connectors.activate', 'connectors.disconnect',
   'connectors.validate_spec', 'connectors.mail_test_send',
-  // connectors.agent_ops —— 同 skill_update，2026-08-22 那一批加的，golden 没跟。
+  // connectors.agent_ops -- same as skill_update, added in the 2026-08-22
+  // batch, golden didn't follow.
   'connectors.agent_ops',
-  // **第三个来源**：连接器 manifest 自己声明的 owner op（`owner_ops:`）。
-  // 上面那些是 host 侧写死的；这一条住在 `backend/connectors/google-calendar/manifest.yaml`，
-  // 由 F-C-16 加进来 —— 而这份 golden 当时没跟着改，于是它从那时起一直红着没人看见
-  // （见 [[green-means-the-real-suite-ran]]：局部跑绿掩不住跨切面守卫的红）。
+  // **The third source**: an owner op a connector manifest declares for
+  // itself (`owner_ops:`). Everything above is hardcoded on the host side;
+  // this one lives in `backend/connectors/google-calendar/manifest.yaml`,
+  // added by F-C-16 -- and this golden didn't get updated at the time, so it
+  // has been red ever since, unnoticed (see [[green-means-the-real-suite-ran]]:
+  // a locally green run can't mask a cross-cutting guard's red).
   'connectors.calendar_check',
   // access requests / ip bans / domains / instance / marketplace / ai
   'access_requests.list', 'access_requests.update', 'access_requests.approve',
   'ip_bans.list', 'ip_bans.add', 'ip_bans.remove',
   'domains.list', 'domains.add', 'domains.remove',
-  // 能力的可设置项走**通用**口（capability_config.*），不再是每个能力一组写死的工具：
-  // booking.get_policy / set_policy 就是那样来的，跟沙箱那份策略飘了。
+  // A capability's configurable settings go through a **generic** surface
+  // (capability_config.*), no longer a hardcoded set of tools per capability:
+  // booking.get_policy / set_policy came from exactly that, and had drifted
+  // from the sandbox's own policy.
   'capability_config.list', 'capability_config.get', 'capability_config.set',
   'instance.status', 'instance.inference_usage', 'instance.corpus_growth',
-  // corpus_graph 是**新填的缺口**：admin 一直有 GET /stats/graph，MCP 没有孪生，
-  // 而且它连手写对照表里都没有一行 —— 棘轮从来看不见它。搬进收口后两个面都欠它。
+  // corpus_graph is a **newly-filled gap**: admin has always had
+  // GET /stats/graph, and MCP had no twin; it didn't even have a line in the
+  // hand-written comparison table -- the ratchet never saw it. Both facades
+  // owed it after moving into the convergence point.
   'instance.corpus_graph',
   'instance.activity', 'instance.jobs',
   'marketplace.search', 'marketplace.install',
@@ -178,9 +230,12 @@ test.describe('能力归一化 · 【对外】tools/list 工具面 golden(真实
     await request.dispose();
   });
 
-  // 一个能力可以在 codes 的入参上加自己的字段(booker 的 max_bookings 是第一个,走
-  // access.CodeExtras)。access 域不认识它,所以没有任何编译期的东西钉住"它还在":
-  // 接线断了照样绿,只是 owner 从 MCP 再也设不了预约配额。这条钉的就是那个。
+  // A capability can add its own field to the codes input schema (the
+  // booker's max_bookings was the first, going through access.CodeExtras).
+  // The access domain doesn't recognize it, so there's nothing at compile
+  // time pinning down "it's still there": the wiring can break and stay
+  // green, and the owner just loses the ability to set booking quotas via
+  // MCP. This test pins exactly that down.
   test('codes 的入参 schema 带着能力贡献的字段(max_bookings)', async ({ playwright }) => {
     const request = await playwright.request.newContext();
     const tools = await listTools(request, token, sid);
@@ -200,7 +255,8 @@ test.describe('能力归一化 · 【对外】tools/list 工具面 golden(真实
       const request = await playwright.request.newContext();
       const tools = await listTools(request, token, sid);
       expect(tools.length).toBeGreaterThan(0);
-      // 每个工具都得有 name —— 证明序列化没被某个坏 schema 截断。
+      // Every tool must have a name -- proving serialization wasn't truncated
+      // by some bad schema.
       for (const t of tools) expect(t.name).toBeTruthy();
       await request.dispose();
     });

@@ -1,17 +1,18 @@
-// iam-role-validation.spec.ts —— admin /api/admin/roles 的拒绝路径：
-//   - publicRow 不可改名（403 role_builtin_immutable）
-//   - publicRow 不可删（403 role_builtin_immutable）
-//   - 同 owner 重 name → 409 role_name_taken
-//   - prompt_id 不属于同 owner → 400 bad_request
-//   - skill_ids 含非 owner 的 → 400 bad_request
-//   - mcp_server_ids 含非 owner 的 → 400 bad_request
+// iam-role-validation.spec.ts — the rejection paths for admin /api/admin/roles:
+//   - publicRow cannot be renamed (403 role_builtin_immutable)
+//   - publicRow cannot be deleted (403 role_builtin_immutable)
+//   - duplicate name for the same owner → 409 role_name_taken
+//   - prompt_id belongs to a different owner → 400 bad_request
+//   - skill_ids contains one not owned by this owner → 400 bad_request
+//   - mcp_server_ids contains one not owned by this owner → 400 bad_request
 //
-// 都是 backend layer 的兜底校验，UI 直接 hide 也防御不到 attacker 手写 curl，
-// 所以 backend 必须挡且翻译成有意义 envelope code。
+// All of these are backend-layer fallback validation — hiding it in the UI alone
+// doesn't defend against an attacker hand-writing curl — so the backend must reject
+// these and translate the rejection into a meaningful envelope code.
 //
-// 注意：admin REST 要 session cookie + X-Csrftoken；APIRequestContext 持
-// cookie，dispose 后就丢。所以每个 test 自己 login（cheap，就一次 hash 验密）
-// 再发请求。
+// Note: admin REST needs a session cookie + X-Csrftoken; an APIRequestContext holds
+// the cookie, and it's lost once disposed. So each test logs in for itself (cheap,
+// just one password hash check) before sending its request.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -50,18 +51,20 @@ async function authedRequest(
   return { request, csrf };
 }
 
-// expectRenameKeepsGrant —— 只改名字，这个 role 的语料 ACL 必须原样留着。
+// expectRenameKeepsGrant — renaming only, this role's corpus ACL must stay exactly
+// as it was.
 async function expectRenameKeepsGrant(
   request: APIRequestContext, csrf: string,
 ): Promise<void> {
   const role = await createRole(request, csrf, {
     name: 'acl-keeper', corpus_uris: ['wiki://public/**'],
   });
-  // 前置条件：先确认这个 role 真的带着授权，否则下面判的是空气。
+  // Precondition: confirm the role really does carry a grant first, otherwise what
+  // follows would be checking against nothing.
   expect(role.corpus_uris, 'precondition: the role starts out with a corpus grant')
     .toContain('wiki://public/**');
 
-  // owner 的 AI 做的那件最普通的事：只改名字。
+  // The most ordinary thing the owner's AI does: rename only.
   const res = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
     headers: { 'X-Csrftoken': csrf },
     data: { name: 'acl-keeper-renamed' },
@@ -78,7 +81,8 @@ async function expectRenameKeepsGrant(
   ).toContain('wiki://public/**');
 }
 
-// expectEvidenceSwitchSticks —— 建的时候要求了这个开关，建出来就得是开的。
+// expectEvidenceSwitchSticks — the switch was requested on at create time, so it must
+// come out on.
 async function expectEvidenceSwitchSticks(
   request: APIRequestContext, csrf: string,
 ): Promise<void> {
@@ -116,20 +120,27 @@ test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
       await request.dispose();
     });
 
-  // **一次不完整的写入不许悄悄清掉这个 role 的授权**（F-Q-3，跟 corpus 的 F-L-57 同一族）。
+  // **An incomplete write must never silently wipe this role's grants** (F-Q-3, the
+  // same family as corpus's F-L-57).
   //
-  // `role_update` 的 MCP schema 只要求 `role_id`（外加 decode 里的 `name`）—— 所以 owner 的 AI
-  // 说一句「把这个角色改个名」发的就是 `{role_id, name}`。而 `toRoleWriteInput` 把
-  // `corpus_uris` / `skill_ids` / `mcp_server_ids` / waypoints / dock_buttons 一律
-  // `nonNilStrings(...)`（缺席 → nil → 空数组 → 整份替换），`require_ghost_evidence` /
-  // `gas_metered` 是裸 bool（缺席 → false）。于是**改个名字把这个角色的语料 ACL 清空、
-  // 技能摘掉、并把「答话前必须有引证」这条安全开关关掉**，回执报成功。
+  // The MCP schema for `role_update` only requires `role_id` (plus `name`, from
+  // decode) — so when the owner's AI says "rename this role", it sends exactly
+  // `{role_id, name}`. And `toRoleWriteInput` runs `corpus_uris` / `skill_ids` /
+  // `mcp_server_ids` / waypoints / dock_buttons all through `nonNilStrings(...)`
+  // (absent → nil → empty array → the whole thing gets replaced), while
+  // `require_ghost_evidence` / `gas_metered` are bare bools (absent → false). So
+  // **renaming a role empties its corpus ACL, strips its skills, and turns off the
+  // "must have citations before answering" safety switch** — and the receipt reports
+  // success.
   //
-  // HTTP 那一面是 `PUT`，整份替换在那儿说得通（面板永远发完整表单）。问题在于**同一个 op
-  // 在 MCP 那一面被描述成一次 partial-friendly 的 update**——[[test-covers-capability-not-face]]。
+  // On the HTTP side it's a `PUT`, where a full-record replace makes sense (the panel
+  // always sends a complete form). The problem is that **the same op is described on
+  // the MCP side as a partial-friendly update** — [[test-covers-capability-not-face]].
   //
-  // 这条断言在两种修法下都成立：要么缺席 = 不动，要么 schema 把这几样列进 required（那样这次
-  // 调用会被拒）。**今天这样——静默清空并报成功——两种都不是。**
+  // This assertion holds under either fix: either absent means "don't touch it", or
+  // the schema lists these fields as required (in which case this call would be
+  // rejected). **What happens today — silently wiping and reporting success — is
+  // neither.**
   test('renaming a role must not silently strip its ACL and its safety switch',
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
@@ -137,15 +148,18 @@ test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
       await request.dispose();
     });
 
-  // **建 role 时收下了这个安全开关，然后扔掉**（F-Q-4）。`createRoleRow` 往
-  // `repo.CreateRoleInput` 里塞了 GasMetered、ProviderID、DockButtons…… 唯独漏了
-  // `RequireGhostEvidence`（`usecase/roles.go:98` vs 改那条路的 `:189`）。于是
-  // `role_create {require_ghost_evidence:true}` 建出来的 role，这个开关是关的 ——
-  // 而它管的是「AI 答话前必须先有引证」。
+  // **Creating a role accepts this safety switch, then throws it away** (F-Q-4).
+  // `createRoleRow` populates `repo.CreateRoleInput` with GasMetered, ProviderID,
+  // DockButtons... but leaves out `RequireGhostEvidence` (`usecase/roles.go:98` vs.
+  // `:189`, the path that touches it). So a role created via
+  // `role_create {require_ghost_evidence:true}` comes out with that switch off —
+  // and it's the switch that controls "the AI must have citations before it answers".
   //
-  // 这条是在 prod 上做 F-Q-3 的 ⑤ 时顺手撞见的：库里读回来是 `f`。
-  // 回执本身是**诚实**的（它重读了库，回的就是 false），所以这不是"回执撒谎"，
-  // 是**没有任何东西把「你要的」和「你得到的」放在一起给人看**。
+  // This one was found in passing while doing step ⑤ of F-Q-3 in prod: reading it
+  // back from the database showed `f`. The receipt itself is **honest** (it re-reads
+  // the database and reports exactly what it finds, false), so this isn't "the
+  // receipt lying" — it's **nothing putting what you asked for next to what you got,
+  // for anyone to see**.
   test('creating a role with the evidence switch on actually turns it on',
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());

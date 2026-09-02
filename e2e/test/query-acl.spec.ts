@@ -1,6 +1,9 @@
-// query-acl.spec.ts —— 原生查询的 ACL(目标态红,安全核心)。查询走现成 ACL-scoped CorpusLister,
-// 所以结果**只能是 reader 有权看的条目** —— owner-only genre(subjectivity)绝不能被一个只授 wiki 的
-// 访客通过 query 列出来。这是这个特性最重要的不变量:**查询不能当越权枚举的 oracle**。
+// query-acl.spec.ts — ACL for the native query feature (target-state red, a security
+// core). Queries go through the existing ACL-scoped CorpusLister, so results **can only
+// be entries the reader is authorized to see** — an owner-only genre (subjectivity) must
+// never be listed via query by a visitor granted only wiki access. This is the most
+// important invariant of this feature: **query must never become an oracle for
+// unauthorized enumeration**.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

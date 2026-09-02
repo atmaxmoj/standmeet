@@ -31,20 +31,26 @@ test.describe('admin obsidian section', () => {
     await initOwner(playwright);
   });
 
-  // UX-62 —— **定义这个产品 ground truth 的那个操作，页面上没有任何证据表明它发生过。**
+  // UX-62 -- **the action that defines this product's ground truth leaves no evidence on
+  // the page that it ever happened.**
   //
-  // prod 上亲眼看的：语料里 1028 条笔记，而 /admin/obsidian 那一屏跟一个空实例长得一模一样
-  // ——两颗按钮加一段说明。点一次导入之后确实会冒出 `31 new · 20 updated · 1026 skipped`，
-  // 但那行只活到下一次刷新：**「上次导入是什么时候」这个事实在库里根本不存在**。
-  // 对照隔壁 /admin/sources，每一行至少说得出 `never fetched`。
+  // Seen firsthand in prod: 1028 notes in the corpus, yet the /admin/obsidian screen looks
+  // identical to an empty instance -- two buttons and a caption. Clicking import does
+  // produce `31 new · 20 updated · 1026 skipped`, but that line only survives until the
+  // next reload: **the fact "when was the last import" simply doesn't exist in storage**.
+  // Compare with the neighboring /admin/sources, where every row can at least say
+  // `never fetched`.
   //
-  // 判据要能判负：先在**没导过**的实例上断它说「从没导过」（而不是空白），再导一次、
-  // 重新加载，断它说得出这次的日期。空白既不是「从没导过」也不是「导过」—— 那正是这条
-  // 缺陷的样子。
+  // The criterion must be able to fail: first assert, on an instance that has **never
+  // imported**, that it says "never imported" (not blank), then import once, reload, and
+  // assert it can state that import's date. Blank is neither "never imported" nor
+  // "imported" -- that's exactly the shape of this defect.
   //
-  // ⚠️ **必须排在导入那条之前**：前半句判的是「一个从没导过的实例说什么」，而同文件的
-  // F-L-7 会真的导一次。排在它后面的话「never imported」当然不成立，而那红的是我的用例、
-  // 不是产品。**判据依赖的状态也是判据的一部分**（今天在 F-L-59 的选笔记上刚吃过一次）。
+  // Warning: **this must run before the import test**. The first half asserts "what does
+  // an instance that has never imported say", while F-L-7 in this same file does a real
+  // import. Run after it and "never imported" would obviously fail, but that red would be
+  // my test ordering, not the product. **The state a criterion depends on is part of the
+  // criterion** (bitten by exactly this on the note picker in F-L-59 today).
   test('the surface says whether an import ever happened (UX-62)',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'obsidian');
@@ -60,7 +66,8 @@ test.describe('admin obsidian section', () => {
         .setInputFiles(makeGitBackedVault('receipt-note'));
       await done;
 
-      // 重新加载 —— 回执必须是**存下来的事实**，不是那一次点击的余温。
+      // Reload -- the receipt must be **a fact that persisted**, not the warmth of that
+      // one click.
       await gotoAdminSection(adminPage, 'obsidian');
       const after = adminPage.getByTestId('obsidian-last-import');
       await expect(after, '导过之后，刷新了也说得出来').toBeVisible({ timeout: 15_000 });
@@ -117,15 +124,18 @@ test.describe('admin obsidian section', () => {
       expect(parsed.created + parsed.updated, 'the vault content is ingested').toBeGreaterThan(0);
     });
 
-  // F-L-62 —— **回执不说那次导入删了什么。**
+  // F-L-62 -- **the receipt doesn't say what that import deleted.**
   //
-  // prod 上真发生的：一次整份导入（= authoritative）剪掉了 10 条笔记（一整棵 `wiki/math/orbit/`
-  // 加一条 `type-theory`），屏幕上从头到尾只有 `4 new · 9 updated · 1055 unchanged`。
-  // 三个数说的全是可逆的那一半；**唯一不可逆的那一半没有数字**。后端一直在算它
-  // （`ImportResult.Deleted`，API 也发了），前端把它解析进 schema 之后就扔了。
+  // What actually happened in prod: a full (= authoritative) import pruned 10 notes (a
+  // whole `wiki/math/orbit/` subtree plus a `type-theory` note), and the screen showed
+  // nothing but `4 new · 9 updated · 1055 unchanged` from start to finish.
+  // The three numbers only cover the reversible half; **the one irreversible half has no
+  // number at all**. The backend computes it the whole time (`ImportResult.Deleted`, the
+  // API sends it too), the frontend parses it into the schema and then discards it.
   //
-  // 判据要能判负：先导两条，再导一条 —— 第二次必定剪掉一条，那一行必须说得出来，
-  // 而且刷新之后存下来的那一行也要说得出来（回执是事实，不是那一次点击的余温）。
+  // The criterion must be able to fail: import two notes, then import one -- the second
+  // import must prune one, and that line must say so, and after a reload the persisted
+  // line must still say so too (the receipt is a fact, not the warmth of that one click).
   test('the receipt says what the import DELETED, not only what it added (F-L-62)',
     ({ adminPage }) => receiptReportsDeletions(adminPage));
 });
@@ -133,7 +143,8 @@ test.describe('admin obsidian section', () => {
 async function receiptReportsDeletions(page: Page): Promise<void> {
   await gotoAdminSection(page, 'obsidian');
   await importVault(page, makeVaultOf('prune-keep', 'prune-drop'));
-  // 第二次少了一条 —— 整份上传就是 authoritative，缺席即删除。
+  // The second import has one fewer note -- a full upload is authoritative: absence means
+  // deletion.
   await importVault(page, makeVaultOf('prune-keep'));
 
   await expect(
@@ -148,7 +159,8 @@ async function receiptReportsDeletions(page: Page): Promise<void> {
   ).toContainText(/[1-9]\d* deleted/);
 }
 
-// importVault —— 走 owner 真点的那条路（文件夹选择器），等这一次导入的响应回来。
+// importVault -- goes through the same path the owner actually clicks (folder picker),
+// and waits for this import's response.
 async function importVault(page: Page, dir: string): Promise<void> {
   const done = page.waitForResponse(
     (r) => r.url().includes('/obsidian/import') && r.request().method() === 'POST',
@@ -158,7 +170,8 @@ async function importVault(page: Page, dir: string): Promise<void> {
   await done;
 }
 
-// makeVaultOf —— 一个只有 wiki 笔记的小 vault：第二次少给一条，就是「owner 在 vault 里删了它」。
+// makeVaultOf -- a tiny vault holding only wiki notes: give it one fewer note on the
+// second call and that models "the owner deleted it in the vault".
 function makeVaultOf(...notes: string[]): string {
   const root = mkdtempSync(join(tmpdir(), 'standmeet-prune-'));
   mkdirSync(join(root, 'wiki'), { recursive: true });
@@ -176,9 +189,10 @@ const ImportOutcomeSchema = z.object({
 // to blow the multipart part limit if it were uploaded (a real vault's .git holds thousands of
 // objects). Also carries the .obsidian CSS config, which IS harvested and must still be sent.
 //
-// `note` 让每条用例带**自己的**那条笔记：两条用例先后导入同一个 vault 的话，第二次
-// 全是 unchanged —— 于是 F-L-7 的「内容进库了」断言会红在**上一条用例已经导过**这件事上，
-// 而不是产品身上（我把 UX-62 排到它前面时当场撞了一次）。
+// `note` lets each test bring **its own** note: if two tests import the same vault back
+// to back, the second import is all unchanged -- so F-L-7's "content landed" assertion
+// would go red on **the previous test having already imported it**, not on the product
+// (hit this exact collision when I put UX-62 ahead of it).
 function makeGitBackedVault(note = 'a-real-note'): string {
   const root = mkdtempSync(join(tmpdir(), 'standmeet-vault-'));
   mkdirSync(join(root, 'raw'), { recursive: true });

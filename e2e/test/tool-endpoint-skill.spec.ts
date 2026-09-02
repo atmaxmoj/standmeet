@@ -1,15 +1,18 @@
-// tool-endpoint-skill.spec.ts —— Phase C 合约矩阵（确定性、不走 LLM loop）：
-// visitor 通过 per-tool HTTP 端点直调新的两个**通用** skill 工具，验 L2/L3
-// 合约 + ACL，并锁死「eager 每脚本一 tool 已删」。
+// tool-endpoint-skill.spec.ts — Phase C contract matrix (deterministic, does not go
+// through the LLM loop): a visitor calls the two new **generic** skill tools directly
+// via per-tool HTTP endpoints, verifying the L2/L3 contract + ACL, and pinning down
+// that "the eager one-tool-per-script design is deleted".
 //
-//   • skill_use({name})         → L2：回 SKILL.md（frontmatter name+description
-//                                  + body）。授权外的 name → result.error。
-//   • skill_run_script({name,    → L3：sandbox 跑脚本 → {stdout,stderr,exit_code}。
-//      script,args})
-//   • 旧 skill_<name>_<script>   → 404（eager per-script tool 已被替换、不再存在）。
-//   • role 不挂任何 skill        → skill.runner 隐藏 → 两个端点都 404
-//                                  capability_not_enabled。
-//   • capability_state           → role 含 skill 时仍列 skill.runner enabled。
+//   • skill_use({name})         → L2: returns SKILL.md (frontmatter name+description
+//                                  + body). A name outside the grant → result.error.
+//   • skill_run_script({name,    → L3: runs the script in the sandbox →
+//      script,args})               {stdout,stderr,exit_code}.
+//   • the old skill_<name>_<script> → 404 (the eager per-script tool has been
+//                                  replaced and no longer exists).
+//   • a role with no skill attached → skill.runner hidden → both endpoints 404
+//                                  capability_not_enabled.
+//   • capability_state           → still lists skill.runner enabled when the role
+//                                  includes a skill.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

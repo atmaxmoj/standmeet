@@ -39,9 +39,9 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
       expect(count).toBeGreaterThanOrEqual(5);
     });
 
-  // SkillsMP 会把同一个技能的多语言变体各列一行,所以后端按 name+author 去重
-  // (dedupePreferEnglish)。这条断的是**去重之后的条数** —— 不去重的话 owner 看到的
-  // 每个技能都出现两遍。
+  // SkillsMP lists each language variant of the same skill as its own row, so the
+  // backend dedupes by name+author (dedupePreferEnglish). This asserts the count
+  // **after dedup** — without dedup, the owner would see every skill twice.
   test('marketplace tab: real search; skillsmp filter trims to 3',
     async ({ adminPage }) => {
       await openAgentSkills(adminPage);
@@ -51,14 +51,18 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
       await expectFamilyCount(adminPage, 'market-skill-', 3);
     });
 
-  // F-F-2 —— GitHub 那一源的每一张卡片都印着 `★ 0`,而 `ghContentToMarketSkill` 里那句注释
-  // 自己就写明了原因:"GitHub skills are folders in one repo → no per-skill star count"。
-  // 也就是说 0 的意思是**不知道**,而屏幕上写的是"零颗星"。owner 拿这个数字挑技能。
-  // 空值不是 0(empty-is-not-json-null 的同一课)——不知道就别印。
+  // F-F-2 — every card from the GitHub source prints `★ 0`, and the comment in
+  // `ghContentToMarketSkill` itself states why: "GitHub skills are folders in one repo
+  // → no per-skill star count". So 0 here means **unknown**, but the screen renders it
+  // as "zero stars". The owner uses this number to pick skills.
+  // An unknown value is not 0 (the same lesson as empty-is-not-json-null) — if it's
+  // unknown, don't print it.
   //
-  // 顺带钉住这个数到底在数什么:它是技能所在**仓库**的星数,所以同一个仓库里的兄弟技能
-  // 共享同一个数(真环境里 openclaw 那六个都是 385119)。标签必须这么说,否则一个跨行相同的
-  // 数字读起来就是"这些技能一样受欢迎"。
+  // Also pin down what this number actually counts: it's the star count of the
+  // **repo** the skill lives in, so sibling skills in the same repo share the same
+  // number (in the real environment, all six openclaw skills read 385119). The label
+  // must say so, otherwise the same number repeated across rows reads as "these skills
+  // are equally popular".
   test('an unknown star count is not printed as zero (F-F-2)',
     async ({ adminPage }) => { await assertStarsHonest(adminPage); });
 
@@ -67,13 +71,19 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
   test('marketplace: a versionless skill shows author, not a bare "· v"',
     async ({ adminPage }) => { await assertNoBareVersion(adminPage); });
 
-  // 目录规模**不许写成字面量**。这条曾经写死 `20 = 17 github + 3 skillsmp`,而源不止两个:
-  // job-board mock 会往目录里追加 `tz-booking`(那条"要连接器"的技能,F-F-4)。加完之后全套里
-  // 这条永远红 `Expected 20 / Received 21` —— 而它红的样子跟"分页把一条弄丢了"一模一样。
-  // 数目这个事实的家在**那几个源**,抄一份到这里就是第二个家（[[names-that-lie]] 的同族）。
+  // The catalog size **must never be a literal**. This used to hard-code
+  // `20 = 17 github + 3 skillsmp`, but there are more than two sources:
+  // the job-board mock appends `tz-booking` to the catalog (the "needs a connector"
+  // skill, F-F-4). Once that's added, this line is permanently red across the whole
+  // suite as `Expected 20 / Received 21` — and it reads exactly like "pagination
+  // dropped an item".
+  // The fact of the count lives in **those sources**; copying it here creates a
+  // second home for it (same family as [[names-that-lie]]).
   //
-  // 而且这条守的本来也不是"一共几条",是**分页不丢东西**:第一页不倒完、load more 一直到
-  // 按钮消失、最后屏上等于目录全量。
+  // And what this test actually guards is not "how many total", it's **pagination
+  // loses nothing**: the first page doesn't dump everything at once, load more
+  // continues until the button disappears, and the final on-screen count equals
+  // the full catalog.
   test('marketplace paginates: first page caps the grid, load more appends',
     async ({ adminPage }) => { await assertPaginationKeepsEveryone(adminPage); });
 
@@ -117,18 +127,21 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
     });
 });
 
-// assertPaginationKeepsEveryone —— 第一页不倒完 · 点到按钮消失 · 屏上等于目录全量。
+// assertPaginationKeepsEveryone — first page doesn't dump everything · click until the
+// button disappears · on-screen count equals the full catalog.
 async function assertPaginationKeepsEveryone(page: Page): Promise<void> {
   await openAgentSkills(page);
   await page.getByTestId('skills-tab-marketplace').click();
   await expect(page.locator(MARKET).first()).toBeVisible({ timeout: 5_000 });
   const total = await marketplaceSize(page);
-  // 目录一页装得下的话,这条用例演不出分页 —— 那是"判不了负",不是通过。
+  // If the whole catalog fits on one page, this test can't demonstrate pagination —
+  // that's "unable to fail", not a pass.
   const loadMore = page.getByTestId('marketplace-load-more');
   await expect(loadMore, `目录只有 ${total} 条,一页就装完了,分页无从演起`).toBeVisible();
   const firstPage = await page.locator(MARKET).count();
   expect(firstPage, '第一页把整份目录一次倒完就不叫分页').toBeLessThan(total);
-  // 点到按钮消失为止(目录长到几页都成立);上限只是防死循环。
+  // Click until the button disappears (holds no matter how many pages the catalog
+  // spans); the cap is only there to prevent an infinite loop.
   for (let i = 0; i < 10 && await loadMore.count() > 0; i += 1) {
     await loadMore.click();
     await expect.poll(() => page.locator(MARKET).count()).toBeGreaterThan(firstPage);
@@ -137,10 +150,14 @@ async function assertPaginationKeepsEveryone(page: Page): Promise<void> {
   await expect(loadMore, '没有下一页了,按钮就该走').toHaveCount(0);
 }
 
-// marketplaceSize —— 目录一共几条,**问产品自己的检索端点**(一次要完,不分页)。
+// marketplaceSize — how many items the catalog has, **asked from the product's own
+// search endpoint** (one request, no pagination).
 //
-// 它在这里只当量尺:分得对不对由上面那条用例判(第一页不倒完 + 点到没有下一页 + 屏上等于全量)。
-// 拿它当量尺是因为"一共几条"的家在那几个源,而源随时会多一条 —— 抄成常数的那一刻就开始过期。
+// Used here only as a yardstick: whether pagination is correct is judged by the test
+// above (first page doesn't dump everything + click until no more pages + on-screen
+// count equals the full total). It's used as a yardstick because "how many total"
+// lives in those sources, and a source can gain an item any time — copying it into a
+// constant here starts going stale the moment it's written.
 async function marketplaceSize(page: Page): Promise<number> {
   const res = await page.request.get(
     '/api/admin/marketplace/search?limit=500&offset=0',
@@ -152,14 +169,16 @@ async function marketplaceSize(page: Page): Promise<number> {
 }
 
 async function openAgentSkills(page: Page): Promise<void> {
-  // skill registry 合并成一个 /admin/skills（rot-D1）；"my skills" tab 就是这份 registry 的列表。
+  // The skill registry was merged into one /admin/skills (rot-D1); the "my skills"
+  // tab is just this registry's list.
   await gotoAdminSection(page, 'skills');
   await page.waitForURL('**/admin/skills');
   await expect(page.getByTestId('skill-list')).toBeVisible({ timeout: 5_000 });
 }
 
-// assertStarsHonest —— F-F-2 的主体。GitHub 源报不出 per-skill 星数(它自己的注释就这么写),
-// 那就一个数都别印;skillsmp 有真数就印,并且说清楚数的是**仓库**。
+// assertStarsHonest — the body of F-F-2. The GitHub source can't report a per-skill
+// star count (its own comment says so), so print no number at all; skillsmp has a
+// real number, so print it, and make clear it's counting the **repo**.
 async function assertStarsHonest(page: Page): Promise<void> {
   await openAgentSkills(page);
   await page.getByTestId('skills-tab-marketplace').click();
@@ -179,10 +198,13 @@ async function assertNoBareVersion(page: Page): Promise<void> {
   await page.getByTestId('skills-tab-marketplace').click();
   await page.getByTestId('marketplace-source-skillsmp').click();
   await expect(page.locator(MARKET).first()).toBeVisible({ timeout: 5_000 });
-  // 换源之后必须等**这一源的**卡真的画出来再读。上面那句等的是「网格里有卡」,而换源的
-  // 瞬间屏上还留着上一源的卡 —— 它当场就满足了。而 allInnerTexts() 是一次性读、不重试:
-  // 满负载下它读到空数组,红成 `Expected > 0 / Received 0`,看起来像「这一源一条都没有」。
-  // 全套里红过一次(1.8 秒就放弃),单跑 8/8 绿 —— 间歇的来源就是这一格。
+  // After switching sources, must wait for **this source's** cards to actually render
+  // before reading. The wait above only checks "there's a card in the grid", and right
+  // at the moment of switching, the previous source's card is still on screen — that
+  // satisfies it immediately. allInnerTexts() reads once with no retry: under full
+  // load it can read an empty array, going red as `Expected > 0 / Received 0`, which
+  // looks like "this source has zero items". It went red once in the full suite (gave
+  // up after 1.8s) but passed 8/8 running alone — this is the source of the flake.
   await expect(page.getByTestId('market-author').first()).toBeVisible({ timeout: 10_000 });
   const authors = await page.getByTestId('market-author').allInnerTexts();
   expect(authors.length).toBeGreaterThan(0);

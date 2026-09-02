@@ -1,17 +1,23 @@
-// wiki-list-navigation.spec.ts —— corpus_list 是 wiki 树的**懒加载逐层导航**,不是
-// 「后端先 load 最新 50 条再在内存里 grep」。
+// wiki-list-navigation.spec.ts —— corpus_list is **lazy, per-level navigation**
+// of the wiki tree, not "backend loads the newest 50 then greps in memory".
 //
-// 现实现的关键不变量:
-//   1. corpus_list({}) 列根层;corpus_list({path}) 列该节点的**直接子**(DB 端
-//      ListWikiChildren,按 parent_id,不吃 newest-50 窗口)。
-//   2. 深链:最先种(最旧)、被 60 个 wide-child 推出 newest-50 的节点,照样能逐层
-//      list 下去 + corpus_read 读到 —— 旧的内存 50-cap 实现会**漏**(本测试守这条)。
-//   3. 宽子树(>一页):corpus_list({path, page}) 翻页,page0/page1 不相交。
-//   4. corpus_read 按树派生 path **跨 tool 调用**(各自新 retriever、seen 空)也能
-//      顺树 resolve path→id 读到正文 —— 不依赖同回合 seen 缓存。
+// Key invariants of the current implementation:
+//   1. corpus_list({}) lists the root level; corpus_list({path}) lists that
+//      node's **direct children** (DB-side ListWikiChildren, by parent_id, not
+//      subject to the newest-50 window).
+//   2. Deep chain: a node seeded first (oldest), pushed out of newest-50 by 60
+//      wide-child siblings, can still be reached by listing level by level +
+//      read via corpus_read — the old in-memory 50-cap implementation
+//      **loses** it (this test guards exactly that).
+//   3. Wide subtree (>one page): corpus_list({path, page}) pages through it, page0/page1 don't overlap.
+//   4. corpus_read resolving a tree-derived path **across separate tool
+//      calls** (each with its own fresh retriever, empty seen set) can still
+//      resolve path→id by walking the tree and read the body — it doesn't
+//      depend on the same-turn seen cache.
 //
-// 直调 per-tool 端点(POST /sessions/{id}/tools/{name}):被测的就是 tool 的**导航
-// 输出本身**(不像 cited 只在 loop 末端落库),所以这是诚实的断言面。
+// Calls the per-tool endpoint directly (POST /sessions/{id}/tools/{name}):
+// what's under test is the tool's **navigation output itself** (unlike cited,
+// which only persists at the end of the loop), so this is an honest assertion surface.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -32,12 +38,12 @@ const OWNER = {
 };
 const CODE = 'NAV-001';
 
-// 深链(最先种 → 最旧 → 被 wide-child 推出 newest-50)。
+// Deep chain (seeded first → oldest → pushed out of newest-50 by wide-child siblings).
 const DEEP_KEYWORD = 'navleafqx';
 const ROOT_PATH = 'navtree-root';
 const MID_PATH = 'navtree-root/navtree-mid';
 const LEAF_PATH = 'navtree-root/navtree-mid/navtree-leaf';
-// 宽子树:一个 parent 下 WIDE_COUNT 个子,跨过一页(listPageLimit=50)。
+// Wide subtree: WIDE_COUNT children under one parent, spanning more than one page (listPageLimit=50).
 const WIDE_PARENT_PATH = 'wide-parent';
 const WIDE_COUNT = 60;
 const PAGE_SIZE = 50;
@@ -47,12 +53,16 @@ interface ListRow { path: string; title: string; genre: string }
 interface ReadResult { body?: string; path?: string }
 
 test.describe('corpus_list is lazy per-level wiki-tree navigation, not load-newest-50', () => {
-  // 播种要 136 次串行 `/mcp` 往返(每个节点 = corpus.create + corpus.promote),实测墙钟
-  // **27.0 秒**(2026-08-02 全量:19:23:44.477→19:24:11.004,服务端 12.08s,其余是逐次
-  // HTTP + JSON-RPC 开销)。默认 30s 的 hook 预算刚好卡在这条线上,全量里必翻。
+  // Seeding takes 136 serial `/mcp` round trips (each node = corpus.create +
+  // corpus.promote); measured wall clock **27.0 seconds**
+  // (2026-08-02 full run: 19:23:44.477→19:24:11.004, 12.08s server-side, the
+  // rest is per-call HTTP + JSON-RPC overhead). The default 30s hook budget
+  // sits right on this line, and reliably tips over under a full run.
   //
-  // **不并发化播种**:这几条断言的正是"第 51 条往后不能消失",候选集按 created_at 排序,
-  // 并发会打乱种入顺序 —— 那是改掉被测的前提,不是加速。
+  // **Don't parallelize the seeding**: these assertions test exactly "entry
+  // 51-and-beyond must not disappear", and the candidate set is ordered by
+  // created_at — concurrency would scramble the seed order, which changes
+  // what's under test rather than speeding it up.
   test.describe.configure({ timeout: 180_000 });
 
   test.beforeAll(async ({ playwright }) => {
@@ -75,7 +85,7 @@ test.describe('corpus_list is lazy per-level wiki-tree navigation, not load-newe
       expect(lvl2).toEqual([LEAF_PATH]);
 
       const leafChildren = await listPaths(request, sess, { path: LEAF_PATH });
-      expect(leafChildren).toEqual([]); // 叶子:空 → LLM 据此判定到底了
+      expect(leafChildren).toEqual([]); // Leaf: empty → the LLM uses this to conclude it has reached the bottom
 
       await request.dispose();
     });
@@ -90,7 +100,7 @@ test.describe('corpus_list is lazy per-level wiki-tree navigation, not load-newe
 
       expect(page0).toHaveLength(PAGE_SIZE);
       expect(page1).toHaveLength(WIDE_COUNT - PAGE_SIZE);
-      // 不相交 + title ASC:child-00 在首页,child-59 在次页。
+      // No overlap + title ASC: child-00 is on the first page, child-59 is on the second.
       expect(new Set([...page0, ...page1]).size).toBe(WIDE_COUNT);
       expect(page0).toContain(`${WIDE_PARENT_PATH}/child-00`);
       expect(page1).toContain(`${WIDE_PARENT_PATH}/child-59`);
@@ -101,8 +111,9 @@ test.describe('corpus_list is lazy per-level wiki-tree navigation, not load-newe
   test('read-after-list: corpus_read resolves a deep tree path on a fresh session',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      // 全新 session → 全新 retriever(seen 空、内存窗口里也没有这条旧条目):
-      // 只能顺树 resolve path→id 读到,正是「按 meta 读文章」。
+      // A brand-new session → a brand-new retriever (empty seen, and the old
+      // entry isn't in the in-memory window either): it can only be reached by
+      // walking the tree to resolve path→id, which is exactly "read the article by its meta".
       const sess = await freshSession(request);
       const { body } = await callTool(request, sess, 'corpus_read', { path: LEAF_PATH });
       const read = body.result as ReadResult;
@@ -130,7 +141,7 @@ async function setupNavTreeOwner(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-// seedTree —— 深链最先(最旧),再 wide-parent + 60 子,把深链推出 newest-50。
+// seedTree —— seeds the deep chain first (oldest), then a wide-parent + 60 children, pushing the deep chain out of newest-50.
 async function seedTree(request: APIRequestContext, csrf: string): Promise<void> {
   const token = await createAPIToken(request, csrf, 'navtree-seed');
   const sid = await initMCP(request, token);
@@ -145,8 +156,9 @@ async function seedTree(request: APIRequestContext, csrf: string): Promise<void>
   }
 }
 
-// promote —— corpus.create(raw) + corpus.promote(显式 parent_id),返新 wiki 的 id。path 不传,
-// 后端按 parent 链 + pathSegment(title) 树派生。
+// promote —— corpus.create(raw) + corpus.promote(explicit parent_id), returns
+// the new wiki's id. path isn't passed; the backend derives it from the
+// tree via the parent chain + pathSegment(title).
 async function promote(
   request: APIRequestContext, token: string, sid: string,
   title: string, parentID: string, body: string,

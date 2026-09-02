@@ -1,6 +1,7 @@
-// capability-list-by-origin.spec.ts —— Phase H / P.5：ListByOrigin（迁移计数）。
-// 内建能力都带 origin=builtin；面板能按 origin 分。这条锁「已知内建集合全是
-// builtin origin」—— 迁移期 ListByOrigin(builtin) 数出还剩几个没迁出去。
+// capability-list-by-origin.spec.ts -- Phase H / P.5: ListByOrigin (migration count).
+// Built-in capabilities all carry origin=builtin; the panel can filter by origin. This test
+// locks in "the known built-in set is entirely builtin origin" -- during the migration,
+// ListByOrigin(builtin) counts how many are still left to migrate out.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -14,7 +15,7 @@ const OWNER = {
   handle: 'caporigin', fullName: 'Cap Origin Owner',
 };
 
-// 当前随产品发的内建能力（迁出去后这个集合会缩小）。
+// Built-in capabilities currently shipped with the product (this set shrinks as they migrate out).
 const KNOWN_BUILTINS = [
   'corpus.retrieval', 'calendar.book', 'skill.runner', 'ext.mcp',
   'ask_visitor', 'summarize_conversation',

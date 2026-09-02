@@ -1,18 +1,22 @@
-// visitor-chat-cited-precise.spec.ts —— cited 列表只含 AI 真读过的 entry。
+// visitor-chat-cited-precise.spec.ts —— the cited list only contains entries the AI actually read.
 //
-// retrieval redesign 的招牌行为：旧实现把"所有送进 prompt 的 corpus"算作
-// cited（弱 ground truth）；新实现 AI 通过 corpus_read 主动 fetch，readCollector
-// 累计 path —— cited = AI 实际 read 的 path 列表。
+// The signature behavior of the retrieval redesign: the old implementation
+// counted "the entire corpus stuffed into the prompt" as cited (weak ground
+// truth); the new implementation has the AI actively fetch via corpus_read,
+// with readCollector accumulating the path — cited = the list of paths the AI
+// actually read.
 //
-// 用户故事：
-//   owner 种 4 条 wiki（lucerna / family / sailing / about-me），各自 path
-//   独立。visitor 用 code 问"tell me about lucerna" → mock provider 模拟
-//   tool-use：corpus_search(query=...) 返回 1 个匹配 → corpus_read(path=
-//   projects/lucerna) → 回 text。cited_wiki_refs 只含 projects/lucerna。
+// User story:
+//   The owner seeds 4 wikis (lucerna / family / sailing / about-me), each with
+//   its own independent path. A visitor uses a code to ask "tell me about
+//   lucerna" → the mock provider simulates tool-use: corpus_search(query=...)
+//   returns 1 match → corpus_read(path=projects/lucerna) → returns text.
+//   cited_wiki_refs contains only projects/lucerna.
 //
-// UI-driven (G-1): visitor 真开浏览器 → throbber tool-throbber-corpus_search
-// + tool-throbber-corpus_read 顺序出现 → answer-body 渲染 → 然后 admin REST
-// 取 conversation transcript 验 cited 精度。
+// UI-driven (G-1): visitor opens a real browser → the throbbers
+// tool-throbber-corpus_search + tool-throbber-corpus_read appear in order →
+// answer-body renders → then admin REST fetches the conversation transcript
+// to verify cited precision.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -73,9 +77,12 @@ test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => 
         await skip.click();
       }
 
-      // #28: backend 拥有这一轮,落库在 /agent/turn 流末端(`done` 帧之前)。
-      // 提问前挂住这条 SSE 响应,res.finished() resolve = 流读完 = done 之后 =
-      // 已落库,此后查 transcript 必见 cited refs。Enter 前挂避免 register-after-action。
+      // #28: the backend owns this rule, persisting at the tail end of the
+      // /agent/turn stream (right before the `done` frame). Hook this SSE
+      // response before asking the question; res.finished() resolving means the
+      // stream finished reading = after done = already persisted, so a
+      // transcript query after this point is guaranteed to see cited refs.
+      // Hooking before pressing Enter avoids a register-after-action race.
       const turnDone = page.waitForResponse((res) =>
         res.url().includes('/agent/turn') && res.status() === 200,
         { timeout: 20_000 },
@@ -94,17 +101,21 @@ test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => 
       await input.fill(`tell me about lucerna${searchTag}${readTag}`);
       await input.press('Enter');
 
-      // 这里只要稳定证明 agent 真 search 真 read 真答了 —— throbber 是瞬时的,
-      // 不在这赌它(它的实时性由 throbber-label / throbber-clears 专门验)。用
-      // 持久信号:折叠的 retrieval-summary(UX-10,search 跑过)+ answer-body
-      // (turn 落地)。读了哪个 doc 由下面 cited 转录精确断言(只含 projects/lucerna)。
+      // All that's needed here is a stable proof that the agent really
+      // searched, really read, and really answered — the throbber is
+      // transient, so this test doesn't gamble on it (its real-time behavior
+      // is verified separately by throbber-label / throbber-clears). Use
+      // persistent signals instead: the collapsed retrieval-summary
+      // (UX-10, search ran) + answer-body (turn landed). Which doc got read is
+      // precisely asserted below via the cited transcript (containing only projects/lucerna).
       await expect(page.getByTestId('retrieval-summary'))
         .toBeVisible({ timeout: 20_000 });
       await expect(page.locator('[data-testid="answer-body"]'))
         .toBeVisible({ timeout: 20_000 });
 
-      // 等这轮 SSE 流读完(= backend 已 sink 进 DB),transcript 查询才看得到
-      // assistant message + cited refs。
+      // Wait for this turn's SSE stream to finish reading (= the backend has
+      // sunk it into the DB) before the transcript query can see the assistant
+      // message + cited refs.
       await (await turnDone).finished();
 
       expect(conversationID).not.toBe('');

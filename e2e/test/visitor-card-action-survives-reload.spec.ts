@@ -1,14 +1,18 @@
-// visitor-card-action-survives-reload.spec.ts —— F-B-9 的**持久化那一半**。
+// visitor-card-action-survives-reload.spec.ts —— F-B-9's **persistence half**.
 //
-// 姊妹用例（`visitor-card-action-enters-history.spec.ts`）证的是「点完卡，下一轮模型知道」。
-// 那一半只活在客户端手里那串消息里 —— 访客刷新一次页面，它就没了：屏幕上的卡还写着
-// `CANCELLED`（逐字稿是从后端重建的），而模型的上下文里那件事从没发生过。同一屏上
-// 两句互相矛盾的话，正是这条缺陷本来的形状。
+// The sibling case (`visitor-card-action-enters-history.spec.ts`) proves "click the card, the
+// next turn's model knows about it." That half lives only in the client's own in-memory
+// message array — reload the page once and it's gone: the card on screen still says
+// `CANCELLED` (the transcript gets rebuilt from the backend), but as far as the model's
+// context is concerned, that event never happened. Two contradictory statements on the same
+// screen — that's exactly this defect's shape.
 //
-// 所以这条判据只多做一件事：**在两轮之间刷新一次**。它红的时候说的是「这件事没落库」，
-// 绿的时候说的是「这件事是后端发回来的，不是客户端还记得」。
+// So this case adds exactly one thing: **reload once between the two turns.** When it's red,
+// it means "this event never got stored." When it's green, it means "this event came back
+// from the backend, not from something the client happened to still remember."
 //
-// 判据仍落在唯一看得见的地方：发给模型的那一份消息（[[test-covers-capability-not-face]]）。
+// The criterion still lands in the one place that's actually observable: the message sent to
+// the model ([[test-covers-capability-not-face]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { FrameLocator, Page } from '@playwright/test';
@@ -23,8 +27,9 @@ import { goto } from '@/fixtures/navigate';
 
 const TOPIC = 'Reload recruiter chat';
 
-// CARD_EVENT_MARK —— 只有卡上那条事件会写出这个前缀。用工具名当 needle 判不了负：
-// 工具清单本来就在 system prompt 里（[[assertion-that-cannot-fail]]）。
+// CARD_EVENT_MARK —— only the card action's event writes this prefix. Using the tool name as
+// a needle couldn't go negative: the tool list is already sitting in the system prompt
+// regardless ([[assertion-that-cannot-fail]]).
 const CARD_EVENT_MARK = '[card action]';
 
 test.describe('F-B-9 · a card action outlives the page', () => {
@@ -41,7 +46,8 @@ test.describe('F-B-9 · a card action outlives the page', () => {
       test.setTimeout(180_000);
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      // 倒掉记录环：tag 每次跑都一样而环跨 run 活着，不清就会命中上一次跑留下的那条。
+      // Drain the request ring buffer: the tag is the same on every run and the ring persists
+      // across runs, so without clearing it this could match a leftover entry from the last run.
       await resetGatewayRequests(page.request);
       await enterChat(page, seed.code.code);
 
@@ -60,11 +66,13 @@ test.describe('F-B-9 · a card action outlives the page', () => {
         'the card itself knows: it flips to cancelled')
         .toHaveAttribute('data-cancelled', 'true', { timeout: 30_000 });
 
-      // 刷新 —— 客户端那串消息在这里被清空重建，事件只能从后端回来。
+      // Reload — the client's in-memory message array is cleared and rebuilt here; the event
+      // can only come back from the backend.
       await page.reload({ waitUntil: 'domcontentloaded' });
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 15_000 });
-      // 先证会话确实恢复了，否则下面那句红了分不清是「事件没落库」还是「整段会话没回来」
-      // （[[two-guards-dying-at-one-line]]）。
+      // Prove the session actually restored first — otherwise if the next assertion goes red,
+      // there's no way to tell "the event never got stored" from "the whole conversation
+      // never came back" ([[two-guards-dying-at-one-line]]).
       await expect(page.locator('[data-testid="answer-body"]').first(),
         'the transcript comes back on screen')
         .toBeVisible({ timeout: 30_000 });

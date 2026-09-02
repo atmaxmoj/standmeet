@@ -1,10 +1,10 @@
-// anonymous-member-id.spec.ts —— 匿名访客各自一个独立 member(有自己的 id),
-// 凭 member_id 续会;不再塌成一个。
+// anonymous-member-id.spec.ts — anonymous visitors each get a distinct member (with their own
+// id), and resume via member_id; they no longer collapse into one shared member.
 //
-// 用户故事:
-//   两个人都 skip 名字进同一张码 → 各拿一个独立 guest member(不同 member_id /
-//   不同对话)。其中一个存着 member_id 再来 → 续上自己那段会。member_id 也各占
-//   一个 max_members 名额。
+// User story:
+//   Two people both skip the name field into the same code → each gets a distinct guest member
+//   (different member_id / different conversation). One of them keeps their member_id and comes
+//   back → resumes that same session. Each member_id also counts against one max_members slot.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -22,7 +22,7 @@ const OWNER = {
 };
 
 const CODE = 'ANON-3';
-const ANON_CAP = 'ANON-CAP-2'; // max_members=2, 纯匿名填满
+const ANON_CAP = 'ANON-CAP-2'; // max_members=2, filled purely by anonymous visitors
 
 test.describe('anonymous visitors are distinct members via member_id', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -38,7 +38,8 @@ test.describe('anonymous visitors are distinct members via member_id', () => {
 
   test('two anon sessions = distinct members; member_id resumes; counts toward max',
     async ({ request }) => {
-      // 两个匿名 session(无名字、无 member_id)→ 两个独立 member + 独立对话。
+      // Two anonymous sessions (no name, no member_id) → two distinct members + distinct
+      // conversations.
       const a = await issueSession(request, { handle: OWNER.handle, code: CODE });
       const b = await issueSession(request, { handle: OWNER.handle, code: CODE });
       expect(a.member_id).toBeTruthy();
@@ -46,14 +47,15 @@ test.describe('anonymous visitors are distinct members via member_id', () => {
       expect(a.member_id).not.toBe(b.member_id);
       expect(a.conversation_id).not.toBe(b.conversation_id);
 
-      // 凭 a 的 member_id 续会 → 同一个 member + 同一段对话。
+      // Resuming with a's member_id → the same member + the same conversation.
       const aAgain = await issueSession(request, {
         handle: OWNER.handle, code: CODE, member_id: a.member_id,
       });
       expect(aAgain.member_id).toBe(a.member_id);
       expect(aAgain.conversation_id).toBe(a.conversation_id);
 
-      // 已经 2 个匿名 member 了(max_members=3),第 3 个新名字还行,第 4 个满。
+      // Already 2 anonymous members (max_members=3): a 3rd with a new name still fits, a 4th is
+      // full.
       const named = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'Carol',
       });
@@ -64,20 +66,21 @@ test.describe('anonymous visitors are distinct members via member_id', () => {
       expect(overflow).toBe(403);
     });
 
-  // 纯匿名也撞墙:max_members=2 的码,两个 skip 填满,第 3 个匿名 → 403。
-  // 走的是 checkAnonQuota(跟具名 checkMemberQuota 不同函数),单独钉死它的拒绝分支。
+  // Pure anonymous can also hit the wall: a code with max_members=2, two skips fill it, a 3rd
+  // anonymous visitor → 403. This goes through checkAnonQuota (a different function from the
+  // named checkMemberQuota), pinning down its refusal branch specifically.
   test('anonymous-only fills the cap; a further anon visitor is blocked',
     async ({ request }) => {
       const a = await issueSession(request, { handle: OWNER.handle, code: ANON_CAP });
       const b = await issueSession(request, { handle: OWNER.handle, code: ANON_CAP });
-      expect(a.member_id).not.toBe(b.member_id); // 各占一个名额,2/2 满。
+      expect(a.member_id).not.toBe(b.member_id); // each takes one slot, 2/2 full.
 
       const third = await issueSessionStatus(request, {
         handle: OWNER.handle, code: ANON_CAP,
       });
       expect(third).toBe(403);
 
-      // 续会不占新名额:凭 a 的 member_id 即便满了也进得来。
+      // Resuming doesn't take a new slot: coming back with a's member_id gets in even while full.
       const resume = await issueSession(request, {
         handle: OWNER.handle, code: ANON_CAP, member_id: a.member_id,
       });

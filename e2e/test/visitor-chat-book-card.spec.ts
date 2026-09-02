@@ -1,18 +1,22 @@
-// visitor-chat-book-card.spec.ts —— calendar_book 成功后渲一张「已约确认卡」。
+// visitor-chat-book-card.spec.ts — a successful calendar_book renders a "booking
+// confirmed" card.
 //
-// 重构后(connector deps,§二):booked 卡是 booker 插件 ui:// 服出的沙盒 iframe
-// (`mcp-app-card-calendar_book`),不再是主 DOM 里写死的 React 卡
-// (`tool-card-calendar_book`,`NON_SANDBOX_CARDS` 已清空)。卡的内容(time + GCal
-// 链接 + cancel/确认 widget)在 iframe 内,经 frameLocator 取。
+// After the refactor (connector deps, §2): the booked card is a sandboxed iframe served
+// by the booker plugin's ui:// (`mcp-app-card-calendar_book`), no longer a hardcoded
+// React card in the main DOM (`tool-card-calendar_book`, `NON_SANDBOX_CARDS` is now
+// empty). The card's content (time + GCal link + cancel/confirmation widget) lives inside
+// the iframe, reached via frameLocator.
 //
-// 这条守的是**卡的渲染契约**:book 成功 → iframe 卡出现 → 含 time + 指向真实 GCal
-// 事件的链接。cancel / send_confirmation 的行为分别由 visitor-cancel-booking /
-// booking-confirmation-email 覆盖。
+// This spec guards **the card's rendering contract**: book succeeds -> the iframe card
+// appears -> it carries a time + a link to the real GCal event. cancel /
+// send_confirmation behavior are covered separately by visitor-cancel-booking /
+// booking-confirmation-email.
 //
-// 流程:
-//   1. seed code 带 calendar.book + max_bookings
-//   2. scripted mock 调 calendar_book → booked 沙盒卡 iframe 出现
-//   3. frameLocator 进 iframe 断言 book-card-time + book-card-link(href → calendar.google)
+// Flow:
+//   1. seed a code with calendar.book + max_bookings
+//   2. a scripted mock calls calendar_book -> the booked sandboxed card iframe appears
+//   3. frameLocator into the iframe, assert book-card-time + book-card-link
+//      (href -> calendar.google)
 
 import { test, expect } from '@/fixtures/test';
 import type { FrameLocator, Page, Playwright } from '@playwright/test';
@@ -37,7 +41,7 @@ test.describe('chat · booked card renders as mcp-app-card iframe', () => {
       const page = await ctx.newPage();
       await enterChat(page, seed.code.code, 'Rachel', 'rachel@example.com');
 
-      // scripted calendar_book(+7 天已知工作日,working hours 内的固定小时)。
+      // scripted calendar_book (+7 days, a known weekday, a fixed hour within working hours).
       const tag = await scriptMockToolCall(page.request, {
         name: 'calendar_book',
         args: { topic: TOPIC, duration_min: 30, preferred_times: [future(7, 14)] },
@@ -46,12 +50,13 @@ test.describe('chat · booked card renders as mcp-app-card iframe', () => {
       await input.fill(`book me a 30-minute chat next week, please${tag}`);
       await input.press('Enter');
 
-      // booked 卡是沙盒 iframe:外层 testid 在主 DOM 可见,内容经 frameLocator 取
-      // (不再是主 DOM 里的 React tool-card-calendar_book)。
+      // The booked card is a sandboxed iframe: the outer testid is visible in the main
+      // DOM, while the content is reached via frameLocator (no longer the React
+      // tool-card-calendar_book in the main DOM).
       await expect(page.getByTestId('mcp-app-card-calendar_book'),
         'booked card iframe visible').toBeVisible({ timeout: 20_000 });
       const frame = bookedFrame(page);
-      // 卡内的「已约」确认:time + 指向真实 GCal 事件的链接。
+      // The "booked" confirmation inside the card: time + a link to the real GCal event.
       await expect(frame.getByTestId('book-card-time')).toBeVisible();
       await expect(frame.getByTestId('book-card-link'))
         .toHaveAttribute('href', /calendar\.google/);
@@ -60,12 +65,14 @@ test.describe('chat · booked card renders as mcp-app-card iframe', () => {
     });
 });
 
-// bookedFrame —— 已外置的 booked 卡是个沙盒 iframe;内容经 frameLocator 取。
+// bookedFrame — the externalized booked card is a sandboxed iframe; its content is
+// reached via frameLocator.
 function bookedFrame(page: Page): FrameLocator {
   return page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
 }
 
-// enterChat —— ?code 入口 → 名字选择器填 name + email → 提交 → 等 session → chatroom 就绪。
+// enterChat — ?code entry -> fill name + email in the name picker -> submit -> wait for
+// the session -> chatroom ready.
 async function enterChat(
   page: Page, code: string, name: string, email: string,
 ): Promise<void> {

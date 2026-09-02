@@ -1,9 +1,9 @@
 // gate-byoai-ux.spec.ts —— gate BYOAI panel UX: missing fields, provider switch.
 //
-// 用户故事：
-//   1. 缺必填字段 → submit disabled
-//   2. provider 切换 → endpoint/model placeholder 变
-//   3. 没填 key → "load models" 禁用(拉不了 model list);填了 key → 启用
+// User story:
+//   1. missing a required field → submit disabled
+//   2. provider switch → endpoint/model placeholder changes
+//   3. no key filled in → "load models" disabled (can't pull the model list); key filled in → enabled
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';

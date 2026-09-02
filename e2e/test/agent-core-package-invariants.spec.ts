@@ -1,15 +1,16 @@
-// agent-core-package-invariants.spec.ts —— 防止 @standmeet/agent-core
-// 退化的两条硬约束 (lint-grade)：
+// agent-core-package-invariants.spec.ts — two hard constraints (lint-grade)
+// that prevent @standmeet/agent-core from degrading:
 //
-//   1) Bundle size < 200kb gz —— core 必须保持 thin (5 个 port + 状态
-//      机)，加入 HTTP / DOM 依赖会立刻爆掉。
+//   1) Bundle size < 200kb gz — core must stay thin (5 ports + a state
+//      machine); adding an HTTP / DOM dependency blows this up instantly.
 //
-//   2) Purity: 0 个 fetch / fs / DOM / Node globals / 项目内 host pkg
-//      import —— core 不知道运行环境是浏览器还是 Node；这是 DI 的
-//      事实兜底，跟 eslint 规则两层防线。
+//   2) Purity: zero fetch / fs / DOM / Node globals / in-project host pkg
+//      import — core doesn't know whether it's running in a browser or
+//      Node; this is the factual backstop for DI, a second line of defense
+//      alongside the eslint rule.
 //
-// 这两条用 playwright 跑只是为了走通既有 e2e infra；本质是 file-system
-// 检查。不需要 dev server / browser。
+// These two run via playwright only to reuse the existing e2e infra; they
+// are file-system checks in essence. No dev server / browser needed.
 
 import { test, expect } from '@/fixtures/test';
 import { readFileSync, statSync, readdirSync } from 'fs';
@@ -54,9 +55,10 @@ test.describe('agent-core · package invariants (lint-grade)', () => {
   });
 });
 
-// stripComments —— 去掉行 / 块注释，这样禁用 token 扫描只看真实代码。散文里写
-// "document"（如 DocContext 的注释）不该算违规；真用 document.x 仍会被抓。行注释
-// 用 (^|[^:]) 守卫，避免误删字符串里 URL 的 "://"。
+// stripComments — strips line / block comments so the banned-token scan only sees
+// real code. Prose mentioning "document" (e.g. in a DocContext comment) shouldn't
+// count as a violation; an actual document.x use still gets caught. The line-comment
+// pattern guards with (^|[^:]) to avoid stripping the "://" of a URL inside a string.
 function stripComments(src: string): string {
   return src
     .replace(/\/\*[\s\S]*?\*\//g, '')

@@ -1,20 +1,24 @@
-// account-recovery-row-tells-the-truth.spec.ts —— 按钮能用，旁边却写着"还没做"。
+// account-recovery-row-tells-the-truth.spec.ts -- the button works, but the copy next to
+// it says "not built yet".
 //
-// 缺陷（审计 2026-08-31 查覆盖时翻出来的）：`lib/admin/account-form.ts` 的 `recoveryRowView`
-// 在 mail connector 已验证时返回
+// Defect (found 2026-08-31 during an audit coverage sweep): `lib/admin/account-form.ts`'s
+// `recoveryRowView` returns, when the mail connector is already verified,
 //
 //     note: 'Generates a recovery phrase emailed to you (generation not built yet).'
 //
-// 而这个功能**是做完的** —— `routes/admin/account.go:33` 挂着 `POST /account/recovery`，
-// `routes/admin/claim.go:74` 挂着 `POST /recover`，`recovery-phrase.spec.ts` 在跑没被跳过，
-// `AccountSection.tsx:98` 那个按钮真的会 POST 出去并且 toast 成功。
+// but the feature **is finished** -- `routes/admin/account.go:33` mounts
+// `POST /account/recovery`, `routes/admin/claim.go:74` mounts `POST /recover`,
+// `recovery-phrase.spec.ts` runs and is not skipped, and `AccountSection.tsx:98`'s button
+// really does POST out and toast success.
 //
-// 这是 [[names-that-lie]] 那一族：一句给 owner 看的话，断言了一件跟产品实际行为相反的事。
-// 后果不是"文案不好看"—— 是 owner **不会去用一个能救他的功能**。而这个功能恰好是
-// 改邮箱打错字之后唯一的退路，跟 pending-email 那一串是同一个故事的两半。
+// This belongs to the [[names-that-lie]] family: copy shown to the owner that asserts
+// something opposite to what the product actually does. The cost isn't "ugly copy" --
+// it's that the owner **won't use a feature that could save them**. And this feature is
+// exactly the only way back after a typo'd email, the other half of the pending-email story.
 //
-// 判据成对：先证明它**真的能生成并寄出**（正对照），再断那句话没在说反话。
-// 只断文案的话，哪天功能真坏了，这条测试还是绿的。
+// The criterion is a pair: first prove it **really can generate and send** (the positive
+// control), then assert the copy isn't lying. Asserting only the copy would leave this
+// test green even the day the feature actually breaks.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -41,7 +45,7 @@ test.describe('account · the recovery row describes what the button actually do
     await request.dispose();
   });
 
-  // ── 正对照：它真的能用 ──────────────────────────────────────────
+  // -- positive control: it actually works --------------------------------
   test('with a verified mail connector, generate actually sends a phrase to the owner',
     async ({ adminPage: page, playwright }) => {
       await gotoAdminSection(page, 'account');
@@ -51,37 +55,41 @@ test.describe('account · the recovery row describes what the button actually do
       await expect(btn).toBeEnabled();
       await btn.click();
 
-      // 回执去外部收件箱验，不看产品自己说"已发送"
-      // （[[receipt-check-belongs-next-to-the-action]]）。
+      // Verify the receipt against the external inbox, not the product's own
+      // "sent" claim ([[receipt-check-belongs-next-to-the-action]]).
       const request = await playwright.request.newContext();
       const body = await waitForMailTo(request, OWNER.email);
       expect(body.length).toBeGreaterThan(0);
       await request.dispose();
     });
 
-  // ── 有了正对照，文案那半边才有意义 ──────────────────────────────
+  // -- with the positive control in place, the copy half of the test matters --
   test('the row does not tell the owner the feature is unbuilt',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'account');
       await page.waitForURL('**/admin/account', { timeout: 5_000 });
-      // 那句说明住在 InfoDot 的 tooltip 和按钮的 title 里，取文本取不到 —— 读属性。
-      // （[[negated-assertion-passes-while-absent]]：先把值取出来再判，别对着可能不存在的
-      //   元素写 .not.toContainText。）
+      // The copy lives in the InfoDot tooltip and the button's title attribute, not in
+      // its text content -- read the attribute.
+      // ([[negated-assertion-passes-while-absent]]: pull the value out first, then assert
+      //   on it, rather than writing .not.toContainText against a possibly-absent element.)
       const note = await page.getByTestId('recovery-generate').getAttribute('title');
       expect(note, 'recovery 行没有说明文字').not.toBeNull();
-      // 一句说反话的说明，让 owner 不去用唯一能救他的功能。
+      // Copy that says the opposite would stop the owner from using the one feature
+      // that could save them.
       expect(note!).not.toMatch(/not built|coming soon|not yet implemented/i);
-      // 而且它得说清这东西**是什么**，否则删掉那句谎话只是留下一片空白。
+      // And it must actually say what the thing **is**, otherwise removing the lie
+      // just leaves a blank.
       expect(note!).toMatch(/recovery phrase|emails it to you/i);
       await expect(page.getByTestId('recovery-row')).toContainText(/recovery phrase/i);
     });
 
-  // ── 没有 mail connector 时那句话也得是真的 ──────────────────────
+  // -- without a mail connector, the copy still has to be true --------------
   test('without a mail connector the row explains the gate, and the button is off',
     async ({ adminPage: page, playwright }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      // 拆掉 mail connector：灰态那句话说的是"缺 SMTP"，不该也说"没做"。
+      // Remove the mail connector: the disabled-state copy should say "missing SMTP",
+      // not also say "not built".
       await request.delete(`${process.env['BACKEND_URL'] ?? 'http://localhost:8000'}` +
         `/api/admin/connectors/mail-sender/credentials`, { headers: { 'X-Csrftoken': csrf } });
       await request.dispose();
@@ -90,7 +98,7 @@ test.describe('account · the recovery row describes what the button actually do
       await page.waitForURL('**/admin/account', { timeout: 5_000 });
       const note = await page.getByTestId('recovery-generate').getAttribute('title');
       expect(note, '灰态也得有说明').not.toBeNull();
-      // 灰态那句话说的是"缺 SMTP"，不该也说"没做"。
+      // The disabled-state copy should say "missing SMTP", not also say "not built".
       expect(note!).toMatch(/verif|email|smtp/i);
       expect(note!).not.toMatch(/not built|coming soon/i);
       await expect(page.getByTestId('recovery-generate')).toBeDisabled();

@@ -1,9 +1,10 @@
-// connector-err-owner-notify-fail-no-rollback.spec.ts —— §四 E10
-// booking 成功，但约成后给 owner 的通知邮件失败 → booking 仍 commit（event 经
-// getMockEvents 可见），访客仍拿到 success；notify 失败**不**回滚/不报错 booking。
-// Model on booking-owner-notify。
+// connector-err-owner-notify-fail-no-rollback.spec.ts —— §4 E10
+// The booking succeeds, but the notification email sent to the owner after booking fails →
+// the booking still commits (the event is visible via getMockEvents), the visitor still gets
+// success; the notify failure does **not** roll back or error the booking.
+// Modeled on booking-owner-notify.
 //
-// RED / TDD：依赖 owner-notify 走 best-effort（失败吞掉、不堵 booking）落地。
+// RED / TDD: depends on owner-notify landing as best-effort (swallow the failure, don't block booking).
 //
 // Error stream E10 (partial failure): owner-notify email fails, but the booking
 // still commits — the event exists, the visitor still sees success, and the notify
@@ -59,7 +60,7 @@ test.describe('connector error stream · owner-notify fails, booking not rolled 
     });
 });
 
-// enterAndBook —— ?code 入口 → 填名字 → script calendar_book → 触发 → 等 BookCard。
+// enterAndBook —— ?code entry → fill in name → script calendar_book → trigger → wait for BookCard.
 async function enterAndBook(
   browser: Browser, code: string, name: string, hour: number,
 ): Promise<Page> {
@@ -97,8 +98,8 @@ async function prep(playwright: Playwright): Promise<CodedSeed> {
     granted_skills: ['calendar.book'], max_bookings: 9,
   });
   await configureMailConnector(seed.request, OWNER.email, OWNER.password);
-  // configureMailConnector 内部重新 login，轮换 CSRF —— 刷新 seed.csrf，否则
-  // 后面 issueCodeWithSkills 拿旧 token 会 403。
+  // configureMailConnector re-logs-in internally, rotating the CSRF token — refresh
+  // seed.csrf here, otherwise issueCodeWithSkills below would get a 403 using the old token.
   seed.csrf = (await login(seed.request, OWNER.email, OWNER.password)).csrf;
   return seed;
 }

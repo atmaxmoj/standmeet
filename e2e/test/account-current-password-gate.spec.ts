@@ -1,14 +1,21 @@
-// account-current-password-gate.spec.ts —— 改邮箱/改密码那道"先验当前密码"的闸门。
+// account-current-password-gate.spec.ts -- the "verify current password" gate in
+// front of email/password change.
 //
-// 缺陷（审计 2026-08-30）：`verifyCurrentPassword` 是 change_email / change_password
-// **存在的全部理由**，而在这条 spec 之前，没有任何一条用例走过"密码填错"这条路。
-// 把它整个改成 `return nil`，整套测试照样绿 —— 一道从来没被红过的闸门不是闸门。
+// Defect (audited 2026-08-30): `verifyCurrentPassword` is the entire reason
+// change_email / change_password exist, yet before this spec, no test case ever
+// exercised the "wrong password" path.
+// Replace it with `return nil` and the whole suite still stays green -- a gate
+// that has never gone red is not a gate.
 //
-// 这也是「覆盖全是失败路径」的镜像版本：那条讲的是只测了错误路径没测成功路径；
-// 这里反过来 —— 只测了成功路径，那道专门用来拒绝的装置一次都没被要求拒绝过。
+// This is also the mirror image of "coverage that is all failure paths": that
+// lesson was about testing only error paths and never the success path;
+// here it is the opposite -- only the success path was tested, and the device
+// meant to reject was never once asked to reject.
 //
-// 判据（断好结果）：拒绝之后**东西没变**。只断"出现了错误提示"不够 ——
-// 「报了错但也改了」同样会出现错误提示，而那正是最坏的那种失败。
+// Judgment criterion (assert the outcome): after a rejection, **nothing changed**.
+// Asserting only "an error toast appeared" is not enough --
+// "reported an error but changed it anyway" also produces an error toast, and
+// that is the worst kind of failure.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -74,7 +81,7 @@ test.describe('account · the current-password gate refuses, and nothing moves',
       const request = await playwright.request.newContext();
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       expect(await currentEmail(request, csrf)).toBe(OWNER.email);
-      // 那个地址不能成为身份 —— 连"待确认"都不该有。
+      // That address must not become an identity -- it should not even be "pending".
       expect(await loginStatus(request, TARGET_EMAIL, OWNER.password)).toBe(401);
       await request.dispose();
     });
@@ -92,9 +99,9 @@ test.describe('account · the current-password gate refuses, and nothing moves',
       await expectErrorToast(page, /password/i);
 
       const request = await playwright.request.newContext();
-      // 旧密码还能登 = 密码确实没被换掉。
+      // Login still works with the old password = the password was really not changed.
       expect(await loginStatus(request, OWNER.email, OWNER.password)).toBe(200);
-      // 想换成的那个不能登。
+      // The would-be new password cannot log in.
       expect(await loginStatus(request, OWNER.email, TARGET_PASSWORD)).toBe(401);
       await request.dispose();
     });

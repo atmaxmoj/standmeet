@@ -1,14 +1,20 @@
-// upgrade-application-code-unique.spec.ts —— 旧卷 + 新代码：部署把 applications.access_code_id 的
-// 唯一约束升上来，已有的 application 数据不动。
+// upgrade-application-code-unique.spec.ts —— old volume + new code: deploying brings up
+// the unique constraint on applications.access_code_id, and existing application data is
+// left untouched.
 //
-// 访客侧的简历工具靠 GetApplicationByAccessCode(:one) 按 session 的码反查"这一份" application。
-// 隔离建立在"一码一份"这个不变量上，而这个不变量必须由**约束**保证，不能靠"commit 每次恰好发新码"
-// 这个约定。于是每次 schema 改动的两条上线路都要成立：全新卷（schema.sql）+ 已在跑的实例
-// （backend/db/migrations/，pgstore.Migrate 启动时打上）。这条测 ②：一个有数据的库，退回升级前的
-// 形状，然后**只做一件事：重启后端**（= 部署）。
+// The visitor-side resume tool relies on GetApplicationByAccessCode(:one) to look up "the"
+// application for a session's code. That isolation rests on the invariant "one code, one
+// application", and that invariant must be guaranteed by a **constraint** — it cannot rely
+// on the convention that "commit happens to issue a fresh code every time". So both go-live
+// paths must hold for every schema change: a brand-new volume (schema.sql) + an
+// already-running instance (backend/db/migrations/, applied by pgstore.Migrate on startup).
+// This test covers path ②: a database with real data, rolled back to its pre-upgrade shape,
+// then **exactly one action: restart the backend** (= deploy).
 //
-// ⚠️ 不能自己去打那条 SQL —— 那会跑在 prod 不存在的路上。升级只有一条路：restartBackend。
-// 顺序敏感：这条 spec 跑的时候库是短暂坏的，e2e 是 workers:1 串行，别改成并行。
+// Warning: don't run that SQL by hand — that would exercise a path that doesn't exist in
+// prod. Upgrading has exactly one path: restartBackend. Order-sensitive: while this spec
+// runs, the database is briefly broken; e2e runs workers:1 serially, do not change that to
+// parallel.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -48,8 +54,10 @@ function applicationRows(codeID: string): number {
   ));
 }
 
-// downgrade —— 退回"这台实例还没升到这一版"的真实形状：唯一索引换回非唯一索引，账本里删掉这一条
-// （一台还没升级的实例正是这样：账本在，但没有这一行）。application 数据一行不动。
+// downgrade — rolls back to the real shape of "this instance hasn't upgraded to this
+// version yet": the unique index is swapped back for a non-unique one, and the ledger row is
+// deleted (that's exactly what a not-yet-upgraded instance looks like: the ledger exists,
+// just without this row). Not a single application data row is touched.
 function downgrade(): void {
   execSQL(`DROP INDEX IF EXISTS applications_access_code_uniq`);
   execSQL(`CREATE INDEX IF NOT EXISTS applications_access_code_idx ON applications(access_code_id)`);
@@ -85,20 +93,21 @@ test.describe('upgrade · deploying brings up the application-code unique constr
       );
       expect(applicationRows(codeID), 'seeded one application').toBe(1);
 
-      // 退回旧形状。必须真的生效（[[assertion-that-cannot-fail]]）。
+      // Roll back to the old shape. It must actually take effect
+      // ([[assertion-that-cannot-fail]]).
       downgrade();
       expect(uniqueIndexExists(), '前置没退干净：唯一索引还在').toBe(false);
       expect(ledgerRows(), '账本还留着这条，启动会跳过 → 没在测升级').toBe(0);
 
-      // 升级 = 部署。没有别的动作。
+      // Upgrade = deploy. No other action.
       restartBackend();
 
-      // 部署把 migration 带上来了 + 记一次账。
+      // The deploy brought the migration up + recorded it in the ledger.
       expect(uniqueIndexExists(), '唯一索引随部署上来了').toBe(true);
       expect(uniqueIndexIsUnique(), '它是真的 UNIQUE，不只是同名的索引').toBe(true);
       expect(ledgerRows()).toBe(1);
 
-      // 老数据没坏：升级前那份 application 还在。
+      // Old data survives intact: the application from before the upgrade is still there.
       expect(applicationRows(codeID), '升级不动已有的 application 数据').toBe(1);
     });
 });

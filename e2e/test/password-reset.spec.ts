@@ -1,15 +1,17 @@
-// password-reset.spec.ts —— 紧急 password reset 兜底端到端。
+// password-reset.spec.ts — end-to-end coverage for the emergency password reset fallback.
 //
-// 用户故事：
-//   owner 忘了密码。在服务器上 ssh 进去 docker exec 跑 `standmeet
-//   password-reset` 子命令，stdout 打出一条 /account/reset?t=... 链接。
-//   owner 拷链接进浏览器，填新密码两次 → submit → 跳 /login → 用新密码
-//   登入成功。token 被消费，第二次同 URL 失败。
+// User story:
+//   The owner forgot their password. They ssh into the server, run `docker exec` on the
+//   `standmeet password-reset` subcommand, and stdout prints an /account/reset?t=... link.
+//   The owner copies the link into a browser, fills in the new password twice -> submit
+//   -> redirected to /login -> logs in successfully with the new password. The token gets
+//   consumed; a second attempt at the same URL fails.
 //
-// e2e 实现：不走真 Makefile（make password-reset 调 docker compose exec，
-// e2e fixture 通用是 docker exec 直接对容器）；写一个 fixture helper 调
-// `docker exec standmeet-dev-backend-1 /standmeet password-reset` 拿 stdout
-// 里的 URL。
+// e2e implementation: does not go through the real Makefile (`make password-reset` calls
+// `docker compose exec`, while the e2e fixture convention is `docker exec` directly
+// against the container); a fixture helper calls
+// `docker exec standmeet-dev-backend-1 /standmeet password-reset` and reads the URL out
+// of stdout.
 
 import { execSync } from 'node:child_process';
 
@@ -45,7 +47,7 @@ test.describe('owner uses CLI-issued reset link to set a new password', () => {
       const url = issueResetToken();
       await openResetAndSubmit(page, url, NEW_PASSWORD);
 
-      // 新密码登 OK；旧密码 401。
+      // New password logs in OK; old password gets 401.
       const request = await playwright.request.newContext();
       const fresh = await loginAPI(request, OWNER.email, NEW_PASSWORD);
       expect(fresh.csrf).toBeTruthy();
@@ -56,9 +58,9 @@ test.describe('owner uses CLI-issued reset link to set a new password', () => {
   test('reset URL is single-use; second submission with same token fails',
     async ({ page }) => {
       const url = issueResetToken();
-      // 第一次成功（先把密码换一遍）
+      // First submission succeeds (change the password once first)
       await openResetAndSubmit(page, url, NEW_PASSWORD + '-1');
-      // 第二次同 URL 应 401，留在表单上
+      // Second submission at the same URL should get 401 and stay on the form
       await goto(page, urlPath(url));
       await page.getByTestId('reset-new-password').fill(NEW_PASSWORD + '-2');
       await page.getByTestId('reset-confirm-password').fill(NEW_PASSWORD + '-2');
@@ -68,8 +70,8 @@ test.describe('owner uses CLI-issued reset link to set a new password', () => {
     });
 });
 
-// issueResetToken —— docker exec 跑 standmeet password-reset；从 stdout
-// 抓 reset URL。子命令完成会 exit；execSync 拿全输出。
+// issueResetToken — docker exec runs standmeet password-reset; grabs the reset URL from
+// stdout. The subcommand exits once it's done; execSync captures the full output.
 function issueResetToken(): string {
   const out = execSync(
     'docker compose -f ../docker-compose.dev.yml -p standmeet-dev '

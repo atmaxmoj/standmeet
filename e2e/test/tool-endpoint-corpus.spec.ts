@@ -1,16 +1,18 @@
-// tool-endpoint-corpus.spec.ts —— visitor 通过 per-tool HTTP 端点
-// 直调 corpus_search / corpus_read / corpus_list 三个 tool。前端
-// pi-agent-core 的 ToolDispatcher port 实现走的就是这个 endpoint，
-// 让 per-tool UI throbber 可见 (旧 SSE 流里全程黑盒)。
+// tool-endpoint-corpus.spec.ts -- the visitor calls corpus_search /
+// corpus_read / corpus_list directly through the per-tool HTTP endpoint.
+// This is exactly the endpoint the frontend's pi-agent-core ToolDispatcher
+// port implementation goes through, making the per-tool UI throbber visible
+// (a total black box under the old SSE stream).
 //
-// 不变量：
+// Invariants:
 //   - URL: POST /api/v1/sessions/{conv_id}/tools/{tool_name}
 //   - Auth: Bearer session_token
-//   - Happy: 返 {ok:true, result, capability_state}
-//   - 异常 capability disabled: 404 + {ok:false, reason:"capability_not_enabled"}
-//   - 异常 bad token: 401
-//   - 异常 invalid args: 200 + tool envelope (executor 自己翻译)
-//   - 不变: capability_state field 必返 (前端 zustand 同步)
+//   - Happy path: returns {ok:true, result, capability_state}
+//   - Error, capability disabled: 404 + {ok:false, reason:"capability_not_enabled"}
+//   - Error, bad token: 401
+//   - Error, invalid args: 200 + tool envelope (the executor translates it itself)
+//   - Invariant: the capability_state field is always returned (kept in sync
+//     with the frontend's zustand store)
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -34,9 +36,10 @@ const OWNER = {
 const CODE_FULL = 'CORPUS-FULL';
 const CODE_EMPTY = 'CORPUS-EMPTY';
 const CODE_NARROW = 'CORPUS-NARROW';
-// 地址是树派生的:parent「projects/family」段 + leaf 的 slug(title)。
-// 'Lucerna project notes' → 'lucerna-project-notes';'Family secret' →
-// 'family-secret'。ACL glob wiki://projects/** 允许前者、拒后者。
+// The path is derived from the tree: the parent's "projects/family" segment
+// + the leaf's slug (from the title). 'Lucerna project notes' ->
+// 'lucerna-project-notes'; 'Family secret' -> 'family-secret'. The ACL glob
+// wiki://projects/** allows the former and denies the latter.
 const NARROW_ALLOWED_PATH = 'projects/lucerna-project-notes';
 const NARROW_DENIED_PATH = 'family/family-secret';
 
@@ -69,9 +72,10 @@ async function setupCorpusToolOwner(playwright: Playwright): Promise<void> {
   await createCode(request, csrf, {
     code: CODE_EMPTY, label: 'empty', assumed_role_id: roleEmpty.id,
   });
-  // Narrow role: 仅允许 wiki://projects/**。seed 两条 wiki: 一条 projects 下
-  // (允许)、一条 family 下 (拒)。这样可以验 ACL 拒走 result.error 而不是
-  // 404 (entry 存在但越权)。
+  // Narrow role: only allows wiki://projects/**. Seed two wiki entries: one
+  // under projects (allowed), one under family (denied). This lets us verify
+  // an ACL denial goes through result.error, not a 404 (the entry exists but
+  // is out of scope).
   const roleNarrow = await createRole(request, csrf, {
     name: 'narrow-corpus-role', description: 'wiki://projects/** only',
     corpus_uris: ['wiki://projects/**'],
@@ -199,8 +203,10 @@ test.describe('tool endpoint · corpus_search / corpus_read / corpus_list', () =
     async ({ playwright }) => {
       const seeded = await playwright.request.newContext();
       const sess = await freshSession(seeded, CODE_FULL);
-      // 用全新 context 打:无 bearer **且** 无 session cookie → 真·无凭证 → 401。
-      // (seeded 那个 context 因为发过 session,jar 里有 sm_vsession cookie,会被认。)
+      // Hit it with a brand-new context: no bearer **and** no session cookie
+      // -> truly no credentials -> 401.
+      // (The seeded context would be recognized, since issuing the session
+      // left an sm_vsession cookie in its jar.)
       const anon = await playwright.request.newContext();
       await assertNoCredsReturns401(anon, sess.conversation_id);
       await seeded.dispose();
@@ -233,8 +239,9 @@ async function assertEmptyRoleSearchOk(request: APIRequestContext): Promise<void
   const { status, body } = await callTool(
     request, sess, 'corpus_search', { query: 'anything' },
   );
-  // role 有 corpus.retrieval cap 但 enabled=false（无 corpus_uris）；
-  // tool 仍暴露 (B-2 spec 设计：让 LLM 调；ACL 拒返空)。
+  // The role has the corpus.retrieval capability but enabled=false (no
+  // corpus_uris); the tool is still exposed (by B-2's design: let the LLM
+  // call it; the ACL denial returns empty).
   expect(status).toBe(200);
   expect(body.ok).toBe(true);
 }
@@ -256,9 +263,9 @@ async function assertNarrowDeniedPath(request: APIRequestContext): Promise<void>
   const { status, body } = await callTool(
     request, sess, 'corpus_read', { path: NARROW_DENIED_PATH },
   );
-  // endpoint envelope 永远 ok=true (executor 跑通)；越权信号在 tool
-  // 返的 JSON 里 (result.error)，跟 plan 决策一致 (tool envelope
-  // 而非 HTTP 403)。
+  // The endpoint envelope's ok is always true (the executor ran fine); the
+  // out-of-scope signal lives in the tool's returned JSON (result.error),
+  // matching the plan decision (a tool envelope, not an HTTP 403).
   expect(status).toBe(200);
   expect(body.ok).toBe(true);
   const result = body.result as { error?: string };
@@ -273,7 +280,8 @@ async function assertNarrowSearchExcludesDenied(request: APIRequestContext): Pro
   const denied = await callTool(request, sess, 'corpus_search', { query: 'secret' });
   expect(denied.status).toBe(200);
   expect(denied.body.ok).toBe(true);
-  // 回执是 {hits, note?} —— note 只在空手时出现（F-S-2：空不等于没有）。
+  // The reply shape is {hits, note?} -- note only appears when the result is
+  // empty-handed (F-S-2: empty is not the same as absent).
   const deniedRows = searchHitsOf(denied.body.result);
   expect(deniedRows.map((r) => r.path),
     'corpus_search must not surface a path outside role.corpus_uris').not.toContain(NARROW_DENIED_PATH);
@@ -308,8 +316,9 @@ async function assertNoCredsReturns401(
   expect(res.status()).toBe(401);
 }
 
-// searchHitsOf —— corpus_search 回执里的命中数组。
-// 这条 spec 直接打 tool 端点(它验的就是端点本身)，所以自己解一层壳。
+// searchHitsOf -- the hits array inside a corpus_search reply.
+// This spec hits the tool endpoint directly (that's exactly what it
+// verifies), so it unwraps this shell itself.
 function searchHitsOf(result: unknown): Array<{ path?: string; title?: string }> {
   const r = result as { hits?: Array<{ path?: string; title?: string }> } | undefined;
   return r?.hits ?? [];

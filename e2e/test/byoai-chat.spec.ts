@@ -1,10 +1,10 @@
-// byoai-chat.spec.ts —— 访客带自己的 API key 走 BYOAI 路径。
+// byoai-chat.spec.ts —— a visitor brings their own API key through the BYOAI path.
 //
-// 用户故事：
-//   一个陌生访客没 invite code，但有自己 Anthropic key 想试聊 owner 的
-//   public corpus。在 /alice/gate BYOAI panel 选 Anthropic + 填 key（test
-//   用 fake key；后端 mock provider 兜底）→ 跳 /alice?byoai=1 → 看到
-//   BYOAI banner → chat 流式回复正常。
+// User story:
+//   A stranger with no invite code, but their own Anthropic key, wants to try chatting
+//   with the owner's public corpus. On /alice/gate's BYOAI panel they pick Anthropic and
+//   fill in a key (a fake key for the test; the backend falls back to the mock provider)
+//   → land on /alice?byoai=1 → see the BYOAI banner → chat streams a normal reply.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -69,9 +69,9 @@ async function submitBYOAI(page: Page): Promise<void> {
 }
 
 async function expectLandedWithBanner(page: Page): Promise<void> {
-  // BYOAI 状态走 localStorage（use-gate persistSession），URL 上不挂 flag。
-  // page-shell mount 时读 visitor-session store → SessionStrip 渲 is-byoai
-  // 状态（紫色 visitor-paid · unlimited）。
+  // BYOAI state lives in localStorage (use-gate persistSession) — no flag is attached
+  // to the URL. On page-shell mount, it reads the visitor-session store, and
+  // SessionStrip renders the is-byoai state (purple visitor-paid · unlimited).
   await page.waitForURL('**/', { timeout: 10_000 });
   const strip = page.getByTestId('session-strip');
   await expect(strip).toBeVisible({ timeout: 5_000 });
@@ -79,11 +79,11 @@ async function expectLandedWithBanner(page: Page): Promise<void> {
 }
 
 async function visitorChats(page: Page): Promise<void> {
-  // 新 AskInput 是 <input>，不是 <textarea>；按 Enter 提交 form。
+  // The new AskInput is an <input>, not a <textarea>; pressing Enter submits the form.
   const input = page.locator('[data-testid="chat-input-field"]');
   await input.fill('tell me about you');
   await input.press('Enter');
-  // ConversationDeck 把回复挂在 data-testid="answer-body" 里。
+  // ConversationDeck hangs the reply on data-testid="answer-body".
   await expect(page.locator('[data-testid="answer-body"]'))
     .toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(MOCK_REPLY, { exact: false }))

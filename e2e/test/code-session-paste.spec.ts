@@ -1,10 +1,11 @@
-// code-session-paste.spec.ts —— gate 里 paste code 自动 submit + 各种错误流。
+// code-session-paste.spec.ts — pasting a code into the gate auto-submits + the various
+// error flows.
 //
-// 用户故事：
-//   1. visitor paste code 到 gate input → 自动 submit（不用按 enter）
-//   2. 过期 code → "code expired" 提示 + 引导 /gate#request
-//   3. 已 revoke 的 code → "code revoked" 提示
-//   4. 空 code → 按钮 disabled
+// User story:
+//   1. visitor pastes a code into the gate input → auto-submits (no need to press enter)
+//   2. an expired code → "code expired" message + points to /gate#request
+//   3. an already-revoked code → "code revoked" message
+//   4. an empty code → button disabled
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

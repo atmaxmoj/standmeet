@@ -1,32 +1,37 @@
-// connector-openapi-mail.spec.ts —— #155 §8 区 F（消费闭环），填**缺失的对角**：
-// openapi × mail。
+// connector-openapi-mail.spec.ts -- #155 §8 zone F (consumption closure), filling the
+// **missing diagonal**: openapi × mail.
 //
-// 现有套件覆盖了两个对角：
-//   - openapi × calendar  → connector-binding-jsonata.spec.ts（SaaS spec + JSONata 绑定）
-//   - protocol × mail      → connector-protocol-smtp.spec.ts / connector-provider-agnostic.spec.ts（内置 SMTP）
-// 但**没有** openapi × mail —— 即一家 SaaS 发信 HTTP API（SendGrid/Mailgun/Postmark
-// 式）+ 一份把 MailContract.Send 映到「POST /mail/send」的 JSONata 绑定，填「mail」品类
-// 槽。本文件就钉这条对角。
+// The existing suite covers two diagonals:
+//   - openapi × calendar  -> connector-binding-jsonata.spec.ts (SaaS spec + JSONata binding)
+//   - protocol × mail      -> connector-protocol-smtp.spec.ts / connector-provider-agnostic.spec.ts (built-in SMTP)
+// but **not** openapi × mail -- i.e. a SaaS sending-mail HTTP API (SendGrid/Mailgun/Postmark
+// style) plus a JSONata binding that maps MailContract.Send to "POST /mail/send", filling
+// the "mail" category slot. This file pins down that diagonal.
 //
-// 业务故事：owner 贴一份 SendGrid-style 的 OpenAPI 3.0 spec + 绑定（category=mail，
-// 把 send 契约 op 映到 operationId=mail.send，auth=apiKey 或 bearer）→ 后端装配出一个
-// kind=openapi 的 mail 连接器 → connect（apiKey，无 OAuth dance，存密钥即连）→ mail.send
-// cap 的 dependency.connected 翻 true → mailer 经 MailContract.Send 发信，**不知/不关心**
-// 底下是 HTTP SaaS 还是 SMTP → SaaS mock 收到信，且 request JSONata 把契约 {to,subject,
-// text} 正确构造成了该 SaaS 的 send body 形状。
+// Business story: the owner pastes a SendGrid-style OpenAPI 3.0 spec + binding
+// (category=mail, mapping the send contract op to operationId=mail.send, auth=apiKey or
+// bearer) -> the backend assembles a kind=openapi mail connector -> connect (apiKey, no
+// OAuth dance, saving the key connects it) -> the mail.send cap's dependency.connected
+// flips true -> the mailer sends via MailContract.Send, **not knowing or caring** whether
+// underneath it's an HTTP SaaS or SMTP -> the SaaS mock receives the mail, and the request
+// JSONata correctly constructs the contract's {to,subject,text} into that SaaS's send
+// body shape.
 //
-// 对齐 docs/design/connector.md：§1（mail = SendGrid(openapi) 或 SMTP(protocol)，契约把
-// kind 抽象掉）+ §2（一个品类被两种 kind 满足；绑定声明式 op→契约映射）+ §7 决策#1
-// （映射语言只 JSONata）+ §8 目标接口（REST POST /api/admin/connectors {spec,binding}；
-// .../{id}/{credentials,connect,status,disconnect}；MailContract.Send；diag 直验）。
+// Aligned with docs/design/connector.md: §1 (mail = SendGrid(openapi) or SMTP(protocol),
+// with the contract abstracting kind away) + §2 (one category satisfied by two kinds;
+// bindings declare op->contract mappings) + §7 decision #1 (the mapping language is
+// JSONata only) + §8 target interface (REST POST /api/admin/connectors {spec,binding};
+// .../{id}/{credentials,connect,status,disconnect}; MailContract.Send; direct diag probe).
 //
-// 覆盖 openapi-mail 装配 + JSONata request 构造 + apiKey 连接 + MailContract 经 openapi
-// runtime 这条路（贴 SaaS HTTP spec + 绑定填 mail 槽）。已实现，绿（原为 RED 契约，实现后转绿）。
+// Covers openapi-mail assembly + JSONata request construction + apiKey connect +
+// MailContract via the openapi runtime path (pasting a SaaS HTTP spec + a binding to fill
+// the mail slot). Implemented, green (originally a RED contract, went green once built).
 //
-// 真服务：spec.servers 指向 external-mock 的 SendGrid mock 端（**假设新端**
-// /__mock/sendgrid/*，跟已有 /__mock/gcal/* 同构）。后端 openapi runtime 实打实 POST
-// 到 /mail/send，mock 录下收到的 body；错误路径用 mock 的 fault 控制面逼 5xx/4xx。
-// 不碰真 SendGrid。
+// Real service: spec.servers points at external-mock's SendGrid mock endpoint (**a new
+// endpoint, assumed**, /__mock/sendgrid/*, structured the same as the existing
+// /__mock/gcal/*). The backend's openapi runtime really POSTs to /mail/send, the mock
+// records the body it received; the error path uses the mock's fault control plane to
+// force 5xx/4xx. Never touches real SendGrid.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -38,10 +43,12 @@ import { clearMailpit, countMailpitMessages } from '@/fixtures/mail';
 import { FORM_MAIL_SPEC, FORM_MAIL_BINDING } from '@/fixtures/openapi-mail-specs';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-// external-mock 的 SendGrid-style 发信 mock 控制面（**假设新端**，跟 /__mock/gcal/*
-// 同构）：spec.servers 的 base + /__mock/sendgrid/{sent,fail,reset} 控制/读取。
+// external-mock's SendGrid-style sending-mail mock control plane (**a new endpoint,
+// assumed**, structured the same as /__mock/gcal/*): spec.servers' base plus
+// /__mock/sendgrid/{sent,fail,reset} to control/read it.
 const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
-// 控制面（e2e 经 localhost 读/武装）；spec.servers 用 service-name（backend 容器内打）。
+// The control plane (read/armed by e2e over localhost); spec.servers uses the
+// service-name (hit from inside the backend container).
 const SENDGRID_BASE = `${MOCK}/__mock/sendgrid`;
 const SENDGRID_API_BASE = 'http://external-mock:9000/__mock/sendgrid';
 
@@ -53,10 +60,11 @@ const OWNER = {
 };
 
 // ─── inlined sample OpenAPI 3.0 spec (mail; SendGrid-style; servers → mock) ───
-// 一个最小但合法的 3.0 spec：一个 operationId（mail.send，POST /mail/send）+ 一个
-// apiKey securityScheme（bearer header，跟 SendGrid 的 `Authorization: Bearer SG.xxx`
-// 同形）。servers.url 指 e2e 的 SendGrid mock，所以 openapi runtime 实打实 POST 到
-// 已有/新建的 /__mock/sendgrid/mail/send，mock 录下 body 供 request-JSONata 断言。
+// A minimal but valid 3.0 spec: one operationId (mail.send, POST /mail/send) + one
+// apiKey securityScheme (bearer header, matching SendGrid's `Authorization: Bearer
+// SG.xxx` shape). servers.url points at the e2e SendGrid mock, so the openapi runtime
+// really POSTs to the existing/new /__mock/sendgrid/mail/send, and the mock records the
+// body for request-JSONata assertions.
 const SENDGRID_SPEC = {
   openapi: '3.0.3',
   info: { title: 'Sample SendGrid-style Mail', version: '1.0.0' },
@@ -76,42 +84,46 @@ const SENDGRID_SPEC = {
   },
   components: {
     securitySchemes: {
-      // SendGrid 用 `Authorization: Bearer SG.<key>` —— http/bearer。owner 填一个
-      // token 字段（§4 认证表：http bearer → single token）。apiKey(header) 也行，
-      // 两种都是「存密钥即连、无 OAuth dance」。
+      // SendGrid uses `Authorization: Bearer SG.<key>` -- http/bearer. The owner fills
+      // in one token field (§4 auth table: http bearer -> single token). apiKey (header)
+      // works too; both are "save the key and it's connected, no OAuth dance".
       bearer: { type: 'http', scheme: 'bearer' },
     },
   },
 } as const;
 
 // ─── inlined sample JSONata binding (mail; Send → POST /mail/send) ───
-// category=mail、kind=openapi、把唯一契约 op `send` 映到 operationId=mail.send。
-//   send.request : 契约输入 {to,subject,text} → SaaS send body
-//     SendGrid 形：{ personalizations:[{ to:[{ email }] }], subject,
+// category=mail, kind=openapi, mapping the sole contract op `send` to
+// operationId=mail.send.
+//   send.request : contract input {to,subject,text} -> SaaS send body
+//     SendGrid shape: { personalizations:[{ to:[{ email }] }], subject,
 //                    content:[{ type:"text/plain", value }] }
-//     JSONata 从契约字段构造这个嵌套形状（证明 request 方向的构造能力）。
-//   send.response: SaaS 202 响应 → 契约 SendResult（这里只需 message_id；mock 回
-//                    { message_id } 或 X-Message-Id header，绑定抽出归一）。
+//     JSONata builds this nested shape from the contract fields (proving the request
+//     direction's construction capability).
+//   send.response: SaaS 202 response -> contract SendResult (only message_id needed
+//                    here; the mock replies with { message_id } or an X-Message-Id
+//                    header, and the binding extracts and normalizes it).
 const SENDGRID_BINDING = {
   category: 'mail',
   kind: 'openapi',
   operations: {
     send: {
       op: 'mail.send',
-      // request: 契约 (to,subject,text) → SendGrid send body。
+      // request: contract (to,subject,text) → SendGrid send body.
       request:
         '{ "personalizations": [{ "to": [{ "email": to }] }], ' +
         '"subject": subject, ' +
         '"content": [{ "type": "text/plain", "value": body }] }',
-      // response: SaaS → 契约 SendResult {id}。
+      // response: SaaS → contract SendResult {id}.
       response: '{ "id": message_id }',
     },
   },
 } as const;
 
-// ─── inlined bad binding (装配期校验：声明 mail 但不真发信) ───
-// category="mail" 但映的 op 不是发信操作（这里指到一个 stats 读取 op，spec 里加进来）。
-// 期望装配/运行期 flag：「声明 mail 品类但 ops 不满足 MailContract.Send」。
+// ─── inlined bad binding (assembly-time check: declares mail but doesn't really send) ───
+// category="mail" but the mapped op isn't a send operation (points to a stats-read op,
+// added into the spec here). Expected assembly/runtime flag: "declares the mail category
+// but its ops don't satisfy MailContract.Send".
 const NON_SENDING_SPEC = {
   ...SENDGRID_SPEC,
   paths: {
@@ -128,23 +140,24 @@ const NON_SENDING_BINDING = {
   category: 'mail',
   kind: 'openapi',
   operations: {
-    // 把契约 send op 映到一个**读 stats** 的 op —— 不发信。
+    // Maps the contract's send op to a **read stats** op -- doesn't send.
     send: { op: 'mail.stats', request: '{ "ignored": to }', response: '{ "id": "noop" }' },
   },
 } as const;
 
-// ─── target REST/diag helpers (unbuilt; §8 接口草图) ───
+// ─── target REST/diag helpers (unbuilt; §8 interface sketch) ───
 
 interface CreateResult { status: number; id?: string; error?: string }
 interface ConnStatus { id: string; category: string; kind: string; has_credentials: boolean; connected: boolean }
-// mock 录到的一封 SaaS send（断 request JSONata 构造出的 body 形状）。
+// One SaaS send the mock recorded (used to assert the body shape the request JSONata built).
 interface SentMail {
-  // id —— 这个假 vendor 为这封信发的 message id（回执里那个跟它是同一个）。
+  // id -- the message id this fake vendor issued for this mail (the receipt carries the same one).
   id: string;
   to: string[];
   subject: string;
   text: string;
-  // raw —— mock 原样保存的 SaaS body（断嵌套构造，如 personalizations/content）。
+  // raw -- the SaaS body the mock saved verbatim (used to assert the nested construction,
+  // e.g. personalizations/content).
   raw: SendGridBody;
 }
 interface SendGridBody {
@@ -152,14 +165,15 @@ interface SendGridBody {
   subject?: string;
   content?: { type?: string; value?: string }[];
 }
-// diag 直验 mailer 经 MailContract.Send 的结果（避开访客会话，干净断形状）。
+// Directly verifies the mailer's MailContract.Send result via diag (bypasses the
+// visitor session, asserting the shape cleanly).
 interface MailSendDiag {
   status: number; ok: boolean; via_kind?: string; reason?: string;
-  // message_id —— provider 交回来的那个 id。**产品以前一个字都不读**（F-C-55）。
+  // message_id -- the id the provider handed back. **The product used to read none of it** (F-C-55).
   message_id?: string;
 }
 
-// POST /api/admin/connectors —— 从 spec+binding 建 openapi 连接器。201 → {id}；4xx → {error}。
+// POST /api/admin/connectors -- builds an openapi connector from spec+binding. 201 → {id}; 4xx → {error}.
 async function createConnector(
   request: APIRequestContext, csrf: string,
   body: { spec: unknown; binding: unknown },
@@ -172,8 +186,9 @@ async function createConnector(
   return { status: res.status(), id: json.id, error: json.error };
 }
 
-// connectApiKey —— 存 bearer/apiKey 密钥（spec 派生表单）+ connect。apiKey 无 OAuth
-// dance：connect 直接回 {connected:true}（§4「apiKey/basic/bearer/smtp → 直接 Connected」）。
+// connectApiKey -- saves the bearer/apiKey secret (form derived from the spec) + connects.
+// apiKey has no OAuth dance: connect returns {connected:true} directly (§4 "apiKey/basic/bearer/smtp
+// -> directly Connected").
 async function connectApiKey(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<ConnStatus> {
@@ -202,13 +217,18 @@ async function disconnectConnector(
   if (res.status() !== 200) throw new Error(`disconnect ${id}: ${res.status()}`);
 }
 
-// diagSend —— 发一封测试信,走 owner **真的会按的那个按钮**:面板上的 "send a test mail"。
+// diagSend -- sends a test mail through the button the owner **actually clicks**: the
+// panel's "send a test mail".
 //
-// 它以前走 diag 的通用 invoke 口。那条口是 owner-authed 的诊断后门,故意把**原始原因**
-// 透出去("我这份绑定为什么不通"是它存在的全部理由)。于是这几条断言"消息友好、不泄状态码"
-// 的用例,量的是 diag 的措辞,不是产品的 —— 而产品那一句根本没被测到。
+// This used to go through diag's generic invoke endpoint. That endpoint is an
+// owner-authed diagnostic back door, deliberately surfacing the **raw underlying
+// reason** ("why doesn't my binding work" is its entire reason for existing). So the
+// test cases asserting "the message is friendly, doesn't leak a status code" were
+// measuring diag's wording, not the product's -- and the product's actual message was
+// never tested at all.
 //
-// 换成真实那条口之后,它们量的才是 owner 会看见的东西:归类后的一句话 + via_kind。
+// After switching to the real endpoint, they measure what the owner actually sees:
+// the categorized message plus via_kind.
 async function diagSend(
   request: APIRequestContext, csrf: string, _id: string,
   mail: { to: string; subject: string; text: string },
@@ -227,14 +247,16 @@ async function diagSend(
 
 // ─── SendGrid mock control plane (assumed new; /__mock/sendgrid/*) ───
 
-// getSentMail —— 读 mock 录到的所有 send（断 booker/mailer 真打到它 + body 形状）。
+// getSentMail -- reads every send the mock recorded (asserts the booker/mailer really
+// hit it, plus the body shape).
 async function getSentMail(request: APIRequestContext): Promise<SentMail[]> {
   const res = await request.get(`${SENDGRID_BASE}/sent`);
   if (res.status() !== 200) throw new Error(`sendgrid sent: ${res.status()}`);
   return (await res.json() as { sent: SentMail[] }).sent;
 }
 
-// failNextSend —— 让 mock 的下一次 /mail/send 返指定 status（5xx 降级 / 4xx 拒）。
+// failNextSend -- makes the mock's next /mail/send call return the given status (5xx
+// degrade / 4xx reject).
 async function failNextSend(request: APIRequestContext, status: number): Promise<void> {
   const res = await request.post(`${SENDGRID_BASE}/fail`, { data: { status, times: 1 } });
   if (res.status() !== 200) throw new Error(`sendgrid fail arm: ${res.status()}`);
@@ -244,8 +266,9 @@ async function resetSendGridMock(request: APIRequestContext): Promise<void> {
   await request.post(`${SENDGRID_BASE}/reset`, { data: {} }).catch(() => undefined);
 }
 
-// assembleAndConnectMail —— 装一个 openapi mail 连接器（SendGrid spec+绑定）并连上。
-// 返回 status；幂等性靠每个 test 自己 reset instance（这里不跨 test 共享）。
+// assembleAndConnectMail -- assembles one openapi mail connector (SendGrid spec+binding)
+// and connects it. Returns status; idempotency relies on each test resetting the
+// instance itself (not shared across tests here).
 async function assembleAndConnectMail(
   request: APIRequestContext, csrf: string,
 ): Promise<ConnStatus> {
@@ -273,19 +296,19 @@ async function initOwner(playwright: Playwright): Promise<{
 
 // ─── test bodies (extracted; the describe stays a thin wrapper) ───
 
-// runHappyMainline —— 整条对角主干：装配 → connect(apiKey) → mail.send 解闸 →
-// MailContract.Send 经 openapi runtime → SaaS mock 收到。
+// runHappyMainline -- the whole diagonal's mainline: assemble -> connect(apiKey) ->
+// mail.send gate opens -> MailContract.Send via the openapi runtime -> SaaS mock receives it.
 async function runHappyMainline(request: APIRequestContext, csrf: string): Promise<void> {
   const st = await assembleAndConnectMail(request, csrf);
   expect(st.kind, 'kind=openapi (not protocol)').toBe('openapi');
   expect(st.category).toBe('mail');
   expect(st.connected, 'apiKey connects on saving the key, no OAuth dance').toBe(true);
 
-  // dep-gating：mail 品类槽现在 connected → mail.send cap 解闸。
+  // dep-gating: the mail category slot is now connected -> the mail.send cap gate opens.
   const cap = await findCapability(request, csrf, 'mail.send');
   expect(cap?.dependency?.connected, 'openapi mail connected → mail category slot connected').toBe(true);
 
-  // mailer 经 MailContract.Send 发信，不知底下是 HTTP SaaS。
+  // The mailer sends via MailContract.Send, not knowing it's an HTTP SaaS underneath.
   const sent = await diagSend(request, csrf, st.id, {
     to: 'recruiter@corp.test', subject: 'OpenAPI mail', text: 'hello from SendGrid-style API',
   });
@@ -293,14 +316,15 @@ async function runHappyMainline(request: APIRequestContext, csrf: string): Promi
   expect(sent.ok, 'MailContract.Send succeeds via the openapi runtime').toBe(true);
   expect(sent.via_kind, 'mailer neither knows nor cares it is openapi underneath').toMatch(/openapi|http/i);
 
-  // SaaS mock 真收到该信。
+  // The SaaS mock really receives the mail.
   const inbox = await getSentMail(request);
   expect(inbox, 'SendGrid mock received the mail the mailer sent').toHaveLength(1);
   expect(inbox[0]!.to).toContain('recruiter@corp.test');
   expect(inbox[0]!.subject).toBe('OpenAPI mail');
 }
 
-// runReceiptCarriesID —— 发一封，断回执上那个 id 正是这个假 vendor 为它发的那个。
+// runReceiptCarriesID -- sends one mail, asserts the receipt's id is exactly the one
+// this fake vendor issued for it.
 async function runReceiptCarriesID(request: APIRequestContext, csrf: string): Promise<void> {
   const st = await assembleAndConnectMail(request, csrf);
   const sent = await diagSend(request, csrf, st.id, {
@@ -316,8 +340,10 @@ async function runReceiptCarriesID(request: APIRequestContext, csrf: string): Pr
   ).toBe(inbox[0]!.id);
 }
 
-// runFormEncodedSend —— 装一个声明表单编码的连接器，发一封，断它**真的送出去了**。
-// 收据不看产品自己说什么：去 Mailpit 数一遍（那个假 vendor 收下之后经 SMTP 转投过去）。
+// runFormEncodedSend -- assembles a connector that declares form-encoding, sends one
+// mail, and asserts it **really went out**. The receipt doesn't take the product's own
+// word for it: count messages in Mailpit instead (the fake vendor forwards it over SMTP
+// once it accepts it).
 async function runFormEncodedSend(request: APIRequestContext, csrf: string): Promise<void> {
   await clearMailpit(request);
   const r = await createConnector(request, csrf, {
@@ -340,8 +366,9 @@ async function runFormEncodedSend(request: APIRequestContext, csrf: string): Pro
   ).toBeGreaterThan(0);
 }
 
-// runRequestConstruct —— 断 mock 录到的 raw body 是 SendGrid 嵌套形
-// （personalizations/content），证明 request 方向的 JSONata 构造能力。
+// runRequestConstruct -- asserts the raw body the mock recorded is the SendGrid nested
+// shape (personalizations/content), proving the request-direction JSONata construction
+// capability.
 async function runRequestConstruct(request: APIRequestContext, csrf: string): Promise<void> {
   const st = await assembleAndConnectMail(request, csrf);
   const sent = await diagSend(request, csrf, st.id, {
@@ -352,7 +379,7 @@ async function runRequestConstruct(request: APIRequestContext, csrf: string): Pr
   const inbox = await getSentMail(request);
   const ev = inbox.find((m) => m.subject === 'Intro chat');
   expect(ev, 'mock recorded the constructed send').toBeTruthy();
-  // request JSONata 构造的 SendGrid 嵌套形状逐一对得上。
+  // Check every field of the SendGrid nested shape the request JSONata built.
   const body = ev!.raw;
   expect(body.personalizations?.[0]?.to?.[0]?.email, 'to → personalizations[0].to[0].email')
     .toBe('rachel@example.com');
@@ -361,8 +388,9 @@ async function runRequestConstruct(request: APIRequestContext, csrf: string): Pr
   expect(body.content?.[0]?.value, 'text → content[0].value').toBe('Looking forward to it.');
 }
 
-// runDegrade —— SaaS send 返指定 status（5xx 或 4xx）→ 友好降级：不崩、不泄 stack、
-// reason 匹配 friendly 模式、mock 没收到信。5xx/4xx 共用，msgPattern 区分措辞。
+// runDegrade -- the SaaS send returns a given status (5xx or 4xx) -> friendly degrade:
+// no crash, no leaked stack, reason matches the friendly pattern, the mock never
+// received the mail. Shared by 5xx/4xx; msgPattern tells the wording apart.
 async function runDegrade(
   request: APIRequestContext, csrf: string,
   failStatus: number, mail: { to: string; subject: string; text: string }, msgPattern: RegExp,
@@ -379,19 +407,20 @@ async function runDegrade(
   expect(await getSentMail(request), 'degraded/rejected → mock did not deliver successfully').toHaveLength(0);
 }
 
-// runNonSendingFlagged —— 绑定声明 category="mail" 但映的 op 不真发信。理想装配期拒，
-// 兜底运行期 MailContract.Send 失败 —— 两路都接受。
+// runNonSendingFlagged -- the binding declares category="mail" but its mapped op
+// doesn't really send. Ideal: rejected at assembly time; fallback: MailContract.Send
+// fails at runtime -- either path is accepted.
 async function runNonSendingFlagged(request: APIRequestContext, csrf: string): Promise<void> {
   const r = await createConnector(request, csrf, {
     spec: NON_SENDING_SPEC, binding: NON_SENDING_BINDING,
   });
   if (r.status >= 400 && r.status < 500) {
-    // 理想：装配期拒。
+    // Ideal: rejected at assembly time.
     expect(r.error ?? '').toMatch(/mail|send|contract|operation|category/i);
     expect(r.id, 'connector not created').toBeFalsy();
     return;
   }
-  // 兜底：装配过了，但运行期 MailContract.Send 必须失败（没真发出去）。
+  // Fallback: assembly went through, but MailContract.Send must fail at runtime (nothing really sent).
   expect(r.status, r.error ?? '').toBe(201);
   const st = await connectApiKey(request, csrf, r.id!);
   const sent = await diagSend(request, csrf, st.id, {
@@ -401,7 +430,7 @@ async function runNonSendingFlagged(request: APIRequestContext, csrf: string): P
   expect(await getSentMail(request), 'non-send op → mock received no mail').toHaveLength(0);
 }
 
-// runDepGating —— 断开 openapi mail 连接器 → mail.send re-gate。
+// runDepGating -- disconnect the openapi mail connector -> mail.send re-gates.
 async function runDepGating(request: APIRequestContext, csrf: string): Promise<void> {
   const st = await assembleAndConnectMail(request, csrf);
   const before = await findCapability(request, csrf, 'mail.send');
@@ -413,27 +442,32 @@ async function runDepGating(request: APIRequestContext, csrf: string): Promise<v
 }
 
 test.describe('connector · openapi mail (SendGrid-style, kind=openapi fills the mail slot, §8 area F diagonal)', () => {
-  // #155 §8-F 已落地：openapi × mail 对角（SaaS 发信 HTTP spec + JSONata 绑定填 mail 槽 +
-  // apiKey 连接 + MailContract 经 openapi runtime → SendGrid-style mock）。
+  // #155 §8-F is implemented: the openapi × mail diagonal (SaaS sending HTTP spec +
+  // JSONata binding filling the mail slot + apiKey connect + MailContract via the
+  // openapi runtime -> SendGrid-style mock).
 
   let request: APIRequestContext;
   let csrf: string;
 
-  // 每 test 重置实例 + owner + SendGrid mock（连接器跨 test 不累积；dep-gating 断绝对状态要干净）。
+  // Reset the instance + owner + SendGrid mock per test (connectors don't accumulate
+  // across tests; dep-gating asserts absolute state, which needs to be clean).
   test.beforeEach(async ({ playwright }) => {
     ({ request, csrf } = await initOwner(playwright));
   });
   test.afterEach(async () => { await request.dispose(); });
 
-  // happy: 装配 openapi mail 连接器 → connect(apiKey) → mail.send cap 解闸 → MailContract 经它发信 → mock 收到。
+  // happy: assemble an openapi mail connector -> connect(apiKey) -> mail.send cap gate
+  // opens -> MailContract sends through it -> mock receives it.
   test('assemble openapi mail connector → connect (apiKey, no dance) → mail.send un-gates → MailContract.Send goes through it → mock received',
     async () => { await runHappyMainline(request, csrf); });
 
-  // happy: request JSONata 把契约 {to,subject,text} 正确构造成 SaaS send body 形状。
+  // happy: request JSONata correctly constructs the contract's {to,subject,text} into
+  // the SaaS send body shape.
   test('request JSONata constructs the SaaS send body shape from {to, subject, text}',
     async () => { await runRequestConstruct(request, csrf); });
 
-  // err: connected 但 SaaS send 返 5xx → 友好降级（不崩、不泄 stack、无事件）。
+  // err: connected but the SaaS send returns 5xx -> friendly degrade (no crash, no
+  // leaked stack, nothing recorded).
   test('connected but the SaaS send returns 5xx → friendly degrade (no crash, no stack, no send recorded)',
     async () => {
       await runDegrade(
@@ -443,7 +477,8 @@ test.describe('connector · openapi mail (SendGrid-style, kind=openapi fills the
       );
     });
 
-  // err: SaaS send 返 4xx（如 invalid recipient）→ 同样友好，不泄底层。
+  // err: the SaaS send returns 4xx (e.g. invalid recipient) -> also friendly, no
+  // leaking the underlying error.
   test('a 4xx from the SaaS (e.g. invalid recipient rejected) → friendly (no raw provider error)',
     async () => {
       await runDegrade(
@@ -453,49 +488,62 @@ test.describe('connector · openapi mail (SendGrid-style, kind=openapi fills the
       );
     });
 
-  // err: 绑定声明 category="mail" 但 spec/ops 不真发信 → 装配期（或运行期）flag。
+  // err: the binding declares category="mail" but the spec/ops don't actually send ->
+  // flagged at assembly time (or runtime).
   test('a mail binding whose spec/ops do not actually send is flagged (at assemble or runtime)',
     async () => { await runNonSendingFlagged(request, csrf); });
 
-  // F-C-54 —— **spec 说 body 是表单编码，运行时照旧发 JSON。**
+  // F-C-54 -- **the spec says the body is form-encoded; at runtime, JSON is sent anyway.**
   //
-  // ①🔴 真环境（真 Mailgun 账号 + 真 sending key）：按它要的 multipart 发 → 200 +
-  // `{"id":"<…@sandbox….mailgun.org>"}`，Gmail 真收到。同一个端点、同一把 key，body 换成
-  // `application/json` → **400 `{"message":"from parameter is missing"}`** —— 它只是没看见那些字段。
-  // 而产品**只会发 JSON**（`runtime.go:174` / `runtime_raw.go:51` 写死），spec 里声明的
-  // 媒体类型（`spec.go:187` 只读 `application/json`）根本没被看过。
+  // Hit in a real environment (real Mailgun account + real sending key): sent as the
+  // multipart it wanted -> 200 + `{"id":"<...@sandbox....mailgun.org>"}`, Gmail really
+  // received it. Same endpoint, same key, switch the body to `application/json` ->
+  // **400 `{"message":"from parameter is missing"}`** -- it simply never saw those
+  // fields. The product **only ever sends JSON** (hardcoded in `runtime.go:174` /
+  // `runtime_raw.go:51`), and the media type declared in the spec
+  // (`spec.go:187` only reads `application/json`) was never looked at.
   //
-  // 这不是边角：Mailgun / Twilio / Stripe 的发信、发短信、收款端点都是表单编码。
-  // 替身以前的每个假 vendor 都只说 JSON，所以这一整类在测试里不存在
-  // （[[stand-in-is-politer-than-reality]]）。
+  // This isn't a corner case: Mailgun / Twilio / Stripe's send-mail, send-SMS, and
+  // payment endpoints are all form-encoded. Every one of the mock's fake vendors used
+  // to speak only JSON, so this whole class of behavior didn't exist in the test suite
+  // ([[stand-in-is-politer-than-reality]]).
   //
-  // 判据能判负：**跟上面那条 happy 用的是同一套装配、同一把 key、同一个契约**，
-  // 唯一的差别是 spec 声明 `application/x-www-form-urlencoded`、端点是只收表单的那一个。
-  // 红只可能意味着一件事：声明的媒体类型没被照做。
+  // The criterion can fail: **it uses the exact same assembly, the same key, the same
+  // contract as the happy test above**, the only difference being the spec declares
+  // `application/x-www-form-urlencoded` and the endpoint only accepts forms. Red can
+  // only mean one thing: the declared media type wasn't honored.
   test('a spec that declares a form-encoded body is actually sent as a form (F-C-54)',
     async () => { await runFormEncodedSend(request, csrf); });
 
-  // F-C-55 —— **provider 交回来的 message id，产品一个字都不读。**
+  // F-C-55 -- **the message id the provider hands back is read by nothing in the product.**
   //
-  // ①🔴 驱 mail-connector check 5 时看见的：那一格要「message id 从 provider 真正用的那个
-  // 位置读」。而 `contract.MailProxy.Send` 的签名是 `... error` —— **没有装 id 的地方**；
-  // `mailAdapter.Send` 调 `runtime.Call(ctx, "send", in, nil, inj)`，出参就是 `nil`。
-  // 于是每一份 mail binding 里那句 `response: '{ "id": … }'` 求完就扔。
+  // Seen while driving mail-connector check 5: that field wants "the message id read
+  // from wherever the provider actually puts it". But `contract.MailProxy.Send`'s
+  // signature is `... error` -- **there's nowhere to hold an id**; `mailAdapter.Send`
+  // calls `runtime.Call(ctx, "send", in, nil, inj)`, and the output arg is just `nil`.
+  // So every mail binding's `response: '{ "id": ... }'` gets evaluated and thrown away.
   //
-  // 后果不是「读错位置」，是**发信的回执只有「没报错」**：provider 给的那个 id 是事后
-  // 唯一的把手（去它日志里找这封、对上一次退信、告诉 owner 到底发的是哪一封），而它被丢了。
-  // 同 [[write-with-no-receipt]] / [[nonunique-signal-not-a-receipt]]。
+  // The consequence isn't "read from the wrong place", it's that **the send receipt
+  // amounts to nothing more than "no error"**: the id the provider gives back is the
+  // only handle you have afterward (to find this mail in its logs, match a bounce, tell
+  // the owner which mail actually went out), and it's dropped. Same class as
+  // [[write-with-no-receipt]] / [[nonunique-signal-not-a-receipt]].
   //
-  // 判据能判负：不断「非空」（一个写死的字符串也能过），断**它等于这个假 vendor 为这一封
-  // 发的那个 id** —— 那个值只可能来自响应。
+  // The criterion can fail: it doesn't just assert "non-empty" (a hardcoded string
+  // would pass that); it asserts **it equals the id this fake vendor issued for this
+  // exact mail** -- a value that can only have come from the response.
   test('the provider message id comes back on the receipt (F-C-55)',
     async () => { await runReceiptCarriesID(request, csrf); });
 
-  // dep-gating: 断开 openapi mail 连接器 → mail.send re-gate。经「mail 作为访客 capability」，已实现。
+  // dep-gating: disconnect the openapi mail connector -> mail.send re-gates. Implemented,
+  // via "mail as a visitor capability".
   test('disconnect the openapi mail connector → mail.send re-gates',
     async () => { await runDepGating(request, csrf); });
 });
 
-// 这个文件里以前有一个内联的 diagInvoke —— 打 owner-authed 的连接器诊断口,绕过真实链路。
-// 它没了:这几条用例问的是"owner 按下发测试信之后看见什么",而那是面板上的按钮,
-// 不是诊断口。诊断口故意透出原始原因,拿它量"消息够不够友好"量的是另一个东西。
+// This file used to have an inline diagInvoke -- hitting the owner-authed connector
+// diagnostic endpoint, bypassing the real path. It's gone: these test cases ask "what
+// does the owner see after clicking send a test mail", and that's the panel's button,
+// not the diagnostic endpoint. The diagnostic endpoint deliberately surfaces the raw
+// underlying reason, so measuring "is the message friendly enough" against it measures
+// something else entirely.

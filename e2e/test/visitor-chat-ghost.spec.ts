@@ -1,14 +1,18 @@
-// visitor-chat-ghost.spec.ts —— Ghost steering P4: 输入框**单个** ghost-text(单-candidate,替换旧的
-// 多队列 + Esc cycle + 每轮 3 条 followup)。
+// visitor-chat-ghost.spec.ts — Ghost steering P4: **a single** ghost-text in the input field
+// (one candidate, replacing the old multi-queue + Esc cycle + 3 followups per turn).
 //
-// 单-ghost 设计([[ghost-steering]] "one ghost beats three"):
-//   1. code visitor 进 chat → 输入框显示**一条** ghost(initial = code.ghosts 首条)
-//   2. Tab → 填进 input(不 auto-send)
-//   3. Esc **不再 cycle**(没有第二条可切;单个)
-//   4. 答完一轮 → policy 发**单数** `ghost` 帧 → 输入框 ghost 换成 policy 那条(target_waypoint 引导)
-//   5. admin transcript modal 见 shown 日志,source ∈ {initial, policy},accepted 随 Tab
+// The single-ghost design ([[ghost-steering]] "one ghost beats three"):
+//   1. a code visitor enters chat → the input shows **one** ghost (initial = the first entry in
+//      code.ghosts)
+//   2. Tab → fills into the input (does not auto-send)
+//   3. Esc **no longer cycles** (there's no second candidate to switch to; it's a single one)
+//   4. after answering a turn → policy sends a **singular** `ghost` frame → the input's ghost
+//      switches to that policy one (steered by target_waypoint)
+//   5. the admin transcript modal shows a "shown" log entry, source ∈ {initial, policy}, accepted
+//      follows the Tab
 //
-// RED(实现前):store 仍是多队列 + cycle,后端仍发旧 `ghosts` 帧(3 条) → 单个断言红。
+// RED (before implementation): the store is still multi-queue with cycling, the backend still
+// sends the old `ghosts` frame (3 entries) → the single-candidate assertions go red.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -30,8 +34,9 @@ const OWNER = {
 };
 const CODE = 'GHOST-001';
 
-// code.ghosts 静态启动语保留(QR/landing 的 suggested questions),但输入框 ghost-text **只取首条**
-// 当单个 initial ghost —— 不再整队列 seed、不 cycle。
+// code.ghosts still provides the static starter phrases (the suggested questions on the QR/
+// landing page), but the input field's ghost-text now **only takes the first entry** as the
+// single initial ghost — it no longer seeds the whole queue, and no longer cycles.
 const GHOSTS = [
   'What did you ship last quarter?',
   'Why are you considering a move?',
@@ -72,7 +77,8 @@ test.describe('visitor chat ghost text · 单个 · P4', () => {
     await expect(input).toHaveAttribute('data-ghost', INITIAL, { timeout: 5_000 });
     await input.focus();
     await input.press('Escape');
-    // 单个:Esc 后 ghost 不该变成 GHOSTS[1](旧行为是 cycle 到第二条)。
+    // Single-candidate: after Esc the ghost should not become GHOSTS[1] (the old behavior was
+    // cycling to the second entry).
     await expect(input, 'Esc 后仍是首条(无 cycle)').not.toHaveAttribute('data-ghost', GHOSTS[1]!);
   });
 
@@ -92,8 +98,10 @@ test.describe('visitor chat ghost text · 单个 · P4', () => {
       .toHaveAttribute('data-ghost', POLICY_GHOST.text, { timeout: 10_000 });
   });
 
-  // F-A-9: 一轮 policy 沉默(没出 ghost 帧)→ 上一条 steering ghost 必须被清掉(不靠 reload)。
-  // RED(修复前):client 在没帧的一轮不清 ghost,输入框一直挂着 POLICY_GHOST.text。
+  // F-A-9: on a turn where policy stays silent (no ghost frame comes out) → the previous
+  // steering ghost must be cleared (without relying on a reload).
+  // RED (before the fix): on a frame-less turn, the client didn't clear the ghost, and the
+  // input kept holding onto POLICY_GHOST.text.
   test('policy 沉默的一轮 → 陈旧 ghost 被清成空(不 reload)', async ({ page, playwright }) => {
     const req = await playwright.request.newContext();
     const ghostTag = await scriptMockGhost(req, POLICY_GHOST);
@@ -103,13 +111,14 @@ test.describe('visitor chat ghost text · 单个 · P4', () => {
     const input = page.getByTestId('chat-input-field');
     await expect(input).toHaveAttribute('data-ghost', INITIAL, { timeout: 5_000 });
 
-    // 轮1:带 tag → policy 出 ghost → 输入框换成 policy ghost。
+    // Turn 1: with the tag → policy produces a ghost → the input switches to the policy ghost.
     await input.fill(`tell me about Alpha${ghostTag}`);
     await input.press('Enter');
     await expect(page.getByTestId('answer-body')).toHaveCount(1, { timeout: 20_000 });
     await expect(input).toHaveAttribute('data-ghost', POLICY_GHOST.text, { timeout: 10_000 });
 
-    // 轮2:不带 tag → policy 沉默(unscripted 默认 null)→ 陈旧 ghost 必须被清成 ''。
+    // Turn 2: without the tag → policy stays silent (unscripted defaults to null) → the stale
+    // ghost must be cleared to ''.
     await input.fill('and what else');
     await input.press('Enter');
     await expect(page.getByTestId('answer-body')).toHaveCount(2, { timeout: 20_000 });
@@ -131,7 +140,8 @@ async function initOwner(playwright: Playwright): Promise<void> {
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  // WP 的证据 note 得真存在,冻结那刻的可行性下限才放它进快照(F-A-26)。
+  // The WP's evidence note has to genuinely exist — only once feasibility clears that floor at
+  // freeze time does the entry get admitted into the snapshot (F-A-26).
   const apiToken = await createAPIToken(request, csrf, 'ghost-seed');
   const sid = await initMCP(request, apiToken);
   await seedWiki(request, apiToken, sid, { title: 'Alpha', body: 'Alpha.', path: 'alpha' });

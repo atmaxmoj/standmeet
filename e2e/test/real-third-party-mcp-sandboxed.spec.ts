@@ -52,8 +52,9 @@ const SECRET_MARKER = 'SANDBOX-READABLE-7f3a91';
 
 let pluginCode = '';
 
-// SandboxProbe —— 一次「脚本工具 + 回复 → 进会话发问 → 断言答里含某串」的探针。
-// tool 类型直接复用 scriptMockToolCall 的入参，保证形状一致。
+// SandboxProbe -- one probe of the shape "script a tool + reply -> enter a session and
+// ask a question -> assert the answer contains a given string". The tool type directly
+// reuses scriptMockToolCall's argument shape, keeping them consistent.
 interface SandboxProbe {
   tool: Parameters<typeof scriptMockToolCall>[1];
   reply: string;
@@ -61,8 +62,10 @@ interface SandboxProbe {
   expectText: string;
 }
 
-// runSandboxedProbe —— 4 个用例共用的真·端到端流程（脚本真服务的 tool + 回复，
-// 浏览器进 code 会话发问，断言答里出现期望串 = 真服务在沙箱里跑通了）。
+// runSandboxedProbe -- the real end-to-end flow shared by all 4 test cases (script the
+// real server's tool + reply, have the browser enter a code session and ask a
+// question, assert the expected string shows up in the answer -- which proves the real
+// server actually ran inside the sandbox).
 async function runSandboxedProbe(
   browser: Browser, playwright: Playwright, probe: SandboxProbe,
 ): Promise<void> {
@@ -102,8 +105,10 @@ test.describe('REAL third-party MCP server (server-filesystem) loaded via the ma
     await request.dispose();
   });
 
-  // 真读：server-filesystem 读 /plugin/secret.txt（沙箱只读挂在那）。脚本回复故意不含
-  // marker —— marker 只能经 mock 反射真 tool 结果到达，断言它=证明真读非套话。
+  // A real read: server-filesystem reads /plugin/secret.txt (mounted read-only into
+  // the sandbox). The scripted reply deliberately excludes the marker -- the marker
+  // can only arrive by the mock reflecting the real tool result back, so asserting on
+  // it proves the read is real, not a stock canned answer.
   test('discovers + invokes the real server: reads a file planted in its sandbox dir',
     async ({ browser, playwright }) => {
       await runSandboxedProbe(browser, playwright, {
@@ -114,8 +119,9 @@ test.describe('REAL third-party MCP server (server-filesystem) loaded via the ma
       });
     });
 
-  // 限域：/etc/standmeet/plugins.json 在 BACKEND host 上但没挂进沙箱（只挂 /plugin）。
-  // 受限服务读不到 → tool 失败 → 后端折成 errJSON → 友好降级。
+  // Confinement: /etc/standmeet/plugins.json exists on the BACKEND host but is never
+  // mounted into the sandbox (only /plugin is mounted). The confined server can't read
+  // it -> the tool fails -> the backend folds that into errJSON -> a friendly degrade.
   test('filesystem is confined: a path OUTSIDE the plugin dir cannot be read',
     async ({ browser, playwright }) => {
       await runSandboxedProbe(browser, playwright, {
@@ -126,8 +132,9 @@ test.describe('REAL third-party MCP server (server-filesystem) loaded via the ma
       });
     });
 
-  // 不可变代码：/plugin 是只读 bind-mount 的服务代码（MinIO 物化、所有访客共享）。
-  // 写它必败 —— 第三方服务篡改不了自己的安装代码（可写区是 per-session /workspace）。
+  // Immutable code: /plugin is the server's code, bind-mounted read-only (materialized
+  // by MinIO, shared by every visitor). Writing to it must fail -- a third-party server
+  // cannot tamper with its own install code (the writable area is per-session /workspace).
   test('immutable code: writing into /plugin (the read-only code mount) fails',
     async ({ browser, playwright }) => {
       await runSandboxedProbe(browser, playwright, {
@@ -138,7 +145,8 @@ test.describe('REAL third-party MCP server (server-filesystem) loaded via the ma
       });
     });
 
-  // 隔离为真：从沙箱外（e2e 跑在 host）核对——不是「tool 报失败」，而是「host 确未被动」。
+  // Isolation is real: verify from outside the sandbox (this e2e test runs on the
+  // host) -- not "the tool reported failure", but "the host was genuinely untouched".
   test('isolation is real: a sandbox write CANNOT touch the host filesystem',
     async ({ browser, playwright }) => {
       const hostPath = join(process.cwd(), '..', 'infra', 'plugins', 'fsmcp', 'breakout.txt');
@@ -152,7 +160,8 @@ test.describe('REAL third-party MCP server (server-filesystem) loaded via the ma
         expectText: 'tried to write outside the box',
       });
 
-      // 决定性证据：host 文件系统未被触碰 —— 沙箱服务影响不到只读挂载之外的任何东西。
+      // The decisive evidence: the host filesystem was never touched -- the sandboxed
+      // server cannot affect anything outside its read-only mount.
       expect(existsSync(hostPath), 'sandbox must not affect the host').toBe(false);
     });
 });

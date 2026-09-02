@@ -1,6 +1,8 @@
-// sync-b-tree.spec.ts —— B. 节点树 + folder-note + 容忍(目标态红)。
-// folder-note `foo/foo.md` = 节点 foo(约定 A,见 backfill-folder-notes.sh)。缺 folder-note 的中间段
-// → 自动建空占位节点(backfill 语义)。名字碰撞 / 超深 → 容忍不崩。
+// sync-b-tree.spec.ts — B. Node tree + folder-note + tolerance (target-state red).
+// A folder-note `foo/foo.md` = node foo (convention A, see backfill-folder-notes.sh).
+// An intermediate segment missing its folder-note -> an empty placeholder node is
+// auto-created (backfill semantics). Name collisions / excessive depth -> tolerated,
+// never crashes.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';

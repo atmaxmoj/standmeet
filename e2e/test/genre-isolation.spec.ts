@@ -1,15 +1,20 @@
-// genre-isolation.spec.ts —— 目标态红测试。
+// genre-isolation.spec.ts — a target-state red test.
 //
-// genre 维度真隔离:一条 note 属于且只属于一个 genre;按 genre 查/搜/授权,绝不串到别的 genre。
-// 这是「统一基座 + genre 列」不退化成一锅粥的守卫 —— 四个 genre 同表,但查询/ACL 必须 genre-scoped。
+// Real isolation along the genre dimension: a note belongs to exactly one genre; a
+// query/search/authorization scoped to a genre must never leak into another genre.
+// This is the guard against "one shared base table + a genre column" degrading into
+// one big soup — all four genres share a table, but queries/ACL must be genre-scoped.
 //
-// 覆盖:
-//   happy   —— 同一 keyword 种进 wiki/output/writing/subjectivity 四 genre;全授的 role 搜到 4 条,
-//              每条 genre 标签正确(wiki→'wiki', subjectivity→'subjectivity')。
-//   error   —— 只授 wiki:// 的 role 搜同一 keyword → **只**返 wiki 那条;output/subjectivity 被
-//              genre-scoped ACL 挡掉(不因同表、同 keyword 而泄漏)。
+// Coverage:
+//   happy   — the same keyword is seeded into all four genres (wiki/output/writing/
+//             subjectivity); a role granted everything searches and finds 4 hits,
+//             each tagged with the correct genre (wiki→'wiki', subjectivity→'subjectivity').
+//   error   — a role granted only wiki:// searches the same keyword →
+//             **only** the wiki hit comes back; output/subjectivity are blocked by
+//             genre-scoped ACL (no leak just because they share a table and a keyword).
 //
-// 现在红:subjectivity 不存在 → seed 阶段 subjectivity_write 就抛。
+// Currently red: subjectivity doesn't exist yet → subjectivity_write throws at the
+// seed step.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -20,8 +25,9 @@ import { initMCP, callTool } from '@/fixtures/mcp';
 import { seedWiki } from '@/fixtures/corpus';
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
-// 用共享的那份 —— 这里曾经自己抄了一份，于是 corpus_search 的 wire 一改
-// 就断在四个地方，而 fixture 一个都吸收不了。
+// Use the shared one — this file used to keep its own copy, so every change to
+// corpus_search's wiring broke in four places, and none of them were absorbed by the
+// fixture.
 import { search } from '@/fixtures/retrieval';
 import { issueSession, type VisitorSession } from '@/fixtures/visitor';
 

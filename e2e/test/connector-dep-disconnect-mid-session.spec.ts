@@ -1,13 +1,17 @@
-// connector-dep-disconnect-mid-session.spec.ts —— 状态变更矩阵
-// 「已连→断联(owner disconnect) · 两 turn 间 · 下一 turn 该 tool 隐藏(单点闸重算)」补。
+// connector-dep-disconnect-mid-session.spec.ts -- fills in the state-transition matrix row
+// "connected -> disconnected (owner disconnect) - between two turns - next turn hides the
+// tool (single gate recomputes)".
 //
-// connector gating 收进 enabledCaps 这个 global 单点闸后,connector 连接状态
-// 在**每次 session 装配(per-turn)**重算。本条验证:code visitor 在已连 owner 上
-// 第一回合 calendar_book 暴露;owner 在两回合之间 disconnect 日历;下一回合该
-// tool **必须消失**(发新 session 看 tool-spec 列表 + chat 回合里 AI 调不动)。
+// Now that connector gating routes through the global single gate `enabledCaps`, connector
+// connection state gets recomputed on **every session assembly (per-turn)**. This test
+// verifies: a code visitor on an already-connected owner sees calendar_book exposed on turn
+// 1; the owner disconnects the calendar between turns; the next turn **must no longer show**
+// the tool (checked both by issuing a new session's tool-spec list, and by the AI being
+// unable to call it mid-chat).
 //
-// RED:重构落地前 gating 走 booker cap 里写死的 Connected() 自查、且不 per-turn
-// 重算 → tool 仍在 → 本条断言失败,符合 TDD 预期。
+// RED: before the refactor lands, gating went through a hardcoded Connected() self-check
+// inside the booker cap and did not recompute per-turn -> the tool would still be there ->
+// this assertion fails, as TDD expects.
 
 import { test } from '@/fixtures/test';
 
@@ -29,21 +33,22 @@ test.describe('connector dep · owner disconnect between turns hides booking too
 
   test('connected → booking exposed; owner disconnects → next session has no booking tool',
     async () => {
-      // turn 1 (装配时已连): calendar_book 在 tool-spec 列表里。
+      // Turn 1 (already connected at assembly time): calendar_book is in the tool-spec list.
       await expectCalendarBookExposed(seed.request, seed.visitor.session_token, true);
 
-      // owner 在两回合之间断开日历连接。
+      // Owner disconnects the calendar connection between the two turns.
       await disconnectGCal(seed.request, seed.csrf);
 
-      // 下一回合 = 重新装配一个 fresh session。单点闸重算 connector 状态 →
-      // 所有 Requires:[calendar] 的 cap(含 booker)被踢出 enabledCaps → 隐藏。
+      // Next turn = a fresh session assembled anew. The single gate recomputes connector
+      // state -> every cap with Requires:[calendar] (including booker) gets kicked out of
+      // enabledCaps -> hidden.
       const next = await issueSession(seed.request, {
         handle: OWNER.handle, mode: 'code', code: seed.code.code,
         visitor_name: 'Recruiter Rachel', visitor_email: 'rachel@example.com',
       });
       await expectCalendarBookExposed(seed.request, next.session_token, false);
 
-      // 同一旧 session 的下一 turn 也应看不到该 tool(per-turn 重算,非 per-session)。
+      // The next turn on the same old session should also no longer see the tool (per-turn recompute, not per-session).
       await expectCalendarBookExposed(seed.request, seed.visitor.session_token, false);
     });
 });

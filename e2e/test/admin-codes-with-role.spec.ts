@@ -1,10 +1,10 @@
-// admin-codes-with-role.spec.ts —— code create modal 的 role dropdown +
-// CodeCard 上 role link + (frozen) 时间戳显示。A.3-IAM-3 落地点。
+// admin-codes-with-role.spec.ts —— the role dropdown on the code create modal +
+// the role link + (frozen) label on CodeCard. This is where A.3-IAM-3 lands.
 //
-// 用户故事：
-//   owner 想给 recruiter 一个 code → 选已建好的 role "recruiter-default" →
-//   发 code → list 卡上 role 字段显示 public / recruiter-default 链接 +
-//   "issued with role (frozen)" 小字。
+// User story:
+//   The owner wants to give a recruiter a code → picks the already-built role
+//   "recruiter-default" → issues the code → the list card's role field shows a
+//   public / recruiter-default link + the small "issued with role (frozen)" text.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -53,12 +53,14 @@ test.describe('issue code with assumed_role_id', () => {
       const row = adminPage.getByTestId('code-row-RECR-001');
       await expect(row).toBeVisible({ timeout: 5_000 });
       await expect(row.getByTestId('code-role-frozen')).toBeVisible();
-      // frozen line 应包含 "issued with role" 字样
+      // the frozen line should contain the text "issued with role"
       await expect(row.getByTestId('code-role-frozen')).toContainText('frozen');
 
-      // 链接**写的是什么**：这条 case 原来只断言了链接在场，没问过它显示什么，于是卡上一直印着
-      // 一截 UUID（`e1db285a…`）没人发现。role 的名字是 owner 自己起的，是「这张码给谁看」的唯一
-      // 线索；一个截断的 ID 逼 owner 拿去跟 /admin/roles 逐个对。
+      // **What the link actually says**: this case originally only asserted the link was
+      // present, never checked what it displayed, so the card kept printing a truncated
+      // UUID (`e1db285a…`) that nobody noticed. The role's name is what the owner chose
+      // themselves — it's the only clue to "who this code is meant for"; a truncated ID
+      // forces the owner to go cross-reference it against /admin/roles one by one.
       const link = row.locator('[data-testid^="code-role-"]').and(row.locator('a'));
       await expect(link, 'the card names the role').toHaveText(/public/, { timeout: 5_000 });
       await expect(link, 'and never shows a raw UUID').not.toHaveText(/[0-9a-f]{8}…/);

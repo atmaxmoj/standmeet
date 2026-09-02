@@ -1,7 +1,7 @@
-// tool-page-update-handle.spec.ts —— Phase E-14b MCP parity:
-// owner 在 Claude Code 调 page.set_handle("new-handle") 改 public URL
-// prefix；老 handle 留为 alias (handle_aliases 表) 让现有 AccessCode QR
-// 仍能解析。
+// tool-page-update-handle.spec.ts — Phase E-14b MCP parity:
+// the owner calls page.set_handle("new-handle") from Claude Code to change the public URL
+// prefix; the old handle stays behind as an alias (the handle_aliases table) so existing
+// AccessCode QR codes can still resolve.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -40,7 +40,7 @@ test.describe('MCP page.set_handle', () => {
       );
       expect(resp.handle).toBe('new-handle');
 
-      // me 回 {owner, settings}(admin 的 GET /me 一直是这个信封)。
+      // me returns {owner, settings} (admin's GET /me has always used this envelope).
       interface MeResp { owner: { handle: string } }
       const me = await callTool<MeResp>(request, apiToken, sid, 'me', {});
       expect(me.owner.handle).toBe('new-handle');

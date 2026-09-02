@@ -81,20 +81,28 @@ test.describe('jobs.fetch_new (workable) authed SPI', () => {
         label: 'Workable wrong token',
         config: { company: 'acme', api_token: 'not-the-token' },
       });
-      // **mock 现在照真 Workable 的样子回**：坏 token → `302 → /oops`（一张 HTML 页），
-      // 不是体面的 401 JSON（2026-08-16 用假 token 直接问过真 endpoint）。
-      // 老 mock 那个 401 比真实世界客气，于是这条 check 在 CI 上一直看着是对的，
-      // 而真环境里 owner 收到的是「upstream schema mismatch: invalid character '<'」——
-      // 指向的下一步是错的：去查适配器，而不是去换 token（F-E-17）。
+      // **The mock now responds the way real Workable actually does**: a bad token →
+      // `302 → /oops` (an HTML page), not a well-behaved 401 JSON (verified
+      // 2026-08-16 by hitting the real endpoint directly with a fake token).
+      // The old mock's 401 was politer than the real world, so this check kept
+      // looking correct in CI, while in the real environment the owner received
+      // "upstream schema mismatch: invalid character '<'" — pointing them at the
+      // wrong next step: go check the adapter, instead of go rotate the token
+      // (F-E-17).
       //
-      // 判据是**「不许静默变成空」**，不是「必须抛」。工具后来改成逐源报告失败
-      // （一个源坏了不该把整次抓取一起拖垮），那是更好的形状 —— 于是要断的是：
-      // 这一次没有任何岗位，而且那个源被**点名**说清了原因。
+      // The criterion is **"must not silently turn into empty"**, not "must throw".
+      // The tool was later changed to report failures per-source (one bad source
+      // shouldn't drag down the whole fetch), which is the better shape — so what
+      // gets asserted is: this run yields no jobs at all, and that source is
+      // **named**, with the reason stated clearly.
       //
-      // 数**这一趟新进池子的**，不是数回执里有多少行：回执现在交的是整个池子窗口
-      // （F-E-29），而同文件前一条用例已经用**好** token 抓过 2 条进去。
-      // 写成 `out.jobs.length === 0` 的话，这条断言在坏 token 真的放行时也会红、
-      // 在它被正确拒绝时也会红 —— 它量的根本不是这一次（[[assertion-that-cannot-fail]] 的反面）。
+      // What's counted is **jobs newly entering the pool this run**, not how many
+      // rows the receipt lists: the receipt now hands back the whole pool window
+      // (F-E-29), and the previous test case in this same file already fetched 2 jobs
+      // in with a **good** token. Writing this as `out.jobs.length === 0` would make
+      // the assertion go red both when a bad token is truly let through, and when it
+      // is correctly rejected — it isn't measuring this run at all (the inverse of
+      // [[assertion-that-cannot-fail]]).
       const out = await jobsFetchNew(request, token, sid, src.id);
       expect(
         out.jobs.filter((j) => j.new),

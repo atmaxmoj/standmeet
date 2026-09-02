@@ -1,8 +1,9 @@
-// admin-marketplace-install.spec.ts —— #48-3 真 install-from-market。
+// admin-marketplace-install.spec.ts -- #48-3 real install-from-market.
 //
-// 用户故事:owner 搜 marketplace → install 一个 github skill → 后端 fetch 该 skill
-// 的 SKILL.md(mock serve base64 contents)、parse frontmatter、建成真 skill →
-// 出现在 /skills 列表,prompt = SKILL.md 正文。真服务(job-board mock),无前端 mock。
+// User story: owner searches marketplace -> installs a github skill -> backend fetches
+// that skill's SKILL.md (mock serves base64 contents), parses frontmatter, creates a
+// real skill -> it appears in the /skills list, prompt = SKILL.md body. Real service
+// (job-board mock), no frontend mock.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

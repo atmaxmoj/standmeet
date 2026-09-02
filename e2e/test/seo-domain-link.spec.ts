@@ -1,15 +1,19 @@
-// seo-domain-link.spec.ts —— /admin/seo 里 "canonical host" 行那条 "edit on the Domain section →"
-// 链接必须落到**真**的 editor，不能 404。
+// seo-domain-link.spec.ts — the "edit on the Domain section →" link on the
+// "canonical host" row in /admin/seo must land on the **real** editor, not a 404.
 //
-// rot-C2（HIGH）：SeoSection.tsx:137 的 `seo-canonical-edit` 链接 href="/admin/domain"，可
-// **根本没有 /admin/domain 路由**（app/src/app/admin/ 下没有 domain/ 目录）。真正编辑 public-URL /
-// domain 的地方在 /admin/page（PageSection → SiteBlock → PublicURLEditor(`public-url-display` /
-// `public-url-editor`) + DomainEditor）。于是 owner 被 SEO section 指去改 canonical host 的唯一入口
-// 是个死链，点了就 404。
+// rot-C2 (HIGH): the `seo-canonical-edit` link at SeoSection.tsx:137 has
+// href="/admin/domain", but **there is no /admin/domain route at all** (no domain/
+// directory under app/src/app/admin/). The actual place to edit the public URL /
+// domain is /admin/page (PageSection → SiteBlock → PublicURLEditor
+// (`public-url-display` / `public-url-editor`) + DomainEditor). So the only entry
+// point the SEO section points the owner to for editing the canonical host is a dead
+// link that 404s on click.
 //
-// RED 判据：在 /admin/seo 点 "edit on the Domain section →"，断言落到**真** editor 表面
-// （`public-url-display` 可见 / URL 是 /admin/page）。当前 href=/admin/domain → 404，那个 testid
-// 永不出现 → RED。断的是 GOOD outcome（到达真 editor），不是 "没报错"。
+// RED criterion: click "edit on the Domain section →" on /admin/seo, and assert it
+// lands on the **real** editor surface (`public-url-display` visible / URL is
+// /admin/page). Right now href=/admin/domain → 404, that testid never appears →
+// RED. What's asserted is the GOOD outcome (reaching the real editor), not merely
+// "no error was thrown".
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -32,22 +36,25 @@ test.describe('admin /seo · the "edit on the Domain section" link must reach a 
     linkReachesEditor);
 });
 
-// linkReachesEditor —— 点 canonical-host 的 edit 链接，断言到达真 editor 表面。
+// linkReachesEditor — click the canonical-host edit link, and assert it reaches the
+// real editor surface.
 async function linkReachesEditor({ adminPage: page }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(page, 'seo');
   await expect(page.getByTestId('seo-canonical')).toBeVisible({ timeout: 10_000 });
 
   const link = page.getByTestId('seo-canonical-edit');
-  // 现状 sanity：链接确实渲染了（selector 打错就在这里红，避免静默变绿）。
+  // Sanity on the current state: the link actually renders (a bad selector would go
+  // red right here, rather than silently turning green).
   await expect(link).toBeVisible();
-  // 记录 href 供失败信息用 —— 当前是死链 /admin/domain。
+  // Record the href for the failure message — currently a dead link, /admin/domain.
   const href = await link.getAttribute('href');
 
-  // 走链接（真实用户点击 → 全页导航；`<a>` 而非 <Link>）。
+  // Follow the link (a real user click → full-page navigation; it's an `<a>`, not a
+  // <Link>).
   await link.click();
 
-  // GOOD outcome：落到真 public-URL / domain 编辑器。当前 href=/admin/domain → 404，
-  // public-url-display 永不出现 → 这里超时 RED。
+  // GOOD outcome: lands on the real public-URL / domain editor. Right now
+  // href=/admin/domain → 404, public-url-display never appears → this times out RED.
   await expect(
     page.getByTestId('public-url-display'),
     `the canonical-host edit link (href="${href ?? ''}") did not land on the real editor — `

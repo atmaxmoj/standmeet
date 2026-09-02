@@ -1,15 +1,18 @@
-// visitor-chat-list-slots.spec.ts —— #124: calendar_list_slots 的结果渲成
-// 一张「可收起的日历卡片」(react-day-picker 月历 + 选中日的时段 chips),
-// 替换原来的 50 行平铺 list。确定性:mock LLM 脚本化一次 list_slots,owner 接
-// mock gcal(空日历 → 有空档),浏览器里断言卡片结构 + 收起 + chip 点击落一条
-// 预约 message。
+// visitor-chat-list-slots.spec.ts -- #124: calendar_list_slots's result renders as a
+// "collapsible calendar card" (a react-day-picker month grid + the selected day's time
+// chips), replacing the old 50-line flat list. Made deterministic: the mock LLM scripts
+// one list_slots call, the owner is wired to a mock gcal (empty calendar -> open slots),
+// and the browser asserts the card's structure + collapsing + a chip click landing one
+// booking message.
 //
-// 用户故事:
-//   1. code 访客进 chat
-//   2. AI(mock)调 calendar_list_slots(未来窗口)→ 返回若干 30min 空档
-//   3. SlotsCalendarCard 渲:<details open> + "available · N slots" + 月历格
-//      + 选中日的时段 chips
-//   4. 点 summary 收起;点一个 time chip → 新的 "you" turn 带 "book the … slot"
+// User story:
+//   1. a code visitor enters chat
+//   2. the AI (mocked) calls calendar_list_slots (a future window) -> gets back
+//      several 30-minute open slots
+//   3. SlotsCalendarCard renders: <details open> + "available · N slots" + the month
+//      grid + the selected day's time chips
+//   4. clicking the summary collapses it; clicking a time chip -> a new "you" turn
+//      carrying "book the ... slot"
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -48,7 +51,8 @@ test.describe('visitor chat · calendar_list_slots → collapsible calendar card
       await enterChat(page, seed.code.code);
       await fireTurn(page, `what afternoons are open next week?${tag}`);
 
-      // slots 卡(booker 插件 ui:// 沙盒 iframe)出现,内容经 frameLocator 取。
+      // The slots card (the booker plugin's ui:// sandboxed iframe) appears; its
+      // content is read through frameLocator.
       await expect(page.getByTestId('mcp-app-card-calendar_list_slots'),
         'calendar card visible').toBeVisible({ timeout: 20_000 });
       const frame = page.frameLocator('[data-testid="mcp-app-card-calendar_list_slots"]');
@@ -67,11 +71,14 @@ test.describe('visitor chat · calendar_list_slots → collapsible calendar card
       // return-directly, so a final answer streams after the card; interacting
       // mid-stream races the chat's re-renders.
       //
-      // 等的是 `chat-progress` 消失,**不是** `answer-body` 可见。后者在第一个 token
-      // 落地的那一刻就为真 —— 它分不出「这一轮完了」和「正在流」,于是这条等待
-      // 在最需要它的时候(答案很长)什么也没等到。全量那次红在下面第二次 click:
-      // 元素一直在动,Playwright 的 stable 永远等不到。产品自己有落地回执 ——
-      // 那一行只在最后一条 dialog 还 pending 时渲染,落地即整条消失。
+      // What's waited on is `chat-progress` disappearing, **not** `answer-body`
+      // becoming visible. The latter goes true the instant the first token lands --
+      // it can't tell "this turn finished" from "still streaming", so this wait would
+      // wait for nothing exactly when it's needed most (a long answer). The full-suite
+      // run went red on the second click below: the element kept moving, and
+      // Playwright's stability check never settled. The product has its own landing
+      // receipt -- that line only renders while the final dialog is still pending, and
+      // the whole line disappears the moment it lands.
       await expect(page.getByTestId('chat-progress')).toHaveCount(0, { timeout: 30_000 });
       await expect(page.locator('[data-testid="answer-body"]').last())
         .toBeVisible({ timeout: 20_000 });
@@ -94,8 +101,9 @@ test.describe('visitor chat · calendar_list_slots → collapsible calendar card
     });
 });
 
-// enterCodeSession 已 skip 名字选择器并等到 /sessions 200;不二次 dismiss
-// (会采样到 picker unmount 窗口 → click 10s 超时,check-then-act race)。
+// enterCodeSession has already skipped the name picker and waited for /sessions 200;
+// don't dismiss it a second time (that can sample the picker's unmount window ->
+// a click times out at 10s, a check-then-act race).
 async function enterChat(page: Page, code: string): Promise<void> {
   await enterCodeSession(page, code);
   await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });

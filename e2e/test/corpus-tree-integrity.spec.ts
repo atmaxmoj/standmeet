@@ -1,12 +1,16 @@
-// corpus-tree-integrity.spec.ts —— 地址树派生(parent 链)带来的两条不变量:
+// corpus-tree-integrity.spec.ts —— two invariants that come from deriving addresses
+// from the tree (the parent chain):
 //
-//   #14 删父级联:document 的地址来自它在树里的位置,删一个节点 → 它的全部
-//       子孙跟着没(schema parent_id ON DELETE CASCADE)。admin 删除前 confirm
-//       警告会连带删几个子孙。本 spec 建 祖父→父→子 三层,删祖父 → 父和子都没,
-//       警告数 = 2。
+//   #14 Delete cascades to children: a document's address comes from its position in
+//       the tree, so deleting a node also removes all its descendants (schema
+//       parent_id ON DELETE CASCADE). Before an admin delete, the confirm dialog warns
+//       how many descendants will go with it. This spec builds a
+//       grandparent -> parent -> child three-level tree, deletes the grandparent, and
+//       expects parent and child both gone, with a warning count of 2.
 //
-//   #15 创建校验:promote/create 给的 parent_id 必须是本 owner 的 entry;不存在
-//       (或别 owner)→ 拒绝(parent entry not found),不静默落孤儿。
+//   #15 Creation validation: the parent_id given to promote/create must be an entry
+//       belonging to this owner; a missing one (or one belonging to another owner) →
+//       refused (parent entry not found) — it must never silently create an orphan.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -32,7 +36,8 @@ const RENAME_CODE = 'RENAME-1';
 const SLUG_CODE = 'SLUG-1';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// 三层树的 id(beforeAll 建好,#14 测删祖父)+ owner MCP token(#15 复用)。
+// The three-level tree's ids (built in beforeAll, used by #14's grandparent delete
+// test) + the owner's MCP token (reused by #15).
 let grandparentID = '';
 let parentID = '';
 let childID = '';
@@ -69,35 +74,40 @@ test.describe('corpus 树完整性:删父级联 + 创建校验 parent', () => {
       await request.dispose();
     });
 
-  // 边界:re-parent 成环 —— 把节点挂到自己 / 自己的子孙下,拒绝。
+  // Edge case: re-parenting into a cycle — attaching a node to itself / to its own
+  // descendant, refused.
   test('update 把 parent 设成自己 / 自己的子孙 → 拒绝(cycle)',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const sid = await initMCP(request, mcpToken);
       const a = await promoteWiki(request, mcpToken, sid, 'Cycle A');
-      const b = await promoteWiki(request, mcpToken, sid, 'Cycle B', a); // B 是 A 的子
-      // 挂到自己 → 环。
+      const b = await promoteWiki(request, mcpToken, sid, 'Cycle B', a); // B is A's child
+      // Attach to itself → cycle.
       await expect(
         reparentWiki(request, mcpToken, sid, a, 'Cycle A', a),
       ).rejects.toThrow(/cycle/i);
-      // 挂到自己的子孙 B → 环。
+      // Attach to its own descendant B → cycle.
       await expect(
         reparentWiki(request, mcpToken, sid, a, 'Cycle A', b),
       ).rejects.toThrow(/cycle/i);
       await request.dispose();
     });
 
-  // 边界:改名不影响 citation(引用按 id,改名后 transcript 显新名;id⊥name)。
+  // Edge case: renaming doesn't affect a citation (references go by id, so after a
+  // rename the transcript shows the new name; id and name are orthogonal).
   test('读 entry → 改名 → admin transcript 的 citation 仍解析,显新名', renameKeepsCitation);
 
-  // 边界:兄弟 title slug 撞车 → 写时直接拒(Obsidian 语义:一个目录不能有两个
-  // 同名文件)。地址 = 树派生 slug path,放进来第二条就让 path 不再 1↔1。
+  // Edge case: sibling titles colliding on the same slug → the write is refused
+  // outright (Obsidian semantics: one directory can't have two files with the same
+  // name). Address = a tree-derived slug path, so letting the second one in would
+  // break the 1<->1 mapping of path.
   test('兄弟 slug 撞车 → 写时拒绝创建(same name exists),已有那条仍可寻址',
     slugCollisionRejected);
 });
 
-// renameKeepsCitation —— 读 entry → 改名 → transcript 的 cited wiki ref(按 id
-// 反查)仍解析、title 是新名。id 和 name 不耦合。
+// renameKeepsCitation —— reads an entry → renames it → the transcript's cited wiki
+// ref (looked up by id) still resolves, and its title is the new name. id and name
+// aren't coupled.
 async function renameKeepsCitation({ playwright }: { playwright: Playwright }): Promise<void> {
   const request = await playwright.request.newContext();
   const sid = await initMCP(request, mcpToken);
@@ -115,7 +125,7 @@ async function renameKeepsCitation({ playwright }: { playwright: Playwright }): 
   const wikiID = wiki.id;
   await createCode(request, csrf, { code: RENAME_CODE, label: 'rename' });
 
-  // visitor 问 → 注册 mock 读这条 → cited_wiki_ids = [wikiID]。
+  // A visitor asks → registers a mock read of this entry → cited_wiki_ids = [wikiID].
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: RENAME_CODE, visitor_name: 'V',
   });
@@ -132,15 +142,18 @@ async function renameKeepsCitation({ playwright }: { playwright: Playwright }): 
   await request.dispose();
 }
 
-// slugCollisionRejected —— 两个 root 的 title('Foo Bar' / 'Foo-Bar')slug 都
-// → "foo-bar"。第一条建得下;第二条写时直接被拒(地址要 1↔1,不静默改名/合并)。
-// 已存在的那条仍按 'foo-bar' 可寻址、拿到自己的 body —— 拒绝没有污染先到者。
+// slugCollisionRejected —— two root titles ('Foo Bar' / 'Foo-Bar') both slug down to
+// "foo-bar". The first is created fine; the second is refused right at write time
+// (addresses must be 1<->1, never silently renamed/merged). The one that already
+// exists is still addressable at 'foo-bar' and returns its own body — the refusal
+// leaves the first-comer untouched.
 async function slugCollisionRejected({ playwright }: { playwright: Playwright }): Promise<void> {
   const request = await playwright.request.newContext();
   const sid = await initMCP(request, mcpToken);
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   await promoteWiki(request, mcpToken, sid, 'Foo Bar');
-  // 同 parent(root)下 slug 撞车 → 拒绝,友好报错(不是 stack trace)。
+  // A slug collision under the same parent (root) → refused with a friendly error
+  // (not a stack trace).
   await expect(
     promoteWiki(request, mcpToken, sid, 'Foo-Bar'),
   ).rejects.toThrow(/same name already exists/i);
@@ -149,13 +162,15 @@ async function slugCollisionRejected({ playwright }: { playwright: Playwright })
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: SLUG_CODE, visitor_name: 'V',
   });
-  // 先到的那条仍可寻址,且 'foo-bar-2' 不该存在(第二条没建成)。
+  // The first-comer is still addressable, and 'foo-bar-2' should not exist (the
+  // second entry was never created).
   expect(await visitorRead(request, sess, 'foo-bar')).toBe('body of Foo Bar');
   await expect(visitorRead(request, sess, 'foo-bar-2')).rejects.toThrow();
   await request.dispose();
 }
 
-// visitorRead —— 访客工具端点 corpus_read,返回 entry body(越权/找不到 → 抛)。
+// visitorRead —— the visitor tool endpoint corpus_read, returning the entry body
+// (throws on unauthorized/not-found).
 async function visitorRead(
   request: APIRequestContext, sess: VisitorSession, path: string,
 ): Promise<string> {
@@ -168,8 +183,8 @@ async function visitorRead(
   return body.result?.body ?? '';
 }
 
-// deleteGrandparentCascades —— #14:admin 删祖父 → confirm 警告 2 个子孙 →
-// 级联(DB ON DELETE CASCADE)父+子一起没。
+// deleteGrandparentCascades —— #14: admin deletes the grandparent → confirm warns of
+// 2 descendants → the cascade (DB ON DELETE CASCADE) removes parent + child together.
 async function deleteGrandparentCascades({ adminPage }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(adminPage, 'wiki');
   // Grid view renders every loaded row flat (the tree view is lazy — parent/child
@@ -182,7 +197,7 @@ async function deleteGrandparentCascades({ adminPage }: { adminPage: Page }): Pr
   await expect(adminPage.getByTestId(`wiki-row-${parentID}`)).toBeVisible();
   await expect(adminPage.getByTestId(`wiki-row-${childID}`)).toBeVisible();
 
-  // 删祖父:接住 confirm,记下文案,确认。
+  // Delete the grandparent: catch the confirm dialog, record its message, accept it.
   let dialogMsg = '';
   adminPage.once('dialog', (d) => {
     dialogMsg = d.message();
@@ -191,7 +206,8 @@ async function deleteGrandparentCascades({ adminPage }: { adminPage: Page }): Pr
   await adminPage.getByTestId(`wiki-delete-${grandparentID}`).click();
   await expect.poll(() => dialogMsg).toContain('2 child entries');
 
-  // 级联是 DB 行为。reload 拿最新态:祖父、父、子三行全没。
+  // The cascade is DB behavior. Reload to get the latest state: all three rows —
+  // grandparent, parent, child — are gone.
   await adminPage.reload();
   await expect(adminPage.getByTestId(`wiki-row-${grandparentID}`)).toHaveCount(0, {
     timeout: 5_000,
@@ -200,8 +216,9 @@ async function deleteGrandparentCascades({ adminPage }: { adminPage: Page }): Pr
   await expect(adminPage.getByTestId(`wiki-row-${childID}`)).toHaveCount(0);
 }
 
-// promoteWiki —— corpus.create(raw) → corpus.promote(可挂 parent),返回新 wiki 的 id。
-// parent_id 无效时 promote_to_wiki 抛(callTool 把 tool error 抛出来)。
+// promoteWiki —— corpus.create(raw) -> corpus.promote (optionally attaching a
+// parent), returning the new wiki entry's id. When parent_id is invalid,
+// promote_to_wiki throws (callTool surfaces the tool error).
 async function promoteWiki(
   request: APIRequestContext, token: string, sid: string,
   title: string, parent?: string,
@@ -218,7 +235,8 @@ async function promoteWiki(
   return w.id;
 }
 
-// reparentWiki —— corpus.update 改 parent_id(成环时 callTool 抛 tool error)。
+// reparentWiki —— corpus.update changes parent_id (callTool throws a tool error when
+// this would create a cycle).
 async function reparentWiki(
   request: APIRequestContext, token: string, sid: string,
   wikiID: string, title: string, parentID: string,
@@ -229,7 +247,7 @@ async function reparentWiki(
   });
 }
 
-// renameWiki —— corpus.update 只改 title(body/tags 占位)。
+// renameWiki —— corpus.update changes only the title (body/tags are placeholders).
 async function renameWiki(
   request: APIRequestContext, token: string, sid: string,
   wikiID: string, newTitle: string,
@@ -241,8 +259,8 @@ async function renameWiki(
 
 interface CitedRef { id: string; title: string }
 
-// fetchCitedWikiRefs —— admin transcript 的 wiki_refs(按 cited_wiki_ids 反查、
-// 带当前 title)。
+// fetchCitedWikiRefs —— the admin transcript's wiki_refs (looked up by
+// cited_wiki_ids, carrying the current title).
 async function fetchCitedWikiRefs(
   request: APIRequestContext, csrf: string, conversationID: string,
 ): Promise<CitedRef[]> {

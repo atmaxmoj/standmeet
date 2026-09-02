@@ -1,8 +1,10 @@
-// render-owner-css.spec.ts —— owner 自定义 CSS 真渲染(不是只后端存/读)。
+// render-owner-css.spec.ts —— owner custom CSS actually renders (not just backend store/read).
 //
-// owner 从 admin 存一段 CSS(后端 sanitize + scope 到 .corpus-content)→ 发布的 wiki
-// reader 页:(a) <head> 有 /api/v1/appearance.css 的 <link>;(b) .corpus-content 内元素
-// computed style 反映 owner 规则;(c) 未设 → 无效果;(d) scope 安全:规则动不了 app chrome。
+// Owner saves a CSS snippet from admin (backend sanitizes + scopes it to
+// .corpus-content) → on the published wiki reader page: (a) <head> has a
+// <link> to /api/v1/appearance.css; (b) elements inside .corpus-content show
+// the owner rule in their computed style; (c) unset → no effect; (d) scope
+// safety: the rule cannot touch app chrome.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -23,7 +25,7 @@ test.describe('render · owner custom CSS actually applies on the reader', () =>
 
   test('scoped owner rule restyles the note body + a <link> to appearance.css is present',
     async ({ request, page }) => {
-      // owner 写 bare `h2{…}`;后端 scope 成 `.corpus-content h2`。
+      // Owner writes a bare `h2{…}`; the backend scopes it to `.corpus-content h2`.
       const status = await adminSetCSS(request, OWNER, 'h2 { color: rgb(181, 57, 28); }');
       expect(status).toBe(200);
       await uploadVault(request, OWNER, [
@@ -70,10 +72,12 @@ test.describe('render · owner custom CSS actually applies on the reader', () =>
       expect(navHidden).toBe(false);
     });
 
-  // owner 的 snippet 是照 **Obsidian 的变量方言**写的 —— 那是他 vault 里 lint 过的东西。
-  // 站点收下它、消毒、加 scope 前缀，却一个变量都没定义 → 规则生效了但**什么也没改变**
-  // （F-L-36：真 vault 里 `[!definition]`(绿) 和 `[!theorem]`(蓝) 渲成同一块淡红）。
-  // 这两条守的就是那份契约：**owner 写什么，页面上就得是什么。**
+  // The owner's snippet is written in **Obsidian's variable dialect** — something
+  // already linted in their vault. The site accepts it, sanitizes it, adds a
+  // scope prefix, yet defines none of those variables → the rule "takes effect"
+  // while **changing nothing** (F-L-36: in the real vault, `[!definition]`
+  // (green) and `[!theorem]` (blue) both rendered as the same pale red). These
+  // two cases guard exactly that contract: **whatever the owner wrote, the page must show.**
   test('owner 的 callout 颜色（Obsidian 的 --callout-color 三元组）真的上到 callout 上',
     async ({ request, page }) => {
       const status = await adminSetCSS(
@@ -86,7 +90,7 @@ test.describe('render · owner custom CSS actually applies on the reader', () =>
       await goto(page, '/wiki/theorem-note');
       const callout = page.getByTestId('wiki-body').locator('.callout[data-callout="theorem"]');
       await expect(callout).toBeVisible({ timeout: 8_000 });
-      // 左边那道竖线就是上色的机制本身 —— owner 说蓝，它就得是蓝，不是站点的 vermillion。
+      // The left-hand vertical bar IS the coloring mechanism — if the owner says blue, it must be blue, not the site's vermillion.
       await expect(callout).toHaveCSS('border-left-color', 'rgb(79, 140, 230)');
     });
 
@@ -100,7 +104,7 @@ test.describe('render · owner custom CSS actually applies on the reader', () =>
     });
 });
 
-// seedCalloutNote —— 一条已发布的笔记，正文就是一个 callout。
+// seedCalloutNote —— a published note whose body is a single callout.
 async function seedCalloutNote(
   request: APIRequestContext, slug: string, kind: string, title: string,
 ): Promise<void> {

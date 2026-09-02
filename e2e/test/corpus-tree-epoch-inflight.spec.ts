@@ -1,21 +1,30 @@
-// corpus-tree-epoch-inflight.spec.ts —— **新建的那一条必须出现在树上,哪怕树正在取。**
+// corpus-tree-epoch-inflight.spec.ts — **an entry that was just created must appear in the tree,
+// even while the tree is still fetching.**
 //
-// ①🔴 全量第 723 条红在这里:标题写着 `wiki · 5 entries`、侧栏 pulse 也说 5,而树上只有 4 行 ——
-// 少的正是刚新建的那一条。等了 15 秒没等到:它不是慢,是**卡死了**。
+// ①🔴 The full suite's 723rd case went red here: the title said `wiki · 5 entries`, the
+// sidebar pulse also said 5, but the tree only had 4 rows — the missing one was exactly the
+// entry that had just been created. Waited 15 seconds and it never showed up: it isn't slow, it's
+// **wedged for good**.
 //
-// ②🎯 `useAdminTreeLayer` 用两个 effect 表达作废:一个 `setNodes(null)`(按 epoch),一个
-// 「nodes 是 null 就去取」。作废那一步在 nodes **本来就是 null** 时是个空动作 —— React 对
-// 同值 setState 直接 bail out,不重渲、不重跑第二个 effect。于是这条路走成:
+// ②🎯 `useAdminTreeLayer` expresses invalidation with two effects: one does `setNodes(null)`
+// (keyed by epoch), the other says "if nodes is null, go fetch." When nodes is **already null**,
+// that invalidation step is a no-op — React bails out of a setState to the same value: no
+// re-render, and the second effect never re-runs. So the path plays out as:
 //
-//   进页面 → 树开始取(还没回) → owner 新建一条 → epoch++ → `setNodes(null)` 无效 →
-//   在途的那份**旧**名单回来了 → `nodes !== null` → 从此不再取。
+//   land on the page → the tree starts fetching (hasn't returned yet) → the owner creates an
+//   entry → epoch++ → `setNodes(null)` does nothing → the **stale** in-flight list comes back →
+//   `nodes !== null` → it never fetches again from that point on.
 //
-// 屏幕上就是「计数说 5、列表 4 行」,而且永远不会自己好。真 owner 撞它的条件只是
-// **在列表转完之前动手** —— 网络越慢越容易,而慢网络下的人恰恰最想早点动手。
+// On screen it looks like "the count says 5, the list shows 4 rows", and it never resolves on
+// its own. All it takes for a real owner to hit this is **acting before the list finishes
+// loading** — the slower the network, the easier it is to trigger, and it's precisely on a slow
+// network that people are most eager to act right away.
 //
-// ③🧪 这条 spec 把那个窗口做成**确定的**:树那一口的回参被扣住(请求真发出去了、答案在手上、
-// 浏览器还没拿到),新建就落在这中间。扣多久不由计时决定 —— 由测试自己放行,所以窗口
-// 不会因为机器快慢提前关掉。
+// ③🧪 This spec turns that window into something **deterministic**: the tree fetch's response is
+// held back (the request has genuinely gone out, the answer is in hand server-side, but the
+// browser hasn't received it yet), and the create lands exactly in that gap. How long it's held
+// isn't decided by a timer — the test releases it itself, so the window can't close early just
+// because the machine happens to be fast.
 
 import type { Page } from '@playwright/test';
 
@@ -42,22 +51,27 @@ test.describe('corpus tree · creating while the tree is still fetching', () => 
 
   test('an entry created mid-fetch still shows up in the tree', async ({ adminPage: page }) => {
     await gotoAdminSection(page, 'wiki');
-    // 先有一条:空语料渲的是 EmptyState,树根本不挂载,那样这条测不到东西。
+    // Need one entry to start with: an empty corpus renders EmptyState, and the tree never
+    // mounts at all, so this case would test nothing.
     await createWiki(page, 'tree seed note');
     await expect(rowFor(page, 'tree seed note')).toBeVisible({ timeout: 15_000 });
 
-    // marks —— 这条 spec **必须自证它打到了那个窗口**。三个时刻的顺序不对,
-    // 它测的就是另一条路,而绿得跟真的一样。
+    // marks — this spec **must prove for itself that it actually hit that window**. If the
+    // order of these three timestamps is wrong, it's testing a different path entirely, while
+    // going green as if it were the right one.
     const marks: { fetched: number[]; delivered: number[]; created: number[] } = {
       fetched: [], delivered: [], created: [],
     };
-    // release —— 扣住的回参什么时候放行。**用信号不用计时**:计时长短要跟机器快慢赛跑,
-    // 而输掉的那一遍长得跟通过一模一样。
+    // release — when the held-back response gets let through. **A signal, not a timer**: a
+    // timer's duration races against how fast or slow the machine is, and the run that loses that
+    // race looks exactly like a passing one.
     let release = (): void => undefined;
     const held = new Promise<void>((resolve) => { release = resolve; });
-    // **先真发出去,再扣住回参**。扣在 `continue()` 之前只是把整个请求推迟到新建之后 ——
-    // 那样服务器回的是新数据,树当然是对的。在途的意思是:名单已经在服务器那边定死
-    // (新建之前的那份),浏览器还没拿到。
+    // **Let the request go out for real first, then hold back the response.** Holding it before
+    // `continue()` would just delay the whole request until after the create — in which case the
+    // server would return fresh data, and the tree would obviously be correct. "In flight" means:
+    // the list is already fixed on the server side (the pre-create version), the browser just
+    // hasn't received it yet.
     await page.route('**/corpus/wiki/tree*', async (route) => {
       const res = await route.fetch();
       const body = await res.body();
@@ -73,8 +87,9 @@ test.describe('corpus tree · creating while the tree is still fetching', () => 
     });
     await page.reload();
 
-    // **等旧名单被钉死再动手**,而不是「抢在前面动手」。树那一口什么时候发出去不由这条
-    // spec 决定(它排在扁平列表之后),抢跑就变成一场比赛 —— 而比赛有时会输。
+    // **Wait for the stale list to be pinned before acting**, rather than "acting ahead of it."
+    // When the tree's fetch actually goes out isn't under this spec's control (it's queued after
+    // the flat list), so acting too early would turn this into a race — and races can be lost.
     await expect.poll(() => marks.fetched.length, { timeout: 15_000 }).toBeGreaterThan(0);
     await createWiki(page, 'tree race note');
     await expect.poll(() => marks.created.length, { timeout: 15_000 }).toBeGreaterThan(0);
@@ -85,12 +100,14 @@ test.describe('corpus tree · creating while the tree is still fetching', () => 
     ).toBeGreaterThan(marks.fetched[0] ?? Number.MAX_SAFE_INTEGER);
     release();
 
-    // 这一条必须出现。给的时间远超放行本身:要判的是「它到底会不会出现」,不是「够不够快」。
+    // This entry must appear. The timeout given is far longer than the release itself needs: what
+    // matters is "does it show up at all", not "is it fast enough".
     await expect(
       rowFor(page, 'tree race note'),
       'an entry created while the tree was fetching must appear after the tree refetches',
     ).toBeVisible({ timeout: 30_000 });
-    // 而且原来那条还在 —— 修法不许靠「整棵树重来一遍丢掉状态」。
+    // And the original entry is still there — the fix may not rely on "just re-fetch the whole
+    // tree and drop the existing state".
     await expect(rowFor(page, 'tree seed note')).toBeVisible();
   });
 });

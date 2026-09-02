@@ -1,15 +1,18 @@
-// connector-dep-mail-disconnect-mid-session.spec.ts —— 状态变更矩阵
-// 「mail 断联 · 两 turn 间 · 依赖 smtp 的能力隐藏」补(mid-session,补 mail-connector
-// 只测 fresh 的缺口)。
+// connector-dep-mail-disconnect-mid-session.spec.ts —— fills the state-change matrix
+// cell "mail disconnected · between two turns · smtp-dependent capability hides"
+// (mid-session — mail-connector only tests the fresh gap).
 //
-// 依赖 smtp connector 的能力这里取 owner.can_deliver_codes(gate 的 request-access
-// 邮件回路靠它),它在每次 /api/v1/instance 请求重算 —— 跟 booking tool 走单点闸
-// 同一个「Requires 未连即隐藏」的道理。流程:配 + verify mail → can_deliver_codes
-// true(能力可用)→ owner 在两回合之间 disconnect mail → 下一回合 can_deliver_codes
-// **翻 false**(能力消失),gate 的 request-access 块随之收起。
+// The smtp-dependent capability used here is owner.can_deliver_codes (the gate's
+// request-access mail path relies on it), which is recomputed on every
+// /api/v1/instance request — the same "hidden once Requires is unmet" rule the booking
+// tool follows through its single choke-point gate. Flow: configure + verify mail →
+// can_deliver_codes true (capability available) → owner disconnects mail between two
+// turns → next turn can_deliver_codes **flips false** (capability gone), and the gate's
+// request-access block collapses along with it.
 //
-// RED:重构落地前 smtp-依赖能力若不经 global 单点闸 per-call 重算,disconnect 后
-// 仍可能算 true → 断言失败,符合 TDD 预期。
+// RED: before the refactor lands, if the smtp-dependent capability isn't recomputed
+// per-call through the single global gate, it may still evaluate true after
+// disconnect → the assertion fails, matching TDD expectations.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -43,21 +46,23 @@ test.describe('connector dep · mail disconnect between turns hides smtp-depende
     async ({ playwright, page }) => {
       const request = await playwright.request.newContext();
 
-      // turn 1 (smtp 已连): 依赖 smtp 的能力可用。
+      // turn 1 (smtp already connected): the smtp-dependent capability is available.
       expect(await canDeliverCodes(request), 'smtp connected → capability available').toBe(true);
 
-      // owner 在两回合之间断开 mail connector。
+      // Owner disconnects the mail connector between the two turns.
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       const dis = await request.post(`${BACKEND}/api/admin/connectors/smtp/disconnect`, {
         headers: { 'X-Csrftoken': csrf }, data: {},
       });
       expect(dis.status()).toBe(200);
 
-      // 下一回合(重新查实例): Requires:[smtp] 不再满足 → 能力消失。
+      // Next turn (re-querying the instance): Requires:[smtp] is no longer satisfied →
+      // the capability disappears.
       expect(await canDeliverCodes(request), 'smtp disconnected → capability hidden').toBe(false);
       await request.dispose();
 
-      // 能力一消失,gate 的 request-access 块也应收起(用户可见面同步)。
+      // As soon as the capability disappears, the gate's request-access block should
+      // collapse too (the visible surface stays in sync).
       await page.getByRole('link', { name: 'request access ↗' }).click();
       await page.waitForURL('**/gate', { timeout: 10_000 });
       await expect(page.getByRole('button', { name: /write a note/i })).toHaveCount(0);

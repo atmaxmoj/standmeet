@@ -1,8 +1,9 @@
-// security-sigv1-replay.spec.ts —— pentest / **fix**。MCP Sigv1 auth 现在签一次性 nonce:
-// 后端把见过的 (keyId,nonce) 记 Redis(窗口 TTL),窗口内重放**同一个签名头** → nonce 已见 → 拒。
-// 捕获一个合法头也无法重放。fresh 签(新 nonce)不受影响。
+// security-sigv1-replay.spec.ts —— pentest / **fix**. MCP Sigv1 auth now signs a one-time nonce:
+// the backend records every seen (keyId, nonce) pair in Redis (window TTL); replaying
+// **the same signed header** within the window → nonce already seen → rejected.
+// Capturing a legitimate header still can't be replayed. A fresh signature (new nonce) is unaffected.
 //
-// 对照:c1-keypair-auth 已测「过期 ts 被拒」;这里守「窗口内重放被拒 + fresh 仍通」。
+// Control: c1-keypair-auth already tests "an expired ts is rejected"; this one guards "replay within the window is rejected + fresh still passes".
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

@@ -1,11 +1,12 @@
-// visitor-turn-count-from-backend.spec.ts —— turn 计数的唯一 source of truth
-// 是后端 conversation,前端 localStorage 的 `used` 只是缓存。两者一旦 desync
-// (例:后端会话被重置 / owner 删了对话,但浏览器 localStorage 还留着旧 used),
-// 重新载入后必须以后端数出来的为准 —— 否则就出现「一上来没问就 1/50,却没有
-// 任何 dialog」这种不一致。
+// visitor-turn-count-from-backend.spec.ts — the sole source of truth for the turn count is the
+// backend conversation; the frontend's `used` in localStorage is only a cache. Once the two
+// desync (e.g. the backend session was reset / the owner deleted the conversation, but the
+// browser's localStorage still holds a stale used value), a reload must defer to what the
+// backend actually counts — otherwise you get an inconsistency like "1/50 right from the start,
+// with no question asked and not a single dialog visible."
 //
-// 期望:reload 后 strip 的 used == 后端这段对话里实际 visitor turn 数
-//       == 可见的 dialog 数。stale localStorage 不算数。
+// Expected: after a reload, the strip's used == the actual number of visitor turns in this
+// backend conversation == the number of visible dialogs. Stale localStorage doesn't count.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -24,7 +25,8 @@ const OWNER = {
 const CODE = 'COUNT-001';
 const NAME = 'Frank';
 const QUESTION = 'tell me about lucerna';
-// 轮数那一格有自己的 testid（名字数那格长得一样但**不是同一个量**，共用类名时谁也指不到）。
+// The turn-count cell has its own testid (the member-count cell looks identical but **is not the
+// same quantity** — with a shared class name, neither locator would point at the right one).
 const USED_SEL = '[data-testid="session-strip-turns-used"]';
 
 test.describe('turn 计数以后端 conversation 为唯一 source of truth', () => {
@@ -61,8 +63,9 @@ test.describe('turn 计数以后端 conversation 为唯一 source of truth', () 
     const page = await ctx.newPage();
     await enterCodeSession(page, CODE, NAME);
 
-    // 问一句 → 后端落 1 条 visitor turn,strip 走到 1。#28: 落库在 /agent/turn
-    // 流末端(`done` 之前);res.finished() = 流读完 = 已落库。
+    // Ask one question → the backend persists 1 visitor turn, the strip advances to 1. #28: it
+    // persists at the end of the /agent/turn stream (right before `done`); res.finished() =
+    // the stream has been fully read = it's already persisted.
     const turnDone = page.waitForResponse((r) =>
       r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
     const input = page.locator('[data-testid="chat-input-field"]');
@@ -72,7 +75,8 @@ test.describe('turn 计数以后端 conversation 为唯一 source of truth', () 
     await (await turnDone).finished();
     await expect(page.locator(USED_SEL)).toHaveText('1', { timeout: 10_000 });
 
-    // 人为把 localStorage 的 used 搞脏(模拟客户端缓存跟后端 desync)。
+    // Artificially corrupt localStorage's used value (simulating the client cache desyncing
+    // from the backend).
     await page.evaluate(() => {
       const raw = window.localStorage.getItem('standmeet-session');
       if (raw === null) throw new Error('no standmeet-session in localStorage');
@@ -81,8 +85,9 @@ test.describe('turn 计数以后端 conversation 为唯一 source of truth', () 
       window.localStorage.setItem('standmeet-session', JSON.stringify(parsed));
     });
 
-    // reload → 后端 history 重建 transcript,used 必须被后端数出来的(1)纠回,
-    // 而不是沿用 stale 的 9。计数 == 可见 dialog 数。
+    // reload → the backend history rebuilds the transcript, and used must be corrected back to
+    // what the backend actually counts (1), not left at the stale 9. The count == the number of
+    // visible dialogs.
     await page.reload();
     await expect(page.getByText(QUESTION)).toBeVisible({ timeout: 20_000 });
     await expect(page.locator(USED_SEL)).toHaveText('1', { timeout: 10_000 });
@@ -98,12 +103,13 @@ test.describe('turn 计数以后端 conversation 为唯一 source of truth', () 
     await enterCodeSession(page1, CODE, NAME);
     await expect(page1.locator(namesUsed)).toHaveText('1', { timeout: 10_000 });
 
-    // 第二个访客用别的名字进同一张 code → 后端 member_count 变 2。page1 浑然不知。
+    // A second visitor enters the same code with a different name → the backend's member_count
+    // becomes 2. page1 has no idea.
     const ctx2 = await browser.newContext();
     const page2 = await ctx2.newPage();
     await enterCodeSession(page2, CODE, 'Grace');
 
-    // page1 reload → snapshot 把 member_count 从 stale 的 1 纠到后端的 2。
+    // page1 reloads → the snapshot corrects member_count from the stale 1 to the backend's 2.
     await page1.reload();
     await expect(page1.locator(namesUsed)).toHaveText('2', { timeout: 10_000 });
 

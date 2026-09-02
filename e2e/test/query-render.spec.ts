@@ -1,6 +1,8 @@
-// query-render.spec.ts —— 原生语料查询(目标态红)。note body 里的 ` ```standmeet-query ` block 在
-// 读取/渲染时**服务端解析**成一个活列表(走现成 ACL-scoped CorpusLister),像 Dataview 但跑在真 DB 上。
-// 断言面:visitor corpus_read 返回的 body —— query block 应被替换成匹配条目的列表(现在红:留原始 block)。
+// query-render.spec.ts —— native corpus queries (target-state RED). A ` ```standmeet-query `
+// block inside a note body gets **server-side parsed** at read/render time into a live list
+// (via the existing ACL-scoped CorpusLister), like Dataview but running on the real DB.
+// Assertion surface: the body returned by visitor corpus_read — the query block should be
+// replaced with a list of matching entries (currently RED: the raw block is left in place).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -13,7 +15,7 @@ import {
 type Ctx = { playwright: Playwright };
 const OWNER: SyncOwner = syncOwner('qr');
 
-// queryBlock —— 构造一个 standmeet-query fenced block(YAML-ish DSL)。
+// queryBlock — builds a standmeet-query fenced block (YAML-ish DSL).
 function queryBlock(dsl: string): string {
   return '```standmeet-query\n' + dsl + '\n```';
 }

@@ -1,19 +1,22 @@
-// writing-i18n-reader —— 一篇多语 **writing** 被人读的时候。
+// writing-i18n-reader -- what happens when a multilingual **writing** gets read.
 //
-// F-R-5：真 vault 里唯一一篇已发布的 writing 用的就是 i18n 契约
-// （`> [!i18n]` + `> > [!lang] en` + 一个 `<label><input type=radio>` 切换器），
-// 而 `/writings/<slug>` 把这些**原样印成正文** —— 区块标记和切换器的整段 HTML
-// 全都以字面文本出现在读者眼前。
+// F-R-5: the one published writing in the real vault uses exactly the i18n contract
+// (`> [!i18n]` + `> > [!lang] en` + a `<label><input type=radio>` switcher), and
+// `/writings/<slug>` **prints these verbatim into the body** -- the block markers and
+// the switcher's entire HTML both show up as literal text in front of the reader.
 //
-// **不是解析器缺失**：`internal/corpus/i18n` 有 Parse/Validate，读侧挑面板的是
-// `corpus/usecase/corpus_i18n_read.go:42 ViewFor`。查它的调用点只有 landing 那一层和
-// 索引/搜索 —— **reader 这条路没接上**。
+// **This isn't a missing parser**: `internal/corpus/i18n` has Parse/Validate, and the
+// read side that picks a pane is `corpus/usecase/corpus_i18n_read.go:42 ViewFor`.
+// Checking its call sites finds only the landing layer and index/search --
+// **the reader path was never wired up**.
 //
-// **为什么 wiki 那边是好的**：`corpus-i18n-reader.spec.ts` 覆盖的是 wiki reader，
-// writings reader 从来没有对应的用例。一个能力接了一半，另一半没有守卫看着。
+// **Why the wiki side is fine**: `corpus-i18n-reader.spec.ts` covers the wiki reader,
+// but the writings reader has never had a corresponding test. One capability got wired
+// up halfway, and nothing was guarding the other half.
 //
-// 断言取 `.not.toContainText` 的**反面写法**：先取文本再判断 —— 元素还没出现时
-// `.not.toContainText` 也算通过（[[negated-assertion-passes-while-absent]]）。
+// The assertion uses the **inverse** of `.not.toContainText`: it reads the text first,
+// then judges it -- because `.not.toContainText` also passes while the element hasn't
+// appeared yet ([[negated-assertion-passes-while-absent]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -30,8 +33,9 @@ const OWNER = {
   fullName: 'I18n Writing Owner',
 };
 
-// 形状照抄真 vault 里那篇 the-business-model-wedge：区块外一句中性散文，
-// 切换器是 owner 自己写的 HTML，两个语言面板。
+// The shape is copied straight from the-business-model-wedge in the real vault: a
+// neutral sentence outside the block, a switcher written as HTML by the owner, and two
+// language panes.
 const BODY = [
   'The shared epigraph, in no language in particular.',
   '',
@@ -60,7 +64,7 @@ test.describe('a multilingual writing reads as content, not as source', () => {
       await goto(page, '/writings/i18n-wedge');
       const body = page.getByTestId('writing-article-body');
       await expect(body).toBeVisible({ timeout: 10_000 });
-      // 先取文本再判断（见文件头）。
+      // Reads the text before judging it (see the file header).
       const text = await body.innerText();
       expect(text, 'the i18n block marker must be consumed, not printed')
         .not.toContain('[!i18n]');
@@ -68,17 +72,21 @@ test.describe('a multilingual writing reads as content, not as source', () => {
         .not.toContain('[!lang]');
       expect(text, "the owner's switcher markup must render, not appear as text")
         .not.toContain('<input type="radio"');
-      // 区块外的散文属于任何语言，永远在。
+      // Prose outside the block belongs to no particular language, and is always shown.
       expect(text, 'neutral prose outside the block always shows')
         .toContain('The shared epigraph');
     });
 
-  // F-R-6：F-R-5 修完之后立刻显形的第二层 —— 源码不漏了，但读者**也换不了语言**。
-  // wiki reader 有真的 `EN 中文` 切换器（`LanguageSwitch`，testid `language-switch`），
-  // writings reader 什么都没有：拿到英文那一面，无从知道还有中文。
+  // F-R-6: the second layer that shows up immediately after F-R-5 is fixed -- the source
+  // no longer leaks, but the reader **still can't switch languages either**.
+  // The wiki reader has a real `EN 中文` switcher (`LanguageSwitch`, testid
+  // `language-switch`); the writings reader has nothing at all: you get the English
+  // pane with no way to know Chinese exists too.
   //
-  // 断言的是**能切**，不是"DOM 里有两份" —— 后者在「两种语言都发下来、用 CSS 藏一种」
-  // 的实现下也会绿，而那正是照抄 Obsidian 会写出来的东西。
+  // Asserts that switching **actually works**, not just "there are two copies in the
+  // DOM" -- the latter would still pass green under an implementation that ships both
+  // languages and hides one with CSS, which is exactly what copying Obsidian's approach
+  // verbatim would produce.
   test('the reader can switch to the other language (F-R-6)',
     async ({ page }) => {
       await goto(page, '/writings/i18n-wedge');
@@ -91,25 +99,35 @@ test.describe('a multilingual writing reads as content, not as source', () => {
       await expect.poll(async () => (await body.innerText()).includes('攻击商业模式'),
         { message: 'switching must actually bring the other pane', timeout: 10_000 })
         .toBe(true);
-      // 换过去之后，英文那一面**不在 DOM 里**（不是藏起来）。
+      // After switching, the English pane is **gone from the DOM entirely** (not merely
+      // hidden).
       expect(await body.innerText(), 'the other pane is gone, not hidden')
         .not.toContain('Attack the business model');
     });
 
-  // 切语言**不许整页重载**。
+  // Switching language **must not trigger a full page reload**.
   //
-  // 上面那条用例只断言「内容换了」—— 而整页重载也会让它绿，所以它对这件事是瞎的。
-  // 切换器原本是裸 `<a href>`：读者读到一半切个语言，整份文档重新加载，页面白一下、
-  // 滚动位置丢回顶部。地址要换（链接可分享、爬虫拿到那一面），但那三条理由**没有一条
-  // 需要重载**，`next/link` 的客户端导航全都满足。
+  // The test above only asserts "the content switched" -- a full page reload would also
+  // make that pass, so it's blind to this particular failure mode. The switcher used to
+  // be a bare `<a href>`: a reader mid-read switches language, the entire document
+  // reloads, the page flashes white, and the scroll position resets to the top. The URL
+  // does need to change (so the link is shareable, so a crawler can reach that pane),
+  // but **none of those three reasons requires a reload** -- `next/link`'s client-side
+  // navigation satisfies all of them.
   //
-  // 判据是确定性的：重载会抹掉 window 上的一切。先在 window 上做个记号，切完还在
-  // 就是没重载 —— 而不是去数网络请求或者比时间（那两样都是代理指标）。
-  // 滚动位置那一半**没有守卫**：这个文件种的文章太短，页面根本滚不动，
-  // 于是「切完还在原处」是恒真的。第一版写了那条断言，而它自己的正对照
-  // （先断言真的滚下去了）当场把它挡了下来 —— 恒真的断言不如没有
-  // （[[assertion-that-cannot-fail]]）。要守它得有一篇够长的种子，而这个文件的种子
-  // 被同组别的用例按内容断言着，不该为这一条改。`scroll={false}` 照常发，只是这里不假装测了它。
+  // The criterion is deterministic: a reload wipes out everything on window. A marker is
+  // set on window first, and it's still there after switching = no reload happened --
+  // rather than counting network requests or comparing timing (both of those are only
+  // proxy signals).
+  // The scroll-position half of this **has no guard**: the article this file seeds is
+  // too short for the page to scroll at all, so "still in the same place after
+  // switching" would be vacuously true. The first version of this test wrote that
+  // assertion, and its own positive control (first asserting it had genuinely scrolled
+  // down) blocked it on the spot -- a vacuously-true assertion is worse than no assertion
+  // ([[assertion-that-cannot-fail]]). Guarding it properly needs a long enough seed
+  // article, and this file's seed is already asserted on by content by tests in the same
+  // group, so it shouldn't be changed for this one test. `scroll={false}` is still sent
+  // as before, this just doesn't pretend to test it here.
   test('切语言不重载整页', async ({ page }) => {
     await goto(page, '/writings/i18n-wedge');
     const body = page.getByTestId('writing-article-body');

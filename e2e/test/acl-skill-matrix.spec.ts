@@ -1,12 +1,14 @@
 // acl-skill-matrix.spec.ts —— §B.1（skill target）of capability-acl-hierarchy-tests.md.
 //
-// skill 的暴露形态 = L1 把「role 授权且 enabled」的 skill 的 name+description 注入系统
-// 提示（ComposeBasePersona 的 SkillPrompts 通道）。所以 skill ACL 判据 = 该 skill 的
-// description marker 在不在 /internal/diag/session 的 system_prompt_full 里（+ hash 变）。
-//   A1·skill 授 + 无 deny → 在        A2·skill 授 + deny → 不在（code 撤销）
-//   A3·skill 不授（没挂 role）→ 不在（基线）
+// How a skill surfaces = L1 injects the name+description of every skill the
+// role grants and enables into the system prompt (the SkillPrompts channel in
+// ComposeBasePersona). So the skill ACL check is: is that skill's description
+// marker present in /internal/diag/session's system_prompt_full (and does the
+// hash change)?
+//   A1 · skill granted + no deny → present     A2 · skill granted + deny → absent (code revokes it)
+//   A3 · skill not granted (no role) → absent (baseline)
 //
-// 红 until: code_skill_denials + applyCodeDenials 从 SkillIDs 里减掉。
+// RED until code_skill_denials + applyCodeDenials subtract from SkillIDs.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

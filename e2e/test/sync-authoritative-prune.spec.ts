@@ -1,6 +1,6 @@
 // sync-authoritative-prune.spec.ts —— F-L-6: sync must MEAN sync.
 //
-// SyncVault was upsert-only ("绝不删没在这批里的"), so a note deleted from the vault lived in the
+// SyncVault was upsert-only ("never delete anything not in this batch"), so a note deleted from the vault lived in the
 // corpus forever and re-syncing could never clean it — the corpus could only ever grow, and drifted
 // away from the vault it is supposed to mirror. Sync has one meaning: make the destination equal the
 // source.
@@ -51,19 +51,24 @@ test.describe('sync · authoritative prune (F-L-6: sync means sync)', () => {
   test('an authoritative sync keeps the writings it just imported (F-L-63)', writingsSurviveTheirOwnImport);
 });
 
-// F-L-63 —— **一次整份导入把它自己刚建好的 writing 删掉了。**
+// F-L-63 -- **a full-vault import deletes the very writing it just created.**
 //
-// prod 上量到的：真 vault 里有 `writings/the-business-model-wedge.md`，而库里 `genre='writing'`
-// 的行数是 **0**；同一份 vault 连导两次，第二次的回执是 `1 new · 0 updated · 1 deleted ·
-// 1076 unchanged` —— 每导一次建一条、又删一条，永远在原地打转。
+// Measured in prod: the real vault has `writings/the-business-model-wedge.md`, while
+// the DB's row count for `genre='writing'` is **0**; importing the same vault twice in
+// a row, the second receipt reads `1 new · 0 updated · 1 deleted · 1076 unchanged` --
+// every import creates one row and deletes it right back, going in circles forever.
 //
-// 机制读出来的（不靠试）：`pruneAbsent` 的 keep 集合来自 `st.idOf`，而 `st.idOf` 只装
-// **corp 树**的节点（wiki/subjectivity/raw）。writings 走的是另一条路（`syncWritings` →
-// `ImportWritings`），它对上了号却**不往 keep 里报**，于是 `PruneAbsentVaultNotes` 看见一条
-// 「vault 导入过、又不在 keep 里」的行，照定义删掉。
+// Traced by reading the mechanism (not by guessing): `pruneAbsent`'s keep set comes
+// from `st.idOf`, and `st.idOf` only holds nodes from **the corp tree** (wiki/
+// subjectivity/raw). writings goes through a different path (`syncWritings` ->
+// `ImportWritings`); it matches up fine but **never reports itself into keep**, so
+// `PruneAbsentVaultNotes` sees a row that "was imported from the vault, and isn't in
+// keep", and deletes it exactly as defined.
 //
-// 判据要能判负：第一次导入之后 writing 必须还在，而且**同一份 vault 再导一次是空操作** ——
-// 后面这一句正是 check 4（「第二次导入什么都不改」）在真语料上说不通的地方。
+// The criterion has to be able to fail: after the first import, the writing must still
+// be there, and **re-importing the same vault must be a no-op** -- that second half is
+// exactly where check 4 ("a second import changes nothing") breaks down on real
+// corpus data.
 async function writingsSurviveTheirOwnImport({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   const vault = [
@@ -81,8 +86,10 @@ async function writingsSurviveTheirOwnImport({ playwright }: Ctx): Promise<void>
   const second = await uploadVault(request, OWNER, vault, { authoritative: true });
   expect(second.created, '同一份 vault 再导一次不新建').toBe(0);
   expect(second.deleted, '也不删 —— 第二次导入是空操作（check 4）').toBe(0);
-  // F-L-64 —— **也不重写**。writings 这条路以前没有「有没有变」的比较，找到既有行就无条件
-  // 保存，于是每导一次全部 writing 的 `updated_at` 就往前跳一次，「最近改过什么」从此说不准。
+  // F-L-64 -- **and it must not rewrite either.** The writings path used to have no
+  // "did it actually change" comparison; it saved an existing row unconditionally
+  // whenever it found one, so every import bumped `updated_at` on every writing, and
+  // from then on "what was recently edited" could no longer be trusted.
   expect(second.updated, '内容一字未变就不该被重写（F-L-64）').toBe(0);
   await request.dispose();
 }

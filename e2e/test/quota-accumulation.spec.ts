@@ -1,9 +1,11 @@
-// quota-accumulation.spec.ts —— max_members=N 时:N 个不同名字都能进,第 N+1 个
-// 不同名字被拒;已有名字再来不占名额(续会)。
+// quota-accumulation.spec.ts —— when max_members=N: N distinct names can all get in,
+// the (N+1)th distinct name is refused; an existing name coming back doesn't consume a
+// slot (resuming).
 //
-// 用户故事:
-//   "5 轮面试" = 5 个人(不是一个人 5 段)。max_members=N 给 N 个人用,第 N+1
-//   个新名字才被拒;名单里的人回来照常进。
+// User story:
+//   "5 rounds of interviews" = 5 different people (not one person across 5 segments).
+// max_members=N is for N people; only the (N+1)th new name gets refused; anyone
+// already on the list gets back in as usual.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -38,7 +40,7 @@ test.describe('max_members admits N distinct names, blocks the (N+1)th', () => {
 
   test('N distinct names OK, (N+1)th blocked, existing name still resumes',
     async ({ request }) => {
-      // N 个不同名字都能进。
+      // N distinct names can all get in.
       for (const name of NAMES) {
         const s = await issueSession(request, {
           handle: OWNER.handle, code: CODE, visitor_name: name,
@@ -46,13 +48,14 @@ test.describe('max_members admits N distinct names, blocks the (N+1)th', () => {
         expect(s.session_token).not.toBe('');
       }
 
-      // 第 N+1 个**新**名字 → 满了,403。
+      // The (N+1)th **new** name → full, 403.
       const overflow = await issueSessionStatus(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'Dave',
       });
       expect(overflow).toBe(403);
 
-      // 名单里的人(Sarah)回来 → 续会,仍 200(不占新名额)。
+      // Someone already on the list (Sarah) comes back → resumes, still 200 (doesn't
+      // consume a new slot).
       const returning = await issueSessionStatus(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'Sarah',
       });

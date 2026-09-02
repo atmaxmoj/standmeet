@@ -1,9 +1,13 @@
-// connector-config-nonidentity-no-disconnect.spec.ts —— §三 D-5 行
-// 「改非身份字段（policy / calendar_id / 显示名）」(edit-config) → **不** disconnect，
-// 连接/验证状态不动，booking 仍可用。守住「只有身份变才重验」。
+// connector-config-nonidentity-no-disconnect.spec.ts -- Section 3, decision
+// D-5: editing a non-identity field (policy / calendar_id / display name)
+// (edit-config) -> does **not** disconnect; connected/verified state is
+// unchanged, booking stays available. Guards "only an identity change
+// triggers re-verification".
 //
-// RED / TDD：守门 spec。重构后改 booking policy 之类的非身份字段绝不能误清 token。
-// 若重构把「任何 config 写入」都当成 identity change 来重验，这条会失败 → 抓回归。
+// RED / TDD: a gate spec. After a refactor, editing a non-identity field like
+// booking policy must never clear the token by mistake.
+// If a refactor treats every "config write" as an identity change requiring
+// re-verification, this test fails and catches the regression.
 //
 // Non-identity config edit (decision D-5): editing the booking policy (a
 // non-identity field) MUST NOT disconnect the connector — connected/verified

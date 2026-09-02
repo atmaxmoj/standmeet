@@ -1,11 +1,13 @@
-// page-corpus-pinning.spec.ts —— 主页 insights/projects = corpus pin 列表
-// (docs/design/page-corpus-pinning.md)。
+// page-corpus-pinning.spec.ts — the homepage's insights/projects sections are pin lists over the
+// corpus (docs/design/page-corpus-pinning.md).
 //
-// 想法只存一份:栏目存 wiki id 引用,渲染时 join title+excerpt 链去 /wiki/…。
-// 不变量 pinned ⊆ published 在两端写入点维护:
-//   • page.pin 拒未发布("publish it first")
-//   • unpublish 已 pin 条目 → 成功 + 自动 unpin + tool result 里声明
-// 空栏目整个不渲染(标题也不渲)。
+// Ideas are stored exactly once: a section stores wiki id references, and rendering joins in
+// title+excerpt and links out to /wiki/…. The invariant pinned ⊆ published is maintained at
+// both write points:
+//   • page.pin rejects an unpublished entry ("publish it first")
+//   • unpublishing an already-pinned entry → succeeds + auto-unpins + declares it in the tool
+//     result
+// An empty section renders nothing at all (not even its header).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -55,18 +57,22 @@ test.describe('page-corpus pinning · insights/projects are windows onto the cor
   test('page.unpin removes the card again',
     async ({ page, playwright }) => { await unpinRemovesCard(page, playwright); });
 
-  // 同一条不变量的**另一张面**。上面那条验的是 MCP 工具结果里 `unpinned_sections` 说了话；
-  // owner 更常做的是在后台把那个 published 开关关掉，而那条路上产品只回了一句 "Wiki saved"
-  // —— 他一次点击做成了两件事（改了可见性、**撤掉了自己首页上的一张卡**），只被告知了第一件
-  // （F-L-31）。回执本身在后端一直都有（`seo.go` 的 `unpinned_sections`），是客户端
-  // `patchVoid` 把响应扔了。
+  // **The other face** of the same invariant. The case above verifies that `unpinned_sections`
+  // speaks up in the MCP tool result; what the owner more often actually does is flip that
+  // published toggle off in the admin panel, and on that path the product only replied "Wiki
+  // saved" — one click did two things (changed visibility, and **removed a card from their own
+  // homepage**), and only the first one was reported back (F-L-31). The receipt itself has always
+  // existed on the backend (`unpinned_sections` in `seo.go`) — it's the client's `patchVoid` that
+  // discards the response.
   test('unpublishing from the admin form says the pin went with it',
     async ({ page, playwright }) => { await adminUnpublishSaysUnpinned(page, playwright); });
 
-  // 这条 spec 的每一条用例都**亲手把 excerpt 递给了产品**（`publishEntry(… excerpt: EXCERPT_A)`），
-  // 于是「真 vault 里的笔记根本没有 excerpt」这件事在这里从来没发生过（[[stand-in-is-politer-than-reality]]）。
-  // 真语料 1047 条，excerpt 非空的是 **0 条** —— 同步不产生它，而正文的散文全都住在
-  // `> > ` 两层引用里（i18n 契约就是这么定的）。
+  // Every other case in this spec **hand-delivers an excerpt to the product**
+  // (`publishEntry(… excerpt: EXCERPT_A)`), so the fact that "notes in the real vault have no
+  // excerpt at all" never once occurred here ([[stand-in-is-politer-than-reality]]). Out of 1047
+  // real corpus entries, exactly **0** have a non-empty excerpt — sync never produces one, and
+  // the prose body lives entirely inside a two-level `> > ` blockquote (that's what the i18n
+  // contract dictates).
   test('真 vault 那种笔记（没有 excerpt、正文包在 i18n 里）也要有一句人话',
     async ({ page, playwright }) => { await vaultShapedCardHasALine(page, playwright); });
 });
@@ -95,7 +101,7 @@ async function seedFixture(playwright: PW): Promise<void> {
   await request.dispose();
 }
 
-// ── 装填:MCP page.pin(published 条目) → 主页渲染卡(title+excerpt+/wiki 链) ──
+// ── Seed: MCP page.pin(a published entry) → the homepage renders a card (title+excerpt+/wiki link) ──
 async function pinRendersCard(page: Page, playwright: PW): Promise<void> {
   const request = await playwright.request.newContext();
   const res = await callTool<PinResult>(request, apiToken, mcpSID, 'page.pin',
@@ -105,21 +111,23 @@ async function pinRendersCard(page: Page, playwright: PW): Promise<void> {
 
   await goto(page, '/');
   await expect(page.getByText("things I've been thinking about")).toBeVisible();
-  // 卡 = 条目的 title + excerpt,链去 reader — 不是第二份内容。
+  // The card = the entry's title + excerpt, linking out to the reader — not a second copy of
+  // the content.
   const link = page.getByRole('link', { name: /Thinking In Systems/ });
   await expect(link).toBeVisible();
   await expect(link).toHaveAttribute('href', '/wiki/thinking-in-systems');
   await expect(page.getByText(EXCERPT_A)).toBeVisible();
 }
 
-// ── 不变量端点 1:pin 未发布 → 写入点拒绝 ──
+// ── Invariant endpoint 1: pinning something unpublished → rejected at the write point ──
 async function pinUnpublishedRejected(playwright: PW): Promise<void> {
   const request = await playwright.request.newContext();
   await expect(async () => {
     await callTool(request, apiToken, mcpSID, 'page.pin',
       { section: 'insights', wiki_id: gatedID });
   }).rejects.toThrow(/publish/i);
-  // admin PUT 同 URI 面同样被同一个 maintainer 拒(单一维护点,非双实现)。
+  // admin PUT hits the same URI surface and is rejected by that same single maintainer (one
+  // maintenance point, not a duplicate implementation).
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const current = await (await request.get(`${BACKEND}/api/admin/page`)).json() as AdminPage;
   const put = await request.put(`${BACKEND}/api/admin/page`, {
@@ -130,7 +138,8 @@ async function pinUnpublishedRejected(playwright: PW): Promise<void> {
   await request.dispose();
 }
 
-// ── 不变量端点 2:unpublish 已 pin 条目 → 成功 + 自动 unpin + 声明 ──
+// ── Invariant endpoint 2: unpublishing an already-pinned entry → succeeds + auto-unpins +
+// declares it ──
 async function unpublishDropsCard(page: Page, playwright: PW): Promise<void> {
   const request = await playwright.request.newContext();
   const res = await callTool<SetSEOResult>(request, apiToken, mcpSID, 'seo.set_entry_seo',
@@ -138,26 +147,27 @@ async function unpublishDropsCard(page: Page, playwright: PW): Promise<void> {
   expect(res.published).toBe(false);
   expect(res.unpinned_sections, 'the side effect is declared in the tool result')
     .toContain('insights');
-  // 存储侧:pin 列表已空。
+  // Storage side: the pin list is now empty.
   await loginAPI(request, OWNER.email, OWNER.password);
   const admin = await (await request.get(`${BACKEND}/api/admin/page`)).json() as AdminPage;
   expect(admin.insights, 'pin removed from the stored page').toEqual([]);
   await request.dispose();
 
-  // 渲染侧:空栏目整个消失(标题也不渲)。
+  // Render side: the empty section disappears entirely (not even its header renders).
   await goto(page, '/');
   await expect(page.getByText("things I've been thinking about")).toHaveCount(0);
   await expect(page.getByText('Thinking In Systems')).toHaveCount(0);
 }
 
-// ── 空态:未 pin 的栏目连标题都不渲染 ──
+// ── Empty state: a section with nothing pinned doesn't even render its header ──
 async function emptySectionsHidden(page: Page): Promise<void> {
   await goto(page, '/');
   await expect(page.getByText("things I've been thinking about")).toHaveCount(0);
   await expect(page.getByText("what I'm building")).toHaveCount(0);
 }
 
-// ── admin GUI:pin manager 从 published 条目里挑,保存后主页渲染 ──
+// ── admin GUI: the pin manager picks from published entries, and saving renders it on the
+// homepage ──
 async function adminPinManagerRenders(page: Page, playwright: PW): Promise<void> {
   const request = await playwright.request.newContext();
   await publishEntry(request, apiToken, mcpSID,
@@ -175,7 +185,7 @@ async function adminPinManagerRenders(page: Page, playwright: PW): Promise<void>
   await expect(page.getByRole('link', { name: /Thinking In Systems/ })).toBeVisible();
 }
 
-// ── unpin:MCP page.unpin → 主页收回 ──
+// ── unpin: MCP page.unpin → the homepage takes the card back down ──
 async function unpinRemovesCard(page: Page, playwright: PW): Promise<void> {
   const request = await playwright.request.newContext();
   const res = await callTool<PinResult>(request, apiToken, mcpSID, 'page.unpin',
@@ -186,7 +196,7 @@ async function unpinRemovesCard(page: Page, playwright: PW): Promise<void> {
   await expect(page.getByText("things I've been thinking about")).toHaveCount(0);
 }
 
-// ── admin GUI:取消发布一条被 pin 的条目 → 回执要说出「pin 也跟着没了」──
+// ── admin GUI: unpublishing a pinned entry → the receipt must say "the pin went with it" ──
 async function adminUnpublishSaysUnpinned(page: Page, playwright: PW): Promise<void> {
   const request = await playwright.request.newContext();
   await publishEntry(request, apiToken, mcpSID,
@@ -194,14 +204,15 @@ async function adminUnpublishSaysUnpinned(page: Page, playwright: PW): Promise<v
   await request.dispose();
 
   await loginViaGUI(page);
-  // 先 pin 上 —— 正对照：没有 pin 的话「回执没提 pin」是对的，这条用例就什么也没测。
+  // Pin it first — the positive control: without a pin, "the receipt doesn't mention pin" would
+  // be correct, and this case would test nothing at all.
   await goto(page, '/admin/page');
   await page.getByTestId('pin-add-insights').click();
   await page.getByTestId(`pin-option-${publishedID}`).click();
   await page.getByTestId('save').click();
   await expect(page.getByTestId('saved')).toBeVisible({ timeout: 8_000 });
 
-  // 再去条目那张表关掉 published。
+  // Then go to the entry's own table and turn published off.
   await goto(page, '/admin/wiki');
   await page.getByTestId(`wiki-edit-${publishedID}`).click();
   await page.getByTestId(`wiki-${publishedID}-seo-indexed`).click();
@@ -214,8 +225,10 @@ async function adminUnpublishSaysUnpinned(page: Page, playwright: PW): Promise<v
   ).toContainText(/insights/i, { timeout: 10_000 });
 }
 
-// VAULT_SHAPED —— 真 vault 里一条笔记长什么样:散文全在 `> > ` 两层引用里(i18n 契约),
-// 开头是 callout 标记和那排语言按钮的 HTML,标题行是 `# …`。**不设 excerpt** —— 同步不产生它。
+// VAULT_SHAPED — what a note in the real vault actually looks like: the prose lives entirely
+// inside a two-level `> > ` blockquote (the i18n contract), preceded by callout markup and the
+// HTML for that row of language buttons, with the heading line as `# …`. **No excerpt is set** —
+// sync never produces one.
 const VAULT_SHAPED = [
   '> [!i18n]',
   '> <label><input type="radio" name="vs-lang" checked>EN</label><label>中文</label>',
@@ -226,9 +239,11 @@ const VAULT_SHAPED = [
 ].join('\n');
 const VAULT_LEAD = 'A gate is worth its cost only when reassembly damps error';
 
-// vaultShapedCardHasALine —— 首页那张 pin 卡在**真语料形状**下也得说出这条笔记讲什么。
-// 判据两条,缺一不可:(a) 有一句正文里的人话;(b) 那句话不是原始标记 ——
-// 「有东西显示」和「显示的是能读的东西」是两件事([[display-fallback-reintroduces-the-bug]])。
+// vaultShapedCardHasALine — the homepage's pin card must still say what this note is about even
+// when fed **real-corpus-shaped data**. Two criteria, both required: (a) there's a genuine
+// human-readable line from the body; (b) that line is not raw markup — "something is displayed"
+// and "what's displayed is actually readable" are two different things
+// ([[display-fallback-reintroduces-the-bug]]).
 async function vaultShapedCardHasALine(page: Page, playwright: PW): Promise<void> {
   const request = await playwright.request.newContext();
   const n = await seedWiki(request, apiToken, mcpSID,

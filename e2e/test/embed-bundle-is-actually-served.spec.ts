@@ -1,16 +1,21 @@
-// embed-bundle-is-actually-served.spec.ts —— 我们贴出去的那个地址得指向存在的东西。
+// embed-bundle-is-actually-served.spec.ts -- the address we hand out has to point at
+// something that exists.
 //
-// 缺陷（2026-08-30）：CLAUDE.md 写着 embed 是"单个 `<script>` 标签 drop-in"，
-// `sdk/packages/embed` 也确实构建得出来 —— 但线上 `/embed.js` 和 `/sdk/embed.js`
-// 都是 404。没有任何路由在服务它。承诺存在，产物存在，中间那一段不存在。
+// Defect (2026-08-30): CLAUDE.md says embed is a "single `<script>` tag drop-in", and
+// `sdk/packages/embed` does actually build -- but in production `/embed.js` and
+// `/sdk/embed.js` were both 404. No route was serving it. The promise existed, the
+// artifact existed, and the piece connecting them did not.
 //
-// 这是「ref resolves ≠ ref is a string」那一类：文档里写着一个地址，而没有任何东西
-// 验证它指向存在的东西。所以判据不能是"我们记得有个 /embed.js"——
-// **要从产品自己给出的那段代码里把 src 取出来，再去访问它**。硬编码路径的话，
-// 哪天路径改了、面板跟着改了，这条测试还在验一个没人用的老地址。
+// This belongs to the "ref resolves != ref is a string" family: a doc states an
+// address, and nothing verifies it points at something real. So the criterion can't be
+// "we remember there's a /embed.js" -- **it has to pull the src out of the exact code
+// snippet the product hands the owner, and go fetch that**. Hardcode the path instead,
+// and the day the path changes and the panel follows along, this test keeps verifying
+// an old address nobody uses.
 //
-// 消费者有两个，别混：custom page 用的是构建时内联的那一份（见
-// custom-page-html-mode.spec.ts）；这条管的是**别人的网站**那一份。
+// There are two consumers, and they must not be conflated: the custom page uses the
+// build-time-inlined copy (see custom-page-html-mode.spec.ts); this file covers the
+// **someone else's website** copy.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -20,16 +25,19 @@ import { gotoAdminSection, gotoOnHost } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// THIRD_PARTY_HOST —— 解析回本机、但**不是** localhost 的域名（跟
-// byoai-insecure-origin.spec.ts 一个手法）。embed 存在的理由就是跑在别人的域名上，
-// 而在 localhost 上测跨源什么也证明不了 —— 它是唯一免 TLS 的特权来源
-// （[[localhost-is-a-privileged-origin]]）。
+// THIRD_PARTY_HOST -- a domain that resolves back to this machine but is **not**
+// localhost (same technique as byoai-insecure-origin.spec.ts). embed exists precisely
+// to run on someone else's domain, and testing cross-origin behavior on localhost
+// proves nothing -- it's the one privileged origin exempt from TLS
+// ([[localhost-is-a-privileged-origin]]).
 const THIRD_PARTY_HOST = 'someones-blog.test';
-// EMBED_SRC —— 第三方页面上那一行 <script src>。绝对地址：脚本是从**实例**取的。
+// EMBED_SRC -- the <script src> line on the third-party page. An absolute address: the
+// script is fetched from **the instance**.
 //
-// 基址跟 navigate fixture 同一个（`APP_BASE_URL`，默认 38127 —— 那是 app 对外的端口；
-// 3000 是容器**内**的）。写死 3000 的话失败原因是"连接被拒"，跟这条要验的
-// "别人的站点能不能用它"毫无关系。
+// Uses the same base as the navigate fixture (`APP_BASE_URL`, default 38127 -- the
+// app's externally-facing port; 3000 is **inside** the container). Hardcoding 3000
+// would fail with "connection refused", which has nothing to do with what this test
+// verifies: "can someone else's site actually use it".
 const EMBED_SRC = `${process.env['APP_BASE_URL'] ?? 'http://localhost:38127'}/embed.js`;
 
 const OWNER = {
@@ -56,7 +64,8 @@ test.describe('embed · the snippet we hand out points at something that exists'
       await gotoAdminSection(page, 'api-mcp');
       await page.waitForURL('**/admin/api-mcp', { timeout: 5_000 });
 
-      // 产品自己给 owner 的那段代码 —— 地址从这里取，不写死。
+      // The exact code snippet the product gives the owner -- pull the address from
+      // here, don't hardcode it.
       const snippet = await page.getByTestId('embed-snippet').innerText();
       const m = /src=["']([^"']+)["']/.exec(snippet);
       expect(m, `no script src in the embed snippet:\n${snippet}`).not.toBeNull();
@@ -64,24 +73,28 @@ test.describe('embed · the snippet we hand out points at something that exists'
 
       const res = await request.get(src);
       expect(res.status(), `the snippet points at ${src}`).toBe(200);
-      // 是 JS，不是被 SPA 兜底成了一张 HTML 页 —— 200 本身证明不了拿到的是脚本。
+      // It's actually JS, not the SPA's fallback serving up an HTML page -- a 200 by
+      // itself doesn't prove the response is a script.
       expect(res.headers()['content-type'] ?? '').toMatch(/javascript/i);
-      // 别人的站点要跨源取它。
+      // Someone else's site fetches it cross-origin.
       expect(res.headers()['access-control-allow-origin'] ?? '').toBe('*');
 
-      // 而且这份 JS 里得真的注册了那个元素 —— 「拿到了一个 200 的脚本」
-      // 和「拿到了 embed」是两件事。
+      // And this JS must actually register that element -- "got back a 200'd script"
+      // and "got the embed" are two different claims.
       const body = await res.text();
       expect(body).toContain('standmeet-chat');
       expect(body.length).toBeGreaterThan(1000);
     });
 
-  // 断一个 `access-control-allow-origin: *` 头，跟"别人的站点真的能用它"是两件事。
-  // embed 的价值全在**别人的域名上**能跑；脚本取得到而它发的第一个 API 请求被 CORS 挡住，
-  // 等于给了一个装得上但用不了的东西。
+  // Asserting an `access-control-allow-origin: *` header, and "someone else's site can
+  // actually use it", are two different claims. All of embed's value is in it running
+  // **on someone else's domain**; fetching the script fine while its very first API
+  // request gets blocked by CORS amounts to handing over something that installs but
+  // doesn't work.
   test('loaded from a different origin, the element upgrades and its API call is allowed',
     async ({ page, request }) => {
-      // 换一个来源打开同一个实例（F-D-14 那条路），在那上面注入 embed 脚本。
+      // Open the same instance from a different origin (the F-D-14 path), and inject
+      // the embed script there.
       await gotoOnHost(page, THIRD_PARTY_HOST, '/');
       const origin = new URL(page.url()).origin;
 
@@ -95,7 +108,8 @@ test.describe('embed · the snippet we hand out points at something that exists'
       }, EMBED_SRC);
       expect(loaded, 'embed 脚本在第三方来源上没有注册那个元素').toBe(true);
 
-      // 它发的第一个请求是开 session。跨源被挡的话，读者看到的是一个永远转圈的框。
+      // The first request it makes opens a session. If that's blocked cross-origin,
+      // the reader is left staring at a box that spins forever.
       const preflight = await request.fetch(`${BACKEND}/api/v1/sessions`, {
         method: 'OPTIONS',
         headers: {
@@ -119,7 +133,8 @@ test.describe('embed · the snippet we hand out points at something that exists'
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'api-mcp');
       await page.waitForURL('**/admin/api-mcp', { timeout: 5_000 });
-      // 光给一个 <script> 标签，owner 还是不知道接下来在页面上写什么。
+      // Just a <script> tag alone leaves the owner still not knowing what to write on
+      // the page next.
       await expect(page.getByTestId('embed-snippet')).toContainText('<standmeet-chat');
     });
 });

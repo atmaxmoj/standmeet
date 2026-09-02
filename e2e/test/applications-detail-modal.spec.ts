@@ -1,11 +1,12 @@
-// applications-detail-modal.spec.ts —— /admin/applications：empty state
-// when no commits yet。
+// applications-detail-modal.spec.ts — /admin/applications: empty state
+// when no commits yet.
 //
-// 现在 backend GET /api/admin/applications/ 已通；list endpoint 返实际数据。
-// 测 detail modal 行为需要先 seed 一条 application —— 走 MCP applications.commit
-// 链（先 register job source → fetch → resume.draft → commit），大段 setup
-// 留后续。这一版只验 empty state；modal 的 status segmented / notes 行为
-// 在 seeder fixture 加好后补回。
+// The backend GET /api/admin/applications/ now works; the list endpoint returns real
+// data. Testing detail-modal behavior first needs an application seeded — via the MCP
+// applications.commit chain (register job source → fetch → resume.draft → commit),
+// which is a large chunk of setup left for later. This version only verifies the empty
+// state; the modal's status-segmented / notes behavior gets added back once the
+// seeder fixture exists.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';

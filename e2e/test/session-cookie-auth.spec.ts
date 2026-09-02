@@ -1,9 +1,10 @@
-// session-cookie-auth.spec.ts —— session token 除了 bearer,也落一份 HttpOnly cookie
-// (sm_vsession):跨 tab / 活过刷新 / SSR 都认。失效(过期/evict)时,后端回写一个过期
-// cookie 把它清掉(「sam 过期了 → 一个 401 把浏览器凭证清掉」)。
+// session-cookie-auth.spec.ts — besides the bearer token, the session also sets an HttpOnly
+// cookie (sm_vsession): recognized across tabs / survives a refresh / recognized by SSR. When it
+// becomes invalid (expired/evicted), the backend writes back an expired cookie to clear it out
+// ("Sam's session expired → a 401 clears the browser's credential").
 //
-// 用同一个 APIRequestContext 当 cookie jar:POST /sessions 的 Set-Cookie 进 jar →
-// 之后**不带 bearer** 的请求靠 cookie 认。
+// Uses a single APIRequestContext as the cookie jar: the Set-Cookie from POST /sessions goes into
+// the jar → a later request that carries **no bearer** authenticates via the cookie instead.
 
 import { test, expect } from '@/fixtures/test';
 import { execSync } from 'node:child_process';
@@ -42,7 +43,7 @@ test.describe('session token cookie: auth fallback + clear-on-invalidation', () 
       const issue = await issueSessionRaw(request);
       expect(issue.status()).toBe(200);
       expect(setCookieHeader(issue)).toContain(`${COOKIE}=`);
-      // 不带 Authorization,只靠 cookie jar 里的 sm_vsession 认。
+      // No Authorization header — authenticates solely via the sm_vsession cookie in the jar.
       const turn = await turnNoBearer(request);
       expect(turn.status()).toBe(200);
       await request.dispose();
@@ -55,7 +56,7 @@ test.describe('session token cookie: auth fallback + clear-on-invalidation', () 
       evictVisitorSessions();
       const res = await turnNoBearer(request);
       expect(res.status()).toBe(401);
-      // 后端回写过期 cookie 清掉它(Max-Age=0)。
+      // The backend writes back an expired cookie to clear it (Max-Age=0).
       const cleared = setCookieHeader(res);
       expect(cleared).toContain(`${COOKIE}=`);
       expect(cleared).toMatch(/Max-Age=0/i);
@@ -71,7 +72,7 @@ function issueSessionRaw(request: APIRequestContext): Promise<APIResponse> {
 
 function turnNoBearer(request: APIRequestContext): Promise<APIResponse> {
   return request.post(`${BACKEND}/api/v1/agent/turn`, {
-    headers: { 'Content-Type': 'application/json' }, // 故意不带 Authorization
+    headers: { 'Content-Type': 'application/json' }, // deliberately no Authorization
     data: { system: 'You are the owner.', user_message: 'hi' },
   });
 }

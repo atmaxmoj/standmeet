@@ -1,10 +1,11 @@
-// seo-feeds.spec.ts —— 爬虫读 /robots.txt + /sitemap.xml 拿到 owner page +
-// indexed wiki landing。
+// seo-feeds.spec.ts — a crawler reads /robots.txt + /sitemap.xml and gets the owner
+// page + indexed wiki landing pages.
 //
-// 用户故事：
-//   GoogleBot 访问 site root，先 fetch robots.txt 知道是不是允许爬，再
-//   fetch sitemap.xml 拿 URL 列表。我们应当在两个 endpoint 上返合规格式 +
-//   含 owner public page + 所有 published=true 的 wiki landing。
+// User story:
+//   GoogleBot visits the site root, fetches robots.txt first to learn whether it's
+//   allowed to crawl, then fetches sitemap.xml for the URL list. We should return a
+//   spec-compliant format on both endpoints, including the owner public page + every
+//   published=true wiki landing page.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

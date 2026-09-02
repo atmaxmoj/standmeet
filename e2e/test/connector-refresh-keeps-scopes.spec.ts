@@ -1,17 +1,26 @@
-// connector-refresh-keeps-scopes.spec.ts —— F-C-43：**一次静默刷新不许把已授范围抹掉。**
+// connector-refresh-keeps-scopes.spec.ts -- F-C-43: **a silent refresh must not wipe out
+// already-granted scopes.**
 //
-// 为什么现在才要紧：F-B-8 之后，连接行上的 `scopes` 是**载荷**了 —— 装配时拿它跟每个动作
-// 需要的 scope 对照，够不着就把那把工具摘掉。于是「刷新之后 scopes 变成空」不再是一行脏
-// 数据，而是**owner 连上一小时后，访客那边订会静默消失**，卡上还写着 `connected`。
+// Why this matters now, and not before: after F-B-8, the `scopes` on a connection row is
+// **load-bearing** -- assembly compares it against each action's required scope, and
+// drops that tool when it doesn't reach. So "scopes goes empty after a refresh" is no
+// longer just a row of dirty data -- it's **the visitor's booking silently vanishing an
+// hour after the owner connected**, while the card still says `connected`.
 //
-// 复现条件是规范里明写的：RFC 6749 §5.1 —— token 响应里的 `scope` 在「范围跟请求的一样」时
-// **可以省略**。Google 会回显，所以真环境上这条路走不到；替身以前也总是回显，比规范客气，
-// 产品因此从没被问过「省略时你把已授范围当成什么」（[[stand-in-is-politer-than-reality]]）。
-// 先教替身守规矩（`?outcome=refresh_omit_scope`），再让守卫红，最后改产品。
+// The repro condition is spelled out in the spec: RFC 6749 §5.1 -- the token response's
+// `scope` field **may be omitted** when the granted scope is the same as what was
+// requested. Google echoes it back, so real environments never hit this path; the stand-
+// in used to always echo it back too, being more polite than the spec, so the product had
+// never been asked "what do you treat the granted scope as when it's omitted"
+// ([[stand-in-is-politer-than-reality]]).
+// Teach the stand-in to follow the rules first (`?outcome=refresh_omit_scope`), then let
+// the guard go red, then fix the product.
 //
-// 判据不是「scopes 非空」而是「**跟刷新前逐字相同**」：前者在产品把它换成一个别的常量时
-// 照样绿。而末尾那句「工具还在」才是这条缺陷真正伤到的东西 —— 数据对了但能力没回来的话，
-// 前面两句都白绿。
+// The criterion isn't "scopes is non-empty" but "**identical, verbatim, to before the
+// refresh**": the former would still pass green if the product swapped it for some other
+// constant. And the final line, "the tool is still there", is what this defect actually
+// damages -- if the data is right but the capability didn't come back, the two lines
+// before it are a hollow green.
 
 import { execSync } from 'node:child_process';
 import { test, expect } from '@/fixtures/test';
@@ -50,7 +59,8 @@ test.describe('F-C-43 · a silent refresh keeps the granted scopes', () => {
       await programOAuth(seed.request, 'refresh_omit_scope');
       expireAccessToken();
 
-      // 走一次真的要用日历的调用，刷新才会发生 —— 这正是 owner 眼里「什么都没做」的那一刻。
+      // Trigger a real call that needs the calendar for the refresh to actually happen --
+      // this is exactly the moment that, to the owner, looks like nothing happened at all.
       const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: { topic: 'Scope survival', duration_min: 30, preferred_times: [future(7, 14)] },
@@ -74,8 +84,10 @@ async function programOAuth(request: APIRequestContext, outcome: string): Promis
   if (res.status() !== 200) throw new Error(`program oauth: ${res.status()}`);
 }
 
-// expireAccessToken —— 把 access token 的过期时间推到过去，下一次要用日历的调用就会静默刷新。
-// 跟 chat-book-token-refresh 用的是同一把旋钮（后端没有 dev-only 的时钟端点）。
+// expireAccessToken -- pushes the access token's expiry into the past, so the next call
+// that needs the calendar triggers a silent refresh.
+// Uses the same knob as chat-book-token-refresh (the backend has no dev-only clock
+// endpoint).
 function expireAccessToken(): void {
   const sql = `UPDATE owner_connectors
               SET token_expires_at = NOW() - INTERVAL '1 hour'

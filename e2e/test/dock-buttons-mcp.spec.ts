@@ -1,5 +1,7 @@
-// dock-buttons-mcp.spec.ts —— #109/#110 B：owner 侧本地 MCP 工具 `roles.set_dock_buttons`
-// 跟 admin UI 走同一份服务端状态 + 同一套校验（#118 能力 parity：owner 的 Claude 也能配 dock 按钮）。
+// dock-buttons-mcp.spec.ts — #109/#110 B: the owner-side local MCP tool
+// `roles.set_dock_buttons` shares the same server-side state and the same validation
+// as the admin UI (#118 capability parity: the owner's Claude can configure dock
+// buttons too).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

@@ -1,21 +1,29 @@
-// external-mcp-auth-header.spec.ts —— owner 在面板上填的那对认证头,**真的发到对面了**。
+// external-mcp-auth-header.spec.ts —— the auth header pair the owner fills into the panel
+// **actually reaches the other side**.
 //
-// 这条 spec 存在,是因为这条路以前一行覆盖都没有。owner 注册一台外部 MCP server 时可以填
-// 一对认证头(几乎所有真实的 server 都要),它加密进库、拨号时解开、随 HTTP 请求发出去。
-// 中间任何一环断掉 —— 忘了带头、解错了、连解封那一步都没做 —— **没有任何测试会变红**:
-// 既有的 ext-mcp 用例连的都是不要认证的 mock 入口。
-// (docs/real-env-verification/items/ext-mcp.md 的 check 1 / check 4 早就写着这个缺口。)
+// This spec exists because this path had zero coverage before. When an owner registers an
+// external MCP server, they can fill in an auth header pair (almost every real server needs
+// one); it gets encrypted into storage, decrypted when dialing out, and sent along with the
+// HTTP request. If any link in that chain breaks — the header gets forgotten, decrypted
+// wrong, or the unwrap step is never even implemented — **no test would go red**: the
+// existing ext-mcp test cases only ever connect to a mock endpoint that requires no auth.
+// (docs/real-env-verification/items/ext-mcp.md's check 1 / check 4 already flagged this gap.)
 //
-// 对面用的是 mcp-server-mock 的 /mcp-auth:头不对就 401,连 MCP 握手都不给。于是"头有没有
-// 发出去"变成访客那边看得见的事:头对 → 调得动那台 server 的工具,回包 marker 落进答案;
-// 头错 → 拨不通 → 工具压根不存在,marker 永远不会出现。
+// The other side is mcp-server-mock's /mcp-auth: a wrong header gets a flat 401, not even
+// the MCP handshake gets through. So "was the header actually sent" turns into something
+// observable from the visitor side: header correct → the tool on that server can be called,
+// its reply marker lands in the answer; header wrong → the dial fails → the tool simply
+// doesn't exist, the marker never appears.
 //
-// **两条一起才成立**:只有"对"那条会在断言根本不咬人的时候照样绿(比如 marker 恰好来自
-// 别处);只有"错"那条则证明不了头发出去过。
+// **Both cases are needed together**: the "correct" case alone would stay green even when
+// the assertion has no bite at all (e.g. the marker happens to come from somewhere else);
+// the "wrong" case alone can't prove the header was ever sent.
 //
-// 两个 owner 面里走**面板**这一条 —— MCP 那条已有覆盖(external-mcp-tools),缺的是面板。
-// 密钥框是 type=password,填完看不见,所以这条 spec 不断言"页面上显示了什么",只断言
-// **对面收到了什么**:那才是这个字段唯一有意义的回执。
+// Of the two owner-facing surfaces, this test goes through the **panel** — the MCP surface
+// already has coverage (external-mcp-tools), the panel was the gap. The secret field is
+// type=password and unreadable once filled, so this spec doesn't assert "what the page
+// shows" — it only asserts **what the other side received**: that's the only receipt this
+// field can meaningfully give.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Browser, Page } from '@playwright/test';
@@ -34,7 +42,7 @@ const OWNER = {
   fullName: 'MCP Auth Owner',
 };
 
-// /mcp-auth —— mock 上那个**要认证**的入口。头不对直接 401。
+// /mcp-auth — the mock's endpoint that **requires auth**. A wrong header gets a flat 401.
 const AUTHED_MCP_URL = 'http://mcp-server-mock:9100/mcp-auth';
 const AUTH_HEADER_NAME = 'X-Mock-Auth';
 const AUTH_HEADER_VALUE = 'mock-secret-token';
@@ -70,8 +78,9 @@ test.describe('owner 填的 MCP 认证头真的发到对面', () => {
     await addServerOnPanel(adminPage, BAD_SERVER, 'not-the-secret');
     await attachToCode(adminPage, BAD_SERVER, BAD_CODE, 'wrongkeyrole');
 
-    // 先等界面真的答完了再断言"没有 marker" —— 不等的话这条断言在页面还空着时就过了,
-    // 那是一条永远不会红的断言。
+    // Wait for the UI to actually finish answering before asserting "no marker" — without
+    // waiting, this assertion would pass while the page is still empty, which makes it an
+    // assertion that can never go red.
     const answer = await askVisitorToCallExtTool(browser, BAD_CODE, BAD_SERVER);
     await expect(answer).not.toBeEmpty({ timeout: 20_000 });
     await expect(
@@ -81,8 +90,9 @@ test.describe('owner 填的 MCP 认证头真的发到对面', () => {
   });
 });
 
-// addServerOnPanel —— 在 /admin/api 的面板上填一台外部 MCP server(含认证头)。
-// 走界面,不走接口:这条 spec 验的就是 owner 手填的那对头。
+// addServerOnPanel — fills in an external MCP server (including the auth header) on the
+// /admin/api panel. Goes through the UI, not the API: what this spec verifies is exactly
+// the header pair the owner types by hand.
 async function addServerOnPanel(
   page: Page, name: string, authValue: string,
 ): Promise<void> {
@@ -93,13 +103,15 @@ async function addServerOnPanel(
   await page.getByTestId('mcp-server-auth-name').fill(AUTH_HEADER_NAME);
   await page.getByTestId('mcp-server-auth-value').fill(authValue);
   await page.getByTestId('mcp-server-add').click();
-  // 列表里出现这一行 = 真落库了(不是表单自己清空的假象)。
+  // This row appearing in the list = it actually landed in storage (not just the form
+  // clearing itself as an illusion of success).
   await expect(
     page.getByTestId('mcp-servers-list').getByText(name, { exact: false }),
   ).toBeVisible({ timeout: 15_000 });
 }
 
-// attachToCode —— 把这台 server 挂进一个 role,再发一个 code。访客拿这个 code 进来。
+// attachToCode — attaches this server to a role, then issues a code. The visitor enters
+// using this code.
 async function attachToCode(
   page: Page, serverName: string, code: string, roleName: string,
 ): Promise<void> {
@@ -132,8 +144,9 @@ async function findServerID(
   return row?.id ?? '';
 }
 
-// askVisitorToCallExtTool —— 访客用这个 code 进来,让 AI 去调那台 server 的工具,
-// 返回答案区的 locator。mock provider 是纯注册式的:这里注册"下一轮调这个工具"。
+// askVisitorToCallExtTool — a visitor enters using this code and has the AI call that
+// server's tool; returns the locator for the answer area. The mock provider is purely
+// registration-based: here it registers "call this tool on the next turn".
 async function askVisitorToCallExtTool(
   browser: Browser, code: string, serverName: string,
 ) {

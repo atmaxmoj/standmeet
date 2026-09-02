@@ -1,9 +1,11 @@
-// qr-code-absorb.spec.ts —— recruiter 扫 PDF 上的 QR (URL = `/?code=ABC`)
-// → 落到 root → `?code=` 立刻被吸进 zustand store + 从 URL 删掉 +
-// session token 落 localStorage + banner 切到 'invited (code)' 档。
+// qr-code-absorb.spec.ts -- a recruiter scans the QR on a PDF (URL = `/?code=ABC`) ->
+// lands on root -> `?code=` gets absorbed into the zustand store immediately + stripped
+// from the URL + the session token lands in localStorage + the banner switches to the
+// 'invited (code)' tier.
 //
-// 安全意义：明文 access code 不能留在 URL/history/截图/referer 上；扫
-// QR 的 visitor 一眼看到的 URL 已经是干净的 `/`。
+// Security significance: a plaintext access code must never stay in the URL / history /
+// screenshot / referer; a visitor who scans the QR sees a URL that's already the clean
+// `/` at first glance.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -32,16 +34,17 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
     async ({ page }) => {
       await goto(page, '/?code=' + VISITOR_CODE);
 
-      // 1. URL 立刻被清干净（?code= 不留在 URL/history/截图上）。
+      // 1. The URL is cleaned up immediately (?code= never stays in the
+      //    URL/history/screenshot).
       await expect.poll(() => page.url(), { timeout: 5_000 })
         .not.toMatch(/[?&]code=/);
       expect(page.url()).toMatch(/\/$/);
 
-      // 2. defer-issue:此时还没 issue session,先弹名字选择器。
+      // 2. defer-issue: no session issued yet at this point; the name picker pops first.
       const skip = page.getByTestId('visitor-name-skip');
       await expect(skip).toBeVisible({ timeout: 5_000 });
 
-      // 3. skip → 这时才 issueCodeSession;session + strip 起来。
+      // 3. skip -> only now does issueCodeSession fire; session + strip come up.
       const sessionsCall = page.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.request().method() === 'POST'
         && res.status() === 200);
@@ -49,7 +52,7 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
       await sessionsCall;
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
-      // 4. localStorage 有 visitor-session（byoai=false）。
+      // 4. localStorage has visitor-session (byoai=false).
       const stored = await page.evaluate(() =>
         window.localStorage.getItem('standmeet:visitor-session'));
       expect(stored).toBeTruthy();
@@ -60,11 +63,12 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
 
   test('reload on / (no code in URL) → 不会重复 issue session；banner 仍是 code',
     async ({ page }) => {
-      // 先模拟"已经吸过 code"：用户 /?code=QR-001 落地 → 现在 reload 干净 URL
+      // First simulate "the code has already been absorbed": the user lands on
+      // /?code=QR-001 -> now reload to a clean URL.
       await enterCodeSession(page, VISITOR_CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible();
 
-      // 现在 reload 到干净 URL，看不会再发 sessions POST
+      // Reload now to the clean URL and check it doesn't fire another sessions POST.
       let extraCalls = 0;
       page.on('request', (req) => {
         if (req.method() === 'POST' && req.url().endsWith('/api/v1/sessions')) {
@@ -72,8 +76,9 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
         }
       });
       await goto(page, '/');
-      // banner 重新挂出 = mount cycle 完整跑完，extraCalls 这时一定是 final
-      // 值（没有 setTimeout / debounce 延后 POST 的代码路径）。
+      // The banner re-mounting means the mount cycle ran to completion, so extraCalls
+      // must be at its final value by now (there's no setTimeout / debounce code path
+      // that would delay a POST).
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       expect(extraCalls).toBe(0);
     });
@@ -84,16 +89,19 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
       await page.evaluate(() => window.localStorage.clear());
 
       await goto(page, '/?code=BOGUS-NOPE');
-      // URL 上 code= 被清掉（absorb 仍发生,只是不立刻 issue）。
+      // code= is cleared from the URL (absorb still happens, it just doesn't issue
+      // right away).
       await expect.poll(() => page.url(), { timeout: 5_000 })
         .not.toMatch(/[?&]code=/);
 
-      // 名字选择器弹;skip → issueCodeSession(坏码) → 401 → 丢 pending 回落 public。
+      // The name picker pops; skip -> issueCodeSession (bad code) -> 401 -> drops the
+      // pending code and falls back to public.
       const skip = page.getByTestId('visitor-name-skip');
       await expect(skip).toBeVisible({ timeout: 5_000 });
       await skip.click();
 
-      // 没 session → strip 不渲;名字选择器也消失(pending 被消费)。
+      // No session -> the strip doesn't render; the name picker is also gone (the
+      // pending code has been consumed).
       await expect(page.getByTestId('session-strip')).toHaveCount(0, { timeout: 5_000 });
       await expect(skip).toBeHidden({ timeout: 5_000 });
     });
@@ -112,7 +120,8 @@ async function initOwnerWithCode(playwright: Playwright): Promise<void> {
 
 async function seedCode(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  // 启 MCP session 是为了把 owner-side 的状态都跑通；createCode 自己不需要
+  // Starting an MCP session is just to exercise the owner-side state end to end;
+  // createCode itself doesn't need it.
   const apiToken = await createAPIToken(request, csrf, 'qr-seed-token');
   await initMCP(request, apiToken);
   await createCode(request, csrf, {

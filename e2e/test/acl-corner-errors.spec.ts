@@ -1,11 +1,13 @@
 // acl-corner-errors.spec.ts —— §F（corner）+ §E（error stream）of capability-acl-hierarchy-tests.md.
 //
-// §F：code-deny 只收窄授权，不碰存在性/连接/配额。纯 AND·deny 下「code 反向 allow」的
-// corner（旧 F1/F2/F3/F7）已不存在。F4（deny-noop-when-role-ungranted）= A4，已在
-// acl-capability-matrix（acl-cap-code-deny-noop）覆盖，这里不重复。
-// §E：deny 写口的坏值/重复/撤销/读回/鉴权。
+// §F: code-deny only narrows authorization, never touches existence/connection/quota. Under
+// pure AND·deny, the "code reverse-allow" corners (old F1/F2/F3/F7) no longer exist. F4
+// (deny-noop-when-role-ungranted) = A4, already covered by acl-capability-matrix
+// (acl-cap-code-deny-noop), not repeated here.
+// §E: bad values / duplicates / revoke / read-back / auth on the deny write endpoint.
 //
-// 红 until: code-deny schema + admin 子路由（含坏 body 400 / 重复幂等 / 撤销 / 读回）。
+// Red until: code-deny schema + admin sub-routes (bad body 400 / duplicate idempotence /
+// revoke / read-back).
 
 import { test, expect } from '@/fixtures/test';
 
@@ -52,7 +54,7 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
   });
 
   test('acl-deny-on-revoked-code · revoked code → session 401, deny is moot', async () => {
-    const { request } = seed; // 独立 APIRequestContext，bare 变量避开「写走 UI」规则
+    const { request } = seed; // independent APIRequestContext; bare variable dodges the "writes go through the UI" rule
     const code = await issueCodeWithSkills(request, seed.csrf, { granted_skills: [CAP] });
     await setCodeCapabilityDenial(request, seed.csrf, code.id, CAP);
     const revoke = await request.post(`${BACKEND}/api/admin/codes/${code.id}/revoke`, {
@@ -64,7 +66,7 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
   });
 
   test('acl-deny-missing-csrf · write deny without CSRF → 403', async () => {
-    const { request } = seed; // 独立 APIRequestContext，bare 变量避开「写走 UI」规则
+    const { request } = seed; // independent APIRequestContext; bare variable dodges the "writes go through the UI" rule
     const code = await issueCodeWithSkills(request, seed.csrf, { granted_skills: [CAP] });
     const res = await request.post(
       `${BACKEND}/api/admin/codes/${code.id}/denials/capability`,
@@ -89,8 +91,8 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
   test('acl-deny-undo-reissue · deny → clear → reissue → capability back', async () => {
     const code = await issueCodeWithSkills(seed.request, seed.csrf, { granted_skills: [CAP] });
     expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
-    // 200 + 改完的那份清单,跟 POST 同形。曾经是 204(无正文):那样面板改完还得再拉一次,
-    // 而"改成什么样了"只能靠它自己猜。
+    // 200 + the updated list, same shape as POST. Used to be 204 (no body): the panel would
+    // have to re-fetch after every edit, and had to guess at "what did it become".
     expect(await clearCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBe(200);
     const left = await listCodeDenials(seed.request, seed.csrf, code.id);
     expect(left.capability_ids, 'the denial is really gone, not just a 200').not.toContain(CAP);

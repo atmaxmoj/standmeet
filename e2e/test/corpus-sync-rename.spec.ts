@@ -1,11 +1,14 @@
-// corpus-sync-rename.spec.ts —— 迁移前 gap-fill (🟡#3)。
+// corpus-sync-rename.spec.ts -- pre-migration gap-fill (🟡#3).
 //
-// 在 vault 里**移动/改名**一个笔记(source_path 变、frontmatter slug 稳定)再重导 —— 此前**零测试**
-// (obsidian-sync 只测了同 path 重导的 update 分支)。而现实(import.go:12)：idempotency 是
-// **source_path OR slug**(不是 todo #24 说的 "source_path only" —— 那条 stale)。所以带稳定 slug 的
-// rename → 按 **slug** 匹配上原笔记 → **更新**(source_path 刷成新的)，不孤儿、不重复。结构迁移要统一
-// 各 genre 的 sync identity / 可能加「稳定 identity key」—— 这条钉住当前的 slug-based 匹配行为，
-// migration 的任何改动必须是**故意**的。
+// **Moving/renaming** a note inside the vault (source_path changes, frontmatter slug stays
+// stable) and re-importing -- previously **zero test coverage** (obsidian-sync only tested
+// the update branch of re-importing at the same path). Reality (import.go:12): idempotency
+// is **source_path OR slug** (not "source_path only" as todo #24 claims -- that note is
+// stale). So a rename with a stable slug -> matches the original note by **slug** ->
+// **updates** it (source_path refreshed to the new one), no orphan, no duplicate. A
+// structural migration to unify sync identity across genres / possibly add a "stable
+// identity key" is planned -- this test pins down the current slug-based matching behavior,
+// so any change from that migration must be **deliberate**.
 
 import { test, expect } from '@/fixtures/test';
 

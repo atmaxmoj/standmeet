@@ -1,13 +1,15 @@
-// connector-booked-card-sandbox.spec.ts —— §一(booked-card 外置)
+// connector-booked-card-sandbox.spec.ts —— §1 (booked-card externalized)
 //
-// 重构后:成功的 calendar_book 渲成 booker 插件 ui:// 服出的**沙盒 iframe 卡**
-// (`mcp-app-card-calendar_book`),退役了最后一张写死的 React 卡
-// (`tool-card-calendar_book`,`NON_SANDBOX_CARDS` 清空)。这条守的是「外置发生了」
-// 这件事本身:book 成功 → 主 DOM 出 iframe、**不**出旧 React 卡;iframe 内容
-// (booked 确认)经 frameLocator 取得到。
+// After the refactor: a successful calendar_book renders as the **sandboxed iframe card**
+// served by the booker plugin's ui:// (`mcp-app-card-calendar_book`), retiring the last
+// hardcoded React card (`tool-card-calendar_book`, `NON_SANDBOX_CARDS` emptied). What this
+// guards is the fact that **externalization actually happened**: booking succeeds → the
+// iframe shows up in the main DOM, and the old React card does **not**; the iframe content
+// (the booked confirmation) is reachable through frameLocator.
 //
-// RED / TDD:在 booked 卡真正变成 ui:// 沙盒 iframe 之前,这条运行期失败
-// (旧 React 卡仍在主 DOM、没有 mcp-app-card-calendar_book iframe)。
+// RED / TDD: before the booked card is actually turned into a ui:// sandbox iframe, this
+// test fails at runtime (the old React card is still in the main DOM, no
+// mcp-app-card-calendar_book iframe exists).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -31,23 +33,26 @@ test.describe('connector · booked card is a ui:// sandbox iframe (§1 externali
       const page = await ctx.newPage();
       await enterAndBook(page, seed.code.code, 'Sandy', 'sandy@example.com', 14);
 
-      // 外置卡:外层 host 容器(iframe)在主 DOM 可见。
+      // Externalized card: the outer host container (an iframe) is visible in the main DOM.
       const host = page.getByTestId('mcp-app-card-calendar_book');
       await expect(host, 'booked sandbox card host visible').toBeVisible({ timeout: 20_000 });
-      // 它真是个 iframe(沙盒),不是普通 div。
+      // It's genuinely an iframe (sandboxed), not a plain div.
       expect(await host.evaluate((el) => el.tagName.toLowerCase())).toBe('iframe');
 
-      // 旧的写死 React 卡**不在主 DOM**(NON_SANDBOX_CARDS 已清空)。
+      // The old hardcoded React card is **not in the main DOM** (NON_SANDBOX_CARDS emptied).
       await expect(page.locator('body > * [data-testid="tool-card-calendar_book"]'))
         .toHaveCount(0);
 
-      // iframe 内容(booked 确认)经 frameLocator 取得到 —— 证明渲染落在 sandbox 里。
+      // The iframe content (the booked confirmation) is reachable through frameLocator —
+      // proof that rendering actually happens inside the sandbox.
       const frame = page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
       await expect(frame.getByTestId('book-card-time')).toBeVisible({ timeout: 10_000 });
 
-      // **这张卡就是访客留下的凭证,时间必须带时区**(UX-69)。正文里写全了两套时区,
-      // 但正文会被滚上去,卡片留下来 —— 一个别的时区的招聘官看到「8:00 AM」,
-      // 没有任何东西告诉他这是谁的 8 点。booking-slots 的 LOOK 判据逐字要求过这件事:
+      // **This card is the visitor's own receipt, so the time must carry its zone** (UX-69).
+      // The body message spells out both time zones, but the body scrolls away while the
+      // card stays put — a recruiter in a different zone would see "8:00 AM" with nothing
+      // telling them whose 8 o'clock that is. booking-slots' LOOK criterion demands this
+      // literally, word for word:
       // "Every time carries its zone, because a bare clock time is ambiguous to anyone
       //  not in the owner's zone."
       const when = await frame.getByTestId('book-card-time').innerText();
@@ -58,8 +63,8 @@ test.describe('connector · booked card is a ui:// sandbox iframe (§1 externali
     });
 });
 
-// enterAndBook —— ?code 入口 → 名字+email → script 一次 calendar_book → 触发 →
-// 等 booked 沙盒卡 iframe 出现。
+// enterAndBook — ?code entry → name+email → script one calendar_book → trigger it → wait
+// for the booked sandbox card iframe to appear.
 async function enterAndBook(
   page: Page, code: string, name: string, email: string, hour: number,
 ): Promise<void> {

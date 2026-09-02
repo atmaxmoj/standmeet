@@ -1,12 +1,14 @@
-// security-referrer-policy.spec.ts —— 访问码不能随 Referer 出门。
+// security-referrer-policy.spec.ts — an access code must not travel out via the Referer header.
 //
-// pentest 2026-09-01：访问码坐在 URL 的 query 里（简历 QR = `/<handle>?code=ABC`）。
-// 入口 hook 会立刻 history.replaceState 抹掉它，但首屏那一瞬 JS 还没跑，跨源子资源请求
-// 会把含码的完整 URL 放进 Referer 头，泄给外部主机。
+// Pentest 2026-09-01: the access code sits in the URL's query string (a resume QR code =
+// `/<handle>?code=ABC`). The entry hook immediately calls history.replaceState to wipe it, but
+// for that first instant before JS has run, a cross-origin subresource request would put the
+// full URL — code included — into the Referer header, leaking it to an external host.
 //
-// 契约：app 对所有路径发 `Referrer-Policy: strict-origin-when-cross-origin` ——
-// 同源照常，跨源只发 origin（不含 query），码从此不随 Referer 出门。
-// RED（加头之前）：没有 Referrer-Policy 头。
+// Contract: the app sends `Referrer-Policy: strict-origin-when-cross-origin` on every path —
+// same-origin behaves as usual, cross-origin only sends the origin (no query string), so the
+// code no longer travels out via Referer.
+// RED (before the header was added): no Referrer-Policy header present.
 
 import { test, expect } from '@/fixtures/test';
 

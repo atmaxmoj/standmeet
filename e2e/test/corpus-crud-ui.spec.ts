@@ -1,12 +1,12 @@
-// corpus-crud-ui.spec.ts —— raw / wiki / output 三层 CRUD UI 走通。
+// corpus-crud-ui.spec.ts — end-to-end CRUD across the raw / wiki / output genres, UI-driven.
 //
-// 用户故事：
-//   owner 不开 Claude Desktop，直接在 admin 网页里：
-//     1. /admin/wiki 点 "+ new wiki" → 填表单 → 保存 → list 里看到
-//     2. 点同一条 wiki 的 "promote → output" → 填 output title → 保存 →
-//        /admin/output 里看到那条 output
-//     3. 点 output 的 "delete ×" → confirm() → list 里没了
-//   全链路 UI-driven，没碰 MCP。
+// User story:
+//   Owner doesn't open Claude Desktop, and instead works directly in the admin web UI:
+//     1. On /admin/wiki, click "+ new wiki" → fill the form → save → it shows up in the list
+//     2. Click "promote → output" on that same wiki row → fill the output title → save →
+//        the new output shows up on /admin/output
+//     3. Click "delete ×" on the output → confirm() → it's gone from the list
+//   The whole chain is UI-driven, never touching MCP.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -58,15 +58,16 @@ async function createWikiViaUI(page: Page): Promise<void> {
 }
 
 async function promoteWikiToOutputViaUI(page: Page): Promise<void> {
-  // 拿刚 create 那条 row 的 promote 按钮：getByText 找标题所在 li，链 promote 按钮。
+  // Grab the promote button for the row just created: getByText finds the li with the
+  // title, then chain into its promote button.
   const row = page.locator('[data-testid^="wiki-row-"]', { hasText: WIKI_TITLE });
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: /promote → output/i }).click();
-  // form 出现：用 row 内 scoped locator 命中 promote form 的 title
+  // The form appears: use a locator scoped to the row to hit the promote form's title field
   const titleInput = row.locator('[data-testid$="-title"]').first();
   await titleInput.fill(OUTPUT_TITLE);
   await row.getByRole('button', { name: /^promote$/i }).click();
-  // 跳 admin/output 看新条
+  // Navigate to admin/output to see the new entry
   await gotoAdminSection(page, 'output');
   await page.waitForURL('**/admin/output', { timeout: 5_000 });
   await expect(page.getByTestId('output-list')).toBeVisible();

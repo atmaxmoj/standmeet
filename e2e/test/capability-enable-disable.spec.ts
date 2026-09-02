@@ -1,10 +1,12 @@
-// capability-enable-disable.spec.ts —— Phase H / P.6+P.7：可用性（availability）
-// 是 owner-plane 的门。owner 在「能力」面板关掉一个能力 → 它的 tool 立刻从访客
-// session 里消失；**builtin 也能关**（P.7：builtin 可关不可删）。再打开 → 回来。
+// capability-enable-disable.spec.ts — Phase H / P.6+P.7: availability is the owner-plane
+// gate. Owner disables a capability in the "capabilities" panel -> its tool immediately
+// disappears from visitor sessions; **builtin capabilities can be disabled too**
+// (P.7: builtin can be disabled but not deleted). Re-enable -> it comes back.
 //
 // exposed = exists(origin) ∧ owner_enabled ∧ connector_deps_met ∧ role_acl ∧ quota
-// 本 spec 锁的是 owner_enabled 这一门，对 builtin 一视同仁（corpus.retrieval 是
-// 内建、且任何带 corpus 授权的访客都看得到 corpus_search）。
+// This spec locks down the owner_enabled gate, treating builtin the same as any other
+// capability (corpus.retrieval is builtin, and any visitor with corpus grant can see
+// corpus_search).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -24,8 +26,8 @@ const OWNER = {
 };
 
 const CODE = 'CAP-TOGGLE-1';
-// corpus.retrieval 是内建能力，暴露 corpus_search / corpus_read 给任何带 corpus
-// 授权的访客。
+// corpus.retrieval is a builtin capability, exposing corpus_search / corpus_read to any
+// visitor with corpus grants.
 const RETRIEVAL_ID = 'corpus.retrieval';
 const RETRIEVAL_TOOL = 'corpus_search';
 

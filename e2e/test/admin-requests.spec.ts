@@ -1,7 +1,7 @@
 // admin-requests.spec.ts —— admin requests: seeded request appears, approve
 // gated on a verified mail connector, filter chips work.
 //
-// 用户故事：
+// User story:
 //   1. request seeded via API → appears in admin list
 //   2. WITHOUT a verified mail connector: no approve button, a "connect mail"
 //      hint shows instead (can't issue + email a code you can't send). The
@@ -170,7 +170,8 @@ async function submitRequestViaAPI(request: APIRequestContext): Promise<void> {
   });
 }
 
-// seedRequestsOwner —— claim owner + 播一条访客请求。抽出 describe 让其体 ≤70 行。
+// seedRequestsOwner -- claim owner + seed one visitor request. Extracted so the
+// describe body stays <=70 lines.
 async function seedRequestsOwner(playwright: Playwright): Promise<void> {
   resetInstance();
   const request = await playwright.request.newContext();

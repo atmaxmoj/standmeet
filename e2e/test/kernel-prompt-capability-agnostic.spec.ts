@@ -1,17 +1,24 @@
-// kernel-prompt-capability-agnostic.spec.ts —— 没被授予的能力,不该出现在访客的系统提示里。
+// kernel-prompt-capability-agnostic.spec.ts — a capability the visitor was not granted
+// must not show up in their system prompt.
 //
-// 内核每一轮都往 instruction 里拼一段通用上下文:现在几点、owner 在哪个时区、访客在哪个时区。
-// 这段跟"访客被授了什么"无关 —— 但它一直写着 "the owner's **calendar** runs in this timezone"
-// 和 "before proposing or **scheduling** times"。于是一个只被授了语料、连预约工具都看不见的
-// 访客,系统提示里照样躺着一句关于日程的指示:模型可能据此提议约时间,而那个能力根本不存在。
+// Every turn, the kernel assembles a generic context block into the instruction: current
+// time, the owner's timezone, the visitor's timezone. That block has nothing to do with
+// "what was this visitor granted" — but it kept saying "the owner's **calendar** runs in
+// this timezone" and "before proposing or **scheduling** times". So a visitor granted
+// only corpus access, who can't even see a booking tool, still had a scheduling
+// instruction sitting in their system prompt: the model could propose booking a time
+// based on it, for a capability that doesn't exist at all.
 //
-// check-core-agnostic 的基线上最后一条就是它。搬法:时区**事实**留在内核(简历、经历、"最近"
-// 都要锚今天),怎么换算 / 什么时候反问 / 要不要双显那些**指示**归还给会排期的那个能力,
-// 由它在自己的 MCP instructions 里说 —— 授了才出现。
+// This is the last item on check-core-agnostic's baseline. The fix: the timezone
+// **facts** stay in the kernel (résumé, experience, "recently" all need to anchor to
+// today), while the **instructions** — how to convert it / when to ask back / whether to
+// show both — go back to whichever capability actually handles scheduling, said in its
+// own MCP instructions — appearing only once it's granted.
 //
-// mock provider 把收到的 system prompt 原样回显成 `[system:...]`(见 mock-stack/llm-gateway
-// 的 composeFinalReply),所以这里断的是**真正发给模型的那份**,不是 diag 的快照 ——
-// 那一段是每轮拼的,快照里根本看不到。
+// The mock provider echoes back the system prompt it received verbatim as `[system:...]`
+// (see composeFinalReply in mock-stack/llm-gateway), so what's asserted here is **the
+// prompt actually sent to the model**, not diag's snapshot — that context block is
+// assembled fresh every turn, and diag's snapshot never shows it at all.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -31,7 +38,8 @@ const OWNER = {
 
 const CODE = 'KERNEL-PROMPT-001';
 
-// 具体能力的词。这个访客一个日程工具都没有,系统提示里就不该出现它们。
+// Words specific to a concrete capability. This visitor has no scheduling tool at all,
+// so none of these should appear in their system prompt.
 const CAPABILITY_WORDS = /calendar|schedul|book a meeting|appointment/i;
 
 test.describe('the always-on part of the system prompt names no capability', () => {
@@ -51,7 +59,8 @@ test.describe('the always-on part of the system prompt names no capability', () 
     expect(res.status()).toBe(200);
     const body = await res.text();
 
-    // 先证明我们确实看到了那份 prompt —— 回显没了的话,下面那条"不含"会白白变绿。
+    // First prove we actually got to see that prompt — if the echo were missing, the
+    // "does not contain" assertion below would go green for nothing.
     expect(body, 'the mock echoes the system prompt it received').toContain('[system:');
     expect(body, 'the generic time anchor is still injected').toContain('Current date and time:');
 
@@ -62,7 +71,7 @@ test.describe('the always-on part of the system prompt names no capability', () 
   });
 });
 
-// grantCorpusOnlyCode —— 一个只给语料、不给任何能力的 role + code。
+// grantCorpusOnlyCode — a role + code that grants corpus access only, no capabilities.
 async function grantCorpusOnlyCode(request: APIRequestContext): Promise<void> {
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   const role = await createRole(request, csrf, {

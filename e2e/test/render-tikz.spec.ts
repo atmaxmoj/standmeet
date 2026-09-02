@@ -1,11 +1,14 @@
-// render-tikz.spec.ts —— TikZ 精确数学图渲染(RED-first,待实现)。
+// render-tikz.spec.ts — precise TikZ math diagram rendering (RED-first, not yet
+// implemented).
 //
-// 设计(rendering-and-extensibility.md §37):不 import Obsidian 插件,直接用底层库
-// (TikZJax,跟 Obsidian 同引擎 → 两侧一致);WASM payload 大,须 **lazy**(不进 SSR),
-// 跟 MermaidBlock 同 pattern。
+// Design (rendering-and-extensibility.md §37): don't import the Obsidian plugin, use
+// the underlying library directly (TikZJax, the same engine Obsidian uses → the two
+// sides stay consistent); the WASM payload is large, so it must be **lazy** (kept out
+// of SSR), the same pattern as MermaidBlock.
 //
-// 契约:` ```tikz ` fenced block → 客户端 lazy 渲成 `<svg>`(TikZJax 输出),或渲染失败时
-// 优雅 fallback(不崩、不把源码当普通 code 一直卡在 loading)。
+// Contract: a ` ```tikz ` fenced block → the client lazily renders it to `<svg>`
+// (TikZJax's output), or falls back gracefully on a render failure (no crash, and
+// never leaves the source stuck in a loading state as if it were plain code).
 
 import { test, expect } from '@/fixtures/test';
 
@@ -42,14 +45,18 @@ test.describe('render · TikZ diagrams on the reader', () => {
       await expect(doc.locator('[data-testid="tikz-svg"] svg')).toBeVisible({ timeout: 20_000 });
     });
 
-  // 真 vault 里的 tikz **几乎不在顶层**：多语笔记把正文包在 `> [!i18n]` 的双层引用块里，
-  // 图跟着进去。上面那条只驱了顶层那一格 —— 而 prod 上
-  // `math/logic/chomsky-hierarchy/context-free-languages` 那张 PDA 图渲出来是**一整段
-  // LaTeX 源码**，连 loading / error 态都没进，也就是说那个块根本没被认成 tikz。
-  // 覆盖落在了这条规则不会失效的那一侧（跟中文强调、跟引用 href 是同一个形状）。
+  // In a real vault, tikz **almost never sits at the top level**: a multi-language
+  // note wraps its body in a double-nested `> [!i18n]` blockquote, and the diagram
+  // rides along inside it. The case above only drives the top-level cell — while in
+  // prod, the PDA diagram at
+  // `math/logic/chomsky-hierarchy/context-free-languages` rendered as **a whole
+  // block of raw LaTeX source**, never even reaching a loading / error state, which
+  // means that block was never recognized as tikz at all.
+  // The coverage lands on the side of this rule where it can't quietly stop firing
+  // (the same shape as Chinese-text emphasis, and as blockquote hrefs).
   test('引用块里的 ```tikz 一样渲成图，不是一段源码',
     async ({ request, page }) => {
-      // `> >` 双层 —— 跟 vault 里 i18n callout 的形状一致。
+      // `> >` double-nesting — matches the shape of an i18n callout in the vault.
       const quoted = ['> [!i18n]', '> > ## Diagram', '> >',
         ...TIKZ.split('\n').map((l) => `> > ${l}`)].join('\n');
       await uploadVault(request, OWNER, [
@@ -60,16 +67,21 @@ test.describe('render · TikZ diagrams on the reader', () => {
       await expect(doc).toBeVisible();
       await expect(doc.locator('[data-testid="tikz-svg"] svg'),
         '引用块里的 tikz 也要变成图').toBeVisible({ timeout: 20_000 });
-      // 判负的那一半：先钉住上面那条（图真的在），这一条才不是在空页上恒真。
+      // The failure-detecting half: with the assertion above pinning down that the
+      // image is really there, this one is no longer vacuously true on an empty page.
       await expect(doc, '不许把 LaTeX 源码印给读者').not.toContainText('\\begin{tikzpicture}');
     });
 
-  // 一页多张图 —— 真 vault 里的常态(`chomsky-hierarchy/context-free-languages` 有 4 张)。
-  // 上面两条各只有一张图,而**一张图的时候这条缺陷不出现**:浏览器同时发几个
-  // `POST /render-tikz`,服务端那个 WASM TeX 引擎不可重入,一撞就双方一起抛
-  // `TeX engine render failed`(线上实测:单发 200,并发 2 个 → 两个都 422,0.6s 就回,
-  // 连超时都没到)。读者看到的是「有的渲出来了,有的印着一段 LaTeX 源码」,而且哪几张
-  // 失败是随机的 —— 这也正是 owner 报的那一条。
+  // Multiple diagrams on one page — the normal case in a real vault
+  // (`chomsky-hierarchy/context-free-languages` has 4). The two cases above each
+  // have only one diagram, and **this defect never shows up with just one**: the
+  // browser fires several `POST /render-tikz` requests at once, the server's WASM
+  // TeX engine is not reentrant, and a collision makes both requests throw `TeX
+  // engine render failed` (measured live: a single request returns 200, two
+  // concurrent ones both come back 422 in 0.6s, without even reaching a timeout).
+  // What the reader sees is "some diagrams rendered, some show a block of raw
+  // LaTeX source", and which ones fail is random — this is exactly the case the
+  // owner reported.
   test('同一页上的多张 tikz 全都渲出来,不是随机丢几张',
     async ({ request, page }) => {
       const three = [1, 2, 3]

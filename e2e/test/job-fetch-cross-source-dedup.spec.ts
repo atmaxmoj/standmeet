@@ -1,12 +1,12 @@
-// job-fetch-cross-source-dedup.spec.ts —— J.6c: 跨源去重。
-// 同一岗位被 owner 多源 (JBA 聚合 + 自注册 Greenhouse) 同时返时，
-// fetch_new 只 surface 一条。
+// job-fetch-cross-source-dedup.spec.ts -- J.6c: cross-source dedup.
+// When the same job is returned by two of the owner's sources at once (the JBA aggregate +
+// a self-registered Greenhouse), fetch_new must surface only one.
 //
-// Setup: register Greenhouse "betalabs" 先 (fixture 2 条 jobs，其中第一条
-// URL = https://boards.greenhouse.io/betalabs/jobs/4001)；再 register JBA
-// filter = 默认；JBA chunk fixture 含同一条 URL 的 entry (acme/beta/...)
-// 5 条。fetch_new 拉全量 → JBA 5 + GH 2 = 7 raw；canonical URL dedup
-// 去掉 1 条 (4001)；surface = 6。
+// Setup: register Greenhouse "betalabs" first (fixture returns 2 jobs, the first with
+// URL = https://boards.greenhouse.io/betalabs/jobs/4001); then register JBA with the
+// default filter; the JBA chunk fixture has 5 entries, including one with the same URL
+// (acme/beta/...). fetch_new pulls everything -> JBA 5 + GH 2 = 7 raw; canonical URL dedup
+// drops 1 (4001); surface = 6.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -38,7 +38,7 @@ test.describe('jobs.fetch_new cross-source dedup', () => {
       const token = await createAPIToken(request, csrf, 'dedup-spec');
       const sid = await initMCP(request, token);
 
-      // Greenhouse 先 — 先注册的源 fetch 顺序在前，dedup 时第一次见即留下。
+      // Greenhouse first -- the source registered first fetches first, so dedup keeps whichever it sees first.
       await jobsRegisterSource(request, token, sid, {
         kind: 'greenhouse',
         label: 'betalabs GH',
@@ -51,14 +51,14 @@ test.describe('jobs.fetch_new cross-source dedup', () => {
       });
 
       const fetched = await jobsFetchNew(request, token, sid);
-      // raw = 2 (GH) + 5 (JBA) = 7；overlap = 1 (URL = OVERLAP_URL)；
-      // surface = 6。
+      // raw = 2 (GH) + 5 (JBA) = 7; overlap = 1 (URL = OVERLAP_URL); surface = 6.
       expect(fetched.jobs).toHaveLength(6);
 
-      // **再问一次也还是 6**。池子是按源写进去的 —— 重复那条在池子里躺着两份，
-      // 以前只是回执看不见它。F-E-29 把回执改成从池子长出来，如果跨源去重没有
-      // 一起作用在池子这一面，第二次问就会冒出 7 条：修一个缺陷不能把另一个
-      // 已经守住的不变量放掉。
+      // **Asking again must still return 6.** The pool is written to per-source -- the
+      // duplicate sits in the pool twice, it just used to be invisible in the receipt.
+      // F-E-29 changed the receipt to be grown from the pool, so if cross-source dedup
+      // doesn't also apply on the pool side, the second ask would surface 7: fixing one bug
+      // must not drop an invariant that was already being guarded.
       const again = await jobsFetchNew(request, token, sid);
       expect(again.jobs, '第二次问，跨源去重照旧成立').toHaveLength(6);
       expect(
@@ -70,8 +70,8 @@ test.describe('jobs.fetch_new cross-source dedup', () => {
         '留下的仍然是先入池的那一条（Greenhouse），不是后来的那条',
       ).toBe('beta-labs');
 
-      // **两个面必须是同一块板子**。owner 在 Claude 里问到的，和他打开
-      // /admin/listings 看到的，条数对不上时没有一处说得清是谁错了。
+      // **Both surfaces must be the same board.** When the count the owner asked about in
+      // Claude doesn't match what they see opening /admin/listings, nothing tells you which one is wrong.
       const listings = await request.get('/api/admin/listings/', {
         headers: { 'X-Csrftoken': csrf },
       });
@@ -82,17 +82,20 @@ test.describe('jobs.fetch_new cross-source dedup', () => {
         '面板那一面跟 MCP 那一面是同一块板子',
       ).toEqual(again.jobs.map((j) => j.cache_id).sort());
 
-      // OVERLAP_URL 那条留的是 Greenhouse 版本 (先注册先赢)。
+      // The OVERLAP_URL entry that survives is the Greenhouse version (registered first wins).
       const overlap = fetched.jobs.filter((j) => j.url === OVERLAP_URL);
       expect(overlap).toHaveLength(1);
       expect(overlap[0]?.title).toBe('Backend Engineer (Go)');
-      // company_name 是 Greenhouse 那条的；JBA fixture 写的是 "beta-labs"，
-      // GH 写的也是 "beta-labs"。两者一致是巧合；这里只断保留的就是 GH 那条。
+      // company_name comes from the Greenhouse entry; the JBA fixture also happens to say
+      // "beta-labs", and so does GH. The two agreeing is coincidental; this only asserts the
+      // survivor is the GH entry.
       expect(overlap[0]?.company).toBe('beta-labs');
 
-      // **去重要有回执**（F-E-19）。以前判「跨源去重成立了吗」只能靠 6 < 2+5 这种算术，
-      // 而算术推出来的结论不算驱过 —— 真实环境里 435 vs 441 那 6 条差额就是这么无从解释的。
-      // 现在产品自己说：每个源 seen/pooled，外加跨源挡掉了几条。
+      // **Dedup needs a receipt** (F-E-19). Judging "did cross-source dedup actually happen"
+      // used to be possible only through arithmetic like 6 < 2+5, and a conclusion reached
+      // by arithmetic doesn't count as driven through -- in the real environment, that 6-job
+      // gap between 435 and 441 was exactly this unexplainable. Now the product states it
+      // directly: seen/pooled per source, plus how many were dropped cross-source.
       expect(fetched.cross_source_dropped, '同一条 URL 从两个源来，要报「挡掉了 1 条」')
         .toBe(1);
       const tallies = fetched.sources ?? [];
@@ -103,8 +106,8 @@ test.describe('jobs.fetch_new cross-source dedup', () => {
       expect(gh?.pooled, '两条都是新的').toBe(2);
       expect(jba?.seen, 'jba 上游给了 5 条').toBe(5);
       expect(jba?.pooled, '五条对这个源来说都是新的（跨源那一层在池子之后）').toBe(5);
-      // seen 之和 - 跨源挡掉 = 屏幕上看到的条数。这一行让三个数互相咬住，
-      // 少报或多报任何一个都会红。
+      // sum of seen - cross-source dropped = the count shown on screen. This line locks the
+      // three numbers together, so under- or over-reporting any one of them fails red.
       expect((gh?.seen ?? 0) + (jba?.seen ?? 0) - (fetched.cross_source_dropped ?? 0))
         .toBe(fetched.jobs.length);
     });

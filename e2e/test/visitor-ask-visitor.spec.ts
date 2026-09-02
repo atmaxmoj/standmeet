@@ -1,16 +1,19 @@
-// visitor-ask-visitor.spec.ts —— ask_visitor 已外置成独立 MCP app（in-process 加载），
-// 它的 widget 现在是 server 自带的 ui:// 卡，渲在**沙盒 iframe** 里（McpAppCard）。
+// visitor-ask-visitor.spec.ts — ask_visitor is now externalized into a standalone MCP
+// app (loaded in-process); its widget is now a server-provided ui:// card, rendered
+// inside a **sandboxed iframe** (McpAppCard).
 //
-// 用户故事不变，渲染机制变了：
-//   1. visitor 持 code 进 chat
-//   2. AI (mock) 调 ask_visitor (kind=radio, 3 options)
-//   3. McpAppCard 渲一个 sandbox iframe（data-testid=mcp-app-card-ask_visitor），
-//      卡 HTML 来自 ask-visitor server 的 ui:// 资源；question/options 由父页经
-//      postMessage 注入，渲在 iframe 内
-//   4. visitor 在 iframe 里点 option → 卡 postMessage('mcp-ui:submit') → 下一 turn
-//      自动 ask(选中项)，卡 lock 住 (data-answered=true)
+// The user story hasn't changed, but the rendering mechanism has:
+//   1. the visitor enters chat holding a code
+//   2. the AI (mock) calls ask_visitor (kind=radio, 3 options)
+//   3. McpAppCard renders a sandbox iframe (data-testid=mcp-app-card-ask_visitor); the
+//      card's HTML comes from the ask-visitor server's ui:// resource; question/options
+//      are injected by the parent page via postMessage and rendered inside the iframe
+//   4. the visitor clicks an option inside the iframe → the card postMessages
+//      ('mcp-ui:submit') → the next turn auto-asks (the selected option), and the card
+//      locks (data-answered=true)
 //
-// 断言用 frameLocator 钻进沙盒 iframe。yes_no / multi 各一条覆盖。
+// Assertions drill into the sandboxed iframe via frameLocator. One case each for
+// yes_no / multi.
 
 import { test, expect } from '@/fixtures/test';
 import type { FrameLocator, Page, Playwright } from '@playwright/test';
@@ -119,7 +122,8 @@ function lastDialog(page: Page) {
     .last();
 }
 
-// assertRadioCard —— 等沙盒卡渲出 + 校验 question/options，返回 frame 供点击。
+// assertRadioCard — waits for the sandbox card to render + verifies question/options,
+// returning the frame for clicking.
 async function assertRadioCard(page: Page, question: string): Promise<FrameLocator> {
   await expect(page.getByTestId('mcp-app-card-ask_visitor'),
     'sandbox iframe rendered').toBeVisible({ timeout: 10_000 });

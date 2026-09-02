@@ -1,13 +1,18 @@
-// acl-freeze-isolation.spec.ts —— §C（冻结 vs 活）+ §D（per-code 隔离）.
+// acl-freeze-isolation.spec.ts -- §C (frozen vs live) + §D (per-code isolation).
 //
-// §C：code 改了**在跑的不动**（**会话**签发时冻结 —— 不是码签发时，见
-//     `access/usecase/visitor_session.go:40-42`；下面 acl-code-reissue-reflects 钉的就是这个差别：
-//     同一张码**重新签发**立刻反映新值。这行原本写的是「role/code issue 时冻结」，
-//     跟三处面板文案错成同一个样子，见 F-L-29），global 改了**在跑的立刻动**（活）。
-// §D：deny 是 per-code 的，不是 per-role —— 同 role 两个 code 各自独立；deny 是集合（多 deny）。
+// §C: changing a code does **not** affect an in-flight session (freeze happens at
+//     **session** issuance, not code issuance -- see
+//     `access/usecase/visitor_session.go:40-42`; acl-code-reissue-reflects below pins
+//     exactly this distinction: **reissuing** the same code immediately reflects the
+//     new value. This line used to say "frozen at role/code issue time", matching the
+//     same wrong wording in three panel copy spots, see F-L-29), changing a global
+//     setting affects in-flight sessions immediately (live).
+// §D: deny is per-code, not per-role -- two codes on the same role are independent;
+//     deny is a set (multiple denials).
 //
-// 红 until: code-deny 落地（§C frozen/reissue、§D 全部）；acl-global-live-mid-session 复用
-// 现有 capability-disable-while-attached 的活闸，多半已绿（global-layer 回归锁）。
+// RED until: code-deny lands (§C frozen/reissue, all of §D); acl-global-live-mid-session
+// reuses the existing capability-disable-while-attached live gate, likely already green
+// (global-layer regression lock).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -26,8 +31,9 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const CAP = 'calendar.book';
 let n = 0;
 
-// roleGrantingBook —— 建一个 skill(allowed_tools=[calendar.book]) + role 挂它 + 有 corpus
-// scope（retrieval 活）。返回 role id。多个 code 可共用它（§D 同 role 两 code）。
+// roleGrantingBook -- builds a skill(allowed_tools=[calendar.book]) + attaches a role to
+// it + a corpus scope (retrieval live). Returns the role id. Multiple codes can share it
+// (§D: two codes on the same role).
 async function roleGrantingBook(req: APIRequestContext, csrf: string): Promise<string> {
   n += 1;
   const sk = await req.post(`${BACKEND}/api/admin/skills/`, {
@@ -107,9 +113,12 @@ test.describe('ACL §C/§D · freeze-vs-live + per-code isolation', () => {
     expect(tools).not.toContain('corpus_search');
   });
 
-  // 一张码的 ACL 是 owner 的东西:**读、写、整份替换**三条路都要先问"这张码是不是你的"。
-  // 只测写那一条是不够的 —— 归属检查漏掉过一次,而漏的方式正是"某一条路没问"。
-  // 不存在的 id 和别人的 id 给同一个答案:否则这个端点就成了一台"这个 id 存在吗"的探测器。
+  // A code's ACL belongs to the owner: **read, write, and full replace** must all ask
+  // "is this code yours?" first.
+  // Testing only the write path isn't enough -- the ownership check has been missed once
+  // before, and the way it was missed was exactly "one path forgot to ask".
+  // A nonexistent id and someone else's id must give the same answer: otherwise this
+  // endpoint becomes a probe for "does this id exist?".
   test('acl-code-denial-scoped-to-owner · a code not owned by this owner is 4xx on every ACL path',
     async () => {
       const foreign = '00000000-0000-0000-0000-000000000000';

@@ -1,7 +1,10 @@
-// dock-buttons-admin.spec.ts —— #109/#110 F：owner 在 role 卡上配 dock 按钮的后台 UI。
+// dock-buttons-admin.spec.ts — #109/#110 F: the admin UI where an owner configures
+// dock buttons on a role card.
 //
-// 两个固定按钮位（= 聊天两个位置）。每位 = 能力下拉（选项 = 该 role 的能力，label 用 MCP title）
-// + 触发词输入 + 「触发词」说明文案（防茫然）。存 → 冻进后续 session。
+// Two fixed button slots (= two chat positions). Each slot = a capability dropdown
+// (options = that role's capabilities, labeled by MCP title) + a trigger-phrase
+// input + a "trigger phrase" help caption (against confusion). Save → frozen into
+// subsequent sessions.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -31,7 +34,8 @@ test.describe('dock buttons · F — admin role-card config UI', () => {
       await openRoles(adminPage);
       const row = adminPage.getByTestId('role-row-greeter');
       await expect(row).toBeVisible({ timeout: 5_000 });
-      // 说明文案必须在（不然 owner 看到「触发词」会茫然）。
+      // The help caption must be present (otherwise an owner seeing "trigger
+      // phrase" would be confused).
       await expect(row.getByTestId('role-dock-help')).toBeVisible();
       await expect(row.getByTestId('role-dock-cap-0')).toBeVisible();
       await expect(row.getByTestId('role-dock-trigger-0')).toBeVisible();

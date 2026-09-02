@@ -1,14 +1,20 @@
-// connector-err-confirmation-fail-booking-kept.spec.ts —— §四 错误流矩阵 E11
-// 多步 partial:booking 已 commit(event 落地)→ 之后**确认信发失败** → booking
-// **保留**(getMockEvents 仍有那张 event)、卡显发送错误、**不回滚**、不崩。
-// 跟 E8(connector-err-smtp-fail)同一类故障但侧重断「booking 不被回滚」这一保证:
-// 即写库与发信是两步,后一步失败绝不撤前一步。
+// connector-err-confirmation-fail-booking-kept.spec.ts -- Section 4, error
+// stream matrix E11. Multi-step partial: the booking already committed
+// (the event landed) -> then the **confirmation email send fails** -> the
+// booking is **kept** (getMockEvents still has that event), the card shows a
+// send error, **no rollback**, no crash.
+// Same failure class as E8 (connector-err-smtp-fail) but focused on the
+// guarantee that "the booking is not rolled back": writing to the DB and
+// sending the mail are two steps, and the later step failing must never undo
+// the earlier one.
 //
 // Error stream E11: booking commits, then the confirmation email send fails →
 // the booking is KEPT (the event still exists via getMockEvents), the card shows
 // a send error, no rollback, no crash.
 //
-// RED / TDD：依赖 send_confirmation 把 SMTP 失败映射成卡内友好错误且**不回滚已 commit 的 booking** 落地后转绿。
+// RED / TDD: goes green once send_confirmation maps an SMTP failure to a
+// friendly in-card error and **does not roll back an already-committed
+// booking**.
 
 import { test, expect } from '@/fixtures/test';
 import type { FrameLocator, Page, Playwright } from '@playwright/test';
@@ -47,9 +53,11 @@ test.describe('connector error stream · confirmation send fails but booking is 
       await armSMTPFault(seed.request, { mode: 'connection_refused', times: 1 });
       const frame = bookedFrame(page);
       const prompt = frame.getByTestId('booking-email-prompt');
-      // 这一行同时是**前置条件**：整张确认卡只在 host 认为邮件送得出去时才渲染
-      // （`ownerCanDeliver`）。它可见 = **这个 owner 的邮件连接器是配好的**，
-      // 所以下面那两条断言量的确实是「配了但这一刻拨不通」，不是「没配过」。
+      // This line also serves as the **precondition**: the whole confirmation
+      // card only renders when the host believes mail can be delivered
+      // (`ownerCanDeliver`). Being visible = **this owner's mail connector is
+      // configured**, so the two assertions below really measure "configured
+      // but unreachable right now", not "never configured".
       await expect(prompt, 'precondition: mail IS configured (the card rendered)')
         .toBeVisible({ timeout: 10_000 });
       await frame.getByTestId('booking-email-use-profile').click();
@@ -61,11 +69,13 @@ test.describe('connector error stream · confirmation send fails but booking is 
       expect(errText, 'no stack / raw smtp error')
         .not.toMatch(/panic|goroutine|stack|dial tcp|connection refused/i);
 
-      // ★ F-C-42：**不许把「拨不通」说成「没配过」**。这句话是说给访客听的，
-      // 它既是假的，又顺带把 owner 的配置状态说了出去。
+      // * F-C-42: **must not describe "unreachable right now" as "never
+      // configured"**. This message is said to the visitor -- it would be
+      // both false and an incidental leak of the owner's configuration state.
       expect(errText, 'configured but unreachable must not read as "owner never set up email"')
         .not.toMatch(/set up email|configured email|not configured/i);
-      // 两个方向都断：只断「不含那句」的话，一句空话也能过（[[assertion-that-cannot-fail]]）。
+      // Assert both directions: asserting only "does not contain that phrase"
+      // would let an empty message pass too ([[assertion-that-cannot-fail]]).
       expect(errText, 'it must say the send failed now, and that the booking is still held')
         .toMatch(/couldn't send|try again/i);
       await expect(prompt).toHaveAttribute('data-sent', 'false');

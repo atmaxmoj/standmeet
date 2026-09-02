@@ -1,19 +1,27 @@
-// booking-invite-truth.spec.ts —— F-B-6。预约回执必须**说出邀请发给了谁**，包括「谁都没有」。
+// booking-invite-truth.spec.ts -- F-B-6. The booking receipt must **say who the invite went
+// to**, including "nobody".
 //
-// 真实环境里发生的事：访客在身份弹窗把「email (optional, for meeting invites)」留空，照样
-// 约成了；聊天于是说 *"The calendar invite will go to sijie.wang.lark@gmail.com. See you then."*
-// —— 那个地址是访客在**对话正文里**打的字。真收件箱空的，Google 上那个事件一个参会人都没有。
+// What happened in the real environment: the visitor left "email (optional, for meeting
+// invites)" blank in the identity modal, and the booking still went through; the chat then
+// said *"The calendar invite will go to sijie.wang.lark@gmail.com. See you then."*
+// -- that address was text the visitor had typed **in the chat body**. The real inbox was
+// empty; on Google, that event had zero attendees.
 //
-// 机制不是「模型瞎编」，是它手上根本没有可以反驳自己的那一格：
-//   · `book.go:53` 的 `VisitorEmail` 带 `omitempty` —— 没收集到邮箱时这个字段整个消失，
-//     回执变成 `{ok, event_id, html_link, start, end, can_email:true}`；
-//   · `can_email` 是 `ownerCanEmail(ownerID)`，说的是**能不能**发信，不是**发没发**；
-//   · 而 `content.go:19` 的 system-prompt fragment 又告诉模型「the calendar invite goes to the
-//     email the visitor entered when they arrived (if they gave one)」。
-// 「有没有给」这一格空着，模型就从对话里补 —— 一个省略的字段不等于 null（[[empty-is-not-json-null]]）。
+// The mechanism is not "the model made it up" -- it simply has no field it can check itself
+// against:
+//   - `book.go:53`'s `VisitorEmail` carries `omitempty` -- when no email was collected, the
+//     field disappears entirely, and the receipt becomes
+//     `{ok, event_id, html_link, start, end, can_email:true}`;
+//   - `can_email` is `ownerCanEmail(ownerID)`, which says **whether it's possible** to send
+//     mail, not **whether one was sent**;
+//   - and `content.go:19`'s system-prompt fragment tells the model "the calendar invite goes
+//     to the email the visitor entered when they arrived (if they gave one)".
+// With the "was one given" field missing, the model fills it in from the conversation --
+// an omitted field is not the same as null ([[empty-is-not-json-null]]).
 //
-// 判据放在**访客真看得见的那张卡**上，不放在 wire 上：卡才是访客留下的凭证（正文会被滚走），
-// 而这条缺陷的伤害恰恰是「凭证上写着一件没发生的事」。
+// The assertion lives on **the card the visitor actually sees**, not on the wire: the card
+// is the receipt the visitor keeps (the chat body will scroll away), and the harm of this
+// bug is precisely "the receipt states something that never happened".
 
 import { test, expect } from '@/fixtures/test';
 import type { FrameLocator, Page, Playwright } from '@playwright/test';
@@ -39,7 +47,8 @@ test.describe('F-B-6 · the booking receipt says who was invited', () => {
       await bookOnce(page, 7);
 
       const line = bookedFrame(page).getByTestId('book-card-invite');
-      // 断的是「它说了没有人被邀请」，不是「它没说错话」—— 沉默正是这条缺陷本身。
+      // The assertion is "it says nobody was invited", not "it said nothing wrong" -- staying
+      // silent is exactly this bug.
       await expect(line, 'the receipt states that nobody was invited')
         .toBeVisible({ timeout: 20_000 });
       await expect(line).toContainText(/no invite|not emailed|nobody/i);
@@ -60,7 +69,8 @@ test.describe('F-B-6 · the booking receipt says who was invited', () => {
     });
 });
 
-// bookOnce —— 派一次 scripted calendar_book（+days 天的工作时间内），等卡出现。
+// bookOnce -- fires one scripted calendar_book (within business hours, +days days out), then
+// waits for the card.
 async function bookOnce(page: Page, days: number): Promise<void> {
   const tag = await scriptMockToolCall(page.request, {
     name: 'calendar_book',
@@ -77,7 +87,8 @@ function bookedFrame(page: Page): FrameLocator {
   return page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
 }
 
-// enterChat —— ?code 入口 → 身份弹窗填名字（email 给空串就跳过那个可选框）→ 等 session。
+// enterChat -- ?code entry -> fill name in identity modal (empty email skips that optional
+// field) -> wait for session.
 async function enterChat(
   page: Page, code: string, name: string, email: string,
 ): Promise<void> {

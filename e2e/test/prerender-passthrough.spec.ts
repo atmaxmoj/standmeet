@@ -1,7 +1,9 @@
-// prerender-passthrough.spec.ts —— 「plugin genuinely required → pre-render on the Obsidian side at
-// export, ingest the static result」这一档(设计 line 31/39)。owner 在 Obsidian 侧把 Dataview/Templater
-// 跑成静态 markdown(表格/展开文本),StandMeet 只 ingest 那个静态结果 —— sync 原样保留、reader 完整渲染。
-// 大多是「不特殊处理」的确认:body 就是 markdown,静态内容自然流过。
+// prerender-passthrough.spec.ts —— the "plugin genuinely required → pre-render on the
+// Obsidian side at export, ingest the static result" tier (design line 31/39). The
+// owner runs Dataview/Templater into static markdown on the Obsidian side (tables/
+// expanded text), and StandMeet only ingests that static result — sync preserves it
+// verbatim, and the reader renders it in full. Mostly confirms "no special handling":
+// the body is just markdown, and static content passes through naturally.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';

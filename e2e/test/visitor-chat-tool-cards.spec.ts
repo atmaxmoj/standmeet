@@ -1,10 +1,15 @@
-// visitor-chat-tool-cards.spec.ts —— G-4 / UX-10: AI 调检索工具后，结果折叠成
-// 一行 retrieval-summary（不是每次一张 ui:// 卡）。覆盖：
-//   1. corpus_search + corpus_read → 单个 retrieval-summary（"searched N · read M"）
-//   2. corpus_read 不各渲一张卡（内容走 Citation；原意如此，ui:// 路径曾回归此点）
-//   3. calendar_book 跳过 (G-7 接管)
+// visitor-chat-tool-cards.spec.ts -- G-4 / UX-10: after the AI calls a
+// retrieval tool, the result collapses into one retrieval-summary line (not
+// one ui:// card per call). Coverage:
+//   1. corpus_search + corpus_read -> a single retrieval-summary
+//      ("searched N · read M")
+//   2. corpus_read does not render its own card (its content goes through
+//      Citation; this was always the intent, and the ui:// path once
+//      regressed on it)
+//   3. calendar_book is skipped (G-7 takes over)
 //
-// 折叠的规模守卫在 visitor-chat-retrieval-collapse.spec.ts（多次检索不堆叠）。
+// The scale of the collapse is guarded in
+// visitor-chat-retrieval-collapse.spec.ts (repeated retrieval doesn't stack).
 
 import { test, expect } from '@/fixtures/test';
 

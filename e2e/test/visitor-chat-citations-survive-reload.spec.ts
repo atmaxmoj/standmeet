@@ -1,10 +1,12 @@
-// visitor-chat-citations-survive-reload.spec.ts —— 引用属于 conversation 聚合,
-// 刷新后必须还在。
+// visitor-chat-citations-survive-reload.spec.ts —— citations belong to the
+// conversation aggregate, and must still be there after a reload.
 //
-// 后端 messages.cited_wiki_ids/cited_output_ids 早就持久化了(RecordDialog 落表),
-// 但 GET /sessions/<conv> 快照之前只回 {question,answer},把引用丢了 —— 刷新后
-// transcript 重建成 citations:[],references 消失。这条守:答完带引用 → 刷新 →
-// 引用仍在(citation-row 链接还指向那篇 doc)。
+// The backend already persists messages.cited_wiki_ids/cited_output_ids
+// (RecordDialog writes them to the table), but GET /sessions/<conv>'s snapshot used to
+// return only {question,answer}, dropping the citations — after a reload the
+// transcript would rebuild as citations:[], and the references section would vanish.
+// This guards: an answer arrives with citations → reload → citations are still there
+// (the citation-row link still points at that doc).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -53,18 +55,22 @@ test.describe('引用属于会话聚合,刷新后仍在', () => {
     const input = page.locator('[data-testid="chat-input-field"]');
     await input.fill(`tell me about lucerna${readTag}`);
     await input.press('Enter');
-    // answer-body 渲出 = 收到 `done` 帧 = backend 已把这轮(含 cited_*)sink 进
-    // DB(persist 在 done 之前),此后 reload 必见。#28 起 citation 由 backend
-    // 从 corpus_read 流末端自己扒,不再靠前端 /dialogs。
+    // answer-body rendering = the `done` frame was received = the backend has already
+    // sunk this turn (including cited_*) into the DB (persist happens before done), so
+    // a reload after this point must see it. Since #28, citations are scraped by the
+    // backend off the tail of the corpus_read stream itself, no longer relying on the
+    // frontend's /dialogs.
     await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
 
-    // live:references 默认折叠,展开后引用指向 /wiki/projects/lucerna。
+    // live: references are collapsed by default; expanded, the citation points at
+    // /wiki/projects/lucerna.
     await expandRefsContaining(page, TARGET_PATH);
     const cite = page.locator(`[data-testid="citation-row"][data-citation-path="${TARGET_PATH}"]`);
     await expect(cite).toBeVisible({ timeout: 20_000 });
     await expect(cite).toHaveAttribute('href', `/wiki/${TARGET_PATH}`);
 
-    // reload → 聚合重建 transcript,引用必须从后端 cited_* 解析回来,不能丢。
+    // reload → the aggregate rebuilds the transcript, and citations must be parsed
+    // back out of the backend's cited_* fields — they must not get lost.
     await page.reload();
     await expect(page.getByText('tell me about lucerna')).toBeVisible({ timeout: 20_000 });
     await expandRefsContaining(page, TARGET_PATH);
@@ -75,7 +81,8 @@ test.describe('引用属于会话聚合,刷新后仍在', () => {
   });
 });
 
-// expandRefsContaining —— references 默认折叠;展开含 path 那条的 details。
+// expandRefsContaining —— references are collapsed by default; expands the details
+// element that contains the given path.
 async function expandRefsContaining(page: Page, path: string): Promise<void> {
   const refs = page.locator('[data-testid="citations"]', {
     has: page.locator(`[data-citation-path="${path}"]`),

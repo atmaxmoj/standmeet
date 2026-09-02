@@ -1,12 +1,14 @@
-// iam-role-raw-deny.spec.ts —— hardcode 第二条：raw://** 永远不暴露给
-// visitor，跟 role.corpus_uris 配置无关。
+// iam-role-raw-deny.spec.ts -- hardcode rule 2: raw://** is never exposed to
+// a visitor, regardless of role.corpus_uris configuration.
 //
-// 设计 [[iam-role-pivot-plan]] · positive-list 节："唯一 corpus 拒绝规则 =
-// hardcode raw://** deny in Role.AllowsCorpus"。
+// Design [[iam-role-pivot-plan]], positive-list section: "the only corpus
+// denial rule = hardcode raw://** deny in Role.AllowsCorpus".
 //
-// 用户故事：
-//   owner 故意把 raw://** 加进 role.corpus_uris 想看 retriever 是否漏过。
-//   visitor 进 session 后 AI 调 corpus_read 拿 raw 路径 → 应该被拒。
+// User story:
+//   the owner deliberately adds raw://** to role.corpus_uris to see whether
+//   the retriever leaks it through.
+//   Once the visitor enters a session, the AI calls corpus_read for a raw
+//   path -> it should be denied.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

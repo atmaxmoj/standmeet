@@ -1,8 +1,11 @@
-// admin-sandbox.spec.ts —— #147 admin 管理 MCP 沙箱。owner 经 /api/admin/sandbox/* 面
-// (owner-authed,不是 /internal/diag)看活跃 per-session 工作区、设后端可控 TTL、按需清扫。
-// 后端 sandboxws.Manager + cron sweep 已在(#148);这里补 admin-facing 面 + 前端面板。
+// admin-sandbox.spec.ts — #147 admin manages the MCP sandbox. The owner uses the
+// /api/admin/sandbox/* surface (owner-authed, not /internal/diag) to see active per-session
+// workspaces, set a backend-controlled TTL, and sweep on demand.
+// The backend sandboxws.Manager + cron sweep already exist (#148); this adds the
+// admin-facing surface + frontend panel.
 //
-// 红(实现前):/api/admin/sandbox/* 全 404。绿:list/ttl/sweep 都通,owner-authed。
+// Red (before implementation): /api/admin/sandbox/* all 404. Green: list/ttl/sweep all work,
+// owner-authed.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -59,11 +62,13 @@ test.describe('admin sandbox management · #147', () => {
       expect(typeof swept.removed, 'sweep returns removed count').toBe('number');
     });
 
-  // 前端:admin system section 有 sandbox 管理面板。
+  // Frontend: the admin system section has a sandbox management panel.
   //
-  // **这条以前点的是一颗没有东西可扫的按钮**（「点了不炸」）——而那正是 F-E-26 记下的缺陷：
-  // 一颗永远可点、有时什么都不发生的按钮，会把「没生效」教成正常。判据因此改成两面：
-  // 没有 workspace 时它禁用**而且**屏幕上说得出为什么；有 workspace 时它可点。
+  // **This test used to click a button with nothing to sweep** ("clicking it doesn't
+  // explode") — and that is exactly the defect F-E-26 recorded: a button that is always
+  // clickable, sometimes doing nothing, teaches "no effect" as normal. The judgment
+  // criterion is therefore two-sided: with no workspace it must be disabled **and** the
+  // screen must say why; with a workspace it must be clickable.
   test('没有 workspace 时 sweep 是禁用的,而且屏幕上说得出为什么',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'system');
@@ -71,7 +76,8 @@ test.describe('admin sandbox management · #147', () => {
       const panel = page.getByTestId('sandbox-panel');
       await expect(panel).toBeVisible();
       await expect(panel).toContainText(/mcp sandbox/i);
-      // 先确认这一刻真的一个都没有 —— 否则下面断的是别的东西。
+      // First confirm there really are none right now — otherwise the assertion below
+      // would be checking something else.
       const list = await request.get(`${BACKEND}/api/admin/sandbox/workspaces`);
       const { workspaces } = await list.json() as WorkspaceList;
       expect(workspaces.length, 'precondition: 这一刻没有工作区').toBe(0);
@@ -80,7 +86,8 @@ test.describe('admin sandbox management · #147', () => {
         page.getByTestId('sandbox-sweep'),
         '没有东西可扫的时候，这颗按钮不该看起来能做事',
       ).toBeDisabled();
-      // 理由要在**屏幕上**，不是只挂在 title 里 —— 禁用的按钮 hover 都未必触发。
+      // The reason must be **on screen**, not only in a title attribute — a disabled
+      // button's hover may not even fire.
       await expect(page.getByTestId('sandbox-empty')).toBeVisible();
       await expect(page.getByTestId('sandbox-empty')).toContainText(/no workspaces/i);
     });

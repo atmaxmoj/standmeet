@@ -1,8 +1,10 @@
-// page-edit.spec.ts —— admin 改公开页内容，访客即刻看到 / 体验。
+// page-edit.spec.ts -- admin edits public page content, and the visitor sees/experiences
+// it right away.
 //
-// 用户故事：
-//   owner 已经 claim 完，登录 admin，从默认 hero prose 改成一句自己的话，
-//   保存。打开自己的公开页（/<handle>），看到那句话就是访客现在看到的。
+// User story:
+//   the owner has already claimed the instance, logs into admin, changes the default
+//   hero prose to a sentence in their own words, and saves. Opening their public page
+//   (/<handle>) and seeing that sentence is exactly what a visitor sees right now.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';

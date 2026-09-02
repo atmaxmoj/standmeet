@@ -1,12 +1,17 @@
-// tool-corpus-mutations.spec.ts —— owner 经 MCP 摆弄语料的**genre 矩阵**。
+// tool-corpus-mutations.spec.ts —— the **genre matrix** for an owner manipulating the
+// corpus through MCP.
 //
-// 业务故事:owner 在 Claude Code 跟自己的 AI 说"把这条 wiki 改个标题"、"把这条 raw 提上去"、
-// "建一条 output",AI 调 corpus.* → 收口 → 域。面板重新打开看到同样的结果。
+// Business story: the owner tells their own AI in Claude Code "rename this wiki
+// entry", "promote this raw entry", "create an output" — the AI calls corpus.*, which
+// converges through the choke point into the domain. Reopening the panel shows the
+// same result.
 //
-// genre 是**参数**,不是三套工具。归一化前两个面覆盖不一样:面板能建 wiki / output、能改 raw,
-// MCP 只有 raw_dump / update_wiki / update_output / delete_wiki / delete_output / promote_*。
-// 也就是说 owner 从 Claude Code **建不了一条 wiki、改不了一条 raw**。下面标 "补上的格子"
-// 那四条就是原来缺的——它们此前一条覆盖都没有。
+// genre is **a parameter**, not three separate tool sets. Before normalization, the
+// two surfaces had unequal coverage: the panel could create wiki / output and edit
+// raw, while MCP only had raw_dump / update_wiki / update_output / delete_wiki /
+// delete_output / promote_*. In other words, the owner **couldn't create a wiki entry
+// or edit a raw entry** from Claude Code. The four cases marked "the filled-in cells"
+// below are exactly what was missing — they previously had zero coverage.
 
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
@@ -22,7 +27,8 @@ const OWNER = {
   handle: 'corpus-mut', fullName: 'Corpus Mutations Owner',
 };
 
-// 一条语料在每个面上的那一份形状(不适用的字段是零值)。
+// The shape a corpus entry takes on each surface (fields that don't apply are zero
+// values).
 interface CorpusItem {
   id: string;
   genre: string;
@@ -61,7 +67,7 @@ async function seedCorpusMut(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-// ── 小 helper:一个动词一个 ────────────────────────────────────────────
+// ── Small helpers: one per verb ────────────────────────────────────────────
 
 function createEntry(
   request: APIRequestContext, args: Record<string, unknown>,
@@ -92,7 +98,7 @@ async function titleInList(
   return list.find((it) => it.id === id)?.title;
 }
 
-// ── 原有的四条:改 / 删 wiki 和 output ─────────────────────────────────
+// ── The original four: edit / delete wiki and output ─────────────────────────────────
 
 async function testUpdateWiki(playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
@@ -150,7 +156,7 @@ async function testDeleteOutput(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-// ── 补上的格子:归一化前 MCP 根本没有的四件 ───────────────────────────
+// ── The filled-in cells: the four things MCP simply didn't have before normalization ───────────────────────────
 
 async function testCreateWikiDirectly(playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
@@ -160,7 +166,8 @@ async function testCreateWikiDirectly(playwright: Playwright): Promise<void> {
   });
   expect(wiki.genre).toBe('wiki');
   expect(wiki.id).toMatch(/^[0-9a-f-]{36}$/);
-  // 直接建的 wiki 没有来源 raw —— 那正是"不经 raw 这一步"的证据。
+  // A wiki entry created directly has no source raw — that's exactly the evidence of
+  // "skipping the raw step".
   expect(wiki.source_raw_ids).toEqual([]);
   expect(await titleInList(request, 'wiki', wiki.id)).toBe('Written straight to wiki');
   await request.dispose();
@@ -199,9 +206,11 @@ async function testDeleteRaw(playwright: Playwright): Promise<void> {
     request, apiToken, sid, 'corpus.delete', { genre: 'raw', id: raw.id },
   );
   expect(resp.deleted).toBe(true);
-  // 从列表里没了 —— 而且是**真的没了**:raw 以前走"归档"(行留着、置个标志),
-  // 那个归档没有第二半(没有列表显示它、没有恢复的路),于是 corpus.delete 这个名字
-  // 在 raw 上是假的。所以这里两句都要:列表里没有,按 id 也读不出来。
+  // Gone from the list — and **actually gone**: raw used to go through "archiving"
+  // (the row stays, a flag gets set), but that archiving never had a second half (no
+  // list showing archived rows, no path to restore them), so the name corpus.delete
+  // was a lie on raw. So both assertions are needed here: gone from the list, and
+  // unreadable by id too.
   const list = await listGenre(request, 'raw');
   expect(list.find((it) => it.id === raw.id)).toBeUndefined();
   await expect(
@@ -211,7 +220,7 @@ async function testDeleteRaw(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-// ── genre 本身的校验 ─────────────────────────────────────────────────
+// ── Validation of genre itself ─────────────────────────────────────────────────
 
 async function testUnknownGenre(playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
@@ -221,9 +230,11 @@ async function testUnknownGenre(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-// adminRawRow —— 从 owner 面板那条路读回一条 raw。**不用 MCP 读**：`corpusItemOut` 上没有
-// `flagged_private`，用它取回来永远是 undefined —— 那样这条断言会因为「字段不存在」而恒绿，
-// 什么都证不到（[[assertion-that-cannot-fail]]）。
+// adminRawRow —— reads a raw entry back through the owner-panel path. **Deliberately
+// not through MCP**: `corpusItemOut` has no `flagged_private` field, so reading it
+// through MCP would always come back undefined — making this assertion pass forever
+// because "the field doesn't exist", proving nothing
+// ([[assertion-that-cannot-fail]]).
 async function adminRawRow(
   request: APIRequestContext, id: string,
 ): Promise<{ flagged_private?: boolean; tags?: string[] }> {
@@ -247,12 +258,13 @@ async function testPartialUpdateKeepsFlags(playwright: Playwright): Promise<void
     genre: 'raw', body: 'a private thought', tags: ['personal'], flagged_private: true,
   });
 
-  // 前置条件：先确认这条真的被标成私密了，否则下面判的是空气。
+  // Precondition: first confirm this entry is really flagged private, or everything
+  // below is asserting against thin air.
   const before = await adminRawRow(request, entry.id);
   expect(before.flagged_private, 'precondition: the entry starts out private').toBe(true);
   expect(before.tags, 'precondition: the entry starts out tagged').toContain('personal');
 
-  // owner 的 AI 做的那件最普通的事：只改正文。
+  // The most ordinary thing the owner's AI would do: edit only the body.
   await updateEntry(request, { genre: 'raw', id: entry.id, body: 'a private thought, reworded' });
 
   const after = await adminRawRow(request, entry.id);
@@ -300,19 +312,24 @@ test.describe('corpus mutations via MCP · genre 矩阵', () => {
   test('an unknown genre is refused, naming the three that exist',
     async ({ playwright }) => { await testUnknownGenre(playwright); });
 
-  // **改正文不许顺手清掉没提到的字段**（F-L-57）。
+  // **Editing the body must never quietly wipe out fields it didn't mention**
+  // (F-L-57).
   //
-  // `corpus.update` 的 schema 只要求 `genre` + `id`，描述也写着「in place」—— 于是 owner 的 AI
-  // 说「把这条 raw 的正文改一下」时，发的就是 `{genre,id,body}`。而 `corpusWriteArgs` 里
-  // `FlaggedPrivate` 是**裸 bool**：JSON 里没有这个字段 = false = **把 owner 标的私密取消掉**，
-  // tags 同理被清空，而回执报成功。
+  // `corpus.update`'s schema only requires `genre` + `id`, and its description says
+  // "in place" — so when the owner's AI is told "edit this raw entry's body", what it
+  // sends is `{genre,id,body}`. But `FlaggedPrivate` on `corpusWriteArgs` is a **bare
+  // bool**: the field being absent from the JSON means false, meaning **the owner's
+  // private flag gets cleared**. tags gets wiped out the same way, and the response
+  // still reports success.
   //
-  // 同一份 struct 上，`ParentID` / `ShowAsSource` / hero 三项都已经是指针，各自带着一段注释讲
-  // 「裸值表达不了『没给』」—— 三次写下同一个道理，三次只修了当时那一个字段
-  // （[[lesson-not-swept-to-neighbours]]）。
+  // On the very same struct, `ParentID` / `ShowAsSource` / hero are already pointers,
+  // each carrying a comment explaining "a bare value can't express 'not provided'" —
+  // the same lesson written down three times, and fixed for only that one field each
+  // time ([[lesson-not-swept-to-neighbours]]).
   //
-  // 而且这个字段在 `corpusItemOut` 上**根本不回传**：AI 设得了、读不回，所以它连"读出来再原样发
-  // 回去"这条自救的路都没有。
+  // And this field **is never sent back at all** on `corpusItemOut`: the AI can set
+  // it, but can never read it back — so it doesn't even have the fallback of "read it
+  // back and send the same value forward".
   test('editing only the body must not silently un-private a raw entry',
     async ({ playwright }) => { await testPartialUpdateKeepsFlags(playwright); });
 });

@@ -1,7 +1,8 @@
-// render-cssclasses.spec.ts —— per-note cssclasses 真渲染。
+// render-cssclasses.spec.ts —— per-note cssclasses genuinely renders.
 //
-// note frontmatter `cssclasses:[boxed]` → reader 内层 div 带 class boxed(在 .corpus-content 里),
-// owner 的 `.boxed` 规则(scope 成 `.corpus-content .boxed`)命中它。无 cssclasses → 无该 class。
+// note frontmatter `cssclasses:[boxed]` → the reader's inner div carries the class
+// boxed (inside .corpus-content), and the owner's `.boxed` rule (scoped to
+// `.corpus-content .boxed`) matches it. No cssclasses → no such class.
 
 import { test, expect } from '@/fixtures/test';
 

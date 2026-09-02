@@ -1,18 +1,26 @@
-// visitor-chat-slots-readonly.spec.ts —— F-B-10：**只读授权下，时段卡不是一个订会入口。**
+// visitor-chat-slots-readonly.spec.ts -- F-B-10: **under a read-only grant, the slots
+// card must not be an entry point into booking.**
 //
-// 这条缺陷是在 F-B-8 的 ⑤ 上撞出来的。授权收窄成 `calendar.readonly` 之后，`calendar_book`
-// 确实不进工具表了（38→34，prod 日志为证），可访客那一屏几乎没变：卡照旧摆着一排可点的
-// chip，AI 照旧说 *"Tap the 9:00 AM slot on the card and it'll lock in the booking"*。
-// 第一版修法（把订会的说明从能力级 instructions 里拿掉）**不够** —— 再驱一遍还是那句话。
-// 承诺的落点在**卡本身**：卡挂在 `calendar_list_slots` 上，而那把工具在只读授权下是在场的，
-// 每颗 chip 点下去 postMessage 一句「book the … slot」，那句话在这种授权下永远走不到订会。
+// This defect surfaced while driving F-B-8's item (5). Once the grant narrowed to
+// `calendar.readonly`, `calendar_book` genuinely dropped out of the tool table (38->34,
+// confirmed by prod logs), but the visitor's screen barely changed: the card still laid
+// out a row of clickable chips, and the AI still said *"Tap the 9:00 AM slot on the card
+// and it'll lock in the booking"*. The first fix (removing the booking instructions from
+// the capability-level instructions) **wasn't enough** -- driving it again produced the
+// same line. Where the promise actually lands is **the card itself**: the card is
+// attached to `calendar_list_slots`, and that tool is present under a read-only grant;
+// clicking any chip posts a message saying "book the ... slot", and under this grant that
+// message can never actually reach a booking.
 //
-// 现在这一格的事实由宿主回答（`connector.invoke can_perform events.insert`），插件把它当
-// `can_book` 放进结果，卡据此决定给不给入口 —— 跟已约卡按 `can_email` 决定要不要渲确认信
-// widget 是同一条规矩：**做不到的动作不给入口**。
+// This field's fact is now answered by the host (`connector.invoke can_perform
+// events.insert`), the plugin puts it into the result as `can_book`, and the card decides
+// whether to offer the entry point based on that -- the same rule the booked card follows
+// when deciding whether to render the confirmation-email widget based on `can_email`:
+// **an action you can't do gets no entry point**.
 //
-// 两句断言缺一不可。只断「没有可点的 chip」的话，卡整个不渲染也能过 —— 而那是把一个
-// **做得到**的事（看 owner 什么时候有空）也拿掉了，是另一个缺陷。
+// Both assertions are required. Asserting only "there's no clickable chip" would also
+// pass if the card didn't render at all -- and that would take away something the grant
+// **can** do (see when the owner is free), which is a different defect.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -58,7 +66,8 @@ test.describe('F-B-10 · a read-only grant makes the slot card read-only', () =>
         .toBeVisible({ timeout: 20_000 });
       const frame = page.frameLocator('[data-testid="mcp-app-card-calendar_list_slots"]');
 
-      // 先证卡真的渲出来了（不然下面那句「没有可点的 chip」是一句永远成立的空话）。
+      // First proves the card actually rendered (otherwise "there's no clickable chip"
+      // below would be a vacuous statement that's always true).
       await expect(frame.getByTestId('tool-card-slot-readonly').first(),
         'the owner\'s free times are shown, as plain times')
         .toBeVisible({ timeout: 10_000 });

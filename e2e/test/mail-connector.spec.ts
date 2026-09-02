@@ -1,8 +1,10 @@
 // mail-connector.spec.ts —— the access-code email loop, end to end, real SMTP.
 //
-// 用户故事:owner 配 + verify mail connector (Mailpit) → 访客提交 access request
-// → owner approve → access code 邮件经 Mailpit 落到访客邮箱、含正确码 +
-// /<page>?code= 链接 → 访客用该码真能开 session。真服务 (Mailpit),无 mock。
+// User story: owner configures + verifies the mail connector (Mailpit) → a visitor
+// submits an access request → owner approves → the access-code email lands in the
+// visitor's inbox via Mailpit, carrying the right code + a /<page>?code= link → the
+// visitor can genuinely open a session with that code. A real service (Mailpit), no
+// mock.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

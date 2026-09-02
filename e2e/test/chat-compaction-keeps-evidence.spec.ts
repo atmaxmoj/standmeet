@@ -1,18 +1,28 @@
-// chat-compaction-keeps-evidence.spec.ts —— F-D-10 后半：**压缩把这一轮的证据压没了，
-// 于是答案变成一句填充语。**
+// chat-compaction-keeps-evidence.spec.ts -- F-D-10 second half: **compaction
+// squeezes out this turn's evidence, so the answer becomes filler.**
 //
-// prod 上真出过（2026-08-17，真第三方 MCP）：两个工具跑完、回了 374871 + 3505 字节，紧接着
-// 日志 `context compacted before_msgs:5 after_msgs:2`，然后 AI 整段只有
-// *"I'm here — what would you like to dig into next?"* —— 问题没答。
+// Really happened in prod (2026-08-17, real third-party MCP): two tools ran
+// and returned 374871 + 3505 bytes, immediately followed by the log line
+// `context compacted before_msgs:5 after_msgs:2`, and then the AI's entire
+// reply was
+// *"I'm here — what would you like to dig into next?"* -- the question went
+// unanswered.
 //
-// 机制读到了行：压缩收尾 `finalizeKeepingTail` → `tailPlainTurns` **故意跳过工具调用和工具
-// 结果**（留下结果而调用没了，provider 会拒收整个请求）。所以工具痕迹在压缩里必然消失，
-// **唯一能带走它的是那份摘要**；而摘要的任务书 `compactionUserInstruction` 五条全讲对话事实，
-// 一个字没提工具返回了什么。
+// Traced to the mechanism: compaction's tail step `finalizeKeepingTail` ->
+// `tailPlainTurns` **deliberately skips tool calls and tool results** (keeping
+// the result but dropping the call makes the provider reject the whole
+// request). So the tool trace is guaranteed to vanish in compaction, and
+// **the only thing that can carry it forward is the summary**; but the
+// summary's instruction, `compactionUserInstruction`, has five clauses all
+// about conversational facts, and not one word about what the tools returned.
 //
-// **这条守卫只守「问对了」，守不到「答对了」**，而且这不是偷懒：替身不会真的做摘要（mock 对
-// 没注册的请求是回声，回声里什么都在），所以「摘要保住了证据」在这一侧会**无条件为真** ——
-// 那是假绿（[[stand-in-is-politer-than-reality]]）。结果那一半归 eval（真模型），见 findings。
+// **This guard only checks "was the right thing asked", not "was the right
+// thing answered"**, and that's not laziness: the stand-in never actually
+// summarizes (the mock echoes any request it wasn't registered for, and the
+// echo contains everything), so "the summary kept the evidence" would be
+// **unconditionally true** on this side -- a false green
+// ([[stand-in-is-politer-than-reality]]). The other half of the outcome
+// belongs to eval (the real model) -- see findings.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -30,10 +40,12 @@ const OWNER = {
 };
 const CODE = 'COMPACT-001';
 
-// COMPACTION_MARK —— 任务书自己的第一句，只有压缩那一次请求会带着它。命中 = 压缩真的发生过。
+// COMPACTION_MARK -- the instruction's own opening line; only the compaction
+// request carries it. A hit = compaction actually ran.
 const COMPACTION_MARK = 'Condense the conversation so far';
 
-// EVIDENCE_CLAUSE —— 任务书里**要工具返回的实质**那一条。这是本条守卫要的那句话。
+// EVIDENCE_CLAUSE -- the instruction's clause **asking for what the tools
+// actually returned**. This is the line this guard is after.
 const EVIDENCE_CLAUSE = 'What any tools returned';
 
 test.describe.serial('F-D-10 · compaction is told to keep the evidence', () => {
@@ -64,8 +76,10 @@ test.describe.serial('F-D-10 · compaction is told to keep the evidence', () => 
 
   test('the summariser is asked for what the tools returned', async () => {
     test.setTimeout(180_000);
-    // 把上下文推过 32k：一封**访客真的会粘贴**的长文（一份职位描述 / 一段规格）。
-    // 不是为了压垮谁 —— 这正是这个产品邀请的动作。
+    // Push the context past 32k: a long piece of text a **visitor would
+    // actually paste** (a job description / a spec).
+    // Not trying to overwhelm anything -- this is exactly the action the
+    // product invites.
     const bulk = 'The role we are hiring for, described at length. '.repeat(3000);
     const first = await scriptMockReplyText(request, 'noted');
     await sendAndDrain(request, session, `${bulk}${first}`);
@@ -73,9 +87,12 @@ test.describe.serial('F-D-10 · compaction is told to keep the evidence', () => 
     const second = await scriptMockReplyText(request, 'still noted');
     await sendAndDrain(request, session, `So what do you make of it?${second}`);
 
-    // 先证「压缩真的发生了」—— 否则下面那句是在一个从没跑过的分支上判空
-    // （[[assertion-that-cannot-fail]]）。**按内容问，不按 tag**：压缩是它自己的一次调用，
-    // 按 tag 会拿到那一轮自己的请求（我第一版就是这么红在查询上而不是产品上的）。
+    // First prove "compaction actually happened" -- otherwise the assertion
+    // below is checking emptiness on a branch that never ran
+    // ([[assertion-that-cannot-fail]]). **Query by content, not by tag**:
+    // compaction is its own call, and querying by tag would pick up that
+    // turn's own request instead (the first version of this went red on the
+    // query, not the product).
     await expect.poll(
       async () => gatewayRequestExists(request, COMPACTION_MARK),
       { timeout: 60_000, message: 'compaction ran at all' },

@@ -1,9 +1,11 @@
-// visitor-name-welcome.spec.ts —— 扫码 → 名字选择器填名(或 skip)→ 选名字
-// 时才 issue session(defer-issue)→ ChatRoom welcome 带名字 / 无名字。
+// visitor-name-welcome.spec.ts -- scans a QR code -> the name picker collects a name (or
+// skips) -> the session is issued only once a name choice is made (defer-issue) ->
+// ChatRoom welcomes with the name / without one.
 //
-// 用户故事：
-//   1. QR 扫码 → 名字选择器 → 填名 → ChatRoom welcome "Hi, {firstName}"
-//   2. QR 扫码 → 名字选择器 → skip → ChatRoom welcome 通用问候
+// User story:
+//   1. QR scan -> name picker -> fills in a name -> ChatRoom welcome says
+//      "Hi, {firstName}"
+//   2. QR scan -> name picker -> skip -> ChatRoom shows a generic greeting
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -37,7 +39,7 @@ test.describe('visitor name → ChatRoom welcome greeting', () => {
       await nameInput.fill('Sarah Chen');
       await page.getByTestId('visitor-name-submit').click();
       await expect(nameInput).toBeHidden({ timeout: 5_000 });
-      // ChatWelcome 按 first name 问候。
+      // ChatWelcome greets by first name.
       await expect(page.getByTestId('chat-welcome')).toContainText('Sarah', { timeout: 10_000 });
     });
 

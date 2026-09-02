@@ -1,11 +1,14 @@
-// connector-dep-revoke-then-gate.spec.ts —— 状态矩阵「撤销→落库 disconnected→下次 gated」
-// (connector-deps-tests.md §三)。`connector-dep-drop-mid-turn` 验的是「调用当下撞
-// invalid_grant → 友好降级」那半;这条补**联动**那半:一次 refresh 撞 invalid_grant
-// 被识别为「连接已失效」后,connector 状态应落库成 disconnected → **下一次** session
-// 装配时,booking 经 global 单点闸直接 gate 掉(不再每次都白撞一回外部)。
+// connector-dep-revoke-then-gate.spec.ts — state matrix "revoke → persisted
+// disconnected → next session gated" (connector-deps-tests.md §3).
+// `connector-dep-drop-mid-turn` verifies the "hit invalid_grant mid-call → graceful
+// degrade" half; this covers the **linkage** half: once a refresh hitting
+// invalid_grant is recognized as "the connection is now invalid", the connector's
+// state should persist as disconnected → on the **next** session assembly, booking
+// gets gated at the single global gate (no more wasting a real call to the external
+// service every turn).
 //
-// RED until: invalid_grant → 把 owner 的 calendar connector 标记 disconnected
-// (清 access_token/置 needs-reauth),且 enabledCaps 据此 gate。
+// RED until: invalid_grant marks the owner's calendar connector disconnected
+// (clears access_token / sets needs-reauth), and enabledCaps gates on that.
 
 import { execSync } from 'node:child_process';
 import { test, expect } from '@/fixtures/test';
@@ -27,27 +30,31 @@ test.describe('connector dep · revoke detected → connector marked disconnecte
 
   test('a book hitting invalid_grant → connection persisted disconnected → new session no longer exposes booking',
     async () => {
-      // 连接好时,booking 暴露。
+      // While connected, booking is exposed.
       await expectCalendarBookExposed(seed.request, seed.visitor.session_token, true);
 
-      // token 被 owner 在 Google 端撤了 → 下一次调用(或其刷新)撞 invalid_grant。
+      // The token was revoked by the owner on Google's side → the next call (or its
+      // refresh) hits invalid_grant.
       await revokeMockGCalToken(seed.request);
-      // access token 过期 → 这次 book 必须先 refresh，refresh 撞 invalid_grant。
+      // The access token expires → this book call must refresh first, and the
+      // refresh hits invalid_grant.
       expireAccessToken();
 
-      // 触发一次真 book —— 它会撞 invalid_grant。这一刀的「友好降级」由
-      // connector-dep-drop-mid-turn 验;这里只关心它**之后**连接状态翻没翻。
+      // Trigger a real book — it will hit invalid_grant. The "graceful degrade" for
+      // this moment is verified by connector-dep-drop-mid-turn; here we only care
+      // whether the connection state flips **afterward**.
       const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: { topic: 'will fail refresh', duration_min: 30, preferred_times: [future()] },
       });
       await postTurn(seed, `book me a slot${tag}`);
 
-      // 联动:invalid_grant 被识别 → connector 落库 disconnected。
+      // The linkage: invalid_grant is recognized → connector is persisted disconnected.
       const status = await getGCalStatus(seed.request);
       expect(status.connected, 'after invalid_grant the connection is persisted as disconnected').toBe(false);
 
-      // 下一次 session 装配:booking 经 global 单点闸 gate 掉(不再每 turn 白撞外部)。
+      // Next session assembly: booking gets gated at the single global gate (no more
+      // wasting a call to the external service every turn).
       const next = await issueSession(seed.request, {
         handle: OWNER.handle, code: seed.code.code, visitor_name: 'V2',
       });
@@ -62,7 +69,8 @@ function future(): string {
   return d.toISOString();
 }
 
-// expireAccessToken —— 把 owner 的 gcal access token 标过期，强制下一次 book 走刷新。
+// expireAccessToken — marks the owner's gcal access token expired, forcing the next
+// book call through the refresh path.
 function expireAccessToken(): void {
   const sql = `UPDATE owner_connectors
               SET token_expires_at = NOW() - INTERVAL '1 hour'
@@ -71,12 +79,14 @@ function expireAccessToken(): void {
     { stdio: 'pipe' });
 }
 
-// postTurn —— 直接发一轮 agent turn(不走浏览器),触发脚本化的 calendar_book。
+// postTurn — sends an agent turn directly (no browser), triggering the scripted
+// calendar_book call.
 async function postTurn(seed: CodedSeed, q: string): Promise<void> {
-  // 独立 APIRequestContext（非 page.request），用 bare 变量调用避开「写操作走 UI」规则。
+  // A standalone APIRequestContext (not page.request); using a bare variable call
+  // sidesteps the "writes go through the UI" rule.
   const { request } = seed;
   await request.post(`${process.env['BACKEND_URL'] ?? 'http://localhost:8000'}/api/v1/agent/turn`, {
     headers: { Authorization: `Bearer ${seed.visitor.session_token}` },
     data: { conversation_id: seed.visitor.conversation_id, user_message: q },
-  }).catch(() => { /* 撞 invalid_grant,turn 友好失败即可 */ });
+  }).catch(() => { /* hits invalid_grant; a graceful turn failure is fine */ });
 }

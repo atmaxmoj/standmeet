@@ -1,8 +1,10 @@
-// iam-revoked-code-new-session.spec.ts —— revoke 后 issue 一**新** session 应被拒。
+// iam-revoked-code-new-session.spec.ts —— issuing a **new** session after a revoke
+// should be refused.
 //
-// iam-revoke-blocks-next-turn.spec 测的是同一 session 内 next turn 的拒绝；
-// 这里补：revoke 后访客新发 session（持同一明文 code）也拒。两条加起来 cover
-// "code revoked 之后访客的所有入口"。
+// iam-revoke-blocks-next-turn.spec tests the next-turn refusal within the same
+// session; this fills the gap: after a revoke, a visitor issuing a fresh session
+// (with the same plaintext code) should also be refused. Together the two cover
+// "every entry point a visitor has after a code is revoked".
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

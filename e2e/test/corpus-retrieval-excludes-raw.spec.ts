@@ -1,9 +1,12 @@
-// corpus-retrieval-excludes-raw.spec.ts —— 迁移前 gap-fill (🟡#1)。
+// corpus-retrieval-excludes-raw.spec.ts — pre-migration gap-fill (🟡#1).
 //
-// raw 从不进访客检索 —— 今天只有 iam-role-raw-deny 从 **LLM 引用**路径证明(cites==0)。缺一个
-// 直接对 lister(corpus_search)的断言:即使 role **贪婪地**把 raw://** 也授上,corpus_search 也
-// 不返回 raw。结构迁移后 raw 留独立 inbox 表、genre 维度进 query —— 若 genre 过滤漏了,raw 可能
-// 意外被扫进检索。这条钉住 lister 层的 raw 排除(独立于 LLM 路径)。
+// raw never enters visitor retrieval — today only iam-role-raw-deny proves this, and only via
+// the **LLM citation** path (cites==0). What's missing is a direct assertion against the lister
+// (corpus_search): even if the role **greedily** grants raw://** too, corpus_search still must
+// not return raw. After the structural migration, raw stays in its own inbox table and the genre
+// dimension moves into the query — if the genre filter has a gap, raw could accidentally get
+// swept into retrieval. This case pins down raw's exclusion at the lister layer, independent of
+// the LLM path.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -13,8 +16,8 @@ import { initMCP, callTool } from '@/fixtures/mcp';
 import { seedWiki } from '@/fixtures/corpus';
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
-// 用共享的那份 —— 这里曾经自己抄了一份，于是 corpus_search 的 wire 一改
-// 就断在四个地方，而 fixture 一个都吸收不了。
+// Use the shared one — this file used to have its own copy, so a single change to
+// corpus_search's wire format broke four places at once, and the fixture absorbed none of it.
 import { search } from '@/fixtures/retrieval';
 import { issueSession } from '@/fixtures/visitor';
 

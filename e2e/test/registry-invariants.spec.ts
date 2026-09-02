@@ -1,10 +1,12 @@
-// registry-invariants.spec.ts —— Phase B 横切不变量。后续每个 B-N 加
-// capability 都顺势检：ID 全 unique、shape contract 自洽（visitor_only ↔
-// 不出现在 owner MCP；owner_only ↔ 不出现在 visitor session）、同 session
-// 多次 introspect system_prompt_hash 完全一致（防 system prompt 抖动）。
+// registry-invariants.spec.ts -- Phase B cross-cutting invariants. As each subsequent
+// B-N adds a capability, this checks along the way: every ID is unique, the shape
+// contract is self-consistent (visitor_only <-> never appears in owner MCP; owner_only
+// <-> never appears in a visitor session), and repeated introspection within the same
+// session gives an identical system_prompt_hash (guards against system-prompt jitter).
 //
-// B-1 阶段 registry 可能为空，invariant 仍 trivially 成立；spec 的价值
-// 是建立检查面，让 B-2..B-6 land 时回归网自动卡住任一违反。
+// During Phase B-1 the registry may be empty, and the invariants still hold trivially;
+// this spec's value is establishing the check surface, so the regression net
+// automatically catches any violation as B-2..B-6 land.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -66,10 +68,11 @@ test.describe('Phase B capability registry invariants', () => {
     const request = await playwright.request.newContext();
     const reg = await fetchRegistryList(request);
     const visitorOnly = reg.capabilities.filter((c) => c.shape === 'visitor_only').map((c) => c.id);
-    // owner-side MCP tool list (read via internal endpoint is acceptable; B-1
-    // 阶段 registry list 自身就是声明真理 —— shape 字段必和 owner MCP server
-    // 实际暴露 1:1)。这里复用 registry-list 内的 owner_only/both 子集做反向
-    // 校验：visitor_only IDs 必不在 owner_only|both 集合里。
+    // owner-side MCP tool list (read via internal endpoint is acceptable; during B-1 the
+    // registry list itself is the declared source of truth -- the shape field must map
+    // 1:1 to what the owner MCP server actually exposes). This reuses the
+    // owner_only/both subset within registry-list to cross-check in reverse: no
+    // visitor_only ID may appear in the owner_only|both set.
     const ownerExposed = new Set(
       reg.capabilities
         .filter((c) => c.shape === 'owner_only' || c.shape === 'both')
@@ -86,7 +89,8 @@ test.describe('Phase B capability registry invariants', () => {
       reg.capabilities.filter((c) => c.shape === 'owner_only').map((c) => c.id),
     );
     if (ownerOnly.size === 0) {
-      // B-1 阶段可能为空 —— spec 仍意义在于建立断言面。
+      // May be empty during Phase B-1 -- this spec's value still lies in establishing the
+      // assertion surface.
       return;
     }
     const sess = await issueSession(request, {
@@ -108,7 +112,7 @@ test.describe('Phase B capability registry invariants', () => {
     const c = await fetchVisitorCapabilities(request, sess.session_token);
     expect(b.system_prompt_hash).toBe(a.system_prompt_hash);
     expect(c.system_prompt_hash).toBe(a.system_prompt_hash);
-    // tool_specs 顺序也稳定
+    // tool_specs order is stable too
     expect(b.tool_specs.map((t) => t.name)).toEqual(a.tool_specs.map((t) => t.name));
     await request.dispose();
   });

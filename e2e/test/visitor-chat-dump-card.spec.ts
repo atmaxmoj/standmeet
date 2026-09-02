@@ -1,8 +1,12 @@
-// visitor-chat-dump-card.spec.ts —— GenericDumpCard：skill_* / ext_* 工具结果的兜底
-// 卡（debug-grade JSON 框）。这是唯一没有 ui:// 的卡——它**不迁** Phase F，是常驻 fallback
-// （第三方 ext 工具 / skill 没有自带卡时的兜底）。之前零测试，这条补上守它：
-//   skill_use 调用 → tool-card-skill_use 渲出 + kicker=工具名 + pre 里 JSON 含结果正文。
-// 判据走 cardKindFor(skill_*/ext_*) → 'dump' → GenericDumpCard（tool-call-shape.ts）。
+// visitor-chat-dump-card.spec.ts — GenericDumpCard: the fallback card for skill_* /
+// ext_* tool results (a debug-grade JSON box). This is the only card with no ui:// —
+// it **doesn't migrate** to Phase F, staying a permanent fallback (for third-party ext
+// tools / skills that have no card of their own). It previously had zero test coverage;
+// this fills that in:
+//   a skill_use call → tool-card-skill_use renders + kicker=tool name + the <pre>'s
+//   JSON contains the result body.
+// The judgment criterion runs through cardKindFor(skill_*/ext_*) → 'dump' →
+// GenericDumpCard (tool-call-shape.ts).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -57,19 +61,25 @@ test.describe('visitor chat · GenericDumpCard (skill_*/ext_* fallback card)', (
     await expect(card).toBeVisible({ timeout: 20_000 });
     await expect(card).toContainText('skill_use');       // kicker
 
-    // **载荷默认不摊在访客脸上**(F-D-10)。这张卡的注释写着它是「debug-grade dump，让 *owner*
-    // 观察 visitor 这边跑了啥」—— 可它渲染在**访客**的 transcript 里。prod 上真拍到的样子是
-    // 一大块等宽 JSON，`\n` 字面量和开头那个引号都在。
-    // 这条断言以前**逐字要求那份原文可见**（`toContainText(BODY_MARKER)`），
-    // 又一次「守卫记录的是缺陷本身」（[[parked-test-carries-a-wrong-diagnosis]]）。
-    // 判据换成：**默认收起**（owner 展开还看得到，访客不用先越过它）。
-    // 断在**卡里面**那一份:mock LLM 会把工具结果回声进答案正文,页面上因此有两处带这个标记,
-    // 而这条守的是卡（[[stand-in-is-politer-than-reality]] 的反面 —— 替身在这里比真实世界更吵）。
+    // **The payload doesn't spill onto the visitor's face by default** (F-D-10). This
+    // card's own comment says it is a "debug-grade dump for the *owner* to observe what
+    // ran on the visitor's side" — yet it renders inside the **visitor's** transcript.
+    // What's actually captured in prod is a big block of monospace JSON, complete with
+    // literal `\n`s and the leading quote mark.
+    // This assertion used to **require that raw text be visible verbatim**
+    // (`toContainText(BODY_MARKER)`) — yet another case of "the guard records the defect
+    // itself" ([[parked-test-carries-a-wrong-diagnosis]]).
+    // The criterion changed to: **collapsed by default** (still visible if the owner
+    // expands it; the visitor never has to look past it first).
+    // Assert against the copy **inside the card**: the mock LLM echoes the tool result
+    // back into the answer body, so this marker appears twice on the page, and what
+    // this test guards is the card ([[stand-in-is-politer-than-reality]] in reverse —
+    // here the stand-in is noisier than the real world).
     await expect(
       card.getByText(BODY_MARKER),
       '技能正文默认不该摊开在访客的逐字稿里',
     ).toBeHidden();
-    // owner 要的那份没丢：展开就在。
+    // What the owner needs isn't lost: expanding still shows it.
     await card.locator('summary').click();
     await expect(card.getByText(BODY_MARKER)).toBeVisible({ timeout: 5_000 });
     await ctx.close();

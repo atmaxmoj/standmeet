@@ -1,17 +1,19 @@
-// sync-large-vault.spec.ts —— 一个真实规模的 vault 必须导得进来。
+// sync-large-vault.spec.ts —— a vault of realistic size must import successfully.
 //
-// 真 vault(574 wiki + 435 raw)过完客户端过滤是 1033 个文件,而导入在 **1001 个 part** 上直接
-// 400。实测边界:999 个 part 成功并干了真活,1001 个 part 报
-// `parse multipart: multipart: message too large`。
+// The real vault (574 wiki + 435 raw) is 1033 files after client-side filtering, and the
+// import fails with a flat 400 at **1001 parts**. The measured boundary: 999 parts succeed
+// and do real work, 1001 parts report `parse multipart: multipart: message too large`.
 //
-// 卡住的不是产品声明的那个上限 —— `maxObsidianImportSize` 是 **200MB**,而负载只有 6.2MB。
-// 卡住的是 Go `mime/multipart.ReadForm` 缓冲整个表单时的 **1000 part** 默认上限,一个没人声明过
-// 的数字。超一个文件,整次导入全废。
+// What's actually blocking this is not the limit the product declares —
+// `maxObsidianImportSize` is **200MB**, and the payload is only 6.2MB. What's blocking it is
+// Go's `mime/multipart.ReadForm` default cap of **1000 parts** while buffering the whole
+// form — a number nobody ever stated out loud. One file over that, and the whole import is voided.
+
+// Every existing sync-* case feeds in a few dozen synthetic files; the scale dimension has
+// never been asserted — this is exactly the mock gap item vault-sync check 1 names: "Hundreds
+// of notes … nothing dropped" has never been asserted at scale.
 //
-// 既有的 sync-* 用例都喂几十个合成文件,规模这一维从来没被断言过 —— item vault-sync check 1 的
-// mock gap 写的就是这句「Hundreds of notes … nothing dropped 从未在规模上断言」。
-//
-// 这条只断一件事:**份数不该是导入的天花板**。
+// This case asserts exactly one thing: **the part count must not be the import's ceiling.**
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -23,7 +25,8 @@ const OWNER = {
   handle: 'bigvault', fullName: 'Big Vault Owner',
 };
 
-// 1200 —— 稳稳越过 1000 那道墙,又不至于让用例变成压测。真 vault 是 1033。
+// 1200 —— comfortably clears the 1000-part wall without turning this case into a load test.
+// The real vault is 1033.
 const NOTES = 1200;
 
 test.describe('vault-sync · a real-sized vault imports', () => {
@@ -41,8 +44,10 @@ test.describe('vault-sync · a real-sized vault imports', () => {
 
       const res = await uploadVault(request, OWNER, files, { authoritative: true });
 
-      // 至少全部落地 ——「没报错」不算,少一条就是 dropped。用 >= 是因为中间文件夹会多出
-      // 一个占位节点(`wiki/scale/` 自己),那是 check 3 要的行为,不该被写死的等号顶掉。
+      // At minimum every note must land — "no error" doesn't count, one missing note is
+      // still dropped. `>=` is used because an intermediate folder adds one extra placeholder
+      // node (`wiki/scale/` itself), which is check 3's intended behavior and shouldn't be
+      // overridden by a hardcoded equality.
       expect(
         res.created + res.updated,
         `all ${NOTES} notes must land; a part count must not be the ceiling`,

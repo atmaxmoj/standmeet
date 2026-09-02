@@ -1,11 +1,15 @@
-// connector-spec-from-url-assembles.spec.ts —— F-C-25 + F-C-26。
+// connector-spec-from-url-assembles.spec.ts —— F-C-25 + F-C-26.
 //
-// 两条都是在 prod 上用 Cal.com 自己发布的真文档驱出来的,而它们能活到今天是因为**「从 URL 抓
-// spec」这条路的 happy path 一条 e2e 都没有**:用到抓取的两条现有用例走的都是失败场景
-// (不可达 / 被出站策略挡),于是「抓回来的那份文档能不能真的装配成连接器」从来没人走过。
+// Both were driven out on prod using Cal.com's own real published docs, and they survived
+// this long because **there was no e2e covering the happy path of "fetch a spec from a
+// URL"**: the two existing test cases that touch fetching both exercise failure scenarios
+// (unreachable / blocked by egress policy), so whether "the fetched document can actually
+// be assembled into a connector" was never walked by anyone.
 //
-// F-C-25 —— 抓得到候选,装配却送出一份**空 spec**(正文只存在于后端那次抓取里)。
-// F-C-26 —— 装配失败时模态里**一个字都没有**,表单原样待着,像那一下点击没发生过。
+// F-C-25 — the candidate is fetched fine, but assemble sends an **empty spec** (the body
+// only ever existed in that one backend fetch).
+// F-C-26 — when assemble fails, the modal shows **not a single word**; the form just sits
+// there as if the click never happened.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -20,10 +24,12 @@ const OWNER = {
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// SPEC_URL / BASE_URL —— 都指 external-mock:后端(不是浏览器)去抓,所以要用容器内可达的地址;
-// 它也在 CONNECTOR_EGRESS_ALLOW 里,装配期的出站静态校验才放行。
+// SPEC_URL / BASE_URL —— both point at external-mock: the backend (not the browser) does the
+// fetching, so it must be an address reachable inside the container; it's also listed in
+// CONNECTOR_EGRESS_ALLOW, which is what lets the assemble-time egress static check pass.
 const SPEC_URL = 'http://external-mock:9000/vendor-openapi/no-servers.json';
-// TOO_BIG_SPEC_URL —— 合法 JSON,只是大过这台实例收的尺寸（真世界里 GitHub 的 12 MB 就是这样）。
+// TOO_BIG_SPEC_URL —— valid JSON, just bigger than what this instance accepts (in the real
+// world, GitHub's 12 MB doc is exactly this case).
 const TOO_BIG_SPEC_URL = 'http://external-mock:9000/vendor-openapi/too-big.json';
 const BASE_URL = 'http://external-mock:9000';
 
@@ -31,7 +37,7 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 
 test.describe('a spec fetched from a URL can actually be assembled', () => {
   test.beforeAll(async ({ playwright }) => {
-    test.setTimeout(180_000); // resetInstance 在负载高时要 ~48s,而钩子默认只给 30s
+    test.setTimeout(180_000); // resetInstance can take ~48s under load, and the hook default is only 30s
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {
@@ -41,7 +47,8 @@ test.describe('a spec fetched from a URL can actually be assembled', () => {
     await request.dispose();
   });
 
-  // F-C-25 —— 整段真实旅程:抓 → 被拒并点名 → 补 base URL → 出候选 → 装配 → 列表里真多一行。
+  // F-C-25 —— the whole real journey: fetch → get refused with a named reason → supply the
+  // base URL → get a candidate → assemble → an actual new row shows up in the list.
   test('fetch by URL → supply the base URL → assemble leaves a connector behind',
     async ({ adminPage: page }) => {
       const before = await connectorIDs(page);
@@ -49,7 +56,8 @@ test.describe('a spec fetched from a URL can actually be assembled', () => {
 
       await page.getByTestId('connector-spec-url-input').fill(SPEC_URL);
       await page.getByTestId('connector-spec-fetch-button').click();
-      // 先证拒绝确实发生了 —— 否则下面「补上就好了」可能只是它本来就不需要补。
+      // First prove the refusal actually happened — otherwise "supplying it fixes things"
+      // below might just mean it never needed to be supplied in the first place.
       await expect(page.getByTestId('connector-spec-error')).toContainText(/servers|base url/i);
 
       await page.getByTestId('connector-spec-base-url').fill(BASE_URL);
@@ -58,27 +66,30 @@ test.describe('a spec fetched from a URL can actually be assembled', () => {
 
       await page.getByTestId('connector-scheme-select').selectOption('manual:bearer');
       await page.getByTestId('connector-field-token').fill('vendor-test-token');
-      // 无 binding → 必须由 owner 明确开放给访客 AI,否则装出来谁都调不到(见 isAssemblable)。
+      // No binding → the owner must explicitly expose it to the visitor AI, otherwise once
+      // assembled nobody can call it (see isAssemblable).
       await page.getByTestId('connector-expose-agent-tools').check();
       await page.getByTestId('connector-assemble-button').click();
 
-      // 证据在连接器列表里,不在按钮上。
+      // The evidence lives in the connector list, not on the button.
       expect(await newConnectorID(page, before), 'a URL-fetched spec must assemble')
         .not.toBe('');
     });
 
-  // F-C-52 —— **抓回来的文档太大，产品说它「写坏了」。**
+  // F-C-52 —— **the fetched document is too large, and the product claims it's "malformed".**
   //
-  // ①🔴 真环境撞到的：把 **GitHub 自己发布的** `api.github.com.json`（12 MB，合法 JSON）
-  // 贴进 URL 那一格 → 产品答 *"could not parse the spec (invalid JSON or YAML)"*。
-  // owner 会去找一个不存在的语法错误。
+  // ①🔴 Hit in the real environment: paste **GitHub's own published** `api.github.com.json`
+  // (12 MB, valid JSON) into the URL field → the product responds *"could not parse the spec
+  // (invalid JSON or YAML)"*. The owner goes looking for a syntax error that doesn't exist.
   //
-  // ②🎯 边界差一：`svc_validate.go` 的 `io.LimitReader(resp.Body, MaxSpecBytes)` **正好读到上限**，
-  // 于是 `len(raw) > MaxSpecBytes` 永不成立，那句正确的话（粘贴那条路一直在用的
-  // "spec is too large (over the 2 MiB size limit)"）在这条路上**永远说不出口**，
-  // 只剩截断处的解析失败。
+  // ②🎯 An off-by-one boundary: `svc_validate.go`'s `io.LimitReader(resp.Body, MaxSpecBytes)`
+  // reads **exactly up to the limit**, so `len(raw) > MaxSpecBytes` never comes out true, and
+  // the correct message (the one the paste path has been using all along — "spec is too
+  // large (over the 2 MiB size limit)") **can never be spoken** on this path — all that's
+  // left is a parse failure at the truncation point.
   //
-  // 判据要能判负：不但要说「太大」，**而且不许说「invalid JSON」** —— 后者正是它以前说的。
+  // The criterion must be falsifiable: it's not enough to say "too large", it must **also
+  // never say "invalid JSON"** — which is exactly what it used to say.
   test('a fetched spec that is merely too large says so, not "invalid JSON" (F-C-52)',
     async ({ adminPage: page }) => {
       await openConnectorAdd(page);
@@ -92,8 +103,10 @@ test.describe('a spec fetched from a URL can actually be assembled', () => {
       ).not.toContainText(/invalid json|could not parse/i);
     });
 
-  // F-C-26 —— 装配失败必须**在模态里**说出来。用一个品类不存在的 binding 制造一次真实的后端
-  // 拒绝:spec 本身合法(校验能过、候选会出),但建连接器时品类落不到任何契约上。
+  // F-C-26 —— an assemble failure must be stated **inside the modal**. A binding with a
+  // category that doesn't exist manufactures a real backend refusal: the spec itself is
+  // valid (validation passes, a candidate appears), but at connector-creation time the
+  // category doesn't resolve to any adapter.
   test('a refused assemble says so inside the modal', async ({ adminPage: page }) => {
     await openConnectorAdd(page);
 
@@ -104,7 +117,8 @@ test.describe('a spec fetched from a URL can actually be assembled', () => {
 
     await page.getByTestId('connector-assemble-button').click();
 
-    // 断**模态里看得见的那句话**。页面级 toast 不算:模态盖着整页,owner 看不到它。
+    // Assert on **the text visible inside the modal**. A page-level toast doesn't count:
+    // the modal covers the whole page, so the owner never sees it.
     const err = page.getByTestId('connector-assemble-error');
     await expect(err).toBeVisible();
     const shown = await err.innerText();
@@ -142,8 +156,8 @@ async function newConnectorID(page: Page, before: Set<string>): Promise<string> 
   return found;
 }
 
-// specWithServers —— 合法且自带 base URL:这一条要问的是「失败说不说得出来」,不该被 base URL
-// 那件事牵连。
+// specWithServers — valid and carries its own base URL: what this test asks is "does the
+// failure get stated", and it shouldn't get entangled with the base-URL question.
 function specWithServers(): string {
   return JSON.stringify({
     openapi: '3.0.0',
@@ -157,7 +171,8 @@ function specWithServers(): string {
   });
 }
 
-// bindingUnknownCategory —— 品类是个不存在的契约名 → 装配期落不到任何适配器上,后端拒。
+// bindingUnknownCategory — the category names a contract that doesn't exist → at assemble
+// time it resolves to no adapter, and the backend refuses.
 function bindingUnknownCategory(): string {
   return [
     'category: telepathy',

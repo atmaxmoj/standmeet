@@ -1,6 +1,7 @@
-// sync-c-title.spec.ts —— C. title = filename(目标态红)。
-// filename(去 .md)就是 title;frontmatter 里的 title/slug/path 一律忽略(见 _templates 契约)。
-// 空格文件名(normalize 前)→ 容忍连字符化;unicode 文件名 → 容忍。
+// sync-c-title.spec.ts -- C. title = filename (target-state red).
+// The filename (minus .md) is the title; title/slug/path in frontmatter are always ignored
+// (see the _templates contract). Filenames with spaces (before normalization) -> tolerated
+// via hyphenation; unicode filenames -> tolerated.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

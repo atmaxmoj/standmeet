@@ -1,18 +1,27 @@
-// booking-slot-race.spec.ts —— F-B-15 ⭐⭐：**同一格不许被订两次。**
+// booking-slot-race.spec.ts — F-B-15 ⭐⭐: **the same slot must not be booked twice.**
 //
-// prod 上真跑出来的（2026-08-21，真 Google、一把对外 key）：两条一模一样的订会请求**同时**发出，
-// 两条都回 200、两个不同的 `event_id`，Google 上并排两场会。owner 的同一个半小时被占了两次。
+// Reproduced for real in prod (2026-08-21, real Google, a live external key): two identical
+// booking requests fire **at the same time**, both come back 200 with two different
+// `event_id`s, and Google ends up with two side-by-side events. The owner's same half hour
+// gets taken twice.
 //
-// item 的 check 5 原话说的是「provider 对重复插入回一个冲突」—— Google 根本不这么做
-// （`events.insert` 两次就是两场，它不认为那是错）。但那句话要守的东西很清楚：**访客不许被双订**。
-// 这条守卫把它翻成这个环境**判得了负**的形状：两个请求争同一格。
+// The checklist item's check 5 literally says "the provider returns a conflict on a
+// duplicate insert" — Google just doesn't do that (`events.insert` twice is two events, it
+// never treats that as an error). But what that line is trying to guard is clear: **a
+// visitor must not be double-booked.** This guard translates it into a shape this
+// environment **can actually fail on**: two requests racing for the same slot.
 //
-// 机制上就没有互斥：订会是「先问忙时 → 再插入」，中间没有任何东西阻止第二个请求在同一个窗口里
-// 读到同样的「空着」。这不是 provider 的问题，是产品这一侧缺一个「这一格已经有人在订了」的占位。
+// There's no mutex at the mechanism level: booking is "check busy → then insert", and
+// nothing between those two steps stops a second request from reading the same "free"
+// window. This isn't a provider problem — the product side is missing an "this slot already
+// has someone booking it" placeholder.
 //
-// 判据落在**日历那一侧**，不在回执上（[[receipt-check-belongs-next-to-the-action]]）：产品说了什么
-// 都不算数，provider 上到底长出几场才算。反向那条同样不可少 —— 不同时段并发照样各自成功，
-// 否则一个「全局串行、谁都别想并发」的实现也能让第一条转绿（[[assertion-that-cannot-fail]]）。
+// The criterion lives on the **calendar side**, not on the receipt
+// ([[receipt-check-belongs-next-to-the-action]]): what the product says doesn't count,
+// only how many events actually land with the provider. The inverse case matters just as
+// much — concurrent bookings for different time slots must each still succeed, otherwise a
+// "globally serialize everything, nobody gets to book concurrently" implementation could
+// also turn the first assertion green ([[assertion-that-cannot-fail]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

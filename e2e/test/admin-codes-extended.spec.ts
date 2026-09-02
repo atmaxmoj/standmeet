@@ -1,7 +1,7 @@
 // admin-codes-extended.spec.ts —— codes extended: 3-col card, QR modal,
 // quota bar, revoke visual, edit code, view conversations link.
 //
-// 用户故事：
+// User stories:
 //   1. 3-col card layout → members + scope chips + QR visible
 //   2. QR click → QR modal / download
 //   3. quota bar → visual progress bar
@@ -47,12 +47,13 @@ test.describe('admin codes extended features', () => {
       await expect(card).toBeVisible({ timeout: 5_000 });
       // QR should be visible on card
       await expect(card.locator('[data-testid="code-qr"]')).toBeVisible();
-      // #30: 真 QR —— 密集 module 网格(qrcode-generator),不是稀疏伪花纹。
+      // #30: a real QR — a dense module grid (qrcode-generator), not a sparse fake pattern.
       expect(await card.locator('[data-testid="code-qr"] svg rect').count())
         .toBeGreaterThan(100);
-      // #31: members 块只一份(之前 body + footer 各渲一次 → 两个 toggle)。
+      // #31: the members block renders only once (previously body + footer each rendered it →
+      // two toggles).
       await expect(card.getByTestId(`members-toggle-${CODE}`)).toHaveCount(1);
-      // #32: expiry 显式标出(本码没设 expires_at → "no expiry")。
+      // #32: expiry is shown explicitly (this code has no expires_at set → "no expiry").
       const expiry = card.getByTestId('code-expiry');
       await expect(expiry).toBeVisible();
       await expect(expiry).toContainText(/expir/i);

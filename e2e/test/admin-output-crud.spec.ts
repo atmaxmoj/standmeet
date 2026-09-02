@@ -1,7 +1,7 @@
 // admin-output-crud.spec.ts —— output extended: cover strip, tier pill,
 // dual create buttons.
 //
-// 用户故事：
+// User story:
 //   1. cover strip hue gradient renders
 //   2. tier pill (public / unlisted / private) correct
 //   3. dual create buttons (pdf / web essay)

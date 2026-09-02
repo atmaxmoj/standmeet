@@ -1,19 +1,25 @@
-// resource-store-reset-reloads.spec.ts —— 一次 mutation 把 store 打回 idle 之后，**挂载中的
-// 列表必须自己重新拉**，而不是永远停在骨架上。
+// resource-store-reset-reloads.spec.ts — after a mutation snaps the store back to idle, **a
+// mounted list must refetch on its own**, rather than sitting on a skeleton forever.
 //
-// 真事故（admin-wiki-crud 的 promote 用例在满载下红）。时间线是从浏览器里抓出来的，不是推的：
-//   +272ms  POST …/promote           ← 还在飞
-//   +287ms  跳到 /admin/output
-//   +300ms  GET /corpus/output → 200 ← store 变 ready，列表渲染（/output/tree 也发了）
-//   +330ms  POST 落地 → outputStore.reset() → status='idle'
-//   → 没有任何人再叫 ensureLoaded（各 hook 的 effect 依赖 `[ensureLoaded]`，身份稳定只跑一次）
-//   → pickOutputBodyState 把 'idle' 画成骨架 → **列表永远转圈**
+// A real incident (the promote case in admin-wiki-crud went red under load). This timeline was
+// captured from the browser, not guessed at:
+//   +272ms  POST …/promote           ← still in flight
+//   +287ms  navigate to /admin/output
+//   +300ms  GET /corpus/output → 200 ← the store goes ready, the list renders (/output/tree also
+//           fires)
+//   +330ms  the POST lands → outputStore.reset() → status='idle'
+//   → nobody calls ensureLoaded again (each hook's effect depends on `[ensureLoaded]`, whose
+//     identity is stable, so it only ever runs once)
+//   → pickOutputBodyState paints 'idle' as a skeleton → **the list spins forever**
 //
-// owner 看到的是"卡住了"，不是"坏了"：没有报错、没有空态、控制台干净。POST 先落地就一切正常，
-// 所以它只在满载下现形 —— 一个由时序决定的谎（同 names-that-lie 那一类）。
+// What the owner sees is "it's stuck," not "it's broken": no error, no empty state, a clean
+// console. Everything works fine when the POST lands first, so this only shows itself under
+// load — a lie determined purely by timing (the same family as names-that-lie).
 //
-// 修在 `useResource`（lib/state/create-resource-store）：那条 effect 依赖 status，idle 就重新武装。
-// 修在那里而不是各个 use-X 里，是因为「忘了它」没有任何信号，而 25 个调用方都得对。
+// The fix lives in `useResource` (lib/state/create-resource-store): that effect depends on
+// status, and re-arms whenever it becomes idle. It belongs there rather than in each individual
+// use-X hook, because "forgot to handle it" produces no signal of its own, and there are 25
+// callers that all need to get this right.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -42,8 +48,10 @@ test.describe('resource store · a reset while mounted must reload, not strand t
   test('promote then navigate immediately → the output list still resolves', promoteThenNavigate);
 });
 
-// promoteThenNavigate —— **故意不等 promote 的 POST 落地**就跳走：那正是踩中竞态的动作，也正是
-// owner 会做的（点完就走）。等它落地的话，这条用例修不修都绿。
+// promoteThenNavigate — **deliberately doesn't wait for the promote POST to land** before
+// navigating away: that's exactly the action that triggers the race, and it's also exactly what
+// an owner would do (click, then move on). Waiting for it to land would make this case pass
+// whether or not the bug is fixed.
 async function promoteThenNavigate({ adminPage: page }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(page, 'wiki');
   await page.getByTestId('wiki-new-btn').click();
@@ -56,9 +64,10 @@ async function promoteThenNavigate({ adminPage: page }: { adminPage: Page }): Pr
   await row.getByRole('button', { name: /promote → output/i }).click();
   await row.locator('[data-testid$="-title"]').first().fill(OUTPUT_TITLE);
   await row.getByRole('button', { name: /^promote$/i }).click();
-  await gotoAdminSection(page, 'output'); // 不等 POST：竞态就在这儿
+  await gotoAdminSection(page, 'output'); // don't wait for the POST: this is exactly where the race lives
 
-  // 断言的是**好结果**（列表真的解析出来了），不是"没报错"：卡死的形态恰恰是安静的。
+  // Asserts **the good outcome** (the list genuinely resolves), not "no error was reported": the
+  // stuck state is precisely the quiet one.
   await expect(
     page.getByTestId('output-list').getByText(OUTPUT_TITLE, { exact: false }),
     'a reset() landing after the list loaded must re-arm the fetch, not strand it on the skeleton',

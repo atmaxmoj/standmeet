@@ -1,13 +1,18 @@
-// ghost-policy.spec.ts —— Ghost steering P3: GhostPolicy 的**管道**(deterministic,mock 脚本化)。
+// ghost-policy.spec.ts — Ghost steering P3: GhostPolicy's **pipeline** (deterministic, scripted
+// via mock).
 //
-// policy 的 steering 判断(选哪个 waypoint / 该不该沉默 / momentum / 语气)是 LLM 判断 → 归 eval
-// (make eval-ghost,canned transcript + gold)。这里只钉**机械管道**:policy 出一个 ghost →
-// done 之后发一条**单数** `ghost` 帧 + 落 conversation_ghosts(source='policy' + target_waypoint +
-// follows_from);policy 返 null → 不发帧(silence 是一种动作);帧带 ghost_id → 是真落库行(可 accept)。
+// The steering judgment itself (which waypoint to pick / whether to stay silent / momentum /
+// tone) is an LLM judgment → belongs to eval (make eval-ghost, canned transcript + gold). What's
+// pinned here is only the **mechanical pipeline**: policy produces a ghost → after done, a
+// **singular** `ghost` frame is sent + persisted to conversation_ghosts (source='policy' +
+// target_waypoint + follows_from); policy returns null → no frame is sent (silence is itself an
+// action); a frame carrying ghost_id → is a genuinely persisted row (can be accepted).
 //
-// mock:system prompt 带 "ONE GHOST MESSAGE" 的非流式调用 = GhostPolicy;scriptMockGhost 定其返回。
+// Mock: a non-streaming call whose system prompt contains "ONE GHOST MESSAGE" = GhostPolicy;
+// scriptMockGhost sets its return value.
 //
-// RED(实现前):无 GhostPolicy、无单数 ghost 帧 → 帧找不到、断言全红。
+// RED (before implementation): no GhostPolicy, no singular ghost frame → the frame can't be
+// found, every assertion goes red.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -112,7 +117,8 @@ test.describe('ghost policy · 管道 · P3', () => {
     const sess = await freshSession(playwright);
     const tag = await scriptMockGhost(sess.request, GHOST);
     const g = ghostFrame(await turnFrames(sess.request, sess.session, `tell me more${tag}`))!;
-    // 帧回 ghost_id = backend 已把这条 policy ghost 落库(只有存了行才有 id);accept 那侧走 P4 UI 测。
+    // The frame carrying a ghost_id means the backend has already persisted this policy ghost
+    // (only a saved row gets an id); the accept side is covered by the P4 UI tests.
     expect(g.ghost_id, 'policy ghost 已落 conversation_ghosts,帧回真 id').toBeTruthy();
     expect(typeof g.ghost_id, 'id 是字符串(真行主键,非空)').toBe('string');
   });
@@ -136,8 +142,10 @@ async function setup(playwright: Playwright): Promise<void> {
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  // WP 的证据 note 得真存在,冻结那一刻的可行性下限才放它进快照(F-A-26)。
-  // 以前没 seed 也绿:那时没有任何一道闸问过「这条 ref 指得到东西吗」。
+  // The WP's evidence note has to genuinely exist — only once feasibility clears that floor at
+  // freeze time does the entry get admitted into the snapshot (F-A-26). This used to go green
+  // even without seeding it: back then no gate ever asked "does this ref actually resolve to
+  // anything?"
   const apiToken = await createAPIToken(request, csrf, 'wppolicy-seed');
   const sid = await initMCP(request, apiToken);
   await seedWiki(request, apiToken, sid, {

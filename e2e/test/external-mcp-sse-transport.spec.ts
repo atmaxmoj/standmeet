@@ -1,14 +1,21 @@
-// external-mcp-sse-transport.spec.ts —— owner 粘一个**老式 HTTP+SSE** 的 MCP 地址,也连得上。
+// external-mcp-sse-transport.spec.ts —— an owner pastes in an MCP address using the
+// **old HTTP+SSE** transport, and it still connects.
 //
-// MCP 规范里 HTTP+SSE 是旧传输(2024-11-05),streamable HTTP 在 2025-03-26 取代了它。所以
-// 现在**新**的远程 server 大多没问题 —— 但不少服务还挂着 `/sse` 老端点没迁,owner 手里就是
-// 那么一个地址。在此之前 `mcpclient.Dial` 只会 `NewStreamableHttpClient`,全仓没有一行 SSE:
-// 粘老地址 → 拨不通 → 那台 server 的工具**静默消失**,界面不说为什么。
+// In the MCP spec, HTTP+SSE is the older transport (2024-11-05); streamable HTTP
+// replaced it on 2025-03-26. So most **new** remote servers are fine today — but plenty
+// of services still expose the old `/sse` endpoint and never migrated, and an owner
+// might have exactly that address in hand. Before this, `mcpclient.Dial` only ever
+// called `NewStreamableHttpClient` — there wasn't a single line of SSE in the repo:
+// paste an old address → dial fails → that server's tools **silently disappear**, with
+// the UI never saying why.
 //
-// **owner 不该手选传输**:他手里只有一个地址,哪种传输是**对面的属性**,该由我们探。
-// 所以这里没有"传输类型"这个字段 —— 同一个注册表单、同一个 URL 字段,连上就是连上。
+// **The owner should never have to pick a transport by hand**: all they have is one
+// address, and which transport it speaks is **a property of the other side** — it's our
+// job to probe for it. So there is no "transport type" field here at all — the same
+// registration form, the same URL field, and connecting just works.
 //
-// 对面用的是 mcp-server-mock 的 `/sse`(同一个 server 的另一张脸,独立路径,不影响别的 spec)。
+// The other side is mcp-server-mock's `/sse` (a different face of the same server, an
+// independent path that doesn't affect other specs).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Browser, Page } from '@playwright/test';
@@ -27,10 +34,10 @@ const OWNER = {
   fullName: 'SSE MCP Owner',
 };
 
-// 三个入口,同一个 mock server:
-//   /sse       老式 HTTP+SSE(本 spec 的主角)
-//   /mcp       streamable HTTP(回归对照)
-//   /mcp-auth  要认证的那个(external-mcp-auth-header 用)
+// Three entry points, the same mock server:
+//   /sse       the old-style HTTP+SSE (the star of this spec)
+//   /mcp       streamable HTTP (regression control)
+//   /mcp-auth  the one that requires auth (used by external-mcp-auth-header)
 const SSE_URL = 'http://mcp-server-mock:9100/sse';
 const STREAMABLE_URL = 'http://mcp-server-mock:9100/mcp';
 const AUTHED_SSE_URL = 'http://mcp-server-mock:9100/sse';
@@ -67,8 +74,10 @@ test.describe('owner 粘一个 SSE 地址,照样连得上', () => {
   });
 
   test('认证头在 SSE 这条路上也带', async ({ adminPage, browser }) => {
-    // 老端点上带头:mock 的 /sse 不校验头,所以这条断的是**带着头也仍然连得通**
-    // (头被当成 streamable 专属选项传丢的话,SSE 客户端要么报错要么裸连)。
+    // Send an auth header to the old endpoint: the mock's /sse doesn't validate the
+    // header, so this asserts **it still connects even carrying the header** (if the
+    // header got dropped as a streamable-only option, the SSE client would either
+    // error out or connect bare).
     await addServer(adminPage, 'ssehdr', AUTHED_SSE_URL, {
       name: 'X-Mock-Auth', value: 'mock-secret-token',
     });
@@ -79,8 +88,9 @@ test.describe('owner 粘一个 SSE 地址,照样连得上', () => {
   });
 
   test('两种传输都拨不通 → 工具不出现,而且不是静默的', async ({ adminPage, browser }) => {
-    // 一个根本不是 MCP 的地址。降级会让我们试两次,两次都失败 —— 结果必须是
-    // "这台 server 的工具不存在",不是崩、也不是把半个握手的东西暴露出去。
+    // An address that isn't an MCP server at all. The fallback logic makes us try
+    // twice, and both fail — the result must be "this server's tools don't exist", not
+    // a crash, and not exposing half of a broken handshake.
     await addServer(adminPage, 'deadtools', 'http://mcp-server-mock:9100/healthz');
     await attachToCode(adminPage, 'deadtools', 'DEAD-ONE', 'deadrole');
 
@@ -90,8 +100,9 @@ test.describe('owner 粘一个 SSE 地址,照样连得上', () => {
   });
 });
 
-// addServer —— 在 /admin/api·mcp 面板上注册一台外部 MCP server。
-// **没有"传输类型"这个字段** —— 那正是这条 spec 要守住的:owner 只给地址。
+// addServer —— registers an external MCP server on the /admin/api·mcp panel.
+// **There is no "transport type" field** — that's exactly what this spec is guarding:
+// the owner only gives an address.
 async function addServer(
   page: Page, name: string, url: string, auth?: { name: string; value: string },
 ): Promise<void> {
@@ -141,7 +152,8 @@ async function findServerID(
   return row?.id ?? '';
 }
 
-// askVisitorToCallExtTool —— 访客进来,让 AI 调那台 server 的工具,返回答案区 locator。
+// askVisitorToCallExtTool —— a visitor enters, has the AI call that server's tool, and
+// returns the answer-area locator.
 async function askVisitorToCallExtTool(
   browser: Browser, code: string, serverName: string,
 ) {

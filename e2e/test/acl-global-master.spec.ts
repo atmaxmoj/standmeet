@@ -1,10 +1,12 @@
 // acl-global-master.spec.ts —— §B.2 of capability-acl-hierarchy-tests.md.
 //
-// global（capability_settings，活）是顶层 ban master：关了盖过下面一切；开了由
-// frozen（role ∧ ¬code_deny）定。验「只减不增」—— global 不能凭空开 role 没授的。
+// global (capability_settings, live) is the top-level ban master: off overrides
+// everything below it; on defers to frozen (role ∧ ¬code_deny). Verifies "can only
+// narrow, never widen" — global can't open up something role never granted.
 //
-// acl-global-beats-role-grant 不用 code-deny（纯 Phase H global + role），多半已绿，
-// 作 hierarchy 的 global-layer 回归锁；acl-global-on-frozen-decides 红 until code-deny。
+// acl-global-beats-role-grant doesn't use code-deny (pure Phase H global + role), so
+// it's likely already green; it acts as the hierarchy's global-layer regression lock.
+// acl-global-on-frozen-decides is red until code-deny lands.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -20,7 +22,8 @@ test.describe('ACL §B.2 · global is the top ban master', () => {
   let seed: BaseSeed;
   test.beforeAll(async ({ playwright }) => { seed = await seedOwnerGCalConnected(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });
-  // global 是 owner-wide + 活，跨 test 残留 → 每个 test 末尾恢复 enabled=true。
+  // global is owner-wide and live, so it persists across tests — restore
+  // enabled=true at the end of every test.
   test.afterEach(async () => {
     await setCapabilityEnabled(seed.request, seed.csrf, CAP, true);
   });

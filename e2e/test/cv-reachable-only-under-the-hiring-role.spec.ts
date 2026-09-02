@@ -1,17 +1,23 @@
-// cv-reachable-only-under-the-hiring-role.spec.ts —— CV 进语料，但只有招聘那条路看得见。
+// cv-reachable-only-under-the-hiring-role.spec.ts —— the CV enters the corpus, but only the
+// hiring path can see it.
 //
-// 缺陷（面试模拟 2026-08-30 发现）：`subjectivity/cv.md` 在 vault 里，但**故意没同步进
-// 生产语料**（里面是 PII：真名、学校、雇主、城市）。于是 flagship 那条路结构性地答不了
-// 招聘官问得最多的那个问题 —— "你之前在哪工作，什么时间段"。agent 处理得很体面（明说
-// 不编，见那次模拟的 Q8），但体面地答不上来仍然是答不上来。
+// Defect (found during a mock interview run on 2026-08-30): `subjectivity/cv.md` lives in
+// the vault, but was **deliberately never synced into the production corpus** (it contains
+// PII: real name, school, employer, city). So the flagship path is structurally unable to
+// answer the question recruiters ask most — "where did you work before, and for how long".
+// The agent handles this gracefully (explicitly refuses to make things up, see Q8 from that
+// run), but a graceful non-answer is still a non-answer.
 //
-// owner 拍板走 A：CV 进语料，标成非公开，只在 hiring role 下可达。机制不用发明 ——
-// role 的 `corpus_uris` 就是干这个的。
+// The owner decided on option A: the CV enters the corpus, marked non-public, reachable only
+// under the hiring role. No new mechanism needed — that's exactly what a role's
+// `corpus_uris` is for.
 //
-// 判据必须成对，而且**正对照在前**：
-//   只写"公开访客读不到"那半边的话，这条测试在 CV 根本没同步的今天就是绿的 ——
-//   一条永远对的 deny 断言（「红得不知所以然被当成红得对」）。所以先证明招聘那条路
-//   **真的读得到雇主和日期**，那半边红了才轮得到 deny 那半边说话。
+// The criterion has to come in a pair, and **the positive control must run first**:
+//   writing only the "public visitors can't read it" half means this test would already be
+//   green today, when the CV isn't even synced yet — an always-true deny assertion ("red for
+//   no discernible reason gets mistaken for red for the right reason"). So first prove the
+//   hiring path can **actually retrieve the employer and the dates**; only once that half is
+//   red does the deny half get to speak.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -31,15 +37,17 @@ const OWNER = {
   fullName: 'Cee Vee',
 };
 
-// CV 是一条 **subjectivity** 条目，不是 wiki 笔记。
+// The CV is a **subjectivity** entry, not a wiki note.
 //
-// 第一版把它当 wiki 种在 `subjectivity/cv` 这个路径下 —— 而 `invited` 圈的是
-// `wiki://**`，于是**产品发出去的每一张码**（gate 批准码也在内）都看得见这份 PII。
-// 测试当场把它抓了出来。subjectivity 是独立 scheme，本来就在 invited 之外；
-// `hiring` role 再显式圈上 `subjectivity://cv` 那一条。
+// The first version seeded it as wiki under the path `subjectivity/cv` — but `invited` grants
+// `wiki://**`, so **every code the product ever issues** (gate-approved codes included) could
+// see this PII. The test caught it on the spot. subjectivity is a separate scheme, already
+// outside invited by default; the `hiring` role then explicitly grants the single
+// `subjectivity://cv` URI.
 const CV_TITLE = 'cv';
-// 判据锚点：招聘官真正要的两样 —— 雇主名 + 起止日期。语料里没有这两样，
-// 这条路就还是答不上来，哪怕 CV 这个"文件"同步进去了。
+// Criterion anchor: the two things a recruiter actually needs — the employer name + the
+// start/end dates. Without these two in the corpus, this path is still unable to answer,
+// even once the CV "file" itself is synced in.
 const EMPLOYER = 'Northwind Logistics';
 const TENURE = '2019-03 → 2022-11';
 const CV_BODY = [
@@ -63,12 +71,13 @@ test.describe('corpus · the CV is in the corpus, and only the hiring role can r
     const token = await createAPIToken(request, csrf, 'cv-acl-spec');
     const sid = await initMCP(request, token);
 
-    // CV 进语料 —— 走 subjectivity 那条写口（owner 跟自己的 AI 写出来的自我模型）。
+    // The CV enters the corpus — through the subjectivity write port (the self-model the
+    // owner writes with their own AI).
     await createEntry({ request, token, sid }, 'subjectivity', CV_TITLE, CV_BODY);
 
-    // 两条 role 都用**产品自己种的那两条 builtin**，不是测试现编的。
-    // 现编的话测的是我拼的 glob，而不是 owner 真实拿到的那份正列表
-    // （[[which-path-is-the-green-on]]）。
+    // Both roles use **the two builtins the product itself seeds**, not something the test
+    // makes up on the spot. Making them up would test a glob I hand-assembled, not the real
+    // grant list an owner actually gets ([[which-path-is-the-green-on]]).
     const hiring = await getRoleByName(request, 'hiring');
     const plain = await getRoleByName(request, 'invited');
 
@@ -81,21 +90,24 @@ test.describe('corpus · the CV is in the corpus, and only the hiring role can r
     await request.dispose();
   });
 
-  // ── 正对照先跑：招聘那条路必须真的拿得到雇主和日期 ──────────────────
+  // ── positive control runs first: the hiring path must actually retrieve the employer and
+  // dates ──────────────────
   test('a hiring-role visitor can retrieve the employer and the dates',
     async ({ request }) => {
       const sess = await issueSession(request, {
         handle: OWNER.handle, mode: 'code', code: hiringCode, visitor_name: 'Recruiter Bob',
       });
 
-      // 找得到这篇。
+      // The entry can be found.
       expect(await searchTitles(request, sess, EMPLOYER)).toContain(CV_TITLE);
-      // 而且里面那两个具体事实取得出来 —— 「找得到文件」不等于「答得出问题」。
+      // And the two specific facts inside it can actually be extracted — "the file can be
+      // found" is not the same as "the question can be answered".
       const hits = await grepTitles(request, sess, TENURE);
       expect(hits).toContain(CV_TITLE);
     });
 
-  // ── 有了正对照，deny 这半边才有意义 ────────────────────────────────
+  // ── with the positive control in place, the deny half now means something
+  // ────────────────────────────────
   test('an ordinary code cannot reach the CV at all',
     async ({ request }) => {
       const sess = await issueSession(request, {
@@ -105,9 +117,10 @@ test.describe('corpus · the CV is in the corpus, and only the hiring role can r
       expect(await grepTitles(request, sess, TENURE)).not.toContain(CV_TITLE);
     });
 
-  // 访客有**三档**（CLAUDE.md：access code / BYOAI / gate）。上面两条只覆盖了 code 那一档
-  // 和匿名那一档 —— BYOAI 是第三档，它自带 key、只该看到语料的公开切片。
-  // 少测一档就是少守一扇门，而 PII 只需要一扇门开着。
+  // Visitors have **three tiers** (CLAUDE.md: access code / BYOAI / gate). The two tests
+  // above only cover the code tier and the anonymous tier — BYOAI is the third tier: it
+  // brings its own key and should only ever see the corpus's public slice.
+  // Skipping a tier means guarding one fewer door, and PII only needs one open door.
   test('a BYOAI visitor cannot reach the CV either',
     async ({ request }) => {
       const sess = await issueByoaiSession(request, {
@@ -120,7 +133,7 @@ test.describe('corpus · the CV is in the corpus, and only the hiring role can r
       expect(await grepTitles(request, sess, TENURE)).not.toContain(CV_TITLE);
     });
 
-  // 第四档：完全匿名。没有码、没有 BYOAI，就是公开阅读器那条路。
+  // Fourth tier: fully anonymous. No code, no BYOAI — just the public reader path.
   test('an anonymous public session cannot reach the CV either',
     async ({ request }) => {
       const sess = await issueSession(request, {
@@ -131,6 +144,7 @@ test.describe('corpus · the CV is in the corpus, and only the hiring role can r
     });
 });
 
-// 注：role 的 corpus_uris 圈进来只解决"够得着"。agent 还得**知道该去找** ——
-// hiring prompt 里要有一句告诉它雇主和日期在 CV 里。那一半由
-// jobloop-code-never-ships-bare.spec.ts 的 persona 断言覆盖。
+// Note: granting corpus_uris on the role only solves "can reach it". The agent also has to
+// **know to look** — the hiring prompt needs a line telling it that the employer and dates
+// live in the CV. That other half is covered by the persona assertion in
+// jobloop-code-never-ships-bare.spec.ts.

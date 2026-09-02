@@ -1,6 +1,7 @@
-// connector-mail-rotate-creds-reverify.spec.ts —— §三 D-5 行
-// 「改身份字段：mail 换 SMTP 发件邮箱/host/密码」(edit-config) → connected=false →
-// 依赖 smtp 的能力(can_deliver_codes)隐藏 → 重跑连接测试才恢复。
+// connector-mail-rotate-creds-reverify.spec.ts —— §three, row D-5:
+// "change an identity field: mail's SMTP from-address/host/password"
+// (edit-config) → connected=false → the smtp-dependent capability
+// (can_deliver_codes) hides → only recovers once the connection test is rerun.
 //
 // Identity-field change re-verify (decision D-5): changing the SMTP from_address /
 // host is an identity change → backend resets connected=false (UpsertConnectorCredentials
@@ -22,7 +23,7 @@ const OWNER = {
   fullName: 'Mail Rotate Owner',
 };
 
-// 与 MAIL_FROM 不同的新身份字段 —— owner 换了发件邮箱(identity field)。
+// A new identity field, different from MAIL_FROM — the owner changed the from-address (identity field).
 const ROTATED_FROM = 'rotated-noreply@standmeet.test';
 
 async function canDeliverCodes(request: APIRequestContext): Promise<boolean> {

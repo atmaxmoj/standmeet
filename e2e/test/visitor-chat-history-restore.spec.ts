@@ -1,12 +1,17 @@
-// visitor-chat-history-restore.spec.ts —— #11:visitor 刷新页面后,chat transcript
-// (纯内存)会空。载入时按 session token 拉回这段对话的 Q&A 重建,刷新不丢历史。
+// visitor-chat-history-restore.spec.ts —— #11: after the visitor reloads the page, the chat
+// transcript (in-memory only) goes empty. On load, it pulls the Q&A of this conversation
+// back by session token and rebuilds it, so a reload doesn't lose history.
 //
-// 故事:visitor 进 code 会话、问一句、拿到答 → reload → 那条问 + 答还在。
+// Story: a visitor enters a code session, asks a question, gets an answer → reload → that
+// question + answer are still there.
 //
-// F-A-29:这一轮**必须带工具调用**。以前它问的那句一个工具都不调,于是聚合里 `tool_calls: []`,
-// 而真实的每一轮都有检索 —— 当 F-A-28 把检索调用的 `result` 从访客回参里剥掉之后,客户端 schema
-// 对着「有工具调用」的那份 payload 直接解析失败、整段历史被丢掉,而这条用例照样绿。
-// 它守的是刷新不丢历史,却只走了一种真实世界里不存在的形状。
+// F-A-29: this turn **must** include a tool call. Previously the question it asked triggered
+// no tool at all, so the aggregate carried `tool_calls: []`; but every real turn does
+// retrieval — once F-A-28 stripped the retrieval call's `result` out of what's sent back to
+// the visitor, the client schema failed to parse against a payload that actually "has a tool
+// call," and the whole history got dropped — yet this case stayed green anyway. It was
+// guarding "reload doesn't lose history" while only ever exercising a shape that doesn't
+// exist in the real world.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -51,13 +56,16 @@ test.describe('刷新后对话历史恢复', () => {
       const page = await ctx.newPage();
       await enterCodeSession(page, CODE);
 
-      // #28: backend 落库在 /agent/turn 流末端(`done` 之前)。提问前挂这条 SSE
-      // 响应,res.finished() = 流读完 = 已落库;等它再 reload,否则历史还没进 DB。
+      // #28: the backend stores to the DB at the end of the /agent/turn stream (right before
+      // `done`). Attach this SSE response listener before asking; res.finished() = stream
+      // fully read = already stored — wait for it before reloading, otherwise the history
+      // hasn't landed in the DB yet.
       const turnDone = page.waitForResponse((res) =>
         res.url().includes('/agent/turn') && res.status() === 200, { timeout: 20_000 });
 
-      // 真实的一轮总是先检索。检索调用的 result 在下发给访客时被剥掉(F-A-28),而恢复这条路
-      // 必须扛得住那个形状 —— 这两个 tag 就是把它带进来。
+      // A real turn always does retrieval first. The retrieval call's result gets stripped
+      // out when it's sent down to the visitor (F-A-28), and the restore path must hold up
+      // against that exact shape — these two tags are what bring it in.
       const searchTag = await scriptMockToolCall(page.request, {
         name: 'corpus_search', args: { query: 'lucerna' },
       });
@@ -74,15 +82,16 @@ test.describe('刷新后对话历史恢复', () => {
       const answerBefore = await page.locator('[data-testid="answer-body"]').innerText();
       await (await turnDone).finished();
 
-      // reload:纯内存 transcript 空掉,history endpoint 拉回重建。
+      // reload: the in-memory transcript goes empty, the history endpoint pulls it back and rebuilds it.
       await page.reload();
 
-      // 那条问 + 答恢复了。
+      // That question + answer are restored.
       await expect(page.getByText(QUESTION)).toBeVisible({ timeout: 10_000 });
       const answerAfter = await page.locator('[data-testid="answer-body"]').innerText();
       expect(answerAfter.length).toBeGreaterThan(0);
-      // 比答案正文:归一空白 + 砍掉 citation footer(live 有 "REFERENCES · N",
-      // restore 暂不带 refs,只保 Q&A 文本 —— refs hydration 留后续)。
+      // Compare the answer body: normalize whitespace + strip the citation footer (live has
+      // "REFERENCES · N", restore doesn't carry refs yet and keeps only the Q&A text — refs
+      // hydration is left for later).
       const prose = (s: string) => s.replace(/\s+/g, ' ').replace(/REFERENCES.*$/i, '').trim();
       expect(prose(answerAfter)).toBe(prose(answerBefore));
 

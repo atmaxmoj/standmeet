@@ -1,16 +1,23 @@
-// wiki-meta-row.spec.ts —— wiki reader 顶部那一段:meta 行 + hero。
+// wiki-meta-row.spec.ts -- the section at the top of the wiki reader: the
+// meta row + hero.
 //
-// meta 行:W3/F1 暴露 sources_count(「N corpus sources」、breadcrumb「N sources cited」)。
+// Meta row: W3/F1 exposes sources_count ("N corpus sources", and the
+// breadcrumb's "N sources cited").
 //
-// hero:owner 设的**三件套**(图 + 压在图上那句 + 色调)在**已发布**的笔记上渲得出来,
-// 而**没设 hero 的笔记什么都不渲**(corpus-media check 4 的 Expected 逐字写了两遍)。
-// 「已发布」是这条 spec 的要害:发布了的笔记走 SSR 那条路(匿名可读),没发布的才走
-// 带 token 的客户端重取 —— 素材类断言原先只在后者上跑过(genre-assets-reader 全程带码,
-// 且那条笔记没发布),前者一次都没被看过。
+// Hero: the owner-set **three-piece set** (image + the headline over it +
+// hue) renders on a **published** note, and **a note with no hero set
+// renders nothing at all** (corpus-media check 4's Expected wrote this
+// twice, verbatim). "Published" is the crux of this spec: a published note
+// goes through the SSR path (readable anonymously), while an unpublished one
+// goes through a token-bearing client refetch instead -- asset-related
+// assertions used to run only against the latter (genre-assets-reader always
+// carries a code, and that note was never published), so the former was
+// never once exercised.
 //
-// 两条笔记:
-//   lonely-note —— 无 tag、无 hero,从 1 条 raw 提炼 → sources_count=1。
-//   covered-note —— 无 tag,但挂了封面图 + headline + hue,正文里还有一张配图。
+// Two notes:
+//   lonely-note -- no tag, no hero, distilled from 1 raw entry -> sources_count=1.
+//   covered-note -- no tag, but carries a cover image + headline + hue, plus
+//   an inline image in the body.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -29,8 +36,9 @@ const OWNER = {
 const PATH = 'lonely-note';
 const COVERED_PATH = 'covered-note';
 const COVER_LINE = 'the line the owner wrote over the picture';
-// hue —— owner 在 hero 编辑器里选的那一个。**不是** slug 哈希出来的那一个:
-// 这条断言存在的理由就是那次哈希把 owner 的选择顶掉了。
+// hue -- the one the owner picked in the hero editor. **Not** the one
+// derived from a slug hash: the whole reason this assertion exists is that a
+// hash once overrode the owner's choice.
 const HUE = 'acid';
 
 let mcpToken = '';
@@ -48,7 +56,7 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     mcpToken = await createAPIToken(request, csrf, 'metarow-seed');
     const sid = await initMCP(request, mcpToken);
-    // 无 tag,从 1 条 raw 提炼 → sources_count=1。
+    // No tag, distilled from 1 raw entry -> sources_count=1.
     const w = await seedWiki(request, mcpToken, sid, {
       title: 'Lonely Note', body: 'A standalone note with no tags.',
     });
@@ -58,41 +66,54 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
     await request.dispose();
   });
 
-  // **这条以前把重复钉死了**：它的名字逐字写着「meta row shows N corpus sources;
-  // breadcrumb shows N sources cited」—— 于是同一个数在一屏上说两遍、还换了一套词
-  // （UX-85），而任何想去重的改动都会撞红这条守卫，被记成「留给 owner 定」。
-  // 守卫记录的是那份重复本身，不是产品要求（[[parked-test-carries-a-wrong-diagnosis]]）。
+  // **This test used to pin the duplication down as correct**: its name
+  // literally read "meta row shows N corpus sources; breadcrumb shows N
+  // sources cited" -- so the same number was said twice on one screen, in
+  // two different phrasings (UX-85), and any change trying to de-duplicate
+  // it would go red against this guard, getting logged as "leave it for the
+  // owner to decide". The guard was recording the duplication itself, not a
+  // product requirement ([[parked-test-carries-a-wrong-diagnosis]]).
   //
-  // 判据换成设计语言那一条：**一件事在一屏上只说一遍**。分工也定死：
-  // 面包屑只回答「我在哪」，meta 行回答「这是什么、谁写的、什么时候、引了几条」。
+  // The criterion is now the design-language rule instead: **say a thing
+  // once per screen**. The division of labor is also fixed: the breadcrumb
+  // only answers "where am I", the meta row answers "what is this, who wrote
+  // it, when, and how many sources it cites".
   //
-  // 「N corpus sources」那一格**已经拆掉**。它读的是 `raw → promote` 那条链的长度，而 vault
-  // 导入建的是 wiki 条目本身，这条链是空的 —— 于是它在整个 575 条语料上恒显示 `0`。
-  // 一个永远是零的计数不提供信息，只占着 meta 行的位置，还让人以为"这篇没有出处"，
-  // 而真相是"这套流程你没用过"。owner 判定它没用，拆了。
-  // 不变量本身没变，下面照旧守：一件事在一屏上只说一遍。
+  // The "N corpus sources" field has **already been removed**. It read the
+  // length of the `raw -> promote` chain, but the vault import creates wiki
+  // entries directly, leaving that chain empty -- so across the entire
+  // 575-entry corpus it always displayed `0`. A count that is always zero
+  // carries no information, just occupies a spot in the meta row, and gives
+  // the false impression "this piece has no sources", when the truth is "you
+  // never used this pipeline". The owner judged it useless and removed it.
+  // The invariant itself is unchanged; the test below still guards it: say a
+  // thing once per screen.
   test('日期只出现一次:面包屑只导航,meta 行讲这条笔记',
     async ({ page }) => {
       await goto(page, `/wiki/${PATH}`);
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('wiki-meta')).toContainText(OWNER.fullName);
-      // 拆掉之后不许换个说法又冒出来 —— 判负的那一半。
+      // Once removed, it must not resurface under different wording -- the
+      // negative half of the judgment.
       await expect(page.getByTestId('wiki-meta'), '来源计数已移除，不该以任何措辞回来')
         .not.toContainText('corpus source');
 
       const crumb = page.getByTestId('wiki-breadcrumb');
-      // 取文本再判 —— `.not.toContainText` 在元素还没出现时也算通过
-      // （[[negated-assertion-passes-while-absent]]）。
+      // Read the text out and check it -- `.not.toContainText` would pass
+      // even before the element ever appears
+      // ([[negated-assertion-passes-while-absent]]).
       await expect(crumb).toBeVisible();
       const crumbText = await crumb.innerText();
       expect(crumbText, '来源数只在 meta 行说一次').not.toContain('sources');
       expect(crumbText, '日期只在 meta 行说一次').not.toMatch(/\d{4}/);
     });
 
-  // 这条守的是**封面上那行小标的文案**:没有 tag 时它只写「wiki」,不再硬兜底成
-  // 「corpus」。它原先挂在 lonely-note 上 —— 一条根本不该有封面的笔记 —— 于是顺带
-  // 把「无 hero 也铺一块壳」钉成了既定行为(F-L-32)。它要守的东西在有封面的那条上
-  // 一样成立,搬过来。
+  // This test guards **the small label copy on the cover**: with no tag, it
+  // should read only "wiki", no longer hardcoded to fall back to "corpus". It
+  // used to be attached to lonely-note -- a note that shouldn't have a cover
+  // at all -- which incidentally locked in "render an empty hero shell even
+  // with no hero set" as intended behavior (F-L-32). What it actually guards
+  // holds just as well on a note that has a cover, so it's moved here.
   test('cover with no tag shows just "wiki", not the hardcoded "corpus" fallback',
     async ({ page }) => {
       await goto(page, `/wiki/${COVERED_PATH}`);
@@ -103,7 +124,8 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
 
   test('没设 hero 的笔记不渲染空的 hero 壳', async ({ page }) => {
     await goto(page, `/wiki/${PATH}`);
-    // 先确认页面真渲出来了 —— 不然「数到 0」只是因为什么都还没有。
+    // First confirm the page actually rendered -- otherwise "counted 0" just
+    // means nothing has loaded yet.
     await expect(page.getByTestId('wiki-meta')).toBeVisible({ timeout: 5_000 });
     await expect(page.getByTestId('wiki-meta')).toContainText('Lonely Note');
     await expect(
@@ -133,13 +155,17 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
     await goto(page, `/wiki/${COVERED_PATH}`);
     const cover = page.getByTestId('wiki-cover');
     await expect(cover).toBeVisible({ timeout: 5_000 });
-    // data-hue 就是上色的机制本身(CSS 按属性选择器出渐变),不是一个只给测试看的标记。
+    // data-hue IS the coloring mechanism itself (CSS attribute selectors
+    // produce the gradient), not a marker that exists only for the test to see.
     await expect(cover, 'owner 选了 acid').toHaveAttribute('data-hue', HUE);
   });
 });
 
-// seedCoveredNote —— owner 把 hero 三件套都设上,正文里再插一张图,然后**发布**它。
-// 发布是要害:公开那条路(SSR)跟带 token 重取那条路是两套装配,而素材类断言以前只在后者上跑过。
+// seedCoveredNote -- the owner sets the full hero three-piece set, inserts
+// another image in the body, then **publishes** it.
+// Publishing is the crux: the public path (SSR) and the token-bearing
+// refetch path are two separate assemblies, and asset-related assertions
+// used to run only against the latter.
 async function seedCoveredNote(request: APIRequestContext, sid: string): Promise<void> {
   const c = await seedWiki(request, mcpToken, sid, {
     title: 'Covered Note', body: 'A note the owner gave a cover.',

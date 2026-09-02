@@ -1,19 +1,26 @@
-// visitor-ghost-readable.spec.ts —— F-A-25: ghost 必须**读得完**。
+// visitor-ghost-readable.spec.ts —— F-A-25: a ghost must be **readable to the end**.
 //
-// ghost 一直是当作 textarea 的 `placeholder` 属性渲的。placeholder 不换行:一行,到元素宽度就裁,
-// 没有省略号。而 ghost 是模型生成的任意长度散文,于是每一条长一点的都在半句话处断掉 —— 访客
-// 永远看不到后半截,也就永远不知道它在把自己往哪儿引。
+// The ghost has always been rendered as a textarea's `placeholder` attribute. A placeholder
+// doesn't wrap: it's one line, clipped at the element's width, no ellipsis. But the ghost is
+// model-generated prose of arbitrary length, so every ghost longer than a short phrase cuts
+// off mid-sentence — the visitor never sees the second half, and so never learns where it
+// was steering them.
 //
-// 这不是容器不够大:同一条串按 Tab 收进同一个框当 **value**,textarea 自己撑高、换行、完整可读。
-// 装不下的是投递方式,不是盒子。
+// This isn't a case of the container being too small: the same string, pulled into the same
+// box as the **value** via Tab, makes the textarea grow, wrap, and read completely. What
+// doesn't fit is the delivery mechanism, not the box.
 //
-// 判据必须是**几何**的,不能读文本 —— `data-ghost` 属性和 innerText 在被裁的时候一模一样,
-// 现有的 visitor-chat-ghost.spec.ts 就是这么绿的。所以这里断三件事:
-//   1. ghost 有一个真的渲染元素(不只是一个属性);
-//   2. 它没有横向溢出(scrollWidth <= clientWidth)—— 一行 nowrap 会在这里红;
-//   3. 它至少占了两行高 —— 证明它真换行了,而不是被 overflow:hidden 藏起来。
+// The criterion has to be **geometric**, not text-based — the `data-ghost` attribute and
+// innerText look identical whether or not the text got clipped, which is exactly how the
+// existing visitor-chat-ghost.spec.ts stays green. So this asserts three things:
+//   1. the ghost has a real rendered element (not just an attribute);
+//   2. it has no horizontal overflow (scrollWidth <= clientWidth) — a nowrap single line
+//      would go red here;
+//   3. it occupies at least two lines of height — proof it actually wrapped, rather than
+//      being hidden by overflow:hidden.
 //
-// RED(修复前):ghost 只存在于 placeholder 属性里,元素不存在 → 第一条就红。
+// RED (before the fix): the ghost only existed inside the placeholder attribute, and the
+// element didn't exist → the first assertion alone goes red.
 
 import { test, expect } from '@/fixtures/test';
 import type { Locator, Playwright } from '@playwright/test';
@@ -34,9 +41,10 @@ const OWNER = {
 };
 const CODE = 'GHOSTREAD-001';
 
-// 真实长度的 ghost —— prod 上观察到的那几条就是这个量级("You mentioned your frameworks. I noticed
-// you have a note called 'recursive-harness' — is that another one? I'd like to read it.")。
-// 短串在窄框里也可能碰巧放得下,那样的绿说明不了任何事。
+// A ghost of realistic length — the ones observed on prod are around this scale
+// ("You mentioned your frameworks. I noticed you have a note called 'recursive-harness' — is
+// that another one? I'd like to read it."). A short string might happen to fit in a narrow
+// box too, and that kind of green wouldn't prove anything.
 const LONG_GHOST =
   'You mentioned your frameworks. I noticed you have a note called '
   + "'recursive-harness' — is that another one? I'd like to read it.";
@@ -66,9 +74,11 @@ test.describe('visitor ghost · 读得完 · F-A-25', () => {
     ).toBeGreaterThan(box.lineHeight * 1.5);
   });
 
-  // ghost 在场时输入框自己的 placeholder 必须让位成空。第一版修复没让,于是 "ask…" 压在 ghost
-  // 第一行上叠成一团 —— 上面那条几何断言全绿,因为它量的是 ghost 元素,量不出背后还压着另一串字。
-  // 这条是拿眼睛在 prod 上看出来的,补回来当闸门。
+  // While a ghost is present, the input's own placeholder must yield and go empty. The first
+  // fix didn't do this, so "ask…" sat piled on top of the ghost's first line — the geometric
+  // assertion above stayed all green because it only measures the ghost element, and can't
+  // detect another string layered underneath it. This one was caught by eye on prod, and is
+  // added back as a gate.
   test('ghost 在场时,输入框自己的 placeholder 让位(不叠字)', async ({ page }) => {
     await enterCodeSession(page, CODE, 'NoOverlap');
     await expect(page.getByTestId('chat-ghost-text')).toBeVisible({ timeout: 10_000 });
@@ -106,8 +116,8 @@ interface GhostBox {
   lineHeight: number;
 }
 
-// overflow —— 量这个元素的横向溢出 + 实际高度 + 一行有多高。文本断言分不出「渲染了」和
-// 「被裁了」,所以判据只能是几何的。
+// overflow —— measures this element's horizontal overflow + actual height + line height. A
+// text assertion can't distinguish "rendered" from "clipped," so the criterion has to be geometric.
 async function overflow(el: Locator): Promise<GhostBox> {
   return await el.evaluate((n: HTMLElement) => ({
     clientWidth: n.clientWidth,
@@ -138,7 +148,8 @@ async function initOwner(playwright: Playwright): Promise<void> {
       weight: 5, evidence_refs: ['wiki://alpha'], is_terminal: false,
     }],
   });
-  // initial ghost 走 code.ghosts 首条 —— 不用等一轮模型回答就能看到输入框里的那条。
+  // The initial ghost comes from code.ghosts' first entry — visible in the input without
+  // waiting for a round-trip model answer.
   await createCode(request, csrf, {
     code: CODE, label: 'ghostread', assumed_role_id: role.id, ghosts: [LONG_GHOST],
   });

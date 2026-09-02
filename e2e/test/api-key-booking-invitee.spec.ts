@@ -1,18 +1,25 @@
-// api-key-booking-invitee.spec.ts —— F-B-12 ⭐：**对外 key 订的会也得有客人。**
+// api-key-booking-invitee.spec.ts —— F-B-12 ⭐: **a booking made through an external key
+// needs a guest too.**
 //
-// prod 上驱 booking-book check 7 时看到的（2026-08-20）：经 `/api/pub/v1` 订的每一场会，回执里
-// `invited_email` 都是空串，Google 上打开是**零参会人**；而同一天用聊天那条路订的那场，客人好好
-// 地挂在上面。这条路的成品是 owner 日历上一场真的会，一场没有客人的会等于 owner 到点了对着空房间。
+// Found while driving booking-book check 7 on prod (2026-08-20): every meeting booked
+// through `/api/pub/v1` came back with an empty `invited_email` in the receipt, and opening
+// it on Google showed **zero attendees**; a booking made the same day through the chat path
+// had the guest attached correctly. What this path produces is a real event on the owner's
+// calendar — a meeting with no guest means the owner shows up to an empty room.
 //
-// **为什么不是「给工具加个参数」**：F-B-6 已经判过一次 —— 让模型自己填收件人，它会从对话里
-// 编一个出来。所以邀请人**只从会话身份来**，`calendar_book` 不收 `visitor_email` 这个 tool arg。
-// key 这条路上没有会话身份可言（调用方是别人的程序），缺的正是那一格：**代谁而约**。
+// **Why the fix isn't "add a tool parameter"**: F-B-6 already ruled on this once — let the
+// model fill in the recipient itself, and it will invent one out of the conversation. So the
+// invitee **comes only from the session identity**; `calendar_book` doesn't accept a
+// `visitor_email` tool arg. On the key path there's no session identity to speak of (the
+// caller is someone else's program), and that's exactly the gap: **on whose behalf is this booking made?**
 //
-// 修法因此是把它放在**会话那一层**而不是工具参数里：调用方在请求头上说明自己代表谁，facade
-// 把它当成这一场的访客身份 —— 插件那边一行不改，F-B-6 的规矩仍然成立。
+// The fix, therefore, is to place it at the **session layer**, not in the tool parameters:
+// the caller states who they represent in a request header, and the facade treats that as
+// this call's visitor identity — the plugin side changes not one line, and F-B-6's rule still holds.
 //
-// 判据落在**外面**：回执说了不算，去 provider 那儿看这场会到底有没有这个人
-// （[[receipt-check-belongs-next-to-the-action]]）。
+// The criterion lands **outside**: the receipt saying so doesn't count; go check with the
+// provider whether this person is actually on the event
+// ([[receipt-check-belongs-next-to-the-action]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -83,8 +90,9 @@ test.describe.serial('F-B-12 · a booking made through a key can name its guest'
   });
 });
 
-// book —— 走 facade 订一场。`X-Standmeet-Visitor-Email` 说的是**代谁而约**：它属于会话身份，
-// 不是工具参数（F-B-6：收件人不能由模型/载荷决定）。
+// book —— books a meeting through the facade. `X-Standmeet-Visitor-Email` states **on whose
+// behalf this is booked**: it belongs to the session identity, not to a tool parameter
+// (F-B-6: the recipient must not be decided by the model or the payload).
 async function book(
   request: APIRequestContext, apiKey: string, topic: string, when: string, guest: string,
 ): Promise<ToolEnvelope> {

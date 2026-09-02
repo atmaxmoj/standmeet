@@ -10,7 +10,7 @@
 // Per-entry SEO now speaks the consolidated vocabulary: `excerpt` (was
 // seo_description) + `published` (was seo_indexed).
 //
-// 用户故事：
+// User stories:
 //   1. defaults load real values; edit site_title → save → persists + success toast
 //   2. save failure → error toast (never silently swallowed)
 //   3. og:description / canonical are read-only mirrors (+ edit links), not inputs
@@ -105,11 +105,13 @@ test.describe('admin SEO section (real backend)', () => {
       await expect(adminPage.getByTestId('seo-stat-wiki')).toHaveText(/[1-9]/);
     });
 
-  // 面板存了 site_title，然后 owner 在 Claude Code 里只改 robots —— 标题必须还在。
+  // The panel saved site_title, then the owner changes only robots from Claude Code — the title
+  // must still be there.
   //
-  // 这条守的是一个真 bug：那条 upsert 整行覆写，而 MCP 那份入参里没有 site_title，
-  // 于是每次从 AI 客户端改一下 robots，owner 自己写的站点标题就被洗成空。修法不是
-  // 在 MCP 那边补一个字段，是让"没提到"和"设成空"在入参里分得开（两个面同一条规则）。
+  // This guards a real bug: that upsert overwrites the whole row, and the MCP call's arguments
+  // don't include site_title, so every time robots gets toggled from an AI client, the site title
+  // the owner wrote gets wiped to empty. The fix isn't adding a field on the MCP side — it's
+  // making the arguments distinguish "not mentioned" from "set to empty" (one rule, both surfaces).
   test('MCP update_settings without site_title keeps the title the panel saved',
     mcpKeepsSiteTitle);
 

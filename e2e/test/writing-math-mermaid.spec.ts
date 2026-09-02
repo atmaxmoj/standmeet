@@ -1,20 +1,20 @@
-// writing-math-mermaid.spec.ts —— I.2: writings surface 渲 LaTeX (KaTeX)
-// + mermaid 图。OpenWebUI 路线：KaTeX 0.16 + mermaid 11，跟 chat / wiki /
-// output 同套 pipeline。
+// writing-math-mermaid.spec.ts —— I.2: the writings surface renders LaTeX (KaTeX) + mermaid
+// diagrams. Follows the OpenWebUI approach: KaTeX 0.16 + mermaid 11, the same pipeline used
+// by chat / wiki / output.
 //
-// 矩阵:
-//   - inline `$x^2$` 嵌入段落
-//   - display `$$\\int_0^1 x\\,dx$$` 独立块
+// Matrix:
+//   - inline `$x^2$` embedded in a paragraph
+//   - display `$$\\int_0^1 x\\,dx$$` as its own block
 //   - ```mermaid sequenceDiagram``` fenced block
 //
-// 断言:
-//   - `.katex` DOM 出现 (math 渲了)
-//   - `.katex-display` DOM 出现 (block math 单独行)
-//   - mermaid-svg testid 出现 (lazy chunk 拉完 + render done)
+// Assertions:
+//   - `.katex` DOM appears (math rendered)
+//   - `.katex-display` DOM appears (block math on its own line)
+//   - mermaid-svg testid appears (lazy chunk finished loading + render done)
 //
-// Mermaid 是 lazy chunk + 异步 render (~600KB)；先渲 skeleton
-// (mermaid-loading) 后切真 SVG。spec 用 toBeVisible 等真 DOM 出现，
-// timeout 留余量。
+// Mermaid is a lazy chunk + async render (~600KB); it renders a skeleton first
+// (mermaid-loading) then swaps in the real SVG. The spec uses toBeVisible to wait for the
+// real DOM to appear, with a generous timeout.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -31,13 +31,16 @@ const OWNER = {
   fullName: 'Math Owner',
 };
 
-// MATH_MD —— 一段含 inline math + display math + mermaid 的 body。
-// display math 有两种真实写法,BOTH 必须渲成 `.katex-display`(F-R-3):
-//   (1) fenced/多行 `$$`（`$$` 各占一行）—— 一直能渲。
-//   (2) **单行 `$$…$$`** —— Obsidian 把它当 display,真 vault(wiki/math/analysis/lagrangian
-//       的 6 个块、含一个 blockquote 内的)全是这种写法。remark-math v6+ 却把单行 `$$x$$`
-//       当 **inline** → `.katex-display`=0 → 高公式与文字重叠。修在共享管线
-//       (`markdown-helpers.promoteDisplayMath`):渲染前把单行 `$$…$$` 提成 fenced 形式。
+// MATH_MD — a body containing inline math + display math + mermaid.
+// Display math has two real-world spellings, and BOTH must render as `.katex-display`
+// (F-R-3):
+//   (1) fenced/multi-line `$$` (each `$$` on its own line) — has always rendered fine.
+//   (2) **single-line `$$…$$`** — Obsidian treats this as display, and the real vault (the 6
+//       blocks in wiki/math/analysis/lagrangian, including one inside a blockquote) is
+//       written entirely this way. remark-math v6+ instead treats single-line `$$x$$` as
+//       **inline** → `.katex-display`=0 → tall formulas overlap the surrounding text. Fixed
+//       in the shared pipeline (`markdown-helpers.promoteDisplayMath`): promote single-line
+//       `$$…$$` into fenced form before rendering.
 const MATH_MD = [
   'A quick energy identity: $E = mc^2$ inline.',
   '',
@@ -47,7 +50,8 @@ const MATH_MD = [
   '\\int_0^1 x\\,dx = \\frac{1}{2}',
   '$$',
   '',
-  // (2) 单行 display —— Obsidian/真 vault 的写法。整行一个,和 blockquote 里一个。
+  // (2) single-line display — the Obsidian/real-vault spelling. One whole-line, one inside
+  // a blockquote.
   'Single-line display (the Obsidian form the real vault uses):',
   '',
   '$$a^2 + b^2 = c^2$$',
@@ -64,7 +68,8 @@ const MATH_MD = [
   '',
   'After the diagram.',
   '',
-  // #36/#40:一句话里两个货币金额,之前 $100..$200 之间被 KaTeX 当公式吃掉。
+  // #36/#40: two currency amounts in one sentence — previously everything between $100 and
+  // $200 got swallowed by KaTeX as a formula.
   'Pricing: it cost $100 up front and $200 on renewal.',
   '',
   // vault convention (raw/market/awareness/*.md): a literal dollar is authored as `\$`.
@@ -88,8 +93,9 @@ test.describe('writings · LaTeX + mermaid render · I.2', () => {
       const body = page.getByTestId('writing-article-body');
       await expect(body, 'page rendered').toBeVisible({ timeout: 10_000 });
 
-      // KaTeX inline (e.g. E = mc^2) 渲一个 .katex 节点；display 块再加
-      // 一个 .katex-display 包裹。两个一起验证 math 整条线通。
+      // KaTeX inline (e.g. E = mc^2) renders one .katex node; the display block adds
+      // another .katex-display wrapper. Checking both together verifies the whole math
+      // pipeline works end to end.
       await expect(body.locator('.katex').first(), 'inline math .katex')
         .toBeVisible({ timeout: 5_000 });
       await expect(body.locator('.katex-display').first(), 'display math .katex-display')
@@ -113,20 +119,23 @@ test.describe('writings · LaTeX + mermaid render · I.2', () => {
       expect(align, 'katex-display must use the standard centered layout, no left-align override')
         .toBe('center');
 
-      // #36/#40:货币金额按字面渲(不被当公式吃掉)。两个 $ 都还在文本里。
+      // #36/#40: currency amounts render literally (not swallowed as a formula). Both $
+      // signs stay in the text.
       await expect(body, 'currency $ rendered literally')
         .toContainText('it cost $100 up front and $200 on renewal');
 
-      // vault `\$` convention:`\$80M on \$246M` → 字面美元,不是行内数学,反斜杠不外泄。
-      // 若 remark-math 被换成对 \$ 不敏感的手搓正则,这条会 RED(文本变成乱码数学)。
+      // vault `\$` convention: `\$80M on \$246M` → literal dollar signs, not inline math, and
+      // the backslash must not leak out. If remark-math gets swapped for a hand-rolled regex
+      // that's insensitive to `\$`, this test goes RED (the text turns into garbled math).
       await expect(body, 'escaped \\$ renders literal, no math, no backslash leak')
         .toContainText('Revenue: $80M on $246M revenue this quarter');
 
-      // Mermaid lazy + 异步 render：MermaidBlock useEffect 跑完 setResult
-      // 后才出 data-testid=mermaid-svg。lazy chunk 拉过来要时间，留 15s。
+      // Mermaid lazy + async render: data-testid=mermaid-svg only appears after
+      // MermaidBlock's useEffect finishes running setResult. Pulling in the lazy chunk
+      // takes time, so allow 15s.
       await expect(body.getByTestId('mermaid-svg'), 'mermaid block 渲成 svg')
         .toBeVisible({ timeout: 15_000 });
-      // svg 节点真生成 (mermaid 自带 <svg>)
+      // the svg node is genuinely generated (mermaid produces its own <svg>)
       await expect(body.getByTestId('mermaid-svg').locator('svg'))
         .toBeVisible();
     });

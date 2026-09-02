@@ -1,11 +1,11 @@
-// connector-retry-read-transient-recovers.spec.ts —— §五 重试矩阵 · 读类
+// connector-retry-read-transient-recovers.spec.ts -- Section 5 retry matrix, read class
 //
 // freeBusy / calendar_list_slots is a SYNC, IDEMPOTENT read. Per D-7 it gets a
 // small retry budget (3 attempts, 1s/2s/4s backoff, ~10s total cap). A
 // TRANSIENT error (one 503/timeout) followed by success must be invisible to
 // the visitor: the retry layer absorbs it and the visitor still gets slots.
 //
-// 瞬时错→重→成功: mock GCal fails freeBusy ONCE then succeeds; the tool returns
+// Transient error -> retry -> success: mock GCal fails freeBusy ONCE then succeeds; the tool returns
 // slots (status 200, no user-visible failure, no degrade message).
 //
 // RED / TDD: until the per-op retry config (on top of the #132 generic retry

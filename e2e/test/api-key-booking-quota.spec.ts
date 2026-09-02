@@ -1,18 +1,25 @@
-// api-key-booking-quota.spec.ts —— F-B-11 ⭐⭐：**对外 key 订会也要有上限。**
+// api-key-booking-quota.spec.ts -- F-B-11 star-star: **an outward key booking meetings
+// must also have a limit.**
 //
-// prod 上驱 booking-book check 7 时抓到的（2026-08-20）：一把对外 key 连订四场，全部 200，
-// 真 Google 上真长出四场会。同一趟里别的闸都在（工作时间、忙时冲突、未开的工具、吊销），
-// 只有配额这一格是空的。
+// Caught while driving booking-book check 7 in prod (2026-08-20): one outward key booked
+// four meetings back to back, all 200, and four real meetings really appeared on real
+// Google. Every other gate in that same run was in place (working hours, busy conflicts,
+// disabled tools, revocation) -- only the quota slot was empty.
 //
-// 机制读到了行：配额是**按码**声明的（`mcpplugin.QuotaDecl{ConfigKey:"max_bookings",
-// CodeField:"code_id"}`），而 key 这条路装配时用的是空 `codeOverlay{}`（没有码）——
-// 这个面上**没有可数的主体**。所以修法不是补一句判断，是让配额绑在这条路真正有的那个主体上。
+// Reading the mechanism found the line: quota is declared **per code**
+// (`mcpplugin.QuotaDecl{ConfigKey:"max_bookings", CodeField:"code_id"}`), but the key path
+// is wired up with an empty `codeOverlay{}` (no code) -- on this surface **there is no
+// countable subject**. So the fix isn't adding one more check; it's binding quota to the
+// subject this path actually has.
 //
-// 判据落在两处，缺一不可：
-//   1. 产品**说**它拒绝了（回执里是一句读得懂的话，不是 500，也不是又一个 200）；
-//   2. **日历上没多出那一场**（[[receipt-check-belongs-next-to-the-action]]：说了不算，去外面看）。
-// 外加一条反向的：没设上限的 key 不许因此变成 0 次 —— 否则一个「一律拒绝」的实现也能转绿
-// （[[assertion-that-cannot-fail]]）。
+// The criterion lands in two places, both required:
+//   1. the product **says** it refused (the receipt is a readable message, not a 500,
+//      and not just another 200);
+//   2. **the calendar doesn't gain that meeting**
+//      ([[receipt-check-belongs-next-to-the-action]]: don't take its word, go look outside).
+// Plus a reverse check: a key with no limit set must not therefore end up allowed zero
+// bookings -- otherwise a "reject everything" implementation could also turn this green
+// ([[assertion-that-cannot-fail]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -29,8 +36,8 @@ interface MintResp { id: string; prefix: string; secret: string }
 interface BookWire { ok?: boolean; conflict?: string; event_id?: string }
 interface ToolEnvelope { result?: BookWire; reason?: string; detail?: string }
 
-// KEY_LIMIT —— 这把 key 上允许的订会次数。2 而不是 1：1 的话「第一次就拒」和「数对了」
-// 分不开。
+// KEY_LIMIT -- how many bookings this key is allowed. 2, not 1: with 1 you can't tell
+// "rejects on the first try" apart from "counts correctly".
 const KEY_LIMIT = 2;
 
 test.describe.serial('F-B-11 · an outward key books under a limit, not without one', () => {
@@ -40,14 +47,16 @@ test.describe.serial('F-B-11 · an outward key books under a limit, not without 
   let sid = '';
 
   test.beforeAll(async ({ playwright }) => {
-    // 这段前置要 claim + 登录 + 存凭据 + 走一遍 mock OAuth + 建 skill/role/code + 起 MCP，
-    // 满载串行跑时超过默认的 30s，而那时报出来的是「hook timeout」——跟产品无关。
+    // This setup does claim + login + store credentials + a mock OAuth round trip +
+    // create skill/role/code + start MCP; under full serial load it exceeds the default
+    // 30s, and what gets reported then is "hook timeout" -- unrelated to the product.
     test.setTimeout(150_000);
     seed = await seedOwnerGCalConnected(playwright, {
       allowed_weekdays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
       min_lead_days: 1,
     });
-    // 角色链（skill → role → code）沿用发码那条 fixture，key 要的只是它那个 role。
+    // Reuse the role chain (skill -> role -> code) from the code-issuing fixture; the key
+    // only needs its role.
     const code = await issueCodeWithSkills(seed.request, seed.csrf, {
       granted_skills: ['calendar.book'],
     });
@@ -97,8 +106,9 @@ test.describe.serial('F-B-11 · an outward key books under a limit, not without 
   });
 });
 
-// mintKey —— 通过 owner 自己那条路铸一把对外 key。`max_bookings` 跟发码时**同名**：
-// 它是 calendar.book 自己声明的字段，挂在哪个主体上是参数（`capconfig/scope.go`）。
+// mintKey -- mints an outward key through the owner's own path. `max_bookings` has the
+// **same name** as at code-issuing time: it's a field `calendar.book` itself declares,
+// and which subject it attaches to is a parameter (`capconfig/scope.go`).
 interface OwnerPath { seed: BaseSeed; token: string; sid: string; roleID: string }
 
 async function mintKey(

@@ -1,6 +1,6 @@
-// job-fetch-workday-bamboohr.spec.ts —— J.6b: 两个新 ATS direct adapter
-// workday (CXS POST) + bamboohr (careers/list GET) 注册 + fetch_new。
-// 跟 JBA 那条平行；走真 ATS 而不是聚合 archive。
+// job-fetch-workday-bamboohr.spec.ts — J.6b: two new direct ATS adapters,
+// workday (CXS POST) + bamboohr (careers/list GET): register + fetch_new.
+// Parallel to the JBA one; hits the real ATS instead of an aggregating archive.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -44,19 +44,25 @@ test.describe('jobs.fetch_new (workday + bamboohr) direct ATS adapters', () => {
       expect(titles).toContain('Staff Data Scientist');
     });
 
-  // 真 Workday CXS 每页最多 20 条，超了直接 400（2026-08-16 在两个真租户上量过：
-  // `redhat` / `nvidia`，`limit:20` → 200、**`limit:21` → 400**）。adapter 里写死
-  // `limit:100`，于是**对真 Workday 一条都取不到**（F-E-15），而这份 spec 一直是绿的 ——
-  // 老 mock 对 limit 来者不拒（[[which-path-is-the-green-on]]）。
+  // The real Workday CXS caps each page at 20 entries and returns a flat 400 above
+  // that (measured against two real tenants on 2026-08-16: `redhat` / `nvidia`,
+  // `limit:20` → 200, **`limit:21` → 400**). The adapter had `limit:100` hardcoded, so
+  // it **fetched zero results against real Workday** (F-E-15), while this spec stayed
+  // green the whole time — the old mock accepted any limit without complaint
+  // ([[which-path-is-the-green-on]]).
   //
-  // 这条用例同时钉死第二件事：**每一页都要读完**（F-E-16）。45 条 = 20/20/5 三页，
-  // 只有跟着 offset 翻到底才凑得齐；停在第一页会得到 20，停在 400 会得到 0。
-  // 断言写的是**准确的 45**，不是「大于 0」——「取到了一些」正是这条 check 要防的那种绿。
+  // This test also pins down a second thing: **every page must be read to the end**
+  // (F-E-16). 45 entries = three pages of 20/20/5; only following the offset all the
+  // way through adds up to that. Stopping at the first page gets 20; stopping at the
+  // 400 gets 0. The assertion checks for **exactly 45**, not "more than 0" — "fetched
+  // some" is exactly the kind of green this check exists to catch.
   //
-  // **为什么中间那一页必须是满的**：真 Workday 只在第一页报 `total`，后续页报 0
-  // （nvidia 实测）。夹具是 25 条时，第二页恰好是短页，于是「信了后续页的 total」这个 bug
-  // 也能凑出正确的 25 —— 绿得毫无信息（[[assertion-that-cannot-fail]]）。
-  // 45 条把它逼出来：错的停止条件会停在 40。
+  // **Why the middle page must be full**: the real Workday only reports `total` on the
+  // first page, reporting 0 on every page after (verified against nvidia). With a
+  // 25-entry fixture, the second page happens to be short, so the bug of "trusting a
+  // later page's total" would still add up to the correct 25 — green with zero
+  // information value ([[assertion-that-cannot-fail]]). 45 entries forces it out: the
+  // wrong stopping condition would stop at 40.
   test('workday: 45 postings over three pages → every page is consumed',
     async ({ request }) => {
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
@@ -72,8 +78,9 @@ test.describe('jobs.fetch_new (workday + bamboohr) direct ATS adapters', () => {
       const fetched = await jobsFetchNew(request, token, sid, src.id);
       expect(fetched.failed_sources ?? [], '取数不该失败：limit 必须落在 vendor 的合法范围内')
         .toHaveLength(0);
-      // 数**这一趟这个源新捞的**：回执交的是整个池子窗口（F-E-29），
-      // 而同文件前一条用例已经往池子里放过别的岗位。
+      // Count **only what this source freshly fetched this run**: the receipt hands
+      // back the whole pool window (F-E-29), and the earlier test in this same file
+      // already put other postings into the pool.
       const paged = fetched.jobs.filter((j) => j.new && j.source_id === src.id);
       expect(paged, '全集 45 条，翻页要翻到底').toHaveLength(45);
       const ids = new Set(paged.map((j) => j.external_id));
@@ -98,16 +105,17 @@ test.describe('jobs.fetch_new (workday + bamboohr) direct ATS adapters', () => {
       expect(src.kind).toBe('bamboohr');
 
       const fetched = await jobsFetchNew(request, token, sid, src.id);
-      // 这一趟这个源新捞的那 3 条（回执交的是整个池子窗口，F-E-29 —— 上一条
-      // 用例的 45 条 workday 还在里面）。
+      // The 3 entries this source freshly fetched this run (the receipt hands back the
+      // whole pool window, F-E-29 — the previous test's 45 workday entries are still
+      // in there).
       const mine = fetched.jobs.filter((j) => j.new && j.source_id === src.id);
       expect(mine).toHaveLength(3);
       const titles = mine.map((j) => j.title);
       expect(titles).toContain('Senior Backend Engineer');
       expect(titles).toContain('Product Designer');
-      // null location → empty string，不应 crash 或丢条
+      // null location → empty string, must not crash or drop the entry
       expect(titles).toContain('Customer Success Manager');
-      // tag 含 department + employmentStatus
+      // the tag includes department + employmentStatus
       const backend = mine.find((j) => j.title === 'Senior Backend Engineer');
       expect(backend?.tags).toContain('Engineering');
       expect(backend?.tags).toContain('Full-Time');

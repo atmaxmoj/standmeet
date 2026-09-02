@@ -1,15 +1,15 @@
-// registry-introspection.spec.ts —— Phase B-1 契约 spec：3 个 dev-only
-// endpoint 的存在性 + 响应 shape。
+// registry-introspection.spec.ts -- Phase B-1 contract spec: existence + response shape of
+// 3 dev-only endpoints.
 //
-// 这是整个 Capability Registry 改造的可观测出口；后续每个 B-N commit 都靠
-// 同一组 endpoint 验装配结果。本 spec 只 assert 形状（200 + 字段齐），
-// 不 assert 具体内容（哪些 capability 被注册）—— 那个由 invariants spec
-// 跟具体 B-N spec 检。
+// This is the observability exit for the whole Capability Registry rework; every following
+// B-N commit relies on this same set of endpoints to verify assembly results. This spec
+// only asserts shape (200 + fields present), not specific content (which capabilities got
+// registered) -- that's checked by the invariants spec and the specific B-N specs.
 //
-// 三个 endpoint：
-//   GET /internal/diag/registry           —— 所有已注册 capability
-//   GET /internal/diag/session    —— 给定 session 的装配结果
-//   GET /internal/diag/ext-mcp-stats      —— 进程级 dial/close 计数
+// The three endpoints:
+//   GET /internal/diag/registry       -- all registered capabilities
+//   GET /internal/diag/session        -- assembly result for a given session
+//   GET /internal/diag/ext-mcp-stats  -- process-level dial/close counts
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -81,7 +81,7 @@ test.describe('Phase B-1 capability registry dev endpoints', () => {
       expect(c.id.length).toBeGreaterThan(0);
       expect(['visitor_only', 'owner_only', 'both']).toContain(c.shape);
     }
-    // 顺序在多次调用之间稳定（cache key / system prompt hash 依赖确定性）。
+    // Order is stable across repeated calls (cache key / system prompt hash rely on determinism).
     const second = await fetchRegistryList(request);
     expect(second.capabilities.map((c) => c.id))
       .toEqual(first.capabilities.map((c) => c.id));

@@ -1,9 +1,11 @@
-// per-code-prompt.spec.ts —— #104 每张 access code 自带一份集中管理的 prompt。
+// per-code-prompt.spec.ts -- #104 every access code carries its own centrally-managed prompt.
 //
-// 一张挂了 prompt_id 的 code：访客用它起 session → system_prompt_persona 在 role persona 之后
-// **叠加**该 prompt 的 body。没挂 prompt 的 code：persona 逐字不含它（隔离 + 守 prompt-hash）。
-// prompt 集中管理（引 prompts 库），跟 role.prompt_id 同款；这里走 session-start 响应里暴露的
-// system_prompt_persona 做确定性断言，不依赖 LLM 输出。
+// A code with a prompt_id attached: when a visitor starts a session with it,
+// system_prompt_persona has that prompt's body **appended** after the role persona. A code
+// with no prompt attached: the persona does not contain it, word for word (isolation + a
+// prompt-hash guard). Prompts are centrally managed (referencing the prompts library), the
+// same mechanism as role.prompt_id; this test makes deterministic assertions against
+// system_prompt_persona as exposed in the session-start response, not against LLM output.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';

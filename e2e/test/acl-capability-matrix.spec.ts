@@ -1,13 +1,15 @@
-// acl-capability-matrix.spec.ts —— §B.1（capability target）of capability-acl-hierarchy-tests.md.
+// acl-capability-matrix.spec.ts — §B.1 (capability target) of capability-acl-hierarchy-tests.md.
 //
-// 纯 AND·code-deny 真值表的 e2e 版，target = calendar.book（role-granted 能力，
-// GCal 已连以隔离 connector 闸）。穷尽 role 授? × code deny? 四行：
-//   A1 授 + 无 deny → 暴露        A2 授 + deny → 不暴露（code 撤销）
-//   A3 不授 + 无 deny → 不暴露     A4 不授 + deny → 不暴露（幂等 noop）
-// 判据：expectCalendarBookExposed（/internal/diag/session 的 tool_specs 含 calendar_book?）。
+// e2e version of the pure AND-with-code-deny truth table, target = calendar.book (a
+// role-granted capability; GCal is connected to isolate the connector gate). Exhausts
+// role-granted? x code-deny? across four rows:
+//   A1 grant + no deny -> exposed        A2 grant + deny -> not exposed (code revokes it)
+//   A3 no grant + no deny -> not exposed  A4 no grant + deny -> not exposed (idempotent noop)
+// Criterion: expectCalendarBookExposed (does /internal/diag/session's tool_specs include
+// calendar_book?).
 //
-// 红 until: code_capability_denials 表 + admin deny 子路由 + applyCodeDenials 接进
-// buildRoleSnapshotForCode。在那之前 setCodeCapabilityDenial 拿 404 → A2/A4 红。
+// Red until: the code_capability_denials table + the admin deny sub-route + applyCodeDenials
+// wired into buildRoleSnapshotForCode. Until then setCodeCapabilityDenial gets a 404 -> A2/A4 red.
 
 import { test, expect } from '@/fixtures/test';
 

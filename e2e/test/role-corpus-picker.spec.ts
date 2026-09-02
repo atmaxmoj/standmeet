@@ -1,11 +1,14 @@
-// role-corpus-picker.spec.ts —— corpus 准入是**勾出来的**，不是默写出来的（F-A-14）。
+// role-corpus-picker.spec.ts —— corpus admission gets **ticked**, not recited from memory (F-A-14).
 //
-// 由来：role 的授权面和 code 的收回面都是裸 textarea，owner 得记住 scheme + 一条笔记确切的服务端
-// slug（`subjectivity://cv`）。没有发现性、没有校验，打错还是静默的 —— 授权那侧"静默少授"跟
-// F-A-13 那句谎一样，都指向"看起来没事"。
+// Backstory: both the role's grant surface and the code's revocation surface were bare
+// textareas — the owner had to remember the scheme plus a note's exact server-side slug
+// (`subjectivity://cv`). No discoverability, no validation, a typo fails silently — a
+// "silently under-grants" on the authorization side, the same shape of lie as F-A-13:
+// both point to "looks fine."
 //
-// 这条 spec 断言的是**通到底**（勾 → 存 → 落库的真值），不是"picker 渲染出来了"：一个能勾但存不
-// 进去的 picker 会在截图里看着完美。
+// This spec asserts **all the way through** (tick → save → the real value in the DB), not
+// "the picker rendered": a picker you can tick but that never saves would look perfect in a
+// screenshot.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -24,11 +27,13 @@ const OWNER = {
 };
 
 const ROLE = 'pickme';
-// PICKER —— 这张 role 卡的 picker 实例前缀。testid 按实例分命名空间：一页上每张卡都有一个 picker，
-// 不带前缀的 `scope-genre-wiki` 会同时命中好几个（第一版就是这么红的）。
+// PICKER —— the picker instance prefix for this role card. testids are namespaced by
+// instance: every card on a page has its own picker, and an unprefixed `scope-genre-wiki`
+// would match several at once (that's exactly how the first version went red).
 const PICKER = `role-corpus-picker-${ROLE}`;
-// FOREIGN —— 一条**树上没有哪一行对应**的 glob。picker 必须原样留着它：一个把值往复翻译的 picker
-// 会在保存时静默删掉 owner 手写的东西。
+// FOREIGN —— a glob **no row in the tree corresponds to**. The picker must leave it
+// untouched: a picker that round-trips values through translation would silently drop
+// whatever the owner hand-wrote when it saves.
 const FOREIGN = 'wiki://legacy/*/draft';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -49,16 +54,21 @@ test.describe('ACL · the corpus grant is picked from the real tree', () => {
     helpExplainsTheFreezePoint);
 });
 
-// helpExplainsTheFreezePoint —— F-L-29. 那句解释自相矛盾：
+// helpExplainsTheFreezePoint —— F-L-29. The explanatory sentence contradicted itself:
 //   "Changes only affect sessions issued from now on (the role is frozen when the code is issued)."
-// 前半句说会话，括号说码。代码说的是会话（`access/usecase/visitor_session.go:40-42`：
-// 「session issue 时 freeze … session 整个生命周期不再回头读 role 行」），行为也早就钉住了
-// （`acl-freeze-isolation.spec.ts` 的 acl-code-frozen-at-issue + acl-code-reissue-reflects）。
+// The first half says session, the parenthetical says code. The code itself says session
+// (`access/usecase/visitor_session.go:40-42`: "frozen at session issue … the session never
+// reads the role row again for its whole lifetime"), and the behavior was already pinned
+// down (acl-code-frozen-at-issue + acl-code-reissue-reflects in `acl-freeze-isolation.spec.ts`).
 //
-// **为什么一句文案值得一条守卫**：错的那半在**放宽**授权时是危险方向 —— owner 以为已经发出去的
-// 码保持旧范围，于是放宽角色时不担心在野的码；而下一次有人拿旧码开会话，拿到的是新的、更宽的授权。
+// **Why one sentence of copy deserves its own guard**: the wrong half is dangerous
+// specifically in the direction of **widening** a grant — the owner believes an
+// already-issued code keeps its old scope, so they widen the role without worrying about
+// codes already in the wild; then the next time someone opens a session with that old code,
+// they get the new, wider grant.
 //
-// 断的是**正面出现**那句正确的话，不是 `.not.toContain` —— 后者在元素还没渲染时就算通过。
+// This asserts the correct sentence **positively appears**, not `.not.toContain` — the
+// latter would also pass before the element ever renders.
 async function helpExplainsTheFreezePoint({ adminPage }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(adminPage, 'roles');
   const help = adminPage.getByTestId('role-corpus-help').first();
@@ -72,8 +82,8 @@ async function helpExplainsTheFreezePoint({ adminPage }: { adminPage: Page }): P
 
 // dockTriggerFitsCard —— F-A-16: the dock config's trigger `<input>` is a flex-1 child with a long
 // placeholder; without `min-w-0` a flex item can't shrink below its content, so the input ran off
-// the right edge of the role card (owner-flagged live: "溢出了"). Assert its right edge stays inside
-// the card. RED before the fix: the input overflows by tens of px.
+// the right edge of the role card (owner-flagged live: "it's overflowing"). Assert its right edge
+// stays inside the card. RED before the fix: the input overflows by tens of px.
 async function dockTriggerFitsCard({ adminPage }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(adminPage, 'roles');
   const input = adminPage.getByTestId('role-dock-trigger-0').first();
@@ -109,7 +119,7 @@ async function openRoles(page: Page) {
   await expect(page.getByTestId(PICKER)).toBeVisible({ timeout: 10_000 });
 }
 
-// grantOf —— 这个 role 现在真正的 corpus_uris（从 owner 自己的 API 读回真值）。
+// grantOf —— this role's actual current corpus_uris (read back the true value from the owner's own API).
 async function grantOf(page: Page): Promise<string[]> {
   return await page.evaluate(async (name: string) => {
     const roles = await (await fetch('/api/admin/roles/', { credentials: 'include' }))
@@ -118,8 +128,9 @@ async function grantOf(page: Page): Promise<string[]> {
   }, ROLE);
 }
 
-// offersGenres —— subjectivity 尤其要在：CV 住在那里，它是这整个功能的动机，而它此前连树都没有
-// （F-A-15）。一个少了 subjectivity 的 picker 对真正的用例毫无用处。
+// offersGenres —— subjectivity in particular must be present: the CV lives there, it's the
+// whole reason this feature exists, and it never even had a tree before this (F-A-15). A
+// picker missing subjectivity is useless for the actual use case.
 async function offersGenres({ adminPage }: { adminPage: Page }): Promise<void> {
   await openRoles(adminPage);
   for (const genre of ['wiki', 'output', 'writing', 'subjectivity']) {
@@ -128,11 +139,11 @@ async function offersGenres({ adminPage }: { adminPage: Page }): Promise<void> {
       `${genre} is an ACL genre — the picker must offer it`,
     ).toBeVisible();
   }
-  // raw 是硬编码 deny（MatchesAnyCorpusGlob 第一行）；给它一个勾就是骗人。
+  // raw is a hardcoded deny (MatchesAnyCorpusGlob's first line); giving it a checkbox would be a lie.
   await expect(adminPage.getByTestId(`${PICKER}-genre-raw`)).toHaveCount(0);
 }
 
-// tickGenreAndSave —— 通到底：勾 → save → 落库。
+// tickGenreAndSave —— all the way through: tick → save → lands in the DB.
 async function tickGenreAndSave({ adminPage }: { adminPage: Page }): Promise<void> {
   await openRoles(adminPage);
   expect(await grantOf(adminPage), 'precondition: starts empty').toEqual([]);
@@ -144,8 +155,10 @@ async function tickGenreAndSave({ adminPage }: { adminPage: Page }): Promise<voi
   ).toContain('subjectivity://**');
 }
 
-// keepsForeignGlobs —— owner 手写的怪 glob 不能被 picker 吃掉。这是往复翻译最容易犯的错：
-// 只把树认得的写回去，其余无声消失 —— 而消失的方向是"少授"，没人会立刻发现。
+// keepsForeignGlobs —— an odd glob the owner hand-wrote must not get swallowed by the picker.
+// This is the easiest mistake in round-trip translation: writing back only what the tree
+// recognizes and letting the rest vanish silently — and it vanishes in the "under-grants"
+// direction, which nobody notices right away.
 async function keepsForeignGlobs({ adminPage }: { adminPage: Page }): Promise<void> {
   await openRoles(adminPage);
   const box = adminPage.getByTestId(`role-corpus-uris-${ROLE}`);
@@ -154,7 +167,7 @@ async function keepsForeignGlobs({ adminPage }: { adminPage: Page }): Promise<vo
     adminPage.getByTestId(`${PICKER}-foreign-globs`),
     'and the owner can SEE that it is still there',
   ).toContainText('legacy');
-  // 勾一个别的 —— 一次会重写整份列表的操作。
+  // Tick a different one — an operation that rewrites the whole list at once.
   await adminPage.getByTestId(`${PICKER}-genre-wiki`).check();
   await adminPage.getByTestId(`role-corpus-save-${ROLE}`).click();
   await expect.poll(
@@ -173,7 +186,8 @@ async function initOwner(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-// seedNote —— 树上得真有东西可勾（空树也能让"勾不到"看起来像通过）。
+// seedNote —— there has to be something real in the tree to tick (an empty tree would also
+// make "can't tick anything" look like it passed).
 async function seedNote(
   request: Awaited<ReturnType<Playwright['request']['newContext']>>, csrf: string,
 ): Promise<void> {

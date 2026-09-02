@@ -1,19 +1,25 @@
-// admin-api-keys-panel.spec.ts —— F-K-1：外发 API key 要能在 admin 里看见、铸出来、吊销掉。
+// admin-api-keys-panel.spec.ts — F-K-1: outward API keys must be visible, mintable,
+// and revocable from the admin panel.
 //
-// **为什么这是安全线而不是便利**：外发 key 今天只能经 owner-MCP 管理（`api_keys.create/list/
-// revoke` 全部 `Reach: mcpOnly()`）。于是一把泄露的 key，**只有在 owner 装好并跑起一个 MCP
-// 客户端之后才吊销得掉**。我这一轮吊销自己铸的那几把走的正是这条路，因为没有第二条。
+// **Why this is a security line, not a convenience**: today an outward key can only
+// be managed over owner-MCP (`api_keys.create/list/revoke` are all `Reach: mcpOnly()`).
+// So a leaked key **can only be revoked once the owner has an MCP client installed and
+// running**. My own revoke of the keys I mint in this test takes exactly that path,
+// because there is no second one.
 //
-// 设计早就判了两个面互为孪生（`docs/design/facade-directions.md:202-206`，逐字）：
+// The design already declared the two facades twins (`docs/design/facade-directions.md:202-206`,
+// verbatim):
 //   Admin HTTP: /api/admin/api-keys CRUD (mint returns the secret once) + revoke + rate override…
 //   **Admin UI: an "api" section (keys list + mint + revoke; candidates toggle list)**
 //   Owner-MCP **twins**: api_keys.create/list/revoke/update…
-// 同一页还写着「owner-plane ratchet forces twins by construction」。落地的只有 MCP 那一半，
-// 而 `ops/api_keys.go:37` 的 reach 理由反过来写着「the panel has no page for it」—— **拿缺失
-// 当依据**。这条守卫钉的就是那个缺的一半。
+// The same page also states "owner-plane ratchet forces twins by construction". Only the
+// MCP half was ever built, and the reach comment at `ops/api_keys.go:37` argues the
+// opposite direction — "the panel has no page for it" — **using the absence as its own
+// justification**. This guard pins down that missing half.
 //
-// **断言「铸完之后列表里看不到明文」是这条用例的重点之一**：列表不能变成一个能薅 key 的地方。
-// 明文只在铸出来那一瞬间给一次，之后只剩前缀。
+// **Asserting that the list shows no plaintext right after minting is one of the main
+// points of this case**: the list must never become a place to scrape a key from. The
+// plaintext is shown once, at the moment of minting, and only the prefix survives after.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -38,29 +44,34 @@ test.describe('F-K-1 · outward API keys are managed from the admin panel, not o
     async ({ adminPage, playwright }) => {
       await goto(adminPage, '/admin/api-mcp');
 
-      // 正对照:这个面板确实渲染出来了。缺了它,下面每一条都会红在"找不到元素"上,
-      // 而红的原因会被记到功能缺失头上（[[red-in-the-wrong-place]]）。
+      // Positive control: the panel actually renders. Without this, every assertion
+      // below would fail with "element not found", and the failure would get blamed
+      // on a missing feature ([[red-in-the-wrong-place]]).
       const panel = adminPage.getByTestId('api-keys-panel');
       await expect(panel, 'the api-keys panel is on the page at all').toBeVisible({ timeout: 15_000 });
 
       await adminPage.getByTestId('api-key-new-label').fill('panel-minted');
       await adminPage.getByTestId('api-key-new-create').click();
 
-      // 明文只给一次 —— 铸出来那一瞬间要看得见,否则 owner 拿不到它。
+      // The plaintext is given only once — it must be visible right at the moment of
+      // minting, or the owner can never get it.
       const secretBox = adminPage.getByTestId('api-key-new-secret');
       await expect(secretBox, 'the raw secret is shown once, right after minting')
         .toBeVisible({ timeout: 10_000 });
       const secret = (await secretBox.innerText()).trim();
       expect(secret, 'and it is a real smk_ key').toMatch(/^smk_\S{20,}$/);
 
-      // 它是真的能用的 —— 不是一串好看的字符串。
+      // It genuinely works — not just a nice-looking string.
       expect(await facadeStatus(playwright, secret), 'the minted key authenticates').toBe(200);
 
-      // 列表里只剩前缀:这一页不能变成一个能薅 key 的地方。
+      // Only the prefix survives in the list: this page must not become a place to
+      // scrape a key from.
       //
-      // **等那一行本身,不是等面板**:面板带着标题立刻就在,而列表要等一次请求回来。
-      // 我第一版等的是 `api-keys-panel` 可见就去读 innerText,读到的是还没填的壳
-      // —— 同一个错误今晚犯了两次（[[red-in-the-wrong-place]]）。
+      // **Wait for the row itself, not for the panel**: the panel appears immediately
+      // with its heading, but the list only fills in once a request comes back. My
+      // first version waited for `api-keys-panel` to be visible and then read
+      // innerText, which read the still-empty shell — the same mistake made twice
+      // tonight ([[red-in-the-wrong-place]]).
       await goto(adminPage, '/admin/api-mcp');
       const revokeBtn = adminPage.getByTestId('api-key-revoke-panel-minted');
       await expect(revokeBtn, 'the key survived the reload and is listed')
@@ -68,7 +79,8 @@ test.describe('F-K-1 · outward API keys are managed from the admin panel, not o
       const listed = await adminPage.getByTestId('api-keys-panel').innerText();
       expect(listed, 'but the full secret is not on the page').not.toContain(secret);
 
-      // 吊销 —— 这是这条 finding 的要害:泄露之后 owner 自己就能关掉。
+      // Revoke — this is the heart of this finding: after a leak, the owner can shut
+      // it off themselves.
       adminPage.once('dialog', (d) => { void d.accept(); });
       await revokeBtn.click();
       await expect(async () => {
@@ -77,8 +89,9 @@ test.describe('F-K-1 · outward API keys are managed from the admin panel, not o
     });
 });
 
-// facadeStatus —— 拿这把 key 打一次外发面，返回状态码。key 好不好使由**产品自己**回答，
-// 不由页面上的字样回答（[[nonunique-signal-not-a-receipt]]）。
+// facadeStatus — hits the outward facade once with this key and returns the status
+// code. Whether the key works is answered by **the product itself**, not by wording
+// on the page ([[nonunique-signal-not-a-receipt]]).
 async function facadeStatus(playwright: Playwright, secret: string): Promise<number> {
   const r = await playwright.request.newContext();
   const res = await r.get(`${BACKEND}/api/pub/v1/tools`, {

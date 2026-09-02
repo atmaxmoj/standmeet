@@ -1,24 +1,33 @@
-// job-fetch-readable-text.spec.ts —— 取回来的岗位必须是**文字**，不是标记。
+// job-fetch-readable-text.spec.ts —— a fetched posting must be **text**, not markup.
 //
-// 真环境驱出来的（F-E-7）：prod 上 521 条真岗位里，`hn_hiring` 那些行在 `/admin/listings`
-// 上整行都是原始标记 ——
+// Driven out on the real environment (F-E-7): among 521 real postings in
+// prod, the `hn_hiring` rows on `/admin/listings` showed raw markup for the
+// entire row —
 //   `IVPN | Infrastructure Engineer &#x2F; Sysadmin | Remote (…) | Full-time | <a href="https:&#x2F;…`
-// 而 greenhouse 那条路的 body 是**双重转义**的 HTML：`&lt;div class=&quot;content-intro&quot;&gt;…`。
-// 连 HTML 解析器都救不了后者，它看到的是字面的 `&lt;div&gt;`。
+// while the greenhouse path's body is **doubly-escaped** HTML:
+// `&lt;div class=&quot;content-intro&quot;&gt;…`. Not even an HTML parser
+// saves the latter — it sees the literal `&lt;div&gt;`.
 //
-// **别把它跟那条已声明的设计搞混**：`hn_hiring.go:12-13` 写着「不解析 comment 内容结构 ——
-// 当 raw text 传给 agent 让 Claude 自己读」。那句话管的是**结构**（Company | Title | Location
-// 那种切分），不是「把 HTML 实体和标签留在展示字段里」。title 是给人看的一格。
+// **Don't confuse this with the already-declared design**: `hn_hiring.go:12-13`
+// states "don't parse the comment's content structure — pass raw text to the
+// agent and let Claude read it itself." That sentence governs **structure**
+// (the Company | Title | Location split), not "leave HTML entities and tags
+// sitting in a display field." title is a column people read.
 //
-// 缺的是一个机制而不是一个字段：整条 jobs 取数路径上 `html.UnescapeString` / strip-tags 零命中。
-// 所以这条 spec 断两个源，一个都不能少 —— 只断 HN 的话，一个"在 HN 适配器里补一刀"的修法
-// 也能过，而 greenhouse 的 body 照样是 `&lt;div&gt;` 汤。
+// What's missing is a mechanism, not a field: `html.UnescapeString` / strip-tags
+// gets zero hits anywhere along the jobs fetch path. So this spec asserts on
+// two sources, neither optional — asserting only on HN would also pass a fix
+// that just "patches the HN adapter", while greenhouse's body would still be
+// `&lt;div&gt;` soup.
 
-// **同一个函数的第二半（UX-88）**：`readableJobs` 头上写着「每个源交回来的字都要变成文字
-// 再进池子 —— 这是它们唯一的汇合点」，然后只扫了 title 和 body_text。location 没人管，
-// 于是 RemoteOK 发的 `"San Francisco, "`（城市 + 空地区，逗号裸露在末尾）原样印到
-// `/admin/listings` 上，读作 `remoteok · Karratha,`。
-// 这一条把那句话的其余部分补上：**外来数据在入口处规范化一次**（全局规矩第 4 条）。
+// **The second half of the same function (UX-88)**: `readableJobs`'s header
+// comment says "every source's returned text must become plain text before
+// entering the pool — this is their only convergence point," yet it only
+// scanned title and body_text. Nobody handled location, so RemoteOK's
+// `"San Francisco, "` (a city plus an empty region, comma left dangling at the
+// end) prints verbatim onto `/admin/listings`, reading as `remoteok · Karratha,`.
+// This case fills in the rest of that sentence: **normalize external data once
+// at the entry point** (global rule #4).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -35,7 +44,7 @@ const OWNER = {
   fullName: 'Job Text Owner',
 };
 
-// MARKUP —— 一条真岗位的字面上永远不该出现的东西。都是从 prod 那一屏上抄下来的。
+// MARKUP —— things that should never literally appear in a real posting. All copied from that prod screen.
 const MARKUP = [/&#x2F;/, /&#x27;/, /&amp;/, /&lt;/, /&quot;/, /<a\s/i, /<p>/i, /<div/i];
 
 function expectReadable(label: string, text: string): void {
@@ -62,18 +71,22 @@ test.describe('jobs · a fetched posting reads as text, not markup', () => {
     });
     const fetched = await jobsFetchNew(request, token, sid);
     const hn = fetched.jobs.filter((j) => j.source_kind === 'hn_hiring');
-    // 前置条件要**准确**，不是 `> 0`。这一帖的 fixture 有 8 条顶层评论、没有一条被删，
-    // 所以应当是 8 条。`toBeGreaterThan(0)` 在真实环境里眼睁睁放过了一次
-    // **98 条塌成 1 条**（F-E-24）：HN 的 URL 是 `item?id=…`，而跨源去重的 canonical
-    // key 把 query string 整个丢掉，于是全帖每一条的 key 都是同一个
-    // `https://news.ycombinator.com/item`（[[assertion-that-cannot-fail]]）。
+    // The precondition needs to be **exact**, not `> 0`. This thread's fixture
+    // has 8 top-level comments, none deleted, so the count must be exactly 8.
+    // `toBeGreaterThan(0)` once let **98 comments collapse into 1** slip right
+    // through in the real environment (F-E-24): HN's URL is `item?id=…`, and
+    // the cross-source dedup canonical key dropped the query string entirely,
+    // so every comment in the whole thread ended up with the same key,
+    // `https://news.ycombinator.com/item` ([[assertion-that-cannot-fail]]).
     expect(hn, '这一帖 fixture 的 8 条顶层评论都要活下来').toHaveLength(8);
     const urls = new Set(hn.map((j) => j.url));
     expect(urls.size, '每条各有各的 URL（塌成一条的话这里是 1）').toBe(8);
 
-    // **逐条取的源要交代自己跳过了什么**（F-E-19）：光看条数读不出「今天没人招」
-    // 「被限流了」「判定条件写错了」的区别。账要说：上游一共几条、我们看了几条、
-    // 按原因各跳过几条。
+    // **A source that fetches item-by-item must account for what it skipped**
+    // (F-E-19): a raw count alone can't distinguish "nobody's hiring today"
+    // from "got rate-limited" from "the filter condition is wrong". The tally
+    // must say: how many the upstream had, how many we looked at, and how many
+    // were skipped for each reason.
     const tally = (fetched.sources ?? []).find((t) => t.kind === 'hn_hiring');
     expect(tally?.available, '上游那帖一共 8 条顶层评论').toBe(8);
     expect(tally?.read, '我们把这 8 条都过了一遍').toBe(8);
@@ -98,9 +111,13 @@ test.describe('jobs · a fetched posting reads as text, not markup', () => {
     const gh = fetched.jobs.filter((j) => j.source_kind === 'greenhouse');
     expect(gh.length, 'precondition: the greenhouse fixture produced postings').toBeGreaterThan(0);
 
-    // 正文走 `jobs.show`：列表那一面**不发正文**（F-E-29 —— 一次取数今天回两三百条，
-    // 每条正文一两千字，全塞进回执就把 owner 那侧的上下文烧光了）。清洗发生在进池子
-    // 那一步，所以两条路读到的是同一份字节，而"正文可读"这条判据归声明发正文的那个工具。
+    // The body goes through `jobs.show`: the list surface **does not send the
+    // body** (F-E-29 — a single fetch today returns two or three hundred
+    // postings, each body one to two thousand words, and stuffing all of it
+    // into the receipt would burn through the owner's context budget). The
+    // cleanup happens at the point of entering the pool, so both paths read
+    // the same underlying bytes, and the "body is readable" criterion belongs
+    // to whichever tool is declared to send the body.
     const bodies: { cacheID: string; body: string }[] = [];
     for (const j of gh) {
       const full = await jobsShow(request, token, sid, j.cache_id);
@@ -115,9 +132,12 @@ test.describe('jobs · a fetched posting reads as text, not markup', () => {
   });
 
   test('a board that ships a dangling separator yields a clean location', async ({ request }) => {
-    // **前置条件先对着替身本人验**（[[assertion-that-cannot-fail]]）：如果哪天有人"顺手"
-    // 把 fixture 里的尾随逗号擦掉，下面那组断言会全绿 —— 绿得毫无信息。所以先去问替身
-    // 到底发了什么，发不出脏数据就直接判这条用例失败，而不是让它安静地通过。
+    // **Verify the precondition against the stand-in itself first**
+    // ([[assertion-that-cannot-fail]]): if someone ever "conveniently" scrubs
+    // the trailing comma out of the fixture, the assertions below would all go
+    // green — green with zero information. So ask the stand-in what it
+    // actually sent first; if it can't produce dirty data, fail this case
+    // outright rather than letting it pass quietly.
     await expectStandInStillShipsDanglingLocations(request);
 
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
@@ -134,12 +154,15 @@ test.describe('jobs · a fetched posting reads as text, not markup', () => {
     expectCleanLocations(rok);
   });
 
-  // 同一个函数的**第三半**（F-E-30）。`readableJobs` 那句「每个源交回来的字都要变成文字
-  // 再进池子」写在头上，而它扫了 title、body_text，后来补了 location —— **company 只
-  // TrimSpace**。代价是在最要命的地方现形：一份 commit 出去的简历 PDF，页眉上印着
-  // `STORE MANAGER · FOR JACK &AMP; JONES`，寄给招聘方（prod 上真渲出来的，`ac-52`）。
+  // The **third half** of the same function (F-E-30). `readableJobs`'s header
+  // comment "every source's returned text must become plain text before
+  // entering the pool" scanned title and body_text, then location got added
+  // later — but **company only gets TrimSpace**. The cost showed up in the
+  // worst possible place: a committed resume PDF with a header reading
+  // `STORE MANAGER · FOR JACK &AMP; JONES`, mailed out to a recruiter
+  // (genuinely rendered like this in prod, `ac-52`).
   //
-  // 真 RemoteOK 今天就发这个：`"company":"JACK &amp; JONES"`。替身照着改了一条。
+  // Real RemoteOK sends exactly this today: `"company":"JACK &amp; JONES"`. The stand-in has one entry patterned after it.
   test('a company name with an entity reads as text, not markup',
     ({ request }) => companyReadsAsText(request));
 });
@@ -167,8 +190,10 @@ async function companyReadsAsText(request: APIRequestContext): Promise<void> {
   ).toBe(true);
 }
 
-// expectStandInStillShipsEntityCompany —— 前置条件对着替身本人验（[[assertion-that-cannot-fail]]）：
-// fixture 里那个 `&amp;` 被谁"顺手"擦掉的话，上面整条用例会绿得毫无信息。
+// expectStandInStillShipsEntityCompany —— verifies the precondition against
+// the stand-in itself ([[assertion-that-cannot-fail]]): if someone
+// "conveniently" scrubs that `&amp;` out of the fixture, the whole case above
+// would go green with zero information.
 async function expectStandInStillShipsEntityCompany(
   request: APIRequestContext,
 ): Promise<void> {
@@ -182,9 +207,11 @@ async function expectStandInStillShipsEntityCompany(
   ).toBeGreaterThan(0);
 }
 
-// expectStandInStillShipsDanglingLocations —— **前置条件对着替身本人验**
-// （[[assertion-that-cannot-fail]]）：哪天有人"顺手"把 fixture 里的尾随逗号擦掉，
-// 下面那组断言会全绿 —— 绿得毫无信息。所以先去问替身到底发了什么，发不出脏数据就判失败。
+// expectStandInStillShipsDanglingLocations —— **verifies the precondition
+// against the stand-in itself** ([[assertion-that-cannot-fail]]): if someone
+// ever "conveniently" scrubs the trailing comma out of the fixture, the
+// assertions below would all go green — green with zero information. So ask
+// the stand-in what it actually sent first; fail if it can't produce dirty data.
 async function expectStandInStillShipsDanglingLocations(
   request: APIRequestContext,
 ): Promise<void> {
@@ -213,7 +240,7 @@ function expectCleanLocations(jobs: { cache_id: string; location: string }[]): v
       `remoteok location (${j.cache_id}) must not carry edge whitespace`,
     ).toBe(j.location.trim());
   }
-  // 归一化不许把内容吃掉：「城市, 地区」两段都在的那种必须原样留着。
+  // Normalization must not eat real content: a genuine "City, Region" with both parts present must survive intact.
   for (const j of jobs.filter((x) => x.location.includes(','))) {
     expect(
       j.location,

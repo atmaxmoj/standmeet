@@ -1,7 +1,8 @@
-// render-callouts.spec.ts —— Obsidian callout(`> [!type] Title`)真渲染。
+// render-callouts.spec.ts —— Obsidian callouts (`> [!type] Title`) actually render.
 //
 // `> [!theorem] Pythagoras` blockquote → `blockquote.callout[data-callout=theorem]` +
-// `.callout-title`="Pythagoras",body 保留。普通 blockquote 不被误转成 callout。
+// `.callout-title`="Pythagoras", body preserved. A plain blockquote must not be
+// misconverted into a callout.
 
 import { test, expect } from '@/fixtures/test';
 

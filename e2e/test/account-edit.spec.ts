@@ -1,9 +1,12 @@
-// account-edit.spec.ts —— /admin/account 三个 form：full_name / email /
-// password。改完都从 /me 回读，写回 sessionStore；password 改完用新密码登一次。
+// account-edit.spec.ts — the three forms under /admin/account: full_name / email /
+// password. Each save reads back from /me and writes it into sessionStore; the
+// password save then logs in once with the new password.
 //
-// 用户故事：
-//   owner 想把展示用的 full_name 改成更口语化的名字；改邮箱（先验当前
-//   密码）；改密码（再验当前密码 + 二次确认）。三件互不影响 session。
+// User story:
+//   the owner wants to change the displayed full_name to something more casual;
+//   change the email (verifying the current password first); change the password
+//   (verifying the current password plus a confirmation). None of the three
+//   affects the others' session.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -35,10 +38,13 @@ test.describe('owner edits account fields post-claim', () => {
     await request.dispose();
   });
 
-  // #115: recovery phrase 行随 SMTP(mail connector)灰/亮。fresh owner 无 verified mail
-  // connector → 灰态:detail "needs verified email" + generate 禁用(recoveryRowView 的
-  // 业务判断,presentation 只渲染)。守住"没配 SMTP 就别让 owner 以为能生成恢复短语"。
-  // 排在 email/password 改动测试之前跑 —— 那个测试会换 owner 凭据,adminPage 之后登不上。
+  // #115: the recovery phrase row is grey/enabled depending on SMTP (mail connector).
+  // A fresh owner has no verified mail connector → grey state: detail "needs verified
+  // email" + generate disabled (recoveryRowView holds the business logic, presentation
+  // only renders it). Guards "without SMTP configured, the owner must not think they
+  // can generate a recovery phrase".
+  // Runs before the email/password edit test — that test rotates the owner's
+  // credentials, and adminPage can't log in afterward with the old ones.
   test('recovery phrase row is SMTP-gated (grey) until a verified mail connector exists (#115)',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'account');
@@ -57,7 +63,8 @@ test.describe('owner edits account fields post-claim', () => {
       await editEmail(page, OWNER.password, NEW_EMAIL);
       await editPassword(page, OWNER.password, NEW_PASSWORD);
 
-      // 用新邮箱 + 新密码登一次 API 验证后端真的换了
+      // Log in once via the API with the new email + password to verify the backend
+      // actually made the change.
       const request = await playwright.request.newContext();
       const fresh = await loginAPI(request, NEW_EMAIL, NEW_PASSWORD);
       expect(fresh.csrf).toBeTruthy();
@@ -70,7 +77,7 @@ async function editFullName(page: Page, name: string): Promise<void> {
   await input.fill(name);
   await page.getByTestId('account-full-name-save').click();
   await expect(page.getByTestId('toast-success').filter({ hasText: name })).toBeVisible();
-  // 刷新后 SectionHeader / FullNameBlock 应从 /me 重新读到新值
+  // After a reload, SectionHeader / FullNameBlock should re-read the new value from /me
   await page.reload();
   await expect(page.getByTestId('account-full-name-input')).toHaveValue(name);
 }
@@ -91,7 +98,7 @@ async function editPassword(page: Page, currentPwd: string, newPwd: string): Pro
   await page.getByTestId('account-password-save').click();
   await expect(page.getByTestId('toast-success').filter({ hasText: /password updated/i }))
     .toBeVisible();
-  // 字段被清空
+  // The field is cleared
   await expect(page.getByTestId('account-password-current')).toHaveValue('');
 }
 

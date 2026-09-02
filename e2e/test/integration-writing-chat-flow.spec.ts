@@ -1,12 +1,14 @@
-// integration-writing-chat-flow.spec.ts —— writings → chat integration:
-// owner publishes writing → visitor sees it → AskAboutThis → 无码 hand off
-// 到 /gate → 填码过闸 → ChatRoom 自动 ask 带过去的问题 → answer 引用 corpus。
+// integration-writing-chat-flow.spec.ts -- writings → chat integration:
+// owner publishes writing -> visitor sees it -> AskAboutThis -> a no-code hand-off to
+// /gate -> a code fills the gate -> ChatRoom auto-asks the carried question -> the
+// answer cites the corpus.
 //
-// 用户故事：
-//   owner 发 writing → visitor 在 /writings 看到 → 点开文章 → AskAboutThis
-//   starter → /?q=... → root 消费后(无 session)跳 /gate?q= → 填码进会话 →
-//   ChatRoom 自动 ask 带过去的问题 → answer 落 answer-body(全链路同
-//   coded-ask-continues,只是起点是文章不是首页)。
+// User story:
+//   owner posts a writing -> visitor sees it on /writings -> opens the article ->
+//   clicks the AskAboutThis starter -> /?q=... -> root consumes it (no session) and
+//   hands off to /gate?q= -> a code fills the gate and enters the session -> ChatRoom
+//   auto-asks the carried question -> the answer lands in answer-body (the whole chain
+//   matches coded-ask-continues, just starting from an article instead of the homepage).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -44,10 +46,11 @@ test.describe('writing → chat flow integration', () => {
       await expect(starter).toBeVisible({ timeout: 5_000 });
       await starter.click();
 
-      // 无 session 访客:root 消费 ?q= 后 hand off 到 /gate(带 ?q=)。
+      // A no-session visitor: root consumes ?q= and hands off to /gate (carrying ?q=).
       await expect(page).toHaveURL(/\/gate\?.*q=/, { timeout: 5_000 });
 
-      // 填码过闸:session 起来,?q= 串回 /,ChatRoom 自动 ask 带过去的问题。
+      // Filling a code at the gate: the session starts, ?q= carries back through to /,
+      // and ChatRoom auto-asks the carried question.
       await page.getByTestId('gate-code').fill(CODE);
       await page.getByTestId('gate-visitor-name').fill('Reader');
       await page.getByTestId('gate-code-submit').click();
@@ -72,7 +75,8 @@ async function initOwner(playwright: Playwright): Promise<void> {
 
 async function seedContent(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  // 过闸 code 挂能读 corpus 的 role,过闸后回答能引用 wiki。
+  // The gate code carries a role that can read the corpus, so the answer after
+  // entering can cite the wiki.
   const role = await createRole(request, csrf, {
     name: 'full', description: 'wiki://**', corpus_uris: ['wiki://**'],
   });

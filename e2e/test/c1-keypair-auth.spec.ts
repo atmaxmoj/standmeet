@@ -1,20 +1,22 @@
-// c1-keypair-auth.spec.ts —— Phase C-1: MCP Sigv1 auth + admin keypair CRUD.
+// c1-keypair-auth.spec.ts -- Phase C-1: MCP Sigv1 auth + admin keypair CRUD.
 //
-// 老 Bearer PAT 路径整个删了 (api_tokens 表死)。owner 唯一 MCP 鉴权方式：
-// 在 admin 生成 Ed25519 keypair → 拿到 PEM 一次 → 每个 MCP 请求带
+// The old Bearer PAT path is deleted entirely (the api_tokens table is dead).
+// The owner's only MCP auth method now: generate an Ed25519 keypair in admin
+// -> get the PEM once -> every MCP request carries
 // Authorization: Sigv1 keyId=X,ts=N,sig=base64
 //
-// 后端 backend authContextFunc 解 Sigv1：
-//   - 解 header 拿 keyId / ts / sig
-//   - ts 必须在 ±5min 窗口内 (防 replay)
-//   - DB 查 owner_keypairs by keyId 拿公钥
+// Backend authContextFunc parses Sigv1:
+//   - parse the header for keyId / ts / sig
+//   - ts must fall within a +-5min window (anti-replay)
+//   - look up owner_keypairs by keyId in the DB to get the public key
 //   - ed25519.Verify(pub, "standmeet-sigv1\n<keyId>\n<ts>", sig)
-//   - 通过 → ownerID 进 ctx
+//   - pass -> ownerID goes into ctx
 //
-// 覆盖：
-//   1. Happy: 生成 → 签 → MCP me 调通
-//   2. Admin CRUD: 列 / hard-delete
-//   3. 异常：未知 keyId / 错 sig / ts 超窗口 / revoked keyId / 老 Bearer header
+// Coverage:
+//   1. Happy path: generate -> sign -> MCP me call succeeds
+//   2. Admin CRUD: list / hard-delete
+//   3. Error cases: unknown keyId / bad sig / ts outside the window / revoked
+//      keyId / legacy Bearer header
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -74,7 +76,7 @@ test.describe('Phase C-1 MCP Sigv1 keypair auth (happy + admin CRUD)', () => {
       const item = list.find((k) => k.key_id === kp.key_id);
       expect(item).toBeDefined();
       expect(item?.label).toBe('list-spec');
-      // metadata only — list response 不应含 PEM
+      // metadata only -- the list response must not contain the PEM
       const raw = JSON.stringify(list);
       expect(raw).not.toContain('BEGIN PRIVATE KEY');
       expect(raw).not.toContain('private_key');
@@ -98,8 +100,9 @@ test.describe('Phase C-1 MCP Sigv1 keypair auth (happy + admin CRUD)', () => {
 
   test('replay of the same nonce is rejected (one-time nonce)',
     async ({ playwright }) => {
-      // 一次性 nonce:同一 {keyId,ts,nonce,sig} 头在窗口内重放 → nonce 已见 → 拒。
-      // 深入的 replay/fresh 覆盖在 security-sigv1-replay.spec.ts。
+      // One-time nonce: replaying the same {keyId,ts,nonce,sig} header within
+      // the window -> nonce already seen -> rejected.
+      // Deeper replay/freshness coverage lives in security-sigv1-replay.spec.ts.
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const kp = await createKeypair(request, csrf, 'replay-spec');
@@ -231,7 +234,7 @@ async function mcpInit(
     throw new Error(`mcp init: ${initRes.status} ${initRes.text}`);
   }
   if (!initRes.sessionId) throw new Error('mcp init missing session id');
-  // notifications/initialized — re-sign because each request is independent.
+  // notifications/initialized -- re-sign because each request is independent.
   await rawMCPCall(request, formatAuthHeader(signNow(pem, keyID)),
     { jsonrpc: '2.0', method: 'notifications/initialized' }, initRes.sessionId);
   return initRes.sessionId;
@@ -286,11 +289,13 @@ function parseMCPText(text: string): MCPResponse | null {
   return null;
 }
 
-// mcpCallMe —— 返回 `me` 载荷里的 **owner 块**。
+// mcpCallMe -- returns the **owner block** from the `me` payload.
 //
-// 载荷是 {owner:{…}, settings:{…}} —— 两个面同一份载荷之后,MCP 不再有自己那份扁平的。
-// 这个 helper 以前直接按扁平解,于是 email/handle 恒为 undefined,而失败信息只会说
-// "expected alice@example.com, received undefined",看不出是形状变了。
+// The payload is {owner:{...}, settings:{...}} -- once both facades share one
+// payload shape, MCP no longer has its own flat version. This helper used to
+// parse it as flat, so email/handle were always undefined, and the failure
+// message only said "expected alice@example.com, received undefined" with no
+// hint that the shape had changed.
 async function mcpCallMe(
   request: APIRequestContext, keyID: string, pem: string, sid: string,
 ): Promise<{ email: string; handle: string; full_name: string }> {

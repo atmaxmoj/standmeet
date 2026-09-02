@@ -1,9 +1,9 @@
 // setup-wizard-extended.spec.ts —— setup wizard extended: handle validation,
 // publicUrl validation, provider step, back button.
 //
-// 用户故事：
-//   1. step 1 → handle 非法字符 → next disabled
-//   2. step 1 → publicUrl 非 http → next disabled
+// User story:
+//   1. step 1 → handle with illegal characters → next disabled
+//   2. step 1 → publicUrl not http → next disabled
 //   3. step 3 → select provider → key field placeholder changes
 //   4. step 3 → ollama selected → key field hidden (needsKey=false)
 //   5. back button → return to previous step → data preserved
@@ -73,7 +73,7 @@ test.describe('setup wizard extended validation', () => {
       await page.getByTestId('next').click();
       await fillStep2(page);
       await page.getByTestId('next').click();
-      // ollama 已并入 "custom · self-hosted" preset(needsKey=false)。
+      // ollama is now folded into the "custom · self-hosted" preset (needsKey=false).
       await page.getByTestId('setup-provider-custom').click();
       // Key field should be disabled for self-hosted (needsKey=false)
       await expect(page.getByTestId('setup-ai-key')).toBeDisabled();

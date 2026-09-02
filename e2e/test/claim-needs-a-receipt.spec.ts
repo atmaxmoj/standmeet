@@ -1,17 +1,24 @@
-// claim-needs-a-receipt.spec.ts —— F-A-37。一轮答案说它替访客办成了一件事，这一轮就必须有
-// 那件事的回执；没有 → 产品在旁边把话说清楚，而不是让那句承诺原样立在那儿。
+// claim-needs-a-receipt.spec.ts — F-A-37. When a reply says it did something on the
+// visitor's behalf, that turn must carry a receipt for it; if there isn't one -> the
+// product says so plainly next to it, instead of letting that claim stand as-is.
 //
-// 真实环境里的样子：连约四场之后，第五次的回答是 *"Booked. ✅ Monday, August 31 · 13:00–13:30
-// UTC … Invite went to … That's all three on the calendar"*，而那一轮后端日志里**一个
-// `agent tool start` 都没有**，真日历整天空的，聊天里也没有回执卡。访客带着一个不存在的会议
-// 离开。浏览器回放的历史只有 `{role, content}`，模型读回去的是四条自己写过的 "Booked" ——
-// 要补全的成了那句话，不是那个动作。
+// What it looks like in the real environment: after four real bookings in a row, the
+// fifth reply is *"Booked. ✅ Monday, August 31 · 13:00–13:30 UTC … Invite went to …
+// That's all three on the calendar"*, while that turn's backend log has **zero**
+// `agent tool start` entries, the real calendar is empty all day, and there's no receipt
+// card in the chat. The visitor walks away believing in a meeting that doesn't exist.
+// The browser only replays `{role, content}` history, so what the model reads back is
+// four "Booked" lines it wrote itself — what it ends up completing is that sentence, not
+// the action.
 //
-// **为什么这条能确定性地跑**：闸门是宿主判的（能力在 manifest 里声明「哪些说法算主张、哪个
-// 工具算回执」，内核只问这一轮满不满足），所以这里不需要真模型碰运气 —— 脚本让模型只说话、
-// 不调工具，闸门必须响。真模型那一侧另有 `make eval-booking-fabrication` 反复探。
+// **Why this can run deterministically**: the gate is judged by the host (the capability
+// declares in its manifest "which statements count as a claim, which tool counts as its
+// receipt"; the kernel only asks whether this turn satisfies that), so this doesn't need
+// to gamble on a real model — the script makes the model only talk, never call a tool,
+// and the gate must fire. The real-model side is separately probed repeatedly by
+// `make eval-booking-fabrication`.
 //
-// 判据在访客看得见的地方：那句产品自己的话。
+// The criterion lives where the visitor can see it: the product's own words.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -22,7 +29,8 @@ import {
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
 import { goto } from '@/fixtures/navigate';
 
-// FABRICATED —— 一句只说话、不做事的回答，用的就是真实环境里那句的形状。
+// FABRICATED — a reply that only talks and does nothing, shaped exactly like the one from
+// the real environment.
 const FABRICATED = 'Booked. ✅ Monday, August 31 · 13:00–13:30 UTC — topic: "progress state '
   + 'check." Invite went to visitor@example.com.';
 
@@ -42,7 +50,8 @@ test.describe('F-A-37 · a claim without a receipt does not stand', () => {
       await input.fill(`book me something next week${tag}`);
       await input.press('Enter');
 
-      // 那句谎话会照常流出来（已经出去的字收不回来）——要断的是它旁边那句产品的话。
+      // The lie streams out as usual (text already sent can't be unsent) — what's
+      // asserted is the product's own sentence right next to it.
       await expect(page.getByTestId('answer-partial-notice'),
         'the product says the action did not happen')
         .toBeVisible({ timeout: 20_000 });
@@ -57,7 +66,8 @@ test.describe('F-A-37 · a claim without a receipt does not stand', () => {
       const page = await ctx.newPage();
       await enterChat(page, seed.code.code, 'Wynn');
 
-      // 走真工具的那条路：卡片渲出来 = 回执在，闸门必须放行。
+      // Takes the real-tool path: the card rendering = the receipt exists, and the gate
+      // must let it through.
       const { scriptMockToolCall } = await import('@/fixtures/mock-llm-script');
       const tag = await scriptMockToolCall(page.request, {
         name: 'calendar_book',
@@ -69,15 +79,18 @@ test.describe('F-A-37 · a claim without a receipt does not stand', () => {
 
       await expect(page.getByTestId('mcp-app-card-calendar_book'),
         'the booking really happened').toBeVisible({ timeout: 20_000 });
-      // 闸门是必要条件，不是审查：有回执的主张不该被加注。
+      // The gate is a necessary condition, not a censor: a claim backed by a receipt
+      // should not get annotated.
       await expect(page.getByTestId('answer-partial-notice'),
         'a backed claim carries no correction').toHaveCount(0);
       await ctx.close();
     });
 
-  // 闸门错杀一句正确的**拒绝**，比它挡下的谎话更贵：访客被告知「什么都没发生」，而产品其实
-  // 正确地告诉过他那个时间不能约。拒绝里天然带着 "booked" 这个词（"already booked"），所以
-  // 这一条盯的是短语表有没有宽到把它收进去。
+  // A gate that wrongly flags a correct **refusal** costs more than the lie it's meant to
+  // catch: the visitor gets told "nothing happened", when the product actually did
+  // correctly tell them that time can't be booked. A refusal naturally contains the word
+  // "booked" (as in "already booked"), so this test checks whether the phrase list is
+  // broad enough to accidentally sweep it in.
   test('a refusal that says the slot is already booked is not a claim',
     async ({ browser }) => {
       const ctx = await browser.newContext();

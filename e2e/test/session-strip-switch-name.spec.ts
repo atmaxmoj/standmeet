@@ -1,8 +1,11 @@
-// session-strip-switch-name.spec.ts —— session strip 上的名字可点 = 换人。
+// session-strip-switch-name.spec.ts -- the name shown on the session strip is
+// clickable = switch to a different person.
 //
-// 故事:Alice 具名进来、问一句、留下 transcript。点 strip 上的 "you · Alice"
-// → 名字选择器重开 → 填 Bob 提交 → 变成新 member(member 数 +1)+ 新对话(旧
-// transcript 清掉)。同名再点则续上(不新增 member)—— 由 member 数不变佐证。
+// Story: Alice enters with her name, asks one question, leaves a transcript. Clicking
+// "you · Alice" on the strip -> reopens the name picker -> filling in Bob and
+// submitting -> becomes a new member (member count +1) + a new conversation (the old
+// transcript is cleared). Clicking again with the same name resumes instead (no new
+// member is added) -- evidenced by the member count staying unchanged.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -43,20 +46,21 @@ test.describe('session strip 点名字换人', () => {
       await expect(switchBtn).toHaveText('you · Alice', { timeout: 5_000 });
       await expect(page.getByTestId('session-strip-names')).toContainText('1 / 5');
 
-      // Alice 问一句,留下一段 transcript。
+      // Alice asks one question, leaving a transcript behind.
       await ask(page, 'tell me about lucerna');
       await expect(page.locator('[data-testid="answer-body"]')).toHaveCount(1, {
         timeout: 20_000,
       });
 
-      // 换人:点名字 → picker 重开 → 填 Bob 提交。
+      // Switch person: click the name -> the picker reopens -> fill in Bob and submit.
       await switchBtn.click();
       const nameInput = page.getByTestId('visitor-name-input');
       await expect(nameInput).toBeVisible({ timeout: 5_000 });
       await nameInput.fill('Bob');
       await page.getByTestId('visitor-name-submit').click();
 
-      // 新身份:strip 显 Bob;新 member → 2/5;旧对话清掉(answer-body 归零)。
+      // New identity: the strip shows Bob; a new member -> 2/5; the old conversation
+      // is cleared (answer-body count back to zero).
       await expect(switchBtn).toHaveText('you · Bob', { timeout: 5_000 });
       await expect(page.getByTestId('session-strip-names')).toContainText('2 / 5');
       await expect(page.locator('[data-testid="answer-body"]')).toHaveCount(0);
@@ -69,12 +73,13 @@ test.describe('session strip 点名字换人', () => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
 
-      await enterCodeSession(page, CODE, 'Carol'); // 第 3 个名字 → 3/5
+      await enterCodeSession(page, CODE, 'Carol'); // 3rd name -> 3/5
       const switchBtn = page.getByTestId('session-strip-switch-name');
       await expect(switchBtn).toHaveText('you · Carol', { timeout: 5_000 });
       await expect(page.getByTestId('session-strip-names')).toContainText('3 / 5');
 
-      // 换成已存在的 Alice → 续会,member 数不增(仍 3/5)。
+      // Switching to the already-existing Alice -> resumes her conversation, member
+      // count doesn't grow (still 3/5).
       await switchBtn.click();
       const nameInput = page.getByTestId('visitor-name-input');
       await expect(nameInput).toBeVisible({ timeout: 5_000 });

@@ -1,16 +1,22 @@
-// corpus-tag-filter-spans-the-corpus.spec.ts —— F-L-23:标签筛选筛的必须是**整个语料**,
-// 不是已经加载的那一页。
+// corpus-tag-filter-spans-the-corpus.spec.ts -- F-L-23: a tag filter must filter
+// **the entire corpus**, not just the page that's already loaded.
 //
-// 真实环境里驱出来的:`/admin/wiki` 表头写 `574 entries`,点 `math` 标签只剩 1 条,而库里有
-// **137** 条 wiki 带这个标签。原因是 `WikiSection.tsx` 在选中标签时把分页数据源整个关掉,
-// 退回内存里那一页做客户端过滤;表头那个数来自另一个真 COUNT,于是两个数并排,谁也没说自己
-// 是哪个。
+// Found by driving the real environment: `/admin/wiki`'s header reads `574 entries`,
+// clicking the `math` tag leaves only 1 entry, while **137** wiki entries in the corpus
+// actually carry that tag. The cause: `WikiSection.tsx` shuts off the paginated data
+// source entirely once a tag is selected, and falls back to client-side filtering over
+// whatever page is already in memory; the header's number comes from a separate, real
+// COUNT, so the two numbers sit side by side and neither says which one it is.
 //
-// 这一条的形状照着那个成因造:让带标签的那条**落在第一页之外**。它先建(created_at 最早),
-// 而分页是 created_at DESC,所以它排在最后;再建满一整页不带标签的。旧代码只看得见第一页,
-// 于是筛出 0 条 —— 而正确答案是 1 条。
+// This test's shape is built to match that root cause: the tagged entry is made to **fall
+// outside the first page**. It's created first (earliest created_at), and pagination is
+// created_at DESC, so it sorts last; then a whole page's worth of untagged entries is
+// created after it. The old code can only see the first page, so it filters down to 0 --
+// when the correct answer is 1.
 //
-// 断言看**那条笔记在不在**,不是数字:数字会随页大小和种子数漂,而「筛选必须够得到它」不会。
+// The assertion checks **whether that specific note is present**, not a count: a count
+// drifts with page size and seed count, but "the filter must be able to reach it" does
+// not.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -27,22 +33,31 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-// NEEDLE_TAG —— 唯一,免得撞上别的种子。**同一个标签挂两条**:
-//   NEAR —— 最后建(created_at 最新)→ 落在第一页,标签 chip 因此渲得出来,点得到;
-//   FAR  —— 最先建(created_at 最早)→ 落在已加载窗口之外,只有真正下推到查询的筛选够得到。
-// 这个形状是照着 prod 上看到的样子造的:`math` 的 chip 在,点下去却只出 1 条,而库里有 137。
+// NEEDLE_TAG -- unique, so it doesn't collide with other seeds. **The same tag is put on
+// two entries**:
+//   NEAR -- created last (newest created_at) -> falls on the first page, so the tag chip
+//     renders and is clickable;
+//   FAR -- created first (oldest created_at) -> falls outside the loaded window, reachable
+//     only by a filter that's genuinely pushed down into the query.
+// This shape is built to match what was seen in prod: the `math` chip is there, but
+// clicking it shows only 1 entry when the corpus actually has 137.
 //
-// 第一版我只种了 FAR 一条,结果**在旧代码上也绿** —— 因为为了让 chip 渲得出来,我把它塞进了
-// 列表钩子的窗口里,而客户端筛选筛的正是那个窗口。chip 列表和筛选共用同一个窗口,所以筛不到的
-// 条目连 chip 都不会有:这个缺陷纯靠点击是触发不了的,得先从别处知道那个标签存在。
+// The first version of this test seeded only FAR, and that **passed on the old code too**
+// -- because to make its chip render at all, I'd stuffed it into the list hook's window,
+// and the client-side filter filters exactly that window. The chip list and the filter
+// share the same window, so an entry the filter can't reach also gets no chip: this
+// defect can't be triggered by clicking alone, you'd first need to know the tag exists
+// from somewhere else.
 const NEEDLE_TAG = 'needle-tag';
-// FAR_ONLY_TAG —— **只**挂在 FAR 上的标签。标签行如果从已加载的那一页推,它连 chip 都不会有 ——
-// 点不到,也就无从发现自己漏了什么。真 vault 上 `rate-reduction` 就是这样消失的。
+// FAR_ONLY_TAG -- a tag that's put **only** on FAR. If the tag row is derived from the
+// already-loaded page, it wouldn't even get a chip -- unclickable, and so there's no way
+// to discover what's missing. On the real vault, `rate-reduction` disappeared exactly
+// this way.
 const FAR_ONLY_TAG = 'far-only-tag';
 const NEAR_TITLE = 'needle-on-the-first-page';
 const FAR_TITLE = 'needle-beyond-the-loaded-window';
-// FILLER —— 后端 gridPageSize 是 30,列表钩子按 defaultCorpusLimit(50)取行。60 条填充把 FAR
-// 推到两者之外。
+// FILLER -- the backend's gridPageSize is 30, and the list hook fetches rows by
+// defaultCorpusLimit (50). 60 filler entries push FAR past both.
 const FILLER = 60;
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -59,7 +74,8 @@ async function seedCorpus(playwright: Playwright): Promise<void> {
   const token = await createAPIToken(request, csrf, 'tag-filter-seed');
   const sid = await initMCP(request, token);
 
-  // FAR 先建 —— created_at 最早,分页按 DESC 排,它落在已加载窗口之外。
+  // FAR is created first -- earliest created_at; pagination sorts DESC, so it falls
+  // outside the loaded window.
   await callTool(request, token, sid, 'corpus.create', {
     genre: 'wiki', title: FAR_TITLE, body: 'the tagged entry past the loaded window',
     tags: [NEEDLE_TAG, FAR_ONLY_TAG], source: 'mcp:e2e',
@@ -70,7 +86,8 @@ async function seedCorpus(playwright: Playwright): Promise<void> {
       body: 'filler', tags: [], source: 'mcp:e2e',
     });
   }
-  // NEAR 最后建 —— 落在第一页,标签 chip 靠它渲出来。
+  // NEAR is created last -- falls on the first page, and the tag chip is rendered because
+  // of it.
   await callTool(request, token, sid, 'corpus.create', {
     genre: 'wiki', title: NEAR_TITLE, body: 'the tagged entry on the first page',
     tags: [NEEDLE_TAG], source: 'mcp:e2e',
@@ -84,47 +101,59 @@ test.describe('corpus · tag filter spans the corpus, not one page', () => {
     await seedCorpus(playwright);
   });
 
-  // 标签筛选必须够得到已加载窗口之外的那条(F-L-23)。
+  // A tag filter must be able to reach an entry outside the loaded window (F-L-23).
   test('a tagged entry past the loaded window is still found by its tag',
     async ({ adminPage: page }) => {
       test.setTimeout(180_000);
       await page.getByTestId('admin-nav-wiki').click();
       await page.waitForURL('**/admin/wiki**');
 
-      // 分页只在网格视图上;树是懒加载的层级,不是这条要测的东西。
+      // Pagination only exists on the grid view; the tree is a lazily-loaded hierarchy,
+      // not what this test is about.
       await page.getByRole('button', { name: /grid/i }).click();
 
       const list = page.getByTestId('wiki-list');
       await expect(list).toBeVisible({ timeout: 30_000 });
-      // 非空守卫:先证第一页真的在渲东西。
+      // Non-empty guard: proves the first page is actually rendering something.
       await expect(list).toContainText('filler-', { timeout: 30_000 });
-      // 而 FAR 本来就不在第一页 —— 这一步坐实了「筛选必须跨越已加载的那一页」才是真需求。
+      // And FAR isn't on the first page to begin with -- this step confirms that "the
+      // filter must reach past the loaded page" is a real requirement here.
       await expect(list).not.toContainText(FAR_TITLE);
 
-      // 标签行必须来自整个 genre:只挂在窗口外那条上的标签也得有 chip,否则它点不到,
-      // 而「点不到」跟「没有这个标签」在屏幕上长得一模一样。
+      // The tag row must be sourced from the whole genre: even a tag that's only on the
+      // out-of-window entry must have a chip, otherwise it's unclickable -- and
+      // "unclickable" looks identical to "this tag doesn't exist" on screen.
       const chips = page.getByTestId('wiki-tag-filter');
       await expect(chips.getByText(FAR_ONLY_TAG, { exact: true })).toBeVisible({ timeout: 30_000 });
 
       await chips.getByText(NEEDLE_TAG, { exact: true }).click();
 
-      // NEAR 出现 = 筛选确实生效了(非空守卫,挡住「筛完什么都没有也算过」)。
+      // NEAR appearing = the filter genuinely took effect (non-empty guard, blocks
+      // "filtering down to nothing also counts as passing").
       await expect(list).toContainText(NEAR_TITLE, { timeout: 30_000 });
-      // FAR 出现 = 筛的是整个语料,不是已经加载的那一页。旧代码在这一行红。
+      // FAR appearing = the filter covers the whole corpus, not just the loaded page. The
+      // old code goes red on this line.
       await expect(list).toContainText(FAR_TITLE, { timeout: 30_000 });
     });
 
-  // F-L-30 —— 上面那条**先切到网格**再点标签（第 95 行），于是树视图那条路从没被走过。
-  // prod 上的样子：树视图里点 `recursive-harness`，chip 亮起来，而树**一行都没变** ——
-  // 十个根节点原样列着；同一刻切到网格，几十条挂着这个标签的笔记都在。
-  // 同一个标签、同一时刻、两个视图给出相反的答案，而亮着的 chip 在断言「已按它筛过」。
+  // F-L-30 -- the test above **switches to the grid first** before clicking a tag
+  // (line 95), so the tree-view path never gets exercised.
+  // What it looks like on prod: click `recursive-harness` in tree view, the chip lights
+  // up, and the tree **doesn't change by a single row** -- the ten root nodes stay listed
+  // exactly as they were; switch to grid at that same instant and dozens of notes carrying
+  // that tag are there.
+  // Same tag, same moment, two views giving opposite answers, while the lit chip is
+  // asserting "already filtered by this".
   //
-  // 归因：`CorpusTreeGrid.tsx:52` 的树分支渲的是 `CorpusLazyTree`，它**根本不收 rows** ——
-  // 于是 `WikiSection.tsx:136` 那句 `filterByTag(rows, activeTag)` 算完就被扔了。
-  // F-L-23 把网格那半修好了，树这半在同一次改动里**静默变成了空操作**。
+  // Root cause: the tree branch of `CorpusTreeGrid.tsx:52` renders `CorpusLazyTree`, which
+  // **never accepts rows at all** -- so `WikiSection.tsx:136`'s
+  // `filterByTag(rows, activeTag)` gets computed and then discarded.
+  // F-L-23 fixed the grid half; the tree half **silently became a no-op** in that same
+  // change.
   //
-  // 判据不钉住"树必须能筛"（那是新能力）：钉住**屏幕不许说谎** —— 选了标签之后，
-  // 看到的东西必须真的是那个标签的答案。产品用切到网格来满足它。
+  // The criterion doesn't pin "the tree must be filterable" (that's a new capability): it
+  // pins **the screen must not lie** -- once a tag is selected, what's shown must actually
+  // be the answer for that tag. The product satisfies this by switching to the grid.
   test('picking a tag in tree view does not leave an unfiltered tree under a lit chip',
     async ({ adminPage: page }) => {
       test.setTimeout(180_000);
@@ -138,8 +167,10 @@ test.describe('corpus · tag filter spans the corpus, not one page', () => {
       await chips.getByText(NEEDLE_TAG, { exact: true }).click();
       await expect(list).toBeVisible({ timeout: 30_000 });
 
-      // 选了标签之后屏幕上的东西必须**是这个标签的答案**：两条挂着它的都在，
-      // 而没挂它的填充条目不在。旧代码在这里红 —— 树纹丝不动，filler 全在、FAR 不在。
+      // Once a tag is selected, what's on screen must **be the answer for that tag**:
+      // both entries carrying it must be present, and the filler entries that don't
+      // carry it must not. The old code goes red here -- the tree doesn't move, every
+      // filler is there, FAR is not.
       await expect(list, '挂着这个标签的那两条都得在').toContainText(NEAR_TITLE, { timeout: 30_000 });
       await expect(list, '窗口外那条也得在').toContainText(FAR_TITLE, { timeout: 30_000 });
       const shown = await list.innerText();

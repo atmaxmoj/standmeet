@@ -1,19 +1,27 @@
-// persona-reaches-the-model.spec.ts —— F-A-36。owner 为这个受众写的**人格**、这张码自己的
-// prompt、以及每条 skill 的名字，必须真的出现在送给模型的 system prompt 里。
+// persona-reaches-the-model.spec.ts -- F-A-36. The **persona** the owner wrote for this
+// audience, this code's own prompt, and each skill's name must actually show up in the
+// system prompt sent to the model.
 //
-// 后端这一侧一直是对的：role 的 persona 正文 + code prompt(#104) + 每条 skill 的 L1 行由
-// `ComposeDynamicPersona` 拼成一段，随 /sessions 响应下发（`system_prompt_persona`）。
-// 浏览器把它存进 `PageSession.persona` —— 一个有类型、有持久化、有 restore 的字段 ——
-// **然后全仓没有任何一处读它**。这一轮的 system prompt 由 `composeSystemPrompt()` 拼，
-// 而它只遍历 `systemPromptPartIDs`（visitor-header + 每个 capability 一段，没有 persona 那段）；
-// 后端也不会补，`agent_loop.go` 的 Instruction 直接用浏览器发来的 `req.System`。
+// The backend side of this has always been correct: the role's persona body + the code
+// prompt (#104) + each skill's L1 line get assembled into one block by
+// `ComposeDynamicPersona`, sent down with the /sessions response (`system_prompt_persona`).
+// The browser stores it into `PageSession.persona` -- a typed, persisted, restorable field
+// -- **and then nowhere in the entire repo ever reads it**. This turn's system prompt is
+// assembled by `composeSystemPrompt()`, which only iterates `systemPromptPartIDs`
+// (visitor-header + one section per capability, with no persona section); the backend
+// doesn't fill the gap either -- `agent_loop.go`'s Instruction uses whatever `req.System`
+// the browser sent, verbatim.
 //
-// 三样东西因此从没到过模型手上：① owner 配的人格 ② 每张码自己的 prompt ③ skill 的名字。
-// 第三样让 `skill_use` 永远点不出名字（它的入参是准确的 skill 名），整条 skill/沙箱脚本的路
-// 对访客不可达 —— sandbox 模块驱不动就是这个原因。第一样多半也是 UX-66 的成因。
+// Three things therefore never reach the model: (1) the persona the owner configured,
+// (2) each code's own prompt, (3) skill names. The third means `skill_use` can never name
+// a skill (its argument is the exact skill name), making the entire skill/sandbox-script
+// path unreachable for visitors -- this is why the sandbox module could never be driven.
+// The first is likely also the cause of UX-66.
 //
-// **判据在访客真看得见的那段文字上**：mock 网关把收到的 system prompt 原样回显成
-// `[system:…]`（现有验 prompt 装配的 spec 走的都是这条），所以断言直接读渲染出来的回答。
+// **The criterion sits on text the visitor can actually see**: the mock gateway echoes
+// the system prompt it received verbatim as `[system:...]` (every existing spec that
+// verifies prompt assembly relies on this), so the assertion just reads the rendered
+// reply directly.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -34,7 +42,8 @@ const OWNER = {
 };
 
 const CODE = 'PERSONA-01';
-// 一句只可能来自 role persona 的话 —— 语料里没有，header 里也没有。
+// A line that can only have come from the role persona -- not in the corpus, not in the
+// header either.
 const PERSONA_MARK = 'ALWAYS-OPEN-WITH-THE-LEDGER';
 const ROLE = 'persona-carrier';
 
@@ -42,7 +51,8 @@ test.describe('F-A-36 · the persona the owner wrote reaches the model', () => {
   let roleID = '';
 
   test.beforeAll(async ({ playwright }) => {
-    test.setTimeout(180_000); // resetInstance 在负载高时要 ~48s，而钩子默认只给 30s
+    test.setTimeout(180_000); // resetInstance takes ~48s under high load, while the hook
+                              // only gives 30s by default
     roleID = await initOwner(playwright);
     expect(roleID, 'the role carrying the persona exists').not.toBe('');
   });
@@ -55,18 +65,22 @@ test.describe('F-A-36 · the persona the owner wrote reaches the model', () => {
       await page.getByTestId('chat-input-field').fill(`hello ${tag}`);
       await page.getByTestId('chat-input-field').press('Enter');
 
-      // mock 把收到的 system prompt 原样回显进回答里，所以这句话出现 = 它真的送到了。
+      // The mock echoes the system prompt it received verbatim into the reply, so this
+      // line appearing means it genuinely got sent.
       await expect(page.getByText(PERSONA_MARK, { exact: false }),
         'the persona the owner wrote for this role is in the prompt the model got')
         .toBeVisible({ timeout: 20_000 });
       await request.dispose();
     });
 
-  // UX-66 —— header 逐字要求「你就是 owner，用第一人称答」，却从头到尾没说过 owner 是谁。
-  // 身份一直是检索的**副作用**：public 身份以前能读整个 wiki，随便哪条笔记都把人物带出来。
-  // 公开切片收窄到 owner 真正发布过的那几条之后，这个 AI 会对着陌生人说「我的笔记里没有
-  // 叫 Sijie 的人」。名字来自 owner 那一行，跟语料范围无关 —— 所以判据放在这里：
-  // **这个 role 的 corpus 里没有 owner 的名字，名字还是必须到模型手上**。
+  // UX-66 -- the header literally instructs "you are the owner, answer in first person",
+  // yet never once states who the owner is. Identity has always been a **side effect** of
+  // retrieval: the public identity used to be able to read the entire wiki, and any note
+  // at all would surface the person's name. Once the public slice narrowed to only what
+  // the owner had actually published, this AI would tell a stranger "there's no one named
+  // Sijie in my notes". The name comes from the owner's own record, independent of corpus
+  // scope -- hence the criterion here: **even with no owner name anywhere in this role's
+  // corpus, the name must still reach the model**.
   test('the model is told who the owner is, even though no note says so',
     async ({ page, playwright }) => {
       const request = await playwright.request.newContext();
@@ -101,8 +115,9 @@ async function initOwner(playwright: Playwright): Promise<string> {
   return id;
 }
 
-// createRoleWithPersona —— 一个带 prompt 正文的 role。persona 走 prompts 库挂到 role 上，
-// 跟 owner 在 /admin/prompts + /admin/roles 上做的是同一件事。
+// createRoleWithPersona -- a role carrying a prompt body. The persona is attached to the
+// role through the prompts library, the same thing an owner does across
+// /admin/prompts + /admin/roles.
 async function createRoleWithPersona(
   request: APIRequestContext, csrf: string,
 ): Promise<string> {

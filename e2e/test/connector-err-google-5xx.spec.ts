@@ -1,9 +1,10 @@
-// connector-err-google-5xx.spec.ts —— §四 E6
-// code visitor + calendar connected；mock Google `events.insert` 返 500/429/timeout →
-// tool call 友好降级（status<500，无 panic/goroutine/stack），AI 提示 try-again，
-// 不创建 event。
+// connector-err-google-5xx.spec.ts — §4 E6
+// A code visitor with calendar connected; mock Google `events.insert` returns
+// 500/429/timeout → the tool call degrades gracefully (status<500, no
+// panic/goroutine/stack), the AI suggests trying again, and no event is created.
 //
-// RED / TDD：依赖 connector proxy 把 Google 5xx 映射成友好降级落地后转绿。
+// RED / TDD: goes green once the connector proxy maps Google 5xx to a graceful
+// degradation.
 //
 // Error stream E6: when mock Google events.insert returns a server error, the
 // booking tool degrades to a friendly message instead of crashing — no 500,

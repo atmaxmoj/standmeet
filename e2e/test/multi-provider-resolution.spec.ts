@@ -46,8 +46,9 @@ interface Book { def: ProviderView; code: ProviderView; role: ProviderView }
 
 let book: Book;
 let csrf = '';
-// api —— 一个**登录过的** request 上下文,整个 describe 共用。spec 级的 `request` fixture
-// 没有 owner 会话,打 /api/admin/* 一律 401;而访客那几个口是公开的,用哪个都行。
+// api -- a **logged-in** request context, shared across the whole describe block. The
+// spec-level `request` fixture has no owner session, so hitting /api/admin/* always 401s;
+// the visitor-facing endpoints are public, so either context works for those.
 let api: APIRequestContext;
 
 test.describe.configure({ mode: 'serial' });

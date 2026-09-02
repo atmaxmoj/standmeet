@@ -1,6 +1,7 @@
-// mcp-page-lifecycle.spec.ts —— custom_page 完整生命周期，覆盖 custom-page.spec.ts
-// 没碰的几个 tool：promote_to_staging（单独一步，不直接走 live）、list（列入）、
-// delete（移除）。访客视角同步校验：live 后能访问、delete 后 404。
+// mcp-page-lifecycle.spec.ts — the full custom_page lifecycle, covering the tools
+// custom-page.spec.ts doesn't touch: promote_to_staging (a separate step, not going
+// straight to live), list (enumerate), delete (remove). Verifies the visitor's side in
+// lockstep: reachable once live, 404 after delete.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -34,8 +35,9 @@ export default function App() {
 
 interface PagePayload { id: string; slug: string; title: string }
 interface BuildPayload { build_id: string; status: string }
-// 列表是**一行行页面**，跟面板那份同一形状（以前 MCP 这份多包一层 {pages:[...]}，
-// 而且只有 id/slug/title，看不出 live/staging 状态）。
+// The list is **a row per page**, the same shape as the admin panel's (this MCP
+// version used to wrap it in an extra {pages:[...]} layer, and only carried
+// id/slug/title, with no way to tell live/staging status).
 type ListPayload = PagePayload[];
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -59,8 +61,8 @@ test.describe('custom_page lifecycle: staging → live → list → delete', () 
       const sid = await initMCP(request, apiToken);
       const build = await prepareBuiltPage(request, apiToken, sid);
 
-      // staging single-step：tool 不报 error 即视为通过（list 不暴露
-      // staging_build_id，下面靠 promote_to_live 串起来）。
+      // staging single-step: the tool not reporting an error counts as passing (list
+      // doesn't expose staging_build_id; the flow is chained via promote_to_live below).
       await callTool<PagePayload>(request, apiToken, sid,
         'custom_page.promote_to_staging', { slug: SLUG, build_id: build.build_id });
       await callTool<PagePayload>(request, apiToken, sid,
@@ -70,7 +72,8 @@ test.describe('custom_page lifecycle: staging → live → list → delete', () 
         request, apiToken, sid, 'custom_page.list', {});
       expect(inList.find((p) => p.slug === SLUG)).toBeTruthy();
 
-      // UI 视角：admin custom-pages section → 点 view live ↗ → /p/<slug> 渲染。
+      // From the UI's side: admin custom-pages section → click view live ↗ →
+      // /p/<slug> renders.
       await gotoAdminSection(page, 'custom-pages');
       await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
       await page.locator(`[data-testid="custom-page-row-${SLUG}"]`)
@@ -79,7 +82,7 @@ test.describe('custom_page lifecycle: staging → live → list → delete', () 
       await page.waitForURL(`**/p/${SLUG}`, { timeout: 10_000 });
       await expect(page.getByTestId('about-page')).toBeVisible({ timeout: 15_000 });
 
-      // delete → admin row 整个消失（has_live 链接也跟着没了）。
+      // delete → the admin row disappears entirely (the has_live link goes with it).
       await callTool<unknown>(
         request, apiToken, sid, 'custom_page.delete', { slug: SLUG });
 
@@ -87,8 +90,9 @@ test.describe('custom_page lifecycle: staging → live → list → delete', () 
         request, apiToken, sid, 'custom_page.list', {});
       expect(afterDelete.find((p) => p.slug === SLUG)).toBeUndefined();
 
-      // 当前在 /p/<slug> standalone React 页面，没 admin nav；page.goBack()
-      // 回到 /admin/custom-pages（等价"用户看完 live 版本后浏览器后退"）。
+      // Currently on the /p/<slug> standalone React page, no admin nav; page.goBack()
+      // returns to /admin/custom-pages (equivalent to "the user hits browser-back
+      // after viewing the live version").
       await page.goBack();
       await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
       await page.reload();

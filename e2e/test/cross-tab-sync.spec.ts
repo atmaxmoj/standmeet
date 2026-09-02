@@ -1,8 +1,9 @@
-// cross-tab-sync.spec.ts —— localStorage storage event 跨 tab 同步。
+// cross-tab-sync.spec.ts — cross-tab sync via localStorage storage events.
 //
-// 用户故事：
-//   1. Tab A 输 code login → Tab B storage event → SessionStrip 同步出现
-//   2. Tab A exit session → Tab B SessionStrip 消失
+// User story:
+//   1. Tab A logs in with a code → Tab B gets a storage event → SessionStrip appears
+//      in sync
+//   2. Tab A exits its session → Tab B's SessionStrip disappears
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -37,7 +38,8 @@ test.describe('cross-tab session sync via localStorage', () => {
       await goto(tabB, '/');
       await expect(tabB.getByTestId('session-strip')).toHaveCount(0);
 
-      // Tab A 扫码 + 选名(defer-issue:skip 才 issue session)。
+      // Tab A scans the code + picks a name (defer-issue:skip is what actually issues
+      // the session).
       await enterCodeSession(tabA, CODE);
       await expect(tabA.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
@@ -53,7 +55,7 @@ test.describe('cross-tab session sync via localStorage', () => {
       const tabA = await context.newPage();
       const tabB = await context.newPage();
 
-      // Tab A 扫码 + 选名进来。
+      // Tab A scans the code + picks a name to get in.
       await enterCodeSession(tabA, CODE);
       await expect(tabA.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 

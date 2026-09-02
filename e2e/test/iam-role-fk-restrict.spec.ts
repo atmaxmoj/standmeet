@@ -1,11 +1,11 @@
-// iam-role-fk-restrict.spec.ts —— DB FK / 引用完整性的拒绝路径：
-//   - DELETE role 被 active code 引用时不能删（FK ON DELETE RESTRICT）
-//   - POST code 时 assumed_role_id 不存在 → backend 报错（FK 违例）
+// iam-role-fk-restrict.spec.ts —— DB FK / referential-integrity rejection paths:
+//   - DELETE role fails when it's still referenced by an active code (FK ON DELETE RESTRICT)
+//   - POST code with a non-existent assumed_role_id → backend errors (FK violation)
 //
-// 后端 schema 用 RESTRICT 兜底；usecase 不预校验是因为这条 race-free 由
-// constraint 拦更稳。
+// The backend schema falls back on RESTRICT; the usecase doesn't pre-validate
+// because letting the constraint catch it is more reliably race-free.
 //
-// admin REST 要 cookie+csrf 同源；每个 test 自己 login。
+// admin REST needs cookie+csrf same-origin; each test logs in itself.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

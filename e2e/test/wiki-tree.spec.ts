@@ -1,24 +1,27 @@
-// wiki-tree.spec.ts —— 公开 wiki 树端点(懒加载 + ACL 过滤)。#37/#43 键石。
+// wiki-tree.spec.ts — the public wiki tree endpoint (lazy-loading + ACL filtering).
+// Keystone for #37/#43.
 //
-// 树是 sidebar 导航(wiki + reader 两个 surface 都用)。一次返一层(懒加载):
-//   GET /api/v1/wiki-tree            → roots
-//   GET /api/v1/wiki-tree?parent=ID  → ID 的直接子节点
-// 节点 {id,title,path,has_children}。
+// The tree is what drives sidebar navigation (used by both the wiki and reader
+// surfaces). It returns one level per call (lazy-loading):
+//   GET /api/v1/wiki-tree            -> roots
+//   GET /api/v1/wiki-tree?parent=ID  -> ID's direct children
+// Nodes are {id,title,path,has_children}.
 //
-// ACL(owner 拍板):有 code 按 code 的 role scope,无 code 只 published ——
-// 不在 scope 的条目**整条不出现**(不泄露 gated 标题)。
+// ACL (the owner's ruling): with a code, scope follows the code's role; without a code,
+// only published entries — an entry outside scope **does not appear at all**
+// (its gated title never leaks).
 //
-// 树(seed):
-//   Thinking(root,indexed)
-//    ├─ Lucerna(indexed)
-//    └─ Private Sub(NOT indexed)
-//   Fundraising(root,NOT indexed) ← gated
-//    └─ Cap Table(NOT indexed)
-//   Essays(root,indexed)
+// The tree (seed):
+//   Thinking (root, indexed)
+//    ├─ Lucerna (indexed)
+//    └─ Private Sub (NOT indexed)
+//   Fundraising (root, NOT indexed) ← gated
+//    └─ Cap Table (NOT indexed)
+//   Essays (root, indexed)
 //
-// 匿名看见 Thinking/Essays(+ Lucerna),看不见 Fundraising/Private Sub。
-// 持 code(role 仅 scope wiki://fundraising**)看见 Fundraising/Cap Table,
-// 看不见 Thinking/Essays。
+// An anonymous visitor sees Thinking/Essays (+ Lucerna), but not Fundraising/Private Sub.
+// A visitor holding a code (role scoped only to wiki://fundraising**) sees
+// Fundraising/Cap Table, but not Thinking/Essays.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -70,17 +73,19 @@ test.describe('公开 wiki 树端点:懒加载一层 + ACL 过滤', () => {
     ids['fund'] = await promote(request, sid, 'Fundraising');
     ids['cap'] = await promote(request, sid, 'Cap Table', ids['fund']);
     ids['essays'] = await promote(request, sid, 'Essays');
-    // Indexed Orphan —— 自己 indexed,但挂在 gated(not indexed)的 Fundraising 下。
-    // 文件系统 cascade:parent gated → 它也不可见(不升根)。旧"孤儿升根"会漏它。
+    // Indexed Orphan — indexed itself, but filed under Fundraising, which is gated (not
+    // indexed). Filesystem-style cascade: a gated parent -> it's also invisible (never
+    // promoted to root). The old "promote orphans to root" behavior would have missed this case.
     ids['orphan'] = await promote(request, sid, 'Indexed Orphan', ids['fund']);
 
-    // 标 indexed:Thinking / Lucerna / Essays / Indexed Orphan(Fundraising 不标)。
+    // Mark as indexed: Thinking / Lucerna / Essays / Indexed Orphan (Fundraising is not marked).
     await markIndexed(request, sid, ids['thinking']);
     await markIndexed(request, sid, ids['lucerna']);
     await markIndexed(request, sid, ids['essays']);
     await markIndexed(request, sid, ids['orphan']);
 
-    // gated session:role 仅 scope wiki://fundraising**(含 root + 子孙)。
+    // A gated session: role scoped only to wiki://fundraising** (covering the root + its
+    // descendants).
     gatedToken = await issueGatedSession(request);
     await request.dispose();
   });
@@ -109,7 +114,8 @@ test.describe('公开 wiki 树端点:懒加载一层 + ACL 过滤', () => {
       expect(kids[0]?.path).toBe('thinking/lucerna');
     });
 
-  // 文件系统 cascade:gated parent → 整条子树不可见,indexed 子也不升根。
+  // Filesystem-style cascade: a gated parent -> the whole subtree is invisible, and an
+  // indexed child is never promoted to root either.
   test('cascade ACL:gated parent 下的 indexed 子不可见、不升根',
     async ({ request }) => {
       const roots = await tree(request, '', null);
@@ -129,20 +135,23 @@ test.describe('公开 wiki 树端点:懒加载一层 + ACL 过滤', () => {
       expect(kids.map((n) => n.title).sort()).toEqual(['Cap Table', 'Indexed Orphan']);
     });
 
-  // ── 节点上下文(breadcrumb 祖先链 + SubEntriesRail 子节点)──
+  // ── node context (breadcrumb ancestor chain + SubEntriesRail children) ──
   test('context:匿名 thinking/lucerna → 祖先 [Thinking]、无子', ctxLucernaAncestors);
   test('context:匿名 thinking → 无祖先、子 [Lucerna](Private Sub 不 indexed)', ctxThinkingChildren);
   test('context:持 code fundraising/cap-table → 祖先 [Fundraising]', ctxGatedAncestors);
 
-  // ── LazyTree 组件:真浏览器里的行为(默认合上 + 点开才 fetch + ACL)──
+  // ── the LazyTree component: real-browser behavior (collapsed by default + fetch only
+  // on expand + ACL) ──
   test('sidebar:默认合上,点 ▸ 才 fetch 这层 children(懒加载)', sidebarLazyExpand);
   test('sidebar:ACL —— 匿名树里没有 Fundraising(gated root 不泄露)', sidebarAclHidesGated);
   test('breadcrumb:lucerna landing 顶部显示祖先 Thinking(可点)', breadcrumbShowsAncestor);
 });
 
-// sidebarLazyExpand —— 非当前路径的节点默认合上 + 点开才取那层(懒加载,不预取
-// 整树)。落在 /wiki/essays:Essays 是当前条(自动展开,但无子),Thinking 不在当前
-// 路径上 → 默认合上,验它的子是点 ▸ 才懒取的。
+// sidebarLazyExpand — a node not on the current path is collapsed by default, fetching
+// its level only when expanded (lazy-loading, never pre-fetching the whole tree).
+// Landing on /wiki/essays: Essays is the current entry (auto-expanded, but has no
+// children), while Thinking is not on the current path -> collapsed by default; this
+// verifies its children are only lazily fetched when its ▸ is clicked.
 async function sidebarLazyExpand({ page }: { page: Page }): Promise<void> {
   const treeReqs: string[] = [];
   page.on('request', (r) => {
@@ -152,17 +161,19 @@ async function sidebarLazyExpand({ page }: { page: Page }): Promise<void> {
   await expect(page.getByTestId('wiki-tree')).toBeVisible({ timeout: 5_000 });
   await expect(page.getByTestId('tree-node-thinking')).toBeVisible();
   await expect(page.getByTestId('tree-node-essays')).toBeVisible();
-  // Thinking 默认合上 → 它的子(Lucerna)不在 DOM,也没被预取。
+  // Thinking is collapsed by default -> its child (Lucerna) is not in the DOM, and was
+  // not pre-fetched.
   await expect(page.getByTestId('tree-node-thinking/lucerna')).toHaveCount(0);
   const thinkingID = ids['thinking'] ?? '';
   expect(treeReqs.some((u) => u.includes(`parent=${thinkingID}`))).toBe(false);
-  // 点 Thinking 的 ▸ → 这时才发 parent=<thinking> → Lucerna 出现。
+  // Click Thinking's ▸ -> only now does parent=<thinking> get sent -> Lucerna appears.
   await page.getByTestId('tree-toggle-thinking').click();
   await expect(page.getByTestId('tree-node-thinking/lucerna')).toBeVisible({ timeout: 5_000 });
   expect(treeReqs.some((u) => u.includes(`parent=${thinkingID}`))).toBe(true);
 }
 
-// sidebarAclHidesGated —— 匿名树整条不出现 gated root(不泄露标题)。
+// sidebarAclHidesGated — a gated root does not appear at all in the anonymous tree (its
+// title never leaks).
 async function sidebarAclHidesGated({ page }: { page: Page }): Promise<void> {
   await goto(page, '/wiki/thinking');
   await expect(page.getByTestId('wiki-tree')).toBeVisible({ timeout: 5_000 });
@@ -170,7 +181,7 @@ async function sidebarAclHidesGated({ page }: { page: Page }): Promise<void> {
   await expect(page.getByTestId('tree-node-fundraising')).toHaveCount(0);
 }
 
-// tree —— GET /api/v1/wiki-tree[?parent=ID];token 非空时带 Bearer(code scope)。
+// tree — GET /api/v1/wiki-tree[?parent=ID]; carries Bearer when token is non-null (code scope).
 async function tree(
   request: APIRequestContext, parentID: string, token: string | null,
 ): Promise<TreeNode[]> {
@@ -186,27 +197,28 @@ async function tree(
 
 interface TreeContext { ancestors: TreeNode[]; children: TreeNode[] }
 
-// ctxLucernaAncestors —— 匿名 lucerna:祖先 [Thinking](两者都 indexed)、无子。
+// ctxLucernaAncestors — anonymous, at lucerna: ancestors [Thinking] (both indexed), no children.
 async function ctxLucernaAncestors({ request }: { request: APIRequestContext }): Promise<void> {
   const ctx = await context(request, 'thinking/lucerna', null);
   expect(ctx.ancestors.map((n) => n.title)).toEqual(['Thinking']);
   expect(ctx.children).toEqual([]);
 }
 
-// ctxThinkingChildren —— 匿名 thinking:无祖先、子 [Lucerna](Private Sub 不 indexed)。
+// ctxThinkingChildren — anonymous, at thinking: no ancestors, children [Lucerna]
+// (Private Sub is not indexed).
 async function ctxThinkingChildren({ request }: { request: APIRequestContext }): Promise<void> {
   const ctx = await context(request, 'thinking', null);
   expect(ctx.ancestors).toEqual([]);
   expect(ctx.children.map((n) => n.title)).toEqual(['Lucerna']);
 }
 
-// ctxGatedAncestors —— 持 code:fundraising/cap-table 祖先 [Fundraising]。
+// ctxGatedAncestors — holding a code: fundraising/cap-table's ancestors are [Fundraising].
 async function ctxGatedAncestors({ request }: { request: APIRequestContext }): Promise<void> {
   const ctx = await context(request, 'fundraising/cap-table', gatedToken);
   expect(ctx.ancestors.map((n) => n.title)).toEqual(['Fundraising']);
 }
 
-// context —— GET /api/v1/wiki-tree/context?path=...;token 非空带 Bearer。
+// context — GET /api/v1/wiki-tree/context?path=...; carries Bearer when token is non-null.
 async function context(
   request: APIRequestContext, path: string, token: string | null,
 ): Promise<TreeContext> {
@@ -217,7 +229,8 @@ async function context(
   return await res.json() as TreeContext;
 }
 
-// breadcrumbShowsAncestor —— lucerna landing 顶部 breadcrumb 显示祖先 Thinking 链接。
+// breadcrumbShowsAncestor — the breadcrumb at the top of the lucerna landing page shows a
+// link to its ancestor, Thinking.
 async function breadcrumbShowsAncestor({ page }: { page: Page }): Promise<void> {
   await goto(page, '/wiki/thinking/lucerna');
   await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
@@ -226,8 +239,8 @@ async function breadcrumbShowsAncestor({ page }: { page: Page }): Promise<void> 
   await expect(crumb.getByRole('link', { name: 'Thinking' })).toBeVisible();
 }
 
-// issueGatedSession —— 建 role(corpus_uris=['wiki://fundraising**'])+ code +
-// 发 session,返回 session_token。beforeAll 调一次。
+// issueGatedSession — creates a role (corpus_uris=['wiki://fundraising**']) + a code +
+// issues a session, returning session_token. Called once from beforeAll.
 async function issueGatedSession(request: APIRequestContext): Promise<string> {
   const role = await createRole(request, csrfToken, {
     name: 'Fundraising', corpus_uris: ['wiki://fundraising**'],
@@ -241,7 +254,8 @@ async function issueGatedSession(request: APIRequestContext): Promise<string> {
   return sess.session_token;
 }
 
-// promote —— corpus.create(raw) → corpus.promote(可挂 parent),返回新 wiki 的 id。
+// promote — corpus.create(raw) -> corpus.promote (can attach a parent), returns the new
+// wiki's id.
 async function promote(
   request: APIRequestContext, sid: string, title: string, parent?: string,
 ): Promise<string> {

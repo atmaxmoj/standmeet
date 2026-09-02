@@ -1,15 +1,20 @@
-// captcha-login-copy.spec.ts —— F-G-5：人机校验没过，不能被说成「密码不对」。
+// captcha-login-copy.spec.ts —— F-G-5: a failed human check must not be reported as "wrong password".
 //
-// `login_guard.go` 的顺序是 限流 → captcha → 凭据，captcha 这一关**短路在凭据校验之前**，
-// 而它写的信封是 `invalid credentials`。于是密码**完全正确**的 owner，只要那道校验没加载出来
-// （网络被挡、Cloudflare 抖、拦截插件），得到的也是「密码不对」——他会去改密码，
-// 而真因在另一个地方。
+// `login_guard.go`'s order is rate-limit → captcha → credentials, and the captcha
+// step **short-circuits before the credential check**, yet it returns the
+// `invalid credentials` envelope. So an owner with a **completely correct**
+// password, whenever that check simply fails to load (network blocked,
+// Cloudflare hiccup, a blocking extension), also gets "wrong password" — they go
+// change their password, while the real cause lives somewhere else.
 //
-// 「防枚举所以要含糊」在这里不成立：密码错 vs 用户不存在要含糊，是为了不泄露账号是否存在；
-// 「人机校验没过」不是账号预言机，说出来不泄露任何东西。同一个文件里限流那条分支就说了真话
-// （"too many login attempts, try again later"），对照就在旁边。
+// "vagueness for anti-enumeration" doesn't apply here: wrong-password vs.
+// no-such-user needs to stay vague, to avoid leaking whether an account exists.
+// "failed human check" is not an account oracle — saying it leaks nothing. The
+// rate-limit branch in this same file already tells the truth
+// ("too many login attempts, try again later") — the contrast sits right there.
 //
-// 只能在 captcha 真开着时驱 —— 走 `make test-captcha`（Cloudflare 测试密钥）。
+// Only drivable while captcha is actually on — run via `make test-captcha`
+// (Cloudflare test keys).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -31,7 +36,8 @@ test.describe('login · a failed human check must not be reported as a wrong pas
   let request: APIRequestContext;
 
   test.beforeAll(async ({ playwright }) => {
-    // 这台没开 captcha 就整组跳过（而不是留一条恒定的红）—— 见 fixtures/captcha.ts。
+    // If this instance doesn't have captcha on, skip the whole group (rather than
+    // leaving a permanently-red case) — see fixtures/captcha.ts.
     await skipUnlessCaptchaOn(await playwright.request.newContext());
     resetInstance();
     request = await playwright.request.newContext();
@@ -40,14 +46,17 @@ test.describe('login · a failed human check must not be reported as a wrong pas
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
   });
-  // `?.` 不是防御性写法，是**跳过这条路的实况**：整组被 skip 时 `beforeAll` 在赋值之前就
-  // 被中止了，`request` 从没存在过 —— 而 afterAll 照样跑。少了这个问号，「跳过」会以
-  // 一条 0ms 的红呈现，跟它要消灭的那种红长得一模一样。
+  // `?.` isn't defensive style here, it's **the actual shape of the skip path**:
+  // when the whole group is skipped, `beforeAll` is aborted before the
+  // assignment runs, so `request` never existed — yet afterAll still runs.
+  // Without this question mark, "skipped" would show up as a 0ms red, which
+  // looks exactly like the kind of red this test exists to eliminate.
   test.afterAll(async () => { await request?.dispose(); });
 
   test('the RIGHT password with no captcha token is not called "invalid credentials"',
     async () => {
-      // 密码是对的 —— 这条用例的全部意义就在这里：被拒的原因是那道校验，不是凭据。
+      // The password is correct — that's the entire point of this case: the
+      // rejection reason is that check, not the credentials.
       const res = await request.post(`${BACKEND}/api/admin/login`, {
         data: { email: OWNER.email, password: OWNER.password },
       });

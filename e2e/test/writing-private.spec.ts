@@ -1,9 +1,9 @@
 // writing-private.spec.ts —— private writings: locked view + code access.
 //
-// 用户故事：
-//   1. private writing + 没 code → LockedView (teaser + request CTA)
-//   2. private writing + 有 code (scope 匹配) → 正常渲染
-//   3. crosslink to nonexistent slug → 渲染为纯文本 (不报错)
+// User story:
+//   1. private writing + no code → LockedView (teaser + request CTA)
+//   2. private writing + a code (scope matches) → renders normally
+//   3. crosslink to a nonexistent slug → renders as plain text (no error)
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -40,10 +40,13 @@ test.describe('writing private: locked view + code access', () => {
       expect(flag).toBeFalsy();
     });
 
-  // F-L-25 —— 这条以前断言 `[[nonexistent-slug]]` 原样出现。改成断言方括号**不出现**，
-  // 名字仍在：解析不到的链接退成纯文本，而不是把 Obsidian 语法倒给访客。
-  // 放在这个 spec 里还有第二层意思：它守的是「body 是数据不是标记」，而漏出去的方括号正是
-  // 一段没被处理干净的标记。
+  // F-L-25 — this test used to assert `[[nonexistent-slug]]` appeared verbatim.
+  // Changed to assert the brackets **don't appear**, while the name survives: a link
+  // that can't resolve degrades to plain text, instead of dumping Obsidian syntax on
+  // the visitor.
+  // Being in this spec also carries a second meaning: it guards "the body is data, not
+  // markup", and a leaked bracket pair is exactly a piece of markup that never got
+  // cleaned up.
   test('crosslink to broken slug → degrades to plain text, not markup',
     async ({ page }) => {
       // Use the writing seeded above which has [[nonexistent-slug]]

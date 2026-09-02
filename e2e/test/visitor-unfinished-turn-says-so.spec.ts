@@ -1,19 +1,27 @@
-// visitor-unfinished-turn-says-so.spec.ts —— F-A-32:一轮**没有收尾**时,已经流出来的那半截
-// 不许冒充完整答案。
+// visitor-unfinished-turn-says-so.spec.ts —— F-A-32: when a turn **has no terminator**, the
+// half it already streamed out must not pass itself off as a complete answer.
 //
-// 真实环境里长这样:一个逼到预算边界的问题跑了 360 秒,模型在工具调用之间流出的是计划旁白
-// (*"Let me peek at the remaining ~39 Level 2 notes to triage, then read them all."*),流在
-// `done` 之前断掉(ERR_INCOMPLETE_CHUNKED_ENCODING),而客户端只判「一个字都没收到才报错」——
-// 于是那半句计划被当成完成的答案发布,屏幕上没有任何提示,这一轮还算成功、照常计费。
+// What this looks like in the real environment: a question pushed to the budget boundary ran
+// for 360 seconds; the model streamed a plan narration between tool calls (*"Let me peek at
+// the remaining ~39 Level 2 notes to triage, then read them all."*), the stream cut off
+// before `done` (ERR_INCOMPLETE_CHUNKED_ENCODING), and the client only treats it as an error
+// when it received zero characters at all — so that half-finished plan got published as a
+// completed answer, with no indication on screen, and the turn still counted as a success
+// and got billed normally.
 //
-// 判据是**尾帧到没到**,不是「有没有文字」:后端在每条路径末尾都无条件发 `done`
-// (agent_loop.go:152,错误路径也发),所以缺了它就是确定没收尾。这条用例因此不需要真的把
-// socket 掐断 —— 它发一段合法的 SSE:两帧 text,然后**没有** done。缺尾帧就是缺尾帧。
+// The criterion is **whether the terminator frame arrived**, not "is there any text": the
+// backend unconditionally sends `done` at the end of every path (agent_loop.go:152, including
+// error paths), so its absence is a certain sign the turn never terminated. Because of that,
+// this case doesn't need to actually sever a socket — it sends a legal SSE stream: two text
+// frames, then **no** done. Missing a terminator frame is missing a terminator frame, however
+// it happens.
 //
-// 两条断言缺一不可:
-//   1. 那半截内容**还在**(非空守卫;顺便框住「一报错就把 43 条引用和正文全清掉」那种修法);
-//   2. 旁边有一句说它没说完。
-// 只断第 2 条的话,一个「出错就整屏换成一句话」的实现也能过,而那对访客同样是丢失。
+// Both assertions are required:
+//   1. the half-finished content is **still there** (a non-empty guard; this also fences off
+//      a "fix" that clears all 43 citations and the body the moment an error happens);
+//   2. there's a notice next to it saying it didn't finish.
+// Asserting only #2 would also let through an implementation that swaps the whole screen for
+// a single message on error — and that's just as much a loss for the visitor.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -31,11 +39,13 @@ const OWNER = {
 
 const CODE = 'UNFIN-001';
 
-// NARRATION —— 模型在工具之间说的那种话。它读起来像句子,所以「有文字」这个判据看不出问题。
+// NARRATION —— the kind of thing the model says between tool calls. It reads like a
+// sentence, so the "has text" criterion can't tell anything is wrong.
 const NARRATION = 'Let me peek at the remaining notes to triage, then read them all.';
 
-// unterminatedStream —— 合法的 SSE:两帧 text,没有 done。真实世界里这是流被掐断的样子,
-// 而缺尾帧这件事本身就足以判定「没收尾」。
+// unterminatedStream —— a legal SSE stream: two text frames, no done. In the real world
+// this is what a severed stream looks like, and the missing terminator frame alone is enough
+// to determine "the turn never finished."
 function unterminatedStream(): string {
   return [
     `event: text\ndata: ${JSON.stringify({ delta: NARRATION })}\n\n`,
@@ -71,7 +81,8 @@ test.describe('没收尾的一轮要说出来', () => {
 
     await enterCodeSession(page, CODE);
 
-    // 会话已经建好之后才接管这个端点 —— 否则连进门那步都被改了。
+    // Only intercept this endpoint after the session is already established — otherwise
+    // even the entry step itself would be altered.
     await page.route('**/api/v1/agent/turn', async (route) => {
       await route.fulfill({
         status: 200,
@@ -84,10 +95,11 @@ test.describe('没收尾的一轮要说出来', () => {
     await input.fill('walk the whole link graph for me');
     await input.press('Enter');
 
-    // 1) 那半截还在 —— 也是非空守卫:先证这一轮真的流出来了东西。
+    // 1) The half-finished content is still there — also a non-empty guard: first prove
+    // this turn really did stream something out.
     await expect(page.getByTestId('answer-body')).toContainText(NARRATION, { timeout: 30_000 });
 
-    // 2) 而且它没有冒充完整答案。
+    // 2) And it doesn't pass itself off as a complete answer.
     await expect(page.getByTestId('answer-partial-notice')).toBeVisible({ timeout: 30_000 });
 
     await ctx.close();

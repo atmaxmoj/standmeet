@@ -111,7 +111,8 @@ async function setup(playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
   await claim(request, findSetupToken(), OWNER);
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  // 两条 waypoint 的证据 note 得真存在,冻结那刻的可行性下限才放它们进快照(F-A-26)。
+  // The evidence notes for both waypoints must actually exist; only once the
+  // feasibility floor is frozen do they get let into the snapshot (F-A-26).
   const apiToken = await createAPIToken(request, csrf, 'telem-seed');
   const sid = await initMCP(request, apiToken);
   await seedWiki(request, apiToken, sid, { title: 'Alpha', body: 'Alpha.', path: 'alpha' });

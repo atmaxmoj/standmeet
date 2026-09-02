@@ -1,10 +1,13 @@
-// owner-mcp-parity-connectors.spec.ts —— 【对外】facade-parity 付清后新增的 owner-MCP
-// **连接器 + 外部依赖**工具的功能守护。连接器 CRUD 用 SAMPLE_SPEC 做真 roundtrip;
-// mail_test_send 无 mail 连接器时按设计返 {ok:false};access_requests 播种真 request 后
-// update roundtrip + approve 发码;marketplace 走真外网(e2e 离线)→ 只证 binding dispatch
-// + 友好错误(不崩)。
+// owner-mcp-parity-connectors.spec.ts -- [outward] functional guard for the
+// owner-MCP **connector + external-dependency** tools added once
+// facade-parity debt was paid off. Connector CRUD does a real roundtrip with
+// SAMPLE_SPEC; mail_test_send returns {ok:false} by design when no mail
+// connector is configured; access_requests seeds a real request then does an
+// update roundtrip + an approve that issues a code; marketplace hits real
+// upstreams (e2e is offline) -> only proves the binding dispatches and fails
+// gracefully.
 //
-// 覆盖: connectors.{validate_spec,create,status,update,activate,disconnect,delete,
+// Coverage: connectors.{validate_spec,create,status,update,activate,disconnect,delete,
 // mail_test_send} · access_requests.{update,approve} · marketplace.{search,install}
 
 import { test, expect } from '@/fixtures/test';

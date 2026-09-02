@@ -1,10 +1,11 @@
-// c2-keypair-ui.spec.ts —— Phase C-2: /admin/api-mcp UI flow。
+// c2-keypair-ui.spec.ts — Phase C-2: /admin/api-mcp UI flow.
 //
-// 业务故事：
-//   alice 在 /admin/api-mcp 输入 device label "mojat-mbp" → 点 Generate。
-//   NewlyCreatedBanner 显示 key id + PEM + Download .pem 链接。安装说明
-//   面板 (MCPClientPanel) 显示 STANDMEET_CREDS_PATH 模板而非老 plaintext
-//   bearer。Revoke 按钮删 key，list 立刻空。
+// Business story:
+//   alice enters the device label "mojat-mbp" on /admin/api-mcp → clicks Generate.
+//   NewlyCreatedBanner shows the key id + PEM + a Download .pem link. The install
+//   instructions panel (MCPClientPanel) shows the STANDMEET_CREDS_PATH template rather
+//   than the old plaintext bearer. The Revoke button deletes the key, and the list
+//   empties immediately.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -52,8 +53,8 @@ test.describe('C-2 owner generates MCP keypair from admin UI', () => {
       const href = await downloadLink.getAttribute('href');
       expect(href).toMatch(/^data:application\/x-pem-file;base64,/);
 
-      // List should now contain a row labelled "mojat-mbp"。scope 到
-      // token-list 避免跟 banner 内的 label 多匹中。
+      // List should now contain a row labelled "mojat-mbp". Scoped to token-list to
+      // avoid a duplicate match against the label inside the banner.
       const list = page.getByTestId('token-list');
       await expect(list).toBeVisible();
       await expect(list.getByText('mojat-mbp')).toBeVisible();
@@ -80,8 +81,9 @@ test.describe('C-2 owner generates MCP keypair from admin UI', () => {
       await expect(page.getByTestId('mcp-snippet')).toContainText('BEGIN PRIVATE KEY');
     });
 
-  // #105: 端点 handoff 展示真的 /mcp 端点,不再假装有可下载的 standmeet-mcp 二进制
-  // (原先 4 个平台链接指向不存在的 repo、大小是编的)。
+  // #105: the endpoint handoff shows the real /mcp endpoint, and no longer pretends
+  // there's a downloadable standmeet-mcp binary (previously the 4 per-platform links
+  // pointed at a repo that doesn't exist, with made-up file sizes).
   test('mcp endpoint panel shows the real /mcp endpoint, no fake binary downloads',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'api-mcp');

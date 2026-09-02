@@ -1,8 +1,11 @@
-// sync-g-hidden.spec.ts —— G. hidden 文件**两层**处理(目标态红)。
-// ① 噪音层 → 跳:`.git`/`.DS_Store`/`.trash`/`.claude`/`.scripts`/`_templates`/`.obsidian` 里的
-//    workspace/app.json/`.md`;附件(非 .md)另作 media。
-// ② 配置层 → **harvest(不跳)**:`.obsidian/snippets/*.css` + `appearance.json`(owner CSS)—— hidden
-//    里的 Obsidian 配置是一等公民,采集而非丢弃(owner-css-edit 里详测,这里钉住"不跳")。
+// sync-g-hidden.spec.ts -- G. hidden files get **two-layer** handling
+// (target-state red).
+// (1) Noise layer -> skipped: `.git`/`.DS_Store`/`.trash`/`.claude`/`.scripts`/`_templates`/`.obsidian`
+//    contain workspace/app.json/`.md` files that get skipped; attachments (non-.md) become media instead.
+// (2) Config layer -> **harvested (not skipped)**: `.obsidian/snippets/*.css`
+//    + `appearance.json` (owner CSS) -- Obsidian config inside hidden dirs is
+//    a first-class citizen, collected rather than discarded (fully tested in
+//    owner-css-edit; this spec pins down "not skipped").
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

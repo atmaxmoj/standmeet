@@ -1,11 +1,12 @@
-// connector-retry-invalid-grant-no-retry.spec.ts —— §五 重试矩阵 · 不可重试不重
+// connector-retry-invalid-grant-no-retry.spec.ts — §5 retry matrix · non-retryable
+// errors don't get retried
 //
 // token refresh is sync (embedded in the call). Transient failures (network /
 // 500) get a short retry budget — but invalid_grant is NON-RETRYABLE: the
-// owner revoked access at Google, retrying can only fail again. Per §五 it
+// owner revoked access at Google, retrying can only fail again. Per §5 it
 // must fail FAST to a friendly degrade, NOT burn the retry budget.
 //
-// invalid_grant→不重→降级: mock token endpoint returns invalid_grant; the book
+// invalid_grant → no retry → degrade: mock token endpoint returns invalid_grant; the book
 // call degrades friendly AND the mock token endpoint is hit exactly ONCE (not
 // N times) — proving the retry layer recognized a non-retryable error.
 //

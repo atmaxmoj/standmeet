@@ -1,19 +1,29 @@
-// resume-match-gauge.spec.ts —— 简历 composer 顶栏的 "match NN / 100" 表必须**真**跟 JD 有关，
-// 不能顶着 "match against the job description" 的 tooltip 却对 JD 一无所知。
+// resume-match-gauge.spec.ts -- the "match NN / 100" gauge at the top of the résumé
+// composer must **genuinely** depend on the JD, and must not carry a "match against the
+// job description" tooltip while knowing nothing about the JD at all.
 //
-// rot-A2（HIGH）：这个数是 confidenceScore(draft-model.ts:143) = min(0.98, 0.5 + hits*0.03)，
-// hits = 一串**写死的** buzzword（retrieval/eval/evaluation/llm/rag/brain/lucerna/launch,
-// DEFAULT_KEYWORDS l.157）在 summary+skills+experience+coverLetter 里出现的次数，50% 起步。
-// 它**从不读**这份简历投给哪份工作 —— draft 的 job context 只有 company+role，DraftModel 里
-// **根本没有 JD 字段**。于是同一份简历投任何岗位，这个数**永远一模一样**，却摆在 Send 旁边、
-// 顶着 tooltip "match against the job description"。owner 拿它决定要不要真的投出一份求职申请。
+// rot-A2 (HIGH): this number is confidenceScore (draft-model.ts:143) =
+// min(0.98, 0.5 + hits*0.03), where hits counts how many times a **hardcoded** list of
+// buzzwords (retrieval/eval/evaluation/llm/rag/brain/lucerna/launch, DEFAULT_KEYWORDS
+// l.157) appears across summary+skills+experience+coverLetter, starting from a 50%
+// floor. It **never reads** which job this résumé is being applied to -- the draft's job
+// context is only company+role, and DraftModel has **no JD field at all**. So the same
+// résumé applied to any job gets **the exact same number every time**, yet it sits right
+// next to Send, carrying the tooltip "match against the job description". The owner uses
+// it to decide whether to actually submit an application.
 //
-// RED 判据（选 owner 会捍卫的那条契约 —— 见文件末尾说明）：
-//   打开 composer，读一次 match 数；把这份简历**投的岗位**（header 面板的 company+role，
-//   draft 唯一携带的 job context）换成一份完全不同的工作，简历本身一字不动；再读一次。
-//   "说谎" = 顶着 "match against the job description" 的数，在 JD 变了之后**纹丝不动**。
-//   诚实的收尾（任一即绿）：数字跟着岗位变了(接真 JD 评分) / 或那条 JD tooltip 没了(删表/改标)。
-// 当前代码：company+role 根本不进 confidenceScore 的打分文本 → 两次读数必然相等 → RED。
+// RED criterion (chosen as the contract an owner would defend -- see the note at the end
+// of this file):
+//   Open the composer, read the match number once; change the job **this résumé is
+//   applied to** (the header panel's company+role, the only job context the draft
+//   carries) to a completely different job, without touching the résumé itself; read the
+//   number again.
+//   "Lying" = the number, carrying the "match against the job description" tooltip,
+//   **doesn't move at all** after the JD changed.
+//   Honest resolutions (either one is green): the number moves with the job (wired to a
+//   real JD-based score) / or that JD tooltip is gone (the gauge removed or relabeled).
+// Current code: company+role never enters confidenceScore's scoring text at all -> the
+// two reads are necessarily equal -> RED.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Locator, Page, Playwright } from '@playwright/test';
@@ -32,7 +42,8 @@ const OWNER = {
   fullName: 'Match Gauge Owner',
 };
 
-// tooltip 文案唯一挂在 composer 的 MatchGauge 上（admin-shell.json composer.matchTitle）。
+// The tooltip copy lives in exactly one place, the composer's MatchGauge
+// (admin-shell.json composer.matchTitle).
 const JD_MATCH_TOOLTIP = 'match against the job description';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -45,19 +56,26 @@ test.describe('admin /drafts · the "match" gauge must depend on the job, not li
   test('the gauge BAR renders the value it sits next to, and moves with it', gaugeBarRendersValue);
 });
 
-// gaugeBarRendersValue —— 数字对不代表**表**对。
+// gaugeBarRendersValue -- the number being correct doesn't mean the **bar** is correct.
 //
-// 手工驱这个模块时读到 `match 55 / 100`，而它左边那根条**一片空白**。两个各自独立的原因，
-// 缺一个都不会显示：
-//   1. 填充比例曾写成拼接出来的 Tailwind 任意值 → 一条 CSS 都不生成（已单独修）。
-//   2. `MatchGaugeBar` 只贴了 `.sm-fill`，而 `.sm-fill` **只有 width**；高度和颜色住在
-//      `.sm-session-strip-gauge-fill` 里，composer 这份漏了它 → 盒子高 0、无底色。
-// 所以只修其中一个，屏幕上仍然什么都没有 —— 这正是它一直没被发现的原因。
+// While manually driving this module, `match 55 / 100` was read out, while the bar to
+// its left was **completely blank**. Two independent causes, and missing either one
+// still hides the bar:
+//   1. The fill ratio used to be written as a string-concatenated Tailwind arbitrary
+//      value -> generates zero CSS at all (fixed separately).
+//   2. `MatchGaugeBar` only attaches `.sm-fill`, and `.sm-fill` **only has width**;
+//      height and color live in `.sm-session-strip-gauge-fill`, which this composer
+//      instance is missing -> the box has zero height and no fill color.
+// So fixing only one of the two still leaves the screen showing nothing -- which is
+// exactly why this went unnoticed for so long.
 //
-// 判据是**几何**不是文本：读 innerText 分不出「画了」和「被压成 0」
-// （见 [[text-assertion-cannot-see-layout]]）。而且断两件事：
-//   - 这一刻的宽度确实按比例（一个写死 50% 的条也能骗过"有宽度"）
-//   - 换个岗位、值变了，宽度**跟着变**（这一条让断言不可能恒真）
+// The criterion is **geometric**, not textual: reading innerText can't tell "drawn"
+// apart from "squashed to zero" (see [[text-assertion-cannot-see-layout]]). And it
+// asserts two things:
+//   - the width at this instant genuinely reflects the ratio (a bar hardcoded to 50%
+//     could still fake "having a width")
+//   - once the job changes and the value changes, the width **changes with it** (this
+//     is what keeps the assertion from being able to pass vacuously every time)
 async function gaugeBarRendersValue({ adminPage: page }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(page, 'drafts');
   await expect(page.getByTestId('draft-card')).toBeVisible({ timeout: 5_000 });
@@ -74,7 +92,8 @@ async function gaugeBarRendersValue({ adminPage: page }: { adminPage: Page }): P
 
   expect(high.fillHeight, 'the gauge fill has no height — it is not drawn at all').toBeGreaterThan(0);
 
-  // 换成一个跟简历无关的岗位 → 值必然下降到下限；条必须跟着缩。
+  // Switching to a job unrelated to the résumé -> the value must drop to its floor; the
+  // bar must shrink along with it.
   await composer.getByTestId('composer-company').fill('Blue Bottle Coffee');
   await composer.getByTestId('composer-role').fill('Barista, morning shift');
   await expect(composer.getByTestId('composer-role')).toHaveValue('Barista, morning shift');
@@ -89,11 +108,15 @@ async function gaugeBarRendersValue({ adminPage: page }: { adminPage: Page }): P
   ).toBeLessThan(high.fillWidth);
 }
 
-// expectBarMatchesNumber —— 条的宽度必须是表上那个数的同一个比例。
+// expectBarMatchesNumber -- the bar's width must be at the same ratio as the number
+// shown next to it.
 //
-// 用 `expect.poll` 而不是睡一觉：这根条带 `transition: width .3s`，第一版直接量，量到的是
-// **动画中途的一帧**（读数 79 而条 44%），断言于是在骂一个不存在的缺陷。poll 会一直重试到
-// 过渡结束；**而如果它永远到不了那个比例，这条仍然会红** —— 等待没有把断言弱化成恒真。
+// Uses `expect.poll` rather than a sleep: this bar has `transition: width .3s`; the
+// first version of this test measured it directly, catching **a mid-animation frame**
+// (the number read 79 while the bar was at 44%), which made the assertion complain about
+// a defect that didn't exist. poll keeps retrying until the transition settles;
+// **and if it never reaches that ratio, this still goes red** -- the wait doesn't weaken
+// the assertion into something that always passes.
 async function expectBarMatchesNumber(page: Page): Promise<void> {
   await expect.poll(async () => {
     const g = await gaugeGeometry(page);
@@ -104,7 +127,8 @@ async function expectBarMatchesNumber(page: Page): Promise<void> {
   }).toBe(true);
 }
 
-// gaugeGeometry —— 轨道与填充的实际盒子 + 表上那个数。取一次快照，不等待。
+// gaugeGeometry -- the actual boxes for the track and fill, plus the number on the
+// gauge. Takes a single snapshot, no waiting.
 async function gaugeGeometry(page: Page): Promise<{
   value: number; fillWidth: number; fillHeight: number; fillRatio: number;
 }> {
@@ -112,7 +136,8 @@ async function gaugeGeometry(page: Page): Promise<{
   const fill = await page.getByTestId('composer-match-fill').boundingBox();
   const raw = (await page.getByTitle(JD_MATCH_TOOLTIP).first().innerText()).trim();
   const m = raw.match(/\d+/);
-  // boundingBox() 对 0 尺寸元素返回 null —— 那正是"没画出来"，记成 0 而不是让它炸在别处。
+  // boundingBox() returns null for a zero-size element -- that IS "not drawn", so it's
+  // recorded as 0 instead of throwing somewhere else.
   return {
     value: m ? Number(m[0]) : NaN,
     fillWidth: fill?.width ?? 0,
@@ -121,8 +146,9 @@ async function gaugeGeometry(page: Page): Promise<{
   };
 }
 
-// gaugeDependsOnJob —— 打开 composer，换掉这份简历投的岗位（company+role），断言那个自称
-// "match against the job description" 的数不能在 JD 变了之后一动不动。
+// gaugeDependsOnJob -- opens the composer, swaps the job this résumé is applied to
+// (company+role), and asserts the number that claims to be "match against the job
+// description" can't stay put after the JD changes.
 async function gaugeDependsOnJob({ adminPage: page }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(page, 'drafts');
   await expect(page.getByTestId('draft-card')).toBeVisible({ timeout: 5_000 });
@@ -131,8 +157,10 @@ async function gaugeDependsOnJob({ adminPage: page }: { adminPage: Page }): Prom
   const composer = page.getByTestId('resume-composer');
   await expect(composer).toBeVisible({ timeout: 5_000 });
 
-  // 投一个**跟这份简历高度相关**的岗位（简历里有 "retrieval"、"backend"）。真实 draft 就是为某个
-  // 具体岗位定制的，所以简历必然覆盖它 —— match 该高。summary/skills/experience/cover 一字不动。
+  // Applies to a job that's **highly relevant to this résumé** ("retrieval", "backend"
+  // both appear in it). A real draft is always tailored to some specific job, so the
+  // résumé necessarily covers it -- the match score should be high.
+  // summary/skills/experience/cover are left untouched.
   await composer.getByTestId('composer-company').fill('Anthropic');
   await composer.getByTestId('composer-role').fill('Backend retrieval engineer');
   await expect(composer.getByTestId('composer-role')).toHaveValue('Backend retrieval engineer');
@@ -143,15 +171,18 @@ async function gaugeDependsOnJob({ adminPage: page }: { adminPage: Page }): Prom
     `expected a numeric match score in the gauge, read "${before.raw}"`,
   ).toBe(true);
 
-  // 只换**投的岗位** —— 换成一个跟简历毫不相关的（Barista）。简历一字不动。
+  // Changes only **the job applied to** -- swaps it for one entirely unrelated to the
+  // résumé (Barista). The résumé itself is untouched.
   await composer.getByTestId('composer-company').fill('Blue Bottle Coffee');
   await composer.getByTestId('composer-role').fill('Barista, morning shift');
   await expect(composer.getByTestId('composer-role')).toHaveValue('Barista, morning shift');
 
   const after = await matchGaugeState(composer);
 
-  // 说谎 = 顶着 "match against the job description" 的数，在岗位换了之后值没变。
-  // 诚实收尾任一即绿：那条 JD tooltip 没了（删表/改标 → claimsJd=false）；或数字跟着岗位动了。
+  // Lying = the number carrying "match against the job description" keeps the same
+  // value after the job changed.
+  // Either honest resolution is green: the JD tooltip is gone (removed/relabeled ->
+  // claimsJd=false); or the number moved with the job.
   const stillLies = before.claimsJd && after.claimsJd && after.value === before.value;
   expect(
     stillLies,
@@ -162,8 +193,9 @@ async function gaugeDependsOnJob({ adminPage: page }: { adminPage: Page }): Prom
   ).toBe(false);
 }
 
-// matchGaugeState —— 读 composer 顶栏 match 表：是否还顶着 JD tooltip + 表里那个整数。
-// tooltip 不在了（删表/改标）→ claimsJd=false，诚实。
+// matchGaugeState -- reads the composer's top-bar match gauge: whether it still carries
+// the JD tooltip, plus the integer it displays.
+// If the tooltip is gone (removed/relabeled) -> claimsJd=false, which is honest.
 async function matchGaugeState(
   composer: Locator,
 ): Promise<{ claimsJd: boolean; value: number; raw: string }> {
@@ -174,7 +206,8 @@ async function matchGaugeState(
   return { claimsJd: true, value: m ? Number(m[0]) : NaN, raw };
 }
 
-// seed —— claim 一个 fresh owner，再经 MCP 落一份真 resume draft（列表里能点开 composer）。
+// seed -- claims a fresh owner, then writes a real resume draft through MCP (so the
+// composer can be opened from the list).
 async function seed(playwright: Playwright): Promise<void> {
   await claimFreshOwner(playwright, OWNER);
   const request = await playwright.request.newContext();

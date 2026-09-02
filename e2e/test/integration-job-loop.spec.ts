@@ -2,10 +2,10 @@
 // register source → fetch → resume.draft → applications.commit →
 // auto code issued → QR on PDF → recruiter scans → ChatRoom.
 //
-// 用户故事：
+// User story:
 //   register source → fetch_new → listings indexed → resume.draft →
 //   applications.commit → auto code issued → QR on PDF →
-//   recruiter 扫码 → ChatRoom → owner 在 conversations 看 transcript
+//   recruiter scans the QR → ChatRoom → owner reads the transcript in conversations
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

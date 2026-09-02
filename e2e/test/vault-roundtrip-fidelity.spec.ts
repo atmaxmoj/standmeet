@@ -1,30 +1,47 @@
-// vault-roundtrip-fidelity.spec.ts —— **往返是恒等变换**：传上去、导下来、中间什么都没做，
-// vault 里的每个文件必须逐字节回到原样。
+// vault-roundtrip-fidelity.spec.ts -- **a round trip is the identity
+// transform**: upload it, export it back down, do nothing in between, and
+// every file in the vault must come back byte-for-byte identical.
 //
-// 为什么要合成的这一份，而真 vault 那条（`vault-roundtrip-noop.spec.ts`）还不够：
-// 那一条要 owner 的 `~/Develop/writing/notes` 在场，别的机器上它 **skip** —— 而一条跳过的用例
-// 跟一条通过的用例在报告里长得一样。所以缺陷的形状要在**合成的、永远会跑的**夹具上各钉一条。
+// Why a synthetic version is needed, and why the real-vault spec
+// (`vault-roundtrip-noop.spec.ts`) isn't enough on its own: that one needs
+// the owner's `~/Develop/writing/notes` to be present, and it **skips** on
+// other machines -- and a skipped test case looks identical to a passing one
+// in the report. So the shape of each defect needs its own pin on a
+// **synthetic, always-runs** fixture too.
 //
-// 这里的三条各钉一个已被真 vault 量出来的缺陷（数字见 F-L-66/67/68）：
+// The three cases here each pin one defect measured against the real vault
+// (see F-L-66/67/68 for the numbers):
 //
-//   ① raw 每往返一次就在顶上叠一块 frontmatter —— **无上限**。483 篇 raw 中招。
-//      导入侧 raw 是 fm-exempt（整个文件都是 body，连 `---` 也是），导出侧不分 genre
-//      一律先写一块 `---publish---`。两个各自合理的决定合成一个环。
-//      代价不只是文件变长：第一轮之后 `tags`/`status` 不再是 frontmatter，Obsidian 的
-//      属性和标签图谱当场失效。
+//   (1) raw stacks another block of frontmatter on top every round trip --
+//       **with no ceiling**. 483 raw entries are affected. On import, raw is
+//       fm-exempt (the whole file is body, `---` included); on export,
+//       genre isn't distinguished and a `---publish---` block is always
+//       written first. Two decisions that are each reasonable on their own
+//       combine into a cycle.
+//       The cost isn't just growing file size: after round 1, `tags`/`status`
+//       are no longer frontmatter, and Obsidian's properties and tag graph
+//       break instantly.
 //
-//   ② 产品自己存着的字段，导出不写。`excerpt` / `css_classes` / `lang_labels` 三个列都在
-//      库里，`ListAllForExport` 根本没读。跟 F-L-59（当年 lang/aliases 那次）同一个形状 ——
-//      那次修了两个字段，没扫到邻居。
-//      还有一半：**产品不认识的键被静默丢弃**。真 vault 上 `langs` 596 篇、`aliases-zh` 595 篇、
-//      `owns` 33 篇（其中 wiki 32）—— 这些不是边角，是大多数。
+//   (2) fields the product itself stores are not written on export. The
+//       `excerpt` / `css_classes` / `lang_labels` columns all exist in the
+//       DB, and `ListAllForExport` never reads them at all. Same shape as
+//       F-L-59 (the lang/aliases incident back then) -- that fix touched two
+//       fields and never swept its neighbors.
+//       And there's a second half: **keys the product doesn't recognize are
+//       silently dropped**. In the real vault, `langs` appears in 596
+//       entries, `aliases-zh` in 595, `owns` in 33 (32 of them wiki) -- these
+//       aren't edge cases, they're the majority.
 //
-//   ③ 只有自己一个孩子的 folder-note 被搬家：`x/y/y.md` → `x/y.md`。22 篇。
-//      笔记内容没变，但**镜像不该替 owner 改文件布局**。
+//   (3) a folder-note that is the only child of its folder gets relocated:
+//       `x/y/y.md` -> `x/y.md`. 22 entries. The note's content didn't change,
+//       but **the mirror must not restructure the owner's files**.
 //
-// 判据一律是**逐字节相等**，不是「正文还在」。既有的 `sync-j-export.spec.ts` 里那条 roundtrip
-// 自己声明了不断字节相等（"Byte-equality is the wrong bar — frontmatter is reconstructed"），
-// 于是「往返把文件重写了、而且越写越长」这件事它结构上判不出来。
+// The judgment criterion is always **byte-for-byte equality**, not "the body
+// is still there". The existing roundtrip test in `sync-j-export.spec.ts`
+// explicitly declares that it does not assert byte equality ("Byte-equality
+// is the wrong bar — frontmatter is reconstructed"), so it is structurally
+// incapable of catching "the round trip rewrote the file, and it keeps
+// growing".
 
 import * as fflate from 'fflate';
 import type { APIRequestContext } from '@playwright/test';
@@ -42,8 +59,11 @@ const OWNER = {
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-// 不用 serial：三条各自 authoritative 上传（整库替换），本来就独立。串起来的话第一条一红
-// 后两条直接跳过 —— 而我要的是**三个缺陷各自的红**，不是第一个红把另外两个盖住。
+// Not using serial: each of the three tests does its own authoritative
+// upload (a full-library replace), so they're already independent. Chaining
+// them would mean the second two get skipped the moment the first goes red --
+// and what's wanted here is **each of the three defects going red on its
+// own**, not the first red masking the other two.
 test.describe('vault mirror · a round trip is the identity', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
@@ -52,7 +72,8 @@ test.describe('vault mirror · a round trip is the identity', () => {
     await request.dispose();
   });
 
-  // ① —— 这一条是唯一一个**不收敛**的：每轮再叠一块，所以它测两轮。
+  // (1) -- this is the only one of the three that **doesn't converge**: each
+  // round stacks on another block, so this test checks two rounds.
   test('a raw note keeps its own frontmatter instead of gaining one every round',
     async ({ playwright }) => {
       const request = await playwright.request.newContext({ timeout: 120_000 });
@@ -67,30 +88,33 @@ test.describe('vault mirror · a round trip is the identity', () => {
       const first = await roundTrip(request, vault);
       expect(first, 'round 1 returns the raw note byte-for-byte').toEqual(asMap(vault));
 
-      // **两轮**：① 的病灶是叠加，一轮只看得见「多了一块」，两轮才看得见「每轮都多一块」。
+      // **Two rounds**: (1)'s defect is accumulation -- one round only shows
+      // "gained a block", two rounds are needed to see "gains a block every round".
       const second = await roundTrip(request, toVault(first));
       expect(second, 'round 2 is a fixed point — nothing accumulates').toEqual(asMap(vault));
 
       await request.dispose();
     });
 
-  // ② —— 产品存着的字段 + 产品不认识的键，两半都必须回来。
+  // (2) -- fields the product stores + keys the product doesn't recognize,
+  // both halves must come back.
   test('every frontmatter key comes back — the ones we store and the ones we do not understand',
     async ({ playwright }) => {
       const request = await playwright.request.newContext({ timeout: 120_000 });
-      // 键的选取照着真 vault 的用法：内联数组、连字符键、多语言那一组。
+      // Keys are chosen to match real-vault usage: inline arrays, hyphenated
+      // keys, the multilingual group.
       const vault: VaultFile[] = [{
         rel: 'wiki/berlyne.md',
         body: [
           '---',
-          'tags: [fact, cognitive-science]',      // 已知，且是**内联数组**形态
-          'aliases-zh: [Berlyne 唤醒曲线]',        // 不认识 —— 真 vault 上 595 篇
+          'tags: [fact, cognitive-science]',      // known, and in **inline array** form
+          'aliases-zh: [Berlyne 唤醒曲线]',        // unrecognized -- 595 entries in the real vault
           'aliases: [Berlyne 唤醒曲线]',
-          'langs: [en, zh]',                      // 不认识 —— 真 vault 上 596 篇
+          'langs: [en, zh]',                      // unrecognized -- 596 entries in the real vault
           'lang: en',
-          'owns: [arousal]',                      // 不认识 —— 真 vault 上 32 篇 wiki
-          'cssclasses: [wide]',                   // **存了**（css_classes 列）却不导出
-          'excerpt: an inverted-U',               // **存了**（excerpt 列）却不导出
+          'owns: [arousal]',                      // unrecognized -- 32 wiki entries in the real vault
+          'cssclasses: [wide]',                   // **stored** (the css_classes column) but not exported
+          'excerpt: an inverted-U',               // **stored** (the excerpt column) but not exported
           '---',
           '',
           '# Berlyne',
@@ -107,12 +131,13 @@ test.describe('vault mirror · a round trip is the identity', () => {
       await request.dispose();
     });
 
-  // ③ —— 布局不许被改写。
+  // (3) -- layout must not be rewritten.
   test('a folder note that is alone in its folder stays in its folder',
     async ({ playwright }) => {
       const request = await playwright.request.newContext({ timeout: 120_000 });
-      // owner 的约定是「笔记放在同名文件夹里」，哪怕那个文件夹里只有它自己。
-      // 真 vault 上 22 篇是这个形状（raw/linguistics/linguistics.md 等）。
+      // The owner's convention is "a note lives in a same-named folder", even
+      // when that folder holds only itself.
+      // 22 entries in the real vault have this shape (raw/linguistics/linguistics.md, etc.).
       const vault: VaultFile[] = [{
         rel: 'raw/linguistics/linguistics.md',
         body: '---\nstatus: seed\n---\n\n# Linguistics\n\nalone in its folder.\n',
@@ -126,9 +151,10 @@ test.describe('vault mirror · a round trip is the identity', () => {
     });
 });
 
-// ─── 驱动 ────────────────────────────────────────────────────────────────────────────────
+// ─── driver ────────────────────────────────────────────────────────────────────────────────
 
-// roundTrip —— 传上去，导下来。导出的 zip 键就是 vault 内相对路径，两边直接按键比。
+// roundTrip -- upload, then export back down. The export zip's keys are the
+// vault-relative paths, so both sides are compared directly by key.
 async function roundTrip(
   request: APIRequestContext, files: VaultFile[],
 ): Promise<Record<string, string>> {

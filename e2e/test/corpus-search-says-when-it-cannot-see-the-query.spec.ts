@@ -1,20 +1,28 @@
-// corpus-search-says-when-it-cannot-see-the-query.spec.ts —— 空手不许什么都不说。
+// corpus-search-says-when-it-cannot-see-the-query.spec.ts — an empty result is not
+// allowed to say nothing.
 //
-// 缺陷 F-S-2：`corpus_search` 空手时返回一个裸 `[]`，而那个值同时表示两件事 ——
-// 「语料里确实没有」和「这条索引表示不了你的查询」。agent 读到的是前者，于是那半个问题
-// 静默地没被回答。prod 实证（`corpus-search-cjk-not-silent.spec.ts` 记着）：
-// `递归收敛` 回 `[]`，同一轮的英文查询回 7883 字节，答案照常生成，界面上完全看不出来。
+// Defect F-S-2: `corpus_search` returns a bare `[]` on an empty result, and that value
+// means two different things at once — "the corpus genuinely doesn't have this" and
+// "this index can't represent your query". The agent reads the former, and that other
+// half of the question goes silently unanswered. Verified in prod (recorded in
+// `corpus-search-cjk-not-silent.spec.ts`): `递归收敛` returned `[]`, while an English
+// query in the same turn returned 7883 bytes, the answer generated as usual, and nothing
+// in the UI showed any sign of it.
 //
-// **判据不是「它知道你的查询不可索引」** —— 那句话说不出口：Meili 的响应根本不告诉我们
-// 这件事，写进去就是编的（[[names-that-lie]]）。判据是那句**永远为真**的：
-// 这次是空的，而这条索引依赖分词，空手不等于没有；要确定就走 never-miss 那条（corpus_grep）。
+// **The criterion is not "it knows your query is unindexable"** — that sentence can't
+// honestly be said: Meili's response never tells us that at all, so writing it in would
+// be fabricated ([[names-that-lie]]). The criterion is the sentence that's **always
+// true**: this result happened to be empty, and this index depends on tokenization, so
+// empty does not mean absent; to be sure, use the never-miss path instead (corpus_grep).
 //
-// 为什么不留在工具说明里就够：说明是 agent **选工具那一刻**读的，note 是它**拿到空手
-// 那一刻**读的 —— 而那才是需要改主意的时刻。
+// Why leaving it only in the tool description isn't enough: the description is read by
+// the agent **at the moment it picks a tool**; the note is read **at the moment it gets
+// an empty result** — and that's the moment it actually needs to reconsider.
 //
-// 判据成对，两边都得能红：
-//   - 有命中 → **不许**带 note（否则实现方给所有回执都贴上那句话就绿了，那比现在更糟）
-//   - 空手   → 必须带 note，且点得出 corpus_grep
+// The criteria come in a pair, and both sides must be able to go red:
+//   - a hit -> **must not** carry a note (otherwise an implementation could stamp that
+//     sentence on every receipt and go green, which would be worse than today)
+//   - empty -> must carry a note, and it must name corpus_grep
 
 import { test, expect } from '@/fixtures/test';
 
@@ -52,10 +60,11 @@ test.describe('corpus_search · an empty result says why it might be empty', () 
     await request.dispose();
   });
 
-  // ── 正对照先跑：有命中时**不带** note ──────────────────────────────
+  // ── run the positive control first: a hit **does not** carry a note ──────────────
   //
-  // 只写"空手带 note"那半边的话，给每份回执都贴上那句话也能绿 —— 那会把一句
-  // 该在特定时刻出现的提醒变成背景噪音，agent 学会无视它。
+  // Testing only the "empty carries a note" half would let stamping that sentence on
+  // every receipt go green too — that would turn a warning meant to appear at a
+  // specific moment into background noise, and the agent would learn to ignore it.
   test('a query that matches carries hits and no note',
     async ({ request }) => {
       const sess = await issueSession(request, {
@@ -66,7 +75,7 @@ test.describe('corpus_search · an empty result says why it might be empty', () 
       expect(res.note, '有命中还贴提醒 = 把它变成噪音').toBeUndefined();
     });
 
-  // ── 有了正对照，空手那半边才有意义 ────────────────────────────────
+  // ── with the positive control in place, the empty-result half now means something ──
   test('an empty result says the index is tokenization-dependent and names corpus_grep',
     async ({ request }) => {
       const sess = await issueSession(request, {
@@ -75,7 +84,7 @@ test.describe('corpus_search · an empty result says why it might be empty', () 
       const res = await searchResult(request, sess, 'submarine hydraulics');
       expect(res.hits).toHaveLength(0);
       expect(res.note, '空手回了个裸数组 —— agent 读到的是"没有"').toBeDefined();
-      // 两件事都要说到：空不等于没有，以及接下来去哪儿。
+      // Both things must be said: empty does not mean absent, and where to go next.
       expect(res.note!).toMatch(/does NOT mean the corpus lacks/i);
       expect(res.note!).toMatch(/corpus_grep/);
     });

@@ -86,25 +86,29 @@ test.describe('admin /drafts · composer live preview wires ResumePage', () => {
         .getByText('jordan lee')).toBeVisible({ timeout: 2_000 });
     });
 
-  // 卡片上那张缩略图画的必须是**这一份草稿**（F-E-20）。以前它画的是一份写死的假简历：
-  // owner 的真名底下写着 Stanford 博士、Google Brain 任职,而且每张卡都是同一张图 ——
-  // 在一个投简历的产品上,这是最坏的错法(扫一眼卡片就是 owner 判断"可以发了"的方式)。
+  // The thumbnail on a card must render **this specific draft** (F-E-20). It used to render a
+  // hardcoded fake resume: the owner's real name, with a Stanford PhD and a Google Brain
+  // position written underneath it, and every card showed the exact same image — on a product
+  // for sending out resumes, this is the worst possible way to be wrong (glancing at the card is
+  // how the owner judges "this is ready to send").
   test('卡片上的缩略图画的是这份草稿自己的内容,不是一份样例',
     async ({ adminPage }) => {
       await openDrafts(adminPage);
       const thumbs = adminPage.getByTestId('draft-thumb');
       await expect(thumbs).toHaveCount(2, { timeout: 5_000 });
       const texts = await thumbs.allInnerTexts();
-      // 两份草稿种的是两个人（Alice / Nadia）。**两张图都要各画各的** ——
-      // 原来它们是同一份写死的文档,只有页眉那一条公司/职位不同。
+      // The two seeded drafts are two different people (Alice / Nadia). **Each image must render
+      // its own draft** — they used to be the same hardcoded document, with only the header's
+      // company/role line differing.
       expect(texts.join('|'), '一张画的是 Alice 那份').toContain('alice anderson');
       expect(texts.join('|'), '另一张画的是 Nadia 那份').toContain('nadia noon');
       expect(texts[0], '两张缩略图不是同一份文档').not.toBe(texts[1]);
       expect(texts.join('|'), 'Alice 那份的经历也在图上').toContain('Acme');
     });
 
-  // 空的段落连标题都不印（F-E-21）。这是要发给招聘方的文档,一个底下什么都没有的
-  // `education` 读起来像"渲染坏了"或者"他没上过学",而不是"这一段不适用"。
+  // An empty section doesn't even print its heading (F-E-21). This is a document going out to a
+  // recruiter, and an `education` heading with nothing under it reads as "the rendering is
+  // broken" or "this person never went to school", not "this section doesn't apply".
   test('没有履历的草稿:空段落整段不出现,不是一个空标题',
     async ({ adminPage }) => {
       await openDrafts(adminPage);
@@ -119,15 +123,17 @@ test.describe('admin /drafts · composer live preview wires ResumePage', () => {
 
 });
 
-// 空了之后**谁来补**（F-E-22）。起草那一步只认语料里带日期的条目,而 owner 的履历
-// 只以散文形态活着 —— 所以这一跳归 owner。原来产品里没有做这一跳的地方:
-// 面板上既没有一句说明,也没有一颗"加一条"的按钮,空着就只是空着。
-// 用上一组种下的那两份草稿(同一个实例,按文件顺序跑在它后面)。
+// **Who fills it back in** once it's empty (F-E-22). The drafting step only recognizes dated
+// entries in the corpus, and the owner's work history only lives in prose form — so this gap
+// belongs to the owner. The product used to have nowhere to bridge that gap: the panel had
+// neither a sentence explaining it nor an "add an entry" button — empty just stayed empty.
+// Reuses the two drafts seeded by the previous group (same instance, runs after it in file
+// order).
 test.describe('履历空了之后谁来补', () => {
   test('履历空的时候:面板说清这一跳归谁,而且真的加得进去',
     async ({ adminPage }) => {
       await openDrafts(adminPage);
-      // 第二张卡（Nadia）就是那份没有履历的草稿。
+      // The second card (Nadia) is the draft with no work history.
       const card = adminPage.getByTestId('draft-thumb')
         .filter({ hasText: 'nadia noon' }).first();
       await expect(card).toBeVisible({ timeout: 5_000 });
@@ -140,7 +146,8 @@ test.describe('履历空了之后谁来补', () => {
       await expect(hint).toContainText('yours to write');
       await expect(hint, '还要说清留空的后果').toContainText('left out of the document');
 
-      // 加一条,填进去,预览上要出现 —— 「说得出」还不够,得**做得到**。
+      // Add an entry, fill it in, and it must show up in the preview — "saying so" isn't
+      // enough, it has to **actually work**.
       await composer.getByTestId('composer-exp-add').click();
       await composer.getByLabel('org').first().fill('Lucerna');
       await expect(
@@ -150,8 +157,8 @@ test.describe('履历空了之后谁来补', () => {
     });
 });
 
-// indexOfNadia —— Nadia 那张卡在列表里的位置。卡片是 newest-first,而两份草稿
-// 是同一次 seed 建的,顺序不该靠猜。
+// indexOfNadia — Nadia's card's position in the list. Cards are newest-first, and the two drafts
+// were created in the same seed, so the order shouldn't be guessed at.
 async function indexOfNadia(page: Page): Promise<number> {
   const texts = await page.getByTestId('draft-thumb').allInnerTexts();
   return texts.findIndex((t) => t.includes('nadia noon'));
@@ -174,10 +181,11 @@ async function seedDraft(playwright: Playwright): Promise<void> {
   await resumeDraft(
     request, token, sid, fetched.jobs[0]!.cache_id, sampleResumeContent(),
   );
-  // 第二份草稿:**没有 works / educations**。这个实例上这不是极端情况而是常态 ——
-  // owner 的履历只以散文形态活在语料里,`resume.draft` 拿不到带日期的条目,
-  // 两次真实驱动交上来的都是空数组（F-E-22）。同一次 fetch 的另一条岗位:
-  // 换个源再 fetch 一次拿到的是**空的**(那批岗位已经进过池子,跨源去重把它们挡掉了)。
+  // The second draft: **no works / educations**. On this instance that isn't an edge case, it's
+  // the norm — the owner's work history only lives in the corpus as prose, `resume.draft` can't
+  // find any dated entries, and two real runs both came back with empty arrays (F-E-22). The
+  // other job from the same fetch: fetching again from a different source comes back **empty**
+  // (those jobs already entered the pool, and cross-source dedup filters them out).
   await resumeDraft(
     request, token, sid, fetched.jobs[1]!.cache_id, sampleResumeContent({
       identity: {

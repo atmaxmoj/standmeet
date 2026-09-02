@@ -1,15 +1,20 @@
-// corpus-delete-does-not-look-safe.spec.ts —— UX-32:破坏性动作在悬停时不许跟安全动作长得一样。
+// corpus-delete-does-not-look-safe.spec.ts -- UX-32: a destructive action must not look
+// identical to a safe action on hover.
 //
-// 设计评审看出来的:raw 每行三个动作 —— promote / edit / delete —— **hover 时全部收敛到同一个
-// 朱砂**(`RawRowList.tsx:183/191/199` 都是 `hover:…-(--color-accent)`)。于是「提升进 wiki」
-// 「编辑」和「永久删除」在鼠标停下那一刻反馈完全相同,而 hover 正是点击前最后一次分辨机会。
-// 静止态更糟:delete 用的是三者里最淡的 `--color-faint`。
+// Caught during a design review: each raw row has three actions -- promote / edit /
+// delete -- and **all three converge to the same vermillion on hover**
+// (`RawRowList.tsx:183/191/199` are all `hover:...-(--color-accent)`). So "promote into
+// wiki", "edit", and "permanently delete" give identical feedback the moment the mouse
+// stops, and hover is the last chance to tell them apart before the click. The resting
+// state is worse: delete uses `--color-faint`, the palest of the three.
 //
-// 断的是**算出来的颜色**,不是 class 名:class 名换个写法就能骗过去,而读者看到的是像素。
-// 两条断言方向相反 ——
-//   1. delete 悬停色 ≠ edit 悬停色(危险要认得出来);
-//   2. delete 悬停时确实**变了**色(否则「两者不同」可以靠"delete 根本没有悬停反馈"满足,
-//      那是另一种坏)。
+// Asserts on **the computed color**, not the class name: a class name can be rewritten to
+// slip past this check, but what the reader sees is pixels.
+// The two assertions point in opposite directions --
+//   1. delete's hover color != edit's hover color (danger must be recognizable);
+//   2. delete's color really does **change** on hover (otherwise "the two differ" could
+//      be satisfied by "delete has no hover feedback at all", which is a different kind
+//      of broken).
 
 import { test, expect } from '@/fixtures/test';
 import type { Locator } from '@playwright/test';
@@ -64,9 +69,10 @@ test.describe('corpus · a destructive row action must not read as a safe one', 
       await edit.hover();
       const editHover = await colorOf(edit);
 
-      // 2) delete 悬停确实有反馈 —— 否则下面那条可以靠「它根本不响应」满足。
+      // 2) delete really does give hover feedback -- otherwise the check below could be
+      // satisfied by "it just doesn't respond at all".
       expect(delHover, 'delete must react to hover at all').not.toBe(delResting);
-      // 1) 而那个反馈必须跟安全动作分得开。
+      // 1) And that feedback must be distinguishable from a safe action's.
       expect(delHover, 'destructive hover must not equal the safe action hover').not.toBe(editHover);
     });
 });

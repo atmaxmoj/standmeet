@@ -1,10 +1,11 @@
-// turn-quota.spec.ts —— code 设 max_turns_per_session=2，访客发完 2 条后
-// 第 3 条 chat message 被 403 turn_quota_reached。
+// turn-quota.spec.ts — a code with max_turns_per_session=2 set: after the visitor sends 2
+// messages, the 3rd chat message gets 403 turn_quota_reached.
 //
-// 用户故事：
-//   面试官想限定每轮面试最多 2 次回合。code 配额生效后，访客第 3 次
-//   POST /messages 就拿不到回复 —— 不应该静默 stream 错误，得是清晰 403
-//   配合 error code，前端可以触发 toast。
+// User story:
+//   An interviewer wants to cap each interview round at 2 turns. Once the code's quota
+//   takes effect, the visitor's 3rd POST /messages gets no reply — this must not fail
+//   silently as a stream error; it needs to be a clear 403 with an error code, so the
+//   frontend can trigger a toast.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -43,7 +44,7 @@ test.describe('per-session turn quota stops chat after N turns', () => {
     for (let i = 0; i < MAX_TURNS; i++) {
       const res = await sendMessage(request, sess, `turn ${i + 1}`);
       expect(res.status()).toBe(200);
-      // SSE response —— 消费掉避免 socket 悬挂
+      // SSE response — drain it to avoid a dangling socket
       await res.body();
     }
     const blocked = await sendMessage(request, sess, 'turn 3 — over quota');

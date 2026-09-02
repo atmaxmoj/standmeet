@@ -1,7 +1,7 @@
 // admin-wiki-crud.spec.ts —— wiki CRUD: tag filter, excerpt, visibility,
 // promote to output, SEO edit.
 //
-// 用户故事：
+// User story:
 //   1. tag filter → click tag → wiki list filtered
 //   2. excerpt → shows body truncated to 200 chars
 //   3. visibility dot → public gray / private accent
@@ -56,8 +56,10 @@ test.describe('admin wiki CRUD extended', () => {
       // Verify in output section
       await gotoAdminSection(adminPage, 'output');
       await adminPage.waitForURL('**/admin/output', { timeout: 5_000 });
-      // 满载下 output section 的列表重取 + 渲染偶尔 >5s(read-after-write);
-      // 数据一定在(wiki 已 seed、promote 已成),只是渲染慢 → 给宽超时,别 flake。
+      // Under full load, the output section's list refetch + render can occasionally
+      // take >5s (read-after-write); the data is definitely there (wiki already
+      // seeded, promote already succeeded) — the render is just slow, so give it a
+      // wide timeout instead of letting it flake.
       await expect(adminPage.getByText('Promoted Output from Wiki'))
         .toBeVisible({ timeout: 15_000 });
     });
@@ -101,10 +103,14 @@ async function createEntry(
     ? Promise.resolve()
     : adminPage.getByTestId('wiki-create-parent').selectOption(parentID));
   await adminPage.getByTestId('wiki-create-submit').click();
-  // 等**这一条真的存在**，而不是等那个 toast。'Wiki created' 不带任何标识：建完父节点它还挂在
-  // 屏幕上，紧接着建子节点时这句断言会被**上一条**的 toast 瞬间满足 —— 于是测试以为建好了，转头
-  // 去读列表，其实请求还在飞。单跑够快看不出来，全量负载下就红（child.parent_id → undefined，
-  // 因为 child 根本还不在列表里）。一个不唯一的信号不能当完成凭据。
+  // Wait for **this entry to actually exist**, not for the toast. 'Wiki created'
+  // carries no identifier: after creating the parent node it can still be sitting
+  // on screen, so when creating the child node this assertion can be satisfied
+  // instantly by the **previous** toast — the test then thinks the create
+  // succeeded and moves on to read the list while the request is still in
+  // flight. Runs fast enough alone that this doesn't show, but goes red under
+  // full load (child.parent_id → undefined, because the child isn't in the
+  // list yet). A non-unique signal cannot serve as a completion receipt.
   await expect
     .poll(async () => (await wikiList(adminPage)).some((e) => e.title === title),
       { message: `entry "${title}" must actually exist before the test moves on`, timeout: 10_000 })

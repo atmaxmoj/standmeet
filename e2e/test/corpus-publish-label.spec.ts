@@ -1,14 +1,19 @@
-// corpus-publish-label.spec.ts —— 决定「这条对外公不公开」的那个开关,标签得说它是公开开关。
+// corpus-publish-label.spec.ts — the switch that decides "is this entry public" must be
+// labelled as a publish switch.
 //
-// 条目编辑器里没有任何叫 publish 的控件。写 `published` 的是 SEOEditor 里那个 checkbox,
-// 而它的标签写着「include in sitemap.xml (let search engines find this)」——说的是一个
-// **后果**,不是那个**概念**。取消勾选不是「不让 Google 找到」,是把这个公开页撤下来,
-// 顺带把它从首页 pin 列表里静默摘掉(page-corpus-pinning 的不变量)。
+// The entry editor has no control actually named publish. The checkbox that writes
+// `published` lives inside SEOEditor, and its label reads "include in sitemap.xml (let
+// search engines find this)" — that names a **consequence**, not the **concept**.
+// Unchecking it isn't "keep Google from finding this", it's taking this public page down
+// entirely, silently dropping it from the homepage's pin list along the way
+// (page-corpus-pinning's invariant).
 //
-// owner 已经确认这是**一个**概念(SEO 跟着 published 走),也确认它跟检索无关 —— 检索归
-// role 的 corpus glob + citable 管。所以这里不是 schema 问题,是标签问题。
+// The owner has already confirmed this is **one** concept (SEO rides along with
+// published), and also confirmed it has nothing to do with retrieval — retrieval is
+// governed by the role's corpus glob + citable. So this isn't a schema problem, it's a
+// labelling problem.
 //
-// 断的是标签点名那个概念,不是它长什么样。
+// What's asserted is that the label names the concept, not what it looks like.
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
@@ -43,15 +48,16 @@ test.describe('corpus · the publish switch is labelled as a publish switch', ()
       await gotoAdminSection(adminPage, 'wiki');
       await adminPage.getByText('edit', { exact: false }).first().click();
 
-      // testid 带 entry id(`wiki-<uuid>-seo-indexed`),所以按后缀选。
+      // The testid carries the entry id (`wiki-<uuid>-seo-indexed`), so select by suffix.
       const box = adminPage.locator('[data-testid$="-seo-indexed"]').first();
       await expect(box).toBeVisible();
-      // 标签是包着 checkbox 的那个 label。
+      // The label is the <label> wrapping the checkbox.
       const label = (await box.locator('xpath=ancestor::label[1]').innerText()).toLowerCase();
 
       expect(label, 'the switch must name what it actually decides: whether this is public')
         .toMatch(/publish|public/);
-      // 只说 sitemap 就是把一个后果冒充成那个概念 —— 取消勾选会把整个公开页撤掉。
+      // Mentioning only the sitemap passes off a consequence as the concept —
+      // unchecking it takes down the whole public page.
       expect(
         label.includes('sitemap') && !/publish|public/.test(label),
         'the label may mention the sitemap, but not instead of publishing',

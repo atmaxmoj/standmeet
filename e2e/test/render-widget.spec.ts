@@ -1,13 +1,17 @@
-// render-widget.spec.ts —— `standmeet-widget` 沙箱 iframe 块(RED-first,待实现)。
+// render-widget.spec.ts — the `standmeet-widget` sandboxed iframe block (RED-first,
+// not yet implemented).
 //
-// 设计(rendering-and-extensibility.md §25-28/§32/§42-44):动态内容不 import 插件,走一个
-// fenced ` ```standmeet-widget ` 块,descriptor(src/height/sandbox/seo)在块内;渲染成
-// **sandboxed <iframe>**(iframe + postMessage 的 Figma/VS-Code-webview 模型);widget 内容是
-// user-provided → **必须 sandbox**;`seo:false`(默认)→ 客户端才挂(mount-guard),爬虫/SSR
-// 看不到(design 非-negotiable §44)。
+// Design (rendering-and-extensibility.md §25-28/§32/§42-44): dynamic content is never
+// imported as a plugin; it goes through a fenced ` ```standmeet-widget ` block, with the
+// descriptor (src/height/sandbox/seo) inside the block; it renders as a **sandboxed
+// <iframe>** (the Figma/VS-Code-webview model of iframe + postMessage); widget content
+// is user-provided → it **must be sandboxed**; `seo:false` (the default) → it only
+// mounts client-side (a mount-guard), invisible to crawlers/SSR (design
+// non-negotiable §44).
 //
-// v1 契约(postMessage 协议后置):descriptor 解析 → 带 sandbox 的 iframe 挂上,src/height 生效,
-// 且是客户端挂载(seo:false)。⚠️ RED until WidgetBlock 实现。
+// v1 contract (the postMessage protocol comes later): the descriptor parses →
+// a sandboxed iframe mounts, src/height take effect, and the mount is client-side
+// (seo:false). Warning: RED until WidgetBlock is implemented.
 
 import { test, expect } from '@/fixtures/test';
 

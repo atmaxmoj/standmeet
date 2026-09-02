@@ -1,20 +1,26 @@
-// conversation-midstream-disconnect-persists.spec.ts —— #28: 后端拥有这一轮。
+// conversation-midstream-disconnect-persists.spec.ts — #28: the backend owns this turn.
 //
-// 业务属性:访客问一句,答到一半连接断了(刷新 / 关页 / 网络掉)。这一轮的
-// 真正主体在后端 —— agent 事件流末端 sink 进 conversation 表,**不依赖客户端
-// 在场**。所以即使客户端中途消失,后端照样把这轮跑完 + 落库;之后重新读
-// conversation,这轮在、答案完整、count +1。
+// Business property: a visitor asks a question, and the connection drops mid-answer
+// (a refresh / closed tab / dropped network). The real owner of this turn lives on the
+// backend — the agent's event stream sinks into the conversation table at its tail end,
+// **not depending on the client staying present**. So even if the client disappears
+// mid-turn, the backend still finishes the turn and persists it; reading the
+// conversation back afterward, the turn is there, the answer is complete, count +1.
 //
-// 跟 conversation-*-survive-reload.spec.ts 互补:那些测「已落库的历史刷新后
-// 还在」;这条测「答到一半断开,那一轮照样落得了库」—— 即后端 sink 不靠前端。
+// This complements conversation-*-survive-reload.spec.ts: those test "history already
+// persisted survives a refresh"; this one tests "disconnecting mid-answer still gets
+// that turn persisted" — i.e. the backend sink doesn't depend on the frontend.
 //
-// 断流仿真:给一个慢答(user_message 里嵌 [[think:N]] 让 mock 出答案前 sleep
-// N ms),POST /agent/turn 设一个比 N 短的 timeout → Playwright 中途 abort 这条
-// 请求(= 客户端断开)。然后轮询 GET /conversations/{id} 直到这轮出现。
+// Disconnect simulation: give it a slow answer (embed [[think:N]] in user_message so the
+// mock sleeps N ms before producing an answer), set POST /agent/turn's timeout shorter
+// than N → Playwright aborts the request mid-flight (= the client disconnecting). Then
+// poll GET /conversations/{id} until the turn shows up.
 //
-// 修复前(loop 绑 r.Context() + 不落库):客户端 abort → ctx 取消 → loop 当场死、
-// 没人落库 → 轮询超时 → 失败。修复后(detached ctx + 流末端 DB sink):abort 不影响
-// loop,mock sleep 完出答案,后端累计 + sink 进 DB → 轮询见到这轮。
+// Before the fix (the loop was bound to r.Context() and didn't persist): client abort →
+// ctx cancelled → the loop died on the spot, nobody persisted anything → polling timed
+// out → failure. After the fix (a detached ctx + a DB sink at the stream's tail end):
+// abort doesn't affect the loop, the mock finishes sleeping and produces the answer, the
+// backend accumulates it + sinks into the DB → polling sees the turn.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -37,8 +43,9 @@ const OWNER = {
 
 const CODE = 'MIDSTREAM-001';
 
-// THINK_MS —— mock 出最终答案前 sleep 这么久。DISCONNECT_MS < THINK_MS,
-// 让客户端在答案还没流出来时就断开,坐实「答到一半连接没了」。
+// THINK_MS — how long the mock sleeps before producing the final answer.
+// DISCONNECT_MS < THINK_MS, so the client disconnects before the answer even starts
+// streaming out, making it a genuine "connection dropped mid-answer".
 const THINK_MS = 3000;
 const DISCONNECT_MS = 1000;
 
@@ -76,9 +83,9 @@ async function fetchDialogs(
   return body.conversation?.dialogs ?? [];
 }
 
-// disconnectMidStream —— POST /agent/turn 但只给 DISCONNECT_MS 就 abort,
-// 模拟客户端答到一半离开。Playwright timeout 会 reject + 关连接;这里吞掉
-// 那个 reject(本来就是要它断)。
+// disconnectMidStream — POSTs /agent/turn but aborts after only DISCONNECT_MS,
+// simulating the client leaving mid-answer. The Playwright timeout will reject + close
+// the connection; this swallows that rejection (it's the disconnect we actually want).
 async function disconnectMidStream(
   request: APIRequestContext, sess: VisitorSession, userMessage: string,
 ): Promise<void> {
@@ -97,7 +104,7 @@ async function disconnectMidStream(
     throw new Error('expected the mid-stream request to be aborted, but it returned');
   } catch (e) {
     if (e instanceof Error && e.message.startsWith('expected the mid-stream')) throw e;
-    // Playwright TimeoutError —— 预期内,客户端断开。
+    // Playwright TimeoutError — expected, this is the client disconnecting.
   }
 }
 
@@ -116,7 +123,8 @@ test.describe('conversation · mid-stream disconnect 后端照样落库', () => 
     const userMessage = `what are you working on [[think:${THINK_MS}]]${tag}`;
     await disconnectMidStream(request, sess, userMessage);
 
-    // 客户端已经走了。后端在 detached ctx 上把这轮跑完 + 落库;轮询直到这轮出现。
+    // The client is already gone. The backend finishes this turn + persists it on a
+    // detached ctx; poll until the turn shows up.
     await expect.poll(
       async () => (await fetchDialogs(request, sess)).length,
       { timeout: 15_000, intervals: [300, 500, 800] },

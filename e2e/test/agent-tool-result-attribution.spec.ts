@@ -1,20 +1,28 @@
-// agent-tool-result-attribution.spec.ts —— F-S-1：一轮里派了 N 次工具调用，就该有 N 条**各自
-// 归因得到**的结果。
+// agent-tool-result-attribution.spec.ts -- F-S-1: when a turn dispatches N tool
+// calls, there should be N results, each **individually attributable**.
 //
-// 怎么撞上的：驱 corpus-search 的 check 2 ⭐ 时，agent 在一轮里同时发了 `recursive convergence`
-// 和 `递归收敛` 两个 `corpus_search`。回来两条 `agent tool done`：一条空手（F-S-2 之后
-// 空手也带一句提醒，所以不再是 2 字节）、
-// 一条 7883。**哪条属于哪次搜索，日志里没有任何字段能回答** —— `start` 带 args，`done` 只有
-// name + 字节数，而并行派发让先后顺序不作数。于是「CJK 查询到底命中没有」这个问题今天无法回答，
-// 而它正是那条 check 的后半段。
+// How this was hit: while driving corpus-search check 2 (star), the agent sent
+// two `corpus_search` calls in one turn -- `recursive convergence` and
+// `递归收敛` (its Chinese equivalent). Two `agent tool done` lines came back:
+// one empty-handed (after F-S-2, an empty result also carries a note, so it's
+// no longer 2 bytes),
+// one at 7883 bytes. **No field in the log can answer which one belongs to
+// which search** -- `start` carries args, `done` carries only name + byte
+// count, and parallel dispatch means arrival order proves nothing. So the
+// question "did the CJK query actually hit" cannot be answered today, and
+// that question is the back half of that check.
 //
-// **为什么断言的对象是日志，不是产品的面。** 这个不变量说的是「一次调用和它的结果之间有没有可
-// 追溯的联系」；产品的界面上只有汇总（`SEARCHED 9 · READ 4`），API 也不下发单次调用的结果。
-// 日志就是这个事实唯一存在的地方，所以守卫必须读日志（[[read-the-key-not-the-name]]）。
+// **Why the assertion targets the log, not the product surface.** This
+// invariant is about whether there is a traceable link between a call and its
+// result; the product UI only shows a summary (`SEARCHED 9 · READ 4`), and the
+// API never returns per-call results either. The log is the only place this
+// fact exists, so the guard has to read the log ([[read-the-key-not-the-name]]).
 //
-// **它一度写不出来。** 复现需要一轮里同名工具被调用两次，而 mock 一轮只发一个 tool_use ——
-// 好几个 item 把自己的 backing test 标 `gap`，理由都是这一句。mock 现在能一条消息派多个调用了，
-// 这条守卫才有可能存在。
+// **It was, for a while, impossible to write.** Reproducing it needs the same
+// tool called twice in one turn, and the mock used to send only one tool_use
+// per turn -- several items marked their backing test `gap` for exactly this
+// reason. The mock can now dispatch multiple calls in one message, which is
+// what makes this guard possible at all.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -38,7 +46,7 @@ test.describe('F-S-1 · a tool result can be traced back to the call that produc
   test('two searches in one turn → two results, each attributable to its own call',
     async ({ page, playwright }) => {
       const request = await playwright.request.newContext();
-      // 同名、不同 query —— 正是归因坍塌的那个形状。
+      // Same name, different query -- exactly the shape that collapses attribution.
       const tag = await scriptMockParallelToolCalls(request, [
         { name: 'corpus_search', args: { query: 'attribution-probe-alpha' } },
         { name: 'corpus_search', args: { query: 'attribution-probe-beta' } },
@@ -50,9 +58,12 @@ test.describe('F-S-1 · a tool result can be traced back to the call that produc
       const input = page.getByTestId('chat-input-field');
       await input.fill(`hello${tag}`);
       await input.press('Enter');
-      // 等这一轮**真的结束**，不是等一段时间：进度条出现说明工具开始跑，消失说明这一轮收了。
-      // 定时等在慢机器上会在两次调用都还没回来时就去读日志，读到半截然后判"只有一条结果"——
-      // 一个会伪装成产品缺陷的用例缺陷。
+      // Wait for the turn to **actually finish**, not for a fixed delay: the
+      // progress indicator appearing means tools started running, and it
+      // disappearing means the turn wrapped up.
+      // A fixed wait on a slow machine would read the log before both calls
+      // return, catch it mid-flight, and wrongly conclude "only one result" --
+      // a test-case defect that disguises itself as a product defect.
       const progress = page.getByTestId('chat-progress');
       await expect(progress).toBeVisible({ timeout: 15_000 });
       await expect(progress).toBeHidden({ timeout: 30_000 });
@@ -61,13 +72,15 @@ test.describe('F-S-1 · a tool result can be traced back to the call that produc
       const starts = toolLines(log, 'agent tool start', 'corpus_search');
       const dones = toolLines(log, 'agent tool done', 'corpus_search');
 
-      // 正对照：mock 真的派了两次，而且两次都跑完了。缺了这一条，下面的断言在
-      // 「一次都没跑」时也会绿（[[assertion-that-cannot-fail]]）。
+      // Positive control: the mock really dispatched two calls, and both
+      // completed. Without this, the assertion below would also pass green
+      // when nothing ran at all ([[assertion-that-cannot-fail]]).
       expect(starts.length, 'the turn dispatched two corpus_search calls').toBe(2);
       expect(dones.length, 'both calls produced a result').toBe(2);
 
-      // 真正的不变量：每条结果都带着能指回它那次调用的东西。今天 done 行只有 name +
-      // result_bytes，两条长得一模一样 —— 于是这个 Set 只有 1 个元素，红。
+      // The real invariant: each result carries something that points back to
+      // its own call. Today the done line only has name + result_bytes, and
+      // the two lines look identical -- so this Set has only 1 element, red.
       const fingerprints = new Set(dones.map(attributionKeyOf));
       expect(
         fingerprints.size,
@@ -76,15 +89,19 @@ test.describe('F-S-1 · a tool result can be traced back to the call that produc
     });
 });
 
-// toolLines —— 日志里某类工具行。docker compose 的输出带服务名前缀，所以按子串取。
+// toolLines -- lines of a given tool-event kind from the log. docker compose's
+// output carries a service-name prefix, so match by substring.
 function toolLines(log: string, msg: string, tool: string): string[] {
   return log.split('\n').filter((l) => l.includes(`"${msg}"`) && l.includes(`"${tool}"`));
 }
 
-// attributionKeyOf —— 一条结果行上「说明它来自哪次调用」的部分。
+// attributionKeyOf -- the part of a result line that says "which call this
+// came from".
 //
-// 刻意**不含** result_bytes：两次调用完全可能返回同样多的字节，那时按字节数分辨就是碰运气。
-// 要的是调用自己的身份（call id 或它的 args），所以取除时间戳与字节数以外的部分。
+// Deliberately **excludes** result_bytes: two calls can easily return the same
+// byte count, and distinguishing by byte count then would be pure luck.
+// What's wanted is the call's own identity (call id or its args), so this
+// strips everything except the timestamp and byte count.
 function attributionKeyOf(line: string): string {
   return line
     .replace(/"time":"[^"]*",?/, '')

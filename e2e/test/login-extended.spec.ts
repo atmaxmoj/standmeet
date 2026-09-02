@@ -1,9 +1,9 @@
 // login-extended.spec.ts —— login extended: empty fields, throttle.
 //
-// 用户故事：
-//   1. 空 email → submit disabled
-//   2. 空 password → submit disabled
-//   3. 连续失败 → throttle 提示
+// User story:
+//   1. empty email → submit disabled
+//   2. empty password → submit disabled
+//   3. repeated failures → throttle notice
 
 import { test, expect } from '@/fixtures/test';
 

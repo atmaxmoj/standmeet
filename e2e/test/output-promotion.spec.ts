@@ -1,9 +1,10 @@
-// output-promotion.spec.ts —— raw → wiki → output 完整三层 promote 链。
+// output-promotion.spec.ts -- the full three-tier promote chain: raw -> wiki -> output.
 //
-// 用户故事：
-//   owner 在 AI 客户端 raw_dump 一条想法 → 决定它够好让它进 wiki
-//   (promote_to_wiki) → 进一步打磨到 "可以原样在对话里引用" 的成品 → 调
-//   promote_wiki_to_output。打开 /admin/output 看到这条精炼版。
+// User story:
+//   the owner raw_dumps an idea from an AI client -> decides it's good enough to move
+//   into wiki (promote_to_wiki) -> polishes it further into a finished piece "quotable
+//   verbatim in conversation" -> calls promote_wiki_to_output. Opening /admin/output
+//   shows this refined version.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -42,8 +43,9 @@ test.describe('raw → wiki → output three-tier promote chain', () => {
   test('admin /admin/output lists the polished entry promoted from wiki',
     async ({ adminPage: page }) => {
       await openOutput(page);
-      // 限定在列表里断言（同 corpus-curation）：侧栏 corpus-constellation 也显示最近条目，
-      // 全页 getByText 会同时命中它，strict mode 直接报错。
+      // Scope the assertion to the list (same as corpus-curation): the sidebar's
+      // corpus-constellation also shows recent entries, so a page-wide getByText would
+      // hit both and strict mode would error out.
       await expect(page.getByTestId('output-list')).toBeVisible({ timeout: 5_000 });
       await expect(
         page.getByTestId('output-list').getByText(outputTitle, { exact: false }),

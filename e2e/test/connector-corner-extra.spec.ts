@@ -1,16 +1,21 @@
-// connector-corner-extra.spec.ts —— #155 收尾 corner/error stream（设计 §1-9 之外、但属正经
-// 边界/错误流的几条，审计 design-vs-test 后补齐）。已实现，绿（原为 RED 契约，实现后转绿）。
+// connector-corner-extra.spec.ts — closing out #155's corner/error-stream cases (a few items
+// outside design §1-9, but genuinely part of the boundary/error-stream space, added after
+// auditing design-vs-test). Implemented, green (originally a RED contract, turned green after
+// the implementation landed).
 //
-//   - 429 限流（error stream）：连接器 connected，runtime SaaS 调用回 429 → 友好降级/退避，
-//     不崩、不泄、不返垃圾（跟现有 5xx/4xx 降级同族，差在 429 语义=限流可退避）。
-//   - 编辑已建连接器的 spec → 凭据表单**重新派生**（换认证 type 后表单跟着变）。
-//   - 两个**同 kind(openapi)** 的 calendar 连接器 → 同 §1/§9 槽位规则（exactly one active），
-//     补上 kind-coexist 只测了 openapi+protocol 异 kind 的空档。
+//   - 429 throttling (error stream): connector connected, a runtime SaaS call comes back 429 →
+//     friendly degradation/backoff, no crash, no leak, no garbage returned (same family as the
+//     existing 5xx/4xx degradation, differing only in 429's semantics — throttling can back off).
+//   - editing an already-built connector's spec → the credential form **re-derives** (changing
+//     the auth type changes the form along with it).
+//   - two calendar connectors of **the same kind (openapi)** → the same §1/§9 slot rule (exactly
+//     one active), filling the gap that kind-coexist only tested cross-kind (openapi+protocol).
 //
-// API/diag 驱动（同 connector-provider-agnostic / connector-binding-jsonata 的 gold 形态）。
-// 接口对齐 connector.md §8 校准 + §9：POST /api/admin/connectors {spec,binding}、…/{id}/
-// {credentials,connect,status,activate}、PUT …/{id}（编辑）、diag POST /internal/diag/
-// connector/{id}/list-busy、mock /__mock/gcal/* 控制面。
+// Driven through the API/diag surface (the same gold shape as connector-provider-agnostic /
+// connector-binding-jsonata). The interface tracks connector.md §8's calibration plus §9:
+// POST /api/admin/connectors {spec,binding}, …/{id}/{credentials,connect,status,activate},
+// PUT …/{id} (edit), diag POST /internal/diag/connector/{id}/list-busy, and the
+// mock /__mock/gcal/* control plane.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -29,8 +34,9 @@ const OWNER = {
   fullName: 'Corner Extra Owner',
 };
 
-// 一份指向 gcal mock 的 openapi calendar spec + binding（freebusy/events.insert）。servers 用
-// service-name（backend 容器内打 gcal API + 命中 fail 注入）；/__mock/gcal/* 控制面走 localhost。
+// An openapi calendar spec + binding pointed at the gcal mock (freebusy/events.insert). servers
+// uses a service-name (the backend container hits the gcal API and triggers the fail injection
+// from inside the container); /__mock/gcal/* control-plane calls go through localhost.
 const CAL_SPEC = JSON.stringify({
   openapi: '3.0.3',
   info: { title: 'Cal', version: '1' },
@@ -41,7 +47,8 @@ const CAL_SPEC = JSON.stringify({
   },
   components: { securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } } },
 });
-// 统一 binding 格式：request/response 是 JSONata 字符串（跟 binding-jsonata 契约一致）。
+// Standard binding format: request/response are JSONata strings (consistent with the
+// binding-jsonata contract).
 const CAL_BINDING = {
   category: 'calendar',
   kind: 'openapi',
@@ -50,18 +57,20 @@ const CAL_BINDING = {
     create_event: { op: 'events.insert', request: '{ "summary": summary }', response: '{ "id": id }' },
   },
 };
-// 第二份 spec 内容不同（标题不同），但仍是 openapi calendar —— 用来测同 kind 共存。
+// The second spec differs in content (a different title) but is still openapi calendar — used to
+// test coexistence of the same kind.
 const CAL_SPEC_2 = CAL_SPEC.replace('"Cal"', '"Cal Two"');
 
 test.describe('connector · extra corner / error stream (wrap-up)', () => {
-  // 429 降级 + 同 kind 共存已落地。spec 编辑重派生（PUT + credential-form 派生端）属 #161
-  // 通用 admin 路由的凭据表单派生，单列待建，逐条 fixme。
+  // 429 degradation + same-kind coexistence are already landed. spec-edit re-derivation
+  // (the PUT + credential-form derivation side) belongs to #161's generic admin-route
+  // credential-form derivation, tracked separately and pending, fixme per case.
 
   let request: APIRequestContext;
   test.beforeAll(async ({ playwright }) => { request = await initOwner(playwright); });
   test.afterAll(async () => { await request.dispose(); });
 
-  // 429 限流 → 友好降级（不崩、不泄、不返垃圾）。
+  // 429 throttling → friendly degradation (no crash, no leak, no garbage returned).
   test('429 throttling: runtime SaaS call returns 429 → friendly degrade (no 5xx/stack, no garbage)', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
@@ -74,12 +83,13 @@ test.describe('connector · extra corner / error stream (wrap-up)', () => {
     expect(msg, 'does not leak the provider raw error/stack/status code').not.toMatch(/panic|goroutine|stack|429/);
   });
 
-  // 编辑已建连接器的 spec（换认证 type）→ 凭据表单/状态重新派生（#161 PUT /{id} + credential-form）。
+  // Editing an already-built connector's spec (changing the auth type) → the credential
+  // form/status re-derives (#161 PUT /{id} + credential-form).
   test('edit spec → credential form re-derives (bearer → apiKey changes the fields)', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
 
-    // 改成 apiKey 认证的同一份 spec。
+    // The same spec, changed to apiKey auth.
     const apiKeySpec = CAL_SPEC.replace(
       '{"bearer":{"type":"http","scheme":"bearer"}}',
       '{"apiKey":{"type":"apiKey","in":"header","name":"X-Api-Key"}}',
@@ -90,47 +100,52 @@ test.describe('connector · extra corner / error stream (wrap-up)', () => {
     });
     expect(res.status(), 'PUT edit spec → 200').toBe(200);
 
-    // 重新派生的凭据表单/需求反映 apiKey（不再要 oauth dance）。
+    // The re-derived credential form/requirements reflect apiKey (no more oauth dance).
     const form = await request.get(`${BACKEND}/api/admin/connectors/${id}/credential-form`);
     const f = await form.json() as { auth_type?: string; fields?: { key: string }[] };
     expect(f.auth_type, 're-derived → apiKey').toMatch(/api.?key/i);
     expect((f.fields ?? []).map((x) => x.key), 'apiKey field, no longer client_id').toContain('key');
   });
 
-  // 两个同 kind(openapi) calendar → exactly one active（§1/§9 槽位规则，不限异 kind）。
+  // Two same-kind (openapi) calendar connectors → exactly one active (the §1/§9 slot rule, not
+  // limited to cross-kind).
   test('two same-kind (openapi) calendars → exactly one active, slot rule same as cross-kind', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     const a = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
     const b = await assembleOpenapiCalendar(request, csrf, CAL_SPEC_2, CAL_BINDING);
     expect(b, 'two distinct openapi calendar connectors').not.toBe(a);
 
-    // 两个都连上，但品类槽exactly one active。
+    // Both are connected, but the category slot allows exactly one active.
     const rows = await listConnectors(request);
     const cals = rows.filter((c) => c.category === 'calendar');
     expect(cals.length, 'two connectors of the same category coexist').toBeGreaterThanOrEqual(2);
     expect(cals.filter((c) => c.active).length, 'exactly one active').toBe(1);
 
-    // 显式 activate 另一个 → 槽位移交。
+    // Explicitly activating the other one → the slot hands over.
     await request.post(`${BACKEND}/api/admin/connectors/${b}/activate`, { headers: { 'X-Csrftoken': csrf }, data: {} });
     const after = (await listConnectors(request)).filter((c) => c.category === 'calendar');
     expect(after.find((c) => c.id === b)?.active, 'after activate, b becomes active').toBe(true);
     expect(after.find((c) => c.id === a)?.active, 'a falls back to inactive').toBe(false);
 
-    // dep-gating 仍开（至少一个 active connected）。
+    // dep-gating stays open (at least one active connector is connected).
     const cap = await findCapability(request, csrf, 'calendar.book');
     expect(cap?.dependency?.connected, 'an active connected exists → still un-gated').toBe(true);
   });
 });
 
-// credform 派生漂移守护：configure 表单（credform）曾与摄入预览（authform）/注入器各枚举一份 auth
-// 知识而漂移。收成 authform 单源后，这两条把两次漂移（apiKey 字段名、oidc 当 token）钉住。
+// credform derivation-drift guards: the configure form (credform) used to enumerate its own copy
+// of auth knowledge separately from the ingest preview (authform)/the injector, and the two
+// drifted apart. After consolidating to a single authform source, these two cases pin down the
+// two drifts that had occurred (the apiKey field name, and oidc being treated as a bare token).
 test.describe('connector · credential-form derivation drift guards (area B)', () => {
   let request: APIRequestContext;
   test.beforeAll(async ({ playwright }) => { request = await initOwner(playwright); });
   test.afterAll(async () => { await request.dispose(); });
 
-  // 自定义命名的 apiKey scheme（如 "sendgrid"）：存储字段恒为 "key"——注入器读的就是 creds["key"]
-  // （json:"key" 写死）。若按 scheme 名派生（"sendgrid"），owner 填错字段 → 注入空 key → 静默 401。
+  // A custom-named apiKey scheme (e.g. "sendgrid"): the storage field is always "key" — the
+  // injector literally reads creds["key"] (hardcoded json:"key"). If the form derived the field
+  // name from the scheme name ("sendgrid") instead, the owner would fill in the wrong field →
+  // an empty key gets injected → a silent 401.
   test('named apiKey scheme → credential field stays "key", never the scheme name', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
@@ -152,8 +167,9 @@ test.describe('connector · credential-form derivation drift guards (area B)', (
     expect(keys, 'never keyed by the scheme name "sendgrid"').not.toContain('sendgrid');
   });
 
-  // openIdConnect scheme：credform 曾无 openIdConnect 分支 → 落 default 给 "token"（错，oidc 是
-  // oauth：client_id/secret + dance）。收成 authform 单源后此处应给 oauth 字段。
+  // openIdConnect scheme: credform used to have no openIdConnect branch → it fell through to the
+  // "token" default (wrong — oidc is oauth: client_id/secret plus the dance). After
+  // consolidating to a single authform source, this should now produce oauth fields.
   test('openIdConnect scheme → credential form is oauth (client_id/secret), not a bare token', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
@@ -176,7 +192,7 @@ test.describe('connector · credential-form derivation drift guards (area B)', (
   });
 });
 
-// ─── helpers (inline; promote 到 fixtures/connector-corner.ts 实现转绿时) ───
+// ─── helpers (inline; promote to fixtures/connector-corner.ts once the implementation goes green) ───
 
 interface ConnRow { id: string; category: string; kind: string; active: boolean; connected: boolean }
 
@@ -190,7 +206,8 @@ async function initOwner(playwright: Playwright): Promise<APIRequestContext> {
   return request;
 }
 
-// assembleOpenapiCalendar —— 建 openapi calendar 连接器 + 存 bearer 凭据 + connect。返回 id。
+// assembleOpenapiCalendar — creates an openapi calendar connector, saves bearer credentials, and
+// connects it. Returns the id.
 async function assembleOpenapiCalendar(
   request: APIRequestContext, csrf: string, spec: string, binding: unknown,
 ): Promise<string> {
@@ -213,13 +230,14 @@ async function listConnectors(request: APIRequestContext): Promise<ConnRow[]> {
   return (await res.json() as { connectors?: ConnRow[] }).connectors ?? [];
 }
 
-// armMockStatus —— 让 gcal mock 某 op 持续返指定 HTTP status（429 限流等；times:-1 = 持续，
-// 让重试预算耗尽 → 友好降级）。
+// armMockStatus — makes the gcal mock keep returning a given HTTP status for some op (429
+// throttling etc.; times:-1 = indefinitely, exhausting the retry budget → friendly degradation).
 async function armMockStatus(request: APIRequestContext, op: string, status: number): Promise<void> {
   await request.post(`${MOCK}/__mock/gcal/fail`, { data: { op, status, times: -1 } });
 }
 
-// diagListBusy —— 直打 runtime（避开 LLM），干净断降级形状。
+// diagListBusy — hits the runtime directly (bypassing the LLM), for a clean assertion on the
+// degradation shape.
 async function diagListBusy(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<{ status: number; body: unknown }> {
@@ -228,10 +246,12 @@ async function diagListBusy(
   return { status: r.status, body: JSON.parse(r.text || '{}') as unknown };
 }
 
-// diagInvoke —— 打 owner-authed 的连接器 diag 口。**这是一条绕过真实链路的后门**
-// (真实路径是 访客 chat → agent → booker 沙箱 → connector.invoke)，所以它**故意**
-// 内联在这里、不抽成共用 fixture:抽出去等于给"绕过"发许可证,下一个人就更容易用它。
-// 这条后门本身的去留见 task「diag 后门」。
+// diagInvoke — hits the owner-authed connector diag endpoint. **This is a backdoor that bypasses
+// the real call chain** (the real path is visitor chat → agent → booker sandbox →
+// connector.invoke), so it's **deliberately** kept inline here instead of promoted to a shared
+// fixture: promoting it would license the bypass, making it that much easier for the next person
+// to reach for it. Whether this backdoor itself should stay or go is tracked in the "diag
+// backdoor" task.
 async function diagInvoke(
   request: APIRequestContext, csrf: string, id: string,
   category: string, op: string, args: Record<string, unknown>,

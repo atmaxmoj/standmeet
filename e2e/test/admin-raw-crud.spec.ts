@@ -1,10 +1,10 @@
 // admin-raw-crud.spec.ts —— raw entries: DumpBox, filter, promote, archive, edit.
 //
-// 用户故事：
-//   1. DumpBox → 选 source chip → 输入 → dump → 新行出现
-//   2. filter 切换 (unprocessed / promoted / all) → list 过滤
-//   3. promote → wiki modal → 填 title → confirm → raw 变 "promoted"
-//   4. 编辑 body → save → body 更新
+// User story:
+//   1. DumpBox → pick a source chip → type → dump → a new row appears
+//   2. Switch filter (unprocessed / promoted / all) → the list filters
+//   3. promote → wiki modal → fill title → confirm → raw becomes "promoted"
+//   4. Edit body → save → body updates
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -39,12 +39,16 @@ test.describe('admin raw CRUD operations', () => {
         .toBeVisible({ timeout: 5_000 });
     });
 
-  // F-L-16 —— 删掉一条之后,列表少了一行,而**四个计数一个都没动**:标题的 "N unprocessed"、
-  // 四个 tab、侧栏 badge、pulse 栏,全都还在报删之前的数,要整页 reload 才对得上。
-  // 它们读的是同一份 growth 资源,而那份资源在 mutation 之后从来没被作废过 —— 收口点
-  // (`run()` 里的 bumpCorpusEpoch)早就在了,后面只挂了树,没挂计数。
-  // 手工发现于 2026-08-07 的 corpus-raw 第 3 项:后端删得干干净净(行 404、素材从 bucket 里也没了),
-  // 屏幕上却四处坚称它还在。
+  // F-L-16 — after deleting an entry, the list has one fewer row, but **none of the
+  // four counters move**: the header's "N unprocessed", the four tabs, the sidebar
+  // badge, the pulse panel — all still report the pre-delete count, and only a full
+  // page reload brings them back in sync.
+  // They all read the same growth resource, and that resource was never invalidated
+  // after a mutation — the convergence point (`bumpCorpusEpoch` inside `run()`)
+  // was already wired, but only the tree got hooked up to it; the counters never were.
+  // Found manually on 2026-08-07, corpus-raw item 3: the backend deletes cleanly
+  // (the row 404s, the asset is also gone from the bucket), yet the screen keeps
+  // insisting everywhere that it's still there.
   test('deleting a raw entry moves the counters, not just the list (F-L-16)',
     async ({ adminPage }) => { await assertDeleteMovesCounters(adminPage); });
 
@@ -119,9 +123,12 @@ test.describe('admin raw CRUD operations', () => {
 
 async function assertDeleteMovesCounters(page: Page): Promise<void> {
   await gotoAdminSection(page, 'raw');
-  // 两条:删掉一条之后还剩至少一条,badge 才不会因为归零而整个消失(那是另一件事)。
-  // 等的是 **POST 的响应**,不是行出现 —— 行是乐观插入的,它先出现,服务器可能还没落库,
-  // 那样下面那个 reload 读到的基线就是假的(第一版就这么假红过)。
+  // Two entries: after deleting one, at least one remains, so the badge doesn't
+  // vanish entirely just because it hit zero (that's a separate concern).
+  // Wait for the **POST response**, not for the row to appear — the row is
+  // optimistically inserted and shows up first, while the server may not have
+  // persisted it yet; if we don't wait, the reload below would read a fake baseline
+  // (the first version went falsely red exactly this way).
   for (const body of ['Raw entry one, to be deleted.', 'Raw entry two, the survivor.']) {
     await page.getByTestId('dump-input').fill(body);
     const stored = page.waitForResponse(
@@ -132,7 +139,8 @@ async function assertDeleteMovesCounters(page: Page): Promise<void> {
     await page.getByRole('button', { name: /dump/i }).click();
     await stored;
   }
-  // 整页重来一次,让基线是**真**的 —— 否则拿一个本来就旧的数去做减法,红绿都说明不了问题。
+  // Do a full page reload so the baseline is **real** — otherwise subtracting from
+  // an already-stale number makes neither red nor green mean anything.
   await page.reload();
   const row = page.locator('[data-testid^="raw-delete-"]').first();
   await expect(row).toBeVisible({ timeout: 5_000 });
@@ -142,8 +150,10 @@ async function assertDeleteMovesCounters(page: Page): Promise<void> {
   const before = countIn(await header.innerText());
   expect(before, '基线必须 ≥2,否则删完 badge 归零会盖住真正要测的东西').toBeGreaterThanOrEqual(2);
 
-  // 先测**创建**这条路 —— 它绕开 useCorpusActions 走自己的 doAddRaw,所以第一版修完删除之后
-  // 它还是不动:两条路各抄了一份作废动作,后加的那半只进了其中一份(F-L-16)。
+  // Test the **create** path first — it bypasses useCorpusActions and goes through
+  // its own doAddRaw, so after the first delete fix it still didn't move: the two
+  // paths each carry their own copy of the invalidation, and the later addition only
+  // landed in one of them (F-L-16).
   await page.getByTestId('dump-input').fill('One more, to watch the counter go up.');
   await page.getByRole('button', { name: /dump/i }).click();
   await expect(header, '粘一条进来,标题上的数就得涨').toContainText(`${before + 1} unprocessed`);
@@ -152,20 +162,22 @@ async function assertDeleteMovesCounters(page: Page): Promise<void> {
     '侧栏 badge 也一样,不许等自己的轮询',
   ).toHaveText(String(before + 1));
 
-  // 上面刚加了一条,所以此刻是 before+1;删掉一条应该正好回到 before。
+  // One was just added above, so the count is now before+1; deleting one should
+  // bring it back to exactly before.
   page.once('dialog', (d) => void d.accept());
   await page.locator('[data-testid^="raw-delete-"]').first().click();
 
-  // 不 reload。删完这一刻标题就得少一个。
+  // No reload. The header count must drop the instant the delete completes.
   await expect(header, '标题上的数必须跟着列表一起动').toContainText(`${before} unprocessed`);
-  // 侧栏 badge 说的是同一件事,那它就得报同一个数(而不是等自己 60 秒的轮询)。
+  // The sidebar badge reports the same fact, so it must report the same number
+  // (not wait for its own 60-second poll).
   await expect(
     page.getByTestId('badge-raw'),
     '侧栏 badge 跟标题读的必须是同一份数',
   ).toHaveText(String(before));
 }
 
-// countIn —— 从 "raw · 12 unprocessed" 里取那个数。
+// countIn — extracts the number from "raw · 12 unprocessed".
 function countIn(text: string): number {
   const m = /(\d+)\s+unprocessed/.exec(text);
   if (m === null) throw new Error(`no count in header: ${text}`);

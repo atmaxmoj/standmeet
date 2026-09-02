@@ -1,9 +1,9 @@
 // gate-request-access.spec.ts —— gate request access form: validation + submit.
 //
-// 用户故事：
-//   1. 空 email → 不让提交
-//   2. 重复提交 → disabled 防重发
-//   3. 提交后 → "sent, we'll get back to you" 状态
+// User story:
+//   1. Empty email -> submission is blocked
+//   2. Duplicate submission -> disabled to prevent resending
+//   3. After submitting -> "sent, we'll get back to you" state
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';

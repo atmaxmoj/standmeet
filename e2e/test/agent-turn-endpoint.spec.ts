@@ -1,11 +1,11 @@
-// agent-turn-endpoint.spec.ts —— H.9: 新 visitor agent loop 入口。
+// agent-turn-endpoint.spec.ts — H.9: the new visitor agent loop entry point.
 //
-// POST /api/v1/agent/turn 走 backend eino ADK ChatModelAgent。本 spec
-// 是 H.9.a smoke：只验 plain text 路径 (无 tool call) → text 帧 +
-// done(end_turn)；auth 失败路径；body 非法路径。
+// POST /api/v1/agent/turn goes through the backend eino ADK ChatModelAgent. This spec
+// is the H.9.a smoke test: it only verifies the plain-text path (no tool call) → text
+// frames + done(end_turn); the auth-failure path; the invalid-body path.
 //
-// tool 流 / capability_state delta / throbber label / summarization 等
-// 增量留 H.9.b / H.11 / H.9b 专门 spec 覆盖。
+// Increments like the tool stream / capability_state delta / throbber label /
+// summarization are left to dedicated specs in H.9.b / H.11 / H.9b.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -51,8 +51,8 @@ async function setupOwner(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-// GHOSTS —— H.13.b: code 上挂的初始 ghost text 来源。前端
-// 进 chat 取第一条当 ghost。
+// GHOSTS — H.13.b: the source of the initial ghost text attached to the code. The
+// frontend takes the first entry as the ghost when entering chat.
 const GHOSTS = [
   'What are you working on?',
   'How do you spend your time?',
@@ -105,8 +105,9 @@ test.describe('agent turn endpoint · eino ADK driven', () => {
       await request.dispose();
     });
 
-  // (旧 "code-accessor turn → ghosts 帧 (items 数组)" 已删 —— Ghost P4 把 3 条 followup 的
-  //  plural `ghosts` 帧换成单条 policy `ghost` 帧;单条 SSE 帧的覆盖在 ghost-policy.spec。)
+  // (The old "code-accessor turn → ghosts frame (items array)" test was removed — Ghost
+  //  P4 replaced the 3-followup plural `ghosts` frame with a single policy `ghost` frame;
+  //  coverage of the single SSE frame lives in ghost-policy.spec.)
 
   test('issueSession (code-mode) → ghosts 透到 response',
     async ({ playwright }) => {
@@ -170,8 +171,8 @@ async function assertPlainTurn(request: APIRequestContext): Promise<void> {
 async function assertSessionGhosts(
   request: APIRequestContext,
 ): Promise<void> {
-  // H.13.b: code-issued session response 应当带 owner 设的
-  // ghosts；前端拿这条做初始 ghost text。
+  // H.13.b: the code-issued session response should carry the owner-configured ghosts;
+  // the frontend uses this entry as the initial ghost text.
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: CODE, visitor_name: 'V',
   });
@@ -185,8 +186,8 @@ async function assertToolEvents(request: APIRequestContext): Promise<void> {
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: CODE, visitor_name: 'V',
   });
-  // 强制 mock 上来就抛 corpus_search tool_use；backend ADK dispatch
-  // tool → eino schema.Tool 事件 → tool_completed。
+  // Force the mock to throw a corpus_search tool_use right away; the backend ADK
+  // dispatches the tool → an eino schema.Tool event → tool_completed.
   const tag = await scriptMockToolCall(request, {
     name: 'corpus_search', args: { query: 'alice' },
   });
@@ -199,8 +200,8 @@ async function assertToolEvents(request: APIRequestContext): Promise<void> {
   expect(started, 'tool_started frame present').toBeDefined();
   const startedData = started?.data as { name?: string; progress_label?: string };
   expect(startedData?.name).toBe('corpus_search');
-  // H.11: progress_label 来自 backend BindingTool.ProgressLabel
-  // (corpus_search 在 capability 注册时是 "searching corpus")。
+  // H.11: progress_label comes from the backend's BindingTool.ProgressLabel
+  // (corpus_search registers as "searching corpus" in the capability registry).
   expect(startedData?.progress_label).toBe('searching corpus');
   const completed = sse.events.find((e) => e.type === 'tool_completed');
   expect(completed, 'tool_completed frame present').toBeDefined();

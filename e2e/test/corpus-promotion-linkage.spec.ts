@@ -1,9 +1,13 @@
-// corpus-promotion-linkage.spec.ts —— 迁移前 gap-fill (🔴#3)。
+// corpus-promotion-linkage.spec.ts — pre-migration gap-fill (🔴#3).
 //
-// 提升链 raw→wiki→output 的**归属图**(wiki.source_raw_ids / output.source_wiki_ids)此前**零直接
-// 断言** —— 每个 promotion 测试只验「目标标题出现在列表/landing」,从没验过 source 链本身。结构迁移
-// 把三个 genre 迁进统一基座,这个跨行的归属图最容易在搬运中丢/错。这条钉住:提升后 source id 真的
-// 指回上游那条。migration 必须保住它。
+// The promotion chain raw→wiki→output's **lineage graph**
+// (wiki.source_raw_ids / output.source_wiki_ids) previously had **zero direct
+// assertions** — every promotion test only checked that "the target title appears in
+// the list/landing", never checked the source chain itself. The structural migration
+// moves all three genres onto a unified base, and this cross-row lineage graph is the
+// thing most likely to get lost or broken in the move. This case pins down: after
+// promotion, the source id really does point back to the upstream one. The migration
+// must preserve it.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

@@ -1,12 +1,14 @@
-// setup-wizard-4step.spec.ts —— first-run claim 的 4-step 向导。
+// setup-wizard-4step.spec.ts -- the 4-step wizard for the first-run claim.
 //
-// 业务故事：
-//   step 1 identity → step 2 credentials → step 3 AI provider (可跳过) →
-//   step 4 verify (arithmetic captcha + summary 卡) → submit → /admin。
-//   step progress bar 4 段；back / next / submit 按钮 testid 跨 step 复用。
+// Business story:
+//   step 1 identity -> step 2 credentials -> step 3 AI provider (skippable) ->
+//   step 4 verify (arithmetic captcha + a summary card) -> submit -> /admin.
+//   The step progress bar has 4 segments; the back / next / submit button testids are
+//   reused across steps.
 //
-// Playwright test isolation：每个 test 拿到的是 fresh page (即使
-// describe.serial)。每个 case 自己走完前置 steps，避免假设跨 case 状态共享。
+// Playwright test isolation: every test gets a fresh page (even under
+// describe.serial). Each case walks through its own preceding steps rather than
+// assuming state is shared across cases.
 
 import type { Page } from '@playwright/test';
 
@@ -62,19 +64,23 @@ test.describe('first-run claim · 4-step wizard polish', () => {
       await page.getByTestId('next').click();
       await page.getByTestId('next').click(); // skip provider
       await submitReview(page);
-      // /admin 落地 = dashboard（app/admin/page.tsx 的 server redirect）。
+      // Landing on /admin means the dashboard (app/admin/page.tsx's server redirect).
       await page.waitForURL('**/admin/dashboard', { timeout: 10_000 });
     });
 
-  // F-H-2：第 3 步收的 key **必须真的落地**。
+  // F-H-2: the key collected at step 3 **must actually be persisted**.
   //
-  // 这条以前没人守：既有的两条 full-flow 用例都在第 3 步直接 next（"可跳过"），
-  // 于是"填了会怎样"从来没被问过 —— 而重建实例那次真填了，结果 review 卡照印
-  // `AI · DeepSeek · deepseek-chat`，claim 也成功，key 却一个字都没写进去。
+  // Nobody guarded this before: both of the existing full-flow tests just clicked next
+  // through step 3 ("skippable"), so "what happens if it's filled in" was never asked --
+  // and the one time an instance was actually rebuilt with the key filled in, the review
+  // card still printed `AI · DeepSeek · deepseek-chat`, the claim still succeeded, and yet
+  // not a single character of the key ever got written.
   //
-  // 断言落在 **owner 后面看得到的那个面**（/admin/api·mcp），不是 claim 的响应：
-  // owner 判断"配好了没"看的就是这个面，而 endpoint 回填成 deepseek 的 base URL
-  // 恰好证明 provider 也跟着落地了（那个值这一步压根没让 owner 输过）。
+  // The assertion lands on **the surface an owner would actually check afterward**
+  // (/admin/api·mcp), not on the claim response: that's exactly what an owner looks at to
+  // judge "is this configured", and the endpoint being filled back in as deepseek's base
+  // URL happens to prove the provider also got persisted (a value this step never even
+  // had the owner type in).
   test('the AI key typed at step 3 is configured by the time the wizard lands in admin',
     async ({ page }) => {
       await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
@@ -90,15 +96,21 @@ test.describe('first-run claim · 4-step wizard polish', () => {
       await expectProviderOnFile(page);
     });
 
-  // 这里曾经有一条 `wrong captcha → error, stays on /setup`。**那个不变量随控件一起没了**
-  // （F-H-1：算术框后端不验，拦不住 bot 只拦得住 owner 的 agent，已删）。
+  // There used to be a test here for `wrong captcha → error, stays on /setup`. **That
+  // invariant went away along with the control it guarded** (F-H-1: the arithmetic box was
+  // never validated server-side, it only ever blocked the owner's own agent, not a real
+  // bot, so it was deleted).
   //
-  // 补上真正该守的那一条：**坏 setup token 必须被拒**。那才是这一步的授权 ——
-  // 一次性 token 打印在后端日志里，只有能读服务器的人拿得到，而且它是**服务端验**的。
+  // What replaces it is the guard that actually matters: **a bad setup token must be
+  // rejected**. That's what actually authorizes this step -- a one-time token printed in
+  // the backend logs, obtainable only by whoever can read the server, and it's
+  // **validated server-side**.
   //
-  // 验在 API 层而不是走 GUI：换一个 token 就得换 URL，而 e2e 的 lint 禁 `page.goto`
-  // （要求从已知入口点点进去，这条规则是对的）。**换 token 这件事本来就属于 API 层** ——
-  // GUI 那条路上 token 是环境给的，测不出"另一个 token"。
+  // Verified at the API layer rather than through the GUI: swapping in a different token
+  // requires a different URL, and the e2e lint bans `page.goto` (requiring navigation from
+  // a known entry point by clicking through -- that rule is correct). **Swapping the token
+  // is inherently an API-layer concern** -- on the GUI path the token is supplied by the
+  // environment, and there's no way to test against "a different token" from there.
   test('a bad setup token is refused by the server', async ({ request }) => {
     const res = await request.post(`${BACKEND}/api/admin/claim`, {
       data: {
@@ -131,9 +143,10 @@ async function fillStep3Provider(page: Page): Promise<void> {
   await page.getByTestId('setup-ai-key').fill('sk-setup-wizard-fake-key');
 }
 
-// expectProviderOnFile —— 在 /admin/api·mcp 上确认第 3 步那份配置真的在库里。
-// endpoint 是判据里最硬的一条：这一步从没让 owner 输过它，它只能是服务端按
-// provider 从 preset 表查出来的。
+// expectProviderOnFile -- confirms on /admin/api·mcp that step 3's configuration is
+// genuinely persisted. The endpoint is the hardest criterion of the bunch: this step
+// never had the owner type it in, so it can only have come from the server looking it up
+// against the preset table by provider.
 async function expectProviderOnFile(page: Page): Promise<void> {
   await expect(
     page.getByTestId('ai-provider-key'),
@@ -144,7 +157,8 @@ async function expectProviderOnFile(page: Page): Promise<void> {
   await expect(page.getByTestId('ai-provider-model')).toHaveValue('deepseek-chat');
 }
 
-// submitReview —— 第 4 步现在只是复核卡，直接提交（算术框已删，见 F-H-1）。
+// submitReview -- step 4 is now just a review card, submits directly (the arithmetic box
+// has been removed, see F-H-1).
 async function submitReview(page: Page): Promise<void> {
   await page.getByTestId('submit').click();
 }

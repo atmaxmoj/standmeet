@@ -1,20 +1,28 @@
-// connector-mcp-app-state.spec.ts —— MCP App cross-refresh state primitive + isolation（§一 外置）。
+// connector-mcp-app-state.spec.ts — MCP App cross-refresh state primitive + isolation
+// (§1, externalized).
 //
-// 沙箱卡（ui:// iframe）是「能跨刷新存活的小应用」：它经 host 对**自己 mcp 那一格**做
-// 增删改查。状态挂在 session 背后的耐久身份（member）上，按 mcp 分格：
+// A sandbox card (ui:// iframe) is "a small app that survives across refreshes": it
+// does CRUD, through the host, on **its own mcp's slot only**. State hangs off the
+// durable identity behind the session (the member), keyed by mcp:
 //     state[member][mcp_id][key] = value
-// mcp_id **由后端从 {tool} 推出**（capreg tool→plugin），绝不收客户端传来的 mcp_id —— 这
-// 是隔离的根：卡只能碰自己 tool 所属 mcp 那一格。
+// mcp_id is **derived by the backend from {tool}** (capreg tool→plugin), and never
+// accepted from a client-supplied mcp_id — this is the root of the isolation: a card
+// can only touch the slot of the mcp its own tool belongs to.
 //
-// 证明：
-//   1. CRUD：set → get → delete 按 (member, mcp, key) round-trip。
-//   2. 同一 mcp 跨 session 隔离：member A 的 booker-state 看不到 member B 的。
-//   3. 同一 session 跨 mcp 隔离：booker 那格 ≠ retrieval 那格，互不串。
-//   4. mcp-keyed（forge 不了）：同属 booker 的 calendar_book / calendar_list_slots 共享
-//      一格 —— 证明按 mcp 派生、非按 tool 字面，客户端给不同 tool 名也落同一 mcp。
+// What this proves:
+//   1. CRUD: set → get → delete round-trips on (member, mcp, key).
+//   2. Same mcp, cross-session isolation: member A's booker-state is invisible to
+//      member B's.
+//   3. Same session, cross-mcp isolation: the booker slot ≠ the retrieval slot,
+//      never leaking into each other.
+//   4. mcp-keyed (cannot be forged): calendar_book / calendar_list_slots, both part
+//      of the booker mcp, share one slot — proving the key derives from the mcp, not
+//      the literal tool name, so a client naming a different tool still lands in the
+//      same mcp.
 //
-// RED until: 后端落 mcp_app_state 表 + /sessions/{conv}/app-state/{tool}[/{key}] endpoint
-// （member × mcp scope，mcp 从 tool 派生）。
+// RED until: the backend has an mcp_app_state table + a
+// /sessions/{conv}/app-state/{tool}[/{key}] endpoint (member × mcp scope, mcp derived
+// from tool).
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -74,7 +82,8 @@ test.describe('MCP App cross-refresh state primitive + isolation', () => {
     const { request } = seed;
     const { session_token: tok, conversation_id: conv } = seed.visitor;
     await putAppState(request, tok, conv, 'calendar_book', 'shared', { v: 1 });
-    // 同属 booker mcp → 另一个 tool 名读同一格（证明按 mcp 派生、非按 tool 字面）。
+    // Both are part of the booker mcp → a different tool name reads the same slot
+    // (proving the key derives from the mcp, not the literal tool name).
     expect(await getAppState(request, tok, conv, 'calendar_list_slots'))
       .toMatchObject({ shared: { v: 1 } });
   });

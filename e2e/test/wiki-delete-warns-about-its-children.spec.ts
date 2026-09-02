@@ -1,16 +1,22 @@
-// wiki-delete-warns-about-its-children —— 删一个有子孙的条目，提示必须说清会连带删掉什么。
+// wiki-delete-warns-about-its-children -- deleting an entry that has descendants, the
+// warning must clearly say what will be deleted along with it.
 //
-// **这条用例覆盖的是「父子都已经在当前列表里」那一半，它今天就是绿的。**
-// 写它是因为 prod 上看到 `▾ 0` 挂在真的有子节点的行上（F-L-24），当时我推断
-// `descendantCounts(shown)` 在懒加载树上永远数不到子节点 —— **推错了**：
-// 小列表里父子都在 `shown` 里，计数是准的，所以这条用例在 e2e 里红不起来。
+// **This test covers the half where "both parent and child are already in the current
+// list", and it is green today.**
+// It was written because `▾ 0` was seen in prod on a row that genuinely has child nodes
+// (F-L-24); at the time I guessed `descendantCounts(shown)` can never count children on a
+// lazily-loaded tree -- **that guess was wrong**: in a small list both parent and child are
+// in `shown`, so the count is accurate, which is why this test can't go red in e2e.
 //
-// 真正的触发条件是**分页**：prod 有 574 条 wiki，`shown` 只装当前页，跨页的子节点数不到。
-// 要让它红，得先播够跨页的条目 —— 那一条还没写。**在写出来之前，那个 0 不改代码**
-// （证不了红就不许改，见 iron rule ③）。
+// The real trigger condition is **pagination**: prod has 574 wiki entries, `shown` only
+// holds the current page, and a child on another page can't be counted. To make this fail
+// red, enough cross-page entries need to be seeded first -- that test hasn't been written
+// yet. **Until it is, that 0 does not get touched in code** (can't prove red, can't fix; see
+// iron rule 3).
 //
-// 留着它的理由：它守住了"已加载那一半"的行为，而且把「它不覆盖什么」写在这里，
-// 免得下一个人把这一条绿当成整条缺陷的保险（见 [[verifier-can-lie-about-its-own-coverage]]）。
+// Why keep this test: it locks in the "already-loaded half" behavior, and writing down
+// "what it doesn't cover" here keeps the next person from mistaking this green for
+// insurance covering the whole bug (see [[verifier-can-lie-about-its-own-coverage]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -49,7 +55,7 @@ test.describe('deleting a wiki entry says what goes with it', () => {
         void d.dismiss();
       });
       await adminPage.getByTestId(`wiki-delete-${parentID}`).click();
-      // 先取文本再判断（[[negated-assertion-passes-while-absent]]）。
+      // Read the text first, then assert on it ([[negated-assertion-passes-while-absent]]).
       await expect.poll(() => asked, { timeout: 5_000 }).not.toBe('');
       expect(asked, 'the prompt must say the children go too')
         .toMatch(/also deletes/i);
@@ -76,7 +82,7 @@ async function createEntry(adminPage: Page, title: string, parentID: string): Pr
     ? Promise.resolve()
     : adminPage.getByTestId('wiki-create-parent').selectOption(parentID));
   await adminPage.getByTestId('wiki-create-submit').click();
-  // 等**这一条真的存在**，不等那个不带标识的 toast（见 admin-wiki-crud 里同样的注释）。
+  // Wait for **the entry to actually exist**, not for that unidentifiable toast (see the same comment in admin-wiki-crud).
   await expect
     .poll(async () => (await wikiList(adminPage)).some((e) => e.title === title),
       { message: `entry "${title}" must exist before the test moves on`, timeout: 10_000 })

@@ -1,9 +1,13 @@
-// role-waypoints-admin.spec.ts —— F-A-7 owner 在 /admin/roles 上**编写 ghost-steering waypoints**
-// 的后台 UI。整套 waypoint 机制后端早就齐了、admin API 也 round-trip,唯独 GUI 上无处可写 —— 所以
-// 真实例每个 role 都 waypoints:[],ghost 永远无处可去。这条守:
-//  1. 卡上能加一条 waypoint(id + 描述 + 权重 + terminal + 证据)→ 存 → reload → 持久化;
-//  2. **零化守卫**:加了 waypoint 之后再存 dock(兄弟保存),waypoint 不能被清零(roleUpdatePayload
-//     必须带 waypoints —— 这是 F-A-10 零化 bug 类在 waypoints 上的复现防线)。
+// role-waypoints-admin.spec.ts -- F-A-7, the admin UI for the owner to **author
+// ghost-steering waypoints** on /admin/roles. The whole waypoint mechanism has long been
+// complete on the backend, and the admin API round-trips fine too -- there's simply nowhere
+// in the GUI to write one. So on real instances every role has waypoints:[], and the ghost
+// has nowhere to steer toward. This test guards:
+//  1. a waypoint can be added on the card (id + description + weight + terminal + evidence)
+//     -> save -> reload -> persists;
+//  2. **the zeroing guard**: after adding a waypoint, saving the sibling dock must not zero
+//     it out (roleUpdatePayload must carry waypoints -- this is the recurrence-prevention
+//     line for the F-A-10 class of zeroing bug, on waypoints specifically).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -38,12 +42,14 @@ test.describe('F-A-7 · owner authors ghost waypoints from /admin/roles', () => 
       await expect(row.getByTestId('role-wp-row-0')).toHaveCount(0);
     });
 
-  // 几何判据，不是文本判据（[[text-assertion-cannot-see-layout]]）。
+  // A geometric criterion, not a textual one ([[text-assertion-cannot-see-layout]]).
   //
-  // 这一行的两个输入框都带 `.sm-field-input`，而那个原子里写着 `width:100%` 且**没进
-  // Tailwind 的 layer** —— 它压过 `w-[38%]`。配上兄弟的 `flex-1`（= `flex-basis: 0`），
-  // 描述框的基准尺寸是 0，收缩按基准分摊，于是它**恒定 0 宽**：DOM 里在、屏幕上没有、
-  // owner 点不进去。`toBeVisible` 那一类断言看不见这件事，红出来只是 "element is not visible"。
+  // Both input boxes on this row carry `.sm-field-input`, and that atom's `width:100%`
+  // **isn't inside Tailwind's layer** -- so it overrides `w-[38%]`. Combined with its
+  // sibling's `flex-1` (= `flex-basis: 0`), the description box's basis size is 0, and
+  // shrinking is distributed by basis, so it ends up **permanently 0-width**: present in the
+  // DOM, invisible on screen, and the owner can't click into it. Assertions like
+  // `toBeVisible` can't see this — it just fails red as "element is not visible".
   test('两个输入框都真的占着地方（0 宽 = owner 打不进字）',
     async ({ adminPage }) => {
       await openRoles(adminPage);
@@ -87,7 +93,7 @@ test.describe('F-A-7 · owner authors ghost waypoints from /admin/roles', () => 
       await expectSuccessToast(adminPage, /dock/i);
       await adminPage.reload();
       await openRoles(adminPage);
-      // dock 存完 waypoint 必须还在(roleUpdatePayload 不带 waypoints → 这里 RED)。
+      // After the dock saves, the waypoint must still be there (roleUpdatePayload not carrying waypoints -> RED here).
       await expect(
         adminPage.getByTestId('role-row-steerer').getByTestId('role-wp-id-0'),
       ).toHaveValue(WP_ID);

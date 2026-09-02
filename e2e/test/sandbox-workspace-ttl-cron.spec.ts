@@ -48,7 +48,8 @@ const PLUGIN_ID = 'wsfs';
 let code = '';
 let request: APIRequestContext;
 
-// adminPage 要用 owner 的凭据登录 —— 这份 spec 以前只走 API 和访客那条路。
+// adminPage needs to log in with the owner's credentials -- this spec previously only
+// went through the API and the visitor path.
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('sandbox per-session workspace: backend TTL + cron sweep', () => {
@@ -75,7 +76,8 @@ test.describe('sandbox per-session workspace: backend TTL + cron sweep', () => {
 
   test('expired workspace is cron-swept; a fresh one survives',
     async ({ browser }) => {
-      // 两次完整浏览器 chat turn + TTL 等待 + 两次 sweep —— 30s 默认 timeout 不够。
+      // Two full browser chat turns + waiting on the TTL + two sweeps -- the default
+      // 30s timeout isn't enough.
       test.setTimeout(90_000);
       // 1) a session writes a file → its workspace is provisioned (lazily).
       const toolTagA = await scriptMockToolCall(request, {
@@ -126,12 +128,15 @@ test.describe('sandbox per-session workspace: backend TTL + cron sweep', () => {
   test.afterAll(async () => { await request.dispose(); });
 });
 
-// F-E-26 的另一面。`admin-sandbox` 那条守的是「没有东西可扫时那颗按钮是禁用的」，
-// 而**只有这一面守不住**：把按钮永久禁用也能让它绿。这一条要的是有工作区时它真的能扫 ——
-// 而这份 spec 是这个仓库里唯一造得出真工作区的地方（一次真访客会话 + 一次真写文件）。
-// 接着上一组跑：上一条最后留下的正是一个新鲜的工作区。
+// The other half of F-E-26. The `admin-sandbox` test guards "the button is disabled when
+// there's nothing to sweep", and **that half alone can't catch this**: permanently
+// disabling the button would still pass it green. This test needs there to genuinely be
+// a workspace it can sweep -- and this spec is the only place in the repo that can
+// produce a real workspace (a real visitor session + a real file write).
+// Runs right after the group above: what the previous test leaves behind is exactly a
+// fresh workspace.
 test.describe('sweep 那颗按钮在有东西可扫时是活的', () => {
-  // 自己开一个请求上下文：上一组在 afterAll 里把它那个关掉了。
+  // Opens its own request context: the previous group closed theirs in afterAll.
   let req: APIRequestContext;
   test.beforeAll(async ({ playwright }) => { req = await playwright.request.newContext(); });
   test.afterAll(async () => { await req.dispose(); });
@@ -139,7 +144,8 @@ test.describe('sweep 那颗按钮在有东西可扫时是活的', () => {
   test('有 workspace 时,面板上那颗 sweep 可点,而且点完真的扫掉了',
     async ({ adminPage }) => {
       test.setTimeout(90_000);
-      // 上一条留下一个新鲜的工作区；把 TTL 压到 0，让它变成「该扫的」。
+      // The previous test left behind a fresh workspace; push the TTL to 0 to make it
+      // "due for sweeping".
       const request = req;
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       await setSandboxWorkspaceTTL(request, csrf, { seconds: 0 });
@@ -153,7 +159,8 @@ test.describe('sweep 那颗按钮在有东西可扫时是活的', () => {
       await expect(sweep, '有工作区时这颗按钮该是活的').toBeEnabled({ timeout: 10_000 });
       await sweep.click();
 
-      // 判的是**库那边真的少了一个**，不是屏幕上出现了一句 toast（[[nonunique-signal-not-a-receipt]]）。
+      // What this asserts is **the backend genuinely lost one**, not a toast appearing
+      // on screen ([[nonunique-signal-not-a-receipt]]).
       await expect.poll(
         async () => (await listSandboxWorkspaces(request)).length,
         { timeout: 10_000, intervals: [250] },

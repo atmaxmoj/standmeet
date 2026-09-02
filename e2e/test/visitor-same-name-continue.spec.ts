@@ -1,12 +1,17 @@
-// visitor-same-name-continue.spec.ts —— 换人窗口里用「同一个名字」START,必须
-// 续聊:既不清空 transcript、也不把 turn 计数归零。
+// visitor-same-name-continue.spec.ts -- pressing START with "the same name"
+// in the switch-name modal must continue the conversation: it must not clear
+// the transcript, and must not reset the turn count to zero.
 //
-// 后端本来就对:resolveMemberWithQuota 同名 → 同 member,createCodeConversation
-// 走 GetOpenChatByMember → 续上该 member 的 open chat,turn 限额按 conversation
-// 数(CountVisitorTurns)算,都在。bug 纯前端:同名也照样 re-issue,触发
-// startedAt-reset 清掉 dialogs + issue 响应里 UsedTurns 恒 0 → 看着像重置。
+// The backend was already correct here: resolveMemberWithQuota resolves the
+// same name to the same member, and createCodeConversation goes through
+// GetOpenChatByMember to resume that member's open chat; the turn quota is
+// counted by conversation (CountVisitorTurns), and all of that already
+// worked. The bug was purely frontend: even a same-name submission
+// re-issued, which triggered a startedAt-reset that cleared the dialogs, and
+// the issue response's UsedTurns was always 0 -- making it look reset.
 //
-// 期望:同名 START → 直接关窗续聊,上一条问答还在、turn 计数不变。
+// Expected: START with the same name -> closes the modal and continues the
+// conversation, with the previous Q&A still there and the turn count unchanged.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -24,8 +29,9 @@ const OWNER = {
 
 const CODE = 'INTRO-001';
 const NAME = 'Dana';
-// 第二条测试用不同名字 = 不同 member = 干净的会话,避免 #11 history-restore 把
-// 第一条测试(Dana)的同句问话带回来,让 getByText 撞到 2 个。
+// The second test uses a different name = a different member = a clean
+// session, avoiding #11 history-restore bringing back the first test's
+// (Dana's) same question, which would make getByText hit 2 matches.
 const NAME2 = 'Eve';
 const QUESTION = 'tell me about lucerna';
 
@@ -56,8 +62,9 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
       const page = await ctx.newPage();
       await enterCodeSession(page, CODE, NAME);
 
-      // #28: backend 落库在 /agent/turn 流末端(`done` 之前);res.finished()
-      // = 流读完 = 已落库。
+      // #28: the backend writes to the DB at the end of the /agent/turn
+      // stream (right before `done`); res.finished() = the stream is fully
+      // read = it has been written.
       const turnDone = page.waitForResponse((r) =>
         r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
       const input = page.locator('[data-testid="chat-input-field"]');
@@ -68,14 +75,16 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
 
       const usedSel = '[data-testid="session-strip-turns-used"]';
       const usedBefore = await page.locator(usedSel).innerText();
-      expect(usedBefore).not.toBe('0'); // 问过一句,计数应 ≥ 1
+      expect(usedBefore).not.toBe('0'); // one question was asked, count should be >= 1
 
-      // 点 "you · Dana" 重开名字选择器,名字不变直接 START。
+      // Click "you · Dana" to reopen the name picker, and submit START with
+      // the name unchanged.
       await page.getByTestId('session-strip-switch-name').click();
       await expect(page.getByTestId('visitor-name-input')).toBeVisible({ timeout: 5_000 });
       await page.getByTestId('visitor-name-submit').click();
 
-      // 窗关了 → 续聊:上一条问答还在,turn 计数没归零。
+      // Modal closed -> continued: the previous Q&A is still there, and the
+      // turn count wasn't reset.
       await expect(page.getByTestId('visitor-name-input')).toHaveCount(0, { timeout: 5_000 });
       await expect(page.getByText(QUESTION)).toBeVisible();
       expect(await page.locator(usedSel).innerText()).toBe(usedBefore);
@@ -89,8 +98,9 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
       const page = await ctx.newPage();
       await enterCodeSession(page, CODE, NAME2);
 
-      // #28: backend 落库在 /agent/turn 流末端(`done` 之前);res.finished()
-      // = 流读完 = 已落库。
+      // #28: the backend writes to the DB at the end of the /agent/turn
+      // stream (right before `done`); res.finished() = the stream is fully
+      // read = it has been written.
       const turnDone = page.waitForResponse((r) =>
         r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
       const input = page.locator('[data-testid="chat-input-field"]');
@@ -99,7 +109,9 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
       await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
       await (await turnDone).finished();
 
-      // 重开名字选择器 → 点窗外角落(backdrop,非 card)→ 应关窗、保持原会话。
+      // Reopen the name picker -> click a corner outside the modal
+      // (the backdrop, not the card) -> should close the modal and keep the
+      // original session.
       await page.getByTestId('session-strip-switch-name').click();
       await expect(page.getByTestId('visitor-name-overlay')).toBeVisible({ timeout: 5_000 });
       await page.getByTestId('visitor-name-overlay').click({ position: { x: 5, y: 5 } });

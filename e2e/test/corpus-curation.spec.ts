@@ -1,15 +1,16 @@
-// corpus-curation.spec.ts —— AI 通过 MCP 推送 raw 进 corpus，owner 在
-// admin 里看到。
+// corpus-curation.spec.ts -- the AI pushes raw into the corpus over MCP, and the owner sees
+// it in admin.
 //
-// 用户故事：
-//   owner 在 Cursor 跟 AI 聊天，让 AI 把一条 insight 用 raw_dump 推进
-//   corpus。然后 owner 打开 /admin/raw 想确认到没到 —— 应当看到那条
-//   原文。这是 owner curation loop 的第一步（"我让 AI 写了什么"），
-//   后续会在同一页加 promote-to-wiki UI 让 owner 决定要不要
-//   保留它。
+// User story:
+//   The owner chats with the AI in Cursor and has the AI push an insight into the corpus
+//   with raw_dump. The owner then opens /admin/raw to confirm it arrived -- they should see
+//   the original text. This is the first step of the owner curation loop ("what did I have
+//   the AI write"); a promote-to-wiki UI will later be added to the same page for the owner
+//   to decide whether to keep it.
 //
-// AI client 这一侧仿真：spec 调 MCP raw_dump，等同于 Cursor / Claude
-// Desktop 自动调它。MCP 协议本身就是 owner ingest 的 user surface。
+// Simulating the AI client side: the spec calls MCP raw_dump directly, equivalent to Cursor
+// / Claude Desktop calling it automatically. The MCP protocol itself is the user surface for
+// owner ingest.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -44,9 +45,10 @@ test.describe('AI pushes raw insight via MCP; owner sees it in admin', () => {
   test('owner opens /admin/raw and sees the AI-pushed entry',
     async ({ adminPage: page }) => {
       await openRaw(page);
-      // 限定在列表里断言，不是"页面上任何角落有这句话"：侧栏的 corpus-constellation 跑马灯也会
-      // 显示同一条最近条目，全页 getByText 会同时命中它俩（strict mode violation）。
-      // 这条用例要证的是「owner 在 raw 列表里看得到它」，那就在列表里找。
+      // Scope the assertion to the list, not "this text is somewhere on the page": the
+      // sidebar's corpus-constellation ticker also shows the same recent entry, so a
+      // page-wide getByText would hit both (strict mode violation).
+      // What this test needs to prove is "the owner can see it in the raw list", so look there.
       await expect(page.getByTestId('raw-list')).toBeVisible({ timeout: 5_000 });
       await expect(
         page.getByTestId('raw-list').getByText(RAW_BODY, { exact: false }),

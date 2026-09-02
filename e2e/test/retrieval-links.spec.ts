@@ -1,8 +1,11 @@
-// retrieval-links.spec.ts —— B. corpus_links(1 跳,分 outgoing/backlinks)× 边一致(crawl face)。
+// retrieval-links.spec.ts — B. corpus_links (1 hop, split into outgoing/backlinks) ×
+// edge consistency (crawl face).
 //
-// corpus_links{path} → {outgoing, backlinks}:顺 note_refs 出边 + 入边。边是 owner 写 [[Title]] 时
-// RebuildNoteRefs 建的 → 加/删链接即时反映。只 1 跳。link 按 title 解析,target 先于 linker 存在。
-// ⚠️ 全 RED until corpus_links op 实现。
+// corpus_links{path} → {outgoing, backlinks}: follows note_refs outbound + inbound
+// edges. Edges are built by RebuildNoteRefs whenever the owner writes [[Title]] → so
+// adding/removing links reflects instantly. Only 1 hop. Links resolve by title, and
+// the target must exist before the linking note does.
+// ⚠️ All RED until the corpus_links op is implemented.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -97,8 +100,8 @@ async function bidirectionalBothSides(): Promise<void> {
   expect(backTitles(a.body), 'backlink').toContain('BiB');
 }
 
-// B13 —— 不存在的 path:走 corpus_read 一样的 friendly not-found envelope(ok=true + result.error,
-// 不是 500),且不泄漏任何邻居。
+// B13 — a path that doesn't exist: takes the same friendly not-found envelope as
+// corpus_read (ok=true + result.error, not a 500), and leaks no neighbors.
 async function missingPathFriendly(): Promise<void> {
   const r = await links(O.request, await sess(), 'no/such/path');
   expect(r.status, 'not 500').toBeLessThan(500);

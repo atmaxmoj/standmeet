@@ -1,7 +1,10 @@
-// security-idor-report.spec.ts —— pentest / BOLA fix (RED-first)。GET /report/{id} 原本只按
-// owner_id 鉴权(fetchOwnedReport),单 owner 实例下所有访客同 owner → 访客 Bob 能用自己的 token
-// 读到访客 Alice 的对话摘要报告(跨访客 BOLA)。契约:report 必须 scope 到**创建它的会话的
-// member**,Bob 读 Alice 的 report → 404。绿=归属门在;红(修复前)=Bob 读到 Alice 的报告。
+// security-idor-report.spec.ts — pentest / BOLA fix (RED-first). GET /report/{id} used
+// to authorize solely by owner_id (fetchOwnedReport); since every visitor on a
+// single-owner instance shares that same owner, visitor Bob could use his own token to
+// read visitor Alice's conversation summary report (cross-visitor BOLA). The contract:
+// a report must be scoped to **the member of the session that created it**; Bob reading
+// Alice's report → 404. Green = the ownership gate is in place; red (before the fix) =
+// Bob reads Alice's report.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

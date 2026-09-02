@@ -1,10 +1,12 @@
-// b5-owner-only-isolation.spec.ts —— Phase B-5: 验所有 owner-only
-// capability (owner.me / seo.bundle / 后续迁入的 jobs / resume / applications
-// / custom_page) 都不在 visitor session 的 capability map 或 tool_specs。
+// b5-owner-only-isolation.spec.ts —— Phase B-5: verifies that every owner-only
+// capability (owner.me / seo.bundle / and the jobs / resume / applications /
+// custom_page ones migrated in later) is absent from a visitor session's
+// capability map and tool_specs.
 //
-// 现有 registry-invariants spec 已覆盖 visitor_only ↔ no owner MCP 一侧；
-// 本 spec 加强反向：枚举所有 owner-only ID + 其 OwnerMCPBinding 暴露的
-// tool name，确保都没漏到 visitor 那边。
+// The existing registry-invariants spec already covers the visitor_only ↔ no
+// owner MCP side. This spec hardens the reverse direction: enumerate every
+// owner-only ID and every tool name its OwnerMCPBinding exposes, and make
+// sure none of them leaked to the visitor side.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -54,9 +56,11 @@ test.describe('Phase B-5 owner-only capability isolation', () => {
     await request.dispose();
   });
 
-  // 原来这条点名 owner.me + seo.bundle 当哨兵。它们搬进出站收口之后就不在 capreg 里了，
-  // 于是这条会因为**搬家**而红 —— 它守的其实不是那两个名字，是「owner 能做的事一件都不
-  // 漏给访客」。所以改成对着**整张 owner 工具面**比，谁搬家都不影响它守的东西。
+  // This case used to name owner.me + seo.bundle as sentinels. Once they moved into the
+  // outbound convergence point, they weren't in capreg anymore, so this case would go red
+  // purely because of a **relocation** — but what it actually guards isn't those two names,
+  // it's "not one thing the owner can do leaks to a visitor." So it now compares against the
+  // **whole owner tool surface** instead; nothing relocating changes what it guards.
   test('the whole owner tool surface is disjoint from the visitor tool surface',
     ownerSurfaceStaysOwnerSide);
 
@@ -78,9 +82,9 @@ test.describe('Phase B-5 owner-only capability isolation', () => {
 
 });
 
-// ownerSurfaceStaysOwnerSide —— owner 用真 MCP 客户端能调到的每一个工具，都不该出现在
-// 访客那份 tool_specs 里。比的是**整张面**，不是几个手抄的名字：手抄的那份只在有人想起
-// 来扩它时才增长。
+// ownerSurfaceStaysOwnerSide —— every tool the owner can call through a real MCP client
+// must not show up in the visitor's tool_specs. This compares the **whole surface**, not a
+// hand-copied list of names: a hand-copied list only grows when someone remembers to extend it.
 async function ownerSurfaceStaysOwnerSide(
   { playwright }: { playwright: PW },
 ): Promise<void> {

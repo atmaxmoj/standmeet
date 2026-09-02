@@ -1,4 +1,4 @@
-// resume-enters-the-conversation.spec.ts —— the fix for "简历进不了对话".
+// resume-enters-the-conversation.spec.ts -- the fix for "the résumé can't get into the conversation".
 //
 // A recruiter scans the résumé QR and lands in a visitor session under the application's
 // auto-issued hiring code. This proves, end-to-end, that the recruiter's agent can then reach THIS

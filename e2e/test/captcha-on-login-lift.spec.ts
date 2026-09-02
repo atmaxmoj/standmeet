@@ -1,14 +1,20 @@
-// captcha-on-login-lift.spec.ts —— F-G-8：三扇门里，owner 自己那扇没有钥匙。
+// captcha-on-login-lift.spec.ts — F-G-8: of the three doors, the owner's own door has
+// no key.
 //
-// gate 的两扇门（码 / 留言）被 per-IP 拦下之后，一次有效的人机校验就能过（F-G-3 / F-G-4）。
-// **登录这扇门没有**：`serveLoginGuard` 先查限流再查校验，超限那条分支根本不看票，于是密码
-// 完全正确、校验也解开了的 owner，照样被挡在自己的实例外面，直到窗口自己过去。
+// Once the gate's two doors (code / message) are blocked per-IP, one valid
+// human-check clears them (F-G-3 / F-G-4).
+// **The login door has no such lift**: `serveLoginGuard` checks the rate limit before
+// the check, and the over-limit branch never looks at the token at all — so an owner
+// whose password is completely correct and whose check is solved is still locked out
+// of their own instance until the window passes on its own.
 //
-// 而 captcha 开着时那道校验**每一次登录都要过**——攻击者早就得为每次尝试付出代价了，
-// 限流在这时挡不住他，只挡得住那个真正该进来的人。captcha 关着时不适用：那时没有校验可解，
-// 硬锁是唯一的防线（`security-login-guard` 守的就是那一半）。
+// With captcha on, that check **must be passed on every single login attempt** — an
+// attacker already pays a cost per try, so the rate limit here can't stop them, it can
+// only stop the one person who's actually supposed to get in. This doesn't apply with
+// captcha off: there's no check to solve then, so the hard lock is the only defense
+// (that's the half `security-login-guard` covers).
 //
-// 走 `make test-captcha`（Cloudflare 永远通过的测试密钥）。
+// Run via `make test-captcha` (Cloudflare's always-pass test key).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -25,12 +31,13 @@ const OWNER = {
   fullName: 'Login Lift Owner',
 };
 
-// ATTEMPTS —— 越过 `loginRateLimitMax`（30 / 5min）。
+// ATTEMPTS — crosses `loginRateLimitMax` (30 / 5min).
 const ATTEMPTS = 34;
 
 test.describe('login · a rate-limited owner can still clear the check and get in', () => {
   test.beforeAll(async ({ playwright }) => {
-    // 这台没开 captcha 就整组跳过（而不是留一条恒定的红）—— 见 fixtures/captcha.ts。
+    // Skip the whole group if this instance doesn't have captcha on (instead of
+    // leaving a permanently red test) — see fixtures/captcha.ts.
     await skipUnlessCaptchaOn(await playwright.request.newContext());
     resetInstance();
     const request = await playwright.request.newContext();
@@ -44,28 +51,35 @@ test.describe('login · a rate-limited owner can still clear the check and get i
   test('past the attempt ceiling a solved check still lets the right password through',
     async ({ page }) => {
       await goto(page, '/login');
-      // 先证这台实例真配了 captcha —— 否则「校验解开了还进不去」测的是一台压根没有校验的
-      // 机器，红得不知所以然（[[red-in-the-wrong-place]]）。
+      // First prove this instance actually has captcha configured — otherwise "solved
+      // the check yet still can't get in" is testing a machine with no check at all,
+      // going red for a reason nobody can point to ([[red-in-the-wrong-place]]).
       await expect(
         page.getByTestId('turnstile-host'),
         'captcha must be configured for this spec — run it via `make test-captcha`',
       ).toBeVisible({ timeout: 15_000 });
 
-      // 从**浏览器自己**打过去，才算在同一个桶里：后端看到的来源就是这一页的来源。
-      // 换个 APIRequestContext 去刷，刷的是另一个桶，闸门根本不会落在我面前这一页上。
+      // Only requests fired from **the browser itself** land in the same bucket: the
+      // backend sees this page's origin as the source. Hammering from a separate
+      // APIRequestContext hits a different bucket, and the gate would never fall on
+      // the page in front of me.
       const seen = await hammer(page, ATTEMPTS);
-      // 先确认真的敲够了次数：每一条都是一次**真回来的**响应，所以 34 条就是 34 次尝试，
-      // 已经越过 30/5min 那条线。
+      // First confirm the attempt count is really hit: every entry is a **real**
+      // response that came back, so 34 entries means 34 real attempts, already past
+      // the 30/5min line.
       expect(
         seen.length, 'the attempt ceiling must actually be crossed',
       ).toBeGreaterThan(30);
-      // 而这一路上不该出现 429：每一次提交都带着一张解开的票，闸就不该落在这个人头上。
-      // 拿到的应当始终是「密码不对」——那是**真话**，也是他自己造成的。
+      // And no 429 should ever appear along the way: every submission carries a
+      // solved token, so the gate must never fall on this person. What should always
+      // come back is "wrong password" — that's the **true** answer, and it's his own
+      // doing.
       expect(
         seen, 'a person who clears the check on every try is not the one this ceiling is for',
       ).not.toContain(429);
 
-      // 现在：正确的密码 + 那道自己出票的校验 → owner 必须进得去。
+      // Now: the correct password + the check that just issued its own token →
+      // the owner must be able to get in.
       await page.reload();
       await page.getByTestId('email').fill(OWNER.email);
       await page.getByTestId('password').fill(OWNER.password);
@@ -82,15 +96,21 @@ test.describe('login · a rate-limited owner can still clear the check and get i
     });
 });
 
-// hammer —— 就在这张表单上连着敲错密码，返回每一次的状态码。
+// hammer — repeatedly submit the wrong password on this same form, returning the
+// status code from each attempt.
 //
-// 走表单而不是另起一个请求上下文：闸门按来源分桶，换个上下文刷的是**另一个桶**，落下来的
-// 闸不在我面前这一页上。这也正是被防的那件事本来的样子 —— 有人对着登录框一遍遍试。
+// Goes through the form rather than a separate request context: the gate buckets by
+// origin, and a different context hits **a different bucket**, so the gate that
+// falls wouldn't be the one on the page in front of me. This is also exactly the
+// shape of the thing being defended against — someone hammering the login form
+// over and over.
 async function hammer(page: Page, times: number): Promise<number[]> {
   const seen: number[] = [];
   await page.getByTestId('email').fill(OWNER.email);
-  // 等票到手再开始敲。widget 的宿主 div 一挂上就可见，但票要一两秒才出来，而在那之前提交键
-  // 是禁用的 —— 回车按下去什么也不会发生，超时看起来像「产品不收登录」，其实是我抢在了前面。
+  // Wait for the token before hammering. The widget's host div is visible the moment
+  // it mounts, but the token itself takes a second or two, and until then the submit
+  // key is disabled — pressing Enter does nothing, and a timeout there would look like
+  // "the product refuses logins" when actually I just moved too soon.
   await page.getByTestId('password').fill('wrong-warmup');
   await expect(page.getByTestId('submit')).toBeEnabled({ timeout: 30_000 });
   for (let i = 0; i < times; i++) {

@@ -21,7 +21,7 @@ test.describe('chat · calendar.book happy path', () => {
       const start = futureSlot(7, 14);   // 7 days out, 14:00 local
       const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
-        // 无 visitor_email arg —— booker 硬控走 session profile 的 email。
+        // No visitor_email arg — the booker is hard-wired to use the session profile's email.
         args: {
           topic: 'Recruiter chat about retrieval-quality role',
           duration_min: 30,
@@ -33,7 +33,7 @@ test.describe('chat · calendar.book happy path', () => {
       expect(events).toHaveLength(1);
       expect(events[0]!.summary).toContain('Recruiter Rachel');
       expect(events[0]!.summary).toContain('Recruiter chat about retrieval-quality role');
-      // attendee 来自 session profile 的 email(seed 里 rachel@example.com),不是 tool arg。
+      // The attendee comes from the session profile's email (rachel@example.com in the seed), not the tool arg.
       expect(events[0]!.attendees ?? []).toEqual(
         expect.arrayContaining([expect.objectContaining({ email: 'rachel@example.com' })]),
       );

@@ -2,10 +2,10 @@
 // raw_dump → raw list → promote to wiki → wiki list → wiki SEO landing →
 // promote to output → output list → output SEO landing.
 //
-// 用户故事：
-//   owner 在 AI client 里 raw_dump 一条想法 → admin raw list 出现 →
-//   promote to wiki → admin wiki list 出现 → wiki SEO landing 可访问 →
-//   promote to output → admin output list 出现 → output SEO landing 可访问
+// User story:
+//   the owner raw_dumps a thought from their AI client → it appears in the admin raw list →
+//   promote to wiki → it appears in the admin wiki list → the wiki SEO landing is reachable →
+//   promote to output → it appears in the admin output list → the output SEO landing is reachable
 
 import { execSync } from 'node:child_process';
 
@@ -102,8 +102,8 @@ async function buildPipeline(request: APIRequestContext) {
   return { wikiID: wiki.id, outputID: output.id };
 }
 
-// 地址树派生:不写 path 列,只置 published 让 output 进公开 landing/sitemap。
-// 公开 URL = /output/<标题 slug>。
+// The address is derived from the tree: no path column is written; just set published so the
+// output enters the public landing/sitemap. Public URL = /output/<title slug>.
 function setOutputSeo(outputID: string): void {
   const sql =
     `UPDATE corpus_notes SET excerpt = 'test',`

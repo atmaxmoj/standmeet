@@ -1,8 +1,9 @@
-// tool-endpoint-calendar-book.spec.ts —— visitor 通过 per-tool HTTP
-// 端点直调 calendar_book。connector / quota / skill grant 三层 gating
-// 全在 Registry.AssembleVisitor 兑现：gating 通不过 → 404
-// capability_not_enabled；通过 → 200 + ok:true + capability_state
-// (quota_remaining 反映剩余可 book 次数，前端 zustand 即时同步)。
+// tool-endpoint-calendar-book.spec.ts —— visitor calls calendar_book directly
+// via the per-tool HTTP endpoint. All three gating layers — connector /
+// quota / skill grant — are settled in Registry.AssembleVisitor: gating fails
+// → 404 capability_not_enabled; gating passes → 200 + ok:true +
+// capability_state (quota_remaining reflects bookings still available, the
+// frontend zustand store syncs immediately).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

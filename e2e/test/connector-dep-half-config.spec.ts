@@ -1,17 +1,20 @@
-// connector-dep-half-config.spec.ts —— 状态变更矩阵
-// 「配了凭据、未授权(no refresh_token) · 装配 · Connected=false → 隐藏」补
-// (half-config 边界)。
+// connector-dep-half-config.spec.ts —— fills in the state-transition matrix cell "credentials
+// saved, not authorized (no refresh_token) · assembled · Connected=false → hidden"
+// (the half-config boundary).
 //
-// owner 存了 GCal client_id/secret 但**从没走完 OAuth**(没有 refresh_token)。
-// connected 谓词必须 = false → Requires:[calendar] 的 booker cap 不进 enabledCaps
-// → calendar_book tool 在 session tool-spec 里**缺席**。半配 ≠ 已连。
+// The owner has stored GCal client_id/secret but **never completed OAuth** (no
+// refresh_token). The connected predicate must be false → the booker cap that Requires:
+// [calendar] does not enter enabledCaps → the calendar_book tool is **absent** from the
+// session tool-spec. Half-configured is not the same as connected.
 //
-// 注:这跟 chat-book-not-connected 同起点(seedOwnerCredentialed),但那条从
-// 「访客持权但 owner 没连」角度断言;本条明确盯住「凭据已存 / refresh_token IS
-// NULL」这个生命周期格子,属 connector-deps 矩阵补的边界用例。
+// Note: this shares a starting point with chat-book-not-connected (seedOwnerCredentialed),
+// but that test asserts from "visitor holds the grant but owner isn't connected"; this one
+// specifically targets the lifecycle cell "credentials stored / refresh_token IS NULL" —
+// a boundary case that fills in the connector-deps matrix.
 //
-// RED:重构落地前若 connected 谓词只看 has_credentials 不看 refresh_token,
-// 半配会被误判为已连 → tool 误暴露 → 断言失败,符合 TDD 预期。
+// RED: before the refactor lands, if the connected predicate only checks has_credentials and
+// not refresh_token, a half-config will be misjudged as connected → the tool gets exposed by
+// mistake → the assertion fails, as expected under TDD.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -27,14 +30,14 @@ import { issueSession } from '@/fixtures/visitor';
 test.describe('connector dep · credentials saved but OAuth never completed → booking hidden', () => {
   let seed: BaseSeed;
   test.beforeAll(async ({ playwright }) => {
-    // saveGCalCredentials 跑了,但**没有** initGCalOAuth/callback → no refresh_token。
+    // saveGCalCredentials ran, but **without** initGCalOAuth/callback → no refresh_token.
     seed = await seedOwnerCredentialed(playwright);
   });
   test.afterAll(async () => { await teardownSeed(seed); });
 
   test('has_credentials true but connected false → calendar_book absent from session',
     async () => {
-      // 前置事实:半配 = 有凭据、未连。
+      // Precondition: half-configured = credentials present, not connected.
       const status = await getGCalStatus(seed.request);
       expect(status.has_credentials, 'credentials were saved').toBe(true);
       expect(status.connected, 'but OAuth never completed → not connected').toBe(false);
@@ -47,7 +50,8 @@ test.describe('connector dep · credentials saved but OAuth never completed → 
         visitor_name: 'Recruiter Rachel', visitor_email: 'rachel@example.com',
       });
 
-      // connected 谓词 false → 即便码授予 calendar.book,tool 也必须隐藏。
+      // connected predicate false → even though the code grants calendar.book, the tool
+      // must still be hidden.
       await expectCalendarBookExposed(seed.request, visitor.session_token, false);
     });
 });

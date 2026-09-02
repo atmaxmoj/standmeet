@@ -1,16 +1,21 @@
-// genre-assets-reader.spec.ts —— **访客在页面上真的看见那张图**。
+// genre-assets-reader.spec.ts — **the visitor actually sees the image on the page**.
 //
-// 端 = 用户真的会用的东西。owner 的端是 MCP（他在 Claude Code 里说"把这张图配到那条 wiki
-// 上"），访客的端是**浏览器**。`POST /api/v1/sessions/{id}/tools/corpus_read` 不是端 ——
-// 没有访客会发那个 POST，发它的是页面里的 JS。从那儿断言，等于从访客那一侧的中间插进去。
+// A surface = something a real user actually uses. The owner's surface is MCP (they
+// tell Claude Code "attach this image to that wiki entry"); the visitor's surface is
+// **the browser**. `POST /api/v1/sessions/{id}/tools/corpus_read` is not a surface —
+// no visitor ever sends that POST, the page's own JS does. Asserting from there is
+// asserting from somewhere in the middle of the visitor's own path.
 //
-// 这条差别不是洁癖：素材的泄漏**发生在渲染层**。文件名、缩略图、渲不出来的破图位，
-// 任何一个漏出去都算，而它们在 JSON 里一个都看不见。所以"越权访客拿不到素材"这条
-// 必须在页面上断。
+// This distinction isn't fussiness: asset leaks **happen at the rendering layer**.
+// A filename, a thumbnail, a broken-image glyph that fails to render — any of these
+// leaking is a real leak, and none of them are visible in JSON. So "an out-of-scope
+// visitor cannot get the asset" has to be asserted on the page.
 //
-// 建这条 spec 的同时补上了它要验的那个面：wiki/output 的 reader 以前**不解析**正文里的
-// `standmeet-asset:<id>`（只有 writings 那条路解析），后端 landing 也不返 asset_urls。
-// 于是后端全绿、30 条 e2e 全绿，而访客页面上什么都没有。
+// Building this spec also fills in the surface it verifies: the wiki/output readers
+// previously **did not parse** `standmeet-asset:<id>` in the body (only the writings
+// path parsed it), and the backend landing didn't return asset_urls either. So the
+// backend was all green, all 30 e2e cases were green, and the visitor's page had
+// nothing on it.
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -35,8 +40,9 @@ interface MCPSession { request: APIRequestContext; token: string; sid: string }
 let s: MCPSession;
 let csrf: string;
 let entryPath: string;
-// 一条正文里引着「已经不在了的素材」的笔记（F-L-50）。种在 beforeAll 里 ——
-// 用例体里再建会用到已经关掉的那个 request 上下文。
+// A note whose body references "an asset that no longer exists" (F-L-50). Seeded in
+// beforeAll — building it inside a test body would need the request context that has
+// already been closed by then.
 let danglingPath: string;
 let assetID: string;
 let coverAssetID: string;
@@ -47,7 +53,8 @@ let outputCoverID = '';
 let outputDocID = '';
 
 const COVER_LINE = 'the line laid over the hero';
-// OUTPUT_HUE —— owner 在 hero 编辑器里挑的那一个。**不是**代码派生的那一个。
+// OUTPUT_HUE — the one the owner picked in the hero editor. **Not** the one derived
+// from code.
 const OUTPUT_HUE = 'violet';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -63,7 +70,7 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
     await seedIllustratedNote();
     await seedIllustratedOutput();
 
-    // 两张码:一张授这条 wiki,一张不授。
+    // Two codes: one grants this wiki entry, one doesn't.
     await issueCode(request, IN_CODE, ['wiki://**'], 'inscope');
     await issueCode(request, OUT_CODE, ['output://**'], 'outscope');
     await request.dispose();
@@ -74,7 +81,8 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
     await goto(page, `/wiki/${entryPath}`);
     await expect(page.getByTestId('wiki-body')).toBeVisible({ timeout: 8_000 });
 
-    // 正文里那条 standmeet-asset URI 被换成了可访问地址 —— 图真的挂上去了。
+    // The standmeet-asset URI in the body has been swapped for a reachable URL — the
+    // image is really attached.
     const img = page.getByTestId('wiki-body').locator('img').first();
     await expect(img, '图渲在页面上').toBeVisible({ timeout: 8_000 });
     const src = await img.getAttribute('src');
@@ -87,12 +95,15 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
     await goto(page, `/wiki/${entryPath}`);
     await expect(page.getByTestId('wiki-cover')).toBeVisible({ timeout: 8_000 });
 
-    // hero 以前**只有**色板那一支:owner 通过 MCP 设了 cover_image_asset_id,访客这边
-    // 照样是按 slug hash 生成的一块颜色 —— 而且看不出哪里不对,它本来就长得像个封面。
+    // The hero used to have **only** the color-swatch branch: the owner sets
+    // cover_image_asset_id via MCP, and the visitor still gets a color generated from
+    // a slug hash — and there's no way to tell it's wrong, since it already looks
+    // like a cover.
     const img = page.getByTestId('wiki-cover-image').locator('img');
     await expect(img, '封面图真的挂上去了').toBeVisible({ timeout: 8_000 });
     expect(await img.getAttribute('src') ?? '', '指向那份素材').toContain(coverAssetID);
-    // headline 也来自 owner 设的那句,而不是从标题里切出来的。
+    // The headline also comes from the line the owner set, not sliced out of the
+    // title.
     await expect(page.getByTestId('wiki-cover')).toContainText(COVER_LINE);
   });
 
@@ -102,26 +113,31 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
 
     const box = page.getByTestId('wiki-attachments');
     await expect(box, '有附件就该有下载区').toBeVisible({ timeout: 8_000 });
-    // 附件行的 testid 是 `corpus-attachment-<id>` —— 那一行由 CorpusMedia 渲,
-    // wiki 和 output 共用同一份组件,所以 testid 里不带 genre。
+    // The attachment row's testid is `corpus-attachment-<id>` — that row is rendered
+    // by CorpusMedia, and wiki and output share the same component, so the testid
+    // carries no genre.
     const link = page.getByTestId(`corpus-attachment-${attachmentID}`);
     await expect(link, '文件名').toHaveText('paper.pdf');
     await expect(link, 'href 指向那份素材').toHaveAttribute('href', new RegExp(attachmentID));
     await expect(link, '点了是下载,不是在页面里打开').toHaveAttribute('download', 'paper.pdf');
-    // 大小要是**真实字节数**。写死一句"下载"的话,一份 40 页的 PDF 和一张截图长得一样。
+    // The size must be the **actual byte count**. A hardcoded "download" label would
+    // make a 40-page PDF look identical to a screenshot.
     await expect(box, '说的是真实大小').toContainText(/\d+(\.\d+)?\s?(B|KB|MB)/);
-    // 图片不该混进下载区 —— 它属于正文。
+    // Images should not end up in the download area — they belong in the body.
     await expect(box, '只列 attachment').not.toContainText('pixel.png');
   });
 
-  // 要害那条:越权访客**在页面上**一点痕迹都不该有。JSON 里断"数组长度 0"看不见
-  // 文件名、缩略图、破图位这些渲染层的泄漏。
+  // The critical case: an out-of-scope visitor should have **zero trace on the page**.
+  // Asserting "array length 0" in JSON can't see filename, thumbnail, or broken-image
+  // leaks at the rendering layer.
   test('没授这条的访客:页面上没有图,也没有素材的任何痕迹', async ({ page }) => {
     await enterCodeSession(page, OUT_CODE, 'Outsider');
     await goto(page, `/wiki/${entryPath}`);
 
-    // **先正向断言"他被拦住了"**。只断"没有 img"是不够的:页面 404、组件改名、路由挂掉时
-    // 元素同样不存在,那条断言照样绿 —— 一条在功能坏掉时也会通过的断言不提供信息。
+    // **Assert positively "they were blocked" first**. Asserting only "no img" isn't
+    // enough: a 404 page, a renamed component, or a broken route would leave the
+    // element equally absent, and that assertion would still pass — an assertion
+    // that also passes when the feature is broken carries no information.
     await expect(page.getByTestId('wiki-locked'), '访客确实被拦在门外')
       .toBeVisible({ timeout: 8_000 });
     await expect(page.locator('img'), '整页一张图都不该有').toHaveCount(0);
@@ -130,14 +146,18 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
     expect(html, '也不该漏出文件名').not.toContain('pixel.png');
   });
 
-  // F-R-6 —— 拦住他是对的，**说的那句话**不对。
+  // F-R-6 — blocking them is correct, **what it says** is not.
   //
-  // 这张锁屏写死了 *"The owner has restricted this entry. Enter an access code on the gate
-  // to view the full content."* + 一颗 `enter access code →`。而此刻访客**手里就有码**，
-  // 顶栏同一屏上写着 `CODE · OUT-…`：产品让他去做一件他已经做完的事，而且是唯一给出的下一步。
+  // This lock screen hardcodes *"The owner has restricted this entry. Enter an access
+  // code on the gate to view the full content."* plus an `enter access code →`
+  // control. But at this point the visitor **already has a code in hand** — the top
+  // bar on the same screen reads `CODE · OUT-…`: the product is telling them to do
+  // something they've already done, and offering it as the only next step.
   //
-  // 后端对越权和不存在**一律回 404**（那是对的：不承认存在），所以客户端分不出这两种；
-  // 但它分得出**有没有会话**，而这正是决定该说哪句话的那一位。
+  // The backend **uniformly returns 404** for both out-of-scope and nonexistent
+  // (that's correct: don't confirm existence), so the client can't distinguish the
+  // two; but it can tell **whether a session exists**, and that's exactly what should
+  // decide which message to show.
   test('手里有码的访客撞上读不到的条目:不该被要求再去输一次码', async ({ page }) => {
     await enterCodeSession(page, OUT_CODE, 'Outsider');
     await goto(page, `/wiki/${entryPath}`);
@@ -148,7 +168,8 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
     expect(said, `他已经带着码进来了,却被告知 "${said.replace(/\s+/g, ' ').slice(0, 90)}"`)
       .not.toContain('enter an access code');
     expect(said, '要说的是"这张码够不到这一条",而不是"去输码"').toMatch(/code|scope/);
-    // 那颗 CTA 也得撤：一个点了什么都不改变的按钮，比一句错话更难识破。
+    // That CTA has to go too: a button that clicking does nothing is harder
+    // to spot as wrong than a wrong sentence.
     await expect(
       locked.getByRole('link', { name: /enter access code/i }),
       '带着码的人不需要再去 gate 输一次码',
@@ -156,19 +177,25 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
   });
 });
 
-// F-L-50 —— owner 撤下一份素材之后，正文里那条引用**原地不动**：访客页上留一个浏览器
-// 默认的裂图，alt 里还印着内部文件名（真实环境抓到的是 `harness-photo.jpg`）。
+// F-L-50 — after the owner pulls an asset, the reference in the body **stays put**:
+// the visitor's page is left with the browser's default broken-image glyph, with the
+// internal filename printed right in the alt text (the real environment caught
+// `harness-photo.jpg`).
 //
-// 判据落在**屏幕上有没有那个东西**，不是「数据里干不干净」：这条缺陷的全部代价就在渲染层。
-// 两半都断：不许有裂图（src 被剥空的 img），也不许把文件名印出来 —— 只删地址会留下
-// `![原文件名]()`，把内部文件名端给访客，比裂图更糟。
+// The criterion lives in **whether that thing is on the screen**, not "is the data
+// clean": this defect's entire cost is at the rendering layer. Both halves are
+// asserted: no broken-image glyph allowed (an img with its src stripped), and the
+// filename must never be printed either — stripping only the URL would leave
+// `![original filename]()`, handing the internal filename to the visitor, which is
+// worse than the broken glyph.
 test.describe('正文引着一份已经不在的素材', () => {
   test('什么都不渲:不给访客裂图，也不给内部文件名', async ({ page }) => {
     await enterCodeSession(page, IN_CODE, 'Reader');
     await goto(page, `/wiki/${danglingPath}`);
     const body = page.getByTestId('wiki-body');
-    // 先断正文真的到了 —— 否则下面两条在页面还空着时也算通过
-    // （[[negated-assertion-passes-while-absent]]）。
+    // Assert the body actually loaded first — otherwise the two assertions below
+    // would also pass while the page is still empty
+    // ([[negated-assertion-passes-while-absent]]).
     await expect(body, '正文渲出来了').toContainText('text after', { timeout: 8_000 });
     await expect(body.locator('img'), '解析不到的素材:一个 img 都不留').toHaveCount(0);
     await expect(body, '内部文件名不许出现在访客眼前')
@@ -176,12 +203,15 @@ test.describe('正文引着一份已经不在的素材', () => {
   });
 });
 
-// output 那条 reader 一度**一行素材都没接**:landing 只回 5 个字段,连 asset_urls 都没有。
-// 而 SDK 里那句注释写着"结构跟 WikiLandingView 一致" —— 描述的是意图,不是结果。
-// 于是访客读一条 output:正文里的图是空位、owner 设的封面到不了前端、附件没有下载区,
-// 而且**一个报错都没有**。
+// The output reader at one point had **zero wiring for assets**: landing returned
+// only 5 fields, not even asset_urls. And a comment in the SDK claimed "structure
+// matches WikiLandingView" — describing the intent, not the actual result.
+// So a visitor reading an output entry: the body's image slot is empty, the owner's
+// cover never reaches the frontend, attachments have no download area, and
+// **not a single error is raised**.
 //
-// output 的落地页是**公开**的(published 的 SEO 页),所以这一组不需要码。
+// The output landing page is **public** (a published SEO page), so this group needs
+// no code.
 test.describe('output 的 reader 也渲素材', () => {
   test('正文图 + 封面 + 附件', async ({ page }) => {
     await goto(page, `/output/${outputPath}`);
@@ -193,13 +223,13 @@ test.describe('output 的 reader 也渲素材', () => {
     expect(src ?? '', 'src 不是渲不出来的 URI').not.toContain('standmeet-asset:');
     expect(src ?? '', 'src 指向那份素材').toContain(outputInlineID);
 
-    // 封面:owner 设的那张图,不是原来那块纯底色。
+    // Cover: the image the owner set, not the original flat color.
     const cover = page.getByTestId('output-cover-image').locator('img');
     await expect(cover, '封面图挂上去了').toBeVisible({ timeout: 8_000 });
     expect(await cover.getAttribute('src') ?? '').toContain(outputCoverID);
     await expect(page.getByTestId('output-cover-headline')).toHaveText(COVER_LINE);
 
-    // 附件:文件名 + 真实字节数 + 可下载。
+    // Attachment: filename + actual byte count + downloadable.
     const link = page.getByTestId(`corpus-attachment-${outputDocID}`);
     await expect(link).toHaveText('spec.pdf');
     await expect(link).toHaveAttribute('download', 'spec.pdf');
@@ -207,23 +237,29 @@ test.describe('output 的 reader 也渲素材', () => {
       .toContainText(/\d+(\.\d+)?\s?(B|KB|MB)/);
   });
 
-  // hero 是**三件套**(图 + 那句话 + 色调)。前两件上面已经断了,第三件在 output 上一直
-  // 没有渲染位:owner 挑了色调,后端存了也发了,页面永远是同一块底色(F-L-34)。
+  // The hero is a **set of three** (image + the headline + the hue). The first two
+  // are already asserted above; the third has never had a rendering slot on output:
+  // the owner picks a hue, the backend stores and sends it, and the page always
+  // shows the same flat color (F-L-34).
   test('owner 挑的色调也上到 hero 上', async ({ page }) => {
     await goto(page, `/output/${outputPath}`);
     const hero = page.getByTestId('output-cover');
     await expect(hero).toBeVisible({ timeout: 8_000 });
-    // data-hue 就是上色的机制本身(CSS 按属性选择器出渐变),不是只给测试看的标记。
+    // data-hue is the coloring mechanism itself (CSS produces the gradient via an
+    // attribute selector), not a marker that exists only for tests to see.
     await expect(hero, 'owner 挑了 violet').toHaveAttribute('data-hue', OUTPUT_HUE);
   });
 
 });
 
-// seedIllustratedNote —— 一条 wiki,身上挂三份素材:正文里的配图、hero 封面、一份 PDF 附件。
+// seedIllustratedNote — one wiki entry carrying three assets: an inline image in the
+// body, a hero cover, and a PDF attachment.
 //
-// 三份挂在**同一条**上是刻意的:正文 / hero / 下载区这三个渲染位读的是同一份素材表。
-// 分成三条语料建,渲串位(附件出现在正文、封面挂错一份)就看不出来了。
-// owner 侧全走 MCP —— 那是 owner 真实的用法。
+// Attaching all three to **the same entry** is deliberate: the body / hero /
+// download-area rendering slots all read from the same asset table. Building them as
+// three separate entries would hide a rendering-slot mixup (e.g. an attachment
+// showing up in the body, or the cover wired to the wrong asset).
+// The owner side goes entirely through MCP — that's the owner's real usage pattern.
 async function seedIllustratedNote(): Promise<void> {
   const id = await createEntry(s, 'wiki', 'Illustrated note', 'before the image');
   const inline = await uploadAsset(s, 'wiki', id, MEDIA.pixel, { filename: 'pixel.png' });
@@ -245,8 +281,9 @@ async function seedIllustratedNote(): Promise<void> {
   await seedDanglingRef();
 }
 
-// seedDanglingRef —— 正文引一个**从来不存在**的素材 id。真实环境里这是「owner 撤下了
-// 那份素材，正文里的引用留在原地」之后的样子（F-L-50）。
+// seedDanglingRef — the body references an asset id that **never existed at all**.
+// In the real environment this is what it looks like after "the owner pulled that
+// asset, and the reference in the body stayed put" (F-L-50).
 async function seedDanglingRef(): Promise<void> {
   const gone = '00000000-0000-4000-8000-0000000dead0';
   const id = await createEntry(s, 'wiki', 'Dangling ref note', 'text before');
@@ -257,8 +294,9 @@ async function seedDanglingRef(): Promise<void> {
   danglingPath = (await getEntry(s, 'wiki', id)).path ?? '';
 }
 
-// seedIllustratedOutput —— 一条**已发布**的 output,同样挂三份素材。
-// 发布是必须的:output 的落地页是公开的 SEO 页,没发布的读不到。
+// seedIllustratedOutput — one **published** output entry, also carrying three assets.
+// Publishing is required: the output landing page is a public SEO page, and an
+// unpublished entry cannot be read.
 async function seedIllustratedOutput(): Promise<void> {
   const id = await createEntry(s, 'output', 'Illustrated output', 'before the image');
   const inline = await uploadAsset(s, 'output', id, MEDIA.pixel, { filename: 'shot.png' });
@@ -277,8 +315,9 @@ async function seedIllustratedOutput(): Promise<void> {
     cover_headline: COVER_LINE,
     cover_hue: OUTPUT_HUE,
   });
-  // 发布 —— output 的落地页是**公开**的,没发布读不到。发布没有 MCP op(它是面板
-  // SEO 面上的开关),所以这一步走 admin 路由。
+  // Publish — the output landing page is **public**, and an unpublished entry can't
+  // be read. There is no MCP op for publishing (it's a toggle on the panel's SEO
+  // tab), so this step goes through the admin route.
   const res = await s.request.patch(
     `${BACKEND}/api/admin/corpus/output/${id}/seo`,
     { headers: { 'X-Csrftoken': csrf }, data: { excerpt: '', published: true } },

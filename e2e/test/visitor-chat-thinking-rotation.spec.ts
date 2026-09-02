@@ -1,14 +1,18 @@
-// visitor-chat-thinking-rotation.spec.ts —— #10 的守护。
+// visitor-chat-thinking-rotation.spec.ts —— guards #10.
 //
-// LLM 在想(没具体 tool 在跑)那几段,throbber 不显干巴巴一个静止的
-// "retrieving",而是从词库里每 3 秒取一个词轮换(thinking-words.ts)。这条验:
-//   1. 纯思考阶段(没 tool)前端显 answer-pending 那条;
-//   2. 等够久,词会换(轮换是真的,不是定死一个);
-//   3. 出现的每个词都来自那份「真词库」(不是 spinner / 乱码 / "retrieving")。
+// During the stretches where the LLM is thinking (no specific tool running), the throbber
+// must not show one static, dry "retrieving" — it rotates through a word list, picking a
+// new word every 3 seconds (thinking-words.ts). This test verifies:
+//   1. during a pure-thinking phase (no tool), the frontend shows the answer-pending line;
+//   2. given enough time, the word changes (the rotation is real, not a single fixed word);
+//   3. every word that appears comes from the **real word list** (not spinner text /
+//      garbage / "retrieving").
 //
-// 难点同 reading-dom:mock 零延迟看不到。解法:问句嵌 [[think:N]] —— gateway
-// 跳过所有 tool、sleep N ms 再出答案,这段时间没 tool 在跑 → 前端一直显 thinking
-// 那条,够长就能观察到轮换。N=7000 → 0/3/6s 三个词。
+// Same difficulty as reading-dom: the mock has zero latency, so nothing is observable by
+// default. Fix: embed [[think:N]] in the question — the gateway skips every tool, sleeps N
+// ms, then produces the answer; during that window no tool is running → the frontend keeps
+// showing the thinking line, and if it's long enough the rotation can be observed. N=7000 →
+// three words at 0s/3s/6s.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -27,8 +31,9 @@ const OWNER = {
 
 const CODE = 'INTRO-001';
 
-// 镜像 app/src/lib/page/thinking-words.ts 的 THINKING_WORDS(取自 thesaurus.com
-// 的 ponder/contemplate/deliberate 同义动词 + compose 一支)。改词库时同步这里。
+// Mirrors THINKING_WORDS in app/src/lib/page/thinking-words.ts (drawn from thesaurus.com's
+// ponder/contemplate/deliberate synonym group plus a compose branch). Keep this in sync
+// when the word list changes.
 const THINKING_WORDS = new Set([
   'thinking', 'considering', 'contemplating', 'deliberating', 'pondering',
   'reflecting', 'weighing', 'mulling', 'musing', 'reasoning', 'ruminating',
@@ -63,7 +68,8 @@ test.describe('thinking 阶段 throbber 走词库轮换(非定死)', () => {
       await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
-      // [[think:7000]]:跳过 tool,纯思考 hold 7s(够 0/3/6s 三个词)。
+      // [[think:7000]]: skip every tool, hold pure thinking for 7s (enough for words at
+      // 0s/3s/6s).
       const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('just think about it [[think:7000]]');
       await input.press('Enter');
@@ -71,12 +77,13 @@ test.describe('thinking 阶段 throbber 走词库轮换(非定死)', () => {
       const pending = page.locator('[data-testid="answer-pending"]');
       await expect(pending).toBeVisible({ timeout: 5_000 });
 
-      // 每 ~250ms 采一次当前词,收集去重,直到看见 ≥2 个不同的词(轮换为真)。
+      // Sample the current word every ~250ms, dedupe, until at least 2 distinct words have
+      // been seen (proving the rotation is real).
       const seen = await collectWords(pending);
 
-      // 1) 轮换是真的:至少出现过 2 个不同的词。
+      // 1) The rotation is real: at least 2 distinct words appeared.
       expect(seen.size).toBeGreaterThanOrEqual(2);
-      // 2) 每个词都来自真词库(不是 "retrieving" / spinner / 空)。
+      // 2) Every word comes from the real word list (not "retrieving" / spinner / empty).
       for (const w of seen) {
         expect(THINKING_WORDS.has(w), `"${w}" 应来自 thinking 词库`).toBe(true);
       }
@@ -85,10 +92,12 @@ test.describe('thinking 阶段 throbber 走词库轮换(非定死)', () => {
     });
 });
 
-// collectWords —— 每 ~250ms 读一次 answer-pending 的当前词(首 token,去掉尾部
-// "· · ·"),收集去重,直到看见 ≥2 个不同的词(即观察到轮换)。用 expect.poll 做
-// 采样器:可观察 + 走 spec.timeout,符合 e2e no-sleep 规则(不手卷 waitForTimeout)。
-// retrying 态会显 "retrying"(不在词库),正常 think 路径不会重试。
+// collectWords — reads the current word from answer-pending roughly every 250ms (first
+// token, trailing "· · ·" stripped), dedupes, until at least 2 distinct words have been seen
+// (i.e. the rotation is observed). Uses expect.poll as the sampler: observable + honors
+// spec.timeout, in line with the e2e no-sleep rule (no hand-rolled waitForTimeout).
+// A retrying state shows "retrying" (not in the word list); the normal think path never
+// retries.
 async function collectWords(
   pending: ReturnType<Page['locator']>,
 ): Promise<Set<string>> {

@@ -1,11 +1,15 @@
-// connector-booker-handle-no-leak.spec.ts —— booked 外置后的新泄漏面
-// (connector-deps-tests.md §一 booker-handle-no-leak)。booker 插件经依赖解析拿到的是
-// calendar/smtp 的**句柄**(经 host 路由的调用口),不是 owner 的 token/SMTP 密码。
-// `connector-secret-no-leak` 盯的是访客侧 wire;`connector-arbitrary-dep` 盯的是合成
-// 连接器 X。这条专盯**真 booker 插件**:owner 的 GCal token / SMTP 凭据永不进 booker
-// 进程,因而绝不出现在 booker 经手的任何东西里(tool result、owner-MCP 透传、日志面)。
+// connector-booker-handle-no-leak.spec.ts —— the new leak surface opened up once
+// booking was externalized (connector-deps-tests.md §1 booker-handle-no-leak). What the
+// booker plugin gets through dependency resolution is a **handle** to calendar/smtp
+// (a call port routed through the host), never the owner's token/SMTP password.
+// `connector-secret-no-leak` watches the visitor-side wire; `connector-arbitrary-dep`
+// watches synthetic connector X. This spec watches the **real booker plugin** only:
+// the owner's GCal token / SMTP credentials must never enter the booker process, and so
+// must never appear in anything the booker touches (tool result, owner-MCP passthrough,
+// logs).
 //
-// RED until: booker 改成经注入句柄自持集成(token 不出 connector 层)。
+// RED until: booker is changed to hold its own integration through an injected handle
+// (the token never leaves the connector layer).
 
 import { test, expect } from '@/fixtures/test';
 
@@ -29,7 +33,8 @@ test.describe('connector · booker plugin gets a handle, never the owner credent
         args: { topic: 'leak probe', duration_min: 30, preferred_times: [future()] },
       });
       const backend = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-      // 独立 APIRequestContext（非 page.request），bare 变量避开「写走 UI」规则。
+      // A standalone APIRequestContext (not page.request); the bare variable sidesteps
+      // the "writes go through the UI" rule.
       const { request } = seed;
       const res = await request.post(`${backend}/api/v1/agent/turn`, {
         headers: { Authorization: `Bearer ${seed.visitor.session_token}` },
@@ -37,12 +42,15 @@ test.describe('connector · booker plugin gets a handle, never the owner credent
       });
       const body = await res.text();
 
-      // 守卫:turn 真成功(200)且 booker tool 真执行了 —— 否则拿到的是错误体/空流,
-      // .not.toContain(secret) 会恒真蒙混。必须确认带凭据的路径真跑过,泄漏才有机会现形。
+      // Guard: the turn genuinely succeeded (200) and the booker tool genuinely
+      // executed — otherwise we'd be looking at an error body/empty stream, and
+      // .not.toContain(secret) would pass vacuously. We must confirm the
+      // credential-carrying path really ran before a leak has any chance to show up.
       expect(res.status(), 'turn ran (not an auth/quota error)').toBe(200);
       expect(body, 'booker tool actually executed (credential-carrying path ran)')
         .toMatch(/tool_started|tool_completed|event: tool/);
-      // 凭据标记(mock 凭据里的 client_secret / 任何 token 串)绝不出现在 booker 经手的回包里。
+      // Credential markers (the client_secret from the mock credentials / any token
+      // string) must never appear in anything the booker's response touches.
       expect(body, 'client_secret not leaked').not.toContain(MOCK_GCAL_CREDS.client_secret);
       expect(body, 'no refresh_token string').not.toMatch(/refresh_token|client_secret|access_token=/i);
       expect(body, 'no stack/panic').not.toMatch(/panic|goroutine|stack/i);

@@ -1,7 +1,7 @@
-// capability-builtin-cannot-delete.spec.ts —— Phase H / P.6：存在性（existence）
-// 由 Origin 决定。删除按钮**只对 owner-origin 亮** —— builtin/managed 删不掉
-// （但能关，见 capability-enable-disable）。owner-origin（owner 自己 author 的
-// skill / 注册的 MCP server）有完整删除入口。
+// capability-builtin-cannot-delete.spec.ts — Phase H / P.6: existence is decided by Origin. The
+// delete button **only lights up for owner-origin** — builtin/managed capabilities cannot be
+// deleted (though they can be disabled, see capability-enable-disable). owner-origin capabilities
+// (a skill the owner authored themselves / an MCP server they registered) get a full delete path.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

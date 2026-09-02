@@ -1,9 +1,12 @@
-// coded-ask-continues.spec.ts —— 首页 Ask 的「有码跳转」全链路:无 session 的访客在
-// 首页问一个问题 → 跳 /gate(问题用 ?q= 带过去)→ 填 code 进会话 → 回到 chat 后那个
-// **带过去的问题被接着答了**(不丢)。
+// coded-ask-continues.spec.ts — the full "has-code redirect" chain for the homepage Ask: a
+// sessionless visitor asks a question on the homepage → redirected to /gate (the question
+// carried via ?q=) → enters a code into the session → back in chat, that **carried question
+// gets answered** (it is not dropped).
 //
-// 现在(bug):首页 ask 发 public session 行内答、问题不串过 gate → **红**。
-// 修好后:ask→/gate?q=,gate 发完 session 跳 /?q=,ChatRoom 消费 ?q= 答 → 绿。
+// Currently (bug): the homepage ask sends an inline reply on the public session, and the
+// question never flows through the gate → **red**.
+// Once fixed: ask → /gate?q=, gate issues the session and redirects to /?q=, ChatRoom
+// consumes ?q= and answers it → green.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -47,18 +50,19 @@ test.describe('homepage ask carries through gate into chat and gets answered', (
   test('ask on homepage (no code) → gate → enter code → chat answers the carried question',
     async ({ page }) => {
       await goto(page, '/');
-      // 首页的问答框是 `home-ask-field`（5e439b51 把它跟 ChatRoom 的输入框分了名）。
+      // The homepage's ask field is `home-ask-field` (5e439b51 gave it a name distinct
+      // from ChatRoom's input field).
       const input = page.locator('[data-testid="home-ask-field"]');
       await expect(input).toBeVisible({ timeout: 5_000 });
       await input.fill(QUESTION);
       await input.press('Enter');
-      // 落到 gate,问题用 ?q= 带过去。
+      // Lands on gate, the question carried via ?q=.
       await expect(page).toHaveURL(/\/gate\?.*q=/, { timeout: 5_000 });
-      // 填码进会话。
+      // Enter the code to join the session.
       await page.getByTestId('gate-code').fill(CODE);
       await page.getByTestId('gate-visitor-name').fill('Sam');
       await page.getByTestId('gate-code-submit').click();
-      // 回到 chat:session 起来 + 带过去的问题被答了(不丢)。
+      // Back in chat: the session is live + the carried question gets answered (not lost).
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 8_000 });
       await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
       await expect(page.getByText(QUESTION)).toBeVisible();

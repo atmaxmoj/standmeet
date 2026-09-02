@@ -1,7 +1,7 @@
-// admin-mcp-servers.spec.ts —— api·mcp 区的 external MCP servers CRUD。
+// admin-mcp-servers.spec.ts — CRUD for external MCP servers in the api·mcp section.
 //
-// 用户故事:owner 把别处拿到的 MCP server 装载进来 → 列表出现 → 可删。
-// 真后端 /mcp-servers(POST/GET/DELETE),UI 驱动。
+// User story: owner loads in an MCP server they got from elsewhere -> it appears in the
+// list -> can be removed. Real backend /mcp-servers (POST/GET/DELETE), UI-driven.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -41,26 +41,36 @@ test.describe('admin external MCP servers CRUD', () => {
       await expect(list.getByText('my-tools')).toHaveCount(0);
     });
 
-  // F-D-8 —— 注册成功之后，那一行只有名字和 URL：**没有任何东西说这台 server 够不够得着，
-  // 也没有它广播了哪些工具**。owner 挂一台 server 给一张码，是在替访客做决定，而他手上
-  // 唯一的凭据是自己刚才粘的那个 URL 有没有粘错。
+  // F-D-8 — After a server registers successfully, its row shows only name and URL:
+  // **nothing says whether the server is actually reachable, or what tools it offers**.
+  // The owner attaching a server to a code is making a decision on the visitor's behalf,
+  // and the only evidence they have is whether the URL they just pasted was typed right.
   //
-  // 产品**知道**这两件事 —— 会话装配时它真去 dial 并列 tools（`ext_<name>_*` 就是这么来的），
-  // 只是从来不在这一页说出来。跟 F-C-16 同一形状：日历连接器那张卡也曾经只写 `connected`，
-  // 而没有任何办法去问一句；解法是给它一个**只读探针**。这里照抄那个先例。
+  // The product **already knows** both facts — session assembly really dials the server
+  // and lists its tools (that's where `ext_<name>_*` comes from) — it just never says so
+  // on this page. Same shape as F-C-16: the calendar connector card used to say only
+  // `connected` too, with no way to ask further; the fix there was a **read-only probe**.
+  // This copies that precedent.
   //
-  // 判据：点了探针之后，那一行必须报出**真结果** —— 够得着就说出工具数（用 dev 栈里那台
-  // 真 mcp-server-mock，它真会答 tools/list），够不着就说出真原因。不许只是「点了没反应」。
+  // Criterion: after clicking the probe, the row must report a **real result** — a tool
+  // count when reachable (using the real mcp-server-mock in the dev stack, which really
+  // answers tools/list), or the real reason when not. "Clicked, nothing happened" doesn't
+  // count.
   //
-  // 探针不能长在 marketplace 域里：那台 server 的认证头是密文，而**域这一侧从不解封**
-  // （`capreg_ext_mcp.go:150` 那句注释写得很清楚：「开封发生在实现 MCPServerGetter 的那一侧
-  // (组装根)。这里以前有一个 buildAuthHeaders,自己 cryptobox.Decrypt:装配是内侧,内侧不解封」）。
-  // 所以正确的形状是跟 hostdesk 同一个：**域声明一个 port**（"问一下这台 server 答不答话、
-  // 有哪些工具"），**组装根实现它**（它已经有 `mcpclient.Dial` + `ListTools`，
-  // `capreg_ext_mcp.go:149-163` 就是那段代码）。= port + 根接线 + op + 路由 + 面 + 守卫。
+  // The probe can't live in the marketplace domain: that server's auth header is
+  // encrypted, and **the domain side never decrypts it** (the comment at
+  // `capreg_ext_mcp.go:150` says it plainly: "decryption happens on the side that
+  // implements MCPServerGetter (the composition root). There used to be a
+  // buildAuthHeaders here doing its own cryptobox.Decrypt: assembly is inbound, inbound
+  // doesn't decrypt"). So the correct shape matches hostdesk: **the domain declares a
+  // port** ("ask whether this server answers, and what it offers"), **the composition
+  // root implements it** (it already has `mcpclient.Dial` + `ListTools` —
+  // `capreg_ext_mcp.go:149-163` is that code). = port + root wiring + op + route +
+  // surface + guard.
   //
-  // 已按那条路做完：port(marketplace/usecase) + 根接线(cmd/server/mcp_probe.go)
-  // + op(mcp_server_check) + 路由(POST /mcp-servers/{id}/check) + 面(这颗 check) + 本守卫。
+  // Done along that path: port (marketplace/usecase) + root wiring
+  // (cmd/server/mcp_probe.go) + op (mcp_server_check) + route
+  // (POST /mcp-servers/{id}/check) + surface (this check) + this guard.
   test('a registered server can be asked whether it answers, and what it offers',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'api-mcp');
@@ -71,42 +81,51 @@ test.describe('admin external MCP servers CRUD', () => {
       await panel.getByTestId('mcp-server-url').fill('http://mcp-server-mock:9100/mcp');
       await panel.getByTestId('mcp-server-add').click();
 
-      // 定位到**那一行**（li），不是整张列表：check 的 testid 在行内唯一，
-      // 多一台 server 时才不会撞上 strict mode。
+      // Locate **that row** (li), not the whole list: check's testid is unique within a
+      // row, so this won't collide with strict mode once there's more than one server.
       const row = adminPage.getByTestId('mcp-servers-list')
         .locator('li').filter({ hasText: 'probe-me' });
       await expect(row).toBeVisible({ timeout: 5_000 });
       await row.getByTestId('mcp-server-check').click();
 
-      // 真答上了 = 报得出工具数。0 也是个答案，但这台 mock 有工具，所以断的是 ≥1 ——
-      // 只断「出现了一句话」的话，一句写死的「checked」也能过。
+      // A real answer means it can report a tool count. 0 would also be a valid answer,
+      // but this mock has tools, so the assertion is >=1 — asserting only "some text
+      // appeared" would let a hardcoded "checked" pass too.
       //
-      // 断的是 `check-result` 的**文本**：那个 testid 只挂在答完之后那一行上，
-      // 进行时是另一个（`check-pending`）。第一版把两种状态挂在同一个名字上，
-      // 于是这里读到的是「asking…」—— 名字说它是结果，手上却是个进行时。
+      // The assertion targets `check-result`'s **text**: that testid is only attached to
+      // the row once the answer is in; the in-flight state is a different one
+      // (`check-pending`). The first version hung both states off the same name, so what
+      // got read here was "asking..." — the name claims it's a result but it's really
+      // still in progress.
       await expect(
         row.getByTestId('mcp-server-check-result'), '探针要报出真结果',
       ).toHaveText(/[1-9]\d*\s+tools?/i, { timeout: 20_000 });
     });
 
-  // F-D-15 —— **「够不着」和「够到了、它不收这份凭据」被说成同一句话，而且是句假话。**
+  // F-D-15 — **"unreachable" and "reachable but it refuses this credential" get said as
+  // the same sentence, and that sentence is a lie.**
   //
-  // 真环境撞到的（驱 ext-mcp check 4 时）：把真 Hugging Face MCP 那台重新注册、故意配一个
-  // 坏 token，点 CHECK → 屏幕上是 **`no answer — internal error`**，HTTP 500。
-  // 五个字里两句假话：对面**答了话**（HF 回的是 401 Unauthorized），而且那**不是**我们内部的错。
+  // Hit in a real environment (driving ext-mcp check 4): re-registered the real Hugging
+  // Face MCP server, deliberately set a bad token, clicked CHECK -> the screen showed
+  // **`no answer — internal error`**, HTTP 500. Two lies in five words: the other side
+  // **did answer** (HF replied 401 Unauthorized), and that **is not** our internal error.
   //
-  // ②🎯 后端日志把真相说全了，然后把它扔了：
+  // The backend log told the whole truth, then it got thrown away:
   //   `dial mcp server: mcp server unreachable: streamable: initialize: transport error:
   //    authorization required; sse: … 405`
-  // `mcpclient.Dial` 对**一切**失败都盖 `ErrUnreachable`（dial.go:53），而 `authorization
-  // required` 是 mcp-go 的类型化哨兵、就在链子里；`mcpServerErr` 的分类表里没有它这一类，
-  // 于是落到 `fp.OpErr` → 500 → 前端 `checkFailed` 把它渲成 `no answer — internal error`。
-  // 跟 F-R-12 / F-C-42 同族：把「拒绝」说成「拨不通」（[[collapsed-error-class-kills-its-own-branch]]）。
+  // `mcpclient.Dial` wraps **every** failure in `ErrUnreachable` (dial.go:53), while
+  // `authorization required` is mcp-go's typed sentinel, right there in the chain;
+  // `mcpServerErr`'s classification table has no case for it, so it falls through to
+  // `fp.OpErr` -> 500 -> the frontend's `checkFailed` renders it as
+  // `no answer — internal error`. Same family as F-R-12 / F-C-42: calling a "refusal" an
+  // "unreachable" ([[collapsed-error-class-kills-its-own-branch]]).
   //
-  // 判据要能判负，所以两条一起断：**坏凭据那条必须说「它拒绝了」**，
-  // **而真够不着那条必须还说「没答话」** —— 只断前者的话，把所有失败都改叫「被拒绝」也能过
-  // （[[red-in-the-wrong-place]]）。两条都不许出现 `internal error`：owner 粘错东西是常态，
-  // 不是这台实例坏了。
+  // The criterion needs to be able to fail, so both cases are asserted together: **the
+  // bad-credential case must say "it refused"**, **and the truly-unreachable case must
+  // still say "no answer"** — asserting only the former would let every failure get
+  // relabeled "refused" and still pass ([[red-in-the-wrong-place]]). Neither case may say
+  // `internal error`: the owner pasting the wrong thing is the normal case, not this
+  // instance being broken.
   test('a server that answers but refuses the credential says so, not "internal error" (F-D-15)',
     ({ adminPage }) => expectProbeSays(adminPage, {
       name: 'refuses-me',
@@ -118,13 +137,14 @@ test.describe('admin external MCP servers CRUD', () => {
   test('a server that truly cannot be reached still reads as no answer (F-D-15)',
     ({ adminPage }) => expectProbeSays(adminPage, {
       name: 'nobody-home',
-      // 没有任何东西监听这个端口 —— 连接直接被拒，跟「答了话但拒绝」是两回事。
+      // Nothing is listening on this port — the connection is refused outright, which is
+      // a different thing from "answered but refused".
       url: 'http://mcp-server-mock:9199/mcp',
       says: /no answer/i,
     }));
 });
 
-// expectProbeSays —— 注册一台 server、点 CHECK、读那一行说了什么。
+// expectProbeSays — register a server, click CHECK, read what its row reports.
 async function expectProbeSays(
   page: Page,
   want: { name: string; url: string; auth?: [string, string]; says: RegExp },
@@ -150,8 +170,9 @@ async function expectProbeSays(
   await expect(
     said, 'the probe has to name what actually happened',
   ).toContainText(want.says, { timeout: 25_000 });
-  // 先等到上面那句成立，元素必定在了，这条否定断言才判得了负
-  // （[[negated-assertion-passes-while-absent]]）。
+  // Wait for the assertion above to hold first, so the element is guaranteed present —
+  // only then can this negated assertion actually fail
+  // ([[negated-assertion-passes-while-absent]]).
   await expect(
     said, 'the owner pasting the wrong thing is not this instance breaking',
   ).not.toContainText(/internal error/i);

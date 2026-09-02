@@ -1,5 +1,6 @@
-// query-errors.spec.ts —— 原生查询的容错(目标态红)。畸形 DSL / 未知字段 / 超大结果都不能崩 —— 优雅
-// 降级(留字面 or 友好提示)、忽略未知字段、结果有 cap。
+// query-errors.spec.ts -- fault tolerance for native queries (target-state red). Malformed
+// DSL / unknown fields / oversized results must never crash -- degrade gracefully (keep the
+// literal or give a friendly message), ignore unknown fields, and cap results.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

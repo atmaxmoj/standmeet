@@ -1,12 +1,16 @@
-// genre-assets-admin.spec.ts —— **owner 在面板上真的挂得上一份文件**。
+// genre-assets-admin.spec.ts —— **the owner can genuinely attach a file from the panel**.
 //
-// 这条 spec 存在,是因为它验的那个面以前不存在:后端从 2026-07 起每个 genre 都能挂素材、
-// 访客的阅读页也渲染得出来、30 条 e2e 全绿 —— 而 owner 在 /admin/wiki 上一个入口都没有。
-// 唯一跟"挂文件"沾边的东西是 raw 倾倒框里一个写着 "attach media" 的 span:有 cursor-pointer、
-// 有 hover 变色、没有 onClick。
+// This spec exists because the surface it verifies didn't previously exist:
+// since 2026-07 the backend lets every genre carry assets, the visitor reading
+// page renders them, and 30 e2e cases are all green — yet the owner had no
+// entry point at all on /admin/wiki. The only thing anywhere near "attach a
+// file" was a span in the raw dump box reading "attach media": it had
+// cursor-pointer, a hover color change, and no onClick.
 //
-// 所以这条不走 MCP,也不走 REST。owner 的两个端是 MCP 和面板;MCP 那条已经有覆盖,
-// 缺的正是**面板**这条。上传走浏览器真实的文件挑选框(setInputFiles),文件字节在这里现造。
+// So this doesn't go through MCP, and it doesn't go through REST either. The
+// owner has two entry points, MCP and the panel; MCP already has coverage, and
+// what's missing is exactly **the panel**. Uploads go through the browser's
+// real file picker (setInputFiles); the file bytes are constructed right here.
 
 import type { Page } from '@playwright/test';
 
@@ -23,15 +27,18 @@ const OWNER = {
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-// PNG_BYTES —— 一个 1×1 的合法 PNG。**真实字节**,不是一个叫 .png 的空文件:
-// 后端按字节签名核对声明的类型,假的会被正确地拒掉,那样这条测的就是拒绝路径了。
+// PNG_BYTES —— a valid 1×1 PNG. **Real bytes**, not an empty file named .png:
+// the backend checks the declared type against the byte signature, a fake one
+// gets correctly rejected, and then this test would just be testing the
+// rejection path instead.
 const PNG_BYTES = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64',
 );
 
-// PDF_BYTES —— 一份最小的**真** PDF（`%PDF-` 签名 + trailer）。同 PNG_BYTES 的道理：
-// 后端按字节签名核对声明的类型，一个叫 .pdf 的空文件会被正确地拒掉。
+// PDF_BYTES —— a minimal **real** PDF (`%PDF-` signature + trailer). Same
+// reasoning as PNG_BYTES: the backend checks the declared type against the
+// byte signature, an empty file named .pdf gets correctly rejected.
 const PDF_BYTES = Buffer.from(
   '%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n',
   'latin1',
@@ -53,7 +60,7 @@ test.describe('owner 在面板上挂文件', () => {
     await page.getByTestId(`wiki-edit-${id}-slot`).waitFor({ timeout: 15_000 });
     await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
 
-    // 挂之前:素材区在,而且明说"一个都没有"。
+    // Before attaching anything: the assets area is present, and clearly says "none yet".
     await expect(page.getByTestId(`${prefix}-assets`)).toBeVisible();
     await expect(page.getByTestId(`${prefix}-assets-empty`)).toBeVisible();
 
@@ -61,21 +68,21 @@ test.describe('owner 在面板上挂文件', () => {
       name: 'panel-pixel.png', mimeType: 'image/png', buffer: PNG_BYTES,
     });
 
-    // 回执要说清楚上去的是**哪一份**:文件名 + 真实字节数。"已上传"三个字不是回执。
+    // The receipt must say **which one** went up: filename + real byte count. The word "uploaded" is not a receipt.
     const row = page.getByTestId(new RegExp(`^${prefix}-asset-row-`));
     await expect(row).toHaveCount(1, { timeout: 15_000 });
     await expect(row).toContainText('panel-pixel.png');
     await expect(row, '说的是真实大小,不是一句"已上传"')
       .toContainText(`${String(PNG_BYTES.length)} B`);
 
-    // 插进正文:正文里出现一条稳定的 asset URI(不是会过期的预签名地址)。
+    // Insert into the body: a stable asset URI appears in the body (not an expiring pre-signed URL).
     const assetID = await firstAssetID(page, prefix);
     await page.getByTestId(`${prefix}-asset-insert-${assetID}`).click();
     const body = page.getByTestId(`${prefix}-body`);
     await expect(body).toHaveValue(new RegExp(`standmeet-asset:${assetID}`));
     await expect(body, '正文里不该是会过期的预签名地址').not.toHaveValue(/X-Amz-|\?token=/);
 
-    // 存下来,重新展开还在 —— 不落库的话这一切只是屏幕上的样子。
+    // Save it, reopen it, and it's still there — without persistence, all of this is just an on-screen appearance.
     await page.getByTestId(`${prefix}-submit`).click();
     await page.getByTestId(`wiki-edit-${id}`).click();
     await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
@@ -84,14 +91,19 @@ test.describe('owner 在面板上挂文件', () => {
     await expect(page.getByTestId(new RegExp(`^${prefix}-asset-row-`))).toHaveCount(1);
   });
 
-  // 类别选择框必须**真的管用**（F-L-48）。
+  // The category selector must **actually work** (F-L-48).
   //
-  // 面板给了 image / attachment 两个类别，而 PDF 只有 attachment 收（媒体守卫按 kind 分白名单）。
-  // 在这条用例之前，这一段的每条用例都用默认类别传图 —— **从没有人碰过那个下拉框**，
-  // 于是「选了 attachment」这件事有没有效果，从来没被问过。真环境上一问就露：
-  // 下拉框显示 attachment，请求里 kind 是空的，后端回 *"content-type application/pdf is not
-  // accepted for image"*。owner 在面板上永远挂不上一份 PDF —— 而 attachment 这个类别
-  // 就是为它存在的（[[test-covers-capability-not-face]]：MCP 那条路传 kind 正常，所以全绿）。
+  // The panel offers two categories, image / attachment, and PDF is only
+  // accepted under attachment (the media guard whitelists by kind). Before
+  // this case, every case in this section uploaded an image using the default
+  // category — **nobody had ever touched that dropdown** — so whether
+  // "selecting attachment" did anything had never actually been asked. It
+  // shows the moment you ask it on a real instance: the dropdown displays
+  // attachment, but the request's kind is empty, and the backend replies
+  // *"content-type application/pdf is not accepted for image"*. The owner can
+  // never attach a PDF from the panel — and the attachment category exists
+  // for exactly this ([[test-covers-capability-not-face]]: the MCP path
+  // passes kind correctly, so everything there is green).
   test('选 attachment 类别 → PDF 挂得上（那个下拉框不是装饰）', async ({ adminPage: page }) => {
     await gotoAdminSection(page, 'wiki');
 
@@ -104,28 +116,34 @@ test.describe('owner 在面板上挂文件', () => {
       name: 'panel-doc.pdf', mimeType: 'application/pdf', buffer: PDF_BYTES,
     });
 
-    // 判据是**那一行出现了**，不是「没报错」：被拒的话行根本不会有。
+    // The criterion is **that row appears**, not "no error was thrown": if it were rejected, the row simply wouldn't exist.
     const row = page.getByTestId(new RegExp(`^${prefix}-asset-row-`));
     await expect(row, 'attachment 类别选了就得算数 —— 否则 PDF 会被当成图片拒掉')
       .toHaveCount(1, { timeout: 15_000 });
     await expect(row).toContainText('panel-doc.pdf');
     await expect(row).toContainText(`${String(PDF_BYTES.length)} B`);
-    // 存的也得是 attachment：当成 image 存下来的话，阅读页会去渲染它而不是给一个下载入口。
+    // What's persisted must also be attachment: stored as image instead, the reading page would try to render it rather than offer a download link.
     await expect(row).toContainText('attachment');
 
-    // **而这一行不该给它「设为封面」**（F-L-58）。封面是 hero **图**，一份 PDF 当不了。
-    // 在真实例上点下去，产品照收：行上出现朱红 `cover` 徽标、按钮翻成 `stop using as cover`，
-    // 下面紧跟着 COVER LINE（往一份 PDF 上压标题句）—— 一句拦阻都没有。
+    // **And this row should not offer "set as cover"** (F-L-58). The cover is a
+    // hero **image**, and a PDF cannot be one. On a real instance, clicking it
+    // anyway is accepted without complaint: a vermillion `cover` badge appears
+    // on the row, the button flips to `stop using as cover`, and COVER LINE
+    // follows right after (overlaying a headline sentence onto a PDF) — not a
+    // single word of pushback.
     //
-    // 归因就在同一个文件里：`assetMarkdown` **按 kind 分支**（图 → `![]()`、附件 → `[]()`），
-    // 而 `BodyBoundBtns` 把封面开关**无条件**渲染。同一屏上一个按钮认类型、另一个不认。
+    // The root cause lives in the same file: `assetMarkdown` **branches by
+    // kind** (image → `![]()`, attachment → `[]()`), while `BodyBoundBtns`
+    // renders the cover toggle **unconditionally**. On the same screen, one
+    // button knows the type, the other doesn't.
     const assetID = (await row.getAttribute('data-testid'))?.replace(`${prefix}-asset-row-`, '');
     await expect(
       page.getByTestId(`${prefix}-asset-cover-${assetID}`),
       '一份 PDF 当不了 hero 图 —— 这颗按钮不该出现在附件行上',
     ).toHaveCount(0);
-    // 反向自证：**图片行上它必须还在**。否则「按 kind 收起来」会退化成「谁都没有」，
-    // 而这条断言照样绿（[[assertion-that-cannot-fail]]）。
+    // Reverse self-check: **it must still be present on the image row**.
+    // Otherwise "gated by kind" would degenerate into "gone for everyone", and
+    // this assertion would still pass green ([[assertion-that-cannot-fail]]).
     await page.getByTestId(`${prefix}-asset-kind`).selectOption('image');
     await page.getByTestId(`${prefix}-asset-input`).setInputFiles({
       name: 'panel-pic.png', mimeType: 'image/png', buffer: PNG_BYTES,
@@ -141,7 +159,8 @@ test.describe('owner 在面板上挂文件', () => {
 
 });
 
-// 撤素材：面板上那一行走了不算完 —— **正文里那条引用**才是访客看得见的那一半（F-L-50）。
+// Removing an asset: the row on the panel disappearing isn't the whole job —
+// **the reference in the body** is the half visitors actually see (F-L-50).
 test.describe('撤素材连正文里的引用一起撤', () => {
   test('撤下来:行没了,素材区回到"一个都没有",正文里那条引用也走了', async ({ adminPage: page }) => {
     await gotoAdminSection(page, 'wiki');
@@ -156,8 +175,9 @@ test.describe('撤素材连正文里的引用一起撤', () => {
       .toHaveCount(1, { timeout: 15_000 });
 
     const assetID = await firstAssetID(page, prefix);
-    // **先把它插进正文**：撤素材这件事的代价不在面板上，在正文里那条留下来的引用
-    // （F-L-50：访客页上一个裂图 + 内部文件名，而 owner 看不见）。
+    // **Insert it into the body first**: the cost of removing an asset isn't
+    // on the panel, it's the reference left behind in the body (F-L-50: a
+    // broken image + internal filename on the visitor page, invisible to the owner).
     await page.getByTestId(`${prefix}-asset-insert-${assetID}`).click();
     await expect(page.getByTestId(`${prefix}-body`))
       .toHaveValue(new RegExp(`standmeet-asset:${assetID}`));
@@ -166,27 +186,33 @@ test.describe('撤素材连正文里的引用一起撤', () => {
     await expect(page.getByTestId(new RegExp(`^${prefix}-asset-row-`)))
       .toHaveCount(0, { timeout: 15_000 });
     await expect(page.getByTestId(`${prefix}-assets-empty`)).toBeVisible();
-    // 撤掉素材 = 连正文里那条引用一起撤。留着它就是「一次点击做了两件事，只做了一件」。
+    // Removing an asset = removing the reference in the body along with it. Leaving it behind means "one click was supposed to do two things and only did one".
     await expect(page.getByTestId(`${prefix}-body`), '正文里那条引用跟着走')
       .not.toHaveValue(new RegExp(`standmeet-asset:${assetID}`));
   });
 
-  // F-L-51：**插进去再撤下来，正文必须逐字回到原样**。
+  // F-L-51: **insert it, then remove it, and the body must return byte-for-byte to what it was.**
   //
-  // prod 上量的（真 vault 的 cognitive-science）：3240 → 插入 3311 → 撤下 3239/3241，
-  // 三轮没有一次回到原文。根因在**插入**那一半：`appendBlock` 动手之前先 `replace(/\s+$/,'')`
-  // 把正文末尾削掉了，于是那个换行再也长不回来 —— 撤下那一半怎么收尾都还原不了。
+  // Measured in prod (the real vault's cognitive-science note): 3240 → insert
+  // → 3311 → remove → 3239/3241, not once across three runs did it return to
+  // the original text. The root cause is in the **insert** half:
+  // `appendBlock` runs `replace(/\s+$/,'')` before doing its work, trimming
+  // off the body's trailing whitespace, so that newline never grows back — no
+  // matter how the removal half tries to clean up, it can't restore it.
   //
-  // 这条守卫此前不存在，而它**只有逐字节比对才问得出来**：既有那条只断「引用不在了」，
-  // 正文末尾少一个字节它照样绿。owner 眼里这是「我撤销了自己的操作，笔记却被改过了」——
-  // 而这些笔记是他 vault 的镜像。
+  // This guard didn't exist before, and it **can only be asked with a
+  // byte-for-byte comparison**: the existing assertion only checks "the
+  // reference is gone", and stays green even with the body missing a trailing
+  // byte. To the owner this looks like "I undid my own action, and my note got
+  // changed anyway" — and these notes are the mirror of their vault.
   test('插进正文再撤下来:正文逐字回到原样(连末尾那个换行)', async ({ adminPage: page }) => {
     await gotoAdminSection(page, 'wiki');
     const id = await createWikiEntry(page, 'Round trip note');
     const prefix = `wiki-edit-form-${id}`;
     await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
 
-    // **末尾留一个换行**：真笔记就是这样的（编辑器存盘都会留），而这正是被削掉的那个字节。
+    // **Leave a trailing newline**: a real note looks exactly like this (any
+    // editor's save leaves one), and this is exactly the byte that gets trimmed off.
     const body = page.getByTestId(`${prefix}-body`);
     const original = 'A paragraph that ends the note.\n';
     await body.fill(original);
@@ -204,7 +230,7 @@ test.describe('撤素材连正文里的引用一起撤', () => {
     await page.getByTestId(`${prefix}-asset-remove-${assetID}`).click();
     await expect(page.getByTestId(`${prefix}-assets-empty`)).toBeVisible({ timeout: 15_000 });
 
-    // 逐字节比，不用正则：差的就是一个字节，而正则匹配看不出这种差别。
+    // Byte-for-byte comparison, not regex: the difference is exactly one byte, and a regex match can't tell them apart.
     expect(
       await body.inputValue(),
       '插入再撤下之后正文必须跟原来一模一样 —— owner 撤销了自己的操作，笔记不该被改过',
@@ -212,9 +238,12 @@ test.describe('撤素材连正文里的引用一起撤', () => {
   });
 });
 
-// hero 是**三样**:图 + 压在图上那句话 + 色调。面板上只做图那一样的话,owner 设完封面
-// 看到的是标题被顶上去当 headline,而他没有任何办法改它 —— 除非去 AI 客户端调 MCP。
-// 访客那侧三样都渲(genre-assets-reader 断的就是那句话渲出来了)。
+// A hero is **three things**: the image + the headline sentence overlaid on
+// it + the hue. If the panel only handled the image, then after setting a
+// cover the owner would see the title get promoted into a headline with no
+// way to change it — short of going to an AI client and calling MCP. The
+// visitor side renders all three (genre-assets-reader asserts specifically
+// that the headline sentence renders).
 test.describe('hero 三样都在面板上', () => {
   test('图 + 那句话 + 色调,存得下来也回填得回来', async ({ adminPage: page }) => {
     await gotoAdminSection(page, 'wiki');
@@ -231,15 +260,18 @@ test.describe('hero 三样都在面板上', () => {
     await page.getByTestId(`${prefix}-cover-hue`).selectOption('violet');
     await page.getByTestId(`${prefix}-submit`).click();
 
-    // 重开:三样都回填了 —— **不回填等于告诉 owner"没设过"**,他再存一次就以为没变,
-    // 实际上什么也没发生(空串不发),或者更糟:哪天改成发空串就把它抹了。
+    // Reopen it: all three came back filled in — **failing to refill would
+    // tell the owner "this was never set"**, so saving again they'd think
+    // nothing changed, when in reality nothing was sent (an empty string isn't
+    // sent), or worse: if that ever changes to send an empty string, it would wipe it out.
     await page.getByTestId(`wiki-edit-${id}`).click();
     await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId(`${prefix}-cover-headline`))
       .toHaveValue('a line over the cover', { timeout: 15_000 });
     await expect(page.getByTestId(`${prefix}-cover-hue`)).toHaveValue('violet');
-    // 按 testid 找那个标记,不按文本 —— 同一行里「use as cover」那颗按钮的文案也含 cover,
-    // 按文本判的话封面撤掉之后它照样绿([[assertion-that-cannot-fail]])。
+    // Find the marker by testid, not by text — the "use as cover" button's own
+    // copy on the same row also contains the word cover, so asserting by text
+    // would stay green even after the cover is removed ([[assertion-that-cannot-fail]]).
     await expect(
       page.getByTestId(`${prefix}-asset-is-cover-${assetID}`),
       '那份素材仍标着是封面',
@@ -253,7 +285,7 @@ test.describe('hero 三样都在面板上', () => {
     const prefix = `wiki-edit-form-${id}`;
     await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
 
-    // 声明 image/png,字节其实是 SVG —— 存下来再由我们的域发出去就是存储型 XSS。
+    // Declares image/png, but the bytes are actually SVG — persisting this and then serving it from our own domain is a stored XSS.
     await page.getByTestId(`${prefix}-asset-input`).setInputFiles({
       name: 'sneaky.png', mimeType: 'image/png',
       buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>'),
@@ -268,10 +300,14 @@ test.describe('hero 三样都在面板上', () => {
   });
 });
 
-// 设得上还不够 —— **撤得掉才算 owner 说了算**(F-L-38(a))。上面那条测的注释里
-// 早写着这个陷阱(「空串不发……哪天改成发空串就把它抹了」),而它描述的正是当时的状态:
-// 三样都只进不出。prod 上的实测:hue 选成 violet 存下,再选回 `— default —` 存,
-// 重开还是 violet。owner 手里没有任何撤销的办法,而界面看起来是他挑的。
+// Being able to set it isn't enough — **being able to unset it is what makes
+// it the owner's call** (F-L-38(a)). The comment on the test above already
+// named this trap ("an empty string isn't sent … if that ever changes to send
+// an empty string, it would wipe it out"), and it describes exactly the state
+// at the time: all three went in but never came back out. Verified in prod:
+// select hue as violet and save, select it back to `— default —` and save,
+// reopen and it's still violet. The owner has no way to undo it, while the UI
+// looks like it was their choice.
 test.describe('hero 撤得掉', () => {
   test('设过之后撤得掉:三样都回得到「没设过」', async ({ adminPage: page }) => {
     await gotoAdminSection(page, 'wiki');
@@ -288,20 +324,23 @@ test.describe('hero 撤得掉', () => {
     await page.getByTestId(`${prefix}-cover-hue`).selectOption('violet');
     await page.getByTestId(`${prefix}-submit`).click();
 
-    // 前置条件:三样确实设上了 —— 不然下面的「撤掉」可能撤的是本来就空的东西。
+    // Precondition: all three are genuinely set — otherwise the "unset" below might be unsetting something that was already empty.
     await page.getByTestId(`wiki-edit-${id}`).click();
     await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId(`${prefix}-cover-hue`)).toHaveValue('violet', { timeout: 15_000 });
 
-    // 撤:三样各按各的方式回到空 —— 把那句话删干净、色调选回 `— default —`、
-    // 封面那颗按钮再按一次(它这时说的是「撤掉封面」)。
+    // Unset: each of the three returns to empty its own way — clear out the
+    // headline sentence, select the hue back to `— default —`, and click the
+    // cover button again (it now reads "unset cover").
     await page.getByTestId(`${prefix}-asset-cover-${assetID}`).click();
     await page.getByTestId(`${prefix}-cover-headline`).fill('');
     await page.getByTestId(`${prefix}-cover-hue`).selectOption('');
     await page.getByTestId(`${prefix}-submit`).click();
 
-    // 重开:三样都空。**这里判的是落库之后重新读回来的值**,不是屏幕上还没提交的那份 ——
-    // 表单自己的状态在点保存那一刻就是空的,它证明不了服务器收到了「清空」。
+    // Reopen it: all three are empty. **What's asserted here is the value read
+    // back after persistence**, not what's still sitting unsubmitted on
+    // screen — the form's own state is already empty the instant Save is
+    // clicked, which proves nothing about whether the server actually received "cleared".
     await page.getByTestId(`wiki-edit-${id}`).click();
     await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
     await expect(
@@ -323,7 +362,7 @@ test.describe('hero 撤得掉', () => {
   });
 });
 
-// createWikiEntry —— 在面板上新建一条 wiki 并展开它的编辑表单,返回它的 id。
+// createWikiEntry —— creates a new wiki entry on the panel and expands its edit form, returning its id.
 async function createWikiEntry(
   page: Page,title: string,
 ): Promise<string> {
@@ -340,8 +379,8 @@ async function createWikiEntry(
   return id;
 }
 
-// firstAssetID —— 从素材行的 testid 里取出 asset id。取自**页面**,不是接口回参:
-// 这条 spec 要证的就是这一行真的渲出来了。
+// firstAssetID —— extracts the asset id from the asset row's testid. Taken
+// from **the page**, not an API response: what this spec has to prove is that this row actually rendered.
 async function firstAssetID(
   page: Page,prefix: string,
 ): Promise<string> {

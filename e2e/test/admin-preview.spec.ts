@@ -1,7 +1,7 @@
 // admin-preview.spec.ts —— admin preview: code picker, BYOAI card,
 // coded preview banner, suggested questions.
 //
-// 用户故事：
+// User story:
 //   1. code picker → click code → right side preview frame changes
 //   2. BYOAI card → click → "byoai mode · public scope" shown
 //   3. coded preview → banner shows code label + "scoped to N topics"
@@ -54,10 +54,12 @@ test.describe('admin preview', () => {
       await expect(adminPage.getByText(STARTERS[0]!)).toBeVisible({ timeout: 5_000 });
     });
 
-  // F-C-9 —— 这个面叫 "PREVIEW · VISITOR VIEW",但 coded 分支是 admin 自己用
-  // adminPages.preview.codedWelcome* 拼出来的一句话,还把 assumed_role_id 前 8 位印在里面。
-  // 访客真正看到的是 visitor.codedWelcome("…I'm an AI grounded in {handle}'s curated corpus…")。
-  // 上面那条只断言 code label 出现,拼出来的句子和真句子它都认。
+  // F-C-9 — this panel is called "PREVIEW · VISITOR VIEW", but the coded branch used to
+  // show a sentence admin itself assembled from adminPages.preview.codedWelcome*, with
+  // the first 8 chars of assumed_role_id printed inside it.
+  // What a real visitor sees is visitor.codedWelcome("…I'm an AI grounded in
+  // {handle}'s curated corpus…"). The test above only asserts the code label appears,
+  // so it would pass for either the assembled sentence or the real one.
   test('the coded preview shows the visitor’s own welcome, not an admin-written one',
     async ({ adminPage }) => {
       await openPreview(adminPage);

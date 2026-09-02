@@ -1,25 +1,32 @@
-// visitor-chat-citation-writing-resolves.spec.ts —— 引用一篇 **writing** 时，
-// 那条链接必须**真的打得开**。
+// visitor-chat-citation-writing-resolves.spec.ts —— when a **writing** is cited, that link
+// must **actually open**.
 //
-// 现场（prod，sijie.xyz）：答案下面的引用点开是
+// Observed live (prod, sijie.xyz): clicking the citation under an answer opens
 //   sijie.xyz/writing/writings/the-business-model-wedge  →  404
-// 而那篇是这台实例当时**唯一**一篇公开 writing —— 整个公开阅读面的入口是坏的。
+// and that was the instance's **only** public writing at the time — the entire public
+// reading surface's entry point was broken.
 //
-// 成因：两处渲染各自把地址拼成 `/${c.genre}/${c.path}`，**把体裁名当成了路由名**。
-// 体裁是单数 `writing`，路由是复数 `/writings/[slug]`；而那条 writing 的语料 path
-// 本身又带 `writings/` 前缀（vault 里就有这个目录），于是叠成两段。
+// Root cause: two separate render sites each build the address as `/${c.genre}/${c.path}`,
+// **treating the genre name as if it were the route name**. The genre is singular `writing`,
+// the route is plural `/writings/[slug]`; and that writing's corpus path itself already
+// carries a `writings/` prefix (that directory exists in the vault), so the two stack up
+// into a double segment.
 //
-// 为什么以前没被抓到：这一族断言只覆盖了 wiki
-// （`visitor-chat-citation-multi.spec.ts` 断言 `/wiki/<path>`）——
-// 而 wiki 恰好是那个错公式**碰巧对**的那种体裁。三种体裁里两种侥幸成立，
-// 于是测试全绿、缺陷只出现在第三种上（[[all-tests-are-failure-path]] 的同类：
-// 覆盖只落在不会暴露问题的那一格）。
+// Why this was never caught before: this whole family of assertions only ever covered wiki
+// (`visitor-chat-citation-multi.spec.ts` asserts `/wiki/<path>`) — and wiki happens to be
+// the one genre where the wrong formula **accidentally comes out right**. Two of the three
+// genres got lucky, so every test stayed green and the defect only showed up on the third
+// (same family as [[all-tests-are-failure-path]]: coverage happened to land exactly where
+// it couldn't expose the problem).
 //
-// 判据**不是字符串相等**，是「**点**它，然后人看到那篇文章」。断 href 等于某个字面量的话，
-// 我把公式改成另一个一致的错法它照样绿（[[assertion-that-cannot-fail]]）；而读出 href
-// 自己 goto，绕开的正是访客真正做的那个动作（这条引用是 `target="_blank"`，真点开新标签页）。
+// The criterion is **not string equality**, it's "**click** it, then a human sees the
+// article". Asserting href equals some literal would still go green if I changed the formula
+// to a different, consistently-wrong one ([[assertion-that-cannot-fail]]); reading the href
+// and calling goto yourself sidesteps exactly the action a real visitor takes (this citation
+// carries `target="_blank"`, a real click opens a new tab).
 //
-// RED（修复前）：点开的那个新标签页是 Next 的 404 —— 地址是 `/writing/writings/<slug>`。
+// RED (before the fix): the new tab that opens is Next's 404 page — the address is
+// `/writing/writings/<slug>`.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -40,8 +47,9 @@ const OWNER = {
 const CODE = 'CITEWRITE-01';
 
 const SLUG = 'the-business-model-wedge';
-// 语料树里的位置带 `writings/` 前缀 —— 跟 vault 一样。**这一段正是叠出 404 的那一段**，
-// 少了它这条用例驱不到那个缺陷。
+// This position in the corpus tree carries a `writings/` prefix — same as the vault.
+// **This is exactly the segment that stacks into the 404**; without it this test case
+// couldn't drive out that defect.
 const CORPUS_PATH = `writings/${SLUG}`;
 const TITLE = 'Attack the Business Model, Not the Feature List';
 
@@ -62,8 +70,9 @@ test.describe('引用一篇 writing 时，那条链接打得开', () => {
     await input.fill(`what do you think about competing on features?${tag}`);
     await input.press('Enter');
 
-    // references 默认是折叠的 —— 不先展开的话，红会停在「引用行不可见」上，
-    // 那是抽屉的事，不是这条用例要驱的那个缺陷（[[red-in-the-wrong-place]]）。
+    // references are collapsed by default — without expanding it first, a red would stop at
+    // "citation row not visible", which is a drawer concern, not the defect this test case
+    // is meant to drive ([[red-in-the-wrong-place]]).
     const refs = page.locator('[data-testid="citations"]', {
       has: page.locator(`[data-citation-path="${CORPUS_PATH}"]`),
     });
@@ -73,11 +82,13 @@ test.describe('引用一篇 writing 时，那条链接打得开', () => {
     const row = refs.locator('[data-testid="citation-row"]').first();
     await expect(row, '引用行展开后看得见').toBeVisible({ timeout: 15_000 });
 
-    // **点它**，不是读出 href 自己跳过去。
+    // **Click it**, don't read the href and navigate there yourself.
     //
-    // 后者绕开了访客真正做的那个动作：这条引用带 `target="_blank"`，真点是开一个新标签页，
-    // 而"读 href + goto"从来不会驱到那条路 —— 链接被别的元素盖住、handler 吃掉默认行为、
-    // 新窗口被拦，三种情况下它都照样绿。判据得是**点完之后人看到了什么**。
+    // The latter sidesteps the action a real visitor actually takes: this citation carries
+    // `target="_blank"`, a real click opens a new tab, and "read href + goto" would never
+    // drive that path — if the link is covered by another element, a handler swallows the
+    // default action, or the new window gets blocked, all three still go green. The
+    // criterion has to be **what a human sees after clicking**.
     const [opened] = await Promise.all([
       page.waitForEvent('popup', { timeout: 15_000 }),
       row.click(),
@@ -86,7 +97,8 @@ test.describe('引用一篇 writing 时，那条链接打得开', () => {
 
     await expect(opened.locator('body'), '点开落在那篇文章上')
       .toContainText(TITLE, { timeout: 15_000 });
-    // 判负的那一半：先钉住上面那条（正文真的在），这一条才不是在空页上恒真。
+    // The falsifiable half: only once the assertion above pins down "the article body is
+    // really there" does this one stop being trivially true on an empty page.
     await expect(opened.locator('body'), '不是 Next 的 404 页')
       .not.toContainText('This page could not be found');
   });

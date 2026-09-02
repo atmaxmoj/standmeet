@@ -1,14 +1,19 @@
-// custom-page-is-the-codes-rendering.spec.ts —— **pages 给了 code 一个渲染**。
+// custom-page-is-the-codes-rendering.spec.ts -- **pages give a code a rendering**.
 //
-// 一张码可以绑一个自定义页。绑了之后，码一点没变：同一份授权、同一个角色、同一套配额、
-// 同一份记账 —— 变的只有读者眼前那张纸。所以这一篇断的从来不是「页面支持某个功能」，
-// 而是「**它凭什么会跟 chat 不一样**」，而答案永远该是不会。
+// A code can be bound to a custom page. Once bound, nothing about the code itself
+// changes: the same grant, the same role, the same quota, the same accounting -- the
+// only thing that changes is the sheet of paper in front of the reader. So what this
+// file asserts is never "the page supports some feature", it's "**what would give it
+// license to behave differently from chat**", and the answer must always be nothing.
 //
-// 判据全在**页面上**。后端对、而页面自己另开了一场匿名 session，从屏幕上看不出差别：
-// 名字、名额、轮数全部落空，读者却一直在正常问答（[[test-covers-capability-not-face]]）。
+// The whole criterion lives **on the page**. If the backend is right but the page opens
+// its own separate anonymous session, nothing on screen looks different: the name, the
+// quota, the turn count all silently come up empty, while the reader keeps getting
+// normal-looking answers ([[test-covers-capability-not-face]]).
 //
-// 覆盖：落地（扫出来看到的就是那一页）· 记账（对话进那张码）· 继承（名字/名额/轮数/撤销）
-// · 准入（带了码就不再问自带 key）。
+// Covers: landing (what you scan into is that page) - accounting (the conversation
+// posts to that code) - inheritance (name/quota/turns/revocation) - admission (carrying
+// a code stops it from also asking for a bring-your-own key).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -32,9 +37,11 @@ const OWNER = {
 
 interface Admin { request: APIRequestContext; csrf: string }
 
-// 每条用例都要真构建一次页面（沙箱起 vite，**一次只建一个**，这一族里好几条在排队），
-// 所以 30s 的默认预算不够。放宽的是**排队**，不是给一次可能永远不来的构建：
-// 轮询自己仍然在 180s 上有终点，超时依旧是红。
+// Every test case has to build a page for real (a sandboxed vite process, **one build
+// at a time**, and several in this family end up queued), so the default 30s budget
+// isn't enough. What's being widened is the **queue wait**, not tolerance for a build
+// that might never finish: the poll itself still has a 180s deadline, and a timeout is
+// still red.
 const BUILD_BUDGET_MS = 240_000;
 
 async function freshOwner(playwright: Playwright): Promise<Admin> {
@@ -49,8 +56,9 @@ async function freshOwner(playwright: Playwright): Promise<Admin> {
   return { request, csrf };
 }
 
-// enterWithCode —— 带码进站 → 名字选择器填名字 → 提交。**不指定去哪**：
-// 落地是产品自己的决定，这个 helper 只负责走完领码这一段。
+// enterWithCode -- enters with a code -> fills the name picker -> submits. **Doesn't
+// specify a destination**: where it lands is the product's own decision, this helper
+// only carries out the code-claiming step.
 async function enterWithCode(page: Page, code: string, name: string): Promise<void> {
   await goto(page, `/?code=${code}`);
   const issued = page.waitForResponse(
@@ -62,7 +70,7 @@ async function enterWithCode(page: Page, code: string, name: string): Promise<vo
   await issued;
 }
 
-// askOnPage —— 在页面的问答栏问一句，等答案出现。
+// askOnPage -- asks one question in the page's ask box and waits for the answer.
 async function askOnPage(page: Page, text: string): Promise<void> {
   const box = page.locator('[data-sm="ask"]');
   await box.waitFor({ state: 'visible', timeout: 20_000 });
@@ -89,8 +97,9 @@ test.describe('a bound code opens its page, and the page is that code', () => {
 
       await enterWithCode(page, 'LAND-001', 'Reader');
 
-      // **扫出来看到的就该是那一页。** 停在默认对话上，owner 建的那个渲染等于没建 ——
-      // 而屏幕上看起来一切正常。
+      // **What you scan into must be that exact page.** Stopping on the default chat
+      // makes the rendering the owner built equivalent to never having built it -- and
+      // the screen would still look perfectly normal.
       await expect(sm(page, 'marker')).toBeVisible({ timeout: 20_000 });
       expect(new URL(page.url()).pathname, 'the visitor is on the page this code opens')
         .toBe('/p/landing');
@@ -102,7 +111,8 @@ test.describe('a bound code opens its page, and the page is that code', () => {
 
     await enterWithCode(page, 'PLAIN-01', 'Reader');
 
-    // 没绑的码一点没变 —— 一个新机制不许顺手改掉今天已经在用的那条路。
+    // An unbound code is completely unchanged -- a new mechanism must not incidentally
+    // alter the path that's already in production use today.
     expect(new URL(page.url()).pathname, 'a code with no page is unchanged from today')
       .toBe('/');
   });
@@ -123,8 +133,8 @@ test.describe('a bound code opens its page, and the page is that code', () => {
       await expect(sm(page, 'answer')).toContainText('answered from the corpus',
         { timeout: 30_000 });
 
-      // owner 那一侧：这一轮必须记在**这张码**下面。记不上的话，owner 得靠猜
-      // 一段逐字稿是从哪个界面来的。
+      // On the owner side: this turn must be recorded under **this exact code**. If it
+      // can't be, the owner is left guessing which interface a given transcript came from.
       const convos = await admin.request.get(
         `${process.env['BACKEND_URL'] ?? 'http://localhost:8000'}/api/admin/conversations`,
         { headers: { 'X-Csrftoken': admin.csrf } },
@@ -153,14 +163,16 @@ test.describe('a page cannot show what the viewer cannot read', () => {
     await seedWiki(admin.request, token, sid,
       { title: 'Private Note', body: 'nobody may read this', path: 'private-note' });
 
-    // 正对照先跑。少了它，下面那条「打不开」可能只是因为这一页的读法根本没做出来
-    // （[[assertion-that-cannot-fail]]）。
+    // The positive control runs first. Without it, the "won't open" case below could
+    // just mean this page's read path was never built at all
+    // ([[assertion-that-cannot-fail]]).
     await goto(page, '/p/scoped?read=open-note');
     await expect(sm(page, 'note-state')).toHaveText('open', { timeout: 20_000 });
     await expect(sm(page, 'note')).toHaveText('Open Note');
 
-    // 判据在**页面上**：后端拒了、而页面照样把标题印出来（缓存/多取），
-    // 正是这条检查存在的理由。
+    // The criterion is **on the page**: the backend refusing while the page still
+    // prints the title anyway (a stale cache/over-fetch) is exactly the failure mode
+    // this check exists to catch.
     await goto(page, '/p/scoped?read=private-note');
     await expect(sm(page, 'note-state'),
       'an unpublished entry does not open for an anonymous reader')
@@ -169,13 +181,17 @@ test.describe('a page cannot show what the viewer cannot read', () => {
   });
 });
 
-// 一张托管页能不能放**实例自己的**素材。
+// Whether a hosted page can carry **the instance's own** media.
 //
-// 远端 URL 当然能放（那条路上没有 CSP），但那不是理由绕开自家的存储：
-// `assets.upload` 收一个地址、服务端自己取回来、字节落进实例的对象存储，从此跟第三方无关。
-// 代价是两条约束，而这两条都只有在页面上才看得出来：
-//   · 地址是**签名的、一小时过期** —— 写死进构建产物的页面，上线一小时后就是一片碎图；
-//   · 素材挂在**语料条目**上，页面拿它得走「取那条笔记、读它的 assets」。
+// A remote URL can, of course, be embedded (there's no CSP on that path), but that's
+// not a reason to bypass the instance's own storage: `assets.upload` takes an address,
+// fetches it server-side itself, and the bytes land in the instance's own object
+// storage, from then on independent of the third party.
+// The cost is two constraints, and both are only visible on the page itself:
+//   - the address is **signed and expires in an hour** -- hardcode it into the build
+//     output and the page is a field of broken images an hour after it ships;
+//   - media is attached to a **corpus entry**, so the page has to fetch it by "load
+//     this note, then read its assets".
 test.describe('a page can serve the instance’s own media, not just remote URLs', () => {
   let admin: Admin;
 
@@ -199,13 +215,18 @@ test.describe('a page can serve the instance’s own media, not just remote URLs
       await expect(sm(page, 'hosted-state')).toHaveText('ready', { timeout: 20_000 });
       await expect(sm(page, 'hosted-name')).toHaveText('on-the-page.png');
 
-      // **断的是它真的画出来了**，不是「有个 <img>」。签名地址过期 / holder 解析错 /
-      // 存储没连上，三种都会留下一个尺寸为 0 的 <img>，而截图和 DOM 断言都看不出来
-      // （[[text-assertion-cannot-see-layout]]）。
-      // **等到它画出来，而不是看一眼**。`hosted-state` 翻 ready 说的是页面自己的状态，
-      // 它早于浏览器把这张图取完并解码 —— 一次性的 evaluate 因此会在机器忙的时候
-      // 采样在解码之前，报「没画出来」。判据一个字没改（还是 complete && naturalWidth > 0），
-      // 改的是它从采样变成等待。全量第 630 条就是这么红的，而单跑 5/5 全绿。
+      // **The assertion is that it actually rendered**, not "there's an <img>". A
+      // signed URL that's expired / a holder that failed to resolve / storage not
+      // connected -- all three leave behind a zero-size <img>, and neither a
+      // screenshot nor a DOM assertion can tell ([[text-assertion-cannot-see-layout]]).
+      // **Wait for it to render, don't just glance at it once.** `hosted-state` flipping
+      // to ready describes the page's own state, which happens before the browser
+      // finishes fetching and decoding the image -- a one-shot evaluate can therefore
+      // sample before decoding completes when the machine is busy, and report "not
+      // rendered". Not one character of the criterion changed (still complete &&
+      // naturalWidth > 0); what changed is that it now waits instead of sampling once.
+      // This is exactly how full-suite run 630 went red, while a solo 5/5 run was
+      // entirely green.
       await expect.poll(
         () => sm(page, 'hosted').evaluate(
           (el) => el instanceof HTMLImageElement && el.complete && el.naturalWidth > 0),
@@ -231,13 +252,15 @@ test.describe('everything the code carries, carries onto the page', () => {
     await askOnPage(page, `first ${first}`);
     await expect(sm(page, 'answer')).toContainText('the one turn you get', { timeout: 30_000 });
 
-    // 第二轮必须被同一套配额挡下。**断的是页面说了话**，不是「没答出来」——
-    // 一个静默失败的页面跟一个还在想的页面长得一样。
+    // The second turn must be blocked by the same quota. **The assertion is that the
+    // page says something**, not "no answer arrived" -- a silently-failing page looks
+    // exactly like a page that's still thinking.
     const second = await scriptMockReplyText(admin.request, 'this must never render');
     await askOnPage(page, `second ${second}`);
-    // 断的是**后端为这次拒绝写的那句话到了屏幕上**，不是「有东西显示出来了」。
-    // 上一版的页面印的是 `send message: 403`：SDK 把状态码留下、把那句话扔了，
-    // 于是每一个用 SDK 建的页面都拿一个数字招呼读者（F-P-5）。
+    // The assertion is that **the message the backend wrote for this refusal reached
+    // the screen**, not "something is displayed". The previous version of the page
+    // printed `send message: 403`: the SDK kept the status code and threw the message
+    // away, so every page built with the SDK greeted readers with a bare number (F-P-5).
     await expect(sm(page, 'error'), 'the page says the allowance ran out, in words')
       .toContainText('turn limit', { timeout: 30_000 });
     await expect(sm(page, 'error'), 'and not a bare status code')
@@ -255,7 +278,8 @@ test.describe('everything the code carries, carries onto the page', () => {
     await enterWithCode(page, 'NAME-001', 'First Reader');
     await expect(sm(page, 'marker')).toBeVisible({ timeout: 20_000 });
 
-    // 第二个人从一张干净的浏览器上下文进来 —— 名额是这张码的属性，不是这台机器的。
+    // The second person arrives from a clean browser context -- the quota is a
+    // property of this code, not of this machine.
     const other = await browser.newContext();
     const second = await other.newPage();
     await goto(second, '/?code=NAME-001');
@@ -263,8 +287,10 @@ test.describe('everything the code carries, carries onto the page', () => {
     await second.getByTestId('visitor-name-input').fill('Second Reader');
     await second.getByTestId('visitor-name-submit').click();
 
-    // 名额满了要在**进门那一刻**被挡住，而且说得出为什么 —— 挂了页也不该换一种说法。
-    // 断的是那句话，不是「输入框还在」：产品把输入框换成了拒绝的理由，那是对的做法。
+    // Once a quota is full, it must be blocked at **the exact moment of entry**, and be
+    // able to say why -- even when bound to a page, the wording must not change. The
+    // assertion is on that message, not "the input box is still there": the product
+    // replacing the input box with the reason for the refusal is the correct behavior.
     await expect(second.getByText(/reached its limit of names/i),
       'a code with one name left tells the second reader why')
       .toBeVisible({ timeout: 20_000 });
@@ -284,7 +310,8 @@ test.describe('everything the code carries, carries onto the page', () => {
     await askOnPage(page, `before ${ok}`);
     await expect(sm(page, 'answer')).toContainText('still allowed', { timeout: 30_000 });
 
-    // owner 收回授权 —— 页面这一侧必须立刻停。**没有访问快照**。
+    // The owner revokes the grant -- the page's side must stop immediately. **There is
+    // no cached access.**
     await revokeCode(admin.request, admin.csrf, code.id);
 
     const after = await scriptMockReplyText(admin.request, 'must not answer after revoke');
@@ -308,8 +335,8 @@ test.describe('an arriving grant wins over the page’s own setting (I-4)', () =
       await setPageByoai(admin.request, admin.csrf, 'byok-on', true);
 
       await goto(page, '/p/byok-on');
-      // 正对照。少了它，下一条的「没提供」可能是因为这条路根本没做出来
-      // （[[assertion-that-cannot-fail]]）。
+      // The positive control. Without it, the next test's "wasn't offered" could just
+      // mean this path was never built ([[assertion-that-cannot-fail]]).
       await expect(sm(page, 'byok'), 'with no grant, the page’s own setting applies')
         .toBeVisible({ timeout: 20_000 });
     });
@@ -325,8 +352,9 @@ test.describe('an arriving grant wins over the page’s own setting (I-4)', () =
       await enterWithCode(page, 'BYOK-001', 'Granted Reader');
       await expect(sm(page, 'marker')).toBeVisible({ timeout: 20_000 });
 
-      // 手里那份授权是 owner 给的，比自带 key 大。再问一次「要不要用你自己的 key」，
-      // 等于把 owner 的决定交回给读者。
+      // The grant this reader is holding came from the owner, and it outranks
+      // bring-your-own-key. Asking "want to use your own key?" again would hand the
+      // owner's decision back to the reader.
       await expect(sm(page, 'byok'),
         'a reader who arrived on a code is not asked to bring a key')
         .toHaveCount(0);

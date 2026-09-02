@@ -1,14 +1,16 @@
-// connector-err-refresh-network.spec.ts —— §四 错误流矩阵 E7
-// token refresh 撞 **network 错误 / 500（不是 invalid_grant）** → 友好降级。
-// 跟 connector-revoked-degrades 区分:那条是 invalid_grant(撤销→落库 disconnected),
-// 这条是**瞬时/网络故障**,连接不该被判死,只该这次降级。
+// connector-err-refresh-network.spec.ts -- §4 error-flow matrix E7
+// token refresh hits a **network error / 500 (not invalid_grant)** -> friendly degrade.
+// Distinct from connector-revoked-degrades: that one is invalid_grant (revoked -> stored
+// as disconnected), this one is a **transient/network fault** -- the connection must not
+// be declared dead, only degrade for this call.
 //
 // Error stream E7: token refresh fails with a NETWORK error / 500 (NOT
 // invalid_grant) → friendly degrade, never a 500/stack. Distinct from
 // connector-revoked-degrades (invalid_grant): a transient refresh fault must not
 // be treated as a revoked connector.
 //
-// RED / TDD：依赖 token refresh 把 network/500 跟 invalid_grant 分开处置、各自友好降级落地后转绿。
+// RED / TDD: goes green once token refresh handles network/500 separately from
+// invalid_grant, each with its own friendly degrade.
 
 import { execSync } from 'node:child_process';
 import { test, expect } from '@/fixtures/test';
@@ -36,8 +38,8 @@ function future(days: number, hour: number): string {
   return d.toISOString();
 }
 
-// expireAccessToken —— 标记 owner GCal access_token 过期,逼下一次 book 走刷新路径
-// (跟 connector-revoked-degrades 同手法)。
+// expireAccessToken -- marks the owner's GCal access_token expired, forcing the next
+// book call down the refresh path (same technique as connector-revoked-degrades).
 function expireAccessToken(): void {
   const sql = `UPDATE owner_connectors
               SET token_expires_at = NOW() - INTERVAL '1 hour'

@@ -1,18 +1,27 @@
-// gate-captcha-unlock.spec.ts —— F-G-3：被 per-IP 锁住的访客，必须能用产品自己写明的那条出路。
+// gate-captcha-unlock.spec.ts —— F-G-3: a visitor locked out by the per-IP guard must be
+// able to use the way out the product itself already documents.
 //
-// 后端**收**这个东西：`sessions.go` 的 `captcha_token`，`code_guard.go:56` 的
-// `Locked = enabled && overThreshold && captchaFails` —— 一个通过校验的 token 就解锁。
-// 而 `TurnstileWidget` 全仓只挂在 `LoginForm.tsx`（**owner 的登录页**）。于是访客手滑十次之后
-// 被锁 15 分钟，屏幕上没有任何出路：能力在后端，脸没建（同 F-D-9 / F-N-4 一族）。
+// The backend **accepts** this already: `sessions.go`'s `captcha_token`, and
+// `code_guard.go:56`'s `Locked = enabled && overThreshold && captchaFails` — a token
+// that passes verification unlocks it. But `TurnstileWidget` is mounted nowhere in the
+// repo except `LoginForm.tsx` (**the owner's login page**). So a visitor who fumbles the
+// code ten times gets locked out for 15 minutes with no way out on screen: the
+// capability exists on the backend, the face was never built (same family as
+// F-D-9 / F-N-4).
 //
-// **只能在 captcha 真开着时驱**：widget 只在实例发布了 site key 时渲染，而其余 spec 全跑在
-// captcha 关的默认形态上（那也是产品出厂的样子）。所以这条走 `make test-captcha` —— 它用
-// Cloudflare 官方**永远通过**的测试密钥把栈拉起来。那对密钥自己出票，没有谜题可解。
+// **This can only be driven with captcha genuinely turned on**: the widget only renders
+// when the instance has published a site key, while every other spec runs against the
+// default shape with captcha off (which is also how the product ships). So this spec
+// runs via `make test-captcha` — it brings up the stack with Cloudflare's official
+// **always-passes** test keys. That keypair issues its own token; there's no puzzle to
+// solve.
 //
-// 判据两条：
-//   ① 锁住之后，gate 上出现 captcha；
-//   ② 解出来的 token 一发就真解锁 —— 用**同一张真码**在锁前锁后各试一次，锁前被拒、
-//      带票之后进得去。只断①的话，一个渲染出来但没接线的组件也能过（那正是这条缺陷的形状）。
+// Two criteria:
+//   (1) once locked, a captcha appears on the gate;
+//   (2) submitting the solved token actually unlocks it — try the **same real code**
+//       once before the lock and once after, expecting a refusal before and entry after
+//       carrying the token. Asserting only (1) would let a component that renders but
+//       isn't wired through pass too — which is exactly the shape of this defect.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -30,12 +39,14 @@ const OWNER = {
   fullName: 'Captcha Gate Owner',
 };
 const GOOD_CODE = 'LETMEIN-001';
-// codeFailMax = 10（code_guard.go）。多敲两次，别卡在边界上。
+// codeFailMax = 10 (code_guard.go). Try a couple extra so we don't sit right on the
+// boundary.
 const WRONG_TRIES = 12;
 
 test.describe('gate · a locked visitor is offered the way out the backend already accepts', () => {
   test.beforeAll(async ({ playwright }) => {
-    // 这台没开 captcha 就整组跳过（而不是留一条恒定的红）—— 见 fixtures/captcha.ts。
+    // Skip the whole group when this instance doesn't have captcha on (rather than
+    // leaving a permanently red test) — see fixtures/captcha.ts.
     await skipUnlessCaptchaOn(await playwright.request.newContext());
     resetInstance();
     const request = await playwright.request.newContext();
@@ -51,46 +62,57 @@ test.describe('gate · a locked visitor is offered the way out the backend alrea
   test('captcha on + locked out ⇒ the gate shows a captcha, and solving it lets a real code through',
     async ({ page }) => {
       await goto(page, '/gate');
-      // 先证 captcha 真的开着 —— 否则下面「没有 widget」只是因为这台实例压根没配，
-      // 那样这条 spec 会红在环境上而不是红在缺陷上（[[red-in-the-wrong-place]]）。
+      // First prove captcha is genuinely on — otherwise "no widget" below would just
+      // mean this instance was never configured for it, and the spec would go red on
+      // the environment rather than on the defect ([[red-in-the-wrong-place]]).
       await expect(
         page.getByTestId('gate-captcha'),
         'captcha must be configured for this spec — run it via `make test-captcha`',
       ).toHaveCount(0, { timeout: 5_000 });
 
-      // 一直试错码，**直到闸落下来**。不是固定敲 12 次：锁上之后提交按钮就该禁用了
-      // （见下），再敲就是往一个不会发请求的表单里打字，等到的只有超时。
+      // Keep submitting wrong codes **until the gate actually falls**. Not a fixed
+      // 12 tries: once locked, the submit button should be disabled (see below), and
+      // typing into a form that never sends a request just times out.
       for (let i = 0; i < WRONG_TRIES && !(await locked(page)); i++) {
         await submitCode(page, `NOPE-${String(i).padStart(3, '0')}`);
       }
 
-      // ① 锁住了 → gate 必须给出那条出路。
+      // (1) Locked out → the gate must offer that way out.
       await expect(
         page.getByTestId('gate-captcha'),
         'a locked visitor must be offered the captcha the backend accepts, not just refused',
       ).toBeVisible({ timeout: 15_000 });
 
-      // ①b 而且那句拒绝要**指着**这条出路。这台实例配了 captcha，屏幕上就摆着那道校验，
-      // 这时说「稍后再试」等于把它藏起来让人干等十五分钟。反向那一半（没配 captcha 时
-      // 不许承诺一道不存在的校验）由 `gate-lock-offers-only-what-exists` 守着（F-G-7）。
+      // (1b) And the refusal message must **point at** that way out. This instance has
+      // captcha configured, so the check is sitting right there on screen — saying
+      // "try again later" would just hide it and leave the visitor waiting fifteen
+      // minutes for nothing. The mirror half (never promising a check that doesn't
+      // exist when captcha isn't configured) is guarded by
+      // `gate-lock-offers-only-what-exists` (F-G-7).
       await expect(
         page.getByTestId('code-panel').getByTestId('gate-error'),
         'with a check on screen the refusal must point at it, not tell the visitor to wait',
       ).toContainText('human check', { timeout: 10_000 });
 
-      // ② 而且它要真接线：测试密钥自己出票，带着票用真码应当进得去。
+      // (2) And it must actually be wired through: the test keypair issues its own
+      // token, and submitting a real code with that token should let the visitor in.
       //
-      // 等按钮从禁用变回可按 —— 那是**票到手**的可见信号。上一版一看见校验框就提交，
-      // 于是票还没出来就发了空的，后端照旧 429：我在跟一个自己造的竞态赛跑，而产品
-      // 那边访客也会撞上同一个（所以那一格现在真的禁用，不只是给测试看的）。
+      // Wait for the button to flip from disabled back to enabled — that's the visible
+      // signal that **the token has arrived**. An earlier version submitted the moment
+      // it saw the check box, so it sent the request before the token existed and the
+      // backend still returned 429: that was racing against a condition of my own
+      // making, and a real visitor would hit the same race (which is why that control is
+      // genuinely disabled now, not just for the test's benefit).
       await expect(
         page.getByTestId('gate-code-submit'),
         'while locked and unsolved, submitting must be blocked — otherwise the visitor keeps '
           + 'hitting the same 429 with no idea whether to wait or give up',
       ).toBeDisabled({ timeout: 10_000 });
-      // 每次被拒之后输入框会抖一下再自己清空（`useShakeOnError`）。等它清完再打字 ——
-      // 上一版在清空之前就填好了码，于是那个定时器把码抹掉，回车提交了个空串，
-      // 请求压根没发出去。人也是等它清完才重打的。
+      // After each refusal the input shakes and clears itself (`useShakeOnError`). Wait
+      // for it to finish clearing before typing — an earlier version filled the code
+      // before the clear finished, so the timer wiped it out and Enter submitted an
+      // empty string, and no request was ever sent. A real person also waits for it to
+      // finish before retyping.
       await expect(page.getByTestId('gate-code')).toHaveValue('', { timeout: 5_000 });
       await page.getByTestId('gate-code').fill(GOOD_CODE);
       await expect(
@@ -106,28 +128,34 @@ test.describe('gate · a locked visitor is offered the way out the backend alrea
     });
 });
 
-// locked —— 闸落下来了没有：以**后端那句拒绝**为准。
+// locked —— whether the gate has actually fallen: goes by **the backend's refusal
+// message**, taken as the source of truth.
 //
-// 上一版问的是「那道人机校验出现了没有」，而那个盒子里现在只剩一个 Turnstile 的 iframe：
-// 它加载出来之前高度为 0，`isVisible()` 是 false —— 于是循环以为还没锁上，继续敲，而按钮
-// 那时已经被禁用了，敲下去一个请求都不会发，等到的只有超时。**用那个还没画完的东西当判据，
-// 判的是它画完没有，不是闸落下没有。**
+// An earlier version asked "has the human-check appeared", but that box now holds
+// nothing but a Turnstile iframe: its height is 0 before it finishes loading, so
+// `isVisible()` is false — the loop thinks it isn't locked yet and keeps submitting,
+// while the button is already disabled, so nothing gets sent and it just times out.
+// **Using something that hasn't finished painting as the criterion measures whether it
+// finished painting, not whether the gate has fallen.**
 async function locked(page: Page): Promise<boolean> {
   const said = await page.getByTestId('code-panel').getByTestId('gate-error')
     .textContent().catch(() => null);
   return (said ?? '').includes('human check');
 }
 
-// submitCode —— 像人一样填码点确认，然后**等这一次提交真的有了回音**。
-// 不用定时等：那既慢又会在机器忙的时候把「还没回来」当成「回来了」（[[timeout-is-not-proof-of-not-done]]）。
+// submitCode —— fills the code and confirms like a person would, then **waits for this
+// submission to actually get a response**.
+// Not a timed wait: that's both slow and, on a busy machine, mistakes "hasn't come back
+// yet" for "came back" ([[timeout-is-not-proof-of-not-done]]).
 async function submitCode(page: Page, code: string): Promise<void> {
   const answered = page.waitForResponse(
     (r) => r.request().method() === 'POST' && /\/api\/v1\/(sessions|codes\/intro)/.test(r.url()),
     { timeout: 15_000 },
   );
-  // 敲回车而不是点按钮：每次被拒都会插进一行错误提示，把按钮挪走，于是点击卡在
-  // 「element is not stable」上 —— 那是我在跟布局赛跑，不是产品的毛病。门上那句
-  // 提示本来就写着 press enter，人也是这么做的。
+  // Press Enter rather than click the button: every refusal inserts an error line that
+  // shifts the button, so clicking gets stuck on "element is not stable" — that's me
+  // racing the layout, not a product defect. The hint on screen already says press
+  // enter, and that's what a person would do.
   const field = page.getByTestId('gate-code');
   await field.fill(code);
   await field.press('Enter');

@@ -1,7 +1,7 @@
 // admin-connectors-extended.spec.ts —— connectors: dashed add card, category tabs,
 // installed pill, secret field toggle, oauth button, connect state.
 //
-// 用户故事：
+// User story:
 //   1. dashed "+" card → click → modal opens
 //   2. category tab switch → catalog grid filters
 //   3. installed connector → "installed" pill
@@ -76,7 +76,8 @@ test.describe('admin connectors extended', () => {
       await adminPage.getByTestId('connector-card-calendar').click();
       await expect(adminPage.getByTestId('connector-spec-input')).toBeVisible();
     });
-  // (旧 "#46 grid coming-soon tile" 测试已删 —— marketplace 预览网格不做了,owner 上传即用。)
+  // (The old "#46 grid coming-soon tile" test was removed -- the marketplace preview
+  // grid isn't happening; the owner just uploads and uses it.)
 });
 
 async function initOwner(playwright: Playwright): Promise<void> {

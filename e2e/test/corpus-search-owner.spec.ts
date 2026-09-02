@@ -1,12 +1,16 @@
-// corpus-search-owner.spec.ts —— owner 找得到自己语料里的一条（F-L-39 / F-L-41）。
+// corpus-search-owner.spec.ts -- the owner can find one note in their own corpus
+// (F-L-39 / F-L-41).
 //
-// 之前 owner 这一侧只有两个读口：`corpus.list`（最新的一页，上限 200，**没有 offset**）
-// 和 `corpus.get`（得先知道 id）；`/admin/wiki` 上只有标签 chip + 两列网格，**没有搜索框**。
-// 于是「打开我那条 good-regulator-theorem」在两个面上都做不到 —— 而访客那一侧一直有搜索，
-// 后端 `repo.*.Search` 的全文检索也一直在。缺的只是这一侧的接线。
+// The owner side used to have only two read endpoints: `corpus.list` (the newest page,
+// capped at 200, **no offset**) and `corpus.get` (you must already know the id);
+// `/admin/wiki` had only tag chips + a two-column grid, **no search box**. So "open my
+// good-regulator-theorem note" was impossible on either surface -- while the visitor
+// side has always had search, and the backend's `repo.*.Search` full-text search has
+// always been there. All that was missing was wiring on this side.
 //
-// 两条断言分别钉住两个面：owner 的 AI 客户端（MCP）和他自己的后台（GUI）。
-// **两个都要**：只钉一个，另一个可以长期空着而没人发现（[[test-covers-capability-not-face]]）。
+// Two assertions pin down two surfaces: the owner's AI client (MCP) and their own
+// admin panel (GUI). **Both are required**: pinning only one leaves the other free to
+// stay empty indefinitely without anyone noticing ([[test-covers-capability-not-face]]).
 
 import { test, expect } from '@/fixtures/test';
 
@@ -21,14 +25,17 @@ const OWNER = {
   handle: 'corpussearch', fullName: 'Corpus Search Owner',
 };
 
-// NEEDLE —— 只出现在那一条笔记里的词。搜出别的东西 = 这条断言没在测搜索。
+// NEEDLE -- a word that appears only in that one note. Searching up something else
+// means this assertion isn't testing search at all.
 const NEEDLE = 'thermosiphon';
 const TARGET = 'Thermosiphon Note';
 
-// CALLOUT_* —— **真 vault 的形状**：这个 owner 的笔记几乎都以一个 `> [!i18n]` 语言切换
-// callout 开头，正文在它后面。摘要取「正文开头 200 字节」时，这一段把它整块吃掉，
-// 清洗之后一个字不剩（F-L-45）。夹具的正文以前是纯文本、第一行就是内容，
-// 于是这条守卫在 CI 上永远看不见真环境里的空摘要（[[which-path-is-the-green-on]]）。
+// CALLOUT_* -- **the shape of a real vault**: almost every note this owner writes
+// opens with a `> [!i18n]` language-switch callout, with the body coming after it. When
+// the preview takes "the first 200 bytes of the body", this block swallows the whole
+// thing, and after cleanup not one character is left (F-L-45). The fixture's body used
+// to be plain text starting right with the content, so this guard could never see the
+// empty preview a real environment produces ([[which-path-is-the-green-on]]).
 const CALLOUT_NEEDLE = 'psychrometric';
 const CALLOUT_TARGET = 'Callout-Led Note';
 const CALLOUT_HEAD = [
@@ -41,8 +48,10 @@ const CALLOUT_HEAD = [
   '> >',
   '> > > Parent: [[key-designs]]',
   '>',
-  // 第二个语言面 —— 契约允许 N 个。`[!lang] zh` 这一行是**脚手架**，而它以前跟切换器
-  // 一样进了索引：搜 `zh` 会命中每一条带中文面的笔记，哪怕正文里没这个词。
+  // A second language pane -- the contract allows N of them. The `[!lang] zh` line is
+  // **scaffolding**, and it used to get indexed right along with the switcher: searching
+  // `zh` would hit every note that has a Chinese pane, even if that word never appears
+  // in its body.
   '> > [!lang] zh',
   '> > # 湿度图那一条',
   '',
@@ -64,12 +73,14 @@ test.describe('owner 找得到自己语料里的一条', () => {
     mcpToken = await createAPIToken(request, csrf, 'corpus-search-seed');
     sid = await initMCP(request, mcpToken);
 
-    // 目标那条先建，再堆一批**更新的**笔记压在它上面 —— 列表是 newest-first，
-    // 于是目标不在第一屏。搜索要能跨过这堆，找按内容而不是按新旧。
+    // Create the target note first, then pile on a batch of **newer** notes on top of
+    // it -- the list is newest-first, so the target isn't on the first screen. Search
+    // has to see past this pile and find it by content, not recency.
     await seedWiki(request, mcpToken, sid, {
       title: TARGET, body: `A note about the ${NEEDLE} loop and passive circulation.`,
     });
-    // 真 vault 形状的那一条：开头 200 字节全是 i18n callout，命中词在后面。
+    // The real-vault-shaped note: its first 200 bytes are all i18n callout, and the
+    // match term comes after it.
     await seedWiki(request, mcpToken, sid, {
       title: CALLOUT_TARGET,
       body: `${CALLOUT_HEAD}The ${CALLOUT_NEEDLE} chart is the one I keep coming back to.`,
@@ -91,10 +102,12 @@ test.describe('owner 找得到自己语料里的一条', () => {
       expect(titles, `搜 "${NEEDLE}" 该命中那一条`).toContain(TARGET);
       expect(found.length, '只有那一条含这个词').toBe(1);
 
-      // 搜索结果得**说得出它为什么被搜到**，而且不能报一个假时间（F-L-45 / F-L-46）。
-      // 真 vault 上这两条都不成立：摘要取的是「正文开头 200 字节」，而那些笔记开头
-      // 几乎都是 `> [!i18n]` 那个语言切换 callout，清洗后一个字不剩；`updated_at`
-      // 那一列查询根本没取，却照样渲成 `1970-01-01T00:00:00Z`。
+      // A search result must **be able to say why it matched**, and must not report a
+      // fake timestamp (F-L-45 / F-L-46). Neither held on a real vault: the preview was
+      // taken from "the first 200 bytes of the body", and those notes almost always
+      // open with the `> [!i18n]` language-switch callout, leaving nothing after
+      // cleanup; the `updated_at` column was never even fetched by the query, yet still
+      // rendered as `1970-01-01T00:00:00Z`.
       const row = found[0] as unknown as { preview?: string; updated_at?: string };
       expect(row.preview ?? '', '每一行都要有摘要，否则 owner 拿到的只是一串 slug')
         .not.toBe('');
@@ -110,20 +123,24 @@ test.describe('owner 找得到自己语料里的一条', () => {
       expect(found.map((r) => r.title), '先确认搜得到它').toContain(CALLOUT_TARGET);
       const row = found.find((r) => r.title === CALLOUT_TARGET) as unknown as
         { preview?: string };
-      // 「正文开头 200 字节」在这种笔记上全是标记，清洗后是空串 —— 真 vault 上每一行都这样。
+      // "The first 200 bytes of the body" is all markup on a note like this, and
+      // cleanup leaves an empty string -- every note in a real vault looks this way.
       expect(row?.preview ?? '', '开头是 callout 的笔记同样要有摘要').not.toBe('');
       expect(row?.preview ?? '', '摘要要来自命中处，这样它同时回答了「为什么是这条」')
         .toContain(CALLOUT_NEEDLE);
-      // **「非空且含命中词」还不够**：⑤ 在真语料上看到的第一版摘要是
-      // `i18n] EN 中文 The as-,StopSel=MCP facade …` —— 它同时满足上面两条。
-      // 三样都不许漏到 owner 眼前：ts_headline 的选项串、callout 的残骸、裸标签。
+      // **"non-empty and contains the match term" isn't enough**: the first preview
+      // version seen on real corpus data was `i18n] EN 中文 The as-,StopSel=MCP
+      // facade ...` -- which satisfies both checks above. None of these three are
+      // allowed to leak to the owner's eyes: ts_headline's option string, callout
+      // wreckage, or bare markup.
       for (const junk of [',StopSel', 'StartSel', '[!', '<label', '<input', 'i18n]']) {
         expect(row?.preview ?? '', `摘要里不该出现 ${junk}`).not.toContain(junk);
       }
-      // 切换器**按钮上的字**也不算内容（UX-78）。清洗抓不到它:postgres 的 `ts_headline`
-      // 自己就把 `<label>`/`<input>` 去掉了,交到 Go 手上时只剩 `EN 中文` 两个词,
-      // 结构上跟散文一模一样。夹具的正文全是英文,所以 preview 里但凡出现中文,
-      // 来源只可能是那一行切换器。
+      // The switcher's **button labels** don't count as content either (UX-78). Cleanup
+      // can't catch it: postgres's `ts_headline` itself strips `<label>`/`<input>`, so
+      // by the time it reaches Go, only the two words `EN 中文` remain, structurally
+      // indistinguishable from prose. The fixture's body is entirely English, so any
+      // Chinese text showing up in the preview can only have come from that switcher line.
       expect(row?.preview ?? '', '语言切换按钮上的字不是这条笔记的内容')
         .not.toContain('中文');
     });
@@ -136,21 +153,26 @@ test.describe('owner 找得到自己语料里的一条', () => {
 
       await box.fill(NEEDLE);
       await expect(adminPage.getByTestId('wiki-list')).toContainText(TARGET, { timeout: 8_000 });
-      // 状态那句话要区分「这一页」和「整个语料」—— 屏幕不说，owner 会把
-      // 「这一页里没有」读成「我的语料里没有」。
+      // The status message must distinguish "this page" from "the whole corpus" -- if
+      // the screen doesn't say, the owner will read "not on this page" as "not in my
+      // corpus at all".
       await expect(adminPage.getByTestId('corpus-search-state')).toContainText('whole corpus');
     });
 });
 
-// 摘要那一半在上面；这一组问的是**索引**：契约里的脚手架（切换器的按钮、`[!lang]` 标记）
-// 会不会让一条笔记因为它自己没写过的词被搜出来。上面那组用同一批夹具，所以这组接着跑。
+// The preview half of this is above; this group asks about **the index**: does the
+// contract's scaffolding (the switcher's buttons, the `[!lang]` markers) let a note get
+// found by a word it never actually wrote. This group reuses the same fixtures as the
+// group above, so it runs right after it.
 test.describe('契约里的脚手架不该被搜到', () => {
-  // 同一件事的另一半:按钮上的字不该**被搜到**。
-  // **不要按 `label` / `radio` 判**:那两个词在标签名里,而 postgres 的 `english` 分析器
-  // 本来就把 HTML 标签当 tag token 扔掉 —— 那样的断言在修之前就是绿的,什么也不证明
-  // （[[assertion-that-cannot-fail]]，第一版就是这么写的）。漏进索引的恰恰是标签之间的
-  // **文字**:`EN` 和 `中文`。真 vault 里每条多语笔记都带这两个词,于是搜「中文」会
-  // 把它们全部搜出来。
+  // The other half of the same thing: button labels must not **be searchable**.
+  // **Don't assert on `label` / `radio`**: those two words appear in the tag names, and
+  // postgres's `english` analyzer already discards HTML tags as tag tokens -- an
+  // assertion like that would already be green before the fix, proving nothing
+  // ([[assertion-that-cannot-fail]]; the first draft was written exactly that way).
+  // What actually leaks into the index is the **text between the tags**: `EN` and
+  // `中文`. Every multilingual note in a real vault carries both of these words, so
+  // searching `中文` would surface every single one of them.
   test('owner-MCP：切换器上的字不进索引 —— 搜「中文」搜不出这条英文笔记',
     async ({ request }) => {
       const found = await callTool<{ id: string; title: string }[]>(
@@ -162,9 +184,11 @@ test.describe('契约里的脚手架不该被搜到', () => {
       ).not.toContain(CALLOUT_TARGET);
     });
 
-  // 区块自己的标记也一样。`> > [!lang] zh` 里的 `zh` 是契约的脚手架 ——
-  // ⑤ 在真语料上看到过一条摘要以孤零零一个 `en` 开头（`ts_headline` 的窗口从标记中间切开，
-  // 事后再清片段的人**看不到足够的上下文**认出它）。所以标记要在 postgres 读之前就没了。
+  // The block's own markers are the same story. The `zh` in `> > [!lang] zh` is
+  // contract scaffolding -- a preview seen on real corpus data once opened with a lone
+  // `en` (ts_headline's window cut the marker right in the middle, and whoever cleans
+  // up the fragment afterward **can't see enough context** to recognize it). So the
+  // marker needs to be gone before postgres ever reads it.
   test('owner-MCP：语言标记不进索引 —— 搜 "zh" 搜不出这条笔记',
     async ({ request }) => {
       const found = await callTool<{ id: string; title: string }[]>(

@@ -1,17 +1,21 @@
-// writing-tree.spec.ts —— reader sidebar 的 writing 树端点(#43-1/3)。
+// writing-tree.spec.ts — the writing-tree endpoint behind the reader sidebar
+// (#43-1/3).
 //
-// writing 加了 parent_id 树(贴 reader.html 设计)。MCP writing_create 收
-// parent_id 把 post 挂到父下。GET /api/v1/writing-tree 懒加载一层:
-//   parent 空 → roots;parent=ID → 直接子。节点 {id,title,slug,has_children,locked}。
+// writing gained a parent_id tree (following the reader.html design). MCP's
+// writing_create accepts parent_id to hang a post under a parent. GET
+// /api/v1/writing-tree lazy-loads one level at a time:
+//   empty parent → roots; parent=ID → direct children. Node shape:
+//   {id,title,slug,has_children,locked}.
 //
-// ACL 跟 wiki 不同:published 才进树(草稿不进),private(visibility!=public)**仍显示**
-// 但标 locked(设计要 show locked 节点)。导航按 slug。
+// ACL differs from wiki: only published entries enter the tree (drafts don't),
+// while a private one (visibility!=public) **still shows up** but marked locked
+// (the design calls for showing locked nodes). Navigation is by slug.
 //
-// 树(seed):
-//   Essays(root,published,public)
-//    └─ Sub Post(published,public)
-//   Private Post(root,published,private) ← locked
-//   Draft Post(root,**未发布**) ← 不进树
+// The seeded tree:
+//   Essays (root, published, public)
+//    └─ Sub Post (published, public)
+//   Private Post (root, published, private) ← locked
+//   Draft Post (root, **unpublished**) ← does not enter the tree
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -88,18 +92,19 @@ test.describe('reader writing 树端点:published 进树 + private 显示成 loc
     expect(roots.find((n) => n.title === 'Private Post')?.has_children).toBe(false);
   });
 
-  // ── 节点上下文(文章页 breadcrumb 祖先链)──
+  // -- node context (the article page's breadcrumb ancestor chain) --
   test('context:sub-post → 祖先 [Essays]', ctxSubAncestors);
 
-  // ── reader surface:真浏览器(/writings 树 + 文章页 breadcrumb)──
+  // -- reader surface: a real browser (/writings tree + the article page's breadcrumb) --
   test('reader sidebar:/writings 懒展开 + private 标 locked', readerSidebar);
   test('reader 文章页:/writings/sub-post breadcrumb 显示祖先 Essays(可点)', articleBreadcrumb);
 
-  // ── admin reparent:改父防环(把 essays 挂到自己子 sub 下 → 拒绝)──
+  // -- admin reparent: prevents a cycle (hanging essays under its own child sub → rejected) --
   test('admin reparent 成环 → 400(essays 挂到子 sub-post 下被拒)', adminReparentCycle);
 });
 
-// adminReparentCycle —— admin PATCH 把 essays 的 parent 设成它的子 sub → cycle 400。
+// adminReparentCycle -- an admin PATCH sets essays's parent to its own child
+// sub -> a cycle, 400.
 async function adminReparentCycle({ request }: { request: APIRequestContext }): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const res = await request.patch(`/api/admin/writings/${ids['essays']}`, {
@@ -111,7 +116,7 @@ async function adminReparentCycle({ request }: { request: APIRequestContext }): 
 
 interface TreeContext { ancestors: WNode[]; children: WNode[] }
 
-// ctxSubAncestors —— sub-post 的祖先 = [Essays]。
+// ctxSubAncestors -- sub-post's ancestors = [Essays].
 async function ctxSubAncestors({ request }: { request: APIRequestContext }): Promise<void> {
   const url = `${BACKEND}/api/v1/writing-tree/context?slug=sub-post`;
   const res = await request.get(url);
@@ -120,8 +125,8 @@ async function ctxSubAncestors({ request }: { request: APIRequestContext }): Pro
   expect(ctx.ancestors.map((n) => n.title)).toEqual(['Essays']);
 }
 
-// articleBreadcrumb —— /writings/sub-post 顶部 breadcrumb 显示可点祖先 Essays +
-// 树 sidebar 仍在侧。
+// articleBreadcrumb -- /writings/sub-post's top breadcrumb shows the clickable
+// ancestor Essays, and the tree sidebar is still present alongside it.
 async function articleBreadcrumb({ page }: { page: Page }): Promise<void> {
   await goto(page, '/writings/sub-post');
   const crumb = page.getByTestId('writing-breadcrumb');
@@ -130,8 +135,8 @@ async function articleBreadcrumb({ page }: { page: Page }): Promise<void> {
   await expect(page.getByTestId('writing-tree')).toBeVisible();
 }
 
-// readerSidebar —— /writings 显示 writing 树:roots 出现、点开 Essays 才取 Sub Post
-// (懒)、private 节点标 locked。
+// readerSidebar -- /writings displays the writing tree: roots appear; opening
+// Essays is what fetches Sub Post (lazily); a private node is marked locked.
 async function readerSidebar({ page }: { page: Page }): Promise<void> {
   const treeReqs: string[] = [];
   page.on('request', (r) => {
@@ -143,16 +148,16 @@ async function readerSidebar({ page }: { page: Page }): Promise<void> {
   await expect(page.getByTestId('tree-node-private-post')).toBeVisible();
   await expect(page.getByTestId('tree-node-sub-post')).toHaveCount(0);
   expect(treeReqs.some((u) => u.includes('parent='))).toBe(false);
-  // private 节点标 locked。
+  // The private node is marked locked.
   const locked = page.getByTestId('writing-tree').getByRole('link', { name: 'Private Post' });
   await expect(locked).toHaveAttribute('data-locked', 'true');
-  // 点开 Essays → 这时才取 Sub Post(懒加载)。
+  // Open Essays -> only now is Sub Post fetched (lazy loading).
   await page.getByTestId('tree-toggle-essays').click();
   await expect(page.getByTestId('tree-node-sub-post')).toBeVisible({ timeout: 5_000 });
   expect(treeReqs.some((u) => u.includes('parent='))).toBe(true);
 }
 
-// tree —— GET /api/v1/writing-tree[?parent=ID]。
+// tree -- GET /api/v1/writing-tree[?parent=ID].
 async function tree(request: APIRequestContext, parentID: string): Promise<WNode[]> {
   const url = parentID === ''
     ? `${BACKEND}/api/v1/writing-tree`
@@ -172,7 +177,7 @@ interface CreateWritingArgs {
   locked_body?: string;
 }
 
-// createWriting —— MCP writing_create,返回 writing_id。
+// createWriting -- calls MCP writing_create, returns the writing_id.
 async function createWriting(
   request: APIRequestContext, token: string, sid: string, args: CreateWritingArgs,
 ): Promise<string> {

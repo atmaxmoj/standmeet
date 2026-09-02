@@ -1,7 +1,11 @@
-// security-captcha-bypass.spec.ts —— pentest。#169 code-guard 的 captcha-escape 不能被无 op 掉:
-// captcha 关闭时(noop verifier,e2e/默认部署)锁定是**硬锁**,captchaFails() 恒 true —— 攻击者
-// 塞任意 captcha_token 也解不开(否则 noop.Verify(anything)=nil 就成了万能钥匙)。契约:锁定的 IP
-// 带上伪造 captcha_token 仍 429,连合法码也进不来,直到窗口过期。绿=captcha 门不可绕;红=塞 token 即逃逸。
+// security-captcha-bypass.spec.ts -- pentest. #169's code-guard captcha-escape
+// must not become a no-op: when captcha is off (the noop verifier, e2e/default
+// deployment), the lockout must be a **hard lock** -- captchaFails() stays
+// true unconditionally, so an attacker stuffing in any captcha_token can't
+// unlock it (otherwise noop.Verify(anything)=nil would become a master key).
+// Contract: a locked-out IP presenting a forged captcha_token still gets 429,
+// and not even the legitimate code gets through, until the window expires.
+// Green = the captcha gate cannot be bypassed; red = stuffing a token escapes it.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

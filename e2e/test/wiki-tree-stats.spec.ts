@@ -1,6 +1,8 @@
-// wiki-tree-stats.spec.ts —— F3:侧栏脚定位计数(entries / roots / gated)。纯 COUNT
-// 聚合,不拉树、不破坏懒加载。计数是 owner 级(总数 / 根数 / 非公开数),所以即便匿名
-// 树里只看得到公开的,脚上仍标出「一共多少、其中多少 gated」。
+// wiki-tree-stats.spec.ts -- F3: the sidebar footer's location counts (entries / roots
+// / gated). A pure COUNT aggregate that never pulls the tree, and never breaks lazy
+// loading. The counts are owner-level (totals / root count / non-public count), so
+// even when an anonymous tree only shows what's public, the footer still shows the
+// total and how many of those are gated.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -29,10 +31,10 @@ test.describe('F3 wiki sidebar stats (entries / roots / gated)', () => {
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     mcpToken = await createAPIToken(request, csrf, 'treestats-seed');
     const sid = await initMCP(request, mcpToken);
-    // 3 条根:Alpha/Beta 公开(indexed),Gamma 不公开(gated → 计 gated 数)。
+    // 3 roots: Alpha/Beta are public (indexed), Gamma is not (gated -> counted in the gated total).
     const a = await seedWiki(request, mcpToken, sid, { title: 'Alpha', body: 'a' });
     const b = await seedWiki(request, mcpToken, sid, { title: 'Beta', body: 'b' });
-    await seedWiki(request, mcpToken, sid, { title: 'Gamma', body: 'g' }); // 不 index → gated
+    await seedWiki(request, mcpToken, sid, { title: 'Gamma', body: 'g' }); // never indexed -> gated
     await indexWiki(request, sid, a.wikiID);
     await indexWiki(request, sid, b.wikiID);
     await request.dispose();

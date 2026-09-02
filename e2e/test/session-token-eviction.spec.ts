@@ -1,10 +1,11 @@
-// session-token-eviction.spec.ts —— 已发出的 session token,一旦 Redis 里的
-// `vsession:{token}` 没了(TTL 到期 / eviction / 显式删),下一次 /agent/turn 必须
-// **401 "invalid session"**。
+// session-token-eviction.spec.ts -- once an issued session token's `vsession:{token}` key is
+// gone from Redis (TTL expiry / eviction / explicit delete), the next /agent/turn must
+// **401 "invalid session"**.
 //
-// 补 invalidation 覆盖缺口:iam-revoke-blocks-next-turn 测的是「code 被 revoke →
-// turn 拒」(token 还在,code 死);这条测的是「**token 自身**没了 → 拒」,即
-// authVisitorWithToken 里 Sessions.Get 失败的那条路径,之前没测。
+// Fills an invalidation coverage gap: iam-revoke-blocks-next-turn tests "code gets revoked
+// -> turn rejected" (the token is still there, the code is dead); this one tests "the
+// **token itself** is gone -> rejected", i.e. the path where Sessions.Get fails inside
+// authVisitorWithToken, which was untested before.
 
 import { test, expect } from '@/fixtures/test';
 import { execSync } from 'node:child_process';
@@ -44,11 +45,11 @@ test.describe('an evicted/expired session token is rejected on the next turn', (
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'Sam',
       });
-      // 第一条 turn:token 有效 → 200。
+      // First turn: token valid -> 200.
       expect((await turn(request, sess)).status()).toBe(200);
-      // 模拟 TTL 到期 / eviction:把 vsession:* 从 Redis 删掉。
+      // Simulate TTL expiry / eviction: delete vsession:* from Redis.
       evictVisitorSessions();
-      // 同一 token 再发:Sessions.Get 查不到 → 401 "invalid session"。
+      // Send with the same token again: Sessions.Get can't find it -> 401 "invalid session".
       expect((await turn(request, sess)).status()).toBe(401);
       await request.dispose();
     });

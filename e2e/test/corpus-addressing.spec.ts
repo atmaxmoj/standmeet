@@ -1,16 +1,22 @@
-// corpus-addressing.spec.ts —— 目标态红测试:统一 `<genre>://<path>` 寻址 + 错误流。
+// corpus-addressing.spec.ts -- target-state red test: unified `<genre>://<path>`
+// addressing + error flow.
 //
-// 目标:四个 genre(wiki/output/writing/subjectivity)都按同一套 path 机制寻址,ACL 都是
-// `<genre>://<path>` glob。本 spec 从**访客 corpus_read** 这一个入口,断言寻址一致 + 边界安全。
+// Goal: all four genres (wiki/output/writing/subjectivity) address through the same
+// path mechanism, and ACL is always a `<genre>://<path>` glob. This spec asserts
+// addressing consistency + boundary safety from **one** entry point: visitor corpus_read.
 //
-// 覆盖:
-//   happy   —— 授全的 role 能按各自 path 读到 wiki/output/writing/subjectivity,genre 标签正确。
-//   corner  —— 同一 leaf path 在两个 genre 各自可寻址(genre-scoped,不撞;见 genre-isolation 互补)。
-//   error   —— 路径遍历(`../`、编码 `%2e%2e`、绝对 `/`)不越界 → not-found/denied,绝不读到别的东西;
-//              不存在的 path → 干净的 not-found(不 crash、不 500);未授的 genre → access denied。
+// Covers:
+//   happy   -- a fully-granted role can read wiki/output/writing/subjectivity via their
+//              respective paths, with the correct genre tag.
+//   corner  -- the same leaf path is independently addressable in two genres
+//              (genre-scoped, no collision; complements genre-isolation).
+//   error   -- path traversal (`../`, encoded `%2e%2e`, absolute `/`) never escapes ->
+//              not-found/denied, and never reads something else; a nonexistent path ->
+//              a clean not-found (no crash, no 500); an ungranted genre -> access denied.
 //
-// 现在红:subjectivity 不存在(seed 抛)+ writing 的统一寻址若还没收敛(writings/<slug> vs
-// writing://<slug>)也会红 —— 正是要驱动的收敛。
+// Currently red: subjectivity doesn't exist (seed throws) + if writing's unified
+// addressing hasn't converged yet (writings/<slug> vs writing://<slug>) that will also
+// go red -- exactly the convergence this is meant to drive.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

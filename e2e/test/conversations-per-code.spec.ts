@@ -1,10 +1,10 @@
-// conversations-per-code.spec.ts —— owner 在 admin code 卡片点 "view
-// conversations" → 跳到 /admin/conversations?code=... → 只看到该 code 下的
-// session。
+// conversations-per-code.spec.ts —— the owner clicks "view conversations" on an admin code
+// card → lands on /admin/conversations?code=... → sees only sessions under that code.
 //
-// 用户故事：
-//   owner 发了两个 code，一个给招聘官，一个给投资人。想看招聘官那个 code
-//   下的对话，从卡里直接跳过去即可，不用在大列表里肉眼挑。
+// User story:
+//   The owner issued two codes, one for a recruiter and one for an investor. To see the
+//   conversation under the recruiter's code, they just jump there directly from the card,
+//   instead of eyeballing it out of the full list.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -42,18 +42,19 @@ test.describe('admin filters conversations by code via UI link', () => {
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'codes');
       await page.waitForURL('**/admin/codes', { timeout: 5_000 });
-      // 两个 code 卡片各有一条 "view conversations" 链接；选 HR 那张卡的。
+      // Each of the two code cards has its own "view conversations" link; pick the one on the HR card.
       await page.getByTestId(`code-card-${HR_CODE}`)
         .getByRole('link', { name: 'view conversations →' }).click();
       await page.waitForURL(`**/admin/conversations?code=${HR_CODE}`, { timeout: 5_000 });
 
       await expect(page.getByTestId('conv-filter-chip')).toContainText(HR_CODE);
-      // visitor name "Recruiter" 走 HR code → 应该出现一行；Investor 那条不该出现。
-      // 用 exact 命中渲染的 visitor 名字，避开 "Investor intro" 这种 label 撞名。
+      // The visitor named "Recruiter" went through the HR code → a row should appear; the
+      // Investor row should not. Use an exact match against the rendered visitor name to
+      // avoid a name collision with a label like "Investor intro".
       await expect(page.getByText('Recruiter', { exact: true })).toBeVisible();
       await expect(page.getByText('Investor', { exact: true })).toHaveCount(0);
 
-      // 点 "clear ×" → 回到不带 code 的列表，两条都看到。
+      // Click "clear ×" → back to the list with no code filter; both rows are visible.
       await page.getByRole('link', { name: 'clear ×' }).click();
       await page.waitForURL('**/admin/conversations', { timeout: 5_000 });
       await expect(page.getByText('Recruiter', { exact: true })).toBeVisible();

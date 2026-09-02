@@ -1,11 +1,14 @@
-// wiki-landing-scale.spec.ts —— 公开 wiki landing + sitemap 也必须覆盖**全量**,不是
-// 后端先 load 最新 50 条。GetWikiLanding / IndexedWikiLandings 现在还吃 newest-50 cap:
-//   - 深链接打开第 51 条往后(或最旧)的 indexed wiki → 404
-//   - sitemap.xml 漏掉 newest-50 之外的 indexed wiki
-// 把一条 indexed wiki needle **最先**种下(最旧),再灌 52 条 indexed filler 把它推出
-// 最新 50,然后直接深链接打开它 + 查 sitemap。
+// wiki-landing-scale.spec.ts —— the public wiki landing + sitemap must cover **the whole
+// corpus**, not whatever the backend loads first (newest 50). GetWikiLanding /
+// IndexedWikiLandings still eat a newest-50 cap right now:
+//   - deep-linking to indexed wiki #51 onward (or the oldest) → 404
+//   - sitemap.xml is missing any indexed wiki beyond the newest 50
+// Seed one indexed wiki needle **first** (so it's the oldest), then flood in 52 indexed
+// fillers to push it out of the newest 50, then deep-link straight to it + check the
+// sitemap.
 //
-// 现在(50-cap):landing 404 + sitemap 缺 → **红**。改 DB 端按 path 解析后:绿。
+// Right now (50-cap): landing 404 + sitemap missing it → **RED**. Once the DB side resolves
+// by path: green.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -37,11 +40,11 @@ test.describe('public wiki landing + sitemap cover the whole corpus, not newest-
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     mcpToken = await createAPIToken(request, csrf, 'wikiland-seed');
     const sid = await initMCP(request, mcpToken);
-    // needle 最先(最旧),indexed。
+    // needle first (oldest), indexed.
     const needleID = await promoteWiki(request, sid, NEEDLE_TITLE,
       `The body of ${NEEDLE_TITLE} entry.`);
     await indexWiki(request, sid, needleID);
-    // 52 条 indexed filler,把 needle 推出最新 50。
+    // 52 indexed fillers, to push the needle out of the newest 50.
     for (let i = 0; i < FILLER_COUNT; i += 1) {
       const id = await promoteWiki(request, sid, `Filler Wiki ${i}`, `filler ${i}`);
       await indexWiki(request, sid, id);

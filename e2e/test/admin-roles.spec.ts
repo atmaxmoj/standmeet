@@ -1,11 +1,12 @@
-// admin-roles.spec.ts —— /admin/roles UI-driven CRUD。
+// admin-roles.spec.ts — /admin/roles UI-driven CRUD.
 //
-// 用户故事：
-//   1. claim 后 publicRow role 已种入，appears in role-list with [system] pill
-//   2. owner 点 "+ new role" 弹 modal → 填 name + corpus URI globs → create →
-//      新 role 出现在 list
-//   3. publicRow 的 delete 按钮不渲染；自建 role 可删
-//   4. /admin/roles 卡上的 corpus / skills / mcp / codes 计数正确
+// User story:
+//   1. after claim, the publicRow role is already seeded, appears in role-list with
+//      [system] pill
+//   2. owner clicks "+ new role" to open a modal → fills name + corpus URI globs →
+//      create → the new role appears in the list
+//   3. the publicRow's delete button is not rendered; a self-created role can be deleted
+//   4. the corpus / skills / mcp / codes counts on the /admin/roles cards are correct
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -39,9 +40,11 @@ test.describe('admin roles', () => {
     const publicRow = adminPage.getByTestId('role-row-public');
     await expect(publicRow).toBeVisible();
     await expect(publicRow.getByTestId('role-system-pill')).toBeVisible();
-    // public 身份**没有正列表**：它读到的就是 owner 发布过的那些，由每条笔记自己的开关定
-    // （F-D-7）。这里曾经断言 `3 URIs` —— 那三条 glob 是 claim 时种下的第二份数据，
-    // 正是它让没有码的陌生人读到了标着 PRIVATE 的笔记。卡上现在说的是真正的范围在哪。
+    // The public identity **has no allowlist**: it reads whatever the owner has
+    // published, gated per-note by that note's own toggle (F-D-7). This used to assert
+    // `3 URIs` — those three globs were a second, seeded dataset planted at claim time,
+    // and they were exactly what let a codeless stranger read notes marked PRIVATE. The
+    // card now states where the real scope actually comes from.
     await expect(publicRow.getByTestId('role-meta-corpus')).toContainText('what you published');
   });
 
@@ -68,21 +71,25 @@ test.describe('admin roles', () => {
     await expect(created.getByTestId('role-meta-corpus')).toContainText('2 URIs');
   });
 
-  // 失败反显守护：重名 create 被后端拒(409)时，owner 必须看见 error toast，且 modal 保持开着让人改
-  // ——原来 mutation 吞成 false、modal 无论成败都关，失败像成功了一样静默。
+  // Failure-surfacing guard: when a duplicate-name create is rejected by the backend
+  // (409), the owner must see an error toast, and the modal must stay open so they can
+  // fix it — previously the mutation was swallowed into a plain `false`, the modal
+  // closed regardless of success or failure, and a failure went silent as if it had
+  // succeeded.
   test('duplicate role name → error toast + modal stays open (surfaced, not silent)', async ({ adminPage }) => {
     await openRoles(adminPage);
     await adminPage.getByTestId('role-new').click();
     const modal = adminPage.getByTestId('role-create-modal');
     await expect(modal).toBeVisible();
-    // recruiter-default 已在上个 test 建了 → 同名必被拒。
+    // recruiter-default was already created in the previous test → the same name
+    // must be rejected.
     await modal.getByTestId('role-field-name').fill('recruiter-default');
     await modal.getByTestId('role-field-description').fill('dup');
     await modal.getByTestId('role-field-corpus-uris').fill('wiki://thinking/**');
     await modal.getByTestId('role-create-submit').click();
     await expectErrorToast(adminPage, /already|exist|duplicate|taken|conflict|in use/i);
     await expect(modal, 'modal stays open on failure (not closed as if it saved)').toBeVisible();
-    await adminPage.keyboard.press('Escape'); // 收尾，别影响后面的 delete test
+    await adminPage.keyboard.press('Escape'); // clean up so it doesn't affect the delete test below
   });
 
   test('delete a non-builtin role', async ({ adminPage }) => {

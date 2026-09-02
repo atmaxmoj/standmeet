@@ -1,11 +1,12 @@
 // mcp-skill-grant-booking.spec.ts —— MCP↔HTTP parity: granting a built-in
 // capability (calendar.book) through the MCP skill_create tool's allowed_tools.
 //
-// 整个 gcal booking 套件都经 HTTP admin API 授权 (POST /api/admin/skills/ 带
-// allowed_tools)。而 MCP skill_create —— seed_persona.py 和「owner 用 Claude」
-// 走的那条 —— 之前根本没 allowed_tools 字段,所以这条授权路径从没被测过。这里
-// 补上:经 MCP 建一个 allowed_tools:["calendar.book"] 的 skill、挂到 role、发码,
-// 访客 session 就暴露 calendar_book(省略 allowed_tools 则不暴露)。
+// The entire gcal booking suite grants access through the HTTP admin API (POST
+// /api/admin/skills/ with allowed_tools). But MCP skill_create — the path seed_persona.py and
+// "the owner working through Claude" actually use — previously had no allowed_tools field at all,
+// so this grant path had never been tested. This fills that gap: build a skill with
+// allowed_tools:["calendar.book"] via MCP, attach it to a role, issue a code, and the visitor
+// session should expose calendar_book (omitting allowed_tools should not expose it).
 
 import { test } from '@/fixtures/test';
 
@@ -55,9 +56,10 @@ async function grantViaMCP(
     prompt: 'Offer to book a call when the visitor wants to talk live.',
     allowed_tools: [...allowedTools],
   });
-  // 主键叫 `id` —— 两个面同一份载荷之后,MCP 私有的那份 `role_id` 没了。读错键的代价是
-  // 静默的:assumed_role_id 拿到 undefined,码照样建出来,只是没有角色,于是"授了权的工具
-  // 不见了"。这条曾经就是这么红的。
+  // The primary key is called `id` — after the two surfaces were unified onto one payload, MCP's
+  // own private `role_id` field went away. Reading the wrong key fails silently: assumed_role_id
+  // gets undefined, the code still gets created, just without a role, so "the tool that was
+  // granted access" quietly vanishes. This case used to go red for exactly that reason.
   const role = await callTool<{ id: string }>(seed.request, token, sid, 'role_create', {
     name: `Booking Role ${seq}`, corpus_uris: ['wiki://**'], skill_ids: [skill.id],
   });

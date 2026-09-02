@@ -1,9 +1,11 @@
-// connector-err-smtp-fail.spec.ts —— §四 E8
-// 约成后发确认信，mock SMTP 连接拒/认证失败/超时 → 卡内显示友好错误，booking 本身
-// **不回滚**，无 stack 泄漏。Model on booking-confirmation-email（真 e2e:浏览器 → 卡 →
-// 后端 → SMTP）。
+// connector-err-smtp-fail.spec.ts — §4 E8
+// After a booking is confirmed and a confirmation email is sent, mock SMTP
+// connection-refused/auth-failure/timeout -> the card shows a friendly error, the booking
+// itself is **not rolled back**, and no stack trace leaks. Modeled on
+// booking-confirmation-email (real e2e: browser -> card -> backend -> SMTP).
 //
-// RED / TDD：依赖 send_confirmation 把 SMTP 失败映射成卡内友好错误（而非崩/裸错）落地。
+// RED / TDD: depends on send_confirmation mapping SMTP failures into a friendly in-card
+// error (rather than crashing / a raw error) being implemented.
 //
 // Error stream E8: when the SMTP send fails (connection refused / auth / timeout),
 // the confirmation card shows a friendly error, the booking is NOT rolled back, and
@@ -65,7 +67,8 @@ test.describe('connector error stream · SMTP send fails (E8 — booking not rol
     });
 });
 
-// enterWithProfile —— ?code 入口 → 名字选择器填 name + email → 提交 → 等 session。
+// enterWithProfile — ?code entry -> fill name + email in the name picker -> submit ->
+// wait for the session.
 async function enterWithProfile(
   page: Page, code: string, name: string, email?: string,
 ): Promise<void> {
@@ -80,7 +83,7 @@ async function enterWithProfile(
   await session;
 }
 
-// bookInChat —— script 一次 calendar_book，触发 → 等 BookCard 出现。
+// bookInChat — script a single calendar_book call, trigger it -> wait for the BookCard to appear.
 async function bookInChat(page: Page, hour: number): Promise<void> {
   const tag = await scriptMockToolCall(page.request, {
     name: 'calendar_book',

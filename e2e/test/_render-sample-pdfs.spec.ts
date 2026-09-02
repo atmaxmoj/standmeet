@@ -25,10 +25,13 @@ const OWNER = {
 
 test.describe('render sample PDFs to /tmp', () => {
   test.beforeAll(async ({ playwright }) => {
-    // 这条排在整轮的第一位，于是它的 reset 要清掉**上一次会话**留下的东西 —— 而那可能是
-    // 一个上千条笔记的语料。量过一轮：751 次 truncate，中位 0.75s、p90 1.17s，
-    // 只有一次超过 10 秒（31.5s），就是这一次。默认的 30 秒 hook 预算对**正常**情况富余
-    // 四十倍，对「上一轮留了一大堆」这一次不够。放宽的是耐心，不是判据。
+    // This one runs first in the whole batch, so its reset has to clear out
+    // whatever the **previous session** left behind — which can be a corpus of
+    // a thousand-plus notes. Measured across one run: 751 truncate calls,
+    // median 0.75s, p90 1.17s, with exactly one exceeding 10 seconds (31.5s) —
+    // this one. The default 30-second hook budget has forty times the margin
+    // needed for the **normal** case, but isn't enough for "the previous run
+    // left a huge pile behind". What's being relaxed is patience, not the criterion.
     test.setTimeout(120_000);
     resetInstance();
     const request = await playwright.request.newContext();

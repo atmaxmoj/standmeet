@@ -1,10 +1,10 @@
-// session-persistence.spec.ts —— session 刷新恢复 + exit 回到 long-scroll。
+// session-persistence.spec.ts —— session restores on refresh + exit returns to long-scroll.
 //
-// 用户故事：
-//   1. code session active → 刷新页面 → session 从 localStorage 恢复 → 仍在 ChatRoom
-//   2. code session active → 点 "exit session" → 回到 long-scroll
-//   3. BYOAI → 刷新 → session 恢复 → 仍在 ChatRoom BYOAI mode
-//   4. BYOAI → exit → 回到 long-scroll
+// User story:
+//   1. code session active → refresh the page → session restores from localStorage → still in ChatRoom
+//   2. code session active → click "exit session" → back to long-scroll
+//   3. BYOAI → refresh → session restores → still in ChatRoom BYOAI mode
+//   4. BYOAI → exit → back to long-scroll
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -43,8 +43,9 @@ test.describe('session persistence: refresh + exit', () => {
 
   test('code session → exit → back to long-scroll',
     async ({ page }) => {
-      // enterCodeSession 已 skip 名字选择器并等到 /sessions 200 —— picker 已 consume,
-      // 不二次 dismiss (会采样到 unmount 窗口 → click 10s 超时,check-then-act race)。
+      // enterCodeSession already skips the name picker and waits for /sessions 200 — the
+      // picker is already consumed, don't dismiss it a second time (that risks landing in
+      // its unmount window → click times out at 10s, a check-then-act race).
       await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       // click exit
@@ -82,7 +83,7 @@ test.describe('session persistence: refresh + exit', () => {
       await page.getByTestId('byoai-submit').click();
       await page.waitForURL('**/', { timeout: 10_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      // BYOAI 流不触发名字选择器(picker 只 code-mode),无需 dismiss。
+      // The BYOAI flow never triggers the name picker (it's code-mode only), so no dismiss is needed.
       // exit navigates to /gate
       await page.getByRole('link', { name: 'exit session' }).click();
       await page.waitForURL('**/gate', { timeout: 5_000 });

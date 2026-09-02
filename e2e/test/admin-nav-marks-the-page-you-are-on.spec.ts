@@ -1,13 +1,16 @@
-// admin-nav-marks-the-page-you-are-on —— 侧栏必须标出**你正在看的那一节**。
+// admin-nav-marks-the-page-you-are-on -- the sidebar must mark **the section you are on**.
 //
-// F-N-1：`/admin/subjectivity` 上高亮的是 `dashboard`。原因不是高亮逻辑写错了，而是
-// **同一份事实存了两份**：侧栏自己有 `NAV_GROUPS`（那里有 subjectivity），而
-// `AdminShell` 另有一份手抄的 `KNOWN_SLUGS` 用来把路径映射成 slug —— 那份漏了它，
-// 于是走「未知 → dashboard」的兜底。两份清单飘了，其中一份不知道。
+// F-N-1: `/admin/subjectivity` highlights `dashboard` instead. The cause is not a bug in
+// the highlight logic, but **the same fact stored twice**: the sidebar has its own
+// `NAV_GROUPS` (which includes subjectivity), while `AdminShell` keeps a separately
+// hand-copied `KNOWN_SLUGS` to map paths to slugs -- that copy is missing this entry,
+// so it falls back to "unknown -> dashboard". The two lists drifted, and neither knows it.
 //
-// 这条用例**逐个点过侧栏里的每一节**，而不是只验 subjectivity 那一节：
-// 漏抄一项这种事没有理由只发生一次，而下一个加节的人同样不会知道有第二份清单。
-// 断言用 `aria-current="page"` —— 那是"当前页"的语义，不是某个 class 的写法。
+// This test **clicks through every section in the sidebar one by one**, not just the
+// subjectivity section: a missed copy like this has no reason to happen only once, and
+// whoever adds the next section won't know a second list exists either.
+// The assertion uses `aria-current="page"` -- that is the semantics of "current page",
+// not the styling of some class.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -45,8 +48,8 @@ test.describe('admin sidebar marks the section you are on', () => {
     });
 });
 
-// sidebarSlugs —— 从侧栏**渲染出来的**链接读 slug，而不是从代码里再抄一份清单。
-// 抄第三份正是这条缺陷本身。
+// sidebarSlugs -- reads slugs from the links **as rendered** in the sidebar, not from
+// yet another list copied out of the code. Copying a third list would be this exact bug.
 async function sidebarSlugs(page: Page): Promise<string[]> {
   const ids = await page.locator('[data-testid^="admin-nav-"]').evaluateAll(
     (els) => els.map((e) => e.getAttribute('data-testid') ?? ''),

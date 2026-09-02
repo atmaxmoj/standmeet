@@ -1,6 +1,9 @@
-// security-session-fixation.spec.ts —— pentest。访客会话只认**服务端铸造**的 smv_ token
-// (32B 随机)。攻击者不能 (a) 伪造/猜一个 token 冒充会话,(b) 拿 owner 的 sms_ token 走访客面
-// 提权。契约:非服务端铸造的 Bearer → 401,不 resolve 出任何会话。绿=token 不可伪造;红=会话固定/提权。
+// security-session-fixation.spec.ts —— pentest. A visitor session only accepts a
+// **server-minted** smv_ token (32B random). An attacker must not be able to (a)
+// forge/guess a token to impersonate a session, or (b) take the owner's sms_ token
+// through the visitor surface to escalate privilege. Contract: a Bearer that wasn't
+// server-minted → 401, and resolves no session at all. Green = the token cannot be
+// forged; red = session fixation/privilege escalation.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

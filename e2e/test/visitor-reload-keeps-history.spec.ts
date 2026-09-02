@@ -1,13 +1,16 @@
-// visitor-reload-keeps-history.spec.ts —— 访客刷新一次之后，**屏幕上还在的那些话，
-// 模型还看得见吗**。
+// visitor-reload-keeps-history.spec.ts —— after a visitor reloads once, **can the
+// model still see the messages that are still on screen**?
 //
-// 为什么问这个：F-B-9 的持久化那一半正卡在这儿。卡上的事件要「刷新之后还在」，前提是
-// 刷新之后**整段历史**还在。而这段对话是客户端驱动的（`use-chat.ts` 攥着 `messageHistRef`，
-// 每轮把它当 History 发出去），刷新时 `restoreSession` 只重建**逐字稿**（`setDialogs`）——
-// 读代码看不出它有没有同时把那串消息补回来，所以在这儿真跑一次问出来。
+// Why ask this: this is exactly where F-B-9's persistence half is stuck. For a card's
+// event to survive a reload, **the entire history** has to survive the reload first.
+// But this conversation is client-driven (`use-chat.ts` holds onto `messageHistRef`
+// and sends it as History every turn), and on reload `restoreSession` only rebuilds
+// the **transcript** (`setDialogs`) — reading the code alone can't tell you whether it
+// also refills that message array, so this test actually runs it once to find out.
 //
-// 判据落在唯一看得见的地方：**发给模型的那一份消息**。屏幕上有那句话不算数 ——
-// 那正是这一族缺陷的形状（[[test-covers-capability-not-face]]）。
+// The criterion sits at the only place that's actually observable: **the message sent
+// to the model**. The sentence being present on screen doesn't count — that's exactly
+// the shape of this whole family of defects ([[test-covers-capability-not-face]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -20,7 +23,8 @@ import {
 } from '@/fixtures/mock-llm-script';
 import { goto } from '@/fixtures/navigate';
 
-// MEMORABLE —— 第一轮里一句只属于这条 spec 的话。第二轮的请求里找它。
+// MEMORABLE —— a phrase in the first turn unique to this spec. Looked for in the
+// second turn's request.
 const MEMORABLE = 'pineapple-lighthouse-42';
 
 test.describe('a reload keeps the conversation the model can see', () => {
@@ -45,8 +49,9 @@ test.describe('a reload keeps the conversation the model can see', () => {
 
       await page.reload({ waitUntil: 'domcontentloaded' });
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 15_000 });
-      // 逐字稿确实回来了 —— 先证这一半，否则下面那句红了也分不清是「历史丢了」
-      // 还是「刷新之后整个会话没恢复」。
+      // The transcript really did come back — prove this half first, or a failure
+      // below can't distinguish "history was lost" from "the whole session never
+      // restored after the reload".
       await expect(page.locator('[data-testid="answer-body"]').first(),
         'the transcript comes back on screen')
         .toBeVisible({ timeout: 30_000 });

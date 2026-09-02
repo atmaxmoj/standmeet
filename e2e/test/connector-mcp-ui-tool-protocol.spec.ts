@@ -1,17 +1,25 @@
-// connector-mcp-ui-tool-protocol.spec.ts —— §一(mcp-ui:tool 协议)
+// connector-mcp-ui-tool-protocol.spec.ts -- Section 1 (mcp-ui:tool protocol)
 //
-// 新的 host 协议:沙盒卡 post `{type:'mcp-ui:tool', name, args}` → host 带 **session
-// context** 派发那个具名 tool → 把 `{type:'mcp-ui:tool-result', ...}` post 回卡。
-// 这条验整条 round-trip:卡发具名工具 → host 派发 → 结果回卡。沙盒跨 origin,
-// postMessage 内部不可直接探针,所以用**可观察副作用**断言协议真的走通了:
-//   - 卡上的动作(cancel)真触发了 tool(GCal event 被删 = calendar_cancel 跑了)
-//   - tool-result 回卡后,卡进入对应终态(cancelled)= 卡收到了 result 并据此重渲
+// The new host protocol: a sandboxed card posts
+// `{type:'mcp-ui:tool', name, args}` -> the host dispatches that named tool
+// carrying **session context** -> posts `{type:'mcp-ui:tool-result', ...}`
+// back to the card. This spec verifies the whole round trip: the card sends a
+// named tool call -> the host dispatches it -> the result returns to the
+// card. The sandbox is cross-origin, so postMessage internals can't be probed
+// directly; instead this asserts the protocol really worked via
+// **observable side effects**:
+//   - the card's action (cancel) actually triggered the tool (the GCal event
+//     was deleted = calendar_cancel ran)
+//   - after tool-result returns to the card, the card reaches its matching
+//     terminal state (cancelled) = the card received the result and
+//     re-rendered from it
 //
-// 用 booked 卡驱动(它的 cancel/确认动作正是经 mcp-ui:tool 走的):book → iframe 卡 →
-// 点 cancel → 断言 tool 的副作用发生(event 删 + 卡终态)。
+// Driven with the booked card (its cancel/confirm actions go through exactly
+// mcp-ui:tool): book -> iframe card -> click cancel -> assert the tool's side
+// effect happened (event deleted + card terminal state).
 //
-// RED / TDD:在 mcp-ui:tool host 协议 + booked 卡经它调 calendar_cancel 落地前,
-// 运行期失败。
+// RED / TDD: fails at runtime until the mcp-ui:tool host protocol lands and
+// the booked card calls calendar_cancel through it.
 
 import { test, expect } from '@/fixtures/test';
 import type { FrameLocator, Page, Playwright } from '@playwright/test';
@@ -37,25 +45,29 @@ test.describe('connector · mcp-ui:tool host protocol round-trip (§1)', () => {
       const page = await ctx.newPage();
       await enterAndBook(page, seed.code.code, 'Pia', 'pia@example.com', 14);
 
-      // book 落了一条真 GCal event(协议前置:卡里有可被 tool 作用的对象)。
+      // Booking landed a real GCal event (protocol precondition: the card has
+      // an object the tool can act on).
       const before = await getMockEvents(seed.request);
       expect(before).toHaveLength(1);
       const eventID = before[0]!.event_id;
 
-      // 卡上点 cancel → 卡 post {type:'mcp-ui:tool', name:'calendar_cancel', args}。
+      // Click cancel on the card -> the card posts
+      // {type:'mcp-ui:tool', name:'calendar_cancel', args}.
       const frame = bookedFrame(page);
       await frame.getByTestId('book-card-cancel').click();
 
-      // round-trip 上行已通的可观察证据:host 带 session context 派发了 calendar_cancel,
-      // tool 经 connector proxy 删了那条 event(副作用 = tool 真在 host 侧跑了,
-      // 不是卡自己假装的)。
+      // Observable evidence the upstream leg of the round trip worked: the
+      // host dispatched calendar_cancel carrying session context, and the
+      // tool deleted that event through the connector proxy (the side effect
+      // = the tool really ran on the host side, not the card faking it).
       await expect.poll(
         async () => (await getMockEvents(seed.request)).some((e) => e.event_id === eventID),
         { timeout: 10_000, message: 'calendar_cancel tool removed the event' },
       ).toBe(false);
 
-      // round-trip 下行已通的可观察证据:host post 回 {type:'mcp-ui:tool-result'},
-      // 卡据此重渲成 cancelled 终态(动作消失)。
+      // Observable evidence the downstream leg of the round trip worked: the
+      // host posts back {type:'mcp-ui:tool-result'}, and the card re-renders
+      // into the cancelled terminal state (the action disappears) from it.
       await expect(frame.getByTestId('tool-card-calendar_book'))
         .toHaveAttribute('data-cancelled', 'true', { timeout: 10_000 });
       await expect(frame.getByTestId('book-card-cancel')).toHaveCount(0);
@@ -64,13 +76,13 @@ test.describe('connector · mcp-ui:tool host protocol round-trip (§1)', () => {
     });
 });
 
-// bookedFrame —— booked 沙盒卡 iframe;内容经 frameLocator 取。
+// bookedFrame -- the booked sandboxed-card iframe; content is reached via frameLocator.
 function bookedFrame(page: Page): FrameLocator {
   return page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
 }
 
-// enterAndBook —— ?code 入口 → 名字+email → script 一次 calendar_book → 触发 →
-// 等 booked 沙盒卡 iframe 出现。
+// enterAndBook -- enter via ?code -> name+email -> script one calendar_book
+// call -> trigger it -> wait for the booked sandboxed-card iframe to appear.
 async function enterAndBook(
   page: Page, code: string, name: string, email: string, hour: number,
 ): Promise<void> {

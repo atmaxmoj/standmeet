@@ -1,6 +1,8 @@
-// security-login-guard.spec.ts —— pentest。login_guard(internal/middleware)对 owner 登录做
-// per-IP 30/5min 限流 + fail-closed + captcha + equal-time,但一直没有测试兜底。这里硬化:
-// 同一 IP 狂试错密码,超阈值必须 429/503(不是无限全速试)。绿=防御在;红=登录可被暴力。
+// security-login-guard.spec.ts —— pentest. login_guard (internal/middleware) enforces
+// per-IP 30/5min rate limiting + fail-closed + captcha + equal-time on owner login, but it
+// never had a test backing it up. This hardens it: hammering wrong passwords from the same
+// IP must trip 429/503 past the threshold (not go on unlimited at full speed). Green = the
+// defense is in place; red = login can be brute-forced.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -29,7 +31,8 @@ test.describe('pentest · login brute-force lockout', () => {
       for (let i = 0; i < 40; i++) {
         statuses.push(await tryLogin(request, '198.51.100.44', `wrong-${i}`));
       }
-      // login_guard: per-IP 30/5min，超限 429（redis 挂则 fail-closed 503）。必须出现，否则可暴力。
+      // login_guard: per-IP 30/5min; over the limit is 429 (fail-closed 503 if redis is down).
+      // This must appear, otherwise the login is brute-forceable.
       const throttled = statuses.filter((s) => s === 429 || s === 503).length;
       expect(throttled, 'login brute force must be throttled (429/503)').toBeGreaterThan(0);
       await request.dispose();

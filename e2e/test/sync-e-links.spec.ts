@@ -1,6 +1,7 @@
-// sync-e-links.spec.ts —— E. body `[[links]]` → note_refs(目标态红,对齐 check-links.sh)。
-// 按 basename 全 vault 解析(跨-genre);剥 `|alias`/`#heading`;跳 `![[embed]]` + 代码块/行内代码;
-// 未命中留字面;raw/ 的 `[[]]` 不强制解析(forward-link 合法)。
+// sync-e-links.spec.ts —— E. body `[[links]]` → note_refs (target-state red, aligned with check-links.sh).
+// Resolved by basename across the whole vault (cross-genre); strips `|alias`/`#heading`;
+// skips `![[embed]]` + code blocks/inline code; unresolved links are left literal;
+// raw/'s `[[]]` isn't forced to resolve (a forward-link is legitimate there).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

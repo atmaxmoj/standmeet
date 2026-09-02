@@ -1,11 +1,15 @@
-// max-members.spec.ts —— 名字上限的完整浏览器流(defer-issue + 名字选择器 +
-// 满额拒绝 + "N of M names" 展示 + 同名续会 + 名字 localStorage 预填)。
+// max-members.spec.ts -- the full browser flow for the name cap (defer-issue
+// + name picker + full-code rejection + "N of M names" display + same-name
+// session resume + name pre-fill from localStorage).
 //
-// 用户故事:
-//   owner 发 TEAM-2(max_members=2)。Alice 扫码选名进来,strip 显 "1 / 2 names"。
-//   Bob 扫同码、不同名进来 → "2 / 2 names"。第三个人(Carol)扫同码选名 →
-//   "code 已满",进不来。Alice 再扫(同名)→ 续会、照常进。
-//   名字存了 localStorage:同浏览器再开,名字选择器自动预填上次的名字。
+// User story:
+//   the owner issues TEAM-2 (max_members=2). Alice scans the code, picks a
+//   name, enters; the strip shows "1 / 2 names".
+//   Bob scans the same code with a different name -> "2 / 2 names". A third
+//   person (Carol) scans the same code and picks a name -> "code is full",
+//   can't enter. Alice scans again (same name) -> the session resumes as usual.
+//   The name is stored in localStorage: reopening in the same browser
+//   auto-fills the name picker with the last-used name.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -25,7 +29,8 @@ const OWNER = {
 };
 
 const CODE = 'TEAM-2';
-// 单独一张不限名额的码给"名字预填"用 —— TEAM-2 在第一个 test 里已经填满。
+// A separate unlimited-member code, used for the "name pre-fill" test --
+// TEAM-2 is already full by the end of the first test.
 const PREFILL_CODE = 'PREFILL-ANY';
 
 test.describe('max_members: code caps how many names, with a clear full state', () => {
@@ -35,20 +40,20 @@ test.describe('max_members: code caps how many names, with a clear full state', 
 
   test('2 names fill the code, 3rd sees "code full", existing name resumes',
     async ({ browser }) => {
-      // Alice(名字 1)→ 进得来,strip 显 1 / 2 names。
+      // Alice (name 1) -> gets in, the strip shows 1 / 2 names.
       const aliceCtx = await browser.newContext();
       const alice = await aliceCtx.newPage();
       await enterCodeSession(alice, CODE, 'Alice');
       await expect(alice.getByTestId('session-strip-members-used')).toHaveText('1');
       await expect(alice.getByTestId('session-strip-names')).toContainText('/ 2');
 
-      // Bob(名字 2)→ 进得来,2 / 2。
+      // Bob (name 2) -> gets in, 2 / 2.
       const bobCtx = await browser.newContext();
       const bob = await bobCtx.newPage();
       await enterCodeSession(bob, CODE, 'Bob');
       await expect(bob.getByTestId('session-strip-members-used')).toHaveText('2');
 
-      // Carol(名字 3)→ 满了,名字选择器显 "code full",没 session。
+      // Carol (name 3) -> full, the name picker shows "code full", no session.
       const carolCtx = await browser.newContext();
       const carol = await carolCtx.newPage();
       await goto(carol, `/?code=${CODE}`);
@@ -57,7 +62,8 @@ test.describe('max_members: code caps how many names, with a clear full state', 
       await expect(carol.getByTestId('visitor-name-full')).toBeVisible({ timeout: 10_000 });
       await expect(carol.getByTestId('session-strip')).toBeHidden();
 
-      // Alice 同名再扫 → 续会,照常进(不占新名额)。
+      // Alice scans again with the same name -> session resumes, enters as
+      // usual (does not consume a new member slot).
       const alice2Ctx = await browser.newContext();
       const alice2 = await alice2Ctx.newPage();
       await enterCodeSession(alice2, CODE, 'Alice');
@@ -73,13 +79,17 @@ test.describe('max_members: code caps how many names, with a clear full state', 
     async ({ browser }) => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      // 第一次:选名 Dana 进来(用不限名额的码)。名字落进 localStorage。
+      // First time: pick the name Dana to enter (using the unlimited-member
+      // code). The name lands in localStorage.
       await enterCodeSession(page, PREFILL_CODE, 'Dana');
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
-      // **同一张码**再扫不会重弹选择器 —— F-A-5 有意为之（absorbFromURL 的 alreadyInNamedSession）：
-      // 重开 ?code= 链接不该把身份选择器盖在活跃会话上。所以「预填」要在它真的会弹的场景里验：
-      // 换一张**新码**（新场景 → clearNameDismiss → 选择器重问），输入框预填上次的 Dana。
+      // Scanning **the same code** again won't re-pop the picker -- this is
+      // deliberate (F-A-5, absorbFromURL's alreadyInNamedSession): reopening
+      // a ?code= link shouldn't cover an active session with the identity
+      // picker. So "pre-fill" has to be verified where it actually does pop:
+      // switch to a **new code** (a new scenario -> clearNameDismiss -> the
+      // picker asks again), and the input pre-fills the previous Dana.
       await goto(page, `/?code=${CODE}`);
       await expect(page.getByTestId('visitor-name-input')).toHaveValue('Dana');
       await ctx.close();

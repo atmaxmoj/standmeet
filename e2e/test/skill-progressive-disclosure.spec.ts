@@ -1,18 +1,23 @@
-// skill-progressive-disclosure.spec.ts —— Phase C / L2（progressive disclosure
-// 第二级）：agent 判定相关 → 调 `skill_use({name})` 读回**正文**。正文以标准
-// SKILL.md 形式 render（frontmatter name+description + body）—— 这同时验了
-// L2 披露 + SKILL.md 序列化。
+// skill-progressive-disclosure.spec.ts —— Phase C / L2 (progressive disclosure, second
+// level): once the agent decides a skill is relevant, it calls `skill_use({name})` to
+// read back the **body**. The body renders as a standard SKILL.md
+// (frontmatter name+description + body) — which verifies both L2 disclosure and
+// SKILL.md serialization at once.
 //
-// 业务故事：
-//   role 授权了 patent-review（body 含 [SKILL-L2-BODY]），没授权 secret-skill
-//   （body 含 [SECRET-BODY]）。visitor 进 chat，AI 调 skill_use：
-//     • skill_use(patent-review) → 回包是 SKILL.md（含 name: patent-review +
-//       [SKILL-L2-BODY]）→ 经 mock 的 [skill_result:...] echo 进 answer。
-//     • skill_use(secret-skill) → role 没授权 → 回错误，**绝不披露** [SECRET-BODY]。
+// Business story:
+//   The role grants patent-review (body contains [SKILL-L2-BODY]) but not
+// secret-skill (body contains [SECRET-BODY]). A visitor enters chat, and the AI calls
+// skill_use:
+//     - skill_use(patent-review) → the response is a SKILL.md (containing
+//       name: patent-review + [SKILL-L2-BODY]) → echoed into the answer via the mock's
+//       [skill_result:...] mechanism.
+//     - skill_use(secret-skill) → the role isn't granted it → returns an error, and
+//       **never discloses** [SECRET-BODY].
 //
-// mock 用 scriptMockToolCall 显式驱动（skill_use 需要 name 入参，自然路径喂不了
-// 参数 → 必须 script）。echo 机制：skill_ 前缀的 tool_result 被 mock 回显成
-// [skill_result:<body>]，所以 answer-body 能断言到披露内容。
+// The mock is driven explicitly via scriptMockToolCall (skill_use needs a name
+// argument, which the natural path can't feed → scripting is required). Echo
+// mechanism: a tool_result with the skill_ prefix gets echoed by the mock as
+// [skill_result:<body>], so answer-body can assert on the disclosed content.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Browser, Page } from '@playwright/test';

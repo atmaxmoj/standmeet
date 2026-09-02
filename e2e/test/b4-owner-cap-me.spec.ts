@@ -1,12 +1,14 @@
-// b4-owner-cap-me.spec.ts —— `me` 这个 owner 工具的契约。
+// b4-owner-cap-me.spec.ts — the contract for the owner tool `me`.
 //
-// 它换过两次家：先从 server.go 的 AddTool 迁成 capreg capability（那时这条 spec 断言
-// registry 里有 owner.me），再从 capreg 迁进出站收口（现在 owner 域自己声明它）。
-// 断言那个**中间形态**的两条已经删掉——它们守的是搬家的痕迹，不是契约。
+// It has moved twice: first from `AddTool` in server.go into a capreg capability (at that point
+// this spec asserted that `owner.me` existed in the registry), then from capreg into the outbound
+// convergence point (now the owner domain declares it itself). The two assertions for that
+// **intermediate shape** have since been deleted — they were guarding the traces of the move, not
+// the contract.
 //
-// 留下的是一直成立的那件事：
-//   1. owner 用真 MCP 客户端调 `me`，拿到自己的 profile
-//   2. `me` 不出现在访客那一侧（owner 的东西不漏给访客）
+// What remains is the thing that's always been true:
+//   1. the owner calls `me` with a real MCP client and gets back their own profile
+//   2. `me` does not appear on the visitor side (owner data doesn't leak to visitors)
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -32,8 +34,8 @@ interface VisitorCapabilitiesResp {
   capabilities: VisitorCap[];
   tool_specs: Array<{ name: string }>;
 }
-// me 回 {owner, settings}（面板的 GET /me 一直是这个信封；MCP 那份以前是手拼字符串
-// 出来的四个字段，连转义都没有）。
+// me returns {owner, settings} (the panel's GET /me has always used this envelope; the MCP
+// version used to be four fields hand-assembled into a string, without even escaping).
 interface MeResp {
   owner: { owner_id: string; email: string; handle: string; full_name: string };
 }

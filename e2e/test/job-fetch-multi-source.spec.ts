@@ -50,17 +50,24 @@ test.describe('jobs.fetch_new across multiple registered sources', () => {
       }
     });
 
-  // F-E-6 —— 一个源抓不成，不许把别的源抓到的东西一起扔掉。
+  // F-E-6 —— one source failing to fetch must never throw away what the other
+  // sources fetched.
   //
-  // 手工驱这个模块时撞上的：七个源里只有 workable 的 token 是错的，结果**另外六个真源一条
-  // 都没进池子**，owner 拿到的是一句 `jobs.fetch_new failed`，而后端日志里源 id / kind /
-  // URL / 原因一应俱全。代码里那一行 `return nil, ferr` 上面的注释写着「单源失败不阻塞其他
-  // 源」—— 注释声明的不变量和代码正好相反（[[names-that-lie]]）。
+  // Found while manually driving this module: of seven sources, only workable's token
+  // was wrong, and as a result **none of the other six real sources' jobs made it into
+  // the pool** — the owner got a bare `jobs.fetch_new failed`, while the backend logs
+  // had the source id / kind / URL / reason all present. The comment above the
+  // `return nil, ferr` line in the code said "a single source failure doesn't block
+  // the others" — the invariant the comment declares is the exact opposite of what the
+  // code does ([[names-that-lie]]).
   //
-  // 断言两件事，缺一不可：
-  //   1. 好源的 job **还在**（这一条在旧代码上必红：旧代码返回 0 条）
-  //   2. 坏源在 `failed_sources` 里**被点名**（否则 owner 只知道"少了点什么"，不知道少了哪个）
-  // 只断第 1 条的话，一个"悄悄跳过坏源、什么都不说"的实现也能过 —— 那是另一种谎。
+  // Asserts two things, neither optional:
+  //   1. The good source's job **is still there** (this must be red on the old code:
+  //      the old code returned 0 jobs)
+  //   2. The bad source is **named** in `failed_sources` (otherwise the owner only
+  //      knows "something's missing", not which source)
+  // Asserting only #1 would let an implementation that "silently skips the bad source
+  // and says nothing" pass too — that's a different kind of lie.
   test('one source with bad credentials must not zero out the other sources',
     async ({ request }) => {
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
@@ -76,9 +83,11 @@ test.describe('jobs.fetch_new across multiple registered sources', () => {
 
       const fetched = await jobsFetchNew(request, token, sid);
 
-      // 数**这一趟新进池子的**，不是数池子里有多少：回执现在交的是整个窗口
-      // （F-E-29），而这个文件里前一条用例已经往同一个池子里放过岗位 ——
-      // 用 `jobs.length` 的话，好源一条都没抓到这条用例也会绿（[[assertion-that-cannot-fail]]）。
+      // Count **what's new in the pool from this run**, not how many total are in the
+      // pool: the response now hands back the entire window (F-E-29), and an earlier
+      // test case in this same file already put jobs into that same pool — with
+      // `jobs.length`, this test would go green even if the good source fetched
+      // nothing at all ([[assertion-that-cannot-fail]]).
       expect(
         fetched.jobs.filter((j) => j.new).length,
         `the good source (${good.label}) returned nothing because ${bad.label} failed`,

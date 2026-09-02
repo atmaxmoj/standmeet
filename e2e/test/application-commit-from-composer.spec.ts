@@ -1,18 +1,23 @@
-// application-commit-from-composer.spec.ts —— **owner 在界面上点 SEND，就得真的发出去。**
+// application-commit-from-composer.spec.ts -- **when the owner clicks SEND in
+// the UI, it must actually be sent.**
 //
-// 真环境驱出来的（F-E-9）：composer 的 `SEND →` 弹一张确认框，逐条列后果 ——
+// Driven out from the real environment (F-E-9): the composer's `SEND ->`
+// pops a confirmation dialog listing the consequences one by one --
 //   "Sending will freeze the resume + cover letter snapshot, render the final PDF (with QR),
 //    and write an application row. The auto-issued AccessCode will be 180 days, 10 sessions,
 //    50 turns."
-// —— 点确认之后 `applications` 表 0 行，那一段后端日志里只有 GET，一个 POST 都没有，
-// 而且界面不吭声。`DraftsSection.tsx:50` 把 `onSend` 传成了 `onClose`。
+// -- after clicking confirm, the `applications` table has 0 rows, that stretch
+// of the backend log has only GETs and not a single POST, and the UI says
+// nothing. `DraftsSection.tsx:50` passed `onSend` in as `onClose`.
 //
-// **这比「按钮没接线」重一档**：产品先征求了同意、把四件后果摆出来、拿到点头，然后一件都没做。
-// owner 会以为自己投了。
+// **This is one grade worse than "button not wired up"**: the product asked
+// for consent, listed four consequences, got the nod, and then did none of
+// them. The owner would believe they had applied.
 //
-// 为什么这条 spec 走 GUI 而不是打 API：缺陷**只存在于界面那一侧**，MCP 那条路一直是通的
-// （`applications-commit.spec.ts` 一直绿）。测在缺口下面那一层就永远看不见它
-// —— 本轮反复栽的同一个坑。
+// Why this spec drives the GUI instead of hitting the API: the defect
+// **exists only on the UI side** -- the MCP path has always worked
+// (`applications-commit.spec.ts` stays green). Testing one layer below the
+// gap can never see it -- the same pit this project keeps falling into.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, APIRequestContext } from '@playwright/test';
@@ -45,28 +50,33 @@ test.describe('jobs · the composer SEND actually commits', () => {
   }) => {
     await seedOneDraft(request);
 
-    // 前置条件要能红：草稿不在的话，下面点不到 composer，而"没有 application"会退化成恒真。
+    // The precondition must be able to go red: without a draft, the composer
+    // can't be opened below, and "no applications" would degenerate into an
+    // always-true assertion.
     await expect.poll(() => countApplications(adminPage), { timeout: 10_000 }).toBe(0);
 
     await gotoAdminSection(adminPage, 'drafts');
     await adminPage.getByRole('button', { name: /open composer/i }).first().click();
     await adminPage.getByTestId('composer-send').click();
-    // 确认框把后果列出来了 —— 它说的每一件，下面都要真的发生。
+    // The confirmation dialog lists the consequences -- every one it names
+    // must actually happen below.
     await expect(adminPage.getByTestId('composer-confirm-send')).toBeVisible();
     await adminPage.getByTestId('composer-confirm-send').click();
 
     await expect.poll(
       () => countApplications(adminPage), { timeout: 30_000 },
     ).toBe(1);
-    // 草稿被同一笔事务删掉 —— 否则 owner 会把同一份再投一次。
+    // The draft was deleted in the same transaction -- otherwise the owner
+    // could submit the same one again.
     await expect.poll(
       () => countDrafts(adminPage), { timeout: 10_000 },
     ).toBe(0);
   });
 });
 
-// countApplications / countDrafts —— 走产品**自己的**读路（admin API），不是直连库：
-// 界面读到什么，断言就读什么。
+// countApplications / countDrafts -- go through the product's **own** read
+// path (admin API), not a direct DB connection: the assertion reads whatever
+// the UI reads.
 async function countApplications(page: Page): Promise<number> {
   return await page.evaluate(async () => {
     const r = await fetch('/api/admin/applications', { credentials: 'include' });
@@ -83,7 +93,8 @@ async function countDrafts(page: Page): Promise<number> {
   });
 }
 
-// seedOneDraft —— 一条真形状的草稿：注册源 → fetch → 对第一条岗位起草。
+// seedOneDraft -- a real-shaped draft: register a source -> fetch -> draft
+// against the first job.
 async function seedOneDraft(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'composer-spec');

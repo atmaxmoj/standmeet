@@ -1,21 +1,28 @@
-// byoai-insecure-origin.spec.ts —— F-D-14。**这个实例只要不是在自己本机打开，BYOAI 就是死的。**
+// byoai-insecure-origin.spec.ts — F-D-14. **BYOAI is dead on this instance unless it
+// is opened on its own machine.**
 //
-// 访客的 key 是用 `crypto.subtle` 封进浏览器 vault 的（`byoai-vault.ts:54`），而 `crypto.subtle`
-// **只在 secure context 存在**。`localhost` / `127.0.0.1` 是唯一不上 TLS 也算 secure 的来源 ——
-// 于是开发、e2e、整轮手工审计**全跑在唯一一条看不见这个缺陷的路上**，而真访客和真 owner
-// 必定从别的机器、用域名或 IP 打开这个实例。
+// The visitor's key is sealed into the browser vault with `crypto.subtle`
+// (`byoai-vault.ts:54`), and `crypto.subtle` **only exists in a secure context**.
+// `localhost` / `127.0.0.1` is the only origin that counts as secure without TLS —
+// so dev, e2e, and every round of manual audit **all run on the one path that can't
+// see this defect**, while a real visitor and a real owner always open this instance
+// from a different machine, over a domain or an IP.
 //
-// prod 上驱出来的样子：填满 provider/endpoint/model/key，按 START PUBLIC CHAT →
-// `POST /api/v1/sessions` 返 200（后端一切正常）→ 屏幕上一句
-// **"Couldn't check that just now. Try again."**。再试一万次都一样，那句话是假的。
+// What it looks like driven out in prod: fill in provider/endpoint/model/key, click
+// START PUBLIC CHAT → `POST /api/v1/sessions` returns 200 (backend is fine) → the
+// screen says **"Couldn't check that just now. Try again."**. Retry ten thousand
+// times, same result — that message is a lie.
 //
-// **判据不能在 localhost 上写**（那里 `isSecureContext` 恒为 true，红不起来）。所以这条 spec
-// 用 Chrome 的 `--host-resolver-rules` 把一个域名指回本机：origin 变成 `http://visitor.test:…`
-// —— **真正的非安全来源**，而后端还是同一个。这正是一个真访客拿到的东西。
+// **The assertion cannot be written against localhost** (there `isSecureContext` is
+// always true, so it can never go red). So this spec uses Chrome's
+// `--host-resolver-rules` to point a domain back at the local machine: the origin
+// becomes `http://visitor.test:…` — **a genuinely non-secure origin**, while the
+// backend is still the same one. This is exactly what a real visitor gets.
 //
-// 断的是两件事，都是机制不是措辞：
-//   1. 那颗按钮**进不去**（disabled）—— 不能让人填完一路再撞墙；
-//   2. 面板上说得出**为什么**，并且指向 https —— 「再试一次」在这里是谎话。
+// It asserts two things, both mechanism, not wording:
+//   1. The button **can't be entered** (disabled) — a person must not fill everything
+//      in only to hit a wall at the end;
+//   2. The panel states **why**, and points at https — "try again" is a lie here.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -30,9 +37,10 @@ const OWNER = {
   fullName: 'Insecure Origin Owner',
 };
 
-// INSECURE_HOST —— 解析回本机、但**不是** localhost 的域名。Chrome 只把 localhost /
-// 127.0.0.1 / ::1 当 secure，所以这个 origin 上 `crypto.subtle` 是 undefined —— 跟一个
-// 真访客用 http 打开 owner 域名时拿到的完全一样。
+// INSECURE_HOST — a domain that resolves back to the local machine but is **not**
+// localhost. Chrome only treats localhost / 127.0.0.1 / ::1 as secure, so on this
+// origin `crypto.subtle` is undefined — identical to what a real visitor gets opening
+// the owner's domain over http.
 const INSECURE_HOST = 'visitor.test';
 
 test.use({
@@ -41,7 +49,7 @@ test.use({
 
 test.describe('F-D-14 · BYOAI on a non-secure origin says the true thing', () => {
   test.beforeAll(async ({ playwright }) => {
-    test.setTimeout(180_000); // resetInstance 在负载高时要 ~48s
+    test.setTimeout(180_000); // resetInstance takes ~48s under high load
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {
@@ -53,7 +61,7 @@ test.describe('F-D-14 · BYOAI on a non-secure origin says the true thing', () =
 
   test('the panel refuses up front and points at https, instead of inviting a retry',
     async ({ page }) => {
-      // 同一个后端、同一个页面，只换来源：localhost → visitor.test。
+      // Same backend, same page, only the origin changes: localhost → visitor.test.
       await gotoOnHost(page, INSECURE_HOST, '/gate');
 
       await page.getByTestId('byoai-provider').selectOption('deepseek');
@@ -61,12 +69,14 @@ test.describe('F-D-14 · BYOAI on a non-secure origin says the true thing', () =
       await page.getByTestId('byoai-model').fill('deepseek-chat');
       await page.getByTestId('byoai-key').fill('sk-0123456789abcdef0123456789abcdef');
 
-      // ① 填齐了也不该放行 —— 这条路走不通，按钮就不该看起来能走。
+      // (1) Filling everything in must not let it through — since this path doesn't
+      // work, the button must not look like it does.
       await expect(page.getByTestId('byoai-submit'),
         'on a non-secure origin the key cannot be stored, so the button must not invite the click')
         .toBeDisabled();
 
-      // ② 说得出为什么，并且指向出路（https）。断 https 这个词，不断整句措辞。
+      // (2) It states why, and points at the way out (https). Assert on the word
+      // https, not the exact wording of the sentence.
       await expect(page.getByTestId('byoai-insecure-origin'),
         'the panel explains that this page has to be served over https')
         .toContainText(/https/i);

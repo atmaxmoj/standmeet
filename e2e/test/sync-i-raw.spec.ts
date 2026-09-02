@@ -1,6 +1,8 @@
-// sync-i-raw.spec.ts —— I. raw 专项(目标态红)。
-// raw/ → raw_entries inbox(body/source/tags);raw **免** frontmatter schema + **免** link 解析
-// (forward-link 合法);raw 嵌套(raw/x/y.md)—— #151 分级待定,这里先钉住"同步不崩 + body 落库"。
+// sync-i-raw.spec.ts — I. raw-specific coverage (target state, currently red).
+// raw/ → the raw_entries inbox (body/source/tags); raw is **exempt** from the
+// frontmatter schema + **exempt** from link parsing (a forward-link is legal); nested
+// raw (raw/x/y.md) — grading is still TBD (#151), this pins down "sync doesn't crash +
+// body is persisted" for now.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -34,7 +36,8 @@ test.describe('sync I · raw inbox', () => {
   test('error: raw with no frontmatter at all still syncs', rawNoFrontmatter);
 });
 
-// raw re-sync 幂等:同一 source_path 再传 → upsert(1 行、body 更新),不 append 成重复。
+// raw re-sync is idempotent: uploading the same source_path again → an upsert (1 row,
+// body updated), not appended as a duplicate.
 async function rawResyncIdempotent({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   await uploadVault(request, OWNER, [{ rel: 'raw/dedup.md', body: makeVaultMD({}, 'RAWDEDUPKW v1') }]);

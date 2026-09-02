@@ -1,11 +1,15 @@
 // recovery-phrase.spec.ts —— #100 account recovery phrase.
 //
-// 忘记密码时的自助恢复:owner 登录时生成一条高熵 recovery phrase → 只存 hash → 明文邮到 owner 邮箱
-// (走已配的 mail connector,SMTP 凭据不出 vault)。锁在外面时:公开 /recover 端点收 {email, phrase},
-// 对上 hash → 直接发一个 owner session(登进去改密码)。单次用 —— 用过即作废。公开端点 brute-force
-// 面,套 login-guard 限速。
+// Self-service recovery for a forgotten password: while logged in, the owner generates a
+// high-entropy recovery phrase -> only its hash is stored -> the plaintext is emailed to
+// the owner's address (via the configured mail connector; the SMTP credential never
+// leaves the vault). When locked out: the public /recover endpoint accepts
+// {email, phrase}, matches it against the hash -> issues an owner session directly (log
+// in and change the password). Single-use — spent once, then invalid. The public
+// endpoint's brute-force surface is throttled by login-guard.
 //
-// RED(实现前):/account/recovery 与 /recover 都不存在 → 404 → 断言红。
+// RED (before implementation): neither /account/recovery nor /recover exists -> 404 ->
+// assertions go red.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -24,7 +28,8 @@ const OWNER = {
 };
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// extractPhrase —— 从 recovery 邮件正文里抠出 phrase。生成端把 phrase 放在一行 `phrase: <...>`。
+// extractPhrase — pulls the phrase out of the recovery email's body. The generating side
+// puts the phrase on a line `phrase: <...>`.
 function extractPhrase(body: string): string {
   const m = body.match(/phrase:\s*([A-Za-z0-9-]+)/);
   return m ? m[1]! : '';
@@ -74,7 +79,7 @@ test.describe('account recovery phrase · #100', () => {
     expect(phrase.length, 'recovery phrase emailed to owner').toBeGreaterThan(10);
     await admin.dispose();
 
-    // 锁在外面:全新 context(无 session),只有 email + phrase。
+    // Locked out: a brand-new context (no session), only email + phrase.
     const stranger = await playwright.request.newContext();
     expect(await meStatus(stranger), 'baseline: not logged in').toBe(401);
     expect(await recover(stranger, OWNER.email, phrase), 'recover with right phrase → 200').toBe(200);
@@ -94,14 +99,15 @@ test.describe('account recovery phrase · #100', () => {
     const stranger = await playwright.request.newContext();
     expect(await recover(stranger, OWNER.email, 'not-the-phrase-xxxx'), 'wrong phrase → 401').toBe(401);
     expect(await recover(stranger, OWNER.email, phrase), 'right phrase → 200').toBe(200);
-    // 单次用:同一条 phrase 第二次不认。
+    // Single-use: the same phrase is rejected the second time.
     const again = await playwright.request.newContext();
     expect(await recover(again, OWNER.email, phrase), 'reused phrase → 401').toBe(401);
     await stranger.dispose();
     await again.dispose();
   });
 
-  // 全链路 UI:锁在外面的 owner 走 /recover 页,填 email + phrase → 落进 /admin(登回来了)。
+  // Full-chain UI: a locked-out owner goes through the /recover page, fills in
+  // email + phrase -> lands in /admin (logged back in).
   test('UI: /recover page signs a locked-out owner back in', async ({ page, playwright }) => {
     const admin = await playwright.request.newContext();
     const { csrf } = await loginAPI(admin, OWNER.email, OWNER.password);

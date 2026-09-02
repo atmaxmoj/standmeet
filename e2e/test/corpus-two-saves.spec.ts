@@ -1,15 +1,23 @@
-// corpus-two-saves.spec.ts —— 一屏两个提交，每个必须自报管哪一半（UX-60）。
+// corpus-two-saves.spec.ts — one screen, two submits, and each one must name which
+// half it owns (UX-60).
 //
-// 缺陷的形状：wiki 的编辑屏是上下两张卡 —— 上面 CorpusEntryForm（标题/正文/标签/封面），
-// 下面 PUBLIC LANDING（excerpt + published）。**它们各有各的提交，写的是不同的后端调用**，
-// 而两个按钮原本都只写 `save`。owner 填完下半张卡，最自然的动作是去按上面那个更大更显眼的
-// 实心按钮 —— 而它不管下半张。屏幕上没有边界提示，也没有"未保存"标记。
+// The shape of the defect: the wiki edit screen is two stacked cards — on top,
+// CorpusEntryForm (title/body/tags/cover); below, PUBLIC LANDING (excerpt +
+// published). **They each have their own submit, writing different backend calls**,
+// but both buttons originally just said `save`. After filling in the bottom card, an
+// owner's most natural move is to press the bigger, more prominent solid button up
+// top — which does nothing for the bottom half. There's no on-screen boundary hint,
+// and no "unsaved" marker either.
 //
-// 守的是**每个按钮点名自己的那一半**。这是 owner 唯一能据以判断"该按哪个"的信息，
-// 所以它是产品行为，不是文案偏好：退回 `save` / `save` 就是把那次误按重新装回去。
+// What this guards is **each button naming its own half**. That's the only
+// information an owner has to judge "which one do I press", so it's a product
+// behavior, not a copy preference: reverting to `save` / `save` reinstalls that
+// exact mis-click.
 //
-// 为什么不去断"按了上面那个，下面的没存"：那是在给缺陷本身立证，修好之后它照样成立
-// （两个提交本来就该各管各的）。真正会随修复翻转的判据是**按钮说不说得清**。
+// Why not assert "pressed the top one, the bottom one didn't save": that would be
+// building the case on the defect itself — it would still hold true after the fix
+// (the two submits are supposed to each handle their own half). The criterion that
+// actually flips with the fix is **whether each button says clearly what it does**.
 
 import type { Page, Playwright } from '@playwright/test';
 
@@ -45,7 +53,8 @@ test.describe('corpus · two submits on one screen, each says which half it save
     const landingSave = adminPage.getByTestId(`wiki-${id}-seo-save`);
     await expect(landingSave, 'the landing card carries its own submit').toBeVisible();
 
-    // 两个都在场、都可见 —— 然后各自的字必须说清管的是哪一半。
+    // Both are present, both visible — then each one's label must state clearly
+    // which half it owns.
     await expect(
       entrySave,
       'the entry submit must say it saves the entry, not just "save"',
@@ -66,8 +75,9 @@ async function createEntry(page: Page): Promise<void> {
   await expect(page.getByText(TITLE).first()).toBeVisible({ timeout: 5_000 });
 }
 
-// openEditForm —— 展开这一行的编辑表单，返回它的 id。表单是懒加载的：点开先是 loading…，
-// 所以要等 `wiki-edit-loaded-${id}`，不能等字段可见就动手。
+// openEditForm — expands this row's edit form and returns its id. The form is lazy
+// loaded: opening it shows loading… first, so wait for `wiki-edit-loaded-${id}`,
+// don't act the moment a field becomes visible.
 async function openEditForm(page: Page, title: string): Promise<string> {
   await gotoAdminSection(page, 'wiki');
   const row = page.locator('[data-testid^="wiki-row-"]', { hasText: title });

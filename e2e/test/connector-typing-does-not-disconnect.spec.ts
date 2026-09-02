@@ -1,22 +1,31 @@
 // connector-typing-does-not-disconnect.spec.ts —— F-C-46。
 //
-// **往凭据框里打一个字，不该把还在用的连接器放倒。**
+// **Typing a character into a credential field must not take down a connector
+// that's still in use.**
 //
-// prod 上撞到的：驱 mail-connector 的 check 4 时，我的脚本只往 `from_address` 里 `type` 了
-// 一次就断了 —— **CONNECT 一次都没点**。日志里两次 `POST /connectors/smtp/credentials`，
-// 库里 `connected_at` 变成 NULL，而同一屏的卡还写着 connected。也就是说：**owner 刚开始
-// 改密码，发信就已经停了** —— 批准申请发码、预约确认信，全挂在这条连接上。
+// Hit in prod: while driving mail-connector check 4, my script typed into
+// `from_address` just once and then broke — **CONNECT was never clicked**. The
+// log showed two `POST /connectors/smtp/credentials` calls, `connected_at`
+// went NULL in the DB, yet the same-screen card still read connected. In other
+// words: **the moment the owner started editing the password, outbound mail
+// had already stopped** — access-code delivery, booking confirmations, all of
+// it hangs off this one connection.
 //
-// 两行各自都对，凑在一起才是缺陷：
-//   · `use-connector-card.ts` 的 `setField` —— 每一次按键都往服务端存一遍；
-//   · `svc_creds.go` 的 `ResetConnected: changed` —— 凭据真变了就清 connected（D-5：改身份
-//     必须重新验证，F-C-30 定的）。
-// 错的是**提交点**：存被绑在击键上，于是「我想改一下」和「我改完了」在服务端是同一件事。
+// Two lines were each individually correct, and only their combination is the
+// defect:
+//   · `use-connector-card.ts`'s `setField` — saves to the server on every keystroke;
+//   · `svc_creds.go`'s `ResetConnected: changed` — clears connected the moment
+//     credentials actually change (D-5: an identity change must re-verify, per F-C-30).
+// The real bug is **the commit point**: saving is bound to keystrokes, so "I'm
+// thinking about changing this" and "I'm done changing this" are the same
+// event on the server.
 //
-// 这条用例有**两半**，缺一不可 —— 今天在同一个模块上刚吃过一次「闸门比缺陷粗，顺手把做得到的
-// 动作也拿掉了」（[[gate-granularity-removes-working-action]]）：
-//   1. 只打字不提交 → 服务端状态**不许动**（这是红的那一半）；
-//   2. 改完真的按 CONNECT → 照旧重新验证（正对照：修法不许把 D-5 一起拿掉）。
+// This case has **two halves**, both required — we just paid for a "gate
+// coarser than the defect, incidentally removed a working action" mistake in
+// this very module today ([[gate-granularity-removes-working-action]]):
+//   1. Typing without submitting → server state **must not move** (this is the red half);
+//   2. Actually pressing CONNECT after the edit → re-verification still fires as before
+//      (positive control: the fix must not take D-5 down with it).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -34,8 +43,9 @@ const OWNER = {
   fullName: 'Typing Owner',
 };
 
-// bearer-api —— 非 dance 的内置连接器：一个 token 字段，存即连。身份字段只有一个，
-// 「改身份」这件事在它身上最干净。
+// bearer-api — a non-dance built-in connector: one token field, saving means
+// connecting. It has exactly one identity field, so "change identity" is
+// cleanest to test on it.
 const CONNECTOR_ID = 'bearer-api';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -54,19 +64,23 @@ test.describe('connector · typing is not committing (F-C-46)', () => {
     await card.getByTestId('connector-field-token').fill('the-working-token');
     await card.getByTestId('connector-connect-button').click();
     await expectConnected(card);
-    // 前置：它现在是连着的。
+    // Precondition: it's connected right now.
     expect((await status(page)).connected, 'precondition: the connector is live').toBe(true);
 
-    // owner 开始改这个字段 —— 只是打字，没有按下任何东西。
+    // Owner starts editing this field — just typing, nothing pressed yet.
     await card.getByTestId('connector-field-token').fill('half-typed-new-tok');
 
-    // **离开这一屏再回来**，等于给「打字触发的那笔存」一个确实落地的机会。
-    // 直接 `expect.poll` 读状态是不行的：poll 第一次就为真就通过 —— 而缺陷版本里那一笔
-    // 还在路上，于是一条永远绿的断言（[[assertion-that-cannot-fail]]，今天第二次）。
+    // **Leave this screen and come back**, which gives the "save triggered by
+    // typing" a real chance to land. Reading status via `expect.poll` directly
+    // wouldn't work: poll passes the moment it's first true — but in the buggy
+    // version that save is still in flight, so this would become a
+    // permanently-green assertion ([[assertion-that-cannot-fail]], for the
+    // second time today).
     await openConnectorCard(page, 'smtp');
     const back = await openConnectorCard(page, CONNECTOR_ID);
 
-    // 服务端仍然连着：这条连接还在用，凭据什么时候换由 owner 说了算。
+    // Server side is still connected: this connection is still in use, and when
+    // to swap credentials is the owner's call.
     expect(
       (await status(page)).connected,
       'typing without committing must not take the live connection down',
@@ -77,17 +91,19 @@ test.describe('connector · typing is not committing (F-C-46)', () => {
   test('pressing Connect after a credential change still re-verifies (D-5 holds)',
     async ({ adminPage: page }) => {
       const card = await openConnectorCard(page, CONNECTOR_ID);
-      // 不依赖上一条用例留下的状态：它正在钉的就是「状态会不会被打字改掉」，
-      // 拿它的结局当自己的前提，等于让两条用例一起红或一起绿（[[two-guards-dying-at-one-line]]）。
+      // Doesn't depend on state left over from the previous case: what this one
+      // is nailing down is "does state change just from typing", and using its
+      // outcome as our own precondition would let both cases go red or green
+      // together ([[two-guards-dying-at-one-line]]).
       await card.getByTestId('connector-field-token').fill('the-working-token');
       await card.getByTestId('connector-connect-button').click();
       await expectConnected(card);
-      // 正对照：真提交一次改动，D-5 那条重验必须照旧发生 —— 这一半防的是「修得太狠」。
+      // Positive control: actually submit a change, and D-5's re-verify must still fire — this half guards against "fixed too aggressively".
       await card.getByTestId('connector-field-token').fill('a-different-token');
       await card.getByTestId('connector-connect-button').click();
       await expectConnected(card);
       const after = await status(page);
-      // 提交之后重新验证过，仍然是连着的；新凭据真的存下去了。
+      // Re-verified after the submit, still connected; the new credential really was stored.
       expect(after.connected, 'a committed change re-verifies and stays connected').toBe(true);
       expect(after.has_credentials, 'the new credential was actually stored').toBe(true);
     });

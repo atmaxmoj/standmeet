@@ -1,16 +1,24 @@
-// note-refs-unified.spec.ts —— 目标态红测试。
+// note-refs-unified.spec.ts — target-state red test.
 //
-// refs 归一:wiki_refs + writing_refs → 一张 note_refs 边表,承载**所有 genre** 的 `[[Title]]` 双链。
-// 今天:wiki 有 refs(wiki_refs)、writing 有 refs(writing_refs)、output **无** refs(#150 待做)、
-// subjectivity 无。目标:统一到 note_refs 后,四个 genre 都能双链,且可**跨-genre** 链(wiki 引 output)。
+// Refs unification: wiki_refs + writing_refs → a single note_refs edge table, carrying
+// `[[Title]]` backlinks for **every genre**. Today: wiki has refs (wiki_refs), writing
+// has refs (writing_refs), output has **no** refs (#150 still to do), subjectivity has
+// none. Target: once unified onto note_refs, all four genres get backlinks, and links
+// can cross **genres** (wiki citing output).
 //
-// 覆盖:
-//   happy   —— note 里 `[[X]]` 解析成边;backlinks(cited-by)+ outbound(read-next);output 也有了 backlinks。
-//   corner  —— 跨-genre 链(wiki→output);改 body 重建出度(旧边清、新边入)。
-//   error   —— 未命中的 `[[X]]` 留字面不入边;self-link 跳过;删 note → 关联边双向级联消。
+// Coverage:
+//   happy   — `[[X]]` in a note resolves into an edge; backlinks (cited-by) + outbound
+//             (read-next); output now has backlinks too.
+//   corner  — a cross-genre link (wiki→output); editing the body rebuilds outbound
+//             edges (old ones cleared, new ones inserted).
+//   error   — an unmatched `[[X]]` stays literal text, no edge created; a self-link is
+//             skipped; deleting a note cascades and removes its linked edges in both
+//             directions.
 //
-// 观测:owner admin transcript / corpus detail 暴露 refs(见 wiki-related-rails 的读法);此处经
-// 访客 chat 引用 + admin 反查(与 corpus-facade-lister 同套)间接断言边的存在与方向。
+// Observation: owner admin transcript / corpus detail expose refs (see
+// wiki-related-rails for how that's read); here it's asserted indirectly, through
+// citations in a visitor chat + admin lookups (same pairing as corpus-facade-lister),
+// for the existence and direction of edges.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -135,7 +143,8 @@ async function deleteWiki(request: APIRequestContext, id: string): Promise<void>
 }
 
 interface Ref { id: string; title: string }
-// outbound / backlinks —— admin corpus detail 暴露的 read-next / cited-by(note_refs 出/入度)。
+// outbound / backlinks — the read-next / cited-by exposed by admin corpus detail
+// (note_refs outbound/inbound edges).
 async function outbound(request: APIRequestContext, genre: string, id: string): Promise<Ref[]> {
   return refsField(request, genre, id, 'outbound');
 }

@@ -1,9 +1,12 @@
-// render-static-passthrough.spec.ts —— pre-render-at-export(#2)的验证:StandMeet 从不跑
-// Obsidian 插件,只 ingest owner 在导出侧烤好的**静态结果**。
+// render-static-passthrough.spec.ts — verification of pre-render-at-export (#2):
+// StandMeet never runs the Obsidian plugin, it only ingests the **static, already-baked
+// output** the owner produces on the export side.
 //
-// 设计(rendering-and-extensibility.md §31/§39):plugin 在 Obsidian 侧 export 时预渲染,
-// StandMeet 直接把静态 markdown 收进正文。所以:预烤的表格 → 真 `<table>`;裸的
-// ` ```dataview ` 块 → 退化成 `<pre>/<code>`(不执行、不崩)。StandMeet 侧无需新建代码。
+// Design (rendering-and-extensibility.md §31/§39): the plugin pre-renders at export
+// time on the Obsidian side, and StandMeet just takes the static markdown straight
+// into the body. So: a pre-baked table → a real `<table>`; a bare ` ```dataview `
+// block → degrades to `<pre>/<code>` (never executed, never crashes). No new code
+// needed on the StandMeet side.
 
 import { test, expect } from '@/fixtures/test';
 

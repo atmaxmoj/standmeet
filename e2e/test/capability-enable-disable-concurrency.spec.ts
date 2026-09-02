@@ -1,7 +1,8 @@
-// capability-enable-disable-concurrency.spec.ts —— Phase H corner：enable/disable
-// 并发不串。owner 在两个 tab 狂点开关 → 后端 upsert 不该死锁/500/留半行；最终
-// 状态确定、一致。capability_settings 是 (owner_id, capability_id) upsert，并发
-// 写要安全。
+// capability-enable-disable-concurrency.spec.ts -- Phase H corner: enable/disable
+// concurrency must not cross wires. The owner mashes the toggle in two tabs -> the
+// backend upsert must not deadlock/500/leave a half-written row; the final state must
+// be deterministic and consistent. capability_settings is an (owner_id, capability_id)
+// upsert, and concurrent writes must be safe.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

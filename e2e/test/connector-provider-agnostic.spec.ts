@@ -1,22 +1,27 @@
-// connector-provider-agnostic.spec.ts —— #155 §8 区 F（消费闭环），重点 provider-agnostic。
+// connector-provider-agnostic.spec.ts -- #155 §8 area F (consumption loop), focused on
+// provider-agnostic behavior.
 //
-// ⭐ 命门（品类归一）：装一个**非 Google** 的 calendar 连接器（CalDAV，kind=protocol；
-// 或一个 test provider）填「calendar」品类槽 → 一个 calendar.book-granted 的 session
-// 照样装配出 calendar_book，且 booking 真能跑通——**booker 代码一行不改**。这证明
-// consumer（booker）只认 CalendarContract，背后是 Google / CalDAV / SMTP 一概不知
-// （docs/design/connector.md §2「契约把 kind 抽象掉」+ §5.3 消费流）。
+// ⭐ the linchpin (category unification): install a **non-Google** calendar connector
+// (CalDAV, kind=protocol; or a test provider) into the "calendar" category slot -> a session
+// granted calendar.book still assembles calendar_book, and booking actually works --
+// **without changing a single line of booker code**. This proves the consumer (booker) only
+// knows CalendarContract, and has no idea whether Google / CalDAV / SMTP is behind it
+// (docs/design/connector.md §2 "the contract abstracts kind away" + §5.3 consumption flow).
 //
-// 还覆盖：
-//   - SMTP（kind=protocol）填 mail 品类 → mailer 经 MailContract.Send 发信，无视 kind。
-//   - err：连接器 connected 但 runtime API 5xx → 友好降级（不崩、不泄 stack、不建 event）。
-//   - dep-gating：calendar 连接器 connect/disconnect → calendar.book cap un-gate / re-gate
-//     （经 DepRegistry 的全局单点闸，connector.md §6 + capabilities.ts dependency.connected）。
+// Also covers:
+//   - SMTP (kind=protocol) filling the mail category -> mailer sends via MailContract.Send, kind-agnostic.
+//   - err: connector connected but runtime API 5xx -> friendly degrade (no crash, no leaked stack, no event created).
+//   - dep-gating: calendar connector connect/disconnect -> calendar.book cap un-gates / re-gates
+//     (via DepRegistry's global single gate, connector.md §6 + capabilities.ts dependency.connected).
 //
-// 覆盖「品类归一让任意 provider 喂 booker」。已实现，真编译、真跑、真绿（booker 经品类
-// 契约接任意 provider，不再只认手搓 gcal-specific connector；原为 RED 契约，实现后转绿）。
+// Covers "category unification lets any provider feed booker". Implemented, actually
+// compiles, actually runs, actually goes green (booker consumes any provider through the
+// category contract, no longer only recognizing a hand-rolled gcal-specific connector;
+// originally a RED contract, green after implementation).
 //
-// §8 接口草图对齐：CalendarContract.{ListBusy,CreateEvent} / MailContract.Send；
-//   capabilities.ts dependency.connected；gcal-setup 的 connected-owner 复用为对照组。
+// Aligned to the §8 interface sketch: CalendarContract.{ListBusy,CreateEvent} /
+// MailContract.Send; capabilities.ts dependency.connected; gcal-setup's connected-owner is
+// reused as the control group.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -29,10 +34,10 @@ import { issueSession } from '@/fixtures/visitor';
 import { scriptMockToolCall, sendAndDrain } from '@/fixtures/mock-llm-script';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-// 非 Google calendar provider 的 mock 控制面（CalDAV/test provider）：set_busy /
-// events / fail / reset，跟 gcal mock 同构但走「calendar」品类的 provider-agnostic 端。
+// Control plane for the non-Google calendar provider mock (CalDAV/test provider): set_busy /
+// events / fail / reset, structurally identical to the gcal mock but through the provider-agnostic "calendar" category endpoint.
 const CALDAV_MOCK = process.env['CALDAV_MOCK_URL'] ?? 'http://localhost:9000';
-// backend 容器内打 CalDAV 用 service-name（SSRF 白名单放行）；控制面读用 localhost。
+// Calls to CalDAV from inside the backend container use the service name (allowed through the SSRF allowlist); control-plane reads use localhost.
 const CALDAV_API = 'http://external-mock:9000';
 
 const OWNER = {
@@ -45,7 +50,7 @@ const OWNER = {
 function futureSlot(daysAhead: number, hour: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + daysAhead);
-  // 默认 booking policy 只允许 Mon-Fri；跳到下一个工作日，slot 才过策略闸。
+  // The default booking policy only allows Mon-Fri; skip to the next weekday so the slot clears the policy gate.
   while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
     d.setUTCDate(d.getUTCDate() + 1);
   }
@@ -54,8 +59,9 @@ function futureSlot(daysAhead: number, hour: number): string {
 }
 
 test.describe('connector · provider-agnostic consumer loop (area F)', () => {
-  // #155 §8-F：品类归一 —— 非 Google（CalDAV protocol）calendar 喂 booker，代码一行不改。
-  // SMTP mail 那条经「mail 作为访客 capability」（sandboxed mail-sender 插件）发信,已实现。
+  // #155 §8-F: category unification -- non-Google (CalDAV protocol) calendar feeds booker,
+  // without changing a line of code. The SMTP mail case sends via "mail as a visitor
+  // capability" (sandboxed mail-sender plugin), already implemented.
 
   let request: APIRequestContext;
   test.beforeAll(async ({ playwright }) => {
@@ -63,28 +69,28 @@ test.describe('connector · provider-agnostic consumer loop (area F)', () => {
   });
   test.afterAll(async () => { await request.dispose(); });
 
-  // ⭐ 核心：非 Google calendar → booker book 成功，booker 代码路径不变。
+  // ⭐ core: non-Google calendar -> booker booking succeeds, booker's code path unchanged.
   test('non-Google (CalDAV) calendar connects → calendar_book assembles + booking works (booker unchanged)',
     async () => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
-      // 装一个非 gcal 的 calendar 连接器填「calendar」品类槽，并连上（无 OAuth dance）。
+      // Install a non-gcal calendar connector into the "calendar" category slot and connect it (no OAuth dance).
       const conn = await connectCalDAVCalendar(request, csrf);
 
-      // dep-gating：calendar 品类槽现在「connected」→ calendar.book cap 解闸。
+      // dep-gating: the calendar category slot is now "connected" -> the calendar.book cap un-gates.
       const cap = await findCapability(request, csrf, 'calendar.book');
       expect(cap?.dependency?.connected, 'CalDAV connected → calendar category slot connected').toBe(true);
 
-      // 发码（granted calendar.book）+ session。
+      // Issue a code (granted calendar.book) + session.
       const code = await issueCodeWithSkills(request, csrf, { granted_skills: ['calendar.book'] });
       const visitor = await issueSession(request, {
         handle: OWNER.handle, mode: 'code', code: code.code,
         visitor_name: 'Recruiter Rachel', visitor_email: 'rachel@example.com',
       });
 
-      // 装配出 calendar_book（品类归一：consumer 不知背后是 CalDAV）。
+      // calendar_book gets assembled (category unification: the consumer doesn't know CalDAV is behind it).
       await expectCalendarBookExposed(request, visitor.session_token, true);
 
-      // 真 book：booker 走 CalendarContract.{ListBusy,CreateEvent}，落到 CalDAV provider。
+      // Actually book: booker goes through CalendarContract.{ListBusy,CreateEvent}, landing on the CalDAV provider.
       const start = futureSlot(7, 14);
       const tag = await scriptMockToolCall(request, {
         name: 'calendar_book',
@@ -92,7 +98,7 @@ test.describe('connector · provider-agnostic consumer loop (area F)', () => {
       });
       await sendAndDrain(request, visitor, `Book a 30-min chat next week?${tag}`);
 
-      // ⭐ event 落在**非 Google** provider 上 —— 同一份 booker 代码、不同 provider。
+      // ⭐ the event lands on the **non-Google** provider -- same booker code, different provider.
       const events = await getCalDAVEvents(request, conn.id);
       expect(events, 'CalDAV provider received the booker-created event').toHaveLength(1);
       expect(events[0]!.summary).toContain('Recruiter Rachel');
@@ -100,8 +106,8 @@ test.describe('connector · provider-agnostic consumer loop (area F)', () => {
       expect(events[0]!.attendees ?? [], 'attendee comes from the session profile').toContain('rachel@example.com');
     });
 
-  // SMTP（kind=protocol）→ mailer 经 MailContract.Send 发信，无视 kind。经「mail 作为访客
-  // capability」（mail.send，sandboxed 插件）发出,已实现,绿。
+  // SMTP (kind=protocol) -> mailer sends via MailContract.Send, kind-agnostic. Sent via
+  // "mail as a visitor capability" (mail.send, sandboxed plugin), implemented, green.
   test('SMTP connector (kind=protocol) → mailer sends via MailContract.Send (kind-agnostic)',
     async () => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
@@ -110,7 +116,7 @@ test.describe('connector · provider-agnostic consumer loop (area F)', () => {
       const cap = await findCapability(request, csrf, 'mail.send');
       expect(cap?.dependency?.connected, 'SMTP connected → mail category slot connected').toBe(true);
 
-      // mailer 经品类契约发一封（这里走 connector 自测发信端，断 sent + provider=protocol）。
+      // mailer sends one via the category contract (here through the connector's self-test send endpoint; assert sent + provider=protocol).
       const sent = await sendViaMailContract(request, csrf, {
         to: 'recruiter@corp.test', subject: 'PA mail', text: 'hello from SMTP',
       });
@@ -118,12 +124,12 @@ test.describe('connector · provider-agnostic consumer loop (area F)', () => {
       expect(sent.via_kind, 'mailer neither knows nor cares it is protocol underneath').toMatch(/protocol|smtp/i);
     });
 
-  // err：连接器 connected 但 runtime API 5xx → 友好降级，不崩、不泄 stack、不建 event。
+  // err: connector connected but runtime API 5xx -> friendly degrade, no crash, no leaked stack, no event created.
   test('CalDAV connected but runtime 5xx → friendly degrade (no 5xx, no stack, no event)',
     async () => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       const conn = await connectCalDAVCalendar(request, csrf);
-      // 让下一次 create-event runtime 调用返 500（connected 但 API 挂）。
+      // Make the next create-event runtime call return 500 (connected but the API is down).
       await failNextCalDAV(request, conn.id, 'create_event', 500);
 
       const code = await issueCodeWithSkills(request, csrf, { granted_skills: ['calendar.book'] });
@@ -139,12 +145,12 @@ test.describe('connector · provider-agnostic consumer loop (area F)', () => {
       expect(await getCalDAVEvents(request, conn.id), 'degraded → no event created').toHaveLength(0);
     });
 
-  // dep-gating：calendar 连接器 disconnect → cap re-gate；reconnect → un-gate。
+  // dep-gating: calendar connector disconnect -> cap re-gates; reconnect -> un-gates.
   test('calendar connector disconnect → calendar.book re-gated; reconnect → un-gated',
     async () => { await runDepGating(request); });
 });
 
-// ─── helpers (inline; promote to fixtures/connector-providers.ts when实现转绿) ───
+// ─── helpers (inline; promote to fixtures/connector-providers.ts once implementation goes green) ───
 
 interface ConnRef { id: string; category: string; kind: string; connected: boolean }
 interface CalEvent { event_id: string; summary: string; start: string; attendees?: string[] }
@@ -162,8 +168,8 @@ async function initOwner(playwright: Playwright): Promise<APIRequestContext> {
   return request;
 }
 
-// runDepGating —— calendar 连接器 connect → un-gate，disconnect → re-gate，reconnect → un-gate。
-// 经 DepRegistry 全局单点闸（capabilities.ts dependency.connected 驱动）。
+// runDepGating -- calendar connector connect -> un-gate, disconnect -> re-gate, reconnect -> un-gate.
+// Goes through DepRegistry's global single gate (driven by capabilities.ts dependency.connected).
 async function runDepGating(request: APIRequestContext): Promise<void> {
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   const conn = await connectCalDAVCalendar(request, csrf);
@@ -171,30 +177,31 @@ async function runDepGating(request: APIRequestContext): Promise<void> {
   const newSession = (name: string) =>
     issueSession(request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: name });
 
-  // 连上：暴露。
+  // Connected: exposed.
   await expectCalendarBookExposed(request, (await newSession('A')).session_token, true);
 
-  // 断开 → 全局单点闸据 dependency.connected=false 把 calendar.book gate 掉。
+  // Disconnect -> the global single gate reads dependency.connected=false and gates off calendar.book.
   await disconnectConnector(request, csrf, conn.id);
   const capGated = await findCapability(request, csrf, 'calendar.book');
   expect(capGated?.dependency?.connected, 'disconnected → category slot disconnected').toBe(false);
   await expectCalendarBookExposed(request, (await newSession('B')).session_token, false);
 
-  // 重连 → 复闸（un-gate）。
+  // Reconnect -> un-gates.
   await reconnectConnector(request, csrf, conn.id);
   await expectCalendarBookExposed(request, (await newSession('C')).session_token, true);
 }
 
-// connectCalDAVCalendar —— 装一个**非 Google** calendar 连接器（CalDAV，kind=protocol）
-// 填 calendar 品类槽并连上（存凭据即连，无 OAuth dance）。返回 connector 引用。
-// 幂等：已存在则复用 — 多个 test 共享同一 owner instance。
+// connectCalDAVCalendar -- installs a **non-Google** calendar connector (CalDAV,
+// kind=protocol) into the calendar category slot and connects it (saving credentials
+// connects it immediately, no OAuth dance). Returns the connector reference.
+// Idempotent: reuses an existing one -- multiple tests share the same owner instance.
 async function connectCalDAVCalendar(
   request: APIRequestContext, csrf: string,
 ): Promise<ConnRef> {
   const id = await ensureConnector(request, csrf, {
     kind: 'protocol', protocol: 'caldav', category: 'calendar',
   });
-  // 清这个 collection 的 mock 状态（events/busy/fail）—— 多 test 共享同一连接器，绝对计数要干净。
+  // Clear this collection's mock state (events/busy/fail) -- multiple tests share the same connector, so absolute counts must start clean.
   await request.post(`${CALDAV_MOCK}/__mock/caldav/${id}/reset`, { data: {} }).catch(() => undefined);
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
@@ -205,7 +212,7 @@ async function connectCalDAVCalendar(
   return connectAndRead(request, csrf, id);
 }
 
-// connectSMTPMail —— 装 SMTP(protocol) 填 mail 品类槽并连上。
+// connectSMTPMail -- installs SMTP (protocol) into the mail category slot and connects it.
 async function connectSMTPMail(request: APIRequestContext, csrf: string): Promise<ConnRef> {
   const id = await ensureConnector(request, csrf, {
     kind: 'protocol', protocol: 'smtp', category: 'mail',
@@ -223,7 +230,7 @@ async function connectSMTPMail(request: APIRequestContext, csrf: string): Promis
 
 interface CreateConnectorBody { kind: string; protocol: string; category: string }
 
-// ensureConnector —— 建 connector，若同 category 已有则复用（test 间幂等）。
+// ensureConnector -- creates a connector, reusing one for the same category if it already exists (idempotent across tests).
 async function ensureConnector(
   request: APIRequestContext, csrf: string, body: CreateConnectorBody,
 ): Promise<string> {
@@ -266,16 +273,18 @@ async function reconnectConnector(
   await connectAndRead(request, csrf, id);
 }
 
-// sendViaMailContract —— 经 connector 自测发信端触发 MailContract.Send（验 mailer
-// 走品类契约、不关心底下 kind）。返回 {ok, via_kind}。
+// sendViaMailContract -- triggers MailContract.Send through the connector's self-test send
+// endpoint (verifies mailer goes through the category contract and doesn't care what kind is
+// underneath). Returns {ok, via_kind}.
 async function sendViaMailContract(
   request: APIRequestContext, csrf: string,
   mail: { to: string; subject: string; text: string },
 ): Promise<MailSendResp> {
-  // 地址是**从声明派生**的:`/connectors/ops/<opID 去掉 connectors. 前缀>`。
-  // 以前这里写死 `/connectors/mail/test-send` —— 那条路由长在通用的连接器注册表上,
-  // 于是通用那一层里出现了一个品类的名字。现在注册表一个品类名都不写,名字来自
-  // backend/connectors/smtp/manifest.yaml 的 owner_ops。
+  // The address is **derived from the declaration**: `/connectors/ops/<opID with the
+  // connectors. prefix stripped>`. This used to hardcode `/connectors/mail/test-send` --
+  // that route lived on the generic connector registry, so a category name leaked into the
+  // generic layer. Now the registry doesn't write a single category name; the name comes
+  // from backend/connectors/smtp/manifest.yaml's owner_ops.
   const res = await request.post(`${BACKEND}/api/admin/connectors/ops/mail_test_send`, {
     headers: { 'X-Csrftoken': csrf }, data: mail,
   });
@@ -283,7 +292,7 @@ async function sendViaMailContract(
   return await res.json() as MailSendResp;
 }
 
-// getCalDAVEvents —— 读非 Google provider mock 记录的 event（断 booker 真落到它）。
+// getCalDAVEvents -- reads events recorded by the non-Google provider mock (asserts booker actually landed on it).
 async function getCalDAVEvents(
   request: APIRequestContext, connID: string,
 ): Promise<CalEvent[]> {
@@ -292,14 +301,14 @@ async function getCalDAVEvents(
   return (await res.json() as { events: CalEvent[] }).events;
 }
 
-// failNextCalDAV —— provider mock：让下一次某 op 返指定 status（runtime 5xx 降级）。
+// failNextCalDAV -- provider mock: makes the next call to some op return the given status (runtime 5xx degrade).
 async function failNextCalDAV(
   request: APIRequestContext, connID: string, op: string, status: number,
 ): Promise<void> {
   await request.post(`${CALDAV_MOCK}/__mock/caldav/${connID}/fail`, { data: { op, status } });
 }
 
-// callBook —— 直接打 booker 的 tool 端（避开 LLM 脚本，干净断降级形状）。
+// callBook -- calls booker's tool endpoint directly (bypasses the LLM script, for a clean assertion on the degrade shape).
 async function callBook(
   request: APIRequestContext, visitor: { conversation_id: string; session_token: string },
 ): Promise<{ status: number; body: BookToolResp }> {
@@ -307,10 +316,13 @@ async function callBook(
     `${BACKEND}/api/v1/sessions/${visitor.conversation_id}/tools/calendar_book`,
     {
       headers: { Authorization: `Bearer ${visitor.session_token}` },
-      // **不能跟前面那条用例同一格**：那条已经订过 `futureSlot(7, 14)`，而 booker 是「先占位
-      // 再插入」，占位带 TTL 活在宿主的 capstore 里（mock 的 reset 清不掉它）。撞上去的话
-      // 第二次拿到的是 `bookConflictWire{Conflict, Detail}` —— **那个形状没有 `error` 字段**，
-      // 于是这条用例读到空串，而注入的 500 根本没轮到，红得跟「产品没话说」一模一样。
+      // **Must not use the same slot as the earlier test**: that one already booked
+      // `futureSlot(7, 14)`, and booker "reserves first, then inserts" -- the reservation
+      // carries a TTL that lives in the host's capstore (the mock's reset can't clear it).
+      // Colliding with it means the second call gets back `bookConflictWire{Conflict,
+      // Detail}` -- **that shape has no `error` field** -- so this test would read an empty
+      // string, the injected 500 never even gets a turn, and it fails red in a way that
+      // looks identical to "the product had nothing to say".
       data: { topic: 'PA 5xx', duration_min: 30, preferred_times: [futureSlot(8, 15)] },
     },
   );

@@ -1,12 +1,15 @@
-// connector-err-midstream-sse-cut.spec.ts —— §四 错误流矩阵 E15
-// connector-backed tool call **进行中**(SSE 流里)流被中断 → **可恢复**、transcript
-// **不脏**、不崩。链路:agent/turn SSE 在 tool_started 之后、tool_completed 之前断 →
-// 后端/前端把这轮收成一个干净的可恢复状态(非半截脏帧、非 500、非 panic)。
+// connector-err-midstream-sse-cut.spec.ts — §4 error-stream matrix, E15.
+// A connector-backed tool call's stream is interrupted **while it's in progress** (inside the
+// SSE stream) → **recoverable**, the transcript **is not left dirty**, no crash. Call chain:
+// the agent/turn SSE stream cuts after tool_started but before tool_completed → the
+// backend/frontend must resolve this turn into a clean, recoverable state (not a half-formed
+// dirty frame, not a 500, not a panic).
 //
 // Error stream E15: the SSE stream is interrupted DURING a connector-backed tool
 // call → recoverable, the transcript is not left dirty, no crash.
 //
-// RED / TDD：依赖 agent/turn 流在 mid-tool SSE 断裂时收成干净可恢复状态落地后转绿。
+// RED / TDD: depends on the agent/turn stream resolving to a clean recoverable state on a
+// mid-tool SSE cut being implemented before this goes green.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -26,18 +29,22 @@ function future(days: number, hour: number): string {
   return d.toISOString();
 }
 
-// cutTurnAfterToolStarted —— **真·客户端中断**(不是假的 mock 开关):用 Node 原生 fetch
-// 流式读 /agent/turn 的 SSE,一看到 `event: tool_started` 帧就 AbortController.abort() —— 这
-// 正是访客浏览器在工具执行途中断线/关页的真实攻击面,后端会在 tool 进行中收到 r.Context()
-// 取消。返 abort 前已收到的原始 SSE(供断言查:确进了 tool 阶段、没吐 stack、没走到 done)。
+// cutTurnAfterToolStarted — **a genuine client-side disconnect** (not a fake mock toggle): uses
+// Node's native fetch to stream-read the /agent/turn SSE, and calls AbortController.abort() the
+// moment it sees an `event: tool_started` frame — this is exactly the real attack surface of a
+// visitor's browser disconnecting/closing the tab mid-tool-execution, and the backend receives
+// r.Context() cancellation while the tool is still in flight. Returns the raw SSE received before
+// the abort (for assertions to check: it genuinely reached the tool phase, emitted no stack, and
+// never reached done).
 async function cutTurnAfterToolStarted(
   token: string, convID: string, msg: string,
 ): Promise<string> {
   const ctrl = new AbortController();
   let raw = '';
   try {
-    // 例外:必须用原生 fetch —— 要**流式**读 SSE + mid-flight abort 模拟客户端断线;
-    // Playwright 的 request fixture 会缓冲整段响应,做不到中途掐断。
+    // Exception: native fetch is required here — reading the SSE **as a stream** plus a
+    // mid-flight abort is what simulates a client disconnect; Playwright's request fixture
+    // buffers the whole response and can't be cut off partway through.
     /* eslint-disable no-restricted-syntax */
     const res = await fetch(`${BACKEND}/api/v1/agent/turn`, {
       method: 'POST',
@@ -54,18 +61,20 @@ async function cutTurnAfterToolStarted(
       if (done) break;
       raw += dec.decode(value, { stream: true });
       if (raw.includes('event: tool_started')) {
-        ctrl.abort(); // 客户端在工具执行途中断线
+        ctrl.abort(); // the client disconnects mid-tool-execution
         break;
       }
     }
   } catch (e) {
-    // abort() → fetch/reader 抛 AbortError,这是我们主动断线的预期结果,吞掉;其余 rethrow。
+    // abort() → fetch/reader throws AbortError, which is the expected result of us disconnecting
+    // on purpose — swallow it; rethrow anything else.
     if (!(e instanceof Error) || e.name !== 'AbortError') throw e;
   }
   return raw;
 }
 
-// fetchTurnRaw —— 恢复轮:正常跑完一轮 /agent/turn,拿 status + 完整 SSE。
+// fetchTurnRaw — the recovery turn: runs one normal /agent/turn to completion, getting the
+// status + the full SSE.
 async function fetchTurnRaw(
   request: APIRequestContext, token: string, convID: string, msg: string,
 ): Promise<{ status: number; raw: string }> {
@@ -76,8 +85,10 @@ async function fetchTurnRaw(
   return { status: res.status(), raw: await res.text() };
 }
 
-// fetchConversation —— 读回这条对话(真公开路由 GET /conversations/{id};/transcript 只在
-// admin 面,访客侧没有)。用来断言中断轮没把对话弄脏:仍可读(200)、无半截 panic/stack。
+// fetchConversation — reads the conversation back (the real public route GET
+// /conversations/{id}; /transcript only exists on the admin side, not for visitors). Used to
+// assert the cut turn didn't leave the conversation dirty: still readable (200), no half-formed
+// panic/stack.
 async function fetchConversation(
   request: APIRequestContext, token: string, convID: string,
 ): Promise<{ status: number; body: string }> {
@@ -109,15 +120,16 @@ test.describe('connector error stream · mid-stream SSE cut during connector-bac
         args: { topic: 'E15 sse cut', duration_min: 30, preferred_times: [future(7, 14)] },
       });
 
-      // 客户端在 tool_started 之后断线(真实 mid-tool cut)。
+      // The client disconnects right after tool_started (a genuine mid-tool cut).
       const raw = await cutTurnAfterToolStarted(
         sess.session_token, sess.conversation_id, `book me next week${tag1}`,
       );
 
-      // 断言 cut 真落在 tool 阶段:进了 tool_started,但没读到 done(连接被我们提前掐了)。
+      // Assert the cut genuinely landed in the tool phase: reached tool_started, but never saw
+      // done (we cut the connection off before that).
       expect(raw, 'cut actually reached the tool phase').toContain('event: tool_started');
       expect(raw, 'cut happened before the turn finished streaming').not.toContain('event: done');
-      // 中断不是 server crash,也不能把 stack 吐进流。
+      // The interruption must not be a server crash, and must not leak a stack into the stream.
       expect(raw, 'no raw stack in stream').not.toMatch(/panic|goroutine|stack/i);
 
       // recoverable: the next turn on the SAME conversation still works (not wedged).
@@ -131,7 +143,8 @@ test.describe('connector error stream · mid-stream SSE cut during connector-bac
       expect(next.status, 'conversation recovers after the cut').toBeLessThan(500);
       expect(next.raw, 'no stack on recovery turn').not.toMatch(/panic|goroutine|stack/i);
 
-      // 对话没被中断轮弄脏:真读回 /conversations/{id} —— 仍可读(200)、无半截 panic/stack。
+      // The conversation isn't left dirty by the cut turn: read it back for real via
+      // /conversations/{id} — still readable (200), no half-formed panic/stack.
       const convo = await fetchConversation(request, sess.session_token, sess.conversation_id);
       expect(convo.status, 'conversation still readable after the cut').toBe(200);
       expect(convo.body, 'conversation not left dirty by the cut').not.toMatch(/panic|goroutine|stack/i);

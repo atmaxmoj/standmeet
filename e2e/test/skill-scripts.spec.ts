@@ -1,16 +1,19 @@
-// skill-scripts.spec.ts —— Phase C / L3（progressive disclosure 第三级）：
-// skill 正文引用的脚本经 **一个通用 `skill_run_script({name,script,args})`
-// tool** 按需跑 sandbox（docker 隔离），只回 stdout/stderr/exit_code。**替换**
-// 旧的「每个 script 预先暴露成 `skill_<name>_<script>` tool」eager 模型。
+// skill-scripts.spec.ts —— Phase C / L3 (progressive disclosure's third tier):
+// scripts referenced by a skill's body run on demand via **one generic
+// `skill_run_script({name,script,args})` tool**, in a sandbox (docker
+// isolation), returning only stdout/stderr/exit_code. **Replaces** the old
+// eager model of "pre-expose every script as its own
+// `skill_<name>_<script>` tool".
 //
-// 业务故事：
-//   alice 用 skill_create 加 "marker-emitter"：一段 bash `echo "[SANDBOX-MARKER]"`。
-//   绑到 MARKER-001；recruiter 在浏览器跟 AI 聊，AI 调 **skill_run_script**
-//   （script=run.sh）→ sandbox 跑 → stdout=`[SANDBOX-MARKER]` 打包进 tool_result
-//   → mock 把 [skill_result:...] echo 回 chat reply。
+// Business story:
+//   alice adds "marker-emitter" via skill_create: a bash script that does
+//   `echo "[SANDBOX-MARKER]"`. Bound to MARKER-001; a recruiter chats with the
+//   AI in a browser, the AI calls **skill_run_script** (script=run.sh) →
+//   sandbox runs it → stdout=`[SANDBOX-MARKER]` gets packed into a
+//   tool_result → the mock echoes [skill_result:...] back into the chat reply.
 //
-// scripted（非自然路径）：skill_run_script 要 {name,script} 入参，自然路径喂不了
-// → 用 scriptMockToolCall 显式驱动。
+// scripted (not the natural path): skill_run_script needs {name,script} args,
+// which the natural path can't feed → driven explicitly via scriptMockToolCall.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -52,8 +55,9 @@ test.describe('owner-curated skill scripts run in docker sandbox', () => {
 
   test('L3: AI calls skill_run_script → sandbox runs the script → stdout in reply',
     async ({ browser, playwright }) => {
-      // scripted：skill_run_script 要 {name,script} 入参 → 显式驱动 mock，
-      // 而不是赌自然路径（通用 tool 拿不到自然路径塞的空 args）。
+      // scripted: skill_run_script needs {name,script} args → drive the mock
+      // explicitly, rather than gambling on the natural path (a generic tool
+      // can't get the empty args the natural path would supply).
       const request = await playwright.request.newContext();
       const toolTag = await scriptMockToolCall(request, {
         name: 'skill_run_script',
@@ -74,8 +78,8 @@ test.describe('owner-curated skill scripts run in docker sandbox', () => {
       await input.fill(`go ahead and run the marker${toolTag}${replyTag}`);
       await input.press('Enter');
 
-      // 持久信号:reply 里含 docker sandbox 跑脚本的 stdout marker，经
-      // skill_run_script 的 [skill_result:...] echo 回来。
+      // Persistent signal: the reply contains the stdout marker from the docker
+      // sandbox running the script, echoed back via skill_run_script's [skill_result:...].
       await expect(page.locator('[data-testid="answer-body"]'))
         .toContainText(MARKER, { timeout: 20_000 });
 
@@ -106,7 +110,7 @@ async function createSkillAndCode(request: APIRequestContext): Promise<void> {
 async function createCodeAttachingSkill(
   request: APIRequestContext, csrf: string, skillID: string,
 ): Promise<void> {
-  // A.3-IAM-5: 建一个 role 挂 skill，再发码引用 role。
+  // A.3-IAM-5: create a role with the skill attached, then issue a code referencing that role.
   const roleRes = await request.post('http://localhost:8000/api/admin/roles/', {
     headers: { 'X-Csrftoken': csrf },
     data: {

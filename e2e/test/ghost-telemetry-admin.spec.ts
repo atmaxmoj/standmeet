@@ -85,7 +85,8 @@ async function seed(playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
   await claim(request, findSetupToken(), OWNER);
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  // WP_A 的证据 note 得真存在,冻结那刻的可行性下限才放它进快照(F-A-26)。
+  // WP_A's evidence note must really exist; only the reachability floor at the moment of
+  // freezing lets it into the snapshot (F-A-26).
   const apiToken = await createAPIToken(request, csrf, 'telemui-seed');
   const sid = await initMCP(request, apiToken);
   await seedWiki(request, apiToken, sid, { title: 'Alpha', body: 'Alpha.', path: 'alpha' });

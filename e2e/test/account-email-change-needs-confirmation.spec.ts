@@ -1,15 +1,20 @@
-// account-email-change-needs-confirmation.spec.ts —— owner 改邮箱不能把自己锁死。
+// account-email-change-needs-confirmation.spec.ts — the owner changing their email must not
+// lock themselves out.
 //
-// 缺陷（手工发现 2026-08-30）：`owners.email` 这一列同时是**登录身份**和**恢复渠道**
-// （`usecase/recovery.go` 的 `To:` 直接读它）。改邮箱把两者原子地一起搬走，而搬走之前
-// 没有任何一步证明新地址收得到信。所以一个拼写错误同时拿掉了钥匙和备用钥匙 —— 而且
-// session 按 ownerID 发，当场毫无感觉，它在 session 过期那天才生效。
+// Defect (found manually 2026-08-30): the `owners.email` column is both the **login identity**
+// and the **recovery channel** (`usecase/recovery.go`'s `To:` reads it directly). Changing the
+// email moved both atomically, before any step proved the new address could receive mail. So a
+// single typo removed both the key and the spare key at once — and since the session is keyed by
+// ownerID, nothing feels wrong until the session expires.
 //
-// 判据（断好结果，不断"没红字"）：配好 mail connector 之后，改邮箱**只产生一封确认信**，
-// 身份**不动**；旧邮箱在确认之前必须还能登录 —— 这一条才是"没被锁死"的真正含义。
-// 只断"出现了成功提示"不行：那是 non-unique signal，产品把身份换掉了也会显示成功。
+// Judgment criterion (assert the good outcome, not "no red text"): once the mail connector is
+// configured, changing the email must **only produce a confirmation message**; identity **must
+// not move yet** — the old email must still be able to log in until confirmed. That is the real
+// meaning of "not locked out". Asserting "a success toast appeared" is not enough: that is a
+// non-unique signal — the product would show success even if it had swapped identity outright.
 //
-// 收据在动作旁边验：确认信去 mailpit（外部收件箱）读，不看产品自己说"已发送"。
+// The receipt must be checked next to the action: read the confirmation mail from mailpit (an
+// external inbox), never trust the product's own "sent" claim.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -31,7 +36,8 @@ const OWNER = {
 };
 const NEW_EMAIL = 'confirmer+moved@example.com';
 
-// loginStatus —— 只要状态码。login() 在失败时抛，这里要的正是"失败"这件事本身。
+// loginStatus — only the status code matters. login() throws on failure, and "failure" itself
+// is exactly what this needs to observe.
 async function loginStatus(
   request: APIRequestContext, email: string, password: string,
 ): Promise<number> {
@@ -68,9 +74,11 @@ test.describe('account · a new email must prove it is reachable before it becom
       await gotoAdminSection(page, 'account');
       await page.waitForURL('**/admin/account', { timeout: 5_000 });
 
-      // 动手之前，这一块说的话必须跟它的行为一致。加待确认流程之前它写着
-      // "Changing it moves both" —— 机制换了、说明书没换，于是它对 owner 撒谎，
-      // 而这种谎言不会让任何测试变红（[[names-that-lie]]）。在真 prod 上眼验才看见。
+      // Before acting: this blurb's copy must match its actual behavior. Before the
+      // confirmation flow was added it said "Changing it moves both" — the mechanism
+      // changed but the copy didn't, so it now lies to the owner, and that lie never
+      // turns any test red ([[names-that-lie]]). Only a real-prod eyeball check would
+      // have caught it.
       const blurb = await page.getByTestId('account-email-block').innerText();
       expect(blurb, '这块说明还在承诺"改了就生效"，而实际要等确认').toContain('confirm');
       expect(blurb).not.toContain('moves both');
@@ -80,35 +88,41 @@ test.describe('account · a new email must prove it is reachable before it becom
       await page.getByTestId('account-email-confirm').fill(NEW_EMAIL);
       await page.getByTestId('account-email-save').click();
 
-      // 界面必须说清这是"寄了一封信"，不是"改好了" —— owner 读到的那句话决定他接下来做什么。
+      // The UI must say clearly "a mail was sent", not "it's done" — the sentence the
+      // owner reads decides what they do next.
       await expect(page.getByTestId('account-email-pending')).toContainText(NEW_EMAIL);
 
       const request = await playwright.request.newContext();
 
-      // ① 身份没动：旧邮箱**仍然**能登录。这条是"没被锁死"的实际含义。
+      // ① Identity has not moved: the old email **still** logs in. This is the actual
+      // meaning of "not locked out".
       expect(await loginStatus(request, OWNER.email, OWNER.password)).toBe(200);
-      // ② 新邮箱在确认之前不是身份。
+      // ② The new email is not the identity until confirmed.
       expect(await loginStatus(request, NEW_EMAIL, OWNER.password)).toBe(401);
-      // ③ /me 读到的还是旧的。
+      // ③ /me still reads the old email.
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       expect(await currentEmail(request, csrf)).toBe(OWNER.email);
 
-      // ④ 收据去外部收件箱验：确认信寄到了**新**地址（不是旧的）。
+      // ④ Check the receipt via an external inbox: the confirmation mail went to the
+      // **new** address (not the old one).
       const body = await waitForMailTo(request, NEW_EMAIL);
       const link = confirmLinkIn(body, 'confirm-email');
 
-      // ⑤ 走真实的那条路 —— 用浏览器点开信里的链接，而不是直接打 API。
-      //    「test covers capability, not face」：只打 API 的话，链接页面根本不存在也能绿。
+      // ⑤ Take the real path — open the link from the mail in a browser, don't hit the
+      // API directly.
+      //    "test covers capability, not face": hitting only the API would still pass
+      //    green even if the link page didn't exist at all.
       await followMailedLink(page, link);
       await expect(page.getByTestId('email-confirmed')).toBeVisible({ timeout: 10_000 });
 
-      // ⑥ 现在身份才搬走：新的能登，旧的死。
+      // ⑥ Only now does identity move: the new email logs in, the old one is dead.
       expect(await loginStatus(request, NEW_EMAIL, OWNER.password)).toBe(200);
       expect(await loginStatus(request, OWNER.email, OWNER.password)).toBe(401);
       const after = await login(request, NEW_EMAIL, OWNER.password);
       expect(await currentEmail(request, after.csrf)).toBe(NEW_EMAIL);
 
-      // ⑦ 确认链接是一次性的 —— 可重放的确认链接等于把身份挂在一封旧邮件上。
+      // ⑦ The confirmation link is single-use — a replayable confirmation link would
+      // leave identity hanging off a stale email.
       await followMailedLink(page, link);
       await expect(page.getByTestId('email-confirmed')).toBeHidden();
 

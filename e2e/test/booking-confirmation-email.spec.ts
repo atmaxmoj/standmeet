@@ -1,24 +1,29 @@
-// booking-confirmation-email.spec.ts —— #122: 约好之后,访客在 booked 卡上选择
-// 把确认/邀请邮件发到哪。**真 e2e:浏览器 → 沙盒 iframe 卡 → mcp-ui:tool →
-// send_confirmation tool → 后端 → owner SMTP(Mailpit)**。
+// booking-confirmation-email.spec.ts — #122: once a booking is made, the visitor picks on
+// the booked card where the confirmation/invite email goes. **Real e2e: browser -> sandboxed
+// iframe card -> mcp-ui:tool -> send_confirmation tool -> backend -> owner SMTP (Mailpit)**.
 //
-// 重构后(connector deps,§二 + D-4):确认 widget 不再是 React 卡 + REST,而是落在
-// `mcp-app-card-calendar_book` 沙盒 iframe 内;点「引用/透传/skip」后卡 post
-// `mcp-ui:tool` → host 带 session context 派发 `send_confirmation` tool。**收件人硬控
-// (引用 session-email / 透传 typed address / 非法 → 422 / skip)放 tool 内(后端校验,
-// 422 仍后端出)** —— 沙盒卡只收集 + 显示,绕不过后端那道门(#121)。
+// After the refactor (connector deps, §2 + D-4): the confirmation widget is no longer a
+// React card + REST, it now lives inside the `mcp-app-card-calendar_book` sandboxed
+// iframe; clicking "use profile / other address / skip" makes the card post
+// `mcp-ui:tool` -> the host dispatches the `send_confirmation` tool with session context.
+// **Recipient enforcement (use session-email / pass a typed address / invalid -> 422 /
+// skip) lives inside the tool (backend-validated, 422 is still emitted by the backend)**
+// — the sandboxed card only collects + displays, it cannot route around that backend
+// gate (#121).
 //
-// 卡片(iframe 内的确认 widget)契约:
-//   [data-testid=booking-email-prompt]       —— 容器(约成后出现)
-//   [data-testid=booking-email-use-profile]  —— 「引用」按钮(发到 session email),
-//                                                仅当 session 有 email 时渲染
-//   [data-testid=booking-email-other]        —— 「透传」文本框(填别的地址)
-//   [data-testid=booking-email-send]         —— 发「透传」那个地址
-//   [data-testid=booking-email-skip]         —— 「不发」
-//   [data-testid=booking-email-error]        —— 后端 422 时卡内显示的友好错误
+// Card contract (the confirmation widget inside the iframe):
+//   [data-testid=booking-email-prompt]       — container (appears once booked)
+//   [data-testid=booking-email-use-profile]  — "use profile" button (sends to session
+//                                                email), rendered only when session has
+//                                                an email
+//   [data-testid=booking-email-other]        — "other address" text field
+//   [data-testid=booking-email-send]         — send to that typed address
+//   [data-testid=booking-email-skip]         — "don't send"
+//   [data-testid=booking-email-error]        — friendly error shown in-card on backend 422
 //
-// 收件人只能是 引用(已知 session email)或 透传(访客字面输入)—— 校验落 send_confirmation
-// tool/后端,跟 #121 收件人硬控一致。
+// The recipient can only be the profile's known session email or a visitor-typed address
+// — validation lives in the send_confirmation tool/backend, matching #121's recipient
+// enforcement.
 
 import { test, expect } from '@/fixtures/test';
 import type { Browser, FrameLocator, Page } from '@playwright/test';
@@ -56,8 +61,9 @@ test.describe('booking · send-confirmation email (#122 — deterministic, no AI
     ({ browser }) => skipFlow(browser, seed));
 });
 
-// 引用 —— session email 在 → 点引用 → send_confirmation tool 发到它;邮件带 schema.org
-// markup;一笔一发。点击落在 iframe 内 → post mcp-ui:tool。
+// use-profile — session has an email -> click "use profile" -> send_confirmation tool
+// sends to it; the email carries schema.org markup; exactly one send. The click happens
+// inside the iframe -> posts mcp-ui:tool.
 async function quoteFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   await clearMailpit(seed.request);
   const ctx = await browser.newContext();
@@ -70,7 +76,8 @@ async function quoteFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   await expect(prompt).toBeVisible({ timeout: 10_000 });
   await frame.getByTestId('booking-email-use-profile').click();
 
-  // 可观察副作用 = send_confirmation tool 经 connector proxy 真发了一封到 session email。
+  // Observable side effect = the send_confirmation tool, via the connector proxy, really
+  // sent one email to the session email address.
   const mail = await waitForMailEnvelopeTo(seed.request, 'dana.profile@example.com');
   expect(mail.from).toBe(MAIL_FROM);
   expect(mail.text).toContain(TOPIC);
@@ -79,14 +86,16 @@ async function quoteFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   expect(mail.html).toContain('"@type":"EventReservation"');
   expect(mail.html).toContain('"reservationFor"');
   expect(mail.html).toContain('"startDate"');
-  // Gmail EventReservation 必填:reservationNumber + location(线上 → VirtualLocation)。
+  // Gmail's EventReservation requires: reservationNumber + location (online -> VirtualLocation).
   expect(mail.html).toContain('"reservationNumber"');
   expect(mail.html).toContain('"@type":"VirtualLocation"');
-  // 可见卡片里那条可点链接(访客唯一能点的东西)在、且指向真实 GCal 事件。
+  // The clickable link in the visible card (the only thing a visitor can click) is
+  // present and points at the real GCal event.
   expect(mail.html).toContain('open in google calendar');
   expect(mail.html).toContain('calendar.google.com');
 
-  // tool-result 回卡即锁(sent 态、动作消失);邮件已 waitForMailEnvelope 收到 → count 已确定为 1。
+  // The card locks as soon as the tool-result comes back (sent state, actions disappear);
+  // the email was already received via waitForMailEnvelope -> count is confirmed at 1.
   await expect(prompt).toHaveAttribute('data-sent', 'true', { timeout: 5_000 });
   await expect(frame.getByTestId('booking-email-use-profile')).toHaveCount(0);
   await expect(frame.getByTestId('booking-email-skip')).toHaveCount(0);
@@ -94,12 +103,13 @@ async function quoteFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   await ctx.close();
 }
 
-// 透传 —— 没 session email → 不渲引用 → 现填地址,send_confirmation tool 发出。
+// other-address — no session email -> "use profile" doesn't render -> type an address now,
+// send_confirmation tool sends it out.
 async function passthroughFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   await clearMailpit(seed.request);
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
-  await enterWithProfile(page, seed.code.code, 'Eli'); // 没填 email
+  await enterWithProfile(page, seed.code.code, 'Eli'); // no email filled in
   await bookInChat(page, 15);
 
   const frame = bookedFrame(page);
@@ -114,14 +124,15 @@ async function passthroughFlow(browser: Browser, seed: CodedSeed): Promise<void>
   await ctx.close();
 }
 
-// 透传非法 —— 填垃圾地址 → send_confirmation tool/后端 ParseAddress 失败 → 422 →
-// 卡内报错(tool-result 带 error)、不进 sent、零发送。收件人硬控在 tool/后端(D-4),
-// 沙盒卡绕不过。
+// invalid-other-address — type junk -> send_confirmation tool/backend ParseAddress fails ->
+// 422 -> in-card error (tool-result carries error), never reaches sent, zero sends.
+// Recipient enforcement lives in the tool/backend (D-4); the sandboxed card cannot route
+// around it.
 async function invalidRecipientFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   await clearMailpit(seed.request);
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
-  await enterWithProfile(page, seed.code.code, 'Nads'); // 没 session email
+  await enterWithProfile(page, seed.code.code, 'Nads'); // no session email
   await bookInChat(page, 13);
 
   const frame = bookedFrame(page);
@@ -130,15 +141,17 @@ async function invalidRecipientFlow(browser: Browser, seed: CodedSeed): Promise<
   await frame.getByTestId('booking-email-other').fill('not-an-email');
   await frame.getByTestId('booking-email-send').click();
 
-  // 报错可见 = 后端 422 经 tool-result 回卡 → 没进 sent、一封都没发。error 可见就是
-  // 确定性信号,无需 sleep。
+  // Error visible = the backend 422 came back to the card via tool-result -> never
+  // reached sent, nothing was sent. The error being visible is a deterministic signal, no
+  // sleep needed.
   await expect(frame.getByTestId('booking-email-error')).toBeVisible({ timeout: 5_000 });
   await expect(prompt).toHaveAttribute('data-sent', 'false');
   expect(await countMailpitMessages(seed.request)).toBe(0);
   await ctx.close();
 }
 
-// 不发 —— 点 skip 纯本地锁卡、不发 tool / 不发信。data-sent=true = 已落定,此刻零邮件。
+// skip — clicking skip locks the card purely locally, no tool call / no email sent.
+// data-sent=true means it's final, and there's zero emails at this point.
 async function skipFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   await clearMailpit(seed.request);
   const ctx = await browser.newContext();
@@ -156,13 +169,16 @@ async function skipFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   await ctx.close();
 }
 
-// owner 没配 mail connector → 整张确认 widget 不渲染(owner 根本发不了信)。
-// 重构后这条由 connector 依赖门兜底:send_confirmation 的 booker 能力 Requires smtp,
-// 未连时确认 widget 不进卡 —— booked 卡照常显示已约,但 iframe 内没有 email-prompt。
+// owner has no mail connector configured -> the whole confirmation widget doesn't render
+// (the owner literally can't send email). After the refactor this is backstopped by the
+// connector dependency gate: send_confirmation's booker capability Requires smtp, and the
+// confirmation widget doesn't enter the card when unconnected — the booked card still
+// shows as booked as usual, but there's no email-prompt inside the iframe.
 test.describe('booking · no mail connector → no confirmation card (#122)', () => {
   let seed: CodedSeed;
   test.beforeAll(async ({ playwright }) => {
-    // 注意:不调 configureMailConnector —— owner 没有发信能力。
+    // Note: configureMailConnector is deliberately not called — the owner has no
+    // send-mail capability.
     seed = await seedCodeVisitorOnConnectedOwner(playwright, {
       granted_skills: ['calendar.book'],
     });
@@ -176,7 +192,8 @@ test.describe('booking · no mail connector → no confirmation card (#122)', ()
       await enterWithProfile(page, seed.code.code, 'Dana', 'dana.profile@example.com');
       await bookInChat(page, 17);
 
-      // booked 卡照常显示已约,但 iframe 内没有确认邮件那一截。
+      // The booked card still shows as booked as usual, but there's no confirmation-email
+      // section inside the iframe.
       const frame = bookedFrame(page);
       await expect(frame.getByTestId('book-card-time')).toBeVisible();
       await expect(frame.getByTestId('booking-email-prompt')).toHaveCount(0);
@@ -184,12 +201,14 @@ test.describe('booking · no mail connector → no confirmation card (#122)', ()
     });
 });
 
-// bookedFrame —— 已外置的 booked 卡是个沙盒 iframe;内容(time + 确认 widget)经 frameLocator 取。
+// bookedFrame — the externalized booked card is a sandboxed iframe; its content
+// (time + confirmation widget) is reached via frameLocator.
 function bookedFrame(page: Page): FrameLocator {
   return page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
 }
 
-// enterWithProfile —— ?code 入口 → 名字选择器填 name + 可选 email → 提交 → 等 session。
+// enterWithProfile — ?code entry -> fill name (and optionally email) in the name picker
+// -> submit -> wait for the session.
 async function enterWithProfile(
   page: Page, code: string, name: string, email?: string,
 ): Promise<void> {
@@ -204,10 +223,13 @@ async function enterWithProfile(
   await session;
 }
 
-// bookInChat —— script 一次 calendar_book,发一句话触发 → 等 booked 沙盒卡 iframe 出现。
-// hour 让每条 test 落在**不同的真实 GCal 时段**:同一 owner 日历下若都约同一时刻,
-// 后约的会真撞前约的(slot 已 busy)→ 不出确认卡。固定 +7 天(已知工作日)、只错开
-// 小时(都在 working hours 内、互不重叠 30 分钟),既避冲突又不踩周末/policy。
+// bookInChat — script a single calendar_book call, send one chat message to trigger it ->
+// wait for the booked sandboxed card iframe to appear. `hour` puts each test into a
+// **different real GCal time slot**: under the same owner calendar, if every test booked
+// the same time, a later booking would collide with an earlier one (slot already busy)
+// -> no confirmation card would appear. Fixed at +7 days (a known weekday), only the hour
+// varies (all within working hours, never overlapping within 30 minutes), which avoids
+// both conflicts and weekend/policy pitfalls.
 async function bookInChat(page: Page, hour: number): Promise<void> {
   const tag = await scriptMockToolCall(page.request, {
     name: 'calendar_book',
@@ -216,7 +238,8 @@ async function bookInChat(page: Page, hour: number): Promise<void> {
   const input = page.getByTestId('chat-input-field');
   await input.fill(`book me a 30-minute chat next week, please${tag}`);
   await input.press('Enter');
-  // booked 卡现在是沙盒 iframe(mcp-app-card-calendar_book),不是主 DOM 里的 React 卡。
+  // The booked card is now a sandboxed iframe (mcp-app-card-calendar_book), not a React
+  // card in the main DOM.
   await expect(page.getByTestId('mcp-app-card-calendar_book')).toBeVisible({ timeout: 20_000 });
 }
 

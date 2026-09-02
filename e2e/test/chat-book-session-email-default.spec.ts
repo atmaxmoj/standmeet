@@ -1,8 +1,10 @@
-// chat-book-session-email-default.spec.ts —— #121: 访客进入时填的 email 存进
-// session profile;calendar_book 即使工具参数里没带 visitor_email,booker 也用
-// session 的 email 兜底 → Google 仍把 invite 发给访客。
+// chat-book-session-email-default.spec.ts —— #121: the email a visitor enters on the way
+// in gets stored in the session profile; even if calendar_book's tool arguments don't carry
+// visitor_email, the booker falls back to the session's email → Google still sends the
+// invite to the visitor.
 //
-// 反过来证明:没填 email 的 session,booker 不会凭空塞收件人。
+// Conversely proves: a session with no email filled in doesn't get a recipient invented out
+// of thin air by the booker.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -26,12 +28,12 @@ test.describe('chat · calendar.book defaults visitor_email from session profile
 
   test('book with no visitor_email arg → Google invite uses the session email',
     async () => {
-      // 进入时带 email(存进 session profile)。
+      // Enters with an email (stored in the session profile).
       const sess = await issueSession(seed.request, {
         handle: OWNER.handle, code: seed.code.code,
         visitor_name: 'Dana', visitor_email: SESSION_EMAIL,
       });
-      // calendar_book 工具参数**故意不带** visitor_email —— 模拟 AI 没问到。
+      // calendar_book's tool arguments **deliberately omit** visitor_email — simulating the AI not having asked.
       const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: { topic: 'Intro call', duration_min: 30, preferred_times: [future(7, 14)] },
@@ -40,15 +42,17 @@ test.describe('chat · calendar.book defaults visitor_email from session profile
 
       const events = await getMockEvents(seed.request);
       expect(events).toHaveLength(1);
-      // booker 用 session profile 的 email 兜底当 attendee。
+      // The booker falls back to the session profile's email as the attendee.
       expect(events[0]!.attendees ?? []).toEqual(
         expect.arrayContaining([expect.objectContaining({ email: SESSION_EMAIL })]),
       );
-      // F-B-7 —— 这条 spec 的抬头写着「Google 仍把 invite 发给访客」，而在这一行之前，
-      // 它能证明的只有「访客被放进了宾客名单」。发不发信是另一个开关：Google 的
-      // `events.insert` 只在带 `sendUpdates=all` 时通知与会者，不带就是静默加人。
-      // 名单对、信没发，上面那条断言照样绿 —— 它看不见自己少验了一半
-      // （[[verifier-can-lie-about-its-own-coverage]]）。
+      // F-B-7 —— this spec's header claims "Google still sends the invite to the visitor,"
+      // but up to this line, all it can actually prove is "the visitor was added to the
+      // guest list." Whether Google sends a notification is a separate switch:
+      // `events.insert` only notifies attendees when `sendUpdates=all` is set, and silently
+      // adds them otherwise. The list can be right, the notification never sent, and the
+      // assertion above would still go green — it can't see that it only verified half
+      // ([[verifier-can-lie-about-its-own-coverage]]).
       expect(events[0]!.send_updates,
         'the provider was asked to notify the guest, not just to list them').toBe('all');
     });
@@ -56,7 +60,7 @@ test.describe('chat · calendar.book defaults visitor_email from session profile
   test('no session email + no arg → no attendee invented',
     async () => {
       await resetMockGCal(seed.request);
-      // 这个 session 没带 email。
+      // This session carries no email.
       const sess = await issueSession(seed.request, {
         handle: OWNER.handle, code: seed.code.code, visitor_name: 'Eli',
       });

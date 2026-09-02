@@ -1,8 +1,10 @@
-// inference-usage.spec.ts —— #106 inference 计费:每次 owner-key LLM 调用记 {model,
-// input/output tokens} 进 inference_usage 表(7 天窗口);admin GET /inference-usage 出近 7 天
-// 按天×model 聚合。BYOAI 是访客自付,不计 owner。
+// inference-usage.spec.ts — #106 inference billing: every owner-key LLM call records
+// {model, input/output tokens} into the inference_usage table (a 7-day window); admin
+// GET /inference-usage returns the last 7 days aggregated by day × model. BYOAI is paid
+// by the visitor themselves and is not billed to the owner.
 //
-// 红(实现前):端点 404、无记录。绿(实现后):owner-key turn 后出现带 token 的用量行。
+// Red (before implementation): the endpoint 404s, no records. Green (after
+// implementation): a usage row with tokens appears after an owner-key turn.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -56,11 +58,11 @@ test.describe('inference usage billing · #106', () => {
 
   test('owner-key agent turn records token usage → admin 7-day summary shows it',
     async () => {
-      // 起初 7 天用量为空。
+      // Usage over the last 7 days starts out empty.
       const before = await getUsage(request);
       expect(before.total.calls, 'no usage before any turn').toBe(0);
 
-      // 一次 owner-key 访客 turn → 走 mock LLM(发 usage 帧)。
+      // One owner-key visitor turn → goes through the mock LLM (which sends a usage frame).
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'V',
       });
@@ -71,7 +73,7 @@ test.describe('inference usage billing · #106', () => {
       });
       expect(turn.status(), 'turn ok').toBe(200);
 
-      // admin 用量端点:近 7 天出现这次调用,带 token。
+      // The admin usage endpoint: this call shows up in the last 7 days, with tokens.
       const after = await getUsage(request);
       expect(after.total.calls, 'the owner-key turn was billed').toBeGreaterThanOrEqual(1);
       expect(after.total.input_tokens, 'input tokens recorded').toBeGreaterThanOrEqual(1);

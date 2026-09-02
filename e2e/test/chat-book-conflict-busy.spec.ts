@@ -1,6 +1,7 @@
-// chat-book-conflict-busy.spec.ts —— 访客提的所有 preferred_times 都撞上 owner 日历
-// 已 busy 的窗口。booker FreeBusy 全过滤掉 → BookConflictAllBusy,不写事件。
-// 这是 booking 的核心分支(之前这个 spec 文件是空的,等于没盖)。
+// chat-book-conflict-busy.spec.ts — every preferred_time the visitor proposes collides with
+// a window that's already busy on the owner's calendar. The booker's FreeBusy filters all
+// of them out → BookConflictAllBusy, no event written.
+// This is booking's core branch (this spec file used to be empty, i.e. uncovered).
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -18,7 +19,7 @@ test.describe('chat · calendar.book conflict: all preferred times busy', () => 
 
   test('the only proposed slot overlaps a busy window → no event written',
     async () => {
-      const slot = future(7, 14); // policy-valid(工作日 + 够提前),但下面标成 busy
+      const slot = future(7, 14); // policy-valid (a weekday, far enough ahead), but marked busy below
       await setMockBusy(seed.request, [{
         start: future(7, 13, 30), end: future(7, 15),
       }]);
@@ -27,7 +28,7 @@ test.describe('chat · calendar.book conflict: all preferred times busy', () => 
         args: { topic: 'Backend deep-dive', duration_min: 30, preferred_times: [slot] },
       });
       await sendAndDrain(seed.request, seed.visitor, `book me next week at 2pm${tag}`);
-      // 全 busy → booker 不 insert。mock 日历无新事件。
+      // all busy → the booker does not insert. No new event on the mock calendar.
       const events = await getMockEvents(seed.request);
       expect(events).toHaveLength(0);
     });

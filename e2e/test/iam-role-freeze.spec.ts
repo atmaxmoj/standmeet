@@ -1,12 +1,16 @@
-// iam-role-freeze.spec.ts —— A.3-IAM 核心承诺：session issue 时 freeze 出
-// RoleSnapshot，owner 改 role 不影响在跑 session；唯一补救 = revoke code。
+// iam-role-freeze.spec.ts — A.3-IAM's core guarantee: at session issue time a
+// RoleSnapshot is frozen, so an owner editing a role does not affect a running
+// session; the only remedy is to revoke the code.
 //
-// 用户故事：
-//   owner 建 role R1 corpus_uris=['wiki://thinking/**']，发码 C，
-//   visitor 进 session S1 → 问 thinking/A 拿到，问 output/B 拿不到（不在 R1）。
-//   owner PUT /roles/R1 把 corpus_uris 改成包含 output://**。
-//   - S1 同一 session 再问 output/B → 仍拿不到（snapshot 已冻结）
-//   - 新发 session S2 同 C → 问 output/B 拿到（重新 freeze 后 snapshot 新了）
+// User story:
+//   owner creates role R1 with corpus_uris=['wiki://thinking/**'], issues code C,
+//   a visitor enters session S1 → asking about thinking/A gets an answer, asking
+//   about output/B gets none (not in R1).
+//   owner PUTs /roles/R1, changing corpus_uris to include output://**.
+//   - S1, the same session, asks about output/B again → still gets none (the
+//     snapshot is already frozen)
+//   - a new session S2 issued for the same code C → asking about output/B gets an
+//     answer (the snapshot is fresh after re-freezing)
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -28,9 +32,10 @@ const OWNER = {
 };
 
 const CODE = 'FREEZE-001';
-// 地址树派生:seedWiki(title 'Thinking A', path 'thinking/A') → 父 'thinking' +
-// 叶子 slug('Thinking A')='thinking-a' → 树路径 'thinking/thinking-a'。
-// output 'Output B'(root)→ 'output-b'。role glob 'thinking/**' / 'output://**' 照样命中。
+// Address tree derivation: seedWiki(title 'Thinking A', path 'thinking/A') → parent
+// 'thinking' + leaf slug('Thinking A')='thinking-a' → tree path 'thinking/thinking-a'.
+// output 'Output B' (root) → 'output-b'. The role globs 'thinking/**' / 'output://**'
+// still match either way.
 const THINKING_PATH = 'thinking/thinking-a';
 const OUTPUT_PATH = 'output-b';
 
@@ -119,7 +124,7 @@ async function seedTwoEntries(request: APIRequestContext, csrf: string): Promise
 async function seedOutput(
   request: APIRequestContext, apiToken: string, sessionID: string,
 ): Promise<void> {
-  // raw → wiki → output chain;output 树路径 = slug('Output B') = 'output-b'。
+  // raw → wiki → output chain; the output tree path = slug('Output B') = 'output-b'.
   const raw = await callTool<{ id: string }>(
     request, apiToken, sessionID, 'corpus.create',
     { genre: 'raw', body: 'output essay about retrieval', source: 'mcp:e2e', tags: [] },

@@ -1,11 +1,14 @@
-// session-strip.spec.ts —— visitor chat-capable surface 的 SessionStrip
-// (top sticky 单源 session 状态条) + Quota gauge + 跨 surface + 坏码回落。
+// session-strip.spec.ts — the SessionStrip on visitor chat-capable surfaces (a top-sticky,
+// single-source session status bar) + the quota gauge + cross-surface behavior + fallback
+// on a bad code.
 //
-// 业务故事：
-//   1. recruiter 扫 QR (/?code=X) → 名字选择器 → 进来后 SessionStrip 出现:
-//      code 标签 + gauge 0/MAX turns。URL 上的 ?code= 在 absorb 后立刻删掉。
-//   2. SessionStrip 跨 surface sticky(root / writings)。
-//   3. 坏码 → 名字选择器 → 提交 401 → 回落 public,strip 不渲。
+// Business story:
+//   1. A recruiter scans a QR (/?code=X) -> the name picker -> once inside, the
+//      SessionStrip appears: the code label + a 0/MAX turns gauge. The ?code= on the URL
+//      is removed immediately after being absorbed.
+//   2. SessionStrip stays sticky across surfaces (root / writings).
+//   3. A bad code -> the name picker -> submitting gets 401 -> falls back to public, the
+//      strip does not render.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

@@ -1,15 +1,20 @@
-// genre-assets-admin-raw-subj.spec.ts —— raw 和 subjectivity 在**面板上**也挂得上文件。
+// genre-assets-admin-raw-subj.spec.ts —— raw and subjectivity can also carry files
+// **on the panel**.
 //
-// wiki / output 的素材入口先建好了(genre-assets-admin.spec.ts),另外两个 genre 那时还没有:
-// raw 只能在倾倒之后干瞪眼,subjectivity 在面板上**一个界面都没有** —— owner 想知道自己
-// 写过什么,只能去问 AI。
+// The asset entry point for wiki / output was built first (genre-assets-admin.spec.ts);
+// the other two genres had nothing at the time: raw could only be stared at helplessly
+// after dumping, and subjectivity had **no panel screen at all** — the only way for the
+// owner to know what they'd written was to ask the AI.
 //
-// 两个面**一样**,而且必须一样 —— subjectivity 不是特例,它只是第四个 genre:
-// 同一个 CorpusEntryForm、同一个素材区、同一条 `/corpus/{genre}` 路由。
+// The two panels are **identical**, and must stay identical — subjectivity isn't a
+// special case, it's just the fourth genre: the same CorpusEntryForm, the same asset
+// area, the same `/corpus/{genre}` route.
 //
-// (它一度被写成只读的:那条 op 上挂着一个 fp.Only(..., "mcp"),理由写着"自我模型是
-// 边想边写出来的,不是填出来的"。那是**一句被写进代码的偏好**,不是产品决定 ——
-// owner 说了它要跟别的 genre 一样。所以这条 spec 也钉住那件事:面板上建得了、改得了。)
+// (It was once written read-only: that op carried an fp.Only(..., "mcp"), with a
+// reasoning comment that "the self-model gets written out while thinking, not filled
+// into a form." That was **a preference written into code**, not a product decision —
+// the owner said it should work like every other genre. So this spec also pins that
+// down: the panel can create it, and can edit it.)
 
 import type { APIRequestContext, Page } from '@playwright/test';
 
@@ -26,8 +31,9 @@ const OWNER = {
   handle: 'assetsrawsubj', fullName: 'Assets Raw Subj Owner',
 };
 
-// 一个 1×1 的合法 PNG。**真实字节** —— 后端按字节签名核对声明的类型,
-// 一个叫 .png 的空文件会被正确地拒掉,那样这条测的就是拒绝路径了。
+// A valid 1×1 PNG. **Real bytes** — the backend checks the declared type against the
+// byte signature, and an empty file just named .png would correctly be rejected, which
+// would turn this into a test of the rejection path instead.
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64',
@@ -47,7 +53,8 @@ test.describe('raw 和 subjectivity 的面板素材入口', () => {
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     const token = await createAPIToken(request, csrf, 'raw-subj-token');
     s = { request, token, sid: await initMCP(request, token) };
-    // subjectivity 只能由 AI 写 —— 所以种子数据也走 MCP,那正是 owner 真实的路径。
+    // subjectivity can only be written by the AI — so the seed data also goes through
+    // MCP, which is the owner's real path.
     subjectivityID = await createEntry(
       s, 'subjectivity', 'How I judge a system', 'I look for what it makes impossible.');
     await request.dispose();
@@ -69,9 +76,12 @@ test.describe('raw 和 subjectivity 的面板素材入口', () => {
     await expect(body).toHaveValue(new RegExp(`standmeet-asset:${assetID}`));
 
     await page.getByTestId(`${prefix}-submit`).click();
-    // 存完等表单**自己关上**再重开。`raw-edit-{id}` 是个开合钮:存请求还在飞的时候点它,
-    // 关掉的是那张还开着的表单 —— 于是下面找不到 body,超时。表单消失是这一行存好了的信号
-    // (onDone 只在保存回程里调),而且它认得出是**哪一行**,比等一个通用 toast 可靠。
+    // After saving, wait for the form to **close itself** before reopening it.
+    // `raw-edit-{id}` is a toggle button: clicking it while the save request is still
+    // in flight closes the form that's still open — so the body can't be found below,
+    // and it times out. The form disappearing is the signal that this row saved
+    // (onDone only fires on the save's return trip), and crucially it identifies
+    // **which row** — more reliable than waiting on a generic toast.
     await expect(page.getByTestId(prefix)).toBeHidden({ timeout: 15_000 });
     await page.getByTestId(`raw-edit-${id}`).click();
     await expect(page.getByTestId(`raw-edit-body-${id}`))
@@ -83,15 +93,18 @@ test.describe('raw 和 subjectivity 的面板素材入口', () => {
   ) => {
     await gotoAdminSection(page, 'subjectivity');
 
-    // 在这个页面之前,subjectivity 在面板上一个界面都没有 —— owner 想知道自己写过什么,
-    // 只能去问 AI。
+    // Before this page existed, subjectivity had no panel screen at all — the only way
+    // for the owner to know what they'd written was to ask the AI.
     const row = page.getByTestId(`subjectivity-row-${subjectivityID}`);
     await expect(row, 'AI 写的那条在面板上看得见').toBeVisible({ timeout: 10_000 });
     await expect(row).toContainText('How I judge a system');
 
-    // 这个开关**说了什么**,不只是它在不在。原来这里只有 .click():按钮存在、可点,
-    // 断言就过——所以 2026-08-07 真实环境里它把 `ADMINCORPUS.COMMON.EDIT`(一条没解析的
-    // i18n key)印在 17 行上,而这条 spec 一直是绿的(F-L-15)。存在性断言证明不了内容正确。
+    // What this toggle **says**, not just whether it exists. This used to be just a
+    // .click(): the button existed, was clickable, and the assertion passed — which is
+    // why in the real 2026-08-07 environment it printed
+    // `ADMINCORPUS.COMMON.EDIT` (an unresolved i18n key) across 17 rows while this spec
+    // stayed green the whole time (F-L-15). An existence assertion can't prove the
+    // content is correct.
     const editToggle = page.getByTestId(`subjectivity-edit-${subjectivityID}`);
     await expect(editToggle, '开关上写的是 EDIT,不是翻译 key').toHaveText(/^edit$/i);
     await editToggle.click();
@@ -100,13 +113,15 @@ test.describe('raw 和 subjectivity 的面板素材入口', () => {
     await expect(page.getByTestId(`subjectivity-edit-loaded-${subjectivityID}`))
       .toBeVisible({ timeout: 15_000 });
 
-    // 挂文件 + 插进正文 —— **跟 wiki / output 逐字同一套动作**。
+    // Attach a file + insert into the body — **the exact same set of actions as
+    // wiki / output**.
     const assetID = await attachOne(page, prefix, 'diagram.png');
     await page.getByTestId(`${prefix}-asset-insert-${assetID}`).click();
     await expect(page.getByTestId(`${prefix}-body`))
       .toHaveValue(new RegExp(`standmeet-asset:${assetID}`));
 
-    // 改得动,而且存得下来 —— 这一条钉的是"面板写得了 subjectivity"。
+    // It can be edited, and the edit persists — this pins down "the panel can write
+    // subjectivity".
     await page.getByTestId(`${prefix}-title`).fill('How I judge a system (edited)');
     await page.getByTestId(`${prefix}-submit`).click();
     await expect(
@@ -129,12 +144,14 @@ test.describe('raw 和 subjectivity 的面板素材入口', () => {
   });
 });
 
-// dumpRaw —— 在倾倒框里倒一条,返回它的 id(从行的 testid 上取 —— 取自**页面**,
-// 因为这条 spec 要证的就是那一行真的渲出来了)。
+// dumpRaw —— dumps one entry into the dump box and returns its id (pulled from the
+// row's testid — from **the page itself**, because what this spec is proving is that
+// the row really got rendered).
 async function dumpRaw(page: Page, body: string): Promise<string> {
   await page.getByTestId('dump-input').fill(body);
-  // 倾倒按钮按 role + 文本点 —— Btn 刻意不暴露 data-testid(测试的关注点不该长进
-  // 通用组件的 API),现有的 admin-raw-crud 也是这么点的。
+  // Click the dump button by role + text — Btn deliberately doesn't expose a
+  // data-testid (test concerns shouldn't grow into a shared component's API); the
+  // existing admin-raw-crud clicks it the same way.
   await page.getByRole('button', { name: /dump/i }).click();
   const row = page.locator('[data-testid^="raw-row-"]').filter({ hasText: body }).first();
   await expect(row).toBeVisible({ timeout: 15_000 });
@@ -144,8 +161,10 @@ async function dumpRaw(page: Page, body: string): Promise<string> {
   return id;
 }
 
-// attachOne —— 在素材区选一个文件,断言那一行渲出来了(文件名 + **真实字节数**),
-// 返回它的 asset id。id 取自**页面上那一行**,不是接口回参 —— 这几条要证的就是它渲出来了。
+// attachOne —— picks a file in the asset area, asserts that row rendered (filename +
+// **real byte count**), and returns its asset id. The id is pulled from **the row on
+// the page**, not from an API response — what these tests are proving is that it
+// rendered.
 async function attachOne(page: Page, prefix: string, filename: string): Promise<string> {
   await page.getByTestId(`${prefix}-asset-input`).setInputFiles({
     name: filename, mimeType: 'image/png', buffer: PNG,

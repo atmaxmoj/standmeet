@@ -1,21 +1,24 @@
-// visitor-card-action-enters-history.spec.ts —— F-B-9 ⭐⭐：**访客在卡上做的事，
-// agent 下一轮必须知道。**
+// visitor-card-action-enters-history.spec.ts — F-B-9 ⭐⭐: **what the visitor does on a card,
+// the agent must know on the next turn.**
 //
-// prod 上连着两轮抓到的（2026-08-18）：我在回执卡上点了 `Cancel meeting`，卡翻成
-// `CANCELLED`、时间划掉；下一轮请 AI 取消另一场，它答完顺口说
+// Caught over two consecutive turns in prod (2026-08-18): I clicked `Cancel meeting` on the
+// confirmation card, the card flipped to `CANCELLED`, the time struck through; the next turn
+// asked the AI to cancel a different meeting, and it casually replied
 // *"Your Thursday, August 27 at 10:00 AM intro call is still on the books."*
-// 同一屏上两句话互相矛盾，而其中一句是假的。
+// Two contradictory statements on the same screen, and one of them is false.
 //
-// 机制不用猜，两条路读得通（`use-mcp-app-card.ts:75` → `callVisitorTool` →
-// `POST /sessions/{id}/tools/{name}`，见 `routes/public/tools.go`）：那个 handler 装配、
-// 执行、返回，**从头到尾没有碰过 conversation**。而访客对话是**客户端驱动**的 ——
-// 每一轮把自己手里那串消息当 History 发出去。卡片的调用不在那串里，所以对 agent 来说
-// 它从没发生过。
+// The mechanism doesn't need guessing — you can read straight through both paths
+// (`use-mcp-app-card.ts:75` → `callVisitorTool` → `POST /sessions/{id}/tools/{name}`, see
+// `routes/public/tools.go`): that handler assembles, executes, and returns — **never touching
+// the conversation from start to finish**. Meanwhile visitor conversations are **client-driven**
+// — each turn sends up whatever message list the client is currently holding as History. The
+// card's call never entered that list, so as far as the agent is concerned it never happened.
 //
-// 判据落在**唯一看得见这件事的地方**：发给模型的那一份消息。不是断模型说了什么
-// （那是概率的，见 [[faicheck-deterministic-llm-loop-bug]] 一族），是断这条事实
-// **进没进它的上下文**。mock gateway 本来就留着每一趟请求的全文，只是以前没让人问；
-// 现在 `?contains=` 让它答得出来。
+// The criterion targets **the one place this fact is actually visible**: the message sent to the
+// model. It doesn't assert what the model said (that's probabilistic — see the
+// [[faicheck-deterministic-llm-loop-bug]] family); it asserts whether this fact **made it into
+// its context or not**. The mock gateway has always kept the full text of every request, it just
+// never let anyone ask about it before; now `?contains=` makes it answerable.
 
 import { test, expect } from '@/fixtures/test';
 import type { FrameLocator, Page } from '@playwright/test';
@@ -30,11 +33,12 @@ import { goto } from '@/fixtures/navigate';
 
 const TOPIC = 'Recruiter chat';
 
-// CARD_EVENT_MARK —— 找的是**这条事件本身**，不是工具名。
+// CARD_EVENT_MARK — looks for **the event itself**, not the tool name.
 //
-// 第一版的 needle 是 `calendar_cancel`，而工具清单本来就在 system prompt 里 ——
-// 那句断言在产品什么都不做的时候照样绿（[[assertion-that-cannot-fail]]）。
-// 这个前缀只有 `cardEventText` 会写出来，所以它命中 = 这件事真的进了上下文。
+// The first version's needle was `calendar_cancel`, but the tool list already lives in the
+// system prompt anyway — that assertion would pass green even if the product did nothing at all
+// ([[assertion-that-cannot-fail]]). This prefix is only ever written by `cardEventText`, so a hit
+// means this event genuinely made it into the context.
 const CARD_EVENT_MARK = '[card action]';
 
 test.describe('F-B-9 · what the visitor does on a card reaches the next turn', () => {
@@ -51,12 +55,15 @@ test.describe('F-B-9 · what the visitor does on a card reaches the next turn', 
       test.setTimeout(180_000);
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      // 倒掉记录环：tag 每次跑都一样，而环跨 run 活着 —— 不清的话这条判据会命中
-      // **上一次跑**留下的那条记录，从此判不了负（我在这条上真撞见过一次假绿）。
+      // Flush the request log ring: the tag is the same on every run, but the ring survives
+      // across runs — without clearing it, this criterion would match the record left over from
+      // **the previous run**, and from then on could never go red on a real failure (I actually
+      // hit a false green from exactly this once).
       await resetGatewayRequests(page.request);
       await enterChat(page, seed.code.code);
 
-      // 1) 先真订一场 —— 卡是这条缺陷的现场，没有卡就没有可点的取消。
+      // 1) Genuinely book a meeting first — the card is where this defect lives; without a
+      // card there's no cancel button to click.
       const bookTag = await scriptMockToolCall(page.request, {
         name: 'calendar_book',
         args: { topic: TOPIC, duration_min: 30, preferred_times: [future(7, 14)] },
@@ -66,14 +73,16 @@ test.describe('F-B-9 · what the visitor does on a card reaches the next turn', 
         'the booked card is the surface this defect lives on')
         .toBeVisible({ timeout: 30_000 });
 
-      // 2) 在卡上点取消 —— 走 mcp-ui:tool 那条路，不经过对话。
+      // 2) Click cancel on the card — this goes through the mcp-ui:tool path, not through the
+      // conversation.
       const frame = bookedFrame(page);
       await frame.getByTestId('book-card-cancel').click();
       await expect(frame.getByTestId('tool-card-calendar_book'),
         'the card itself knows: it flips to cancelled')
         .toHaveAttribute('data-cancelled', 'true', { timeout: 30_000 });
 
-      // 3) 再问一句 —— 这一轮发出去的 History 里应该带着「卡上取消了」。
+      // 3) Ask another question — the History sent for this turn should carry "cancelled on
+      // the card."
       const nextTag = await scriptMockReplyText(page.request, 'noted');
       await ask(page, `is anything still on the books?${nextTag}`);
 

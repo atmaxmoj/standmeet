@@ -1,16 +1,22 @@
-// ghost-waypoint-freeze.spec.ts —— Ghost steering P1: role_waypoints 冻结进 RoleSnapshot,
-// 且**冻结时按 role 授权 glob 过滤 evidence_refs**。
+// ghost-waypoint-freeze.spec.ts — Ghost steering P1: role_waypoints freeze into
+// RoleSnapshot, and **at freeze time, evidence_refs are filtered by the role's granted
+// corpus glob**.
 //
-// 这道闸管的是**授权**:这个 role 的 glob 看不看得见这条证据。它一度被叫作 feasibility floor,
-// 而那是另一件事 —— 「指得到一条真笔记吗」由 ghost-waypoint-resolvable.spec.ts 守(F-A-26)。
-// 两个名字合成一个,是当年那个洞能存在的原因,所以这里不再共用称呼。
+// This gate is about **authorization**: can this role's glob see this piece of evidence.
+// It was once called the feasibility floor, which is a different thing entirely — "does
+// it point at a real note" is guarded by ghost-waypoint-resolvable.spec.ts (F-A-26). The
+// two names got merged into one, which is exactly how that old gap existed, so this file
+// no longer shares that name.
 //
-// 设计([[ghost-steering]] · [[role-snapshot-frozen]]):owner 在 role 上写 waypoints
-// (引导目的地 + 对应 corpus 证据)。session 发码时 freeze 进 RoleSnapshot;任何 evidence_refs
-// 落在该 role 授权 corpus glob 之外的 waypoint,在冻结那一刻整条丢弃 —— 一个 role 永远不会被
-// 引导向它看不到的证据。观测点:/internal/diag/session 暴露 role_snapshot(与真下行同装配)。
+// Design ([[ghost-steering]] · [[role-snapshot-frozen]]): the owner writes waypoints on a
+// role (a steering destination + its supporting corpus evidence). When a session issues a
+// code, this freezes into RoleSnapshot; any waypoint whose evidence_refs fall outside
+// that role's granted corpus glob gets dropped whole at freeze time — a role is never
+// steered toward evidence it can't see. Observation point: /internal/diag/session exposes
+// role_snapshot (assembled the same way as the real downstream).
 //
-// RED(实现前):createRole 忽略 waypoints、RoleSnapshot 无 waypoints 字段 → 断言全红。
+// RED (before implementation): createRole ignores waypoints, RoleSnapshot has no
+// waypoints field -> every assertion goes red.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -32,18 +38,23 @@ const OWNER = {
 const CODE = 'WPFREEZE-001';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// role 只授权 wiki://projects/** —— 决定 waypoint 的**授权**边界。
+// The role is only granted wiki://projects/** — this decides the waypoint's
+// **authorization** boundary.
 const CORPUS_GLOBS = ['wiki://projects/**'];
 
-// 证据 note：title 'Alpha' 挂在 'projects' 下 → 树路径 projects/alpha → URI wiki://projects/alpha。
+// The evidence note: title 'Alpha' filed under 'projects' -> tree path projects/alpha ->
+// URI wiki://projects/alpha.
 //
-// 本来这条没 seed:三条 waypoint 的 refs 全指向不存在的笔记,而 spec 照样绿 —— 因为当时唯一
-// 的闸只看 ref 落不落在 glob 内,从没问过「笔记在不在」。F-A-26 把可行性下限真正装上以后,
-// 这条 spec 立刻红了,红得对:它一直在拿幽灵证明「授权内的会存活」。
+// This originally had no seed: all three waypoints' refs pointed at notes that didn't
+// exist, and the spec was green anyway — because at the time the only gate checked
+// whether a ref fell inside the glob, and never asked "does the note actually exist".
+// Once F-A-26 actually installed the feasibility floor, this spec immediately went red,
+// and rightly so: it had been using a ghost to prove "what's in-authorization survives".
 const EVIDENCE_TITLE = 'Alpha';
 const EVIDENCE_PATH = 'projects/alpha';
 
-// IN —— evidence_refs 全在授权 glob 内、且指得到真笔记 → 冻结后存活。
+// IN — evidence_refs all fall inside the granted glob, and resolve to a real note ->
+// survives freezing.
 const WP_IN = {
   waypoint_id: 'ship-alpha',
   description: 'see the Alpha project shipped last quarter',
@@ -51,7 +62,8 @@ const WP_IN = {
   evidence_refs: ['wiki://projects/alpha'],
   is_terminal: false,
 };
-// OUT —— evidence_refs 全在授权 glob 外 → 冻结时整条丢弃(不可行,不可被引导)。
+// OUT — evidence_refs all fall outside the granted glob -> dropped whole at freeze time
+// (not feasible, cannot be steered toward).
 const WP_OUT = {
   waypoint_id: 'secret-plan',
   description: 'steer toward a doc this role cannot see',
@@ -59,7 +71,8 @@ const WP_OUT = {
   evidence_refs: ['output://secret/plan'],
   is_terminal: false,
 };
-// TERMINAL —— 终点型 waypoint(booking 一步之遥),refs 在界内 → 存活,且 is_terminal 冻结保真。
+// TERMINAL — a terminal-type waypoint (one step from booking), refs inside the boundary
+// -> survives, and is_terminal stays accurate through freezing.
 const WP_TERMINAL = {
   waypoint_id: 'book-call',
   description: 'book a call',
@@ -107,7 +120,8 @@ test.describe('ghost waypoint · 冻结 + ACL 过滤 · P1', () => {
 
   test('evidence_refs 全在授权 glob 外的 waypoint,冻结时被丢弃', async ({ playwright }) => {
     const wps = await frozenWaypoints(await freshCtx(playwright), sessionToken);
-    // 非空态守卫:先证明有 waypoint 被冻结(in 那条在),否则"out 缺席"是空集的假绿。
+    // Non-empty-state guard: first prove that some waypoint did freeze (the in one is
+    // present), otherwise "the out one is absent" would be a false-green on an empty set.
     expect(
       wps.some((w) => w.waypoint_id === WP_IN.waypoint_id),
       'guard: in-glob waypoint 已冻结(证明冻结确实发生,out 缺席才有意义)',
@@ -138,7 +152,8 @@ async function setup(playwright: Playwright): Promise<string> {
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  // 先把证据 note 建出来,再发码 —— 冻结那一刻它必须已经在库里(F-A-26 的可行性下限)。
+  // Create the evidence note before issuing the code — it must already be in the store
+  // at the moment of freezing (F-A-26's feasibility floor).
   const apiToken = await createAPIToken(request, csrf, 'wpfreeze-seed');
   const sid = await initMCP(request, apiToken);
   await seedWiki(request, apiToken, sid, {

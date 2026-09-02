@@ -1,6 +1,10 @@
-// sync-f-frontmatter.spec.ts —— F. frontmatter 容错解析 + 映射(目标态红)。
-// 畸形 YAML 不能崩(F1);tags 多写法(F2);字段映射/强转 + 老新名(F3);per-area schema、非白名单 key
-// 忽略不整批失败(F4);body/frontmatter 分离(F5)。sync **宽容**(vault-side check 才是 gate)。
+// sync-f-frontmatter.spec.ts — F. fault-tolerant frontmatter parsing + mapping
+// (target-state RED).
+// Malformed YAML must not crash (F1); multiple tags shorthands (F2); field
+// mapping/coercion + old vs. new field names (F3); per-area schema, an
+// unwhitelisted key is ignored rather than failing the whole batch (F4);
+// body/frontmatter separation (F5). Sync is **lenient** (the vault-side check is the
+// real gate).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

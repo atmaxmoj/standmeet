@@ -1,7 +1,9 @@
-// visitor-chat-citation-multi.spec.ts —— G-3 follow-up：多 dialog 各自带
-// 1 个 citation 行，各自 link 到 document 公开页 / collapse。`<details>` 本身是原生
-// 元素，但验"两个 dialog 卡片的 citation row 不会串状态"是有意义的：
-// 一个的 toggle 不影响另一个；下一个 dialog 出现时上一个的展开状态保留。
+// visitor-chat-citation-multi.spec.ts -- G-3 follow-up: multiple dialogs, each carrying
+// its own 1 citation row, each linking to a document's public page / collapsing on its
+// own. `<details>` itself is a native element, but verifying "the citation rows of two
+// dialog cards don't cross-contaminate state" still has value: toggling one must not
+// affect the other, and the previous dialog's expanded state must persist once the next
+// dialog appears.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -56,7 +58,8 @@ test.describe('多 dialog citation 各自 link 到 document 公开页', () => {
       await enterCodeSession(page, CODE);
 
       const input = page.locator('[data-testid="chat-input-field"]');
-      // 第一轮：lucerna —— references 默认折叠,先展开含 lucerna 那条的列表。
+      // First turn: lucerna -- references are collapsed by default, so expand the list
+      // containing the lucerna row first.
       // Mock is pure registration: the corpus_read of lucerna is what cites it.
       const lucernaTag = await scriptMockToolCall(page.request, {
         name: 'corpus_read', args: { path: LUCERNA },
@@ -69,7 +72,7 @@ test.describe('多 dialog citation 各自 link 到 document 公开页', () => {
       await expandRefsContaining(page, LUCERNA);
       await expect(lucernaRow).toBeVisible({ timeout: 20_000 });
 
-      // 第二轮：family — 等 input 重新 enable
+      // Second turn: family -- wait for the input to be enabled again
       await expect(input).toBeEnabled({ timeout: 20_000 });
       const familyTag = await scriptMockToolCall(page.request, {
         name: 'corpus_read', args: { path: FAMILY },
@@ -82,18 +85,21 @@ test.describe('多 dialog citation 各自 link 到 document 公开页', () => {
       await expandRefsContaining(page, FAMILY);
       await expect(familyRow).toBeVisible({ timeout: 20_000 });
 
-      // 每条引用都是 link → 各自跳那篇 document 的公开页(/<genre>/<树派生 path>),
-      // 互不相干、都不再 inline 展开 body。
+      // Every citation is a link -> each jumps to that document's public page
+      // (/<genre>/<tree-derived path>), independent of each other, and neither expands
+      // its body inline anymore.
       await expect(lucernaRow).toHaveAttribute('href', `/wiki/${LUCERNA}`);
       await expect(familyRow).toHaveAttribute('href', `/wiki/${FAMILY}`);
-      // （移除 citation-body 重言，rot-E3：testid 已不存在，只由 href 证明两条引用各自外链。）
+      // (The citation-body redundancy was removed, rot-E3: the testid no longer exists;
+      // the href alone proves each citation links out on its own.)
 
       await ctx.close();
     });
 });
 
-// expandRefsContaining —— references 默认折叠;找到含 path 那条 row 的
-// references details,点它的 summary 展开,让该 row 可见。
+// expandRefsContaining -- references are collapsed by default; finds the references
+// details containing the row for path, and clicks its summary to expand it, making that
+// row visible.
 async function expandRefsContaining(page: Page, path: string): Promise<void> {
   const refs = page.locator('[data-testid="citations"]', {
     has: page.locator(`[data-citation-path="${path}"]`),

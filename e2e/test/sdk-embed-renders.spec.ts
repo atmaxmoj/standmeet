@@ -1,16 +1,21 @@
-// sdk-embed-renders.spec.ts —— F-O-6 / F-O-5。**发出去给别人嵌的那个组件**自己那一面：
-// 答案渲成排版，输入框永远收得下访客的字。
+// sdk-embed-renders.spec.ts —— F-O-6 / F-O-5. The side of **the widget shipped for other
+// people to embed** itself: answers render as formatted markup, and the input box always
+// keeps accepting the visitor's typing.
 //
-// 驱的是**构建产物**（`sdk/packages/embed/dist/embed.global.js`，`make app-build` 前必跑
-// `sdk-build`），不是源码里的类 —— 别人放进自己站点的就是这个文件（[[test-covers-capability-not-face]]）。
+// Drives against the **build artifact** (`sdk/packages/embed/dist/embed.global.js`,
+// `sdk-build` must run before `make app-build`), not a class in source — that file is
+// exactly what other people drop into their own site ([[test-covers-capability-not-face]]).
 //
-// 跨域那一维不在这条守卫里：它要第二个 origin，由手工台子驱（trajectory/sdk-embed）。这里守的
-// 两件事都跟 origin 无关。
+// The cross-origin dimension is not covered by this guard: it needs a second origin, and is
+// driven manually (trajectory/sdk-embed). The two things guarded here are both origin-agnostic.
 //
-// RED（修复前）：
-//   · 用例 1 —— `applyEventToBlock` 用 `textContent +=` 累加，`**粗**` 原样印，没有 <strong>。
-//   · 用例 2 —— 输入框在 in-flight 期间 disabled（我上一版的修法），第二问打不进去。
-//     再往前一版是照发不误 → 被会话单飞闸 429 拒 → 屏幕上只有一句「没发出去，再试一次」。
+// RED (before the fix):
+//   - test case 1 — `applyEventToBlock` accumulates with `textContent +=`, so `**bold**`
+//     prints literally, no <strong> ever appears.
+//   - test case 2 — the input box was disabled while in-flight (my previous fix for this),
+//     so a second question couldn't even be typed. The version before that just sent it
+//     anyway → got rejected 429 by the per-session single-flight gate → all the screen
+//     showed was "didn't send, try again."
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -53,16 +58,18 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
 
     const answer = page.locator('standmeet-chat [data-role="assistant"]').last();
     await expect(answer, '答案到了').toContainText('Sijie Wang', { timeout: 25_000 });
-    // **断言收窄到我们这句话所在的那一段**：替身会把 system prompt 回显进答案，
-    // 里面本来就有粗体的能力名（`ask_visitor` 等）—— 拿整块去 `toHaveText` 会撞上它们，
-    // 那是替身的噪声，不是产品的行为。
+    // **Narrow the assertion to just the paragraph our sentence is in**: the mock echoes the
+    // system prompt back into the answer, and it already contains bold capability names
+    // (`ask_visitor` etc.) — taking `toHaveText` on the whole block would collide with those,
+    // which is mock noise, not product behavior.
     const para = answer.locator('.para').filter({ hasText: 'Sijie Wang' });
     await expect(para.locator('strong'), '粗体渲成 <strong>').toHaveText('Sijie Wang');
     await expect(para.locator('em'), '斜体渲成 <em>').toHaveText('really');
     await expect(para.locator('code'), '行内代码渲成 <code>').toHaveText('client.ts');
-    // 判负的那一半：星号和反引号**不许**留在屏幕上（红态就是它们出现）。
-    // 单星号也算 —— 粗体先匹配、斜体后匹配那个顺序要是写反了，`**` 会被拆成两半，
-    // 屏幕上就会留下星号（[[lookahead-rule-eats-the-neighbour]]）。
+    // The falsifiable half: asterisks and backticks must **never** stay on screen (the RED
+    // state is exactly them showing up). A single leftover asterisk counts too — if the
+    // match order of bold-first-then-italic got reversed, `**` would get split in half and
+    // an asterisk would be left on screen ([[lookahead-rule-eats-the-neighbour]]).
     await expect(para, 'markdown 标记不落到访客眼前').not.toContainText('*');
   });
 
@@ -76,26 +83,31 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
     const box = page.locator('standmeet-chat textarea');
     await ask(page, `first question${first}`);
 
-    // 上一轮还在流 —— 输入框必须仍然收字（红：disabled，打进去的字全丢）。
+    // The previous turn is still streaming — the input box must still accept typing (RED:
+    // disabled, everything typed is lost).
     await expect(box, 'in-flight 期间输入框可编辑').toBeEditable({ timeout: 3_000 });
     await ask(page, `second question${second}`);
 
-    // 两问都上屏（排队的那句当场就该看得见），两答都到。
+    // Both questions land on screen (the queued one should be visible right away), and both
+    // answers arrive.
     await expect(page.locator('standmeet-chat [data-role="visitor"]'))
       .toHaveCount(2, { timeout: 5_000 });
     await expect(page.locator('standmeet-chat [data-role="assistant"]').last())
       .toContainText('Second answer here', { timeout: 40_000 });
   });
 
-  // F-O-9：**流里来的错误也得说人话。**
+  // F-O-9: **an error arriving in the stream must also speak plain language.**
   //
-  // `catch` 那条路早就改好了（`turnFailureText`，F-O-5 那一刀），可 `applyEventToBlock` 里
-  // 处理 `kind === 'error'` 的那一行还在 `error: ${ev.message}` —— 同一个文件隔十二行，
-  // 一个能力两个面只修了一个面。而这条路不是死代码：provider 挂了 / 超配额 / 推理失败，
-  // 后端就发 `event: error`，客户端解成 `{kind, code, message}`（`core/src/client.ts:294`）。
-  // 那一刻，**别人网站上**会出现 `error: upstream provider returned 503` 这种串。
+  // The `catch` path was already fixed (`turnFailureText`, from the F-O-5 pass), but the
+  // line in `applyEventToBlock` handling `kind === 'error'` still reads
+  // `error: ${ev.message}` — twelve lines apart in the same file, one capability with two
+  // faces, only one face got fixed. And this path isn't dead code: a dead provider / quota
+  // exceeded / inference failure all make the backend send `event: error`, which the client
+  // parses into `{kind, code, message}` (`core/src/client.ts:294`). At that moment, **on
+  // someone else's website**, a string like `error: upstream provider returned 503` shows up.
   //
-  // 替身回 500 → 后端把它折成一个 error 事件下发，走的正是这条路。
+  // The mock returns 500 → the backend folds it into an error event and sends it down —
+  // exactly this path.
   test('provider 出错时，访客读到的是人话，不是流里那串技术文本', async ({ page, playwright }) => {
     const req = await playwright.request.newContext();
     const tag = await scriptMockError(req);
@@ -105,8 +117,9 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
     await ask(page, `this turn will fail${tag}`);
 
     const answer = page.locator('standmeet-chat [data-role="assistant"]').last();
-    // 先等这一格真的落了字 —— 否则「不含 error:」在它还空着的时候就成立了
-    // （[[negated-assertion-passes-while-absent]]）。
+    // Wait for text to actually land in this slot first — otherwise "doesn't contain
+    // error:" would already be true while it's still empty
+    // ([[negated-assertion-passes-while-absent]]).
     await expect(answer, '失败也得给访客一句话').not.toBeEmpty({ timeout: 40_000 });
     const shown = (await answer.textContent() ?? '').trim();
     expect(shown, `屏幕上不许出现原始错误串，实际是「${shown}」`).not.toMatch(/^error:/i);
@@ -114,8 +127,10 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
   });
 });
 
-// mountWidget —— 把构建产物注进一张同源页面并挂上组件。用 evaluate 只是**搭台子**
-// （别人的站点里这一步是一行 <standmeet-chat>），判据一律走 locator 读屏幕。
+// mountWidget — injects the build artifact into a same-origin page and mounts the
+// component. Using evaluate here is only **rigging the stage** (on someone else's site this
+// step is a single `<standmeet-chat>` line) — every assertion still reads the screen through
+// a locator.
 async function mountWidget(page: Page): Promise<void> {
   const base = process.env['BASE_URL'] ?? 'http://localhost:38127';
   await goto(page, '/gate');

@@ -1,14 +1,14 @@
-// retrieval-acl.spec.ts —— C. ACL(corpus_search + corpus_links)防泄漏(crawl face)。
+// retrieval-acl.spec.ts —— C. ACL (corpus_search + corpus_links) leak prevention (crawl face).
 //
-// 检索的 ACL 必须与 corpus_read 完全一致:访客只见自己 glob 内 + 已发布的条目。
-// 关键泄漏点:
-//   • C2 links.outgoing —— 命中条链到一个访客越权的邻居 → 不得返回
-//   • C3 links.backlinks 反向 —— 一个访客越权的**源**链到可见条 → backlinks 不得暴露那个源
-//                                (否则泄漏"有一条隐藏 note 指向这里")
-//   • C5 filter 注入 —— query 里塞 Meili filter 语法逃不出 owner scope
+// Retrieval's ACL must exactly match corpus_read's: a visitor only sees
+// entries within their own glob + already-published. Key leak points:
+//   • C2 links.outgoing — a hit links to a neighbor outside the visitor's grant → must not be returned
+//   • C3 links.backlinks in reverse — a **source** outside the visitor's grant links to a visible entry → backlinks must not expose that source
+//                                (otherwise it leaks "a hidden note points here")
+//   • C5 filter injection — Meili filter syntax stuffed into a query cannot escape owner scope
 //
-// narrow code = wiki://projects/** only;family/** 对 narrow 访客越权。
-// ⚠️ 部分 RED until corpus_links + Meili ACL 接上。
+// narrow code = wiki://projects/** only; family/** is out of grant for the narrow visitor.
+// Warning: partially RED until corpus_links + Meili ACL are wired up.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -27,17 +27,17 @@ function backTitles(body: { result?: { backlinks: { title: string }[] } }): stri
   return (body.result?.backlinks ?? []).map((h) => h.title);
 }
 
-test.describe('C · retrieval ACL 防泄漏', () => {
+test.describe('C · retrieval ACL leak prevention', () => {
   test.beforeAll(async ({ playwright }) => {
     O = await setupRetrievalOwner(playwright, 'retacl');
-    // projects/**(narrow 可见) 与 family/**(narrow 越权)
+    // projects/** (visible to narrow) vs. family/** (outside narrow's grant)
     await seedWiki(O.request, O.apiToken, O.sid, {
       title: 'PubProj', body: 'PROJKW public detail links [[Secret]]', path: 'projects/pubproj',
     });
     await seedWiki(O.request, O.apiToken, O.sid, {
       title: 'Secret', body: 'PROJKW SECRETKW private', path: 'family/secret',
     });
-    // 反向:family 里一条隐藏源指向 projects 里可见条
+    // Reverse case: a hidden source in family points at a visible entry in projects
     await seedWiki(O.request, O.apiToken, O.sid, {
       title: 'PubTarget', body: 'PUBTGTKW visible target', path: 'projects/pubtarget',
     });
@@ -56,7 +56,7 @@ test.describe('C · retrieval ACL 防泄漏', () => {
 
   test('C1 search:narrow 访客 glob 外命中被剔除', async () => {
     const s = await narrow();
-    const hits = await searchTitles(O.request, s, 'PROJKW'); // 两条都含 PROJKW
+    const hits = await searchTitles(O.request, s, 'PROJKW'); // Both entries contain PROJKW
     expect(hits, 'projects visible').toContain('PubProj');
     expect(hits, 'family denied not in results').not.toContain('Secret');
   });
@@ -73,8 +73,10 @@ test.describe('C · retrieval ACL 防泄漏', () => {
     expect(backTitles(r.body), 'hidden source not revealed as backlink').not.toContain('HiddenSrc');
   });
 
-  // C3b —— published 不是检索门:一个 glob 内但未发布的源,对有权访客**仍**是 backlink
-  // (retrieval ACL = glob,不看 published;见 retrieval-vs-corpus-ACL)。守卫别把两者混一起。
+  // C3b —— published isn't a retrieval gate: a source that's inside the glob
+  // but not yet published is **still** a backlink for a visitor who's granted
+  // it (retrieval ACL = glob, it doesn't look at published; see
+  // retrieval-vs-corpus-ACL). Don't let the guard conflate the two.
   test('C3b links.backlinks:未发布但 glob 内的源仍是 backlink(published 不门控检索)', async () => {
     const { wikiID } = await seedWiki(O.request, O.apiToken, O.sid, {
       title: 'UnpubSrc', body: 'links [[PubTarget]]', path: 'projects/unpubsrc',
@@ -85,8 +87,9 @@ test.describe('C · retrieval ACL 防泄漏', () => {
     expect(backTitles(r.body), 'unpublished-but-granted source IS a backlink').toContain('UnpubSrc');
   });
 
-  // C4 —— 越权主体走 corpus_read 一样的 friendly denied envelope(ok=true + result.error,不是硬错),
-  // 关键是**不泄漏它的任何链接**:outgoing/backlinks 皆空。
+  // C4 —— an out-of-grant subject gets the same friendly denied envelope as
+  // corpus_read (ok=true + result.error, not a hard error); the key point is
+  // that **none of its links leak**: outgoing/backlinks are both empty.
   test('C4 corpus_links 主体越权 → 不泄漏链接', async () => {
     const s = await narrow();
     const r = await links(O.request, s, 'family/secret');
@@ -97,13 +100,13 @@ test.describe('C · retrieval ACL 防泄漏', () => {
 
   test('C5 filter 注入:query 塞 Meili filter 逃不出 owner scope', async () => {
     const s = await full();
-    // 尝试用 filter 语法 / 引号越权;应被当普通词法查询,不越权、不 500
+    // Attempt to escape scope with filter syntax / quotes; should be treated as a plain lexical query — no scope escape, no 500
     const hits = await searchTitles(O.request, s, "SECRETKW\" OR owner_id != 'x");
     expect(hits, 'no cross-scope leak / no crash').not.toContain('Secret');
   });
 
   test('C6 空 corpus role → search 与 links 皆空,不崩', async () => {
-    // full 访客有 corpus;这里用 narrow 但查一个它完全无关的词(空结果验不崩)
+    // The full visitor has a corpus; here we use narrow but query a term entirely unrelated to it (an empty result verifies no crash)
     const s = await narrow();
     expect(await searchTitles(O.request, s, 'NOSUCHTERMZZZ')).toEqual([]);
     const r = await links(O.request, s, 'projects/pubproj');

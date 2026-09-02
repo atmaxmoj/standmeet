@@ -1,15 +1,17 @@
-// public-page.spec.ts —— 访客的 end-to-end 用户流程。
+// public-page.spec.ts — the visitor's end-to-end user flow.
 //
-// 用户故事：
-//   一个陌生访客打开 owner 的 StandMeet 公开页，读到 owner 的 hero
-//   prose、看到 insights / projects / where / contact 全部 section，
-//   然后在 chat dock 输入问题、按 Enter。无码访客**不行内答** —— 一律
-//   hand off 到 /gate(问题用 ?q= 带过去；见 commit 485bf66 + page-shell.onAsk)。
-//   填一个 code 过闸后回到 ChatRoom，带过去的问题被接着答，回复底部标注
-//   引用了多少条 corpus entry。
+// User story:
+//   A stranger opens the owner's public StandMeet page, reads the owner's hero prose,
+//   sees the insights / projects / where / contact sections, then types a question
+//   into the chat dock and hits Enter. A sessionless visitor **never gets an inline
+//   answer** — they are always handed off to /gate (the question carried via ?q=; see
+//   commit 485bf66 + page-shell.onAsk). After entering a code past the gate, back on
+//   ChatRoom the carried question gets answered, and the reply's footer notes how many
+//   corpus entries were cited.
 //
-// e2e 零 goto：claim + seed wiki + 发 code 在 beforeAll 走 API；page fixture
-// 自动 goto('/') 之后 instance 已 claimed → 渲染公开页(不 redirect /setup)。
+// Zero page.goto in the e2e itself: claim + seed wiki + issue a code all happen via
+// the API in beforeAll; the page fixture's automatic goto('/') then finds the instance
+// already claimed → renders the public page (no redirect to /setup).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -34,7 +36,8 @@ test.describe("visitor reads owner's public page and chats with the persona", ()
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken());
     const { csrf } = await login(request);
-    // 过闸用的 code 挂一个能读 corpus 的 role(wiki://**)→ 回答能引用、出脚注。
+    // The code used to pass the gate carries a role that can read the corpus
+    // (wiki://**) → the answer can cite it and produce a footnote.
     const role = await createRole(request, csrf, {
       name: 'full', description: 'wiki://**', corpus_uris: ['wiki://**'],
     });
@@ -68,17 +71,19 @@ test.describe("visitor reads owner's public page and chats with the persona", ()
 });
 
 async function expectOwnerPageRendered(page: Page): Promise<void> {
-  // 设计稿里 owner 全名摆 identity strip 里（mono caps span 不是 heading），
-  // 所以走 getByText 而不是 getByRole('heading')。
+  // In the design, the owner's full name sits inside the identity strip (a mono caps
+  // span, not a heading), so this uses getByText rather than getByRole('heading').
   await expect(page.getByText('Alice Anderson')).toBeVisible();
-  // 空栏目整个不渲染(标题也不渲) —— corpus-pinning 空态规则
-  // (docs/design/page-corpus-pinning.md):未配置实例只有名字 + 聊天框 + 示例。
+  // An empty section doesn't render at all (not even its heading) — corpus-pinning's
+  // empty-state rule (docs/design/page-corpus-pinning.md): an unconfigured instance
+  // shows only the name + chat box + examples.
   await expect(page.getByText("things I've been thinking about")).toHaveCount(0);
   await expect(page.getByText("what I'm building")).toHaveCount(0);
   await expect(page.getByText('where I am', { exact: true })).toHaveCount(0);
-  // contact 默认 chat_line 是真实的 visitor 向内容(指向真实存在的聊天框)→ 栏目在。
+  // contact's default chat_line is genuine visitor-facing content (it points at a
+  // real chat box that actually exists) → so the section stays.
   await expect(page.getByText('how to talk to me', { exact: true })).toBeVisible();
-  // hero example starter 来自 defaultHeroExamples（generic placeholder）
+  // The hero example starter comes from defaultHeroExamples (a generic placeholder)
   await expect(page.getByText('What are you working on?')).toBeVisible();
   // F-A-21: the page is visitor-facing, so an UNCONFIGURED instance (this fresh claim, no page
   // config) must not show owner-onboarding copy to a visitor. The old default hero prose told the
@@ -93,21 +98,25 @@ async function expectOwnerPageRendered(page: Page): Promise<void> {
 }
 
 async function visitorAsksAQuestion(page: Page, question: string): Promise<void> {
-  // 新 AskInput 是 input[type=text]，不是 textarea；form submit on Enter。
-  // **首页那个框有自己的名字**（F-Q-3）：它跟会话里那个行为不同（没 session 时回车 =
-  // 交接去 /gate），共用一个 testid 的时候，谁也分不出自己打的是哪一个 —— 那个混淆
-  // 骗掉过两趟真环境驱动。
+  // The new AskInput is input[type=text], not a textarea; the form submits on Enter.
+  // **The homepage's box has its own name** (F-Q-3): its behavior differs from the
+  // one in an active session (with no session, Enter means "hand off to /gate"), and
+  // when the two shared a testid, nobody could tell which one they were actually
+  // typing into — that confusion once fooled two separate real-environment driving
+  // sessions.
   const input = page.locator('[data-testid="home-ask-field"]');
   await input.fill(question);
   await input.press('Enter');
 }
 
-// expectHandoffToGate —— 无码提问不行内答：落到 /gate，问题用 ?q= 带过去。
+// expectHandoffToGate — a sessionless question gets no inline answer: it lands on
+// /gate, the question carried via ?q=.
 async function expectHandoffToGate(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/gate\?.*q=/, { timeout: 5_000 });
 }
 
-// enterCodeAtGate —— 在 /gate 填码进会话；过闸后 ?q= 串回 / 续答。
+// enterCodeAtGate — fills in a code at /gate to join a session; once past the gate,
+// ?q= carries back to / and the answer continues.
 async function enterCodeAtGate(page: Page, code: string): Promise<void> {
   await page.getByTestId('gate-code').fill(code);
   await page.getByTestId('gate-visitor-name').fill('Sarah (Acme HR)');
@@ -115,8 +124,9 @@ async function enterCodeAtGate(page: Page, code: string): Promise<void> {
 }
 
 async function expectCarriedQuestionAnswered(page: Page): Promise<void> {
-  // ConversationDeck 把回复挂在 data-testid="answer-body" 里。带过去的问题
-  // 被 ChatRoom 自动 ask(不丢)→ 流式回复落到 answer-body。
+  // ConversationDeck hangs the reply off data-testid="answer-body". The carried
+  // question is auto-asked by ChatRoom (not lost) → the streamed reply lands in
+  // answer-body.
   await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 8_000 });
   await expect(page.locator('[data-testid="answer-body"]'))
     .toBeVisible({ timeout: 20_000 });
@@ -124,7 +134,8 @@ async function expectCarriedQuestionAnswered(page: Page): Promise<void> {
 }
 
 async function expectCitationFootnote(page: Page): Promise<void> {
-  // 引用块现在像普通 AI chat:默认折叠成一行 "references · N"(点开看列表)。
+  // The citation block now behaves like an ordinary AI chat: it collapses by default
+  // into a single "references · N" line (click to expand the list).
   const cited = page.locator('[data-testid="citations"]');
   await expect(cited).toBeVisible({ timeout: 5_000 });
   await expect(cited).toContainText('references');

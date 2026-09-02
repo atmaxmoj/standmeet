@@ -1,9 +1,9 @@
 // admin-prompts.spec.ts —— /admin/prompts UI-driven CRUD。
 //
-// 用户故事：
-//   1. claim 后 publicRow prompt 已种入，list 包含 [system] pill
-//   2. owner 创建 prompt → 出现在 list，body preview 渲染
-//   3. publicRow 没 delete button；自建 prompt 可删
+// User story:
+//   1. After claim, the publicRow prompt is already seeded; the list includes a [system] pill
+//   2. Owner creates a prompt → it appears in the list, body preview renders
+//   3. publicRow has no delete button; a self-created prompt can be deleted
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';

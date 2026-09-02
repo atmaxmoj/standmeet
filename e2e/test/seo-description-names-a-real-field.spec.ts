@@ -1,13 +1,19 @@
-// seo-description-names-a-real-field.spec.ts —— "edit it under X" 里的 X 必须真的在那一页上。
+// seo-description-names-a-real-field.spec.ts -- the X in "edit it under X"
+// must actually exist on that page.
 //
-// /admin/seo 的 og:description 那块写着「Uses your page **tagline**」,底下一个链接指到
-// /admin/page。那一页上没有任何叫 tagline 的东西 —— 字段叫 **prose**(hero 段里的
-// `prose · 1–3 sentences`),后端字段是 `hero_prose`。owner 照着这句话过去,找不到它说的东西。
+// The og:description block on /admin/seo reads "Uses your page **tagline**",
+// with a link below pointing to /admin/page. That page has nothing called
+// tagline -- the field is called **prose** (`prose · 1–3 sentences` in the
+// hero section), and the backend field is `hero_prose`. An owner following
+// that sentence would find nothing matching what it says.
 //
-// 这是 names-that-lie 那一类里最难被断言抓住的一种:两页各自都渲染正常,**只有把两页放在
-// 一起读**才看得出来对不上。所以这条用例故意跨两页:在 A 页读出那个名词,到 B 页去找它。
+// This is the hardest kind of names-that-lie defect for an assertion to
+// catch: each page renders fine on its own, and **only reading both pages
+// together** reveals the mismatch. So this test case deliberately spans two
+// pages: read the noun off page A, then go look for it on page B.
 //
-// item corpus-render 之外,public-og-description check 2 的 Backing test 一直写着 `gap`。
+// Outside item corpus-render, public-og-description check 2's backing test
+// has stayed marked `gap` the whole time.
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -19,7 +25,8 @@ const OWNER = {
   handle: 'seonoun', fullName: 'Seo Noun Owner',
 };
 
-// NOUN —— SEO 那句话该用的名词,也是 page 编辑器上那个字段的标签词。
+// NOUN -- the noun the SEO copy should use, which is also the label on that
+// field in the page editor.
 const NOUN = 'hero prose';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -39,14 +46,16 @@ test.describe('seo · the og:description copy names a field that exists', () => 
 
     const copy = (await block.innerText()).toLowerCase();
     expect(copy, 'the copy must name the field that actually feeds og:description').toContain(NOUN);
-    // `tagline` 在整个产品里不存在。留着它,owner 就会去找一个不存在的东西。
+    // `tagline` does not exist anywhere in this product. Leaving it in sends
+    // the owner off looking for something that isn't there.
     expect(copy, 'no field is called a tagline anywhere in this product').not.toContain('tagline');
 
-    // 跟着它自己的链接走 —— 名词得在落地那一页上找得到。
+    // Follow its own link -- the noun has to be findable on the page it lands on.
     await block.getByRole('link').click();
     await adminPage.waitForURL('**/admin/page');
-    // 等编辑器真的渲出来再读 —— 落地那一刻 main 里只有标题,读到的是"还没画完",
-    // 不是"没有这个词"。
+    // Wait for the editor to actually render before reading -- at the moment
+    // of landing, main only has the title, and reading then would say
+    // "hasn't finished drawing yet", not "the word isn't there".
     await expect(adminPage.getByTestId('hero-prose')).toBeVisible();
     const editor = (await adminPage.locator('main').innerText()).toLowerCase();
     expect(editor, 'the noun must be findable on the page the copy sends the owner to')

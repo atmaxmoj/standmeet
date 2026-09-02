@@ -1,10 +1,10 @@
-// chatroom-layout.spec.ts —— ChatRoom 与 long-scroll 切换。
+// chatroom-layout.spec.ts —— switching between ChatRoom and long-scroll.
 //
-// 用户故事：
+// User story:
 //   1. public visitor (no session) → long-scroll (Hero + Insights + Projects + Where + Contact)
-//   2. coded visitor → ChatRoom (slim header + welcome + composer) — 不看到 long-scroll
+//   2. coded visitor → ChatRoom (slim header + welcome + composer) — never sees long-scroll
 //   3. BYOAI visitor → ChatRoom (BYOAI mode welcome)
-//   4. long-scroll(无码)visitor 提问后 → 不行内答,hand off 到 /gate(带 ?q=)
+//   4. long-scroll (no code) visitor asks a question → no inline answer, hands off to /gate (with ?q=)
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -32,9 +32,10 @@ test.describe('ChatRoom layout switching', () => {
 
   test('public visitor sees long-scroll sections',
     async ({ page }) => {
-      // long-scroll(非 ChatRoom)的稳定信号:hero 名字 + contact 段(默认 chat_line
-      // 有内容,始终渲染) + chat 输入框。insights/projects/where 是空态整段隐藏的栏目
-      // (docs/design/page-corpus-pinning.md + F-A-21),其渲染由各自专测覆盖。
+      // Stable signals for long-scroll (not ChatRoom): the hero name + the contact section
+      // (chat_line always has content by default, so it always renders) + the chat input.
+      // insights/projects/where are sections that hide entirely when empty
+      // (docs/design/page-corpus-pinning.md + F-A-21); their rendering is covered by their own tests.
       await expect(page.getByText('Layout Owner')).toBeVisible();
       await expect(page.getByText('how to talk to me')).toBeVisible();
       await expect(page.getByTestId('chat-input')).toBeVisible();
@@ -64,11 +65,14 @@ test.describe('ChatRoom layout switching', () => {
 
   test('public visitor asks question → 不行内答,hand off 到 /gate(带 ?q=)',
     async ({ page }) => {
-      // 无码访客在 long-scroll 提问不行内答(485bf66):一律跳 /gate,问题用
-      // ?q= 带过去,过闸后才在 ChatRoom 接着答(全链路见 coded-ask-continues)。
-      // 首页那个问答框叫 `home-ask-field`，不是 ChatRoom 里的 `chat-input-field`：
-      // 5e439b51 有意把两者分名（一个名字两种行为，Enter 在这里是交接、在那里是发言）。
-      // 那次改名只跟到了产品代码，这几条用例留在了旧名字上，红了两天没人看见 —— 期间没跑过全量。
+      // A no-code visitor asking a question on long-scroll gets no inline answer (485bf66):
+      // it always jumps to /gate, carrying the question via ?q=, and only answers it in
+      // ChatRoom once the visitor gets past the gate (see coded-ask-continues for the full chain).
+      // The question field on the home page is named `home-ask-field`, not ChatRoom's
+      // `chat-input-field`: 5e439b51 deliberately gave them different names (one name, two
+      // behaviors — Enter here means "hand off," Enter there means "send a message").
+      // That rename only reached the product code; these cases were left pointing at the old
+      // name and stayed red for two days with nobody noticing — nobody ran the full suite in that window.
       const input = page.locator('[data-testid="home-ask-field"]');
       await input.fill('tell me about yourself');
       await input.press('Enter');

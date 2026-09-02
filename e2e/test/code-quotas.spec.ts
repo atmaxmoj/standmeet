@@ -1,8 +1,10 @@
-// code-quotas.spec.ts —— owner 给 access code 设配额、之后 revoke 整个码。
+// code-quotas.spec.ts — owner sets a quota on an access code, then revokes the whole
+// code.
 //
-// 用户故事：
-//   owner 给招聘官发 INTERVIEW-A1，每人 5 轮面试 × 每轮 10 个回合。
-//   面试结束后想关闭整个码，点 revoke。访客再用旧链接就被拒。
+// User story:
+//   owner sends INTERVIEW-A1 to recruiters, 5 interviews per person × 10 turns per
+//   interview. After interviews wrap up, owner wants to close the whole code, clicks
+//   revoke. A visitor using the old link afterward gets rejected.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -46,16 +48,18 @@ test.describe('owner sets quotas on access code and revokes it', () => {
       await expectRevokedSessionRejected(request);
     });
 
-  // F-D-2 —— 配额行只说得出上限，说不出用量，所以满员的码跟全新的码长得一模一样。
-  // 上面那条用例只断言 "N names"（**上限**），带成员的码这条分支从没被驱动过，
-  // 于是 owner 侧看不见任何用量、访客那边却被拒。访客顶栏早就渲染 "1 / 5 names"。
+  // F-D-2 — the quota line can only report the cap, not the usage, so a full code and
+  // a brand-new code look identical. The test above only asserts "N names" (the
+  // **cap**), so the branch with actual members has never been exercised, leaving the
+  // owner unable to see any usage while the visitor gets rejected. The visitor's
+  // top bar has long rendered "1 / 5 names".
   test('the quota line reports consumption, not just the cap',
     async ({ adminPage: page, request }) => {
       await openCodes(page);
       await createCodeWithQuotas(page, USED_CODE, 'Used code', '5', '10');
       await expectQuotaLineVisible(page, USED_CODE, '5', '10');
 
-      // 两个不同的名字进来 —— 这个码现在 2/5。
+      // Two different names come in — this code is now 2/5.
       await issueSession(request, { handle: OWNER.handle, code: USED_CODE, visitor_name: 'Dana' });
       await issueSession(request, { handle: OWNER.handle, code: USED_CODE, visitor_name: 'Sam' });
 
@@ -107,7 +111,8 @@ async function expectQuotaLineVisible(
 async function revokeCode(page: Page, code: string): Promise<void> {
   await page.getByTestId(`code-revoke-${code}`).click();
   await expect(page.getByTestId(`code-revoke-${code}`)).toHaveCount(0, { timeout: 5_000 });
-  // create 的 toast 可能没消失，按文本筛具体那条 success toast。
+  // The create toast might not have dismissed yet, so filter for this specific
+  // success toast by its text.
   await expect(page.getByTestId('toast-success').filter({ hasText: 'Code revoked' }))
     .toBeVisible();
 }

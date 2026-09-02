@@ -1,21 +1,26 @@
 // gate-code-ux.spec.ts —— gate code panel UX: uppercase normalization,
 // error shake, checking state, code + name submit.
 //
-// 用户故事：
-//   1. paste code → 大写归一 + 非 [A-Z0-9-] 过滤
-//   2. 错误 code → shake 动画 → 清空 → refocus
-//   3. "checking" 状态 → submit 后按钮文案变
-//   4. code + name 一起提交 → session 带 visitor name
+// User story:
+//   1. paste code -> uppercase normalization + strip anything not [A-Z0-9-]
+//   2. wrong code -> shake animation -> clear -> refocus
+//   3. "checking" state -> button text changes after submit
+//   4. code + name submitted together -> session carries the visitor name
 //
-// 这里的每条错误用例断言的都是**那句话**，不是"有报错"：只断言 gate-error 可见的话，面板
-// 把每一种非 2xx 都说成 "unknown code" 也照样绿（F-A-23）。而「不存在」和「被撤销」是
-// F-D-6 拆开的两句 —— 打错字的人重新粘一次，被撤销的人去要新码（chat.go:122-134）。
-// 那一刀没把措辞跟进这里，于是第一条**一直红着**；第二条（被撤销）从来没有过 e2e。
+// Every error test case here asserts **the exact message**, not "there was an error":
+// asserting only that gate-error is visible would stay green even if the panel called
+// every non-2xx "unknown code" (F-A-23). And "doesn't exist" vs. "was revoked" are two
+// separate messages F-D-6 split apart -- a typo means paste it again, a revocation means
+// go ask for a new code (chat.go:122-134). That cut never carried the wording through
+// to here, so the first case has **stayed red the whole time**; the second (revoked)
+// never had e2e coverage at all.
 //
-// UX-68：顶栏那一格显示的是**这张码自己的标签**（设计源 docs/design/project/app.js:696，
-// 'OpenAI eng loop' / 'a16z partner intro'），`invited` 只是没有标签时的兜底。后端一直在
-// 发 code_label，但 SDK 的 PublicSessionResponse 没声明它、gate 又写死 label: null，
-// 于是每一张码都被说成 invited —— 那句欢迎语是在对访客陈述他自己的访问范围。
+// UX-68: the top strip shows **that code's own label** (design source
+// docs/design/project/app.js:696, 'OpenAI eng loop' / 'a16z partner intro'); `invited`
+// is only the fallback for when there's no label. The backend has always sent
+// code_label, but the SDK's PublicSessionResponse never declared the field, and the
+// gate hardcoded label: null, so every code got called invited -- and that welcome line
+// is meant to tell the visitor their own scope of access.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -35,14 +40,16 @@ const OWNER = {
 };
 
 const CODE = 'GATEUX-001';
-// 一张真码,名额只有 1 个,而且已经被用掉了 —— 存在、没过期、就是满了。
+// A real code, quota of 1, and that one slot is already used -- exists, not expired,
+// just full.
 const FULL_CODE = 'GATEUX-FULL';
-// 一张发出去过、又被 owner 撤销的码 —— 它存在过,这跟"不存在"是两回事。
+// A code that was issued, then revoked by the owner -- it did exist, and that's a
+// different claim from "never existed".
 const REVOKED_CODE = 'GATEUX-REVOKED';
 
 test.describe('gate code panel UX polish', () => {
   test.beforeAll(async ({ playwright }) => {
-    test.setTimeout(180_000); // resetInstance 在负载高时要 ~48s，而钩子默认只给 30s
+    test.setTimeout(180_000); // resetInstance takes ~48s under high load, and the default hook budget is only 30s
     await initOwner(playwright);
   });
 
@@ -70,10 +77,12 @@ test.describe('gate code panel UX polish', () => {
       expect(said, '说出下一步:去要一张新的').toMatch(/revoked/);
     });
 
-  // F-A-23 —— 一张真码,只是名额满了,被说成 "UNKNOWN CODE"。
-  // 后端答得很准:401 = 这码不存在;403 `member_quota_reached` = 「this code is full - no more
-  // names available」,那句话就是写给访客看的。而面板把所有非 2xx 压成一个布尔 error,
-  // 于是拿着有效邀请的招聘官被告知他的码不存在 —— 他会重打一遍、认定 owner 给错了码、然后走人。
+  // F-A-23 -- a real code, just out of quota, gets reported as "UNKNOWN CODE".
+  // The backend is precise about it: 401 = this code doesn't exist; 403
+  // `member_quota_reached` = "this code is full - no more names available", written
+  // exactly for the visitor to read. But the panel collapses every non-2xx into one
+  // boolean error, so a recruiter holding a valid invite is told their code doesn't
+  // exist -- they retype it, conclude the owner gave them the wrong code, and leave.
   test('a code that is FULL says so, instead of claiming it does not exist (F-A-23)',
     async ({ page }) => {
       await submitCode(page, FULL_CODE, 'Second Name');
@@ -95,9 +104,10 @@ test.describe('gate code panel UX polish', () => {
       await page.waitForURL('**/', { timeout: 10_000 });
       const strip = page.getByTestId('session-strip');
       await expect(strip).toBeVisible({ timeout: 5_000 });
-      // 取文本再判：`.not.toContainText` 在元素还没渲染时也算通过。
-      // 这一格 CSS 是 text-transform:uppercase，innerText 拿回来的是大写 —— 断言比的是
-      // 「说的是哪张码」，不是字形，所以两边一起降到小写再比。
+      // Pull the text out first, then assert: `.not.toContainText` also passes when the
+      // element hasn't rendered yet. This cell's CSS is text-transform:uppercase, so
+      // innerText comes back uppercase -- the assertion cares about which code is
+      // named, not the letter case, so lowercase both sides before comparing.
       const said = (await strip.innerText()).toLowerCase();
       expect(said, '顶栏说出这张码的标签').toContain('gate ux test');
       expect(said, '拿到了真标签就不该再退回兜底').not.toContain('invited');
@@ -115,13 +125,15 @@ test.describe('gate code panel UX polish', () => {
     });
 });
 
-// openGate —— 每条用例的开场都一样：从首页那条 "request access" 走到 /gate。
+// openGate -- every test case opens the same way: from the homepage's "request access"
+// link to /gate.
 async function openGate(page: Page): Promise<void> {
   await page.getByRole('link', { name: 'request access ↗' }).click();
   await page.waitForURL('**/gate', { timeout: 10_000 });
 }
 
-// submitCode —— 进 gate、填码（可带名字）、提交。用例只留下它自己要断的那句话。
+// submitCode -- enter the gate, fill in a code (optionally a name), submit. Each test
+// case is left with only the one assertion it cares about.
 async function submitCode(page: Page, code: string, visitor?: string): Promise<void> {
   await openGate(page);
   await page.getByTestId('gate-code').fill(code);
@@ -129,8 +141,9 @@ async function submitCode(page: Page, code: string, visitor?: string): Promise<v
   await page.getByTestId('gate-code-submit').click();
 }
 
-// gateErrorText —— 等那句拒绝出现，取文本降小写。取文本再判是有意的：
-// `.not.toContainText` 在元素还没渲染时也算通过。
+// gateErrorText -- waits for the refusal message to appear, then pulls its text and
+// lowercases it. Pulling the text before asserting is deliberate:
+// `.not.toContainText` also passes while the element hasn't rendered yet.
 async function gateErrorText(page: Page): Promise<string> {
   const err = page.getByTestId('code-panel').getByTestId('gate-error');
   await expect(err).toBeVisible({ timeout: 5_000 });
@@ -160,7 +173,7 @@ async function initOwner(playwright: Playwright): Promise<void> {
     code: REVOKED_CODE, label: 'Gate UX revoked',
   });
   await revokeCode(request, csrf, revoked.id);
-  // 用掉那唯一一个名额:这张码从此存在、有效、且满员。
+  // Use up that one and only slot: from now on this code exists, is valid, and is full.
   await issueSession(request, {
     handle: OWNER.handle, code: FULL_CODE, visitor_name: 'First Name',
   });

@@ -1,28 +1,36 @@
-// connector-scope-gates-capability.spec.ts —— F-B-8 ⭐⭐。
-// **授出去的范围和放出去的能力，从来没有互相校验过。**
+// connector-scope-gates-capability.spec.ts — F-B-8 ⭐⭐.
+// **The scope that was granted and the capability that gets exposed have never been cross-checked
+// against each other.**
 //
-// prod 上驱出来的样子（2026-08-18）：owner 只授了 `calendar.readonly`，产品照旧把
-// 「订会」摆在访客面前 —— 时段列得出来（读是通的），点下去每一次都 403，而访客被告知
-// 「日历服务暂时不可用，过一会儿再问」。403-insufficient-scope 是**永久**的，等多久都不会变。
+// The shape this took in prod (2026-08-18): the owner had only granted `calendar.readonly`, and
+// the product went right on putting "book a meeting" in front of visitors — listing slots worked
+// fine (reads go through), but clicking it 403'd every single time, and the visitor was told "the
+// calendar service is temporarily unavailable, try again later." 403-insufficient-scope is
+// **permanent** — it will never change no matter how long they wait.
 //
-// 这个文件守的是那条**产品自己已经在别处遵守的纪律**：做不到的动作就不提供。
-//   · 邮件送不出去 → 批准按钮的位置写 `connect mail to issue codes`（没有按不动的按钮）
-//   · 邮件送不出去 → 约成卡上整块确认邮件不渲染（`ownerCanDeliver`）
-// 日历这一侧缺的就是同一件事。
+// This file guards a discipline **the product already follows elsewhere**: don't offer an action
+// you can't perform.
+//   · mail can't be sent → the approve button's slot instead reads `connect mail to issue codes`
+//     (no button that can't actually be clicked)
+//   · mail can't be sent → the entire confirmation-email block on the booking card doesn't
+//     render (`ownerCanDeliver`)
+// The calendar side is missing exactly this same thing.
 //
-// **文件里有两组，状态不一样，别混着看**（2026-08-20）：
+// **This file has two groups in different states — don't conflate them** (2026-08-20):
 //
-//   1. 访客那一面 —— **已落地、已跑绿**：只授只读的实例，`calendar_book` / `calendar_cancel`
-//      不进会话工具表，而 `calendar_list_slots` 照旧在。机制链是
-//      spec 的 per-op `security:` → `Spec.ScopesFor` → `openapiCore.CanPerform`（授到的 ⊇ 需要的）
-//      → `Slots.CanPerform` → `capreg` 装配时按工具摘。
-//   2. owner 那一面 —— **仍 fixme**：写着 `connected` 的卡上还没有那一行
-//      `connector-scope-shortfall`（「这个授权做不了 X，去补 Y」）。那个界面没建，
-//      不是断言写错。
+//   1. The visitor side — **already implemented, already green**: on an instance granted
+//      read-only, `calendar_book` / `calendar_cancel` never make it into the session's tool
+//      list, while `calendar_list_slots` stays. The mechanism chain is the spec's per-op
+//      `security:` → `Spec.ScopesFor` → `openapiCore.CanPerform` (granted ⊇ required) →
+//      `Slots.CanPerform` → capreg trimming by tool at assembly time.
+//   2. The owner side — **still fixme**: the card that says `connected` doesn't yet have the
+//      `connector-scope-shortfall` line ("this grant can't do X, go add Y"). That UI was never
+//      built — this isn't a case of the assertion being wrong.
 //
-// 红态证过（不是「写完就绿」）：把 manifest 里 `calendar_book` 的 `requires` 拿掉再跑，
-// 第一句断言当场红，且红的样子正确 —— `calendar_book` 回到表里，`calendar_list_slots`
-// 仍在（[[assertion-that-cannot-fail]]）。
+// The red state was proven (not just "written and immediately green"): remove `requires` from
+// `calendar_book` in the manifest and re-run — the first assertion goes red on the spot, and in
+// the correct shape — `calendar_book` reappears in the list, `calendar_list_slots` is still
+// there ([[assertion-that-cannot-fail]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -48,9 +56,10 @@ const OAUTH2_CONNECTOR_ID = 'google-calendar';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-// owner 这一侧：`connected` 说的是「我们手里有一个 token」，owner 读它的时候以为说的是
-// 「这个连接能干它被要求干的事」（[[names-that-lie]]）—— 只读授权下那两件事分叉，而卡上
-// 原本一个字都不提。现在那一行在了，所以这一组不再 fixme。
+// The owner side: `connected` really means "we're holding a token", but the owner reads it as
+// meaning "this connection can do what it's being asked to do" ([[names-that-lie]]) — under a
+// read-only grant those two things diverge, and the card used to say not one word about it. That
+// line now exists, so this group is no longer fixme.
 test.describe('F-B-8 · a read-only grant must not put booking in front of a visitor', () => {
   test.beforeAll(async ({ playwright }: { playwright: Playwright }) => {
     test.setTimeout(180_000);
@@ -66,8 +75,9 @@ test.describe('F-B-8 · a read-only grant must not put booking in front of a vis
   test('the owner is told the grant cannot book, on the card that claims to be connected',
     async ({ adminPage: page }) => {
       const card = await connectReadOnly(page);
-      // `connected` 说的是「我们手里有一个 token」。owner 读它的时候以为说的是
-      // 「这个连接能干它被要求干的事」（[[names-that-lie]]）—— 那两件事在这里正好分叉。
+      // `connected` really means "we're holding a token." The owner reads it as meaning "this
+      // connection can do what it's being asked to do" ([[names-that-lie]]) — the two diverge
+      // exactly here.
       await expect(card.getByTestId('connector-scope-shortfall'),
         'the card names what this grant cannot do, next to the word connected')
         .toBeVisible();
@@ -77,15 +87,18 @@ test.describe('F-B-8 · a read-only grant must not put booking in front of a vis
     });
 });
 
-// ── 访客那一面：做不到的动作不出现，做得到的照旧在 ────────────────────────
+// ── The visitor side: an action you can't do is absent, one you can do is still there ──────────
 //
-// 这一组**不 fixme**：机制已落地（`3c2333cc`），2026-08-20 在 prod 上也用眼睛验过
-// —— 真把 Google 授权收窄成 `calendar.readonly`，产品自己的日志 `agent turn start … tools`
-// 从 38 掉到 34、恢复授权后回到 38。这里守的是同一件事，只是让它每次都跑。
+// This group is **not fixme**: the mechanism is already implemented (`3c2333cc`), and on
+// 2026-08-20 it was also eyeball-verified in prod — genuinely narrowing the Google grant to
+// `calendar.readonly` dropped the product's own log line `agent turn start … tools` from 38 to
+// 34, and restoring the grant brought it back to 38. What's guarded here is the same fact, just
+// made to run every time.
 //
-// **两句断言缺一不可，第二句才是重点**：只断「订不到」的话，把整个 booker 藏掉也能过 ——
-// 而那是拿掉一个**做得到**的动作来修「提供了做不到的动作」，是另一个缺陷，不是修复
-// （[[gate-scope-forces-architecture]]）。
+// **Both assertions are required, and the second one is the real point**: asserting only "can't
+// book" alone would also pass if the entire booker were hidden — and that would be removing an
+// action that **can** be performed in order to fix "offering an action that can't be", which is a
+// different defect, not a fix ([[gate-scope-forces-architecture]]).
 test.describe('F-B-8 · a read-only grant drops the write tools and keeps the read ones', () => {
   let seed: CodedSeed | undefined;
 
@@ -94,8 +107,10 @@ test.describe('F-B-8 · a read-only grant drops the write tools and keeps the re
   test('booking leaves the visitor session, slot listing stays', async ({ playwright }) => {
     test.setTimeout(120_000);
     seed = await seedCodeVisitorOnConnectedOwner(playwright, { scopes: [GCAL_SCOPE_READ] });
-    // 先把整张表取下来再判。`not.toContain` 直接打在 locator 上时，元素还没出现也算通过
-    // （[[negated-assertion-passes-while-absent]]）；这里拿到的是一个已经存在的数组。
+    // Fetch the whole tool list first, then assert on it. `not.toContain` applied directly to a
+    // locator passes even before the element has appeared
+    // ([[negated-assertion-passes-while-absent]]); what's fetched here is already a concrete
+    // array.
     const tools = await sessionToolNames(seed.request, seed.visitor.session_token);
 
     expect(tools, 'the grant cannot insert an event, so booking is never offered')
@@ -107,8 +122,9 @@ test.describe('F-B-8 · a read-only grant drops the write tools and keeps the re
   });
 });
 
-// connectReadOnly —— 连上日历，只授只读那一个 scope。授权那一步是**真的走一遍 dance**，
-// mock 照真 provider 的规矩在 token 响应里回显本次授出的范围（F-C-33 教会它的）。
+// connectReadOnly — connects the calendar, granting only the read-only scope. The authorization
+// step **genuinely walks through the dance**; following the real provider's convention, the mock
+// echoes back the scope actually granted in the token response (a lesson F-C-33 taught it).
 async function connectReadOnly(page: Parameters<typeof openConnectorCard>[0]) {
   await resetMockOAuthRecord(page);
   const card = await openConnectorCard(page, OAUTH2_CONNECTOR_ID);

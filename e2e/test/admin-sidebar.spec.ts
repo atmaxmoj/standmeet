@@ -1,9 +1,9 @@
 // admin-sidebar.spec.ts —— admin sidebar badges + nav switching.
 //
-// 用户故事：
-//   1. badge: raw unprocessed > 0 → badge 数字出现
-//   2. badge: requests new > 0 → badge 数字出现
-//   3. 点 nav link → section 切换 + active 移动
+// User story:
+//   1. badge: raw unprocessed > 0 → the badge number appears
+//   2. badge: requests new > 0 → the badge number appears
+//   3. click a nav link → section switches + active moves
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -75,10 +75,13 @@ test.describe('admin sidebar badges + nav', () => {
       await expect(wikiNavLink).not.toHaveAttribute('aria-current', 'page');
     });
 
-  // UX-27 —— 页脚那两行是 owner 在 admin 每一页都看得见的东西,而两行都不是关于这台机器的:
-  // `instance · standmeet` 是 i18n 里的常量(每一台自托管实例都这么写,于是它谁也没说),
-  // `uptime · —` 里那根横杠是 JSX 字面量。同一时刻 /admin/system 上有真的 uptime —— 值早就
-  // 算出来了,只是没接到这里。断言两件事:页脚说的是这台机器,而且它跟 system 页读的是同一份。
+  // UX-27 —— the footer's two lines are something the owner sees on every admin page, and
+  // neither line is actually about this specific machine: `instance · standmeet` is an i18n
+  // constant (every self-hosted instance writes the same thing, so it tells you nothing),
+  // and the dash in `uptime · —` is a JSX literal. At the same moment, /admin/system already
+  // has a real uptime — the value was already computed, it just was never wired to here.
+  // Asserts two things: the footer names this machine, and it reads the same value as the
+  // system page.
   test('sidebar footer reports THIS instance and a real uptime (UX-27)',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'dashboard');
@@ -88,22 +91,25 @@ test.describe('admin sidebar badges + nav', () => {
       ).toHaveText(OWNER.handle);
       const footerUptime = page.getByTestId('sidebar-uptime');
       await expect(footerUptime, 'uptime 必须是个真时长,不是占位横杠').toHaveText(/^\d+[hms]/);
-      // 同一份 system-info:两处读同一个 store,所以字面量必须逐字相同。
-      // 只断言「都像时长」是不够的 —— 那样两处各自算各自的也能过。
+      // Same system-info: both places read the same store, so the literal text must match
+      // character for character. Asserting only "both look like a duration" isn't enough —
+      // that would also pass if each side computed its own independent value.
       const footerText = (await footerUptime.innerText()).trim();
       await gotoAdminSection(page, 'system');
       await expect(page.getByTestId('system-uptime')).toHaveText(footerText);
     });
 
-  // #34:AdminShell 挂在 layout → 跨 section 导航 sidebar 不 remount,滚动位置保留
-  // (之前每次点击 reset 到顶)。短 viewport 逼 sidebar 滚动,滚下去再导航,验 scrollTop。
+  // #34: AdminShell mounts at the layout level → the sidebar doesn't remount when
+  // navigating across sections, so its scroll position is preserved (it used to reset to
+  // the top on every click). A short viewport forces the sidebar to scroll; scroll down,
+  // navigate, then check scrollTop.
   test('persistent layout：sidebar 滚动位置跨导航保留', async ({ adminPage }) => {
     await adminPage.setViewportSize({ width: 1280, height: 460 });
     await gotoAdminSection(adminPage, 'wiki');
     const sidebar = adminPage.getByTestId('admin-sidebar');
     await sidebar.evaluate((el) => { el.scrollTop = 120; });
     expect(await sidebar.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
-    // 导航到另一个 section —— layout 持久,sidebar 不该 remount/归零。
+    // Navigate to another section — the layout persists, so the sidebar shouldn't remount/reset to zero.
     await gotoAdminSection(adminPage, 'codes');
     await adminPage.waitForURL('**/admin/codes', { timeout: 5_000 });
     expect(await sidebar.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);

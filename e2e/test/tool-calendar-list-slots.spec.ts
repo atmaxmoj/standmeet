@@ -1,6 +1,7 @@
-// tool-calendar-list-slots.spec.ts —— Phase E-14c MCP parity:
-// owner 在 Claude Code 调 calendar.list_slots 找可约时间。policy 拦掉
-// 周末 / lead-time 内的；FreeBusy 拦掉跟现有 busy 重叠的。
+// tool-calendar-list-slots.spec.ts -- Phase E-14c MCP parity:
+// the owner calls calendar.list_slots from Claude Code to find bookable times. Policy
+// filters out weekends / times inside the lead time; FreeBusy filters out anything that
+// overlaps existing busy blocks.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -85,23 +86,30 @@ test.describe('Phase E-14c calendar.list_slots via MCP', () => {
     expect(resp).not.toHaveProperty('slots');
   });
 
-  // 这一条替掉了原来那条「named IANA timezone 仍然出得来时段」—— 它只问「还有时段吗」，
-  // **没有人问过那个时区到底有没有被用上**，而 F-B-5 正长在这个洞里：prod 上
-  // `profile_timezone` 是空串，工作时间于是在 UTC 上判，owner 的 09:00–18:00 变成访客眼里的
-  // 凌晨 05:18，而当时每一条相关用例都是绿的。
+  // This test replaces the old one, "a named IANA timezone still yields slots" -- that
+  // test only asked "are there still slots", and **nobody ever asked whether that
+  // timezone was actually being used**, which is exactly the hole F-B-5 lives in: in
+  // prod, `profile_timezone` was an empty string, so working hours were judged in UTC,
+  // turning the owner's 09:00-18:00 into 05:00-18:00 in the visitor's local time, and
+  // every related test was green the whole time.
   //
-  // 判据要能分辨「用了这个时区」和「用了 UTC」，所以取一个**两边答案相反**的窗口：
-  // 09:00–13:00 UTC 在 UTC 眼里全在工作时间内，在多伦多眼里是 05:00–09:00（上班前）。
+  // The criterion must be able to distinguish "this timezone was used" from "UTC was
+  // used", so it picks a window where **the two answers are opposite**: 09:00-13:00 UTC
+  // is entirely within working hours from UTC's point of view, but is 05:00-09:00
+  // (before work) from Toronto's point of view.
   //
-  // 旧那条的**独有职责也接了过来**：后端走 `time.LoadLocation(owner.profile_timezone)`，
-  // 静态 CGO_ENABLED=0 的二进制若没打进 `time/tzdata`，这一步会报错、所有候选被否掉、
-  // 时段数归零 —— 下面那个**正对照**（下午必须有时段）就是那种情况下最先红的一条。
+  // This also **takes over the old test's unique responsibility**: the backend goes
+  // through `time.LoadLocation(owner.profile_timezone)`, and if a statically built
+  // (CGO_ENABLED=0) binary doesn't bundle `time/tzdata`, this step errors out, every
+  // candidate gets rejected, and the slot count drops to zero -- the **positive control**
+  // below (the afternoon must have slots) is the first thing to go red in that scenario.
   test('working hours are read in the owner’s zone — a UTC-morning window is before work',
     async () => {
       await setBookingPolicy(seed.request, freshCsrf, { timezone: 'America/Toronto' });
 
-      // 正对照先立起来：同一天、同样的政策，下午那段（14:00–20:00 UTC = 10:00–16:00 EDT）
-      // 必须有时段。没有它，下面那个 0 可能只是窗口不对/提前期没过。
+      // Establish the positive control first: same day, same policy, the afternoon
+      // window (14:00-20:00 UTC = 10:00-16:00 EDT) must have slots. Without this, the 0
+      // asserted below could just as easily mean a bad window / lead time not yet cleared.
       expect(
         await countSlots(seed.request, apiToken, sid, 14, 20),
         'mid-afternoon Toronto is inside 09:00–18:00 — this window must yield slots',
@@ -124,8 +132,11 @@ async function prep(playwright: Playwright): Promise<BaseSeed> {
   });
 }
 
-// countSlots —— 同一天（+3 天，清过提前期）的一段 UTC 窗口里有几个时段。
-// 两次问答只差窗口，所以「有」和「没有」的差别只可能来自政策，而政策里唯一在动的是时区。
+// countSlots -- counts how many slots fall inside a UTC window on the same day (+3 days,
+// past the lead time).
+// The two calls differ only in their window, so the difference between "there are slots"
+// and "there aren't" can only come from policy, and the only thing moving in that policy
+// is the timezone.
 async function countSlots(
   request: APIRequestContext, token: string, sid: string,
   fromHourUTC: number, untilHourUTC: number,

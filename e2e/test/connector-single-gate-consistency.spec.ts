@@ -1,4 +1,4 @@
-// connector-single-gate-consistency.spec.ts —— §一 单点闸三 walk 一致
+// connector-single-gate-consistency.spec.ts -- §1 the single gate is consistent across all three walks
 //
 // D-2: connector gating is collapsed into `enabledCaps` (the global single
 // gate). All three visitor "walks" read that one gate, so an unconnected
@@ -87,7 +87,7 @@ test.describe('connector dep · one unconnected state → consistent absence on 
 
       // walk 2 — capabilities states (VisitorStates). Single-gate means an
       // unconnected dep removes the cap from enabledCaps entirely — not a
-      // visible-but-disabled entry (D-1: 未连 = 全隐藏, not degraded-visible).
+      // visible-but-disabled entry (D-1: unconnected = fully hidden, not degraded-visible).
       const bookCap = (sess.capabilities ?? []).find((c) => c.id === BOOK_CAP_ID);
       expect(bookCap, 'walk 2: calendar.book cap not present when unconnected')
         .toBeUndefined();

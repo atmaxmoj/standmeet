@@ -1,8 +1,8 @@
 // tool-roles-mcp.spec.ts —— Phase E-6 MCP parity: owner CRUDs Roles
-// via MCP (Claude Code conversation), not just admin REST。
+// via MCP (Claude Code conversation), not just admin REST.
 //
-// Tools: role_create / role_list / role_delete。publicRow builtin
-// 不可删 (usecase 拦截，MCP 返 isError)。
+// Tools: role_create / role_list / role_delete. The builtin publicRow
+// cannot be deleted (the usecase intercepts it; MCP returns isError).
 
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
@@ -17,8 +17,8 @@ const OWNER = {
   handle: 'roles-mcp', fullName: 'Roles MCP Owner',
 };
 
-// seedRolesMCP —— claim + login + API token + MCP session。抽出 beforeAll
-// 让 describe 回调 < 70 行 (max-lines-per-function)。
+// seedRolesMCP —— claim + login + API token + MCP session. Extracted out of beforeAll
+// to keep the describe callback under 70 lines (max-lines-per-function).
 async function seedRolesMCP(
   playwright: Playwright,
 ): Promise<{ sid: string; apiToken: string }> {
@@ -35,8 +35,9 @@ async function seedRolesMCP(
   return { sid, apiToken };
 }
 
-// 一个 role 在每个面上是同一份形状(id / skill_ids / mcp_server_ids)——
-// 归一化前 MCP 那份是另一套字段名(role_id / skill_count / mcp_server_count)。
+// A role has the same shape on every facade (id / skill_ids / mcp_server_ids) —
+// before normalization, the MCP one had a different set of field names
+// (role_id / skill_count / mcp_server_count).
 interface RoleCreateResp { id: string; name: string }
 interface RoleRow {
   id: string;
@@ -49,7 +50,7 @@ interface RoleRow {
 }
 interface OK { ok: boolean }
 
-// expectDeleteRemovesIt —— 建一个再删掉,列表里就没了。
+// expectDeleteRemovesIt —— create one, then delete it, and it's gone from the list.
 async function expectDeleteRemovesIt(
   request: APIRequestContext, apiToken: string, sid: string,
 ): Promise<void> {
@@ -65,9 +66,11 @@ async function expectDeleteRemovesIt(
   expect(list.find((r) => r.id === created.id)).toBeUndefined();
 }
 
-// expectUnknownSkillRejected —— 挂一个不存在的 skill:role 写入要说清是"这个 id 找不到",
-// 而不是一句 internal error。存在性校验由组装根的适配器做(它认识 marketplace),错误经
-// access 自己的端口哨兵回来 —— 接错了这句话就会退化成兜底文案。
+// expectUnknownSkillRejected —— attaching a skill that doesn't exist: the role write must say
+// clearly "this id was not found," not just a generic internal error. Existence validation is
+// done by the assembly root's adapter (it's the one that knows about the marketplace); the
+// error comes back through access's own port sentinel — wire that wrong and this message
+// degrades into a generic fallback.
 async function expectUnknownSkillRejected(
   request: APIRequestContext, apiToken: string, sid: string,
 ): Promise<void> {

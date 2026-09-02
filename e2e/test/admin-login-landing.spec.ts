@@ -93,9 +93,12 @@ test.describe('login landing + auth-shell UX', () => {
       expect(buildTag, 'the badge must not be a fixed env label like "dev"')
         .not.toMatch(/\bdev\b/i);
 
-      // F-C-10 —— 上面两条只证明**两个前端徽标互相一致**,而 F-C-4 当初正是这么"修"的:
-      // 把两份拷贝合成一个常量,于是矛盾没消失,只是从"两张脸互相矛盾"变成"一张脸跟来源矛盾"。
-      // 真正的来源是运行中的进程 —— /admin/system 的 DEPLOYMENT 就是它报的。徽标必须等于它。
+      // F-C-10 —— the two assertions above only prove **two frontend badges agree with each
+      // other**, and that's exactly how F-C-4 was "fixed" back then: merging two copies into
+      // one constant, so the contradiction didn't go away, it just changed shape from "two
+      // faces contradicting each other" to "one face contradicting the source." The real
+      // source of truth is the running process — /admin/system's DEPLOYMENT is what it
+      // reports. The badge must equal that.
       await gotoAdminSection(page, 'system');
       const runtimeCell = page.getByTestId('system-version');
       await expect(runtimeCell, 'the running process must report a version').toHaveText(/\d/);

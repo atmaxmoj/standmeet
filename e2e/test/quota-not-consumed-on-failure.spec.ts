@@ -1,14 +1,20 @@
-// quota-not-consumed-on-failure.spec.ts —— 失败的 turn 不消耗配额。
+// quota-not-consumed-on-failure.spec.ts —— a failed turn does not consume quota.
 //
-// owner 要求:AI 没成功回复就不算消耗 turn;retry 几次都不算,成功回复一次
-// 才 +1。#28 起 backend 拥有这一轮:/agent/turn 流末端只在 AI 答出内容时才把
-// dialog sink 进 conversation 表(CountVisitorTurns 的计数源);失败轮 answer 空 →
-// 不落 → 不消耗。前端 used 由本地 dialogs 派生(failed 那条不计),显示同步。
+// Owner requirement: it doesn't count as a consumed turn unless the AI replies
+// successfully; retries never count, only one successful reply is +1. Since
+// #28 the backend owns this rule: at the tail end of the /agent/turn stream,
+// dialog is sunk into the conversation table (the count source for
+// CountVisitorTurns) only when the AI actually produced content; a failed
+// turn's answer is empty → nothing is persisted → nothing is consumed. The
+// frontend's `used` is derived from local dialogs (the failed one isn't
+// counted), so the display stays in sync.
 //
-// 验法:同一 session 连发三次 —— 成功 / 注入故障 / 成功 —— gauge 的 used 数
-// 应该是 1 → 1 → 2(中间那次失败免费)。故障用 mock gateway 的 next_error 注入
-// (所有 /v1/messages 返 500),会触发 backend 重试 + force-final 都失败 → SSE
-// error 帧 → 前端兜底文案,不消耗。
+// Verification: fire three turns in a row on the same session — success /
+// injected failure / success — the gauge's used count should go 1 → 1 → 2 (the
+// middle failure is free). The failure is injected via the mock gateway's
+// next_error (all /v1/messages calls return 500), which triggers the backend's
+// retry + force-final to both fail → an SSE error frame → the frontend's
+// fallback copy, no consumption.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -37,8 +43,9 @@ test.describe('failed turn does not consume a turn', () => {
 
   test('success → used 1; injected failure → still 1; success → 2',
     async ({ page, request }) => {
-      // enterCodeSession 已 skip 名字选择器并等到 /sessions 200 —— 不二次 dismiss
-      // (会采样到 picker unmount 窗口 → click 10s 超时,check-then-act race)。
+      // enterCodeSession already skips the name picker and waits for /sessions 200 —
+      // don't dismiss it a second time (could land inside the picker's unmount
+      // window → click times out at 10s, a check-then-act race).
       await enterCodeSession(page, CODE);
 
       const used = page.getByTestId('session-strip-turns-used');
@@ -46,22 +53,23 @@ test.describe('failed turn does not consume a turn', () => {
       const answers = page.getByTestId('answer-body');
       await expect(used).toHaveText('0');
 
-      // 1) 成功一轮 → used = 1
+      // 1) One successful turn → used = 1
       const firstTag = await scriptMockReplyText(request, 'Here is a real, grounded answer.');
       await input.fill(`first question${firstTag}`);
       await input.press('Enter');
       await expect(answers).toHaveCount(1, { timeout: 20_000 });
       await expect(used).toHaveText('1');
 
-      // 2) 注入故障一轮 → 仍然 used = 1(失败不消耗)。失败的 turn 也会渲一条
-      //    answer-body(里头是友好错误文案),所以等到第 2 条出现 = 这轮收尾。
+      // 2) One turn with an injected failure → used is still 1 (a failure doesn't
+      //    consume). A failed turn still renders an answer-body (friendly error
+      //    copy inside it), so waiting for the 2nd one to appear marks this turn's end.
       const failTag = await scriptMockError(request);
       await input.fill(`this turn fails upstream${failTag}`);
       await input.press('Enter');
       await expect(answers).toHaveCount(2, { timeout: 20_000 });
       await expect(used).toHaveText('1');
 
-      // 3) 再成功一轮 → used = 2(中间那次失败没被计进去)
+      // 3) Another successful turn → used = 2 (the failure in between was never counted)
       const thirdTag = await scriptMockReplyText(request, 'Another real answer after the failure.');
       await input.fill(`third question${thirdTag}`);
       await input.press('Enter');

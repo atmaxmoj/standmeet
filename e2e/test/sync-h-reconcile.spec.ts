@@ -1,7 +1,10 @@
-// sync-h-reconcile.spec.ts —— H. 幂等 + reconcile(目标态红,同步状态机)。
-// 决策默认:改名=孤儿(③)· 跨-genre 移动=就地改 genre(④)· 部分上传绝不删(⑤;整vault同步会 prune,
-// 见 sync-authoritative-prune)。
-// 关键容错:partial-never-delete · vault-is-the-source · 整批解析(forward-ref)· 导两次同态。
+// sync-h-reconcile.spec.ts — H. idempotency + reconcile (target-state red, sync
+// state machine).
+// Default decisions: rename = orphan (③) · cross-genre move = update genre in place
+// (④) · a partial upload never deletes (⑤; a whole-vault sync does prune, see
+// sync-authoritative-prune).
+// Key tolerances: partial-never-delete · vault-is-the-source · whole-batch resolution
+// (forward-ref) · importing twice yields the same state.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -37,11 +40,15 @@ test.describe('sync H · idempotency + reconcile', () => {
   test('conflict: the vault is the source — a re-sync replaces a web edit', vaultIsTheSource);
   // ── H5 deletion / partial (CRITICAL) ──
   test('partial: a partial upload NEVER deletes notes it did not include', partialNeverDeletes);
-  // F-L-61 —— 守卫写了、红也证了（`raw 那条没被上传包含，就不许被搬走` → Received false），
-  // 但**先不挂进套件**：第一版修法（部分上传一律按 source_path 认领）当场打红了同文件里
-  // `moveDeeperReparent` 和 `crossGenreMove` —— 那两条编码的是「部分上传里的移动要就地改」，
-  // 是**在用的行为**，不是漏网。见 findings 里 F-L-61 的 ④ 那一段。
-  // 挂一条红进 CI 只会让下一个人学会忽略红色，所以留在这儿等真正的修法（按**语料**判重名）。
+  // F-L-61 — the guard is written and the red is proven ("the raw entry that wasn't
+  // included in the upload must not be relocated" → Received false), but it is
+  // **deliberately not wired into the suite yet**: the first-draft fix (a partial
+  // upload always claims by source_path) immediately broke `moveDeeperReparent` and
+  // `crossGenreMove` in this same file — those two cases encode "a move inside a
+  // partial upload should update in place", which is **behavior in active use**, not
+  // a gap. See the ④ section of F-L-61 in the findings.
+  // Wiring a permanent red into CI only teaches the next person to ignore red, so
+  // this stays here until the real fix lands (disambiguate duplicates by **corpus**).
   test('partial: nor MOVES them to another genre (F-L-61)', partialDoesNotRelocateOthers);
   test('partial: nor moves a same-named FOLDER node (F-L-61b)', partialDoesNotRelocateFolders);
   test('partial: re-uploading a subset leaves the rest intact', subsetKeepsRest);
@@ -56,7 +63,9 @@ test.describe('sync H · idempotency + reconcile', () => {
 async function sess(request: APIRequestContext) {
   return syncSession(request, OWNER);
 }
-// adminUpdateWiki —— web 端就地编辑 body(**保持 title** = filename 派生的身份;改了 title 就成了另一条)。
+// adminUpdateWiki — edit the body in place from the web side (**keeps the title** =
+// the identity derived from the filename; changing the title would make it a
+// different note).
 async function adminUpdateWiki(
   request: APIRequestContext, id: string, title: string, body: string,
 ): Promise<void> {
@@ -166,80 +175,102 @@ async function partialNeverDeletes({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-// F-L-61 —— **部分上传不许动它没包含的那些笔记。**
+// F-L-61 — **a partial upload must not touch notes it did not include.**
 //
-// prod 上真发生的：发一次两文件的子集上传（不带 authoritative），`deleted: 0` —— 「不许删」
-// 那一半成立 —— 而 `raw 482→479 · wiki 575→578`，**三条根本不在上传里的 raw 笔记被搬进了 wiki**。
+// What actually happened in prod: a subset upload of two files was sent (without
+// authoritative), and `deleted: 0` — the "must not delete" half held — but `raw
+// 482→479 · wiki 575→578`, meaning **three raw notes that weren't in the upload at
+// all got relocated into wiki**.
 //
-// 机制：`dupTitles` 是从**这次上传**算出来的（`sync.go:86`），而 `claimExisting` 只对
-// dupTitles 里的标题按 source_path 认领，其余一律 `GetByTitle` —— **跨 genre**。真语料里
-// 跨 genre 重名的标题，在一个两文件的上传里各只出现一次，于是被按 title 认到了别的 genre
-// 那一行，就地改成了这次上传的 genre。
+// Mechanism: `dupTitles` is computed from **this upload** (`sync.go:86`), and
+// `claimExisting` only claims by source_path for titles that are in dupTitles;
+// everything else falls back to `GetByTitle` — **across genres**. In real corpus
+// data, a title that duplicates across genres appears only once in a two-file
+// upload, so it gets claimed by title against the row in the other genre, and
+// updated in place to this upload's genre.
 //
-// 为什么比「删了」更该管：genre 就是访客 ACL 授权的边界，raw 是私料。**一次 API 端的部分
-// 喂入可以把私料搬到已发布那一侧。**
+// Why this matters more than "it got deleted": genre is the boundary that gates
+// visitor ACL, and raw is private material. **A single partial feed through the API
+// can relocate private material onto the published side.**
 async function partialDoesNotRelocateOthers({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
-  // 整份先进去：同一个标题在两个 genre 各有一条（真 vault 到处都是这种）。
+  // Load the whole set first: the same title exists once in each of two genres
+  // (real vaults are full of these).
   //
-  // **raw 那条要更老**：认领走的是 `GetNoteByTitleAnyGenre`，`ORDER BY created_at ASC LIMIT 1`
-  // —— 被顶掉的永远是最老的那条。两条同批建时 wiki 恰好在前，于是缺陷不发作；prod 上发作，
-  // 是因为那三条 raw 比同名的 wiki 老。分两次上传把年龄钉死，红才落在机制上而不是落在建表顺序上。
+  // **The raw entry must be older**: claiming goes through `GetNoteByTitleAnyGenre`,
+  // `ORDER BY created_at ASC LIMIT 1` — whichever one is oldest is always the one
+  // displaced. When both are created in the same batch, wiki happens to come first,
+  // so the defect doesn't trigger; in prod it triggered because those three raw
+  // entries were older than the wiki entries sharing their name. Splitting this into
+  // two uploads pins down the age ordering, so the red lands on the mechanism rather
+  // than on table-insertion order.
   await uploadVault(request, OWNER, [{ rel: 'raw/shared-name.md', body: md('the raw one') }]);
   await uploadVault(request, OWNER, [
     { rel: 'wiki/shared-name.md', body: md('the wiki one') },
     { rel: 'raw/shared-name.md', body: md('the raw one') },
   ]);
-  // **按 body 认这条 raw，不按 title**：raw 的行根本不带 title（`corpus_rows.go` 的
-  // `rawItem` 只发 body/preview —— raw 卡片就地编辑正文，标题不是它的身份）。第一版这里写的是
-  // `title === 'shared-name'`，于是前置条件在**有没有这个缺陷都一样**是 false —— 红落在了
-  // 错的地方，而我差点据此认定「修法没用」。
+  // **Identify this raw entry by body, not by title**: a raw row carries no title at
+  // all (`corpus_rows.go`'s `rawItem` only sends body/preview — a raw card edits its
+  // body in place, and its title is not its identity). The first draft here wrote
+  // `title === 'shared-name'`, which made the precondition false **regardless of
+  // whether this defect was present or not** — the red landed in the wrong place,
+  // and I nearly concluded from that "the fix didn't work".
   const inRaw = async (): Promise<boolean> =>
     (await adminGenreList(request, OWNER, 'raw')).some((n) => (n.body ?? '').includes('the raw one'));
-  expect(await inRaw(), 'raw 那条先在').toBe(true);
+  expect(await inRaw(), 'the raw entry is present beforehand').toBe(true);
 
-  // 只喂 wiki 那一条 —— raw 那条**不在这次上传里**，一个字都不该动。
+  // Feed only the wiki entry — the raw entry **is not part of this upload**, and not
+  // a single byte of it should move.
   await uploadVault(request, OWNER, [{ rel: 'wiki/shared-name.md', body: md('edited wiki one') }]);
 
   expect(
     await inRaw(),
-    'raw 那条没被这次上传包含，就不许被搬走 —— genre 是访客 ACL 的边界',
+    'the raw entry was not part of this upload, so it must not be relocated — genre is the boundary of visitor ACL',
   ).toBe(true);
-  // 而且这次上传要落在**它自己**那条 wiki 上：正文改了，行数没多。
+  // And this upload must land on **its own** wiki entry: the body changed, but the
+  // row count did not grow.
   const wiki = (await adminGenreList(request, OWNER, 'wiki')).filter((n) => n.title === 'shared-name');
-  expect(wiki.length, '同名的 wiki 仍是一条').toBe(1);
+  expect(wiki.length, 'the wiki entry with this name is still exactly one row').toBe(1);
   await request.dispose();
 }
 
-// F-L-61 的第二半 —— **文件夹那种「没有文件」的节点**。
+// The second half of F-L-61 — **the "no file" kind of node, a folder**.
 //
-// 上面那条修完，prod 上重放同一次子集上传：两条目标笔记各自就位，`raw 482→481 · wiki 575→576`
-// —— 还是有一条被搬走了，而它是 `math`：一个**结构节点**（文件夹占位，`obsidian_source_path`
-// 是空的）。`claimExisting` 对没有 file 的节点永远走 `GetByTitle`，因为空路径互相会撞 ——
-// 于是「按语料算歧义」这一刀切不到它：知道 `math` 有歧义，也没有第二把认领的尺子。
+// After the fix above, prod replayed that same subset upload: both target notes
+// landed correctly, `raw 482→481 · wiki 575→576` — and yet one thing was still
+// relocated, and it was `math`: a **structural node** (a folder placeholder, with an
+// empty `obsidian_source_path`). `claimExisting` always falls back to `GetByTitle`
+// for a node with no file, because empty paths would all collide with each other —
+// so "disambiguate by corpus" doesn't reach it at all: knowing that `math` is
+// ambiguous doesn't help, because there is no second claiming rule for it.
 //
-// 结构节点的身份是 **(genre, title)**：它就是自己那棵树上的一个文件夹。同名文件夹在两个
-// genre 各有一个，是真 vault 的常态（`raw/math/` 和 `wiki/math/` 并存）。
+// A structural node's identity is **(genre, title)**: it is simply a folder in its
+// own tree. A same-named folder existing once per genre is the normal case in a real
+// vault (`raw/math/` and `wiki/math/` coexisting).
 async function partialDoesNotRelocateFolders({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
-  // raw 那棵树先建（更老），再让两个 genre 都有一个叫 topic 的文件夹。
+  // Build the raw tree first (making it older), then give both genres a folder
+  // named topic.
   await uploadVault(request, OWNER, [{ rel: 'raw/topic/note-r.md', body: md('raw child') }]);
   await uploadVault(request, OWNER, [
     { rel: 'raw/topic/note-r.md', body: md('raw child') },
     { rel: 'wiki/topic/note-w.md', body: md('wiki child') },
   ]);
-  // 判据就是 prod 上量到的那个：genre 的**条数**。raw 该是两条（文件夹 topic + note-r），
-  // 结构节点被认到 wiki 去的话，这里会掉到一条。
+  // The criterion is exactly what prod measured: the **row count** for genre raw.
+  // It should be two (the folder topic + note-r); if the structural node gets
+  // claimed into wiki, this would drop to one.
   //
-  // 这一句就已经是红的：结构节点没有 source_path，F-L-2 那把「同名就按路径认」的尺子从来
-  // 量不到它 —— 所以**整份传**同名文件夹也照样塌，不必等到部分上传。
+  // This line is already red: a structural node has no source_path, so F-L-2's
+  // "same name → claim by path" rule never reaches it at all — so a same-named
+  // folder collapses even on a **whole-vault** upload, no partial upload required.
   const rawCount = async (): Promise<number> => (await adminGenreList(request, OWNER, 'raw')).length;
-  expect(await rawCount(), '两个 genre 各有一个 topic 文件夹时，raw 那棵树是完整的两条').toBe(2);
+  expect(await rawCount(), 'with a topic folder in each genre, the raw tree is fully two rows').toBe(2);
 
-  // 只喂 wiki 那一条 —— 它会带出一个叫 topic 的结构节点，而 raw 里也有一个。
+  // Feed only the wiki entry — it brings along a structural node named topic, and
+  // raw already has one too.
   await uploadVault(request, OWNER, [{ rel: 'wiki/topic/note-w.md', body: md('edited wiki child') }]);
 
-  expect(await rawCount(), 'raw 的 topic 文件夹没被这次上传包含，就不许被搬走').toBe(2);
+  expect(await rawCount(), "raw's topic folder was not part of this upload, so it must not be relocated").toBe(2);
   await request.dispose();
 }
 

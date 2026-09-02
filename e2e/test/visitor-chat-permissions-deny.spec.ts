@@ -1,12 +1,12 @@
-// visitor-chat-permissions-deny.spec.ts —— A.3-IAM-5 起 ACL 是正向白名单
-// (RoleSnapshot.CorpusURIs 命中即 allow，不在列表 = deny)。
+// visitor-chat-permissions-deny.spec.ts — as of A.3-IAM-5, ACL is a positive allowlist
+// (a hit in RoleSnapshot.CorpusURIs means allow; not in the list means deny).
 //
-// 用户故事：
-//   owner 给 recruiter 发 INTRO 代码挂 role "recruiter-only"。role 配
-//   corpus_uris = ['wiki://projects/**']，允许 projects/lucerna 但不允许
-//   personal/family。recruiter 入境后问 family，AI corpus_search
-//   拿不到 personal/family，corpus_read 也会被拒。最终 cited 不
-//   含 personal/family。
+// User story:
+//   The owner sends a recruiter an INTRO code bound to the role "recruiter-only". The
+//   role is configured with corpus_uris = ['wiki://projects/**'], which allows
+//   projects/lucerna but not personal/family. Once the recruiter is in and asks about
+//   family, the AI's corpus_search can't reach personal/family, and corpus_read is also
+//   refused. The final citation list never includes personal/family.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

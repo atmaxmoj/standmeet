@@ -1,7 +1,11 @@
-// security-spec-dos.spec.ts —— pentest。connector spec 摄入(POST /connectors/validate-spec)
-// 解析 owner 贴的任意 OpenAPI 文本。恶意 spec 不能拖垮解析:超大体(>4MiB)被 LimitReader 截、
-// 深嵌套不栈溢出、YAML 别名炸弹(billion-laughs)不指数膨胀 OOM。契约:每个都**及时**返回
-// 400 或 200{ok:false},绝不 hang、绝不 ok:true。绿=解析有界;红=一个恶意 spec 就能 DoS 实例。
+// security-spec-dos.spec.ts — pentest. Connector spec ingestion
+// (POST /connectors/validate-spec) parses arbitrary OpenAPI text pasted by the
+// owner. A malicious spec must not be able to bring down parsing: an oversize body
+// (>4MiB) gets cut off by a LimitReader, deep nesting doesn't overflow the stack,
+// a YAML alias bomb (billion-laughs) doesn't expand exponentially and OOM. Contract:
+// every case returns **promptly** with either 400 or 200{ok:false}, never hangs,
+// never returns ok:true. Green = parsing is bounded; red = one malicious spec can DoS
+// the instance.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -9,7 +13,8 @@ import { seedOwnerLoggedIn, teardownSeed, type BaseSeed } from '@/fixtures/gcal-
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// billion-laughs:YAML 别名指数展开。安全解析器不展开/有界 → 拒。
+// billion-laughs: YAML aliases expand exponentially. A safe parser either doesn't
+// expand them or bounds the expansion → rejects.
 const BILLION_LAUGHS = [
   'a: &a ["lol","lol","lol","lol","lol","lol","lol","lol","lol"]',
   'b: &b [*a,*a,*a,*a,*a,*a,*a,*a,*a]',
@@ -34,8 +39,11 @@ test.describe('pentest · connector spec-ingest DoS resistance', () => {
     ['oversize body (>4MiB)', OVERSIZE],
   ] as const) {
     test(`malicious spec is bounded, not a hang: ${name}`, async () => {
-      // 15s hard cap: 有界解析远快于此;若 hang(真 DoS)则超时 → 红。
-      // 安全 probe 刻意绕过 UI 直打原始 API —— 这正是攻击者视角(DoS 边界),故 disable UI-write 规则。
+      // 15s hard cap: bounded parsing finishes far faster than this; if it hangs
+      // (a real DoS) it times out → red.
+      // This security probe deliberately bypasses the UI to hit the raw API
+      // directly — that's exactly the attacker's perspective (a DoS boundary), so
+      // the UI-write rule is disabled here.
       /* eslint-disable no-restricted-syntax */
       const res = await seed.request.post(`${BACKEND}/api/admin/connectors/validate-spec`, {
         headers: { 'X-Csrftoken': seed.csrf },
@@ -43,7 +51,8 @@ test.describe('pentest · connector spec-ingest DoS resistance', () => {
         timeout: 15_000,
       });
       /* eslint-enable no-restricted-syntax */
-      // 坏体 → 400;能解析但非法 → 200{ok:false}。都可接受;绝不 5xx 崩、绝不 ok:true。
+      // A malformed body → 400; parseable but invalid → 200{ok:false}. Either is
+      // acceptable; never a 5xx crash, never ok:true.
       expect(res.status(), `${name}: no 5xx crash`).toBeLessThan(500);
       if (res.status() === 200) {
         const body = await res.json() as { ok?: boolean };

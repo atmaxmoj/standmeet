@@ -1,19 +1,27 @@
-// connector-op-calendar-check-ui.spec.ts —— F-C-16:日历卡上必须有一个「它现在还通吗」。
+// connector-op-calendar-check-ui.spec.ts — F-C-16: the calendar card must offer a way to check
+// "is it still live right now?"
 //
-// 邮件连接器有(`connectors.mail_test_send`,声明在 smtp 的 manifest 里),日历一个都没有 ——
-// 而两者里恰恰是日历的失效**看不见**:OAuth 授权可以在 Google 那边被撤销、refresh token 可以
-// 轮换掉,而卡片会一直写着 "connected",直到某个陌生人来约会议才爆。owner 通不知道。
+// The mail connector has one (`connectors.mail_test_send`, declared in smtp's manifest); the
+// calendar has none at all — and it's precisely the calendar whose failure is **invisible**: the
+// OAuth grant can be revoked on Google's side, the refresh token can be rotated out, and the card
+// will go on saying "connected" until some stranger tries to book a meeting and it blows up. The
+// owner never finds out through the product.
 //
-// 这条只从 GUI 走。走 API 的用例在面根本不存在时照样绿(F-C-12 就是这么发现的),
-// 而这条守的正是「owner 点得到吗」。
+// This case only goes through the GUI. A case that drives the API stays green even when the
+// panel doesn't exist at all (that's exactly how F-C-12 was found), and what this case guards is
+// precisely "can the owner reach this by clicking?"
 //
-// 三条腿都断**正面**结果,而不是「没报错」:
-//   1. 没连的时候那句话要说下一步做什么;
-//   2. 连上之后回执要是**真数据**(mock 里塞的忙时段数),不是一句 "ok";
-//   3. 授权被撤销 → 那句话要读成「去重新连一下」,不是一个 provider 错误码。
-//      第 3 条同时是 item check 4 的 Expected,在 mock 上就能复现 —— 不需要真 Google 账号。
+// All three legs assert a **positive** result, not "no error was reported":
+//   1. when nothing is connected, the message must say what to do next;
+//   2. once connected, the receipt must be **real data** (the busy-block count seeded in the
+//      mock), not just the word "ok";
+//   3. when the grant is revoked → the message must read as "go reconnect it", not as a raw
+//      provider error code.
+//      Leg 3 is also the Expected for item check 4, and it's reproducible on the mock — no real
+//      Google account needed.
 //
-// RED(实现前):日历 manifest 没声明任何 owner op → 卡上没有这一块 → 第一条就红。
+// RED (before implementation): the calendar manifest declares no owner op at all → the block
+// doesn't exist on the card → the first leg goes red.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -23,18 +31,21 @@ import {
 } from '@/fixtures/gcal-setup';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
-// OP —— 日历在自己 manifest 里声明的那个操作,去掉 `connectors.` 前缀后就是路由段,
-// 也是卡上那一块的 testid 后缀。品类名写死在**声明**里,不在这一层。
+// OP — the operation the calendar declares in its own manifest; strip the `connectors.` prefix
+// and what's left is the route segment, and also the testid suffix for that block on the card.
+// The category name is hardcoded in **the declaration**, not at this layer.
 const OP = 'calendar_check';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 let seed: BaseSeed | undefined;
 
-// serial —— 第一条要的是「还没连日历」这个状态,后面两条把它连上再弄坏。顺序是用例的一部分。
+// serial — the first case needs the "calendar not connected yet" state; the two after it connect
+// it and then break it. The ordering is part of the test.
 test.describe.serial('connectors · the calendar card can answer "is it live?" (F-C-16)', () => {
-  // 实例只在这里重置一次 —— 后面两条在**同一个** admin 会话下改连接器状态。
-  // seedOwnerGCalConnected 会先 resetInstance,那会把浏览器已经登进去的会话打掉。
+  // The instance is reset only here — the two cases after this mutate the connector's state
+  // within **the same** admin session. seedOwnerGCalConnected calls resetInstance first, which
+  // would tear down the session the browser is already logged into.
   test.beforeAll(async ({ playwright }) => {
     seed = await seedOwnerLoggedIn(playwright);
   });
@@ -47,7 +58,8 @@ test.describe.serial('connectors · the calendar card can answer "is it live?" (
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'connectors');
       const op = adminPage.getByTestId(`connector-op-${OP}`);
-      // 没有这一块,owner 就只有 "connected" 那一个词可看 —— 而那个词不查任何东西。
+      // Without this block, the owner has only the word "connected" to look at — and that word
+      // doesn't check anything at all.
       await expect(op, 'the calendar card must offer a live check').toBeVisible();
 
       await op.getByTestId('connector-op-run').click();
@@ -59,8 +71,8 @@ test.describe.serial('connectors · the calendar card can answer "is it live?" (
 
   test('a live check reports what the calendar actually said', async ({ adminPage }) => {
     await connectGCalOnExistingOwner(seed!);
-    // 塞两个忙时段。回执要能把它们数出来 —— 「ok」这个词证明不了它真打过 provider,
-    // 而数出来的忙时段只能来自那一头。
+    // Seed two busy blocks. The receipt must count them out — the word "ok" doesn't prove it
+    // actually hit the provider, but a correct busy-block count could only have come from there.
     await setMockBusy(seed!.request, [
       { start: '2026-09-01T13:00:00Z', end: '2026-09-01T14:00:00Z' },
       { start: '2026-09-02T15:00:00Z', end: '2026-09-02T16:00:00Z' },
@@ -69,7 +81,8 @@ test.describe.serial('connectors · the calendar card can answer "is it live?" (
     await gotoAdminSection(adminPage, 'connectors');
     const op = adminPage.getByTestId(`connector-op-${OP}`);
     await expect(op).toBeVisible();
-    // 窗口要覆盖上面那两段(默认往后看的天数不一定够远)。
+    // The window has to cover both blocks above (the default look-ahead may not reach far
+    // enough).
     await op.getByTestId('connector-op-field-days').fill('120');
     await op.getByTestId('connector-op-run').click();
 
@@ -78,8 +91,9 @@ test.describe.serial('connectors · the calendar card can answer "is it live?" (
       'the receipt must carry data only the provider could have supplied',
     ).toContainText('2 busy blocks');
 
-    // 成功那句必须是**这个操作自己**说的。通用那一层原本只会说邮件那句「去收件箱确认」,
-    // 对一次日历自检是胡话 —— 这一条守的就是它别再冒出来。
+    // The success message must come from **this operation itself**. The generic layer used to
+    // only know the mail phrase "check your inbox to confirm" — which is nonsense for a calendar
+    // self-check — and this case guards against that phrase resurfacing.
     expect(
       (await op.getByTestId('connector-op-result').innerText()).toLowerCase(),
       'the generic layer must not narrate a calendar check in mail words',
@@ -88,8 +102,9 @@ test.describe.serial('connectors · the calendar card can answer "is it live?" (
 
   test('a revoked grant reads as a reconnect, not as a provider error code',
     async ({ adminPage }) => {
-      // 自己连一遍,不靠上一条留下的状态:单跑这一条时那句话会变成「还没连日历」——
-      // 一个红,但红在装配上,证明不了归类。
+      // Connect it again ourselves rather than relying on the state left by the previous case:
+      // running this case alone would otherwise turn the message into "calendar not connected
+      // yet" — a red, but a red in the setup, which proves nothing about the classification.
       await connectGCalOnExistingOwner(seed!);
       await revokeMockGCalToken(seed!.request);
 
@@ -97,7 +112,7 @@ test.describe.serial('connectors · the calendar card can answer "is it live?" (
       const op = adminPage.getByTestId(`connector-op-${OP}`);
       await op.getByTestId('connector-op-run').click();
 
-      // item check 4 的 Expected:撤销要读成一句「重新连一下」。
+      // Item check 4's Expected: a revocation must read as "go reconnect it".
       await expect(
         op.getByTestId('connector-op-result'),
         'a revoked grant must ask for a reconnect in plain words',

@@ -1,10 +1,11 @@
-// access-codes.spec.ts —— owner 通过 admin UI 发码 → 访客拿到码后用它聊。
+// access-codes.spec.ts — owner issues a code via the admin UI → the visitor uses it to chat.
 //
-// 用户故事：
-//   owner 想让 HR 单独看 work-tagged 那部分 corpus。Admin /codes 页里
-//   填 INTRO-001 / "Intro for HR" / tag=work → create。HR 用这个码
-//   （/gate UI 落地前，这里仿真 visitor：拿着码直接 POST /api/v1/sessions
-//   = code-tier session → chat 流走通）。
+// User story:
+//   owner wants HR to see only the work-tagged slice of the corpus. On the
+//   admin /codes page, fill in INTRO-001 / "Intro for HR" / tag=work →
+//   create. HR uses this code (before the /gate UI lands, this simulates
+//   the visitor here: taking the code straight to POST /api/v1/sessions
+//   = a code-tier session → the chat flow works end to end).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -51,14 +52,18 @@ test.describe('owner issues an access code in admin; visitor uses it', () => {
       await visitorChatsWithCode(request);
     });
 
-  // F-D-12 —— 一张码要能**递出去**。item 的 check 2 逐字写着「Click copy-share」，
-  // 而卡片上没有这个控件：`CodeQRModal`（产品里**唯一**带 copy link 的地方）打不开。
-  // `CodesSection` 把 `openQR` 一路传到 `CodeCard`，卡片却把它签收成 `onShowQR: _onShowQR` ——
-  // 下划线是「故意不用」的写法，也就是有人撞上了未使用变量的 lint，然后把它消音了，
-  // 而不是接上去。声明齐全、线也拉到了，末端被主动丢掉。
+  // F-D-12 — a code must be able to be **handed over**. Item check 2 literally says
+  // "Click copy-share", but the card has no such control: `CodeQRModal` (the **only**
+  // place in the product with a copy-link) never opens.
+  // `CodesSection` passes `openQR` all the way down to `CodeCard`, but the card signs it
+  // off as `onShowQR: _onShowQR` — the underscore is the "deliberately unused" convention,
+  // meaning someone hit the unused-variable lint and silenced it instead of wiring it up.
+  // The declaration is complete, the wire reaches the component, but the tail end is
+  // dropped on purpose.
   //
-  // 判据不钉住「必须是哪个控件」：卡片上得有**某个**能打开分享面板的东西，点开之后
-  // 那个面板要给得出可复制的链接。
+  // The assertion doesn't pin down "which exact control": the card just needs **some**
+  // element that opens the share panel, and once opened, that panel must yield a
+  // copyable link.
   test('a card can hand its code over: the share panel opens and carries the link',
     async ({ adminPage: page }) => {
       await openCodes(page);
@@ -97,10 +102,11 @@ async function openCodes(page: Page): Promise<void> {
 async function createCodeInUI(
   page: Page, code: string, label: string,
 ): Promise<void> {
-  // /admin/codes UI 现在用 modal 打开创建表单；先点 "+ new code"。
-  // retrieval-redesign 后 access 字段从 tags 改成 corpus_permissions JSON
-  // textarea —— 这条 spec 不验 permissions 内容（专门的 visitor-chat-permissions
-  // -deny spec 验），直接 leave empty (= 全允许)。
+  // The /admin/codes UI now opens the create form via a modal; click "+ new code" first.
+  // After the retrieval redesign, the access field changed from tags to a
+  // corpus_permissions JSON textarea — this spec doesn't verify the permissions content
+  // (the dedicated visitor-chat-permissions-deny spec does), so just leave it empty
+  // (= allow everything).
   await page.getByRole('button', { name: /new code/i }).click();
   await page.getByTestId('code-input').fill(code);
   await page.getByTestId('code-label').fill(label);
@@ -111,8 +117,8 @@ async function expectCodeRowVisible(page: Page, code: string): Promise<void> {
   await expect(page.getByTestId(`code-row-${code}`)).toBeVisible({ timeout: 5_000 });
 }
 
-// visitor 拿码聊 —— 还没 /gate UI，所以 visitor 这一侧仿真；gate UI 落地
-// 后改成 UI-driven。
+// The visitor chats with a code — no /gate UI yet, so the visitor side is simulated;
+// switch to UI-driven once the gate UI lands.
 async function visitorChatsWithCode(request: APIRequestContext): Promise<void> {
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: 'INTRO-001', visitor_name: 'HR',

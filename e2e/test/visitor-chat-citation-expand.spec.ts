@@ -1,10 +1,11 @@
-// visitor-chat-citation-expand.spec.ts —— G-3: cited 行 clickable，点开 inline
-// 展开原文 body。corpus_read 时 backend 已经把 body 流回 (marshalKindBodyPath
-// 含 body)；frontend 存进 Citation.body，<details>/<summary> 点开就渲。
+// visitor-chat-citation-expand.spec.ts -- G-3: a cited row is clickable, clicking it expands
+// the original body inline. During corpus_read the backend already streams the body back
+// (marshalKindBodyPath includes body); the frontend stores it in Citation.body, and clicking
+// <details>/<summary> renders it.
 //
-// 用户故事：visitor 问"tell me about lucerna" → mock 经 corpus_search +
-// corpus_read 走完 → "drawn from" 出现 cited 行 → 点 lucerna 行 → inline
-// 展开 wiki body 文字 ("lucerna is a local-first knowledge tool I built.")。
+// User story: visitor asks "tell me about lucerna" -> mock goes through corpus_search +
+// corpus_read -> a cited row appears under "drawn from" -> clicking the lucerna row ->
+// expands the wiki body text inline ("lucerna is a local-first knowledge tool I built.").
 
 import { test, expect } from '@/fixtures/test';
 
@@ -60,24 +61,26 @@ test.describe('citation row 可点 + inline 展开原文', () => {
       await input.fill(`tell me about lucerna${readTag}`);
       await input.press('Enter');
 
-      // 等 cited "references · N" 出现 (cited 来自 tool_completed 事件)。
-      // 现在默认折叠(像普通 AI chat),先点 references summary 展开列表。
+      // Wait for cited "references · N" to appear (cited comes from tool_completed events).
+      // It's now collapsed by default (like normal AI chat); click the references summary first to expand the list.
       const citations = page.getByTestId('citations');
       await expect(citations).toBeVisible({ timeout: 20_000 });
       await citations.locator('summary').first().click();
 
-      // 锁定 lucerna 那行 citation。
+      // Lock onto the lucerna citation row.
       const row = page.locator(
         `[data-testid="citation-row"][data-citation-path="${TARGET_PATH}"]`,
       );
       await expect(row).toBeVisible({ timeout: 5_000 });
 
-      // 点引用 = 跳那篇 document 在 owner 站上的公开页:link href =
-      // /<genre>/<树派生 path>,新标签打开。不再 inline 展开 body。
+      // Clicking a citation = navigates to that document's public page on the owner's site:
+      // link href = /<genre>/<path derived from the tree>, opens in a new tab. No longer
+      // expands the body inline.
       await expect(row).toHaveAttribute('href', `/wiki/${TARGET_PATH}`);
       await expect(row).toHaveAttribute('target', '_blank');
-      // （曾经这里断言 citation-body 不存在 —— 但那个 testid 早被移除，toHaveCount(0) 是永远为真的
-      // 重言 rot-E3。「引用是外链、不内联展开」已由上面的 href/target 证明。）
+      // (This used to assert citation-body doesn't exist -- but that testid was removed long
+      // ago, making toHaveCount(0) an eternally-true tautology, rot-E3. "A citation is an
+      // outbound link, not an inline expansion" is now proven by the href/target above.)
 
       await ctx.close();
     });

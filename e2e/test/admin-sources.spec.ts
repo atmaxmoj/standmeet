@@ -50,9 +50,11 @@ test.describe('admin sources list', () => {
       await expect(adminPage.getByTestId('sources-list')).toBeVisible({ timeout: 5_000 });
       await expect(adminPage.getByText(LABEL)).toBeVisible();
     });
-  // 这一页要回答的是「我这个源还活着吗」。**取过但每次都失败**的源，以前跟
-  // **从没被碰过**的源印同一句话 `never fetched`（F-E-18，真环境里三行都是这样）。
-  // 用一把错 token 的 workable 源制造一次真失败：它注册得成、取数一定失败。
+  // What this page has to answer is "is my source still alive". A source that **was
+  // fetched but has failed every time** used to print the same `never fetched` line as a
+  // source that **has never been touched** (F-E-18, all three rows looked like that in
+  // the real environment). Force a real failure with a workable source that has a bad
+  // token: it registers fine, but fetching data is guaranteed to fail.
   test('a source that was tried and failed does not read as "never fetched"',
     async ({ request, adminPage }) => {
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
@@ -70,31 +72,37 @@ test.describe('admin sources list', () => {
       const state = adminPage.getByTestId(`source-state-${src.id}`);
       await expect(state).toBeVisible({ timeout: 5_000 });
       const text = await state.innerText();
-      // 先取文本再判：元素还没出现时 `.not.toContainText` 也算通过（[[negated-assertion-passes-while-absent]]）。
+      // Grab the text first, then assert: `.not.toContainText` also passes when the
+      // element hasn't appeared yet ([[negated-assertion-passes-while-absent]]).
       expect(text, '试过就不该说「从没取过」').not.toMatch(/never fetched/i);
       expect(text, '要说出上次试过、失败了').toMatch(/failed/i);
       expect(text, '要带上原因，owner 才知道下一步做什么').toMatch(/credential|token/i);
-      // **给人看的一句话，不是整条错误链**（UX-77）：链条前面两截是源 uuid 和内部动词，
-      // 铺在这一行上会折成三行，而 owner 需要的是最后那半句。完整的链留给 owner 的 AI
-      // （`failed_sources[].reason`）和日志。
+      // **A human-facing sentence, not the whole error chain** (UX-77): the first two
+      // segments of the chain are the source uuid and an internal verb, which would wrap
+      // this row into three lines, and the owner only needs the last clause. The full
+      // chain is left for the owner's AI (`failed_sources[].reason`) and the logs.
       expect(text, '不该把源的 uuid 摆在屏幕上').not.toContain(src.id);
       expect(text, '不该出现内部动词').not.toMatch(/fetch source|fetch workable/i);
       expect(text, '不该出现上游 URL').not.toMatch(/https?:\/\//);
     });
 
-  // **一句话覆盖了两种完全不同的处境**（F-E-28，prod 上撞到的）：`fetch/http.go` 把所有
-  // 非 2xx 归成同一个 `ErrUpstream`，于是 301（板子搬家了）和 404（根本没有这块板子）
-  // 在 `/admin/sources` 上说的是同一句 —— "the board turned the request away — it may have moved"。
+  // **One sentence covers two completely different situations** (F-E-28, hit in prod):
+  // `fetch/http.go` lumps every non-2xx into a single `ErrUpstream`, so a 301 (the board
+  // moved) and a 404 (this board never existed) get the same sentence on
+  // `/admin/sources` — "the board turned the request away — it may have moved".
   //
-  // 对 404 来说那句话是**假的**，而且把 owner 指向了错误的下一步：他会去找新地址，
-  // 而实际要做的是改掉拼错的 company slug（或删掉这个源）。整张归类表的纪律写的是
-  // 「每一句都指出下一步」—— 这一句对这一类没做到（[[collapsed-error-class-kills-its-own-branch]]）。
+  // For a 404, that sentence is **false**, and it points the owner at the wrong next
+  // step: they'll go looking for a new address, when what they actually need to do is
+  // fix a misspelled company slug (or delete the source). The whole classification
+  // table's discipline is "every sentence names the next step" — this one doesn't, for
+  // this class ([[collapsed-error-class-kills-its-own-branch]]).
   test('a board that does not exist is not reported as one that moved',
     async ({ request, adminPage }) => {
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const token = await createAPIToken(request, csrf, 'sources-404');
       const sid = await initMCP(request, token);
-      // 替身跟真 Greenhouse 一样：没有这块板子就回 404（真板子当场验过）。
+      // The stand-in matches real Greenhouse: no such board returns 404 (verified against
+      // the real board on the spot).
       const src = await jobsRegisterSource(request, token, sid, {
         kind: 'greenhouse', label: 'Ghost Board', config: { company: 'no-such-company-here' },
       });
@@ -112,7 +120,7 @@ test.describe('admin sources list', () => {
     });
 });
 
-// expectMissingBoardSentence —— 「这个地址上没有板子」那一行该长什么样。
+// expectMissingBoardSentence — what the "there's no board at this address" row should look like.
 function expectMissingBoardSentence(text: string, srcID: string): void {
   expect(text, '要说出上次试过、失败了').toMatch(/failed/i);
   expect(
@@ -123,7 +131,7 @@ function expectMissingBoardSentence(text: string, srcID: string): void {
     text,
     '要指出真正的下一步：这个地址上没有板子，去改源的设置',
   ).toMatch(/no such board|doesn't exist|does not exist|check the .*(address|settings|company)/i);
-  // 给人看的那一行的纪律照旧（UX-77）。
+  // The human-facing row's discipline still applies (UX-77).
   expect(text, '不该把源的 uuid 摆在屏幕上').not.toContain(srcID);
   expect(text, '不该出现上游 URL').not.toMatch(/https?:\/\//);
   expect(text, '不该出现状态码').not.toMatch(/\b404\b/);

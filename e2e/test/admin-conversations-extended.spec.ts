@@ -12,8 +12,8 @@ import { goto, gotoAdminSection } from '@/fixtures/navigate';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
-// BROKEN_DIAGRAM_REPLY —— 正文自己站得住 + 一段编译不过的 mermaid（跟
-// visitor-chat-answer-render 那条用的是同一段：一处形状，两个受众）。
+// BROKEN_DIAGRAM_REPLY — prose that stands on its own, plus a mermaid block that fails
+// to compile (the same fixture visitor-chat-answer-render uses: one shape, two audiences).
 const BROKEN_DIAGRAM_REPLY = [
   'The pipeline runs in three stages: fetch, curate, publish.',
   '',
@@ -22,7 +22,8 @@ const BROKEN_DIAGRAM_REPLY = [
   '```',
 ].join('\n');
 
-// seedBrokenDiagramConversation —— 一场答复里带编译不过的图的会话,给闸门的 owner 那一半用。
+// seedBrokenDiagramConversation — a conversation whose reply contains a diagram that fails
+// to compile, used for the owner half of the gate check.
 async function seedBrokenDiagramConversation(request: APIRequestContext): Promise<void> {
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: 'CONV-A', visitor_name: 'Broken Diagram',
@@ -86,8 +87,9 @@ test.describe('admin conversations extended', () => {
       await expect(body).toContainText('hello from A');
     });
 
-  // 转录只有 modal 一个真表面;删掉那个读空 conv.transcript 恒显 "placeholder for now"
-  // 的冗余内联 panel(点行同时弹 modal + 展开占位是 bug)。
+  // The transcript modal is the only real surface; the redundant inline panel that reads
+  // an empty conv.transcript and always shows "placeholder for now" has been removed
+  // (clicking a row popping the modal AND expanding the placeholder was a bug).
   test('opening a conversation shows NO leftover transcript placeholder panel',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'conversations');
@@ -97,9 +99,11 @@ test.describe('admin conversations extended', () => {
         .toHaveCount(0);
     });
 
-  // 闸门的另一半。访客那边编译不过的图被藏掉了（正文自己站得住），**但问题不能就此消失**：
-  // owner 是唯一能去改 prompt / 改 skill 的人，而他看逐字稿的地方就是这里。
-  // 只验前一半的话，我造的就是一个把模型错误埋掉的机制。
+  // The other half of the gate. The visitor's compile-broken diagram is hidden from them
+  // (the prose stands on its own), **but the problem must not just disappear**: the owner
+  // is the only one who can fix the prompt / skill, and this transcript view is where
+  // they'd see it. Verifying only the first half would build a mechanism that buries the
+  // model's error.
   test('transcript modal shows the compile error a visitor was spared',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'conversations');

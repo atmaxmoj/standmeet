@@ -1,14 +1,17 @@
-// connector-dep-drop-mid-turn.spec.ts —— 状态变更矩阵
-// 「已连→断联 · mid-call(已发 tool 列表、调时已断) · 友好降级,无 500/stack」补
-// (亦对应错误流矩阵 E7 token refresh 失败一类的「调用瞬间连接掉」)。
+// connector-dep-drop-mid-turn.spec.ts -- fills in the state-transition matrix cell
+// "connected -> disconnected · mid-call (tool list already sent, connection already
+// dropped by call time) · friendly degrade, no 500/stack" (also maps to error-flow matrix
+// E7, the "connection drops the instant of the call" class of token-refresh failure).
 //
-// 与 connector-revoked-degrades 同形:装配时已连(tool 进了发给 LLM 的列表),但
-// 真正执行 calendar_book 前连接掉了 —— 这里用 revokeMockGCalToken 让该 call 的
-// token 刷新撞 invalid_grant。期望:tool call **友好降级**(提示重连日历),
-// 绝不 500,不漏 stack / panic / invalid_grant 原文。
+// Shaped just like connector-revoked-degrades: still connected at assembly time (the tool
+// made it into the list sent to the LLM), but the connection drops before calendar_book
+// actually executes -- here, revokeMockGCalToken makes that call's token refresh hit
+// invalid_grant. Expected: the tool call **degrades gracefully** (hints at reconnecting
+// the calendar), never a 500, and never leaks stack / panic / the raw invalid_grant text.
 //
-// RED:重构落地前 connector-backed tool 的错误映射/降级路径若未统一收口,
-// 可能直接 500 或把 provider 原始错误透出 → 断言失败,符合 TDD 预期。
+// RED: if the connector-backed tool's error-mapping/degradation path isn't unified before
+// the refactor lands, it may 500 outright or leak the provider's raw error -> the
+// assertion fails, as expected under TDD.
 
 import { execSync } from 'node:child_process';
 import { test, expect } from '@/fixtures/test';
@@ -36,8 +39,8 @@ function future(days: number, hour: number): string {
   return d.toISOString();
 }
 
-// expireAccessToken —— 标记 owner GCal access_token 过期,逼 book 走刷新路径
-// (刷新撞上已 revoke 的 token 端点)。
+// expireAccessToken -- marks the owner's GCal access_token as expired, forcing book down
+// the refresh path (which then hits the already-revoked token endpoint).
 function expireAccessToken(): void {
   // The connector refactor generalised the per-category tables into one `owner_connectors`
   // (connector_id / category / token_expires_at); `owner_calendar_connectors.provider` is gone.
@@ -81,7 +84,8 @@ test.describe('connector dep · connection drops mid-turn → friendly degrade',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
 
-      // 装配时仍已连 → 该回合 tool 进列表。随后连接在调用前掉(revoke + 逼刷新)。
+      // Still connected at assembly time -> the tool makes it into this turn's list. The
+      // connection then drops before the call (revoke + force a refresh).
       await revokeMockGCalToken(request);
       expireAccessToken();
 
@@ -91,7 +95,8 @@ test.describe('connector dep · connection drops mid-turn → friendly degrade',
       });
       const { status, body } = await callBook(request, sess.conversation_id, sess.session_token);
 
-      // 友好降级:不是 500,给人话提示(重连日历),不漏底层细节。
+      // Friendly degrade: not a 500, gives a human-readable hint (reconnect the
+      // calendar), doesn't leak the underlying details.
       expect(status, 'no server crash').toBeLessThan(500);
       const msg = `${body.reason ?? ''} ${body.result?.error ?? ''}`;
       expect(msg, 'friendly reconnect hint')

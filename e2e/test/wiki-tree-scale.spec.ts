@@ -1,12 +1,15 @@
-// wiki-tree-scale.spec.ts —— 公开 wiki 树端点必须真·懒加载**全量**,不是「后端先
-// ListByOwner(50) 再在内存里切一层」。
+// wiki-tree-scale.spec.ts —— the public wiki tree endpoint must be truly lazy over the
+// **entire** corpus, not "the backend loads ListByOwner(50) first, then slices a layer out of
+// memory."
 //
-// 旧实现每个 ?parent= 调用都 load newest-50 再过滤 → 第 51 条往后(或最旧)的节点
-// 在 sidebar 里**静默消失**。这里把一条深链**最先**种下(最旧),再灌 55 条 filler
-// root 把它推出 newest-50,然后:
-//   - 匿名 GET /wiki-tree            → roots 仍含这条老 root
-//   - 匿名 GET /wiki-tree?parent=老root → 仍能展开到它的子
-// 旧的 50-cap 实现这两条都会**漏**(本测试守这条);DB 端 ListChildren 后绿。
+// The old implementation loaded the newest-50 and filtered on every `?parent=` call → any
+// node past the 51st (or the oldest ones) **silently vanished** from the sidebar. This case
+// seeds one deep chain **first** (so it's the oldest), then floods in 55 filler roots to push
+// it out of the newest-50, then:
+//   - anonymous GET /wiki-tree            → roots still include this old root
+//   - anonymous GET /wiki-tree?parent=oldRoot → its children are still reachable
+// The old 50-cap implementation **misses** both of these (that's what this test guards);
+// it's green once the DB side switches to ListChildren.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -32,12 +35,15 @@ let mcpToken = '';
 let oldRootID = '';
 
 test.describe('public wiki tree is truly lazy over the whole corpus, not newest-50', () => {
-  // 播种要 136 次串行 `/mcp` 往返(每个节点 = corpus.create + corpus.promote),实测墙钟
-  // **27.0 秒**(2026-08-02 全量:19:23:44.477→19:24:11.004,服务端 12.08s,其余是逐次
-  // HTTP + JSON-RPC 开销)。默认 30s 的 hook 预算刚好卡在这条线上,全量里必翻。
+  // Seeding takes 136 serial `/mcp` round trips (each node = corpus.create + corpus.promote);
+  // measured wall clock is **27.0 seconds** (full run on 2026-08-02:
+  // 19:23:44.477→19:24:11.004, 12.08s server-side, the rest is per-call HTTP + JSON-RPC
+  // overhead). The default 30s hook budget sits right on this line, and will flip in a full run.
   //
-  // **不并发化播种**:这几条断言的正是"第 51 条往后不能消失",候选集按 created_at 排序,
-  // 并发会打乱种入顺序 —— 那是改掉被测的前提,不是加速。
+  // **Seeding is not made concurrent**: these assertions are exactly about "nothing past the
+  // 51st entry may vanish," and the candidate set is ordered by created_at — going concurrent
+  // would scramble the seeding order, which changes the very thing under test rather than
+  // just speeding it up.
   test.describe.configure({ timeout: 180_000 });
 
   test.beforeAll(async ({ playwright }) => {
@@ -51,12 +57,12 @@ test.describe('public wiki tree is truly lazy over the whole corpus, not newest-
     mcpToken = await createAPIToken(request, csrf, 'tree-scale-seed');
     const sid = await initMCP(request, mcpToken);
 
-    // 老链最先种(最旧),indexed。
+    // The old chain is seeded first (so it's oldest), indexed.
     oldRootID = await promote(request, sid, OLD_ROOT_TITLE);
     const oldChildID = await promote(request, sid, OLD_CHILD_TITLE, oldRootID);
     await markIndexed(request, sid, oldRootID);
     await markIndexed(request, sid, oldChildID);
-    // 55 条 filler root(indexed),把老链推出 newest-50。
+    // 55 filler roots (indexed), pushing the old chain out of the newest-50.
     for (let i = 0; i < FILLER_ROOTS; i += 1) {
       const id = await promote(request, sid, `Filler Root ${i}`);
       await markIndexed(request, sid, id);
@@ -69,7 +75,7 @@ test.describe('public wiki tree is truly lazy over the whole corpus, not newest-
       const roots = await tree(request, '');
       expect(roots.map((n) => n.title)).toContain(OLD_ROOT_TITLE);
       const old = roots.find((n) => n.title === OLD_ROOT_TITLE);
-      expect(old?.has_children).toBe(true); // peek 现算:它有可见子
+      expect(old?.has_children).toBe(true); // peek computes live: it does have a visible child
     });
 
   test('anon expand the old root → its child is still reachable',

@@ -1,17 +1,21 @@
-// connector-upload-mgmt.spec.ts —— #155 区 G（上传/管理）RED 契约。
+// connector-upload-mgmt.spec.ts — #155 area G (upload/manage) RED contract.
 //
-// 故事：owner 自托管，能在自己实例 UI 上传一份**自定义 spec + 绑定**（决策 §7.4
-// 「owner 能在自己实例 UI 上传，无中心审核」），它进 connectors 列表、能装配、跟
-// 内置连接器区分开；重名走覆盖确认；删除一个上传的连接器后，它填的那个品类 cap
-// **复闸**（consumer 的 Requires 不再被满足 → 该 cap 行从可用态退回 hidden/gated）。
+// Story: a self-hosting owner can upload a **custom spec + binding** on their own
+// instance's UI (decision §7.4, "the owner can upload on their own instance UI, no
+// central review"). It lands in the connectors list, can be assembled, and is
+// distinguished from built-in connectors; a duplicate name triggers an overwrite
+// confirmation; after deleting an uploaded connector, the category cap it filled
+// **re-gates** (the consumer's Requires is no longer satisfied → that cap row drops
+// from available back to hidden/gated).
 //
-// 对齐 docs/design/connector.md §8 区 G + 目标接口草图：
+// Aligned with docs/design/connector.md §8 area G + the target interface sketch:
 //   testid: connector-add-open / connector-spec-input / connector-binding-input /
 //           connector-spec-submit / connector-row-{category} / connector-origin-badge /
 //           connector-overwrite-confirm / connector-delete-button / connector-status
-//   REST:   POST /api/admin/connectors（从 spec 建）/ DELETE /api/admin/connectors/{id}
+//   REST:   POST /api/admin/connectors (build from spec) / DELETE /api/admin/connectors/{id}
 //
-// 覆盖 §8 区 G 上传/管理 UI + 后端。已实现，绿（原为 RED 契约，实现后转绿）。
+// Covers §8 area G upload/manage UI + backend. Implemented, green (was a RED
+// contract, turned green once implemented).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -31,9 +35,11 @@ const OWNER = {
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('connector · area G upload / manage', () => {
-  // 覆盖自托管 spec+绑定 上传/管理 UI（docs/design/connector.md §8 区 G）。已实现，绿。
+  // Covers the self-hosted spec+binding upload/manage UI (docs/design/connector.md
+  // §8 area G). Implemented, green.
 
-  // 每 test 重置实例 + owner（连接器不跨 test 累积；overwrite/delete 断绝对状态要干净）。
+  // Reset the instance + owner for every test (connectors must not accumulate
+  // across tests; overwrite/delete assertions need clean absolute state).
   test.beforeEach(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -44,17 +50,19 @@ test.describe('connector · area G upload / manage', () => {
     await request.dispose();
   });
 
-  // happy —— 上传自定义 spec + 绑定 → 出现在列表的 calendar 行 → 可装配（有 status）。
+  // happy — upload a custom spec + binding → the calendar row appears in the list →
+  // it's assemblable (has a status).
   test('upload a custom spec+binding → calendar row appears → assemblable', async ({ adminPage: page }) => {
     await uploadConnector(page, validCalendarSpec(), calendarBinding());
 
     const row = page.getByTestId('connector-row-calendar');
     await expect(row).toBeVisible();
-    // 装配入口在：未连时 status 为 not connected。
+    // Assembly landed: status reads not connected while nothing is wired up yet.
     await expect(row.getByTestId('connector-status')).toContainText(/not connected|未连接/i);
   });
 
-  // happy —— 上传的连接器标「uploaded」来源，跟内置（builtin）区分开。
+  // happy — an uploaded connector carries the "uploaded" origin badge, distinguishing
+  // it from a built-in one.
   test('uploaded vs built-in: an uploaded connector carries the uploaded origin badge', async ({ adminPage: page }) => {
     await uploadConnector(page, validCalendarSpec(), calendarBinding());
 
@@ -65,10 +73,11 @@ test.describe('connector · area G upload / manage', () => {
     await expect(badge).not.toContainText(/built-?in|内置/i);
   });
 
-  // err/edge —— 重名上传 → 弹覆盖确认；确认后该品类只剩一条（覆盖，不是叠加）。
+  // err/edge — uploading a duplicate name → an overwrite confirmation pops up; after
+  // confirming, only one row remains for that category (overwrite, not stacking).
   test('duplicate-name upload → overwrite confirm → list not duplicated', async ({ adminPage: page }) => {
     await uploadConnector(page, validCalendarSpec(), calendarBinding());
-    // 再传一份同品类 calendar 连接器 → 命中重名。
+    // Upload another calendar connector of the same category → hits the duplicate.
     await openConnectorAdd(page);
     await fillSpecAndBinding(page, validCalendarSpec(), calendarBinding());
     await assembleFilledSpec(page);
@@ -77,34 +86,40 @@ test.describe('connector · area G upload / manage', () => {
     await expect(confirm).toBeVisible();
     await confirm.click();
 
-    // 覆盖：calendar 行仍只有一条。
+    // Overwritten: the calendar row count stays at one.
     await expect(page.getByTestId('connector-row-calendar')).toHaveCount(1);
   });
 
-  // happy —— 删除上传的连接器 → 它从列表消失，且它填的 calendar cap 复闸（hidden/gated）。
+  // happy — deleting an uploaded connector → it disappears from the list, and the
+  // calendar cap it filled re-gates (hidden/gated).
   test('delete an uploaded connector → row gone + calendar cap re-gated/hidden', async ({ adminPage: page }) => {
     await uploadConnector(page, validCalendarSpec(), calendarBinding());
 
     const row = page.getByTestId('connector-row-calendar');
     await expect(row).toBeVisible();
     await row.getByTestId('connector-delete-button').click();
-    // 删除确认（破坏性动作）。
+    // Confirm the delete (a destructive action).
     await page.getByRole('button', { name: /delete|remove|删除|确认/i }).click();
 
-    // 行消失。
+    // Row gone.
     await expect(page.getByTestId('connector-row-calendar')).toHaveCount(0);
-    // cap 复闸：依赖 calendar 的能力（booker calendar.book）退回 gated/hidden。
-    // 现状 capability-row-calendar.book 在连上时才解闸；删 provider → 重新 gated。
+    // Cap re-gated: the capability that depends on calendar (booker calendar.book)
+    // drops back to gated/hidden.
+    // Currently capability-row-calendar.book only unlocks once connected; deleting
+    // the provider re-gates it.
     const capRow = page.getByTestId('capability-row-calendar.book');
     await expect(capRow).toHaveCount(0);
   });
 
-  // 不变量 —— 内置连接器（embed 数据）owner 不可删/改：DELETE/PUT 内置 id → 409 builtin_readonly。
-  // 守住「ErrBuiltinReadonly 跟 ErrInvalidManifest 分开」这条：内置改不得是 409，不是「坏 manifest」400。
+  // Invariant — a built-in connector (embedded data) cannot be deleted/edited by the
+  // owner: DELETE/PUT a built-in id → 409 builtin_readonly.
+  // Guards that "ErrBuiltinReadonly is distinct from ErrInvalidManifest": editing a
+  // built-in must be 409, not a "bad manifest" 400.
   test('built-in connector is read-only: delete/edit a built-in → 409', async ({ playwright }) => {
     const request = await playwright.request.newContext();
     const { csrf } = await login(request, OWNER.email, OWNER.password);
-    // google-calendar 是内置连接器（builtins/data/google-calendar，embed 进二进制）。
+    // google-calendar is a built-in connector (builtins/data/google-calendar,
+    // embedded into the binary).
     const del = await request.delete(`${BACKEND}/api/admin/connectors/google-calendar`, {
       headers: { 'X-Csrftoken': csrf },
     });
@@ -117,54 +132,67 @@ test.describe('connector · area G upload / manage', () => {
     await request.dispose();
   });
 
-  // F-C-47 —— **传得进来，连不上去。**
+  // F-C-47 — **it uploads fine, but there's no way to connect it.**
   //
-  // ①🔴 真环境（prod）：经 owner MCP 建了一个 protocol(caldav) 连接器，后台
-  // 「CONNECTORS YOU UPLOADED」里确实有它 —— 一行 `calendar [uploaded] [protocol] ·
-  // not connected` 加一个 `×`，**就这些**。没有凭据框、没有 CONNECT、点不开。
-  // 而这一节的导语自己写着 *"you can upload your own (OpenAPI / protocol) connector"*。
+  // (1)🔴 Real environment (prod): a protocol(caldav) connector was built via owner
+  // MCP, and it does show up under "CONNECTORS YOU UPLOADED" in the admin — one row,
+  // `calendar [uploaded] [protocol] · not connected` plus a `×`, **and that's it**.
+  // No credential fields, no CONNECT, nothing clickable.
+  // Yet this section's own lead-in text says *"you can upload your own (OpenAPI /
+  // protocol) connector"*.
   //
-  // ②🎯 三处都读过：`CatalogCards` 只按 `/connectors/catalog` 渲染（就三个内置）；
-  // `ConnectorList.ConnectorRowItem` 只画品类/来源/kind/状态/删除；owner MCP 也没有存凭据的
-  // op。**而后端是齐的** —— `/{id}/credential-form`、`/{id}/credentials`、`/{id}/connect`
-  // 挂在 `/{id}` 那一组上，对任何 id 都在。缺的不是能力，是没有一个面把它接出来
-  // （[[button-that-cannot-be-wired]]）。
+  // (2)🎯 Checked all three places: `CatalogCards` only renders from
+  // `/connectors/catalog` (just the three built-ins); `ConnectorList.ConnectorRowItem`
+  // only draws category/origin/kind/status/delete; owner MCP has no op for storing
+  // credentials either. **But the backend is fully wired** — `/{id}/credential-form`,
+  // `/{id}/credentials`, `/{id}/connect` are all mounted under the `/{id}` group, and
+  // work for any id. What's missing isn't the capability, it's a surface that wires it
+  // out to the UI ([[button-that-cannot-be-wired]]).
   //
-  // 判据要能判负：不断「有个表单」（一张空表单也能过），断**这份 spec 自己的认证方案**
-  // 派生出来的那个字段 —— 它只可能来自后端按这个连接器算出来的凭据表单。
+  // The assertion must be able to fail: don't just assert "a form exists" (an empty
+  // form would also pass) — assert **a field derived from this spec's own auth
+  // scheme**, which can only come from the credential form the backend computed for
+  // this connector.
   test('an uploaded connector can be given credentials, not just listed (F-C-47)',
     ({ adminPage: page }) => uploadedRowTakesCredentials(page));
 
-  // F-C-56：**没绑品类契约的连接器在列表里没有名字。**
+  // F-C-56: **a connector with no bound category has no name in the list.**
   //
-  // 卡名一直渲的是 `category`，而 GitHub 那种落不到 calendar/mail 上的厂商只有「暴露成
-  // agent 工具」这一条路 —— 那条路不产生 category，于是它在
-  // `CONNECTORS YOU UPLOADED` 里是一行只有 `uploaded` `openapi` 两个徽章的空框。
-  // 传第二个的那一刻列表就不再可读：要给哪一条填凭据、删哪一条，屏幕上答不出来。
+  // The card name always renders `category`, and a vendor like GitHub that doesn't
+  // map to calendar/mail has only one path — "expose as an agent tool" — and that
+  // path never produces a category, so it ends up in "CONNECTORS YOU UPLOADED" as a
+  // row that's an empty box carrying only the `uploaded` and `openapi` badges.
+  // The moment a second one is uploaded, the list stops being readable: which row
+  // needs credentials filled in, which one to delete — the screen can't answer.
   //
-  // 判据要能判负：不断「有字」（`uploaded` 那个徽章也是字），断**这份 spec 自己的
-  // `info.title`** —— 那个串只可能来自这份文档。
+  // The assertion must be able to fail: don't just assert "there's text" (the
+  // `uploaded` badge is also text) — assert **this spec's own `info.title`** — that
+  // exact string can only come from this document.
   test('an uploaded connector with no category still says which vendor it is (F-C-56)',
     ({ adminPage: page }) => uncategorisedRowNamesTheVendor(page));
 });
 
-// uncategorisedRowNamesTheVendor —— 传一份**不带 binding**、勾了 expose 的 spec（GitHub 那类
-// 厂商唯一走得通的路），然后看它在列表里叫什么。
+// uncategorisedRowNamesTheVendor — upload a spec with **no binding**, expose checked
+// (the only path that works for a GitHub-style vendor), then check what it's called
+// in the list.
 async function uncategorisedRowNamesTheVendor(page: Page): Promise<void> {
   await openConnectorAdd(page);
   await expect(page.getByTestId('connector-spec-input')).toBeVisible();
   await page.getByTestId('connector-spec-input').fill(validCalendarSpec());
-  // binding 留空 + 勾「开给访客的 AI」—— 无 binding 且没勾会被产品拒（needsBindingOrExpose）。
+  // Leave the binding empty + check "expose to visitor AI" — no binding and unchecked
+  // gets rejected by the product (needsBindingOrExpose).
   await page.getByTestId('connector-spec-submit').click();
   await expect(page.getByTestId('connector-candidate')).toBeVisible();
   await page.getByTestId('connector-expose-agent-tools').check();
   await page.getByTestId('connector-assemble-button').click();
-  // 装配要是被拒了，下面那句「行不在」会红得跟缺陷一模一样 —— 先把拒绝的原话读出来。
+  // If assembly was rejected, the "row not found" assertion below would go red in a
+  // way that looks identical to the real defect — read the actual rejection first.
   await expect(page.getByTestId('connector-assemble-error')).toHaveCount(0);
   await expect(page.getByTestId('connector-assemble-useless')).toHaveCount(0);
   await page.getByTestId('connector-modal-close').click();
 
-  // 没有品类 → 行的 testid 后面是空的。这本身也是同一个根（两条无品类的连接器会撞 testid）。
+  // No category → the row's testid has an empty suffix. This is the same root cause:
+  // two category-less connectors would collide on the same testid.
   const row = page.getByTestId('connector-row-');
   await expect(row).toBeVisible();
   await expect(
@@ -173,18 +201,21 @@ async function uncategorisedRowNamesTheVendor(page: Page): Promise<void> {
   ).toHaveText('Acme Calendar');
 }
 
-// uploadedRowTakesCredentials —— 传一个连接器，然后在同一页上找给它填凭据的地方。
+// uploadedRowTakesCredentials — upload a connector, then find where to fill in
+// credentials for it on the same page.
 async function uploadedRowTakesCredentials(page: Page): Promise<void> {
   await uploadConnector(page, validCalendarSpec(), calendarBinding());
 
   const row = page.getByTestId('connector-row-calendar');
   await expect(row).toBeVisible();
 
-  // 断的是内置卡真正渲染的那两样（`connector-field-*` + CONNECT）——
-  // 第一版我断了 `connector-cred-form`，那个 testid 在另一个老组件里、**内置卡也没有**，
-  // 于是修完照样红：红得不知所以然（[[read-the-failure-before-theorising]]）。
-  // client_id 只可能来自后端按**这份 spec 声明的 oauth2 方案**派生的表单 ——
-  // 断一个具体字段，一张空表单就过不了。
+  // Asserts the two things a built-in card actually renders (`connector-field-*` +
+  // CONNECT) — my first version asserted `connector-cred-form`, a testid that lives in
+  // a different, older component and **the built-in card doesn't have it either**, so
+  // the fix still went red for a reason nobody could point to
+  // ([[read-the-failure-before-theorising]]).
+  // client_id can only come from the form derived from **this spec's own declared
+  // oauth2 scheme** — asserting a specific field means an empty form can't pass.
   await expect(
     row.getByTestId('connector-field-client_id'),
     'an uploaded connector must take credentials, not just be listed and deleted',
@@ -196,18 +227,20 @@ async function uploadedRowTakesCredentials(page: Page): Promise<void> {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// 本地 helper（实现落地后提升为共享 fixture：openConnectorAdd / uploadConnector +
-// 样例 spec / 绑定串）。
+// Local helpers (to be promoted into a shared fixture once implemented:
+// openConnectorAdd / uploadConnector + the sample spec / binding strings).
 // ──────────────────────────────────────────────────────────────────────────
 
-// openConnectorAdd —— 从已知入口 nav 进 connectors 区并打开 add（不 page.goto）。
+// openConnectorAdd — navigates into the connectors area via the known entry point and
+// opens add (no page.goto).
 async function openConnectorAdd(page: Page): Promise<void> {
   await page.getByTestId('admin-nav-connectors').click();
   await page.waitForURL('**/admin/connectors**');
   await page.getByTestId('connector-add-open').click();
 }
 
-// fillSpecAndBinding —— 把 spec 贴进 spec-input、绑定贴进 binding-input。
+// fillSpecAndBinding — pastes the spec into spec-input and the binding into
+// binding-input.
 async function fillSpecAndBinding(
   page: Page, spec: string, binding: string,
 ): Promise<void> {
@@ -216,33 +249,41 @@ async function fillSpecAndBinding(
   await page.getByTestId('connector-binding-input').fill(binding);
 }
 
-// uploadConnector —— 打开 add → 填 spec+绑定 → **校验 → 装配** → 等列表里出现该品类行。
+// uploadConnector — opens add → fills spec+binding → **validate → assemble** → waits
+// for that category's row to appear in the list.
 //
-// 校验和装配现在是两个动作（F-C-21）：`connector-spec-submit` 只校验（出候选 + 派生凭据表单），
-// `connector-assemble-button` 才建连接器。以前这两件事挤在同一个按钮上，而它做哪一件取决于
-// binding 框空不空 —— 一个按钮两种语义，正是 owner 拿真 vendor spec 时走进死胡同的原因。
+// Validate and assemble are now two separate actions (F-C-21): `connector-spec-submit`
+// only validates (produces candidates + a derived credential form),
+// `connector-assemble-button` is what creates the connector. These two used to be
+// crammed onto one button, and which one it did depended on whether the binding box
+// was empty — one button, two meanings, exactly why an owner with a real vendor spec
+// used to hit a dead end.
 async function uploadConnector(
   page: Page, spec: string, binding: string,
 ): Promise<void> {
   await openConnectorAdd(page);
   await fillSpecAndBinding(page, spec, binding);
   await assembleFilledSpec(page);
-  // 装配之后模态**留着**（表单让位给新连接器的卡：凭据 + Connect 在那儿）。这条用例只关心
-  // 它有没有落进列表，所以自己关掉模态 —— 区内主体在模态开着时不渲染。
+  // The modal **stays open** after assembly (the form gives way to the new
+  // connector's card: credentials + Connect live there). This test only cares
+  // whether it landed in the list, so it closes the modal itself — the area's main
+  // body doesn't render while the modal is open.
   await page.getByTestId('connector-modal-close').click();
   await expect(page.getByTestId('connector-row-calendar')).toBeVisible();
 }
 
-// assembleFilledSpec —— 表单已填好 → 校验 → 等候选出现 → 装配。**不关模态**：重名那条路上
-// 模态会自己让位给覆盖确认（待回答的问题优先于模态），这里再去点关闭就会扑空。
+// assembleFilledSpec — form is already filled → validate → wait for a candidate →
+// assemble. **Does not close the modal**: on the duplicate-name path the modal gives
+// way on its own to the overwrite confirmation (a pending question takes priority
+// over the modal), and clicking close here would hit nothing.
 async function assembleFilledSpec(page: Page): Promise<void> {
   await page.getByTestId('connector-spec-submit').click();
   await expect(page.getByTestId('connector-candidate')).toBeVisible();
   await page.getByTestId('connector-assemble-button').click();
 }
 
-// validCalendarSpec —— 最小合法 OpenAPI 3.0 calendar spec（servers + freebusy +
-// events.insert operation + oauth2 securityScheme）。
+// validCalendarSpec — a minimal valid OpenAPI 3.0 calendar spec (servers + freebusy +
+// events.insert operation + oauth2 securityScheme).
 function validCalendarSpec(): string {
   return JSON.stringify({
     openapi: '3.0.0',
@@ -281,8 +322,8 @@ function validCalendarSpec(): string {
   });
 }
 
-// calendarBinding —— op→契约 绑定（YAML 文本），把 list_busy/create_event 映到
-// freebusy.query / events.insert，request/response 用 JSONata（决策 §7.1）。
+// calendarBinding — the op→contract binding (YAML text), mapping list_busy/create_event
+// to freebusy.query / events.insert, with request/response in JSONata (decision §7.1).
 function calendarBinding(): string {
   return [
     'category: calendar',

@@ -1,6 +1,6 @@
 // admin-drafts.spec.ts —— admin drafts UI: card layout, status pill, buttons.
 //
-// 用户故事：
+// User story:
 //   1. draft card → 2-col layout (content + PDF preview)
 //   2. status pill colors (reviewing = amber / draft = neutral / sent = accent)
 //   3. reviewing → "open composer →" + "edit" + "regenerate" buttons

@@ -1,8 +1,9 @@
-// gate-access.spec.ts —— 访客没拿到 code，但通过 /<handle>/gate 输码进来。
+// gate-access.spec.ts — a visitor without a code, entering by typing one on /<handle>/gate.
 //
-// 用户故事：
-//   HR 收到 owner 邮件里的 access code，没直接知道公开页 URL。她访问
-//   /alice/gate，输入 INTRO-001，跳到 /alice，能聊 work-tagged 切片。
+// User story:
+//   HR receives an access code in the owner's email but doesn't know the public page URL
+//   directly. She visits /alice/gate, enters INTRO-001, gets taken to /alice, and can chat
+//   against the work-tagged slice.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from "@playwright/test";
@@ -43,8 +44,8 @@ test.describe('visitor uses a gate code to enter a private page', () => {
       await page.getByTestId('gate-visitor-name').fill('Sarah (HR)');
       await page.getByTestId('gate-code-submit').click();
       await page.waitForURL('**/', { timeout: 10_000 });
-      // coded visitor 现在看到 ChatRoom（focused chat），不是 long-scroll。
-      // 验 session-strip 可见 + chat input 可见。
+      // A coded visitor now sees ChatRoom (focused chat), not the long-scroll page.
+      // Verify session-strip is visible + chat input is visible.
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('chat-input')).toBeVisible();
     });

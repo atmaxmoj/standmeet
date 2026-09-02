@@ -1,10 +1,11 @@
 // iam-revoke-blocks-next-turn.spec.ts —— Revoking a code blocks the visitor's
-// next message. RoleSnapshot freeze 设计的"唯一补救手段"。
+// next message. The "only remedy" for the RoleSnapshot freeze design.
 //
-// 用户故事：
-//   visitor 用 code C 进了 session，第一条 message 正常拿回复。owner 在
-//   admin /codes 上点 revoke C。visitor 同一 session 再发消息，应该 401
-//   （session 持有的 code id 找不到 active code 了）。
+// User story:
+//   A visitor enters a session with code C and gets a normal reply on the first message.
+//   The owner clicks revoke C on admin /codes. The visitor sends another message in the same
+//   session and should get 401 (the code id the session holds no longer resolves to an
+//   active code).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

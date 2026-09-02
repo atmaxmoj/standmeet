@@ -1,10 +1,10 @@
-// tool-calendar-cancel-booking.spec.ts —— Phase E-14c MCP parity:
-// owner 在 Claude Code 调 calendar.cancel_booking 撤会。流程:
-//   1. visitor 通过 chat 调 calendar_book 落一条 booking
-//   2. booker 的 bookings.list 工具拿 booking_id(admin REST 已退役)
+// tool-calendar-cancel-booking.spec.ts -- Phase E-14c MCP parity:
+// the owner calls calendar.cancel_booking in Claude Code to cancel a meeting. Flow:
+//   1. a visitor books via chat, calling calendar_book
+//   2. booker's own bookings.list tool fetches the booking_id (the admin REST route is retired)
 //   3. owner MCP calendar.cancel_booking(booking_id)
-//   4. 验 mock gcal /__mock/gcal/deleted_events 收到该 event_id
-//   5. 验 bookings.list 不再含该 booking
+//   4. verify mock gcal /__mock/gcal/deleted_events received that event_id
+//   5. verify bookings.list no longer contains this booking
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -53,8 +53,8 @@ test.describe('Phase E-14c calendar.cancel_booking via MCP', () => {
       expect(created.length).toBe(1);
       const insertedEventID = created[0]!.event_id;
 
-      // 2. 拿 booking_id —— 走 booker 自己的 bookings_list 工具。
-      // host 那条 admin REST 路由已退役:约成的会是 booker 的数据,列表也该由它出。
+      // 2. Get the booking_id -- via booker's own bookings_list tool.
+      // The host's admin REST route is retired: the booked meeting is booker's data, so the listing should come from booker too.
       const listed = await callTool<{ bookings: AdminBooking[] }>(
         seed.request, apiToken, sid, 'bookings.list', {});
       const booking = listed.bookings.find((b) => b.google_event_id === insertedEventID);
@@ -76,23 +76,27 @@ test.describe('Phase E-14c calendar.cancel_booking via MCP', () => {
       };
       expect(deletedBody.events.map((e) => e.event_id))
         .toContain(insertedEventID);
-      // F-B-7 —— 这条会上坐着一个真人(seed 的访客带 rachel@example.com)。契约把这件事
-      // 写成了注释：`contract/contract.go:27-28` 说 DeleteEvent 在 attendeeEmail 非空时
-      // 「通知与会者取消(sendUpdates=all)」。删掉事件而不通知，等于让他按时到场开一个
-      // 已经不存在的会 —— 而在这一行之前，「删了」和「删了且通知了」在断言上一模一样。
+      // F-B-7 -- a real person is sitting in this meeting (the seeded visitor has
+      // rachel@example.com). The contract has this written down as a comment:
+      // `contract/contract.go:27-28` says DeleteEvent "notifies attendees of the
+      // cancellation (sendUpdates=all)" when attendeeEmail is non-empty. Deleting the event
+      // without notifying is the same as letting them show up on time for a meeting that no
+      // longer exists -- and before this line, "deleted" and "deleted and notified" read
+      // identically to the assertions.
       const gone = deletedBody.events.find((e) => e.event_id === insertedEventID);
       expect(gone?.send_updates,
         'the guest on this meeting was told it was cancelled').toBe('all');
 
-      // 5. 列表里没有它了
+      // 5. it's no longer in the list
       const after = await callTool<{ bookings: AdminBooking[] }>(
         seed.request, apiToken, sid, 'bookings.list', {});
       expect(after.bookings.find((b) => b.id === booking.id)).toBeUndefined();
     });
 
-  // 找不到 → booker 自己的错误约定 {ok:false,error,detail}(它全部工具都这样),
-  // 不是 MCP isError —— 取消搬进沙箱之后,它跟 booker 其余工具用同一套。
-  // 不区分"不存在"和"不是你的":两者都不该泄露存在性。
+  // Not found -> booker's own error convention {ok:false,error,detail} (all of its tools use
+  // this), not an MCP isError -- once cancellation moved into the sandbox, it uses the same
+  // convention as booker's other tools.
+  // Does not distinguish "doesn't exist" from "not yours": neither should leak existence.
   test('cancel_booking on unknown booking_id reports not_found', async () => {
     const resp = await callTool<{ ok: boolean; error: string; detail: string }>(
       seed.request, apiToken, sid, 'calendar.cancel_booking',

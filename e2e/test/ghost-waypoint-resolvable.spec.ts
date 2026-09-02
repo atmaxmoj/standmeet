@@ -1,19 +1,26 @@
-// ghost-waypoint-resolvable.spec.ts —— F-A-26: 冻结那一刻的可行性下限必须看**被指的东西在不在**,
-// 不能只看**指的那串字写没写**。
+// ghost-waypoint-resolvable.spec.ts -- F-A-26: the reachability floor, at the moment of
+// freezing, must look at **whether the thing being pointed to exists**, not just at
+// **whether the pointing string was written**.
 //
-// 设计([[ghost-steering]] §Per-clause basis):evidence gate 的依据是 "a ghost pointing where the
-// corpus is thin steers the conversation into a failure"。一条解析不出任何笔记的 evidence_ref 就是
-// 最薄的那种薄 —— 而它能同时穿过两道现有的闸:
-//   • FilterWaypointsByCorpus 只判 ref 落不落在授权 glob 内(wiki://never-written 匹配 wiki://** 匹配得很好);
-//   • require_ghost_evidence 只判 len(evidence_refs) > 0。
+// Design ([[ghost-steering]] §Per-clause basis): the evidence gate's rationale is "a ghost
+// pointing where the corpus is thin steers the conversation into a failure". An
+// evidence_ref that resolves to no note at all is the thinnest kind of thin -- and it slips
+// through both of the existing gates at once:
+//   - FilterWaypointsByCorpus only checks whether the ref falls inside an authorized glob
+//     (wiki://never-written matches wiki://** just fine);
+//   - require_ghost_evidence only checks len(evidence_refs) > 0.
 //
-// 而它比「压根没写 refs」更糟:WaypointLedger 是拿 refs 去比对**本轮真被引用的笔记**推出的 URI 来标
-// visited 的,所以一条指向空的 ref 永远不可能被任何引用命中 —— 这条 waypoint **永久不可访**,ghost
-// 每轮都会重新推它,而「所有 waypoint 到访后转静默」在这个 role 上永远无法满足。
+// And it's worse than "no refs written at all": WaypointLedger marks a waypoint visited by
+// comparing refs against the URI derived from **the note actually cited this turn**, so a
+// ref pointing at nothing can never be hit by any citation -- this waypoint is
+// **permanently unreachable**, ghost keeps pushing it every turn, and "every waypoint goes
+// quiet once visited" can never be satisfied for this role.
 //
-// RED(修复前):phantom 那条照样进冻结快照 —— 第二个 test 红。
+// RED (before the fix): the phantom entry still makes it into the frozen snapshot -> the
+// second test fails.
 //
-// 「零 refs」不在本 spec 范围内:那一类由 require_ghost_evidence 这个旋钮管,开关是 owner 的选择。
+// "Zero refs" is out of scope for this spec: that case is governed by the
+// require_ghost_evidence knob, a switch the owner controls.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -35,11 +42,13 @@ const OWNER = {
 const CODE = 'WPREACH-001';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// role 授权整个 wiki —— 三条 waypoint 的 refs 全部在授权 glob 内。分开它们的**只有**「笔记在不在」,
-// 授权那一层在本 spec 里被刻意调成看不出差别,好让它证明的是可行性而不是授权。
+// The role authorizes the entire wiki -- all three waypoints' refs fall inside the
+// authorized glob. The **only** thing separating them is "does the note exist"; the
+// authorization layer is deliberately made indistinguishable in this spec so what it proves
+// is reachability, not authorization.
 const CORPUS_GLOBS = ['wiki://**'];
 
-// 真证据:这条笔记下面会被 seed 出来。title 'Alpha' + path 'alpha' → URI wiki://alpha。
+// Real evidence: this note gets seeded below. title 'Alpha' + path 'alpha' -> URI wiki://alpha.
 const REAL_TITLE = 'Alpha';
 const REAL_PATH = 'alpha';
 const WP_REAL = {
@@ -50,8 +59,8 @@ const WP_REAL = {
   is_terminal: false,
 };
 
-// 空证据:glob 合法、语法合法、指向不存在。prod 上 read-standpoint → subjectivity://standpoint
-// 就是这一条的真身。
+// Empty evidence: glob is valid, syntax is valid, points at nothing. In prod,
+// read-standpoint -> subjectivity://standpoint is the real-life version of this case.
 const WP_PHANTOM = {
   waypoint_id: 'read-standpoint',
   description: 'read the standpoint note',
@@ -60,8 +69,10 @@ const WP_PHANTOM = {
   is_terminal: false,
 };
 
-// 终点 + 空证据:必须**存活**。终点靠工具事件(约成)标 visited,不靠引用,所以它的 ref 解不解析得出来
-// 都不影响它可达。这条守的是修复不许过头 —— 把预约终点滤掉会让整条转化路径静音。
+// Terminal + empty evidence: must **survive**. A terminal gets marked visited by a tool
+// event (a completed booking), not by citation, so whether its ref resolves has no bearing
+// on its reachability. This case guards against the fix overreaching -- filtering out the
+// booking terminal would silence the entire conversion path.
 const WP_TERMINAL = {
   waypoint_id: 'book-call',
   description: 'book a call',
@@ -105,7 +116,8 @@ test.describe('ghost waypoint · 可行性下限要解析得出证据 · F-A-26'
 
   test('证据全解析不出的非终点 waypoint,冻结时被丢弃', async ({ playwright }) => {
     const wps = await frozenWaypoints(await freshCtx(playwright), sessionToken);
-    // 非空态守卫:先证明冻结确实发生了(真的那条在),否则「phantom 缺席」可能只是空集的假绿。
+    // Non-empty-state guard: first prove freezing actually happened (the real one is
+    // present), otherwise "phantom is absent" could just be a false green from an empty set.
     expect(
       wps.some((w) => w.waypoint_id === WP_REAL.waypoint_id),
       'guard: 真 waypoint 已冻结(证明冻结发生,phantom 缺席才有意义)',
@@ -140,7 +152,8 @@ async function setup(playwright: Playwright): Promise<string> {
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  // 先 seed 真证据,再发码 —— 冻结那一刻它必须已经在库里,否则「存活」那条会因为时序而假红。
+  // Seed the real evidence first, then issue the code -- it must already be in the corpus at
+  // the moment of freezing, otherwise the "survives" assertion could fail red purely from timing.
   const apiToken = await createAPIToken(request, csrf, 'wpreach-seed');
   const sid = await initMCP(request, apiToken);
   await seedWiki(request, apiToken, sid, {

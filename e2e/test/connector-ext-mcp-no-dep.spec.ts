@@ -1,4 +1,4 @@
-// connector-ext-mcp-no-dep.spec.ts —— §一 ext-mcp 默认不接 dep
+// connector-ext-mcp-no-dep.spec.ts -- §1 ext-mcp does not wire dep by default
 //
 // Trust hierarchy: an owner-runtime EXTERNAL MCP plugin (the lowest-trust
 // loader — it's someone else's process the owner merely registered) must NOT

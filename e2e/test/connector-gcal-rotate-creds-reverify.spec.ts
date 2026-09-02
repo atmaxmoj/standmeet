@@ -1,9 +1,12 @@
-// connector-gcal-rotate-creds-reverify.spec.ts —— §三 D-5 行
-// 「改身份字段：calendar 换 client_id/secret」(edit-config) → 清 token
-// (refresh_token=NULL) → connected=false → booking tool 隐藏 → 重 OAuth 才恢复。
+// connector-gcal-rotate-creds-reverify.spec.ts -- §III row D-5:
+// "changing an identity field: calendar swaps client_id/secret" (edit-config) -> clears
+// the token (refresh_token=NULL) -> connected=false -> the booking tool is hidden -> only
+// re-running OAuth restores it.
 //
-// RED / TDD：依赖 connector 依赖解析重构 + 「身份字段变 → 重验」逻辑落地后才转绿。
-// 现状 saveGCalCredentials 二次写不清 token，本 spec 期望 connected 翻 false。
+// RED / TDD: depends on the connector dependency-resolution refactor + the "identity
+// field changed -> re-verify" logic landing before this goes green.
+// Currently, saveGCalCredentials's second write doesn't clear the token; this spec
+// expects connected to flip to false.
 //
 // Identity-field change re-verify (decision D-5): rotating GCal client_id/secret
 // is an identity change → backend MUST clear the refresh token → status flips to
@@ -23,7 +26,8 @@ import { issueSession } from '@/fixtures/visitor';
 import { expectCalendarBookExposed } from '@/fixtures/agent-skills-grant';
 import { OWNER } from '@/fixtures/gcal-setup';
 
-// 与默认 MOCK_GCAL_CREDS 不同的一组凭据 —— 模拟 owner 换了 Google project。
+// A set of credentials different from the default MOCK_GCAL_CREDS -- simulates the owner
+// switching Google projects.
 const ROTATED_CREDS: GCalCredentials = {
   client_id: 'mock-gcal-client-id-ROTATED',
   client_secret: 'mock-gcal-client-secret-ROTATED',

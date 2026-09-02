@@ -1,6 +1,6 @@
-// mcp-auth.spec.ts —— MCP 必须拿合法 Bearer token 才能用任何 tool。
+// mcp-auth.spec.ts — MCP requires a valid Bearer token to use any tool.
 //
-// 没 token / 错 token / claim 之前的实例 → tool call 必须失败。
+// No token / wrong token / an instance not yet claimed → the tool call must fail.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -84,9 +84,11 @@ async function mcpCallTool(
   return await res.text();
 }
 
-// isUnauthorized —— 必须是**真 auth 拒绝**信号(后端返 "unauthorized: invalid or missing api
-// token" / "unauthorized: invalid Sigv1")。**不接受裸 isError**:MCP 对任何 tool 错误都返
-// isError,若 auth 没生效但 tool 因别的原因报错,裸 isError 会让 broken-auth 蒙混成"已拒绝"。
+// isUnauthorized — must be a **genuine auth-rejection** signal (the backend returns
+// "unauthorized: invalid or missing api token" / "unauthorized: invalid Sigv1").
+// **A bare isError is not accepted**: MCP returns isError for any tool error, so if
+// auth wasn't actually enforced but the tool errored for some other reason, a bare
+// isError would let broken auth pass itself off as "rejected".
 function isUnauthorized(body: string): boolean {
   return body.toLowerCase().includes('unauthor');
 }

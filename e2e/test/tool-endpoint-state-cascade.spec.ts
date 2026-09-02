@@ -1,13 +1,13 @@
-// tool-endpoint-state-cascade.spec.ts —— 横切 invariant：per-tool
-// 端点 response 里的 capability_state 永远是**当前** Registry-evaluated
-// 状态，跟"哪个 tool 被调"无关。
+// tool-endpoint-state-cascade.spec.ts — a cross-cutting invariant: the
+// capability_state carried in a per-tool endpoint's response is always the **current**
+// Registry-evaluated state, regardless of "which tool was called".
 //
-// 关键场景：calendar_book 调一次 (burn quota) 后，下次随便调任何 tool
-// (e.g. corpus_search)，capability_state 里 calendar.book 应已经
-// gated out (max_bookings 满 → ErrHidden)。前端 zustand 用任意 tool
-// response 同步，pi-agent-core 再装配 system 时 calendar_book 不再可见
-// → "拒了返新 state → 前端 zustand 强制同步 → pi 重装配 tool" 不变量
-// 兑现。
+// Key scenario: after calling calendar_book once (burning its quota), the next call to
+// any tool at all (e.g. corpus_search) should already show calendar.book gated out in
+// capability_state (max_bookings is full → ErrHidden). The frontend's zustand syncs from
+// any tool response, and once pi-agent-core reassembles the system prompt, calendar_book
+// is no longer visible — fulfilling the invariant "a denial returns fresh state → the
+// frontend zustand force-syncs → pi reassembles the tool set".
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -86,10 +86,11 @@ test.describe('tool endpoint · capability_state cascade is cross-tool', () => {
       );
       expect(status).toBe(200);
       expect(body.ok).toBe(true);
-      // Handler 跑 executor 后**重新**装配拿 fresh cap state；
-      // booking 已经落库 (count=1==max)，gating 立刻把 calendar.book
-      // 隐藏。response 里 cap 应当 absent — 这是 cascade 的核心：
-      // tool 自己执行触发的状态变化在同一 response 里就被前端看到。
+      // After the handler runs the executor, it **reassembles** to get fresh cap
+      // state; the booking is already persisted (count=1==max), so gating hides
+      // calendar.book immediately. The cap should be absent from the response — this
+      // is the core of the cascade: a state change triggered by the tool's own
+      // execution is already visible to the frontend in that same response.
       expect(
         findCap(body.capability_state, 'calendar.book'),
         'calendar.book gated out immediately after the burn call',
@@ -106,7 +107,7 @@ test.describe('tool endpoint · capability_state cascade is cross-tool', () => {
         findCap(body.capability_state, 'calendar.book'),
         'calendar.book absent from any tool response after quota exhausted',
       ).toBeUndefined();
-      // corpus.retrieval 不受影响
+      // corpus.retrieval is unaffected
       expect(
         findCap(body.capability_state, 'corpus.retrieval')?.enabled,
       ).toBe(true);

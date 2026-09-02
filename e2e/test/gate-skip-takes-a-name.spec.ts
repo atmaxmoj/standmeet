@@ -1,14 +1,20 @@
-// gate-skip-takes-a-name.spec.ts —— 「跳过填名字」也占一个名额,这件事得写在按钮旁边。
+// gate-skip-takes-a-name.spec.ts —— "skip entering a name" also uses up one of the code's
+// member slots, and that fact needs to be stated next to the button.
 //
-// 行为本身是对的(owner 已确认):点 skip 走 resolveAnonMember → CreateAnonymousMember,
-// **每点一次都新建一条 member**,匿名这条路上没有「同一个人」的概念。所以同一个人点两次
-// skip 就吃掉两个名额,而且第二次不会跟第一次归成一组。
+// The behavior itself is correct (owner already confirmed it): clicking skip goes through
+// resolveAnonMember → CreateAnonymousMember, and **every click creates a new member row** —
+// the anonymous path has no notion of "the same person". So one person clicking skip twice
+// uses up two slots, and the second click is not grouped with the first.
 //
-// 但弹窗只解释了具名那一半 —— 「同名会归到一起,换名字就算新的人」—— 对 skip 一个字没说,
-// skip 按钮上也只有 "skip"。真实环境审计里我自己就踩了:同一个 code 填了名字是 1/10,
-// 点一次 skip 变 2/10,当场看不出为什么。我能踩,访客也会踩,而代价落在 owner 的配额上。
+// But the picker modal only explains the named half — "the same name gets grouped together,
+// a different name counts as a new person" — it says nothing about skip, and the skip
+// button itself just says "skip". I hit this myself during a real-environment audit: with
+// the same code, entering a name showed 1/10, then one click of skip made it 2/10, with no
+// visible reason why. If I can hit it, a visitor will too, and the cost lands on the owner's
+// quota.
 //
-// 断的是**说明存在**,不是行为:行为已经是对的了。
+// What's asserted is **that the explanation exists**, not the behavior — the behavior is
+// already correct.
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
@@ -29,7 +35,7 @@ test.describe('gate · the identity picker says what skipping costs', () => {
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), OWNER);
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-    // 有名额上限才谈得上「占一个」。
+    // "Uses up one slot" only makes sense when there's a member cap.
     await createCode(request, csrf, { code: CODE, label: 'skip note', max_members: 10 });
     await request.dispose();
   });
@@ -39,12 +45,14 @@ test.describe('gate · the identity picker says what skipping costs', () => {
     const skip = page.getByTestId('visitor-name-skip');
     await expect(skip).toBeVisible();
 
-    // 解释名额规则的就是这一段;skip 的代价该跟具名规则待在一起。
+    // This is the block that explains the slot rule; skip's cost belongs alongside the
+    // named-entry rule.
     const copy = (await page.getByTestId('visitor-name-capacity').innerText()).toLowerCase();
 
     expect(copy, 'the picker must explain the named-reuse rule')
       .toContain('same name');
-    // skip 的代价:它也吃一个名额。owner 的配额被消耗,访客却完全看不到。
+    // The cost of skip: it also consumes a member slot. The owner's quota is spent while
+    // the visitor sees nothing about it.
     expect(copy, 'skipping must be described as taking one of the code names')
       .toMatch(/skip[\s\S]{0,160}name/);
   });

@@ -60,8 +60,8 @@ test.describe('applications.commit issues an access code recruiters can use', ()
       const body = await res.json();
       expect(typeof body.session_token).toBe('string');
       expect(body.session_token.length).toBeGreaterThan(20);
-      // owner_handle dropped from session response: v1 单 owner instance，
-      // URL 不带 handle，session 不必再回吐 handle。
+      // owner_handle dropped from session response: v1 is a single-owner instance,
+      // the URL carries no handle, so the session no longer needs to echo it back.
       expect(typeof body.conversation_id).toBe('string');
     });
 });

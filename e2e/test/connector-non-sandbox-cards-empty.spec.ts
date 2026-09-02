@@ -1,10 +1,14 @@
-// connector-non-sandbox-cards-empty.spec.ts —— booked 外置收尾后,前端 NON_SANDBOX_CARDS
-// 里不再有按能力写死的卡(只剩 skill_*/ext_* 的通用 dump 兜底)。可观测代理:一次 booking
-// 流程里,booked 卡是 `mcp-app-card-calendar_book` 沙盒 iframe,主 DOM 里**不存在**老的
-// 写死 React 卡 `tool-card-calendar_book`。这等价于「写死卡清单清空(booked 项已外置)」。
-// (connector-deps-tests.md §一 non-sandbox-cards-empty)
+// connector-non-sandbox-cards-empty.spec.ts — once booked's externalization is
+// finished, the frontend's NON_SANDBOX_CARDS no longer has any card hardcoded by
+// capability (only the generic skill_*/ext_* dump fallback remains). Observable
+// proxy: in a booking flow, the booked card is the `mcp-app-card-calendar_book`
+// sandbox iframe, and the old hardcoded React card `tool-card-calendar_book`
+// **does not exist** in the main DOM. This is equivalent to "the hardcoded card list
+// is empty (the booked entry is now externalized)".
+// (connector-deps-tests.md §1 non-sandbox-cards-empty)
 //
-// RED until: calendar_book 卡由 booker 插件 serve 成 ui:// 沙盒卡。
+// RED until: the calendar_book card is served as a ui:// sandbox card by the booker
+// plugin.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -33,10 +37,11 @@ test.describe('connector · booked card is a sandbox iframe; no hardcoded capabi
       await enterChat(page, seed.code.code);
       await fireTurn(page, `book me a meeting${tag}`);
 
-      // booked 卡 = 沙盒 iframe。
+      // booked card = sandbox iframe.
       await expect(page.getByTestId('mcp-app-card-calendar_book'),
         'booked card rendered as sandbox iframe').toBeVisible({ timeout: 20_000 });
-      // 主 DOM 里没有老写死 React 卡(它已外置,不在 NON_SANDBOX_CARDS)。
+      // No old hardcoded React card in the main DOM (it's now externalized, not in
+      // NON_SANDBOX_CARDS).
       await expect(page.getByTestId('tool-card-calendar_book'),
         'hardcoded booked card retired').toHaveCount(0);
 

@@ -1,8 +1,8 @@
-// page-edit-full.spec.ts —— PageSection 除 hero_prose 之外的字段也走通：
-// where.location_line + contact.email 改了 → save → 公开页同步显示。
+// page-edit-full.spec.ts —— PageSection fields beyond hero_prose also work end to end:
+// where.location_line + contact.email get edited → save → shows up on the public page.
 //
-// page-edit.spec.ts 只测 hero_prose 一字段；其他 6 个 section 都没测过，
-// 这条补足"改了就生效"的整体保证。
+// page-edit.spec.ts only tests the single hero_prose field; the other 6 sections have never
+// been tested. This case fills out the overall guarantee that "an edit takes effect."
 
 import { test, expect } from '@/fixtures/test';
 

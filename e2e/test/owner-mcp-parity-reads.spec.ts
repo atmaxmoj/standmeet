@@ -1,8 +1,10 @@
-// owner-mcp-parity-reads.spec.ts —— 【对外】facade-parity 付清后新增的 owner-MCP **只读**
-// 工具的功能守护。tools/list golden(norm-outward-toolset)只证工具**在**;这条证每个
-// 新增只读工具**真能被调起来 + 返回合理形状**(binding 真 unmarshal→usecase→marshal)。
+// owner-mcp-parity-reads.spec.ts — [external-facing] a functional guard for the owner-MCP
+// **read-only** tools added once facade-parity was paid off. The tools/list golden
+// (norm-outward-toolset) only proves a tool **exists**; this proves every newly added
+// read-only tool **can actually be invoked + returns a sane shape** (the binding really
+// unmarshals→usecase→marshals).
 //
-// 覆盖: instance.{status,inference_usage,corpus_growth,activity,jobs} · seo.{get_settings,
+// Covers: instance.{status,inference_usage,corpus_growth,activity,jobs} · seo.{get_settings,
 // stats} · ai_provider.presets · appearance.get_css · page.get · capabilities.list ·
 // conversations.{list,ghost_telemetry} · access_requests.list · ip_bans.list · domains.list ·
 // connectors.{list,catalog} · booking.get_policy · bookings.list · codes.list · codes.list_members
@@ -40,7 +42,8 @@ async function setup(playwright: Playwright): Promise<void> {
   });
   token = await createAPIToken(request, csrf, 'parity-reads');
   sid = await initMCP(request, token);
-  // 建码回的是**整行码**（两个面同一份载荷），主键叫 id。
+  // Creating a code returns **the whole code row** (both surfaces share one payload),
+  // and its primary key is called id.
   const made = await callTool<{ id: string }>(request, token, sid, 'codes.create', {
     code: 'READS-001', label: 'READS', assumed_role_id: role.id, max_members: 3,
   });
@@ -108,8 +111,9 @@ async function checkOwnerSettings(r: APIRequestContext): Promise<void> {
 }
 
 async function checkCapabilities(r: APIRequestContext): Promise<void> {
-  // 载荷是 {"capabilities": [...]} —— admin 一直是这个信封，收口接手之后 MCP 也拿同一份。
-  // 连 connector 那两行也一并有了（迁移前 MCP 面整类缺席）。
+  // The payload is {"capabilities": [...]} — admin has always used this envelope, and
+  // once the convergence took over, MCP got the same one. The connector rows come along
+  // too (that whole class was absent from the MCP surface before the migration).
   const body = await callTool<{ capabilities: Array<{ id: string; kind: string; enabled: boolean }> }>(
     r, token, sid, 'capabilities.list', {});
   const caps = body.capabilities;
@@ -123,7 +127,8 @@ async function checkEmptyRegistries(r: APIRequestContext): Promise<void> {
   const convs = await callTool<unknown[]>(r, token, sid, 'conversations.list', {});
   expect(Array.isArray(convs), 'conversations.list array').toBe(true);
 
-  // 遥测回 {waypoints, totals} —— 面板一直是这个信封；MCP 那份以前是裸数组、没有总计。
+  // Telemetry returns {waypoints, totals} — the panel has always used this envelope;
+  // the MCP version used to be a bare array with no totals.
   const ghosts = await callTool<{ waypoints: unknown[]; totals: { shown: number } }>(
     r, token, sid, 'conversations.ghost_telemetry', {});
   expect(Array.isArray(ghosts.waypoints), 'ghost_telemetry waypoints').toBe(true);
@@ -149,8 +154,9 @@ async function checkConnectors(r: APIRequestContext): Promise<void> {
   expect(typeof catalog[0]!.category, 'catalog entry has category').toBe('string');
 }
 
-// 预约策略经**通用**的 capability_config 口读 —— booker 自己声明的字段,
-// 不再有 booking.get_policy 这种按能力名写死的工具。
+// The booking policy is read through the **generic** capability_config interface — the
+// fields the booker declares itself — there's no longer a booking.get_policy-style tool
+// hardcoded to a capability name.
 async function checkBookingConfig(r: APIRequestContext): Promise<void> {
   const cfg = await callTool<{ fields: { key: string; value: unknown }[] }>(
     r, token, sid, 'capability_config.get', { capability_id: 'calendar.book' });

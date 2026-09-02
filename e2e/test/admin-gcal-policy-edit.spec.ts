@@ -53,29 +53,36 @@ test.describe('admin · booking policy edit', () => {
       expect((await getBookingPolicy(seed.request)).min_lead_days).toBe(3);
     });
 
-  // 没存过时区时，这个控件**不许显示一个没存过的时区**。
+  // When no timezone has been saved, this control **must not show a timezone that was
+  // never saved**.
   //
-  // 上一版显示的是浏览器自己的时区（UX-11：为了躲开 option[0] 那个 "-11:00 American Samoa"）。
-  // 躲开是对的，代价没被接住：屏幕上写着 America/Toronto，而库里是空串，`book.go` 把空串读成
-  // **UTC** —— owner 设的 09:00–18:00 于是在 UTC 上判，访客拿到的第一个时段是多伦多凌晨
-  // 05:18（F-B-5 ⭐）。**显示的时区不是被评估的那个**，而这条用例正是把那件事钉住的地方。
+  // The previous version showed the browser's own timezone (UX-11: to dodge option[0],
+  // the "-11:00 American Samoa" entry). Dodging that was right, but the cost was never
+  // caught: the screen read America/Toronto while the store held an empty string, and
+  // `book.go` reads an empty string as **UTC** — so the owner's 09:00–18:00 gets
+  // evaluated against UTC, and the first slot a visitor gets is 05:18 Toronto time
+  // (F-B-5 ⭐). **The displayed timezone is not the one being evaluated**, and this
+  // case is exactly what pins that down.
   //
-  // 这一条跑在下面那条「选一个 → 存下来」之前，所以此刻 policy.timezone 还是空的。
+  // This case runs before the "pick one → it saves" case below, so at this point
+  // policy.timezone is still empty.
   test('nothing saved yet → the picker says so, and the panel names what is used meanwhile',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'connectors');
       const select = adminPage.getByTestId('gcal-timezone');
       await expect(select).toBeVisible({ timeout: 10_000 });
 
-      // 库里是空的 —— 正对照，否则下面两条可能是在一台**已经设过**时区的实例上过的。
+      // The store is empty — positive control, otherwise the two assertions below
+      // could be passing on an instance whose timezone was **already set**.
       expect((await getBookingPolicy(seed.request)).timezone).toBe('');
-      // 控件显示的就是那个空 —— 不是任何一个具体时区。
+      // The control shows exactly that emptiness — not any specific timezone.
       await expect(
         select,
         'an unsaved timezone must not be shown as if it were configured — the engine reads the '
           + 'stored value, and a picker showing something else is the screen telling a lie',
       ).toHaveValue('');
-      // 而空**不等于**没有后果：面板要说清楚在选之前时间按哪儿算。
+      // And empty **does not mean** no consequence: the panel must state clearly which
+      // timezone is used before one is picked.
       await expect(
         adminPage.getByTestId('gcal-timezone-unset'),
         'unset has a consequence (hours are read as UTC) and the owner must be able to see it',

@@ -1,18 +1,25 @@
-// visitor-chat-throbber-reading-dom.spec.ts —— #9 的 DOM 层守护。
+// visitor-chat-throbber-reading-dom.spec.ts — the DOM-layer guard for #9.
 //
-// throbber-label.spec 验的是 SSE 流(网络层)带了 corpus_read + path;这条补上
-// 前端**真把「reading <document>」画进 DOM**那一步 —— owner 在意的是「他到底
-// 在读什么要展示出来」,得肉眼可见,不只在网络帧里。
+// throbber-label.spec verifies that the SSE stream (network layer) carries
+// corpus_read + path; this test covers the remaining step — the frontend
+// **actually painting "reading <document>" into the DOM** — because what the owner
+// cares about is "what he's reading has to be visible to the eye", not just present
+// in a network frame.
 //
-// 难点:mock 零延迟 turn 里 throbber 一闪而过(DOM 来不及画)。解法:问句嵌
-// [[slow-final:N]] —— gateway 在 corpus_read 之后、出最终答案之前 hold N ms,
-// 这段时间 currentTool 还是 corpus_read(tool_completed 不清,llm_chunk 才清),
-// throbber「reading X」稳稳挂着能断言。
+// The hard part: in a zero-latency mock turn, the throbber flashes by too fast for
+// the DOM to render it. The fix: embed [[slow-final:N]] in the question — the
+// gateway holds for N ms after corpus_read and before emitting the final answer,
+// and during that window currentTool is still corpus_read (tool_completed doesn't
+// clear it, only llm_chunk does), so the "reading X" throbber stays up long enough
+// to assert against.
 //
-// 这条测试同时守住了一个曾经的真 bug:SSE 经 Next rewrites() 反代会被 buffer 成
-// 整条 batch,throbber 的逐帧进度永远画不出来(visitor 只看到 thinking 到答案)。
-// 修法是 app/src/app/api/v1/agent/turn/route.ts 流式透传 res.body。它要是退化回
-// buffer,这条 read throbber 就再也等不到 → 测试红,正好兜住。
+// This test also guards against a real bug that once existed: SSE proxied through
+// Next's rewrites() gets buffered into one whole batch, so the throbber's
+// frame-by-frame progress could never actually render (the visitor only ever saw
+// thinking jump straight to the answer). The fix was streaming res.body straight
+// through in app/src/app/api/v1/agent/turn/route.ts. If that ever regresses back to
+// buffering, this read-throbber would never appear in time → the test goes red,
+// catching it exactly.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -31,7 +38,7 @@ const OWNER = {
 
 const CODE = 'INTRO-001';
 const TARGET_PATH = 'projects/lucerna';
-// throbber-label.ts 的 corpus_read formatter 用的读类动词。
+// The reading-family verbs used by throbber-label.ts's corpus_read formatter.
 const READ_VERBS = ['reading', 'pulling up', 'opening', 'checking', 'digging into'];
 
 test.describe('throbber 在 DOM 里真显「reading <document>」', () => {
@@ -63,7 +70,8 @@ test.describe('throbber 在 DOM 里真显「reading <document>」', () => {
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
       // Pure registration + ordered emission: corpus_search then corpus_read.
-      // [[slow-final:2500]]:read 之后 hold 2.5s,throbber 停在 reading X。
+      // [[slow-final:2500]]: after read, hold for 2.5s, keeping the throbber
+      // parked on reading X.
       const searchTag = await scriptMockToolCall(page.request, {
         name: 'corpus_search', args: { query: 'lucerna' },
       });
@@ -74,22 +82,28 @@ test.describe('throbber 在 DOM 里真显「reading <document>」', () => {
       await input.fill(`tell me about lucerna${searchTag}${readTag} [[slow-final:2500]]`);
       await input.press('Enter');
 
-      // read throbber 在 DOM 里现身(单值,已从 search 顶替成 read)。
+      // The read throbber shows up in the DOM (a single value, already replaced
+      // search with read).
       const readThrobber = page.locator('[data-testid="tool-throbber-corpus_read"]');
       await expect(readThrobber).toBeVisible({ timeout: 15_000 });
       const label = (await readThrobber.innerText()).toLowerCase();
 
-      // 文案 = 读类动词 + 在读的那个 document(树派生 path),不是干巴巴一个 "retrieving"。
+      // The label = a reading-family verb + the document being read (the
+      // tree-derived path), not a dry, generic "retrieving".
       expect(READ_VERBS.some((v) => label.includes(v))).toBe(true);
-      expect(label).toContain(TARGET_PATH); // 具体到那条 parent_id 树派生路径
+      expect(label).toContain(TARGET_PATH); // specific to that parent_id tree-derived path
 
-      // 互斥:读文档这一刻,throbber 只有 reading 这一个进度指示 —— thinking 那条
-      // (answer-pending)必须不在。(之前的 bug:reading 和 thinking 并排同时显,
-      // visitor 肉眼看到的是 thinking。) read throbber 还挂着时同步断言 thinking 没了。
+      // Mutual exclusion: at the moment a document is being read, the throbber has
+      // only this one progress indicator, reading — the thinking one
+      // (answer-pending) must not be present. (Past bug: reading and thinking both
+      // rendered side by side, and what the visitor actually saw with their own
+      // eyes was thinking.) Assert thinking is gone while the read throbber is
+      // still up.
       await expect(readThrobber).toBeVisible();
       await expect(page.getByTestId('answer-pending')).toHaveCount(0);
 
-      // turn 落地后 throbber 清掉(顺带确认它确实是临时的)。
+      // The throbber clears once the turn lands (which also confirms it's truly
+      // temporary).
       await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
       await expect(page.getByTestId('tool-throbbers')).toHaveCount(0, { timeout: 20_000 });
       await ctx.close();

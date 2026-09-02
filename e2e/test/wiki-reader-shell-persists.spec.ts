@@ -1,23 +1,36 @@
-// wiki-reader-shell-persists.spec.ts —— 换一篇文章时，**外壳不重挂**；读正文时，**外壳不动**。
+// wiki-reader-shell-persists.spec.ts — switching to another entry: **the shell must
+// not remount**; scrolling the body: **the shell must not move**.
 //
-// 现场（prod）：点树里另一篇文章，整棵树闪一下重新渲；往下读正文，顶栏和树跟着一起卷走。
+// The field case (prod): clicking another entry in the tree makes the whole tree
+// flash and re-render; scrolling down through the body drags the top bar and the
+// tree along with it.
 //
-// 成因是同一个：顶栏和树写在 `wiki/page.tsx` 和 `wiki/[...path]/page.tsx` **各自里面**。
-// Next 在同级页面之间导航时会保留 layout、只换 page —— 但那两样住在 page 里，
-// 于是每点一篇文章整个骨架重挂（树重渲、每层重拉），而且三者在同一个滚动流里。
-// （`admin` 早就是 layout，所以它换分区侧栏不闪。同一个结构，wiki 这边一直没有。）
+// Both share the same cause: the top bar and the tree are written **inside**
+// `wiki/page.tsx` and `wiki/[...path]/page.tsx` respectively. Next.js preserves the
+// layout and swaps only the page when navigating between sibling pages — but those
+// two elements live inside the page, so every click on an entry remounts the entire
+// shell (the tree re-renders, every level re-fetches), and all three sit in the same
+// scroll flow.
+// (`admin` has long been a layout, so switching sections there doesn't flash its
+// sidebar. Same structure, but wiki has never had it.)
 //
-// 两条判据都不看样式，看**行为**：
+// Neither criterion looks at styling — both look at **behavior**:
 //
-//   ① 不重挂 —— 在树那个真实 DOM 节点上挂一个 expando 属性（React 不碰它），换文章之后
-//      它还在。节点被重建的话属性没了。比"展开状态还在"强：后者可以靠 store 恢复出来，
-//      看起来一样而实际仍然重挂了一遍（[[assertion-that-cannot-fail]] 的邻居：
-//      判据要能区分"没重挂"和"重挂了但看起来一样"）。
+//   ① No remount — attach an expando property to the tree's real DOM node (React
+//      never touches it); after switching entries, it should still be there. If the
+//      node was rebuilt, the property is gone. This is stronger than "the expanded
+//      state is still there": the latter can be restored from a store, looking the
+//      same while the shell still remounted underneath
+//      ([[assertion-that-cannot-fail]]'s neighbor: the criterion must be able to
+//      tell "didn't remount" apart from "remounted but looks the same").
 //
-//   ② 各滚各的 —— 滚正文那一列，顶栏在视口里的位置必须一动不动。
-//      先断言正文真的滚动了，否则"顶栏没动"在页面根本滚不动时是恒真的。
+//   ② Each scrolls on its own — scroll the body column, and the top bar's position
+//      in the viewport must not move at all.
+//      First assert that the body actually scrolled, otherwise "the top bar didn't
+//      move" would be vacuously true on a page that can't scroll at all.
 //
-// RED（修复前）：① 属性丢失（page 里的骨架被重挂）；② 顶栏跟着一起走。
+// RED (before the fix): ① the property is lost (the shell inside the page
+// remounted); ② the top bar moves along with the body.
 
 import { test, expect, type Page } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -37,7 +50,8 @@ const OWNER = {
 
 const FIRST = { title: 'First entry', path: 'first-entry' };
 const SECOND = { title: 'Second entry', path: 'second-entry' };
-// 正文要够长才滚得动 —— 判据②在滚不动的页面上是恒真的。
+// The body must be long enough to actually scroll — criterion ② would be vacuously
+// true on a page that can't scroll.
 const LONG_BODY = Array.from({ length: 120 },
   (_, i) => `Paragraph ${i + 1}. The reader scrolls this column and the shell stays put.`
 ).join('\n\n');
@@ -46,9 +60,11 @@ test.describe.configure({ timeout: 180_000 });
 
 test.describe('wiki 阅读器外壳：换文章不重挂，读正文不跟着滚', () => {
   test.beforeAll(async ({ playwright }) => {
-    // `describe.configure({ timeout })` 只管测试体，**管不到 hook** —— hook 有自己的
-    // 30s 默认值。种两篇长文要重置实例 + 认领 + 建两条并发布，撞得到那个数，
-    // 而红会报在 hook 上，看着像产品的问题（[[red-in-the-wrong-place]]）。
+    // `describe.configure({ timeout })` only governs the test body, **it does not
+    // reach the hook** — the hook has its own default of 30s. Seeding two long
+    // entries requires resetting the instance + claiming + creating and publishing
+    // two entries, which can hit that limit, and the red would then show up on the
+    // hook, looking like a product problem ([[red-in-the-wrong-place]]).
     test.setTimeout(180_000);
     await seedTwoEntries(playwright);
   });
@@ -57,13 +73,15 @@ test.describe('wiki 阅读器外壳：换文章不重挂，读正文不跟着滚
     await goto(page, `/wiki/${FIRST.path}`);
     await expect(page.getByTestId('wiki-toc')).toBeVisible({ timeout: 15_000 });
 
-    // expando 属性：React 不管它，节点活着它就在，节点被重建就没了。
+    // An expando property: React never touches it, it survives as long as the node
+    // does, and disappears the moment the node is rebuilt.
     await page.evaluate(() => {
       const el = document.querySelector('[data-testid="wiki-toc"]');
       (el as unknown as Record<string, unknown>)['__shellProbe'] = 1;
     });
 
-    // 从树里点另一篇 —— 这正是读者换文章的动作。
+    // Click another entry from the tree — exactly the action a reader takes to
+    // switch entries.
     await page.getByTestId(`tree-node-${SECOND.path}`).getByRole('link').first().click();
     await page.waitForURL(new RegExp(`/wiki/${SECOND.path}$`));
     await expect(page.getByTestId('wiki-body'), '真的换到了第二篇')
@@ -88,7 +106,8 @@ test.describe('wiki 阅读器外壳：换文章不重挂，读正文不跟着滚
   });
 });
 
-// shellTop —— 顶栏在**视口**里的位置。外壳固定的话，滚正文不改变它。
+// shellTop — the top bar's position within the **viewport**. If the shell is fixed,
+// scrolling the body does not change it.
 async function shellTop(page: Page): Promise<number> {
   return page.evaluate(() => {
     const bar = document.querySelector('[data-testid="wiki-topbar"]');
@@ -96,8 +115,9 @@ async function shellTop(page: Page): Promise<number> {
   });
 }
 
-// scrollArticle —— 滚正文那一列（它自己的滚动容器；退回窗口滚动以便在**修复前**也能驱动），
-// 返回正文实际移动了多少。
+// scrollArticle — scrolls the body column (its own scroll container; falls back to
+// window scrolling so this can still be driven **before the fix** too), and returns
+// how far the body actually moved.
 async function scrollArticle(page: Page): Promise<number> {
   return page.evaluate(async () => {
     const body = document.querySelector('[data-testid="wiki-body"]');
@@ -105,12 +125,14 @@ async function scrollArticle(page: Page): Promise<number> {
     const col = document.querySelector('[data-testid="wiki-scroll"]');
     if (col && col.scrollHeight > col.clientHeight) col.scrollTop = 600;
     else window.scrollTo(0, 600);
-    // 等**滚动这件事本身**发生（scroll 事件），不是数毫秒。
+    // Wait for **the scroll itself** to happen (a scroll event), not for a fixed
+    // number of milliseconds.
     await new Promise<void>((resolve) => {
       const target: EventTarget = col ?? window;
       const done = (): void => { target.removeEventListener('scroll', done); resolve(); };
       target.addEventListener('scroll', done, { once: true });
-      // 已经滚到位、事件不会再来时也要收场：读一次当前位置就知道。
+      // Also handle the case where it's already scrolled into place and no event
+      // will ever arrive: reading the current position once tells us that.
       if (Math.abs(before - body!.getBoundingClientRect().top) > 0) done();
     });
     return Math.abs(before - body!.getBoundingClientRect().top);

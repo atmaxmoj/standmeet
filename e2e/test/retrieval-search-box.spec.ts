@@ -17,7 +17,8 @@ import { setPublished, setupRetrievalOwner, type RetrievalOwner } from '@/fixtur
 
 let O: RetrievalOwner;
 
-// enter —— ?code 入口 → 名字选择器填名 → 提交 → 等 session issue(之后搜索框才出现)。
+// enter — the ?code entry point → fill in a name at the name picker → submit → wait
+// for the session to be issued (only then does the search box appear).
 async function enter(page: Page): Promise<void> {
   await goto(page, `/?code=${O.fullCode}`);
   const session = page.waitForResponse(

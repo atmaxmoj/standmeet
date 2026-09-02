@@ -1,20 +1,28 @@
-// visitor-client-ip-through-app.spec.ts —— F-F-5。访客的来源地址必须是**访客的**，
-// 否则就是不知道 —— 绝不能拿中间那一跳冒充他。
+// visitor-client-ip-through-app.spec.ts — F-F-5. A visitor's source address must be
+// **the visitor's own**, or else it must be recorded as unknown — never allowed to be
+// the intermediate hop impersonating them.
 //
-// 出厂形态是 浏览器 → app(Next rewrite `/api/:path*`) → backend，中间没人写
-// X-Forwarded-For（`make prod-up` 说 "TLS/domain is external"，反代是 owner 自带的）。
-// 那时 chi.RealIP 找不到头，RemoteAddr 停在 **app 容器**上，于是每一个访客都被记成
-// 同一个地址。后果不是难看：owner 的 conversations 有一栏就叫 IP、ip-bans 页教他
-// "Find offending IPs in conversations"，照做就是封掉全部访客；而 per-IP 的暴力锁
-// 变成一个全局桶，一个人打错 10 次，所有人 15 分钟进不来。
+// The factory-default shape is browser → app (a Next rewrite `/api/:path*`) → backend,
+// with nobody in between writing X-Forwarded-For (`make prod-up` says "TLS/domain is
+// external", the reverse proxy is the owner's own). At that point chi.RealIP finds no
+// header, RemoteAddr stops at the **app container**, and so every single visitor gets
+// recorded as the same address. The consequence isn't just ugly: the owner's
+// conversations page has a column literally called IP, and the ip-bans page tells them
+// to "Find offending IPs in conversations" — following that advice bans every visitor
+// at once; and the per-IP brute-force lock turns into one global bucket, where one
+// person's 10 wrong tries locks everyone out for 15 minutes.
 //
-// 这条守卫**必须走 app 那一跳**（BASE_URL），不能直连 backend —— 直连绕开的正是出问题
-// 的那一跳。现有的 security-captcha-bypass 直连 :8000 而且自己伪造 XFF，所以它在这个
-// 维度上永远不会红。
+// This guard **must go through the app hop** (BASE_URL), never connect directly to the
+// backend — connecting directly is exactly what bypasses the hop where the bug lives.
+// The existing security-captcha-bypass connects directly to :8000 and forges its own
+// XFF, so it can never go red on this dimension.
 //
-// 两个方向一起断，缺一个都会被"把所有 IP 都清空"这种假修蒙混过去：
-//   1) 没有转发头 → 记下来的是空（不知道），不是那一跳的私网地址
-//   2) 有转发头   → 记下来的**就是**头里那个地址，一字不差
+// Both directions must be asserted together; missing either lets a fake fix of "just
+// clear every IP" slip through:
+//   1) no forwarding header → what's recorded is empty (unknown), not the hop's private
+//      network address
+//   2) a forwarding header  → what's recorded **is exactly** the address in that
+//      header, byte for byte
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -38,11 +46,13 @@ const OWNER = {
 // A documentation-range address (RFC 5737) — it can only have come from the header.
 const FORWARDED = '203.0.113.9';
 
-// owner —— beforeAll 里登录过的那个 context（带着会话 cookie）。admin 读一律走它。
+// owner — the context logged in during beforeAll (carrying the session cookie). Every
+// admin read goes through it.
 let owner: APIRequestContext;
 let csrf = '';
 
-// issueThroughApp —— 经 app 那一跳开一个会话。headers 留空 = 出厂形态（无转发头）。
+// issueThroughApp — opens a session via the app hop. Leaving headers empty = the
+// factory-default shape (no forwarding header).
 async function issueThroughApp(
   request: APIRequestContext, code: string, visitor: string,
   headers: Record<string, string>,
@@ -53,8 +63,9 @@ async function issueThroughApp(
   expect(res.status(), 'session issued through the app hop').toBe(200);
 }
 
-// recordedIP —— owner 在 /admin/conversations 那一栏里看到的来源 IP。按访客名取行：
-// 这一栏正是 ip-bans 页让 owner 去复制的东西，所以断言要断在他真看得见的那份数据上。
+// recordedIP — the source IP the owner sees in that column on /admin/conversations.
+// Fetches the row by visitor name: this is exactly the column the ip-bans page tells
+// the owner to copy from, so the assertion must be against the data he actually sees.
 async function recordedIP(visitor: string): Promise<string> {
   const res = await owner.get(`${BACKEND}/api/admin/conversations`, {
     headers: { 'X-Csrftoken': csrf },
@@ -68,7 +79,7 @@ async function recordedIP(visitor: string): Promise<string> {
 
 test.describe('F-F-5 · the visitor address is the visitor, or it is unknown', () => {
   test.beforeAll(async ({ playwright }) => {
-    test.setTimeout(180_000); // resetInstance 在负载高时要 ~48s，而钩子默认只给 30s
+    test.setTimeout(180_000); // resetInstance needs ~48s under load, and the hook defaults to only 30s
     resetInstance();
     owner = await playwright.request.newContext();
     await claim(owner, findSetupToken(), {
@@ -90,7 +101,9 @@ test.describe('F-F-5 · the visitor address is the visitor, or it is unknown', (
     async ({ playwright }) => {
       const visitor = await playwright.request.newContext();
       await issueThroughApp(visitor, 'CLIENTIP-1', 'Unforwarded', {});
-      // 红在这一行：今天记下来的是 app 容器的私网地址（172.x），于是所有访客同一个值。
+      // This is the line that's currently red: what's recorded today is the app
+      // container's private network address (172.x), so every visitor gets the same
+      // value.
       expect(await recordedIP('Unforwarded'),
         'an unknowable address is recorded as unknown, never as the proxy hop').toBe('');
       await visitor.dispose();
@@ -102,8 +115,9 @@ test.describe('F-F-5 · the visitor address is the visitor, or it is unknown', (
       await issueThroughApp(
         visitor, 'CLIENTIP-1', 'Forwarded', { 'X-Forwarded-For': FORWARDED },
       );
-      // 反向断言：修法不能是"把 IP 一律清空"—— 有真地址时必须原样留下，
-      // 否则 owner 的封禁能力就被修没了。
+      // The reverse assertion: the fix must not be "clear every IP unconditionally" —
+      // a real address must survive unchanged, or the owner's ban capability would be
+      // fixed right out of existence.
       expect(await recordedIP('Forwarded'),
         'a forwarded address survives the hop unchanged').toBe(FORWARDED);
       await visitor.dispose();

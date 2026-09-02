@@ -1,10 +1,16 @@
-// security-prompt-injection.spec.ts —— pentest。威胁模型:访客用 hostile message 越狱 LLM,让它
-// 调用**未授权**的工具(这里 calendar_book —— gcal 已连,所以工具存在、能跑,但该 code 的
-// granted_skills=[] 不授权它)。安全边界是**服务端能力门**,不是 LLM 的顺从度 —— 所以我们把 mock
-// 脚本成**完全顺从**(直接吐 calendar_book 调用),证明即使 LLM 被攻陷,后端仍拦住工具:
-//   (a) 未授权工具根本不在会话装配的 toolset 里(被诱导的 LLM 连句柄都没有);
-//   (b) 就算 mock 硬吐这个调用,这一轮也不产生预约副作用、不 5xx。
-// 绿=能力门在 LLM 之下守住;红=一句注入就能越权触发工具。
+// security-prompt-injection.spec.ts -- pentest. Threat model: a visitor jailbreaks the LLM
+// with a hostile message to get it to call an **unauthorized** tool (here calendar_book --
+// gcal is connected, so the tool exists and works, but this code's granted_skills=[] does
+// not authorize it). The security boundary is the **server-side capability gate**, not how
+// compliant the LLM is -- so we script the mock to be **fully compliant** (it emits the
+// calendar_book call directly), proving that even if the LLM is compromised, the backend
+// still blocks the tool:
+//   (a) an unauthorized tool is never in the toolset assembled for the session (a jailbroken
+//       LLM doesn't even have a handle for it);
+//   (b) even if the mock forcibly emits the call, this turn produces no booking side effect
+//       and no 5xx.
+// Green = the capability gate holds beneath the LLM; red = one injected message can trigger
+// a tool it isn't authorized for.
 
 import { test, expect } from '@/fixtures/test';
 

@@ -1,9 +1,14 @@
-// corpus-writing-retrieval-acl.spec.ts —— 迁移前 gap-fill (🟡#2)。
+// corpus-writing-retrieval-acl.spec.ts -- pre-migration gap-fill (yellow #2).
 //
-// writing 是三个可检索 genre 里**唯一从没进过 corpus_search/read 的**（它只在 crosslinks UI 测过）。
-// #157 的 lister 覆盖 wiki/output/writing 三 genre + ACL 进 query，但 writing 那条路径零守卫。结构
-// 迁移把 writing 迁进统一基座、genre 进 ACL query —— writing 的检索 + `writing://` glob 门必须继续对。
-// 这条钉住：授 writing://** → 访客能检索到 writing；只授 wiki:// → 同一条 writing 被 ACL 拒。
+// Of the three searchable genres, writing is the **only one that has never
+// gone through corpus_search/read** (it's only been tested via the
+// crosslinks UI). #157's lister covers all three genres -- wiki/output/writing
+// -- plus ACL entering the query, but writing's path had zero guard coverage.
+// The structural migration moves writing into the unified foundation and puts
+// genre into the ACL query -- writing's retrieval + the `writing://` glob
+// gate must keep working. This spec pins that down: granting writing://**
+// lets a visitor retrieve writing; granting only wiki:// makes the ACL deny
+// that same writing.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -13,8 +18,9 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
-// 用共享的那份 —— 这里曾经自己抄了一份，于是 corpus_search 的 wire 一改
-// 就断在四个地方，而 fixture 一个都吸收不了。
+// Use the shared one -- this file used to copy its own, so any change to
+// corpus_search's wire format broke in four places, and the fixture absorbed
+// none of it.
 import { search } from '@/fixtures/retrieval';
 import { issueSession, type VisitorSession } from '@/fixtures/visitor';
 

@@ -48,13 +48,17 @@ test.describe('admin applications UI', () => {
       await expect(adminPage.getByText(/no applications/i)).toHaveCount(0, { timeout: 5_000 });
     });
 
-  // F-E-3 —— 刚 commit 的申请卡片上写着 `SENT —`:一个断言"已投出"的标签,配一个不存在的日期。
-  // 真相在库里:`applications.status` 建出来就是 'pending'、`submitted_at` 是 NULL,而**没有任何
-  // 代码会改它们** —— job-loop 第 4 步(Playwright 真投递)还不存在,所以"sent"这个词在今天的产品里
-  // 没有东西能让它变成真的。前端离得更远:它的枚举是 silent/reviewing/replied/rejected/offer
-  // (recruiter 回没回),跟后端的 pending/submitted 完全不相交,于是每一行都被兜底渲染成 SILENT。
+  // F-E-3 — a just-committed application card shows `SENT —`: a label asserting "already
+  // submitted", paired with a date that doesn't exist. The truth is in the database:
+  // `applications.status` is created as 'pending' and `submitted_at` is NULL, and **no code
+  // ever changes them** — job-loop step 4 (the real Playwright submission) does not exist
+  // yet, so nothing in today's product can make the word "sent" true. The frontend is even
+  // further off: its enum is silent/reviewing/replied/rejected/offer (whether the recruiter
+  // replied), which is entirely disjoint from the backend's pending/submitted, so every row
+  // falls back to rendering as SILENT.
   //
-  // 这条断言只要求一件事:卡片报**产品真的知道的**那件事 —— 已 commit(日期是真的)、投递尚未记录。
+  // This assertion asks for exactly one thing: the card reports what the product **actually
+  // knows** — committed (the date is real), submission not yet recorded.
   test('a committed application reports what the product actually knows (F-E-3)',
     async ({ playwright, adminPage }) => {
       const request = await playwright.request.newContext();
@@ -67,8 +71,9 @@ test.describe('admin applications UI', () => {
       const today = new Date().toISOString().slice(0, 10);
       await expect(card, 'commit 是真发生过的,日期必须是真的').toContainText(today);
 
-      // 取一次文本再断言。`.not.toContainText()` 是会重试的,而元素还没出现的那一刻它也算过 ——
-      // 一条永远能绿的断言;这一版把它变成对一个确定字符串的判断。
+      // Read the text once, then assert. `.not.toContainText()` retries, and it also passes
+      // during the instant before the element even appears — an assertion that can never go
+      // red. This version turns it into a judgment against a fixed string.
       const cardText = (await card.innerText()).toLowerCase();
       expect(
         cardText,

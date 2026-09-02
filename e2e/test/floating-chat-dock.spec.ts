@@ -1,11 +1,11 @@
 // floating-chat-dock.spec.ts —— FloatingChatDock on writings and wiki pages.
 //
-// 用户故事：
-//   1. writings index → pill 可见 (有 session 时)
-//   2. 无 session → pill 不渲染
-//   3. 点 pill → 面板展开 → input 可见
-//   4. 输入 → ask → answer 渲
-//   5. 关闭面板 → pill 恢复
+// User story:
+//   1. writings index → the pill is visible (when there's a session)
+//   2. no session → the pill doesn't render
+//   3. click the pill → the panel expands → input is visible
+//   4. type → ask → the answer renders
+//   5. close the panel → the pill returns
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -65,8 +65,10 @@ test.describe('FloatingChatDock on writings/wiki pages', () => {
       await expect(pill).toBeVisible();
     });
 
-  // #35:浮窗复用主 chat 的 ChatTranscript —— 大 chat 的渲染行为在小 chat 上也成立。
-  // 同 testid:answer-pending(throbber)+ answer-body(ChatMarkdown),不再是简陋纯文本。
+  // #35: the floating dock reuses the main chat's ChatTranscript — the big chat's
+  // rendering behavior also holds in the small chat.
+  // Same testids: answer-pending (throbber) + answer-body (ChatMarkdown), no longer
+  // crude plain text.
   test('dock reuses main-chat rendering: ask → throbber + answer-body (no reset)',
     async ({ page }) => {
       await enterCodeSession(page, CODE);
@@ -74,23 +76,26 @@ test.describe('FloatingChatDock on writings/wiki pages', () => {
       await page.getByTestId('floating-dock-pill').click();
       const panel = page.getByTestId('floating-chat-panel');
       await expect(panel).toBeVisible({ timeout: 3_000 });
-      // 没有 reset 按钮(owner 要求去掉)。
+      // No reset button (removed at the owner's request).
       await expect(panel.getByRole('button', { name: /reset/i })).toHaveCount(0);
 
       const input = page.getByTestId('floating-chat-input');
       await input.fill('tell me about yourself');
       await input.press('Enter');
-      // 跟主 chat 同款 throbber + answer-body(真 ChatMarkdown 渲染管线)。
+      // The same throbber + answer-body as the main chat (the real ChatMarkdown
+      // rendering pipeline).
       await expect(panel.getByTestId('answer-pending')).toBeVisible({ timeout: 5_000 });
       await expect(panel.getByTestId('answer-body')).toBeVisible({ timeout: 15_000 });
       await expect(panel.getByTestId('answer-body')).toContainText(/./);
     });
 
-  // #35 完备性(owner 原则):大 chat 的 tool-cards + citations + throbber-clears
-  // 全流程在小 chat(浮窗)上也成立 —— 同 seed(Lucerna)、同问句、同 testid。
+  // #35 completeness (owner's principle): the big chat's full flow of tool-cards +
+  // citations + throbber-clears also holds in the small chat (floating dock) —
+  // same seed (Lucerna), same question, same testids.
   test('dock full flow: corpus_search 卡 + hit + citations + throbber 清除', dockFullFlow);
 
-  // #36:doc 页浮窗发问 → turn 请求带当前 doc 的 doc_context(plumbing;指代质量走 eval)。
+  // #36: asking from the doc-page floating dock → the turn request carries the
+  // current doc's doc_context (plumbing; reference quality is covered by eval).
   test('location-aware: dock turn 带当前 doc 的 doc_context', dockSendsDocContext);
 });
 
@@ -114,25 +119,27 @@ async function dockFullFlow({ page }: { page: Page }): Promise<void> {
   await input.fill(`tell me about lucerna${searchTag}${readTag}`);
   await input.press('Enter');
 
-  // 检索折叠成一行 retrieval-summary(UX-10:不再渲 per-tool iframe 卡);
-  // 命中哪个 doc 的精确断言由下面 citation-row(data-citation-path)接管。
+  // Retrieval collapses into a single retrieval-summary line (UX-10: no longer
+  // rendering a per-tool iframe card); the precise assertion of which doc was hit is
+  // handled by citation-row (data-citation-path) below.
   await expect(panel.getByTestId('retrieval-summary'))
     .toBeVisible({ timeout: 20_000 });
   await expect(panel.getByTestId('retrieval-summary')).toContainText('searched');
-  // corpus_read 不渲卡(Citation 接管);citations 出现。
+  // corpus_read renders no card (Citation handles it); citations appear.
   await expect(panel.getByTestId('tool-card-corpus_read')).toHaveCount(0);
   await expect(panel.getByTestId('citations')).toBeVisible();
-  // citation 行是跳那篇公开页的外链。
+  // The citation row is an external link jumping to that public page.
   await panel.getByTestId('citations').locator('summary').click();
   const row = panel.locator('[data-testid="citation-row"][data-citation-path="projects/lucerna"]');
   await expect(row).toHaveAttribute('href', '/wiki/projects/lucerna');
   await expect(row).toHaveAttribute('target', '_blank');
-  // 答案落地后 throbber 消失。
+  // The throbber disappears once the answer lands.
   await expect(panel.getByTestId('tool-throbbers')).toHaveCount(0, { timeout: 20_000 });
 }
 
-// dockSendsDocContext —— 从 wiki landing 的浮窗发问,turn 请求带 doc_context
-// (title/path/genre),后端注进 instruction 让 AI 解析「this/这篇」指代。
+// dockSendsDocContext — asking from the floating dock on a wiki landing page, the
+// turn request carries doc_context (title/path/genre), which the backend injects
+// into the instruction so the AI can resolve "this/this piece" references.
 type TurnBody = { doc_context?: { title: string; path: string; genre: string } };
 
 async function dockSendsDocContext({ page }: { page: Page }): Promise<void> {
@@ -150,7 +157,8 @@ async function dockSendsDocContext({ page }: { page: Page }): Promise<void> {
   await input.press('Enter');
   await expect(page.getByTestId('floating-chat-panel').getByTestId('answer-body'))
     .toBeVisible({ timeout: 15_000 });
-  // turnBody 只在 route 闭包里赋值 → TS CFA 把它窄成 null；读处显式 cast 回 union。
+  // turnBody is only assigned inside the route closure → TS's control-flow analysis
+  // narrows it to null; explicitly cast it back to the union at the read site.
   expect((turnBody as TurnBody | null)?.doc_context).toMatchObject({
     title: 'Lucerna', path: 'projects/lucerna', genre: 'wiki',
   });
@@ -169,8 +177,10 @@ async function initOwner(playwright: Playwright): Promise<void> {
   await seedPublicWiki(request, apiToken, sid, {
     body: 'dock owner intro.', title: 'Dock Intro',
   });
-  // Lucerna —— 让 mock 在小 chat 里也能走 corpus_search → cite(镜像大 chat 全流程)。
-  // 标 indexed 让 /wiki/projects/lucerna landing 能渲(位置感知 plumbing 测试用)。
+  // Lucerna — lets the mock run corpus_search → cite in the small chat too (mirroring
+  // the big chat's full flow).
+  // Marked indexed so the /wiki/projects/lucerna landing page can render (used by the
+  // location-aware plumbing test).
   const luc = await seedWiki(request, apiToken, sid, {
     body: 'lucerna is a local-first knowledge tool.',
     title: 'Lucerna', path: 'projects/lucerna',

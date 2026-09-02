@@ -1,6 +1,8 @@
-// cssclasses-surfaces.spec.ts —— `cssclasses` frontmatter(per-note:哪条 note 挂哪些 CSS class)
-// 三面可编辑 + parity(目标态红)。sync 采集 `cssclasses` · admin note-edit 带 css_classes · MCP
-// 写工具带 css_classes —— 任一面设的 class,读回一致(render 时加到 note 容器)。
+// cssclasses-surfaces.spec.ts — `cssclasses` frontmatter (per-note: which CSS classes a
+// given note carries) is editable on all three surfaces + kept in parity (target state,
+// currently red). Sync collects `cssclasses` · admin note-edit carries css_classes · the
+// MCP write tool carries css_classes — whichever surface sets the class, reading it back
+// is consistent (added to the note container at render time).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

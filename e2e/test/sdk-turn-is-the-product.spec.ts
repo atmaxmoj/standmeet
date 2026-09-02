@@ -1,28 +1,35 @@
-// sdk-turn-is-the-product.spec.ts —— F-O-2。**发出去的那份 SDK** 取一轮对话，走的必须是产品
-// 自己那条路，而不是一条退役的裸代理。
+// sdk-turn-is-the-product.spec.ts —— F-O-2. **The SDK that actually ships** must take
+// a conversation turn through the product's own path, not a retired bare proxy.
 //
-// 真实环境里怎么发现的：把构建好的 embed 放到一个**异源**页面上（`localhost:41999` 指向
-// `38227`），问「what is this corpus for?」，答回来的是 *"This corpus is designed to provide
-// textual data for training, testing, and evaluating natural language processing models."* ——
-// 一段 NLP 教科书定义，跟 owner 那 1010 条语料、跟他的声音毫无关系。
+// How this was found in the real environment: dropping the built embed onto a
+// **cross-origin** page (`localhost:41999` pointing at `38227`), asking "what is this
+// corpus for?", and getting back *"This corpus is designed to provide textual data for
+// training, testing, and evaluating natural language processing models."* — an NLP
+// textbook definition with nothing to do with the owner's 1,010 pieces of corpus or
+// their voice.
 //
-// 因在代码里写着：`sdk/packages/core/src/client.ts` 的 `streamMessage` 打
-// `POST /api/v1/llm/chat/stream`，body 里 **`system: ''`**，它自己的注释写着 *"No tool loop;
-// this is a single-turn smoke test path"*；而 `backend/.../public/chat.go:109-110` 说那条路在
-// SDK 切到 `/agent/turn` 之后**退役**。app 自己的页面早切了 —— 这一轮修的 persona、skill 清单、
-// 截断提示、主张闸门全在新路上 —— SDK 那一半没跟。
+// The cause, in code: `sdk/packages/core/src/client.ts`'s `streamMessage` hits
+// `POST /api/v1/llm/chat/stream` with **`system: ''`** in the body, and its own comment
+// says *"No tool loop; this is a single-turn smoke test path"* — while
+// `backend/.../public/chat.go:109-110` says that path is **retired** once the SDK
+// switched to `/agent/turn`. The app's own page switched over long ago — this round's
+// fixes to persona, the skill list, the truncation notice, the claim gate all live on
+// the new path — but the SDK's half never followed.
 //
-// **这条 spec 驱的是真的那份客户端**（`@standmeet/core` 的 `createClient`），不是我照着它再写一遍
-// 的 fetch：照写一遍的话，改了实现它照样绿（[[test-covers-capability-not-face]]）。
+// **This spec drives the actual shipped client** (`@standmeet/core`'s `createClient`),
+// not a fetch I wrote to imitate it — rewriting it myself would keep this green even
+// after the real implementation changed ([[test-covers-capability-not-face]]).
 //
-// 判据借 F-A-36 那个办法：mock 网关把收到的 system prompt 原样回显进答案里，所以「只可能来自
-// owner 人格的那句话」出现在答案里 = 那段人格真的送到了模型手上。空 system 的那条路上，它
-// 不可能出现。
+// The criterion borrows the F-A-36 trick: the mock gateway echoes the system prompt it
+// receives verbatim back into the answer, so "a sentence that can only come from the
+// owner's persona" appearing in the answer means that persona genuinely reached the
+// model. On the empty-system path, it cannot appear.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
-// 动态 import：这个包是 ESM-only（exports 里没有 require 条件），而 Playwright 以 CJS 加载
-// spec。**要的是发布出去的那一份**，所以宁可动态 import，也不照着它再写一遍 fetch。
+// Dynamic import: this package is ESM-only (no require condition in exports), while
+// Playwright loads specs as CJS. **What matters is the shipped package itself**, so a
+// dynamic import wins over writing a stand-in fetch that imitates it.
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
@@ -39,13 +46,14 @@ const OWNER = {
 };
 
 const CODE = 'SDKTURN-01';
-// 一句只可能来自 role persona 的话 —— 语料里没有，通用 header 里也没有。
+// A sentence that can only come from the role persona — it isn't in the corpus, and
+// it isn't in any generic header.
 const PERSONA_MARK = 'ALWAYS-NAME-THE-LEDGER-FIRST';
 const ROLE = 'sdk-persona-carrier';
 
 test.describe('F-O-2 · a turn taken through the shipped SDK is the product', () => {
   test.beforeAll(async ({ playwright }) => {
-    test.setTimeout(180_000); // resetInstance 在负载高时要 ~48s
+    test.setTimeout(180_000); // resetInstance can take ~48s under load
     await initOwner(playwright);
   });
 
@@ -54,15 +62,18 @@ test.describe('F-O-2 · a turn taken through the shipped SDK is the product', ()
       const request = await playwright.request.newContext();
       const tag = await scriptMockReplyText(request, 'noted.');
 
-      // 真的那份客户端，指着实例的绝对地址 —— 就是第三方站点上那个 embed 的用法。
+      // The real client, pointed at the instance's absolute address — exactly how the
+      // embed on a third-party site would use it.
       const { createClient } = await import('@standmeet/sdk-core');
       const client = createClient({ baseURL: appBaseURL() });
       const session = await client.issueSession({
         mode: 'code', code: CODE, visitor_name: 'Embedded Reader',
       });
 
-      // 跟 embed 里一模一样的两步：这一场先把 system prompt 拼出来（fragment + persona），
-      // 再拿它取一轮。少了第一步，模型收到的就是空 system —— 那正是 F-O-2 的样子。
+      // The exact same two steps as the embed: first assemble the system prompt
+      // (fragment + persona) for this session, then use it to take a turn. Skipping
+      // the first step means the model gets an empty system prompt — exactly the
+      // shape of F-O-2.
       const system = await client.composeSystem(session);
       let answer = '';
       for await (const ev of client.streamMessage(
@@ -78,15 +89,20 @@ test.describe('F-O-2 · a turn taken through the shipped SDK is the product', ()
       await request.dispose();
     });
 
-  // F-O-7 —— 第二轮必须带着第一轮走。
+  // F-O-7 —— the second turn must carry the first turn along with it.
   //
-  // 真环境里怎么发现的：异源页面上连问两句，第二句里的「他」「它」被答成
-  // *"this is the first thing I've seen in our exchange"*。**读代码坐实**：`client.ts` 的请求体里
-  // `history: []` 是硬编码，而后端的模型消息就是拿 `req.History` 拼的，不按 conversation_id 回补。
+  // How this was found in the real environment: asking two questions in a row on a
+  // cross-origin page, and having "he"/"it" in the second question answered with
+  // *"this is the first thing I've seen in our exchange"*. **Confirmed by reading the
+  // code**: `client.ts`'s request body hardcodes `history: []`, while the backend
+  // assembles the model's message history from `req.History` — it never backfills by
+  // conversation_id.
   //
-  // 判据不看答案 —— KV 替身的回复是脚本化的，答案里读不出「它记不记得」。改看**这个客户端真的
-  // 发出去了什么**：注一个自己的 fetch（`createClient` 本来就收 `fetchImpl`），把请求体留下来。
-  // 红态：第二次请求的 `history` 是空数组。
+  // This criterion doesn't look at the answer — the KV stand-in's reply is scripted,
+  // so the answer text can't tell you whether it "remembers" anything. Instead it
+  // looks at **what the client actually sent**: inject a custom fetch (`createClient`
+  // already accepts a `fetchImpl`) and keep the request bodies. Red state: the second
+  // request's `history` is an empty array.
   test('the second turn carries the first — the shipped client is not memoryless',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
@@ -131,8 +147,9 @@ test.describe('F-O-2 · a turn taken through the shipped SDK is the product', ()
     });
 });
 
-// appBaseURL —— 走 127.0.0.1 而不是 localhost：Node 会先解析到 ::1，而端口只在 IPv4 上监听，
-// 于是 fetch 直接 ECONNREFUSED（浏览器不会这样，所以这一步只在 node 侧的 spec 里咬人）。
+// appBaseURL —— use 127.0.0.1, not localhost: Node resolves that to ::1 first, while
+// the port only listens on IPv4, so fetch gets a straight ECONNREFUSED (a browser
+// wouldn't do this, so this bite is specific to the Node-side spec).
 function appBaseURL(): string {
   return (process.env['BASE_URL'] ?? 'http://localhost:38127')
     .replace('localhost', '127.0.0.1');
@@ -156,8 +173,8 @@ async function initOwner(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-// createRoleWithPersona —— 一个带 prompt 正文的 role，跟 owner 在 /admin/prompts + /admin/roles
-// 上做的是同一件事。
+// createRoleWithPersona —— a role carrying a prompt body, the same thing the owner
+// does on /admin/prompts + /admin/roles.
 async function createRoleWithPersona(
   request: APIRequestContext, csrf: string,
 ): Promise<string> {

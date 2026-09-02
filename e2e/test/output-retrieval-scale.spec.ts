@@ -1,11 +1,14 @@
-// output-retrieval-scale.spec.ts —— output 语料的检索也必须覆盖**全量**,不是后端先
-// load 最新 50 条再内存 grep。wiki 的孪生:retriever 的 output search/read + cited 反查
-// 现在还都吃 newest-50 cap(matchOutputs / findOutputByPath / outputCitedRefs 全在内存
-// 窗口里)。把一个带唯一关键词的 output needle **最先**种下,再灌 52 条 filler output 把
-// 它推出最新 50,visitor 问 needle → mock search→read→cite。
+// output-retrieval-scale.spec.ts — retrieval over the output corpus must also cover the
+// **whole corpus**, not have the backend load the newest 50 rows and grep in memory.
+// wiki's twin: the retriever's output search/read + cited-reverse-lookup still all hit
+// the newest-50 cap today (matchOutputs / findOutputByPath / outputCitedRefs are all
+// confined to that in-memory window). Seed an output needle with a unique keyword
+// **first**, then pour in 52 filler outputs to push it out of the newest 50; the visitor
+// asks about the needle -> mock does search->read->cite.
 //
-// 现在(50-cap):search 在内存 50 条 output 里搜不到 needle → 不 cite → **红**。
-// output 检索改 DB 端全量后:绿。走完整 agent loop。
+// Today (50-cap): search can't find the needle among the 50 in-memory outputs -> never
+// cites it -> **red**. Once output retrieval moves to full DB-side coverage: green. Runs
+// the complete agent loop.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -39,7 +42,8 @@ test.describe('output retrieval covers the whole corpus, not the newest-50 windo
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-    // role 只 scope output://**:wiki(promote 的中间产物)被 ACL 滤掉,只剩 output 命中。
+    // The role is scoped only to output://**: wiki (the intermediate promote artifact)
+    // gets filtered out by ACL, leaving only output hits.
     const role = await createRole(request, csrf, {
       name: 'output-only', description: 'output://** only', corpus_uris: ['output://**'],
     });
@@ -106,7 +110,8 @@ async function seedNeedleThenFillers(request: APIRequestContext, csrf: string): 
   }
 }
 
-// seedOutput —— corpus.create(raw) → promote 到 wiki → promote 到 output。返新 output 的 id。
+// seedOutput — corpus.create(raw) -> promote to wiki -> promote to output. Returns the
+// new output's id.
 async function seedOutput(
   request: APIRequestContext, token: string, sid: string, title: string, body: string,
 ): Promise<string> {

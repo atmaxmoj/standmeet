@@ -51,11 +51,13 @@ const BODY = [
   '> > [!lang] ja',
   '> > 二番目の日本語の区画。',
   '',
-  // 正文里的 vault 链接 —— 它走的是后端的 `[[X]]` 改写那条路,不是 corpusHref 那条。
+  // A vault link inside the body — it goes through the backend's `[[X]]` rewrite
+  // path, not the corpusHref one.
   'See also [[Second Note]].',
 ].join('\n');
 
-// 第二条笔记 —— 只为「换一条笔记接着读」那条用例存在,所以只要两种语言分得开就够。
+// A second note — exists only for the "switch to another note and keep reading" test,
+// so it's enough that the two languages are distinguishable.
 const SECOND_BODY = [
   '> [!i18n]',
   '> > [!lang] en',
@@ -68,8 +70,9 @@ const SECOND_BODY = [
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async ({ playwright }) => {
-  // hook **不吃** describe 那份 timeout,自己要一份:这里 claim 一个 owner、开 MCP、
-  // 种两条笔记再各发布一次,30 秒的默认预算不够。
+  // The hook does **not** inherit describe's timeout, so it needs its own: this
+  // claims an owner, opens MCP, seeds two notes and publishes each — the default 30s
+  // budget isn't enough.
   test.setTimeout(120_000);
   O = await setupRetrievalOwner(playwright, 'i18nreader');
   const seeded = await seedWiki(O.request, O.apiToken, O.sid, {
@@ -78,12 +81,16 @@ test.beforeAll(async ({ playwright }) => {
   wikiID = seeded.wikiID;
   await setPublished(O.request, O.csrf, wikiID, true);
 
-  // 第二条多语笔记 —— 「选了语言接着读别的」这件事一条笔记上验不了。
+  // A second multilingual note — "pick a language, then keep reading elsewhere"
+  // can't be verified with just one note.
   //
-  // 种在**根上**而不是 `projects/` 下:目录节点(`projects`)是按路径自动建出来的,
-  // 没人发布过它,于是它 published=false,树的根层匿名只返回空 —— 它下面两条已发布的
-  // 笔记跟着一起不可达(实测 `GET /api/v1/wiki-tree` → `{"nodes":[]}`)。
-  // 那是另一条缺陷,不该由这条用例扛:它要问的是语言跟不跟着走。
+  // Seeded at **the root**, not under `projects/`: the directory node (`projects`)
+  // is auto-created from paths, nobody has published it, so it's published=false, and
+  // the tree's root level returns empty for an anonymous visitor — dragging the two
+  // already-published notes beneath it into unreachability too (verified:
+  // `GET /api/v1/wiki-tree` → `{"nodes":[]}`).
+  // That's a separate defect, and shouldn't be this test's burden — this test asks
+  // whether the language selection carries over.
   const second = await seedWiki(O.request, O.apiToken, O.sid, {
     title: 'Second Note', path: 'second', body: SECOND_BODY,
   });
@@ -176,12 +183,17 @@ test.describe('multilingual reader · the switcher', () => {
         .toContainText('English prose about');
     });
 
-  // 选完语言接着往下读 —— 这是读者真正在做的事,而语言选择在**第一次点开另一条笔记**
-  // 时就没了:树上每条链接都是光秃秃的 `/wiki/<path>`,一点回英文。
-  // 只能选一次的选择等于没有这个选择(owner 原话:「那我要他有什么用」)。
+  // Pick a language, then keep reading — this is what a reader actually does, and
+  // the language selection disappears the **very first time** another note is
+  // clicked: every link in the tree is a bare `/wiki/<path>`, so one click reverts
+  // to English.
+  // A selection that only works once is the same as having no selection at all
+  // (owner's own words: "then what's it even for").
   //
-  // 宽视口是必须的:树轨按设计只在 ≥1500px 出现(窄屏走别的形态),默认 1280 的视口上
-  // 根本没有那几条链接可点 —— 那样这条用例会因为「找不到元素」而红,红得跟缺陷无关。
+  // A wide viewport is required: by design the tree rail only appears at ≥1500px
+  // (narrow screens use a different layout), so on the default 1280 viewport there
+  // are no such links to click at all — that would make this test go red because it
+  // "can't find the element", red for a reason unrelated to the actual defect.
   test('选了语言之后接着点别的笔记，语言跟着走', async ({ page }) => {
     await page.setViewportSize({ width: 1700, height: 1000 });
     await readIn(page, 'zh');
@@ -197,10 +209,14 @@ test.describe('multilingual reader · the switcher', () => {
       .toContainText('第二条笔记的中文');
   });
 
-  // **正文里**那些链接也得带上。它们跟树上那些不是同一条路:vault 的 `[[X]]` 由后端
-  // 改写成 `/wiki/<path>` 再交给 markdown 渲染,不经 corpusHref。上线之后在线上量到过:
-  // 面包屑三条都带了 `?lang=zh`,正文里三条光秃秃 —— 而读着读着点得最多的正是后者。
-  // 一处修好、另一处照旧,读者感觉不到差别(同样是点一下就回英文)。
+  // Links **inside the body** need to carry it too. They don't go through the same
+  // path as the ones in the tree: the vault's `[[X]]` gets rewritten by the backend
+  // to `/wiki/<path>` and handed to the markdown renderer, bypassing corpusHref.
+  // Measured in production after shipping: all three breadcrumb links carried
+  // `?lang=zh`, all three body links were bare — and the body links are the ones a
+  // reader clicks most while actually reading.
+  // Fix one and leave the other as-is, and the reader can't tell the difference
+  // (either way, one click reverts to English).
   test('正文里的 wikilink 也带着语言', async ({ page }) => {
     await readIn(page, 'zh');
     const body = page.getByTestId('wiki-body');
@@ -212,10 +228,15 @@ test.describe('multilingual reader · the switcher', () => {
   });
 });
 
-// 页头印了标题,正文第一行又印一次 —— vault 里两种形状都有:
-//   · 199 个 pane 的开头 `# 标题` 跟文件名同字(recursive-harness / # Recursive harness)
-//   · 985 个 pane 的开头是**另一句话**(the-business-model-wedge / # Attack the business model…)
-// 后者是内容,不是重复 —— 它必须原样留着。所以判据是**同字才去**,不是"开头的标题一律去"。
+// The header prints the title, and the first line of the body prints it a second
+// time — the vault contains both shapes:
+//   · 199 panes whose opening `# Title` is the same words as the filename
+//     (recursive-harness / # Recursive harness)
+//   · 985 panes whose opening line is **a different sentence**
+//     (the-business-model-wedge / # Attack the business model…)
+// The latter is content, not a repeat — it must be left exactly as-is. So the
+// criterion is **strip only when the words match**, not "always strip the opening
+// heading".
 test.describe('multilingual reader · 标题不在一屏上说两遍', () => {
   test.beforeAll(async () => {
     const echo = await seedWiki(O.request, O.apiToken, O.sid, {

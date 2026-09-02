@@ -1,20 +1,31 @@
-// upgrade-pending-email-columns.spec.ts —— 旧卷 + 新代码，**升级由部署本身完成**。
+// upgrade-pending-email-columns.spec.ts — an old volume + new code, **the upgrade is
+// carried out by the deploy itself**.
 //
-// v0.0.1 已经发布出去了，所以每一次 schema 改动都有两种上线场景：
-//   ① 全新的 pg 卷 —— `schema.sql` 跑一遍，什么都对
-//   ② **已经在跑的实例** —— 卷里已经有 owner、码、语料，然后新版本上来
+// v0.0.1 has already shipped, so every schema change now has two rollout scenarios:
+//   (1) a brand-new pg volume — `schema.sql` runs once and everything's correct
+//   (2) **an already-running instance** — the volume already has an owner, codes,
+//       corpus, and then the new version lands on top
 //
-// 整套 e2e 一直只测 ①（[[schema-lives-in-the-volume-not-the-image]]：空卷上绿证明不了升级）。
+// The full e2e suite has always only tested (1)
+// ([[schema-lives-in-the-volume-not-the-image]]: green on an empty volume proves
+// nothing about an upgrade).
 //
-// ⚠️ 这条 spec 的第一版**自己去打那条 SQL**（`applyMigration(MIGRATION)`）。
-// 它绿了，而它证明的只是"那个 .sql 文件写得对" —— 因为真实的实例里没有任何人做那一步。
-// 「migration 怎么到达一台实例」，也就是真正会坏的那一段，被测试自己代劳了。
-// 那个 fixture 已经删掉，所以现在**升级只有一条路**：重启后端，也就是部署。
+// Warning: the first version of this spec **applied that SQL itself**
+// (`applyMigration(MIGRATION)`). It went green, but all it proved was "that .sql
+// file is written correctly" — because on a real instance, nobody performs that
+// step manually. "How does a migration actually reach an instance", the part that
+// can genuinely break, was being done by the test itself instead of the real
+// mechanism. That fixture has since been deleted, so now **there is only one path
+// to an upgrade**: restart the backend, i.e. deploy.
 //
-// 手法：在一个有数据的库上退回"升级前"的真实形状 —— 删掉新列，**并且删掉账本里那一行**
-// （一台还没升级的实例正是这个样子：账本在，但没有这一条）。然后只做一件事：重启后端。
+// Method: on a database that already has data, roll it back to the real
+// "pre-upgrade" shape — drop the new columns, **and also delete that migration's row
+// from the ledger** (that's exactly what an un-upgraded instance looks like: the
+// ledger exists, but this row is missing from it). Then do exactly one thing:
+// restart the backend.
 //
-// 顺序敏感：这条 spec 跑的时候库是短暂坏的，e2e 是 workers:1 串行，别改成并行。
+// Order-sensitive: while this spec runs, the database is briefly in a broken state;
+// e2e runs with workers:1 (serial) — do not switch this to parallel.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -45,17 +56,21 @@ function columnCount(): number {
   ));
 }
 
-// ledgerRows —— 账本里这一条 migration 有几行。**恰好一行**是它自己的不变量：
-// 零＝没打过，两行＝打了两遍（而八个文件里有一条 UPDATE 是不可重入的）。
+// ledgerRows — how many rows this migration has in the ledger. **Exactly one row**
+// is its own invariant: zero means never applied, two means applied twice (and one
+// of the eight migration files contains an UPDATE that is not idempotent).
 function ledgerRows(): number {
   return Number(querySQL(
     `SELECT count(*) FROM schema_migrations WHERE name = '${MIGRATION}'`,
   ));
 }
 
-// downgrade —— 把库退回"这台实例还没升到这一版"的真实形状。
-// 两件事都要做：列没有，**账本里也没有这一条**。只删列的话，账本会说"打过了"，
-// 于是启动时跳过 —— 那样测出来的是账本工作正常，不是升级工作正常。
+// downgrade — rolls the database back to the real shape of "this instance hasn't
+// upgraded to this version yet".
+// Both things must happen: the columns are gone, **and** the ledger row is gone too.
+// Dropping only the columns would leave the ledger saying "already applied", so it
+// gets skipped at startup — and then the test would only be proving the ledger
+// works, not that the upgrade works.
 function downgrade(): void {
   execSQL(`ALTER TABLE owners ${NEW_COLUMNS.map((c) => `DROP COLUMN IF EXISTS ${c}`).join(', ')}`);
   execSQL(`DELETE FROM schema_migrations WHERE name = '${MIGRATION}'`);
@@ -68,16 +83,20 @@ async function loginStatus(
   return res.status();
 }
 
-// seedInstance —— 一台"已经在跑、上面有东西"的实例。升级测的就是这种实例。
+// seedInstance — "an already-running instance with data on it". This is exactly what
+// the upgrade tests against.
 async function seedInstance(request: APIRequestContext): Promise<void> {
   resetInstance();
   await claim(request, findSetupToken(), OWNER);
-  // 配 mail connector：**新列只在待确认那条路上才被用到**。没有它，改邮箱走直换、
-  // 三个新列一次也不碰 —— 那样"新功能可用"就成了一句没验到东西的话。
+  // Configure the mail connector: **the new columns are only used on the
+  // pending-confirmation path**. Without it, changing the email goes through a
+  // direct swap and never touches the three new columns even once — and then
+  // "the new feature works" would be a claim nothing actually verified.
   await configureMailConnector(request, OWNER.email, OWNER.password);
-  // 种一篇 writing：重跑回填那条用例要断言「owner 选过的颜色没被抹掉」，
-  // 而刚重置的实例一篇都没有 —— 那条用例会 skip 掉自己，成为一条不会失败的断言
-  // （[[assertion-that-cannot-fail]]）。
+  // Seed a writing: the replay-backfill test needs to assert "the color the owner
+  // picked wasn't wiped out", and a freshly reset instance has none — that test
+  // would skip itself, becoming an assertion that can never fail
+  // ([[assertion-that-cannot-fail]]).
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'upgrade-seed');
   const sid = await initMCP(request, token);
@@ -88,8 +107,10 @@ async function seedInstance(request: APIRequestContext): Promise<void> {
   await request.dispose();
 }
 
-// expectEmailChangeGoesPending —— 升级之后那三列真的能写能读。
-// 断在**列上**，不只是"接口回了 200"：要证明的是新 schema 在用。
+// expectEmailChangeGoesPending — after the upgrade, those three columns can really
+// be written and read.
+// Asserts **on the columns**, not just "the endpoint returned 200": what needs
+// proving is that the new schema is actually in use.
 async function expectEmailChangeGoesPending(request: APIRequestContext): Promise<void> {
   const moved = 'upgrader+moved@example.com';
   const { csrf } = await login(request, OWNER.email, OWNER.password);
@@ -100,41 +121,48 @@ async function expectEmailChangeGoesPending(request: APIRequestContext): Promise
   expect(res.status()).toBe(200);
   expect(querySQL(`SELECT pending_email FROM owners WHERE handle = '${OWNER.handle}'`))
     .toBe(moved);
-  // 身份还没动：确认之前，登录用的仍是老邮箱。
+  // Identity hasn't moved yet: before confirmation, login still uses the old email.
   expect(await loginStatus(request, OWNER.email, OWNER.password)).toBe(200);
 }
 
 test.describe('upgrade · deploying the new version migrates an instance that already has data', () => {
-  // 每条用例里都有**一次真实的部署**（docker compose restart + 等健康），
-  // 一次就吃掉默认 30s 的大半。第一版没设这个，于是用例在 PATCH 那一行被时钟砍断 ——
-  // 而那个 PATCH 其实 200 成功了（后端日志 829ms）。超时不是"没做"的证据。
+  // Every test here does **one real deploy** (docker compose restart + waiting for
+  // health), which alone eats up most of the default 30s. The first version didn't
+  // set this, so a test got cut off by the clock right at the PATCH line — while
+  // that PATCH had actually succeeded with 200 (829ms in the backend log). A
+  // timeout is not proof that something didn't happen.
   test.describe.configure({ timeout: 300_000 });
 
   test.beforeAll(async ({ playwright }) => {
     await seedInstance(await playwright.request.newContext());
   });
 
-  // 兜底：这条用例中途死掉的话，库停在旧形状。再重启一次就会补上 ——
-  // 而"重启即修复"本身就是这套机制该有的样子。
+  // Safety net: if this test dies mid-run, the database is left in the old shape.
+  // One more restart fixes it — and "restart fixes it" is exactly the shape this
+  // mechanism is supposed to have.
   test.afterAll(() => {
     restartBackend();
   });
 
-  // 这一条和下一条是同一次升级的两半：先问"部署带上来了吗"，再问"东西还好吗"。
-  // 顺序相关（workers:1 串行）：下一条跑在这一条留下的、已升级的实例上。
+  // This test and the next one are the same upgrade's two halves: first ask "did
+  // the deploy bring it up", then ask "is everything still fine". Order-dependent
+  // (workers:1, serial): the next test runs on the already-upgraded instance this
+  // one leaves behind.
   test('an old volume + a deploy of the new version → the deploy applies the schema', () => {
-    // 升级前：这个实例上有真实数据。
+    // Before the upgrade: this instance has real data.
     expect(querySQL(`SELECT email FROM owners WHERE handle = '${OWNER.handle}'`))
       .toBe(OWNER.email);
 
-    // 退回旧形状。**必须真的生效** —— 否则后面全是在新 schema 上跑，
-    // 一条永远绿的假升级测试（[[assertion-that-cannot-fail]]）。
+    // Roll back to the old shape. **This must actually take effect** — otherwise
+    // everything below runs on the new schema anyway, and this becomes a fake
+    // upgrade test that's permanently green ([[assertion-that-cannot-fail]]).
     downgrade();
     expect(columnCount(), '前置状态没造出来：列还在，这条测试证明不了任何事').toBe(0);
     expect(ledgerRows(), '账本里还留着这一条，启动时会跳过 —— 那就没在测升级').toBe(0);
 
-    // 升级 = 部署。没有别的动作。
-    // 这一行如果换成"测试自己打 SQL"，这条 spec 就退回它坏掉的第一版。
+    // Upgrade = deploy. No other action.
+    // If this line were swapped for "the test applies the SQL itself", this spec
+    // would regress to its own broken first version.
     restartBackend();
 
     expect(columnCount()).toBe(NEW_COLUMNS.length);
@@ -145,27 +173,30 @@ test.describe('upgrade · deploying the new version migrates an instance that al
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
 
-      // 老数据还在，没被 ALTER 改坏。
+      // The old data is still there, not broken by the ALTER.
       expect(querySQL(`SELECT email FROM owners WHERE handle = '${OWNER.handle}'`))
         .toBe(OWNER.email);
-      // 新列对**已存在的行**要有安全默认 —— 这是加 NOT NULL 列时真正会炸的地方。
+      // The new columns need a safe default for **rows that already existed** — this
+      // is exactly where adding a NOT NULL column actually blows up.
       expect(querySQL(
         `SELECT pending_email IS NULL AND pending_email_token_hash = '' ` +
         `FROM owners WHERE handle = '${OWNER.handle}'`,
       )).toBe('t');
 
-      // 老功能没坏：升级前就存在的 owner 还登得上。
+      // The old feature isn't broken: an owner who existed before the upgrade can
+      // still log in.
       expect(await loginStatus(request, OWNER.email, OWNER.password)).toBe(200);
-      // 新功能可用。
+      // The new feature works.
       await expectEmailChangeGoesPending(request);
 
       await request.dispose();
     });
 
-  // 重部署、回滚再上、运维手抖 —— 同一个版本会被部署很多次。
-  // 账本的作用就是让第二次什么都不做：八个 migration 里
-  // `2026-08-16-cover-hue-never-chosen.sql` 那条 UPDATE **不可重入**，
-  // 重跑一次会把 owner 后来手动设过的 cover_hue 再抹掉一遍。
+  // Redeploys, roll back and redeploy, an ops slip — the same version can be
+  // deployed many times over. The ledger's job is to make the second deploy a
+  // no-op: of the eight migrations, the UPDATE in
+  // `2026-08-16-cover-hue-never-chosen.sql` is **not idempotent**, and re-running it
+  // would wipe out a cover_hue the owner manually set afterward, all over again.
   test('deploying the same version again is a no-op: the ledger keeps it at one', () => {
     const emailBefore = querySQL(`SELECT email FROM owners WHERE handle = '${OWNER.handle}'`);
     const pendingBefore = querySQL(
@@ -177,19 +208,23 @@ test.describe('upgrade · deploying the new version migrates an instance that al
 
     expect(columnCount()).toBe(NEW_COLUMNS.length);
     expect(ledgerRows(), '同一条被记了不止一次 —— 说明它被重跑了').toBe(1);
-    // 数据没被第二次部署动过。
+    // Data untouched by the second deploy.
     expect(querySQL(`SELECT email FROM owners WHERE handle = '${OWNER.handle}'`))
       .toBe(emailBefore);
     expect(querySQL(`SELECT pending_email FROM owners WHERE handle = '${OWNER.handle}'`))
       .toBe(pendingBefore);
   });
 
-  // 一台**从来没见过这套机制**的实例：账本表还不存在，而且缺一条 migration。
+  // An instance that has **never seen this mechanism before**: the ledger table
+  // doesn't exist yet, and it's genuinely missing one migration.
   //
-  // 这一条是从真实环境里换来的。第一版有个"基线"分支：没有账本就把八条全记成已应用、
-  // 一条都不跑，理由是"它们的结果本来就在库里"。dev 上第一次跑就证伪了 —— 那台实例
-  // 没账本、而且真的缺一条，于是那一条被永久记成打过了，列还是不存在，什么都没报。
-  // 而那正是**每台老实例第一次启动**时走的分支。
+  // This test was earned from a real-environment incident. The first version had a
+  // "baseline" branch: if there's no ledger, mark all eight as already applied and
+  // run none of them, on the theory that "their results are already in the
+  // database". The first run on dev falsified that — that instance had no ledger
+  // and was genuinely missing one migration, so that one got permanently marked as
+  // applied, the columns still didn't exist, and nothing reported it. And that
+  // branch is exactly the one **every old instance's first startup** takes.
   test('an instance with no ledger and a missing migration gets it applied, not assumed', () => {
     downgrade();
     execSQL('DROP TABLE IF EXISTS schema_migrations');
@@ -202,10 +237,12 @@ test.describe('upgrade · deploying the new version migrates an instance that al
     expect(ledgerRows()).toBe(1);
   });
 
-  // 重跑八条 migration 不许损坏数据。唯一带数据回填的那条
-  // （`2026-08-16-cover-hue-never-chosen.sql`）清的是产品给不出的状态
-  // ——封面只存在于 writing，而它的 WHERE 是 `genre <> 'writing'`。
-  // 这条断言盯着那句话：哪天有人把回填放宽到 owner 真能设色的 genre，重部署就成了数据损失。
+  // Replaying all eight migrations must never corrupt data. The one migration that
+  // backfills data (`2026-08-16-cover-hue-never-chosen.sql`) clears out a state the
+  // product itself can never produce — a cover only exists on a writing, and its
+  // WHERE clause is `genre <> 'writing'`. This assertion watches that exact
+  // guarantee: the day someone widens the backfill to a genre where the owner can
+  // actually set a color, a redeploy becomes data loss.
   test('replaying every migration does not touch a hue the owner can actually set', () => {
     execSQL(
       `UPDATE corpus_notes SET cover_hue = 'sage' WHERE genre = 'writing'`,
@@ -213,8 +250,9 @@ test.describe('upgrade · deploying the new version migrates an instance that al
     const painted = Number(querySQL(
       `SELECT count(*) FROM corpus_notes WHERE genre = 'writing' AND cover_hue = 'sage'`,
     ));
-    // 断在**非零**上：beforeAll 种过一篇。零意味着前置状态没造出来，
-    // 那后面那句"颜色还在"就永远成立了。
+    // Asserts on **non-zero**: beforeAll seeded one writing. Zero would mean the
+    // preconditions were never actually set up, and then "the color is still
+    // there" below would trivially always hold.
     expect(painted, '前置状态没造出来：没有上过色的 writing，这条断言不会失败').toBeGreaterThan(0);
 
     execSQL('DROP TABLE IF EXISTS schema_migrations');

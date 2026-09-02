@@ -1,17 +1,27 @@
-// admin-load-failure-not-empty.spec.ts —— 加载失败**不许**渲染成一句权威的空话。
+// admin-load-failure-not-empty.spec.ts — a failed load must **not** render as an authoritative
+// statement of emptiness.
 //
-// 这条守的是一整类，不是一个点。规矩本身早就写在 `use-latest-list.ts` 里：
-//   「加载失败别静默成空列表：空 vs『没拉到』owner 得分得清」
-// 三处没守它，全都是 `.catch(() => set<空>())`：GET 挂了，组件照样按「取到了，且是空的」渲染。
+// This guards a whole class, not one spot. The rule itself is already written in
+// `use-latest-list.ts`:
+//   "Do not let a failed load go silent as an empty list: empty vs 'did not load' must stay
+//   distinguishable to the owner."
+// Three places didn't follow it, all via `.catch(() => set<empty>())`: the GET fails, and the
+// component renders as if it "fetched successfully, and it's empty" regardless.
 //
-// 为什么这是**真 bug** 而不是洁癖：空态在这几处都是**owner 会当真去信的一句陈述**。
-//   - code 卡：「(role grants nothing)」—— 读起来是「这张码什么都读不到」，一个**看起来安全**的谎。
-//     owner 据此以为已经锁死了，于是不去收窄。真相是 GET 500 了，role 授的一切照读。
-//   - dashboard：「0 sent」/ 空的 recent visitors —— 读起来是「没这回事」，而不是「没拉到」。
-// 静默的方向恰好指向「不用管」，所以它不会被 owner 发现 —— 只会被相信。
+// Why this is a **real bug** and not fastidiousness: in each of these spots, the empty state is
+// **a statement the owner will genuinely believe**.
+//   - the code card: "(role grants nothing)" — reads as "this code can't read anything at all", a
+//     lie that **looks safe**. The owner concludes it's already locked down and doesn't narrow it
+//     further. The truth is the GET 500'd, and everything the role grants is still readable.
+//   - the dashboard: "0 sent" / an empty recent-visitors list — reads as "nothing happened", not
+//     "didn't load".
+// The silence happens to point exactly toward "nothing to worry about", so the owner never
+// notices it — they just believe it.
 //
-// 发现经过（本 spec 的由来）：prod 上 `GET /codes/{id}/corpus` 每张码都 500（DB 卷比新表老），
-// 而 GUI 上**一个错都看不见**，六张卡整整齐齐写着「(role grants nothing)」。控制台里才有 500。
+// How this was found (the origin of this spec): in prod, `GET /codes/{id}/corpus` returned 500
+// for every code (the DB volume was older than the new table), and the GUI showed **not a single
+// visible error** — all six cards neatly said "(role grants nothing)". The 500 only showed up in
+// the console.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -29,10 +39,13 @@ const OWNER = {
   fullName: 'Load Failure Owner',
 };
 
-// LIES —— 每句都是某个 `.catch(() => set<空>())` 会印出来的、owner 会当真的陈述。
+// LIES — each string is something a `.catch(() => set<empty>())` would print out, and something
+// the owner would take at face value.
 const GRANTS_NOTHING = /role grants nothing/i;
-// F-N-7 的两句。它们跟上面那句是同一族，只是归因换了层：不是 catch 吞掉了错，
-// 而是**渲染这一侧根本没有 error 分支** —— 失败之后列表是空数组，于是直落空态。
+// The two lines for F-N-7. They're the same family as the line above, just with the fault at a
+// different layer: it isn't a catch swallowing the error — it's that **the render side has no
+// error branch at all** — after a failure the list is an empty array, so it falls straight into
+// the empty state.
 const NO_ROLES_YET = /no roles yet/i;
 const NOTHING_BANNED = /no ips banned/i;
 
@@ -60,18 +73,22 @@ test.describe('admin · a failed load must not render as an authoritative empty'
   test('a genuinely empty list still shows its empty state', emptyStateStillShows);
 });
 
-// rolesLoadFailure —— F-N-7。**真实环境驱出来的**：prod 上让只有 `/api/admin/roles` 回 500
-// （别的块照常加载），`/admin/roles` 印的是「No roles yet — public is normally seeded on owner
-// claim.」，而那台实例有三个角色。
+// rolesLoadFailure — F-N-7. **Driven out by a real environment**: in prod, with only
+// `/api/admin/roles` returning 500 (every other block loaded fine), `/admin/roles` printed
+// "No roles yet — public is normally seeded on owner claim." while that instance actually had
+// three roles.
 //
-// 为什么这一页比别处更要命：它是**权限的总闸**，而空态那句话既是一句关于世界的陈述
-// （「这个实例还没有角色」），又指向一个动作（`+ NEW ROLE`）。owner 会在一份没读到的配置上面
-// 新建，或者据此以为访客现在什么都读不到。
+// Why this page is worse than the others: it's the **master switch for permissions**, and the
+// empty-state line is both a statement about the world ("this instance has no roles yet") and a
+// pointer toward an action (`+ NEW ROLE`). The owner might create a new role on top of
+// configuration they never actually read, or conclude visitors can't read anything right now.
 async function rolesLoadFailure({ adminPage }: { adminPage: Page }): Promise<void> {
-  // 正则而不是 glob：真实路径是 `/api/admin/roles/`（带尾斜杠），而 glob 里的 `*` 不跨 `/`。
-  // 第一版写成 `**/api/admin/roles*` —— 一发都没拦到，页面照常渲出三张角色卡，
-  // 而断言仍然红（红在「没有失败提示」这句上）。**那种红跟真缺陷长得一模一样**
-  // （[[read-the-failure-before-theorising]]）：是翻失败截图才看出来的。
+  // A regex, not a glob: the real path is `/api/admin/roles/` (with a trailing slash), and a
+  // glob's `*` doesn't cross `/`. The first version was written as `**/api/admin/roles*` — it
+  // intercepted nothing, the page rendered its usual three role cards, and yet the assertion still
+  // went red (red on "no failure notice shown"). **That kind of red looks exactly like a real
+  // defect** ([[read-the-failure-before-theorising]]) — it only became clear from the failure
+  // screenshot.
   const probe = fail(adminPage, /\/api\/admin\/roles/);
   await reloadAdminSection(adminPage, 'roles');
   await expectInjected(probe, 'roles');
@@ -85,8 +102,9 @@ async function rolesLoadFailure({ adminPage }: { adminPage: Page }): Promise<voi
   ).toHaveCount(0);
 }
 
-// securityLoadFailure —— 同一族里方向最危险的一句：「No IPs banned. The public surface is open」。
-// 失败时印它，等于在 owner 问「我封了谁」的时候回答「谁也没封，门开着」—— 而真相是没读到。
+// securityLoadFailure — the single most dangerous line in this family: "No IPs banned. The
+// public surface is open." Printing it on a failure means answering the owner's question "who
+// have I banned?" with "nobody, the door is open" — when the truth is the data never loaded.
 async function securityLoadFailure({ adminPage }: { adminPage: Page }): Promise<void> {
   const probe = fail(adminPage, /\/api\/admin\/ip-bans/);
   await reloadAdminSection(adminPage, 'ip-bans');
@@ -101,12 +119,15 @@ async function securityLoadFailure({ adminPage }: { adminPage: Page }): Promise<
   ).toHaveCount(0);
 }
 
-// emptyStateStillShows —— **反方向**。没有这条，一个「干脆永不渲染空态」的实现也能让上面两条转绿，
-// 而真正空的实例会盯着一片什么都不说的地方（[[assertion-that-cannot-fail]] 的邻居：
-// 只钉一个方向的守卫，会被最省事的错误实现满足）。
+// emptyStateStillShows — **the opposite direction**. Without this case, an implementation that
+// simply "never renders an empty state at all" would also turn the two cases above green, while a
+// genuinely empty instance would stare at a section that says nothing at all (a neighbor of
+// [[assertion-that-cannot-fail]]: a guard pinned in only one direction can be satisfied by the
+// laziest wrong implementation).
 //
-// 这里不注入故障 —— 拉成功、且真的是空的那一种。这台实例发过码、建过角色，所以要一个
-// **本来就空**的列表：`security` 的封禁表在一台干净实例上就是空的。
+// No fault is injected here — this is the case where the fetch succeeds and the list is really
+// empty. This instance has issued codes and created roles, so it needs a list that's
+// **genuinely empty** to begin with: the `security` ban table is empty on a clean instance.
 async function emptyStateStillShows({ adminPage }: { adminPage: Page }): Promise<void> {
   await reloadAdminSection(adminPage, 'ip-bans');
   await expect(
@@ -119,24 +140,28 @@ async function emptyStateStillShows({ adminPage }: { adminPage: Page }): Promise
   ).toHaveCount(0);
 }
 
-// failureSpeaksEnglish —— F-N-5。上面几条守的是「别把失败说成空」，这条守的是**说出来的那句话
-// 本身**：prod 上真把 backend 停掉，`/admin/wiki` 印的是
+// failureSpeaksEnglish — F-N-5. The cases above guard "don't render a failure as empty"; this one
+// guards **the actual words printed**: with backend really stopped in prod, `/admin/wiki` printed
 //     GET /corpus/wiki failed: 500
-// —— HTTP 动词、内部路径、状态码，三样都甩到 owner 脸上。CLAUDE.md 的规矩逐字写着
-// 「Errors must be user-friendly at the UI. No raw stack traces, no exit codes, no technical jargon」。
+// — an HTTP verb, an internal path, and a status code, all three thrown in the owner's face.
+// CLAUDE.md's rule says, word for word, "Errors must be user-friendly at the UI. No raw stack
+// traces, no exit codes, no technical jargon."
 //
-// 归因在**唯一的汇合点**：`lib/api/admin.ts` 的 `throwAPIError` 把 `${method} ${path} failed: ${status}`
-// 当成 APIError.message 的兜底，而二十来处 section 直接把 message 印在屏幕上。
-// 这条经验产品里已经写过一次 —— `use-obsidian.ts:70` 的注释原话：
-// 「a human sentence, never `import failed: 400`. The owner is not debugging」—— 只是没扫到邻居。
+// The cause sits at **the single convergence point**: `throwAPIError` in `lib/api/admin.ts` uses
+// `${method} ${path} failed: ${status}` as the fallback for APIError.message, and roughly twenty
+// sections print that message straight to the screen. This lesson was already written into the
+// product once — the comment at `use-obsidian.ts:70` reads verbatim: "a human sentence, never
+// `import failed: 400`. The owner is not debugging" — it just never got swept to its neighbors.
 //
-// 判据断的是**屏幕上的字**：不许出现 HTTP 动词 / `/corpus/` 这种内部路径 / 裸状态码，
-// 且必须真有一句话在（不然「什么都不显示」也能过 —— 那是另一个缺陷，不是修好）。
+// The criterion checks **the actual text on screen**: no HTTP verb, no internal path like
+// `/corpus/`, no bare status code may appear, and there must genuinely be a sentence present
+// (otherwise "shows nothing at all" would also pass — that's a different defect, not a fix).
 async function failureSpeaksEnglish({ adminPage }: { adminPage: Page }): Promise<void> {
-  // 注入的是**没有 envelope 的 500**（真实的进程崩溃 / 反代 502 就是这样），
-  // 因为要验的正是「后端一句话都没给出来时，屏幕上出现的是什么」。
-  // 上面那个 `fail()` 带着 `{error:{message:'boom'}}`，产品会如实印 'boom' ——
-  // 那走的是另一条分支，测不到兜底串。
+  // What's injected is a **500 with no envelope** (a real process crash / reverse-proxy 502 looks
+  // exactly like this), because what needs verifying is exactly this: "what shows on screen when
+  // the backend gives back not one word of its own."
+  // The `fail()` helper above sends `{error:{message:'boom'}}`, and the product faithfully prints
+  // 'boom' for that — that exercises a different branch and can't reach the fallback string.
   await adminPage.route('**/api/admin/corpus/wiki**', (route) => route.fulfill({
     status: 500, contentType: 'text/plain', body: 'upstream connect error',
   }));
@@ -149,21 +174,26 @@ async function failureSpeaksEnglish({ adminPage }: { adminPage: Page }): Promise
     .not.toMatch(/\b(GET|POST|PUT|PATCH|DELETE)\b|\/corpus\/|\bfailed: \d{3}\b/);
 }
 
-// liveDotTracksReachability —— F-N-6。顶栏那颗朱红点旁边写着 `live`，而它读的是**空气**：
-// `LiveDot` 里没有任何输入，dev / prod / 后端停机全都长一个样。
-// prod 上真停一次 backend 之后点侧栏：正文写着这一节加载失败，顶栏还在 `● LIVE`。
+// liveDotTracksReachability — F-N-6. The vermillion dot in the top bar sits next to the word
+// `live`, and it reads **thin air**: there's no input feeding `LiveDot` at all — dev, prod, and a
+// stopped backend all look identical. In prod, after really stopping the backend once and
+// clicking a sidebar item: the body says that section failed to load, and the top bar still says
+// `● LIVE`.
 //
-// 「哪些还活着」正是状态灯唯一要回答的问题（跟 api·mcp 那张密钥卡上的 `last used` 同一个角色）。
-// 判据：注入故障之后那句 `live` 必须**换掉**（说不出话就别说话），而正常时它必须在 ——
-// 两个方向都钉住，否则「干脆删掉这颗灯」也能让单向断言转绿。
+// "What's still alive" is precisely the one question the status light exists to answer (the same
+// role as `last used` on the api·mcp key card). Criterion: after injecting a fault, the word
+// `live` must **change** (if it can't say anything, it shouldn't say "live"), and under normal
+// conditions it must be present — pin both directions, otherwise "just delete the light" would
+// also turn a one-directional assertion green.
 async function liveDotTracksReachability({ adminPage }: { adminPage: Page }): Promise<void> {
   const liveWord = adminPage.getByTestId('shell-liveness');
   await gotoAdminSection(adminPage, 'wiki');
   await expect(liveWord, 'a healthy instance says live').toHaveText(/live/i, { timeout: 15_000 });
 
-  // 停的是**整台后端**，不是一个端点：一个端点 500 时这台机器仍然在答话，
-  // 那时候还说 live 是对的。要复现的是 prod 上真停 backend 的那一幕 ——
-  // 会话已经在手里（不重载，靠点侧栏换节），每一个请求都够不着。
+  // What's stopped is **the entire backend**, not one endpoint: when a single endpoint 500s, the
+  // machine is still answering, and saying "live" then would be correct. What needs reproducing is
+  // the real prod scene of stopping the backend — the session is already in hand (no reload, just
+  // clicking sidebar items to switch sections), and every request is unreachable.
   await adminPage.route('**/api/admin/**', (route) => route.fulfill({
     status: 500, contentType: 'text/plain', body: 'upstream connect error',
   }));
@@ -171,13 +201,16 @@ async function liveDotTracksReachability({ adminPage }: { adminPage: Page }): Pr
   await expect(
     liveWord, `the instance answers nothing and the shell still calls itself live`,
   ).not.toHaveText(/^live$/i, { timeout: 15_000 });
-  // 说清楚它换成了什么 —— 只断"不是 live"的话，渲染成空白也算过。
+  // Check what it changed to, specifically — asserting only "it's not live" would let rendering
+  // blank pass too.
   const word = (await liveWord.innerText()).trim();
   expect(word.length, 'the dot must say what is wrong, not go blank').toBeGreaterThan(3);
 }
 
-// meUnauthedStillRedirects —— 反方向。没有这条，一个「干脆永不跳转」的实现也能让上面那条转绿，
-// 而真正过期的会话会卡在一句「够不着服务器」上 —— 同一个缺陷换了个方向而已。
+// meUnauthedStillRedirects — the opposite direction. Without this case, an implementation that
+// simply "never redirects at all" would also turn the case above green, while a genuinely expired
+// session would get stuck on a "couldn't reach the server" message — the same defect, just facing
+// the other way.
 async function meUnauthedStillRedirects({ adminPage }: { adminPage: Page }): Promise<void> {
   await adminPage.route('**/api/admin/me', (route) => route.fulfill({
     status: 401,
@@ -188,26 +221,32 @@ async function meUnauthedStillRedirects({ adminPage }: { adminPage: Page }): Pro
   await adminPage.waitForURL('**/login', { timeout: 10_000 });
 }
 
-// meFailureIsNotSignedOut —— F-N-2。同一类的第四处，衣服换了一件：**「你没登录」也是一句
-// 关于世界的断言**，而它同样可能是假的。
+// meFailureIsNotSignedOut — F-N-2. The fourth spot in the same family, wearing a different
+// costume: **"you are signed out" is also a statement about the world**, and it can equally be
+// false.
 //
-// `use-admin-session.ts:41/:59` 把 fetch 的 `error` 一律当成 unauthed → `router.push('/login')`。
-// 401 和 500 于是收成同一件事，可这两件事给 owner 的指示正好相反：401 要他去登录，
-// 500 说服务器不在、登录也没用。合并之后产品给出的恰恰是那个不管用的建议，
-// owner 会以为是自己的密码有问题，反复重输。
+// `use-admin-session.ts:41/:59` treats any fetch `error` as unauthed → `router.push('/login')`.
+// 401 and 500 collapse into the same handling, but the two mean opposite instructions to the
+// owner: a 401 means go sign in; a 500 means the server is down, and signing in won't help. Once
+// merged, the product hands the owner exactly the advice that doesn't work, and they'll assume
+// it's their password and re-enter it over and over.
 //
-// RED（修复前）：被踢到 /login，页面上一个字都没提服务器。
+// RED (before the fix): bounced to /login, with not one word on the page about the server.
 //
-// **必须整页重载**，不能只点侧栏：`gotoAdminSection` 是客户端跳转，`sessionStore` 还留着
-// 初次加载时那份 ready，`/me` 压根不会再请求一次 —— 第一版就是这么写的，于是这条用例
-// 在没修的代码上也绿，而绿的原因是**故障根本没注入进去**。owner 遇到的那一幕正是重载
-// （服务器挂了，他刷新一下、或者新开一个标签页）。
+// **This must reload the whole page**, not just click a sidebar item: `gotoAdminSection` is a
+// client-side navigation, `sessionStore` still holds the `ready` state from the first load, and
+// `/me` never gets fetched again at all — that's exactly how the first version of this test was
+// written, so the case passed even on unfixed code, and it passed only because **the fault was
+// never actually injected**. The scene the owner actually hits is a reload (the server is down,
+// they refresh, or open a new tab).
 async function meFailureIsNotSignedOut({ adminPage }: { adminPage: Page }): Promise<void> {
   fail(adminPage, '**/api/admin/me');
   await reloadAdminSection(adminPage, 'roles');
-  // 等**两种结局里先出现的那一个**（登录表单，或者那句话），再判 —— 这样不必睡固定时长，
-  // 而且两条断言都还能红。只等那句话的话，缺陷在时失败信息会是"找不到元素"，
-  // 说不出真正发生的事（owner 被踢去登录了）。
+  // Wait for **whichever of the two outcomes shows up first** (the sign-in form, or the message)
+  // before asserting — this avoids sleeping a fixed duration, and both assertions can still go
+  // red. Waiting only for the message would mean the failure message on a real defect is just
+  // "element not found", which doesn't say what actually happened (the owner got bounced to
+  // sign-in).
   const signInForm = adminPage.getByTestId('email');
   const unreachable = adminPage.getByText(/couldn’t reach|could not reach|not reachable/i).first();
   await expect(signInForm.or(unreachable).first()).toBeVisible({ timeout: 10_000 });
@@ -215,20 +254,23 @@ async function meFailureIsNotSignedOut({ adminPage }: { adminPage: Page }): Prom
     new URL(adminPage.url()).pathname,
     'a 500 is not a sign-out — do not bounce the owner to /login',
   ).not.toBe('/login');
-  // 措辞要具体到只有这条分支说得出来 —— 松到 /server/i 会被页面别处的字命中，
-  // 那样又是一个不会红的断言。
+  // The wording has to be specific enough that only this branch could produce it — a looser match
+  // like /server/i would get hit by unrelated text elsewhere on the page, and that's an assertion
+  // that can never go red again.
   await expect(
     unreachable, 'a 500 on /me must say the server could not be reached',
   ).toBeVisible();
 }
 
-// fail —— 把某个 admin GET 钉死成 500（真实故障的确定性替身：prod 上它是缺表）。
+// fail — pin some admin GET to always return 500 (a deterministic stand-in for a real fault; in
+// prod it was a missing table).
 //
-// 返回一个**命中计数**，调用方要断它 > 0。理由这份文件已经付过一次账（见
-// `dashboardCountLoadFailure` 那段），而我今天又付了一次：`'**/api/admin/roles*'` 里的 `*`
-// 不跨 `/`，真实路径 `/api/admin/roles/` **一发都没拦到**，页面照常渲出三张角色卡 ——
-// 可断言仍然红（红在「没有失败提示」上），跟真缺陷长得一模一样。
-// 先证「这一发真的被钉成 500 了」，那种假红就不可能再发生。
+// Returns a **hit counter**, and callers must assert it's > 0. This file already paid for that
+// lesson once (see the `dashboardCountLoadFailure` section), and I paid for it again today: the
+// `*` in `'**/api/admin/roles*'` doesn't cross `/`, the real path `/api/admin/roles/`
+// **intercepted nothing**, the page rendered its usual three role cards — and the assertion still
+// went red (red on "no failure notice"), looking exactly like a real defect. Prove first that
+// "this request really was pinned to 500", and that kind of false red can never happen again.
 function fail(page: Page, glob: string | RegExp): { hits: () => number } {
   let hits = 0;
   void page.route(glob, (route) => {
@@ -242,12 +284,16 @@ function fail(page: Page, glob: string | RegExp): { hits: () => number } {
   return { hits: () => hits };
 }
 
-// hold —— 把某个 GET **扣在半空**，直到测试自己放行（`fail` 的兄弟：那个钉成 500，这个钉在路上）。
+// hold — **hang** some GET mid-air until the test itself releases it (a sibling of `fail`: that
+// one pins to 500, this one pins in transit).
 //
-// 不用「拖住 N 毫秒」是因为那就是 e2e 里的 sleep：窗口靠猜，机器一忙就翻车。扣住之后
-// 「加载中」这一帧要多久有多久，放行之后还能接着断言真数字出来 —— 于是这条用例同时守住
-// 两端：**没拉到的时候不许说零，拉到了要说真的**。
-// 一样返回命中计数：拦不到的话页面秒开、断言全过，而它什么都没验（[[assertion-that-cannot-fail]]）。
+// Not "hold it for N ms" — that's just a sleep in disguise inside an e2e test: the window is a
+// guess, and a busy machine breaks it. Holding it lets the "loading" frame last as long as needed,
+// and releasing it lets the case go on to assert the real numbers show up afterward — so this one
+// case guards both ends at once: **must not say zero while it hasn't loaded, must say the real
+// thing once it has**.
+// It likewise returns a hit counter: if nothing gets intercepted, the page loads instantly, every
+// assertion passes, and none of it verified anything ([[assertion-that-cannot-fail]]).
 function hold(page: Page, glob: string | RegExp): {
   hits: () => number; release: () => void;
 } {
@@ -262,44 +308,51 @@ function hold(page: Page, glob: string | RegExp): {
   return { hits: () => hits, release: () => { release(); } };
 }
 
-// dashboardInFlightIsNotZero —— 这一族的孪生：**「还没拉到」跟「失败了」一样，不许被渲染成
-// 一句关于世界的陈述**。
+// dashboardInFlightIsNotZero — the twin of this family: **"hasn't loaded yet" must not be
+// rendered as a statement about the world, exactly like "failed"**.
 //
-// 真实环境里撞出来的（UX-41 的红，全套 #3）：仪表盘还在 loading 时，四个大数字诚实地印着 `—`，
-// 而**同一屏上**由这些数字长出来的句子却在断言零 —— `↑ 0 total`、`at zero`、
-// `0 entries · total`、`nothing new in 14d`。左边侧栏那条 rail 同时写着 `+2 in 7d`。
-// 同一刻、同一份数据，机器一边说"我还不知道"，一边说"什么都没有"。
+// Hit in the real environment (UX-41's red, batch #3): while the dashboard was still loading, the
+// four big numbers honestly showed `—`, while **on the same screen** the sentences derived from
+// those numbers asserted zero — `↑ 0 total`, `at zero`, `0 entries · total`, `nothing new in 14d`.
+// The rail on the left sidebar simultaneously said `+2 in 7d`. Same moment, same data, and the
+// machine was saying "I don't know yet" and "there is nothing" at the same time.
 //
-// 归因：`DashboardSection` 把 `loading` 只传给了 `Kpi` 的**数值**那一格，
-// 而 trend / verdict / 总数都是调用方从 `EMPTY_STATS` 那份零直接算出来的
-// （[[lesson-not-swept-to-neighbours]]：道理只跟到了数字那一半）。
+// Cause: `DashboardSection` only passes `loading` into the **value** cell of `Kpi`, while the
+// trend / verdict / totals are computed by the caller directly from the zeros in `EMPTY_STATS`
+// ([[lesson-not-swept-to-neighbours]]: the lesson only made it to half of the numbers).
 async function dashboardInFlightIsNotZero({ adminPage }: { adminPage: Page }): Promise<void> {
   const probe = hold(adminPage, /\/api\/admin\/stats\/growth/);
-  // reload 而不是 goto：壳可能已经停在这一页，那样不会再发这一发，
-  // 于是「加载中」这一帧根本不存在（[[assertion-that-cannot-fail]]）。
-  // 不 await：要看的正是加载中那一帧。
+  // reload, not goto: the shell might already be sitting on this page, in which case this request
+  // never fires again, and the "loading" frame simply wouldn't exist
+  // ([[assertion-that-cannot-fail]]).
+  // Not awaited: what needs observing is exactly the loading frame.
   void reloadAdminSection(adminPage, 'dashboard');
   await expectInjected(probe, 'growth');
-  // 先证「此刻确实还没拉到」，否则下面几条 `.not.` 会在数据已到的页面上轻松通过。
-  // 先等**新文档**里的仪表盘挂上：reload 是异步的，直接去读元素会读在正在被拆掉的旧
-  // 文档上，超时报「找不到」——那种红跟真缺陷长得一样，说的却是时序不对。
+  // First prove "it genuinely hasn't loaded yet at this moment", otherwise the `.not.` assertions
+  // below would pass trivially on a page where the data already arrived. First wait for the
+  // dashboard to mount **in the new document**: reload is async, and reading the element directly
+  // could read it off the old document mid-teardown, timing out with "not found" — that kind of
+  // red looks just like a real defect but is actually a timing issue.
   await expect(adminPage.getByTestId('dashboard')).toBeVisible({ timeout: 15_000 });
-  // `.first()`：加载中不止一处写着 loading…（标题一处、侧栏 rail 一处），
-  // 严格模式下 `getByText` 会因为「匹配到 2 个」直接失败（[[read-the-failure-before-theorising]]）。
+  // `.first()`: "loading…" appears in more than one place while loading (once in the title, once
+  // in the sidebar rail), and in strict mode `getByText` fails outright on "matched 2 elements"
+  // ([[read-the-failure-before-theorising]]).
   await expect(
     adminPage.getByText(/loading…/).first(),
     'this case only means anything while the load is in flight',
   ).toBeVisible({ timeout: 10_000 });
 
-  // 取文本再判 —— 元素还没出现时 `.not.toContainText` 直接算通过
-  // （[[negated-assertion-passes-while-absent]]）。
+  // Fetch the text and check it explicitly — `.not.toContainText` passes trivially while the
+  // element hasn't even appeared yet ([[negated-assertion-passes-while-absent]]).
   const kpis = (await adminPage.getByTestId('dashboard-kpis').innerText()).trim();
   const pulse = (await adminPage.getByTestId('dash-corpus-pulse').innerText()).trim();
   expect(
     kpis, `KPI 行还在加载,却已经说出 "${kpis.replace(/\n/gu, ' / ')}"`,
   ).not.toMatch(/↑ 0 total|at zero/u);
-  // 只断**结论**和**总数**，别拿 `^0` 去扫整张卡：火花线的 y 轴刻度本来就有一行 `0`，
-  // 那一版的红说的是我的正则吃到了坐标轴，不是产品又说了零（[[read-the-failure-before-theorising]]）。
+  // Only assert the **verdict** and the **total** — don't scan the whole card for `^0`: the
+  // sparkline's y-axis already has a `0` tick on its own, and a red on that version was really my
+  // regex eating the axis label, not the product saying zero again
+  // ([[read-the-failure-before-theorising]]).
   expect(
     pulse, `pulse 卡还在加载,却已经说出 "${pulse.replace(/\n/gu, ' / ')}"`,
   ).not.toMatch(/nothing new in 14d/u);
@@ -309,28 +362,31 @@ async function dashboardInFlightIsNotZero({ adminPage }: { adminPage: Page }): P
   await expect(
     adminPage.getByTestId('pulse-verdict'), '还不知道就别下结论',
   ).toHaveCount(0);
-  // 「needs your hand」是这一屏最会被当真的一句：它说「没什么要你管」的时候，
-  // owner 就真的不管了。加载中它什么都不知道，不许下这个结论。
+  // "needs your hand" is the single line on this screen most likely to be taken at face value:
+  // when it says "nothing needs your attention", the owner really will stop paying attention.
+  // While loading, it doesn't know anything yet, and it must not reach that conclusion.
   const needs = (await adminPage.getByTestId('needs-hand').innerText()).trim();
   expect(
     needs, `还在加载就替 owner 判了「没事」："${needs.replace(/\n/gu, ' / ')}"`,
   ).not.toMatch(/nothing pending/iu);
 
-  // 另一端：放行之后必须说出真数字。少了这一半，「全部渲成 —」也能骗过上面几条。
+  // The other end: after release it must show the real numbers. Without this half, "render
+  // everything as —" would also fool all the assertions above.
   probe.release();
   await expect(
     adminPage.getByTestId('kpi-entries'), '数据到了就得报出来,不能一直挂着 —',
   ).toContainText(/\d/u, { timeout: 15_000 });
 }
 
-// usageInFlightIsNotZero —— F-L-52 的邻居（同一次扫出来的）。
-// `InferenceUsagePanel` 一次都没看过 `usage.loading`：`use-inference-usage.ts:49` 的
-// `data?.total ?? EMPTY_TOTAL` 把「还没拉到」折成三个零，于是加载中的面板写着 `0 calls`，
-// 下面还跟着一句 **"no owner-key LLM calls in the last 7 days"** —— 一句关于世界的陈述，
-// 而这一刻它什么都还不知道。owner 据此以为这台实例没花过钱。
+// usageInFlightIsNotZero — a neighbor of F-L-52 (found in the same sweep).
+// `InferenceUsagePanel` never once checks `usage.loading`: `data?.total ?? EMPTY_TOTAL` in
+// `use-inference-usage.ts:49` folds "hasn't loaded yet" down to three zeros, so the panel shows
+// `0 calls` while still loading, followed by **"no owner-key LLM calls in the last 7 days"** — a
+// statement about the world, at a moment when it doesn't actually know anything yet. The owner
+// would conclude this instance hasn't spent any money.
 async function usageInFlightIsNotZero({ adminPage }: { adminPage: Page }): Promise<void> {
   const probe = hold(adminPage, /\/api\/admin\/inference-usage/);
-  void reloadAdminSection(adminPage, 'system'); // 理由同上：要它真的再发一次
+  void reloadAdminSection(adminPage, 'system'); // same reason as above: force it to fire again
   await expectInjected(probe, 'inference-usage');
   const panel = adminPage.getByTestId('inference-usage-panel');
   await expect(panel).toBeVisible({ timeout: 10_000 });
@@ -343,16 +399,19 @@ async function usageInFlightIsNotZero({ adminPage }: { adminPage: Page }): Promi
     '还没拉到就说「过去 7 天没有调用」—— 那是一句它此刻答不出的话',
   ).toHaveCount(0);
 
-  // 另一端：放行之后这块必须给出数字（或者那句真的空态），不能一直挂着。
+  // The other end: after release this block must give out real numbers (or the genuine empty
+  // state) — it may not stay stuck.
   probe.release();
   await expect(
     adminPage.getByTestId('inference-usage-total'), '数据到了就得报出来',
   ).toContainText(/\d/u, { timeout: 15_000 });
 }
 
-// sandboxLoadFailure —— 这一族里最露骨的一处:沙箱面板的空态**自己保证了那件不成立的事**
-// ——「None here means none in use — **not that something is broken**」。GET 500 的时候，
-// 屏幕上写着的正好是"没坏"。owner 据此以为沙箱闲着，而真相是他看不见任何一个在跑的工作区。
+// sandboxLoadFailure — the most blatant spot in this family: the sandbox panel's empty state
+// **explicitly promises the exact thing that isn't true** — "None here means none in use —
+// **not that something is broken**." When the GET returns 500, what shows on screen is precisely
+// "nothing's broken." The owner would conclude the sandbox is idle, when the truth is they can't
+// see any of the workspaces that are actually running.
 async function sandboxLoadFailure({ adminPage }: { adminPage: Page }): Promise<void> {
   const probe = fail(adminPage, /\/api\/admin\/sandbox\/workspaces/);
   await reloadAdminSection(adminPage, 'system');
@@ -362,15 +421,17 @@ async function sandboxLoadFailure({ adminPage }: { adminPage: Page }): Promise<v
     '拉失败了还说「这里没有就是真没有、不是坏了」—— 这句话此刻正好是反的',
   ).toHaveCount(0);
   await expect(
-    // `couldn.t`：产品这句用的是**直**撇号（`Couldn't load this list …`），而我这条正则
-    // 原来写的是弯的 `’` —— 一个字符的差别，红出来的样子却是「产品没提示失败」。
-    // 撇号那一位不较真（[[right-bytes-wrong-glyphs]] 的同族）。
+    // `couldn.t`: the product's actual copy uses a **straight** apostrophe (`Couldn't load this
+    // list …`), while this regex used to be written with a curly `'` — a one-character
+    // difference, but the red it produced looked like "the product doesn't show a failure notice
+    // at all." Don't be strict about the apostrophe position
+    // ([[right-bytes-wrong-glyphs]]'s cousin).
     adminPage.getByText(/couldn.t load|could not load|couldn.t reach|could not reach/i).first(),
     'owner 得知道这一块没拉到',
   ).toBeVisible({ timeout: 10_000 });
 }
 
-// expectInjected —— 断言那一发真的被拦到了。
+// expectInjected — asserts the request was genuinely intercepted.
 async function expectInjected(probe: { hits: () => number }, what: string): Promise<void> {
   await expect.poll(probe.hits, {
     message: `the ${what} GET must actually be intercepted — otherwise this case asserts nothing`,
@@ -378,8 +439,9 @@ async function expectInjected(probe: { hits: () => number }, what: string): Prom
   }).toBeGreaterThan(0);
 }
 
-// corpusLoadFailure —— RED（修复前）：catch 把 loaded 设成 true，granted 留空 → 卡片印出
-// 「(role grants nothing)」。那句话是错的，且错在**让人放心**的方向。
+// corpusLoadFailure — RED (before the fix): the catch sets loaded to true and leaves granted
+// empty → the card prints "(role grants nothing)". That statement is wrong, and wrong in the
+// direction that **reassures** the owner.
 async function corpusLoadFailure({ adminPage }: { adminPage: Page }): Promise<void> {
   fail(adminPage, '**/api/admin/codes/*/denials');
   await gotoAdminSection(adminPage, 'codes');
@@ -390,8 +452,9 @@ async function corpusLoadFailure({ adminPage }: { adminPage: Page }): Promise<vo
   ).toHaveCount(0);
 }
 
-// corpusLoadFailureIsVisible —— 光是「不说谎」不够：owner 得知道这里没拉到，否则控制盘上少了
-// 一块而无人察觉。断言的是**好结果**（错误在场），不是「没崩」。
+// corpusLoadFailureIsVisible — merely "not lying" isn't enough: the owner has to know this
+// section failed to load, or a piece goes missing from the control panel with no one noticing.
+// This asserts **the good outcome** (an error is actually shown), not "didn't crash".
 async function corpusLoadFailureIsVisible({ adminPage }: { adminPage: Page }): Promise<void> {
   fail(adminPage, '**/api/admin/codes/*/denials');
   await gotoAdminSection(adminPage, 'codes');
@@ -402,11 +465,14 @@ async function corpusLoadFailureIsVisible({ adminPage }: { adminPage: Page }): P
   ).toBeVisible({ timeout: 10_000 });
 }
 
-// dashboardCountLoadFailure —— 同一类的第二处。真正的吞在 `dashboard-fetch.ts` 的
-// `if (!res.ok) return 0`：500 根本不抛，组件的 catch 收不到，「0 sent」就这么印出去了。
+// dashboardCountLoadFailure — the second spot in the same class. The actual swallow lives in
+// `dashboard-fetch.ts`'s `if (!res.ok) return 0`: the 500 is never thrown at all, the component's
+// catch never sees it, and "0 sent" gets printed just like that.
 //
-// 断言的是**好结果**（'—' = 没拉到），不是「不等于 0」—— 后者在 fetch 回来之前就满足了，会在
-// bug 还在的时候瞬间绿掉（本条第一版正是如此）。'—' 只由 error 态产生，loading 是 '…'。
+// Asserts **the good outcome** ('—' = didn't load), not "isn't equal to 0" — the latter is
+// satisfied before the fetch even returns, and would flip green instantly while the bug is still
+// present (that's exactly what the first version of this case did). '—' is only produced by the
+// error state; loading shows '…'.
 async function dashboardCountLoadFailure({ adminPage }: { adminPage: Page }): Promise<void> {
   let intercepted = 0;
   await adminPage.route(/\/api\/admin\/applications/, (route) => {
@@ -416,14 +482,20 @@ async function dashboardCountLoadFailure({ adminPage }: { adminPage: Page }): Pr
       body: JSON.stringify({ error: { message: 'boom' } }),
     });
   });
-  // 整页重载，而不是"点去别处再点回来"。adminPage 落地时就已经拉过一次 count（那一发早于 route
-  // 注册，拿到真值 0），而 Next 的客户端路由会把那个 segment 连同它的 state 一起复用 —— 兜一圈
-  // 回来看到的还是那个 0。这条 case 一度是绿的，只因为第一发还没 resolve 就被导航走了；等 codes
-  // 页变慢（挂上 picker 之后），它就够时间 resolve 了，于是同一段测试代码开始红。
-  // 时序决定成败的断言 = 迟早会骗人的断言。reload 之后什么都不剩，route 必然生效。
+  // Reload the whole page, not "click away and click back". By the time adminPage landed, count
+  // had already been fetched once (that request predates the route registration, so it got the
+  // real value 0), and Next's client-side routing reuses that segment along with its state — going
+  // in a circle still shows that same 0. This case was green once, only because the first request
+  // hadn't resolved yet before navigation swept it away; once the codes page got slower (after a
+  // picker was mounted), it had enough time to resolve, and the exact same test code started
+  // failing red.
+  // An assertion whose pass/fail depends on timing is an assertion that will eventually lie.
+  // After a reload nothing is left over, and the route is guaranteed to take effect.
   await adminPage.reload();
-  // 先证「这一发真的被钉成 500 了」。否则一个没拦到的请求会让断言红在完全无关的地方 ——
-  // 本条第一版就是那样：它以为自己在测吞错误，其实测的是"这实例恰好 0 份 application"。
+  // First prove "this request really was pinned to 500". Otherwise a request that never got
+  // intercepted would make the assertion fail somewhere entirely unrelated — that's exactly what
+  // happened with the first version of this case: it thought it was testing error-swallowing, but
+  // it was really testing "this instance happens to have 0 applications".
   await expect.poll(() => intercepted, {
     message: 'the applications GET must actually be intercepted — otherwise this asserts nothing',
   }).toBeGreaterThan(0);
@@ -433,9 +505,12 @@ async function dashboardCountLoadFailure({ adminPage }: { adminPage: Page }): Pr
   ).toHaveText('—', { timeout: 10_000 });
 }
 
-// initOwner —— 必须**真发一张码**：没有码就没有 corpus 卡，case 1 会在 bug 还在的时候绿掉
-// （找不到「(role grants nothing)」不是因为它没被印出来，是因为整页压根没有卡）。这条 spec 的第一版
-// 就是这么假绿的。role 也**故意授了东西** —— 否则「role grants nothing」碰巧是真话，断言又白做。
+// initOwner — must **genuinely issue a code**: without a code there's no corpus card, and case 1
+// would go green while the bug is still present (not finding "(role grants nothing)" would be
+// because it was never printed — but because the whole page has no card at all). The first
+// version of this spec was falsely green for exactly that reason. The role is also **deliberately
+// granted something real** — otherwise "role grants nothing" would happen to be true, and the
+// assertion would be worthless.
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();
   const request = await playwright.request.newContext();

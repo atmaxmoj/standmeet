@@ -1,15 +1,23 @@
-// sync-e-alias-links.spec.ts —— frontmatter 的 `aliases:` 也能被 `[[...]]` 指到。
+// sync-e-alias-links.spec.ts —— frontmatter's `aliases:` can also be pointed at by
+// `[[...]]`.
 //
-// 这条存在,是因为别名**解出来就扔了**:`obsidian/frontmatter.go` 把 `aliases` 读进结构体,
-// 全仓没有任何地方用它。所以 owner 在 vault 里靠 Obsidian 的别名解析写的链接,同步进来就断 ——
-// Obsidian 里点得动,网站上是一段字面量 `[[旧名字]]`。
+// This spec exists because an alias **gets parsed and then thrown away**:
+// `obsidian/frontmatter.go` reads `aliases` into the struct, and nothing anywhere in
+// the repo uses it. So a link the owner wrote using Obsidian's alias resolution in the
+// vault breaks once synced in — clickable in Obsidian, a literal `[[old-name]]` on the
+// website.
 //
-// 不是回归,是从来没接过(owner 2026-08-05:"因为我们原来没用嘛")。多语言会让它从"偶尔"变成
-// "成片" —— 中文那一版正文里的链接自然用中文名,而中文名正是 `aliases-zh` 的用处。
+// This isn't a regression, it was never wired up at all (owner, 2026-08-05: "because
+// we never used it before"). Multi-language content turns this from occasional into
+// widespread — links inside the Chinese-language version of a body naturally use the
+// Chinese name, and that's exactly what `aliases-zh` is for.
 //
-// **消歧不新增规则**:别名只是给解析器多一批候选来源,排序仍走既有的 pickByProximity
-// (同 genre 优先,否则第一个非自身候选 —— 那是 F-L-10 修过的,旧版 last-write-wins 会让
-// `[[X]]` 随机落到 raw 草稿、hub 笔记 backlinks 全空)。开第二套消歧就是在重犯那个错。
+// **Disambiguation gets no new rule**: an alias is just another candidate source fed to
+// the resolver, and ordering still goes through the existing pickByProximity (same
+// genre preferred, otherwise the first non-self candidate — this is what F-L-10 fixed;
+// the old last-write-wins version would send `[[X]]` to a random raw draft, leaving hub
+// notes with empty backlinks). Standing up a second disambiguation path would just be
+// repeating that mistake.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -40,7 +48,8 @@ test.describe('sync E · frontmatter aliases 也参与 [[link]] 解析', () => {
   test('没声明别名的笔记,行为跟今天一模一样', noAliasUnchanged);
 });
 
-// aliasResolves —— 最小的那条:B 声明别名,A 用别名链过去 → A 有一条指向 B 的出边。
+// aliasResolves —— the minimal case: B declares an alias, A links to it via the
+// alias → A gets an outbound edge pointing to B.
 async function aliasResolves({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   await uploadVault(request, OWNER, [
@@ -57,7 +66,8 @@ async function aliasResolves({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-// everyAliasResolves —— 别名是个**池子**,不是一个。声明了 N 个就 N 个都能指到。
+// everyAliasResolves —— aliases are a **pool**, not a single value. Declare N of them
+// and all N can be linked to.
 async function everyAliasResolves({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   await uploadVault(request, OWNER, [
@@ -72,7 +82,8 @@ async function everyAliasResolves({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-// cjkAlias —— 中文别名。这是多语言那一版正文里链接的**真实写法**,也是 aliases-zh 的用处。
+// cjkAlias —— a Chinese-language alias. This is the **actual way** links look inside
+// the multi-language version of a body, and it's exactly what aliases-zh is for.
 async function cjkAlias({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   await uploadVault(request, OWNER, [
@@ -86,10 +97,12 @@ async function cjkAlias({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-// aliasProximity —— 两条笔记声明了**同一个别名**,一条在 wiki 一条在 raw。
-// 从 wiki 链过去要落在 wiki 那条 —— 跟标题同名时的既有行为一致(F-L-10 修过的那个)。
+// aliasProximity —— two notes declare **the same alias**, one in wiki, one in raw.
+// Linking to it from wiki should land on the wiki one — consistent with the existing
+// behavior for same-titled notes (the thing F-L-10 fixed).
 //
-// 这条断的是"**没有第二套消歧**"。别名要是自己带一套排序,这里会随机落到 raw 草稿。
+// This asserts "**there is no second disambiguation path**". If aliases carried their
+// own ordering, this could land randomly on the raw draft instead.
 async function aliasProximity({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   await uploadVault(request, OWNER, [
@@ -110,8 +123,10 @@ async function aliasProximity({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-// aliasIsPerNote —— 一条多语言笔记按语言声明别名(aliases-zh / aliases-en),但**链接目标是
-// 那条笔记**,不是它的某个语言版本。所以两种语言的别名都解到同一个 id、只产生一条边。
+// aliasIsPerNote —— a multi-language note declares per-language aliases (aliases-zh /
+// aliases-en), but **the link target is the note itself**, not any one of its
+// language versions. So aliases in either language resolve to the same id, producing
+// only one edge.
 async function aliasIsPerNote({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   await uploadVault(request, OWNER, [
@@ -131,7 +146,8 @@ async function aliasIsPerNote({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-// noAliasUnchanged —— 给现有全部笔记的回归保险:没有 aliases 的笔记,解析行为一个字不变。
+// noAliasUnchanged —— a regression guarantee for every existing note: a note with no
+// aliases resolves exactly the way it always did.
 async function noAliasUnchanged({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   await uploadVault(request, OWNER, [
@@ -144,8 +160,9 @@ async function noAliasUnchanged({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-// outboundOf —— 这条笔记的出边(目标**标题**列表),取自 admin 的 note_refs 面。
-// 标题 == 文件名(vault 同步就是这么定的),所以下面各条用 basename 断言。
+// outboundOf —— this note's outbound edges (a list of target **titles**), taken from
+// the admin note_refs surface. Title == filename (that's how vault sync defines it),
+// so the tests below assert on basename.
 async function outboundOf(
   request: APIRequestContext, title: string, genre = 'wiki',
 ): Promise<string[]> {

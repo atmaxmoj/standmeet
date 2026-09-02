@@ -28,10 +28,12 @@ test.describe('jobs.fetch_new dedups against fingerprints', () => {
     await request.dispose();
   });
 
-  // 判据问的是**去重**：同一条 posting 不会第二次进池子。
-  // 以前它写成「第二次取数回空数组」—— 那句话同时也是 F-E-29 那条缺陷本身
-  // （池子对 owner 那一侧不可见）。现在同一件事由 `new` 和这一趟的账来说：
-  // 板子照旧整块回来，但**没有一条是新进池子的**。
+  // The criterion is about **deduplication**: the same posting never enters the pool a
+  // second time.
+  // It used to be written as "the second fetch returns an empty array" -- but that
+  // wording was also the F-E-29 defect itself (the pool being invisible on the owner's
+  // side). Now the same fact is stated by `new` and this fetch's tally: the board still
+  // comes back whole, but **none of it is newly pooled**.
   test('fetch twice → nothing new pooled; mock day=2 → only 2 synthetic ids are new',
     async ({ request }) => {
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);

@@ -1,20 +1,23 @@
-// skills.spec.ts —— Phase C / L1（progressive disclosure 第一级）：owner 策展
-// 一个 skill 挂到 code；visitor 进 chat 时，**只有 skill 的 name+description
-// 常驻系统提示，正文（body）不进**。mock provider 回显 [system:...] → 断言
-// 里有 description 的 L1 marker，但**没有** body 的 L2 marker（正文要 skill_use
-// 之后才披露，见 skill-progressive-disclosure.spec.ts）。
+// skills.spec.ts — Phase C / L1 (progressive disclosure, level one): the owner
+// curates a skill and attaches it to a code; when a visitor enters chat, **only the
+// skill's name+description live permanently in the system prompt, the body never
+// enters it**. The mock provider echoes back [system:...] → the assertion checks
+// for the description's L1 marker but **not** the body's L2 marker (the body is only
+// disclosed after skill_use, see skill-progressive-disclosure.spec.ts).
 //
-// 这是对 eager 模型的替换：以前整段 prompt 全塞进 system prompt（首轮就见
-// body marker）。现在 L1 只放元信息。
+// This replaces the eager model: previously the entire prompt was stuffed into the
+// system prompt (the body marker showed up on the very first turn). Now L1 carries
+// only the metadata.
 //
-// 业务故事：
-//   alice 在 /admin/skills 加 "patent-marker"：description 含 [SKILL-L1-DESC]，
-//   正文 prompt 含 [SKILL-L2-BODY]。挂 role → 发 PATENT-001。visitor 进 chat：
-//   系统提示回显里有 L1-DESC、没有 L2-BODY。
+// Business story:
+//   alice adds "patent-marker" in /admin/skills: the description contains
+//   [SKILL-L1-DESC], the body prompt contains [SKILL-L2-BODY]. Attach it to a role →
+//   send PATENT-001. A visitor enters chat: the echoed system prompt has L1-DESC but
+//   not L2-BODY.
 //
-// 还顺便验：
-//   - builtin skills 已 seed（claim 后自动 5 个）
-//   - builtin skill 没有 delete 按钮（不可删）
+// Also incidentally verifies:
+//   - builtin skills are already seeded (5 automatically, after claim)
+//   - a builtin skill has no delete button (cannot be deleted)
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -58,8 +61,9 @@ test.describe('owner curates AI skills and attaches them to invite codes', () =>
 
   test('builtin skills are seeded on first claim', async ({ adminPage: page }) => {
     await openSkills(page);
-    // 5 个 builtin: code-review / frontend-design / resume-portfolio /
-    // technical-interview / conversation-report. 至少几个明确可见。
+    // 5 builtins: code-review / frontend-design / resume-portfolio /
+    // technical-interview / conversation-report. At least a few are checked visible
+    // explicitly.
     await expect(page.getByTestId('skill-row-code-review')).toBeVisible();
     await expect(page.getByTestId('skill-row-conversation-report')).toBeVisible();
     // builtin badge present, delete button absent.
@@ -79,7 +83,8 @@ test.describe('owner curates AI skills and attaches them to invite codes', () =>
 
   test('owner creates a role attaching the skill, then issues a code with that role',
     async ({ adminPage: page }) => {
-      // A.3-IAM-5: code 不再直接挂 skill；走 role 中转。
+      // A.3-IAM-5: a code no longer attaches a skill directly; it goes through a
+      // role instead.
       await gotoAdminSection(page, 'roles');
       await page.waitForURL('**/admin/roles');
       await page.getByTestId('role-new').click();
@@ -128,7 +133,8 @@ async function assertL1SystemPrompt(request: APIRequestContext): Promise<void> {
   expect(res.status()).toBe(200);
   const body = await res.text();
   // mock echoes [system:...]; L1 = description present, skill name present,
-  // body (L2) absent until skill_use. 这是 progressive disclosure 的关键断言。
+  // body (L2) absent until skill_use. This is the key assertion of progressive
+  // disclosure.
   expect(body, 'description in system prompt (L1)').toContain(L1_DESC_MARKER);
   expect(body, 'skill name in system prompt (L1)').toContain(SKILL.name);
   expect(body, 'body NOT in system prompt (L2 deferred)').not.toContain(L2_BODY_MARKER);
@@ -148,7 +154,7 @@ async function toggleSkillOffAndVerifyExcluded(
   });
   const res = await sendMessage(request, sess, 'what was the role about?');
   expect(res.status()).toBe(200);
-  // disabled → 连 L1 元信息都不进系统提示。
+  // disabled → not even the L1 metadata enters the system prompt.
   expect(await res.text()).not.toContain(L1_DESC_MARKER);
 }
 

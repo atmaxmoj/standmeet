@@ -1,18 +1,22 @@
-// connector-spec-ingest.spec.ts —— #155 区 A（spec 摄入）RED 契约。
+// connector-spec-ingest.spec.ts —— #155 area A (spec ingest) RED contract.
 //
-// 故事：owner 在 /admin/connectors 点 "add" → 贴 / 上传一份 OpenAPI spec →
-// 后端解析 → 显示一条「connector candidate」（品类 + 派生表单入口）。这是
-// spec-driven 装配的第一步：把任意作者搓的 spec 喂进来。摄入是错误/边界面
-// 最大的区——畸形 JSON、非法版本（Swagger 2.0）、缺 servers/operations、URL
-// 拉取失败，都要在 UI 上给 owner 人类可读的拒绝理由，不漏栈、不静默吞。
+// Story: the owner clicks "add" on /admin/connectors → pastes / uploads an OpenAPI
+// spec → the backend parses it → a "connector candidate" appears (category + derived
+// form entry). This is the first step of spec-driven assembly: feeding in whatever
+// spec any given author wrote. Ingest is the area with the largest error/edge
+// surface — malformed JSON, an unsupported version (Swagger 2.0), missing
+// servers/operations, a failed URL fetch — all of these must give the owner a
+// human-readable rejection reason on the UI, with no leaked stack trace and no
+// silent swallowing.
 //
-// 对齐 docs/design/connector.md §8 区 A + 目标接口草图：
-//   testid: connector-add-open / connector-spec-input(粘贴或上传) /
+// Aligned with docs/design/connector.md §8 area A + the target interface sketch:
+//   testid: connector-add-open / connector-spec-input (paste or upload) /
 //           connector-spec-submit / connector-spec-error / connector-candidate /
 //           connector-spec-url-input / connector-spec-fetch-button
-//   REST:   POST /api/admin/connectors（从 spec 建）
+//   REST:   POST /api/admin/connectors (builds from a spec)
 //
-// 覆盖 §8 区 A spec 摄入 UI + 后端。已实现，绿（原为 RED 契约，实现后转绿）。
+// Covers §8 area A spec ingest UI + backend. Already implemented, green (originally
+// a RED contract, turned green once implemented).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -29,7 +33,8 @@ const OWNER = {
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-// claimOwner —— beforeAll 前置：复位实例 + claim owner（两个 describe 共用）。
+// claimOwner —— beforeAll setup: resets the instance + claims the owner (shared
+// across both describes).
 async function claimOwner(playwright: Playwright): Promise<void> {
   resetInstance();
   const request = await playwright.request.newContext();
@@ -41,13 +46,15 @@ async function claimOwner(playwright: Playwright): Promise<void> {
 }
 
 test.describe('connector · area A spec ingest · happy', () => {
-  // 覆盖 spec-driven 摄入 UI/后端（docs/design/connector.md §8 区 A）。已实现，绿。
+  // Covers the spec-driven ingest UI/backend (docs/design/connector.md §8 area A).
+  // Already implemented, green.
 
   test.beforeAll(async ({ playwright }) => {
     await claimOwner(playwright);
   });
 
-  // happy —— 合法 OpenAPI 3.0 贴进去 → 解析成功 → calendar candidate 出现。
+  // happy —— pasting a valid OpenAPI 3.0 spec → parses successfully → a calendar
+  // candidate appears.
   test('valid 3.0 spec pasted → parsed → shows calendar connector candidate', async ({
     adminPage: page,
   }) => {
@@ -57,16 +64,18 @@ test.describe('connector · area A spec ingest · happy', () => {
 
     const candidate = page.getByTestId('connector-candidate');
     await expect(candidate).toBeVisible();
-    // 解析出标题/品类，给 owner 确认这就是要装的那个。
+    // The parsed title/category gives the owner confirmation this is the one to install.
     await expect(candidate).toContainText(/calendar/i);
     await expect(page.getByTestId('connector-spec-error')).toHaveCount(0);
   });
 
-  // happy —— 同一份 spec 走「上传文件」入口（贴 vs 上传两条路同结果）。
+  // happy —— the same spec through the "upload file" entry point (paste vs. upload
+  // reach the same result).
   test('valid 3.0 spec file uploaded → parsed → candidate appears', async ({ adminPage: page }) => {
     await openSpecPaste(page);
-    // 文件上传走专门的 file input（Playwright setInputFiles 只认 input[type=file]；粘贴用
-    // textarea connector-spec-input）。onChange 读文件 → 同一校验路 → candidate。
+    // File upload goes through a dedicated file input (Playwright's setInputFiles only
+    // recognizes input[type=file]; paste uses the connector-spec-input textarea).
+    // onChange reads the file → the same validation path → candidate.
     await page.getByTestId('connector-spec-file').setInputFiles({
       name: 'calendar.openapi.json',
       mimeType: 'application/json',
@@ -77,13 +86,15 @@ test.describe('connector · area A spec ingest · happy', () => {
 });
 
 test.describe('connector · area A spec ingest · err', () => {
-  // 覆盖 spec-driven 摄入 UI/后端（docs/design/connector.md §8 区 A）。已实现，绿。
+  // Covers the spec-driven ingest UI/backend (docs/design/connector.md §8 area A).
+  // Already implemented, green.
 
   test.beforeAll(async ({ playwright }) => {
     await claimOwner(playwright);
   });
 
-  // err —— 畸形（非法 JSON / 截断）→ 拒，给「无法解析」级别的人类可读错误。
+  // err —— malformed (invalid JSON / truncated) → rejected with a human-readable
+  // "could not parse"-level error.
   test('malformed spec → rejected + human-readable parse error (no candidate shown)', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill('{ "openapi": "3.0.0", ');
@@ -95,7 +106,8 @@ test.describe('connector · area A spec ingest · err', () => {
     await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
   });
 
-  // err —— Swagger 2.0 → 拒，错误必须明确点出版本（收 3.0/3.1,拒 2.0）。
+  // err —— Swagger 2.0 → rejected, and the error must clearly name the version
+  // (3.0/3.1 accepted, 2.0 rejected).
   test('non-3.0 (Swagger 2.0) → rejected + version hint', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(swagger20Spec());
@@ -107,8 +119,9 @@ test.describe('connector · area A spec ingest · err', () => {
     await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
   });
 
-  // happy —— OpenAPI 3.1 也收（F-H-1）。runtime 只读的子集（paths/operations、requestBody.required、
-  // securitySchemes、servers）在 3.0 与 3.1 里结构一致，所以 3.1 vendor spec（如 cal.com v2）能装。
+  // happy —— OpenAPI 3.1 is accepted too (F-H-1). The subset runtime reads
+  // (paths/operations, requestBody.required, securitySchemes, servers) has the same
+  // shape in 3.0 and 3.1, so a 3.1 vendor spec (e.g. cal.com v2) can be installed.
   test('valid 3.1 spec pasted → parsed → shows connector candidate (F-H-1)',
     async ({ adminPage: page }) => {
       await openSpecPaste(page);
@@ -119,7 +132,7 @@ test.describe('connector · area A spec ingest · err', () => {
       await expect(page.getByTestId('connector-spec-error')).toHaveCount(0);
     });
 
-  // err —— 没有 servers → 拒（runtime 拿不到 base URL，无法调 API）。
+  // err —— no servers → rejected (runtime has no base URL, can't call the API).
   test('missing servers → rejected + points out missing servers', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(specMissingServers());
@@ -131,7 +144,7 @@ test.describe('connector · area A spec ingest · err', () => {
     await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
   });
 
-  // err —— 有 servers 但 paths 为空（无 operations）→ 拒（没东西可绑定）。
+  // err —— has servers but paths is empty (no operations) → rejected (nothing to bind).
   test('no operations (empty paths) → rejected + points out missing operations', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(specMissingOperations());
@@ -142,16 +155,19 @@ test.describe('connector · area A spec ingest · err', () => {
     await expect(err).toContainText(/operation|path/i);
   });
 
-  // err —— 给 spec URL 但拉取失败（不可达）→ UI 报 fetch 失败，不卡死。
+  // err —— given a spec URL but the fetch fails (unreachable) → the UI reports a fetch
+  // failure, and never hangs.
   //
-  // 地址从 `http://127.0.0.1:9/...` 换成一个解析不了的**公网**主机名。原来那个是回环地址，
-  // F-C-23 之后出站闸门会（正确地）把它命名为**地址策略拒绝**，而不再笼统地说「是不是连不上」——
-  // 于是这条断言从那时起就在断修复前的旧行为，只是一直没人把这个 spec 跟着跑一遍。
-  // 「被策略挡住」和「真的不可达」两条分支的对照在 connector-spec-fetch-names-the-refusal 里；
-  // 这一条只管后者。
+  // The address was changed from `http://127.0.0.1:9/...` to a **public** hostname
+  // that can't resolve. The old one was a loopback address, and since F-C-23 the
+  // outbound gate correctly names it as an **address-policy rejection** instead of
+  // vaguely reporting "unreachable" — so this assertion had been checking the old,
+  // pre-fix behavior ever since, and nobody had rerun this spec against it. The
+  // contrast between "blocked by policy" and "genuinely unreachable" lives in
+  // connector-spec-fetch-names-the-refusal; this test only covers the latter.
   test('spec URL fetch fails → human-readable fetch error', async ({ adminPage: page }) => {
     await openConnectorAdd(page);
-    // 切到「从 URL 拉 spec」入口。
+    // Switch to the "fetch spec from URL" entry point.
     await page.getByTestId('connector-spec-url-input')
       .fill('https://no-such-openapi-host.invalid/does-not-exist.openapi.json');
     await page.getByTestId('connector-spec-fetch-button').click();
@@ -164,17 +180,20 @@ test.describe('connector · area A spec ingest · err', () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────
-// 区A 额外 corner（§8 区 A 表里点到、上面没覆盖的）：超大尺寸 / 重复
-// operationId / 缺 operationId / YAML 解析 / 未解析 $ref。已实现，绿。
+// Area A extra corner cases (named in the §8 area A table but not covered above):
+// oversized / duplicate operationId / missing operationId / YAML parsing / unresolved
+// $ref. Already implemented, green.
 // ──────────────────────────────────────────────────────────────────────────
 test.describe('connector · area A spec ingest corner · err', () => {
-  // 覆盖 spec-driven 摄入 UI/后端（docs/design/connector.md §8 区 A）。已实现，绿。
+  // Covers the spec-driven ingest UI/backend (docs/design/connector.md §8 area A).
+  // Already implemented, green.
 
   test.beforeAll(async ({ playwright }) => {
     await claimOwner(playwright);
   });
 
-  // err —— 超过大小上限（合法 JSON 但巨大）→ 拒，给 size-limit 级别的人类可读错误。
+  // err —— exceeds the size cap (valid JSON but huge) → rejected with a
+  // human-readable size-limit error.
   test('oversized spec (over the size limit) → rejected + size-limit hint', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(oversizedSpec());
@@ -186,7 +205,8 @@ test.describe('connector · area A spec ingest corner · err', () => {
     await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
   });
 
-  // err —— 两个 operation 撞同一个 operationId → 拒/标记（绑定无法唯一指向）。
+  // err —— two operations collide on the same operationId → rejected/flagged
+  // (a binding can't point to it uniquely).
   test('duplicate operationId → rejected/flagged (cannot bind uniquely)', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(duplicateOperationIdSpec());
@@ -198,7 +218,8 @@ test.describe('connector · area A spec ingest corner · err', () => {
     await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
   });
 
-  // err —— operation 没有 operationId（绑定要靠它指向）→ 标记缺 operationId。
+  // err —— an operation has no operationId (a binding needs it to point at) →
+  // flagged as missing operationId.
   test('operation missing operationId → flagged (binding has no anchor)', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(specMissingOperationId());
@@ -210,7 +231,8 @@ test.describe('connector · area A spec ingest corner · err', () => {
     await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
   });
 
-  // err —— 外部 $ref（指向另一个文件/URL）无法解析 → 给清晰结果（拒，不静默吞）。
+  // err —— an external $ref (pointing to another file/URL) cannot be resolved →
+  // returns a clear result (rejected, not silently swallowed).
   test('external/unresolved $ref → rejected + points out unresolvable reference', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(specExternalRef());
@@ -229,7 +251,8 @@ test.describe('connector · area A spec ingest corner · happy', () => {
     await claimOwner(playwright);
   });
 
-  // happy —— YAML（非 JSON）走同一解析路 → 解析成功 → candidate 出现。
+  // happy —— YAML (not JSON) goes through the same parse path → parses successfully →
+  // a candidate appears.
   test('valid 3.0 YAML spec → parsed via the same path → candidate appears', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(validCalendarSpecYaml());
@@ -239,7 +262,8 @@ test.describe('connector · area A spec ingest corner · happy', () => {
     await expect(page.getByTestId('connector-spec-error')).toHaveCount(0);
   });
 
-  // happy —— 内部 $ref（同文档 #/components/...）→ 解析得动 → candidate 出现。
+  // happy —— an internal $ref (same document, #/components/...) → resolves →
+  // a candidate appears.
   test('internal $ref (same document) → resolves → candidate appears', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(specInternalRef());
@@ -251,25 +275,27 @@ test.describe('connector · area A spec ingest corner · happy', () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────
-// 本地 helper（实现落地后提升为共享 fixture：openConnectorAdd / openSpecPaste +
-// 样例 spec 串）。
+// Local helpers (to be promoted to a shared fixture once implementation lands:
+// openConnectorAdd / openSpecPaste + sample spec strings).
 // ──────────────────────────────────────────────────────────────────────────
 
-// openConnectorAdd —— 从已知入口 nav 进 connectors 区并打开 add（不 page.goto）。
+// openConnectorAdd —— navigates into the connectors area from the known entry point
+// and opens add (never page.goto).
 async function openConnectorAdd(page: Page): Promise<void> {
   await page.getByTestId('admin-nav-connectors').click();
   await page.waitForURL('**/admin/connectors**');
   await page.getByTestId('connector-add-open').click();
 }
 
-// openSpecPaste —— 打开 add 后确保「粘贴/上传 spec」输入可见。
+// openSpecPaste —— opens add and ensures the "paste/upload spec" input is visible.
 async function openSpecPaste(page: Page): Promise<void> {
   await openConnectorAdd(page);
   await expect(page.getByTestId('connector-spec-input')).toBeVisible();
 }
 
-// validCalendarSpec —— 最小合法 OpenAPI 3.0 calendar spec（servers + freebusy
-// operation + securitySchemes，足够派生表单 + 候选品类）。
+// validCalendarSpec —— the minimal valid OpenAPI 3.0 calendar spec (servers +
+// freebusy operation + securitySchemes — enough to derive a form + candidate
+// category).
 function validCalendarSpec(): string {
   return JSON.stringify({
     openapi: '3.0.0',
@@ -301,7 +327,7 @@ function validCalendarSpec(): string {
   });
 }
 
-// swagger20Spec —— Swagger 2.0（`swagger: "2.0"`，无 `openapi`）→ 必拒。
+// swagger20Spec —— Swagger 2.0 (`swagger: "2.0"`, no `openapi`) → must be rejected.
 function swagger20Spec(): string {
   return JSON.stringify({
     swagger: '2.0',
@@ -312,7 +338,8 @@ function swagger20Spec(): string {
   });
 }
 
-// openapi31Spec —— OpenAPI 3.1（`openapi: "3.1.0"`）→ F-H-1 起也收（有 servers+operation → candidate）。
+// openapi31Spec —— OpenAPI 3.1 (`openapi: "3.1.0"`) → accepted as of F-H-1 (has
+// servers+operation → candidate).
 function openapi31Spec(): string {
   return JSON.stringify({
     openapi: '3.1.0',
@@ -322,7 +349,8 @@ function openapi31Spec(): string {
   });
 }
 
-// specMissingServers —— 合法 3.0 但无 `servers` → runtime 无 base URL，拒。
+// specMissingServers —— valid 3.0 but no `servers` → runtime has no base URL,
+// rejected.
 function specMissingServers(): string {
   return JSON.stringify({
     openapi: '3.0.0',
@@ -331,7 +359,8 @@ function specMissingServers(): string {
   });
 }
 
-// specMissingOperations —— 有 servers 但 `paths` 为空 → 无 operation 可绑定，拒。
+// specMissingOperations —— has servers but `paths` is empty → no operation to bind,
+// rejected.
 function specMissingOperations(): string {
   return JSON.stringify({
     openapi: '3.0.0',
@@ -341,8 +370,10 @@ function specMissingOperations(): string {
   });
 }
 
-// oversizedSpec —— 合法 3.0 但塞了一大坨 description 把体积顶过上限 → 必拒。
-// 用一个超长字符串字段撑大，避免手写几 MB 字面量。
+// oversizedSpec —— valid 3.0 but stuffed with a huge description that pushes the
+// size past the cap → must be rejected.
+// Uses one oversized string field to inflate the size, avoiding a hand-written
+// multi-MB literal.
 function oversizedSpec(): string {
   const huge = 'x'.repeat(8 * 1024 * 1024); // ~8 MB padding, well over any sane cap
   return JSON.stringify({
@@ -353,7 +384,8 @@ function oversizedSpec(): string {
   });
 }
 
-// duplicateOperationIdSpec —— 两个不同 operation 用同一 operationId → 绑定无法唯一指向，拒。
+// duplicateOperationIdSpec —— two different operations share one operationId → a
+// binding can't point to it uniquely, rejected.
 function duplicateOperationIdSpec(): string {
   return JSON.stringify({
     openapi: '3.0.0',
@@ -366,7 +398,8 @@ function duplicateOperationIdSpec(): string {
   });
 }
 
-// specMissingOperationId —— operation 没 operationId（绑定要靠它指向）→ 标记缺锚点。
+// specMissingOperationId —— an operation with no operationId (a binding needs it to
+// point at) → flagged as missing an anchor.
 function specMissingOperationId(): string {
   return JSON.stringify({
     openapi: '3.0.0',
@@ -376,7 +409,8 @@ function specMissingOperationId(): string {
   });
 }
 
-// specExternalRef —— $ref 指向外部文件（无法在本文档内解析）→ 拒/给清晰结果。
+// specExternalRef —— $ref points at an external file (cannot resolve within this
+// document) → rejected/returns a clear result.
 function specExternalRef(): string {
   return JSON.stringify({
     openapi: '3.0.0',
@@ -394,7 +428,8 @@ function specExternalRef(): string {
   });
 }
 
-// specInternalRef —— $ref 指向同文档 #/components/...（可解析）→ 解析得动。
+// specInternalRef —— $ref points within the same document, #/components/...
+// (resolvable) → resolves.
 function specInternalRef(): string {
   return JSON.stringify({
     openapi: '3.0.0',
@@ -413,8 +448,9 @@ function specInternalRef(): string {
   });
 }
 
-// validCalendarSpecYaml —— 同 validCalendarSpec 的语义，但 YAML 文本（验证非 JSON
-// 走同一 parse 路）。手写 YAML 字面量，缩进有意义，勿格式化。
+// validCalendarSpecYaml —— the same semantics as validCalendarSpec, but as YAML text
+// (verifies non-JSON goes through the same parse path). Hand-written YAML literal —
+// indentation is meaningful, do not reformat.
 function validCalendarSpecYaml(): string {
   return [
     'openapi: "3.0.0"',

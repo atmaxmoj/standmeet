@@ -1,13 +1,17 @@
-// nav-page-vs-pages.spec.ts —— admin 侧栏两个 "page(s)" 入口必须**可区分**，不是同一个词的两块牌子。
+// nav-page-vs-pages.spec.ts -- the admin sidebar's two "page(s)" entries must be
+// **distinguishable**, not two signs for the same word.
 //
-// rot-D2：slug `page` 顶着 "public page"（settings 组）→ PageSection，就是那唯一一张公开**落地页**；
-// slug `custom-pages` 顶着 "pages"（access 组）→ CustomPagesSection，是 MCP 建的、挂在 /p/{slug} 的
-// **微站集合**。两块牌子读起来就是同一个词 —— owner 分不清哪扇门是哪扇。一个 label 得说清它开的是什么；
-// "public page" / "pages" 谁也没说清。
+// rot-D2: slug `page` carries "public page" (settings group) -> PageSection, which is the
+// one and only public **landing page**; slug `custom-pages` carries "pages" (access
+// group) -> CustomPagesSection, the **collection of microsites** built via MCP and served
+// at /p/{slug}. The two signs read as the same word -- the owner can't tell which door is
+// which. A label has to say what it opens; "public page" / "pages" say neither.
 //
-// 判据（断好结果，不断"没红字"）：区分性 token 必须落地 —— 落地页那条含 "landing"，微站那条含 "custom"；
-// 二者都不再是光秃秃的 "page"/"pages"。今天的 "public page"/"pages" 上 RED，改名后 GREEN。
-// nav link 文本挂在 data-testid="admin-nav-<slug>" 上（见 AdminSidebar SidebarItem）。
+// Criterion (asserts the good outcome, not "no red text"): a disambiguating token must
+// land -- the landing-page entry must contain "landing", the microsites entry must
+// contain "custom"; neither may stay a bare "page"/"pages". RED today on "public
+// page"/"pages", GREEN after the rename.
+// nav link text lives on data-testid="admin-nav-<slug>" (see AdminSidebar SidebarItem).
 
 import { test, expect } from '@/fixtures/test';
 
@@ -25,7 +29,8 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 test.describe('admin sidebar · the landing-page and custom-pages entries are not confusable', () => {
   test.beforeAll(async ({ playwright }) => { await claimFreshOwner(playwright, OWNER); });
 
-  // adminPage fixture 已落 /admin 并登录，侧栏（admin-nav-page）可见 —— 直接读两条 nav 文本。
+  // The adminPage fixture has already landed on /admin and logged in, with the sidebar
+  // (admin-nav-page) visible -- just read the two nav labels directly.
   test('the single-landing-page entry and the microsites entry carry disambiguated labels',
     async ({ adminPage: page }) => {
       const pageNav = page.getByTestId('admin-nav-page');
@@ -36,18 +41,22 @@ test.describe('admin sidebar · the landing-page and custom-pages entries are no
       const pageLabel = (await pageNav.innerText()).trim();
       const customLabel = (await customNav.innerText()).trim();
 
-      // 落地页那条必须带上区分 token "landing"（今天是 "public page" → RED）。
+      // The landing-page entry must carry the disambiguating token "landing" (today it's
+      // "public page" -> RED).
       expect(
         /landing/i.test(pageLabel),
         `the single public-page entry must name itself the "landing" page, not a bare "page"; got "${pageLabel}"`,
       ).toBe(true);
-      // 微站那条必须带上区分 token "custom"（今天是 "pages" → RED）。
+      // The microsites entry must carry the disambiguating token "custom" (today it's
+      // "pages" -> RED).
       expect(
         /custom/i.test(customLabel),
         `the microsites entry must name itself "custom" pages, not a bare "pages"; got "${customLabel}"`,
       ).toBe(true);
 
-      // 兜底：两条 label 归一化后不能撞成同一个 "page"/"pages" 词 —— 两块名副其实的牌子，不是一块的复制。
+      // Fallback: the two labels, once normalized, must not collide on the same
+      // "page"/"pages" word -- two signs that actually mean what they say, not a
+      // duplicate of one sign.
       expect(
         normalize(pageLabel) !== normalize(customLabel),
         `the two entries must not collapse to the same word; both read "${pageLabel}" ≈ "${customLabel}"`,
@@ -55,19 +64,24 @@ test.describe('admin sidebar · the landing-page and custom-pages entries are no
     });
 });
 
-// normalize —— 抹掉大小写、空格与结尾复数 s，把 "public page"/"pages" 这类拉到同一底，
-// 用来证明两条 label 不是同一个词的两种写法。
+// normalize -- strips case, whitespace, and a trailing plural s, pulling things like
+// "public page"/"pages" down to the same baseline, so it can prove two labels aren't just
+// two spellings of the same word.
 function normalize(label: string): string {
   return label.toLowerCase().replace(/\s+/g, ' ').replace(/s\b/g, '').trim();
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// F-N-3：上面那条守卫**停在门口**。它读两块牌子就收工，从没推开任何一扇门 ——
-// 于是牌子改成 "landing page" / "custom pages" 之后，**门后那两个标题仍是 `page` / `pages`**，
-// 而它一直绿着。owner 是点进去的：点完之后屏幕上最大的那个词才是他读到的东西。
+// F-N-3: the guard above **stops at the door**. It reads the two signs and calls it done,
+// never actually opening either door -- so once the signs got renamed to "landing page" /
+// "custom pages", **the two headings behind those doors were still `page` / `pages`**,
+// and this guard stayed green the whole time. The owner clicks through: what they
+// actually read is the biggest word on the screen after that click.
 //
-// 判据：点哪条牌子，落地页的大标题就得说出那块牌子上的词 —— 全 nav 一条不漏，
-// 不是只钉住这两条（同一个错今天已经在四个地方各犯一次：一条经验只扫到了它出生的那个字段）。
+// Criterion: whichever sign gets clicked, the destination's heading must state that
+// sign's word -- across the entire nav, not just these two entries (the same mistake has
+// already been made in four places today: one lesson only got swept into the field where
+// it was first found).
 const NAV_ENTRIES: readonly { slug: string; label: string }[] = [
   { slug: 'dashboard', label: 'dashboard' },
   { slug: 'raw', label: 'raw' },
@@ -109,7 +123,8 @@ test.describe('admin · the destination titles itself with the label you clicked
       for (const entry of NAV_ENTRIES) {
         const nav = page.getByTestId(`admin-nav-${entry.slug}`);
         await expect(nav, `nav entry ${entry.slug} must exist`).toBeVisible();
-        // 牌子上的字以屏幕为准（表里那份是我抄的，抄错了就该在这里露馅）。
+        // The screen's own text is the source of truth for the label (the table's copy
+        // is transcribed by me, and a transcription error should surface right here).
         expect(
           (await nav.innerText()).trim(),
           `the nav label for ${entry.slug} moved — update this table`,
@@ -119,7 +134,9 @@ test.describe('admin · the destination titles itself with the label you clicked
         const title = page.getByTestId('section-title');
         await expect(title, `a heading must render after clicking "${entry.label}"`)
           .toBeVisible({ timeout: 15_000 });
-        // 换节是客户端跳转：等到标题不再是上一节那句话，再取值（不然读到的是残影）。
+        // Switching sections is a client-side navigation: wait until the heading is no
+        // longer the previous section's text before reading it (otherwise you'd read a
+        // stale leftover).
         await expect.poll(
           async () => (await title.innerText()).trim(),
           { message: `heading after clicking "${entry.label}"`, timeout: 15_000 },

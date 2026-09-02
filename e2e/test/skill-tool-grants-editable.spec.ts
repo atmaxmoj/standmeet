@@ -1,20 +1,28 @@
-// skill-tool-grants-editable.spec.ts —— F-C-57：owner 要有办法把一个连接器的 operation 授出去。
+// skill-tool-grants-editable.spec.ts -- F-C-57: the owner needs a way to
+// grant out a connector's operation.
 //
-// 会话侧的闸比的是「这个角色挂的技能的 `allowed_tools` 里有没有 `op_<id>`」
-// （`capreg_openapi_agent_tools.go` + `wire/dispatcher.go` 的 roleAllowedTools），
-// 而写得进 `allowed_tools` 的入口以前只有**市场导入**和 **owner-MCP 的 skill_create**。
-// GUI 一个都没有 —— 而 owner 自己传的连接器，op 名字是这份厂商文档特有的，
-// 公共市场上不可能有技能声明它们。装配那一屏的复选框因此收下了一次**完不成的授权**。
+// The session-side gate checks "does this role's attached skill's
+// `allowed_tools` contain `op_<id>`" (`capreg_openapi_agent_tools.go` +
+// roleAllowedTools in `wire/dispatcher.go`), but the only entry points that
+// could write into `allowed_tools` used to be **marketplace import** and
+// **owner-MCP's skill_create**. The GUI had none -- and for a connector the
+// owner uploads themselves, the op names are specific to that vendor's doc;
+// no marketplace skill could ever declare them. So the checkbox on the
+// assembly screen was accepting a grant that **could never be completed**.
 //
-// 设计源写着这件事该存在（`docs/design/project/admin.js:3000`）：安装会「写一份你完全拥有的
-// 本地副本 —— 之后可以改 prompt 或 **allowed-tools**，跟市场解耦」。而 `UpdateSkill` 那条 SQL
-// 一直躺在 sqlc 生成物里，**一个调用者都没有**。
+// The design source says this should exist
+// (`docs/design/project/admin.js:3000`): installing "writes a local copy you
+// fully own -- afterward you can edit the prompt or **allowed-tools**,
+// decoupled from the marketplace." And the `UpdateSkill` SQL has been sitting
+// in the sqlc-generated code the whole time, with **not a single caller**.
 //
-// 这里守两样新面：
-//   1. `GET /connectors/agent-ops` —— owner 要能**知道那些 operation 叫什么**。
-//      名字是产品自己规范化出来的（`agent_tool_name.go`），厂商文档里没有这个串，
-//      所以「让 owner 照着文档手打」不算给过。
-//   2. `PUT /skills/{id}` —— 把名字写进技能的 allowed_tools。
+// This spec guards two new surfaces:
+//   1. `GET /connectors/agent-ops` -- the owner needs to be able to **know
+//      what those operations are called**. The name is normalized by the
+//      product itself (`agent_tool_name.go`) and doesn't appear anywhere in
+//      the vendor doc, so "make the owner type it by hand from the doc"
+//      doesn't count as giving it to them.
+//   2. `PUT /skills/{id}` -- writes the name into the skill's allowed_tools.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -74,13 +82,14 @@ test.describe('skills · a connector operation can be granted from the owner fac
     const rows = await agentOps(request);
     const mine = rows.find((r) => r.connector_id === id);
     expect(mine, 'the connected connector is listed').toBeDefined();
-    // 断的是**这份文档自己那个 operation 规范化之后的名字** —— 一张空清单过不了，
-    // 一个别的连接器的名字也过不了。
+    // What's asserted is **this doc's own operation, after normalization** --
+    // an empty list wouldn't pass, and neither would another connector's name.
     expect(mine!.ops.map((o) => o.name), 'its operation is named, normalised')
       .toContain('op_contacts_list');
     expect(mine!.title, 'and the row says which vendor it is').toBe('Gadget Vendor');
 
-    // 断开 → 不再列。授一个调不到的 operation 等于请 owner 授一个不会生效的权限。
+    // Disconnect -> no longer listed. Offering an operation that can't be
+    // called would be asking the owner to grant a permission that never takes effect.
     await disconnectConnector(request, csrf, id);
     const after = await agentOps(request);
     expect(after.find((r) => r.connector_id === id), 'a disconnected connector is not offered')
@@ -108,7 +117,9 @@ test.describe('skills · a connector operation can be granted from the owner fac
     });
     expect(put.status(), 'the owner face accepts a tool grant').toBe(200);
     const saved = await put.json() as { allowed_tools: string[]; prompt: string };
-    // 读回来的必须是**存进去的那一份**：只断 200 的话，一个把 allowed_tools 丢掉的实现也能过。
+    // What comes back must be **the copy that was actually stored**:
+    // asserting only 200 would let an implementation that drops
+    // allowed_tools pass too.
     expect(saved.allowed_tools, 'and the grant is what comes back').toEqual([op!.name]);
     expect(saved.prompt).toContain('Call the vendor');
   });

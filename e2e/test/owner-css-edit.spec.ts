@@ -1,5 +1,7 @@
-// owner-css-edit.spec.ts —— owner CSS 三面可编辑 + parity(目标态红)。同一处 owner-级 CSS,能从
-// admin UI / MCP / vault-sync(.obsidian/snippets + appearance.json 启用列表)任一面写,效果一致。
+// owner-css-edit.spec.ts -- owner CSS is editable from three surfaces, plus parity
+// (currently RED, the target state). The same owner-level CSS can be written from any of
+// admin UI / MCP / vault-sync (.obsidian/snippets + the appearance.json enabled list),
+// with identical effect.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';

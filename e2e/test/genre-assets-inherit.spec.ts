@@ -1,23 +1,33 @@
-// genre-assets-inherit.spec.ts —— 素材**依附于文章**:可见性纯继承,自己没有一套。
+// genre-assets-inherit.spec.ts — an asset **hangs off its article**: visibility is
+// purely inherited, it has no rules of its own.
 //
-// 一份素材不是独立的东西,它是某条语料身上的。所以:
+// An asset isn't a standalone thing, it belongs to a piece of corpus. So:
 //
-//	读得到这条语料  → 它的素材也拿得到
-//	读不到这条语料  → 它的素材一份都拿不到,**知道 id 也不行**
+//	can read the corpus entry  → its assets are reachable too
+//	cannot read the corpus entry → none of its assets are reachable, **not even
+//	                                knowing the id helps**
 //
-// 后半句才是要害。素材如果有自己的取用路径(按 asset id 直接换地址),那条路就绕过了语料的
-// ACL —— owner 把一条 wiki 收回不给某张码看,配在里面的图却还能拿,收回就是假的。
-// 这跟"blob 的寿命 ⊆ 条目的寿命"是同一条不变量的另一半:**可见性也 ⊆ 条目的可见性**。
+// That second half is the crux. If an asset had its own retrieval path (swap in an
+// address straight from the asset id), that path would bypass the corpus's ACL —
+// an owner revoking a wiki entry from a given code, while an image embedded in it
+// remains fetchable, makes the revocation fake.
+// This is the other half of the same invariant as "a blob's lifetime ⊆ the entry's
+// lifetime": **visibility is also ⊆ the entry's visibility**.
 //
-// # 这里为什么只剩两条
+// # Why only two tests remain here
 //
-// 原来有四条,全部从 `POST /api/v1/sessions/{id}/tools/corpus_read` 断。那不是端 ——
-// 没有访客会发那个 POST,发它的是页面里的 JS。而且素材的泄漏**发生在渲染层**:文件名、
-// 缩略图、渲不出来的破图位,任何一个漏出去都算,在 JSON 里一个都看不见。
-// 正向那两条("读得到就拿得到"/"读不到就不给")现在由 genre-assets-reader.spec.ts 在
-// **浏览器里**断,比这边的 JSON 断言严格,所以删掉,不留一份更弱的重复。
+// There used to be four, all asserted via `POST /api/v1/sessions/{id}/tools/corpus_read`.
+// That's not the real surface — no visitor ever sends that POST, it's the page's own
+// JS that does. And an asset leak **happens at the render layer**: a filename, a
+// thumbnail, a broken-image spot that fails to render — any one of these counts as a
+// leak, and none of them show up in JSON.
+// The two positive-direction tests ("can read → can fetch" / "cannot read → gets
+// nothing") are now asserted **in the browser** by genre-assets-reader.spec.ts,
+// which is stricter than the JSON assertions here, so those two were deleted rather
+// than kept as a weaker duplicate.
 //
-// 剩下这两条留在这一层,各有各的理由,见每条自己的注释。
+// The remaining two tests each earn their place here for their own reason — see each
+// test's own comment.
 
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
@@ -55,9 +65,12 @@ test.describe('素材依附文章:可见性纯继承', () => {
 
   test.afterAll(async () => { await s.request.dispose(); });
 
-  // 这一条**不可能**驱 UI,而且这正是它要证的事:它断言的是"某条路不存在"。
-  // 界面上没有任何按钮通向一条不存在的路 —— 会去敲它的是打开了开发者工具的人,
-  // 那时 HTTP 表面就是他的端。所以直接发这个请求是**正确的形态**,不是抄近路。
+  // This test **cannot** be driven through the UI, and that's exactly what it's
+  // proving: it asserts that a certain path does not exist.
+  // There's no button in the interface pointing at a path that doesn't exist —
+  // whoever hits it will have opened dev tools, and at that point the HTTP surface
+  // is their entry point. So firing this request directly is **the correct shape**,
+  // not a shortcut.
   test('知道 asset id 也没用 —— 素材没有绕开文章的第二条路', async () => {
     const id = await createEntry(s, 'wiki', 'no side door', 'body');
     const up = await uploadAsset(s, 'wiki', id, MEDIA.pixel, { filename: 'secret.png' });
@@ -67,8 +80,10 @@ test.describe('素材依附文章:可见性纯继承', () => {
     expect([401, 403, 404], `按 id 直取应当不通,got ${status}`).toContain(status);
   });
 
-  // 撤回:同一条语料、同一份素材、同一个 id,换一张不授它的码,访客页面上应当什么都没有。
-  // 这条走浏览器 —— 撤回失灵的样子是**页面上还渲着那张图**,而不是某个 JSON 数组还有值。
+  // Revocation: same corpus entry, same asset, same id — swap in a code that doesn't
+  // grant it, and the visitor's page should have nothing at all.
+  // This one goes through the browser — a broken revocation looks like **the image
+  // is still rendered on the page**, not like a JSON array still having a value.
   test('文章从范围里被收回后,访客页面上那张图也没了', async ({ page }) => {
     const id = await createEntry(s, 'wiki', 'revoked later', 'body');
     const up = await uploadAsset(s, 'wiki', id, MEDIA.pixel, { filename: 'revoked.png' });
@@ -77,14 +92,15 @@ test.describe('素材依附文章:可见性纯继承', () => {
 
     const [openCode, shutCode] = await issueTwoCodes();
 
-    // 授了的那张:图在。
+    // The code that grants it: the image is there.
     await enterCodeSession(page, openCode, 'Before');
     await goto(page, `/wiki/${path}`);
     const img = page.getByTestId('wiki-body').locator('img').first();
     await expect(img, '收回之前图渲得出来').toBeVisible({ timeout: 8_000 });
     expect(await img.getAttribute('src') ?? '', '就是那份素材').toContain(up.asset_id);
 
-    // 换一张不授的:整页没有这份素材的任何痕迹。
+    // Switch to a code that doesn't grant it: the whole page has no trace of this
+    // asset at all.
     await enterCodeSession(page, shutCode, 'After');
     await goto(page, `/wiki/${path}`);
     await expect(page.getByTestId('wiki-locked'), '换一张码就进不去了')
@@ -102,8 +118,9 @@ async function setBodyImage(id: string, assetID: string): Promise<void> {
   });
 }
 
-// issueTwoCodes —— 一张授这条 wiki,一张不授。**同一条语料**,只有码不同 ——
-// 差别只能来自可见性,不能来自"这两条本来就不一样"。
+// issueTwoCodes — one code grants this wiki entry, one doesn't. **The same corpus
+// entry**, only the code differs — any difference in outcome can only come from
+// visibility, never from "these two entries were already different".
 async function issueTwoCodes(): Promise<[string, string]> {
   const open = await codeFor(['wiki://**'], 'open');
   const shut = await codeFor(['output://**'], 'shut');
@@ -120,8 +137,9 @@ async function codeFor(uris: string[], name: string): Promise<string> {
   return code.code;
 }
 
-// sessionScoped —— 发一张只授某个 glob 的码,拿它开一个访客会话(给上面那条侧门探测用:
-// 它要的是一个**合法的 token**,证明"即使带着有效凭据,按 id 直取也不通")。
+// sessionScoped — issues a code that only grants a given glob, and uses it to open a
+// visitor session (for the side-door probe above: it needs a **valid token**, to
+// prove that "even with valid credentials, direct fetch by id still doesn't work").
 async function sessionScoped(uris: string[], name: string) {
   const code = await codeFor(uris, name);
   return issueSession(s.request, {

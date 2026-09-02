@@ -1,13 +1,14 @@
-// writing-crosslinks.spec.ts —— writing body_md 里 `[[X]]` 双链 e2e.
+// writing-crosslinks.spec.ts -- e2e for `[[X]]` bidirectional links inside writing body_md.
 //
-// 业务故事：
-//   1. owner 在 Claude Desktop 让 AI 调 writing_create 写两篇 writing: A 和 B。
-//      A 的 body 里写 `[[B-slug]]`、`[[B Title]]`、`[[Bad Title|看 B]]`。
-//   2. visitor 打开 /writings/A → body 里这三处都渲染成 <a href="/writings/B"> 的可点
-//      链接 (slug match, title match, alias)；不存在的 `[[Ghost]]` 退成纯文本 `Ghost`
-//      —— 名字留着，方括号不出这一层（F-L-25）。
-//   3. visitor 打开 /writings/B → 页脚出现 "linked from" backlinks，列出 A。
-//   4. A 改 body 移掉 `[[B-slug]]` 那段 → /writings/B 的 backlinks 消失。
+// Business story:
+//   1. The owner has the AI call writing_create in Claude Desktop to write two writings: A and B.
+//      A's body contains `[[B-slug]]`, `[[B Title]]`, `[[Bad Title|see B]]`.
+//   2. A visitor opens /writings/A -> all three of those render as clickable
+//      <a href="/writings/B"> links (slug match, title match, alias); the nonexistent
+//      `[[Ghost]]` degrades to plain text `Ghost` -- the name stays, the brackets don't
+//      make it past this layer (F-L-25).
+//   3. A visitor opens /writings/B -> "linked from" backlinks appear in the footer, listing A.
+//   4. A's body is edited to remove the `[[B-slug]]` segment -> /writings/B's backlinks disappear.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -31,7 +32,7 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
     async ({ request, page }) => {
       const { token: tok, sid } = await mcpSession(request, 'crosslink-token');
 
-      // writing B first —— A 需要 B 已存在才解析得到 dst。
+      // writing B first -- A needs B to already exist for the destination to resolve.
       await callTool(request, tok, sid, 'writing_create', {
         slug: 'writing-b',
         title: 'Writing B Heading',
@@ -41,7 +42,7 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
         tags: ['crosslink'], publish: true,
       });
 
-      // writing A 含三条 [[X]]：slug match / title match / alias；外加一条不存在的。
+      // writing A contains three [[X]]: slug match / title match / alias; plus one that doesn't exist.
       const A_BODY = [
         'Intro line.',
         '',
@@ -62,30 +63,32 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
         tags: ['crosslink'], publish: true,
       });
 
-      // visit A → 三条 link 全渲染成 /writings/writing-b 锚点；ghost 留 literal。
+      // Visit A -> all three links render as anchors to /writings/writing-b; the ghost stays literal.
       await goto(page, '/writings/writing-a');
       const body = page.getByTestId('writing-article-body');
       const linkSlug = body.locator('a[href="/writings/writing-b"]', { hasText: 'Writing B Heading' });
-      await expect(linkSlug).toHaveCount(2); // slug match + title match 都 render dst.title
+      await expect(linkSlug).toHaveCount(2); // slug match + title match both render dst.title
       const linkAlias = body.locator('a[href="/writings/writing-b"]', { hasText: 'see B over there' });
       await expect(linkAlias).toHaveCount(1);
-      // F-L-25 —— 解析不到的那条退成**纯文本**，不是留原标记。这一行以前断言的是
-      // `[[ghost-writing]]` 原样出现；那句断言复述的是当时的实现，没写下任何理由，而
-      // 访客不是 Obsidian 用户：方括号是创作机械，不是内容。名字留着（owner 确实写了它），
-      // 括号不出这一层。两个 reader 共用 usecase/crosslink.go 的 unresolvedCrossLinkText。
+      // F-L-25 -- an unresolved link degrades to **plain text**, not the raw markup left in
+      // place. This line used to assert `[[ghost-writing]]` appears verbatim; that assertion
+      // just restated the implementation of the time without writing down any reason. But a
+      // visitor is not an Obsidian user: the brackets are authoring mechanics, not content.
+      // The name stays (the owner did write it), the brackets don't make it past this layer.
+      // Both readers share usecase/crosslink.go's unresolvedCrossLinkText.
       const bodyText = (await body.innerText()).trim();
       expect(bodyText, '目标名留着 —— owner 写下的字不该被吞掉').toContain('ghost-writing');
       expect(bodyText, '访客看不到 Obsidian 链接语法').not.toContain('[[');
-      // 验证 A 自己不出现在自己 backlinks（self-link 排除：A 没指 A）
+      // Verify A does not appear in its own backlinks (self-link excluded: A doesn't point to A)
       await expect(page.getByTestId('writing-article-backlinks')).toHaveCount(0);
 
-      // visit B → backlinks 里有 A
+      // Visit B -> A is in the backlinks
       await goto(page, '/writings/writing-b');
       const backlinks = page.getByTestId('writing-article-backlinks');
       await expect(backlinks).toBeVisible();
       const aLi = page.getByTestId('backlink-writing-a');
       await expect(aLi).toHaveText('Writing A');
-      // 点 <a> 本身（testid 挂在 <li>，click <li> 不会触发 link 导航）。
+      // Click the <a> itself (the testid is on the <li>; clicking the <li> won't trigger link navigation).
       await backlinks.getByRole('link', { name: 'Writing A' }).click();
       await page.waitForURL('**/writings/writing-a');
     });
@@ -93,7 +96,7 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
   test('delete A → B backlinks cleared (FK cascade)',
     async ({ request, page }) => {
       const { token: tok, sid } = await mcpSession(request, 'delete-crosslink-token');
-      // 取到 writing-a 的 id：writings.list 第一手。
+      // Get writing-a's id: straight from writings.list.
       const rows = await callTool<{ id: string; slug: string }[]>(
         request, tok, sid, 'writings.list', {},
       );
@@ -102,7 +105,7 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
       await callTool(request, tok, sid, 'writings.delete', { writing_id: aRow!.id });
 
       await goto(page, '/writings/writing-b');
-      // backlinks 段 disappear；至少不含 writing-a。
+      // The backlinks section disappears; at minimum it no longer contains writing-a.
       await expect(page.getByTestId('backlink-writing-a')).toHaveCount(0);
     });
 });

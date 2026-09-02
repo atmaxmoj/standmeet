@@ -1,10 +1,12 @@
-// owner-mcp-parity-mutations.spec.ts —— 【对外】facade-parity 付清后新增的 owner-MCP **写**
-// 工具的功能守护(真 roundtrip:写→回读反映)。每条证 binding 真 unmarshal→usecase→marshal
-// 且副作用落库。
+// owner-mcp-parity-mutations.spec.ts — [public-facing] functional guard for the
+// owner-MCP **write** tools added once facade-parity was paid off (a real roundtrip:
+// write → read back reflects it). Each case proves the binding really does
+// unmarshal → usecase → marshal, with the side effect persisted.
 //
-// 覆盖: ip_bans.{add,remove} · domains.{add,remove} · codes.{add_denial,remove_denial,
+// Coverage: ip_bans.{add,remove} · domains.{add,remove} · codes.{add_denial,remove_denial,
 // list_denials} · account.set_full_name · byoai.set · capability_config.{set,get} · page.{put,
-// set_public_url} · corpus_get_entry(写 raw_dump 后回读) · capabilities.{set_enabled,delete}
+// set_public_url} · corpus_get_entry (write raw_dump, then read it back) ·
+// capabilities.{set_enabled,delete}
 
 import { test, expect } from '@/fixtures/test';
 
@@ -38,7 +40,8 @@ async function setup(playwright: Playwright): Promise<void> {
   });
   token = await createAPIToken(request, csrf, 'parity-mut');
   sid = await initMCP(request, token);
-  // 建码回的是**整行码**(两个面同一份载荷),主键叫 id。
+  // Creating a code returns **the entire code row** (the same payload on both
+  // facades), and the primary key field is `id`.
   const made = await callTool<{ id: string }>(request, token, sid, 'codes.create', {
     code: 'MUT-001', label: 'MUT', assumed_role_id: role.id,
   });
@@ -92,13 +95,15 @@ async function checkAccountAndByoai(r: APIRequestContext): Promise<void> {
   const named = await callTool<{ full_name: string }>(
     r, token, sid, 'account.set_full_name', { full_name: 'Renamed Owner' });
   expect(named.full_name, 'set_full_name echoes').toBe('Renamed Owner');
-  // me 回 {owner, settings}（admin 的 GET /me 一直是这个信封）——迁移前 MCP 的 me 是
-  // 手拼字符串出来的四字段 JSON，连转义都没有。
+  // me returns {owner, settings} (admin's GET /me has always used this envelope) —
+  // before the migration, MCP's me was a hand-assembled four-field JSON string,
+  // without even proper escaping.
   const me = await callTool<{ owner: { full_name: string } }>(r, token, sid, 'me', {});
   expect(me.owner.full_name, 'me reflects rename').toBe('Renamed Owner');
 
-  // byoai.set 回的是**整片 settings**（ai + byoai）——admin 一直是这个信封，
-  // 收口接手后两个面同一份，前端可以直接 swap 进缓存。
+  // byoai.set returns **the entire settings slice** (ai + byoai) — admin has always
+  // used this envelope, and now that the convergence has taken over, both facades
+  // share it, so the frontend can just swap it straight into the cache.
   const settings = await callTool<{
     ai: { provider: string; endpoint: string; model: string };
     byoai: { enabled: boolean; providers: string[] };
@@ -107,14 +112,18 @@ async function checkAccountAndByoai(r: APIRequestContext): Promise<void> {
   });
   expect(settings.byoai.enabled, 'byoai enabled').toBe(true);
   expect(settings.byoai.providers, 'byoai providers saved').toContain('deepseek');
-  // 迁移前这条写路径回的那份漏了 ai.endpoint / ai.model，swap 一次就把它们抹空。
+  // Before the migration, this write path's response was missing ai.endpoint /
+  // ai.model, so a single swap would blank them out.
   expect(settings.ai, 'ai slice comes back whole').toHaveProperty('endpoint');
   expect(settings.ai, 'ai slice comes back whole').toHaveProperty('model');
 }
 
-// 预约策略是 booker **自己声明**的配置，经通用的 capability_config 口读写 ——
-// 不再有 booking.get_policy / booking.set_policy 这种按能力名写死的工具。
-// 值和默认值都来自声明，沙箱经 capconfig.get 读同一份（以前 host 和沙箱各有一份，飘了）。
+// The booking policy is configuration that the booker capability **declares for
+// itself**, read and written through the generic capability_config surface — there
+// is no longer a booking.get_policy / booking.set_policy tool hardcoded to one
+// capability's name. Both the value and its default come from the declaration, and
+// the sandbox reads the same one through capconfig.get (previously the host and the
+// sandbox each held their own copy, which drifted apart).
 async function checkCapabilityConfig(r: APIRequestContext): Promise<void> {
   const BOOKER = 'calendar.book';
   const listed = await callTool<{ capabilities: string[] }>(
@@ -130,7 +139,8 @@ async function checkCapabilityConfig(r: APIRequestContext): Promise<void> {
   expect(start.value, 'config reflects the write').toBe('10:00');
   expect(start.overridden, 'and is marked as owner-set').toBe(true);
 
-  // 没设过的字段回声明里的默认值，并且标着 overridden=false。
+  // A field that was never set returns the default from the declaration, and is
+  // marked overridden=false.
   const end = cfg.fields.find((f) => f.key === 'working_hours_end')!;
   expect(end.value, 'untouched field falls back to the declared default').toBe('18:00');
   expect(end.overridden).toBe(false);
@@ -156,20 +166,25 @@ async function checkCorpusGet(r: APIRequestContext): Promise<void> {
 }
 
 async function checkCapabilities(r: APIRequestContext): Promise<void> {
-  // 载荷是 {"capabilities": [...]}（admin 已发出去的信封，收口接手后两个面同一份）。
-  // 只挑 kind=capability 那种行来开关：connector 行前端锁死、skill 行走 skill 自己的开关。
+  // The payload is {"capabilities": [...]} (the envelope admin already sends, and
+  // now that the convergence has taken over, both facades share it).
+  // Only rows with kind=capability are toggled here: connector rows are locked in
+  // the frontend, and skill rows go through the skill's own toggle.
   const caps = await listCapabilities(r);
   const target = caps.find((c) => c.enabled && c.kind === 'capability')!;
   await callTool(r, token, sid, 'capabilities.set_enabled', { id: target.id, enabled: false });
   const after = await listCapabilities(r);
   expect(after.find((c) => c.id === target.id)?.enabled, 'cap now disabled').toBe(false);
 
-  // skill_create 现在回**完整的 skill**(两个面同一份形状),identifier 字段是 `id`;
-  // 迁移前 MCP 单独回 {skill_id,name},admin 回完整 skill —— 两份形状正是要消灭的东西。
+  // skill_create now returns **the complete skill** (the same shape on both
+  // facades), with the identifier field named `id`; before the migration MCP
+  // returned only {skill_id,name} while admin returned the full skill — the two
+  // separate shapes are exactly what this eliminates.
   const skill = await callTool<{ id: string }>(
     r, token, sid, 'skill_create', { name: 'doomed-skill', prompt: 'to be deleted' });
-  // 删除回 {"ok":true} —— admin 一直是这个形状，收口接手后两个面同一份
-  // （迁移前 MCP 单独回 {id, deleted}）。
+  // Delete returns {"ok":true} — admin has always used this shape, and now that the
+  // convergence has taken over, both facades share it (before the migration MCP
+  // returned its own {id, deleted}).
   const del = await callTool<{ ok: boolean }>(
     r, token, sid, 'capabilities.delete', { id: skill.id });
   expect(del.ok, 'owner skill deleted via capabilities.delete').toBe(true);

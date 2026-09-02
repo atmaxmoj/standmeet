@@ -1,15 +1,21 @@
-// admin-allowed-domains.spec.ts —— owner 维护 on-demand TLS 的自定义域名白名单
-// （GET/POST/DELETE /api/admin/allowed-domains）。
+// admin-allowed-domains.spec.ts -- owner-maintained custom-domain allowlist for
+// on-demand TLS (GET/POST/DELETE /api/admin/allowed-domains).
 //
-// 这批路由的能力来自**出站收口**（backend/internal/routes/dispatcher）：域出普通函数，
-// 收口声明 op，admin 面只负责 REST 形状。所以这个 spec 同时守两件事：
+// This batch of routes gets its capability from the **outbound convergence point**
+// (backend/internal/routes/dispatcher): the domain exports a plain function, the
+// convergence point declares the op, and the admin facade only owns the REST shape.
+// So this spec guards two things at once:
 //
-//   1. 功能本身 —— 加进去能列出来、删掉就没了、重复删不报错（idempotent）；
-//   2. **面自己的契约** —— add / remove 回 204 空身、list 回 200 + {"domains":[...]}。
-//      收口给的载荷是一份，状态码是本面的决定；把它们写死在这里，
-//      免得下一次搬迁顺手把 204 改成 200 而没人发现（前端按 204 写的）。
+//   1. The functionality itself -- add it and it lists; delete it and it's gone;
+//      deleting again does not error (idempotent);
+//   2. **The facade's own contract** -- add / remove return 204 with an empty
+//      body, list returns 200 + {"domains":[...]}.
+//      The convergence point hands back one payload; the status code is this
+//      facade's own decision. Pin it here so a future migration doesn't quietly
+//      turn 204 into 200 unnoticed (the frontend relies on 204).
 //
-// 真正的 DNS / TLS 验证走 /internal/tls-ask，不在这个 spec 的范围里。
+// The real DNS / TLS check goes through /internal/tls-ask and is out of scope
+// for this spec.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -55,7 +61,7 @@ test.describe('admin allowed domains', () => {
         expect(removed.status()).toBe(204);
         expect(await listDomains(request)).not.toContain(DOMAIN);
 
-        // idempotent：删一个不存在的不报错。
+        // idempotent: deleting one that doesn't exist does not error.
         const again = await request.delete(
           `${BACKEND}/api/admin/allowed-domains/${DOMAIN}`,
           { headers: { 'X-Csrftoken': csrf } },

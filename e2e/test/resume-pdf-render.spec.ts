@@ -106,19 +106,22 @@ test.describe('resume PDF render contract (Typst)', () => {
       expect(info.text).toContain(content.works[0]!.company); // "To Acme."
       // First sentence of the cover letter prose (won't span a line wrap).
       expect(info.text).toContain('The role caught my eye');
-      // 页码要说真话。样本带 cover letter，两页 —— 这里刚好对得上，所以**光有这条测不出
-      // F-E-14**：没有 cover letter 时才现形（下面那条）。
+      // The page numbers must tell the truth. This fixture carries a cover letter and is two
+      // pages — which happens to line up, so **this test alone cannot expose F-E-14**: that
+      // only shows up when there's no cover letter (the test below).
       expectPageLabelsMatch(info.text, info.pages);
     });
 
-  // 没有 cover letter 的那一份 —— F-E-14 现形的地方。
+  // The one without a cover letter — where F-E-14 shows up.
   //
-  // 真环境：经 MCP 真 commit 一份不带 cover letter 的简历，PDF 只有一页（`/Count 1`），
-  // 而页脚写着 `page 1 / 2`。收到简历的人会去找那不存在的第二页。
+  // Real environment: committing a resume with no cover letter through MCP produces a PDF
+  // that's just one page (`/Count 1`), yet the footer reads `page 1 / 2`. Whoever receives
+  // the resume goes looking for a second page that doesn't exist.
   //
-  // 两处合起来才成立：`print/application/[id]/page.tsx` 里第二页是**有条件**渲染的
-  // （`hasCover`），而 `ResumePage.tsx` 无条件印 `resume.page1`，那个字符串把「/ 2」
-  // 硬编码在 i18n 文案里 —— **一个能算出来的量被手填了**。
+  // Both pieces have to be true at once for this to happen: `print/application/[id]/page.tsx`
+  // renders the second page **conditionally** (`hasCover`), while `ResumePage.tsx`
+  // unconditionally prints `resume.page1`, and that string hardcodes the "/ 2" into the i18n
+  // copy — **a value that could be computed was instead hand-filled**.
   test('a resume with no cover letter is one page, and says so',
     async ({ request }) => {
       const content = sampleResumeContent({ cover_letter: '' });
@@ -127,14 +130,17 @@ test.describe('resume PDF render contract (Typst)', () => {
       }, content);
 
       const info = await inspectPDF(committed.pdf);
-      // 前置条件要能红：真是一页，否则下面断的是另一件事。
+      // The precondition must be falsifiable: it really is one page, otherwise what's
+      // asserted below is testing something else.
       expect(info.pages, 'no cover letter ⇒ one page').toBe(1);
       expectPageLabelsMatch(info.text, info.pages);
     });
 
-  // 定制化：owner 在 resume.draft 里选 'compact' 模板，commit 出来的 PDF 走那个版式 ——
-  // 内容不变(模板换的是呈现),尺寸仍是 US Letter。选 classic 和选 compact 是同一份内容的
-  // 两种排版。这是"resume 定制化"落到真实 commit 流的证明。
+  // Customization: the owner picks the 'compact' template in resume.draft, and the
+  // committed PDF follows that layout — content is unchanged (the template only changes
+  // presentation), and the page size stays US Letter. Choosing classic vs. compact is two
+  // different layouts of the same content. This is the proof that "resume customization"
+  // actually reaches the real commit flow.
   test('a compact-template draft commits to a US-Letter PDF with the same content',
     async ({ request }) => {
       const content = sampleResumeContent();
@@ -154,14 +160,17 @@ test.describe('resume PDF render contract (Typst)', () => {
     });
 });
 
-// expectPageLabelsMatch —— 页脚每一处 `page N / M` 里的 M 必须等于**真实**页数。
-// 断的是「文档自己声称的总数」对不对，而不是「有没有印页码」——
-// 后者在 M 写死成 2 的时候照样绿。
+// expectPageLabelsMatch — every `page N / M` footer's M must equal the **real** page count.
+// What's asserted is whether the document's own claimed total is correct, not merely
+// "does a page number get printed" — the latter would stay green even if M were hardcoded
+// to 2.
 function expectPageLabelsMatch(text: string, pages: number): void {
-  // 先把空白全去掉再匹配：页脚那行是等宽 + letter-spacing，**文本层里是
-  // `P A G E 2 / 2`** —— 每个字母之间都插了空格。第一版按屏幕上的样子写
-  // `page\s+\d+`，于是一个都匹配不到，红在「找不到标签」而不是「总数不对」。
-  // 提取层跟屏幕长得不一样，形状要读出来不能猜（[[right-bytes-wrong-glyphs]] 同族）。
+  // Strip all whitespace before matching: the footer line uses monospace + letter-spacing,
+  // so **the text layer actually reads `P A G E 2 / 2`** — with a space inserted between
+  // every letter. The first version of this test wrote `page\s+\d+` the way it looks on
+  // screen, so nothing matched at all, and it went red on "label not found" instead of
+  // "total is wrong". The extraction layer doesn't look like the screen — its shape has to
+  // be read, not guessed (same family as [[right-bytes-wrong-glyphs]]).
   const flat = text.replace(/\s+/g, '');
   const labels = [...flat.matchAll(/page(\d+)\/(\d+)/gi)];
   expect(

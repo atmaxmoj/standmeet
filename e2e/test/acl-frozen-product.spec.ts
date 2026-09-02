@@ -1,13 +1,15 @@
 // acl-frozen-product.spec.ts —— §B.3 of capability-acl-hierarchy-tests.md.
 //
-// code-deny 在 frozen 之前把 cap 从 grant 集里减掉 → 它整条都得消失，不只 tool 名：
-//   1. prompt fragment / part_ids —— deny corpus.retrieval → 其 fragment id 掉出
-//      system_prompt_part_ids（prompt 组成变 = hash 变）。
-//   2. capability_state —— deny 一个 role 授的 cap → 它**完全不在** capabilities[]
-//      里（**不是** enabled=false）。锁「ACL=不被发现」区别于 connector/quota/空-corpus
-//      的「可见但 enabled=false 降级」（见 retrieval-capability-state 的空-corpus 行）。
+// When code-deny removes a cap from the grant set before freeze, the whole trail must
+// disappear, not just the tool name:
+//   1. prompt fragment / part_ids — deny corpus.retrieval → its fragment id drops out of
+//      system_prompt_part_ids (the prompt composition changes = the hash changes).
+//   2. capability_state — deny a cap a role granted → it is **completely absent** from
+//      capabilities[] (**not** enabled=false). "ACL = undiscoverable" is a different lock
+//      from the connector/quota/empty-corpus case of "visible but enabled=false degraded"
+//      (see the empty-corpus row in retrieval-capability-state).
 //
-// 红 until: applyCodeDenials 让 deny 同时作用于 tool / state / fragment。
+// RED until: applyCodeDenials makes deny act on tool / state / fragment together.
 
 import { test, expect } from '@/fixtures/test';
 import type { VisitorSession } from '@/fixtures/visitor';

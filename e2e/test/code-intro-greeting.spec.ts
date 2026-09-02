@@ -1,16 +1,21 @@
-// code-intro-greeting.spec.ts —— 名字选择器在 issue 前拉 code intro:
-// owner per-role greeting「这是什么」+ "Up to N people — M already in" 名额行。
+// code-intro-greeting.spec.ts —— the name picker fetches a code intro before issue:
+// owner per-role greeting saying "what this is" + the "Up to N people — M already in"
+// member-count line.
 //
-// 业务故事:
-//   1. owner 建一个带 greeting 的 role,发一张 max_members=2 的码引用它。
-//   2. visitor 扫码 → 名字选择器显 owner 写的 greeting + "Up to 2 people … 0 already in"。
-//   3. 第一个具名 visitor 进来后,新 context 再扫 → "1 already in"(member_count 实时)。
+// Business story:
+//   1. Owner creates a role with a greeting, issues a code with max_members=2 referencing it.
+//   2. Visitor scans the code → the name picker shows the owner's greeting +
+//      "Up to 2 people … 0 already in".
+//   3. After the first named visitor joins, a fresh context scanning again shows
+//      "1 already in" (member_count is live).
 //
-// 边界(都是我写的分支,逐条钉死):
-//   · role 没设 greeting → 后端回落 "This is <handle>'s AI…" 默认介绍。
-//   · max_members=1 → 单数 "Up to 1 person"(非 "people")。
-//   · max_members 不设(无限)→ 名额行空 → picker 回落 "More than one person…"。
-//   · code 无效 → intro 拉失败 → 无 greeting + 回落名额行,picker 不崩。
+// Boundaries (all branches I wrote myself, pinned down one by one):
+//   - role has no greeting set → the backend falls back to "This is <handle>'s AI…"
+//   - max_members=1 → singular "Up to 1 person" (not "people").
+//   - max_members unset (unlimited) → the member-count line is empty → the picker falls
+//     back to "More than one person…"
+//   - invalid code → intro fetch fails → no greeting + fallback member-count line, picker
+//     does not crash.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Browser, Page, Playwright } from '@playwright/test';
@@ -32,12 +37,13 @@ const OWNER = {
 const CODE = 'INTRO-001'; // Greeter role, max_members=2
 const DEFAULT_CODE = 'INTRO-DEFAULT'; // Plain role (no greeting), max_members=3
 const SOLO_CODE = 'INTRO-SOLO'; // Greeter role, max_members=1
-const OPEN_CODE = 'INTRO-OPEN'; // Greeter role, max_members 不设 = 无限
-const BAD_CODE = 'NOPE-404'; // 从未创建
+const OPEN_CODE = 'INTRO-OPEN'; // Greeter role, max_members unset = unlimited
+const BAD_CODE = 'NOPE-404'; // never created
 
 const GREETING =
   "This is Intro Owner's AI — ask it anything, it answers in their voice.";
-// 后端 defaultGreeting(handle) 的精确文案(role 没 greeting 时)。
+// The exact copy from the backend's defaultGreeting(handle) (used when the role has no
+// greeting).
 const DEFAULT_GREETING =
   "This is introowner's AI. Ask it anything — it answers in " +
   "introowner's voice, grounded in their real work.";
@@ -61,7 +67,7 @@ test.describe('code intro · greeting + member-count on name picker', () => {
   test('after one named visitor, fresh scan shows "1 already in"',
     async ({ browser }) => {
       await enterAsName(browser, 'Recruiter Alice');
-      // 新 context(无 LS),扫同一张码 → intro 反映 member_count=1。
+      // A fresh context (no LS) scanning the same code → the intro reflects member_count=1.
       const ctx = await browser.newContext();
       const fresh = await ctx.newPage();
       await goto(fresh, `/?code=${CODE}`);
@@ -107,8 +113,9 @@ test.describe('code intro · greeting + member-count on name picker', () => {
   test('invalid code → intro fails, no greeting, picker degrades gracefully',
     async ({ page }) => {
       await goto(page, `/?code=${BAD_CODE}`);
-      // picker 仍渲(absorb 无条件吸码);只是 intro 拉不到 → 无 greeting 行 +
-      // 名额回落,visitor 还能填名字(submit 才会撞 code_invalid)。
+      // The picker still renders (absorb takes the code unconditionally); the intro fetch
+      // just fails → no greeting line + fallback member-count line, and the visitor can
+      // still type a name (submit is where code_invalid actually hits).
       await expect(page.getByTestId('visitor-name-input')).toBeVisible({
         timeout: 5_000,
       });
@@ -123,7 +130,8 @@ async function expectGreetingHidden(page: Page): Promise<void> {
   await expect(page.getByTestId('visitor-name-greeting')).toHaveCount(0);
 }
 
-// enterAsName —— 独立 context 走完整入口拿一个具名 member(让 member_count++)。
+// enterAsName — a separate context goes through the full entry flow to become a named
+// member (bumping member_count).
 async function enterAsName(browser: Browser, name: string): Promise<void> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
@@ -171,6 +179,6 @@ async function seedGreetingCodes(request: APIRequestContext): Promise<void> {
   });
   await createCode(request, csrf, {
     code: OPEN_CODE, label: 'Unlimited seats',
-    assumed_role_id: greeter.id, // max_members 不设 → 无限
+    assumed_role_id: greeter.id, // max_members unset → unlimited
   });
 }

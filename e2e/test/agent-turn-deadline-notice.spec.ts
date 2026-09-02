@@ -1,22 +1,29 @@
-// agent-turn-deadline-notice.spec.ts —— F-A-44。**撞了时间墙、连救场也没来得及**那一格，
-// 产品对访客说什么。
+// agent-turn-deadline-notice.spec.ts — F-A-44. What the product tells the visitor for
+// the case where **the time wall is hit and even the rescue attempt runs out of time**.
 //
-// 真实环境里的样子（prod，真模型）：问一个逼着三层深爬的问题 → 屏幕上跑到
-// `SEARCHED 4 · READ 64` → 六分钟后那一格变成
+// What it looks like in the real environment (prod, real model): ask a question that
+// forces a three-level-deep crawl → the screen runs to `SEARCHED 4 · READ 64` → six
+// minutes later that cell turns into
 //   "The connection dropped before a reply came back. Please try asking again."
-// 连接好好的，撞的是 300 秒的墙；而「再问一次」会撞同一堵墙。日志逐行摆着：
-// `forcing final answer evidence_items:24` → 60 秒后 `force-final generate: context deadline
-// exceeded` → `answer_chars=0 recovered=false`。
+// The connection is fine — what's hit is the 300-second wall — and asking again just
+// hits the same wall. The logs lay it out line by line: `forcing final answer
+// evidence_items:24` → 60 seconds later `force-final generate: context deadline
+// exceeded` → `answer_chars=0 recovered=false`.
 //
-// **为什么要一个自己的台子**：那两个预算是进程级的（300s / 60s），默认套件里没法在一条用例上
-// 调短，所以这条路一直没被驱过。走 `make test-boundary`（AGENT_TURN_TIMEOUT=5 +
-// FORCE_FINAL_TIMEOUT=3）。两个都短才走得到「救场也没救回来」；只短前一个的话，救场会把它
-// 救回来 —— 那是好路径，不是这条用例要的。
+// **Why this needs its own rig**: those two budgets are process-level (300s / 60s) and
+// can't be shortened for a single test case in the default suite, so this path has
+// never been driven. Run it with `make test-boundary` (AGENT_TURN_TIMEOUT=5 +
+// FORCE_FINAL_TIMEOUT=3). Both must be short to reach "the rescue also failed to save
+// it"; shortening only the first lets the rescue succeed — that's the happy path, not
+// what this case is after.
 //
-// 没有那个台子就整组跳过 —— 一条永远红的用例只会教人忽略红色（captcha 那五条的教训）。
+// Without that rig, skip the whole group — a case that is always red only teaches
+// people to ignore red (the lesson from those five captcha cases).
 //
-// RED（修复前）：`handleTerminalError` 在救场返回空串时走 `em.sink.Error(err)`，
-// 于是前端渲通用错误话术，屏幕上出现 "connection dropped"，而 `turn-notice` 不存在。
+// RED (before the fix): `handleTerminalError` took the `em.sink.Error(err)` branch
+// when the rescue attempt returned an empty string, so the frontend rendered the
+// generic error copy, "connection dropped" appeared on screen, and `turn-notice` did
+// not exist.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -36,7 +43,8 @@ const OWNER = {
   fullName: 'Deadline Owner',
 };
 const CODE = 'DEADLINE-01';
-// 比两个预算（5s + 3s）都长 —— 模型这一轮怎么都答不回来，两堵墙都撞上。
+// Longer than both budgets (5s + 3s) — the model can't possibly reply in time this
+// turn, hitting both walls.
 const SLOWER_THAN_BOTH_WALLS_MS = 20_000;
 
 test.describe('F-A-44 · 时间用完那一轮，产品说的是时间，不是「连接断了」', () => {
@@ -49,14 +57,18 @@ test.describe('F-A-44 · 时间用完那一轮，产品说的是时间，不是�
 
   test('撞墙的一轮说自己没时间了，并让访客问得更窄', async ({ page, playwright }) => {
     const req = await playwright.request.newContext();
-    // **先攒到证据，再撞墙** —— prod 上那一次是这个形状（`READ 64`，24 条证据在手），
-    // 而「零工具就撞墙」走的是另一条路（`no_answer`：手里什么都没有）。少了这次工具调用，
-    // 用例驱的就不是它要驱的那一格。
+    // **Accumulate evidence first, then hit the wall** — that's the shape of the real
+    // prod incident (`READ 64`, 24 pieces of evidence in hand), whereas "hit the wall
+    // with zero tools" takes a different path (`no_answer`: nothing in hand at all).
+    // Without this tool call, the test drives a different cell than the one it's
+    // meant to.
     const toolTag = await scriptMockToolCall(req, {
       name: 'corpus_search', args: { query: 'boundary' },
     });
-    // **两份都要慢**：撞墙之后的救场是**另一次**调用，只注册一份的话它会拿到默认回复、
-    // 瞬间成功 —— 那是「边界救回来了」那一格（好路径），不是这条用例要驱的。
+    // **Both registrations must be slow**: the rescue attempt after hitting the wall
+    // is **a separate** call, and registering only one lets it get the default reply
+    // and succeed instantly — that's the "rescue saved it" cell (the happy path), not
+    // what this case is meant to drive.
     const tag = await scriptMockReplyText(
       req, 'never arrives', { delayMs: SLOWER_THAN_BOTH_WALLS_MS });
     const rescueTag = await scriptMockReplyText(
@@ -73,9 +85,9 @@ test.describe('F-A-44 · 时间用完那一轮，产品说的是时间，不是�
     await expect(notice, '说的是时间，而且给的下一步是「问得更窄」')
       .toContainText(/out of time/i);
 
-    // 判负的那一半：那句假话不许再出现。
-    // 先断上面那条提示已经在（否则这条在页面还空着时也算通过，
-    // [[negated-assertion-passes-while-absent]]）。
+    // The failure-detecting half: that false statement must never appear again.
+    // The notice above is asserted present first (otherwise this assertion would also
+    // pass while the page is still blank, [[negated-assertion-passes-while-absent]]).
     await expect(page.locator('body'), '不许再说「连接断了」—— 连接好好的')
       .not.toContainText(/connection dropped/i);
   });

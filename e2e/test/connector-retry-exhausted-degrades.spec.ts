@@ -1,11 +1,11 @@
-// connector-retry-exhausted-degrades.spec.ts —— §五 重试矩阵 · 读类耗尽
+// connector-retry-exhausted-degrades.spec.ts —— §5 retry matrix · read-op exhaustion
 //
 // The retry budget is HARD-CAPPED (D-7: count cap + max backoff interval +
 // total-time deadline ~10s — never unbounded). A PERSISTENT transient failure
 // (every freeBusy attempt errors) must exhaust the budget and then degrade
 // FRIENDLY — it must not retry forever, not 500, not leak a stack.
 //
-// 耗尽→降级: mock GCal fails freeBusy on EVERY attempt; after the bounded
+// Exhausted -> degrade: mock GCal fails freeBusy on EVERY attempt; after the bounded
 // retries the tool returns a friendly degrade (status < 500, human-readable
 // try-again hint, no panic/goroutine/stack/raw provider error).
 //

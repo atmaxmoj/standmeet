@@ -1,11 +1,16 @@
-// dock-buttons.spec.ts —— #109/#110 per-role chat dock 按钮：owner 在 role 上配 ≤2 个
-// { 能力 + 触发词 }，冻进 session，访客 chat 渲染成按钮，点击把触发词当访客消息发出。
+// dock-buttons.spec.ts — #109/#110 per-role chat dock buttons: the owner configures ≤2
+// { capability + trigger phrase } pairs on a role, they get frozen into the session, the
+// visitor's chat renders them as buttons, and clicking one sends the trigger phrase as
+// the visitor's message.
 //
-// 本 spec 覆盖 API/后端层：
-//   A 配置存储 + 校验（≤2 / trigger 非空 / cap 属于 role / cap 有 title）
-//   C freeze（冻进 RoleSnapshot；owner 起 session 后改不影响在跑 session）
-//   D session payload + ACL 过滤（code-deny 的能力按钮不出现；disabled 的仍出现待前端置灰）
-// 访客点击（E）、admin UI（F）、MCP parity（B）各自单独 spec。
+// This spec covers the API/backend layer:
+//   A configuration storage + validation (≤2 / trigger non-empty / cap belongs to the
+//     role / cap has a title)
+//   C freeze (frozen into RoleSnapshot; changing it after the owner starts a session
+//     doesn't affect the session already running)
+//   D session payload + ACL filtering (a code-denied capability's button does not
+//     appear; a disabled one still appears, pending frontend greying-out)
+// Visitor clicks (E), admin UI (F), and MCP parity (B) each get their own separate spec.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -33,8 +38,9 @@ const TRIGGER_SUMMARIZE = 'Summarize our conversation so far';
 const TRIGGER_RETRIEVAL = 'What have we covered?';
 
 let csrf = '';
-// 共享**已登录**的 request context：admin 写（createRole / PUT）要 session cookie，
-// 每个 test 各起新 context 会丢 cookie → 401。整个 file 用同一个 authed context。
+// A shared **logged-in** request context: admin writes (createRole / PUT) need a
+// session cookie, and each test starting its own new context would lose the cookie →
+// 401. The whole file uses the same authed context.
 let request: APIRequestContext;
 
 test.beforeAll(async ({ playwright }) => {
@@ -44,12 +50,16 @@ test.beforeAll(async ({ playwright }) => {
     email: OWNER.email, password: OWNER.password,
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
-  // 先接 mail 连接器，好让 `mail.send` 真的**注册进这台实例**（它 `requires: smtp`，没连就
-  // 整个隐藏）。A5 要分的正是「这个能力不存在」和「存在但这个 role 没有」这两件事：不连的话
-  // 第二种情况会以第一种的理由被拒，红得不知所以然（[[red-in-the-wrong-place]]）。
+  // Connect the mail connector first, so `mail.send` actually **registers on this
+  // instance** (it `requires: smtp`, and stays entirely hidden if unconnected). A5
+  // needs exactly the distinction between "this capability doesn't exist" and "it
+  // exists but this role doesn't have it": without connecting it, the second case gets
+  // rejected for the first case's reason, red for no traceable reason
+  // ([[red-in-the-wrong-place]]).
   //
-  // **必须排在下面那次登录之前**：它自己会登一次，把这个 context 的 CSRF 换掉 —— 反过来写的
-  // 那一版，整份 spec 的写请求全部 403，看起来像 dock 的校验全崩了。
+  // **Must come before the login below**: that login itself logs in again and swaps out
+  // this context's CSRF — done the other way around, every write request in this whole
+  // spec returns 403, looking like the dock's validation is entirely broken.
   await configureMailConnector(request, OWNER.email, OWNER.password);
   const auth = await loginAPI(request, OWNER.email, OWNER.password);
   csrf = auth.csrf;
@@ -57,7 +67,8 @@ test.beforeAll(async ({ playwright }) => {
 
 test.afterAll(async () => { await request.dispose(); });
 
-// postRole —— 直发 POST /roles 拿到裸 response（校验用；createRole fixture 遇非 201 会抛）。
+// postRole — sends POST /roles directly and returns the raw response (for validation
+// tests; the createRole fixture throws on anything other than 201).
 async function postRole(
   request: APIRequestContext, body: Record<string, unknown>,
 ) {
@@ -72,7 +83,8 @@ async function postRole(
   });
 }
 
-// putRoleWithDock —— PUT 一个 role（保留其余字段）只改 dock_buttons，返状态码。C2/D4 复用。
+// putRoleWithDock — PUTs a role (keeping every other field), changing only
+// dock_buttons; returns the status code. Reused by C2/D4.
 async function putRoleWithDock(
   request: APIRequestContext, role: RoleView, dock: DockButtonConfig[],
 ): Promise<number> {
@@ -121,9 +133,11 @@ test.describe('dock buttons · A — config storage + validation', () => {
     expect(res.status(), 'a dock button needs a trigger phrase').toBe(400);
   });
 
-  // A4 的名字说的是「role 没有的能力」，而它发的是 `no-such-capability` —— **根本不存在**的
-  // 那一种。两件事被同一个名字盖住了，于是「存在、但这个 role 拿不到」那一半从没被测过，
-  // 而 F-D-13 就是从那半边过去的。名字改成它实际测的东西，另一半交给 A5。
+  // A4's name says "a capability the role doesn't have", but it actually sends
+  // `no-such-capability` — the case where it **doesn't exist at all**. Two distinct
+  // cases were covered by one name, so the "exists, but this role can't reach it" half
+  // was never tested — and F-D-13 slipped through exactly that half. Renamed to what it
+  // actually tests; the other half is A5's job.
   test('A4 capability that does not exist at all → rejected', async () => {
     const res = await postRole(request, {
       name: 'a4-nonexistent', corpus_uris: [],
@@ -132,11 +146,15 @@ test.describe('dock buttons · A — config storage + validation', () => {
     expect(res.status(), 'cannot dock a capability nobody registered').toBe(400);
   });
 
-  // A5 —— F-D-13。`mail.send` 在这台实例上**是注册了的**（beforeAll 接了 mail 连接器），
-  // 但它 `acl: role_granted`，而这个 role 的 skill 列表是空的 → 这个 role 的会话永远拿不到它。
-  // prod 上正是这样：后台**收下**了这颗按钮、卡片上两颗都在，访客那边只出现一颗，两边都没有
-  // 一句话。绑定时校验读的是 `AgentSkills.VisitorCapabilityIDs()`（全实例注册的），渲染时读的
-  // 是这场会话真正拿到的能力集 —— 两个集合都叫 valid，差集就是这颗按钮。
+  // A5 — F-D-13. `mail.send` **is registered** on this instance (beforeAll connected
+  // the mail connector), but it carries `acl: role_granted`, and this role's skill
+  // list is empty → sessions on this role can never reach it.
+  // This is exactly what happens in prod: the backend **accepts** this button, both
+  // buttons appear on the card, but only one shows up for the visitor, and neither side
+  // says a word about it. Validation at bind time reads
+  // `AgentSkills.VisitorCapabilityIDs()` (registered instance-wide), while rendering
+  // reads the capability set this session actually has — both sets are called valid,
+  // and this button is exactly their difference.
   test('A5 capability registered on the instance but not granted by this role → rejected',
     async () => {
       const res = await postRole(request, {
@@ -217,7 +235,8 @@ test.describe('dock buttons · D — session payload + ACL filtering', () => {
       const btn = sess.dock_buttons?.[0];
       expect(btn?.capability_id).toBe(CAP_SUMMARIZE);
       expect(btn?.trigger).toBe(TRIGGER_SUMMARIZE);
-      // label 透传 MCP title：非空且不是 id 兜底（无 fallback）。
+      // The label passes through the MCP title: non-empty, and not falling back to
+      // the id (no fallback).
       expect(btn?.title, 'title present').toBeTruthy();
       expect(btn?.title).not.toBe(CAP_SUMMARIZE);
     });
@@ -271,8 +290,9 @@ test.describe('dock buttons · D — session payload + ACL filtering', () => {
     });
 });
 
-// d4PublicPublicity —— publicRow role = 公开层（跟 corpus 公开切片一个心智）。配 dock 按钮在
-// publicRow 上 → 无码 publicRow / BYOAI 访客也该拿到。
+// d4PublicPublicity — the publicRow role = the public layer (the same mental model as
+// corpus's public slice). Configuring a dock button on publicRow → sessionless
+// publicRow / BYOAI visitors should also get it.
 async function d4PublicPublicity(request: APIRequestContext): Promise<void> {
   const publicRow = await getRoleByName(request, 'public');
   const status = await putRoleWithDock(request, publicRow,

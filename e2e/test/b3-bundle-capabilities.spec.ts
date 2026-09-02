@@ -1,14 +1,18 @@
-// b3-bundle-capabilities.spec.ts —— Phase B-3 契约：booker / skill-runner /
-// ext-mcp 三个 Capability 出现在 /visitor-capabilities 端点。
+// b3-bundle-capabilities.spec.ts — Phase B-3 contract: the three
+// capabilities booker / skill-runner / ext-mcp appear at the
+// /visitor-capabilities endpoint.
 //
-// 既有 chat-book-* / skills.spec / external-mcp-tools.spec 已经覆盖各 bundle
-// 的实际 chat 行为（regression）；这里只验 B-3 引入的契约：
-//   1. role 含 calendar.book skill + connector connected → calendar.book cap
-//      enabled + quota_remaining 算对
-//   2. role 含 owner skills → skill.runner cap enabled，tool_specs 含通用的
-//      skill_use + skill_run_script（Phase C：替换 eager 每脚本一 tool）
-//   3. role 含 ext MCP server → ext.mcp cap enabled，tool_specs 含
-//      ext_<server>_<tool>；dial/close 计数对齐 (Close hook 真跑)
+// chat-book-* / skills.spec / external-mcp-tools.spec already cover each
+// bundle's actual chat behavior (regression); this file only checks the
+// contract B-3 introduces:
+//   1. role has calendar.book skill + connector connected → calendar.book cap
+//      enabled + quota_remaining computed correctly
+//   2. role has owner skills → skill.runner cap enabled, tool_specs contains
+//      the generic skill_use + skill_run_script (Phase C: replaces the eager
+//      one-tool-per-script scheme)
+//   3. role has an ext MCP server → ext.mcp cap enabled, tool_specs contains
+//      ext_<server>_<tool>; dial/close counts line up (the Close hook
+//      actually runs)
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -79,10 +83,11 @@ test.describe('Phase B-3 bundle capabilities present in visitor-capabilities', (
       expect(skillCap, 'skill.runner must appear').toBeDefined();
       expect(skillCap?.enabled).toBe(true);
       const toolNames = body.tool_specs.map((t) => t.name);
-      // Phase C: tool_specs 暴露的是两个**通用** skill 工具,不再是每脚本一 tool。
+      // Phase C: tool_specs now exposes two **generic** skill tools, no
+      // longer one tool per script.
       expect(toolNames, 'skill_use generic tool').toContain('skill_use');
       expect(toolNames, 'skill_run_script generic tool').toContain('skill_run_script');
-      // eager per-script tool 已删,不该再出现。
+      // The eager per-script tool has been removed and must not reappear.
       expect(toolNames.some((n) => n.startsWith('skill_b3-skill_'))).toBe(false);
       await request.dispose();
     });

@@ -1,11 +1,14 @@
-// admin-system-jobs.spec.ts —— Monitor/observability。SystemSection 的 background-jobs 表接真
-// GET /api/admin/stats/jobs:进程内 job-registry,真 cron(沙箱 workspace sweep #148、resume-draft
-// SweepExpired、corpus index reconcile)上报 last-run/status。绿=列真 job,**删掉**硬编的
-// sitemap/corpus-reindex/daily-backup(它们根本不存在,列它们又是造假)。
+// admin-system-jobs.spec.ts -- Monitor/observability. SystemSection's background-jobs table wires
+// to the real GET /api/admin/stats/jobs: the in-process job-registry, real crons (sandbox
+// workspace sweep #148, resume-draft SweepExpired, corpus index reconcile) report last-run/status.
+// Green = lists real jobs, **removes** the hardcoded sitemap/corpus-reindex/daily-backup (they
+// don't actually exist, listing them would be fabrication).
 //
-// 面板的反面同样重要:一个**在跑却没登记**的 cron 跟"没有这个 cron"在这里长得一模一样。
-// corpus 的 reconcile 循环就是这样活了很久 —— 手写的 ticker 里,Register 那一句是最容易漏的。
-// 现在所有周期任务走同一份调度,登记是调度做的,漏不掉。
+// The panel's flip side matters just as much: a cron that **is running but never registered**
+// looks identical here to "this cron doesn't exist". The corpus reconcile loop lived like that
+// for a long time -- in the hand-written ticker, the Register line was the easiest thing to
+// miss. Now every periodic task goes through the same scheduler, so registration is the
+// scheduler's job and can't be skipped.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';

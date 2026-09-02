@@ -80,8 +80,9 @@ interface EmbedSetup {
   otherEmbed: EmbedWithKey;
 }
 
-// setupEmbeds —— 一次性建两把 embed：主 embed（本 code）+ 另一把（另一个 code，用来签"错密钥"的 token）。
-// 抽出 describe 之外，让 describe 回调保持在行数上限内。
+// setupEmbeds -- creates two embeds up front: the main embed (this code) + another one
+// (a different code, used to sign a "wrong key" token).
+// Pulled out of the describe block to keep the describe callback under the line-count limit.
 async function setupEmbeds(
   playwright: { request: { newContext: () => Promise<APIRequestContext> } },
 ): Promise<EmbedSetup> {

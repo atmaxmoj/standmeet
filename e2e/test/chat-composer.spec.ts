@@ -1,7 +1,7 @@
-// chat-composer.spec.ts —— ChatComposer 状态机: starter chips, pending,
+// chat-composer.spec.ts — ChatComposer state machine: starter chips, pending,
 // exhausted, rapid submit.
 //
-// 用户故事：
+// User story:
 //   1. starter chips render (coded: starters from code)
 //   2. click starter chip → auto-send → chips disappear
 //   3. manual input → ask → turn renders → answer renders
@@ -26,8 +26,10 @@ const OWNER = {
 };
 
 const CODE = 'COMP-001';
-// 第二张码**故意不带**建议问题：TRY 那排 chip 只在没有 ghost 时才出现，
-// 而一张带建议的码首轮就有 ghost —— 用同一张码测两种入口，测到的只会是其中一种。
+// The second code **deliberately carries no** suggested questions: the TRY row of
+// chips only appears when there is no ghost, and a code with suggestions has a ghost
+// from the first turn — testing both entry points on the same code would only ever
+// exercise one of them.
 const PLAIN_CODE = 'COMP-002';
 const STARTERS = ['What do you do?', 'Tell me about your projects'];
 
@@ -36,7 +38,8 @@ test.describe('ChatComposer behavior', () => {
     await initOwner(playwright);
   });
 
-  // 码**没带**建议问题 → 首轮没有 ghost → TRY 那排 chip 就是唯一的入口，点一下直接发。
+  // A code that **carries no** suggested questions → no ghost on the first turn → the
+  // TRY row of chips is the only entry point, and a single click sends immediately.
   test('a code with no suggestions: starter chips → click → auto-send → chips gone',
     async ({ page }) => {
       await enterCodeSession(page, PLAIN_CODE);
@@ -49,9 +52,12 @@ test.describe('ChatComposer behavior', () => {
       await expect(chips).toBeHidden({ timeout: 5_000 });
     });
 
-  // 码**带了**建议问题 → 首轮就有 ghost → 两套建议不同屏（UX-35），chip 收起。
-  // 而欢迎语最后那句必须跟着改口：它原本无条件写着「Starters below」，
-  // 指着一个此刻不存在的地方，真正的建议就躺在输入框里、且没人说它能按 Tab 拿走（UX-34）。
+  // A code that **carries** suggested questions → a ghost exists from the first turn
+  // → the two sets of suggestions never share a screen (UX-35), and the chips are
+  // hidden. The last line of the welcome copy has to change its wording to match: it
+  // used to unconditionally say "Starters below", pointing at a place that no longer
+  // exists here, while the real suggestion is sitting in the input box, with nobody
+  // saying it can be picked up with Tab (UX-34).
   test('a code with suggestions: the ghost replaces the chips, and the copy says so',
     async ({ page }) => {
       await enterCodeSession(page, CODE);
@@ -78,13 +84,17 @@ test.describe('ChatComposer behavior', () => {
         .toBeVisible({ timeout: 15_000 });
     });
 
-  // ⚠️ 这条以前叫 `pending state → input disabled + submit gray`，断言的是**缺陷本身**
-  // （F-A-42）：一轮在飞就把输入框置灰。真环境量下来，那个「一会儿」是 10–26 秒，而框
-  // 长得完全就绪 —— 访客打进去的字一个都不落地。
+  // ⚠️ This case used to be called `pending state → input disabled + submit gray`,
+  // which asserted **the defect itself** (F-A-42): graying out the input box while a
+  // turn is in flight. Measured in the real environment, that "just a moment" is
+  // 10–26 seconds, while the box looks fully ready — every character the visitor types
+  // during that window is simply dropped.
   //
-  // 判据和守卫冲突时，判据赢、守卫跟着改：全局第 10 条写着**接受请求并排队，不要置灰**。
-  // 置灰只留给 `session full`（终局，且 placeholder 会说明），那一支由
-  // `visitor-multi-conversation.spec.ts` 守着。
+  // When the criterion and the guard conflict, the criterion wins and the guard
+  // changes to match: global rule 10 says **accept the request and queue it, don't
+  // grey it out**. Graying out is reserved for `session full` (a terminal state, with
+  // an explanatory placeholder), and that branch is guarded by
+  // `visitor-multi-conversation.spec.ts`.
   test('一轮在飞的时候，输入框照旧收得下访客的字（不置灰）',
     async ({ page }) => {
       await enterCodeSession(page, CODE);
@@ -98,7 +108,8 @@ test.describe('ChatComposer behavior', () => {
     });
 });
 
-// 第二组:textarea / 长粘贴行为(拆出来守 max-lines-per-function)。
+// Second group: textarea / long-paste behavior (split out to satisfy
+// max-lines-per-function).
 test.describe('ChatComposer textarea + paste', () => {
   test.beforeAll(async ({ playwright }) => {
     await initOwner(playwright);

@@ -1,15 +1,19 @@
-// sync-publish-absent-keeps.spec.ts —— vault 没说 publish,不等于 vault 说 false。
+// sync-publish-absent-keeps.spec.ts -- the vault saying nothing about publish is not
+// the same as the vault saying false.
 //
-// 真实环境上撞到的:`/wiki/optimization` 本来是公开页,也是首页唯一那张 pin 卡;一次 authoritative
-// 同步之后变成 not found,首页那一段整块消失。而真 vault 里 `grep -rl '^publish:' wiki` 是
-// **0 / 574** —— 一个 publish 键都没有。
+// Hit in a real environment: `/wiki/optimization` used to be a public page, and the
+// homepage's one and only pin card; after one authoritative sync it became not found,
+// and that whole section of the homepage vanished. And in the real vault,
+// `grep -rl '^publish:' wiki` returns **0 / 574** -- not one note carries a publish key.
 //
-// 也就是说 sync 把「缺键」当成了 `false`,覆盖掉一个只有 StandMeet 才拥有的字段。这是
-// empty-is-not-json-null 的同一个形状:**缺席是一句没说的话,不是一句否定。**发布是 web 上做的
-// 编辑,vault-sync check 8 要求它活过 re-sync。
+// In other words, sync was treating "the key is missing" as `false`, overwriting a
+// field only StandMeet owns. This is the same shape as empty-is-not-json-null:
+// **absence is a sentence never spoken, not a negation.** Publishing is an edit made
+// on the web, and vault-sync check 8 requires it to survive a re-sync.
 //
-// 契约:frontmatter **没有** publish 键 → 保持原状;**显式** `publish: false` → 下架。
-// (export 那侧本来就会把 `publish: %t` 写回去,所以下一次往返就是显式的 —— 缺了就补上。)
+// Contract: frontmatter **without** a publish key -> leave it alone; an **explicit**
+// `publish: false` -> unpublish it. (The export side already writes `publish: %t` back
+// out, so the very next round trip becomes explicit -- whatever's missing gets filled in.)
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -24,12 +28,13 @@ const OWNER = {
   handle: 'pubkeep', fullName: 'Publish Keep Owner',
 };
 
-// TITLE —— sync 的标题取自**文件名**,不是正文的 H1(见 sync-c-title)。
+// TITLE -- sync takes its title from **the filename**, not the body's H1 (see sync-c-title).
 const TITLE = 'keeps-its-publish';
 const REL = `wiki/${TITLE}.md`;
 const BODY = '# Keeps its publish\n\nbody that stays the same across syncs';
 
-// noPublishKey —— 一条**没有** publish 键的笔记,跟真 vault 的 574 条一样。
+// noPublishKey -- a note **without** a publish key, matching all 574 notes in the real
+// vault.
 const noPublishKey = makeVaultMD({ tags: ['audit'] }, BODY);
 
 test.describe('vault-sync · an absent publish key is silence, not a no', () => {
@@ -40,7 +45,8 @@ test.describe('vault-sync · an absent publish key is silence, not a no', () => 
 
   test('a note published on the web survives a sync that never mentions publish',
     async ({ request }) => {
-      // 先带 publish: true 同步一次 —— 相当于 owner 在网页上把它发布了。
+      // Sync once first with publish: true -- equivalent to the owner publishing it on
+      // the web.
       await uploadVault(request, OWNER, [
         { rel: REL, body: makeVaultMD({ publish: true, tags: ['audit'] }, BODY) },
       ], { authoritative: true });
@@ -48,7 +54,8 @@ test.describe('vault-sync · an absent publish key is silence, not a no', () => 
       const before = await fetchPublished(request);
       expect(before, 'precondition: the entry is public').toBe(true);
 
-      // 再同步一次,这一次 frontmatter 里**没有** publish 键(真 vault 就是这样)。
+      // Sync again, this time with **no** publish key in the frontmatter (exactly how
+      // the real vault looks).
       await uploadVault(request, OWNER, [{ rel: REL, body: noPublishKey }], { authoritative: true });
 
       expect(
@@ -69,9 +76,11 @@ test.describe('vault-sync · an absent publish key is silence, not a no', () => 
   });
 });
 
-// fetchPublished —— 这条 wiki 现在是不是 published。断的是**落库的状态**,不是同步回参的计数。
-// 用既有的 adminGenreList(sync-d-publish 也用它),不自己另造一个读法:自造的探针今天已经骗过
-// 我两次,而「找不到行」跟「published:false」在一个 `?? false` 里长得一模一样。
+// fetchPublished -- whether this wiki entry is published right now. Asserts on
+// **the state stored in the DB**, not on the sync response's counters. Reuses the
+// existing adminGenreList (also used by sync-d-publish) rather than rolling a bespoke
+// reader: a homemade probe has already fooled me twice, and "row not found" looks
+// identical to "published:false" once both fall through the same `?? false`.
 async function fetchPublished(request: APIRequestContext): Promise<boolean> {
   const list = await adminGenreList(request, OWNER, 'wiki');
   const row = list.find((n) => n.title === TITLE);

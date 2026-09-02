@@ -1,7 +1,8 @@
-// capability-disable-while-attached.spec.ts —— Phase H / P.6 corner：owner_enabled
-// 门**优先于** role_acl 门。owner 关掉一个**仍挂在 role 上、且依赖已满足**的能力
-// → 访客 session 里照样消失。证明 exposed = ... ∧ owner_enabled ∧ ... 里 enabled
-// 是独立的一道闸，关了就拦，跟 ACL 授不授权无关。
+// capability-disable-while-attached.spec.ts —— Phase H / P.6 corner: the owner_enabled gate
+// **takes priority over** the role_acl gate. When the owner turns off a capability that is
+// **still attached to a role and still has its dependencies satisfied**, it still disappears
+// from the visitor session. This proves that in exposed = ... ∧ owner_enabled ∧ ..., the
+// enabled term is an independent gate — turning it off blocks regardless of whether the ACL grants it.
 
 import { test, expect } from '@/fixtures/test';
 

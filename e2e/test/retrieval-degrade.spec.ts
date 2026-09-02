@@ -1,11 +1,15 @@
-// retrieval-degrade.spec.ts —— D. Meili 挂 → 降级 + admin 健康显示 + 重试自愈(crawl face)。
+// retrieval-degrade.spec.ts — D. Meili goes down → degrades gracefully + admin health shows it +
+// retry self-heals (the crawl face).
 //
-// Postgres 是 source-of-truth,Meili 是可选加速层。挂了必须:
-//   D1 搜索降级(退 PG 全文,不 500)   D2 写照落 DB(promote 不因 index 失败而失败)
-//   D3 admin 面板显示 meili degraded   D4 恢复后重试补索引 → 写在 down 期间的条目变可搜 + admin 回 healthy
+// Postgres is the source of truth; Meili is an optional acceleration layer. When it's down:
+//   D1 search degrades (falls back to PG full-text, no 500)   D2 writes still land in the DB
+//   (promote doesn't fail just because indexing failed)
+//   D3 the admin panel shows meili degraded   D4 after recovery, a retry backfills the index →
+//   entries written during the outage become searchable + admin goes back to healthy
 //
-// 用 make meili-stop / meili-start 真停真起(不 bare docker)。e2e workers:1 串行;
-// afterAll 保证重启 meili,不影响其他 spec。⚠️ 全 RED until 降级/健康/重试实现。
+// Uses make meili-stop / meili-start for a real stop/start (not bare docker). e2e workers:1
+// serial; afterAll guarantees meili gets restarted, so other specs aren't affected.
+// ⚠️ Everything here is RED until degradation/health/retry are implemented.
 
 import { execSync } from 'node:child_process';
 import path from 'node:path';
@@ -24,11 +28,13 @@ function makeTarget(t: string): void {
   execSync(`make ${t}`, { cwd: REPO, stdio: 'ignore' });
 }
 
-// searchHealthy —— 读 admin /system 的 health[] 里检索那条的 ok。
+// searchHealthy — reads the `ok` field of the retrieval entry inside admin /system's health[].
 //
-// **那一项叫 `search`,不叫 `meili`,而且现在永远在表上**(F-S-3)。改名之前它写作 `meili` 并且
-// 「没配就不列」,于是这个函数返回 undefined —— 而 undefined 在这里跟「引擎挂了」是两码事,
-// 却长得差不多。现在缺席本身是缺陷,所以 undefined 不再是合法状态:取不到就该红。
+// **That entry is named `search`, not `meili`, and it must always be present in the table now**
+// (F-S-3). Before the rename it was written as `meili` and got "left out of the list when
+// unconfigured," so this function used to return undefined — and undefined here is a different
+// thing from "the engine is down," even though the two look similar. Now, absence itself is a
+// defect, so undefined is no longer a legitimate state: failing to fetch this row must go red.
 async function searchHealthy(req: APIRequestContext): Promise<boolean> {
   const res = await req.get(`${BACKEND}/api/admin/system`);
   const body = await res.json() as { health?: { name: string; ok: boolean }[] };
@@ -47,7 +53,7 @@ test.describe.serial('D · Meili 降级 / 健康 / 重试', () => {
     });
   });
   test.afterAll(async () => {
-    makeTarget('meili-start'); // 无论如何恢复 meili
+    makeTarget('meili-start'); // restore meili no matter what
     await O.request.dispose();
   });
 
@@ -62,23 +68,24 @@ test.describe.serial('D · Meili 降级 / 健康 / 重试', () => {
   test('D1/D2/D3 Meili 挂:搜索降级不 500、写照落、admin 显示 degraded', async () => {
     makeTarget('meili-stop');
 
-    // D1 搜索降级(退 PG,不 500)—— 之前索引过的词仍搜得到
+    // D1 search degrades (falls back to PG, no 500) — a term indexed before the outage is still
+    // findable
     const s = await sess();
     expect(await searchTitles(O.request, s, 'MIKEKW'), 'PG fallback still finds it').toContain('PreIndexed');
 
-    // D2 写照落 DB —— promote 不因 index 失败而失败
+    // D2 writes still land in the DB — promote doesn't fail just because indexing failed
     const { wikiID } = await seedWiki(O.request, O.apiToken, O.sid, {
       title: 'WroteWhileDown', body: 'NOVEMBERKW written during outage', path: 'wrote-while-down',
     });
     expect(wikiID, 'write committed despite meili down').not.toBe('');
 
-    // D3 admin 显示 degraded
+    // D3 admin shows degraded
     expect(await searchHealthy(O.request), 'meili shown degraded').toBe(false);
   });
 
   test('D4 恢复 → 重试补索引:down 期间写的条目变可搜 + admin 回 healthy', async () => {
     makeTarget('meili-start');
-    // 重试/reconcile 把 down 期间的写补进 index
+    // retry/reconcile backfills writes made during the outage into the index
     const s = await sess();
     await expect(async () => {
       expect(await searchTitles(O.request, s, 'NOVEMBERKW')).toContain('WroteWhileDown');
@@ -91,7 +98,7 @@ test.describe.serial('D · Meili 降级 / 健康 / 重试', () => {
 
   test('D-degrade search 不抛 500(纯健壮性)', async () => {
     const s = await sess();
-    const hits = await search(O.request, s, 'anything'); // 不应抛
+    const hits = await search(O.request, s, 'anything'); // must not throw
     expect(Array.isArray(hits)).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-// api-key-facade.spec.ts —— 【对外】the API-key facade (/api/pub/v1) behavior: a Bearer smk_ key
+// api-key-facade.spec.ts — [external-facing] the API-key facade (/api/pub/v1) behavior: a Bearer smk_ key
 // resolves to a role snapshot and calls capabilities as HTTP endpoints (no LLM, no gas). Proves the
 // two gates on top of role assembly — candidacy (opened) + the non-Agentic whitelist — plus auth,
 // per-key denials, revocation, and QUERY/POST dispatch. Keys are minted via the owner-MCP

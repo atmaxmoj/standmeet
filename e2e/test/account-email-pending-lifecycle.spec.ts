@@ -1,12 +1,15 @@
-// account-email-pending-lifecycle.spec.ts —— 待确认的改邮箱，从生到死的每一格。
+// account-email-pending-lifecycle.spec.ts — the pending email change, every state it can sit in,
+// from birth to death.
 //
-// `account-email-change-needs-confirmation.spec.ts` 只走了那条最顺的路：请求 → 收信 → 点开 → 换掉。
-// 但一个待确认状态**能停在那里很久**，而停着的时候一切照常运转 —— 恢复短语要寄给谁？
-// 又请求了一次怎么办？owner 在面板上看得见它吗？想反悔呢？这些格子里任何一格空着，
-// 那个"不会把自己锁死"的保证就是漏的。
+// `account-email-change-needs-confirmation.spec.ts` only walks the happy path: request → receive
+// mail → click → swap. But a pending state **can sit there for a long time**, and everything keeps
+// running normally while it sits — who does the recovery phrase go to? What if a second request
+// comes in? Can the owner see it in the panel? What about backing out? If any of these squares is
+// empty, the "can't lock yourself out" guarantee has a hole in it.
 //
-// 判据总纲：**pending 期间，身份和救命通道都必须还在旧地址上。** 新地址还没被证明，
-// 提前把任何一样交给它，只是把洞挪了个位置。
+// Overall criterion: **while pending, identity and the recovery channel must both still point at
+// the old address.** The new address hasn't been proven yet — handing either one to it early just
+// moves the hole, not closes it.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, PlaywrightWorkerArgs } from '@playwright/test';
@@ -19,8 +22,8 @@ import {
 } from '@/fixtures/mail';
 import { goto, gotoAdminSection } from '@/fixtures/navigate';
 
-// PW —— worker fixture 里那个 `playwright`。用例正文抽成模块级函数（max-lines-per-function），
-// 于是得把它的类型写出来。
+// PW — the `playwright` from the worker fixture. Test bodies are extracted into module-level
+// functions (max-lines-per-function), so its type has to be spelled out.
 type PW = PlaywrightWorkerArgs['playwright'];
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -99,9 +102,9 @@ test.describe('account · the pending email change, every state it can sit in', 
     ({ playwright }) => passwordChangeLeavesPendingAlone(playwright));
 });
 
-// ── 正文 ────────────────────────────────────────────────────────────
+// ── body ────────────────────────────────────────────────────────────
 
-// 停在 pending 的时候，救命通道必须还在旧地址。
+// While sitting in pending, the recovery channel must still be the old address.
 async function recoveryStaysOnTheOldAddress(playwright: PW): Promise<void> {
   const request = await playwright.request.newContext();
   const { csrf } = await login(request, OWNER.email, OWNER.password);
@@ -113,15 +116,16 @@ async function recoveryStaysOnTheOldAddress(playwright: PW): Promise<void> {
   });
   expect(res.status()).toBe(200);
 
-  // 寄到了旧地址。
+  // It went to the old address.
   expect((await waitForMailTo(request, OWNER.email)).length).toBeGreaterThan(0);
-  // 而且**没有**同时寄给那个还没被证明的新地址。
+  // And it was **not** also sent to the new, not-yet-proven address.
   expect(await mailpitHasNothingTo(request, FIRST),
     '恢复短语寄给了还没被证明的新地址 —— 洞只是换了个位置').toBe(true);
   await request.dispose();
 }
 
-// owner 看得见它，也退得出来。看不见的待确认状态 = 不知道自己按的那一下有没有生效。
+// The owner can see it, and can back out of it. An invisible pending state means not knowing
+// whether the click they made actually took effect.
 async function panelShowsAndCancels(page: Page): Promise<void> {
   await openAccount(page);
   await page.getByTestId('account-email-current-password').fill(OWNER.password);
@@ -135,7 +139,8 @@ async function panelShowsAndCancels(page: Page): Promise<void> {
   expect(pendingColumn(), '取消只把它从屏幕上藏起来，库里还留着').toBe('');
 }
 
-// 两封信的链接都能用的话，owner 以为改成了 SECOND，而某个旧标签页一点就送去了 FIRST。
+// If both mail links stayed usable, the owner would believe the change went to SECOND while some
+// stale tab, one click, would send it to FIRST instead.
 async function secondRequestKillsTheFirst(
   page: Page, playwright: PW,
 ): Promise<void> {
@@ -156,7 +161,8 @@ async function secondRequestKillsTheFirst(
   await request.dispose();
 }
 
-// 说清楚是**过期**，不是"链接无效" —— owner 下一步该做什么，取决于这两个词的区别。
+// It must say **expired**, not "invalid link" — what the owner should do next depends on the
+// difference between those two words.
 async function expiredLinkIsRefused(
   page: Page, playwright: PW,
 ): Promise<void> {
@@ -165,7 +171,7 @@ async function expiredLinkIsRefused(
   expect(await requestChange(request, csrf, FIRST)).toBe(200);
   const link = confirmLinkIn(await waitForMailTo(request, FIRST), 'confirm-email');
 
-  // 没有 API 造得出"已过期"这个状态，也不该有。
+  // There's no API that can produce the "already expired" state, nor should there be one.
   execSQL(
     `UPDATE owners SET pending_email_expires_at = now() - interval '1 hour' ` +
     `WHERE handle = '${OWNER.handle}'`,
@@ -179,16 +185,18 @@ async function expiredLinkIsRefused(
 }
 
 async function garbageTokenIsReadable(page: Page): Promise<void> {
-  // 走 goto fixture，不自己拼 host —— 上一版写死了 :3000（容器内的端口），
-  // 而 app 对外是 :38127，于是失败原因是连接被拒，跟"页面说没说人话"毫无关系。
+  // Use the goto fixture instead of hand-building the host — an earlier version hardcoded :3000
+  // (the in-container port), while the app is exposed at :38127, so the failure was a connection
+  // refused, unrelated to whether the page's copy is human-readable.
   await goto(page, '/confirm-email?token=nope');
   await expect(page.getByTestId('email-confirm-invalid')).toBeVisible({ timeout: 10_000 });
-  // 界面上不许出现原始报错 —— CLAUDE.md 那条"错误必须是人话"。
+  // No raw error may appear in the UI — the CLAUDE.md rule "errors must be human readable".
   const text = await page.locator('body').innerText();
   expect(text).not.toMatch(/panic|goroutine|sql:|pgx|500 Internal/i);
 }
 
-// 改密码和改邮箱是两件事，一件不该吃掉另一件。
+// Changing the password and changing the email are two separate things; neither should swallow
+// the other.
 async function passwordChangeLeavesPendingAlone(
   playwright: PW,
 ): Promise<void> {
@@ -201,13 +209,13 @@ async function passwordChangeLeavesPendingAlone(
     headers: { 'X-Csrftoken': csrf },
     data: { current_password: OWNER.password, new_password: newPassword },
   });
-  // 改密码那条路由用的是 noContent —— 成功是 204，不是 200。
+  // The password-change route uses noContent — success is 204, not 200.
   expect(res.status()).toBe(204);
 
   expect(pendingColumn()).toBe(FIRST);
   expect(await loginStatus(request, OWNER.email, newPassword)).toBe(200);
 
-  // 复位，别影响同文件后面的用例。
+  // Reset it, so later tests in this file aren't affected.
   const fresh = await login(request, OWNER.email, newPassword);
   await request.patch(`${BACKEND}/api/admin/account/password`, {
     headers: { 'X-Csrftoken': fresh.csrf },

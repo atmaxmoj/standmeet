@@ -1,18 +1,26 @@
-// transcript-grounding-visible.spec.ts —— F-A-27:owner 得看得见自己的 standpoint 笔记在起作用。
+// transcript-grounding-visible.spec.ts -- F-A-27: the owner must be able to see their
+// own standpoint notes actually working.
 //
-// subjectivity 笔记的设计就是**塑造声音但不进访客 footer**(chat-subjectivity check 3),那是故意的。
-// 可另一头 tool-call-shape.ts:19 又假设「读了哪些」由 citations footer 承载 —— 两个各自都成立的
-// 决定合起来,让那一整个 genre 的读取记录**不存在于任何地方**:访客条只有次数没有 genre,owner
-// 的记录只列引用,而私有的那些在写库前就被 show_as_source 闸丢掉了。
+// subjectivity notes are designed to **shape the voice without entering the visitor
+// footer** (chat-subjectivity check 3) -- that part is deliberate. But elsewhere,
+// tool-call-shape.ts:19 assumes "what got read" is carried by the citations footer --
+// two decisions that each hold up on their own combine to make read-events for that
+// entire genre **exist nowhere at all**: the visitor's log has a count but no genre,
+// the owner's record only lists citations, and private notes get dropped by the
+// show_as_source gate before they ever reach the DB.
 //
-// 于是 owner 写了一堆 standpoint 笔记来塑造语气,却无从知道它们有没有起过作用 —— 而这一条也正是
-// chat-subjectivity check 1 缺的那个观察点。
+// So the owner writes a whole set of standpoint notes to shape the voice, with no way
+// to tell whether any of them ever did anything -- and this is exactly the observation
+// point chat-subjectivity check 1 was missing.
 //
-// 这条守两件事,且必须**同时**成立,否则修复要么没效果要么泄露:
-//   1. 没 opt-in 的 subjectivity 出现在 owner 记录的 grounding 那一块(标题看得见);
-//   2. 它**不**出现在访客侧 —— 访客的引用脚注一个字都不该变。
+// This guards two things, and both must hold **at the same time**, or the fix either
+// does nothing or leaks:
+//   1. a non-opt-in subjectivity note shows up in the grounding section of the owner's
+//      record (its title is visible);
+//   2. it **never** shows up on the visitor side -- the visitor's citation footnotes
+//      must not change by even one character.
 //
-// RED(实现前):grounding 那一块不存在 → 第一条红。
+// RED (before the fix): the grounding section doesn't exist -> the first case goes red.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -35,14 +43,16 @@ const OWNER = {
 const CODE = 'GROUND-001';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// 私有 standpoint 笔记:默认 show_as_source=false —— 塑造语气,不进访客 footer。
-// path 由 subjectivity_write 回参给出(树派生),不自己拼。
+// A private standpoint note: show_as_source=false by default -- shapes the voice, does
+// not enter the visitor footer. Its path comes from subjectivity_write's response
+// (tree-derived), never hand-assembled.
 const STANCE_TITLE = 'verify-stance';
 let stancePath = '';
 
-// 另一条 standpoint 笔记,**opt-in 的**(show_as_source=true):它会真的进引用列表,
-// 也就是 `messages.cited_subjectivity_ids`。F-A-39 守的就是这一条 —— prod 上一轮
-// 引用了 6 条 subjectivity,而 owner 的逐字稿一行引用都没显示。
+// A second standpoint note, this one **opt-in** (show_as_source=true): it really does
+// enter the citation list, i.e. `messages.cited_subjectivity_ids`. This is exactly what
+// F-A-39 guards -- one turn in prod cited 6 subjectivity notes, and the owner's
+// transcript showed not a single citation line for any of them.
 const CITABLE_TITLE = 'verify-stance-public';
 let citablePath = '';
 
@@ -65,7 +75,7 @@ test.describe.serial('transcript · the owner can see which standpoint notes gro
       const session = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'Grounded',
       });
-      // 脚本化:这一轮 assistant 去读那条私有 standpoint 笔记。
+      // Scripted: this turn's assistant goes and reads that private standpoint note.
       const tag = await scriptMockToolCall(request, {
         name: 'corpus_read', args: { path: stancePath },
       });
@@ -76,7 +86,8 @@ test.describe.serial('transcript · the owner can see which standpoint notes gro
       const modal = adminPage.getByTestId('transcript-body');
       await expect(modal).toBeVisible({ timeout: 10_000 });
 
-      // 断标题看得见 —— 「有没有起作用」正是 owner 要判的那件事,一个计数答不了。
+      // Asserting the title is visible -- "did it actually do anything" is exactly
+      // what the owner needs to judge, and a bare count can't answer that.
       await expect(
         modal.getByTestId('transcript-grounding'),
         'the transcript must name the standpoint notes that shaped the turn',
@@ -85,25 +96,33 @@ test.describe.serial('transcript · the owner can see which standpoint notes gro
       await request.dispose();
     });
 
-  // F-A-39:**被引用的** subjectivity 也得在 owner 的逐字稿上看得见。
+  // F-A-39: a subjectivity note that gets **cited** must also be visible on the
+  // owner's transcript.
   //
-  // 这跟上面那条是同一个 item 的两件事:上面守的是「grounded 但没被引用」的那一类(私有笔记,
-  // 塑造语气),这条守的是「已经进了引用列表」的那一类 —— prod 上真跑出来的那一轮
-  // `cited_subjectivity_ids` 有 6 条,而逐字稿底下**一行引用都没有**;同一页上只有 wiki 的
-  // 那些轮次照常列五行。数据在库里,面把它扔了(`ConvTranscriptModal` 只把 wikiIds/outputIds
-  // 交给 CitedTail)。
+  // This is the other half of the same item as the test above: that one guards "was
+  // grounded but never cited" (a private note, shaping voice), this one guards "already
+  // made it into the citation list" -- one turn actually captured in prod had 6 entries
+  // in `cited_subjectivity_ids`, while its transcript showed **not a single citation
+  // line**; other turns on the same page that only cited wiki listed all five lines as
+  // normal. The data was in the DB; the UI was throwing it away
+  // (`ConvTranscriptModal` only hands wikiIds/outputIds to CitedTail).
   //
-  // 断的是**标题**而不是「有几行」:owner 要认的是「哪几条笔记」,数字答不了那个问题。
+  // Asserts on **the title**, not "how many lines": what the owner needs to recognize
+  // is "which notes exactly", and a number can't answer that.
   test('a cited subjectivity note is named in the owner transcript', citedStanceIsNamed);
 
-  // F-A-28:访客那一侧必须一个字都拿不到。
+  // F-A-28: the visitor side must get not one character of it.
   //
-  // 这条一开始是红的,红的原因跟 F-A-27 无关 —— 访客自己的 GET /api/v1/conversations/{id} 把落库的
-  // tool_calls 原样吐回去,里面是 corpus_read 的完整结果,含这条私有 standpoint 笔记的**正文**和它
-  // 自己的 `"show_as_source":false`。同一份回参里 citations 是空的:引用那道闸做对了,tool_calls
-  // 这条道绕开了它。直播那一轮同理(sseSink.ToolCompleted 实时推完整结果)。
+  // This one started red for a reason unrelated to F-A-27 -- the visitor's own
+  // GET /api/v1/conversations/{id} echoes the stored tool_calls back verbatim, and
+  // inside them is corpus_read's full result, including this private standpoint note's
+  // **body**, along with its own `"show_as_source":false`. The same response's citations
+  // field is empty: the citation gate was implemented correctly, and tool_calls simply
+  // routed around it. The same holds during live streaming (sseSink.ToolCompleted pushes
+  // the full result in real time).
   //
-  // 断整份 payload 而不是断 citations 数组:后者只覆盖一条通道,而这条缺陷的本质就是「另一条通道」。
+  // Asserts on the whole payload, not on the citations array: the array only covers one
+  // channel, and the essence of this defect is exactly "the other channel".
   test('the visitor still never sees it', async ({ playwright }) => {
     const request = await playwright.request.newContext();
     const session = await issueSession(request, {
@@ -114,8 +133,11 @@ test.describe.serial('transcript · the owner can see which standpoint notes gro
     });
     await sendAndDrain(request, session, `same question${tag}`);
 
-    // 访客重载时自己拿的那一份 —— 不是我手里的某个返回值。sendAndDrain 返 void,拿它去
-    // JSON.stringify 得到的是 undefined,那种断言过不了也不会真的过,只是看起来在守东西。
+    // Fetches the exact response the visitor gets on reload -- not some return value
+    // already sitting in a local variable. sendAndDrain returns void; running that
+    // through JSON.stringify yields undefined, and an assertion against that would
+    // neither pass nor meaningfully fail -- it would just look like it was guarding
+    // something.
     const res = await request.get(
       `${BACKEND}/api/v1/conversations/${session.conversation_id}`,
       { headers: { 'X-Session-Token': session.session_token } },
@@ -123,10 +145,12 @@ test.describe.serial('transcript · the owner can see which standpoint notes gro
     expect(res.status(), 'the visitor can load their own conversation').toBe(200);
     const body = await res.text();
 
-    // 先证这份东西**不是空的**,否则「标题不在里面」只是空集的假绿。
+    // Prove this response **isn't empty** first, or "the title isn't in it" would just
+    // be a false green from an empty set.
     expect(body, 'guard: the turn really is in the visitor view').toContain('same question');
-    // 私有 standpoint 笔记一个字段都不许带出来 —— 断「不在 citations 数组里」会漏掉它从
-    // 别处渗出去的情况,所以整份 payload 一起看。
+    // No field is allowed to carry the private standpoint note out -- asserting only
+    // "not in the citations array" would miss it leaking through anywhere else, so the
+    // whole payload is checked as one.
     expect(
       body.toLowerCase(),
       'a private standpoint note must not reach the visitor by any field',
@@ -135,7 +159,7 @@ test.describe.serial('transcript · the owner can see which standpoint notes gro
   });
 });
 
-// citedStanceIsNamed —— 见上面那段说明（F-A-39）。
+// citedStanceIsNamed -- see the explanation above (F-A-39).
 async function citedStanceIsNamed(
   { adminPage, playwright }: { adminPage: Page; playwright: Playwright },
 ): Promise<void> {
@@ -152,7 +176,8 @@ async function citedStanceIsNamed(
   await adminPage.getByText('Cites Stance', { exact: true }).click();
   const modal = adminPage.getByTestId('transcript-body');
   await expect(modal).toBeVisible({ timeout: 10_000 });
-  // 先证这一轮真的落进了逐字稿,否则下面那条断言是在一张空模态上找不到东西。
+  // Prove this turn actually landed in the transcript first, or the assertion below
+  // is just looking for something inside an empty modal.
   await expect(modal, 'the turn is in the transcript').toContainText('where does taste come in');
 
   await expect(
@@ -176,7 +201,8 @@ async function setup(
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const apiToken = await createAPIToken(request, csrf, 'grounding-seed');
   const sid = await initMCP(request, apiToken);
-  // subjectivity_write 落一条私有 standpoint 笔记(默认不 opt-in)。path 用它回参给的树派生值。
+  // subjectivity_write writes one private standpoint note (not opt-in by default).
+  // Its path uses the tree-derived value from the tool's own response.
   const wrote = await callTool<{ subjectivity_id: string; path: string }>(
     request, apiToken, sid, 'subjectivity_write',
     {

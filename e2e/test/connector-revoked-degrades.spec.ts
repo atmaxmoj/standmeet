@@ -1,10 +1,12 @@
-// connector-revoked-degrades.spec.ts —— Phase B：连接器被撤销（owner 在 Google
-// 端撤了授权）→ 下一次刷新拿到 invalid_grant → 后端识别为「连接器已失效」并
-// **友好降级**，不崩、不露 stack trace。chat-book-token-refresh 覆盖「过期→刷新
-// 成功」这半；这条补「刷新失败（revoked）→ 降级」那半。
+// connector-revoked-degrades.spec.ts — Phase B: a connector is revoked (the owner
+// revoked authorization on the Google side) → the next refresh gets invalid_grant →
+// the backend recognizes "the connector is dead" and **degrades gracefully**, no
+// crash, no leaked stack trace. chat-book-token-refresh covers the "expired → refresh
+// succeeds" half; this covers the "refresh fails (revoked) → degrades" half.
 //
-// 触发：revoke mock token 端点 + 把 access_token 标记过期（强制走刷新路径）→
-// 刷新被拒 → 访客约会拿到友好错误（提示重新连接日历），HTTP 不是 500。
+// Trigger: revoke the mock token endpoint + mark access_token as expired (forcing the
+// refresh path) → the refresh is rejected → the visitor's booking attempt gets a
+// friendly error (suggesting reconnecting the calendar), not an HTTP 500.
 
 import { execSync } from 'node:child_process';
 import { test, expect } from '@/fixtures/test';
@@ -32,8 +34,9 @@ function future(days: number, hour: number): string {
   return d.toISOString();
 }
 
-// expireAccessToken —— 标记 owner 的 GCal access_token 过期，逼下一次 book 走
-// 刷新路径（刷新会撞上已 revoke 的 token 端点）。
+// expireAccessToken — marks the owner's GCal access_token as expired, forcing the
+// next book onto the refresh path (the refresh will hit the already-revoked token
+// endpoint).
 function expireAccessToken(): void {
   // The connector refactor generalised the per-category tables into one `owner_connectors`
   // (connector_id / category / token_expires_at); `owner_calendar_connectors.provider` is gone.

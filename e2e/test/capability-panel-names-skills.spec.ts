@@ -1,12 +1,16 @@
-// capability-panel-names-skills.spec.ts —— 能力面板上每一行都得说出它是**什么**。
+// capability-panel-names-skills.spec.ts —— every row in the capabilities panel must state
+// **what it is**.
 //
-// owner 写的 skill,它的 capability id 是一个 UUID。面板渲的是 `row.id`,所以内建能力看着
-// 没问题(它们的 id 本身就是 `mail.send` 这种人话),owner 的 skill 却渲成
-// `8e8a1beb-6fab-4662-8674-bbae555d85cd`。旁边就是开关和一个 ✕ —— owner 要在一个认不出来的
-// 名字上决定关掉它还是删掉它。同一个 skill 在 /admin/skills 上是有名字的,两个面对不上。
+// For an owner-authored skill, the capability id is a UUID. The panel renders `row.id`, so
+// built-in capabilities look fine (their id is already human words like `mail.send`), but an
+// owner's skill renders as `8e8a1beb-6fab-4662-8674-bbae555d85cd`. Right next to it sit a
+// toggle and an ✕ — the owner has to decide whether to disable or delete it based on a name
+// they can't recognize. The same skill has a name on /admin/skills; the two views don't line
+// up.
 //
-// 既有的 capability-panel-lists-all 走的是 HTTP(listCapabilities),**没开过浏览器**,所以
-// 它对"这一行长什么样"一无所知 —— 同一个模式在 F-C-12 里已经出现过一次。这条只从 GUI 看。
+// The existing capability-panel-lists-all test goes through HTTP (listCapabilities) and
+// **never opens a browser**, so it knows nothing about "what this row actually looks like" —
+// the same pattern already showed up once in F-C-12. This test only looks at the GUI.
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -21,7 +25,7 @@ const OWNER = {
 
 const SKILL = 'audit-namer';
 
-// UUID_LABEL —— 一行的可见文字里出现一个裸 UUID = 这一行没有名字。
+// UUID_LABEL — a bare UUID appearing in a row's visible text means this row has no name.
 const UUID_LABEL = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -50,7 +54,8 @@ test.describe('capabilities · every row says what it is', () => {
       'the owner skill must be identifiable by name — its toggle and its ✕ act on it',
     ).toContainText(SKILL);
 
-    // 全类断言:任何一行都不许只剩一个 id。少了这一条,下一个没名字的 kind 会照样溜过去。
+    // Whole-class assertion: no row may be left with only an id. Without this, the next
+    // nameless kind would slip through the same way.
     const labels = await panel.locator('[data-testid^="capability-row-"]').allInnerTexts();
     expect(labels.length, 'the panel actually rendered rows').toBeGreaterThan(0);
     expect(

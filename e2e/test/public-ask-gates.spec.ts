@@ -1,9 +1,12 @@
-// public-ask-gates.spec.ts —— 无码、无 BYOAI 的纯公开访客**不能直接 chat**。产品
-// 模型只有三档:有码 / BYOAI(自带 key) / gate(拦死)。公开访客在首页 Ask 框提问应该
-// **跳到 /gate**(填 code 或 BYOAI),而不是用 owner 的 key 直接开聊。
+// public-ask-gates.spec.ts — a purely public visitor with no code and no BYOAI
+// **cannot chat directly**. The product model has only three tiers: has a code /
+// BYOAI (brings their own key) / gate (blocked outright). A public visitor asking in
+// the homepage Ask box should **route to /gate** (fill in a code or BYOAI), not open
+// a chat directly using the owner's key.
 //
-// 现在(bug):首页 public mode → issuePublicSession() 直接发 session 开聊 → **红**。
-// 修好后:public mode 的 ask 跳 /gate → 绿。
+// Currently (the bug): homepage public mode → issuePublicSession() sends a session
+// and opens chat directly → **RED**.
+// After the fix: an ask in public mode routes to /gate → GREEN.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -30,15 +33,16 @@ test.describe('no-code/no-BYOAI visitor cannot chat ungated', () => {
   test('asking on the public index routes to /gate, no chat happens',
     async ({ page }) => {
       await goto(page, '/');
-      // 首页的问答框是 `home-ask-field`（5e439b51 把它跟 ChatRoom 的输入框分了名）。
+      // The homepage's ask box is `home-ask-field` (5e439b51 gave it a separate name
+      // from ChatRoom's input field).
       const input = page.locator('[data-testid="home-ask-field"]');
       await expect(input).toBeVisible({ timeout: 5_000 });
       await input.fill('What are you working on?');
       await input.press('Enter');
-      // 跳到 gate(code/BYOAI 入口),不是开聊。
+      // Routes to gate (the code/BYOAI entry point), not into a chat.
       await expect(page).toHaveURL(/\/gate/, { timeout: 5_000 });
       await expect(page.getByTestId('code-panel')).toBeVisible();
-      // 没有产生回答(没绕过 gate 聊起来)。
+      // No answer was produced (no chat happened by bypassing the gate).
       await expect(page.locator('[data-testid="answer-body"]')).toHaveCount(0);
     });
 });

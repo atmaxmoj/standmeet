@@ -1,39 +1,59 @@
-// corpus-search-cjk-not-silent.spec.ts —— F-S-2：中文查询在装着中文的语料上返回空手，而且
-// 那个空手不说明任何事情。
+// corpus-search-cjk-not-silent.spec.ts —— F-S-2: a Chinese query against a
+// corpus that contains Chinese comes back empty-handed, and that emptiness
+// says nothing about why.
 //
-// 怎么撞上的：prod 上问「语料里关于「递归收敛」是怎么说的？」，agent 一轮里并行发了
-// `递归收敛` 和 `recursive convergence`。补上 call_id 之后（F-S-1）日志把它们分开了：
+// How this was found: on prod, someone asked "what does the corpus say about
+// 'recursive convergence'?" and the agent fired two parallel queries in one
+// turn: `递归收敛` (Chinese) and `recursive convergence`. Once call_id was
+// added (F-S-1), the logs separated them:
 //   call_00… query="递归收敛"              result_bytes:2      ← []
 //   call_01… query="recursive convergence" result_bytes:7883
-// 语料里**有**中文（vault 的 `> [!i18n]` 双语契约让笔记正文带整段中文面），所以这不是
-// 「没有素材」。直接原因在 `corpus_notes.sql.go:1244-1250`：`to_tsvector('english', …)` 写死，
-// 而英文分词器按空白切词，中文不写空白 → 整段中文塌成**一个**词元。数据库自己的输出：
+// The corpus **does** contain Chinese (the vault's `> [!i18n]` bilingual
+// contract puts a full Chinese paragraph in note bodies), so this isn't "no
+// material". The direct cause is in `corpus_notes.sql.go:1244-1250`:
+// `to_tsvector('english', …)` is hardcoded, and the English tokenizer splits
+// on whitespace — Chinese has none, so the whole span collapses into **one**
+// token. The database's own output confirms it:
 //   to_tsvector('english','递归会收敛因为压缩映射') → '递归会收敛因为压缩映射':1
 //
-// **断言的是"不许沉默"，不是"必须命中"。** 仓库里第二条检索路（`corpus_grep`，字面/正则、
-// never-miss）开头就写着它覆盖「跨过分词边界的中文双字」—— 能力早就在。而同一文件第 12 行写着
-// 设计意图：两条路要**保持不同**，靠拢了 agent 就只能瞎选。所以修法不是让 corpus_search 偷做
-// grep 的活，而是它在自己的分词器表示不了这个查询时**不许返回裸的 `[]`** —— 要说清「这条路匹配
-// 不了你的查询」。选择权仍在 agent，但它第一次拿到了做选择所需的信息。
+// **What this asserts is "must not stay silent", not "must hit."** The
+// repo's second retrieval path (`corpus_grep`, literal/regex, never-miss)
+// already states up front that it covers "Chinese bigrams that cross
+// tokenizer boundaries" — the capability already exists. The same file's
+// line 12 states the design intent: the two paths must **stay distinct**;
+// merging them just leaves the agent guessing blind. So the fix isn't having
+// corpus_search secretly do grep's job — it's that when its own tokenizer
+// can't represent the query, it **must not return a bare `[]`** — it has to
+// say "this path doesn't match your query." The choice still belongs to the
+// agent, but now it has the information it needs to choose.
 //
-// 为什么这条断言读日志而不读产品的面：访客看到的答案是**对的** —— 英文那条查询捞回了内容，
-// 答案照常生成，中文那条空手而归不留任何痕迹。这个缺陷在界面上结构性不可见。
+// Why this assertion reads the logs instead of the product surface: the
+// answer the visitor sees is **correct** — the English query pulled back
+// content and the answer generates normally, while the Chinese query comes
+// back empty and leaves no trace. The defect is structurally invisible at
+// the UI.
 //
 // ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-// │ ⚠️ 这条用例**今天保护不了那个缺陷**，先别把它的绿当数。                                   │
+// │ ⚠️ This case does NOT protect against that defect today — don't count its green yet.      │
 // │                                                                                          │
-// │ 它第一次跑就绿了 —— 而它本该红。原因不是缺陷不存在，是**它跑在另一条检索路上**：          │
-// │ `docker-compose.dev.yml:56-57` 给 dev 栈挂了 `MEILI_URL`，**prod 里一个 meilisearch      │
-// │ 都没有**（prod compose 里搜不到这个词）。Meili 会切 CJK，所以 e2e 里中文查得到；prod 走   │
-// │ PG 的 `to_tsvector('english', …)`，中文整段塌成一个词元，查不到。                        │
+// │ It went green the first time it ran — and it should have been red. Not because the       │
+// │ defect doesn't exist, but because **it ran on a different retrieval path**:               │
+// │ `docker-compose.dev.yml:56-57` wires `MEILI_URL` into the dev stack, and **prod has no    │
+// │ meilisearch at all** (the term doesn't appear in the prod compose file). Meili segments   │
+// │ CJK, so Chinese queries succeed in e2e; prod goes through PG's                            │
+// │ `to_tsvector('english', …)`, where the Chinese span collapses into one token and misses.  │
 // │                                                                                          │
-// │ 于是这条断言测的是**能工作的那条路**，绿了也说明不了 prod。这正是                        │
-// │ [[verifier-can-lie-about-its-own-coverage]]：先看守卫**扫的是什么**，别只看它绿不绿。     │
+// │ So this assertion is testing **the path that happens to work**; its green says nothing    │
+// │ about prod. This is exactly                                                               │
+// │ [[verifier-can-lie-about-its-own-coverage]]: check what the guard **actually scans**       │
+// │ first, don't just check that it's green.                                                  │
 // │                                                                                          │
-// │ 而这件事比 F-S-2 本身更大：corpus-search 那个 item 的 check 4 自己写着「prod 的默认就是   │
-// │ 回退路径，要把它当**主路**验，不是当应急」——**所有搜索相关的 e2e 都在测 Meili**。         │
-// │ 让这条用例真正成为守卫，前提是先有办法让 e2e 跑在 PG 那条路上（关掉 Meili 或加一个        │
-// │ 强制回退的开关）。那个装置不存在，所以这里先把话说明白，而不是留一个会骗人的绿。          │
+// │ And this matters beyond F-S-2 itself: corpus-search's own item, check 4, states that      │
+// │ "prod's default IS the fallback path — verify it as the **main** path, not as an          │
+// │ emergency" — **every search-related e2e is testing Meili**. For this case to become a     │
+// │ real guard, there first needs to be a way to run e2e on the PG path (turn Meili off, or   │
+// │ add a forced-fallback switch). That mechanism doesn't exist yet, so this comment states    │
+// │ the situation plainly rather than leaving a green that lies.                              │
 // └─────────────────────────────────────────────────────────────────────────────────────────┘
 
 import { test, expect } from '@/fixtures/test';
@@ -58,7 +78,8 @@ const OWNER = {
   handle: 'cjksearch', fullName: 'CJK Search Owner',
 };
 const CODE = 'CJKQ-01';
-// 笔记正文照真 vault 的双语形状：中英同在一条里。查得到英文、查不到中文,差别才只剩查询语言。
+// The note body follows the real vault's bilingual shape: Chinese and English in the same
+// paragraph. English is found, Chinese is not — the only remaining variable is query language.
 const NOTE_BODY = [
   'Recursion compounds value only if it converges — a contracting reassembly bounds the error.',
   '',
@@ -68,9 +89,10 @@ const NOTE_BODY = [
 test.describe('F-S-2 · a CJK query must not come back empty-handed and silent', () => {
   test.beforeAll(async ({ playwright }) => {
     await seedOwner(playwright);
-    // **跑在降级路径上,这是这条用例成立的前提。** 头上那个方框记的就是它第一次跑绿的原因:
-    // dev 挂着 Meili,而 Meili 会切 CJK,于是它测的是能工作的那条路。装置建好之后
-    // (`make dev-pgsearch-on`),它才第一次面对真正出缺陷的那条路。
+    // **Running on the degraded path is what this case's validity depends on.** The box at
+    // the top records why it went green the first time: dev has Meili wired up, and Meili
+    // segments CJK, so it was testing the path that works. Only once the mechanism exists
+    // (`make dev-pgsearch-on`) does it face the path where the defect actually is.
     setSearchDegraded(true);
   });
 
@@ -79,7 +101,8 @@ test.describe('F-S-2 · a CJK query must not come back empty-handed and silent',
   test('CJK and English search the same bilingual note; the CJK one must say something',
     async ({ page, playwright }) => {
       const request = await playwright.request.newContext();
-      // 同一轮并行发两条 —— 这样两次搜索面对的是同一份语料、同一个时刻,唯一的变量是查询语言。
+      // Fire both in the same turn, in parallel — this way both searches face the same
+      // corpus at the same moment, and the only variable is query language.
       const tag = await scriptMockParallelToolCalls(request, [
         { name: 'corpus_search', args: { query: 'contracting reassembly converges' } },
         { name: 'corpus_search', args: { query: '压缩映射' } },
@@ -99,30 +122,38 @@ test.describe('F-S-2 · a CJK query must not come back empty-handed and silent',
       const english = results.get('contracting reassembly converges');
       const cjk = results.get('压缩映射');
 
-      // 正对照:英文那条**必须**命中。缺了它,下面的断言在"搜索整个坏掉"时也会红得莫名其妙,
-      // 而红的原因会被记到 CJK 头上（[[red-in-the-wrong-place]]）。
+      // Positive control: the English query **must** hit. Without this, the assertion below
+      // would also go red for no obvious reason when search is broken entirely, and the
+      // red would get blamed on CJK ([[red-in-the-wrong-place]]).
       expect(english, 'the English query produced a result at all').toBeDefined();
       expect(english ?? 0, 'the English query finds the bilingual note').toBeGreaterThan(2);
 
-      // 中文那条空手时**不再是 2 字节的裸 `[]`**（F-S-2 已修）：回执带上了那句
-      // "空不等于没有，这条索引依赖分词，要确定就用 corpus_grep"，所以它比一个空数组大。
+      // When the Chinese query comes back empty, it **is no longer a bare 2-byte `[]`**
+      // (F-S-2 is fixed): the response carries the line "empty does not mean absent, this
+      // index depends on tokenization, use corpus_grep to be sure" — so it's larger than an
+      // empty array.
       //
-      // ⚠️ 上一版这里写着"这条 wire 不改，`tool-endpoint-corpus.spec.ts:146` 钉住了 `[]`"。
-      // 去读那条测试：它只断 `status==200 && body.ok==true`，**从没钉过形状** ——
-      // 一个被写成"理由"的假阻塞，把这件事冻了一轮（[[blocker-written-as-reason-ossifies]]）。
+      // ⚠️ An earlier version of this comment said "this wire stays as-is,
+      // `tool-endpoint-corpus.spec.ts:146` pins `[]`." Reading that test: it only asserts
+      // `status==200 && body.ok==true`, it **never pinned the shape** — a false blocker
+      // written as a "reason" froze this for a whole cycle
+      // ([[blocker-written-as-reason-ossifies]]).
       //
-      // 现在断的是"空手时说了话"这件事本身。字节数只是它的影子，
-      // 具体那句话由 corpus-search-says-when-it-cannot-see-the-query.spec.ts 逐字守。
+      // What's asserted now is the fact itself that "it said something when empty-handed."
+      // The byte count is just its shadow; the exact wording is guarded word-for-word by
+      // corpus-search-says-when-it-cannot-see-the-query.spec.ts.
       expect(cjk, 'the CJK query produced a result at all').toBeDefined();
       expect(cjk ?? -1, '空手回执必须带上那句提醒，不能是个裸的空数组')
         .toBeGreaterThan(2);
     });
 
-  // ④ 落在**决策点**,所以守卫也落在决策点。
+  // ④ lands at the **decision point**, so the guard lands at the decision point too.
   //
-  // 空数组这条 wire 被钉死,提示挂不上去;而 agent 是**在读工具说明的那一刻**决定用哪条检索路的,
-  // 不是在拿到空数组的那一刻。所以 corpus_search 的说明必须自己讲清两件事:这条索引会漏,
-  // 以及漏了该去哪儿(corpus_grep,never-miss)。
+  // The empty-array wire is pinned down, so the hint can't be hung on it there; the agent
+  // decides which retrieval path to use **at the moment it reads the tool description**,
+  // not at the moment it gets an empty array back. So corpus_search's description must say
+  // two things itself: this index can miss, and where to go when it does (corpus_grep,
+  // never-miss).
   test('corpus_search tells the agent an empty result is not proof of absence',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
@@ -132,7 +163,8 @@ test.describe('F-S-2 · a CJK query must not come back empty-handed and silent',
       const specs = await sessionToolSpecs(request, sess.session_token);
       await request.dispose();
 
-      // 正对照:这个会话真的拿到了工具清单。空清单会让下面每一条 not/contains 都"通过"。
+      // Positive control: this session actually got handed a tool list. An empty list would
+      // make every not/contains assertion below "pass" too.
       expect(specs.length, 'the session was handed a tool list at all').toBeGreaterThan(0);
       const search = specs.find((t) => t.name === 'corpus_search');
       expect(search, 'corpus_search is among them').toBeDefined();
@@ -157,10 +189,12 @@ async function sessionToolSpecs(
   return body.tool_specs;
 }
 
-// searchResultsByQuery —— 把 start 行的 query 和 done 行的 result_bytes 按 call_id 配对。
+// searchResultsByQuery —— pairs the query from the start line with the result_bytes from
+// the done line, by call_id.
 //
-// **靠 call_id 配对,不靠出现顺序** —— 这两次调用是并行派发的,顺序不作数。这个字段是 F-S-1
-// 补上的;在那之前这条用例根本写不出来,因为两条 done 长得一模一样。
+// **Paired by call_id, not by order of appearance** — these two calls are dispatched in
+// parallel, so order doesn't count. This field is what F-S-1 added; before that, this case
+// couldn't have been written at all, because the two done lines look identical.
 function searchResultsByQuery(log: string): Map<string, number> {
   const queryOf = new Map<string, string>();
   const out = new Map<string, number>();

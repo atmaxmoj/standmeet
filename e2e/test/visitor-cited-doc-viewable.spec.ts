@@ -1,10 +1,13 @@
-// visitor-cited-doc-viewable.spec.ts —— 持 code 的访客点引用 → 跳那篇 document
-// 的页面 → 必须看得到全文,而不是「requires an access code」锁屏。
+// visitor-cited-doc-viewable.spec.ts — a visitor holding a code clicks a citation →
+// navigates to that document's page → must be able to see the full text, not a
+// "requires an access code" lock screen.
 //
-// 道理:访客凭 code 登录、role ACL 授了这篇(AI 就是凭这访问读出来答的),
-// 那他当然该能查看。公开 landing 是 published-only + 不认 session,所以非
-// indexed 的被引文档落到锁屏 —— 这是 bug。修法:锁屏客户端拿 visitor session
-// 走 corpus_read(ACL 评估)把全文取回来渲染。
+// Reasoning: a visitor logged in with a code, whose role ACL grants this entry (the
+// AI is answering by having read it with exactly this access), obviously should be
+// able to view it. The public landing page is published-only and does not recognize
+// a session, so a cited document that isn't indexed falls back to the lock screen —
+// that's the bug. The fix: the lock-screen client fetches the full text using the
+// visitor's session through corpus_read (which evaluates ACL) and renders it.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -35,7 +38,8 @@ test.describe('持 code 访客点引用 → 看得到被引文档(不落锁屏)'
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     const token = await createAPIToken(request, csrf, 'cited-doc-seed');
     const sid = await initMCP(request, token);
-    // 不设 published → 公开 landing 会锁;但访客的 code/ACL 该放行。
+    // published is left unset → the public landing page will lock it; but the
+    // visitor's code/ACL should let them through.
     await seedWiki(request, token, sid, {
       body: TARGET_BODY, title: 'Lucerna', path: TARGET_PATH,
     });
@@ -47,14 +51,17 @@ test.describe('持 code 访客点引用 → 看得到被引文档(不落锁屏)'
     async ({ browser }) => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      // 起会 = localStorage 落 visitor session(token + conversation_id)。
+      // Starting a session = a visitor session (token + conversation_id) lands in
+      // localStorage.
       await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
-      // 模拟点引用:同 context(session 在 localStorage)开那篇 doc 的公开 URL。
+      // Simulate clicking a citation: in the same context (with the session in
+      // localStorage), open that doc's public URL.
       await goto(page, `/wiki/${TARGET_PATH}`);
 
-      // 凭 session 把全文取回渲染 —— wiki-body 出现且含原文,锁屏不在。
+      // The full text is fetched and rendered via the session — wiki-body appears
+      // and contains the original text, and the lock screen is absent.
       await expect(page.getByTestId('wiki-body')).toBeVisible({ timeout: 10_000 });
       await expect(page.getByTestId('wiki-body')).toContainText(TARGET_BODY);
       await expect(page.getByText('This entry requires an access code')).toHaveCount(0);

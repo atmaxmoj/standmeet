@@ -1,15 +1,20 @@
-// captcha-on-request-flood.spec.ts —— F-G-4：那个「人一条条读的」收件箱前面得有一道闸。
+// captcha-on-request-flood.spec.ts -- F-G-4: the inbox a human reads note by
+// note needs a lock in front of it.
 //
-// `POST /api/v1/access-requests` 是**不鉴权的写入**，唯一的保护是 `ratelimit.go` 里
-// 30/min/IP，而 `PublicRateGuard` 明写 redis 故障 **fail-open**。prod 上实测：同一个 IP
-// 连发 34 条，**前 30 条全部落库**。30/min 持续就是 4.3 万条/天，而 gate 上写的是
+// `POST /api/v1/access-requests` is an **unauthenticated write**; its only
+// protection is `ratelimit.go`'s 30/min/IP, and `PublicRateGuard` explicitly
+// **fails open** on a redis outage. Verified in prod: the same IP sending 34
+// notes back to back gets **all 30 of the first ones stored**. 30/min
+// sustained is 43,000/day, while the gate copy reads
 // *"Read by hand, not a queue."*
 //
-// 码兑换那条路早就有失败锁 + captcha 解锁（#169 / F-G-3）。**同一张门上的另一个写入口**
-// 什么都没有 —— 这条守的就是那个缺口：连发到超过阈值 → 拒绝 → 出现人机校验 → 解开之后
-// 那封留言仍然送得出去（不是把人永久挡在门外，是让脚本付不起代价）。
+// The code-redemption path already has a failed-attempt lock + captcha unlock
+// (#169 / F-G-3). **The other write endpoint on the same door** has nothing --
+// this spec guards that gap: flood past the threshold -> refused -> a human
+// check appears -> solving it still lets the note through (not locking a
+// person out forever, but making a script pay a cost).
 //
-// 走 `make test-captcha`（Cloudflare 永远通过的测试密钥）。
+// Run via `make test-captcha` (Cloudflare's always-pass test key).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -27,12 +32,14 @@ const OWNER = {
   fullName: 'Request Flood Owner',
 };
 
-// FLOOD —— 超过阈值所需的条数。阈值定在「一个真人 15 分钟内不会发这么多」的量级。
+// FLOOD -- the count needed to exceed the threshold. The threshold is set at
+// a scale a real human would not reach within 15 minutes.
 const FLOOD = 6;
 
 test.describe('gate · the request-access door has a lock, and the captcha is its key', () => {
   test.beforeAll(async ({ playwright }) => {
-    // 这台没开 captcha 就整组跳过（而不是留一条恒定的红）—— 见 fixtures/captcha.ts。
+    // Skip the whole group when this instance has captcha off (instead of
+    // leaving a permanently red test) -- see fixtures/captcha.ts.
     await skipUnlessCaptchaOn(await playwright.request.newContext());
     resetInstance();
     const request = await playwright.request.newContext();
@@ -40,9 +47,13 @@ test.describe('gate · the request-access door has a lock, and the captcha is it
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
-    // 收留言的前提是这台实例**发得出码** —— `gate-client.tsx:38` 只在 `canDeliverCodes`
-    // 时渲染那个面板。一个真的会收 note 的 owner 本来就配了邮件，所以这不是为测试造条件，
-    // 是把前置条件补齐（第一版没配，于是红在「面板不存在」上，而那不是这条要守的东西）。
+    // Accepting a note presupposes this instance **can deliver codes** --
+    // `gate-client.tsx:38` only renders that panel when `canDeliverCodes` is
+    // true. An owner who would actually receive notes would already have
+    // mail configured, so this is not manufacturing conditions for the test,
+    // it's filling in the precondition (the first version skipped it and
+    // went red on "the panel doesn't exist", which isn't what this spec
+    // guards).
     await configureMailConnector(request, OWNER.email, OWNER.password);
     await request.dispose();
   });
@@ -52,8 +63,9 @@ test.describe('gate · the request-access door has a lock, and the captcha is it
       await goto(page, '/gate');
       await expect(page.getByTestId('request-panel')).toBeVisible({ timeout: 10_000 });
 
-      // 先证这条路本来是通的 —— 不然「后来被拦住」可能从第一条就拦住了，
-      // 那测的是表单坏了，不是闸门在工作。
+      // First prove this path normally works -- otherwise "later gets blocked"
+      // could mean it was already blocked from the first one, which would be
+      // testing a broken form, not a working gate.
       await sendNote(page, 0);
       await expect(
         page.getByTestId('request-sent'),
@@ -65,7 +77,8 @@ test.describe('gate · the request-access door has a lock, and the captcha is it
         await sendNote(page, i);
       }
 
-      // 超过阈值：这一封被拦下，而且**给出那把钥匙**（不是只留一句拒绝）。
+      // Past the threshold: this note gets blocked, and **the key is offered**
+      // (not just left with a bare refusal).
       await goto(page, '/gate');
       await sendNote(page, FLOOD);
       await expect(
@@ -74,7 +87,7 @@ test.describe('gate · the request-access door has a lock, and the captcha is it
           + 'no way through is how a real person gets locked out of asking',
       ).toBeVisible({ timeout: 15_000 });
 
-      // 解开之后那封留言仍然送得出去。
+      // After solving it, the note still goes through.
       await expect(
         page.getByTestId('request-submit'),
         'while unsolved the submit stays blocked, so the sender knows what is missing',
@@ -90,17 +103,22 @@ test.describe('gate · the request-access door has a lock, and the captcha is it
       ).toBeVisible({ timeout: 15_000 });
     });
 
-  // 承上一条：这时那个 IP 已经过了留言口的阈值，所以这里再发一封必被拦 —— 拦的是**留言口**。
-  // 而 gate 上有三扇门（码 / BYOAI / 留言），上一版 `useGate` 只有一份 SubmitState，
-  // 于是留言被拦时，「输入访问码」那一栏也亮起红字 + 弹出人机校验：一扇根本没上锁的门，
-  // 却对着访客宣布自己锁了，而且宣布的理由是另一扇门的（F-G-6）。
+  // Continuing from the previous test: by now that IP is already past the
+  // note door's threshold, so sending one more here is guaranteed to be
+  // blocked -- and blocked at the **note door**. The gate has three doors
+  // (code / BYOAI / note); the previous `useGate` had only one shared
+  // SubmitState, so when the note door blocked, the "enter access code"
+  // field also lit up red + popped a human check: a door that was never
+  // locked announcing itself locked, for a reason that belonged to another
+  // door (F-G-6).
   test('the refusal shows up on the door that was used, and leaves the other doors alone',
     async ({ page }) => {
       await goto(page, '/gate');
       await sendNote(page, FLOOD + 1);
 
-      // 正对照先立起来：这一封确实被拦了，而且拦在留言口上。少了这一句，下面两条
-      // 「码那栏什么都没有」在页面根本没加载时同样会通过。
+      // Positive control first: this note really was blocked, and blocked at
+      // the note door. Without this, the two "the code field shows nothing"
+      // checks below would also pass if the page never even loaded.
       await expect(
         page.getByTestId('request-captcha'),
         'the note door is the one that refused, so the check belongs to it',
@@ -117,8 +135,10 @@ test.describe('gate · the request-access door has a lock, and the captcha is it
     });
 });
 
-// sendNote —— 像人一样：先点开「write a note ↘」那个折叠，再填四个字段并提交。
-// 每次重新进 /gate 折叠都会收起来，所以每一封都要自己展开（表单不是默认摊开的）。
+// sendNote -- act like a human: expand the "write a note v" collapsible first,
+// then fill in the four fields and submit.
+// The collapsible re-closes every time /gate reloads, so each note has to
+// expand it itself (the form is not open by default).
 async function sendNote(page: Page, i: number): Promise<void> {
   const open = page.getByRole('button', { name: /write a note/i });
   if (await open.isVisible()) {
@@ -131,7 +151,8 @@ async function sendNote(page: Page, i: number): Promise<void> {
   await page.getByTestId('request-name').fill(`Flood Probe ${i}`);
   await page.getByTestId('request-org').fill('audit');
   await page.getByTestId('request-email').fill(`flood-${i}@example.invalid`);
-  // 正文要超过 WHY_MIN（15 字）表单才允许提交 —— 这条规则是产品的，照它写。
+  // The body must exceed WHY_MIN (15 chars) for the form to allow submit --
+  // this rule belongs to the product, so write to match it.
   await page.getByTestId('request-message')
     .fill(`note number ${i}: asking for a code to talk about the audit`);
   await page.getByTestId('request-submit').click();

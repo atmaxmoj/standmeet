@@ -59,12 +59,17 @@ test.describe('F-L-11 · invited viewer reads a gated entry via the bearer-aware
       await expect(page.getByTestId('wiki-tree-gated-hint')).toBeVisible({ timeout: 5_000 });
     });
 
-  // F-L-14 —— 同一个受邀会话里,四个面对同一个问题给了两种答案:侧栏树列得出这条,条目页打得开,
-  // 检索引得到,而 **/wiki 的索引**只列 published 的那些,脚注还写着「N GATED」。
-  // 原因是两道闸:索引走条目自己的 published 标志,其余三处走这个 session 的 corpus grant。
-  // 受邀访客对语料的第一眼因此是"空的、锁着的"。
+  // F-L-14 — within the same invited session, four surfaces give two different
+  // answers to the same question: the sidebar tree lists this entry, the entry page
+  // opens, retrieval can find it, but **the /wiki index** lists only published
+  // entries, with a footer that still reads "N GATED".
+  // The cause is two separate gates: the index checks the entry's own published
+  // flag, while the other three check this session's corpus grant.
+  // So an invited visitor's first glance at the corpus looks "empty and locked".
   //
-  // 这条用例把索引和脚注跟其余三处对齐:能读的就列出来,而 gated 数说的是**对这位访客**关着几条。
+  // This case aligns the index and its footer with the other three: whatever is
+  // readable gets listed, and the gated count reports how many entries are closed
+  // **to this specific visitor**.
   test('the /wiki index and its counter answer for THIS session, not for an anonymous one (F-L-14)',
     async ({ page }) => {
       await enterCodeSession(page, CODE, 'Reader');

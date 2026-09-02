@@ -1,14 +1,20 @@
-// connector-retry-send-idempotent.spec.ts —— §五 重试矩阵 R4 · 确认信不双发
+// connector-retry-send-idempotent.spec.ts — §5 retry matrix R4 · confirmation email
+// is never sent twice
 //
-// `send_confirmation` 是 NON-IDEMPOTENT 写。盲重试会双发。按锁定设计(§五 写幂等):
-// 只在「发送前连接失败」重 / 带幂等键,绝不盲重。所以**在一个瞬时错误下**确认信仍
-// 应送达且**恰好一封**(countMailpitMessages === 1,无双发)。镜像
-// connector-retry-insert-idempotent(events.insert 不双订)。
+// `send_confirmation` is a NON-IDEMPOTENT write. A blind retry would double-send. Per
+// the locked design (§5 write idempotency): only retry on "connection failed before
+// send" / carry an idempotency key, never a blind retry. So **under a single
+// transient error**, the confirmation email should still land, and land **exactly
+// once** (countMailpitMessages === 1, no double-send). Mirrors
+// connector-retry-insert-idempotent (events.insert is never double-booked).
 //
-// R4 重试下不双发: mock SMTP 注入一次瞬时错误;重试后恰好一封到达
-// (waitForMailTo 收到 + countMailpitMessages === 1)。
+// R4 no double-send under retry: mock SMTP injects one transient error; after the
+// retry, exactly one email arrives (waitForMailTo receives it +
+// countMailpitMessages === 1).
 //
-// RED / TDD：直到 send_confirmation 的重试以「发送前连接失败」/幂等键为门,盲重试会发两封 → count 2 → 断言失败。落地后转绿。
+// RED / TDD: until send_confirmation's retry is gated on "connection failed before
+// send" / an idempotency key, a blind retry sends two emails → count 2 → assertion
+// fails. Goes green once that lands.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, FrameLocator, Page, Playwright } from '@playwright/test';

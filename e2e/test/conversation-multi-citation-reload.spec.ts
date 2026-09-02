@@ -1,8 +1,11 @@
-// conversation-multi-citation-reload.spec.ts —— 多轮各自的引用,刷新后不串台。
+// conversation-multi-citation-reload.spec.ts — each turn's own citations must not cross-wire
+// after a reload.
 //
-// 后端聚合是按 assistant 消息逐条解析 cited_*,所以"每条 dialog 只带自己那条
-// 引用"是个容易写错的点(一不小心把全会话的引用都挂到每条上)。这条守:两轮各
-// 引一篇不同的 doc → 刷新 → 每个 path 的 citation-row 各恰好 1 条、各指各的。
+// Backend aggregation parses cited_* per assistant message, so "each dialog carries only its
+// own citations" is an easy spot to get wrong (a careless implementation attaches every
+// citation from the whole conversation to every message). This case guards it: two turns each
+// cite a different doc → reload → each path's citation-row appears exactly once, each pointing
+// at its own page.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -68,8 +71,9 @@ test.describe('多轮各自引用,刷新后不串台', () => {
     await expandRefsContaining(page, FAMILY);
     await expect(rowFor(page, FAMILY)).toBeVisible({ timeout: 20_000 });
 
-    // 刷新 → 聚合重建 transcript。references 又折叠了,逐个展开后断言:
-    // 每个 path 恰好 1 条(没串台)、各指各的公开页。
+    // Reload → aggregation rebuilds the transcript. references collapse again; expand each one
+    // then assert: each path appears exactly once (no cross-wiring), each pointing at its own
+    // public page.
     await page.reload();
     await expect(page.getByText('tell me about lucerna')).toBeVisible({ timeout: 20_000 });
     await expandRefsContaining(page, LUCERNA);
@@ -89,8 +93,9 @@ function rowFor(page: Page, path: string) {
 async function askAndRecord(
   page: Page, input: ReturnType<Page['getByTestId']>, q: string,
 ): Promise<void> {
-  // #28: backend 落库在 /agent/turn 流末端(`done` 之前);res.finished() = 流
-  // 读完 = 已落库。这条 SSE 屏障替代旧的 /dialogs 落库等待。
+  // #28: the backend persists to the DB at the end of the /agent/turn stream (right before
+  // `done`); res.finished() = the stream has been fully read = it's already persisted. This SSE
+  // barrier replaces the old wait for /dialogs to persist.
   const turnDone = page.waitForResponse((r) =>
     r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
   await input.fill(q);
@@ -98,7 +103,8 @@ async function askAndRecord(
   await (await turnDone).finished();
 }
 
-// expandRefsContaining —— references 默认折叠;展开含 path 那条的 details。
+// expandRefsContaining — references collapse by default; expands the details for the entry
+// containing this path.
 async function expandRefsContaining(page: Page, path: string): Promise<void> {
   const refs = page.locator('[data-testid="citations"]', {
     has: page.locator(`[data-citation-path="${path}"]`),

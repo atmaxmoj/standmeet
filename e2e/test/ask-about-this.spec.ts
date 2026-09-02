@@ -1,8 +1,10 @@
-// ask-about-this.spec.ts —— blog/[slug] / wiki / output 文末的 AskAboutThis
-// follow-up 输入条 → 跳 `/?q=...` → root 自动 consume + 喂进 chat。
+// ask-about-this.spec.ts — the AskAboutThis follow-up input bar at the end of a
+// blog/[slug] / wiki / output article → navigates to `/?q=...` → root auto-consumes it
+// and feeds it into chat.
 //
-// 设计意图：visitor 看完一篇文章，"想继续问" 时不必返回首页再 type，
-// 文末 inline 直接 starter prompt + 自定义 question。
+// Design intent: when a visitor finishes an article and wants to keep asking, they
+// shouldn't have to go back to the homepage and type — the article footer offers an
+// inline starter prompt plus a custom question, right there.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -34,18 +36,20 @@ test.describe('AskAboutThis · follow-up bar on blog/[slug]', () => {
       await expect(starter).toBeVisible();
       const href = await starter.getAttribute('href');
       expect(href).toMatch(/^\/\?q=/);
-      // q param 是 encoded question 文本，含 "eval is the product" 标题片段
+      // the q param is the encoded question text, containing the "eval is the product"
+      // title fragment
       expect(decodeURIComponent(href!)).toMatch(/eval is the product/i);
     });
 
   test('custom question submit → action="/" GET fires → 无码 hand off 到 /gate(带 ?q=)',
     async ({ page }) => {
       await goto(page, '/writings/eval-is-the-product');
-      // 输自定义 → 提交 form (GET / with q=...)
+      // type a custom question → submit the form (GET / with q=...)
       const input = page.locator('input[name="q"]');
       await input.fill('how did you build the eval rubric?');
-      // form 是 method=get action=/ → 落 /?q=,root 的 useConsumeQuestionFromURL
-      // 消费后,无 session 访客一律 hand off 到 /gate(485bf66),问题用 ?q= 串过去。
+      // the form is method=get action=/ → lands on /?q=; root's useConsumeQuestionFromURL
+      // consumes it, then a sessionless visitor is always handed off to /gate (485bf66),
+      // with the question carried along via ?q=.
       await input.press('Enter');
       await expect(page).toHaveURL(/\/gate\?.*q=/, { timeout: 5_000 });
       await expect(page.getByTestId('code-panel')).toBeVisible();

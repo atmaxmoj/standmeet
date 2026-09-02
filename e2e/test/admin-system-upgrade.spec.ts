@@ -1,15 +1,18 @@
-// admin-system-upgrade.spec.ts —— /admin/system 那一格「升级」。
+// admin-system-upgrade.spec.ts —— the "upgrade" block on /admin/system.
 //
-// 它替换掉的是一个**接不上的按钮**:顶栏那个 `check for updates` 没有 onClick,
-// 也没有后端可问 —— 点它什么都不会发生,而"可见"这一类断言看不出区别
-// ([[button-that-cannot-be-wired]])。所以这里的判据是**点下去之后页面上多了什么**。
+// What it replaces is a **button that can't be wired**: the `check for updates` button in
+// the top bar has no onClick, and there's no backend to ask — clicking it does nothing, and
+// a "visible" style assertion can't tell the difference ([[button-that-cannot-be-wired]]).
+// So the criterion here is **what appears on the page after the click**.
 //
-// 第二条守的是诚实:dev 没配 STANDMEET_REDEPLOY_HOOK —— 这台实例没有宿主控制权,
-// 按不动。这种时候按钮不许写成「升级」。提供一个做不到的动作,比不提供更坏,
-// 而且它让整条流程静默失败。
+// The second test guards honesty: dev has no STANDMEET_REDEPLOY_HOOK configured — this
+// instance has no host control, so it can't act on an upgrade. In that case the button must
+// not be labeled "upgrade". Offering an action the instance can't actually perform is worse
+// than offering none, and it lets the whole flow fail silently.
 //
-// 镜像库走 mock(STANDMEET_RELEASE_REGISTRY),它宣称发过 v9.9.9 —— 比任何真版本都新,
-// 于是"有新版"这一态稳定可达,不随真实发布节奏漂。
+// The release registry runs against a mock (STANDMEET_RELEASE_REGISTRY) that claims to have
+// shipped v9.9.9 — newer than any real version, so the "a new version exists" state stays
+// reliably reachable and doesn't drift with the real release cadence.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -35,8 +38,9 @@ test.describe('/admin/system · upgrade', () => {
     const panel = page.getByTestId('system-upgrade');
     await expect(panel).toBeVisible();
 
-    // 点之前:实例还没查过。取文本再判 —— `.not.toContainText` 在元素还没出现时
-    // 也算通过（[[negated-assertion-passes-while-absent]]）。
+    // Before the click: the instance hasn't checked yet. Read the text and then assert on it
+    // — `.not.toContainText` passes even before the element appears
+    // ([[negated-assertion-passes-while-absent]]).
     const line = page.getByTestId('upgrade-line');
     await expect(line).toBeVisible();
     expect(await line.innerText(), '还没查过的时候不许已经在说版本')
@@ -44,8 +48,9 @@ test.describe('/admin/system · upgrade', () => {
 
     await page.getByTestId('upgrade-button').click();
 
-    // 查完:mock 宣称发过 v9.9.9，页面必须说出那个数。这一句只有在
-    // 「按钮接上了 + 后端真去问了镜像库」两件事都成立时才会出现。
+    // After the check: the mock claims v9.9.9 shipped, and the page must state that number.
+    // This line only appears when both "the button is actually wired" and "the backend
+    // really asked the release registry" are true.
     await expect(line, '查完要说出镜像库那边最新是哪一版')
       .toContainText('9.9.9', { timeout: 20_000 });
   });
@@ -57,7 +62,8 @@ test.describe('/admin/system · upgrade', () => {
     const line = page.getByTestId('upgrade-line');
     await expect(line).toContainText('9.9.9', { timeout: 20_000 });
 
-    // dev 没配重新部署的 hook —— 有新版，但这台实例自己做不到。
+    // dev has no redeploy hook configured — a new version exists, but this instance can't
+    // apply it itself.
     const label = await page.getByTestId('upgrade-button').innerText();
     expect(label.toLowerCase(), '按不动就不许把按钮写成升级')
       .not.toContain('upgrade to');

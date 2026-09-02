@@ -1,15 +1,21 @@
-// connector-assemble-from-ui.spec.ts —— #155 契约（已实现，绿）：owner 在 admin UI 里把一个
-// 连接器从零连起来——挑「calendar」品类 → 点 Connect → 走 OAuth → 卡片显示 Connected。
+// connector-assemble-from-ui.spec.ts -- #155 contract (implemented, green): the owner wires
+// up a connector from scratch in the admin UI -- pick the "calendar" category -> click
+// Connect -> go through OAuth -> card shows Connected.
 //
-// spec-driven 连接器 UI 装配流已实现，本测真编译、真跑、真绿（原为 RED 目标契约，实现后转绿）。
+// The spec-driven connector UI assembly flow is implemented; this test actually compiles,
+// actually runs, actually goes green (originally a RED target contract, now green after
+// implementation).
 //
-// 设计要点（provider-agnostic）：connector 是**品类**（"calendar"，booker Requires 认的
-// 名），背后 provider 真 prod 是 Google/Outlook/CalDAV，e2e 里用 mock（gcal.ts 已有 mock
-// OAuth 流 + /api/admin/connectors/.../{init,status,disconnect} —— 复用，不新建）。所以本测
-// 跟真 Google 无关；真 Google 要真账号、归 #107/#108 手验。
+// Design points (provider-agnostic): a connector is a **category** ("calendar", the name
+// booker's Requires recognizes); the real backing provider in prod is Google/Outlook/CalDAV,
+// and the e2e uses a mock (gcal.ts already has a mock OAuth flow +
+// /api/admin/connectors/.../{init,status,disconnect} -- reused, nothing new built). So this
+// test has nothing to do with real Google; real Google needs a real account and is manually
+// verified under #107/#108.
 //
-// 闭环后续（连上 → DepRegistry 据 Requires:["calendar"] 放行 → calendar_book 解闸装配，正是
-// #154 booker 卡的那洞）单独加一条断言；本测先钉「从 UI 连上」这条主路径。
+// Follow-up for the full loop (connect -> DepRegistry admits per Requires:["calendar"] ->
+// calendar_book unblocks assembly, which is exactly the gap #154 booker hit) gets its own
+// assertion separately; this test first pins down the "connected from the UI" main path.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -26,7 +32,7 @@ const OWNER = {
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('connector · assemble a connector from the admin UI', () => {
-  // 覆盖 spec-driven 连接器 UI 装配流（docs/design/connector.md §8）。已实现，绿。
+  // Covers the spec-driven connector UI assembly flow (docs/design/connector.md §8). Implemented, green.
 
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
@@ -38,30 +44,31 @@ test.describe('connector · assemble a connector from the admin UI', () => {
     await request.dispose();
   });
 
-  // adminPage fixture 自己跑完 owner 登录，给一个已进 admin 的 page。
+  // The adminPage fixture already runs owner login, handing us a page already inside admin.
   test('owner clicks Connect on /admin/connectors to wire up calendar → shows Connected', async ({
     adminPage: page,
   }) => {
-    // adminPage 落在 admin；从已知入口点 nav 进 connectors 区（不 page.goto）。
+    // adminPage lands on admin; navigate into the connectors section from a known entry point (not page.goto).
     await page.getByTestId('admin-nav-connectors').click();
 
-    // connectors 区列出品类；calendar 那条是「有 Connect 按钮」的连接器行（booker 能力行
-    // 没 Connect，借此跟 capability-row-calendar.book 区分开）。未连。
+    // The connectors section lists categories; the calendar row is the connector row that
+    // "has a Connect button" (the booker capability row has no Connect, which is how it's
+    // distinguished from capability-row-calendar.book). Not yet connected.
     const card = page.getByRole('listitem')
       .filter({ hasText: /calendar/i })
       .filter({ has: page.getByRole('button', { name: /connect|连接/i }) });
     await expect(card).toBeVisible();
     await expect(card.getByText(/not connected|未连接/i)).toBeVisible();
 
-    // owner 在卡里填自己的 OAuth client 凭据（就是 ui 填写，无 env fallback）。
+    // Owner fills in their own OAuth client credentials on the card (filled through the UI, no env fallback).
     await card.getByTestId('connector-field-client_id').fill('mock-client-id');
     await card.getByTestId('connector-field-client_secret').fill('mock-client-secret');
 
-    // 点 Connect → OAuth 流（mock）→ 回 connectors 区。
+    // Click Connect -> OAuth flow (mock) -> back to the connectors section.
     await card.getByRole('button', { name: /connect|连接/i }).click();
     await page.waitForURL('**/admin/connectors**');
 
-    // 装配成功：卡片现在 Connected。
+    // Assembly succeeded: the card now reads Connected.
     await expect(card.getByText(/connected|已连接/i)).toBeVisible();
   });
 });

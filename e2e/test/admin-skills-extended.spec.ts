@@ -1,8 +1,10 @@
-// admin-skills-extended.spec.ts —— /admin/skills 的 my-skills CRUD：建 → 删。
+// admin-skills-extended.spec.ts -- /admin/skills my-skills CRUD: create -> delete.
 //
-// 这里曾经还测「heat-bar graph」「role label」「rebuild button」—— 那三样都是**编的/死的**已被移除
-// （rot-A1 假热度图、rot-G1 死按钮）。对应的两条用例（skill-heat-bar / skill-role-label）是把断言
-// 藏在 `if visible` 下的空转 test，永远绿、永远证明不了任何事（rot-E1/E2）—— 一并删掉，只留真的 CRUD。
+// This file used to also test "heat-bar graph", "role label", and "rebuild button" --
+// all three were **fabricated/dead** and have been removed (rot-A1 fake heat graph,
+// rot-G1 dead button). The two matching test cases (skill-heat-bar / skill-role-label)
+// hid their assertions inside `if visible`, an inert test that stays green forever and
+// never proves anything (rot-E1/E2) -- deleted along with them, leaving only real CRUD.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';

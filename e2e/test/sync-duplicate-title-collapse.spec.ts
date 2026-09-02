@@ -44,16 +44,20 @@ test.describe('sync · same-basename files in different folders both import (F-L
     expect(again.created, 're-sync creates nothing new (source_path claim is idempotent)').toBe(0);
   });
 
-  // F-L-60 —— **同名的两篇各自的链接**。
+  // F-L-60 —— **two same-titled notes must each keep their own links**.
   //
-  // 上面那条修的是 reconcile：basename 不唯一时改按 `source_path` 认领，两份文件各落各的行。
-  // 但**链接那一半没跟上**：`obsidian/sync.go:284` 决定「这些链接挂到哪条笔记」时用的还是
-  // `st.titleToID[node.title]` —— 一张按 title 索引的表，而 title 恰恰不唯一。同名的几篇
-  // 共用一个桶，`RebuildForNote(id, body)` 又是**重建**，后处理的那篇把前一篇的边整个盖掉。
-  // 又一次「一个能力两个面，只修了一个面」。
+  // The fix above addresses reconcile: when a basename isn't unique, claim by
+  // `source_path` instead, so the two files land on their own separate rows. But **the
+  // linking half didn't keep up**: `obsidian/sync.go:284` still decides "which note do
+  // these links attach to" using `st.titleToID[node.title]` — a table indexed by title, and
+  // title is exactly what's not unique. Notes sharing a title share one bucket, and
+  // `RebuildForNote(id, body)` is a **rebuild**, so whichever note gets processed second
+  // wholesale overwrites the previous one's edges. Once again: "one capability, two faces,
+  // only one face got fixed".
   //
-  // prod 上量到的代价：同名笔记 97 条，只有 22 条有出边，**41 条正文里有 `[[` 却一条边都没有**
-  // —— 而 vault 自己的 check-links.sh 说这些链接全是好的。损失只发生在我们这一侧，不报错。
+  // Cost measured in prod: 97 same-titled notes, only 22 have outbound edges — **41 have
+  // `[[` in the body but not a single edge** — while the vault's own check-links.sh reports
+  // all these links as fine. The loss only happens on our side, and it never raises an error.
   test('two same-basename notes keep their OWN outbound links (F-L-60)', async ({ request }) => {
     await uploadVault(request, OWNER, [
       { rel: 'wiki/wiki-target.md', body: makeVaultMD({ publish: true }, 'the wiki target.') },
@@ -67,10 +71,11 @@ test.describe('sync · same-basename files in different folders both import (F-L
 
     const wiki = await adminNoteRefs(request, OWNER, 'wiki', 'Foo');
     const subj = await adminNoteRefs(request, OWNER, 'subjectivity', 'Foo');
-    // 两条都要有**自己的**那条边。红态：其中一条是空的 —— 它的链接被同名兄弟的重建盖掉了。
+    // Both notes must have **their own** edge. RED state: one of them is empty — its links
+    // got overwritten by the same-titled sibling's rebuild.
     expect(wiki.outbound, 'wiki/Foo 保住自己的出边').toContain('wiki-target');
     expect(subj.outbound, 'subjectivity/Foo 保住自己的出边').toContain('subj-target');
-    // 而且不许串门：桶如果是共用的，会看到对方的目标。
+    // And they must not cross over: if the bucket is shared, one would see the other's target.
     expect(wiki.outbound, 'wiki/Foo 不该拿到兄弟的目标').not.toContain('subj-target');
     expect(subj.outbound, 'subjectivity/Foo 不该拿到兄弟的目标').not.toContain('wiki-target');
   });

@@ -1,11 +1,16 @@
-// corpus-facade-lister.spec.ts —— 迁移前 gap-fill (🔴#2)。
+// corpus-facade-lister.spec.ts —— pre-migration gap-fill (🔴#2).
 //
-// 今天有**两个平行的跨-genre 层**在同一批 corpus 表上:
-//   - postgres.Corpus facade（按 **id** 寻址）—— dialog 引用反查用（cited_wiki_ids → title+path）。
-//   - usecases.CorpusLister #157（按 **path** 寻址）—— corpus_search/read/list 检索用。
-// 结构迁移要把这两层**合并成一个**。合并的头号风险 = 同一条 entry 在两层下的 path / 身份**不一致**。
-// 此前两层各自测、从无交叉断言。这条钉住:一条被 dialog 引用的 entry（facade 反查出的 path/title）
-// 跟 corpus_read 按那个 path 读到的（lister）**指向同一条**。合并实现必须让它继续绿。
+// Today there are **two parallel cross-genre layers** over the same corpus tables:
+//   - postgres.Corpus facade (addresses by **id**) — used for dialog citation lookups
+//     (cited_wiki_ids → title+path).
+//   - usecases.CorpusLister #157 (addresses by **path**) — used for corpus_search/read/list
+//     retrieval.
+// The structural migration needs to **merge these two into one**. The top risk of that merge
+// is that the same entry's path / identity **disagrees** between the two layers. Until now
+// each layer has only been tested on its own, with no cross-assertion. This test pins down
+// that an entry cited by a dialog (path/title resolved through the facade) and the same entry
+// read by corpus_read at that path (through the lister) **point at the same thing**. The
+// merged implementation must keep this green.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

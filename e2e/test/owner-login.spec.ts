@@ -1,12 +1,15 @@
-// owner-login.spec.ts —— owner 已经 claim 过实例之后的 sign-in 流程。
+// owner-login.spec.ts —— the sign-in flow for an owner who has already claimed the instance.
 //
-// 用户故事：
-//   owner 之前已经 claim 完，关浏览器后第二次回来。地址栏输 /admin → server
-//   见无 session redirect 到 /login → 填邮箱密码 → submit → 落 /admin/page。
-//   错密码会显示 inline 错误，不离开 /login。
+// User story:
+//   The owner already claimed the instance earlier, closed the browser, and is
+//   coming back a second time. They type /admin in the address bar → server
+//   sees no session, redirects to /login → fill in email + password → submit →
+//   land on /admin/page. A wrong password shows an inline error without
+//   leaving /login.
 //
-// Claim 走 API helper（不是被测路径）；login 全程浏览器。两个 case 共享
-// "navigateToOwnerLogin"（fixture-level goto /admin → 自动 redirect /login）。
+// Claim goes through an API helper (not the path under test); login runs
+// entirely through the browser. Both cases share "navigateToOwnerLogin"
+// (fixture-level goto /admin → auto-redirect to /login).
 
 import { test, expect } from '@/fixtures/test';
 
@@ -33,8 +36,8 @@ test.describe('owner logs back in', () => {
   });
 
   test('right credentials land owner in admin', async ({ adminPage: page }) => {
-    // adminPage fixture 自己跑完 owner-typed /admin → /login → 填表单 → /admin/page。
-    // 这里只断言落点正确（admin sidebar 渲染了）。
+    // The adminPage fixture already runs owner-typed /admin → /login → fill form → /admin/page on its own.
+    // Here we only assert that it landed in the right place (the admin sidebar rendered).
     await expect(page.getByTestId('admin-nav-page')).toBeVisible();
   });
 

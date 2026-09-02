@@ -1,15 +1,20 @@
-// code-member-quota-concurrent.spec.ts —— 名额上限必须挡得住并发,不然它只是个建议。
+// code-member-quota-concurrent.spec.ts —— the member cap must hold under concurrency, or it's just a suggestion.
 //
-// 真实环境上看到的:`VERIFY-A01` 显示 `11 / 10 names` —— 11 个成员,上限 10。访客弹窗也照实
-// 写着「Up to 10 people can use this code — 11 already in」,而按 START 会被拒。也就是说这张码
-// 卡死在一个不该存在的状态里:满了,而且比满还多一个。
+// What was seen in the real environment: `VERIFY-A01` showed `11 / 10 names` — 11
+// members against a cap of 10. The visitor popup faithfully echoed "Up to 10
+// people can use this code — 11 already in", and clicking START was refused. In
+// other words, this code was stuck in a state that should never exist: full, and
+// one over full besides.
 //
-// 归因:闸门是**先读后写**,中间什么都没有。checkMemberQuota / checkAnonQuota 拿的是另外读出来
-// 的 members 切片(visitor.go),而 GetOrCreateMember / CreateAnonymousMember 是裸插入 —— 没有
-// 事务、没有行锁,数据库层也没有任何「成员数 ≤ max_members」的约束。两个会话同时开:都读到
-// len=9,都判 9 >= 10 不成立,都插入 → 10 变 11。
+// Root cause: the gate is **read-then-write**, nothing in between.
+// checkMemberQuota / checkAnonQuota read from a separately-fetched members slice
+// (visitor.go), while GetOrCreateMember / CreateAnonymousMember are bare
+// inserts — no transaction, no row lock, and the database layer has no
+// "member count ≤ max_members" constraint either. Two sessions open at once:
+// both read len=9, both evaluate 9 >= 10 as false, both insert → 10 becomes 11.
 //
-// 这条不模拟并发,它就是并发:同时发起 N 个具名入会,最后数一遍。
+// This case doesn't simulate concurrency, it IS concurrency: fire N named
+// joins at once, then count what actually landed.
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
@@ -25,7 +30,7 @@ const OWNER = {
 
 const CODE = 'RACE-CAP1';
 const CAP = 5;
-// 同时冲进来的人数。要明显多于上限,否则一次侥幸的串行化就把用例蒙过去了。
+// How many people rush in at once. Must clearly exceed the cap, otherwise a lucky serialization would let the case slip through.
 const RUSH = 12;
 
 test.describe('access-codes · the name cap holds under concurrency', () => {
@@ -40,12 +45,12 @@ test.describe('access-codes · the name cap holds under concurrency', () => {
 
   test('twelve people entering at once cannot push the code past its cap',
     async ({ playwright }) => {
-      // 每人一个独立 request context —— 共用一个会串行化,那就测不到并发了。
+      // One independent request context per person — sharing one would serialize the calls, and then this wouldn't be testing concurrency at all.
       const guests = await Promise.all(
         Array.from({ length: RUSH }, () => playwright.request.newContext()),
       );
 
-      // 同一时刻发起:先把 promise 都建出来再 await,不要一个一个等。
+      // Fire them all at the same instant: build all the promises first, then await — don't wait for them one by one.
       const joins = guests.map((ctx, i) => ctx.post(`${BACKEND}/api/v1/sessions`, {
         data: { mode: 'code', code: CODE, visitor_name: `racer-${i}` },
       }));
@@ -63,8 +68,9 @@ test.describe('access-codes · the name cap holds under concurrency', () => {
         { headers: { 'X-Csrftoken': csrf } },
       )).json() as unknown[];
 
-      // 判据是**落库的成员数**,不是有几个请求返回 200 —— 后者是客户端看到的,前者是 owner
-      // 的配额被吃掉了多少。
+      // The criterion is **the member count actually persisted**, not how many
+      // requests returned 200 — the latter is what the client sees, the former
+      // is how much of the owner's quota actually got consumed.
       expect(
         members.length,
         `the code may never hold more than its cap; ${opened} sessions opened`,

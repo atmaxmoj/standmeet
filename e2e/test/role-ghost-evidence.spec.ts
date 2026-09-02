@@ -1,11 +1,14 @@
-// role-ghost-evidence.spec.ts —— F-A-10 owner 开关「内容型引导 ghost 需带语料证据」的后台 UI,
-// role 端 + code-override 端往返。
+// role-ghost-evidence.spec.ts -- F-A-10, the admin UI toggle for "content-style ghost
+// prompts must carry corpus evidence", round-tripped on both the role side and the
+// code-override side.
 //
-// 守两件事:
-//  1. role 卡上的开关持久化(开 → reload → 仍开);
-//  2. **零化回归**:开了之后再存 dock(兄弟保存),require_ghost_evidence 不能被清零 —— 这条在
-//     修复前(dockPayload 不带 require_ghost_evidence)会 RED。
-//  3. code override 3 态(inherit/on/off)往返:显式覆盖持久化,inherit 清覆盖回落 role。
+// Guards three things:
+//  1. the toggle on the role card persists (turn it on -> reload -> still on);
+//  2. **zeroing regression**: after turning it on, saving the dock (a sibling save)
+//     must not clear require_ghost_evidence back to zero -- before the fix (the dock
+//     payload didn't carry require_ghost_evidence) this went RED;
+//  3. the code override's 3 states (inherit/on/off) round-trip: an explicit override
+//     persists, and inherit clears the override and falls back to the role.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -49,13 +52,15 @@ test.describe('F-A-10 · ghost-evidence rule — role toggle + code override', (
     async ({ adminPage }) => {
       await openRoles(adminPage);
       const row = adminPage.getByTestId('role-row-steerer');
-      // 前置:上一个 test 已把开关打开并持久化。这里存 dock(一个兄弟全量 PUT)。
+      // Precondition: the previous test already turned the toggle on and persisted it.
+      // Here we save the dock (a full sibling PUT).
       await expect(row.getByTestId('role-ghost-evidence-toggle')).toBeChecked();
       await row.getByTestId('role-dock-save').click();
       await expectSuccessToast(adminPage, /dock/i);
       await adminPage.reload();
       await openRoles(adminPage);
-      // dock 存完 ghost 规则必须还在(修复前 dockPayload 不回传 → 这里 RED)。
+      // After the dock save, the ghost rule must still be there (before the fix, the
+      // dock payload never sent it back -> this went RED).
       await expect(
         adminPage.getByTestId('role-row-steerer').getByTestId('role-ghost-evidence-toggle'),
       ).toBeChecked();
@@ -71,7 +76,8 @@ test.describe('F-A-10 · ghost-evidence rule — role toggle + code override', (
       await adminPage.reload();
       await openCodes(adminPage);
       await expect(adminPage.getByTestId(`code-ghost-evidence-${CODE}`)).toHaveValue('off');
-      // 回 inherit:清覆盖,重新继承 role。
+      // Back to inherit: clears the override, and the value goes back to inheriting
+      // from the role.
       await adminPage.getByTestId(`code-ghost-evidence-${CODE}`).selectOption('inherit');
       await expectSuccessToast(adminPage, /ghost/i);
       await adminPage.reload();

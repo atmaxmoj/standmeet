@@ -1,6 +1,7 @@
-// sync-a-routing.spec.ts —— A. folder → genre 路由(目标态红)。
-// 顶层 folder 决定 genre:wiki/→wiki · subjectivity/→subjectivity · raw/→raw inbox。
-// output 无 folder(promote-derived)。未知顶层 / 根裸文件 / 空 vault → 优雅跳过不崩(容错)。
+// sync-a-routing.spec.ts —— A. folder → genre routing (red against the target state).
+// The top-level folder decides the genre: wiki/→wiki · subjectivity/→subjectivity · raw/→raw inbox.
+// output has no folder (it's promote-derived). Unknown top-level folder / a bare file at the
+// root / an empty vault → skip gracefully, no crash (fault tolerance).
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -112,15 +113,19 @@ async function unknownTopFolderSkipped({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-// emptyVault —— 名不副实的历史遗留：这个 vault **不是空的**，它有一篇 publish:false 的笔记。
+// emptyVault —— a misleading legacy name: this vault is **not** empty, it has one note with
+// publish:false.
 //
-// 这条曾经断言 `created: 0`，守的是「publish:false 不入库」—— 那个语义已经被 **F-L-8 明确推翻**
-// （见 sync-d-publish.spec.ts 的头注释）：`publish` 是**可见性**闸，不是入库闸。vault 里路由进来的
-// .md 一律落库，published=false 只意味着「要 code 才能看」。旧语义的代价是真实的：223 篇 wiki 里
-// 没有一篇写了 `publish:`，于是 173 篇叶子永远进不了 corpus。
+// This case used to assert `created: 0`, guarding "publish:false doesn't get stored" — that
+// semantics has been **explicitly overturned by F-L-8** (see the header comment in
+// sync-d-publish.spec.ts): `publish` is a **visibility** gate, not a storage gate. Every .md
+// that routes in from the vault gets stored regardless; published=false only means "needs a
+// code to view." The old semantics had a real cost: not one of 223 wiki notes had a
+// `publish:` field, so 173 leaf notes could never enter the corpus.
 //
-// 所以 created **必须**是 1。两条 spec 曾经直接互相矛盾，而矛盾的那一条还绿着 —— 它测的是一个
-// 已经不存在的产品。这里改成守新语义里真正要紧的那件事：入库了，且没有崩。
+// So created **must** be 1. The two specs used to directly contradict each other, and the
+// contradicting one was still green — it was testing a product that no longer exists. This
+// now guards the thing that actually matters under the new semantics: it got stored, and nothing crashed.
 async function unpublishedStillLands({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   const result = await uploadVault(request, OWNER, [

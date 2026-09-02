@@ -1,10 +1,11 @@
-// document-render.spec.ts —— wiki landing 走 ChatMarkdown 渲染全部
-// markdown 特性 (gfm / katex / mermaid / xss sanitize / 基础 markdown)。
+// document-render.spec.ts —— wiki landing renders every markdown feature
+// through ChatMarkdown (gfm / katex / mermaid / xss sanitize / basic markdown).
 //
-// 之前走 /dev/chat-render?fixture=... fixture page 验；G-6 拆掉 dev route
-// 后改成走真 prod 路径：seed wiki 的 body = 各 fixture，visit /wiki/<path>。
-// 同一个 ChatMarkdown 组件、同一套 plugins、同一个 .chat-md scope；测
-// 等于测 prod。
+// Previously this went through the /dev/chat-render?fixture=... fixture page.
+// After G-6 removed the dev route, this now goes through the real prod path:
+// seed a wiki entry whose body is each fixture, visit /wiki/<path>. Same
+// ChatMarkdown component, same plugin set, same .chat-md scope — testing this
+// equals testing prod.
 
 import { test, expect, type APIRequestContext, type Page } from '@/fixtures/test';
 
@@ -19,8 +20,8 @@ const OWNER = {
   handle: 'alice', fullName: 'Alice Anderson',
 };
 
-// FIXTURE_BODIES —— 各 markdown feature 一段 body。等 seed 完成后用对应
-// path 落地，spec 直接 visit /wiki/<path>。
+// FIXTURE_BODIES —— one body per markdown feature. Once seeded, each lands
+// at its own path; the spec visits /wiki/<path> directly.
 const FIXTURE_BODIES = {
   markdown: [
     '# Heading',
@@ -33,11 +34,16 @@ const FIXTURE_BODIES = {
     '[link](https://example.com)',
   ].join('\n'),
 
-  // cjk —— **中文里的强调**。分开一段是因为它跟上面那段走的不是同一条规则：
-  // CommonMark 判 `**` 闭不闭合要看「右侧贴合」——前面不能是标点，除非后面是空白或标点。
-  // 英文的 `**bold**,` 天然满足（后面是逗号），中文的 `**……广告。**这句话` 不满足
-  // （前面 `。`、后面汉字），于是闭合失败、整段退化成字面星号。
-  // 上面那段一直在测强调，测的却正好是那条规则**碰巧成立**的那一侧。
+  // cjk —— **emphasis inside Chinese text**. This is a separate case because
+  // it exercises a different rule than the block above: CommonMark decides
+  // whether `**` closes by checking "right-flanking" — the character before it
+  // must not be punctuation, unless the character after is whitespace or
+  // punctuation. English `**bold**,` naturally satisfies this (followed by a
+  // comma); Chinese `**……ad.**this sentence` does not (preceded by `。`,
+  // followed by a CJK character), so the closing fails and the whole span
+  // degrades to literal asterisks.
+  // The block above has always tested emphasis, but only ever exercised the
+  // side of the rule where it **happens to hold**.
   cjk: [
     '它的整个产品就是一句话：**我们不拿你的访客数据卖广告。**这句话 Google 说不出口。',
     '',
@@ -108,10 +114,13 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
       await expect(body.locator('a').first()).toHaveAttribute('href', 'https://example.com');
     });
 
-  // 中文的 `**粗体。**` 必须是粗体，不是屏幕上的四个星号。
+  // Chinese `**bold.**` must render as bold, not as four literal asterisks
+  // on screen.
   //
-  // 判据是**渲染出了 strong 元素**，不是"文本里没有星号" —— 后者在整段没渲染出来时
-  // 也会通过。两条都要：星号变成了标签，而且标签里装着那句话。
+  // The criterion is **a strong element got rendered**, not "no asterisks in
+  // the text" — the latter would also pass if the whole block failed to
+  // render at all. Both must hold: the asterisks became a tag, and that tag
+  // contains the sentence.
   test('cjk · 中文里的 **强调** 是强调，不是字面星号',
     async ({ page }) => { await assertCjkEmphasis(page); });
 
@@ -149,8 +158,9 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
       await expect(body).toContainText('Before');
       await expect(body).toContainText('After');
       await expect(body.locator('script')).toHaveCount(0);
-      // 恶意 <img onerror> 应被 sanitize 整个剔除 —— 断言它不存在（web-first
-      // 断言自动重试等 DOM settle），img 没了 onerror 就永无机会 fire。
+      // The malicious <img onerror> should be stripped entirely by sanitize —
+      // assert it doesn't exist (web-first assertions auto-retry while the
+      // DOM settles); with no img at all, onerror never gets a chance to fire.
       await expect(body.locator('img')).toHaveCount(0);
       const pwned = await page.evaluate(
         () => Boolean((window as unknown as { __pwned?: boolean }).__pwned)
@@ -160,15 +170,17 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
     });
 });
 
-// 地址树派生:URL = 标题 slug。title `Render fixture · ${key}` → render-fixture-${key}。
+// The address tree derives URL = title slug. title `Render fixture · ${key}` → render-fixture-${key}.
 function pathFor(key: FixtureKey): string {
   return `render-fixture-${key}`;
 }
 
-// assertCjkEmphasis —— 中文的 `**粗体。**` 必须渲成 strong。
+// assertCjkEmphasis —— Chinese `**bold.**` must render as strong.
 //
-// 判据是**渲染出了 strong 元素**，不是"文本里没有星号"—— 后者在整段根本没渲染出来时
-// 也会通过。两条都要：星号变成了标签，而且标签里装着那句话。
+// The criterion is **a strong element got rendered**, not "no asterisks in
+// the text" — the latter would also pass if the whole block failed to render
+// at all. Both must hold: the asterisks became a tag, and that tag contains
+// the sentence.
 async function assertCjkEmphasis(page: Page): Promise<void> {
   await goto(page, `/wiki/${pathFor('cjk')}`);
   const body = page.getByTestId('wiki-body');
@@ -177,7 +189,9 @@ async function assertCjkEmphasis(page: Page): Promise<void> {
     .toHaveText('我们不拿你的访客数据卖广告。');
   await expect(body.locator('strong').nth(1), '第二处同样,不是只有第一处侥幸')
     .toHaveText('Tally 对 Typeform。');
-  // 判负的那一半：先钉住上面两条(强调真的在)，这一条才不是在空页上恒真。
+  // The half that can go negative: only after the two assertions above pin
+  // down that the emphasis is really there does this one stop being
+  // vacuously true on an empty page.
   await expect(body, '星号不许出现在屏幕上').not.toContainText('**');
 }
 

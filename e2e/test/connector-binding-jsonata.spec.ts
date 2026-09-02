@@ -1,8 +1,12 @@
-// connector-binding-jsonata.spec.ts —— #155 §8 区 C（声明式 JSONata 绑定）。作者给 SaaS spec +
-// 绑定（category + 每契约 op → operationId + request/response JSONata），后端装配期校验 + 运行时
-// 执行：request JSONata 从契约输入构 SaaS body；response JSONata 从 SaaS 响应抽契约输出；category
-// 填 "calendar"/"mail" 槽。e2e 不碰真 Google：内联 spec 的 servers 指 external-mock 的 gcal 端点；
-// 响应归一断言走 diag 端点，category 槽断言走 booker 的 calendar_book 装配。
+// connector-binding-jsonata.spec.ts -- #155 §8 area C (declarative JSONata bindings). The
+// author supplies a SaaS spec + a binding (category + per-contract-op -> operationId +
+// request/response JSONata); the backend validates at assemble time and executes at
+// runtime: request JSONata builds the SaaS body from the contract input; response JSONata
+// extracts the contract output from the SaaS response; category fills the "calendar"/
+// "mail" slot. e2e never touches real Google: the inlined spec's servers point at the
+// external-mock's gcal endpoint; the response-normalization assertion goes through the
+// diag endpoint, and the category-slot assertion goes through the booker's calendar_book
+// assembly.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -32,8 +36,9 @@ const OWNER = {
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 
-// ─── unbuilt binding REST helpers (target contract; §8 决策草图) ───
-// POST /api/admin/connectors —— 从 spec+binding 建连接器。201 → {id}；4xx → {error}。
+// --- unbuilt binding REST helpers (target contract; §8 decision sketch) ---
+// POST /api/admin/connectors -- builds a connector from spec+binding. 201 -> {id}; 4xx ->
+// {error}.
 interface CreateResult { status: number; id?: string; error?: string }
 
 async function createConnector(
@@ -47,8 +52,9 @@ async function createConnector(
   return { status: res.status(), id: json.id, error: err };
 }
 
-// diag: 跑该连接器的 list_busy 契约 op，返回归一后的 []{start,end}。证明 response
-// JSONata 把 SaaS 形状正确抽成了契约形状（不经访客会话、直查运行时输出）。
+// diag: runs the list_busy contract op for this connector, returns the normalized
+// []{start,end}. Proves the response JSONata correctly extracted the contract shape from
+// the SaaS shape (bypasses the visitor session, reads the runtime output directly).
 interface BusyInterval { start: string; end: string }
 async function diagListBusy(
   request: APIRequestContext, csrf: string, id: string, timeMin: string, timeMax: string,
@@ -59,28 +65,34 @@ async function diagListBusy(
   return { status: r.status, busy: json.result ?? [] };
 }
 
-// ─── inlined mock-shape control (assumed §8-C mock extensions; NOT in fixtures) ───
-// gcal.ts 的 setMockBusy 喂的是理想 freeBusy 形状。下面的运行时降级测试需要喂
-// 「畸形/缺字段/数组」形状，所以这里直接打 mock 的（假设新增的）形状控制端点。
-// 假设 external-mock 在 /__mock/gcal 下加：
-//   POST /__mock/gcal/set_freebusy_raw  { body }  —— 让下次 freeBusy 原样回这个 JSON
-//   POST /__mock/gcal/set_event_shape   { shape:'object'|'array' } —— 控 events.insert 回形
-// （fixtures 不动；实现 mock 时落这两个端点，落了把这些 helper 收编进 gcal.ts。）
+// --- inlined mock-shape control (assumed §8-C mock extensions; NOT in fixtures) ---
+// gcal.ts's setMockBusy feeds an idealized freeBusy shape. The runtime-degradation tests
+// below need to feed "malformed/missing-field/array" shapes, so this hits the mock's
+// (assumed new) shape-control endpoints directly.
+// Assumes external-mock adds under /__mock/gcal:
+//   POST /__mock/gcal/set_freebusy_raw  { body }  -- makes the next freeBusy echo this JSON
+//     verbatim
+//   POST /__mock/gcal/set_event_shape   { shape:'object'|'array' } -- controls the shape
+//     events.insert returns
+// (fixtures untouched; land these two endpoints when implementing the mock, then fold
+// these helpers into gcal.ts.)
 const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 
-// 让 mock 下次 freeBusy 原样回这坨 JSON（用来喂缺字段/SHAPE 不符的响应）。
+// Makes the mock echo this exact JSON on the next freeBusy call (used to feed missing-
+// field/shape-mismatched responses).
 async function setMockFreeBusyRaw(request: APIRequestContext, body: unknown): Promise<void> {
   const res = await request.post(`${MOCK}/__mock/gcal/set_freebusy_raw`, { data: { body } });
   expect(res.status(), 'mock set_freebusy_raw').toBe(200);
 }
 
-// 让 mock 的 events.insert 回 object（正常）或 array（SHAPE 不符）。
+// Makes the mock's events.insert return object (normal) or array (shape mismatch).
 async function setMockEventShape(request: APIRequestContext, shape: 'object' | 'array'): Promise<void> {
   const res = await request.post(`${MOCK}/__mock/gcal/set_event_shape`, { data: { shape } });
   expect(res.status(), 'mock set_event_shape').toBe(200);
 }
 
-// diag create-event 但返回 {status, ref}（不抛、不只看 200）——给降级/拒绝测试用。
+// diag create-event but returns {status, ref} (never throws, doesn't only look at 200) --
+// for use by the degradation/rejection tests.
 interface EventRef { id?: string; url?: string }
 async function diagCreateEventResult(
   request: APIRequestContext, csrf: string, id: string,
@@ -100,8 +112,9 @@ async function diagCreateEventResult(
   };
 }
 
-// createOK —— POST 一份 binding，断言 201，返回连接器 id。装配本身不是被测点的
-// （happy/runtime）测试共用，省掉每条重复的 status 断言。
+// createOK -- POSTs a binding, asserts 201, returns the connector id. Shared by the
+// (happy/runtime) tests where assembly itself isn't the thing under test, so each doesn't
+// need to repeat the status assertion.
 async function createOK(request: APIRequestContext, csrf: string, binding: unknown): Promise<string> {
   const r = await createConnector(request, csrf, { spec: SAMPLE_SPEC, binding });
   expect(r.status, r.error ?? '').toBe(201);
@@ -116,8 +129,9 @@ function future(days: number, hour: number): string {
   return d.toISOString();
 }
 
-// connectAndAssemble —— 存 oauth2 凭据（spec 派生）+ 跑 mock dance 把连接器连上，
-// 然后发一张 calendar.book 码 + 起访客会话，返回该会话装配出的 tool 名。
+// connectAndAssemble -- stores oauth2 credentials (derived from the spec) + runs the mock
+// dance to connect the connector, then issues a calendar.book code + starts a visitor
+// session, and returns the tool names that session assembled.
 async function connectAndAssembleSession(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<string[]> {
@@ -148,10 +162,12 @@ async function connectAndAssembleSession(
   return body.tool_specs.map((t) => t.name);
 }
 
-// expectRejected —— POST 一份坏 binding，断言 4xx + 错误信息匹配 + 连接器未建。
-// 装配期校验的四种拒因（非法 JSONata / op 不存在 / 未知 category / 漏映）共用。
-// assertResponseNormalizes —— 喂 SaaS freeBusy fixture，跑 list_busy，断言归一后的
-// []{start,end} 跟喂进去的两个窗口逐一相等（response JSONata 正确抽取）。
+// expectRejected -- POSTs a bad binding, asserts 4xx + the error message matches +
+// no connector was created. Shared by the four assemble-time rejection reasons (invalid
+// JSONata / op doesn't exist / unknown category / unmapped op).
+// assertResponseNormalizes -- feeds a SaaS freeBusy fixture, runs list_busy, asserts the
+// normalized []{start,end} matches the two fed-in windows one-for-one (response JSONata
+// extracted correctly).
 async function assertResponseNormalizes(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<void> {
@@ -160,19 +176,21 @@ async function assertResponseNormalizes(
   await setMockBusy(request, [b0, b1]);
   const out = await diagListBusy(request, csrf, id, future(1, 0), future(4, 0));
   expect(out.status).toBe(200);
-  // 比**时刻**,不比那串字符。契约把时间解成 time.Time 再发出来,毫秒就没了
-  // (`…:00.000Z` → `…:00Z`) —— 那是序列化的细节,不是这条要验的东西。
-  // 这条验的是 JSONata 把 SaaS 的 freeBusy 形状归一成了契约的 []{start,end}。
+  // Compares the **instant**, not the string. The contract parses the time into a
+  // time.Time and re-emits it, so milliseconds get dropped (`...:00.000Z` -> `...:00Z`) --
+  // that's a serialization detail, not what this test is verifying.
+  // This verifies that JSONata normalized the SaaS freeBusy shape into the contract's
+  // []{start,end}.
   expect(instants(out.busy)).toEqual(instants([b0, b1]));
 }
 
-// instants —— 忽略时间串的写法,只看它指的那一刻。
+// instants -- ignores how the time string is written, looks only at the instant it names.
 function instants(rows: readonly BusyInterval[]): { start: number; end: number }[] {
   return rows.map((r) => ({ start: Date.parse(r.start), end: Date.parse(r.end) }));
 }
 
-// assertRequestConstructs —— 跑 create_event，断言 mock 录到的 body 是 request
-// JSONata 构造出的形状（summary/start/end/attendees 字段对得上）。
+// assertRequestConstructs -- runs create_event, asserts the body the mock recorded is the
+// shape request JSONata constructed (summary/start/end/attendees fields line up).
 async function assertRequestConstructs(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<void> {
@@ -190,8 +208,9 @@ async function assertRequestConstructs(
   expect(ev!.attendees?.map((a) => a.email)).toContain(input.attendee);
 }
 
-// assertGracefulEmpty —— 喂一坨「缺 calendars.primary.busy 路径」的 freeBusy，跑
-// list_busy，断言 200 + busy 优雅成 []（不 5xx、不漏 null/garbage）。缺字段/空对象共用。
+// assertGracefulEmpty -- feeds a freeBusy "missing the calendars.primary.busy path", runs
+// list_busy, asserts 200 + busy degrades gracefully to [] (no 5xx, no null/garbage leak).
+// Shared by the missing-field and empty-object cases.
 async function assertGracefulEmpty(request: APIRequestContext, csrf: string, raw: unknown): Promise<void> {
   const id = await createOK(request, csrf, SAMPLE_BINDING);
   await setMockFreeBusyRaw(request, raw);
@@ -200,8 +219,9 @@ async function assertGracefulEmpty(request: APIRequestContext, csrf: string, raw
   expect(out.busy, 'degrades to empty, no null/garbage leak').toEqual([]);
 }
 
-// assertCleanDegrade —— events.insert 回 array（object 期望）；断言不 5xx，且
-// 要么友好 4xx，要么 200 但 EventRef 干净为空（不把 array garbage 回给 consumer）。
+// assertCleanDegrade -- events.insert returns an array (an object was expected); asserts
+// no 5xx, and either a friendly 4xx or a 200 with a cleanly-empty EventRef (never hands
+// array garbage back to the consumer).
 async function assertCleanDegrade(request: APIRequestContext, csrf: string): Promise<void> {
   const id = await createOK(request, csrf, SAMPLE_BINDING);
   await setMockEventShape(request, 'array');
@@ -217,8 +237,9 @@ async function assertCleanDegrade(request: APIRequestContext, csrf: string): Pro
   }
 }
 
-// assertPreflightReject —— request JSONata 必填 summary 求值 null；断言 pre-flight
-// 友好拒（4xx，非 5xx），且 mock 没录到畸形 event（没真发出去）。
+// assertPreflightReject -- the request JSONata evaluates the required summary field to
+// null; asserts a friendly pre-flight rejection (4xx, not 5xx), and that the mock never
+// recorded a malformed event (nothing was actually sent out).
 async function assertPreflightReject(request: APIRequestContext, csrf: string): Promise<void> {
   const id = await createOK(request, csrf, NULL_REQUIRED_FIELD_BINDING);
   await setMockEventShape(request, 'object');
@@ -232,8 +253,9 @@ async function assertPreflightReject(request: APIRequestContext, csrf: string): 
   expect(events.find((e) => e.summary === null as unknown as string), 'no malformed event recorded').toBeFalsy();
 }
 
-// assertNestedArrayMaps —— 喂 periods[].interval{from,to}，跑 list_busy，断言嵌套映射 +
-// 重命名抽成契约 []{start,end}（证明 JSONata 构造力超出扁平路径）。
+// assertNestedArrayMaps -- feeds periods[].interval{from,to}, runs list_busy, asserts the
+// nested mapping + rename extracts into the contract's []{start,end} (proves JSONata's
+// construction power goes beyond flat paths).
 async function assertNestedArrayMaps(request: APIRequestContext, csrf: string): Promise<void> {
   const id = await createOK(request, csrf, NESTED_ARRAY_BINDING);
   const i0 = { from: future(2, 13), to: future(2, 14) };
@@ -241,13 +263,14 @@ async function assertNestedArrayMaps(request: APIRequestContext, csrf: string): 
   await setMockFreeBusyRaw(request, { calendars: { primary: { periods: [{ interval: i0 }, { interval: i1 }] } } });
   const out = await diagListBusy(request, csrf, id, future(1, 0), future(4, 0));
   expect(out.status).toBe(200);
-  // 同上:比时刻,不比时间串的写法。
+  // Same as above: compares the instant, not how the time string is written.
   expect(instants(out.busy)).toEqual(
     instants([{ start: i0.from, end: i0.to }, { start: i1.from, end: i1.to }]));
 }
 
-// assertExtraOpTolerated —— binding 多绑一个 consumer 不要的 op（cancel_event）；断言
-// 照常装配（calendar_book 冒出）且核心 list_busy 没被干扰。
+// assertExtraOpTolerated -- the binding also maps an op the consumer doesn't need
+// (cancel_event); asserts assembly still succeeds (calendar_book shows up) and the core
+// list_busy is unaffected.
 async function assertExtraOpTolerated(request: APIRequestContext, csrf: string): Promise<void> {
   const id = await createOK(request, csrf, EXTRA_OP_BINDING);
   const toolNames = await connectAndAssembleSession(request, csrf, id);
@@ -280,8 +303,9 @@ async function initOwner(playwright: Playwright): Promise<{
 }
 
 test.describe('connector binding · JSONata binding (§8 area C)', () => {
-  // #155 §8-C 已落地：声明式 JSONata 绑定子系统（POST /api/admin/connectors 收 spec+binding、
-  // 装配期校验、运行时 request/response JSONata）。
+  // #155 §8-C has landed: the declarative JSONata binding subsystem (POST
+  // /api/admin/connectors accepts spec+binding, assemble-time validation, runtime
+  // request/response JSONata).
 
   let request: APIRequestContext;
   let csrf: string;
@@ -291,21 +315,23 @@ test.describe('connector binding · JSONata binding (§8 area C)', () => {
   });
   test.afterAll(async () => { await request.dispose(); });
 
-  // ── happy: response JSONata 把 SaaS freeBusy 归一成契约 []{start,end} ──
+  // -- happy: response JSONata normalizes SaaS freeBusy into contract []{start,end} --
   test('response JSONata normalizes SaaS freeBusy into CalendarContract.ListBusy []{start,end}',
     async () => {
       const id = await createOK(request, csrf, SAMPLE_BINDING);
       await assertResponseNormalizes(request, csrf, id);
     });
 
-  // ── happy: request JSONata 把契约输入构造成正确的 SaaS create-event body ──
+  // -- happy: request JSONata constructs the correct SaaS create-event body from the
+  // contract input --
   test('request JSONata constructs the SaaS events.insert body from contract input',
     async () => {
       const id = await createOK(request, csrf, SAMPLE_BINDING);
       await assertRequestConstructs(request, csrf, id);
     });
 
-  // ── happy: category "calendar" → 连接器填日历 dep 槽 → calendar_book 装配 ──
+  // -- happy: category "calendar" -> connector fills the calendar dep slot ->
+  // calendar_book assembles --
   test('binding category "calendar" fills the calendar dep slot → calendar_book assembles',
     async () => {
       const id = await createOK(request, csrf, SAMPLE_BINDING);
@@ -313,84 +339,102 @@ test.describe('connector binding · JSONata binding (§8 area C)', () => {
       expect(toolNames).toContain('calendar_book');
     });
 
-  // ── err: 非法 JSONata 表达式 → 装配期拒，连接器不建 ──
+  // -- err: an invalid JSONata expression -> rejected at assemble time, connector not
+  // created --
   test('invalid JSONata expression is rejected at assemble time (connector not created)',
     async () => {
       await expectRejected(request, csrf, BROKEN_JSONATA_BINDING, /jsonata|invalid|syntax/i);
     });
 
-  // ── err: 绑定引用 spec 里不存在的 operationId → 拒 ──
+  // -- err: a binding referencing an operationId not in the spec -> rejected --
   test('binding referencing an operationId not in the spec is rejected',
     async () => {
       await expectRejected(request, csrf, GHOST_OP_BINDING, /freebusy\.nonexistent|operationid|not found/i);
     });
 
-  // ── err: 未知 category → 拒（没有这个品类槽可填） ──
+  // -- err: an unknown category -> rejected (no such category slot to fill) --
   test('binding with an unknown category is rejected',
     async () => {
       await expectRejected(request, csrf, UNKNOWN_CATEGORY_BINDING, /category|telepathy|unknown/i);
     });
 
-  // ── err: 契约 op 漏映（不完整绑定）→ 拒/标记 ──
-  // calendar 契约要求 list_busy + create_event 都映上；只给一个 → 不完整。
+  // -- err: a contract op left unmapped (incomplete binding) -> rejected/flagged --
+  // The calendar contract requires both list_busy + create_event to be mapped; giving
+  // only one -> incomplete.
   test('an incomplete binding (a contract op left unmapped) is rejected',
     async () => {
       await expectRejected(request, csrf, INCOMPLETE_BINDING, /create_event|unmapped|incomplete|missing/i);
     });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // §8-C RUNTIME branches —— 装配过了，运行时 SaaS 不按理想形状来时怎么优雅降级。
-  // 上面那批是 assemble-time 校验；这批专钉 runtime（缺字段 / shape 不符 / 非法请求体
-  // / 嵌套数组映射 / 多映 op）。test 体全抽进顶层 helper，保 describe callback 不超长。
-  // ─────────────────────────────────────────────────────────────────────────
+  // -----------------------------------------------------------------------
+  // §8-C RUNTIME branches -- once assembled, how does it gracefully degrade at runtime
+  // when the SaaS doesn't come back in the ideal shape?
+  // The batch above is assemble-time validation; this batch specifically pins runtime
+  // (missing field / shape mismatch / invalid request body / nested array mapping /
+  // extra mapped op). Every test body is pulled out into a top-level helper to keep the
+  // describe callback from getting too long.
+  // -----------------------------------------------------------------------
 
-  // ── err·runtime: response 读的字段缺失 → 优雅成 []（不崩、不 500） ──
-  // mock 喂一个没有 calendars.primary.busy 路径的 freeBusy；缺失路径求值 undefined → []。
+  // -- err·runtime: the field response reads is missing -> gracefully becomes []
+  // (no crash, no 500) --
+  // The mock feeds a freeBusy without the calendars.primary.busy path; evaluating the
+  // missing path -> undefined -> [].
   test('runtime missing field: freeBusy without calendars.primary.busy → ListBusy returns [] (graceful, no 5xx)',
     async () => {
       await assertGracefulEmpty(request, csrf, { kind: 'calendar#freeBusy', calendars: { primary: {} } });
     });
 
-  // ── err·runtime: 完全空对象响应 {} → 优雅成 []（一路 undefined，不 throw） ──
+  // -- err·runtime: a completely empty object response {} -> gracefully becomes []
+  // (undefined all the way down, no throw) --
   test('runtime null/empty response: freeBusy returns {} → ListBusy returns [] (graceful)',
     async () => {
       await assertGracefulEmpty(request, csrf, {});
     });
 
-  // ── err·runtime: 响应 SHAPE 不符（array where object 期望）→ 兜底降级，不回 garbage ──
-  // events.insert 的 response 取 .id/.htmlLink（期望 object），但 mock 回 array → EventRef
-  // 空/清晰降级；HTTP 不 5xx，不把 garbage 原样回给 consumer。
+  // -- err·runtime: response shape mismatch (array where object was expected) -> falls
+  // back and degrades, never returns garbage --
+  // events.insert's response takes .id/.htmlLink (expects an object), but the mock
+  // returns an array -> EventRef degrades cleanly/empty; HTTP is never 5xx, and garbage
+  // is never handed back to the consumer as-is.
   test('runtime shape mismatch: events.insert returns an array (object expected) → EventRef degrades cleanly (no garbage, no 5xx)',
     async () => {
       await assertCleanDegrade(request, csrf);
     });
 
-  // ── err·runtime: request JSONata 求出必填字段 null → pre-flight 拒/友好报错 ──
-  // request 把 summary 映到契约输入没有的字段 → 求值 null。不发畸形请求；pre-flight 拒。
+  // -- err·runtime: request JSONata evaluates a required field to null -> pre-flight
+  // rejection/friendly error --
+  // The request maps summary to a field the contract input doesn't have -> evaluates to
+  // null. No malformed request is sent; rejected pre-flight instead.
   test('runtime invalid request body: required summary evaluates to null → create rejected pre-flight (friendly, no malformed call)',
     async () => {
       await assertPreflightReject(request, csrf);
     });
 
-  // ── happy·runtime: 嵌套数组 + 重命名映射 → 正确抽成 []{start,end} ──
-  // 证明 JSONata 构造力超出扁平路径：periods[].interval.{from,to} → {start,end}。
+  // -- happy·runtime: nested array + rename mapping -> extracts correctly into
+  // []{start,end} --
+  // Proves JSONata's construction power goes beyond flat paths:
+  // periods[].interval.{from,to} -> {start,end}.
   test('runtime nested array mapping: periods[].interval{from,to} maps correctly into []{start,end}',
     async () => {
       await assertNestedArrayMaps(request, csrf);
     });
 
-  // ── happy: 多映一个 consumer 不要的 op（extra op）→ 容忍（忽略），照常装配 ──
-  // booker 只认 list_busy + create_event；多绑一个 cancel_event 不应阻止装配。
+  // -- happy: an extra op mapped that the consumer doesn't need (extra op) -> tolerated
+  // (ignored), assembles as usual --
+  // The booker only recognizes list_busy + create_event; mapping an extra cancel_event
+  // must not block assembly.
   test('binding maps an extra op the consumer does not need → tolerated (ignored), connector still assembles',
     async () => {
       await assertExtraOpTolerated(request, csrf);
     });
 });
 
-// diagInvoke —— 打 owner-authed 的连接器 diag 口。**这是一条绕过真实链路的后门**
-// (真实路径是 访客 chat → agent → booker 沙箱 → connector.invoke)，所以它**故意**
-// 内联在这里、不抽成共用 fixture:抽出去等于给"绕过"发许可证,下一个人就更容易用它。
-// 这条后门本身的去留见 task「diag 后门」。
+// diagInvoke -- hits the owner-authed connector diag endpoint. **This is a backdoor that
+// bypasses the real chain** (the real path is visitor chat -> agent -> booker sandbox ->
+// connector.invoke), so it's **deliberately** kept inline here instead of extracted into
+// a shared fixture: extracting it would license the bypass, making it easier for the next
+// person to reach for it. See the "diag backdoor" task for whether this backdoor itself
+// should stay or go.
 async function diagInvoke(
   request: APIRequestContext, csrf: string, id: string,
   category: string, op: string, args: Record<string, unknown>,

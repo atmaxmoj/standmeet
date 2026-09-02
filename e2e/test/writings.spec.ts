@@ -1,18 +1,25 @@
-// writings.spec.ts —— writings 全链 e2e (formerly blog-posts.spec.ts).
+// writings.spec.ts -- full-chain e2e for writings (formerly blog-posts.spec.ts).
 //
-// 业务故事：
-//   1. owner 在 /admin/writings 用 Tiptap 编辑器写：打字、`/` 唤出 slash menu
-//      插入 heading → publish → 访客 /writings 看到 → 文章页渲染出对应结构。
-//   2. owner 在 Claude Desktop 让 AI 调 writing_create (publish=true) → 访客
-//      /writings 列表也能看到 → 文章页渲染丰富 GFM 特性 (h2 / bold / 列表)。
-//      （rich GFM full coverage 落在这里——MCP 路径喂 markdown 是 AI 主要
-//      入口，且不依赖编辑器交互能力。）
-//   3. infinite scroll：writing_create 灌 13 篇 (default limit 12) → visitor
-//      滚到底 → 第 13 条自动 append。
-//   4. XSS：markdown 里塞 `<script>` 必须被 escape，不能跑到 DOM 里。
-//   5. image upload：owner paste 图片到编辑器 → 上传到 MinIO → markdown
-//      存 `standmeet-asset:<id>` URI → /writings 渲染时 backend resolve 成 presigned
-//      URL；orphan 扫此时 = 0（asset 有 writing 引用）。
+// Business story:
+//   1. the owner writes in the Tiptap editor on /admin/writings: types, calls
+//      up the slash menu with `/` to insert a heading -> publish -> a
+//      visitor sees it on /writings -> the article page renders the matching
+//      structure.
+//   2. the owner has the AI call writing_create (publish=true) from Claude
+//      Desktop -> a visitor also sees it in the /writings list -> the
+//      article page renders rich GFM features (h2 / bold / lists).
+//      (Rich GFM full coverage lives here specifically, because feeding
+//      markdown through the MCP path is the AI's primary entry point and
+//      doesn't depend on editor interaction capabilities.)
+//   3. infinite scroll: writing_create seeds 13 entries (default limit 12) ->
+//      a visitor scrolls to the bottom -> the 13th one auto-appends.
+//   4. XSS: a `<script>` stuffed into markdown must be escaped, and must
+//      never reach the DOM.
+//   5. image upload: the owner pastes an image into the editor -> it's
+//      uploaded to MinIO -> the markdown stores a `standmeet-asset:<id>` URI
+//      -> the backend resolves it into a presigned URL when /writings
+//      renders; the orphan scan should read 0 at this point (the asset has
+//      a writing referencing it).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -32,8 +39,8 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-// RICH_MD —— 一段塞满 GFM 特性的 markdown，喂进 MCP 路径，验 react-markdown
-// + remark-gfm 全 GFM 渲染。
+// RICH_MD -- a chunk of markdown packed with GFM features, fed through the
+// MCP path to verify react-markdown + remark-gfm's full GFM rendering.
 const RICH_MD = [
   'Opening paragraph with **bold** and _italic_ and ~~strike~~ and `inline code` and a [link](https://example.com/x) inline.',
   '',
@@ -149,7 +156,7 @@ test.describe('writings: atomic image upload via multipart save', () => {
       await expect(adminPage.getByTestId('writing-row-with-cover'))
         .toBeVisible({ timeout: 5_000 });
 
-      // 诊断：confirm writing stored cover_image_asset_id + asset_urls resolved
+      // Diagnostic: confirm writing stored cover_image_asset_id + asset_urls resolved
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const adminRes = await request.get('/api/admin/writings/', { headers: { 'X-Csrftoken': csrf } });
       const adminWritings = await adminRes.json() as Array<{ slug: string; cover_image_asset_id: string; asset_urls: Record<string, string> }>;
@@ -262,7 +269,8 @@ test.describe('writings: infinite scroll', () => {
     });
 });
 
-// 设父:editor 的 parent 下拉选了某篇 → 落库 parent_id → reader 公开树里成为子。
+// Setting a parent: selecting an entry from the editor's parent dropdown ->
+// stores parent_id -> becomes a child in the reader's public tree.
 test.describe('writings: set parent in editor → reader tree nesting', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
@@ -283,10 +291,15 @@ test.describe('writings: set parent in editor → reader tree nesting', () => {
       await adminPage.getByTestId('writing-field-parent').selectOption({ label: 'Tree Parent' });
       await adminPage.getByTestId('writing-create-submit').click();
 
-      // 子节点在树里**本来就是折叠的** —— 这条曾经断言它建完直接可见，那不是树该有的行为。
-      // 真正该守的是：父节点得**知道自己多了个孩子**（长出展开箭头），展开就能看到。
-      // 建的时候不 bump corpus epoch 的话，树的那一层是陈的：箭头不出现、子节点在界面上根本
-      // 够不着，而计数已经变成 2 —— owner 看到的是"我刚建的东西不见了"。
+      // A child node **starts collapsed in the tree by design** -- this test
+      // used to assert it was immediately visible right after creation, but
+      // that isn't how the tree is supposed to behave. What actually needs
+      // guarding is: the parent node must **know it gained a child** (grows
+      // an expand arrow), and expanding it reveals the child.
+      // If creating a child doesn't bump the corpus epoch, that level of the
+      // tree goes stale: the arrow never appears, the child is completely
+      // unreachable in the UI, while the count has already become 2 -- the
+      // owner sees "the thing I just created has disappeared".
       const parentRow = adminPage.getByTestId('writing-row-tree-parent');
       await expect(parentRow).toBeVisible({ timeout: 5_000 });
       await adminPage.getByTestId('tree-toggle-writing-row-tree-parent').click();
@@ -299,7 +312,7 @@ test.describe('writings: set parent in editor → reader tree nesting', () => {
     });
 });
 
-// adminWritingID —— admin list 里按 slug 找 writing id。
+// adminWritingID -- look up a writing id by slug in the admin list.
 async function adminWritingID(request: APIRequestContext, slug: string): Promise<string> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const res = await request.get('/api/admin/writings/', { headers: { 'X-Csrftoken': csrf } });
@@ -385,8 +398,9 @@ interface WritingMetaInput {
   tags: string;
 }
 
-// fillWritingMeta —— 填表单的非 body 部分。body 单独走 typeInEditor /
-// pickSlashItem，因为 Tiptap 是 contenteditable 不能 .fill()。
+// fillWritingMeta -- fills the non-body parts of the form. body is handled
+// separately through typeInEditor / pickSlashItem, because Tiptap is
+// contenteditable and can't be .fill()'d.
 async function fillWritingMeta(page: Page, input: WritingMetaInput): Promise<void> {
   await page.getByRole('button', { name: /new writing/i }).click();
   await page.getByTestId('writing-field-slug').fill(input.slug);
@@ -397,8 +411,9 @@ async function fillWritingMeta(page: Page, input: WritingMetaInput): Promise<voi
   await page.getByTestId('writing-field-tags').fill(input.tags);
 }
 
-// focusEditor —— 一次性 click 进 contenteditable，之后键盘 / 输入靠
-// page.keyboard，不再 click 否则 cursor 会被搬走。
+// focusEditor -- click into the contenteditable once; after that, keyboard /
+// input goes through page.keyboard, never clicking again or the cursor gets
+// moved.
 async function focusEditor(page: Page): Promise<void> {
   await page.getByTestId('writing-field-body').click();
 }
@@ -411,9 +426,12 @@ async function newLine(page: Page): Promise<void> {
   await page.keyboard.press('Enter');
 }
 
-// pickSlashItem —— 输 `/` 等 slash menu 出现，点对应 item，等菜单收起。
-// 等收起是必须的：菜单 click → React 触发 insert() 改 ProseMirror 节点 →
-// cursor 进新 block。立刻 type 会有几个字符竞争丢失（菜单还没散）。
+// pickSlashItem -- type `/`, wait for the slash menu to appear, click the
+// matching item, then wait for the menu to close.
+// Waiting for it to close is required: clicking the menu -> React fires
+// insert() to change the ProseMirror node -> the cursor moves into the new
+// block. Typing immediately would race and drop a few characters (the menu
+// hasn't dismissed yet).
 async function pickSlashItem(page: Page, itemId: string): Promise<void> {
   await page.keyboard.press('/');
   const menu = page.getByTestId('slash-menu');

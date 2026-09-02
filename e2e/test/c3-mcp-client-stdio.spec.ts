@@ -1,11 +1,13 @@
-// c3-mcp-client-stdio.spec.ts —— Phase C-3: @standmeet/mcp-client SDK 走通。
+// c3-mcp-client-stdio.spec.ts — Phase C-3: end-to-end through the @standmeet/mcp-client SDK.
 //
-// owner 通过 admin 生成 keypair → 写 credentials.json → Claude Desktop spawn
-// `node sdk/packages/mcp-client/bin/standmeet-mcp` 子进程 → 子进程 stdio
-// 跟 e2e 通信 → 转发到 backend /mcp。验：me 工具返 owner profile。
+// The owner generates a keypair via admin → writes credentials.json → Claude Desktop spawns
+// the `node sdk/packages/mcp-client/bin/standmeet-mcp` child process → the child process
+// talks to e2e over stdio → forwards to backend /mcp. Verify: the `me` tool returns the
+// owner profile.
 //
-// 这跟 e2e/fixtures/mcp.ts (HTTP + Sigv1 直发) 不同 —— 那条覆盖 backend
-// 验签；本 spec 覆盖 SDK 子进程的 creds load + sign + stdio bridge。
+// This differs from e2e/fixtures/mcp.ts (HTTP + Sigv1 sent directly) — that one covers
+// backend signature verification; this spec covers the SDK child process's creds load +
+// sign + stdio bridge.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -20,8 +22,9 @@ const OWNER = {
 };
 
 interface ToolCallResult { content?: Array<{ type: string; text?: string }>; isError?: boolean }
-// MeResp —— `me` 的载荷是 {owner:{…}, settings:{…}}。两个面同一份载荷之后,MCP 不再有
-// 自己那份扁平的;按扁平解会得到一串 undefined,而失败信息看不出是形状变了。
+// MeResp — `me`'s payload is {owner:{…}, settings:{…}}. Now that both surfaces share one
+// payload, MCP no longer has its own flat one; parsing it as flat yields a run of
+// undefined, and the failure message won't show that the shape changed.
 interface MeResp { owner?: { email: string; handle: string; full_name: string } }
 
 test.describe('Phase C-3 @standmeet/mcp-client stdio bridge', () => {

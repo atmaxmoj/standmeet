@@ -1,10 +1,11 @@
-// visitor-name-picker.spec.ts —— 扫码(pending code)→ 弹 VisitorNamePicker
-// 模态;defer-issue:模态就是 issue 点,填名/skip 才开 session。
+// visitor-name-picker.spec.ts -- scanning a code (pending code) -> pops the
+// VisitorNamePicker modal; defer-issue: the modal itself is the issue point, a session only
+// opens once the name is filled in or skipped.
 //
-// 业务故事：
-//   1. QR 扫码进 / → 模态自动弹（access granted · code…）。
-//   2. visitor 填名 + submit → 开 session + 模态消失 + SessionStrip 显名字。
-//   3. skip → 匿名开 session,模态消失;reload(pending 已消费 + session 在)不再弹。
+// Business story:
+//   1. Enter / via a QR scan -> the modal auto-pops (access granted · code...).
+//   2. Visitor fills in a name + submits -> session opens + modal disappears + SessionStrip shows the name.
+//   3. Skip -> session opens anonymously, modal disappears; on reload (pending consumed + session exists) it does not pop again.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -32,10 +33,10 @@ test.describe('VisitorNamePicker · auto-pop on first chat + persist', () => {
   test('QR absorb → modal pops; submit name → session + strip shows name',
     async ({ page }) => {
       await goto(page, `/?code=${CODE}`);
-      // 模态自动弹(有 pending code)。
+      // The modal auto-pops (there's a pending code).
       const nameInput = page.getByTestId('visitor-name-input');
       await expect(nameInput).toBeVisible({ timeout: 5_000 });
-      // 输 + submit → 开 session + 模态消失 + strip 显名字。
+      // Type + submit -> session opens + modal disappears + strip shows the name.
       await nameInput.fill('Recruiter Joe');
       await page.getByTestId('visitor-name-submit').click();
       await expect(nameInput).toBeHidden({ timeout: 5_000 });
@@ -50,10 +51,10 @@ test.describe('VisitorNamePicker · auto-pop on first chat + persist', () => {
       const skipBtn = page.getByTestId('visitor-name-skip');
       await expect(skipBtn).toBeVisible({ timeout: 5_000 });
       await skipBtn.click();
-      // 模态消失 + 匿名 session 起来(strip 在)。
+      // Modal disappears + an anonymous session starts (strip appears).
       await expect(skipBtn).toBeHidden({ timeout: 5_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 10_000 });
-      // reload:pending 已消费 + session 已落 LS → 不再弹模态。
+      // Reload: pending consumed + session persisted to LS -> modal does not pop again.
       await goto(page, '/');
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('visitor-name-skip')).toBeHidden();

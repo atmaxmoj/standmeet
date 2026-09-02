@@ -1,8 +1,11 @@
-// connector-err-confirmation-idempotent.spec.ts —— §四 E14
-// 确认信重复发不双发：访客在 BookCard 上点两次「发确认」→ 收件箱里仍只有 1 封
-// （send_confirmation 幂等 / 点完即锁，绝不双发）。Model on booking-confirmation-email。
+// connector-err-confirmation-idempotent.spec.ts — §4 E14
+// Resending the confirmation email does not double-send: a visitor clicks "send
+// confirmation" twice on the BookCard → the inbox still holds only 1 email
+// (send_confirmation is idempotent / the card locks the moment it's clicked, never
+// double-sends). Modeled on booking-confirmation-email.
 //
-// RED / TDD：依赖 send_confirmation 防重（点完锁卡 + 后端幂等）落地后转绿。
+// RED / TDD: goes green once send_confirmation's duplicate guard (lock the card on
+// click + backend idempotency) is in place.
 //
 // Error stream E14 (idempotency): sending the confirmation email twice does not
 // double-send — Mailpit count stays at 1.
@@ -69,7 +72,8 @@ test.describe('connector error stream · confirmation email is idempotent (E14)'
     });
 });
 
-// enterWithProfile —— ?code 入口 → 名字选择器填 name + email → 提交 → 等 session。
+// enterWithProfile — the ?code entry point → fill name + email in the name picker →
+// submit → wait for the session.
 async function enterWithProfile(
   page: Page, code: string, name: string, email?: string,
 ): Promise<void> {
@@ -84,7 +88,7 @@ async function enterWithProfile(
   await session;
 }
 
-// bookInChat —— script 一次 calendar_book，触发 → 等 BookCard 出现。
+// bookInChat — script one calendar_book, trigger it → wait for the BookCard to appear.
 async function bookInChat(page: Page, hour: number): Promise<void> {
   const tag = await scriptMockToolCall(page.request, {
     name: 'calendar_book',

@@ -1,17 +1,21 @@
-// connector-spec-fetch-names-the-refusal.spec.ts —— F-C-23:被 SSRF 闸门挡下的抓取,不许说成
-// 「是不是连不上?」。
+// connector-spec-fetch-names-the-refusal.spec.ts -- F-C-23: a fetch blocked by the SSRF
+// gate must not be reported as "is it unreachable?".
 //
-// 真实环境里驱出来的:在 prod 的 add-connector 面板里把 spec URL 填成同一个 docker 网络上的
-// `http://standmeet-prod-app-1:3000/`,面板回 *"could not fetch the spec from that URL
-// (is it reachable?)"*。那个地址**确凿可达** —— 从后端容器里 wget 拿到 200 OK。所以那是闸门
-// 按策略拒绝,却把 owner 支去排查自己的网络。同一个代码库里的兄弟端点早就分开了
-// (`inference_models.go` 的 `endpoint_blocked`)。
+// Found by driving the real environment: on prod's add-connector panel, filling the spec
+// URL with `http://standmeet-prod-app-1:3000/` (on the same docker network) got back
+// *"could not fetch the spec from that URL (is it reachable?)"*. That address is
+// **definitely reachable** -- wget from inside the backend container gets a 200 OK. So
+// this was the gate refusing on policy, while telling the owner to go troubleshoot their
+// own network. A sibling endpoint in the same repo already separates these
+// (`inference_models.go`'s `endpoint_blocked`).
 //
-// 两条断言缺一不可,而且是**相反方向**的:
-//   1. 内网地址 → 那句话必须点名「地址策略」;
-//   2. 解析不了的公网域名 → 那句话必须**仍然**是可达性,不许被一并改口。
-// 只断第 1 条的话,一个「所有抓取失败都改说内网」的偷懒修法也能过 —— 那是把谎换个方向,
-// 而且更糟:owner 会去找一个根本不存在的内网问题。
+// Both assertions are required, and they point in **opposite directions**:
+//   1. An internal address -> the message must name "address policy";
+//   2. An unresolvable public domain -> the message must **still** be about reachability,
+//      must not get folded into the same wording.
+// Asserting only #1 would let a lazy fix through -- one that reports every fetch failure
+// as "internal" -- that's just the lie pointed a different way, and worse: the owner
+// would go hunt for an internal-network problem that doesn't exist.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -26,13 +30,16 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-// PRIVATE_URL —— 字面私网 IP:静态判定,不经 DNS,所以既快又没有解析这一层的歧义。
+// PRIVATE_URL -- a literal private-network IP: judged statically, no DNS involved, so
+// it's both fast and free of any ambiguity from the resolution step.
 const PRIVATE_URL = 'http://10.255.255.1/openapi.json';
-// UNRESOLVABLE_URL —— `.invalid` 是保留 TLD,永远解析不了。它**不是**内网地址。
+// UNRESOLVABLE_URL -- `.invalid` is a reserved TLD that never resolves. It is **not** an
+// internal address.
 const UNRESOLVABLE_URL = 'https://standmeet-verify-no-such-host.invalid/openapi.json';
 
-// NAMES_THE_ADDRESS —— 断的是「这句话说出了地址策略」,不是某个具体措辞:措辞是产品的选择,
-// 说得出来才是不变量。
+// NAMES_THE_ADDRESS -- asserts that "the message names the address policy", not any
+// specific wording: the exact wording is the product's choice, being able to state it at
+// all is the invariant.
 const NAMES_THE_ADDRESS = /internal|private|not allowed/i;
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -57,25 +64,29 @@ test.describe('connector · spec fetch names which refusal it is', () => {
     await claimOwner(playwright);
   });
 
-  // 内网地址 → 说出地址策略;解析不了的域名 → 仍然说可达性(两个方向缺一不可,见文件头)。
+  // Internal address -> names the address policy; unresolvable domain -> still reports
+  // reachability (both directions required, see the file header).
   test('internal address names the address policy; unresolvable host still says reachability',
     async ({ adminPage: page }) => {
     test.setTimeout(180_000);
-    // 从 sidebar 走进去(不 page.goto),跟 connector-spec-ingest 同一条入口。
+    // Navigates in through the sidebar (not page.goto), same entry point as
+    // connector-spec-ingest.
     await page.getByTestId('admin-nav-connectors').click();
     await page.waitForURL('**/admin/connectors**');
     await page.getByTestId('connector-add-open').click();
 
     const err = page.getByTestId('connector-spec-error');
 
-    // 1) 被闸门挡下的那一种。
+    // 1) The kind blocked by the gate.
     await fetchSpecFrom(page, PRIVATE_URL);
     await expect(err).toBeVisible({ timeout: 30_000 });
-    // 非空守卫:先证这条错误真的在说话,否则空文本也能让下面的判定看起来讲得通。
+    // Non-empty guard: proves this error message is actually saying something first,
+    // otherwise empty text would also make the check below look like it passed for a
+    // reason.
     await expect(err).not.toHaveText('');
     await expect(err).toHaveText(NAMES_THE_ADDRESS);
 
-    // 2) 真的连不上的那一种 —— 不许被一并改口成「内网」。
+    // 2) The kind that's genuinely unreachable -- must not get folded into "internal".
     await fetchSpecFrom(page, UNRESOLVABLE_URL);
     await expect(err).toBeVisible({ timeout: 30_000 });
     await expect(err).not.toHaveText('');

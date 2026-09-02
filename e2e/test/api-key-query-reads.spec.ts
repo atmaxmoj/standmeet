@@ -1,16 +1,18 @@
-// api-key-query-reads.spec.ts —— F-B-13：**读就说自己是读。**
+// api-key-query-reads.spec.ts -- F-B-13: **a read must say it is a read.**
 //
-// 驱 booking-book check 7 时看到的（2026-08-20）：`GET /api/pub/v1/tools` 里
-// `calendar_list_slots` 的 `read_only` 是 **false**，而四个 `corpus_*` 都是 true。列时段是安全且
-// 幂等的 —— 它正是 `QUERY` 这个方法存在的理由（RFC 10008：带 body 的读）。一个读被登记成写，
-// 调用方只能用 POST，而「这次调用会不会改变什么」这个问题**产品自己回答错了**。
+// Spotted while driving booking-book check 7 (2026-08-20): in `GET /api/pub/v1/tools`,
+// `calendar_list_slots`'s `read_only` is **false**, while all four `corpus_*` are true.
+// Listing slots is safe and idempotent -- that is exactly why the `QUERY` method exists
+// (RFC 10008: a read with a body). A read gets registered as a write, so callers are
+// forced to use POST, and the product **answers wrong** on "does this call change anything".
 //
-// 这一格来自工具自己声明的 MCP `annotations.readOnlyHint`（`capreg/binding_tool.go:55`），
-// booker 插件从没给它的读工具声明过。
+// This flag comes from the tool's own MCP `annotations.readOnlyHint`
+// (`capreg/binding_tool.go:55`); the booker plugin has never declared it on its read tools.
 //
-// 判据不是「那一格写着 true」，是**那个方法真的能用**：先断 QUERY 打得通（这才是这一格解锁的
-// 能力），再断写工具上的 QUERY 仍然被拒 —— 否则一个「一律 read_only:true」的实现也能转绿
-// （[[assertion-that-cannot-fail]]）。
+// The pass criterion is not "that flag reads true", it is **that the method actually
+// works**: first assert QUERY goes through (that's the capability this flag unlocks),
+// then assert QUERY is still rejected on write tools -- otherwise an implementation that
+// always returns `read_only:true` would also go green ([[assertion-that-cannot-fail]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

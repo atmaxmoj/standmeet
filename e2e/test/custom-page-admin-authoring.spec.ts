@@ -1,13 +1,18 @@
-// custom-page-admin-authoring.spec.ts —— 自定义页的写作在**面板**上也走得通，
-// 而且失败的时候说得出话。
+// custom-page-admin-authoring.spec.ts —— custom page authoring also works
+// through the **panel**, and it says something when it fails.
 //
-// 为什么这个文件存在：写这一组曾经只在 MCP 上，例外的理由是
-// `fp.Only("…the panel has no such surface", "mcp")` —— 用现状解释现状，而且写在棘轮
-// 读得到的地方，于是缺口从此不再被报。删掉例外之后收口在启动时点名要这八条。
+// Why this file exists: writing this group once ran only through MCP, and the
+// exception's stated reason was `fp.Only("…the panel has no such surface",
+// "mcp")` — explaining the status quo with the status quo, written where the
+// ratchet can read it, so the gap stopped being reported from then on. After
+// removing the exception, the collection names these eight cases at startup.
 //
-// **这里的重点是失败路径。** 原有覆盖是三条，全是 happy path：建完能看见、没有死按钮、
-// staging→live→delete。九个 op 一条失败用例都没有（[[all-tests-are-failure-path]] 的反面）。
-// 而对 owner 来说，「构建悄悄失败、线上还是旧页」跟「构建成功了」在屏幕上长得一模一样。
+// **The point of this file is the failure path.** Existing coverage was three
+// cases, all happy path: build-then-visible, no dead buttons,
+// staging→live→delete. Not one of the nine ops had a failure case
+// ([[all-tests-are-failure-path]]'s mirror image). And to the owner, "the
+// build silently failed, the old page is still live" looks exactly the same
+// on screen as "the build succeeded."
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -26,15 +31,16 @@ const OWNER = {
 
 const MARKER = 'ADMIN_AUTHORED_PAGE';
 
-// GOOD —— 编译得过的最小页面。
+// GOOD —— a minimal page that compiles.
 const GOOD_APP = `
 export default function App() {
   return <main><h1>${MARKER}</h1></main>;
 }
 `.trim();
 
-// BAD —— **编译不过**。缺一个右花括号，vite 一定失败。
-// 判据要的是「owner 被告知哪里坏了」，所以坏在源码里，不是坏在参数上。
+// BAD —— **does not compile**. Missing a closing brace; vite will always fail.
+// The criterion wants "the owner is told where it broke," so the break lives
+// in the source, not in the request parameters.
 const BAD_APP = `
 export default function App() {
   return <main><h1>never built</h1></main>;
@@ -44,7 +50,7 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 
 interface BuildRow { build_id?: string; status?: string; error_message?: string }
 
-// api —— 面板那条路（admin HTTP），**不是 MCP**。这个文件整篇只走它。
+// api —— the panel path (admin HTTP), **not MCP**. This whole file goes through it only.
 async function api(
   request: APIRequestContext, csrf: string, method: 'get' | 'post' | 'put' | 'delete',
   path: string, data?: unknown,
@@ -57,8 +63,9 @@ async function api(
   return { status: res.status(), body };
 }
 
-// buildUntilSettled —— 轮询到 built | failed。构建是异步的（沙箱起 vite），
-// 所以判据必须等到终态，否则断的是"还在 pending"，那对任何实现都成立。
+// buildUntilSettled —— polls until built | failed. The build is async (the
+// sandbox spins up vite), so the criterion has to wait for a terminal state;
+// otherwise it's asserting "still pending," which holds for any implementation.
 async function buildUntilSettled(
   request: APIRequestContext, csrf: string, slug: string,
 ): Promise<BuildRow> {
@@ -71,16 +78,18 @@ async function buildUntilSettled(
     const got = await api(request, csrf, 'get', `/builds/${id}`);
     row = got.body;
     return row.status ?? 'pending';
-    // 180s 不是「等久一点碰运气」：沙箱**一次只建一个**，而这一族里好几条用例都要真构建，
-    // 于是它们在同一个 builder 上排队。单跑这条 9.5 秒就到终态，整族一起跑就会排在别人后面。
-    // 预算给的是**排队**，不是给一次可能永远不来的构建。
+    // 180s isn't "wait longer and hope": the sandbox **builds one at a time**, and several
+    // cases in this group each need a real build, so they queue on the same builder. Run
+    // this case alone and it settles in 9.5s; run the whole group together and it queues
+    // behind the others. The budget is for **queueing**, not for a build that might never come.
   }, { timeout: 180_000, message: 'the build never reached a terminal state' })
     .toMatch(/^(built|failed)$/);
   return row;
 }
 
-// liveAt —— 建一个页面并上线，返回访客那一侧的响应。撤下类用例的公共前置：
-// 「撤之前它确实在服务」这一句必须真断过，否则撤完的 404 可能一直都是 404。
+// liveAt —— build a page and promote it live, return the visitor-side response. The shared
+// precondition for withdrawal cases: "it really was serving before withdrawal" must be
+// actually asserted, otherwise a 404 after withdrawal might have been a 404 all along.
 async function liveAt(
   request: APIRequestContext, csrf: string, slug: string,
 ) {
@@ -92,11 +101,12 @@ async function liveAt(
   return request.get(`${BACKEND}/api/v1/custom-pages/${slug}`);
 }
 
-// freshOwner —— 每条用例一个干净实例 + 登录好的 admin 请求上下文。两个 describe 共用。
-// 每条用例都要真构建一次页面（沙箱起 vite，**一次只建一个**）。默认 30s 的
-// 用例预算把上面那个 180s 轮询**截断在中途** —— 于是超时读起来像「构建卡住了」，
-// 而真正的原因是排队（[[red-in-the-wrong-place]]）。放宽的是排队预算，
-// 轮询自己仍有终点，真的建不出来照样红。
+// freshOwner —— one clean instance + a logged-in admin request context per case. Shared by
+// both describes. Every case has to build a page for real (the sandbox spins up vite,
+// **one build at a time**). The default 30s case budget would **cut the 180s poll above off
+// mid-flight** — so a timeout would read as "the build is stuck," when the real cause is
+// queueing ([[red-in-the-wrong-place]]). What gets widened here is the queueing budget; the
+// poll itself still has its own endpoint, and a build that truly can't finish still goes red.
 const BUILD_BUDGET_MS = 240_000;
 
 async function freshOwner(playwright: Playwright): Promise<{
@@ -134,43 +144,48 @@ test.describe('custom pages · authoring from the panel (parity with MCP)', () =
     expect((await api(request, csrf, 'post', '/from-panel/live',
       { build_id: built.build_id })).status, 'promote_to_live').toBe(200);
 
-    // 访客那一侧才是判据 —— 面板说成功不算数。
+    // The visitor side is the criterion — the panel saying "success" doesn't count.
     const seen = await request.get(`${BACKEND}/api/v1/custom-pages/from-panel`);
     expect(seen.status()).toBe(200);
     expect(await seen.text()).toContain('<div id="root">');
   });
 
   test('a build that cannot compile fails loudly and leaves the live page alone', async () => {
-    // 先上一个能用的版本，好证明"失败不会动线上"。
+    // Ship a working version first, so we can prove "a failure doesn't touch what's live."
     await api(request, csrf, 'post', '/', { slug: 'broken', title: 'Broken' });
     await api(request, csrf, 'put', '/broken/files', { path: 'App.tsx', content: GOOD_APP });
     const good = await buildUntilSettled(request, csrf, 'broken');
     expect(good.status).toBe('built');
     await api(request, csrf, 'post', '/broken/live', { build_id: good.build_id });
 
-    // 再推一版编译不过的。
+    // Now push a version that fails to compile.
     await api(request, csrf, 'put', '/broken/files', { path: 'App.tsx', content: BAD_APP });
     const bad = await buildUntilSettled(request, csrf, 'broken');
 
     expect(bad.status, 'a build that cannot compile must not report built').toBe('failed');
-    // **不断"有 error_message"** —— 空串也叫有。断它说得出点什么，
-    // 否则 owner 拿到的是一个没有原因的失败（[[collapsed-error-class-kills-its-own-branch]]）。
-    // 断的是**它说出了坏在哪一份源码里**，不是「说了点什么」。
+    // **Don't just assert "has an error_message"** — an empty string also "has" one. Assert
+    // it actually says something, otherwise the owner gets a failure with no cause
+    // ([[collapsed-error-class-kills-its-own-branch]]). What's asserted is **that it names
+    // which source file broke**, not merely "it said something."
     //
-    // 上一版断的是 `length > 10` —— 一句长度够的话就过，而当时产品给出的正是
-    // `Command failed: node /tmp/work/<uuid>/node_modules/vite/bin/vite.js build --logLevel error`：
-    // 长度足够、内容全是我们自己的内部命令行，owner 要改的那一行一个字都没有（F-P-3）。
-    // 长度不是判据，长度只是一个恒真的形状（[[assertion-that-cannot-fail]]）。
+    // An earlier version asserted `length > 10` — any message long enough would pass, and
+    // what the product actually returned at the time was exactly
+    // `Command failed: node /tmp/work/<uuid>/node_modules/vite/bin/vite.js build --logLevel error`:
+    // long enough, and entirely our own internal command line — not one character of what the
+    // owner needed to change (F-P-3). Length isn't the criterion; length is just a shape
+    // that's vacuously true ([[assertion-that-cannot-fail]]).
     expect(bad.error_message ?? '',
       'the failure must name the source that broke, not our own command line')
       .toContain('App.tsx');
-    // 而且不许把 esbuild 自己的调用栈一起摆出来。抓回 stderr 之后第一版就是这样：
-    // 「哪一行坏了」是对的，后面跟着一整串 `at failureErrorWithLog (node_modules/esbuild/…)`,
-    // 把有用的那两行挤到看不见的地方 —— 修一个问题顺手造出另一个（F-P-3 的第二半）。
+    // And it must not dump esbuild's own call stack alongside it. That's exactly what the
+    // first version did once stderr was captured: "which line broke" was correct, but
+    // followed by a whole stack of `at failureErrorWithLog (node_modules/esbuild/…)`,
+    // pushing the two useful lines out of view — fixing one problem created another
+    // (the second half of F-P-3).
     expect(bad.error_message ?? '', 'and it must not dump a stack trace at the owner')
       .not.toMatch(/\bat \w+ \(/);
 
-    // 线上仍是上一版：失败不许把已经在服务的东西弄没。
+    // What's live is still the previous version: a failure must not take down what's already serving.
     const still = await request.get(`${BACKEND}/api/v1/custom-pages/broken`);
     expect(still.status(), 'a failed build must not take the live page down').toBe(200);
   });
@@ -196,8 +211,9 @@ test.describe('custom pages · authoring from the panel (parity with MCP)', () =
   });
 });
 
-// I-3：撤下就是撤下。以下三条各撤一种方式，判据都在**访客那一侧**。
-// 单独一个 describe —— 上面那个回调到了 70 行的闸。
+// I-3: withdrawal means withdrawal. The three cases below each withdraw a different way; the
+// criterion is always on the **visitor side**.
+// A separate describe — the block above already hit the 70-line gate.
 test.describe('custom pages · withdrawal is not a snapshot (I-3)', () => {
   let request: APIRequestContext;
   let csrf: string;
@@ -226,13 +242,16 @@ test.describe('custom pages · withdrawal is not a snapshot (I-3)', () => {
     expect(after.status(), 'a deleted page stops serving').toBeGreaterThanOrEqual(400);
   });
 
-  // 托管页的自由度**是一个可以被一行 header 一次性拿走的东西**。
+  // The hosted page's freedom **is something that can be taken away all at once by a single
+  // header line**.
   //
-  // 页面能放远端图片 / mp4 / 音频 / 第三方 iframe / 远端字体，靠的是这条路上没有 CSP，
-  // 也没有 X-Frame-Options。哪天谁在 app 或 backend 上加一条「安全加固」的默认头，
-  // **每一个 owner 建的页会同时哑掉**，而且不报错：图不显示、视频不播、iframe 一片空白。
-  // 这条守的就是那个 —— 断的是「我们没有对浏览器说不许」，不是某一个素材能不能加载
-  // （那要真去公网取，把整套 e2e 绑在别人的可用性上）。
+  // Pages can embed remote images / mp4 / audio / third-party iframes / remote fonts because
+  // this path has no CSP and no X-Frame-Options. The day someone adds a "security hardening"
+  // default header on app or backend, **every page an owner built goes dumb at once**, with
+  // no error: images don't show, video doesn't play, iframes go blank. This case guards
+  // exactly that — it asserts "we didn't tell the browser to refuse," not whether any
+  // particular piece of media can load (that would mean reaching out to the public internet,
+  // tying the whole e2e suite to someone else's uptime).
   test('nothing on this path tells the browser to refuse third-party media', async () => {
     const live = await liveAt(request, csrf, 'openpage');
     expect(live.status()).toBe(200);
@@ -240,16 +259,18 @@ test.describe('custom pages · withdrawal is not a snapshot (I-3)', () => {
     expect(h['content-security-policy'] ?? '',
       'a CSP here would silently kill remote img/video/audio on every custom page').toBe('');
     expect(h['content-security-policy-report-only'] ?? '').toBe('');
-    // 第三方 iframe 是**这一页嵌别人**，跟 X-Frame-Options（别人嵌这一页）方向相反，
-    // 所以这里只断我们没有拿 CSP 的 frame-src 去挡自己的页面 —— 上一条已经覆盖了。
+    // A third-party iframe is **this page embedding someone else**, the opposite direction
+    // from X-Frame-Options (someone else embedding this page), so this only asserts that
+    // we're not blocking our own page with CSP's frame-src — the case above already covers that.
     expect(h['cross-origin-embedder-policy'] ?? '',
       'COEP would break every cross-origin image and media on the page').toBe('');
   });
 
   test('the page is never handed to the browser as cacheable', async () => {
     const live = await liveAt(request, csrf, 'nocache');
-    // 撤下之后还能打开，如果是我们让浏览器存的，那就是我们的问题不是浏览器的。
-    // 这一路以前**一个 Cache-Control 都没发** —— 没有头，浏览器按启发式自己缓存。
+    // If it's still openable after withdrawal because we told the browser to cache it, that's
+    // our problem, not the browser's. This path used to **send no Cache-Control header at
+    // all** — no header, so the browser caches on its own heuristics.
     expect(live.headers()['cache-control'] ?? '',
       'a withdrawable page must not be advertised as cacheable').toMatch(/no-store|no-cache/);
   });

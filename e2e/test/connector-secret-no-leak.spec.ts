@@ -1,10 +1,14 @@
-// connector-secret-no-leak.spec.ts —— Phase B / secret-scan：连接器凭据**永不**
-// 出现在访客可见的产物里。约/列时段会经 GCal 连接器（持密代调），但 owner 的
-// client_secret / token 这串值，绝不该出现在 tool_result 或 admin 会话 transcript。
+// connector-secret-no-leak.spec.ts —— Phase B / secret-scan: a connector credential must
+// **never** appear in anything the visitor can see. Booking / listing slots goes through the
+// GCal connector (which holds the secret and calls on the owner's behalf), but the owner's
+// client_secret / token value must never appear in a tool_result or in the admin
+// conversation transcript.
 //
-// 这条配合 connector-credential-arch（go-arch-lint 结构门）从两侧夹「凭据永不出
-// vault」：结构上 capability 碰不到凭据 + 行为上凭据不泄漏。重构前后都必须绿
-// （是回归 guard，不是新 contract，所以现在就该是绿的）。
+// This pairs with connector-credential-arch (the go-arch-lint structural gate) to pincer
+// "credentials never leave the vault" from both sides: structurally, capability code can't
+// touch credentials; behaviorally, credentials don't leak. Must stay green both before and
+// after any refactor (this is a regression guard, not a new contract — so it should already
+// be green now).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -16,8 +20,8 @@ import { issueSession } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// gcal-setup 用 MOCK_GCAL_CREDS（client_secret 是已知常量）。这串值是 owner 的
-// 凭据，绝不该泄漏到访客侧。
+// gcal-setup uses MOCK_GCAL_CREDS (client_secret is a known constant). This value is the
+// owner's credential and must never leak to the visitor side.
 const GCAL_CLIENT_SECRET = 'mock-gcal-client-secret';
 
 function future(days: number, hour: number): string {
@@ -43,8 +47,10 @@ async function callListSlots(
   return { status: res.status(), text: await res.text() };
 }
 
-// callBook —— 走 externalized booker 插件的终端 op(calendar_book)。插件经窄 socket 调,GCal
-// 凭据由 connector proxy server-side 注入,**绝不**过插件边界 —— 断言 secret 不进 booked 结果。
+// callBook —— goes through the externalized booker plugin's terminal op (calendar_book). The
+// plugin is called over a narrow socket; the GCal credential is injected server-side by the
+// connector proxy and **never** crosses the plugin boundary — assert the secret doesn't end
+// up in the booked result.
 async function callBook(
   request: APIRequestContext, convID: string, token: string,
 ): Promise<{ status: number; text: string }> {
@@ -58,9 +64,11 @@ async function callBook(
   return { status: res.status(), text: await res.text() };
 }
 
-// fetchTranscript —— 读 owner admin 视角下该对话的完整 transcript(tool 调用 + 结果都持久化在
-// 这里,secret 若泄漏会现形)。**必须用 owner-authed 的 seed.request**:访客 context 打 admin
-// 路由只会 401,拿到的错误体天然不含 secret → not.toContain 恒真(假绿)。返 status 供断言把关。
+// fetchTranscript —— reads the full transcript of that conversation from the owner admin's
+// view (tool calls + results are both persisted here, so a leaked secret would show up).
+// **Must use the owner-authed seed.request**: a visitor context hitting the admin route only
+// gets a 401, and that error body naturally contains no secret → not.toContain would be
+// vacuously true (a false green). Returns status too, so the assertion can gate on it.
 async function fetchTranscript(
   ownerRequest: APIRequestContext, csrf: string, convID: string,
 ): Promise<{ status: number; text: string }> {
@@ -101,7 +109,8 @@ test.describe('Phase B · connector credential never leaks to the visitor', () =
       expect(booked.text, 'secret not in booker plugin result').not.toContain(GCAL_CLIENT_SECRET);
 
       // nor in the admin transcript of that conversation (tool calls + results are persisted).
-      // 用 owner-authed 的 seed.request 真读回 transcript;先钉 200,别让 401 错误体把断言蒙混过关。
+      // Read the transcript back for real, using owner-authed seed.request; pin the status to
+      // 200 first, so a 401 error body can't sneak the assertion through.
       const transcript = await fetchTranscript(seed.request, seed.csrf, sess.conversation_id);
       expect(transcript.status, 'transcript really fetched (not a 401 body)').toBe(200);
       expect(transcript.text, 'secret not in transcript').not.toContain(GCAL_CLIENT_SECRET);

@@ -1,17 +1,19 @@
-// external-mcp-tools.spec.ts —— owner-registered 外部 MCP server 接进
-// visitor chat。
+// external-mcp-tools.spec.ts —— an owner-registered external MCP server
+// wired into visitor chat.
 //
-// 业务故事：
-//   alice 在 Claude Desktop 用 mcp_server_create 注册了 'host-tool' 指
-//   docker-compose 起的 mcp-server-mock (暴露 ping_external tool 返
-//   `[EXT-MCP-MARKER]`)。新建 INVITE EXT-001 attach 这个 server。访客用
-//   EXT-001 聊 → backend 拨号 mcp-server-mock → ListTools → 给 AI 暴露
-//   ext_host-tool_ping_external → mock 路径 ExecuteTool 调用一次 → 外部
-//   server 返 marker → backend 包成 tool_result → mock provider echo
-//   [skill_result:...] (复用 skill 结果 echo) 进 reply。
+// Business story:
+//   alice registers 'host-tool' in Claude Desktop via mcp_server_create,
+//   pointing at the mcp-server-mock started by docker-compose (exposes a
+//   ping_external tool that returns `[EXT-MCP-MARKER]`). She creates INVITE
+//   EXT-001 attaching this server. A visitor chats with EXT-001 → backend
+//   dials mcp-server-mock → ListTools → exposes ext_host-tool_ping_external
+//   to the AI → the mock path's ExecuteTool is called once → the external
+//   server returns the marker → backend wraps it as a tool_result → the mock
+//   provider echoes [skill_result:...] (reusing the skill-result echo) into
+//   the reply.
 //
-// UI-driven (G-1): visitor 真开浏览器 → throbber tool-throbber-
-// ext_host-tool_ping_external 出现 + answer-body 含 EXT_MARKER。
+// UI-driven (G-1): visitor opens a real browser → the throbber
+// tool-throbber-ext_host-tool_ping_external appears + answer-body contains EXT_MARKER.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -71,10 +73,13 @@ test.describe('owner registers external MCP server; visitor chat uses its tools'
       await input.fill(`call the external tool${tag}`);
       await input.press('Enter');
 
-      // 证据走持久信号:answer-body 里含 ext server 的回包 marker —— 证明 MCP
-      // client 真拨了 mcp-server-mock 且 tool 结果 roundtrip 回来。throbber 是
-      // 单值瞬时态(本地 mock 往返太快、React batch 掉,DOM 来不及画),不在这赌;
-      // throbber 生命周期由 visitor-chat-throbber-* 专门验。
+      // Evidence goes through a persistent signal: answer-body contains the ext
+      // server's reply marker — proof the MCP client really dialed
+      // mcp-server-mock and the tool result round-tripped back. The throbber is
+      // a single-value transient state (the local mock round-trips too fast,
+      // React batches it away, the DOM never gets a chance to paint it), so
+      // this test doesn't gamble on it; the throbber's lifecycle is verified
+      // separately by visitor-chat-throbber-*.
       await expect(page.locator('[data-testid="answer-body"]'))
         .toContainText(EXT_MARKER, { timeout: 20_000 });
 
@@ -98,7 +103,7 @@ async function registerServerAndCode(request: APIRequestContext): Promise<void> 
 async function createCodeAttachingServer(
   request: APIRequestContext, csrf: string, serverID: string,
 ): Promise<void> {
-  // A.3-IAM-5: 建一个 role 把 mcp server 挂上，再用 role id 发 code。
+  // A.3-IAM-5: create a role with the mcp server attached, then issue a code with that role id.
   const roleRes = await request.post('http://localhost:8000/api/admin/roles/', {
     headers: { 'X-Csrftoken': csrf },
     data: {

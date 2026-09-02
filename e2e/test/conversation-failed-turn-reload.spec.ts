@@ -1,11 +1,13 @@
-// conversation-failed-turn-reload.spec.ts —— 「dialog 持久化 iff AI 答完」的
-// 刷新版边界。
+// conversation-failed-turn-reload.spec.ts — the reload-side boundary of "a dialog
+// persists iff the AI finished answering".
 //
-// 失败/没答完的一轮:前端会渲一条友好错误,但**不落 dialog、不计数**。刷新后
-// 这条就该彻底不在(transcript 里没有、count 没涨)——因为 conversation 聚合只
-// 由"答完的轮"组成,count = len(dialogs)。
+// A failed / unfinished turn: the frontend renders a friendly error, but **never
+// persists a dialog and never counts it**. After a reload it should be completely
+// gone (absent from the transcript, count unchanged) — because the conversation
+// aggregate is made up only of "turns that finished answering", count = len(dialogs).
 //
-// 用 mock 脚本注入故障(scriptMockError),确定性复现失败一轮。
+// Uses a mock script to inject a failure (scriptMockError), deterministically
+// reproducing a failed turn.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -28,7 +30,8 @@ const NAME = 'Fred';
 const GOOD_Q = 'tell me about lucerna';
 const FAIL_Q = 'this turn fails upstream';
 const THIRD_Q = 'and what else have you built';
-// 轮数那一格自己的 testid：名字数那格用的是同一个类名，靠类名会一次命中两个元素。
+// The turn-count cell's own testid: the name-count cell uses the same class name, so
+// selecting by class would hit both elements at once.
 const USED = '[data-testid="session-strip-turns-used"]';
 
 test.describe('失败的一轮不进 conversation,刷新后不在也不计数', () => {
@@ -59,22 +62,25 @@ test.describe('失败的一轮不进 conversation,刷新后不在也不计数', 
     const input = page.getByTestId('chat-input-field');
     await expect(used).toHaveText('0', { timeout: 10_000 });
 
-    // 1) 成功一轮 → 落一条 dialog,count 1。
+    // 1) A successful turn → persists one dialog, count 1.
     await sendOk(page, request, input, GOOD_Q);
     await expect(used).toHaveText('1', { timeout: 10_000 });
 
-    // 2) 注入故障一轮 → 渲友好错误,但不落 dialog、count 不涨。
+    // 2) Inject a failing turn → a friendly error renders, but no dialog is persisted
+    //    and count does not increase.
     const errTag = await scriptMockError(request);
     await input.fill(`${FAIL_Q}${errTag}`);
     await input.press('Enter');
     await expect(answers).toHaveCount(2, { timeout: 20_000 });
     await expect(used).toHaveText('1', { timeout: 10_000 });
 
-    // 3) 再成功一轮(同时把 mock 复位,不污染后续 spec)→ count 2。
+    // 3) One more successful turn (which also resets the mock, so it doesn't leak
+    //    into later specs) → count 2.
     await sendOk(page, request, input, THIRD_Q);
     await expect(used).toHaveText('2', { timeout: 10_000 });
 
-    // 4) 刷新 → conversation 聚合只由"答完的轮"组成:失败那条彻底不在,只剩两条,count 2。
+    // 4) Reload → the conversation aggregate is made up only of "turns that finished
+    //    answering": the failed one is completely gone, only two remain, count 2.
     await page.reload();
     await expect(page.getByText(GOOD_Q)).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(THIRD_Q)).toBeVisible({ timeout: 20_000 });
@@ -84,9 +90,10 @@ test.describe('失败的一轮不进 conversation,刷新后不在也不计数', 
   });
 });
 
-// sendOk —— 脚本一条正常回答(顺带清掉 failAll),问出去,等这轮 sink 进 DB。
-// #28: backend 落库在 /agent/turn 流末端(`done` 之前);res.finished() = 流读完
-// = 已落库。
+// sendOk — script a normal answer (which also clears failAll), ask it, and wait for
+// this turn to be persisted to the DB.
+// #28: the backend persists at the end of the /agent/turn stream (before `done`);
+// res.finished() = the stream finished reading = already persisted.
 async function sendOk(
   page: Page, request: APIRequestContext,
   input: ReturnType<Page['getByTestId']>, q: string,

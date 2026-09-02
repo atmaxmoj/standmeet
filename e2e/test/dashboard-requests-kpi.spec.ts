@@ -1,15 +1,21 @@
-// dashboard-requests-kpi.spec.ts —— F-C-19:dashboard 的 REQUESTS 数字要跟真实待处理请求数一致。
+// dashboard-requests-kpi.spec.ts —— F-C-19: the dashboard's REQUESTS figure must match the real pending-request count.
 //
-// 它数的是 `status === 'new'`,而后端产出的是 `'open'`(领域词表 `'open' | 'replied' | 'closed'`,
-// `'new'` 从来不存在)。于是这块 KPI **恒为 0** —— 有多少条待处理都一样。
+// It counts `status === 'new'`, while the backend actually emits `'open'` (the
+// domain vocabulary is `'open' | 'replied' | 'closed'` — `'new'` never
+// exists). So this KPI is **stuck at 0** — no matter how many are pending.
 //
-// 0 是个看起来完全正常的数字,副标题还替它圆场（「at zero · from gate」读起来像「确实没人来」）,
-// 所以这一类只有把**同一份数据的两个面摆在一起**才看得出来:侧栏徽标数 `'open'`,数对了。
+// 0 looks like a perfectly normal number, and the subtitle even backs it up
+// ("at zero · from gate" reads like "genuinely nobody came"), so this class of
+// bug only shows up when **two views of the same data are placed side by
+// side**: the sidebar badge counts `'open'`, and it counts correctly.
 //
-// 判据是**两个面必须一致**,而不是「等于 1」—— 前者在以后请求数变了、或者又多一个面时仍然成立。
-// 先断非空(真有一条待处理),否则「两边都是 0」也会让一致性断言通过,那是空集的假绿。
+// The criterion is **the two views must agree**, not "equals 1" — the former
+// still holds once the request count changes later, or once a third view is
+// added. Assert non-empty first (there really is one pending request),
+// otherwise "both sides are 0" would also pass the consistency check — a false
+// green from an empty set.
 //
-// RED(修复前):侧栏 1、dashboard 0 → 不一致,红。
+// RED (before the fix): sidebar 1, dashboard 0 → mismatch, red.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -44,7 +50,7 @@ test.describe('dashboard · the REQUESTS figure counts real pending requests (F-
     await gotoAdminSection(adminPage, 'dashboard');
 
     const badge = adminPage.getByTestId('badge-requests');
-    // 非空守卫:先证明真的有一条待处理,否则「两边都是 0」会让下面的一致性断言假绿。
+    // Non-empty guard: prove first that a request really is pending, otherwise "both sides are 0" would make the consistency assertion below a false green.
     await expect(badge, 'guard: one request really is pending').toHaveText('1', { timeout: 10_000 });
 
     const tile = adminPage.getByTestId('kpi-requests');
@@ -55,7 +61,7 @@ test.describe('dashboard · the REQUESTS figure counts real pending requests (F-
   });
 });
 
-// submitAccessRequest —— 从 gate 的 no-code 路径投一条请求(走公开接口,不必开浏览器)。
+// submitAccessRequest — files a request via the gate's no-code path (hits the public endpoint, no browser needed).
 async function submitAccessRequest(request: APIRequestContext): Promise<void> {
   const res = await request.post(`${BACKEND}/api/v1/access-requests`, {
     data: {

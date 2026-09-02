@@ -1,17 +1,19 @@
-// connector-cred-form.spec.ts —— #155 区 B（凭据表单派生）RED 契约。
+// connector-cred-form.spec.ts —— #155 area B (credential form derivation) RED contract.
 //
-// 业务故事：owner 在 /admin/connectors 贴一份 OpenAPI 3.0 spec → 后端读
-// `components.securitySchemes` → 派生一个 CredentialForm descriptor →
-// 前端通用渲染器据 AuthType 渲对应字段（不每个连接器手写表单）。本区只钉
-// 「表单怎么从 spec 派生 + 渲对」，连接动作（OAuth dance / 存密钥）归 D 区。
+// Business story: the owner pastes an OpenAPI 3.0 spec into /admin/connectors → the backend
+// reads `components.securitySchemes` → derives a CredentialForm descriptor → the frontend's
+// generic renderer draws the matching fields based on AuthType (no hand-written form per
+// connector). This area only pins down "how the form derives from the spec and renders
+// correctly"; the connect action itself (the OAuth dance / storing secrets) belongs to area D.
 //
-// 对齐 docs/design/connector.md §4（认证 type → 字段表）+ §7 决策#3（多
-// scheme owner UI 自选）+ §8 区 B testid（connector-spec-input /
-// connector-scheme-select / connector-field-{key} / connector-needs-dance
-// / connector-status）。connector-connect-button 归 D 区：连接要连接器 id，
-// 而这张表单跑在建出连接器**之前**（F-C-24）。
+// Aligned with docs/design/connector.md §4 (auth type → field table) + §7 decision #3
+// (owner picks among multiple schemes in the UI) + §8 area B testids
+// (connector-spec-input / connector-scheme-select / connector-field-{key} /
+// connector-needs-dance / connector-status). connector-connect-button belongs to area D:
+// connecting needs a connector id, and this form runs **before** the connector is assembled (F-C-24).
 //
-// 覆盖 spec-driven 凭据表单派生 UI（§8 区 B）。已实现，绿（原为 RED 契约，实现后转绿）。
+// Covers the spec-driven credential form derivation UI (§8 area B). Implemented, green
+// (originally a RED contract, turned green after implementation).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -94,7 +96,7 @@ const SPEC_HTTP_BEARER = JSON.stringify({
 });
 
 // multiple schemes (oauth2 OR apiKey) — UI shows a scheme picker; choosing one
-// renders that scheme's fields (form is dynamic to the choice; §7 决策#3).
+// renders that scheme's fields (form is dynamic to the choice; §7 decision #3).
 const SPEC_MULTI = JSON.stringify({
   openapi: '3.0.3',
   info: { title: 'Multi-auth API', version: '1.0.0' },
@@ -220,7 +222,7 @@ async function claimOwner(playwright: Playwright): Promise<void> {
 }
 
 test.describe('connector · credential form derived from spec · happy (area B)', () => {
-  // 覆盖 spec-driven 凭据表单派生（docs/design/connector.md §4/§8 区 B）。已实现，绿。
+  // Covers spec-driven credential form derivation (docs/design/connector.md §4/§8 area B). Implemented, green.
 
   test.beforeAll(async ({ playwright }) => { await claimOwner(playwright); });
 
@@ -298,7 +300,7 @@ test.describe('connector · credential form derived from spec · happy (area B)'
     async ({ adminPage: page }) => {
       await pasteSpec(page, SPEC_MULTI);
 
-      // §7 决策#3: a scheme selector appears when >1 scheme is available.
+      // §7 decision #3: a scheme selector appears when >1 scheme is available.
       const select = page.getByTestId('connector-scheme-select');
       await expect(select).toBeVisible();
 
@@ -320,9 +322,9 @@ test.describe('connector · credential form derived from spec · happy (area B)'
     });
 });
 
-// 区B 额外 corner（§4 表里点到、上面没覆盖的）：openIdConnect 渲如 oauth2 /
-// apiKey in:query 的位置展示 / oauth2 多 scope 全列。独立 describe 让上一块
-// 回调保持 ≤70 行。
+// Extra area-B corners (mentioned in the §4 table but not covered above): openIdConnect
+// rendering like oauth2 / apiKey in:query showing its location / oauth2 listing every scope.
+// A separate describe keeps the callback above at ≤70 lines.
 test.describe('connector · credential form derived from spec · corner (area B)', () => {
 
   test.beforeAll(async ({ playwright }) => { await claimOwner(playwright); });
