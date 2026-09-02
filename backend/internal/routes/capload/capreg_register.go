@@ -8,6 +8,7 @@
 //   B-3: calendar.book / ext.<server> / skill.<name>
 //   B-5: job-loop owner-only
 //   B-6: MCP parity
+//   B-7: resume.read (访客侧，招聘官按码读这一份 application 的简历)
 
 package capload
 
@@ -38,5 +39,10 @@ func RegisterVisitorSkills(
 	reg.MustRegister(newExtMCPCapability(deps.MCPServers, deps.DepConnected))
 	if deps.AgentConnectors != nil {
 		reg.MustRegister(newOpenapiAgentToolsCapability(deps.AgentConnectors))
+	}
+	// 访客侧简历读取（B-7）：招聘官会话按码反查这一份 application 的简历。nil → 不暴露
+	// （eval facade / 没接 job-loop 的装配），跟 openapi 那条同理 fail-closed。
+	if deps.Resumes != nil {
+		reg.MustRegister(newResumeReadCapability(deps.Resumes))
 	}
 }

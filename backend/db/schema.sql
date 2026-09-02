@@ -881,7 +881,9 @@ CREATE TABLE applications (
 );
 
 CREATE INDEX applications_owner_idx ON applications(owner_id);
-CREATE INDEX applications_access_code_idx ON applications(access_code_id);
+-- 唯一：一张 access code 最多绑一个 application。访客侧简历工具按码反查(:one)"这一份"，
+-- 两份绑同一张码则取到哪份未定义 → 招聘官会话可能读到另一份的简历。隔离靠这个不变量。
+CREATE UNIQUE INDEX applications_access_code_uniq ON applications(access_code_id);
 
 -- owner_calendar_connectors RETIRED (#155/#190) — the pre-#155 gcal-specific OAuth table was
 -- superseded by the generic owner_connectors table below; its repo (CalendarRepo) is deleted.

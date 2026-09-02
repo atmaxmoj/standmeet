@@ -19,3 +19,10 @@ type AgentConnectorSource interface {
 type DepConnected interface {
 	AllConnected(ctx context.Context, ownerID string, deps []string) (bool, error)
 }
+
+// ResumeSource —— 按 session 的 access code 取"这一份" application 的简历内容(JSON)。
+// err != nil = 取不到(没绑 application 的普通码，或真失败)；访客侧简历读取 capability
+// 一律据此 fail-closed 隐藏 —— 它不必分辨"没有"和"坏了"。装配用。
+type ResumeSource interface {
+	ResumeForCode(ctx context.Context, ownerID, codeID string) ([]byte, error)
+}

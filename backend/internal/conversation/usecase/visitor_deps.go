@@ -157,4 +157,7 @@ type VisitorSkillsDeps struct {
 	// AgentConnectors —— openapi 连接器的 raw ops 暴露成 agent 工具（§3）的来源。prod 注
 	// composition root 的适配器（ConnectorRepo + Hub）；nil → 不暴露任何 agent 工具。
 	AgentConnectors AgentConnectorSource
+	// Resumes —— 访客侧简历读取能力的来源：按 application 的码取这一份简历 JSON。prod 注
+	// composition root 的适配器（port.ResumesByCode）；nil → 该能力永远隐藏。
+	Resumes ResumeSource
 }

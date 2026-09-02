@@ -198,6 +198,7 @@ func buildVisitorSkillsDeps(d *deps.Runtime) conversation.VisitorSkillsDeps {
 		Reports:         d.ChatReportRepo,
 		Resolver:        d.ProviderResolver,
 		AgentConnectors: axisconn.NewAgentConnectorSource(d),
+		Resumes:         port.ResumesByCode(d),
 	}
 }
 
