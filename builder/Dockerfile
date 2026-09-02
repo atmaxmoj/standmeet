@@ -3,6 +3,8 @@
 # PATCHes status. No docker.sock; relies on shared named volume.
 
 FROM node:22-alpine
+# ghcr → repo linkage: GitHub reads this to list the pushed image under the repo's Packages.
+LABEL org.opencontainers.image.source="https://github.com/atmaxmoj/standmeet"
 
 WORKDIR /opt/builder
 

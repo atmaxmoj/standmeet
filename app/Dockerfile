@@ -10,6 +10,8 @@
 # 这相当于 "build artifact → image"，类似 Go binary 镜像的做法。
 
 FROM node:22-alpine
+# ghcr → repo linkage: GitHub reads this to list the pushed image under the repo's Packages.
+LABEL org.opencontainers.image.source="https://github.com/atmaxmoj/standmeet"
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

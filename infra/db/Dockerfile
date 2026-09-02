@@ -15,5 +15,7 @@
 # 所以这两条路各管一端：新卷由这里建，老卷由那一头升 —— 没有第三条要人记得的路。
 
 FROM pgvector/pgvector:pg16
+# ghcr → repo linkage: GitHub reads this to list the pushed image under the repo's Packages.
+LABEL org.opencontainers.image.source="https://github.com/atmaxmoj/standmeet"
 
 COPY backend/db/schema.sql /docker-entrypoint-initdb.d/01-schema.sql

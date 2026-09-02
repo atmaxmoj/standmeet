@@ -82,6 +82,8 @@ WORKDIR /app/backend
 
 # Stage 3: Production
 FROM alpine:3.21 AS production
+# ghcr → repo linkage: GitHub reads this to list the pushed image under the repo's Packages.
+LABEL org.opencontainers.image.source="https://github.com/atmaxmoj/standmeet"
 WORKDIR /app
 
 # ca-certificates + docker-cli (legacy skill sandbox).

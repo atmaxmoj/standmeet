@@ -20,6 +20,8 @@ RUN pnpm install --filter @standmeet/im-bridge... --frozen-lockfile
 RUN pnpm -F @standmeet/sdk-core build
 
 FROM node:22-alpine
+# ghcr → repo linkage: GitHub reads this to list the pushed image under the repo's Packages.
+LABEL org.opencontainers.image.source="https://github.com/atmaxmoj/standmeet"
 WORKDIR /app
 RUN corepack enable
 COPY --from=build /app /app
