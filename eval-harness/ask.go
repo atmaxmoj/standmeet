@@ -59,7 +59,7 @@ func loadPersona(dir string) (*persona, error) {
 
 // systemPromptOverride —— the prompt-experiment injection point. When
 // EVAL_SYSTEM_PROMPT_FILE points at a file, its contents REPLACE the composed
-// prod prompt for this run — that's how "试出好 prompt → 回填 prod" works: try a
+// prod prompt for this run — that's how "try a prompt here → backfill the winner into prod" works: try a
 // variant here, compare, then backfill the winner into the prod fragments.
 // Empty (the default) = the faithful prompt prod actually ships.
 func systemPromptOverride() (string, error) {
@@ -99,27 +99,32 @@ type askRequest struct {
 	// the owner could provide (roll_dice). Tests whether the agent discovers +
 	// invokes an owner-curated skill. The canned sandbox returns a fixed roll.
 	Skill bool `json:"skill"`
-	// BulkSkill —— 换成那个**结果大到能顶过 32K 阈值**的技能（bulkskill.go）。
-	// 给 compaction 用例的工具腿用：工具先跑，压缩才在工具结果已经进窗口之后触发。
-	// 跟 Skill 互斥（一场只挂一个技能），它优先。
+	// BulkSkill —— swaps in the skill whose **result is large enough to clear the 32K
+	// threshold** (bulkskill.go). Used by the compaction test case's tool leg: the tool
+	// runs first, and compaction only fires once the tool result is already in the window.
+	// Mutually exclusive with Skill (one run mounts only one skill); this one wins.
 	BulkSkill bool `json:"bulk_skill"`
 	// MCP —— register an owner external MCP server (ext-mcp dials EVAL_MCP_URL for
 	// real). Tests whether the agent invokes an owner-registered MCP tool. Needs a
 	// running MCP server (the repo's mcp-server-mock: EVAL_MCP_URL=http://localhost:9100/mcp).
 	MCP bool `json:"mcp"`
-	// Waypoints —— ghost steering: owner 在 role 上写的引导目的地,冻进这一场。
-	// 给了就装 turn epilogue(跟 scenario runner 同一条:agentcore.BuildGhostPolicy);
-	// 不给 = 这一场没有 waypoint,policy 短路成 silence —— 那正是"public 模式不出 ghost"
-	// 该有的样子。
+	// Waypoints —— ghost steering: the guidance destinations the owner wrote on the role,
+	// frozen for this run. Given → mounts the turn epilogue (same path as the scenario
+	// runner: agentcore.BuildGhostPolicy); not given = this run has no waypoints, the
+	// policy short-circuits to silence —— exactly what "public mode never emits a ghost"
+	// should look like.
 	Waypoints []askWaypoint `json:"waypoints"`
-	// VisitorTimezone / OwnerTimezone —— #120: 把访客浏览器时区 + owner 日历时区锚进
-	// 通用 instruction(instructionWithDateTime)。让 booking 用例能验"agent 按访客
-	// 时区解释其给的时间、换算到 owner 日历时区"。空 → 退 UTC。
+	// VisitorTimezone / OwnerTimezone —— #120: anchors the visitor's browser timezone +
+	// the owner's calendar timezone into the shared instruction (instructionWithDateTime).
+	// Lets booking test cases verify "the agent interprets the visitor's given time in the
+	// visitor's timezone, then converts it to the owner's calendar timezone." Empty → falls
+	// back to UTC.
 	VisitorTimezone string `json:"visitor_timezone"`
 	OwnerTimezone   string `json:"owner_timezone"`
 }
 
-// askWaypoint —— 一个引导目的地(跟 scenario 那份同形;两处都翻成 agentcore.Waypoint)。
+// askWaypoint —— one guidance destination (same shape as the scenario one; both translate
+// into agentcore.Waypoint).
 type askWaypoint struct {
 	WaypointID   string   `json:"waypoint_id"`
 	Description  string   `json:"description"`
@@ -152,9 +157,10 @@ type askResponse struct {
 	// Report —— the summarize_conversation report HTML, when the candidate
 	// summarized this turn (else empty). Lets the eval judge summary quality.
 	Report string `json:"report,omitempty"`
-	// Ghosts —— 本轮 epilogue 出的 steering ghost 文本(0 或 1 条:policy 一轮最多出一个)。
-	// **不是 harness 自己编的**:它是 turn epilogue 真发出来的那一帧,跟 prod 走同一个
-	// BuildGhostPolicy;没装 epilogue(无 waypoint / 非 code)自然是空。
+	// Ghosts —— the steering ghost text this turn's epilogue emitted (0 or 1 entry: the
+	// policy emits at most one per turn). **Not the harness making it up**: it's the frame
+	// the turn epilogue actually emitted, going through the same BuildGhostPolicy as prod;
+	// with no epilogue mounted (no waypoint / not code mode) it's naturally empty.
 	Ghosts []string `json:"ghosts"`
 	Error  string   `json:"error,omitempty"`
 }
@@ -225,23 +231,26 @@ func askCandidate(
 		skill:    skillSpecFor(req),
 		mcpURL:   mcpURLFor(req),
 		cred:     cred,
-		// 那份大报告是**一次性**的：重读一遍就等于绕过了「摘要是证据唯一的家」这件事，
-		// 而判据也就跟着不可能变红了（eval_driver.go 那段账）。
+		// The big report is **one-shot**: reading it again would sidestep "the summary is
+		// the sole home of the evidence," and the assertion could then never go red
+		// (see the write-up in eval_driver.go).
 		onceSkill: req.BulkSkill,
 	}
 	failVerb, failMsg := bookingFailVerb()
 	agent, cleanup, berr := launchCandidateWith(ctx, driver, &agentcore.LaunchInput{
 		OwnerID: evalOwnerID, Mode: mode, ConversationID: evalConvID,
 		CodeID: evalCodeID, SystemPromptOverride: override,
-		// booking 是 acl=role_granted:只有**这一场的 role 授了它**才暴露。不授 = 结构性缺席,
-		// 那正是 deny 用例要测的东西。
+		// booking is acl=role_granted: it's exposed only when **this run's role granted
+		// it**. Not granted = structural absence, exactly what the deny test case checks.
 		GrantedCapabilities: grantedCapabilities(req),
 	}, launchOpts{
 		booking: req.Booking, bookingFail: failVerb, bookingFailMsg: failMsg,
-		// owner.meta 说的时区必须跟 instruction 里那句是同一个 —— 预约策略(工作时间)按
-		// owner 的时区判,两处不一致的话一个本该开着的时段会显示成关的。
+		// The timezone in owner.meta must be the same one that's in the instruction ——
+		// the booking policy (working hours) is judged against the owner's timezone, and
+		// a mismatch between the two would show an otherwise-open slot as closed.
 		ownerTimezone: req.OwnerTimezone,
-		// summarize 读的逐字稿 = 这一场到此为止说过的话(prod 从库里读同一份)。
+		// The transcript summarize reads = everything said in this run so far (prod reads
+		// the same thing from the DB).
 		transcript: func() []agentcore.TranscriptTurn { return askTranscript(req) },
 		report:     newReportBox().store,
 	})
@@ -259,15 +268,18 @@ func askCandidate(
 		Tools:          agent.Tools,
 		ProgressLabels: agent.Labels,
 		ReturnDirectly: agent.ReturnDirectly,
-		// #120: 喂 owner + 访客时区进通用 instruction(instructionWithDateTime)。
+		// #120: feeds owner + visitor timezone into the shared instruction (instructionWithDateTime).
 		OwnerTimezone:   req.OwnerTimezone,
 		VisitorTimezone: req.VisitorTimezone,
 	}
-	// ghost steering —— 跟 scenario runner 走**同一条**:BuildGhostPolicy(DB-free 的 policy
-	// 闭包)包成通用 epilogue 帧。prod 那侧多的只有"落库 + 拿 ghost_id",跟判断无关。
+	// ghost steering —— goes through the **same path** as the scenario runner:
+	// BuildGhostPolicy (a DB-free policy closure) wrapped into the shared epilogue frame.
+	// The only extra thing on the prod side is "persist to DB + get a ghost_id," which is
+	// irrelevant to the assertion.
 	//
-	// mode 不是 code、或者这一场没有 waypoint → 不装:那时 prod 也不装(hasFrozenWaypoints)。
-	// 于是"public 模式不出 ghost"这条断言测的是**结构上没装**,不是 policy 恰好沉默了。
+	// mode isn't code, or this run has no waypoints → don't mount it: prod doesn't mount it
+	// there either (hasFrozenWaypoints). So the "public mode never emits a ghost" assertion
+	// tests **it was never mounted structurally**, not that the policy happened to stay quiet.
 	attachGhostPolicy(in, cred, mode, req.Waypoints)
 	sink := newCaptureSink()
 	if err := agentcore.RunAgentLoop(ctx, log, in, sink); err != nil {
@@ -284,8 +296,8 @@ func askCandidate(
 	return turn, nil
 }
 
-// attachGhostPolicy —— code 模式 + 有 waypoint 才装 turn epilogue(prod 的
-// hasFrozenWaypoints 同一个条件)。
+// attachGhostPolicy —— mounts the turn epilogue only in code mode + with waypoints present
+// (same condition as prod's hasFrozenWaypoints).
 func attachGhostPolicy(
 	in *agentcore.AgentTurnInput, cred agentcore.Cred, mode string, wps []askWaypoint,
 ) {
@@ -298,7 +310,7 @@ func attachGhostPolicy(
 	}
 }
 
-// askWaypoints —— askWaypoint → BuildGhostPolicy 入参(waypoints + 已访问的 id)。
+// askWaypoints —— askWaypoint → BuildGhostPolicy inputs (waypoints + the ids already visited).
 func askWaypoints(in []askWaypoint) ([]agentcore.Waypoint, []string) {
 	points := make([]agentcore.Waypoint, 0, len(in))
 	visited := make([]string, 0, len(in))
@@ -314,8 +326,8 @@ func askWaypoints(in []askWaypoint) ([]agentcore.Waypoint, []string) {
 	return points, visited
 }
 
-// ghostTexts —— 出来的那一帧 → 文本列表(nil = silence)。**永不为 nil**:空数组是
-// "这一轮没出 ghost",null 会被读成"这个字段坏了"。
+// ghostTexts —— the emitted frame → a text list (nil = silence). **Never nil**: an empty
+// array means "this turn emitted no ghost," while null would be read as "this field is broken."
 func ghostTexts(g *agentcore.GhostFrame) []string {
 	if g == nil || g.Text == "" {
 		return []string{}
@@ -323,7 +335,7 @@ func ghostTexts(g *agentcore.GhostFrame) []string {
 	return []string{g.Text}
 }
 
-// grantedCapabilities —— 这一场 role 授出去的能力 id。
+// grantedCapabilities —— the capability ids this run's role granted.
 func grantedCapabilities(req askRequest) []string {
 	if !req.Booking {
 		return []string{}
@@ -331,12 +343,16 @@ func grantedCapabilities(req askRequest) []string {
 	return []string{bookerCapabilityID}
 }
 
-// bookingFailVerb —— EVAL_BOOKING_FAIL 把某个连接器动词打成失败,用来跑"约不上"那几条路。
-//   - "conflict"     → 插入被日历拒(那一刻被别人占了)
-//   - "notconnected" → owner 根本没连日历,连查空闲都不行
+// bookingFailVerb —— EVAL_BOOKING_FAIL forces a connector verb to fail, to run the
+// "can't book" paths.
+//   - "conflict"     → the insert is rejected by the calendar (someone else took the slot
+//     right then)
+//   - "notconnected" → the owner has no calendar connected at all, not even a free/busy check
 //
-// 连**错误话术**一起给:日历说"409 那个时段刚被占了"和日历说"出错了"是两条不同的路 ——
-// 前者该改约,后者该重试。只说"拒绝了"的话,agent 只能瞎猜,而这条用例判的正是它选哪条。
+// Ships the **exact wording** too: the calendar saying "409, that slot was just taken" and
+// the calendar saying "something went wrong" are two different paths —— the former should
+// prompt a re-booking, the latter a retry. Given only "it was rejected," the agent can only
+// guess, and this test case judges exactly which one it picks.
 func bookingFailVerb() (string, string) {
 	switch os.Getenv("EVAL_BOOKING_FAIL") {
 	case "conflict":
@@ -388,10 +404,13 @@ func candidateHistory(prior []convTurn) []agentcore.ChatRequestMsg {
 	return out
 }
 
-// askTranscript —— conversation.read 的答案:之前那些轮 + **这一轮的问题**。
+// askTranscript —— what conversation.read answers: the prior turns + **this turn's
+// question**.
 //
-// 最后那句必须在里面:让人总结的正是这一轮说的话,少了它总结出来的是上一轮的对话 ——
-// 而那种偏差不报错,只是报告写得莫名其妙。角色用产品的词(visitor / assistant)。
+// That last line must be in there: what gets summarized is what was said in this turn, and
+// without it the summary would cover the prior turn instead —— a mismatch that doesn't
+// error, it just makes the report read strangely. Roles use the product's vocabulary
+// (visitor / assistant).
 func askTranscript(req askRequest) []agentcore.TranscriptTurn {
 	out := make([]agentcore.TranscriptTurn, 0, len(req.History)+1)
 	for _, t := range req.History {

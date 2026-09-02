@@ -29,19 +29,25 @@ type ScriptedTool struct {
 	Name string          `json:"name"`
 	Args json.RawMessage `json:"args"`
 	Key  string          `json:"key"`
-	// Also —— 跟 Name/Args 那次**在同一条消息里**一起派出去的其它调用。空 = 老行为(一轮一个)。
+	// Also —— other calls dispatched together with the Name/Args one, **in the same
+	// message**. Empty = the old behavior (one call per turn).
 	//
-	// 为什么需要它:真模型一条消息里就派多个 tool_use 块(agent-loop-robustness 在 prod 上量到过
-	// 一轮四批并行),而这个 mock 只会一次一个。于是**凡是"同一轮里多次调用"才显形的缺陷,守卫都写
-	// 不出来** —— F-S-1(`agent tool done` 不带调用标识,并行结果归因不了)就是被这一条挡在 ③ 门外的。
-	// 好几个 item 把自己的 backing test 标成 `gap`,理由都写着这同一句 mock 限制。
+	// Why this is needed: a real model dispatches multiple tool_use blocks in one
+	// message (agent-loop-robustness measured a turn with four parallel calls in
+	// prod), while this mock only ever does one at a time. So **any bug that only
+	// shows up on "multiple calls in the same turn" is one no guard can be written
+	// for** — F-S-1 (`agent tool done` carries no call identifier, so parallel
+	// results can't be attributed) is exactly the item this mock limitation blocked
+	// at gate 3. Several items have their backing test marked `gap`, each citing this
+	// same mock limitation as the reason.
 	//
-	// 顺带:同名工具可以出现多次(`[{corpus_search,英文},{corpus_search,中文}]`)—— 那正是 F-S-1
-	// 要的形状,所以 id 必须按序号发,不能再按名字发。
+	// Incidentally: the same tool name can appear more than once
+	// (`[{corpus_search,English},{corpus_search,Chinese}]`) — that's exactly the shape
+	// F-S-1 needs, so ids must be issued by sequence number, not by name anymore.
 	Also []ScriptedToolCall `json:"also,omitempty"`
 }
 
-// ScriptedToolCall —— 一条并行调用:名字 + 原样转发的参数。
+// ScriptedToolCall —— one call within a parallel batch: name + args forwarded as-is.
 type ScriptedToolCall struct {
 	Name string          `json:"name"`
 	Args json.RawMessage `json:"args"`
@@ -81,12 +87,15 @@ type scriptedReplyValue struct {
 type ScriptedGhost struct {
 	Body json.RawMessage `json:"body"`
 	Key  string          `json:"key"`
-	// DelayMS —— 服务这次 ghost 调用之前先睡多久。
+	// DelayMS —— how long to sleep before serving this ghost call.
 	//
-	// 为什么替身需要会慢（F-A-42）：真环境里 epilogue 的 ghost 是一次真的 LLM 调用，实测
-	// 10–26 秒，而 `done` 帧在它**之前**就发了。那段「轮已收场、流还开着」的窗口正是缺陷所在，
-	// 而 mock 答得飞快 → 窗口塌成 0 → 守卫在坏代码上照样绿（[[stand-in-is-politer-than-reality]]）。
-	// 只影响 GhostPolicy 那一次非流式调用，不拖慢答案本身。
+	// Why the stand-in needs to be slow (F-A-42): in the real environment, the
+	// epilogue's ghost is a real LLM call, measured at 10-26 seconds, while the
+	// `done` frame is sent **before** that. That window — "the turn has wrapped up
+	// but the stream is still open" — is exactly where the bug lives, and a mock
+	// that answers instantly collapses the window to zero -> a guard for it stays
+	// green on broken code ([[stand-in-is-politer-than-reality]]). Only affects that
+	// one non-streaming GhostPolicy call, doesn't slow down the answer itself.
 	DelayMS int `json:"delay_ms"`
 }
 
@@ -108,13 +117,16 @@ type scriptQueue struct {
 	replies map[string]scriptedReplyValue
 	ghosts  map[string]scriptedGhostValue
 	fails   map[string]bool
-	// rateLimits —— keyword → `Retry-After` 秒数。注册之后,消息里含该 keyword 的调用回
-	// **429 + Retry-After**,而不是 500。
+	// rateLimits —— keyword -> `Retry-After` seconds. Once registered, a call whose
+	// message contains that keyword gets back **429 + Retry-After**, instead of 500.
 	//
-	// 这是 agent-loop-robustness 的 Real dep 点名的那个「能注入限流响应和重试提示的代理」。
-	// 它一直被当成外部装置,其实就是这里的几行:mock 已经会注入 500(`fails`),429 只是另一种
-	// 状态码加一个头。没有它,checks 3/4/5 在判据上够不着 —— 而真实 provider 的限流是唯一
-	// 会让「提前重打」造成实际伤害(加重封禁)的场景。
+	// This is the "proxy that can inject rate-limit responses and retry hints" that
+	// agent-loop-robustness's Real dep names explicitly. It had always been treated
+	// as an external device, but it's really just these few lines: the mock already
+	// injects 500 (`fails`), 429 is just another status code plus a header. Without
+	// it, checks 3/4/5 can't reach their pass/fail criterion — and a real provider's
+	// rate limiting is the one scenario where "retrying too soon" causes actual harm
+	// (a heavier ban).
 	rateLimits map[string]int
 	// lastKeys —— the `[[s:…]]` tokens from the most recent visitor (stream) turn.
 	// Backend-initiated generate calls (GhostPolicy, summarize) are built from
@@ -154,14 +166,16 @@ func (q *scriptQueue) setFail(key string) {
 	q.fails[key] = true
 }
 
-// setRateLimit —— 给某 keyword 注册「回 429,并在 Retry-After 里要求等 secs 秒」。
+// setRateLimit —— registers "return 429, and ask to wait secs seconds via
+// Retry-After" for a keyword.
 func (q *scriptQueue) setRateLimit(key string, secs int) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.rateLimits[key] = secs
 }
 
-// rateLimitFor —— 消息里含已注册的 keyword 时,返回它要求的 Retry-After 秒数;否则 0。
+// rateLimitFor —— when the message contains a registered keyword, returns the
+// Retry-After seconds it requires; otherwise 0.
 func (q *scriptQueue) rateLimitFor(text string) int {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -227,7 +241,8 @@ func (q *scriptQueue) setReply(key, text, stop string, delayMS int) {
 	delete(q.fails, key)
 }
 
-// takeReplyFor —— (text, stop reason, found)。注册带 delay 就先睡够再回(睡在锁外面)。
+// takeReplyFor —— (text, stop reason, found). If registered with a delay, sleeps
+// it out before returning (sleeps outside the lock).
 func (q *scriptQueue) takeReplyFor(text string) (string, string, bool) {
 	r, ok := q.popReply(text)
 	if !ok {
@@ -251,7 +266,8 @@ func (q *scriptQueue) popReply(text string) (scriptedReplyValue, bool) {
 	return scriptedReplyValue{}, false
 }
 
-// scriptedGhostValue —— 一次 ghost 注册:回什么 + 回之前先慢多久(见 ScriptedGhost.DelayMS)。
+// scriptedGhostValue —— one ghost registration: what to return + how long to
+// delay first (see ScriptedGhost.DelayMS).
 type scriptedGhostValue struct {
 	body    string
 	delayMS int
@@ -263,9 +279,11 @@ func (q *scriptQueue) setGhost(key, body string, delayMS int) {
 	q.ghosts[key] = scriptedGhostValue{body: body, delayMS: delayMS}
 }
 
-// takeGhostFor —— GhostPolicy 调用取脚本化的 body。请求不含任何注册 ghost key →
-// "null"(silence 默认),让不测 steering 的 turn 的 policy 调用不会误发 ghost。
-// 注册带了 delay 就先睡够再回 —— 睡在锁外面,别让一次慢 ghost 卡住整个网关。
+// takeGhostFor —— a GhostPolicy call takes the scripted body. If the request
+// contains none of the registered ghost keys -> "null" (the silence default), so
+// a turn's policy call, when the test isn't about steering, never fires a ghost by
+// accident. If registered with a delay, sleeps it out before returning — sleep
+// outside the lock, so a slow ghost never stalls the whole gateway.
 func (q *scriptQueue) takeGhostFor(text string) string {
 	g, ok := q.popGhost(text)
 	if !ok {
@@ -342,9 +360,10 @@ type ScriptedRateLimit struct {
 	RetryAfterSeconds int    `json:"retry_after_seconds"`
 }
 
-// serveSetNextRateLimit —— 给某 keyword 打开「回 429 + Retry-After」模式。
-// 跟 next_error 的区别正是这一条要测的东西:500 是"坏了",429 是"**别这么快再来**",
-// 而后者带着一个 provider 明说的间隔 —— 提前重打会加重封禁。
+// serveSetNextRateLimit —— turns on "return 429 + Retry-After" mode for a keyword.
+// The difference from next_error is exactly what this one is testing: 500 means
+// "it's broken", 429 means "**don't come back this fast**", and the latter carries
+// an interval the provider explicitly stated — retrying too soon makes the ban worse.
 func (s *server) serveSetNextRateLimit(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -380,8 +399,9 @@ type stateResp struct {
 	Replies map[string]stateReplyOut `json:"replies"`
 }
 
-// stateReplyOut —— 一条排队中的回复在 /state 里的样子。stop 一起报出来：注册了
-// "这条以 max_tokens 收尾" 却看不见，跟没注册一样难查。
+// stateReplyOut —— how a queued reply looks in /state. stop is reported
+// alongside it: registering "this one ends with max_tokens" but not being able to
+// see it is just as hard to debug as not registering it at all.
 type stateReplyOut struct {
 	Text string `json:"text"`
 	Stop string `json:"stop"`
@@ -398,22 +418,29 @@ func (s *server) serveState(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(s.log, w, resp)
 }
 
-// serveModels —— OpenAI 形状的模型清单（`{"object":"list","data":[{"id":…}]}`）。
+// serveModels —— an OpenAI-shaped model list (`{"object":"list","data":[{"id":…}]}`).
 //
-// 两个 id 而不是一个：**一个的时候「列表回来了」和「产品自己塞了个默认」分不开**。
-// 名字带 `mock-` 前缀，好让守卫断言的是「这台自托管端点报出来的东西」，
-// 而不是任何一家真 provider 的型号。
-// chatOnlyKey —— **一把能聊、但列不出模型的 key**（F-R-12）。真世界里这一类到处都是：
-// 列模型要另一种权限。触发点是 key 本身而不是 URL —— 判据说的就是「这把 key 不行」，
-// 而产品自己拼 `/v1/models`，查询串根本传不进来。
+// Two ids rather than one: **with just one, "the list came back" and "the product
+// stuffed in its own default" can't be told apart**. The names carry a `mock-`
+// prefix, so a guard's assertion is about "what this self-hosted endpoint
+// reported", not any real provider's model.
+// chatOnlyKey —— **a key that can chat but can't list models** (F-R-12). This kind
+// is common in the real world: listing models needs a different permission. The
+// trigger is the key itself, not the URL — the criterion is exactly "this key
+// can't do it", while the product itself builds `/v1/models`, with no query string
+// for the client to pass through.
 const chatOnlyKey = "sk-chat-but-cannot-list"
 
-// rateLimitedKey —— **正被限流的那把 key**（F-R-12）。跟上面那把是两件事：一个是「你不许」，
-// 一个是「现在不行」，而 owner 的下一步一个是去改权限、一个是等一分钟。
+// rateLimitedKey —— **the key that's currently being rate-limited** (F-R-12). Two
+// distinct things from the key above: one is "you're not allowed to", the other is
+// "not right now" — and the owner's next step is either fixing permissions or
+// waiting a minute.
 const rateLimitedKey = "sk-rate-limited-right-now"
 
-// serveModels —— 替身以前只会答应。于是「上游明确拒绝」和「够不着」在产品里塌成同一句话，
-// 没人看得出来（F-R-12）。现在它会像真 provider 那样拒绝一次。
+// serveModels —— the stand-in used to only ever say yes. So "the upstream
+// explicitly refused" and "couldn't reach it" collapsed into the same message in
+// the product, and nobody could tell (F-R-12). Now it refuses once, the way a real
+// provider does.
 func (s *server) serveModels(w http.ResponseWriter, r *http.Request) {
 	auth := r.Header.Get("Authorization")
 	if strings.Contains(auth, chatOnlyKey) {

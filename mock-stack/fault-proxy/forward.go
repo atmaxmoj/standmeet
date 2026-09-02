@@ -1,4 +1,4 @@
-// forward.go —— 转发那一半:装了故障就按 mode 处理,没装就原样过。
+// forward.go —— the forwarding half: if a fault is armed, handle it per mode; if not, pass through as-is.
 
 package main
 
@@ -19,8 +19,8 @@ const (
 	modeSlow        = "slow"
 )
 
-// defaultSlowMS —— `slow` 不给 delay_ms 时的停留时长。够一个人截一张图,又不至于让
-// 驱动的人以为代理卡死了。
+// defaultSlowMS —— how long `slow` holds when delay_ms isn't given. Long enough for a
+// person to take a screenshot, but not so long the driver thinks the proxy is stuck.
 const defaultSlowMS = 8000
 
 func (s *server) forward(w http.ResponseWriter, r *http.Request) {
@@ -45,13 +45,17 @@ func (s *server) forward(w http.ResponseWriter, r *http.Request) {
 	s.pipe(w, r, body)
 }
 
-// holdIfSlow —— 把这一条路径**扣在半路**再转发,其余照常。
+// holdIfSlow —— **holds this one request path halfway** before forwarding it; everything
+// else proceeds as normal.
 //
-// 为什么需要这个 mode:界面上有一整族缺陷只活在**加载中那一帧** —— 数字还没到,而由数字
-// 长出来的句子已经在断言「零」(F-L-52/53)。这一帧在本机上只有几十毫秒,人眼验不到,
-// 于是它一直没人管。把某一个 GET 拖住,那一帧就变成一个可以慢慢看、慢慢截图的状态。
+// Why this mode is needed: a whole family of UI defects only lives in **the frame while
+// it's still loading** — the number hasn't arrived yet, but a sentence grown from that
+// number is already asserting "zero" (F-L-52/53). Locally that frame is only tens of
+// milliseconds, invisible to the eye, so it stays unattended. Holding one particular GET
+// back turns that frame into a state that can be watched and screenshotted at leisure.
 //
-// 扣的是**这一跳的转发**,不改请求、不改响应:被测的是调用方在"还没拿到"时说什么。
+// What's held is **this one hop's forwarding** — the request and response are unchanged:
+// what's under test is what the caller says while it "hasn't gotten the data yet".
 func (s *server) holdIfSlow(r *http.Request, f *fault) {
 	if f == nil || f.Mode != modeSlow {
 		return
@@ -63,15 +67,17 @@ func (s *server) holdIfSlow(r *http.Request, f *fault) {
 	s.log.Info("holding request", "path", r.URL.Path, "delay_ms", ms)
 	select {
 	case <-time.After(time.Duration(ms) * time.Millisecond):
-	case <-r.Context().Done(): // 调用方自己放弃了就别再占着
+	case <-r.Context().Done(): // caller already gave up, stop holding it
 	}
 }
 
-// writeHTTPError —— 让**这一条路径**回一个失败状态,其余照常转发。
+// writeHTTPError —— makes **this one request path** return a failure status; everything
+// else forwards as normal.
 //
-// 体是一个朴素的 JSON,不冒充任何一家上游的错误形状:这个 mode 的被测对象是**调用方的界面**
-// (「一块加载不出来时它说什么」),而不是解析上游错误体的那段代码。冒充一份具体的错误形状
-// 反而会让驱动的人以为验过了那条解析路径。
+// The body is plain JSON that doesn't impersonate any specific upstream's error shape:
+// what this mode tests is **the caller's UI** ("what does it say when a block fails to
+// load"), not the code that parses an upstream error body. Impersonating a specific
+// error shape would just make the driver think that parsing path had been verified too.
 func (s *server) writeHTTPError(w http.ResponseWriter, path string, f *fault) {
 	code := f.Status
 	if code <= 0 {
@@ -88,8 +94,9 @@ func (s *server) writeHTTPError(w http.ResponseWriter, path string, f *fault) {
 	s.log.Info("injected http error", "status", code, "path", path)
 }
 
-// writeRateLimit —— 形状照真 provider:429 + `Retry-After` 秒数 +
-// 一个 provider 风格的 JSON 体(有些客户端只读体不读头,两边都给才像真的)。
+// writeRateLimit —— shaped like a real provider: 429 + `Retry-After` seconds +
+// a provider-style JSON body (some clients only read the body, not the header, so
+// giving both is what makes it look real).
 func (s *server) writeRateLimit(w http.ResponseWriter, f *fault) {
 	secs := f.RetryAfterSeconds
 	if secs <= 0 {
@@ -111,11 +118,14 @@ func (s *server) logClamp(from, to int) {
 	s.log.Info("clamped max_tokens", "from", from, "to", to)
 }
 
-// clampMaxTokens —— 把请求体的 max_tokens 改小。**只改这一个字段**,其余原样,因为要让真模型
-// 在自己的正常路径上撞到长度上限。
+// clampMaxTokens —— shrinks the request body's max_tokens. **Only this one field
+// changes**, everything else stays as-is, because the point is to make the real model
+// hit the length cap on its own normal path.
 //
-// 解不开的 JSON 原样返回:代理不该因为看不懂一个请求就把它吃掉。看不懂就当没这回事转过去,
-// 上游会给出它自己的判断 —— 那比代理在中间造一个错误更接近真相。
+// JSON that can't be parsed is returned unchanged: the proxy shouldn't swallow a request
+// just because it can't understand it. If it can't be parsed, just pass it through as
+// if nothing happened — the upstream will give its own verdict, which is closer to the
+// truth than the proxy manufacturing an error in the middle.
 func clampMaxTokens(body []byte, to int, onClamp func(from, to int)) []byte {
 	if to <= 0 {
 		return body
@@ -137,11 +147,14 @@ func clampMaxTokens(body []byte, to int, onClamp func(from, to int)) []byte {
 	return out
 }
 
-// pipe —— 把请求原样送到上游,再把响应原样送回。**请求头整份带过去**(Authorization 在里面):
-// 代理不解析、不存、不打印 key。
+// pipe —— sends the request to upstream unchanged, then sends the response back
+// unchanged. **The whole request header set is carried over** (Authorization is in
+// there): the proxy doesn't parse, store, or print the key.
 //
-// 流式响应要**边收边写**并且每块都 Flush:agent loop 靠 SSE 一块块拿 token,攒完再发会把
-// 「流式」变成「一次性」,那就把被测的时序改掉了。
+// A streamed response must be **written as it's received**, Flushing every chunk: the
+// agent loop relies on SSE to get tokens chunk by chunk, and buffering the whole thing
+// before sending would turn "streaming" into "one-shot", which would change the timing
+// under test.
 func (s *server) pipe(w http.ResponseWriter, r *http.Request, body []byte) {
 	url := strings.TrimSuffix(s.upstream, "/") + r.URL.Path
 	if r.URL.RawQuery != "" {
@@ -162,21 +175,27 @@ func (s *server) pipe(w http.ResponseWriter, r *http.Request, body []byte) {
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
-	// 转发成功也要留一行。**不留的话这份日志的沉默有两种意思** —— 「没有流量」和「转发正常」
-	// 长得一模一样,而驱动的人正是靠它判断产品到底接上来没有。第一次用它我就差点据此断定
-	// 「产品没走代理」,其实那一轮完全正常。
+	// Log a line even on a successful forward. **Without it, this log's silence has two
+	// meanings** — "no traffic" and "forwarding fine" look identical, and the driver
+	// relies on exactly this to judge whether the product is even wired to the proxy.
+	// The first time I used it I nearly concluded "the product isn't going through the
+	// proxy" on that basis — that round was actually completely normal.
 	s.log.Info("forwarded", "path", r.URL.Path, "status", resp.StatusCode)
 	copyHeaders(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
 	streamCopy(w, resp.Body)
 }
 
-// stripHopByHop —— 逐跳头不能转发(RFC 9110 §7.6.1):它们描述的是**这一跳连接**,不是那份请求。
-// Content-Length 也去掉 —— 长度由 req.ContentLength 说了算,两处各说一遍就有对不上的可能。
+// stripHopByHop —— hop-by-hop headers must not be forwarded (RFC 9110 §7.6.1): they
+// describe **this one connection hop**, not the request itself. Content-Length is
+// dropped too — the length is authoritative via req.ContentLength, and having it stated
+// in two places risks the two disagreeing.
 //
-// **改它的理由是规范,不是诊断。** 2026-08-13 驱这个模块时上游出过一次
-// `unexpected EOF`,我怀疑但**没有证据**是这里造成的;这次修正是因为一个代理本来就该这么做,
-// 那次 EOF 治没治好,要下一轮真撞上才知道 —— 不把猜测记成结论。
+// **The reason for this change is the spec, not a diagnosis.** While driving this
+// module on 2026-08-13, upstream once threw an `unexpected EOF`; I suspected but had
+// **no evidence** this was the cause — this fix is here because a proxy ought to do
+// this regardless. Whether that EOF is actually fixed won't be known until it's hit
+// again for real — don't record a guess as a conclusion.
 func stripHopByHop(h http.Header) {
 	for _, k := range []string{
 		"Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization",

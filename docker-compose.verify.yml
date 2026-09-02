@@ -1,36 +1,41 @@
-# docker-compose.verify.yml —— 真实环境审计用的**故障注入侧车**，独立于 prod compose。
+# docker-compose.verify.yml —— the **fault-injection sidecar** for the real-env audit, kept separate from prod compose.
 #
-# 为什么单独一个文件：docker-compose.prod.yml 是生产用的，里面不该躺着一个能让调用失败的
-# 服务。审计要它、生产不要它，那就分开，别靠"记得不要启动"。
+# Why a separate file: docker-compose.prod.yml is the production one, and it shouldn't carry a
+# service that can make calls fail. The audit needs it, production doesn't — so keep them apart
+# rather than relying on "remember not to start it."
 #
-# 它加进 prod 那张网（external），所以 prod 的容器用服务名就能打到。
+# It joins prod's network (external), so prod's containers can reach it by service name.
 #
-# ── 两个实例，同一个镜像，差别只有上游 ────────────────────────────────────
+# ── two instances, same image, only the upstream differs ────────────────────────────────────
 #
-# **llm-fault** —— 坐在真 LLM provider 前面（agent-loop-robustness）。
+# **llm-fault** —— sits in front of the real LLM provider (agent-loop-robustness).
 #   make verify-proxy-up UPSTREAM=https://api.deepseek.com
-#   owner 在 admin 的 AI provider 表单里把 endpoint 改成 http://llm-fault:9500
-#   —— 走产品自己的界面，不改环境变量。
+#   the owner changes the endpoint in admin's AI provider form to http://llm-fault:9500
+#   —— wired through the product's own UI, no environment variable change.
 #
-# **api-fault** —— 坐在本实例的 backend 前面（corpus-acl-editing check 6 那类
-#   「某一个 admin 接口加载失败，界面怎么说」）。这个**没法走产品界面接上** ——
-#   app→backend 的地址是基础设施，所以配一个 prod override：
-#   make verify-api-fault-up   （起代理 + 把 prod app 的 BACKEND_URL 指过来）
-#   make verify-api-fault-down （撤回去）
+# **api-fault** —— sits in front of this instance's own backend (the class of check like
+#   corpus-acl-editing check 6: "one admin endpoint fails to load, what does the UI say").
+#   This one **can't be wired through the product UI** — the app→backend address is
+#   infrastructure, so it needs a prod override:
+#   make verify-api-fault-up   (starts the proxy + points prod app's BACKEND_URL at it)
+#   make verify-api-fault-down (reverts it)
 #
-# 装故障（在宿主上；两个端口都映射出来了）：
+# Arming a fault (on the host; both ports are mapped out):
 #   curl -XPOST localhost:39500/__mock/fault/arm -d '{"mode":"ratelimit","retry_after_seconds":5}'
 #   curl -XPOST localhost:39500/__mock/fault/arm -d '{"mode":"clamp_tokens","max_tokens":64}'
 #   curl -XPOST localhost:39600/__mock/fault/arm -d '{"mode":"http_error","path_prefix":"/api/admin/roles"}'
 #   curl -XPOST localhost:39600/__mock/fault/arm -d '{"mode":"slow","delay_ms":8000,"path_prefix":"/api/admin/stats/growth"}'
 #   curl -XPOST localhost:39600/__mock/fault/reset
 #
-# **slow** 是给「加载中那一帧」用的。界面上有一整族缺陷只活在这一帧里 —— 数字还没到,而由
-# 数字长出来的句子已经在断言零(F-L-52/53)。本机上这一帧几十毫秒,人眼验不到;把那一个 GET
-# 扣住几秒,它就变成一个能慢慢看、能截图的状态。
+# **slow** is for the "still loading" frame. A whole family of defects lives only in that
+# frame — the number hasn't arrived yet, and a sentence built from that number is already
+# asserting zero (F-L-52/53). On this machine that frame is a few dozen milliseconds, too fast
+# for the eye to catch; holding one GET back for a few seconds turns it into a state you can
+# actually look at and screenshot.
 #
-# path_prefix 就是「窄故障」和「整栈停机」的分界：不给 = 挡住一切（那验的是另一条路，
-# 见 F-N-2）；给了 = 只挡那一块，页面别的块照常加载。
+# path_prefix is the line between a "narrow fault" and a "whole-stack outage": omit it and
+# everything is blocked (which tests a different path, see F-N-2); give it and only that one
+# thing is blocked, while the rest of the page keeps loading normally.
 
 services:
   llm-fault:
@@ -38,8 +43,9 @@ services:
       context: ./mock-stack
       target: fault-proxy
     environment:
-      # UPSTREAM_BASE_URL —— 真 provider。没给就起不来（代理没有上游就没有意义，
-      # 与其静默转成 404 不如立刻死掉说清楚）。
+      # UPSTREAM_BASE_URL —— the real provider. Without it, the proxy refuses to start (a proxy
+      # with no upstream is meaningless — better to die loudly right away than fall back to a
+      # silent 404).
       UPSTREAM_BASE_URL: ${UPSTREAM_BASE_URL:?set UPSTREAM_BASE_URL to the real provider base URL}
     ports:
       - "39500:9500"
@@ -52,7 +58,8 @@ services:
       context: ./mock-stack
       target: fault-proxy
     environment:
-      # 上游是本实例的 backend。它跟 llm-fault 用同一个镜像 —— 差别只有这一行。
+      # The upstream is this instance's own backend. It uses the same image as llm-fault — this
+      # line is the only difference.
       UPSTREAM_BASE_URL: http://backend:8000
       PORT: "9600"
     ports:
@@ -61,22 +68,24 @@ services:
       - default
     restart: "no"
 
-  # radicale —— **一台真的 CalDAV server**（connector-assembly check 5）。
+  # radicale —— **a real CalDAV server** (connector-assembly check 5).
   #
-  # 为什么不是 mock：那条 check 的 Mock gap 把缺的四样点了名 —— 我们的替身没有鉴权、
-  # 不认 REPORT filter、不展开重复规则、每个 property 请求都答一样。Radicale 是别人写的、
-  # 真正实现 RFC 4791 的 server，这四样它都做。item 的 Real dep 也正是这么写的：
-  # 「For the CalDAV leg, **a self-run CalDAV server with auth**」。
+  # Why not a mock: that check's Mock gap names four specific missing things — our stand-in has
+  # no auth, doesn't understand the REPORT filter, doesn't expand recurrence rules, and answers
+  # every property request the same way. Radicale is someone else's server, a real RFC 4791
+  # implementation, and does all four. The item's Real dep says exactly this:
+  # "For the CalDAV leg, **a self-run CalDAV server with auth**".
   #
-  #   make verify-caldav-up      # 起；账号密码见下
+  #   make verify-caldav-up      # start it; account/password below
   #   make verify-caldav-down
   #
-  # 鉴权走 htpasswd(plain)：这是**测试台**上的一台一次性 server，密码就写在这里，
-  # 好让下一轮驱的人不用去别处找。它不映射到宿主以外的任何地方。
+  # Auth is htpasswd (plain): this is a one-shot server on a **test bench**, so the password is
+  # right here so the next person driving this doesn't have to hunt for it elsewhere. It's not
+  # mapped anywhere beyond the host.
   radicale:
     image: tomsquest/docker-radicale:3.5.7.0
     environment:
-      # 一个用户：verify / verify-caldav-pw。plain 存储足够，这台不进生产。
+      # One user: verify / verify-caldav-pw. Plain storage is fine — this box never goes to production.
       RADICALE_CONFIG: /config/config
     volumes:
       - ./infra/verify/radicale:/config:ro

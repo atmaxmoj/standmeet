@@ -5,14 +5,17 @@ auth_scheme: oauth2
 spec: spec.yaml
 binding: binding.yaml
 
-# owner_ops —— 这个连接器自己出的 owner 侧操作。
+# owner_ops —— the owner-side operations this connector exposes on its own.
 #
-# 「它现在还通吗」在日历上比在别处要紧:OAuth 授权可以在 provider 那边被撤销、refresh token
-# 可以轮换掉,而卡片上那个 "connected" 不查任何东西 —— 于是失效一直看不见,直到某个访客来约
-# 会议才爆(F-C-16)。
+# "Is it still working" matters more for calendar than elsewhere: OAuth authorization can be
+# revoked on the provider side, refresh tokens can be rotated out, and the "connected" badge
+# on the card checks nothing —— so a break stays invisible until a visitor tries to book a
+# meeting and it blows up (F-C-16).
 #
-# 用 free/busy 而不是建一个事件:只读,不在 owner 日历上留下任何东西,而一次成功的调用把整条链
-# 一起证了 —— 凭据是真的、token 有效或**已被透明刷新**、授到的 scope 够用、账号可达。
+# Uses free/busy instead of creating an event: read-only, leaves nothing on the owner's
+# calendar, and one successful call proves the whole chain at once —— the credential is real,
+# the token is valid or **was transparently refreshed**, the granted scope is enough, and the
+# account is reachable.
 owner_ops:
   - name: connectors.calendar_check
     op: calendar.check

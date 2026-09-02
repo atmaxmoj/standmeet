@@ -37,14 +37,15 @@ services:
       # The public entry point. Front it with your TLS proxy (domain:443 →
       # host:38227). Host ports are offset from dev's so both stacks coexist.
       #
-      # 默认绑 127.0.0.1：产品模型是"前置 TLS 反代"，反代跟栈同机、连 localhost 即可。
-      # 直接绑 0.0.0.0 = app 以明文 HTTP 对全网可达（pentest 2026-09-01）。
-      # 反代在别的机器上时，在 .env 里设 APP_BIND_HOST=0.0.0.0 显式打开。
+      # Binds 127.0.0.1 by default: the product model is "TLS proxy in front",
+      # and the proxy shares the host with the stack, so it reaches localhost directly.
+      # Binding 0.0.0.0 directly = app reachable across the whole network over plain HTTP (pentest 2026-09-01).
+      # When the proxy is on another machine, open it explicitly by setting APP_BIND_HOST=0.0.0.0 in .env.
       - "${APP_BIND_HOST:-127.0.0.1}:38227:3000"
     healthcheck:
-      # 打 app **自己**的那条（见 app/src/app/api/app-health/route.ts）。以前打的是
-      # `/api/v1/instance` —— 那条被反代到 backend，于是这个检查量的是两跳。后端一慢，
-      # 一个没坏的 app 就被判 unhealthy 并被编排器重启：坏消息会传染，而好消息传不回去。
+      # Hits app's **own** route (see app/src/app/api/app-health/route.ts). It used to hit
+      # `/api/v1/instance` — that one gets proxied to backend, so this check was measuring two hops. When the backend slows down,
+      # a healthy app gets judged unhealthy and restarted by the orchestrator: bad news propagates, good news doesn't propagate back.
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/app-health"]
       interval: 5s
       timeout: 3s
@@ -75,8 +76,8 @@ services:
       - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
       # true behind https; set false only for a plain-http localhost bring-up.
       - SECURE_COOKIE=${SECURE_COOKIE:-true}
-      # "对外是啥地址" 由 owner 在 claim 表单填，写进 owners.public_url；LLM
-      # provider 也由 owner 在 admin/MCP 配 (ai_endpoint)。两者都不走 env。
+      # "What's the outward-facing address" is filled by the owner in the claim form, written into owners.public_url; the LLM
+      # provider is also configured by the owner in admin/MCP (ai_endpoint). Neither goes through env.
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
       - SANDBOX_DRIVER=docker
       # Turnstile captcha —— OFF unless the owner sets both in .env. The backend reads these
@@ -177,17 +178,17 @@ services:
       meilisearch:
         condition: service_started
     ports:
-      # 只绑 127.0.0.1：app 走 docker 内网连 backend，这个发布口只给宿主侧调试。
-      # 绑 0.0.0.0 会把未经 app 反代的 API 对全网敞开（pentest 2026-09-01）。
+      # Binds 127.0.0.1 only: app reaches backend over the docker internal network, this published port is only for host-side debugging.
+      # Binding 0.0.0.0 would open the API to the whole network without going through the app's proxy (pentest 2026-09-01).
       - "127.0.0.1:8100:8000"
-    # sandbox 需要 root + docker socket：owner-curated skill 脚本跑在隔离
-    # docker container 里。docs 里说明权衡。
+    # sandbox needs root + the docker socket: owner-curated skill scripts run inside an isolated
+    # docker container. The docs explain the trade-off.
     user: "0:0"
-    # bubblewrap (MCP capability sandbox: retrieval/booker/…) 要在容器内建
-    # user/mount namespace，默认 seccomp/apparmor profile 挡 unshare(CLONE_NEW*)
-    # + 默认 cap set 无 SYS_ADMIN。放开这三样 bwrap 才能起隔离环境 —— 没有它们
-    # 沙箱插件全 spawn 不了，访客 grounding 死（F-A-1）。跟 docker-compose.dev.yml
-    # 同款；bwrap 本身仍是插件的隔离边界。
+    # bubblewrap (MCP capability sandbox: retrieval/booker/…) needs to create a
+    # user/mount namespace inside the container; the default seccomp/apparmor profile blocks unshare(CLONE_NEW*)
+    # + the default cap set has no SYS_ADMIN. Only opening these three lets bwrap stand up the isolated environment — without them
+    # every sandboxed plugin fails to spawn and visitor grounding dies (F-A-1). Matches
+    # docker-compose.dev.yml; bwrap itself remains the plugin's isolation boundary.
     security_opt:
       - seccomp:unconfined
       - apparmor:unconfined
@@ -228,22 +229,22 @@ services:
     volumes:
       - custom_pages_data:/srv/custom-pages
 
-  # im-bridge —— 拿着码的人从聊天软件里私聊 owner 的 AI。
+  # im-bridge —— lets someone holding an access code DM the owner's AI from a chat app.
   #
-  # **这里只有接线，没有设置**：后端地址和访客入口是部署拓扑，bot token 不是 ——
-  # 那是 owner 在 admin 里配的连接器凭据（跟 mail / calendar 一样），
-  # 桥启动后从内部接口取。凭据不进 env，也不进 compose。
+  # **This is wiring only, no settings here**: the backend address and the visitor entry point are deployment topology, the bot token is not —
+  # that's a connector credential the owner configures in admin (same as mail / calendar),
+  # which the bridge fetches from the internal endpoint after it starts. Credentials never go into env or compose.
   #
-  # 走长轮询：不监听端口、不需要公网回调 —— 自托管场景下 webhook 那条路多数人做不到。
-  # 没配 IM 连接器时，桥就一直空转等着，不会报错刷屏。
+  # Runs long-polling: no listening port, no public callback needed — in a self-hosted setting the webhook path is out of reach for most people.
+  # With no IM connector configured, the bridge just idles and waits, without spamming errors.
   im-bridge:
     build:
       context: .
       dockerfile: im-bridge/Dockerfile
     restart: unless-stopped
     environment:
-      # 桥是**外部访客客户端**：问答走访客那条公开路（app），
-      # 只有「我该用哪个 token」这一件事走内部口（backend），跟 builder 同一个形状。
+      # The bridge is an **external visitor client**: Q&A goes over the visitor's public path (app),
+      # only "which token should I use" goes over the internal endpoint (backend) — same shape as builder.
       - STANDMEET_BASE_URL=http://app:3000
       - BACKEND_INTERNAL_URL=http://backend:8000
     depends_on:
@@ -259,11 +260,11 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # schema.sql 是唯一权威：fresh volume 首次启动时 postgres 自动应用。
+      # schema.sql is the sole authority: postgres applies it automatically on a fresh volume's first boot.
       - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     ports:
-      # 只绑 127.0.0.1：整个数据库。绝不对网络暴露 —— app 走内网服务名，
-      # `make prod-psql` 走 `docker compose exec`（pentest 2026-09-01）。
+      # Binds 127.0.0.1 only: the whole database. Never exposed to the network — app reaches it by the internal service name,
+      # `make prod-psql` goes through `docker compose exec` (pentest 2026-09-01).
       - "127.0.0.1:5532:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "standmeet", "-d", "standmeet"]
@@ -274,17 +275,17 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    # 封顶 + 到顶了丢最旧的（F-R-10）。
+    # Capped + evict the oldest once at the cap (F-R-10).
     #
-    # 这里装着**访客会话、限流桶、job 池（1 天 TTL）**。不封顶的话它一直涨，
-    # 涨到宿主受不了 —— 那时候不是「最旧的会话没了」，是**整个容器被 OOM 杀掉，
-    # 所有会话一起没**，而 owner 只会听说「访客打不开」。
+    # This holds **visitor sessions, rate-limit buckets, the job pool (1-day TTL)**. Uncapped, it keeps growing,
+    # until the host can't take it — and at that point it isn't "the oldest session is gone", it's **the whole container getting OOM-killed,
+    # every session gone at once**, while the owner only hears "visitors can't get in".
     #
-    # `allkeys-lru` 而不是 `noeviction`：到顶了要丢东西。`noeviction` 会让**写入失败**，
-    # 于是访客收到一个错，而 owner 那边什么都看不到。会话和限流桶都是可再生的
-    # （会话重开一次、限流桶重新计数），丢掉最旧的比拒绝新的好。
+    # `allkeys-lru` rather than `noeviction`: at the cap, something has to be dropped. `noeviction` would make **writes fail**,
+    # so the visitor gets an error while the owner sees nothing on their end. Sessions and rate-limit buckets are both regenerable
+    # (a session just reopens, a rate-limit bucket just recounts), so dropping the oldest beats rejecting the new.
     #
-    # 数值走环境变量：1 GB 的小机器和 64 GB 的机器不该改这份文件。
+    # Values go through env vars: a 1 GB small box and a 64 GB box shouldn't need to edit this file.
     command:
       - redis-server
       - --maxmemory
@@ -294,9 +295,9 @@ services:
     volumes:
       - redisdata:/data
     ports:
-      # 只绑 127.0.0.1：redis 没设密码，key 名就是明文 session token。绑 0.0.0.0 时
-      # 从网络无认证连上，SCAN 一下就拿到 owner 管理员 token → 整个实例接管
-      # （pentest 2026-09-01，整场最严重的一条）。
+      # Binds 127.0.0.1 only: redis has no password set, and the key name IS the plaintext session token. Binding 0.0.0.0
+      # lets an unauthenticated network connection SCAN its way to the owner's admin token → full instance takeover
+      # (pentest 2026-09-01, the most severe finding of the whole run).
       - "127.0.0.1:6479:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -355,8 +356,8 @@ services:
     volumes:
       - miniodata:/data
     ports:
-      # 只绑 127.0.0.1：对象存储（writing 图片/附件）。app 走内网,发布口只给宿主调试
-      # （pentest 2026-09-01）。
+      # Binds 127.0.0.1 only: object storage (writing images/attachments). app reaches it internally, the published port is only for host-side debugging
+      # (pentest 2026-09-01).
       - "127.0.0.1:9210:9000"
       - "127.0.0.1:9211:9201"
     healthcheck:

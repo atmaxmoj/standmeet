@@ -1,14 +1,18 @@
-// bigpage_fixture.go —— 一个**结果大到活不过上下文窗口**的 tool，外加一份按 tool 记的调用计数。
+// bigpage_fixture.go —— a tool whose **result is too large to survive the context window**,
+// plus a per-tool call count.
 //
-// 账（F-D-14）：prod 上真第三方 DeepWiki 一次 `read_wiki_contents` 回 374871 字节，而窗口是
-// 32K token —— 那份结果**作为消息本身就活不下来**。压缩把它吃掉，模型发现证据没了就再取一遍，
-// 于是取→压→再取，一轮里同样的调用发生了 **8 次**，访客等了 4 分钟、第三方被拉了 3MB。
+// The bill (F-D-14): in prod, a real third-party DeepWiki call to `read_wiki_contents`
+// returned 374871 bytes, against a 32K-token window — that result **couldn't survive as a
+// message at all**. Compaction swallowed it, the model noticed the evidence was gone and
+// fetched it again, so fetch→compact→fetch-again happened, and the same call fired **8
+// times** in one turn: the visitor waited 4 minutes, and the third party got pulled for 3MB.
 //
-// 要在 e2e 里判这件事，需要两样这个 fixture 之前没有的东西：
-//   - `big_page` —— 一个结果**确实**活不过窗口的 tool（真实世界里到处都是：一份 wiki 全文、
-//     一份规格、一次全量导出）。
-//   - `GET /__mock/calls` —— **派发计数**。判据是「同一次调用有没有真的又打到对面」，
-//     那就必须从**被调的那一侧**数（[[write-with-no-receipt]]：没有回执的断言证明不了事）。
+// Judging this in e2e needs two things this fixture didn't have before:
+//   - `big_page` — a tool whose result genuinely can't survive the window (ubiquitous in the
+//     real world: a full wiki page, a spec, a full export).
+//   - `GET /__mock/calls` — **dispatch counts**. The check is "did the same call actually hit
+//     the other side again", and that has to be counted **from the side that got called**
+//     ([[write-with-no-receipt]]: an assertion with no receipt proves nothing).
 package main
 
 import (
@@ -22,14 +26,17 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-// bigPageMarker —— 只此一处的一句话，埋在正文里。守卫据此判「模型手上到底有没有这份内容」。
+// bigPageMarker —— a sentence that appears nowhere else, buried in the body. The guard uses
+// it to judge whether the model actually has this content in hand.
 const bigPageMarker = "[BIG-PAGE-MARKER-8841]"
 
-// bigPageTargetBytes —— 正文长度。32K token 窗口 ≈ 128K 字符，这里给到 200K：
-// **一次就越线**，不靠攒。prod 那次是 374871 字节，同一个量级。
+// bigPageTargetBytes —— body length. A 32K-token window is roughly 128K characters; this
+// gives it 200K: **crosses the line in a single call**, not by accumulation. The prod
+// incident was 374871 bytes, the same order of magnitude.
 const bigPageTargetBytes = 200000
 
-// counts —— 每个 tool 被真正派发了多少次。守卫问的就是它。
+// counts —— how many times each tool was actually dispatched. This is exactly what the
+// guard asks about.
 var (
 	countMu sync.Mutex
 	counts  = map[string]int{}
@@ -41,12 +48,15 @@ func countCall(tool string) {
 	counts[tool]++
 }
 
-// counted —— 把计数包在**注册那一步**，而不是让每个 handler 自己记得数。
+// counted —— wraps the counting in the **registration step** itself, rather than relying on
+// each handler to remember to count.
 //
-// 账：第一版只在 `big_page` 里数，于是正对照（重复调用 `ping_external` 必须照常派发）
-// 读到 0 —— 而后端日志里那两次调用清清楚楚。**判据落在一个从没数过那个工具的计数器上**，
-// 红得跟「产品把它去重了」一模一样。包在注册处之后，「新加的 tool 忘了数」这件事不可能
-// 再发生（[[structure-means-no-responsibility-class]]）。
+// The bill: the first version only counted inside `big_page`, so the positive control
+// (repeated calls to `ping_external` must still dispatch normally) read 0 — while the
+// backend logs clearly showed those two calls happening. **The check was resting on a
+// counter that had never counted that tool**, and it went red in a way indistinguishable
+// from "the product deduped it". Once wrapped at registration, "a newly added tool forgot
+// to count" becomes structurally impossible ([[structure-means-no-responsibility-class]]).
 func counted(name string, h server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
 		countCall(name)
@@ -54,7 +64,7 @@ func counted(name string, h server.ToolHandlerFunc) server.ToolHandlerFunc {
 	}
 }
 
-// serveCalls —— `{"big_page":2,"ping_external":1}`。
+// serveCalls —— `{"big_page":2,"ping_external":1}`.
 func serveCalls(w http.ResponseWriter, _ *http.Request) {
 	countMu.Lock()
 	snapshot := make(map[string]int, len(counts))
@@ -68,8 +78,10 @@ func serveCalls(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-// serveResetCalls —— 每条 spec 自己清零；计数器活得比一次 run 长，不清零的话断言会读到
-// 上一轮留下的数（[[assertion-that-cannot-fail]] 那条账就是这么来的：ring 没清，红不了）。
+// serveResetCalls —— each spec zeroes it for itself; the counter outlives a single run, and
+// without resetting, an assertion would read counts left over from the previous round
+// ([[assertion-that-cannot-fail]]'s bill came from exactly this: an unreset ring can never
+// go red).
 func serveResetCalls(w http.ResponseWriter, _ *http.Request) {
 	countMu.Lock()
 	counts = map[string]int{}
@@ -86,7 +98,7 @@ func bigPageTool() mcpgo.Tool {
 	)
 }
 
-//nolint:gocritic // mcp-go 接口要求 value-typed request；改不了。
+//nolint:gocritic // the mcp-go interface requires a value-typed request; can't change it.
 func bigPageHandler(
 	_ context.Context, req mcpgo.CallToolRequest,
 ) (*mcpgo.CallToolResult, error) {
@@ -94,8 +106,9 @@ func bigPageHandler(
 	return mcpgo.NewToolResultText(bigPageBody(page)), nil
 }
 
-// bigPageBody —— 抬头 + marker + 填充到目标长度。填充是**像样的散文**，不是乱码：
-// 摘要模型得有东西可压，这条路才跟真实情况同形。
+// bigPageBody —— heading + marker + padding to the target length. The padding is
+// **plausible prose**, not gibberish: a summarizing model needs something it can actually
+// compress for this path to be shaped like the real thing.
 func bigPageBody(page string) string {
 	var b strings.Builder
 	b.WriteString("PAGE: " + page + "\n\n")

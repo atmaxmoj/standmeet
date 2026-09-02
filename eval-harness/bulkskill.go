@@ -1,16 +1,23 @@
-// bulkskill.go —— 一个**结果大到能把上下文顶过阈值**的 owner skill。
+// bulkskill.go —— an owner skill whose **result is large enough to blow the
+// context past the compaction threshold**.
 //
-// 账（F-D-10）：prod 上两个外部 MCP 工具回了 374871 + 3505 字节，紧接着日志
-// `context compacted before_msgs:5 after_msgs:2`，然后 AI 那一轮整段只有
-// *"I'm here — what would you like to dig into next?"* —— 问题没答。
+// The bill (F-D-10): in prod, two external MCP tools returned 374871 + 3505 bytes,
+// followed immediately by `context compacted before_msgs:5 after_msgs:2` in the
+// log, then the AI's whole turn was just *"I'm here — what would you like to
+// dig into next?"* —— the question went unanswered.
 //
-// 机制在 agent_compaction.go：压缩收尾 `tailPlainTurns` **必然**丢掉工具痕迹（留下
-// 半条 tool 结果而它的调用没了，provider 会拒收整个请求）。所以那次工具返回的实质
-// 只有一个地方能带走 —— 那份摘要。任务书第 6 条就是为它写的。
+// The mechanism is in agent_compaction.go: compaction's tail step `tailPlainTurns`
+// **necessarily** drops tool traces (leaving half a tool result whose call is
+// gone, which the provider will reject the whole request over). So the only
+// place that returned tool's substance can survive is the summary. Item 6 of
+// the task list was written for exactly this.
 //
-// 这个 fixture 就是那个"大工具结果"：一份一次读完就越过 32K 阈值的外部尽调报告，
-// 里面埋着**只此一处**的两个事实。压缩之后那一轮还答不答得出它们，是这条 eval 判的。
-// 只能用真模型判：替身不会真做摘要（回声里什么都在），在那一侧这条断言无条件为真。
+// This fixture is that "large tool result": an external due-diligence report that
+// crosses the 32K threshold on a single read, with **exactly one** occurrence of
+// two facts buried inside it. Whether that turn can still answer them after
+// compaction is what this eval judges. Only a real model can judge it: the stand-in
+// doesn't actually summarize (everything survives in the echo), so on that side
+// this assertion is unconditionally true.
 package main
 
 import (
@@ -21,29 +28,36 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
-// 报告里**只此一处**的两个事实。压缩之后问的就是它们；
-// 填充段里绝不允许出现这两个串（否则断言判的是填充，不是召回）。
+// The two facts occur **exactly once** in the report. Compaction is quizzed on
+// exactly these; the filler paragraphs must never contain these two strings
+// (otherwise the assertion would be judging the filler, not recall).
 const (
 	dossierThroughputFact = "4.7 million transactions per day"
 	dossierOutageFact     = "41 minutes"
 )
 
-// dossierTargetChars —— 报告正文长度。
+// dossierTargetChars —— the body length of the report.
 //
-// 这个数是**判据的一部分**，不是随手填的：
-//   - 第一次模型调用还没有 usage 可参考，eino 按 chars/4 估（estimateTokenCount）。
-//     leg 的历史 88K 字符 ≈ 22K token，加 system + tool 声明（量出来 4K+）仍在 32K
-//     以下 —— 所以第一次调用**不**触发压缩，工具因此有机会先跑。
-//   - 这份报告 44K 字符 ≈ 11K token，接在真实 usage 后面越过 32K ——
-//     所以压缩在**工具结果已经进窗口之后**才触发。那正是 prod 那次的形状。
+// This number is **part of the pass/fail criterion**, not filled in casually:
+//   - The first model call has no usage yet to go by; eino estimates chars/4
+//     (estimateTokenCount). The leg's 88K-character history ≈ 22K tokens, and
+//     with system + tool declarations (measured at 4K+) that's still under 32K —
+//     so the first call does **not** trigger compaction, giving the tool a chance
+//     to run first.
+//   - This report's 44K characters ≈ 11K tokens, which pushes past 32K once it
+//     lands after the real usage — so compaction triggers only **after the tool
+//     result is already in the window**. That's exactly the shape of the prod case.
 //
-// 两边各留了好几 K 的余量；shell 那条断言会亲自检查这个顺序，估错了会红在顺序上。
+// Both sides keep several K of margin; the shell-side assertion checks this
+// ordering itself, and a bad estimate would go red on the ordering.
 const dossierTargetChars = 44000
 
-// dossierSkill —— owner 手里那份语料之外的外部报告，做成一个技能。
+// dossierSkill —— an external report outside the owner's corpus, turned into a skill.
 //
-// 为什么是技能而不是外部 MCP：这条 eval 判的是**压缩带不带得走工具返回的实质**，
-// 那跟工具从哪来无关；技能这条路不用另起一个进程，结果大小还完全由我们定。
+// Why a skill rather than an external MCP: this eval judges **whether compaction
+// carries the tool return's substance forward**, and that has nothing to do with
+// where the tool comes from; the skill path doesn't need a separate process, and
+// the result size stays entirely under our control.
 func dossierSkill() *agentcore.VisitorSkillSpec {
 	return &agentcore.VisitorSkillSpec{
 		Name: "fetch_dossier",
@@ -61,28 +75,30 @@ func dossierSkill() *agentcore.VisitorSkillSpec {
 	}
 }
 
-// onceSpentStdout —— 一次性报告的第二次调用回什么。
+// onceSpentStdout —— what the one-shot report's second call returns.
 //
-// 说清楚「你已经取过了，那份文字只在这场对话里」，而不是丢一句「出错了」：
-// 前者让模型据此决定要不要认账，后者只会让它重试。真实世界里的签名链接 / 过期报表
-// 就是这么答的。
+// Says plainly "you already fetched this; that text only exists in this
+// conversation", rather than just dropping an "error occurred": the former lets
+// the model decide whether to own up to it, the latter only makes it retry.
+// Real-world signed links / expired reports answer exactly this way.
 const onceSpentStdout = `{"error":"this dossier link was one-shot and has already been ` +
 	`spent; the text fetched earlier in this conversation is the only copy"}`
 
-// dossierStdout —— 技能打印出来的东西：一份 JSON 包着的长报告。
+// dossierStdout —— what the skill prints: a long report wrapped in JSON.
 func dossierStdout() string {
 	b, err := json.Marshal(map[string]string{
 		"section": "full",
 		"text":    dossierText(),
 	})
-	if err != nil { // Marshal 一个纯 string map 不会失败；真失败了就让它显形。
+	if err != nil { // Marshaling a plain string map can't fail; if it ever does, let it surface.
 		panic(fmt.Sprintf("dossier marshal: %v", err))
 	}
 	return string(b)
 }
 
-// dossierFillerParas —— 填充段模板。措辞是**尽调报告**该有的样子，不是乱码：
-// 摘要模型得有东西可压，压缩才是真的在做它平时做的事。
+// dossierFillerParas —— filler paragraph templates. Worded the way a **due-diligence
+// report** actually reads, not gibberish: the summarizing model needs real material to
+// compress, so compaction is genuinely doing what it normally does.
 var dossierFillerParas = []string{
 	"Section %d — Reconciliation coverage. The ledger pipeline replays each settlement window " +
 		"against the acquirer statement and the internal journal, and files every unmatched leg " +
@@ -104,7 +120,8 @@ var dossierFillerParas = []string{
 		"a batched submission, and the fraud service fails closed for high-value baskets only.",
 }
 
-// dossierText —— 报告正文：抬头 + 埋着两个事实的那一段 + 填充到目标长度。
+// dossierText —— the report body: a header + the paragraph with the two facts
+// buried in it + filler padded out to the target length.
 func dossierText() string {
 	var b strings.Builder
 	b.WriteString("NIMBUS DATA — EXTERNAL DUE-DILIGENCE DOSSIER (confidential working copy)\n\n")

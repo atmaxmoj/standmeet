@@ -117,8 +117,9 @@ def flags(resp):
     return " ".join(out) or "clean"
 
 
-# 收尾寒暄:面试官已经道过别,后面几轮就是 "👋" / "take care" 来回。它们不带任何面试信号,
-# 却各烧一次真模型调用,还被算进"24 exchanges"里 —— 那个数字于是虚报了覆盖。
+# Closing pleasantries: once the interviewer has said goodbye, the remaining turns are just
+# "👋" / "take care" back and forth. They carry no interview signal at all, yet each one still
+# burns a real model call and gets counted into "24 exchanges" — so that number overstates coverage.
 CLOSING_WORDS = ("take care", "good luck", "talk soon", "looking forward to it",
                  "thanks for the practice", "we'll be in touch", "have a good")
 
@@ -170,11 +171,12 @@ def main():
             print("ERROR:", resp["error"])
         history += [{"role": "interviewer", "text": q}, {"role": "candidate", "text": ans}]
         transcript = history
-    # 报**问出来的**轮数,不是 TURNS:上一版无论后面几轮是不是 "👋" 都印 "24 exchanges",
-    # 那个数字听起来像覆盖度,实际只是循环上限。
+    # Reports the number of turns **actually asked**, not TURNS: the previous version printed
+    # "24 exchanges" regardless of whether the trailing turns were "👋" or not — that number
+    # sounded like coverage but was really just the loop cap.
     print(f"\n{'=' * 80}\nINTERVIEW COMPLETE — {asked} questions asked (cap {TURNS})")
     print(f"booking loop exercised: {booked}   |   privacy canary leaks: {leaks}")
-    # 金丝雀是机械判据,不是让人读的东西:漏了就红。
+    # The canary is a mechanical check, not something meant for a human to read: any leak turns this red.
     sys.exit(1 if leaks else 0)
 
 

@@ -1,37 +1,42 @@
 #!/usr/bin/env sh
-# check-one-time-format —— 时间只有**三种**写法,全部住在 `lib/ui/format-time.ts` 里。
+# check-one-time-format —— time has only **three** allowed formats, all living in `lib/ui/format-time.ts`.
 #
-# 为什么这条闸门存在(UX-46):owner 一次会话经过的三个面上出现了三种写法 ——
-# transcript 模态 `8/8/2026, 10:16:07 AM`(美式 locale + 秒 + AM/PM)、dashboard 的
-# 「最近来访」`2026-08-07T01:09:14Z`(ISO + Z,给机器看的)、同页标题 `last refresh · now`。
-# 成因跟 UX-47(下拉五种写法)/ UX-59(输入框两种长相)一样:**没有这一层**,
-# 于是 `toISOString().slice(0,10)` 被复制了四份,`toLocaleString()` 两份。
+# Why this gate exists (UX-46): in a single owner session, three different formats showed up across
+# three surfaces —— the transcript modal `8/8/2026, 10:16:07 AM` (US locale + seconds + AM/PM), the
+# dashboard's "last visit" `2026-08-07T01:09:14Z` (ISO + Z, meant for a machine), and the same page's
+# heading `last refresh · now`. The cause is the same as UX-47 (five dropdown formats) / UX-59 (two
+# input-box looks): **without this layer**, `toISOString().slice(0,10)` got copy-pasted four times,
+# `toLocaleString()` twice.
 #
-# 三种写法各自回答一个不同的问题(多新 / 哪一刻 / 哪一天),所以是三个函数不是一个参数。
-# 新的显示需求先问「是不是这三种之一」;真不是,就往 format-time.ts 里加第四个,
-# **不要**在调用点现写一个。
+# The three formats each answer a different question (how new / which moment / which day), so they're
+# three functions, not one parameter with options. A new display need first asks "is it one of these
+# three?"; if genuinely not, add a fourth to format-time.ts —— **do not** write one inline at the call site.
 #
-# 只管**显示**:`toISOString()` 在传参/存储/比较里是对的(那是给机器的),所以判据限定在
-# 组件与 lib 的显示路径 —— 具体做法是只看 `toLocaleString` / `toLocaleDateString` /
-# `toLocaleTimeString` / `toISOString().slice`,前三个只可能是显示,第四个是那份被复制四次的写法。
+# This only governs **display**: `toISOString()` is correct for params/storage/comparison (that's for a
+# machine), so the check is scoped to component and lib display paths —— concretely, it only looks at
+# `toLocaleString` / `toLocaleDateString` / `toLocaleTimeString` / `toISOString().slice`; the first three
+# can only be display, the fourth is the format that got copy-pasted four times.
 #
-# `Number.toLocaleString()`(给数字加千分位)不在此列 —— 那不是时间。判据靠**日期方法名**
-# 和 `.slice`,不靠 `toLocaleString` 本身,否则会把 `rawCount.toLocaleString()` 一起判红。
+# `Number.toLocaleString()` (adding thousands separators to a number) is not in scope —— that's not time.
+# The pattern keys off **date method names** and `.slice`, not `toLocaleString` alone, or it would flag
+# `rawCount.toLocaleString()` too.
 #
-# 自证:种四种坏写法要全被看见,种一个数字千分位必须放过;扫描范围不能为空。
+# Self-test: all four planted bad formats must be caught, one planted number's thousands-separator must
+# pass; the scan range must not be empty.
 
 set -eu
 
 SRC=app/src
 OWNER="$SRC/lib/ui/format-time.ts"
 
-# DOC_OWNER —— **简历 PDF 上的日期**,不是后台 chrome。那份 PDF 是印给招聘方看的文档,
-# `August 13, 2026` 在文档上是对的,而在后台列表里是错的 —— 两套读者,两套写法,
-# 所以它有自己的 owner 文件。豁免只给这一个文件:`resume-page/` 下的其它文件照样受管
-# (见 [[gate-scope-forces-architecture]]:整目录豁免会把该管的一起放走)。
+# DOC_OWNER —— **the date on the résumé PDF**, not backend chrome. That PDF is a document printed for a
+# recruiter to read; `August 13, 2026` is correct on the document, wrong in a backend list —— two
+# different audiences, two different formats, so it has its own owner file. The exemption covers only
+# this one file: every other file under `resume-page/` is still governed
+# (see [[gate-scope-forces-architecture]]: exempting the whole directory would let through what should stay governed).
 DOC_OWNER="$SRC/components/admin/resume-page/format.ts"
 
-# PATTERN —— 只认日期专用方法 + 那份被复制的 `toISOString().slice`。
+# PATTERN —— only recognizes date-specific methods + that copy-pasted `toISOString().slice`.
 PATTERN='toLocaleDateString|toLocaleTimeString|new Date\([^)]*\)\.toLocaleString|toISOString\(\)\.slice'
 
 scan() {
@@ -46,7 +51,7 @@ if [ "$n" -lt 50 ]; then
   exit 2
 fi
 
-# 自证:四种坏写法全中,数字千分位放过。
+# Self-test: all four bad formats hit, the number's thousands-separator passes through.
 plant=$(mktemp -t timefmt.XXXXXX)
 cat > "$plant" <<'PLANTED'
 const a = d.toLocaleDateString('en-US');
@@ -69,9 +74,9 @@ fi
 
 offenders=$(printf '%s\n' "$files" | xargs -r grep -nE "$PATTERN" || true)
 if [ -n "$offenders" ]; then
-  echo "check-one-time-format: a hand-rolled time format —— 时间只有三种写法:"
+  echo "check-one-time-format: a hand-rolled time format —— time has only three allowed formats:"
   echo "$offenders"
-  echo "                       用 stampDay / stampMinute / ago ($OWNER)。"
+  echo "                       use stampDay / stampMinute / ago ($OWNER)."
   exit 1
 fi
 

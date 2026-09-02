@@ -1,16 +1,23 @@
-// failure_modes_live_test.go —— 「把这个 agent 弄失败」的四个探针，真 LLM。
+// failure_modes_live_test.go —— four probes that "make this agent fail", against a real LLM.
 //
-// 为什么先找失败：前两轮 A/B（整理问题 / 自查）在 12 篇语料上基线全过，两个候选都没有
-// 可测的收益。在一个不会失败的地方问"哪个技巧有用"是问不出来的。
+// Why hunt for failure first: the first two rounds of A/B (question-tidying /
+// self-check) both passed the baseline fully on a 12-article corpus, and neither
+// candidate showed a measurable gain. Asking "which technique helps" in a place that
+// can't fail is unanswerable.
 //
-// 四个探针各打纯 ReAct 循环公认会崩的一处：
-//   ① scale     —— 1000+ 篇真语料（不是 12 篇玩具）。一步一步走还找得到吗
-//   ② memory    —— 多轮长对话，早期说过的约束到后面还记得吗
-//   ③ recovery  —— 工具前两次调用直接报错，它会重试/换路，还是把错当成答案
-//   ④ depth     —— 答案埋在四跳之外，需要连续跟链接
+// Each probe hits one spot a pure ReAct loop is known to break on:
+//   ① scale     —— 1000+ real articles (not a 12-article toy set). Can it still find
+//                   it step by step
+//   ② memory    —— a long multi-turn conversation: does it still remember a constraint
+//                   stated early on, later
+//   ③ recovery  —— a tool errors out on its first two calls; does it retry / switch
+//                   paths, or take the error as the answer
+//   ④ depth     —— the answer is buried four hops away, needing consecutive link-following
 //
-// **判据落在工具轨迹上**，不写字符串打分器：前三轮 A/B 坏的都是我的打分器，而数字看着
-// 像真效应（[[read-the-outputs-before-scoring-them]]）。轨迹是无歧义的；答案我自己读。
+// **The judgment lands on the tool trajectory**, not a string-scoring function: in the
+// first three rounds of A/B, what was broken was my own scorer, and the numbers looked
+// like a real effect ([[read-the-outputs-before-scoring-them]]). The trajectory is
+// unambiguous; I read the answer myself.
 
 package main
 
@@ -26,17 +33,18 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
-// realVaultCorpus —— 真 vault 的 wiki 部分。玩具语料上 agent 可以近乎穷举，
-// 那正是前两轮实验测不出东西的原因。
+// realVaultCorpus —— the wiki portion of the real vault. On a toy corpus the agent
+// can almost brute-force it, which is exactly why the first two rounds of experiments
+// couldn't measure anything.
 func realVaultCorpus(t *testing.T, max int) []agentcore.VisitorCorpusEntry {
 	t.Helper()
 	root := filepath.Join(os.Getenv("HOME"), "Develop/writing/notes/wiki")
 	var out []agentcore.VisitorCorpusEntry
 	err := filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(p, ".md") || len(out) >= max {
-			return nil //nolint:nilerr // 读不到的单篇跳过,不让一篇坏文件废掉整个语料
+			return nil //nolint:nilerr // skip an article that can't be read, don't let one bad file void the whole corpus
 		}
-		b, rerr := os.ReadFile(p) //nolint:gosec // 固定在 owner 自己的 vault 下
+		b, rerr := os.ReadFile(p) //nolint:gosec // fixed under the owner's own vault
 		if rerr != nil {
 			return nil
 		}
@@ -66,8 +74,9 @@ func runProbe2(
 	return runProbePre(t, cred, drv, "", question, history)
 }
 
-// runProbePre —— 带 preamble 的版本。preamble 追加在真 system prompt 之后，
-// 模拟"给这个 agent 多加一段操作规程"，其余（工具、人格、预算）逐字不变。
+// runProbePre —— the version with a preamble. The preamble is appended after the real
+// system prompt, simulating "add one more operating procedure to this agent"; everything
+// else (tools, persona, budget) stays verbatim.
 func runProbePre(
 	t *testing.T, cred agentcore.Cred, drv *EvalDriver,
 	preamble, question string, history []agentcore.ChatRequestMsg,
@@ -117,7 +126,8 @@ func liveCredOrSkip(t *testing.T) agentcore.Cred {
 	return agentcore.Cred{Provider: cd.Provider, Key: cd.Key, Endpoint: cd.Endpoint, Model: cd.Model}
 }
 
-// ① scale —— 真语料，懒问题。用词跟笔记不重合，而且候选面从 12 篇变成 1000+。
+// ① scale —— real corpus, a lazy question. Wording doesn't overlap with the notes, and
+// the candidate pool goes from 12 articles to 1000+.
 func TestFailureMode_Scale(t *testing.T) {
 	cred := liveCredOrSkip(t)
 	corpus := realVaultCorpus(t, 1200)
@@ -130,7 +140,8 @@ func TestFailureMode_Scale(t *testing.T) {
 	}
 }
 
-// ② memory —— 多轮。第一轮给一个约束，中间灌几轮无关的，最后看它还认不认。
+// ② memory —— multi-turn. The first turn states a constraint, several unrelated turns
+// are inserted, then check whether it's still honored at the end.
 func TestFailureMode_Memory(t *testing.T) {
 	cred := liveCredOrSkip(t)
 	drv := &EvalDriver{cred: cred, corpus: realVaultCorpus(t, 400)}
@@ -142,8 +153,9 @@ func TestFailureMode_Memory(t *testing.T) {
 		{Role: "user", Content: "线上出问题呢"},
 		{Role: "assistant", Content: "先回滚，再写复盘。"},
 	}
-	// 跑 3 次：第一次观察到「中文对话里用英文回答」，一次不算规律，第三次要能判负
-	// （[[two-samples-of-a-flake-look-like-a-rule]]）。
+	// Run 3 times: the first observation was "answering in English inside a Chinese
+	// conversation" — one sample isn't a rule, and the third run must be able to falsify it
+	// ([[two-samples-of-a-flake-look-like-a-rule]]).
 	for i := 0; i < 3; i++ {
 		r := runProbe2(t, cred, drv, "那他最擅长什么", hist)
 		t.Logf("── run%d 多轮后问「那他最擅长什么」（第一轮说过：只看工程，别聊营销/写作）\n"+
@@ -152,7 +164,8 @@ func TestFailureMode_Memory(t *testing.T) {
 	}
 }
 
-// startsChinese —— 答案开头 40 个字符里有没有汉字。判「回答语言跟提问语言一致吗」够用了。
+// startsChinese —— whether there's a Chinese character in the first 40 characters of the
+// answer. Good enough to judge "does the answer language match the question language".
 func startsChinese(s string) bool {
 	head := []rune(strings.TrimSpace(s))
 	if len(head) > 40 {
@@ -174,7 +187,8 @@ func firstLines(s string, n int) string {
 	return strings.Join(lines, "\n")
 }
 
-// ③ recovery —— 前两次 corpus_search 报错。看它换工具还是就此收摊。
+// ③ recovery —— the first two corpus_search calls error out. See whether it switches
+// tools or just gives up.
 func TestFailureMode_ToolError(t *testing.T) {
 	cred := liveCredOrSkip(t)
 	drv := &EvalDriver{cred: cred, corpus: realVaultCorpus(t, 400), FailSearchFirst: 2}
@@ -183,7 +197,8 @@ func TestFailureMode_ToolError(t *testing.T) {
 		r.nTools, r.nSearch, r.tools, r.answer)
 }
 
-// ④ depth —— 需要连着跟好几跳链接才够得着的问题。纯 ReAct 的"只看一步"在这儿最容易绕路。
+// ④ depth —— a question that needs following several consecutive links to reach. Pure
+// ReAct's "look one step ahead only" gets lost most easily here.
 func TestFailureMode_Depth(t *testing.T) {
 	cred := liveCredOrSkip(t)
 	drv := &EvalDriver{cred: cred, corpus: realVaultCorpus(t, 1200)}

@@ -95,13 +95,14 @@ function setupViteProject(workDir, files, entry) {
   );
 }
 
-// runViteBuild —— 跑一次构建。**编译器说的话要抓回来**：`stdio: 'inherit'` 把 vite 的
-// 诊断丢进 builder 容器自己的日志，于是 owner 那一侧只剩 execFileSync 自己那句
-// `Command failed: node /tmp/work/<uuid>/…/vite.js build --logLevel error` ——
-// 长度够、一个字都用不上，而 owner 要改的正是它没说的那一行（F-P-3）。
+// runViteBuild — run one build. **The compiler's own words must be captured**: `stdio: 'inherit'`
+// dumps vite's diagnostics into the builder container's own log, leaving the owner's side with only
+// `Command failed: node /tmp/work/<uuid>/…/vite.js build --logLevel error` —
+// long enough, useless, while the line the owner needs to fix is exactly the one it doesn't say (F-P-3).
 //
-// 抓回来之后还得**去掉工作目录**：`/tmp/work/<uuid>/` 是我们的内部地址，
-// 印给 owner 只会让他去找一个不存在的文件。剩下的是 `src/owner/App.tsx:3:1` 这样的相对路径。
+// After capturing it, the **working directory must be stripped** too: `/tmp/work/<uuid>/` is our
+// internal address; printing it to the owner just sends them hunting for a file that doesn't exist.
+// What's left is a relative path like `src/owner/App.tsx:3:1`.
 function runViteBuild(workDir) {
   try {
     execFileSync(
@@ -121,18 +122,18 @@ function runViteBuild(workDir) {
 
 function viteFailureText(e, workDir) {
   const said = `${e?.stderr ?? ''}${e?.stdout ?? ''}`.trim();
-  // 编译器一句话没说的时候（比如进程被杀）才退回 execFileSync 那句 —— 说不清就说
-  // 我们知道的那点，不编一个更具体的原因。
+  // Fall back to execFileSync's own message only when the compiler said nothing at all (e.g. the
+  // process got killed) — say what we actually know, don't invent a more specific reason.
   const text = said === '' ? (e?.message ?? String(e)) : said;
   return stripWorkDir(dropStackFrames(text), workDir);
 }
 
-// dropStackFrames —— 砍掉 esbuild 自己的调用栈。
+// dropStackFrames — cuts off esbuild's own call stack.
 //
-// 抓回 stderr 之后，owner 拿到的是「哪一行坏了」**加上**一整串
-// `at failureErrorWithLog (node_modules/esbuild/lib/main.js:1748:15) at …`。
-// 那串是我们的依赖在我们的容器里的内部路径：对 owner 一个字都用不上，
-// 而它把真正有用的那两行挤到了看不见的地方。产品的规矩是界面上不出现裸栈。
+// After capturing stderr, the owner gets "which line broke" **plus** a whole trailing
+// `at failureErrorWithLog (node_modules/esbuild/lib/main.js:1748:15) at …`.
+// That trail is our dependency's internal path inside our container: useless to the owner,
+// and it pushes the two genuinely useful lines out of view. Product rule: no raw stack traces in the UI.
 function dropStackFrames(text) {
   const kept = [];
   for (const line of text.split('\n')) {
@@ -142,8 +143,9 @@ function dropStackFrames(text) {
   return kept.join('\n').trim();
 }
 
-// stripWorkDir —— `/tmp/work/<uuid>/` 是我们的内部地址，印给 owner 只会让他
-// 去找一个不存在的文件。去掉之后剩下 `src/owner/App.tsx:3:0` 这样的相对路径。
+// stripWorkDir — `/tmp/work/<uuid>/` is our internal address; printing it to the owner just sends
+// them hunting for a file that doesn't exist. What's left after stripping is a relative path like
+// `src/owner/App.tsx:3:0`.
 function stripWorkDir(text, workDir) {
   return text.split(`${workDir}/`).join('').split(workDir).join('');
 }

@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
-# check-no-mock —— G-Y 强制 backend/ 不含任何 mock-only / test-only 代码。
+# check-no-mock —— G-Y enforces that backend/ contains no mock-only / test-only code.
 #
-# 五类违规：
-#   A) 源码模式 (MockProvider / INFERENCE_MOCK_ / /__mock / Test{Registry,
-#      VisitorCap,GCalExpire})                          —— 具名黑名单
-#   B) 目录   (backend/cmd/job-board-mock, backend/cmd/mcp-server-mock)
-#   C) 文件   (backend/internal/routes/sys/test_*.go)
-#   D) fixture/canned 具名替身 (canned* / *Fixture / stub*) —— 具名黑名单
-#   E) test-only 包 import (testing / testify / httptest)  —— name-INDEPENDENT，
-#      结构信号；A/D 的具名黑名单会被"中性命名"躲过，import 躲不掉。
+# Five violation classes:
+#   A) source patterns (MockProvider / INFERENCE_MOCK_ / /__mock / Test{Registry,
+#      VisitorCap,GCalExpire})                          —— named blocklist
+#   B) directories   (backend/cmd/job-board-mock, backend/cmd/mcp-server-mock)
+#   C) files   (backend/internal/routes/sys/test_*.go)
+#   D) fixture/canned named stand-ins (canned* / *Fixture / stub*) —— named blocklist
+#   E) test-only package imports (testing / testify / httptest)  —— name-INDEPENDENT,
+#      a structural signal; A/D's named blocklists can be dodged by a "neutral name,"
+#      an import can't be.
 #
-# 排除：_test.go (Go unit test files OK), // 起头的注释行 OK (历史描述不
-# 算违规)。自测在 check-no-mock-test.sh (make backend-no-mock 一起跑)。
+# Excluded: _test.go (Go unit test files OK), lines starting with // (historical
+# descriptions don't count as violations). Self-test lives in check-no-mock-test.sh
+# (runs together with make backend-no-mock).
 #
-# 退出码：0 = clean，1 = 有违规 (列出所有违规位置)。
+# Exit code: 0 = clean, 1 = violations found (lists every violation location).
 
 set -euo pipefail
 
@@ -25,62 +27,66 @@ report() {
   backend_violations=$((backend_violations + 1))
 }
 
-# A) 源码模式
+# A) source patterns
 patterns='MockProvider|INFERENCE_MOCK_|"/__mock/|TestRegistryDeps|TestVisitorCapabilitiesDeps|TestGCalExpireDeps'
 src_hits=$(grep -rnE "$patterns" backend/ \
   --include='*.go' --exclude='*_test.go' 2>/dev/null \
   | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
   | grep -vE '^[^:]+:[0-9]+:[[:space:]]*\*' || true)
 if [ -n "$src_hits" ]; then
-  report "backend/ 源码含 mock-only 模式 (G-Y 应该挪到 mock-stack/):"
+  report "backend/ source contains a mock-only pattern (G-Y says it belongs in mock-stack/):"
   printf '%s\n' "$src_hits" | sed 's/^/  /'
 fi
 
-# B) 目录
+# B) directories
 for dir in backend/cmd/job-board-mock backend/cmd/mcp-server-mock; do
   if [ -d "$dir" ]; then
-    report "$dir/ 整个 binary 应该在 mock-stack/ (G-Y)"
+    report "$dir/ — this whole binary belongs in mock-stack/ (G-Y)"
   fi
 done
 
-# C) 文件
+# C) files
 test_files=$(find backend/internal/routes/sys -name 'test_*.go' 2>/dev/null || true)
 if [ -n "$test_files" ]; then
-  report "backend/internal/routes/sys/test_*.go 应该走 mock-stack admin 或 SQL/Redis:"
+  report "backend/internal/routes/sys/test_*.go should go through mock-stack admin or SQL/Redis instead:"
   printf '%s\n' "$test_files" | sed 's/^/  /'
 fi
 
-# D) fixture / canned 测试替身命名 (P.13 不变量：backend 零 fixture)。
-#    canned 实现只许住 eval-harness 的 EvalDriver（Bridge/Driver 的 ConcreteImplementor），
-#    backend 内一个都不许有。今天 backend/agentcore/*_fixture.go 把 cannedSandbox /
-#    skillFixture 焊在 backend 里 —— 正是这条要顶红的（A 类具名黑名单当年漏了它，fixture
-#    还故意"中性命名"来躲）。不抓 noop* —— 那是合法 prod null-object（noopVerifier /
-#    noopPDFRenderer），不是测试替身。
+# D) fixture / canned test-double naming (P.13 invariant: zero fixtures in backend).
+#    A canned implementation may only live in eval-harness's EvalDriver (the
+#    ConcreteImplementor of the Bridge/Driver pattern); backend gets none, ever. This check
+#    exists because backend/agentcore/*_fixture.go once welded cannedSandbox / skillFixture
+#    into backend —— exactly the case this rule is meant to catch red (class A's named
+#    blocklist missed it back then, and the fixture was deliberately "neutrally named" to
+#    dodge it). Doesn't catch noop* —— that's a legitimate prod null-object (noopVerifier /
+#    noopPDFRenderer), not a test double.
 fixture_hits=$(grep -rnE 'canned[A-Z]|[a-zA-Z]Fixture\b|\bstub[A-Z]' backend/ \
   --include='*.go' --exclude='*_test.go' 2>/dev/null \
   | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
   | grep -vE '^[^:]+:[0-9]+:[[:space:]]*\*' || true)
 if [ -n "$fixture_hits" ]; then
-  report "backend/ 含 fixture/canned 测试替身 (P.13：canned 只许在 eval-harness 的 EvalDriver):"
+  report "backend/ contains a fixture/canned test double (P.13: canned belongs only in eval-harness's EvalDriver):"
   printf '%s\n' "$fixture_hits" | sed 's/^/  /'
 fi
 
-# E) test-only 包 import (name-INDEPENDENT)：非 _test.go 的 backend 文件 import testing /
-#    testify / httptest = 测试替身漏进 prod。A/D 类靠具名黑名单，中性命名能躲；import 是
-#    结构信号躲不掉——一个"看起来正经"的 helper 只要用了这些包就现形（check-no-mock-test.sh 守）。
+# E) test-only package import (name-INDEPENDENT): a non-_test.go backend file importing
+#    testing / testify / httptest means a test double has leaked into prod. Classes A/D rely
+#    on named blocklists, which a neutral name can dodge; an import is a structural signal
+#    that can't be dodged — an otherwise "legitimate-looking" helper is exposed the moment it
+#    uses one of these packages (guarded by check-no-mock-test.sh).
 import_hits=$(grep -rnE '"testing"|"testing/[a-z]+"|"net/http/httptest"|github\.com/stretchr/testify' backend/ \
   --include='*.go' --exclude='*_test.go' 2>/dev/null \
   | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
   | grep -vE '^[^:]+:[0-9]+:[[:space:]]*\*' || true)
 if [ -n "$import_hits" ]; then
-  report "backend/ 非测试文件 import 了 test-only 包 (testing/testify/httptest → 测试替身漏进 prod):"
+  report "backend/ non-test file imports a test-only package (testing/testify/httptest → test double leaked into prod):"
   printf '%s\n' "$import_hits" | sed 's/^/  /'
 fi
 
 if [ "$backend_violations" -gt 0 ]; then
   echo
-  echo "G-Y 强制：mock infra 全在 mock-stack/，backend/ 只剩 prod 路径。"
+  echo "G-Y enforces: all mock infra lives in mock-stack/, backend/ keeps only the prod path."
   exit 1
 fi
 
-echo "✓ backend/ 无 mock-only 代码"
+echo "✓ backend/ has no mock-only code"

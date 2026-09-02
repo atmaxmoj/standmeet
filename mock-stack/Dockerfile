@@ -34,11 +34,12 @@ RUN go build -trimpath -ldflags='-s -w' -o /out/fault-proxy ./fault-proxy
 # ----- runtime: job-board ------------------------------------------------
 FROM alpine:3.21 AS job-board
 WORKDIR /app
-# ca-certificates —— 这个 mock 会现签一张证书,并把"系统根 + 它"合并成一份 bundle
-# 给消费方(见 job-board/tls.go)。没有系统根就合并不出来。
+# ca-certificates —— this mock signs a certificate on the fly and merges "the system roots + it" into
+# one bundle for consumers (see job-board/tls.go). Without the system roots, there's nothing to merge into.
 #
-# /mock-tls 在镜像里就建好并 chown —— **命名卷第一次挂载时继承镜像里该路径的属主**。
-# 不建的话卷是 root:root,而这个进程跑 uid 1001,启动即 "permission denied"。
+# /mock-tls is created and chowned in the image itself —— **a named volume inherits the owner of that
+# path from the image on its first mount**. Without creating it, the volume would be root:root, and this
+# process runs as uid 1001, so it would fail on startup with "permission denied".
 RUN apk add --no-cache wget ca-certificates                                   \
  && addgroup --system --gid 1001 mock                                         \
  && adduser --system --uid 1001 --ingroup mock mock                           \
@@ -75,10 +76,12 @@ ENV PORT=9300
 ENTRYPOINT ["/app/llm-gateway"]
 
 # ----- runtime: fault-proxy (fault injector in front of ANY real upstream) --
-# 跟 llm-gateway 的分工:llm-gateway **替换**模型(脚本化,给 dev/e2e);这个**不替换**,它转发到
-# 真上游,只注入限流/截断/失败状态。真实环境审计要看真东西在异常下怎么走,换成脚本就把被测对象
-# 换掉了。上游是谁由 UPSTREAM_BASE_URL 决定 —— LLM provider 或本实例的 backend 都行,同一个镜像。
-# ca-certificates —— 上游可能是 https。
+# Division of labor with llm-gateway: llm-gateway **replaces** the model (scripted, for dev/e2e); this
+# one **does not replace** anything, it forwards to the real upstream and only injects rate-limit /
+# truncation / failure states. A real-environment audit needs to see how the real thing behaves under
+# faults; swapping in a script would swap out the thing under test. Which upstream it is comes from
+# UPSTREAM_BASE_URL —— either an LLM provider or this instance's own backend works, same image.
+# ca-certificates —— the upstream may be https.
 FROM alpine:3.21 AS fault-proxy
 WORKDIR /app
 RUN apk add --no-cache wget ca-certificates                                    \

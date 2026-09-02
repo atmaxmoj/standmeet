@@ -38,15 +38,17 @@ BASELINE="backend/.core-agnostic-baseline"
 
 # The kernel packages —— they must not let you infer that any concrete capability/connector exists.
 # (internal/usecases was the third; it is dissolved, so the agent engine + capability axis remain.)
-# access/entity + owner/entity 是 2026-08-31 加进来的。
+# access/entity + owner/entity were added on 2026-08-31.
 #
-# 加它们的原因是一次真实的泄漏：job loop（一个**插件**）要的 `hiring` role 和 prompt
-# 被写进了 `access/entity`，紧挨着 `PublicRoleName` / `InvitedRoleName` —— 内核于是
-# 认识了一个插件的词，而那条 role 还带着一条只有插件说得清的 glob。
-# 那一版 `make lint` 是**绿的**：这两个包当时不在 CORE_DIRS 里，锁结构上看不见。
+# Reason: a real leak. Job loop (a **plugin**) needed a `hiring` role and prompt, and it
+# got written into `access/entity`, right next to `PublicRoleName` / `InvitedRoleName` —
+# so the kernel came to know a plugin's word, and that role carried a glob only the plugin
+# could make sense of. `make lint` was **green** at the time: these two packages weren't in
+# CORE_DIRS yet, so the lock's structure couldn't see it.
 #
-# 而它们恰恰是最该锁的：`access/entity` 定义访问层级，`owner/entity` 定义 owner 的
-# 值对象 —— 插件想在内核里"占个名分"，第一个落脚点就是这两处。
+# And they are exactly the ones that most need locking: `access/entity` defines the access
+# tiers, `owner/entity` defines the owner's value objects — if a plugin wants to "claim a
+# seat" inside the kernel, these two are the first place it would land.
 CORE_DIRS="backend/internal/conversation/inference backend/internal/capabilities \
 backend/internal/access/entity backend/internal/owner/entity"
 

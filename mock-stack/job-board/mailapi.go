@@ -1,7 +1,8 @@
-// mailapi.go —— happy-matrix combo 4（openapi mail，bearer）的「假 mail SaaS」落点：POST /__mock/
-// mailapi/send {to,subject,text} → mock 经 SMTP 把信转投给 mail-mock（前置 mailpit）。这样经 openapi
-// mail 连接器发出的信，消费侧（expectMailSent → 查 Mailpit）能查到，跟 SMTP 协议连接器归一到同一
-// 个收件箱。仅 dev/e2e 用。
+// mailapi.go —— the "fake mail SaaS" landing spot for happy-matrix combo 4 (openapi mail,
+// bearer): POST /__mock/mailapi/send {to,subject,text} → the mock relays the message over
+// SMTP to mail-mock (fronting mailpit). This way, mail sent through the openapi mail
+// connector can be found by the consumer side (expectMailSent → check Mailpit), unified into
+// the same inbox as the SMTP-protocol connector. dev/e2e only.
 
 package main
 
@@ -20,7 +21,8 @@ type mailAPIRequest struct {
 	Text    string `json:"text"`
 }
 
-// serveMailAPISend —— 收 HTTP 发信请求 → 经 SMTP 转投 mail-mock（→ Mailpit）。202 表示已接受。
+// serveMailAPISend —— receives an HTTP send request → relays over SMTP to mail-mock
+// (→ Mailpit). 202 means accepted.
 func (s *server) serveMailAPISend(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -44,18 +46,23 @@ func (s *server) serveMailAPISend(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// serveMailAPISendForm —— **一个只收表单编码的假 vendor**（F-C-54）。
+// serveMailAPISendForm —— **a fake vendor that only accepts form encoding** (F-C-54).
 //
-// 真世界里这不是少数派：Mailgun / Twilio / Stripe 的发信、发短信、收款端点都是
-// `application/x-www-form-urlencoded` 或 `multipart/form-data`，**JSON body 会被整个忽略**。
-// 拿真 Mailgun 试过：同一个端点、同一把 key，body 换成 JSON → `400 {"message":"from parameter
-// is missing"}` —— 它只是没看见那些字段。
+// This isn't a minority case in the real world: Mailgun / Twilio / Stripe's send-mail,
+// send-SMS, and take-payment endpoints are all `application/x-www-form-urlencoded` or
+// `multipart/form-data` — **a JSON body gets ignored entirely**. Tried against real
+// Mailgun: same endpoint, same key, body switched to JSON → `400 {"message":"from
+// parameter is missing"}` — it simply never saw those fields.
 //
-// 这个替身以前的每一个假 vendor 端点都只说 JSON，于是「产品写死发 JSON」这件事在测试里
-// 永远发生不了（[[stand-in-is-politer-than-reality]]）。这条路存在的唯一目的，就是让它发生。
+// Every fake vendor endpoint this stand-in used to have only spoke JSON, so "the product
+// hardcoded sending JSON" could never happen in tests
+// ([[stand-in-is-politer-than-reality]]). This path exists for the sole purpose of making
+// that happen.
 //
-// 答法逐字照抄真 Mailgun：认得出表单就照发并在 **body** 里回 id；认不出（比如收到 JSON）就回
-// 那句 `from parameter is missing` —— 那句话本身就是这条缺陷在真环境里的样子。
+// The response copies real Mailgun verbatim: recognize a form and relay it, echoing the
+// id back in **body**; fail to recognize it (e.g. receives JSON instead) and it replies
+// with that same `from parameter is missing` — that sentence is itself what this defect
+// looks like in the real environment.
 func (s *server) serveMailAPISendForm(w http.ResponseWriter, r *http.Request) {
 	if perr := r.ParseForm(); perr != nil {
 		http.Error(w, `{"message":"could not parse form"}`, http.StatusBadRequest)
@@ -85,7 +92,8 @@ func (s *server) serveMailAPISendForm(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// relayToMailpit —— 把请求拼成一封信经 SMTP 投给 mail-mock（地址可经 MAILAPI_SMTP_ADDR 覆盖）。
+// relayToMailpit —— assembles the request into an email and delivers it to mail-mock over
+// SMTP (address overridable via MAILAPI_SMTP_ADDR).
 func relayToMailpit(req *mailAPIRequest) error {
 	addr := os.Getenv("MAILAPI_SMTP_ADDR")
 	if addr == "" {

@@ -1,15 +1,17 @@
-# docker-compose.verify-app.yml —— 把 prod app 的后端地址指到故障代理上。
+# docker-compose.verify-app.yml —— points the prod app's backend address at the fault proxy.
 #
-# 只在真实环境审计的「窄故障」那一步用（corpus-acl-editing check 6：让**某一个** admin 接口
-# 加载失败，看页面说什么）。app→backend 的地址是基础设施，产品界面里没有这个旋钮，所以这一步
-# 只能改 compose —— 但改的是一个**叠加文件**，prod 那份不动。
+# Used only for the "narrow fault" step of a real-environment audit (corpus-acl-editing
+# check 6: make **one specific** admin endpoint fail to load, see what the page says).
+# The app→backend address is infrastructure — the product UI has no knob for it — so this
+# step can only change compose. But it changes an **overlay file**; the prod one is untouched.
 #
-#   make verify-api-fault-up     起 api-fault + 用这份 override 重建 app
-#   make verify-api-fault-down   撤回 prod 原样（BACKEND_URL 回到 http://backend:8000）
+#   make verify-api-fault-up     bring up api-fault + rebuild app with this override
+#   make verify-api-fault-down   revert to prod as-is (BACKEND_URL back to http://backend:8000)
 #
-# ⚠️ 这期间 app 的**每一个**后端请求都经过代理。没装故障时它原样转发，日志里每条都有一行
-# `forwarded path=… status=…` —— 那一行是用来确认「产品确实走了这条路」的：不留的话，
-# 「没有流量」和「转发正常」长得一模一样。
+# Warning: during this window **every** backend request from the app goes through the proxy.
+# With no fault installed it forwards unchanged, and every request logs a line
+# `forwarded path=… status=…` — that line confirms "the product really took this path": without
+# it, "no traffic" and "forwarding normally" look identical.
 
 services:
   app:

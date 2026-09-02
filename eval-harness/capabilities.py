@@ -29,10 +29,11 @@ import urllib.request
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-# BOOK_DATE —— 一个稳定在**将来**的工作日(相对 eval 跑的当天算),给需要真约成的
-# booking 用例用。硬编码日期会随时间变过去 → 那天没 slot → agent 约不成,用例假红。
+# BOOK_DATE —— a weekday that stays stable **in the future** (relative to the day the
+# eval runs), for booking cases that need a real successful booking. A hardcoded date
+# would slide into the past over time → no slot that day → agent can't book → false red.
 _book_day = datetime.now(ZoneInfo("America/Los_Angeles")) + timedelta(days=12)
-while _book_day.weekday() >= 5:  # 落到周一~周五(wide-open policy 收工作日)
+while _book_day.weekday() >= 5:  # land on Mon-Fri (wide-open policy takes weekdays)
     _book_day += timedelta(days=1)
 BOOK_DATE = _book_day.strftime("%A %B %d, %Y")  # e.g. "Friday June 26, 2026"
 
@@ -61,12 +62,15 @@ def read_private(r):
                for t in r.get("tools", []))
 
 
-# WAYPOINTS —— owner 在 role 上写的引导目的地,冻进这一场。ghost policy 只推**未访问**的,
-# 所以这几条就是"这一轮还能往哪儿引"的全集。**给了才装 turn epilogue**:public 模式和
-# 不给 waypoint 的场次结构上就没有 epilogue —— 跟 prod 的 hasFrozenWaypoints 同一个条件。
+# WAYPOINTS —— the guiding destinations the owner wrote on the role, frozen for this
+# scenario. ghost policy only ever surfaces **unvisited** ones, so this list is the
+# full set of "where this turn could still lead". **Only present when given**: public
+# mode and a scenario with no waypoints have no turn epilogue at all, structurally —
+# the same condition prod uses for hasFrozenWaypoints.
 #
-# 主题挑的是 marcus 语料里真有的那几件事:policy 会被要求"顺着上一句的劲",评它选得准不准
-# 得先保证每条 waypoint 语料里答得出来。
+# The topics are things the marcus corpus genuinely covers: policy is judged on how well
+# it "follows the thread of the last turn", and scoring that needs every waypoint to be
+# answerable from the corpus in the first place.
 WAYPOINTS = [
     {"waypoint_id": "grasp-reconciliation", "weight": 5,
      "description": "understand the payment reconciliation pipeline at FlowPay",
@@ -122,8 +126,9 @@ CASES = [
                 ("no error", lambda r: not r.get("error")),
                 ("confirms booking", lambda r: ans_has(r, "book") or ans_has(r, "confirm"))]},
     {"name": "booking-list-slots", "dim": "tool · booking", "kind": "assert",
-     # visitor_timezone 必带 —— prod 里浏览器每轮都送(#120),不带的话 agent 会按
-     # instruction 先反问"你哪个时区"而不是列时段(那本身是对的,但不是 prod 现实)。
+     # visitor_timezone must be present — the prod browser sends it every turn (#120);
+     # without it the agent's instructions have it ask "what's your timezone" first
+     # instead of listing slots (correct behavior in isolation, but not prod reality).
      "req": {"mode": "code", "booking": True,
              "visitor_timezone": "America/Los_Angeles",
              "question": f"Show me your open 30-minute slots on the calendar for the week of "
@@ -199,8 +204,10 @@ CASES = [
      "req": {"mode": "code", "waypoints": WAYPOINTS,
              "question": "What was the hardest scaling problem you've worked on?"},
      "checks": [("ghosts present in code mode", lambda r: n_ghosts(r) >= 1)]},
-    # public —— **故意给 waypoints**:如果它照样不出 ghost,证明的是"public 模式结构上没装
-    # epilogue",而不是"这一场碰巧没有目的地可推"。不给的话这条断言永远对,测不出任何东西。
+    # public — **deliberately given waypoints**: if no ghost still comes out, that proves
+    # "public mode has no epilogue wired in structurally", not "this scenario happened to
+    # have no destination to point to". Without them, this assertion would always pass
+    # and test nothing.
     {"name": "ghost-hint-public", "dim": "ghost hint · presence", "kind": "assert",
      "req": {"mode": "public", "waypoints": WAYPOINTS,
              "question": "What was the hardest scaling problem you've worked on?"},

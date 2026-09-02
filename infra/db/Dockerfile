@@ -1,18 +1,28 @@
-# standmeet-db —— pgvector + 这一版的 schema，烤在一起。
+# standmeet-db —— pgvector baked together with this version's schema.
 #
-# 为什么要有它：Coolify 的 "Docker Compose Empty" 是**粘贴**一份 compose，没有仓库。
-# 而 `./backend/db/schema.sql` 那种相对挂载要仓库在部署目录里才解析得到 —— 没有仓库时
-# 那一行挂到一个不存在的路径上，**postgres 会静默起一个空库**，不报错，然后后端每条查询
-# 都炸，没有任何线索指回这里。让 owner 去 UI 里粘 76K 的 SQL 是把这个问题转嫁给他。
+# Why this image exists: Coolify's "Docker Compose Empty" **pastes** a
+# compose file — there's no repo checkout. A relative mount like
+# `./backend/db/schema.sql` only resolves when the repo sits in the deploy
+# directory — without a repo, that line mounts onto a path that doesn't
+# exist, **postgres silently starts an empty database**, no error, and then
+# every backend query blows up with nothing pointing back to the cause.
+# Making the owner paste 76K of SQL into the UI would just push this problem
+# onto him.
 #
-# schema.sql 仍然是**唯一真源**：这个镜像只是在构建时抄一份进去，抄的动作在
-# `make release-build` 里跟别的镜像一起发生，所以它不可能落后于代码。
+# schema.sql remains the **single source of truth**: this image only copies
+# a snapshot of it in at build time, and that copy happens alongside the
+# other images in `make release-build`, so it can never fall behind the code.
 #
-# ⚠️ 这份 schema **只在数据卷第一次创建时**被 postgres 跑一遍。换个新版本的 db 镜像
-# **不会**改动已有的库 —— 镜像是新的，卷还是旧 schema。
+# Warning: this schema is run by postgres **only the first time the data
+# volume is created**. Shipping a new version of the db image does **not**
+# change an existing database — the image is new, but the volume still has
+# the old schema.
 #
-# 已经在跑的实例靠**后端启动时自己打 migration**（`pgstore.Migrate`，编在后端二进制里）。
-# 所以这两条路各管一端：新卷由这里建，老卷由那一头升 —— 没有第三条要人记得的路。
+# An already-running instance is upgraded by the **backend applying its own
+# migration on startup** (`pgstore.Migrate`, built into the backend binary).
+# So these two paths each own one end: a new volume is built here, an old
+# volume is upgraded there — there's no third path that requires someone to
+# remember it.
 
 FROM pgvector/pgvector:pg16
 # ghcr → repo linkage: GitHub reads this to list the pushed image under the repo's Packages.

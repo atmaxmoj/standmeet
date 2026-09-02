@@ -1,28 +1,31 @@
-# Root Makefile —— 聚合 backend / app / sdk / e2e 各自的 lint + build + test。
-# 单一入口 `make lint` 跑全套；lefthook pre-commit 调它。CI 也调它。
+# Root Makefile —— aggregates lint + build + test for backend / app / sdk / e2e.
+# Single entry point `make lint` runs the whole chain; lefthook pre-commit calls it. CI calls it too.
 #
-# 子项目的具体 lint 链在各自的 Makefile / package.json 里定义。
-# 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
-# 增量开发时 lefthook 不被未启用的子项目卡住。
+# Each subproject's actual lint chain is defined in its own Makefile / package.json.
+# A subproject with no deps installed (no node_modules) or no src auto-skips, so
+# lefthook doesn't get blocked by a subproject that isn't wired up yet during early
+# incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
-# 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
-# 各自跑 eslint + tsc + knip。backend-no-mock 是 G-Y 强制的"backend 不
-# 准含 mock-only 代码"约束。
+# Order: env-lint is fastest, so it runs first; backend's own `make lint` chain is
+# already rich; the frontends each run eslint + tsc + knip. backend-no-mock is the
+# G-Y-mandated "backend must not contain mock-only code" constraint.
 lint: secrets env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint im-bridge-test verify-items
 
-# secrets —— 密钥扫描，排在最前面：它 5 秒，而它挡的那件事没有撤销键。
+# secrets —— secret scan, runs first: it takes 5 seconds, and what it guards against has no undo.
 #
-# 以前这一步在 `backend/lint` 链里，而它**从来没有扫过任何东西**：那个目标只在 `backend/`
-# 里跑，仓库的 `.git` 在上一层，`[ -d .git ]` 恒假 → 每次打一行 skipping 退 0（F-H-6）。
+# This step used to live in the `backend/lint` chain, and it **never scanned anything**: that
+# target only ran inside `backend/`, while the repo's `.git` is one level up, so `[ -d .git ]`
+# was always false → every run printed one "skipping" line and exited 0 (F-H-6).
 secrets:
 	@infra/scripts/check-secrets.sh
 
-# lint-cached —— 跑 lint，但同一棵树只跑一次（见脚本头部：这是 2026-08-18 效率复盘的产物）。
-# `pre-commit` 走这条；人手动跑 `make lint` 时也该走它。逃生门 FORCE_LINT=1。
+# lint-cached —— runs lint, but only once per unchanged tree (see the script header: a
+# product of the 2026-08-18 efficiency review). `pre-commit` goes through this; a human
+# running `make lint` by hand should too. Escape hatch: FORCE_LINT=1.
 lint-cached:
 	@infra/scripts/lint-if-dirty.sh
 
@@ -40,13 +43,14 @@ env-lint:
 backend-lint:
 	@$(MAKE) -C backend lint
 
-# backend-test —— Go 单元/集成测试（testify，无 DB/docker）。e2e 走 `make test`。
-# 一并跑 mcp-servers/ 下每个插件模块自己的测试：它们是独立 go module，`go test ./...`
-# 在 backend/ 里够不着，于是 ask-visitor 的那个测试写完之后**从来没有人跑过**。
+# backend-test —— Go unit/integration tests (testify, no DB/docker). e2e runs via `make test`.
+# Also runs each plugin module's own tests under mcp-servers/: they're independent go modules,
+# so `go test ./...` inside backend/ can't reach them — which is why the ask-visitor test **never
+# ran, from the day it was written**.
 backend-test: plugin-test
 	@$(MAKE) -C backend test
 
-# plugin-test —— 每个 mcp-servers/<plugin> 是一个独立 module；各跑各的 go test。
+# plugin-test —— each mcp-servers/<plugin> is its own module; run each one's go test separately.
 plugin-test:
 	@for d in mcp-servers/*/; do \
 		[ -f "$$d/go.mod" ] || continue; \
@@ -54,27 +58,30 @@ plugin-test:
 		(cd "$$d" && go test ./...) || exit 1; \
 	done
 
-# backend-no-mock —— G-Y 守门：backend/ 里禁止任何 mock-only / test-only
-# 代码 (MockProvider / INFERENCE_MOCK_ env / /__mock URL / routes/sys/test_*)。
-# mock infra 整套去 mock-stack/。grep 排除 _test.go 跟 // 注释。
+# backend-no-mock —— the G-Y gate: no mock-only / test-only code allowed anywhere in backend/
+# (MockProvider / INFERENCE_MOCK_ env / /__mock URL / routes/sys/test_*).
+# All mock infra lives in mock-stack/ instead. The grep excludes _test.go and // comments.
 #
-# 检查清单：
-#   1. 源码模式：MockProvider / INFERENCE_MOCK_ / __mock / TestRegistry /
+# Checklist:
+#   1. Source patterns: MockProvider / INFERENCE_MOCK_ / __mock / TestRegistry /
 #      TestVisitorCap / TestGCalExpire
-#   2. 目录：backend/cmd/{job-board,mcp-server}-mock/ (应该在 mock-stack/)
-#   3. 文件：backend/internal/routes/sys/test_*.go (应该走 mock-stack admin
-#      端点 或 spec 直接打 SQL/Redis)
-#   4. 具名 fixture/canned 替身 (P.13)
-#   5. test-only 包 import (name-INDEPENDENT：testing/testify/httptest 漏进 prod)
-# check-no-mock-test.sh 是 checker 的自测：种一个中性命名的 testify-import 违规，断言被抓。
-# check-core-agnostic-test.sh 同理自测 #135 内核零能力棘轮：种一个 calendar 泄漏，断言被抓。
-# (棘轮本体 check-core-agnostic 已在 backend 的 fast lint 链里；这里只跑它的自测。)
+#   2. Directories: backend/cmd/{job-board,mcp-server}-mock/ (should live in mock-stack/)
+#   3. Files: backend/internal/routes/sys/test_*.go (should go through mock-stack admin
+#      endpoints, or the spec should hit SQL/Redis directly)
+#   4. Named fixture/canned stand-ins (P.13)
+#   5. test-only package imports (name-INDEPENDENT: testing/testify/httptest leaking into prod)
+# check-no-mock-test.sh is the checker's own self-test: plants a neutrally-named testify-import
+# violation and asserts it gets caught.
+# check-core-agnostic-test.sh likewise self-tests the #135 zero-capability core ratchet: plants a
+# calendar leak and asserts it gets caught.
+# (The ratchet itself, check-core-agnostic, already runs in backend's fast lint chain; this runs
+# only its self-test.)
 backend-no-mock:
 	@infra/scripts/check-no-mock
 	@infra/scripts/check-no-mock-test.sh
 	@infra/scripts/check-core-agnostic-test.sh
 
-# 前端子项目：node_modules 没装就 skip（启用时再 pnpm install）。
+# Frontend subprojects: skip if node_modules isn't installed (run pnpm install to enable).
 app-lint:
 	@infra/scripts/check-i18n-keys
 	@infra/scripts/check-css-parses.sh
@@ -105,9 +112,10 @@ sdk-lint:
 	  echo "[skip] sdk/ has no node_modules — skipping"; \
 	fi
 
-# im-bridge-test —— IM 桥的单测。**它不进 e2e**：桥是一个外部访客客户端，
-# 它的逻辑（认码 / 开会话 / 配额 / 撤销 / 挡回声）对着替身就能证完，不需要起整套栈。
-# 真平台那一趟归 docs/real-env-verification/items/im-bridge.md。
+# im-bridge-test —— the IM bridge's unit tests. **These don't go into e2e**: the bridge is an
+# external visitor client, and its logic (code auth / open session / quota / revoke / echo
+# guard) can be proven against a stand-in without spinning up the whole stack.
+# The real-platform pass belongs to docs/real-env-verification/items/im-bridge.md.
 im-bridge-test:
 	@if [ -d im-bridge/node_modules ]; then \
 	  pnpm -F @standmeet/im-bridge lint && pnpm -F @standmeet/im-bridge test; \
@@ -115,8 +123,9 @@ im-bridge-test:
 	  echo "[skip] im-bridge/ has no node_modules — skipping"; \
 	fi
 
-# im-bridge-up —— 起 IM 桥。**不需要任何环境变量**：bot token 是 owner 在 admin 里
-# 配的连接器凭据，桥启动后自己去内部接口取。没配就空转等着。
+# im-bridge-up —— starts the IM bridge. **No environment variables needed**: the bot token is
+# the connector credential the owner configured in admin; the bridge fetches it from the
+# internal API on startup. Without it configured, it just idles.
 im-bridge-up:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --build im-bridge
 
@@ -134,17 +143,19 @@ e2e-lint:
 dev:
 	@docker compose -f docker-compose.dev.yml up
 
-# sdk-build —— 让 sdk-core/sdk/embed 三包都 tsup 出 dist/ 给 app dogfood。
-# app-build 之前先跑 sdk-build，让 Next 编译时能找到 @standmeet/sdk-core/dist。
-# builder-vendor —— 把 SDK 产物摆进自定义页 builder 的构建上下文。
+# sdk-build —— builds sdk-core/sdk/embed, all three packages, via tsup into dist/ for app to dogfood.
+# app-build runs sdk-build first, so Next can find @standmeet/sdk-core/dist at compile time.
+# builder-vendor —— copies the SDK build output into the custom-page builder's build context.
 #
-# **为什么必须有这一步**：builder 镜像里 owner 的页面只能 import 到
-# /opt/builder/node_modules 里有的东西，而那里只有 react/vite —— 所以托管出来的页面
-# 除了渲染文字什么都做不了（没有 corpus、没有 agent）。SDK 是 workspace 包不是发布包，
-# 而 builder 的构建上下文是 ./builder，镜像 COPY 不到 sdk/，只能先摆过去。
+# **Why this step must exist**: inside the builder image, an owner's page can only import
+# whatever is in /opt/builder/node_modules — and that only has react/vite in it — so a hosted
+# page can do nothing but render text (no corpus, no agent). The SDK is a workspace package, not
+# a published one, and the builder's build context is ./builder, so the image's COPY can't reach
+# sdk/ — it has to be copied over first.
 #
-# ⚠️ 跟 `prod-app: app-build` 同一族：**产物在哪就先产在哪**，而这一族的失效方式是
-# 拷到一份**旧的**还照印成功。脚本因此不静默拷贝：缺了就建，建完报出摆了什么。
+# ⚠️ Same family as `prod-app: app-build`: **produce the artifact where it's consumed, first**,
+# and this family's failure mode is copying over a **stale** artifact and still reporting success.
+# The script therefore never copies silently: missing → build it; done → report what it copied.
 builder-vendor:
 	@infra/scripts/builder-vendor.sh
 
@@ -155,9 +166,9 @@ sdk-build:
 	@pnpm -F @standmeet/embed build
 	@pnpm -F @standmeet/mcp-client build
 
-# app-build —— host 上 pnpm build，生成 .next/standalone 让 docker 镜像 COPY。
-# 选择 host build 而非 docker build：node:22-alpine 里 pnpm install 走 npm
-# registry 经常 < 50 KiB/s（macOS docker desktop 网络栈瓶颈），host 上 14s 完事。
+# app-build —— pnpm build on the host, producing .next/standalone for the docker image to COPY.
+# Host build chosen over docker build: pnpm install inside node:22-alpine often hits < 50 KiB/s
+# against the npm registry (macOS docker desktop network stack bottleneck); on the host it's 14s.
 app-build: sdk-build
 	@pnpm install --frozen-lockfile
 	@pnpm -F standmeet-app build
@@ -173,12 +184,14 @@ dev-up: app-build builder-vendor
 	@docker compose -f docker-compose.dev.yml up -d --wait
 	@echo "[dev] app=http://localhost:3000 backend=http://localhost:8000"
 
-# dev-rebuild-builder —— 重建自定义页 builder 镜像并换上容器。
+# dev-rebuild-builder —— rebuilds the custom-page builder image and swaps in the container.
 #
-# 改了 `builder/`（runner / template / Dockerfile）**或改了 SDK** 之后要跑：页面能 import
-# 到什么，取决于镜像里 /opt/builder/node_modules 有什么，而那是镜像构建期定死的。
-# 先 builder-vendor 摆产物再 build —— 跟 dev-rebuild-mocks 同一条教训：只 build 不换容器，
-# 跑的还是旧进程，而红看起来跟产品的红一模一样。
+# Run after changing `builder/` (runner / template / Dockerfile) **or the SDK**: what a page can
+# import depends on what's in /opt/builder/node_modules inside the image, which is fixed at
+# image-build time.
+# Runs builder-vendor to copy the artifact first, then builds — same lesson as dev-rebuild-mocks:
+# build without swapping the container and you're still running the old process, and the red
+# looks exactly like a real product red.
 dev-rebuild-builder: builder-vendor
 	@docker compose -p standmeet-dev -f docker-compose.dev.yml build builder
 	@docker compose -p standmeet-dev -f docker-compose.dev.yml up -d --no-deps builder
@@ -187,9 +200,10 @@ dev-rebuild-builder: builder-vendor
 # changed; the normal dev-up path reuses their cached images).
 dev-rebuild-mocks:
 	@docker compose -f docker-compose.dev.yml build mcp-server-mock external-mock llm-gateway mail-mock
-	@# build 只造镜像,**不换正在跑的容器** —— 少了这一步,改完 mock-stack/ 再跑用例,
-	@# 跑的还是旧那个进程,而红看起来跟产品的红一模一样(2026-08-17 在 F-C-33 上吃了一次:
-	@# external-mock 已经起了 19 小时,我却以为新行为上线了)。
+	@# build only creates the image, **it does not swap the running container** — skip this step and,
+	@# after editing mock-stack/ and running a spec, you're still hitting the old process, and the red
+	@# looks exactly like a real product red (bit me once on 2026-08-17 in F-C-33:
+	@# external-mock had already been up for 19 hours and I thought the new behavior was live).
 	@docker compose -f docker-compose.dev.yml up -d --wait \
 		mcp-server-mock external-mock llm-gateway mail-mock
 
@@ -222,16 +236,20 @@ prod-app: app-build
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait app
 	@echo "[prod] app rebuilt (backend reused) — http://localhost:38227"
 
-# prod-backend —— 重建 backend 镜像并换上（app 不动）。`prod-app` 的对称物。
+# prod-backend —— rebuilds the backend image and swaps it in (app untouched). The symmetric
+# counterpart of `prod-app`.
 #
-# 为什么单独一条：`prod-app` 只建 app 镜像，`prod-recreate-svc` 只换容器**不建镜像** ——
-# 改了 Go 代码之后用那两条里的任何一条，跑的都还是旧二进制。今天在 F-C-41 的 ⑤ 上
-# 就这么白验了一次：屏幕上一切照旧，我差点以为修的那一刀没生效。
-# ⚠️ provision.sh 必须在这里跑。prod 把 `./infra/plugins` 挂到 `/srv/plugins` 上（compose:138），
-# **盖住了镜像里刚编出来的那份**。所以改 `mcp-servers/*` 之后只 build 镜像，跑的仍是主机上那份
-# 旧二进制 —— 而这条命令照样印「backend rebuilt」。2026-08-18 在 booker 的取消按钮上撞到：
-# 镜像建了三次，屏幕上一点没变，binary 里 grep 不到新加的 class。
-# 同一族：`prod-app` 要先 `app-build`（镜像 COPY 的是主机产物）。**产物在哪，就先产在哪。**
+# Why it's its own target: `prod-app` only builds the app image, and `prod-recreate-svc` only
+# swaps the container **without building an image** — using either of those after a Go code
+# change still runs the old binary. Verified this the hard way today on F-C-41's step ⑤: the
+# screen looked unchanged and I almost concluded the fix hadn't taken.
+# ⚠️ provision.sh must run here. Prod mounts `./infra/plugins` onto `/srv/plugins` (compose:138),
+# **which shadows what was just compiled into the image**. So after changing `mcp-servers/*`,
+# building the image alone still runs the old binary on the host — while this command prints
+# "backend rebuilt" as if nothing were wrong. Hit this on 2026-08-18 on booker's cancel button:
+# built the image three times, screen never changed, and the new class wasn't in the binary at all.
+# Same family: `prod-app` needs `app-build` first (the image COPYs a host artifact). **Produce the
+# artifact where it's consumed, first.**
 prod-backend:
 	@infra/scripts/build-cadence.sh prod-backend
 	@infra/plugins/provision.sh
@@ -239,8 +257,8 @@ prod-backend:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait backend
 	@echo "[prod] backend rebuilt (app reused) — http://localhost:38227"
 
-# prod-rebuild-builder —— `dev-rebuild-builder` 的对称物。改了 builder/ 或 SDK 之后，
-# prod 上的页面能 import 到什么同样是镜像构建期定死的。
+# prod-rebuild-builder —— the symmetric counterpart of `dev-rebuild-builder`. After changing
+# builder/ or the SDK, what a page on prod can import is likewise fixed at image-build time.
 prod-rebuild-builder: builder-vendor
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml build builder
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --no-deps builder
@@ -248,14 +266,16 @@ prod-rebuild-builder: builder-vendor
 prod-down:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml down
 
-# prod-stop-svc / prod-start-svc —— 停/起 prod 里的**一个** service。真实环境审计里反复要的
-# 那件装置：好几条 check 问的是「这东西不在了，产品会怎么说」（F-N-2 的后端停机、admin-shell
-# check 4 的 live 灯、corpus-acl check 6 的加载失败），而那只能真的把它停掉。
+# prod-stop-svc / prod-start-svc —— stop/start **one** prod service. A tool the real-env audit
+# needs repeatedly: several checks ask "what does the product say when this thing is gone?"
+# (F-N-2's backend outage, admin-shell check 4's live indicator, corpus-acl check 6's load
+# failure), and that can only be produced by actually stopping it.
 #
-#   make prod-stop-svc SVC=backend   # 注入
-#   make prod-start-svc SVC=backend  # 收工必须做，别把实例留在停机态
+#   make prod-stop-svc SVC=backend   # inject
+#   make prod-start-svc SVC=backend  # must be done when finished — don't leave the instance stopped
 #
-# **它不删数据**：stop 不是 down，卷和容器都还在，起回来就是原样。
+# **It does not delete data**: stop is not down — the volumes and containers stay put, and
+# starting it back up returns it exactly as it was.
 prod-stop-svc:
 	@test -n "$(SVC)" || (echo "usage: make prod-stop-svc SVC=<service>"; exit 2)
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml stop $(SVC)
@@ -264,12 +284,13 @@ prod-start-svc:
 	@test -n "$(SVC)" || (echo "usage: make prod-start-svc SVC=<service>"; exit 2)
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml start $(SVC)
 
-# prod-recreate-svc —— 重建一个服务的容器，**不重构建镜像**。
+# prod-recreate-svc —— recreates one service's container, **without rebuilding the image**.
 #
-# 为什么 `prod-start-svc` 不够：`stop` + `start` 重启的是**同一个容器**，它的环境变量是创建时
-# 定死的 —— 改了 `.env` 再 start，进程读到的还是旧值。connector-security check 3
-# （轮换 INSTANCE_SECRET 之后连接器该说什么）要的正是「换个密钥重新起来」，
-# 而 `prod-up` 会把整栈连镜像一起重建。
+# Why `prod-start-svc` isn't enough: `stop` + `start` restart the **same container**, whose
+# environment variables are fixed at creation time — editing `.env` and starting again still
+# reads the old values. connector-security check 3 (what a connector should say after
+# INSTANCE_SECRET is rotated) needs exactly "come back up with a new secret", while `prod-up`
+# would rebuild the whole stack, image included.
 #
 #   make prod-recreate-svc SVC=backend
 prod-recreate-svc:
@@ -277,23 +298,26 @@ prod-recreate-svc:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml \
 		up -d --no-deps --force-recreate --wait $(SVC)
 
-# verify-proxy-up —— 起故障注入代理，坐在**真** provider 前面（agent-loop-robustness 的 Real
-# dep 点名要的那件装置）。它在 prod 那张网里，但**不在 prod compose 里**：生产文件不该带一个能
-# 让调用失败的服务。
+# verify-proxy-up —— brings up the fault-injection proxy, sitting in front of the **real**
+# provider (the device agent-loop-robustness's Real dep names by name). It's on the prod
+# network, but **not in the prod compose file**: the production files shouldn't carry a
+# service that can make calls fail.
 #
 #   make verify-proxy-up UPSTREAM=https://api.deepseek.com
 #
-# 起来之后在 admin 的 AI provider 表单把 endpoint 改成 http://llm-fault:9500 —— 走产品
-# 自己的界面接线，不改环境变量。**驱完记得改回去**，否则代理一停，这个实例就没有模型可用了。
+# Once it's up, change the endpoint in admin's AI provider form to http://llm-fault:9500 — wire
+# it through the product's own UI, don't change environment variables. **Remember to change it
+# back when done driving**, or once the proxy stops, this instance has no model to use.
 #
-# ⚠️ **还差一步，照上面做会失败**（2026-08-19 撞到）：SSRF 判据带白名单
-# （`httpx/ssrf.go` 的 `EGRESS_ALLOW_HOSTS`），而 **prod 那份是空的 —— 设计如此**
-# （"EMPTY in prod (block everything internal)"）。所以指过去之后收到的是
-# *"That endpoint resolves to an internal/private address and is not allowed."*，
-# 而它长得像产品拒绝了你、不像少配了一项。
-# 要用这条路，得让那台实例的 `EGRESS_ALLOW_HOSTS` 含 `llm-fault`（dev 那份已经含
-# `llm-gateway,external-mock`，所以 dev 上直接能用）。
-# **不要把它写死进 prod compose** —— prod 的默认就该是「什么内网都不许出」。
+# ⚠️ **One more step is needed, or the above will fail** (hit this on 2026-08-19): the SSRF
+# gate carries an allowlist (`httpx/ssrf.go`'s `EGRESS_ALLOW_HOSTS`), and **prod's is empty by
+# design** ("EMPTY in prod (block everything internal)"). So pointing at it gets you back
+# *"That endpoint resolves to an internal/private address and is not allowed."*,
+# which reads like the product refused you, not like something is under-configured.
+# To use this path, that instance's `EGRESS_ALLOW_HOSTS` needs to include `llm-fault` (dev's
+# already includes `llm-gateway,external-mock`, so dev works out of the box).
+# **Don't hard-code it into the prod compose file** — prod's default should stay "nothing
+# internal may egress."
 verify-proxy-up:
 	@test -n "$(UPSTREAM)" || { echo "usage: make verify-proxy-up UPSTREAM=https://api.provider.com"; exit 2; }
 	@UPSTREAM_BASE_URL=$(UPSTREAM) docker compose -p standmeet-verify \
@@ -305,17 +329,19 @@ verify-proxy-down:
 	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
 		-f docker-compose.verify.yml down
 
-# verify-caldav-up —— 起一台**真的** CalDAV server（Radicale）给 connector-assembly check 5。
+# verify-caldav-up —— brings up a **real** CalDAV server (Radicale) for connector-assembly check 5.
 #
-# 为什么不用我们的替身：那条 check 的 Mock gap 把缺的四样点了名 —— 替身没有鉴权、不认
-# REPORT filter、不展开重复规则、每个 property 请求都答一样。**这条 check 要验的每一样它都没有。**
-# item 的 Real dep 写的就是「a self-run CalDAV server with auth」，所以这不是绕过真实性，
-# 这就是它要的器材。
+# Why not our stand-in: that check's Mock gap names exactly four missing things — the stand-in
+# has no auth, doesn't understand the REPORT filter, doesn't expand recurrence rules, and answers
+# every property request the same way. **Every one of those is what this check needs to verify.**
+# The item's Real dep literally says "a self-run CalDAV server with auth" — so this isn't
+# bypassing realism, it's exactly the equipment the item asks for.
 #
-#   make verify-caldav-up     # 宿主 http://localhost:35232 · backend 用 http://radicale:5232
-#   make verify-caldav-down   # 驱完收摊
+#   make verify-caldav-up     # host http://localhost:35232 · backend uses http://radicale:5232
+#   make verify-caldav-down   # tear down when done driving
 #
-# 账号：verify / verify-caldav-pw（一台一次性的测试台 server，密码写在 compose 注释里）。
+# Account: verify / verify-caldav-pw (a one-shot test-bench server; password is right here in the
+# compose comment so the next person to drive this doesn't have to hunt for it elsewhere).
 verify-caldav-up:
 	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
 		-f docker-compose.verify.yml up -d --wait radicale
@@ -326,26 +352,32 @@ verify-caldav-down:
 	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
 		-f docker-compose.verify.yml rm -sf radicale
 
-# verify-api-fault-up —— 同一个代理，上游换成本实例的 backend，然后把 prod app 的 BACKEND_URL
-# 指过来。给的是**窄故障**：让某一个 admin 接口自己失败，看那一块说什么
-# （corpus-acl-editing check 6 —— 加载失败不许穿空状态的衣服）。
+# verify-api-fault-up —— the same proxy, upstream swapped for this instance's own backend, then
+# points prod app's BACKEND_URL at it. What it produces is a **narrow fault**: make one specific
+# admin endpoint fail on its own, and see what that block says
+# (corpus-acl-editing check 6 — a load failure must not wear an empty state's clothes).
 #
-# 为什么不是「停掉 backend」：那是整栈停机，验的是另一条路（已驱过，撞出 F-N-2）。窄故障要的是
-# **同一页上别的块照常加载**，只有一块坏了 —— 空状态和加载失败长得一样，正是在这种情况下才分得出。
+# Why not "stop backend" instead: that's a whole-stack outage, which tests a different path
+# (already driven, and it's how F-N-2 was found). A narrow fault needs
+# **the rest of the page to keep loading normally** while only one block is broken — an empty
+# state and a load failure look identical, and this is exactly the setup that tells them apart.
 #
 #   make verify-api-fault-up
 #   curl -XPOST localhost:39600/__mock/fault/arm \
 #     -d '{"mode":"http_error","path_prefix":"/api/admin/roles"}'
-#   …驱…
+#   …drive…
 #   curl -XPOST localhost:39600/__mock/fault/reset
 #   make verify-api-fault-down
 #
-# ⚠️ **为什么这里要重建 app 而不是只改环境变量**：`/api/*` 走的是 next.config.ts 的 rewrite，
-# 而 rewrite 的目标地址被**烤进构建产物**（`.next/required-server-files.json` 里逐字写着
-# `http://backend:8000`）。第一版这条配方只在 compose 里改 `BACKEND_URL`，容器里的变量确实变了，
-# 代理却一条流量都没收到 —— 因为那半边根本不在运行时读。同一个变量另外四个使用点
-# （`api/v1/agent/turn`、`print-payload`、`lib/api/public`、`lib/api/instance`）**是**运行时读的，
-# 所以它半边动半边不动。这件事本身是一条缺陷（F-C-40），这里先按真相把配方写对。
+# ⚠️ **Why this rebuilds app instead of just changing an env var**: `/api/*` goes through
+# next.config.ts's rewrite, and the rewrite's target address is **baked into the build output**
+# (`.next/required-server-files.json` literally has `http://backend:8000` written in it).
+# The first version of this recipe only changed `BACKEND_URL` in compose — the container's
+# variable really did change, but the proxy received zero traffic, because that half is never
+# read at runtime. The four other places that read the same variable at runtime
+# (`api/v1/agent/turn`, `print-payload`, `lib/api/public`, `lib/api/instance`) **are** read at
+# runtime, so it moved on one half and not the other. That split itself is a defect (F-C-40);
+# this recipe is written to match the truth of it for now.
 verify-api-fault-up:
 	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
 		-f docker-compose.verify.yml up -d --build api-fault
@@ -356,9 +388,11 @@ verify-api-fault-up:
 	@echo "[verify] prod app rebuilt with the rewrite pointing at it"
 	@echo "[verify] arm:  curl -XPOST localhost:39600/__mock/fault/arm -d '{\"mode\":\"http_error\",\"path_prefix\":\"/api/admin/roles\"}'"
 
-# verify-api-fault-down —— app 重建回 http://backend:8000，代理停掉。
-# **先把 app 摘回来再停代理** —— 反过来的话中间那几秒 app 指着一个已经没了的地址。
-# 同样要重建：地址烤在产物里，不重建就一直指着一个已经不在的代理（见上面那段）。
+# verify-api-fault-down —— rebuilds app back to http://backend:8000, then stops the proxy.
+# **Point app back first, then stop the proxy** — the other order leaves app pointing at a
+# now-gone address for the few seconds in between.
+# Also needs a rebuild: the address is baked into the artifact, so without rebuilding it keeps
+# pointing at a proxy that no longer exists (see the paragraph above).
 verify-api-fault-down:
 	@$(MAKE) app-build
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --no-deps --build app
@@ -393,36 +427,42 @@ prod-clean:
 # Inherits prod-clean's confirmation: `make prod-fresh I_MEAN_IT=yes`.
 prod-fresh: prod-clean prod-up
 
-# release-gc —— 一轮发布之后把它自己占的东西还回去。
+# release-gc —— after a release round, give back what it occupied.
 #
-# 一次 `release-push` 留下两样常驻:多架构构建用的 buildx builder(一个容器,实测
-# 常驻近 1 GB)和它内部的构建缓存。它们不会自己走 —— 上一次发布结束 42 小时之后
-# 还在那儿占着,而这台机器上同时跑着别的项目。
+# One `release-push` leaves two things behind, both persistent: the buildx builder used for
+# multi-arch builds (a container that in practice sits at nearly 1 GB) and its internal build
+# cache. Neither goes away on its own — 42 hours after the last release finished it was still
+# sitting there, on a machine that runs other projects at the same time.
 #
-# **只动本仓库自己的东西**:按名字停 standmeet-release 这一个 builder,按标签删悬空的
-# standmeet 镜像。不碰全局的 `docker system prune` —— 那会连别人的缓存一起清掉,
-# 而这台机器是多项目共用的(同一条教训:范围要收在自己那份上)。
+# **Touches only this repo's own stuff**: stops the standmeet-release builder by name, deletes
+# dangling standmeet images by tag. Never touches the global `docker system prune` — that would
+# wipe other people's caches too, and this machine is shared across projects (same lesson as
+# always: scope it to your own share).
 release-gc:
 	@docker buildx rm standmeet-release >/dev/null 2>&1 \
-	  && echo "  buildx builder standmeet-release 已删(下次发布自动重建)" \
-	  || echo "  buildx builder standmeet-release 不在"
+	  && echo "  buildx builder standmeet-release removed (rebuilds automatically on next release)" \
+	  || echo "  buildx builder standmeet-release not present"
 	@n=$$(docker images -f dangling=true -q --filter=reference='ghcr.io/atmaxmoj/standmeet-*' | wc -l | tr -d ' '); \
 	  docker images -f dangling=true -q --filter=reference='ghcr.io/atmaxmoj/standmeet-*' \
 	    | xargs -r docker rmi >/dev/null 2>&1 || true; \
-	  echo "  悬空的 standmeet 镜像: 清掉 $$n 个"
-	@echo "[release-gc] 只清了本仓库自己的构建产物,别的项目的缓存没动"
+	  echo "  dangling standmeet images: cleared $$n"
+	@echo "[release-gc] cleared only this repo's own build artifacts — other projects' caches untouched"
 
-# release-prune-old —— 删掉旧版本的 release 镜像,只留最近 KEEP 个版本 + latest。
+# release-prune-old —— deletes old-version release images, keeping only the most recent KEEP
+# versions + latest.
 #
-# 为什么 `release-gc` 不够:它只清**悬空**的镜像。而每跑一次 `release-build` 就多出
-# 一整组带标签的镜像(5 个),标签在就永远不悬空 —— 于是它们一个都不会被清掉。
-# 18 个版本 × 5 = 84 个镜像堆在一台多项目共用的机器上,而能回滚到的只有最近那一两个。
+# Why `release-gc` isn't enough: it only clears **dangling** images. Every `release-build` run
+# adds a whole tagged batch (5 of them), and a tagged image is never dangling — so none of them
+# would ever get cleared this way.
+# 18 versions × 5 = 84 images piling up on a machine shared across projects, when only the most
+# recent one or two are ever rollback targets.
 #
-# 范围收在自己那份上:只按 `ghcr.io/atmaxmoj/standmeet-*` 匹配,只删版本号排序在
-# KEEP 之外的那些,`latest` 永远留着。不碰全局 prune(同 release-gc 的那条教训)。
+# Scoped to its own share: matches only `ghcr.io/atmaxmoj/standmeet-*`, deletes only the versions
+# sorted outside KEEP, `latest` is always kept. Doesn't touch the global prune (same lesson as
+# release-gc).
 #
-# 用法:make release-prune-old        # 留最近 2 个版本
-#      make release-prune-old KEEP=5
+# Usage: make release-prune-old        # keeps the most recent 2 versions
+#        make release-prune-old KEEP=5
 KEEP ?= 2
 release-prune-old:
 	@set -e; \
@@ -430,24 +470,24 @@ release-prune-old:
 	    | grep -E '^v[0-9]' | sort -u -V); \
 	  n=$$(printf '%s\n' "$$all" | grep -c . || true); \
 	  drop=$$(( n - $(KEEP) )); \
-	  test "$$drop" -gt 0 || { echo "[release-prune-old] $$n 个版本,留 $(KEEP) 个,没有可删的"; exit 0; }; \
+	  test "$$drop" -gt 0 || { echo "[release-prune-old] $$n versions, keeping $(KEEP), nothing to delete"; exit 0; }; \
 	  old=$$(printf '%s\n' "$$all" | head -n "$$drop"); \
 	  for t in $$old; do \
 	    docker images --format '{{.Repository}}:{{.Tag}}' \
 	      --filter=reference="ghcr.io/atmaxmoj/standmeet-*:$$t" | xargs -r docker rmi >/dev/null 2>&1 || true; \
-	    echo "  删 $$t"; \
+	    echo "  deleted $$t"; \
 	  done; \
-	  echo "[release-prune-old] 留下最近 $(KEEP) 个版本 + latest"
+	  echo "[release-prune-old] kept the most recent $(KEEP) versions + latest"
 
-# gateway-up —— 只起 llm-gateway sidecar (eval-smoke 用)，不跑 app-build /
-# 整栈。Anthropic-compat mock，host :9300，确定性脚本回复。
+# gateway-up —— starts only the llm-gateway sidecar (for eval-smoke), without app-build /
+# the whole stack. Anthropic-compat mock, host :9300, deterministic scripted replies.
 gateway-up:
 	@docker compose -f docker-compose.dev.yml up -d --wait llm-gateway
 
-# eval-smoke —— eval-harness 独立调用 smoke：证明 backend agentic core
-# (经 agentcore facade) 能被 backend 进程外的独立 module 调起来 + 完整
-# tool round-trip。起 llm-gateway → eval-harness/smoke.sh (build + 排队
-# 确定性 tool+reply + 跑二进制 + 断言 transcript)。
+# eval-smoke —— eval-harness's standalone-invocation smoke test: proves the backend agentic
+# core (via the agentcore facade) can be driven by an independent module outside the backend
+# process, with a full tool round-trip. Starts llm-gateway → eval-harness/smoke.sh (build +
+# queue a deterministic tool+reply + run the binary + assert on the transcript).
 eval-smoke: gateway-up
 	@eval-harness/smoke.sh
 
@@ -483,25 +523,31 @@ eval-creds:
 eval-booking-fabrication: eval-creds
 	@$(EVAL_ENV) cd eval-harness && go test -run TestBookingFabricationLive -count=1 -v -timeout 1800s ./...
 
-# eval-slots-restated —— UX-93 eval: 时段卡已经把时间摆出来了，答案正文又列一遍（两种截断规则，
-# 读的人得自己判断哪份是真的）。**mock 驱不动这条**：正文是模型自己写的，而 mock LLM 只返回测试
-# 注册过的那句话 —— 被告不出庭。所以跟 F-A-37 那条一样走真模型 + 真 booker。
-# 判据数的是钟点个数（卡在的那一轮，答案里至多一个），不是"感觉重复"。
-# 概率性的，多驱几轮：EVAL_ROUNDS=5 make eval-slots-restated。
-# eval-owner-identity —— UX-66 eval: 公开切片收窄之后，owner 的 AI 对着陌生人说它不认识 owner。
-# 语料**故意不含**介绍 owner 本人的笔记（真 prod 的公开切片就是这样），判据只有一句：
-# 不许否认认识那个人。拒绝订会、说没日历都允许 —— 那些是对的答案。
-# EVAL_ROUNDS=3 make eval-owner-identity。
+# eval-slots-restated —— UX-93 eval: the slot card already lays out the time, and the answer's
+# body text lists it again (with two different truncation rules, leaving the reader to guess
+# which one is real). **A mock can't drive this**: the body text is written by the model itself,
+# and the mock LLM only returns the exact line a test registered — the culprit never shows up.
+# So, same as F-A-37, this goes through the real model + real booker.
+# The check counts distinct times mentioned (at most one per turn on the slot card), not "feels
+# repetitive."
+# Probabilistic, drive several rounds: EVAL_ROUNDS=5 make eval-slots-restated.
+# eval-owner-identity —— UX-66 eval: after the public slice was narrowed, the owner's AI told a
+# stranger it doesn't know the owner. The corpus **deliberately excludes** any note that
+# introduces the owner (real prod's public slice is exactly like this); the check is a single
+# claim: it must not deny knowing that person. Declining to book, or saying there's no calendar,
+# are both fine — those are correct answers.
+# EVAL_ROUNDS=3 make eval-owner-identity.
 eval-owner-identity: eval-creds
 	@$(EVAL_ENV) cd eval-harness && go test -run TestOwnerIdentityLive -count=1 -v -timeout 1800s ./...
 
 eval-slots-restated: eval-creds
 	@$(EVAL_ENV) cd eval-harness && go test -run TestSlotsRestatedLive -count=1 -v -timeout 1800s ./...
 
-# eval-ask —— 给被测 agent (owner persona) 喂一个问题,看它怎么答 + 查了哪些
-# corpus。被测对象 = owner 的 system prompt + corpus,真 LLM (DeepSeek v4-pro,
-# harness 自读 .env)。面试官不是这里的 —— 面试官是 operator spawn 的 Claude
-# agent,反复调这个 --ask 驱动多轮面试 + 对着 corpus 判 grounding。
+# eval-ask —— feeds one question to the agent under test (owner persona), watches how it
+# answers + which corpus it checked. The subject under test = the owner's system prompt +
+# corpus, real LLM (DeepSeek v4-pro, harness reads its own .env). The interviewer isn't part of
+# this — the interviewer is a Claude agent the operator spawns, which repeatedly calls this
+# --ask to drive a multi-turn interview + judge grounding against the corpus.
 #   echo '{"history":[],"question":"..."}' | make eval-ask
 eval-ask:
 	@cd eval-harness && go build -o /tmp/eval-harness . && \
@@ -515,27 +561,38 @@ eval-ask:
 eval-ghost: gateway-up
 	@eval-harness/ghost-test.sh
 
-# eval-compaction —— 多轮 context 臃肿用例,**两条腿**:
-#   conv  —— >32K token 长对话,断言压缩真触发 + 压缩后早期**对话事实**召回完整
-#   tools —— 历史留在阈值以下,让工具先跑,再由一份大报告把上下文顶过线;断言压缩排在
-#            工具之后、那一轮仍答得出只有工具返回过的数字,而且**压缩后零工具调用**
-#            (F-D-10:重读一遍也能答对,所以只判答案分不出摘要有没有带走实质)
-# **需真 LLM** (harness 自读 eval-harness/.env 的 DeepSeek key;没真 key 不会触发压缩)。
+# eval-compaction —— multi-turn context-bloat case, **two legs**:
+#   conv  —— a >32K-token long conversation; asserts compaction actually triggers, and that
+#            recall of early **conversation facts** stays intact after compaction
+#   tools —— history stays under the threshold, lets tools run first, then a large report
+#            pushes the context over the line; asserts compaction lands after the tools, that
+#            turn can still answer with a number only a tool ever returned, and **zero tool
+#            calls happened after compaction**
+#            (F-D-10: re-reading it can also produce the right answer, so scoring the answer
+#            alone can't distinguish whether the summary carried the substance forward)
+# **Needs a real LLM** (harness reads eval-harness/.env's DeepSeek key; compaction never
+# triggers without a real key).
 eval-compaction:
 	@eval-harness/compaction-test.sh
 
-# eval-doc-context —— #36 位置感知 / 指代解析用例:访客正读 Notification Pipeline
-# 那篇,问「tell me more about this pipeline」(corpus 里有两条 pipeline,真歧义)。
-# doc_context → 真 instructionWithDoc 注入 → 断言真模型把「this」解析成当前 doc(答
-# Orbit 通知:token-bucket/fan-out),没串到 FlowPay 对账、没反问。**需真 LLM**
-# (harness 自读 eval-harness/.env 的 DeepSeek key;mock gateway 不做指代解析会失败)。
+# eval-doc-context —— #36 position-awareness / anaphora-resolution case: a visitor is reading
+# the Notification Pipeline article and asks "tell me more about this pipeline" (the corpus has
+# two pipelines, genuinely ambiguous). doc_context → real instructionWithDoc injection → asserts
+# the real model resolves "this" to the current doc (answers about Orbit notifications:
+# token-bucket/fan-out), doesn't drift into FlowPay reconciliation, and doesn't ask back.
+# **Needs a real LLM** (harness reads eval-harness/.env's DeepSeek key; the mock gateway doesn't
+# do anaphora resolution and would fail this).
 eval-doc-context:
 	@eval-harness/doc-context-test.sh
 
-# eval-cross-conversation —— 「互通」用例:一个 member 多段独立对话,AI 能读到该 member
-# 的全部对话。双向验引用质量:chat 里说的能在 wiki 浮窗下被 refer,反之亦然。两段「其他
-# 对话」要点注进 instruction(镜像后端注入)→ 看真模型有没有跨对话连起来 + 答得诚实/grounded。
-# **需真 LLM**(harness 自读 eval-harness/.env 的 DeepSeek key;mock gateway 跑了白跑)。
+# eval-cross-conversation —— the "cross-thread" case: one member has multiple separate
+# conversations, and the AI can read that member's entire conversation history. Verifies
+# reference quality in both directions: something said in chat can be referenced under the wiki
+# flyover, and vice versa. Two "other conversation" snippets get injected into the instruction
+# (mirroring the real backend injection) → checks whether the real model connects them across
+# conversations + answers honestly/grounded.
+# **Needs a real LLM** (harness reads eval-harness/.env's DeepSeek key; running it against the
+# mock gateway would be wasted effort).
 eval-cross-conversation:
 	@eval-harness/cross-conversation-test.sh
 
@@ -551,11 +608,12 @@ eval-cross-conversation:
 eval-subjectivity:
 	@eval-harness/subjectivity-test.sh
 
-# eval-interview —— 真跑一场多轮面试 (recruiter on code session,booking granted),
-# 边跑边按维度标注:grounding / context retention / honest gap / not-in-corpus /
-# privacy / tool use。透出每轮 agent 读了哪些 corpus + 答 + ghost hint,给人/judge
-# agent 看质量、抖 prompt 破绽回填。**需真 LLM** (eval-harness/.env DeepSeek key)。
-#   make eval-interview            # 默认 marcus-chen
+# eval-interview —— actually runs a multi-turn interview (recruiter on a code session, booking
+# granted), annotating each turn by dimension as it goes: grounding / context retention /
+# honest gap / not-in-corpus / privacy / tool use. Surfaces which corpus each turn's agent read +
+# its answer + ghost hint, for a human/judge agent to grade quality and probe for prompt cracks
+# to feed back in. **Needs a real LLM** (eval-harness/.env DeepSeek key).
+#   make eval-interview            # defaults to marcus-chen
 #   EVAL_PERSONA=<dir> make eval-interview
 eval-interview:
 	@cd eval-harness && go build -o eval-harness-bin . && \
@@ -566,62 +624,76 @@ eval-interview:
 # (captures the report HTML), then keeps asking follow-ups (which also guard the
 # empty-assistant-message history bug — a post-summarize turn must still answer).
 # An LLM judge scores the report; report HTML + a styled doc land in
-# /tmp/sm-eval-summary for a human to open. **需真 LLM** (eval-harness/.env key)。
+# /tmp/sm-eval-summary for a human to open. **Needs a real LLM** (eval-harness/.env key).
 #   make eval-summary
 #   EVAL_SUMMARY_DRILL=6 EVAL_SUMMARY_FOLLOWUPS=3 make eval-summary
 eval-summary:
 	@cd eval-harness && go build -o eval-harness-bin . && \
 	  python3 summary.py
 
-# eval-capabilities —— 留档的 agentic 能力套件。assert 类(booking/skill/mcp 真调了
-# 没、deny 结构性缺席、隐私金丝雀漏没漏、ghost hint 有没有)硬判 PASS/FAIL;human 类
-# (grounding/诚实/ambiguity/prompt 注入/ghost 质量/booking 失败)跑完留 transcript +
-# 「LOOK FOR」给人/judge 看。mcp case 自动起 mock-stack/mcp,起不来则 SKIP(不静默)。
-# **需真 LLM** (eval-harness/.env DeepSeek key)。
+# eval-capabilities —— the standing agentic-capability suite. The assert class (was
+# booking/skill/mcp actually called; deny is structurally absent; did a privacy canary leak;
+# is there a ghost hint) is a hard PASS/FAIL; the human class (grounding/honesty/ambiguity/
+# prompt injection/ghost quality/booking failure) finishes leaving a transcript + a "LOOK FOR"
+# note for a human/judge to read. The mcp case auto-starts mock-stack/mcp; if it can't come up,
+# it SKIPs (never silently).
+# **Needs a real LLM** (eval-harness/.env DeepSeek key).
 #   make eval-capabilities
-#   EVAL_CASES=booking,skill,mcp make eval-capabilities   # 子集
+#   EVAL_CASES=booking,skill,mcp make eval-capabilities   # subset
 eval-capabilities:
 	@cd eval-harness && go build -o eval-harness-bin . && \
 	  python3 capabilities.py
 
-# eval-owner-mcp —— 当 agent 驱动 OWNER-side MCP server(inbound/ingest 那半,跟
-# 访客出站对称)。走真 @standmeet/mcp-client Sigv1 stdio bridge,跑 me → raw_dump →
-# list_recent_raw → promote_to_wiki → list_recent_wiki 闭环,机械 round-trip 断言。
-# 需 dev stack 起 + claimed。默认打 demo owner(marcus,reseed-marcus claim 的);
-# 别的实例用 OWNER_EMAIL=... 覆盖。自动 mint 临时 keypair 用完即销。注意:会往 corpus
-# 写一条 eval 测试 raw+wiki,跑完用 reseed-marcus.sh 清回 50。
+# eval-owner-mcp —— drives the agent against the OWNER-side MCP server (the inbound/ingest
+# half, the counterpart of the visitor's outbound side). Goes through the real
+# @standmeet/mcp-client Sigv1 stdio bridge, runs the me → raw_dump → list_recent_raw →
+# promote_to_wiki → list_recent_wiki loop, mechanical round-trip assertions.
+# Needs the dev stack up + claimed. Defaults to the demo owner (marcus, claimed by
+# reseed-marcus); override with OWNER_EMAIL=... for other instances. Auto-mints a temporary
+# keypair, discarded when done. Note: this writes one raw+wiki eval entry into the corpus; run
+# reseed-marcus.sh afterward to reset back to 50.
 eval-owner-mcp:
 	@OWNER_EMAIL="$${OWNER_EMAIL:-marcus@local.test}" eval-harness/owner-mcp-setup.sh
 
-# verify-round —— 开一轮真实环境手工验证。建一个按开始时间命名的目录:
-# e2e/manual-runs/<UTC 时间戳>/{runsheet.md, trajectory/<模块>.md, shots/}。
-# runsheet 从 docs/real-env-verification/items/ 生成(不手抄,加了模块下一轮自动出现);
-# 整个目录 gitignore —— 它是一次跑动的证据,不是关于产品的文档。SOP 在
-# docs/real-env-verification/sop.md §0。
+# verify-round —— starts one round of real-env manual verification. Creates a directory named
+# by its start time: e2e/manual-runs/<UTC timestamp>/{runsheet.md, trajectory/<module>.md,
+# shots/}.
+# The runsheet is generated from docs/real-env-verification/items/ (never hand-copied — a new
+# module shows up automatically next round); the whole directory is gitignored — it's evidence
+# of one run, not documentation about the product. SOP lives in
+# docs/real-env-verification/sop.md §0.
 #   make verify-round
 verify-round:
 	@infra/scripts/verify-round
 
-# verify-shots —— 手工验证第 ⑤ 步的**拍照驱动器**：开一个真浏览器，按 plan 登录 / 点 /
-# 输入 / 截图，图落进那一轮的 trajectory 目录。判断看图，不看 DOM 文本。
+# verify-shots —— the **screenshot driver** for step ⑤ of manual verification: opens a real
+# browser, logs in / clicks / types / screenshots per the plan, drops images into that round's
+# trajectory directory. Judged by looking at the images, not the DOM text.
 #
-# 为什么有它：⑤ 一直靠浏览器 MCP 驱动，而 MCP 会掉线（掉线那次手上只剩一个跑在**另一台
-# 机器**上的 Chrome，打不到本机 38227）。驱动器可以换，环境不能换 —— 它打的是 **prod**，
-# 真 vault、真语料、真 provider。
+# Why it exists: step ⑤ used to rely on the browser MCP driving it, and MCP disconnects (once
+# with nothing left but a Chrome running on **a different machine**, unreachable from local
+# port 38227). The driver can be swapped; the environment cannot — it's driving **prod**, real
+# vault, real corpus, real provider.
 #
-# **它不碰数据**：只登录、导航、截图，一行都不写。别把它跟 e2e 混起来 —— e2e 打 dev 并且
-# 每个 spec 都重置实例，那个动作在 prod 上会把真语料清掉。
+# **It never touches data**: only logs in, navigates, screenshots — never writes a single line.
+# Don't confuse it with e2e — e2e hits dev and every spec resets the instance, and doing that on
+# prod would wipe the real corpus.
 #
-# **凭据来源两处，各有其主**：`~/.config/standmeet/verify-creds.env` 是验证凭据的家；而**推理
-# key** 归 eval-harness 管（`eval-harness/.env` 的 `EVAL_KEY`，那是它自己跑真模型用的），
-# verify-creds 里只留了一行指路的注释 —— 一个密钥抄两份就是两个要轮换的地方。gate 的 BYOAI
-# 那一格要的正是「访客把自己的 key 填进表单」，所以驱动器把两处都读进来，plan 里只写变量名
-# （见 shoot.mjs 的 `typeSecret`）。eval-harness/.env 不存在时不报错：绝大多数 plan 不需要它。
+# **Credentials come from two homes, each with its own owner**: `~/.config/standmeet/verify-creds.env`
+# is the home for verification credentials; the **inference key** belongs to eval-harness
+# (`eval-harness/.env`'s `EVAL_KEY`, which is what it uses to run the real model). verify-creds
+# leaves only one line pointing to it — a secret copied to two places is two places you have to
+# rotate it. The gate's BYOAI cell needs exactly "a visitor pastes their own key into the form",
+# so the driver reads both in, and the plan file only names the variable
+# (see shoot.mjs's `typeSecret`). It doesn't error when eval-harness/.env is missing: most plans
+# don't need it.
 #
 #   make verify-shots PLAN=e2e/manual/plans/seo.json
-# turn-hop-probe —— 逼出 /api/v1/agent/turn 那一跳的失败路径（F-O-3）：停 backend → 跨源打一发
-# → 断言 502 + 人话 + **带 CORS 头** → 把 backend 拉回来。一条 spec 做不到这件事：它要的前置是
-# 「app 活着、backend 够不到」，而整套跑到中途停共享 backend 会把别的 spec 一起带走。
+# turn-hop-probe —— forces out the failure path of the /api/v1/agent/turn hop (F-O-3): stop
+# backend → fire one cross-origin request → assert 502 + a human-readable message + **with CORS
+# headers** → bring backend back. One spec can't do this: it needs "app alive, backend
+# unreachable" as its precondition, and stopping the shared backend mid-suite would take out
+# every other spec with it.
 #
 #   make turn-hop-probe              # dev
 #   make turn-hop-probe STACK=prod   # prod
@@ -634,29 +706,35 @@ verify-shots:
 	  [ -f eval-harness/.env ] && . ./eval-harness/.env; set +a; \
 	  cd e2e && node manual/shoot.mjs "../$(PLAN)"
 
-# verify-mcp —— 用 owner 的 MCP 那条路驱 prod。**它是 verify-shots 的兄弟**：那条走界面，
-# 这条走 owner 在 Claude 里的那条路 —— 好几条 check 的 Expected 说的是「读工具的回执」，
-# 而面板根本产不出那个东西（page.unpin 动了哪些区、custom_page 的生命周期、jobs.fetch_new
-# 抓回多少条）。
+# verify-mcp —— drives prod through the owner's MCP path. **The sibling of verify-shots**: that
+# one goes through the UI; this one goes through the same path the owner uses inside Claude —
+# several checks' Expected column asks for "read the tool's own receipt", which the admin panel
+# has no way to produce (which sections page.unpin touched, custom_page's lifecycle, how many
+# entries jobs.fetch_new pulled back).
 #
-# **不手搓 Sigv1 签名器**：起的是**产品自己**的 stdio 客户端（`sdk/packages/mcp-client/bin`），
-# 跟 owner 在 Claude Desktop 里配的是同一个二进制、同一套环境变量。绕过它去自己签名，
-# 验的就不是产品那条路了（[[c3-stdio-sdk-sigv1-401]]）。
+# **Never hand-roll a Sigv1 signer**: it starts the **product's own** stdio client
+# (`sdk/packages/mcp-client/bin`) — the same binary, same environment variables the owner
+# configures in Claude Desktop. Bypassing it to sign requests yourself means you're no longer
+# testing the product's actual path ([[c3-stdio-sdk-sigv1-401]]).
 #
-# 凭据：GUI 上铸一对 keypair → 下载 .pem → `downloads/build-creds.sh <pem> <key-id>` 拼出
-# credentials.json。**收工必须在 GUI 上吊销 keypair 并删掉本地私钥。**
+# Credentials: mint a keypair in the GUI → download the .pem → `downloads/build-creds.sh <pem>
+# <key-id>` assembles credentials.json. **You must revoke the keypair in the GUI and delete the
+# local private key when done.**
 #
 #   make verify-mcp CREDS=e2e/manual-runs/<round>/downloads/credentials.json \
 #     CALLS='[{"name":"page.pin","args":{"section":"insights","entry_id":"…"}}]'
 #
-# CALLS_FILE= 是同一件事的另一条入口：载荷从文件读。**真语料的正文过不了命令行** ——
-# 它带换行、单引号、frontmatter 的 `---`，塞进 `'$(CALLS)'` 要么被 shell 截断要么把引号吃掉。
-# 需要把一条真笔记原样发回去（比如验「改正文会不会顺手清掉别的字段」）时走这条。
+# CALLS_FILE= is another entry point for the same thing: the payload is read from a file.
+# **A real note's body text can't survive the command line** — it has newlines, single quotes,
+# frontmatter's `---`, and stuffing it into `'$(CALLS)'` either gets truncated by the shell or
+# has its quotes eaten. Use this path whenever you need to send a real note's body back verbatim
+# (e.g. verifying "does editing the body accidentally wipe other fields").
 verify-mcp:
 	@test -n "$(CREDS)" || (echo 'usage: make verify-mcp CREDS=<credentials.json> CALLS=<json array>|CALLS_FILE=<path>'; exit 2)
-	@# CALLS 用**单引号**包：它是一段 JSON，里面全是双引号，值里还会有空格。双引号那一版
-	@# 在参数带空格时 `test` 会收到一串词而不是一个参数，报「too many arguments」——
-	@# 看起来像用法写错了，其实是引号错了。
+	@# CALLS is wrapped in **single quotes**: it's a JSON blob, all double quotes inside, and its
+	@# values may contain spaces. With double quotes, `test` receives a list of words instead of one
+	@# argument when a value has a space, and reports "too many arguments" — which looks like a usage
+	@# error but is actually a quoting error.
 	@test -n '$(CALLS)' -o -n "$(CALLS_FILE)" || (echo 'usage: make verify-mcp CREDS=<credentials.json> CALLS=<json array>|CALLS_FILE=<path>'; exit 2)
 	@if [ -n "$(CALLS_FILE)" ]; then \
 	  node e2e/manual/mcp-drive.mjs sdk/packages/mcp-client/bin/standmeet-mcp \
@@ -666,31 +744,36 @@ verify-mcp:
 	    "$${STANDMEET_VERIFY_HOST:-http://localhost:38227}" "$(CREDS)" '$(CALLS)'; \
 	fi
 
-# schema-drift —— 问运行中的库:schema.sql 里声明的表/列,你到底有没有。schema.sql 只在
-# **全新卷**上被 postgres 应用一次,所以长命实例停在它出生时的样子,后加的列只活在文件里 ——
-# backend 照常起来,直到某个界面上的某条查询才炸。开审计轮之前先跑它。
+# schema-drift —— asks the running database: for every table/column schema.sql declares, do you
+# actually have it. schema.sql is applied by postgres only **once, on a fresh volume**, so a
+# long-lived instance stays frozen at the shape it was born with — a column added later exists
+# only in the file, and the backend keeps running fine until some UI query finally hits it and
+# blows up. Run this before starting an audit round.
 #   make schema-drift            # prod
 #   STACK=dev make schema-drift  # dev
 schema-drift:
 	@infra/scripts/schema-drift
 
-# i18n-keys —— 每个 t('key') 必须能在它的 namespace 里解析。缺一条 message 不是构建错误:
-# 它会把 key 路径直接渲染给 owner 看(F-L-15:/admin/subjectivity 17 行全是
-# ADMINCORPUS.COMMON.EDIT)。仓库原有的 i18n lint 问的是反方向(有没有硬编码字符串),
-# 而点这个按钮的 e2e 也会过——按钮在、能点,只有文字是条 key。
+# i18n-keys —— every t('key') must resolve within its namespace. A missing message is not a
+# build error: it renders the raw key path straight to the owner (F-L-15: /admin/subjectivity
+# had 17 lines all reading ADMINCORPUS.COMMON.EDIT). The repo's existing i18n lint checks the
+# opposite direction (hardcoded strings that should be keys), and e2e clicking that button also
+# passes — the button is there and clickable, only the text is a raw key.
 #   make i18n-keys
 i18n-keys:
 	@infra/scripts/check-i18n-keys
 
-# verify-items —— 审计的 item 是**测试描述**,不许记状态。跑的状态在那一轮的 runsheet,
-# 缺陷的状态在 findings.md。两个账本一定会互相漂移,而且"没做"和"做了"一样不可信。
-# 闸门本身带自测(planted 违例必须被抓到),因为一个瞎了的扫描器会报"全清"。
+# verify-items —— an audit item is a **test description**, never a status record. Run status
+# lives in that round's runsheet; defect status lives in findings.md. Two ledgers will always
+# drift apart, and "not done" is exactly as unreliable as "done."
+# The gate carries its own self-test (a planted violation must be caught), because a blinded
+# scanner would otherwise just report "all clear."
 verify-items:
 	@infra/scripts/check-verify-items --self-test >/dev/null
 	@infra/scripts/check-verify-items
 
-# dev-rebuild —— 改 backend / app 代码后强制 rebuild + recreate 指定服务，
-# 不动 db/redis/minio (保数据)。用法：make dev-rebuild SVC=app
+# dev-rebuild —— after changing backend / app code, force rebuild + recreate the given service,
+# leaving db/redis/minio untouched (keeps data). Usage: make dev-rebuild SVC=app
 dev-rebuild: app-build
 	@test -n "$(SVC)" || (echo "usage: make dev-rebuild SVC=<service>"; exit 2)
 	@docker compose -f docker-compose.dev.yml up -d --build --wait --force-recreate --no-deps $(SVC)
@@ -698,46 +781,58 @@ dev-rebuild: app-build
 dev-down:
 	@docker compose -f docker-compose.dev.yml down --remove-orphans
 
-# dev-fresh —— down + 丢掉 dev 的 pg 卷 + 重新起。**要一张真正的白纸时才用这条。**
+# dev-fresh —— down + drop dev's pg volume + start fresh. **Use only when you need a truly clean slate.**
 #
-# schema 改动不必再走这里：写一条 `backend/db/migrations/*.sql`，`make dev-rebuild SVC=backend`
-# 就把它打上去了（后端启动时自己打）。dev 从此跟 prod 走同一条升级路 —— 而这很重要，
-# 因为「dev 靠扔掉卷、prod 靠手打 SQL」的时候，dev 上的绿从来没走过 prod 那条路。
+# Schema changes no longer need this: write a `backend/db/migrations/*.sql` and
+# `make dev-rebuild SVC=backend` applies it (the backend applies it on its own at startup). dev
+# now goes through the same upgrade path as prod — which matters, because when "dev relies on
+# dropping the volume, prod relies on hand-applying SQL", dev's green never actually exercised
+# prod's path.
 #
-# 跟 prod-clean 不同，这条**不要** I_MEAN_IT：dev 里的数据本来就是一次性的（每个 spec
-# 自己重置实例），而 prod 的卷装着真语料和真凭据。两条命令危险程度差着量级，
-# 不该用同一道门槛 —— 一道人人都懂得绕过的确认，比没有确认更糟。
+# Unlike prod-clean, this one **doesn't require** I_MEAN_IT: dev's data is inherently disposable
+# (every spec resets the instance itself), while prod's volumes hold real corpus and real
+# credentials. The two commands are dangerous by orders of magnitude apart — they shouldn't
+# share the same threshold; a confirmation everyone learns to click through is worse than no
+# confirmation at all.
 dev-fresh:
 	@docker compose -f docker-compose.dev.yml down --remove-orphans -v
 	@$(MAKE) dev-up
 
-# meili-stop / meili-start —— 手动停/起 meilisearch,给 retrieval-degrade e2e 验降级 + 自愈用。
-# (e2e workers:1 串行;degrade spec 在 afterAll 保证重启,不影响其他 spec)。
+# meili-stop / meili-start —— manually stop/start meilisearch, for the retrieval-degrade e2e
+# to verify degradation + self-healing.
+# (e2e runs workers:1 serially; the degrade spec guarantees a restart in afterAll, so other
+# specs aren't affected.)
 meili-stop:
 	@docker compose -f docker-compose.dev.yml stop meilisearch
 
 meili-start:
 	@docker compose -f docker-compose.dev.yml up -d --wait meilisearch
 
-# dev-stop-svc —— 停掉栈里的**一个** service(故障注入用)。用法：make dev-stop-svc SVC=mailpit
-# 例：验证 e2e 的 ensureStackUp 在某个容器倒下时真的会把它拉回来 —— 一个只会说"好"的检查等于没有。
-# 停完用 make dev-up(或任意一条 spec 的 resetInstance)拉回来。
+# dev-stop-svc —— stop **one** service in the stack (for fault injection). Usage: make
+# dev-stop-svc SVC=mailpit
+# Example: verifying that e2e's ensureStackUp really brings a container back up when it goes
+# down — a check that only ever says "OK" is no check at all.
+# Bring it back with make dev-up (or any spec's resetInstance).
 dev-stop-svc:
 	@test -n "$(SVC)" || (echo "usage: make dev-stop-svc SVC=<service>"; exit 2)
 	@docker compose -f docker-compose.dev.yml -p standmeet-dev stop $(SVC)
 
-# dev-restart-svc —— 重启栈里的**一个** service。用法：make dev-restart-svc SVC=backend
-# 例：只在起进程时跑一次的那类任务(周期任务的第一跑就在 boot),测它得让进程重来一次。
-# dev-pgsearch-on / -off —— 让 dev **模拟一次检索降级**（拿掉 Meili，退 Postgres 全文）再恢复。
+# dev-restart-svc —— restart **one** service in the stack. Usage: make dev-restart-svc SVC=backend
+# Example: something that only runs once at process startup (a periodic task's first run happens
+# at boot) — testing it needs the process to start over.
+# dev-pgsearch-on / -off —— makes dev **simulate a search-engine degradation** (pull Meili out,
+# fall back to Postgres full-text) and then restore it.
 #
-# 存在的理由：corpus-search 的 check 4 要驱「搜索引擎没了会怎样」，而在此之前没有装置能进到
-# 降级路径上 —— 于是所有搜索 e2e 都只测过 Meili 那一半。
+# Why it exists: corpus-search's check 4 needs to drive "what happens when the search engine is
+# gone", and before this there was no way to reach the degraded path at all — every search e2e
+# only ever exercised the Meili half.
 #
-# **别把它读成"切到 prod 那条路"。** 设计里 `corpus_search` 就是走 Meili 的工具；prod compose
-# 里没有 meilisearch 是事故（F-S-3），不是意图。
+# **Don't read this as "switching to prod's path."** By design, `corpus_search` is the tool that
+# goes through Meili; prod compose having no meilisearch is an accident (F-S-3), not intent.
 #
-# **切过去之后，"绿"的含义变了。** 用它跑出来的结论要注明跑在哪条路上，否则下一个人会把两组
-# 不同的断言当成同一件事。
+# **Once you switch, what "green" means has changed.** Any conclusion drawn from running it here
+# needs to say which path it ran on, or the next person will treat two different sets of
+# assertions as the same thing.
 dev-pgsearch-on:
 	@docker compose -f docker-compose.dev.yml -f docker-compose.pgsearch.yml \
 		-p standmeet-dev up -d --wait --force-recreate backend
@@ -753,13 +848,14 @@ dev-restart-svc:
 	@docker compose -f docker-compose.dev.yml -p standmeet-dev restart $(SVC)
 	@docker compose -f docker-compose.dev.yml -p standmeet-dev up -d --wait $(SVC)
 
-# dev-logs —— tail 某个 service 的日志(诊断用)。用法：make dev-logs SVC=backend N=80
+# dev-logs —— tail a service's logs (for diagnosis). Usage: make dev-logs SVC=backend N=80
 dev-logs:
 	@test -n "$(SVC)" || (echo "usage: make dev-logs SVC=<service> [N=<lines>]"; exit 2)
 	@docker compose -f docker-compose.dev.yml logs --tail=$(if $(N),$(N),60) $(SVC)
 
-# prod-logs —— 同上,但对着真实环境那一套(真实环境审计手工驱到不对时,第一步就是读它的日志)。
-# 用法：make prod-logs SVC=backend N=80
+# prod-logs —— same as above, but against the real-env stack (when a real-env audit's manual
+# drive goes wrong, reading its logs is the first step).
+# Usage: make prod-logs SVC=backend N=80
 prod-logs:
 	@test -n "$(SVC)" || (echo "usage: make prod-logs SVC=<service> [N=<lines>]"; exit 2)
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml logs \
@@ -783,37 +879,45 @@ sqlc-gen:
 		sqlc/sqlc:1.20.0 generate
 	@echo "[sqlc] regenerated. diff & commit backend/internal/postgres/dbq/"
 
-# test —— 一键跑 e2e：先 dev-up（含 SDK build → app build → docker compose
-# --build --wait 增量 rebuild 改了的 service），再 playwright。conversation
-# 里跑 e2e 就一条 `make test`，不要分步。
-# test —— 全量。**跑完自动把失败现场归档**（见 archive-failures）：playwright 的
-# test-results/ 会被下一次 `make test-only` 整个覆盖，而修 bug 时第一件事就是跑单条 ——
-# 于是全量的现场在你需要它的前一秒被自己抹掉，只能靠重抓，而重抓是 SOP 明令的下策。
-# 归档是自动的：靠"记得先备份"就等于没有。
-# `--project=chromium` 是必须写出来的:配置里有两个 project(桌面 + 手机视口),
-# 而 playwright 不指定就**两个都跑**。不写的话 `make test` 的时长翻倍,而且手机那一轮
-# 的红会混进全量的判据里 —— 那是另一条战线,自己有入口(test-mobile)。
+# test —— one command to run the full e2e suite: dev-up first (SDK build → app build →
+# docker compose --build --wait, incremental rebuild of whatever changed), then playwright.
+# In-conversation e2e is one command, `make test` — don't split it into steps.
+# test —— full run. **Automatically archives failure evidence when finished** (see
+# archive-failures): playwright's test-results/ gets fully overwritten by the next
+# `make test-only` run, and the first thing you do when fixing a bug is run a single spec —
+# so the full-run evidence gets wiped out one second before you need it, leaving only a re-run
+# to fall back on, and the SOP explicitly calls a re-run the worse option.
+# Archiving is automatic: relying on "remember to back it up first" is the same as not having it.
+# `--project=chromium` has to be spelled out: the config has two projects (desktop + mobile
+# viewport), and playwright runs **both** if you don't specify one. Without it, `make test`
+# takes twice as long, and the mobile run's reds get mixed into the full-suite's judgment —
+# that's a separate front with its own entry point (test-mobile).
 test: dev-up
 	@infra/scripts/machine-witness.sh & w=$$!; \
 		cd e2e && pnpm exec playwright test --project=chromium; st=$$?; cd ..; \
 		kill $$w 2>/dev/null; $(MAKE) archive-failures; exit $$st
 
-# mobile-shots —— 390×844 下每个面各留一张图,产出给人眼看,**不是**功能测试。
-# GREP=admin 只驱 admin 那组。图落在 e2e/manual-runs/mobile-sweep/,同名覆盖,
-# 所以改完重跑就是同一个文件名的前后对照。
+# mobile-shots —— one screenshot per surface at 390×844, produced for a human to look at,
+# **not** a functional test.
+# GREP=admin drives only the admin group. Images land in e2e/manual-runs/mobile-sweep/, same
+# filenames overwritten each time, so re-running after an edit gives you a direct before/after
+# comparison at the same filename.
 mobile-shots: dev-up
 	@cd e2e && pnpm exec playwright test --project=mobile $(if $(GREP),-g "$(GREP)")
-	@echo "[mobile] $$(ls e2e/manual-runs/mobile-sweep/*.png 2>/dev/null | wc -l | tr -d ' ') 张 → e2e/manual-runs/mobile-sweep/"
+	@echo "[mobile] $$(ls e2e/manual-runs/mobile-sweep/*.png 2>/dev/null | wc -l | tr -d ' ') images → e2e/manual-runs/mobile-sweep/"
 
-# mobile-shots-asis —— 同上,但不重建、不 up,打正在跑的那套栈。改 CSS 的循环里用这个。
+# mobile-shots-asis —— same as above, but no rebuild, no up — hits whatever stack is already
+# running. Use this in a CSS-tweak loop.
 mobile-shots-asis:
 	@docker compose -f docker-compose.dev.yml ps --status running --quiet backend | grep -q . \
 		|| (echo "[mobile-shots-asis] dev backend is not running — run 'make dev-up' first"; exit 2)
 	@cd e2e && pnpm exec playwright test --project=mobile $(if $(GREP),-g "$(GREP)")
-	@echo "[mobile] $$(ls e2e/manual-runs/mobile-sweep/*.png 2>/dev/null | wc -l | tr -d ' ') 张 → e2e/manual-runs/mobile-sweep/"
+	@echo "[mobile] $$(ls e2e/manual-runs/mobile-sweep/*.png 2>/dev/null | wc -l | tr -d ' ') images → e2e/manual-runs/mobile-sweep/"
 
-# archive-failures —— 把这一轮的失败现场复制到 e2e/test-results-archive/<UTC 时间戳>/。
-# 没有失败就什么都不做。归档目录带时间戳，所以历次全量互不覆盖。
+# archive-failures —— copies this run's failure evidence into
+# e2e/test-results-archive/<UTC timestamp>/.
+# Does nothing if there were no failures. The archive directory is timestamped, so successive
+# full runs never overwrite each other.
 archive-failures:
 	@test -d e2e/test-results/playwright || exit 0
 	@ls e2e/test-results/playwright 2>/dev/null | grep -q . || exit 0
@@ -822,18 +926,21 @@ archive-failures:
 		docker logs standmeet-dev-backend-1 > "$$d/backend.log" 2>&1 || true; \
 		echo "[archive] failure artifacts → $$d/playwright ($$(ls e2e/test-results/playwright | wc -l | tr -d ' ') case dirs) + backend.log"
 
-# test-fresh —— 跟 test 一样，但先 clean (down -v) 让 db volume 重建从 schema.sql
-# 重新 apply。schema 改过 (db/schema.sql) 必须用这个；纯代码改用 `make test`。
+# test-fresh —— same as test, but cleans first (down -v) so the db volume rebuilds and
+# reapplies from schema.sql. Use this when schema.sql has changed; pure code changes should
+# use `make test`.
 test-fresh: clean test
 
-# test-only —— 只跑一个 spec / 一个 grep 模式。隔离 reproducer 用。
-# REPEAT=N —— 把这个 spec 跑 N 遍（--repeat-each），抓间歇性 flake 用。
+# test-only —— run just one spec / one grep pattern. For isolating a reproducer.
+# REPEAT=N —— run this spec N times (--repeat-each), for catching an intermittent flake.
 # usage:   make test-only SPEC=blog-posts
 #          make test-only SPEC=blog-posts GREP="MCP post_create"
 #          make test-only SPEC=visitor-ask-visitor REPEAT=15
-# 归档也挂在 test-only 上:playwright 的 test-results/ 会被**下一次**运行清空,而下一次运行
-# 通常就是去修第一个失败时敲的那条 test-only —— 其余失败的现场会在你需要它的前一秒自己删掉。
-# 只有 `make test` 归档是不够的:批次验证同样会产出必须留证的失败。
+# Archiving is wired up on test-only too: playwright's test-results/ gets wiped by the **next**
+# run, and the next run is usually the same test-only command you typed to fix the first
+# failure — so the rest of the failure evidence would delete itself one second before you need
+# it. `make test` archiving alone isn't enough: batch verification produces failures that need
+# to be preserved just as much.
 test-only: dev-up
 	@test -n "$(SPEC)" || (echo "usage: make test-only SPEC=<spec-name> [GREP=<title pattern>] [REPEAT=N]"; exit 2)
 	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT)); \
@@ -891,17 +998,21 @@ test-captcha:
 	@cd e2e && pnpm exec playwright test $(if $(SPEC),$(SPEC),captcha-on-); \
 		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
 
-# test-boundary —— 把 turn 的时间墙**和它后面那次救场**都调短，跑边界那一格的用例。
+# test-boundary —— shortens the turn's time wall **and the rescue attempt right after it**, to
+# drive the boundary-case use cases.
 #
-# 为什么要一个自己的台子：这两个预算是进程级的（300s / 60s）。默认套件里没法在一条用例上
-# 把它们改短，于是「撞墙之后产品说什么」这条路**从来没被驱过** —— prod 上真撞到时，
-# 访客读到的是一句「连接断了，再问一次」（F-A-44）。
+# Why it needs its own bench: both budgets are process-level (300s / 60s). There's no way to
+# shorten them for just one test case within the default suite, which is why "what does the
+# product say once it hits the wall" **has never been driven at all** — when it actually
+# happened on prod, the visitor read "connection interrupted, ask again" (F-A-44).
 #
-# 两个都要短：只调短 turn，救场那 60 秒会把它救回来（那是好路径，另有用例）；要驱的是
-# **救场也没来得及**的那一格。BOUNDARY_TIGHT 同时传给测试进程，用例据它自跳，
-# 免得它跑进默认套件里变成一条恒定的红（captcha 那五条的教训）。
+# Both need to be short: shortening only the turn budget means the 60-second rescue saves it (a
+# good path, with its own test case); what needs driving here is the cell where **even the
+# rescue doesn't arrive in time**. BOUNDARY_TIGHT is also passed to the test process, so the
+# case can skip itself based on it, keeping it from ending up as a permanent red inside the
+# default suite (the lesson from those five captcha cases).
 #
-# 台子跑完是短预算的 —— `make dev-up` 放回去。
+# The bench runs on a short budget — `make dev-up` restores it afterward.
 test-boundary:
 	@AGENT_TURN_TIMEOUT=5 FORCE_FINAL_TIMEOUT=3 $(MAKE) dev-up
 	@cd e2e && BOUNDARY_TIGHT=1 pnpm exec playwright test $(if $(SPEC),$(SPEC),agent-turn-deadline); \
@@ -954,22 +1065,24 @@ gui-p1-variant:
 	@test -n "$(VARIANT)" || (echo "usage: make gui-p1-variant VARIANT=<name> [CODE=...]"; exit 2)
 	@cd e2e && VARIANT=$(VARIANT) $(if $(CODE),CODE=$(CODE)) pnpm exec node scripts/p1-variant-drive.mjs
 
-# test-headed —— 跟 test-only 同,但 --headed 开真浏览器肉眼观测(单 worker,
-# 一条一条跑)。reading-dom 那条带 [[slow-final:2500]],throbber 会停 2.5s 看得清。
+# test-headed —— same as test-only, but --headed opens a real browser for visual observation
+# (single worker, one spec at a time). The reading-dom case carries [[slow-final:2500]], so the
+# throbber holds for 2.5s and stays legible.
 test-headed: dev-up
 	@test -n "$(SPEC)" || (echo "usage: make test-headed SPEC=<spec-name> [GREP=<title pattern>]"; exit 2)
 	@cd e2e && pnpm exec playwright test $(SPEC) --headed --workers=1 $(if $(GREP),-g "$(GREP)")
 
-# setup-token —— demo 时 owner 打开 / 自动 redirect 到 /setup?t=...；这个
-# target 直接打印 path 让 operator 复制（boot banner 已经打过一次但可能
-# 被后续日志冲掉）。e2e 不需要 —— fixtures/instance.findSetupToken 已经走
-# 同样的 /api/v1/instance fetch。
+# setup-token —— during a demo, the owner opens / gets auto-redirected to /setup?t=...; this
+# target just prints the path for the operator to copy (the boot banner already printed it once,
+# but later logs may have scrolled it away). e2e doesn't need this — fixtures/instance.findSetupToken
+# already goes through the same /api/v1/instance fetch.
 setup-token:
 	@curl -sS http://localhost:8000/api/v1/instance | jq -r '"setup path: /setup?t=" + .setup_token'
 
-# password-reset —— 紧急 owner 忘记密码兜底。docker exec 跑 standmeet 二进制
-# 的 password-reset 子命令：连 DB → 颁发一次性 reset token → stdout 打印
-# plaintext + URL。30min TTL，一次性。owner 拷 URL 进浏览器改密码。
+# password-reset —— emergency fallback for an owner who forgot their password. docker exec runs
+# the standmeet binary's password-reset subcommand: connects to DB → issues a one-time reset
+# token → prints plaintext + URL to stdout. 30min TTL, one-time use. Owner pastes the URL into a
+# browser to change their password.
 password-reset:
 	@docker compose -f docker-compose.dev.yml exec backend /app/standmeet password-reset
 
@@ -1024,16 +1137,19 @@ prod-psql:
 
 # prod-redis —— run a redis command against the prod redis.  usage: make prod-redis CMD="info memory"
 #
-# 跟 prod-psql 同性质的验证栈逃生口。resilience 的 check 1 要的是「有上限、到顶、开始淘汰」这个
-# **真状态**，而它只能在活的 redis 上造出来：调低 maxmemory → 灌 → 读 evicted_keys → 调回去。
-# 不是 owner 功能。
+# The same kind of verification-stack escape hatch as prod-psql. resilience's check 1 needs the
+# **real state** of "there's a cap, it's been hit, eviction has started", and that can only be
+# produced on a live redis: lower maxmemory → fill it → read evicted_keys → set it back.
+# Not an owner-facing feature.
 prod-redis:
 	@test -n "$(CMD)" || (echo 'usage: make prod-redis CMD="info memory"'; exit 2)
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T redis redis-cli $(CMD)
 
-# prod-redis-fill —— 往 prod redis 灌 KEYS 个 300 字节的键，**每个都带 600 秒 TTL**（收工不用打扫，
-# 它们自己会走）。给 resilience check 1 造「到顶 + 正在淘汰」那个真状态用；配合 .env 的
-# REDIS_MAXMEMORY 临时压低上限。Lua 写在这里而不是从 CMD 传：嵌套引号在 shell 里过不去。
+# prod-redis-fill —— fills prod redis with KEYS 300-byte keys, **each with a 600-second TTL**
+# (no cleanup needed when done — they expire on their own). Produces the real "at capacity +
+# actively evicting" state resilience check 1 needs; pair with a temporarily lowered
+# REDIS_MAXMEMORY in .env. The Lua is written inline rather than passed via CMD: nested quotes
+# don't survive the shell.
 #
 #   make prod-redis-fill KEYS=8000
 prod-redis-fill:
@@ -1104,59 +1220,73 @@ docker-gc-hard:
 	@docker builder prune -af
 	@docker image prune -f
 
-# ── release: 把镜像推到 registry ─────────────────────────────────
+# ── release: push images to the registry ─────────────────────────────────
 #
-# 一个仓库有两条把字节送出去的路，它们各自看得见的东西不一样：
+# A repo has two paths that send bytes out into the world, and each one sees a different set of
+# things:
 #
-#   `git push`  → 整部**历史**。在后面某次提交里删掉的密钥，推上去照样在。
-#   registry    → **镜像文件系统**。`.gitignore` 对它没有发言权，`.dockerignore` 才有 ——
-#                 而这两张单子不是同一张。本机此刻就躺着真凭据（`.playwright-mcp/` 里
-#                 一份 Google OAuth client-secret 和几个 PEM、`eval-harness/.env`）：
-#                 它们进不了 git，进不进镜像是另一个问题，由另一张单子回答。
+#   `git push`  → the entire **history**. A secret deleted in a later commit is still there in
+#                 that earlier one, pushed and all.
+#   registry    → the **image filesystem**. `.gitignore` has no say over it — `.dockerignore`
+#                 does, and those two lists are not the same one. This machine right now has
+#                 real credentials sitting on it (a Google OAuth client-secret and a few PEMs
+#                 under `.playwright-mcp/`, `eval-harness/.env`): they can't reach git, but
+#                 whether they reach an image is a separate question, answered by that other list.
 #
-# 所以推之前两条都扫：`secrets` 扫历史 + 暂存区，`secrets-image` 扫**镜像本身**。
+# So before pushing, scan both: `secrets` scans history + the staging area, `secrets-image`
+# scans the **image itself**.
 #
-# **为什么扫镜像而不是扫它的构建上下文**：上下文是替身。判据要落在真的要发出去的那个东西
-# 上 —— `.dockerignore` 少写一条、Dockerfile 里多一句 COPY，上下文扫描都看不见，镜像扫描
-# 看得见。
+# **Why scan the image rather than its build context**: the context is a stand-in. The check
+# needs to land on the actual thing that's about to go out — a missed `.dockerignore` line, an
+# extra `COPY` in the Dockerfile, and a context scan sees neither, while an image scan does.
 REGISTRY ?= ghcr.io/atmaxmoj
 
-# TAG —— **从 git tag 反解，不手填**。打了 `v0.0.1` 的那一笔上它就是 `v0.0.1`；之后的提交是
-# `v0.0.1-3-gabc1234`，一眼看得出「这不是那个发布」。版本号只有一个家（[[事实归产生它的那一方]]）——
-# Makefile 里再抄一份的话，「记得改版本号」就成了一条迟早没人记得的规矩。
+# TAG —— **derived from the git tag, never hand-filled**. On the commit tagged `v0.0.1` it is
+# `v0.0.1`; the next commit is `v0.0.1-3-gabc1234`, and you can tell at a glance "this is not
+# that release." A version number has exactly one home ([[a fact belongs to the party that
+# produces it]]) — copying it a second time into the Makefile turns "remember to update the
+# version" into a rule someone eventually forgets.
 TAG ?= $(shell git describe --tags --always --dirty)
 
-# db 也在里面：Coolify 的「粘贴一份 compose」没有仓库，`./backend/db/schema.sql` 那种
-# 相对挂载在那里必然挂空 —— 而 postgres 挂空的表现是**静默起一个空库**。把 schema 烤进
-# 镜像，注册表部署就一处挂载都不需要（infra/db/Dockerfile）。
+# db is in there too: Coolify's "paste a compose file" has no repo behind it, so a relative
+# mount like `./backend/db/schema.sql` inevitably points at nothing — and postgres's behavior
+# when its mount is empty is to **silently start an empty database**. Baking the schema into the
+# image means a registry deploy needs zero mounts (infra/db/Dockerfile).
 IMAGES := backend app builder im-bridge db
 
-# release-build —— 按 REGISTRY/TAG 把四个镜像建出来（不推）。
-# app 的 .next 由宿主构建后 COPY 进镜像，所以它必须先跑。
+# release-build —— builds the four images by REGISTRY/TAG (without pushing).
+# app's .next is built on the host and COPYd into the image, so that step has to run first.
 #
-# context / dockerfile / target 跟 docker-compose.prod.yml 同源。用 `docker build` 而不是
-# `compose build`：`compose images -q` 查的是**运行中的容器**，没起容器就返回空串，于是打标
-# 那一步拿到一个空的源（第一次就是这么炸的）。发布不需要起任何容器。
+# context / dockerfile / target come from the same source as docker-compose.prod.yml. Uses
+# `docker build` rather than `compose build`: `compose images -q` looks at the **running
+# containers**, and with none running it returns an empty string — so the tagging step would
+# get an empty source (that's exactly how it blew up the first time). Releasing doesn't need any
+# container running.
 #
-# ── 这里不复用 `app-build`，因为发布的 app 是**另一种构建** ──────────────────────────
+# ── app-build isn't reused here, because the release app is **a different build** ──────────────────────────
 #
-# `next.config.ts` 早就声明了 dual-build：`STRIP_TEST_HOOKS=1` 时 SWC 在编译期把
-# `data-testid` 全部剥掉，注释写的是「真正发布给访客的 build」设它。
-# 而这个变量**全仓库只出现在那一个文件里** —— 没有任何地方设过（F-A-45）。
-# 于是至今每一个 app 镜像都把 804 处 testid 原样送给访客：它们是内部组件结构的说明书，
-# 也是给抓取/自动化用的稳定选择器 —— 而验证码和限流那一整套机制正是要让自动化变贵。
+# `next.config.ts` already declares a dual-build: with `STRIP_TEST_HOOKS=1`, SWC strips every
+# `data-testid` at compile time; the comment there says it's "for the build actually shipped to
+# visitors."
+# And that variable **appears nowhere else in the whole repo** — nothing ever set it (F-A-45).
+# So to this day, every single app image has shipped all 804 testids to visitors unchanged: they
+# are documentation of internal component structure, and stable selectors for
+# scraping/automation — while the whole point of the captcha and rate-limiting machinery is to
+# make automation expensive.
 #
-# **只在这条路上剥**：dev 的 e2e 靠 testid 定位，prod 栈上的真环境审计也靠它驱动。
-# 那两条都不是「发给访客的 build」。
-# RELEASE_PLATFORMS —— 发布的镜像必须是**多架构**的。
+# **Only strips on this path**: dev's e2e locates elements by testid, and the real-env audit on
+# the prod stack also drives by testid. Neither of those is "the build shipped to visitors."
+# RELEASE_PLATFORMS —— the release image must be **multi-architecture**.
 #
-# 这一条是踩出来的：v0.0.3 在 Mac 上构建，五个镜像全是 linux/arm64。推上 ghcr、
-# 部署到一台 x86_64 的服务器 —— **拉得下来、跑不起来**，每个容器启动即退。
-# 现象骗人得厉害：db / redis / minio 这些跟我配置毫无关系的也一起退，
-# 于是看起来像整份 compose 有问题，而我为此逐个排除了变量展开、镜像可见性、
-# compose 解析、卷命名四类原因，每类一轮。真正的差别是「我这台是 arm64」。
+# Learned the hard way: v0.0.3 was built on a Mac, all five images came out linux/arm64. Pushed
+# to ghcr, deployed to an x86_64 server — **it pulled fine, it just wouldn't run**, every
+# container exited immediately on start. The symptom was deeply misleading: db / redis / minio,
+# which have nothing to do with our config, also exited — so it looked like the whole compose
+# file was broken, and chasing that cost a full round each on variable expansion, image
+# visibility, compose parsing, and volume naming as four separate theories. The actual
+# difference was just "this machine is arm64."
 #
-# 自托管的人用什么机器不由我们决定，所以发布面必须覆盖两种。
+# We don't control what machine a self-hoster runs, so the release surface has to cover both.
 RELEASE_PLATFORMS ?= linux/amd64,linux/arm64
 
 release-build: sdk-build builder-vendor
@@ -1179,75 +1309,89 @@ release-build: sdk-build builder-vendor
 	@$(MAKE) release-assert-version
 	@echo "[release] built: $(IMAGES) @ $(TAG)"
 
-# release-assert-version —— **问镜像本人它是哪一版**，不问构建命令。
+# release-assert-version —— **asks the image itself which version it is**, not the build command.
 #
-# 版本号靠 `-ldflags -X` 在发布时烧进二进制，而漏传 build-arg 是**无声**的：
-# 镜像照样建得出来、照样跑得起来，只是从此对外报缺省值。这条缺陷刚咬过一次 ——
-# 那个 `var` 是专为 ldflags 留的，注释里也写着"发布时覆写"，而构建命令里从来没有那一句，
-# 于是线上跑着 v0.1.3 的镜像、`/api/v1/instance` 说 0.1.0。版本号的唯一用处是出事时
-# 说得清自己在哪个 build，一个跟 build 无关的数把这个用处整个抵消掉。
+# The version number gets burned into the binary via `-ldflags -X` at release time, and a
+# missed build-arg is **silent**: the image still builds fine, still runs fine, it just reports
+# the zero-value from then on to anyone who asks. This defect just bit us once — that `var` was
+# reserved specifically for ldflags, its comment even says "overwritten at release time", and
+# the build command simply never had that line — so what shipped was an image running v0.1.3
+# while `/api/v1/instance` reported 0.1.0. The one use a version number has is being able to say
+# clearly, when something goes wrong, exactly which build you're on — and a number disconnected
+# from the actual build cancels that use out entirely.
 #
-# 判的是**产物**：起容器、`--version`、拿它说的那个字符串跟 $(TAG) 逐字比。
-# 不需要 db/redis/整套栈 —— 那条子命令在 config.Load 之前就返回。
+# Judges the **artifact**: start the container, `--version`, compare what it says against
+# $(TAG) character for character. Needs no db/redis/the stack at all — that subcommand returns
+# before config.Load even runs.
 release-assert-version:
 	@img=$(REGISTRY)/standmeet-backend:$(TAG); \
 	  got=$$(docker run --rm --entrypoint /app/standmeet $$img --version 2>&1 | tail -1); \
 	  test "$$got" = "$(TAG)" || { \
-	    echo "release: $$img 自报版本 '$$got'，而这一版是 '$(TAG)'"; \
-	    echo "         漏传 --build-arg STANDMEET_VERSION 就是这个样子 —— 镜像能跑，版本号是假的"; \
+	    echo "release: $$img self-reports version '$$got', but this release is '$(TAG)'"; \
+	    echo "         this is what happens when --build-arg STANDMEET_VERSION is missed — the image runs, the version is fake"; \
 	    exit 2; }; \
-	  echo "  backend 自报 $$got ✓"
+	  echo "  backend self-reports $$got ✓"
 
-# release-assert-stripped —— **证明剥掉了**，不是相信它剥掉了。
+# release-assert-stripped —— **proves** the strip happened, rather than trusting that it did.
 #
-# 这个开关活在 next.config.ts 的一个字符串比较里：改个名、升一次 Next、动一下 compiler 那段，
-# 它都会静默失效 —— 而失效的样子跟生效一模一样（镜像照样建出来、照样能跑）。
-# 所以这一步既判「剥干净了」，也判「我确实扫到了东西」：产物目录为空的话，
-# 「零个 testid」是一句没有意义的真话。
-# 三处豁免，每一处都是**机械的**（按路径），不是一份 testid 名单：
-#   · node_modules —— Next 自己的 devtools 包里有 `data-testid="geist-icon"`。别人的代码。
-#   · server.js / required-server-files.json —— 那里面是**配置回声**
-#     （`"reactRemoveProperties":{"properties":["^data-testid$"]}`），不是元素上的属性。
-#     它出现恰恰说明剥这件事配上了。
-#   · /admin/ —— 这条规则剥的是 **JSX 属性**；交给第三方库的**对象键**（Tiptap 的
-#     `editorProps.attributes`）它结构上看不见。那一处在 owner 的编辑器上，
-#     而这个开关声明的目的是「发给访客的 HTML 干净」—— 访客到不了 /admin。
+# This switch lives inside a string comparison in next.config.ts: rename it, upgrade Next,
+# touch that part of the compiler config, and it silently stops working — and a broken strip
+# looks exactly the same as a working one (the image still builds, still runs fine). So this
+# step judges both "did the strip actually happen" and "did I actually scan anything real":
+# with an empty artifact directory, "zero testids" would be a meaningless truth.
+# Three exemptions, each **mechanical** (by path), never a hand-maintained testid list:
+#   · node_modules —— Next's own devtools package ships `data-testid="geist-icon"`. Someone
+#     else's code.
+#   · server.js / required-server-files.json —— those are **config echoed back**
+#     (`"reactRemoveProperties":{"properties":["^data-testid$"]}`), not an attribute on an
+#     element. Its presence there is exactly the proof the strip is wired up.
+#   · /admin/ —— this rule strips **JSX attributes**; an **object key** handed to a third-party
+#     library (Tiptap's `editorProps.attributes`) is structurally invisible to it. That spot
+#     lives in the owner's editor, and this switch's stated purpose is "clean HTML shipped to
+#     visitors" — visitors never reach /admin.
 release-assert-stripped:
-	@test -d app/.next/standalone || { echo "release: app/.next/standalone 不存在 —— 没扫到东西，'零个 testid' 不算数"; exit 2; }
+	@test -d app/.next/standalone || { echo "release: app/.next/standalone does not exist — nothing was scanned, 'zero testids' doesn't count"; exit 2; }
 	@files=$$(find app/.next/standalone -type f -not -path '*/node_modules/*' | wc -l | tr -d ' '); \
-	  test "$$files" -gt 100 || { echo "release: 扫描面只有 $$files 个文件，不对"; exit 2; }; \
+	  test "$$files" -gt 100 || { echo "release: scan surface was only $$files files — that's wrong"; exit 2; }; \
 	  hits=$$(grep -rl "data-testid" app/.next/standalone 2>/dev/null \
 	    | grep -v '/node_modules/' \
 	    | grep -v '/server\.js$$' \
 	    | grep -v '/required-server-files\.json$$' \
 	    | grep -v '/app/admin/'); \
 	  test -z "$$hits" || { \
-	    echo "release: 访客侧的产物里还有 data-testid —— STRIP_TEST_HOOKS 没生效，或者"; \
-	    echo "         有人把 testid 当对象键传给了库（那样剥不掉，得挪成 JSX 属性）："; \
+	    echo "release: data-testid still present in the visitor-facing build — either STRIP_TEST_HOOKS didn't fire,"; \
+	    echo "         or someone passed a testid as an object key to a library (that can't be stripped — move it to a JSX attribute):"; \
 	    echo "$$hits" | sed 's/^/           /'; exit 1; }; \
-	  echo "[release] 访客侧产物已剥 testid（扫了 $$files 个文件）"
+	  echo "[release] visitor-side build has testids stripped (scanned $$files files)"
 
-# secrets-image —— 扫**要发出去的那个镜像的文件系统**。
+# secrets-image —— scans **the filesystem of the exact image about to be shipped**.
 #
-# `docker export` 出来的就是这个镜像的 rootfs，不是它的近似。
+# `docker export` output is that image's rootfs, not an approximation of it.
 #
-# **它挡的到底是什么**：git 那道闸门只看得见被跟踪的文件。而镜像里有什么由 `.dockerignore`
-# 决定 —— 一个 git 忽略的文件照样进得了镜像。本机此刻就有真凭据处在这个位置
-# （`.playwright-mcp/` 下的 Google OAuth client-secret 和 PEM、`eval-harness/.env`）：
-# 它们进不了历史，所以只有这道闸门可能拦得住。
+# **What this actually guards against**: the git gate can only see tracked files. What's inside
+# an image is decided by `.dockerignore` — a file git ignores can still make it into the image.
+# This machine right now has real credentials sitting in exactly that spot (a Google OAuth
+# client-secret and PEMs under `.playwright-mcp/`, `eval-harness/.env`): they can't reach
+# history, so this gate is the only thing that might catch them.
 #
-# **它覆盖不到的**（明说，别让 "all images clean" 读起来像全覆盖）：
-#   · gitleaks 跳过二进制。backend 镜像 77 MB，扫到的是 3.7 MB —— 那个 Go 可执行文件没扫。
-#     可以接受的理由是它里面的字符串只能来自**源码**（历史那道扫过）或 build arg（我们一个
-#     都不传），不是因为扫过了。
-#   · 下面排除的是**基础镜像自带的目录**（node 的头文件、系统库、第三方依赖树）。那些字节
-#     不是我们放进去的，上游原样带来的。我们自己 COPY 的东西（/app、/srv、二进制）都在扫描面内。
-#     其中两条是 db 镜像加进来时补的，各自核实过来路：
-#       `etc/ssl/private/` —— Debian `ssl-cert` 包在 postinst 生成的自签名占位证书
-#         （snakeoil）。`pgvector/pgvector:pg16` 这个上游镜像里本来就有；这套栈连库走
-#         `sslmode=disable`，它是死的。
-#       `usr/lib/` —— 发行版的库和头文件（那次报的是 perl 的 CORE/cop.h）。
-#     两条都验过：五个 Dockerfile 没有一个往这两处写东西，所以排除它们不会遮住我们自己的字节。
+# **What it doesn't cover** (said explicitly, so "all images clean" doesn't read as full
+# coverage):
+#   · gitleaks skips binaries. The backend image is 77 MB; what gets scanned is 3.7 MB — the Go
+#     executable itself is never scanned. Acceptable because any string inside it can only have
+#     come from **source** (scanned by the history gate) or a build arg (we pass none) —
+#     not because it was actually scanned.
+#   · What's excluded below is **directories the base image ships on its own** (node's headers,
+#     system libraries, third-party dependency trees). Those bytes aren't ones we put there,
+#     they arrived as-is from upstream. Everything we COPY ourselves (/app, /srv, binaries)
+#     stays inside the scan surface. Two of the exclusions were added when the db image joined,
+#     each verified for provenance:
+#       `etc/ssl/private/` —— a self-signed placeholder cert (snakeoil) Debian's `ssl-cert`
+#         package generates in postinst. Already present in the upstream `pgvector/pgvector:pg16`
+#         image; this stack talks to the db with `sslmode=disable`, so it's dead weight.
+#       `usr/lib/` —— distro libraries and headers (the one that triggered this was perl's
+#         CORE/cop.h).
+#     Both verified: none of the five Dockerfiles write anything into those two paths, so
+#     excluding them can't hide any of our own bytes.
 secrets-image:
 	@command -v gitleaks >/dev/null 2>&1 || { \
 	  echo "secrets-image: gitleaks is not installed — this gate cannot run."; \
@@ -1269,22 +1413,28 @@ secrets-image:
 	  docker rm -f $$cid >/dev/null; \
 	  wd=$$(docker image inspect $$img --format '{{.Config.WorkingDir}}'); \
 	  can=$$d$${wd:-}/.sm-secrets-canary.txt; \
-	  : "诱饵必须命中一条**不看熵**的规则。这里原本种的是 aws_secret_access_key,"; \
-	  : "而那条规则带熵阈值 —— 随机串总有一部分落在阈下,于是自证会零星失败(v0.1.1 那次"; \
-	  : "builder 镜像就没报出来),而**自证失败会挡住整条发布**。私钥块是结构性规则,不看熵。"; \
-	  : "check-secrets.sh 早就为同一个理由换过了 —— 这一处当时没跟着改。"; \
-	  : "这行的文件名不加反引号:recipe 里的注释也是 shell,反引号是命令替换 ——"; \
-	  : "带上就变成每次发布都去 PATH 上找一个同名脚本并执行它。"; \
+	  : "The canary must hit a rule that **ignores entropy**. The original planted value was"; \
+	  : "aws_secret_access_key, and that rule carries an entropy threshold — a random string"; \
+	  : "always has some fraction fall below the threshold, so the self-test would fail"; \
+	  : "intermittently (that's exactly what happened once for the builder image in v0.1.1),"; \
+	  : "and **a failing self-test blocks the whole release**. A private-key block is a"; \
+	  : "structural rule, not entropy-based. check-secrets.sh switched for the same reason a"; \
+	  : "while ago — this spot just never got the same fix."; \
+	  : "The filename on this line is unquoted with backticks deliberately: comments inside a"; \
+	  : "recipe are still shell, and a backtick is command substitution — quoting it would mean"; \
+	  : "every release hunts PATH for a same-named script and executes it."; \
 	  mkdir -p $$(dirname $$can); \
 	  printf -- '-----%s RSA PRIVATE KEY-----\n%s\n-----%s RSA PRIVATE KEY-----\n' \
 	    BEGIN "$$(LC_ALL=C tr -dc 'A-Za-z0-9+/' < /dev/urandom | head -c 64)" END > $$can; \
-	  : "覆盖量要打出来。上一版只说 clean —— 而 backend 镜像里我们自己 COPY 的东西是"; \
-	  : "6 个 Go 二进制 + 1 个 entrypoint.sh,gitleaks 跳过二进制,所以那张镜像上这道闸门"; \
-	  : "实际扫的是**一个 shell 脚本**。它跟 app 镜像(整个 .next 都是文本)打印同一句 clean,"; \
-	  : "而两者背后的证据量差着三个数量级。数不出来的时候,'clean' 读起来像全覆盖。"; \
+	  : "The coverage numbers get printed. The previous version just said clean — and what we"; \
+	  : "ourselves COPY into the backend image is 6 Go binaries + 1 entrypoint.sh; gitleaks"; \
+	  : "skips binaries, so what this gate actually scans on that image is **one shell"; \
+	  : "script**. It prints the same word 'clean' as the app image (where the entire .next is"; \
+	  : "text), while the evidence behind the two differs by three orders of magnitude. Without"; \
+	  : "a count, 'clean' reads like full coverage."; \
 	  txt=$$(find $$d -type f -exec file -b --mime-type {} \; 2>/dev/null | grep -c '^text/' || true); \
 	  bin=$$(find $$d -type f -exec file -b --mime-type {} \; 2>/dev/null | grep -c 'executable' || true); \
-	  echo "                 扫描面: $$txt 个文本文件 / 跳过 $$bin 个二进制"; \
+	  echo "                 scan surface: $$txt text files / $$bin binaries skipped"; \
 	  rep=$$(mktemp -t sm-secrets-XXXX).json; \
 	  gitleaks dir $$d --config .gitleaks.toml --no-banner --redact \
 	    --report-format json --report-path $$rep >/dev/null 2>&1; \
@@ -1295,23 +1445,27 @@ secrets-image:
 	done
 	@echo "[secrets-image] all $(words $(IMAGES)) images clean"
 
-# release-repro —— 拿**已发布的镜像**在本机把一份 compose 跑起来，为的是看日志。
+# release-repro —— brings up a compose file locally using **the already-released images**, for
+# the sole purpose of reading their logs.
 #
-# 存在的理由：远端那台 Coolify 是 4.1.2，而容器/服务日志的 API 端点是 **4.2.0 才加的**
-# （查了 changelog 才知道，不是路径写错）。那台又进不去 SSH。于是「容器为什么退出」
-# 在那台机器上拿不到。
+# Why it exists: the remote Coolify instance runs 4.1.2, and the container/service log API
+# endpoint was **only added in 4.2.0** (found this in the changelog, not from a wrong path). And
+# that machine has no SSH access. So "why did the container exit" was unreachable on that
+# machine.
 #
-# 但那是「拿不到**那台**的日志」，不是「拿不到日志」：镜像是公开的、compose 读得到，
-# 同一份东西在本机跑一遍，日志全在手上。用它排查线上起不来的问题，比逐个假设去试便宜得多。
+# But that's "can't get logs **off that machine**", not "can't get logs at all": the image is
+# public, compose can read it, and running the same thing locally puts every log in hand. Using
+# this to debug something that won't start in production is far cheaper than testing hypotheses
+# one at a time.
 #
-#   make release-repro FILE=<compose 路径>        起来
-#   make release-repro-logs FILE=<同一份>          看日志
-#   make release-repro-down FILE=<同一份>          收摊
+#   make release-repro FILE=<compose path>        bring it up
+#   make release-repro-logs FILE=<same file>       read the logs
+#   make release-repro-down FILE=<same file>       tear it down
 REPRO_PROJECT ?= smrepro
 release-repro:
 	@test -n "$(FILE)" || (echo "usage: make release-repro FILE=<compose.yml>"; exit 2)
 	@docker compose -f $(FILE) -p $(REPRO_PROJECT) up -d --remove-orphans || true
-	@echo "[repro] 起完了。看日志: make release-repro-logs FILE=$(FILE)"
+	@echo "[repro] up. read the logs: make release-repro-logs FILE=$(FILE)"
 
 release-repro-logs:
 	@test -n "$(FILE)" || (echo "usage: make release-repro-logs FILE=<compose.yml>"; exit 2)
@@ -1322,16 +1476,20 @@ release-repro-down:
 	@test -n "$(FILE)" || (echo "usage: make release-repro-down FILE=<compose.yml>"; exit 2)
 	@docker compose -f $(FILE) -p $(REPRO_PROJECT) down -v --remove-orphans
 
-# release-push —— **多架构**构建并推。两道密钥闸门是它的前置，绕不过去。
+# release-push —— **multi-architecture** build and push. Both secret gates are its
+# prerequisites, no way around them.
 #
-# 为什么这里重新构建一次而不是 `docker push` 本地那份：多架构镜像**装不进本地 daemon**
-# （一个 tag 只能装一个平台），只能 buildx 直接推。`release-build` 那一份仍然有用 ——
-# 它是 `secrets-image` 扫的对象，也是本机复现用的那份。
+# Why this rebuilds instead of `docker push`-ing the local copy: a multi-arch image **can't be
+# loaded into the local daemon** (a tag can only hold one platform), so it has to go straight
+# out via buildx. The `release-build` copy still has a purpose — it's what `secrets-image`
+# scans, and it's the copy used for local reproduction.
 #
-# 两者的字节差别只在基础镜像的二进制上：我们自己 COPY 的东西逐字一样，
-# 所以扫本地那份对「有没有把密钥打进去」这个问题是有效的。
+# The only byte-level difference between the two is in the base image's own binaries: everything
+# we COPY ourselves is byte-for-byte identical, so scanning the local copy is a valid answer to
+# "did a secret get baked in."
 #
-# 登录不在这里：`docker login ghcr.io` 要一个 PAT，那是 owner 自己敲的东西。
+# Login isn't handled here: `docker login ghcr.io` needs a PAT, and that's something the owner
+# types in themselves.
 release-push: secrets secrets-image
 	@docker buildx inspect standmeet-release >/dev/null 2>&1 \
 	  || docker buildx create --name standmeet-release --driver docker-container >/dev/null
@@ -1354,31 +1512,34 @@ release-push: secrets secrets-image
 	@$(MAKE) release-assert-multiarch
 	@echo "[release] pushed $(IMAGES) @ $(TAG) + latest to $(REGISTRY)"
 
-# release-assert-multiarch —— **推上去的 manifest 必须真的含 amd64**。
+# release-assert-multiarch —— **the pushed manifest must actually contain amd64**.
 #
-# 不是多此一举：v0.0.3 就是全 arm64 推出去的，拉得下来、在 x86_64 上跑不起来，
-# 而症状是「所有容器启动即退」—— 看起来像 compose 坏了。一次 `--platform` 写漏、
-# 一次 buildx builder 退化成默认 driver，都会静默地把发布面缩回一种架构。
-# 所以判结果，不判命令。
-# `2>/dev/null` 拿掉了 —— 它把 `docker manifest inspect` 的失败原因整个吞掉，
-# 于是 registry 刚推完还没同步、或者认证过期时，这条闸门死在一句
-# `JSONDecodeError: Expecting value: line 1 column 1` 上，而真正的原因一个字都没有。
-# 这已经误报过两次（v0.0.6 / v0.0.7），两次五个镜像其实都推上去了、都是双架构。
-# 空输出现在自己说自己是空的，读者第一眼看到的是 docker 说的那句话。
+# Not overkill: v0.0.3 was pushed entirely arm64, pulled fine, and wouldn't run on x86_64 — and
+# the symptom, "every container exits on start", looked like compose was broken. One missed
+# `--platform`, one buildx builder falling back to the default driver, and the release surface
+# silently shrinks to a single architecture.
+# So this judges the result, not the command.
+# `2>/dev/null` was removed — it was swallowing whatever reason `docker manifest inspect`
+# actually failed for, so whenever the registry hadn't synced yet after a push, or auth had
+# expired, this gate died on a bare `JSONDecodeError: Expecting value: line 1 column 1` with the
+# real reason nowhere in sight.
+# It has already false-alarmed twice this way (v0.0.6 / v0.0.7) — both times all five images had
+# actually been pushed, both architectures and all.
+# Empty output now says it's empty; the reader's first line is whatever docker itself said.
 release-assert-multiarch:
 	@for svc in $(IMAGES); do \
 	  img=$(REGISTRY)/standmeet-$$svc:$(TAG); \
 	  raw=$$(docker manifest inspect $$img) || \
-	    { echo "release: docker manifest inspect $$img 失败（上面那行是它说的原因）"; exit 1; }; \
+	    { echo "release: docker manifest inspect $$img failed (the line above is its stated reason)"; exit 1; }; \
 	  archs=$$(printf '%s' "$$raw" \
 	    | python3 -c "import sys,json;d=json.load(sys.stdin);print(' '.join(sorted({m['platform']['architecture'] for m in d.get('manifests',[]) if m['platform']['architecture']!='unknown'})))"); \
 	  case "$$archs" in \
 	    *amd64*) echo "  $$svc: $$archs" ;; \
-	    *) echo "release: $$img 不含 amd64（只有 '$$archs'）—— x86_64 的机器拉得到但跑不起来"; exit 1 ;; \
+	    *) echo "release: $$img has no amd64 (only '$$archs') — an x86_64 machine can pull it but can't run it"; exit 1 ;; \
 	  esac; \
 	done
-	@echo "[release] 五个镜像都含 amd64 ✓"
+	@echo "[release] all five images have amd64 ✓"
 
-# 这里曾经有一个单架构的 `docker push` 版本。删掉而不是留着：它推出去的正是
-# v0.0.3 那种只在 arm64 上能跑的镜像，而留着一个能把缺陷重新引入的入口，
-# 迟早有人走它。发布只有 buildx 这一条路。
+# This used to have a single-arch `docker push` version. Deleted rather than kept: it pushed
+# exactly the kind of arm64-only image that broke v0.0.3, and leaving an entry point that can
+# reintroduce that defect means someone eventually takes it. Release only has one path: buildx.

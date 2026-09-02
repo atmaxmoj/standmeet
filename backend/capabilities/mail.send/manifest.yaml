@@ -4,11 +4,11 @@ version: "1"
 shape: visitor_only
 acl: role_granted
 raw_tool_names: true
-# 硬依赖 mail 品类槽：没连 → 经 global 单点闸整个隐藏。
+# Hard-depends on the mail category slot: not connected → hidden entirely via the global single gate.
 requires:
   - smtp
 
-# visitor_tools —— 见 calendar.book 里那段说明。
+# visitor_tools — see the note in calendar.book.
 visitor_tools:
   - send_email
 
@@ -17,8 +17,9 @@ transport:
   command: /plugin/mail-sender
   sandbox:
     plugin_dir: /srv/plugins/mail-sender
-    # 发信本身走连接器（品类契约，插件不知道对面是 SMTP 还是某个 SaaS）；
-    # 读 owner 的名字/邮箱走 owner.meta。
+    # Sending itself goes through the connector (category contract — the plugin
+    # doesn't know whether the other side is SMTP or some SaaS);
+    # reading the owner's name/email goes through owner.meta.
     host_ops:
       - connector.invoke
       - owner.meta

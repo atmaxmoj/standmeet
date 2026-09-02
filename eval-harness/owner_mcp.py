@@ -268,8 +268,9 @@ def main():
             if eid:
                 b.call("corpus.delete", {"genre": genre, "id": eid})
 
-        # 收尾:这一场写进去的两条自己删掉。留下来的话下一次跑的 list 里就有上一次的残留,
-        # 而"语料要跟 vault 一致"这条在别处是硬要求。
+        # Cleanup: delete the two entries this run wrote. Leaving them behind would
+        # show up as leftovers in next run's list, and "the corpus must match the
+        # vault" is a hard requirement elsewhere.
         print("\ncall: corpus.delete (cleaning up this run's two entries)")
         for genre, eid in (("wiki", wiki_id), ("raw", raw_id)):
             if not eid:

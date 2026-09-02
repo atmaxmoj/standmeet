@@ -1,21 +1,30 @@
 #!/usr/bin/env sh
-# check-redis-bounded —— 发给 owner 的那份部署文件，必须给 redis 封顶并给一条淘汰策略。
+# check-redis-bounded —— the deployment file shipped to the owner must cap redis
+# and give it an eviction policy.
 #
-# **为什么这条闸门存在（F-R-10）**：redis 里装着**访客会话、限流桶、job 池（1 天 TTL）**，
-# 而 `docker-compose.prod.yml` 原来只有一行 `image: redis:7-alpine` —— 没有 `command:`、
-# 容器也没有内存限制。跑起来是 `maxmemory 0` + `maxmemory-policy noeviction`。
+# **Why this gate exists (F-R-10)**: redis holds **visitor sessions, rate-limit
+# buckets, the job pool (1-day TTL)**, and `docker-compose.prod.yml` originally
+# had only a single `image: redis:7-alpine` line — no `command:`, and no memory
+# limit on the container either. Running as-is means `maxmemory 0` +
+# `maxmemory-policy noeviction`.
 #
-# 那两个默认值合在一起的意思是：**内存不封顶，涨到宿主受不了为止**；而万一有人在外面
-# 封了顶，`noeviction` 又会让写入**直接失败**，而不是丢掉最旧的那几条。
-# 自托管的机器往往不大，所以真实的失败形态是 **redis 容器被 OOM 杀掉，所有会话一起没** ——
-# 不是「最旧的会话被淘汰」。一个人的实例安静地死掉，而他看到的只是「访客说打不开」。
+# Those two defaults together mean: **memory is uncapped, growing until the host
+# can't take it**; and if someone caps it externally, `noeviction` makes writes
+# **fail outright** instead of dropping the oldest entries.
+# Self-hosted boxes tend to be small, so the real failure mode is **the redis
+# container gets OOM-killed and every session goes at once** — not "the oldest
+# session gets evicted". One person's instance quietly dies, and all they see is
+# "visitors say it won't load".
 #
-# 上限取多少属于运维取舍（跟机器大小绑着），所以这里**不管数值**，只管三件事：
-#   ① 有 `--maxmemory`（封了顶）
-#   ② 有 `--maxmemory-policy`，且不是 `noeviction`（顶到了要丢东西，不是拒绝写入）
-#   ③ 数值可以被环境变量覆盖（不同大小的机器不该改 compose）
+# What the cap should actually be is an ops tradeoff (tied to machine size), so
+# this check **doesn't care about the number** — it only checks three things:
+#   (1) there is a `--maxmemory` (capped)
+#   (2) there is a `--maxmemory-policy`, and it isn't `noeviction` (drop something
+#       at the cap, don't reject writes)
+#   (3) the value can be overridden by an environment variable (machines of
+#       different sizes shouldn't require editing compose)
 #
-# 只看 prod 那份：dev/verify 的栈是测试台，不发给任何人。
+# Only checks the prod file: the dev/verify stacks are test rigs, not shipped to anyone.
 
 set -eu
 
@@ -24,16 +33,19 @@ fail=0
 
 [ -f "$FILE" ] || { echo "check-redis-bounded: $FILE is gone; this gate has no subject"; exit 2; }
 
-# redis_block —— 取出 redis 那个 service 的定义（到下一个同级 key 为止）。
+# redis_block —— extract the redis service's definition (up to the next sibling key).
 redis_block() {
   awk '/^  redis:/ { inblock = 1; next }
        inblock && /^  [a-z]/ { inblock = 0 }
        inblock { print }' "$1"
 }
 
-# flatten —— 把整块压成一行再匹配。`command:` 有两种写法（一行字符串 / 一条一项的列表），
-# 列表那种每个 token 自成一行，于是「`--maxmemory` 后面跟个空格」这种模式一条都匹配不到。
-# 第一版就栽在这儿：红的是我的正则，不是那份 compose（[[read-the-failure-before-theorising]]）。
+# flatten —— collapse the whole block onto one line for matching. `command:` has
+# two forms (a single string / a one-item-per-line list); in the list form each
+# token is on its own line, so a pattern like "`--maxmemory` followed by a space"
+# would never match at all.
+# The first version broke exactly here: the regex was wrong, not the compose
+# file ([[read-the-failure-before-theorising]]).
 flatten() { tr '\n' ' ' | tr -s ' '; }
 
 block=$(redis_block "$FILE" | flatten)
@@ -69,7 +81,8 @@ printf '%s' "$block" | grep -q '\${' || {
   fail=1
 }
 
-# 自证：种一份「只有 image、没有 command」的 redis（也就是修之前的样子），必须判红。
+# Self-test: plant a redis with only "image", no "command" (i.e. the shape
+# before the fix) — this must go red.
 planted=$(mktemp -t redischeck.XXXXXX)
 cat > "$planted" <<'PLANTED'
 services:

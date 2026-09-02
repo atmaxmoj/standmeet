@@ -5,7 +5,7 @@ shape: visitor_only
 acl: always
 raw_tool_names: true
 
-# visitor_tools —— 见 calendar.book 里那段说明。
+# visitor_tools —— see the note in calendar.book.
 visitor_tools:
   - summarize_conversation
 
@@ -14,11 +14,14 @@ transport:
   command: /plugin/summarize
   sandbox:
     plugin_dir: /srv/plugins/summarize
-    # 总结一次对话要：读逐字稿、问 owner 叫什么、借 owner 的模型跑一次生成、把报告交回来存。
-    # 凭据永远不出宿主 —— 沙箱拿到的是结果，不是 key。
+    # Summarizing one conversation needs: read the transcript, ask what the owner is called,
+    # borrow the owner's model to run one generation, hand the report back to store.
+    # Credentials never leave the host — the sandbox gets the result, not the key.
     #
-    # owner.meta 是后加的：报告写的是**一个人**，而这个插件以前不知道那个人是谁，
-    # 于是把 owner 写成了 "the assistant"（F-A-33）。名字走白名单动词，跟 booker 取时区同一条路。
+    # owner.meta was added later: the report is written about **a person**, and this plugin
+    # previously had no idea who that person was, so it wrote the owner as "the assistant"
+    # (F-A-33). The name goes through an allowlisted verb, the same path booker uses to get the
+    # timezone.
     host_ops:
       - conversation.read
       - owner.meta

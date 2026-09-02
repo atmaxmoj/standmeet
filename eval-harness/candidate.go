@@ -55,7 +55,7 @@ func launchCandidate(
 	return launchCandidateWith(ctx, driver, in, launchOpts{})
 }
 
-// ownerTZOr —— 没给就是 UTC(跟 prod 读不到 owner 时区时的兜底一致)。
+// ownerTZOr —— defaults to UTC when unset (matches prod's fallback when it can't read the owner's timezone).
 func ownerTZOr(tz string) string {
 	if tz == "" {
 		return "UTC"
@@ -70,7 +70,8 @@ type launchOpts struct {
 	booking bool
 	// bookingFail / bookingFailMsg —— make one connector verb fail ("calendar.insert_event")
 	// with that message, to drive the can't-book paths. Empty verb = the calendar cooperates.
-	// 话术跟着动词一起给:agent 对"时段被占了"和"服务出错了"该走两条不同的路。
+	// The message travels with the verb: the agent should take two different paths for "the slot's
+	// taken" versus "the service errored".
 	bookingFail    string
 	bookingFailMsg string
 	// ownerTimezone —— what owner.meta reports. It MUST be the timezone the turn's instruction
@@ -78,8 +79,9 @@ type launchOpts struct {
 	// mini-host that says UTC while the prompt says New York makes an in-hours slot look closed
 	// — and the eval blames the model for the harness's disagreement with itself.
 	ownerTimezone string
-	// transcript / report —— summarize 那件能力问宿主要的两样:这一场说过的话、洗完的 HTML
-	// 落在哪。给空的话它们各自的桥会报错 —— 而不是悄悄读到一份空逐字稿。
+	// transcript / report —— the two things the summarize capability asks the host for: what was
+	// said in this session, and where the scrubbed HTML lands. Leaving these nil makes their
+	// respective bridges error out — instead of silently reading an empty transcript.
 	transcript agentcore.TranscriptSource
 	report     agentcore.ReportSink
 }
@@ -111,8 +113,9 @@ func launchCandidateWith(
 		inner := stopAll
 		stopAll = func() { _ = stopOne(); inner() }
 	}
-	// 剩下两件 acl:always 的能力。prod 给每个访客都装 —— 这一侧不装的话,断言"它调了
-	// summarize_conversation / ask_visitor"永远不可能绿,而失败读起来像模型不听话。
+	// The two remaining acl:always capabilities. prod mounts them for every visitor — if this side
+	// didn't, an assertion like "it called summarize_conversation / ask_visitor" could never go
+	// green, and the failure would read as the model misbehaving.
 	for _, mount := range []func() (func() error, error){
 		func() (func() error, error) { return mountAskVisitor(ctx, driver, tmp) },
 		func() (func() error, error) { return mountSummarize(ctx, driver, tmp, &opts) },

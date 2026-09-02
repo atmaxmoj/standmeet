@@ -1,8 +1,11 @@
-// wiring.test.ts —— **接线**这一层：私信进来之后，那两道门有没有生效、回复有没有真发出去。
+// wiring.test.ts —— the **wiring** layer: once a DM comes in, do the two gates actually
+// take effect, and does a reply actually go out.
 //
-// 跟 conversation.test.ts 的分工：那一组测「答得对不对」（不涉及平台），
-// 这一组测「**接对了没有**」—— 该挡的挡没挡住、该回的回了没有。
-// 这两件事会各自独立地坏：核心全绿而处理器挂错事件，真平台上就是私信没人接。
+// Division of labor with conversation.test.ts: that suite tests "is the answer right"
+// (platform-agnostic); this suite tests "**is it wired correctly**" — did the things that
+// should be blocked get blocked, did the things that should get a reply get one.
+// These two can break independently: the core all-green while the handler is attached to
+// the wrong event means, on the real platform, nobody answers the DM.
 
 import { createMockAdapter } from '@chat-adapter/tests';
 import { Chat } from 'chat';
@@ -13,10 +16,11 @@ import { ASK_FOR_CODE, type Deps } from '../src/conversation.js';
 import { memorySessions } from '../src/sessions.js';
 
 /**
- * 一个只记录「回了什么」的假 thread。
+ * A fake thread that only records "what got replied".
  *
- * 记的是 `markdown` 那个字段 —— 桥必须走 `{ markdown }` 而不是裸字符串，
- * 否则 SDK 明说不做格式转换，读者会看到满屏 `**星号**`。
+ * It records the `markdown` field specifically — the bridge must go through
+ * `{ markdown }`, not a bare string, or the SDK explicitly does no format
+ * conversion and readers see a screen full of `**asterisks**`.
  */
 function fakeThread(): ThreadLike & { posted: string[] } {
   const posted: string[] = [];
@@ -59,7 +63,7 @@ describe('接线：处理器做的事', () => {
   it('**我们自己的回声：一个字都不发**', async () => {
     const t = fakeThread();
     await directMessageHandler(deps())(t, author({ isMe: true }));
-    // 发了就是自问自答的死循环 —— 而且每一轮都花 owner 的钱。
+    // Replying would be a self-answering infinite loop — and it spends the owner's money every turn.
     expect(t.posted, 'our own echo must not be answered').toEqual([]);
   });
 
@@ -74,7 +78,8 @@ describe('接线：处理器做的事', () => {
       `Paragraph ${i} — the owner writes at length about this.`).join('\n\n');
     const t = fakeThread();
     await directMessageHandler(deps(long))(t, { ...author(), text: 'ROOM-001 tell me' });
-    // 不切的话平台**整条拒收** —— 读者什么都收不到，而这一层看起来一切正常。
+    // Without splitting, the platform **rejects the whole message** — readers get
+    // nothing at all, while this layer looks perfectly fine.
     expect(t.posted.length, 'a long answer goes out as several messages')
       .toBeGreaterThan(1);
     for (const p of t.posted) expect(p.length).toBeLessThanOrEqual(1900);
@@ -92,7 +97,8 @@ describe('接线：起桥', () => {
     const saved = process.env['STANDMEET_BASE_URL'];
     delete process.env['STANDMEET_BASE_URL'];
     try {
-      // 带着空 baseURL 跑起来的话，桥会在**第一条真消息**上炸 —— 那时人已经在等回复了。
+      // Starting up with an empty baseURL would crash the bridge on **the first real
+      // message** — by which point a person is already waiting for a reply.
       expect(() => startBridge({ adapters: { mock: createMockAdapter('mock') } }))
         .toThrow(/STANDMEET_BASE_URL/);
     } finally {
@@ -101,9 +107,11 @@ describe('接线：起桥', () => {
   });
 
   it('处理器**注册在 onDirectMessage 上**，不是别的事件', () => {
-    // 这一条值得单独断：Chat SDK 在没有 onDirectMessage 处理器时会把私信**退回
-    // mention 路由**（它文档里写明的）。那种情况下私信看起来照样"能用"，
-    // 但走的是另一条路 —— 核心的单测全绿，而线上行为是错的。
+    // This one deserves its own assertion: the Chat SDK, with no onDirectMessage handler
+    // registered, falls back to routing DMs through **mention routing** (documented
+    // behavior). In that case a DM would still look like it "works", but it's going
+    // through a different path — the core's unit tests all green while the live
+    // behavior is wrong.
     const spy = vi.spyOn(Chat.prototype, 'onDirectMessage');
     try {
       startBridge({

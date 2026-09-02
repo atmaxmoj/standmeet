@@ -1,6 +1,10 @@
-// cancel.go —— calendar_cancel + calendar_reschedule,港自旧 capreg_booker_cancel.go /
-// _reschedule.go。隔离靠 host 种的 ConversationID(非 LLM 控):只动**本对话**那笔预约。
-// 取消 = 删日历事件 + 删 booker capstore 记录;改期 = 先订新(不计配额,是移动)→成了再删旧。
+// cancel.go —— calendar_cancel + calendar_reschedule, ported from the old
+// capreg_booker_cancel.go / _reschedule.go. Isolation relies on the host-planted
+// ConversationID (not LLM-controlled): only touches the booking for **this
+// conversation**.
+// Cancel = delete the calendar event + delete the booker capstore record;
+// reschedule = book the new one first (doesn't count against quota, it's a
+// move) → then delete the old one once it succeeds.
 
 package main
 
@@ -21,7 +25,8 @@ type rescheduleArgs struct {
 	DurationMin    int         `json:"duration_min"`
 }
 
-// resolveConvBooking —— 本对话最近一笔预约 + 防御性校 event_id 归属。errWire 非空 = 直接回。
+// resolveConvBooking —— this conversation's most recent booking + a
+// defensive check that event_id belongs to it. Non-empty errWire = return it directly.
 func resolveConvBooking(s session, eventID string) (bookingDoc, string) {
 	filter, _ := json.Marshal(map[string]string{"conversation_id": s.ConversationID})
 	recs, err := gwCapstoreQuery(bookingsColl, filter)
@@ -53,7 +58,8 @@ func latestBooking(recs []json.RawMessage) bookingDoc {
 	return latest
 }
 
-// deleteBooking —— 删日历事件 + 删 capstore 记录(按 conversation + event_id 精确删,不误伤别笔)。
+// deleteBooking —— delete the calendar event + delete the capstore record
+// (deletes precisely by conversation + event_id, so it never hits another booking by mistake).
 func deleteBooking(ownerID string, b *bookingDoc) error {
 	delReq, _ := json.Marshal(map[string]string{
 		"event_id": b.GoogleEventID, "attendee_email": b.VisitorEmail,
@@ -108,20 +114,21 @@ func doReschedule(s session, rawArgs json.RawMessage) string {
 	if ew != "" {
 		return ew
 	}
-	// 订新:不计配额(移动,不是新增);topic 沿用旧 summary、VisitorName 置空(不重复前缀)。
+	// Book the new one: doesn't count against quota (a move, not an addition);
+	// topic carries over the old summary, VisitorName is cleared (avoids a repeated prefix).
 	s2 := s
 	s2.VisitorName = ""
 	wire := runBook(s2, &bookArgs{
 		Topic: old.Summary, PreferredTimes: args.PreferredTimes, DurationMin: args.DurationMin,
 	})
 	if !wireOK(wire) {
-		return wire // 冲突/政策/全忙:原预约不动,失败原样返
+		return wire // conflict/policy/fully booked: the original booking is untouched, return the failure as-is
 	}
-	_ = deleteBooking(s.OwnerID, &old) // best-effort:新已成,删旧失败也不回滚(宁留 stray 旧 event)
+	_ = deleteBooking(s.OwnerID, &old) // best-effort: the new one already succeeded; a failed delete of the old one doesn't roll back (would rather leave a stray old event)
 	return wire
 }
 
-// wireOK —— 解 wire 的 {ok} 字段。
+// wireOK —— parses the wire's {ok} field.
 func wireOK(wire string) bool {
 	var r struct {
 		OK bool `json:"ok"`

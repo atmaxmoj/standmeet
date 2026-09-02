@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# check-routes-via-dispatcher-test —— 自检：种一个新的违规文件，闸门必须变红。
+# check-routes-via-dispatcher-test —— self-test: plant a new violating file,
+# the gate must turn red.
 #
-# 一个从没红过的闸门不是闸门。这里种的正是它要拦的东西：一个 internal/routes 下的**新**文件
-# （不在基线里）直接 import 域的 facade —— 也就是绕过出站收口自己够到域。
+# A gate that has never gone red is not a gate. What's planted here is
+# exactly what it's meant to catch: a **new** file under internal/routes
+# (not in the baseline) that directly imports a domain facade — i.e.
+# bypasses the outbound convergence point and reaches the domain itself.
 #
-# 种 → 期望红 → 删。种的文件不参与编译（种完就删），也不会留在树上。
+# Plant → expect red → delete. The planted file never participates in a
+# build (it's deleted right after planting) and never stays in the tree.
 
 set -euo pipefail
 
@@ -15,7 +19,7 @@ cleanup() { rm -f "$PLANT"; }
 trap cleanup EXIT
 
 cat > "$PLANT" <<'EOF'
-// 自检用的种植文件，由 check-routes-via-dispatcher-test.sh 生成并立即删除。
+// Planted file for the self-test, generated and immediately deleted by check-routes-via-dispatcher-test.sh.
 package admin
 
 import security "github.com/atmaxmoj/standmeet/internal/security/facade"
@@ -33,13 +37,13 @@ set -e
 rm -f "$tool"
 
 if [ "$rc" -eq 0 ]; then
-  echo "check-routes-via-dispatcher: SELF-TEST FAILED — 种了一个绕过收口的新文件，闸门却是绿的。"
+  echo "check-routes-via-dispatcher: SELF-TEST FAILED — planted a new file that bypasses the convergence point, but the gate is green."
   echo "$out"
   exit 1
 fi
 
 if ! grep -q "zz_dispatcher_gate_selftest.go" <<<"$out"; then
-  echo "check-routes-via-dispatcher: SELF-TEST FAILED — 闸门红了，但报的不是种下的那个文件。"
+  echo "check-routes-via-dispatcher: SELF-TEST FAILED — the gate went red, but not for the planted file."
   echo "$out"
   exit 1
 fi

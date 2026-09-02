@@ -1,17 +1,27 @@
-// recorder.go —— 记下"这一趟请求是谁发来的、发给谁"，让 e2e 断言得了 **which upstream**。
+// recorder.go —— records "who this request came from and who it went to",
+// so e2e can assert on **which upstream**.
 //
-// 起因:一个 owner 手上开始有多份 provider 凭据(#6)之后,"这一轮走的是哪个 provider"成了
-// 要断言的东西 —— 而这个 mock 原来对调用方一无所知:不看 Authorization、不记 path,
-// /__mock/inference/state 只吐已注册的脚本。byoai-chat.spec 能过是因为当时只有一个备选
-// (把访客的 endpoint 指过来,回包回来了就说明走了它);三个 provider 之后这招失效。
+// Origin: once an owner started holding multiple provider credentials (#6),
+// "which provider did this round go through" became something worth
+// asserting on — but this mock originally knew nothing about the caller: it
+// didn't look at Authorization, didn't record the path,
+// /__mock/inference/state just spat out the registered scripts.
+// byoai-chat.spec passed because there was only one candidate at the time
+// (point the visitor's endpoint here, and getting a reply back proved it
+// went through); that trick stopped working once there were three providers.
 //
-// **按 tag 查,不给"最后一次"。** 全局的 last-request 在并行 worker 下就是共享态:另一条
-// spec 的请求会把你的盖掉,而它红得像你的功能坏了。所以这里存一个环,查询按**请求文本里的
-// 那个 tag** 找最近一条 —— tag 就是 mock-llm-script.ts 已经埋进消息里的唯一串,调用方
-// 本来就有,不用另注册一次。
+// **Query by tag, never hand out "the last one".** A global last-request is
+// shared state under parallel workers: another spec's request overwrites
+// yours, and it goes red as if your feature broke. So this stores a ring
+// instead, and queries find the most recent entry by **the tag embedded in
+// the request text** — the tag is the unique string mock-llm-script.ts
+// already plants in the message, which the caller already has, no need to
+// register it separately.
 //
-// **凭据只留前缀。** 断言"用的是哪把 key"需要能区分,不需要看见 key;记全量等于把密钥写进
-// e2e 日志。前缀 8 个字符足够区分两把测试用的假 key,又不构成泄漏。
+// **Credentials keep only a prefix.** Asserting "which key was used" needs
+// to be able to distinguish keys, not see the key itself; recording the
+// full value would be writing a secret into the e2e log. An 8-character
+// prefix is enough to tell two fake test keys apart without being a leak.
 package main
 
 import (
@@ -20,34 +30,39 @@ import (
 	"sync"
 )
 
-// recordRing —— 保留最近这么多条。够几条 spec 并行跑还能各自找到自己那条;
-// 再多没有意义(查询总是按 tag 找最近的一条)。
+// recordRing —— keeps this many recent entries. Enough for several specs
+// running in parallel to each find their own; more than that has no point
+// (queries always look for the most recent match by tag).
 const recordRing = 64
 
-// authPrefixLen —— 凭据只留这么长的前缀(能区分,不能还原)。
+// authPrefixLen —— credentials keep only this much of a prefix (enough to distinguish, not enough to reconstruct).
 const authPrefixLen = 8
 
-// RequestRecord —— 一次 /v1/messages 的可断言事实。
+// RequestRecord —— the assertable facts about one /v1/messages request.
 type RequestRecord struct {
-	Path       string `json:"path"`        // 打到哪个路径(不同 provider 可以配不同 base path)
-	Model      string `json:"model"`       // 请求里的 model —— 最直接的"哪份配置生效了"
-	AuthPrefix string `json:"auth_prefix"` // 凭据前 8 个字符
+	Path       string `json:"path"`        // which path it hit (different providers can configure different base paths)
+	Model      string `json:"model"`       // the model in the request — the most direct signal of "which config took effect"
+	AuthPrefix string `json:"auth_prefix"` // the credential's first 8 characters
 	Stream     bool   `json:"stream"`
-	Found      bool   `json:"found"` // 查不到时为 false,让调用方分得清"没记到"和"记到了但字段是空"
-	// Contains —— `?contains=` 给了的话:那一趟请求的**全部消息文本**里有没有它。
+	Found      bool   `json:"found"` // false when nothing was found, so the caller can tell "nothing was recorded" apart from "recorded, but the field is empty"
+	// Contains —— when `?contains=` is given: whether it appears anywhere in
+	// **the full message text** of that request.
 	//
-	// 为什么值得单开一格:有些判据问的是「这件事到底有没有进模型的上下文」——
-	// 比如访客在卡上取消了一场会,agent 下一轮该知道(F-B-9)。那件事在屏幕上看不见,
-	// 在库里也看不见,唯一的现场就是**发给模型的那一份消息**。而这个 recorder 早就把
-	// 全文留着了(markerText),只是没让人问。
+	// Why this earns its own field: some criteria ask "did this actually
+	// make it into the model's context" — e.g. the visitor cancelled a
+	// meeting from a card, and the agent should know about it next round
+	// (F-B-9). That event isn't visible on screen, isn't visible in the
+	// database — the only place it shows up is **the message that was sent
+	// to the model**. This recorder was already keeping the full text
+	// (markerText); it just wasn't exposed to be queried.
 	Contains bool `json:"contains"`
 }
 
-// recorder —— 请求环。写多读少,一把锁足够。
+// recorder —— the request ring. Mostly writes, few reads; one lock is enough.
 type recorder struct {
 	mu   sync.Mutex
 	ring []RequestRecord
-	text []string // 与 ring 平行:那一条的 marker 文本(查询按它匹配)
+	text []string // parallel to ring: that entry's marker text (queries match against it)
 }
 
 func newRecorder() *recorder {
@@ -57,7 +72,7 @@ func newRecorder() *recorder {
 	}
 }
 
-// record —— 记一条。满了就丢最旧的。
+// record —— records one entry. Drops the oldest once full.
 func (rec *recorder) record(r RequestRecord, markerText string) {
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
@@ -69,9 +84,11 @@ func (rec *recorder) record(r RequestRecord, markerText string) {
 	rec.text = append(rec.text, markerText)
 }
 
-// findByTag —— 文本里含 tag 的**最近**一条。tag 为空 → 不匹配任何东西
-// (空串会 Contains 上一切,那正是"全局 last"的坑,这里明确堵掉)。
-// needle 为空 → Contains 恒 false（空串会 Contains 上一切，跟 tag 那条同一个坑）。
+// findByTag —— the **most recent** entry whose text contains tag. Empty tag
+// → matches nothing (an empty string would Contains-match everything, which
+// is exactly the "global last" trap; explicitly blocked here).
+// Empty needle → Contains is always false (an empty string would
+// Contains-match everything too — the same trap as the tag case).
 func (rec *recorder) findByTag(tag, needle string) RequestRecord {
 	if tag == "" {
 		return RequestRecord{}
@@ -89,12 +106,15 @@ func (rec *recorder) findByTag(tag, needle string) RequestRecord {
 	return RequestRecord{}
 }
 
-// findByText —— **不按 tag,只按内容**找最近一条请求。
+// findByText —— finds the most recent request **by content, not by tag**.
 //
-// 为什么要它:有些请求根本不是「某一轮的那次调用」——**压缩**就是一次自己的模型调用,它带的是
-// 被压掉的那些消息 + 摘要任务书。按 tag 找会返回那一轮**自己**的调用(它在时间上更靠后),
-// 于是 `contains=` 判的是拿错了的那条请求 —— 我在 F-D-10 上正是这么红了一次,而红的是查询
-// 不是产品。判据要问「这一轮里**有没有**一次请求带着这句话」时,就用这一个。
+// Why it's needed: some requests simply aren't "the call for a given round"
+// — **compaction** is a model call in its own right, carrying the messages
+// that got compacted plus the summarization task. Searching by tag returns
+// that round's **own** call (it comes later in time), so `contains=` ends
+// up judging the wrong request — I went red on exactly this in F-D-10, and
+// the red was in the query, not the product. Use this one whenever the
+// criterion is "did **any** request in this round carry this text".
 func (rec *recorder) findByText(needle string) RequestRecord {
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
@@ -109,8 +129,8 @@ func (rec *recorder) findByText(needle string) RequestRecord {
 	return RequestRecord{}
 }
 
-// recordFrom —— 从 HTTP 请求 + 解出来的 body 折一条记录。
-// 凭据两种头都看:Anthropic 用 x-api-key,OpenAI-compat 用 Authorization: Bearer。
+// recordFrom —— folds an HTTP request + its parsed body into one record.
+// Checks both credential headers: Anthropic uses x-api-key, OpenAI-compat uses Authorization: Bearer.
 func recordFrom(r *http.Request, req *MessagesReq) RequestRecord {
 	return RequestRecord{
 		Path:       r.URL.Path,
@@ -131,11 +151,14 @@ func authPrefix(r *http.Request) string {
 	return raw
 }
 
-// clear —— 倒掉记录环。
+// clear —— empties the record ring.
 //
-// 为什么必须有：脚本 tag 是 `<testId>-<n>`，**同一条 spec 每次跑都是同一个 tag** ——
-// 而这个环跨 run 活着。于是「上一次跑（代码是好的）留下的那条记录」会被这一次的查询
-// 命中，判据从此判不了负：我在这条缺陷上就撞见过一次「把修好的地方拆掉，用例照样绿」。
+// Why it has to exist: a script's tag is `<testId>-<n>`, and **the same
+// spec gets the same tag every time it runs** — while this ring stays alive
+// across runs. So "the record left behind by the last run (when the code
+// was good)" gets hit by this run's query, and from then on the criterion
+// can never judge negative: I ran into exactly this on this bug once —
+// "rip out the part that was fixed, and the test still stays green."
 func (rec *recorder) clear() {
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
@@ -156,7 +179,8 @@ func (s *server) serveLastRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveAnyRequest —— GET /__mock/inference/any_request?contains=yyy
-// 「这一轮里有没有**任何**一次请求带着这句话」。压缩那次调用不属于任何 tag,只能这么问。
+// "Did **any** request in this round carry this text." The compaction call
+// doesn't belong to any tag, so this is the only way to ask.
 func (s *server) serveAnyRequest(w http.ResponseWriter, r *http.Request) {
 	writeJSON(s.log, w, s.rec.findByText(r.URL.Query().Get("contains")))
 }

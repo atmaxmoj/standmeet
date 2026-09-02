@@ -3,9 +3,10 @@ kind: protocol
 category: mail
 protocol: smtp
 
-# owner_ops —— 这个连接器自己出的 owner 侧操作。发一封测试信是**邮件连接器**的事,
-# 所以声明在这儿,而不是长在通用的连接器注册表上(那层不该认识 mail)。
-# op 指的是品类契约上的那个操作,宿主按它接实现。
+# owner_ops —— the owner-side operations this connector exposes itself. Sending a
+# test email is the **mail connector's** business, so it's declared here rather
+# than living in the generic connector registry (that layer shouldn't know about mail).
+# op refers to the operation on the category contract; the host wires the implementation to it.
 owner_ops:
   - name: connectors.mail_test_send
     op: mail.test_send

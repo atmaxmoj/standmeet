@@ -1,13 +1,13 @@
-// oauth_program.go —— 连接流（#155 §8 区 D）用的可编程 OAuth 控制面。GET 触发（spec 受 eslint 限制
-// 不发 POST），编程下一次 dance 的结局 + 读回记录：
+// oauth_program.go —— the programmable OAuth control plane used by the connect flow (#155 §8 zone D). GET-triggered (specs are
+// restricted by eslint from sending POST), programs the outcome of the next dance + reads back the record:
 //
 //	GET /__mock/oauth/program?outcome=deny|token_invalid_client|state_mismatch|network_fail|authorize
-//	                                 |refresh_omit_scope  —— 刷新响应不带 `scope`（RFC 允许）
-//	GET /__mock/oauth/reset            —— 清 outcome + 记录 + token 计数
-//	GET /__mock/oauth/last_authorize   —— {scopes:[...]} 上次 authorize 收到的 scope 子集
-//	GET /__mock/oauth/token_call_count —— {count} token 端点命中次数（静默刷新断言）
+//	                                 |refresh_omit_scope  —— the refresh response omits `scope` (RFC allows this)
+//	GET /__mock/oauth/reset            —— clears outcome + the record + the token count
+//	GET /__mock/oauth/last_authorize   —— {scopes:[...]} the scope subset the last authorize received
+//	GET /__mock/oauth/token_call_count —— {count} number of hits on the token endpoint (for a silent-refresh assertion)
 //
-// 复用 gcalState（同一个 mock OAuth provider）；authorize/token 处理器按 oauthOutcome 走分支。
+// Reuses gcalState (the same mock OAuth provider); the authorize/token handlers branch on oauthOutcome.
 
 package main
 
@@ -25,8 +25,8 @@ func (s *server) serveOAuthProgram(w http.ResponseWriter, r *http.Request) {
 func (s *server) serveOAuthRecordReset(w http.ResponseWriter, _ *http.Request) {
 	s.withState(func(st *gcalState) {
 		st.oauthOutcome = ""
-		// lastAuthScopes 不在这清：它按 client_id 隔离，每次 dance 覆写自己那个 key，清空反而会被
-		// 并行别的 spec 的 reset 擦掉本测试刚记的记录（跨 worker 竞争）。全量 mock reset 仍会清。
+		// lastAuthScopes is NOT cleared here: it's isolated by client_id, each dance overwrites its own key,
+		// so clearing it here would let a parallel spec's reset wipe the record this test just made (cross-worker race). A full mock reset still clears it.
 		st.tokenCallCount = 0
 	})
 	writeOK(s.log, w)

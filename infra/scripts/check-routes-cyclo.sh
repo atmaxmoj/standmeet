@@ -66,9 +66,11 @@ stale="$(comm -13 <(printf '%s\n' "$current") <(printf '%s\n' "$baseline") | gre
 # shellcheck disable=SC2046
 total="$("$GOCYCLO" $(target_dirs) 2>/dev/null | grep -cvE "$SKIP" || true)"
 
-# 扫到 0 个函数 = 扫描器瞎了,不是代码干净。真发生过:从 repo 根跑(而不是 backend/)时
-# target_dirs 全部指向不存在的路径,find 报错到 stderr,而这里照样打印一句绿色的
-# "0 functions scanned ... ratchet holds"。绿必须以"确实读到了东西"为前提。
+# Scanning 0 functions means the scanner is blind, not that the code is clean. This
+# actually happened: running from the repo root (instead of backend/) made target_dirs
+# point entirely at paths that don't exist, find errored to stderr, and this step still
+# printed a cheerful green "0 functions scanned ... ratchet holds". Green must be
+# conditioned on "actually read something".
 if [ "$total" -eq 0 ]; then
   echo "check-routes-cyclo: scanned 0 functions — the scanner is blind, not the code clean." >&2
   echo "(run it from backend/, e.g. 'make -C backend routes-cyclo')" >&2

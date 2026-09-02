@@ -1,3 +1,4 @@
-# go build 产物(二进制名 = module 目录名)。沙箱插件由 infra/plugins/provision.sh
-# 从源码编进 infra/plugins/<id>/(那个目录本身也被忽略),这里这一份谁也不读 —— 别提交。
+# go build output (binary name = module directory name). Sandbox plugins are compiled from source
+# into infra/plugins/<id>/ by infra/plugins/provision.sh (that directory is also ignored); nobody
+# reads this copy here — don't commit it.
 /summarize

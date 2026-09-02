@@ -1,14 +1,20 @@
-// prompt_test.go —— 报告读到的那份转录里，owner 必须是**一个人**（F-A-33）。
+// prompt_test.go —— in the transcript a report reads, the owner must be **one person**
+// (F-A-33).
 //
-// 真会话上驱出来的：人格扛住了四轮直攻（不报模型、拒绝"切成中立助手"、拒答洗衣服），
-// 然后一句「summarize the conversation so far」，报告标题变成
-// "Conversation with AI Assistant"，正文通篇 "the assistant… its model… it handles"。
+// Driven out on a real session: the persona held up under four rounds of direct attack
+// (won't name the model, refused to "switch to a neutral assistant", declined to answer
+// a laundry question), then one line — "summarize the conversation so far" — and the
+// report's title became "Conversation with AI Assistant", with the body reading
+// "the assistant… its model… it handles" throughout.
 //
-// 原因不在模型：这份 prompt 把 owner 的每一轮都标成 `Assistant:`，还在开头告诉模型
-// 对面是 "an AI assistant"。而同一份 prompt 的结构说明写着这些对话是「对 **owner** 的
-// 面试」、要求写成 "The candidate described…"。**模型跟的是逐轮标签。**
+// The cause wasn't the model: this prompt labelled every owner turn `Assistant:`, and
+// also told the model up front that the other party was "an AI assistant". The same
+// prompt's structural instructions say these turns are "an interview with the **owner**"
+// and ask for phrasing like "The candidate described…". **The model followed the
+// per-turn label.**
 //
-// 这条守的就是那个标签。报告是访客要发给团队的产物，gate 上承诺的是 owner 的声音。
+// This test guards that label. The report is the artifact a visitor sends to their team,
+// and what gate promises is the owner's voice.
 
 package main
 
@@ -26,7 +32,8 @@ func transcript() []chatMessage {
 	}
 }
 
-// TestUserPromptNamesTheOwner —— owner 的每一轮都署 owner 的名字，而不是 "Assistant"。
+// TestUserPromptNamesTheOwner —— every owner turn is signed with the owner's name, not
+// "Assistant".
 func TestUserPromptNamesTheOwner(t *testing.T) {
 	got := buildSummarizeUserPrompt(transcript(), ownerName)
 	if !strings.Contains(got, ownerName+":") {
@@ -38,8 +45,10 @@ func TestUserPromptNamesTheOwner(t *testing.T) {
 	}
 }
 
-// TestUserPromptDoesNotFrameTheOwnerAsAnAssistant —— 开场那句话也不能把对面说成 AI 助手。
-// 正向对照:访客那一侧仍然叫 Visitor,否则"没有 Assistant 字样"可能只是整段没渲染。
+// TestUserPromptDoesNotFrameTheOwnerAsAnAssistant —— the opening sentence must not frame
+// the other party as an AI assistant either.
+// Positive control: the visitor's side is still labelled Visitor, otherwise "no 'Assistant'
+// string" could just mean the whole section failed to render.
 func TestUserPromptDoesNotFrameTheOwnerAsAnAssistant(t *testing.T) {
 	got := buildSummarizeUserPrompt(transcript(), ownerName)
 	if !strings.Contains(got, "Visitor:") {
@@ -50,8 +59,10 @@ func TestUserPromptDoesNotFrameTheOwnerAsAnAssistant(t *testing.T) {
 	}
 }
 
-// TestUserPromptWithoutAnOwnerName —— owner 名字拿不到时（老会话 / 没填全名）不许退回
-// "Assistant"：那正是这条缺陷。退回一个中性的第三人称标签，报告仍然不会把人写成助手。
+// TestUserPromptWithoutAnOwnerName —— when the owner's name is unavailable (an old
+// session / no full name set), falling back to "Assistant" is not allowed: that is exactly
+// the bug. Fall back to a neutral third-person label instead, so the report still never
+// writes the person as an assistant.
 func TestUserPromptWithoutAnOwnerName(t *testing.T) {
 	got := buildSummarizeUserPrompt(transcript(), "")
 	if strings.Contains(got, "Assistant:") {

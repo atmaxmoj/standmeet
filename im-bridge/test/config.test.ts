@@ -1,8 +1,9 @@
-// config.test.ts —— token **从实例取**这件事。
+// config.test.ts —— the fact that the token is **fetched from the instance**.
 //
-// 这一组存在的理由是那条产品规矩：凭据在 UI 里配，不在 env 里配。
-// 桥要是偷偷读一个环境变量，owner 就得去改文件、重启容器 ——
-// 而他刚在界面上改过其它所有连接器。
+// This group exists because of the product rule: credentials are configured in the UI,
+// not in env. If the bridge secretly read an environment variable, the owner would
+// have to go edit a file and restart the container — right after they just changed
+// every other connector from the interface.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -26,8 +27,9 @@ describe('bot token 从实例取', () => {
   });
 
   it('后端没给（owner 还没配）→ 空串，不是抛错', async () => {
-    // 「还没配」是一台实例的正常状态，不是故障。当成错误的话，
-    // 一台没接 IM 的实例会一直有个容器在报错，owner 会以为坏了。
+    // "not configured yet" is a normal state for an instance, not a failure. Treating
+    // it as an error would mean any instance without IM connected has a container
+    // stuck reporting errors forever, and the owner would think it's broken.
     vi.stubGlobal('fetch', respondWith([{}]));
     expect((await fetchIMConfig('http://backend:8000')).telegramToken).toBe('');
   });
@@ -45,7 +47,8 @@ describe('bot token 从实例取', () => {
     const token = await waitForToken('http://backend:8000',
       { everyMs: 1, log: (m) => logs.push(m) });
     expect(token).toBe('T-2');
-    // 那句「还没配」只说一次 —— 每 15 秒刷一遍同一句，日志就没法看了。
+    // The "not configured yet" notice is said only once — repeating the same line
+    // every 15 seconds would make the log unreadable.
     expect(logs, 'the waiting notice is said once, not on every poll').toHaveLength(1);
     expect(logs[0]).toMatch(/admin\/connectors/);
   });
@@ -59,8 +62,9 @@ describe('bot token 从实例取', () => {
         ok: true, json: () => Promise.resolve({ telegram_token: 'T-3' }),
       } as Response);
     }));
-    // 后端比桥晚起来是常态（compose 里两个容器同时拉起）。
-    // 第一次连不上就退出的话，桥永远起不来，而日志只说 ECONNREFUSED。
+    // It's normal for the backend to come up after the bridge (compose starts both
+    // containers at the same time). If the bridge exited on the first failed
+    // connection, it would never come up, and the log would only say ECONNREFUSED.
     expect(await waitForToken('http://backend:8000', { everyMs: 1 })).toBe('T-3');
   });
 });

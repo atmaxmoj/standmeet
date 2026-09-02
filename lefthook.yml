@@ -1,17 +1,19 @@
-# lefthook 是这个 monorepo 的 git hook 管理（参考 Otium auth 的同款配置）。
-# clone 之后跑一次 `lefthook install` 把钩子连进 .git/hooks/。
+# lefthook is this monorepo's git hook manager (following the same setup as Otium auth).
+# After clone, run `lefthook install` once to wire the hooks into .git/hooks/.
 #
-# 单一 pre-commit 入口：跑 root `make lint`（聚合 backend / app / sdk / e2e
-# 各自的 lint），加 .env / .env.example 一致性检查。
-# 同样的链 CI / Coolify 也会跑 —— 本地绿，pipeline 绿。
+# Single pre-commit entry point: runs root `make lint` (aggregates backend / app / sdk / e2e
+# lint), plus an .env / .env.example consistency check.
+# CI / Coolify run the same chain — green locally means green in the pipeline.
 
 pre-commit:
-  parallel: false   # 子项目 lint 之间有先后；fmt 错先死最快，避免烧 CPU
+  parallel: false   # subproject lints have an order; fmt failures die fastest, saving CPU
   commands:
     lint-env:
       run: infra/scripts/lint-env "$(git rev-parse --show-toplevel)"
-    # lint-cached 而不是 lint：同一棵树只跑一次。人在提交前手动跑过一遍 lint 是常态
-    # （要先看绿再提交），而那之后树没变，pre-commit 再跑一遍是纯等待 —— 今晚 11 次提交里
-    # 6 次是这个形状。缓存按内容指纹判，忘不忘记都一样。逃生门：FORCE_LINT=1。
+    # lint-cached, not lint: the same tree only runs once. It's common for a person to
+    # run lint by hand before committing (wanting to see green first), and if the tree
+    # hasn't changed since, pre-commit running lint again is pure waiting — tonight, 6 of
+    # 11 commits had this shape. The cache keys on content fingerprint, so it doesn't
+    # matter whether anyone remembers. Escape hatch: FORCE_LINT=1.
     lint:
       run: make lint-cached

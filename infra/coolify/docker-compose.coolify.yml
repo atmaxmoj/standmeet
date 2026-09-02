@@ -1,66 +1,86 @@
-# docker-compose.coolify.yml —— 在 Coolify 上跑一台 StandMeet。
+# docker-compose.coolify.yml —— runs one StandMeet instance on Coolify.
 #
-# **直接粘进 Coolify 的 "Docker Compose Empty" 就行**（New Resource → Docker Based →
-# Docker Compose Empty）。不需要 git source：一处宿主挂载都没有 —— schema 烤在 db 镜像里，
-# 五个镜像全部从 ghcr 拉。
+# **Just paste this straight into Coolify's "Docker Compose Empty"** (New Resource → Docker
+# Based → Docker Compose Empty). No git source needed: there is not a single host mount ——
+# the schema is baked into the db image, and all five images are pulled from ghcr.
 #
-# 要配哪两个域名、沙箱开不开、起来之后怎么自证 —— 在 README 的 "Deploying on Coolify"。
-# 这里只解释「这一行为什么长这样」。
+# Which two domains to configure, whether to turn the sandbox on, and how to verify it's up
+# once running —— see "Deploying on Coolify" in the README. This file only explains "why this
+# line is shaped the way it is."
 #
-# ⚠️ 这份模版没有在真 Coolify 上跑过。仓库里别的东西都是量过、驱过、有回执的，这一份不是。
-# 起来之后按 README 那四条逐条对，尤其第一条（表建了没有）—— 它失败时是无声的。
+# Warning: this template has not been run on a real Coolify instance. Everything else in this
+# repo has been measured, driven, and has a receipt; this one doesn't. Once it's up, check it
+# against the README's four checks one by one, especially the first (were the tables created)
+# —— it fails silently.
 #
-# 跟 docker-compose.prod.yml 的三处不同：不 build 只拉镜像（app 镜像 COPY 的是宿主上
-# 已经构建好的 .next，从 git 建不出来）、不发布宿主端口（Coolify 的反代按域名接管）、
-# 域名和密码走 Coolify 的 magic 变量。
+# Three differences from docker-compose.prod.yml: no build, only pulls images (the app image
+# COPYs a .next that was already built on the host — it can't be built from git); no host
+# ports published (Coolify's reverse proxy takes over by domain); domains and passwords go
+# through Coolify's magic variables.
 
 name: standmeet
 
 services:
   app:
-    # 四个 tag 都已发布在 ghcr（v0.0.2 + latest）。自己重发用 `make release-push` ——
-    # 它先跑两道密钥闸门（历史 + 镜像文件系统），都过了才推，tag 从 `git describe` 反解。
+    # All four tags are already published on ghcr (v0.0.2 + latest). Re-publish yourself with
+    # `make release-push` —— it runs two secret gates first (history + image filesystem), and
+    # only pushes once both pass; the tag is derived from `git describe`.
     #
-    # **别用 v0.0.1**：那个 tag 只有 backend 一张镜像在（验凭据时推的），另外三张不存在。
+    # **Don't use v0.0.1**: that tag only has the backend image (pushed while testing
+    # credentials); the other three images don't exist.
     image: ghcr.io/atmaxmoj/standmeet-app:v0.1.3
     restart: unless-stopped
     environment:
-      # Coolify 看到这个名字就给 app 的 3000 口分配域名并接上反代。
-      # 生成出来的值（https://…）后面被 STORAGE_PUBLIC_URL 之外的地方引用。
+      # Coolify sees this name and assigns a domain to app's port 3000, wiring up the reverse
+      # proxy. The generated value (https://…) gets referenced elsewhere besides
+      # STORAGE_PUBLIC_URL.
       - SERVICE_FQDN_APP_3000
       - BACKEND_URL=http://backend:8000
       - NODE_ENV=production
-    # ⚠️ **这里不许再声明 networks。** 这是那个反复出现的 504 的成因。
+    # Warning: **do not declare `networks` here again.** That is the cause of a 504 that kept
+    # recurring.
     #
-    # Coolify 给每个服务注入项目网（`<serviceUuid>`，external）。这里原本还写了一个
-    # `default:` 块（只为给 app 起一个带点的别名 `app.standmeet.local`），于是 **app 是
-    # 整栈唯一挂在两张网上的容器**。容器挂多张网时 traefik 必须挑一张去取 IP，而这份
-    # compose 没有 `traefik.docker.network` 标签 —— 它挑到 `default` 那张（traefik 根本不在
-    # 那张网上），SYN 发出去没人应，挂满 30 秒变 **504**（连接被拒会是 502 秒回）。
+    # Coolify injects a project network into every service (`<serviceUuid>`, external). This
+    # file originally also had a `default:` block (only to give app a dotted alias,
+    # `app.standmeet.local`), which made **app the only container in the whole stack attached
+    # to two networks**. When a container is on multiple networks, traefik has to pick one to
+    # resolve its IP from, and this compose file has no `traefik.docker.network` label ——
+    # it picked `default` (traefik isn't even on that network), the SYN goes out unanswered,
+    # and after hanging for 30 seconds it becomes a **504** (a refused connection would come
+    # back as a 502 within seconds instead).
     #
-    # 每次部署容器重建、IP 重新分配 = 重新掷一次骰子。所以它表现为「部署之后有时候坏，
-    # 重新部署一下就好」，而**重新部署不是修好，是重新掷了一次**。
-    # 每一条观察都对得上：只有这一个项目坏（只有它写了第二张网）、6/6 全挂不闪断、
-    # app 容器自己 `running:healthy`（容器内 127.0.0.1:3000 一直是通的）。
+    # Every deploy rebuilds the container and reassigns its IP = rolling the dice again. So it
+    # showed up as "sometimes broken after a deploy, redeploying fixes it" — but **redeploying
+    # isn't a fix, it's just another roll**. Every observation lines up: only this one project
+    # was broken (only it had the second network), 6/6 checks failed with no flicker, and the
+    # app container itself reported `running:healthy` (127.0.0.1:3000 inside the container
+    # stayed reachable the whole time).
     #
-    # 那个别名在这里**本来就没起作用**：它注册在 `default` 上，而 gotenberg 只在项目网上，
-    # 根本解析不到 —— 也就是说线上 PDF 打印早就是坏的，别名只贡献了那张让 traefik 挑错的网。
-    # （`docker-compose.prod.yml` 里它是对的：那边所有服务共用同一张隐式 default。）
+    # That alias **was never actually working** to begin with: it was registered on `default`,
+    # while gotenberg is only on the project network, so it could never be resolved anyway ——
+    # meaning PDF printing in prod had been broken all along, and the alias only contributed
+    # the extra network that made traefik pick wrong. (In `docker-compose.prod.yml` it's
+    # correct: every service there shares the same implicit default network.)
     #
-    # 代价写清楚：单段主机名 `app` 会触发 Chromium 的 HTTPS 升级启发式，gotenberg 取打印页
-    # 可能报 ERR_SSL_PROTOCOL_ERROR。真撞上的话，补救是在**项目网**上加别名并配
-    # `traefik.docker.network=<项目网名>` —— 两者都要那个每台实例不同的生成名，所以模版里
-    # 给不出，得在自己那台实例上填。整站可达优先于 PDF 那一条路。
+    # The trade-off, spelled out: the single-label hostname `app` triggers Chromium's HTTPS
+    # upgrade heuristic, and gotenberg fetching the print page may get ERR_SSL_PROTOCOL_ERROR.
+    # If you actually hit that, the fix is to add an alias on the **project network** and set
+    # `traefik.docker.network=<project-network-name>` —— both need the generated name that's
+    # different per instance, so the template can't supply it; fill it in on your own instance.
+    # Reachability of the whole site takes priority over the PDF path.
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      # 打 app **自己**的那条，不打被反代到 backend 的 `/api/v1/instance` ——
-      # 那样量的是两跳，后端一慢就把一个没坏的 app 判成 unhealthy，然后编排器重启它。
-      # 坏消息会传染，好消息传不回去。
+      # Hits app's **own** route, not the one proxied through to backend's
+      # `/api/v1/instance` —— that would measure two hops, and a slow backend would then get
+      # an otherwise-healthy app marked unhealthy, and the orchestrator would restart it. Bad
+      # news propagates; good news doesn't propagate back.
       #
-      # ⚠️ 这条路由（app/src/app/api/app-health/route.ts）在本轮**写了但还没验**：
-      # 它需要重建 app 镜像才生效，而当时机器 load 50 跑不动。用它之前先确认镜像里有。
+      # Warning: this route (app/src/app/api/app-health/route.ts) was **written but not yet
+      # verified** in this round: it needs the app image rebuilt to take effect, and the
+      # machine's load was at 50 and couldn't run it at the time. Confirm it's in the image
+      # before relying on it.
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/app-health"]
       interval: 5s
       timeout: 5s
@@ -76,104 +96,132 @@ services:
       - DATABASE_URL=postgres://standmeet:${SERVICE_PASSWORD_POSTGRES}@db:5432/standmeet?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
       - SESSION_KEY=${SERVICE_PASSWORD_64_SESSION}
-      # INSTANCE_SECRET —— 连接器凭据/token 的静态加密密钥（≥32 字符，否则 cryptobox 拒绝启动）。
+      # INSTANCE_SECRET —— the static encryption key for connector credentials/tokens (≥32
+      # characters, or cryptobox refuses to start).
       #
-      # ⚠️ **换掉它 = 现有凭据全部解不开**。prod 上真轮换过一次：后端正常起来，而
-      # /admin/connectors 把每一张卡渲成 "not connected" + 一排空框 —— 库里密文和
-      # connected_at 都还在，屏幕上一个字都没有（F-C-41）。
-      # 用 Coolify 生成的这一份，**生成之后就别动**。
+      # Warning: **changing it makes every existing credential undecryptable**. This was
+      # actually rotated once in prod: the backend started up fine, but /admin/connectors
+      # rendered every card as "not connected" with a row of empty boxes —— the ciphertext and
+      # connected_at were both still in the DB, but nothing showed on screen (F-C-41). Use the
+      # one Coolify generates, and **don't touch it once generated**.
       - INSTANCE_SECRET=${SERVICE_PASSWORD_64_INSTANCE}
-      # Coolify 终止 TLS，所以 cookie 必须带 Secure。
+      # Coolify terminates TLS, so the cookie must carry Secure.
       - SECURE_COOKIE=true
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
       - GOTENBERG_URL=http://gotenberg:3000
-      # gotenberg 取打印页用的地址。**单段主机名**：带点的别名要第二张网，而那正是
-      # 504 的成因（见 app 服务上那段说明）。
+      # The address gotenberg uses to fetch the print page. **Single-label hostname**: a
+      # dotted alias needs the second network, and that's exactly the cause of the 504 (see
+      # the note on the app service).
       - PRINT_BASE_URL=http://app:3000
-      # ── 存储 ──────────────────────────────────────────────────────────────────
+      # ── Storage ──────────────────────────────────────────────────────────────────
       - STORAGE_ENDPOINT=minio:9000
       - STORAGE_ACCESS_KEY=standmeet
       - STORAGE_SECRET_KEY=${SERVICE_PASSWORD_64_MINIO}
       - STORAGE_BUCKET=standmeet
       - STORAGE_USE_SSL=false
-      # STORAGE_PUBLIC_URL —— **浏览器**去取图片用的地址，不是容器网络里的地址。
-      # 签名 URL 是发给访客浏览器的，指向 minio:9000 的话浏览器解析不了。
-      # 所以 minio 需要它自己的域名（见下面那一格）。
+      # STORAGE_PUBLIC_URL —— the address the **browser** uses to fetch images, not the
+      # address inside the container network. Signed URLs are sent to the visitor's browser,
+      # and a URL pointing at minio:9000 wouldn't resolve there. So minio needs its own domain
+      # (see the block below).
       #
-      # ⚠️ 用 `SERVICE_URL_*` 不是 `SERVICE_FQDN_*`：Coolify 的约定是
-      # **FQDN 不带 scheme、URL 带**。写成 FQDN 的话这里拿到 `host:9000`，
-      # 而后端要拿它 `url.Parse(...).Host` —— 没有 scheme 时 Go 返回空主机名**且不报错**，
-      # 于是整个实例崩在一句指着 `STORAGE_ENDPOINT` 的话上，而那个变量是对的（F-S-1）。
-      # 后端现在会当场拒绝并点名是这一行，但先别让它走到那一步。
+      # Warning: use `SERVICE_URL_*`, not `SERVICE_FQDN_*`: Coolify's convention is
+      # **FQDN has no scheme, URL does**. Written as FQDN, this would resolve to `host:9000`,
+      # and the backend runs `url.Parse(...).Host` on it —— with no scheme, Go returns an
+      # empty hostname **and no error**, so the whole instance crashes on a line that points
+      # at `STORAGE_ENDPOINT`, even though that variable is actually correct (F-S-1). The
+      # backend now rejects this outright and names the actual line, but better not to let it
+      # get there.
       - STORAGE_PUBLIC_URL=${SERVICE_URL_MINIO_9000}
-      # ── 下面这些空着就是默认姿态，按需再填 ────────────────────────────────────
-      # 人机校验：两个都填了才开。
+      # ── everything below is left empty as the default posture; fill in as needed ──────
+      # CAPTCHA: only turns on once both are filled in.
       - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
       - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
-      # Meilisearch：语料搜索的词法索引，现在**随栈自带**（下面有服务）。
+      # Meilisearch: the lexical index for corpus search, now **shipped with the stack**
+      # (service is below).
       #
-      # 它以前不在，退路是 Postgres 全文。在线上量过：那条退路**做不了中文** ——
-      # `to_tsvector('english', …)` 从不切分中文，于是查询只有在逐字等于正文里那一段
-      # 连续中文时才命中。`无限衍义` 找得到，`限衍`、`三个序列` 全是 0，`三张资格证`
-      # 连"标题里就有这五个字"的那篇都找不到（正文里那一段是「与三张资格证」）。
-      # 英文不受影响 —— 双语语料因此从一侧看完全正常，这个洞才藏得住。
+      # It wasn't there before, and the fallback was Postgres full-text search. Measured in
+      # prod: that fallback **can't handle Chinese** —— `to_tsvector('english', …)` never
+      # tokenizes Chinese, so a query only hits when it's byte-for-byte equal to a contiguous
+      # run of Chinese in the body. "无限衍义" (unlimited derivation) could be found, "限衍"
+      # and "三个序列" (three sequences) both got 0 hits, and "三张资格证" (three
+      # certificates) couldn't even find the post that had those exact five characters in the
+      # title (the body had "与三张资格证" — "and three certificates" — instead). English
+      # was unaffected —— so from one side the bilingual corpus looked completely normal, and
+      # that's exactly how this hole stayed hidden.
       #
-      # 空索引比退路更糟，所以这件事成立只因为后端**开机自动回填**
-      # （wire.SearchIndex → ReindexOwner），另有周期 reconcile 补齐。挂上去 + 重启，
-      # 迁移就这些。想用栈外的 Meili 就填这两个，下面那个服务可以删掉。
+      # An empty index is worse than the fallback, so this only holds because the backend
+      # **auto-backfills on boot** (wire.SearchIndex → ReindexOwner), with a periodic
+      # reconcile to fill in the rest. Just mount it and restart — that's the whole migration.
+      # To use a Meili outside the stack, fill in the two variables below and the service
+      # further down can be deleted.
       - MEILI_URL=${MEILI_URL:-http://meilisearch:7700}
       - MEILI_KEY=${MEILI_KEY:-${SERVICE_PASSWORD_MEILI}}
-      # SSRF 白名单：**空是生产姿态**，挡掉所有内网地址。
+      # SSRF allowlist: **empty is the production posture**, it blocks every internal-network
+      # address.
       - EGRESS_ALLOW_HOSTS=${EGRESS_ALLOW_HOSTS:-}
-      # 连接器的出站白名单（跟上面那条是两套策略：上面管后端自己拨出去的，
-      # 这条管装配出来的连接器能到哪）。owner 要接自己内网的 CalDAV / 邮件服务器时填。
+      # The connector outbound allowlist (two separate policies from the one above: that one
+      # governs what the backend itself dials out to, this one governs what the assembled
+      # connectors can reach). Fill this in when the owner needs to reach their own internal
+      # CalDAV / mail server.
       - CONNECTOR_EGRESS_ALLOW=${CONNECTOR_EGRESS_ALLOW:-}
-      # 一份 OpenAPI spec 的字节上限（默认 2 MiB）。GitHub 的 REST 描述是一个 12 MB 的文件，
-      # 想接那种厂商就得调高。
+      # The byte cap for one OpenAPI spec (default 2 MiB). GitHub's REST description is a
+      # 12 MB file, so connecting to that kind of vendor needs this raised.
       - CONNECTOR_SPEC_MAX_BYTES=${CONNECTOR_SPEC_MAX_BYTES:-}
-      # 技能市场读哪个仓库；空 = 公共的 anthropics/skills。
+      # Which repo the skill marketplace reads from; empty = the public anthropics/skills.
       - MARKETPLACE_GITHUB_BASE_URL=${MARKETPLACE_GITHUB_BASE_URL:-}
-      # /admin/system 那个升级按钮打给谁。这台实例没有宿主控制权（下面刻意不挂
-      # docker.sock），所以它自己拉不动镜像、重建不了容器 —— 能做这件事的是 Coolify。
-      # 在 Coolify 里给这个服务开一条 deploy webhook，把那个 URL 填在这里，按钮就真按得动。
-      # 留空也行：按钮会如实说自己做不到，并告诉 owner 该怎么升。
+      # Who the upgrade button on /admin/system calls. This instance has no host-level control
+      # (docker.sock is deliberately not mounted below), so it can't pull images or rebuild
+      # containers itself —— only Coolify can do that. Open a deploy webhook for this service
+      # in Coolify and put that URL here, and the button actually works. Leaving it empty is
+      # also fine: the button will honestly say it can't do it, and tell the owner how to
+      # upgrade instead.
       - STANDMEET_REDEPLOY_HOOK=${STANDMEET_REDEPLOY_HOOK:-}
-      # 去哪儿问「有没有新版」。空 = 官方镜像库。
+      # Where to ask "is there a new version." Empty = the official image registry.
       - STANDMEET_RELEASE_REGISTRY=${STANDMEET_RELEASE_REGISTRY:-}
       - STANDMEET_RELEASE_REPO=${STANDMEET_RELEASE_REPO:-}
-      # ── 第三方沙箱插件（origin=managed）：默认关，要挂宿主的 manifest + docker.sock。
-      # 内建那五个（retrieval / ask_visitor / summarize / booker / mail-sender）**不走这里** ——
-      # 它们烤在镜像的 /srv/plugins 里，靠下面那组权限起 bwrap。两件事，别混。
+      # ── Third-party sandboxed plugins (origin=managed): off by default, needs the host's
+      # manifest + docker.sock mounted. The five built-in ones (retrieval / ask_visitor /
+      # summarize / booker / mail-sender) **do not go through here** —— they're baked into
+      # the image's /srv/plugins and run via the bwrap permissions granted below. Two
+      # different things — don't conflate them.
       # - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
       # - SANDBOX_DRIVER=docker
-    # ── 内建能力的 bwrap 沙箱要这几行,少一行访客就答不出话 ──────────────────────
+    # ── The bwrap sandbox for the built-in capabilities needs these lines; skip even one
+    # and visitors get no answer at all ──────────────────────
     #
-    # 这里原来是空的,而那不是"少配了一项",是**把产品关掉了**:内建的五个能力全走
-    # `sandbox_stdio`,主进程用 bwrap 起隔离环境再 spawn 插件。容器默认的
-    # seccomp/apparmor profile 挡 unshare(CLONE_NEW*),默认 cap set 里也没有 SYS_ADMIN,
-    # 于是 bwrap 一个都起不来 —— 而失败是**静默降级**:dial 失败折成 ErrHidden、不阻塞 chat,
-    # 这一轮就带着 0 个工具去问模型(F-A-1)。
+    # This used to be empty, and that wasn't "one setting short" — it **turned the product
+    # off**: all five built-in capabilities go through `sandbox_stdio`, where the main process
+    # starts an isolated environment with bwrap before spawning the plugin. The container's
+    # default seccomp/apparmor profile blocks unshare(CLONE_NEW*), and the default cap set
+    # has no SYS_ADMIN either, so bwrap can't start a single one —— and the failure is a
+    # **silent degradation**: the failed dial folds into ErrHidden, chat isn't blocked, and
+    # the turn just goes to the model with 0 tools (F-A-1).
     #
-    # 线上真实的样子(sijie.xyz,2026-08-27):三个能力的 prompt 片段全回 0 字节
-    # (dev 同一端点是 2002 / 1280 / 1558),模型手里没有任何 tool schema,于是照着
-    # system prompt 的散文**把工具调用写成了纯文本 XML**:
-    #   `<tool_calls><invoke name="search">…` —— 连工具名都是编的(真名是 corpus_search),
-    # 而后端回 `stop_reason=end_turn`,产品把这段协议原文当成完成的答案发布给访客。
+    # What it actually looked like in prod (sijie.xyz, 2026-08-27): the prompt fragments for
+    # all three capabilities came back 0 bytes each (the same endpoints in dev return
+    # 2002 / 1280 / 1558), the model had no tool schema at all, and so it followed the system
+    # prompt's prose and **wrote the tool call as plain-text XML instead**:
+    #   `<tool_calls><invoke name="search">…` —— even the tool name was made up (the real one
+    # is corpus_search) —— and the backend returned `stop_reason=end_turn`, so the product
+    # published that raw protocol text to the visitor as if it were the finished answer.
     #
-    # 我当初把这几行做成了"可选,默认关"的一段注释。那个默认值是我自己发明的,
-    # 它让一台**装好了、跑起来了、每个健康检查都绿**的实例答不了任何一个访客
-    # ([[invented-default-grants-privilege]])。
+    # I had originally made these lines an "optional, off by default" comment block. That
+    # default was one I invented myself, and it left an instance that was **installed, running,
+    # every health check green** unable to answer a single visitor
+    # ([[invented-default-grants-privilege]]).
     #
-    # ⚠️ 取舍说清楚:seccomp/apparmor 放开 + SYS_ADMIN,这个容器的隔离比默认弱得多。
-    #    **但没有挂 docker.sock** —— 那一条才是让容器变成宿主管理员的那半,而内建能力
-    #    用不着它(插件二进制烤在镜像里)。共享主机上这是必须守住的界线。
+    # Warning: the trade-off, stated plainly: seccomp/apparmor loosened + SYS_ADMIN — this
+    # container's isolation is much weaker than the default.
+    #    **But docker.sock is not mounted** —— that's the half that turns a container into
+    #    the host's administrator, and the built-in capabilities don't need it (the plugin
+    #    binaries are baked into the image). On a shared host this is the line that must hold.
     user: "0:0"
     security_opt:
       - seccomp:unconfined
       - apparmor:unconfined
     cap_add:
-      # SYS_ADMIN: 建 user/mount/pid namespace。NET_ADMIN: bwrap --unshare-net 要把
-      # 沙箱里的 loopback 拉起来(否则 "loopback: Failed RTM_NEWADDR")。
+      # SYS_ADMIN: creates the user/mount/pid namespaces. NET_ADMIN: bwrap --unshare-net needs
+      # this to bring up loopback inside the sandbox (otherwise "loopback: Failed RTM_NEWADDR").
       - SYS_ADMIN
       - NET_ADMIN
     depends_on:
@@ -185,9 +233,10 @@ services:
         condition: service_healthy
       gotenberg:
         condition: service_healthy
-      # meilisearch —— 故意**不**用 service_healthy：没有它后端照常起（搜索退到 Postgres
-      # 全文，并在 /admin/system 上如实说自己降级了）。等它 = 把一个可选索引变成
-      # 「实例起不来」的理由。
+      # meilisearch —— deliberately **not** service_healthy: the backend starts fine without
+      # it (search falls back to Postgres full-text, and honestly says it's degraded on
+      # /admin/system). Waiting on it would turn an optional index into a reason the instance
+      # can't come up.
       meilisearch:
         condition: service_started
     volumes:
@@ -199,7 +248,8 @@ services:
       retries: 12
       start_period: 15s
 
-  # builder —— owner 自己写的 React 页面在这里构建，产物落进 custom_pages_data。
+  # builder —— builds the React pages the owner writes themselves; output lands in
+  # custom_pages_data.
   builder:
     image: ghcr.io/atmaxmoj/standmeet-builder:v0.1.3
     restart: unless-stopped
@@ -212,13 +262,15 @@ services:
     volumes:
       - custom_pages_data:/srv/custom-pages
 
-  # im-bridge —— 拿着码的人从聊天软件里私聊 owner 的 AI。
+  # im-bridge —— lets someone holding an access code DM the owner's AI from a chat app.
   #
-  # **这里只有接线，没有设置**：bot token 是 owner 在 /admin/connectors 里配的凭据
-  # （跟 mail / calendar 同一类），桥启动后从内部接口取。凭据不进 env，也不进这个文件。
-  # 没配 IM 连接器时它空转等着，不报错刷屏。
+  # **This is wiring only, no settings**: the bot token is a credential the owner configures
+  # in /admin/connectors (same category as mail / calendar), and the bridge fetches it from an
+  # internal endpoint once it starts. The credential never goes into env, or into this file.
+  # With no IM connector configured it just idles, without spamming errors.
   #
-  # 走长轮询：不监听端口、不需要公网回调 —— 自托管场景下 webhook 那条路多数人做不到。
+  # Uses long polling: listens on no port, needs no public inbound callback —— in a
+  # self-hosted setup, most people can't do the webhook path.
   im-bridge:
     image: ghcr.io/atmaxmoj/standmeet-im-bridge:v0.1.3
     restart: unless-stopped
@@ -229,13 +281,15 @@ services:
       app:
         condition: service_started
 
-  # db —— pgvector，schema 已经烤在镜像里（infra/db/Dockerfile）。
+  # db —— pgvector, with the schema already baked into the image (infra/db/Dockerfile).
   #
-  # 不用挂 `./backend/db/schema.sql`：粘贴式的 compose 没有仓库，那一行会挂空，
-  # 而 postgres 挂空的表现是**静默起一个空库**，不报错 —— 然后后端每条查询都炸。
+  # No need to mount `./backend/db/schema.sql`: a paste-in compose file has no repo, so that
+  # mount would resolve empty, and postgres mounting something empty behaves as **silently
+  # starting an empty database**, with no error —— and then every backend query blows up.
   #
-  # ⚠️ schema 只在**数据卷第一次创建时**跑一遍。升级不走这里，走
-  # `backend/db/migrations/`：换个新版本的 db 镜像**不会**改动已有的库。
+  # Warning: the schema only runs **the first time the data volume is created**. Upgrades
+  # don't go through here, they go through `backend/db/migrations/`: swapping in a newer db
+  # image **will not** modify an existing database.
   db:
     image: ghcr.io/atmaxmoj/standmeet-db:v0.1.3
     restart: unless-stopped
@@ -254,12 +308,15 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    # 封顶 + 到顶了丢最旧的。这里装着访客会话、限流桶、job 池（1 天 TTL）。
-    # 不封顶它一直涨，涨到宿主受不了 —— 那时候不是「最旧的会话没了」，
-    # 是**整个容器被 OOM 杀掉、所有会话一起没**，而 owner 只会听说「访客打不开」。
+    # Capped + evicts the oldest once full. This holds visitor sessions, rate-limit buckets,
+    # and the job pool (1-day TTL). Uncapped, it keeps growing until the host can't take it ——
+    # and at that point it's not "the oldest session is gone," it's **the whole container
+    # getting OOM-killed, every session gone at once**, and all the owner hears is "visitors
+    # can't open the page."
     #
-    # `allkeys-lru` 而不是 `noeviction`：到顶了要丢东西。`noeviction` 会让**写入失败**，
-    # 访客收到一个错而 owner 那边什么都看不到。会话和限流桶都是可再生的。
+    # `allkeys-lru`, not `noeviction`: once full, something has to be dropped. `noeviction`
+    # would make **writes fail** instead, and the visitor gets an error while the owner sees
+    # nothing at all. Sessions and rate-limit buckets are both fine to lose and regenerate.
     command:
       - redis-server
       - --maxmemory
@@ -274,11 +331,12 @@ services:
       timeout: 3s
       retries: 10
 
-  # meilisearch —— 语料搜索的词法索引。它在栈里，是因为退路（Postgres 全文）切不动中文，
-  # 见上面 MEILI_URL 那段。
+  # meilisearch —— the lexical index for corpus search. It's in the stack because the
+  # fallback (Postgres full-text) can't tokenize Chinese, see the MEILI_URL note above.
   #
-  # 不映射宿主端口：backend 走 compose 网络连它，healthcheck 在容器内跑 —— 于是它不会跟
-  # 宿主上别的项目已经在跑的 Meili 撞端口（这台机器上就有一个）。
+  # No host port mapped: backend reaches it over the compose network, and the healthcheck runs
+  # inside the container —— so it won't collide with another project's Meili already running
+  # on the host (there is one on this machine).
   meilisearch:
     image: getmeili/meilisearch:v1.10
     restart: unless-stopped
@@ -294,12 +352,13 @@ services:
       timeout: 3s
       retries: 12
 
-  # gotenberg —— 简历 PDF 的 headless Chromium 渲染边车。
+  # gotenberg —— the headless Chromium rendering sidecar for resume PDFs.
   gotenberg:
     image: gotenberg/gotenberg:8
     restart: unless-stopped
-    # Gotenberg 8 默认的 deny-list 挡掉私有 / docker 网段（172.x、10.x）→ 内部渲染全 403。
-    # 清空 deny + 放开 allow（这个口只在容器网络里）。
+    # Gotenberg 8's default deny-list blocks private / docker network ranges (172.x, 10.x) →
+    # internal rendering would all 403. Clear the deny list and open up the allow list (this
+    # port only exists on the container network).
     command:
       - gotenberg
       - --chromium-disable-javascript=false
@@ -313,11 +372,12 @@ services:
       retries: 12
       start_period: 5s
 
-  # minio —— 自带的 S3 兼容对象存储。bucket "standmeet" 由 backend 首次启动时自动建。
+  # minio —— the bundled S3-compatible object storage. The "standmeet" bucket is auto-created
+  # by the backend on first boot.
   #
-  # **它需要自己的域名**：owner 上传的图片是用签名 URL 发给访客浏览器的，
-  # 那个地址必须是浏览器解析得到的公网地址，不能是 `minio:9000`。
-  # 在 Coolify 里给这一格单独配一个子域（比如 files.你的域名）。
+  # **It needs its own domain**: images the owner uploads are handed to the visitor's browser
+  # as signed URLs, and that address has to be a publicly resolvable one, not `minio:9000`.
+  # Configure a dedicated subdomain for this one in Coolify (e.g. files.your-domain).
   minio:
     image: minio/minio:RELEASE.2025-04-08T15-41-24Z
     restart: unless-stopped
@@ -341,13 +401,15 @@ volumes:
   meilidata: {}
   custom_pages_data: {}
 
-# ── 第三方沙箱插件（origin=managed）—— 可选，默认关 ────────────────────────────────
+# ── Third-party sandboxed plugins (origin=managed) —— optional, off by default ──────────────
 #
-# **这一节说的不是内建能力。**内建那五个（retrieval / ask_visitor / summarize / booker /
-# mail-sender）烤在镜像里，靠 backend 上面那组 bwrap 权限跑，没有它们访客就答不出话 ——
-# 那不是可选项。这一节说的是 owner 自己装的第三方 MCP server。
+# **This section is not about the built-in capabilities.** The five built-in ones
+# (retrieval / ask_visitor / summarize / booker / mail-sender) are baked into the image and
+# run on the bwrap permissions granted to backend above; without them visitors can't get an
+# answer at all —— that's not optional. This section is about third-party MCP servers the
+# owner installs themselves.
 #
-# 给 backend 加：
+# Add to backend:
 #
 #     environment:
 #       - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
@@ -356,5 +418,6 @@ volumes:
 #       - /var/run/docker.sock:/var/run/docker.sock
 #       - ./infra/prod-plugins.json:/etc/standmeet/plugins.json:ro
 #
-# ⚠️ `docker.sock` 让这个容器成为**宿主的管理员**，不是「权限大一点」。
-#    只在独占主机上挂。理由和那次真事故写在 README。
+# Warning: `docker.sock` makes this container **the host's administrator**, not just "a bit
+#    more permission." Only mount it on a dedicated host. The reasoning, and the real incident
+#    behind it, is written up in the README.

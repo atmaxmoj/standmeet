@@ -1,12 +1,15 @@
-// list_bookings.go —— owner 面的 bookings_list:列这个 owner 已经约成的会。
+// list_bookings.go —— the owner-facing bookings_list: lists the meetings this owner has
+// already booked.
 //
-// 为什么在沙箱:约成的会存在 booker **自己的**隔离存储里,是 booker 的数据。
-// host 那边曾经有一条 admin REST 路由直接去查这份存储(admin/bookings.go +
-// booking_store_deps.go + 一个 CodeBooking 类型)—— 那是 host 认识了 booker 的数据形状。
+// Why it lives in the sandbox: booked meetings live in booker's **own** isolated
+// store — they're booker's data. The host side used to have an admin REST route that
+// queried this store directly (admin/bookings.go + booking_store_deps.go + a
+// CodeBooking type) — that meant the host knew the shape of booker's data.
 //
-// 以前搬不过来的原因很具体:列表要带**记录 id**(取消时按 id 找),而 reach-back 的固定词表
-// 里只有 insert/query/count/delete,没有"查询并带回 id"。补上 capstore.query_records 之后
-// 这条就通了。
+// The specific reason this couldn't move over before: the list needs to carry the
+// **record id** (cancellation looks it up by id), and the reach-back fixed verb list
+// only had insert/query/count/delete — no "query and return the id". This works now
+// that capstore.query_records has been added.
 
 package main
 
@@ -26,7 +29,7 @@ type listBookingsArgs struct {
 	Limit int `json:"limit"`
 }
 
-// bookingRow —— 出站的一条预约。id 是记录 id,取消时按它找。
+// bookingRow —— one outbound booking. id is the record id, looked up by it on cancel.
 type bookingRow struct {
 	ID             string `json:"id"`
 	StartAt        string `json:"start_at"`
@@ -40,7 +43,7 @@ type bookingRow struct {
 	GoogleHTMLLink string `json:"google_html_link,omitempty"`
 }
 
-// doListBookings —— 按 owner 列已约的会,最近的在前。
+// doListBookings —— lists booked meetings for the owner, most recent first.
 func doListBookings(s session, rawArgs json.RawMessage) string {
 	args := listBookingsArgs{Limit: listBookingsDefaultLimit}
 	if len(rawArgs) > 0 {
@@ -82,7 +85,7 @@ func loadBookings(ownerID string, limit int) ([]bookingRow, error) {
 	for i := range recs {
 		var doc bookingDoc
 		if uerr := json.Unmarshal(recs[i].Doc, &doc); uerr != nil {
-			continue // 单条坏文档不该让整张列表打不开
+			continue // one bad document shouldn't keep the whole list from loading
 		}
 		rows = append(rows, toBookingRow(recs[i].ID, &doc))
 	}

@@ -1,30 +1,42 @@
-// check-boundary-thin —— 边界上只许有声明和转交,不许有形状和逻辑。
+// check-boundary-thin —— a boundary may only hold declarations and hand-off,
+// never shapes or logic.
 //
-// 两条性质,分别对应两个位置:
+// Two properties, one per location:
 //
-// # 1. 门面就是门面(internal/<domain>/facade)
+// # 1. A facade is only a facade (internal/<domain>/facade)
 //
-// facade 只做一件事:把域里的东西**再导出**。所以它只许有别名(`type X = guts.X`)和
-// 重导出的 var / const。一旦出现函数体或自己定义的类型,域里和门面上就有了两套说法,
-// 而外面的人只看得见门面那套。
+// A facade does exactly one thing: **re-export** the domain's own things. So
+// it may only hold aliases (`type X = guts.X`) and re-exported var / const.
+// The moment a func body or a self-defined type shows up, the domain and the
+// facade now tell two different stories — and outsiders can only see the
+// facade's version.
 //
-// # 2. 收口是汇聚,不是能力的家(internal/routes/dispatcher)
+// # 2. The dispatcher aggregates; it is not home to any capability
+// (internal/routes/dispatcher)
 //
-// 收口该有的全部是:机制(注册、装饰器、Face、Conform、错误类别)加一串 import。
-// 能力的声明和它的入参出参形状属于**域**。
+// The dispatcher should hold exactly: mechanism (registration, decorators,
+// Face, Conform, error categories) plus a list of imports. A capability's
+// declaration and its input/output payload shape belong to the **domain**.
 //
-// 判据是两个精确的信号,不是"感觉太长":
+// The criterion is two precise signals, not a vague "feels too long":
 //
-//   - 带 json tag 的 struct —— 那是入参 / 出参的形状。形状归域,收口不该有第二套。
-//   - json.RawMessage 的 schema 字面量 —— 那是 op 的声明。声明归域。
+//   - A struct with json tags — that's an input/output shape. Shapes belong
+//     to the domain; the dispatcher must not hold a second copy.
+//   - A json.RawMessage schema literal — that's an op's declaration. The
+//     declaration belongs to the domain.
 //
-// 为什么不用圈复杂度量这件事:我试过,拦不住。入参 struct、逐字段抄、出参 struct、
-// 错误对照表,全都是**长而不分叉**的代码,圈复杂度 1 到 2,≤3 的门笑着放行,5462 行
-// 就是这么长出来的。分叉和体积是两回事,得分别量。
+// Why not just measure cyclomatic complexity: tried it, doesn't catch this.
+// Input structs, field-by-field copying, output structs, error lookup
+// tables — all of it is **long but not branchy** code, cyclomatic
+// complexity 1 to 2, sailing past any gate set at ≤3. That's how 5462 lines
+// piled up. Branching and volume are two different things and need two
+// different measures.
 //
-// # 棘轮
+// # Ratchet
 //
-// 两条各有一份基线(迁移前就在那儿的文件),**只能变短**。搬走一个资源就删掉对应的行。
+// Each of the two rules carries its own baseline (files that were already
+// there before the migration), and it may **only shrink**. Move a resource
+// out and delete its line from the baseline.
 package main
 
 import (
@@ -60,7 +72,7 @@ func main() {
 	report(violations, baseline)
 }
 
-// violation —— 一个文件加一句为什么。
+// violation —— a file plus one sentence saying why.
 type violation struct {
 	File string
 	Why  string
@@ -140,7 +152,8 @@ func skip(path string, isDir bool) bool {
 	return isDir || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go")
 }
 
-// inspect —— 按文件所在的位置选规则。两个位置之外的文件不管。
+// inspect —— pick the rule by where the file sits. Files outside both
+// locations are ignored.
 func inspect(path string, f *ast.File) []violation {
 	switch {
 	case isFacade(path):
@@ -151,13 +164,14 @@ func inspect(path string, f *ast.File) []violation {
 	return nil
 }
 
-// isFacade —— internal/<domain>/facade/...(正好这一层,routes 下的不算)。
+// isFacade —— internal/<domain>/facade/... (exactly this depth; anything
+// under routes doesn't count).
 func isFacade(path string) bool {
 	parts := strings.Split(strings.TrimPrefix(filepath.ToSlash(path), "./"), "/")
 	return len(parts) == 4 && parts[0] == "internal" && parts[2] == "facade"
 }
 
-// facadeViolations —— 门面只许别名和重导出。
+// facadeViolations —— a facade may only hold aliases and re-exports.
 func facadeViolations(path string, f *ast.File) []violation {
 	out := []violation{}
 	for _, decl := range f.Decls {
@@ -186,15 +200,19 @@ func nonAliasTypes(path string, decl ast.Decl) []violation {
 	return out
 }
 
-// allowedDispatcherImports —— 收口只认两样本仓的东西:域的正门,和中立词汇。
+// allowedDispatcherImports —— the dispatcher recognizes only two kinds of
+// things from this repo: a domain's front door, and neutral vocabulary.
 //
-// 它 import 别的任何 internal 包,都意味着能力的实现正在往收口里渗 —— 收口的活是
-// **把各域的 facade 汇起来再导出**,不是自己会点什么。
+// If it imports any other internal package, that means a capability's
+// implementation is leaking into the dispatcher — the dispatcher's job is
+// **to gather each domain's facade and re-export it**, not to know how to
+// do anything on its own.
 var allowedDispatcherImports = []string{
 	"github.com/atmaxmoj/standmeet/internal/infra/facadeparity",
 }
 
-// dispatcherViolations —— 收口不许有载荷形状、op 声明,也不许 import 域正门以外的东西。
+// dispatcherViolations —— the dispatcher must not hold a payload shape or an
+// op declaration, and must not import anything beyond a domain's front door.
 func dispatcherViolations(path string, f *ast.File) []violation {
 	out := dispatcherImportViolations(path, f)
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -236,7 +254,8 @@ func allowedForDispatcher(importPath string) bool {
 	return false
 }
 
-// isDomainFacade —— internal/<domain>/facade,正好三段(routes 下更深的不算)。
+// isDomainFacade —— internal/<domain>/facade, exactly three segments
+// (anything deeper under routes doesn't count).
 func isDomainFacade(importPath string) bool {
 	rest := strings.TrimPrefix(importPath, modulePrefix)
 	return strings.HasSuffix(rest, "/facade") && strings.Count(rest, "/") == 1
@@ -255,7 +274,7 @@ func hasJSONTag(ts *ast.TypeSpec) bool {
 	return false
 }
 
-// isRawSchema —— `var x = json.RawMessage(...)`,也就是一个 op 的入参 schema。
+// isRawSchema —— `var x = json.RawMessage(...)`, i.e. an op's input schema.
 func isRawSchema(vs *ast.ValueSpec) bool {
 	for _, v := range vs.Values {
 		call, ok := v.(*ast.CallExpr)
@@ -305,7 +324,8 @@ func loadBaseline() (map[string]bool, error) {
 	return out, nil
 }
 
-// baselinePath —— 基线跟脚本放一起(仓库里),不跟着编译产物走。
+// baselinePath —— the baseline lives next to the script (in the repo), not
+// alongside the build output.
 func baselinePath() string {
 	return filepath.Join("..", "infra", "scripts", "check-boundary-thin", baselineFile)
 }

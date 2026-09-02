@@ -2,12 +2,12 @@ id: corpus.retrieval
 title: Search the corpus
 version: "1"
 shape: visitor_only
-# always —— 工具恒暴露；scope 空则结果为空，跟旧的 in-process 行为一致。
+# always —— the tools are always exposed; an empty scope yields empty results, matching the old in-process behavior.
 acl: always
-# 工具保 canonical 名：corpus_search 就叫 corpus_search，不加 <id>_ 前缀。
+# Tools keep their canonical names: corpus_search stays corpus_search, no <id>_ prefix.
 raw_tool_names: true
 
-# visitor_tools —— 见 calendar.book 里那段说明：拨号之前也要答得出「哪个工具是哪个能力的」。
+# visitor_tools —— see the note in calendar.book: before dispatching a call, we must be able to say which tool belongs to which capability.
 visitor_tools:
   - corpus_search
   - corpus_read
@@ -23,8 +23,8 @@ transport:
   command: /plugin/retrieval
   sandbox:
     plugin_dir: /srv/plugins/retrieval
-    # 要后端语料 → 按名字点单这八件事。socket 路径由 id 派生，声明里不写路径。
-    # per-session 的 corpus-ACL scope 经 tool-call _meta 携进来，宿主那侧重建 AllowsCorpus。
+    # To reach backend corpus data, name one of these eight ops. The socket path is derived from the id; the manifest does not write it.
+    # The per-session corpus-ACL scope arrives via tool-call _meta; the host side rebuilds AllowsCorpus from it.
     host_ops:
       - corpus_search
       - corpus_read

@@ -118,7 +118,7 @@ func launchWithBookerCred(
 	driver := &EvalDriver{cred: *cred, plugins: []agentcore.PluginSpec{spec}}
 	agent, err := agentcore.BuildVisitorAgent(ctx, driver, &agentcore.LaunchInput{
 		OwnerID: host.OwnerID, Mode: "code", ConversationID: "c1", CodeID: "code-1",
-		// booker 是 acl=role_granted:role 授了它才暴露(prod 同一道门)。
+		// booker is acl=role_granted:role — exposed only once granted (same gate as prod).
 		GrantedCapabilities: []string{bookerCapID},
 	})
 	if err != nil {
@@ -127,8 +127,8 @@ func launchWithBookerCred(
 	return agent, store
 }
 
-// bookArgs —— 入参跟插件的 schema 一致(preferred_times 是**列表**:访客给几个候选,
-// 插件挑第一个过策略的)。
+// bookArgs —— args matching the plugin's schema (preferred_times is a **list**:
+// the visitor offers a few candidates, the plugin picks the first that clears policy).
 func bookArgs(slot time.Time) string {
 	args, _ := json.Marshal(map[string]any{
 		"preferred_times": []string{slot.Format(time.RFC3339)},

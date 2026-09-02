@@ -1,29 +1,33 @@
 #!/usr/bin/env sh
-# check-css-parses —— 每个 CSS 文件都必须**解析得动**。
+# check-css-parses —— every CSS file must **actually parse**.
 #
-# 为什么这条闸门存在:我把一段注释写坏了(提前 `*/`,后面四行变成裸文本),`make lint` 全绿、
-# 提交进去了,直到 `app-build` 才炸 —— 因为 lint 链里**没有一步会解析 CSS**:
-# `next lint` 只看 JS/TSX,`tsc` 只看类型,两条自证闸门只做文本扫描。
-# 于是「工具全绿、产物是坏的」又发生了一次(上一次是 Tailwind 简写不产出规则)。
+# Why this gate exists: I once broke a comment (an early `*/` turned the next four
+# lines into raw text), `make lint` went all green and it got committed, and it only
+# blew up at `app-build` — because **not one step in the lint chain parses CSS**:
+# `next lint` only looks at JS/TSX, `tsc` only checks types, and both self-proving
+# gates do plain text scanning. So "tools all green, output actually broken" happened
+# again (last time it was a Tailwind shorthand that produced no rule).
 #
-# 这里只做一件小事:**平衡检查**。不是完整的 CSS parser,而是抓住最常见、最静默的那类错 ——
-# 注释和花括号没配平。它便宜(毫秒级)、不需要 node_modules、可以放在 lint 链最前面。
+# This does one small thing: a **balance check**. Not a full CSS parser, just catching
+# the most common, most silent class of error — unbalanced comments and braces. It's
+# cheap (milliseconds), needs no node_modules, and can sit at the very front of the
+# lint chain.
 #
-# 自证:种一段提前闭合的注释,判定必须看得见。
+# Self-test: plant a comment that closes early and confirm the check catches it.
 
 set -eu
 
 fail=0
 
 for f in $(find app/src -name '*.css' 2>/dev/null); do
-  # 注释配平:`/*` 与 `*/` 的数量必须相等。
+  # Comments balance: the count of `/*` must equal the count of `*/`.
   open_n=$(grep -o '/\*' "$f" | wc -l | tr -d ' ')
   close_n=$(grep -o '\*/' "$f" | wc -l | tr -d ' ')
   if [ "$open_n" != "$close_n" ]; then
     echo "check-css-parses: $f has $open_n '/*' but $close_n '*/' — a comment is unbalanced"
     fail=1
   fi
-  # 花括号配平。
+  # Braces balance.
   ob=$(grep -o '{' "$f" | wc -l | tr -d ' ')
   cb=$(grep -o '}' "$f" | wc -l | tr -d ' ')
   if [ "$ob" != "$cb" ]; then
@@ -32,8 +36,10 @@ for f in $(find app/src -name '*.css' 2>/dev/null); do
   fi
 done
 
-# 自证:种一个注释配平但**内容跑到注释外**的文件 —— 这正是我犯的那种(总数相等就查不出来),
-# 所以自证要证明的是「不平衡的那种查得出来」,并诚实标注这条闸门查不到的那一类。
+# Self-test: plant a file where the comment counts balance but **content leaks outside
+# the comment** — that's exactly the class of bug I made (a matching total count can't
+# catch it), so the self-test proves that "the unbalanced kind gets caught", and is
+# honest about the class this gate can't see.
 planted=$(mktemp -t cssparse.XXXXXX)
 printf '/* one\n:root { --a: 1; }\n' > "$planted"
 po=$(grep -o '/\*' "$planted" | wc -l | tr -d ' ')

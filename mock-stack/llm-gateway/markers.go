@@ -1,19 +1,25 @@
-// markers.go —— e2e 在 visitor 问句里嵌延时 marker,给「turn 内瞬时 UI」
-// (throbber / thinking 轮换)留出能在 DOM 里断言的时间窗。
+// markers.go —— e2e embeds delay markers in the visitor's question text, giving
+// "transient in-turn UI" (throbber / thinking rotation) a time window that a DOM
+// assertion can catch.
 //
-//	[[think:N]]       —— 这一 turn 跳过所有 tool,sleep N ms 再出最终答案。
-//	                     期间没有 tool 在跑 → 前端显 thinking 词库轮换那条。
-//	[[slow-final:N]]  —— 正常 tool flow(search→read),但出最终答案前 sleep
-//	                     N ms。期间 corpus_read 的 throbber("reading X")挂着。
+//	[[think:N]]       —— this turn skips all tools, sleeps N ms, then emits the
+//	                     final answer. No tool runs during that window → the
+//	                     frontend shows the thinking-word-list rotation.
+//	[[slow-final:N]]  —— normal tool flow (search→read), but sleeps N ms before
+//	                     emitting the final answer. corpus_read's throbber
+//	                     ("reading X") stays up during that window.
 //
-// marker 在 visitor 问句里 → 请求级,只控这一 turn 的时序,不跨 spec。marker
-// 不进 search query(makeSearchCall 用 stripMarkers 剥掉),也由前端正常显示在
-// 问句里(测试无所谓)。
+// A marker in the visitor's question → request-scoped, controls only this
+// turn's timing, never crosses specs. The marker is stripped from the search
+// query (makeSearchCall uses stripMarkers) but is still shown normally by the
+// frontend in the question text (tests don't care).
 //
-// script keyword —— 脚本(next_tool/next_reply/…)的隔离靠 test 在消息里嵌一个
-// 唯一 keyword `[[s:testId-yyy]]`(见 e2e mock-llm-script fixture);mock 按
-// Contains 匹配注册的 keyword(script.go)。这里只负责把 `[[s:…]]` 从 search
-// query 里剥掉,别让 keyword 污染 corpus_search 命中。匹配用原文,不做提取。
+// script keyword —— isolation for scripts (next_tool/next_reply/…) relies on
+// the test embedding a unique keyword `[[s:testId-yyy]]` in the message (see
+// the e2e mock-llm-script fixture); the mock matches registered keywords by
+// Contains (script.go). This file's only job here is stripping `[[s:…]]` out
+// of the search query so the keyword doesn't pollute corpus_search matches.
+// Matching uses the raw text, no extraction.
 package main
 
 import (

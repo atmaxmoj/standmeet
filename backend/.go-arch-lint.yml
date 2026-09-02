@@ -1,58 +1,58 @@
 version: 3
 workdir: .
 allow:
-  depOnAnyVendor: true   # 第三方库（chi、pgx、mcp-go、anthropic-sdk-go 等）
-                         # 任何 component 可用；这里只约束 internal 的依赖图。
-  deepScan: false        # cmd/server/main.go 是 composition root，
-                         # 跨所有 layer 是预期；关闭 deepScan 避免误报。
+  depOnAnyVendor: true   # third-party libs (chi, pgx, mcp-go, anthropic-sdk-go, etc)
+                         # usable by any component; this only constrains internal's dependency graph.
+  deepScan: false        # cmd/server/main.go is the composition root,
+                         # crossing all layers is expected; deepScan off avoids false positives.
 
-# 测试文件不参与架构约束 —— 架构图管的是生产依赖；外部 test 包 import 自身、
-# 跨层 import 都是正常的，不该被架构规则误判。
+# test files don't participate in arch constraints — the arch graph governs production deps; external
+# test packages importing themselves, cross-layer imports, are all normal and shouldn't trip arch rules.
 excludeFiles:
   - "^.*_test\\.go$"
-  # composition root 的插件接线文件：唯一 import 外置能力 module（独立 go.mod，
-  # import path 落在 standmeet 根前缀下、arch-lint 当 internal 但映不到组）做
-  # in-process 加载的地方。跟 cmd 关 deepScan 同理 —— composition root 跨边界是
-  # 预期，不该被内部依赖图规则误判。
+  # composition root plugin wiring file: the one place that imports externalized capability modules
+  # (own go.mod, import path under the standmeet root prefix, arch-lint treats as internal but can't
+  # map it to a group) for in-process loading. Same reason as deepScan being off for cmd — the
+  # composition root crossing boundaries is expected and shouldn't trip the internal dep-graph rules.
   - "^.*cmd/server/plugins\\.go$"
 
-# Components 命名对齐 Otium auth。按外部系统切 infra（postgres / inference /
-# storage / sandbox 各自独立）而不是扁平 infra/。
+# Component naming aligned with Otium auth. infra is sliced by external system (postgres / inference /
+# storage / sandbox each independent) rather than a flat infra/.
 components:
   obsidian:
     in: internal/corpus/obsidian          # Obsidian vault import/export (corpus sub-module)
   archcheck:
     in: tools/archcheck                   # build-time lint tool: internal/'s import-graph gates
   pgstore:
-    in: internal/infra/pgstore                   # #135 shared DB store 原语 (Pool/DBTX/uuid/crypto)；domain-less infra
+    in: internal/infra/pgstore                   # #135 shared DB store primitives (Pool/DBTX/uuid/crypto); domain-less infra
   dbfiles:
-    in: db                                       # schema.sql + migrations/ 的 go:embed 载体；只有 pgstore 够得到
+    in: db                                       # go:embed carrier for schema.sql + migrations/; only pgstore can reach it
   depcheck:
-    in: internal/infra/depcheck                  # 启动时查一份手抄的依赖表有没有漏行；domain-less leaf
+    in: internal/infra/depcheck                  # checks at startup whether a hand-copied dependency table has a missing row; domain-less leaf
   textcut:
-    in: internal/infra/textcut                   # 按字符/字节安全截断文本（唯一实现）；domain-less leaf
+    in: internal/infra/textcut                   # safe char/byte-bounded text truncation (single implementation); domain-less leaf
   plaintext:
-    in: internal/infra/plaintext                 # 外来 HTML → 可读文本（唯一实现）；domain-less leaf
+    in: internal/infra/plaintext                 # inbound HTML → readable text (single implementation); domain-less leaf
   providermodels:
-    in: internal/infra/providermodels            # 问一个推理端点有哪些模型（唯一实现）；两个面共用，domain-less leaf
+    in: internal/infra/providermodels            # asks an inference endpoint which models it has (single implementation); shared by both faces, domain-less leaf
   session:
     in: internal/infra/session
   config:
     in: cmd/server/config
   apierr:
-    in: internal/infra/apierr                   # HTTP error envelope 翻译 helper
+    in: internal/infra/apierr                   # HTTP error envelope translation helper
   clientaddr:
-    in: internal/infra/clientaddr               # 「来源地址是不是访客的」判一次，读的人共用同一个答案
+    in: internal/infra/clientaddr               # decides once whether the source address is the visitor's; readers share the same answer
   middleware:
     in: internal/infra/middleware               # chi middleware: WithOwner, RequireCSRF
   mcphandle:
     in: internal/routes/mcphandle         # owner MCP handles (controller layer): mcp-go server + tool handlers
   dispatcher:
-    in: internal/routes/dispatcher        # 出站收口：能力声明一次，各个面（MCP/admin）是它的投影
+    in: internal/routes/dispatcher        # outbound convergence: each capability declares itself once, each face (MCP/admin) is a projection of it
   inference:
     in: internal/conversation/inference                # LLM provider abstraction
   agentcore:
-    in: agentcore                         # public facade over the agentic loop (eval-harness 等 out-of-module driver 入口)
+    in: agentcore                         # public facade over the agentic loop (entry point for eval-harness and other out-of-module drivers)
   pluginjobs:
     in: internal/owner/jobs             # J phase: jobs plugin entry (Plugin impl)
   jobsuc:
@@ -74,127 +74,127 @@ components:
   printsess:
     in: internal/owner/jobs/printsess                # Redis 60s stash for gotenberg-bound resume payload
   resumepdf:
-    in: internal/owner/jobs/resumepdf                # resume Typst 渲染：内嵌模板 + typst 子进程 + 服务端 QR
+    in: internal/owner/jobs/resumepdf                # resume Typst rendering: embedded template + typst subprocess + server-side QR
   marketplace:
-    in: internal/marketplace/facade       # #135: marketplace 域 facade（对外协议）；域外只 import 这里
+    in: internal/marketplace/facade       # #135: marketplace domain facade (outward-facing protocol); outside the domain, only import this
   marketplaceentity:
-    in: internal/marketplace/entity       # marketplace guts: 值对象/实体 + 域错误
+    in: internal/marketplace/entity       # marketplace guts: value objects/entities + domain errors
   marketplacerepo:
-    in: internal/marketplace/repo         # marketplace guts: 仓储（over db + pgstore）
+    in: internal/marketplace/repo         # marketplace guts: repository (over db + pgstore)
   marketplaceusecase:
-    in: internal/marketplace/usecase      # marketplace guts: 用例 + 市场拉取客户端
+    in: internal/marketplace/usecase      # marketplace guts: usecases + marketplace-fetch client
   marketplaceops:
-    in: internal/marketplace/ops          # marketplace guts: 本域对外能做什么的声明
+    in: internal/marketplace/ops          # marketplace guts: declaration of what this domain offers outward
   stats:
-    in: internal/stats/facade             # #135: stats 域 facade（对外协议）；域外只 import 这里
+    in: internal/stats/facade             # #135: stats domain facade (outward-facing protocol); outside the domain, only import this
   statsentity:
-    in: internal/stats/entity             # stats guts: 读模型值对象
+    in: internal/stats/entity             # stats guts: read-model value objects
   statsrepo:
-    in: internal/stats/repo               # stats guts: 查询仓储（over db + pgstore）
+    in: internal/stats/repo               # stats guts: query repository (over db + pgstore)
   statsops:
-    in: internal/stats/ops                # stats guts: 本域对外能做什么的声明
+    in: internal/stats/ops                # stats guts: declaration of what this domain offers outward
   security:
-    in: internal/security/facade          # #135: 请求级防护域 facade (banned_ip / captcha)；域外只 import 这里
+    in: internal/security/facade          # #135: request-level protection domain facade (banned_ip / captcha); outside the domain, only import this
   securityban:
-    in: internal/security/ban             # security 内部:IP 封禁 entity+repo(facade 后的兄弟子包)
+    in: internal/security/ban             # security internals: IP ban entity+repo (sibling sub-package behind the facade)
   securitycaptcha:
-    in: internal/security/captcha         # security 内部:captcha Verifier+turnstile(facade 后的兄弟子包)
+    in: internal/security/captcha         # security internals: captcha Verifier+turnstile (sibling sub-package behind the facade)
   securityops:
-    in: internal/security/ops             # security 内部:本域对外能做什么的声明
+    in: internal/security/ops             # security internals: declaration of what this domain offers outward
   jobsmodel:
-    in: internal/owner/jobs/jobsmodel                # #135: jobs 领域值对象 (fetched_job/job_source/application/resume*)；leaf, 依赖 domain 拿 AccessCode
+    in: internal/owner/jobs/jobsmodel                # #135: jobs domain value objects (fetched_job/job_source/application/resume*); leaf, depends on domain for AccessCode
   conversation:
-    in: internal/conversation/facade # #135: conversation 域 facade（对外协议）；域外只 import 这里
+    in: internal/conversation/facade # #135: conversation domain facade (outward-facing protocol); outside the domain, only import this
   conversationentity:
-    in: internal/conversation/entity # conversation guts: 值对象/实体 + 域错误
+    in: internal/conversation/entity # conversation guts: value objects/entities + domain errors
   conversationrepo:
-    in: internal/conversation/repo   # conversation guts: 仓储（over db + pgstore）
+    in: internal/conversation/repo   # conversation guts: repository (over db + pgstore)
   conversationops:
-    in: internal/conversation/ops    # conversation guts: 本域对外能做什么的声明
+    in: internal/conversation/ops    # conversation guts: declaration of what this domain offers outward
   conversationusecase:
-    in: internal/conversation/usecase # conversation guts: 用例/编排
+    in: internal/conversation/usecase # conversation guts: usecases/orchestration
   corpus:
-    in: internal/corpus/facade       # #135: corpus 域 facade（对外协议）；域外只 import 这里
+    in: internal/corpus/facade       # #135: corpus domain facade (outward-facing protocol); outside the domain, only import this
   corpusentity:
-    in: internal/corpus/entity       # corpus guts: 各 genre 值对象/实体 + 域错误
+    in: internal/corpus/entity       # corpus guts: per-genre value objects/entities + domain errors
   corpusi18n:
-    in: internal/corpus/i18n         # corpus guts: 多语结构(解析 / 诊断 / 选一面)。纯文本,无依赖
+    in: internal/corpus/i18n         # corpus guts: multi-language structure (parse / diagnose / pick a face). Plain text, no deps
   builtincaps:
-    in: capabilities                 # 随产品发的内建能力**声明**(manifest.yaml,go:embed);只有数据
+    in: capabilities                 # **declaration** of the built-in capabilities shipped with the product (manifest.yaml, go:embed); data only
   corpusrepo:
-    in: internal/corpus/repo         # corpus guts: 仓储（over db + pgstore）
+    in: internal/corpus/repo         # corpus guts: repository (over db + pgstore)
   corpususecase:
-    in: internal/corpus/usecase      # corpus guts: 用例/编排 + 读取端口
+    in: internal/corpus/usecase      # corpus guts: usecases/orchestration + read port
   corpusops:
-    in: internal/corpus/ops          # corpus guts: 本域对外能做什么的声明（id/schema/reach/实现）
+    in: internal/corpus/ops          # corpus guts: declaration of what this domain offers outward (id/schema/reach/impl)
   access:
-    in: internal/access/facade       # #135: access 域 facade（对外协议）；域外只 import 这里
+    in: internal/access/facade       # #135: access domain facade (outward-facing protocol); outside the domain, only import this
   accessentity:
-    in: internal/access/entity       # access guts: 值对象/实体 + 域错误（leaf）
+    in: internal/access/entity       # access guts: value objects/entities + domain errors (leaf)
   accessrepo:
-    in: internal/access/repo         # access guts: 仓储（over db + pgstore）
+    in: internal/access/repo         # access guts: repository (over db + pgstore)
   accessusecase:
-    in: internal/access/usecase      # access guts: 用例/编排 + 窄端口
+    in: internal/access/usecase      # access guts: usecases/orchestration + narrow port
   accessops:
-    in: internal/access/ops          # access guts: 本域对外能做什么的声明
+    in: internal/access/ops          # access guts: declaration of what this domain offers outward
   owner:
-    in: internal/owner/facade        # #135: owner 域 facade（对外协议）；域外只 import 这里
+    in: internal/owner/facade        # #135: owner domain facade (outward-facing protocol); outside the domain, only import this
   ownerentity:
-    in: internal/owner/entity        # owner guts: 值对象/实体 + 域错误
+    in: internal/owner/entity        # owner guts: value objects/entities + domain errors
   ownerrepo:
-    in: internal/owner/repo          # owner guts: 仓储（over db + pgstore + cryptobox）
+    in: internal/owner/repo          # owner guts: repository (over db + pgstore + cryptobox)
   ownerusecase:
-    in: internal/owner/usecase       # owner guts: 用例/编排
+    in: internal/owner/usecase       # owner guts: usecases/orchestration
   ownerops:
-    in: internal/owner/ops           # owner guts: 本域对外能做什么的声明
+    in: internal/owner/ops           # owner guts: declaration of what this domain offers outward
   sandbox:
-    in: internal/capabilities/sandbox                  # owner-curated skill script 在 docker container 里跑
+    in: internal/capabilities/sandbox                  # owner-curated skill scripts run inside a docker container
   capabilities:
-    in: internal/capabilities              # capability 轴 domain doc (root)
+    in: internal/capabilities              # capability-axis domain doc (root)
   capload:
-    in: internal/routes/capload            # capability-axis 装载/派发 glue (ext-mcp / mcp-app / skill-runner / openapi-tools / register)
+    in: internal/routes/capload            # capability-axis load/dispatch glue (ext-mcp / mcp-app / skill-runner / openapi-tools / register)
   capreg:
-    in: internal/capabilities/capreg              # Phase B Capability registry: visitor + owner MCP 三处消费的统一注册口
+    in: internal/capabilities/capreg              # Phase B Capability registry: the single registration point consumed by all three (visitor + owner MCP)
   mcpclient:
-    in: internal/capabilities/mcpclient                # 调外部 MCP server (owner-registered)
+    in: internal/capabilities/mcpclient                # calls an external MCP server (owner-registered)
   mcpplugin:
-    in: internal/capabilities/mcpplugin                # C1: 装机插件 manifest 解析 + 发现来源 (leaf)
+    in: internal/capabilities/mcpplugin                # C1: installed-plugin manifest parsing + discovery sources (leaf)
   capsocket:
-    in: internal/capabilities/capsocket                # 窄 unix-socket host 服务：断网沙箱插件经 bind 进的 socket 调后端 op (leaf)
+    in: internal/capabilities/capsocket                # narrow unix-socket host service: the socket a network-isolated sandbox plugin binds into to call backend ops (leaf)
   sandboxws:
-    in: internal/capabilities/sandboxws                # per-session 沙箱工作区生命周期：懒建/TTL/cron sweep (leaf)
+    in: internal/capabilities/sandboxws                # per-session sandbox workspace lifecycle: lazy-create/TTL/cron sweep (leaf)
   storage:
-    in: internal/infra/storage                  # MinIO/S3 对象存储 (图片 / 附件)
+    in: internal/infra/storage                  # MinIO/S3 object storage (images / attachments)
   connector:
-    in: internal/connector                # Phase B: Nango-style 连接器层 —— 解密凭据 + 代调外部 (gcal/mailer)；凭据永不出 vault 进 usecases
+    in: internal/connector                # Phase B: Nango-style connector layer — decrypts credentials + relays to external services (gcal/mailer); credentials never leave the vault into usecases
   connectoropenapi:
-    in: internal/connector/openapi        # #155: 通用 openapi 连接器执行核（spec+JSONata+HTTP）；schemaless-JSON 边界，leaf
+    in: internal/connector/openapi        # #155: generic openapi connector execution core (spec+JSONata+HTTP); schemaless-JSON boundary, leaf
   connectorcontract:
-    in: internal/connector/contract       # #135 Slice A: 连接器轴的类型化 CATEGORY 契约 (CalendarProxy + DTO)；内核零类型句柄，契约住这
+    in: internal/connector/contract       # #135 Slice A: typed CATEGORY contract for the connector axis (CalendarProxy + DTO); the kernel holds zero type handles, contracts live here
   connectorconsumer:
-    in: internal/connector/consumer       # #135: 连接器轴消费者契约 leaf (AgentToolConnector/AgentOp/ErrMailNotConfigured)；无 CalendarProxy，内核可依赖
+    in: internal/connector/consumer       # #135: connector-axis consumer contract leaf (AgentToolConnector/AgentOp/ErrMailNotConfigured); no CalendarProxy, the kernel may depend on it
   connectorbuiltins:
     in: connectors                        # built-in connector data (embedded manifest/spec/binding) + Load — own top-level dir, out of internal/
   capabilitybuiltins:
-    in: capabilities                      # built-in capability data (embedded manifest.yaml) + Load — 跟 connectors 同形，两根轴一样的地址
+    in: capabilities                      # built-in capability data (embedded manifest.yaml) + Load — same shape as connectors, both axes share one address form
   cryptobox:
-    in: internal/infra/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
+    in: internal/infra/cryptobox                # AES-GCM symmetric encryption helper (owner key storage, etc)
   capconfig:
-    in: internal/capabilities/capconfig                # 能力可配置项的通用存取（声明在 manifest，值落 capstore）；host 不认识任何字段含义
+    in: internal/capabilities/capconfig                # generic read/write for capability-configurable fields (declared in the manifest, values land in capstore); the host knows the meaning of no field
   capquota:
-    in: internal/capabilities/capquota                 # per-code 用量上限：照 manifest 的 QuotaDecl 数，host 不认识任何业务词
+    in: internal/capabilities/capquota                 # per-code usage ceiling: counted per the manifest's QuotaDecl, the host knows no business term
   capstore:
-    in: internal/capabilities/capstore                 # #135 constrained-reachback: per-plugin 隔离 JSONB 存储（每 connector/mcp 一 schema）；leaf，只依赖 pgx
+    in: internal/capabilities/capstore                 # #135 constrained-reachback: per-plugin isolated JSONB storage (one schema per connector/mcp); leaf, depends only on pgx
   retry:
-    in: internal/infra/retry                    # #132 通用可配重试 infra（退避/封顶/retryable/ctx 打断）；leaf，connector 代调架其上
+    in: internal/infra/retry                    # #132 generic configurable-retry infra (backoff/cap/retryable/ctx cancel); leaf, connector call-relaying builds on it
   httpx:
-    in: internal/infra/httpx                    # #132 唯一出站 HTTP client（retry+timeout+可组合 base）；leaf，所有出站者依赖它
+    in: internal/infra/httpx                    # #132 the single outbound HTTP client (retry+timeout+composable base); leaf, every outbound caller depends on it
   search:
-    in: internal/corpus/search                   # corpus 子包:词法检索 Meili 封装(1b)；leaf，只依赖 meili SDK
+    in: internal/corpus/search                   # corpus sub-package: lexical search Meili wrapper (1b); leaf, depends only on the meili SDK
   facadeparity:
-    in: internal/infra/facadeparity             # facade-parity 强制 gate 机制；纯 std leaf，无 internal/vendor 依赖
+    in: internal/infra/facadeparity             # facade-parity enforcement gate mechanism; pure std leaf, no internal/vendor deps
   paritymanifest:
-    in: internal/infra/paritymanifest           # facade-parity 的具体 owner manifest + 真 facade 对照；依赖 facadeparity
+    in: internal/infra/paritymanifest           # the concrete owner manifest for facade-parity + the real facade to compare against; depends on facadeparity
   sysroutes:
     in: internal/routes/sys
   adminroutes:
@@ -204,53 +204,54 @@ components:
   pubapi:
     in: internal/routes/pubapi            # /api/pub/v1/* — API-key facade (facade-directions.md)
   connectorroutes:
-    in: internal/routes/connector         # socket 入站 API controller: connector.invoke (薄壳→connector.Slots)
+    in: internal/routes/connector         # inbound socket API controller: connector.invoke (thin shell → connector.Slots)
   capstoreroutes:
-    in: internal/routes/capstore          # socket 入站 API controller: capstore.* (薄壳→BoundStore)
+    in: internal/routes/capstore          # inbound socket API controller: capstore.* (thin shell → BoundStore)
   capconfigroutes:
-    in: internal/routes/capconfig         # socket 入站 API controller: capconfig.get (薄壳→BoundConfig)
+    in: internal/routes/capconfig         # inbound socket API controller: capconfig.get (thin shell → BoundConfig)
   hostdesk:
-    in: internal/routes/hostdesk          # 入站收口：域声明 host op，各能力的 socket 是它的投影
+    in: internal/routes/hostdesk          # inbound convergence: domains declare host ops, each capability's socket is a projection of it
   hostop:
-    in: internal/infra/hostop             # 入站那套词汇（Op/Invoke/socket 路径规则）；leaf，不认识任何域
+    in: internal/infra/hostop             # the inbound vocabulary (Op/Invoke/socket path rules); leaf, knows no domain
   periodic:
-    in: internal/infra/periodic           # 周期任务的一份调度：声明方给「做什么」，这里管「多久一次 + 簿记」
-  # cmd —— 组装根,现在分成五个包 + 根上的启动序列。对**层次**而言它们是同一件东西:
-  # 唯一允许跨所有 layer 的地方。彼此之间的方向单向:deps ← port ← axisconn ← axiscap ← wire ← cmd。
+    in: internal/infra/periodic           # single scheduling point for periodic tasks: the declarer says "what to do", this handles "how often + bookkeeping"
+  # cmd — the composition root, now split into five packages + the startup sequence on the root. For
+  # **layering** purposes they're one thing: the one place allowed to cross all layers. Direction between
+  # them is one-way: deps ← port ← axisconn ← axiscap ← wire ← cmd.
   cmd:
     in: cmd/server
   cmddeps:
-    in: cmd/server/deps                   # 跑着的那一堆东西：只有数据，没有装配（叶子）
+    in: cmd/server/deps                   # the running set of things: data only, no wiring (leaf)
   cmdport:
-    in: cmd/server/port                   # 组装根实现某个域声明的窄口
+    in: cmd/server/port                   # composition root's implementation of a narrow port a domain declares
   cmdaxisconn:
-    in: cmd/server/axisconn               # 连接器轴的接线
+    in: cmd/server/axisconn               # wiring for the connector axis
   cmdaxiscap:
-    in: cmd/server/axiscap                # 能力轴的接线
+    in: cmd/server/axiscap                # wiring for the capability axis
   cmdwire:
-    in: cmd/server/wire                   # 把一个机制接起来（两个收口 / 周期任务 / 检索索引）
+    in: cmd/server/wire                   # wires up a mechanism (the two convergence points / periodic tasks / search index)
 
   corpusdb:
-    in: internal/corpus/db                # #135: corpus 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+    in: internal/corpus/db                # #135: corpus's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   conversationdb:
-    in: internal/conversation/db                # #135: conversation 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+    in: internal/conversation/db                # #135: conversation's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   accessdb:
-    in: internal/access/db                # #135: access 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+    in: internal/access/db                # #135: access's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   ownerdb:
-    in: internal/owner/db                # #135: owner 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+    in: internal/owner/db                # #135: owner's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   connectordb:
-    in: internal/connector/db                # #135: connector 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+    in: internal/connector/db                # #135: connector's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   marketplacedb:
-    in: internal/marketplace/db                # #135: marketplace 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+    in: internal/marketplace/db                # #135: marketplace's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   statsdb:
-    in: internal/stats/db                # #135: stats 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+    in: internal/stats/db                # #135: stats's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   securitydb:
-    in: internal/security/db                # #135: security 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+    in: internal/security/db                # #135: security's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   jobsdb:
-    in: internal/owner/jobs/jobsuc/db                # #135: jobsuc 自持的 sqlc DAO (每领域自己的 repository)；pure leaf, only pgx
+    in: internal/owner/jobs/jobsuc/db                # #135: jobsuc's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
 
 deps:
-  # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
+  # mailer — the outbound SMTP send leaf package, pure stdlib (net/smtp), no internal deps.
   search:
     mayDependOn: []
     anyVendorDeps: true
@@ -261,23 +262,25 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # facadeparity —— facade-parity 强制 gate 的 facade-无关机制：std（fmt/sort/strings）+ 测试
-  # testify；无 internal 依赖。真源 manifest + 真 facade 枚举在上层接线（不入本 leaf）。
+  # facadeparity — the facade-agnostic mechanism behind the facade-parity enforcement gate: std
+  # (fmt/sort/strings) + testify for tests; no internal deps. The real source manifest + real facade
+  # enumeration are wired in a higher layer (not inside this leaf).
   facadeparity:
     mayDependOn: []
     anyVendorDeps: true
 
-  # paritymanifest —— facade-parity 的具体 owner 能力 manifest（真源）+ 真 facade 对照。只依赖
-  # facadeparity（机制）；被组装根的 conformance test 消费。
+  # paritymanifest — the concrete owner-capability manifest (source of truth) for facade-parity + the
+  # real facade to compare against. Depends only on facadeparity (the mechanism); consumed by the
+  # composition root's conformance test.
   paritymanifest:
     mayDependOn:
       - facadeparity
     anyVendorDeps: false
 
-  # connector —— Phase B Nango-proxy 层：唯一解密 owner 凭据 + 代调外部
-  # (gcal / mailer) 的地方。usecases 只持 CalendarProxy / MailProxy 接口，
-  # 凭据永不进 usecases。实现外部能力 → 依赖 gcal + mailer + domain；
-  # 复用 usecases 的 DTO 类型 (FreeBusyReq / MailMessage 等) → 依赖 usecases。
+  # connector — Phase B Nango-proxy layer: the one place that decrypts owner credentials + relays calls
+  # to external services (gcal / mailer). usecases hold only the CalendarProxy / MailProxy interfaces,
+  # credentials never reach usecases. Implementing an external capability → depends on gcal + mailer +
+  # domain; reusing usecases' DTO types (FreeBusyReq / MailMessage, etc) → depends on usecases.
   connector:
     mayDependOn:
       - connectordb
@@ -289,71 +292,83 @@ deps:
       - connectoropenapi
       - cryptobox
       - pgstore
-      # hostop —— 入站词汇的 leaf。这个域给沙箱的回执要**带上失败的类别**
-      # （`hostop.Faulted`），否则「没配过」和「这一刻拨不通」到访客那儿是同一句话
-      # （F-C-42）。分类只能在这儿做：哨兵是这个域的，而 connectorroutes 那层薄壳
-      # 按设计不认识它们。这正是 hostop 那条注释说的「域才能用它说话而不 import 路由」。
+      # hostop — leaf for the inbound vocabulary. This domain's receipt back to the sandbox must
+      # **carry the failure category** (`hostop.Faulted`); otherwise "never configured" and "can't
+      # reach it right now" read as the same sentence to the visitor (F-C-42). The classification can
+      # only happen here: the sentinels belong to this domain, and the connectorroutes thin shell isn't
+      # designed to recognize them by design. This is exactly what the hostop comment means by
+      # "only a domain can speak through it, without importing routes".
       - hostop
     anyVendorDeps: true
 
-  # connectorconsumer —— 连接器轴消费者契约 leaf(AgentToolConnector/AgentOp/ErrMailNotConfigured)。
-  # 纯 context/json/errors,无 internal 依赖:连接器实现它、内核装配面/owner工具/admin 消费它。
+  # connectorconsumer — connector-axis consumer contract leaf (AgentToolConnector/AgentOp/ErrMailNotConfigured).
+  # Pure context/json/errors, no internal deps: connectors implement it, the kernel's assembly face/owner
+  # tools/admin consume it.
   connectorconsumer:
     mayDependOn: []
     anyVendorDeps: true
 
-  # connectorroutes —— socket 入站 API 的 controller 层(跟 HTTP routes 同层):connector.invoke 的薄壳,
-  # 只解 socket 参数 + 转发进 connector 业务域(Invoker,由 connector.Slots 满足)。只依赖 capsocket 那根传输。
+  # connectorroutes — controller layer for the inbound socket API (same layer as HTTP routes): the thin
+  # shell for connector.invoke, only parses socket params + forwards into the connector business domain
+  # (Invoker, satisfied by connector.Slots). Depends only on the capsocket transport.
   connectorroutes:
     mayDependOn:
       - hostop
     anyVendorDeps: true
 
-  # capstoreroutes —— 同 connectorroutes,入站 API 的 controller 薄壳。
+  # capstoreroutes — same as connectorroutes, a controller thin shell for the inbound API.
   capstoreroutes:
     mayDependOn:
       - hostop
     anyVendorDeps: true
 
-  # capconfigroutes —— 沙箱经它读自己的配置（默认值已由声明兜好）。跟 capstoreroutes 同形：
-  # 薄壳，构造期绑死到某个 cap，沙箱填不了别人的。
+  # capconfigroutes — the sandbox reads its own config through this (defaults already backstopped by the
+  # declaration). Same shape as capstoreroutes: a thin shell, bound at construction time to one cap, a
+  # sandbox can't fill in another's.
   capconfigroutes:
     mayDependOn:
       - hostop
     anyVendorDeps: true
 
-  # capconfig —— 能力配置的通用读写。只认 capstore（值往哪存）+ mcpplugin（声明长什么样）；
-  # 不认识任何一个业务字段。挂载点是参数（owner / code），不是两套代码。
+  # capconfig — generic read/write for capability config. Knows only capstore (where values are stored) +
+  # mcpplugin (what the declaration looks like); recognizes no business field. The mount point is a
+  # parameter (owner / code), not two code paths.
   capconfig:
     mayDependOn:
       - capstore
       - mcpplugin
     anyVendorDeps: true
 
-  # capquota —— per-code 用量上限，照 manifest 的 QuotaDecl 执行：上限读 capconfig 的 code
-  # scope，用量数 capstore 的一个 collection。闸和余量共用同一条计数（分开写过，只补回过一半）。
+  # capquota — per-code usage ceiling, enforced per the manifest's QuotaDecl: the ceiling reads
+  # capconfig's code scope, usage counts one capstore collection. The gate and the remaining balance
+  # share the same counter (was split once, only half got merged back).
   capquota:
     mayDependOn:
       - capconfig
       - capstore
       - mcpplugin
     anyVendorDeps: true
-  # hostop —— 入站那套词汇。leaf：它不认识任何域，域才能用它说话而不 import 路由。
+  # hostop — the inbound vocabulary. Leaf: it knows no domain, so a domain can speak through it without
+  # importing routes.
   hostop:
     mayDependOn: []
     anyVendorDeps: true
 
-  # periodic —— 周期任务的一份调度。leaf：它不认识任何域，也不认识 stats（簿记面是个窄接口，
-  # 由组装根把 JobRegistry 递进来），所以任何一方都能声明自己的周期任务而不牵连别人。
+  # periodic — a single schedule for periodic tasks. Leaf: it knows no domain, and doesn't know stats
+  # either (the bookkeeping face is a narrow interface, the composition root hands in the JobRegistry),
+  # so any party can declare its own periodic task without entangling anyone else.
   periodic:
     mayDependOn: []
     anyVendorDeps: true
 
-  # hostdesk —— 入站收口，出站 dispatcher 的镜像。它 import 各域的**正门**（facade）+ 两根轴
-  # 自己的 controller 薄壳，把大家声明的 host op 汇起来，再按每个能力 manifest 点的名字发。
+  # hostdesk — inbound convergence, the mirror of the outbound dispatcher. It imports each domain's
+  # **front door** (facade) + the two axes' own controller thin shells, gathers up the host ops each
+  # declares, then dispatches by the name each capability's manifest points to.
   #
-  # 它以前不存在：每个能力在组装根各有一个手写网关，各自站一个 socket、各自往上挂动词，于是
-  # 「沙箱能问宿主要什么」没有答案。跟 dispatcher 同理，收口自己当然要认识各个域。
+  # It didn't used to exist: each capability had its own hand-written gateway in the composition root,
+  # each stood up its own socket, each hung its own verbs on top, so "what can the sandbox ask the host
+  # for" had no answer. Same reasoning as dispatcher — of course the convergence point itself has to
+  # know each domain.
   hostdesk:
     mayDependOn:
       - hostop
@@ -366,31 +381,34 @@ deps:
       - capconfigroutes
     anyVendorDeps: true
 
-  # connectorcontract —— #135 Slice A: 连接器轴的类型化 CATEGORY 契约 (CalendarProxy + DTO)。
-  # 纯 context/time,无 internal 依赖:连接器实现它、能力插件消费它、组装根接线,内核持零句柄。
+  # connectorcontract — #135 Slice A: typed CATEGORY contract for the connector axis (CalendarProxy + DTO).
+  # Pure context/time, no internal deps: connectors implement it, capability plugins consume it, the
+  # composition root wires it, the kernel holds zero handles.
   connectorcontract:
     mayDependOn: []
     anyVendorDeps: true
 
 
 
-  # connectoropenapi —— #155 通用 openapi 执行核 leaf：spec 解析 + JSONata 绑定 + HTTP 代调。
-  # 纯 stdlib + vendor (jsonata-go / yaml)，无 internal 依赖（provider 的一切都在 spec+binding
-  # 数据里）。schemaless-JSON 边界，golangci 对本路径豁免 forbidigo `any`。
+  # connectoropenapi — #155 generic openapi execution core leaf: spec parsing + JSONata binding + HTTP
+  # call relay. Pure stdlib + vendor (jsonata-go / yaml), no internal deps (everything about a provider
+  # lives in the spec+binding data). schemaless-JSON boundary, golangci exempts this path from forbidigo
+  # `any`.
   connectoropenapi:
     mayDependOn: []
     anyVendorDeps: true
 
-  # connectorbuiltins —— #155 内置连接器数据：embed 的 manifest/spec/binding 文件 + Load。
-  # 装配走 connector.AssembleOpenAPI（依赖 connector）；yaml 解析（vendor）。
+  # connectorbuiltins — #155 built-in connector data: embedded manifest/spec/binding files + Load.
+  # Assembly goes through connector.AssembleOpenAPI (depends on connector); yaml parsing (vendor).
   connectorbuiltins:
     mayDependOn:
       - connector
     anyVendorDeps: true
 
-  # capabilitybuiltins —— 内建能力的**声明**（embed 的 manifest.yaml）+ Load。
-  # 只认 mcpplugin（声明的形状）和 hostop（socket 路径由 id 派生这条规则）—— 它不认识
-  # 任何一个域，也不做装配：装配仍在组装根，这里只把磁盘上的写法翻成宿主用的形状。
+  # capabilitybuiltins — the **declaration** of built-in capabilities (embedded manifest.yaml) + Load.
+  # Knows only mcpplugin (the shape of a declaration) and hostop (the rule that a socket path derives
+  # from an id) — it knows no domain and does no assembly: assembly still happens at the composition
+  # root, this just translates the on-disk form into the shape the host uses.
   capabilitybuiltins:
     mayDependOn:
       - mcpplugin
@@ -401,33 +419,34 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # httpx —— #132 唯一出站 HTTP client leaf：纯 stdlib (net/http/context/time)，无 internal 依赖。
-  # check-no-raw-http lint 保证所有出站 http.Client 只在这里构造；各出站子系统依赖它。
+  # httpx — #132 the single outbound HTTP client leaf: pure stdlib (net/http/context/time), no internal
+  # deps. The check-no-raw-http lint guarantees every outbound http.Client is constructed only here;
+  # every outbound subsystem depends on it.
   httpx:
     mayDependOn: []
     anyVendorDeps: true
 
-  # providermodels —— 「这个推理端点有哪些模型」。**两个面共用一份**（F-R-11）：访客的
-  # BYOAI 面板带着自己的 key 问（routes/public），owner 那面不带 key、由组装根开封库里
-  # 那把再问（cmd）。它自己无状态、不认识任何域。
+  # providermodels — "which models does this inference endpoint have". **Shared by both faces** (F-R-11):
+  # the visitor's BYOAI panel asks with its own key (routes/public); the owner face asks with no key, the
+  # composition root unlocks the vault's key and asks (cmd). It's stateless, knows no domain.
   providermodels:
     mayDependOn:
       - apierr
       - httpx
     anyVendorDeps: true
 
-  # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。
+  # sandbox calls external docker, depends only on stdlib + domain (SkillScript).
   sandbox:
     mayDependOn: []
     anyVendorDeps: true
 
-  # capreg —— Phase B Capability interface + Registry。leaf-ish 包，
-  # 只依赖 inference (ToolSpec / ToolExecutor) + domain (RoleSnapshot 类型)。
-  # 具体 Capability 实现放在 usecases / mcp 等更高层，反向 import 本包注册。
+  # capreg — Phase B Capability interface + Registry. A leaf-ish package,
+  # depends only on inference (ToolSpec / ToolExecutor) + domain (RoleSnapshot type).
+  # Concrete Capability implementations live in usecases / mcp etc, higher layers import this package to register.
   capabilities:
     mayDependOn:
       - capreg
-      # periodic —— 插件声明周期任务的那个 optional hook 用它的类型；调度不在这儿。
+      # periodic — the plugin declaration's optional hook for a periodic task uses its type; the scheduling itself isn't here.
       - periodic
     anyVendorDeps: true
 
@@ -442,7 +461,7 @@ deps:
       - marketplace
       - connectorconsumer
       - cryptobox
-      # hostop —— 装载器按同一条规则派生这个能力的 socket 路径（manifest 只说要哪些 op）。
+      # hostop — the loader derives this capability's socket path by the same rule (the manifest only says which ops it needs).
       - hostop
     anyVendorDeps: true
   capreg:
@@ -451,35 +470,35 @@ deps:
       - inference
     anyVendorDeps: true
 
-  # prompts —— Phase D-1: leaf 包，只 stdlib (embed)；所有引 system prompt
-  # fragment 的地方 (usecases capability impl / sysroutes endpoint /
-  # publicroutes endpoint) 都从这里 load，不再硬编码字符串。
+  # prompts — Phase D-1: a leaf package, stdlib only (embed); every place that pulls in a system prompt
+  # fragment (usecases capability impl / sysroutes endpoint / publicroutes endpoint) loads from here now,
+  # no more hardcoded strings.
   mcpclient:
     mayDependOn: []
     anyVendorDeps: true
 
-  # capsocket —— 窄 host unix-socket 服务 leaf：line-JSON 分发，无 internal 依赖。
+  # capsocket — narrow host unix-socket service leaf: line-JSON dispatch, no internal deps.
   capsocket:
     mayDependOn: []
     anyVendorDeps: true
 
-  # storage 是 S3 / MinIO 客户端，纯 vendor + stdlib。
+  # storage is an S3 / MinIO client, pure vendor + stdlib.
   storage:
     mayDependOn: []
     anyVendorDeps: true
 
-  # pgstore —— #135 共享 DB store 原语 leaf：模块 repo 用它 + 自己的 <domain>/db(sqlc) 持久层。
+  # pgstore — #135 shared DB store primitives leaf: module repos use it + their own <domain>/db(sqlc) persistence layer.
   pgstore:
     mayDependOn:
       - cryptobox
-      # dbfiles —— migration 的 .sql 编进二进制那一份（升级在后端启动时发生）。
-      # 只有这里够得到：谁都能 import 的话，"schema 归谁管"就散成了好几处。
+      # dbfiles — the migration .sql compiled into the binary (upgrades happen at backend startup).
+      # Only this can reach it: if anyone could import it, "who owns the schema" would scatter across several places.
       - dbfiles
     anyVendorDeps: true
 
-  # Session 管理 setup token、login session、API token。
-  # domain 是单向值对象（PathPermission 等）—— session 内置入参/出参字段，
-  # 不耦合业务逻辑。其他 internal 包仍走 narrow interface 注入。
+  # Session manages the setup token, login session, API token.
+  # domain is a one-way value object (PathPermission etc) — session carries its own in/out params
+  # inline, not coupled to business logic. Other internal packages still inject via a narrow interface.
   session:
     mayDependOn: [access]
     anyVendorDeps: true
@@ -488,31 +507,33 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # apierr 是无依赖的 envelope 翻译 util；任何 routes 包可 import 来做
-  # error → HTTP envelope 映射。
+  # apierr is a dependency-free envelope translation util; any routes package can import it to do
+  # error → HTTP envelope mapping.
   apierr:
     mayDependOn: []
     anyVendorDeps: true
 
-  # clientaddr —— 「这个请求的来源地址是不是访客自己的」判一次，结论放 context。
-  # 无依赖的叶子。会话记账 / 访问码锁 / 登录限流三处读同一个答案，不再各自去拆
-  # RemoteAddr —— 没有转发头时拆出来的是 app 那一跳，不是访客（F-F-5）。
+  # clientaddr — decides once whether the request's source address is the visitor's own, stashes the
+  # verdict in context. A dependency-free leaf. Session billing / access-code locks / login rate-limit
+  # all read the same answer instead of each parsing RemoteAddr separately — without a forwarding header,
+  # what you'd parse out is the app's own hop, not the visitor (F-F-5).
   clientaddr:
     mayDependOn: []
     anyVendorDeps: true
 
-  # middleware 包含 owner auth gate（WithOwner）+ CSRF gate + LoginGuard
-  # (rate-limit + captcha + equal-time)。session 给 token lookup；captcha
-  # 给 LoginGuard 的 Verifier 接口。
+  # middleware holds the owner auth gate (WithOwner) + CSRF gate + LoginGuard
+  # (rate-limit + captcha + equal-time). session provides token lookup; captcha
+  # provides the Verifier interface for LoginGuard.
   middleware:
     mayDependOn:
       - session
       - security
-      - clientaddr   # 登录限流的分桶键：访客地址；判不出时退成一个具名的共用桶
+      - clientaddr   # login rate-limit's bucket key: the visitor's address; falls back to one named shared bucket when it can't be determined
     anyVendorDeps: true
 
-  # mcphandle 是 owner AI 客户端用的 MCP server (controller 层)；通过 OwnerLookup
-  # 接口注入 owner profile 查询，避免直接 import postgres；usecases 提供 token verify。
+  # mcphandle is the MCP server (controller layer) the owner's AI client uses; injects owner-profile
+  # lookup through the OwnerLookup interface to avoid importing postgres directly; usecases provides
+  # token verification.
   mcphandle:
     mayDependOn:
       - capreg
@@ -521,16 +542,19 @@ deps:
       - jobsmcp
       - httpx
       - owner
-      - dispatcher      # MCP 面 = 出站收口的投影（generated）
-      - facadeparity    # 声明本面的 parity 档案（Facade profile）
+      - dispatcher      # the MCP face = a projection of outbound convergence (generated)
+      - facadeparity    # declares this face's parity profile (Facade profile)
     anyVendorDeps: true
 
-  # dispatcher —— 出站收口。它 import 各域的**正门**（facade），把各域自己声明的操作汇起来
-  # 再导出；除此之外只认协议无关的 facadeparity（Op/Reach/错误类别这套词汇）。
+  # dispatcher — outbound convergence. It imports each domain's **front door** (facade), gathers up the
+  # operations each domain declares itself, then re-exports them; beyond that it knows only the
+  # protocol-agnostic facadeparity (the Op/Reach/error-category vocabulary).
   #
-  # 这条以前写的是「不该依赖任何域，域的函数经组装根适配成 Op 传进来」。那条约束的后果是
-  # 一连串的：域说不出自己会什么 → 声明只能挪到唯一同时看见两边的地方（组装根）→ 收口得
-  # 复述一遍域已有的入参出参 → 每个资源多一份搬运。facade 存在的意义就是给收口这条路。
+  # This used to read "must not depend on any domain, a domain's functions get adapted into an Op at the
+  # composition root and handed in." That constraint had a cascading cost: a domain couldn't say what it
+  # can do → the declaration could only move to the one place that sees both sides (the composition root)
+  # → the convergence point had to restate the domain's existing inputs/outputs → every resource carried
+  # one extra hop of shuttling. The facade exists precisely to give the convergence point this path.
   dispatcher:
     mayDependOn:
       - facadeparity
@@ -543,27 +567,27 @@ deps:
       - stats
     anyVendorDeps: true
 
-  # inference 是 LLM provider 抽象（Anthropic / OpenAI / Mock）。
-  # 不依赖任何 internal（纯接口 + 实现 + sentinel errors）。
-  # cryptobox: resolver 用来解密 byoai key (Redis 拿到的是密文)；其他业务
-  # 仍走 narrow OwnerLookup 接口，不耦合具体 repo。
+  # inference is the LLM provider abstraction (Anthropic / OpenAI / Mock).
+  # Depends on no internal package (pure interface + implementation + sentinel errors).
+  # cryptobox: the resolver uses it to decrypt the byoai key (Redis holds the ciphertext); other business
+  # logic still goes through the narrow OwnerLookup interface, not coupled to a concrete repo.
   inference:
     mayDependOn:
       - access
       - owner
       - cryptobox
       - httpx
-      # textcut —— 证据摘要按字节预算切,不能切开一个字符(唯一实现在 infra)。
+      # textcut — evidence summaries are truncated to a byte budget without splitting a character (single implementation, in infra).
       - textcut
     anyVendorDeps: true
 
-  # agentcore —— public facade：把 internal/inference 的 agentic loop 表面
-  # (AgentSink / AgentTurnInput / BuildAgentIterator / DriveAgentLoop) re-export
-  # 给 out-of-module driver (eval-harness)。loop 表面无逻辑，纯 alias +
-  # pass-through。F.2 起多一个 BuildVisitorAgent：驱动真 visitor capability 装配
-  # (usecases.RegisterVisitorSkills + AssembleVisitor + ComposeSystemPrompt) over
-  # fixture 数据源，所以多依赖 usecases/capreg/domain/postgres —— 跑的是
-  # prod 同一套 agentic 功能，只换注入的 repo。backend 内部无人 import 它。
+  # agentcore — public facade: re-exports internal/inference's agentic-loop surface
+  # (AgentSink / AgentTurnInput / BuildAgentIterator / DriveAgentLoop) to the out-of-module driver
+  # (eval-harness). The loop surface has no logic, pure alias + pass-through. As of F.2 there's one more,
+  # BuildVisitorAgent: drives the real visitor-capability assembly
+  # (usecases.RegisterVisitorSkills + AssembleVisitor + ComposeSystemPrompt) over a fixture data source,
+  # so it additionally depends on usecases/capreg/domain/postgres — it runs the exact same production
+  # agentic feature set, only the injected repo changes. Nobody inside backend imports it.
   agentcore:
     mayDependOn:
       - capload
@@ -576,30 +600,31 @@ deps:
       - mcpplugin
       - capsocket
       - access
-      # eval mini-host —— 挂**真**插件要的那几样:入站收口(词表和 pick 都用它那一份)、
-      # 能力自己的存储/配置口、owner 实体(罐装 owner.meta 的返回类型)、内建 manifest。
-      # 这是组装根的活:agentcore 是 eval 的组装根,跟 cmd/server 同角色。
+      # eval mini-host — hangs the handful of things a **real** plugin needs: the inbound convergence
+      # (word list and pick both use its one copy), the capability's own storage/config port, the owner
+      # entity (the canned return type for owner.meta), the built-in manifest.
+      # This is the composition root's job: agentcore is eval's composition root, the same role as cmd/server.
       - hostdesk
       - capstoreroutes
       - capconfigroutes
       - connectorroutes
       - ownerentity
       - builtincaps
-      # conversation 的两个 guts 包:宿主端口的形状里带着它们的类型(ChatWithMessages /
-      # UpsertReportInput / ChatReport),所以域外实现那几座桥就得 import 它们 ——
-      # 跟 ownerentity 同一个理由,不是绕过 facade。
+      # conversation's two guts packages: the host port's shape carries their types (ChatWithMessages /
+      # UpsertReportInput / ChatReport), so implementing those bridges outside the domain has to import
+      # them — same reasoning as ownerentity, not a bypass of the facade.
       - conversationentity
       - conversationrepo
     anyVendorDeps: true
 
-  # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
-  # plugins —— J phase: Plugin interface + Registry + optional hooks
-  # (CapabilityRegistrar / AdminRouter)。J.5 起 hooks 需要 capreg +
-  # chi (vendor)；boundary 仍 leaf 不耦合任何业务包。
+  # jobcache — Redis-backed 1d TTL pool holding the FetchedJob the fetcher grabbed.
+  # plugins — J phase: Plugin interface + Registry + optional hooks
+  # (CapabilityRegistrar / AdminRouter). As of J.5 the hooks need capreg +
+  # chi (vendor); the boundary is still a leaf, not coupled to any business package.
 
-  # pluginjobs —— J phase: jobs plugin entry。J.5 起持 Deps 闭包 + 实现
-  # CapabilityRegistrar (调 jobsmcp) + AdminRouter (调 jobsadmin)；
-  # 它是 jobs plugin 整套面 (uc / mcp / admin / fetch / cache) 的拼装层。
+  # pluginjobs — J phase: jobs plugin entry. As of J.5 it holds the Deps closure + implements
+  # CapabilityRegistrar (calls jobsmcp) + AdminRouter (calls jobsadmin);
+  # it's the assembly layer for the whole jobs-plugin face set (uc / mcp / admin / fetch / cache).
   pluginjobs:
     mayDependOn:
       - capabilities
@@ -609,18 +634,19 @@ deps:
       - jobsuc
       - jobsmcp
       - jobsadmin
-      # periodic —— resume draft 的 1d-TTL 清扫由本插件声明(以前写在组装根)。
+      # periodic — the resume-draft 1d-TTL sweep is declared by this plugin (used to be written in the composition root).
       - periodic
     anyVendorDeps: true
 
-  # pluginownercore 没了。它曾经是 owner-MCP 能力的**集散地**,一个包同时依赖七八个域 ——
-  # 上面这份 mayDependOn 就是它的病历。每个操作回自己的域、经出站收口投影之后,这个包空了,
-  # 整包删除。跨域的大杂烩不该有一个合法地址。
+  # pluginownercore is gone. It used to be the **clearinghouse** for owner-MCP capabilities, one package
+  # depending on seven or eight domains at once — the mayDependOn above was its medical chart. Once each
+  # operation went back to its own domain and got projected through outbound convergence, the package
+  # was empty and got deleted whole. A cross-domain grab bag shouldn't have a legitimate address.
 
-  # jobsuc —— J.2: jobs plugin usecases。J 期前住 usecases；搬过来后跟核
-  # 心 usecases 同款依赖集 (domain/postgres/cryptobox + jobfetch/jobcache)。
-  # 依赖核心 usecases 是因为复用 ErrEmptyField 这种通用 sentinel；后续 J
-  # 期把 sentinel 抽到 domain 后可断这条。
+  # jobsuc — J.2: jobs plugin usecases. Lived in usecases before the J phase; after the move it shares
+  # the same dependency set as core usecases (domain/postgres/cryptobox + jobfetch/jobcache).
+  # It depends on core usecases because it reuses the ErrEmptyField sentinel and others like it; once a
+  # later J phase pulls the sentinels out into domain, this dependency can be cut.
   jobsuc:
     mayDependOn:
       - jobsdb
@@ -634,15 +660,15 @@ deps:
       - apierr
     anyVendorDeps: true
 
-  # jobdedup —— J.6c: cross-source dedup (canonical URL + composite key)。
-  # 纯函数；只依赖 domain.FetchedJob shape。
+  # jobdedup — J.6c: cross-source dedup (canonical URL + composite key).
+  # Pure function; depends only on the domain.FetchedJob shape.
   jobdedup:
     mayDependOn:
       - jobsmodel
     anyVendorDeps: true
 
-  # jobsmcp —— J.3: jobs plugin MCP capabilities + result wire views。
-  # 跨 capreg 注册到核心 Registry；依赖 jobsuc 拿 *Deps。
+  # jobsmcp — J.3: jobs plugin MCP capabilities + result wire views.
+  # Registers to the core Registry via capreg; depends on jobsuc for *Deps.
   jobsmcp:
     mayDependOn:
       - owner
@@ -652,14 +678,14 @@ deps:
       - jobsuc
     anyVendorDeps: true
 
-  # mcputil —— shared owner-MCP result marshaller. Leaf: only capreg (for MCPResult).
+  # mcputil — shared owner-MCP result marshaller. Leaf: only capreg (for MCPResult).
   mcputil:
     mayDependOn:
       - capreg
     anyVendorDeps: true
 
-  # jobsadmin —— J.4: jobs plugin admin REST routes (drafts / applications list)。
-  # 自包响应 helpers (writeServerErr / nullTime)，不抄 adminroutes 的 Handlers。
+  # jobsadmin — J.4: jobs plugin admin REST routes (drafts / applications list).
+  # Carries its own response helpers (writeServerErr / nullTime), doesn't copy adminroutes' Handlers.
   jobsadmin:
     mayDependOn:
       - jobsmodel
@@ -668,38 +694,38 @@ deps:
       - jobsuc
     anyVendorDeps: true
 
-  # 依赖 domain 是因为它要 marshal 真实 domain 结构（不糊弄成 []byte）。
+  # Depends on domain because it needs to marshal the real domain structure (not fudged into []byte).
   jobcache:
     mayDependOn:
       - jobsmodel
     anyVendorDeps: true
 
-  # jobfetch —— 6+ 个 source adapter（Greenhouse / Lever / Ashby / RemoteOK
-  # / WWR / HN / SmartRecruiters / Workable）。纯外部 HTTP，依赖 domain 是
-  # 为了返回 FetchedJob。各 adapter 的 base URL 可被 env 覆写（e2e mock）。
+  # jobfetch — 6+ source adapters (Greenhouse / Lever / Ashby / RemoteOK / WWR / HN / SmartRecruiters /
+  # Workable). Pure outbound HTTP; depends on domain only to return a FetchedJob. Each adapter's base URL
+  # can be overridden by env (e2e mock).
   jobfetch:
     mayDependOn:
       - jobsmodel
       - httpx
       - textcut
-      # plaintext —— 板子交回来的是 HTML（greenhouse 还是双重转义的）。title 会印在
-      # /admin/listings 上、body_text 会喂给 owner 的模型，两处都要文字不要标记（F-E-7）。
+      # plaintext — what the board hands back is HTML (Greenhouse's is even double-escaped). The title
+      # gets printed on /admin/listings, body_text gets fed to the owner's model — both spots want text,
+      # not markup (F-E-7).
       - plaintext
     anyVendorDeps: true
 
-  # gotenberg —— thin HTTP client for the Gotenberg sidecar (headless
-  # Chromium PDF rendering). usecases.PDFRenderer 接口的 v1 实现。
-  # 不依赖 domain / postgres —— 调 RenderURL(printURL) 就完事；wireup 里
-  # 通过 adapter 把 *domain.Application + qrURL 编码进 print URL。
+  # gotenberg — thin HTTP client for the Gotenberg sidecar (headless
+  # Chromium PDF rendering). The v1 implementation of the usecases.PDFRenderer interface.
+  # Doesn't depend on domain / postgres — calling RenderURL(printURL) is the whole job; the wireup
+  # encodes *domain.Application + qrURL into the print URL via an adapter.
   gotenberg:
     mayDependOn:
       - httpx
     anyVendorDeps: true
 
-  # printsess —— Redis 60s 一次性 stash，存放 gotenberg 取走的 resume
-  # 渲染 payload (application + qrURL)。
-  # sys routes 读它（/internal/print-session/{token}），wireup 里 gotenberg
-  # adapter 写它。
+  # printsess — a Redis 60s one-shot stash holding the resume render payload (application + qrURL) that
+  # gotenberg fetches.
+  # sys routes read it (/internal/print-session/{token}), the gotenberg adapter in the wireup writes it.
   printsess:
     mayDependOn:
       - jobsmodel
@@ -716,7 +742,7 @@ deps:
       - statsrepo
       - statsops
     anyVendorDeps: true
-  # statsops —— 本域对外的操作声明。只认本域的实现 + 中立词汇,不认识任何面。
+  # statsops — this domain's outward operation declarations. Knows only this domain's implementation + neutral vocabulary, no face.
   statsops:
     mayDependOn:
       - statsentity
@@ -731,11 +757,11 @@ deps:
       - statsentity
       - statsdb
       - pgstore
-      # periodic —— 清 inference_usage 老行是本域的周期任务;调度和簿记归宿主。
+      # periodic — cleaning up old inference_usage rows is this domain's own periodic task; scheduling and bookkeeping belong to the host.
       - periodic
     anyVendorDeps: true
 
-  # security —— #135 请求级防护域模块(full vertical)：BannedIP entity + repo + captcha verifier。
+  # security — #135 request-level protection domain module (full vertical): BannedIP entity + repo + captcha verifier.
   securityban:
     mayDependOn:
       - pgstore
@@ -745,7 +771,7 @@ deps:
     mayDependOn:
       - httpx
     anyVendorDeps: true
-  # securityops —— 本域对外的操作声明（id/schema/reach/实现）。只认本域的实现 + 中立词汇。
+  # securityops — this domain's outward operation declarations (id/schema/reach/impl). Knows only this domain's implementation + neutral vocabulary.
   securityops:
     mayDependOn:
       - securityban
@@ -759,13 +785,13 @@ deps:
       - pgstore
     anyVendorDeps: true
 
-  # jobsmodel —— #135 jobs 领域值对象 leaf：依赖 access（CommittedApplication 内嵌 AccessCode）。
+  # jobsmodel — #135 jobs domain value-object leaf: depends on access (CommittedApplication embeds AccessCode).
   jobsmodel:
     mayDependOn:
       - access
     anyVendorDeps: true
 
-  # conversation —— #135 conversation 领域值对象：Citation.Genre = corpus.DocumentGenre。
+  # conversation — #135 conversation domain value objects: Citation.Genre = corpus.DocumentGenre.
   conversation:
     mayDependOn:
       - conversationentity
@@ -773,7 +799,7 @@ deps:
       - conversationusecase
       - conversationops
     anyVendorDeps: true
-  # conversationops —— 本域对外的操作声明。逐字稿要回读被引条目的正文，所以经 corpus 的正门。
+  # conversationops — this domain's outward operation declarations. A transcript needs to read back the cited entry's body, so it goes through corpus's front door.
   conversationops:
     mayDependOn:
       - conversationentity
@@ -781,8 +807,9 @@ deps:
       - conversationusecase
       - corpus
       - facadeparity
-      # hostop / inference —— 本域也开着入站那半边：沙箱能力经收口读逐字稿、借 owner 的模型
-      # 生成、把报告交回来存。域说得出这几件事，才不必让组装根替它写一个网关。
+      # hostop / inference — this domain also has the inbound half open: a sandbox capability reads a
+      # transcript through convergence, generates via the owner's model, hands the report back to be
+      # stored. The domain can say all this itself so the composition root doesn't have to write it a gateway.
       - hostop
       - inference
     anyVendorDeps: true
@@ -812,7 +839,7 @@ deps:
       - apierr
     anyVendorDeps: true
 
-  # corpus —— #135 corpus 域(facade + DDD guts)。facade 只依赖自己的 guts;guts 分层无环。
+  # corpus — #135 corpus domain (facade + DDD guts). The facade depends only on its own guts; the guts are layered with no cycles.
   corpus:
     mayDependOn:
       - corpusentity
@@ -821,8 +848,9 @@ deps:
       - corpusops
       - corpusi18n
     anyVendorDeps: true
-  # corpusops —— 本域对外的操作声明。它在域里(而不是在收口里)，所以域说得出自己会什么；
-  # 它只认本域的用例 + 中立词汇，不认识任何面。
+  # corpusops — this domain's outward operation declarations. It lives inside the domain (not at the
+  # convergence point), so the domain can say what it can do itself; it knows only this domain's usecases
+  # + neutral vocabulary, no face.
   corpusops:
     mayDependOn:
       - corpusentity
@@ -836,12 +864,12 @@ deps:
     mayDependOn:
       - connector
     anyVendorDeps: true
-  # corpusi18n —— 纯文本函数(一条笔记的多语结构),不认识仓储、面、也不认识别的域。
-  # 四个消费方(MCP 写入 / check 工具 / vault 同步 / 读者页)都只调它,所以它谁都不能依赖。
+  # corpusi18n — a pure text function (one note's multi-language structure); knows no repository, no face, no other domain.
+  # All four consumers (MCP writes / check tools / vault sync / reader page) call only this, so it can depend on none of them.
   corpusi18n:
     mayDependOn: []
     anyVendorDeps: true
-  # builtincaps —— 只有数据(manifest)+ 一个解析成 mcpplugin.Manifest 的装载器。
+  # builtincaps — only data (a manifest) + a loader that parses into mcpplugin.Manifest.
   builtincaps:
     mayDependOn:
       - mcpplugin
@@ -852,7 +880,7 @@ deps:
       - corpusdb
       - connector
       - pgstore
-      # textcut —— raw 的派生 title 按字符截断;按字节切会让 postgres 拒掉整条写入。
+      # textcut — raw's derived title is truncated by character; truncating by byte would make postgres reject the whole write.
       - textcut
     anyVendorDeps: true
   corpususecase:
@@ -862,21 +890,21 @@ deps:
       - search
       - access
       - corpusi18n
-      # hostop 取代了 capsocket：本域声明的是"我开了读语料这七件事"，不是"我挂在哪根 socket 上"。
+      # hostop replaces capsocket: this domain declares "I offer these seven corpus-reading things", not "I'm mounted on this socket".
       - hostop
-      # periodic —— Meili 恢复后的 reconcile 是本域的周期任务；调度和簿记归宿主。
+      # periodic — reconciling after Meili recovers is this domain's periodic task; scheduling and bookkeeping belong to the host.
       - periodic
       - apierr
       - pgstore
       - storage
-      # httpx —— 按 owner 给的 https 地址取回一份素材。出站 HTTP 一律经 httpx
-      # (retry + timeout + egress 封锁);这条尤其要,因为地址是 owner 递进来的。
+      # httpx — fetches a piece of media from the https address the owner gave. All outbound HTTP goes
+      # through httpx (retry + timeout + egress lockdown); this one especially, since the address came from the owner.
       - httpx
-      # textcut —— path 段和 lead line 的截断;同 corpusrepo 的理由。
+      # textcut — truncation of the path segment and the lead line; same reasoning as corpusrepo.
       - textcut
     anyVendorDeps: true
 
-  # access —— #135 access 域(facade + DDD guts)。facade 只依赖自己的 guts;guts 分层无环。
+  # access — #135 access domain (facade + DDD guts). The facade depends only on its own guts; the guts are layered with no cycles.
   access:
     mayDependOn:
       - accessentity
@@ -884,7 +912,7 @@ deps:
       - accessusecase
       - accessops
     anyVendorDeps: true
-  # accessops —— 本域对外的操作声明（id/schema/reach/实现）。只认本域的用例 + 中立词汇。
+  # accessops — this domain's outward operation declarations (id/schema/reach/impl). Knows only this domain's usecases + neutral vocabulary.
   accessops:
     mayDependOn:
       - accessentity
@@ -901,17 +929,17 @@ deps:
       - accessentity
       - accessdb
       - pgstore
-      - cryptobox        # 每-embed Ed25519 密钥生成（embed 防盗凭据）
+      - cryptobox        # per-embed Ed25519 keypair generation (embed-piracy protection)
     anyVendorDeps: true
   accessusecase:
     mayDependOn:
       - accessentity
       - accessrepo
       - apierr
-      - cryptobox        # 验 embed JWT 时解公钥（ParseEd25519Public）
+      - cryptobox        # unwraps the public key when verifying an embed JWT (ParseEd25519Public)
     anyVendorDeps: true
 
-  # owner —— #135 owner 模块：实体 + repo（连接器 OwnerLookup 消费 owner.Owner）。
+  # owner — #135 owner module: entity + repo (the connector's OwnerLookup consumes owner.Owner).
   owner:
     mayDependOn:
       - ownerentity
@@ -920,8 +948,9 @@ deps:
       - ownerops
       - corpusi18n
     anyVendorDeps: true
-  # ownerops —— 本域对外的操作声明。只认本域的用例 + 中立词汇,不认识任何面。
-  # 两个方向的词汇都在这儿:facadeparity 是出站的,hostop 是入站的(沙箱读 owner 的白名单字段)。
+  # ownerops — this domain's outward operation declarations. Knows only this domain's usecases + neutral
+  # vocabulary, no face. Vocabulary for both directions lives here: facadeparity is outbound, hostop is
+  # inbound (a sandbox reads the owner's allowlisted fields).
   ownerops:
     mayDependOn:
       - ownerentity
@@ -930,11 +959,13 @@ deps:
       - facadeparity
       - hostop
       - apierr
-      # 跨域资源由**能 import 另一边**的那个域声明，都只经对方的正门：
-      # access_requests（数据在 access，批准闭环在本域）、seo（条目在 corpus，摘 pin 在本域）。
+      # a cross-domain resource is declared by whichever domain **can import the other side**, always
+      # through the other's front door: access_requests (data lives in access, the approval loop closes
+      # in this domain), seo (entries live in corpus, this domain picks the pins).
       - access
       - corpus
-      # 出站通道没配好要能说清是"去配一下"，那个哨兵在连接器消费侧。
+      # if the outbound channel isn't configured, it needs to be able to say "go configure it" — that
+      # sentinel lives on the connector consumer side.
       - connectorconsumer
     anyVendorDeps: true
   ownerentity:
@@ -974,7 +1005,7 @@ deps:
       - marketplaceusecase
       - marketplaceops
     anyVendorDeps: true
-  # marketplaceops —— 本域对外的操作声明。只认本域的实现 + 中立词汇,不认识任何面。
+  # marketplaceops — this domain's outward operation declarations. Knows only this domain's implementation + neutral vocabulary, no face.
   marketplaceops:
     mayDependOn:
       - marketplaceentity
@@ -1002,22 +1033,23 @@ deps:
     anyVendorDeps: true
 
 
-  # cryptobox 是无依赖的 AES-GCM helper；任何 internal 包可以 import 来落盘
-  # 加密。本身只读 INSTANCE_SECRET env，不绕回任何 internal 模块。
+  # cryptobox is a dependency-free AES-GCM helper; any internal package can import it to encrypt at
+  # rest. It only reads the INSTANCE_SECRET env itself, doesn't route back through any internal module.
   cryptobox:
     mayDependOn: []
     anyVendorDeps: true
 
-  # capstore —— per-plugin 隔离文档存储（每 connector/mcp 一 schema）。leaf：只依赖 pgx，
-  # 不绕回任何 internal 业务模块。schema 名从 host 可信 (kind,id) 推 + DROP 守卫见包内。
+  # capstore — per-plugin isolated document storage (one schema per connector/mcp). Leaf: depends only on
+  # pgx, doesn't route back through any internal business module. The schema name derives from the
+  # host-trusted (kind,id); the DROP guard lives inside the package.
   capstore:
-    mayDependOn: []   # #135: socket.go(capstore.* host op)已移到 internal/routes/capstore;本包回归纯 leaf
+    mayDependOn: []   # #135: socket.go (the capstore.* host op) moved to internal/routes/capstore; this package is back to a pure leaf
     anyVendorDeps: true
 
 
-  # sys routes (/internal/healthz, tls-ask, log, builds) 需要 ping db / redis
-  # 所以可以 import postgres。redis 客户端是 vendor。domain 也用得到：
-  # /internal/builds/claim 在 no-pending 时返 ErrCustomPageBuildNotFound。
+  # sys routes (/internal/healthz, tls-ask, log, builds) need to ping db / redis
+  # so it can import postgres. The redis client is vendor. domain is used too:
+  # /internal/builds/claim returns ErrCustomPageBuildNotFound when there's nothing pending.
   sysroutes:
     mayDependOn:
       - owner
@@ -1026,24 +1058,24 @@ deps:
       - session
       - capreg
       - sandboxws
-      - connectorcontract  # #155 连接器 diag：CalendarProxy/DTO 类型契约
-      - middleware  # #155 连接器 diag：owner id 从 context（middleware.OwnerIDFrom）
+      - connectorcontract  # #155 connector diag: CalendarProxy/DTO type contract
+      - middleware  # #155 connector diag: owner id from context (middleware.OwnerIDFrom)
       - access
       - pgstore
     anyVendorDeps: true
 
-  # sandboxws —— per-session 沙箱工作区生命周期 leaf：纯 stdlib (os/filepath/sync/time)。
+  # sandboxws — per-session sandbox workspace lifecycle leaf: pure stdlib (os/filepath/sync/time).
   sandboxws:
     mayDependOn:
-      - periodic # 过期工作区的清扫是本子系统自己的声明,不是组装根的 cron
+      - periodic # sweeping expired workspaces is this subsystem's own declaration, not the composition root's cron
     anyVendorDeps: true
 
-  # admin routes (/api/admin/*) 派发到 usecases；handler 自己 cyclo ≤3。
-  # 需要 domain（sentinel errors 翻译）+ session（first-run.txt 清理 / cookie 名）
-  # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
+  # admin routes (/api/admin/*) dispatch to usecases; each handler keeps its own cyclo ≤3.
+  # Needs domain (translating sentinel errors) + session (first-run.txt cleanup / cookie name)
+  # + usecases + apierr (error envelope) + middleware (ctx key + cookie name).
   adminroutes:
     mayDependOn:
-      - dispatcher      # admin 面的能力只能从出站收口 wire（路由形状仍手写）
+      - dispatcher      # admin-face capabilities can only be wired from outbound convergence (the route shape is still hand-written)
       - conversation
       - connector
       - owner
@@ -1056,17 +1088,17 @@ deps:
       - middleware
       - storage
       - connectorconsumer
-      - inference   # /ai-provider/presets 暴露 preset 表给 admin UI
-      - connectorcontract # #135 Slice 5: /connectors/mail 凭据表单 + 测试发信走 MailProxy 契约
-      - capreg      # Phase H /capabilities：列 registry origin + owner-enable 开关
+      - inference   # /ai-provider/presets exposes the preset table to the admin UI
+      - connectorcontract # #135 Slice 5: /connectors/mail credential form + test-send go through the MailProxy contract
+      - capreg      # Phase H /capabilities: lists registry origin + the owner-enable toggle
       - stats       # #135 /stats/*: Monitor activity/growth/graph/jobs value objects
       - security    # #135 /ip-bans: BannedIP value object
-      - depcheck    # 启动时查 buildAdminHandlers 那份手抄的依赖表有没有漏行
+      - depcheck    # checks at startup whether buildAdminHandlers' hand-copied dependency table has a missing row
     anyVendorDeps: true
 
-  # obsidian —— Obsidian vault 双向 sync 子用例：frontmatter codec / image
-  # ref rewriter / zip export / multipart import。靠 usecases.SavePost 走
-  # 那条 atomic asset 路径，所以单向依赖 usecases；不被 usecases 反向 import。
+  # obsidian — Obsidian vault two-way sync sub-usecase: frontmatter codec / image
+  # ref rewriter / zip export / multipart import. Rides usecases.SavePost's atomic-asset path,
+  # so it depends one-way on usecases; usecases never imports it back.
   obsidian:
     mayDependOn:
       - corpus
@@ -1074,8 +1106,8 @@ deps:
       - corpusi18n
     anyVendorDeps: true
 
-  # public routes (/api/v1/*) —— SDK + visitor 落地点；走 visitor session
-  # token bearer auth；SSE 流式 chat。
+  # public routes (/api/v1/*) — the landing point for the SDK + visitors; runs on visitor session
+  # token bearer auth; SSE streaming chat.
   publicroutes:
     mayDependOn:
       - conversation
@@ -1085,13 +1117,13 @@ deps:
       - session
       - inference
       - apierr
-      - capreg # D-2: /api/v1/sessions 返 capability_state + part_ids，读 Registry
-      - cryptobox   # BYOAI envelope (HKDF + AES-GCM) 解封 X-BYOAI-Key header
-      - httpx   # #132 /api/v1 inference-models 列表探测走统一 client
-      - providermodels   # 「这个端点有哪些模型」——访客带着自己的 key 问（F-R-11）
-      - gotenberg   # GET /report/{id}/pdf —— ErrNotConfigured sentinel + ReportPDFRenderer
-      - stats   # #106/#7 记一次用量:UsageRow(哪箱油、算不算油钱)是 stats 的词汇
-      - clientaddr   # conversations.client_ip 只收访客自己的地址，收不到就留空
+      - capreg # D-2: /api/v1/sessions returns capability_state + part_ids, reads the Registry
+      - cryptobox   # BYOAI envelope (HKDF + AES-GCM) unwraps the X-BYOAI-Key header
+      - httpx   # #132 /api/v1 inference-models listing probe goes through the unified client
+      - providermodels   # "which models does this endpoint have" — the visitor asks with their own key (F-R-11)
+      - gotenberg   # GET /report/{id}/pdf — ErrNotConfigured sentinel + ReportPDFRenderer
+      - stats   # #106/#7 records one usage event: UsageRow ("which tank of gas, does it count against the budget") is stats' vocabulary
+      - clientaddr   # conversations.client_ip only takes the visitor's own address; leaves it blank if it can't get one
     anyVendorDeps: true
 
   # pubapi —— API-key facade. Reuses the visitor assembly (capreg) + usecases; whitelists non-Agentic
@@ -1106,29 +1138,31 @@ deps:
       - paritymanifest
     anyVendorDeps: true
 
-  # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
+  # cmd/ is the composition root — the one place allowed to cross all layers.
   cmd:
     mayDependOn:
-      # providermodels —— owner 那颗 "load models"：根这一侧开封库里那把 key 再去问端点。
-      # 访客那面用同一份（key 跟着请求走），所以它住在 infra 而不是任何一个域里（F-R-11）。
+      # providermodels — the owner's "load models" button: the root side unlocks the vault's own key and asks the endpoint.
+      # The visitor face uses the same code (the key travels with the request), so it lives in infra rather than any one domain (F-R-11).
       - providermodels
       - cmddeps
       - cmdport
       - cmdaxisconn
       - cmdaxiscap
       - cmdwire
-      # clientaddr —— 组装根把它挂在 chi.RealIP 之后：「来源地址是不是访客自己的」只在那儿判一次。
+      # clientaddr — the composition root mounts it right after chi.RealIP: "is the source address the visitor's own" is decided exactly once there.
       - clientaddr
-      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
-      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
-      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
-      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
-      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
-      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
+      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
+      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
+      - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
+      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
       - paritymanifest
-      # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
-      # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
-      # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。
+      # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
+      # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
+      # category the convergence point understands (dispatcher.BadInput). That translation has to live at
+      # the composition root: the convergence point imports neither the domain nor apierr, and a domain
+      # doesn't know HTTP status codes.
       - apierr
       - middleware
       - capload
@@ -1141,12 +1175,13 @@ deps:
       - pubapi
       - connectorroutes
       - capstoreroutes
-      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
-      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
-      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
+      # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
+      # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
+      # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
       - hostdesk
       - hostop
-      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      # periodic — the composition root gathers periodic tasks declared everywhere into a **single** schedule (same reasoning as the two convergence points).
       - periodic
       - mcphandle
       - inference
@@ -1155,7 +1190,7 @@ deps:
       - jobsuc
       - gotenberg
       - connector
-      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
+      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
       - connectorbuiltins
       - capabilitybuiltins
       - printsess
@@ -1184,21 +1219,24 @@ deps:
       - pgstore
     anyVendorDeps: true
 
-  # 组装根内部那五个包。层次上跟 cmd 同权(都可跨层),彼此之间**单向**。
-  # cmddeps —— 它要各域的 facade 是因为字段类型就是那些域的对象。它**在组装根内部**是叶子:
-  # 下面四个包一个都不 import,所以方向立得住。
+  # The five packages inside the composition root. In layering terms they're on par with cmd (both may
+  # cross layers), and **one-way** among themselves.
+  # cmddeps — it needs each domain's facade because its field types are those domains' objects. It's a
+  # leaf **inside the composition root**: none of the four packages below import it, so the direction holds.
   cmddeps:
     mayDependOn:
-      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
-      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
-      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
-      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
-      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
-      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
+      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
+      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
+      - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
+      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
       - paritymanifest
-      # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
-      # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
-      # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。
+      # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
+      # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
+      # category the convergence point understands (dispatcher.BadInput). That translation has to live at
+      # the composition root: the convergence point imports neither the domain nor apierr, and a domain
+      # doesn't know HTTP status codes.
       - apierr
       - middleware
       - capload
@@ -1211,12 +1249,13 @@ deps:
       - pubapi
       - connectorroutes
       - capstoreroutes
-      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
-      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
-      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
+      # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
+      # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
+      # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
       - hostdesk
       - hostop
-      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      # periodic — the composition root gathers periodic tasks declared everywhere into a **single** schedule (same reasoning as the two convergence points).
       - periodic
       - mcphandle
       - inference
@@ -1225,7 +1264,7 @@ deps:
       - jobsuc
       - gotenberg
       - connector
-      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
+      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
       - connectorbuiltins
       - capabilitybuiltins
       - printsess
@@ -1257,20 +1296,24 @@ deps:
   cmdport:
     mayDependOn:
       - cmddeps
-      # httpx —— 组装根实现窄口时也会打出站请求（升级检查问镜像库、重新部署打 owner 给的
-      # 那个 hook）。构造 http.Client 只允许经 httpx（no-raw-http 闸门管这个），所以这一侧
-      # 要看得见它；不给的话，唯一的出路是绕开那道闸门自己造一个裸 client。
+      # httpx — the composition root also fires outbound requests when implementing narrow ports (upgrade
+      # checks asking the image registry, redeploy hitting the hook the owner gave). Constructing an
+      # http.Client is only allowed through httpx (the no-raw-http gate enforces this), so this side
+      # needs to see it; without it the only way out would be to route around that gate and build a raw
+      # client itself.
       - httpx
-      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
-      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
-      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
-      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
-      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
-      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
+      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
+      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
+      - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
+      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
       - paritymanifest
-      # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
-      # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
-      # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。
+      # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
+      # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
+      # category the convergence point understands (dispatcher.BadInput). That translation has to live at
+      # the composition root: the convergence point imports neither the domain nor apierr, and a domain
+      # doesn't know HTTP status codes.
       - apierr
       - middleware
       - capload
@@ -1283,12 +1326,13 @@ deps:
       - pubapi
       - connectorroutes
       - capstoreroutes
-      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
-      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
-      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
+      # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
+      # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
+      # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
       - hostdesk
       - hostop
-      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      # periodic — the composition root gathers periodic tasks declared everywhere into a **single** schedule (same reasoning as the two convergence points).
       - periodic
       - mcphandle
       - inference
@@ -1297,7 +1341,7 @@ deps:
       - jobsuc
       - gotenberg
       - connector
-      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
+      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
       - connectorbuiltins
       - capabilitybuiltins
       - printsess
@@ -1330,16 +1374,18 @@ deps:
     mayDependOn:
       - cmddeps
       - cmdport
-      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
-      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
-      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
-      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
-      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
-      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
+      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
+      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
+      - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
+      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
       - paritymanifest
-      # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
-      # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
-      # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。
+      # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
+      # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
+      # category the convergence point understands (dispatcher.BadInput). That translation has to live at
+      # the composition root: the convergence point imports neither the domain nor apierr, and a domain
+      # doesn't know HTTP status codes.
       - apierr
       - middleware
       - capload
@@ -1352,12 +1398,13 @@ deps:
       - pubapi
       - connectorroutes
       - capstoreroutes
-      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
-      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
-      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
+      # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
+      # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
+      # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
       - hostdesk
       - hostop
-      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      # periodic — the composition root gathers periodic tasks declared everywhere into a **single** schedule (same reasoning as the two convergence points).
       - periodic
       - mcphandle
       - inference
@@ -1366,7 +1413,7 @@ deps:
       - jobsuc
       - gotenberg
       - connector
-      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
+      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
       - connectorbuiltins
       - capabilitybuiltins
       - printsess
@@ -1400,16 +1447,18 @@ deps:
       - cmddeps
       - cmdport
       - cmdaxisconn
-      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
-      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
-      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
-      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
-      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
-      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
+      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
+      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
+      - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
+      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
       - paritymanifest
-      # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
-      # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
-      # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。
+      # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
+      # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
+      # category the convergence point understands (dispatcher.BadInput). That translation has to live at
+      # the composition root: the convergence point imports neither the domain nor apierr, and a domain
+      # doesn't know HTTP status codes.
       - apierr
       - middleware
       - capload
@@ -1422,12 +1471,13 @@ deps:
       - pubapi
       - connectorroutes
       - capstoreroutes
-      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
-      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
-      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
+      # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
+      # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
+      # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
       - hostdesk
       - hostop
-      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      # periodic — the composition root gathers periodic tasks declared everywhere into a **single** schedule (same reasoning as the two convergence points).
       - periodic
       - mcphandle
       - inference
@@ -1436,7 +1486,7 @@ deps:
       - jobsuc
       - gotenberg
       - connector
-      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
+      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
       - connectorbuiltins
       - capabilitybuiltins
       - printsess
@@ -1471,16 +1521,18 @@ deps:
       - cmdport
       - cmdaxisconn
       - cmdaxiscap
-      - capconfig       # 组装根把「能力声明的配置」绑到它自己的隔离存储上
-      - capconfigroutes # 并把 capconfig.get 挂到该能力的 reach-back socket
-      - capquota        # 并按 manifest 的 Quota 声明装上闸 + 余量（一条计数两个出口）
-      - dispatcher      # 组装根建**唯一**一个出站收口，各个面从它投影
-      - facadeparity    # 各面的 parity 档案（Facade profile）在组装根声明
-      # paritymanifest —— "哪些能力可以开给 API 面" 是能力轴的知识，从这一侧注入给 access。
+      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
+      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
+      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
+      - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
+      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
       - paritymanifest
-      # apierr —— 组装根把域的适配成收口的窄口时，要把域的错误词汇（apierr.ErrEmptyField
-      # 这类哨兵）翻成收口认识的类别（dispatcher.BadInput）。这个翻译必须落在组装根：
-      # 收口不 import 域也不 import apierr，域不认识 HTTP 状态码。
+      # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
+      # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
+      # category the convergence point understands (dispatcher.BadInput). That translation has to live at
+      # the composition root: the convergence point imports neither the domain nor apierr, and a domain
+      # doesn't know HTTP status codes.
       - apierr
       - middleware
       - capload
@@ -1493,12 +1545,13 @@ deps:
       - pubapi
       - connectorroutes
       - capstoreroutes
-      # hostdesk —— 组装根建**唯一**一个入站收口，各能力的 socket 从它投影（跟 dispatcher 对称）。
-      # 原来这儿列着 ownerroutes / reportroutes / conversationroutes / inferenceroutes：组装根
-      # 自己去各个 controller 薄壳上挂动词，那正是四个手写网关的由来。
+      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
+      # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
+      # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
+      # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
       - hostdesk
       - hostop
-      # periodic —— 组装根把各处声明的周期任务汇给**唯一**一份调度（跟两个收口同理）。
+      # periodic — the composition root gathers periodic tasks declared everywhere into a **single** schedule (same reasoning as the two convergence points).
       - periodic
       - mcphandle
       - inference
@@ -1507,7 +1560,7 @@ deps:
       - jobsuc
       - gotenberg
       - connector
-      # 两根轴的内建**声明**都从各自的顶层目录读入，组装根只负责装配。
+      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
       - connectorbuiltins
       - capabilitybuiltins
       - printsess

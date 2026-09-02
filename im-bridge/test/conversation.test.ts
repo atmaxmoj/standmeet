@@ -1,14 +1,16 @@
-// conversation.test.ts —— 桥的核心：**一条私信 → 这张码的一轮**。
+// conversation.test.ts —— the bridge's core: **one direct message → one turn of this code**.
 //
-// 断的从来不是「IM 能收发消息」，而是「**它凭什么会跟别的面不一样**」——
-// 答案永远该是不会。所以每条用例都拿网页那条路当基准：同一份授权、同一套配额、
-// 同一句拒绝的话。
+// What's under test is never "can IM send and receive messages", it's "**what would ever
+// justify it being different from any other surface**" — the answer should always be nothing.
+// So every case uses the web path as the baseline: the same authorization, the same quota,
+// the same refusal wording.
 //
-// 这一层不需要任何聊天平台在场：平台那半边由 Chat SDK 的适配器负责，
-// 核心只跟 `@standmeet/sdk-core` 打交道，而它是可以替身的。
+// This layer doesn't need any chat platform present: the platform half is the Chat SDK
+// adapter's job, the core only talks to `@standmeet/sdk-core`, which can be stood in for.
 //
-// ⚠️ 但**替身一定比真平台客气**：消息长度上限、限流、markdown 方言，它一概不管。
-// 所以这一组证的是**我们的逻辑**，不是平台行为 —— 后者归真实环境那一趟。
+// ⚠️ But **a stand-in is always politer than the real platform**: message length caps,
+// rate limits, markdown dialects — it doesn't enforce any of that.
+// So this suite proves **our logic**, not platform behavior — that belongs to the real-env pass.
 
 import { describe, expect, it } from 'vitest';
 
@@ -17,7 +19,7 @@ import { memorySessions } from '../src/sessions.js';
 
 interface Issued { code: string; visitor_name?: string }
 
-/** rig —— 一个假的 StandMeet 客户端 + 一份内存便签，外加这一趟发生了什么的记录。 */
+/** rig —— a fake StandMeet client + an in-memory sticky note, plus a record of what happened this run. */
 function rig(opts: {
   answer?: string;
   issueErr?: unknown;
@@ -43,7 +45,7 @@ function rig(opts: {
     },
   };
   const sessions = memorySessions();
-  // 这个替身只实现桥用到的那几个方法 —— 断言要的是行为，不是接口完整性。
+  // This stand-in implements only the few methods the bridge actually uses — the assertions want behavior, not interface completeness.
   const deps = { client, sessions } as unknown as Deps;
   return { deps, issued, asked, sessions };
 }
@@ -55,7 +57,7 @@ describe('一条私信是那张码的又一个渲染', () => {
     const t = rig();
     const reply = await handleDirectMessage(t.deps, { ...RAE, text: 'hey there' });
     expect(reply).toBe(ASK_FOR_CODE);
-    // **一次都不许发** —— 这是那道门本身。
+    // **must not send even once** —— this is the gate itself.
     expect(t.issued, 'no code must not open a session').toHaveLength(0);
   });
 
@@ -64,7 +66,7 @@ describe('一条私信是那张码的又一个渲染', () => {
     const reply = await handleDirectMessage(t.deps, { ...RAE, text: '/start ROOM-001' });
     expect(t.issued).toEqual([{ code: 'ROOM-001', visitor_name: 'Rae' }]);
     expect(reply).toMatch(/you're in/i);
-    // 只有码那一句不该被当成提问 —— 否则他会收到一句对着码本身的回答。
+    // A message that's only the code should never be treated as a question — otherwise he'd get back an answer aimed at the code itself.
     expect(t.asked, 'a bare code is not a question').toHaveLength(0);
   });
 
@@ -73,7 +75,7 @@ describe('一条私信是那张码的又一个渲染', () => {
     const reply = await handleDirectMessage(t.deps,
       { ...RAE, text: 'ROOM-001 how do you price things?' });
     expect(t.issued).toHaveLength(1);
-    // 吞掉的话，人得把刚打过的问题再打一遍 —— 而他不知道为什么要重打。
+    // If it got swallowed, he'd have to retype the question he just typed — with no idea why he has to.
     expect(t.asked, 'the question rides along with the code')
       .toEqual(['ROOM-001 how do you price things?']);
     expect(reply).toBe('we price by outcome.');
@@ -94,7 +96,7 @@ describe('一条私信是那张码的又一个渲染', () => {
         { status: 401 }),
     });
     const reply = await handleDirectMessage(t.deps, { ...RAE, text: 'NOPE-999' });
-    // 这一面没有界面，那句话就是他能拿到的全部。换成「出错了」等于把出路一起拿走。
+    // There's no UI on this surface — that sentence is the entirety of what he gets. Swapping it for "something went wrong" also takes away his way out.
     expect(reply).toMatch(/no such access code/i);
   });
 
@@ -118,7 +120,7 @@ describe('一条私信是那张码的又一个渲染', () => {
     await handleDirectMessage(t.deps, { ...RAE, text: 'ROOM-001' });
     const reply = await handleDirectMessage(t.deps, { ...RAE, text: 'still there?' });
     expect(reply).toMatch(/revoked/i);
-    // 留着死 session 的话，他每问一句都撞同一堵墙，而且看不出该怎么办。
+    // If the dead session were kept, every question he asks would hit the same wall, with no way to see what to do about it.
     expect(await t.sessions.get(RAE.userID), 'a revoked ticket is dropped')
       .toBeUndefined();
   });

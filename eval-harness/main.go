@@ -6,7 +6,7 @@
 // imports only the public facade github.com/atmaxmoj/standmeet/agentcore. It
 // builds a Cred + AgentTurnInput, injects a transcript AgentSink, and runs
 // the exact same eino ADK loop the HTTP path (RunAgentTurn) runs — so the
-// transcript reflects真实 prod behaviour, not a re-implementation.
+// transcript reflects real prod behaviour, not a re-implementation.
 //
 // Two modes:
 //   - ad-hoc:   flags (--system/--user/--tools …) drive one turn. Used by
@@ -29,8 +29,8 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
-// evalLogLevel —— 循环日志的级别。默认 warn（transcript 那条路不要噪音）；
-// EVAL_LOG_LEVEL=info 时放开 Info，工具那两行才落得进 stderr。
+// evalLogLevel —— the loop's log level. Defaults to warn (the transcript path
+// wants no noise); EVAL_LOG_LEVEL=info opens up Info so the two tool lines land in stderr.
 func evalLogLevel() slog.Level {
 	if os.Getenv("EVAL_LOG_LEVEL") == "info" {
 		return slog.LevelInfo
@@ -38,8 +38,9 @@ func evalLogLevel() slog.Level {
 	return slog.LevelWarn
 }
 
-// printMarker —— 把内核那句日志原样打出来给 shell 断言用。名字不认识 → 报错退出,
-// 而不是打个空串让 grep 匹配一切。
+// printMarker —— print the kernel's log line verbatim for a shell assertion to grep.
+// An unrecognized name → error and exit, instead of printing an empty string that
+// grep would match against anything.
 func printMarker(name string) int {
 	if name != "compaction" {
 		fmt.Fprintf(os.Stderr, "unknown marker %q (have: compaction)\n", name)
@@ -79,10 +80,12 @@ func main() {
 	// Loop diagnostics go to stderr (warn+); the transcript owns stdout so it
 	// stays clean for assertion.
 	//
-	// EVAL_LOG_LEVEL=info 放开循环里那些 Info 行（`agent tool start` / `agent tool done`）。
-	// 为什么需要它：压缩那行走 slog.Default()，工具那两行走这个 logger —— warn 级下只有前者
-	// 落进 stderr，于是「工具跑没跑、跟压缩谁先谁后」在日志里根本看不出来。compaction 用例的
-	// 工具腿判的正是这个顺序（[[no-diagnosis-by-experiment]]：要么看日志，要么别推理）。
+	// EVAL_LOG_LEVEL=info opens up the loop's Info lines (`agent tool start` / `agent tool done`).
+	// Why it's needed: the compaction line goes through slog.Default(), the two tool lines go
+	// through this logger — at warn level only the former lands in stderr, so whether a tool ran
+	// and its ordering against compaction is invisible in the log. The compaction test case's
+	// tool-leg assertion judges exactly this ordering ([[no-diagnosis-by-experiment]]: either
+	// read the log, or don't reason about it at all).
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: evalLogLevel()}))
 	cred := agentcore.Cred{Provider: *provider, Key: *key, Endpoint: *endpoint, Model: *model}
 	// Transparency: show which LLM this run hits (never the key) so real-vs-mock

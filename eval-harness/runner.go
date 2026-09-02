@@ -79,8 +79,9 @@ func scenarioInput(sc *Scenario, cred *agentcore.Cred) *agentcore.AgentTurnInput
 		},
 		Mode: mode,
 	}
-	// doc_context(#36):访客当前 doc → backend 注进 instruction 解析指代。字段类型
-	// 在 internal/,eval 不能 naming;直接赋构造函数结果(类型由字段推断)。
+	// doc_context(#36): the visitor's current doc → backend injects it into the instruction
+	// for reference resolution. The field type lives in internal/, eval cannot name it;
+	// assign the constructor's result directly (the type is inferred from the field).
 	if d := sc.DocContext; d != nil {
 		in.Req.DocContext = agentcore.NewAgentDocContext(d.Title, d.Path, d.Genre)
 	}
@@ -98,7 +99,7 @@ func scenarioInput(sc *Scenario, cred *agentcore.Cred) *agentcore.AgentTurnInput
 	return in
 }
 
-// scenarioWaypoints —— ScenarioWaypoint → BuildGhostPolicy 入参(waypoints + visited id 列表)。
+// scenarioWaypoints —— ScenarioWaypoint → BuildGhostPolicy's input (waypoints + visited id list).
 func scenarioWaypoints(in []ScenarioWaypoint) ([]agentcore.Waypoint, []string) {
 	wps := make([]agentcore.Waypoint, 0, len(in))
 	visited := make([]string, 0, len(in))
@@ -114,8 +115,9 @@ func scenarioWaypoints(in []ScenarioWaypoint) ([]agentcore.Waypoint, []string) {
 	return wps, visited
 }
 
-// scriptGhost —— 给 mock 排一条 ghost-policy 回复(mock 认 prompt 里的 "ONE GHOST MESSAGE" → 回这条)。
-// 只在 expect emitted 时排;silence 场景靠 unvisited-gate 短路(全 visited → 不调 LLM),无需排。
+// scriptGhost —— schedules a ghost-policy reply for the mock (the mock matches "ONE GHOST
+// MESSAGE" in the prompt → returns this). Only scheduled when expect emitted; silence
+// scenarios short-circuit via the unvisited-gate (all visited → no LLM call), no need to schedule.
 func scriptGhost(endpoint string, sc *Scenario) error {
 	if sc.ExpectGhost == nil || !sc.ExpectGhost.Emitted {
 		return nil

@@ -1,22 +1,33 @@
 #!/usr/bin/env sh
-# check-no-native-file-input —— 选文件的按钮必须是这个产品画的，不是操作系统画的。
+# check-no-native-file-input —— the file-picker button must be drawn by this
+# product, not by the operating system.
 #
-# 为什么这条闸门存在（UX-81）：`<input type="file">` 会自己画一个 `Choose File / No file chosen`。
-# 它的长相由**操作系统**决定 —— 跟奶油纸 + 朱红 + mono 那套语言毫无关系。在连接器弹窗里它是
-# 整扇窗唯一没被设计过的控件，就贴在被设计过的按钮旁边。
+# Why this gate exists (UX-81): `<input type="file">` draws its own
+# `Choose File / No file chosen`. Its look is decided by the **operating
+# system** — nothing to do with the cream-paper + vermillion + mono
+# language. In the connector modal it's the one control in the whole window
+# that was never designed, sitting right next to buttons that were.
 #
-# 真正的账在后面：修完那一处之后，同样的东西还站在另外两个地方（wiki 条目的 FILES 行、
-# writing 的封面图）—— **一条教训只修了发现它的那一处**（[[lesson-not-swept-to-neighbours]]）。
-# 所以这里锁的不是「记得把它藏起来」，而是「藏不起来就写不出来」：
-# 唯一的写法是 FilePicker atom（[[structure-means-no-responsibility-class]]）。
+# The real cost showed up later: after fixing that one spot, the same thing
+# was still standing in two other places (the wiki entry's FILES row, a
+# writing's cover image) — **one lesson only got applied where it was first
+# found** ([[lesson-not-swept-to-neighbours]]). So what this locks down isn't
+# "remember to hide it" but "if you can't hide it, you can't write it": the
+# only legal way to write one is the FilePicker atom
+# ([[structure-means-no-responsibility-class]]).
 #
-# **判定的形状**：`type="file"` 那一行往后 6 行内，必须出现 `sr-only` 或 `className="hidden"`。
-# 视觉上藏起来的原生 input 是**正当写法** —— ObsidianBar 的 vault 目录选择就是这样：input 藏着，
-# 旁边站一个真正的 Btn。这条规矩管的是**看得见的原生控件**，不是「必须用某个组件」。
-# 划在「看不看得见」而不是「是不是 FilePicker」，是为了不把 webkitdirectory 那种正当用法逼去
-# 更糟的地方（[[gate-scope-forces-architecture]]）。
+# **Shape of the check**: within 6 lines after a `type="file"` line, either
+# `sr-only` or `className="hidden"` must appear.
+# A native input hidden visually is **the legitimate way to do it** —
+# ObsidianBar's vault-directory picker works exactly like this: the input is
+# hidden, and a real Btn sits next to it. This rule governs **a visible
+# native control**, not "you must use a specific component". It's drawn on
+# "visible or not" rather than "is it a FilePicker" so a legitimate use like
+# webkitdirectory isn't pushed somewhere worse
+# ([[gate-scope-forces-architecture]]).
 #
-# 自证：种一个裸的必须判红；种一个 sr-only 的和一个 className="hidden" 的都必须放过。
+# Self-test: plant a bare one, it must judge red; plant an sr-only one and a
+# className="hidden" one, both must pass through.
 
 set -eu
 
@@ -25,8 +36,9 @@ WINDOW=6
 
 fail=0
 
-# scan_native —— 找「看得见的原生 file input」。注释行跳过：几个文件的顶部注释正在讲这段历史，
-# 把它们判红会逼人删掉解释。
+# scan_native —— finds "a visible native file input". Comment lines are
+# skipped: some files' header comments are telling this exact history, and
+# judging them red would force someone to delete the explanation.
 scan_native() {
   awk -v w="$WINDOW" '
     /^[[:space:]]*(\/\/|\*|\/\*|\{\/\*|#)/ { next }
@@ -34,8 +46,10 @@ scan_native() {
     /type="file"/ { hit[FNR] = 1 }
     END {
       for (k in hit) {
-        # k 是数组下标 —— awk 给的是**字符串**。不 +0 的话 `"6" <= 12` 走字符串比较（"6" > "12"），
-        # 窗口整个不展开，藏好的 input 也会被判红。自证就是这么抓到的。
+        # k is the array index — awk hands it back as a **string**. Without
+        # +0, `"6" <= 12` does string comparison ("6" > "12"), the window
+        # never expands, and even a properly hidden input judges red. This
+        # is exactly what the self-test caught.
         n = k + 0
         hidden = 0
         for (i = n; i <= n + w; i++) {
@@ -53,35 +67,38 @@ scan_all() {
 
 files=$(find app/src sdk -name '*.tsx' -type f 2>/dev/null | grep -v node_modules || true)
 
-# 1) 扫描器必须真的看得见文件 —— 空列表会让下面的判定恒绿（[[assertion-that-cannot-fail]]，
-#    以及 alpine 上 grep --include 静默失明那次 [[gate-can-go-blind]]）。
+# 1) The scanner must actually see the files — an empty list would make the
+#    check below always green ([[assertion-that-cannot-fail]]), the same
+#    failure mode as the time `grep --include` went silently blind on alpine
+#    ([[gate-can-go-blind]]).
 n=$(printf '%s\n' "$files" | grep -c . || true)
 if [ "$n" -lt 50 ]; then
   echo "check-no-native-file-input: SELF-TEST FAILED — only $n tsx files found, the scan is blind"
   exit 2
 fi
 
-# shellcheck disable=SC2086  # $files 是换行分隔的路径列表，这里要的就是词分割
+# shellcheck disable=SC2086  # $files is a newline-separated path list; word splitting is intended here
 offenders=$(scan_all $files || true)
 
 if [ -n "$offenders" ]; then
-  echo "check-no-native-file-input: 浏览器自己画的 Choose File 会出现在这些地方 ——"
+  echo "check-no-native-file-input: the browser's own Choose File will show up in these places —"
   echo "$offenders"
-  echo "                            用 <FilePicker label=… testid=… onPick=…> ($OWNER)，"
-  echo "                            或者把 input 藏起来（sr-only / hidden）再自己画按钮。"
+  echo "                            use <FilePicker label=… testid=… onPick=…> ($OWNER),"
+  echo "                            or hide the input (sr-only / hidden) and draw your own button."
   fail=1
 fi
 
-# 2) atom 必须还在，而且它自己确实是藏着的 —— 否则上面那条等于没有落点。
+# 2) The atom must still exist, and it must actually be the one hiding its
+#    input — otherwise the check above has no landing point.
 if [ ! -f "$OWNER" ]; then
   echo "check-no-native-file-input: $OWNER is gone; the rule has no owner"
   fail=1
 elif ! grep -q 'sr-only' "$OWNER"; then
-  echo "check-no-native-file-input: $OWNER 不再把 input 藏起来 —— 这条规矩的唯一正解失效了"
+  echo "check-no-native-file-input: $OWNER no longer hides its input — this rule's only correct answer stopped working"
   fail=1
 fi
 
-# 3) 自证：一红两绿。只验红的闸门没验过自己的边界。
+# 3) Self-test: one red, two green. A gate that only verifies red has never verified its own boundary.
 guilty=$(mktemp -t filecheck.XXXXXX)
 cat > "$guilty" <<'PLANTED'
 export function Bad() {

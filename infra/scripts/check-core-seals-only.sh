@@ -51,8 +51,8 @@ KERNEL_PATTERN='[Dd]ecrypt|[Uu]nseal'
 # The inward side —— everything under internal/ except the outbound layer and the box itself.
 INWARD_ROOT="backend/internal"
 INWARD_SKIP='backend/internal/connector/|backend/internal/infra/cryptobox/'
-# 左括号是必须的:没有它 `cryptobox.DecryptWithKey(` 也会命中 —— 那是会话信封,
-# 按上面说的本来就不在这条规则里。(前缀误伤,跟 market-skill- 那次同一种。)
+# The opening parenthesis is required: without it, `cryptobox.DecryptWithKey(` would also match —— that's
+# a session envelope, already out of scope for this rule as noted above. (A prefix false-positive, same kind as the market-skill- one.)
 INWARD_PATTERN='cryptobox\.Decrypt\('
 
 # scan_dirs <pattern> <files...> —— file<TAB>trimmed source for every non-comment matching line.

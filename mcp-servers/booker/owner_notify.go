@@ -1,41 +1,53 @@
-// owner_notify.go —— #130: per-code「约成通知 owner」,re-homed 进沙箱。
+// owner_notify.go —— #130: per-code "notify owner on a successful booking", re-homed into
+// the sandbox.
 //
-// 访客约成后,若该 code 开了通知开关,给 **owner 自己** 发一封 owner 视角的邮件
-// (区别于 #122 发给访客的确认信)。AI 不参与:booking commit 成功后确定性触发。
+// After a visitor books successfully, if that code has the notify switch on, send
+// **the owner themself** an owner-facing email (distinct from #122's confirmation
+// email to the visitor). No AI involved: fires deterministically after booking commit
+// succeeds.
 //
-// 为什么在这儿:#135 把 booker 外置时删掉了 host 侧的 booking_owner_notify.go,提交信息
-// 自己记着「owner-notify (#130) not yet re-homed into the sandbox」—— 于是这个特性就这么
-// 掉了,两条 e2e 一直红到现在。能力自己的东西归能力:开关本来就存在 booker 自己的 capstore
-// (role snapshot 的开关经 `_meta` 递进来),收件人经 owner.meta 取,发信走
-// connector.invoke("mail","send") —— 跟确认信同一条路,不需要内核再认识 "booking notify"。
+// Why it lives here: when #135 externalized booker, it deleted the host-side
+// booking_owner_notify.go, and the commit message noted its own gap: "owner-notify
+// (#130) not yet re-homed into the sandbox" — so this feature just dropped, and two
+// e2e specs stayed red ever since. A capability's own state belongs to the capability:
+// the switch already lives in booker's own capstore (the role snapshot's switch comes
+// through via `_meta`), the recipient comes from owner.meta, and sending goes through
+// connector.invoke("mail","send") — the same path as the confirmation email, so the
+// kernel doesn't need to learn "booking notify" as a new concept.
 //
-// **best-effort**:开关关 / 没配 mail 连接器 / 发信失败,都只是没有通知,绝不让 booking 失败
-// (booking 已经落库且日历事件已建,为一封通知信回滚是本末倒置)。
+// **best-effort**: switch off / no mail connector configured / send failure all just
+// mean no notification — they must never fail the booking itself (the booking is
+// already persisted and the calendar event already created; rolling that back over a
+// notification email would be backwards).
 
 package main
 
 import "encoding/json"
 
-// notifyOwnerOfBooking —— 约成后给 owner 发通知。**异步**:booking 已经成立,不能为一封通知信
-// 把 tool 调用挂住(访客盯着卡片等)。发信在后台跑,瞬时传输错按预算重试。
-// 永不返回错误:调用点在 booking 成功之后,任何失败都只影响这封信。
+// notifyOwnerOfBooking —— sends the owner a notification after a booking succeeds.
+// **Async**: the booking already succeeded, so a notification email must never hang
+// the tool call (the visitor is watching the card, waiting). Sending runs in the
+// background, with budgeted retry on transient transport errors.
+// Never returns an error: the call site is after the booking already succeeded, so
+// any failure here only affects this one email.
 func notifyOwnerOfBooking(s session, b *bookingDoc) {
 	if !s.NotifyOwner {
 		return
 	}
 	if err := sendOwnerNotify(s, b); err != nil {
-		_ = err // best-effort:booking 已成立,通知失败不回滚
+		_ = err // best-effort: booking already succeeded, a notify failure doesn't roll it back
 	}
 }
 
-// sendOwnerNotify —— 组信 + 交给 host 后台投递(带重试)。
+// sendOwnerNotify —— composes the message and hands it to the host for background delivery
+// (with retry).
 func sendOwnerNotify(s session, b *bookingDoc) error {
 	to, err := gwOwnerMeta(s.OwnerID, "email")
 	if err != nil {
 		return err
 	}
 	if to == "" {
-		return nil // owner 没有可投递地址,重试也没用
+		return nil // owner has no deliverable address, retrying wouldn't help
 	}
 	ownerTZ, _ := gwOwnerMeta(s.OwnerID, "timezone")
 	msg := buildOwnerNotifyEmail(b, s.VisitorName, ownerTZ)
@@ -47,10 +59,10 @@ func sendOwnerNotify(s session, b *bookingDoc) error {
 	return gwConnectorInvokeBackground(s.OwnerID, "mail", "send", payload)
 }
 
-// buildOwnerNotifyEmail —— owner 视角:谁、什么时候、约了什么。时间按 owner 自己的时区渲染
-// (收信的是 owner,不是访客)。
+// buildOwnerNotifyEmail —— owner's-eye view: who, when, and what got booked. Time renders
+// in the owner's own timezone (the recipient is the owner, not the visitor).
 func buildOwnerNotifyEmail(b *bookingDoc, visitorName, ownerTZ string) map[string]string {
-	loc := confirmationLocation("", ownerTZ) // 空 visitor tz → 退 owner tz,再退 UTC
+	loc := confirmationLocation("", ownerTZ) // empty visitor tz → falls back to owner tz, then UTC
 	when := b.StartAt.In(loc).Format("Monday, Jan 2, 2006 · 3:04 PM MST")
 	who := visitorName
 	if who == "" {
@@ -58,8 +70,9 @@ func buildOwnerNotifyEmail(b *bookingDoc, visitorName, ownerTZ string) map[strin
 	}
 	body := "New booking on your calendar:\n\n  " + b.Summary +
 		"\n  with " + who + "\n  " + when + "\n"
-	// 键名必须跟 contract.MailMessage 的 json tag 一致:body(不是 text)。写错的键会被
-	// 静默丢掉 —— 信照发,正文空白,而"发出去了"看起来完全正常。
+	// The key name must match contract.MailMessage's json tag: body (not text). A wrong
+	// key gets silently dropped — the email still sends with a blank body, and "it sent"
+	// looks completely normal.
 	return map[string]string{
 		"subject": "New booking: " + b.Summary,
 		"body":    body,

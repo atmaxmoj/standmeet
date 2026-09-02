@@ -1,6 +1,8 @@
-// caldav.go —— CalDAV server mock（#155 §8 provider-agnostic：非 Google 日历 protocol 连接器）。
-// 每个连接器一个 collection /caldav/{coll}：REPORT 查忙时（VFREEBUSY）、PUT .ics 建会、DELETE 退订、
-// PROPFIND 连通性。控制面 /__mock/caldav/{coll}/{events,fail,reset,set_busy} 跟 gcal mock 同构。
+// caldav.go —— CalDAV server mock (#155 §8 provider-agnostic: a calendar-protocol
+// connector for non-Google calendars).
+// One collection per connector, /caldav/{coll}: REPORT queries busy times (VFREEBUSY),
+// PUT .ics books an event, DELETE cancels, PROPFIND is a connectivity check. The control
+// plane /__mock/caldav/{coll}/{events,fail,reset,set_busy} mirrors the gcal mock's shape.
 
 package main
 
@@ -14,7 +16,7 @@ import (
 	"time"
 )
 
-// caldavState —— 所有 collection 的状态（events / busy / 失败注入），按 coll id 分。
+// caldavState —— state for every collection (events / busy / fault injection), keyed by coll id.
 type caldavState struct {
 	colls map[string]*caldavColl
 	mu    sync.Mutex
@@ -23,21 +25,26 @@ type caldavState struct {
 type caldavColl struct {
 	events []caldavEvent
 	busy   []busyWindow
-	// busyStyle —— free-busy-query 回哪一种形状（见 busyStyleComponent）。空 = FREEBUSY 属性。
+	// busyStyle —— which shape free-busy-query replies with (see busyStyleComponent).
+	// Empty = the FREEBUSY property.
 	busyStyle string
-	fails     map[string]int // op("create_event"/"list_busy"/"cancel_event") → 返回的 status（一次性）
+	fails     map[string]int // op("create_event"/"list_busy"/"cancel_event") → the status to return (one-shot)
 }
 
-// busyStyleComponent —— **真服务器的另一种答法**：一段忙时一个 `VFREEBUSY` 组件，
-// 时间写在 `DTSTART` / `DTEND` 上，一行 `FREEBUSY:` 都没有。Radicale 就是这么回的。
+// busyStyleComponent —— **the other way a real server answers**: one `VFREEBUSY`
+// component per busy window, times on `DTSTART` / `DTEND`, not a single `FREEBUSY:`
+// line. That's how Radicale replies.
 //
-// 这个替身以前只会 `FREEBUSY:<start>/<end>` 那一种，而产品的解析器也只认那一种 ——
-// 于是「解析出零条忙时」在这里永远发生不了，测不到（F-C-50：真环境上产品因此
-// 对访客说「这天连着一整天没有空档」，而日历上有一场每周一的会）。
-// [[stand-in-is-politer-than-reality]]：先教替身按真世界的样子答话。
+// This stand-in used to know only the `FREEBUSY:<start>/<end>` form, and the
+// product's parser only understood that same form — so "parsed zero busy windows"
+// could never happen here and was never caught (F-C-50: in the real environment,
+// the product told a visitor "this whole day is wide open" while the calendar had
+// a weekly recurring meeting on it).
+// [[stand-in-is-politer-than-reality]]: teach the stand-in to answer the way the
+// real world does, first.
 const busyStyleComponent = "component"
 
-// caldavEvent —— 录到的一个会（归一字段，供测试断言）。
+// caldavEvent —— one recorded event (normalized fields, for test assertions).
 type caldavEvent struct {
 	Summary   string   `json:"summary"`
 	Start     string   `json:"start"`
@@ -61,7 +68,8 @@ func (s *server) withCalDAV(coll string, f func(*caldavColl)) {
 	f(c)
 }
 
-// takeCalDAVFail —— op 这次该返的注入 status（0 = 不注入）；命中即清（一次性）。调用方持锁。
+// takeCalDAVFail —— the injected status this op should return this time (0 = no
+// injection); cleared once consumed (one-shot). Caller holds the lock.
 func (c *caldavColl) takeFail(op string) int {
 	status := c.fails[op]
 	if status != 0 {
@@ -70,7 +78,7 @@ func (c *caldavColl) takeFail(op string) int {
 	return status
 }
 
-// serveCalDAVReport —— free-busy-query REPORT：回 VFREEBUSY（从 coll.busy）。
+// serveCalDAVReport —— free-busy-query REPORT: reply with VFREEBUSY (from coll.busy).
 func (s *server) serveCalDAVReport(w http.ResponseWriter, r *http.Request) {
 	coll := r.PathValue("coll")
 	var fail int
@@ -91,8 +99,9 @@ func (s *server) serveCalDAVReport(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// freeBusyBody —— 两种真实答法。`component` 那一种一段一个 VFREEBUSY、时间在 DTSTART/DTEND 上
-// （Radicale）；默认那一种是 FREEBUSY 属性（Google/Fastmail 一族）。
+// freeBusyBody —— two real reply forms. The `component` form is one VFREEBUSY per
+// window with times on DTSTART/DTEND (Radicale); the default form is the FREEBUSY
+// property (Google/Fastmail family).
 func freeBusyBody(busy []busyWindow, style string) string {
 	var b strings.Builder
 	b.WriteString("BEGIN:VCALENDAR\r\n")
@@ -110,7 +119,8 @@ func freeBusyBody(busy []busyWindow, style string) string {
 	return b.String()
 }
 
-// serveCalDAVPut —— PUT <coll>/<uid>.ics：解析 VEVENT 录会（含 create_event 失败注入）。
+// serveCalDAVPut —— PUT <coll>/<uid>.ics: parse the VEVENT and record the event
+// (includes create_event fault injection).
 func (s *server) serveCalDAVPut(w http.ResponseWriter, r *http.Request) {
 	coll := r.PathValue("coll")
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
@@ -132,7 +142,7 @@ func (s *server) serveCalDAVPut(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// serveCalDAVDelete —— DELETE <coll>/<uid>.ics：退订（含 cancel_event 失败注入）。
+// serveCalDAVDelete —— DELETE <coll>/<uid>.ics: cancel (includes cancel_event fault injection).
 func (s *server) serveCalDAVDelete(w http.ResponseWriter, r *http.Request) {
 	coll := r.PathValue("coll")
 	var fail int
@@ -144,12 +154,13 @@ func (s *server) serveCalDAVDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// serveCalDAVPropfind —— 连通性探测：恒 207（CalDAV multistatus 习惯）。
+// serveCalDAVPropfind —— connectivity probe: always 207 (the CalDAV multistatus convention).
 func (s *server) serveCalDAVPropfind(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusMultiStatus)
 }
 
-// parseVEvent —— 从 iCalendar VEVENT 抽 SUMMARY/DTSTART/DTEND/ATTENDEE（归一成 RFC3339 millis）。
+// parseVEvent —— extract SUMMARY/DTSTART/DTEND/ATTENDEE from an iCalendar VEVENT
+// (normalized to RFC3339 millis).
 func parseVEvent(body string) caldavEvent {
 	var ev caldavEvent
 	for line := range strings.SplitSeq(body, "\n") {
@@ -187,7 +198,8 @@ type caldavEventsResp struct {
 	Events []caldavEvent `json:"events"`
 }
 
-// serveCalDAVEvents —— 读某 collection 录到的所有会（测试断 booker 落到非 Google provider）。
+// serveCalDAVEvents —— read every recorded event in a collection (test asserts
+// that booker lands on a non-Google provider).
 func (s *server) serveCalDAVEvents(w http.ResponseWriter, r *http.Request) {
 	coll := r.PathValue("coll")
 	var resp caldavEventsResp
@@ -205,7 +217,7 @@ type caldavFailReq struct {
 	Status int    `json:"status"`
 }
 
-// serveCalDAVFail —— 武装某 op 下一次返指定 status（默认 503）。
+// serveCalDAVFail —— arm an op to return a given status next time (default 503).
 func (s *server) serveCalDAVFail(w http.ResponseWriter, r *http.Request) {
 	coll := r.PathValue("coll")
 	body, err := io.ReadAll(r.Body)
@@ -227,11 +239,12 @@ func (s *server) serveCalDAVFail(w http.ResponseWriter, r *http.Request) {
 
 type caldavSetBusyReq struct {
 	Busy []busyWindow `json:"busy"`
-	// Style —— 忙时用哪一种形状回（见 busyStyleComponent）。空 = 老样子。
+	// Style —— which shape to reply with for busy windows (see busyStyleComponent).
+	// Empty = the old default.
 	Style string `json:"style"`
 }
 
-// serveCalDAVSetBusy —— 设某 collection 的忙时段（free-busy-query 回这些）。
+// serveCalDAVSetBusy —— set a collection's busy windows (free-busy-query replies with these).
 func (s *server) serveCalDAVSetBusy(w http.ResponseWriter, r *http.Request) {
 	coll := r.PathValue("coll")
 	body, err := io.ReadAll(r.Body)
@@ -248,7 +261,7 @@ func (s *server) serveCalDAVSetBusy(w http.ResponseWriter, r *http.Request) {
 	writeOK(s.log, w)
 }
 
-// serveCalDAVReset —— 清空某 collection 的会 + 忙时 + 失败注入。
+// serveCalDAVReset —— clear a collection's events + busy windows + fault injection.
 func (s *server) serveCalDAVReset(w http.ResponseWriter, r *http.Request) {
 	coll := r.PathValue("coll")
 	s.withCalDAV(coll, func(c *caldavColl) {

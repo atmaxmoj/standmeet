@@ -1,35 +1,39 @@
 #!/usr/bin/env sh
-# check-instructions-name-sure-tools —— **能力的常驻说明书里，不许点名一个可能不在场的工具。**
+# check-instructions-name-sure-tools —— **a capability's session-independent instructions must never name a tool that might not be present.**
 #
-# 为什么这条闸门存在（F-B-10）：
-# 一个 manifest 里带 `requires` 的工具是**有条件的** —— owner 只授了 `calendar.readonly` 时，
-# 装配期会把 `calendar_book` 摘掉（F-B-8）。可那一段 `instructions` 是**跟会话无关**的常量：
-# 它照旧告诉模型 *"You can book meetings … 2. calendar_book — actually create the event"*。
-# 于是模型手上没有那把工具，嘴上照旧答应「给我个主题我马上给你订」——
-# 产品把一个做不到的动作**说**了出去，尽管它没有**派**出去。
+# Why this gate exists (F-B-10):
+# A tool in a manifest that carries `requires` is **conditional** — when the owner has granted
+# only `calendar.readonly`, assembly strips `calendar_book` out (F-B-8). But the `instructions`
+# block is a constant that's **the same regardless of session**: it keeps telling the model
+# *"You can book meetings … 2. calendar_book — actually create the event"*.
+# So the model has no such tool in hand, yet still says out loud "give me a topic and I'll book it
+# right now" — the product **says** an action it can't do, even though it never **dispatches** it.
 #
-# 判据不是「有没有写清楚」而是「这句话在最坏的那一场会话里还成不成立」：
-# 常驻文本只能讲**每一场都在场**的东西。有条件的那几个，它们的用法写在自己的
-# tool description 里 —— 那份说明跟着工具一起来、一起走，天生不会说谎。
+# The check isn't "is it clearly written" but "does this sentence still hold up in the
+# worst-case session": session-independent text may only describe things that are **present in
+# every session**. The conditional ones have their usage written into their own tool
+# description — that description travels with the tool and leaves with it, so it can never lie.
 #
-# 范围（两处，都是「跟会话无关的说明书」）：
-#   · `mcp-servers/*/…` 里名为 `instructions` 的 Go 常量（插件自带的 fragment）；
-#   · `backend/internal/prompts/**.md`（embed 的 fragment）。
-# 代码不在范围里：工具当然要在注册它的那一行写出自己的名字，卡片的 testid 也带着它。
+# Scope (two places, both "instructions that don't vary by session"):
+#   · the Go constant named `instructions` in `mcp-servers/*/…` (each plugin's own fragment);
+#   · `backend/internal/prompts/**.md` (the embedded fragment).
+# Code is out of scope: a tool obviously has to spell out its own name on the line that
+# registers it, and a card's testid carries it too.
 #
-# 自证三条：名单不能是空的、扫描范围不能是空的、种一句进去必须红。
+# Three self-tests: the tool list must not be empty, the scan surface must not be empty, and a planted mention must go red.
 
 set -eu
 
 fail=0
 
-# ── 名单：哪些访客工具是**有条件**的（manifest 上带 requires 的那几个） ──
+# ── list: which visitor tools are **conditional** (the ones carrying requires: in a manifest) ──
 #
-# YAML 长这样：
+# The YAML looks like this:
 #   - name: calendar_book
 #     requires: [calendar:events.insert]
-# 所以「上一行的 name + 这一行的 requires」才算数 —— 只 grep `- name:` 会把无条件的
-# 也算进来，那会把每一份说明书都判红，然后这道闸会被关掉（[[gate-scope-forces-architecture]]）。
+# so only "the name from the line above + the requires on this line" counts — grepping just
+# `- name:` would also pull in the unconditional ones, which would flag every set of
+# instructions as red and get this gate turned off ([[gate-scope-forces-architecture]]).
 conditional_tools() {
   for m in backend/capabilities/*/manifest.yaml; do
     [ -f "$m" ] || continue
@@ -48,10 +52,11 @@ conditional_tools() {
   done | sort -u
 }
 
-# ── 范围：常驻说明书的正文 ──
+# ── scope: the body of the session-independent instructions ──
 #
-# Go 那半只取 `const instructions = ` 到收尾反引号之间的那一段，不取整个文件：
-# 同一个文件里还有卡片 HTML，里头的 `tool-card-calendar_book` 是 testid 不是说给模型听的话。
+# The Go half only takes the span between `const instructions = ` and the closing backtick, not
+# the whole file: the same file also has card HTML, and `tool-card-calendar_book` inside it is a
+# testid, not something said to the model.
 instruction_text() {
   for f in $(find mcp-servers -name '*.go' -not -name '*_test.go' 2>/dev/null | sort); do
     awk -v src="$f" '
@@ -65,7 +70,7 @@ instruction_text() {
   done
 }
 
-# sed_free_cat —— 带上文件名把一份 .md 打出来。（这个仓库禁 sed 改文件；这里只是读。）
+# sed_free_cat —— prints a .md file with its filename prefixed. (This repo bans sed for editing files; this is just a read.)
 sed_free_cat() {
   awk -v src="$1" '{ print src ": " $0 }' "$1"
 }
@@ -76,13 +81,13 @@ text=$(instruction_text)
 n_tools=$(printf '%s\n' "$tools" | grep -c . || true)
 n_lines=$(printf '%s\n' "$text" | grep -c . || true)
 
-# 自证一：名单空了 → 下面的循环恒绿，这道闸等于不存在。
+# Self-test 1: if the list is empty, the loop below is always green, and the gate might as well not exist.
 if [ "$n_tools" -lt 1 ]; then
   echo "check-instructions-name-sure-tools: SELF-TEST FAILED — no tool in any manifest declares"
   echo "                        'requires:', so the gate has nothing to look for (yaml shape changed?)"
   exit 2
 fi
-# 自证二：一行都没取到 → 同上，瞎了（[[gate-can-go-blind]]）。
+# Self-test 2: if zero lines were collected, same problem — the scan is blind ([[gate-can-go-blind]]).
 if [ "$n_lines" -lt 1 ]; then
   echo "check-instructions-name-sure-tools: SELF-TEST FAILED — no instruction text was collected;"
   echo "                        the scan is blind (const renamed, or the prompts dir moved?)"
@@ -103,7 +108,7 @@ for t in $tools; do
   fi
 done
 
-# 自证三：判定自证 —— 种一句必须红。
+# Self-test 3: the verdict self-test — a planted sentence must go red.
 planted=$(printf '%s\n' "fake.go: call $(printf '%s\n' "$tools" | head -1) to do the thing")
 first=$(printf '%s\n' "$tools" | head -1)
 if [ -z "$(printf '%s\n' "$planted" | grep -F "$first" || true)" ]; then

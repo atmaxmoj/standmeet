@@ -16,12 +16,13 @@ operations:
         "end": { "dateTime": end, "timeZone": timeZone },
         "attendees": [visitorEmail ? { "email": visitorEmail }]
       }
-    # 把人放进宾客名单**不等于**通知他 —— Google 只在带 sendUpdates=all 时发邀请邮件，
-    # 默认什么都不发。没有邮箱就没人可通知，所以这里是条件式（F-B-7）。
+    # Adding a guest to the attendee list does NOT notify them — Google only sends the
+    # invite email when sendUpdates=all is set; by default it sends nothing. No email
+    # means no one to notify, so this is conditional (F-B-7).
     query: '{ "sendUpdates": visitorEmail ? "all" }'
     response: '{ "id": id, "htmlLink": htmlLink }'
   cancel_event:
     op: events.delete
-    # eventId 走路径替换（/events/{eventId}），DELETE 无 body。
-    # 会上坐着人就得告诉他会没了；没有与会者时不带这个参数。
+    # eventId is a path substitution (/events/{eventId}); DELETE has no body.
+    # If people are on the meeting, they must be told it's gone; omit this param when there are no attendees.
     query: '{ "sendUpdates": attendeeEmail ? "all" }'

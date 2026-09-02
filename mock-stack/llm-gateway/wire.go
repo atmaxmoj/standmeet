@@ -39,21 +39,21 @@ type ToolDef struct {
 
 // MessagesReq —— what backend POSTs to /v1/messages.
 type MessagesReq struct {
-	Model     string       `json:"model"`
-	System    SystemField  `json:"system,omitempty"`
-	Messages  []Msg        `json:"messages"`
-	Tools     []ToolDef    `json:"tools,omitempty"`
-	MaxTokens int          `json:"max_tokens"`
-	Stream    bool         `json:"stream"`
+	Model     string      `json:"model"`
+	System    SystemField `json:"system,omitempty"`
+	Messages  []Msg       `json:"messages"`
+	Tools     []ToolDef   `json:"tools,omitempty"`
+	MaxTokens int         `json:"max_tokens"`
+	Stream    bool        `json:"stream"`
 }
 
-// SystemField —— Anthropic /v1/messages 接受两种 system 形态：
+// SystemField —— Anthropic /v1/messages accepts two shapes of system:
 //
 //	"system": "..."                                   // simple string
 //	"system": [{"type":"text","text":"..."}]          // prompt-cache blocks
 //
-// eino claude adapter 走 block 路径；我们的 backend byte-proxy 仍发 string。
-// 两种都解，平铺出来后续走单一 Text() string 接口。
+// The eino claude adapter takes the block path; our backend byte-proxy still sends a
+// plain string. We parse both and flatten to a single Text() string interface downstream.
 type SystemField struct {
 	Text string
 }
@@ -89,14 +89,18 @@ func (s SystemField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.Text)
 }
 
-// markerText —— 所有 message 的 text block 拼起来,给延时 marker 扫描用。
-// marker 在 visitor 问句里(早期一条 user text block);turn 内每次
-// /v1/messages 调用都带着完整消息历史,所以 search/read/final 任一调用扫全量
-// 都查得到(不像 questionText 只看窗口头,call-3 上窗口可能不落在问句)。
-// **system 也算数**：Anthropic 的 wire 把 system 提到 messages 外面一格，而
-// 「这句话有没有进模型的上下文」这个问题不分它落在哪一格。少了这一行的话，
-// recorder 的 `?contains=` 对任何走 system 的内容都答 false —— 一个看不见半张
-// 请求的记录器，会让「产品没做」和「记录器没看」长得一模一样（[[gate-can-go-blind]]）。
+// markerText —— concatenates the text blocks of every message, for the delayed marker
+// scan to use. The marker lives in the visitor's question (an early user text block);
+// every /v1/messages call within a turn carries the full message history, so scanning
+// the whole thing on any call — search/read/final — finds it (unlike questionText,
+// which only looks at the window head and, on call 3, the window might not include the
+// question anymore).
+// **system counts too**: Anthropic's wire lifts system out to a separate field
+// alongside messages, but the question "did this text reach the model's context" does
+// not care which field it landed in. Without this line, the recorder's `?contains=`
+// would answer false for anything that only went through system — a recorder that
+// can't see half the request would make "the product didn't do it" and "the recorder
+// didn't look" indistinguishable ([[gate-can-go-blind]]).
 func (r *MessagesReq) markerText() string {
 	var b strings.Builder
 	b.WriteString(r.System.Text)
@@ -191,15 +195,15 @@ func anyToolResultIn(m *Msg, ids map[string]bool) bool {
 	return false
 }
 
-// unwrapToolResultContent —— tool_result.content 在 Anthropic /v1/messages
-// 有两种 wire：
+// unwrapToolResultContent —— tool_result.content has two wire shapes in Anthropic
+// /v1/messages:
 //
-//  1. JSON-encoded string：`"content": "{\"ok\":true,...}"`
-//  2. content-block array：`"content": [{"type":"text","text":"{\"ok\":true,...}"}]`
+//  1. JSON-encoded string: `"content": "{\"ok\":true,...}"`
+//  2. content-block array: `"content": [{"type":"text","text":"{\"ok\":true,...}"}]`
 //
-// anthropic-sdk-go 的 NewToolResultBlock(toolUseID, content string) 会用 (2)；
-// eino claude adapter 走这条。两种都要解。返回最里面的那段 JSON bytes (没
-// 有外层引号或 block 包装)。
+// anthropic-sdk-go's NewToolResultBlock(toolUseID, content string) uses (2); the eino
+// claude adapter goes this route. We parse both, and return the innermost JSON bytes
+// (with no outer quotes or block wrapper).
 func unwrapToolResultContent(raw json.RawMessage) []byte {
 	body := []byte(raw)
 	if len(body) == 0 {

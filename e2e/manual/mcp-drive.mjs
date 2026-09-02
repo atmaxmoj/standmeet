@@ -1,15 +1,15 @@
-// mcp-drive.mjs —— 用**产品自己的** stdio MCP 客户端跑几个 owner 工具。
-// 不手搓 Sigv1 签名器（[[c3-stdio-sdk-sigv1-401]]）：起 bin/standmeet-mcp，走 JSON-RPC over stdio。
+// mcp-drive.mjs —— runs a few owner tools with **the product's own** stdio MCP client.
+// No hand-rolled Sigv1 signer ([[c3-stdio-sdk-sigv1-401]]): spins up bin/standmeet-mcp, JSON-RPC over stdio.
 import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const CLIENT = process.argv[2];
 const HOST = process.argv[3];
 const CREDS = process.argv[4];
-// `@path` —— 从文件读那段 JSON。命令行那一版把整个 JSON 包在**单引号**里，
-// 于是任何一个撇号（`the agent's reach`）都会当场把 shell 的引号断掉 ——
-// 报出来的是 `unexpected EOF`，看起来像用法写错了。而 owner 真正要发的
-// 载荷（一封求职信）里必然有撇号。
+// `@path` —— reads that JSON from a file. The command-line version wraps the whole JSON in
+// **single quotes**, so any apostrophe (`the agent's reach`) breaks the shell's quoting on the
+// spot — the error that comes out is `unexpected EOF`, which looks like a usage mistake. And a
+// payload the owner would actually send (a cover letter) is bound to have an apostrophe in it.
 const CALLS = JSON.parse(
   process.argv[5].startsWith('@') ? readFileSync(process.argv[5].slice(1), 'utf8') : process.argv[5],
 );
@@ -57,17 +57,21 @@ for (const call of CALLS) {
   const content = out.result?.content ?? out.error;
   console.log(`\n=== ${call.name} ${JSON.stringify(call.args ?? {})}`);
   saveBlobs(content, call.name);
-  // 打印上限可调（`MCP_PRINT=0` = 不截）。**截断必须说出来**：默认那 4000 字符会把一份
-  // JSON 从中间切开，切口长得就像服务端发了半截回执 —— 我差点把自己的显示上限当成产品缺陷。
+  // The print cap is adjustable (`MCP_PRINT=0` = no truncation). **Truncation must be said
+  // out loud**: the default 4000-char cap cuts a JSON payload in the middle, and the cut edge
+  // looks exactly like the server sent back half a receipt — I nearly mistook my own display
+  // cap for a product bug.
   printCapped(JSON.stringify(content, null, 1));
 }
 proc.kill();
 
-// saveBlobs —— `MCP_SAVE_BLOBS=<dir>` 时，把回参里的内嵌附件写成文件。
+// saveBlobs —— when `MCP_SAVE_BLOBS=<dir>` is set, writes attachments embedded in the response
+// out to files.
 //
-// 为什么要有：有些 op 的产物**只在回执里**（`applications.commit` 的 PDF 就是 —— 后台那颗
-// download 按钮是禁用的，标题写着 pdfNotKept）。owner 真正的 MCP 客户端会把附件交到手上，
-// 而这个驱动器以前只会把它打印成一大串 base64。要拿去打印的那份纸就在里面。
+// Why it's needed: some ops' output **exists only in the receipt** (`applications.commit`'s PDF
+// is one — the download button in the admin UI is disabled there, titled pdfNotKept). The owner's
+// real MCP client hands the attachment straight over, but this driver used to just print it as
+// one giant base64 blob. The actual paper meant to be printed is buried in there.
 function saveBlobs(content, callName) {
   const dir = process.env.MCP_SAVE_BLOBS;
   if (!dir || !Array.isArray(content)) return;
@@ -81,7 +85,7 @@ function saveBlobs(content, callName) {
   });
 }
 
-// printCapped —— 按 `MCP_PRINT`（字符数，0 = 不截）打印，截了就在末尾说清楚截了多少。
+// printCapped —— prints up to `MCP_PRINT` (character count, 0 = no cap), and if it truncated, says exactly how much at the end.
 function printCapped(text) {
   const cap = Number(process.env.MCP_PRINT ?? 4000);
   if (cap === 0 || text.length <= cap) {

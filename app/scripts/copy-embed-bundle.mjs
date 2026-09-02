@@ -1,17 +1,18 @@
-// copy-embed-bundle —— 把 @standmeet/embed 的 IIFE 产物搬进 public/，由本实例自己发。
+// copy-embed-bundle —— moves the @standmeet/embed IIFE build into public/, so this instance serves it itself.
 //
-// **为什么必须发**：CLAUDE.md 承诺 embed 是"单个 `<script>` 标签 drop-in"，而线上
-// `/embed.js` 和 `/sdk/embed.js` 都是 404（2026-08-30 实测）—— 包构建得出来，
-// 承诺写在文档里，中间那一段不存在。文档里写着一个地址，而没有任何东西验证它指向
-// 存在的东西（[[ref-resolves-not-a-string]]）。
+// **Why it must be served**: CLAUDE.md promises the embed is a "single `<script>` tag drop-in", but
+// `/embed.js` and `/sdk/embed.js` were both 404 in prod (verified 2026-08-30) —— the package built fine,
+// the promise is in the docs, and the step in between just didn't exist. The docs name an address, but
+// nothing verified it actually points at something ([[ref-resolves-not-a-string]]).
 //
-// **为什么是 IIFE 那一份**：drop-in 的场景是别人的站点写一行 `<script src>`，
-// 没有打包器、没有 import map。ESM 那份要 `type="module"` 且不能给老站点用。
+// **Why the IIFE build**: the drop-in scenario is someone else's site writing one `<script src>` line,
+// with no bundler and no import map. The ESM build needs `type="module"` and can't be used on legacy sites.
 //
-// **为什么自己发而不是挂 CDN**：这是个自托管产品。挂 CDN 等于每个 owner 的读者
-// 都要替他向第三方发一次请求，而离线装的实例根本取不到 —— 跟 tikz-fonts 同一条理由。
+// **Why serve it ourselves instead of a CDN**: this is a self-hosted product. A CDN means every owner's
+// readers make an extra third-party request, and an offline-installed instance can't reach it at all ——
+// same reasoning as tikz-fonts.
 //
-// 跟着 build 跑，所以发出去的永远跟仓库里的 sdk 源码同一个版本。
+// Runs as part of build, so what gets served always matches the sdk source in this repo.
 
 import { copyFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';

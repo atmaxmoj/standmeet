@@ -1,8 +1,8 @@
-// chunk.test.ts —— 切分。**替身在这件事上一个字都不会说**（它多长都收），
-// 所以判据只能自己立。
+// chunk.test.ts —— chunking. **The stand-in has nothing to say about this** (it accepts any length),
+// so the criteria have to come from us.
 //
-// 不切的后果不是「显示不全」，是平台**整条拒收** —— 读者什么都收不到，
-// 而日志里只有一条 400。owner 的语料答起来动辄两三千字，这不是边角情况。
+// The consequence of not chunking isn't "shows partially", it's the platform **rejecting the whole message** —
+// the reader gets nothing at all, and the log shows only a 400. The owner's corpus routinely answers in two or three thousand characters, this isn't an edge case.
 
 import { describe, expect, it } from 'vitest';
 
@@ -28,7 +28,7 @@ describe('把回答切成平台收得下的几条', () => {
     const paras = Array.from({ length: 40 }, (_, i) =>
       `Paragraph ${i} about something the owner wrote at some length.`).join('\n\n');
     const joined = chunkForChat(paras).join('\n\n');
-    // 切分不许吃掉内容 —— 少一段的话，读者读到的是一个悄悄残缺的答案。
+    // Chunking must not eat content — dropping a piece means the reader gets a silently truncated answer.
     expect(joined.replace(/\s+/g, ' ')).toBe(paras.replace(/\s+/g, ' '));
   });
 
@@ -42,7 +42,7 @@ describe('把回答切成平台收得下的几条', () => {
   });
 
   it('一整段没有标点的长文本：硬切，但仍然不超限', () => {
-    // 找不到体面断点时切坏一个词，也好过整条发不出去。
+    // Breaking a word mid-way when there's no decent break point beats not sending the message at all.
     const parts = chunkForChat('y'.repeat(4000));
     expect(parts.length).toBeGreaterThan(1);
     expect(parts.every((p) => p.length <= DEFAULT_LIMIT)).toBe(true);

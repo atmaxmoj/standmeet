@@ -1,9 +1,11 @@
-// gateway.go —— 沙箱端的 reach-back 客户端。#135 constrained-reachback：booker 的业务逻辑
-// 住在本沙箱里,凡是它够不到的外部东西(日历连接器 / 自己的隔离存储 / owner 元数据)一律
-// 经绑进沙箱的 socket 调 host 的**固定词表**。它只能调这几个 op,加不了新 op。
+// gateway.go —— the sandbox-side reach-back client. #135 constrained-reachback: booker's business logic
+// lives in this sandbox, and anything outside its reach (calendar connector / its own isolated storage /
+// owner metadata) is reached only through the **fixed vocabulary** of host ops, over the socket bound
+// into the sandbox. It can only call these ops, and cannot add a new one.
 //
-// 底层复用 callHost(main.go)的 line-JSON 单请求/单响应。host 回的若是 capsocket 的
-// {"error":...} 信封,这里翻成 Go error(工具层再折成 {ok:false} 给 agent)。
+// The underlying layer reuses callHost's (main.go) line-JSON single-request/single-response. If the host
+// replies with a capsocket {"error":...} envelope, this turns it into a Go error (the tool layer then
+// folds it into {ok:false} for the agent).
 
 package main
 
@@ -15,14 +17,16 @@ import (
 
 type errEnvelope struct {
 	Error string `json:"error"`
-	// Code —— 失败的**类别**。没有它，这一侧只有一句话可看，于是「owner 没配过」和
-	// 「配了但这一刻拨不通」只能说成同一句 —— 而其中一句对访客是假的（F-C-42）。
-	// 词表在 host 的 internal/infra/hostop/fault.go；跨模块没法共享常量，
-	// 对齐由 e2e 守着（两种情形访客读到的话必须不同），不是靠人记得改两处。
+	// Code —— the **category** of failure. Without it, this side only has one sentence to show, so
+	// "owner never configured this" and "configured but unreachable right now" collapse into the same
+	// sentence —— and one of those sentences is false for the visitor (F-C-42).
+	// The vocabulary lives in the host's internal/infra/hostop/fault.go; constants can't be shared
+	// across modules, so alignment is guarded by e2e (the visitor-facing wording must differ between
+	// the two cases), not by someone remembering to change both places.
 	Code string `json:"code"`
 }
 
-// hostFault —— 带类别的 host 错误。
+// hostFault —— a host error carrying a category.
 type hostFault struct {
 	Op   string
 	Msg  string
@@ -31,7 +35,7 @@ type hostFault struct {
 
 func (f *hostFault) Error() string { return "host " + f.Op + ": " + f.Msg }
 
-// faultCode —— 取出类别；不是 host 错误（或 host 没给类别）时返回空串。
+// faultCode —— extracts the category; returns an empty string when it isn't a host error (or the host gave no category).
 func faultCode(err error) string {
 	var f *hostFault
 	if errors.As(err, &f) {
@@ -40,13 +44,13 @@ func faultCode(err error) string {
 	return ""
 }
 
-// 跟 host 的 hostop.Fault* 一一对应。
+// One-to-one with the host's hostop.Fault*.
 const (
 	faultNotConfigured = "not_configured"
 	faultUnavailable   = "unavailable"
 )
 
-// gwCall —— 发一个固定词表 op,回原始 JSON;host 错误信封 → error。
+// gwCall —— sends one fixed-vocabulary op, returns the raw JSON; a host error envelope becomes an error.
 func gwCall(op string, fields map[string]any) (json.RawMessage, error) {
 	fields["op"] = op
 	resp, err := callHost(fields)
@@ -60,7 +64,7 @@ func gwCall(op string, fields map[string]any) (json.RawMessage, error) {
 	return json.RawMessage(resp), nil
 }
 
-// gwConnectorInvoke —— 按名调 owner 的 active 连接器(calendar/mail)的一个 verb。
+// gwConnectorInvoke —— calls one verb on the owner's active connector (calendar/mail) by name.
 func gwConnectorInvoke(
 	ownerID, category, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {
@@ -69,9 +73,11 @@ func gwConnectorInvoke(
 	})
 }
 
-// gwConnectorInvokeBackground —— 交给 host 后台跑(带重试),不等结果。
-// 用于"结果不该挡住调用方"的调用:约成通知信。**不能**在本进程起 goroutine 代替 ——
-// 沙箱只活这一轮,tool 一返回进程就可能被回收,退避还没到就死了。
+// gwConnectorInvokeBackground —— hands off to the host to run in the background (with retries), without
+// waiting for the result. Used for calls where "the result shouldn't block the caller": a booking
+// confirmation notice. **Cannot** be replaced by spawning a goroutine in this process —— the sandbox
+// only lives for this one turn; the process may be reclaimed the moment the tool call returns, and a
+// retry backoff that hasn't fired yet would just die.
 func gwConnectorInvokeBackground(
 	ownerID, category, verb string, args json.RawMessage,
 ) error {
@@ -82,7 +88,7 @@ func gwConnectorInvokeBackground(
 	return err
 }
 
-// gwCapstoreInsert —— 往本 cap 的隔离存储塞一份文档,回记录 id。
+// gwCapstoreInsert —— inserts a document into this cap's isolated storage, returns the record id.
 func gwCapstoreInsert(collection string, doc json.RawMessage) (string, error) {
 	resp, err := gwCall("capstore.insert", map[string]any{
 		"collection": collection, "doc": doc,
@@ -99,18 +105,22 @@ func gwCapstoreInsert(collection string, doc json.RawMessage) (string, error) {
 	return r.ID, nil
 }
 
-// gwCapstoreClaim —— 占住一个 key,只有一个调用方拿得到(宿主用主键冲突保证)。
+// gwCapstoreClaim —— claims a key; only one caller gets it (the host guarantees this via a primary-key
+// conflict).
 //
-// 订会是「先问忙时 → 再插入」,中间那个窗口里挤进来第二个请求时,两边都会看见同一个「空着」——
-// prod 上真出过:两条同时进来的请求,真日历上并排两场会(F-B-15)。占位盖住的就是那个窗口。
-// 拿不到不是错误:被别人抢先是正常结局,调用方据此换一句话回答。
+// Booking is "check busy times first → then insert"; when a second request squeezes into that window,
+// both requests see the same "free" slot —— this really happened in prod: two simultaneous requests
+// produced two side-by-side meetings on the real calendar (F-B-15). The claim covers exactly that window.
+// Failing to claim isn't an error: losing the race to someone else is a normal outcome, and the caller
+// answers with a different message based on it.
 func gwCapstoreClaim(collection, key string, ttlSeconds int) bool {
 	resp, err := gwCall("capstore.claim", map[string]any{
 		"collection": collection, "key": key, "ttl_seconds": ttlSeconds,
 	})
 	if err != nil {
-		// 宿主答不上来时**放行**:一个占位机制不该让订会整个不能用。多订一场的风险
-		// 换的是「宿主抖一下就谁都订不了」——后者更糟,而且看不出原因。
+		// **Allow through** when the host fails to answer: a claim mechanism shouldn't be able to take
+		// booking down entirely. The risk of one extra double-booking is traded against "one host
+		// hiccup and nobody can book" —— the latter is worse, and worse still, it's not obvious why.
 		return true
 	}
 	var r struct {
@@ -122,12 +132,12 @@ func gwCapstoreClaim(collection, key string, ttlSeconds int) bool {
 	return r.Claimed
 }
 
-// gwCapstoreRelease —— 放掉自己占的那一格(做完了 / 失败了)。不放也行,TTL 会到期。
+// gwCapstoreRelease —— releases the slot this caller claimed (done, or failed). Not releasing is fine too; the TTL expires it.
 func gwCapstoreRelease(collection, key string) {
 	_, _ = gwCall("capstore.release", map[string]any{"collection": collection, "key": key})
 }
 
-// gwCapstoreQuery —— 取本 cap collection 里 doc 满足 filter 的文档。
+// gwCapstoreQuery —— fetches documents in this cap's collection whose doc matches the filter.
 func gwCapstoreQuery(collection string, filter json.RawMessage) ([]json.RawMessage, error) {
 	resp, err := gwCall("capstore.query", map[string]any{
 		"collection": collection, "filter": filter,
@@ -144,7 +154,7 @@ func gwCapstoreQuery(collection string, filter json.RawMessage) ([]json.RawMessa
 	return r.Records, nil
 }
 
-// gwCapstoreCount —— 数本 cap collection 里满足 filter 的文档数(配额闸)。
+// gwCapstoreCount —— counts documents in this cap's collection matching the filter (a quota gate).
 func gwCapstoreCount(collection string, filter json.RawMessage) (int64, error) {
 	resp, err := gwCall("capstore.count", map[string]any{
 		"collection": collection, "filter": filter,
@@ -161,7 +171,7 @@ func gwCapstoreCount(collection string, filter json.RawMessage) (int64, error) {
 	return r.Count, nil
 }
 
-// gwCapstoreDelete —— 删本 cap collection 里满足 filter 的记录,返删除行数。
+// gwCapstoreDelete —— deletes records in this cap's collection matching the filter, returns the deleted row count.
 func gwCapstoreDelete(collection string, filter json.RawMessage) (int64, error) {
 	resp, err := gwCall("capstore.delete", map[string]any{
 		"collection": collection, "filter": filter,
@@ -178,7 +188,7 @@ func gwCapstoreDelete(collection string, filter json.RawMessage) (int64, error) 
 	return r.Deleted, nil
 }
 
-// gwOwnerMeta —— 读一个白名单 owner 字段(如 timezone)。
+// gwOwnerMeta —— reads one whitelisted owner field (e.g. timezone).
 func gwOwnerMeta(ownerID, field string) (string, error) {
 	resp, err := gwCall("owner.meta", map[string]any{
 		"owner_id": ownerID, "field": field,
@@ -195,13 +205,15 @@ func gwOwnerMeta(ownerID, field string) (string, error) {
 	return r.Value, nil
 }
 
-// gwCapConfig —— 问 host 要**本能力自己的配置**。
+// gwCapConfig —— asks the host for **this capability's own configuration**.
 //
-// 为什么不是自己去 capstore 查那份文档:**默认值在声明里**(host 的 manifest ConfigField),
-// 沙箱看不见声明。自己查存储的话,owner 没设过就什么都读不到,于是只能在这儿再写一份默认值 ——
-// 那正是 host/沙箱两份策略当初漂移的根子(host 说到 18:00、缓冲 15,这儿按 17:00、缓冲 0)。
+// Why not query that document from capstore directly: **the defaults live in the declaration** (the
+// host's manifest ConfigField), and the sandbox can't see the declaration. Querying storage directly
+// would read nothing when the owner never set a value, forcing us to write a second copy of the
+// defaults here —— that's exactly the root cause of host/sandbox policy drifting apart before (the host
+// said 18:00 with a 15-minute buffer, this side used 17:00 with a 0-minute buffer).
 //
-// 这个 op 回的是**已经按声明兜好底的最终值**,拿到就能用。
+// What this op returns is **the final value, already backfilled from the declaration**; use it as-is.
 func gwCapConfig(ownerID string) (map[string]json.RawMessage, error) {
 	resp, err := gwCall("capconfig.get", map[string]any{"owner_id": ownerID})
 	if err != nil {
@@ -214,13 +226,13 @@ func gwCapConfig(ownerID string) (map[string]json.RawMessage, error) {
 	return out, nil
 }
 
-// capRecord —— 一条自己的记录:id + 文档。
+// capRecord —— one of our own records: id + document.
 type capRecord struct {
 	ID  string          `json:"id"`
 	Doc json.RawMessage `json:"doc"`
 }
 
-// gwCapstoreQueryRecords —— 带 id 的查询。按 id 取消一条预约,先得能看见 id。
+// gwCapstoreQueryRecords —— a query that includes the id. Canceling a booking by id first requires being able to see the id.
 func gwCapstoreQueryRecords(collection string, filter json.RawMessage) ([]capRecord, error) {
 	resp, err := gwCall("capstore.query_records", map[string]any{
 		"collection": collection, "filter": filter,
@@ -237,7 +249,7 @@ func gwCapstoreQueryRecords(collection string, filter json.RawMessage) ([]capRec
 	return out.Records, nil
 }
 
-// gwCapstoreDeleteByID —— 按记录 id 删自己的一条。
+// gwCapstoreDeleteByID —— deletes one of our own records by its record id.
 func gwCapstoreDeleteByID(collection, recordID string) (int64, error) {
 	resp, err := gwCall("capstore.delete_by_id", map[string]any{
 		"collection": collection, "record_id": recordID,

@@ -1,5 +1,5 @@
-// Tailwind v4 走 PostCSS 插件（不再用 tailwind.config.js）；
-// theme tokens 在 src/app/globals.css 里用 @theme 声明。
+// Tailwind v4 goes through the PostCSS plugin (no more tailwind.config.js);
+// theme tokens are declared with @theme in src/app/globals.css.
 const config = {
   plugins: {
     '@tailwindcss/postcss': {},

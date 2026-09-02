@@ -1,23 +1,24 @@
-// check-no-nil-container —— 强制 [[project-principles]] 的第 2 条：
-// 容器类型 (slice / map / chan) 返回值永远不能是 nil。
+// check-no-nil-container —— enforces item 2 of [[project-principles]]:
+// a container-typed return value (slice / map / chan) must never be nil.
 //
-// 规则：
-//   - func 返回类型是 []T / map[K]V / chan T → 对应 return position 不可为 nil
-//   - 如果同一 return 里有 error 位置且非 nil → 整条算 error path，所有 container
-//     位置允许 nil
-//   - *T / interface / 单值 string 等不在管辖范围
+// Rules:
+//   - func's return type is []T / map[K]V / chan T -> that return position must not be nil
+//   - if the same return statement has an error position that's non-nil -> the whole
+//     statement counts as an error path, and every container position is allowed to be nil
+//   - *T / interface / single-value string, etc., are out of scope
 //
-// AST-only 实现，不引 go/types 也不引 golang.org/x/tools/go/packages —— 我们
-// 的代码里 slice/map/chan 直接 literal 写出来，没有 type alias 隐藏的，纯
-// AST 字面识别足够准。
+// AST-only implementation, pulling in neither go/types nor
+// golang.org/x/tools/go/packages —— in our code, slice/map/chan are always written
+// as literals directly, none hidden behind a type alias, so plain AST literal
+// recognition is accurate enough.
 //
-// 漏报场景（已知，可接受）：
-//   - 返函数调用结果 `return f()` 没法静态判断 f() 是否返 nil
-//   - naked return（命名返回值不显式列）—— 极少用于 container 返回
-//   - 函数字面 / 闭包 —— 不扫描，retriever 里的 sort.Slice less func 这类
-//     不会返 container
+// Known false-negative cases (acceptable):
+//   - a returned call result `return f()` can't be statically checked for whether f() returns nil
+//   - naked return (named return values not listed explicitly) — rarely used for container returns
+//   - function literals / closures — not scanned; things like the sort.Slice less func in
+//     retriever don't return a container anyway
 //
-// 用法：
+// Usage:
 //
 //	go run ./cmd/check-no-nil-container ./internal ./cmd
 package main
@@ -33,9 +34,9 @@ import (
 	"strings"
 )
 
-// scanRoots —— hardcoded scan roots，项目源码的两个根目录。
-// 不读 os.Args / env：避免 gosec G703 把 root 当 untrusted user input 标 taint。
-// 想加新 root 在这里改源码 + recompile。
+// scanRoots —— hardcoded scan roots, the project's two source root directories.
+// Doesn't read os.Args / env: avoids gosec G703 flagging root as tainted untrusted
+// user input. To add a new root, edit the source here and recompile.
 var scanRoots = []string{"./internal", "./cmd"}
 
 func main() {
@@ -54,9 +55,9 @@ func main() {
 	}
 }
 
-// scanAllRoots —— 遍历 scanRoots，聚合 scanned/violations，第一个 walk 错原样
-// 上抛 (让 main 集中 os.Exit)。返 walkState 而不是裸 (int, int)，避免
-// confusing-results。
+// scanAllRoots —— walks scanRoots, aggregating scanned/violations, and passes the
+// first walk error straight up (so main handles os.Exit in one place). Returns
+// walkState rather than a bare (int, int), to avoid confusing-results.
 func scanAllRoots() (walkState, error) {
 	fset := token.NewFileSet()
 	totals := walkState{}
@@ -79,7 +80,8 @@ func failOut() {
 		"Project principle: optional uses *T; collections always return empty.")
 }
 
-// walkState —— walk 返多结果的聚合，避免返 3 值踩 function-result-limit。
+// walkState —— aggregates walk's multiple results, avoiding a 3-value return
+// that would trip function-result-limit.
 type walkState struct {
 	scanned    int
 	violations int
@@ -96,7 +98,7 @@ func walk(fset *token.FileSet, root string) (walkState, error) {
 	return s, nil
 }
 
-// walkOne —— 单条 entry 处理；split 出来降 walk 的 cognitive complexity。
+// walkOne —— handles a single entry; split out to lower walk's cognitive complexity.
 func walkOne(
 	fset *token.FileSet, s *walkState, path string, d fs.DirEntry, werr error,
 ) error {
@@ -115,8 +117,8 @@ func walkOne(
 	return nil
 }
 
-// shouldScan —— 是否扫描该 path（剔 _test、sql.go 生成代码、wire_gen.go、
-// dbq/models.go）。
+// shouldScan —— whether this path should be scanned (excludes _test, sql.go
+// generated code, wire_gen.go, dbq/models.go).
 func shouldScan(path string) bool {
 	if !strings.HasSuffix(path, ".go") {
 		return false
@@ -127,7 +129,7 @@ func shouldScan(path string) bool {
 	return filepath.Base(path) != "wire_gen.go"
 }
 
-// isGeneratedGo —— path 是 _test.go / sqlc 生成 / dbq models 的判断。
+// isGeneratedGo —— checks whether path is _test.go / sqlc-generated / dbq models.
 func isGeneratedGo(path string) bool {
 	if strings.HasSuffix(path, "_test.go") || strings.HasSuffix(path, ".sql.go") {
 		return true
@@ -205,7 +207,7 @@ func checkNestedOnly(fset *token.FileSet, name string, body *ast.BlockStmt) int 
 	return violations
 }
 
-// returnPosCheckable —— ReturnStmt 是否可做 positional 容器-nil 检查。
+// returnPosCheckable —— whether this ReturnStmt can undergo a positional container-nil check.
 func returnPosCheckable(resultTypes []ast.Expr, rs *ast.ReturnStmt) bool {
 	if len(rs.Results) != len(resultTypes) {
 		// single-call multi-return ("return f()") — can't analyze positionally.
@@ -214,7 +216,8 @@ func returnPosCheckable(resultTypes []ast.Expr, rs *ast.ReturnStmt) bool {
 	return !hasNonNilErrorReturn(resultTypes, rs.Results)
 }
 
-// checkReturn —— 单个 ReturnStmt 的容器-nil 检查；split 出来降 checkFunc 认知复杂度。
+// checkReturn —— the container-nil check for a single ReturnStmt; split out to
+// lower checkFunc's cognitive complexity.
 func checkReturn(
 	fset *token.FileSet, name string, resultTypes []ast.Expr, rs *ast.ReturnStmt,
 ) int {
@@ -281,8 +284,8 @@ func isNilIdent(e ast.Expr) bool {
 	return ok && id.Name == "nil"
 }
 
-// exprPrimitive —— 非 container 类型（Ident / Star / Selector）。拆出来降
-// exprString 的 cyclomatic。Interface / Func 走 exprLiteral。
+// exprPrimitive —— non-container types (Ident / Star / Selector). Split out to
+// lower exprString's cyclomatic complexity. Interface / Func go through exprLiteral.
 func exprPrimitive(e ast.Expr) (string, bool) {
 	switch t := e.(type) {
 	case *ast.Ident:
@@ -295,7 +298,7 @@ func exprPrimitive(e ast.Expr) (string, bool) {
 	return exprLiteral(e)
 }
 
-// exprLiteral —— 输出为固定字面量的类型（interface / func）。
+// exprLiteral —— types that render as a fixed literal (interface / func).
 func exprLiteral(e ast.Expr) (string, bool) {
 	switch e.(type) {
 	case *ast.InterfaceType:

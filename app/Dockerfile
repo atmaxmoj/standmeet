@@ -1,13 +1,13 @@
 # StandMeet web app —— minimal runtime image.
 #
-# Build 在 host 上跑（pnpm install + pnpm build），Docker 只装运行时。
-# 这避开了在容器里跑 pnpm install 走 npm registry 的慢网络（实测 30 KiB/s）。
+# Build runs on the host (pnpm install + pnpm build); Docker only holds the runtime.
+# This avoids the slow npm registry network inside the container (measured 30 KiB/s).
 #
-# 使用流程：
-#   1. host 执行 `pnpm install && pnpm run build`（Makefile 的 app-build target）
-#   2. docker compose build app  —— 只 COPY 已生成的 .next/standalone
+# Workflow:
+#   1. host runs `pnpm install && pnpm run build` (the Makefile's app-build target)
+#   2. docker compose build app — only COPYs the already-built .next/standalone
 #
-# 这相当于 "build artifact → image"，类似 Go binary 镜像的做法。
+# Equivalent to "build artifact → image", like a Go binary image.
 
 FROM node:22-alpine
 # ghcr → repo linkage: GitHub reads this to list the pushed image under the repo's Packages.
@@ -16,9 +16,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
-# outputFileTracingRoot 改成 workspace 根之后，.next/standalone 内部布局
-# 是 `<workspace>/app/server.js` + `<workspace>/node_modules/.pnpm/...`。
-# 整个 standalone 整体当 /app 用，server.js 在子目录 app/。
+# With outputFileTracingRoot set to the workspace root, .next/standalone's
+# internal layout is `<workspace>/app/server.js` + `<workspace>/node_modules/.pnpm/...`.
+# The whole standalone tree is used as /app, with server.js under the app/ subdir.
 COPY --chown=nextjs:nodejs .next/standalone ./
 COPY --chown=nextjs:nodejs .next/static ./app/.next/static
 COPY --chown=nextjs:nodejs public ./app/public

@@ -15,9 +15,9 @@ export default tseslint.config(
       },
     },
   },
-  // 不可变量：agent-core 不许 import HTTP / fs / DOM / Node 全局。
-  // 用 no-restricted-globals + no-restricted-imports 兜底。lint-grade
-  // 给 d4-agent-core-imports-pure spec 也做静态扫描兜底 (Bash grep)。
+  // Invariant: agent-core must not import HTTP / fs / DOM / Node globals.
+  // Enforced by no-restricted-globals + no-restricted-imports. lint-grade also
+  // backs the d4-agent-core-imports-pure spec with a static scan (Bash grep).
   {
     rules: {
       'no-restricted-globals': [

@@ -1,16 +1,17 @@
-// plan_execute_live_test.go —— 四组对照：不加 / query rewrite / query decomposition /
-// plan-and-execute。真 LLM，真语料（583 篇 wiki）。
+// plan_execute_live_test.go —— four-way comparison: none / query rewrite / query decomposition /
+// plan-and-execute. Real LLM, real corpus (583 wiki articles).
 //
-// 这三样都不是 RAG 专属的东西 —— 这个 agent 自己就在发查询，所以"要不要先改写问题、
-// 要不要先拆问题、要不要先出计划"是它自己的问题，跟有没有向量管线无关。
+// None of these three are RAG-specific — this agent issues its own queries, so "rewrite the
+// question first or not, decompose it first or not, plan first or not" is its own question,
+// unrelated to whether there's a vector pipeline.
 //
-// 两个问题各打一种形状：
-//   Q1 懒 + 用词不重合 —— rewrite 该起作用的地方
-//   Q2 要跨几十篇的综合 —— decomposition / plan 该起作用的地方
+// The two questions each stress a different shape:
+//   Q1 lazy + non-overlapping vocabulary — where rewrite should kick in
+//   Q2 needs synthesis across dozens of articles — where decomposition / plan should kick in
 //
-// **判据是我自己读答案。** 这一轮我已经因为字符串打分器错了三次
-// （[[read-the-outputs-before-scoring-them]]）。这里只自动记两件无歧义的：
-// 工具次数（代价）、读了几篇（覆盖面）。
+// **The judging is me reading the answer myself.** This round I already got it wrong three times
+// with a string-based scorer ([[read-the-outputs-before-scoring-them]]). Here only two unambiguous
+// things are auto-recorded: tool-call count (cost), how many articles were read (coverage).
 
 package main
 
@@ -22,17 +23,17 @@ import (
 )
 
 const (
-	// rewritePreamble —— query rewrite：把访客那句话翻成 owner 会用的词，再去查。
+	// rewritePreamble —— query rewrite: translate the visitor's words into the vocabulary the owner would use, then search.
 	rewritePreamble = "The visitor's words are rarely the owner's words. Before you search, " +
 		"rewrite their question into the vocabulary the owner's notes would actually use, and " +
 		"search with that rewriting rather than with their phrasing."
 
-	// decomposePreamble —— query decomposition：先把问题拆成互相独立的子问题，各查各的。
+	// decomposePreamble —— query decomposition: split the question into independent sub-questions first, search each separately.
 	decomposePreamble = "Before you search, break the question into the independent " +
 		"sub-questions it contains — each one a thing you could look up on its own. Search for " +
 		"each sub-question separately, then answer from what all of them returned together."
 
-	// planPreamble —— plan-and-execute：先出计划，再照着执行，而不是一步一步临时决定。
+	// planPreamble —— plan-and-execute: write the plan first, then execute it, rather than deciding one step at a time.
 	planPreamble = "Work in two phases. FIRST, before any tool call, write a short plan: what " +
 		"this question requires, which parts of the corpus you must cover to answer it well, " +
 		"and what you will read in what order. THEN execute that plan, revising only if what " +
@@ -76,7 +77,7 @@ func countTool(names []string, want string) int {
 	return n
 }
 
-// uniqSorted —— 工具名 → "corpus_read×5" 这样的紧凑计数，看一眼就知道这一轮的形状。
+// uniqSorted —— tool name → a compact count like "corpus_read×5", so this round's shape is legible at a glance.
 func uniqSorted(in []string) []string {
 	seen := map[string]int{}
 	for _, s := range in {

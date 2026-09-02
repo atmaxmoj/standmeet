@@ -1,23 +1,27 @@
-// config.ts —— 桥的 bot token **从这台实例取**，不从环境变量取。
+// config.ts —— the bridge's bot token **comes from this instance**, not from an env var.
 //
-// 为什么：token 是 owner 的凭据，跟 mail / calendar 的凭据是同一类东西 ——
-// 那些都在 admin 界面里填、加密落 `owner_connectors`。把 IM 的 token 单独塞进 env，
-// 等于这一个凭据有第二个家：owner 要去改一个文件、重启一个容器，
-// 而他刚在界面上改过其它所有连接器（[[事实归产生它的那一方]]）。
+// Why: the token is an owner credential, the same class of thing as the mail / calendar
+// credentials — those all get filled in through the admin UI and land encrypted in
+// `owner_connectors`. Sticking the IM token in an env var separately would give this one
+// credential a second home: the owner would have to go edit a file and restart a
+// container, right after they just edited every other connector in the UI
+// ([[a fact belongs to the party that produces it]]).
 //
-// 所以 compose 里只有**接线**（后端地址），没有设置。
+// So compose only carries **wiring** (the backend address), never a setting.
 
-/** IMConfig —— 这台实例当前配了哪个 IM。token 为空 = owner 还没配。 */
+/** IMConfig —— which IM this instance is currently configured with. Empty token = owner hasn't configured one yet. */
 export interface IMConfig {
   telegramToken: string;
 }
 
 /**
- * fetchIMConfig —— 问后端「我现在该用哪个 token」。
+ * fetchIMConfig —— asks the backend "which token should I use right now?"
  *
- * 走内部口（跟 builder 的 `/internal/builds/claim` 同一条路子）：这个口在容器网络里，
- * 不对外暴露；桥的问答仍然走**访客那条公开路**，跟浏览器一样。
- * 两条路分开是有意的：桥要的授权只有「取自己的配置」，不该顺手拿到 owner 的面。
+ * Goes through the internal port (the same lane as builder's `/internal/builds/claim`):
+ * this port lives inside the container network and is never exposed externally; the
+ * bridge's actual chat traffic still goes through **the same public visitor path** as a
+ * browser. Keeping the two paths separate is deliberate: the bridge's authorization
+ * should only cover "fetch my own config", never incidentally reach the owner's surface.
  */
 export async function fetchIMConfig(internalURL: string): Promise<IMConfig> {
   const res = await fetch(`${internalURL}/internal/im/config`);
@@ -28,10 +32,11 @@ export async function fetchIMConfig(internalURL: string): Promise<IMConfig> {
 }
 
 /**
- * waitForToken —— 等到 owner 配好为止。
+ * waitForToken —— waits until the owner has finished configuring it.
  *
- * **没配不是错误**：一台还没接 IM 的实例是完全正常的。空转等着，
- * 比起来就崩、或者刷一屏认证失败要好 —— 后者会让 owner 以为是坏了。
+ * **Unconfigured is not an error**: an instance that hasn't connected an IM yet is
+ * perfectly normal. Idling and waiting beats crashing, or spamming a screen of auth
+ * failures — the latter would make the owner think something is broken.
  */
 export async function waitForToken(
   internalURL: string, opts: { everyMs?: number; log?: (m: string) => void } = {},
@@ -44,7 +49,7 @@ export async function waitForToken(
     if (!said) {
       opts.log?.('im-bridge: no chat platform configured yet — waiting. ' +
         'Connect one under /admin/connectors.');
-      said = true; // 只说一次：每 15 秒刷同一句，日志就没法看了
+      said = true; // Say it once: repeating the same line every 15 seconds would make the log unreadable
     }
     await new Promise((r) => setTimeout(r, every));
   }

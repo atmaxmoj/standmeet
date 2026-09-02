@@ -5,13 +5,18 @@ import (
 	"testing"
 )
 
-// TestSearchAndGrepPromiseDifferentThings —— 这两句描述是**功能本身**。
+// TestSearchAndGrepPromiseDifferentThings —— these two descriptions ARE the
+// functionality.
 //
-// agent 是靠读它们来选的。一旦有人把其中一句改得像另一句(比如给 grep 也加上 "search the
-// corpus by keyword"),agent 就只能瞎选:该要确定性的时候用了排序检索,答案里少了东西,而且
-// 没有任何一个测试会红 —— 两个工具都"能跑"。
+// The agent picks between them by reading these descriptions. The moment someone
+// edits one to sound like the other (e.g. adding "search the corpus by keyword"
+// to grep too), the agent can only pick blindly: it uses ranked retrieval when it
+// needed a guarantee, the answer ends up missing something, and no test goes red
+// for it — both tools still "run fine".
 //
-// 所以这里钉的不是措辞,是**保证的差异**:一句必须说排序/容错,另一句必须说穷尽/精确。
+// So what's being pinned down here isn't wording, it's **the difference in
+// guarantee**: one description must say ranked/tolerant, the other must say
+// exhaustive/exact.
 func TestSearchAndGrepPromiseDifferentThings(t *testing.T) {
 	t.Parallel()
 	search := strings.ToLower(searchTool().Description)
@@ -20,14 +25,15 @@ func TestSearchAndGrepPromiseDifferentThings(t *testing.T) {
 	if search == grep {
 		t.Fatal("the two descriptions are identical — the agent cannot choose")
 	}
-	// grep 那句必须说清它的保证:穷尽 + 精确。
+	// grep's description must state its guarantee clearly: exhaustive + exact.
 	for _, want := range []string{"every place", "exhaustive", "exact"} {
 		if !strings.Contains(grep, want) {
 			t.Fatalf("corpus_grep's description no longer says %q — "+
 				"never-miss is only reachable if the description states it", want)
 		}
 	}
-	// 而 search 那句必须说清它是关键词检索(不许改成"精确/穷尽"那一套)。
+	// And search's description must state clearly that it is keyword retrieval
+	// (must not be changed to claim "exact/exhaustive").
 	if !strings.Contains(search, "keyword") {
 		t.Fatal("corpus_search's description no longer says it is a keyword search")
 	}
@@ -39,8 +45,10 @@ func TestSearchAndGrepPromiseDifferentThings(t *testing.T) {
 	}
 }
 
-// TestGrepToolShape —— 参数名跟宿主那侧解的字段对得上(pattern / fixed / case_sensitive)。
-// 名字对不上不会报错,只会永远走默认值 —— fixed 传了却不生效那种。
+// TestGrepToolShape —— the param names line up with the fields the host side
+// parses (pattern / fixed / case_sensitive). A name mismatch doesn't error, it
+// just silently always falls through to the default — the kind of bug where
+// fixed is passed but never takes effect.
 func TestGrepToolShape(t *testing.T) {
 	t.Parallel()
 	schema := string(grepTool().RawInputSchema)

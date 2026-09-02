@@ -5,14 +5,15 @@
 // points at this gateway so /v1/messages traffic lands here. Internal
 // behavior:
 //
-//   POST /v1/messages   — Anthropic Messages API (SSE streaming)
-//   POST /__mock/inference/next_tool   — e2e queues a tool_use to emit
-//   POST /__mock/inference/next_reply  — e2e queues final reply text
+//	POST /v1/messages   — Anthropic Messages API (SSE streaming)
+//	POST /__mock/inference/next_tool   — e2e queues a tool_use to emit
+//	POST /__mock/inference/next_reply  — e2e queues final reply text
 //
 // On each /v1/messages call the mock scans its registered keywords and, for the
 // first one the request text CONTAINS:
 //   - a scripted tool → emit tool_use
 //   - a scripted reply → emit it as the final text
+//
 // else default behavior: corpus_search → corpus_read → text reply (or env
 // INFERENCE_MOCK_REPLY).
 //
@@ -57,7 +58,7 @@ func envOr(name, def string) string {
 type server struct {
 	log   *slog.Logger
 	queue *scriptQueue
-	rec   *recorder // 每趟请求记一条,e2e 按 tag 查"这轮走的是哪个 provider"
+	rec   *recorder // one entry per request; e2e looks up by tag which provider this turn used
 	reply string    // INFERENCE_MOCK_REPLY fallback
 }
 
@@ -74,9 +75,10 @@ func newServer(log *slog.Logger) *server {
 func (s *server) run(port string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/messages", s.serveMessages)
-	// GET /v1/models —— 真 provider 都有这条（owner 点「LOAD MODELS」就是问它）。
-	// 替身缺了它，「owner 指着自己的自托管端点选模型」这条路在 e2e 里演不出来 ——
-	// 而那正是产品卡片上写着支持的用法（ollama / vllm / lm-studio，F-R-9）。
+	// GET /v1/models —— every real provider has this (the owner clicking "LOAD MODELS" is
+	// asking it). Without it on the stand-in, the "owner points at their own self-hosted
+	// endpoint to pick a model" path can't be played out in e2e — and that's exactly the usage
+	// the product card advertises support for (ollama / vllm / lm-studio, F-R-9).
 	mux.HandleFunc("GET /v1/models", s.serveModels)
 	mux.HandleFunc("POST /__mock/inference/next_tool", s.serveSetNextTool)
 	mux.HandleFunc("POST /__mock/inference/next_reply", s.serveSetNextReply)

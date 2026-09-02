@@ -1,47 +1,59 @@
 #!/usr/bin/env sh
-# check-doc-make-targets —— **文档里用代码体印出来的 `make X`，必须真的能跑。**
+# check-doc-make-targets —— **any `make X` printed in code style in the docs must actually run.**
 #
-# 为什么这条闸门存在：
-# 项目自己的规矩是「所有 Docker / 测试操作走 Makefile，没有配方就先加配方」。于是文档写
-# `make capture-job-fixtures`，读的人（人或 agent）照着敲 —— 得到 `No rule to make target`。
-# 那条 recipe 从来没被加过，脚本却在 `e2e/fixtures/job-boards/capture.sh` 躺着。结果是
-# **规矩把唯一合规的入口指向了一个不存在的门**，谁要真去做那件事，只能绕过规矩裸跑脚本。
-# 第一次跑这道闸抓到四个：capture-job-fixtures / trim-job-fixtures / backup / restore ——
-# 四个的脚本全都在，缺的只是那一行 wrapper。
+# Why this gate exists:
+# The project's own rule is "all Docker / test operations go through the Makefile; no recipe
+# means add one first". So a doc wrote `make capture-job-fixtures`, a reader (human or agent)
+# typed it — and got `No rule to make target`. That recipe was never added, even though the
+# script sits right there at `e2e/fixtures/job-boards/capture.sh`. The result:
+# **the rule pointed the only compliant entry point at a door that doesn't exist**, so anyone
+# who actually wants to do that has to bypass the rule and run the script raw.
+# The first run of this gate caught four: capture-job-fixtures / trim-job-fixtures / backup /
+# restore — the scripts all exist for every one of them, only the wrapper line is missing.
 #
-# 判据是「Makefile 里声明没声明这个目标」。
+# The check is "does the Makefile declare this target or not".
 #
-# **不要用 `make -n <t>` 来探**（第一版这么写，然后超时了）：GNU make 在 `-n` 下**照样执行**
-# 含 `$(MAKE)` 的配方行 —— 这样子 make 才能把自己的命令也打印出来。而本仓库的 `test:` 整条
-# 配方是用 `\` 接成的**一行**，里头既有 `pnpm exec playwright test` 又有 `$(MAKE) archive-failures`，
-# 于是 `make -n test` 会**真的把整套 e2e 跑起来**。一个只想问「这个目标存在吗」的探针，
-# 绝不能有把生产配方跑起来的可能。
+# **Do not probe with `make -n <t>`** (the first version did, and it timed out): under `-n`
+# GNU make **still executes** any recipe line containing `$(MAKE)` — that's how make can print
+# its own sub-commands too. And this repo's `test:` recipe is one single line joined with `\`,
+# containing both `pnpm exec playwright test` and `$(MAKE) archive-failures`. So
+# `make -n test` **actually runs the whole e2e suite**. A probe that only wants to ask
+# "does this target exist" must never have a chance of running a production recipe.
 #
-# 代价是这里得自己认 Makefile 的目标行。所以下面配了三条自证：认得出已知目标、
-# 认不出已知的非目标、并且 Makefile 一旦引入 `include`（我们的 grep 看不进去）就报失败而不是放行。
+# The cost is that this script has to recognize Makefile target lines itself. So it carries
+# three self-tests below: it must recognize a known target, must not recognize a known
+# non-target, and must fail (not silently pass) the moment the Makefile adopts `include`
+# (which our grep can't see into).
 #
-# 提案怎么办：文档里讨论一个**还没建**的目标是正当的（"未来需要个 `make verify-fixtures`"）。
-# 那种句子必须在同一行带上标记 `(not built yet)`，**一个词一个意思**，不接受近义词 ——
-# 否则「待加 / 计划 / TODO / 推荐」各写各的，闸门要么瞎要么误伤，最后被关掉。
+# What about proposals: it's legitimate for a doc to discuss a target that **doesn't exist
+# yet** ("we'll need a `make verify-fixtures` eventually"). That sentence must carry the
+# marker `(not built yet)` on the same line — **one word, one meaning**, no synonyms accepted —
+# otherwise "to add / planned / TODO / recommended" all get written differently, and the gate
+# ends up either blind or over-triggering, and eventually gets turned off.
 #
-# 自证：不存在的目标必须判缺；存在的目标必须判在；扫不到任何引用要当失败报（范围瞎了）。
+# Self-test: a nonexistent target must be judged missing; an existing target must be judged
+# present; scanning zero references must be reported as a failure (scope went blind).
 
 set -eu
 
 fail=0
-# 标记只认这个**短语**，括号里怎么补充随意（`(not built yet — 这是被否掉的那一半)` 也算）。
-# 第一版把闭括号也算进标记里，于是加了说明的那一行没被认出来 —— 标记要认意思，不认标点。
+# The marker only recognizes this **phrase**; whatever comes after it in parens is free
+# (`(not built yet — this half is the negated one)` still counts). The first version also
+# required the closing paren, so a line with extra explanation after it went unrecognized —
+# the marker must recognize the meaning, not the punctuation.
 MARKER='not built yet'
 MAKEFILE=Makefile
 
-# Makefile 一有 include，下面这份目标表就只看得见一半 —— 那时要报失败，不能继续放行。
+# The moment the Makefile gets an include, the target table below only sees half the
+# picture — at that point it must report failure, not keep passing.
 if grep -qE '^[[:space:]]*(-|s)?include[[:space:]]' "$MAKEFILE"; then
   echo "check-doc-make-targets: SELF-TEST FAILED — $MAKEFILE now uses include; this scan only"
   echo "                        reads the top-level file and would miss targets defined elsewhere."
   exit 2
 fi
 
-# 目标行：行首的名字，冒号前可以并列多个（`a b:`），排除变量赋值（`a := x`）和 pattern rule。
+# Target lines: the name(s) at the start of the line, multiple can appear before the
+# colon (`a b:`), excluding variable assignments (`a := x`) and pattern rules.
 targets=$(grep -E '^[a-zA-Z0-9_.%/-]+([[:space:]]+[a-zA-Z0-9_.%/-]+)*:([^=]|$)' "$MAKEFILE" \
   | awk -F: '{print $1}' | tr ' ' '\n' | grep -v '^$' | sort -u)
 
@@ -49,16 +61,19 @@ target_exists() {
   printf '%s\n' "$targets" | grep -qx "$1"
 }
 
-# 范围用 git grep（只看**被追踪**的文件）—— node_modules 里几百份第三方 README 全是
-# `make release` / `make build-browser`，按目录扫会被它们淹掉，然后这道闸只能被加豁免名单。
-# 不用 `ls-files | xargs grep`：BSD 的 xargs 没有 `-r`，输入一空就把 grep 挂在 stdin 上
-# 等到天荒地老（第一版就是这么超时的）。
+# Scope uses git grep (only looks at **tracked** files) — node_modules holds hundreds of
+# third-party READMEs full of `make release` / `make build-browser`; scanning by directory
+# would get flooded by those, and this gate would end up needing an exemption list.
+# Not `ls-files | xargs grep`: BSD xargs has no `-r`, so an empty input leaves grep
+# hanging on stdin forever (the first version timed out this way).
 #
-# 只认**代码体**里的调用：反引号开头那个 `make x`。散文里的 "make sure" / "make it"
-# 不是命令，第一版没收窄，156 个「目标」里 148 个是英文单词。
+# Only recognizes calls inside **code style**: a backtick-led `make x`. Prose like
+# "make sure" / "make it" isn't a command — the first version didn't narrow this down,
+# and 148 of 156 "targets" turned out to be plain English words.
 refs=$(git grep -nE '`make [a-z][a-zA-Z0-9_-]*' -- '*.md' 2>/dev/null || true)
 
-# 逐条判。用 printf 逐行读而不是 for-in，文件名/行文里有空格时才不会被切碎。
+# Judge each one. Read with printf line-by-line rather than for-in, so filenames or
+# text containing spaces don't get chopped apart.
 printf '%s\n' "$refs" | while IFS= read -r ref; do
   [ -n "$ref" ] || continue
   case "$ref" in *"$MARKER"*) continue ;; esac
@@ -74,8 +89,8 @@ printf '%s\n' "$refs" | while IFS= read -r ref; do
   done
 done
 
-# while 跑在 subshell 里，fail 传不出来 —— 用落地的文件计数（[[write-with-no-receipt]]：
-# 别让「没报错」冒充「没问题」）。
+# The while loop runs in a subshell, so `fail` can't escape it — count via a file on disk
+# instead ([[write-with-no-receipt]]: never let "no error" pass for "no problem").
 FAILFILE="${TMPDIR:-/tmp}/doc-make-targets.fail"
 if [ -f "$FAILFILE" ]; then
   fail=$(grep -c . "$FAILFILE" || echo 1)
@@ -84,7 +99,8 @@ else
   fail=0
 fi
 
-# 扫描范围自证：一条引用都没取到的话，上面那个循环恒绿。
+# Self-test on scan coverage: if zero references got picked up, the loop above would
+# always pass.
 n=$(printf '%s\n' "$refs" | grep -c . || true)
 if [ "$n" -lt 5 ]; then
   echo "check-doc-make-targets: SELF-TEST FAILED — only $n backticked \`make …\` reference(s)"
@@ -92,7 +108,8 @@ if [ "$n" -lt 5 ]; then
   exit 2
 fi
 
-# 判定自证（两个方向都要）：不存在的必须判缺，存在的必须判在。
+# Self-test on the verdict (both directions needed): a nonexistent target must be judged
+# missing, an existing target must be judged present.
 if target_exists definitely-not-a-target; then
   echo "check-doc-make-targets: SELF-TEST FAILED — a nonexistent target was judged to exist"
   exit 2

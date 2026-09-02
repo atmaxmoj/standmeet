@@ -1,21 +1,21 @@
 // app/eslint.config.mjs
 //
-// 形态对齐 Otium web/eslint.config.mjs，prune 掉 lucerna 特定的限制（pg /
-// wa-sqlite / appwrite / i18next 强制）。保留通用的：
+// Shaped to match Otium web/eslint.config.mjs, with lucerna-specific restrictions pruned
+// out (pg / wa-sqlite / appwrite / i18next enforcement). Keeps the generic ones:
 //
-//   - TS strict + type-checked rules（@typescript-eslint/*）
+//   - TS strict + type-checked rules (@typescript-eslint/*)
 //   - Next.js + React + react-hooks
-//   - max-lines / max-lines-per-function（350 / 70）
-//   - no-console（用 slog 的镜像；前端走 logger）
-//   - presentation 层禁 if / useMemo（业务逻辑下沉到 zustand / domain）
-//   - controller (route.ts / actions) 层禁 if + import restrict
-//   - e2e spec 文件：禁 page.goto / 禁 page.request.{post,put,delete} /
-//     禁 waitForTimeout / 禁 networkidle / 禁 fetch with method
+//   - max-lines / max-lines-per-function (350 / 70)
+//   - no-console (the slog mirror; frontend goes through logger)
+//   - presentation layer bans if / useMemo (business logic sinks to zustand / domain)
+//   - controller (route.ts / actions) layer bans if + import restrict
+//   - e2e spec files: ban page.goto / ban page.request.{post,put,delete} /
+//     ban waitForTimeout / ban networkidle / ban fetch with method
 //
-// 业务限制（DB 层 import allowlist）等到 StandMeet 真有 repository 层
-// 之后再加 path-targeted rule。
+// Business restrictions (DB-layer import allowlist) wait for a path-targeted rule until
+// StandMeet actually has a repository layer.
 //
-// i18next 现在没接，先不开 i18next/no-literal-string，等接了再开。
+// i18next isn't wired up yet, so i18next/no-literal-string stays off until it is.
 import tseslint from 'typescript-eslint';
 import nextPlugin from '@next/eslint-plugin-next';
 import reactPlugin from 'eslint-plugin-react';
@@ -31,19 +31,20 @@ export default tseslint.config(
       '**/build/**',
       '**/coverage/**',
       '**/playwright-report/**',
-      // public/ 下两个**构建产物**：TeX 字体和 embed bundle，都是别处的源码
-      // 在 build 时搬进来的，不该按本仓源码的规矩去 lint（tsconfig 也不含它们）。
+      // Two **build artifacts** under public/: TeX fonts and the embed bundle, both source
+      // from elsewhere moved in at build time — they shouldn't be linted by this repo's own
+      // source rules (tsconfig doesn't include them either).
       'public/tikz-fonts/**',
       'public/embed.js',
       '**/*.test.ts',
-      // 根目录 config 文件没在 tsconfig 里；typescript-eslint typed-rules
-      // 跑不动它们，单独忽略避免 'not found by project service' 报错。
+      // Root-level config files aren't in tsconfig; typescript-eslint's typed-rules can't run
+      // on them, so they're ignored separately to avoid a 'not found by project service' error.
       '*.mjs',
       '*.config.ts',
-      // 同理:scripts/ 是构建期的 node 脚本(跟着 build 跑),不在 app 的 tsconfig 里。
+      // Same reason: scripts/ is build-time node scripts (run alongside the build), not part of app's tsconfig.
       'scripts/**',
-      // next-env.d.ts 是 next 自动维护的（每次 build 重写），里面有 triple-slash
-      // reference —— 我们不去碰它，忽略对应的 lint 规则报错。
+      // next-env.d.ts is auto-maintained by next (rewritten on every build) and contains a
+      // triple-slash reference — we don't touch it, so its lint errors are ignored.
       'next-env.d.ts',
     ],
   },
@@ -80,29 +81,32 @@ export default tseslint.config(
 
       // i18n —— UI copy lives in the message catalog (src/i18n/messages/), never inline.
       //
-      // 这条规则是**唯一**守得住它的东西：靠"记得用 t()"的约定，第一个赶时间的人就破了，而且破了
-      // 之后没有任何信号 —— 那句话照样显示，只是永远翻译不了。
+      // This rule is the **only** thing that actually holds this line: relying on the convention
+      // of "remember to use t()" gets broken by the first person in a hurry, and once broken there's
+      // no signal at all — the string still renders, it just can never be translated.
       //
-      // 形态取自 Otium / youteacher 两个已经跑通的项目（同插件、同 mode）。
+      // Shape taken from Otium / youteacher, two already-proven projects (same plugin, same mode).
       //
-      // **它管到哪为止，说清楚**：`mode: 'jsx-only'` 会把属性也算进来，但那 571 处里约一半
-      // （testid / h / w / href / mainTestId…）根本不是话，而真正是话的那 ~304 处（label /
-      // placeholder / title / kicker / hint）有个前置障碍：好几个组件的 data-testid 是**从 label
-      // prop 推出来的**（WritingField 的 `writing-field-${label}`、SkillField 的
-      // `skill-field-${label}`）—— 把 label 换成 t()，testid 跟着变，测试全断。
-      // 所以属性那一刀要先解耦 testid，是独立的一刀，不是这一刀的边角。
+      // **Say clearly where it stops covering**: `mode: 'jsx-only'` would pull attributes in too,
+      // but of those ~571 occurrences roughly half (testid / h / w / href / mainTestId…) aren't
+      // copy at all, and the ~304 that really are copy (label / placeholder / title / kicker / hint)
+      // hit a prior blocker: several components derive data-testid **from the label prop**
+      // (WritingField's `writing-field-${label}`, SkillField's `skill-field-${label}`) — swap
+      // label for t() and the testid changes with it, breaking every test.
+      // So the attribute cut needs testid decoupled first; it's a separate cut, not a corner of this one.
       //
-      // 于是这里是 `jsx-text-only`（markupOnly 的新名字）：**JSX 文本节点，管到底；属性，一个不管**。
-      // 别在这里列 ignoreAttribute —— 这个 mode 下它根本不生效（Otium / youteacher 里那张长长的
-      // 白名单是死配置，实测过：`placeholder="ask me anything"` 在它们那儿也照样放行）。
-      // 一句不成立的配置注释，跟一个不成立的空状态是同一种病。
+      // Hence `jsx-text-only` here (the new name for markupOnly): **JSX text nodes, covered fully;
+      // attributes, none of them**. Don't list ignoreAttribute here — it has zero effect in this
+      // mode (the long allowlist in Otium / youteacher is dead config, verified by testing:
+      // `placeholder="ask me anything"` sails through there too).
+      // A config comment that doesn't hold is the same disease as an empty state that doesn't hold.
       'i18next/no-literal-string': ['error', { mode: 'jsx-text-only' }],
 
       // React Hooks —— set-state-in-effect / preserve-manual-memoization
-      // 在 react-hooks v7 才有；v5（当前版本）只跑 recommended。升 v7 后再开。
+      // only exist in react-hooks v7; v5 (current version) only runs recommended. Enable after upgrading to v7.
       ...reactHooksPlugin.configs.recommended.rules,
 
-      // TypeScript strict —— 每条 promote 到 error 后不能 regress。
+      // TypeScript strict —— once a rule is promoted to error, it must not regress.
       '@typescript-eslint/no-unused-expressions': ['error', {
         allowShortCircuit: true,
         allowTernary: true,
@@ -120,28 +124,28 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
       '@typescript-eslint/unbound-method': 'error',
 
-      // 前端走 logger（lib/logger.ts），不要 console.*
+      // Frontend goes through logger (lib/logger.ts), not console.*
       'no-console': 'error',
 
-      // catch 不能空
+      // catch must not be empty
       'no-empty': ['error', { allowEmptyCatch: false }],
 
-      // 文件 ≤ 350 行
+      // files ≤ 350 lines
       'max-lines': ['error', { max: 350, skipBlankLines: true, skipComments: true }],
 
-      // 函数 ≤ 70 行
+      // functions ≤ 70 lines
       'max-lines-per-function': [
         'error',
         { max: 70, skipBlankLines: true, skipComments: true, IIFEs: true },
       ],
 
-      // JSX 里禁 inline <style> + 禁 style={{...}} attribute —— 走 .css /
-      // Tailwind class（design tokens 已经在 globals.css @theme，参数化样式
-      // 写 component CSS）。
+      // Ban inline <style> in JSX + ban the style={{...}} attribute — use .css /
+      // Tailwind classes instead (design tokens already live in globals.css @theme;
+      // parameterized styles go in component CSS).
       //
-      // 极少数 runtime-dynamic 场景（CSS-variable threading；非 finite-set
-      // 的连续值）单点 `// eslint-disable-next-line no-restricted-syntax` 加
-      // 简要原因注释；不要因为 "暂时方便" 而绕。
+      // For the rare truly runtime-dynamic case (CSS-variable threading; a continuous value
+      // that isn't a finite set), add a single-line `// eslint-disable-next-line
+      // no-restricted-syntax` with a brief reason — never bypass it for "convenient for now".
       'no-restricted-syntax': [
         'error',
         {
@@ -168,8 +172,9 @@ export default tseslint.config(
         { checksVoidReturn: { attributes: false } },
       ],
 
-      // 禁所有 relative import，强制走 @/ alias（tsconfig.paths 配过）。
-      // 让搬文件不需要追 ../../ 链；grep 跳到任意符号一致从 @/ 起。
+      // Ban all relative imports, force the @/ alias (configured in tsconfig.paths).
+      // Lets moving a file skip chasing a ../../ chain; grep-jumping to any symbol
+      // consistently starts from @/.
       'no-restricted-imports': ['error', {
         patterns: [{
           group: ['../*', './*'],
@@ -177,9 +182,10 @@ export default tseslint.config(
         }],
       }],
 
-      // 禁 React 组件 prop API 渗 data-testid —— 测试 hook 只允许挂在原生
-      // DOM 元素（<button>/<div>/<input> 等小写 JSX）上，再由 Next compiler
-      // 在 prod build 里 strip 掉。组件 (大写 JSX) 不该把 testid 当 prop 暴露。
+      // Ban data-testid from leaking into a React component's prop API —— the test hook may
+      // only attach to native DOM elements (lowercase JSX like <button>/<div>/<input>), which
+      // the Next compiler then strips in prod builds. Components (uppercase JSX) shouldn't
+      // expose testid as a prop.
       'react/forbid-component-props': ['error', {
         forbid: [{
           propName: 'data-testid',
@@ -189,8 +195,8 @@ export default tseslint.config(
     },
   },
 
-  // Presentation 层 —— 仅渲染 + 交互。业务逻辑、状态推导、控制流不在这。
-  // 适用于 src/app/**/*.tsx（pages、layouts、admin 子组件）。
+  // Presentation layer —— rendering + interaction only. No business logic, state derivation,
+  // or control flow here. Applies to src/app/**/*.tsx (pages, layouts, admin subcomponents).
   {
     files: [
       'src/app/**/*.tsx',
@@ -233,8 +239,8 @@ export default tseslint.config(
     },
   },
 
-  // Controller 层（Next.js route handlers + server actions）—— HTTP 和
-  // usecase 之间的薄胶水。无分支、无变换、无业务规则。
+  // Controller layer (Next.js route handlers + server actions) —— thin glue between HTTP and
+  // the usecase. No branching, no transformation, no business rules.
   {
     files: [
       'src/app/**/route.ts',
@@ -255,10 +261,10 @@ export default tseslint.config(
     },
   },
 
-  // Markdown renderer —— body_md 来自 owner 输入 + AI MCP，src 是任意 URL
-  // (CDN / 第三方 / 未来 standmeet-asset:<id> presigned)，无宽高、无固定 domain。
-  // next/image 要求 width+height，与 markdown <img> 语义不兼容，本文件
-  // 单点允许 raw <img>。
+  // Markdown renderer —— body_md comes from owner input + the AI MCP, src is an arbitrary URL
+  // (CDN / third-party / a future standmeet-asset:<id> presigned URL), with no fixed width/height
+  // or domain. next/image requires width+height, which is incompatible with markdown <img>
+  // semantics, so this one file allows raw <img>.
   {
     files: ['src/components/writings/WritingArticleMarkdown.tsx'],
     rules: {

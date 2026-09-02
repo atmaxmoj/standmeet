@@ -18,7 +18,8 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-// socketEnv —— 宿主注入的 host socket 路径。名字对所有能力都一样(见 booker 的同名常量)。
+// socketEnv —— the host socket path the host injects. Same name across all capabilities
+// (see the identically-named constant in booker).
 const socketEnv = "STANDMEET_HOST_SOCKET"
 
 const instructions = `You can send an email on the owner's behalf through their configured mail ` +

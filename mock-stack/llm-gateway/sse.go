@@ -102,8 +102,9 @@ func emitToolUseBlock(
 	})
 }
 
-// 一次生成的三种收场。stopMaxTokens 是**正常结束**的一种 —— 流没有报错，只是模型的
-// 输出预算先用完了，正文停在半句上。产品要能把它跟 stopEndTurn 分开对待（F-A-34）。
+// The three ways one generation can end. stopMaxTokens is a kind of **normal completion** —— the stream
+// reports no error, the model just ran out of its output budget first, stopping mid-sentence. The
+// product needs to treat it differently from stopEndTurn (F-A-34).
 const (
 	stopEndTurn   = "end_turn"
 	stopToolUse   = "tool_use"

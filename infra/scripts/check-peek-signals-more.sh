@@ -1,19 +1,25 @@
 #!/usr/bin/env sh
-# check-peek-signals-more —— 一张**会被切**的预览卡，切口处必须有续读信号。
+# check-peek-signals-more —— a preview card that **will be clipped** must have a
+# continue-reading signal at the cut.
 #
-# 为什么这条闸门存在（UX-56）：
-# summarize 的报告卡是**有意**的 sneak-peek —— 内层 iframe 写死 280px，超出的报告就被切。
-# 但切口原本什么信号都没有：正文断在句子中间撞上卡片边框，读起来像"坏了"而不是"还有"。
-# 续读入口（`open as page ↗`）一直在头部，缺的只是"你需要走它"这件事被说出来。
+# Why this gate exists (UX-56):
+# summarize's report card is a **deliberate** sneak-peek — the inner iframe is fixed
+# at 280px, and any report longer than that gets clipped. But the cut originally had
+# no signal at all: the body breaks mid-sentence against the card border, reading as
+# "broken" rather than "more". The continue-reading entry point (`open as page ↗`)
+# was always in the header — what was missing was just saying "you need to use it".
 #
-# **这条闸门能挡什么、不能挡什么，说清楚**：
-#   能挡 —— 有人把渐隐那条规则**删掉**（最现实的回归：重构卡片样式时顺手带走）。
-#   不能挡 —— 有人把渐变改成 transparent→transparent 这类**削弱**。
-# 一条只挡得住"被删"的闸门仍然值得有，但把它说成"保证切口一直有信号"就是撒谎。
-# （e2e 那边试过：伪元素没有 locator，量卡片高度根本测不到渐隐 ——
-#  那种断言看着像在守，其实永远不会红，见 [[assertion-that-cannot-fail]]。所以守在源头。）
+# **Be explicit about what this gate can and can't catch**:
+#   Catches — someone **deleting** the fade rule outright (the realistic regression:
+#     dropped incidentally while refactoring card styles).
+#   Doesn't catch — someone **weakening** the gradient to transparent→transparent, etc.
+# A gate that only catches "deleted" is still worth having, but calling it "guarantees
+# the cut always has a signal" would be a lie.
+# (Tried on the e2e side: the pseudo-element has no locator, and measuring card height
+#  can't detect the fade at all — that kind of assertion looks like it's guarding but
+#  can never go red, see [[assertion-that-cannot-fail]]. So guard at the source instead.)
 #
-# 自证：把去掉渐隐的模板喂给同一个判定，必须判红。
+# Self-test: feed the same check a template with the fade removed — it must go red.
 
 set -eu
 
@@ -27,25 +33,29 @@ if [ ! -f "$TARGET" ]; then
   exit 2
 fi
 
-# scan —— 卡片模板里，固定高度的预览 iframe 必须**同时**存在一条覆盖切口的渐隐。
-# 两个条件一起判：只有渐隐没有固定高度 = 这条规则已经没有对象了，也该有人来看一眼。
+# scan —— in the card template, a fixed-height preview iframe must **also** have a
+# fade rule covering the cut. Both conditions are checked together: fade with no
+# fixed height = this rule no longer has a subject, worth someone taking a look too.
 #
-# **判定要跨行**：真实模板里 `.card::after{...}` 和它的 `linear-gradient` 分在两行 ——
-# 第一版用按行的 `grep -qE` 一起找这两样，于是**正确的模板也被判红**，
-# 而且连自证 2（"带渐隐的不许红"）都跟着炸了。自证救了这一次：
-# 如果只写自证 1，这个瞎判会带着一句绿色的谎言上线（[[gate-can-go-blind]]）。
-# 所以先把整份文件读成一行再判规则块。
+# **The check must span lines**: in the real template, `.card::after{...}` and its
+# `linear-gradient` sit on two separate lines — the first version used a line-by-line
+# `grep -qE` to find both, so **even a correct template got judged red**, and self-test
+# 2 ("a template with a fade must not go red") blew up along with it. The self-test
+# saved this one: if only self-test 1 existed, this blind check would ship with a
+# green lie ([[gate-can-go-blind]]). So the whole file is flattened to one line first,
+# then the rule block is checked.
 has_fixed_peek() { tr '\n' ' ' < "$1" | grep -qE 'iframe *\{[^}]*height: *[0-9]+px'; }
 has_fade()       { tr '\n' ' ' < "$1" | grep -qE '\.card::after *\{[^}]*linear-gradient'; }
 
 if has_fixed_peek "$TARGET" && ! has_fade "$TARGET"; then
   echo "check-peek-signals-more: the report card clips at a fixed height with nothing at the cut."
-  echo "                 一个必然被切的预览，切口处要有续读信号（渐隐），"
-  echo "                 否则正文断在句子中间读起来像坏了，而不是像"还有"。"
+  echo "                 A preview that will inevitably be clipped needs a continue-reading"
+  echo "                 signal (fade) at the cut, otherwise the body breaking off mid-sentence"
+  echo "                 reads as broken, not as \"more\"."
   fail=1
 fi
 
-# 自证 1：去掉渐隐的模板必须判红。
+# Self-test 1: a template with the fade removed must go red.
 planted=$(mktemp -t peek.XXXXXX)
 cat > "$planted" <<'PLANTED'
  .card{border:1px solid #d9d0c2;overflow:hidden}
@@ -58,7 +68,8 @@ if ! { has_fixed_peek "$planted" && ! has_fade "$planted"; }; then
 fi
 rm -f "$planted"
 
-# 自证 2：带渐隐的模板不许判红（管太宽的闸门会把代码推去更糟的地方）。
+# Self-test 2: a template with a fade must not go red (an overly broad gate pushes
+# the code somewhere worse).
 ok=$(mktemp -t peek-ok.XXXXXX)
 cat > "$ok" <<'OKCASE'
  .card{border:1px solid #d9d0c2;overflow:hidden;position:relative}

@@ -1,6 +1,9 @@
-// book.go —— calendar_book 主流程,港自旧核心 usecases/calendar_book.go + capreg_booker_book.go。
-// #135:逻辑在沙箱;外部走固定词表 —— 日历 insert/delete/freebusy 经 connector.invoke,预约存/数
-// (配额)经 capstore,owner 时区经 owner.meta。结果 wire **字节对齐**旧 host(前端卡片照旧解)。
+// book.go —— the calendar_book main flow, ported from the old core usecases/calendar_book.go
+// + capreg_booker_book.go.
+// #135: the logic lives in the sandbox; everything external goes through a fixed vocabulary
+// —— calendar insert/delete/freebusy via connector.invoke, booking storage/counting (quota)
+// via capstore, owner timezone via owner.meta. The result wire stays **byte-aligned** with
+// the old host (the frontend card decodes it unchanged).
 
 package main
 
@@ -37,7 +40,7 @@ func validateBookArgs(a *bookArgs) error {
 	return nil
 }
 
-// ── wire(与旧 capreg_booker_book.go 同键)──
+// ── wire (same keys as the old capreg_booker_book.go) ──
 
 type bookErrWire struct {
 	Error  string `json:"error"`
@@ -45,39 +48,47 @@ type bookErrWire struct {
 	OK     bool   `json:"ok"`
 }
 
-// bookOKWire —— 预约成功的回执。**每个字段都要说话，包括"没有"那一种**。
+// bookOKWire —— the receipt for a successful booking. **Every field says something,
+// including the "nothing" case**.
 //
-// InvitedEmail 以前叫 VisitorEmail 且带 `omitempty`：访客没留邮箱时它整个消失，回执就只剩
-// `{ok, event_id, html_link, start, end, can_email:true}`。而 can_email 说的是 owner **能不能**
-// 发信，不是这一次**邀请了谁**。模型手上于是没有任何东西能反驳"邀请已经发出去了"——
-// prompt 又告诉它"invite goes to the email the visitor entered (if they gave one)"——
-// 它就从对话正文里捡了个地址，对访客说"日历邀请会发到 X"。真收件箱是空的，真事件一个
-// 参会人都没有（F-B-6）。**省略不是 null**：字段永远在，空串就是"谁都没被邀请"。
+// InvitedEmail used to be called VisitorEmail and carried `omitempty`: when the visitor gave
+// no email it vanished entirely, leaving the receipt as just
+// `{ok, event_id, html_link, start, end, can_email:true}`. But can_email says whether the
+// owner **can** send email, not **who was invited** this time. The model then had nothing to
+// contradict "the invite has already been sent" with —— and since the prompt also told it
+// "invite goes to the email the visitor entered (if they gave one)" —— it picked an address
+// out of the conversation body and told the visitor "the calendar invite will go to X."
+// The real inbox was empty, and the real event had no attendees at all (F-B-6). **Omission is
+// not null**: the field is always present, and an empty string means "nobody was invited."
 type bookOKWire struct {
 	EventID  string `json:"event_id"`
 	HTMLLink string `json:"html_link"`
 	Start    string `json:"start"`
 	End      string `json:"end"`
-	// InvitedEmail —— 这场会真正加进宾客名单、真正会收到邀请的那个地址；空串 = 没有人。
+	// InvitedEmail —— the address actually added to the guest list, the one that actually
+	// gets the invite; empty string = nobody.
 	InvitedEmail string `json:"invited_email"`
 	OK           bool   `json:"ok"`
 	CanEmail     bool   `json:"can_email"`
 }
 
-// bookConflictWire —— 这一格刚被别人拿走。**不是错误**:调用方(和模型)要的是「换一个时间」,
-// 不是「出了故障」。形状跟别的冲突回执一致(`ok:false` + `conflict`),卡片和模型都已经会读。
+// bookConflictWire —— this slot was just taken by someone else. **Not an error**: what the
+// caller (and the model) wants is "pick another time," not "something broke." The shape
+// matches other conflict receipts (`ok:false` + `conflict`), which the card and the model
+// already know how to read.
 type bookConflictWire struct {
 	Conflict string `json:"conflict"`
 	Detail   string `json:"detail"`
 	OK       bool   `json:"ok"`
 }
 
-// slotHoldSeconds —— 占位活多久。够盖住「插入事件 + 落库」那一段(实测秒级,冷启慢时到十几秒),
-// 又短到一次崩溃不会把这一格锁很久。
+// slotHoldSeconds —— how long the hold lasts. Long enough to cover "insert the event +
+// persist it" (measured in seconds normally, up to the low tens on a slow cold start), yet
+// short enough that one crash doesn't lock the slot for long.
 const slotHoldSeconds = 60
 
-// slotHoldKey —— 哪一格。owner + 起止时间:同一个 owner 的同一段时间只能有一个人在订,
-// 而不同 owner 之间互不影响。
+// slotHoldKey —— which slot. owner + start/end time: only one person can be booking the same
+// owner's same time window at once, and different owners never affect each other.
 func slotHoldKey(ownerID string, start, end time.Time) string {
 	return "slot:" + ownerID + ":" + start.UTC().Format(time.RFC3339) +
 		"-" + end.UTC().Format(time.RFC3339)
@@ -113,18 +124,20 @@ func bookFailResult(conflict, hint string, busy []busyInterval) string {
 	return mustJSON(bookFailWire{OK: false, Conflict: conflict, PolicyHint: hint, BusyWindows: wins})
 }
 
-// insertedEvent —— connector.invoke insert_event 的响应(InsertedEvent json tags)。
+// insertedEvent —— the response from connector.invoke insert_event (InsertedEvent json tags).
 type insertedEvent struct {
 	EventID  string `json:"event_id"`
 	HTMLLink string `json:"html_link"`
 }
 
-// bookingDoc —— 存进 booker capstore 的一笔预约(cancel 按 conversation 查、配额按主体数)。
+// bookingDoc —— one booking as stored in the booker capstore (cancel looks it up by
+// conversation, quota counts by subject).
 type bookingDoc struct {
 	OwnerID string `json:"owner_id"`
-	// SubjectID / SubjectKind —— 这一笔是**谁**订的:一张邀请码,或一把对外 API key。
-	// 宿主按 SubjectID 数用量(manifest 的 QuotaDecl.SubjectField)。以前这里只有 `code_id`,
-	// 于是 key 那条路订的会没有主体可数,一次都不闸(F-B-11)。
+	// SubjectID / SubjectKind —— **who** made this booking: an access code, or an outbound
+	// API key. The host counts usage by SubjectID (the manifest's QuotaDecl.SubjectField).
+	// This used to only have `code_id`, so a booking made via the key path had no subject to
+	// count against, and never got gated at all (F-B-11).
 	SubjectID      string    `json:"subject_id"`
 	SubjectKind    string    `json:"subject_kind"`
 	ConversationID string    `json:"conversation_id"`
@@ -136,7 +149,8 @@ type bookingDoc struct {
 	EndAt          time.Time `json:"end_at"`
 }
 
-// doBook —— calendar_book 的沙箱实现。返回给 agent 的 wire JSON(含错误也是 {ok:false,...})。
+// doBook —— the sandboxed implementation of calendar_book. Returns the wire JSON given back
+// to the agent (errors too are {ok:false,...}).
 func doBook(s session, rawArgs json.RawMessage) string {
 	var args bookArgs
 	if err := json.Unmarshal(rawArgs, &args); err != nil {
@@ -145,8 +159,9 @@ func doBook(s session, rawArgs json.RawMessage) string {
 	if verr := validateBookArgs(&args); verr != nil {
 		return bookErr("invalid_args", verr.Error())
 	}
-	// 配额闸在 host 侧(composition root 读 booker capstore 计数,达上限直接隐藏 tool),
-	// 所以走到这里就是还有额度 —— booker 不再自查。
+	// The quota gate lives on the host side (the composition root reads the booker capstore
+	// count and hides the tool outright once the limit is hit), so reaching this point means
+	// there's still quota left —— booker doesn't check again.
 	return runBook(s, &args)
 }
 
@@ -172,7 +187,8 @@ func runBook(s session, args *bookArgs) string {
 	return commitBooking(s, args, tz, slot)
 }
 
-// collectPassing —— 逐个 preferred_time 过 policy;返回通过的 + 最坏冲突原因(全不过时用)。
+// collectPassing —— runs each preferred_time through the policy; returns the ones that pass +
+// the worst conflict reason (used when none pass).
 func collectPassing(policy *bookingPolicy, tz string, args *bookArgs) ([]time.Time, string) {
 	var passed []time.Time
 	worst := ""
@@ -216,12 +232,14 @@ func pickFreeSlot(slots []time.Time, durationMin int, busy []busyInterval) (time
 	return time.Time{}, false
 }
 
-// commitBooking —— 占住这一格 → insert event → persist;persist 失败则补偿删事件
-// (不留无预约的孤儿事件)。
+// commitBooking —— claims the slot → inserts the event → persists it; if persist fails,
+// compensates by deleting the event (no orphaned event left with no booking behind it).
 //
-// **先占位再插入**:忙时检查和插入之间有一个窗口,两个同时进来的请求会看见同一个「空着」,
-// 于是各订各的 —— prod 上真出过,真日历上并排两场(F-B-15)。占位由宿主用主键冲突保证,
-// 不靠这里的先后顺序。
+// **Claim the slot before inserting**: there's a window between the free/busy check and the
+// insert, and two requests arriving at the same time can both see the same slot as "free"
+// and each go ahead and book it —— this really happened in prod, two events side by side on
+// the real calendar (F-B-15). The claim is guaranteed by the host via a primary-key conflict,
+// not by any ordering here.
 func commitBooking(s session, args *bookArgs, tz string, slot time.Time) string {
 	end := slot.Add(time.Duration(args.DurationMin) * time.Minute)
 	summary := buildSummary(s.VisitorName, args.Topic)
@@ -234,7 +252,7 @@ func commitBooking(s session, args *bookArgs, tz string, slot time.Time) string 
 	}
 	inserted, ierr := insertEvent(s, args, tz, slot, end, summary)
 	if ierr != nil {
-		gwCapstoreRelease(bookingsColl, holdKey) // 没订成,别把这一格锁到 TTL 到期
+		gwCapstoreRelease(bookingsColl, holdKey) // booking failed, don't leave the slot locked until the TTL expires
 		return friendlyCalErr(ierr)
 	}
 	if perr := persistBooking(s, &inserted, summary, slot, end); perr != nil {
@@ -242,7 +260,8 @@ func commitBooking(s session, args *bookArgs, tz string, slot time.Time) string 
 		gwCapstoreRelease(bookingsColl, holdKey)
 		return friendlyCalErr(perr)
 	}
-	// #130 owner-notify:booking 已成立,通知是 best-effort 的尾巴 —— 失败只是没信。
+	// #130 owner-notify: the booking has already succeeded, the notification is a
+	// best-effort tail — a failure here just means no message went out.
 	notifyOwnerOfBooking(s, &bookingDoc{
 		OwnerID: s.OwnerID, SubjectID: s.SubjectID, SubjectKind: s.SubjectKind,
 		GoogleEventID: inserted.EventID,
@@ -291,7 +310,8 @@ func compensateDelete(s session, eventID string) {
 	_, _ = gwConnectorInvoke(s.OwnerID, "calendar", "delete_event", req)
 }
 
-// ownerCanEmail —— owner 有没有可用 mail 连接器(决定确认信 widget 进不进卡)。
+// ownerCanEmail —— whether the owner has a usable mail connector (decides whether the
+// confirmation-email widget shows up on the card).
 func ownerCanEmail(ownerID string) bool {
 	resp, err := gwConnectorInvoke(ownerID, "mail", "connected", nil)
 	if err != nil {
@@ -303,9 +323,11 @@ func ownerCanEmail(ownerID string) bool {
 	return json.Unmarshal(resp, &r) == nil && r.Connected
 }
 
-// ownerCanBook —— owner 的日历授权写不写得进去(决定时段卡的 chip 能不能点)。
-// 跟 ownerCanEmail 同一个形状:**做不到的动作不给入口**。
-// 答不上来时按不能办:这一格宁可少给一个入口,也不要给一个按下去没结果的。
+// ownerCanBook —— whether the owner's calendar authorization allows writing (decides whether
+// the time-slot card's chip can be clicked).
+// Same shape as ownerCanEmail: **don't offer an entry point for an action that can't be
+// done**. When it can't answer, treat it as "can't": this control would rather offer one
+// fewer entry point than one that does nothing when pressed.
 func ownerCanBook(ownerID string) bool {
 	args, _ := json.Marshal(map[string]string{"operation": "events.insert"})
 	resp, err := gwConnectorInvoke(ownerID, "calendar", "can_perform", args)
@@ -327,7 +349,8 @@ func buildSummary(visitorName, topic string) string {
 	return strings.Join(parts, " — ")
 }
 
-// friendlyCalErr —— 底层错误一律友好降级,绝不把 socket/连接器内部错泄漏给访客。
+// friendlyCalErr —— every underlying error gets degraded to a friendly message; never leak a
+// socket/connector internal error to the visitor.
 func friendlyCalErr(err error) string {
 	switch {
 	case err != nil && strings.Contains(err.Error(), "not connected"):

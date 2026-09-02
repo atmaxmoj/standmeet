@@ -1,30 +1,47 @@
-// check-routes-via-dispatcher —— 面只能从出站收口取能力。
+// check-routes-via-dispatcher —— faces may only get capability through the
+// outbound convergence point.
 //
-// # 规则
+// # Rule
 //
-// internal/routes 下**除收口以外**的文件不可以 import 任何域的 facade
-// （internal/<domain>/facade）。面要用的能力，必须先在收口声明成 Op，面经 Face 取。
+// A file under internal/routes **other than the convergence point itself** may
+// not import any domain's facade (internal/<domain>/facade). Any capability a
+// face needs must first be declared as an Op on the convergence point, and the
+// face gets it through Face.
 //
-// 收口本身**当然**要 import 各域的 facade —— 它是出站汇聚点，认识每个域是它的定义。
-// facade 存在的意义就是给它这条路：域的正门开着，只是不许**面**从这儿进。
+// The convergence point itself **naturally** has to import each domain's facade
+// — it is the outbound aggregation point, and knowing every domain is exactly its
+// job. The facade exists precisely to give it that path: the domain's front door
+// stays open, it's just that a **face** may not come in through it.
 //
-// 这个范围我一开始写错过：扫了整个 internal/routes，把收口自己也禁了。后果是一连串的 ——
-// 调用只能挪到唯一能同时看见两边的地方（组装根），于是每个资源都要在收口重新声明一遍
-// 域已有的入参/出参，再写一段"把 A 抄成 B"的搬运。**内部的能力被这道门推到了外部。**
+// I got this scope wrong once, early on: scanned the whole internal/routes and
+// banned the convergence point itself too. The consequence was a chain reaction —
+// calls could only move to the one place that could see both sides (the assembly
+// root), so every resource ended up re-declaring the domain's existing
+// input/output params on the convergence point, plus a block of "copy A into B"
+// plumbing. **Capability that belonged inside got pushed outside by this very gate.**
 //
-// # 为什么
+// # Why
 //
-// 出站收口能保证 parity、能做策略的唯一施加点，前提是**没有别的路能拿到能力**。只要一个 handler
-// 还能直接 import corpus/facade 自己调，它服务的那个能力就没在收口登记过：MCP 面不知道它存在，
-// Conform 也对不出它缺席 —— 收口退化成"一部分能力恰好放在那儿"，保证全部作废。
+// The outbound convergence point can guarantee parity and be the single place
+// policy applies, only if **no other path can reach the capability**. The moment
+// one handler can still import corpus/facade and call it directly, the capability
+// it serves was never registered at the convergence point: the MCP face doesn't
+// know it exists, Conform can't check its absence either — the convergence point
+// degrades into "some capability just happens to live there", and the guarantee
+// falls apart entirely.
 //
-// 路由形状、方法、路径、参数绑定、状态码仍然照常手写。被禁的只有一件事：绕过收口直接够到域。
+// Route shape, method, path, param binding, and status codes are still written by
+// hand as usual. The only thing banned is bypassing the convergence point to reach
+// a domain directly.
 //
-// # 棘轮
+// # Ratchet
 //
-// 迁移前 internal/routes/admin 有 50 个文件直连域 facade。一次全改不现实，所以基线记下这些文件，
-// **只能变短**：每把一个资源搬进收口，就从基线里删掉它的文件名。基线里没有的文件一旦直连 → 红。
-// 基线为空时，把 baseline 清空即可，规则自动变成全域强制。
+// Before migration, internal/routes/admin had 50 files connecting directly to a
+// domain facade. Changing them all at once wasn't realistic, so the baseline
+// records these files, and it **can only shrink**: every time a resource is moved
+// onto the convergence point, its filename comes out of the baseline. Any file not
+// in the baseline that connects directly -> red. Once the baseline is empty,
+// clearing it turns the rule into a domain-wide requirement automatically.
 package main
 
 import (
@@ -38,38 +55,48 @@ import (
 	"strings"
 )
 
-// scanRoot —— 只管面这一层。不读 os.Args / env（gosec G703：别把路径当 untrusted input）。
+// scanRoot —— covers only the face layer. Doesn't read os.Args / env (gosec G703:
+// don't treat a path as untrusted input).
 const scanRoot = "./internal/routes"
 
-// convergences —— 两个收口自己。它们不是面，是面（或沙箱能力）取能力的那个点，所以不在
-// 这条规则里。
+// convergences —— the two convergence points themselves. They are not faces, they
+// are the points where a face (or a sandboxed capability) gets capability from, so
+// they are not covered by this rule.
 //
-//	出站  internal/routes/dispatcher —— 面从这儿取能力
-//	入站  internal/routes/hostdesk   —— 沙箱里的能力从这儿回头问宿主要东西
+//	outbound  internal/routes/dispatcher —— faces get capability from here
+//	inbound   internal/routes/hostdesk   —— capabilities inside the sandbox come
+//	                                         back here to ask the host for things
 //
-// 上面那段"我一开始写错过"的教训对两边同样成立：把收口自己也禁掉，调用就只能挪到唯一能
-// 同时看见两边的地方（组装根），于是那儿又长出一份手写搬运。入站那半边正是这么长出四个
-// 手写网关的。
+// The lesson from "I got this wrong once, early on" above applies equally to both
+// sides: ban the convergence point itself too, and calls can only move to the one
+// place that sees both sides (the assembly root), growing another block of
+// hand-written plumbing there. That is exactly how the inbound half ended up with
+// four hand-written gateways.
 var convergences = []string{
 	"internal/routes/dispatcher/",
 	"internal/routes/hostdesk/",
 }
 
-// facadeSuffix —— 域对外的唯一入口就叫 facade（check-domain-facade-boundary 保证这点）。
+// facadeSuffix —— a domain's one and only external entry point is called facade
+// (check-domain-facade-boundary guarantees this).
 const facadeSuffix = "/facade"
 
-// modulePrefix —— 本仓 import path 前缀。
+// modulePrefix —— this repo's import path prefix.
 const modulePrefix = "github.com/atmaxmoj/standmeet/internal/"
 
-// baseline —— 迁移前就已经直连域 facade 的文件（相对 backend/ 的路径）。
+// baseline —— files that already connected directly to a domain facade before the
+// migration (paths relative to backend/).
 //
-// **这份名单只能变短。** 每把一个资源搬进出站收口，删掉对应文件那一行。
-// 不要往里加行：加行意味着又造了一条绕过收口的路。
+// **This list may only shrink.** Every time a resource moves onto the outbound
+// convergence point, delete that file's line. Don't add lines: adding one means
+// another path around the convergence point was just created.
 var baseline = map[string]bool{
 	"internal/routes/admin/auth.go":  true,
 	"internal/routes/admin/claim.go": true,
-	// corpus.go / corpus_crud.go 只剩树和分页那两个面板独有的视图还直连;列表 / 详情 /
-	// 建改删提升都经收口了。corpus_detail.go 和 corpus_output.go 整个消失。
+	// corpus.go / corpus_crud.go: only the tree and pagination views, unique to the
+	// panel, still connect directly; list / detail / create / edit / delete / promote
+	// all go through the convergence point now. corpus_detail.go and corpus_output.go
+	// disappeared entirely.
 	"internal/routes/admin/corpus.go":                   true,
 	"internal/routes/admin/corpus_page.go":              true,
 	"internal/routes/admin/corpus_tree.go":              true,
@@ -78,9 +105,11 @@ var baseline = map[string]bool{
 	"internal/routes/admin/keypairs.go":                 true,
 	"internal/routes/admin/obsidian.go":                 true,
 	"internal/routes/admin/recovery.go":                 true,
-	// writings.go / writings_multipart.go 迁完了 —— 收口有了携带字节的通道之后,保存
-	// 那条经 Face.OpFiles 取,跟 MCP 那条是同一个 op。剩下的 writings_tree.go:树和分页
-	// 是面板独有的视图(懒加载一层 / keyset 一页),还没有对应的 op。
+	// writings.go / writings_multipart.go finished migrating — now that the
+	// convergence point has a channel for carrying bytes, the save path goes through
+	// Face.OpFiles, the same op as the MCP path. The remaining writings_tree.go: tree
+	// and pagination are views unique to the panel (a lazy-load layer / a keyset page),
+	// and don't have a matching op yet.
 	"internal/routes/admin/writings_tree.go":         true,
 	"internal/routes/capload/api_key_toolset.go":     true,
 	"internal/routes/capload/capreg_ext_mcp.go":      true,
@@ -93,8 +122,9 @@ var baseline = map[string]bool{
 	"internal/routes/pubapi/pubapi.go":               true,
 	"internal/routes/public/access_requests.go":      true,
 	"internal/routes/public/agent_turn.go":           true,
-	// agent_turn_preflight.go 是从 agent_turn.go 拆出来的那三道准入闸(越权 / 油量 /
-	// 轮数),同一笔旧账换了个文件名,不是新欠的。
+	// agent_turn_preflight.go is the three admission gates (privilege escalation /
+	// budget / turn count) split out of agent_turn.go — the same old debt under a new
+	// filename, not newly incurred.
 	"internal/routes/public/agent_turn_preflight.go":  true,
 	"internal/routes/public/app_state.go":             true,
 	"internal/routes/public/chat.go":                  true,
@@ -159,7 +189,7 @@ func main() {
 	fmt.Println(", ratchet holds).")
 }
 
-// offenders —— scanRoot 下所有 import 了某个域 facade 的文件。
+// offenders —— every file under scanRoot that imports some domain's facade.
 func offenders() ([]string, error) {
 	out := []string{}
 	fset := token.NewFileSet()
@@ -185,7 +215,8 @@ func offenders() ([]string, error) {
 	return out, err
 }
 
-// skipPath —— 目录、非 Go 文件、测试文件不看;两个收口自己也不看(它们不是面)。
+// skipPath —— skips directories, non-Go files, test files; also skips the two
+// convergence points themselves (they are not faces).
 func skipPath(path string, isDir bool) bool {
 	if isDir || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 		return true
@@ -193,7 +224,7 @@ func skipPath(path string, isDir bool) bool {
 	return atConvergence(filepath.ToSlash(path))
 }
 
-// atConvergence —— 这个文件是不是某个收口自己的。
+// atConvergence —— whether this file belongs to one of the convergence points itself.
 func atConvergence(path string) bool {
 	for _, c := range convergences {
 		if strings.Contains(path, c) {
@@ -203,7 +234,8 @@ func atConvergence(path string) bool {
 	return false
 }
 
-// isDomainFacade —— internal/<domain>/facade（正好两段，排除 internal/routes/... 这种更深的）。
+// isDomainFacade —— internal/<domain>/facade (exactly two segments, excluding
+// deeper paths like internal/routes/...).
 func isDomainFacade(path string) bool {
 	if !strings.HasPrefix(path, modulePrefix) || !strings.HasSuffix(path, facadeSuffix) {
 		return false

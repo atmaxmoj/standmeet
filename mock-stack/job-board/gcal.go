@@ -58,31 +58,34 @@ type gcalState struct {
 	events         []mockEvent
 	deletedEvents  []mockEvent
 	fails          map[string]*failInjection // op → injected failure (retry-matrix e2e)
-	freeBusyRaw    []byte                    // set_freebusy_raw: 下次 freeBusy 原样回这个（一次性）
-	eventShape     string                    // set_event_shape: "" | "object" | "array"（响应形状）
+	freeBusyRaw    []byte                    // set_freebusy_raw: the next freeBusy call echoes this back verbatim (one-shot)
+	eventShape     string                    // set_event_shape: "" | "object" | "array" (response shape)
 	oauthOutcome   string                    // /__mock/oauth/program: ""|deny|token_invalid_client|state_mismatch|network_fail|refresh_omit_scope
-	lastAuthScopes map[string][]string       // client_id → 上次 authorize 收到的 scope 子集（按 client_id 隔离：并行 oauth 测试各读自己的 dance，不互相污染共享记录）
-	// lastChallenge —— client_id → 上次 authorize 带来的 `code_challenge`（PKCE）。
-	// 记下来才能在换 token 那一步验：verifier 的 S256 摘要对不上就不给 token。
-	// 以前这个 mock 对 PKCE **一个字都不问**，于是产品发不发都一样绿（F-C-44）。
+	lastAuthScopes map[string][]string       // client_id → the scope subset received on the last authorize call (isolated per client_id: parallel oauth tests each read their own dance, without polluting a shared record)
+	// lastChallenge —— client_id → the `code_challenge` (PKCE) carried by the last authorize
+	// call. Recorded so the token-exchange step can verify it: no token is issued if the
+	// verifier's S256 digest doesn't match. This mock used to **ask nothing at all** about
+	// PKCE, so whether the product sent it or not looked equally green (F-C-44).
 	lastChallenge  map[string]string
 	tokenCallCount int
 	revoked        bool // owner revoked at Google → next refresh returns invalid_grant
 	mu             sync.Mutex
 }
 
-// failInjection —— e2e 控制点：让某个 op（"freeBusy" / "events.insert"）的下 N 次
-// 调用失败，验证 connector 重试层。remaining: >0 = 还要失败的次数；-1 = 永远失败。
-// mode "connreset-after-write"（仅 insert）：把（带幂等键的）事件写进 state 后断开
-// 连接，模拟「写后响应丢失」——重试带同 id 重发 → 命中已存事件，验证不双订。
+// failInjection —— an e2e control point: makes the next N calls to some op ("freeBusy" /
+// "events.insert") fail, to verify the connector's retry layer. remaining: >0 = calls still
+// to fail; -1 = fail forever.
+// mode "connreset-after-write" (insert only): writes the (idempotency-keyed) event into state
+// and then breaks the connection, simulating "response lost after the write went through" ——
+// a retry resending the same id then hits the already-stored event, verifying no double-booking.
 type failInjection struct {
 	mode      string
 	status    int
 	remaining int
 }
 
-// takeFail —— op 这次该不该失败 + 怎么失败。命中则按 remaining 递减（-1 不减）。
-// 调用方持有 s.gcal.mu。
+// takeFail —— whether this call to op should fail, and how. On a hit, decrements remaining
+// (-1 stays unchanged). Caller holds s.gcal.mu.
 func (st *gcalState) takeFail(op string) (*failInjection, bool) {
 	f, ok := st.fails[op]
 	if !ok || f.remaining == 0 {
@@ -141,8 +144,9 @@ func (s *server) serveOAuthAuth(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, u.String(), http.StatusFound)
 }
 
-// authorizeCallbackQuery —— 按编程的 outcome 拼 callback query：deny → 只回 error；state_mismatch
-// → 回不符的 state（验后端 CSRF 拒）；否则正常 code+state。
+// authorizeCallbackQuery —— builds the callback query from the programmed outcome: deny →
+// return only an error; state_mismatch → return a state that doesn't match (verifies the
+// backend rejects CSRF); otherwise a normal code+state.
 func authorizeCallbackQuery(outcome, state string) url.Values {
 	q := url.Values{}
 	if outcome == "deny" {
@@ -159,12 +163,15 @@ func authorizeCallbackQuery(outcome, state string) url.Values {
 	return q
 }
 
-// pkceOK —— 这次换 token 的 PKCE 对不对。
+// pkceOK —— whether this token exchange's PKCE is correct.
 //
-// 没记到 challenge（这个 client 没走过 authorize，或它压根没发）→ 放行：那种情形归
-// 守卫去断「authorize URL 上有没有 challenge」，在这儿一律拒会把所有老用例一起判死，
-// 而闸门顶死无关的人就会被关掉（[[gate-scope-forces-architecture]]）。
-// 记到了就必须验：S256(verifier) 逐字等于 challenge。
+// No challenge recorded (this client never went through authorize, or never sent one at all)
+// → allow it: that case belongs to a separate guard asserting "does the authorize URL carry
+// a challenge," and rejecting unconditionally here would fail every older test case at once,
+// the gate blocking off cases it has no business gating
+// ([[gate-scope-forces-architecture]]).
+// If a challenge was recorded, it must be verified: S256(verifier) has to match challenge
+// exactly.
 func (s *server) pkceOK(r *http.Request) bool {
 	clientID := r.PostForm.Get("client_id")
 	var challenge string
@@ -180,7 +187,7 @@ func (s *server) pkceOK(r *http.Request) bool {
 	return base64.RawURLEncoding.EncodeToString(sum[:]) == challenge
 }
 
-// splitScopes —— OAuth scope param（空格分隔）→ 列表（空 → 空切片）。
+// splitScopes —— the OAuth scope param (space-separated) → a list (empty → an empty slice).
 func splitScopes(scope string) []string {
 	if scope == "" {
 		return []string{}
@@ -188,15 +195,20 @@ func splitScopes(scope string) []string {
 	return strings.Fields(scope)
 }
 
-// grantedScopeFor —— token 响应里的 `scope`：**这次实际授出去的范围**。
+// grantedScopeFor —— the `scope` in the token response: **the range actually granted this
+// time**.
 //
-// 真 provider（Google 就是）在 token 响应里回显本次授权的 scope —— 那是「我到底拿到了
-// 什么权限」的唯一权威来源，产品也正是从这里存下已授范围。这个 mock 以前无条件回一个
-// 常量，比真实世界客气：无论 owner 勾了什么，它都说「你拿到了 calendar」。于是「勾选的
-// 子集能不能读回来」这件事在 mock 上永远看不出真假（F-C-33）。
+// A real provider (Google included) echoes back the scope granted on that authorization in
+// the token response —— that's the sole authoritative source for "what permission did I
+// actually get," and it's exactly what the product stores as the granted range. This mock
+// used to unconditionally return a constant, which was politer than the real world: no
+// matter what the owner checked, it always said "you got calendar." So whether the checked
+// subset could be read back was something this mock could never expose true or false on
+// (F-C-33).
 //
-// 现在照真 provider 的规矩来：回显这个 client 在 authorize 那一步收到的 scope。
-// 没有记录（没走过 authorize，比如直接 refresh）→ 退回常量，行为跟从前一致。
+// Now it follows the real provider's rule: echo back the scope this client received at the
+// authorize step. No record (never went through authorize, e.g. a direct refresh) → fall
+// back to the constant, same behavior as before.
 func (s *server) grantedScopeFor(clientID string) string {
 	var got []string
 	s.withState(func(st *gcalState) { got = st.lastAuthScopes[clientID] })
@@ -237,8 +249,8 @@ func (s *server) serveOAuthToken(w http.ResponseWriter, r *http.Request) {
 			fault, _ = st.takeFail("token")
 		}
 	})
-	// 连接流编程的 token 故障（authorization_code 换 token 时）：坏 client → invalid_client；
-	// network_fail → 断连。
+	// Programmed connection-flow token faults (during the authorization_code exchange):
+	// bad client → invalid_client; network_fail → connection dropped.
 	if outcome == "token_invalid_client" {
 		http.Error(w, `{"error":"invalid_client"}`, http.StatusBadRequest)
 		return
@@ -263,9 +275,10 @@ func (s *server) serveOAuthToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"server_error"}`, fault.status)
 		return
 	}
-	// PKCE：authorize 那一步带了 challenge，换 token 就必须带对得上的 verifier。
-	// 真 provider（Google 对 installed app 一类）正是这么办的；这个 mock 以前不问，
-	// 于是「产品到底发没发 PKCE」在它身上永远看不出真假（F-C-44）。
+	// PKCE: if the authorize step carried a challenge, the token exchange must carry a
+	// matching verifier. A real provider (Google, for installed apps) does exactly this;
+	// this mock used to not ask, so whether the product actually sent PKCE could never
+	// be told apart on it (F-C-44).
 	if grant == "authorization_code" && !s.pkceOK(r) {
 		writeInvalidGrant(s.log, w)
 		return
@@ -276,10 +289,12 @@ func (s *server) serveOAuthToken(w http.ResponseWriter, r *http.Request) {
 		TokenType:   scopeOAuthTokenType,
 		ExpiresIn:   defaultExpiresIn,
 	}
-	// refresh_omit_scope —— **刷新响应里不带 `scope`**，那是 RFC 6749 §5.1 明文允许的
-	// （范围跟原来一样时可以省略），也是不少 provider 的实际做法。Google 会回显，所以
-	// 这条路在真环境上永远走不到 —— 而替身一直比规范客气，产品因此从没被问过
-	// 「省略时你把已授范围当成什么」（[[stand-in-is-politer-than-reality]]）。
+	// refresh_omit_scope —— **the refresh response carries no `scope`**, which RFC 6749
+	// §5.1 explicitly permits (it may be omitted when the range is unchanged), and is what
+	// quite a few providers actually do. Google echoes it, so this path can never be
+	// reached against the real environment —— and the stand-in kept being politer than the
+	// spec, so the product was never asked "what do you treat the granted range as when it's
+	// omitted" ([[stand-in-is-politer-than-reality]]).
 	if grant == "refresh_token" && outcome == "refresh_omit_scope" {
 		resp.Scope = ""
 	}
@@ -323,7 +338,7 @@ func (s *server) serveCalendarEventsInsert(w http.ResponseWriter, r *http.Reques
 	}
 	var revoked bool
 	s.withState(func(st *gcalState) { revoked = st.revoked })
-	if revoked { // 外部撤销 → access token 被拒（401）→ 后端刷新撞 invalid_grant 降级
+	if revoked { // externally revoked → access token rejected (401) → backend refresh hits invalid_grant → degrades
 		writeCalendarUnauthorized(s.log, w)
 		return
 	}
@@ -349,12 +364,14 @@ func (s *server) serveCalendarEventsInsert(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// writeInsertShaped —— 正常回 object；set_event_shape=array 时回 [obj]（验 binding response
-// 抽取对「形状不符」的处理：要么归一、要么拒，不崩）。
+// writeInsertShaped —— normally returns an object; returns [obj] when set_event_shape=array
+// (verifies the binding response extraction handles a "shape mismatch": either normalize it
+// or reject it, never crash).
 func (s *server) writeInsertShaped(w http.ResponseWriter, resp *insertEventResponse, shape string) {
 	if shape == "array" {
 		w.Header().Set("Content-Type", "application/json")
-		// 明确的数组（≥2 元素）→ 求值出序列塞不进标量契约字段，后端优雅降级。
+		// An explicit array (≥2 elements) → evaluating it yields a sequence that can't fit
+		// into a scalar contract field, and the backend degrades gracefully.
 		if err := json.NewEncoder(w).Encode([]*insertEventResponse{resp, resp}); err != nil {
 			s.log.Error("encode insert array", "err", err)
 		}
@@ -365,7 +382,8 @@ func (s *server) writeInsertShaped(w http.ResponseWriter, resp *insertEventRespo
 
 const connResetAfterWrite = "connreset-after-write"
 
-// eventID —— 用客户端幂等键作 event id；空则 mock 自分配。
+// eventID —— uses the client's idempotency key as the event id; the mock assigns one itself
+// when empty.
 func eventID(key string) string {
 	if key != "" {
 		return key
@@ -373,11 +391,13 @@ func eventID(key string) string {
 	return "evt-" + randomHex(mockEventIDLen)
 }
 
-// insertDecision —— 锁内决定 insert 归宿并完成 state 写入。返回 (existing, fail)：
+// insertDecision —— decides where an insert ends up and completes the state write, inside
+// the lock. Returns (existing, fail):
 //
-//	existing != nil → 同 id 已存（幂等重放），不重复写；
-//	fail != nil     → 注入失败（connreset 模式已把事件写进 state，模拟「写后丢响应」）；
-//	都 nil          → 正常新建（已 append）。
+//	existing != nil → same id already stored (idempotent replay), no duplicate write;
+//	fail != nil      → injected failure (connreset mode has already written the event into
+//	                   state, simulating "the response was lost after the write");
+//	both nil         → a normal new insert (already appended).
 func (s *server) insertDecision(ev mockEvent) (*mockEvent, *failInjection) {
 	var existing, fail = (*mockEvent)(nil), (*failInjection)(nil)
 	s.withState(func(st *gcalState) {
@@ -397,8 +417,9 @@ func (s *server) insertDecision(ev mockEvent) (*mockEvent, *failInjection) {
 	return existing, fail
 }
 
-// applyInsertFail —— connreset 模式劫持连接直接断开（客户端拿到传输错 → 瞬时 →
-// 重试）；其余模式回注入的状态码。
+// applyInsertFail —— connreset mode hijacks the connection and drops it outright (the client
+// gets a transport error → treated as transient → retries); other modes return the injected
+// status code.
 func (s *server) applyInsertFail(w http.ResponseWriter, fail *failInjection) {
 	if fail.mode == connResetAfterWrite {
 		s.hijackClose(w)
@@ -407,7 +428,7 @@ func (s *server) applyInsertFail(w http.ResponseWriter, fail *failInjection) {
 	http.Error(w, `{"error":"injected insert failure"}`, fail.status)
 }
 
-// findEvent —— 按 id 找已存事件（幂等去重）。调用方持锁。
+// findEvent —— finds an already-stored event by id (idempotency dedup). Caller holds the lock.
 func (st *gcalState) findEvent(id string) *mockEvent {
 	for i := range st.events {
 		if st.events[i].EventID == id {
@@ -429,7 +450,7 @@ func eventToInsertResp(e *mockEvent) *insertEventResponse {
 	}
 }
 
-// Events.delete handler 拆到 gcal_delete.go 守 max-lines。
+// The Events.delete handler is split out into gcal_delete.go to stay under max-lines.
 
 // ─── /google-calendar/freeBusy ─────────────────────────────────
 
@@ -473,7 +494,7 @@ func (s *server) serveCalendarFreeBusy(w http.ResponseWriter, r *http.Request) {
 		if revoked {
 			return
 		}
-		if st.freeBusyRaw != nil { // 一次性：原样回这坨 JSON（验 binding 对畸形/缺字段的归一）
+		if st.freeBusyRaw != nil { // one-shot: echo this exact JSON blob back (verifies the binding normalizes malformed/missing fields)
 			raw, st.freeBusyRaw = st.freeBusyRaw, nil
 			return
 		}
@@ -483,7 +504,7 @@ func (s *server) serveCalendarFreeBusy(w http.ResponseWriter, r *http.Request) {
 		}
 		busy = append(busy, st.busy...)
 	})
-	if revoked { // 外部撤销后 access token 被拒（401）→ 后端刷新撞 invalid_grant 降级
+	if revoked { // once externally revoked, access token gets rejected (401) → backend refresh hits invalid_grant → degrades
 		writeCalendarUnauthorized(s.log, w)
 		return
 	}
@@ -543,7 +564,8 @@ type setFreeBusyRawRequest struct {
 	Body json.RawMessage `json:"body"`
 }
 
-// serveMockSetFreeBusyRaw —— 让下次 freeBusy 原样回 body 里这坨 JSON（验 binding response 归一）。
+// serveMockSetFreeBusyRaw —— makes the next freeBusy call echo back this exact JSON blob from
+// the body (verifies the binding response normalization).
 func (s *server) serveMockSetFreeBusyRaw(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -563,7 +585,8 @@ type setEventShapeRequest struct {
 	Shape string `json:"shape"`
 }
 
-// serveMockSetEventShape —— 控 events.insert 回 object（正常）或 array（形状不符）。
+// serveMockSetEventShape —— controls whether events.insert returns an object (normal) or an
+// array (shape mismatch).
 func (s *server) serveMockSetEventShape(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -595,7 +618,7 @@ func (s *server) serveMockGCalReset(w http.ResponseWriter, _ *http.Request) {
 	writeOK(s.log, w)
 }
 
-// failBody —— /__mock/gcal/fail 入参：让 op 的下 times 次失败（-1 = 永远）。
+// failBody —— input to /__mock/gcal/fail: makes op's next `times` calls fail (-1 = forever).
 type failBody struct {
 	Op     string `json:"op"`
 	Mode   string `json:"mode"`
@@ -603,7 +626,8 @@ type failBody struct {
 	Times  int    `json:"times"`
 }
 
-// serveMockGCalFail —— 注入某 op 的瞬时失败（重试矩阵 e2e）。status 默认 503。
+// serveMockGCalFail —— injects a transient failure for some op (retry-matrix e2e). status
+// defaults to 503.
 func (s *server) serveMockGCalFail(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -627,7 +651,7 @@ func (s *server) serveMockGCalFail(w http.ResponseWriter, r *http.Request) {
 	writeOK(s.log, w)
 }
 
-// setFail —— 记一条 op 的注入失败（懒建 map）。
+// setFail —— records one injected failure for an op (lazily creates the map).
 func (s *server) setFail(op string, f *failInjection) {
 	s.withState(func(st *gcalState) {
 		if st.fails == nil {
@@ -637,15 +661,16 @@ func (s *server) setFail(op string, f *failInjection) {
 	})
 }
 
-// tokenFaultBody —— /__mock/gcal/token_fault 入参：让接下来 times 次 refresh token
-// 调用以 network 错（断连）或 500（非 invalid_grant）失败（E7）。
+// tokenFaultBody —— input to /__mock/gcal/token_fault: makes the next `times` refresh-token
+// calls fail with a network error (dropped connection) or a 500 (not invalid_grant) (E7).
 type tokenFaultBody struct {
 	Mode  string `json:"mode"` // "network" | "500"
 	Times int    `json:"times"`
 }
 
-// serveMockGCalTokenFault —— 注入 token refresh 的 network/500 故障（区别于 revoke
-// 的 invalid_grant）。验证后端把它当瞬时错重试 + 友好降级，不当撤销。
+// serveMockGCalTokenFault —— injects a network/500 fault into token refresh (distinct from
+// revoke's invalid_grant). Verifies the backend treats it as transient — retry + friendly
+// degrade — rather than as a revocation.
 func (s *server) serveMockGCalTokenFault(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -666,8 +691,9 @@ func (s *server) serveMockGCalTokenFault(w http.ResponseWriter, r *http.Request)
 	writeOK(s.log, w)
 }
 
-// hijackClose —— 劫持连接直接断开，模拟传输层 network 错（客户端拿到 EOF/conn
-// reset → 后端当瞬时错重试）。connreset-after-write 与 token network 故障共用。
+// hijackClose —— hijacks the connection and drops it outright, simulating a transport-layer
+// network error (the client gets EOF/conn reset → the backend treats it as transient and
+// retries). Shared by connreset-after-write and the token network fault.
 func (s *server) hijackClose(w http.ResponseWriter) {
 	hj, ok := w.(http.Hijacker)
 	if !ok {
@@ -684,15 +710,16 @@ func (s *server) hijackClose(w http.ResponseWriter) {
 	}
 }
 
-// serveMockResetTokenCount —— 只清 token 调用计数（invalid-grant-no-retry 用它
-// 在 revoke 之后归零，单测 refresh 恰好命中一次）。
+// serveMockResetTokenCount —— clears only the token call count (invalid-grant-no-retry uses
+// this to zero it out after a revoke, so the test can assert refresh was hit exactly once).
 func (s *server) serveMockResetTokenCount(w http.ResponseWriter, _ *http.Request) {
 	s.withState(func(st *gcalState) { st.tokenCallCount = 0 })
 	writeOK(s.log, w)
 }
 
-// serveMockGCalRevoke —— e2e 控制点：把连接器标记为「owner 在 Google 端撤销
-// 了授权」。之后任何 refresh_token grant 都返 invalid_grant，逼后端走友好降级。
+// serveMockGCalRevoke —— an e2e control point: marks the connector as "the owner revoked
+// authorization on Google's side." After this, every refresh_token grant returns
+// invalid_grant, forcing the backend into the friendly-degrade path.
 func (s *server) serveMockGCalRevoke(w http.ResponseWriter, _ *http.Request) {
 	s.withState(func(st *gcalState) { st.revoked = true })
 	writeOK(s.log, w)
@@ -735,9 +762,10 @@ func writeOAuthToken(log *slog.Logger, w http.ResponseWriter, resp oauthTokenRes
 	}
 }
 
-// writeCalendarUnauthorized —— 日历 API 401（access token 被拒：外部撤销但 token
-// 未过期）。后端 checkCalendarStatus 把 401 映成 ErrUnauthorized → 强制刷新一次 →
-// 刷新撞 invalid_grant → 撤销落库 + 友好降级。
+// writeCalendarUnauthorized —— the Calendar API's 401 (access token rejected: externally
+// revoked, but the token itself hasn't expired). The backend's checkCalendarStatus maps 401
+// to ErrUnauthorized → forces one refresh → the refresh hits invalid_grant → the revocation
+// is persisted + friendly-degraded.
 func writeCalendarUnauthorized(log *slog.Logger, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", jsonMIME)
 	w.WriteHeader(http.StatusUnauthorized)
@@ -746,8 +774,8 @@ func writeCalendarUnauthorized(log *slog.Logger, w http.ResponseWriter) {
 	}
 }
 
-// writeInvalidGrant —— OAuth invalid_grant 错误体（revoked 后 refresh 返这个）。
-// 后端 decodeToken 读 body.error == "invalid_grant" → ErrInvalidGrant。
+// writeInvalidGrant —— the OAuth invalid_grant error body (returned by refresh once revoked).
+// The backend's decodeToken reads body.error == "invalid_grant" → ErrInvalidGrant.
 func writeInvalidGrant(log *slog.Logger, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", jsonMIME)
 	w.WriteHeader(http.StatusBadRequest)

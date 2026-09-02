@@ -1,46 +1,62 @@
 #!/usr/bin/env sh
-# check-no-impl-words-at-visitor —— 访客看得见的进度文案里不许出现实现词汇。
+# check-no-impl-words-at-visitor —— implementation vocabulary must not appear in
+# visitor-visible progress copy.
 #
-# 为什么这条闸门存在（UX-55）：
-# 访客问「能给我一份可以发给团队的总结吗」，屏幕上的进度提示回他 **`calling plugin`** ——
-# 宿主的架构名词。而**同一个产品在 owner 那侧把这件事做对了**：`summarize_conversation` 的
-# manifest 有 `title: Summarize the conversation`，dock 下拉透传的就是它，
-# dock-buttons 的 check 2 正是因此判绿。
+# Why this gate exists (UX-55):
+# A visitor asks "can you give me a summary I can send to my team?", and the progress
+# indicator on screen replies with **`calling plugin`** — a host architecture noun.
+# **The same product gets this right on the owner side**: `summarize_conversation`'s
+# manifest has `title: Summarize the conversation`, the dock dropdown passes that
+# straight through, and dock-buttons check 2 is exactly why it's green there.
 #
-# **人话名字一直在，只是没跟到访客那条路上**（[[move-the-capability-move-its-edges]]）。
-# 于是修法不是"再加一个 progress_label 字段等人填"—— 那个字段下一个能力照样会忘 ——
-# 而是让兜底退到**已经必填、已经被 owner 审过**的 Title。
+# **The human-readable name was already there, it just never followed through to the
+# visitor's path** ([[move-the-capability-move-its-edges]]). So the fix isn't "add
+# another progress_label field for someone to fill in" — the next capability will
+# forget it just the same — it's making the fallback fall back to the Title, which
+# is **already required, already reviewed by the owner**.
 #
-# 这条闸门守的是**类**而不是那一个字符串：progress-label 这条路上不许出现
-# plugin / adapter / handler / dispatch 这类只有实现者才用的词。
+# This gate guards a **class**, not that one string: nothing on the progress-label
+# path may use plugin / adapter / handler / dispatch — words only an implementer
+# would use.
 #
-# 自证：把一段种进去的坏兜底喂给同一个判定，必须判红（见 [[gate-can-go-blind]]）。
+# Self-test: feed a planted bad fallback into the same check; it must go red
+# (see [[gate-can-go-blind]]).
 
 set -eu
 
-# 只扫真正会成为 throbber 文案的那条路：progress label 的产出点。
+# Scan only the path that actually becomes throbber copy: the progress label's
+# production point.
 #
-# 路径相对**仓库根**解析，而不是相对 cwd：这条闸门既从根跑（make lint），也从 backend/ 跑
-# （backend/Makefile 的 connector-boundary）。第一版写死相对路径，从 backend/ 跑时找不到文件 ——
-# 而它当场报了 "the rule has no subject" 并 exit 2，**没有报绿**。
-# 闸门找不到主体时必须炸，不能默默通过（见 [[assertion-that-cannot-fail]]）。
+# Resolve the path relative to **repo root**, not cwd: this gate runs both from
+# root (make lint) and from backend/ (backend/Makefile's connector-boundary).
+# The first version hard-coded a relative path and couldn't find the file when
+# run from backend/ — and it correctly reported "the rule has no subject" and
+# exited 2, **it did not report green**.
+# A gate that can't find its subject must blow up, never pass silently
+# (see [[assertion-that-cannot-fail]]).
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TARGET="$ROOT/backend/internal/capabilities/mcpplugin/progress_label.go"
 
-# IMPL_WORDS —— 只有写这套系统的人才会说的词。owner 面可以出现（他在配这套东西），
-# **访客面不行**。故意不含 "tool"：产品在访客面上确实把工具叫 tool（"SEARCHED 2 · READ 5"
-# 那条收据），那是已经想过的词汇选择，不是漏出来的实现细节。
+# IMPL_WORDS —— words only someone who wrote this system would say. Fine on the
+# owner side (they're configuring this stuff); **not fine on the visitor side**.
+# Deliberately excludes "tool": the product does call it a tool on the visitor
+# side ("SEARCHED 2 · READ 5" in the receipt) — that's already a considered
+# vocabulary choice, not a leaked implementation detail.
 IMPL_WORDS='plugin|adapter|handler|dispatcher|dispatch|binding|manifest|sandbox|rpc'
 
 fail=0
 
-# scan —— 在 progress-label 函数体内，找**返回的字面量本身**带实现词的行。
+# scan —— inside the progress-label function body, find lines whose **returned
+# literal itself** carries an implementation word.
 #
-# 判定必须只看**行内容**，不能连文件名一起看：第一版把 `FILENAME:FNR:行` 拼好再 grep，
-# 而这个文件住在 `internal/capabilities/mcpplugin/` —— **路径里就有 "plugin"**，
-# 于是每一行都命中，连正确的 `return "working"` 也被判红。
-# 匹配对象比匹配规则更容易搞错（同 [[lookahead-rule-eats-the-neighbour]]：
-# 判据把邻居也吃了）。现在 awk 自己做判定，只看 $0。
+# The check must look only at **line content**, never the filename together with
+# it: the first version glued `FILENAME:FNR:line` together and grepped that, and
+# this file lives under `internal/capabilities/mcpplugin/` — **the path itself
+# contains "plugin"** — so every line matched, including the correct
+# `return "working"`, which also went red.
+# It's easier to get the match target wrong than the match rule
+# (same lesson as [[lookahead-rule-eats-the-neighbour]]: a rule that eats its
+# neighbor). Now awk does the judging itself, looking only at $0.
 scan() {
   awk -v words="$IMPL_WORDS" '
     /func ProgressLabel/  { inblock = 1 }
@@ -61,12 +77,12 @@ offenders=$(scan "$TARGET" || true)
 if [ -n "$offenders" ]; then
   echo "check-no-impl-words-at-visitor: a visitor-facing progress label names the implementation:"
   echo "$offenders"
-  echo "                 访客要的是「正在发生什么」，不是「宿主怎么实现的」。"
-  echo "                 退到 manifest 的 Title —— 它必填，而且 owner 已经审过一遍。"
+  echo "                 what a visitor wants is \"what's happening right now\", not \"how the host implements it\"."
+  echo "                 Fall back to the manifest's Title — it's required, and the owner has already reviewed it."
   fail=1
 fi
 
-# 自证 1：判定必须看得见一个种进去的坏兜底。
+# Self-test 1: the check must be able to see a planted bad fallback.
 planted=$(mktemp -t implwords.XXXXXX)
 cat > "$planted" <<'PLANTED'
 func ProgressLabel(m *Manifest, declared string) string {
@@ -80,8 +96,8 @@ if [ -z "$(scan "$planted" || true)" ]; then
 fi
 rm -f "$planted"
 
-# 自证 2：判定不能把**好**的兜底也判红 —— 一条管太宽的闸门会把代码推去更糟的地方
-# （见 [[gate-scope-forces-architecture]]）。
+# Self-test 2: the check must not red a **good** fallback — a gate scoped too
+# wide pushes the code somewhere worse (see [[gate-scope-forces-architecture]]).
 ok=$(mktemp -t implwords-ok.XXXXXX)
 cat > "$ok" <<'OKCASE'
 func ProgressLabel(m *Manifest, declared string) string {

@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# cross-conversation-test.sh —— 「互通」(AI 读到该 member 的其他对话),真 LLM
-# **质量**用例(human-judged,无 PASS/FAIL bar)。
+# cross-conversation-test.sh —— "cross-talk" (the AI reads that member's other conversations), a real-LLM
+# **quality** case (human-judged, no PASS/FAIL bar).
 #
-# 新对话模型:一个 member 有多段独立对话(主聊天 + 每篇 doc 浮窗各一段),transcript
-# 彼此不串;但 AI 能读到该 member 的全部对话当上下文。这条 eval 验**双向**引用质量:
-#   方向一 chat → wiki:在 wiki 浮窗里,能不能用上访客在主聊天说过的招聘目标。
-#   方向二 wiki → chat:回到主聊天,能不能回指访客在 wiki 浮窗里深挖过的点。
+# New conversation model: one member has several independent conversations (the main chat plus one per
+# doc flyout), transcripts don't cross; but the AI can read all of that member's conversations as
+# context. This eval checks **bidirectional** reference quality:
+#   direction one, chat → wiki: in a wiki flyout, can it use the hiring goal the visitor mentioned in the main chat.
+#   direction two, wiki → chat: back in the main chat, can it refer back to a point the visitor dug into in a wiki flyout.
 #
-# 两条 scenario 把「其他对话的要点」作为 prior-conversations 注进 instruction,镜像
-# 后端将做的注入;eval 只判**给定上下文后真模型用得好不好**(grounding/voice/诚实/
-# 是否真的跨对话连起来)。后端「确实注入了」这件事走 e2e plumbing(确定性),不在这。
+# The two scenarios inject "the gist of the other conversation" into the instruction as prior-conversations,
+# mirroring what the backend will do; the eval only judges **how well the real model uses the given context**
+# (grounding/voice/honesty/whether it genuinely connects across conversations). Whether the backend
+# "actually injected it" is covered by e2e plumbing (deterministic), not here.
 #
-# **需真 LLM** —— harness 自读 eval-harness/.env(DeepSeek)。没真 key 直接退出,不跑。
+# **Needs a real LLM** —— the harness reads eval-harness/.env itself (DeepSeek). Without a real key it exits immediately, no run.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -30,12 +32,12 @@ run_one() {
   echo "════════════════════════════════════════════════════════════════"
   (cd "$HERE" && "$BIN" --scenarios "$scenario" --json >"$out" 2>"$err") || true
   if grep -q "endpoint=http://localhost:9300" "$err"; then
-    echo "❌ 跑在 mock gateway 上(没真 key?)—— 本用例需真 LLM,设 eval-harness/.env 的 EVAL_KEY" >&2
+    echo "❌ running on the mock gateway (no real key?) —— this case needs a real LLM, set EVAL_KEY in eval-harness/.env" >&2
     exit 1
   fi
   echo "── $(grep -o 'eval: provider=.*model=[^ ]*' "$err" | head -1) ──"
   echo
-  echo "─ TOOL CALLS(模型查了什么)─"
+  echo "─ TOOL CALLS (what the model looked up) ─"
   python3 -c "
 import json
 for line in open('$out'):
@@ -61,28 +63,35 @@ print(''.join(out))
 "
 }
 
-run_one "方向一  chat → wiki 浮窗(用上主聊天说过的招聘目标)" \
+run_one "direction one  chat → wiki flyout (uses the hiring goal mentioned in the main chat)" \
   "$HERE/scenarios-live/cross-conv-chat-to-wiki.yml"
-run_one "方向二  wiki 浮窗 → 主 chat(回指浮窗里深挖过的点)" \
+run_one "direction two  wiki flyout → main chat (refers back to a point dug into in the flyout)" \
   "$HERE/scenarios-live/cross-conv-wiki-to-chat.yml"
 
 echo
-echo "═══ LOOK FOR(人/judge 读上面两段答案判)═══"
+echo "═══ LOOK FOR (a human/judge reads the two answers above and judges) ═══"
 cat <<'LOOK'
-  跨对话引用(本用例核心,要双向都成立):
-   方向一(chat→wiki):访客现在站在「通知 pipeline」这篇上,但他在主聊天说的是要招
-     「对账 / 事件驱动结算匹配」的人。好答案应该:认出这两者的错位,诚实说「你正看的
-     这篇是通知 pipeline,不是你要的」,并把他**主动**引到 FlowPay 对账那条(才是他招的)。
-     差答案:只就「通知 pipeline 相不相关」泛答,完全没接住他在别处说过的招聘目标。
-   方向二(wiki→chat):泛问「适不适合 staff payments」,好答案应**回指**他在浮窗里
-     深挖过的 idempotency / 乱序事件 / 迟到 settlement 再匹配,落到那些具体点上,而不是
-     从零讲一遍简历。差答案:像没跟他聊过一样泛泛而谈。
-  质量(eval 真正要判的):
-   - grounding:忠于 canned snippet,别编 snippet 外的实现细节(幻觉信号)。
-   - voice:第一人称 Marcus 口吻,不是第三人称讲解。
-   - 诚实:别为了「显得相关」把通知 pipeline 硬掰成对账;snippet 里 Orbit 那条的坦诚
-     短板(dead-letter 很糙)别被洗成「设计精良」。
-   - 自然:跨对话的引用要像「同一个人继续聊」,不是机械复述「你之前说过…」。
+  Cross-conversation reference (the core of this case, both directions must hold):
+   Direction one (chat→wiki): the visitor is currently on the "notification pipeline" doc, but in the
+     main chat what they said they're hiring for is someone for "reconciliation / event-driven settlement
+     matching". A good answer should: recognize the mismatch, honestly say "the doc you're looking at
+     is the notification pipeline, not what you're after", and **proactively** point them to the FlowPay
+     reconciliation piece (which is what they're hiring for).
+     Bad answer: only answers generically about whether "the notification pipeline is relevant", never
+     picking up the hiring goal mentioned elsewhere.
+   Direction two (wiki→chat): a generic question, "is this a fit for staff payments", a good answer should
+     **refer back** to the idempotency / out-of-order events / late settlement re-matching the visitor
+     dug into in the flyout, landing on those specific points, rather than reciting the résumé from
+     scratch. Bad answer: as generic as if they'd never talked.
+  Quality (what the eval is really judging):
+   - grounding: stays faithful to the canned snippet, doesn't invent implementation details outside
+     the snippet (a hallucination signal).
+   - voice: first-person Marcus voice, not third-person explanation.
+   - honesty: doesn't force the notification pipeline into looking like reconciliation just to seem
+     relevant; the snippet's honest admission about the Orbit item (the dead-letter handling is rough)
+     must not get laundered into "well-designed".
+   - naturalness: cross-conversation references should feel like "the same person continuing to talk",
+     not a mechanical recitation of "you said earlier…".
 LOOK
 echo
-echo "✓ cross-conversation 跑完 —— 读上面两段答案 + LOOK FOR 判质量(本用例无 PASS/FAIL bar)"
+echo "✓ cross-conversation done —— read the two answers above + LOOK FOR to judge quality (this case has no PASS/FAIL bar)"

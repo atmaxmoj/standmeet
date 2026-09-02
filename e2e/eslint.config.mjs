@@ -140,7 +140,7 @@ export default tseslint.config(
         { max: 70, skipBlankLines: true, skipComments: true, IIFEs: true },
       ],
 
-      // 禁所有 relative import；走 @/ alias（tsconfig.paths 配过）。
+      // Ban all relative imports; use the @/ alias (configured in tsconfig.paths).
       'no-restricted-imports': ['error', {
         patterns: [{
           group: ['../*', './*'],

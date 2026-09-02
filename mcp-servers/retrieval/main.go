@@ -24,7 +24,8 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-// socketEnv —— 宿主注入的 host socket 路径。名字对所有能力都一样(见 booker 的同名常量)。
+// socketEnv —— the host socket path injected by the host. Same name across
+// all capabilities (see the identically-named constant in booker).
 const socketEnv = "STANDMEET_HOST_SOCKET"
 
 func main() {
@@ -32,8 +33,9 @@ func main() {
 		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(false, false),
 		server.WithInstructions(instructions))
-	// 四个检索工具全是安全/幂等的读 → 声明 MCP readOnlyHint=true。host 据此放行 HTTP
-	// QUERY（RFC 10008）：语义正确的「带 body 的安全查询」入口。
+	// All the retrieval tools are safe/idempotent reads → declare MCP
+	// readOnlyHint=true. The host uses this to allow HTTP QUERY (RFC 10008):
+	// the semantically correct "safe query with a body" entry point.
 	srv.AddTool(readOnly(searchTool()), opHandler("corpus_search"))
 	srv.AddTool(readOnly(readTool()), opHandler("corpus_read"))
 	srv.AddTool(readOnly(listTool()), opHandler("corpus_list"))
@@ -58,8 +60,9 @@ func progressLabel(t mcpgo.Tool, label string) mcpgo.Tool {
 
 // withCard —— like progressLabel but also declares this tool's ui:// card on `_meta`
 // (MCP Apps). corpus_search / corpus_list both point at the one search card.
-// readOnly —— 标注工具为 MCP readOnlyHint=true（安全/幂等的读）。host 侧 mcpclient 透传成
-// BindingTool.ReadOnly，dispatch 据此放行 HTTP QUERY。
+// readOnly —— marks a tool MCP readOnlyHint=true (a safe/idempotent read).
+// The host-side mcpclient passes it through as BindingTool.ReadOnly, and
+// dispatch uses that to allow HTTP QUERY.
 func readOnly(t mcpgo.Tool) mcpgo.Tool {
 	t.Annotations.ReadOnlyHint = mcpgo.ToBoolPtr(true)
 	return t
@@ -88,19 +91,32 @@ func searchCardHandler(
 }
 
 func searchTool() mcpgo.Tool {
-	// **这句话是 agent 真正读到的那一句**(F-S-2)。host 那边 `CorpusHostOps` 也写了一句同名工具的
-	// 说明,但装进访客会话的是这里 —— 同一个事实两个家,而落地的是这个。改说明先确认改的是哪一份。
+	// **This is the sentence the agent actually reads** (F-S-2). The host
+	// side's `CorpusHostOps` also carries a description of the
+	// identically-named tool, but the one loaded into the visitor session is
+	// this one — the same fact has two homes, and this is the one that
+	// lands. Before editing the description, confirm which copy is being edited.
 	//
-	// 必须写明**它会漏**:这是一条词法索引,命中与否取决于分词器,切不动的东西(词中子串、
-	// 紧贴标点、CJK 双字)会直接查不到。真实证据:`递归收敛` 在一份带整段中文的语料上返回 `[]`,
-	// 同一轮的英文查询却拿回 7883 字节,而 agent 不知道该换路,那半个问题就静默地没被回答。
-	// corpus_grep 是为这个建的第二条路(never-miss),名字要出现在这句话里 —— **agent 是在读说明
-	// 的那一刻做选择的**。
+	// Must spell out **that it can miss**: this is a lexical index, so a hit
+	// depends on the tokenizer — things it can't cut (a substring inside a
+	// word, a term glued to punctuation, CJK bigrams) simply won't be found.
+	// Real evidence: `递归收敛` returned `[]` against a corpus containing that
+	// whole Chinese passage, while the English query in the same round got
+	// back 7883 bytes, and the agent had no idea it should switch approach —
+	// half the question went silently unanswered.
+	// corpus_grep is the second path (never-miss) built for exactly this,
+	// and its name has to appear in this sentence — **the agent makes its
+	// choice at the moment it reads the description**.
 	//
-	// 而空手那一刻它还会再听见一次:回执里的 `note`(F-S-2)。说明和 note 说的是同一件事,
-	// 分别落在**选工具**和**拿到空手**这两个时刻 —— 后者才是需要改主意的那一刻。
-	// (上一版这里写着"空数组那条 wire 被 tool-endpoint-corpus.spec.ts:146 钉死,挂不上提示"——
-	//  去读那条测试:它只断 status==200 && body.ok==true,从没钉过形状。那是个假阻塞。)
+	// And it hears this again at the moment it comes back empty-handed: the
+	// `note` in the receipt (F-S-2). The description and the note say the
+	// same thing, landing at two different moments — **choosing the tool**
+	// and **getting nothing back** — and it's the latter moment where the
+	// agent actually needs to change its mind.
+	// (The previous version of this comment said "the empty-array wire is
+	// pinned down by tool-endpoint-corpus.spec.ts:146, no room to hang a
+	// hint on it" — go read that test: it only asserts status==200 &&
+	// body.ok==true, and never pinned down the shape. That was a false blocker.)
 	return withCard(mcpgo.NewToolWithRawSchema("corpus_search",
 		"Search owner's curated corpus by keyword. Returns {hits, note?}: hits are the "+
 			"matching wiki + output entries with path, title, genre, summary. This is a "+

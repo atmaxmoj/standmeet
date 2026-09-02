@@ -54,13 +54,14 @@ def scheme_path(uri):  # "wiki://profile/overview" -> ("wiki", "profile/overview
     return (uri[:i], uri[i + 3:]) if i >= 0 else ("wiki", uri)
 
 
-# PARENT_OF —— child uri -> parent uri,单一来源 = persona 自己的 tree.json(本脚本
-# 和 e2e persona seeder 共用同一份)。把扁平 corpus 组成真树(projects 归公司、profile
-# 子页归 "Who I am");reader 侧栏靠 parent_id 才长出 caret/缩进。改树只动 tree.json。
+# PARENT_OF —— child uri -> parent uri, single source = persona's own tree.json (this script
+# and the e2e persona seeder share the same file). Turns the flat corpus into a real tree
+# (projects belong to the company, profile subpages belong to "Who I am"); the reader sidebar
+# only grows carets/indentation from parent_id. Change the tree by editing only tree.json.
 PARENT_OF = {
     k: v
     for k, v in json.loads((PERSONA / "tree.json").read_text(encoding="utf-8")).items()
-    if not k.startswith("_")  # 跳过 _comment 之类的元字段
+    if not k.startswith("_")  # skip meta fields like _comment
 }
 
 
@@ -102,7 +103,7 @@ def seed_corpus(b):
             continue
         public.append((uri, title, body, tags))
 
-    # 父在子前(按 depth 排),promote 时直接带 parent_id —— 长出真树。
+    # Parents before children (sorted by depth), so promote can carry parent_id directly — grows a real tree.
     id_by_uri = {}
     nested = 0
     for uri, title, body, tags in sorted(public, key=lambda e: _depth(e[0])):
@@ -115,7 +116,7 @@ def seed_corpus(b):
                                                 "parent_id": parent_id, "tags": tags}),
                       f"wiki for {uri}", "wiki_id")
         id_by_uri[uri] = wid
-    # 计数来自**回执**(拿到了 id 的那些),不是循环跑了几圈。
+    # The count comes from the **receipts** (the ones that got an id back), not how many times the loop ran.
     print(f"corpus: {len(id_by_uri)} public → wiki ({nested} nested), {priv} private (raw only)")
 
 
@@ -165,7 +166,7 @@ def main():
     need_id(co, "codes.create", "code_id")
     print("code:", text_of(co)[:160])
 
-    # 收尾对账:面板上真数得出来多少条,才算种上了。
+    # Final reconciliation: only what the panel can actually count counts as seeded.
     wiki_n = len(json_of(b.call("corpus.list", {"genre": "wiki", "limit": 200})).get("items", []))
     raw_n = len(json_of(b.call("corpus.list", {"genre": "raw", "limit": 200})).get("items", []))
     b.close()

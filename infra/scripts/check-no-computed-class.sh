@@ -1,29 +1,36 @@
 #!/usr/bin/env sh
-# check-no-computed-class —— Tailwind 的**任意值方括号里不许出现插值**。
+# check-no-computed-class —— Tailwind arbitrary-value brackets must never contain interpolation.
 #
-# 为什么这条闸门存在:
-# Tailwind 在**构建期扫源码**决定生成哪些规则。`[--max-w:${maxWidth}px]` 这种拼出来的类,
-# 它扫到的是一个不合法的串,于是**一条 CSS 都不生成** —— 而那串照样进了 HTML。
-# 结果是「类名在,规则不在」,变量退回兜底值,**没有任何工具会报错**:
-# tsc 看到的是合法模板字符串,eslint 不管 CSS,浏览器对未知类名也不吭声。
+# Why this gate exists:
+# Tailwind decides which rules to generate by **scanning source at build time**. A pieced-together
+# class like `[--max-w:${maxWidth}px]` scans as an invalid string, so **zero CSS gets generated** —
+# yet that string still lands in the HTML.
+# The result is "the class name is there, the rule isn't", the variable falls back to its default,
+# and **no tool ever errors**: tsc sees a valid template string, eslint doesn't check CSS, and the
+# browser stays silent on an unknown class name.
 #
-# 这个失败形状在这份代码里已经出现过四次,而且每次的后果都不是"样式差一点":
-#   - `.sm-max-w`  兜底 100%  → **每个模态都是满宽**,`maxWidth` 入参从未生效(UX-48)
-#   - `.sm-fill`   兜底 0%    → 简历匹配度条 + 访客配额条**从来没显示过任何数值**
-#   - `.sm-pos-abs` 兜底 0,0  → 编辑器气泡工具条**从来没跟随过选区**
-# 三个都是 [[names-that-lie]]:界面上有个东西,名字说它在表达某个量,而它一直是常量。
+# This failure shape has already happened four times in this codebase, and every time the damage
+# was not "the style is slightly off":
+#   - `.sm-max-w`  default 100%  → **every modal became full-width**, the `maxWidth` prop never took effect (UX-48)
+#   - `.sm-fill`   default 0%    → the resume-match bar + visitor quota bar **never showed any value at all**
+#   - `.sm-pos-abs` default 0,0  → the editor's bubble toolbar **never followed the selection**
+# All three are [[names-that-lie]]: something on screen whose name claims to express a quantity,
+# while it was a constant the whole time.
 #
-# 修法永远是同一个:动态值走 `style={{ '--x': v }}` —— 那是真的内联 CSS,不经过任何扫描。
+# The fix is always the same: route dynamic values through `style={{ '--x': v }}` — that's real
+# inline CSS, and it never goes through any scan.
 #
-# 自证:两种引号各种一段坏写法,同一个判定都必须看得见 —— 只中一种说明还有一整类是盲区
-# (见 [[gate-can-go-blind]]:上一条闸门就因为只认双引号而漏掉了模板字面量里的 z-50)。
+# Self-check: plant one bad form for each quote style; the same detection must catch both — catching
+# only one means a whole blind-spot class remains
+# (see [[gate-can-go-blind]]: the previous gate missed a template-literal `z-50` because it only
+# recognized double quotes).
 
 set -eu
 
 fail=0
 
-# PATTERN —— className/class 值里,方括号任意值内部出现 `${`。
-# 方括号内不允许出现 `]`,所以 `[^]]*` 就够界定"还在这个任意值里面"。
+# PATTERN —— a `${` appearing inside a bracketed arbitrary value in a className/class attribute.
+# `]` is not allowed inside the brackets, so `[^]]*` is enough to mark "still inside this arbitrary value".
 PATTERN='(class|className)=[{]?["`][^"`]*\[[^]]*\$\{'
 
 offenders=$(find app/src -name '*.tsx' -print0 2>/dev/null \
@@ -31,19 +38,19 @@ offenders=$(find app/src -name '*.tsx' -print0 2>/dev/null \
 
 if [ -n "$offenders" ]; then
   echo "check-no-computed-class: an interpolated Tailwind arbitrary value generates NO css."
-  echo "                         用 style={{ '--x': value }} 传动态值:"
+  echo "                         pass dynamic values via style={{ '--x': value }}:"
   echo "$offenders"
   fail=1
 fi
 
-# 扫描范围自证:文件列表为空会让上面那条恒绿(见 [[assertion-that-cannot-fail]])。
+# Scan-range self-check: an empty file list would make the check above always green (see [[assertion-that-cannot-fail]]).
 n=$(find app/src -name '*.tsx' -type f 2>/dev/null | grep -c . || true)
 if [ "$n" -lt 50 ]; then
   echo "check-no-computed-class: SELF-TEST FAILED — only $n tsx files in range, the scan is blind"
   exit 2
 fi
 
-# 判定自证:双引号 + 模板字面量,两种都要被看见。
+# Detection self-check: both double quotes and template literals must be seen.
 planted=$(mktemp -t compclass.XXXXXX)
 {
   printf '<div className="w-full [--max-w:${w}px]" />\n'

@@ -1,9 +1,11 @@
-// gateway.go —— 沙箱端 reach-back 客户端。#135 constrained-reachback:mail-sender 够不到的外部
-// 东西(owner 的 active mail 连接器)一律经绑进沙箱的 socket 调 host 的**固定词表** op。它只能
-// 调这几个 op,加不了新 op —— 跟 booker 同构。底层复用 callHost(main.go)的 line-JSON。
+// gateway.go —— sandbox-side reach-back client. #135 constrained-reachback: anything mail-sender
+// can't reach directly (the owner's active mail connector) goes through the socket bound into the
+// sandbox to call a **fixed vocabulary** of host ops. It can only call these ops, no new op can be
+// added — isomorphic to booker. Reuses callHost's (main.go) line-JSON underneath.
 //
-// 迁移前 mail-sender 走一个**私有** "send" host op;现在改走通用 connector.invoke("mail","send"),
-// host 侧不再有 mail-sender 专属 handler,只挂通用 reach-back 网关(见 cmd/server 的 gateway 接线)。
+// Before the migration mail-sender used a **private** "send" host op; it now goes through the
+// generic connector.invoke("mail","send") instead — the host side no longer has a mail-sender-
+// specific handler, only the generic reach-back gateway (see the gateway wiring in cmd/server).
 
 package main
 
@@ -16,7 +18,7 @@ type errEnvelope struct {
 	Error string `json:"error"`
 }
 
-// gwCall —— 发一个固定词表 op,回原始 JSON;host 错误信封 → error。
+// gwCall —— sends a fixed-vocabulary op, returns raw JSON; a host error envelope becomes an error.
 func gwCall(op string, fields map[string]any) (json.RawMessage, error) {
 	fields["op"] = op
 	resp, err := callHost(fields)
@@ -30,7 +32,7 @@ func gwCall(op string, fields map[string]any) (json.RawMessage, error) {
 	return json.RawMessage(resp), nil
 }
 
-// gwConnectorInvoke —— 按名调 owner 的 active 连接器(此处 mail)的一个 verb。
+// gwConnectorInvoke —— calls one verb on the owner's active connector (here, mail) by name.
 func gwConnectorInvoke(
 	ownerID, category, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {

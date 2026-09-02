@@ -1,21 +1,24 @@
-// question_staging_live_test.go —— 「要不要给访客的问题加一个整理阶段」的 A/B/C，真 LLM。
+// question_staging_live_test.go —— A/B/C on "should the visitor's question get a staging pass", real LLM.
 //
-// 问题来自 owner：agent 需不需要阶段性处理 —— 先把访客那句话整理成明确的检索意图再去查。
+// The question comes from the owner: does the agent need a staged step — reworking the visitor's
+// message into a clear retrieval intent before it searches.
 //
-// **材料按真实场景造，这是第一版失败的地方。** 第一版用的问题是一句写得很讲究的话
-// （两段式、措辞清楚），三组结果完全一样 —— 因为它本来就已经整理好了，没有可整理的东西。
+// **The material is built to a real scenario — that's where the first version failed.** The first version's
+// question was one carefully worded sentence (two clauses, clear phrasing) — all three arms came out identical,
+// because it was already staged going in, nothing left to stage.
 //
-// 真实场景是：招聘方扫了简历上的二维码进来，在手机上打「线上炸了咋整」。
-//   · 访客**很懒**：短、口语、缩写、中英混、不成句、用词跟 owner 的笔记完全不重合；
-//   · 但这一场对话**很有目的**：码上带着 purpose（招聘方、看后端、在意线上成熟度）。
-// 也就是说：单句信息量低，而会话级信息量高。整理阶段如果有价值，价值就在这个缺口上。
+// The real scenario: a hiring manager scans the QR on a resume and, on their phone, types
+// "线上炸了咋整" (something like "prod's on fire, what now" in casual Chinese).
+//   · The visitor is **lazy**: short, colloquial, abbreviated, mixed Chinese/English, not full sentences, vocabulary that never overlaps the owner's notes;
+//   · but this conversation **has a purpose**: the code carries a purpose (hiring manager, backend-focused, cares about production maturity).
+// In other words: low information per sentence, high information at the conversation level. If staging has value, that's the gap it lives in.
 //
-// 三组，同语料、同问题、同模型，只差 instruction：
-//   A baseline —— 产品今天的样子
-//   B staged   —— 查之前先把这句话还原成明确的检索意图（不给 purpose）
-//   C purposed —— 同上，但告诉它这一场对话的目的（模拟 access code 的 purpose 进 prompt）
+// Three arms, same corpus, same question, same model, differing only by instruction:
+//   A baseline —— today's product as-is
+//   B staged   —— before searching, reconstruct the message into a clear retrieval intent (no purpose given)
+//   C purposed —— same as above, but also tell it this conversation's purpose (simulating the access code's purpose entering the prompt)
 //
-// C 是真正要判的那个产品问题：`purpose` 今天是 owner 私有备注，不进 agent。
+// C is the real product question under test: `purpose` today is an owner-private note, it never reaches the agent.
 
 package main
 
@@ -29,8 +32,8 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
-// stagingCorpus —— 一个后端工程师的 vault。要害：**没有一篇用访客会用的词**。
-// 笔记里说 rollback / postmortem / review / orchestration，访客说「炸了」「带人」「k8s」。
+// stagingCorpus —— a backend engineer's vault. The point: **not one note uses the words a visitor would use**.
+// The notes say rollback / postmortem / review / orchestration; the visitor says "炸了" ("it's on fire"), "带人" ("mentored anyone"), "k8s".
 func stagingCorpus() []agentcore.VisitorCorpusEntry {
 	return []agentcore.VisitorCorpusEntry{
 		{
@@ -55,7 +58,7 @@ func stagingCorpus() []agentcore.VisitorCorpusEntry {
 				"four years and the honest lesson is that most teams adopt it two years before they " +
 				"have the load to justify the operational tax. ORCHESTRATION_MARKER.",
 		},
-		// 干扰项：跟访客的词沾边，答不了他真正问的。
+		// Distractors: brush up against the visitor's words but can't answer what they're actually asking.
 		{
 			Genre: "wiki", Path: "eng/release/shipping-cadence", Title: "Shipping cadence",
 			Body: "We ship to users several times a day. Small diffs, no release trains, no freeze weeks.",
@@ -91,14 +94,14 @@ func stagingCorpus() []agentcore.VisitorCorpusEntry {
 	}
 }
 
-// lazyTurn —— 一个懒问题 + 答对了才拿得到的标记。
+// lazyTurn —— a lazy question + the markers you only get by answering it correctly.
 type lazyTurn struct {
 	name    string
 	text    string
-	markers []string // 全部出现才算答到（都只在那一篇里）
+	markers []string // counts as a hit only if all appear (each lives in only that one note)
 }
 
-// 访客真的会打出来的东西：手机上、缩写、不成句、中英混。
+// What a visitor would actually type: on a phone, abbreviated, not full sentences, mixed Chinese/English.
 func lazyTurns() []lazyTurn {
 	return []lazyTurn{
 		{"炸了", "线上炸了咋整", []string{"ninety", "postmortem"}},

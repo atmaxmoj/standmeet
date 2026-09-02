@@ -1,16 +1,26 @@
-// owner_identity_live_test.go —— UX-66 的守卫：**语料收窄之后，这个 AI 还知不知道自己是谁**。
+// owner_identity_live_test.go —— UX-66's guard: **once the corpus is narrowed,
+// does this AI still know who it is**.
 //
-// prod 上的样子：无码访客问「能约 sijie 半小时吗」，回答开头是
-// "I don't have anyone named Sijie in my notes, and I've got no calendar…"。
-// 拒绝订会是对的（公开身份本来就没有 booking）；**否认认识 owner 不是**。
+// What it looks like on prod: a codeless visitor asks "can I book 30 minutes
+// with sijie", and the answer opens with
+// "I don't have anyone named Sijie in my notes, and I've got no calendar…".
+// Refusing to book is correct (the public identity never had booking to begin
+// with); **denying knowing the owner is not**.
 //
-// 为什么以前看不见：public 身份曾经能读整个 wiki，人物信息随便哪条都带出来了。公开切片收窄到
-// owner 真正发布过的那几条之后，这个实例上是 1 条，里面没有他这个人 —— 于是「用 owner 的声音
-// 回答」这个承诺背后什么都没有。**身份一直靠检索的副作用兑现，副作用一消失它就空了。**
+// Why it went unseen before: the public identity used to be able to read the
+// whole wiki, and personal info came along in whatever entry got pulled in.
+// Once the public slice narrowed to only what the owner actually published,
+// this instance had 1 entry, and it didn't mention him at all — so the
+// promise of "answering in the owner's voice" had nothing behind it.
+// **Identity was always paid for by a side effect of retrieval, and once
+// that side effect disappeared, identity was empty.**
 //
-// 所以这条 eval 的语料**故意不含任何介绍 owner 本人的笔记**（真 prod 的公开切片就是这样），
-// 判据只有一句：答案里不许出现「我不认识这个人 / 我的笔记里没有这个人」这一类否认。
-// 拒绝订会、说没有日历、说不清楚具体某件事 —— 全都允许。
+// So this eval's corpus **deliberately contains no note introducing the owner
+// himself** (which matches what real prod's public slice actually looks
+// like), and the pass criterion is one sentence: the answer must not contain
+// a denial of the shape "I don't know this person / this person isn't in my
+// notes". Refusing to book, saying there's no calendar, saying a specific
+// detail is unclear — all of that is fine.
 //
 //	EVAL_ROUNDS=3 make eval-owner-identity
 
@@ -27,57 +37,69 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
-// ownerFirstName / ownerFullName —— 访客嘴里的那个名字。语料里一个字都没有这个人；
-// 它只能从 owner 那一行来（`owner.meta` 的 full_name），跟语料范围无关。
-// 全名跟 driver 交出去的那个是**同一个常量**：分成两份写，一边改名另一边照绿。
+// ownerFirstName / ownerFullName —— the name the visitor uses. Not a single
+// word about this person is in the corpus; it can only come from the owner
+// row (`owner.meta`'s full_name), independent of corpus scope.
+// The full name and the one the driver hands out are **the same constant**:
+// split into two, a rename on one side would still pass green on the other.
 const (
 	ownerFirstName = "Sijie"
 	ownerFullName  = evalOwnerName
 )
 
-// denialRe —— 「我不认识这个人」的各种说法。**只抓身份否认**，不抓"约不了"：
-// "I can't book" / "I don't keep a calendar" 都是对的答案，不能算红。
+// denialRe —— the various ways of saying "I don't know this person".
+// **Catches identity denial only**, not "can't book": "I can't book" /
+// "I don't keep a calendar" are both correct answers and must not count as red.
 //
-// ⚠️ 第一版按固定短语列举（"don't have anyone named …"），结果**漏掉了真实那一句**：
-// `I don't have a "Sijie" in my notes` —— 名字被引号包着、量词是 a 不是 anyone。
-// 列举短语这条路走不通：否认的说法是开放集。改成**窗口法**：一个否定词 + 名字 +
-// 「在我的笔记/记录里」这层意思，出现在同一小段里就算否认。
-// 判据自证在 `TestOwnerIdentityGuardSeesTheDenial` 里，喂的是真答案。
+// Warning: the first version enumerated fixed phrases ("don't have anyone
+// named …"), and as a result **missed the real one**:
+// `I don't have a "Sijie" in my notes` — the name is wrapped in quotes and
+// the quantifier is "a", not "anyone". Enumerating phrases doesn't work:
+// denials are an open set. Switched to a **window approach** instead: a
+// negation word + the name + the sense of "in my notes/records", appearing
+// in the same short span, counts as a denial.
+// The criterion is self-verified in `TestOwnerIdentityGuardSeesTheDenial`,
+// fed real answers.
 var denialRe = regexp.MustCompile(`(?is)` +
-	// (a) 「我的笔记里没有这个人」
+	// (a) "this person isn't in my notes"
 	`(don'?t|do not|doesn'?t|does not|no|never)\b[^.!?]{0,80}` +
 	`\b` + ownerFirstName + `\b[^.!?]{0,80}?\b(in (my|the|these) (notes|corpus|material)|` +
 	`anywhere in (my|the) (notes|corpus))` +
 	`|\b` + ownerFirstName + `\b[^.!?]{0,60}(isn'?t|is not|does not appear)[^.!?]{0,60}` +
 	`\b(in (my|the) (notes|corpus)|someone i)` +
 	`|(don'?t|do not) know (who )?\b` + ownerFirstName + `\b` +
-	// (b) 「我不知道我自己叫什么」/「说不好那是不是我」—— 缺陷最清楚的一种自白，
-	//     而且它连名字都不必提。第二版漏的就是这一支。
+	// (b) "I don't know my own name" / "can't say whether that's me" — the
+	//     clearest possible confession of the bug, and it doesn't even have
+	//     to mention the name. This is the branch the second version missed.
 	`|(don'?t|do not) have (any |a )?name for myself` +
 	`|(don'?t|do not) (even )?know (who|what) i('?m| am)( called)?` +
 	`|can'?t (even )?(confirm|tell you|say)[^.!?]{0,60}(is me|am (that|him|her|them)|that'?s me)` +
 	`|(no|don'?t have)[^.!?]{0,40}(identity|name)[^.!?]{0,40}(in|from) (my|the) (notes|corpus)`)
 
-// TestOwnerIdentityGuardSeesTheDenial —— **判据自证**。喂三句真的：prod 上拍到的那句、
-// 这条 eval 第一轮真收到的那句（第一版正则漏掉的就是它）、以及一句**正确**的拒绝
-// （约不了但没否认这个人）。前两句必须判红，第三句必须放过 —— 判不了负的绿等于没有绿
-// （[[assertion-that-cannot-fail]]）。
+// TestOwnerIdentityGuardSeesTheDenial —— **the criterion self-verifies**. Feeds
+// three real sentences: the one caught on prod, the one this eval's first
+// round actually received (the one the first-version regex missed), and one
+// **correct** refusal (can't book, but no denial of the person). The first
+// two must judge red, the third must pass through — a green that cannot
+// judge negative is not a green ([[assertion-that-cannot-fail]]).
 func TestOwnerIdentityGuardSeesTheDenial(t *testing.T) {
 	t.Parallel()
 	deny := []string{
-		// prod，2026-08-13（chat-byoai/shots/15）
+		// prod, 2026-08-13 (chat-byoai/shots/15)
 		"I don't have anyone named Sijie in my notes, and I've got no calendar wired up here.",
-		// 这条 eval 第一轮，2026-08-17 —— 引号 + "a"，第一版正则看不见
+		// this eval's first round, 2026-08-17 — quoted name + "a", the first-version regex missed it
 		`I don't have a "Sijie" in my notes, and honestly I don't keep any kind of calendar ` +
 			`or booking system in what I've got here.`,
-		// 第二版正则也放过了这一句 —— 而它恰恰是**缺陷本身最清楚的一次自白**：
-		// 模型直接说出了机制（"我的笔记里没有我自己的名字"）。差点因此收到一个假绿。
+		// the second-version regex let this one through too — and it is precisely
+		// **the clearest possible confession of the bug itself**: the model states
+		// the mechanism outright ("there's no name for myself in my notes"). This
+		// nearly slipped through as a false green.
 		`I can't book that for you — I don't keep a calendar here. Honestly, I don't have ` +
 			`any name for myself in my notes either, so I can't even confirm whether "Sijie" ` +
 			`is me or someone you're trying to reach.`,
 	}
 	ok := []string{
-		// 拒绝订会是**对的**：没否认这个人，只说这条路不通。
+		// Refusing to book is **correct**: it doesn't deny the person, just says this path doesn't work.
 		"I can't book that from here — I don't keep a calendar on this side of the site. " +
 			"Drop me a line and I'll sort it out.",
 		"I'd rather not put a time down without seeing my calendar, which I don't have here.",
@@ -94,16 +116,25 @@ func TestOwnerIdentityGuardSeesTheDenial(t *testing.T) {
 	}
 }
 
-// TestOwnerIdentityInPersona —— **这条才是判据**：装配出来的 system prompt 里必须有 owner 是谁。
+// TestOwnerIdentityInPersona —— **this is the actual criterion**: the
+// assembled system prompt must say who the owner is.
 //
-// 为什么不拿答案当判据（我试过三版，全部漏）：否认的说法是**开放集**。同一个缺陷这三轮分别写成
-// "I don't have anyone named Sijie in my notes" / `I don't have a "Sijie"` /
-// "I don't have any name for myself in my notes" / "that name doesn't ring a bell"。
-// 每加一版正则就多接住一种，剩下的照样绿 —— 而**假绿比红危险**：我差点据此说"修好了"。
-// UX-93 刚学过同一课（"个数这把尺子分不出区间和清单"），这次我又照着列举走了三轮才停。
+// Why the answer text isn't the criterion (tried three versions, all missed
+// cases): denials are an **open set**. The same bug got written three
+// different ways across rounds — "I don't have anyone named Sijie in my
+// notes" / `I don't have a "Sijie"` / "I don't have any name for myself in
+// my notes" / "that name doesn't ring a bell". Each new regex version
+// catches one more shape and the rest still pass green — and **a false
+// green is more dangerous than a red**: I nearly called it "fixed" on the
+// strength of one. UX-93 had just taught the same lesson ("a count can't
+// tell a range from a checklist"), and here I went down the enumeration
+// path again for three rounds before stopping.
 //
-// 缺陷的机制只有一个：**persona 里根本没有 owner 的身份**，语料一收窄就什么都不剩。
-// 所以判据回到机制：prompt 里必须说得出这个人是谁。行为那一面由 ⑤ 在真环境用眼睛验。
+// The bug has exactly one mechanism: **the persona simply has no owner
+// identity in it**, and once the corpus narrows, nothing is left. So the
+// criterion goes back to the mechanism: the prompt must be able to say who
+// this person is. The behavioral side gets verified by eye in the real
+// environment, separately.
 func TestOwnerIdentityInPersona(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -177,7 +208,9 @@ func deniedThisRound(t *testing.T, cred *agentcore.Cred, round int) bool {
 	return hit != ""
 }
 
-// askAboutOwner —— 访客问 owner 本人的那类问题，换着问法（说法一变就不红的话，那是运气不是修好了）。
+// askAboutOwner —— the class of question a visitor asks about the owner
+// himself, phrased differently each time (if changing the wording makes it
+// stop going red, that's luck, not a fix).
 func askAboutOwner(round int) string {
 	qs := []string{
 		"Can I book 30 minutes with " + ownerFirstName + " this week?",
@@ -187,7 +220,8 @@ func askAboutOwner(round int) string {
 	return qs[round%len(qs)]
 }
 
-// corpusWithoutTheOwner —— 公开切片的真实形状：几条正经笔记，**没有一条介绍 owner 这个人**。
+// corpusWithoutTheOwner —— the real shape of the public slice: a few
+// legitimate notes, **not one of which introduces the owner as a person**.
 func corpusWithoutTheOwner() []agentcore.VisitorCorpusEntry {
 	return []agentcore.VisitorCorpusEntry{{
 		Genre: "wiki", Path: "control-is-modeling", Title: "control-is-modeling",

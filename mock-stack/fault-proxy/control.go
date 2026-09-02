@@ -1,4 +1,5 @@
-// control.go —— 装/卸/看故障的三个 HTTP 端点。跟 mail mock 的 /__mock/smtp/* 同形。
+// control.go —— the three HTTP endpoints for arming/resetting/inspecting a fault.
+// Same shape as the mail mock's /__mock/smtp/*.
 
 package main
 
@@ -8,11 +9,13 @@ import (
 	"strings"
 )
 
-// armBody —— POST /__mock/fault/arm 的入参。
+// armBody —— the request body for POST /__mock/fault/arm.
 //
-// times 省略 = 一直生效(直到 reset),模拟「上游持续故障」;给了数字就只生效那么多次,
-// 用来驱「退避之后第二次成功」这类走向。
-// path_prefix 省略 = 挡住经过的一切;给了就只挡它,其余照常转发(窄故障)。
+// Omitting times = stays in effect indefinitely (until reset), simulating "the
+// upstream is persistently down"; giving a number makes it fire only that many times,
+// for driving flows like "succeeds on the second try after backing off".
+// Omitting path_prefix = blocks everything that passes through; giving one blocks
+// only that path, everything else forwards normally (a narrow fault).
 type armBody struct {
 	Mode              string `json:"mode"`
 	PathPrefix        string `json:"path_prefix"`
@@ -20,11 +23,11 @@ type armBody struct {
 	RetryAfterSeconds int    `json:"retry_after_seconds"`
 	MaxTokens         int    `json:"max_tokens"`
 	Status            int    `json:"status"`
-	// DelayMS —— `slow` 扣住多久(毫秒)。省略走 defaultSlowMS。
+	// DelayMS —— how long (ms) `slow` holds the response. Omitted falls back to defaultSlowMS.
 	DelayMS int `json:"delay_ms"`
 }
 
-// knownModes —— 认识的 mode。未知的直接拒,理由见 arm。
+// knownModes —— the modes we recognize. Unknown ones are rejected outright; see arm for why.
 var knownModes = []string{modeRateLimit, modeClampTokens, modeHTTPError, modeSlow}
 
 func (s *server) arm(w http.ResponseWriter, r *http.Request) {
@@ -34,8 +37,10 @@ func (s *server) arm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !known(in.Mode) {
-		// 未知 mode 直接拒。默默当成「不注入」会让驱动的人以为注入了却看到正常响应,
-		// 然后把「没复现」记成结论 —— 那是最坏的一种沉默。
+		// Reject an unknown mode outright. Silently treating it as "inject nothing" would
+		// let whoever's driving the test believe the fault was armed while seeing a normal
+		// response, then record "couldn't reproduce" as the conclusion — the worst kind of
+		// silent failure.
 		http.Error(w, "mode must be one of "+strings.Join(knownModes, " / "), http.StatusBadRequest)
 		return
 	}
@@ -62,7 +67,7 @@ func known(mode string) bool {
 	return false
 }
 
-// matches —— 这条路径是否落在这一发故障的射程里。空前缀 = 全部。
+// matches —— whether this path falls within range of this fault. Empty prefix = everything.
 func (f *fault) matches(path string) bool {
 	return f.PathPrefix == "" || strings.HasPrefix(path, f.PathPrefix)
 }

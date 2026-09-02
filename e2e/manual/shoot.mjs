@@ -1,27 +1,37 @@
-// shoot.mjs —— 手工验证用的**拍照驱动器**：开一个真浏览器，像人一样登录、点、打字、截图。
+// shoot.mjs —— manual-verification **photo driver**: opens a real browser, logs in, clicks,
+// types, and screenshots like a human.
 //
-// 为什么它存在：真实环境审计的第 ⑤ 步（回真环境用眼睛再验一遍）一直靠 Playwright MCP 驱动，
-// 那个 MCP 会掉线；掉线时手上只剩一个跑在**另一台机器**上的 Chrome（`isLocal:false`），
-// 打不到本机的 38227。驱动器换一个就行 —— 环境仍然是真 prod、真 vault、真语料。
+// Why it exists: step 5 of the real-environment audit (going back to the real environment
+// and re-verifying with eyes) has always been driven by the Playwright MCP; that MCP drops
+// connection, and when it does, all that's left is a Chrome running on **another machine**
+// (`isLocal:false`) that can't reach the local 38227. Swap the driver and you're done —
+// the environment is still real prod, real vault, real corpus.
 //
-// **它不是 e2e**，两处必须分清：
-//   - e2e 打 dev 栈并且**每个 spec 都重置实例**。这个脚本打 **prod（38227）**，
-//     **绝不重置**：prod 那份语料是真 vault 的镜像，重置掉就没了。
-//   - e2e 断言给机器看，这个脚本只产出图给人看。判断看图，不看 DOM 文本。
+// **It is not e2e** — two things must stay distinct:
+//   - e2e drives the dev stack and **resets the instance for every spec**. This script drives
+//     **prod (38227)**, and **never resets**: the corpus in prod mirrors the real vault, and
+//     resetting it would lose it.
+//   - e2e assertions are for the machine; this script only produces images for a human. Judge
+//     by looking at the image, not by reading DOM text.
 //
-// **写不写？** 大多数 plan 只登录、导航、截图。但 owner 在自己后台点一下开关也是「像人一样点」，
-// 有些 check 的前置条件只能这么造（例：backlinks rail 要有一条已发布→已发布的边）。所以允许写，
-// 两条边界：① 只走产品自己的界面，不碰数据库、不注 cookie；② 写进去的内容必须来自真 vault，
-// 不许为了测试造笔记 —— 发布一条**本来就存在**的笔记不是注入，新建一条是。
-// 造了前置条件的 plan，要在对应 trajectory 里写明那一格是我改的。
+// **Is writing allowed?** Most plans only log in, navigate, and screenshot. But the owner
+// flipping a switch in their own backend is also "clicking like a human" — some checks'
+// preconditions can only be created that way (e.g. the backlinks rail needs an edge from one
+// published note to another). So writes are allowed, with two boundaries: (1) only through
+// the product's own UI, never touching the database or injecting cookies; (2) whatever gets
+// written must come from the real vault — never fabricate a note for the test. Publishing a
+// note that **already exists** is not injection; creating a new one is.
+// A plan that had to create its own preconditions must note in its trajectory which cell was
+// altered by me.
 //
-// 用法（走 Makefile，别裸跑）：
+// Usage (through the Makefile, never bare):
 //   make verify-shots PLAN=e2e/manual/plans/<name>.json
 //
-// plan 形状：{ "out": "<trajectory 目录>", "viewport": [w,h], "shots": [{ "name": "...",
+// plan shape: { "out": "<trajectory dir>", "viewport": [w,h], "shots": [{ "name": "...",
 //   "url": "/admin/seo", "wait": 1200, "steps": [{ "click": "text=..." } | { "type": ["sel","txt"] }
 //   | { "wait": 800 }] }] }
-// `steps` 只有点击和输入两种 —— 人做得出来的那两种；`wait` 是给懒加载留的时间，不是动作。
+// `steps` supports only click and type — the two things a human can actually do; `wait` leaves
+// room for lazy loading, not an action of its own.
 
 import { readFile, mkdir } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
@@ -40,16 +50,22 @@ const plan = JSON.parse(await readFile(planPath, 'utf8'));
 const [vw, vh] = plan.viewport ?? [1280, 900];
 await mkdir(plan.out, { recursive: true });
 
-// profile —— 用一份**已经登着账号的浏览器 profile** 起浏览器（`"profile": "~/.playwright-mcp-profile"`）。
-// 为什么需要：有几格的器材是**第三方发的密钥**（Cal.com 那把 2026-08-11 到期了），而换一把要
-// 去 vendor 自己的设置页点一下。owner 那份 profile 里 Google 是登着的，于是「用 Google 登录」
-// 只是点一下同意，不是输密码 —— 那条边界只挡输密码。**只在取器材时用**：驱产品的 plan 不带它，
-// 免得 prod 的 owner 会话跟第三方会话共用一份磁盘状态。
+// profile —— launch with a browser profile that's **already signed in**
+// (`"profile": "~/.playwright-mcp-profile"`).
+// Why it's needed: some cells need equipment that's **a third-party-issued secret**
+// (the Cal.com one expired 2026-08-11), and rotating it means clicking through the
+// vendor's own settings page. The owner's profile is already signed into Google, so
+// "sign in with Google" is just a consent click, not a password — that boundary only
+// blocks passwords. **Only use it when fetching equipment**: plans that drive the
+// product itself should not carry it, so the prod owner session doesn't share disk
+// state with a third-party session.
 const profileDir = typeof plan.profile === 'string'
   ? plan.profile.replace(/^~/, process.env.HOME ?? '~') : '';
 const persistent = profileDir !== '';
-// HEADED=1 —— 把窗口开出来。**给「需要人插一手」的那种 plan 用**：第三方登录框里的那一下
-// 密码、账号选择器里挑哪个账号 —— 无头模式下 owner 根本看不见也点不到，只能干等超时。
+// HEADED=1 —— open the window. **Use it for plans that need a human to step in**:
+// a password entry in a third-party login box, picking an account in the account
+// selector — in headless mode the owner can't even see it, let alone click it, and
+// can only wait out the timeout.
 const browser = persistent
   ? null
   : await chromium.launch({ headless: process.env.HEADED !== '1' });
@@ -58,18 +74,23 @@ const ctx = persistent
     channel: 'chrome', headless: false, viewport: { width: vw, height: vh },
   })
   : await browser.newContext({ viewport: { width: vw, height: vh } });
-// **let,不是 const** —— `popup` 那一步要把驱动的目标换成新开的那一页（见 runSteps）。
+// **let, not const** —— the `popup` step swaps the driven target for the newly
+// opened page (see runSteps).
 let page = persistent ? (ctx.pages()[0] ?? await ctx.newPage()) : await ctx.newPage();
 
-// acceptDialogs —— 原生 confirm()/alert() 一律点「确定」。**必须逐个 plan 显式打开**：
-// 人点 OK 是真实动作，但默认接受会让别的 plan 里的破坏性确认被静默点掉，而那种事发生时
-// 截图上什么都看不出来。要它的 plan 自己写 `"acceptDialogs": true`。
+// acceptDialogs —— always click "OK" on native confirm()/alert(). **Must be turned
+// on explicitly per plan**: clicking OK is a real action, but accepting by default
+// would silently click through a destructive confirmation in some other plan, and
+// when that happens the screenshot shows nothing wrong. A plan that needs it must
+// set `"acceptDialogs": true` itself.
 if (plan.acceptDialogs === true) {
   page.on('dialog', (d) => { void d.accept(); });
 }
 
-// downloadDir —— 把页面触发的下载存到磁盘。人点「下载」拿到的就是文件本身;**不是**去截图上
-// 把内容抄下来。抄一段 base64 私钥错一个字符,失败会长得像产品的问题,而不是像我的手误。
+// downloadDir —— save page-triggered downloads to disk. What a human gets by
+// clicking "download" is the file itself; **not** copying content off a screenshot.
+// Mis-transcribing one character of a base64 private key produces a failure that
+// looks like a product bug, not like my own transcription error.
 if (typeof plan.downloadDir === 'string') {
   await mkdir(plan.downloadDir, { recursive: true });
   page.on('download', (d) => {
@@ -78,12 +99,15 @@ if (typeof plan.downloadDir === 'string') {
   });
 }
 
-// 浏览器侧的日志一律转出来。没有这一勺时，一次登录不动只给得出一句 waitForURL 超时，
-// 而超时对「表单没提交」「请求发了但 4xx」「JS 挂了」三种情况说的是同一句话 ——
-// 于是只能靠推理，而推理三次都错过。
-// 全部转出来，不只 error/warning。产品自己写的回执（`[turnstile] rendered widget id=…`）
-// 是 `console.log`，而只转 error 的那一版把它滤掉了 —— 于是「校验框渲没渲出来」这件事
-// 页面上看不见、控制台也听不见，只剩下推理。
+// Forward all browser-side logs unconditionally. Without this, a login that just
+// sits there only ever produces a single waitForURL timeout — and that timeout
+// says the same thing for "the form didn't submit", "the request went out but
+// got a 4xx", and "JS crashed". So it can only be reasoned about, and reasoning
+// missed the mark three times running.
+// Forward everything, not just error/warning. The product's own receipt
+// (`[turnstile] rendered widget id=…`) is a `console.log`, and the version that
+// only forwarded errors filtered it out — so whether the CAPTCHA widget rendered
+// was invisible on the page and inaudible on the console, leaving only reasoning.
 page.on('console', (m) => console.log(`console.${m.type()} ${m.text()}`));
 page.on('pageerror', (e) => console.log(`pageerror ${e.message}`));
 page.on('requestfailed', (r) => console.log(`requestfailed ${r.method()} ${r.url()} ${r.failure()?.errorText}`));
@@ -91,10 +115,13 @@ page.on('response', (r) => {
   if (r.status() >= 400) console.log(`http ${r.status()} ${r.request().method()} ${r.url()}`);
 });
 
-// 登录走**真表单**：填邮箱、填密码、按回车 —— 不注 cookie、不塞 token。
+// Sign in through the **real form**: fill email, fill password, press enter —
+// never inject a cookie, never plant a token.
 if (plan.login !== false) {
-  // 空凭据当场停。`?? ''` 会把它们原样填进表单，产品回一句「email + password required」，
-  // 而驱动器只报得出 waitForURL 超时 —— 「忘了加载凭据」于是长得跟「产品登录坏了」一模一样。
+  // Stop immediately on empty credentials. `?? ''` would fill them into the form as-is,
+  // the product would reply "email + password required", and the driver could only
+  // report a waitForURL timeout — "forgot to load credentials" would then look
+  // exactly like "the product's login is broken".
   if (EMAIL === '' || PASSWORD === '') {
     console.error('no owner credentials in env — run it through `make verify-shots PLAN=…`, '
       + 'which sources ~/.config/standmeet/verify-creds.env');
@@ -104,11 +131,13 @@ if (plan.login !== false) {
   await page.getByTestId('email').fill(EMAIL);
   await page.getByTestId('password').fill(PASSWORD);
   await page.getByTestId('password').press('Enter');
-  // `**/admin**` 而不是 `**/admin/**`：LoginForm 成功后 push 的是 `/admin` 本身
-  // （`LoginForm.tsx:164`），后面没有下一段，带斜杠的 glob 匹配不到，登录明明成功
-  // 也会在这里超时 —— 而报出来的样子像是「登录失败」。
+  // `**/admin**`, not `**/admin/**`: after a successful login, LoginForm pushes
+  // `/admin` itself (`LoginForm.tsx:164`) with nothing after it, so a slash-terminated
+  // glob won't match and this would time out even though login clearly succeeded —
+  // and the result would look like "login failed".
   await page.waitForURL('**/admin**', { timeout: 15_000 }).catch(async (err) => {
-    // 超时了就把现场说清楚：停在哪个 URL、表单自己报了什么错、提交键是不是被禁用。
+    // On timeout, report exactly what's on screen: which URL it's stuck at, what
+    // error the form itself reported, and whether the submit button is disabled.
     const err_text = await page.getByTestId('error').textContent().catch(() => null);
     const disabled = await page.getByTestId('submit').isDisabled().catch(() => null);
     console.log(`login stuck at ${page.url()} · form error=${err_text} · submit disabled=${disabled}`);
@@ -117,17 +146,23 @@ if (plan.login !== false) {
 }
 
 for (const shot of plan.shots) {
-  // url 省略 = **留在当前这一页**。有些判据说的正是「不换页会怎样」（同一场对话里连着说两轮、
-  // 一个弹窗答过之后还回不回来），而每张图都先 goto 一次的话，那件事根本发生不了。
-  // 绝对地址原样走。好几条 check 的 Expected 就写在**第三方自己的界面**上（「打开这个账号的
-  // 日历网页版，看那个事件在不在」）—— 产品说订上了只是主张，日历才是事实。拼在 BASE 后面
-  // 会得到一个 404，而那种失败长得像「事件不存在」。
+  // Omitting url = **stay on the current page**. Some checks are specifically about
+  // "what happens without a page change" (two turns in a row in the same conversation,
+  // whether a dismissed modal comes back) — and if every shot did a goto first, that
+  // could never happen.
+  // Absolute URLs pass through unchanged. Several checks' Expected is written on
+  // **a third party's own UI** ("open this account's calendar web page, see whether
+  // the event is there") — the product claiming a booking is only a claim; the
+  // calendar is the fact. Appending it after BASE would produce a 404 that looks
+  // like "the event doesn't exist".
   shot.url && await page.goto(
     shot.url.startsWith('http') ? shot.url : `${BASE}${shot.url}`,
   );
-  // settle —— 等某个选择器出现，并**报出从 goto 到它出现花了多久**。
-  // 有几条判据问的是「重的真笔记渲得快不快」，而「看起来还行」不是一个测量：
-  // 判断得有数字，数字得说清是从哪一刻量到哪一刻。`{"settle": ["sel", 20000]}`。
+  // settle —— wait for a selector to appear, and **report how long it took from
+  // goto to appearance**.
+  // Some checks ask "does a heavy real note render fast?", and "looks fine" is not
+  // a measurement: a judgment needs a number, and the number needs a clear start
+  // and end instant. `{"settle": ["sel", 20000]}`.
   if (shot.settle) {
     const t0 = Date.now();
     await page.locator(shot.settle[0]).first()
@@ -138,27 +173,33 @@ for (const shot of plan.shots) {
   await runSteps(shot.steps ?? []);
   await page.waitForTimeout(shot.wait ?? 1200);
   const file = `${plan.out}/${shot.name}.png`;
-  // fullPage —— 一页装不下的东西(reader 的 backlinks rail 在正文之后)要整页拍。
-  // 之前靠「点一下 body」假装滚动,拍出来跟没滚一样,两张图完全相同 —— 那不是证据。
+  // fullPage —— content that doesn't fit on one screen (the reader's backlinks
+  // rail sits after the body) needs a full-page shot. Previously "clicking body"
+  // was used to fake a scroll, producing two identical screenshots — that's not
+  // evidence.
   await page.screenshot({ path: file, fullPage: shot.fullPage === true });
   console.log(`shot ${file}`);
 }
 
 async function runSteps(steps) {
   for (const step of steps) {
-    // repeat —— 把同一串动作做 n 遍：`{"repeat": [32, [ …steps… ]]}`。
-    // 有些判据只在**次数**上成立（登录尝试上限是 30/5min），而把同一段 JSON 抄 32 遍，
-    // 抄错一处会长得像产品的毛病。人也是同一个动作重复做的。
+    // repeat —— run the same sequence of actions n times: `{"repeat": [32, [ …steps… ]]}`.
+    // Some checks only hold at a specific **count** (the login-attempt cap is 30/5min),
+    // and copy-pasting the same JSON 32 times risks one mistyped copy looking like a
+    // product bug. A human also repeats the same action.
     step.repeat && await (async () => {
       for (let i = 0; i < step.repeat[0]; i++) {
         await runSteps(step.repeat[1]);
       }
     })();
-    // popup —— 把驱动的目标换成**最后打开的那一页**。
+    // popup —— swap the driven target for **the most recently opened page**.
     //
-    // 有些动作是 `window.open(..., '_blank')`：日历那个 AUTHORIZE 就是，同意页在新标签里。
-    // 驱动只盯着原来那一页的话，点完看起来「什么都没发生」——而人是跟着新开的那一页走的。
-    // 用法：`{"popup": true}`（点完之后紧跟一步），可选 `{"popup": 3000}` 先等它开出来。
+    // Some actions do `window.open(..., '_blank')`: the calendar's AUTHORIZE button
+    // is one, and the consent page opens in a new tab. If the driver only watches
+    // the original page, a click looks like "nothing happened" — while a human
+    // would follow the newly opened page.
+    // Usage: `{"popup": true}` (right after the click step), optionally `{"popup": 3000}`
+    // to wait for it to open first.
     step.popup && await (async () => {
       const waitMs = typeof step.popup === 'number' ? step.popup : 1500;
       await page.waitForTimeout(waitMs);
@@ -166,36 +207,49 @@ async function runSteps(steps) {
       page = pages[pages.length - 1] ?? page;
       await page.bringToFront();
     })();
-    // click —— 选择器，或 `["选择器", n]` 点第 n 个（0 起）。
-    // 列表页上同一个动作按钮每行都有一个（575 条语料的 `edit`），而人是**看着位置**点的：
-    // 先把列表筛短、看清第几行，再点那一行。没有序号就只能永远点第一行。
+    // click —— a selector, or `["selector", n]` to click the nth one (0-based).
+    // A list page has the same action button on every row (the `edit` button
+    // across 575 corpus entries), and a human clicks **by looking at position**:
+    // filter the list down first, see which row it is, then click that row.
+    // Without an index it can only ever click the first row.
     step.click && await (async () => {
       const [sel, n] = Array.isArray(step.click) ? step.click : [step.click, 0];
       await page.locator(sel).nth(n).click();
     })();
-    // clickFrame —— 点**沙盒卡里面**的东西：`{"clickFrame": ["iframe 选择器", "卡内选择器"]}`。
-    // 能力自带的 ui:// 卡（订会回执、时段选择器）都渲在 sandbox iframe 里，主文档的选择器
-    // 够不着；而访客真正会点的按钮（Cancel meeting、时段 chip）全在那里面。少了这一步，
-    // 所有跟卡片交互的判据都只能「看得见、点不着」。
+    // clickFrame —— click something **inside a sandbox card**:
+    // `{"clickFrame": ["iframe selector", "in-card selector"]}`.
+    // The capability-provided ui:// cards (booking receipt, slot picker) all
+    // render inside a sandbox iframe that the main document's selectors can't
+    // reach — and the buttons a visitor would actually click (Cancel meeting,
+    // a time-slot chip) all live in there. Without this step, every check that
+    // interacts with a card can only "see it, not click it".
     step.clickFrame && await page.frameLocator(step.clickFrame[0])
       .locator(step.clickFrame[1]).first().click();
     step.type && await page.locator(step.type[0]).first().fill(step.type[1]);
-    // typeFile —— 从文件粘贴。长正文（一篇笔记）手抄进 plan 的 JSON 里要转义换行、引号、
-    // 方括号，抄错一个字符会长得像产品把内容弄坏了，而不是像我的手误（跟 downloadDir 同一条理由）。
-    // 人从文件里复制粘贴是真动作。
+    // typeFile —— paste from a file. Hand-transcribing a long note's body into
+    // the plan's JSON means escaping newlines, quotes, brackets, and one mistyped
+    // character makes it look like the product corrupted the content, not like
+    // my own transcription error (same reasoning as downloadDir). A human
+    // copy-pastes from a file, which is a real action.
     step.typeFile && await page.locator(step.typeFile[0]).first()
       .fill(await readFile(step.typeFile[1], 'utf8'));
-    // typeOwner —— 把 owner 自己的邮箱/密码填进某个输入框（值来自 verify-creds.env）。
-    // plan 是提交进仓库的 JSON，密码不能写在里面；而有些 check 要的正是「**正确**的密码
-    // 加上一次失败的人机校验，产品会说哪句话」—— 用一个错密码去驱，两种原因指向同一句话，
-    // 那一格就什么也证明不了。`login: false` 的 plan 自己走登录表单时用它。
+    // typeOwner —— fill the owner's own email/password into an input (values
+    // come from verify-creds.env). The plan is JSON committed to the repo, so
+    // the password can't be written into it; and some checks specifically need
+    // to see what the product says when the **correct** password is combined
+    // with a failed CAPTCHA — driving it with a wrong password conflates two
+    // possible causes behind the same message, and that cell would prove
+    // nothing. A `login: false` plan that walks the login form itself uses this.
     step.typeOwner && await page.locator(step.typeOwner[0]).first()
       .fill(step.typeOwner[1] === 'password' ? PASSWORD : EMAIL);
-    // typeSecret —— 把 `verify-creds.env` 里某个变量的值填进某个输入框：
-    // `{"typeSecret": ["sel", "DEEPSEEK_KEY"]}`。plan 进仓库，密钥不进；plan 里只写**名字**。
-    // 这些凭据本来就是为验证开的，产品自己的表单就是它们该去的地方 —— BYOAI 那一格要的正是
-    // 「访客把自己的 key 填进去」，没有 key 就驱不动那条 check。变量不存在时当场停：
-    // 填一个空串下去，产品会说「key 不能为空」，而那句话跟「产品坏了」长得一模一样。
+    // typeSecret —— fill the value of a variable from `verify-creds.env` into an
+    // input: `{"typeSecret": ["sel", "DEEPSEEK_KEY"]}`. The plan is committed;
+    // the secret is not — the plan only names it. These credentials exist purely
+    // for verification, and the product's own form is exactly where they belong —
+    // the BYOAI cell specifically needs "a visitor fills in their own key", and
+    // without a key that check can't be driven at all. Stop immediately when the
+    // variable doesn't exist: filling in an empty string would make the product
+    // say "key cannot be empty", which looks exactly like "the product is broken".
     step.typeSecret && await (async () => {
       const v = process.env[step.typeSecret[1]] ?? '';
       if (v === '') {
@@ -205,16 +259,22 @@ async function runSteps(steps) {
       }
       await page.locator(step.typeSecret[0]).first().fill(v);
     })();
-    // pickDir —— 往 `<input type="file" webkitdirectory>` 里选一个**目录**（vault 导入用的
-    // 就是这种控件）。人点「import from Obsidian」后在系统对话框里选的也正是一个目录。
+    // pickDir —— select a **directory** into an `<input type="file" webkitdirectory">`
+    // (the control the vault import uses). A human clicking "import from Obsidian"
+    // also picks a directory in the system dialog.
     step.pickDir && await page.locator(step.pickDir[0]).setInputFiles(step.pickDir[1]);
-    // select —— 下拉选一项。人点开下拉挑一个；`type` 那条（fill）对 `<select>` 不起作用。
+    // select —— pick an option from a dropdown. A human clicks it open and picks
+    // one; the `type` step (fill) has no effect on a `<select>`.
     step.select && await page.locator(step.select[0]).first().selectOption(step.select[1]);
-    // press —— 有些东西只能按键提交（访客对话框没有发送按钮，回车就是发送）。
+    // press —— some things can only be submitted with a keypress (the visitor
+    // chat box has no send button; Enter is the send action).
     step.press && await page.locator(step.press[0]).first().press(step.press[1]);
-    // hover —— 把鼠标停在某个东西上。图表的读数只在指针底下才出现，而截图拍不到
-    // "刚才鼠标路过"这件事 —— 要拍到 tooltip，就得先真的把指针放上去、并且**停在那儿**。
-    // 用法：{"hover": "[data-testid=\"sparkline-box\"]"} 或 {"hover": ["sel", 0.9]}（0.9 = 横向位置比例）
+    // hover —— park the mouse over something. A chart's reading only appears
+    // under the pointer, and a screenshot can't capture "the mouse just passed
+    // through" — to catch the tooltip, the pointer has to actually be placed
+    // there and **stay there**.
+    // Usage: {"hover": "[data-testid=\"sparkline-box\"]"} or {"hover": ["sel", 0.9]}
+    // (0.9 = horizontal position fraction)
     step.hover && await (async () => {
       const sel = Array.isArray(step.hover) ? step.hover[0] : step.hover;
       const frac = Array.isArray(step.hover) ? step.hover[1] : 0.5;
@@ -222,15 +282,18 @@ async function runSteps(steps) {
       box && await page.mouse.move(box.x + box.width * frac, box.y + box.height / 2);
       await page.waitForTimeout(300);
     })();
-    // scroll —— 把鼠标移到某个容器上滚轮。admin 的滚动在**内层容器**里（侧栏自己一个
-    // overflow-y-auto，正文另一个），所以「滚页面」滚不动它们，而 fullPage 也拍不到 ——
-    // 判断「下面那截够不够得着」只能真的滚一次。用法：{"scroll": ["nav", 600]}
+    // scroll —— move the mouse over a container and scroll it. Admin's scrolling
+    // happens in **inner containers** (the sidebar has its own overflow-y-auto,
+    // the body another), so "scroll the page" doesn't move them, and fullPage
+    // can't capture them either — whether "what's further down is reachable"
+    // can only be judged by actually scrolling once. Usage: {"scroll": ["nav", 600]}
     step.scroll && await (async () => {
       await page.locator(step.scroll[0]).first().hover();
       await page.mouse.wheel(0, step.scroll[1]);
       await page.waitForTimeout(400);
     })();
-    // 懒加载的树：上一次点击要等它把下一层取回来，下一个选择器才存在。
+    // For a lazily-loaded tree: the previous click needs to wait for the next
+    // level to be fetched before the next selector exists.
     step.wait && await page.waitForTimeout(step.wait);
   }
 }

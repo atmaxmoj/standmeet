@@ -16,18 +16,19 @@ import (
 	"sync"
 )
 
-// scriptedTool —— mock LLM 下一步要调的 tool。args 是 raw JSON 给
-// ExecuteTool(name, []byte) 直接喂。
+// scriptedTool —— the tool the mock LLM should call next. args is raw JSON fed
+// straight into ExecuteTool(name, []byte).
 type scriptedTool struct {
 	Name string          `json:"name"`
 	Args json.RawMessage `json:"args"`
 }
 
-// inferenceQueue —— single-slot queues (覆盖语义；后写覆盖前写)。tests
-// 一次只 script 一个 tool / 一个 reply；queue 不积压，行为简单。
+// inferenceQueue —— single-slot queues (overwrite semantics; a later write
+// overwrites an earlier one). Tests script only one tool / one reply at a time;
+// the queue never backs up, keeping the behavior simple.
 type inferenceQueue struct {
 	queued      *scriptedTool
-	queuedReply *string // 下一轮 final text 用；nil = fallback INFERENCE_MOCK_REPLY
+	queuedReply *string // used for the next turn's final text; nil = fallback INFERENCE_MOCK_REPLY
 	mu          sync.Mutex
 }
 
@@ -67,9 +68,9 @@ func writeTakeNextTool(log *slog.Logger, w http.ResponseWriter, resp takeNextToo
 	}
 }
 
-// scriptedReply —— mock LLM 下一轮 final text 流出的内容 (G-X: 让 spec
-// 测真 visitor chat 渲 markdown / katex / mermaid 内容)。queued 一次 →
-// backend 下一次 stream 取走 → 清。
+// scriptedReply —— the content the mock LLM streams out as the next turn's final
+// text (G-X: lets a spec test real visitor-chat rendering of markdown / katex /
+// mermaid content). Queued once -> backend takes it on the next stream -> cleared.
 type scriptedReply struct {
 	Text string `json:"text"`
 }

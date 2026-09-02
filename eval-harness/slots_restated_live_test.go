@@ -1,20 +1,28 @@
-// slots_restated_live_test.go —— UX-93 的守卫：**时段卡已经把时间摆出来了，答案里就不要再列一遍**。
+// slots_restated_live_test.go —— UX-93's guard: **the slots card already laid the times
+// out, so the answer must not list them again**.
 //
-// 为什么必须是 eval 而不是 spec：这条缺陷是**模型自己写正文**时发生的，而 mock LLM 只会返回
-// 测试注册过的那句话（[[mock-llm-pure-registration-kv]]）—— 拿 mock 驱，被告根本不出庭。
-// 所以这里跟 F-A-37 那条一样：真模型、真 booker 插件（背后是 canned 日历）、真 agent loop。
+// Why this has to be an eval, not a spec: this defect happens when **the model writes
+// its own prose** — a mock LLM only ever returns the line the test registered
+// ([[mock-llm-pure-registration-kv]]) — drive it with a mock and the defendant simply
+// never shows up. So, same as F-A-37: a real model, a real booker plugin (backed by a
+// canned calendar), a real agent loop.
 //
-// 判据判的是**形状，不是个数**，这一点是驱出来的：
+// The judgment is on **shape, not count**, and that came out of actually driving it:
 //
-//   - 第一版数钟点个数，线画在「至多 1 个」。修完再驱，模型写的是「availability runs from
-//     5:00 AM to 2:00 PM，picker 里挑」—— 两个端点；再一轮写成两个时区各一遍 —— 四个端点。
-//     那些都是**区间**，是在回答「你什么时候有空」，而且双时区正是 booking-slots check 4
-//     要求的。个数这把尺子分不出「区间」和「清单」，只会把阈值一路往上调 —— 那就是拿数据
-//     凑绿。
-//   - 缺陷的真形状是**枚举**：`• 9:30 AM（就在你要的时间前）` 这样一行行列出来，而且只列
-//     其中几个 —— 卡是全的、这份是截断的，读的人得自己判断哪份算数。
+//   - The first version counted clock times, with the line drawn at "at most 1". Once
+//     that was fixed and driven again, the model wrote "availability runs from
+//     5:00 AM to 2:00 PM, pick from the picker" — two endpoints; another round wrote
+//     the same window once per timezone — four endpoints. Those are all **ranges**,
+//     answering "when are you free", and the dual timezone is exactly what
+//     booking-slots check 4 requires. A count-based ruler can't tell "range" from
+//     "list" apart — it would just keep pushing the threshold up, which is fitting
+//     the data to get green.
+//   - The defect's real shape is **enumeration**: lines like `• 9:30 AM (right before
+//     your requested time)` listed one by one, and only some of them — the card is
+//     complete, this is truncated, and the reader has to guess which one counts.
 //
-// 所以判据是：卡在的那一轮，答案里**不许有以时间开头的列表行**。区间怎么写都行。
+// So the judgment is: in the round where the card appeared, the answer **must not have
+// any list line that starts with a time**. Ranges can be written however.
 //
 //	EVAL_ROUNDS=5 make eval-slots-restated
 
@@ -32,25 +40,29 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
-// clockTimeRe —— 答案正文里的钟点：`9:30 AM` / `09:30` / `3 PM`。日期不算。
+// clockTimeRe —— clock times in the answer body: `9:30 AM` / `09:30` / `3 PM`. Dates don't count.
 var clockTimeRe = regexp.MustCompile(`\b\d{1,2}:\d{2}\s*(?:[AaPp]\.?[Mm]\.?)?|\b\d{1,2}\s*[AaPp]\.?[Mm]\.?\b`)
 
-// timeListLineRe —— 一行**以时间开头的列表项**：`- 9:30 AM …` / `• 10:00 …` / `1. 2:00 PM …`
-// / `9:30 AM — 就在你要的时间前`。这正是 prod 上拍到的那个形状。
+// timeListLineRe —— a line that's **a list item starting with a time**: `- 9:30 AM …` /
+// `• 10:00 …` / `1. 2:00 PM …` / `9:30 AM — right before your requested time`. This is
+// exactly the shape caught on prod.
 var timeListLineRe = regexp.MustCompile(
 	`(?m)^\s*(?:[-*•‣]|\d+[.)])?\s*\**\d{1,2}(?::\d{2})?\s*(?:[AaPp]\.?[Mm]\.?)?\**\s*(?:[-–—:(]|$)`)
 
-// timeListMin —— 几行才算"列成了清单"。两行还能是「前一格 / 后一格」这种回答具体问题的说法，
-// 三行起就是把卡里的清单又抄了一份（而且往往是截断的那一份）。
+// timeListMin —— how many lines counts as "turned into a list". Two lines could still be
+// a "the slot before / after" phrasing answering a specific question; three or more is
+// re-copying the card's list (and usually a truncated copy of it).
 const timeListMin = 3
 
-// TestSlotsRestatedGuardSeesTheDefect —— **判据自证**：换成"形状"之后，它还认不认得原来那个
-// 缺陷？喂的是 prod 上真拍到的那两段（bullet 列表 / 数字列表），必须判到 ≥ timeListMin 行；
-// 而修好之后模型写的那种"区间"必须一行都不判。判不了负的绿等于没有绿
-// （[[assertion-that-cannot-fail]]）。
+// TestSlotsRestatedGuardSeesTheDefect —— **the judgment's self-test**: now that it's
+// been switched to "shape", does it still recognize the original defect? Fed the two
+// snippets actually caught on prod (bullet list / numbered list), it must judge
+// ≥ timeListMin lines; and the "range" style the model writes after the fix must judge
+// zero lines. A green that can't go red is no green at all
+// ([[assertion-that-cannot-fail]]).
 func TestSlotsRestatedGuardSeesTheDefect(t *testing.T) {
 	t.Parallel()
-	// prod（2026-08-17，bbook-26）：卡里 17 格，正文又列了四条。
+	// prod (2026-08-17, bbook-26): the card had 17 slots, the prose listed four again.
 	const prodBulleted = "That 10:00 AM slot is already taken, so I can't book it as-is. " +
 		"Here are the closest open 30-minute slots that morning (all Eastern):\n\n" +
 		"- **9:30 AM** (right before your requested time)\n" +
@@ -58,11 +70,12 @@ func TestSlotsRestatedGuardSeesTheDefect(t *testing.T) {
 		"- **11:00 AM**\n" +
 		"- **11:30 AM**\n\n" +
 		"Want me to grab one of those?"
-	// 修好之后那种：一个区间，指向 picker。
+	// The post-fix style: one range, pointing at the picker.
 	const windowOnly = "Here you go — the available 30-minute slots for Monday, August 24 are in " +
 		"the picker above. They run from 5:00 AM through 2:00 PM your time (America/Toronto). " +
 		"Go ahead and pick one."
-	// 两个时区各说一遍那个区间 —— 也是对的（booking-slots check 4 要求双时区）。
+	// Stating that same range once per timezone — also correct (booking-slots check 4
+	// requires both timezones).
 	const windowBothZones = "The picker above has them. Availability runs 5:00 AM–2:00 PM your " +
 		"time, which is 9:00 AM–6:00 PM mine."
 
@@ -106,7 +119,8 @@ func TestSlotsRestatedLive_CardIsTheList(t *testing.T) {
 	}
 }
 
-// restatedThisRound —— 一整轮真turn。返回(答案是否重列了时段, 这一轮到底有没有出卡)。
+// restatedThisRound —— one full real turn. Returns (whether the answer re-listed the
+// slots, whether this round produced a card at all).
 func restatedThisRound(t *testing.T, cred *agentcore.Cred, round int) (bool, bool) {
 	t.Helper()
 	ctx := context.Background()
@@ -135,13 +149,14 @@ func restatedThisRound(t *testing.T, cred *agentcore.Cred, round int) (bool, boo
 	sawCard := calledListSlots(tools)
 	listLines := timeListLineRe.FindAllString(answer, -1)
 	times := clockTimeRe.FindAllString(answer, -1)
-	// 两个数都记：判的是 listLines（形状），times 只是读日志的人判断"这一轮到底啰不啰嗦"的旁证。
+	// Both numbers are logged: the judgment is on listLines (shape); times is only a
+	// side signal for a log reader to gauge how verbose this round actually was.
 	t.Logf("round %d: tools=%d card=%v time_list_lines=%d times_mentioned=%d %v\nanswer=%s",
 		round, len(tools), sawCard, len(listLines), len(times), times, answer)
 	return sawCard && len(listLines) >= timeListMin, sawCard
 }
 
-// calledListSlots —— 这一轮有没有真的产出时段卡。
+// calledListSlots —— whether this round actually produced a slots card.
 func calledListSlots(tools []toolUse) bool {
 	for i := range tools {
 		if tools[i].Name == "calendar_list_slots" {
@@ -151,7 +166,8 @@ func calledListSlots(tools []toolUse) bool {
 	return false
 }
 
-// slotsRequest —— 访客在 prod 上问的那种问法。天数按轮次挪开，避免每轮都问同一天。
+// slotsRequest —— the phrasing a visitor actually asks with on prod. The day shifts
+// with the round to avoid asking about the same day every time.
 func slotsRequest(round int) string {
 	day := weekdayAhead(7 + round)
 	return fmt.Sprintf(

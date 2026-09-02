@@ -37,7 +37,7 @@ plant_expect_red() {
 }
 
 plant_expect_red "$ROOT/backend/cmd/server/config/config.go" "config.go" "PLANTED_OWNER_KNOB"
-# 第二处：**不在 config.go 里**。真实的那一次就是这么漏掉的。
+# The second plant: **not in config.go**. That's exactly how the real one got missed.
 plant_expect_red "$ROOT/backend/internal/connector/egress.go" "a file outside config.go" \
 	"PLANTED_OWNER_KNOB_ELSEWHERE"
 

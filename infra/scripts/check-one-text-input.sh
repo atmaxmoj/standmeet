@@ -1,38 +1,50 @@
 #!/usr/bin/env sh
-# check-one-text-input —— 文本输入只有**一种**长相,而且那一种只有一个源头:`.sm-field-input`。
+# check-one-text-input —— a text input has **one** look, and that look has one source:
+# `.sm-field-input`.
 #
-# 为什么这条闸门存在(UX-59):同一种控件在这个产品里长了两种样子 —— 连接器凭据、
-# 连接器 op 参数、SEO 的两个字段是**整框**(四边边框 + 圆角 + 内距),而 codes 新建弹窗、
-# 简历 composer、gate、AI provider 面板里的输入是**下划线**。owner 隔一屏就换一套标准。
+# Why this gate exists (UX-59): the same kind of control grew two looks in this product —
+# connector credentials, connector op params, and the two SEO fields are **fully boxed**
+# (border on all four sides + rounded corners + padding), while the codes new-code modal,
+# the resume composer, gate, and the AI provider panel use **underline** inputs. The owner
+# hits a different standard every other screen.
 #
-# 这跟 UX-47(下拉五种写法)是同一个失败形状,而那一条的教训是:**光有一个类不够**。
-# `.sm-field-input` 一直存在,新写输入框的人不知道它存在,于是各自决定长什么样。
-# 所以闸门锁的不是"贴了没",是**"有没有绕过它"**。
-# (见 [[reframes-tasks-into-enforced-invariants]]:把错误变得做不出来。)
+# This is the same failure shape as UX-47 (five dropdown spellings), and that one's lesson
+# was: **having one class isn't enough**. `.sm-field-input` existed the whole time; whoever
+# wrote a new input didn't know it existed, so each one decided its own look. So this gate
+# does not lock "was the class applied" — it locks **"was it bypassed"**.
+# (See [[reframes-tasks-into-enforced-invariants]]: make the mistake impossible.)
 #
-# **第一版只挡「手抄整框」,于是「手抄下划线」从旁边走过去了**(UX-87):`/admin/roles` 上
-# 五个输入各自写 `border-b border-(--color-rule)`,长得像那个类却不是它 —— 五处已经互相不一致
-# (`/60` 的边、`py-1` 对 `py-0.5`、三种字号),而且**一个都没有 focus 态**:`.sm-field-input:focus`
-# 会把下缘变成墨色,手抄的那五个点进去毫无反应。闸门第二次挡住同类代码,说明缺的是机制而不是
-# 提醒([[gate-blocks-twice-means-missing-mechanism]]);所以这一版锁的是**类本身**:
-# 文本类 `<input>` 必须带 `sm-field-input`,长相不许再手写。
+# **The first version only blocked "hand-rolled boxes", so "hand-rolled underlines" walked
+# right past it** (UX-87): `/admin/roles` had five inputs each writing
+# `border-b border-(--color-rule)`, which looks like the class but isn't it — the five were
+# already mutually inconsistent (`/60` border vs not, `py-1` vs `py-0.5`, three different
+# font sizes), and **none of them had a focus state**: `.sm-field-input:focus` turns the
+# bottom edge ink-colored, and the five hand-rolled ones did nothing on click. A gate that
+# blocks the same class of code twice means the missing thing is a mechanism, not a reminder
+# ([[gate-blocks-twice-means-missing-mechanism]]); so this version locks **the class itself**:
+# every text `<input>` must carry `sm-field-input`, and the look may not be hand-written again.
 #
-# 只管 `<input>`,不管卡片/容器 —— `border … rounded` 在卡片上是对的,这条规则**只针对
-# 输入控件**。判据取 `<input` 起到 `/>` 或 `>` 止的那一段(JSX 里属性常跨行)。
+# Only governs `<input>`, not cards/containers — `border … rounded` is correct on a card;
+# this rule targets **input controls only**. The match window runs from `<input` to the
+# closing `/>` or `>` (JSX attributes often span lines).
 #
-# 例外:
-#   · 只读展示框(`readOnly`)不是输入,它是"把一个值印出来给你抄",框着反而对。
-#   · `type="checkbox"` / `type="radio"` / `type="file"` 不是文本框,它们没有那条下缘。
-#   · 没有 `className` 的(测试桩、隐藏域)不参与长相这件事。
+# Exceptions:
+#   - A read-only display box (`readOnly`) is not an input — it's "print a value for you to
+#     copy", and a box is the right look for that.
+#   - `type="checkbox"` / `type="radio"` / `type="file"` are not text fields; they never had
+#     that bottom edge.
+#   - Elements with no `className` (test stubs, hidden fields) are out of scope for "look".
 #
-# 自证:整框的、手抄下划线的都必须判红;readOnly 与 checkbox 必须放过;
-# 扫描范围不能为空(见 [[gate-can-go-blind]] / [[assertion-that-cannot-fail]])。
+# Self-test: both the boxed and the hand-rolled-underline hand-rolls must go red; readOnly
+# and checkbox must pass; the scan range must not be empty (see [[gate-can-go-blind]] /
+# [[assertion-that-cannot-fail]]).
 
 set -eu
 
 SRC=app/src
 
-# RULE —— 同一段判定给自证和真扫描共用。两处各抄一份的话,自证证的就不是真跑的那一段。
+# RULE —— the self-test and the real scan share this one matching block. If each copied its
+# own, the self-test would no longer prove what the real scan runs.
 RULE='
   /^[[:space:]]*(\/\/|\*|\/\*)/ { next }
   /<input/ { collecting = 1; buf = ""; start = FNR }
@@ -55,7 +67,7 @@ if [ "$n" -lt 50 ]; then
   exit 2
 fi
 
-# 自证:两种手抄写法各判红一次,readOnly 与 checkbox 各放过一次。
+# Self-test: each hand-rolled spelling must go red once; readOnly and checkbox must each pass once.
 plant=$(mktemp -t textinput.XXXXXX)
 cat > "$plant" <<'PLANTED'
 export function Planted() {
@@ -94,10 +106,10 @@ fi
 offenders=$(printf '%s\n' "$files" | xargs -r awk "$RULE" || true)
 
 if [ -n "$offenders" ]; then
-  echo "check-one-text-input: a hand-rolled <input> look —— 文本输入只有一种长相,而且只有一个源头:"
+  echo "check-one-text-input: a hand-rolled <input> look —— a text input has one look, and it has one source:"
   echo "$offenders"
-  echo "                      用 className=\"sm-field-input\"(要等宽再加 sm-mono);"
-  echo "                      宽度/对齐这类布局照旧写在 className 里,长相不要手抄。"
+  echo "                      use className=\"sm-field-input\" (add sm-mono for monospace);"
+  echo "                      layout like width/alignment still goes in className, but don't hand-roll the look."
   exit 1
 fi
 

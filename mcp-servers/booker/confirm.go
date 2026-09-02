@@ -1,7 +1,9 @@
-// confirm.go —— send_confirmation,港自旧 booking_confirmation*.go。定位本对话最近一笔预约 →
-// 校归属(owner+code)→ 幂等(confirmations marker,一笔一次)→ 挑收件人(透传/引用 session
-// email)→ 渲确认信(text + HTML + schema.org JSON-LD)→ 经 connector.invoke("mail","send") 发。
-// 收件人硬控在 host 侧值(session email / 卡里改写地址),LLM 不经手。
+// confirm.go —— send_confirmation, ported from the old booking_confirmation*.go. Locates this
+// conversation's most recent booking → checks ownership (owner+code) → idempotency (a confirmations
+// marker, one send per booking) → picks the recipient (passthrough / falls back to the session
+// email) → renders the confirmation (text + HTML + schema.org JSON-LD) → sends via
+// connector.invoke("mail","send"). The recipient is pinned to a host-side value (session email / the
+// address on the card), the LLM never touches it.
 
 package main
 
@@ -20,7 +22,7 @@ type sendConfirmationArgs struct {
 	TZ        string `json:"tz"`
 }
 
-// confirmationMarker —— 已发确认信的标记(按 event_id 一笔一记,做幂等)。
+// confirmationMarker —— the marker that a confirmation has already been sent (one record per event_id, for idempotency).
 type confirmationMarker struct {
 	GoogleEventID  string `json:"google_event_id"`
 	ConversationID string `json:"conversation_id"`
@@ -52,7 +54,8 @@ func resolveConfirmBooking(s session) (bookingDoc, string) {
 		return bookingDoc{}, bookErr("booking_not_found", "no booking found for this conversation")
 	}
 	b := latestBooking(recs)
-	// 同一个 owner **且**同一个主体才认:换一张码 / 换一把 key 进来的人不该给别人的预约发信。
+	// Only recognized if it's the same owner **and** the same subject: someone who switched to a
+	// different code / a different key shouldn't be able to send a confirmation for someone else's booking.
 	if b.OwnerID != s.OwnerID || b.SubjectID != s.SubjectID {
 		return bookingDoc{}, bookErr("booking_not_found", "no booking found for this conversation")
 	}
@@ -70,7 +73,7 @@ func pickRecipient(passthrough, sessionEmail string) (string, string) {
 	return to, ""
 }
 
-// deliverConfirmation —— 幂等 claim(插 marker)→ 发信 → 失败则 release(删 marker,可重试)。
+// deliverConfirmation —— idempotency claim (insert marker) → send mail → release (delete marker, allowing retry) on failure.
 func deliverConfirmation(s session, b *bookingDoc, to, tz string) string {
 	if sent, cerr := confirmationSent(b.GoogleEventID); cerr != nil {
 		return bookErr("send_failed", "couldn't send the confirmation right now — please try again later")
@@ -104,7 +107,7 @@ func releaseConfirmation(eventID string) {
 	_, _ = gwCapstoreDelete(confirmationsColl, filter)
 }
 
-// sendConfirmationMail —— 渲信 + 经 mail 连接器发。返回 errWire(空 = 成功)。
+// sendConfirmationMail —— renders the mail + sends via the mail connector. Returns errWire (empty = success).
 func sendConfirmationMail(ownerID string, b *bookingDoc, to, tz string) string {
 	ownerName, _ := gwOwnerMeta(ownerID, "full_name")
 	ownerTZ, _ := gwOwnerMeta(ownerID, "timezone")
@@ -117,12 +120,13 @@ func sendConfirmationMail(ownerID string, b *bookingDoc, to, tz string) string {
 	return ""
 }
 
-// mailSendErr —— **两种失败，两句话**（F-C-42）。
+// mailSendErr —— **two kinds of failure, two different messages** (F-C-42).
 //
-// 以前这里对任何错误都说「owner 还没配邮件」。owner 配了、只是这一刻拨不通的时候，
-// 那句话对访客是**假的**，而且它顺带把 owner 的配置状态说了出去。
-// 现在按 host 给的类别分岔：类别丢了（老 host / 没带 code）就走保守的那一支 ——
-// 说「现在发不出去」永远不会撒谎，说「没配过」会。
+// This used to say "the owner hasn't set up email" for any error. When the owner had configured it
+// and it just couldn't be reached at that moment, that sentence was **false** to the visitor, and it
+// leaked the owner's configuration status besides. Now it branches on the category the host gives:
+// if the category is missing (an old host / no code attached), it takes the conservative branch —
+// saying "can't send right now" is never a lie, saying "never configured" can be.
 func mailSendErr(err error) string {
 	if faultCode(err) == faultNotConfigured {
 		return bookErr("mail_not_configured", "the owner hasn't set up email yet")
@@ -131,7 +135,7 @@ func mailSendErr(err error) string {
 		"couldn't send the confirmation right now — the booking is still yours; try again in a bit")
 }
 
-// ── 邮件模板(港自 booking_confirmation_email.go)──
+// ── mail template (ported from booking_confirmation_email.go) ──
 
 func buildConfirmationEmail(b *bookingDoc, ownerName, visitorTZ, ownerTZ string) map[string]string {
 	loc := confirmationLocation(visitorTZ, ownerTZ)

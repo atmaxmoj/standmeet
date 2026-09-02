@@ -24,9 +24,9 @@ extract_keys() {
 }
 
 # Find all .env.example files, skipping common heavy/vendored dirs.
-# 用 while read 而不是 mapfile 以兼容 macOS 默认 bash 3.2（无 mapfile）。
-# LINT_ENV_EXCLUDE 是空格分隔的子目录基名列表，匹配到的整路径跳过。
-# 用法：LINT_ENV_EXCLUDE='standmeet-client standmeet-server' lint-env .
+# Uses while read instead of mapfile to stay compatible with macOS's default bash 3.2 (no mapfile).
+# LINT_ENV_EXCLUDE is a space-separated list of subdirectory basenames; any path matching one is skipped whole.
+# Usage: LINT_ENV_EXCLUDE='standmeet-client standmeet-server' lint-env .
 examples=()
 while IFS= read -r f; do
   skip=false
