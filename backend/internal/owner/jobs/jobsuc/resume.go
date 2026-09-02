@@ -34,24 +34,30 @@ type DraftedResume struct {
 	Draft jobsmodel.ResumeDraft
 }
 
-// DraftResume —— Claude 调 resume.draft：拿 Redis 池子里的 job snapshot，
-// 落 draft 表。
+// DraftInput —— resume.draft 的入参（打包成结构体：内容 + 选的模板 + 目标 job）。
+type DraftInput struct {
+	Content    *jobsmodel.ResumeContent
+	JobCacheID string
+	Template   string
+}
+
+// DraftResume —— Claude 调 resume.draft：拿 Redis 池子里的 job snapshot，落 draft 表。
 func DraftResume(
-	ctx context.Context, deps ResumeDeps, ownerID, jobCacheID string,
-	content *jobsmodel.ResumeContent,
+	ctx context.Context, deps ResumeDeps, ownerID string, in DraftInput,
 ) (DraftedResume, error) {
-	if err := requireFields(ownerID, jobCacheID, content); err != nil {
+	if err := requireFields(ownerID, in.JobCacheID, in.Content); err != nil {
 		return DraftedResume{}, err
 	}
-	snapshot, err := loadJobSnapshot(ctx, deps, ownerID, jobCacheID)
+	snapshot, err := loadJobSnapshot(ctx, deps, ownerID, in.JobCacheID)
 	if err != nil {
 		return DraftedResume{}, err
 	}
 	draft, err := deps.Drafts.Create(ctx, &jobsmodel.CreateResumeDraftInput{
 		OwnerID:       ownerID,
-		JobCacheID:    jobCacheID,
+		JobCacheID:    in.JobCacheID,
 		JobSnapshot:   snapshot,
-		ResumeContent: *content,
+		ResumeContent: *in.Content,
+		Template:      in.Template,
 	})
 	if err != nil {
 		return DraftedResume{}, fmt.Errorf("create draft: %w", err)

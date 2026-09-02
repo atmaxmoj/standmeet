@@ -855,6 +855,8 @@ CREATE TABLE resume_drafts (
     job_cache_id     text          NOT NULL,
     job_snapshot     jsonb         NOT NULL,
     resume_content   jsonb         NOT NULL,
+    -- template —— 这份草稿选的 Typst 排版（'' = 默认 classic）。定制化的选择项。
+    template         text          NOT NULL DEFAULT '',
     expires_at       timestamptz   NOT NULL DEFAULT now() + interval '1 day',
     created_at       timestamptz   NOT NULL DEFAULT now()
 );

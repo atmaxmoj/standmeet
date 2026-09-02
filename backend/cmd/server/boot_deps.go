@@ -4,10 +4,7 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log/slog"
-	"net/url"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
@@ -32,9 +29,9 @@ import (
 	pluginjobs "github.com/atmaxmoj/standmeet/internal/owner/jobs"
 	jobcache "github.com/atmaxmoj/standmeet/internal/owner/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"
-	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/printsess"
+	"github.com/atmaxmoj/standmeet/internal/owner/jobs/resumepdf"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
@@ -265,70 +262,17 @@ func buildReportPDFRenderer(cfg *config.Config) publicroutes.ReportPDFRenderer {
 	return gotenberg.New(cfg.GotenbergURL)
 }
 
+// buildPDFRenderer —— resume PDF 现在走 **Typst**（typst binary + 内嵌模板，见 resumepdf）。
+// 排版质量 + 可定制模板 + 内容/呈现分离，都在一条数据驱动的管线上。gotenberg 那条（React→
+// Chromium 打印页）退役给 report 下载路（buildReportPDFRenderer 仍用它）。printsess.Store 不再
+// 参与简历渲染。typst 缺失时不静默出空 PDF —— compile 报错，commit 响亮失败。
+//
 //nolint:ireturn // composition root deliberately returns interface
 func buildPDFRenderer(
-	log *slog.Logger, cfg *config.Config, store *printsess.Store,
+	log *slog.Logger, cfg *config.Config, _ *printsess.Store,
 ) jobsuc.PDFRenderer {
-	if cfg.GotenbergURL == "" || cfg.PrintBaseURL == "" {
-		log.Info("pdf renderer: disabled (set GOTENBERG_URL + PRINT_BASE_URL to enable)")
-		return noopPDFRenderer{}
-	}
-	log.Info(
-		"pdf renderer: gotenberg",
-		"endpoint", cfg.GotenbergURL, "print_base", cfg.PrintBaseURL,
-	)
-	return gotenbergPDFRenderer{
-		client:    gotenberg.New(cfg.GotenbergURL),
-		store:     store,
-		printBase: cfg.PrintBaseURL,
-	}
-}
-
-// gotenbergPDFRenderer —— bridges jobsuc.PDFRenderer to the gotenberg
-// sidecar. The flow:
-//  1. Stash (Application + qrURL) in Redis via printsess.Store, get token
-//  2. Build print URL: <printBase>/print/application/<id>?t=<token>
-//  3. POST it to gotenberg; sidecar's Chromium fetches the print URL,
-//     which server-renders <ResumePage/> after calling back to
-//     /internal/print-session/<token> for the payload (one-shot, TTL 60s)
-//  4. PDF bytes stream back through MCP to Claude
-//
-// printBase example: http://app:3000 (in-cluster app service URL).
-type gotenbergPDFRenderer struct {
-	client    gotenberg.Renderer
-	store     *printsess.Store
-	printBase string
-}
-
-func (r gotenbergPDFRenderer) RenderApplicationPDF(
-	ctx context.Context, app *jobsmodel.Application, qrURL string,
-) ([]byte, error) {
-	token, err := r.store.Stash(ctx, &printsess.Payload{
-		ApplicationID: app.ID,
-		ResumeContent: app.ResumeContent,
-		JobSnapshot:   app.JobSnapshot,
-		QRURL:         qrURL,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("stash print session: %w", err)
-	}
-	printURL := r.printBase + "/print/application/" + app.ID +
-		"?t=" + url.QueryEscape(token)
-	pdf, rerr := r.client.RenderURL(ctx, printURL)
-	if rerr != nil {
-		return nil, fmt.Errorf("render application %s: %w", app.ID, rerr)
-	}
-	return pdf, nil
-}
-
-// noopPDFRenderer —— surfaces gotenberg.ErrNotConfigured so commit fails
-// loudly when env vars are missing instead of producing an empty PDF.
-type noopPDFRenderer struct{}
-
-func (noopPDFRenderer) RenderApplicationPDF(
-	_ context.Context, _ *jobsmodel.Application, _ string,
-) ([]byte, error) {
-	return nil, gotenberg.ErrNotConfigured
+	log.Info("pdf renderer: typst", "bin", cfg.TypstBin, "font_path", cfg.ResumeFontPath)
+	return resumepdf.New(cfg.TypstBin, cfg.ResumeFontPath)
 }
 
 func newJobFetchRegistry(cfg *config.Config) *jobfetch.Registry {

@@ -21,6 +21,7 @@
 //     on #3 because the page renders at 459×594 pt after scale fix.
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -44,7 +45,27 @@ const US_LETTER_HEIGHT_PT = 792;
 // 1pt rounding leeway covers gotenberg's mediaBox precision.
 const DIM_TOL = 1;
 
-test.describe('resume PDF render contract (gotenberg + ResumePage)', () => {
+// commitResume —— the whole job-loop commit chain (login → token → MCP → register source → fetch →
+// draft under `template` → commit), returning the committed PDF. Lifted out of the describe so each
+// test reads as "given this content + template, the PDF says …".
+async function commitResume(
+  request: APIRequestContext,
+  source: { kind: string; label: string; config: Record<string, unknown> },
+  content: ReturnType<typeof sampleResumeContent>, template?: string,
+): Promise<{ pdf: Buffer }> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const token = await createAPIToken(request, csrf, `pdf-${source.kind}`);
+  const sid = await initMCP(request, token);
+  const src = await jobsRegisterSource(request, token, sid, source);
+  const fetched = await jobsFetchNew(request, token, sid, src.id);
+  expect(fetched.jobs[0]).toBeDefined();
+  const drafted = await resumeDraft(
+    request, token, sid, fetched.jobs[0]!.cache_id, content, template,
+  );
+  return applicationsCommit(request, token, sid, drafted.view.draft_id);
+}
+
+test.describe('resume PDF render contract (Typst)', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -54,22 +75,10 @@ test.describe('resume PDF render contract (gotenberg + ResumePage)', () => {
 
   test('committed PDF: 2 US-Letter pages with real resume content',
     async ({ request }) => {
-      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      const token = await createAPIToken(request, csrf, 'pdf-render-contract');
-      const sid = await initMCP(request, token);
-      const source = await jobsRegisterSource(request, token, sid, {
-        kind: 'greenhouse', label: 'Anthropic', config: { company: 'anthropic' },
-      });
-      const fetched = await jobsFetchNew(request, token, sid, source.id);
-      const first = fetched.jobs[0];
-      expect(first).toBeDefined();
       const content = sampleResumeContent();
-      const drafted = await resumeDraft(
-        request, token, sid, first!.cache_id, content,
-      );
-      const committed = await applicationsCommit(
-        request, token, sid, drafted.view.draft_id,
-      );
+      const committed = await commitResume(request, {
+        kind: 'greenhouse', label: 'Anthropic', config: { company: 'anthropic' },
+      }, content);
 
       const info = await inspectPDF(committed.pdf);
 
@@ -112,25 +121,35 @@ test.describe('resume PDF render contract (gotenberg + ResumePage)', () => {
   // 硬编码在 i18n 文案里 —— **一个能算出来的量被手填了**。
   test('a resume with no cover letter is one page, and says so',
     async ({ request }) => {
-      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      const token = await createAPIToken(request, csrf, 'pdf-onepage');
-      const sid = await initMCP(request, token);
-      const source = await jobsRegisterSource(request, token, sid, {
-        kind: 'lever', label: 'LeverDemo', config: { company: 'leverdemo' },
-      });
-      const fetched = await jobsFetchNew(request, token, sid, source.id);
-      expect(fetched.jobs[0]).toBeDefined();
       const content = sampleResumeContent({ cover_letter: '' });
-      const drafted = await resumeDraft(
-        request, token, sid, fetched.jobs[0]!.cache_id, content,
-      );
-      const committed = await applicationsCommit(
-        request, token, sid, drafted.view.draft_id,
-      );
+      const committed = await commitResume(request, {
+        kind: 'lever', label: 'LeverDemo', config: { company: 'leverdemo' },
+      }, content);
 
       const info = await inspectPDF(committed.pdf);
       // 前置条件要能红：真是一页，否则下面断的是另一件事。
       expect(info.pages, 'no cover letter ⇒ one page').toBe(1);
+      expectPageLabelsMatch(info.text, info.pages);
+    });
+
+  // 定制化：owner 在 resume.draft 里选 'compact' 模板，commit 出来的 PDF 走那个版式 ——
+  // 内容不变(模板换的是呈现),尺寸仍是 US Letter。选 classic 和选 compact 是同一份内容的
+  // 两种排版。这是"resume 定制化"落到真实 commit 流的证明。
+  test('a compact-template draft commits to a US-Letter PDF with the same content',
+    async ({ request }) => {
+      const content = sampleResumeContent();
+      const committed = await commitResume(request, {
+        kind: 'ashby', label: 'AshbyDemo', config: { company: 'ashbydemo' },
+      }, content, 'compact');
+
+      const info = await inspectPDF(committed.pdf);
+      // US Letter, unchanged by the template choice.
+      expect(info.pageWidthPt).toBeGreaterThan(US_LETTER_WIDTH_PT - DIM_TOL);
+      expect(info.pageWidthPt).toBeLessThan(US_LETTER_WIDTH_PT + DIM_TOL);
+      // Content survives the layout switch — presentation changed, content didn't.
+      expect(info.text).toContain(content.identity.name.toLowerCase());
+      expect(info.text).toContain(content.works[0]!.company);
+      expect(info.text).toContain(content.educations[0]!.school);
       expectPageLabelsMatch(info.text, info.pages);
     });
 });

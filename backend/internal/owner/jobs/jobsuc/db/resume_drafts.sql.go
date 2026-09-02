@@ -12,9 +12,9 @@ import (
 )
 
 const createResumeDraft = `-- name: CreateResumeDraft :one
-INSERT INTO resume_drafts (owner_id, job_cache_id, job_snapshot, resume_content)
-VALUES ($1, $2, $3, $4)
-RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, expires_at, created_at
+INSERT INTO resume_drafts (owner_id, job_cache_id, job_snapshot, resume_content, template)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at
 `
 
 type CreateResumeDraftParams struct {
@@ -22,6 +22,7 @@ type CreateResumeDraftParams struct {
 	JobCacheID    string
 	JobSnapshot   []byte
 	ResumeContent []byte
+	Template      string
 }
 
 func (q *Queries) CreateResumeDraft(ctx context.Context, arg CreateResumeDraftParams) (ResumeDraft, error) {
@@ -30,6 +31,7 @@ func (q *Queries) CreateResumeDraft(ctx context.Context, arg CreateResumeDraftPa
 		arg.JobCacheID,
 		arg.JobSnapshot,
 		arg.ResumeContent,
+		arg.Template,
 	)
 	var i ResumeDraft
 	err := row.Scan(
@@ -38,6 +40,7 @@ func (q *Queries) CreateResumeDraft(ctx context.Context, arg CreateResumeDraftPa
 		&i.JobCacheID,
 		&i.JobSnapshot,
 		&i.ResumeContent,
+		&i.Template,
 		&i.ExpiresAt,
 		&i.CreatedAt,
 	)
@@ -59,7 +62,7 @@ func (q *Queries) DeleteResumeDraft(ctx context.Context, arg DeleteResumeDraftPa
 }
 
 const getResumeDraft = `-- name: GetResumeDraft :one
-SELECT id, owner_id, job_cache_id, job_snapshot, resume_content, expires_at, created_at
+SELECT id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at
 FROM resume_drafts
 WHERE id = $1 AND owner_id = $2 AND expires_at > now()
 `
@@ -78,6 +81,7 @@ func (q *Queries) GetResumeDraft(ctx context.Context, arg GetResumeDraftParams) 
 		&i.JobCacheID,
 		&i.JobSnapshot,
 		&i.ResumeContent,
+		&i.Template,
 		&i.ExpiresAt,
 		&i.CreatedAt,
 	)
@@ -85,7 +89,7 @@ func (q *Queries) GetResumeDraft(ctx context.Context, arg GetResumeDraftParams) 
 }
 
 const listResumeDraftsByOwner = `-- name: ListResumeDraftsByOwner :many
-SELECT id, owner_id, job_cache_id, job_snapshot, resume_content, expires_at, created_at
+SELECT id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at
 FROM resume_drafts
 WHERE owner_id = $1 AND expires_at > now()
 ORDER BY created_at DESC
@@ -107,6 +111,7 @@ func (q *Queries) ListResumeDraftsByOwner(ctx context.Context, ownerID pgtype.UU
 			&i.JobCacheID,
 			&i.JobSnapshot,
 			&i.ResumeContent,
+			&i.Template,
 			&i.ExpiresAt,
 			&i.CreatedAt,
 		); err != nil {
@@ -133,7 +138,7 @@ const updateResumeDraftContent = `-- name: UpdateResumeDraftContent :one
 UPDATE resume_drafts
 SET resume_content = $3
 WHERE id = $1 AND owner_id = $2 AND expires_at > now()
-RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, expires_at, created_at
+RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at
 `
 
 type UpdateResumeDraftContentParams struct {
@@ -151,6 +156,7 @@ func (q *Queries) UpdateResumeDraftContent(ctx context.Context, arg UpdateResume
 		&i.JobCacheID,
 		&i.JobSnapshot,
 		&i.ResumeContent,
+		&i.Template,
 		&i.ExpiresAt,
 		&i.CreatedAt,
 	)

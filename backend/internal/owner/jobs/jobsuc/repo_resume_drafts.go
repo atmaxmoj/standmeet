@@ -64,6 +64,7 @@ func (r *ResumeDraftRepo) Create(
 		JobCacheID:    in.JobCacheID,
 		JobSnapshot:   snapshotJSON,
 		ResumeContent: contentJSON,
+		Template:      in.Template,
 	})
 	if err != nil {
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("create resume draft: %w", err)
@@ -195,6 +196,7 @@ func toDomainResumeDraft(row *db.ResumeDraft) (jobsmodel.ResumeDraft, error) {
 		ID:            pgstore.FormatUUID(row.ID),
 		OwnerID:       pgstore.FormatUUID(row.OwnerID),
 		JobCacheID:    row.JobCacheID,
+		Template:      row.Template,
 		JobSnapshot:   snapshot,
 		ResumeContent: content,
 		CreatedAt:     row.CreatedAt.Time,

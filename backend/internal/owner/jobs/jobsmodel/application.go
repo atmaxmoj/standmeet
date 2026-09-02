@@ -19,12 +19,14 @@ import (
 
 // Application —— DB-backed application row。
 type Application struct {
-	CreatedAt     time.Time
-	SubmittedAt   *time.Time
-	ID            string
-	OwnerID       string
-	AccessCodeID  string
-	Status        string
+	CreatedAt    time.Time
+	SubmittedAt  *time.Time
+	ID           string
+	OwnerID      string
+	AccessCodeID string
+	Status       string
+	// Template —— 这份简历用哪个 Typst 排版（'' = 默认 classic）。定制化的选择项。
+	Template      string
 	ResumeContent ResumeContent
 	JobSnapshot   FetchedJob
 }

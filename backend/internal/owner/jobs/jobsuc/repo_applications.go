@@ -122,8 +122,9 @@ func writeCommitRows(
 // DraftRenderData —— the resume + job snapshot needed to render the application PDF BEFORE the
 // irreversible commit tx (so a render failure persists nothing → retryable).
 type DraftRenderData struct {
-	Resume jobsmodel.ResumeContent
-	Job    jobsmodel.FetchedJob
+	Template string
+	Resume   jobsmodel.ResumeContent
+	Job      jobsmodel.FetchedJob
 }
 
 // GetDraftRenderData —— read-only fetch of a draft's render inputs (no tx, nothing deleted).
@@ -140,6 +141,7 @@ func (r *ApplicationRepo) GetDraftRenderData(
 		return DraftRenderData{}, err
 	}
 	var out DraftRenderData
+	out.Template = row.Template
 	if uerr := json.Unmarshal(row.ResumeContent, &out.Resume); uerr != nil {
 		return DraftRenderData{}, fmt.Errorf("unmarshal resume content: %w", uerr)
 	}

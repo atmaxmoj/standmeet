@@ -91,6 +91,21 @@ WORKDIR /app
 # bwrap bind-mounts them read-only into the sandbox.
 RUN apk add --no-cache ca-certificates docker-cli bubblewrap nodejs npm python3
 
+# Typst —— resume PDF 渲染引擎（internal/owner/jobs/resumepdf 起 typst 子进程）。下 musl 静态
+# release，按目标架构选（amd64→x86_64 / arm64→aarch64）。typst 自带默认字体（衬线 + 等宽），
+# 所以没装 Newsreader/JetBrains Mono 也渲得出来（字形退默认，版式/配色不变）。
+ARG TARGETARCH
+RUN set -eux; \
+    apk add --no-cache --virtual .typst-dl wget xz tar; \
+    case "$TARGETARCH" in amd64) TA=x86_64;; arm64) TA=aarch64;; *) echo "unsupported arch $TARGETARCH"; exit 1;; esac; \
+    ver=v0.13.1; \
+    wget -qO /tmp/typst.tar.xz "https://github.com/typst/typst/releases/download/${ver}/typst-${TA}-unknown-linux-musl.tar.xz"; \
+    tar -xJf /tmp/typst.tar.xz -C /tmp; \
+    mv "/tmp/typst-${TA}-unknown-linux-musl/typst" /usr/local/bin/typst; \
+    rm -rf /tmp/typst*; \
+    apk del .typst-dl; \
+    typst --version
+
 RUN addgroup --system --gid 1001 standmeet && \
     adduser --system --uid 1001 --ingroup standmeet standmeet
 

@@ -23,7 +23,9 @@ type ResumeDraft struct {
 	ID            string
 	OwnerID       string
 	JobCacheID    string
-	JobSnapshot   FetchedJob
+	// Template —— 这份草稿选的 Typst 排版（'' = 默认 classic）。定制化的选择项，commit 时带进 PDF。
+	Template    string
+	JobSnapshot FetchedJob
 }
 
 // CreateResumeDraftInput —— usecase 层 draft.create 入参（job snapshot
@@ -32,6 +34,7 @@ type CreateResumeDraftInput struct {
 	ResumeContent ResumeContent
 	OwnerID       string
 	JobCacheID    string
+	Template      string
 	JobSnapshot   FetchedJob
 }
 

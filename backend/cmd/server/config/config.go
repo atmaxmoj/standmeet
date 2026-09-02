@@ -63,6 +63,11 @@ type Config struct {
 	//                    被拼到这后面（gotenberg 抓 <base>/print/application/<id>?token=…）
 	GotenbergURL string
 	PrintBaseURL string
+	// TypstBin / ResumeFontPath —— resume PDF 现在走 Typst（typst binary + 内嵌模板）。
+	// TypstBin 空 = PATH 上的 "typst"；ResumeFontPath 指向 Newsreader + JetBrains Mono 字体目录
+	// （让打印跟网页同一套字体）。见 internal/owner/jobs/resumepdf。
+	TypstBin       string
+	ResumeFontPath string
 	// MarketplaceGitHubBaseURL / MarketplaceSkillsMPBaseURL —— skill
 	// marketplace upstream overrides. Empty = use real GitHub / SkillsMP.
 	// dev/e2e point both at the external-mock service so the search
@@ -160,6 +165,8 @@ func Load() (*Config, error) {
 		StorageBucket:                  os.Getenv("STORAGE_BUCKET"),
 		StoragePublicURL:               os.Getenv("STORAGE_PUBLIC_URL"),
 		// #117 部署友好:不设时走标准自托管 compose 服务名,fresh deploy 免逐个填。
+		TypstBin:                   envOr("TYPST_BIN", "typst"),
+		ResumeFontPath:             envOr("RESUME_FONT_PATH", ""),
 		GotenbergURL:               envOr("GOTENBERG_URL", internalURL(defaultGotenbergHost)),
 		PrintBaseURL:               envOr("PRINT_BASE_URL", internalURL(defaultPrintHost)),
 		MarketplaceGitHubBaseURL:   os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),

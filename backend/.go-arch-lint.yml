@@ -73,6 +73,8 @@ components:
     in: internal/infra/gotenberg                # HTTP client for the Gotenberg PDF render sidecar
   printsess:
     in: internal/owner/jobs/printsess                # Redis 60s stash for gotenberg-bound resume payload
+  resumepdf:
+    in: internal/owner/jobs/resumepdf                # resume Typst 渲染：内嵌模板 + typst 子进程 + 服务端 QR
   marketplace:
     in: internal/marketplace/facade       # #135: marketplace 域 facade（对外协议）；域外只 import 这里
   marketplaceentity:
@@ -703,6 +705,11 @@ deps:
       - jobsmodel
     anyVendorDeps: true
 
+  resumepdf:
+    mayDependOn:
+      - jobsmodel
+    anyVendorDeps: true
+
   stats:
     mayDependOn:
       - statsentity
@@ -1152,6 +1159,7 @@ deps:
       - connectorbuiltins
       - capabilitybuiltins
       - printsess
+      - resumepdf
       - stats
       - marketplace
       - security
@@ -1221,6 +1229,7 @@ deps:
       - connectorbuiltins
       - capabilitybuiltins
       - printsess
+      - resumepdf
       - stats
       - marketplace
       - security
@@ -1292,6 +1301,7 @@ deps:
       - connectorbuiltins
       - capabilitybuiltins
       - printsess
+      - resumepdf
       - stats
       - marketplace
       - security
@@ -1360,6 +1370,7 @@ deps:
       - connectorbuiltins
       - capabilitybuiltins
       - printsess
+      - resumepdf
       - stats
       - marketplace
       - security
@@ -1429,6 +1440,7 @@ deps:
       - connectorbuiltins
       - capabilitybuiltins
       - printsess
+      - resumepdf
       - stats
       - marketplace
       - security
@@ -1499,6 +1511,7 @@ deps:
       - connectorbuiltins
       - capabilitybuiltins
       - printsess
+      - resumepdf
       - stats
       - marketplace
       - security

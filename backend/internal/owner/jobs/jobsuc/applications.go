@@ -161,7 +161,7 @@ func prepareRender(
 	appID := uuid.NewString()
 	return renderPrep{
 		renderApp: jobsmodel.Application{
-			ID: appID, ResumeContent: data.Resume, JobSnapshot: data.Job,
+			ID: appID, ResumeContent: data.Resume, JobSnapshot: data.Job, Template: data.Template,
 		},
 		qrURL: buildQRURL(ownerRow.PublicURL, code), code: code, appID: appID,
 	}, nil

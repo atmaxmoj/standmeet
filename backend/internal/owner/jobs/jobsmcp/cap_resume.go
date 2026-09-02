@@ -76,7 +76,9 @@ func (c *resumeCapability) draftBinding() *capreg.MCPBinding {
 			"properties":{
 				"job_cache_id":{"type":"string","description":"cache_id from jobs.fetch_new"},
 				"resume_content":{"type":"object",
-					"description":"Structured resume content."}
+					"description":"Structured resume content."},
+				"template":{"type":"string",
+					"description":"Layout: 'classic' or 'compact' (ATS). Empty=classic."}
 			},
 			"required":["job_cache_id","resume_content"]
 		}`),
@@ -87,6 +89,7 @@ func (c *resumeCapability) draftBinding() *capreg.MCPBinding {
 type resumeDraftArgsWire struct {
 	ResumeContent *jobsmodel.ResumeContent `json:"resume_content"`
 	JobCacheID    string                   `json:"job_cache_id"`
+	Template      string                   `json:"template"`
 }
 
 func (c *resumeCapability) handleDraft(
@@ -102,9 +105,9 @@ func (c *resumeCapability) handleDraft(
 	if args.ResumeContent == nil {
 		return capreg.MCPError("resume_content is required")
 	}
-	drafted, err := jobsuc.DraftResume(
-		ctx, *c.resume, ownerID, args.JobCacheID, args.ResumeContent,
-	)
+	drafted, err := jobsuc.DraftResume(ctx, *c.resume, ownerID, jobsuc.DraftInput{
+		Content: args.ResumeContent, JobCacheID: args.JobCacheID, Template: args.Template,
+	})
 	if err != nil {
 		return resumeCapErrToResult(c.log, err, "draft")
 	}

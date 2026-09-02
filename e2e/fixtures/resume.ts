@@ -63,11 +63,11 @@ export interface DraftedResume {
 
 export async function resumeDraft(
   request: APIRequestContext, bearer: string, sid: string,
-  jobCacheID: string, content: ResumeContent,
+  jobCacheID: string, content: ResumeContent, template?: string,
 ): Promise<DraftedResume> {
-  const parts = await callToolMulti(request, bearer, sid, 'resume.draft', {
-    job_cache_id: jobCacheID, resume_content: content,
-  });
+  const args: Record<string, unknown> = { job_cache_id: jobCacheID, resume_content: content };
+  if (template) args['template'] = template;
+  const parts = await callToolMulti(request, bearer, sid, 'resume.draft', args);
   return extractDrafted(parts);
 }
 
