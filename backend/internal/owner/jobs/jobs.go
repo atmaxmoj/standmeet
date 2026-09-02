@@ -1,16 +1,17 @@
-// Package jobs —— J phase: outbound "job-hunting" plugin。
+// Package jobs — J phase: the outbound "job-hunting" plugin.
 //
-// 实现的是 [[job-loop-2026-05]] 那条闭环 (jobs.fetch_new → resume.draft →
-// applications.commit → AccessCode QR → recruiter scan → visitor chat)。
-// J.5 起 plugin 接管全套 wireup：构造时拿 deps 闭包，启动通过 plugins
-// hook 注册 MCP capabilities + 挂 admin REST。
+// Implements the [[job-loop-2026-05]] closed loop (jobs.fetch_new →
+// resume.draft → applications.commit → AccessCode QR → recruiter scan →
+// visitor chat). Starting at J.5 the plugin owns the full wireup: it captures
+// a deps closure at construction, and registers MCP capabilities + mounts
+// admin REST at startup through the plugins hook.
 //
 // Sub-packages:
-//   - fetch     —— per-ATS adapter (Greenhouse / Lever / Ashby / RemoteOK / ...)
-//   - cache     —— Redis 1d TTL 池子，job source 抓的 FetchedJob 暂存
-//   - jobsuc    —— usecases (jobs / resume / applications) 编排 + 接口
-//   - jobsmcp   —— owner MCP capabilities (6 jobs + 3 resume + 1 applications)
-//   - jobsadmin —— owner admin REST routes (drafts / applications list)
+//   - fetch     — per-ATS adapter (Greenhouse / Lever / Ashby / RemoteOK / ...)
+//   - cache     — Redis 1d TTL pool where FetchedJobs scraped from a job source sit
+//   - jobsuc    — usecases (jobs / resume / applications) orchestration + interfaces
+//   - jobsmcp   — owner MCP capabilities (6 jobs + 3 resume + 1 applications)
+//   - jobsadmin — owner admin REST routes (drafts / applications list)
 package jobs
 
 import (
@@ -29,11 +30,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 )
 
-// Name —— Plugin.Name 实现。固定 "jobs"。
+// Name — Plugin.Name implementation. Fixed to "jobs".
 const Name = "jobs"
 
-// Deps —— 构造 jobs plugin 需要的全部依赖。composition root 一次性提供，
-// plugin 闭包持引用让 RegisterCapabilities / MountAdminRoutes 不再额外传参。
+// Deps — the complete set of dependencies needed to construct the jobs
+// plugin. The composition root provides it once; the plugin closes over the
+// reference so RegisterCapabilities / MountAdminRoutes need no extra params.
 type Deps struct {
 	Jobs         *jobsuc.JobsDeps
 	Resume       *jobsuc.ResumeDeps
@@ -41,23 +43,25 @@ type Deps struct {
 	DraftsRepo   *jobsuc.ResumeDraftRepo
 	AppsRepo     *jobsuc.ApplicationRepo
 	SourcesRepo  *jobsuc.JobSourceRepo
-	// Seed —— 这个插件自己要种的那两条 builtin（hiring prompt + role）要的仓储。
-	// 归插件而不是归内核的 roles_seed：`hiring` 是 job loop 的概念，
-	// 不是一档内核级访问层（见 jobsuc/seed.go 的头注释）。
+	// Seed — the repositories needed to seed the two builtins (hiring prompt +
+	// role) this plugin owns. It belongs to the plugin, not the kernel's
+	// roles_seed: `hiring` is a job-loop concept, not a kernel-level access
+	// tier (see the header comment in jobsuc/seed.go).
 	Seed jobsuc.SeedDeps
 	Log  *slog.Logger
 }
 
-// Plugin —— jobs outbound plugin 入口。J.5 起持 Deps 闭包；
-// 实现 capabilities.Plugin + capabilities.CapabilityRegistrar + capabilities.AdminRouter。
+// Plugin — entry point for the jobs outbound plugin. Since J.5 it holds a
+// Deps closure; implements capabilities.Plugin + capabilities.CapabilityRegistrar
+// + capabilities.AdminRouter.
 type Plugin struct {
 	deps Deps
 }
 
-// New —— DI 构造；composition root 一次性持。
+// New — DI constructor; the composition root holds it once.
 func New(deps Deps) *Plugin { return &Plugin{deps: deps} }
 
-// 静态保证四个 interface 全部实现。
+// Static assertions that all four interfaces are implemented.
 var (
 	_ capabilities.Plugin              = (*Plugin)(nil)
 	_ capabilities.CapabilityRegistrar = (*Plugin)(nil)
@@ -66,15 +70,20 @@ var (
 	_ capabilities.OwnerSeeder         = (*Plugin)(nil)
 )
 
-// resumeDraftSweepEvery —— 草稿是 1d TTL。读路径本来就 SQL 过滤掉过期行(正确性不靠这个
-// 清扫),清扫只是别让过期行在库里堆着,所以一小时一次够了。
+// resumeDraftSweepEvery — drafts have a 1d TTL. The read path already
+// SQL-filters out expired rows (correctness doesn't depend on this sweep);
+// the sweep just keeps expired rows from piling up in the table, so once an
+// hour is enough.
 const resumeDraftSweepEvery = time.Hour
 
-// PeriodicJobs —— capabilities.PeriodicWorker 实现:本插件的周期任务。
+// PeriodicJobs — capabilities.PeriodicWorker implementation: this plugin's
+// periodic tasks.
 //
-// 这件事以前住在组装根的 resume_draft_sweep.go 里 —— 一个 ticker、一份 Register/Report
-// 簿记、一句手写的 "every 1h"。插件的业务落在装配的地方,只因为当时没有"插件声明周期任务"
-// 这个机制。现在它回自己家,循环和簿记归宿主。
+// This used to live in the composition root's resume_draft_sweep.go — a
+// ticker, a Register/Report bookkeeping block, a hand-written "every 1h".
+// The plugin's own business logic landed in the wiring code only because
+// there was no "plugin declares periodic jobs" mechanism at the time. Now
+// it's back home; the loop and bookkeeping belong to the host.
 func (p *Plugin) PeriodicJobs() []periodic.Job {
 	return []periodic.Job{periodic.Named(
 		"resume-draft sweep", resumeDraftSweepEvery,
@@ -87,33 +96,37 @@ func (p *Plugin) PeriodicJobs() []periodic.Job {
 	)}
 }
 
-// Name —— 跟 plugin registry 一致。
+// Name — matches the plugin registry.
 func (*Plugin) Name() string { return Name }
 
-// RegisterCapabilities —— capabilities.CapabilityRegistrar 实现：注册 6+3+1 个
-// owner-MCP tool 进核心 capreg.Registry。重 ID 由 capreg MustRegister
-// 兜底 panic (boot 期失败比运行时漏注册好)。
+// RegisterCapabilities — capabilities.CapabilityRegistrar implementation:
+// registers 6+3+1 owner-MCP tools into the core capreg.Registry. A duplicate
+// ID panics via capreg's MustRegister as a backstop (failing at boot is
+// better than a missing registration at runtime).
 func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(jobsmcp.NewJobsCapability(p.deps.Jobs, p.deps.Log))
 	reg.MustRegister(jobsmcp.NewResumeCapability(p.deps.Resume, p.deps.Log))
 	reg.MustRegister(jobsmcp.NewApplicationsCapability(p.deps.Applications, p.deps.Log))
 }
 
-// MountAdminRoutes —— capabilities.AdminRouter 实现：挂 /api/admin/drafts +
-// /api/admin/applications 到入参 router。caller 负责事先用 WithOwner +
-// RequireCSRF middleware 包好 (admin 共享认证栈)。
+// MountAdminRoutes — capabilities.AdminRouter implementation: mounts
+// /api/admin/drafts + /api/admin/applications onto the given router. The
+// caller is responsible for wrapping it beforehand with the WithOwner +
+// RequireCSRF middleware (the shared admin auth stack).
 func (p *Plugin) MountAdminRoutes(r chi.Router) {
 	jobsadmin.Mount(r, jobsadmin.Deps{
 		Apps: p.deps.AppsRepo, Drafts: p.deps.DraftsRepo,
 		Sources: p.deps.SourcesRepo, Jobs: p.deps.Jobs, Log: p.deps.Log,
-		// Commit —— 面板的 SEND 打的是**同一个** usecase，跟 applications.commit 那条路
-		// 共用这份 deps（F-E-9）。给 admin 单独攒一份就是第二份真相。
+		// Commit — the panel's SEND button calls the **same** usecase, sharing
+		// this deps with the applications.commit path (F-E-9). Assembling a
+		// separate copy for admin would be a second source of truth.
 		Commit: p.deps.Applications,
 	})
 }
 
-// SeedOwner —— capabilities.OwnerSeeder 实现。外壳只转发：域里的活儿归 jobsuc，
-// 这个包按 arch 规则碰不到域 facade。
+// SeedOwner — capabilities.OwnerSeeder implementation. The shell only
+// forwards: the domain work belongs to jobsuc; this package can't touch the
+// domain facade under the arch rules.
 func (p *Plugin) SeedOwner(ctx context.Context, ownerID string) error {
 	if err := jobsuc.SeedOwner(ctx, p.deps.Seed, ownerID); err != nil {
 		return fmt.Errorf("seed jobs builtins: %w", err)

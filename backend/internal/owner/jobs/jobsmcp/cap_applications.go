@@ -1,9 +1,10 @@
-// cap_applications.go —— Phase E-12: applications.commit Capability。
-// owner-only。返 [text(JSON), embed(PDF blob)] 多 content; PDF gotenberg
-// 抓 admin /print 路由跟 owner live preview 像素一致 (见 docs/design/job-loop.md)。
+// cap_applications.go —— Phase E-12: the applications.commit Capability.
+// owner-only. Returns multi-content [text(JSON), embed(PDF blob)]; the PDF
+// is rendered by gotenberg hitting the admin /print route, pixel-identical
+// to the owner's live preview (see docs/design/job-loop.md).
 //
-// MCPResult.Embeddings (Phase E-12 扩) 让 adapter 把 PDF blob 一起塞进
-// CallToolResult.Content[]。
+// MCPResult.Embeddings (a Phase E-12 extension) lets the adapter fold the
+// PDF blob into CallToolResult.Content[] alongside the text.
 
 package jobsmcp
 
@@ -30,7 +31,7 @@ type applicationsCapability struct {
 	log  *slog.Logger
 }
 
-// NewApplicationsCapability —— J.3 起外露给 internal/mcp/register.go。
+// NewApplicationsCapability —— exposed to internal/mcp/register.go as of J.3.
 func NewApplicationsCapability(
 	apps *jobsuc.ApplicationsDeps, log *slog.Logger,
 ) capreg.Capability {

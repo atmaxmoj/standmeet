@@ -1,11 +1,11 @@
-// cap_jobs.go —— Phase E-10: owner-side jobs.* Capability。
+// cap_jobs.go —— Phase E-10: the owner-side jobs.* Capability.
 // 6 tools: register_source / list_sources / unregister_source / fetch_new /
-// show / discard。owner-only。详见 docs/design/job-loop.md。
+// show / discard. owner-only. See docs/design/job-loop.md for details.
 
-// Package jobsmcp —— J.3: jobs plugin 的 MCP capabilities + result wire。
-// owner-only 6+5+1 = 12 tool (jobs.*  + resume.*  + applications.commit)。
-// 从 internal/mcp 搬来；包名 jobsmcp 避开跟 internal/mcp 撞名，外部引用
-// 形如 jobsmcp.NewJobsCapability(deps, log)。
+// Package jobsmcp —— J.3: the jobs plugin's MCP capabilities + result wire.
+// owner-only, 6+5+1 = 12 tools (jobs.* + resume.* + applications.commit).
+// Moved out of internal/mcp; the package is named jobsmcp to avoid colliding
+// with internal/mcp — external callers write jobsmcp.NewJobsCapability(deps, log).
 package jobsmcp
 
 import (
@@ -27,8 +27,8 @@ type jobsCapability struct {
 	log  *slog.Logger
 }
 
-// NewJobsCapability —— J.3 起外露给 internal/mcp/register.go (jobs plugin
-// 跨 package 被注册到 capreg.Registry)。
+// NewJobsCapability —— exposed to internal/mcp/register.go as of J.3 (the
+// jobs plugin is registered into capreg.Registry across a package boundary).
 func NewJobsCapability(jobs *jobsuc.JobsDeps, log *slog.Logger) capreg.Capability {
 	return &jobsCapability{jobs: jobs, log: log}
 }
@@ -186,8 +186,10 @@ func (c *jobsCapability) handleUnregisterSource(
 	return mcputil.MarshalResult(c.log, "jobs.unregister_source", map[string]bool{"ok": true})
 }
 
-// jobs.fetch_new 在 cap_jobs_fetch.go —— 它是这六个里唯一要同时回答
-// 「今天的板子长什么样」和「这一趟取数发生了什么」的，入参和回执都比其余五个厚。
+// jobs.fetch_new lives in cap_jobs_fetch.go — it's the only one of the six
+// that has to answer both "what does today's board look like" and "what
+// happened during this fetch", so its args and receipt are both thicker
+// than the other five.
 
 // ───── jobs.show ────────────────────────────────────────────────
 

@@ -1,5 +1,6 @@
-// applications_read.go —— applications 的读路径：按 id / 按 access code 反查、列表，及 row→domain。
-// 从 repo_applications.go 拆出（那份留 Commit 事务本身），保持一份文件一件事。
+// applications_read.go — the read path for applications: lookup by id / by access code,
+// listing, and row->domain conversion. Split out of repo_applications.go (which keeps
+// only the Commit transaction itself), so each file does one thing.
 
 package jobsuc
 
@@ -16,7 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc/db"
 )
 
-// GetByID —— 按 (id, owner_id) 反查。
+// GetByID — looks up by (id, owner_id).
 func (r *ApplicationRepo) GetByID(
 	ctx context.Context, ownerID, id string,
 ) (jobsmodel.Application, error) {
@@ -41,9 +42,11 @@ func (r *ApplicationRepo) GetByID(
 	return toDomainApplication(&row)
 }
 
-// GetByAccessCode —— 按 session 的 access code 反查它绑的那一份 application。owner-scoped，
-// 于是一个 owner 的会话永不会读到另一个 owner 的 application(纵深防御；access_code_id 已全局唯一)。
-// 没绑 application 的普通码 → ErrApplicationNotFound(访客侧简历工具据此隐藏，不报错)。
+// GetByAccessCode — looks up the application bound to a session's access code.
+// owner-scoped, so one owner's session can never read another owner's application
+// (defense in depth; access_code_id is already globally unique).
+// A plain code with no application bound -> ErrApplicationNotFound (the visitor-side
+// resume tool hides itself on this, rather than erroring).
 func (r *ApplicationRepo) GetByAccessCode(
 	ctx context.Context, ownerID, codeID string,
 ) (jobsmodel.Application, error) {
@@ -68,7 +71,7 @@ func (r *ApplicationRepo) GetByAccessCode(
 	return toDomainApplication(&row)
 }
 
-// ListByOwner —— admin "我投过哪些" 视图用；按 created_at desc。
+// ListByOwner — used by the admin "what have I applied to" view; ordered by created_at desc.
 func (r *ApplicationRepo) ListByOwner(
 	ctx context.Context, ownerID string,
 ) ([]jobsmodel.Application, error) {

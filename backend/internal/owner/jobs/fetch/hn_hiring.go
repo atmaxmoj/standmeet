@@ -1,16 +1,18 @@
-// hn_hiring.go —— HackerNews "Ask HN: Who is hiring?" 月度大帖。
+// hn_hiring.go —— HackerNews's monthly "Ask HN: Who is hiring?" thread.
 //
-// 数据源是 HN firebase REST：
+// The data source is the HN firebase REST API:
 //
 //	GET {base}/v0/user/whoishiring.json    → {submitted: [int, ...]}
-//	GET {base}/v0/item/{id}.json           → 单 item (item.kids 是 comment ids)
+//	GET {base}/v0/item/{id}.json           → a single item (item.kids is comment ids)
 //
-// 找最新月度帖：whoishiring.submitted 里第一条 title 以
-// "Ask HN: Who is hiring" 开头的 story；再 walk kids 拿 top-level
-// comments，每条 comment 就是一条 posting。
+// Finding the latest monthly thread: the first story in
+// whoishiring.submitted whose title starts with "Ask HN: Who is hiring";
+// then walk its kids to get top-level comments, each comment being one
+// posting.
 //
-// 不解析 comment 内容结构（"Company | Title | Location | ..."）—— 当
-// raw text 传给 agent 让 Claude 自己读，符合"adapter 不 reason"原则。
+// The comment's content structure ("Company | Title | Location | ...")
+// isn't parsed — it's passed through as raw text for the agent, letting
+// Claude read it itself, in line with the "adapters don't reason" principle.
 //
 // No per-source config (HN aggregate is global).
 
@@ -60,9 +62,11 @@ func (f *hnHiringFetcher) Fetch(
 	return acc.Jobs, nil
 }
 
-// FetchAccounted —— 逐条取的那条路**必须交代自己跳过了什么**（Accountant）。
-// 一帖 262 条评论、我们只读前 100 条、其中 2 条被删 —— 这三个数字放在一起，
-// 「今天没人招」「被限流了」「判定条件写错了」才分得开（F-E-19）。
+// FetchAccounted —— the item-by-item fetch path **must account for what it
+// skipped** (an Accountant). Given a thread with 262 comments where we only
+// read the first 100 and 2 of those were deleted — only having all three
+// numbers together lets you tell apart "nobody's hiring today", "we got
+// rate-limited", and "the filter condition is wrong" (F-E-19).
 func (f *hnHiringFetcher) FetchAccounted(
 	ctx context.Context, _ []byte,
 ) (Accounted, error) {
@@ -77,13 +81,18 @@ func (f *hnHiringFetcher) FetchAccounted(
 	return f.collectComments(ctx, thread, threadID), nil
 }
 
-// collectComments —— 逐条取顶层评论。**每一次跳过都要数，而且要按原因数**。
+// collectComments —— fetches top-level comments one by one. **Every skip
+// must be counted, and counted by reason.**
 //
-// 这里原来是 `if ferr != nil || !isPostingComment(comment) { continue }` —— 一次**取数失败**
-// 和一条**被删的评论**走同一条 `continue`，不计数也不记日志。于是「今天真没人招」
-// 「firebase 把我们限流了」「判定条件写错了」三件事产出完全相同的回执：一个数字。
-// 真实环境里就是这样：8 月那帖 262 条顶层评论，池子里进了 **1** 条，而没有任何一处
-// 说得出另外那些去哪了（F-E-19）。数出来、记下来，就不必推理。
+// This used to be `if ferr != nil || !isPostingComment(comment) { continue }`
+// — a **fetch failure** and a **deleted comment** went through the same
+// `continue`, with no counting and no logging. So "nobody's really hiring
+// today", "firebase rate-limited us", and "the filter condition is wrong"
+// all produced the exact same receipt: a single number. This is exactly
+// what happened in the real environment: an August thread had 262 top-level
+// comments, and only **1** made it into the pool, with nothing anywhere
+// able to say where the rest went (F-E-19). Count them and log them, and
+// you don't have to guess.
 func (f *hnHiringFetcher) collectComments(
 	ctx context.Context, thread *hnItem, threadID int64,
 ) Accounted {

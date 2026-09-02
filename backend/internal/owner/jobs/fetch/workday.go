@@ -1,16 +1,19 @@
-// workday.go —— Workday CXS (Candidate eXperience Service) public jobs
-// endpoint。每个 tenant 自己 host 在 wd{N}.myworkdayjobs.com，N 是数据
-// 中心 (wd1/wd3/wd5/...)；不能假定固定。
+// workday.go — Workday CXS (Candidate eXperience Service) public jobs
+// endpoint. Each tenant hosts its own instance at wd{N}.myworkdayjobs.com,
+// where N is the data center (wd1/wd3/wd5/...); it cannot be assumed fixed.
 //
 //	POST https://{tenant}.wd{N}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs
 //	Content-Type: application/json
 //	body: {"appliedFacets":{},"limit":20,"offset":0,"searchText":""}
 //
-// 返回 {"total": N, "jobPostings": [{title, locationsText, externalPath,
-// postedOn, ...}]}。limit 20 是 endpoint 默认；想多翻页 cfg 设 max_jobs。
+// Returns {"total": N, "jobPostings": [{title, locationsText, externalPath,
+// postedOn, ...}]}. limit 20 is the endpoint's default; set max_jobs in cfg
+// to paginate further.
 //
-// adapter 在第一页就停 (limit=100 单页够多数小公司)；分页留 J 期后续优化。
-// JBA scraper 走多页 + retry 是因为它扒全集；owner 个人源单页足矣。
+// The adapter stops at the first page (limit=100 per page is enough for
+// most small companies); pagination is left for a later J-phase
+// optimization. The JBA scraper does multi-page + retry because it scrapes
+// the whole collection; an owner's personal source is fine with one page.
 
 package fetch
 
@@ -30,13 +33,16 @@ import (
 
 const (
 	workdayDefaultHostPattern = "https://%s.wd%s.myworkdayjobs.com"
-	// workdayPageLimit —— **厂商的每页上限，不是我们的偏好**。2026-08-16 在两个真租户上
-	// 各量过一次：`redhat` / `nvidia`，`limit:20` → 200，**`limit:21` → 400**。
-	// 这里原来写的是 100，于是**每一次真 Workday 取数都是 400**，而 mock 对 limit
-	// 来者不拒，CI 一路绿（F-E-15）。
+	// workdayPageLimit — **the vendor's per-page cap, not our preference**. Measured
+	// once on each of two real tenants on 2026-08-16: `redhat` / `nvidia`,
+	// `limit:20` → 200, **`limit:21` → 400**. This used to be set to 100, so
+	// **every real Workday fetch was a 400**, while the mock accepts any limit,
+	// so CI stayed green (F-E-15).
 	workdayPageLimit = 20
-	// workdayMaxPages —— 翻页的硬上限。真 Workday 上 total 可以到几千（nvidia 2000），
-	// 一个 owner 的源不该把整间公司的岗位都拖回来；到顶就停，并且**说出来**（下面那行日志）。
+	// workdayMaxPages — hard cap on pagination. On real Workday, total can reach
+	// the thousands (nvidia: 2000); an owner's source shouldn't drag back an
+	// entire company's job listings. Stop at the cap and **say so** (see the log
+	// line below).
 	workdayMaxPages = 25
 )
 
@@ -57,10 +63,13 @@ func newWorkdayFetcher(client *http.Client, envBase string) *workdayFetcher {
 
 // Fetch walks the CXS jobs query to the END of the collection.
 //
-// 一页最多 20 条（厂商定的），而真租户动辄上百上千（`redhat` 149 / `salesforce` 1514 /
-// `nvidia` 2000），所以「取第一页」跟「这家就这么多岗位」在结果上分不出来 —— 那正是
-// F-E-16 要防的静默截断。收敛条件有三个，缺一不可：拿满 `total`、某一页回空、或撞到
-// `workdayMaxPages`（撞到就记一行日志，不让截断悄悄发生）。
+// Each page tops out at 20 rows (vendor-set), while real tenants routinely run
+// into the hundreds or thousands (`redhat` 149 / `salesforce` 1514 / `nvidia`
+// 2000), so "fetched page one" and "this company only has this many jobs" look
+// identical in the result — that's exactly the silent truncation F-E-16 guards
+// against. Three termination conditions, all required: `total` fully collected,
+// a page comes back empty, or we hit `workdayMaxPages` (hitting it logs a line,
+// so truncation never happens quietly).
 func (f *workdayFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
 ) ([]jobsmodel.FetchedJob, error) {
@@ -78,32 +87,40 @@ func (f *workdayFetcher) Fetch(
 			return walk.out, nil
 		}
 	}
-	// 到这儿说明还没取完就撞了页数上限。返回已取到的部分,但把它记下来 ——
-	// 「取到一部分」不许长得跟「全部就这些」一样(no silent caps)。
+	// Getting here means we hit the page cap before finishing. Return what
+	// we already have, but log it — "got part of it" must not look like
+	// "that's all there is" (no silent caps).
 	slog.WarnContext(ctx, "workday page cap reached; result is partial",
 		"url", u.jobsURL, "pages", workdayMaxPages, "fetched", len(walk.out))
 	return walk.out, nil
 }
 
-// workdayWalk —— 一次翻页遍历的状态：已取到的、最近一页的条数、**第一页**报的 total。
+// workdayWalk — state for one paging walk: what's collected so far, the row
+// count of the most recent page, and the total reported by **page one**.
 type workdayWalk struct {
 	out   []jobsmodel.FetchedJob
 	got   int
 	total int
 }
 
-// done —— 翻到底了吗。**短页才是可靠的终点信号**：一页给不满 limit，说明后面没有了。
+// done — have we reached the end. **A short page is the only reliable
+// end-of-data signal**: a page that doesn't fill limit means there's nothing
+// after it.
 //
-// `total` 只信**第一页**那一份（见 walkPage）—— 真 Workday 在后续页上把它报成 0
-// （nvidia，2026-08-16：`offset=0` → `total:2000`，`offset=20/40/60` → `total:0`，
-// 而每页照样给 20 条）。曾经拿每一页自己的 total 判，于是第二页的 0 让
-// `len(out) >= 0` 恒真，2000 条只拿回 40 条 —— **比那个 400 更难发现的静默截断**，
-// 而且夹具凑巧是 25 条时它还能绿（第二页正好是短页）。夹具改成 45 条就是为了逼出它。
+// `total` is trusted only from **page one** (see walkPage) — real Workday
+// reports it as 0 on subsequent pages (nvidia, 2026-08-16: `offset=0` →
+// `total:2000`, `offset=20/40/60` → `total:0`, while each page still returns
+// 20 rows). This used to judge by each page's own total, so the 0 on page two
+// made `len(out) >= 0` always true, and 2000 rows came back as only 40 — **a
+// silent truncation harder to catch than that 400** — and it happened to stay
+// green when the fixture had 25 rows (page two was coincidentally a short
+// page). The fixture was changed to 45 rows specifically to force this out.
 func (w *workdayWalk) done() bool {
 	return w.got < workdayPageLimit || (w.total > 0 && len(w.out) >= w.total)
 }
 
-// walkPage —— 取第 page 页、映射进 walk.out，并把「这一页几条 / 第一页的 total」记进状态。
+// walkPage — fetches page `page`, maps it into walk.out, and records "how
+// many rows this page had / page one's total" into state.
 func (f *workdayFetcher) walkPage(
 	ctx context.Context, u *workdayURL, tenant string, page int, walk *workdayWalk,
 ) error {
@@ -142,8 +159,9 @@ func (f *workdayFetcher) buildURL(cfg *workdayConfig) workdayURL {
 	return workdayURL{host: host, jobsURL: jobsURL}
 }
 
-// postQuery —— Workday CXS 要 POST JSON body。共享 getBody 是 GET-only;
-// 单独把请求构造跟 status check 内联，handler 自己 close response body。
+// postQuery — Workday CXS needs a POST with a JSON body. The shared getBody
+// is GET-only; build the request and inline the status check separately,
+// the handler closes the response body itself.
 func (f *workdayFetcher) postQuery(
 	ctx context.Context, url, host string, offset int,
 ) ([]byte, error) {
@@ -209,13 +227,14 @@ type workdayResp struct {
 	Total       int          `json:"total"`
 }
 
-// workdayJob —— 只声明**我们真的用**的字段。
+// workdayJob — declares only the fields **we actually use**.
 //
-// 这里曾经还有一个 `BulletFields string`，谁都没读它，而真 Workday 发的是
-// **数组**（`"bulletFields":["R-12345"]`，2026-08-16 在 nvidia 上撞到）——
-// 于是一个没人用的字段把整份响应的解码搞崩：
-// *"cannot unmarshal array into Go struct field workdayJob.jobPostings.bulletFields"*。
-// 声明一个字段就是签一份契约；不用的字段不要签（`encoding/json` 会安静地跳过未声明的键）。
+// There used to be a `BulletFields string` here too, which nothing read, while
+// real Workday sends an **array** (`"bulletFields":["R-12345"]`, hit on nvidia
+// on 2026-08-16) — so an unused field broke decoding of the entire response:
+// *"cannot unmarshal array into Go struct field workdayJob.jobPostings.bulletFields"*.
+// Declaring a field is signing a contract; don't sign fields we don't use
+// (`encoding/json` silently skips undeclared keys).
 type workdayJob struct {
 	Title         string `json:"title"`
 	LocationsText string `json:"locationsText"`
@@ -225,15 +244,17 @@ type workdayJob struct {
 
 func workdayToDomain(j *workdayJob, host, tenant string) jobsmodel.FetchedJob {
 	url := host + j.ExternalPath
-	// externalPath 形如 /en-US/{site}/job/.../R-12345；ExternalID = path 末
-	// 段，稳定且全 tenant 唯一。fallback 全 path。
+	// externalPath looks like /en-US/{site}/job/.../R-12345; ExternalID = the
+	// final path segment, stable and unique across the tenant. Falls back to
+	// the full path.
 	externalID := j.ExternalPath
 	if idx := strings.LastIndex(j.ExternalPath, "/"); idx >= 0 && idx < len(j.ExternalPath)-1 {
 		externalID = j.ExternalPath[idx+1:]
 	}
-	// Workday 用 "Posted N Days Ago" 自然语言串而非 ISO；当前 PublishedAt
-	// 留 zero (caller 排序兼容 zero time)。J 期后续真要 sort by date 再加
-	// relative-time parser。
+	// Workday uses a natural-language string like "Posted N Days Ago" rather
+	// than ISO; PublishedAt is left as zero for now (the caller's sort
+	// tolerates zero time). Add a relative-time parser later in J-phase if
+	// sorting by date is actually needed.
 	return jobsmodel.FetchedJob{
 		ExternalID:  externalID,
 		Title:       j.Title,

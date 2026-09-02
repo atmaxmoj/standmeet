@@ -1,12 +1,12 @@
-// applications.go —— applications + 关联事务（issue access_code + 删 draft）。
+// applications.go — applications + the related transaction (issue access_code + delete draft).
 //
-// Commit 是 Phase 3 的核心：单事务里
-//   (1) 读 draft（must exist + not expired），
-//   (2) 插 access_code（recruiter QR 用），
-//   (3) 插 application，
-//   (4) 删 draft。
-// 全失败 rollback；任一环节中断都不会产生 "code 已 issue 但 application 没落库"
-// 之类的孤儿状态。
+// Commit is the core of Phase 3: in a single transaction it
+//   (1) reads the draft (must exist + not expired),
+//   (2) inserts an access_code (used for the recruiter QR),
+//   (3) inserts the application,
+//   (4) deletes the draft.
+// Rolls back entirely on any failure; an interruption at any step can never leave an
+// orphan state like "the code was issued but the application never made it to the DB".
 
 package jobsuc
 
@@ -26,19 +26,20 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc/db"
 )
 
-// ApplicationRepo —— applications CRUD + Commit 事务。
+// ApplicationRepo — applications CRUD + the Commit transaction.
 type ApplicationRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewApplicationRepo 构造 ApplicationRepo。
+// NewApplicationRepo constructs an ApplicationRepo.
 func NewApplicationRepo(pool *pgstore.Pool) *ApplicationRepo {
 	return &ApplicationRepo{pool: pool}
 }
 
-// CommitInput —— 一次完整 commit 的入参：owner + draft + 给 access_code 的字段。
-// caller 已经决定了 code plaintext + label + 有效期 + 配额（usecase 层默认值），
-// 以及发码挂的 role id（usecase 默认走 owner 的 public）。
+// CommitInput — the inputs for one complete commit: owner + draft + the fields for
+// access_code. The caller has already decided the code plaintext + label + expiry +
+// quota (usecase-layer defaults), plus the role id the code is issued under (usecase
+// default is the owner's public role).
 type CommitInput struct {
 	CodeExpiresAt      *time.Time
 	MaxMembers         *int32
@@ -49,22 +50,23 @@ type CommitInput struct {
 	ApplicationID string
 	CodePlaintext string
 	CodeLabel     string
-	// CodePromptID —— builtin `hiring` prompt 的 id。集中管理的那一层招聘语境;
-	// 空 = 这台实例还没种出 hiring(不该发生,但不阻断投递)。
+	// CodePromptID — id of the builtin `hiring` prompt: the centrally-managed layer of
+	// hiring context. Empty means this instance hasn't seeded `hiring` yet (shouldn't
+	// happen, but must not block the application).
 	CodePromptID  *string
 	CodePurpose   string
 	AssumedRoleID string
 }
 
-// CommitOutput —— Commit 返回值。把 (Application, AccessCode) 打包成单结构体
-// 让方法签名 ≤2 returns（lint）。
+// CommitOutput — the return value of Commit. Packs (Application, AccessCode) into a
+// single struct so the method signature stays at <=2 returns (lint).
 type CommitOutput struct {
 	Application jobsmodel.Application
 	AccessCode  access.Code
 }
 
-// Commit —— 全套事务。返回新 application + 新 access_code 的 domain 形状
-// （AccessCode.Code 是 plaintext，调用方用来拼 QR URL）。
+// Commit — the whole transaction. Returns the domain shape of the new application +
+// new access_code (AccessCode.Code is plaintext, which the caller uses to build the QR URL).
 func (r *ApplicationRepo) Commit(
 	ctx context.Context, in *CommitInput,
 ) (CommitOutput, error) {
@@ -166,8 +168,10 @@ func loadDraftForCommit(
 	return row, nil
 }
 
-// insertAccessCode —— 在 commit 事务内发码。job-loop 不直接碰 access_codes DAO;经 access 的
-// tx-aware 发码口在同一 pgx.Tx 上写(写 application 行 + 发码原子)。域类型平移,不再持 pgtype。
+// insertAccessCode — issues the code inside the commit transaction. The job-loop never
+// touches the access_codes DAO directly; it goes through access's tx-aware issuing entry
+// point, writing on the same pgx.Tx (application row write + code issuance are atomic).
+// Translates straight to the domain type, no longer holds onto pgtype.
 func insertAccessCode(
 	ctx context.Context, tx pgx.Tx, in *CommitInput, briefing string,
 ) (access.Code, error) {
@@ -177,8 +181,9 @@ func insertAccessCode(
 		Label:         in.CodeLabel,
 		Purpose:       in.CodePurpose,
 		AssumedRoleID: in.AssumedRoleID,
-		// 两层：集中管理的招聘语境（prompt_id → builtin `hiring`）+ 这一张码专属的那一句。
-		// 它们是叠加的,所以自动签的码不必在"招聘语境"和"哪个职位"之间二选一。
+		// Two layers: the centrally-managed hiring context (prompt_id -> builtin `hiring`)
+		// plus this one sentence specific to this code. They stack, so an auto-issued code
+		// never has to choose between "hiring context" and "which role".
 		PromptID:           in.CodePromptID,
 		InlinePrompt:       briefing,
 		ExpiresAt:          in.CodeExpiresAt,
@@ -192,14 +197,18 @@ func insertAccessCode(
 	return code, nil
 }
 
-// recruiterBriefing —— 从 draft 的 job_snapshot 拼**这一张码专属**的那一句：对方在为哪个岗
-// 评估我。它叠在 `hiring` prompt（码的 prompt_id）之后 —— 通用的招聘语境归那一份，
-// 这里只说"是哪个职位"。
+// recruiterBriefing — builds **the sentence specific to this code** from the draft's
+// job_snapshot: which role I'm being evaluated for. It stacks on top of the `hiring`
+// prompt (the code's prompt_id) — the generic hiring context belongs there, this only
+// says "which role".
 //
-// ⚠️ 曾经在 `snap.Title == ""` 时返回空串，而那时 prompt_id 那一档没人填、两档又是互斥的
-// —— 于是招聘板吐一行没有 title 的数据，签出去的就是一张**哑码**：招聘官扫进来落在默认
-// 人格里，agent 照着产品定位笔记答"这不是一个适合找工作的人设"。
-// 现在两件事一起兜住：prompt_id 永远挂着 hiring，而这里即使认不出职位也说清来路。
+// Warning: this used to return an empty string when `snap.Title == ""`, and back then
+// nobody had filled in the prompt_id slot either, and the two slots were mutually
+// exclusive — so a job-board row with no title produced a **mute code**: the recruiter
+// scanned it and landed on the default persona, and the agent answered from the product-
+// positioning notes with "this isn't a persona suited for job hunting".
+// Now both are covered together: prompt_id always carries hiring, and this function
+// still states the source even when it can't identify the role.
 func recruiterBriefing(jobSnapshotJSON []byte) string {
 	const arrivedVia = "They reached you through a job application you sent — " +
 		"answer as the candidate."
@@ -212,15 +221,16 @@ func recruiterBriefing(jobSnapshotJSON []byte) string {
 	}
 	role := describeRole(snap.Title, snap.Company)
 	if role == "" {
-		// 板子没给职位名。语境照旧成立 —— 缺的只是"哪个岗",不是"是不是招聘"。
+		// The board gave no role name. The context still holds — what's missing is only
+		// "which role", not "whether this is hiring".
 		return arrivedVia
 	}
 	return "You are speaking with a recruiter who received your job application for " + role +
 		". They reached you through that application — answer as the candidate, about that role."
 }
 
-// describeRole —— 职位描述。title 空但 company 在时仍说得出来路（"a role at MockCo"）,
-// 空串表示两样都没有。
+// describeRole — describes the role. When title is empty but company is present, it can
+// still state the source ("a role at MockCo"); an empty string means neither is present.
 func describeRole(title, company string) string {
 	title = strings.TrimSpace(title)
 	company = strings.TrimSpace(company)
@@ -234,7 +244,8 @@ func describeRole(title, company string) string {
 	}
 }
 
-// roleAtCompany —— 只有公司名时还说得出来路；两样都没有才是真的说不出。
+// roleAtCompany — can still state the source with just a company name; truly blank
+// only when neither is present.
 func roleAtCompany(company string) string {
 	if company == "" {
 		return ""

@@ -1,9 +1,11 @@
-// fetch_result.go —— 一次 `jobs.fetch_new` 交出去的**形状**：拿到了什么、哪些源没成、
-// 每个源这一趟的账。跟 jobs.go 的流程分开放，因为这几样是**回执的契约** ——
-// owner 那一侧的 AI 读的就是它们，改动的影响面跟改流程不是一回事。
+// fetch_result.go — the **shape** one `jobs.fetch_new` call hands back: what was fetched,
+// which sources failed, and each source's tally for this run. Kept separate from jobs.go's
+// flow because these are the **receipt's contract** — this is what the owner's AI actually
+// reads, and its blast radius is a different thing from changing the flow.
 //
-// （分文件的直接原因是 jobs.go 涨过了 350 行的闸门。闸门这次说的是对的：
-// 「一次抓取的结果长什么样」和「怎么抓」本来就是两件事。）
+// (The direct reason for the split file is that jobs.go grew past the 350-line gate. The
+// gate was right this time: "what one fetch's result looks like" and "how the fetch runs"
+// were always two different things.)
 
 package jobsuc
 
@@ -15,51 +17,66 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
 
-// FetchResult —— 一次抓取的完整结果:**拿到了什么** + **哪些源没成**。
+// FetchResult — the complete result of one fetch: **what was retrieved** + **which
+// sources failed**.
 //
-// 收成一个具名结构而不是多返一个值:一次抓取本来就是"部分成功"这种东西,把两半放在一起,
-// 调用方就无法只接住其中一半。（三返回值也被 revive 的 function-result-limit 挡了 ——
-// 那条闸门这次把代码推去了更好的形状,不是更差的。）
+// Collected into one named struct rather than an extra return value: one fetch is
+// inherently a "partial success" kind of thing, and putting both halves together means a
+// caller can't catch only one of them. (A third return value would also be blocked by
+// revive's function-result-limit — this time the gate pushed the code toward a better
+// shape, not a worse one.)
 type FetchResult struct {
-	// Jobs —— **池子里这个窗口内的全部 job**，不只是这一趟新捞上来的那几条。
+	// Jobs — **every job currently in the pool's window**, not just the handful newly
+	// pulled in this run.
 	//
-	// 以前这里只放"这次新进池子的"，于是 owner 一天里问第二次「今天有什么新工作」，
-	// 拿回的是一个空数组 —— 而池子里正躺着两百多条活的、GUI 的 /admin/listings
-	// 看得见（`Pool.ListByOwner`）、owner 那一侧的 AI 一条也够不着（F-E-29）。
-	// 排序这件事按设计归 Claude，而它排的东西必须先看得见。
+	// This used to hold only "newly pooled this run", so an owner asking "what's new
+	// today" a second time in the same day got back an empty array — while the pool was
+	// sitting on 200+ live jobs, visible on the GUI's /admin/listings (`Pool.ListByOwner`)
+	// but unreachable by the owner's own AI (F-E-29). Ranking is Claude's job by design,
+	// but it has to be able to see what it's ranking first.
 	//
-	// 每一行自己带 `New`，所以"今天有什么"和"哪些是刚出现的"是同一个列表回答的两个问题。
+	// Each row carries its own `New`, so "what's out there today" and "what just showed
+	// up" are two questions answered by the same list.
 	Jobs     []PoolRow
 	Failures []SourceFailure
-	// Tallies —— 每个源这一次的账。**没有它，一次取数的结果就无法被判读**：
-	// 「HN 回了 1 条」可能是今天真没人招、可能是被限流、可能是判定条件写错，三者
-	// 产出完全相同的回执（F-E-19）。数出来，就不必推理 —— 而装置上线后的第一次取数
-	// 就用这三个数把 F-E-24 的位置定死了（98 条进来、1 条出去、挡掉 97）。
+	// Tallies — each source's accounting for this run. **Without it, a fetch's result
+	// can't be interpreted**: "HN returned 1 posting" could mean nobody's hiring today,
+	// could mean we got rate-limited, or could mean a filter condition is wrong — all
+	// three produce an identical receipt otherwise (F-E-19). Counted out, it needs no
+	// inference — and the first live fetch after this went in pinned down F-E-24's
+	// location using exactly these three numbers (98 in, 1 out, 97 dropped).
 	Tallies []SourceTally
-	// CrossSourceDropped —— 跨源去重挡掉的条数。判据 check 2 问的正是这件事
-	// （同一条 posting 从两个源来只留一行），而它以前只能靠「池子总数比两源之和小」
-	// 这种算术去推 —— 推出来的结论不算驱过。
+	// CrossSourceDropped — how many entries cross-source dedup blocked. This is exactly
+	// what acceptance check 2 asks about (the same posting from two sources should
+	// collapse to one row), and it used to only be inferable from arithmetic like "the
+	// pool total is smaller than the sum of the two sources" — an inferred conclusion
+	// doesn't count as verified.
 	CrossSourceDropped int
 }
 
-// PoolRow —— 交给 owner 那一侧 AI 的一行：池子里的一条 job、它还能活多久、
-// 以及这一趟它是不是**刚出现的**。
+// PoolRow — one row handed to the owner's own AI: one job in the pool, how much longer it
+// has left to live, and whether it's **newly appeared** this run.
 //
-// `New` 不由"剩余 TTL 接近 24h"去推 —— 那是推理，不是数据（[[no-diagnosis-by-experiment]]）。
+// `New` is never inferred from "remaining TTL is close to 24h" — that's inference, not
+// data ([[no-diagnosis-by-experiment]]).
 type PoolRow struct {
 	Job          jobsmodel.FetchedJob
 	TTLRemaining time.Duration
 	New          bool
 }
 
-// SourceTally —— 一个源这一次取数的账：上游给了几条、真进池子几条、被按源去重挡掉几条。
+// SourceTally — one source's accounting for this run: how many the upstream offered, how
+// many actually made it into the pool, how many per-source dedup blocked.
 //
-// `Seen` 是 adapter 交回来的条数（它自己内部跳过的另算，见各 adapter）；`Pooled` 是这次
-// 真正新写进池子的；`Duplicate` = 之前已经见过的同一条。三个数放在一起才回答得了
-// 「这次取数到底发生了什么」。
+// `Seen` is the count the adapter hands back (what it skips internally is counted
+// separately, see each adapter); `Pooled` is what's newly written into the pool this run;
+// `Duplicate` = already seen before. Only together do the three numbers answer what
+// actually happened in this fetch.
 type SourceTally struct {
-	// Skipped —— adapter 内部按**原因**跳过的条数（逐条取的源才有）。
-	// 「取失败」和「这条被删了」必须分得开：混成一个数字就等于没数（F-E-19）。
+	// Skipped — counts the adapter skipped internally, broken down **by reason**
+	// (only sources that fetch item-by-item have this). "Fetch failed" and "this one was
+	// deleted" must stay distinguishable: collapsing them into one number is the same as
+	// not counting at all (F-E-19).
 	Skipped   map[string]int `json:"skipped,omitempty"`
 	SourceID  string         `json:"source_id"`
 	Label     string         `json:"label"`
@@ -67,15 +84,17 @@ type SourceTally struct {
 	Seen      int            `json:"seen"`
 	Pooled    int            `json:"pooled"`
 	Duplicate int            `json:"duplicate"`
-	// Available / Read —— 上游一共有多少（它自己说的）、我们真的过了一遍多少。
-	// 两个数不等就是**截断**，而截断跟「上游就这么多」在 `Seen` 上长得一模一样。
+	// Available / Read — how many the upstream says exist in total, vs how many we
+	// actually paged through. The two numbers disagreeing means **truncation** —
+	// and truncation looks identical to "that's just how many the upstream has" on `Seen`.
 	Available int  `json:"available,omitempty"`
 	Read      int  `json:"read,omitempty"`
 	Truncated bool `json:"truncated,omitempty"`
 }
 
-// SourceFailure —— 某一个源没抓成，其余源照常。带上 owner 认得出来的东西（label / kind），
-// 因为 owner 在 /admin/sources 上看到的是 label，不是 uuid。
+// SourceFailure — one source failed to fetch, the rest ran normally. Carries what the
+// owner can recognize (label / kind), because what the owner sees on /admin/sources is the
+// label, not the uuid.
 type SourceFailure struct {
 	SourceID string `json:"source_id"`
 	Label    string `json:"label"`
@@ -83,32 +102,37 @@ type SourceFailure struct {
 	Reason   string `json:"reason"`
 }
 
-// sourceRun —— 一个源跑完的两样东西：进池子的行，和这一趟的账。
-// 收成一个结构而不是多返一个值，理由跟 FetchResult 一样：两半必须一起被接住。
+// sourceRun — the two things one source's run produces: the rows going into the pool, and
+// this run's tally.
+// Collected into one struct rather than an extra return value, same reasoning as
+// FetchResult: both halves must be caught together.
 type sourceRun struct {
 	jobs  []jobsmodel.FetchedJob
 	tally SourceTally
 }
 
-// sourceFailureSentence —— 存进源那一行、**给人看**的一句话。
+// sourceFailureSentence — the **human-facing** sentence stored on the source's row.
 //
-// 跟 `SourceFailure.Reason` 分工不同：那一份是给 owner 的 AI 读的完整错误链（源 id、
-// 内部动词、URL 都有用，F-E-6 就是为了它才不再吞掉细节）；而 `/admin/sources` 上那一行
-// 是给**人**看的 —— 把整条链铺上去会得到三行折行的文字，前面两截还是 uuid 和内部动词（UX-77）。
+// Different job from `SourceFailure.Reason`: that one is the full error chain the owner's
+// AI reads (source id, internal verb, URL are all useful there — F-E-6 exists precisely so
+// those details stop getting swallowed); this line on `/admin/sources` is for **a person**
+// to read — laying out the whole chain there would wrap across three lines, with the first
+// two segments still being a uuid and an internal verb (UX-77).
 //
-// 措辞纪律跟 mailFailureReason / calendarFailureReason 同一套：**每一句都指出下一步**，
-// 不放状态码、不放主机名、不放栈。
+// Same wording discipline as mailFailureReason / calendarFailureReason: **every sentence
+// points at a next step**, none carry status codes, hostnames, or stack traces.
 func sourceFailureSentence(err error) string {
 	for _, c := range failureSentences {
 		if errors.Is(err, c.kind) {
 			return c.say
 		}
 	}
-	// 含还没归过类的：对 owner 都是同一件事 —— 他改不了，过一会儿再试。
+	// Covers anything not yet classified: to the owner it's all the same thing — they
+	// can't fix it, try again later.
 	return "couldn't reach the board — try again later"
 }
 
-// failureSentences —— 归类表。**顺序即优先级**：先匹配的赢。
+// failureSentences — the classification table. **Order is priority**: first match wins.
 var failureSentences = []struct {
 	kind error
 	say  string
@@ -116,20 +140,24 @@ var failureSentences = []struct {
 	{jobfetch.ErrUpstreamAuth, "this source's credential was rejected — replace the token"},
 	{jobfetch.ErrUpstreamSchema, "the board's answer wasn't the shape this source sends"},
 	{jobsmodel.ErrJobSourceConfigInvalid, "this source's settings are incomplete — re-register"},
-	// 这三条必须排在 ErrUpstream **前面**：它们都包着它，顺序即优先级，
-	// 排到后面就永远轮不到（[[red-that-cannot-go-green]] 的镜像：一句话永远出不来）。
+	// These three must come **before** ErrUpstream: they all wrap it, and order is
+	// priority — placed after it, they'd never get a turn (the mirror image of
+	// [[red-that-cannot-go-green]]: a sentence that can never come out).
 	{jobfetch.ErrUpstreamNoBoard, "no such board at that address — check this source's settings"},
 	{jobfetch.ErrUpstreamMoved, "the board has moved — re-register it with the new address"},
 	{jobfetch.ErrUpstreamBusy, "the board asked us to slow down — it'll be retried later"},
-	// 兜底那一句也要跟着改口：搬家这件事已经有自己的类了，剩下落到这里的是 5xx、
-	// 连不上、以及别的 4xx —— 对这些说"it may have moved"同样是假话。
-	// 这一类的共同点是**owner 什么都做不了**，所以那句话只说这个。
+	// The fallback sentence has to change wording too: relocation now has its own
+	// category, so what's left falling through here is 5xx, connection failures, and
+	// other 4xx — telling those "it may have moved" would be just as false. What this
+	// class has in common is **the owner can't do anything about it**, so the sentence
+	// only says that.
 	{jobfetch.ErrUpstream, "the board didn't answer — nothing to change here, it'll be retried"},
 }
 
-// failureOf —— 把一个源的失败写成 owner 能据以行动的一行。
-// 后端日志里本来就有源 id、kind、URL 和原因；owner 那边曾经只有 "jobs.fetch_new failed"。
-// 两边的信息量差了整整一条错误链，而能修这件事的人只有 owner。
+// failureOf — turns one source's failure into a line the owner can act on.
+// The backend log already has the source id, kind, URL, and reason; the owner's side used
+// to only get "jobs.fetch_new failed". The two sides differ by a whole error chain's worth
+// of information, and the only person who can fix that is the owner.
 func failureOf(src *jobsmodel.JobSource, err error) SourceFailure {
 	return SourceFailure{
 		SourceID: src.ID,

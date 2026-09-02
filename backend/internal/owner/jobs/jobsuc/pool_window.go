@@ -1,9 +1,11 @@
-// pool_window.go —— 一次 `jobs.fetch_new` 交给 owner 那一侧的**看得见的那一份**：
-// 池子里这个窗口的全部 job，每条带着它还能活多久、以及这一趟是不是刚出现的。
+// pool_window.go — the **visible slice** handed to the owner side after one
+// `jobs.fetch_new`: every job in this window of the pool, each carrying how much
+// longer it lives and whether it just showed up this round.
 //
-// 跟 jobs.go 的抓取流程分开：抓取回答的是「上游发生了什么」，这里回答的是
-// 「owner 现在能挑哪些」。以前只有前者，于是一天里问第二次拿回的是空数组，
-// 而池子里躺着两百多条活的（F-E-29）。
+// Kept separate from jobs.go's fetch flow: fetching answers "what happened upstream",
+// this answers "what can the owner pick from right now". There used to be only the
+// former, so asking a second time in one day came back with an empty array while
+// the pool still held over two hundred live jobs (F-E-29).
 
 package jobsuc
 
@@ -18,18 +20,21 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
 
-// ListPoolBoard —— **一块板子，两个面共用**。owner 在 Claude 里问「今天有什么」，
-// 和他打开 /admin/listings，看到的必须是同一份 —— 否则两边条数对不上，而
-// 对不上的时候没有一处说得清是哪边错了。since<=0 = 整个活池子。
+// ListPoolBoard — **one board, shared by two surfaces**. What the owner sees when
+// asking Claude "what's new today" and what they see opening /admin/listings must be
+// the same data — otherwise the counts disagree, and when they disagree nothing
+// says which side is wrong. since<=0 = the whole live pool.
 //
-// 这里不标 New：那是「跟这一趟比」才有的概念，只有 fetch_new 那条路知道。
+// Does not mark New here: that's a concept relative to "this particular round", and
+// only the fetch_new path knows it.
 func ListPoolBoard(
 	ctx context.Context, deps JobsDeps, ownerID string, since time.Duration,
 ) ([]PoolRow, error) {
 	return poolWindow(ctx, deps, ownerID, since, nil)
 }
 
-// poolWindow —— 池子里这个窗口的全部 job，并把这一趟新进池子的那些标上 New。
+// poolWindow — every job in this window of the pool, with this round's newly-pooled
+// ones flagged New.
 func poolWindow(
 	ctx context.Context, deps JobsDeps, ownerID string,
 	since time.Duration, fresh []jobsmodel.FetchedJob,
@@ -57,19 +62,21 @@ func poolWindow(
 	return rows, nil
 }
 
-// crossSourceSurvivors —— 跨源去重**也要作用在池子这一面**。
+// crossSourceSurvivors — cross-source dedup **must also apply to this pool-side view**.
 //
-// 池子是**按源**写进去的，跨源去重以前只作用在"这一趟返回的那份"上（`dedup.Apply`
-// 在 FetchNewJobs 里）—— 也就是说同一条 posting 从两个源来，池子里躺着两份，
-// 只是回执里看不见。回执一改成从池子长出来，那两份就会同时冒出来：
-// **修一个缺陷不能把另一个已经守住的不变量放掉**。
+// The pool gets written **per source**, and cross-source dedup used to apply only to
+// "what this round's call returns" (`dedup.Apply` inside FetchNewJobs) — meaning the
+// same posting from two sources sits in the pool as two rows, just invisible in the
+// response. Once the response is grown from the pool instead, both rows surface at
+// once: **fixing one defect must not drop an invariant that was already held**.
 //
-// 判"谁先赢"要按**入池先后**，不是按显示顺序：`pooled` 是新的排在前面，
-// 所以先倒过来喂给 dedup（先入池的先见到、先见到的留下），跟当初
-// 「先注册的源先赢」是同一条规矩。
+// "Who wins" must be decided by **pool-entry order**, not display order: `pooled` has
+// the newest first, so it's reversed before being fed to dedup (whichever entered the
+// pool first is seen first, and whoever is seen first is kept) — the same rule as
+// "whichever source registered first wins".
 func crossSourceSurvivors(pooled []jobcache.PooledJob) map[string]bool {
 	oldestFirst := make([]jobsmodel.FetchedJob, 0, len(pooled))
-	// 只取下标：整条 PooledJob 有 200 字节，按值迭代等于每轮抄一遍。
+	// Index only: a whole PooledJob is 200 bytes, iterating by value would copy it every round.
 	for i := range slices.Backward(pooled) {
 		oldestFirst = append(oldestFirst, pooled[i].Job)
 	}
@@ -81,8 +88,9 @@ func crossSourceSurvivors(pooled []jobcache.PooledJob) map[string]bool {
 	return out
 }
 
-// newRowsOnly —— 读不到池子时的退路：这一趟的新条目照常交出去。
-// TTL 留空而不是编一个 —— 没测到的量不写数（[[empty-is-not-json-null]]）。
+// newRowsOnly — the fallback when the pool can't be read: this round's new entries
+// still get handed back as usual. TTL is left blank rather than invented — a value
+// that wasn't measured doesn't get written ([[empty-is-not-json-null]]).
 func newRowsOnly(fresh []jobsmodel.FetchedJob) []PoolRow {
 	rows := make([]PoolRow, 0, len(fresh))
 	for i := range fresh {

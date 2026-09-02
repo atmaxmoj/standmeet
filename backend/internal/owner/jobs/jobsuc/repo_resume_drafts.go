@@ -1,12 +1,15 @@
-// resume_drafts.go —— resume_drafts CRUD。Phase 2 中间态：Claude 通过 MCP
-// resume.draft 写一行（job snapshot 已经从 Redis 池子复制进 jsonb），owner
-// 看 preview（PDF bytes 现场渲染回 MCP 响应，不落盘）决定 commit / update / discard。
+// resume_drafts.go — CRUD for resume_drafts. A Phase 2 intermediate state: Claude
+// writes one row through MCP resume.draft (the job snapshot has already been copied
+// from the Redis pool into jsonb), and the owner looks at the preview (PDF bytes
+// rendered on the spot into the MCP response, never written to disk) and decides
+// commit / update / discard.
 //
-// 设计点：
-// - job_snapshot 和 resume_content 都是 typed domain struct，repo 层负责
-//   JSON marshal/unmarshal —— 上层 usecase / mcp / routes 都不感知 jsonb。
-// - PDF 不持久化任何地方：caller 在每次 MCP 调用里现场用 gopdf 渲染 bytes
-//   返回；repo 永远不碰 filesystem。
+// Design points:
+// - job_snapshot and resume_content are both typed domain structs; the repo layer
+//   handles JSON marshal/unmarshal — the usecase / mcp / routes layers above stay
+//   unaware of jsonb.
+// - The PDF is never persisted anywhere: the caller renders bytes on the spot with
+//   gopdf on every MCP call and returns them; the repo never touches the filesystem.
 
 package jobsuc
 
@@ -24,25 +27,26 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc/db"
 )
 
-// draftKey —— (owner_uuid, draft_uuid) 成对解出。让多个 query 方法共享一次
-// parse；返 (draftKey, error) 满足 lint 的 ≤2 returns 限制。
+// draftKey — parses out (owner_uuid, draft_uuid) as a pair, so multiple query methods
+// can share a single parse; returning (draftKey, error) satisfies lint's <=2 returns limit.
 type draftKey struct {
 	owner pgtype.UUID
 	draft pgtype.UUID
 }
 
-// ResumeDraftRepo —— resume_drafts 单表 Repository。
+// ResumeDraftRepo — the Repository for the single resume_drafts table.
 type ResumeDraftRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewResumeDraftRepo 构造 ResumeDraftRepo。
+// NewResumeDraftRepo constructs a ResumeDraftRepo.
 func NewResumeDraftRepo(pool *pgstore.Pool) *ResumeDraftRepo {
 	return &ResumeDraftRepo{pool: pool}
 }
 
-// Create —— Claude 调 resume.draft 时落库。in.JobSnapshot / in.ResumeContent
-// 都已经在 usecase 层组装好；这里只负责 marshal + INSERT。
+// Create — persists a row when Claude calls resume.draft. in.JobSnapshot /
+// in.ResumeContent have already been assembled at the usecase layer; this only
+// handles marshal + INSERT.
 func (r *ResumeDraftRepo) Create(
 	ctx context.Context, in *jobsmodel.CreateResumeDraftInput,
 ) (jobsmodel.ResumeDraft, error) {
@@ -72,8 +76,9 @@ func (r *ResumeDraftRepo) Create(
 	return toDomainResumeDraft(&row)
 }
 
-// GetByID —— (id, owner_id) 反查；过期或 owner 不匹配返 ErrResumeDraftNotFound。
-// query 自带 expires_at > now() 过滤，不需要 caller 二次判断。
+// GetByID — looks up by (id, owner_id); expired or an owner mismatch returns
+// ErrResumeDraftNotFound. The query filters expires_at > now() itself, so the
+// caller doesn't need to check again.
 func (r *ResumeDraftRepo) GetByID(
 	ctx context.Context, ownerID, id string,
 ) (jobsmodel.ResumeDraft, error) {
@@ -94,8 +99,9 @@ func (r *ResumeDraftRepo) GetByID(
 	return toDomainResumeDraft(&row)
 }
 
-// UpdateContent —— resume.update_draft：替换 resume_content jsonb。job_snapshot
-// 不变（snapshot 跟 cache 解耦，draft 创建后永远是创建时那一刻的快照）。
+// UpdateContent — resume.update_draft: replaces the resume_content jsonb. job_snapshot
+// stays unchanged (the snapshot is decoupled from the cache; once a draft is created
+// it stays a snapshot of that exact moment forever).
 func (r *ResumeDraftRepo) UpdateContent(
 	ctx context.Context, ownerID, id string, content *jobsmodel.ResumeContent,
 ) (jobsmodel.ResumeDraft, error) {
@@ -120,7 +126,7 @@ func (r *ResumeDraftRepo) UpdateContent(
 	return toDomainResumeDraft(&row)
 }
 
-// Delete —— resume.discard_draft；owner 不匹配静默成功（idempotent）。
+// Delete — resume.discard_draft; an owner mismatch silently succeeds (idempotent).
 func (r *ResumeDraftRepo) Delete(ctx context.Context, ownerID, id string) error {
 	key, err := parseDraftKey(ownerID, id)
 	if err != nil {
@@ -135,8 +141,8 @@ func (r *ResumeDraftRepo) Delete(ctx context.Context, ownerID, id string) error 
 	return nil
 }
 
-// ListByOwner —— admin /drafts 视图：列 owner 未过期的 draft，按
-// created_at desc。1-day TTL 行不在列表里（filter 在 SQL 端做）。
+// ListByOwner — the admin /drafts view: lists the owner's unexpired drafts, ordered
+// by created_at desc. Rows past the 1-day TTL are excluded (filtered on the SQL side).
 func (r *ResumeDraftRepo) ListByOwner(
 	ctx context.Context, ownerID string,
 ) ([]jobsmodel.ResumeDraft, error) {
@@ -160,8 +166,8 @@ func (r *ResumeDraftRepo) ListByOwner(
 	return out, nil
 }
 
-// SweepExpired —— 后台 sweeper / cron 调；删 expires_at <= now() 的行。
-// 没有文件需要 unlink（PDF 从来不落盘）。
+// SweepExpired — called by the background sweeper / cron; deletes rows where
+// expires_at <= now(). No file to unlink (the PDF is never written to disk).
 func (r *ResumeDraftRepo) SweepExpired(ctx context.Context) error {
 	q := db.New(r.pool)
 	if serr := q.SweepExpiredResumeDrafts(ctx); serr != nil {
@@ -182,7 +188,7 @@ func parseDraftKey(ownerIDStr, idStr string) (draftKey, error) {
 	return draftKey{owner: owner, draft: draft}, nil
 }
 
-// toDomainResumeDraft —— sqlc Row → jobsmodel.ResumeDraft（含 jsonb unmarshal）。
+// toDomainResumeDraft — sqlc Row -> jobsmodel.ResumeDraft (includes jsonb unmarshal).
 func toDomainResumeDraft(row *db.ResumeDraft) (jobsmodel.ResumeDraft, error) {
 	var snapshot jobsmodel.FetchedJob
 	if err := json.Unmarshal(row.JobSnapshot, &snapshot); err != nil {

@@ -103,7 +103,7 @@ func TestRender_puts_the_content_in_the_pdf(t *testing.T) {
 
 // TestRender_customization_is_template_choice —— customization = picking a template. Every template
 // renders the SAME content (only the layout changes); an unknown template is a clear error, never a
-// blank PDF. This is the "定制化" primitive: presentation varies, content doesn't.
+// blank PDF. This is the "customization" primitive: presentation varies, content doesn't.
 func TestRender_customization_is_template_choice(t *testing.T) {
 	requireTypst(t)
 	t.Parallel()

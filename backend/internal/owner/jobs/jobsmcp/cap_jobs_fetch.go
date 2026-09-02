@@ -1,9 +1,13 @@
-// cap_jobs_fetch.go —— `jobs.fetch_new` 这一个工具：它的声明、它的入参、它的处理器。
+// cap_jobs_fetch.go —— the single `jobs.fetch_new` tool: its declaration,
+// its args, its handler.
 //
-// 从 cap_jobs.go 分出来，是因为这个工具的**回执形状**跟其余五个不是一件事：
-// 另外五个是薄包（注册一个源、按 id 取一条、删一条），而这一个要同时回答
-// 「今天的板子长什么样」和「这一趟取数发生了什么」两个问题，于是入参、窗口判定、
-// 三份账的组装都长在这里。改这一处的影响面跟改那五个不一样。
+// Split out of cap_jobs.go because this tool's **receipt shape** isn't the
+// same kind of thing as the other five: those are thin wrappers (register
+// one source, fetch one by id, delete one), while this one has to answer
+// both "what does today's board look like" and "what happened during this
+// fetch" — so the args, the window resolution, and the assembly of all
+// three tallies all live here. A change here has a different blast radius
+// than a change to the other five.
 
 package jobsmcp
 
@@ -41,9 +45,11 @@ func (c *jobsCapability) fetchNewBinding() *capreg.MCPBinding {
 	}
 }
 
-// fetchNewArgsWire —— `since_hours` 用指针：**没给**和**给了 0** 不是一回事。
-// 没给 = 用默认的 24 小时；给了 0 或负数 = 一个空窗口，那是笔误，要当场说出来，
-// 不能悄悄当成"整个池子"（[[empty-is-not-json-null]]）。
+// fetchNewArgsWire —— `since_hours` is a pointer: **omitted** and **given
+// as 0** are not the same thing. Omitted = use the default 24-hour window;
+// given as 0 or negative = an empty window, which is a mistake and must be
+// reported on the spot, never silently treated as "the whole pool"
+// ([[empty-is-not-json-null]]).
 type fetchNewArgsWire struct {
 	SinceHours *float64 `json:"since_hours"`
 	SourceID   string   `json:"source_id"`
@@ -54,7 +60,7 @@ const defaultPoolWindow = 24 * time.Hour
 var errSinceHoursNotPositive = errors.New(
 	"since_hours must be greater than 0 — omit it for the default 24h window")
 
-// source —— 空串 = 没指定，跑全部源。
+// source —— empty string = unspecified, run against all sources.
 func (a *fetchNewArgsWire) source() *string {
 	if a.SourceID == "" {
 		return nil
@@ -90,15 +96,23 @@ func (c *jobsCapability) handleFetchNew(
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "fetch_new")
 	}
-	// failures 跟 jobs 一起返回,**不是**换成一个 error:一个源的错 token 不该把另外六个源
-	// 抓到的东西扔掉。owner 需要同时知道「拿到了什么」和「哪个源没成、为什么」。
+	// failures is returned alongside jobs, **not** turned into a single error:
+	// one source's error token shouldn't throw away what the other six
+	// sources fetched. The owner needs to know both "what came back" and
+	// "which source failed, and why" at the same time.
 	//
-	// `sources` 那份账是第三件必需品：光看 jobs 的条数，**读不出**「HN 回了 1 条」是
-	// 今天真没人招、还是取数一路失败被静默跳过（F-E-19）。每个源报 seen/pooled/duplicate，
-	// 再加一个跨源去重挡掉了几条 —— 判据 check 2 问的正是最后那个数。
+	// The `sources` tally is a third required piece: the job count alone
+	// **can't tell you** whether "HN returned 1 result" means nobody's
+	// hiring today or the fetch silently failed partway through (F-E-19).
+	// Each source reports seen/pooled/duplicate, plus one cross-source
+	// dedup count for how many got dropped — check 2 of the acceptance
+	// criteria asks about exactly that last number.
 	//
-	// 而 `jobs` 那一份是**池子这个窗口的全部**，不是这一趟新捞的那几条：后者只是前者里
-	// 带 `new` 的子集。少了这一点，owner 一天里问第二次就只能拿到一个空数组（F-E-29）。
+	// And the `jobs` field is **the whole pool for this window**, not just
+	// the handful freshly fetched this call — the latter is only the
+	// subset of the former carrying `new`. Without this, an owner asking
+	// a second time in the same day would just get an empty array back
+	// (F-E-29).
 	return mcputil.MarshalResult(c.log, "jobs.fetch_new", map[string]any{
 		"jobs":                 poolRowViews(res.Jobs),
 		"failed_sources":       res.Failures,

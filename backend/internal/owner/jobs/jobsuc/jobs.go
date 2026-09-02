@@ -1,16 +1,16 @@
-// jobs.go —— job source 注册、fetch_new、show、discard 的 usecase 层。
+// jobs.go — usecase layer for job source register, fetch_new, show, discard.
 //
-// 见 docs/design/job-loop.md。这层做：
-//   - register/unregister/list source（薄包 postgres）
-//   - fetch_new: 调 fetcher → fingerprint dedup → 进 Redis 1d TTL 池子 → 返
-//   - show/discard: 走 Redis 池子
+// See docs/design/job-loop.md. This layer does:
+//   - register/unregister/list source (thin wrap over postgres)
+//   - fetch_new: call fetcher -> fingerprint dedup -> into the Redis 1d TTL pool -> return
+//   - show/discard: go through the Redis pool
 //
-// reasoning / 排序 / 匹配 是 Claude 在客户端做的事，这里不掺合。
+// Reasoning / ranking / matching are Claude's job on the client side; this layer stays out of it.
 
-// Package jobsuc —— J.2: 从 internal/usecases 搬过来的 jobs / resume /
-// applications use cases。属 jobs plugin 的内部，路径 internal/plugins/
-// jobs/jobsuc/。包名 jobsuc (避开跟核心 internal/usecases 撞名)，外部
-// 引用形如 jobsuc.JobsDeps。
+// Package jobsuc — J.2: jobs / resume / applications use cases moved over from
+// internal/usecases. Internal to the jobs plugin, path internal/plugins/
+// jobs/jobsuc/. Package name jobsuc (avoids clashing with the core internal/usecases),
+// referenced externally as jobsuc.JobsDeps.
 package jobsuc
 
 import (
@@ -27,14 +27,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
 
-// JobsDeps —— jobs.* usecase 依赖。
+// JobsDeps — dependencies for the jobs.* usecases.
 type JobsDeps struct {
 	Sources  *JobSourceRepo
 	Cache    *jobcache.Pool
 	Registry *jobfetch.Registry
 }
 
-// RegisterJobSource —— 校验 kind/config + 写 postgres。
+// RegisterJobSource — validates kind/config, then writes to postgres.
 func RegisterJobSource(
 	ctx context.Context, deps JobsDeps, in *jobsmodel.CreateJobSourceInput,
 ) (jobsmodel.JobSource, error) {
@@ -58,7 +58,7 @@ func validateRegisterInput(in *jobsmodel.CreateJobSourceInput) error {
 	return nil
 }
 
-// ListJobSources —— owner 的全部 source。
+// ListJobSources — all sources belonging to the owner.
 func ListJobSources(
 	ctx context.Context, deps JobsDeps, ownerID string,
 ) ([]jobsmodel.JobSource, error) {
@@ -72,7 +72,7 @@ func ListJobSources(
 	return list, nil
 }
 
-// UnregisterJobSource —— 删 source（cascade 删它的 fingerprints）。
+// UnregisterJobSource — deletes a source (cascades to delete its fingerprints).
 func UnregisterJobSource(
 	ctx context.Context, deps JobsDeps, ownerID, sourceID string,
 ) error {
@@ -85,17 +85,21 @@ func UnregisterJobSource(
 	return nil
 }
 
-// FetchNewJobs —— 核心。sourceID==nil → 跑 owner 所有 source；
-// sourceID 非空 → 跑该 source。返回新 jobs（已 dedup + 已进池子，附 cache_id）
-// **以及每个没抓成的源**。
+// FetchNewJobs — the core call. sourceID==nil -> runs every source the owner has;
+// sourceID set -> runs that one source. Returns the new jobs (already deduped and
+// already in the pool, with a cache_id attached) **plus every source that failed to fetch**.
 //
-// 这里曾经是 `if ferr != nil { return nil, ferr }`，而它上面那行注释写着
-// 「单源失败**不阻塞**其他源」—— 注释声明的不变量和下一行代码正好相反。手工驱的时候撞上了：
-// 七个源里只有 workable 那个 token 是错的，结果**另外六个真源一条都没进池子**，
-// owner 拿到的是一句 `jobs.fetch_new failed`。
+// This used to be `if ferr != nil { return nil, ferr }`, while the comment above it said
+// "a single source's failure **does not block** the others" — the invariant the comment
+// claimed was the exact opposite of the code below it. This surfaced during a manual drive:
+// only the workable source's token was wrong out of seven sources, and as a result
+// **none of the other six real sources made it into the pool** — the owner got back
+// nothing but `jobs.fetch_new failed`.
 //
-// 注释比代码更容易被信：读代码的人看到那句话就不会再往下追（[[names-that-lie]]）。
-// 现在这个不变量由代码本身成立 —— 每个源自己成败，失败的记进 failures 一起返回。
+// A comment is trusted more easily than code: whoever reads that line stops digging
+// further ([[names-that-lie]]). Now the invariant holds because the code itself enforces
+// it — each source succeeds or fails on its own, and failures are recorded into
+// failures and returned alongside the rest.
 func FetchNewJobs(
 	ctx context.Context, deps JobsDeps, ownerID string, sourceID *string, since time.Duration,
 ) (FetchResult, error) {
@@ -107,15 +111,18 @@ func FetchNewJobs(
 		return FetchResult{}, err
 	}
 	all := fetchEverySource(ctx, deps, sources)
-	// J.6c: 跨源去重 (canonical URL + composite key)。在 fetchOneSourceAndDedup
-	// 的 per-source seen-by-external-id 之上再加一层 — 那层只防同一 source
-	// 内的重复 post，cross-source 用 ATS namespace 不同的 external_id 就漏。
-	// 此处不动 per-source seen 记录 (那条仍按 fetcher 返的 ID 标 seen)，
-	// 只对 visible-to-Claude 的 surface 做去重。
+	// J.6c: cross-source dedup (canonical URL + composite key). This adds one more layer
+	// on top of fetchOneSourceAndDedup's per-source seen-by-external-id — that layer only
+	// guards against a duplicate post within the same source; a cross-source duplicate
+	// slips through when the ATS namespaces give it different external_ids.
+	// This does not touch the per-source seen record (that one still marks seen by the
+	// ID the fetcher returned) — it only dedups the surface visible to Claude.
 	visible := dedup.Apply(all.jobs)
 	failures, tallies := all.failures, all.tallies
-	// 交出去的是**池子这个窗口**，不是这一趟新捞的那几条 —— 后者只是前者里带 New 的子集。
-	// 取窗口失败不能把已经抓到的东西一起扔掉：至少把这一趟的新条目交出去。
+	// What gets handed back is **this window of the pool**, not just the few caught this
+	// round — the latter is only the New-flagged subset of the former.
+	// A failure reading the window must not throw away what was already fetched: at least
+	// hand back this round's new entries.
 	rows, perr := poolWindow(ctx, deps, ownerID, since, visible)
 	if perr != nil {
 		slog.WarnContext(ctx, "job pool window not read", "err", perr)
@@ -127,23 +134,25 @@ func FetchNewJobs(
 	}, nil
 }
 
-// everySourceRun —— 一轮里所有源合起来的产出。三样收成一个结构而不是三个返回值：
-// 它们本来就是同一次遍历的三个面，拆开就有人只接住其中一面。
+// everySourceRun — combined output of every source in one round. Three values collected
+// into one struct instead of three return values: they're three facets of the same
+// traversal, and splitting them invites someone to catch only one facet.
 type everySourceRun struct {
 	jobs     []jobsmodel.FetchedJob
 	failures []SourceFailure
 	tallies  []SourceTally
 }
 
-// fetchEverySource —— 逐个源抓，**一个源的失败不影响其余的**。
+// fetchEverySource — fetches source by source; **one source's failure does not affect the rest**.
 func fetchEverySource(
 	ctx context.Context, deps JobsDeps, sources []jobsmodel.JobSource,
 ) everySourceRun {
 	var out everySourceRun
 	for i := range sources {
 		run, ferr := fetchOneSourceAndDedup(ctx, deps, &sources[i])
-		// 试过就记一笔，**成败都记**。失败的详情以前只活在这次调用的回执里，
-		// 关掉窗口就没了，而 /admin/sources 只会说 `never fetched`（F-E-18）。
+		// Every attempt gets recorded, **success or failure**. The failure detail used to
+		// live only in this call's response, gone once the window closed, while
+		// /admin/sources would just say `never fetched` (F-E-18).
 		markAttempt(ctx, deps, sources[i].ID, ferr)
 		if ferr != nil {
 			out.failures = append(out.failures, failureOf(&sources[i], ferr))
@@ -155,16 +164,20 @@ func fetchEverySource(
 	return out
 }
 
-// poolWindow / newRowsOnly 在 pool_window.go —— 「交给 owner 那一侧看什么」跟
-// 「怎么抓」是两件事，而前者是这一轮才补上的（F-E-29）。
+// poolWindow / newRowsOnly live in pool_window.go — "what gets shown to the owner side"
+// and "how the fetch happens" are two different concerns, and the former was only
+// added this round (F-E-29).
 
-// markAttempt —— 把这一次的成败写回源那一行。**写失败本身不算这次取数的失败**：
-// owner 已经拿到了岗位（或拿到了失败原因），因为记不下这笔账而把整次调用变成错误，
-// 是拿次要的事故盖住主要的结果。写不进去就记日志。
+// markAttempt — writes this attempt's success/failure back onto the source's row.
+// **A write failure here is not itself a fetch failure**: the owner has already gotten
+// the jobs (or the failure reason), and turning the whole call into an error just because
+// this bookkeeping couldn't be written would let a minor incident bury the main result.
+// Log it and move on if the write fails.
 func markAttempt(ctx context.Context, deps JobsDeps, sourceID string, ferr error) {
-	// 存的是**给人看的那一句**，不是整条错误链 —— 那一行会原样渲在 /admin/sources 上，
-	// 而链条前面两截是源 uuid 和内部动词，对 owner 没有用（UX-77）。
-	// 完整的链仍然在 `SourceFailure.Reason` 里交给 owner 的 AI，也在日志里。
+	// What's stored is **the human-readable sentence**, not the whole error chain — that
+	// line renders verbatim on /admin/sources, and the chain's leading segments (source
+	// uuid, internal verbs) are useless to the owner (UX-77). The full chain still
+	// reaches the owner's AI via `SourceFailure.Reason`, and is also in the logs.
 	reason := ""
 	if ferr != nil {
 		reason = sourceFailureSentence(ferr)
@@ -210,8 +223,9 @@ func fetchOneSourceAndDedup(
 	return sourceRun{jobs: pooled, tally: SourceTally{
 		SourceID: src.ID, Label: src.Label, Kind: src.Kind,
 		Seen: len(acc.Jobs), Pooled: len(pooled), Duplicate: len(acc.Jobs) - len(newJobs),
-		// adapter 自己那一层的账（逐条取的源才有）：上游一共多少、我们看了多少、
-		// 按原因跳过多少、是不是撞上限截断了。
+		// The adapter's own bookkeeping (only sources that fetch item-by-item have this):
+		// how many the upstream reported total, how many we actually read, how many were
+		// skipped and why, and whether we hit the cap and got truncated.
 		Available: acc.Available, Read: acc.Read,
 		Skipped: acc.Skipped, Truncated: acc.Truncated,
 	}}, nil
@@ -298,7 +312,7 @@ func touchSource(ctx context.Context, deps JobsDeps, sourceID string) error {
 	return nil
 }
 
-// ShowJob —— 池子里反查；过期 / discard 后返 ErrJobCacheMiss。
+// ShowJob — looks a job up in the pool; returns ErrJobCacheMiss once expired / discarded.
 func ShowJob(
 	ctx context.Context, deps JobsDeps, ownerID, cacheID string,
 ) (jobsmodel.FetchedJob, error) {
@@ -315,7 +329,7 @@ func ShowJob(
 	return job, nil
 }
 
-// DiscardJob —— 主动让一条 job 退出 owner 视野。
+// DiscardJob — actively removes a job from the owner's view.
 func DiscardJob(ctx context.Context, deps JobsDeps, ownerID, cacheID string) error {
 	if ownerID == "" || cacheID == "" {
 		return apierr.ErrEmptyField

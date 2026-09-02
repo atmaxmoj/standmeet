@@ -1,13 +1,15 @@
-// bamboohr.go —— BambooHR 公开 careers 列表 endpoint。
+// bamboohr.go —— BambooHR's public careers list endpoint.
 //
 //	GET https://{slug}.bamboohr.com/careers/list
 //	Accept: application/json
 //
-// 返回 {"result": [{id, jobOpeningName, location: {city, state, country, ...},
-// employmentStatusLabel, departmentLabel, ...}]}。JBA 用这条路径（确认见
-// Feashliaa/job-board-aggregator scripts/scraper.py fetch_company_jobs_bamboohr）；
-// 真 ATS API (/api/gateway.php) 是 token-gated 的、不通用，careers/list 是 owner-
-// facing 公开 UI 后台调的 JSON，每个公司单独 host 在 {slug}.bamboohr.com 子域。
+// Returns {"result": [{id, jobOpeningName, location: {city, state, country, ...},
+// employmentStatusLabel, departmentLabel, ...}]}. JBA uses this same path
+// (confirmed in Feashliaa/job-board-aggregator
+// scripts/scraper.py fetch_company_jobs_bamboohr); the real ATS API
+// (/api/gateway.php) is token-gated and not generally usable — careers/list
+// is the JSON the owner-facing public UI itself calls behind the scenes,
+// with each company hosted on its own {slug}.bamboohr.com subdomain.
 
 package fetch
 
@@ -36,8 +38,8 @@ func newBambooHRFetcher(client *http.Client, envBase string) *bambooHRFetcher {
 	return &bambooHRFetcher{client: client, envBase: envBase}
 }
 
-// Fetch reads {base}/careers/list. base = env override (e2e) 或 hard-coded
-// per-company host pattern。
+// Fetch reads {base}/careers/list. base = env override (e2e) or the
+// hard-coded per-company host pattern.
 func (f *bambooHRFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
 ) ([]jobsmodel.FetchedJob, error) {
@@ -62,7 +64,8 @@ func (f *bambooHRFetcher) Fetch(
 }
 
 // buildURL —— prod: https://{slug}.bamboohr.com/careers/list; e2e:
-// {envBase}/careers/list?company={slug} (mock 单 host 多 slug)。
+// {envBase}/careers/list?company={slug} (the mock serves multiple slugs off
+// a single host).
 func (f *bambooHRFetcher) buildURL(slug string) string {
 	if f.envBase != "" {
 		return fmt.Sprintf("%s/careers/list?company=%s", f.envBase, slug)
@@ -93,8 +96,9 @@ type bambooHRResp struct {
 	Result []bambooHRJob `json:"result"`
 }
 
-// bambooHRJob —— careers/list 单条。location 是 object (city/state/country/
-// addressLine1/...) 或 null；employmentStatusLabel / departmentLabel 是 tag。
+// bambooHRJob —— one careers/list entry. location is either an object
+// (city/state/country/addressLine1/...) or null; employmentStatusLabel /
+// departmentLabel are used as tags.
 type bambooHRJob struct {
 	Location              *bambooHRLocation `json:"location"`
 	JobOpeningName        string            `json:"jobOpeningName"`

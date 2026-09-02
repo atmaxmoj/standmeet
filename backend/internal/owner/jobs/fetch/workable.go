@@ -1,11 +1,13 @@
-// workable.go —— Workable SPI (Server Partner Integration) jobs endpoint。
+// workable.go —— Workable SPI (Server Partner Integration) jobs endpoint.
 //
 //	GET {base}/spi/v3/accounts/{company}/jobs   Authorization: Bearer {api_token}
 //
-// 返回 {"name": <account>, "jobs": [...]}。每条 job 有 shortcode / title / full_title /
-// department / url / created_at (ISO) / description (HTML) / location.location_str。
-// 这是真 jobs 端点(v1 的 widget 端点只返账户元数据) —— 需 owner 的 API token 认证,
-// 走连接器框架惯用的 authed 源模式(token 在 per-source config,不出 owner 手)。
+// Returns {"name": <account>, "jobs": [...]}. Each job has shortcode / title / full_title /
+// department / url / created_at (ISO) / description (HTML) / location.location_str.
+// This is the real jobs endpoint (the v1 widget endpoint only returns account
+// metadata) — it needs the owner's API token to authenticate, following the
+// connector framework's usual authed-source pattern (the token lives in the
+// per-source config and never leaves the owner's hands).
 
 package fetch
 

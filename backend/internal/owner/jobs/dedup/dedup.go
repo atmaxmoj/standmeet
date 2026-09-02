@@ -1,23 +1,27 @@
-// Package dedup —— J.6c: 跨源去重。
+// Package dedup —— J.6c: cross-source deduplication.
 //
-// 同一岗位被 owner 多个 source 同时返 (e.g. JBA 聚合里有 Anthropic + owner
-// 也注册了 Anthropic 的 Greenhouse) 实际工作流见过多次。fetcher 自己内部
-// 只看 external_id 不能跨 ATS dedup —— Greenhouse 的 id "7726627003" 跟 JBA
-// 的 url "https://boards.greenhouse.io/affirm/jobs/7726627003" 是两个 namespace
-// 但指同一岗位。本包做 cross-source 层面的去重，由 usecase 在所有 source
-// fetch 完一轮、append 完结果之后调一次 Apply。
+// The same posting coming back from several of the owner's sources at once
+// (e.g. Anthropic shows up in a JBA aggregate AND the owner also registered
+// Anthropic's own Greenhouse) has happened repeatedly in real workflows. A
+// fetcher only looks at external_id internally and can't dedup across ATS
+// systems — Greenhouse's id "7726627003" and JBA's url
+// "https://boards.greenhouse.io/affirm/jobs/7726627003" are two different
+// namespaces pointing at the same posting. This package does the
+// cross-source dedup layer; the usecase calls Apply once after all sources
+// have fetched and their results have been appended for the round.
 //
-// 设计参考 [[job-loop-2026-05]] memory 的 3-layer 方案：
+// Design follows the 3-layer scheme from the [[job-loop-2026-05]] memory:
 //
-//	L1: canonical URL  (lowercase scheme+host+path, strip query / 末尾 /)
+//	L1: canonical URL  (lowercase scheme+host+path, strip query / trailing /)
 //	L2: composite key  (normalize(company) :: normalize(title) :: bucket(location))
-//	L3: 语义 embedding (留 hook，本 commit 不实现)
+//	L3: semantic embedding (hook left in place, not implemented in this commit)
 //
-// 策略：单 pass 走 input，对每条同时算 L1 + L2；任一已经见过就 drop。
-// 第一次遇到的留下 (Apply 不重排 input；caller 已经按 source 注册顺序 fan-in，
-// 第一个 source 赢)。
+// Strategy: a single pass over input, computing both L1 + L2 for each entry;
+// drop if either has already been seen. The first occurrence wins (Apply
+// doesn't reorder input; the caller already fans-in by source registration
+// order, so the first source wins).
 //
-// 不持久化 — 纯函数。
+// Not persisted — a pure function.
 package dedup
 
 import (
@@ -28,9 +32,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
 
-// Apply —— 输入 fetched job list, 返回 cross-source dedup 后的子集。保
-// 持原顺序。input 为 nil / empty 时直接返回。caller 负责 input 已经按"想
-// 让谁先赢"的顺序排好 (source 注册顺序 = ListByOwner 顺序就行)。
+// Apply —— takes a fetched job list, returns the subset left after
+// cross-source dedup. Preserves the original order. Returns input as-is
+// when nil / empty. The caller is responsible for input already being
+// ordered by "who should win" (source registration order — i.e. the
+// ListByOwner order — is fine).
 func Apply(jobs []jobsmodel.FetchedJob) []jobsmodel.FetchedJob {
 	if len(jobs) == 0 {
 		return jobs
@@ -47,8 +53,9 @@ func Apply(jobs []jobsmodel.FetchedJob) []jobsmodel.FetchedJob {
 	return out
 }
 
-// dropDuplicate —— 单条决策：L1 / L2 任一已见就丢；否则两个 set 都记一笔。
-// 拆出来让 Apply 的 cognitive complexity ≤ 5。
+// dropDuplicate —— per-entry decision: drop if L1 or L2 was already seen;
+// otherwise record it in both sets. Split out to keep Apply's cognitive
+// complexity ≤ 5.
 func dropDuplicate(
 	j *jobsmodel.FetchedJob,
 	seenURL, seenComposite map[string]struct{},
@@ -69,19 +76,26 @@ func dropDuplicate(
 }
 
 // canonicalURL —— scheme + host + path (lowercase, strip query / fragment /
-// 末尾 /)。解不开 / 空 url 返 ""，上游用 "" 当 "不参与 L1 dedup"。
+// trailing /). Returns "" for an unparseable / empty url; upstream treats ""
+// as "doesn't participate in L1 dedup".
 //
-// 真实碰撞场景：JBA 把 Greenhouse 抓的 absolute_url 透传出来，跟 owner
-// 直接注册的 Greenhouse source 自己拉到的 absolute_url 一字不差。L1 就抓
-// 这条直球。
-// canonicalURL —— L1 的键。**query string 不能整个丢掉**：有的板子把岗位的身份放在
-// query 里（HN 的 `item?id=49315850`），丢掉之后同一帖的每一条都变成同一个键
-// `https://news.ycombinator.com/item`，于是**整帖塌成一条**。真环境里就是这样：
-// 一次抓回 98 条，屏幕上只剩 1 条（F-E-24）。
+// Real collision case: JBA passes through the absolute_url it scraped from
+// Greenhouse, and it's byte-for-byte identical to the absolute_url the
+// owner's own directly-registered Greenhouse source pulls. L1 catches
+// exactly this case head-on.
+// canonicalURL —— L1's key. **The query string can't just be dropped
+// wholesale**: some boards put a posting's identity in the query (HN's
+// `item?id=49315850`); dropping it collapses every entry in the same thread
+// onto the same key `https://news.ycombinator.com/item`, so **the whole
+// thread flattens into one**. This is exactly what happened in the real
+// environment: one fetch pulled back 98 entries, only 1 was left on screen
+// (F-E-24).
 //
-// 所以只剥**追踪参数**（utm_*、gh_src 这类跟身份无关的），其余按 key 排序后留下。
-// 剥不掉的那种微差（Greenhouse 的 `gh_jid`）本来就该由 L2 的 composite key 兜住 ——
-// 这个包顶上的注释写的正是这个分工。
+// So we only strip **tracking params** (utm_*, gh_src — the identity-
+// irrelevant kind), sort the rest by key, and keep them. The kind of minor
+// difference that can't be stripped (Greenhouse's `gh_jid`) is meant to be
+// caught by L2's composite key instead — that's exactly the division of
+// labor the comment at the top of this package describes.
 func canonicalURL(raw string) string {
 	if raw == "" {
 		return ""
@@ -98,15 +112,16 @@ func canonicalURL(raw string) string {
 	return base
 }
 
-// trackingParams —— 跟岗位身份无关的 query 参数，比键的时候剥掉。
+// trackingParams —— query params unrelated to posting identity, stripped
+// when comparing keys.
 var trackingParams = map[string]bool{
 	"utm_source": true, "utm_medium": true, "utm_campaign": true,
 	"utm_term": true, "utm_content": true,
 	"gh_src": true, "source": true, "ref": true, "src": true,
 }
 
-// identifyingQuery —— 去掉追踪参数、按 key 排序后的 query。排序是为了让
-// `?a=1&b=2` 和 `?b=2&a=1` 得到同一个键。
+// identifyingQuery —— the query with tracking params removed and sorted by
+// key. Sorting is so `?a=1&b=2` and `?b=2&a=1` produce the same key.
 func identifyingQuery(u *url.URL) string {
 	q := u.Query()
 	for k := range q {
@@ -114,14 +129,17 @@ func identifyingQuery(u *url.URL) string {
 			q.Del(k)
 		}
 	}
-	return q.Encode() // Encode 本身就按 key 排序
+	return q.Encode() // Encode already sorts by key on its own
 }
 
-// compositeKey —— normalize(company) "::" normalize(title) "::" bucket(location)。
-// 三段任一空就视同 "" 整条 L2 不参与；其余都按 normalize 后比较。
+// compositeKey —— normalize(company) "::" normalize(title) "::" bucket(location).
+// If any of the three segments is empty, the whole thing counts as "" and
+// L2 doesn't participate; otherwise all three are compared after normalizing.
 //
-// 触发场景：JBA 透传的 Greenhouse 跟 owner 自己的 Greenhouse company / title 一字不差，
-// 但 URL 末尾 query string 带 gh_jid 微差 —— L1 漏了，L2 兜底。
+// Trigger case: the Greenhouse entry passed through by JBA has an identical
+// company / title to the owner's own Greenhouse, but the URL's trailing
+// query string carries a minor gh_jid difference — L1 misses it, L2 catches
+// it.
 func compositeKey(j *jobsmodel.FetchedJob) string {
 	co := normalizeCompany(j.Company)
 	ti := normalizeTitle(j.Title)
@@ -131,35 +149,38 @@ func compositeKey(j *jobsmodel.FetchedJob) string {
 	return co + "::" + ti + "::" + bucketLocation(j.Location)
 }
 
-// normalizeCompany —— lowercase + drop common legal suffix。
-// "Acme Rockets, Inc." → "acme rockets"; "Beta Labs LLC" → "beta labs"。
-// 故意 conservative：不展开"&" → "and" 这种太激进的；只动明确的法人后缀。
+// normalizeCompany —— lowercase + drop common legal suffix.
+// "Acme Rockets, Inc." → "acme rockets"; "Beta Labs LLC" → "beta labs".
+// Deliberately conservative: doesn't do anything as aggressive as expanding
+// "&" → "and"; only touches clear legal-entity suffixes.
 func normalizeCompany(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	s = companyJunkRE.ReplaceAllString(s, "")
 	return collapseSpaces(s)
 }
 
-// normalizeTitle —— lowercase + 去 paren 内补充 (e.g. "(US Remote)") +
-// collapse whitespace + 去前后标点。不去 seniority 关键词 (Senior/Staff
-// 是分级，不是噪声)。
+// normalizeTitle —— lowercase + strips parenthetical asides (e.g.
+// "(US Remote)") + collapses whitespace + trims leading/trailing
+// punctuation. Doesn't strip seniority keywords (Senior/Staff is a level,
+// not noise).
 func normalizeTitle(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	s = titleParenRE.ReplaceAllString(s, " ")
 	return collapseSpaces(s)
 }
 
-// bucketLocation —— 取逗号前第一段 + lowercase (e.g. "San Francisco, CA" →
-// "san francisco"; "Remote (US)" → "remote (us)" → 经 normalize 应当被截断
-// 到 "remote")。空 location 返 "" — L2 仍 fire (空 location 不区分时同
-// title+company 视同同岗位)。
+// bucketLocation —— takes the first segment before a comma + lowercases
+// (e.g. "San Francisco, CA" → "san francisco"; "Remote (US)" →
+// "remote (us)" → should get trimmed down to "remote" by normalization).
+// Returns "" for an empty location — L2 still fires (an empty location
+// doesn't distinguish; same title+company counts as the same posting).
 func bucketLocation(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	if i := strings.Index(s, ","); i > 0 {
 		s = s[:i]
 	}
-	// 简化处理 "remote (us)" → "remote"，让 RemoteOK + JBA 的不同 location
-	// 写法都收口到同一个 bucket。
+	// Simplified handling of "remote (us)" → "remote", so RemoteOK's and
+	// JBA's different location spellings both fold into the same bucket.
 	if i := strings.Index(s, "("); i > 0 {
 		s = strings.TrimSpace(s[:i])
 	}
@@ -170,15 +191,15 @@ func collapseSpaces(s string) string {
 	return collapseSpacesRE.ReplaceAllString(strings.TrimSpace(s), " ")
 }
 
-// 法人后缀 regex；多个 suffix 用 alternation。允许前面带逗号 / 空格、
-// 末尾可能带句号。
+// Legal-entity suffix regex; multiple suffixes via alternation. Allows a
+// leading comma / space, and an optional trailing period.
 var companyJunkRE = regexp.MustCompile(
 	`[,]?\s*\b(inc|incorporated|llc|ltd|limited|` +
 		`co|corp|corporation|gmbh|sa|plc)\b\.?`,
 )
 
-// titleParenRE —— 整个 "(...)" 段，包括括号 + 内容。
+// titleParenRE —— the entire "(...)" segment, including the parens + content.
 var titleParenRE = regexp.MustCompile(`\([^)]*\)`)
 
-// collapseSpacesRE —— 多个 whitespace 收成单 space。
+// collapseSpacesRE —— collapses runs of whitespace into a single space.
 var collapseSpacesRE = regexp.MustCompile(`\s+`)

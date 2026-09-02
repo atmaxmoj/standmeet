@@ -1,12 +1,13 @@
-// greenhouse.go —— Greenhouse Job Board public API。
+// greenhouse.go —— Greenhouse Job Board public API.
 //
 //	GET {base}/v1/boards/{company}/jobs?content=true
 //
-// 返回 {"jobs": [...]}。每条 job 有 id (int) / title / company_name /
+// Returns {"jobs": [...]}. Each job has id (int) / title / company_name /
 // location.name / departments[] / offices[] / first_published (ISO) /
-// updated_at (ISO) / absolute_url / content (HTML 转义后的 string)。
+// updated_at (ISO) / absolute_url / content (an HTML-escaped string).
 //
-// fetcher 不解 content HTML —— 当 raw text 传给 agent 让 Claude 自己读。
+// The fetcher doesn't parse the content HTML — it's passed through as raw
+// text for the agent, letting Claude read it itself.
 
 package fetch
 
@@ -135,8 +136,9 @@ func greenhouseTags(j *greenhouseJob) []string {
 	return tags
 }
 
-// parseISOTime —— Greenhouse / Ashby 返 RFC3339；Lever 用 epoch 毫秒。
-// 解不开返 zero time，调用方 sort 时容忍 zero 排最后。
+// parseISOTime —— Greenhouse / Ashby return RFC3339; Lever uses epoch
+// milliseconds. Returns zero time if unparseable; callers sort tolerating
+// zero values sinking to the end.
 func parseISOTime(s string) time.Time {
 	if s == "" {
 		return time.Time{}

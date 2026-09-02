@@ -1,11 +1,11 @@
-// job_source.go —— JobSource aggregate: owner 注册的 job source（root）+
-// JobFingerprint（child entity，dedup 用）+ 创建入参 DTO + source-scoped
-// sentinels。
+// job_source.go — JobSource aggregate: the job source the owner registered (root) +
+// JobFingerprint (child entity, used for dedup) + the create input DTO + source-scoped
+// sentinels.
 //
-// FetchedJob 是 fetcher 跑出来的 value object（Redis 1d TTL，不持久），
-// 见 fetched_job.go。它 references JobSource by ID 但不在这个 aggregate。
+// FetchedJob is the value object the fetcher produces (Redis, 1d TTL, not persisted),
+// see fetched_job.go. It references JobSource by ID but isn't part of this aggregate.
 //
-// 配合 docs/design/job-loop.md 读。
+// Read alongside docs/design/job-loop.md.
 
 package jobsmodel
 
@@ -14,16 +14,17 @@ import (
 	"time"
 )
 
-// JobSource —— aggregate root。Kind 决定 fetcher adapter；Config 是
-// per-kind 形状的 raw JSON bytes（{"company":"vercel"} / {"categories":
-// [...]} / 空对象），各 adapter 自己 unmarshal 到 typed struct，让 domain
-// 不沾 schemaless `any`。
+// JobSource — the aggregate root. Kind determines the fetcher adapter; Config is
+// raw JSON bytes shaped per-kind ({"company":"vercel"} / {"categories":
+// [...]} / an empty object) — each adapter unmarshals its own into a typed struct, so the
+// domain never touches a schemaless `any`.
 type JobSource struct {
 	CreatedAt time.Time
-	// LastFetchedAt —— 上一次**成功**取到东西是什么时候。
+	// LastFetchedAt — when the last **successful** fetch happened.
 	LastFetchedAt *time.Time
-	// LastAttemptedAt / LastError —— 上一次**试过**是什么时候、结果如何（空串 = 成了）。
-	// 少了这两个，「取过但每次都失败」在界面上跟「从没取过」是同一句话（F-E-18）。
+	// LastAttemptedAt / LastError — when the last **attempt** happened and its outcome
+	// (empty string = succeeded). Without these two, "fetched but failing every time" reads
+	// identically to "never fetched" in the UI (F-E-18).
 	LastAttemptedAt *time.Time
 	LastError       string
 	ID              string
@@ -33,16 +34,17 @@ type JobSource struct {
 	Config          []byte
 }
 
-// JobFingerprint —— JobSource aggregate 内的 child entity。
-// (source_id, external_id) 见过就不再返回；CASCADE 跟 source 一起删。
+// JobFingerprint — a child entity inside the JobSource aggregate.
+// Once (source_id, external_id) has been seen, it's never returned again; CASCADEs with
+// its source on delete.
 type JobFingerprint struct {
 	FirstSeenAt time.Time
 	SourceID    string
 	ExternalID  string
 }
 
-// CreateJobSourceInput —— usecase 层 register_source 的入参。
-// Config 是 raw JSON bytes（同 JobSource.Config 形状）。
+// CreateJobSourceInput — the usecase-layer input for register_source.
+// Config is raw JSON bytes (same shape as JobSource.Config).
 type CreateJobSourceInput struct {
 	OwnerID string
 	Kind    string
@@ -52,11 +54,11 @@ type CreateJobSourceInput struct {
 
 // JobSource-scoped sentinels.
 var (
-	// ErrJobSourceNotFound —— 按 id 反查未命中（owner 不匹配也视同未命中）。
+	// ErrJobSourceNotFound — lookup by id missed (an owner mismatch also counts as a miss).
 	ErrJobSourceNotFound = errors.New("job source not found")
-	// ErrJobSourceKindInvalid —— register_source 传了非法 kind。
+	// ErrJobSourceKindInvalid — register_source was passed an invalid kind.
 	ErrJobSourceKindInvalid = errors.New("job source kind invalid")
-	// ErrJobSourceConfigInvalid —— config JSON shape 跟 kind 不匹配
-	// （缺 company / categories 等必填字段）。
+	// ErrJobSourceConfigInvalid — the config JSON shape doesn't match the kind
+	// (missing required fields like company / categories).
 	ErrJobSourceConfigInvalid = errors.New("job source config invalid")
 )

@@ -1,13 +1,13 @@
-// ashby.go —— Ashby public posting API。
+// ashby.go —— Ashby public posting API.
 //
 //	GET {base}/posting-api/job-board/{slug}
 //
-// 返回 {"jobs": [...]}。每条 { id, title, department, team, location,
-// isRemote, employmentType, publishedAt (ISO), jobUrl, applyUrl,
-// descriptionHtml, descriptionPlain }。
+// Returns {"jobs": [...]}. Each entry has { id, title, department, team,
+// location, isRemote, employmentType, publishedAt (ISO), jobUrl, applyUrl,
+// descriptionHtml, descriptionPlain }.
 //
-// 注意：team / department / location 都可能 null（agent 上的真 fixture
-// 见到过），解到 *string 兜底 nil。
+// Note: team / department / location can all be null (seen in a real
+// fixture on the agent) — decoded into *string with nil as the fallback.
 
 package fetch
 

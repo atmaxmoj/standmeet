@@ -1,18 +1,22 @@
-// Package fetch —— job source fetcher adapters。每个 adapter 知道一个 ATS
-// 或 job board 的具体 API 形状（URL pattern、JSON shape、字段映射），统一
-// 输出 jobsmodel.FetchedJob 数组。
+// Package fetch —— job source fetcher adapters. Each adapter knows the concrete API
+// shape of one ATS or job board (URL pattern, JSON shape, field mapping), and all of
+// them output a uniform jobsmodel.FetchedJob array.
 //
-// J phase 起搬进 plugins/jobs/fetch/，作为 jobs plugin 的 fetch sub-package。
+// Starting at the J phase this moves into plugins/jobs/fetch/, as the jobs plugin's
+// fetch sub-package.
 //
-// 每个 adapter 的 base URL 从 env 覆写：production 不设 env，走 const 真 URL；
-// e2e/dev 把 env 指向 docker compose 起的 external-mock 容器。
+// Each adapter's base URL is overridable via env: production sets no env and uses the
+// real const URL; e2e/dev point the env at the external-mock container docker compose
+// starts.
 //
-// 见 docs/design/job-loop.md "状态分工" 决策 L.1：StandMeet 不 reason job /
-// 不打分 / 不排序——adapter 只把"今天这个源现在有哪些 job"原样输出。
+// See docs/design/job-loop.md, the "state division of labor" decision L.1: StandMeet
+// does not reason about a job / score it / rank it — an adapter only outputs, as-is,
+// "what jobs this source has right now".
 //
-// **Config 形状**：register_source 传上来是 schemaless object；写 DB 时
-// marshal 成 JSON bytes；fetcher 收到 []byte，第一行就 Unmarshal 到自己的
-// typed struct。这样 domain / fetch 边界都不沾 `any`。
+// **Config shape**: what register_source passes up is a schemaless object; it gets
+// marshaled to JSON bytes at write time; the fetcher receives []byte and, as its
+// first move, unmarshals into its own typed struct. This keeps the domain / fetch
+// boundary free of `any`.
 package fetch
 
 import (
@@ -27,7 +31,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
 
-// Source kind strings —— 跟 schema CHECK 约束 + register_source 入参对齐。
+// Source kind strings —— aligned with the schema CHECK constraint + register_source input.
 const (
 	KindGreenhouse      = "greenhouse"
 	KindLever           = "lever"
@@ -37,10 +41,10 @@ const (
 	KindHNHiring        = "hn_hiring"
 	KindSmartRecruiters = "smartrecruiters"
 	KindWorkable        = "workable"
-	// KindJBA —— J.6a: JobBoardAggregator (Feashliaa) 聚合源；详见 jba.go。
+	// KindJBA —— J.6a: JobBoardAggregator (Feashliaa) aggregated source; see jba.go for details.
 	KindJBA = "jba"
-	// KindWorkday / KindBambooHR —— J.6b: 两个直 ATS adapter (跟 greenhouse
-	// 同 strategy)；不依赖 JBA。
+	// KindWorkday / KindBambooHR —— J.6b: two direct ATS adapters (same strategy as
+	// greenhouse); do not depend on JBA.
 	KindWorkday  = "workday"
 	KindBambooHR = "bamboohr"
 	// KindJobicy / KindRemotive / KindHimalayas / KindWorkingNomads — remote-jobs
@@ -67,29 +71,38 @@ const (
 	decimalRadix = 10
 )
 
-// Fetcher —— 单个 source kind 的契约。caller 传 raw config bytes（per-kind
-// schema），adapter 内部 Unmarshal 到 typed struct + 拼 URL + GET + parse。
+// Fetcher —— the contract for a single source kind. Caller passes raw config bytes
+// (per-kind schema); the adapter internally unmarshals to a typed struct, builds the
+// URL, GETs, and parses.
 type Fetcher interface {
 	Fetch(ctx context.Context, cfgRaw []byte) ([]jobsmodel.FetchedJob, error)
 }
 
-// Accountant —— **可选**实现：交代这一趟 adapter 自己内部做了什么取舍。
+// Accountant —— an **optional** implementation: an adapter accounts for whatever
+// trade-offs it made internally on this run.
 //
-// 为什么是可选的：大多数 adapter 一次请求把上游给的全拿回来，没有内部取舍可交代。
-// 而**逐条取的源**（HN 一条评论一次请求）不一样 —— 它会跳过取失败的、跳过被删的、
-// 撞到条数上限就停，而这三件事在 `[]FetchedJob` 里长得一模一样：条数变少而已。
-// 真环境里因此出现过「262 条评论进来 1 条，没有任何一处说得出为什么」（F-E-19）。
+// Why optional: most adapters make one request and get back everything the upstream
+// gave, so there's no internal trade-off to account for. But **sources fetched item
+// by item** (HN, one request per comment) are different — they skip ones that failed
+// to fetch, skip ones that were deleted, and stop once they hit a count cap, and all
+// three of these look identical in a `[]FetchedJob`: the count is just smaller.
+// In a real environment this produced "262 comments went in, 1 came out, with nothing
+// anywhere saying why" (F-E-19).
 //
-// 实现它的 adapter 由 Registry 优先走这条路；没实现的照旧走 Fetch。
+// The Registry prefers this path for any adapter that implements it; adapters that
+// don't still go through Fetch as before.
 type Accountant interface {
 	FetchAccounted(ctx context.Context, cfgRaw []byte) (Accounted, error)
 }
 
-// Accounted —— 一趟取数的账：拿到了什么 + 上游一共有多少 + 我们看了多少 + 按原因跳过多少。
+// Accounted —— the ledger for one fetch run: what we got + how much the upstream
+// says exists in total + how much we looked at + how much was skipped and why.
 //
-// `Available` 是**上游自己说的**总量（不知道就是 0）；`Read` 是我们真的过了一遍的条数；
-// `Skipped` 按原因分开计数 —— 「取失败」和「这条被删了」必须分得开，
-// 混成一个数字就等于没数（那正是 F-E-19 的成因）。
+// `Available` is the total **the upstream itself reports** (0 when it doesn't say);
+// `Read` is how many entries we actually walked through; `Skipped` is counted
+// per-reason — "failed to fetch" and "this one was deleted" must stay separate,
+// collapsing them into one number is the same as not counting at all (that's exactly
+// what caused F-E-19).
 type Accounted struct {
 	Skipped   map[string]int
 	Jobs      []jobsmodel.FetchedJob
@@ -98,13 +111,13 @@ type Accounted struct {
 	Truncated bool
 }
 
-// Registry —— kind → Fetcher 的注册中心。usecases 拿这个 dispatch。
+// Registry —— the kind → Fetcher registry. usecases dispatch through this.
 type Registry struct {
 	fetchers map[string]Fetcher
 }
 
-// BaseURLs —— 每个 adapter 的 base URL 覆写。任何空字符串走 const 真 URL。
-// e2e 启动 backend 时通过 env 解到这里。
+// BaseURLs —— per-adapter base URL overrides. Any empty string falls back to the real
+// const URL. e2e resolves these from env when it starts the backend.
 type BaseURLs struct {
 	Greenhouse      string
 	Lever           string
@@ -124,8 +137,8 @@ type BaseURLs struct {
 	Recruitee       string
 }
 
-// New 构造 Registry。BaseURLs 可单独设（e2e mock 时塞 fake server 地址），
-// 任何 zero string 走 const 真 URL。
+// New constructs a Registry. BaseURLs can be set individually (e2e mocks plug in fake
+// server addresses); any zero string falls back to the real const URL.
 func New(b *BaseURLs) *Registry {
 	if b == nil {
 		b = &BaseURLs{}
@@ -154,8 +167,8 @@ func New(b *BaseURLs) *Registry {
 	}
 }
 
-// Fetch 按 kind 路由到对应 adapter。返 jobsmodel.ErrJobSourceKindInvalid 如果
-// kind 不认识。
+// Fetch routes by kind to the matching adapter. Returns jobsmodel.ErrJobSourceKindInvalid
+// when the kind is unrecognized.
 func (r *Registry) Fetch(
 	ctx context.Context, kind string, cfgRaw []byte,
 ) ([]jobsmodel.FetchedJob, error) {
@@ -166,8 +179,9 @@ func (r *Registry) Fetch(
 	return acc.Jobs, nil
 }
 
-// FetchAccounted —— 跟 Fetch 同一条路，但**把账也带回来**。实现了 Accountant 的 adapter
-// 走它自己的那条；没实现的，账就是「拿到几条、看了几条，没有跳过」。
+// FetchAccounted —— the same path as Fetch, but **brings the ledger back too**. An
+// adapter implementing Accountant takes its own path; for one that doesn't, the
+// ledger is simply "got N, read N, nothing skipped".
 func (r *Registry) FetchAccounted(
 	ctx context.Context, kind string, cfgRaw []byte,
 ) (Accounted, error) {
@@ -192,37 +206,47 @@ func (r *Registry) FetchAccounted(
 	return Accounted{Jobs: out, Read: len(out)}, nil
 }
 
-// readableJobs —— 每个源交回来的字都要变成**文字**再进池子（F-E-7）。
+// readableJobs —— every character each source hands back must turn into **plain
+// text** before it enters the pool (F-E-7).
 //
-// 为什么在这里而不是十个适配器里各补一刀：这是它们唯一的汇合点。板子给的是 HTML
-// （greenhouse 还是双重转义的），而 title 会直接印在 `/admin/listings` 上、body_text 会直接
-// 喂给 owner 的模型 —— 两处都是给人/给模型读的位置，标记在那儿不是内容。适配器仍然
-// **不解析结构**（Company | Title | … 那种切分照旧留给 Claude），这一步只解开传输层的编码。
+// Why here and not patched into ten adapters separately: this is their only meeting
+// point. The board gives us HTML (greenhouse's is even double-escaped), and title
+// gets printed straight onto `/admin/listings` while body_text goes straight into the
+// owner's model — both are positions meant for a human/model to read, and markup has
+// no business sitting there. Adapters still **don't parse structure** (splitting
+// into Company | Title | … stays Claude's job); this step only unwinds the
+// transport-layer encoding.
 func readableJobs(jobs []jobsmodel.FetchedJob) []jobsmodel.FetchedJob {
 	for i := range jobs {
 		jobs[i].Title = strings.TrimSpace(plaintext.FromHTML(jobs[i].Title))
 		jobs[i].BodyText = plaintext.FromHTML(jobs[i].BodyText)
-		// company 也走同一刀（F-E-30）。这一行以前只 TrimSpace —— 而 title 和 body_text
-		// 就在它上下两行解着 HTML。代价现形在最要命的地方：一份寄给招聘方的简历 PDF，
-		// 页眉上印着 `STORE MANAGER · FOR JACK &AMP; JONES`（prod 上真渲出来的）。
-		// 真 RemoteOK 发的就是 `"company":"JACK &amp; JONES"`。
+		// company gets the same treatment (F-E-30). This line used to just TrimSpace —
+		// while the lines right above and below it were decoding HTML for title and
+		// body_text. The cost showed up in the worst possible place: a resume PDF sent
+		// to a recruiter, header printed as `STORE MANAGER · FOR JACK &AMP; JONES`
+		// (this actually rendered in prod). The real RemoteOK payload sends exactly
+		// `"company":"JACK &amp; JONES"`.
 		jobs[i].Company = strings.TrimSpace(plaintext.FromHTML(jobs[i].Company))
 		jobs[i].Location = normalizeLocation(jobs[i].Location)
 	}
 	return jobs
 }
 
-// normalizeLocation —— 逗号分段的地点串，规范化一次（UX-88）。
+// normalizeLocation —— normalizes a comma-separated location string, once (UX-88).
 //
-// RemoteOK **自己**发的就是 `"San Francisco, "`：城市有、地区空，分隔符照留。忠实映射把它原样
-// 带进池子，于是 `/admin/listings` 上读作 `remoteok · Karratha,` —— owner 会以为后面还有字被截了。
-// 修在这里而不是在那一列的渲染处：location 有好几个消费者（列表、`jobs.show`、简历草稿里的
-// JD 摘要），在展示处补丁就是每处各修一遍，而且下一个消费者又会忘（全局规矩第 4 条：
-// **外来数据在入口处规范化一次，下游当字段总在**）。
+// RemoteOK itself sends exactly `"San Francisco, "`: city present, region empty, the
+// separator left dangling. A faithful mapping carries it through as-is, so
+// `/admin/listings` reads `remoteok · Karratha,` — the owner assumes more text got
+// cut off after it. Fixed here rather than at that column's render site: location has
+// several consumers (the listing, `jobs.show`, the JD summary in a resume draft), and
+// patching at the display site means fixing each one separately, with the next
+// consumer bound to forget again (global rule #4: **normalize foreign data once at
+// the entry point, downstream treats the field as always present**).
 //
-// 规则是「按分隔符切开、丢掉空段、再接回去」，不是「把结尾的逗号砍掉」——
-// 后者管不了 `", Australia"` 和 `"Berlin, , DE"`，而它们是同一件事的另外两个面。
-// 真的两段（`"Sydney, Australia"`）原样穿过。
+// The rule is "split on the separator, drop empty segments, rejoin" — not "strip a
+// trailing comma". The latter can't handle `", Australia"` and `"Berlin, , DE"`,
+// which are two faces of the same problem. A genuine two-part location
+// (`"Sydney, Australia"`) passes through unchanged.
 func normalizeLocation(s string) string {
 	parts := strings.Split(s, ",")
 	kept := make([]string, 0, len(parts))
@@ -231,12 +255,14 @@ func normalizeLocation(s string) string {
 			kept = append(kept, trimmed)
 		}
 	}
-	// 末尾还可能挂着别的裸分隔符（`"Remote -"`），那不是逗号切得开的。
+	// The tail can still carry a different bare separator (`"Remote -"`), which the
+	// comma split can't catch.
 	return strings.TrimRight(strings.Join(kept, ", "), " -–—;/|")
 }
 
-// ValidateKindConfig —— 在 register_source 路径上校验 (kind, config) 形状：
-// kind 是否在 enum + config JSON 解到 per-kind 类型 + 必填字段非空。
+// ValidateKindConfig —— validates the (kind, config) shape on the register_source
+// path: whether kind is in the enum + whether config JSON decodes into the per-kind
+// type + required fields are non-empty.
 func ValidateKindConfig(kind string, cfgRaw []byte) error {
 	v, ok := configValidators[kind]
 	if !ok {
@@ -248,8 +274,8 @@ func ValidateKindConfig(kind string, cfgRaw []byte) error {
 	return nil
 }
 
-// configValidators 是 kind → cfg-shape-check 的 dispatch 表。每个 entry
-// 复用 adapter 自己的 typed config struct，保持唯一真理源。
+// configValidators is the kind → cfg-shape-check dispatch table. Each entry reuses
+// the adapter's own typed config struct, keeping a single source of truth.
 var configValidators = map[string]func([]byte) error{
 	KindGreenhouse:       validateGreenhouseCfg,
 	KindLever:            validateLeverCfg,
@@ -270,36 +296,44 @@ var configValidators = map[string]func([]byte) error{
 	KindJobPostingJSONLD: validateJSONLDCfg,
 }
 
-// validateEmptyCfg —— remoteok / hn_hiring 不需要任何 config，传啥都接受。
+// validateEmptyCfg —— remoteok / hn_hiring need no config at all; accepts whatever is passed.
 func validateEmptyCfg(_ []byte) error { return nil }
 
-// ErrUpstream —— adapter 收到非 2xx HTTP（含 5xx）。caller 可 errors.Is
-// 区分"源死了"vs"配置错"。
+// ErrUpstream —— the adapter got a non-2xx HTTP response (5xx included). Callers can
+// errors.Is to distinguish "the source is down" from "misconfigured".
 var ErrUpstream = errors.New("upstream job board error")
 
-// 下面三条**包着** ErrUpstream（`%w`），所以既有的 `errors.Is(err, ErrUpstream)` 照旧成立，
-// 而想分得更细的地方可以往下问一层。
+// The three below **wrap** ErrUpstream (`%w`), so an existing `errors.Is(err,
+// ErrUpstream)` still holds, and anywhere that wants finer detail can ask one level
+// deeper.
 //
-// **为什么要分**：owner 那一行只写「下一步做什么」，而这三种处境的下一步互不相同 ——
-// 搬家了要去找新地址；没有这块板子要去改拼错的 slug；被限流则什么都不用做。
-// 以前它们挤在同一个类里，于是同一句 "it may have moved" 对 404 说了假话，
-// 把 owner 支去找一个不存在的新地址（F-E-28，prod 上真撞到过）。
-// 一个错误类塌掉，为它写的那句话就永远出不来（[[collapsed-error-class-kills-its-own-branch]]）。
+// **Why split them**: the line an owner reads only says "what to do next", and these
+// three situations have different next actions — a move means go find the new
+// address; no board at that address means go fix the typo'd slug; rate-limited means
+// do nothing at all. They used to be crammed into one class, so the same "it may have
+// moved" line lied about a 404, sending the owner off to find an address that doesn't
+// exist (F-E-28, actually hit in prod). When one error class collapses, the sentence
+// written for it can never come out ([[collapsed-error-class-kills-its-own-branch]]).
 var (
-	// ErrUpstreamMoved —— 3xx。板子换地址了，而这个 client 故意不跟随重定向（SSRF 硬化）。
+	// ErrUpstreamMoved —— 3xx. The board changed address, and this client deliberately
+	// doesn't follow redirects (SSRF hardening).
 	ErrUpstreamMoved = fmt.Errorf("%w: the board redirected us", ErrUpstream)
-	// ErrUpstreamNoBoard —— 404 / 410。这个地址上没有板子：多半是 company slug 拼错，
-	// 或这家公司不再用这个 ATS 了。
+	// ErrUpstreamNoBoard —— 404 / 410. There's no board at that address: most likely a
+	// typo'd company slug, or this company stopped using this ATS.
 	ErrUpstreamNoBoard = fmt.Errorf("%w: no board at that address", ErrUpstream)
-	// ErrUpstreamBusy —— 429 / 503。板子让我们慢一点。owner 无事可做，下一轮会再试。
+	// ErrUpstreamBusy —— 429 / 503. The board asked us to slow down. There's nothing for
+	// the owner to do; the next cycle will retry.
 	ErrUpstreamBusy = fmt.Errorf("%w: the board asked us to slow down", ErrUpstream)
 )
 
-// ErrUpstreamSchema —— 源回了 2xx 但 payload shape 不符（字段缺、JSON 解不开）。
-// 通常是 fixture 漂移或源改 API 字段。
+// ErrUpstreamSchema —— the source returned 2xx but the payload shape doesn't match
+// (missing fields, JSON that won't decode). Usually fixture drift or the source
+// changing its API fields.
 var ErrUpstreamSchema = errors.New("upstream schema mismatch")
 
-// ErrUpstreamAuth —— 上游拒了这把凭据。**必须跟 ErrUpstreamSchema 分开**：owner 要采取的
-// 下一步完全不同（换 token vs. 修适配器），而真 Workable 把认证失败伪装成后者 ——
-// 坏 token 它回 `302 → /oops`（HTML），跟着跳就变成「2xx 但解不开」（F-E-17）。
+// ErrUpstreamAuth —— the upstream rejected this credential. **Must stay separate from
+// ErrUpstreamSchema**: the owner's next action is completely different (swap the
+// token vs. fix the adapter), and real Workable disguises an auth failure as the
+// latter — a bad token gets a `302 → /oops` (HTML) reply, and following it turns into
+// "2xx but won't decode" (F-E-17).
 var ErrUpstreamAuth = errors.New("upstream rejected the credential")

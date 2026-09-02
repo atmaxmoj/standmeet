@@ -1,17 +1,21 @@
-// applications_views.go —— applications.commit tool 响应中 text 部分的 JSON 形状。
+// applications_views.go —— the JSON shape of the text part in the
+// applications.commit tool response.
 
 package jobsmcp
 
 import "github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 
-// committedApplicationViewT —— commit 返回 text 部分。PDF 走 EmbeddedResource。
+// committedApplicationViewT —— the text part of the commit response. The
+// PDF travels as an EmbeddedResource instead.
 //
-// access_code 是 plaintext —— recruiter 扫 QR 进 visitor chat 时携带的就是这个，
-// 但 owner 也可以直接复制 QRURL 共享。
+// access_code is plaintext — it's what the recruiter carries in when they
+// scan the QR into visitor chat, but the owner can also just copy QRURL
+// to share directly.
 //
-// next_action 是 Phase 4 决定：不做独立的 "submit" MCP tool（Playwright MCP
-// 是 owner-side install 的）—— 而是在 commit 响应里塞一个结构化 hint，让
-// Claude 看完就知道下一步要驱动本地 Playwright MCP 去填表 + 上传 PDF。
+// next_action is a Phase 4 decision: instead of a standalone "submit" MCP
+// tool (Playwright MCP is an owner-side install), the commit response
+// carries a structured hint, so Claude reads it and knows the next step
+// is to drive the local Playwright MCP to fill the form and upload the PDF.
 type committedApplicationViewT struct {
 	NextAction    submissionHint `json:"next_action"`
 	ApplicationID string         `json:"application_id"`
@@ -21,16 +25,19 @@ type committedApplicationViewT struct {
 	Status        string         `json:"status"`
 	CreatedAt     string         `json:"created_at"`
 	CodeExpiresAt string         `json:"code_expires_at,omitempty"`
-	// Warning —— 投出去了，但有件事 owner 该知道（omitempty：没有就不出现）。
+	// Warning —— the application went out, but there's something the owner
+	// should know (omitempty: absent when there's nothing to say).
 	Warning string `json:"warning,omitempty"`
-	// JobSnapshot 放末位：govet fieldalignment（它是这一堆里最大的那个）。
+	// JobSnapshot goes last: govet fieldalignment (it's the biggest field here).
 	JobSnapshot fetchedJobView `json:"job_snapshot"`
 }
 
-// submissionHint —— Phase 4 next-step contract。Claude 读 type='submit_via_playwright'
-// 就知道去调本地装的 Playwright MCP；target_url 是 JD 投递页；attachment_uri
-// 指向同响应里的 PDF EmbeddedResource（standmeet://application/<id>）；fill_fields
-// 把 resume_content.identity 抽出来给表单填写做参考。
+// submissionHint —— the Phase 4 next-step contract. Claude reads
+// type='submit_via_playwright' and knows to call the locally-installed
+// Playwright MCP; target_url is the JD's application page; attachment_uri
+// points at the PDF EmbeddedResource in the same response
+// (standmeet://application/<id>); fill_fields pulls resume_content.identity
+// out as reference for filling the form.
 type submissionHint struct {
 	FillFields    map[string]string `json:"fill_fields"`
 	Type          string            `json:"type"`

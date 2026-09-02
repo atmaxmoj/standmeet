@@ -1,11 +1,15 @@
-// drafts.go —— GET /api/admin/drafts（列表 + 单份详情）。
+// drafts.go — GET /api/admin/drafts (list + single-draft detail).
 //
-// 从 routes.go 拆出来守 350 行上限；路由挂载仍在 Mount 里，这里只有 drafts 这一族的
-// 视图形状和处理器。
+// Split out of routes.go to stay under the 350-line cap; route mounting
+// still lives in Mount, this file only has the view shapes and handlers for
+// the drafts family.
 //
-// 两个视图都带 `resume_content`，而且是**同一个 domain 形状直通**：列表那份给卡片上的
-// 缩略图，详情那份给 composer。它们以前只有详情带内容，于是卡片画的是一份写死的假简历
-// （F-E-20）—— 一个面看得见真东西、另一个面看不见，两边就会各画各的。
+// Both views carry `resume_content`, and it's **the same domain shape
+// passed through directly**: the list one feeds the card thumbnail, the
+// detail one feeds the composer. Previously only the detail view carried
+// content, so the card rendered a hard-coded fake resume (F-E-20) — one
+// surface could see the real thing and the other couldn't, so the two drew
+// different pictures.
 
 package jobsadmin
 
@@ -23,10 +27,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
 
-// draftView —— 列表里的一份草稿。**带上 resume_content**：卡片上那张缩略图画的就是这一份，
-// 而它以前画的是一份设计期的假简历（挂着 owner 的真名声称 Stanford 博士、Google Brain 任职，
-// 两份不同的草稿画出同一张图 —— F-E-20）。内容本来就在 ListByOwner 取回的行里，这里只是
-// 别再把它丢掉。
+// draftView — a single draft in the list. **Carries resume_content**: the
+// card thumbnail renders exactly this, and it used to render a design-time
+// fake resume (claiming, under the owner's real name, a Stanford PhD and a
+// stint at Google Brain — two different drafts rendered the same picture,
+// F-E-20). The content was already in the row ListByOwner fetches; this
+// just stops discarding it.
 type draftView struct {
 	UpdatedAt     time.Time               `json:"updated_at"`
 	ID            string                  `json:"id"`
@@ -49,7 +55,8 @@ func listDrafts(deps Deps) http.HandlerFunc {
 	}
 }
 
-// draftDetailView —— #52: composer 打开时拿真 resume_content(+ job context)。
+// draftDetailView — #52: the composer fetches the real resume_content
+// (+ job context) on open.
 type draftDetailView struct {
 	ID            string                  `json:"id"`
 	Company       string                  `json:"company"`

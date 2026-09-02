@@ -1,36 +1,39 @@
-// resume_project.go —— ResumeEducation + ResumeSkillSet。STAR project 段
-// 已从 design 中移除（design admin.js ResumePage 只渲 experience，不渲
-// projects）。保留这个文件是为了让 ResumeContent 字段定义分散在两个 file
-// 不致超 lint 行数；rename 不动以减少 import 改动。
+// resume_project.go — ResumeEducation + ResumeSkillSet. The STAR project section has
+// already been removed from the design (design admin.js's ResumePage only renders
+// experience, not projects). This file is kept around so that spreading ResumeContent's
+// field definitions across two files stays under the lint line limit; left unrenamed to
+// avoid touching imports.
 
 package jobsmodel
 
-// ResumeEducation —— 一段教育经历。
+// ResumeEducation — one education entry.
 type ResumeEducation struct {
 	Period ResumePeriod `json:"period"`
 	School string       `json:"school"`
 	Degree string       `json:"degree"`
 }
 
-// ResumeSkillSet —— 一组同 category 技能。design 把 skills 渲在左 rail，
-// 单行 "category: item1, item2" 简化输出；Items 可以为空（只显 category）。
+// ResumeSkillSet — a group of skills sharing one category. Design renders skills in the
+// left rail as a single "category: item1, item2" line; Items may be empty (category
+// only).
 type ResumeSkillSet struct {
 	Category string   `json:"category"`
 	Items    []string `json:"items"`
 }
 
-// ResumeSocial —— 公开 social 资料（recruiter 可验证）。
+// ResumeSocial — a public social profile (a recruiter can verify it).
 //
-// Kind 取值是 enum-ish 但不强约束（owner 想加 mastodon / bluesky / 任意
-// platform 都行）。Label 缺省回退到 Kind。Handle 可以是 url 或 @handle。
+// Kind's values are enum-ish but not strictly enforced (the owner can add mastodon /
+// bluesky / any platform they like). Label falls back to Kind when unset. Handle can be a
+// url or an @handle.
 type ResumeSocial struct {
 	Kind   string `json:"kind"`
 	Label  string `json:"label"`
 	Handle string `json:"handle"`
 }
 
-// ResumeCustom —— 左 rail 自定义字段（languages / certifications /
-// "I read Kafka in German" 之类杂项）。Label : Value，渲染在 skills 下方。
+// ResumeCustom — a custom field for the left rail (languages / certifications / odds
+// and ends like "I read Kafka in German"). Label : Value, rendered below skills.
 type ResumeCustom struct {
 	Label string `json:"label"`
 	Value string `json:"value"`

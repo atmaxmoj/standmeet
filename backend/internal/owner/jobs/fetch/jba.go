@@ -1,26 +1,29 @@
-// jba.go —— JobBoardAggregator (Feashliaa) 适配器。
+// jba.go —— JobBoardAggregator (Feashliaa) adapter.
 //
-// JBA 是 community-maintained 的 OSS scraper：每天用 GitHub Actions 扒
-// Greenhouse / Lever / Ashby / Workday / BambooHR 等真 ATS 的公开 endpoint
-// 聚合到 ~1.5M jobs，按 25k jobs/chunk 切 58 个 .json.gz 静态托管到
-// GitHub Pages：
+// JBA is a community-maintained OSS scraper: every day it uses GitHub Actions to scrape
+// public endpoints of real ATSes — Greenhouse / Lever / Ashby / Workday / BambooHR —
+// aggregating ~1.5M jobs, sliced into 58 .json.gz chunks of 25k jobs each, statically
+// hosted on GitHub Pages:
 //
 //	manifest: {base}/data/chunks/jobs_manifest.json
 //	  → {"chunks": ["jobs_chunk_0.json.gz", ...], "totalJobs": N, "last_updated": "..."}
 //	chunk:    {base}/data/chunks/{name}.json.gz
 //	  → [{company, title, location, url, ats, skill_level, scraped_at, ...}, ...]
 //
-// 这条比自己维护 8 个 ATS adapter 经济：JBA 包揽 scraping + reposting +
-// 死链清理，本地拉下来按 owner 的 filter 过一遍即可。代价是数据延迟 ≤ 1 天、
-// license 是 CC BY-NC（owner 自用 OK；将来 product 用要换源 / 自维护后端）。
+// This is cheaper than maintaining 8 ATS adapters ourselves: JBA already handles
+// scraping + reposting + dead-link cleanup, so we just pull it locally and filter by
+// the owner's criteria. The cost is data latency of ≤ 1 day, and the license is
+// CC BY-NC (fine for the owner's own use; a future product use needs a different
+// source / a self-maintained backend).
 //
-// Config 形状（per-source register_source 入参）：
+// Config shape (per-source register_source input):
 //
 //	{ "title_keywords": ["..."], "location": "...",
 //	  "ats": "...", "max_chunks": N }
 //
-// 全 optional。空 filter = 不过滤；max_chunks 默认 5（≈125k jobs）兜底，
-// 防止单个 fetch_new 拽完 1.5M 全集；owner 想全跑就显式设 max_chunks=58。
+// All optional. An empty filter means no filtering; max_chunks defaults to 5
+// (≈125k jobs) as a safety net, so a single fetch_new can't drag down the whole
+// 1.5M set — an owner who wants everything sets max_chunks=58 explicitly.
 
 package fetch
 
@@ -39,20 +42,23 @@ import (
 )
 
 const (
-	// jbaDefaultBase —— production GitHub Pages 域名；e2e 用 env 覆写到
-	// docker-compose 起的 external-mock 容器里挂 fixture chunks。
+	// jbaDefaultBase —— the production GitHub Pages domain; e2e overrides it via env to
+	// the external-mock container docker-compose starts, which serves fixture chunks.
 	jbaDefaultBase = "https://feashliaa.github.io/job-board-aggregator"
-	// jbaManifestPath / jbaChunkDir —— GitHub Pages 上的固定相对路径。
+	// jbaManifestPath / jbaChunkDir —— fixed relative paths on GitHub Pages.
 	jbaManifestPath = "/data/chunks/jobs_manifest.json"
 	jbaChunkDir     = "/data/chunks/"
-	// jbaDefaultMaxChunks —— 不设 max_chunks 时拉这么多 chunk（每个 25k jobs，
-	// 总量约 125k 已经足够大多数 filter；owner 想全集自己设 max_chunks=58）。
+	// jbaDefaultMaxChunks —— how many chunks to pull when max_chunks isn't set (25k jobs
+	// each, so ~125k total is already enough for most filters; an owner who wants the
+	// full set sets max_chunks=58 explicitly).
 	jbaDefaultMaxChunks = 5
-	// jbaMaxChunksCap —— 上限兜底；现 manifest 58 chunks，给点冗余。
+	// jbaMaxChunksCap —— hard ceiling as a safety net; the manifest currently has 58
+	// chunks, so this leaves some headroom.
 	jbaMaxChunksCap = 128
 )
 
-// jbaFetcher —— Fetcher 实现。client / base 复用 fetch package 内共享池子。
+// jbaFetcher —— Fetcher implementation. client / base reuse the shared pool inside the
+// fetch package.
 type jbaFetcher struct {
 	client *http.Client
 	base   string
@@ -65,9 +71,9 @@ func newJBAFetcher(client *http.Client, envBase string) *jbaFetcher {
 	}
 }
 
-// jbaConfig —— register_source 传上来的 JSON config 形状。
-// 字段顺序按 govet fieldalignment：strings 先（ptr+len 各 16 byte），
-// slice 居中（ptr 在 header 头），int 收尾。
+// jbaConfig —— the JSON config shape passed up by register_source.
+// Field order follows govet fieldalignment: strings first (ptr+len 16 bytes each),
+// slice in the middle (ptr leads the header), int last.
 type jbaConfig struct {
 	Location      string   `json:"location"`
 	ATS           string   `json:"ats"`
@@ -75,16 +81,17 @@ type jbaConfig struct {
 	MaxChunks     int      `json:"max_chunks"`
 }
 
-// jbaManifest —— GitHub Pages manifest 形状（jba 自己生成）。
-// 字段顺序按 govet fieldalignment：string 先，slice 后，int 收尾。
+// jbaManifest —— the manifest shape on GitHub Pages (jba generates it itself).
+// Field order follows govet fieldalignment: string first, slice next, int last.
 type jbaManifest struct {
 	LastUpdated string   `json:"last_updated"`
 	Chunks      []string `json:"chunks"`
 	TotalJobs   int      `json:"totalJobs"`
 }
 
-// jbaEntry —— gzip 解出来单条 job。salary / is_recruiter 字段忽略
-// (FetchedJob shape 不含；后续 J 期接 score 时再扩)。
+// jbaEntry —— a single job decoded out of the gzip. salary / is_recruiter fields are
+// ignored (the FetchedJob shape doesn't carry them; extend later when a J-phase
+// scoring feature needs them).
 type jbaEntry struct {
 	Company    string `json:"company"`
 	Title      string `json:"title"`
@@ -95,7 +102,7 @@ type jbaEntry struct {
 	ScrapedAt  string `json:"scraped_at"`
 }
 
-// Fetch —— 单源 entry point。
+// Fetch —— single-source entry point.
 func (f *jbaFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
 ) ([]jobsmodel.FetchedJob, error) {
@@ -172,8 +179,8 @@ func (f *jbaFetcher) fetchOneChunk(
 	return entries, nil
 }
 
-// decodeJBAConfig —— 接受空 cfgRaw / 空 JSON object；保留 zero-valued
-// jbaConfig 意为 "不过滤"。
+// decodeJBAConfig —— accepts an empty cfgRaw / empty JSON object; a zero-valued
+// jbaConfig means "no filtering".
 func decodeJBAConfig(raw []byte) (*jbaConfig, error) {
 	cfg := &jbaConfig{}
 	if len(bytes.TrimSpace(raw)) == 0 {
@@ -198,8 +205,8 @@ func pickJBAChunkLimit(req, available int) int {
 	return req
 }
 
-// jbaInitialOutCap —— 预估匹配率 ~1% 估算 out cap；多了无关紧要，少了
-// append 自然 grow。
+// jbaInitialOutCap —— estimates the out cap assuming a ~1% match rate; overshooting
+// is harmless, and undershooting just lets append grow naturally.
 func jbaInitialOutCap(chunkLimit int) int {
 	const approxJobsPerChunk = 25000
 	const approxMatchRatePer100 = 1
@@ -210,8 +217,8 @@ func jbaInitialOutCap(chunkLimit int) int {
 // legit ~25k-job chunk (~12 MiB uncompressed).
 const maxGunzipBytes = 64 << 20 // 64 MiB
 
-// decodeGzippedJSONArray —— body 是 gzipped JSON []jbaEntry。stream
-// gunzip 避免一次性内存膨胀；Decoder.Token 验证起始是 `[`。
+// decodeGzippedJSONArray —— body is gzipped JSON []jbaEntry. Streaming gunzip avoids
+// inflating everything into memory at once; Decoder.Token verifies it starts with `[`.
 func decodeGzippedJSONArray(body []byte) ([]jbaEntry, error) {
 	gr, err := gzip.NewReader(bytes.NewReader(body))
 	if err != nil {
@@ -234,9 +241,9 @@ func decodeGzippedJSONArray(body []byte) ([]jbaEntry, error) {
 	return entries, nil
 }
 
-// jbaMatcher —— register_source config → 单条 entry 是否保留。所有字段
-// optional；空 = pass-through。
-// 字段顺序：strings 先 (ptr 头在前)，slice 紧跟。
+// jbaMatcher —— register_source config → whether a single entry is kept. All fields
+// are optional; empty means pass-through.
+// Field order: strings first (ptr leads), slice right after.
 type jbaMatcher struct {
 	location      string
 	ats           string
@@ -300,8 +307,9 @@ func jbaEntryToDomain(e *jbaEntry) jobsmodel.FetchedJob {
 	}
 }
 
-// validateJBACfg —— register_source 路径上调用。所有字段 optional；空
-// cfg / 空 JSON object 都 OK；只 surface 反序列化失败 + max_chunks 负数。
+// validateJBACfg —— called on the register_source path. All fields are optional;
+// an empty cfg / empty JSON object is fine; only surfaces deserialize failures and
+// a negative max_chunks.
 func validateJBACfg(raw []byte) error {
 	cfg, err := decodeJBAConfig(raw)
 	if err != nil {

@@ -1,5 +1,5 @@
-// job_sources.go —— job_sources + job_fingerprints CRUD。
-// 见 docs/design/job-loop.md。
+// job_sources.go — CRUD for job_sources + job_fingerprints.
+// See docs/design/job-loop.md.
 
 package jobsuc
 
@@ -16,21 +16,23 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc/db"
 )
 
-// errParseSourceID —— source id 解析失败的统一 wrap 前缀（跟 pgstore.ErrParseOwnerIDPrefix 同一形态）。
+// errParseSourceID — the common wrap prefix for a source id parse failure (same shape
+// as pgstore.ErrParseOwnerIDPrefix).
 const errParseSourceID = "parse source id: %w"
 
-// JobSourceRepo —— job_sources + job_fingerprints 两张表的 Repository。
+// JobSourceRepo — the Repository for the two tables job_sources + job_fingerprints.
 type JobSourceRepo struct {
 	pool *pgstore.Pool
 }
 
-// NewJobSourceRepo 构造 JobSourceRepo。
+// NewJobSourceRepo constructs a JobSourceRepo.
 func NewJobSourceRepo(pool *pgstore.Pool) *JobSourceRepo {
 	return &JobSourceRepo{pool: pool}
 }
 
-// Create —— 注册一条新 job source。in.Config 是已 marshal 好的 JSON bytes
-// （usecase 层负责 marshal，让 postgres 层不感知 jsonb 的 Go shape）。
+// Create — registers a new job source. in.Config is already-marshaled JSON bytes
+// (marshaling is the usecase layer's job, so the postgres layer stays unaware of
+// jsonb's Go shape).
 func (r *JobSourceRepo) Create(
 	ctx context.Context, in *jobsmodel.CreateJobSourceInput,
 ) (jobsmodel.JobSource, error) {
@@ -55,7 +57,8 @@ func (r *JobSourceRepo) Create(
 	return toDomainJobSource(&row), nil
 }
 
-// GetByID —— 按 (id, owner_id) 查一条；未命中 / owner 不匹配返 ErrJobSourceNotFound。
+// GetByID — looks up one row by (id, owner_id); a miss / owner mismatch returns
+// ErrJobSourceNotFound.
 func (r *JobSourceRepo) GetByID(
 	ctx context.Context, ownerID, id string,
 ) (jobsmodel.JobSource, error) {
@@ -80,7 +83,7 @@ func (r *JobSourceRepo) GetByID(
 	return toDomainJobSource(&row), nil
 }
 
-// ListByOwner —— admin / MCP list_sources 走这条。
+// ListByOwner — the path admin / MCP list_sources goes through.
 func (r *JobSourceRepo) ListByOwner(
 	ctx context.Context, ownerID string,
 ) ([]jobsmodel.JobSource, error) {
@@ -100,7 +103,7 @@ func (r *JobSourceRepo) ListByOwner(
 	return out, nil
 }
 
-// Delete —— unregister_source；owner 不匹配 → 静默成功（idempotent）。
+// Delete — unregister_source; an owner mismatch -> silent success (idempotent).
 func (r *JobSourceRepo) Delete(ctx context.Context, ownerID, id string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
@@ -119,7 +122,8 @@ func (r *JobSourceRepo) Delete(ctx context.Context, ownerID, id string) error {
 	return nil
 }
 
-// TouchFetched —— fetch_new 跑完后更新 last_fetched_at；调用方负责传 source id。
+// TouchFetched — updates last_fetched_at after fetch_new finishes; the caller supplies
+// the source id.
 func (r *JobSourceRepo) TouchFetched(ctx context.Context, sourceID string) error {
 	sourceUUID, err := pgstore.ParseUUID(sourceID)
 	if err != nil {
@@ -132,12 +136,14 @@ func (r *JobSourceRepo) TouchFetched(ctx context.Context, sourceID string) error
 	return nil
 }
 
-// MarkAttempt —— 每一次取数都写一笔，**成败都写**。reason 空串 = 这次成了。
+// MarkAttempt — writes one row for every fetch attempt, **success or failure**.
+// An empty reason string means this attempt succeeded.
 //
-// 只写 last_fetched_at 是不够的：一个每次都 400 的源和一个从没被碰过的源，在
-// /admin/sources 上会是同一行 `never fetched`，而那一页存在的理由就是回答
-// 「我这个源还活着吗」（F-E-18）。失败的详情以前只活在 owner 那一次 MCP 调用的
-// 回执里，关掉窗口就没了。
+// Writing only last_fetched_at isn't enough: a source that 400s every time and a source
+// that's never been touched would show up as the same `never fetched` line on
+// /admin/sources, and that page exists precisely to answer "is this source still alive"
+// (F-E-18). The failure detail used to live only in the response of that one MCP call
+// the owner made, gone once the window closed.
 func (r *JobSourceRepo) MarkAttempt(ctx context.Context, sourceID, reason string) error {
 	sourceUUID, err := pgstore.ParseUUID(sourceID)
 	if err != nil {
@@ -152,8 +158,9 @@ func (r *JobSourceRepo) MarkAttempt(ctx context.Context, sourceID, reason string
 	return nil
 }
 
-// FilterUnseenExternalIDs —— 输入候选 external_id 列表，返回 fingerprint 表
-// 里**没见过的**那些。caller 拿来过滤 fetcher 抓回来的 jobs。
+// FilterUnseenExternalIDs — takes a candidate list of external_ids, returns the ones
+// **not yet seen** in the fingerprint table. The caller uses this to filter the jobs
+// the fetcher brought back.
 func (r *JobSourceRepo) FilterUnseenExternalIDs(
 	ctx context.Context, sourceID string, candidates []string,
 ) ([]string, error) {
@@ -167,8 +174,9 @@ func (r *JobSourceRepo) FilterUnseenExternalIDs(
 	return diffUnseen(candidates, seen), nil
 }
 
-// RecordSeenExternalIDs —— 把刚返给 owner 的新 job 的 external_id 写进
-// fingerprint 表，下次 fetch_new 就 dedup 掉。ON CONFLICT 让并发安全。
+// RecordSeenExternalIDs — writes the external_id of every new job just returned to the
+// owner into the fingerprint table, so the next fetch_new dedups it away. ON CONFLICT
+// makes this safe under concurrency.
 func (r *JobSourceRepo) RecordSeenExternalIDs(
 	ctx context.Context, sourceID string, externalIDs []string,
 ) error {
@@ -221,8 +229,8 @@ func diffUnseen(candidates, seen []string) []string {
 	return unseen
 }
 
-// toDomainJobSource —— sqlc Row → jobsmodel.JobSource。Config jsonb 直接 pass
-// through 成 []byte，由 fetcher adapter 各自 unmarshal 到 typed struct。
+// toDomainJobSource — sqlc Row -> jobsmodel.JobSource. Config jsonb passes straight
+// through as []byte; each fetcher adapter unmarshals it into its own typed struct.
 func toDomainJobSource(o *db.JobSource) jobsmodel.JobSource {
 	out := jobsmodel.JobSource{
 		ID:        pgstore.FormatUUID(o.ID),
@@ -245,7 +253,8 @@ func toDomainJobSource(o *db.JobSource) jobsmodel.JobSource {
 }
 
 // Compile-time check that pgtype.UUID / pgtype.Timestamptz still exported the
-// methods we use (Valid/Time)—防止 pgx 升级里改字段名静默坏。
+// methods we use (Valid/Time) — guards against a pgx upgrade silently breaking this
+// by renaming a field.
 var (
 	_ pgtype.UUID
 	_ pgtype.Timestamptz

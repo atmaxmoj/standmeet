@@ -1,12 +1,14 @@
-// resume_views.go —— resume.* tool 响应中 text-content 部分的 JSON 形状。
-// PDF 不在这里 —— PDF 走 EmbeddedResource (blob base64)，跟结构化数据并行回。
+// resume_views.go — JSON shapes for the text-content part of resume.* tool responses.
+// PDF isn't here — PDF goes back via EmbeddedResource (base64 blob), returned in
+// parallel with the structured data.
 
 package jobsmcp
 
 import "github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 
-// resumeDraftViewT —— draft / update_draft 返回的 text 部分。owner 在 Claude
-// 一侧看到这个 JSON + 一个嵌入 PDF；可以让 AI 用 draft.id 调 update / commit。
+// resumeDraftViewT — the text part returned by draft / update_draft. The owner sees
+// this JSON plus an embedded PDF on the Claude side; the AI can use draft.id to call
+// update / commit.
 type resumeDraftViewT struct {
 	ID          string         `json:"draft_id"`
 	JobCacheID  string         `json:"job_cache_id"`

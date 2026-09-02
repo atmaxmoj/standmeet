@@ -1,14 +1,16 @@
-// resume.go —— Phase 2 resume draft usecase。Claude 通过 MCP `resume.draft`
-// 把 (job_cache_id + resume_content) 交进来：
-//   1. 从 Redis 池子取出 FetchedJob 当 snapshot（draft 创建即固化，不依赖 cache）
-//   2. 落 resume_drafts 表（1d TTL，跟 Redis 同周期）
+// resume.go — Phase 2 resume draft usecase. Claude hands in
+// (job_cache_id + resume_content) via MCP `resume.draft`:
+//   1. pull the FetchedJob out of the Redis pool as a snapshot (fixed at
+//      draft creation, no longer dependent on the cache)
+//   2. write the resume_drafts row (1d TTL, same cycle as Redis)
 //
-// PDF 这一步不渲染 —— owner 走 admin 浏览器看 React `ResumePage` live preview，
-// 想下载就在浏览器里点 print / save。`applications.commit` 才走 gotenberg 渲染
-// 终稿 PDF（带真 AccessCode QR）。
+// This step does not render a PDF — the owner previews it live as the React
+// `ResumePage` in the admin browser, and downloads via the browser's own
+// print / save if they want a copy. `applications.commit` is the step that
+// renders the final PDF through gotenberg (with the real AccessCode QR).
 //
-// 这样 draft / preview 不依赖 sidecar，编辑体验是即时的；server 端只持有结构
-// 化 state。
+// This way draft / preview never depend on the sidecar and editing feels
+// instant; the server only holds structured state.
 
 package jobsuc
 
@@ -22,26 +24,29 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
 
-// ResumeDeps —— resume.* usecase 依赖。
+// ResumeDeps — dependencies for the resume.* usecases.
 type ResumeDeps struct {
 	Drafts *ResumeDraftRepo
 	Cache  *jobcache.Pool
 }
 
-// DraftedResume —— resume.draft / update_draft 的返回。结构化 view only；PDF
-// 由 admin 浏览器现场渲染（React `ResumePage`），不经 server。
+// DraftedResume — the return value of resume.draft / update_draft. Structured
+// view only; the PDF is rendered live by the admin browser (React
+// `ResumePage`), never by the server.
 type DraftedResume struct {
 	Draft jobsmodel.ResumeDraft
 }
 
-// DraftInput —— resume.draft 的入参（打包成结构体：内容 + 选的模板 + 目标 job）。
+// DraftInput — the input to resume.draft (packed into a struct: content +
+// chosen template + target job).
 type DraftInput struct {
 	Content    *jobsmodel.ResumeContent
 	JobCacheID string
 	Template   string
 }
 
-// DraftResume —— Claude 调 resume.draft：拿 Redis 池子里的 job snapshot，落 draft 表。
+// DraftResume — Claude calls resume.draft: pulls the job snapshot from the
+// Redis pool and writes the draft row.
 func DraftResume(
 	ctx context.Context, deps ResumeDeps, ownerID string, in DraftInput,
 ) (DraftedResume, error) {
@@ -65,8 +70,8 @@ func DraftResume(
 	return DraftedResume{Draft: draft}, nil
 }
 
-// UpdateResumeDraft —— Claude 调 resume.update_draft 调整 content。
-// job_snapshot 不变（draft 创建时即固化）。
+// UpdateResumeDraft — Claude calls resume.update_draft to adjust content.
+// job_snapshot stays fixed (it was frozen at draft creation).
 func UpdateResumeDraft(
 	ctx context.Context, deps ResumeDeps, ownerID, draftID string,
 	content *jobsmodel.ResumeContent,
@@ -101,7 +106,8 @@ func loadJobSnapshot(
 	return snapshot, nil
 }
 
-// DiscardResumeDraft —— resume.discard_draft；idempotent（owner 不匹配/已删都静默成功）。
+// DiscardResumeDraft — resume.discard_draft; idempotent (a mismatched owner
+// or an already-deleted draft both succeed silently).
 func DiscardResumeDraft(ctx context.Context, deps ResumeDeps, ownerID, draftID string) error {
 	if ownerID == "" || draftID == "" {
 		return apierr.ErrEmptyField

@@ -1,19 +1,19 @@
-// resume.go —— Resume value object: Claude 通过 MCP `resume.draft` 撰写的
-// 结构化简历内容。**不进 owner aggregate** —— 每条 resume 绑一份
-// application（Phase 3）或一个 draft（这里 Phase 2）。
+// resume.go — Resume value object: the structured resume content Claude writes via the
+// MCP `resume.draft` tool. **Not part of the owner aggregate** — each resume is bound to
+// one application (Phase 3) or one draft (here, Phase 2).
 //
-// Shape 跟 design/admin.html 的 ResumePage 对齐（两栏 editorial layout）：
-//   - identity / summary / experience（bullets，无 STAR labels）
-//   - education / skills（左 rail）
-//   - social[] / custom[] / cover_letter（design 新加的字段）
+// Shape aligns with design/admin.html's ResumePage (a two-column editorial layout):
+//   - identity / summary / experience (bullets, no STAR labels)
+//   - education / skills (left rail)
+//   - social[] / custom[] / cover_letter (fields design added)
 //
-// json tags 是 Redis + jsonb persistence 用。
+// json tags are for Redis + jsonb persistence.
 //
-// 字段顺序按 govet fieldalignment：slice / map 先（含 ptr），time / strings 后。
+// Field order follows govet fieldalignment: slices / maps first (incl. ptrs), time / strings after.
 
 package jobsmodel
 
-// ResumeContent —— 一份简历的完整结构化内容。
+// ResumeContent — the complete structured content of one resume.
 type ResumeContent struct {
 	Identity    ResumeIdentity    `json:"identity"`
 	Summary     string            `json:"summary"`
@@ -25,30 +25,32 @@ type ResumeContent struct {
 	Custom      []ResumeCustom    `json:"custom,omitempty"`
 }
 
-// ResumeIdentity —— 身份块（identity 段在 Claude 重写时几乎不变；改变
-// 时是 owner 自己刷新 corpus）。
+// ResumeIdentity — the identity block (the identity section barely changes when Claude
+// rewrites; when it does change, it's the owner refreshing the corpus themselves).
 type ResumeIdentity struct {
-	Name         string       `json:"name"`
-	Email        string       `json:"email"`
-	Phone        string       `json:"phone"`
-	LocationLine string       `json:"location_line"`
-	Site         string       `json:"site,omitempty"` // public_url 短形式，header 行末尾显示
-	Links        []ResumeLink `json:"links"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	Phone        string `json:"phone"`
+	LocationLine string `json:"location_line"`
+	// Site is the short form of public_url, shown at the end of the header line.
+	Site  string       `json:"site,omitempty"`
+	Links []ResumeLink `json:"links"`
 }
 
-// ResumeLink —— identity 段的 outbound 链接（保留兼容；新数据走 Social）。
+// ResumeLink — an outbound link in the identity section (kept for compat; new data goes
+// through Social).
 type ResumeLink struct {
 	Label string `json:"label"`
 	URL   string `json:"url"`
 }
 
-// ResumePeriod —— start/end 月份（YYYY-MM）；End 为 nil 时 "Present"。
+// ResumePeriod — start/end month (YYYY-MM); "Present" when End is nil.
 type ResumePeriod struct {
 	End   *string `json:"end,omitempty"`
 	Start string  `json:"start"`
 }
 
-// ResumeWork —— 一段工作经历（带按 JD 排序好的 bullets）。
+// ResumeWork — one work-history entry (with bullets ordered against the JD).
 type ResumeWork struct {
 	Period   ResumePeriod `json:"period"`
 	Title    string       `json:"title"`

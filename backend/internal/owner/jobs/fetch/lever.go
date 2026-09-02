@@ -1,10 +1,10 @@
-// lever.go —— Lever public postings API。
+// lever.go —— Lever public postings API.
 //
 //	GET {base}/v0/postings/{company}?mode=json
 //
-// 返回数组（不是 envelope）。每条 { id (uuid), text (title), categories
-// { commitment, department, location, team }, createdAt (epoch ms),
-// hostedUrl, applyUrl, description (HTML), tags? }。
+// Returns an array (not an envelope). Each entry is { id (uuid), text (title),
+// categories { commitment, department, location, team }, createdAt (epoch ms),
+// hostedUrl, applyUrl, description (HTML), tags? }.
 
 package fetch
 

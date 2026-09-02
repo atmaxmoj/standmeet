@@ -1,19 +1,24 @@
-// Package jobsadmin —— J.4: jobs plugin 的 admin REST endpoints。
-// 当前两个 list 视图：
-//   - GET /api/admin/drafts        —— owner 看 resume draft 列表
-//   - GET /api/admin/applications  —— owner 看 commit 完的 application 列表
+// Package jobsadmin — J.4: the jobs plugin's admin REST endpoints.
+// Currently two list views:
+//   - GET /api/admin/drafts        — owner sees the resume draft list
+//   - GET /api/admin/applications  — owner sees the list of committed applications
 //
-// 这俩之前住 internal/routes/admin/ 里，跟 corpus / codes / page 共享
-// admin.Handlers 大结构体。J phase 把 outbound 求职链拎成 plugin，路由
-// 也独立成包，避免 Handlers 膨胀 (G-1.5 smell E)。
+// These two used to live in internal/routes/admin/, sharing the big
+// admin.Handlers struct with corpus / codes / page. The J phase pulled the
+// outbound job-hunting chain out into a plugin, and the routes moved into
+// their own package too, to keep Handlers from bloating (G-1.5 smell E).
 //
-// 改 / 删 草稿走 MCP capabilities (resume.*) —— 见 plugins/jobs/jobsmcp/。
+// Editing / deleting a draft goes through MCP capabilities (resume.*) — see
+// plugins/jobs/jobsmcp/.
 //
-// **commit 两个面都长**（F-E-9）。这里原来写着「只暴露 owner read-only 列表」，
-// 而面板上那颗 `SEND →` 按钮弹了一张确认框、逐条许诺「冻结快照 / 渲染带 QR 的 PDF /
-// 写 application 行 / 自动发一张 180 天的码」，然后 `onSend` 接的是 `onClose` ——
-// 一个请求都不发。owner 会以为自己投出去了。
-// 两条路打的是**同一个 usecase**（`jobsuc.CommitApplication`），不是第二份实现。
+// **Both surfaces grew a commit path** (F-E-9). This used to say "only
+// exposes an owner read-only list", while the panel's `SEND →` button
+// opened a confirmation dialog promising, item by item, "freeze snapshot /
+// render a PDF with QR / write an application row / auto-issue a 180-day
+// code", and then `onSend` was wired to `onClose` — no request went out at
+// all. The owner would believe they'd applied.
+// The two paths call the **same usecase** (`jobsuc.CommitApplication`), not
+// a second implementation.
 package jobsadmin
 
 import (
@@ -36,24 +41,27 @@ const (
 	ctJSON    = "application/json"
 )
 
-// Deps —— jobs admin 路由依赖。Log 必填 (encode 失败要 log)。
+// Deps — dependencies for the jobs admin routes. Log is required (encode
+// failures need logging).
 type Deps struct {
 	Apps    *jobsuc.ApplicationRepo
 	Drafts  *jobsuc.ResumeDraftRepo
 	Sources *jobsuc.JobSourceRepo
-	// Jobs —— 池子那条 usecase。listings 这一面**不自己读 Redis**：它跟
-	// `jobs.fetch_new` 走同一个 `jobsuc.ListPoolBoard`，所以两个面不可能
-	// 对同一个池子给出不同的板子。
+	// Jobs — the pool's usecase. The listings surface **doesn't read Redis
+	// itself**: it goes through the same `jobsuc.ListPoolBoard` as
+	// `jobs.fetch_new`, so the two surfaces can never show different boards
+	// for the same pool.
 	Jobs *jobsuc.JobsDeps
-	// Commit —— commit 一份草稿要的那组依赖（渲染器 / owner / role）。跟
-	// applications.commit 那条路**共用同一份**，两个面因此不可能对同一次 commit
-	// 做不同的事。
+	// Commit — the set of dependencies needed to commit a draft (renderer /
+	// owner / role). **Shared with** the applications.commit path, so the
+	// two surfaces cannot diverge on what happens for the same commit.
 	Commit *jobsuc.ApplicationsDeps
 	Log    *slog.Logger
 }
 
-// Mount 挂 /drafts + /applications + /job-sources 到入参 router。caller 负责
-// 事先用 WithOwner / RequireCSRF middleware 包好 (admin 共享认证栈)。
+// Mount hangs /drafts + /applications + /job-sources off the given router.
+// The caller is responsible for wrapping it beforehand with WithOwner /
+// RequireCSRF middleware (the shared admin auth stack).
 func Mount(r chi.Router, deps Deps) {
 	r.Route("/drafts", func(r chi.Router) {
 		r.Get("/", listDrafts(deps))
@@ -73,8 +81,9 @@ func Mount(r chi.Router, deps Deps) {
 
 // ───── listings ──────────────────────────────────────────────
 //
-// #50: owner 看池子里现存(未 commit)的 FetchedJob —— ephemeral 1d-TTL，
-// 直接从 Redis 池子 SCAN，不落库。无 cache → 空列表(降级，不报错)。
+// #50: owner views the FetchedJobs currently sitting (uncommitted) in the
+// pool — ephemeral 1d-TTL, SCANned straight from the Redis pool, never
+// persisted. No cache → empty list (degrade gracefully, don't error).
 
 type listingView struct {
 	PublishedAt time.Time `json:"published_at"`
@@ -87,10 +96,11 @@ type listingView struct {
 	Tags        []string  `json:"tags"`
 }
 
-// listListings —— 这一面读的是**跟 owner 在 Claude 里问到的同一块板子**
-// （`jobsuc.ListPoolBoard`），不是它自己再 SCAN 一遍 Redis。
-// 两个面各拼各的话，跨源重复的那条会在这边多出来、在那边不出现，而条数对不上的
-// 时候没有一处说得清是谁错了（F-E-29 的兄弟面）。
+// listListings — this surface reads **the same board the owner sees when
+// asking Claude** (`jobsuc.ListPoolBoard`), not a separate SCAN of Redis.
+// If the two surfaces each assembled their own answer, a cross-source
+// duplicate would show up on one and not the other, and when the counts
+// disagreed nothing would say which one was wrong (a sibling of F-E-29).
 func listListings(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if deps.Jobs == nil {
@@ -98,7 +108,8 @@ func listListings(deps Deps) http.HandlerFunc {
 			return
 		}
 		ownerID := authmw.OwnerIDFrom(r.Context())
-		// since<=0 = 整个活池子：面板不分窗口，池子自己 24h 到期。
+		// since<=0 = the whole live pool: the panel doesn't window it, the
+		// pool itself expires after 24h.
 		rows, err := jobsuc.ListPoolBoard(r.Context(), *deps.Jobs, ownerID, 0)
 		if err != nil {
 			deps.Log.Error("list job pool", logErrKey, err)
@@ -144,9 +155,11 @@ func tagsOrEmpty(tags []string) []string {
 
 type sourceView struct {
 	LastFetchedAt *time.Time `json:"last_fetched_at"`
-	// LastAttemptedAt / LastError —— 上一次**试过**是什么时候、结果如何（空串 = 成了）。
-	// 这一页要回答的是「我这个源还活着吗」，而只有 last_fetched_at 时，
-	// 一个每次都失败的源跟一个从没被碰过的源在屏幕上是同一句话（F-E-18）。
+	// LastAttemptedAt / LastError — when the last **attempt** happened and
+	// how it went (empty string = succeeded). This page needs to answer "is
+	// this source still alive", and with only last_fetched_at, a source that
+	// fails every time and a source that's never been touched read as the
+	// same sentence on screen (F-E-18).
 	LastAttemptedAt *time.Time `json:"last_attempted_at"`
 	CreatedAt       time.Time  `json:"created_at"`
 	ID              string     `json:"id"`
@@ -192,14 +205,17 @@ func writeSourcesList(
 
 // ───── drafts ────────────────────────────────────────────────
 //
-// drafts 那一族住在 drafts.go（这个文件到了 350 行上限）。
+// The drafts family lives in drafts.go (this file hit the 350-line cap).
 
 // ───── applications ──────────────────────────────────────────
 
-// applicationView —— 一条已提交的申请。**带上 resume_content**：详情卡的
-// 「RESUME SENT · SNAPSHOT」那一块要回答的正是「我到底发出去了什么」，而它以前只渲一行
-// 空的 delta —— 内容明明持久化在申请行里（commit 那一刻的 PDF 就是从它渲的），
-// 面板却看不到（F-E-23）。这里不多查一次库：`ListByOwner` 取回的行本来就带着它。
+// applicationView — a single submitted application. **Carries
+// resume_content**: the "RESUME SENT · SNAPSHOT" block on the detail card
+// exists precisely to answer "what did I actually send", and it used to
+// render an empty delta line — even though the content was persisted right
+// there on the application row (the PDF rendered at commit time came from
+// it), the panel just couldn't see it (F-E-23). This adds no extra query:
+// the row `ListByOwner` fetches already carries it.
 type applicationView struct {
 	SubmittedAt   time.Time               `json:"submitted_at"`
 	CreatedAt     time.Time               `json:"created_at"`

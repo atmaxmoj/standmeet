@@ -1,9 +1,10 @@
-// cap_resume.go —— Phase E-11: owner-side resume.* Capability。
-// 3 tools: draft / update_draft / discard_draft。owner-only。
+// cap_resume.go —— Phase E-11: the owner-side resume.* Capability.
+// 3 tools: draft / update_draft / discard_draft. owner-only.
 //
-// draft / update_draft 返 text-only JSON (draft id + job_snapshot 等)；
-// PDF 不在这里。终稿 PDF (带真 AccessCode QR) 走 applications.commit
-// 的 EmbeddedResource。draft 24h TTL，跟 job cache 同步。
+// draft / update_draft return text-only JSON (draft id + job_snapshot etc.);
+// the PDF isn't here. The final PDF (with the real AccessCode QR) travels
+// as applications.commit's EmbeddedResource. Draft TTL is 24h, in sync
+// with the job cache.
 
 package jobsmcp
 
@@ -26,7 +27,7 @@ type resumeCapability struct {
 	log    *slog.Logger
 }
 
-// NewResumeCapability —— J.3 起外露给 internal/mcp/register.go。
+// NewResumeCapability —— exposed to internal/mcp/register.go as of J.3.
 func NewResumeCapability(
 	resume *jobsuc.ResumeDeps, log *slog.Logger,
 ) capreg.Capability {
@@ -64,8 +65,10 @@ func (c *resumeCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 func (c *resumeCapability) draftBinding() *capreg.MCPBinding {
 	return &capreg.MCPBinding{
 		Name: "resume.draft",
-		// 那句「preview at /admin/drafts/<id>」曾经是死链接：草稿详情没有自己的路由，
-		// composer 是列表页上的一个按钮。owner 的 AI 会照抄这句话把人送过去（F-E-8）。
+		// The phrase "preview at /admin/drafts/<id>" used to be a dead link:
+		// a draft has no route of its own, the composer is a button on the
+		// list page. The owner's AI would copy that phrase verbatim and
+		// send the owner there (F-E-8).
 		Description: "Curate a tailored resume for a cached job and stash it as a " +
 			"draft. Returns draft_id plus job_snapshot. Owner reviews it at " +
 			"/admin/drafts — the draft's card there opens the composer (edit + live " +

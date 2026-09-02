@@ -42,12 +42,14 @@ func getBodyAuth(ctx context.Context, client *http.Client, url, bearer string) (
 	return readOK(resp, url)
 }
 
-// authRejected —— 这一次带凭据的请求是不是被拒了。
+// authRejected —— did this authenticated request get rejected.
 //
-// 两种形状：直白的 401/403，以及**被重定向走**。后者是真 Workable 的做法 ——
-// 坏 token 回 `302 → /oops`，而 Go 的 client 默认跟着跳，于是拿到的是那张 HTML 页的 200，
-// JSON 解码炸在「<」上，最后报给 owner 的是「upstream schema mismatch」。
-// 一个**带凭据的数据请求被重定向到别的路径**，只可能是上游不认这把凭据（F-E-17）。
+// Two shapes: a plain 401/403, and **being redirected away**. The latter is what real
+// Workable does — a bad token replies `302 → /oops`, and Go's client follows redirects
+// by default, so we end up with a 200 on that HTML page. JSON decoding then blows up on
+// the leading "<", and what reaches the owner is "upstream schema mismatch".
+// An **authenticated data request redirected to a different path** can only mean the
+// upstream rejected this credential (F-E-17).
 func authRejected(resp *http.Response, requested string) bool {
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return true
@@ -73,13 +75,16 @@ func sendGET(ctx context.Context, client *http.Client, url, bearer string) (*htt
 	return resp, nil
 }
 
-// upstreamStatusErr —— 把状态码折成 owner 的**下一步**，而不是折成一个笼统的"上游错误"。
+// upstreamStatusErr —— folds the status code into the owner's **next action**, not a
+// generic "upstream error".
 //
-// 分类的判据不是「HTTP 语义有几类」，是「owner 要做的事有几种」：
-// 找新地址 / 改拼错的 slug / 什么都不用做 / 无能为力等着。多分一类而下一步一样，
-// 就是给他多一句要读的话（F-E-28）。
-// 逐码的那几个写成表，只有「3xx 整段」留成范围判断 —— 全写成 switch 的话
-// cyclo 到 8（上限 5），而这几行本来就是一张查表。
+// The classification axis isn't "how many HTTP semantics exist", it's "how many
+// distinct next actions the owner has": find a new address / fix a typo'd slug /
+// do nothing / helplessly wait. Splitting a category further when the next action
+// stays the same just gives him one more line to read (F-E-28).
+// The per-code cases are written as a table; only the "whole 3xx range" stays a
+// range check — writing it all as a switch pushes cyclo to 8 (cap is 5), and these
+// lines are really just a lookup table anyway.
 var upstreamStatusErrs = map[int]error{
 	http.StatusNotFound:           ErrUpstreamNoBoard,
 	http.StatusGone:               ErrUpstreamNoBoard,

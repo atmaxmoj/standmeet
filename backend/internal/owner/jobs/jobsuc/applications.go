@@ -1,16 +1,18 @@
-// applications.go —— Phase 3：owner 通过 MCP `applications.commit` 把 preview
-// draft 升成持久化 application：
-//   1. 同事务里 issue AccessCode (180d / 10 sessions / 50 turns) + 落 application
-//      行 + 删 draft（ApplicationRepo.Commit 包了事务）
-//   2. 拼最终 QR URL = `<owner.public_url>?code=<plaintext>` —— v1 单 owner
-//      instance，访客落到根域名就是这位 owner，URL 不带 handle。
-//   3. 让注入的 PDFRenderer 把 application（含 resume_content + job_snapshot）+
-//      qr_url 渲染成 final PDF bytes —— v1 实现是 gotenberg sidecar 调 headless
-//      Chromium 抓 admin /print 路由，跟 owner live preview 同一份 React 组件
-//   4. 返回 application + access_code + qr_url + PDF bytes 给 Claude
+// applications.go — Phase 3: the owner promotes a preview draft into a persisted
+// application via the MCP `applications.commit` tool:
+//   1. in one transaction: issue an AccessCode (180d / 10 sessions / 50 turns) + write the
+//      application row + delete the draft (ApplicationRepo.Commit wraps the transaction)
+//   2. assemble the final QR URL = `<owner.public_url>?code=<plaintext>` — v1 is a single-
+//      owner instance, so a visitor landing on the root domain is already this owner; the
+//      URL carries no handle.
+//   3. hand the injected PDFRenderer the application (resume_content + job_snapshot) +
+//      qr_url to render final PDF bytes — v1's implementation is a gotenberg sidecar that
+//      drives headless Chromium against the admin /print route, the same React component
+//      the owner's live preview uses
+//   4. return application + access_code + qr_url + PDF bytes to Claude
 //
-// L.13 决策：draft.job_snapshot 已是 commit 那一刻的快照，commit 路径不依赖
-// jobcache TTL；commit 完即可 evict。
+// L.13 decision: draft.job_snapshot is already the snapshot taken at commit time, so the
+// commit path doesn't depend on the jobcache TTL; it's safe to evict right after commit.
 
 package jobsuc
 
@@ -32,10 +34,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
 
-// PDFRenderer —— 渲染 application 的 final PDF（包含 QR）。usecase 不关心
-// 实现走哪一条路（in-process / sidecar / 远程 service），只调一次。
-// gotenberg.NoopClient 之前在 wireup 注入，commit 会以
-// gotenberg.ErrNotConfigured 失败 —— 这是 task 13 完成前的预期行为。
+// PDFRenderer — renders the application's final PDF (QR code included). The usecase
+// doesn't care which path the implementation takes (in-process / sidecar / remote
+// service), it just calls it once. gotenberg.NoopClient used to be injected at wireup, in
+// which case commit fails with gotenberg.ErrNotConfigured — that was expected before
+// task 13 was finished.
 type PDFRenderer interface {
 	RenderApplicationPDF(
 		ctx context.Context, app *jobsmodel.Application, qrURL string,
@@ -43,8 +46,8 @@ type PDFRenderer interface {
 }
 
 const (
-	// 设计文档 L: 180d 有效 / 10 个名字(人)/ 50 turns per session。
-	// "10 sessions" 本来就是"10 个人"的意思(member=name=session),落到 max_members。
+	// Design doc L: valid for 180d / 10 names (people) / 50 turns per session.
+	// "10 sessions" already means "10 people" (member=name=session), so it maps to max_members.
 	applicationCodeDays     = 180
 	applicationMaxMembers   = int32(10)
 	applicationMaxTurns     = int32(50)
@@ -53,26 +56,30 @@ const (
 	applicationCodeRandSize = 4 // bytes → 6 base32 chars
 )
 
-// ApplicationsDeps —— applications.* usecase 依赖。
+// ApplicationsDeps — applications.* usecase dependencies.
 //
-// 没有 PublicURL 字段：每条 application 的公开 URL 从 owner.PublicURL 读
-// （claim 时写进 owners 行，admin 可改）。单一来源、no env / no fallback。
-// Renderer 之前在 wireup 注入 —— v1 是 gotenberg client，测试用 fake。
+// No PublicURL field: each application's public URL is read from owner.PublicURL
+// (written into the owners row at claim time, editable in admin). One source of truth, no
+// env var, no fallback. Renderer used to be injected at wireup — v1 is a gotenberg client,
+// tests use a fake.
 type ApplicationsDeps struct {
 	Apps   CommitStore
 	Owners OwnerLookup
 	Roles  *access.RoleRepo
-	// Prompts —— 只为了把 builtin `hiring` 挂到自动签的码上。窄口:一个按名字查。
-	// 集中管理的招聘语境放这一层,而不是发码时把文字冻进码里 —— 快照在 session 颁发时
-	// 才拍,所以 owner 之后每次打磨都惠及所有还没被打开的申请码。
+	// Prompts — exists only to attach the builtin `hiring` prompt to auto-issued codes.
+	// A narrow interface: look up by name. Centralized hiring context lives here rather
+	// than being frozen into the code's text at issue time — the snapshot is taken when
+	// the session is granted, so every polish the owner makes afterward still benefits
+	// every application code that hasn't been opened yet.
 	Prompts PromptLookup
-	// CVCheck —— 发码时问一句"hiring role 圈的那条 CV 在不在"。nil = 不问
-	// （老装配路径 / 测试）；不在也**不阻断投递**，只在回执里说一句。
+	// CVCheck — asks, at code-issue time, whether the CV note the hiring role grants
+	// exists. nil = don't ask (the old wiring path / tests); missing **doesn't block
+	// the submission** either, it only adds a line to the receipt.
 	CVCheck  CVPresence
 	Renderer PDFRenderer
 }
 
-// PromptLookup —— 按名字取一条 prompt 的 id。窄到只够 job loop 用。
+// PromptLookup — fetches one prompt's id by name. Narrow, only as much as the job loop needs.
 type PromptLookup interface {
 	IDByName(ctx context.Context, ownerID, name string) (string, error)
 }
@@ -87,14 +94,15 @@ type CommitStore interface {
 	Commit(ctx context.Context, in *CommitInput) (CommitOutput, error)
 }
 
-// OwnerLookup —— 取 owner handle 用于拼 QR URL；用接口避开 usecases → postgres
-// 的具体 OwnerRepo 直耦合（cmd 层 wireup 注入实际实现）。
+// OwnerLookup — fetches the owner handle used to assemble the QR URL; an interface avoids
+// coupling usecases directly to the concrete postgres OwnerRepo (the cmd-layer wireup
+// injects the real implementation).
 type OwnerLookup interface {
 	GetByID(ctx context.Context, ownerID string) (owner.Owner, error)
 }
 
-// CommitApplication —— 主入口。返回结构化 application + 同步 issue 的 access
-// code + QR URL + 最终 PDF bytes。
+// CommitApplication — the main entry point. Returns the structured application + the
+// access code issued in the same transaction + the QR URL + the final PDF bytes.
 func CommitApplication(
 	ctx context.Context, deps *ApplicationsDeps, ownerID, draftID string,
 ) (jobsmodel.CommittedApplication, error) {
@@ -173,14 +181,18 @@ func runCommitTx(
 	expires := time.Now().AddDate(0, 0, applicationCodeDays)
 	maxMembers := applicationMaxMembers
 	maxTurns := applicationMaxTurns
-	// 这张码印在简历右上角的 QR 里 —— 是一次**定向邀请**，所以它不能挂给未受邀访客的
-	// public 兜底档。挂错档的后果只有在 public 收窄成"只读已发布"之后才显形：
-	// recruiter 扫码进来只看得到公开页（F-D-7 的下游）。
+	// This code is printed in the QR on the resume's top-right corner — it's a
+	// **targeted invitation**, so it must not be assigned the uninvited-visitor public
+	// fallback role. Assigning the wrong role only shows its effect once public narrows
+	// to "published only": the recruiter scans in and sees only the public page
+	// (downstream of F-D-7).
 	//
-	// 挂 `hiring` 而不是 `invited`：招聘官一定会问雇主、起止日期、工作许可，而那些事实
-	// 在 subjectivity 里，不在 invited 的三条 glob 里。给 invited 加上 subjectivity
-	// 等于把这份 PII 交给**每一张产品发出去的码**（gate 批准码也在内）—— 所以另开一条。
-	// 这条 role 由本插件自己种（jobs_seed.go），不由内核的 roles_seed 管。
+	// It's assigned `hiring`, not `invited`: a recruiter will always ask about employer,
+	// dates and work authorization, and those facts live in subjectivity, not in
+	// invited's three globs. Adding subjectivity to invited would hand this PII to
+	// **every code the product issues** (gate-approved codes included) — hence a
+	// separate role. This role is seeded by this plugin itself (jobs_seed.go), not by
+	// the kernel's roles_seed.
 	hiring, verr := deps.Roles.GetByName(ctx, ownerID, hiringRoleName)
 	if verr != nil {
 		return CommitOutput{}, fmt.Errorf("get hiring role: %w", verr)
@@ -209,19 +221,22 @@ func runCommitTx(
 	return out, nil
 }
 
-// hiringRoleName / hiringPromptName —— 本插件自己种的那两条 builtin 的名字。
-// 种它们的是同包的 seed.go，用它们的是这里 —— 一份常量，两处共用。
+// hiringRoleName / hiringPromptName — the names of the two builtins this plugin seeds
+// itself. seed.go in the same package plants them; this file consumes them — one set of
+// constants, shared by both.
 const (
 	hiringRoleName   = "hiring"
 	hiringPromptName = "hiring"
 )
 
-// applicationCodeLabel —— 侧栏和 codes 面板上那张牌子。
+// applicationCodeLabel — the tag shown in the sidebar and on the codes panel.
 //
-// ⚠️ 曾经是常量 `applicationCodePrefix` —— 每一份申请签出来的码都顶着同一句话，
-// 而这个字段的设计意图是"说出访客进的是哪一片"。owner 打开 codes 面板看到十几张
-// 一模一样的牌子，分不出哪张是投给谁的（[[names-that-lie]]）。职位和公司就在
-// job_snapshot 里，一伸手的事。
+// Warning: this used to just be the constant `applicationCodePrefix` — every code issued
+// for every application carried the same string, while this field's design intent is to
+// "say which slice the visitor is entering." An owner opening the codes panel would see a
+// dozen identical tags and couldn't tell which was for which application
+// ([[names-that-lie]]). The title and company are right there in job_snapshot — a
+// one-line fetch.
 func applicationCodeLabel(job *jobsmodel.FetchedJob) string {
 	if role := describeRole(job.Title, job.Company); role != "" {
 		return applicationCodePrefix + " · " + role
@@ -229,20 +244,26 @@ func applicationCodeLabel(job *jobsmodel.FetchedJob) string {
 	return applicationCodePrefix
 }
 
-// cvGlobSuffix —— hiring role 正列表里那条 CV glob 的地址部分。
+// cvGlobSuffix — the address portion of the CV glob in the hiring role's allow list.
 //
-// 它是一个**约定的名字**，不是产品保证存在的东西：owner 把那条 subjectivity 笔记
-// 叫别的，这条 glob 就匹配不到，招聘官那一路悄悄少一份 CV —— 而少的正是他一定会问的
-// 雇主和起止日期。原来这个失配是**完全静默**的。
+// It's a **convention name**, not something the product guarantees exists: if the owner
+// titles that subjectivity note anything else, this glob simply won't match, and the
+// recruiter path silently loses a CV — and what's missing is exactly the employer and
+// dates the recruiter is bound to ask about. This mismatch used to be **completely
+// silent**.
 const cvGlobSuffix = "subjectivity://cv"
 
-// cvWarning —— 发码那一刻检查一次：hiring role 圈着 CV，那条笔记在不在。
+// cvWarning — checks once, at code-issue time: the hiring role grants a CV, does that
+// note actually exist?
 //
-// 检查落在 **commit** 而不是 seed：seed 在启动时跑，那时 owner 可能还没写 CV，
-// 报警只会变成噪音。而 commit 是"这份申请要投出去了"的时刻 —— 有人在看，
-// 而且这正是"招聘官待会儿问雇主，我答不出来"会造成损失的那一刻。
+// The check happens at **commit**, not at seed: seed runs at startup, when the owner may
+// not have written a CV yet, so warning there would just become noise. Commit is the
+// moment "this application is about to be sent out" — someone is watching, and it's
+// exactly the moment where "the recruiter will ask about my employer and I can't answer"
+// would cost something.
 //
-// 只**说**，不阻断：CV 不是投递的前置条件，owner 可能就是不想放。
+// It only **says so**, it doesn't block: a CV isn't a precondition for submitting, the
+// owner may simply choose not to include one.
 func cvWarning(ctx context.Context, deps *ApplicationsDeps, ownerID string) string {
 	if deps.CVCheck == nil {
 		return ""
@@ -256,9 +277,10 @@ func cvWarning(ctx context.Context, deps *ApplicationsDeps, ownerID string) stri
 		"narrow the role in /admin/roles if that is deliberate."
 }
 
-// hiringPromptID —— builtin `hiring` 的 id。取不到就返回 nil：**不阻断投递**。
-// 这条路上唯一会失败的原因是这台实例还没种出 hiring（不该发生），
-// 而为此让 owner 投不出简历是拿系统的毛病罚用户。
+// hiringPromptID — the builtin `hiring` prompt's id. Returns nil if it can't be found:
+// **doesn't block submission**. The only reason this path can fail is that this instance
+// hasn't seeded hiring yet (shouldn't happen), and blocking the owner's resume submission
+// for that would punish the user for a bug in the system.
 func hiringPromptID(ctx context.Context, deps *ApplicationsDeps, ownerID string) *string {
 	if deps.Prompts == nil {
 		return nil
@@ -270,8 +292,8 @@ func hiringPromptID(ctx context.Context, deps *ApplicationsDeps, ownerID string)
 	return &id
 }
 
-// generateApplicationCode —— "app-XXXXXX" lowercase base32（4 random bytes ≈ 6 chars）。
-// 字符集只用 a-z2-7，URL-safe，肉眼可读。
+// generateApplicationCode — "app-XXXXXX" lowercase base32 (4 random bytes ≈ 6 chars).
+// Character set is only a-z2-7: URL-safe and readable at a glance.
 func generateApplicationCode() (string, error) {
 	buf := make([]byte, applicationCodeRandSize)
 	if _, err := rand.Read(buf); err != nil {

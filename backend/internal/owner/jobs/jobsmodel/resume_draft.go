@@ -1,11 +1,14 @@
-// resume_draft.go —— ResumeDraft aggregate: Phase 2 中间态。Claude 给出
-// resume_content 后 owner 还在 preview 看；commit 之后变成 application（Phase 3）。
+// resume_draft.go — ResumeDraft aggregate: the Phase 2 intermediate state. Once Claude
+// hands back resume_content the owner is still previewing it; commit turns it into an
+// application (Phase 3).
 //
-// L.13 决策：draft 创建时已经把 job snapshot 复制进来，commit 不依赖
-// Redis TTL 还在 —— 池子里 evict 完照样可以 commit。
+// L.13 decision: the draft already copies the job snapshot in at creation time, so commit
+// doesn't depend on the Redis TTL still being alive — commit still works after the pool
+// has evicted the entry.
 //
-// PDF 永远 ephemeral —— 每次 MCP 调用现场用 gopdf 渲染 bytes 塞响应，
-// server 端不存任何文件，draft 表里也没有 PDF 路径列。
+// The PDF is always ephemeral — each MCP call renders the bytes on the spot with gopdf and
+// stuffs them into the response; the server stores no file, and the draft table has no
+// PDF path column.
 
 package jobsmodel
 
@@ -14,8 +17,8 @@ import (
 	"time"
 )
 
-// ResumeDraft —— DB-backed draft row（jsonb job_snapshot + resume_content
-// 已解到对应 domain 类型）。
+// ResumeDraft — a DB-backed draft row (jsonb job_snapshot + resume_content already
+// decoded into their domain types).
 type ResumeDraft struct {
 	CreatedAt     time.Time
 	ExpiresAt     time.Time
@@ -23,13 +26,14 @@ type ResumeDraft struct {
 	ID            string
 	OwnerID       string
 	JobCacheID    string
-	// Template —— 这份草稿选的 Typst 排版（'' = 默认 classic）。定制化的选择项，commit 时带进 PDF。
+	// Template — the Typst layout this draft picked ('' = default classic). A
+	// customization choice, carried into the PDF at commit.
 	Template    string
 	JobSnapshot FetchedJob
 }
 
-// CreateResumeDraftInput —— usecase 层 draft.create 入参（job snapshot
-// 已经从 Redis 池子取出来由 caller 注入）。
+// CreateResumeDraftInput — the usecase-layer input for draft.create (the job snapshot has
+// already been pulled from the Redis pool and injected by the caller).
 type CreateResumeDraftInput struct {
 	ResumeContent ResumeContent
 	OwnerID       string
@@ -40,9 +44,9 @@ type CreateResumeDraftInput struct {
 
 // ResumeDraft-scoped sentinels.
 var (
-	// ErrResumeDraftNotFound —— 按 (id, owner_id) 反查未命中，或已过期被
-	// expires_at filter 过滤掉。
+	// ErrResumeDraftNotFound — lookup by (id, owner_id) missed, or it's expired and got
+	// filtered out by the expires_at filter.
 	ErrResumeDraftNotFound = errors.New("resume draft not found")
-	// ErrResumeContentInvalid —— content 校验失败（必填字段缺）。
+	// ErrResumeContentInvalid — content validation failed (a required field is missing).
 	ErrResumeContentInvalid = errors.New("resume content invalid")
 )

@@ -2,10 +2,10 @@
 //
 //	GET {base}/v1/companies/{company}/postings?limit=200
 //
-// 响应 {offset, limit, totalFound, content: [...]}。每条 posting 有
+// The response is {offset, limit, totalFound, content: [...]}. Each posting has
 // id / name / refNumber / location.{country,region,city,remote}
 // / department.label / releasedDate / industry.label / typeOfEmployment.label
-// / experienceLevel.label。
+// / experienceLevel.label.
 
 package fetch
 
@@ -21,11 +21,14 @@ import (
 
 const (
 	smartRecruitersDefaultBase = "https://api.smartrecruiters.com"
-	// smartRecruitersPageLimit —— **厂商的每页上限**。量出来的：2026-08-16 请求 `?limit=200`，
-	// 响应体里回的是 `"limit":100` —— 它悄悄压到 100，既不报错也不说自己压过。
-	// 这里原来就是写 200 请求一次收工，于是超过 100 个岗位的公司**静默只取前 100 条**（F-E-16）。
+	// smartRecruitersPageLimit —— **the vendor's own per-page ceiling**. Measured: on
+	// 2026-08-16 a request for `?limit=200` came back with `"limit":100` in the
+	// response body — it silently clamps to 100, neither erroring nor saying it
+	// clamped. This used to just request 200 once and call it done, so a company with
+	// more than 100 openings got **silently truncated to the first 100** (F-E-16).
 	smartRecruitersPageLimit = 100
-	// smartRecruitersMaxPages —— 翻页硬上限；撞到就把「结果是部分的」记下来，不让截断悄悄发生。
+	// smartRecruitersMaxPages —— hard cap on pagination; hitting it records that the
+	// result is partial, instead of letting truncation happen silently.
 	smartRecruitersMaxPages = 20
 )
 
@@ -66,22 +69,25 @@ func (f *smartRecruitersFetcher) Fetch(
 	return walk.out, nil
 }
 
-// srWalk —— 一次翻页遍历的状态：已取到的、最近一页的条数、**第一页**报的 totalFound。
+// srWalk —— state of a single pagination walk: what's fetched so far, the count on
+// the most recent page, and the totalFound reported by the **first page**.
 type srWalk struct {
 	out   []jobsmodel.FetchedJob
 	got   int
 	total int
 }
 
-// done —— 短页 = 最后一页；或者已经拿够第一页报的全集大小。
+// done —— a short page means the last page; or we've already gotten as many as the
+// total size the first page reported.
 func (w *srWalk) done() bool {
 	return w.got < smartRecruitersPageLimit || (w.total > 0 && len(w.out) >= w.total)
 }
 
-// walkPage —— 取第 page 页并映射进 walk.out。
+// walkPage —— fetches page `page` and maps it into walk.out.
 //
-// `totalFound` 以前**连解码都没解**：一次请求收工的写法用不上它，于是「这家有多少个岗位」
-// 这条上游主动给的信息被扔掉了，静默截断也就无从发现。
+// `totalFound` used to **not even get decoded**: the one-request-and-done version had
+// no use for it, so the upstream's own signal for "how many openings does this
+// company have" was thrown away, and silent truncation had no way to be caught.
 func (f *smartRecruitersFetcher) walkPage(
 	ctx context.Context, company string, page int, walk *srWalk,
 ) error {
@@ -127,8 +133,9 @@ func validateSmartRecruitersCfg(raw []byte) error {
 
 type srResp struct {
 	Content []srPosting `json:"content"`
-	// TotalFound —— 上游报的全集大小。**必须解码**：没有它，「取到了 100 条」和
-	// 「这家就 100 个岗位」在结果里分不出来。
+	// TotalFound —— the total size the upstream reports. **Must be decoded**: without
+	// it, "we fetched 100" and "this company only has 100 openings" are
+	// indistinguishable in the result.
 	TotalFound int `json:"totalFound"`
 }
 
@@ -161,12 +168,13 @@ func srToDomain(p *srPosting, company string) jobsmodel.FetchedJob {
 		loc = firstNonEmpty(loc, "Remote")
 	}
 	return jobsmodel.FetchedJob{
-		ExternalID:  p.ID,
-		Title:       p.Name,
-		Company:     company,
-		Location:    loc,
-		URL:         fmt.Sprintf("https://jobs.smartrecruiters.com/%s/%s", company, p.ID),
-		BodyText:    "", // SR posting list 不带 body；详情得另调 /v1/postings/{id}/details
+		ExternalID: p.ID,
+		Title:      p.Name,
+		Company:    company,
+		Location:   loc,
+		URL:        fmt.Sprintf("https://jobs.smartrecruiters.com/%s/%s", company, p.ID),
+		BodyText:   "", // the SR posting list carries no body; details need a separate
+		// call to /v1/postings/{id}/details
 		Tags:        srTags(p),
 		PublishedAt: parseISOTime(p.ReleasedDate),
 		SourceKind:  KindSmartRecruiters,

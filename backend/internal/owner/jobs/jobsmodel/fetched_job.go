@@ -1,9 +1,11 @@
-// fetched_job.go —— FetchedJob value object：fetcher 从源抓出来一条 job
-// 的 snapshot，Redis 1d TTL 缓存的载体。**不进 DB**；commit application
-// 时它的 snapshot 才进 applications.job_snapshot（Phase 3）。
+// fetched_job.go — FetchedJob value object: the snapshot the fetcher pulls for one
+// job from a source, carried in the Redis 1d-TTL cache. **Never persisted to the DB**;
+// its snapshot only lands in applications.job_snapshot when an application is committed
+// (Phase 3).
 //
-// 跟 JobSource aggregate 平行 —— references it by SourceID 但不在那个 aggregate
-// 里（这条 job 的生命周期独立于 source 的生命周期，owner 可以丢弃单条而不动 source）。
+// Parallel to the JobSource aggregate — references it by SourceID but doesn't live
+// inside that aggregate (this job's lifecycle is independent of the source's lifecycle;
+// the owner can discard a single job without touching the source).
 
 package jobsmodel
 
@@ -12,11 +14,11 @@ import (
 	"time"
 )
 
-// FetchedJob —— ephemeral 抓出来的 job。owner 在 Claude 里"今天有什么新工作"
-// 看的就是这个 shape。json tags 是 Redis 序列化用。
+// FetchedJob — an ephemerally fetched job. This is the shape the owner sees when
+// asking Claude "what's new today". The json tags are for Redis serialization.
 //
-// 字段顺序按 govet fieldalignment：time.Time（含 nested ptr）在前，slice
-// （ptr len cap）紧跟，strings 在尾。
+// Field order follows govet fieldalignment: time.Time (with its nested ptr) first,
+// then the slice (ptr/len/cap), strings last.
 type FetchedJob struct {
 	PublishedAt time.Time `json:"published_at"`
 	CacheID     string    `json:"cache_id"`
@@ -31,5 +33,5 @@ type FetchedJob struct {
 	Tags        []string  `json:"tags"`
 }
 
-// ErrJobCacheMiss —— 池子里 cache_id 反查不到（过期 / 从未存在 / discard 过）。
+// ErrJobCacheMiss — cache_id lookup in the pool missed (expired / never existed / discarded).
 var ErrJobCacheMiss = errors.New("job cache miss")

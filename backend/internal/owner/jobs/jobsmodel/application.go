@@ -1,12 +1,15 @@
-// application.go —— Application aggregate (Phase 3 持久化记录)。
+// application.go — Application aggregate (Phase 3 persisted record).
 //
-// 一条 application 必有一个同步 issue 的 AccessCode（recruiter 扫 QR 接回
-// visitor chat）。job_snapshot 和 resume_content 是 commit 那一刻的快照，
-// 即便对应 draft 删了 / Redis 池子 evict 了，application 不丢任何信息。
+// Every application has exactly one AccessCode issued synchronously with it (a
+// recruiter scans the QR code and lands back in visitor chat). job_snapshot and
+// resume_content are snapshots taken at the moment of commit, so the application
+// loses no information even after the corresponding draft is deleted or the
+// Redis pool entry is evicted.
 //
-// status 取值（v1）：'pending'（owner 已 commit 但没投出去）→
-// 'submitted'（Playwright 已成功提交）→ 'failed' / 'withdrawn'。
-// Phase 3 只用 'pending'；Phase 4 Playwright 投递成功回填 submitted_at + status。
+// status values (v1): 'pending' (owner committed but hasn't submitted it yet) →
+// 'submitted' (Playwright submitted it successfully) → 'failed' / 'withdrawn'.
+// Phase 3 only uses 'pending'; Phase 4's successful Playwright submission backfills
+// submitted_at + status.
 
 package jobsmodel
 
@@ -17,7 +20,7 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
-// Application —— DB-backed application row。
+// Application — DB-backed application row.
 type Application struct {
 	CreatedAt    time.Time
 	SubmittedAt  *time.Time
@@ -25,14 +28,15 @@ type Application struct {
 	OwnerID      string
 	AccessCodeID string
 	Status       string
-	// Template —— 这份简历用哪个 Typst 排版（'' = 默认 classic）。定制化的选择项。
+	// Template — which Typst layout this resume uses ('' = default classic).
+	// A customization option.
 	Template      string
 	ResumeContent ResumeContent
 	JobSnapshot   FetchedJob
 }
 
-// CreateApplicationInput —— usecase 层 application.commit 入参。
-// access_code 已经在同 tx 里先 issue 好；caller 把 ID 传进来。
+// CreateApplicationInput — usecase-layer input for application.commit.
+// access_code has already been issued earlier in the same tx; the caller passes in its ID.
 type CreateApplicationInput struct {
 	OwnerID       string
 	AccessCodeID  string
@@ -40,18 +44,19 @@ type CreateApplicationInput struct {
 	JobSnapshot   FetchedJob
 }
 
-// CommittedApplication —— applications.commit 返回值：application + 同步 issue
-// 的 AccessCode（plaintext code 给 QR URL）+ 最终 PDF bytes。
+// CommittedApplication — applications.commit's return value: the application + the
+// synchronously issued AccessCode (plaintext code for the QR URL) + the final PDF bytes.
 type CommittedApplication struct {
 	Application Application
 	AccessCode  access.Code
 	QRURL       string
-	// Warning —— 投出去了，但有件事 owner 该知道（空 = 没有）。
-	// 今天只有一件：hiring role 圈着 CV 而那条笔记不存在 —— 招聘官问雇主和日期时
-	// 会被告知"不在笔记里"。**不阻断投递**，只是让这件事不再静默。
+	// Warning — it went out, but there's something the owner should know (empty = nothing).
+	// Today there's only one case: the hiring role references a CV note that doesn't
+	// exist — a recruiter asking about the employer and dates gets told "not in the
+	// notes". This does NOT block submission; it just stops the gap from being silent.
 	Warning string
 	PDF     []byte
 }
 
-// ErrApplicationNotFound —— 按 (id, owner_id) 反查未命中。
+// ErrApplicationNotFound — lookup by (id, owner_id) found no match.
 var ErrApplicationNotFound = errors.New("application not found")

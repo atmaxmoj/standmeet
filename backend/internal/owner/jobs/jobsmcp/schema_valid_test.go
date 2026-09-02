@@ -9,10 +9,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmcp"
 )
 
-// TestJobsMCPSchemasAreValidJSON —— jobs/resume/applications 三套 owner-MCP 工具的
-// InputSchema 必须是合法 JSON。它们和内建 owner 工具同在 live tools/list,一个坏
-// schema 同样会让 mcp-go 序列化整张表失败 → 真实客户端发现不到任何工具。
-// 与 internal/mcp 的 TestOwnerToolSchemasAreValidJSON 同一道守护,覆盖插件侧。
+// TestJobsMCPSchemasAreValidJSON — the InputSchema of all three owner-MCP tool sets
+// (jobs/resume/applications) must be valid JSON. They sit in the same live tools/list
+// as the built-in owner tools, so one bad schema equally makes mcp-go's serialization
+// of the whole table fail → real clients discover zero tools.
+// Same guard as internal/mcp's TestOwnerToolSchemasAreValidJSON, covering the plugin side.
 func TestJobsMCPSchemasAreValidJSON(t *testing.T) {
 	t.Parallel()
 

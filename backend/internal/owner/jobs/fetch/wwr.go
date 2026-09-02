@@ -1,21 +1,21 @@
-// wwr.go —— WeWorkRemotely category RSS。
+// wwr.go — WeWorkRemotely category RSS.
 //
 //	GET {base}/categories/{slug}.rss
 //
-// 多 category 时一个 source 配 ["cat1", "cat2"]，fetcher 串行 GET 多个 RSS
-// 合并去重（按 guid）。
+// For multiple categories, a source configures ["cat1", "cat2"]; the fetcher
+// GETs multiple RSS feeds serially and merges + dedupes them (by guid).
 //
-// item shape (custom RSS extensions)：
+// item shape (custom RSS extensions):
 //
 //	title              "Acme: Senior Engineer"
 //	region             "Anywhere in the World"
 //	country / state
-//	skills             逗号 free-text
+//	skills             comma-separated free-text
 //	category           "Back-End Programming"
 //	type               "Full-Time"
 //	description        HTML (already entity-encoded once)
 //	pubDate            RFC-822
-//	guid / link        per-job URL (相同)
+//	guid / link        per-job URL (same value)
 
 package fetch
 
@@ -196,8 +196,8 @@ type titleCompany struct {
 	company string
 }
 
-// splitWWRTitle —— WWR 习惯把 "Company: Job Title" 塞 <title> 里。
-// 没冒号就把整 string 当 title，company 空。
+// splitWWRTitle — WWR conventionally packs "Company: Job Title" into <title>.
+// With no colon, treat the whole string as the title and leave company empty.
 func splitWWRTitle(t string) titleCompany {
 	parts := strings.SplitN(t, ":", 2)
 	const wwrTitleParts = 2
@@ -214,7 +214,7 @@ func parseRFC822Time(s string) time.Time {
 	if s == "" {
 		return time.Time{}
 	}
-	// RFC1123Z 是 Go 库里 "Mon, 02 Jan 2006 15:04:05 -0700" 的格式 —— RSS pubDate 用这个
+	// RFC1123Z is Go's "Mon, 02 Jan 2006 15:04:05 -0700" format — RSS pubDate uses it
 	t, err := time.Parse(time.RFC1123Z, s)
 	if err != nil {
 		return time.Time{}
