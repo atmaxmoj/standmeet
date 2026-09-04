@@ -1,24 +1,15 @@
-// upgrade.go — the two external things behind /admin/system's "upgrade" button:
+// upgrade.go — the "is there a newer version" half behind /admin/system's "upgrade"
+// button: ReleaseChannel asks the image registry whether a newer version exists. It lives
+// in the composition root, not the domain — the domain sees one narrow interface, and the
+// outbound HTTP never enters the stats domain.
 //
-//	ask the image registry whether there's a newer version   (ReleaseChannel)
-//	ask whatever orchestrates this instance to redeploy       (Redeployer)
-//
-// Both live in the composition root, not in the domain: the domain sees two narrow
-// interfaces, and neither the outbound HTTP nor the URL the owner fills in ever
-// enters the stats domain.
-//
-// **This instance has no host control**: compose deliberately doesn't mount
-// docker.sock into backend. So it can't upgrade itself — it can only ask the
-// orchestrator to. The permission is handed over by the owner personally
-// (STANDMEET_REDEPLOY_HOOK); the product doesn't invent this and doesn't assume the
-// orchestrator is Coolify or anything else — it only knows an opaque URL.
+// The other half (pressing "redeploy") is the substrate-blind signal in upgrade_signal.go.
 
 package port
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -208,54 +199,4 @@ func zeroOnErr(n int, err error) int {
 		return 0
 	}
 	return n
-}
-
-// ErrRedeployNotConfigured — the owner never gave a redeploy path. This isn't a
-// fault: under most deployment methods, upgrading is done outside the instance to
-// begin with. The panel must **say exactly that**, and must not draw the button as
-// if it were pressable.
-var ErrRedeployNotConfigured = errors.New("no redeploy hook configured for this instance")
-
-// Redeployer — the redeploy URL the owner filled in. Empty = this instance has no
-// such path.
-type Redeployer struct {
-	http *http.Client
-	hook string
-}
-
-// NewRedeployer — the redeploy request **never retries**: the orchestrator side is
-// likely not idempotent, so firing it again could mean redeploying twice. Send it
-// once; the browser measures the outcome.
-func NewRedeployer(hook string) *Redeployer {
-	return &Redeployer{hook: hook, http: httpx.NewClient(httpx.Options{
-		Timeout: upgradeHTTPBudget, NoRetry: true,
-	})}
-}
-
-// Configured — has the owner given this path. The panel decides based on this
-// whether the button reads "upgrade" or "here's the command you should run".
-func (r *Redeployer) Configured() bool { return r.hook != "" }
-
-// Trigger — POSTs that URL. **Only reports "it was fired"**: a redeploy takes tens
-// of seconds, and this very process is among the things being replaced — it won't
-// survive long enough to answer "did the upgrade succeed". The real receipt is
-// measured by the browser (polling /api/v1/instance's version after firing), which
-// stays alive through the restart.
-func (r *Redeployer) Trigger(ctx context.Context) error {
-	if !r.Configured() {
-		return ErrRedeployNotConfigured
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, r.hook, http.NoBody)
-	if err != nil {
-		return fmt.Errorf("redeploy request: %w", err)
-	}
-	res, err := r.http.Do(req)
-	if err != nil {
-		return fmt.Errorf("redeploy hook: %w", err)
-	}
-	defer closeBody(res.Body)
-	if res.StatusCode >= http.StatusBadRequest {
-		return fmt.Errorf("redeploy hook answered %d", res.StatusCode)
-	}
-	return nil
 }

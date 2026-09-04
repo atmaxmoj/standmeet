@@ -12,10 +12,11 @@ self-hosters can't set up, so the button was dead by default.
   writes an atomic timestamp to a file on a volume it shares with a sidecar, instead of POSTing
   an owner-supplied webhook. `Configured()` is true whenever the sidecar shipped, so `can_apply`
   is true out of the box. The app still never gets docker.sock — it writes one byte to a file.
-- **Composition-root choice** (`boot_upgrade.go` `pickRedeployer`): an explicit
-  `STANDMEET_REDEPLOY_HOOK` still wins (advanced owners with an orchestrator); otherwise the
-  signal path is the default; only when neither is set does the button honestly report it can't
-  act. Config reads `STANDMEET_UPGRADE_SIGNAL` (`config.go`).
+- **Composition root — one path, no fork** (`boot_upgrade.go` `upgradeSources`): the redeploy side
+  is always `SignalRedeployer`, never a choice the product makes. The webhook branch (and
+  `RedeployHookURL` / `STANDMEET_REDEPLOY_HOOK`) was removed 2026-09-04 — it was the product
+  half-knowing its substrate. `Configured()` false (no signal path) is the honest can't-act state.
+  Config reads `STANDMEET_UPGRADE_SIGNAL` (`config.go`).
 - **Updater = the DOCKER adapter, not "the upgrade mechanism"** (`infra/updater/`). Ownership
   boundary (revised 2026-09-04): the backend only emits a **substrate-blind pulse** (the signal);
   it never knows how it's deployed. This `docker:cli` worker is the *docker substrate's* adapter —
@@ -43,17 +44,18 @@ self-hosters can't set up, so the button was dead by default.
   the **new** design (fetch canonical, not mount local) — 2026-09-04, green.
 - **Still open (needs a real PaaS host):** whether an in-stack updater fights a PaaS's own
   reconciliation loop (Coolify etc.). Not a reason to keep the local-compose coupling — on a
-  managed PaaS you drop the updater entirely and point `STANDMEET_REDEPLOY_HOOK` at the platform's
-  redeploy webhook (the platform is the adapter there).
-- **Remaining product-side cleanup:** `boot_upgrade.go` still *chooses* between the webhook and
-  signal redeployers (`if RedeployHookURL != ""`). That branch is the product half-knowing its
-  adapters; collapsing it to a single "emit intent" path is the next step.
+  managed PaaS you swap the docker updater for a different adapter reading the *same* signal (one
+  that calls the platform's redeploy API). The backend is identical either way. That PaaS adapter
+  is planned, not shipped.
+- **Done 2026-09-04:** the composition root no longer chooses between adapters. The webhook
+  redeployer + `RedeployHookURL` + `STANDMEET_REDEPLOY_HOOK` are gone; the product emits one
+  substrate-blind signal and knows nothing about who consumes it.
 
 ## The problem, in the code's own words
 
-- `config.go` (`RedeployHookURL`): the instance has no docker.sock (deliberate), so it can't
-  pull/recreate itself. It POSTs an **opaque URL the owner pastes** from Coolify/Portainer/CI.
-  "Empty = the button honestly says it can't." → upgrade is **owner-configured, off by default.**
+- (Historical) `config.go` `RedeployHookURL` used to POST an **opaque URL the owner pastes** from
+  Coolify/Portainer/CI, off by default — the product half-knowing its substrate. Removed
+  2026-09-04: the product emits only the substrate-blind signal.
 - `infra/deploy/docker-compose.yml` (the image-based deploy compose): the deploy webhook path is
   impractical for most self-hosters. **Fixed** by the updater sidecar (the default path now).
 - That compose used to pin every image at **`v0.1.3`** (not `latest`, not the current release),
@@ -89,9 +91,9 @@ Ship an **updater** container as part of the product's own compose:
   (`docker compose pull && up -d` scoped to the project, or the equivalent API calls).
 - Because it ships *in the compose*, upgrade works **out of the box — zero owner config, no
   external orchestrator, no touching anyone's Coolify.**
-- `STANDMEET_REDEPLOY_HOOK` **survives as an optional fallback** for advanced users who genuinely
-  have an orchestrator webhook — but it's no longer the only path, and off-by-default stops
-  meaning can't-upgrade.
+- (Superseded 2026-09-04) An earlier revision kept `STANDMEET_REDEPLOY_HOOK` as an optional
+  fallback. It was removed: a webhook the product POSTs is the product knowing its substrate. A
+  non-docker substrate is a different **adapter** reading the same signal, not a product knob.
 
 Security posture vs today: the app's surface is unchanged (still no sock). We add exactly one
 small, single-purpose container whose docker access is proxy-narrowed to pull+recreate this

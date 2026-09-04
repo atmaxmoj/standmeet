@@ -38,12 +38,12 @@ EXAMPLE="$ROOT/.env.example"
 #                           words. An owner shortening them would only cut their own turns short.
 #   SANDBOX_WORKSPACE_ROOT  a path inside the container with a working default; moving it means
 #                           changing the image's mounts too, so it is not a setting on its own.
-#   STANDMEET_UPGRADE_SIGNAL the product-owned upgrade path. It's wired by the image-based deploy
-#                           compose (infra/deploy/docker-compose.yml) TOGETHER with the updater
-#                           sidecar — the two only make sense as a pair. The source-build
-#                           docker-compose.prod.yml upgrades by git-pull + rebuild, ships no
-#                           updater, so leaving this unset there is CORRECT (the button falls back
-#                           to STANDMEET_REDEPLOY_HOOK, or honestly reports it can't act).
+#   STANDMEET_UPGRADE_SIGNAL the product-owned upgrade path, and the only one. It's wired by the
+#                           image-based deploy compose (infra/deploy/docker-compose.yml) TOGETHER
+#                           with the updater sidecar — the two only make sense as a pair. The
+#                           source-build docker-compose.prod.yml upgrades by git-pull + rebuild,
+#                           ships no updater, so leaving this unset there is CORRECT (the button
+#                           honestly reports it can't act, and tells the owner to rebuild).
 is_exempt() {
 	case "$1" in
 	*_BASE_URL | AGENT_TURN_TIMEOUT | FORCE_FINAL_TIMEOUT | SANDBOX_WORKSPACE_ROOT) return 0 ;;

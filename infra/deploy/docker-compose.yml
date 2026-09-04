@@ -185,20 +185,14 @@ services:
       - MARKETPLACE_GITHUB_BASE_URL=${MARKETPLACE_GITHUB_BASE_URL:-}
       # ── The upgrade button on /admin/system ──────────────────────────────────────────────
       # This instance has no host-level control (docker.sock is deliberately NOT mounted on the
-      # backend below), so it can't pull images or recreate containers itself. Two ways to give
-      # the button something to do — the product ships the first, so it works with no config:
-      #
-      # 1. STANDMEET_UPGRADE_SIGNAL (product-owned, default): the backend writes a signal file
-      #    on a volume it shares with the bundled `updater` sidecar (see that service). The
-      #    updater — the only container with docker access — pulls the newest images and
-      #    recreates the stack. Zero owner setup, no external orchestrator. This is the path the
-      #    ${STANDMEET_IMAGE_TAG:-latest} channel tag above exists for.
+      # backend below), so it never pulls images itself. The button writes a substrate-blind
+      # signal file on a volume it shares with the bundled `updater` sidecar (see that service),
+      # and stops there. The backend does not know or pick how it is deployed: the updater — the
+      # only container with docker access — consumes the signal and pulls + recreates the stack.
+      # A different substrate (a Coolify-managed stack) would run a different sidecar reading the
+      # same signal and calling Coolify's API; the backend is identical either way. Zero owner
+      # setup — this is the path the ${STANDMEET_IMAGE_TAG:-latest} channel tag above exists for.
       - STANDMEET_UPGRADE_SIGNAL=${STANDMEET_UPGRADE_SIGNAL:-/run/standmeet/upgrade.signal}
-      # 2. STANDMEET_REDEPLOY_HOOK (advanced fallback): if you'd rather your platform redeploy
-      #    the stack, open a deploy webhook (Coolify / Portainer / a CI hook) and put the URL
-      #    here — it wins over the signal path. On a platform that owns lifecycle reconciliation
-      #    (e.g. a Coolify-managed stack), prefer this over the in-stack updater.
-      - STANDMEET_REDEPLOY_HOOK=${STANDMEET_REDEPLOY_HOOK:-}
       # Where to ask "is there a new version." Empty = the official image registry.
       - STANDMEET_RELEASE_REGISTRY=${STANDMEET_RELEASE_REGISTRY:-}
       - STANDMEET_RELEASE_REPO=${STANDMEET_RELEASE_REPO:-}
@@ -323,8 +317,9 @@ services:
   # deps: the docker socket (its privilege) + the local .env (secrets stay local; only the
   # compose STRUCTURE is fetched).
   #
-  # A managed PaaS (Coolify/Render/Fly) doesn't need this at all — set STANDMEET_REDEPLOY_HOOK
-  # to the platform's redeploy webhook and drop this service; the platform is the adapter then.
+  # A managed PaaS (Coolify/Render/Fly) swaps THIS service for a different adapter reading the
+  # same signal (one that calls the platform's redeploy API) — the backend is unchanged either
+  # way, because it only ever writes the pulse. That PaaS adapter is planned, not shipped yet.
   updater:
     image: ghcr.io/atmaxmoj/standmeet-updater:${STANDMEET_IMAGE_TAG:-latest}
     restart: unless-stopped

@@ -151,14 +151,10 @@ services:
       # not a knob. `check-knobs-reachable` cannot see this one — its `*_BASE_URL` exemption
       # was written for dev-only mock pointers and swallows this too.
       - MARKETPLACE_GITHUB_BASE_URL=${MARKETPLACE_GITHUB_BASE_URL:-}
-      # STANDMEET_REDEPLOY_HOOK —— what /admin/system's upgrade button POSTs.
-      #
-      # This instance has no control over its host (the backend deliberately gets no
-      # docker.sock), so it cannot pull images or recreate containers. Whatever
-      # orchestrates it can. Paste that side's redeploy URL here and the button applies
-      # an upgrade; leave it empty and the button says plainly that it cannot, and tells
-      # the owner what to run instead. The product does not invent this privilege.
-      - STANDMEET_REDEPLOY_HOOK=${STANDMEET_REDEPLOY_HOOK:-}
+      # No in-app upgrade knob here: this is the SOURCE-BUILD stack (git pull + rebuild is how
+      # it upgrades), so it ships no updater sidecar and sets no STANDMEET_UPGRADE_SIGNAL. The
+      # /admin/system button honestly reports it can't act and tells the owner to rebuild. The
+      # image-based deploy (infra/deploy/docker-compose.yml) is where the updater + signal live.
       # STANDMEET_RELEASE_REGISTRY / _REPO —— where "is there a newer version" is asked.
       # Empty = the official images. A fork that publishes its own points these at itself.
       - STANDMEET_RELEASE_REGISTRY=${STANDMEET_RELEASE_REGISTRY:-}

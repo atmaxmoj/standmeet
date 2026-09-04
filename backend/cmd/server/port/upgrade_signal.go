@@ -1,24 +1,30 @@
-// upgrade_signal.go — the **product-owned** redeploy path.
+// upgrade_signal.go — the **product-owned, substrate-blind** redeploy path, and the only one.
 //
-// The webhook Redeployer (upgrade.go) needs the owner to paste an orchestrator URL, which
-// most self-hosters can't produce — so the upgrade button is dead by default. This path
-// removes that requirement: the product ships an updater sidecar (infra/updater), and the
-// app signals it by writing to a file on a volume they share. The sidecar — the only
-// container holding docker access — watches that file and pulls + recreates the stack.
+// Pressing "redeploy" writes a byte to a file on a volume the app shares with an updater
+// sidecar (infra/updater). The app never learns how it is deployed: whichever adapter consumes
+// the signal owns that knowledge — the docker updater runs `docker compose up`; a Coolify
+// adapter would read the same pulse and call Coolify's API. The app writes the byte and stops.
 //
-// The app stays **docker.sock-free**: it writes a byte to a file, nothing more. All host
-// privilege stays in the one small sidecar, off the internet-facing surface. can_apply is
-// true out of the box because the sidecar ships with the compose and sets the signal path.
+// The app stays **docker.sock-free**: all host privilege lives in the one small sidecar, off
+// the internet-facing surface. can_apply is true out of the box because the sidecar ships with
+// the compose and sets the signal path; with no sidecar, Configured() is false and the panel
+// says the upgrade happens outside the instance.
 
 package port
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"time"
 )
+
+// ErrRedeployNotConfigured — no updater sidecar shipped, so there is no signal path to write.
+// This isn't a fault: under some deployment methods upgrading is done outside the instance. The
+// panel must **say exactly that**, and must not draw the button as if it were pressable.
+var ErrRedeployNotConfigured = errors.New("no redeploy signal path for this instance")
 
 // signalPerm — owner-only: the signal sits on a shared volume; nothing but the updater needs
 // to read it, and nothing but us writes it.
@@ -33,7 +39,7 @@ type SignalRedeployer struct {
 
 // NewSignalRedeployer — signalPath is STANDMEET_UPGRADE_SIGNAL, set by the compose to a
 // file on the updater-shared volume. Empty (no sidecar) → Configured() is false, and the
-// composition root falls back to the webhook path or reports the button can't act.
+// panel reports the button can't act.
 func NewSignalRedeployer(signalPath string) *SignalRedeployer {
 	return &SignalRedeployer{signalPath: signalPath, now: time.Now}
 }

@@ -98,27 +98,14 @@ type Config struct {
 	// speed layer, Postgres remains the source of truth. env: MEILI_URL / MEILI_KEY
 	MeiliURL string
 	MeiliKey string
-	// RedeployHookURL — who the /admin/system "upgrade" button calls.
-	//
-	// This instance has **no** control over its host (compose deliberately
-	// does not mount docker.sock into backend), so it cannot pull images or
-	// rebuild containers itself. The party that actually can do this is
-	// whatever orchestrates it (Coolify / Portainer / a CI webhook), and
-	// that permission must come from the owner's own hand: they paste the
-	// redeploy URL that party gave them here.
-	//
-	// The product does not invent this permission, nor assume who the
-	// orchestrator is — it only knows an opaque URL and POSTs it. Empty =
-	// the button honestly says it can't do this, and instead tells the
-	// owner which command to run.
-	// env: STANDMEET_REDEPLOY_HOOK
-	RedeployHookURL string
-	// UpgradeSignalPath — the **product-owned** upgrade path. The compose points this at a
-	// file on the volume shared with the bundled updater sidecar; the upgrade button writes
-	// there and the sidecar (the only container with docker access) pulls + recreates the
-	// stack. Ships with the product, so the button works with no owner configuration and no
-	// external orchestrator. Empty (no sidecar) → fall back to RedeployHookURL, or the panel
-	// reports the button can't act.
+	// UpgradeSignalPath — the **product-owned, substrate-blind** upgrade path, and the only
+	// one. This instance has no control over its host (compose deliberately does not mount
+	// docker.sock into backend), so it never pulls images itself: the /admin/system "upgrade"
+	// button writes a byte to a file on a volume shared with the bundled updater sidecar, and
+	// whichever adapter consumes it does the substrate-specific work (the docker updater runs
+	// `docker compose up`; a Coolify adapter would call Coolify). The product does not know or
+	// pick the substrate. Ships with the product, so the button works with no owner config.
+	// Empty (no sidecar) → the panel reports the button can't act.
 	// env: STANDMEET_UPGRADE_SIGNAL
 	UpgradeSignalPath string
 	// ReleaseRegistry / ReleaseRepo — where to ask "is there a new version".
@@ -220,7 +207,6 @@ func Load() (*Config, error) {
 		PrintBaseURL:               envOr("PRINT_BASE_URL", internalURL(defaultPrintHost)),
 		MarketplaceGitHubBaseURL:   os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),
 		MarketplaceSkillsMPBaseURL: os.Getenv("MARKETPLACE_SKILLSMP_BASE_URL"),
-		RedeployHookURL:            os.Getenv("STANDMEET_REDEPLOY_HOOK"),
 		UpgradeSignalPath:          os.Getenv("STANDMEET_UPGRADE_SIGNAL"),
 		ReleaseRegistry:            envOr("STANDMEET_RELEASE_REGISTRY", defaultReleaseRegistry),
 		ReleaseRepo:                envOr("STANDMEET_RELEASE_REPO", defaultReleaseRepo),
