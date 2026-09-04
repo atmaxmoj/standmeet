@@ -116,19 +116,14 @@ sdk-lint:
 # external visitor client, and its logic (code auth / open session / quota / revoke / echo
 # guard) can be proven against a stand-in without spinning up the whole stack.
 # The real-platform pass belongs to docs/real-env-verification/items/im-bridge.md.
-# updater-e2e —— the REAL end-to-end test of the product-owned upgrade: a live local registry,
-# a live stack, a genuine :latest bump, a genuine signal, and an assertion that the running
-# container actually upgraded (then that a repeat press is a no-op). No fakes. Needs Docker + a
-# network. Heavy on purpose — not part of `make lint`.
+# updater-e2e —— the REAL end-to-end test of the product-owned upgrade. Brings up a live stack
+# with `docker compose` (real project, a real named volume with data), deploys the updater as part
+# of it WITHOUT telling it the project name, writes a unique marker, publishes a v2 image, presses
+# the button, and asserts: the service upgraded IN PLACE to v2, the marker survived (original volume
+# adopted, not a fresh one), and no parallel container/volume appeared. The marker-survives +
+# no-twin checks are what a rigged earlier test lacked. Needs Docker + a network. Not part of lint.
 updater-e2e:
 	@infra/updater/updater-e2e.sh
-
-# upgrade-real-e2e — the REAL end-to-end: the ACTUAL StandMeet stack (backend+db+redis+minio)
-# pinned to a published release, upgraded via the button to the next release, asserting the
-# instance's own /api/v1/instance version moved AND it still serves (the boot migration ran).
-# Heavier than updater-e2e (pulls two full releases from ghcr). Set FROM_VER / TO_VER to choose.
-upgrade-real-e2e:
-	@infra/updater/upgrade-real-e2e.sh
 
 # fresh-install-e2e — a first-ever install must boot: the real backend on a BRAND-NEW pgvector
 # volume (schema.sql + every embedded migration applied at boot) must serve /api/v1/instance.

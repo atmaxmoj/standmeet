@@ -17,17 +17,25 @@ self-hosters can't set up, so the button was dead by default.
   `RedeployHookURL` / `STANDMEET_REDEPLOY_HOOK`) was removed 2026-09-04 — it was the product
   half-knowing its substrate. `Configured()` false (no signal path) is the honest can't-act state.
   Config reads `STANDMEET_UPGRADE_SIGNAL` (`config.go`).
-- **Updater = the DOCKER adapter, not "the upgrade mechanism"** (`infra/updater/`). Ownership
-  boundary (revised 2026-09-04): the backend only emits a **substrate-blind pulse** (the signal);
-  it never knows how it's deployed. This `docker:cli` worker is the *docker substrate's* adapter —
-  one of potentially many (a k8s or bare-git deployment binds a different adapter to the same
-  pulse). The product does not know this adapter exists or that it's docker.
-  - It does **not** mount this instance's on-disk compose (that bound the upgrade to how *this*
-    instance was laid down, and broke on a PaaS that keeps the compose only in its DB). Following
-    **Coolify's own self-upgrade**, it **fetches the canonical compose from the release**
-    (`STANDMEET_COMPOSE_URL`) at upgrade time, passes the local `.env` for secrets, then
-    `docker compose pull && up -d` excluding itself. So an upgrade can change the stack's *shape*,
-    not just bump tags, and needs no compose file on disk.
+- **Updater = a small Go binary, Watchtower's mechanism narrowed to a button** (`infra/updater/`,
+  its own Go module so the docker SDK never enters the backend's graph). The backend only emits a
+  **substrate-blind pulse**; this worker is the one container with docker access. On the pulse it:
+  - reads its **OWN** container's `com.docker.compose.project` label to learn the real project
+    name (never hardcoded), lists the siblings, and **recreates each of ours in place** from its
+    own inspected config (`ContainerInspect` → stop → remove → `ContainerCreate` with the same
+    Config/HostConfig/Networks, only `Image` bumped to the channel tag). So volumes, networks, env
+    (**the secrets**), names and labels are exactly what they already were.
+  - **No compose fetched, no `.env`, no project name given** — it only ever acts on the containers
+    that already exist, so it works identically on bare `docker compose`, Coolify, or anything.
+  - **Why the rewrite (2026-09-04):** the earlier version ran `docker compose -p standmeet up`
+    against a *fetched canonical compose*. That (a) **hardcoded** the project name, so on any
+    deployment whose real project name differed (Coolify uses its own) `up` built a **parallel
+    EMPTY stack** instead of upgrading the real one — verified live on sijie.xyz, it spun a twin
+    with fresh volumes; and (b) needed the secrets as `${SERVICE_PASSWORD_*}` from an `.env` it
+    couldn't get (those were Coolify-magic var names — the "canonical" compose was itself PaaS-
+    flavored). Both are deployment knowledge the product must not have. In-place recreate has
+    neither problem. Trade-off: it bumps image tags, it does **not** change the stack's *shape*
+    (add/remove services) — a rare need, punted.
 - **Deploy compose** (`infra/deploy/docker-compose.yml`, renamed from the Coolify-specific
   file): ships the `updater` service + the shared `upgrade_signal` volume + docker.sock into the
   updater only, and moves the image tags to `${STANDMEET_IMAGE_TAG:-latest}` so a redeploy lands
@@ -37,16 +45,20 @@ self-hosters can't set up, so the button was dead by default.
 ## What's verified vs. still open
 
 - **Verified here:** the app writes the signal atomically and `can_apply` reflects it
-  (`upgrade_signal_test.go`, `boot_upgrade_test.go`). And now a **real** end-to-end (`infra/updater/
-  updater-e2e.sh`, `make updater-e2e`): a live local registry, a live stack, a served **canonical
-  compose the updater fetches over HTTP**, a genuine `:latest` bump, a real signal → the running
-  container is actually recreated to the newer image, and a repeat press is a no-op. This targets
-  the **new** design (fetch canonical, not mount local) — 2026-09-04, green.
-- **Still open (needs a real PaaS host):** whether an in-stack updater fights a PaaS's own
-  reconciliation loop (Coolify etc.). Not a reason to keep the local-compose coupling — on a
-  managed PaaS you swap the docker updater for a different adapter reading the *same* signal (one
-  that calls the platform's redeploy API). The backend is identical either way. That PaaS adapter
-  is planned, not shipped.
+  (`upgrade_signal_test.go`, `boot_upgrade_test.go`). And a **real, honest** end-to-end
+  (`infra/updater/updater-e2e.sh`, `make updater-e2e`): a live stack brought up with `docker
+  compose` (real project, a real named volume with data), the updater deployed as part of it and
+  **told nothing about the project**, a unique marker written to the volume, a v2 image published,
+  the button pressed → asserts the service upgraded **in place** to v2, **the marker survived**
+  (original volume adopted, not a fresh one), and **no parallel container/volume appeared**. The
+  marker-survives + no-twin checks are exactly what the previous (rigged) test lacked — it handed
+  the updater the matching project name and the same compose, so it could never see the twin bug.
+  2026-09-04, green.
+- **Verified live + fixed:** pressing the button on sijie.xyz (Coolify) with the OLD updater built
+  a parallel empty stack (the twin bug above); the real instance was untouched (domain → Coolify's
+  stack, data intact). Root-caused to the hardcoded project + fetch-canonical secrets, rewritten to
+  in-place recreate. The Coolify instance still needs a one-time Coolify redeploy to swap in the new
+  updater image (the old updater excludes itself, and can't fix itself).
 - **Done 2026-09-04:** the composition root no longer chooses between adapters. The webhook
   redeployer + `RedeployHookURL` + `STANDMEET_REDEPLOY_HOOK` are gone; the product emits one
   substrate-blind signal and knows nothing about who consumes it.

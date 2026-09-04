@@ -304,43 +304,37 @@ services:
       app:
         condition: service_started
 
-  # updater —— the DOCKER upgrade adapter for the product-owned upgrade ([[product-owned-upgrade]]).
+  # updater —— the product-owned upgrade adapter ([[product-owned-upgrade]]). Watchtower's
+  # mechanism, narrowed to a button press and to THIS stack.
   #
-  # The backend never touches docker; on an /admin/system "upgrade" press it only writes one
-  # substrate-blind pulse to the shared signal file. THIS worker is the docker substrate's
-  # adapter (a k8s or bare-git deployment would bind a different one to the same pulse). It is
-  # the **one** container with docker access — the line that keeps a compromised internet-facing
-  # app from becoming host control.
+  # The backend never touches docker; on an /admin/system "upgrade" press it writes one
+  # substrate-blind pulse to the shared signal file. THIS worker is the **one** container with
+  # docker access — the line that keeps a compromised internet-facing app from becoming host
+  # control.
   #
-  # It does NOT mount this instance's on-disk compose (that bound the upgrade to how this
-  # particular instance was laid down, and broke outright on a PaaS that keeps the compose only
-  # in its own DB, e.g. Coolify's "Compose Empty"). Instead it **fetches the canonical compose
-  # from the release** (STANDMEET_COMPOSE_URL) at upgrade time — Coolify's own model — so the
-  # upgrade applies the authoritative definition and needs no compose file on disk. Its two host
-  # deps: the docker socket (its privilege) + the local .env (secrets stay local; only the
-  # compose STRUCTURE is fetched).
-  #
-  # A managed PaaS (Coolify/Render/Fly) swaps THIS service for a different adapter reading the
-  # same signal (one that calls the platform's redeploy API) — the backend is unchanged either
-  # way, because it only ever writes the pulse. That PaaS adapter is planned, not shipped yet.
+  # It knows NOTHING about how the stack was deployed. On the pulse it reads its OWN container's
+  # `com.docker.compose.project` label to learn the real project name (never hardcoded), lists
+  # the siblings, and recreates each of ours IN PLACE from its own inspected config with the image
+  # tag bumped to the channel. So volumes, networks, env (the secrets!), names and labels are
+  # exactly what they already were — no compose fetched, no .env needed, no parallel stack. Works
+  # identically on bare `docker compose`, Coolify, or anything: it only ever acts on the containers
+  # that already exist. (An earlier version ran `docker compose -p standmeet up` against a fetched
+  # compose, which hardcoded the project name → built a parallel EMPTY stack on any deployment
+  # whose real project name differed. Deleted.)
   updater:
     image: ghcr.io/atmaxmoj/standmeet-updater:${STANDMEET_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       - STANDMEET_UPGRADE_SIGNAL=/run/standmeet/upgrade.signal
-      - STANDMEET_PROJECT=standmeet
-      # The CANONICAL compose (the release's authoritative definition), FETCHED at upgrade time
-      # — not a mounted copy of this instance's on-disk file. That's what keeps the upgrade from
-      # binding to how this particular instance was laid down, and lets an upgrade change the
-      # stack's shape (new services), not just bump image tags — exactly Coolify's model.
-      # Override to pin a tag/mirror.
-      - STANDMEET_COMPOSE_URL=${STANDMEET_COMPOSE_URL:-https://raw.githubusercontent.com/atmaxmoj/standmeet/main/infra/deploy/docker-compose.yml}
-      # Secrets stay local: only the compose STRUCTURE is fetched; the values come from this .env.
-      - STANDMEET_UPGRADE_ENV_FILE=/srv/env/.env
+      # Which images are ours to bump, and to which channel tag. Defaults match the official
+      # release; a fork publishing its own images overrides the prefix.
+      - STANDMEET_IMAGE_PREFIX=${STANDMEET_IMAGE_PREFIX:-ghcr.io/atmaxmoj/standmeet-}
+      - STANDMEET_CHANNEL=${STANDMEET_CHANNEL:-latest}
     volumes:
+      # The docker socket (its privilege) + the shared signal volume. Nothing else — no compose,
+      # no .env, no host paths.
       - /var/run/docker.sock:/var/run/docker.sock
       - upgrade_signal:/run/standmeet
-      - ./.env:/srv/env/.env:ro
 
   # db —— pgvector, with the schema already baked into the image (infra/db/Dockerfile).
   #

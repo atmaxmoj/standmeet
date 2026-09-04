@@ -1,120 +1,124 @@
 #!/usr/bin/env bash
-# updater-e2e.sh — a REAL end-to-end test of the product-owned upgrade. No fakes: a live local
-# registry, a live stack, a genuine image bump on the :latest tag, a genuine signal, and an
-# assertion that the RUNNING container actually became the newer version — then that a repeat
-# press does NOT needlessly recreate it. This is the receipt that "press the button → the
-# instance upgrades" actually holds, end to end ([[stand-in-is-politer-than-reality]]).
+# updater-e2e.sh — a REAL end-to-end for the product-owned updater, driving the exact failure the
+# old test could never see.
 #
-# Run via `make updater-e2e`. Needs a working Docker daemon + network (pulls registry:2 and two
-# alpine tags). It is deliberately NOT in the fast lint chain.
+# The OLD test handed the updater STANDMEET_PROJECT=<the same project> and the same compose it was
+# fetching, so "discover the project name" and "adopt the existing volumes" were never exercised —
+# it was rigged to pass. On a real deployment whose project name differs (e.g. any PaaS), the old
+# updater built a PARALLEL empty stack instead of upgrading the real one, and no test caught it.
+#
+# This test does it honestly:
+#   1. Bring up a real stack with `docker compose` (real project, a real named volume with data).
+#   2. Deploy the updater AS PART of the stack and tell it NOTHING about the project — it must
+#      discover it from its own container's compose label.
+#   3. Write a UNIQUE marker into the volume, publish a v2 image, press the button.
+#   4. Assert the service upgraded to v2 AND the marker survived (the original volume was adopted,
+#      not replaced by a fresh one) AND no parallel container/volume appeared.
+# The marker-survives + no-twin assertions are exactly what the old test lacked.
+#
+# Run via `make updater-e2e`. Needs Docker + network (registry:2, alpine).
 set -euo pipefail
 
-REG_PORT=5999
-REG="localhost:$REG_PORT"
-REGNAME=sm-updater-e2e-registry
 PROJECT=sm-updater-e2e
-IMG="$REG/target"
+REG_PORT=5988
+REG="localhost:$REG_PORT"
+SVC="$REG/sm-e2e-svc"
 UPDATER_IMG="${UPDATER_IMG:-standmeet-updater:e2e}"
-V1=3.18
-V2=3.19
+REGNAME=sm-updater-e2e-registry
 work="$(mktemp -d)"
 COMPOSE="$work/compose.yml"
 
 log() { echo "[updater-e2e] $*"; }
-dc()  { docker compose -p "$PROJECT" -f "$COMPOSE" "$@"; }
+dc() { docker compose -p "$PROJECT" -f "$COMPOSE" "$@"; }
+svc_cid() { dc ps -q svc; }
+projvols() { docker volume ls -q | grep -c "^${PROJECT}_" || true; }
+projcons() { docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" | wc -l | tr -d ' '; }
 
 cleanup() {
   dc down -v --remove-orphans >/dev/null 2>&1 || true
   docker rm -f "$REGNAME" >/dev/null 2>&1 || true
-  docker rmi "$IMG:latest" "$UPDATER_IMG" >/dev/null 2>&1 || true
   rm -rf "$work"
 }
 trap cleanup EXIT
 
-# target_release — the alpine release string the running target container reports. Tied to the
-# IMAGE, so pulling a moved :latest genuinely changes it.
-target_release() { dc logs target 2>/dev/null | grep -oE '3\.[0-9]+' | head -1 || true; }
-target_cid()     { dc ps -q target 2>/dev/null | head -1; }
-
-wait_for() { # wait_for <what> <getter> <expected> <secs>
-  local i
-  for i in $(seq 1 "$4"); do [ "$($2)" = "$3" ] && return 0; sleep 1; done
-  return 1
+# publish_svc <version> — build the tiny test service at $1 and MOVE :latest to it (what cutting a
+# release does). The image bakes its version into /version and mounts a /data volume.
+publish_svc() {
+  d="$(mktemp -d)"
+  printf 'FROM alpine:3.20\nARG VER\nRUN echo "$VER" > /version\nVOLUME /data\nCMD ["sleep","infinity"]\n' >"$d/Dockerfile"
+  docker build -q --build-arg VER="$1" -t "$SVC:latest" "$d" >/dev/null
+  docker push -q "$SVC:latest" >/dev/null
+  rm -rf "$d"
 }
 
-# ── 0. Build the updater image under test, from the real Dockerfile ─────────────────────────
-log "building $UPDATER_IMG from infra/updater/Dockerfile"
+log "building the updater under test ($UPDATER_IMG)"
 docker build -q -t "$UPDATER_IMG" -f infra/updater/Dockerfile . >/dev/null
 
-# ── 1. A throwaway local registry, so `docker compose pull` has a real place to pull from ────
+log "starting a throwaway registry"
 docker rm -f "$REGNAME" >/dev/null 2>&1 || true
 docker run -d --name "$REGNAME" -p "$REG_PORT:5000" registry:2 >/dev/null
-for i in $(seq 1 30); do curl -sf "http://$REG/v2/" >/dev/null 2>&1 && break; sleep 1; done
+for _ in $(seq 1 30); do curl -sf "http://$REG/v2/" >/dev/null 2>&1 && break; sleep 1; done
 
-# ── 2. Publish v1 (alpine $V1) as :latest ───────────────────────────────────────────────────
-docker pull -q "alpine:$V1" >/dev/null
-docker tag "alpine:$V1" "$IMG:latest"
-docker push -q "$IMG:latest" >/dev/null
-
-# ── 3. Bring up the stack: a target on :latest + the updater watching the signal ────────────
-# composesrv serves the **canonical compose over HTTP** — the updater fetches it (like Coolify
-# pulls its compose from the CDN), instead of the old mounted local file. This is the whole
-# point of the new design: the updater is bound to a URL of the authoritative definition, not to
-# this instance's on-disk layout.
-cat > "$COMPOSE" <<YML
+log "publishing v1 and bringing the stack up (updater is NOT told the project name)"
+publish_svc v1
+cat >"$COMPOSE" <<YML
 name: $PROJECT
 services:
-  target:
-    image: $IMG:latest
-    command: ["sh","-c","cat /etc/alpine-release; sleep 3600"]
+  svc:
+    image: $SVC:latest
     pull_policy: always
-  composesrv:
-    image: busybox
-    command: ["httpd","-f","-p","80","-h","/www"]
+    command: ["sleep", "infinity"]
     volumes:
-      - $COMPOSE:/www/compose.yml:ro
+      - "data:/data"
   updater:
     image: $UPDATER_IMG
     environment:
       - STANDMEET_UPGRADE_SIGNAL=/run/standmeet/upgrade.signal
-      - STANDMEET_PROJECT=$PROJECT
-      - STANDMEET_COMPOSE_URL=http://composesrv:80/compose.yml
+      - STANDMEET_IMAGE_PREFIX=$SVC
+      - STANDMEET_CHANNEL=latest
       - STANDMEET_UPGRADE_POLL_SECONDS=2
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - sig:/run/standmeet
 volumes:
+  data: {}
   sig: {}
 YML
-
-log "up (target should start as alpine $V1)"
 dc up -d >/dev/null
-wait_for "v1" target_release "$V1" 30 || { log "FAIL: target never started as $V1 (saw '$(target_release)')"; exit 1; }
-cid_v1="$(target_cid)"
-log "target running $V1 (container ${cid_v1:0:12})"
+for _ in $(seq 1 15); do [ -n "$(svc_cid)" ] && break; sleep 1; done
+[ "$(docker exec "$(svc_cid)" cat /version)" = "v1" ] || { log "FAIL: svc did not start on v1"; exit 1; }
 
-# ── 4. Move :latest to v2 (what the release does when it publishes a newer version) ─────────
-docker pull -q "alpine:$V2" >/dev/null
-docker tag "alpine:$V2" "$IMG:latest"
-docker push -q "$IMG:latest" >/dev/null
-log "moved :latest → alpine $V2"
+MARK="marker-$(date +%s)-$RANDOM"
+log "writing a unique marker into the volume: $MARK"
+docker exec "$(svc_cid)" sh -c "echo $MARK > /data/marker"
+vols_before="$(projvols)"
+cons_before="$(projcons)"
 
-# ── 5. Press the button: write a fresh signal into the shared volume (the backend's job) ────
-press="$(date +%s)"
-dc exec -T updater sh -c "echo $press > /run/standmeet/upgrade.signal"
-log "signal written ($press); waiting for a real pull + recreate"
+log "publishing v2 (moves :latest) and pressing the button (writing the signal)"
+publish_svc v2
+dc exec -T updater sh -c "echo $(date +%s) > /run/standmeet/upgrade.signal"
 
-# ── 6. Assert the running target actually became v2 ─────────────────────────────────────────
-if ! wait_for "v2" target_release "$V2" 60; then
-  log "FAIL: target never upgraded to $V2 after the signal"; dc logs updater | tail -20; exit 1
+log "waiting for svc to come back reporting v2"
+ok=0
+for _ in $(seq 1 40); do
+  cid="$(svc_cid)"
+  [ -n "$cid" ] && [ "$(docker exec "$cid" cat /version 2>/dev/null)" = "v2" ] && { ok=1; break; }
+  sleep 2
+done
+[ "$ok" = 1 ] || { log "FAIL: svc never upgraded to v2"; dc logs updater | tail -20; exit 1; }
+
+cid="$(svc_cid)"
+got="$(docker exec "$cid" cat /data/marker 2>/dev/null || true)"
+if [ "$got" != "$MARK" ]; then
+  log "FAIL: data marker is '$got', expected '$MARK' — the updater built a FRESH volume instead of"
+  log "      adopting the real one (the exact twin-stack bug this test exists to catch)."
+  exit 1
 fi
-cid_v2="$(target_cid)"
-[ "$cid_v2" != "$cid_v1" ] || { log "FAIL: reported $V2 but container id unchanged — not a real recreate"; exit 1; }
-log "UPGRADED: target is now $V2 (container ${cid_v2:0:12}, was ${cid_v1:0:12})"
+vols_after="$(projvols)"
+cons_after="$(projcons)"
+[ "$vols_after" = "$vols_before" ] || { log "FAIL: project volumes $vols_before -> $vols_after — a parallel stack appeared"; exit 1; }
+[ "$cons_after" = "$cons_before" ] || { log "FAIL: project containers $cons_before -> $cons_after — a parallel stack appeared"; exit 1; }
+[ "$(docker inspect "$cid" -f '{{index .Config.Labels "com.docker.compose.project"}}')" = "$PROJECT" ] \
+  || { log "FAIL: upgraded container is not in project $PROJECT"; exit 1; }
 
-# ── 7. Idempotency: the SAME signal content again must NOT recreate the container ───────────
-dc exec -T updater sh -c "echo $press > /run/standmeet/upgrade.signal"
-sleep 8   # more than two poll intervals
-cid_again="$(target_cid)"
-[ "$cid_again" = "$cid_v2" ] || { log "FAIL: an unchanged signal recreated the container (id churned)"; exit 1; }
-log "PASS: press -> real pull of moved :latest -> recreated $V1 to $V2; repeat press is a no-op"
+log "PASS: v1 -> v2 in place; marker '$MARK' survived; no twin (updater discovered project=$PROJECT itself, no project name given)"

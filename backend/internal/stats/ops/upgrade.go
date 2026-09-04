@@ -2,12 +2,13 @@
 //
 //	instance.upgrade_check   which version is running / which version was released / can this
 //	                         instance actually press the button
-//	instance.upgrade         ask the orchestrator to redeploy
+//	instance.upgrade         emit the upgrade pulse
 //
 // The key division of labor: **this instance has no host control** (the backend deliberately
-// doesn't mount docker.sock), so it cannot upgrade itself. All it can do is "ask the
-// orchestrator to do it", and that path's permission is granted by the owner's own hand.
-// Grant it and the button works; withhold it and the button honestly reports it can't —
+// doesn't mount docker.sock), so it cannot upgrade itself. All it does is write one
+// substrate-blind pulse to a shared file; the bundled updater sidecar (the one container with
+// docker access) sees it and recreates the stack in place. can_apply is true whenever that
+// sidecar shipped (the signal path is set). Without it the button honestly reports it can't —
 // offering an action that can't succeed is worse than not offering it at all.
 //
 // upgrade only reports "the request went out", never "the upgrade succeeded". This very
@@ -66,7 +67,7 @@ func Upgrade(deps UpgradeDeps) []fp.Op {
 			ID: "instance.upgrade_check",
 			Description: "Which version this instance runs, the newest version published to " +
 				"the release registry, and whether this instance can apply an upgrade itself " +
-				"(it can only when the owner configured a redeploy hook).",
+				"(it can when the bundled updater sidecar is present).",
 			InputSchema: noArgs,
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
@@ -74,10 +75,10 @@ func Upgrade(deps UpgradeDeps) []fp.Op {
 		},
 		{
 			ID: "instance.upgrade",
-			Description: "Ask whatever orchestrates this instance to redeploy it, pulling the " +
-				"newest images. Reports only that the request went out — the process serving " +
-				"this call is itself being replaced, so it cannot report the outcome. Read the " +
-				"version back afterwards to see what actually happened.",
+			Description: "Press the upgrade: write the pulse the updater sidecar applies, which " +
+				"recreates the stack on the newest images. Reports only that the request went " +
+				"out — the process serving this call is itself being replaced, so it cannot " +
+				"report the outcome. Read the version back afterwards to see what happened.",
 			InputSchema: noArgs,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
