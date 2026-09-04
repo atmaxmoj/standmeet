@@ -102,6 +102,11 @@ test.describe('a published custom page is discoverable on the public surfaces', 
     await expect(nav, 'the homepage lists other pages once one is live').toBeVisible();
     await expect(nav.getByTestId(`page-nav-widget-link-${SLUG}`))
       .toHaveAttribute('href', `/p/${SLUG}/`);
+    // Not just that the href is shaped right — the page it points at actually serves. A
+    // correct-looking href that 404s would still pass the attribute assertion above; this
+    // fetches the target and proves it's live, not a dangling link.
+    expect((await page.request.get(`/p/${SLUG}/`)).status(),
+      'the nav link points at a served page, not a 404').toBe(200);
   });
 
   test('the gate read panel links the page for a codeless visitor', async ({ page }) => {
