@@ -19,6 +19,16 @@ const OWNER = {
 };
 const LABEL = 'Sources Test Board';
 
+// EXPECTED_KINDS — every adapter kind the backend supports (internal/owner/jobs/fetch/jobfetch.go
+// Kind* constants). The register picker MUST offer all of them: selectOption('greenhouse') passes
+// even if the list shrank to one, so the count + membership are asserted explicitly (the owner sees
+// "only one" and can't add the rest if the picker quietly dropped them).
+const EXPECTED_KINDS = [
+  'greenhouse', 'lever', 'ashby', 'remoteok', 'wwr', 'hn_hiring', 'smartrecruiters', 'workable',
+  'jba', 'workday', 'bamboohr', 'jobicy', 'remotive', 'himalayas', 'working_nomads', 'recruitee',
+  'jobposting_jsonld',
+] as const;
+
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('admin sources list', () => {
@@ -148,6 +158,13 @@ async function registerFormWired({ adminPage }: { adminPage: Page }): Promise<vo
   // ...but registering is no longer MCP-only. The form is present and gates on a label.
   await expect(adminPage.getByTestId('source-register')).toBeVisible();
   await expect(adminPage.getByTestId('source-register-submit')).toBeDisabled();
+  // The kind picker must offer EVERY adapter, not just one — the whole point of "17 kinds".
+  const kindOptions = adminPage.getByTestId('source-kind').locator('option');
+  await expect(kindOptions).toHaveCount(EXPECTED_KINDS.length);
+  const offered = await kindOptions.evaluateAll((opts) => opts.map((o) => (o as HTMLOptionElement).value));
+  for (const k of EXPECTED_KINDS) {
+    expect(offered, `the register picker must offer the "${k}" source kind`).toContain(k);
+  }
   await adminPage.getByTestId('source-kind').selectOption('greenhouse');
   await adminPage.getByTestId('source-label').fill('From The Panel');
   await adminPage.getByTestId('source-config').fill('{"company":"airbnb"}');
