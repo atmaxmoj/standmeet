@@ -6,7 +6,7 @@
 // asserting a flag: a genuine third-party fetch server actually downloads a file
 // over HTTP — but from a LOCAL target inside the compose network (the
 // `payload-origin` service), so the download is real while no traffic ever
-// touches the public internet ("真的" and "纯本地" at once).
+// touches the public internet ("real" and "purely local" at once).
 //
 // Two declarations of the SAME real server, differing only in sandbox network
 // policy, prove both directions:

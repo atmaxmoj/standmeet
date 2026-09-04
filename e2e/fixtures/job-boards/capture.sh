@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# capture.sh — 重新抓 raw job board snapshots 进 .raw/
-# 用法：make capture-job-fixtures                  全部重抓（~50 个真 endpoint，季度一次）
-#       make capture-job-fixtures KIND=remoteok    只重抓一个源
+# capture.sh — recapture raw job board snapshots into .raw/
+# Usage: make capture-job-fixtures                  recapture all (~50 real endpoints, quarterly)
+#        make capture-job-fixtures KIND=remoteok    recapture just one source
 #
-# **为什么要有 KIND**：某一个板子改了字段形状（RemoteOK 现在发 `"San Francisco, "`）时，
-# 要做的是把那一个替身校准回真实世界，而不是为此把另外九个源全捶一遍。
+# **Why KIND exists**: when one board changes its field shape (RemoteOK now emits
+# `"San Francisco, "`), the thing to do is recalibrate that one mock back to the
+# real world, not hammer all nine other sources for it.
 #
-# 完成后跑 trim.sh 把 raw 截短进 git 路径。
+# When done, run trim.sh to trim raw into the git path.
 
 set -u
 UA="StandMeet-fixture-capture/0.1 (+https://github.com/atmaxmoj/standmeet)"
@@ -14,7 +15,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 RAW="$ROOT/.raw"
 KIND="${KIND:-}"
 
-# want —— 这一节要不要跑。KIND 空 = 全跑。
+# want —— whether this section should run. Empty KIND = run all.
 want() { [ -z "$KIND" ] || [ "$KIND" = "$1" ]; }
 
 mkdir -p "$RAW"/{greenhouse,lever,ashby,remoteok,wwr,hn,smartrecruiters,workable}

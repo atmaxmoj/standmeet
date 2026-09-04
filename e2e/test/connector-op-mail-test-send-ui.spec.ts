@@ -1,25 +1,25 @@
-// connector-op-mail-test-send-ui.spec.ts —— F-C-12:连接器**自己声明的 owner 操作**要在卡上有面。
+// connector-op-mail-test-send-ui.spec.ts —— F-C-12: a connector's **own declared owner op** must have a face on the card.
 //
-// 为什么这条守卫存在,而不是又一条打端点的用例:`connectors.mail_test_send` 早就通了 ——
-// 声明在 smtp 的 manifest 里,实现在 axisconn/impls.go,路由挂在 /connectors/ops/mail_test_send,
-// 而且失败时已经归好类给出三句人话。**但 admin 里没有任何一个控件能触发它**
-// (`grep -rn mail_test_send app/src` 一条都没有)。
+// why this guard exists, rather than yet another endpoint-hitting test: `connectors.mail_test_send` has long worked ——
+// declared in smtp's manifest, implemented in axisconn/impls.go, routed at /connectors/ops/mail_test_send,
+// and on failure it already classifies and gives three sentences of plain words. **But admin has no control that can trigger it**
+// (`grep -rn mail_test_send app/src` returns nothing).
 //
-// 五条已有用例碰过这个操作(connector-happy-matrix / connector-openapi-mail /
+// five existing tests touch this op (connector-happy-matrix / connector-openapi-mail /
 // connector-provider-agnostic / owner-mcp-parity-connectors / norm-outward-toolset),
-// 每一条都是 `request.post(.../ops/…)` 或 MCP callTool ——**没有一条经过浏览器**。
-// 一套只驱能力、不驱面的用例,在面根本不存在时照样全绿。所以这条只从 GUI 走:
-// 点 owner 能点到的按钮,读 owner 能读到的那句话。
+// each one a `request.post(.../ops/…)` or an MCP callTool ——**not one goes through the browser**.
+// a suite that only drives the capability, not the face, stays all green even when the face doesn't exist at all. So this one goes only through the GUI:
+// click the button the owner can click, read the sentence the owner can read.
 //
-// 两条腿都断**正面**结果:一条断没连时那句"下一步是什么",一条断发成之后 Mailpit 真的收到了
-// ——UI 上那句 "sent" 是客户端说的话,收件箱里那封信才是回执。
+// both legs assert the **positive** outcome: one asserts the "what's next" sentence when not connected, one asserts Mailpit really received it after a successful send
+// ——the "sent" on the UI is what the client says, the mail in the inbox is the receipt.
 //
-// F-C-34 —— 失败分类有三支,这里三支都有守卫了:没连接器 / 中继拒收 / **够不着**。
-// 第三支是驱 prod 时补的:那次 owner 敲错端口,Connect 给了好句子,紧接着 test-send 却说
-// 「你还没配过邮件连接器」。**这条守卫复现不了那一格** —— 连接器仍在 active 槽里时,产品
-// 说的是对的那句。prod 上的差别是那次失败的 Connect 把它**踢出了 active 槽**,而「没有 active」
-// 正是映射成「还没配」的那个条件(`connector/slots.go:260`)。造出那个状态是 F-C-30 的活,
-// 两条同一个根。这里留下的是「够不着这一支活着」的回归守卫。
+// F-C-34 —— failure classification has three branches, and all three are guarded here: no connector / relay rejects / **unreachable**.
+// the third branch was added while driving prod: that time the owner mistyped the port, Connect gave a good sentence, and right after test-send said
+// "you haven't configured a mail connector yet". **This guard can't reproduce that cell** —— while the connector is still in the active slot, the product
+// says the correct sentence. The difference on prod was that the failed Connect **kicked it out of the active slot**, and "no active"
+// is exactly the condition that maps to "not configured yet" (`connector/slots.go:260`). Producing that state is F-C-30's job,
+// the two share one root. What's left here is the regression guard for "the unreachable branch is alive".
 
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -35,27 +35,27 @@ const OWNER = {
   handle: 'opface', fullName: 'Op Face',
 };
 
-// OP —— smtp 在自己 manifest 里声明的那个操作,去掉 `connectors.` 前缀后就是路由段,
-// 也是卡上那一块的 testid 后缀。写死品类名的是**声明**,不是这一层。
+// OP —— the op smtp declares in its own manifest; strip the `connectors.` prefix and it's the route segment,
+// and also the testid suffix of that block on the card. What hardcodes the category name is the **declaration**, not this layer.
 const OP = 'mail_test_send';
 
-// DEAD_PORT —— mock 中继那台机器上没人听的一个号。要的是「连得到主机、连不上服务」
-// 这一类真失败，不是 DNS 查不到（那是另一类）。
-// 先试的是 2525 —— 而 mail-mock 恰好在那儿也听着，于是 connect 返 200，红落在了我的
-// 装配断言上而不是产品身上（[[red-in-the-wrong-place]]）。9 是 discard 端口，没人开。
+// DEAD_PORT —— a number nobody listens on, on the mock relay's host. What we want is the "reaches the host, can't reach the service"
+// kind of real failure, not a DNS lookup miss (that's another class).
+// 2525 was tried first —— but mail-mock happens to listen there too, so connect returned 200 and the red landed on the
+// assembly assertion rather than the product ([[red-in-the-wrong-place]]). 9 is the discard port, nobody opens it.
 const DEAD_PORT = 9;
 
-// BLACKHOLE_HOST —— 不可路由地址：拨它不会被拒，只会挂着，直到 TCP 自己放弃。
-// 「被拒」和「石沉大海」对 owner 是同一件事（都够不着），对**时间**完全不是。
+// BLACKHOLE_HOST —— an unroutable address: dialing it isn't refused, it just hangs until TCP itself gives up.
+// "refused" and "dropped into the void" are the same thing to the owner (both unreachable), but to **time** they aren't at all.
 const BLACKHOLE_HOST = '10.255.255.1';
 
-// OUTBOUND_ANSWER_BUDGET_MS —— owner 还愿意盯着屏幕等的时间。prod 上那次是 75 秒，
-// 浏览器早就自己超时并改口说「够不着你的实例」，顶栏还翻成 NOT ANSWERING。
+// OUTBOUND_ANSWER_BUDGET_MS —— how long the owner is still willing to stare at the screen. On prod that was 75 seconds,
+// by which the browser had long since timed out and changed its story to "can't reach your instance", and the top bar flipped to NOT ANSWERING.
 const OUTBOUND_ANSWER_BUDGET_MS = 20_000;
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-// serial —— 第一条用例要的是「还没有邮件连接器」这个状态,第二条把它连上。顺序是用例的一部分。
+// serial —— the first test wants the "no mail connector yet" state, the second connects it. The order is part of the tests.
 test.describe.serial('connectors · a declared owner op has a face on the card (F-C-12)', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
@@ -67,14 +67,14 @@ test.describe.serial('connectors · a declared owner op has a face on the card (
   test('with no mail connector, the card tells the owner what to do next', async ({ adminPage }) => {
     await gotoAdminSection(adminPage, 'connectors');
     const op = adminPage.getByTestId(`connector-op-${OP}`);
-    // mail 卡上必须有一个「发一封测试信」的动作 —— 没有的话 owner 无从知道邮件通没通。
+    // the mail card must offer a "send a test mail" action —— without it the owner has no way to know whether mail works.
     await expect(op, 'the mail card must offer a test-send').toBeVisible();
 
     await op.getByTestId('connector-op-field-to').fill('nobody@standmeet.test');
     await op.getByTestId('connector-op-run').click();
 
-    // 后端 mailFailureReason 归类后的那一句,原样渲到面上。断整句:它的价值就在措辞
-    // (「下一步做什么」),而不在"有没有一个 reason 字段"。
+    // the sentence the backend's mailFailureReason produces after classifying, rendered onto the face as-is. Assert the whole sentence: its value is in the wording
+    // ("what to do next"), not in "whether there's a reason field".
     await expect(
       op.getByTestId('connector-op-result'),
       'a failure must name the next step, not merely report failure',
@@ -94,36 +94,36 @@ test.describe.serial('connectors · a declared owner op has a face on the card (
     await op.getByTestId('connector-op-field-to').fill(to);
     await op.getByTestId('connector-op-run').click();
 
-    // 成功那句要说明是**哪一种** mail 连接器送的(item check 6:"The success path says
-    // which kind delivered it")——smtp 是 protocol kind。
+    // the success sentence must state **which kind** of mail connector delivered it (item check 6: "The success path says
+    // which kind delivered it") —— smtp is a protocol kind.
     const result = op.getByTestId('connector-op-result');
     await expect(result, 'a success must name the connector kind that served it')
       .toContainText('protocol');
 
-    // 措辞不许越过 SMTP 提交能担保的东西:250 的意思是「收下了」,不是「送到了」。真中继
-    // (Gmail)会照收一个不存在的域名再异步退信,所以这里说 delivered 就是在担保一件它
-    // 不知道的事。这一条断的是**没有**那个词 —— 先取文本再判,别用 not.toContainText:
-    // 元素还没出现时那个断言也算过。
+    // the wording must not overreach what an SMTP submission can guarantee: 250 means "accepted", not "delivered". A real relay
+    // (Gmail) will accept a non-existent domain and then bounce it asynchronously, so saying delivered here guarantees something it
+    // doesn't know. This asserts the **absence** of that word —— take the text first, then judge; don't use not.toContainText:
+    // that assertion also passes while the element hasn't appeared yet.
     expect(
       (await result.innerText()).toLowerCase(),
       'a 250 proves the relay accepted it, never that it was delivered',
     ).not.toContain('delivered');
 
-    // 回执在收件箱里,不在按钮旁边。
+    // the receipt is in the inbox, not next to the button.
     const envelope = await waitForMailEnvelopeTo(request, to);
     expect(envelope.to, 'Mailpit received the test mail — the receipt, not the UI sentence')
       .toContain(to);
     await request.dispose();
   });
 
-  // 中继永久拒收(5xx)跟它暂时不可用,对 owner 是两件事:前者他得改收件人,后者他等一会儿。
-  // 以前 SMTP 这条路把两者都归成「暂时不可用」,所以「改收件人」那句**永远出不来** ——
-  // 一个永不可能出现的分支跟没写是一回事。这条从卡上驱它。
+  // a relay permanently rejecting (5xx) and it being temporarily unavailable are two things to the owner: the former means change the recipient, the latter means wait a bit.
+  // the SMTP path used to lump both into "temporarily unavailable", so the "change the recipient" sentence **never came out** ——
+  // a branch that can never appear is the same as not written. This drives it from the card.
   test('a relay that rejects the message says to change the recipient, not to wait',
     async ({ adminPage, playwright }) => {
       const request = await playwright.request.newContext();
-      // 自己把邮件连接器配上,不靠上一条用例留下的状态:单跑这一条时那句话会变成
-      // 「还没有邮件连接器」——一个红,但红在装配上,证明不了分类。
+      // configure the mail connector ourselves, not relying on the state left by the previous test: running this one alone would turn that sentence into
+      // "no mail connector yet" —— a red, but a red on assembly, proving nothing about classification.
       await configureMailConnector(request, OWNER.email, OWNER.password);
       await armSMTPFault(request, { mode: 'permanent', times: 1 });
 
@@ -132,7 +132,7 @@ test.describe.serial('connectors · a declared owner op has a face on the card (
       await op.getByTestId('connector-op-field-to').fill('nobody@standmeet.test');
       await op.getByTestId('connector-op-run').click();
 
-      // 5xx 要指向收件人,不能说"过一会儿再试" —— 再试一百次也不会好。
+      // a 5xx must point at the recipient, not say "try again later" —— a hundred retries won't help.
       await expect(
         op.getByTestId('connector-op-result'),
         'a 5xx must point at the recipient, not tell the owner to wait',
@@ -144,18 +144,18 @@ test.describe.serial('connectors · a declared owner op has a face on the card (
 
 });
 
-// 第三种失败：连接器**在**（配过、连过、占着品类槽），但够不着。见文件头 F-C-34 那一段。
-// 单独一个 describe：跟上面那组共用文件级的 ownerCredentials 和已 claim 的实例，
-// 但自己配连接器、自己造失败，不依赖上面留下的状态。
-// 这一组要等真实的拨号失败，其中一条还要等「挂住」的那种（不可路由地址）。预算放在
-// describe 上而不是用例体里：fixture 建 adminPage 的时间**也算**在用例超时里，而体内的
-// `test.setTimeout` 那时还没执行到 —— 红会落在装配上，看起来像用例慢。
+// the third failure: the connector **is** there (configured, connected, occupying the category slot), but unreachable. See the F-C-34 paragraph in the file header.
+// a separate describe: it shares the file-level ownerCredentials and the already-claimed instance with the group above,
+// but configures its own connector and makes its own failures, not relying on the state left above.
+// this group waits on real dial failures, one of them the "hangs" kind (an unroutable address). The budget goes on the
+// describe rather than in the test body: the time the fixture takes to build adminPage **also counts** against the test timeout, while the body's
+// `test.setTimeout` hasn't run yet at that point —— the red would land on assembly and look like a slow test.
 test.describe.configure({ timeout: 150_000 });
 
 test.describe('connectors · a configured-but-unreachable relay names its own class (F-C-34)', () => {
-  // 自己 claim，**不蹭上面那组的 beforeAll**。蹭的话单跑这一组（`GREP=`）时实例根本没被
-  // claim，adminPage 登不进去 → 30 秒后超时，而红看起来像「产品没在时限内回话」。
-  // 我在这上面栽过一次：截图里明明白白写着 `invalid credentials`，我却先去猜拨号把页面挂住了。
+  // claim ourselves, **not piggybacking on the group above's beforeAll**. Piggybacking means that running this group alone (`GREP=`) leaves the instance
+  // unclaimed, adminPage can't log in → a 30-second timeout, and the red looks like "the product didn't answer in time".
+  // this tripped me once: the screenshot plainly said `invalid credentials`, yet I went guessing the dial had hung the page first.
   test.beforeAll(async ({ playwright }) => {
     test.setTimeout(180_000);
     resetInstance();
@@ -167,12 +167,12 @@ test.describe('connectors · a configured-but-unreachable relay names its own cl
   test('it says it could not reach the provider, not that none was ever set up',
     async ({ adminPage, playwright }) => {
       const request = await playwright.request.newContext();
-      // 先配好、连上、占住品类槽 —— 这一格要的是「配过」，不是「没配过」。
+      // configure, connect, occupy the category slot first —— this cell wants "configured", not "not configured".
       await configureMailConnector(request, OWNER.email, OWNER.password);
       const { csrf } = await login(request, OWNER.email, OWNER.password);
-      // 然后把端口改成没人听的那个，重连（会失败）—— owner 敲错一个字的样子。
+      // then change the port to the one nobody listens on and reconnect (which fails) —— the shape of the owner mistyping one character.
       await saveMailCreds(request, csrf, { port: String(DEAD_PORT) });
-      // 读**回执**，不是 HTTP status：这个端点连不上时照样返 200，把结果写在体里。
+      // read the **receipt**, not the HTTP status: this endpoint still returns 200 when it can't connect, writing the result in the body.
       const outcome = await connectMailOutcome(request, csrf);
       expect(outcome.connected, 'connecting to a dead port must not report connected').toBe(false);
 
@@ -181,8 +181,8 @@ test.describe('connectors · a configured-but-unreachable relay names its own cl
       await op.getByTestId('connector-op-field-to').fill('nobody@standmeet.test');
       await op.getByTestId('connector-op-run').click();
 
-      // 断**正面**：这一类该说的是「够不着，等一会儿」。断「不等于那句 not-configured」
-      // 会放过任何第四种措辞，而这一格的价值就在于它说对了哪一类。
+      // assert the **positive**: this class should say "unreachable, try later". Asserting "not equal to the not-configured sentence"
+      // would let through any fourth wording, and this cell's value is that it names the right class.
       await expect(
         op.getByTestId('connector-op-result'),
         'a configured-but-unreachable relay must not be reported as "never set up"',
@@ -191,16 +191,16 @@ test.describe('connectors · a configured-but-unreachable relay names its own cl
       await request.dispose();
     });
 
-  // F-C-36 —— 拨不通有两种：**被拒**（立刻回 connection refused）和**石沉大海**（包被丢掉，
-  // 一直等到 TCP 自己超时）。mock 中继给的永远是前者，所以「慢」这件事在它面前不存在；
-  // prod 上把端口改错时是后者，backend 等了 **75 秒**才回。
+  // F-C-36 —— there are two ways to fail to connect: **refused** (connection refused comes back immediately) and **dropped into the void** (the packet is discarded,
+  // waiting until TCP itself times out). The mock relay always gives the former, so "slow" doesn't exist in front of it;
+  // on prod, mistyping the port is the latter, and the backend waited **75 seconds** before answering.
   //
-  // 那 75 秒的后果不是「慢一点」：浏览器早就超时，屏幕上显示的是客户端自己那句
-  // 「Couldn't reach your instance」，顶栏的健康灯翻成 NOT ANSWERING —— 三句话全是假的，
-  // 而后端其实**已经把话说对了**（"temporarily unavailable"），只是没人还在看。
+  // the consequence of those 75 seconds isn't "a bit slow": the browser had long since timed out, the screen showed the client's own
+  // "Couldn't reach your instance", the top-bar health light flipped to NOT ANSWERING —— all three sentences false,
+  // while the backend had in fact **already said the right thing** ("temporarily unavailable"), only nobody was still watching.
   //
-  // 判据因此是**带时限的正确措辞**：owner 必须在还愿意等的时间内，拿到那句对的话。
-  // 黑洞地址用不可路由的 10.255.255.1 —— 容器里拨它不会被拒，只会挂着，跟真事故同形。
+  // the check is therefore **correct wording within a time limit**: the owner must get the right sentence within the time they're still willing to wait.
+  // the black-hole address uses the unroutable 10.255.255.1 —— dialing it from a container isn't refused, it just hangs, the same shape as the real incident.
   test('an outbound dial that hangs still answers the owner in time',
     async ({ adminPage, playwright }) => {
       const request = await playwright.request.newContext();
@@ -221,13 +221,13 @@ test.describe('connectors · a configured-but-unreachable relay names its own cl
       await request.dispose();
     });
 
-  // F-C-37 —— 服务端**答了**，而且答得又快又清楚（`400 to is required`，33ms）。屏幕却说
-  // 「Couldn't reach your instance — check your connection and retry」，把 owner 推去查网络，
-  // 而他要做的只是往那个框里填个地址。
+  // F-C-37 —— the server **answered**, and answered fast and clearly (`400 to is required`, 33ms). Yet the screen said
+  // "Couldn't reach your instance — check your connection and retry", pushing the owner to check the network,
+  // when all they had to do was fill an address into that box.
   //
-  // 三态本来是设计对的（「没走通 / 跑了但没成 / 成了」），塌在唯一做判断的那一处：
-  // `use-connector-op.ts` 的 `.catch(() => ({ reached: false }))` —— 任何拒绝都算没走通，
-  // 包括一个带着完好信封的 400。
+  // the three states were designed correctly ("didn't go through / ran but didn't succeed / succeeded"), but collapsed at the one place that judges:
+  // `use-connector-op.ts`'s `.catch(() => ({ reached: false }))` —— any rejection counts as didn't-go-through,
+  // including a 400 carrying an intact envelope.
   test('a request the server answered names its reason, not the network',
     async ({ adminPage, playwright }) => {
       const request = await playwright.request.newContext();
@@ -235,11 +235,11 @@ test.describe('connectors · a configured-but-unreachable relay names its own cl
 
       await gotoAdminSection(adminPage, 'connectors');
       const op = adminPage.getByTestId(`connector-op-${OP}`);
-      // 收件人**留空**就跑 —— owner 最容易做的那个动作。
+      // run with the recipient **left empty** —— the easiest action the owner can take.
       await op.getByTestId('connector-op-run').click();
 
-      // 断信封里那句（"to is required"）。断「不等于那句 unreachable」会放过任何第三种
-      // 措辞，而这一格的价值正在于它说出了**服务端给的原因**。
+      // assert the sentence in the envelope ("to is required"). Asserting "not equal to the unreachable sentence" would let through any third
+      // wording, and this cell's value is that it states the **reason the server gave**.
       await expect(
         op.getByTestId('connector-op-result'),
         'the server said what was wrong; the screen must say that, not blame the connection',

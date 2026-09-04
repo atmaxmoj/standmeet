@@ -1,8 +1,9 @@
-// ai-provider-config.spec.ts —— owner 在 /admin/api-mcp 配置自己的 AI
-// provider + key。明文 key 不回读；toast 反馈成功。
+// ai-provider-config.spec.ts —— owner configures their own AI provider + key
+// on /admin/api-mcp. The plaintext key is never read back; a toast confirms success.
 //
-// Phase 1 只验"key 能存能清，UI 状态切换正确"。Phase 2 跑 visitor 真聊
-// 走 Anthropic 路径在后续 spec 里。
+// Phase 1 only checks "the key can be stored and cleared, and the UI state toggles
+// correctly". Phase 2, driving a real visitor chat through the Anthropic path, lives
+// in a later spec.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -35,17 +36,17 @@ test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
       await gotoAdminSection(page, 'api-mcp');
 
       await page.getByTestId('ai-provider-anthropic').click();
-      // endpoint 切 provider 时 preset 默认填好；model 必须手输（没有 default）。
+      // switching provider fills the preset endpoint by default; the model must be typed by hand (no default).
       await page.getByTestId('ai-provider-model').fill('claude-haiku-4-5-20251001');
       await page.getByTestId('ai-provider-key').fill('sk-ant-fake-test-key');
       await page.getByTestId('ai-provider-save').click();
       await expect(page.getByTestId('toast-success').filter({ hasText: 'AI provider saved' }))
         .toBeVisible();
-      // 重新 load 一遍 panel，看 key_configured 状态进来 (placeholder 切换)。
+      // reload the panel to see the key_configured state arrive (placeholder switches).
       await page.reload();
       await expect(page.getByTestId('ai-provider-key'))
         .toHaveAttribute('placeholder', /already set/);
-      // #33:model 从 SoT(/me)回填,不是 preset 默认/空 —— owner 看到自己存的值。
+      // #33: model is backfilled from the SoT (/me), not the preset default/empty —— owner sees the value they stored.
       await expect(page.getByTestId('ai-provider-model'))
         .toHaveValue('claude-haiku-4-5-20251001');
 
@@ -55,73 +56,75 @@ test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
       await expect(page.getByTestId('ai-provider-clear')).toHaveCount(0);
     });
 
-  // F-R-9 —— **owner 指着自己的自托管端点，必须能选模型。**
+  // F-R-9 —— **an owner pointing at their own self-hosted endpoint must be able to pick a model.**
   //
-  // 这张卡自己写着支持什么：*"point at your own self-hosted OpenAI-compatible endpoint
-  // (ollama / vllm / lm-studio)"* —— 而这三样**都跑在私有地址上**（ollama 默认
-  // `localhost:11434`）。今天点 `LOAD MODELS` 收到的是
+  // the card itself states what it supports: *"point at your own self-hosted OpenAI-compatible endpoint
+  // (ollama / vllm / lm-studio)"* —— and all three **run on private addresses** (ollama defaults to
+  // `localhost:11434`). Today clicking `LOAD MODELS` returns
   // *"That endpoint resolves to an internal/private address and is not allowed."*
   //
-  // **判据不是错的，是装错了地方**：`/api/v1/inference/models` 是**公开路由**（访客 BYOAI
-  // 面板也在用），它禁私有地址完全正确；而 owner 的后台卡片跟访客共用了这条路由。
-  // 产品在**聊天**那一侧早就分对了信任层 —— `eino_model.go` 的 `validateUntrustedEndpoint`
-  // 只查 `Untrusted`(BYOAI) 的端点，注释原话「Owner creds (trusted self-host config) are not
-  // checked」。发现这一侧没跟上（[[lesson-not-swept-to-neighbours]]）。
+  // **the check isn't wrong, it's in the wrong place**: `/api/v1/inference/models` is a **public route**
+  // (the visitor BYOAI panel uses it too), and blocking private addresses there is entirely correct;
+  // but the owner's admin card shares that same route with visitors.
+  // The product already split the trust tiers correctly on the **chat** side —— `eino_model.go`'s
+  // `validateUntrustedEndpoint` only checks `Untrusted` (BYOAI) endpoints, its comment reading "Owner
+  // creds (trusted self-host config) are not checked". This side hadn't caught up ([[lesson-not-swept-to-neighbours]]).
   //
-  // 替身这边先教会规矩：dev 的 llm-gateway 现在也应 `GET /v1/models`，报两个
-  // `mock-selfhost-*` —— 两个而不是一个，否则「列表回来了」和「产品自己塞了个默认」分不开。
+  // teach the stand-in the rule first: dev's llm-gateway now also answers `GET /v1/models`, reporting two
+  // `mock-selfhost-*` —— two and not one, otherwise "the list came back" can't be told apart from "the product stuffed in a default".
   test('owner points at a self-hosted endpoint → the model list comes back (F-R-9)',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'api-mcp');
       await page.getByTestId('ai-provider-custom').click();
-      // dev 栈里的自托管替身。它是 docker 服务名 → 私有地址，跟 owner 家里的 ollama 同一类。
-      // 不写 `/v1`：后端自己接 `/v1/models`，写了就成 `/v1/v1/models` → 上游 404。
-      // 那种红看起来像「列不出来」，其实是我把地址写长了一截。
+      // the self-hosted stand-in in the dev stack. It's a docker service name → private address, the same class as an owner's home ollama.
+      // don't write `/v1`: the backend appends `/v1/models` itself, and writing it makes `/v1/v1/models` → upstream 404.
+      // that kind of red looks like "can't list", but really the address was written one segment too long.
       await page.getByTestId('ai-provider-endpoint').fill('http://llm-gateway:9300');
       await page.getByTestId('ai-provider-key').fill('sk-selfhost-does-not-check-keys');
       await page.getByTestId('ai-provider-load-models').click();
 
-      // 判的是**好结果**：列表真的回来了，而且是这台端点报的那两个。
+      // judging the **good outcome**: the list really came back, and it's the two this endpoint reports.
       const picker = page.getByTestId('ai-provider-model-select');
       await expect(picker, 'LOAD MODELS 之后该出现一个下拉').toBeVisible({ timeout: 15_000 });
       await picker.selectOption('mock-selfhost-large');
       await expect(picker).toHaveValue('mock-selfhost-large');
     });
 
-  // F-R-11 —— **key 已经存好之后，LOAD MODELS 就再也点不动了。**
+  // F-R-11 —— **once the key is already stored, LOAD MODELS can no longer be clicked.**
   //
-  // 上面那条在**同一次会话里手输了 key**，所以它从没碰到真实的常态：owner 昨天配好，
-  // 今天打开这一屏，key 那格写着 `already set · type to replace`（值永不回读，那是对的），
-  // 于是 `onLoad` 发出去的 `key: keyText` 是**空串** → 后端 `missingListModelsField` 当场
-  // 400 `key required`。owner 面对的是「点了没反应」，而那把 key 明明存着、每一轮访客对话
-  // 都在用它。
+  // the one above **typed the key by hand in the same session**, so it never hit the real steady state:
+  // the owner configured it yesterday, opens this screen today, the key field reads `already set · type
+  // to replace` (the value is never read back, which is correct), so the `key: keyText` that `onLoad`
+  // sends is an **empty string** → the backend's `missingListModelsField` immediately 400s `key required`.
+  // The owner faces "clicked, nothing happened", while that key is plainly stored and every visitor turn is using it.
   //
-  // prod 上撞到的（驱 resilience check 3 时）：`POST /api/v1/inference/models → 400`，4ms，
-  // 上游一个字节都没收到。
+  // hit on prod (while driving resilience check 3): `POST /api/v1/inference/models → 400`, 4ms, not a single byte received upstream.
   //
-  // 判据要能判负：**先存后重载**，再点。这条用例跟上面那条的差别只有「重载」两个字。
+  // the check must be able to fail: **store then reload**, then click. This test differs from the one above by exactly the word "reload".
   test('a stored key still lists models — the owner should not have to retype it (F-R-11)',
     ({ adminPage: page }) => storedKeyStillLists(page));
 
-  // F-R-12 —— **「够不着」和「够到了、它拒绝了」不是同一件事。**
+  // F-R-12 —— **"can't reach it" and "reached it, it refused" are not the same thing.**
   //
-  // resilience check 3 ⭐ 点名的那一格：一把**能聊、但列不出模型**的 key（真 provider 上
-  // 常见，列模型要另一种权限）。产品当时对这一类说的是 *"Couldn't reach the model
-  // provider — check the base URL and key."* —— 而地址一点问题都没有，owner 会被支去查
-  // 一个没坏的东西。跟 F-C-42 是同一族：把「拒绝」说成「拨不通」。
+  // the cell resilience check 3 ⭐ named: a key that **can chat but cannot list models** (common on real
+  // providers, where listing models needs a different permission). The product said, for this class,
+  // *"Couldn't reach the model provider — check the base URL and key."* —— but the address is perfectly
+  // fine, and the owner gets sent to check something that isn't broken. Same family as F-C-42: saying
+  // "refused" as "couldn't dial".
   //
-  // 替身先教会规矩：llm-gateway 现在对 `sk-chat-but-cannot-list` 这把 key 在 `/v1/models`
-  // 上回 403 + 真 provider 那种错误体（[[stand-in-is-politer-than-reality]]）。
+  // teach the stand-in the rule first: llm-gateway now returns 403 + a real-provider-style error body
+  // for the `sk-chat-but-cannot-list` key on `/v1/models` ([[stand-in-is-politer-than-reality]]).
   test('a key that chats but cannot list models says so (F-R-12)',
     ({ adminPage: page }) => expectModelsSentence(page, {
       key: 'sk-chat-but-cannot-list',
-      // 说的是「它拒绝了这把 key」，不是「够不着」；上游的响应体一个字不许露。
+      // says "it refused this key", not "can't reach it"; not one word of the upstream response body may leak.
       says: /refused to list models for this key/i,
       neverSays: /insufficient_permissions/,
     }));
 
-  // 同一族的第三种「不给」：**被限流**。跟上面那条的区别不是措辞而是**下一步**——
-  // 一个要去改权限，一个只要等一会儿。少了这一句，owner 会去翻地址和 key，而那两样都没毛病。
+  // the third "won't give" in the same family: **rate-limited**. The difference from the one above isn't
+  // wording but the **next step** —— one has you change a permission, the other just wait a moment. Without
+  // this sentence, the owner goes digging through the address and key, and neither of those is wrong.
   test('a rate-limited provider says to wait, not to check the key (F-R-12)',
     ({ adminPage: page }) => expectModelsSentence(page, {
       key: 'sk-rate-limited-right-now',
@@ -130,14 +133,14 @@ test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
     }));
 });
 
-// storedKeyStillLists —— 存一次、重新打开这一屏、再点 LOAD MODELS。
-// 「重载」这两个字就是这条跟上一条的全部差别，也是产品当初翻车的地方（F-R-11）。
+// storedKeyStillLists —— store once, reopen this screen, then click LOAD MODELS.
+// The word "reload" is the entire difference between this and the one above, and it's exactly where the product originally broke (F-R-11).
 async function storedKeyStillLists(page: Page): Promise<void> {
   await gotoAdminSection(page, 'api-mcp');
   await page.getByTestId('ai-provider-custom').click();
   await page.getByTestId('ai-provider-endpoint').fill('http://llm-gateway:9300');
-  // model 是保存的必填项（SAVE 在它空着时是灰的）—— 先手输一个，这一条要验的是
-  // **保存之后**那次 LOAD MODELS，不是保存本身。
+  // model is a required field for saving (SAVE is greyed while it's empty) —— type one first; what this
+  // checks is the LOAD MODELS **after saving**, not the save itself.
   await page.getByTestId('ai-provider-model').fill('mock-selfhost-large');
   await page.getByTestId('ai-provider-key').fill('sk-selfhost-does-not-check-keys');
   await page.getByTestId('ai-provider-save').click();
@@ -156,7 +159,7 @@ async function storedKeyStillLists(page: Page): Promise<void> {
   ).toBeVisible({ timeout: 15_000 });
 }
 
-// expectModelsSentence —— 拿一把会被上游拒绝的 key 点 LOAD MODELS，读按钮底下那句话。
+// expectModelsSentence —— take a key the upstream will reject, click LOAD MODELS, read the sentence under the button.
 async function expectModelsSentence(
   page: Page, want: { key: string; says: RegExp; neverSays: RegExp },
 ): Promise<void> {

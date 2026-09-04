@@ -34,8 +34,8 @@ type AppendMessageParams struct {
 	GroundedSubjectivityIds []pgtype.UUID
 }
 
-// grounded_subjectivity_ids 跟 cited_ 分两列:访客 footer 只读 cited_,所以私有 standpoint
-// 笔记**结构上**不可能漏进去,而不是靠每个读者记得过滤(F-A-27)。
+// grounded_subjectivity_ids is a separate column from cited_: the visitor footer reads only cited_, so private
+// standpoint notes are **structurally** unable to leak in, rather than relying on every reader remembering to filter (F-A-27).
 func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (Message, error) {
 	row := q.db.QueryRow(ctx, appendMessage,
 		arg.ConversationID,
@@ -73,7 +73,7 @@ SET last_at = now()
 WHERE id = $1
 `
 
-// 只更 last_at(给列表排序);turn 数不再存,读时从 messages 派生。
+// Only update last_at (for list ordering); turn count is no longer stored, derived from messages at read time.
 func (q *Queries) BumpConversation(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, bumpConversation, id)
 	return err
@@ -96,8 +96,8 @@ JOIN conversations c ON c.id = m.conversation_id
 WHERE c.member_id = $1 AND m.role = 'visitor'
 `
 
-// member 级 turn 配额:该 member 名下**全部对话**的访客发言合计。多段对话共享
-// 一个预算,不按单段对话各算。
+// member-level turn quota: total visitor turns across **all conversations** under this member. Multiple
+// conversations share one budget, not counted per conversation.
 func (q *Queries) CountVisitorTurnsForMember(ctx context.Context, memberID pgtype.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, countVisitorTurnsForMember, memberID)
 	var column_1 int32
@@ -166,7 +166,7 @@ VALUES ($1)
 RETURNING id
 `
 
-// 一轮 Q-A 先建一个 dialog 行,两条 message 挂它的 id。返回真 dialog id。
+// One Q-A round first creates a dialog row; the two messages hang off its id. Returns the real dialog id.
 func (q *Queries) CreateDialog(ctx context.Context, conversationID pgtype.UUID) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, createDialog, conversationID)
 	var id pgtype.UUID
@@ -208,8 +208,8 @@ ORDER BY last_at DESC
 LIMIT 1
 `
 
-// 「一个名字=一段续聊的会」(主对话):同名 member 的**主**对话(doc_key=”)续上;
-// 没有 → caller 新建。对话不结束,同名永远续同一段主对话。
+// "one name = one continuing session" (main conversation): resume the same-name member's **main** conversation (doc_key=”);
+// none → caller creates one. Conversations never end, so the same name always resumes the same main conversation.
 func (q *Queries) GetOpenConversationByMember(ctx context.Context, memberID pgtype.UUID) (Conversation, error) {
 	row := q.db.QueryRow(ctx, getOpenConversationByMember, memberID)
 	var i Conversation
@@ -240,7 +240,7 @@ type GetOpenConversationByMemberAndDocParams struct {
 	DocKey   string
 }
 
-// 浮窗用:该 member 在某个 surface(doc_key)上的那段对话。没有 → caller 新建。
+// For the floating widget: the member's conversation on a given surface (doc_key). none → caller creates one.
 func (q *Queries) GetOpenConversationByMemberAndDoc(ctx context.Context, arg GetOpenConversationByMemberAndDocParams) (Conversation, error) {
 	row := q.db.QueryRow(ctx, getOpenConversationByMemberAndDoc, arg.MemberID, arg.DocKey)
 	var i Conversation
@@ -290,8 +290,8 @@ type ListConversationsByOwnerRow struct {
 	CodeValue   *string
 }
 
-// turn_count 从 dialog 派生:数 visitor-role messages(一个 dialog 一条 visitor 消息),
-// 不存计数字段。
+// turn_count is derived from dialogs: count visitor-role messages (one visitor message per dialog),
+// no stored count field.
 func (q *Queries) ListConversationsByOwner(ctx context.Context, arg ListConversationsByOwnerParams) ([]ListConversationsByOwnerRow, error) {
 	rows, err := q.db.Query(ctx, listConversationsByOwner, arg.OwnerID, arg.Limit)
 	if err != nil {
@@ -344,8 +344,8 @@ type ListMemberOtherConversationMessagesRow struct {
 	CreatedAt pgtype.Timestamptz
 }
 
-// 「互通」:拉该 member **其他**对话(排除当前这段)的近期消息,拼进 instruction
-// 让 AI 跨对话连贯。按时间正序,caller 自己截断/汇总。
+// "cross-talk": pull recent messages from the member's **other** conversations (excluding the current one) to
+// splice into the instruction so the AI stays coherent across conversations. Time ascending; the caller truncates/summarizes.
 func (q *Queries) ListMemberOtherConversationMessages(ctx context.Context, arg ListMemberOtherConversationMessagesParams) ([]ListMemberOtherConversationMessagesRow, error) {
 	rows, err := q.db.Query(ctx, listMemberOtherConversationMessages, arg.MemberID, arg.ID)
 	if err != nil {

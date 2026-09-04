@@ -1,8 +1,8 @@
 // tool-prompts-mcp.spec.ts —— Phase E-5 MCP parity: owner CRUDs Prompts
-// via MCP (Claude Code conversation), not just admin REST。
+// via MCP (Claude Code conversation), not just admin REST.
 //
-// Tools: prompt_create / prompt_list / prompt_delete。publicRow builtin
-// 不可删 (usecase 拦截，MCP 返 isError)。
+// Tools: prompt_create / prompt_list / prompt_delete. The publicRow builtin
+// cannot be deleted (usecase intercepts, MCP returns isError).
 
 import type { Playwright } from '@playwright/test';
 
@@ -17,8 +17,8 @@ const OWNER = {
   handle: 'prompts-mcp', fullName: 'Prompts MCP Owner',
 };
 
-// seedPromptsMCP —— claim + login + API token + MCP session。抽出 beforeAll
-// 让 describe 回调 < 70 行 (max-lines-per-function)。
+// seedPromptsMCP —— claim + login + API token + MCP session. Pulled into beforeAll
+// to keep the describe callback < 70 lines (max-lines-per-function).
 async function seedPromptsMCP(
   playwright: Playwright,
 ): Promise<{ sid: string; apiToken: string }> {
@@ -35,9 +35,10 @@ async function seedPromptsMCP(
   return { sid, apiToken };
 }
 
-// 两个面同一份载荷之后,行的主键叫 `id`,而且带上了 body —— MCP 那份以前**没有 body**,
-// owner 从 Claude Code 列一遍看不到自己写的正文。入参仍叫 prompt_id:那是"对哪一条",
-// 不是行里的字段。
+// After the two faces share one payload, the row's primary key is `id` and now carries
+// body —— the MCP one previously had **no body**, so an owner listing from Claude Code
+// couldn't see their own text. The input param stays prompt_id: that's "which row",
+// not a field on the row.
 interface PromptCreateResp { id: string; name: string }
 interface PromptRow {
   id: string;
@@ -77,7 +78,7 @@ test.describe('Phase E-5 prompts CRUD via MCP', () => {
       expect(found?.name).toBe('recruiter-persona');
       expect(found?.description).toBe('use when visitor came via job application code');
       expect(found?.is_builtin).not.toBe(true);
-      // body 也在:MCP 那份以前没有它,owner 列一遍看不到自己写的正文。
+      // body is here too: the MCP one previously lacked it, so an owner listing couldn't see their own text.
       expect(found?.body).toBe('You are answering as the owner to a recruiter.');
 
       const publicRow = list.find((p) => p.is_builtin === true);
@@ -116,8 +117,8 @@ test.describe('Phase E-5 prompts CRUD via MCP', () => {
       await expect(
         callTool(request, apiToken, sid, 'prompt_delete',
           { prompt_id: publicRow.id }),
-        // 两个面同一份载荷之后,这条错误的文案是"cannot be renamed or deleted"(一条规则
-        // 管两件事)。断言只钉住"内置的删不掉"这个意思,不钉整句话。
+        // After the two faces share one payload, this error's text is "cannot be renamed or deleted"
+        // (one rule covers both). The assertion pins only the "builtin can't be deleted" meaning, not the whole sentence.
       ).rejects.toThrow(/builtin prompt cannot be (renamed or )?deleted/);
       await request.dispose();
     });

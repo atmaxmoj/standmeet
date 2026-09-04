@@ -54,10 +54,10 @@ export function previewView(page: CustomPageSummary): PreviewView {
 // usePinnedPreviewSrc —— the preview iframe's src, pinned to buildID.
 //
 // The token in preview_url is signed fresh by the backend on every request
-// (time.Now()), and this page polls every 3 seconds — so the same build's
-// src gets a new token every 3 seconds. The iframe's key stays stable, but
-// the moment src changes, React updates the src attribute → the whole
-// iframe reloads, and the owner watches the preview flicker every 3 seconds.
+// (time.Now()), and the list is refetched on every long-poll return — so the
+// same build's src gets a new token each time. The iframe's key stays stable,
+// but the moment src changes, React updates the src attribute → the whole
+// iframe reloads, and the owner watches the preview flicker on every refetch.
 // This only swaps src when buildID actually changes (a new build has
 // landed); token churn leaves it alone. The logic lives in lib, not the
 // component, because the presentation layer bans if (complexity capped at 3).
@@ -96,27 +96,62 @@ export const customPagesStore = createResourceStore<CustomPageSummary[]>({
   fetcher: () => adminAPI.get('/custom-pages', z.array(CustomPageSummarySchema)),
 });
 
-// pollEveryMs —— the owner gives instructions **elsewhere** (on the Claude
-// side), so this page has no event to wait on and can only ask. 3 seconds:
-// one build takes tens of seconds, and this interval is short enough for
-// "it started building / it's built" to show up promptly, without turning
-// the panel into a refresh machine.
-//
-// SSE would be cheaper, but that means the backend opening another push
-// channel — and there's no second consumer on this path, so building
-// another channel now would be paying for a need that doesn't exist yet.
-const pollEveryMs = 3_000;
+// The owner directs an agent (elsewhere, on the Claude side) to change this page and wants
+// to watch the result. Rather than poll on a fixed interval, we hold ONE long-poll
+// connection: the backend GET /custom-pages/wait answers the instant a build settles, so
+// the preview follows the agent's edits promptly and cheaply — like waiting on a payment QR.
+// A monotonic version cursor makes a build that lands mid-cycle impossible to miss.
+const WaitSchema = z.object({ version: z.number() });
+const backoffMs = 2_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+// waitForBuildChange —— one held request; returns the current version (immediately if it
+// already moved past `since`, otherwise when a build settles or the server's idle timeout).
+// A transient failure backs off instead of spinning, then reports no change.
+async function waitForBuildChange(since: number): Promise<number> {
+  try {
+    const res = await adminAPI.get(`/custom-pages/wait?since=${since}`, WaitSchema);
+    return res.version;
+  } catch {
+    await sleep(backoffMs);
+    return since;
+  }
+}
+
+// applyVersion —— refetch the list only when the version actually advanced.
+function applyVersion(since: number, version: number): number {
+  if (version <= since) return since;
+  void customPagesStore.getState().refresh();
+  return version;
+}
+
+async function pollOnce(since: number, stopped: () => boolean): Promise<number> {
+  const version = await waitForBuildChange(since);
+  return stopped() ? since : applyVersion(since, version);
+}
+
+// followBuilds —— the long-poll loop: wait, refetch-if-changed, re-hang, until unmount.
+async function followBuilds(stopped: () => boolean): Promise<void> {
+  let since = 0;
+  while (!stopped()) {
+    since = await pollOnce(since, stopped);
+  }
+}
 
 export function useCustomPages(): CustomPagesHook {
   const r = useResource(customPagesStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
-  // The owner is often directing an agent to change this in another window
-  // when they open this page. Without polling, they'd have to refresh
-  // manually to see it — and "I have to refresh it myself" is exactly what they complained about.
+  // The owner is often directing an agent to change this in another window when they open
+  // this page. The long-poll makes the panel follow those builds live, without a manual
+  // refresh — "I have to refresh it myself" is exactly what they complained about.
   useEffect(() => {
-    const t = setInterval(() => { void customPagesStore.getState().refresh(); }, pollEveryMs);
-    return () => clearInterval(t);
+    let done = false;
+    void followBuilds(() => done);
+    return () => { done = true; };
   }, []);
   return {
     status: r.status, rows: r.data ?? [], error: r.error,
@@ -234,12 +269,12 @@ async function setByoai(slug: string, allow: boolean): Promise<void> {
 }
 
 export function pickCustomPagesBodyState(hook: CustomPagesHook): CustomPagesBodyState {
-  // Once there's data, the list keeps showing — the 3-second poll flips
-  // status to 'loading' every time, and if the list were swapped for a
-  // skeleton then, the whole row (preview iframe included) would unmount and
-  // remount every 3 seconds → the preview flickering and reloading every 3
-  // seconds (pentest / owner feedback 2026-09-01). The skeleton belongs only
-  // to the **first load** (before any data exists); a background refresh shouldn't interrupt what's already being viewed.
+  // Once there's data, the list keeps showing — a background refresh flips
+  // status to 'loading', and if the list were swapped for a skeleton then, the
+  // whole row (preview iframe included) would unmount and remount → the preview
+  // flickering and reloading on every refetch (pentest / owner feedback
+  // 2026-09-01). The skeleton belongs only to the **first load** (before any
+  // data exists); a background refresh shouldn't interrupt what's already being viewed.
   if (hook.rows.length > 0) return 'list';
   if (hook.status === 'idle' || hook.status === 'loading') return 'loading';
   if (hook.status === 'error') return 'error';

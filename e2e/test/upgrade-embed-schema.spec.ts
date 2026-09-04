@@ -18,6 +18,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
+import { signEmbedToken } from '@/fixtures/embed-token';
 import {
   execSQL, findSetupToken, querySQL, resetInstance, restartBackend,
 } from '@/fixtures/instance';
@@ -142,18 +143,32 @@ test.describe('upgrade · deploying the new version brings up the embeds table +
       expect(embedLedgerRows()).toBe(3);
 
       // Old data isn't broken: the pre-upgrade code still exists, and still redeems.
+      // A DIRECT plaintext code stays open from any origin by design (the origin
+      // allowlist gates only the widget/embed_token path — a leaked code is handled
+      // by revocation, not origin-pinning). See embed-direct-code-stays-open.spec.ts.
       expect(querySQL(`SELECT code FROM access_codes WHERE code = '${CODE}'`)).toBe(CODE);
       expect(await sessionFromOrigin(request, CODE, 'https://anywhere.example'),
         '没被 embed 暴露的旧码升级后仍不受来源限制').toBe(200);
 
-      // The new feature works: create an embed pinned to an origin for this code, other origins are rejected.
+      // The new feature works end-to-end post-upgrade: create an embed pinned to an
+      // origin (the server mints its Ed25519 keypair, proving the signing-key columns
+      // came up), then an embed_token signed for an off-allowlist origin is refused (403).
       const mk = await request.post(`${BACKEND}/api/admin/embeds`, {
         headers: { 'X-Csrftoken': auth.csrf },
         data: { code_id: codeID, label: 'e', allowed_origins: [ALLOWED] },
       });
       expect(mk.status(), '升级后能建 embed').toBe(201);
-      expect(await sessionFromOrigin(request, CODE, 'https://evil.example'),
-        '升级后 embed 的来源白名单真的生效').toBe(403);
+      const embed = await mk.json() as { id: string; key_id: string; private_key: string };
+      expect(embed.key_id && embed.private_key, '升级后 embed 带回了签名密钥').toBeTruthy();
+      const evilToken = signEmbedToken({
+        keyId: embed.key_id, embedId: embed.id,
+        origin: 'https://evil.example', privateKeyPem: embed.private_key,
+      });
+      const evil = await request.post(`${BACKEND}/api/v1/sessions`, {
+        headers: { Origin: 'https://evil.example', 'Content-Type': 'application/json' },
+        data: { mode: 'code', embed_token: evilToken, visitor_name: 'V' },
+      });
+      expect(evil.status(), '升级后 embed 的来源白名单真的生效（token 路径）').toBe(403);
 
       await request.dispose();
     });

@@ -1,0 +1,29 @@
+{
+  "output": {
+    "kicker": "output · aus {handle}'s corpus",
+    "polished": "poliert",
+    "updated": "aktualisiert {date}",
+    "pdfPreview": "PDF-vorschau",
+    "writings": "schriften",
+    "breadcrumbCurrent": "output · {slug}",
+    "aboutHeading": "über dieses stück",
+    "aboutBody": "Polierte Ausgabe aus {handle}'s Corpus — Wiki-Einträge zu einer öffentlichen Entwürfe befördert. Die KI nutzt denselben Corpus, also werden Follow-ups unten dieses und verwandte Einträge direkt zitieren.",
+    "aboutBodyGated": "Polierte Ausgabe aus {handle}'s Corpus — Wiki-Einträge zu einer öffentlichen Entwürfe befördert. Die KI auf dieser Site arbeitet aus demselben Corpus und zitiert ihn direkt, und das Beantworten kostet {handle} Geld, daher wartet sie hinter einem Code:",
+    "backToWriting": "← schreiben"
+  },
+  "wiki": {
+    "by": "von",
+    "backToWiki": "← wiki",
+    "subEntries": "untereintrag",
+    "attachments": "anhänge",
+    "aboutHeading": "über diesen eintrag",
+    "aboutBody": "Einer von {handle}'s Wiki-Einträgen. Die KI auf dieser Site ist im selben Corpus verankert, daher können Sie unten nachfragen und Antworten in {handle}'s Stimme erhalten, mit Zitaten zurück auf Einträge wie diesen.",
+    "aboutBodyGated": "Einer von {handle}'s Wiki-Einträgen. Die KI auf dieser Site ist im selben Corpus verankert und antwortet in {handle}'s Stimme mit Zitaten zurück auf Einträge wie diesen — das Beantworten kostet {handle} Geld, daher wartet sie hinter einem Code:",
+    "indexKicker": "wiki",
+    "indexHeading": "Das Corpus, nach Eintrag"
+  },
+  "enterAccessCode": "zugriffscode eingeben →",
+  "tree": {
+    "loading": "lädt…"
+  }
+}

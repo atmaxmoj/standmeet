@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""secrets-image-verdict —— 一次扫描，两个判断。
+"""secrets-image-verdict —— one scan, two judgments.
 
-调用方（`make secrets-image`）把镜像 rootfs 解到一个临时目录，**在这个镜像自己的
-WorkingDir 里种一个现生成的诱饵**，然后整棵树扫一遍。这个脚本读那份报告，要求：
+The caller (`make secrets-image`) unpacks the image rootfs into a temp directory, **plants a
+freshly generated canary in the image's own WorkingDir**, then scans the whole tree. This script
+reads that report and requires:
 
-  1. 诱饵**必须在里面**。不在 = 扫描没覆盖到我们自己 COPY 进去的那个目录 ——
-     可能是排除规则写宽了，可能是解包失败。那种情况下的「no leaks found」是一句
-     关于世界的假话，而它跟真的通过长得一模一样。
-  2. **除了诱饵之外什么都没有**。有别的 = 这个镜像里真有东西，不许推。
+  1. The canary **must be in it**. Not there = the scan didn't cover the directory we ourselves
+     COPY'd in — maybe the exclusion rules are too broad, maybe unpacking failed. In that case
+     "no leaks found" is a lie about the world, and it looks identical to a real pass.
+  2. **Nothing other than the canary**. Anything else = there really is something in this image;
+     don't push.
 
-为什么把自证和真扫合成一次：145 MB 的 builder 镜像扫一遍 30 秒，扫两遍就是一分钟，
-而两遍之间镜像并没有变。一次扫描能同时回答「你看得见吗」和「里面有什么吗」。
+Why fold the self-test and the real scan into one: scanning the 145 MB builder image once takes
+30 seconds, twice takes a minute, and the image doesn't change between the two passes. One scan
+answers both "can you see it" and "is anything inside" at once.
 """
 
 import json

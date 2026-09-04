@@ -1,7 +1,7 @@
 // keypair.ts —— Phase C: admin REST helpers for owner_keypairs.
 //
-// POST /api/admin/keypairs → 一次性返 {keyId, privateKeyPem}
-// GET  /api/admin/keypairs → list metadata only (无 pem，无 hash)
+// POST /api/admin/keypairs → returns {keyId, privateKeyPem} once
+// GET  /api/admin/keypairs → list metadata only (no pem, no hash)
 // DELETE /api/admin/keypairs/:keyId → hard delete (= revoke)
 
 import type { APIRequestContext } from '@playwright/test';

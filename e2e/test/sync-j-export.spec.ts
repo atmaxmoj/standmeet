@@ -1,6 +1,6 @@
-// sync-j-export.spec.ts —— J. export / 双向(目标态红,sync face 的第二半)。
-// corpus_notes → vault zip:每 genre → 其 folder · 树 → folder 嵌套 · note → `<title>.md` ·
-// folder-note 生成 · `[[links]]` 还原 · frontmatter 重建。双向:web-edit 反映到 export;round-trip 稳。
+// sync-j-export.spec.ts —— J. export / bidirectional (target-state RED, the second half of the sync face).
+// corpus_notes → vault zip: each genre → its folder · tree → nested folders · note → `<title>.md` ·
+// folder-note generation · `[[links]]` restored · frontmatter rebuilt. Bidirectional: web-edit reflects into export; round-trip is stable.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -149,13 +149,13 @@ async function exportFrontmatter({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-// F-L-59：**导出把语言契约和 aliases 丢了**，而 `exportFrontmatter` 那条看不见 ——
-// 它只断 `publish`，也就是导出**恰好会写**的那两样之一。判据跟着实现走，就永远发现不了实现少了什么。
+// F-L-59: **export dropped the language contract and aliases**, and the `exportFrontmatter` case can't see it ——
+// it only asserts `publish`, one of the two things export **happens to write**. When the criterion follows the implementation, it never catches what the implementation left out.
 //
-// prod 上量的：真 vault 的 575 条 wiki **每一条**都带 `lang` / `langs` / `aliases`，
-// 导出的 575 条**一条都没有**；而库里 `has_lang = 575`、`has_aliases = 575` —— 事实就在
-// 导出要读的那一行上。往返的下一步是「把导出再导回来」，那一步会把这两样在真语料上抹平：
-// aliases 是接进链接解析的（`[[别名]]` 从此解不开），lang/langs 是多语言渲染契约。
+// Measured on prod: **every one** of the real vault's 575 wiki notes carries `lang` / `langs` / `aliases`,
+// the 575 exported ones have **none**; yet in the DB `has_lang = 575`, `has_aliases = 575` —— the fact is right
+// on the row export reads from. The round-trip's next step is "import the export back", and that step would flatten these two on the real corpus:
+// aliases feed into link resolution (`[[alias]]` would no longer resolve), lang/langs are the multilingual rendering contract.
 async function exportKeepsLangAndAliases({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   await uploadVault(request, OWNER, [{

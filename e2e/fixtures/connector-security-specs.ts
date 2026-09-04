@@ -1,5 +1,7 @@
-// connector-security-specs.ts —— §8-H 安全契约用的内联 spec/binding/常量。从
-// connector-security.spec.ts 抽出来守 max-lines。spec helper 返回 JSON 串（spec.ts 解回对象上传）。
+// connector-security-specs.ts —— the inline specs/bindings/constants for the §8-H
+// security contract. Extracted from connector-security.spec.ts to stay under
+// max-lines. The spec helpers return a JSON string (spec.ts parses it back into an
+// object to upload).
 
 // ── inlined sample/malicious specs (promote to fixtures when impl lands) ──────
 //
@@ -190,8 +192,10 @@ export const SPEC_BENIGN_APIKEY = JSON.stringify({
   },
 });
 
-// BENIGN_BINDING —— 完整 calendar 绑定（list_busy + create_event），让良性连接器干净装配
-// （凭据泄漏 / 隔离用例只需「建得起来 + 存得下凭据」，JSONata 取最简）。统一上传契约 {spec,binding}。
+// BENIGN_BINDING —— a full calendar binding (list_busy + create_event) so the
+// benign connector assembles cleanly (the credential-leak / isolation cases only
+// need "it builds + it stores credentials", so the JSONata is kept minimal).
+// Uploaded uniformly as the {spec,binding} contract.
 export const BENIGN_BINDING = {
   category: 'calendar',
   kind: 'openapi',

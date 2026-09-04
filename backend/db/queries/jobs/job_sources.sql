@@ -24,9 +24,9 @@ DELETE FROM job_sources WHERE id = $1 AND owner_id = $2;
 UPDATE job_sources SET last_fetched_at = now() WHERE id = $1;
 
 -- name: MarkJobSourceAttempt :exec
--- 每一次取数都写一笔，成败都写。**「取过但每次都失败」和「从没取过」必须分得开** ——
--- 只记 last_fetched_at 的时候，两者在 /admin/sources 上是同一行字（F-E-18）。
--- 成功时 last_error 写空串（不是 NULL）：这一列永远有值，读的人不必分辨「没写」和「没错」。
+-- Record every fetch attempt, success or failure. **"fetched but always failed" and "never fetched" must be
+-- distinguishable** —— when only last_fetched_at is recorded, the two read as the same line on /admin/sources (F-E-18).
+-- On success last_error is written as an empty string (not NULL): this column always has a value, so the reader need not tell "not written" from "no error".
 UPDATE job_sources
 SET last_attempted_at = now(), last_error = $2
 WHERE id = $1;

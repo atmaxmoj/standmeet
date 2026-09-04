@@ -12,6 +12,7 @@
 package public
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
@@ -45,42 +46,99 @@ type CustomPageHandlers struct {
 // Mount wires /custom-pages/{slug}/* onto /api/v1. The owner is a sole owner, so the
 // URL carries no handle.
 func (h *CustomPageHandlers) Mount(r chi.Router) {
+	r.Get("/custom-pages", h.listLive())
 	r.Get("/custom-pages/{slug}", h.serveAsset())
 	r.Get("/custom-pages/{slug}/*", h.serveAsset())
+	// homepage —— the reserved `home` page served at the site root (BaseHref "/"). The app
+	// rewrites `/` here; 404 until an owner promotes a `home` page.
+	r.Get("/homepage", h.serveHomepage())
+	r.Get("/homepage/*", h.serveHomepage())
+}
+
+// pageLinkView —— one published page in the public listing: only what a link needs.
+type pageLinkView struct {
+	Slug  string `json:"slug"`
+	Title string `json:"title"`
+}
+
+type customPagesListResponse struct {
+	Pages []pageLinkView `json:"pages"`
+}
+
+// listLive —— GET /api/v1/custom-pages: the sole owner's published custom pages (slug +
+// title) so a visitor can discover them from the index / gate / reader. Anonymous; an
+// unclaimed instance or a load error yields an empty list (logged), never a 500 that would
+// break the surfaces embedding it — the same "a public read never hard-fails" rule the
+// wiki-tree endpoints follow.
+func (h *CustomPageHandlers) listLive() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		links, err := owner.LiveCustomPages(r.Context(), h.Deps, h.Owners)
+		if err != nil {
+			h.Log.Error("list live custom pages", logErr, err)
+		}
+		resp := customPagesListResponse{Pages: toPageLinkViews(links)}
+		if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
+			h.Log.Warn("encode custom pages list", logErr, encErr)
+		}
+	}
+}
+
+func toPageLinkViews(links []owner.LivePageLink) []pageLinkView {
+	views := make([]pageLinkView, 0, len(links))
+	for i := range links {
+		views = append(views, pageLinkView{Slug: links[i].Slug, Title: links[i].Title})
+	}
+	return views
 }
 
 func (h *CustomPageHandlers) serveAsset() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// **Must never be treated as a snapshot.** Once the owner takes it down
-		// (rollback / delete), this address should stop serving; and this route used to
-		// send no Cache-Control header at all — with no header, the browser caches it by
-		// heuristic on its own, so a taken-down page kept opening fine. That isn't "the
-		// browser caching it on its own", it's us never having said not to. The only
-		// thing that should fall outside our control is a copy a reader has already
-		// saved locally.
-		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-		// The file-serving part is shared with the admin preview
-		// (custom_page_serve.go) — they differ only in **which build to look at**, and
-		// path-escape validation must only ever exist once.
-		ctx := r.Context()
-		ServeBuildAsset(w, r, &BuildAssetReq{
-			Log:        h.Log,
-			BuildsRoot: h.BuildsRoot,
-			Resolve: func() (BuiltAsset, error) {
-				live, lerr := owner.ResolveLiveBuild(
-					ctx, h.Deps, h.Owners, chi.URLParam(r, "slug"))
-				if lerr != nil {
-					return BuiltAsset{}, lerr
-				}
-				return BuiltAsset{
-					PageID: live.Build.PageID, BuildID: live.Build.ID,
-					AllowBYOAI: live.AllowBYOAI,
-				}, nil
-			},
-			AssetPath: chi.URLParam(r, "*"),
-			BaseHref:  fmt.Sprintf("/p/%s/", chi.URLParam(r, "slug")),
-		})
+		slug := chi.URLParam(r, "slug")
+		h.serveSlugAt(w, r, slug, fmt.Sprintf("/p/%s/", slug))
 	}
+}
+
+// serveHomepage —— GET /api/v1/homepage[/*] —— serves the reserved `home` page at the site root
+// (BaseHref "/"). The app rewrites `/` here. If no `home` page is live, ResolveLiveBuild returns
+// not-found and this 404s — the app keeps its built-in homepage until an owner promotes one.
+func (h *CustomPageHandlers) serveHomepage() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		h.serveSlugAt(w, r, owner.HomepageSlug, "/")
+	}
+}
+
+// serveSlugAt —— the shared serve core for both a /p/<slug> page and the fixed-path homepage:
+// they differ only in which slug to resolve and which <base href> to inject.
+//
+// **Must never be treated as a snapshot.** Once the owner takes it down (rollback / delete),
+// this address should stop serving; the route used to send no Cache-Control header at all —
+// with no header, the browser caches it by heuristic on its own, so a taken-down page kept
+// opening fine. That isn't "the browser caching it on its own", it's us never having said not
+// to. The only thing that should fall outside our control is a copy a reader already saved.
+//
+// The file-serving part is shared with the admin preview (custom_page_serve.go) — they differ
+// only in which build to look at, and path-escape validation must only ever exist once.
+func (h *CustomPageHandlers) serveSlugAt(
+	w http.ResponseWriter, r *http.Request, slug, baseHref string,
+) {
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	ctx := r.Context()
+	ServeBuildAsset(w, r, &BuildAssetReq{
+		Log:        h.Log,
+		BuildsRoot: h.BuildsRoot,
+		Resolve: func() (BuiltAsset, error) {
+			live, lerr := owner.ResolveLiveBuild(ctx, h.Deps, h.Owners, slug)
+			if lerr != nil {
+				return BuiltAsset{}, lerr
+			}
+			return BuiltAsset{
+				PageID: live.Build.PageID, BuildID: live.Build.ID,
+				AllowBYOAI: live.AllowBYOAI,
+			}, nil
+		},
+		AssetPath: chi.URLParam(r, "*"),
+		BaseHref:  baseHref,
+	})
 }
 
 // pageHead —— what gets injected into <head> when serving index.html. Empty base =

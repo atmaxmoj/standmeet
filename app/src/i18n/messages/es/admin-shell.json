@@ -1,0 +1,233 @@
+{
+  "sidebar": {
+    "instanceLabel": "instancia ·",
+    "uptimeLabel": "tiempo de actividad ·",
+    "groupPrefix": "──",
+    "closeNav": "cierre la lista de secciones"
+  },
+  "topBar": {
+    "brand": "standmeet",
+    "admin": "administración",
+    "live": "vivo",
+    "notAnswering": "no responde",
+    "viewPublic": "ver público ↗",
+    "signOut": "desconectarse",
+    "navOpen": "secciones",
+    "navClose": "cerrar",
+    "versionLabel": "versión ·"
+  },
+  "pulse": {
+    "title": "pulso de corpus",
+    "sparkWindow": "nuevo por día · últimos 14d"
+  },
+  "constellation": {
+    "empty": "sin enlaces aún"
+  },
+  "listPane": {
+    "loadFailed": "No se pudo cargar esta lista — así que esto no es 'ninguno', es 'desconocido'. Recargue para intentar de nuevo."
+  },
+  "modal": {
+    "close": "cerrar ✕"
+  },
+  "qr": {
+    "fallback": "qr…"
+  },
+  "previewPane": {
+    "fileName": "vista previa · {name}"
+  },
+  "application": {
+    "idLabel": "solicitud · {id}",
+    "close": "cerrar ✕",
+    "closeAction": "cerrar",
+    "timeline": "cronología",
+    "contact": "contacto",
+    "pingInChat": "ping en chat ↗",
+    "privateNotes": "notas privadas",
+    "resumeSnapshot": "currículum enviado · instantánea",
+    "resume": "currículum",
+    "tailoredFor": "personalizado para {company} · {role}",
+    "viewFull": "ver completo ↗",
+    "downloadPdf": "descargar pdf",
+    "status": "estado",
+    "sentMeta": "enviado {sentAt} · {method}",
+    "withdraw": "retirar",
+    "logUpdate": "actualización de registro"
+  },
+  "connectorAdd": {
+    "catalogCount": "agregar conector · {n} en catálogo",
+    "tagline": "Extienda la superficie de corpus.",
+    "close": "cerrar ✕",
+    "installed": "instalado",
+    "builtIn": "integrado"
+  },
+  "connectorConfig": {
+    "oauthHint": "abre OAuth del proveedor en una nueva pestaña",
+    "choose": "elegir…",
+    "backToCatalog": "← volver al catálogo",
+    "connect": "conectar →"
+  },
+  "connectorCard": {
+    "credsStored": "Las credenciales se guardan para este conector. Nunca se volverán a mostrar — deje los campos en blanco para mantenerlos o escriba otros nuevos para reemplazarlos.",
+    "scopeShortfall": "Conectado, pero esta subvención no puede hacer todo lo solicitado — las acciones que necesitan {scopes} no se ejecutarán. Marque arriba y conéctese de nuevo."
+  },
+  "connectorCred": {
+    "authentication": "autenticación",
+    "apiKeyHint": "Enviado en el {where} como <code>{name}</code>.",
+    "discoveryHint": "Descubrimiento: <code>{url}</code>",
+    "needsDance": "Este esquema necesita un paso de autorización. Primero arme el conector — el botón Conectar existe en su tarjeta.",
+    "scopes": "alcances"
+  },
+  "protocolConnector": {
+    "testConnection": "Probar conexión →"
+  },
+  "specIngest": {
+    "heading": "pegue una especificación openapi",
+    "blurb": "Cualquier especificación OpenAPI 3.0 (JSON o YAML). Derivamos el formulario de credencial + categoría de ella.",
+    "useThisSpec": "verificar esta especificación",
+    "uploadSpec": "cargar archivo",
+    "bindingLabel": "vinculación — opcional",
+    "bindingHint": "Mapeo JSONata (YAML) de las operaciones de esta API a un contrato de categoría, para que el agente pueda usarla como calendario, correo, etc. Déjelo vacío para exponer las operaciones sin procesar en su lugar.",
+    "orFetchFromUrl": "…u obtener desde una URL",
+    "fetch": "obtener",
+    "candidate": "candidato a conector",
+    "baseUrlLabel": "URL base — solo si la especificación no declara servidores",
+    "assemble": "ensamblar conector →",
+    "exposeLabel": "Permita que la IA de un visitante llame directamente a estas operaciones. Cada operación en la especificación se convierte en una herramienta que puede usar, sujeta a subvenciones por código. Desactívelo si proporcionó una vinculación.",
+    "needsBindingOrExpose": "Esto ensamblaría un conector que nada puede llamar. Proporcione una vinculación para llenar una categoría o marque la casilla anterior para exponer las operaciones a la IA de un visitante."
+  },
+  "composer": {
+    "backToDrafts": "← borradores",
+    "regenerate": "regenerar ⌖",
+    "send": "enviar →",
+    "match": "coincidencia",
+    "matchOutOf": "/ 100",
+    "matchTitle": "coincidencia contra la descripción del trabajo",
+    "freezeAndSend": "congelar + enviar",
+    "confirmTitle": "¿Enviar este borrador a {company}?",
+    "confirmBody": "El envío congelará la instantánea de currículum + carta de presentación, representará el PDF final (con QR) y escribirá una fila de solicitud. El AccessCode emitido automáticamente será 180 días, 10 sesiones, 50 turnos.",
+    "keepEditing": "← seguir editando"
+  },
+  "codeModal": {
+    "cancel": "cancelar",
+    "addQuestion": "＋ añadir",
+    "promptNone": "— ninguno —",
+    "roleDefault": "— predeterminado —",
+    "providerTitle": "proveedor",
+    "providerSubtitle": "gana el del rol; en blanco lo hereda",
+    "providerInherit": "— heredar (rol, luego predeterminado de instancia) —"
+  },
+  "codeQr": {
+    "copyLink": "copiar enlace",
+    "printQr": "imprimir qr ↗",
+    "roleLabel": "rol ·",
+    "statusLine": "estado · {status}"
+  },
+  "visitorPreview": {
+    "ownerAiReady": "ia del propietario · lista",
+    "welcome": "Bienvenido. Ha venido en <accent>{label}</accent>. Antes de comenzar — ¿eres tú o alguien nuevo?",
+    "suggestedQuestions": "preguntas sugeridas",
+    "noSuggested": "sin preguntas sugeridas configuradas para este código",
+    "assumesRole": "este código asume rol",
+    "codeLine": "código · {code}",
+    "testThisCode": "probar este código"
+  },
+  "dashboard": {
+    "corpusActive": "↑ {added} nuevo en 14d",
+    "corpusQuiet": "nada nuevo en 14d",
+    "entriesTotal": "entradas · total",
+    "daysAgo14": "nuevo por día · hace 14d",
+    "today": "hoy",
+    "viewAll": "ver todos →",
+    "all": "todos →",
+    "inPool": "en grupo",
+    "applications": "solicitudes",
+    "newestInPool": "más nuevo en grupo",
+    "poolLoading": "leyendo el grupo…",
+    "poolError": "No se pudo leer el grupo de empleos. Recargue e intente de nuevo.",
+    "registerSources": "registre fuentes para comenzar",
+    "sourcesHint": "/admin/sources → buscar → los anuncios aterrizan aquí durante un día",
+    "nothingFetched": "fuentes registradas — nada obtenido recientemente",
+    "nothingFetchedHint": "pida a Claude que ejecute jobs.fetch_new; los resultados aterrizan en /admin/listings durante un día",
+    "recentError": "No se pudieron cargar visitantes recientes. Recargue e intente de nuevo.",
+    "noConversations": "sin conversaciones aún — los visitantes aparecerán aquí una vez que comiencen a chatear",
+    "visitorMeta": "{label} · {turns, plural, one {# turno} other {# turnos}} · {last}",
+    "privHits": "{n} priv",
+    "nothingPending": "Nada pendiente — el corpus está actualizado.",
+    "review": "revisar →"
+  },
+  "account": {
+    "siteAddress": "dirección del sitio",
+    "byoaiMode": "modo byoai",
+    "profile": "perfil",
+    "language": "idioma de interfaz",
+    "languageSub": "el idioma de la administración y sus páginas públicas",
+    "security": "seguridad",
+    "inference": "inferencia",
+    "defaultProvider": "proveedor predeterminado",
+    "configuredIn": "configurado en /admin/api-mcp",
+    "spend30d": "gasto 30 días",
+    "spendSub": "su clave de inferencia · paga el propietario",
+    "spendUnknown": "$—"
+  },
+  "ipBans": {
+    "intro": "Bloquee las IP de origen abusivas. Una IP prohibida obtiene un 403 en toda la superficie pública — chat, sesiones, solicitudes de acceso. Encuentre IP ofensivas en <mono>conversations</mono> (cada fila muestra la IP del visitante). Las prohibiciones se pueden levantar en cualquier momento.",
+    "banIp": "prohibir ip",
+    "empty": "Sin IP prohibidas. La superficie pública está abierta (aún limitada por tasa por IP).",
+    "unban": "permitir ip"
+  },
+  "system": {
+    "checkForUpdates": "buscar actualizaciones",
+    "upgradeChecking": "verificando…",
+    "upgradeApplying": "actualizando…",
+    "upgradeTo": "actualizar a {version}",
+    "upgradeUnknown": "Esta instancia aún no ha buscado una versión más nueva.",
+    "upgradeUnreachable": "No se pudo alcanzar el registro de versiones — esta instancia puede no tener red saliente. Su propia versión se muestra a continuación.",
+    "upgradeCurrent": "Ejecutando {version} — la versión publicada más reciente.",
+    "upgradeIncomparable": "Esta compilación reporta {current}, que no es una versión publicada — no se puede comparar. La versión publicada más reciente es {version}.",
+    "upgradeAvailable": "Se ha publicado {version}. Esta instancia puede aplicarlo.",
+    "upgradeManual": "Se ha publicado {version}. Esta instancia no puede aplicarlo por sí sola — no tiene control sobre su anfitrión. Vuelva a implementarlo donde lo implemente desde, o configure STANDMEET_REDEPLOY_HOOK en la URL de redeploy que su anfitrión le proporciona.",
+    "upgradeWaiting": "Redeploy solicitado. Esperando a que esta instancia regrese e informe qué versión está ejecutando.",
+    "upgradeDone": "Actualizado — ahora ejecutando {version}.",
+    "upgradeStalled": "El redeploy se ejecutó, pero esta instancia aún reporta {version}. Sus etiquetas de imagen probablemente estén fijadas a esa versión — apúntelas a la más nueva y vuelva a implementar.",
+    "deployment": "implementación",
+    "statusCmd": "standmeet status",
+    "treeBranch": "├─",
+    "treeLast": "└─",
+    "version": "versión",
+    "cpus": "cpus",
+    "uptime": "tiempo de actividad",
+    "migrations": "migraciones",
+    "migrationsPending": "0 pendientes",
+    "ready": "listo",
+    "resources": "recursos · anfitrión + tiempo de ejecución",
+    "publicIp": "ip pública",
+    "cluster": "clúster · contenedores propios",
+    "clusterEmpty": "sin datos de clúster — socket docker no montado",
+    "backgroundJobs": "trabajos de fondo",
+    "colJob": "trabajo",
+    "colSchedule": "cronograma",
+    "colLast": "último",
+    "colStatus": "estado",
+    "statusDot": "●",
+    "healthChecks": "controles de salud"
+  },
+  "inferenceUsage": {
+    "title": "uso de inferencia · últimos 7 días",
+    "colDate": "fecha",
+    "colModel": "modelo",
+    "colCalls": "llamadas",
+    "colIn": "entrada",
+    "colOut": "salida",
+    "empty": "sin llamadas llm de clave de propietario en los últimos 7 días"
+  },
+  "sandbox": {
+    "title": "caja de arena mcp · {n} espacios de trabajo activos",
+    "sweepNow": "barrer ahora",
+    "colWorkspace": "espacio de trabajo de sesión",
+    "colAge": "edad",
+    "empty": "Sin espacios de trabajo en este momento",
+    "emptyHint": "Aparece un espacio de trabajo cuando una sesión de visitante usa una herramienta que escribe archivos, y se barre una vez que ha estado inactivo pasado su TTL. Ninguno aquí significa ninguno en uso — no que algo esté roto.",
+    "sweepNothing": "Nada que barrer — no hay espacios de trabajo",
+    "ageSecs": "{n}s"
+  }
+}

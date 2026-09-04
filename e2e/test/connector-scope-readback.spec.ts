@@ -1,12 +1,12 @@
-// connector-scope-readback.spec.ts —— F-C-33。**连上之后，owner 还看得见自己授了什么吗。**
+// connector-scope-readback.spec.ts —— F-C-33. **After connecting, can the owner still see what they granted?**
 //
-// `connector-connect-flow.spec.ts` 有一条用例守**写**那一半：勾选的 scope 子集原样进 dance。
-// 没有任何一条问过**读**那一半 —— 而 prod 上驱出来的正是它：`calendar · connected`，
-// 底下两个 scope 勾选框**都是空的**，刷新之后照旧。
+// `connector-connect-flow.spec.ts` has a case guarding the **write** half: the checked scope subset enters the dance unchanged.
+// Nothing ever asked about the **read** half —— and that is exactly what drove wrong on prod: `calendar · connected`,
+// with both scope checkboxes below it **empty**, still empty after a reload.
 //
-// 那不是「显示了旧值」。勾选框既没有 `checked` 也没有 `defaultChecked`，而 admin API 里
-// 根本没有「这条连接授了哪些」这一项 —— 这一格**只能往里写、读不出来**。后果不只是难看：
-// owner 想加一个 scope 时，屏幕上没有一个可信的起点，发出去的范围是什么也无从判断。
+// That is not "showing a stale value". The checkboxes have neither `checked` nor `defaultChecked`, and the admin API
+// has no "which scopes this connection granted" field at all —— this cell is **write-only, never read back**. The cost is more than ugly:
+// when the owner wants to add a scope, there is no trustworthy starting point on screen, and no way to tell what range is being sent.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -29,13 +29,13 @@ const OAUTH2_CONNECTOR_ID = 'google-calendar';
 const SCOPE_READ = 'https://www.googleapis.com/auth/calendar.readonly';
 const SCOPE_WRITE = 'https://www.googleapis.com/auth/calendar.events';
 
-// adminPage 用这份凭据登录 —— 不设的话它会拿默认的 alice 去登，而这个文件 claim 的是
-// 上面这个 owner，于是 admin 壳根本进不去（表现成 `admin-nav-page` 等到超时）。
+// adminPage logs in with these credentials —— without setting them it logs in as the default alice, but this file claims
+// the owner above, so the admin shell can't be entered at all (surfaces as `admin-nav-page` timing out).
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('F-C-33 · a connection shows the scopes it was granted', () => {
   test.beforeAll(async ({ playwright }: { playwright: Playwright }) => {
-    test.setTimeout(180_000); // resetInstance 在负载高时要 ~48s
+    test.setTimeout(180_000); // resetInstance takes ~48s under high load
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {
@@ -52,14 +52,14 @@ test.describe('F-C-33 · a connection shows the scopes it was granted', () => {
       const card = await openConnectorCard(page, OAUTH2_CONNECTOR_ID);
       await ensureDisconnected(card);
       await fillOAuth2Creds(card, clientID, 'mock-client-secret');
-      // 授一个**子集**：READ 授、WRITE 不授。
+      // Grant a **subset**: READ granted, WRITE not.
       await selectScope(card, SCOPE_READ, true);
       await selectScope(card, SCOPE_WRITE, false);
       await card.getByTestId('connector-connect-button').click();
       await page.waitForURL('**/admin/connectors**');
       await expectConnected(card);
 
-      // 离开这一页再回来 —— owner 隔天回来看到的就是这个。
+      // Leave this page and come back —— this is what the owner sees returning the next day.
       const back = await openConnectorCard(page, OAUTH2_CONNECTOR_ID);
       await expectConnected(back);
       await expect(back.getByTestId(`connector-scope-${SCOPE_READ}`),

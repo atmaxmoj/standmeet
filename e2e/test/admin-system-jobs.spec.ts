@@ -48,7 +48,12 @@ test.describe('admin · SystemSection real scheduled jobs', () => {
       expect(sweep, 'sandbox workspace sweep is a registered real job').toBeTruthy();
       expect(sweep?.schedule, 'has a real schedule').toBeTruthy();
       expect(sweep?.last_run, 'ran at least once (we triggered it)').toBeTruthy();
-      expect(sweep?.last_status, 'reports a status').toBeTruthy();
+      // We forced a run in beforeAll, so it's fresh → 'ok', NOT 'overdue'. The status is
+      // now freshness-aware: a job past ~2× its interval reports 'overdue' instead of a
+      // misleading green 'ok' (so "every 5m / last 6h ago" can't read as healthy). The
+      // overdue derivation itself is unit-tested (TestJobHealth) — e2e can't age a job
+      // deterministically without a slow/flaky wait; here we pin the fresh side.
+      expect(sweep?.last_status, 'a fresh run is ok, not flagged overdue').toBe('ok');
 
       // resume-draft sweep is now a real registered cron too (was a method with no loop).
       const draftSweep = jobs.find((j) => /resume-draft/i.test(j.name));

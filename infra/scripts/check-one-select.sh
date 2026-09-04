@@ -1,17 +1,20 @@
 #!/usr/bin/env sh
-# check-one-select —— 全 app 只有**一个**下拉,它在 SelectField 里面。
+# check-one-select —— the whole app has exactly **one** dropdown, and it lives in SelectField.
 #
-# 为什么这条闸门存在(UX-47):在这之前 19 个 `<select>` 有**五种**互不知道的写法 ——
-# 盒子边框 / 小盒子 / 下划线 / sm-field-input / gate 那个近黑实心(UX-36 说它是全页最重的
-# 色块)。这不是"某几处漏改",而是**没有这一层**,于是每个面各自决定下拉长什么样。
+# Why this gate exists (UX-47): before it, 19 `<select>` elements had **five** mutually unaware
+# styles — box border / small box / underline / sm-field-input / gate's near-black solid (UX-36
+# calls it the heaviest color block on the page). This isn't "a few spots missed", it's **the
+# absence of this layer**, so every face decides on its own what a dropdown looks like.
 #
-# 光加一个 `.sm-select` 类不解决问题:类名要靠人记得贴,而**下一个写下拉的人不会知道它
-# 存在** —— 那正是前面五种写法的来历。所以闸门锁的不是"贴了没",是"有没有绕过组件":
-# `app/src` 里除了 SelectField 自己,不许再出现 `<select`。
-# (见 [[reframes-tasks-into-enforced-invariants]]:把错误变得做不出来,胜过把错误说清楚。)
+# Just adding a `.sm-select` class doesn't fix it: a class has to be remembered and applied, and
+# **the next person writing a dropdown won't know it exists** — which is exactly where the five
+# earlier styles came from. So the gate locks not "was the class applied" but "did it bypass the
+# component": under `app/src`, no `<select` may appear other than in SelectField itself.
+# (See [[reframes-tasks-into-enforced-invariants]]: make the mistake impossible, don't just explain it.)
 #
-# 自证:把一段种进去的坏写法喂给**同一个判定**,必须判红 —— 判不红说明扫描器瞎了
-# (见 [[gate-can-go-blind]]:`grep --include` 在 alpine 上会静默失明,所以这里不用它)。
+# Self-test: feed a planted bad usage to the **same judgment** and it must go red — if it doesn't,
+# the scanner is blind (see [[gate-can-go-blind]]: `grep --include` goes silently blind on alpine,
+# so this doesn't use it).
 
 set -eu
 
@@ -19,13 +22,15 @@ OWNER="app/src/components/atoms/SelectField.tsx"
 
 fail=0
 
-# scan_selects —— 在给定的文件列表里找 JSX 里的裸 `<select`。stdin 不收,参数收文件名。
-# **注释里的 `<select` 不算** —— 这几个文件的顶部注释在讲这段历史,把它们判红会逼人删掉
-# 解释(见 [[gate-scope-forces-architecture]]:管太宽的闸门会把代码推去更糟的地方)。
+# scan_selects —— find bare `<select` in JSX across a given file list. Takes filenames as args,
+# not stdin.
+# **A `<select` in a comment doesn't count** — these files' top comments describe this history, and
+# flagging them would force deleting the explanation (see [[gate-scope-forces-architecture]]: an
+# over-broad gate pushes code somewhere worse).
 scan_selects() {
   awk '
-    # 整行注释:跳过。`{/*` 是 JSX 注释的写法 —— 少了它,一句解释"这里为什么不用裸 select"
-    # 的 JSX 注释会把闸门自己绊倒(2026-08-13 就绊了一次)。
+    # Whole-line comment: skip. `{/*` is the JSX comment form — without it, a JSX comment explaining
+    # "why no bare select here" would trip the gate itself (it did once, 2026-08-13).
     /^[[:space:]]*(\/\/|\*|\/\*|\{\/\*)/ { next }
     /<select/                            { print FILENAME ":" FNR ":" $0 }
   ' "$@"
@@ -33,26 +38,27 @@ scan_selects() {
 
 files=$(find app/src -name '*.tsx' -type f 2>/dev/null | grep -v "^$OWNER$" || true)
 
-# 1) 扫描器必须真的看得见文件 —— 空列表会让下面的判定恒绿(见 [[assertion-that-cannot-fail]])。
+# 1) The scanner must actually see files — an empty list makes the check below always green (see [[assertion-that-cannot-fail]]).
 n=$(printf '%s\n' "$files" | grep -c . || true)
 if [ "$n" -lt 50 ]; then
   echo "check-one-select: SELF-TEST FAILED — only $n tsx files in scan range, the scan is blind"
   exit 2
 fi
 
-# 真扫描走 scan_selects —— 之前这里抄了一份同样的 awk,而我刚补的 JSX 注释规则只会落在
-# 其中一份上。**同一个判据不要有两个副本**（[[copied-invalidation-goes-stale]]）。
-# shellcheck disable=SC2086  # $files 是换行分隔的路径列表,这里要的就是词分割
+# The real scan goes through scan_selects — this used to hold a duplicate copy of the same awk, and
+# the JSX-comment rule I'd just added would land on only one of them.
+# **A single judgment must not have two copies** ([[copied-invalidation-goes-stale]]).
+# shellcheck disable=SC2086  # $files is a newline-separated path list; word splitting is intended here
 offenders=$(scan_selects $files || true)
 
 if [ -n "$offenders" ]; then
-  echo "check-one-select: a bare <select> bypasses SelectField —— 下拉只能有一种长相:"
+  echo "check-one-select: a bare <select> bypasses SelectField —— a dropdown may have only one look:"
   echo "$offenders"
-  echo "                  用 <SelectField> ($OWNER)。"
+  echo "                  use <SelectField> ($OWNER)."
   fail=1
 fi
 
-# 2) 组件本身必须还在,而且里面确实有那一个 select —— 否则上面那条恒绿。
+# 2) The component must still exist, and must still contain that one select — otherwise the check above is always green.
 if [ ! -f "$OWNER" ]; then
   echo "check-one-select: $OWNER is gone; the rule has no owner"
   fail=1
@@ -61,7 +67,7 @@ elif ! grep -q '<select' "$OWNER"; then
   fail=1
 fi
 
-# 3) 自证:种一个坏调用点,同一个判定必须看得见它。
+# 3) Self-test: plant a bad call site, and the same judgment must see it.
 planted=$(mktemp -t selcheck.XXXXXX)
 cat > "$planted" <<'PLANTED'
 export function Planted() {

@@ -1,0 +1,179 @@
+{
+  "common": {
+    "connect": "Connect",
+    "close": "✕"
+  },
+  "api": {
+    "intro": "MCP keys let AI clients (Claude, Cursor, custom scripts) push raw entries into your corpus, promote them, manage codes. Each key is an Ed25519 keypair — server stores only the public half; you save the private PEM in <code>~/.standmeet/credentials.json</code> and the client signs per request.",
+    "keysHeading": "mcp keys",
+    "empty": "no keys yet · generate one to wire up your first AI client"
+  },
+  "aiProvider": {
+    "heading": "owner's ai",
+    "intro": "The provider visitors talk to. Pick a preset or point at your own self-hosted OpenAI-compatible endpoint (ollama / vllm / lm-studio). Key is encrypted at rest with INSTANCE_SECRET and never read back to this page.",
+    "provider": "provider",
+    "endpoint": "endpoint",
+    "model": "model",
+    "apiKey": "api key",
+    "clearKey": "clear key ×"
+  },
+  "mcpClient": {
+    "heading": "mcp setup",
+    "subhead": "save credentials.json + paste config into your client",
+    "filePath": "file path",
+    "foot": "after pasting + saving credentials.json (mode 0600), restart your client. each request signs a short-lived sigv1 challenge — server never sees your private key."
+  },
+  "mcpDownload": {
+    "heading": "connect your mcp client",
+    "badge": "Sigv1 · /mcp",
+    "intro": "Point your AI client at your instance’s MCP endpoint. Auth is the Ed25519 keypair you generate above (Sigv1). The endpoint aggregates your owner tools over MCP-over-HTTP.",
+    "note": "Claude Desktop / Cursor connect through the stdio client in the config above (npx @standmeet/mcp-client), which speaks MCP-over-HTTP with Sigv1 to this endpoint under the hood.",
+    "endpointLabel": "mcp endpoint"
+  },
+  "mcpServers": {
+    "heading": "External MCP servers",
+    "count": "{count} registered",
+    "intro": "MCP servers the visitor agent can call as tools. Add one you got from anywhere — its URL and an optional auth header — then attach it to a role under codes.",
+    "empty": "none yet",
+    "remove": "remove",
+    "check": "check",
+    "checking": "asking…",
+    "checkTools": "{count, plural, =0 {answers, but offers no tools} one {# tool} other {# tools}}",
+    "checkFailed": "no answer — {reason}",
+    "checkRefused": "it answered, but rejected the auth header — check the header name and value",
+    "checkNoAnswer": "no answer — nothing responded at that URL",
+    "authBadge": "auth: {name}",
+    "add": "Add MCP server"
+  },
+  "newToken": {
+    "label": "generate key",
+    "submit": "generate"
+  },
+  "newlyCreated": {
+    "warning": "save these now — the private key is shown only once",
+    "keyId": "key id",
+    "pem": "private key (pem)",
+    "download": "download .pem",
+    "dismiss": "dismiss"
+  },
+  "tokenRow": {
+    "meta": "created {created} · last used {lastUsed}",
+    "never": "never",
+    "algo": "ed25519",
+    "revoke": "revoke",
+    "keyId": "key id"
+  },
+  "connectors": {
+    "intro": "Connectors let the agent reach external services — Calendar and Mail are live below, and you can upload your own (OpenAPI / protocol) connector to add more.",
+    "catalogError": "Couldn’t load the connector catalog — reload and retry.",
+    "overwritePrompt": "A <mono>{category}</mono> connector already exists. Overwrite it?",
+    "overwrite": "Overwrite",
+    "add": "+ add connector",
+    "builtinHeading": "Ready to connect",
+    "builtinCount": "{count} available",
+    "uploadedHeading": "Connectors you uploaded",
+    "uploadedCount": "{count} installed"
+  },
+  "calendar": {
+    "heading": "Google Calendar",
+    "credentialsHint": "Google Cloud console → APIs & Services → Credentials → OAuth client ID (Desktop). Owner's own client; no global StandMeet OAuth.",
+    "saveCredentials": "Save credentials",
+    "authorize": "Authorize on Google →",
+    "disconnect": "Disconnect (keeps credentials)",
+    "policyHeading": "Booking policy",
+    "timezone": "timezone (IANA)",
+    "timezoneUnsetOption": "— not set —",
+    "timezoneUnsetHint": "not set, so the hours above are read as UTC. your browser says {detected} — pick it and visitors get the hours you meant.",
+    "weekdays": "allowed weekdays"
+  },
+  "capabilities": {
+    "kicker": "availability",
+    "heading": "capabilities",
+    "intro": "Turn a capability off and its tools vanish from every visitor session. Built-in capabilities can be disabled but not deleted; only the ones you authored can be removed."
+  },
+  "connectorCard": {
+    "disconnect": "Disconnect"
+  },
+  "connectorOp": {
+    "run": "Run",
+    "running": "Running…",
+    "sent": "Accepted by the {kind} connector — check the inbox to confirm it arrived.",
+    "unreachable": "Couldn’t reach your instance — check your connection and retry.",
+    "failedNoReason": "It didn’t work, and the connector gave no reason — check the server logs."
+  },
+  "connectorList": {
+    "loadError": "Couldn’t load your connectors — reload and retry.",
+    "delete": "Delete"
+  },
+  "skills": {
+    "new": "+ new skill",
+    "personaEmpty": "No skills yet.",
+    "builtin": "builtin",
+    "showPrompt": "show prompt",
+    "delete": "delete",
+    "modalTitle": "new skill",
+    "promptLabel": "prompt",
+    "cancel": "cancel",
+    "create": "create"
+  },
+  "installedCard": {
+    "source": "source · {source}",
+    "builtin": "· builtin"
+  },
+  "marketplaceCard": {
+    "repoStars": "★ {stars} repo",
+    "author": "{author} · v{version}",
+    "authorOnly": "{author}",
+    "installed": "✓ installed",
+    "needs": "needs {missing}"
+  },
+  "marketplaceTab": {
+    "intro": "Skills aggregate from two sources — the open <ink>anthropics/skills</ink> GitHub repo (anyone can fork + PR) and <ink>SkillsMP</ink> (commercial channel). Installing fetches the skill’s SKILL.md, parses its frontmatter, and writes a local copy you fully own — edit the prompt or allowed-tools after, decoupled from the marketplace.",
+    "manualHint": "Found a skill somewhere else? Paste its <ink>SKILL.md</ink> (YAML frontmatter + body). It installs as a local copy you own — no marketplace, no network fetch.",
+    "manualInstall": "install",
+    "loadMore": "load more",
+    "searchIcon": "⌕",
+    "empty": "No skills match. Try a different term, or switch source — the GitHub repo and SkillsMP are queried in parallel."
+  },
+  "mySkills": {
+    "empty": "No skills yet — install one from the marketplace tab, or add your own under Skills."
+  },
+  "providerBook": {
+    "heading": "provider book",
+    "intro": "Every provider you can send a turn to. One of them is the default — the one used when neither the access code nor the role names another. Deleting an entry is safe: codes and roles pointing at it fall back to the default.",
+    "empty": "no entries yet · the one you configured above is the default",
+    "defaultBadge": "default",
+    "makeDefault": "make default",
+    "delete": "delete ×",
+    "keySet": "● key set",
+    "keyUnset": "○ no key",
+    "addHeading": "add an entry",
+    "label": "label",
+    "labelHint": "your name for this entry",
+    "add": "add",
+    "gasUnmetered": "unmetered",
+    "gasFill": "fill",
+    "gasUnmeter": "remove gauge",
+    "gasFilled": "Tank filled",
+    "gasFillPlaceholder": "tokens"
+  },
+  "apiKeys": {
+    "heading": "outward api keys",
+    "intro": "Keys a third-party program uses against your public API (smk_…). Different from the MCP keys above: those sign for your own AI client, these are handed to someone else's code. If one leaks, revoke it here.",
+    "labelField": "label",
+    "labelPlaceholder": "who is this key for — e.g. 'zapier'",
+    "roleField": "assumes role",
+    "mint": "mint key",
+    "secretOnce": "copy it now — the secret is shown only once",
+    "dismiss": "dismiss",
+    "empty": "no outward keys yet",
+    "revoke": "revoke",
+    "revokeConfirm": "Revoke this key? Anything using it stops working immediately.",
+    "statusActive": "active",
+    "statusRevoked": "revoked"
+  },
+  "embed": {
+    "heading": "Embed on another site",
+    "blurb": "Drop these two lines into any page — your own blog, a client's site, a landing page. No build step and no React: the script registers a <standmeet-chat> element that talks to this instance."
+  }
+}

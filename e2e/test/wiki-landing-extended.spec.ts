@@ -144,7 +144,7 @@ function registerLayoutTests(): void {
       await expect(back).toHaveAttribute('href', '/wiki');
       await back.click();
       await page.waitForURL('**/wiki');
-      await expect(page.getByTestId('wiki-index')).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByTestId('wiki-index-roots')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('wiki-index-roots')).toContainText('Wiki Extended');
     });
 
@@ -153,7 +153,7 @@ function registerLayoutTests(): void {
   test('left wiki toc is sticky — stays pinned when the page scrolls',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
-      await page.setViewportSize({ width: 1280, height: 720 });
+      await page.setViewportSize({ width: 1512, height: 900 });
       await goto(page, '/wiki/wiki-extended');
       const aside = page.getByTestId('wiki-toc');
       await expect(aside).toBeVisible({ timeout: 5_000 });
@@ -169,7 +169,7 @@ function registerLayoutTests(): void {
   test('long article scrolls all the way to the bottom (about box reachable)',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
-      await page.setViewportSize({ width: 1280, height: 720 });
+      await page.setViewportSize({ width: 1512, height: 900 });
       await goto(page, '/wiki/wiki-extended');
       const about = page.getByText('about this entry');
       await about.scrollIntoViewIfNeeded();
@@ -198,22 +198,18 @@ function registerLayoutTests(): void {
 // registerSidebarSessionTests -- flush-left sidebar / code session / no session /
 // nesting.
 function registerSidebarSessionTests(): void {
-  // owner: the toc sits flush against the left edge + has a (draggable) resize divider
-  // + the tree header/stats are all present.
-  test('sidebar is flush-left with a resize divider, header, and stats',
+  // owner: the toc sits flush against the left edge + the tree header/stats are all
+  // present. (The old draggable resize divider was removed in the reader-shell refactor
+  // c215f0be — the rail width is now a computed margin, not user-resizable.)
+  test('sidebar is flush-left with header and stats',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
-      await page.setViewportSize({ width: 1280, height: 720 });
+      await page.setViewportSize({ width: 1512, height: 900 });
       await goto(page, '/wiki/wiki-extended');
       const toc = page.getByTestId('wiki-toc');
       await expect(toc).toBeVisible({ timeout: 5_000 });
       const box = await toc.boundingBox();
       expect(box?.x ?? 99).toBeLessThan(4); // flush against the left edge
-      // The resize divider (handle) spans the full height: it fills the whole article,
-      // much taller than the toc's own content -- the vertical line must not stop
-      // drawing at the bottom of the toc.
-      const handleBox = await page.getByTestId('wiki-toc-resize').boundingBox();
-      expect(handleBox?.height ?? 0).toBeGreaterThan(box?.height ?? 0);
       await expect(page.getByTestId('wiki-tree')).toContainText('wiki tree');
     });
 
@@ -277,6 +273,7 @@ function registerSidebarSessionTests(): void {
   test('sidebar nests child under parent and auto-expands to the current entry',
     async ({ request, page }) => {
       const { parentTitle, childTitle, childPath } = await seedNestedWiki(request);
+      await page.setViewportSize({ width: 1512, height: 900 });
       await goto(page, `/wiki/${childPath}`);
       const tree = page.getByTestId('wiki-tree');
       await expect(tree).toContainText(parentTitle, { timeout: 5_000 });

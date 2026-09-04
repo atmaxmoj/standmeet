@@ -18,7 +18,7 @@ WHERE rms.role_id = $1
 ORDER BY m.name ASC
 `
 
-// session issue 时拿 MCP servers 拼 ext-server tool 列表。
+// At session issue, fetch MCP servers to assemble the ext-server tool list.
 func (q *Queries) ListRoleMCPServers(ctx context.Context, roleID pgtype.UUID) ([]McpServer, error) {
 	rows, err := q.db.Query(ctx, listRoleMCPServers, roleID)
 	if err != nil {
@@ -56,11 +56,11 @@ WHERE rs.role_id = $1 AND s.enabled
 ORDER BY s.name ASC
 `
 
-// role_reads.sql —— role↔skill / role↔mcp 的 JOIN 读:返回 marketplace 的 Skill /
-// McpServer 行(按 role 过滤)。这两条读属 marketplace(返回它的模型),不进 access 的
-// 生成包,以免 access DAO 里混入跨域模型。写侧 + id-only 读仍在 access/roles.sql。
-// session issue 时拿 skills 拼 system prompt。enabled=false 的 skill 被 owner
-// 全局停用,即使挂在 role 上也不进 agent(#48-2)。
+// role_reads.sql —— role↔skill / role↔mcp JOIN reads: return marketplace Skill / McpServer rows (filtered by
+// role). These two reads belong to marketplace (they return its models), and are kept out of access's generated
+// package to avoid mixing cross-domain models into the access DAO. The write side + id-only reads stay in access/roles.sql.
+// At session issue, fetch skills to assemble the system prompt. A skill with enabled=false is globally disabled by
+// the owner, so it does not enter the agent even when attached to the role (#48-2).
 func (q *Queries) ListRoleSkills(ctx context.Context, roleID pgtype.UUID) ([]Skill, error) {
 	rows, err := q.db.Query(ctx, listRoleSkills, roleID)
 	if err != nil {

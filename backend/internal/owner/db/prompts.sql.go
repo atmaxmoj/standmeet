@@ -25,10 +25,10 @@ type CreatePromptParams struct {
 	Body        string
 }
 
-// prompts —— owner-scoped persona library。语义见 schema.sql + [[iam-role-pivot-plan]]。
+// prompts -- owner-scoped persona library. Semantics in schema.sql + [[iam-role-pivot-plan]].
 //
-// public（is_builtin=true）由 SeedPublicRole upsert 种入；owner 自己加的
-// = false。删除 builtin 在 repo 层挡（domain.ErrPromptBuiltinImmutable）。
+// public (is_builtin=true) is seeded by the SeedPublicRole upsert; ones the owner adds themselves
+// = false. Deleting a builtin is blocked at the repo layer (domain.ErrPromptBuiltinImmutable).
 func (q *Queries) CreatePrompt(ctx context.Context, arg CreatePromptParams) (Prompt, error) {
 	row := q.db.QueryRow(ctx, createPrompt,
 		arg.OwnerID,
@@ -59,7 +59,7 @@ type DeletePromptParams struct {
 	OwnerID pgtype.UUID
 }
 
-// 只删 non-builtin；builtin 永远不允许删（repo 上层挡）。
+// Deletes non-builtin only; builtin is never allowed to be deleted (blocked by the repo layer above).
 func (q *Queries) DeletePrompt(ctx context.Context, arg DeletePromptParams) error {
 	_, err := q.db.Exec(ctx, deletePrompt, arg.ID, arg.OwnerID)
 	return err
@@ -163,8 +163,8 @@ type UpdatePromptParams struct {
 	Body        string
 }
 
-// Builtin (public) 也能 update body / description（owner 调 public 文案）；
-// repo 层拒 builtin rename + delete。
+// Builtin (public) can also update body / description (the owner tweaks the public copy);
+// the repo layer rejects builtin rename + delete.
 func (q *Queries) UpdatePrompt(ctx context.Context, arg UpdatePromptParams) (Prompt, error) {
 	row := q.db.QueryRow(ctx, updatePrompt,
 		arg.ID,
@@ -204,8 +204,8 @@ type UpsertBuiltinPromptParams struct {
 	Body        string
 }
 
-// Seed builtin prompt：idempotent by (owner_id, name)。
-// description / body 用 EXCLUDED 覆盖，让 future seed 调整后 re-run 能落地。
+// Seed builtin prompt: idempotent by (owner_id, name).
+// description / body are overwritten with EXCLUDED, so a future seed adjustment lands on re-run.
 func (q *Queries) UpsertBuiltinPrompt(ctx context.Context, arg UpsertBuiltinPromptParams) (Prompt, error) {
 	row := q.db.QueryRow(ctx, upsertBuiltinPrompt,
 		arg.OwnerID,

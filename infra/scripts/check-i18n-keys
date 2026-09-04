@@ -25,7 +25,11 @@ import sys
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 SRC = os.path.join(ROOT, "app", "src")
-MESSAGES = os.path.join(SRC, "i18n", "messages", "en")
+MESSAGES_ROOT = os.path.join(SRC, "i18n", "messages")
+# en is the base locale: the call sites are resolved against it, and every other locale must carry
+# the exact same key set (a missing key falls back / renders the key path; an extra key is dead).
+BASE_LOCALE = "en"
+MESSAGES = os.path.join(MESSAGES_ROOT, BASE_LOCALE)
 
 # Bind by VARIABLE NAME, not by proximity. A component routinely holds two of these —
 #   const t  = useTranslations('adminIntegrations.connectorList');
@@ -35,8 +39,9 @@ MESSAGES = os.path.join(SRC, "i18n", "messages", "en")
 # of two reports. A gate that cries wolf half the time gets ignored, which is worse than no gate.
 BIND = re.compile(r"""\bconst\s+(\w+)\s*=\s*useTranslations\(\s*['"]([\w.]+)['"]\s*\)""")
 BIND_DYNAMIC = re.compile(r"""\bconst\s+(\w+)\s*=\s*useTranslations\((?!\s*['"])""")
-# `t('k')` 和 `t.rich('k')` 都要收。第一版只匹配 `变量(`,于是每一条 rich 文案(带 <accent>
-# 之类标签的那些)都从闸下溜过去 —— 一道对整整一类调用瞎掉的闸,比没有更危险,因为它报"全通过"。
+# Catch both `t('k')` and `t.rich('k')`. The first version matched only `var(`, so every rich string
+# (the ones with tags like <accent>) slipped under the gate — a gate blind to a whole class of calls
+# is more dangerous than none, because it reports "all passing".
 CALL = re.compile(r"""\b(\w+)(?:\.rich)?\(\s*['"]([\w.]+)['"]""")
 
 
@@ -50,8 +55,8 @@ def namespace_of(filename):
     return head + "".join(part.capitalize() for part in rest)
 
 
-def load_messages():
-    """Every message, as `<namespace>.<dotted path inside the file>`."""
+def load_locale(locale):
+    """Every message in one locale, as `<namespace>.<dotted path inside the file>` (recursive)."""
     keys = set()
 
     def walk(prefix, node):
@@ -61,12 +66,41 @@ def load_messages():
         else:
             keys.add(prefix)
 
-    for name in sorted(os.listdir(MESSAGES)):
+    locale_dir = os.path.join(MESSAGES_ROOT, locale)
+    for name in sorted(os.listdir(locale_dir)):
         if not name.endswith(".json"):
             continue
-        with open(os.path.join(MESSAGES, name), encoding="utf-8") as fh:
+        with open(os.path.join(locale_dir, name), encoding="utf-8") as fh:
             walk(namespace_of(name), json.load(fh))
     return keys
+
+
+def load_messages():
+    """The base (en) message key set — what the t() call sites resolve against."""
+    return load_locale(BASE_LOCALE)
+
+
+def other_locales():
+    """Every locale dir under messages/ except the base (en)."""
+    return sorted(
+        name for name in os.listdir(MESSAGES_ROOT)
+        if name != BASE_LOCALE and os.path.isdir(os.path.join(MESSAGES_ROOT, name))
+    )
+
+
+def check_locale_parity(base_keys):
+    """Every non-base locale must carry EXACTLY the base's key set — recursively, across all
+    namespaces. A key present in en but missing in zh renders the key path (or a stale fallback)
+    to that language's users; a key present in zh but not en is dead weight that hides a rename.
+    Returns [(locale, 'missing'|'extra', key)]; empty means every locale is at parity."""
+    problems = []
+    for locale in other_locales():
+        locale_keys = load_locale(locale)
+        for key in sorted(base_keys - locale_keys):
+            problems.append((locale, "missing", key))
+        for key in sorted(locale_keys - base_keys):
+            problems.append((locale, "extra", key))
+    return problems
 
 
 def call_sites(path):
@@ -118,12 +152,24 @@ def main():
 
     print(f"check-i18n-keys: {checked} t() call sites resolved against "
           f"{len(known)} messages ({skipped} dynamic keys skipped).")
-    if missing:
-        print("\nMISSING — these render as the key path to the user:")
-        for m in sorted(missing):
-            print(f"  {m}")
+
+    # Cross-locale recursive parity: every other locale must carry the exact en key set.
+    parity = check_locale_parity(known)
+    locales = other_locales()
+    print(f"check-i18n-keys: {len(locales)} non-base locale(s) checked for key parity "
+          f"against {BASE_LOCALE}: {', '.join(locales) or '(none)'}.")
+
+    if missing or parity:
+        if missing:
+            print("\nMISSING t() keys — these render as the key path to the user:")
+            for m in sorted(missing):
+                print(f"  {m}")
+        if parity:
+            print("\nLOCALE KEY PARITY — every locale must mirror en exactly:")
+            for locale, kind, key in parity:
+                print(f"  {locale}: {kind} {key}")
         return 1
-    print("every statically readable t() call resolves.")
+    print("every statically readable t() call resolves; every locale mirrors en.")
     return 0
 
 

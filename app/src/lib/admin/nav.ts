@@ -13,7 +13,7 @@
 
 export type AdminSlug =
   | 'raw' | 'wiki' | 'subjectivity' | 'output' | 'conversations' | 'codes' | 'requests'
-  | 'connectors' | 'page' | 'custom-pages' | 'api-mcp' | 'account'
+  | 'connectors' | 'custom-pages' | 'api-mcp' | 'account'
   | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system'
   | 'preview' | 'obsidian' | 'embeds'
@@ -89,7 +89,6 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: 'settings',
     items: [
-      { slug: 'page', label: 'landing page' },
       { slug: 'seo', label: 'seo' },
       { slug: 'ip-bans', label: 'ip bans' },
       { slug: 'account', label: 'account' },

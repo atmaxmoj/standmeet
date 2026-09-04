@@ -1,0 +1,233 @@
+{
+  "sidebar": {
+    "instanceLabel": "实例 ·",
+    "uptimeLabel": "运行时长 ·",
+    "groupPrefix": "──",
+    "closeNav": "关闭区块列表"
+  },
+  "topBar": {
+    "brand": "standmeet",
+    "admin": "管理",
+    "live": "在线",
+    "notAnswering": "无应答",
+    "viewPublic": "查看公开页 ↗",
+    "signOut": "退出登录",
+    "navOpen": "区块",
+    "navClose": "关闭",
+    "versionLabel": "版本 ·"
+  },
+  "pulse": {
+    "title": "语料库脉搏",
+    "sparkWindow": "每日新增 · 近 14 天"
+  },
+  "constellation": {
+    "empty": "还没有链接"
+  },
+  "listPane": {
+    "loadFailed": "无法加载此列表——所以这不是「没有」，而是「未知」。请刷新重试。"
+  },
+  "modal": {
+    "close": "关闭 ✕"
+  },
+  "qr": {
+    "fallback": "二维码…"
+  },
+  "previewPane": {
+    "fileName": "预览 · {name}"
+  },
+  "application": {
+    "idLabel": "申请 · {id}",
+    "close": "关闭 ✕",
+    "closeAction": "关闭",
+    "timeline": "时间线",
+    "contact": "联系人",
+    "pingInChat": "在聊天中提及 ↗",
+    "privateNotes": "私密备注",
+    "resumeSnapshot": "已发送简历 · 快照",
+    "resume": "简历",
+    "tailoredFor": "为 {company} · {role} 定制",
+    "viewFull": "查看完整 ↗",
+    "downloadPdf": "下载 pdf",
+    "status": "状态",
+    "sentMeta": "发送于 {sentAt} · {method}",
+    "withdraw": "撤回",
+    "logUpdate": "记录更新"
+  },
+  "connectorAdd": {
+    "catalogCount": "添加连接器 · 目录中 {n} 个",
+    "tagline": "扩展语料库的能力面。",
+    "close": "关闭 ✕",
+    "installed": "已安装",
+    "builtIn": "内置"
+  },
+  "connectorConfig": {
+    "oauthHint": "在新标签页打开服务商 OAuth",
+    "choose": "选择…",
+    "backToCatalog": "← 返回目录",
+    "connect": "连接 →"
+  },
+  "connectorCard": {
+    "credsStored": "此连接器的凭据已保存。它们不会再次显示——留空字段以保留，或输入新的以替换。",
+    "scopeShortfall": "已连接，但这份授权无法完成所要求的一切——需要 {scopes} 的操作将无法运行。请在上方勾选它并重新连接。"
+  },
+  "connectorCred": {
+    "authentication": "认证",
+    "apiKeyHint": "在 {where} 中作为 <code>{name}</code> 发送。",
+    "discoveryHint": "发现：<code>{url}</code>",
+    "needsDance": "此方案需要一个授权步骤。请先组装连接器——连接按钮在它的卡片上。",
+    "scopes": "范围"
+  },
+  "protocolConnector": {
+    "testConnection": "测试连接 →"
+  },
+  "specIngest": {
+    "heading": "粘贴一份 OpenAPI 规范",
+    "blurb": "任意 OpenAPI 3.0 规范（JSON 或 YAML）。我们从中推导出凭据表单 + 分类。",
+    "useThisSpec": "检查此规范",
+    "uploadSpec": "上传文件",
+    "bindingLabel": "绑定——可选",
+    "bindingHint": "用 JSONata（YAML）把此 API 的操作映射到某个分类契约上，让 agent 可把它当作日历、邮件发送器等使用。留空则改为暴露原始操作。",
+    "orFetchFromUrl": "…或从 URL 获取",
+    "fetch": "获取",
+    "candidate": "候选连接器",
+    "baseUrlLabel": "base URL——仅当规范未声明 servers 时",
+    "assemble": "组装连接器 →",
+    "exposeLabel": "让访客的 AI 直接调用这些操作。规范中每个操作都成为它可用的工具，受逐访问码授权约束。若你提供了绑定，请关闭此项。",
+    "needsBindingOrExpose": "这会组装出一个没人能调用的连接器。请提供一个绑定来填充某个分类，或勾选上方的框把操作开放给访客的 AI。"
+  },
+  "composer": {
+    "backToDrafts": "← 草稿",
+    "regenerate": "重新生成 ⌖",
+    "send": "发送 →",
+    "match": "匹配",
+    "matchOutOf": "/ 100",
+    "matchTitle": "与职位描述的匹配度",
+    "freezeAndSend": "冻结 + 发送",
+    "confirmTitle": "把这份草稿发送给 {company}？",
+    "confirmBody": "发送会冻结简历 + 求职信快照、渲染最终 PDF（带二维码），并写入一条申请记录。自动签发的访问码将是 180 天、10 次会话、50 轮。",
+    "keepEditing": "← 继续编辑"
+  },
+  "codeModal": {
+    "cancel": "取消",
+    "addQuestion": "＋ 添加",
+    "promptNone": "— 无 —",
+    "roleDefault": "— 默认 —",
+    "providerTitle": "服务商",
+    "providerSubtitle": "覆盖角色的；留空则继承",
+    "providerInherit": "— 继承（角色，然后实例默认） —"
+  },
+  "codeQr": {
+    "copyLink": "复制链接",
+    "printQr": "打印二维码 ↗",
+    "roleLabel": "角色 ·",
+    "statusLine": "状态 · {status}"
+  },
+  "visitorPreview": {
+    "ownerAiReady": "主理人的 ai · 就绪",
+    "welcome": "欢迎。你是通过 <accent>{label}</accent> 进来的。开始之前——这是你本人，还是新来的人？",
+    "suggestedQuestions": "建议的问题",
+    "noSuggested": "此访问码未设置建议问题",
+    "assumesRole": "此访问码套用角色",
+    "codeLine": "访问码 · {code}",
+    "testThisCode": "测试此访问码"
+  },
+  "dashboard": {
+    "corpusActive": "↑ 14 天内新增 {added} 条",
+    "corpusQuiet": "14 天内无新增",
+    "entriesTotal": "条目 · 总计",
+    "daysAgo14": "每日新增 · 14 天前",
+    "today": "今天",
+    "viewAll": "查看全部 →",
+    "all": "全部 →",
+    "inPool": "在池中",
+    "applications": "申请",
+    "newestInPool": "池中最新",
+    "poolLoading": "读取池子…",
+    "poolError": "无法读取职位池。请刷新重试。",
+    "registerSources": "注册源以开始匹配",
+    "sourcesHint": "/admin/sources → 拉取 → 职位会在这里保留一天",
+    "nothingFetched": "已注册源——但最近没有拉取到任何东西",
+    "nothingFetchedHint": "让 Claude 运行 jobs.fetch_new；结果会在 /admin/listings 保留一天",
+    "recentError": "无法加载最近的访客。请刷新重试。",
+    "noConversations": "还没有对话——访客开始聊天后就会出现在这里",
+    "visitorMeta": "{label} · {turns, plural, one {# 轮} other {# 轮}} · {last}",
+    "privHits": "{n} 私密",
+    "nothingPending": "没有待处理——语料库是最新的。",
+    "review": "审阅 →"
+  },
+  "account": {
+    "siteAddress": "站点地址",
+    "byoaiMode": "byoai 模式",
+    "profile": "个人资料",
+    "language": "界面语言",
+    "languageSub": "后台与你的公开页面所用的语言",
+    "security": "安全",
+    "inference": "推理",
+    "defaultProvider": "默认服务商",
+    "configuredIn": "在 /admin/api-mcp 中配置",
+    "spend30d": "30 天花费",
+    "spendSub": "你的推理密钥 · 主理人付费",
+    "spendUnknown": "$—"
+  },
+  "ipBans": {
+    "intro": "封禁滥用的来源 IP。被封的 IP 在整个公开面上都会收到 403——聊天、会话、访问请求。在 <mono>conversations</mono> 中找到问题 IP（每行都显示访客的 IP）。封禁可随时解除。",
+    "banIp": "封禁 ip",
+    "empty": "没有被封的 IP。公开面是开放的（仍按 IP 限流）。",
+    "unban": "解封"
+  },
+  "system": {
+    "checkForUpdates": "检查更新",
+    "upgradeChecking": "检查中…",
+    "upgradeApplying": "升级中…",
+    "upgradeTo": "升级到 {version}",
+    "upgradeUnknown": "本实例还未检查过更新的版本。",
+    "upgradeUnreachable": "无法触达发布注册表——本实例可能没有出站网络。它自己的版本仍显示在下方。",
+    "upgradeCurrent": "正在运行 {version}——最新的已发布版本。",
+    "upgradeIncomparable": "此构建报告为 {current}，不是已发布版本——无法比较。最新的已发布版本是 {version}。",
+    "upgradeAvailable": "{version} 已发布。本实例可以应用它。",
+    "upgradeManual": "{version} 已发布。本实例无法自行应用——它无法控制自己的宿主。请从你部署它的地方重新部署，或把 STANDMEET_REDEPLOY_HOOK 设为宿主给你的重新部署 URL。",
+    "upgradeWaiting": "已请求重新部署。正在等待本实例回来汇报它运行的是哪个版本。",
+    "upgradeDone": "已升级——现在运行 {version}。",
+    "upgradeStalled": "重新部署已运行，但本实例仍报告 {version}。它的镜像标签多半仍钉在那个版本——把它们指向更新的版本并再次重新部署。",
+    "deployment": "部署",
+    "statusCmd": "standmeet status",
+    "treeBranch": "├─",
+    "treeLast": "└─",
+    "version": "版本",
+    "cpus": "cpu",
+    "uptime": "运行时长",
+    "migrations": "迁移",
+    "migrationsPending": "0 个待执行",
+    "ready": "就绪",
+    "resources": "资源 · 宿主 + 运行时",
+    "publicIp": "公网 ip",
+    "cluster": "集群 · 自有容器",
+    "clusterEmpty": "无集群数据 —— docker socket 未挂载",
+    "backgroundJobs": "后台任务",
+    "colJob": "任务",
+    "colSchedule": "计划",
+    "colLast": "最近",
+    "colStatus": "状态",
+    "statusDot": "●",
+    "healthChecks": "健康检查"
+  },
+  "inferenceUsage": {
+    "title": "推理用量 · 近 7 天",
+    "colDate": "日期",
+    "colModel": "模型",
+    "colCalls": "调用",
+    "colIn": "输入",
+    "colOut": "输出",
+    "empty": "近 7 天内无主理人密钥的 LLM 调用"
+  },
+  "sandbox": {
+    "title": "mcp 沙箱 · {n} 个活跃工作区",
+    "sweepNow": "立即清理",
+    "colWorkspace": "会话工作区",
+    "colAge": "存续时长",
+    "empty": "此刻没有工作区",
+    "emptyHint": "当某个访客会话使用了写文件的工具时会出现一个工作区，闲置超过其 TTL 后即被清理。这里为空表示没有在用——并非出了什么问题。",
+    "sweepNothing": "无可清理——没有工作区",
+    "ageSecs": "{n}秒"
+  }
+}

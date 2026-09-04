@@ -1,42 +1,48 @@
-// genre-assets.ts —— 每个 genre 都能挂素材的共用辅助。
+// genre-assets.ts —— shared helpers for attaching assets to every genre.
 //
-// 素材托管在别人家(external-mock 的 /media/*),后端按 https 地址去取 —— 这跟 owner 真实的
-// 用法一样:图在图床/网盘上,他给 AI 一个链接。
+// Assets are hosted elsewhere (external-mock's /media/*), and the backend fetches
+// them by https address —— just like the owner's real usage: the image is on an
+// image host / cloud drive, and he gives the AI a link.
 
 import type { APIRequestContext } from '@playwright/test';
 
 import { callTool } from '@/fixtures/mcp';
 
-// MEDIA —— 素材托管方给的几个地址。后三个是**故意不对**的,给取回那一步的守卫用。
+// MEDIA —— a few addresses served by the asset host. The bad ones are
+// **intentionally wrong**, for the fetch-step guards.
 const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-// 图床是 https 的 —— 后端取素材那一步只认 https,替身也得真的会 https(见
-// mock-stack/job-board/tls.go:9443 是它的 https 面,9000 仍是明文)。
+// The image host is https —— the backend's asset-fetch step only accepts https,
+// so the mock has to really speak https (see mock-stack/job-board/tls.go:9443 is
+// its https face, 9000 is still plaintext).
 const MEDIA_BASE = 'https://external-mock:9443/media';
 export const MEDIA = {
-  // 该收的 —— "多媒体"不是只有 png。
+  // The ones to accept —— "multimedia" isn't only png.
   pixel: `${MEDIA_BASE}/pixel.png`,
   gif: `${MEDIA_BASE}/anim.gif`,
   webp: `${MEDIA_BASE}/shot.webp`,
   mp4: `${MEDIA_BASE}/clip.mp4`,
   pdf: `${MEDIA_BASE}/paper.pdf`,
-  // 该拒的 —— 每条对应一种具体绕法,见 mock-stack/job-board/media.go。
+  // The ones to reject —— each corresponds to a specific bypass, see
+  // mock-stack/job-board/media.go.
   svg: `${MEDIA_BASE}/vector.svg`,
   lying: `${MEDIA_BASE}/lying.png`,
   html: `${MEDIA_BASE}/page.html`,
   notImage: `${MEDIA_BASE}/not-an-image.txt`,
   missing: `${MEDIA_BASE}/missing.png`,
-  insecure: 'http://external-mock:9000/media/pixel.png', // 非 https
-  // uaRequired —— 一个**要求描述性 User-Agent** 的主机。Wikimedia 就是这样的：
-  // 对着 HTTP 库的默认 UA 直接 403，而「从维基百科贴一张图」是 owner 最常做的一件事。
+  insecure: 'http://external-mock:9000/media/pixel.png', // not https
+  // uaRequired —— a host that **requires a descriptive User-Agent**. Wikimedia is
+  // one: it 403s an HTTP library's default UA outright, and "paste an image from
+  // Wikipedia" is one of the most common things an owner does.
   uaRequired: `${MEDIA_BASE}/ua-required.png`,
 } as const;
 
-/** bulk —— 发指定 MB 数、指定类型的字节。上限是按 kind 分的,所以同一个大小要能当两种用。 */
+/** bulk —— serve a given number of MB of bytes of a given type. The cap is
+ *  per-kind, so the same size must be usable as two kinds. */
 export function bulk(mb: number, type: string): string {
   return `${MEDIA_BASE}/bulk?mb=${mb}&type=${encodeURIComponent(type)}`;
 }
 
-/** 一条语料上的一份素材(上传完回的那一份)。 */
+/** One asset on a corpus entry (the shape returned after upload). */
 export interface UploadedAsset {
   asset_id: string;
   content_type: string;
@@ -44,7 +50,8 @@ export interface UploadedAsset {
   original_filename: string;
 }
 
-/** 一条语料挂着的一份素材,读回时的形状(下载按钮要的就是这几项)。 */
+/** One asset attached to a corpus entry, as read back (these are the fields the
+ *  download button needs). */
 interface EntryAsset {
   asset_id: string;
   kind: string;
@@ -54,7 +61,7 @@ interface EntryAsset {
   url: string;
 }
 
-/** 一条语料读回来时,跟素材有关的那几项。 */
+/** The asset-related fields of a corpus entry when read back. */
 export interface EntryAssets {
   id: string;
   genre: string;
@@ -71,18 +78,20 @@ export interface EntryAssets {
 interface MCPSession { request: APIRequestContext; token: string; sid: string }
 
 /**
- * 建一条指定 genre 的语料,返它的 id。
+ * Create a corpus entry of a given genre, returning its id.
  *
- * subjectivity 的**写口是另一条**(subjectivity_write:那是 owner 跟自己的 AI 写出来的
- * 自我模型,不走 corpus.create)。读、删、挂素材才是同一条 —— 所以这里分流,
- * 调用方不必知道。
+ * subjectivity has **a different write path** (subjectivity_write: that's the
+ * self-model the owner writes with his own AI, not via corpus.create). Read,
+ * delete, and asset-attach share the one path —— so this branches here, and the
+ * caller need not know.
  */
 export async function createEntry(
   s: MCPSession, genre: string, title: string, body: string,
 ): Promise<string> {
   if (genre === 'subjectivity') {
-    // 回参的键是 subjectivity_id,不是 id —— 那个 op 的名字和形状都是 owner 的 AI
-    // 一直在用的,搬家时没改对外的称呼。
+    // The response key is subjectivity_id, not id —— that op's name and shape are
+    // what the owner's AI has always used, so the outward-facing naming wasn't
+    // changed in the move.
     const made = await callTool<{ subjectivity_id: string }>(
       s.request, s.token, s.sid, 'subjectivity_write', { title, body },
     );
@@ -94,7 +103,7 @@ export async function createEntry(
   return item.id;
 }
 
-/** 给一条语料挂一份素材:后端按地址去取。 */
+/** Attach an asset to a corpus entry: the backend fetches it by address. */
 export async function uploadAsset(
   s: MCPSession, genre: string, id: string, url: string, opts: UploadOpts = {},
 ): Promise<UploadedAsset> {
@@ -103,17 +112,18 @@ export async function uploadAsset(
   });
 }
 
-/** kind —— 'image'(正文配图 / hero)还是 'attachment'(可下载的附件,如 PDF)。 */
+/** kind —— 'image' (inline body image / hero) or 'attachment' (a downloadable
+ *  attachment, e.g. a PDF). */
 export interface UploadOpts { kind?: string; filename?: string }
 
-/** hero 区:图 + 压在图上的那句话 + 色调。 */
+/** The hero area: image + the line laid over it + hue. */
 export interface HeroPatch {
   cover_image_asset_id?: string;
   cover_headline?: string;
   cover_hue?: string;
 }
 
-/** 设 hero 区。subjectivity 的写口是它自己那条(见 createEntry 的说明)。 */
+/** Set the hero area. subjectivity's write path is its own (see createEntry's note). */
 export async function setHero(
   s: MCPSession, genre: string, id: string, hero: HeroPatch,
 ): Promise<unknown> {
@@ -125,7 +135,7 @@ export async function setHero(
   });
 }
 
-/** 改一条语料的正文。跟 setHero 同理,subjectivity 走它自己那条写口。 */
+/** Edit a corpus entry's body. Like setHero, subjectivity goes via its own write path. */
 export async function setBody(
   s: MCPSession, genre: string, id: string, title: string, body: string,
 ): Promise<unknown> {
@@ -135,9 +145,10 @@ export async function setBody(
   return callTool(s.request, s.token, s.sid, 'corpus.update', { genre, id, title, body });
 }
 
-// editSubjectivity —— subjectivity_write 的改法:带上 subjectivity_id。**title 和 body 是必填**
-// (那条 op 的 required),所以改 hero 时也得把它们带上 —— 先读回来再原样交回去,
-// 不然就把正文清空了。
+// editSubjectivity —— subjectivity_write's edit path: pass subjectivity_id.
+// **title and body are required** (that op's required fields), so even when
+// editing the hero you must carry them along —— read them back first and hand them
+// back as-is, otherwise you'd clear the body.
 async function editSubjectivity(
   s: MCPSession, id: string, patch: HeroPatch & { title?: string; body?: string },
 ): Promise<unknown> {
@@ -158,7 +169,7 @@ function heroOnly(p: HeroPatch): HeroPatch {
   };
 }
 
-/** 读回一条语料(带素材字段)。 */
+/** Read back a corpus entry (with asset fields). */
 export async function getEntry(
   s: MCPSession, genre: string, id: string,
 ): Promise<EntryAssets> {
@@ -166,10 +177,13 @@ export async function getEntry(
 }
 
 /**
- * 一份素材现在还取不取得到 —— 拿它的可访问地址真发一次 GET。
+ * Whether an asset is still reachable right now —— really send a GET to its
+ * accessible address.
  *
- * 空地址直接判"取不到",**不发请求**:空串会被解析成站点根、回 200,于是"取得到"这个
- * 结论其实来自一个跟素材毫无关系的页面。一个不唯一的信号当不了收据。
+ * An empty address is judged "unreachable" **without sending a request**: an empty
+ * string resolves to the site root and returns 200, so the "reachable" conclusion
+ * would actually come from a page that has nothing to do with the asset. A
+ * non-unique signal can't serve as a receipt.
  */
 export async function assetReachable(
   request: APIRequestContext, url: string,
@@ -179,15 +193,20 @@ export async function assetReachable(
   return res !== null && res.ok();
 }
 
-// 这里以前有 visitorRead / VisitorAsset —— 直接 POST
-// `/api/v1/sessions/{cid}/tools/corpus_read`,从回参的 JSON 里数素材。
+// There used to be visitorRead / VisitorAsset here —— a direct POST to
+// `/api/v1/sessions/{cid}/tools/corpus_read`, counting assets from the response
+// JSON.
 //
-// **访客不会发那个 POST**,发它的是页面里的 JS。而素材的泄漏发生在**渲染层**:
-// 文件名、缩略图、渲不出来的破图位 —— 从 JSON 断"数组长度 0"一个都看不见。
-// 那几条断言现在在浏览器里做(genre-assets-reader.spec.ts),这两个就没有调用方了。
-// 留着的话,下一个人会先看见它、照着用,那条后门就又活了。
+// **A visitor never sends that POST**; the page's JS does. And an asset leak
+// happens at the **render layer**: the filename, the thumbnail, the broken-image
+// placeholder that won't render —— none of which a "array length 0" assertion over
+// JSON can see. Those assertions now run in the browser
+// (genre-assets-reader.spec.ts), so these two had no callers left. Keeping them
+// around means the next person sees them first, copies them, and that back door
+// is alive again.
 
-/** assetByID —— 按 asset id 直取的那条路。素材不该有它 —— 有就绕开了文章的 ACL。 */
+/** assetByID —— the direct-fetch-by-asset-id path. An asset shouldn't have it ——
+ *  having it bypasses the article's ACL. */
 export async function assetByID(
   request: APIRequestContext, sessionToken: string, assetID: string,
 ): Promise<number> {

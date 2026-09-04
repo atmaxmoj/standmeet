@@ -1,27 +1,32 @@
 #!/usr/bin/env sh
-# machine-witness —— 全量跑的时候，每分钟往 stdout 记一行「此刻这台机器上有谁」。
+# machine-witness —— during a full run, log one line to stdout every minute: "who is on this
+# machine right now".
 #
-# **为什么需要它。** 全套要跑一个多小时，而一条红是不是证据，取决于**它出现的那一刻**机器
-# 是什么样。我在 2026-08-19 连着栽了两次：
-#   · 第 2 轮我自己在旁边跑 prod 驱动 + 真模型 eval，load 冲到 64，10 条红全部作废；
-#   · 第 3 轮我声明「独占」，一小时后另一个项目的整套 e2e（lucerna-e2e）起来了，
-#     常驻 1.5 核，后半程的 30s 超时红从此说不清是谁的问题。
-# 两次都是**在启动那一刻断言了一次机器状态，然后当它一直成立**。它不会一直成立。
+# **Why it's needed.** The full suite takes over an hour, and whether a red is evidence depends on
+# what the machine looked like **at the moment it appeared**. I got burned twice in a row on
+# 2026-08-19:
+#   · Round 2, I was running prod driving + real-model eval alongside it, load hit 64, all 10 reds voided;
+#   · Round 3, I declared "exclusive", and an hour later another project's whole e2e (lucerna-e2e)
+#     came up, holding 1.5 cores, and the 30s-timeout reds in the back half were forever ambiguous.
+# Both times I **asserted machine state once at startup and then treated it as always true**. It is
+# not always true.
 #
-# 所以这里不做判断、不设阈值、不拦任何东西 —— 只留证据：跑完之后翻日志，
-# 每条红都能对上它出生时的 load 和邻居。判据留给人，事实留给这行日志。
+# So this makes no judgment, sets no threshold, blocks nothing — it only leaves evidence: after the
+# run, read the log, and every red can be matched to the load and neighbours it was born with.
+# The verdict is left to a person, the facts to this log line.
 #
-# 输出跟 playwright 的行混在同一份日志里，靠 `[machine]` 前缀挑出来：
+# The output is mixed into the same log as playwright's lines; pick it out by the `[machine]` prefix:
 #   grep '\[machine\]' full.log
 #
-# 别的项目的容器**不按名字白名单挑**：白名单会漏掉下一个新项目。凡是不属于本仓 compose
-# 工程（standmeet-dev / standmeet-prod）的运行中容器，一律算邻居。
+# Other projects' containers are **not selected by a name allowlist**: an allowlist would miss the
+# next new project. Any running container not belonging to this repo's compose projects
+# (standmeet-dev / standmeet-prod) counts as a neighbour.
 
 set -eu
 
 INTERVAL="${WITNESS_INTERVAL:-60}"
 
-# neighbours —— 不属于 standmeet 的运行中容器，按 compose 工程名归并计数。
+# neighbours —— running containers not belonging to standmeet, grouped and counted by compose project name.
 neighbours() {
   docker ps --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null \
     | grep -v '^standmeet-' | grep -v '^$' | sort | uniq -c \

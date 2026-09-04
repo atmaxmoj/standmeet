@@ -1,16 +1,16 @@
-// connector-err-mcp-ui-tool-dispatch.spec.ts —— §四 错误流矩阵 E12（R4 新路径）
-// 沙盒卡 post `mcp-ui:tool` 派发具名工具 → host 带 session context 派发。三种失败:
-//   (a) host 派发本身失败,
-//   (b) session 失效/过期,
-//   (c) card-action 进行中 quota 耗尽,
-// 每种都该让卡内显示友好结果、chat **不挂死/不崩**。
+// connector-err-mcp-ui-tool-dispatch.spec.ts —— §4 error stream matrix E12 (R4 new path)
+// a sandbox card posts `mcp-ui:tool` to dispatch a named tool → host dispatches it with session context. Three failures:
+//   (a) host dispatch itself fails,
+//   (b) session invalid/expired,
+//   (c) quota exhausted mid-card-action,
+// each should show a friendly result in the card, and the chat **must not hang or crash**.
 //
 // Error stream E12: a sandbox card posts mcp-ui:tool but the dispatch path fails —
 // (a) host dispatch error, (b) invalid/expired session, (c) quota exhausted
 // mid-card-action — in each case the card shows a friendly result and the chat
 // does not hang or crash.
 //
-// RED / TDD：依赖 mcp-ui:tool host 派发把这三类失败映射成卡内友好结果落地后转绿。
+// RED / TDD: goes green once mcp-ui:tool host dispatch maps these three failure classes into friendly in-card results.
 
 import { test, expect } from '@/fixtures/test';
 import type { FrameLocator, Page, Playwright } from '@playwright/test';
@@ -25,9 +25,9 @@ import { goto } from '@/fixtures/navigate';
 const TOPIC = 'Intro call about backend work';
 const TOOL_ROUTE = '**/api/v1/sessions/*/tools/send_confirmation';
 
-// 三类派发故障用 Playwright 劫持卡的 /tools 请求制造(不动后端、不留 test seam):
-//   (a) host 派发失败 → 502; (b) session 失效 → 401; (c) 配额耗尽 → 200 ok:false。
-// 卡的 mcp-ui:tool 由父页 callVisitorTool fetch,故 page.route 能拦到。
+// the three dispatch faults are produced by hijacking the card's /tools request with Playwright (no backend change, no test seam):
+//   (a) host dispatch fails → 502; (b) session invalid → 401; (c) quota exhausted → 200 ok:false.
+// the card's mcp-ui:tool is fetched by the parent page's callVisitorTool, so page.route can intercept it.
 async function failHostDispatch(page: Page): Promise<void> {
   await page.route(TOOL_ROUTE, (route) => route.fulfill({
     status: 502, contentType: 'application/json',
@@ -52,7 +52,7 @@ test.describe('connector error stream · mcp-ui:tool dispatch failures degrade i
   test.beforeAll(async ({ playwright }: { playwright: Playwright }) => { seed = await prep(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  // (a) host 派发本身失败 → 卡内友好结果,chat 不挂死。
+  // (a) host dispatch itself fails → friendly in-card result, chat does not hang.
   test('(a) host dispatch fails → card shows a friendly result, chat does not hang',
     async ({ browser }) => {
       await clearMailpit(seed.request);
@@ -69,7 +69,7 @@ test.describe('connector error stream · mcp-ui:tool dispatch failures degrade i
       await ctx.close();
     });
 
-  // (b) session 失效/过期 → 派发被拒,卡内友好结果(提示重进),chat 不崩。
+  // (b) session invalid/expired → dispatch rejected, friendly in-card result (prompts to re-enter), chat does not crash.
   test('(b) session invalid/expired → card shows a friendly result, chat does not crash',
     async ({ browser }) => {
       await clearMailpit(seed.request);
@@ -86,7 +86,7 @@ test.describe('connector error stream · mcp-ui:tool dispatch failures degrade i
       await ctx.close();
     });
 
-  // (c) card-action 进行中 quota 耗尽 → 卡内友好结果,chat 不挂死。
+  // (c) quota exhausted mid-card-action → friendly in-card result, chat does not hang.
   test('(c) quota exhausted mid-card-action → card shows a friendly result, chat does not hang',
     async ({ browser }) => {
       await clearMailpit(seed.request);
@@ -104,7 +104,7 @@ test.describe('connector error stream · mcp-ui:tool dispatch failures degrade i
     });
 });
 
-// assertFriendlyCardError —— 卡内出现友好错误(非 sent、无 stack)。
+// assertFriendlyCardError —— a friendly error appears in the card (not sent, no stack).
 async function assertFriendlyCardError(frame: FrameLocator): Promise<void> {
   const err = frame.getByTestId('booking-email-error');
   await expect(err, 'friendly in-card error').toBeVisible({ timeout: 10_000 });
@@ -114,7 +114,7 @@ async function assertFriendlyCardError(frame: FrameLocator): Promise<void> {
   await expect(frame.getByTestId('booking-email-prompt')).toHaveAttribute('data-sent', 'false');
 }
 
-// assertChatAlive —— 派发失败后 chat 没挂死:输入框仍可交互(可再发一句)。
+// assertChatAlive —— after a dispatch failure the chat isn't hung: the input is still interactive (can send another message).
 async function assertChatAlive(page: Page): Promise<void> {
   const input = page.getByTestId('chat-input-field');
   await expect(input, 'chat input still interactive (no hang)').toBeEnabled({ timeout: 10_000 });
@@ -126,8 +126,8 @@ function bookedFrame(page: Page): FrameLocator {
   return page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
 }
 
-// enterAndBook —— ?code 入口 → 填名 + email → script calendar_book → 等沙盒卡。
-// 返回 conversation_id(供 session/quota 故障注入用)。
+// enterAndBook —— ?code entry → fill name + email → script calendar_book → wait for the sandbox card.
+// returns conversation_id (for session/quota fault injection).
 async function enterAndBook(
   page: Page, code: string, name: string, hour: number, email: string,
 ): Promise<string> {

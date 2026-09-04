@@ -88,10 +88,13 @@ test.describe('account · the recovery row describes what the button actually do
     async ({ adminPage: page, playwright }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      // Remove the mail connector: the disabled-state copy should say "missing SMTP",
-      // not also say "not built".
-      await request.delete(`${process.env['BACKEND_URL'] ?? 'http://localhost:8000'}` +
-        `/api/admin/connectors/mail-sender/credentials`, { headers: { 'X-Csrftoken': csrf } });
+      // Disconnect the mail connector so outbound reports not-connected. The connector's id is
+      // `smtp` (not `mail-sender`), and the operation is POST /connectors/smtp/disconnect — there
+      // is no DELETE /credentials route; the old call no-op'd, so the connector stayed connected
+      // and the button never disabled.
+      const disc = await request.post(`${process.env['BACKEND_URL'] ?? 'http://localhost:8000'}` +
+        `/api/admin/connectors/smtp/disconnect`, { headers: { 'X-Csrftoken': csrf } });
+      expect(disc.ok(), `disconnect smtp: ${disc.status()}`).toBe(true);
       await request.dispose();
 
       await gotoAdminSection(page, 'account');

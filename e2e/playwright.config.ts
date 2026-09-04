@@ -2,13 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
-// 本地 .env.local 可覆盖 BASE_URL；CI / docker compose 通过 env 直接传。
+// A local .env.local can override BASE_URL; CI / docker compose passes it directly via env.
 dotenv.config({ path: path.join(__dirname, '.env.local') });
 
-// BASE_URL 是 Next.js app 的入口（v1 单 owner instance：访客打开域名 /
-// 就是公开页，pre-claim 时 server-side redirect 到 /setup?t=...）。
-// fixtures/test.ts 的自定义 page fixture 在每个 spec 开始前 goto('/')；
-// spec body 之后只点 UI，**整套 e2e 里 goto 只出现在那一处**。
+// BASE_URL is the Next.js app's entry point (v1 single-owner instance: a visitor opening the
+// domain / lands on the public page, and pre-claim it server-side redirects to /setup?t=...).
+// The custom page fixture in fixtures/test.ts does goto('/') before each spec starts;
+// the spec body afterward only clicks the UI, **so goto appears in that one place across the whole e2e suite**.
 const BASE_URL = process.env['BASE_URL'] ?? 'http://localhost:38127';
 
 const outputDir = path.join(process.cwd(), 'test-results', 'playwright');
@@ -16,8 +16,8 @@ const outputDir = path.join(process.cwd(), 'test-results', 'playwright');
 export default defineConfig({
   testDir: './test',
 
-  // 跑完 dump backend container 日志到 test-results/backend.log。诊断失败
-  // 的 test 不用 ad-hoc tail compose log，直接读这个文件。
+  // After the run, dump the backend container logs to test-results/backend.log. To diagnose
+  // a failed test, read this file directly instead of ad-hoc tailing the compose log.
   globalTeardown: path.join(__dirname, 'global-teardown.ts'),
 
   timeout: 30_000,
@@ -57,22 +57,23 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      // 留痕那套**只**属于 mobile project。不排掉的话它会跟着每一次全量在桌面尺寸
-      // 再跑一遍,产出一堆没人看的图,还把全量拖长。两个 project 的范围写成互斥的,
-      // 这样"跑错了那一套"这件事没有发生的余地。
+      // The screenshot-trace suite belongs **only** to the mobile project. If not excluded, it would
+      // run again at desktop size on every full run, producing a pile of images no one looks at and
+      // dragging out the full run. The two projects' scopes are written to be mutually exclusive,
+      // so "running the wrong suite" has no room to happen.
       testIgnore: /mobile-sweep\.spec\.ts/,
     },
-    // mobile —— 手机视口下的截图留痕。
+    // mobile —— screenshot traces under a phone viewport.
     //
-    // 这里跑的**不是**功能套件,是 mobile-sweep 那一份截图留痕(见那个文件开头)。
-    // 理由:响应式坏掉的样子断言看不见 —— 线上 admin 在 390px 上
-    // `scrollWidth === clientWidth`、没有任何元素超过视口宽度、每一条现成断言照样绿,
-    // 而正文被侧栏挤到只剩 158px。元素没有溢出,它们是**被压扁的**
-    // ([[text-assertion-cannot-see-layout]])。判据只能是人眼,所以产出是图。
+    // What runs here is **not** the functional suite, it's the mobile-sweep screenshot trace (see that file's header).
+    // Reason: a broken responsive layout is invisible to assertions —— live admin at 390px has
+    // `scrollWidth === clientWidth`, no element exceeds the viewport width, and every existing assertion stays green,
+    // while the body is squeezed to just 158px by the sidebar. The elements don't overflow, they are **squished**
+    // ([[text-assertion-cannot-see-layout]]). The only criterion is the human eye, so the output is images.
     //
-    // 只换视口,**不开 isMobile / hasTouch**:响应式 CSS 的断点只看宽度,而模拟触摸会
-    // 顺带改掉 hover、点击语义和 UA,把布局的问题和交互的问题混成一堆。要驱触摸那一档
-    // 单独再开一个 project,别把两件事塞进一个。
+    // Only the viewport changes, **isMobile / hasTouch stay off**: responsive CSS breakpoints only look at width, while
+    // emulating touch would also change hover, click semantics, and the UA, mixing layout problems and interaction
+    // problems together. To drive the touch tier, open a separate project; don't cram the two into one.
     {
       name: 'mobile',
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },

@@ -73,8 +73,10 @@ test.describe('F-L-11 · invited viewer reads a gated entry via the bearer-aware
   test('the /wiki index and its counter answer for THIS session, not for an anonymous one (F-L-14)',
     async ({ page }) => {
       await enterCodeSession(page, CODE, 'Reader');
+      // the sidebar footer stats live in the rail, display:none below 1500px (c215f0be).
+      await page.setViewportSize({ width: 1512, height: 900 });
       await goto(page, '/wiki');
-      await expect(page.getByTestId('wiki-index')).toBeVisible({ timeout: 8_000 });
+      await expect(page.getByTestId('wiki-index-roots')).toBeVisible({ timeout: 8_000 });
       await expect(
         page.getByTestId('wiki-index-roots'),
         '树里列得出、条目页打得开的那条,索引也必须列得出',

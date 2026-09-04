@@ -1,20 +1,26 @@
-// corpus.ts —— 经 MCP 播种语料的 helper(spec 用它让 retrieval agent 有东西可搜)。
+// corpus.ts —— helper for seeding corpus via MCP (specs use it to give the
+// retrieval agent something to search).
 //
-// 工具是 corpus.create / corpus.promote,genre 是**参数**;主键统一叫 id。
-// 归一化前这里是 raw_dump / promote_to_wiki / promote_wiki_to_output 三个工具、
-// raw_id / wiki_id / output_id 三个主键名。
+// The tools are corpus.create / corpus.promote, with genre as a **parameter**;
+// the primary key is uniformly called id. Before normalization these were three
+// tools (raw_dump / promote_to_wiki / promote_wiki_to_output) and three primary
+// key names (raw_id / wiki_id / output_id).
 //
-// 重设后字段：
-//   • path —— 唯一标识 (取代 seo_slug)。retrieval ACL 按 path-glob 评估。
-//   • show_as_source —— false 时 AI 可读但不计入 cited footer。
-//   • visibility 字段被砍 —— 准入靠 corpus_permissions 在 access code 上。
+// Fields after the redesign:
+//   • path —— the unique identifier (replacing seo_slug). Retrieval ACL is
+//     evaluated by path-glob.
+//   • show_as_source —— when false the AI can read it but it isn't counted in the
+//     cited footer.
+//   • the visibility field was cut —— admission is via corpus_permissions on the
+//     access code.
 
 import type { APIRequestContext } from '@playwright/test';
 
 import { callTool } from '@/fixtures/mcp';
 
-// 一条语料在每个面上的那一份形状:主键叫 id(三个 genre 同一份),genre 是参数。
-// 归一化前这里读的是 raw_id / wiki_id / output_id 三个不同的名字。
+// The shape of a corpus entry on every surface: the primary key is id (same for
+// all three genres), with genre as a parameter. Before normalization this read
+// three different names: raw_id / wiki_id / output_id.
 interface CorpusEntry { id: string }
 
 export interface SeedWikiOpts {
@@ -30,13 +36,17 @@ export async function seedWiki(
   sessionId: string,
   opts: SeedWikiOpts,
 ): Promise<{ rawID: string; wikiID: string }> {
-  // 地址是树派生的(parent 链每段 slug 化的 title)。给了多段 path 如
-  // 'projects/lucerna' 就先建出父节点链(title = 各段),让叶子的树路径重建成
-  // 这个 path —— 这样 spec 的 path 断言 + ACL glob 不用改。leaf 仍写一份列 path
-  // (admin transcript 暂时还取列;见 task #8 剩余面)。
+  // The address is tree-derived (the slugified title of each segment of the
+  // parent chain). Given a multi-segment path like 'projects/lucerna', first
+  // build out the parent-node chain (title = each segment) so the leaf's tree
+  // path reconstructs to this path —— that way the spec's path assertions + ACL
+  // glob don't change. The leaf still writes a flat-column path (the admin
+  // transcript still reads that column for now; see task #8's remaining surfaces).
   const parentID = await seedParentChain(request, apiToken, sessionId, opts.path);
-  // mkdir -p 语义 at the leaf:同 parent 下已有同名 entry 就复用 —— 写时同 slug
-  // 兄弟被后端拒(Obsidian 语义),同一个 describe 里多次 seed 同一篇不该撞。
+  // mkdir -p semantics at the leaf: reuse an existing entry with the same name
+  // under the same parent —— on write, same-slug siblings are rejected by the
+  // backend (Obsidian semantics), so seeding the same note multiple times in one
+  // describe shouldn't collide.
   const existing = await findExistingChild(request, apiToken, sessionId, opts.title, parentID);
   if (existing !== '') return { rawID: '', wikiID: existing };
   const dump = await callTool<CorpusEntry>(
@@ -55,11 +65,14 @@ export async function seedWiki(
   return { rawID: dump.id, wikiID: promoted.id };
 }
 
-// seedParentChain —— path 'a/b/leaf' → 建 a、b 两个父节点(title = 段),返回最
-// 后一个父的 wiki_id(叶子挂它下面)。单段 / 无 path → 返 ''(叶子是 root)。
+// seedParentChain —— path 'a/b/leaf' → build the two parent nodes a and b
+// (title = segment), returning the last parent's wiki_id (the leaf hangs under
+// it). Single-segment / no path → returns '' (the leaf is root).
 //
-// mkdir -p 语义:某段父节点已存在(同 parent 下同名)就复用,不重建 —— 写时同
-// slug 兄弟被后端拒(Obsidian 语义),不复用就会在共享前缀时撞名。
+// mkdir -p semantics: if a parent segment already exists (same name under the
+// same parent), reuse it rather than rebuild —— on write, same-slug siblings are
+// rejected by the backend (Obsidian semantics), so not reusing would collide on
+// shared prefixes.
 async function seedParentChain(
   request: APIRequestContext, apiToken: string, sessionId: string, path?: string,
 ): Promise<string> {
@@ -84,8 +97,9 @@ async function seedParentChain(
 
 interface WikiRow { id: string; title: string; parent_id: string | null }
 
-// findExistingChild —— 在 parentID(''=root)下找 title 完全相同的现存节点,返回
-// 其 id;没有返 ''。让 seedParentChain 复用父链而非重建撞名。
+// findExistingChild —— under parentID (''=root), find an existing node with an
+// exactly matching title and return its id; '' if none. Lets seedParentChain
+// reuse the parent chain instead of rebuilding into a name collision.
 async function findExistingChild(
   request: APIRequestContext, apiToken: string, sessionId: string,
   title: string, parentID: string,
@@ -98,9 +112,11 @@ async function findExistingChild(
   return hit?.id ?? '';
 }
 
-// publishEntry —— 把一条 corpus 条目设为公开（wiki / output 同一个 op，genre 是参数）。
+// publishEntry —— set a corpus entry public (wiki / output share one op, genre is
+// a parameter).
 //
-// 九个 spec 各自抄了一份这段调用，于是 tool 一改名就要改九处。一处调用，一处改。
+// Nine specs each copied this call, so renaming the tool meant changing nine
+// places. One call, one place to change.
 export async function publishEntry(
   request: APIRequestContext,
   apiToken: string,
@@ -112,13 +128,14 @@ export async function publishEntry(
   });
 }
 
-// seedPublicWiki —— 老 spec 入口；retrieval-redesign 之后 path 字段是主要
-// 标识，旧 spec 调用方暂时无 path 入参，让此 helper 自动用 wiki/<random>
-// path（重设后 backend 也会同样 derive）。tags 字段保留入参但 ignore ——
-// retrieval ACL 走 path-glob，tag 准入不再起作用。
+// seedPublicWiki —— the legacy spec entry point; after the retrieval redesign the
+// path field is the primary identifier, but old spec callers have no path input
+// yet, so this helper auto-uses a wiki/<random> path (after the redesign the
+// backend derives the same). The tags field is kept as an input but ignored ——
+// retrieval ACL goes by path-glob, tag admission no longer applies.
 //
-// 完成 [[path-rename-migration]] 后 owner 可以再扫一遍这些 callers
-// 改成显式调用 seedWiki + path 参数。
+// After [[path-rename-migration]] is done, the owner can sweep these callers
+// again and switch them to explicit seedWiki + path arguments.
 export async function seedPublicWiki(
   request: APIRequestContext,
   apiToken: string,

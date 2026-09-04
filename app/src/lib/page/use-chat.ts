@@ -25,7 +25,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { VisitorTurnAgent, type DocContext } from '@standmeet/agent-core';
 import type { EventObserver, Message } from '@standmeet/agent-core';
 import {
-  httpPromptSource, httpAgentTurnStreamer,
+  httpPromptSource, httpAgentTurnStreamer, httpTurnRecovery,
   type HttpBYOAIHeaders,
 } from '@standmeet/sdk';
 
@@ -430,6 +430,11 @@ function buildPageAgent(
       turn: httpAgentTurnStreamer({
         baseURL: '', sessionToken: sess.sessionToken, byoai,
       }),
+      // recovery —— K: a mid-stream SSE drop is healed by pulling the backend's
+      // persisted answer (the turn kept generating on a detached context and
+      // sank into the conversation table), instead of making the visitor
+      // manually refresh. The turn is read back, never re-run.
+      recovery: httpTurnRecovery({ baseURL: '', sessionToken: sess.sessionToken }),
       observer,
     },
     {

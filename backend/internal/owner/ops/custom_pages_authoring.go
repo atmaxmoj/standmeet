@@ -14,7 +14,8 @@ import (
 )
 
 func customPageAuthoringOps(deps usecase.CustomPageDeps) []fp.Op {
-	return append(customPageSettingOps(deps), customPageBuildOps(deps)...)
+	ops := append(customPageSettingOps(deps), customPageBuildOps(deps)...)
+	return append(ops, customPageGuideOps()...)
 }
 
 // customPageSettingOps —— the page's own settings (nothing build-related).
@@ -48,8 +49,10 @@ func customPageBuildOps(deps usecase.CustomPageDeps) []fp.Op {
 			Invoke:      createCustomPage(deps),
 		},
 		{
-			ID:          "custom_page.write_file",
-			Description: "Add or overwrite one source file in the page's draft.",
+			ID: "custom_page.write_file",
+			Description: "Add or overwrite one source file in the page's draft. Call " +
+				"custom_page.guide first: it gives the design system, the SDK widgets to import, " +
+				"and how to show corpus inline instead of linking away.",
 			InputSchema: pageFileSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),

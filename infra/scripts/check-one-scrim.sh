@@ -1,19 +1,21 @@
 #!/usr/bin/env sh
-# check-one-scrim —— 模态遮罩只能有**一个来源**。
+# check-one-scrim —— a modal scrim may have only **one source**.
 #
-# 为什么这条闸门存在(UX-48):四个 `*-overlay` 规则原本各写一条
-# `color-mix(in oklab, var(--color-ink) 40%, transparent)`。四条字面量谁也不知道彼此存在 ——
-# 调其中一处,另外三处悄悄分叉,而分叉在界面上不会报错,只会让某些模态压得住底层、某些压不住。
+# Why this gate exists (UX-48): four `*-overlay` rules each originally wrote their own
+# `color-mix(in oklab, var(--color-ink) 40%, transparent)`. The four literals didn't know each other
+# existed — tune one and the other three silently diverge, and divergence doesn't error in the UI, it
+# just makes some modals cover the layer below and others not.
 #
-# 锁的是**结构**不是数值:数值(66%)是审美判断,写个断言核对它等于它自己是恒真的空话;
-# 会真正腐烂的是「四处各写各的」。
+# It locks the **structure**, not the value: the value (66%) is an aesthetic judgment, and asserting
+# it equals itself is a vacuous tautology; what actually rots is "four spots each writing their own".
 #
-# **范围刻意收窄到 `-overlay` 规则块里的 background** —— `color-mix(ink, N%)` 本身是这套
-# 视觉语言到处在用的正当手法(纸面纹理、代码块底、引用左边线)。第一版没收窄,把它们全判红了:
-# 闸门管太宽会逼着合法代码绕路(见 [[gate-scope-forces-architecture]])。
+# **The scope is deliberately narrowed to `background` inside `-overlay` rule blocks** —
+# `color-mix(ink, N%)` is itself a legitimate technique this visual language uses everywhere (paper
+# texture, code-block backgrounds, blockquote left rules). The first version didn't narrow and flagged
+# them all red: an over-broad gate forces legitimate code to detour (see [[gate-scope-forces-architecture]]).
 #
-# 自证:把一段种进去的坏写法喂给同一个判定,必须判红;判不红说明扫描器瞎了
-# (见 [[gate-can-go-blind]])。
+# Self-test: feed a planted bad usage to the same judgment and it must go red; if it doesn't, the
+# scanner is blind (see [[gate-can-go-blind]]).
 
 set -eu
 
@@ -22,13 +24,13 @@ TOKEN_FILE="app/src/app/globals.css"
 
 fail=0
 
-# 1) token 必须存在 —— 否则下面所有 var(--sm-scrim) 都是空引用,而空引用在 CSS 里是静默的。
+# 1) The token must exist — otherwise every var(--sm-scrim) below is an empty reference, and an empty reference is silent in CSS.
 if ! grep -q -- '--sm-scrim:' "$TOKEN_FILE"; then
   echo "check-one-scrim: --sm-scrim is not defined in $TOKEN_FILE"
   fail=1
 fi
 
-# scan_overlays —— 在 `*-overlay {` 块内找自己拼的 background。stdin 收 CSS,命中即打印。
+# scan_overlays —— find a hand-rolled background inside a `*-overlay {` block. Takes CSS, prints on match.
 scan_overlays() {
   awk '
     /-overlay[^{]*\{/ { inblock = 1 }
@@ -49,10 +51,12 @@ if [ -n "$offenders" ]; then
   fail=1
 fi
 
-# 2) TSX 里的内联遮罩 —— **第一版闸门完全看不见这一类**,而遮罩真正的多数派在这儿:
-#    6 处 `className="fixed inset-0 ... bg-(--color-ink)/40"`,一处都没被扫到。
-#    第一版还带着"自证",但那个自证只证明了「在我选择扫描的文件类型里种一个坏例子能被看见」,
-#    **没有证明扫描范围覆盖了遮罩实际存在的地方** —— 自证证错了东西(见 [[gate-can-go-blind]])。
+# 2) Inline scrims in TSX —— **the first version of the gate was completely blind to this class**,
+#    and the real majority of scrims lives here: 6 spots of
+#    `className="fixed inset-0 ... bg-(--color-ink)/40"`, none of them scanned.
+#    The first version even had a "self-test", but it only proved "a bad example planted in the file
+#    type I chose to scan can be seen", **not that the scan range covers where scrims actually live**
+#    — the self-test proved the wrong thing (see [[gate-can-go-blind]]).
 inline=$(grep -rn -- 'fixed inset-0' app/src 2>/dev/null \
   | grep -- 'bg-(--color-ink)/' || true)
 if [ -n "$inline" ]; then
@@ -61,11 +65,13 @@ if [ -n "$inline" ]; then
   fail=1
 fi
 
-# 3) `bg-(--x)` 这个简写**只对注册在 `@theme` 里的 token 有效**。`--sm-scrim` 在普通 `:root`,
-#    于是 Tailwind 不认识它,**一条 CSS 都不生成** —— 类名进了 HTML,规则不存在,遮罩从 40% 变成 0。
-#    我真这么干过一次,而且 typecheck / eslint / 这条闸门当时**全绿**:没有任何工具会说
-#    "这个 class 没有对应规则"。只有回真实环境看一眼才发现底层文字反而更清楚了。
-#    所以这里显式禁掉简写形式,只准 `bg-[var(--sm-scrim)]`。
+# 3) The `bg-(--x)` shorthand **only works for tokens registered in `@theme`**. `--sm-scrim` is in a
+#    plain `:root`, so Tailwind doesn't recognize it and **generates not one line of CSS** — the class
+#    lands in the HTML, the rule doesn't exist, and the scrim goes from 40% to 0.
+#    I actually did this once, and typecheck / eslint / this gate were all **green** at the time: no
+#    tool says "this class has no matching rule". Only a look at the real environment revealed the text
+#    underneath had become clearer instead. So the shorthand form is explicitly banned here; only
+#    `bg-[var(--sm-scrim)]` is allowed.
 shorthand=$(grep -rn -- 'bg-(--sm-scrim)' app/src 2>/dev/null || true)
 if [ -n "$shorthand" ]; then
   echo "check-one-scrim: bg-(--sm-scrim) generates NO css (--sm-scrim is not a @theme token)."
@@ -74,7 +80,7 @@ if [ -n "$shorthand" ]; then
   fail=1
 fi
 
-# 4) 自证:种一个坏 overlay 规则,同一个判定必须看得见它。
+# 4) Self-test: plant a bad overlay rule, and the same judgment must see it.
 planted_file=$(mktemp -t scrimcheck.XXXXXX)
 cat > "$planted_file" <<'PLANTED'
 .sm-planted-modal-overlay {
@@ -89,13 +95,15 @@ if [ -z "$(scan_overlays "$planted_file")" ]; then
 fi
 rm -f "$planted_file"
 
-# 原生控件的强调色和焦点环也各自只能有**一处**声明(UX-33 / UX-50)。
-# 这两样在此之前一处都没声明过 —— 于是勾选框和焦点环用的是系统蓝,在纸色/墨/朱红的版面上
-# 是唯一的外来色。声明在 html/body 和 *:focus-visible 上,组件不许各写各的:
-# 一旦某个组件自己覆盖一份,「这个控件是什么颜色」就又要靠翻文件回答。
+# The accent color and focus ring of native controls may also each have only **one** declaration
+# (UX-33 / UX-50). Neither was declared anywhere before — so checkboxes and focus rings used system
+# blue, the only foreign color on a paper/ink/vermillion layout. They are declared on html/body and
+# *:focus-visible, and components may not each write their own: the moment one component overrides its
+# own copy, "what color is this control" again has to be answered by grepping files.
 #
-# 判据是**声明次数**,不是"在哪个选择器里" —— 后者要解析 CSS 才判得准,而数声明是确定的:
-# 全 app 恰好一条 `accent-color: …`(排除注释行)。多一条就是有人另起了一份。
+# The criterion is **declaration count**, not "in which selector" — the latter needs CSS parsing to
+# judge, while counting declarations is definite: the whole app has exactly one `accent-color: …`
+# (excluding comment lines). One more means someone started another copy.
 accent_n=$(grep -rn 'accent-color:' app/src 2>/dev/null | grep -v '^\s*[^:]*:[0-9]*:\s*/\*' \
   | grep -vc '^\s*$' || true)
 if [ "$accent_n" != "1" ]; then

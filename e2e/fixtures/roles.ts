@@ -1,23 +1,23 @@
-// roles.ts —— admin POST /api/admin/roles 创建 role 的 helper。
+// roles.ts —— helper for creating a role via admin POST /api/admin/roles.
 //
-// 测试 ACL 时：先建一个 role 写 corpus_uris (positive-list URI glob)，再发码
-// 引用这个 role；session 起 freeze 后 retriever 用 RoleSnapshot.AllowsCorpus
-// 评估 wiki/output/writing。
+// When testing ACL: first create a role with corpus_uris (a positive-list URI glob),
+// then issue a code referencing this role; after the session freezes, the retriever
+// uses RoleSnapshot.AllowsCorpus to evaluate wiki/output/writing.
 
 import type { APIRequestContext } from '@playwright/test';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// DockButtonConfig —— #109/#110 一个 dock 按钮的 owner 配置：挂哪个能力 + 点击发出的触发词。
-// 一个 role 最多两个（chat 两个按钮位）。
+// DockButtonConfig —— #109/#110 the owner config for one dock button: which capability it binds + the trigger word sent on click.
+// A role has at most two (chat has two button slots).
 export interface DockButtonConfig {
   capability_id: string;
   trigger: string;
 }
 
-// WaypointInput —— ghost-steering: owner 在 role 上写的一个 waypoint(引导目的地)。
-// evidence_refs = 该目的地对应的 corpus 证据;冻结时任何 ref 落在 role 授权 glob 之外
-// 的 waypoint 会被整条丢弃(feasibility floor)。is_terminal = booking/contact 类终点。
+// WaypointInput —— ghost-steering: a waypoint (a steering destination) the owner writes on a role.
+// evidence_refs = the corpus evidence for that destination; at freeze time, any waypoint whose ref
+// falls outside the role's authorized glob is dropped entirely (feasibility floor). is_terminal = a booking/contact-type endpoint.
 interface WaypointInput {
   waypoint_id: string;
   description: string;

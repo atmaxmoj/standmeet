@@ -1,6 +1,6 @@
 -- name: BanIP :one
--- 封一个 IP。重复封同一 (owner, ip) 覆盖 reason/expires_at 并刷新 created_at
--- (等于「重新封」)。
+-- Ban an IP. Re-banning the same (owner, ip) overwrites reason/expires_at and refreshes created_at
+-- (equivalent to "re-ban").
 INSERT INTO banned_ips (owner_id, ip, reason, expires_at)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (owner_id, ip) DO UPDATE
@@ -19,8 +19,8 @@ DELETE FROM banned_ips
 WHERE id = $1 AND owner_id = $2;
 
 -- name: IsIPBanned :one
--- enforcement 查询：该 owner 是否封了这个 IP 且未过期。expires_at IS NULL =
--- 永久。返回布尔。
+-- enforcement query: has this owner banned this IP and it has not expired? expires_at IS NULL =
+-- permanent. Returns a boolean.
 SELECT EXISTS (
     SELECT 1 FROM banned_ips
     WHERE owner_id = $1 AND ip = $2
@@ -28,9 +28,9 @@ SELECT EXISTS (
 ) AS banned;
 
 -- name: IsIPBannedAnywhere :one
--- 公开面 enforcement 用：这个 IP 在本实例上是否被任何 owner 封了且未过期。
--- v1 单 owner，等价于「sole owner 封没封」，但不需 middleware 解析 owner。
--- 多租户起再换成 host→owner 作用域。
+-- For public-surface enforcement: is this IP banned by any owner on this instance and not expired?
+-- v1 single owner, equivalent to "did the sole owner ban it", but without middleware resolving the owner.
+-- Switch to host→owner scoping when multi-tenant arrives.
 SELECT EXISTS (
     SELECT 1 FROM banned_ips
     WHERE ip = $1 AND (expires_at IS NULL OR expires_at > now())

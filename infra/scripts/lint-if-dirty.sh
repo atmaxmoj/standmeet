@@ -1,29 +1,34 @@
 #!/usr/bin/env sh
-# lint-if-dirty —— 跑 `make lint`，但**同一棵树只跑一次**。
+# lint-if-dirty —— run `make lint`, but **only once per identical tree**.
 #
-# 为什么这个机制存在（2026-08-18 的效率复盘）：完整 lint 要 3–9 分钟（今天见过 552 秒），
-# 而它每次提交至少被跑**两遍** —— 我自己先跑一次确认绿，`pre-commit` 再跑一次同样的东西，
-# 同一棵树、同样的结果。今晚 11 次提交里 6 次是这个形状，纯等待约 30 分钟。
+# Why this mechanism exists (the 2026-08-18 efficiency review): a full lint takes 3–9 minutes (saw
+# 552 seconds today), and it gets run **at least twice** per commit — I run it once to confirm green,
+# then `pre-commit` runs the same thing again, same tree, same result. 6 of tonight's 11 commits had
+# this shape, about 30 minutes of pure waiting.
 #
-# **写规矩没用**：「记得别重复跑」是要人记住的纪律，而昨晚写进 CLAUDE.md 的批处理规则
-# 今晚就回潮了（[[structure-means-no-responsibility-class]]：需要人维护的检查就是职责类）。
-# 所以这里改成**结构**：lint 通过时把当时的树指纹落盘，下次指纹一样就直接放行。
-# 忘不忘记都一样 —— 重复的那次自己消失。
+# **Writing a rule doesn't work**: "remember not to run it twice" is discipline a person has to hold,
+# and the batching rule written into CLAUDE.md last night had already regressed tonight
+# ([[structure-means-no-responsibility-class]]: a check that needs human upkeep is a responsibility
+# class). So this switches to **structure**: when lint passes, write the tree fingerprint to disk, and
+# next time the fingerprint matches, pass straight through. Forgetting or not is the same — the
+# duplicate run removes itself.
 #
-# 指纹取什么：`git status --porcelain` + 所有被跟踪文件的哈希（`git ls-files -s`）。
-#   - 覆盖已跟踪文件的任何内容改动（ls-files -s 带 blob hash）
-#   - 覆盖新增/删除/未跟踪（porcelain）
-#   - **不**覆盖 .gitignore 掉的东西（node_modules、构建产物）—— 那些不影响 lint 结论
+# What the fingerprint takes: `git status --porcelain` + the hashes of all tracked files
+# (`git ls-files -s`).
+#   - Covers any content change to tracked files (ls-files -s carries the blob hash)
+#   - Covers added/deleted/untracked (porcelain)
+#   - Does **not** cover .gitignore'd things (node_modules, build artifacts) — those don't affect the
+#     lint verdict
 #
-# 逃生门：`FORCE_LINT=1 make lint-cached` 强制重跑（换了工具链、改了 lint 脚本本身
-# 而它恰好没被 git 跟踪时用）。
+# Escape hatch: `FORCE_LINT=1 make lint-cached` forces a rerun (use it when the toolchain changed, or
+# the lint script itself changed and happens not to be git-tracked).
 
 set -eu
 
 CACHE_DIR="${TMPDIR:-/tmp}/standmeet-lint-cache"
 mkdir -p "$CACHE_DIR"
 
-# tree_fingerprint —— 这棵树此刻的内容指纹。
+# tree_fingerprint —— the content fingerprint of this tree right now.
 tree_fingerprint() {
   {
     git ls-files -s
@@ -35,16 +40,16 @@ fp=$(tree_fingerprint)
 stamp="$CACHE_DIR/$fp"
 
 if [ "${FORCE_LINT:-}" = "1" ]; then
-  echo "lint-if-dirty: FORCE_LINT=1 —— 忽略缓存，完整重跑"
+  echo "lint-if-dirty: FORCE_LINT=1 —— ignoring cache, full rerun"
 elif [ -f "$stamp" ]; then
-  echo "lint-if-dirty: 这棵树上一次 lint 已通过（$(cat "$stamp")），内容没变，跳过。"
-  echo "               强制重跑：FORCE_LINT=1 make lint-cached"
+  echo "lint-if-dirty: lint already passed on this tree ($(cat "$stamp")), content unchanged, skipping."
+  echo "               force a rerun: FORCE_LINT=1 make lint-cached"
   exit 0
 fi
 
 make lint
 
-# 只有真的通过才落盘 —— `set -e` 保证失败到不了这里。
+# Only write to disk on a real pass —— `set -e` guarantees a failure can't reach here.
 date '+%H:%M:%S' > "$stamp"
-# 只留最近 20 份，别让 /tmp 无限长。
+# Keep only the last 20, so /tmp doesn't grow without bound.
 ls -t "$CACHE_DIR" | tail -n +21 | while read -r old; do rm -f "$CACHE_DIR/$old"; done

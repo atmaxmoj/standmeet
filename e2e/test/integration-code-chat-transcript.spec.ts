@@ -1,9 +1,9 @@
 // integration-code-chat-transcript.spec.ts —— full flow: owner creates code →
 // visitor uses code → chats → owner sees transcript in admin.
 //
-// 用户故事：
-//   owner 创 code → visitor 用 code 进 ChatRoom → 聊几轮 → owner 在
-//   /admin/conversations 看到 transcript + cited bodies
+// User story:
+//   owner creates a code → visitor uses the code to enter the ChatRoom → chats a few turns → owner
+//   sees the transcript + cited bodies in /admin/conversations
 
 import { test, expect } from '@/fixtures/test';
 import type { Browser, BrowserContext, Page, Playwright } from '@playwright/test';
@@ -56,9 +56,10 @@ test.describe('code → chat → transcript integration', () => {
       await ownerCtx.close();
     });
 
-  // F-C-8 —— owner 读到的是 markdown 源码。上面那条只断言"词在"(toContainText),
-  // 而正文是渲染过的还是原样打印,它都过。访客那侧和 report 页都渲染同一个字段;
-  // 只有 transcript 把 body 塞进 <p> 原样输出。产品页脚承诺的正是 owner 会读它。
+  // F-C-8 —— the owner was reading markdown source. The case above only asserts "the words are
+  // there" (toContainText), which passes whether the body is rendered or printed verbatim. The
+  // visitor side and the report page both render this same field; only the transcript stuffed the
+  // body into a <p> and printed it raw. The product footer promises exactly that the owner reads it.
   test('the owner reads the answer rendered, not as markdown source',
     async ({ browser }) => {
       const visitorCtx = await browser.newContext();
@@ -79,8 +80,8 @@ test.describe('code → chat → transcript integration', () => {
       const { ctx: ownerCtx, page: owner } = await openLatestTranscript(browser);
       const body = owner.getByTestId('transcript-body');
       await expect(body).toContainText('Gate theory', { timeout: 5_000 });
-      // 渲染过 = 标题成了标题、加粗成了 <strong>、列表成了 <li>;
-      // 没渲染 = 这些标记原样出现在文字里。
+      // Rendered = the heading became a heading, bold became <strong>, the list became <li>;
+      // not rendered = these markers appear verbatim in the text.
       await expect(body.locator('h2, h1, h3'), '## 变成了标题').not.toHaveCount(0);
       await expect(body.locator('strong'), '** 变成了加粗').not.toHaveCount(0);
       await expect(body.locator('li'), '- 变成了列表项').not.toHaveCount(0);
@@ -90,8 +91,9 @@ test.describe('code → chat → transcript integration', () => {
     });
 });
 
-// openLatestTranscript —— owner 单独开一个浏览器上下文登录,打开最近那场对话的 transcript。
-// 两条用例都要走这一段,抽出来免得各写一遍(也让每条用例只剩下它自己要断言的那几行)。
+// openLatestTranscript —— owner logs in from a separate browser context and opens the transcript of
+// the most recent conversation. Both cases go through this, so it is pulled out to avoid writing it
+// twice (and to leave each case with only the few lines it actually asserts).
 async function openLatestTranscript(
   browser: Browser,
 ): Promise<{ ctx: BrowserContext; page: Page }> {

@@ -108,6 +108,12 @@ export type AgentEvent =
   | { readonly type: 'ghost_received'; readonly text: string; readonly targetWaypoint?: string; readonly ghostId?: string }
   | { readonly type: 'retrying'; readonly attempt: number }
   | { readonly type: 'iteration_completed'; readonly iter: number }
+  // answer_recovered —— a mid-stream transport drop was healed: the backend
+  // finished on its detached context and persisted the turn, and this is that
+  // persisted answer, pulled back without re-running the turn. The consumer
+  // replaces whatever partial text streamed in before the drop with this
+  // authoritative text (and clears the cut-error it would otherwise show).
+  | { readonly type: 'answer_recovered'; readonly text: string }
   | { readonly type: 'final_text'; readonly text: string }
   // turn_finished —— **how** this turn ended. Of the stop reasons, only
   // max_tokens means the reply is unfinished: the stream closes cleanly

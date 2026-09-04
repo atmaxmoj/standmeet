@@ -131,5 +131,5 @@ async function fillVerifyStep(page: Page): Promise<void> {
 // sidebar (including the "page" link).
 async function expectLandedOnAdmin(page: Page): Promise<void> {
   await page.waitForURL('**/admin/dashboard', { timeout: 10_000 });
-  await expect(page.getByTestId('admin-nav-page')).toBeVisible();
+  await expect(page.getByTestId('admin-nav-account')).toBeVisible();
 }

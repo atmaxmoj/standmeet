@@ -8,9 +8,6 @@ type (
 	CustomPageBuild = entity.CustomPageBuild
 	KeypairMetadata = entity.KeypairMetadata
 	Owner           = entity.Owner
-	PageContact     = entity.PageContact
-	PageContent     = entity.PageContent
-	PageWhere       = entity.PageWhere
 	Prompt          = entity.Prompt
 	Settings        = entity.Settings
 	// VaultImportReceipt —— the most recent vault import (UX-62). At zero value = never imported.
@@ -34,9 +31,6 @@ var (
 	ErrInvalidSetupToken        = entity.ErrInvalidSetupToken
 	ErrKeypairUnauthorized      = entity.ErrKeypairUnauthorized
 	ErrOwnerNotFound            = entity.ErrOwnerNotFound
-	ErrPageNotFound             = entity.ErrPageNotFound
-	ErrPinNotFound              = entity.ErrPinNotFound
-	ErrPinUnpublished           = entity.ErrPinUnpublished
 	ErrPromptBuiltinImmutable   = entity.ErrPromptBuiltinImmutable
 	ErrPromptFragmentNotFound   = entity.ErrPromptFragmentNotFound
 	ErrPromptNameTaken          = entity.ErrPromptNameTaken

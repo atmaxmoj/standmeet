@@ -1,0 +1,29 @@
+{
+  "output": {
+    "kicker": "sortie · du corpus de {handle}",
+    "polished": "poli",
+    "updated": "mis à jour {date}",
+    "pdfPreview": "aperçu PDF",
+    "writings": "textes",
+    "breadcrumbCurrent": "sortie · {slug}",
+    "aboutHeading": "à propos de cette pièce",
+    "aboutBody": "Sortie polie du corpus de {handle} — entrées de wiki promues en brouillon face au public. L'IA utilise le même corpus, donc les suites ci-dessous citeront directement cette pièce et les entrées connexes.",
+    "aboutBodyGated": "Sortie polie du corpus de {handle} — entrées de wiki promues en brouillon face au public. L'IA sur ce site fonctionne à partir du même corpus et le cite directement, et répondre coûte argent à {handle}, donc cela attend derrière un code :",
+    "backToWriting": "← texte"
+  },
+  "wiki": {
+    "by": "par",
+    "backToWiki": "← wiki",
+    "subEntries": "sous-entrées",
+    "attachments": "pièces jointes",
+    "aboutHeading": "à propos de cette entrée",
+    "aboutBody": "L'une des entrées de wiki de {handle}. L'IA sur ce site est fondée sur le même corpus, donc vous pouvez poser des suites ci-dessous et obtenir des réponses à la voix de {handle}, avec citations revenant à des entrées comme celle-ci.",
+    "aboutBodyGated": "L'une des entrées de wiki de {handle}. L'IA sur ce site est fondée sur le même corpus et répond à la voix de {handle}, avec citations revenant à des entrées comme celle-ci — répondre coûte argent à {handle}, donc cela attend derrière un code :",
+    "indexKicker": "wiki",
+    "indexHeading": "Le corpus, par entrée"
+  },
+  "enterAccessCode": "entrer un code d'accès →",
+  "tree": {
+    "loading": "chargement…"
+  }
+}

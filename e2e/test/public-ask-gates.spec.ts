@@ -32,11 +32,16 @@ test.describe('no-code/no-BYOAI visitor cannot chat ungated', () => {
 
   test('asking on the public index routes to /gate, no chat happens',
     async ({ page }) => {
+      // The homepage is a custom page installed at claim + auto-promoted once built; wait for
+      // it to be live before asking on it (else `/` shows the fallback, which has no ask box).
+      await expect.poll(
+        async () => (await page.request.get('/api/v1/homepage')).status(),
+        { timeout: 60_000, message: 'the default homepage auto-goes-live' },
+      ).toBe(200);
       await goto(page, '/');
-      // The homepage's ask box is `home-ask-field` (5e439b51 gave it a separate name
-      // from ChatRoom's input field).
-      const input = page.locator('[data-testid="home-ask-field"]');
-      await expect(input).toBeVisible({ timeout: 5_000 });
+      // The homepage's ask box is the SDK AgentWidget's input; codeless, it hands off to /gate.
+      const input = page.locator('[data-testid="agent-widget-input"]');
+      await expect(input).toBeVisible({ timeout: 20_000 });
       await input.fill('What are you working on?');
       await input.press('Enter');
       // Routes to gate (the code/BYOAI entry point), not into a chat.

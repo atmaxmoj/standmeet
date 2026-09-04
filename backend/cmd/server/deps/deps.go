@@ -19,6 +19,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
+	"github.com/atmaxmoj/standmeet/internal/infra/buildnotify"
+	"github.com/atmaxmoj/standmeet/internal/infra/dockerstat"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
@@ -36,30 +38,34 @@ import (
 // Runtime —— all of serve's dependencies. Fields are exported because the composition
 // root's groups each live in their own package.
 type Runtime struct {
-	Log                *slog.Logger
-	SandboxWorkspaces  *sandboxws.Manager
-	DB                 *pgxpool.Pool
-	RDB                *redis.Client
-	InstanceRepo       *owner.InstanceRepo
-	OwnerRepo          *owner.Repo
-	KeypairRepo        *owner.KeypairRepo
-	RawRepo            *corpus.RawRepo
-	WikiRepo           *corpus.WikiRepo
-	SubjectivityRepo   *corpus.NoteRepo
-	VaultSyncRepo      *corpus.VaultSyncRepo
-	NoteRefRepo        *corpus.NoteRefRepo
-	OutputRepo         *corpus.OutputRepo
-	GrowthRepo         *stats.GrowthRepo
-	ActivityRepo       *stats.ActivityRepo
-	JobRegistry        *stats.JobRegistry
-	Corpus             *corpus.Corpus
-	CodeRepo           *access.CodeRepo
-	EmbedRepo          *access.EmbedRepo
-	CodeDenialRepo     *access.CodeDenialRepo
-	ChatRepo           *conversation.ChatRepo
-	SEORepo            *corpus.SEORepo
-	CustomPageRepo     *owner.CustomPageRepo
-	CustomBuildRepo    *owner.CustomBuildRepo
+	Log               *slog.Logger
+	SandboxWorkspaces *sandboxws.Manager
+	DB                *pgxpool.Pool
+	RDB               *redis.Client
+	InstanceRepo      *owner.InstanceRepo
+	OwnerRepo         *owner.Repo
+	KeypairRepo       *owner.KeypairRepo
+	RawRepo           *corpus.RawRepo
+	WikiRepo          *corpus.WikiRepo
+	SubjectivityRepo  *corpus.NoteRepo
+	VaultSyncRepo     *corpus.VaultSyncRepo
+	NoteRefRepo       *corpus.NoteRefRepo
+	OutputRepo        *corpus.OutputRepo
+	GrowthRepo        *stats.GrowthRepo
+	ActivityRepo      *stats.ActivityRepo
+	JobRegistry       *stats.JobRegistry
+	Corpus            *corpus.Corpus
+	CodeRepo          *access.CodeRepo
+	EmbedRepo         *access.EmbedRepo
+	CodeDenialRepo    *access.CodeDenialRepo
+	ChatRepo          *conversation.ChatRepo
+	SEORepo           *corpus.SEORepo
+	CustomPageRepo    *owner.CustomPageRepo
+	CustomBuildRepo   *owner.CustomBuildRepo
+	// BuildNotifier wakes custom-page preview long-pollers on build completion.
+	BuildNotifier *buildnotify.Notifier
+	// DockerStat reads this compose project's per-container usage for the System panel.
+	DockerStat         *dockerstat.Reader
 	AccessRequestRepo  *access.RequestRepo
 	JobSourceRepo      *jobsuc.JobSourceRepo
 	ResumeDraftRepo    *jobsuc.ResumeDraftRepo
@@ -137,6 +143,8 @@ type Runtime struct {
 	CorpusIndexer  corpus.Indexer // write-path index propagation; nil = Meili unconfigured
 	CaptchaSiteKey string
 	BuildsRoot     string
+	// PublicIP — the instance's public IP (env PUBLIC_IP), shown on the System panel.
+	PublicIP string
 	// SessionKey —— the server's own signing key. Preview tokens are signed with it
 	// (HMAC-derived, never stored in a table).
 	SessionKey   string

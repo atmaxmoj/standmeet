@@ -91,8 +91,8 @@ type GetApplicationByAccessCodeParams struct {
 	OwnerID      pgtype.UUID
 }
 
-// 按 session 的 access code 反查它绑的那一份 application。owner-scoped(纵深防御；
-// access_code_id 已全局唯一)。访客侧简历工具用它把"哪一份"锁到这张码上。
+// Look up the application bound to a session's access code. owner-scoped (defense in depth;
+// access_code_id is already globally unique). The visitor-side resume tool uses it to lock "which one" to this code.
 func (q *Queries) GetApplicationByAccessCode(ctx context.Context, arg GetApplicationByAccessCodeParams) (Application, error) {
 	row := q.db.QueryRow(ctx, getApplicationByAccessCode, arg.AccessCodeID, arg.OwnerID)
 	var i Application

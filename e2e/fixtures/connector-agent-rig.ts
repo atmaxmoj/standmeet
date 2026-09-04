@@ -1,8 +1,10 @@
-// connector-agent-rig.ts —— 「装一个 openapi 连接器 → 连上 → 授权 → 起一个访客会话」这套器材。
+// connector-agent-rig.ts —— the rig for "install an openapi connector → connect →
+// grant → start a visitor session".
 //
-// 从 connector-agent-tools.spec.ts 拆出来的：那边到了 350 行的闸，而**同一套器材**
-// 现在有第二个使用者（工具名那条，见 connector-agent-tool-names.spec.ts）。
-// 拆的是器材，不是断言 —— 每条用例断什么仍然写在它自己的 spec 里。
+// Split out of connector-agent-tools.spec.ts: that file hit the 350-line gate,
+// and **the same rig** now has a second user (the tool-names one, see
+// connector-agent-tool-names.spec.ts). What's split out is the rig, not the
+// assertions —— what each case asserts still lives in its own spec.
 
 import { expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -23,9 +25,10 @@ export const AGENT_OWNER = {
 };
 
 /**
- * MOCK_OAUTH2_SCHEME —— 样本 spec 共用的 securityScheme。
- * connectConnector 走的是这套 dance；样本 spec 换一种鉴权，红就会落在连接那一段而不是
- * 落在这条用例真正要考的东西上。
+ * MOCK_OAUTH2_SCHEME —— the securityScheme shared by the sample specs.
+ * connectConnector runs this dance; if a sample spec used a different auth,
+ * the red would land in the connect step rather than on what the case is
+ * actually testing.
  */
 export const MOCK_OAUTH2_SCHEME = {
   oauth2: {
@@ -43,11 +46,11 @@ export const MOCK_OAUTH2_SCHEME = {
   },
 } as const;
 
-// CreateBody —— POST /api/admin/connectors 的入参（openapi 连接器）。
+// CreateBody —— the input to POST /api/admin/connectors (openapi connector).
 export interface CreateBody {
   spec: unknown;
-  binding?: unknown;               // 品类绑定（可选；agent-only 连接器无绑定）
-  expose_as_agent_tools?: boolean; // 暴露意图开关
+  binding?: unknown;               // category binding (optional; agent-only connectors have none)
+  expose_as_agent_tools?: boolean; // expose-intent switch
 }
 interface CreateResult { status: number; id?: string; error?: string }
 
@@ -61,7 +64,8 @@ async function createConnector(
   return { status: res.status(), id: json.id, error: json.error };
 }
 
-// connectConnector —— 存 oauth2 凭据（spec 派生）+ 跑 mock dance 把连接器连上。
+// connectConnector —— store the oauth2 credentials (spec-derived) + run the mock
+// dance to connect the connector.
 async function connectConnector(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<void> {
@@ -90,7 +94,8 @@ export async function disconnectConnector(
   expect(res.status()).toBe(200);
 }
 
-// createAndConnect —— 建 openapi 连接器 + 连上，返回 connector id（断 201 + connected）。
+// createAndConnect —— create an openapi connector + connect it, returning the
+// connector id (asserts 201 + connected).
 export async function createAndConnect(
   request: APIRequestContext, csrf: string, body: CreateBody,
 ): Promise<string> {
@@ -100,7 +105,7 @@ export async function createAndConnect(
   return r.id!;
 }
 
-// ─── session tool-spec inspection（带 description）───
+// ─── session tool-spec inspection (with description) ───
 export interface ToolSpecRow { name: string; description?: string }
 
 export async function sessionToolSpecs(
@@ -120,7 +125,8 @@ export async function sessionToolNames(
   return (await sessionToolSpecs(request, sessionToken)).map((t) => t.name);
 }
 
-// startSession —— 发一张码（granted_skills = 要授的 agent-tool 名）+ 起访客会话。
+// startSession —— issue a code (granted_skills = the agent-tool names to grant) +
+// start a visitor session.
 export async function startSession(
   request: APIRequestContext, csrf: string, grantedTools: readonly string[],
 ): Promise<VisitorSession> {
@@ -131,8 +137,9 @@ export async function startSession(
   });
 }
 
-// diagAgentCall —— 直跑某 agent-tool（op）一次，注入 auth 调 SaaS，回原始响应 status。
-// 证明运行时把 op 调成了真 SaaS 调用（mock 录到落点），不经 LLM 脚本。
+// diagAgentCall —— run one agent-tool (op) directly once, injecting auth to call
+// the SaaS, and return the raw response status. Proves the runtime turned the op
+// into a real SaaS call (the mock recorded the landing), bypassing the LLM script.
 export async function diagAgentCall(
   request: APIRequestContext, csrf: string, id: string,
   op: string, args: Record<string, unknown>,

@@ -31,6 +31,7 @@ import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { issueSession } from '@/fixtures/visitor';
+import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'gate-ux@example.com',
@@ -125,11 +126,11 @@ test.describe('gate code panel UX polish', () => {
     });
 });
 
-// openGate -- every test case opens the same way: from the homepage's "request access"
-// link to /gate.
+// openGate -- these are gate code-panel tests; go straight to /gate. (The homepage is a
+// custom page now; its access CTA is the GateWidget, covered by its own specs — reaching the
+// gate from it is not what these panel tests are about.)
 async function openGate(page: Page): Promise<void> {
-  await page.getByRole('link', { name: 'request access ↗' }).click();
-  await page.waitForURL('**/gate', { timeout: 10_000 });
+  await goto(page, '/gate');
 }
 
 // submitCode -- enter the gate, fill in a code (optionally a name), submit. Each test

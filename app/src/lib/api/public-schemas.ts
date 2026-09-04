@@ -1,28 +1,5 @@
 import { z } from 'zod';
 
-// AdminPageSchema —— shape of /api/admin/page GET/PUT. insights/projects are
-// corpus pin lists (wiki id references), not free text — the home page joins
-// them into cards at render time (the invariant pinned ⊆ published is
-// maintained at the write site). Different from the public /api/v1/page card
-// shape (PagePinCard): this stores references, that stores rendered cards.
-export const AdminPageSchema = z.object({
-  updated_at: z.string(), owner_id: z.string(), hero_prose: z.string(),
-  hero_examples: z.array(z.string()),
-  insights: z.array(z.string()),
-  projects: z.array(z.string()),
-  where: z.object({ location_line: z.string(), status_prose: z.string(), looking_for: z.array(z.string()), closing: z.string() }),
-  contact: z.object({ chat_line: z.string(), email: z.string(), recruiter_prose: z.string(), casual_prose: z.string() }),
-});
-export type AdminPage = z.infer<typeof AdminPageSchema>;
-
-// PinnableEntrySchema —— candidates for GET /page/pinnable: published wiki
-// entries (id/title/path), for the admin pin manager's picker.
-export const PinnableEntrySchema = z.object({
-  id: z.string(), title: z.string(), path: z.string(),
-});
-export const PinnableListSchema = z.array(PinnableEntrySchema);
-export type PinnableEntry = z.infer<typeof PinnableEntrySchema>;
-
 // ─── writings (public reader page) ────────────────────────────────────────
 // Moved over from `public.ts`: that file hit max-lines, and the gate was
 // pointing the right direction — schemas belong here. Only shapes live in

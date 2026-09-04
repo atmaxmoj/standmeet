@@ -1,0 +1,160 @@
+{
+  "assets": {
+    "heading": "dateien",
+    "empty": "noch keine dateien angehängt",
+    "choose": "datei auswählen",
+    "kindImage": "bild",
+    "kindAttachment": "anhang",
+    "insert": "in haupttext einfügen",
+    "setCover": "als cover verwenden",
+    "unsetCover": "aufhören als cover zu verwenden",
+    "isCover": "cover",
+    "remove": "entfernen"
+  },
+  "hero": {
+    "headline": "cover-zeile",
+    "headlinePlaceholder": "die zeile über dem cover-bild",
+    "hue": "farbton",
+    "hueDefault": "— standard —"
+  },
+  "subjectivity": {
+    "intro": "Ihr selbstmodell — geschmack, urteil, was sie kümmert. Privat, wenn Sie eine notiz als zitierbar markieren. Schreiben Sie hier oder sprechen Sie mit Ihrer KI; beide landen am selben Ort.",
+    "empty": "noch nichts hier",
+    "new": "+ neue notiz"
+  },
+  "citable": {
+    "label": "zitierbar — erscheint in den antwort-referenzen",
+    "help": "Wenn Sie dies ausschalten, liest die KI diese Notiz immer noch und verwendet sie immer noch, um ihre Antwort zu prägen — sie ist nur nicht unter REFERENZEN aufgeführt. Dies ist der zuschreibungsschalter, nicht der geheim-schalter: Um die KI daran zu hindern, ihn überhaupt zu lesen, nehmen Sie seinen Corpus-URI auf /admin/roles oder auf dem Code zurück."
+  },
+  "search": {
+    "label": "suchen",
+    "placeholder": "wörter aus der notiz — titel oder haupttext",
+    "idleHint": "die liste unten ist die neueste seite; suche durchsucht den ganzen corpus",
+    "searching": "durchsuche den ganzen corpus…",
+    "found": "{count, plural, one {# eintrag stimmt} other {# einträge stimmen}} überein mit \"{query}\" — durchsucht den ganzen corpus, nicht nur diese seite",
+    "foundCapped": "zeige die ersten {count} treffer für \"{query}\" — durchsucht den ganzen corpus; verengen Sie die wörter, um weniger zu sehen",
+    "none": "kein treffer für \"{query}\" im ganzen corpus. Dieser index ist lexikalisch: teilstrings in einem wort, begriffe, die an interpunktion und CJK gebunden sind, tokenisieren schlecht, also beweist leer nicht, dass die notiz nicht dort ist — versuchen Sie ein charakteristisches ganzes wort davon.",
+    "failed": "suche fehlgeschlagen: {reason}"
+  },
+  "common": {
+    "loading": "lädt…",
+    "saving": "speichert…",
+    "save": "speichern",
+    "saveLanding": "landing speichern",
+    "cancel": "abbrechen",
+    "edit": "Bearbeiten",
+    "body": "haupttext",
+    "tagsLabel": "tags (komma-getrennt)",
+    "noneRoot": "— keine (root) —",
+    "deleteX": "löschen ×"
+  },
+  "form": {
+    "title": "titel",
+    "parent": "übergeordnete node (optional)",
+    "entryHeading": "die notiz selbst (haupttext, dateien, tags)"
+  },
+  "seoEditor": {
+    "heading": "öffentliche landing (url wird vom titel abgeleitet)",
+    "description": "meta description",
+    "indexed": "veröffentlicht — eine öffentliche seite existiert unter dieser url und ist in sitemap.xml aufgeführt"
+  },
+  "scope": {
+    "kept": "wie geschrieben geführt (nicht im tree): ",
+    "allOfIt": "— alles davon ({glob})",
+    "everythingUnder": "+ alles darunter",
+    "referable": "referenzierbar — dieser eintrag kann als zitierte quelle erscheinen",
+    "notReferable": "lesbar aber nicht referenzierbar — die KI liest ihn, er wird nie zitiert"
+  },
+  "wiki": {
+    "newEntry": "+ neuer eintrag",
+    "all": "alle",
+    "empty": "Noch keine Wiki-Einträge. Verwenden Sie + neuer eintrag, promovieren Sie von /admin/raw oder rufen Sie MCP <tool>promote_to_wiki</tool> auf.",
+    "dotPublic": "● öffentlich",
+    "dotPrivate": "● privat",
+    "edit": "bearbeiten ↗",
+    "promoteToOutput": "promovieren → output ↗",
+    "viewLive": "anzeigen ↗"
+  },
+  "output": {
+    "slugPath": "/output/'<'slug>",
+    "intro": "Outputs sind öffentlich zugängliche Artefakte, die aus Ihren Wiki-Einträgen zusammengestellt werden — herunterladbare PDFs, eigenständige Web-Essays, Investor-Decks. Jeder bekommt seine eigene SEO-Landing bei <code>{slugPath}</code>. Drei Sichtbarkeiten: <ink>öffentlich</ink> (offen für jeden, in sitemap), <amber>unlisted</amber> (nur mit code sichtbar), <violet>privat</violet> (nur mit spezifischem code sichtbar, nie indexiert).",
+    "newPdf": "+ pdf lead-magnet",
+    "newEssay": "+ web essay",
+    "empty": "Noch keine Output-Einträge. Verwenden Sie + neuer output, promovieren Sie von /admin/wiki oder rufen Sie MCP <tool>promote_wiki_to_output</tool> auf.",
+    "coverKicker": "output · {visibility}",
+    "views": "0 ansichten",
+    "downloads": "0 downloads",
+    "pathPrefix": "/output/",
+    "edit": "bearbeiten",
+    "previewLive": "vorschau ↗"
+  },
+  "raw": {
+    "quickDump": "schnelle entleerung",
+    "dumpHint": "gedanke einfügen · dann promovieren",
+    "dumpOrigin": "admin · oder mcp",
+    "dumping": "entleert…",
+    "dump": "entleeren ↵",
+    "unindexedHint": "raw bleibt unindexiert bis promoviert",
+    "empty": "Noch keine Raw-Einträge. Schieben Sie einen von einem MCP-Client aus (raw_dump Tool).",
+    "flaggedPrivateBadge": "· als privat markiert",
+    "promoteToWiki": "promovieren → wiki ↗",
+    "edit": "bearbeiten",
+    "delete": "löschen",
+    "flaggedPrivateField": "als privat markiert (von öffentlichem chat ausgeschlossen)"
+  },
+  "writings": {
+    "newWriting": "＋ neues schreiben",
+    "intro": "Vom Eigentümer kuratierte Schriften. Verwenden Sie den Block-Editor unten — tippen Sie `/` für ein Block-Menü oder wechseln Sie zu Claude über das `writing_create` MCP-Tool. Wird in beiden Fällen als kanonisches Markdown gespeichert.",
+    "composer": "composer · {slug}",
+    "backToList": "← zurück zur liste",
+    "empty": "Noch keine Schriften.",
+    "coverHue": "cover farbton",
+    "hueAmber": "amber",
+    "hueViolet": "violett",
+    "hueAcid": "säure",
+    "parent": "übergeordnete (leser tree)",
+    "publishImmediately": "sofort veröffentlichen",
+    "coverImage": "cover-bild (optional)",
+    "chooseCover": "bild auswählen",
+    "noImg": "kein bild",
+    "clear": "löschen"
+  },
+  "obsidianBar": {
+    "export": "↓ nach obsidian exportieren",
+    "importing": "importiert…",
+    "import": "↑ von obsidian importieren",
+    "working": "läuft…",
+    "result": "{created} neu · {updated} aktualisiert · {deleted} gelöscht · {skipped} übersprungen",
+    "errors": "· {count, plural, one {# fehler} other {# fehler}}"
+  },
+  "sideRail": {
+    "crosslinks": "querverweise",
+    "outgoing": "ausgehend · {count}",
+    "noneYet": "noch keine · geben Sie [[ ein um hinzuzufügen",
+    "keyboard": "tastatur",
+    "keyInsertBlock": "block einfügen",
+    "keyCrossLinkPicker": "querverweis-picker",
+    "keyPasteImage": "bild einfügen",
+    "keyInlineLink": "inline-link hinzufügen",
+    "keyCloseMenu": "menü schließen"
+  },
+  "obsidian": {
+    "manualMode": "○ manueller modus",
+    "importExport": "importieren / exportieren",
+    "help": "Import wählt Ihren Obsidian-Vault-Ordner (wiki / subjectivity / raw / writings) aus und aktualisiert die entsprechenden Corpus-Notizen nach ihrem Vault-Pfad. Export lädt Ihren Corpus als Vault aus Markdown + Frontmatter.",
+    "noSync": "Kein Live-Sync, kein Datei-Beobachter — diese beiden Aktionen sind der ganze Mechanismus, und keiner läuft, wenn Sie ihn nicht ausführen."
+  },
+  "seo": {
+    "intro": "Standards werden auf der ganzen öffentlichen Website angewendet. Pro-Output / Pro-Post SEO ist mit dem einzelnen Eintrag verbunden. Seite Titel wird hier bearbeitet; die Social-Beschreibung und der kanonische Host spiegeln Ihre Hero-Prosa und Domain — bearbeiten Sie diese dort, wo sie existieren.",
+    "defaults": "standards",
+    "robots": "index, follow (robots)",
+    "siteTitleHint": "Der Browser-Tab und der Name, den Suchmaschinen anzeigen. Leer gelassen greifen Seiten auf Ihren Handle zurück.",
+    "ogTemplateHint": "URL des Bildes, das Social Cards verwenden. Leer gelassen und geteilte Links haben kein Kartenbild.",
+    "ogDescription": "og:description",
+    "usesHeroProse": "Verwendet Ihre Hero-Prosa.",
+    "editOnPage": "auf der Page-Sektion bearbeiten →",
+    "canonicalHost": "kanonischer host",
+    "indexing": "indexierung · veröffentlicht",
+    "totalInScope": "gesamt im bereich: {total}"
+  }
+}

@@ -1,14 +1,14 @@
-// custom-page-code-binding.spec.ts —— 一张码可以绑一个自定义页。
+// custom-page-code-binding.spec.ts —— a code can bind one custom page.
 //
-// **页面是这张码的一个渲染。** 码不变：同一份授权、同一个角色、同一套配额、同一份记账；
-// 页面只换读者看到的样子。所以这里断的从来不是「页面支持某个功能」，而是
-// 「**它凭什么会跟 chat 不一样**」—— 答案永远该是不会。
+// **A page is a rendering of the code.** The code doesn't change: same grant, same role, same quota, same accounting;
+// the page only swaps what the reader sees. So what this asserts is never "the page supports some feature", but
+// "**on what grounds would it ever differ from chat**" —— and the answer should always be that it doesn't.
 //
-// 覆盖：
-//   绑定本身（绑 / 解绑 / 一张码至多一页 / 绑一个不存在的 slug 要被拒）
-//   双向可查（码那一侧看得到页，页那一侧看得到码 —— 一个事实两处读）
-//   I-4 优先级（来了 grant 就以 grant 为准，页面自己的 BYOK 设置作废）
-//   I-3 撤下（页删了，码退回默认落地而不是跟着失效）
+// Coverage:
+//   the binding itself (bind / unbind / at most one page per code / binding a nonexistent slug must be rejected)
+//   bidirectional lookup (the code side sees the page, the page side sees the code —— one fact read from two places)
+//   I-4 priority (an arriving grant wins, the page's own BYOK setting is voided)
+//   I-3 teardown (page deleted → the code falls back to the default landing rather than dying with it)
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -52,8 +52,8 @@ async function freshOwner(playwright: Playwright): Promise<{
   return { request, csrf };
 }
 
-// makePage / makeCode —— 只建，不构建。绑定跟「页面构建好了没有」是两件事，
-// 混在一起的话，绑定的红会被构建的慢淹掉。
+// makePage / makeCode —— create only, don't build. Binding and "is the page built yet" are two separate things;
+// mixed together, a binding failure would be drowned out by the slowness of the build.
 async function makePage(request: APIRequestContext, csrf: string, slug: string): Promise<void> {
   const made = await adminJSON(request, csrf, 'post', '/custom-pages/', { slug, title: slug });
   expect(made.status, 'create page').toBe(201);
@@ -88,10 +88,10 @@ test.describe('custom pages · a code opens a page (the page is a rendering of t
     const bound = await adminJSON(request, csrf, 'patch',
       `/codes/${code.id}/custom-page`, { slug: 'welcome' });
     expect(bound.status, JSON.stringify(bound.body)).toBe(200);
-    // 回执是**回读到的** slug，不是入参回声。
+    // The receipt is the slug **read back**, not an echo of the input.
     expect(bound.body['custom_page_slug'], 'the receipt reads back the binding').toBe('welcome');
 
-    // 页那一侧看得到码 —— 同一个事实的另一头。**只看一侧的绑定，人会忘了自己建过。**
+    // The page side sees the code —— the other end of the same fact. **Look at the binding from only one side and you forget you made it.**
     const row = (await pages(request, csrf)).find((p) => p.slug === 'welcome');
     expect(row?.bound_codes, 'the page side lists the code that opens it')
       .toContain(code.code);
@@ -127,7 +127,7 @@ test.describe('custom pages · a code opens a page (the page is a rendering of t
     const code = await makeCode(request, csrf, 'NOSUCH');
     const bad = await adminJSON(request, csrf, 'patch',
       `/codes/${code.id}/custom-page`, { slug: 'never-created' });
-    // 静默留成「没绑」是最坏的结果：owner 以为连上了，读者却落在默认对话上。
+    // Silently leaving it "unbound" is the worst outcome: the owner thinks it's wired, but readers land on the default chat.
     expect(bad.status, 'a binding that cannot be made must fail loudly')
       .toBeGreaterThanOrEqual(400);
   });
@@ -140,7 +140,7 @@ test.describe('custom pages · a code opens a page (the page is a rendering of t
 
       expect((await adminJSON(request, csrf, 'delete', '/custom-pages/doomed')).status).toBe(200);
 
-      // 码还活着，只是回到默认落地 —— 撤一个渲染不是撤一份授权。
+      // The code is still alive, just back on the default landing —— removing a rendering is not removing a grant.
       const intro = await request.post(`${BACKEND}/api/v1/codes/intro`, {
         data: { code: code.code },
       });
@@ -164,8 +164,8 @@ test.describe('custom pages · an arriving grant wins (I-4)', () => {
     const code = await makeCode(request, csrf, 'LANDS');
     await adminJSON(request, csrf, 'patch', `/codes/${code.id}/custom-page`, { slug: 'landing' });
 
-    // 访客那一侧：带码进来的第一跳就问 codes/intro，落地决定在那里给出，
-    // 不必为「去哪」再加一次往返。
+    // The visitor side: the first hop coming in with a code asks codes/intro, and the landing decision is given there,
+    // no extra round trip needed for "where to go".
     const intro = await request.post(`${BACKEND}/api/v1/codes/intro`, {
       data: { code: code.code },
     });
@@ -181,7 +181,7 @@ test.describe('custom pages · an arriving grant wins (I-4)', () => {
       data: { code: code.code },
     });
     const body = await intro.json() as { custom_page_slug: string };
-    // 空串 = 开默认对话，**不是**「没答上来」。
+    // Empty string = opens the default chat, **not** "failed to answer".
     expect(body.custom_page_slug, 'an unbound code is unchanged from today').toBe('');
   });
 
@@ -194,7 +194,7 @@ test.describe('custom pages · an arriving grant wins (I-4)', () => {
 
     const off = await adminJSON(request, csrf, 'put',
       '/custom-pages/byok/byoai', { allow_byoai: false });
-    // **显式 false 必须能存进去** —— 指针入参就是为了分开「没给」和「给了 false」。
+    // **An explicit false must be storable** —— the pointer parameter exists precisely to separate "not given" from "given false".
     expect(off.body['allow_byoai'], 'turning it off is not the same as not saying').toBe(false);
   });
 });

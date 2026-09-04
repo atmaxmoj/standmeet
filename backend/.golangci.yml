@@ -106,8 +106,9 @@ linters:
       ignore-comments: true
     gocritic:
       enabled-tags: [diagnostic, performance, style, opinionated]
-      # unnamedResult 想给多返回值起名,直接跟本仓库启用的 nonamedreturns(禁命名返回值)
-      # 政策冲突 —— 二者不可同时满足。以 nonamedreturns 为准,关掉这条 gocritic 检查。
+      # unnamedResult wants to name multi-value returns, which directly conflicts with
+      # this repo's enabled nonamedreturns (no named returns) policy — the two can't both
+      # be satisfied. nonamedreturns wins; turn this gocritic check off.
       disabled-checks: [unnamedResult]
     errcheck:
       check-type-assertions: true
@@ -117,17 +118,21 @@ linters:
       settings:
         shadow:
           strict: true
-    # ireturn 默认拦"返抽象 interface"。driver-selection 工厂 (按 env 选
-    # 具体实现) 本质需要 interface 返回；其他接口照常被抓。
+    # ireturn by default blocks "returning an abstract interface". A driver-selection
+    # factory (picking a concrete impl by env) inherently needs to return an interface;
+    # other interfaces are caught as usual.
     #
-    # Document / Integration 是 Go 没有 sum type 的 proxy —— Corpus.Get / List 返
-    # heterogeneous 集合元素 (Wiki|Output|Writing|Raw 任一)，URI 运行期 dispatch；
-    # Integrations.Find 按 Kind 拿回具体 (Obsidian 等) 同形态。这俩接口的"返值
-    # 是 interface"是 by design，不是懒 —— 同 Provider/Runner 的工厂模式同类。
+    # Document / Integration are Go's proxy for a missing sum type — Corpus.Get / List
+    # return a heterogeneous collection element (any of Wiki|Output|Writing|Raw),
+    # dispatched by URI at runtime; Integrations.Find returns a concrete (Obsidian, etc.)
+    # by Kind, the same shape. These interfaces "returning an interface" is by design,
+    # not laziness — the same factory pattern as Provider/Runner.
     #
-    # CalendarProxy / MailProxy 是 connector 的「品类契约」—— 消费者 (booker/mailer)
-    # provider-agnostic 地编程于它，槽位分派器按 owner 当前 active 连接器返对应实现。
-    # 多方法消费契约，返 interface 是归一化的本质 (任意 provider 填同一契约)，非懒。
+    # CalendarProxy / MailProxy are the connector's "category contract" — consumers
+    # (booker/mailer) program against it provider-agnostically, and the slot dispatcher
+    # returns the impl for the owner's currently active connector. A multi-method
+    # consumer contract returning an interface is the essence of normalization (any
+    # provider fills the same contract), not laziness.
     ireturn:
       allow:
         - error
@@ -140,25 +145,27 @@ linters:
         - github.com/atmaxmoj/standmeet/internal/connector/contract.MailProxy
         - github.com/atmaxmoj/standmeet/internal/corpus/entity.Document
         - github.com/atmaxmoj/standmeet/internal/connector.Integration
-        # J.3: jobs plugin 的 Capability 工厂跟主 mcp 包同形态 (NewXxx →
-        # capreg.Capability)；外部用 Capability interface 注册不耦合
-        # 实现类型。
+        # J.3: the jobs plugin's Capability factory has the same shape as the main mcp
+        # package (NewXxx → capreg.Capability); external code registers via the
+        # Capability interface without coupling to the impl type.
         - github.com/atmaxmoj/standmeet/internal/capabilities/capreg.Capability
-        # connector 重构：命名依赖/连接器注册表按名解析回的「元素 interface」—— 跟
-        # Document/Integration 的 registry-lookup 同形态 (DepRegistry.Lookup /
-        # connector.Hub.Resolve 返 by-design interface，消费者类型断言到能力接口)。
+        # connector refactor: the named-dependency / connector registries resolve by name
+        # back to an "element interface" — the same shape as Document/Integration's
+        # registry-lookup (DepRegistry.Lookup / connector.Hub.Resolve return a by-design
+        # interface, and the consumer type-asserts to the capability interface).
         - github.com/atmaxmoj/standmeet/internal/capabilities/capreg.DepProvider
         - github.com/atmaxmoj/standmeet/internal/connector.Connector
-        # security facade 的 captcha 工厂:按 cfg 返 turnstile / noop 具体实现,对外
-        # 只暴露 Verifier 接口 —— 跟 inference.Provider 同 driver-selection 工厂模式。
+        # the security facade's captcha factory: returns a turnstile / noop concrete impl
+        # by cfg, exposing only the Verifier interface — the same driver-selection factory
+        # pattern as inference.Provider.
         - github.com/atmaxmoj/standmeet/internal/security/facade.Verifier
     revive:
       enable-all-rules: true
       rules:
-        # 保留 revive 默认 ≤5 —— 单个文件 5 个 public 类型是健康的"一个
-        # aggregate 一个文件"信号。domain 按 aggregate 拆文件 (owner /
+        # Keep revive's default ≤5 — 5 public types in one file is a healthy "one
+        # aggregate per file" signal. Domains split files by aggregate (owner /
         # access_code / conversation / wiki / raw / custom_page /
-        # page_content / instance / api_token / access_request) 自然达标。
+        # page_content / instance / api_token / access_request) and meet it naturally.
         # Cap function inputs at 5.  Anything richer should
         # consolidate into a struct so the call sites stop counting
         # commas — same rationale as ESLint `max-params: 5` in the
@@ -200,25 +207,27 @@ linters:
         # returns int64s we knowingly cast to int.  Re-enable per-file
         # if we ever accept untrusted numeric input from the wire.
         - G115
-        # G117 抓 marshal struct 里 "token" / "key" / "secret" 等敏感
-        # 命名模式。visitor session token / API token plaintext 通过
-        # JSON response 返客户端是设计预期（颁发凭证，不是 leak）。
-        # 改字段名绕开会降低 API 可读性。
+        # G117 fires on sensitive naming patterns in marshaled structs ("token" /
+        # "key" / "secret"). Returning a visitor session token / API token plaintext
+        # to the client via JSON response is by design (issuing a credential, not a
+        # leak). Renaming the field to dodge it would hurt API readability.
         - G117
-        # G124 抓 http.Cookie literal 缺 Secure/HttpOnly/SameSite。我们
-        # 的 CSRF cookie 走 double-submit pattern，HttpOnly 必须 false
-        # （前端 JS 要读 cookie 值塞 X-Csrftoken header）。lint 不知道
-        # 这层语义，永远误报。Secure + SameSite=Lax 仍守住攻击面。
+        # G124 fires on an http.Cookie literal missing Secure/HttpOnly/SameSite. Our
+        # CSRF cookie uses the double-submit pattern, so HttpOnly must be false (the
+        # frontend JS reads the cookie value to put it in the X-Csrftoken header). lint
+        # doesn't know this semantics and always false-positives. Secure + SameSite=Lax
+        # still guard the attack surface.
         - G124
-        # G304 抓 os.Open(varPath) —— 在 custom-page asset serve 路径上
-        # 文件名来自 URL 段，必须是 variable。已经在 joinSafeAssetPath
-        # 里做了 prefix-containment check，传给 os.Open 的 path 不可能
-        # 跨出 BuildsRoot。gosec 不知道这层校验。
+        # G304 fires on os.Open(varPath) — on the custom-page asset serve path the
+        # filename comes from a URL segment and must be a variable. joinSafeAssetPath
+        # already does a prefix-containment check, so the path passed to os.Open can't
+        # escape BuildsRoot. gosec doesn't know about that check.
         - G304
-        # G705 抓"taint analysis 认为 untrusted 输入写到 HTTP response"。
-        # 在 custom-page handler 里 owner-controlled HTML 是 by design 要
-        # 发出去的（owner 写自己页面 ）。injectBase 注入的 baseHref 已经走
-        # html.EscapeString 兜过 quote/<> 的转义，taint analysis 不知道。
+        # G705 fires when "taint analysis thinks untrusted input is written to an HTTP
+        # response". In the custom-page handler, owner-controlled HTML is by design meant
+        # to be sent out (the owner writes their own page). The baseHref that injectBase
+        # injects already goes through html.EscapeString for quote/<> escaping; taint
+        # analysis doesn't know that.
         - G705
     forbidigo:
       # analyze-types: true makes forbidigo match TYPE references too,
@@ -251,32 +260,43 @@ linters:
     # owns that error (response write + its error handler), so
     # wrapping would break the framework's contract.
     rules:
-      # 域 facade 包(internal/<domain>/facade/)按领域命名而非按目录 —— 目录统一叫
-      # facade(约定:一眼看出这是对外壳),包名沿用域名让调用点写 `security.Verifier`
-      # 而不是 `facade.Verifier`(跨域会撞名/被迫起别名)。只豁免这一条 revive 规则。
+      # Domain facade packages (internal/<domain>/facade/) are named after the domain,
+      # not the directory — the directory is uniformly called facade (by convention: it's
+      # obvious at a glance this is the outward shell), while the package keeps the domain
+      # name so call sites write `security.Verifier` rather than `facade.Verifier` (which
+      # would collide across domains / force aliases). Exempt only this one revive rule.
       - path: internal/[a-z0-9]+/facade/
         text: "package-directory-mismatch"
-      # facade 是纯 re-export 薄壳:真正的 codedoc 在实现子包的符号上,协议总览在 package doc 里。
-      # 给每条 `type X = pkg.X` 别名再抄一遍 doc 是噪音,豁免 facade 目录的 doc/结构计数规则:
-      #   - exported / godoclint:别名不需要逐条 doc(section 注释 + package doc 已给协议)。
-      #   - max-public-structs:facade 抬整域 API,天然 >5,≤5 的"一 aggregate 一文件"启发不适用。
+      # A facade is a pure re-export thin shell: the real codedoc lives on the impl
+      # subpackage's symbols, and the protocol overview lives in the package doc. Copying
+      # doc onto every `type X = pkg.X` alias is noise, so exempt the facade directory's
+      # doc/structure-counting rules:
+      #   - exported / godoclint: aliases don't need per-item doc (the section comments +
+      #     package doc already give the protocol).
+      #   - max-public-structs: a facade lifts a whole domain's API, so it's naturally >5;
+      #     the ≤5 "one aggregate per file" heuristic doesn't apply.
       - path: internal/[a-z0-9]+/facade/
         text: "exported"
       - path: internal/[a-z0-9]+/facade/
         linters: [godoclint]
       - path: internal/[a-z0-9]+/facade/
         text: "max-public-structs"
-      # facade 里 re-export 泛型类型别名 `type T[X any] = pkg.T[X]` 用到 `any` 作类型约束,
-      # 不是 business `any` payload —— forbidigo 的 any-ban 不适用于 facade 的泛型转发。
+      # A re-exported generic type alias in a facade `type T[X any] = pkg.T[X]` uses `any`
+      # as a type constraint, not a business `any` payload — forbidigo's any-ban doesn't
+      # apply to a facade's generic forwarding.
       - path: internal/[a-z0-9]+/facade/
         linters: [forbidigo]
-      # 域 guts(entity/repo/usecase)的包名恰好也是拆分前的常用局部变量名(repo/entity),
-      # 域内代码把「这个 repo」命名为 repo 是清晰的,shadow 在此是切分的既有产物,豁免
-      # revive(import-shadowing)与 gocritic(importShadow)两条同类规则。
+      # A domain's guts (entity/repo/usecase) have package names that happen to be the
+      # common local-variable names from before the split (repo/entity). Domain-internal
+      # code naming "this repo" as repo is clear; the shadow here is a pre-existing product
+      # of the split. Exempt the two sibling rules revive(import-shadowing) and
+      # gocritic(importShadow).
       - path: internal/[a-z0-9]+/(entity|repo|usecase)/
         text: "[iI]mport.?[sS]hadow"
-      # repo_seo 的 UpdateWikiSEO/UpdateOutputSEO/… 是「按 genre 平行」的一组 SEO 更新方法,
-      # 形状同构只差 genre 常量 + 返回类型 —— 拆分前既有,dedup 是独立重构,此处豁免 dupl。
+      # repo_seo's UpdateWikiSEO/UpdateOutputSEO/… are a "parallel-by-genre" set of SEO
+      # update methods, isomorphic in shape and differing only by a genre constant + return
+      # type — pre-existing before the split, and deduping is a separate refactor, so exempt
+      # dupl here.
       - path: internal/corpus/repo/seo.go
         linters: [dupl]
       # HTTP route handlers (echo `func(c) error`) only — mcphandle lives
@@ -323,82 +343,107 @@ linters:
       # exactly as it was under the old internal/mcp path.
       - path: internal/routes/(admin|public|sys)/
         linters: [cyclop]
-      # inference 的重试 transport / 超时收尾是 unexported helpers,值得直接
-      # 白盒单测(retryTransport / drainResp / agentTurnTimeout 等)。testpackage
-      # 一律要求 external test pkg,但 external 包够不到 unexported,而 internal
-      # test pkg 又会被 go-arch-lint 当 self-import 拦。这里豁免 testpackage。
+      # inference's retry transport / timeout finalization are unexported helpers worth
+      # white-box unit-testing directly (retryTransport / drainResp / agentTurnTimeout,
+      # etc.). testpackage always demands an external test pkg, but an external pkg can't
+      # reach the unexported symbols, while an internal test pkg gets blocked by
+      # go-arch-lint as a self-import. Exempt testpackage here.
       - path: internal/conversation/inference/
         linters: [testpackage]
-      # mailer 的 buildMessage(RFC822 渲染 + header 注入剥离)是 unexported,
-      # 值得白盒单测;同 inference 豁免 testpackage。
+      # mailer's buildMessage (RFC822 rendering + header-injection stripping) is
+      # unexported and worth white-box unit-testing; exempt testpackage as with inference.
       - path: internal/mailer/
         linters: [testpackage]
-      # marketplace 的 parseSkillMD(SKILL.md frontmatter 解析)是 unexported,
-      # 白盒单测;同上豁免 testpackage。
+      # marketplace's parseSkillMD (SKILL.md frontmatter parsing) is unexported and
+      # white-box unit-tested; exempt testpackage as above.
       - path: internal/marketplace/
         linters: [testpackage]
-      # corpus/obsidian 的 extFromContentType(附件扩展名推断)是 unexported 纯逻辑,
-      # 值得白盒单测;同上豁免 testpackage。
+      # corpus/obsidian's extFromContentType (attachment extension inference) is
+      # unexported pure logic worth white-box unit-testing; exempt testpackage as above.
       - path: internal/corpus/obsidian/
         linters: [testpackage]
-      # tools/ 是构建期 lint 工具(archcheck:internal/ 的 import 图闸),不是 server 业务代码:
-      # 它的输出介质就是 stdout/exit code(不是 slog),而图算法(DFS 找环/分层判定/目录遍历)
-      # 天然分支多。这些是 CLI 形态固有的,不是可修的坏味道;真问题(裸 any / 行长 / os.Exit
-      # 位置 / 未包装错误)都已按规则改掉。gosec G703 是"遍历自己仓库的目录"误报。
+      # stats/ops's jobHealth (background-job freshness → overdue) is unexported pure
+      # time logic worth white-box unit-testing; exempt testpackage as above.
+      - path: internal/stats/ops/
+        linters: [testpackage]
+      # dockerstat talks to the Docker Engine API over a UNIX SOCKET: the URL's scheme and
+      # host are ignored (the transport dials the socket), so http is correct — there is no
+      # TLS on a unix socket. Exempt just that one revive rule here.
+      - path: internal/infra/dockerstat/
+        linters: [revive]
+        text: unsecure-url-scheme
+      # tools/ are build-time lint tools (archcheck: the internal/ import-graph gate), not
+      # server business code: their output medium is stdout/exit code (not slog), and graph
+      # algorithms (DFS cycle-finding / layering / directory walks) are naturally branchy.
+      # These are inherent to the CLI shape, not fixable smells; the real issues (bare any /
+      # line length / os.Exit placement / unwrapped errors) are all fixed per the rules.
+      # gosec G703 is a "walking your own repo's directories" false-positive.
       - path: tools/
         linters: [cyclop, gocognit, gosec]
-      # capabilities/capload 的能力装载 glue(toolCallBudget / newMCPAppCapability 等)是
-      # unexported,值得白盒单测;同 usecases 豁免 testpackage。
+      # capabilities/capload's capability-loading glue (toolCallBudget /
+      # newMCPAppCapability, etc.) is unexported and worth white-box unit-testing; exempt
+      # testpackage as with usecases.
       - path: internal/routes/capload/
         linters: [testpackage]
-      # connector/openapi 是 #155 通用执行核:schemaless-JSON 边界(任意 SaaS 的请求/响应
-      # 都是任意 JSON),`any` 在此合法——同 MCP/postgres 边界豁免 forbidigo;其纯逻辑
-      # (ParseSpec/ParseBinding/JSONata 两向形状归一)值得后端内部白盒 UT,豁免 testpackage。
+      # connector/openapi is #155's generic execution core: a schemaless-JSON boundary (any
+      # SaaS's request/response is arbitrary JSON), so `any` is legitimate here — exempt
+      # forbidigo as at the MCP/postgres boundaries; its pure logic (ParseSpec/ParseBinding/
+      # bidirectional JSONata shape normalization) is worth backend-internal white-box UT, so
+      # exempt testpackage.
       - path: internal/connector/openapi/
         linters: [testpackage, forbidigo, nilnil, paralleltest]
-      # connector egress 的 safeDialAddr（SSRF TOCTOU：拨号 pin 验证过的 IP）是 unexported,
-      # 白盒 UT 注入假 resolver（改 package-global lookupIPAddr）验 pin/rebind → 与 paralleltest
-      # 天然冲突（并行会 race 那个 global）。豁免 testpackage + paralleltest。
+      # connector egress's safeDialAddr (SSRF TOCTOU: dial the pin-verified IP) is
+      # unexported, and its white-box UT injects a fake resolver (swapping the package-global
+      # lookupIPAddr) to verify pin/rebind → which naturally conflicts with paralleltest
+      # (parallel runs would race that global). Exempt testpackage + paralleltest.
       - path: internal/connector/
         linters: [testpackage, paralleltest]
-      # httpx 的 safeInternalDialAddr（同 connector egress 的 SSRF pin/rebind 守卫，供无 allow-list
-      # 的 inline-fetch 用）是 unexported 白盒 UT，注入假 lookupIPAddr → 豁免 testpackage + paralleltest。
+      # httpx's safeInternalDialAddr (the same SSRF pin/rebind guard as connector egress, for
+      # allow-list-free inline-fetch) is an unexported white-box UT that injects a fake
+      # lookupIPAddr → exempt testpackage + paralleltest.
       - path: internal/infra/httpx/
         linters: [testpackage, paralleltest]
-      # routes/public 的 setVisitorSessionCookie（Secure flag）是 unexported helper，白盒 UT 够到它
-      # 需 in-package → 豁免 testpackage（该 test 自身已 t.Parallel，不涉 paralleltest）。
+      # routes/public's setVisitorSessionCookie (the Secure flag) is an unexported helper, and
+      # a white-box UT reaching it must be in-package → exempt testpackage (the test itself
+      # already uses t.Parallel, so paralleltest is not involved).
       - path: internal/routes/public/
         linters: [testpackage]
-      # domain 的 compileGlob 缓存 / cmd/server 的 pingCheck 都是 unexported 白盒 UT;同上豁免。
+      # domain's compileGlob cache / cmd/server's pingCheck are both unexported white-box UTs;
+      # exempt as above.
       - path: internal/domain/
         linters: [testpackage, paralleltest]
-      # path_acl 的 compileGlobCached 缓存是 unexported 白盒 UT（随 role cluster 迁入 access）。
+      # path_acl's compileGlobCached cache is an unexported white-box UT (moved into access
+      # along with the role cluster).
       - path: internal/access/entity/path_acl_cache_test.go
         linters: [testpackage, paralleltest]
       - path: internal/conversation/usecase/ghost_policy_test.go
         linters: [testpackage]
-      # waypoint ledger 白盒 UT：unexported markAll/stringSet 的 visited-set 逻辑 repro。
+      # waypoint ledger white-box UT: repro of the visited-set logic in unexported
+      # markAll/stringSet.
       - path: internal/conversation/usecase/waypoint_ledger_test.go
         linters: [testpackage]
       - path: internal/conversation/usecase/resolve_code_prompt_test.go
         linters: [testpackage]
       - path: internal/conversation/usecase/visitor_chat_prompt_test.go
         linters: [testpackage]
-      # corpus map/stub/crosslink 白盒 UT：unexported tree/heading/crosslink 内部
-      # (findNode/extractHeadings/resolveNoteDstIDs) 的纯逻辑 repro → 必须 in-package。
+      # corpus map/stub/crosslink white-box UT: pure-logic repro of the internal
+      # tree/heading/crosslink logic (findNode/extractHeadings/resolveNoteDstIDs) → must be
+      # in-package.
       - path: internal/corpus/usecase/corpus_map_test.go
         linters: [testpackage]
       - path: internal/corpus/usecase/corpus_stub_test.go
         linters: [testpackage]
       - path: internal/corpus/usecase/wiki_crosslink_test.go
         linters: [testpackage]
-      # corpus_grep 的 never-miss 性质测：judge 那一步(GrepBody / CompileGrep)是本包内的
-      # 纯逻辑,同上必须 in-package。add-constant 对生成语料的那几个尺寸没有意义(它们是随机
-      # 上界,不是业务常量),已经具名的部分具了名。
+      # corpus_grep's never-miss property test: the judge step (GrepBody / CompileGrep) is
+      # in-package pure logic, so must be in-package as above. add-constant is meaningless for
+      # the generated-corpus sizes (they are random upper bounds, not business constants); the
+      # parts that warrant naming are named.
       - path: internal/corpus/usecase/corpus_grep_test.go
         linters: [testpackage]
-      # corpus/i18n 的容错表测试:被测的 Parse / Validate / Render 全在包内(解析器的
-      # 内部形状就是被测对象),必须 in-package。
+      # corpus/i18n's tolerance-table tests: the objects under test (Parse / Validate /
+      # Render) are all in-package (the parser's internal shape is the thing being tested), so
+      # must be in-package.
       - path: internal/corpus/i18n/
         linters: [testpackage]
       - path: cmd/server/
@@ -413,42 +458,48 @@ linters:
       # owner_id tenant filter → must be in-package white-box (now in corpus's db subpackage).
       - path: internal/corpus/db/
         linters: [testpackage]
-      # 每领域自持的 <domain>/db(sqlc 生成) 与 pgstore 的 DBTX 原语与 pgx 接口打交道，
-      # `any` 在驱动契约里不可避免（DBTX.Exec(... ...any)、Scan(dest ...any) 等）。
-      # 业务层 ban `any` 让信息流可读；DAO 层 + DB 原语反过来豁免。
+      # Each domain's self-owned <domain>/db (sqlc-generated) and pgstore's DBTX primitives
+      # deal with the pgx interface, where `any` is unavoidable in the driver contract
+      # (DBTX.Exec(... ...any), Scan(dest ...any), etc.). The business layer bans `any` to keep
+      # data flow readable; the DAO layer + DB primitives are exempt in turn.
       - path: internal/.*/db/
         linters: [forbidigo]
       - path: internal/infra/pgstore/
         linters: [forbidigo]
-      # #135: 领域模块吸收 pgx-boundary repo 后，repo/ 下仍是 pgx/sqlc 驱动契约层
-      # （Scan(dest ...any)、json.Marshal(v any) 等），同 postgres 边界豁免裸 any。
+      # #135: after domain modules absorbed the pgx-boundary repo, repo/ is still the
+      # pgx/sqlc driver-contract layer (Scan(dest ...any), json.Marshal(v any), etc.), so
+      # exempt bare any as at the postgres boundary.
       #
-      # 按**目录**匹配,不按文件名前缀。以前是 `repo_.*\.go$` —— 前缀去掉之后那条静默失配,
-      # 整批文件突然被这条 linter 逮住。豁免的判据本来就是"它住在 repo 层",
-      # 不是"它的文件名以 repo_ 开头"。
+      # Match by **directory**, not by filename prefix. It used to be `repo_.*\.go$` — once
+      # the prefix was dropped, that rule silently mismatched, and the whole batch of files
+      # suddenly got caught by this linter. The exemption criterion was always "it lives in
+      # the repo layer", not "its filename starts with repo_".
       - path: internal/.*/repo/
         linters: [forbidigo]
-      # MCP layer 接 schemaless JSON args（mcp-go 把 tool args 解到
-      # map[string]any，array 类型转换成 []any）。这是协议契约不是
-      # 业务态，同 postgres 豁免。owner MCP handles 现住 routes/mcphandle
-      # (controller 层),但形态仍是 MCP 协议契约,不是 HTTP route handler。
+      # The MCP layer takes schemaless JSON args (mcp-go parses tool args into
+      # map[string]any, and array types into []any). This is a protocol contract, not
+      # business state, so exempt as with postgres. The owner MCP handles now live in
+      # routes/mcphandle (the controller layer), but their shape is still the MCP protocol
+      # contract, not an HTTP route handler.
       - path: internal/routes/mcphandle/
         linters: [forbidigo]
-      # meili SDK 边界:UpdateFilterableAttributes 参数是 []interface{} → []any;search
-      # wrapper 是 driver 契约层(同 postgres),`any` 在此豁免。
+      # The meili SDK boundary: UpdateFilterableAttributes's parameter is []interface{} →
+      # []any; the search wrapper is a driver-contract layer (as with postgres), so exempt
+      # `any` here.
       - path: internal/corpus/search/
         linters: [forbidigo]
-      # mcpclient 是 MCP vendor 边界层。tool `_meta` 按 MCP 规范是任意
-      # schemaless JSON（mcp-go AdditionalFields 即 map[string]any），同
-      # 协议契约豁免；mcpclient 只透传不解释。
+      # mcpclient is the MCP vendor boundary layer. A tool's `_meta` is arbitrary schemaless
+      # JSON per the MCP spec (mcp-go's AdditionalFields is map[string]any), so exempt as a
+      # protocol contract; mcpclient only passes it through, never interprets it.
       - path: internal/capabilities/mcpclient/
         linters: [forbidigo]
-      # capsocket 是 host↔沙箱内建的 unix-socket transport 边界层。wire 是
-      # schemaless line-JSON（按 op 动态），跟 mcpclient 同性质，同样豁免裸 any。
+      # capsocket is the built-in host↔sandbox unix-socket transport boundary layer. The
+      # wire is schemaless line-JSON (dynamic per op), the same nature as mcpclient, so
+      # exempt bare any likewise.
       - path: internal/capabilities/capsocket/
         linters: [forbidigo]
-      # J.3: jobs plugin 的 MCP capabilities 跟 internal/mcp 同形态，同
-      # schemaless 协议契约 (map[string]any payload)。
+      # J.3: the jobs plugin's MCP capabilities have the same shape as internal/mcp, the
+      # same schemaless protocol contract (map[string]any payload).
       - path: internal/owner/jobs/jobsmcp/
         linters: [forbidigo]
 
@@ -456,9 +507,10 @@ linters:
       # (meant for logic) only hurt its readability; the data is the point.
       - path: internal/infra/paritymanifest/manifest_table
         linters: [revive, funlen]
-      # mcputil: 共享的 owner-MCP result marshaller。generic JSON 封装天然收 `any`
-      # payload (json.Marshal 就是 any)，跟 mcphandle/mcpclient/capsocket 同 schemaless
-      # 协议边界，同样豁免——让 capreg 自身的 any-ban 保持严格。
+      # mcputil: the shared owner-MCP result marshaller. Generic JSON wrapping naturally
+      # takes an `any` payload (json.Marshal is just any), the same schemaless protocol
+      # boundary as mcphandle/mcpclient/capsocket, so exempt likewise — keeping capreg's own
+      # any-ban strict.
       - path: internal/capabilities/mcputil/
         linters: [forbidigo]
 

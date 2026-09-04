@@ -1,0 +1,81 @@
+{
+  "common": {
+    "noCode": "no code?",
+    "yourName": "your name",
+    "checking": "checking…"
+  },
+  "seal": {
+    "brand": "standmeet · {handle}",
+    "private": "private"
+  },
+  "hero": {
+    "reached": "you’ve reached {handle}’s corpus",
+    "headline": "This isn’t open",
+    "lede": "{handle} gives out codes when there’s a reason to talk — a hiring loop, an investor call, an advisor scoping, a piece of press. If you have a code, drop it in. Otherwise — bring your own AI to chat with the public corpus{note}.",
+    "ledeNote": ", or leave a note",
+    "haveCode": "have a code?"
+  },
+  "footnote": {
+    "text": "<muted>how this works</muted> · standmeet replaces a résumé / linkedin / cold-email reply with a scoped, on-the-record conversation. it isn’t a chatbot demo. every code is hand-issued and every transcript is reviewed by {handle}."
+  },
+  "footer": {
+    "brand": "standmeet",
+    "retrieval": "private corpus retrieval",
+    "byHand": "by hand, not by feed"
+  },
+  "whatsBehind": {
+    "chatLabel": "a chat, not a page",
+    "chatBody": "There's no résumé to scroll. You ask questions, an AI answers in the owner's voice, grounded only in things they've actually written.",
+    "sliceLabel": "a scoped slice",
+    "sliceBody": "Each code unlocks a specific slice of the corpus — e.g. interview slice, investor slice, advisor slice. Private topics stay redacted.",
+    "recordLabel": "a single conversation, on the record",
+    "recordBody": "The owner sees the transcript afterward. Treat it like a meeting with someone who can't make the time, not like ChatGPT."
+  },
+  "codePanel": {
+    "enter": "enter",
+    "hint": "codes look like <sample>OAEN-3K2</sample> · the owner bakes them into a QR code or link · case doesn’t matter · paste the whole thing (with or without the dash) and press enter.",
+    "nameHint": "your name lets the owner separate visitors who share the same code."
+  },
+  "byoai": {
+    "headline": "Bring your own AI",
+    "lede": "Use your own key against the owner’s public corpus. Pick any OpenAI-compatible provider, or point at your own self-hosted endpoint. Private topics return “need a code”.",
+    "bulletKey": "your key never touches our server — stored encrypted in your browser only",
+    "bulletPays": "owner pays for retrieval, you pay for inference",
+    "bulletPrivate": "private topics return “ask for a code”",
+    "chooseModel": "choose a model",
+    "endpoint": "endpoint",
+    "model": "model",
+    "apiKey": "api key",
+    "keyNote": "never uploaded · stored encrypted in your browser",
+    "keyShapeHint": "keys for this provider usually start with {prefix} — if yours is different, go ahead",
+    "reveal": "reveal",
+    "hide": "hide",
+    "readyUsing": "ready · using",
+    "fillHint": "fill endpoint, model + key to unlock the public chat.",
+    "insecureOrigin": "this page is served over plain http, so your browser won't let any site store a key here — bring-your-own-AI needs an https address. ask the owner for one, or use an access code instead.",
+    "warmingUp": "warming up…",
+    "submit": "start public chat ↗"
+  },
+  "request": {
+    "headline": "Tell {handle} who you are",
+    "lede": "A short note. If it’s useful to talk — through the AI or in person — they may send you a code. Read by hand, not a queue.",
+    "openButton": "write a note ↘",
+    "orgLabel": "where you work",
+    "emailLabel": "email",
+    "whyLabel": "why you want to talk",
+    "footerNote": "goes straight to the owner · read by hand",
+    "sending": "sending…",
+    "send": "send ↵",
+    "sent": "sent",
+    "anonVisitor": "visitor",
+    "sentBody": "Thanks, {name}. The owner reads these by hand — no bot, no queue. If it’s a fit, they’ll reach out to <accent>{email}</accent> themselves with a code and which slice of the corpus it opens.",
+    "sentTail": "Not every note gets a reply. If you don’t hear back in a week, that’s the reply."
+  },
+  "read": {
+    "kicker": "no code? · read",
+    "heading": "Some of it is already open.",
+    "body": "The published part of the corpus needs nothing from you — no code, no key. Read it the way you would read anyone’s notes.",
+    "wiki": "wiki",
+    "writings": "writings"
+  }
+}

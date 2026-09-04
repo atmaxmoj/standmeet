@@ -1,0 +1,135 @@
+{
+  "page": {
+    "intro": "Rédigez les blocs sur lesquels les visiteurs atterrissent. Le héros est le paragraphe de prose + l'entrée de chat. Les aperçus et les projets sont des fenêtres sur votre corpus — épinglez les entrées publiées et la page affiche le titre + l'extrait de chacune, liant au lecteur. Ci-dessous : où vous êtes, et comment vous atteindre. Les changements persistent via PUT /admin/page."
+  },
+  "pinManager": {
+    "empty": "aucune épingle pour l'instant — cette section est masquée sur la page.",
+    "unpin": "désépingler",
+    "add": "+ épingler une entrée publiée",
+    "close": "× fermer",
+    "noneToPin": "rien à épingler — publiez d'abord une entrée de corpus."
+  },
+  "saveBar": {
+    "saving": "enregistrement…",
+    "unsaved": "modifications non enregistrées",
+    "saved": "enregistré",
+    "inSync": "en synchronisation",
+    "save": "enregistrer",
+    "revert": "rétablir"
+  },
+  "handle": {
+    "label": "poignée",
+    "change": "changer",
+    "cancel": "annuler"
+  },
+  "publicUrl": {
+    "label": "URL publique",
+    "unset": "non défini",
+    "change": "changer",
+    "cancel": "annuler"
+  },
+  "domain": {
+    "defaultLabel": "défaut",
+    "defaultHint": "aucune configuration · toujours disponible",
+    "inUse": "● en usage",
+    "customLabel": "domaine personnalisé",
+    "schemePrefix": "https://",
+    "clear": "effacer",
+    "effectiveHost": "hôte de partage effectif ·",
+    "effectiveHostNote": "· utilisé par les liens de partage de code, les QR, le pied de page de porte."
+  },
+  "byoai": {
+    "modeLabel": "mode byoai",
+    "modeHelp": "Quand activé, la page de porte affiche une option « apportez votre propre IA » sous l'entrée de code.",
+    "acceptedProviders": "fournisseurs acceptés"
+  },
+  "preview": {
+    "openPublic": "ouvrir public",
+    "loading": "chargement des codes…",
+    "seeAsCode": "voir comme · code",
+    "cardCodeRole": "{code} · rôle {role}",
+    "byoaiCardTitle": "BYOAI · anonyme",
+    "byoaiCardScope": "portée publique uniquement",
+    "frameTitle": "aperçu · vue du visiteur",
+    "byoaiBannerMode": "mode byoai",
+    "byoaiBannerModel": "modèle · fourni par visiteur",
+    "byoaiBannerScope": "portée publique",
+    "byoaiWelcome": "Salut. Vous fonctionnez sur votre propre clé API — payez pour l'inférence, portée publique uniquement. Les sujets privés renvoient une réponse « besoin d'un code ».",
+    "selectCode": "sélectionnez un code à gauche",
+    "codedBannerCode": "code · {code}",
+    "previewGreeting": "Salut",
+    "suggestedByYou": "suggéré par vous"
+  },
+  "customPages": {
+    "intro": {
+      "before": "Les pages personnalisées vivent à",
+      "slugPath": "/p/<slug>",
+      "after": ". Écrivez-en une ci-dessous, ou pilotez le même cycle de vie depuis Claude sur MCP — les deux font la même chose. Une page peut lire votre corpus et porter votre IA ; un code d'accès peut en pointer vers une, donc présenter ce code ouvre la page au lieu du chat par défaut."
+    },
+    "importsSummary": "ce que vous pouvez importer",
+    "empty": {
+      "lead": "Aucune page personnalisée pour l'instant. Le propriétaire crée / construit / promeut via MCP",
+      "toolCreate": "custom_page.create",
+      "toolWriteFile": ".write_file",
+      "toolBuild": ".build",
+      "toolPromote": ".promote_to_live"
+    },
+    "columns": {
+      "page": "page",
+      "template": "template",
+      "visibility": "visibilité",
+      "access": "accès",
+      "updated": "mis à jour",
+      "actions": "actions"
+    },
+    "visibilityState": {
+      "live": "en direct",
+      "staging": "préparation",
+      "none": "aucune"
+    },
+    "slugPath": "/p/{slug}",
+    "viewLive": "voir en direct",
+    "noLiveBuild": "aucune construction en direct",
+    "authorHeading": "rédiger une page",
+    "authorHelp": "Collez le App.tsx de la page. Il est construit dans un bac à sable et, si la construction réussit, publié à /p/<slug>. Vous pouvez importer @standmeet/sdk pour lire votre corpus et demander à votre IA.",
+    "slugLabel": "slug — la page vit à /p/<slug>",
+    "sourceLabel": "App.tsx",
+    "publish": "construire + publier →",
+    "published": "Page publiée",
+    "buildRunning": "construction…",
+    "buildBuilt": "construit",
+    "buildFailed": "construction échouée",
+    "boundCodes": "ouvert par",
+    "boundNone": "aucun code n'ouvre ceci — anonyme uniquement",
+    "byoaiOn": "les lecteurs peuvent apporter leur propre clé",
+    "byoaiOff": "pas d'apporter votre propre clé",
+    "byoaiVoid": "byok · décidé par le code",
+    "takeDown": "retirer",
+    "tookDown": "/p/{slug} n'est plus servi",
+    "delete": "supprimer",
+    "deleted": "/p/{slug} est parti",
+    "byoaiNote": "S'applique uniquement quand personne ne présente de code. Un lecteur arrivant avec un code est limité par ce code, et ce paramètre ne s'applique pas.",
+    "templatesAvailable": "templates disponibles",
+    "templates": {
+      "press-kit": {
+        "label": "press-kit",
+        "desc": "photo · variantes bio · téléchargements"
+      },
+      "list-prose": {
+        "label": "list-with-prose",
+        "desc": "liste au-dessus, explication en prose en dessous"
+      },
+      "menu": {
+        "label": "menu",
+        "desc": "lignes de service / offre numérotées"
+      },
+      "auto-now": {
+        "label": "auto-now",
+        "desc": "dernières entrées résumées par IA · /now"
+      }
+    },
+    "previewLabel": "aperçu · dernière construction réussie",
+    "previewNoBuild": "Rien n'a été construit pour l'instant. Demandez à votre IA de rédiger et construire cette page.",
+    "buildNone": "aucune construction"
+  }
+}

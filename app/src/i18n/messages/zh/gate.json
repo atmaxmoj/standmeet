@@ -1,0 +1,81 @@
+{
+  "common": {
+    "noCode": "没有访问码？",
+    "yourName": "你的名字",
+    "checking": "核对中…"
+  },
+  "seal": {
+    "brand": "standmeet · {handle}",
+    "private": "私密"
+  },
+  "hero": {
+    "reached": "你来到了 {handle} 的语料库",
+    "headline": "这里不对外开放",
+    "lede": "{handle} 只在有理由交谈时才发放访问码——一场招聘、一次投资人通话、一次顾问摸底、一篇媒体报道。如果你有访问码，输进来。否则——自带 AI 来与公开语料库聊天{note}。",
+    "ledeNote": "，或留个言",
+    "haveCode": "有访问码？"
+  },
+  "footnote": {
+    "text": "<muted>这是怎么运作的</muted> · standmeet 用一场限定范围、留有记录的对话，取代简历 / linkedin / 冷邮件回复。它不是一个聊天机器人演示。每个访问码都是手工签发的，每份对话记录都由 {handle} 亲自审阅。"
+  },
+  "footer": {
+    "brand": "standmeet",
+    "retrieval": "私有语料库检索",
+    "byHand": "靠手工，不靠信息流"
+  },
+  "whatsBehind": {
+    "chatLabel": "一场对话，不是一个页面",
+    "chatBody": "没有简历可翻。你提问，AI 以主理人的口吻作答，只依据他们真正写下的东西。",
+    "sliceLabel": "一个限定的切片",
+    "sliceBody": "每个访问码解锁语料库的一个特定切片——例如面试切片、投资人切片、顾问切片。私密话题保持屏蔽。",
+    "recordLabel": "单场对话，留有记录",
+    "recordBody": "主理人事后会看到对话记录。把它当成一次与抽不出时间的人的会面，而不是 ChatGPT。"
+  },
+  "codePanel": {
+    "enter": "进入",
+    "hint": "访问码形如 <sample>OAEN-3K2</sample> · 主理人把它做进二维码或链接 · 大小写无所谓 · 整段粘进来（带不带横杠都行）然后按回车。",
+    "nameHint": "你的名字能让主理人区分共用同一访问码的不同访客。"
+  },
+  "byoai": {
+    "headline": "自带你的 AI",
+    "lede": "用你自己的密钥访问主理人的公开语料库。选任意 OpenAI 兼容的服务商，或指向你自建的端点。私密话题会返回「需要访问码」。",
+    "bulletKey": "你的密钥从不接触我们的服务器——仅加密存在你的浏览器里",
+    "bulletPays": "检索由主理人付费，推理由你付费",
+    "bulletPrivate": "私密话题返回「去申请一个访问码」",
+    "chooseModel": "选择一个模型",
+    "endpoint": "端点",
+    "model": "模型",
+    "apiKey": "api 密钥",
+    "keyNote": "从不上传 · 加密存在你的浏览器里",
+    "keyShapeHint": "这个服务商的密钥通常以 {prefix} 开头——如果你的不一样，也没关系",
+    "reveal": "显示",
+    "hide": "隐藏",
+    "readyUsing": "就绪 · 正在使用",
+    "fillHint": "填写端点、模型 + 密钥以解锁公开聊天。",
+    "insecureOrigin": "此页面通过普通 http 提供，因此你的浏览器不会让任何站点在此存储密钥——自带 AI 需要一个 https 地址。向主理人索要一个，或改用访问码。",
+    "warmingUp": "预热中…",
+    "submit": "开始公开聊天 ↗"
+  },
+  "request": {
+    "headline": "告诉 {handle} 你是谁",
+    "lede": "一段简短的留言。如果值得一谈——通过 AI 或当面——他们可能会发给你一个访问码。手工阅读，不进队列。",
+    "openButton": "写一段留言 ↘",
+    "orgLabel": "你在哪里工作",
+    "emailLabel": "邮箱",
+    "whyLabel": "你为什么想聊",
+    "footerNote": "直达主理人 · 手工阅读",
+    "sending": "发送中…",
+    "send": "发送 ↵",
+    "sent": "已发送",
+    "anonVisitor": "访客",
+    "sentBody": "谢谢你，{name}。主理人会手工阅读这些——没有机器人，没有队列。如果合适，他们会亲自联系 <accent>{email}</accent>，附上一个访问码以及它开放语料库的哪个切片。",
+    "sentTail": "不是每段留言都会有回复。如果一周内没收到回音，那就是回复了。"
+  },
+  "read": {
+    "kicker": "没有访问码？· 阅读",
+    "heading": "其中一部分已经开放。",
+    "body": "语料库中已发布的部分不需要你提供任何东西——不需要访问码，不需要密钥。像读任何人的笔记那样读它。",
+    "wiki": "wiki",
+    "writings": "文章"
+  }
+}

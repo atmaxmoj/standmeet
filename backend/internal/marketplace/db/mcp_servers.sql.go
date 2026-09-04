@@ -101,8 +101,8 @@ type GrantMCPServerDepParams struct {
 	ArrayAppend interface{}
 }
 
-// GrantMCPServerDep —— owner 显式授权这个 server 接某个 connector 依赖（dep 名）。
-// 幂等：已在 granted_deps 里就不重复 append。
+// GrantMCPServerDep —— owner explicitly authorizes this server to use a connector dependency (dep name).
+// Idempotent: if already in granted_deps, do not append again.
 func (q *Queries) GrantMCPServerDep(ctx context.Context, arg GrantMCPServerDepParams) error {
 	_, err := q.db.Exec(ctx, grantMCPServerDep, arg.ID, arg.OwnerID, arg.ArrayAppend)
 	return err

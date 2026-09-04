@@ -1,15 +1,15 @@
-// wiki-retrieval-scale.spec.ts —— 检索必须覆盖**全量**语料,不是「后端先 load 最新
-// 50 条再在里面 grep」。
+// wiki-retrieval-scale.spec.ts —— retrieval must cover the **whole** corpus, not "the backend loads
+// the newest 50 first and greps inside those".
 //
-// 现实现 buildRetriever 一次性 ListByOwner(50)(created_at DESC)钉死候选集 → 第
-// 51 条往后的语料 LLM 根本搜不到。这里把一个带唯一关键词的 needle **最先**种下,
-// 再灌 52 条 filler,使 needle 落到「最新 50」之外。visitor 问 needle → mock 走默认
-// corpus_search(问句)→corpus_read(首个命中)→cite。
+// The current buildRetriever fixes the candidate set with a single ListByOwner(50) (created_at DESC) → the LLM
+// simply cannot find corpus items from the 51st onward. This seeds a needle with a unique keyword **first**,
+// then floods 52 fillers so the needle falls outside the "newest 50". The visitor asks for the needle → the mock takes the default
+// corpus_search(question) → corpus_read(first hit) → cite.
 //
-// 现在(50-cap):search 在内存 50 条里搜不到 needle → 不 cite → 本测试**红**。
-// retriever 改成 DB 端全量搜索后:search 命中 needle → read → cite → 绿。
+// Now (50-cap): search can't find the needle among the 50 in memory → no cite → this test is **red**.
+// After the retriever changes to a DB-side full-corpus search: search hits the needle → read → cite → green.
 //
-// 走完整 agent loop(真 /agent/turn + mock 模拟 LLM 的 search→read),不打 tool 半截。
+// Runs the full agent loop (real /agent/turn + mock simulating the LLM's search→read), not a half-issued tool.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -30,18 +30,18 @@ const OWNER = {
 };
 const CODE = 'SCALE-001';
 
-// needle —— 唯一关键词 + 树派生 path(最先种,落在最新 50 之外)。
+// needle —— unique keyword + tree-derived path (seeded first, falls outside the newest 50).
 const NEEDLE_KEYWORD = 'zephyrqx';
 const NEEDLE_PATH = 'deep/zephyr-protocol';
 const FILLER_COUNT = 52;
 
 test.describe('retrieval covers the whole corpus, not the newest-50 window', () => {
-  // 播种要 136 次串行 `/mcp` 往返(每个节点 = corpus.create + corpus.promote),实测墙钟
-  // **27.0 秒**(2026-08-02 全量:19:23:44.477→19:24:11.004,服务端 12.08s,其余是逐次
-  // HTTP + JSON-RPC 开销)。默认 30s 的 hook 预算刚好卡在这条线上,全量里必翻。
+  // Seeding takes 136 serial `/mcp` round trips (each node = corpus.create + corpus.promote), measured wall-clock
+  // **27.0 seconds** (2026-08-02 full run: 19:23:44.477→19:24:11.004, server 12.08s, the rest per-call
+  // HTTP + JSON-RPC overhead). The default 30s hook budget sits right on this line and is bound to blow in a full run.
   //
-  // **不并发化播种**:这几条断言的正是"第 51 条往后不能消失",候选集按 created_at 排序,
-  // 并发会打乱种入顺序 —— 那是改掉被测的前提,不是加速。
+  // **Do not parallelize seeding**: these assertions are precisely "items from the 51st on must not disappear"; the candidate set is ordered by created_at,
+  // and concurrency would scramble the insertion order —— that changes the premise under test, not just speeds it up.
   test.describe.configure({ timeout: 180_000 });
 
   test.beforeAll(async ({ playwright }) => {
@@ -101,7 +101,7 @@ test.describe('retrieval covers the whole corpus, not the newest-50 window', () 
     });
 });
 
-// seedNeedleThenFillers —— needle 最先种(最旧),再 52 条 filler,把 needle 推出最新 50。
+// seedNeedleThenFillers —— seed the needle first (oldest), then 52 fillers, pushing the needle out of the newest 50.
 async function seedNeedleThenFillers(request: APIRequestContext): Promise<string> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'scale-seed');

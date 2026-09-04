@@ -105,9 +105,7 @@ async function checkOwnerSettings(r: APIRequestContext): Promise<void> {
 
   const css = await callTool<{ css: string }>(r, token, sid, 'appearance.get_css', {});
   expect(typeof css.css, 'css is a string').toBe('string');
-
-  const page = await callTool<Record<string, unknown>>(r, token, sid, 'page.get', {});
-  expect(page && typeof page === 'object', 'page.get returns an object').toBe(true);
+  // page.get is gone: the homepage is a custom page now, not built-in page content.
 }
 
 async function checkCapabilities(r: APIRequestContext): Promise<void> {
@@ -182,7 +180,7 @@ test.describe('facade-parity · 新增 owner-MCP 只读工具功能守护', () =
     ({ playwright }) => run(playwright, checkInstance));
   test('seo.get_settings + seo.stats return settings + published counts',
     ({ playwright }) => run(playwright, checkSEO));
-  test('ai_provider.presets + appearance.get_css + page.get return owner settings',
+  test('ai_provider.presets + appearance.get_css return owner settings',
     ({ playwright }) => run(playwright, checkOwnerSettings));
   test('capabilities.list enumerates registry caps with origin + enabled',
     ({ playwright }) => run(playwright, checkCapabilities));

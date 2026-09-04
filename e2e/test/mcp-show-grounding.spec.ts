@@ -1,12 +1,13 @@
-// mcp-show-grounding.spec.ts —— MCP 上读一份逐字稿（conversations.get）。
+// mcp-show-grounding.spec.ts —— read a transcript over MCP (conversations.get).
 //
-// 用户故事：
-//   owner 在 Claude / Cursor 里 conversations.get(conversation_id="…")
-//   → 看到 visitor 提问 / assistant 回复 + 被引 wiki / output 的完整 body。
-//   owner 据此决定要不要再 promote / edit。
+// User story:
+//   owner runs conversations.get(conversation_id="…") in Claude / Cursor
+//   → sees the visitor's question / assistant's reply + the full body of the cited wiki / output.
+//   owner decides from this whether to promote / edit further.
 //
-// 这份载荷现在跟面板那份是同一个：被引条目在 wiki_refs / output_refs 里，
-// 每条自带 body（以前 MCP 那份叫 cited_outputs，面板那份没有 body）。
+// This payload is now the same one the panel uses: cited entries live in wiki_refs / output_refs,
+// each carrying its own body (the MCP version used to be called cited_outputs, and the panel version
+// had no body).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

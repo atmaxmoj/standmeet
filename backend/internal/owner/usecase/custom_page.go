@@ -26,6 +26,11 @@ type CustomPageDeps struct {
 	PreviewSigningKey string
 }
 
+// HomepageSlug — the reserved custom-page slug served at the site root `/`. One per instance
+// (v1 single-owner). The page promoted to live under this slug IS the homepage. Lives in the
+// domain so both the public route (routes/public) and the claim-time seed can reference it.
+const HomepageSlug = "home"
+
 // CreatePageInput — input to create a custom page.
 type CreatePageInput struct {
 	OwnerID string

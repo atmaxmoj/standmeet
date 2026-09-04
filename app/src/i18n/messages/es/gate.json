@@ -1,0 +1,81 @@
+{
+  "common": {
+    "noCode": "¿sin código?",
+    "yourName": "su nombre",
+    "checking": "verificando…"
+  },
+  "seal": {
+    "brand": "standmeet · {handle}",
+    "private": "privado"
+  },
+  "hero": {
+    "reached": "Ha llegado al corpus de {handle}",
+    "headline": "Esto no está abierto",
+    "lede": "{handle} entrega códigos cuando hay razón para hablar — un proceso de contratación, una llamada de inversor, un alcance de asesor, una pieza de prensa. Si tiene un código, entrégguelo. De lo contrario — traiga su propia IA para chatear con el corpus público{note}.",
+    "ledeNote": ", o deje una nota",
+    "haveCode": "¿tienes un código?"
+  },
+  "footnote": {
+    "text": "<muted>cómo funciona esto</muted> · standmeet reemplaza un currículum / linkedin / respuesta de correo frío con una conversación registrada y limitada. no es una demostración de chatbot. cada código se emite a mano y cada transcripción se revisa por {handle}."
+  },
+  "footer": {
+    "brand": "standmeet",
+    "retrieval": "recuperación de corpus privado",
+    "byHand": "a mano, no por feed"
+  },
+  "whatsBehind": {
+    "chatLabel": "un chat, no una página",
+    "chatBody": "No hay currículum para desplazarse. Hace preguntas, una IA responde en la voz del propietario, anclada solo en cosas que realmente ha escrito.",
+    "sliceLabel": "un segmento delimitado",
+    "sliceBody": "Cada código abre un segmento específico del corpus — por ejemplo, segmento de entrevista, segmento de inversor, segmento de asesor. Los temas privados permanecen redactados.",
+    "recordLabel": "una conversación única, registrada",
+    "recordBody": "El propietario ve la transcripción después. Trátelo como una reunión con alguien que no puede encontrar tiempo, no como ChatGPT."
+  },
+  "codePanel": {
+    "enter": "ingrese",
+    "hint": "los códigos se ven como <sample>OAEN-3K2</sample> · el propietario los hornea en un código QR o enlace · la mayúscula no importa · pegue todo (con o sin guión) y presione intro.",
+    "nameHint": "su nombre permite que el propietario separe visitantes que comparten el mismo código."
+  },
+  "byoai": {
+    "headline": "Traiga su propia IA",
+    "lede": "Use su propia clave contra el corpus público del propietario. Elija cualquier proveedor compatible con OpenAI o apunte a su propio punto final autoalojado. Los temas privados devuelven 'necesita un código'.",
+    "bulletKey": "su clave nunca toca nuestro servidor — almacenada encriptada solo en su navegador",
+    "bulletPays": "el propietario paga por recuperación, usted paga por inferencia",
+    "bulletPrivate": "los temas privados devuelven 'pedir un código'",
+    "chooseModel": "elegir un modelo",
+    "endpoint": "punto final",
+    "model": "modelo",
+    "apiKey": "clave api",
+    "keyNote": "nunca cargada · almacenada encriptada en su navegador",
+    "keyShapeHint": "las claves para este proveedor generalmente comienzan con {prefix} — si la suya es diferente, adelante",
+    "reveal": "revelar",
+    "hide": "esconder",
+    "readyUsing": "listo · usando",
+    "fillHint": "complete punto final, modelo + clave para desbloquear el chat público.",
+    "insecureOrigin": "esta página se sirve sobre http plano, así que su navegador no permitirá que ningún sitio almacene una clave aquí — traiga su propia IA necesita una dirección https. pida al propietario una o use un código de acceso en su lugar.",
+    "warmingUp": "calentando…",
+    "submit": "iniciar chat público ↗"
+  },
+  "request": {
+    "headline": "Dígale a {handle} quién es",
+    "lede": "Una nota breve. Si vale la pena hablar — a través de la IA o en persona — pueden enviarle un código. Leído a mano, no en cola.",
+    "openButton": "escribir una nota ↘",
+    "orgLabel": "dónde trabaja",
+    "emailLabel": "correo electrónico",
+    "whyLabel": "por qué quieres hablar",
+    "footerNote": "va directamente al propietario · leído a mano",
+    "sending": "enviando…",
+    "send": "enviar ↵",
+    "sent": "enviado",
+    "anonVisitor": "visitante",
+    "sentBody": "Gracias, {name}. El propietario lee estas a mano — sin bot, sin cola. Si es un buen ajuste, se comunicarán con <accent>{email}</accent> usted mismo con un código y qué segmento de corpus abre.",
+    "sentTail": "No toda nota recibe respuesta. Si no escuchas dentro de una semana, esa es la respuesta."
+  },
+  "read": {
+    "kicker": "¿sin código? · leer",
+    "heading": "Parte de él ya está abierto.",
+    "body": "La parte publicada del corpus no necesita nada de usted — ningún código, ninguna clave. Léalo como leería las notas de cualquiera.",
+    "wiki": "wiki",
+    "writings": "escrituras"
+  }
+}

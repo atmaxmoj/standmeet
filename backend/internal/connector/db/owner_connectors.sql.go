@@ -23,7 +23,7 @@ type ClearConnectorTokensParams struct {
 	ConnectorID string
 }
 
-// soft disconnect：擦 token + connected + active，保留 credentials（一键重连不重填）。
+// soft disconnect: wipe token + connected + active, keep credentials (one-click reconnect without re-entering).
 func (q *Queries) ClearConnectorTokens(ctx context.Context, arg ClearConnectorTokensParams) error {
 	_, err := q.db.Exec(ctx, clearConnectorTokens, arg.OwnerID, arg.ConnectorID)
 	return err
@@ -54,7 +54,7 @@ type DeleteUploadedConnectorParams struct {
 	ConnectorID string
 }
 
-// 删一个 owner 自建连接器（行删除）。它填的品类槽随之空（slot store 读不到 → cap 复闸）。
+// Delete an owner-authored connector (row delete). The category slot it filled goes empty (slot store reads nothing → cap re-gates).
 func (q *Queries) DeleteUploadedConnector(ctx context.Context, arg DeleteUploadedConnectorParams) error {
 	_, err := q.db.Exec(ctx, deleteUploadedConnector, arg.OwnerID, arg.ConnectorID)
 	return err
@@ -118,7 +118,7 @@ type GetConnectorManifestRow struct {
 	ExposeAsAgentTools bool
 }
 
-// 取一个连接器存档的 manifest 字段（上传连接器有 spec/binding；protocol 连接器有 protocol）。
+// Fetch a connector's stored manifest fields (uploaded connectors have spec/binding; protocol connectors have protocol).
 func (q *Queries) GetConnectorManifest(ctx context.Context, arg GetConnectorManifestParams) (GetConnectorManifestRow, error) {
 	row := q.db.QueryRow(ctx, getConnectorManifest, arg.OwnerID, arg.ConnectorID)
 	var i GetConnectorManifestRow
@@ -161,8 +161,8 @@ type InsertUploadedConnectorParams struct {
 	Title              string
 }
 
-// 上传一个 openapi 连接器（owner 在 UI 贴 spec + JSONata binding）：建行并存下 manifest
-// （spec/binding/auth_scheme），首次未连。category/kind 由 binding 定。
+// Upload an openapi connector (owner pastes spec + JSONata binding in the UI): create the row and store the manifest
+// (spec/binding/auth_scheme), not connected on first write. category/kind are set by the binding.
 func (q *Queries) InsertUploadedConnector(ctx context.Context, arg InsertUploadedConnectorParams) (OwnerConnector, error) {
 	row := q.db.QueryRow(ctx, insertUploadedConnector,
 		arg.OwnerID,
@@ -317,8 +317,8 @@ type ListUploadedConnectorsRow struct {
 	ExposeAsAgentTools bool
 }
 
-// 拉起时重装：所有 owner 自建连接器（带 spec 的 openapi + kind=protocol 协议连接器），跨 owner
-// （v1 单 owner；Hub 按 connector_id）。内置连接器 spec 空且 kind!=protocol，不在此列。
+// Reload on boot: all owner-authored connectors (openapi with a spec + kind=protocol connectors), across owners
+// (v1 single owner; Hub keys by connector_id). Built-in connectors have empty spec and kind!=protocol, so they are excluded.
 func (q *Queries) ListUploadedConnectors(ctx context.Context) ([]ListUploadedConnectorsRow, error) {
 	rows, err := q.db.Query(ctx, listUploadedConnectors)
 	if err != nil {
@@ -359,10 +359,10 @@ type MarkConnectorConnectedParams struct {
 	ConnectorID string
 }
 
-// protocol 连接器验证通过（无 oauth dance）→ 标记 connected。
-// **:execrows,不是 :exec** —— 这一行是"存凭据"那步建的。owner 还没有它的时候,这条 UPDATE
-// 命中 0 行、不报错,调用方照样回 connected:true —— 一句谎话,而且每一次全新安装都踩得到。
-// 行数是这笔写入唯一的回执,调用方必须看它。
+// protocol connector verified (no oauth dance) → mark connected.
+// **:execrows, not :exec** —— this row is created by the "store credentials" step. When the owner does not have
+// it yet, this UPDATE matches 0 rows without erroring and the caller still returns connected:true —— a lie, and
+// one that every fresh install hits. The row count is the only receipt this write has; the caller must read it.
 func (q *Queries) MarkConnectorConnected(ctx context.Context, arg MarkConnectorConnectedParams) (int64, error) {
 	result, err := q.db.Exec(ctx, markConnectorConnected, arg.OwnerID, arg.ConnectorID)
 	if err != nil {
@@ -384,10 +384,11 @@ type SetActiveConnectorParams struct {
 	Category    string
 }
 
-// 一个品类槽同时只一个 active：把目标置 active、同品类其余置非 active（§9 槽位规则）。
-// **RETURNING 是回执。** 行数在这里证明不了什么：更新的是整个品类，目标行不在其中时其余全被
-// 置成非 active，行数照样大于 0 —— "激活"的结果是**这个品类一个 active 都没有**。所以回执
-// 必须是名字：调用方要看目标 connector_id 在不在里面。
+// Only one active per category slot at a time: set the target active, set the rest of the category inactive (§9 slot rule).
+// **RETURNING is the receipt.** The row count proves nothing here: the update spans the whole category, and when the
+// target row is not among them the rest are all set inactive while the count stays > 0 —— the result of "activate" is
+// that **this category has no active at all**. So the receipt must be the names: the caller checks whether the target
+// connector_id is in the returned set.
 func (q *Queries) SetActiveConnector(ctx context.Context, arg SetActiveConnectorParams) ([]string, error) {
 	rows, err := q.db.Query(ctx, setActiveConnector, arg.ConnectorID, arg.OwnerID, arg.Category)
 	if err != nil {
@@ -427,7 +428,7 @@ type UpdateConnectorTokensParams struct {
 	ConnectorID    string
 }
 
-// OAuth 拿到首次 token，或 refresh 路径拿到新 access_token。首次拿到 token → connected。
+// OAuth gets its first token, or the refresh path gets a new access_token. First token obtained → connected.
 func (q *Queries) UpdateConnectorTokens(ctx context.Context, arg UpdateConnectorTokensParams) (OwnerConnector, error) {
 	row := q.db.QueryRow(ctx, updateConnectorTokens,
 		arg.TokenEnc,
@@ -482,8 +483,9 @@ type UpdateUploadedConnectorParams struct {
 	ConnectorID        string
 }
 
-// 编辑已建上传连接器的 spec/binding/auth_scheme（owner 在 UI 改 spec → 重新装配 + 重派生凭据
-// 表单）。换认证 type 后凭据需重新填，清掉 connected_at（重新连）。category 可能随之变。
+// Edit the spec/binding/auth_scheme of an existing uploaded connector (owner edits the spec in the UI → reassemble +
+// re-derive the credentials form). After changing the auth type the credentials must be re-entered, so clear
+// connected_at (reconnect). category may change with it.
 func (q *Queries) UpdateUploadedConnector(ctx context.Context, arg UpdateUploadedConnectorParams) error {
 	_, err := q.db.Exec(ctx, updateUploadedConnector,
 		arg.Spec,
@@ -528,15 +530,16 @@ type UpsertConnectorCredentialsParams struct {
 	ResetConnected bool
 }
 
-// owner_connectors.sql —— #155 统一连接器连接状态的读写（归一：任意 kind/品类一张表）。
-// 存/覆盖一个连接器的凭据（owner 填的 app creds / apiKey / smtp config）。category/kind 随
-// 首次写入定。
+// owner_connectors.sql —— #155 read/write of unified connector connection state (one table for any kind/category).
+// Store/overwrite one connector's credentials (owner-supplied app creds / apiKey / smtp config). category/kind
+// are set on first write.
 //
-// connected_at 由 `reset_connected` 决定，**而不是无条件清掉**（F-C-30）：
-// §三 D-5 要的是「改身份/凭据必须重新验证」—— 那是「**改了**」才该触发的规则。而面板点
-// Connect 的第一件事就是 POST /credentials，于是「已连接」在授权还没开始之前就没了；owner
-// 只要打开卡片重存一次（值一个字都没动），一条好端端的连接就显示成「没连」，而 token 还活着。
-// 调用方比对合并后的凭据跟原值：真的变了才传 true。
+// connected_at is decided by `reset_connected`, **not cleared unconditionally** (F-C-30):
+// §3 D-5 requires "changing identity/credentials must re-verify" —— that rule should fire only when something
+// **changed**. But the first thing the panel's Connect does is POST /credentials, so "connected" is lost before
+// authorization even starts; the owner only has to reopen the card and re-save once (without touching a single
+// value) and a perfectly good connection shows as "not connected" while the token is still alive.
+// The caller compares the merged credentials against the original: pass true only when they truly changed.
 func (q *Queries) UpsertConnectorCredentials(ctx context.Context, arg UpsertConnectorCredentialsParams) (OwnerConnector, error) {
 	row := q.db.QueryRow(ctx, upsertConnectorCredentials,
 		arg.OwnerID,

@@ -1,7 +1,7 @@
 // output-landing-extended.spec.ts —— output landing extended: 404, AskAboutThis.
 //
-// 用户故事：
-//   1. 不存在的 output slug → 404
+// User story:
+//   1. a non-existent output slug → 404
 //   2. AskAboutThis (kind=output) → /?q=...
 
 import { test, expect } from '@/fixtures/test';

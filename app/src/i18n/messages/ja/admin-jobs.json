@@ -1,0 +1,82 @@
+{
+  "sources": {
+    "intro": "Where the loop pulls listings from. Greenhouse / Lever / Wellfound are first-class; RSS and HTML scrapers are also supported. Nothing is pulled on a schedule — a source is read when you ask Claude to run <mono>jobs.fetch_new</mono>, and what comes back lands in listings for a day. Register sources via MCP <mono>jobs.register_source</mono>.",
+    "emptyKicker": "no sources registered",
+    "emptyTitle": "Connect a job board or RSS feed.",
+    "emptyHint": "Ask Claude to run <mono>jobs.register_source</mono> with a Greenhouse / Lever / RSS URL — it shows up here automatically."
+  },
+  "listings": {
+    "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
+    "emptyKicker": "no listings in pool",
+    "emptyTitle": "Fetch jobs from your sources first.",
+    "emptyHint": "Ask Claude to run <mono>jobs.fetch_new</mono> — results land here for a day until you draft or discard them."
+  },
+  "drafts": {
+    "intro": "Tailored resumes Claude drafted for jobs you said yes to. Open the composer to edit + preview; <ink>send</ink> freezes the snapshot, renders the final PDF (with QR), and auto-issues an AccessCode.",
+    "loading": "loading…",
+    "emptyTitle": "No drafts pending.",
+    "emptyHint": "Ask Claude to draft a resume from a shortlisted job listing (MCP <code>resume.draft</code>) — it shows up here.",
+    "metaUpdated": "updated {date}",
+    "metaJob": "job · <ink>{job}</ink>",
+    "openComposer": "open composer →",
+    "edit": "edit",
+    "regenerate": "regenerate",
+    "discard": "discard",
+    "viewApplication": "view application",
+    "viewPdf": "view pdf"
+  },
+  "applications": {
+    "intro": "Every committed application — frozen resume snapshot + auto-issued AccessCode. Recruiters scan the QR on the PDF and land directly in your chat. Click a card to review timeline + status + private notes.",
+    "loading": "loading…",
+    "emptyTitle": "No applications sent yet.",
+    "emptyHint": "Draft a resume from a shortlisted job listing, then send to commit it here.",
+    "contact": "contact",
+    "notes": "notes",
+    "open": "open ›",
+    "metaCommitted": "committed {date}",
+    "metaSubmitted": "submitted {date}",
+    "metaNotSubmitted": "submission not recorded"
+  },
+  "detail": {
+    "kicker": "application · {id}",
+    "close": "close ✕",
+    "timeline": "timeline",
+    "contact": "contact",
+    "pingInChat": "ping in chat ↗",
+    "privateNotes": "private notes",
+    "notesReadOnly": "read-only for now — nothing stores notes yet, so this box would lose whatever you typed",
+    "needsWriter": "not available yet — this instance has no way to record a status change; commit is the only write on this path",
+    "pdfNotKept": "not available here — the rendered PDF is handed to your AI client at commit and is not kept on the application, so there is nothing for this panel to open",
+    "snapshotHead": "resume sent · snapshot",
+    "resume": "resume",
+    "tailoredFor": "tailored for {company} · {role}",
+    "viewFull": "view larger",
+    "viewSmaller": "view smaller",
+    "downloadPdf": "download pdf",
+    "status": "status",
+    "footMeta": "committed {committedAt} · {method}",
+    "withdraw": "withdraw",
+    "logUpdate": "log update",
+    "closeAction": "close"
+  },
+  "resume": {
+    "summary": "summary",
+    "roleLine": "{role}<sep>·</sep>for <co>{company}</co>",
+    "skills": "skills",
+    "education": "education",
+    "also": "also",
+    "alsoText": "The QR is a live chat with my AI · grounded in my corpus · scoped for {company}.",
+    "alsoFallbackCompany": "this conversation",
+    "experience": "experience",
+    "footerScan": "scan or visit · {url}",
+    "footerSnapshot": "this resume is a snapshot · sent {date}",
+    "pageOf": "page {n} / {total}",
+    "letter": "letter",
+    "coverTitle": "To {company}",
+    "coverRe": "re · <ink>{role}</ink>",
+    "coverSigMeta": "continue the conversation · {url}"
+  },
+  "qr": {
+    "fallback": "qr…"
+  }
+}

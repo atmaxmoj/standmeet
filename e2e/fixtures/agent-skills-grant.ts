@@ -1,9 +1,10 @@
-// agent-skills-grant.ts —— A.3-IAM-5: 把 "issue code with granted_skills"
-// 翻译成 "建一个 owner skill 含 allowed_tools → 建 role 挂这个 skill → 发码
-// 指向 role"。
+// agent-skills-grant.ts —— A.3-IAM-5: translate "issue code with granted_skills"
+// into "create an owner skill with allowed_tools → create a role attaching that
+// skill → issue a code pointing at the role".
 //
-// 对外暴露的 API 形态尽量保持 IssueCodeInput.granted_skills 的语义，让现有
-// chat-book-* 等 spec 不用改业务断言；fixture 内部负责拼出 role 链。
+// The exposed API shape keeps the IssueCodeInput.granted_skills semantics as
+// much as possible so existing chat-book-* specs don't need to change their
+// business assertions; the fixture internally assembles the role chain.
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -15,11 +16,13 @@ export interface IssueCodeInput {
   max_bookings?: number;
   max_members?: number;
   max_turns_per_session?: number;
-  // 这张码的 role 是否在约成后给 owner 自己发通知邮件。
+  // Whether this code's role emails the owner a notification when a booking is made.
   //
-  // 字段名就叫 notify_owner —— 它是 **calendar.book 自己**在 manifest 的 role_config 里
-  // 声明的键,不再是内核 roles 表上的一列(那一列叫 notify_owner_on_booking,已退役)。
-  // role 的入参 schema 按各能力的声明长出来,所以这里填的名字必须跟 manifest 对得上。
+  // The field is named notify_owner —— it's a key declared by **calendar.book
+  // itself** in its manifest's role_config, no longer a column on the kernel
+  // roles table (that column was called notify_owner_on_booking and is retired).
+  // A role's input schema grows from each capability's declaration, so the name
+  // filled in here must match the manifest.
   notify_owner?: boolean;
 }
 
@@ -33,7 +36,7 @@ export interface IssuedCode {
 interface RoleView { id: string }
 interface SkillView { id: string; name: string }
 
-// 计数器，给每次 issueCodeWithSkills 调用产生 unique skill / role name。
+// Counter, to give each issueCodeWithSkills call a unique skill / role name.
 let counter = 0;
 
 export async function issueCodeWithSkills(

@@ -136,19 +136,14 @@ func writingsDepsOf(d *deps.Runtime) corpus.OpsWritingsDeps {
 
 func pageDepsOf(d *deps.Runtime) owner.OpsPage {
 	return owner.OpsPage{
-		Owners:    d.OwnerRepo,
-		Pins:      owner.PagePinDeps{Owners: d.OwnerRepo, Wiki: d.WikiRepo},
 		Handle:    owner.HandleDeps{Owners: d.OwnerRepo},
 		PublicURL: owner.PublicURLDeps{Owners: d.OwnerRepo},
 	}
 }
 
-// seoDepsOf — the other half of publishing a wiki entry is the home page: unpublishing must
-// also remove it from any section pinning it.
 func seoDepsOf(d *deps.Runtime) owner.OpsSEO {
 	return owner.OpsSEO{
-		SEO:  d.SEORepo,
-		Pins: owner.PagePinDeps{Owners: d.OwnerRepo, Wiki: d.WikiRepo},
+		SEO: d.SEORepo,
 		// Publishing changes that note -> after the write, refresh its search document
 		// (the `published` field in the index is the admission criterion for public
 		// identity).

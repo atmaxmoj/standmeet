@@ -12,12 +12,17 @@ files on your disk remain the thing you edit.
 
 ---
 
-## Deploying on Coolify
+## Deploying (prebuilt images)
 
-Template: [`infra/coolify/docker-compose.coolify.yml`](infra/coolify/docker-compose.coolify.yml)
+Compose file: [`infra/deploy/docker-compose.yml`](infra/deploy/docker-compose.yml) — runs the
+stack from released ghcr images on any Docker host or PaaS (Coolify, Portainer, Dokploy, or
+plain `docker compose up`).
 
-**New Resource → Docker Based → Docker Compose Empty**, then paste the template in. No git
-source needed: there is not a single host mount, and all five images come from ghcr.
+No git source or host mount needed: the schema is baked into the images and everything is
+pulled from ghcr. Download the file, set its variables (see its header), and bring it up.
+
+**On Coolify:** New Resource → Docker Based → Docker Compose Empty, then paste the file in — its
+`SERVICE_*` magic variables generate the secrets and assign the domains for you.
 
 The schema is baked into the `standmeet-db` image rather than bind-mounted, because a pasted
 compose has no repository behind it — `./backend/db/schema.sql` would resolve to nothing, and
@@ -173,7 +178,7 @@ Suspect a flaky test? `REPEAT=5`. One pass is not evidence.
 | `builder/` | Sandboxed build of owner-written custom pages |
 | `im-bridge/` | Talk to the owner's AI from a chat app, on an access code |
 | `mcp-servers/` | Capability plugins, linked into the backend |
-| `infra/` | Deployment: the Coolify template, plugin manifests, lint tooling |
+| `infra/` | Deployment: the image-based compose (`infra/deploy/`), updater, plugin manifests, lint tooling |
 | `e2e/` | Playwright. The suite the whole product is judged by |
 | `docs/design/` | The canonical visual and product spec |
 | `standmeet-*/` | Legacy reference from the previous architecture. Not built, not run |

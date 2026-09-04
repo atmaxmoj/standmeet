@@ -94,8 +94,17 @@ test.describe('custom pages · the panel shows what the agent just built, withou
       // ── agent builds the first version ──────────────────────────────────
       await agentBuilds(agent, 'FIRST-VERSION');
 
+      // The follow is driven by a long-poll held connection (like waiting on a payment QR),
+      // not a fixed poll interval: the panel holds GET /custom-pages/wait open and is
+      // answered the instant a build settles. Catch that request — the old fixed-interval
+      // code never opens it, so this both proves the mechanism and would go red on a regress.
+      const longPoll = page.waitForRequest(
+        (req) => req.url().includes('/custom-pages/wait'), { timeout: 30_000 },
+      );
+
       await gotoAdminSection(page, 'custom-pages');
       await page.waitForURL('**/admin/custom-pages', { timeout: 5_000 });
+      await longPoll;
 
       // 1 + 2: the panel actually renders this page, and what it shows is **staging**
       // (never promoted to live).

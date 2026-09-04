@@ -1,0 +1,135 @@
+{
+  "page": {
+    "intro": "Verfassen Sie die Blöcke, auf die Besucher landen. Hero ist der Prosa-Absatz + Chat-Eingabe. Insights und Projekte sind Fenster in Ihren Corpus — heften Sie veröffentlichte Einträge an und die Seite zeigt jeden Titel + Auszug, Verlinken in den Leser. Darunter: wo Sie sind und wie Sie Kontakt aufnehmen. Änderungen werden über PUT /admin/page beibehalten."
+  },
+  "pinManager": {
+    "empty": "noch keine pins — dieser bereich ist auf der seite verborgen.",
+    "unpin": "loslösen",
+    "add": "+ veröffentlichten eintrag anheften",
+    "close": "× schließen",
+    "noneToPin": "nichts anzuheften — veröffentlichen Sie zuerst einen corpus-eintrag."
+  },
+  "saveBar": {
+    "saving": "speichert…",
+    "unsaved": "ungespeicherte änderungen",
+    "saved": "gespeichert",
+    "inSync": "synchronisiert",
+    "save": "speichern",
+    "revert": "zurücksetzen"
+  },
+  "handle": {
+    "label": "handle",
+    "change": "ändern",
+    "cancel": "abbrechen"
+  },
+  "publicUrl": {
+    "label": "öffentliche url",
+    "unset": "nicht gesetzt",
+    "change": "ändern",
+    "cancel": "abbrechen"
+  },
+  "domain": {
+    "defaultLabel": "standard",
+    "defaultHint": "keine einrichtung · immer verfügbar",
+    "inUse": "● in gebrauch",
+    "customLabel": "benutzerdefinierte domäne",
+    "schemePrefix": "https://",
+    "clear": "löschen",
+    "effectiveHost": "effektiver share-host ·",
+    "effectiveHostNote": "· verwendet von code share-links, qrs, gate footer."
+  },
+  "byoai": {
+    "modeLabel": "byoai-modus",
+    "modeHelp": "Wenn aktiviert, zeigt die Gate-Seite unten eine 'bringen Sie Ihre eigene KI'-Option.",
+    "acceptedProviders": "akzeptierte provider"
+  },
+  "preview": {
+    "openPublic": "öffne öffentlich",
+    "loading": "codes werden geladen…",
+    "seeAsCode": "sehe-als · code",
+    "cardCodeRole": "{code} · rolle {role}",
+    "byoaiCardTitle": "BYOAI · anonym",
+    "byoaiCardScope": "nur öffentlicher bereich",
+    "frameTitle": "vorschau · besucherview",
+    "byoaiBannerMode": "byoai-modus",
+    "byoaiBannerModel": "modell · besucher-versorgung",
+    "byoaiBannerScope": "öffentlicher bereich",
+    "byoaiWelcome": "Hallo. Du läufst auf Deinem eigenen API-Schlüssel — zahle für Inferenz, nur öffentliche Scheibe. Private Themen geben eine 'benötigt einen Code'-Antwort.",
+    "selectCode": "wählen Sie einen code von links",
+    "codedBannerCode": "code · {code}",
+    "previewGreeting": "Hallo",
+    "suggestedByYou": "von Ihnen vorgeschlagen"
+  },
+  "customPages": {
+    "intro": {
+      "before": "Benutzerdefinierte Seiten existieren bei",
+      "slugPath": "/p/<slug>",
+      "after": ". Schreiben Sie einen unten oder fahren Sie denselben Lebenszyklus von Claude über MCP — beide machen dasselbe. Eine Seite kann Ihren Corpus lesen und Ihre KI tragen; ein Zugriffscode kann auf einen zeigen, daher öffnet dieser Code die Seite statt des Standard-Chats."
+    },
+    "importsSummary": "was Sie importieren können",
+    "empty": {
+      "lead": "Noch keine benutzerdefinierten Seiten. Eigentümer erstellt / baut / promoviert über MCP",
+      "toolCreate": "custom_page.create",
+      "toolWriteFile": ".write_file",
+      "toolBuild": ".build",
+      "toolPromote": ".promote_to_live"
+    },
+    "columns": {
+      "page": "seite",
+      "template": "vorlage",
+      "visibility": "sichtbarkeit",
+      "access": "zugang",
+      "updated": "aktualisiert",
+      "actions": "aktionen"
+    },
+    "visibilityState": {
+      "live": "live",
+      "staging": "staging",
+      "none": "keine"
+    },
+    "slugPath": "/p/{slug}",
+    "viewLive": "anzeigen live",
+    "noLiveBuild": "kein live build",
+    "authorHeading": "schreiben Sie eine seite",
+    "authorHelp": "Fügen Sie die App.tsx der Seite ein. Sie wird in einer Sandbox gebaut und, wenn der Build erfolgreich ist, auf /p/<slug> veröffentlicht. Sie können @standmeet/sdk importieren um Ihren Corpus zu lesen und Ihre KI zu befragen.",
+    "slugLabel": "slug — die seite existiert bei /p/<slug>",
+    "sourceLabel": "App.tsx",
+    "publish": "baue + veröffentliche →",
+    "published": "Seite veröffentlicht",
+    "buildRunning": "baut…",
+    "buildBuilt": "gebaut",
+    "buildFailed": "build fehlgeschlagen",
+    "boundCodes": "geöffnet von",
+    "boundNone": "kein code öffnet diese — nur anonym",
+    "byoaiOn": "leser können ihren eigenen schlüssel bringen",
+    "byoaiOff": "keine bring-your-own-key",
+    "byoaiVoid": "byok · entschieden durch code",
+    "takeDown": "herunternehmen",
+    "tookDown": "/p/{slug} wird nicht mehr bereitgestellt",
+    "delete": "löschen",
+    "deleted": "/p/{slug} ist weg",
+    "byoaiNote": "Gilt nur, wenn niemand einen Code darstellt. Ein Leser, der mit einem Code ankommt, wird nach diesem Code begrenzt, und diese Einstellung gilt nicht.",
+    "templatesAvailable": "verfügbare vorlagen",
+    "templates": {
+      "press-kit": {
+        "label": "press-kit",
+        "desc": "foto · bio varianten · downloads"
+      },
+      "list-prose": {
+        "label": "list-with-prose",
+        "desc": "liste oben, prosa erklärung unten"
+      },
+      "menu": {
+        "label": "menü",
+        "desc": "nummerierte service / angebot reihen"
+      },
+      "auto-now": {
+        "label": "auto-now",
+        "desc": "KI-zusammengefasste neueste einträge · /now"
+      }
+    },
+    "previewLabel": "vorschau · letzter erfolgreicher build",
+    "previewNoBuild": "Noch nichts gebaut. Bitten Sie Ihre KI diese Seite zu schreiben und zu bauen.",
+    "buildNone": "kein build"
+  }
+}

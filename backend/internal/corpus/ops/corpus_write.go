@@ -175,12 +175,14 @@ func createByGenre(
 		row, err := usecase.CreateWiki(ctx, deps, &usecase.CreateWikiReq{
 			OwnerID: ownerID, ParentID: parentOrNil(in.ParentID),
 			Title: in.Title, Body: in.Body, Tags: in.Tags,
+			ShowAsSource: in.ShowAsSource,
 		})
 		return wikiItem(&row, ""), err
 	default:
 		row, err := usecase.CreateOutput(ctx, deps, &usecase.CreateOutputReq{
 			OwnerID: ownerID, ParentID: parentOrNil(in.ParentID),
 			Title: in.Title, Body: in.Body, Tags: in.Tags,
+			ShowAsSource: in.ShowAsSource,
 		})
 		return outputItem(&row, ""), err
 	}

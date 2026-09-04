@@ -44,8 +44,8 @@ SET setup_token_hash = $1
 WHERE id = 1
 `
 
-// 把当前 setup_token_hash 写进 instance_settings；启动时调一次，让 setup
-// token 真生效。
+// Write the current setup_token_hash into instance_settings; called once at startup to make the
+// setup token actually take effect.
 func (q *Queries) SetSetupTokenHash(ctx context.Context, setupTokenHash *string) error {
 	_, err := q.db.Exec(ctx, setSetupTokenHash, setupTokenHash)
 	return err
@@ -61,9 +61,9 @@ WHERE id = 1
 RETURNING id, is_claimed, setup_token_hash, multi_tenant, deployed_at, allowed_domains
 `
 
-// 原子 claim：当且仅当 is_claimed=false 且 setup_token_hash 匹配时 mark
-// claimed + 清 token。返回更新后的行；调用方据此判断是否成功（受影响 0
-// 行即 token 错或已 claimed）。
+// Atomic claim: mark claimed + clear the token if and only if is_claimed=false and setup_token_hash
+// matches. Returns the updated row; the caller judges success from it (0 rows affected means the
+// token is wrong or it was already claimed).
 func (q *Queries) TryClaimInstance(ctx context.Context, setupTokenHash *string) (InstanceSetting, error) {
 	row := q.db.QueryRow(ctx, tryClaimInstance, setupTokenHash)
 	var i InstanceSetting

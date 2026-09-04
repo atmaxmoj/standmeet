@@ -22,8 +22,8 @@ type AddHandleAliasParams struct {
 	OwnerID pgtype.UUID
 }
 
-// owner 改 handle 时把旧 handle 写进 alias 表。冲突（旧 handle 之前已经
-// alias 过 / 其它 owner 占用）忽略——alias 唯一即可。
+// When an owner changes handle, write the old handle into the alias table. Conflicts (the old
+// handle was already aliased / taken by another owner) are ignored -- the alias just needs to be unique.
 func (q *Queries) AddHandleAlias(ctx context.Context, arg AddHandleAliasParams) error {
 	_, err := q.db.Exec(ctx, addHandleAlias, arg.Handle, arg.OwnerID)
 	return err
@@ -49,7 +49,7 @@ type GetOwnerByHandleAliasRow struct {
 	CreatedAt        pgtype.Timestamptz
 }
 
-// handle 不在 owners.handle 上时走这里：owner 改名后旧 handle 入 alias 表。
+// Used when the handle isn't on owners.handle: after an owner renames, the old handle enters the alias table.
 func (q *Queries) GetOwnerByHandleAlias(ctx context.Context, handle string) (GetOwnerByHandleAliasRow, error) {
 	row := q.db.QueryRow(ctx, getOwnerByHandleAlias, handle)
 	var i GetOwnerByHandleAliasRow
@@ -92,7 +92,7 @@ type UpdateOwnerHandleRow struct {
 	CreatedAt        pgtype.Timestamptz
 }
 
-// 把 owners.handle 设成新值，返回更新后的 row 给 GetByID 形状的回调用。
+// Set owners.handle to the new value, returning the updated row for GetByID-shaped callers.
 func (q *Queries) UpdateOwnerHandle(ctx context.Context, arg UpdateOwnerHandleParams) (UpdateOwnerHandleRow, error) {
 	row := q.db.QueryRow(ctx, updateOwnerHandle, arg.ID, arg.Handle)
 	var i UpdateOwnerHandleRow

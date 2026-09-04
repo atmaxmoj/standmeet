@@ -1,0 +1,82 @@
+{
+  "sources": {
+    "intro": "Wo der Loop Einträge anzieht. Greenhouse / Lever / Wellfound sind erste Klasse; RSS und HTML Scraper werden auch unterstützt. Nichts wird nach einem Zeitplan gezogen — eine Quelle wird gelesen, wenn Sie Claude fragen <mono>jobs.fetch_new</mono> auszuführen, und was zurückkommt landet in Listings für einen Tag. Registrieren Sie Quellen über MCP <mono>jobs.register_source</mono>.",
+    "emptyKicker": "keine quellen registriert",
+    "emptyTitle": "Verbinden Sie ein Job-Board oder RSS-Feed.",
+    "emptyHint": "Bitten Sie Claude <mono>jobs.register_source</mono> mit einer Greenhouse / Lever / RSS URL auszuführen — es erscheint hier automatisch."
+  },
+  "listings": {
+    "intro": "Stellen, die von Ihren registrierten Quellen abgerufen werden, in einem 1-Tage-Pool gehalten. Bitten Sie Claude, sie gegen Ihren Corpus zu ordnen und Lebensläufe für die, die sich lohnen, zu entwerfen. Alles, das Sie nicht entwerfen oder verwerfen, fällt nach einem Tag aus dem Pool.",
+    "emptyKicker": "keine listings im pool",
+    "emptyTitle": "Laden Sie zuerst Jobs von Ihren Quellen.",
+    "emptyHint": "Bitten Sie Claude <mono>jobs.fetch_new</mono> auszuführen — Ergebnisse landen hier für einen Tag bis Sie sie entwerfen oder verwerfen."
+  },
+  "drafts": {
+    "intro": "Maßgeschneiderte Lebensläufe, die Claude für Jobs entworfen hat, denen Sie zugestimmt haben. Öffnen Sie den Composer zum Bearbeiten + Vorschau; <ink>senden</ink> friert den Snapshot ein, rendern den endgültigen PDF (mit QR) und stellen automatisch einen AccessCode aus.",
+    "loading": "lädt…",
+    "emptyTitle": "Keine ausstehenden Entwürfe.",
+    "emptyHint": "Bitten Sie Claude einen Lebenslauf von einer gekürzten Job-Auflistung (MCP <code>resume.draft</code>) zu entwerfen — es erscheint hier.",
+    "metaUpdated": "aktualisiert {date}",
+    "metaJob": "job · <ink>{job}</ink>",
+    "openComposer": "composer öffnen →",
+    "edit": "bearbeiten",
+    "regenerate": "regenerieren",
+    "discard": "verwerfen",
+    "viewApplication": "anwendung anzeigen",
+    "viewPdf": "pdf anzeigen"
+  },
+  "applications": {
+    "intro": "Jede begangene Anwendung — eingefrorener Lebenslauf-Snapshot + automatisch ausgefallener AccessCode. Recruiters scannen den QR auf dem PDF und landen direkt in Ihrem Chat. Klicken Sie auf eine Karte um Zeitstrahl + Status + private Notizen zu überprüfen.",
+    "loading": "lädt…",
+    "emptyTitle": "Noch keine Anwendungen gesendet.",
+    "emptyHint": "Entwerfen Sie einen Lebenslauf aus einer gekürzten Job-Auflistung und senden Sie ihn um hier festzulegen.",
+    "contact": "kontakt",
+    "notes": "notizen",
+    "open": "öffnen ›",
+    "metaCommitted": "begangen {date}",
+    "metaSubmitted": "eingereicht {date}",
+    "metaNotSubmitted": "einsendung nicht aufgezeichnet"
+  },
+  "detail": {
+    "kicker": "anwendung · {id}",
+    "close": "schließen ✕",
+    "timeline": "zeitstrahl",
+    "contact": "kontakt",
+    "pingInChat": "ping in chat ↗",
+    "privateNotes": "private notizen",
+    "notesReadOnly": "vorläufig schreibgeschützt — nichts speichert notizen noch, also würde dieses feld alles verlieren, das Sie tippen",
+    "needsWriter": "noch nicht verfügbar — diese instanz hat keine möglichkeit um eine statusänderung aufzuzeichnen; commit ist der einzige schreibweg auf diesem pfad",
+    "pdfNotKept": "hier nicht verfügbar — die gerendertes PDF wird Ihrem KI-Client beim commit übergeben und ist nicht in der Anwendung gespeichert, also gibt es nichts für dieses Panel zu öffnen",
+    "snapshotHead": "lebenslauf gesendet · snapshot",
+    "resume": "lebenslauf",
+    "tailoredFor": "zugeschnitten für {company} · {role}",
+    "viewFull": "größer anzeigen",
+    "viewSmaller": "kleiner anzeigen",
+    "downloadPdf": "pdf herunterladen",
+    "status": "status",
+    "footMeta": "begangen {committedAt} · {method}",
+    "withdraw": "zurückziehen",
+    "logUpdate": "update protokollieren",
+    "closeAction": "schließen"
+  },
+  "resume": {
+    "summary": "zusammenfassung",
+    "roleLine": "{role}<sep>·</sep>für <co>{company}</co>",
+    "skills": "fähigkeiten",
+    "education": "bildung",
+    "also": "auch",
+    "alsoText": "Der QR ist ein Live-Chat mit meiner KI · verankert in meinem Corpus · begrenzt für {company}.",
+    "alsoFallbackCompany": "dieses gespräch",
+    "experience": "erfahrung",
+    "footerScan": "scannen oder besuchen · {url}",
+    "footerSnapshot": "dieser lebenslauf ist ein snapshot · gesendet {date}",
+    "pageOf": "seite {n} / {total}",
+    "letter": "brief",
+    "coverTitle": "Für {company}",
+    "coverRe": "bezug · <ink>{role}</ink>",
+    "coverSigMeta": "gespräch fortsetzen · {url}"
+  },
+  "qr": {
+    "fallback": "qr…"
+  }
+}

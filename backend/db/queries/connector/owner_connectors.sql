@@ -1,14 +1,15 @@
--- owner_connectors.sql —— #155 统一连接器连接状态的读写（归一：任意 kind/品类一张表）。
+-- owner_connectors.sql —— #155 read/write of unified connector connection state (one table for any kind/category).
 
 -- name: UpsertConnectorCredentials :one
--- 存/覆盖一个连接器的凭据（owner 填的 app creds / apiKey / smtp config）。category/kind 随
--- 首次写入定。
+-- Store/overwrite one connector's credentials (owner-supplied app creds / apiKey / smtp config). category/kind
+-- are set on first write.
 --
--- connected_at 由 `reset_connected` 决定，**而不是无条件清掉**（F-C-30）：
--- §三 D-5 要的是「改身份/凭据必须重新验证」—— 那是「**改了**」才该触发的规则。而面板点
--- Connect 的第一件事就是 POST /credentials，于是「已连接」在授权还没开始之前就没了；owner
--- 只要打开卡片重存一次（值一个字都没动），一条好端端的连接就显示成「没连」，而 token 还活着。
--- 调用方比对合并后的凭据跟原值：真的变了才传 true。
+-- connected_at is decided by `reset_connected`, **not cleared unconditionally** (F-C-30):
+-- §3 D-5 requires "changing identity/credentials must re-verify" —— that rule should fire only when something
+-- **changed**. But the first thing the panel's Connect does is POST /credentials, so "connected" is lost before
+-- authorization even starts; the owner only has to reopen the card and re-save once (without touching a single
+-- value) and a perfectly good connection shows as "not connected" while the token is still alive.
+-- The caller compares the merged credentials against the original: pass true only when they truly changed.
 INSERT INTO owner_connectors (
     owner_id, connector_id, category, kind, credentials_enc
 )
@@ -28,7 +29,7 @@ SET credentials_enc = EXCLUDED.credentials_enc,
 RETURNING *;
 
 -- name: UpdateConnectorTokens :one
--- OAuth 拿到首次 token，或 refresh 路径拿到新 access_token。首次拿到 token → connected。
+-- OAuth gets its first token, or the refresh path gets a new access_token. First token obtained → connected.
 UPDATE owner_connectors
 SET token_enc = sqlc.arg(token_enc)::bytea,
     token_expires_at = sqlc.arg(token_expires_at)::timestamptz,
@@ -39,26 +40,27 @@ WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id)
 RETURNING *;
 
 -- name: MarkConnectorConnected :execrows
--- protocol 连接器验证通过（无 oauth dance）→ 标记 connected。
--- **:execrows,不是 :exec** —— 这一行是"存凭据"那步建的。owner 还没有它的时候,这条 UPDATE
--- 命中 0 行、不报错,调用方照样回 connected:true —— 一句谎话,而且每一次全新安装都踩得到。
--- 行数是这笔写入唯一的回执,调用方必须看它。
+-- protocol connector verified (no oauth dance) → mark connected.
+-- **:execrows, not :exec** —— this row is created by the "store credentials" step. When the owner does not have
+-- it yet, this UPDATE matches 0 rows without erroring and the caller still returns connected:true —— a lie, and
+-- one that every fresh install hits. The row count is the only receipt this write has; the caller must read it.
 UPDATE owner_connectors
 SET connected_at = COALESCE(connected_at, now()), updated_at = now()
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
 
 -- name: ClearConnectorTokens :exec
--- soft disconnect：擦 token + connected + active，保留 credentials（一键重连不重填）。
+-- soft disconnect: wipe token + connected + active, keep credentials (one-click reconnect without re-entering).
 UPDATE owner_connectors
 SET token_enc = '\x'::bytea, token_expires_at = NULL,
     connected_at = NULL, active = false, updated_at = now()
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
 
 -- name: SetActiveConnector :many
--- 一个品类槽同时只一个 active：把目标置 active、同品类其余置非 active（§9 槽位规则）。
--- **RETURNING 是回执。** 行数在这里证明不了什么：更新的是整个品类，目标行不在其中时其余全被
--- 置成非 active，行数照样大于 0 —— "激活"的结果是**这个品类一个 active 都没有**。所以回执
--- 必须是名字：调用方要看目标 connector_id 在不在里面。
+-- Only one active per category slot at a time: set the target active, set the rest of the category inactive (§9 slot rule).
+-- **RETURNING is the receipt.** The row count proves nothing here: the update spans the whole category, and when the
+-- target row is not among them the rest are all set inactive while the count stays > 0 —— the result of "activate" is
+-- that **this category has no active at all**. So the receipt must be the names: the caller checks whether the target
+-- connector_id is in the returned set.
 UPDATE owner_connectors
 SET active = (connector_id = sqlc.arg(connector_id)::text), updated_at = now()
 WHERE owner_id = sqlc.arg(owner_id) AND category = sqlc.arg(category)
@@ -83,8 +85,8 @@ DELETE FROM owner_connectors
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
 
 -- name: InsertUploadedConnector :one
--- 上传一个 openapi 连接器（owner 在 UI 贴 spec + JSONata binding）：建行并存下 manifest
--- （spec/binding/auth_scheme），首次未连。category/kind 由 binding 定。
+-- Upload an openapi connector (owner pastes spec + JSONata binding in the UI): create the row and store the manifest
+-- (spec/binding/auth_scheme), not connected on first write. category/kind are set by the binding.
 INSERT INTO owner_connectors (
     owner_id, connector_id, category, kind, spec, binding, auth_scheme, protocol,
     expose_as_agent_tools, title
@@ -98,8 +100,9 @@ VALUES (
 RETURNING *;
 
 -- name: UpdateUploadedConnector :exec
--- 编辑已建上传连接器的 spec/binding/auth_scheme（owner 在 UI 改 spec → 重新装配 + 重派生凭据
--- 表单）。换认证 type 后凭据需重新填，清掉 connected_at（重新连）。category 可能随之变。
+-- Edit the spec/binding/auth_scheme of an existing uploaded connector (owner edits the spec in the UI → reassemble +
+-- re-derive the credentials form). After changing the auth type the credentials must be re-entered, so clear
+-- connected_at (reconnect). category may change with it.
 UPDATE owner_connectors
 SET spec = sqlc.arg(spec)::bytea, binding = sqlc.arg(binding)::bytea,
     category = sqlc.arg(category), auth_scheme = sqlc.arg(auth_scheme),
@@ -109,14 +112,14 @@ SET spec = sqlc.arg(spec)::bytea, binding = sqlc.arg(binding)::bytea,
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
 
 -- name: GetConnectorManifest :one
--- 取一个连接器存档的 manifest 字段（上传连接器有 spec/binding；protocol 连接器有 protocol）。
+-- Fetch a connector's stored manifest fields (uploaded connectors have spec/binding; protocol connectors have protocol).
 SELECT category, kind, spec, binding, auth_scheme, protocol, expose_as_agent_tools
 FROM owner_connectors
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
 
 -- name: ListUploadedConnectors :many
--- 拉起时重装：所有 owner 自建连接器（带 spec 的 openapi + kind=protocol 协议连接器），跨 owner
--- （v1 单 owner；Hub 按 connector_id）。内置连接器 spec 空且 kind!=protocol，不在此列。
+-- Reload on boot: all owner-authored connectors (openapi with a spec + kind=protocol connectors), across owners
+-- (v1 single owner; Hub keys by connector_id). Built-in connectors have empty spec and kind!=protocol, so they are excluded.
 SELECT DISTINCT ON (connector_id)
     connector_id, category, kind, spec, binding, auth_scheme, protocol, expose_as_agent_tools
 FROM owner_connectors
@@ -124,6 +127,6 @@ WHERE length(spec) > 0 OR kind = 'protocol'
 ORDER BY connector_id, updated_at DESC;
 
 -- name: DeleteUploadedConnector :exec
--- 删一个 owner 自建连接器（行删除）。它填的品类槽随之空（slot store 读不到 → cap 复闸）。
+-- Delete an owner-authored connector (row delete). The category slot it filled goes empty (slot store reads nothing → cap re-gates).
 DELETE FROM owner_connectors
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);

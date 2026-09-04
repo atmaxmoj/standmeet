@@ -1,0 +1,29 @@
+{
+  "output": {
+    "kicker": "output · from {handle}'s corpus",
+    "polished": "polished",
+    "updated": "updated {date}",
+    "pdfPreview": "PDF preview",
+    "writings": "writings",
+    "breadcrumbCurrent": "output · {slug}",
+    "aboutHeading": "about this piece",
+    "aboutBody": "Polished output from {handle}'s corpus — wiki entries promoted to a public-facing draft. The AI uses the same corpus, so follow-ups below will quote this and related entries directly.",
+    "aboutBodyGated": "Polished output from {handle}'s corpus — wiki entries promoted to a public-facing draft. The AI on this site works from the same corpus and quotes it directly, and answering costs {handle} money, so it waits behind a code:",
+    "backToWriting": "← writing"
+  },
+  "wiki": {
+    "by": "by",
+    "backToWiki": "← wiki",
+    "subEntries": "sub-entries",
+    "attachments": "attachments",
+    "aboutHeading": "about this entry",
+    "aboutBody": "One of {handle}'s wiki entries. The AI on this site is grounded in the same corpus, so you can ask follow-ups below and get answers in {handle}'s voice, with citations back to entries like this one.",
+    "aboutBodyGated": "One of {handle}'s wiki entries. The AI on this site is grounded in the same corpus and answers in {handle}'s voice, with citations back to entries like this one — answering costs {handle} money, so it waits behind a code:",
+    "indexKicker": "wiki",
+    "indexHeading": "The corpus, by entry"
+  },
+  "enterAccessCode": "enter an access code →",
+  "tree": {
+    "loading": "loading…"
+  }
+}

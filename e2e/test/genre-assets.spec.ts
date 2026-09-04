@@ -1,15 +1,18 @@
-// genre-assets.spec.ts —— **每个 genre 都能挂素材**:附件 / 正文配图 / hero。
+// genre-assets.spec.ts —— **every genre can carry assets**: attachments / inline images / hero.
 //
-// 业务故事:owner 在 Claude Code 说"把这张图配到那条 wiki 上"。图在别人家(图床),他给的是
-// 一个 https 地址;后端去取、存下来、正文里那条 `standmeet-asset:<id>` 引用读回时解析成
-// 可访问地址。删掉那条语料,图跟着没。
+// Business story: owner tells Claude Code "put this image on that wiki". The image lives elsewhere
+// (an image host); the owner hands over an https URL; the backend fetches it, stores it, and the
+// `standmeet-asset:<id>` reference in the body resolves to a reachable URL on read-back. Delete the
+// note and the image goes with it.
 //
-// 这件事此前**只有 writing 有**。底下的机制其实一直是 genre 无关的(assets 表按 holder_id
-// 挂,没有 genre 列、没有 FK;cover_image_asset_id 就在共享的 corpus_notes 表上),缺的只是
-// 接线 —— 所以"每个 genre 都能有配图"这句话在数据上成立、在代码里不成立。
+// This used to exist **only for writing**. The mechanism underneath has always been genre-agnostic
+// (the assets table hangs off holder_id, with no genre column and no FK; cover_image_asset_id lives
+// on the shared corpus_notes table) — the only thing missing was the wiring. So "every genre can
+// have images" holds in the data but not in the code.
 //
-// 另一半是**取回那一步的守卫**:地址是 owner 递进来的,后端拿它发请求 = 把服务端当跳板。
-// 非 https、非图片、取不到、超大,四条都得撞得响 —— 只测 happy path 的守卫等于没有守卫。
+// The other half is **the guard on the fetch step**: the URL comes from the owner, and the backend
+// making a request with it turns the server into a relay. Non-https, non-image, unreachable, oversize
+// — all four must trip. A guard that only tests the happy path is no guard at all.
 
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
@@ -27,26 +30,29 @@ const OWNER = {
   handle: 'genre-assets', fullName: 'Genre Assets Owner',
 };
 
-// **四个** genre 一起测 —— 这条特性的全部意思就是"不挑 genre",漏一个就等于这句话是假的。
+// Test **all four** genres together — the whole point of this feature is that it does not pick a
+// genre, so missing one makes that claim false.
 //
-// subjectivity 曾经不在这份名单里,而且不是漏写测试:`assets.upload` 的 genre 白名单
-// 主动拒绝它,`corpus.get` 也拒绝(错误信息还写着 "genre must be 'raw', 'wiki' or
-// 'output'" —— 一句否认它存在的话)。于是它写得进、删得掉,读不回来,更挂不了素材。
-// 底下的机制一直是 genre 无关的(assets 按 holder_id 挂;hero 就在共享的 corpus_notes 上),
-// 缺的只是三处白名单各自漏了同一个名字。
+// subjectivity used to be off this list, and not because a test was forgotten: the genre whitelist
+// in `assets.upload` actively rejected it, and `corpus.get` rejected it too (the error even read
+// "genre must be 'raw', 'wiki' or 'output'" — a sentence denying it existed). So it could be
+// written and deleted, but not read back, let alone carry assets. The mechanism underneath has
+// always been genre-agnostic (assets hang off holder_id; hero lives on the shared corpus_notes),
+// and the only gap was the same name missing from three separate whitelists.
 //
-// 它的**写口**确实是另一条(subjectivity_write:owner 跟自己的 AI 写出来的自我模型,
-// 不走 corpus.create) —— 那是设计,不是缺口。读 / 删 / 挂素材都跟其余三个同一条路。
-// writing 单独有自己的套件。
+// Its **write path** genuinely is a different one (subjectivity_write: the self-model the owner
+// writes together with their own AI, not via corpus.create) — that is by design, not a gap. Read /
+// delete / attach-assets all go the same path as the other three. writing has its own suite.
 const GENRES = ['raw', 'wiki', 'output', 'subjectivity'] as const;
 
 interface MCPSession { request: APIRequestContext; token: string; sid: string }
 let s: MCPSession;
 
-// 装配挂在**文件级**,不挂在某个 describe 上 —— 下面三个 describe 共用一个 owner,而 Playwright
-// 在一条用例失败后会换一个 worker 进程重跑余下的:模块被重新 import,挂在第一个 describe 上的
-// beforeAll 不会为后两个 describe 再跑一次,于是 `s` 是 undefined,后 20 条全部炸在
-// "Cannot read properties of undefined"。那是失败的**回声**,不是新的失败。
+// Setup hangs at the **file level**, not on a single describe — the three describes below share one
+// owner, and Playwright switches to a fresh worker process to rerun the rest after a case fails: the
+// module is re-imported, and a beforeAll hung on the first describe does not run again for the other
+// two, so `s` is undefined and the remaining 20 cases all blow up on "Cannot read properties of
+// undefined". That is the **echo** of the failure, not a new one.
 test.beforeAll(async ({ playwright }: { playwright: Playwright }) => {
   resetInstance();
   const request = await playwright.request.newContext();
@@ -68,7 +74,8 @@ test.describe('每个 genre 都能挂素材', () => {
       expect(asset.content_type).toBe('image/png');
       expect(asset.size_bytes).toBeGreaterThan(0);
 
-      // 正文引用它 —— 用真 id,不是 pending 占位:上传是独立一步,写正文时 id 已经有了。
+      // Reference it from the body — with the real id, not a pending placeholder: upload is a
+      // separate step, so the id already exists when the body is written.
       await setBody(s, genre, id, `${genre} with an image`,
         `here it is: ![pixel](standmeet-asset:${asset.asset_id})`);
 
@@ -80,9 +87,9 @@ test.describe('每个 genre 都能挂素材', () => {
       expect(await assetReachable(s.request, url ?? ''), '那个地址真取得到图').toBe(true);
     });
 
-    // hero 区不是"一张图" —— 设计里它是图 + 压在图上的那句话 + 色调三样一起(见 Cover.tsx:
-    // cover_headline / cover_hue / cover_image_asset_id)。三列本来就在共享的 corpus_notes 表上,
-    // 只有 writing 那条路写过它们。
+    // The hero area is not "an image" — by design it is the image + the line laid over it + the hue,
+    // all three together (see Cover.tsx: cover_headline / cover_hue / cover_image_asset_id). The three
+    // columns already live on the shared corpus_notes table; only the writing path ever wrote them.
     test(`${genre}:hero 区(图 + 标题句 + 色调)挂得上、读得回`, async () => {
       const id = await createEntry(s, genre, `${genre} with a hero`, 'body');
       const asset = await uploadAsset(s, genre, id, MEDIA.pixel, { filename: 'hero.png' });
@@ -99,8 +106,9 @@ test.describe('每个 genre 都能挂素材', () => {
       expect(entry.asset_urls?.[asset.asset_id], 'hero 图也在可访问地址里').toBeTruthy();
     });
 
-    // 附件 —— 设计里 output 页那个 "DOWNLOAD PDF · 0.2 MB" 按钮。它要的三样:文件名、
-    // **字节数**(按钮上要显示大小)、可下载的地址。所以附件不能只回一个 id。
+    // Attachment — the "DOWNLOAD PDF · 0.2 MB" button on the output page in the design. It needs
+    // three things: the filename, the **byte count** (the button shows the size), and a downloadable
+    // URL. So an attachment cannot just return an id.
     test(`${genre}:附件(PDF)传得上,带着文件名和大小读得回`, async () => {
       const id = await createEntry(s, genre, `${genre} with an attachment`, 'body');
       const up = await uploadAsset(s, genre, id, MEDIA.pdf, {
@@ -122,33 +130,39 @@ test.describe('每个 genre 都能挂素材', () => {
       const id = await createEntry(s, genre, `${genre} to delete`, 'body');
       const asset = await uploadAsset(s, genre, id, MEDIA.pixel);
       const before = await getEntry(s, genre, id);
-      // 地址取自**素材清单**,不是 asset_urls —— 后者只解析正文里引用了的那些,而这条语料
-      // 的正文没引用它。取错了会拿到空串,而空串 GET 出去会打到站点根、回 200,
-      // 于是"删之前取得到"假绿、"删之后取不到"假红。
+      // The URL comes from the **asset list**, not asset_urls — the latter only resolves the ones
+      // referenced in the body, and this note's body does not reference it. Get it wrong and you get
+      // an empty string, and an empty-string GET hits the site root and returns 200, making
+      // "reachable before delete" a false green and "unreachable after delete" a false red.
       const url = before.assets?.find((a) => a.asset_id === asset.asset_id)?.url ?? '';
       expect(url, '素材清单里带着可访问地址').toBeTruthy();
       expect(await assetReachable(s.request, url), '删之前取得到').toBe(true);
 
       await callTool(s.request, s.token, s.sid, 'corpus.delete', { genre, id });
 
-      // 先断**产品面**:这条语料读不出来了,自然也没有素材可漏。这一句才是访客那侧
-      // 真正会看见的事;下面那句摸的是存储的字节,产品面不暴露它。
+      // Assert the **product surface** first: the note no longer reads back, so there is no asset to
+      // leak. This is the thing a visitor actually sees; the next assertion probes the stored bytes,
+      // which the product surface never exposes.
       //
-      // 三个 genre 同一句 —— 删就是删。raw 以前走的是"归档"(行留着、置个标志),
-      // 而那个归档没有第二半:没有列表显示它,没有恢复的路,面板上那个按钮打的就是 DELETE。
-      // 一个删除动作在不同 genre 上意味着不同的事,调用方就得记住哪个是哪个。
+      // Same assertion for all genres — delete means delete. raw used to "archive" (the row stayed,
+      // a flag was set), and that archive had no second half: no list showed it, no path restored it,
+      // and the button on the panel fired DELETE. A delete action meaning different things across
+      // genres forces the caller to remember which is which.
       await expect(getEntry(s, genre, id)).rejects.toThrow(/not found|不存在/i);
 
-      // 再断**字节**:不变量说的是 blob 的寿命 ⊆ 条目的寿命,而"字节还在不在"没有任何
-      // 产品面能问 —— 只有直接打对象存储的地址才证得了。两句都要:只断上面那句,
-      // 留下的孤儿字节谁也发现不了;只断这句,"产品面还漏不漏这张图"其实没测。
+      // Then assert the **bytes**: the invariant says the blob's lifetime ⊆ the entry's lifetime,
+      // and no product surface can ask "are the bytes still there" — only hitting the object-store
+      // URL directly proves it. Both assertions are needed: assert only the one above and orphaned
+      // bytes go unnoticed by anyone; assert only this one and "does the product still leak the
+      // image" goes untested.
       expect(await assetReachable(s.request, url), '删之后取不到').toBe(false);
     });
   }
 
 });
 
-// ── 取回那一步的守卫。地址是 owner 递进来的 —— 后端拿它发请求就是把自己当跳板。 ──
+// ── The guard on the fetch step. The URL comes from the owner — the backend making a request with
+//    it turns itself into a relay. ──
 test.describe('按地址取素材:每条守卫都要撞得响', () => {
   test('挂到一条不存在的语料上 → 拒,而不是落一份没人认领的素材', async () => {
     await expect(
@@ -161,14 +175,16 @@ test.describe('按地址取素材:每条守卫都要撞得响', () => {
     await expect(uploadAsset(s, 'wiki', id, MEDIA.insecure)).rejects.toThrow(/https/i);
   });
 
-  // F-P-7 —— **要求描述性 User-Agent 的主机，我们必须取得到。**
+  // F-P-7 —— **hosts that require a descriptive User-Agent, we must be able to fetch from.**
   //
-  // 上一版建请求时一个 UA 都不带，Go 于是发默认的 `Go-http-client/2.0`，而 Wikimedia
-  // 的机器人策略对这类 UA 直接 403。「从维基百科贴一张图」是 owner 最可能做的一件事，
-  // 于是这条路在最常见的来源上直接不通 —— 而 owner 看到的只有一句 `media rejected: status 403`。
+  // The previous version built the request with no UA at all, so Go sent the default
+  // `Go-http-client/2.0`, and Wikimedia's bot policy 403s that UA outright. "Paste an image from
+  // Wikipedia" is the single most likely thing the owner does, so this path was flatly broken on the
+  // most common source — and all the owner saw was `media rejected: status 403`.
   //
-  // 判据是**取回来了**，不是「没报错」：这一条要能把「我们改了 UA」和「我们还在发默认值」
-  // 分开，所以替身那一侧先学会这条规矩（403 除非 UA 像样），再让它红。
+  // The criterion is **it came back**, not "no error": this case has to tell "we changed the UA"
+  // apart from "we still send the default", so the stand-in first learns the rule (403 unless the UA
+  // is presentable), then goes red.
   test('主机要求描述性 User-Agent → 取得回来(不能发库的默认 UA)', async () => {
     const id = await createEntry(s, 'wiki', 'ua-required', 'body');
     const up = await uploadAsset(s, 'wiki', id, MEDIA.uaRequired, { filename: 'ua.png' });
@@ -176,9 +192,11 @@ test.describe('按地址取素材:每条守卫都要撞得响', () => {
     expect(up.size_bytes).toBeGreaterThan(0);
   });
 
-  // 当图片用(kind=image,默认)时必须真是图片 —— 否则 owner 递一个 HTML 页面进来就成了"一张图"。
-  // 但**附件不适用这条**:附件本来就不是图片,一刀切会把下载按钮那条整条毙掉。
-  // "多媒体"不是只有 png。gif / webp / mp4 都得收得下 —— 否则 owner 贴一张动图就卡住。
+  // Used as an image (kind=image, the default) it must really be an image — otherwise an owner
+  // handing in an HTML page turns it into "an image". But **this does not apply to attachments**: an
+  // attachment is not an image to begin with, and a blanket rule would kill the download-button case
+  // entirely. "Media" is not only png. gif / webp / mp4 must all be accepted — otherwise the owner
+  // pasting an animated image gets stuck.
   for (const [label, url, want] of [
     ['gif', MEDIA.gif, 'image/gif'],
     ['webp', MEDIA.webp, 'image/webp'],
@@ -192,15 +210,17 @@ test.describe('按地址取素材:每条守卫都要撞得响', () => {
     });
   }
 
-  // SVG 是这次放宽里**最容易漏的一条**:它命中 image/* 前缀,但里面能塞 <script>,
-  // 存下来再由我们的地址发出去就是存储型 XSS。所以判据必须是白名单,不是前缀匹配。
+  // SVG is **the easiest one to miss** in this loosening: it matches the image/* prefix, but it can
+  // carry a <script> inside, and storing it and then serving it from our own URL is stored XSS. So
+  // the criterion must be a whitelist, not a prefix match.
   test('SVG 拒 —— image/* 前缀匹配不是白名单', async () => {
     const id = await createEntry(s, 'wiki', 'svg', 'body');
     await expect(uploadAsset(s, 'wiki', id, MEDIA.svg)).rejects.toThrow(/svg|content-type/i);
   });
 
-  // 声明的类型是**对方说的**,不是证据。声明 image/png、实际发 SVG 字节 —— 只看 header
-  // 的校验会放它过去,然后这份"PNG"以 SVG 的身份被浏览器执行。
+  // The declared type is **what the other side says**, not evidence. Declare image/png, actually
+  // send SVG bytes — a check that only reads the header lets it through, and then this "PNG" runs in
+  // the browser as an SVG.
   test('声明 image/png 实际是 SVG 字节 → 拒(不能只信 Content-Type)', async () => {
     const id = await createEntry(s, 'wiki', 'lying', 'body');
     await expect(uploadAsset(s, 'wiki', id, MEDIA.lying)).rejects.toThrow(/svg|mismatch|content/i);
@@ -227,10 +247,12 @@ test.describe('按地址取素材:每条守卫都要撞得响', () => {
 
 });
 
-// 上限**按 kind 分**。一段视频天生比一张图大 —— 拿同一个数卡它等于禁掉视频。
+// The limit is **per kind**. A video is naturally bigger than an image — capping it with the same
+// number amounts to banning video.
 test.describe('体积上限:按 kind 分,按读到的字节算', () => {
-  // 上限**按 kind 分**。一段视频天生比一张图大 —— 拿同一个数卡它等于禁掉视频。
-  // 同样 11MB:当图片是超标,当视频是正常。这一对就是"上限不是一个全局常数"的证据。
+  // The limit is **per kind**. A video is naturally bigger than an image — capping it with the same
+  // number amounts to banning video. The same 11MB is oversize as an image and fine as a video. This
+  // pair is the proof that "the limit is not one global constant".
   test('11MB 当图片 → 超标', async () => {
     const id = await createEntry(s, 'wiki', 'huge image', 'body');
     await expect(
@@ -252,7 +274,8 @@ test.describe('体积上限:按 kind 分,按读到的字节算', () => {
     ).rejects.toThrow(/exceed|bytes|limit|大/i);
   });
 
-  // 上限按读到的字节算:bulk 根本不发 Content-Length,所以"信声明"的实现在这条上会一路读完。
+  // The limit counts the bytes actually read: bulk sends no Content-Length at all, so a
+  // "trust-the-declaration" implementation would read all the way through on this one.
   test('不发 Content-Length 也拦得住(按读到的字节算)', async () => {
     const id = await createEntry(s, 'wiki', 'no length', 'body');
     await expect(

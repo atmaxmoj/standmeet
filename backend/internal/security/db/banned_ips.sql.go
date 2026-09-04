@@ -28,8 +28,8 @@ type BanIPParams struct {
 	ExpiresAt pgtype.Timestamptz
 }
 
-// 封一个 IP。重复封同一 (owner, ip) 覆盖 reason/expires_at 并刷新 created_at
-// (等于「重新封」)。
+// Ban an IP. Re-banning the same (owner, ip) overwrites reason/expires_at and refreshes created_at
+// (equivalent to "re-ban").
 func (q *Queries) BanIP(ctx context.Context, arg BanIPParams) (BannedIp, error) {
 	row := q.db.QueryRow(ctx, banIP,
 		arg.OwnerID,
@@ -62,8 +62,8 @@ type IsIPBannedParams struct {
 	Ip      string
 }
 
-// enforcement 查询：该 owner 是否封了这个 IP 且未过期。expires_at IS NULL =
-// 永久。返回布尔。
+// enforcement query: has this owner banned this IP and it has not expired? expires_at IS NULL =
+// permanent. Returns a boolean.
 func (q *Queries) IsIPBanned(ctx context.Context, arg IsIPBannedParams) (bool, error) {
 	row := q.db.QueryRow(ctx, isIPBanned, arg.OwnerID, arg.Ip)
 	var banned bool
@@ -78,9 +78,9 @@ SELECT EXISTS (
 ) AS banned
 `
 
-// 公开面 enforcement 用：这个 IP 在本实例上是否被任何 owner 封了且未过期。
-// v1 单 owner，等价于「sole owner 封没封」，但不需 middleware 解析 owner。
-// 多租户起再换成 host→owner 作用域。
+// For public-surface enforcement: is this IP banned by any owner on this instance and not expired?
+// v1 single owner, equivalent to "did the sole owner ban it", but without middleware resolving the owner.
+// Switch to host→owner scoping when multi-tenant arrives.
 func (q *Queries) IsIPBannedAnywhere(ctx context.Context, ip string) (bool, error) {
 	row := q.db.QueryRow(ctx, isIPBannedAnywhere, ip)
 	var banned bool

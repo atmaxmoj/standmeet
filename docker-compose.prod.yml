@@ -79,6 +79,9 @@ services:
       # "What's the outward-facing address" is filled by the owner in the claim form, written into owners.public_url; the LLM
       # provider is also configured by the owner in admin/MCP (ai_endpoint). Neither goes through env.
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      # PUBLIC_IP —— the instance's public IP, shown on the admin System panel. The owner
+      # sets it in .env (their server's public address); empty → the panel shows "—".
+      - PUBLIC_IP=${PUBLIC_IP:-}
       - SANDBOX_DRIVER=docker
       # Turnstile captcha —— OFF unless the owner sets both in .env. The backend reads these
       # two; before F-G-2 neither compose file passed them, so "captcha is opt-in" was true of

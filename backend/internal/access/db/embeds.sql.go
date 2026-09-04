@@ -103,8 +103,9 @@ type GetEmbedAuthByKeyIDRow struct {
 	Code           string
 }
 
-// session 签发时靠它按 JWT 的 kid 反查：这个 embed 的公钥（验签）+ 白名单（校 origin）+
-// 它暴露的码（发会话）。code 明文只在这一步、服务端拿到。
+// Used at session issuance to look up by the JWT's kid: this embed's public key (verify signature)
+// + allow list (check origin) + the code it exposes (issue the session). The plaintext code is
+// obtained only at this step, server-side.
 func (q *Queries) GetEmbedAuthByKeyID(ctx context.Context, keyID pgtype.UUID) (GetEmbedAuthByKeyIDRow, error) {
 	row := q.db.QueryRow(ctx, getEmbedAuthByKeyID, keyID)
 	var i GetEmbedAuthByKeyIDRow

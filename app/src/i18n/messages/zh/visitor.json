@@ -1,0 +1,99 @@
+{
+  "common": {
+    "try": "试试"
+  },
+  "modelLoader": {
+    "pickModel": "选择一个模型…",
+    "type": "类型"
+  },
+  "askAboutThis": {
+    "header": "就这{label}向 AI 提问",
+    "essay": "篇文章",
+    "entry": "条条目",
+    "piece": "篇",
+    "context": "上下文：“{title}”",
+    "ask": "提问 ↵"
+  },
+  "chatRoom": {
+    "brand": "standmeet",
+    "live": "在线",
+    "fullPage": "整页 →",
+    "ghostAccept": "↹ tab",
+    "ready": "{handle} 的 ai · 就绪",
+    "codedWelcome": "{greeting}。我是一个以 {handle} 精选语料库为依据的 AI。你是通过 <accent>{codeLabel}</accent> 切片进来的。",
+    "codedRedaction": "此访问码范围之外的私密话题会被屏蔽。{handle} 事后会阅读对话记录。",
+    "codedStarters": "尽管问。下方有些开场白，若你需要一个切入点。",
+    "codedGhostHint": "尽管问。框里有一个建议的问题在等着——按 Tab 采用它。",
+    "byoaiWelcome": "你好。我是一个以 {handle} 精选语料库为依据的 AI。你正用自己的 <accent>{provider}</accent> 密钥运行——仅公开切片。",
+    "byoaiScope": "工作、项目、公开观点——尽管问。私密话题会返回「需要访问码」的回应。",
+    "sessionFull": "会话已满",
+    "limitReached": "你已达到此会话的{reason}上限——联系 {handle} 以获得更多。",
+    "ask": "提问 <big>↵</big>",
+    "footnote": "<muted>这是怎么运作的</muted> · 回答来自 {handle} 的精选语料库。私密话题返回屏蔽而非臆测。",
+    "footnoteCoded": " {handle} 事后会阅读对话记录。",
+    "footnoteByoai": " 你的 api 密钥永不离开浏览器。"
+  },
+  "chatTranscript": {
+    "you": "你",
+    "ai": "ai",
+    "references": "引用 · {count}"
+  },
+  "composerAttachments": {
+    "pasted": "已粘贴",
+    "remove": "✕"
+  },
+  "floatingChatDock": {
+    "close": "关闭 ✕",
+    "thinking": "思考中",
+    "ask": "提问 ",
+    "askTheAI": "向 AI 提问",
+    "emptyHint": "就这个页面提问——以主理人的口吻作答，基于语料库。这是一条独立的对话线，但 AI 仍能看到你的其他对话。"
+  },
+  "restrictedDoc": {
+    "opening": "打开中…",
+    "kindOutput": "输出",
+    "kindEntry": "条目",
+    "lockedTitle": "此{kind}需要访问码",
+    "lockedBody": "主理人已限制此条目。在门禁页输入访问码以查看完整内容。",
+    "outOfScopeTitle": "你的访问码触及不到这一条",
+    "outOfScopeBody": "要么它在你的访问码覆盖范围之外，要么这个地址上什么都没有——实例不会告诉你是哪种。在下方提问，AI 会从你能读到的内容作答。",
+    "enterCode": "输入访问码 →",
+    "home": "← 首页"
+  },
+  "sessionStrip": {
+    "byoaiMode": "byoai · {provider}",
+    "you": "你 · {visitor}",
+    "exit": "退出会话",
+    "byoaiUnlimited": "访客付费 · 无限制",
+    "names": "名字",
+    "requestMore": "申请更多 ↗",
+    "turns": "轮次"
+  },
+  "visitorNamePicker": {
+    "whosReading": "谁在阅读？",
+    "full": "此访问码已满——达到了名字数量上限。向分享给你的人索要一个新的。",
+    "prompt": "聊天开始前的最后一件事——主理人稍后会在你的对话记录上看到它。选一个短名字；用昵称也行。",
+    "capacityDefault": "不止一个人可以使用这个访问码。",
+    "capacityNote": "一直用<strong>同一个名字</strong>，你的对话就以「你」为单位归组；<strong>换个名字</strong>会被视作新的人，另起一段对话。要把访问码给别人？让他们扫码并选自己的名字。不想给名字？<strong>跳过</strong>同样会占用该访问码的一个名字，作为访客——而之后再回来会以一个新访客身份重新开始。",
+    "start": "开始 ↵",
+    "skip": "跳过",
+    "starting": "正在开始聊天"
+  },
+  "wikiTopBar": {
+    "brand": "standmeet",
+    "wiki": "wiki",
+    "writing": "文章",
+    "chat": "聊天"
+  },
+  "wikiTreeView": {
+    "head": "wiki 树",
+    "stats": "<num>{entries}</num> 条目 · <num>{roots}</num> 根 · <num>{gated}</num> 受限",
+    "gatedHint": "这些条目是私密的——输入访问码",
+    "indexEmpty": "这里还没有发布任何内容。"
+  },
+  "readerChat": {
+    "kicker": "就此提问",
+    "heading": "就这条条目提个问题。",
+    "lede": "AI 以主理人的口吻作答，基于这套语料库。自带你的密钥即可开始——它永不离开你的浏览器。"
+  }
+}

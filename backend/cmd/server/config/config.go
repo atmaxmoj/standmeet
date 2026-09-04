@@ -27,6 +27,9 @@ type Config struct {
 	SessionKey  string
 	// root dir for custom page build artifacts: builder writes, backend reads
 	CustomPagesRoot string
+	// PublicIP — the instance's public IP, shown on the admin System panel. Deploy-provided
+	// (the owner's server knows its own public address); empty → the panel shows "—".
+	PublicIP string
 	// JobFetch*BaseURL — base URL overrides for each job-board adapter. Left
 	// empty in production to hit the real URL; e2e/dev point at the
 	// external-mock started by docker-compose. See
@@ -110,6 +113,14 @@ type Config struct {
 	// owner which command to run.
 	// env: STANDMEET_REDEPLOY_HOOK
 	RedeployHookURL string
+	// UpgradeSignalPath — the **product-owned** upgrade path. The compose points this at a
+	// file on the volume shared with the bundled updater sidecar; the upgrade button writes
+	// there and the sidecar (the only container with docker access) pulls + recreates the
+	// stack. Ships with the product, so the button works with no owner configuration and no
+	// external orchestrator. Empty (no sidecar) → fall back to RedeployHookURL, or the panel
+	// reports the button can't act.
+	// env: STANDMEET_UPGRADE_SIGNAL
+	UpgradeSignalPath string
 	// ReleaseRegistry / ReleaseRepo — where to ask "is there a new version".
 	// Defaults to the official image registry; people running their own
 	// fork change the repo, and dev/e2e point the registry at a local mock
@@ -172,6 +183,7 @@ func Load() (*Config, error) {
 		RedisURL:                       os.Getenv("REDIS_URL"),
 		SessionKey:                     os.Getenv("SESSION_KEY"),
 		CustomPagesRoot:                envOr("CUSTOM_PAGES_ROOT", "/srv/custom-pages"),
+		PublicIP:                       os.Getenv("PUBLIC_IP"),
 		JobFetchGreenhouseBaseURL:      os.Getenv("GREENHOUSE_BASE_URL"),
 		JobFetchLeverBaseURL:           os.Getenv("LEVER_BASE_URL"),
 		JobFetchAshbyBaseURL:           os.Getenv("ASHBY_BASE_URL"),
@@ -209,6 +221,7 @@ func Load() (*Config, error) {
 		MarketplaceGitHubBaseURL:   os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),
 		MarketplaceSkillsMPBaseURL: os.Getenv("MARKETPLACE_SKILLSMP_BASE_URL"),
 		RedeployHookURL:            os.Getenv("STANDMEET_REDEPLOY_HOOK"),
+		UpgradeSignalPath:          os.Getenv("STANDMEET_UPGRADE_SIGNAL"),
 		ReleaseRegistry:            envOr("STANDMEET_RELEASE_REGISTRY", defaultReleaseRegistry),
 		ReleaseRepo:                envOr("STANDMEET_RELEASE_REPO", defaultReleaseRepo),
 		StorageUseSSL:              os.Getenv("STORAGE_USE_SSL") == "true",

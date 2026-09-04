@@ -1,0 +1,233 @@
+{
+  "sidebar": {
+    "instanceLabel": "instance ·",
+    "uptimeLabel": "uptime ·",
+    "groupPrefix": "──",
+    "closeNav": "close the section list"
+  },
+  "topBar": {
+    "brand": "standmeet",
+    "admin": "admin",
+    "live": "live",
+    "notAnswering": "not answering",
+    "viewPublic": "view public ↗",
+    "signOut": "sign out",
+    "navOpen": "sections",
+    "navClose": "close",
+    "versionLabel": "version ·"
+  },
+  "pulse": {
+    "title": "corpus pulse",
+    "sparkWindow": "new per day · last 14d"
+  },
+  "constellation": {
+    "empty": "no links yet"
+  },
+  "listPane": {
+    "loadFailed": "Couldn't load this list — so this is not “none”, it's “unknown”. Reload to try again."
+  },
+  "modal": {
+    "close": "close ✕"
+  },
+  "qr": {
+    "fallback": "qr…"
+  },
+  "previewPane": {
+    "fileName": "preview · {name}"
+  },
+  "application": {
+    "idLabel": "application · {id}",
+    "close": "close ✕",
+    "closeAction": "close",
+    "timeline": "timeline",
+    "contact": "contact",
+    "pingInChat": "ping in chat ↗",
+    "privateNotes": "private notes",
+    "resumeSnapshot": "resume sent · snapshot",
+    "resume": "resume",
+    "tailoredFor": "tailored for {company} · {role}",
+    "viewFull": "view full ↗",
+    "downloadPdf": "download pdf",
+    "status": "status",
+    "sentMeta": "sent {sentAt} · {method}",
+    "withdraw": "withdraw",
+    "logUpdate": "log update"
+  },
+  "connectorAdd": {
+    "catalogCount": "add connector · {n} in catalog",
+    "tagline": "Extend the corpus surface.",
+    "close": "close ✕",
+    "installed": "installed",
+    "builtIn": "built-in"
+  },
+  "connectorConfig": {
+    "oauthHint": "opens provider OAuth in a new tab",
+    "choose": "choose…",
+    "backToCatalog": "← back to catalog",
+    "connect": "connect →"
+  },
+  "connectorCard": {
+    "credsStored": "Credentials are saved for this connector. They are never shown again — leave the fields blank to keep them, or type new ones to replace them.",
+    "scopeShortfall": "Connected, but this grant can't do everything asked of it — actions needing {scopes} will not run. Tick it above and connect again."
+  },
+  "connectorCred": {
+    "authentication": "authentication",
+    "apiKeyHint": "Sent in the {where} as <code>{name}</code>.",
+    "discoveryHint": "Discovery: <code>{url}</code>",
+    "needsDance": "This scheme needs an authorization step. Assemble the connector first — the Connect button lives on its card.",
+    "scopes": "scopes"
+  },
+  "protocolConnector": {
+    "testConnection": "Test connection →"
+  },
+  "specIngest": {
+    "heading": "paste an OpenAPI spec",
+    "blurb": "Any OpenAPI 3.0 spec (JSON or YAML). We derive the credential form + category from it.",
+    "useThisSpec": "check this spec",
+    "uploadSpec": "upload a file",
+    "bindingLabel": "binding — optional",
+    "bindingHint": "JSONata (YAML) mapping this API's operations onto a category contract, so the agent can use it as a calendar, a mailer, and so on. Leave it empty to expose the raw operations instead.",
+    "orFetchFromUrl": "…or fetch from a URL",
+    "fetch": "fetch",
+    "candidate": "connector candidate",
+    "baseUrlLabel": "base URL — only if the spec declares no servers",
+    "assemble": "assemble connector →",
+    "exposeLabel": "Let a visitor's AI call these operations directly. Every operation in the spec becomes a tool it can use, subject to per-code grants. Leave this off if you supplied a binding.",
+    "needsBindingOrExpose": "This would assemble a connector nothing can call. Supply a binding to fill a category, or tick the box above to open the operations to a visitor's AI."
+  },
+  "composer": {
+    "backToDrafts": "← drafts",
+    "regenerate": "regenerate ⌖",
+    "send": "send →",
+    "match": "match",
+    "matchOutOf": "/ 100",
+    "matchTitle": "match against the job description",
+    "freezeAndSend": "freeze + send",
+    "confirmTitle": "Send this draft to {company}?",
+    "confirmBody": "Sending will freeze the resume + cover letter snapshot, render the final PDF (with QR), and write an application row. The auto-issued AccessCode will be 180 days, 10 sessions, 50 turns.",
+    "keepEditing": "← keep editing"
+  },
+  "codeModal": {
+    "cancel": "cancel",
+    "addQuestion": "＋ add",
+    "promptNone": "— none —",
+    "roleDefault": "— default —",
+    "providerTitle": "provider",
+    "providerSubtitle": "beats the role's; blank inherits it",
+    "providerInherit": "— inherit (role, then instance default) —"
+  },
+  "codeQr": {
+    "copyLink": "copy link",
+    "printQr": "print qr ↗",
+    "roleLabel": "role ·",
+    "statusLine": "status · {status}"
+  },
+  "visitorPreview": {
+    "ownerAiReady": "owner's ai · ready",
+    "welcome": "Welcome. You've come in on <accent>{label}</accent>. Before we start — is this you, or someone new?",
+    "suggestedQuestions": "suggested questions",
+    "noSuggested": "no suggested questions set for this code",
+    "assumesRole": "this code assumes role",
+    "codeLine": "code · {code}",
+    "testThisCode": "test this code"
+  },
+  "dashboard": {
+    "corpusActive": "↑ {added} new in 14d",
+    "corpusQuiet": "nothing new in 14d",
+    "entriesTotal": "entries · total",
+    "daysAgo14": "new per day · 14d ago",
+    "today": "today",
+    "viewAll": "view all →",
+    "all": "all →",
+    "inPool": "in pool",
+    "applications": "applications",
+    "newestInPool": "newest in pool",
+    "poolLoading": "reading the pool…",
+    "poolError": "Couldn’t read the job pool. Reload and retry.",
+    "registerSources": "register sources to start matching",
+    "sourcesHint": "/admin/sources → fetch → listings land here for a day",
+    "nothingFetched": "sources are registered — nothing fetched lately",
+    "nothingFetchedHint": "ask Claude to run jobs.fetch_new; results land in /admin/listings for a day",
+    "recentError": "Couldn’t load recent visitors. Reload and retry.",
+    "noConversations": "no conversations yet — visitors will appear here once they start chatting",
+    "visitorMeta": "{label} · {turns, plural, one {# turn} other {# turns}} · {last}",
+    "privHits": "{n} priv",
+    "nothingPending": "Nothing pending — corpus is current.",
+    "review": "review →"
+  },
+  "account": {
+    "siteAddress": "사이트 주소",
+    "byoaiMode": "byoai 모드",
+    "profile": "profile",
+    "language": "interface language",
+    "languageSub": "the language of the admin and your public pages",
+    "security": "security",
+    "inference": "inference",
+    "defaultProvider": "default provider",
+    "configuredIn": "configured in /admin/api-mcp",
+    "spend30d": "30-day spend",
+    "spendSub": "your inference key · owner pays",
+    "spendUnknown": "$—"
+  },
+  "ipBans": {
+    "intro": "Block abusive source IPs. A banned IP gets a 403 on the whole public surface — chat, sessions, access requests. Find offending IPs in <mono>conversations</mono> (each row shows the visitor's IP). Bans can be lifted any time.",
+    "banIp": "ban ip",
+    "empty": "No IPs banned. The public surface is open (still rate-limited per IP).",
+    "unban": "unban"
+  },
+  "system": {
+    "checkForUpdates": "check for updates",
+    "upgradeChecking": "checking…",
+    "upgradeApplying": "upgrading…",
+    "upgradeTo": "upgrade to {version}",
+    "upgradeUnknown": "This instance has not checked for a newer release yet.",
+    "upgradeUnreachable": "Could not reach the release registry — this instance may have no outbound network. Its own version still shows below.",
+    "upgradeCurrent": "Running {version} — the newest published release.",
+    "upgradeIncomparable": "This build reports {current}, which is not a released version — it cannot be compared. The newest published release is {version}.",
+    "upgradeAvailable": "{version} has been published. This instance can apply it.",
+    "upgradeManual": "{version} has been published. This instance cannot apply it itself — it has no control over its host. Redeploy it wherever you deploy it from, or set STANDMEET_REDEPLOY_HOOK to the redeploy URL your host gives you.",
+    "upgradeWaiting": "Redeploy requested. Waiting for this instance to come back and say which version it is running.",
+    "upgradeDone": "Upgraded — now running {version}.",
+    "upgradeStalled": "The redeploy ran, but this instance still reports {version}. Its image tags are probably pinned to that version — point them at the newer one and redeploy again.",
+    "deployment": "deployment",
+    "statusCmd": "standmeet status",
+    "treeBranch": "├─",
+    "treeLast": "└─",
+    "version": "version",
+    "cpus": "cpus",
+    "uptime": "uptime",
+    "migrations": "migrations",
+    "migrationsPending": "0 pending",
+    "ready": "ready",
+    "resources": "resources · host + runtime",
+    "publicIp": "공용 ip",
+    "cluster": "클러스터 · 자체 컨테이너",
+    "clusterEmpty": "클러스터 데이터 없음 — docker 소켓이 마운트되지 않음",
+    "backgroundJobs": "background jobs",
+    "colJob": "job",
+    "colSchedule": "schedule",
+    "colLast": "last",
+    "colStatus": "status",
+    "statusDot": "●",
+    "healthChecks": "health checks"
+  },
+  "inferenceUsage": {
+    "title": "inference usage · last 7 days",
+    "colDate": "date",
+    "colModel": "model",
+    "colCalls": "calls",
+    "colIn": "in",
+    "colOut": "out",
+    "empty": "no owner-key LLM calls in the last 7 days"
+  },
+  "sandbox": {
+    "title": "mcp sandbox · {n} active workspaces",
+    "sweepNow": "sweep now",
+    "colWorkspace": "session workspace",
+    "colAge": "age",
+    "empty": "No workspaces right now",
+    "emptyHint": "A workspace appears when a visitor session uses a tool that writes files, and it is swept once it has been idle past its TTL. None here means none in use — not that something is broken.",
+    "sweepNothing": "Nothing to sweep — there are no workspaces",
+    "ageSecs": "{n}s"
+  }
+}

@@ -85,7 +85,6 @@ function DefaultsCard({ form, setForm, onSave }: {
         hint={t('seo.ogTemplateHint')} />
       <RobotsToggle on={form.index_robots}
         onToggle={() => setForm({ ...form, index_robots: !form.index_robots })} />
-      <DescriptionMirror />
       <CanonicalMirror />
       <div>
         <button type="button" data-testid="seo-save" className="sm-btn sm-btn-solid sm-btn-sm"
@@ -134,28 +133,15 @@ function RobotsToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 function MirrorEditLink({ testid }: { testid: string }) {
   const t = useTranslations('adminCorpus.seo');
   return (
-    <a data-testid={testid} href="/admin/page"
+    <a data-testid={testid} href="/admin/account"
       className="mono text-[11px] tracking-[0.04em] text-(--color-accent) underline whitespace-nowrap">
       {t('editOnPage')}
     </a>
   );
 }
 
-// DescriptionMirror —— og:description reuses page's hero prose, read-only + jumps to /admin/page to edit.
-function DescriptionMirror() {
-  const t = useTranslations('adminCorpus.seo');
-  return (
-    <div data-testid="seo-description">
-      <div className="sm-smallcaps mb-1">{t('ogDescription')}</div>
-      <p className="reading text-[13px] text-(--color-muted)">
-        {t('usesHeroProse')}{' '}
-        <MirrorEditLink testid="seo-description-edit" />
-      </p>
-    </div>
-  );
-}
-
-// CanonicalMirror —— canonical host = owner.public_url, read-only + jumps to /admin/domain to edit.
+// CanonicalMirror —— canonical host = owner.public_url, read-only + jumps to the account
+// section's site block to edit (the public-URL editor moved there with the homepage rework).
 function CanonicalMirror() {
   const t = useTranslations('adminCorpus.seo');
   const session = useAdminSession();

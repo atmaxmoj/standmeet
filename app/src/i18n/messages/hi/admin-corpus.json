@@ -1,0 +1,160 @@
+{
+  "assets": {
+    "heading": "फाइलें",
+    "empty": "अभी तक कोई फाइलें संलग्न नहीं की गई हैं",
+    "choose": "choose a file",
+    "kindImage": "image",
+    "kindAttachment": "attachment",
+    "insert": "insert in body",
+    "setCover": "use as cover",
+    "unsetCover": "stop using as cover",
+    "isCover": "cover",
+    "remove": "remove"
+  },
+  "hero": {
+    "headline": "cover line",
+    "headlinePlaceholder": "the line laid over the cover image",
+    "hue": "hue",
+    "hueDefault": "— default —"
+  },
+  "subjectivity": {
+    "intro": "Your self-model — taste, judgment, what you care about. Private unless you mark a note citable. Write here or by talking to your AI; both land in the same place.",
+    "empty": "nothing here yet",
+    "new": "+ new note"
+  },
+  "citable": {
+    "label": "citable — appears in the answer's references",
+    "help": "With this off, the AI still reads this note and still uses it to shape its answer — it just isn't listed under REFERENCES. This is the attribution switch, not the secrecy switch: to stop the AI reading it at all, take its corpus URI back on /admin/roles or on the code."
+  },
+  "search": {
+    "label": "find",
+    "placeholder": "words from the note — title or body",
+    "idleHint": "the list below is the newest page; search looks at the whole corpus",
+    "searching": "searching the whole corpus…",
+    "found": "{count, plural, one {# entry matches} other {# entries match}} “{query}” — searched the whole corpus, not just this page",
+    "foundCapped": "showing the first {count} matches for “{query}” — searched the whole corpus; narrow the words to see fewer",
+    "none": "no match for “{query}” in the whole corpus. This index is lexical: substrings inside a word, terms glued to punctuation and CJK all tokenize badly, so empty does not prove the note isn't there — try a distinctive whole word from it.",
+    "failed": "search failed: {reason}"
+  },
+  "common": {
+    "loading": "loading…",
+    "saving": "saving…",
+    "save": "save",
+    "saveLanding": "save landing",
+    "cancel": "cancel",
+    "edit": "Edit",
+    "body": "body",
+    "tagsLabel": "tags (comma-separated)",
+    "noneRoot": "— none (root) —",
+    "deleteX": "delete ×"
+  },
+  "form": {
+    "title": "title",
+    "parent": "parent node (optional)",
+    "entryHeading": "the note itself (body, files, tags)"
+  },
+  "seoEditor": {
+    "heading": "public landing (url is tree-derived from the title)",
+    "description": "meta description",
+    "indexed": "published — a public page lives at this URL, and it is listed in sitemap.xml"
+  },
+  "scope": {
+    "kept": "kept as written (not on the tree): ",
+    "allOfIt": "— all of it ({glob})",
+    "everythingUnder": "+ everything under it",
+    "referable": "referable — this entry can appear as a cited source",
+    "notReferable": "readable but not referable — the AI reads it, it is never cited"
+  },
+  "wiki": {
+    "newEntry": "+ new entry",
+    "all": "all",
+    "empty": "No wiki entries yet. Use + new entry, promote from /admin/raw, or call MCP <tool>promote_to_wiki</tool>.",
+    "dotPublic": "● public",
+    "dotPrivate": "● private",
+    "edit": "edit ↗",
+    "promoteToOutput": "promote → output ↗",
+    "viewLive": "view ↗"
+  },
+  "output": {
+    "slugPath": "/output/'<'slug>",
+    "intro": "Outputs are public-facing artifacts assembled from your wiki entries — downloadable PDFs, standalone web essays, investor decks. Each gets its own SEO landing at <code>{slugPath}</code>. Three visibilities: <ink>public</ink> (open to anyone, in sitemap), <amber>unlisted</amber> (only visible with a code), <violet>private</violet> (specific code scopes only, never indexed).",
+    "newPdf": "+ pdf lead-magnet",
+    "newEssay": "+ web essay",
+    "empty": "No output entries yet. Use + new output, promote from /admin/wiki, or call MCP <tool>promote_wiki_to_output</tool>.",
+    "coverKicker": "output · {visibility}",
+    "views": "0 views",
+    "downloads": "0 downloads",
+    "pathPrefix": "/output/",
+    "edit": "edit",
+    "previewLive": "preview ↗"
+  },
+  "raw": {
+    "quickDump": "quick dump",
+    "dumpHint": "paste a thought · then promote",
+    "dumpOrigin": "admin · or mcp",
+    "dumping": "dumping…",
+    "dump": "dump ↵",
+    "unindexedHint": "raw stays unindexed until promoted",
+    "empty": "No raw entries yet. Push one from an MCP client (raw_dump tool).",
+    "flaggedPrivateBadge": "· flagged private",
+    "promoteToWiki": "promote → wiki ↗",
+    "edit": "edit",
+    "delete": "delete",
+    "flaggedPrivateField": "flagged private (excluded from public chat)"
+  },
+  "writings": {
+    "newWriting": "＋ new writing",
+    "intro": "Owner-curated writings. Use the block editor below — type `/` for a block menu, or hand off to Claude via the `writing_create` MCP tool. Saved as canonical markdown either way.",
+    "composer": "composer · {slug}",
+    "backToList": "← back to list",
+    "empty": "No writings yet.",
+    "coverHue": "cover hue",
+    "hueAmber": "amber",
+    "hueViolet": "violet",
+    "hueAcid": "acid",
+    "parent": "parent (reader tree)",
+    "publishImmediately": "publish immediately",
+    "coverImage": "cover image (optional)",
+    "chooseCover": "choose an image",
+    "noImg": "no img",
+    "clear": "clear"
+  },
+  "obsidianBar": {
+    "export": "↓ export to Obsidian",
+    "importing": "importing…",
+    "import": "↑ import from Obsidian",
+    "working": "working…",
+    "result": "{created} new · {updated} updated · {deleted} deleted · {skipped} skipped",
+    "errors": "· {count, plural, one {# error} other {# errors}}"
+  },
+  "sideRail": {
+    "crosslinks": "cross-links",
+    "outgoing": "outgoing · {count}",
+    "noneYet": "none yet · type [[ to add",
+    "keyboard": "keyboard",
+    "keyInsertBlock": "insert block",
+    "keyCrossLinkPicker": "cross-link picker",
+    "keyPasteImage": "paste image inline",
+    "keyInlineLink": "add inline link",
+    "keyCloseMenu": "close menu"
+  },
+  "obsidian": {
+    "manualMode": "○ manual mode",
+    "importExport": "import / export",
+    "help": "Import picks your Obsidian vault folder (wiki / subjectivity / raw / writings) and upserts the matching corpus notes by their vault path. Export downloads your corpus as a vault of markdown + frontmatter.",
+    "noSync": "No live sync, no file watcher — these two actions are the whole mechanism, and neither runs unless you run it."
+  },
+  "seo": {
+    "intro": "Defaults applied across the public site. Per-output / per-post SEO lives with the individual entry. Site title is edited here; the social description and canonical host mirror your hero prose and domain — edit those where they live.",
+    "defaults": "defaults",
+    "robots": "index, follow (robots)",
+    "siteTitleHint": "The browser tab and the name search engines show. Left empty, pages fall back to your handle.",
+    "ogTemplateHint": "URL of the image social cards use. Leave empty and shared links carry no card image.",
+    "ogDescription": "og:description",
+    "usesHeroProse": "Uses your hero prose.",
+    "editOnPage": "edit on the Page section →",
+    "canonicalHost": "canonical host",
+    "indexing": "indexing · published",
+    "totalInScope": "total in scope: {total}"
+  }
+}

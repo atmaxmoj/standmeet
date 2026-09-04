@@ -62,6 +62,11 @@ const nextConfig: NextConfig = {
       // unreachable behind the prod app and owners can't connect over MCP.
       { source: '/mcp', destination: `${BACKEND_URL}/mcp` },
       { source: '/mcp/:path*', destination: `${BACKEND_URL}/mcp/:path*` },
+      // The homepage-as-custom-page (served at `/` by middleware) emits `<base href="/">`, so its
+      // Vite bundle's `./assets/x` resolves to `/assets/x`. Those assets live under the homepage's
+      // build dir on the backend — proxy them there. beforeFiles so this beats any app route; the
+      // app itself serves nothing at /assets (its own static is /_next), so there's no collision.
+      { source: '/assets/:path*', destination: `${BACKEND_URL}/api/v1/homepage/assets/:path*` },
     ],
     afterFiles: [
       { source: '/api/:path*', destination: `${BACKEND_URL}/api/:path*` },

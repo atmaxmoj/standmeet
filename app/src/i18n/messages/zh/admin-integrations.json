@@ -1,0 +1,179 @@
+{
+  "common": {
+    "connect": "连接",
+    "close": "✕"
+  },
+  "api": {
+    "intro": "MCP 密钥让 AI 客户端（Claude、Cursor、自定义脚本）把 raw 条目推入你的语料库、提升它们、管理访问码。每个密钥是一对 Ed25519 密钥——服务器只存公钥；你把私钥 PEM 保存在 <code>~/.standmeet/credentials.json</code>，客户端每次请求都签名。",
+    "keysHeading": "mcp 密钥",
+    "empty": "还没有密钥 · 生成一个来接入你的第一个 AI 客户端"
+  },
+  "aiProvider": {
+    "heading": "主理人的 ai",
+    "intro": "访客对话所使用的服务商。选一个预设，或指向你自建的 OpenAI 兼容端点（ollama / vllm / lm-studio）。密钥以 INSTANCE_SECRET 静态加密，永不回读到本页。",
+    "provider": "服务商",
+    "endpoint": "端点",
+    "model": "模型",
+    "apiKey": "api 密钥",
+    "clearKey": "清除密钥 ×"
+  },
+  "mcpClient": {
+    "heading": "mcp 设置",
+    "subhead": "保存 credentials.json + 把配置粘进你的客户端",
+    "filePath": "文件路径",
+    "foot": "粘贴并保存 credentials.json（权限 0600）后，重启你的客户端。每次请求都签名一个短时效的 sigv1 挑战——服务器永远看不到你的私钥。"
+  },
+  "mcpDownload": {
+    "heading": "连接你的 mcp 客户端",
+    "badge": "Sigv1 · /mcp",
+    "intro": "把你的 AI 客户端指向你实例的 MCP 端点。认证用你在上方生成的 Ed25519 密钥对（Sigv1）。该端点通过 MCP-over-HTTP 聚合你的主理人工具。",
+    "note": "Claude Desktop / Cursor 通过上方配置中的 stdio 客户端（npx @standmeet/mcp-client）连接，它在底层用 Sigv1 以 MCP-over-HTTP 与此端点通信。",
+    "endpointLabel": "mcp 端点"
+  },
+  "mcpServers": {
+    "heading": "外部 MCP 服务器",
+    "count": "已注册 {count} 个",
+    "intro": "访客 agent 可作为工具调用的 MCP 服务器。添加任意来源的服务器——它的 URL 和一个可选的认证头——然后在访问码下把它挂到某个角色上。",
+    "empty": "还没有",
+    "remove": "移除",
+    "check": "检测",
+    "checking": "询问中…",
+    "checkTools": "{count, plural, =0 {有应答，但不提供工具} one {# 个工具} other {# 个工具}}",
+    "checkFailed": "无应答——{reason}",
+    "checkRefused": "有应答，但拒绝了认证头——请检查头的名称与取值",
+    "checkNoAnswer": "无应答——该 URL 处没有任何东西响应",
+    "authBadge": "认证：{name}",
+    "add": "添加 MCP 服务器"
+  },
+  "newToken": {
+    "label": "生成密钥",
+    "submit": "生成"
+  },
+  "newlyCreated": {
+    "warning": "现在就保存——私钥只展示一次",
+    "keyId": "密钥 id",
+    "pem": "私钥（pem）",
+    "download": "下载 .pem",
+    "dismiss": "关闭"
+  },
+  "tokenRow": {
+    "meta": "创建于 {created} · 最近使用 {lastUsed}",
+    "never": "从未",
+    "algo": "ed25519",
+    "revoke": "吊销",
+    "keyId": "密钥 id"
+  },
+  "connectors": {
+    "intro": "连接器让 agent 触达外部服务——日历和邮件已在下方就绪，你也可上传自己的（OpenAPI / 协议）连接器来添加更多。",
+    "catalogError": "无法加载连接器目录——请刷新后重试。",
+    "overwritePrompt": "已存在一个 <mono>{category}</mono> 连接器。要覆盖它吗？",
+    "overwrite": "覆盖",
+    "add": "+ 添加连接器",
+    "builtinHeading": "可连接",
+    "builtinCount": "{count} 个可用",
+    "uploadedHeading": "你上传的连接器",
+    "uploadedCount": "已安装 {count} 个"
+  },
+  "calendar": {
+    "heading": "Google 日历",
+    "credentialsHint": "Google Cloud 控制台 → API 与服务 → 凭据 → OAuth 客户端 ID（桌面）。用主理人自己的客户端；没有全局的 StandMeet OAuth。",
+    "saveCredentials": "保存凭据",
+    "authorize": "在 Google 上授权 →",
+    "disconnect": "断开连接（保留凭据）",
+    "policyHeading": "预约策略",
+    "timezone": "时区（IANA）",
+    "timezoneUnsetOption": "— 未设置 —",
+    "timezoneUnsetHint": "未设置，因此上面的时段按 UTC 解读。你的浏览器显示 {detected}——选它，访客就会得到你本意的时段。",
+    "weekdays": "允许的工作日"
+  },
+  "capabilities": {
+    "kicker": "可用性",
+    "heading": "能力",
+    "intro": "关闭一项能力，它的工具就从每个访客会话中消失。内置能力可停用但不可删除；只有你自己创作的能力才能移除。"
+  },
+  "connectorCard": {
+    "disconnect": "断开连接"
+  },
+  "connectorOp": {
+    "run": "运行",
+    "running": "运行中…",
+    "sent": "已被 {kind} 连接器接受——请查看收件箱确认送达。",
+    "unreachable": "无法触达你的实例——请检查网络后重试。",
+    "failedNoReason": "没有成功，且连接器未给出原因——请查看服务器日志。"
+  },
+  "connectorList": {
+    "loadError": "无法加载你的连接器——请刷新后重试。",
+    "delete": "删除"
+  },
+  "skills": {
+    "new": "+ 新建技能",
+    "personaEmpty": "还没有技能。",
+    "builtin": "内置",
+    "showPrompt": "显示提示词",
+    "delete": "删除",
+    "modalTitle": "新建技能",
+    "promptLabel": "提示词",
+    "cancel": "取消",
+    "create": "创建"
+  },
+  "installedCard": {
+    "source": "来源 · {source}",
+    "builtin": "· 内置"
+  },
+  "marketplaceCard": {
+    "repoStars": "★ {stars} 仓库",
+    "author": "{author} · v{version}",
+    "authorOnly": "{author}",
+    "installed": "✓ 已安装",
+    "needs": "需要 {missing}"
+  },
+  "marketplaceTab": {
+    "intro": "技能聚合自两个来源——开放的 <ink>anthropics/skills</ink> GitHub 仓库（任何人都可 fork + PR）和 <ink>SkillsMP</ink>（商业渠道）。安装会拉取该技能的 SKILL.md、解析其 frontmatter，并写一份你完全拥有的本地副本——之后可编辑提示词或允许的工具，与市场脱钩。",
+    "manualHint": "在别处找到了技能？粘贴它的 <ink>SKILL.md</ink>（YAML frontmatter + 正文）。它会作为你拥有的本地副本安装——不经市场，不联网拉取。",
+    "manualInstall": "安装",
+    "loadMore": "加载更多",
+    "searchIcon": "⌕",
+    "empty": "没有匹配的技能。换个词，或切换来源——GitHub 仓库和 SkillsMP 是并行查询的。"
+  },
+  "mySkills": {
+    "empty": "还没有技能——从市场标签页安装一个，或在「技能」下添加你自己的。"
+  },
+  "providerBook": {
+    "heading": "服务商簿",
+    "intro": "所有你能发送一轮对话的服务商。其中一个是默认——当访问码和角色都未指定其他时所用的那个。删除某条是安全的：指向它的访问码和角色会回退到默认。",
+    "empty": "还没有条目 · 你上面配置的那个就是默认",
+    "defaultBadge": "默认",
+    "makeDefault": "设为默认",
+    "delete": "删除 ×",
+    "keySet": "● 已设密钥",
+    "keyUnset": "○ 无密钥",
+    "addHeading": "添加一条",
+    "label": "标签",
+    "labelHint": "你给这条起的名字",
+    "add": "添加",
+    "gasUnmetered": "不计量",
+    "gasFill": "充值",
+    "gasUnmeter": "移除计量",
+    "gasFilled": "额度已充",
+    "gasFillPlaceholder": "token 数"
+  },
+  "apiKeys": {
+    "heading": "对外 api 密钥",
+    "intro": "第三方程序用来调用你公开 API 的密钥（smk_…）。与上方的 MCP 密钥不同：那些为你自己的 AI 客户端签名，这些则交给别人的代码。若某个泄露，在此吊销它。",
+    "labelField": "标签",
+    "labelPlaceholder": "这个密钥给谁用——例如 'zapier'",
+    "roleField": "套用角色",
+    "mint": "签发密钥",
+    "secretOnce": "现在就复制——密钥只展示一次",
+    "dismiss": "关闭",
+    "empty": "还没有对外密钥",
+    "revoke": "吊销",
+    "revokeConfirm": "吊销此密钥？任何用它的东西都会立即停止工作。",
+    "statusActive": "有效",
+    "statusRevoked": "已吊销"
+  },
+  "embed": {
+    "heading": "嵌入到另一个站点",
+    "blurb": "把这两行放进任意页面——你自己的博客、客户的站点、一个落地页。无需构建步骤，也无需 React：脚本会注册一个与本实例通信的 <standmeet-chat> 元素。"
+  }
+}

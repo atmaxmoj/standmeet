@@ -1,0 +1,99 @@
+{
+  "common": {
+    "try": "intentar"
+  },
+  "modelLoader": {
+    "pickModel": "elegir un modelo…",
+    "type": "tipo"
+  },
+  "askAboutThis": {
+    "header": "pregúntele a la IA sobre este {label}",
+    "essay": "ensayo",
+    "entry": "entrada",
+    "piece": "pieza",
+    "context": "contexto: \"{title}\"",
+    "ask": "preguntar ↵"
+  },
+  "chatRoom": {
+    "brand": "standmeet",
+    "live": "vivo",
+    "fullPage": "página completa →",
+    "ghostAccept": "↹ tab",
+    "ready": "ia de {handle} · lista",
+    "codedWelcome": "{greeting}. Soy una IA anclada en el corpus curado de {handle}. Ha venido en el segmento <accent>{codeLabel}</accent>.",
+    "codedRedaction": "Los temas privados fuera del alcance de este código se redactan. {handle} lee las transcripciones después.",
+    "codedStarters": "Pregunta cualquier cosa. Los iniciadores a continuación si necesitas una forma de entrar.",
+    "codedGhostHint": "Pregunta cualquier cosa. Hay una pregunta sugerida esperando en la caja — presiona Tab para llevarla.",
+    "byoaiWelcome": "Hola. Soy una IA anclada en el corpus curado de {handle}. Se está ejecutando en su propia clave <accent>{provider}</accent> — solo segmento público.",
+    "byoaiScope": "Trabajo, proyectos, opiniones públicas — juego justo. Los temas privados devuelven una respuesta de 'necesita un código'.",
+    "sessionFull": "sesión completa",
+    "limitReached": "Ha alcanzado el límite {reason} de esta sesión — comuníquese con {handle} para que se le otorgue más.",
+    "ask": "preguntar <big>↵</big>",
+    "footnote": "<muted>cómo funciona esto</muted> · las respuestas provienen del corpus curado de {handle}. los temas privados devuelven una redacción en lugar de una conjetura.",
+    "footnoteCoded": " {handle} lee la transcripción después.",
+    "footnoteByoai": " su clave api nunca abandona el navegador."
+  },
+  "chatTranscript": {
+    "you": "Usted",
+    "ai": "ia",
+    "references": "referencias · {count}"
+  },
+  "composerAttachments": {
+    "pasted": "pegado",
+    "remove": "✕"
+  },
+  "floatingChatDock": {
+    "close": "cerrar ✕",
+    "thinking": "pensando",
+    "ask": "preguntar ",
+    "askTheAI": "pregúntele a la IA",
+    "emptyHint": "Pregunte sobre esta página — respondida en la voz del propietario, anclada en el corpus. Un hilo separado, pero la IA aún ve sus otras conversaciones."
+  },
+  "restrictedDoc": {
+    "opening": "abriendo…",
+    "kindOutput": "salida",
+    "kindEntry": "entrada",
+    "lockedTitle": "Este {kind} requiere un código de acceso",
+    "lockedBody": "El propietario ha restringido esta entrada. Ingrese un código de acceso en la puerta para ver el contenido completo.",
+    "outOfScopeTitle": "Su código no llega a este",
+    "outOfScopeBody": "O se encuentra fuera de lo que cubre su código, o no hay nada en esta dirección — la instancia no dirá cuál. Pregunte a continuación y la IA responderá de lo que pueda leer.",
+    "enterCode": "ingrese código de acceso →",
+    "home": "← inicio"
+  },
+  "sessionStrip": {
+    "byoaiMode": "byoai · {provider}",
+    "you": "Usted · {visitor}",
+    "exit": "sesión de salida",
+    "byoaiUnlimited": "pagado por visitante · ilimitado",
+    "names": "nombres",
+    "requestMore": "solicitar más ↗",
+    "turns": "turnos"
+  },
+  "visitorNamePicker": {
+    "whosReading": "¿Quién está leyendo?",
+    "full": "Este código está completo — ha alcanzado su límite de nombres. Pida a quienquiera que lo compartió con usted uno nuevo.",
+    "prompt": "Una última cosa antes de que comience el chat — el propietario ve esto en su transcripción más tarde. Elige un nombre corto; un identificador está bien.",
+    "capacityDefault": "Más de una persona puede usar este código.",
+    "capacityNote": "Mantenga el uso del <strong>mismo nombre</strong> y sus chats permanecen agrupados como usted; un <strong>nombre diferente</strong> se lee como una persona nueva e inicia una conversación separada. ¿Pasar el código a otra persona? Haga que lo escaneen y elijan su propio nombre. ¿Prefiere no dar un nombre? <strong>Skip</strong> también toma uno de los nombres del código, como invitado — y volver más tarde comienza de nuevo como nuevo invitado.",
+    "start": "start ↵",
+    "skip": "saltar",
+    "starting": "iniciando chat"
+  },
+  "wikiTopBar": {
+    "brand": "standmeet",
+    "wiki": "wiki",
+    "writing": "escritura",
+    "chat": "chat"
+  },
+  "wikiTreeView": {
+    "head": "árbol wiki",
+    "stats": "<num>{entries}</num> entradas · <num>{roots}</num> raíces · <num>{gated}</num> gated",
+    "gatedHint": "estas entradas son privadas — ingrese un código",
+    "indexEmpty": "nada publicado aquí aún."
+  },
+  "readerChat": {
+    "kicker": "pregunta sobre esto",
+    "heading": "Haga una pregunta a esta entrada.",
+    "lede": "La IA responde en la voz del propietario, anclada en este corpus. Trae tu propia clave y comienza — nunca abandona tu navegador."
+  }
+}

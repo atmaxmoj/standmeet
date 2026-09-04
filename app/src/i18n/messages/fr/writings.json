@@ -1,0 +1,57 @@
+{
+  "common": {
+    "brand": "standmeet",
+    "writings": "textes",
+    "backToWritings": "← retour aux textes",
+    "read": "lire →",
+    "readMinutes": "lecture de {minutes} min"
+  },
+  "breadcrumb": {
+    "back": "← texte"
+  },
+  "tree": {
+    "head": "texte"
+  },
+  "cover": {
+    "tag": "essai · standmeet",
+    "locked": "privé · fermé par code"
+  },
+  "article": {
+    "coverNo": "{date} · essai",
+    "linkedFrom": "lié depuis",
+    "privateEssay": "essai privé",
+    "lockedBody": "Cet essai est fermé ; demandez un code d'invitation.",
+    "requestInvite": "demander un code d'invitation →"
+  },
+  "cards": {
+    "leadNo": "non. 01 · {date}",
+    "latest": "dernier",
+    "no": "non. {n}",
+    "readMinutesShort": "{minutes} min"
+  },
+  "index": {
+    "orSkipTheReading": "ou sauter la lecture",
+    "askHeading": "Demandez directement à l'IA",
+    "askBody": "Tout ce que vous liriez ici, dit en retour à la voix du propriétaire. Le chat couvre des sujets qu'il n'a pas encore rédigés, et répond du corpus plutôt que de l'archive.",
+    "openTheChat": "ouvrir le chat →",
+    "ifYouOnlyReadTwo": "si vous ne lisez que deux",
+    "chat": "chat",
+    "essays": "essais",
+    "title": "Textes",
+    "lede": "Le corpus, surfacé. Chaque essai est la version étendue de quelque chose que j'ai approfondi — vous pouvez demander à l'IA à propos de n'importe lequel d'eux directement.",
+    "browseByTag": "parcourir par tag",
+    "clear": "× effacer · affichage {filtered} de {total}",
+    "all": "tout",
+    "empty": "Aucun essai pour l'instant.",
+    "mostRecent": "plus récent",
+    "archive": "archive",
+    "filteredBy": "filtré par",
+    "essayCount": "{count, plural, one {# essai} other {# essais}}"
+  },
+  "editor": {
+    "slashNoMatch": "pas de correspondance",
+    "crosslink": "lien croisé",
+    "crosslinkNoMatch": "pas de correspondance · tapez un slug pour créer",
+    "crosslinkHint": "↑↓ naviguer · ↵ insérer · esc pour annuler"
+  }
+}

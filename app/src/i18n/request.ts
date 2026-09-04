@@ -1,63 +1,62 @@
-// i18n/request — the server-side entry point for next-intl: which locale
-// this request uses, which set of messages it loads.
+// i18n/request — the server-side entry point for next-intl: which locale this request uses, which
+// set of messages it loads.
 //
-// **Deliberately does not wire up locale routing** (no `app/[locale]/`).
-// There is only one language right now, and a route segment is for
-// "picking a language" — a feature that doesn't exist yet. Introducing the
-// segment early would make every URL pay upfront for a feature that isn't
-// there. next-intl officially supports this without-routing shape: locale
-// is handed over from right here. When multi-language is actually needed,
-// this is the file that changes (read a cookie / Accept-Language / URL
-// segment) — **not a single line changes in the components**. That's the
-// whole point of building the infra first.
+// Multi-language (G): the locale is resolved from the `x-locale` request header (set by the
+// middleware from a `/<locale>/…` URL prefix, so a language is shareable in the URL and correct on
+// the very first render) with the `NEXT_LOCALE` cookie as the persisted fallback, then the base
+// locale `en`. The catalog is loaded DYNAMICALLY per locale — only the active language's 12
+// namespace files are pulled per request, and adding a language needs no change here (just its
+// messages/<locale>/ folder + a line in i18n/locales.ts; the recursive parity check enforces it
+// mirrors en).
 //
-// Base language = en: the product's UI is English-native; the handful of
-// Chinese help copy strings that had crept in were the anomaly, and they've
-// all been moved back in line.
-//
-// **Namespace = file**, flat, one per section (admin was already organized
-// by section, so the namespaces follow that real structure instead of
-// inventing a new one). The cost of flat is a long import list here; the
-// payoff is that adding a section costs two lines, there's no deep-merge
-// logic, and several people editing different areas at once don't collide
-// on one giant JSON file.
+// **Namespace = file**, flat, one per section: the FILE stem maps to the useTranslations namespace.
 
+import { cookies, headers } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
 
-import adminAccess from '@/i18n/messages/en/admin-access.json';
-import adminCorpus from '@/i18n/messages/en/admin-corpus.json';
-import adminIntegrations from '@/i18n/messages/en/admin-integrations.json';
-import adminJobs from '@/i18n/messages/en/admin-jobs.json';
-import adminPages from '@/i18n/messages/en/admin-pages.json';
-import adminShell from '@/i18n/messages/en/admin-shell.json';
-import auth from '@/i18n/messages/en/auth.json';
-import gate from '@/i18n/messages/en/gate.json';
-import page from '@/i18n/messages/en/page.json';
-import reader from '@/i18n/messages/en/reader.json';
-import visitor from '@/i18n/messages/en/visitor.json';
-import writings from '@/i18n/messages/en/writings.json';
+import {
+  DEFAULT_LOCALE, LOCALE_COOKIE, LOCALE_HEADER, isLocale, type Locale,
+} from '@/i18n/locales';
 
-// DEFAULT_LOCALE — the only locale. Adding a second language turns this
-// into a negotiation instead of a rewrite.
-export const DEFAULT_LOCALE = 'en';
-
-// messages — each top-level key is one useTranslations(...) namespace.
-export const messages = {
-  adminShell,
-  adminCorpus,
-  adminAccess,
-  adminIntegrations,
-  adminJobs,
-  adminPages,
-  auth,
-  gate,
-  page,
-  reader,
-  visitor,
-  writings,
+// NAMESPACES — message file stem → the useTranslations namespace key it provides.
+const NAMESPACES: Record<string, string> = {
+  'admin-shell': 'adminShell', 'admin-corpus': 'adminCorpus', 'admin-access': 'adminAccess',
+  'admin-integrations': 'adminIntegrations', 'admin-jobs': 'adminJobs', 'admin-pages': 'adminPages',
+  auth: 'auth', gate: 'gate', page: 'page', reader: 'reader', visitor: 'visitor', writings: 'writings',
 };
 
-export default getRequestConfig(() => ({
-  locale: DEFAULT_LOCALE,
-  messages,
-}));
+// loadNamespace — one namespace file's message tree. A dynamic JSON import is inherently `any`;
+// next-intl treats messages as an opaque tree, and the real shape guard is the recursive key-parity
+// check (infra/scripts/check-i18n-keys) — so the two unsafe-any rules are disabled just here.
+async function loadNamespace(locale: Locale, file: string): Promise<unknown> {
+  /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+  const mod = await import(`./messages/${locale}/${file}.json`);
+  const tree: unknown = mod.default;
+  /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+  return tree;
+}
+
+// loadCatalog — one locale's messages, assembled from its 12 namespace files.
+async function loadCatalog(locale: Locale): Promise<Record<string, unknown>> {
+  const entries = await Promise.all(
+    Object.entries(NAMESPACES).map(async ([file, key]) => {
+      const tree = await loadNamespace(locale, file);
+      return [key, tree] as const;
+    }),
+  );
+  return Object.fromEntries(entries);
+}
+
+// resolveLocale — header (this request's URL prefix) wins; cookie (persisted choice) next; else base.
+function resolveLocale(headerLocale: string | undefined, cookieLocale: string | undefined): Locale {
+  if (isLocale(headerLocale)) return headerLocale;
+  if (isLocale(cookieLocale)) return cookieLocale;
+  return DEFAULT_LOCALE;
+}
+
+export default getRequestConfig(async () => {
+  const headerLocale = (await headers()).get(LOCALE_HEADER) ?? undefined;
+  const cookieLocale = (await cookies()).get(LOCALE_COOKIE)?.value;
+  const locale = resolveLocale(headerLocale, cookieLocale);
+  return { locale, messages: await loadCatalog(locale) };
+});

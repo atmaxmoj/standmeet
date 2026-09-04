@@ -175,13 +175,39 @@ type jobsOut struct {
 func scheduledJobs(registry *entity.JobRegistry) fp.Invoke {
 	return func(_ context.Context, _ string, _ json.RawMessage) (json.RawMessage, error) {
 		jobs := registry.ScheduledJobs()
+		now := time.Now()
 		out := make([]jobRowOut, 0, len(jobs))
 		for i := range jobs {
 			out = append(out, jobRowOut{
 				LastRun: formatOptionalTime(jobs[i].LastRun), Name: jobs[i].Name,
-				Schedule: jobs[i].Schedule, LastStatus: jobs[i].LastStatus,
+				Schedule:   jobs[i].Schedule,
+				LastStatus: jobHealth(now, jobs[i].LastRun, jobs[i].Every, jobs[i].LastStatus),
 			})
 		}
 		return json.Marshal(jobsOut{Jobs: out})
 	}
+}
+
+// overdueFactor —— a job whose last run is older than this many of its own intervals is
+// "overdue": it should have fired again by now. 2× leaves room for one late tick under
+// load without flapping, while a genuinely stopped job (schedule every 5m, last run 6h
+// ago) crosses it at once. It turns a misleading green "OK" into an honest "overdue".
+const overdueFactor = 2
+
+// jobHealth —— the freshness-aware status the panel shows. A never-run job stays
+// 'scheduled', an error stays 'error', a job now past overdueFactor×its interval is
+// 'overdue', otherwise its last-run status ('ok'). Without this, "every 5m / last 6h ago"
+// reads as green OK and a silently-stopped cron hides in plain sight.
+func jobHealth(now time.Time, lastRun *time.Time, every time.Duration, lastStatus string) string {
+	if lastRun == nil || lastStatus == "error" {
+		return lastStatus
+	}
+	if isOverdue(now, *lastRun, every) {
+		return "overdue"
+	}
+	return lastStatus
+}
+
+func isOverdue(now, lastRun time.Time, every time.Duration) bool {
+	return every > 0 && now.Sub(lastRun) > overdueFactor*every
 }

@@ -66,6 +66,31 @@ function cell(total: UsageTotal | null, pick: (t: UsageTotal) => number): string
   return total === null ? '—' : pick(total).toLocaleString();
 }
 
+// UsageSeries —— one model's daily token usage, ready for a per-model sparkline. Days are the
+// shared x-axis (every date in the window, ascending); a model with no calls on a day is 0.
+export interface UsageSeries {
+  model: string;
+  values: number[];
+  labels: string[];
+}
+
+// usageSeries —— pivot the day×model rows into one series per model (y = input+output tokens,
+// the billing magnitude — "one line per model"). The backend already aggregates one row per
+// (date, model), so the token map has no collisions. Dates ascending (time left→right),
+// models alphabetical.
+export function usageSeries(rows: readonly UsageRow[]): UsageSeries[] {
+  const dates = [...new Set(rows.map((r) => r.date))].sort();
+  const models = [...new Set(rows.map((r) => r.model))].sort();
+  const tokens = new Map(
+    rows.map((r) => [`${r.date}|${r.model}`, r.input_tokens + r.output_tokens] as const),
+  );
+  return models.map((m) => ({
+    model: m,
+    labels: dates,
+    values: dates.map((d) => tokens.get(`${d}|${m}`) ?? 0),
+  }));
+}
+
 export function useInferenceUsage(): InferenceUsageHook {
   const { data, status, ensureLoaded } = usageStore();
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);

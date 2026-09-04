@@ -39,20 +39,20 @@ test.describe('admin listings list', () => {
       await expect(adminPage.getByText(firstTitle)).toBeVisible();
     });
 
-  // F-N-3 的兄弟（admin-shell check 2：每个 badge 都必须等于它汇总的那张表）。
-  // 侧栏给 listings 留了徽章位 —— `NAV_GROUPS` 上有 `badgeTestId: 'badge-listings'`，
-  // `SidebarBadges` 有 `listings`，`BADGE_MAP` 也映射了它 —— **三处声明，零个写者**。
-  // 于是池子里躺着 1148 条真岗位时，侧栏一声不吭；而这一格 owner 每一页都看得见。
+  // Sibling of F-N-3 (admin-shell check 2: every badge must equal the table it summarizes).
+  // The sidebar reserved a badge slot for listings —— `NAV_GROUPS` has `badgeTestId: 'badge-listings'`,
+  // `SidebarBadges` has `listings`, and `BADGE_MAP` maps it too —— **three declarations, zero writers**.
+  // So while 1148 real jobs sit in the pool, the sidebar says nothing; and the owner sees this cell on every page.
   //
-  // 判据必须**先证明池子非空**再断徽章：不然池子是空的时候「没有徽章」也是对的，
-  // 这条断言就永远绿（[[assertion-that-cannot-fail]]）。
+  // The criterion must **first prove the pool is non-empty** before asserting the badge: otherwise, when the pool
+  // is empty, "no badge" is also correct, and this assertion stays forever green ([[assertion-that-cannot-fail]]).
   test('the sidebar badge counts the pool it summarizes',
     async ({ request, adminPage }) => {
       await seedPool(request);
       await gotoAdminSection(adminPage, 'listings');
       await adminPage.waitForURL('**/admin/listings', { timeout: 5_000 });
 
-      // 表头那句 "· N in pool" 是这一节自己报的数，拿它当真值。
+      // The header's "· N in pool" is this section's own reported count; take it as the ground truth.
       const header = adminPage.getByTestId('section-header');
       await expect(header).toContainText(/\d+ in pool/, { timeout: 10_000 });
       const inPool = Number(/(\d+) in pool/.exec(await header.innerText())?.[1] ?? '0');

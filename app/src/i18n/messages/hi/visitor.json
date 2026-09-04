@@ -1,0 +1,99 @@
+{
+  "common": {
+    "try": "try"
+  },
+  "modelLoader": {
+    "pickModel": "pick a model…",
+    "type": "type"
+  },
+  "askAboutThis": {
+    "header": "ask the AI about this {label}",
+    "essay": "essay",
+    "entry": "entry",
+    "piece": "piece",
+    "context": "context: “{title}”",
+    "ask": "ask ↵"
+  },
+  "chatRoom": {
+    "brand": "standmeet",
+    "live": "live",
+    "fullPage": "full page →",
+    "ghostAccept": "↹ tab",
+    "ready": "{handle}'s ai · ready",
+    "codedWelcome": "{greeting}. I'm an AI grounded in {handle}'s curated corpus. You've come in on the <accent>{codeLabel}</accent> slice.",
+    "codedRedaction": "Private topics outside this code's scope are redacted. {handle} reads transcripts afterward.",
+    "codedStarters": "Ask anything. Starters below if you need a way in.",
+    "codedGhostHint": "Ask anything. There's a suggested question waiting in the box — press Tab to take it.",
+    "byoaiWelcome": "Hi. I'm an AI grounded in {handle}'s curated corpus. You're running on your own <accent>{provider}</accent> key — public slice only.",
+    "byoaiScope": "Work, projects, public takes — fair game. Private topics return a “need a code” response.",
+    "sessionFull": "session full",
+    "limitReached": "You've hit this session's {reason} limit — contact {handle} to be granted more.",
+    "ask": "ask <big>↵</big>",
+    "footnote": "<muted>how this works</muted> · answers come from {handle}'s curated corpus. private topics return a redaction rather than a guess.",
+    "footnoteCoded": " {handle} reads the transcript afterward.",
+    "footnoteByoai": " your api key never leaves the browser."
+  },
+  "chatTranscript": {
+    "you": "you",
+    "ai": "ai",
+    "references": "references · {count}"
+  },
+  "composerAttachments": {
+    "pasted": "pasted",
+    "remove": "✕"
+  },
+  "floatingChatDock": {
+    "close": "close ✕",
+    "thinking": "thinking",
+    "ask": "ask ",
+    "askTheAI": "ask the AI",
+    "emptyHint": "Ask about this page — answered in the owner’s voice, grounded in the corpus. A separate thread, but the AI still sees your other conversations."
+  },
+  "restrictedDoc": {
+    "opening": "opening…",
+    "kindOutput": "output",
+    "kindEntry": "entry",
+    "lockedTitle": "This {kind} requires an access code",
+    "lockedBody": "The owner has restricted this entry. Enter an access code on the gate to view the full content.",
+    "outOfScopeTitle": "Your code doesn’t reach this one",
+    "outOfScopeBody": "Either it sits outside what your code covers, or there is nothing at this address — the instance won’t say which. Ask below and the AI will answer from what you can read.",
+    "enterCode": "enter access code →",
+    "home": "← home"
+  },
+  "sessionStrip": {
+    "byoaiMode": "byoai · {provider}",
+    "you": "you · {visitor}",
+    "exit": "exit session",
+    "byoaiUnlimited": "visitor-paid · unlimited",
+    "names": "names",
+    "requestMore": "request more ↗",
+    "turns": "turns"
+  },
+  "visitorNamePicker": {
+    "whosReading": "Who's reading?",
+    "full": "This code is full — it’s reached its limit of names. Ask whoever shared it with you for a fresh one.",
+    "prompt": "One last thing before the chat starts — the owner sees this on your transcript later. Pick a short name; a handle is fine.",
+    "capacityDefault": "More than one person can use this code.",
+    "capacityNote": "Keep using the <strong>same name</strong> and your chats stay grouped as you; a <strong>different name</strong> reads as a new person and starts a separate conversation. Passing the code to someone else? Have them scan it and pick their own name. Rather not give a name? <strong>Skip</strong> takes one of the code's names too, as a guest — and coming back later starts over as a new guest.",
+    "start": "start ↵",
+    "skip": "skip",
+    "starting": "starting chat"
+  },
+  "wikiTopBar": {
+    "brand": "standmeet",
+    "wiki": "wiki",
+    "writing": "writing",
+    "chat": "chat"
+  },
+  "wikiTreeView": {
+    "head": "wiki tree",
+    "stats": "<num>{entries}</num> entries · <num>{roots}</num> roots · <num>{gated}</num> gated",
+    "gatedHint": "these entries are private — enter a code",
+    "indexEmpty": "nothing published here yet."
+  },
+  "readerChat": {
+    "kicker": "ask about this",
+    "heading": "Ask this entry a question.",
+    "lede": "The AI answers in the owner’s voice, grounded in this corpus. Bring your own key and start — it never leaves your browser."
+  }
+}

@@ -1,7 +1,7 @@
-// vault-sync.ts —— sync-face specs (sync-a..j) 的共享 setup + helpers。
-// 每个 spec 只管 upload 一个小 vault + 断言 corpus 状态;setup / read / admin 读全在这里,10 个文件保持薄。
+// vault-sync.ts —— shared setup + helpers for the sync-face specs (sync-a..j).
+// Each spec only uploads a small vault + asserts corpus state; setup / read / admin reads all live here, keeping the 10 files thin.
 //
-// 目标态(现在全红:importer 还是把所有 .md 拍平进 writings,不按 folder→genre / 节点树路由)。
+// Target state (currently all red: the importer still flattens every .md into writings, not routing by folder→genre / node tree).
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -20,7 +20,7 @@ export interface SyncOwner {
   fullName: string;
 }
 
-// syncOwner —— 每个 spec 用不同 handle/email 隔离,同一套 vault-all role(授全 genre)。
+// syncOwner —— each spec is isolated by a different handle/email, sharing one vault-all role (granting all genres).
 export function syncOwner(letter: string): SyncOwner {
   return {
     email: `sync${letter}@example.com`,
@@ -34,7 +34,7 @@ const CODE = 'SYNC-ALL';
 
 const ALL_GENRE_GLOBS = ['wiki://**', 'output://**', 'writing://**', 'subjectivity://**'];
 
-// claimSyncOwner —— resetInstance + claim + 一个授 genre 的 role + code。globs 省略 = 授全 genre。
+// claimSyncOwner —— resetInstance + claim + a genre-granting role + code. Omitting globs = grant all genres.
 export async function claimSyncOwner(
   request: APIRequestContext, owner: SyncOwner, globs: string[] = ALL_GENRE_GLOBS,
 ): Promise<void> {
@@ -65,7 +65,7 @@ export interface ReadResult {
   css_classes?: string[]; // cssclasses frontmatter (per-note presentation hook)
 }
 
-// syncRead —— 访客 corpus_read(授全 genre),按 path 拿一条 note。
+// syncRead —— visitor corpus_read (all genres granted), fetch one note by path.
 export async function syncRead(
   request: APIRequestContext, sess: VisitorSession, path: string,
 ): Promise<ReadResult> {
@@ -84,13 +84,13 @@ export interface AdminNote {
   path?: string | null;
   parent_id?: string | null;
   // published —— the ANONYMOUS-visibility gate (was seo_indexed), NOT corpus membership:
-  // "匿名只 published,有 code 走 role corpus_uris glob" (wiki_tree.go). See sync-d-publish.
+  // "anonymous sees published only, with a code goes by the role corpus_uris glob" (wiki_tree.go). See sync-d-publish.
   published?: boolean;
   outbound?: Array<{ title: string }>;
   backlinks?: Array<{ title: string }>;
 }
 
-// adminGenreList —— owner admin 列某 genre 的所有 note(id/title/body)。
+// adminGenreList —— owner admin lists all notes of a genre (id/title/body).
 export async function adminGenreList(
   request: APIRequestContext, owner: SyncOwner, genre: string,
 ): Promise<AdminNote[]> {
@@ -99,7 +99,7 @@ export async function adminGenreList(
   return await res.json() as AdminNote[];
 }
 
-// adminNoteRefs —— owner admin 一条 note 的 outbound/backlinks title 列表。
+// adminNoteRefs —— owner admin's outbound/backlinks title list for one note.
 export async function adminNoteRefs(
   request: APIRequestContext, owner: SyncOwner, genre: string, title: string,
 ): Promise<{ outbound: string[]; backlinks: string[] }> {

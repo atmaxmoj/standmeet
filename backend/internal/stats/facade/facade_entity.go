@@ -5,6 +5,7 @@ import "github.com/atmaxmoj/standmeet/internal/stats/entity"
 // Types (implemented by: entity).
 type (
 	ActivityEvent     = entity.ActivityEvent
+	Container         = entity.Container
 	CorpusGrowth      = entity.CorpusGrowth
 	GraphNode         = entity.GraphNode
 	HealthCheck       = entity.HealthCheck

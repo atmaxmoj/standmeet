@@ -1,4 +1,5 @@
 {
+  "fallback": { "settingUp": "This page is being set up.", "enter": "request access ↗" },
   "brand": "standmeet",
   "hero": {
     "someExamples": "some examples"

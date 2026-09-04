@@ -18,6 +18,7 @@ export type {
   DocContext,
   EventObserver,
   PromptSource,
+  TurnRecovery,
   TurnRequest,
   TurnStreamer,
 } from './ports.js';

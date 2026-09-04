@@ -1,0 +1,82 @@
+{
+  "sources": {
+    "intro": "这个闭环从哪里拉取职位。Greenhouse / Lever / Wellfound 是一等公民；也支持 RSS 和 HTML 抓取。不会按计划自动拉取——只有你让 Claude 运行 <mono>jobs.fetch_new</mono> 时才读取某个源，拉回的内容会在职位列表里保留一天。通过 MCP <mono>jobs.register_source</mono> 注册源。",
+    "emptyKicker": "没有已注册的源",
+    "emptyTitle": "连接一个招聘板或 RSS 源。",
+    "emptyHint": "让 Claude 用一个 Greenhouse / Lever / RSS URL 运行 <mono>jobs.register_source</mono>——它会自动出现在这里。"
+  },
+  "listings": {
+    "intro": "从你已注册的源拉取的职位，保存在一个 1 天的池子里。让 Claude 拿它们与你的语料库排序，并为值得投递的职位起草简历。任何在一天内你没起草或丢弃的职位都会滑出池子。",
+    "emptyKicker": "池中没有职位",
+    "emptyTitle": "先从你的源拉取职位。",
+    "emptyHint": "让 Claude 运行 <mono>jobs.fetch_new</mono>——结果会在这里保留一天，直到你起草或丢弃它们。"
+  },
+  "drafts": {
+    "intro": "Claude 为你说 yes 的职位起草的定制简历。打开编辑器编辑并预览；<ink>发送</ink>会冻结快照、渲染最终 PDF（带二维码），并自动签发一个访问码。",
+    "loading": "加载中…",
+    "emptyTitle": "没有待处理的草稿。",
+    "emptyHint": "让 Claude 从一个入围的职位起草简历（MCP <code>resume.draft</code>）——它会出现在这里。",
+    "metaUpdated": "更新于 {date}",
+    "metaJob": "职位 · <ink>{job}</ink>",
+    "openComposer": "打开编辑器 →",
+    "edit": "编辑",
+    "regenerate": "重新生成",
+    "discard": "丢弃",
+    "viewApplication": "查看申请",
+    "viewPdf": "查看 pdf"
+  },
+  "applications": {
+    "intro": "每一份已提交的申请——冻结的简历快照 + 自动签发的访问码。招聘方扫描 PDF 上的二维码，直接进入你的聊天。点击卡片查看时间线 + 状态 + 私密备注。",
+    "loading": "加载中…",
+    "emptyTitle": "还没有发出申请。",
+    "emptyHint": "从一个入围的职位起草简历，然后发送以在此提交。",
+    "contact": "联系人",
+    "notes": "备注",
+    "open": "打开 ›",
+    "metaCommitted": "提交于 {date}",
+    "metaSubmitted": "递交于 {date}",
+    "metaNotSubmitted": "未记录递交"
+  },
+  "detail": {
+    "kicker": "申请 · {id}",
+    "close": "关闭 ✕",
+    "timeline": "时间线",
+    "contact": "联系人",
+    "pingInChat": "在聊天中提及 ↗",
+    "privateNotes": "私密备注",
+    "notesReadOnly": "暂时只读——目前没有任何东西存储备注，所以这个框会丢失你输入的内容",
+    "needsWriter": "暂不可用——本实例没有办法记录状态变更；提交是这条路径上唯一的写入",
+    "pdfNotKept": "在此不可用——渲染的 PDF 在提交时交给你的 AI 客户端，不会留在申请上，因此此面板没有可打开的东西",
+    "snapshotHead": "已发送简历 · 快照",
+    "resume": "简历",
+    "tailoredFor": "为 {company} · {role} 定制",
+    "viewFull": "放大查看",
+    "viewSmaller": "缩小查看",
+    "downloadPdf": "下载 pdf",
+    "status": "状态",
+    "footMeta": "提交于 {committedAt} · {method}",
+    "withdraw": "撤回",
+    "logUpdate": "记录更新",
+    "closeAction": "关闭"
+  },
+  "resume": {
+    "summary": "概要",
+    "roleLine": "{role}<sep>·</sep>投递 <co>{company}</co>",
+    "skills": "技能",
+    "education": "教育",
+    "also": "另外",
+    "alsoText": "此二维码是与我的 AI 的实时聊天 · 以我的语料库为依据 · 为 {company} 定制范围。",
+    "alsoFallbackCompany": "这次对话",
+    "experience": "经历",
+    "footerScan": "扫码或访问 · {url}",
+    "footerSnapshot": "这份简历是一份快照 · 发送于 {date}",
+    "pageOf": "第 {n} 页 / 共 {total} 页",
+    "letter": "求职信",
+    "coverTitle": "致 {company}",
+    "coverRe": "事由 · <ink>{role}</ink>",
+    "coverSigMeta": "继续这段对话 · {url}"
+  },
+  "qr": {
+    "fallback": "二维码…"
+  }
+}

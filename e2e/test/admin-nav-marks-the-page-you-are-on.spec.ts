@@ -54,7 +54,10 @@ async function sidebarSlugs(page: Page): Promise<string[]> {
   const ids = await page.locator('[data-testid^="admin-nav-"]').evaluateAll(
     (els) => els.map((e) => e.getAttribute('data-testid') ?? ''),
   );
-  return [...new Set(ids.map((id) => id.replace(/^admin-nav-/, '')).filter(Boolean))];
+  // `admin-nav-toggle` is the mobile hamburger button, not a section — it also starts with
+  // `admin-nav-`, so drop it (clicking it on desktop, where it's lg:hidden, would just hang).
+  return [...new Set(ids.map((id) => id.replace(/^admin-nav-/, '')).filter(Boolean))]
+    .filter((slug) => slug !== 'toggle');
 }
 
 async function markedSlug(page: Page): Promise<string> {

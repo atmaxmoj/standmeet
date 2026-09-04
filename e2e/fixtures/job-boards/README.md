@@ -1,10 +1,10 @@
 # Job board fixture snapshots
 
-真实 API 在 **2026-05-20** 抓的快照，每个 source kind 多家公司覆盖。
+Snapshots captured from the real APIs on **2026-05-20**, covering several companies per source kind.
 
-每个 fixture 文件 = `{source_kind}/{slug}.day{n}.{ext}`：
-- `slug` = 这个源里识别该 board 的 key（Greenhouse 的 company name、Ashby 的 board slug、WWR 的 category 等）
-- `day{n}` = 同一 board 不同时间点的两个 snapshot，用于 dedup test（fetch_new 应该只返回 day2 里 day1 没出现过的 id）
+Each fixture file = `{source_kind}/{slug}.day{n}.{ext}`:
+- `slug` = the key that identifies this board within the source (Greenhouse's company name, Ashby's board slug, WWR's category, etc.)
+- `day{n}` = two snapshots of the same board at different points in time, for the dedup test (fetch_new should return only the ids in day2 that didn't appear in day1)
 - `ext` = `json` / `rss`
 
 ## Inventory
@@ -15,55 +15,55 @@
 | **lever/** | 4 | leverdemo, highspot, jobvite, palantir |
 | **ashby/** | 4 | Ashby, Linear, Notion, posthog, supabase |
 | **remoteok/** | 1 | api (aggregate feed) |
-| **wwr/** | 10 | 全部 10 个 category RSS |
-| **hn/** | 10 | whoishiring (user) + item-47975571 (May 2026 thread) + 8 真 postings |
+| **wwr/** | 10 | all 10 category RSS feeds |
+| **hn/** | 10 | whoishiring (user) + item-47975571 (May 2026 thread) + 8 real postings |
 | **smartrecruiters/** | 1 | visa (v1.1 source) |
 | **workable/** | 6 | typeform, mux, marshmallow, intercom, mistralai, rechargehq (v1.1 source) |
 
-各 fixture 都 trim 到 ≤ 8 jobs / 8 items，**保持原 API 响应 shape 不变**。完整未 trim 的捕获放在 `.raw/`（gitignore'd）。
+Each fixture is trimmed to ≤ 8 jobs / 8 items, **keeping the original API response shape unchanged**. The full, untrimmed captures live in `.raw/` (gitignore'd).
 
 ## Day2 fixtures
 
-dedup test 需要 `*.day2.{json,rss}` —— 同 board，**新加几条 + 删几条** 来模拟一日后的状态变化。生成方式：
+The dedup test needs `*.day2.{json,rss}` —— the same board with **a few entries added + a few removed** to simulate a day-later change in state. Generate with:
 
 ```bash
 make gen-day2-fixtures
 ```
 
-逻辑（per kind）：
-- Greenhouse / Ashby：`.day1.json` 的 `jobs[0:8]` → `.day2.json` 取 `jobs[2:10]`（前 2 条"消失"，多 2 条"新增"）
-- Lever：`.day1.json` 是数组直接 slice [2:10]
-- RemoteOK：array[0] legal notice 保留 + [3:11]
-- WWR：item-3 之后保留 + 增 2 个虚构 item（GUID 改了 pubDate）
-- HN：`whoishiring.day2.json.submitted[0]` 指向"新月份"的 fake item ID；fake item-{id}.day2.json 含 5 个新 comment IDs
+Logic (per kind):
+- Greenhouse / Ashby: `.day1.json`'s `jobs[0:8]` → `.day2.json` takes `jobs[2:10]` (the first 2 "disappear", 2 more are "added")
+- Lever: `.day1.json` is an array, sliced directly [2:10]
+- RemoteOK: keep array[0] legal notice + [3:11]
+- WWR: keep everything after item-3 + add 2 fictional items (GUID changed, pubDate changed)
+- HN: `whoishiring.day2.json.submitted[0]` points at a "new month" fake item ID; fake item-{id}.day2.json contains 5 new comment IDs
 
-day2 是**合成的**，从 day1 派生，不再次访问真 API。这避免了真 API 随时间漂移把 day1 → day2 的预期 diff 弄乱。
+day2 is **synthetic**, derived from day1, without hitting the real API again. This avoids the real API drifting over time and messing up the expected day1 → day2 diff.
 
-## 重新抓 / 刷新
+## Recapture / refresh
 
-每季度跑一次（或字段 schema 怀疑漂移时）：
+Run once a quarter (or whenever a field schema is suspected of drifting):
 
 ```bash
-make capture-job-fixtures   # 重抓 raw → .raw/
-make trim-job-fixtures      # 把 raw 截到 8 条 → 当前路径
+make capture-job-fixtures   # recapture raw → .raw/
+make trim-job-fixtures      # trim raw to 8 entries → current path
 ```
 
-`make capture-job-fixtures` 是 `e2e/fixtures/job-boards/capture.sh` 的 wrapper，per-kind 列表写在脚本里。
+`make capture-job-fixtures` is a wrapper around `e2e/fixtures/job-boards/capture.sh`, with the per-kind lists written in the script.
 
-User-Agent 一律是 `StandMeet-fixture-capture/0.1 (+https://github.com/atmaxmoj/standmeet)` —— 用于真 API 礼貌识别。
+The User-Agent is always `StandMeet-fixture-capture/0.1 (+https://github.com/atmaxmoj/standmeet)` —— for polite identification to the real APIs.
 
-## 哪些 board 抓不到（明确划界）
+## Which boards can't be captured (explicit boundary)
 
-- **SmartRecruiters** 大部分 public 公司返空（API 接受 slug 但 totalFound=0），只有 visa 有公开 listings。SR 在 v1.1，cohort 暂时够。
-- **Workable** 用 `widget/accounts/{sub}` endpoint 返**账户 metadata**（name + description），**不返 jobs**。要真 jobs 列表得用别的 endpoint —— 实现 Workable adapter 时再确认。
-- **Wellfound / LinkedIn / Indeed** —— 不抓，server 端不该跑这些（见 docs/design/job-loop.md 不做明示）。
+- **SmartRecruiters** returns empty for most public companies (the API accepts the slug but totalFound=0); only visa has public listings. SR is in v1.1, and the cohort is enough for now.
+- **Workable** uses the `widget/accounts/{sub}` endpoint, which returns **account metadata** (name + description), **not jobs**. Getting a real jobs list needs a different endpoint —— to be confirmed when implementing the Workable adapter.
+- **Wellfound / LinkedIn / Indeed** —— not captured; the server shouldn't run these (see docs/design/job-loop.md's explicit "don't do").
 
-## Day1 → Day2 状态期望（spec assertion 用）
+## Day1 → Day2 state expectations (for spec assertions)
 
-| Board | day1 ids | day2 ids | 差集 (day2 - day1) |
+| Board | day1 ids | day2 ids | diff (day2 - day1) |
 |---|---|---|---|
 | greenhouse/airbnb | [a,b,c,d,e,f,g,h] | [c,d,e,f,g,h,i,j] | {i, j} |
 | ashby/Notion | [a,b,c,d,e,f,g,h] | [c,d,e,f,g,h,i,j] | {i, j} |
 | ... | ... | ... | ... |
 
-（gen-day2 脚本生成时把每个 board 的"前 2 个消失 + 后 2 个新增"具体 IDs 写到一份 manifest，e2e 直接 import 这个 manifest 作断言数据，不在 spec 里硬编码）
+(When the gen-day2 script runs, it writes each board's specific "first 2 removed + last 2 added" IDs to a manifest, and e2e imports that manifest directly as assertion data rather than hardcoding it in the spec.)

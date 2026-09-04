@@ -1,0 +1,135 @@
+{
+  "page": {
+    "intro": "编排访客落地时看到的各个区块。Hero 是那段文案 + 聊天输入。洞见和项目是通往你语料库的窗口——固定已发布的条目，页面就会展示每一条的标题 + 摘录，并链接进阅读器。再往下：你在哪里，以及如何找到你。改动通过 PUT /admin/page 持久化。"
+  },
+  "pinManager": {
+    "empty": "还没有固定项——此区块在页面上隐藏。",
+    "unpin": "取消固定",
+    "add": "+ 固定一个已发布条目",
+    "close": "× 关闭",
+    "noneToPin": "没有可固定的——请先发布一个语料库条目。"
+  },
+  "saveBar": {
+    "saving": "保存中…",
+    "unsaved": "有未保存的更改",
+    "saved": "已保存",
+    "inSync": "已同步",
+    "save": "保存",
+    "revert": "还原"
+  },
+  "handle": {
+    "label": "handle",
+    "change": "更改",
+    "cancel": "取消"
+  },
+  "publicUrl": {
+    "label": "公开 URL",
+    "unset": "未设置",
+    "change": "更改",
+    "cancel": "取消"
+  },
+  "domain": {
+    "defaultLabel": "默认",
+    "defaultHint": "无需设置 · 始终可用",
+    "inUse": "● 使用中",
+    "customLabel": "自定义域名",
+    "schemePrefix": "https://",
+    "clear": "清除",
+    "effectiveHost": "实际分享主机 ·",
+    "effectiveHostNote": "· 用于访问码分享链接、二维码、门禁页脚。"
+  },
+  "byoai": {
+    "modeLabel": "byoai 模式",
+    "modeHelp": "开启时，门禁页会在访问码输入下方显示「自带 AI」选项。",
+    "acceptedProviders": "接受的服务商"
+  },
+  "preview": {
+    "openPublic": "打开公开页",
+    "loading": "加载访问码…",
+    "seeAsCode": "以访问码视角查看",
+    "cardCodeRole": "{code} · 角色 {role}",
+    "byoaiCardTitle": "BYOAI · 匿名",
+    "byoaiCardScope": "仅公开范围",
+    "frameTitle": "预览 · 访客视图",
+    "byoaiBannerMode": "byoai 模式",
+    "byoaiBannerModel": "模型 · 访客自带",
+    "byoaiBannerScope": "公开范围",
+    "byoaiWelcome": "你好。你正用自己的 API 密钥运行——推理你付费，仅限公开部分。私密话题会返回「需要访问码」的回应。",
+    "selectCode": "从左侧选择一个访问码",
+    "codedBannerCode": "访问码 · {code}",
+    "previewGreeting": "你好",
+    "suggestedByYou": "你建议的"
+  },
+  "customPages": {
+    "intro": {
+      "before": "自定义页面位于",
+      "slugPath": "/p/<slug>",
+      "after": "。在下方写一个，或通过 MCP 从 Claude 驱动同一套生命周期——两者做的是同一件事。页面可读取你的语料库并搭载你的 AI；访问码可指向某个页面，于是出示该访问码会打开页面而非默认聊天。"
+    },
+    "importsSummary": "你可以导入什么",
+    "empty": {
+      "lead": "还没有自定义页面。主理人通过 MCP 创建 / 构建 / 提升",
+      "toolCreate": "custom_page.create",
+      "toolWriteFile": ".write_file",
+      "toolBuild": ".build",
+      "toolPromote": ".promote_to_live"
+    },
+    "columns": {
+      "page": "页面",
+      "template": "模板",
+      "visibility": "可见性",
+      "access": "访问",
+      "updated": "更新",
+      "actions": "操作"
+    },
+    "visibilityState": {
+      "live": "线上",
+      "staging": "预发",
+      "none": "无"
+    },
+    "slugPath": "/p/{slug}",
+    "viewLive": "查看线上",
+    "noLiveBuild": "无线上构建",
+    "authorHeading": "写一个页面",
+    "authorHelp": "粘贴页面的 App.tsx。它在沙箱中构建，若构建成功则发布在 /p/<slug>。你可导入 @standmeet/sdk 来读取语料库并询问你的 AI。",
+    "slugLabel": "slug——页面位于 /p/<slug>",
+    "sourceLabel": "App.tsx",
+    "publish": "构建 + 发布 →",
+    "published": "页面已发布",
+    "buildRunning": "构建中…",
+    "buildBuilt": "已构建",
+    "buildFailed": "构建失败",
+    "boundCodes": "由以下打开",
+    "boundNone": "无访问码打开它——仅匿名",
+    "byoaiOn": "读者可自带密钥",
+    "byoaiOff": "不允许自带密钥",
+    "byoaiVoid": "byok · 由访问码决定",
+    "takeDown": "下线",
+    "tookDown": "/p/{slug} 已不再提供服务",
+    "delete": "删除",
+    "deleted": "/p/{slug} 已删除",
+    "byoaiNote": "仅在无人出示访问码时适用。带访问码到访的读者由该访问码限定范围，此设置不适用。",
+    "templatesAvailable": "可用模板",
+    "templates": {
+      "press-kit": {
+        "label": "press-kit",
+        "desc": "照片 · 简介变体 · 下载"
+      },
+      "list-prose": {
+        "label": "list-with-prose",
+        "desc": "上方列表，下方文字说明"
+      },
+      "menu": {
+        "label": "menu",
+        "desc": "带编号的服务 / 报价行"
+      },
+      "auto-now": {
+        "label": "auto-now",
+        "desc": "AI 概括的最新条目 · /now"
+      }
+    },
+    "previewLabel": "预览 · 最近一次成功构建",
+    "previewNoBuild": "还没有构建。让你的 AI 写并构建这个页面。",
+    "buildNone": "无构建"
+  }
+}

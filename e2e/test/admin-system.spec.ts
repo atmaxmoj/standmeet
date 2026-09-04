@@ -7,7 +7,7 @@
 //   3. health checks → status dots (ok = accent / warn = amber)
 
 import { test, expect } from '@/fixtures/test';
-import type { Playwright } from '@playwright/test';
+import type { Page, Playwright } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -23,8 +23,10 @@ const OWNER = {
 };
 
 interface HealthCheck { name: string; ok: boolean; detail: string }
+interface Container { name: string; cpu_percent: number; mem_bytes: number; mem_limit: number }
 interface SystemInfo {
   version: string;
+  public_ip: string;
   uptime_seconds: number;
   goroutines: number;
   mem_alloc_mb: number;
@@ -35,7 +37,12 @@ interface SystemInfo {
   mem_used_mb: number;
   load_avg_1: number;
   health: HealthCheck[];
+  containers: Container[];
 }
+
+// PUBLIC_IP is set to this fixed TEST-NET value in docker-compose.dev.yml, so the panel's
+// IP is deterministic to assert.
+const DEV_PUBLIC_IP = '203.0.113.42';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('admin system section', () => {
@@ -116,7 +123,41 @@ test.describe('admin system section', () => {
     // CPU load (1min): real, non-negative.
     expect(body.load_avg_1, 'load avg ≥ 0').toBeGreaterThanOrEqual(0);
   });
+
+  // The owner asked for the instance's public IP + its own cluster's per-container usage.
+  test('GET /api/admin/system exposes the public IP + own-cluster container usage', publicIPAndCluster);
+  test('the System panel shows the public IP and the cluster panel', clusterPanelRenders);
 });
+
+// Public IP is deploy-provided (deterministic in dev); the containers come off the docker
+// socket, scoped to THIS compose project (not other tenants' containers).
+async function publicIPAndCluster({ adminPage }: { adminPage: Page }): Promise<void> {
+  const res = await adminPage.request.get(`${BACKEND}/api/admin/system`);
+  expect(res.status(), 'system endpoint 200').toBe(200);
+  const body = await res.json() as SystemInfo;
+
+  expect(body.public_ip, 'public IP is the deploy-provided value').toBe(DEV_PUBLIC_IP);
+
+  // The dev stack mounts /var/run/docker.sock, so per-container stats resolve, scoped to
+  // this project — the backend service itself must be among them.
+  expect(Array.isArray(body.containers), 'containers is a list').toBe(true);
+  expect(body.containers.length, 'own-cluster containers are listed').toBeGreaterThan(0);
+  const backend = body.containers.find((c) => /backend/i.test(c.name));
+  expect(backend, 'the backend container appears in its own cluster').toBeTruthy();
+  for (const c of body.containers) {
+    expect(typeof c.cpu_percent, `${c.name} cpu is numeric`).toBe('number');
+    expect(c.cpu_percent, `${c.name} cpu ≥ 0`).toBeGreaterThanOrEqual(0);
+    expect(c.mem_bytes, `${c.name} mem ≥ 0`).toBeGreaterThanOrEqual(0);
+  }
+}
+
+// The panel actually renders the public IP row + the cluster panel (not just the endpoint).
+async function clusterPanelRenders({ adminPage }: { adminPage: Page }): Promise<void> {
+  await gotoAdminSection(adminPage, 'system');
+  await adminPage.waitForURL('**/admin/system', { timeout: 5_000 });
+  await expect(adminPage.getByTestId('system-public-ip')).toHaveText(DEV_PUBLIC_IP);
+  await expect(adminPage.getByTestId('system-cluster')).toBeVisible();
+}
 
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();

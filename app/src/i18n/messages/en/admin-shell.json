@@ -156,7 +156,11 @@
     "review": "review →"
   },
   "account": {
+    "siteAddress": "site address",
+    "byoaiMode": "byoai mode",
     "profile": "profile",
+    "language": "interface language",
+    "languageSub": "the language of the admin and your public pages",
     "security": "security",
     "inference": "inference",
     "defaultProvider": "default provider",
@@ -196,6 +200,9 @@
     "migrationsPending": "0 pending",
     "ready": "ready",
     "resources": "resources · host + runtime",
+    "publicIp": "public ip",
+    "cluster": "cluster · own containers",
+    "clusterEmpty": "no cluster data — docker socket not mounted",
     "backgroundJobs": "background jobs",
     "colJob": "job",
     "colSchedule": "schedule",

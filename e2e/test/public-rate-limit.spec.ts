@@ -21,19 +21,22 @@ const OWNER = {
 test.describe('public rate limiting', () => {
   test.beforeAll(async ({ playwright }) => { await claimFreshOwner(playwright, OWNER); });
 
-  // ⚠️ 这条驱的是**通用 per-IP 限流**，所以它得挑一个**前面没有别的闸**的端点。
+  // ⚠️ This drives the **generic per-IP rate limiter**, so it must pick an endpoint with **no other
+  // gate in front of it**.
   //
-  // 以前它打 `/access-requests`，而 F-G-4 之后那个口子前面压着 `RequestGuard`（5 次 /15 分钟，
-  // 见 `middleware/request_guard.go`）—— 于是第 5 条就 429，通用限流的 30 那一格**永远走不到**，
-  // 用例红在「request 5 should be accepted」。红得对：它测的东西已经被另一把锁遮住了。
-  // 换到 `reset-password`（策略表 20/min，前面没有第二把闸）。
+  // It used to hit `/access-requests`, but after F-G-4 that endpoint sits behind `RequestGuard` (5 per
+  // 15 min, see `middleware/request_guard.go`) —— so the 5th request already 429s and the generic
+  // limiter's 30th slot is **never reached**; the test went red on "request 5 should be accepted".
+  // Red for the right reason: what it tests was already masked by another lock. Moved to
+  // `reset-password` (policy table 20/min, with no second gate in front).
   test('the generic per-IP window trips 429 on the endpoint it actually governs',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       try {
-        // 判据是**限流器**，不是这个端点的业务结果：中间件在 handler 之前计数，所以
-        // 令牌无效（401）照样占一格。前 LIMIT 个「不是 429」，第 LIMIT+1 个「是 429」——
-        // 断在业务状态码上会把这条用例绑死在一个跟限流无关的契约上。
+        // The criterion is the **rate limiter**, not this endpoint's business result: the middleware
+        // counts before the handler, so an invalid token (401) still takes a slot. The first LIMIT are
+        // "not 429", the LIMIT+1th is "429" —— asserting on the business status code would bind this
+        // test to a contract unrelated to rate limiting.
         for (let i = 0; i < LIMIT; i++) {
           const res = await submit(request, i);
           expect(res, `request ${i} 不该被限流挡住`).not.toBe(429);
@@ -54,7 +57,8 @@ async function submit(request: APIRequestContext, n: number): Promise<number> {
 }
 
 async function submitRaw(request: APIRequestContext, n: number) {
-  // 令牌是假的 —— 这条用例不关心重置本身成不成，只关心**第几个请求被限流挡下**。
+  // The token is fake —— this test does not care whether the reset itself succeeds, only **which
+  // request number gets blocked by the rate limiter**.
   return request.post(`${BACKEND}/api/v1/account/reset-password`, {
     data: { token: `not-a-real-token-${n}`, new_password: 'correct-horse-battery-staple' },
   });

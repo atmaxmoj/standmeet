@@ -1,15 +1,19 @@
-// openapi-mail-specs.ts —— 假 mail vendor 的 spec / binding 样本。
+// openapi-mail-specs.ts —— sample spec / binding for a fake mail vendor.
 //
-// 从 connector-openapi-mail.spec.ts 拆出来（那边到了行数闸）。它们是**数据**：
-// 「一个 vendor 的文档长什么样」跟「这条用例断什么」是两件事。
+// Extracted from connector-openapi-mail.spec.ts (which hit the line-count gate).
+// They're **data**: "what a vendor's docs look like" and "what this case asserts"
+// are two different things.
 
 /**
- * FORM_MAIL_SPEC —— 一个**声明表单编码**的 vendor（Mailgun 那一族）。
+ * FORM_MAIL_SPEC —— a vendor that **declares form encoding** (the Mailgun family).
  *
- * 真世界里这不是少数派：Mailgun / Twilio / Stripe 的发信、发短信、收款端点收的都是
- * `application/x-www-form-urlencoded` 或 `multipart/form-data`，**JSON body 会被整个忽略**
- * （真 Mailgun 对一份 JSON 的回答是 `400 from parameter is missing`）。除了 requestBody 的
- * 媒体类型和端点，其余跟 SendGrid 式那份是同构的 —— 差别只有这一处，红才只可能指向它。
+ * In the real world this isn't a minority: the send-mail, send-SMS, and take-payment
+ * endpoints of Mailgun / Twilio / Stripe all accept
+ * `application/x-www-form-urlencoded` or `multipart/form-data`, and **a JSON body is
+ * ignored entirely** (real Mailgun's answer to a JSON payload is
+ * `400 from parameter is missing`). Apart from the requestBody media type and the
+ * endpoint, it's isomorphic to the SendGrid-style one —— the only difference is this
+ * one spot, so a red can only point at it.
  */
 export const FORM_MAIL_SPEC = {
   openapi: '3.0.3',
@@ -43,8 +47,9 @@ export const FORM_MAIL_SPEC = {
 } as const;
 
 /**
- * FORM_MAIL_BINDING —— 同一个契约 op，只是构造的是**平字段**（表单没有嵌套）。
- * id 从 body 里取 —— 真 Mailgun 就是这么回的，不在头里。
+ * FORM_MAIL_BINDING —— the same contract op, only it constructs **flat fields**
+ * (forms have no nesting). id is taken from the body —— that's how real Mailgun
+ * returns it, not in the headers.
  */
 export const FORM_MAIL_BINDING = {
   category: 'mail',

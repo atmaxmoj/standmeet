@@ -1,12 +1,12 @@
-// visitor-chat-loop.ts —— H.10: backend agent loop 接管之后，Node 端
-// fixture 不再 driver LLM ↔ tool 循环；改成单 POST /api/v1/agent/turn
-// 收 SSE 整套事件 (text / tool_started / tool_completed / done / error)
-// → 累 final text。
+// visitor-chat-loop.ts —— H.10: after the backend agent loop takes over, the Node-side
+// fixture no longer drives the LLM ↔ tool loop; it switches to a single POST /api/v1/agent/turn
+// receiving the full set of SSE events (text / tool_started / tool_completed / done / error)
+// → accumulating the final text.
 //
-// 跟浏览器 pi-agent-core (H.10 后 VisitorTurnAgent) 同形态：thin event
-// consumer。#28 起 backend 自己在 /agent/turn 流末端把这轮(含 cited /
-// tool_calls)sink 进 conversation 表,fixture 不再 POST /dialogs —— 跟真
-// 前端一致;失败/配额错误原样透 status 让 spec 断言。
+// Same shape as the browser's pi-agent-core (VisitorTurnAgent after H.10): a thin event
+// consumer. Since #28 the backend itself sinks this turn (with cited / tool_calls) into the
+// conversation table at the end of the /agent/turn stream, and the fixture no longer POSTs /dialogs
+// —— matching the real frontend; failures/quota errors pass status through as-is for the spec to assert.
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -22,11 +22,11 @@ export interface FakeAPIResponse {
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 // runVisitorChatTurn —— drive one visitor question through backend
-// /agent/turn endpoint. #28 起 /agent/turn 自己把这轮 sink 进 conversation
-// 表(配额也在它入口查),fixture 不再 POST /dialogs —— 跟真前端一致。返回
-// fake APIResponse 仿 legacy /messages surface:成功 status()=200、text()=
-// final assistant text;pre-stream 错误(配额 403 / 鉴权)原样透 status + body
-// 让 spec 断言(turn-quota 第 3 轮 403 turn_quota_reached 走这条)。
+// /agent/turn endpoint. Since #28 /agent/turn itself sinks this turn into the conversation
+// table (quota is also checked at its entry), and the fixture no longer POSTs /dialogs —— matching
+// the real frontend. Returns a fake APIResponse mimicking the legacy /messages surface: on success
+// status()=200, text()=final assistant text; pre-stream errors (quota 403 / auth) pass status + body
+// through as-is for the spec to assert (turn-quota's 3rd turn 403 turn_quota_reached goes this way).
 export async function runVisitorChatTurn(
   request: APIRequestContext, sess: VisitorSession, question: string,
 ): Promise<FakeAPIResponse> {
@@ -52,9 +52,9 @@ interface AgentEventFrame {
   data: Record<string, unknown>;
 }
 
-// accumulateAgentEvents —— SSE 帧 → final assistant text。error 帧 throw
-// (mock 注入故障 / force-final 也失败时走这条),让失败 turn 的 spec 能断言。
-// citation / tool_calls 不在这累:#28 起 backend 自己从流末端扒并落库。
+// accumulateAgentEvents —— SSE frames → final assistant text. An error frame throws
+// (this path is taken when the mock injects a fault / force-final also fails), so a failed turn's spec can assert.
+// citation / tool_calls are not accumulated here: since #28 the backend itself extracts them from the stream end and persists them.
 function accumulateAgentEvents(raw: string): string {
   let text = '';
   for (const frame of splitFrames(raw)) {

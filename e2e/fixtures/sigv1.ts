@@ -1,11 +1,11 @@
 // sigv1.ts —— Phase C: Ed25519 sigv1 challenge signing for MCP auth.
 //
-// 签名载荷：`standmeet-sigv1\n<keyId>\n<unix-ts>\n<nonce>`，
-// Authorization header `Sigv1 keyId=X,ts=N,nonce=UUID,sig=base64`。
+// Signing payload: `standmeet-sigv1\n<keyId>\n<unix-ts>\n<nonce>`,
+// Authorization header `Sigv1 keyId=X,ts=N,nonce=UUID,sig=base64`.
 //
-// 每请求独立签 (没有 session cookie / 没有 token 缓存)。ts 5 min 窗口 + **一次性 nonce**：
-// 后端把见过的 nonce 记 Redis，窗口内重放同一个头 → nonce 已见 → 拒（防重放）。
-// nonce 让每个签名一次性：捕获一个合法头也无法重放。
+// Signed per request (no session cookie / no token cache). ts within a 5 min window + a **single-use nonce**:
+// the backend records seen nonces in Redis, and replaying the same header within the window → nonce already seen → reject (replay protection).
+// The nonce makes each signature single-use: capturing one valid header still cannot be replayed.
 
 import { createPrivateKey, randomUUID, sign as cryptoSign } from 'node:crypto';
 
@@ -18,9 +18,10 @@ export interface SignedChallenge {
   sig: string; // base64
 }
 
-/** signChallenge —— 用 PEM 私钥签 challenge；返结构含 ts + nonce + sig，便于 caller
- *  自由组装 Authorization header (或测试时调成不一致 ts / 复用 nonce 验拒)。
- *  nonce 缺省随机生成；测试要模拟"捕获重放"就复用同一个 formatAuthHeader 输出。 */
+/** signChallenge —— signs the challenge with a PEM private key; returns a struct with ts + nonce + sig,
+ *  so the caller can freely assemble the Authorization header (or, in tests, tweak it to an inconsistent ts /
+ *  reuse a nonce to verify rejection). nonce defaults to a random value; to simulate "capture and replay"
+ *  a test reuses the same formatAuthHeader output. */
 export function signChallenge(
   privateKeyPem: string,
   keyId: string,
@@ -33,12 +34,12 @@ export function signChallenge(
   return { keyId, ts, nonce, sig };
 }
 
-/** formatAuthHeader —— 把 signed challenge 序列化成 Authorization 头值。 */
+/** formatAuthHeader —— serializes a signed challenge into an Authorization header value. */
 export function formatAuthHeader(s: SignedChallenge): string {
   return `Sigv1 keyId=${s.keyId},ts=${s.ts},nonce=${s.nonce},sig=${s.sig}`;
 }
 
-/** signNow —— 大多 spec 用：用当前 unix-ts + 新随机 nonce 签一次。 */
+/** signNow —— used by most specs: sign once with the current unix-ts + a fresh random nonce. */
 export function signNow(privateKeyPem: string, keyId: string): SignedChallenge {
   return signChallenge(privateKeyPem, keyId, Math.floor(Date.now() / 1000));
 }

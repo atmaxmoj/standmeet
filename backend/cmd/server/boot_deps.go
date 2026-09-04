@@ -20,6 +20,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
+	"github.com/atmaxmoj/standmeet/internal/infra/buildnotify"
+	"github.com/atmaxmoj/standmeet/internal/infra/dockerstat"
 	"github.com/atmaxmoj/standmeet/internal/infra/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
@@ -154,10 +156,10 @@ func assembleRuntimeDeps(
 		JobRegistry:      stats.NewJobRegistry(),
 		Corpus:           corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
 		CodeRepo:         repos.code, CodeDenialRepo: repos.codeDenial, ChatRepo: repos.chat,
-		EmbedRepo:          repos.embed,
-		SEORepo:            repos.seo,
-		CustomPageRepo:     repos.customPage,
-		CustomBuildRepo:    repos.customBuild,
+		EmbedRepo:      repos.embed,
+		SEORepo:        repos.seo,
+		CustomPageRepo: repos.customPage, CustomBuildRepo: repos.customBuild,
+		BuildNotifier: buildnotify.New(), DockerStat: dockerstat.New(""),
 		AccessRequestRepo:  repos.accessRequest,
 		JobSourceRepo:      repos.jobSource,
 		ResumeDraftRepo:    repos.resumeDraft,
@@ -190,7 +192,7 @@ func assembleRuntimeDeps(
 		CaptchaEnabled:     cfg.TurnstileSiteKey != "" && cfg.TurnstileSecret != "",
 		CaptchaSiteKey:     captchaSiteKeyFor(cfg),
 		SecureCookie:       cfg.SecureCookie,
-		BuildsRoot:         cfg.CustomPagesRoot, SessionKey: cfg.SessionKey,
+		BuildsRoot:         cfg.CustomPagesRoot, SessionKey: cfg.SessionKey, PublicIP: cfg.PublicIP,
 		SandboxRunner:     sandbox.FromEnv(cfg.SandboxDriver),
 		PrintStore:        printStore,
 		PdfRenderer:       buildPDFRenderer(log, cfg, printStore),

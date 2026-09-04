@@ -11,6 +11,7 @@ import type {
   DocContext,
   EventObserver,
   PromptSource,
+  TurnRecovery,
   TurnRequest,
   TurnStreamer,
 } from './ports.js';
@@ -20,6 +21,10 @@ export interface VisitorTurnAgentPorts {
   readonly prompts: PromptSource;
   readonly turn: TurnStreamer;
   readonly observer?: EventObserver;
+  // recovery —— optional. When present, a turn whose SSE was cut mid-stream by
+  // a transport drop is healed by pulling the backend's persisted answer
+  // instead of surfacing a "connection dropped, try again" (K, owner-reported).
+  readonly recovery?: TurnRecovery;
 }
 
 export interface VisitorTurnAgentConfig {
@@ -102,8 +107,7 @@ export class VisitorTurnAgent {
     // makes this distinction (it judges by the product, not the
     // accumulated text) — the client side never did.
     if (!ctx.sawDone && !ctx.errored) {
-      ctx.errored = true;
-      this.emit({ type: 'error', message: unfinishedMessage(ctx) });
+      await this.finishUnfinished(ctx, opts.userMessage);
     }
     if (ctx.errored) return history;
     this.emit({ type: 'final_text', text: ctx.text });
@@ -112,6 +116,35 @@ export class VisitorTurnAgent {
       { role: 'user', content: opts.userMessage },
       { role: 'assistant', content: ctx.text },
     ];
+  }
+
+  // finishUnfinished —— the `done` frame never arrived. Before giving up with a
+  // "try again", try to recover: a pure transport drop is healable because the
+  // backend finished on its detached context and persisted the turn. Recovered
+  // → emit the authoritative answer + a normal finish; not → the honest cut error.
+  private async finishUnfinished(ctx: TurnCtx, userMessage: string): Promise<void> {
+    const recovered = await this.tryRecover(ctx, userMessage);
+    if (recovered !== null) {
+      ctx.text = recovered;
+      ctx.sawDone = true;
+      this.emit({ type: 'answer_recovered', text: recovered });
+      // ponytail: recovered turns finish as end_turn. The transcript aggregate
+      // doesn't carry stop_reason, so a dropped turn that had actually hit
+      // max_tokens/deadline loses that notice on recovery — rare compound case;
+      // thread stop_reason through the aggregate if it ever matters.
+      this.emit({ type: 'turn_finished', stopReason: 'end_turn' });
+      return;
+    }
+    ctx.errored = true;
+    this.emit({ type: 'error', message: unfinishedMessage(ctx) });
+  }
+
+  // tryRecover —— only a **pure transport drop** is recoverable. A 401/403 cut
+  // (cutStatus set) means the session is gone — there's nothing to come back to;
+  // and without a recovery port there's no channel to pull the persisted turn.
+  private async tryRecover(ctx: TurnCtx, userMessage: string): Promise<string | null> {
+    if (ctx.cutStatus !== 0 || this.ports.recovery === undefined) return null;
+    return this.ports.recovery.recover(this.cfg.conversationID, userMessage);
   }
 
   private consumeEvent(ev: AgentTurnEvent, ctx: TurnCtx): void {

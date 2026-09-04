@@ -1,10 +1,11 @@
-// corpus-reparent-path.spec.ts —— 迁移前 gap-fill (🔴#1)。
+// corpus-reparent-path.spec.ts —— pre-migration gap-fill (🔴#1).
 //
-// 移动一个 wiki 节点到新父，它**和它所有后代**的 path 必须跟着更新：旧 path 立刻失效、新 path
-// 立刻解析。今天 path 是从 parent_id 树**派生**的，所以这条天然成立。补这个测试是因为结构迁移会
-// 把 path **物化**成一列 —— 物化之后「移动节点级联更新后代 path」是最容易漏的一步（改了自己那行、
-// 忘了刷后代），而它此前**零守卫**（corpus-tree-integrity 只测了 reparent 成环的**拒绝**，没测成功
-// 路径的 path 结果）。这条钉住当前行为，物化实现必须让它继续绿。
+// Move a wiki node to a new parent, and the path of it **and all its descendants** must update along with it: the old path
+// stops resolving immediately, the new path resolves immediately. Today path is **derived** from the parent_id tree, so this holds
+// for free. This test is added because the structural migration will **materialize** path into a column —— once materialized,
+// "moving a node cascades the descendants' paths" is the easiest step to miss (changed its own row, forgot to refresh descendants),
+// and it had **zero guard** until now (corpus-tree-integrity only tested the **rejection** of a cycling reparent, not the path
+// result of the success path). This pins the current behavior; the materialized implementation must keep it green.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -79,7 +80,7 @@ test.describe('corpus reparent → derived path cascades to node + descendants',
     });
 });
 
-// promoteWiki —— corpus.create(raw) → corpus.promote(genre:'raw') → 新 wiki 的 id。
+// promoteWiki —— corpus.create(raw) → corpus.promote(genre:'raw') → the new wiki's id.
 async function promoteWiki(
   request: APIRequestContext, token: string, sid: string, title: string, parent?: string,
 ): Promise<string> {
@@ -92,7 +93,7 @@ async function promoteWiki(
   return w.id;
 }
 
-// reparentWiki —— corpus.update 改 parent_id(标题正文照旧)。
+// reparentWiki —— corpus.update changes parent_id (title and body unchanged).
 async function reparentWiki(
   request: APIRequestContext, token: string, sid: string,
   wikiID: string, title: string, parentID: string,

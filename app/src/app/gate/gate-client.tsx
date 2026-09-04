@@ -16,15 +16,19 @@ import { WhatsBehind } from '@/components/gate/WhatsBehind';
 import { useTheme } from '@/lib/page/use-theme';
 import { useGate } from '@/lib/gate/use-gate';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
+import type { CustomPageLink } from '@/lib/api/custom-pages';
 
 type Props = {
   handle: string;
   canDeliverCodes: boolean;
   publicWiki: number;
   publicWritings: number;
+  pages: readonly CustomPageLink[];
 };
 
-export function GateClient({ handle, canDeliverCodes, publicWiki, publicWritings }: Props) {
+export function GateClient(
+  { handle, canDeliverCodes, publicWiki, publicWritings, pages }: Props,
+) {
   const { dark, toggle } = useTheme();
   const hook = useGate();
   // Landing on /gate means visitor is exiting any prior session — clear it so
@@ -42,7 +46,7 @@ export function GateClient({ handle, canDeliverCodes, publicWiki, publicWritings
               content needs no credential at all, while BYOAI asks the visitor for their
               own API key. Putting the cheapest door last (or omitting it, as before) made
               "read what they wrote" harder to reach than "go get a key". */}
-          <ReadPanel publicWiki={publicWiki} publicWritings={publicWritings} />
+          <ReadPanel publicWiki={publicWiki} publicWritings={publicWritings} pages={pages} />
           <BYOAIPanel hook={hook} />
           <WhatsBehind />
           {/* The whole request-access block only shows when the owner can deliver codes

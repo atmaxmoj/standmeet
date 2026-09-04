@@ -56,7 +56,7 @@ type CountNoteStatsRow struct {
 	Gated   int64
 }
 
-// 侧栏脚定位计数：总条数 / 根条数 / 非公开（gated）条数。纯聚合，不 load 树。
+// Sidebar footer counts: total entries / root entries / non-public (gated) entries. Pure aggregation, does not load the tree.
 func (q *Queries) CountNoteStats(ctx context.Context, arg CountNoteStatsParams) (CountNoteStatsRow, error) {
 	row := q.db.QueryRow(ctx, countNoteStats, arg.OwnerID, arg.Genre)
 	var i CountNoteStatsRow
@@ -83,9 +83,10 @@ type CreateNoteParams struct {
 	ShowAsSource bool
 }
 
-// corpus_notes.sql —— 统一 note 基座的 query。wiki + output 两个 genre 共用这一套（genre 作参数）：
-// 原 wiki 的 13 条 + output 的 11 条近重复 query 收成这 12 条。Repo 层各自绑定自己的 genre 调用。
-// 地址仍纯树派生（parent 链），本表不存 path 列。
+// corpus_notes.sql —— queries for the unified note base. The wiki + output genres share this one set
+// (genre as a parameter): the original 13 wiki + 11 output near-duplicate queries collapse into these 12.
+// Each Repo layer binds its own genre when calling. Addresses are still purely tree-derived (parent chain);
+// this table stores no path column.
 func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, createNote,
 		arg.OwnerID,
@@ -299,7 +300,7 @@ type GetNoteByIDAnyGenreParams struct {
 	ID      pgtype.UUID
 }
 
-// 按 id 取一条 corpus note(任一 genre),给 search 索引单条用。
+// Fetch one corpus note by id (any genre), for indexing a single entry into search.
 func (q *Queries) GetNoteByIDAnyGenre(ctx context.Context, arg GetNoteByIDAnyGenreParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, getNoteByIDAnyGenre, arg.OwnerID, arg.ID)
 	var i CorpusNote
@@ -527,7 +528,7 @@ type GetNoteCssClassesParams struct {
 	OwnerID pgtype.UUID
 }
 
-// cssclasses(per-note 呈现钩子)。corpus_read 时补到 CorpusEntry;跨 genre 按 id。
+// cssclasses (per-note presentation hook). Attached to CorpusEntry at corpus_read time; cross-genre, by id.
 func (q *Queries) GetNoteCssClasses(ctx context.Context, arg GetNoteCssClassesParams) ([]string, error) {
 	row := q.db.QueryRow(ctx, getNoteCssClasses, arg.ID, arg.OwnerID)
 	var css_classes []string
@@ -552,8 +553,8 @@ type GetNoteHeroRow struct {
 	CoverHue          string
 }
 
-// 一条 note 上跟素材有关的那几样:正文(里面的 standmeet-asset 引用)和 hero 三件套。
-// 跨 genre 按 id —— 素材这件事对 genre 是无差别的。
+// The asset-related items on a note: the body (with its standmeet-asset references) and the hero trio.
+// Cross-genre, by id —— assets are genre-agnostic.
 func (q *Queries) GetNoteHero(ctx context.Context, arg GetNoteHeroParams) (GetNoteHeroRow, error) {
 	row := q.db.QueryRow(ctx, getNoteHero, arg.ID, arg.OwnerID)
 	var i GetNoteHeroRow
@@ -580,8 +581,8 @@ type GetNoteLangRow struct {
 	LangLabels []byte
 }
 
-// 多语渲染要的那两个 frontmatter 字段:身份语言 + 切换器标签。语言**集**不在这儿 ——
-// 它由正文里的语言面推,存一份就会跟正文漂移。跟 cssclasses 同一个形态:读的时候补一次。
+// The two frontmatter fields multilingual rendering needs: the identity language + the switcher labels. The language **set**
+// is not here —— it is inferred from the language faces in the body, and storing a copy would drift from the body. Same shape as cssclasses: attached once at read time.
 func (q *Queries) GetNoteLang(ctx context.Context, arg GetNoteLangParams) (GetNoteLangRow, error) {
 	row := q.db.QueryRow(ctx, getNoteLang, arg.ID, arg.OwnerID)
 	var i GetNoteLangRow
@@ -608,7 +609,7 @@ type GetNoteMetaByIDRow struct {
 	Published bool
 }
 
-// meta only（无 body）：上溯算树派生 path / 判 ACL 用，不为读正文。
+// meta only (no body): for walking up to compute the tree-derived path / checking ACL, not for reading the body.
 func (q *Queries) GetNoteMetaByID(ctx context.Context, arg GetNoteMetaByIDParams) (GetNoteMetaByIDRow, error) {
 	row := q.db.QueryRow(ctx, getNoteMetaByID, arg.ID, arg.OwnerID, arg.Genre)
 	var i GetNoteMetaByIDRow
@@ -646,12 +647,12 @@ type GrepCorpusNotesRow struct {
 	PathTitles []string
 }
 
-// corpus_grep 的扫描面:owner 的每一条 note,连正文,path 沿 parent 链在 SQL 里算好。
+// The scan surface for corpus_grep: every note of the owner, including body, with path computed along the parent chain in SQL.
 //
-// **没有 LIMIT,也不会有。** never-miss 是这个工具存在的理由:模式在的地方必然被返回。
-// 一个 cap 会让它退化成"通常能找到",而那正是隔壁 corpus_search 已经提供的东西。
-// 正文里匹配与否在 Go 那侧判(RE2,跟 owner 写的模式同一套语义),不在 SQL 里 —— postgres 的
-// POSIX 正则跟 RE2 不是同一门方言,让它先筛一遍就等于让两套方言各漏一点。
+// **No LIMIT, and there never will be.** never-miss is the whole reason this tool exists: wherever the pattern is, it must be returned.
+// A cap would degrade it into "usually findable", which is exactly what the neighboring corpus_search already provides.
+// Whether the body matches is decided on the Go side (RE2, the same semantics as the pattern the owner wrote), not in SQL —— postgres's
+// POSIX regex is not the same dialect as RE2, so letting it pre-filter would make each of the two dialects miss a little.
 func (q *Queries) GrepCorpusNotes(ctx context.Context, ownerID pgtype.UUID) ([]GrepCorpusNotesRow, error) {
 	rows, err := q.db.Query(ctx, grepCorpusNotes, ownerID)
 	if err != nil {
@@ -698,8 +699,8 @@ type ListAllNoteMetaRow struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
-// 全量 meta（无 body、无 limit）：sitemap 枚举 + landing 的 title→path 索引用。不带 newest-N cap
-// —— sitemap / 链接解析必须看全量，漏一条就是 SEO bug / 断链。带 updated_at 给 sitemap <lastmod>。
+// Full meta (no body, no limit): for sitemap enumeration + the landing page's title→path index. No newest-N cap
+// —— sitemap / link resolution must see everything; missing one is an SEO bug / broken link. Includes updated_at for the sitemap <lastmod>.
 func (q *Queries) ListAllNoteMeta(ctx context.Context, arg ListAllNoteMetaParams) ([]ListAllNoteMetaRow, error) {
 	rows, err := q.db.Query(ctx, listAllNoteMeta, arg.OwnerID, arg.Genre)
 	if err != nil {
@@ -750,21 +751,21 @@ type ListAllNotesForExportRow struct {
 	ObsidianFrontmatter string
 }
 
-// Vault export: all corp notes(any genre) with body/tree/publish — 反向 render 成 vault .md。
-// lang / aliases 一起取（F-L-59）：导出少了它们，owner 导出再导回来就会把双语配对和
-// `[[别名]]` 的解析输入在**真语料上**抹平。丢失从这条 SELECT 开始，不是从渲染开始。
+// Vault export: all corp notes(any genre) with body/tree/publish — reverse-render into vault .md.
+// lang / aliases are fetched too (F-L-59): if the export omits them, exporting and re-importing flattens the
+// bilingual pairing and the resolution input for `[[alias]]` **on the real corpus**. The loss starts at this SELECT, not at rendering.
 //
-// 上一句话写对了，但只扫到了它当时那两个字段（[[lesson-not-swept-to-neighbours]]）。
-// excerpt / css_classes / lang_labels 三个列一直在库里，这条 SELECT 从来没取过，
-// 于是导出一个都不写 —— owner 同步下来就少了它们（F-L-67）。
+// The sentence above was right, but only swept the two fields it named at the time ([[lesson-not-swept-to-neighbours]]).
+// The excerpt / css_classes / lang_labels columns have been in the database all along, and this SELECT never fetched them,
+// so the export wrote none of them —— the owner syncing down loses them (F-L-67).
 //
-// obsidian_source_path：这条笔记**来自 vault 里的哪个文件**。导出要它是为了不改布局：
-// 一个「文件夹里只有它自己」的 folder-note（`x/y/y.md`）在树上没有子节点，导出于是把它
-// 写成同级的 `x/y.md` —— 内容没变，但镜像替 owner 搬了家（F-L-68，真 vault 上 22 篇）。
+// obsidian_source_path: **which file in the vault this note came from**. The export needs it so layout is not changed:
+// a folder-note that is "the only thing in its folder" (`x/y/y.md`) has no child nodes on the tree, so the export would
+// write it as the sibling `x/y.md` —— the content is unchanged, but the mirror moved it on the owner's behalf (F-L-68, 22 such files in the real vault).
 //
-// obsidian_frontmatter：这条笔记在 vault 里那一块 frontmatter 的原文。产品不认识的 key
-// （真 vault 上 `langs` 596 篇、`aliases-zh` 595 篇、`owns` 33 篇）只活在这里；不取它，
-// 导出就只能按自己认识的那十几个 key 重新渲染，等于把其余的删掉。
+// obsidian_frontmatter: the raw text of this note's frontmatter block in the vault. Keys the product does not recognize
+// (in the real vault: `langs` 596 files, `aliases-zh` 595 files, `owns` 33 files) live only here; without fetching it,
+// the export can only re-render by the dozen-or-so keys it does recognize, which amounts to deleting the rest.
 func (q *Queries) ListAllNotesForExport(ctx context.Context, ownerID pgtype.UUID) ([]ListAllNotesForExportRow, error) {
 	rows, err := q.db.Query(ctx, listAllNotesForExport, ownerID)
 	if err != nil {
@@ -811,9 +812,9 @@ type ListAllOwnerNoteTitlesRow struct {
 	Aliases []string
 }
 
-// 跨-genre 的 title→id 索引：`[[Title]]` 可指向 owner 语料里任一 genre 的任一条。给 note refs
-// 解析用（wiki body 里 [[Output Title]] 也要解析得到边）。全量、无 cap —— 漏一条就是断链。
-// aliases 一起取：`[[别名]]` 也要解析得到边，别名跟 title 是同一批候选（消歧同一套规则）。
+// Cross-genre title→id index: `[[Title]]` can point at any entry of any genre in the owner's corpus. For note-ref
+// resolution (a [[Output Title]] inside a wiki body must also resolve to an edge). Full, no cap —— missing one is a broken link.
+// aliases are fetched too: an `[[alias]]` must also resolve to an edge; aliases are the same candidate set as title (same disambiguation rules).
 func (q *Queries) ListAllOwnerNoteTitles(ctx context.Context, ownerID pgtype.UUID) ([]ListAllOwnerNoteTitlesRow, error) {
 	rows, err := q.db.Query(ctx, listAllOwnerNoteTitles, ownerID)
 	if err != nil {
@@ -851,9 +852,10 @@ type ListDistinctTagsByGenreParams struct {
 	Genre   string
 }
 
-// 一个 genre 里出现过的**全部**标签,去重排序。给面板的标签行用。
-// 它必须是语料级的:标签行以前从「已加载的那一页」推,于是只存在于那一页之外的标签**连
-// chip 都没有** —— 点不到,也就无从发现自己漏了什么(F-L-23 的后半条)。
+// **All** tags that ever appeared within one genre, deduped and sorted. For the panel's tag row.
+// It must be corpus-level: the tag row used to be inferred from "the page already loaded", so tags that only
+// existed outside that page had **no chip at all** —— you could not click them, and so could not discover what you
+// were missing (the second half of F-L-23).
 func (q *Queries) ListDistinctTagsByGenre(ctx context.Context, arg ListDistinctTagsByGenreParams) ([]string, error) {
 	rows, err := q.db.Query(ctx, listDistinctTagsByGenre, arg.OwnerID, arg.Genre)
 	if err != nil {
@@ -925,9 +927,10 @@ type ListNoteCardsByIDsRow struct {
 	Published bool
 }
 
-// Page-pin join:被 pin 的条目 → 卡内容(title + excerpt + published 兜底过滤)。
-// 顺序由 caller 按 pin 列表重排,这里不 ORDER。
-// body 也取:owner 没写 excerpt 时,卡上那句话从正文里派生(F-L-47)。被 pin 的条目最多几条。
+// Page-pin join: pinned entries → card content (title + excerpt + published as a safety filter).
+// The caller reorders by the pin list, so no ORDER here.
+// body is also fetched: when the owner wrote no excerpt, the card's sentence is derived from the body (F-L-47).
+// There are at most a handful of pinned entries.
 func (q *Queries) ListNoteCardsByIDs(ctx context.Context, arg ListNoteCardsByIDsParams) ([]ListNoteCardsByIDsRow, error) {
 	rows, err := q.db.Query(ctx, listNoteCardsByIDs, arg.OwnerID, arg.Column2)
 	if err != nil {
@@ -980,7 +983,8 @@ type ListNoteChildrenRow struct {
 	HasChildren bool
 }
 
-// 懒加载一层：某节点的直接子（meta only，不带 body）；$3 NULL = 根层。has_children 判还能否下钻。
+// Lazy-load one level: a node's direct children (meta only, no body); $3 NULL = root level.
+// has_children says whether it can be drilled into.
 func (q *Queries) ListNoteChildren(ctx context.Context, arg ListNoteChildrenParams) ([]ListNoteChildrenRow, error) {
 	rows, err := q.db.Query(ctx, listNoteChildren,
 		arg.OwnerID,
@@ -1343,10 +1347,11 @@ type QueryCorpusNotesRow struct {
 	PathTitles []string
 }
 
-// 原生 standmeet-query 用:按 genre/tag 过滤(空串 = 不筛),并沿 parent 链在 SQL 里算出 path_titles
-// (root→leaf),省掉逐条 N+1 的 path walk。只返 root-reached 行(每个匹配条一行,带完整 path)。
-// leaf_published 跟着叶子往上传:准入要问「这条自己发布了吗」(public 身份唯一的判据),
-// 而 path walk 走到 root 时叶子的行已经不在手里了。
+// For the native standmeet-query: filter by genre/tag (empty string = no filter) and compute path_titles
+// along the parent chain in SQL (root→leaf), avoiding a per-row N+1 path walk. Returns only root-reached rows
+// (one row per match, with the full path).
+// leaf_published is carried up from the leaf: admission asks "is this entry itself published?" (the sole criterion
+// for the public identity), but by the time the path walk reaches the root the leaf's row is no longer in hand.
 func (q *Queries) QueryCorpusNotes(ctx context.Context, arg QueryCorpusNotesParams) ([]QueryCorpusNotesRow, error) {
 	rows, err := q.db.Query(ctx, queryCorpusNotes, arg.OwnerID, arg.Column2, arg.Column3)
 	if err != nil {
@@ -1408,24 +1413,26 @@ type SearchNotesRow struct {
 	Snippet   []byte
 }
 
-// 全量关键词搜（DB 端 full-text）；返 meta + snippet（不返完整 body），翻页。自然语言问句按 OR
-// 命中任一词项（' & '→' | '，防 "tell"/"me" 噪声词把 plainto 默认 AND 卡死）；ts_rank 关联度排序。
+// Full keyword search (DB-side full-text); returns meta + snippet (not the full body), paginated. A natural-language
+// question matches any term via OR (' & '→' | ', to stop noise words like "tell"/"me" from jamming plainto's default AND);
+// ranked by ts_rank relevance.
 //
-// **snippet 取的是命中处（`ts_headline`），不是正文开头。** 原来是 `left(body, 200)`，
-// 而这个 vault 的笔记几乎都以一个 `> [!i18n]` 语言切换 callout 开头 —— 那 200 字节全是标记，
-// 清洗之后一个字不剩，于是 owner 搜出来的每一行都没有摘要（F-L-45）。命中处还顺带回答了
-// 「这一行为什么被搜到」，那正是搜索结果该说的话。`StartSel/StopSel` 置空：不要 `<b>` 标记，
-// 摘要要能直接渲给人看（F-L-42 那族：原始标记不许漏到界面上）。
-// **两个空值必须带引号**（`StartSel=""`）：写成 `StartSel=,` 的话 postgres 把后面那截当成值，
-// 于是每个命中词前面都印出一串 `,StopSel=` —— ⑤ 在真语料上当场抓到，而守卫当时没红，
-// 因为它只断了「摘要非空且含命中词」，那串垃圾同时满足这两条。
+// **The snippet is taken from the match site (`ts_headline`), not the start of the body.** It used to be `left(body, 200)`,
+// but nearly every note in this vault opens with a `> [!i18n]` language-switch callout —— those 200 bytes are all markup,
+// leaving nothing after cleaning, so every row the owner searched had no excerpt (F-L-45). The match site also happens to answer
+// "why was this row found", which is exactly what a search result should say. `StartSel/StopSel` are set empty: no `<b>` markup,
+// because the excerpt must be renderable directly to a person (the F-L-42 family: raw markup must not leak to the UI).
+// **Both empty values must be quoted** (`StartSel=""`): written as `StartSel=,`, postgres treats the rest as the value,
+// so every matched term gets a `,StopSel=` printed in front of it —— case ⑤, caught red-handed on the real corpus while the guard
+// was not red, because it only asserted "excerpt is non-empty and contains the matched term", which that garbage also satisfied.
 //
-// updated_at 也一并取上 —— 它以前没被 select，而 wiki/output 那条映射照样把零值渲成
-// `1970-01-01T00:00:00Z` 发出去（F-L-46）。
-// 索引和摘要都走 `corpus_searchable(body)`（定义在 schema.sql）：vault 的 i18n 契约里那一行
-// 语言切换按钮是**呈现件**，不是 owner 写下的字。它以前既进索引（搜「中文」会命中每一条
-// 多语笔记，哪怕正文一个中文字都没有）又进摘要（每条摘要都从 `EN 中文` 开头）——UX-78。
-// 两处必须用同一个表达式：只清摘要的话，搜得到却看不出为什么，那更糟。
+// updated_at is fetched too —— it used not to be selected, yet the wiki/output mapping still rendered the zero value as
+// `1970-01-01T00:00:00Z` and shipped it (F-L-46).
+// Both the index and the excerpt go through `corpus_searchable(body)` (defined in schema.sql): in the vault's i18n contract, that one
+// language-switch button line is a **presentation artifact**, not text the owner wrote. It used to go into both the index (searching for
+// "Chinese" would hit every multilingual note, even one without a single Chinese character in its body) and the excerpt (every excerpt
+// started with the switcher labels, e.g. an `EN` / Chinese-label button) —— UX-78.
+// Both places must use the same expression: cleaning only the excerpt would be worse — you would find it but not see why.
 func (q *Queries) SearchNotes(ctx context.Context, arg SearchNotesParams) ([]SearchNotesRow, error) {
 	rows, err := q.db.Query(ctx, searchNotes,
 		arg.OwnerID,
@@ -1481,12 +1488,13 @@ type SetNoteHeroRow struct {
 	CoverHue          string
 }
 
-// hero 区 —— 任意 genre 的一条 corpus note 都能有。它不是"一张图":设计里是图 + 压在图上
-// 那句话 + 色调三样一起(见 app 的 Cover 组件)。三列本来就在这张共享表上,以前只有 writing
-// 那条路写它们,于是"每个 genre 都能有 hero"这句话在数据上成立、在代码里不成立。
+// The hero area —— any corpus note of any genre can have one. It is not "an image": the design is the image + the sentence
+// laid over it + the hue, all three together (see the app's Cover component). The three columns have always been on this shared
+// table, but only the writing path used to write them, so "every genre can have a hero" held in the data but not in the code.
 //
-// 三列一次写全:caller 先读回现值、只覆盖这次给了的那几项,再整份写回。这样"没提到的字段"
-// 不会被顺手抹掉 —— corpus.update 的既有调用方一个 hero 字段都不带。
+// All three columns written at once: the caller first reads back the current values, overwrites only the ones given this time,
+// then writes the whole set back. This way "fields not mentioned" are not wiped out inadvertently —— corpus.update's existing
+// callers pass no hero field at all.
 func (q *Queries) SetNoteHero(ctx context.Context, arg SetNoteHeroParams) (SetNoteHeroRow, error) {
 	row := q.db.QueryRow(ctx, setNoteHero,
 		arg.ID,
@@ -1546,7 +1554,7 @@ type UpdateNoteBodyParams struct {
 	CssClasses   []string
 }
 
-// admin "edit" 入口：改 title/body/tags/parent_id/show_as_source。excerpt/published 走 UpdateNoteSEO。
+// admin "edit" entry point: change title/body/tags/parent_id/show_as_source. excerpt/published go through UpdateNoteSEO.
 func (q *Queries) UpdateNoteBody(ctx context.Context, arg UpdateNoteBodyParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, updateNoteBody,
 		arg.ID,
@@ -1614,8 +1622,9 @@ type UpdateNoteSEOParams struct {
 	OwnerID   pgtype.UUID
 }
 
-// 编辑 SEO 描述 + published 开关（地址树派生，owner 不自设 path）。owner_id 必带：
-// 多租户下没有它就是 BOLA（按 id 改到别的 owner 的 note）——与所有 corpus_notes mutation 一致。
+// Edit the SEO description + published toggle (addresses are tree-derived; the owner does not set path). owner_id
+// is required: without it, under multi-tenancy this is a BOLA (editing by id into another owner's note) —— consistent
+// with all corpus_notes mutations.
 func (q *Queries) UpdateNoteSEO(ctx context.Context, arg UpdateNoteSEOParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, updateNoteSEO,
 		arg.ID,

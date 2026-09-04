@@ -1,0 +1,57 @@
+{
+  "common": {
+    "brand": "standmeet",
+    "writings": "writings",
+    "backToWritings": "← back to writings",
+    "read": "read →",
+    "readMinutes": "{minutes} min read"
+  },
+  "breadcrumb": {
+    "back": "← writing"
+  },
+  "tree": {
+    "head": "writing"
+  },
+  "cover": {
+    "tag": "essay · standmeet",
+    "locked": "private · code-gated"
+  },
+  "article": {
+    "coverNo": "{date} · essay",
+    "linkedFrom": "linked from",
+    "privateEssay": "private essay",
+    "lockedBody": "This essay is gated; ask for an invite code.",
+    "requestInvite": "request an invite code →"
+  },
+  "cards": {
+    "leadNo": "no. 01 · {date}",
+    "latest": "latest",
+    "no": "no. {n}",
+    "readMinutesShort": "{minutes} min"
+  },
+  "index": {
+    "orSkipTheReading": "or skip the reading",
+    "askHeading": "Ask the AI directly",
+    "askBody": "Everything you'd read here, said back to you in the owner's voice. The chat covers ground he hasn't written up yet, and answers from the corpus rather than the archive.",
+    "openTheChat": "open the chat →",
+    "ifYouOnlyReadTwo": "if you only read two",
+    "chat": "chat",
+    "essays": "essays",
+    "title": "Writings",
+    "lede": "The corpus, surfaced. Each essay is the expanded version of something I've been thinking through — you can ask the AI about any of these directly.",
+    "browseByTag": "browse by tag",
+    "clear": "× clear · showing {filtered} of {total}",
+    "all": "all",
+    "empty": "No essays yet.",
+    "mostRecent": "most recent",
+    "archive": "archive",
+    "filteredBy": "filtered by",
+    "essayCount": "{count, plural, one {# essay} other {# essays}}"
+  },
+  "editor": {
+    "slashNoMatch": "no match",
+    "crosslink": "cross-link",
+    "crosslinkNoMatch": "no match · type a slug to create",
+    "crosslinkHint": "↑↓ navigate · ↵ insert · esc to cancel"
+  }
+}

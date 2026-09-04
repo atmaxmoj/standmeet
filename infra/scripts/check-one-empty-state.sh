@@ -1,35 +1,41 @@
 #!/usr/bin/env sh
-# check-one-empty-state —— admin 的列表空态只能从 ListPane 里出来。
+# check-one-empty-state —— an admin list empty state may come only from ListPane.
 #
-# 为什么这条闸门存在(F-N-7):在这之前,每个 section 自己写
-#     hook.list.length === 0 ? <空态/> : <列表/>
-# 这句话只有两种结局,而真实世界有三种 —— **拉失败之后列表也是空数组**,于是失败穿上空态的
-# 衣服。prod 上真驱出来的样子:`/admin/roles` 印着「No roles yet」而那台实例有三个角色;
-# `/admin/ip-bans` 更狠 ——「No IPs banned. The public surface is open」。
+# Why this gate exists (F-N-7): before it, each section wrote its own
+#     hook.list.length === 0 ? <empty/> : <list/>
+# This statement has only two outcomes, but the real world has three — **after a fetch fails the list
+# is also an empty array**, so failure wears the empty state's clothes. What that looked like when
+# driven on prod: `/admin/roles` printed "No roles yet" while that instance had three roles;
+# `/admin/ip-bans` worse still — "No IPs banned. The public surface is open".
 #
-# 空态说的是**一句关于世界的话**,而且总是指向一个动作(`+ NEW ROLE`)。失败时说它,owner 会在
-# 一份自己没读到的配置上面动手。
+# An empty state makes **a statement about the world**, and it always points at an action (`+ NEW
+# ROLE`). Say it on failure and the owner acts on a config they never actually read.
 #
-# **产品里已经有人做对过**(`CodeCorpusConfig` 的 `CorpusLoadFailed`、`CapabilitiesPanel` 判
-# `status === 'error'`)—— 做对的方式是**手写第三种状态**。手写就意味着下一个 section 还会漏:
-# 需要人记得的检查就是一个职责类(见 [[structure-means-no-responsibility-class]])。
-# 所以这里锁的是「有没有绕过 ListPane」,不是「记不记得加 error 分支」。
+# **Someone in the product already did this right** (`CodeCorpusConfig`'s `CorpusLoadFailed`,
+# `CapabilitiesPanel` branching on `status === 'error'`) — the right way is to **hand-write the third
+# state**. Hand-writing means the next section will still miss it: a check that needs remembering is a
+# responsibility class (see [[structure-means-no-responsibility-class]]). So this locks "did it bypass
+# ListPane", not "did you remember to add the error branch".
 #
-# **判定的形状,两个条件都要满足**:
-#   (a) `length === 0` 后面跟着一个 `? <大写开头的组件` —— 用条数决定渲染哪个组件;
-#   (b) **同一个文件里有加载状态**(`ResourceStatus` / `.status ===` / `hook.status`)。
+# **The shape of the judgment, both conditions required**:
+#   (a) `length === 0` followed by a `? <capitalized-component` — using the count to decide which
+#       component to render;
+#   (b) **the same file has a load status** (`ResourceStatus` / `.status ===` / `hook.status`).
 #
-# 为什么要 (b):第一版只查 (a),扫出三处**误报** —— `MembersBlock` 用的是另一套判别联合
-# (`state.kind`,error 已经单独处理过了)、`PinManager` 的 pins 是 owner 正在编辑的表单值、
-# `NeedsList` 的 items 是从手里已有的 stats 推出来的。这三处的空态都是**真结论**,不是没拉到。
-# 给它们逐个开豁免是错的路 —— 豁免会腐烂,而且一条挡住正当写法的规则会把代码推去更糟的地方
-# (见 [[gate-scope-forces-architecture]])。(b) 才是这条规矩真正的边界:
-# **手里有加载状态,就没有理由自己决定空态。**
+# Why (b): the first version checked only (a) and turned up three **false positives** — `MembersBlock`
+# uses a different discriminated union (`state.kind`, error already handled separately), `PinManager`'s
+# pins are a form value the owner is editing, `NeedsList`'s items are derived from stats already in
+# hand. All three empty states are **real conclusions**, not failed fetches. Exempting them one by one
+# is the wrong path — exemptions rot, and a rule that blocks a legitimate form pushes code somewhere
+# worse (see [[gate-scope-forces-architecture]]). (b) is the rule's real boundary:
+# **if you have a load status in hand, there's no reason to decide the empty state yourself.**
 #
-# `? null` 也放过:什么都不渲染不是一句关于世界的陈述,那是可选装饰(整段没内容时不出标题)。
+# `? null` is also let through: rendering nothing isn't a statement about the world, it's optional
+# decoration (no heading when a section has no content).
 #
-# 自证:种一段「有 status 又手写空态」的必须判红;种一个「没有 status」的和一个 `? null` 的
-# 都必须放过 —— 只判红不判绿的闸门等于没验过它的边界。
+# Self-test: a planted "has status and hand-writes the empty state" must go red; a planted "no status"
+# and a `? null` must both be let through — a gate that only judges red and never green hasn't verified
+# its boundary.
 
 set -eu
 
@@ -38,8 +44,9 @@ SCOPE="app/src/components/admin/sections"
 
 fail=0
 
-# shape_hits —— 条件 (a):找「用条数挑组件」的写法。注释行跳过:这几个文件的顶部注释正在讲
-# 这段历史,把它们判红会逼人删掉解释。`? null` / `? <空片段` 放过。三元跨行的看下一行。
+# shape_hits —— condition (a): find the "pick a component by count" form. Skip comment lines: these
+# files' top comments describe this history, and flagging them would force deleting the explanation.
+# Let `? null` / `? <empty fragment` through. For a multi-line ternary, look at the next line.
 shape_hits() {
   awk '
     /^[[:space:]]*(\/\/|\*|\/\*|\{\/\*|#)/ { next }
@@ -49,37 +56,38 @@ shape_hits() {
         if (line !~ /(\?|&&)[[:space:]]*<>/) { print FILENAME ":" FNR ":" line }
         next
       }
-      # 换行的三种断法都要跟到下一行:`? (` / `&& (` / 行尾就断。
+      # Follow to the next line for all three line-break forms: `? (` / `&& (` / break at end of line.
       if (line ~ /length === 0[[:space:]]*(\?|&&)[[:space:]]*\($/ || line ~ /length === 0$/) {
         pending = FILENAME ":" FNR ":" line; next
       }
       next
     }
     pending != "" {
-      # 下一行开头是 JSX 就算数 —— **小写标签也算**:空态常常是一段
-      # `<div className="sm-empty">` 而不是一个组件,而闸门第一版只认 `<[A-Z]`,
-      # 于是 SandboxPanel 那种写法整段走过去了([[gate-can-go-blind]])。
+      # A JSX open at the start of the next line counts — **a lowercase tag counts too**: an empty
+      # state is often a `<div className="sm-empty">` rather than a component, and the first version
+      # recognized only `<[A-Z]`, so the SandboxPanel form walked straight past ([[gate-can-go-blind]]).
       if ($0 ~ /^[[:space:]]*(\?[[:space:]]*)?<[A-Za-z]/) { print pending }
       pending = ""
     }
   ' "$@"
 }
 
-# has_status —— 条件 (b):这个文件手里有加载状态吗。单独一遍,不塞进 awk ——
-# awk 是单遍扫描,而状态的声明可能出现在犯规那一行**之后**。
+# has_status —— condition (b): does this file have a load status in hand? A separate pass, not folded
+# into awk — awk is a single-pass scan, and the status declaration may appear **after** the offending line.
 has_status() {
   grep -qE 'ResourceStatus|\.status ===|hook\.status|status=\{' "$1"
 }
 
-# ⚠️ (b) 试过往上游看一层(顺着 `from '@/lib/admin/use-*'` 判那个 hook 有没有 status),
-# **不能这么做**:文件级的判断会把某一个 hook 的状态安到这个文件里**所有**列表头上,
-# 于是 `NeedsList`(从手里的 stats 推出来的)和 `MembersBlock`(自己的判别联合,error 早就
-# 单独处理了)双双误报 —— 正是这条闸门第一版踩过的那三处。
-# 「这一份列表自己有没有状态」是数据流的问题,grep 答不了。
-# 真正让 `InferenceUsagePanel` / `SandboxPanel` 落回闸门视野的办法是**把它们改成 ListPane**:
-# 改完文件里就有 `status=`,(b) 自然成立,以后再退化就挡得住。
+# ⚠️ (b) was tried one level upstream (following `from '@/lib/admin/use-*'` to judge whether that hook
+# has a status), and **it must not be done that way**: a file-level judgment pins one hook's status
+# onto **all** list headers in the file, so `NeedsList` (derived from stats in hand) and `MembersBlock`
+# (its own discriminated union, error long since handled separately) both false-positive — exactly the
+# three spots the first version tripped on.
+# "Does this particular list have its own status" is a dataflow question, and grep can't answer it.
+# The real way to bring `InferenceUsagePanel` / `SandboxPanel` back into the gate's view is to **change
+# them to ListPane**: then the file has `status=`, (b) holds naturally, and any later regression is blocked.
 
-# scan_empties —— (a) 且 (b)。这才是这条规矩的边界:手里有加载状态,就没有理由自己决定空态。
+# scan_empties —— (a) and (b). This is the rule's boundary: if you have a load status in hand, there's no reason to decide the empty state yourself.
 scan_empties() {
   for f in "$@"; do
     has_status "$f" || continue
@@ -89,24 +97,24 @@ scan_empties() {
 
 files=$(find "$SCOPE" -name '*.tsx' -type f 2>/dev/null || true)
 
-# 1) 扫描器必须真的看得见文件 —— 空列表会让下面的判定恒绿(见 [[assertion-that-cannot-fail]])。
+# 1) The scanner must actually see files — an empty list makes the check below always green (see [[assertion-that-cannot-fail]]).
 n=$(printf '%s\n' "$files" | grep -c . || true)
 if [ "$n" -lt 15 ]; then
   echo "check-one-empty-state: SELF-TEST FAILED — only $n tsx files under $SCOPE, the scan is blind"
   exit 2
 fi
 
-# shellcheck disable=SC2086  # $files 是换行分隔的路径列表,这里要的就是词分割
+# shellcheck disable=SC2086  # $files is a newline-separated path list; word splitting is intended here
 offenders=$(scan_empties $files || true)
 
 if [ -n "$offenders" ]; then
-  echo "check-one-empty-state: 用条数直接挑组件 —— 失败之后列表也是空的,这句空话会被 owner 当真:"
+  echo "check-one-empty-state: picking a component straight from the count —— after a failure the list is also empty, and the owner will take this empty statement at face value:"
   echo "$offenders"
-  echo "                       用 <ListPane status=… count=… empty={…}> ($OWNER)。"
+  echo "                       use <ListPane status=… count=… empty={…}> ($OWNER)."
   fail=1
 fi
 
-# 2) 组件本身必须还在,而且里面那个顺序还在 —— 否则上面那条恒绿。
+# 2) The component must still exist, and that ordering inside it must still be there — otherwise the check above is always green.
 if [ ! -f "$OWNER" ]; then
   echo "check-one-empty-state: $OWNER is gone; the rule has no owner"
   fail=1
@@ -115,8 +123,9 @@ elif ! grep -q "status === 'error'" "$OWNER"; then
   fail=1
 fi
 
-# 3) 自证:三样都要验 —— 判得出红,也判得出这两种绿。只验红的闸门没验过自己的边界,
-#    而这条闸门的第一版正是因此扫出三处误报。
+# 3) Self-test: verify all three — judge red, and judge these two kinds of green. A gate that only
+#    verifies red hasn't verified its own boundary, and this gate's first version turned up three false
+#    positives for exactly that reason.
 guilty=$(mktemp -t emptycheck.XXXXXX)
 cat > "$guilty" <<'PLANTED'
 import type { ResourceStatus } from '@/lib/state/status';
@@ -131,8 +140,8 @@ export function AlsoBad({ tags }) {
 export function Fine({ tags }) {
   return tags.length === 0 ? null : <TagList tags={tags} />;
 }
-// 下面两种是闸门第一版**看不见**的写法,各自在产品里都有真实现场:
-// `&&`(InferenceUsagePanel)、括号 + 小写标签(SandboxPanel / APIKeysPanel)。
+// The two below are forms the first version of the gate was **blind to**, each with a real occurrence
+// in the product: `&&` (InferenceUsagePanel), and paren + lowercase tag (SandboxPanel / APIKeysPanel).
 export function BadAnd({ rows }) {
   return <div>{rows.length === 0 && (
     <div className="sm-empty">nothing here</div>
@@ -146,7 +155,7 @@ export function BadParen({ rows }) {
   );
 }
 PLANTED
-# 没有加载状态的那种:同样的形状,但这个列表是从手里的数据推出来的(PinManager / NeedsList)。
+# The no-load-status kind: same shape, but this list is derived from data in hand (PinManager / NeedsList).
 derived=$(mktemp -t emptycheck.XXXXXX)
 cat > "$derived" <<'PLANTED'
 export function Derived({ items }) {
@@ -157,7 +166,7 @@ guilty_hits=$(scan_empties "$guilty" | grep -c . || true)
 derived_hits=$(scan_empties "$derived" | grep -c . || true)
 rm -f "$guilty" "$derived"
 if [ "$guilty_hits" -ne 4 ]; then
-  echo "check-one-empty-state: SELF-TEST FAILED — expected 4 planted offenders (三元 / 换行三元 / && / 括号+小写标签;'? null' 那个放过), saw $guilty_hits"
+  echo "check-one-empty-state: SELF-TEST FAILED — expected 4 planted offenders (ternary / multi-line ternary / && / paren+lowercase tag; the '? null' one let through), saw $guilty_hits"
   exit 2
 fi
 if [ "$derived_hits" -ne 0 ]; then

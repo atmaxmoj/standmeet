@@ -13,6 +13,7 @@ import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
+import { gotoAdminSection } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
 
@@ -23,6 +24,9 @@ const OWNER = {
   handle: 'usageowner', fullName: 'Usage Owner',
 };
 const CODE = 'USE-001';
+
+// The chart test drives the real admin UI, so adminPage logs in as this owner.
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 interface UsageRow {
   date: string;
@@ -81,6 +85,18 @@ test.describe('inference usage billing · #106', () => {
       expect(after.rows.length, 'at least one day×model row').toBeGreaterThanOrEqual(1);
       expect(after.rows[0]?.model, 'row carries the model').toBeTruthy();
     });
+
+  // The owner asked for a line chart, one line per model. Runs after the turn above (serial),
+  // so at least one model has usage → at least one sparkline line is drawn.
+  test('the usage panel draws a per-model line chart', async ({ adminPage }) => {
+    await gotoAdminSection(adminPage, 'system');
+    await adminPage.waitForURL('**/admin/system', { timeout: 5_000 });
+    const chart = adminPage.getByTestId('inference-usage-chart');
+    await expect(chart, 'the per-model chart renders').toBeVisible({ timeout: 10_000 });
+    // one line per model: the billed model has its own labelled series + an SVG polyline.
+    await expect(chart.locator('[data-testid^="usage-series-"]').first()).toBeVisible();
+    await expect(chart.getByTestId('sparkline').first()).toBeVisible();
+  });
 });
 
 async function getUsage(request: APIRequestContext): Promise<UsageResp> {

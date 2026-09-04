@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# trim.sh — 把 .raw/ 里的 GitHub 捕获截短到我们用得到的字段，写进 git path。
-# 用法：bash e2e/fixtures/marketplace/trim.sh
-# 或经 Makefile: make trim-marketplace-fixtures
+# trim.sh — trim the GitHub captures in .raw/ down to the fields we use, written to the git path.
+# Usage: bash e2e/fixtures/marketplace/trim.sh
+# or via Makefile: make trim-marketplace-fixtures
 
 set -u
 ROOT="$(cd "$(dirname "$0")" && pwd)"

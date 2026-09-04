@@ -1,0 +1,29 @@
+{
+  "output": {
+    "kicker": "输出 · 来自 {handle} 的语料库",
+    "polished": "精修",
+    "updated": "更新于 {date}",
+    "pdfPreview": "PDF 预览",
+    "writings": "文章",
+    "breadcrumbCurrent": "输出 · {slug}",
+    "aboutHeading": "关于这篇",
+    "aboutBody": "来自 {handle} 语料库的精修输出——由 wiki 条目提升而成、面向公众的稿件。AI 使用同一套语料库，因此下方的追问会直接引用这篇及相关条目。",
+    "aboutBodyGated": "来自 {handle} 语料库的精修输出——由 wiki 条目提升而成、面向公众的稿件。本站的 AI 基于同一套语料库并直接引用它，而回答会花 {handle} 的钱，所以它在访问码后等待：",
+    "backToWriting": "← 文章"
+  },
+  "wiki": {
+    "by": "作者",
+    "backToWiki": "← wiki",
+    "subEntries": "子条目",
+    "attachments": "附件",
+    "aboutHeading": "关于这一条",
+    "aboutBody": "{handle} 的一条 wiki 条目。本站的 AI 以同一套语料库为依据，因此你可在下方追问，得到 {handle} 口吻的回答，并附有指向此类条目的引用。",
+    "aboutBodyGated": "{handle} 的一条 wiki 条目。本站的 AI 以同一套语料库为依据、以 {handle} 的口吻作答，并附有指向此类条目的引用——回答会花 {handle} 的钱，所以它在访问码后等待：",
+    "indexKicker": "wiki",
+    "indexHeading": "语料库，逐条目"
+  },
+  "enterAccessCode": "输入访问码 →",
+  "tree": {
+    "loading": "加载中…"
+  }
+}

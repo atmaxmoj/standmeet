@@ -1,11 +1,12 @@
-// obsidian.ts —— vault import/export 共用 helpers。
+// obsidian.ts —— shared helpers for vault import/export.
 
 import { expect } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { login as loginAPI } from '@/fixtures/admin';
 
-// PNG_1X1 —— 1x1 透明 PNG，最小合法字节流，跟 writing-assets.ts 同形。
+// PNG_1X1 —— a 1x1 transparent PNG, the smallest valid byte stream, same form as
+// writing-assets.ts.
 export const PNG_1X1 = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
   0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
@@ -29,16 +30,18 @@ export interface UploadResult {
 // Default false = a partial feed the server must never delete from.
 export interface UploadOpts { authoritative?: boolean }
 
-// uploadVault —— 让 browser context 模拟 `<input webkitdirectory>` 选了
-// 一组 file → 触发 import endpoint。直接走 multipart 上传到 server，绕过
-// browser file picker（playwright 不易触发 native picker）。
+// uploadVault —— have the browser context simulate a `<input webkitdirectory>`
+// picking a set of files → triggering the import endpoint. Uploads multipart
+// straight to the server, bypassing the browser file picker (playwright can't
+// easily trigger the native picker).
 export async function uploadVault(
   request: APIRequestContext, owner: { email: string; password: string },
   files: VaultFile[], opts: UploadOpts = {},
 ): Promise<UploadResult> {
   const { csrf } = await loginAPI(request, owner.email, owner.password);
-  // vault 内相对路径放进 form field 名(= f.rel):Go multipart 会 filepath.Base 掉 filename 的目录,
-  // 路径只能靠 field 名传;跟真实前端(use-obsidian.ts fd.append(rel, f, rel))一致。
+  // The vault-relative path goes in the form field name (= f.rel): Go multipart
+  // filepath.Base's away the filename's directory, so the path can only be carried
+  // by the field name; matches the real frontend (use-obsidian.ts fd.append(rel, f, rel)).
   const multipart: Record<string, { name: string; mimeType: string; buffer: Buffer } | string> = {};
   files.forEach((f) => {
     multipart[f.rel] = {
@@ -56,9 +59,9 @@ export async function uploadVault(
   return await res.json() as UploadResult;
 }
 
-// downloadExport —— 拉 export zip，返 ArrayBuffer。caller 自己用 zip lib 解
-// （我们用 fflate / unzipit / native ZipReader 都行；这里返 raw bytes，让
-// spec 自己决定如何 inspect）。
+// downloadExport —— fetch the export zip, return an ArrayBuffer. The caller unzips
+// it with a zip lib of its own (fflate / unzipit / native ZipReader all work; this
+// returns raw bytes and lets the spec decide how to inspect it).
 export async function downloadExport(
   request: APIRequestContext, owner: { email: string; password: string },
 ): Promise<Buffer> {
@@ -71,7 +74,7 @@ export async function downloadExport(
   return Buffer.from(await res.body());
 }
 
-// listAdminWritings —— 单条简单 helper。
+// listAdminWritings —— a single simple helper.
 export async function listAdminWritings(
   request: APIRequestContext, owner: { email: string; password: string },
 ): Promise<Array<{
@@ -90,7 +93,7 @@ export async function listAdminWritings(
   }>;
 }
 
-// makeVaultMD —— 生成一个 frontmatter + body 的 .md 文件 string。
+// makeVaultMD —— generate a .md file string with frontmatter + body.
 export function makeVaultMD(
   fm: Record<string, unknown>, body: string,
 ): string {

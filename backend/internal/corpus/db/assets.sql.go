@@ -60,7 +60,7 @@ WHERE holder_id = $1
 RETURNING storage_key
 `
 
-// 删一个 holder 的所有 asset 行；返 storage_key 让 caller 后置批删 MinIO blob。
+// Delete all asset rows for one holder; return storage_key so the caller can batch-delete the MinIO blobs afterward.
 func (q *Queries) DeleteAssetsByHolder(ctx context.Context, holderID pgtype.UUID) ([]string, error) {
 	rows, err := q.db.Query(ctx, deleteAssetsByHolder, holderID)
 	if err != nil {
@@ -87,8 +87,8 @@ WHERE id = ANY($1::uuid[])
 RETURNING storage_key
 `
 
-// 按 id 集合删；caller 已经知道这些 id 是同一个 holder 的（update 时算
-// removed = old_refs - new_refs）。返 storage_key 让 caller 删 blob。
+// Delete by a set of ids; the caller already knows these ids belong to the same holder
+// (on update it computes removed = old_refs - new_refs). Return storage_key so the caller can delete the blobs.
 func (q *Queries) DeleteAssetsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]string, error) {
 	rows, err := q.db.Query(ctx, deleteAssetsByIDs, dollar_1)
 	if err != nil {

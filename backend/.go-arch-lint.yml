@@ -215,6 +215,10 @@ components:
     in: internal/infra/hostop             # the inbound vocabulary (Op/Invoke/socket path rules); leaf, knows no domain
   periodic:
     in: internal/infra/periodic           # single scheduling point for periodic tasks: the declarer says "what to do", this handles "how often + bookkeeping"
+  buildnotify:
+    in: internal/infra/buildnotify        # in-memory broadcast waking custom-page preview long-pollers on build completion; domain-less leaf (stdlib sync only)
+  dockerstat:
+    in: internal/infra/dockerstat         # reads this compose project's per-container CPU/mem off the docker socket for the System panel; leaf (builds its unix client through httpx)
   # cmd — the composition root, now split into five packages + the startup sequence on the root. For
   # **layering** purposes they're one thing: the one place allowed to cross all layers. Direction between
   # them is one-way: deps ← port ← axisconn ← axiscap ← wire ← cmd.
@@ -359,6 +363,18 @@ deps:
   # so any party can declare its own periodic task without entangling anyone else.
   periodic:
     mayDependOn: []
+    anyVendorDeps: true
+
+  # buildnotify — in-memory broadcast for the preview long-poll. Leaf: stdlib sync only, knows no domain.
+  buildnotify:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # dockerstat — per-container usage over the docker socket. Builds its unix-socket client
+  # through httpx (the sanctioned client home), so it depends on httpx only.
+  dockerstat:
+    mayDependOn:
+      - httpx
     anyVendorDeps: true
 
   # hostdesk — inbound convergence, the mirror of the outbound dispatcher. It imports each domain's
@@ -1062,6 +1078,7 @@ deps:
       - middleware  # #155 connector diag: owner id from context (middleware.OwnerIDFrom)
       - access
       - pgstore
+      - buildnotify  # preview long-poll: signal the panel when a build settles (builder callback)
     anyVendorDeps: true
 
   # sandboxws — per-session sandbox workspace lifecycle leaf: pure stdlib (os/filepath/sync/time).
@@ -1094,6 +1111,7 @@ deps:
       - stats       # #135 /stats/*: Monitor activity/growth/graph/jobs value objects
       - security    # #135 /ip-bans: BannedIP value object
       - depcheck    # checks at startup whether buildAdminHandlers' hand-copied dependency table has a missing row
+      - buildnotify # preview long-poll (/custom-pages/wait) reads the build-settle broadcast
     anyVendorDeps: true
 
   # obsidian — Obsidian vault two-way sync sub-usecase: frontmatter codec / image
@@ -1217,6 +1235,8 @@ deps:
       - owner
       - corpus
       - pgstore
+      - buildnotify     # the composition root constructs the preview-long-poll broadcast (one per process)
+      - dockerstat      # …and the per-container stats reader for the System panel
     anyVendorDeps: true
 
   # The five packages inside the composition root. In layering terms they're on par with cmd (both may
@@ -1291,6 +1311,8 @@ deps:
       - owner
       - corpus
       - pgstore
+      - buildnotify     # Runtime holds the preview-long-poll broadcast, shared by the builder callback + admin face
+      - dockerstat      # Runtime holds the per-container stats reader (System panel)
     anyVendorDeps: true
 
   cmdport:
@@ -1302,6 +1324,7 @@ deps:
       # needs to see it; without it the only way out would be to route around that gate and build a raw
       # client itself.
       - httpx
+      - dockerstat      # SysInfoProvider reads per-container stats for the System panel
       - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
       - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
       - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)

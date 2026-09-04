@@ -1,17 +1,15 @@
-// nav-page-vs-pages.spec.ts -- the admin sidebar's two "page(s)" entries must be
-// **distinguishable**, not two signs for the same word.
+// nav-page-vs-pages.spec.ts -- every admin nav entry lands on a section whose heading is the
+// label you clicked.
 //
-// rot-D2: slug `page` carries "public page" (settings group) -> PageSection, which is the
-// one and only public **landing page**; slug `custom-pages` carries "pages" (access
-// group) -> CustomPagesSection, the **collection of microsites** built via MCP and served
-// at /p/{slug}. The two signs read as the same word -- the owner can't tell which door is
-// which. A label has to say what it opens; "public page" / "pages" say neither.
+// History: this file used to guard the two confusable "page(s)" entries -- slug `page` ("public
+// page", the built-in landing page) vs slug `custom-pages` ("pages", the microsites at /p/{slug}).
+// The homepage is now a custom page, so the built-in `page` entry (and its editor) is gone -- the
+// confusion is resolved by removal, and that describe with it.
 //
-// Criterion (asserts the good outcome, not "no red text"): a disambiguating token must
-// land -- the landing-page entry must contain "landing", the microsites entry must
-// contain "custom"; neither may stay a bare "page"/"pages". RED today on "public
-// page"/"pages", GREEN after the rename.
-// nav link text lives on data-testid="admin-nav-<slug>" (see AdminSidebar SidebarItem).
+// What remains is F-N-3's lesson, which is the durable one: a guard that only reads the nav
+// LABELS stops at the door -- once the signs were renamed, the headings BEHIND them stayed wrong
+// and the guard stayed green. So this walks the whole nav: click each entry, and the destination's
+// own heading (data-testid="section-title") must state that entry's label.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -26,62 +24,6 @@ const OWNER = {
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-test.describe('admin sidebar · the landing-page and custom-pages entries are not confusable', () => {
-  test.beforeAll(async ({ playwright }) => { await claimFreshOwner(playwright, OWNER); });
-
-  // The adminPage fixture has already landed on /admin and logged in, with the sidebar
-  // (admin-nav-page) visible -- just read the two nav labels directly.
-  test('the single-landing-page entry and the microsites entry carry disambiguated labels',
-    async ({ adminPage: page }) => {
-      const pageNav = page.getByTestId('admin-nav-page');
-      const customNav = page.getByTestId('admin-nav-custom-pages');
-      await expect(pageNav).toBeVisible();
-      await expect(customNav).toBeVisible();
-
-      const pageLabel = (await pageNav.innerText()).trim();
-      const customLabel = (await customNav.innerText()).trim();
-
-      // The landing-page entry must carry the disambiguating token "landing" (today it's
-      // "public page" -> RED).
-      expect(
-        /landing/i.test(pageLabel),
-        `the single public-page entry must name itself the "landing" page, not a bare "page"; got "${pageLabel}"`,
-      ).toBe(true);
-      // The microsites entry must carry the disambiguating token "custom" (today it's
-      // "pages" -> RED).
-      expect(
-        /custom/i.test(customLabel),
-        `the microsites entry must name itself "custom" pages, not a bare "pages"; got "${customLabel}"`,
-      ).toBe(true);
-
-      // Fallback: the two labels, once normalized, must not collide on the same
-      // "page"/"pages" word -- two signs that actually mean what they say, not a
-      // duplicate of one sign.
-      expect(
-        normalize(pageLabel) !== normalize(customLabel),
-        `the two entries must not collapse to the same word; both read "${pageLabel}" ≈ "${customLabel}"`,
-      ).toBe(true);
-    });
-});
-
-// normalize -- strips case, whitespace, and a trailing plural s, pulling things like
-// "public page"/"pages" down to the same baseline, so it can prove two labels aren't just
-// two spellings of the same word.
-function normalize(label: string): string {
-  return label.toLowerCase().replace(/\s+/g, ' ').replace(/s\b/g, '').trim();
-}
-
-// ───────────────────────────────────────────────────────────────────────────
-// F-N-3: the guard above **stops at the door**. It reads the two signs and calls it done,
-// never actually opening either door -- so once the signs got renamed to "landing page" /
-// "custom pages", **the two headings behind those doors were still `page` / `pages`**,
-// and this guard stayed green the whole time. The owner clicks through: what they
-// actually read is the biggest word on the screen after that click.
-//
-// Criterion: whichever sign gets clicked, the destination's heading must state that
-// sign's word -- across the entire nav, not just these two entries (the same mistake has
-// already been made in four places today: one lesson only got swept into the field where
-// it was first found).
 const NAV_ENTRIES: readonly { slug: string; label: string }[] = [
   { slug: 'dashboard', label: 'dashboard' },
   { slug: 'raw', label: 'raw' },
@@ -104,7 +46,6 @@ const NAV_ENTRIES: readonly { slug: string; label: string }[] = [
   { slug: 'connectors', label: 'connectors' },
   { slug: 'api-mcp', label: 'api · mcp' },
   { slug: 'obsidian', label: 'obsidian' },
-  { slug: 'page', label: 'landing page' },
   { slug: 'seo', label: 'seo' },
   { slug: 'ip-bans', label: 'ip bans' },
   { slug: 'account', label: 'account' },

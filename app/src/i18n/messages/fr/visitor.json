@@ -1,0 +1,99 @@
+{
+  "common": {
+    "try": "essayer"
+  },
+  "modelLoader": {
+    "pickModel": "choisir un modèle…",
+    "type": "type"
+  },
+  "askAboutThis": {
+    "header": "demandez à l'IA à propos de ce {label}",
+    "essay": "essai",
+    "entry": "entrée",
+    "piece": "pièce",
+    "context": "contexte : « {title} »",
+    "ask": "demander ↵"
+  },
+  "chatRoom": {
+    "brand": "standmeet",
+    "live": "en direct",
+    "fullPage": "page complète →",
+    "ghostAccept": "↹ tab",
+    "ready": "ia de {handle} · prête",
+    "codedWelcome": "{greeting}. Je suis une IA fondée sur le corpus curé de {handle}. Vous êtes arrivé sur la tranche <accent>{codeLabel}</accent>.",
+    "codedRedaction": "Les sujets privés en dehors de la portée de ce code sont masqués. {handle} examine les transcriptions après.",
+    "codedStarters": "Demandez n'importe quoi. Les entrées ci-dessous si vous avez besoin d'une façon de commencer.",
+    "codedGhostHint": "Demandez n'importe quoi. Il y a une question suggérée qui attend dans la boîte — appuyez sur Tab pour la prendre.",
+    "byoaiWelcome": "Salut. Je suis une IA fondée sur le corpus curé de {handle}. Vous fonctionnez sur votre propre clé <accent>{provider}</accent> — portée publique uniquement.",
+    "byoaiScope": "Travail, projets, prises publiques — juste. Les sujets privés renvoient une réponse « besoin d'un code ».",
+    "sessionFull": "session complète",
+    "limitReached": "Vous avez atteint la limite {reason} de cette session — contactez {handle} pour que vous soyez accordé plus.",
+    "ask": "demander <big>↵</big>",
+    "footnote": "<muted>comment ça marche</muted> · les réponses viennent du corpus curé de {handle}. les sujets privés retournent une rédaction plutôt qu'une supposition.",
+    "footnoteCoded": " {handle} examine la transcription après.",
+    "footnoteByoai": " votre clé api ne quitte jamais le navigateur."
+  },
+  "chatTranscript": {
+    "you": "vous",
+    "ai": "ia",
+    "references": "références · {count}"
+  },
+  "composerAttachments": {
+    "pasted": "collé",
+    "remove": "✕"
+  },
+  "floatingChatDock": {
+    "close": "fermer ✕",
+    "thinking": "réfléchir",
+    "ask": "demander ",
+    "askTheAI": "demander à l'IA",
+    "emptyHint": "Demandez à propos de cette page — répondu à la voix du propriétaire, fondé sur le corpus. Un fil séparé, mais l'IA voit toujours vos autres conversations."
+  },
+  "restrictedDoc": {
+    "opening": "ouverture…",
+    "kindOutput": "sortie",
+    "kindEntry": "entrée",
+    "lockedTitle": "Ce {kind} nécessite un code d'accès",
+    "lockedBody": "Le propriétaire a restreint cette entrée. Entrez un code d'accès sur la porte pour voir le contenu complet.",
+    "outOfScopeTitle": "Votre code n'atteint pas celui-ci",
+    "outOfScopeBody": "Soit il s'assoit en dehors de ce que votre code couvre, soit il n'y a rien à cette adresse — l'instance ne le dira pas. Demandez ci-dessous et l'IA répondra à partir de ce que vous pouvez lire.",
+    "enterCode": "entrer le code d'accès →",
+    "home": "← accueil"
+  },
+  "sessionStrip": {
+    "byoaiMode": "byoai · {provider}",
+    "you": "vous · {visitor}",
+    "exit": "quitter la session",
+    "byoaiUnlimited": "visiteur payant · illimité",
+    "names": "noms",
+    "requestMore": "demander plus ↗",
+    "turns": "tours"
+  },
+  "visitorNamePicker": {
+    "whosReading": "Qui lit ?",
+    "full": "Ce code est complet — il a atteint sa limite de noms. Demandez à celui qui l'a partagé avec vous un code frais.",
+    "prompt": "Une dernière chose avant que le chat ne commence — le propriétaire voit ceci sur votre transcription plus tard. Choisissez un court nom ; une poignée va bien.",
+    "capacityDefault": "Plus d'une personne peut utiliser ce code.",
+    "capacityNote": "Continuez à utiliser le <strong>même nom</strong> et vos chats restent groupés comme vous ; un <strong>nom différent</strong> se lit comme une nouvelle personne et commence une conversation séparée. Passer le code à quelqu'un d'autre ? Qu'il le scanne et choisisse son propre nom. Plutôt ne pas donner de nom ? <strong>Ignorer</strong> prend aussi l'un des noms du code, comme un invité — et revenir plus tard recommence comme un nouvel invité.",
+    "start": "démarrer ↵",
+    "skip": "ignorer",
+    "starting": "démarrage du chat"
+  },
+  "wikiTopBar": {
+    "brand": "standmeet",
+    "wiki": "wiki",
+    "writing": "texte",
+    "chat": "chat"
+  },
+  "wikiTreeView": {
+    "head": "arborescence du wiki",
+    "stats": "<num>{entries}</num> entrées · <num>{roots}</num> racines · <num>{gated}</num> fermées",
+    "gatedHint": "ces entrées sont privées — entrez un code",
+    "indexEmpty": "rien de publié ici pour l'instant."
+  },
+  "readerChat": {
+    "kicker": "demander à propos de ceci",
+    "heading": "Posez une question à cette entrée.",
+    "lede": "L'IA répond à la voix du propriétaire, fondée sur ce corpus. Apportez votre propre clé et commencez — cela ne quitte jamais votre navigateur."
+  }
+}

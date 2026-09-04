@@ -7,8 +7,10 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { callTool } from '@/fixtures/mcp';
 
-// 导出：有的守卫要**先问替身自己发了什么**，再判产品有没有把它处理干净。
-// 那种前置条件不落在替身的真实载荷上的话，fixture 一被"清洗"守卫就静默失效。
+// Exported: some guards need to **ask the mock what it actually emitted first**,
+// then judge whether the product processed it cleanly. If that precondition
+// doesn't rest on the mock's real payload, the guard silently fails the moment
+// the fixture is "cleaned".
 export const MOCK_BASE = process.env['JOB_BOARD_MOCK_URL'] ?? 'http://localhost:9000';
 
 export interface JobSourceView {
@@ -35,16 +37,18 @@ export interface FetchedJobView {
 }
 
 export interface JobsListResp { sources: JobSourceView[] }
-// SourceFailureView —— 某个源没抓成。跟 jobs 一起回，**不是**换掉 jobs：
-// 一个源的错凭据不该把其它源抓到的东西扔掉（F-E-6）。
+// SourceFailureView —— a source that failed to fetch. Returned alongside jobs,
+// **not** in place of them: one source's bad credentials shouldn't throw away what
+// the other sources fetched (F-E-6).
 interface SourceFailureView {
   source_id: string;
   label: string;
   kind: string;
   reason: string;
 }
-// SourceTallyView —— 一个源这一趟的账。没有它，一次取数的结果读不出发生了什么：
-// 「HN 回了 1 条」在回执里跟「取数一路失败被静默跳过」长得一模一样（F-E-19）。
+// SourceTallyView —— one source's tally for this run. Without it, a fetch result
+// can't tell you what happened: "HN returned 1" looks identical in the receipt to
+// "the fetch failed all the way and was silently skipped" (F-E-19).
 interface SourceTallyView {
   source_id: string;
   label: string;
@@ -52,14 +56,16 @@ interface SourceTallyView {
   seen: number;
   pooled: number;
   duplicate: number;
-  // 逐条取的源才有：上游一共多少 / 我们看了多少 / 按原因跳过多少 / 是否截断。
+  // Only for sources fetched item-by-item: how many upstream in total / how many
+  // we looked at / how many skipped by reason / whether truncated.
   available?: number;
   read?: number;
   skipped?: Record<string, number>;
   truncated?: boolean;
 }
-// PoolRowView —— fetch_new 回执里的一行。**没有 body_text**（那是 jobs.show 的活），
-// 多两样：这条还能活多久、以及它是不是这一趟才进池子的。
+// PoolRowView —— one row in the fetch_new receipt. **No body_text** (that's
+// jobs.show's job), plus two extras: how much longer this one lives, and whether
+// it entered the pool only on this run.
 interface PoolRowView extends Omit<FetchedJobView, 'body_text'> {
   ttl_remaining_seconds: number;
   new: boolean;
@@ -132,8 +138,9 @@ export async function mockSetDay(
 // Synthetic day-2 external_id sentinels per source kind. Greenhouse uses
 // int64 upstream so synthetic ids are numeric strings (fetcher converts
 // via strconv at toDomain time); others use opaque strings.
-// MOCK_UNTITLED_DAY2 —— day2 里那条**没有 title** 的 greenhouse 行。真实招聘板会吐
-// 畸形行；替身只吐格式良好的数据就比现实客气，客气背后的缺陷一条都看不见。
+// MOCK_UNTITLED_DAY2 —— the greenhouse row in day2 that has **no title**. Real job
+// boards emit malformed rows; a mock that only emits well-formed data is politer
+// than reality, and every defect behind that politeness stays invisible.
 export const MOCK_UNTITLED_DAY2 = '999000003';
 
 export const MOCK_SYNTHETIC_DAY2 = {

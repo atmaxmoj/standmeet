@@ -24,21 +24,62 @@ type SoleOwnerLookup interface {
 func ResolveLiveBuild(
 	ctx context.Context, deps CustomPageDeps, owners SoleOwnerLookup, slug string,
 ) (LivePage, error) {
+	soleOwner, err := resolveSoleOwner(ctx, owners)
+	if err != nil {
+		return LivePage{}, err
+	}
+	return resolveByOwner(ctx, deps, soleOwner.ID, slug)
+}
+
+// resolveSoleOwner — the v1 single-owner instance's owner, resolved through the same
+// handle chain used across public routes. Shared by ResolveLiveBuild and LiveCustomPages.
+func resolveSoleOwner(ctx context.Context, owners SoleOwnerLookup) (entity.Owner, error) {
 	handle, herr := owners.FirstHandle(ctx)
 	if herr != nil {
-		return LivePage{}, fmt.Errorf("first owner handle: %w", herr)
+		return entity.Owner{}, fmt.Errorf("first owner handle: %w", herr)
 	}
 	if handle == "" {
-		return LivePage{}, entity.ErrOwnerNotFound
+		return entity.Owner{}, entity.ErrOwnerNotFound
 	}
 	soleOwner, oerr := owners.GetByHandle(ctx, handle)
 	if oerr != nil {
 		if errors.Is(oerr, entity.ErrOwnerNotFound) {
-			return LivePage{}, entity.ErrOwnerNotFound
+			return entity.Owner{}, entity.ErrOwnerNotFound
 		}
-		return LivePage{}, fmt.Errorf("get sole owner: %w", oerr)
+		return entity.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
 	}
-	return resolveByOwner(ctx, deps, soleOwner.ID, slug)
+	return soleOwner, nil
+}
+
+// LivePageLink — a published custom page as a visitor discovers it: slug + title, nothing
+// more. The public listing carries no build ids, no drafts, no taken-down pages, no bound
+// codes — only what a link needs.
+type LivePageLink struct {
+	Slug  string
+	Title string
+}
+
+// LiveCustomPages — the sole owner's published (has-live) custom pages, for public
+// discovery on the index / gate / reader. A page appears only once it has a live build; a
+// draft or a taken-down page never leaks here. Order follows the repo (newest first).
+func LiveCustomPages(
+	ctx context.Context, deps CustomPageDeps, owners SoleOwnerLookup,
+) ([]LivePageLink, error) {
+	soleOwner, err := resolveSoleOwner(ctx, owners)
+	if err != nil {
+		return []LivePageLink{}, err
+	}
+	pages, lerr := deps.Pages.ListByOwner(ctx, soleOwner.ID)
+	if lerr != nil {
+		return []LivePageLink{}, fmt.Errorf("list custom pages: %w", lerr)
+	}
+	out := make([]LivePageLink, 0, len(pages))
+	for i := range pages {
+		if pages[i].LiveBuildID != nil {
+			out = append(out, LivePageLink{Slug: pages[i].Slug, Title: pages[i].Title})
+		}
+	}
+	return out, nil
 }
 
 // LivePage — the page currently being served: which build's artifacts, plus that page's

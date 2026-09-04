@@ -191,20 +191,3 @@ export function fetchAIProviderPresets(): Promise<AIProviderPresetView[]> {
 export interface BYOAIUpdateInput { enabled: boolean; providers: string[]; blurb: string }
 
 export const AllowedDomainsRespSchema = z.object({ domains: z.array(z.string()) });
-
-export type { PageWhere, PageContact } from '@/lib/api/public';
-
-// AdminPage / pinnable —— shape of the admin /page editing surface + pin candidates.
-// insights/projects on this surface are corpus pin lists (wiki id); they only get
-// joined into rendered cards on the public /api/v1/page surface.
-import {
-  AdminPageSchema, PinnableListSchema,
-  type AdminPage, type PinnableEntry,
-} from '@/lib/api/public-schemas';
-
-export { AdminPageSchema, PinnableListSchema };
-export type { AdminPage, PinnableEntry };
-
-export function fetchPinnable(): Promise<PinnableEntry[]> {
-  return adminAPI.get('/page/pinnable', PinnableListSchema);
-}

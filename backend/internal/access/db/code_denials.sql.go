@@ -23,10 +23,11 @@ type AddCodeCapabilityDenialParams struct {
 	CapabilityID string
 }
 
-// code_denials —— ACL hierarchy 的 code 层（capability-acl-hierarchy.md）。
-// 纯 deny 稀疏表：presence=deny，无 state；无行=完全继承 role。owner-scope 由
-// handler 先 GetByID 校验 code 属本 owner，这里只按 code_id 读写。
-// 幂等：重复 deny 同一 (code,cap) 走 PK 冲突 → 不报错、不双写。
+// code_denials -- the code layer of the ACL hierarchy (capability-acl-hierarchy.md).
+// A pure-deny sparse table: presence=deny, no state; no rows=fully inherit the role. Owner-scope is
+// handled by the handler first calling GetByID to verify the code belongs to this owner; here we
+// read/write by code_id only.
+// Idempotent: re-denying the same (code,cap) hits the PK conflict -> no error, no double write.
 func (q *Queries) AddCodeCapabilityDenial(ctx context.Context, arg AddCodeCapabilityDenialParams) error {
 	_, err := q.db.Exec(ctx, addCodeCapabilityDenial, arg.CodeID, arg.CapabilityID)
 	return err

@@ -16,7 +16,7 @@ SELECT * FROM owners WHERE handle = $1;
 SELECT COUNT(*) FROM owners;
 
 -- name: GetFirstOwnerHandle :one
--- v1 单 owner instance：返回最早创建那位的 handle；app 根路径用来跳转。
+-- v1 single-owner instance: returns the handle of the earliest-created owner; the app root path uses it to redirect.
 SELECT handle FROM owners ORDER BY created_at ASC LIMIT 1;
 
 -- name: UpdateOwnerBYOAI :one
@@ -56,11 +56,11 @@ WHERE id = $1
 RETURNING *;
 
 -- name: SetOwnerRecoveryHash :exec
--- #100: 存/换 recovery phrase 的 hash(明文只进邮件)。
+-- #100: store/rotate the hash of the recovery phrase (the plaintext goes only into the email).
 UPDATE owners SET recovery_hash = $2 WHERE id = $1;
 
 -- name: ClearOwnerRecoveryHash :exec
--- #100: recover 成功后作废(单次用)。
+-- #100: invalidate after a successful recovery (single use).
 UPDATE owners SET recovery_hash = '' WHERE id = $1;
 
 -- name: UpdateOwnerProfileTimezone :one
@@ -73,32 +73,33 @@ RETURNING *;
 SELECT password_hash FROM owners WHERE id = $1;
 
 -- name: SetPasswordResetToken :exec
--- 紧急 reset token：写 hash + 当前时间。每 owner 同时只允许一个 reset
--- token；旧的被新的覆盖（"重新跑命令"也是合法 UX）。
+-- Emergency reset token: write the hash + current time. Each owner may have only one reset token at
+-- a time; the old one is overwritten by the new ("re-run the command" is also valid UX).
 UPDATE owners SET password_reset_hash = $2, password_reset_at = NOW() WHERE id = $1;
 
 -- name: GetFirstOwnerResetToken :one
--- single-owner self-host：reset 流程通过 sole owner 找回。返 owner_id + hash
--- + at 让 usecase 比对 + 检 TTL。表为空 → ErrNoRows，caller 翻 unauthorized。
+-- single-owner self-host: the reset flow recovers via the sole owner. Returns owner_id + hash + at
+-- for the usecase to compare + check TTL. Empty table -> ErrNoRows, the caller maps it to unauthorized.
 SELECT id, password_reset_hash, password_reset_at FROM owners
 ORDER BY created_at ASC LIMIT 1;
 
 -- name: ClearPasswordResetToken :exec
--- reset 成功后清掉，让 token 一次性。
+-- Clear after a successful reset, making the token single-use.
 UPDATE owners SET password_reset_hash = ''::bytea, password_reset_at = NULL WHERE id = $1;
 
 -- name: GetOwnerCSS :one
--- owner 自定义 CSS(已 sanitize+scope 的安全版本)。
+-- The owner's custom CSS (the safe, already sanitized+scoped version).
 SELECT custom_css FROM owners WHERE id = $1;
 
 -- name: SetOwnerCSS :exec
--- 存 owner CSS(caller 传入的应已是 sanitize+scope 后的安全版本)。
+-- Store the owner's CSS (what the caller passes in should already be the sanitized+scoped safe version).
 UPDATE owners SET custom_css = $2 WHERE id = $1;
 
 -- name: RecordVaultImport :execrows
--- UX-62：把「上一次 vault 导入」记下来 —— 导入是定义这个产品 ground truth 的操作，
--- 而在此之前「它发生过没有」在库里没有落点，屏幕上那行计数刷新就没了。
--- :execrows 而不是 :exec —— 命中 0 行必须说得出来（[[write-with-no-receipt]]）。
+-- UX-62: record the "last vault import" -- the import is the operation that defines this product's
+-- ground truth, and before this "did it happen" had no landing spot in the DB, so that on-screen
+-- count vanished on refresh.
+-- :execrows rather than :exec -- hitting 0 rows must be reportable ([[write-with-no-receipt]]).
 UPDATE owners
 SET last_vault_import_at = now(),
     last_vault_import_new = $2,
@@ -108,24 +109,27 @@ SET last_vault_import_at = now(),
 WHERE id = $1;
 
 -- name: SetOwnerPendingEmail :one
--- 待确认的改邮箱。身份**不动** —— 只有点开信里的链接才换。
--- 第二次请求直接覆盖：两个都能用的话，owner 以为改成了后一个，而某个旧标签页
--- 一点就把身份送去了前一个。
+-- An email change pending confirmation. The identity **does not move** -- it only switches when the
+-- link in the email is clicked.
+-- A second request simply overwrites: if both worked, the owner thinks they changed to the latter,
+-- while one click on an old tab would send the identity to the former.
 UPDATE owners
 SET pending_email = $2, pending_email_token_hash = $3, pending_email_expires_at = $4
 WHERE id = $1
 RETURNING *;
 
 -- name: ClearOwnerPendingEmail :one
--- owner 反悔。:one + RETURNING 才知道到底清没清到行(:exec 把行数扔了)。
+-- The owner changes their mind. :one + RETURNING is what tells us whether a row was actually
+-- cleared (:exec throws the row count away).
 UPDATE owners
 SET pending_email = NULL, pending_email_token_hash = '', pending_email_expires_at = NULL
 WHERE id = $1
 RETURNING *;
 
 -- name: ConfirmOwnerPendingEmail :one
--- 一次性 + 未过期，全在这一条语句里判：命中 0 行 = token 不对 / 已过期 / 已用过。
--- 换完就把三列清空 —— 可重放的确认链接等于把身份挂在一封旧邮件上。
+-- Single-use + not-expired, all decided in this one statement: 0 rows = wrong token / expired /
+-- already used. After switching, clear all three columns -- a replayable confirmation link is like
+-- hanging the identity on an old email.
 UPDATE owners
 SET email = pending_email,
     pending_email = NULL,
@@ -138,7 +142,7 @@ WHERE pending_email_token_hash = $1
 RETURNING *;
 
 -- name: GetOwnerByPendingToken :one
--- 只为了分辨「过期」和「压根无效」—— 两种都不换身份，但对 owner 说的话不一样，
--- 而他下一步该做什么取决于这两个词的区别。
+-- Only to distinguish "expired" from "invalid outright" -- neither switches the identity, but what
+-- we tell the owner differs, and what they should do next depends on that distinction.
 SELECT * FROM owners
 WHERE pending_email_token_hash = $1 AND pending_email_token_hash <> '';

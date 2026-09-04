@@ -1,0 +1,82 @@
+{
+  "sources": {
+    "intro": "D'où la boucle tire les annonces. Greenhouse / Lever / Wellfound sont de première classe ; les scrapers RSS et HTML sont également supportés. Rien n'est tiré selon un horaire — une source est lue quand vous demandez à Claude d'exécuter <mono>jobs.fetch_new</mono>, et ce qui revient atterrit dans les annonces pour une journée. Enregistrez les sources via MCP <mono>jobs.register_source</mono>.",
+    "emptyKicker": "aucune source enregistrée",
+    "emptyTitle": "Connectez un tableau d'emploi ou un flux RSS.",
+    "emptyHint": "Demandez à Claude d'exécuter <mono>jobs.register_source</mono> avec une URL Greenhouse / Lever / RSS — elle apparaît ici automatiquement."
+  },
+  "listings": {
+    "intro": "Emplois récupérés de vos sources enregistrées, détenus dans un bassin d'un jour. Demandez à Claude de les classer par rapport à votre corpus et de rédiger un CV pour ceux qui valent la peine de postuler. Tout ce que vous ne rédigez pas ou ne rejetez pas dans la journée retombe hors du bassin.",
+    "emptyKicker": "aucune annonce dans le bassin",
+    "emptyTitle": "D'abord, récupérez les emplois de vos sources.",
+    "emptyHint": "Demandez à Claude d'exécuter <mono>jobs.fetch_new</mono> — les résultats atterrissent ici pendant une journée avant que vous les rédactoriez ou les rejetiez."
+  },
+  "drafts": {
+    "intro": "CV adaptés que Claude a rédigés pour les emplois auxquels vous avez dit oui. Ouvrez le compositeur pour modifier + prévisualiser ; <ink>envoyer</ink> gèle l'instantané, rend le PDF final (avec QR), et émet automatiquement un CodeAccès.",
+    "loading": "chargement…",
+    "emptyTitle": "Aucun brouillon en attente.",
+    "emptyHint": "Demandez à Claude de rédiger un CV à partir d'une annonce d'emploi sélectionnée (MCP <code>resume.draft</code>) — il apparaîtra ici.",
+    "metaUpdated": "mis à jour {date}",
+    "metaJob": "emploi · <ink>{job}</ink>",
+    "openComposer": "ouvrir le compositeur →",
+    "edit": "modifier",
+    "regenerate": "régénérer",
+    "discard": "rejeter",
+    "viewApplication": "voir la demande",
+    "viewPdf": "voir le pdf"
+  },
+  "applications": {
+    "intro": "Chaque candidature engagée — instantané de CV gelé + CodeAccès auto-émis. Les recruteurs scannent le QR sur le PDF et atterrissent directement dans votre chat. Cliquez sur une carte pour examiner la chronologie + le statut + les notes privées.",
+    "loading": "chargement…",
+    "emptyTitle": "Aucune candidature envoyée pour l'instant.",
+    "emptyHint": "Rédigez un CV à partir d'une annonce d'emploi sélectionnée, puis envoyez pour l'engager ici.",
+    "contact": "contact",
+    "notes": "notes",
+    "open": "ouvrir ›",
+    "metaCommitted": "engagée {date}",
+    "metaSubmitted": "soumis {date}",
+    "metaNotSubmitted": "soumission non enregistrée"
+  },
+  "detail": {
+    "kicker": "candidature · {id}",
+    "close": "fermer ✕",
+    "timeline": "chronologie",
+    "contact": "contact",
+    "pingInChat": "pinger dans le chat ↗",
+    "privateNotes": "notes privées",
+    "notesReadOnly": "lecture seule pour l'instant — rien n'enregistre les notes pour l'instant, donc cette boîte perdrait tout ce que vous tapiez",
+    "needsWriter": "pas disponible pour l'instant — cette instance n'a aucun moyen d'enregistrer un changement de statut ; l'engagement est la seule écriture sur ce chemin",
+    "pdfNotKept": "pas disponible ici — le PDF rendu est remis à votre client IA à l'engagement et n'est pas conservé sur la candidature, donc il n'y a rien pour ce panneau à ouvrir",
+    "snapshotHead": "cv envoyé · instantané",
+    "resume": "cv",
+    "tailoredFor": "adapté pour {company} · {role}",
+    "viewFull": "voir plus grand",
+    "viewSmaller": "voir plus petit",
+    "downloadPdf": "télécharger le pdf",
+    "status": "statut",
+    "footMeta": "engagée {committedAt} · {method}",
+    "withdraw": "retirer",
+    "logUpdate": "enregistrer la mise à jour",
+    "closeAction": "fermer"
+  },
+  "resume": {
+    "summary": "résumé",
+    "roleLine": "{role}<sep>·</sep>pour <co>{company}</co>",
+    "skills": "compétences",
+    "education": "éducation",
+    "also": "aussi",
+    "alsoText": "Le QR est un chat en direct avec mon IA · fondé sur mon corpus · limité à {company}.",
+    "alsoFallbackCompany": "cette conversation",
+    "experience": "expérience",
+    "footerScan": "scanner ou visiter · {url}",
+    "footerSnapshot": "ce cv est un instantané · envoyé {date}",
+    "pageOf": "page {n} / {total}",
+    "letter": "lettre",
+    "coverTitle": "À {company}",
+    "coverRe": "ré · <ink>{role}</ink>",
+    "coverSigMeta": "continuer la conversation · {url}"
+  },
+  "qr": {
+    "fallback": "qr…"
+  }
+}

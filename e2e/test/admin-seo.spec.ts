@@ -68,15 +68,17 @@ test.describe('admin SEO section (real backend)', () => {
       await expectErrorToast(adminPage, /\S/);
     });
 
-  test('og:description and canonical are read-only mirrors with edit links',
+  test('the canonical host is a read-only mirror with an edit link to the real editor',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'seo');
-      // read-only: rendered as text/links, not editable inputs.
-      await expect(adminPage.getByTestId('seo-description')).toBeVisible();
-      await expect(adminPage.getByTestId('seo-description-edit')).toHaveAttribute('href', /\/admin\/page/);
-      // rot-C2: both edit links go to /admin/page (where the public URL / domain is actually edited).
-      // This used to assert /admin/domain — a route that 404s. The fix repointed it; the test follows.
-      await expect(adminPage.getByTestId('seo-canonical-edit')).toHaveAttribute('href', /\/admin\/page/);
+      // The og:description mirror is gone: the homepage is a custom page now, so og:description
+      // no longer mirrors a built-in "hero prose" field the owner edits here. What remains is the
+      // canonical host, read-only, linking to where the public URL is actually edited — the
+      // /admin/account site block (the public-URL editor moved there with the homepage rework).
+      await expect(adminPage.getByTestId('seo-description')).toHaveCount(0);
+      await expect(adminPage.getByTestId('seo-canonical')).toBeVisible();
+      await expect(adminPage.getByTestId('seo-canonical-edit'))
+        .toHaveAttribute('href', /\/admin\/account/);
     });
 
   test('no regenerate-sitemap button, no twitter field',

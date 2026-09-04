@@ -30,7 +30,6 @@ import (
 
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
-	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
 // An entry's two genres — every face uses the same vocabulary.
@@ -48,7 +47,6 @@ const (
 // missing from search, and a just-unpublished note still findable.
 type SEODeps struct {
 	SEO    *corpus.SEORepo
-	Pins   usecase.PagePinDeps
 	Corpus corpus.Deps
 }
 
@@ -253,10 +251,7 @@ func decodeSEOEntry(raw json.RawMessage) (seoEntryArgs, error) {
 func setWikiSEO(
 	ctx context.Context, d *SEODeps, ownerID string, in seoEntryArgs,
 ) (json.RawMessage, error) {
-	res, err := usecase.UpdateWikiSEOWithPins(ctx, d.SEO, d.Pins, usecase.WikiSEOUpdate{
-		OwnerID: ownerID, WikiID: in.ID,
-		Description: in.Excerpt, Published: in.Published,
-	})
+	updated, err := d.SEO.UpdateWikiSEO(ctx, ownerID, in.ID, in.Excerpt, in.Published)
 	if err != nil {
 		return nil, seoErr(err)
 	}
@@ -264,8 +259,8 @@ func setWikiSEO(
 	// (see SEODeps.Corpus).
 	corpus.ReindexCorpusNote(ctx, d.Corpus, ownerID, in.ID)
 	return json.Marshal(seoEntryOut{
-		ID: res.Wiki.ID(), Genre: in.Genre, Excerpt: res.Wiki.Excerpt(),
-		Published: res.Wiki.Published(), UnpinnedSections: nonNilStrings(res.Unpinned),
+		ID: updated.ID(), Genre: in.Genre, Excerpt: updated.Excerpt(),
+		Published: updated.Published(), UnpinnedSections: []string{},
 	})
 }
 

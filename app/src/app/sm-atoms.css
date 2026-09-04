@@ -1192,7 +1192,11 @@
 .sm-composer-overlay {
   position: fixed;
   inset: 0;
-  z-index: var(--z-overlay);
+  /* The composer is a full-screen editing modal (inset:0), so it must sit ABOVE the admin
+     sidebar drawer, which lives in the overlay band (sm-z-overlay-2 = --z-overlay + 2). At the
+     bare --z-overlay it sat below the sidebar, and the sidebar intercepted clicks on the
+     composer's left rail. --z-modal is the right band: above the drawer, below confirm dialogs. */
+  z-index: var(--z-modal);
   background: var(--color-paper);
   display: flex;
   flex-direction: column;

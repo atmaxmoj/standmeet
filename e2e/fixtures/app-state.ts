@@ -1,6 +1,8 @@
-// app-state.ts —— MCP App 跨刷新状态原语的 CRUD 客户端（访客 session 视角）。
-// 卡经 host 调的就是这套 endpoint；mcp_id 由后端从 {tool} 推出（不收客户端 mcp_id）。
-// 用 bare request（独立 APIRequestContext）+ Bearer session token，跟卡同一条鉴权路径。
+// app-state.ts —— CRUD client for the MCP App cross-refresh state primitive
+// (from the visitor session's point of view). This is the same endpoint the
+// card calls via the host; mcp_id is derived by the backend from {tool} (no
+// client-supplied mcp_id). Uses a bare request (a standalone APIRequestContext)
+// + Bearer session token, the same auth path the card uses.
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -10,7 +12,8 @@ function base(conv: string, tool: string): string {
   return `${BACKEND}/api/v1/sessions/${conv}/app-state/${tool}`;
 }
 
-// putAppState —— 写一格 {tool→mcp}[key]=value。返回 HTTP status（隔离/鉴权断言用）。
+// putAppState —— write one cell {tool→mcp}[key]=value. Returns the HTTP status
+// (for isolation / auth assertions).
 export async function putAppState(
   request: APIRequestContext, token: string,
   conv: string, tool: string, key: string, value: unknown,
@@ -21,7 +24,7 @@ export async function putAppState(
   return res.status();
 }
 
-// getAppState —— 读该 tool 所属 mcp 的整格 {key: value}。
+// getAppState —— read the whole {key: value} cell of the mcp this tool belongs to.
 export async function getAppState(
   request: APIRequestContext, token: string, conv: string, tool: string,
 ): Promise<Record<string, unknown>> {
@@ -33,7 +36,7 @@ export async function getAppState(
   return body.state ?? {};
 }
 
-// deleteAppState —— 删一个 key。
+// deleteAppState —— delete one key.
 export async function deleteAppState(
   request: APIRequestContext, token: string,
   conv: string, tool: string, key: string,

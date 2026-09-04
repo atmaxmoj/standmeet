@@ -1,0 +1,57 @@
+{
+  "common": {
+    "brand": "standmeet",
+    "writings": "escrituras",
+    "backToWritings": "← volver a escrituras",
+    "read": "leer →",
+    "readMinutes": "lectura de {minutes} min"
+  },
+  "breadcrumb": {
+    "back": "← escritura"
+  },
+  "tree": {
+    "head": "escritura"
+  },
+  "cover": {
+    "tag": "ensayo · standmeet",
+    "locked": "privado · código-gated"
+  },
+  "article": {
+    "coverNo": "{date} · ensayo",
+    "linkedFrom": "vinculado desde",
+    "privateEssay": "ensayo privado",
+    "lockedBody": "Este ensayo está gated; pida un código de invitación.",
+    "requestInvite": "solicitar un código de invitación →"
+  },
+  "cards": {
+    "leadNo": "no. 01 · {date}",
+    "latest": "más reciente",
+    "no": "no. {n}",
+    "readMinutesShort": "{minutes} min"
+  },
+  "index": {
+    "orSkipTheReading": "o saltar la lectura",
+    "askHeading": "Pregúntele a la IA directamente",
+    "askBody": "Todo lo que leerías aquí, dicho en la voz del propietario. El chat cubre terreno que no ha escrito y responde desde el corpus en lugar del archivo.",
+    "openTheChat": "abrir el chat →",
+    "ifYouOnlyReadTwo": "si solo lees dos",
+    "chat": "chat",
+    "essays": "ensayos",
+    "title": "Escrituras",
+    "lede": "El corpus, en la superficie. Cada ensayo es la versión expandida de algo que he estado pensando — puede preguntarle a la IA sobre cualquiera de estos directamente.",
+    "browseByTag": "navegar por etiqueta",
+    "clear": "× borrar · mostrando {filtered} de {total}",
+    "all": "todos",
+    "empty": "Sin ensayos aún.",
+    "mostRecent": "más reciente",
+    "archive": "archivo",
+    "filteredBy": "filtrado por",
+    "essayCount": "{count, plural, one {# ensayo} other {# ensayos}}"
+  },
+  "editor": {
+    "slashNoMatch": "sin coincidencia",
+    "crosslink": "referencia cruzada",
+    "crosslinkNoMatch": "sin coincidencia · escriba un slug para crear",
+    "crosslinkHint": "↑↓ navegar · ↵ insertar · esc para cancelar"
+  }
+}

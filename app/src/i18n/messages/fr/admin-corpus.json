@@ -1,0 +1,160 @@
+{
+  "assets": {
+    "heading": "fichiers",
+    "empty": "aucun fichier joint pour l'instant",
+    "choose": "choisir un fichier",
+    "kindImage": "image",
+    "kindAttachment": "pièce jointe",
+    "insert": "insérer dans le corps",
+    "setCover": "utiliser comme couverture",
+    "unsetCover": "ne plus utiliser comme couverture",
+    "isCover": "couverture",
+    "remove": "supprimer"
+  },
+  "hero": {
+    "headline": "ligne de couverture",
+    "headlinePlaceholder": "la ligne posée sur l'image de couverture",
+    "hue": "teinte",
+    "hueDefault": "— défaut —"
+  },
+  "subjectivity": {
+    "intro": "Votre auto-modèle — goût, jugement, ce qui vous importe. Privé sauf si vous marquez une note comme citables. Écrivez ici ou en parlant à votre IA ; les deux atterrissent au même endroit.",
+    "empty": "rien ici pour l'instant",
+    "new": "+ nouvelle note"
+  },
+  "citable": {
+    "label": "citables — apparaît dans les références de la réponse",
+    "help": "Avec ceci désactivé, l'IA lit toujours cette note et l'utilise toujours pour former sa réponse — elle n'est simplement pas listée sous RÉFÉRENCES. C'est le commutateur d'attribution, pas le commutateur de secret : pour empêcher l'IA de la lire du tout, reprenez son URI de corpus sur /admin/roles ou sur le code."
+  },
+  "search": {
+    "label": "chercher",
+    "placeholder": "mots de la note — titre ou corps",
+    "idleHint": "la liste ci-dessous est la page la plus récente ; la recherche examine tout le corpus",
+    "searching": "recherche dans tout le corpus…",
+    "found": "{count, plural, one {# entrée correspond} other {# entrées correspondent}} à \"{query}\" — recherche du corpus entier, pas seulement cette page",
+    "foundCapped": "affichage des {count} premières correspondances pour \"{query}\" — corpus entier recherché ; affinez les mots pour voir moins",
+    "none": "aucune correspondance pour \"{query}\" dans tout le corpus. Cet index est lexical : les sous-chaînes à l'intérieur d'un mot, les termes collés à la ponctuation et CJK se segmentent mal, donc vide ne prouve pas que la note n'est pas là — essayez un mot entier distinctif.",
+    "failed": "la recherche a échoué : {reason}"
+  },
+  "common": {
+    "loading": "chargement…",
+    "saving": "enregistrement…",
+    "save": "enregistrer",
+    "saveLanding": "enregistrer la page d'accueil",
+    "cancel": "annuler",
+    "edit": "Modifier",
+    "body": "corps",
+    "tagsLabel": "tags (séparés par des virgules)",
+    "noneRoot": "— aucun (racine) —",
+    "deleteX": "supprimer ×"
+  },
+  "form": {
+    "title": "titre",
+    "parent": "nœud parent (optionnel)",
+    "entryHeading": "la note elle-même (corps, fichiers, tags)"
+  },
+  "seoEditor": {
+    "heading": "page d'accueil publique (l'URL est dérivée de l'arborescence du titre)",
+    "description": "méta description",
+    "indexed": "publié — une page publique existe à cette URL, et elle est listée dans sitemap.xml"
+  },
+  "scope": {
+    "kept": "conservé comme écrit (pas sur l'arborescence) : ",
+    "allOfIt": "— tout cela ({glob})",
+    "everythingUnder": "+ tout ce qui est dessous",
+    "referable": "référençable — cette entrée peut apparaître comme une source citée",
+    "notReferable": "lisible mais non référençable — l'IA la lit, jamais citée"
+  },
+  "wiki": {
+    "newEntry": "+ nouvelle entrée",
+    "all": "tout",
+    "empty": "Aucune entrée de wiki pour l'instant. Utilisez + nouvelle entrée, promouvoir de /admin/raw, ou appelez MCP <tool>promote_to_wiki</tool>.",
+    "dotPublic": "● public",
+    "dotPrivate": "● privé",
+    "edit": "modifier ↗",
+    "promoteToOutput": "promouvoir → sortie ↗",
+    "viewLive": "voir ↗"
+  },
+  "output": {
+    "slugPath": "/output/'<'slug>",
+    "intro": "Les sorties sont des artefacts face au public assemblés à partir de vos entrées de wiki — PDF téléchargeables, essais web autonomes, decks d'investisseurs. Chacun obtient sa propre page d'accueil SEO à <code>{slugPath}</code>. Trois visibilités : <ink>public</ink> (ouvert à tous, en sitemap), <amber>unlisted</amber> (visible seulement avec un code), <violet>privé</violet> (portées de code spécifiques uniquement, jamais indexé).",
+    "newPdf": "+ prospect gratuit pdf",
+    "newEssay": "+ essai web",
+    "empty": "Aucune entrée de sortie pour l'instant. Utilisez + nouvelle sortie, promouvoir de /admin/wiki, ou appelez MCP <tool>promote_wiki_to_output</tool>.",
+    "coverKicker": "sortie · {visibility}",
+    "views": "0 vues",
+    "downloads": "0 téléchargements",
+    "pathPrefix": "/output/",
+    "edit": "modifier",
+    "previewLive": "aperçu ↗"
+  },
+  "raw": {
+    "quickDump": "déchargement rapide",
+    "dumpHint": "collez une pensée · puis promouvoir",
+    "dumpOrigin": "admin · ou mcp",
+    "dumping": "déchargement…",
+    "dump": "décharger ↵",
+    "unindexedHint": "le brut reste non indexé jusqu'à promotion",
+    "empty": "Aucune entrée brute pour l'instant. Envoyez-en une depuis un client MCP (outil raw_dump).",
+    "flaggedPrivateBadge": "· marqué privé",
+    "promoteToWiki": "promouvoir → wiki ↗",
+    "edit": "modifier",
+    "delete": "supprimer",
+    "flaggedPrivateField": "marqué privé (exclu du chat public)"
+  },
+  "writings": {
+    "newWriting": "＋ nouveau texte",
+    "intro": "Textes curés par le propriétaire. Utilisez l'éditeur de blocs ci-dessous — tapez `/` pour un menu de blocs, ou remettez à Claude via l'outil MCP `writing_create`. Enregistré comme markdown canonique de toute façon.",
+    "composer": "compositeur · {slug}",
+    "backToList": "← retour à la liste",
+    "empty": "Aucun texte pour l'instant.",
+    "coverHue": "teinte de couverture",
+    "hueAmber": "ambre",
+    "hueViolet": "violet",
+    "hueAcid": "acide",
+    "parent": "parent (arborescence de lecteur)",
+    "publishImmediately": "publier immédiatement",
+    "coverImage": "image de couverture (optionnel)",
+    "chooseCover": "choisir une image",
+    "noImg": "pas d'img",
+    "clear": "effacer"
+  },
+  "obsidianBar": {
+    "export": "↓ exporter vers Obsidian",
+    "importing": "importation…",
+    "import": "↑ importer depuis Obsidian",
+    "working": "travail en cours…",
+    "result": "{created} nouveau · {updated} mis à jour · {deleted} supprimé · {skipped} ignoré",
+    "errors": "· {count, plural, one {# erreur} other {# erreurs}}"
+  },
+  "sideRail": {
+    "crosslinks": "liens croisés",
+    "outgoing": "sortant · {count}",
+    "noneYet": "aucun pour l'instant · tapez [[ pour ajouter",
+    "keyboard": "clavier",
+    "keyInsertBlock": "insérer un bloc",
+    "keyCrossLinkPicker": "sélecteur de lien croisé",
+    "keyPasteImage": "coller l'image en ligne",
+    "keyInlineLink": "ajouter un lien en ligne",
+    "keyCloseMenu": "fermer le menu"
+  },
+  "obsidian": {
+    "manualMode": "○ mode manuel",
+    "importExport": "importer / exporter",
+    "help": "L'importation choisit votre dossier de coffre Obsidian (wiki / subjectivity / raw / writings) et upserts les notes de corpus correspondantes par leur chemin de coffre. L'exportation télécharge votre corpus sous forme d'un coffre de markdown + frontmatter.",
+    "noSync": "Aucune synchronisation en direct, aucun observateur de fichiers — ces deux actions sont tout le mécanisme, et aucune n'exécute sauf si vous l'exécutez."
+  },
+  "seo": {
+    "intro": "Valeurs par défaut appliquées sur tout le site public. SEO par sortie / par message vit avec l'entrée individuelle. Le titre du site est modifié ici ; la description sociale et l'hôte canonique reflètent votre prose héroïque et votre domaine — modifiez-les où ils vivent.",
+    "defaults": "défauts",
+    "robots": "index, follow (robots)",
+    "siteTitleHint": "L'onglet du navigateur et le nom que les moteurs de recherche affichent. Laissé vide, les pages retournent à votre poignée.",
+    "ogTemplateHint": "URL de l'image que les cartes sociales utilisent. Laissez vide et les liens partagés n'ont pas d'image de carte.",
+    "ogDescription": "og:description",
+    "usesHeroProse": "Utilise votre prose héroïque.",
+    "editOnPage": "modifier dans la section Page →",
+    "canonicalHost": "hôte canonique",
+    "indexing": "indexation · publié",
+    "totalInScope": "total en portée : {total}"
+  }
+}

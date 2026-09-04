@@ -1,25 +1,25 @@
-// test.ts —— 自定义 Playwright test fixture。
+// test.ts —— custom Playwright test fixtures.
 //
-//   `page`       —— 落根 /。访客视角。
-//   `adminPage`  —— 落 /admin，自动登录。owner 视角。
+//   `page`       —— lands on root /. Visitor perspective.
+//   `adminPage`  —— lands on /admin, auto-logged-in. Owner perspective.
 //
-// adminPage 的登录凭据从 `ownerCredentials` fixture 读 —— 每个 test file
-// 通过 test.use({ ownerCredentials: { email, password } }) 设自己的凭据。
-// 不设的话 fallback 到 alice@example.com（向后兼容老 spec）。
+// adminPage reads its login credentials from the `ownerCredentials` fixture —— each test file
+// sets its own via test.use({ ownerCredentials: { email, password } }).
+// If unset it falls back to alice@example.com (backward-compatible with old specs).
 //
-// 隔离模型：每个 test file 用不同 email claim instance，adminPage fixture
-// 用该 file 的 credentials 登录。Playwright 1 worker 串行跑，每个 file
-// 的 beforeAll 做 resetInstance + claim。
+// Isolation model: each test file claims the instance with a different email, and the adminPage
+// fixture logs in with that file's credentials. Playwright runs serially with 1 worker, and each
+// file's beforeAll does resetInstance + claim.
 
 import { test as base, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-// Playwright 1.60 不再 named-export `Playwright` 类型；spec 文件里很
-// 多老地方写 `playwright: Playwright`，全改 80+ 处 import 路径不值得。
-// 这里 module augmentation 把 alias 加回去 —— 直接从 PlaywrightWorker
-// Args.playwright 取，避免依赖 `typeof import('playwright-core')` 字面
-// 解析（外层 node_modules 撞了个老 copy，会让 tsc 在不同位置看到不
-// 同的 type identity）。
+// Playwright 1.60 no longer named-exports the `Playwright` type; many old spots in the spec
+// files write `playwright: Playwright`, and rewriting all 80+ import paths isn't worth it.
+// This module augmentation adds the alias back —— taking it straight from PlaywrightWorker
+// Args.playwright, to avoid depending on `typeof import('playwright-core')` literal
+// resolution (an outer node_modules collided with an old copy, making tsc see a different
+// type identity in different places).
 declare module '@playwright/test' {
   // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   export type Playwright = import('@playwright/test').PlaywrightWorkerArgs['playwright'];
@@ -51,17 +51,18 @@ export const test = base.extend<Fixtures>({
   adminPage: async ({ page, ownerCredentials }, use) => {
     await page.goto('/admin');
     const loginEmail = page.getByTestId('email');
-    // 「admin 装好了」的信号是**外壳在**，不是「那一列侧栏看得见」。
-    // 窄屏上侧栏是抽屉,关着时按设计就是不可见的,只等侧栏的话每一个 admin spec
-    // 都会在 fixture 里超时,而红会报在 fixture 上、看着像 admin 在手机上渲不出来。
-    // 两个入口任一**可见**即可:桌面出侧栏,窄屏出那个开关。
+    // The signal that "admin is loaded" is **the shell being present**, not "that sidebar column is visible".
+    // On a narrow screen the sidebar is a drawer, and when closed it is invisible by design; waiting only on
+    // the sidebar makes every admin spec time out inside the fixture, and the red reports on the fixture,
+    // looking like admin fails to render on mobile.
+    // Either entry point being **visible** is enough: desktop shows the sidebar, narrow shows the toggle.
     //
-    // 不能写成 `a.or(b).first()`:`or` 按 DOM 顺序挑,而顶栏那个开关排在侧栏前面 ——
-    // 桌面上它是 `lg:hidden`(display:none)却仍在 DOM 里,于是 `.first()` 每次都挑中
-    // 那个永远不会可见的元素,整套 admin spec 全部超时([[geometry-sees-one-element]] 的同类:
-    // 选择器命中的和人看见的不是同一个)。要的是「谁先可见」,那就得两个各等各的。
+    // Don't write it as `a.or(b).first()`: `or` picks by DOM order, and the top-bar toggle comes before the
+    // sidebar —— on desktop it is `lg:hidden` (display:none) yet still in the DOM, so `.first()` always picks
+    // that never-visible element and the whole admin suite times out ([[geometry-sees-one-element]]'s cousin:
+    // what the selector matches is not what the human sees). We want "whichever is visible first", so each must wait on its own.
     const shellReady = () => Promise.race([
-      page.getByTestId('admin-nav-page').waitFor({ state: 'visible', timeout: 15_000 }),
+      page.getByTestId('admin-nav-account').waitFor({ state: 'visible', timeout: 15_000 }),
       page.getByTestId('admin-nav-toggle').waitFor({ state: 'visible', timeout: 15_000 }),
     ]);
     await Promise.race([
@@ -72,9 +73,9 @@ export const test = base.extend<Fixtures>({
       await loginEmail.fill(ownerCredentials.email);
       await page.getByTestId('password').fill(ownerCredentials.password);
       await page.getByTestId('submit').click();
-      // sweep 模式下 372 spec 串跑、admin login + 首屏渲染会被资源压力
-      // 拖到 10s 之外；超出 actionTimeout=10s 默认会零星 flake (sweep
-      // 跑了几次 admin-wiki-crud / admin-seo 都被这条踩过)。30s 留余量。
+      // In sweep mode, 372 specs run serially and admin login + first-paint render can get
+      // dragged past 10s under resource pressure; exceeding the default actionTimeout=10s causes
+      // sporadic flakes (several sweep runs of admin-wiki-crud / admin-seo hit this). 30s leaves headroom.
       await shellReady();
     }
     await use(page);

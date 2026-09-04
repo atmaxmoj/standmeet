@@ -37,7 +37,7 @@ type Job struct {
 // Board — the bookkeeping surface (stats's JobRegistry satisfies it). The declaring side
 // doesn't know about stats.
 type Board interface {
-	Register(name, schedule string)
+	Register(name, schedule string, every time.Duration)
 	Report(name, status string)
 }
 
@@ -51,7 +51,7 @@ func Start(ctx context.Context, board Board, log *slog.Logger, jobs []Job) {
 			log.Error("periodic job has no interval — not scheduled", "job", job.Name)
 			continue
 		}
-		board.Register(job.Name, scheduleOf(job.Every))
+		board.Register(job.Name, scheduleOf(job.Every), job.Every)
 		runOnce(ctx, board, log, &job)
 		go loop(ctx, board, log, job)
 	}

@@ -22,7 +22,7 @@ type ListCapabilitySettingsRow struct {
 	Enabled      bool
 }
 
-// 该 owner 所有显式偏好行（没行的 capability 走默认开）。
+// All explicit preference rows for this owner (a capability with no row defaults to on).
 func (q *Queries) ListCapabilitySettings(ctx context.Context, ownerID pgtype.UUID) ([]ListCapabilitySettingsRow, error) {
 	rows, err := q.db.Query(ctx, listCapabilitySettings, ownerID)
 	if err != nil {
@@ -57,8 +57,8 @@ type UpsertCapabilitySettingParams struct {
 	Enabled      bool
 }
 
-// Phase H: owner 显式开/关一个 capability。(owner_id, capability_id) upsert，
-// 并发 toggle 安全（PRIMARY KEY 冲突走 DO UPDATE，不留半行）。
+// Phase H: owner explicitly turns a capability on/off. Upsert on (owner_id, capability_id),
+// safe under concurrent toggles (PRIMARY KEY conflict goes to DO UPDATE, no half-row left).
 func (q *Queries) UpsertCapabilitySetting(ctx context.Context, arg UpsertCapabilitySettingParams) error {
 	_, err := q.db.Exec(ctx, upsertCapabilitySetting, arg.OwnerID, arg.CapabilityID, arg.Enabled)
 	return err

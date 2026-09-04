@@ -1,14 +1,17 @@
-// instance.ts —— compose 管理：起 stack、清数据，不重启 backend。
+// instance.ts —— compose management: bring the stack up, clear data, without
+// restarting the backend.
 //
-// 关键设计：
-//   1. truncate 业务表 + UPDATE instance_settings.is_claimed=false（保留单行）
+// Key design:
+//   1. truncate the business tables + UPDATE instance_settings.is_claimed=false
+//      (keeping the single row)
 //   2. flush redis
-//   3. **不再** 在 e2e 侧轮换 setup_token —— backend 的 /api/v1/instance
-//      handler 在 unclaimed 期会 self-heal：DB hash 缺失（claim 后清掉）就重新
-//      issue 一次，holder + DB 同步更新到新 plaintext。findSetupToken() HTTP
-//      GET /api/v1/instance 拿当前可用 plaintext。
+//   3. **no longer** rotate setup_token on the e2e side —— the backend's
+//      /api/v1/instance handler self-heals while unclaimed: if the DB hash is
+//      missing (cleared after claim) it re-issues one, updating holder + DB in
+//      sync to a new plaintext. findSetupToken() HTTP GET /api/v1/instance gets
+//      the currently usable plaintext.
 //
-// backend 完全不重启，sub-second 完成 reset。
+// The backend never restarts, so reset completes sub-second.
 
 import { execSync } from 'node:child_process';
 
@@ -17,19 +20,21 @@ const DB_CONTAINER = 'standmeet-dev-db-1';
 const REDIS_CONTAINER = 'standmeet-dev-redis-1';
 const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// instance_settings 是 singleton（CHECK id=1），不能 TRUNCATE 否则 backend
-// 之后某些 query 会失败——单独 UPDATE 回未 claim 态即可。
+// instance_settings is a singleton (CHECK id=1); it must not be TRUNCATEd or some
+// later backend query fails — just UPDATE it back to the unclaimed state.
 const TABLES = [
   'messages', 'conversations', 'code_members',
   'applications', 'access_codes',
-  // assets 按 holder_id 挂,**没有外键** —— 所以 corpus_notes 的 CASCADE 带不走它,
-  // 得自己列一行。(以前这里写的是 media_assets:一张从来没有写入方的表,删了。)
+  // assets hang off holder_id and have **no foreign key** —— so corpus_notes's
+  // CASCADE doesn't carry them, and they need their own line here. (This used to
+  // read media_assets: a table that never had a writer, since deleted.)
   'corpus_notes', 'assets', 'page_content',
   'resume_drafts', 'job_fingerprints', 'job_sources',
   'owner_keypairs', 'owners',
 ];
 
-// resetInstance —— spec beforeAll 调；把 instance 拉回干净状态。秒内完成。
+// resetInstance —— called from a spec's beforeAll; pull the instance back to a
+// clean state. Completes within a second.
 export function resetInstance(): void {
   const t = (label: string) =>
     process.stderr.write(`[reset ${new Date().toISOString()}] ${label}\n`);
@@ -66,28 +71,38 @@ function resetJobBoardMock(): void {
   }
 }
 
-// ensureStackUp —— 栈已经整齐就别再拉一遍。
+// ensureStackUp —— don't bring the stack up again if it's already healthy.
 //
-// 这里原来无条件跑 `docker compose up -d --wait`。全量跑的时候栈**早就起好了**(`make test`
-// 的 dev-up 已经 --wait 过),这一趟纯属白付 —— 实测 4~11 秒,而 Playwright 把 hook 的时间
-// **算进用例那 30 秒**。于是重活的用例在机器忙的时候被自己的 fixture 挤爆:
-// sync-duplicate-title-collapse 就是这么倒的(reset 花了 14.9 秒,同步走到一半被 30 秒截断,
-// 后端日志留下的是 "meili wait task 632: context canceled" —— 不是产品挂住)。
-// 420 个 spec 文件各付一遍,全量时长里很大一块。
+// This used to unconditionally run `docker compose up -d --wait`. In a full run
+// the stack is **already up** (`make test`'s dev-up already --waited), so this
+// pass is pure waste —— measured at 4~11 seconds, and Playwright **counts the hook
+// time against the case's 30 seconds**. So a heavy case gets squeezed out by its
+// own fixture when the machine is busy: sync-duplicate-title-collapse fell exactly
+// this way (reset took 14.9s, the sync was cut off halfway by the 30s limit, and
+// the backend log left "meili wait task 632: context canceled" —— not the product
+// hanging). Paid once per each of 420 spec files, it's a big chunk of the full run.
 //
-// 所以先问再动:一趟 `ps`(约 0.6 秒)看每个 service 在不在、健不健康,整齐就直接走。有任何一个
-// 不对 → 照旧 `up -d --wait` 拉起来 —— 安全性质一点没变,只是不再为"本来就好着"付钱。
-// **两条都是为了同一件事：跑着的测试底下，绝不许有容器被换掉。**
+// So ask before acting: one `ps` pass (~0.6s) checks whether each service is
+// present and healthy, and if it's all in order, just proceed. If any one is off
+// → bring it up with `up -d --wait` as before —— the safety property is unchanged,
+// it just stops paying for a stack that's already fine.
+// **Both clauses serve the same thing: no container may ever be replaced out from
+// under a running test.**
 //
-// 全量跑到一半时真发生过（2026-08-22）：机器一忙，`payload-origin` 那个 3 秒一次、每次起一个
-// python 解释器的健康检查抖成 unhealthy → 这里判「栈不齐」→ `up -d --wait` **把后端重建了**
-// → 正在跑的用例当场死一片，之后连着 8 个 `visitor-*` 全红（单独跑全绿）。
-// 也就是说：为省时间加的快路径，**恰恰在机器最忙的时候被整个 compose 里最脆的那个检查关掉**，
-// 而代价不是「慢一点」，是栈在测试脚下被换掉。
+// This really happened mid-full-run (2026-08-22): the machine got busy, the
+// `payload-origin` health check (every 3s, spawning a python interpreter each
+// time) flickered to unhealthy → this judged "stack not in order" → `up -d --wait`
+// **rebuilt the backend** → the running cases died in a heap, and then 8
+// `visitor-*` in a row all went red (all green when run alone). In other words:
+// the fast path added to save time **got switched off by the flimsiest check in
+// the whole compose exactly when the machine was busiest**, and the cost wasn't "a
+// bit slower", it was the stack being swapped out from under the tests.
 //
-//   1. 抖一下不算倒 —— 隔一拍再看一眼，两次都不齐才当真。
-//   2. `--no-recreate` —— 缺的补上，**在跑的一律不动**。夹具是安全网，不是部署工具；
-//      要换镜像那是 `make dev-up` 的事。
+//   1. A flicker isn't a failure —— wait a beat and look again; only treat it as
+//      real if it's off both times.
+//   2. `--no-recreate` —— fill in what's missing, **touch nothing that's running**.
+//      The fixture is a safety net, not a deploy tool; swapping images is
+//      `make dev-up`'s job.
 function ensureStackUp(): void {
   if (stackAlreadyUp()) return;
   execSync('sleep 2');
@@ -95,26 +110,29 @@ function ensureStackUp(): void {
   execSync(`docker compose ${COMPOSE} up -d --wait --no-recreate`, { stdio: 'inherit' });
 }
 
-// stackAlreadyUp —— compose 定义的每个 service 都有一个 running 的容器,且带健康检查的都 healthy。
-// 判据取自 compose 自己的 service 清单(不是写死一串名字):加一个 service 而忘了改这里,
-// 结果是**退回慢路径**,不是漏检。
+// stackAlreadyUp —— every service compose defines has a running container, and
+// every one with a health check is healthy. The criterion is taken from compose's
+// own service list (not a hardcoded set of names): if you add a service and forget
+// to change this, the result is a **fall back to the slow path**, not a missed check.
 function stackAlreadyUp(): boolean {
   try {
     const running = new Map<string, PSRow>();
     psRows().forEach((r) => { r.State === 'running' && running.set(r.Service, r); });
     return definedServices().every((s) => {
       const row = running.get(s);
-      // Health 空 = 这个 service 没配健康检查,running 就是它能给的全部信号。
+      // Empty Health = this service has no health check configured, so running is
+      // the whole signal it can give.
       return row !== undefined && (row.Health === '' || row.Health === 'healthy');
     });
   } catch {
-    return false; // compose 问不出话 → 走慢路径,让它自己报错
+    return false; // compose can't answer → take the slow path and let it report the error
   }
 }
 
 interface PSRow { Service: string; State: string; Health: string }
 
-// psRows —— `ps --format json` 每行一个对象(新版 compose);老版给一个数组,两种都收。
+// psRows —— `ps --format json` gives one object per line (newer compose); older
+// versions give a single array. Accept both.
 function psRows(): PSRow[] {
   const out = execSync(`docker compose ${COMPOSE} ps --format json`, { encoding: 'utf-8' }).trim();
   if (out === '') return [];
@@ -122,8 +140,9 @@ function psRows(): PSRow[] {
   return out.split('\n').map((line) => JSON.parse(line) as PSRow);
 }
 
-// definedServices —— compose 文件里声明的 service 名。一个 worker 进程里只问一次:
-// 文件在一次跑里不会变,而这一趟 exec 也要几百毫秒。
+// definedServices —— the service names declared in the compose file. Asked once
+// per worker process: the file doesn't change during a run, and this exec also
+// takes a few hundred ms.
 let definedCache: string[] = [];
 function definedServices(): string[] {
   if (definedCache.length === 0) {
@@ -138,9 +157,10 @@ function truncateTables(): void {
   runPsql(`TRUNCATE ${tableList} RESTART IDENTITY CASCADE`);
 }
 
-// unclaim —— UPDATE singleton 单行回 is_claimed=false。不动 setup_token_hash
-// (claim 流程已经把它清成 NULL；backend 下次 /api/v1/instance 会 self-heal
-// 重新 issue token，让 holder + DB hash 同步到新 plaintext)。
+// unclaim —— UPDATE the singleton's single row back to is_claimed=false. Leaves
+// setup_token_hash alone (the claim flow already cleared it to NULL; the backend's
+// next /api/v1/instance self-heals and re-issues a token, syncing holder + DB hash
+// to a new plaintext).
 function unclaim(): void {
   runPsql(`UPDATE instance_settings SET is_claimed = false WHERE id = 1`);
 }
@@ -156,24 +176,28 @@ function runPsql(sql: string): void {
   );
 }
 
-// execSQL —— 跑一条不看结果的语句。用于**制造前置状态**(比如一行 8 天前的用量),
-// 那种状态没有任何 API 造得出来:没有"把时间往前拨"的接口,也不该有。
+// execSQL —— run a statement without reading its result. Used to **manufacture a
+// precondition state** (e.g. a usage row from 8 days ago), a state no API can
+// create: there's no "wind the clock back" endpoint, nor should there be.
 export function execSQL(sql: string): void {
   runPsql(sql.replaceAll('"', '\\"'));
 }
 
-// ⚠️ 这里曾经有一个 `applyMigration(name)`：读 `backend/db/migrations/<name>.sql`，
-// 用 psql 在库上跑一遍。升级测试靠它把 migration 打上去。
+// ⚠️ There used to be an `applyMigration(name)` here: it read
+// `backend/db/migrations/<name>.sql` and ran it against the DB with psql. Upgrade
+// tests relied on it to apply the migration.
 //
-// **它让那条测试跑在一条 prod 不存在的路上。** 真实的实例里没有任何人做这一步 ——
-// migration 由后端启动时自己打（`pgstore.Migrate`，编在同一个二进制里）。
-// 于是那条测试证明的是"这个 .sql 文件写得对"，而**升级怎么到达一台实例**这件事
-// 被测试自己代劳了：真正会坏的那一段，一次都没被走过。
+// **It made that test run on a path prod doesn't have.** In a real instance nobody
+// does this step —— migrations are applied by the backend itself at startup
+// (`pgstore.Migrate`, compiled into the same binary). So that test proved "this
+// .sql file is written correctly", while **how an upgrade reaches an instance** was
+// done by the test on its behalf: the part that actually breaks was never walked.
 //
-// 删掉它，让升级测试只剩一条路可走 —— `restartBackend()`，也就是部署本身。
-// 同族：[[which-path-is-the-green-on]]。
+// Deleting it leaves the upgrade test one path to run —— `restartBackend()`, which
+// is the deployment itself. Same family: [[which-path-is-the-green-on]].
 
-// querySQL —— 跑一条查询,返回裸值(单行单列,-tA)。断言"这一行还在不在"用它。
+// querySQL —— run a query and return the raw value (single row, single column,
+// -tA). Use it to assert "is this row still there".
 export function querySQL(sql: string): string {
   return execSync(
     `docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -tA -c ` +
@@ -182,39 +206,45 @@ export function querySQL(sql: string): string {
   ).trim();
 }
 
-// backendLogTail —— 取 backend 最近 n 行日志。
+// backendLogTail —— fetch the backend's last n lines of logs.
 //
-// 有些不变量**只在日志里成立或不成立** —— 例如「一轮里派了几次工具调用,就该有几条能各自归因的
-// 结果」(F-S-1)。那种东西 UI 上看不见、API 上也读不到,断言的对象本来就是这份日志。
-// 用它的用例要自己在注释里说清:为什么这条断言不能走产品的面。
+// Some invariants **hold or fail only in the logs** —— e.g. "however many tool
+// calls were dispatched in a turn, there should be that many individually
+// attributable results" (F-S-1). That's invisible in the UI and unreadable via the
+// API; the log is the thing the assertion is really about. A case that uses it must
+// spell out in its own comment why this assertion can't go through the product's surface.
 export function backendLogTail(lines = 400): string {
   return execSync(`docker compose ${COMPOSE} logs --tail ${lines} backend`, {
     encoding: 'utf-8', maxBuffer: 32 * 1024 * 1024,
   });
 }
 
-// setSearchDegraded —— 把 backend 推进/推出**检索降级**（拿掉 Meili，退 Postgres 全文）。
+// setSearchDegraded —— push the backend into / out of **search degradation** (drop
+// Meili, fall back to Postgres full-text).
 //
-// 开关在启动期读（`MEILI_URL` 空 → `search.New` 返回 nil，boot_deps.go:142），所以这是一次
-// 容器重建，不是一个运行期 flag。用它的用例要在 afterAll 里恢复 —— 留着降级会让后面每一条
-// 搜索用例都在另一条路上跑，而它们照样会绿（那正是 F-S-3 一直没被发现的原因）。
+// The switch is read at startup (empty `MEILI_URL` → `search.New` returns nil,
+// boot_deps.go:142), so this is a container rebuild, not a runtime flag. A case
+// that uses it must restore in afterAll —— leaving degradation on makes every later
+// search case run on the other path, and they'll go green anyway (which is exactly
+// why F-S-3 went undiscovered for so long).
 export function setSearchDegraded(on: boolean): void {
   execSync(`make -C .. ${on ? 'dev-pgsearch-on' : 'dev-pgsearch-off'}`, { stdio: 'inherit' });
 }
 
-// restartBackend —— 让 backend 进程重来一次。周期任务的第一跑就在 boot,所以"起来时
-// 清一次老行"这件事,只有重启才观察得到。走 Makefile(所有 docker 操作的唯一入口)。
+// restartBackend —— make the backend process start over. A periodic task's first
+// run is at boot, so "clear the stale rows once on startup" can only be observed
+// via a restart. Goes through the Makefile (the single entry point for all docker ops).
 export function restartBackend(): void {
   execSync('make -C .. dev-restart-svc SVC=backend', { stdio: 'inherit' });
 }
 
-// findSetupToken —— 拿当前 backend 持有的 plaintext setup token。
-// 通过 /api/v1/instance HTTP fetch；backend 在 unclaimed 期 self-heal，
-// 总能返一个跟 DB hash 对得上的 plaintext。
+// findSetupToken —— get the plaintext setup token the backend currently holds.
+// Via an HTTP fetch of /api/v1/instance; while unclaimed the backend self-heals and
+// always returns a plaintext that matches the DB hash.
 //
-// Sync wrapper around an HTTP fetch via curl —— spec helpers 大多是 sync
-// (resetInstance + findSetupToken 都在 beforeAll 里非 async 调用)，所以
-// 用 execSync(curl) 拿 JSON 然后 parse。
+// Sync wrapper around an HTTP fetch via curl —— most spec helpers are sync
+// (resetInstance + findSetupToken are both called non-async in beforeAll), so it
+// uses execSync(curl) to get the JSON and then parses it.
 export function findSetupToken(): string {
   const body = execSync(
     `curl -sS -m 5 ${BACKEND_URL}/api/v1/instance`,

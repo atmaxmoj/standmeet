@@ -23,12 +23,7 @@ import type {
 
 export type {
   BYOAIHeaders,
-  PagePinCard,
-  PageWhere,
-  PageContact,
-  PageContent,
   PublicOwnerView,
-  PublicPageView,
   WikiLandingView,
   LanguageOption,
   OutputLandingView,
@@ -72,7 +67,6 @@ export interface IssueBYOAISessionInput {
   byoai_provider: string;
 }
 
-export const fetchPublicPage = () => client().fetchPage();
 // fetchWikiLanding —— lang is optional: for a multilingual note the server
 // already picks the right side (so SSR also has the correct copy; crawlers and
 // agents fetch the actual content, not a skeleton waiting on JS).

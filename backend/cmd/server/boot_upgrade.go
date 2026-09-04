@@ -24,9 +24,18 @@ import (
 // An empty hook is **normal**, not a fault: for most deployment methods the upgrade
 // step already happens outside the instance. Redeployer truthfully reports
 // Configured()=false, and the panel renders the button as unclickable accordingly.
+// upgradeSources also chooses the redeploy path: an explicit orchestrator webhook wins (an
+// owner who set STANDMEET_REDEPLOY_HOOK means it); otherwise the product-owned updater-sidecar
+// signal is the default, so the button works out of the box. Only when neither is present does
+// Redeployer/SignalRedeployer report Configured()=false and the panel say it can't act.
 func upgradeSources(cfg *config.Config) stats.UpgradeSources {
-	return stats.UpgradeSources{
+	src := stats.UpgradeSources{
 		Releases: port.NewReleaseChannel(cfg.ReleaseRegistry, cfg.ReleaseRepo),
-		Deploy:   port.NewRedeployer(cfg.RedeployHookURL),
 	}
+	if cfg.RedeployHookURL != "" {
+		src.Deploy = port.NewRedeployer(cfg.RedeployHookURL)
+	} else {
+		src.Deploy = port.NewSignalRedeployer(cfg.UpgradeSignalPath)
+	}
+	return src
 }

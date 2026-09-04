@@ -1,0 +1,179 @@
+{
+  "common": {
+    "connect": "Conectar",
+    "close": "✕"
+  },
+  "api": {
+    "intro": "Las claves MCP permiten a los clientes de IA (Claude, Cursor, scripts personalizados) ingresar entradas sin procesar en su corpus, promoverlas, administrar códigos. Cada clave es un par de claves Ed25519 — el servidor almacena solo la mitad pública; guarda el PEM privado en <code>~/.standmeet/credentials.json</code> y el cliente firma por solicitud.",
+    "keysHeading": "claves mcp",
+    "empty": "sin claves aún · genere una para conectar su primer cliente de IA"
+  },
+  "aiProvider": {
+    "heading": "ia del propietario",
+    "intro": "El proveedor con el que hablan los visitantes. Elija un valor predeterminado o apunte a su propio punto final OpenAI-compatible autohospedado (ollama / vllm / lm-studio). La clave se encripta en reposo con INSTANCE_SECRET y nunca se lee de vuelta a esta página.",
+    "provider": "proveedor",
+    "endpoint": "punto final",
+    "model": "modelo",
+    "apiKey": "clave api",
+    "clearKey": "limpiar clave ×"
+  },
+  "mcpClient": {
+    "heading": "configuración mcp",
+    "subhead": "guardar credentials.json + pegar config en su cliente",
+    "filePath": "ruta del archivo",
+    "foot": "después de pegar + guardar credentials.json (modo 0600), reinicie su cliente. cada solicitud firma un desafío sigv1 de corta duración — el servidor nunca ve su clave privada."
+  },
+  "mcpDownload": {
+    "heading": "conecte su cliente mcp",
+    "badge": "Sigv1 · /mcp",
+    "intro": "Apunte su cliente de IA al punto final MCP de su instancia. Auth es el par de claves Ed25519 que genera arriba (Sigv1). El punto final agrega sus herramientas de propietario sobre MCP-over-HTTP.",
+    "note": "Claude Desktop / Cursor se conectan a través del cliente stdio en la configuración anterior (npx @standmeet/mcp-client), que habla MCP-over-HTTP con Sigv1 a este punto final bajo el capó.",
+    "endpointLabel": "punto final mcp"
+  },
+  "mcpServers": {
+    "heading": "Servidores MCP externos",
+    "count": "{count} registrado",
+    "intro": "Servidores MCP que el agente visitante puede llamar como herramientas. Agregue uno que obtenga de cualquier lugar — su URL y un encabezado de autenticación opcional — luego conéctelo a un rol bajo códigos.",
+    "empty": "ninguno aún",
+    "remove": "eliminar",
+    "check": "verificar",
+    "checking": "preguntando…",
+    "checkTools": "{count, plural, =0 {responde, pero no ofrece herramientas} one {# herramienta} other {# herramientas}}",
+    "checkFailed": "sin respuesta — {reason}",
+    "checkRefused": "respondió, pero rechazó el encabezado de autenticación — verifique el nombre y valor del encabezado",
+    "checkNoAnswer": "sin respuesta — nada respondió en esa URL",
+    "authBadge": "auth: {name}",
+    "add": "Agregar servidor MCP"
+  },
+  "newToken": {
+    "label": "generar clave",
+    "submit": "generar"
+  },
+  "newlyCreated": {
+    "warning": "guarde estos ahora — la clave privada se muestra solo una vez",
+    "keyId": "id de clave",
+    "pem": "clave privada (pem)",
+    "download": "descargar .pem",
+    "dismiss": "descartar"
+  },
+  "tokenRow": {
+    "meta": "creado {created} · usado por última vez {lastUsed}",
+    "never": "nunca",
+    "algo": "ed25519",
+    "revoke": "revocar",
+    "keyId": "id de clave"
+  },
+  "connectors": {
+    "intro": "Los conectores permiten que el agente llegue a servicios externos — Calendario y Correo están en vivo a continuación, y puede cargar su propio conector (OpenAPI / protocolo) para agregar más.",
+    "catalogError": "No se pudo cargar el catálogo de conectores — recargue e intente de nuevo.",
+    "overwritePrompt": "Un conector <mono>{category}</mono> ya existe. ¿Sobrescribir?",
+    "overwrite": "Sobrescribir",
+    "add": "+ agregar conector",
+    "builtinHeading": "Listo para conectar",
+    "builtinCount": "{count} disponible",
+    "uploadedHeading": "Conectores que cargó",
+    "uploadedCount": "{count} instalado"
+  },
+  "calendar": {
+    "heading": "Calendario de Google",
+    "credentialsHint": "Consola de Google Cloud → API y servicios → Credenciales → ID de cliente OAuth (Escritorio). Cliente propio del propietario; sin OAuth de StandMeet global.",
+    "saveCredentials": "Guardar credenciales",
+    "authorize": "Autorizar en Google →",
+    "disconnect": "Desconectar (mantener credenciales)",
+    "policyHeading": "Política de reserva",
+    "timezone": "zona horaria (IANA)",
+    "timezoneUnsetOption": "— no configurado —",
+    "timezoneUnsetHint": "no configurado, por lo que las horas anteriores se leen como UTC. su navegador dice {detected} — selecciónelo y los visitantes obtendrán las horas que pretendía.",
+    "weekdays": "días de la semana permitidos"
+  },
+  "capabilities": {
+    "kicker": "disponibilidad",
+    "heading": "capacidades",
+    "intro": "Desactive una capacidad y sus herramientas desaparecen de todas las sesiones de visitantes. Las capacidades integradas se pueden deshabilitar pero no eliminar; solo las que ha escrito se pueden quitar."
+  },
+  "connectorCard": {
+    "disconnect": "Desconectar"
+  },
+  "connectorOp": {
+    "run": "Ejecutar",
+    "running": "Ejecutando…",
+    "sent": "Aceptado por el conector {kind} — verifique la bandeja de entrada para confirmar que llegó.",
+    "unreachable": "No se pudo alcanzar su instancia — verifique su conexión e intente de nuevo.",
+    "failedNoReason": "No funcionó y el conector no dio razón — verifique los registros del servidor."
+  },
+  "connectorList": {
+    "loadError": "No se pudieron cargar sus conectores — recargue e intente de nuevo.",
+    "delete": "Eliminar"
+  },
+  "skills": {
+    "new": "+ habilidad nueva",
+    "personaEmpty": "Sin habilidades aún.",
+    "builtin": "integrado",
+    "showPrompt": "mostrar aviso",
+    "delete": "eliminar",
+    "modalTitle": "habilidad nueva",
+    "promptLabel": "aviso",
+    "cancel": "cancelar",
+    "create": "crear"
+  },
+  "installedCard": {
+    "source": "fuente · {source}",
+    "builtin": "· integrado"
+  },
+  "marketplaceCard": {
+    "repoStars": "★ {stars} repo",
+    "author": "{author} · v{version}",
+    "authorOnly": "{author}",
+    "installed": "✓ instalado",
+    "needs": "necesita {missing}"
+  },
+  "marketplaceTab": {
+    "intro": "Las habilidades se agregan desde dos fuentes — el repo <ink>anthropics/skills</ink> de GitHub abierto (cualquiera puede fork + PR) y <ink>SkillsMP</ink> (canal comercial). La instalación obtiene el SKILL.md de la habilidad, analiza su frontmatter y escribe una copia local que posee completamente — edite el aviso o herramientas permitidas después, desacopladas del marketplace.",
+    "manualHint": "¿Encontró una habilidad en otro lugar? Pegue su <ink>SKILL.md</ink> (frontmatter YAML + cuerpo). Se instala como una copia local que posee — sin marketplace, sin búsqueda de red.",
+    "manualInstall": "instalar",
+    "loadMore": "cargar más",
+    "searchIcon": "⌕",
+    "empty": "Sin habilidades coinciden. Intente un término diferente o cambie de fuente — el repo de GitHub y SkillsMP se consultan en paralelo."
+  },
+  "mySkills": {
+    "empty": "Sin habilidades aún — instale una desde la pestaña marketplace o agregue la suya bajo Skills."
+  },
+  "providerBook": {
+    "heading": "libro de proveedores",
+    "intro": "Cada proveedor al que puede enviar un turno. Uno de ellos es el predeterminado — el que se usa cuando ni el código de acceso ni el rol nombra otro. Eliminar una entrada es seguro: los códigos y roles que apuntan a él vuelven al predeterminado.",
+    "empty": "sin entradas aún · la que configuró arriba es la predeterminada",
+    "defaultBadge": "predeterminado",
+    "makeDefault": "hacer predeterminado",
+    "delete": "eliminar ×",
+    "keySet": "● clave configurada",
+    "keyUnset": "○ sin clave",
+    "addHeading": "agregar entrada",
+    "label": "etiqueta",
+    "labelHint": "su nombre para esta entrada",
+    "add": "agregar",
+    "gasUnmetered": "sin medidor",
+    "gasFill": "llenar",
+    "gasUnmeter": "quitar calibrador",
+    "gasFilled": "Tanque lleno",
+    "gasFillPlaceholder": "tokens"
+  },
+  "apiKeys": {
+    "heading": "claves api salientes",
+    "intro": "Claves que un programa de terceros usa contra su API pública (smk_…). Diferente de las claves MCP anteriores: esas firman para su propio cliente de IA, estas se entregan al código de otra persona. Si uno se filtra, revóquelo aquí.",
+    "labelField": "etiqueta",
+    "labelPlaceholder": "para quién es esta clave — por ejemplo, 'zapier'",
+    "roleField": "asume rol",
+    "mint": "acuñar clave",
+    "secretOnce": "cópielo ahora — el secreto se muestra solo una vez",
+    "dismiss": "descartar",
+    "empty": "sin claves salientes aún",
+    "revoke": "revocar",
+    "revokeConfirm": "¿Revocar esta clave? Anything using it stops working immediately.",
+    "statusActive": "activo",
+    "statusRevoked": "revocado"
+  },
+  "embed": {
+    "heading": "Incrustar en otro sitio",
+    "blurb": "Coloque estas dos líneas en cualquier página — su propio blog, el sitio de un cliente, una página de destino. Sin paso de construcción y sin React: el script registra un elemento <standmeet-chat> que habla con esta instancia."
+  }
+}

@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
@@ -209,8 +210,15 @@ func mustBeWired(h *adminroutes.Handlers) {
 	}
 }
 
+// installHomepageHook — the post-claim default-homepage install, built here because the
+// custom-page repos live at the composition root (the routing layer can't reach them). Best-effort.
+func installHomepageHook(deps *Deps) func(context.Context, string) error {
+	return func(ctx context.Context, ownerID string) error {
+		return owner.InstallDefaultHomepage(ctx, deps.Admin.CustomPages, ownerID, deps.Log)
+	}
+}
+
 func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
-	pins := owner.PagePinDeps{Owners: deps.Admin.Owners, Wiki: deps.Admin.Corpus.Wiki}
 	return &adminroutes.Handlers{
 		Claim: deps.Admin.Claim,
 		Auth: adminroutes.AuthDeps{
@@ -226,7 +234,6 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		// APIKeysAdmin —— outbound-key panel (F-K-1). Same AdminFace gates it by an op's reach;
 		// those ops now declare OwnerRead/OwnerAction on both owner faces, no longer mcp-only.
 		APIKeysAdmin:   adminroutes.APIKeysAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		PageAdmin:      adminroutes.PageAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		SEOAdmin:       adminroutes.SEOAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		Conversations:  adminroutes.ConversationsDeps{Face: wire.AdminFace(deps.Dispatch)},
 		BYOAI:          adminroutes.BYOAIDeps{Face: wire.AdminFace(deps.Dispatch)},
@@ -237,12 +244,14 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		AccountAdmin:   adminroutes.AccountDeps{Face: wire.AdminFace(deps.Dispatch)},
 		Recovery:       deps.Admin.Recovery,
 		EmailChange:    deps.Admin.EmailChange, // see depcheck for the cost of missing it
-		// The plugins' builtins are handed in by the composition root — the registry
-		// lives here, the routing layer can't reach it.
-		SeedPlugins:      deps.PluginRegistry.SeedAllOwners,
-		AIProviderAdmin:  adminroutes.AIProviderDeps{Face: wire.AdminFace(deps.Dispatch)},
-		ProvidersAdmin:   adminroutes.ProvidersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		CustomPagesAdmin: adminroutes.CustomPagesDeps{Face: wire.AdminFace(deps.Dispatch)},
+		// Plugins' builtins + the default homepage are handed in from here (composition root).
+		SeedPlugins:     deps.PluginRegistry.SeedAllOwners,
+		InstallHomepage: installHomepageHook(deps),
+		AIProviderAdmin: adminroutes.AIProviderDeps{Face: wire.AdminFace(deps.Dispatch)},
+		ProvidersAdmin:  adminroutes.ProvidersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		CustomPagesAdmin: adminroutes.CustomPagesDeps{
+			Face: wire.AdminFace(deps.Dispatch), Notifier: deps.Builds.Notifier,
+		},
 		// Preview goes through the domain, not the dispatcher: it hands back **file bytes**, and
 		// the convergence path is JSON ops. Same reasoning as the public-side /p/{slug}.
 		SkillsAdmin:     adminroutes.SkillsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
@@ -267,7 +276,6 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
 				Assets: deps.Admin.Assets,
 			},
-			PagePins: pins,
 			// Same owners repo: it's already where CSS lands, so the import receipt
 			// (UX-62) hangs off owner too — one instance has exactly one vault.
 			ImportReceipt: deps.Admin.Owners,

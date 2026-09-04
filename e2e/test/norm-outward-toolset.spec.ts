@@ -149,13 +149,16 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // custom_page.set_byoai -- whether this page allows readers to bring their
   // own key (voided once a code is attached, which then decides instead).
   'custom_page.set_byoai',
+  // custom_page.guide -- the frontend-authoring guide (design system, SDK
+  // widgets, show-corpus-inline) the owner's agent reads before writing a page.
+  'custom_page.guide',
   // page / calendar / booking / appearance
-  'page.get', 'page.put', 'page.set_public_url',
-  'page.pin', 'page.unpin',
-  // Changing the handle and changing the public URL are the same kind of
-  // thing (this instance's outward-facing address), hence set_handle rather
-  // than update_handle; pinnable used to exist only on the admin panel.
-  'page.set_handle', 'page.pinnable',
+  // The owner's homepage is now a custom page (the reserved `home` slug), so the
+  // old built-in page content ops (get/put/pin/unpin/pinnable) are gone; what
+  // remains is this instance's two outward addresses. Changing the handle and the
+  // public URL are the same kind of thing (this instance's outward-facing
+  // address), hence set_handle rather than update_handle.
+  'page.set_public_url', 'page.set_handle',
   // The booker's three owner tools are all provided by the **sandbox**
   // (declared as OwnerTools, implemented on its own side): list and cancel
   // used to each have a separate implementation on the host, a different
@@ -193,6 +196,14 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // owed it after moving into the convergence point.
   'instance.corpus_graph',
   'instance.activity', 'instance.jobs',
+  // instance.upgrade / upgrade_check -- the product-owned self-upgrade (a newer StandMeet
+  // release is applied by the instance itself, not by touching the deploy host). Both are
+  // owner tools; this golden was never updated when they landed (the recurring drift the
+  // file header warns about).
+  'instance.upgrade', 'instance.upgrade_check',
+  // embeds -- the owner's embed snippets (the <script> drop-in / SDK bundle registry). Owner
+  // CRUD; likewise added without updating this golden.
+  'embeds.create', 'embeds.list', 'embeds.update', 'embeds.delete',
   'marketplace.search', 'marketplace.install',
   'account.set_full_name', 'account.set_timezone', 'byoai.set', 'ai_provider.presets',
   // api-key facade management (facade-directions.md; MCP-first)

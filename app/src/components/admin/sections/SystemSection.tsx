@@ -9,17 +9,20 @@
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { ListPane } from '@/components/admin/ListPane';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { InferenceUsagePanel } from '@/components/admin/sections/system/InferenceUsagePanel';
 import { SandboxPanel } from '@/components/admin/sections/system/SandboxPanel';
 import { UpgradePanel } from '@/components/admin/sections/system/UpgradePanel';
 import { useScheduledJobs, jobRowViews } from '@/lib/admin/use-jobs';
 import {
-  useSystemInfo, deployView, healthList, resourceStats, type SystemInfo,
+  useSystemInfo, deployView, healthList, resourceStats, clusterRows,
+  type SystemInfo, type ClusterRowView,
 } from '@/lib/admin/use-system-info';
+import type { ResourceStatus } from '@/lib/state/status';
 
 export function SystemSection() {
-  const { info } = useSystemInfo();
+  const { info, status } = useSystemInfo();
   return (
     <>
       {/* The button that was in the top bar moved into UpgradePanel — it originally had no
@@ -30,6 +33,7 @@ export function SystemSection() {
         <UpgradePanel />
         <DeploymentBlock info={info} />
         <ResourcesBlock info={info} />
+        <ClusterBlock info={info} status={status} />
         <JobsTable />
         <HealthChecks info={info} />
         <InferenceUsagePanel />
@@ -49,6 +53,7 @@ function DeploymentBlock({ info }: { info: SystemInfo | null }) {
         <div><span className="text-(--color-accent)">$</span> {t('statusCmd')}</div>
         <div><span className="text-(--color-faint)">{t('treeBranch')}</span> {t('version')} <span className="text-(--color-ink)" data-testid="system-version">{d.version}</span></div>
         <div><span className="text-(--color-faint)">{t('treeBranch')}</span> {t('cpus')} <span className="text-(--color-ink)">{d.cpus}</span></div>
+        <div><span className="text-(--color-faint)">{t('treeBranch')}</span> {t('publicIp')} <span className="text-(--color-ink)" data-testid="system-public-ip">{d.ip}</span></div>
         <div><span className="text-(--color-faint)">{t('treeBranch')}</span> {t('uptime')} <span className="text-(--color-ink)" data-testid="system-uptime">{d.uptime}</span></div>
         <div><span className="text-(--color-faint)">{t('treeLast')}</span> {t('migrations')} <span className="text-(--color-ink)">{t('migrationsPending')}</span></div>
         <div className="mt-2"><span className="text-(--color-accent)">$</span> {t('ready')}<span className="animate-pulse">_</span></div>
@@ -78,6 +83,52 @@ function ResourceStat({ label, value, sub }: { label: string; value: string; sub
       <div className="sm-smallcaps mb-1">{label}</div>
       <div className="font-serif text-(--color-ink) text-[28px] tabular-nums leading-none">{value}</div>
       <div className="mono text-[10px] text-(--color-muted) tracking-[0.06em] mt-1">{sub}</div>
+    </div>
+  );
+}
+
+// ClusterBlock — this instance's own compose project, one row per container (CPU + memory).
+// Goes through ListPane so a genuinely empty cluster (docker socket not mounted → an honest
+// "no cluster data") is never confused with "still loading" or "the fetch failed" (F-L-53).
+function ClusterBlock({ info, status }: { info: SystemInfo | null; status: ResourceStatus }) {
+  const t = useTranslations('adminShell.system');
+  const rows = clusterRows(info);
+  return (
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="system-cluster">
+      <AdminSectionHead className="mb-3">{t('cluster')}</AdminSectionHead>
+      <ListPane
+        status={status}
+        count={rows.length}
+        empty={
+          <div className="mono text-[11px] text-(--color-faint)" data-testid="system-cluster-empty">
+            {t('clusterEmpty')}
+          </div>
+        }
+      >
+        <ClusterList rows={rows} />
+      </ListPane>
+    </div>
+  );
+}
+
+function ClusterList({ rows }: { rows: ClusterRowView[] }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {rows.map((r) => (
+        <ClusterRow key={r.name} name={r.name} usage={r.usage} />
+      ))}
+    </div>
+  );
+}
+
+function ClusterRow({ name, usage }: { name: string; usage: string }) {
+  return (
+    <div
+      className="flex items-baseline justify-between gap-3 border-b border-(--color-rule)/40 pb-1.5"
+      data-testid={`cluster-row-${name}`}
+    >
+      <span className="font-serif text-[14px] text-(--color-ink)">{name}</span>
+      <span className="mono text-[11px] tabular-nums text-(--color-muted)">{usage}</span>
     </div>
   );
 }

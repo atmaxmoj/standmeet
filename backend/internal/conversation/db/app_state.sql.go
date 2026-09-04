@@ -80,8 +80,8 @@ type UpsertAppStateParams struct {
 	Value    []byte
 }
 
-// mcp_app_state —— MCP App 跨刷新状态。scope = (member, mcp_id)；mcp_id 由后端从
-// tool 派生。get 整格、upsert 一个 key、delete 一个 key。
+// mcp_app_state —— MCP App state across refreshes. scope = (member, mcp_id); mcp_id is derived by the
+// backend from the tool. get the whole cell, upsert one key, delete one key.
 func (q *Queries) UpsertAppState(ctx context.Context, arg UpsertAppStateParams) error {
 	_, err := q.db.Exec(ctx, upsertAppState,
 		arg.OwnerID,

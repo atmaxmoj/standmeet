@@ -1,8 +1,8 @@
-// dock-buttons-visitor.spec.ts —— #109/#110 E：访客侧的 dock 按钮渲染 + 点击。
+// dock-buttons-visitor.spec.ts —— #109/#110 E: visitor-side dock button rendering + click.
 //
-// 按钮 = 快捷方式：点它 = 把 owner 配的「触发词」当访客消息发出去 → 走正常 agent turn。
-// 按钮 label = 能力的 MCP title。这里只验按钮的职责（渲染 + 点击发出触发词 + turn 触发）；
-// 能力答得对不对由各自能力的测试（summarize/booking）保证 —— 关注点分离。
+// A button = a shortcut: clicking it = sending the owner-configured "trigger phrase" as a visitor message → a normal agent turn.
+// The button label = the capability's MCP title. This only verifies the button's responsibility (render + click sends the trigger + turn fires);
+// whether the capability answers correctly is guaranteed by each capability's own tests (summarize/booking) —— separation of concerns.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -114,7 +114,7 @@ test.describe('dock buttons · E — visitor render + click', () => {
       await expect(bar.getByTestId(/^dock-button-/)).toHaveCount(2);
       const summ = page.getByTestId(`dock-button-${CAP_SUMMARIZE}`);
       await expect(summ).toBeVisible();
-      // label 是 title，不是能力 id。
+      // the label is the title, not the capability id.
       await expect(summ).not.toHaveText(CAP_SUMMARIZE);
       await expect(summ).not.toHaveText('');
     });
@@ -123,9 +123,9 @@ test.describe('dock buttons · E — visitor render + click', () => {
     async ({ page }) => {
       await enterChat(page);
       await page.getByTestId(`dock-button-${CAP_SUMMARIZE}`).click();
-      // 触发词作为访客消息进 transcript（= 跟打字一样）。
+      // the trigger phrase enters the transcript as a visitor message (= same as typing it).
       await expect(page.getByText(TRIGGER_SUMMARIZE)).toBeVisible({ timeout: 8_000 });
-      // agent turn 触发并出答案。
+      // the agent turn fires and produces an answer.
       await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
     });
 });

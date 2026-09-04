@@ -1,7 +1,7 @@
--- prompts —— owner-scoped persona library。语义见 schema.sql + [[iam-role-pivot-plan]]。
+-- prompts -- owner-scoped persona library. Semantics in schema.sql + [[iam-role-pivot-plan]].
 --
--- public（is_builtin=true）由 SeedPublicRole upsert 种入；owner 自己加的
--- = false。删除 builtin 在 repo 层挡（domain.ErrPromptBuiltinImmutable）。
+-- public (is_builtin=true) is seeded by the SeedPublicRole upsert; ones the owner adds themselves
+-- = false. Deleting a builtin is blocked at the repo layer (domain.ErrPromptBuiltinImmutable).
 
 -- name: CreatePrompt :one
 INSERT INTO prompts (owner_id, name, description, body)
@@ -9,8 +9,8 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: UpsertBuiltinPrompt :one
--- Seed builtin prompt：idempotent by (owner_id, name)。
--- description / body 用 EXCLUDED 覆盖，让 future seed 调整后 re-run 能落地。
+-- Seed builtin prompt: idempotent by (owner_id, name).
+-- description / body are overwritten with EXCLUDED, so a future seed adjustment lands on re-run.
 INSERT INTO prompts (owner_id, name, description, body, is_builtin)
 VALUES ($1, $2, $3, $4, true)
 ON CONFLICT (owner_id, name) DO UPDATE SET
@@ -29,13 +29,13 @@ SELECT * FROM prompts WHERE owner_id = $1 AND name = $2;
 SELECT * FROM prompts WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC;
 
 -- name: UpdatePrompt :one
--- Builtin (public) 也能 update body / description（owner 调 public 文案）；
--- repo 层拒 builtin rename + delete。
+-- Builtin (public) can also update body / description (the owner tweaks the public copy);
+-- the repo layer rejects builtin rename + delete.
 UPDATE prompts
 SET name = $3, description = $4, body = $5, updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
 -- name: DeletePrompt :exec
--- 只删 non-builtin；builtin 永远不允许删（repo 上层挡）。
+-- Deletes non-builtin only; builtin is never allowed to be deleted (blocked by the repo layer above).
 DELETE FROM prompts WHERE id = $1 AND owner_id = $2 AND is_builtin = false;

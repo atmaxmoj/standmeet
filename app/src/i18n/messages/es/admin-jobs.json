@@ -1,0 +1,82 @@
+{
+  "sources": {
+    "intro": "De donde el bucle extrae anuncios. Greenhouse / Lever / Wellfound son de primera clase; también se admiten scrapers RSS y HTML. Nada se extrae en horario — una fuente se lee cuando le pide a Claude que ejecute <mono>jobs.fetch_new</mono>, y lo que regresa aterriza en listados durante un día. Registre fuentes a través de MCP <mono>jobs.register_source</mono>.",
+    "emptyKicker": "sin fuentes registradas",
+    "emptyTitle": "Conecte una junta de empleos o feed RSS.",
+    "emptyHint": "Pida a Claude que ejecute <mono>jobs.register_source</mono> con una URL de Greenhouse / Lever / RSS — aparece automáticamente aquí."
+  },
+  "listings": {
+    "intro": "Empleos obtenidos de sus fuentes registradas, mantenidos en un grupo de 1 día. Pida a Claude que los clasifique contra su corpus y elabore un currículum para los que valga la pena. Cualquier cosa que no redacte o descarte dentro del día vuelve a caer del grupo.",
+    "emptyKicker": "sin listados en grupo",
+    "emptyTitle": "Primero obtenga empleos de sus fuentes.",
+    "emptyHint": "Pida a Claude que ejecute <mono>jobs.fetch_new</mono> — los resultados aterrizan aquí durante un día hasta que los redacta o descarta."
+  },
+  "drafts": {
+    "intro": "Currículos personalizados que Claude redactó para empleos a los que dijo que sí. Abra el compositor para editar + vista previa; <ink>enviar</ink> congela la instantánea, representa el PDF final (con QR) e emite automáticamente un AccessCode.",
+    "loading": "cargando…",
+    "emptyTitle": "Sin borradores pendientes.",
+    "emptyHint": "Pida a Claude que redacte un currículum de una lista de empleos preseleccionados (MCP <code>resume.draft</code>) — aparece aquí.",
+    "metaUpdated": "actualizado {date}",
+    "metaJob": "empleo · <ink>{job}</ink>",
+    "openComposer": "abrir compositor →",
+    "edit": "editar",
+    "regenerate": "regenerar",
+    "discard": "descartar",
+    "viewApplication": "ver solicitud",
+    "viewPdf": "ver pdf"
+  },
+  "applications": {
+    "intro": "Cada solicitud comprometida — instantánea de currículum congelada + AccessCode emitido automáticamente. Los reclutadores escanean el código QR en el PDF y aterrizan directamente en su chat. Haga clic en una tarjeta para revisar cronología + estado + notas privadas.",
+    "loading": "cargando…",
+    "emptyTitle": "Sin solicitudes enviadas aún.",
+    "emptyHint": "Redacte un currículum de una lista de empleos preseleccionados, luego envíe para comprometerse aquí.",
+    "contact": "contacto",
+    "notes": "notas",
+    "open": "abierto ›",
+    "metaCommitted": "comprometido {date}",
+    "metaSubmitted": "enviado {date}",
+    "metaNotSubmitted": "envío no registrado"
+  },
+  "detail": {
+    "kicker": "solicitud · {id}",
+    "close": "cerrar ✕",
+    "timeline": "cronología",
+    "contact": "contacto",
+    "pingInChat": "ping en chat ↗",
+    "privateNotes": "notas privadas",
+    "notesReadOnly": "por ahora de solo lectura — nada almacena notas aún, así que esta caja perdería lo que escribiera",
+    "needsWriter": "aún no disponible — esta instancia no tiene forma de grabar un cambio de estado; comprometer es la única escritura en este camino",
+    "pdfNotKept": "no disponible aquí — el PDF representado se entrega a su cliente de IA en comprometerse y no se mantiene en la solicitud, así que no hay nada para que este panel abra",
+    "snapshotHead": "currículum enviado · instantánea",
+    "resume": "currículum",
+    "tailoredFor": "personalizado para {company} · {role}",
+    "viewFull": "ver más grande",
+    "viewSmaller": "ver más pequeño",
+    "downloadPdf": "descargar pdf",
+    "status": "estado",
+    "footMeta": "comprometido {committedAt} · {method}",
+    "withdraw": "retirar",
+    "logUpdate": "actualización de registro",
+    "closeAction": "cerrar"
+  },
+  "resume": {
+    "summary": "resumen",
+    "roleLine": "{role}<sep>·</sep>para <co>{company}</co>",
+    "skills": "habilidades",
+    "education": "educación",
+    "also": "también",
+    "alsoText": "El código QR es un chat en vivo con mi IA · anclado en mi corpus · limitado para {company}.",
+    "alsoFallbackCompany": "esta conversación",
+    "experience": "experiencia",
+    "footerScan": "escanear o visitar · {url}",
+    "footerSnapshot": "este currículum es una instantánea · enviado {date}",
+    "pageOf": "página {n} / {total}",
+    "letter": "carta",
+    "coverTitle": "Para {company}",
+    "coverRe": "re · <ink>{role}</ink>",
+    "coverSigMeta": "continuar la conversación · {url}"
+  },
+  "qr": {
+    "fallback": "qr…"
+  }
+}

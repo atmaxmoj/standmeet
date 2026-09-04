@@ -1,0 +1,37 @@
+{
+  "fallback": { "settingUp": "Diese Seite wird gerade eingerichtet.", "enter": "zugang anfordern ↗" },
+  "brand": "standmeet",
+  "hero": {
+    "someExamples": "einige beispiele"
+  },
+  "askInput": {
+    "ask": "fragen"
+  },
+  "contact": {
+    "jumpToChat": "zum chat springen ↑",
+    "orDirectly": "Oder direkt:"
+  },
+  "where": {
+    "hiringFilter": "wenn Sie einstellen, sollte es all diese passen"
+  },
+  "conversation": {
+    "you": "Sie",
+    "assistantLabel": "{handle}'s ki",
+    "references": "referenzen · {count}"
+  },
+  "toolCalls": {
+    "searched": "durchsucht {count}",
+    "read": "liest {count}"
+  },
+  "topBar": {
+    "live": "live"
+  },
+  "footer": {
+    "requestAccess": "zugang anfordern ↗",
+    "grounded": "verankerte retrieval, keine open-web fallback"
+  },
+  "report": {
+    "title": "bericht · {id}",
+    "print": "drucken ↗"
+  }
+}

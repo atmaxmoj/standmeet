@@ -49,9 +49,12 @@ test.describe('owner edits account fields post-claim', () => {
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'account');
       await page.waitForURL('**/admin/account', { timeout: 5_000 });
-      await expect(page.getByText('Recovery phrase')).toBeVisible();
-      await expect(page.getByText('needs verified email')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'generate' })).toBeDisabled();
+      // Scope to the recovery row: the word "recovery phrase" also appears in the email
+      // block's blurb ("…where your recovery phrase is sent"), so a bare getByText matches two.
+      const row = page.getByTestId('recovery-row');
+      await expect(row).toContainText('Recovery phrase');
+      await expect(row).toContainText('needs verified email');
+      await expect(row.getByRole('button', { name: 'generate' })).toBeDisabled();
     });
 
   test('full name → email → password, each saved and re-readable',
@@ -85,6 +88,9 @@ async function editFullName(page: Page, name: string): Promise<void> {
 async function editEmail(page: Page, currentPwd: string, newEmail: string): Promise<void> {
   await page.getByTestId('account-email-current-password').fill(currentPwd);
   await page.getByTestId('account-email-new').fill(newEmail);
+  // The email change requires confirming the new address (typo guard); save stays disabled
+  // until new === confirm.
+  await page.getByTestId('account-email-confirm').fill(newEmail);
   await page.getByTestId('account-email-save').click();
   await expect(page.getByTestId('toast-success').filter({ hasText: newEmail })).toBeVisible();
   await page.reload();

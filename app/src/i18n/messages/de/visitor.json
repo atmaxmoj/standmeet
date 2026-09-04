@@ -1,0 +1,99 @@
+{
+  "common": {
+    "try": "versuchen"
+  },
+  "modelLoader": {
+    "pickModel": "wählen Sie ein modell…",
+    "type": "typ"
+  },
+  "askAboutThis": {
+    "header": "fragen Sie die KI über diesen {label}",
+    "essay": "essay",
+    "entry": "eintrag",
+    "piece": "stück",
+    "context": "kontext: \"{title}\"",
+    "ask": "fragen ↵"
+  },
+  "chatRoom": {
+    "brand": "standmeet",
+    "live": "live",
+    "fullPage": "volle seite →",
+    "ghostAccept": "↹ tab",
+    "ready": "{handle}'s ki · bereit",
+    "codedWelcome": "{greeting}. Ich bin eine KI, die in {handle}'s kuratiertem Corpus verankert ist. Sie sind auf dem <accent>{codeLabel}</accent> slice gekommen.",
+    "codedRedaction": "Private Themen außerhalb des Bereichs dieses Codes werden geschwärzt. {handle} liest die Transkripte danach.",
+    "codedStarters": "Fragen Sie alles. Starten Sie unten, wenn Sie einen Weg rein brauchen.",
+    "codedGhostHint": "Fragen Sie alles. Es gibt eine vorgeschlagene Frage, die im Feld wartet — drücken Sie Tab, um sie zu nehmen.",
+    "byoaiWelcome": "Hallo. Ich bin eine KI, die in {handle}'s kuratiertem Corpus verankert ist. Sie laufen auf Ihrem eigenen <accent>{provider}</accent> Schlüssel — nur öffentliche Scheibe.",
+    "byoaiScope": "Arbeit, Projekte, öffentliche Meinungen — fair game. Private Themen geben eine 'benötigt einen Code'-Antwort.",
+    "sessionFull": "sitzung voll",
+    "limitReached": "Sie haben diesen Sessions {reason}-Limit erreicht — kontaktieren Sie {handle} um mehr gewährt zu bekommen.",
+    "ask": "fragen <big>↵</big>",
+    "footnote": "<muted>wie das funktioniert</muted> · antworten kommen aus {handle}'s kuratiertem Corpus. private themen geben eine schwärzung statt einer vermutung zurück.",
+    "footnoteCoded": " {handle} liest das transkript danach.",
+    "footnoteByoai": " Ihr api-schlüssel verlässt den browser nie."
+  },
+  "chatTranscript": {
+    "you": "Sie",
+    "ai": "ki",
+    "references": "referenzen · {count}"
+  },
+  "composerAttachments": {
+    "pasted": "eingefügt",
+    "remove": "✕"
+  },
+  "floatingChatDock": {
+    "close": "schließen ✕",
+    "thinking": "denkt",
+    "ask": "fragen ",
+    "askTheAI": "fragen Sie die KI",
+    "emptyHint": "Fragen Sie diese Seite — beantwortet in der Stimme des Eigentümers, verankert im Corpus. Ein separater Thread, aber die KI sieht immer noch Ihre anderen Unterhaltungen."
+  },
+  "restrictedDoc": {
+    "opening": "öffnet…",
+    "kindOutput": "output",
+    "kindEntry": "eintrag",
+    "lockedTitle": "Diesen {kind} benötigt einen Zugriffscode",
+    "lockedBody": "Der Eigentümer hat diesen Eintrag beschränkt. Geben Sie einen Zugriffscode auf dem Gate ein um den vollständigen Inhalt anzuzeigen.",
+    "outOfScopeTitle": "Ihr Code erreicht diesen nicht",
+    "outOfScopeBody": "Entweder sitzt er außerhalb von dem, was Ihr Code abdeckt, oder es gibt auf dieser Adresse nichts — die Instanz wird nicht sagen, welche. Fragen Sie unten und die KI wird aus dem antworten, das Sie lesen können.",
+    "enterCode": "zugriffscode eingeben →",
+    "home": "← startseite"
+  },
+  "sessionStrip": {
+    "byoaiMode": "byoai · {provider}",
+    "you": "Sie · {visitor}",
+    "exit": "sitzung beenden",
+    "byoaiUnlimited": "besucher-bezahlt · unbegrenzt",
+    "names": "namen",
+    "requestMore": "mehr anfordern ↗",
+    "turns": "züge"
+  },
+  "visitorNamePicker": {
+    "whosReading": "Wer liest?",
+    "full": "Dieser Code ist voll — er hat sein Namenslimit erreicht. Bitten Sie wer ihn mit Ihnen geteilt hat um einen frischen.",
+    "prompt": "Eine letzte Sache, bevor der Chat startet — der Eigentümer sieht das später auf Ihrem Transkript. Wählen Sie einen kurzen Namen; ein Handle ist in Ordnung.",
+    "capacityDefault": "Mehr als eine Person kann diesen Code verwenden.",
+    "capacityNote": "Halten Sie den <strong>selben Namen</strong> verwenden und Ihre Chats bleiben als Sie gruppiert; ein <strong>anderer Name</strong> liest wie eine neue Person und startet ein separates Gespräch. Code an jemand anderen weitergeben? Haben Sie ihn scannen und ihren eigenen Namen wählen. Lieber kein Name? <strong>Skip</strong> nimmt auch einen des Codes Namen als Gast — und später zurück kommen beginnt über als neuer Gast.",
+    "start": "start ↵",
+    "skip": "überspringen",
+    "starting": "starte chat"
+  },
+  "wikiTopBar": {
+    "brand": "standmeet",
+    "wiki": "wiki",
+    "writing": "schreiben",
+    "chat": "chat"
+  },
+  "wikiTreeView": {
+    "head": "wiki tree",
+    "stats": "<num>{entries}</num> einträge · <num>{roots}</num> roots · <num>{gated}</num> gated",
+    "gatedHint": "diese einträge sind privat — geben Sie einen code ein",
+    "indexEmpty": "nichts veröffentlicht hier noch."
+  },
+  "readerChat": {
+    "kicker": "fragen Sie darüber",
+    "heading": "Fragen Sie diesen Eintrag eine Frage.",
+    "lede": "Die KI antwortet in der Stimme des Eigentümers, verankert in diesem Corpus. Bringen Sie Ihren eigenen Schlüssel und starten Sie — er verlässt Ihren Browser nie."
+  }
+}

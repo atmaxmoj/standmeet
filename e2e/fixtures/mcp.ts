@@ -1,9 +1,11 @@
-// mcp.ts —— MCP streamable HTTP 客户端 helper（spec 共用）。
+// mcp.ts —— MCP streamable-HTTP client helper (shared across specs).
 //
-// initMCP: initialize + notifications/initialized 两连发，返 session-id。
-// callTool: 包一层 tools/call，直接返 parsed result text（typed JSON）。
+// initMCP: fires initialize + notifications/initialized back-to-back, returns the
+// session-id. callTool: wraps tools/call and returns the parsed result text
+// directly (typed JSON).
 //
-// SSE / JSON 双响应模式都吃；session-id header 自动维护。
+// Handles both the SSE and JSON response modes; the session-id header is
+// maintained automatically.
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -35,10 +37,10 @@ interface MCPCallResult {
   body: MCPResponse | null;
 }
 
-// Phase C: 老 `bearer` 参数现在是 createAPIToken 返的 JSON blob
-// {keyId, privateKeyPem}。本 file 内部解 + Sigv1 签每个请求 (无 cookie
-// 缓存)。spec 仍可继续 `callTool(req, apiToken, sid, ...)`，apiToken
-// 现在是 opaque creds blob。
+// Phase C: the old `bearer` parameter is now the JSON blob returned by
+// createAPIToken, {keyId, privateKeyPem}. This file internally parses + Sigv1-signs
+// each request (no cookie cache). Specs can still call
+// `callTool(req, apiToken, sid, ...)`; apiToken is now an opaque creds blob.
 import { formatAuthHeader, signNow } from '@/fixtures/sigv1';
 
 interface Creds { keyId: string; privateKeyPem: string }
@@ -69,9 +71,10 @@ async function mcpCall(
     Accept: 'application/json, text/event-stream',
   };
   if (sessionId) headers['Mcp-Session-Id'] = sessionId;
-  // 显式 timeout 覆盖 playwright actionTimeout 默认 10s —— sweep 模式
-  // 372 spec 串跑时 MCP 路径 (sigv1 签名 + DB lookup + tool dispatch)
-  // 偶尔会撞 10s 上限 (_render-sample-pdfs 在 sweep 时被踩过)。
+  // Explicit timeout overrides playwright's default 10s actionTimeout —— in sweep
+  // mode, with 372 specs running serially, the MCP path (sigv1 signing + DB lookup
+  // + tool dispatch) occasionally hits the 10s ceiling (_render-sample-pdfs was
+  // caught by it during a sweep).
   const res = await request.post(`${BACKEND}/mcp`, {
     headers, data: body, timeout: 30_000,
   });
@@ -107,8 +110,9 @@ export async function initMCP(request: APIRequestContext, bearer: string): Promi
   return init.sessionId;
 }
 
-// MCPToolDef —— tools/list 单条工具元数据(name + 可选描述/schema)。
-// inputSchema 是 MCP 客户端据以填参的那份 —— 字段掉了,客户端就再也发不出那个参数。
+// MCPToolDef —— one tool's metadata from tools/list (name + optional
+// description/schema). inputSchema is what the MCP client fills its args from —— if
+// a field drops, the client can never send that parameter again.
 export interface MCPToolDef {
   name: string;
   description?: string;
@@ -116,10 +120,11 @@ export interface MCPToolDef {
 }
 interface MCPListResult { tools: MCPToolDef[] }
 
-// listTools —— 真实 MCP 工具发现路径(tools/list)。这条路径会序列化**全部**
-// 工具的 InputSchema —— 一个坏 schema 就让整张表 marshal 失败、返空 body、客户端
-// 一个工具都发现不了。所以它是 owner MCP 能被真实客户端(Claude Desktop)用起来
-// 的命门。返回工具名+元数据列表。
+// listTools —— the real MCP tool-discovery path (tools/list). This path serializes
+// the InputSchema of **every** tool —— one bad schema makes the whole table fail to
+// marshal, returns an empty body, and the client discovers no tools at all. So it's
+// the lifeline for whether owner MCP can be used by a real client (Claude Desktop).
+// Returns the list of tool names + metadata.
 export async function listTools(
   request: APIRequestContext,
   bearer: string,
@@ -161,9 +166,9 @@ export async function callTool<T>(
   if (content.type !== 'text') {
     throw new Error(`tool ${name} returned non-text content (use callToolMulti)`);
   }
-  // mcp-go 的 NewToolResultError 把 plaintext 包成 content.text；正常返成功
-  // 时我们在 backend 里 marshal 一个 JSON 字符串进去。所以先看 isError 兜底，
-  // 然后试 JSON.parse；parse 失败就当 plaintext 错误信息抛。
+  // mcp-go's NewToolResultError wraps plaintext into content.text; on a normal
+  // success the backend marshals a JSON string into it. So check isError first as a
+  // fallback, then try JSON.parse; if the parse fails, throw it as a plaintext error message.
   if (res.body.result?.isError) {
     throw new Error(`tool ${name} error: ${content.text}`);
   }
@@ -178,21 +183,25 @@ function parseOrThrow<T>(name: string, text: string): T {
   }
 }
 
-// ToolOutcome —— 一次 tools/call 的**协议层**结果,不因工具自己报错而抛。
+// ToolOutcome —— the **protocol-layer** result of one tools/call, which doesn't
+// throw just because the tool itself reported an error.
 //
-// callTool 把 isError 当失败抛出,那是"我要这个工具成功"的用法。有另一类断言需要区分
-// 两件完全不同的事:**工具被正常调用了但拒绝了入参**(健康:门在、依赖在、校验生效)
-// vs **调用根本没打通**(传输错 / handler 未注册 / 依赖是 nil 直接 panic)。前者是绿,
-// 后者是红,而 callTool 会把两者都变成 throw。
+// callTool throws on isError, which is the "I want this tool to succeed" usage.
+// Another class of assertion needs to distinguish two completely different things:
+// **the tool was called normally but rejected the args** (healthy: the door is
+// there, the dependency is there, validation is in effect) vs **the call never got
+// through** (transport error / handler not registered / a nil dependency panics
+// outright). The former is green, the latter is red, and callTool turns both into a throw.
 export interface ToolOutcome {
   status: number;
-  reachable: boolean; // 拿到了合法的 JSON-RPC result(无论 ok 还是 isError)
+  reachable: boolean; // got a valid JSON-RPC result (whether ok or isError)
   isError: boolean;
   text: string;
-  rpcError: string; // 非空 = JSON-RPC 层错误(未知工具等)
+  rpcError: string; // non-empty = a JSON-RPC-layer error (unknown tool etc.)
 }
 
-// callToolOutcome —— 调一个工具,只报告"打通没打通",不对业务结果下判断。
+// callToolOutcome —— call a tool and report only "got through or not", passing no
+// judgement on the business result.
 export async function callToolOutcome(
   request: APIRequestContext,
   bearer: string,

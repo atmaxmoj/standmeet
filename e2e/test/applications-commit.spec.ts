@@ -67,7 +67,7 @@ test.describe('applications.commit promotes a draft into an application', () => 
       expect(committed.view.job_snapshot.external_id).toBe(job.external_id);
 
       // 2. QR URL shape: <owner.public_url>/?code=<access_code>
-      //    v1 单 owner instance：URL 不带 handle，recruiter 扫码直接落根域名。
+      //    v1 single-owner instance: the URL carries no handle, the recruiter scans and lands directly on the root domain.
       const expected = `${PUBLIC_URL.replace(/\/$/, '')}/?code=${committed.view.access_code}`;
       expect(committed.view.qr_url).toBe(expected);
 

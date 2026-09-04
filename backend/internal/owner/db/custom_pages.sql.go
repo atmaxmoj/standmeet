@@ -21,7 +21,7 @@ LIMIT 1
 FOR UPDATE SKIP LOCKED
 `
 
-// 用 FOR UPDATE SKIP LOCKED 让并发安全；usecase 拿到后立刻 SetBuilding。
+// Concurrency-safe via FOR UPDATE SKIP LOCKED; the usecase calls SetBuilding immediately after claiming.
 func (q *Queries) ClaimPendingBuild(ctx context.Context) (CustomPageBuild, error) {
 	row := q.db.QueryRow(ctx, claimPendingBuild)
 	var i CustomPageBuild
@@ -190,12 +190,13 @@ ORDER BY created_at DESC
 LIMIT 1
 `
 
-// 预览要看的那一次：这一页**最近一次构建成功的**。
+// The one the preview should show: this page's **most recent successful build**.
 //
-// 不用 GetLatestCustomPageBuild：那一条不筛状态，pending / building / failed 都可能拿到，
-// 而那些没有产物 —— owner 会看见一片空白，还以为是自己写的页有问题。
-// 也不看 staging_build_id：那要 agent 记得多调一次 promote_to_staging，
-// 忘了就什么都看不见，而 owner 要的是"看到它刚做了什么"。
+// Not GetLatestCustomPageBuild: that one doesn't filter status, so pending / building / failed could
+// come back, and those have no output -- the owner would see a blank and think the page they wrote
+// is broken.
+// Nor staging_build_id: that requires the agent to remember an extra promote_to_staging call, and
+// forgetting it shows nothing -- but the owner wants to "see what it just did".
 func (q *Queries) GetLatestBuiltCustomPageBuild(ctx context.Context, pageID pgtype.UUID) (CustomPageBuild, error) {
 	row := q.db.QueryRow(ctx, getLatestBuiltCustomPageBuild, pageID)
 	var i CustomPageBuild
@@ -269,9 +270,9 @@ type ListCustomPagesByOwnerRow struct {
 	BoundCodes          []string
 }
 
-// 带上 allow_byoai，以及**哪些码开这一页**（绑定的另一头）。
-// 码→页是至多一个；页→码没有这个限制，所以这里是一个数组而不是一个值。
-// 空数组 = 没有码指向它，它只能被匿名打开。
+// Includes allow_byoai, plus **which codes open this page** (the other end of the binding).
+// Code->page is at most one; page->code has no such limit, so this is an array, not a single value.
+// Empty array = no code points at it, it can only be opened anonymously.
 func (q *Queries) ListCustomPagesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]ListCustomPagesByOwnerRow, error) {
 	rows, err := q.db.Query(ctx, listCustomPagesByOwner, ownerID)
 	if err != nil {
@@ -316,8 +317,8 @@ RETURNING id, owner_id, slug, title, status,
           allow_byoai, created_at, updated_at
 `
 
-// previous_live_build_id 提回 live，previous 清空。previous 本来就是 NULL
-// 时 → live 也被设 NULL（页面下线，下次访客访问 404）。
+// Promote previous_live_build_id back to live, clearing previous. When previous was already NULL
+// -> live is set to NULL too (the page goes offline, the next visitor gets a 404).
 func (q *Queries) RollbackCustomPageLive(ctx context.Context, id pgtype.UUID) (CustomPage, error) {
 	row := q.db.QueryRow(ctx, rollbackCustomPageLive, id)
 	var i CustomPage
@@ -438,7 +439,8 @@ type SetCustomPageByoaiParams struct {
 	AllowByoai bool
 }
 
-// 这一页在**没有人出示 grant 时**给不给读者用自己的 key。来了 code 就作废（I-4）。
+// Whether this page lets a reader use their own key **when no one presents a grant**. Void once a
+// code arrives (I-4).
 func (q *Queries) SetCustomPageByoai(ctx context.Context, arg SetCustomPageByoaiParams) (CustomPage, error) {
 	row := q.db.QueryRow(ctx, setCustomPageByoai, arg.OwnerID, arg.Slug, arg.AllowByoai)
 	var i CustomPage
@@ -474,7 +476,7 @@ type SetCustomPageLiveParams struct {
 	LiveBuildID pgtype.UUID
 }
 
-// 把当前 live_build_id 落到 previous_live_build_id（支持 rollback）再设新 live。
+// Move the current live_build_id into previous_live_build_id (to support rollback), then set the new live.
 func (q *Queries) SetCustomPageLive(ctx context.Context, arg SetCustomPageLiveParams) (CustomPage, error) {
 	row := q.db.QueryRow(ctx, setCustomPageLive, arg.ID, arg.LiveBuildID)
 	var i CustomPage

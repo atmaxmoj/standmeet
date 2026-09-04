@@ -1,9 +1,8 @@
-// page.go —— GET /api/v1/page —— fetches the sole owner's public page content for a
-// visitor. No auth required (public). pre-claim → 404 + owner_not_found.
+// page.go —— GET /api/v1/instance (single-owner metadata + unclaimed setup token) and
+// GET /api/v1/appearance.css (the owner's custom stylesheet). No auth required (public).
 //
-// After removing the handle URL: v1 is a single-owner instance, the URL no longer
-// carries a handle. The frontend's root route / fetches /api/v1/page directly via
-// SSR, no sub-route branching.
+// The owner's public homepage is now a custom page (the reserved `home` slug served at
+// `/`), not built-in page content — so the old GET /api/v1/page is gone.
 
 package public
 
@@ -47,9 +46,8 @@ type PageHandlers struct {
 	AppVersion string
 }
 
-// Mount wires /page + /instance + /appearance.css. Caller owns the prefix (/api/v1).
+// Mount wires /instance + /appearance.css. Caller owns the prefix (/api/v1).
 func (h *PageHandlers) Mount(r chi.Router) {
-	r.Get("/page", h.getPage())
 	r.Get("/instance", h.getInstance())
 	r.Get("/appearance.css", h.getAppearanceCSS())
 }
@@ -173,44 +171,4 @@ type instanceInfoView struct {
 	Version         string `json:"version,omitempty"`
 	Claimed         bool   `json:"claimed"`
 	CanDeliverCodes bool   `json:"can_deliver_codes"`
-}
-
-func (h *PageHandlers) getPage() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		view, err := owner.GetPublicPage(r.Context(), h.Page)
-		if err != nil {
-			handlePageErr(h.Log, w, err)
-			return
-		}
-		writePageView(h.Log, w, &view)
-	}
-}
-
-func writePageView(log *slog.Logger, w http.ResponseWriter, view *owner.PublicPageView) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(view); err != nil {
-		log.Error("encode page view", logErrKey, err)
-	}
-}
-
-func handlePageErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	env := classifyPageErr(err)
-	if env.Status >= http.StatusInternalServerError {
-		log.Error("page route", logErrKey, err)
-	}
-	writeError(log, w, env)
-}
-
-func classifyPageErr(err error) apierr.Envelope {
-	if errors.Is(err, owner.ErrOwnerNotFound) {
-		return apierr.Envelope{
-			Status:  http.StatusNotFound,
-			Code:    "owner_not_found",
-			Message: "instance not yet claimed",
-		}
-	}
-	return apierr.Envelope{
-		Status: http.StatusInternalServerError, Code: "server_error", Message: "internal error",
-	}
 }

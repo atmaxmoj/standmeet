@@ -1,18 +1,18 @@
 -- name: DeleteRefsBySrc :exec
--- SaveWriting 重建 src 出度第一步：清掉旧边。
+-- SaveWriting rebuild of src outbound edges, step 1: clear old edges.
 DELETE FROM writing_refs WHERE src_writing_id = $1;
 
 -- name: InsertWritingRef :exec
--- SaveWriting 重建 src 出度第二步：插新边。同 src+dst 撞主键报错，但
--- caller 在调前已经把 dst 去重过，正常不会撞。
+-- SaveWriting rebuild of src outbound edges, step 2: insert new edges. A duplicate src+dst
+-- would collide on the primary key, but the caller dedupes dst before calling, so normally it does not.
 INSERT INTO writing_refs (src_writing_id, dst_writing_id, owner_id)
 VALUES ($1, $2, $3)
 ON CONFLICT DO NOTHING;
 
 -- name: ListBacklinksForWriting :many
--- public /writings/<slug> 渲染 "linked from" 用。返 backlink 来源 writing 的
--- slug + title。只列 src writing 已 published 的（visitor 看不见草稿）。
--- writing 折进 corpus_notes(genre='writing'，#151)，故 JOIN 统一表 + 限定 genre。
+-- Used to render "linked from" on the public /writings/<slug>. Returns the backlink source
+-- writing's slug + title. Only lists src writings that are published (a visitor cannot see drafts).
+-- writing is folded into corpus_notes (genre='writing', #151), so JOIN the unified table and limit by genre.
 SELECT w.slug, w.title
 FROM writing_refs wr
 JOIN corpus_notes w ON w.id = wr.src_writing_id AND w.genre = 'writing'
@@ -22,8 +22,8 @@ WHERE wr.dst_writing_id = $1
 ORDER BY w.published_at DESC NULLS LAST, w.title ASC;
 
 -- name: ListOutboundRefs :many
--- admin 看一篇 writing 出度的什么 —— "broken refs" 报表的源数据。返每条边
--- 的 dst slug + title（用 JOIN：dst 已被删掉但边还在的清除手段）。
+-- admin view of what a writing references —— the source data for the "broken refs" report. Returns each edge's
+-- dst slug + title (via JOIN: the means to clean up edges whose dst was deleted but the edge remains).
 SELECT w.slug, w.title
 FROM writing_refs wr
 JOIN corpus_notes w ON w.id = wr.dst_writing_id AND w.genre = 'writing'

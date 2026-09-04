@@ -1,0 +1,160 @@
+{
+  "assets": {
+    "heading": "archivos",
+    "empty": "sin archivos adjuntos aún",
+    "choose": "elegir archivo",
+    "kindImage": "imagen",
+    "kindAttachment": "archivo adjunto",
+    "insert": "insertar en cuerpo",
+    "setCover": "usar como portada",
+    "unsetCover": "dejar de usar como portada",
+    "isCover": "portada",
+    "remove": "eliminar"
+  },
+  "hero": {
+    "headline": "línea de portada",
+    "headlinePlaceholder": "la línea colocada sobre la imagen de portada",
+    "hue": "matiz",
+    "hueDefault": "— predeterminado —"
+  },
+  "subjectivity": {
+    "intro": "Su automodelo — gusto, juicio, lo que le importa. Privado a menos que marque una nota como citable. Escriba aquí o hable con su IA; ambos llegan al mismo lugar.",
+    "empty": "nada aquí aún",
+    "new": "+ nota nueva"
+  },
+  "citable": {
+    "label": "citable — aparece en referencias de respuesta",
+    "help": "Con esto desactivado, la IA aún lee esta nota y aún la usa para dar forma a su respuesta — simplemente no se enumera bajo REFERENCIAS. Este es el conmutador de atribución, no el conmutador de secreto: para evitar que la IA la lea en absoluto, reclaimed su URI de corpus en /admin/roles o en el código."
+  },
+  "search": {
+    "label": "buscar",
+    "placeholder": "palabras de la nota — título o cuerpo",
+    "idleHint": "la lista a continuación es la página más reciente; buscar busca en todo el corpus",
+    "searching": "buscando en todo el corpus…",
+    "found": "{count, plural, one {# entrada coincide} other {# entradas coinciden}} \"{query}\" — se busca en todo el corpus, no solo en esta página",
+    "foundCapped": "mostrando los primeros {count} resultados para \"{query}\" — se busca en todo el corpus; reduzca las palabras para ver menos",
+    "none": "sin coincidencia para \"{query}\" en todo el corpus. Este índice es léxico: subcadenas dentro de una palabra, términos pegados a puntuación y CJK se tokeniza mal, así que vacío no prueba que la nota no esté allí — intente una palabra completa característica de ella.",
+    "failed": "búsqueda falló: {reason}"
+  },
+  "common": {
+    "loading": "cargando…",
+    "saving": "guardando…",
+    "save": "guardar",
+    "saveLanding": "guardar landing",
+    "cancel": "cancelar",
+    "edit": "Editar",
+    "body": "cuerpo",
+    "tagsLabel": "etiquetas (separadas por comas)",
+    "noneRoot": "— ninguno (raíz) —",
+    "deleteX": "eliminar ×"
+  },
+  "form": {
+    "title": "título",
+    "parent": "nodo padre (opcional)",
+    "entryHeading": "la nota misma (cuerpo, archivos, etiquetas)"
+  },
+  "seoEditor": {
+    "heading": "landing público (la url se deriva del título)",
+    "description": "meta descripción",
+    "indexed": "publicado — una página pública existe en esta URL y está listada en sitemap.xml"
+  },
+  "scope": {
+    "kept": "mantenido como escrito (no en el árbol): ",
+    "allOfIt": "— todo ello ({glob})",
+    "everythingUnder": "+ todo debajo",
+    "referable": "referible — esta entrada puede aparecer como fuente citada",
+    "notReferable": "legible pero no referible — la IA la lee, nunca se cita"
+  },
+  "wiki": {
+    "newEntry": "+ entrada nueva",
+    "all": "todas",
+    "empty": "Sin entradas de wiki aún. Use + entrada nueva, promueva de /admin/raw o llamar a MCP <tool>promote_to_wiki</tool>.",
+    "dotPublic": "● público",
+    "dotPrivate": "● privado",
+    "edit": "editar ↗",
+    "promoteToOutput": "promover → salida ↗",
+    "viewLive": "ver ↗"
+  },
+  "output": {
+    "slugPath": "/output/'<'slug>",
+    "intro": "Las salidas son artefactos de acceso público ensamblados a partir de sus entradas de wiki — PDF descargables, ensayos web independientes, decks de inversor. Cada obtiene su propia landing SEO en <code>{slugPath}</code>. Tres visibilidades: <ink>público</ink> (abierto a cualquiera, en sitemap), <amber>sin listar</amber> (solo visible con código), <violet>privado</violet> (solo alcances de código específicos, nunca indexado).",
+    "newPdf": "+ pdf imán de plomo",
+    "newEssay": "+ ensayo web",
+    "empty": "Sin entradas de salida aún. Use + nueva salida, promueva de /admin/wiki o llamar a MCP <tool>promote_wiki_to_output</tool>.",
+    "coverKicker": "salida · {visibility}",
+    "views": "0 vistas",
+    "downloads": "0 descargas",
+    "pathPrefix": "/output/",
+    "edit": "editar",
+    "previewLive": "vista previa ↗"
+  },
+  "raw": {
+    "quickDump": "descarga rápida",
+    "dumpHint": "pegue un pensamiento · luego promueva",
+    "dumpOrigin": "admin · o mcp",
+    "dumping": "descargando…",
+    "dump": "descargar ↵",
+    "unindexedHint": "raw permanece sin indexar hasta promover",
+    "empty": "Sin entradas sin procesar aún. Envíe una desde un cliente MCP (herramienta raw_dump).",
+    "flaggedPrivateBadge": "· marcado privado",
+    "promoteToWiki": "promover → wiki ↗",
+    "edit": "editar",
+    "delete": "eliminar",
+    "flaggedPrivateField": "marcado privado (excluido del chat público)"
+  },
+  "writings": {
+    "newWriting": "＋ escritura nueva",
+    "intro": "Escrituras curadas por el propietario. Use el editor de bloques a continuación — escriba `/` para un menú de bloques o entregue a Claude a través de la herramienta MCP `writing_create`. Se guarda como markdown canónico de ambas formas.",
+    "composer": "compositor · {slug}",
+    "backToList": "← volver a lista",
+    "empty": "Sin escrituras aún.",
+    "coverHue": "matiz de portada",
+    "hueAmber": "ámbar",
+    "hueViolet": "violeta",
+    "hueAcid": "ácido",
+    "parent": "padre (árbol de lectura)",
+    "publishImmediately": "publicar inmediatamente",
+    "coverImage": "imagen de portada (opcional)",
+    "chooseCover": "elegir imagen",
+    "noImg": "sin imagen",
+    "clear": "limpiar"
+  },
+  "obsidianBar": {
+    "export": "↓ exportar a obsidian",
+    "importing": "importando…",
+    "import": "↑ importar desde obsidian",
+    "working": "trabajando…",
+    "result": "{created} nuevo · {updated} actualizado · {deleted} eliminado · {skipped} omitido",
+    "errors": "· {count, plural, one {# error} other {# errores}}"
+  },
+  "sideRail": {
+    "crosslinks": "referencias cruzadas",
+    "outgoing": "salida · {count}",
+    "noneYet": "aún ninguno · escriba [[ para agregar",
+    "keyboard": "teclado",
+    "keyInsertBlock": "bloque de inserción",
+    "keyCrossLinkPicker": "selector de referencia cruzada",
+    "keyPasteImage": "pegar imagen en línea",
+    "keyInlineLink": "agregar enlace en línea",
+    "keyCloseMenu": "menú cerrar"
+  },
+  "obsidian": {
+    "manualMode": "○ modo manual",
+    "importExport": "importar / exportar",
+    "help": "La importación elige la carpeta de su bóveda de Obsidian (wiki / subjectivity / raw / writings) e inserta las notas de corpus coincidentes por su ruta de bóveda. La exportación descarga su corpus como una bóveda de markdown + frontmatter.",
+    "noSync": "Sin sincronización en vivo, sin observador de archivos — estas dos acciones son todo el mecanismo, y ninguno se ejecuta a menos que lo ejecute."
+  },
+  "seo": {
+    "intro": "Valores predeterminados aplicados en todo el sitio público. SEO por salida / por publicación vive con la entrada individual. El título del sitio se edita aquí; la descripción social y el anfitrión canónico reflejan su prosa de héroe y dominio — edítelos donde viven.",
+    "defaults": "valores predeterminados",
+    "robots": "índice, seguir (robots)",
+    "siteTitleHint": "La pestaña del navegador y el nombre que muestran los motores de búsqueda. Vacío y las páginas vuelven a su identificador.",
+    "ogTemplateHint": "URL de la imagen que usan las tarjetas sociales. Vacío y los enlaces compartidos sin imagen de tarjeta.",
+    "ogDescription": "og:descripción",
+    "usesHeroProse": "Usa tu prosa de héroe.",
+    "editOnPage": "editar en la sección Página →",
+    "canonicalHost": "anfitrión canónico",
+    "indexing": "indexación · publicado",
+    "totalInScope": "total en alcance: {total}"
+  }
+}

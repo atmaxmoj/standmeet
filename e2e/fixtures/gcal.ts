@@ -16,8 +16,10 @@ const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 export interface GCalCredentials {
   client_id: string;
   client_secret: string;
-  // scopes —— owner 在卡上勾了哪几个（省略 = 卡的默认，全勾）。带进 dance，
-  // provider 照本次授出的范围回显，最后落在连接行上。只读授权的种子要它。
+  // scopes —— which ones the owner ticked on the card (omitted = the card's
+  // default, all ticked). Carried into the dance; the provider echoes back the
+  // scopes granted this time, and they land on the connection row. The read-only
+  // seed needs it.
   scopes?: readonly string[];
 }
 
@@ -60,9 +62,10 @@ export async function getGCalStatus(request: APIRequestContext): Promise<GCalSta
   return await res.json() as GCalStatus;
 }
 
-// grantedScopes —— 这条连接**实际授出去**的范围，从卡片读的那同一处
-// （`granted_scopes`，F-C-33 建的）。跟 `GCalStatus.scopes` 不是一回事：那是这个
-// 连接器**支持**哪些，这里是这一次**拿到**了哪些。
+// grantedScopes —— the scopes this connection **actually granted**, read from the
+// same place the card reads (`granted_scopes`, built by F-C-33). Not the same as
+// `GCalStatus.scopes`: that's which scopes this connector **supports**, this is
+// which it **obtained** this time.
 export async function grantedScopes(
   request: APIRequestContext, connectorID = 'google-calendar',
 ): Promise<string[]> {
@@ -90,7 +93,8 @@ export async function initGCalOAuth(
   return await res.json() as OAuthInitResult;
 }
 
-// activateGCal —— 占用 calendar 品类槽（§9：booking 解析的是 active 连接器）。
+// activateGCal —— occupy the calendar category slot (§9: booking resolves the
+// active connector).
 export async function activateGCal(
   request: APIRequestContext, csrf: string,
 ): Promise<void> {
@@ -122,9 +126,11 @@ export interface BookingPolicy {
   timezone: string;
 }
 
-// 预约策略是 booker 这个能力**自己声明**的配置（manifest 的 Config），面板经通用的
-// capability-config 口读写 —— 后端没有 /booking-policy 这种按能力名写死的路由了。
-// timezone 不在其中：那是 owner 的档案（换个能力也会用它解释"几点"），走 account。
+// The booking policy is config that the booker capability **declares itself** (the
+// manifest's Config); the panel reads/writes it via the generic capability-config
+// endpoint —— the backend no longer has a per-capability-name route like
+// /booking-policy. timezone isn't part of it: that's the owner's profile (another
+// capability would also use it to interpret "what time"), so it goes via account.
 const BOOKER = 'calendar.book';
 
 interface ConfigField { key: string; value: unknown }
@@ -150,8 +156,9 @@ export async function setBookingPolicy(
   if (status !== 200) throw new Error(`policy set: ${status}`);
 }
 
-// patchBookingPolicyStatus —— PATCH 并返回 HTTP 状态码(不断言成功)。给
-// 校验类测试用(e.g. min_lead_days 非正整数 → 期望 400)。
+// patchBookingPolicyStatus —— PATCH and return the HTTP status code (without
+// asserting success). For validation tests (e.g. a non-positive-integer
+// min_lead_days → expect 400).
 export async function patchBookingPolicyStatus(
   request: APIRequestContext, csrf: string, patch: Partial<BookingPolicy>,
 ): Promise<number> {

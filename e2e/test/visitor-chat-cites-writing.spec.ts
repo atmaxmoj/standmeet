@@ -1,10 +1,11 @@
-// visitor-chat-cites-writing.spec.ts —— writing 读了也进 chat 引用(跟 wiki/output 同待遇)。
+// visitor-chat-cites-writing.spec.ts —— a writing that gets read also enters chat citations
+// (same treatment as wiki/output).
 //
-// 用户故事:owner writing_create 一篇 published writing;visitor 问 → AI corpus_read
-// 它 → assistant message 的 cited_writing_ids 含该 writing(footer 会展示)。writing 是
-// 公开内容(published),读了就 cite,无 show_as_source gate。
+// User story: owner writing_create a published writing; visitor asks → AI corpus_read
+// it → the assistant message's cited_writing_ids include that writing (footer shows it). A
+// writing is public content (published), reading it cites it, with no show_as_source gate.
 //
-// RED-first:cited_writing_ids 这条管道原本不存在(routeCitation 把 writing 丢弃),先红。
+// RED-first: the cited_writing_ids pipeline didn't originally exist (routeCitation dropped writing), so it's RED first.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -76,7 +77,7 @@ test.describe('visitor chat cites writing entries', () => {
     });
 });
 
-// fetchCitedWritings —— assistant message 的 cited_writing_ids(transcript API)。
+// fetchCitedWritings —— the assistant message's cited_writing_ids (transcript API).
 async function fetchCitedWritings(
   request: APIRequestContext, csrf: string, conversationID: string,
 ): Promise<string[]> {

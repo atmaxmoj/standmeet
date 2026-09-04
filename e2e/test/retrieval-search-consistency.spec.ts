@@ -1,9 +1,11 @@
-// retrieval-search-consistency.spec.ts —— A. corpus_search × Meili 读写一致(crawl face)。
+// retrieval-search-consistency.spec.ts —— A. corpus_search × Meili read/write consistency (crawl face).
 //
-// corpus_search 引擎从 PG FTS 换 Meili;不变量是「写完立刻搜到、删完立刻搜不到」——
-// Meili 是 Postgres 的派生投影,写路径同步 upsert/delete + WaitForTask 做强一致。
-// 部分用例在现 PG FTS 下已绿(迁移守卫);A8 模糊 / A9 中文 / A13 快速连改是新增,驱动 Meili。
-// ⚠️ 部分 RED until Meili 接上 corpus_search。
+// The corpus_search engine moves from PG FTS to Meili; the invariant is "searchable immediately after
+// write, unsearchable immediately after delete" —— Meili is a derived projection of Postgres, and the
+// write path does synchronous upsert/delete + WaitForTask for strong consistency.
+// Some cases are already green under the current PG FTS (migration guard); A8 fuzzy / A9 CJK / A13 rapid
+// updates are new, and drive Meili.
+// ⚠️ Some are RED until Meili is wired to corpus_search.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -41,8 +43,9 @@ async function deleteNoGhost(): Promise<void> {
   expect(await searchTitles(O.request, await fullSess(), 'DELTAKW')).not.toContain('A3 note');
 }
 
-// A4 —— retrieval ACL = grantedGlobs,**不**受 published 门控(published 是公开 landing/SEO 的门,
-// 跟 code-gated 检索是两条路,见 retrieval-vs-corpus-ACL)。守卫:toggle published 不改检索可见性。
+// A4 —— retrieval ACL = grantedGlobs, **not** gated by published (published is the gate for the public
+// landing/SEO, a separate path from code-gated retrieval, see retrieval-vs-corpus-ACL). Guard: toggling
+// published does not change retrieval visibility.
 async function publishToggleDoesNotGate(): Promise<void> {
   const { wikiID } = await seedWiki(O.request, O.apiToken, O.sid, { title: 'A4 note', body: 'ECHOKW toggle', path: 'publishToggleDoesNotGate-note' });
   await setPublished(O.request, O.csrf, wikiID, false);
@@ -51,9 +54,10 @@ async function publishToggleDoesNotGate(): Promise<void> {
   expect(await searchTitles(O.request, await fullSess(), 'ECHOKW'), 'still visible published').toContain('A4 note');
 }
 
-// A5 —— vault 批量 sync → 全部同步的 note 都进 index(sync 后 ReindexOwner 整批重建)。
-// 注:vault sync 是**加法(title-claim upsert)**,非破坏式;一条 note 从 vault 删除不会经再传自动删,
-// 删除走显式 delete_wiki(见 A3)。所以这里只验"批量 sync 全进",不验"partial 再传删除缺失"。
+// A5 —— bulk vault sync → every synced note enters the index (after sync, ReindexOwner rebuilds the
+// whole batch). Note: vault sync is **additive (title-claim upsert)**, not destructive; deleting a note
+// from the vault is not auto-deleted by a re-sync, deletion goes through explicit delete_wiki (see A3).
+// So this only checks "bulk sync all-in", not "partial re-sync deletes what's missing".
 async function bulkSyncAllIndexed(): Promise<void> {
   const cred = { email: O.email, password: O.password };
   await uploadVault(O.request, cred, [

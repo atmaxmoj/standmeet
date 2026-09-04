@@ -47,11 +47,14 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 			CrossLink: corpus.CrossLinkQueryDeps{
 				Writings: d.WritingRepo, WritingRefs: d.WritingRefRepo,
 			},
-			Page:   owner.PageDeps{Owners: d.OwnerRepo, Wiki: d.WikiRepo},
+			Page:   owner.PageDeps{Owners: d.OwnerRepo},
 			Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
 			Log:    d.Log,
 		},
-		Builds:       sysroutes.BuilderDeps{Log: d.Log, Builds: d.CustomBuildRepo},
+		Builds: sysroutes.BuilderDeps{
+			Log: d.Log, Builds: d.CustomBuildRepo, Pages: d.CustomPageRepo,
+			Notifier: d.BuildNotifier,
+		},
 		TLSAsk:       sysroutes.TLSAskDeps{Log: d.Log, Domains: d.InstanceRepo},
 		PrintSession: sysroutes.PrintSessionDeps{Log: d.Log, Store: d.PrintStore},
 		DiagRegistry: sysroutes.DiagRegistryDeps{Registry: d.AgentSkills, Log: d.Log},
@@ -278,7 +281,7 @@ func buildPublicDeps(d *deps.Runtime) publicroutes.Handlers {
 
 func buildPublicPageDeps(d *deps.Runtime) publicroutes.PageHandlers {
 	return publicroutes.PageHandlers{
-		Page: owner.PageDeps{Owners: d.OwnerRepo, Wiki: d.WikiRepo},
+		Page: owner.PageDeps{Owners: d.OwnerRepo},
 		Log:  d.Log,
 		TokenIssuer: &setupTokenIssuerAdapter{
 			log: d.Log, repo: d.InstanceRepo, holder: d.SetupTokenHolder,
@@ -332,6 +335,7 @@ func buildMCPDeps(d *deps.Runtime) mcphandle.Deps {
 		AgentSkills: d.AgentSkills,
 		Dispatcher:  d.Dispatch,
 		Keypairs:    port.KeypairDeps(d),
+		Version:     port.AppVersion(),
 		Log:         d.Log,
 	}
 }

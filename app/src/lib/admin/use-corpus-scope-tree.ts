@@ -24,6 +24,10 @@ export const ScopeNodeSchema = z.object({
   // path —— the server-slugged address (root→leaf). URI = `${genre}://${path}`.
   path: z.string().nullable().optional(),
   has_children: z.boolean().optional(),
+  // show_as_source —— whether this entry is *referable*: it can appear in a visitor
+  // answer's cited footer. wiki/output/subjectivity carry it; writing has no such axis
+  // (absent → the tree simply shows no referability mark for that row).
+  show_as_source: z.boolean().optional(),
 });
 export type ScopeNode = z.infer<typeof ScopeNodeSchema>;
 

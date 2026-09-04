@@ -1,12 +1,12 @@
-// visitor-chat-hidden-source.spec.ts —— show_as_source=false 的 entry，AI
-// 可以 read 拿 content 用，但 readCollector 不收，cited 不出现该 path。
+// visitor-chat-hidden-source.spec.ts —— for a show_as_source=false entry, the AI
+// can read and use its content, but readCollector doesn't collect it, and cited never shows that path.
 //
-// 用户故事：
-//   owner 把"自己的偏好 / persona 提示词"放进 wiki，标 show_as_source=false：
-//   AI 在回答时能参考它，但访客不该在 cited 列表看到这条 meta entry。
-//   spec 种一条 hidden meta + 一条 visible projects/lucerna；visitor 问
-//   lucerna 时 AI 会 search→ 看到 lucerna→read 它；hidden entry 哪怕被
-//   AI read，也不会出现在 cited。 spec 严格断言 cited 里不含 hidden path。
+// User story:
+//   owner puts their "own preferences / persona prompt" into wiki, marked show_as_source=false:
+//   the AI can reference it while answering, but the visitor shouldn't see this meta entry in the cited list.
+//   The spec seeds one hidden meta + one visible projects/lucerna; when the visitor asks about
+//   lucerna the AI will search→ see lucerna→read it; even if the hidden entry is read
+//   by the AI, it won't appear in cited. The spec strictly asserts cited doesn't contain the hidden path.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

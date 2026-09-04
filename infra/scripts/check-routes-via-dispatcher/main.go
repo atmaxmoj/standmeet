@@ -166,8 +166,8 @@ func main() {
 	sort.Strings(fresh)
 
 	if len(fresh) > 0 {
-		fmt.Println("check-routes-via-dispatcher: 面直接够到了域，绕过了出站收口。")
-		fmt.Println("能力要声明成 dispatcher 的 Op，面经 Face 取（路由形状照常手写）：")
+		fmt.Println("check-routes-via-dispatcher: a face reached a domain directly, bypassing the outbound convergence point.")
+		fmt.Println("declare the capability as a dispatcher Op and let the face get it through Face (route shape still hand-written):")
 		fmt.Println()
 		for _, f := range fresh {
 			fmt.Println("  " + f)

@@ -1,8 +1,9 @@
-// security-idor-visitor.spec.ts —— pentest / IDOR。GET /conversations/{id} 是 token-scoped:
-// handler 忽略 URL 里的 {id},始终按 Bearer token 解出调用者**自己**的 session data 返回
-// (getConversation → authVisitorWithToken → 自己的 av.Data)。所以 Bob 拿 Alice 的 conv id
-// 打过去,只会拿到 Bob 自己的对话,绝不泄漏 Alice。契约:响应带的是调用者自己的 visitor_name。
-// 绿=无跨会话数据串;红=能读到别人的 conversation(真 IDOR)。
+// security-idor-visitor.spec.ts —— pentest / IDOR. GET /conversations/{id} is token-scoped: the handler
+// ignores the {id} in the URL and always returns the caller's **own** session data resolved from the
+// Bearer token (getConversation → authVisitorWithToken → the caller's own av.Data). So Bob hitting it
+// with Alice's conv id only gets Bob's own conversation, never leaking Alice. Contract: the response
+// carries the caller's own visitor_name.
+// green = no cross-session data leak; red = able to read someone else's conversation (a real IDOR).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

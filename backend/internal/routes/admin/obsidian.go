@@ -38,10 +38,6 @@ type ObsidianDeps struct {
 	Corpus     corpus.Deps    // sync face: VaultSync(notes) + Raw + WikiRefs(refs)
 	CSS        owner.CSSStore // .obsidian/snippets harvest → owner CSS
 	WritingsTx corpus.WritingsTxDeps
-	// PagePins — sync is published's third write path (frontmatter can flip publish);
-	// after a batch reconcile, stale pins get swept to keep pinned ⊆ published (the
-	// render-time filter is only a fallback).
-	PagePins owner.PagePinDeps
 	// ImportReceipt — where the fact "when was the last import" lands (UX-62). Without
 	// it, an instance holding 1028 notes and an empty instance look identical on this
 	// screen.
@@ -116,7 +112,6 @@ func (d *ObsidianDeps) Ingest(
 	// After a batch sync, rebuild the whole Meili index (reflects additions/edits/
 	// deletions, leaves no drift). Best-effort.
 	corpus.ReindexCorpusOwner(ctx, d.Corpus, ownerID)
-	d.sweepPinsAfterSync(ctx, ownerID)
 	d.recordImportReceipt(ctx, ownerID, &res)
 	return connector.SyncResult{
 		Created: res.Created, Updated: res.Updated, Skipped: res.Skipped,
@@ -148,14 +143,6 @@ func (d *ObsidianDeps) logReceiptErr(err error) {
 		return
 	}
 	d.Log.Error("record vault import receipt", "err", err)
-}
-
-// sweepPinsAfterSync — sync may unpublish/delete an already-pinned entry → sweeps the
-// homepage's pins (pinned ⊆ published). Best-effort.
-func (d *ObsidianDeps) sweepPinsAfterSync(ctx context.Context, ownerID string) {
-	if serr := owner.SweepPagePins(ctx, d.PagePins, ownerID); serr != nil && d.Log != nil {
-		d.Log.Error("sweep page pins after vault sync", "err", serr)
-	}
 }
 
 // 200 MB — the whole vault uploaded at once, bigger than a writing save.

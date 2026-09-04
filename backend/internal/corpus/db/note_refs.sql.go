@@ -15,7 +15,7 @@ const deleteNoteRefsBySrc = `-- name: DeleteNoteRefsBySrc :exec
 DELETE FROM note_refs WHERE src_id = $1
 `
 
-// 重建 src 出度第一步：清旧边（PromoteToWiki / UpdateWiki 同事务）。
+// Rebuild src outbound edges, step 1: clear old edges (same transaction as PromoteToWiki / UpdateWiki).
 func (q *Queries) DeleteNoteRefsBySrc(ctx context.Context, srcID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteNoteRefsBySrc, srcID)
 	return err
@@ -33,7 +33,7 @@ type InsertNoteRefParams struct {
 	OwnerID pgtype.UUID
 }
 
-// 重建 src 出度第二步：插新边。caller 已去重 + 排除 self-link。
+// Rebuild src outbound edges, step 2: insert new edges. The caller has already deduped and excluded self-links.
 func (q *Queries) InsertNoteRef(ctx context.Context, arg InsertNoteRefParams) error {
 	_, err := q.db.Exec(ctx, insertNoteRef, arg.SrcID, arg.DstID, arg.OwnerID)
 	return err
@@ -57,7 +57,7 @@ type ListNoteBacklinksAllRow struct {
 	Title string
 }
 
-// admin「cited by」：哪些 note 引用了 dst（id+title）—— 任一 genre、不限 published。
+// admin "cited by": which notes reference dst (id+title) —— any genre, not limited to published.
 func (q *Queries) ListNoteBacklinksAll(ctx context.Context, arg ListNoteBacklinksAllParams) ([]ListNoteBacklinksAllRow, error) {
 	rows, err := q.db.Query(ctx, listNoteBacklinksAll, arg.DstID, arg.OwnerID)
 	if err != nil {
@@ -96,8 +96,9 @@ type ListNoteOutboundAllRow struct {
 	Title string
 }
 
-// admin「read next」：src 引用了哪些 note（id+title）—— **任一 genre**、不限 published（owner 看全，
-// 含未发布）。跨-genre `[[link]]` 归一后，wiki 可引用 output/subjectivity，这里不再按 genre 过滤。
+// admin "read next": which notes src references (id+title) —— **any genre**, not limited to published
+// (the owner sees everything, including unpublished). After cross-genre `[[link]]` normalization, a wiki can
+// reference output/subjectivity, so this no longer filters by genre.
 func (q *Queries) ListNoteOutboundAll(ctx context.Context, arg ListNoteOutboundAllParams) ([]ListNoteOutboundAllRow, error) {
 	rows, err := q.db.Query(ctx, listNoteOutboundAll, arg.SrcID, arg.OwnerID)
 	if err != nil {
@@ -138,8 +139,8 @@ type ListWikiBacklinksRow struct {
 	Title string
 }
 
-// 「cited by」：指向 dst 的源 wiki（id + title）。只列 published 的源（visitor
-// 能打开的公开条目）。path 由 caller 用 WikiTreePaths 算。
+// "cited by": source wikis pointing at dst (id + title). Only lists published sources
+// (public entries a visitor can open). The caller computes path with WikiTreePaths.
 func (q *Queries) ListWikiBacklinks(ctx context.Context, arg ListWikiBacklinksParams) ([]ListWikiBacklinksRow, error) {
 	rows, err := q.db.Query(ctx, listWikiBacklinks, arg.DstID, arg.OwnerID)
 	if err != nil {
@@ -174,8 +175,8 @@ type ListWikiOutboundRow struct {
 	Title string
 }
 
-// 「read next / sources」：src 引用了哪些 wiki（id + title）。只列 published
-// 的目标。「N corpus sources」= len(本结果)，实时数不落列。
+// "read next / sources": which wikis src references (id + title). Only lists published
+// targets. "N corpus sources" = len(this result), counted live, not stored in a column.
 func (q *Queries) ListWikiOutbound(ctx context.Context, srcID pgtype.UUID) ([]ListWikiOutboundRow, error) {
 	rows, err := q.db.Query(ctx, listWikiOutbound, srcID)
 	if err != nil {

@@ -7,9 +7,11 @@
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { Sparkline } from '@/components/admin/atoms/Sparkline';
 import { ListPane } from '@/components/admin/ListPane';
 import {
-  totalCells, useInferenceUsage, type UsageRow, type UsageTotal,
+  totalCells, usageSeries, useInferenceUsage,
+  type UsageRow, type UsageSeries, type UsageTotal,
 } from '@/lib/admin/use-inference-usage';
 
 export function InferenceUsagePanel() {
@@ -35,6 +37,10 @@ export function InferenceUsagePanel() {
           </p>
         }
       >
+        {/* One line per model (F: owner asked for a per-model line chart) — a sparkline of
+            daily token usage per model. Overlaid lines would be muddy in this palette, so
+            each model gets its own line. The table below keeps the exact per-day numbers. */}
+        <UsageChart series={usageSeries(usage.rows)} />
         <table className="w-full mono text-[11px] mt-3" data-testid="inference-usage-table">
           <thead className="text-(--color-faint)">
             <tr className="text-left">
@@ -70,6 +76,28 @@ function UsageTotals({ total }: { total: UsageTotal | null }) {
           {c.value} <span className="text-(--color-faint) text-[10px]">{c.label}</span>
         </span>
       ))}
+    </div>
+  );
+}
+
+// UsageChart — one sparkline per model (x = the 7 days, y = tokens/day). "每个 model 一道."
+function UsageChart({ series }: { series: UsageSeries[] }) {
+  return (
+    <div className="flex flex-col gap-3 mt-3" data-testid="inference-usage-chart">
+      {series.map((s) => (
+        <UsageSeriesRow key={s.model} model={s.model} values={s.values} labels={s.labels} />
+      ))}
+    </div>
+  );
+}
+
+function UsageSeriesRow(
+  { model, values, labels }: { model: string; values: number[]; labels: string[] },
+) {
+  return (
+    <div data-testid={`usage-series-${model}`}>
+      <div className="mono text-[10px] text-(--color-muted) mb-1">{model}</div>
+      <Sparkline data={values} labels={labels} label={model} />
     </div>
   );
 }

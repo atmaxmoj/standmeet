@@ -60,6 +60,34 @@ export function hasVisitorGrant(): boolean {
   return adoptStoredSession() !== null;
 }
 
+// AdoptedDockButton —— one of the code's configured chat dock buttons, as stored in the session
+// blob the gate wrote. Shape mirrors the backend PublicSessionDockButton.
+export interface AdoptedDockButton {
+  readonly capability_id: string;
+  readonly title: string;
+  readonly trigger: string;
+}
+
+// adoptedDockButtons —— the dock buttons the code granted, read straight from the stored session
+// blob (the gate wrote them at issue time). This is **structural inheritance**, not a per-button
+// decision: the embedded agent renders whatever the code configured, so a new dock button the
+// owner adds to the role shows up here with no widget change. Missing / wrong shape → [].
+export function adoptedDockButtons(): readonly AdoptedDockButton[] {
+  const raw = readRaw();
+  if (raw === null) return [];
+  const list = raw['dock_buttons'];
+  if (!Array.isArray(list)) return [];
+  return list.filter(isDockButton);
+}
+
+function isDockButton(x: unknown): x is AdoptedDockButton {
+  if (typeof x !== 'object' || x === null) return false;
+  const r = x as Record<string, unknown>;
+  return typeof r['capability_id'] === 'string'
+    && typeof r['title'] === 'string'
+    && typeof r['trigger'] === 'string';
+}
+
 // pageAllowsBYOAI —— does this page allow the reader to bring their own key?
 //
 // The value comes from the meta tag injected into index.html **when this

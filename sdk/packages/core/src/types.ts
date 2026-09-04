@@ -3,51 +3,29 @@
 // semantics; the caller should never mutate these objects and write them
 // back. Naming follows the backend JSON protocol (snake_case).
 
-// PagePinCard —— one rendered pin: the pinned corpus entry's title + excerpt +
-// tree-derived path (the card links into /wiki/<path>). insights/projects are
-// windows onto the corpus, not a second copy of the content — the owner pins
-// published entries and the public page joins them at render time.
-export interface PagePinCard {
-  readonly wiki_id: string;
+// CorpusCard —— one published corpus entry as a home-page card (title + excerpt +
+// reader path). Returned by GET /api/v1/corpus-cards: a custom page lists these to
+// show corpus cards without hand-picking ids. Keyless + published-only, so it never
+// surfaces an unpublished note.
+export interface CorpusCard {
   readonly title: string;
   readonly excerpt: string;
   readonly path: string;
 }
 
-export interface PageWhere {
-  readonly location_line: string;
-  readonly status_prose: string;
-  readonly closing: string;
-  readonly looking_for: readonly string[];
+// CustomPageLink —— one of the owner's published custom pages, for a page to link the others
+// (slug + title, nothing more). Served keyless by GET /api/v1/custom-pages.
+export interface CustomPageLink {
+  readonly slug: string;
+  readonly title: string;
 }
 
-export interface PageContact {
-  readonly email: string;
-  readonly chat_line: string;
-  readonly recruiter_prose: string;
-  readonly casual_prose: string;
-}
-
-export interface PageContent {
-  readonly updated_at: string;
-  readonly owner_id: string;
-  readonly hero_prose: string;
-  readonly hero_examples: readonly string[];
-  readonly insights: readonly PagePinCard[];
-  readonly projects: readonly PagePinCard[];
-  readonly where: PageWhere;
-  readonly contact: PageContact;
-}
-
+// PublicOwnerView —— the owner slice shown to visitors (handle / name / location),
+// used by the visitor chat to label the owner. No email / password.
 export interface PublicOwnerView {
   readonly handle: string;
   readonly full_name: string;
   readonly location: string;
-}
-
-export interface PublicPageView {
-  readonly owner: PublicOwnerView;
-  readonly content: PageContent;
 }
 
 export interface WikiLandingView {

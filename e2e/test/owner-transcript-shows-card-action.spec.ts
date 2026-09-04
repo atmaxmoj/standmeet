@@ -1,15 +1,17 @@
-// owner-transcript-shows-card-action.spec.ts —— F-B-9 的第三面：**owner 事后读逐字稿**。
+// owner-transcript-shows-card-action.spec.ts —— the third face of F-B-9: **the owner reads the transcript afterward**.
 //
-// 「owner 读得到访客那段对话」是这个产品对 owner 的承诺。而访客在沙盒卡上做的事
-// （点了 Cancel meeting）走的是另一条路，落库之后 role 是 `event` —— 不是谁说的话。
+// "The owner can read the visitor's conversation" is this product's promise to the owner. But what the
+// visitor did on the sandbox card (clicked Cancel meeting) takes a different path: once persisted its
+// role is `event` —— not something anyone said.
 //
-// 那一面上原来的映射是「不是 visitor 就当 assistant」，于是这样一行会被贴上 `AI` 的标签：
-// owner 读到的是「**AI 说**它取消了这场会」，而 AI 从没说过这句
-// （[[collapsed-error-class-kills-its-own-branch]]：上游归成一类，为它写的那一格永远出不来）。
+// On that face the original mapping was "not a visitor, so treat as assistant", so a line like this gets
+// labelled `AI`: the owner reads "**the AI said** it cancelled this meeting", when the AI never said that
+// ([[collapsed-error-class-kills-its-own-branch]]: the upstream collapses classes into one, and the cell
+// written for this one can never surface).
 //
-// 这条守两件事，缺一不可：
-//   1. 这条事件在 owner 的逐字稿上**看得见**（不能只在访客那一侧存在）；
-//   2. 它**不是**以 AI 的身份出现的。
+// This spec guards two things, neither optional:
+//   1. the event is **visible** on the owner's transcript (it must not exist only on the visitor side);
+//   2. it is **not** attributed to the AI.
 
 import { test, expect } from '@/fixtures/test';
 import type { FrameLocator, Page } from '@playwright/test';
@@ -58,8 +60,8 @@ test.describe('F-B-9 · the owner reads what the visitor did on the card', () =>
       await adminPage.getByText(VISITOR, { exact: true }).click();
       const modal = adminPage.getByTestId('transcript-body');
       await expect(modal).toBeVisible({ timeout: 10_000 });
-      // 先证这段对话真的在这张模态上，否则下面的断言是在一张空模态上找东西
-      // （[[two-guards-dying-at-one-line]]）。
+      // First prove the conversation really is in this modal, otherwise the assertions below are
+      // searching an empty modal ([[two-guards-dying-at-one-line]]).
       await expect(modal, 'the conversation itself is in the transcript')
         .toContainText('book me a 30-minute chat');
 
@@ -68,8 +70,8 @@ test.describe('F-B-9 · the owner reads what the visitor did on the card', () =>
         .toBeVisible({ timeout: 10_000 });
       await expect(event, 'and which action it was').toContainText('calendar_cancel');
 
-      // 归属：这一行不是 AI 说的。上面那条正断言已经成立，所以这句否定不是在空集上过关
-      // （[[negated-assertion-passes-while-absent]]）。
+      // Attribution: this line was not said by the AI. The positive assertion above already holds, so
+      // this negation is not passing on an empty set ([[negated-assertion-passes-while-absent]]).
       await expect(
         modal.locator('li').filter({ hasText: 'card action' }).locator('.mono')
           .filter({ hasText: /^ai$/ }),

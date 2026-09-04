@@ -147,9 +147,8 @@ async function checkCapabilityConfig(r: APIRequestContext): Promise<void> {
 }
 
 async function checkPage(r: APIRequestContext): Promise<void> {
-  const before = await callTool<Record<string, unknown>>(r, token, sid, 'page.get', {});
-  const saved = await callTool<Record<string, unknown>>(r, token, sid, 'page.put', before);
-  expect(saved && typeof saved === 'object', 'page.put returns saved content').toBe(true);
+  // page.get / page.put are gone: the owner's homepage is a custom page now, not built-in page
+  // content. The `page` resource keeps only its outward addresses (handle / public URL).
   const url = await callTool<{ public_url: string }>(
     r, token, sid, 'page.set_public_url', { public_url: 'https://me.example.com' });
   expect(url.public_url, 'set_public_url persists').toBe('https://me.example.com');
@@ -209,7 +208,7 @@ test.describe('facade-parity · 新增 owner-MCP 写工具 roundtrip 守护', ()
     ({ playwright }) => run(playwright, checkAccountAndByoai));
   test('capability_config: declared defaults + owner overrides',
     ({ playwright }) => run(playwright, checkCapabilityConfig));
-  test('page.put roundtrip + set_public_url persists',
+  test('page.set_public_url persists',
     ({ playwright }) => run(playwright, checkPage));
   test('corpus_get_entry returns a dumped raw entry',
     ({ playwright }) => run(playwright, checkCorpusGet));

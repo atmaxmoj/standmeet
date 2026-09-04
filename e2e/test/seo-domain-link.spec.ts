@@ -1,19 +1,15 @@
-// seo-domain-link.spec.ts — the "edit on the Domain section →" link on the
+// seo-domain-link.spec.ts — the "edit on the site block →" link on the
 // "canonical host" row in /admin/seo must land on the **real** editor, not a 404.
 //
-// rot-C2 (HIGH): the `seo-canonical-edit` link at SeoSection.tsx:137 has
-// href="/admin/domain", but **there is no /admin/domain route at all** (no domain/
-// directory under app/src/app/admin/). The actual place to edit the public URL /
-// domain is /admin/page (PageSection → SiteBlock → PublicURLEditor
-// (`public-url-display` / `public-url-editor`) + DomainEditor). So the only entry
-// point the SEO section points the owner to for editing the canonical host is a dead
-// link that 404s on click.
+// The public-URL editor lives in /admin/account's site block (PublicURLEditor —
+// `public-url-display` / `public-url-editor` — + HandleEditor + DomainEditor), moved
+// there when the homepage became a custom page. The SEO section's canonical-host edit
+// link must reach that real editor.
 //
-// RED criterion: click "edit on the Domain section →" on /admin/seo, and assert it
-// lands on the **real** editor surface (`public-url-display` visible / URL is
-// /admin/page). Right now href=/admin/domain → 404, that testid never appears →
-// RED. What's asserted is the GOOD outcome (reaching the real editor), not merely
-// "no error was thrown".
+// Criterion: click "edit →" on /admin/seo's canonical-host row, and assert it lands on
+// the **real** editor surface (`public-url-display` visible / URL is /admin/account).
+// What's asserted is the GOOD outcome (reaching the real editor), not merely "no error
+// was thrown".
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -58,8 +54,7 @@ async function linkReachesEditor({ adminPage: page }: { adminPage: Page }): Prom
   await expect(
     page.getByTestId('public-url-display'),
     `the canonical-host edit link (href="${href ?? ''}") did not land on the real editor — `
-    + `/admin/domain is not a route; the public-URL / domain editor lives under /admin/page `
-    + `(SeoSection.tsx:137 hard-codes a non-existent /admin/domain)`,
+    + `the public-URL / domain editor lives in the /admin/account site block`,
   ).toBeVisible({ timeout: 10_000 });
-  await expect(page).toHaveURL(/\/admin\/page(\/|\?|$)/);
+  await expect(page).toHaveURL(/\/admin\/account(\/|\?|$)/);
 }

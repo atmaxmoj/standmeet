@@ -1,19 +1,19 @@
-// chat-repeat-big-tool-call.spec.ts —— F-D-14：**工具循环和压缩互相追着跑**。
+// chat-repeat-big-tool-call.spec.ts —— F-D-14: **the tool loop and compaction chase each other**.
 //
-// prod 上量到的（2026-08-21，真第三方 DeepWiki）：一轮里 `read_wiki_contents` 被调用 **8 次**，
-// 每次回 374871 字节，中间夹着 **8 次** `context compacted`，两者交替，整轮 248 秒。取回来 →
-// 结果大到活不过 32K 窗口 → 压缩把它吃掉 → 模型发现证据没了 → 再取一遍。访客等四分钟、屏幕上
-// 八张一模一样的工具卡、第三方被拉了 3MB。
+// measured on prod (2026-08-21, real third-party DeepWiki): in one turn `read_wiki_contents` was called **8 times**,
+// each returning 374871 bytes, interleaved with **8** `context compacted` events, alternating, 248 seconds for the whole turn.
+// Fetch it → the result is too big to survive the 32K window → compaction eats it → the model finds the evidence gone → fetch it again.
+// The visitor waits four minutes, eight identical tool cards on screen, 3MB pulled from the third party.
 //
-// **别把「重取」本身当缺陷**：eval 那侧量过，重取是模型正常的恢复动作（compaction-test.sh 的
-// 工具腿）。缺陷是**没有任何东西打断这个循环** —— 八次一模一样的调用没有一次被拦下。
+// **don't treat "refetching" itself as the defect**: the eval side measured it, refetching is the model's normal recovery action
+// (the tool leg of compaction-test.sh). The defect is that **nothing interrupts this loop** —— not one of the eight identical calls is stopped.
 //
-// 判据落在**被调的那一侧**（mcp-server-mock 的 `/__mock/calls`）：只有它数得清「这一次调用有
-// 没有真的又打到对面」（[[write-with-no-receipt]]）。
+// the check lands on **the side being called** (mcp-server-mock's `/__mock/calls`): only it can count whether "this call actually hit
+// the far side again" ([[write-with-no-receipt]]).
 //
-// 第二条是**正对照，而且是这条守卫的一半价值**：结果小的工具重复调用**必须照常派发**。
-// 「约完之后再查一次时段」是真实且正确的动作；一刀切地按 (name,args) 去重会把它一起拿掉，
-// 而那种闸门 CI 全绿、闸门不响（[[gate-granularity-removes-working-action]]）。
+// the second test is **the positive control, and half the value of this guard**: a repeated small-result tool call **must dispatch as usual**.
+// "check the times again after booking" is a real and correct action; deduping bluntly by (name,args) would take it out too,
+// and that kind of gate is green in CI, the gate never fires ([[gate-granularity-removes-working-action]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -40,7 +40,7 @@ const SMALL_TOOL = `ext_${SERVER_NAME}_ping_external`;
 
 interface CreateServerResp { id: string }
 
-/** 派发计数，从**外部 server 自己**读 —— 产品说它调了几次不算数。 */
+/** dispatch counts, read from **the external server itself** —— what the product says it called doesn't count. */
 async function dispatchCounts(request: APIRequestContext): Promise<Record<string, number>> {
   const res = await request.get(`${MOCK_MCP_ADMIN}/__mock/calls`);
   if (res.status() !== 200) throw new Error(`__mock/calls: ${res.status()}`);
@@ -87,9 +87,9 @@ test.describe.serial('F-D-14 · a repeated oversized tool call is not fetched tw
   test('the same oversized call, twice in one turn, reaches the server once', async () => {
     test.setTimeout(180_000);
     await resetCounts(request);
-    // 两次**一模一样**的调用（同名、同参），外加一句收尾回复。两个 tag 都埋进同一条消息：
-    // takeToolFor 按注册顺序单次消费，而这一轮里每一次请求都带着这条消息，所以第二次
-    // 模型调用会取到第二条注册 —— 这就是 prod 那个「取完又取」的形状。
+    // two **identical** calls (same name, same args), plus a closing reply. Both tags are buried in the same message:
+    // takeToolFor consumes them once each in registration order, and every request in this turn carries that message, so the second
+    // model call picks up the second registration —— that's the shape of prod's "fetch, then fetch again".
     const first = await scriptMockToolCall(request, { name: BIG_TOOL, args: { page: 'alpha' } });
     const again = await scriptMockToolCall(request, { name: BIG_TOOL, args: { page: 'alpha' } });
     const done = await scriptMockReplyText(request, 'here is what the page says');

@@ -13,14 +13,14 @@ WHERE holder_id = $1
 ORDER BY created_at;
 
 -- name: DeleteAssetsByHolder :many
--- 删一个 holder 的所有 asset 行；返 storage_key 让 caller 后置批删 MinIO blob。
+-- Delete all asset rows for one holder; return storage_key so the caller can batch-delete the MinIO blobs afterward.
 DELETE FROM assets
 WHERE holder_id = $1
 RETURNING storage_key;
 
 -- name: DeleteAssetsByIDs :many
--- 按 id 集合删；caller 已经知道这些 id 是同一个 holder 的（update 时算
--- removed = old_refs - new_refs）。返 storage_key 让 caller 删 blob。
+-- Delete by a set of ids; the caller already knows these ids belong to the same holder
+-- (on update it computes removed = old_refs - new_refs). Return storage_key so the caller can delete the blobs.
 DELETE FROM assets
 WHERE id = ANY($1::uuid[])
 RETURNING storage_key;

@@ -46,11 +46,11 @@ type CreateWritingParams struct {
 	Published         bool
 }
 
-// writings.sql —— owner 公开发表的"作品"（genre='writing'）的 query。writing 已折进统一
-// corpus_notes 基座（#151），不再是独立 writings 表。列映射：body_md→body，slug/visibility/
-// locked_body/cover_*/read_minutes/cross_refs/published_at 是 corpus_notes 上只对 genre='writing'
-// 有意义的专属列；path **不存**（派生 "writings/"+slug）；obsidian 元数据复用共享列。
-// 每条 query 都限定 genre='writing'，跟其它 genre 隔离。
+// writings.sql —— queries for the owner's publicly published "works" (genre='writing'). writing is folded into
+// the unified corpus_notes base (#151), no longer its own writings table. Column mapping: body_md→body; slug/
+// visibility/locked_body/cover_*/read_minutes/cross_refs/published_at are dedicated columns on corpus_notes that
+// only matter for genre='writing'; path is **not stored** (derived as "writings/"+slug); obsidian metadata reuses
+// the shared columns. Every query limits to genre='writing', isolating it from the other genres.
 func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, createWriting,
 		arg.OwnerID,
@@ -134,8 +134,8 @@ type GetPublishedWritingBySlugParams struct {
 	Slug    string
 }
 
-// retriever corpus_read 按 slug 读 published writing（path 派生 "writings/"+slug，
-// 故只需 slug，DB 不走内存窗口）。
+// retriever corpus_read reads a published writing by slug (path is derived as "writings/"+slug,
+// so only slug is needed; the DB does not use an in-memory window).
 func (q *Queries) GetPublishedWritingBySlug(ctx context.Context, arg GetPublishedWritingBySlugParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, getPublishedWritingBySlug, arg.OwnerID, arg.Slug)
 	var i CorpusNote
@@ -344,8 +344,8 @@ type ListPublishedWritingSlugAndTitleRow struct {
 	Title string
 }
 
-// /writings 渲染 [[crosslink]] 时用：拉 owner 所有 published writing 的
-// slug + title 当 resolution index，不带 body（避免 N+1 那种全 body 重传开销）。
+// Used when /writings renders [[crosslink]]: pull the owner's all published writings'
+// slug + title as a resolution index, without body (to avoid the N+1-style cost of resending every full body).
 func (q *Queries) ListPublishedWritingSlugAndTitle(ctx context.Context, ownerID pgtype.UUID) ([]ListPublishedWritingSlugAndTitleRow, error) {
 	rows, err := q.db.Query(ctx, listPublishedWritingSlugAndTitle, ownerID)
 	if err != nil {
@@ -442,8 +442,8 @@ type ListPublishedWritingsByOwnerPageParams struct {
 	Limit   int32
 }
 
-// 分页 infinite scroll：cursor = 上一页最末 writing.published_at (RFC3339)，
-// 第一页 cursor 传 NULL 拿最新 N 条。返 LIMIT+1 让 caller 判断 has_more。
+// Paginated infinite scroll: cursor = the previous page's last writing.published_at (RFC3339);
+// the first page passes NULL as cursor to get the newest N. Returns LIMIT+1 so the caller can tell has_more.
 func (q *Queries) ListPublishedWritingsByOwnerPage(ctx context.Context, arg ListPublishedWritingsByOwnerPageParams) ([]CorpusNote, error) {
 	rows, err := q.db.Query(ctx, listPublishedWritingsByOwnerPage, arg.OwnerID, arg.Column2, arg.Limit)
 	if err != nil {
@@ -632,8 +632,8 @@ type SearchPublishedWritingsParams struct {
 	Offset         int32
 }
 
-// retriever corpus_search 全量搜 published writing(DB full-text,镜像 wiki/output:
-// 自然语言问句按 OR 命中任一词项,ts_rank 排序),不吃内存窗口。
+// retriever corpus_search does a full search over published writings (DB full-text, mirroring wiki/output:
+// a natural-language question matches any term via OR, ranked by ts_rank), without an in-memory window.
 func (q *Queries) SearchPublishedWritings(ctx context.Context, arg SearchPublishedWritingsParams) ([]CorpusNote, error) {
 	rows, err := q.db.Query(ctx, searchPublishedWritings,
 		arg.OwnerID,
@@ -708,9 +708,9 @@ type SetWritingObsidianMetaParams struct {
 	ObsidianSourcePath string
 }
 
-// Obsidian import 走完 SaveWriting 之后调用：标记这行 writing 是从 vault
-// 来的，顺便记 imported_at = now()。re-import 时根据 updated_at vs imported_at
-// 决定 skip / overwrite（owner 在 web 改过了 updated_at 会跳过 imported_at）。
+// Called after Obsidian import finishes SaveWriting: mark this writing row as coming from the
+// vault, and record imported_at = now(). On re-import, updated_at vs imported_at decides
+// skip / overwrite (if the owner edited it on the web, updated_at is newer than imported_at, so it is skipped).
 func (q *Queries) SetWritingObsidianMeta(ctx context.Context, arg SetWritingObsidianMetaParams) error {
 	_, err := q.db.Exec(ctx, setWritingObsidianMeta, arg.ID, arg.OwnerID, arg.ObsidianSourcePath)
 	return err

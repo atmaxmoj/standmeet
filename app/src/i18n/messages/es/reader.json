@@ -1,0 +1,29 @@
+{
+  "output": {
+    "kicker": "salida · del corpus de {handle}",
+    "polished": "pulido",
+    "updated": "actualizado {date}",
+    "pdfPreview": "vista previa en PDF",
+    "writings": "escrituras",
+    "breadcrumbCurrent": "salida · {slug}",
+    "aboutHeading": "sobre esta pieza",
+    "aboutBody": "Salida pulida del corpus de {handle} — entradas de wiki promovidas a un borrador público. La IA usa el mismo corpus, por lo que los seguimientos a continuación citarán estas y entradas relacionadas directamente.",
+    "aboutBodyGated": "Salida pulida del corpus de {handle} — entradas de wiki promovidas a un borrador público. La IA en este sitio funciona desde el mismo corpus y lo cita directamente, y responder le cuesta dinero a {handle}, así que espera detrás de un código:",
+    "backToWriting": "← escritura"
+  },
+  "wiki": {
+    "by": "por",
+    "backToWiki": "← wiki",
+    "subEntries": "subentradas",
+    "attachments": "adjuntos",
+    "aboutHeading": "sobre esta entrada",
+    "aboutBody": "Una de las entradas de wiki de {handle}. La IA en este sitio está anclada en el mismo corpus, por lo que puede hacer preguntas de seguimiento a continuación y obtener respuestas en la voz de {handle}, con citas que vuelven a entradas como esta.",
+    "aboutBodyGated": "Una de las entradas de wiki de {handle}. La IA en este sitio está anclada en el mismo corpus y responde en la voz de {handle}, con citas que vuelven a entradas como esta — responder le cuesta dinero a {handle}, así que espera detrás de un código:",
+    "indexKicker": "wiki",
+    "indexHeading": "El corpus, por entrada"
+  },
+  "enterAccessCode": "ingrese código de acceso →",
+  "tree": {
+    "loading": "cargando…"
+  }
+}

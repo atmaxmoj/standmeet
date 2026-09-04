@@ -15,21 +15,18 @@ export { readSSE } from './sse.js';
 // grant —— the grant the visitor already holds. A custom page adopts it
 // rather than opening a fresh anonymous session of its own.
 export {
-  adoptStoredSession, hasVisitorGrant, pageAllowsBYOAI, byoaiOffered,
+  adoptStoredSession, hasVisitorGrant, adoptedDockButtons, pageAllowsBYOAI, byoaiOffered,
   VISITOR_SESSION_STORAGE_KEY,
 } from './grant.js';
-export type { AdoptedSession } from './grant.js';
+export type { AdoptedSession, AdoptedDockButton } from './grant.js';
 // parseAnswerText —— the half shared by both rendering faces (F-O-8):
 // parsing lives here, rendering is implemented separately by each.
 export { parseAnswerText } from './answer-text.js';
 export type { AnswerSpan, AnswerParagraphs } from './answer-text.js';
 export type {
-  PagePinCard,
-  PageWhere,
-  PageContact,
-  PageContent,
+  CorpusCard,
+  CustomPageLink,
   PublicOwnerView,
-  PublicPageView,
   WikiLandingView,
   LanguageOption,
   OutputLandingView,

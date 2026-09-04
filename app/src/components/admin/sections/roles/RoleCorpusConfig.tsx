@@ -88,6 +88,15 @@ function EditableCorpusConfig({ role }: { role: RoleView }) {
         <p className="reading-tight text-[11px] text-(--color-muted)" data-testid="role-corpus-help">
           {t('roleCorpus.help')}
         </p>
+        {/* Read-scope and citability are two different axes (see CitableField): point the owner
+            to where the "visible but not cited" switch actually lives, so they don't hunt for it
+            here. */}
+        <p
+          className="reading-tight text-[11px] text-(--color-faint)"
+          data-testid="role-corpus-citability-note"
+        >
+          {t('roleCorpus.citabilityNote')}
+        </p>
         {/*
           Check boxes on the real tree (F-A-14). The hand-typed box stays and stays synced
           side-by-side — a glob the picker can't recognize (no tree row corresponds to it)

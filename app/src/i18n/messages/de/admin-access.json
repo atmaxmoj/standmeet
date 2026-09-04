@@ -1,0 +1,192 @@
+{
+  "common": {
+    "cancel": "abbrechen",
+    "create": "erstellen",
+    "delete": "löschen",
+    "systemPill": "[system]",
+    "corpus": "corpus",
+    "tools": "tools",
+    "prompt": "prompt",
+    "provider": "provider",
+    "saveCorpus": "corpus speichern",
+    "noneDash": "— keine —",
+    "byHand": "oder schreiben Sie diese manuell:",
+    "rawDenied": "raw://** ist für Besucher immer gesperrt, unabhängig von dieser Liste"
+  },
+  "codes": {
+    "new": "＋ neuer code",
+    "intro": "Jeder Code öffnet einen Bereich Ihres Wikis für einen bekannten Kontakt — eine Einstellungsschleife, eine Investorenpräsentation oder ein Pressegespräch. Mehrere Personen können einen Code teilen; bei der Eingabe fragt die KI, wer sie sind, und ordnet sie der Kontaktliste des Codes zu. Jede Karte hat einen QR-Code.",
+    "empty": "Noch keine Codes."
+  },
+  "codeCard": {
+    "preview": "vorschau ↗",
+    "edit": "bearbeiten",
+    "revoke": "widerrufen",
+    "roleFrozen": "mit Rolle ausgegeben (eingefroren)",
+    "quota": "kontingent",
+    "status": "status · {status}",
+    "viewConversations": "unterhaltungen anzeigen →",
+    "openShare": "öffne das share-panel — großer QR, kopierbarer link, druckbar",
+    "opensLabel": "öffnet",
+    "opensChat": "den besucher-chat",
+    "opensPageOption": "/p/{slug}"
+  },
+  "codeCorpus": {
+    "loadError": "Die Corpus-Scope dieses Codes konnte nicht geladen werden. Neu laden und erneut versuchen.",
+    "grantsNothing": "(Rolle gewährt nichts)",
+    "publishedSlice": "(was Sie veröffentlicht haben — diese Rolle hat keine eigene Liste)",
+    "inherited": "corpus · von Rolle geerbt",
+    "takenBack": "auf diesem Code zurückgenommen",
+    "helpSummary": "wie das zurücknehmen funktioniert ▸",
+    "help": "Die URIs, die dieser Code von der Rolle zurücknimmt, eine pro Zeile. Er kann nur subtrahieren, nie hinzufügen — was Sie hier schreiben, öffnet niemals etwas, das die Rolle nicht gewährt. Typische Verwendung: Die Rolle gewährt subjectivity://** (jede Meinung), und dieser Code nimmt subjectivity://cv zurück (der Lebenslauf bleibt außen vor). Änderungen beeinflussen nur Sitzungen, die ab sofort ausgegeben werden: Die Rolle wird eingefroren, wenn die Sitzung ausgegeben wird, daher behält der Besucher die alte Scope bei — aber die nächste Sitzung auf demselben Code erhält die neue."
+  },
+  "members": {
+    "loading": "Mitglieder werden geladen…",
+    "none": "Noch kein Besucher hat diesen Code verwendet.",
+    "anonymous": "anonym"
+  },
+  "conversations": {
+    "privateHits": "{count, plural, one {# Sitzung} other {# Sitzungen}} hat private Themen berührt",
+    "filterChip": "filter · code · {code}",
+    "clear": "löschen ×",
+    "thVisitor": "besucher",
+    "thViaCode": "über code",
+    "thIp": "ip",
+    "thTurns": "züge",
+    "thSentiment": "stimmung",
+    "thFlags": "flaggen",
+    "thLast": "letztes",
+    "privFlag": "{hits} priv",
+    "empty": "Noch keine Unterhaltungen. Sobald Besucher über einen Code oder eine BYOAI-Sitzung chatten, sehen Sie diese hier."
+  },
+  "transcript": {
+    "loading": "Transkript wird geladen…",
+    "empty": "Keine Nachrichten in dieser Unterhaltung.",
+    "cited": "zitiert · {kind}",
+    "ghostsTitle": "angezeigter ghost text",
+    "groundingTitle": "standpunkt-notizen, die diese antworten geprägt haben · nicht für den besucher sichtbar",
+    "grounded": "verankert"
+  },
+  "ghostTelemetry": {
+    "title": "ghost-steuerung · pro-waypoint-trichter",
+    "thWaypoint": "waypoint",
+    "thShown": "angezeigt",
+    "thAccepted": "akzeptiert",
+    "thRate": "rate",
+    "all": "alle"
+  },
+  "prompts": {
+    "new": "+ neuer prompt",
+    "intro": "Bibliothek der Personen. Eigentümer-bezogen, keine Kategorien. Jeder ist ein Textabschnitt — der Agent wird zu dem, was Sie hier festlegen. Von Rollen verwendet.",
+    "empty": "Noch keine Prompts — öffentlich wird normalerweise beim Eigentümer-Claim initialisiert.",
+    "modalTitle": "neuer prompt",
+    "bodyLabel": "haupttext"
+  },
+  "requests": {
+    "deliveryHint": "Kein verifizierter ausgehender Kanal — richten Sie einen unter Konnektoren ein, damit ein Genehmigen eine Codee ausstellen kann. Bis dahin können Sie Anfragen nur manuell beantworten/archivieren.",
+    "intro": "Einreichungen aus dem Gate-Pfad 'kein Code'. Als beantwortet markieren, sobald Sie einen Code ausgegeben oder geantwortet haben; schließen zum Archivieren. Der Eigentümer liest jeden selbst — darum geht es.",
+    "empty": "Keine {filter}anfragen.",
+    "issued": "ausgegeben {code} — per E-Mail an den Anfragenden gesendet",
+    "decline": "ablehnen",
+    "approve": "genehmigen · code ausstellen + E-Mail →",
+    "connectMail": "mail verbinden um codes auszustellen"
+  },
+  "roles": {
+    "new": "+ neue rolle",
+    "intro": "Eine Rolle bündelt einen Prompt (Person), eine positive Liste von Corpus-URIs, die der Agent lesen kann, eine Reihe von Skills und welche MCP-Server er aufrufen darf. Codes tragen Berechtigungen nicht direkt — jeder Code <em>nimmt an</em> einer Rolle bei Ausgabe an und dieser Snapshot ist für diese Sitzung eingefroren. Eine Rolle bearbeiten und nur zukünftige Sitzungen spüren es.",
+    "empty": "Noch keine Rollen — öffentlich wird normalerweise beim Eigentümer-Claim initialisiert."
+  },
+  "roleCreate": {
+    "title": "neue rolle",
+    "promptNone": "(keine)",
+    "providerDefault": "— Instanz-Standard —",
+    "corpusLabel": "corpus uris · eine pro zeile",
+    "noneConfigured": "noch nicht konfiguriert"
+  },
+  "roleGas": {
+    "help": "Diese Rolle gegen den Tank des Providers begrenzen. Aus (Standard) bedeutet gar keine Verwendungsprüfung; An bedeutet, dass ein Besucher gestoppt wird, wenn der Tank des Providers leer ist. Ein Provider ohne Treibstoff wird in beiden Fällen nie begrenzt."
+  },
+  "roleCorpus": {
+    "help": "Die positive Liste von Corpus-URIs, die der Agent lesen kann, eine pro Zeile. Match-any: Wenn eine Zeile passt, reicht das aus zum Lesen, also kann die Granularität beliebig fein sein — wiki://thinking/** gewährt den ganzen Subtree, subjectivity://standpoint gewährt nur diese eine Notiz. Eine leere Liste = überhaupt nichts. Änderungen beeinflussen nur Sitzungen, die ab sofort ausgegeben werden: Die Rolle wird eingefroren, wenn die Sitzung ausgegeben wird, daher behält der Besucher die alte Scope bei — aber die nächste Sitzung auf demselben Code erhält die neue.",
+    "citabilityNote": "Dies kontrolliert nur, was der Agent LESEN kann. Ob ein Eintrag, den er liest, auch als zitierte Quelle unter seiner Antwort aufgelistet wird, ist ein separater, pro-Eintrag Schalter — das Kontrollkästchen 'als Quelle zitiert' auf der eigenen Karte dieses Eintrags unter Wiki / Outputs. Ein Eintrag kann also lesbar sein, ohne jemals in den Referenzen zu erscheinen.",
+    "publicIsPublished": "Was Sie veröffentlicht haben — keine separate Liste. Dies ist die Identität, die ein Besucher ohne Code (und mit BYOAI) erhält, und er liest einen Eintrag nur, wenn der Published-Schalter dieses Eintrags eingeschaltet ist. Schalten Sie einen von der Kartekarte des Eintrags unter Wiki oder Outputs ein; es gibt nichts zu bearbeiten, also können die beiden nie unterschiedliche Aussagen treffen."
+  },
+  "roleTools": {
+    "help": "Was diese Rolle aufrufen darf: Ihre Skills und die externen MCP-Server, die Sie unter api · mcp registriert haben. Standardmäßig wird nichts gewährt — ein Server, den Sie hinzugefügt haben, ist nur für die Rollen erreichbar, die Sie hier aktivieren. Änderungen beeinflussen nur Sitzungen, die ab sofort ausgegeben werden: Die Rolle wird eingefroren, wenn die Sitzung ausgegeben wird, daher behält der Besucher die alte Scope bei — aber die nächste Sitzung auf demselben Code erhält die neue.",
+    "save": "tools speichern · {name}"
+  },
+  "roleDock": {
+    "label": "dock",
+    "help": "Trigger-Phrase — die Zeile, die das System im Namen des Besuchers sendet, wenn diese Schaltfläche gedrückt wird; die KI behandelt sie als Frage des Besuchers. Zum Beispiel 'zusammenfassen des gesprächs': Die Schaltfläche zu drücken ist dasselbe wie der Besucher, der diese Zeile tippt.",
+    "triggerPlaceholder": "trigger-phrase (z.B. dieses gespräch zusammenfassen)",
+    "save": "dock speichern · {name}"
+  },
+  "roleGhost": {
+    "label": "ghost-regel",
+    "help": "Wenn aktiviert, darf die KI Besucher nur zu Waypoints lenken, die Corpus-Belege anführen — lenkungsprompts ohne Beweise werden verworfen (Buchungen und andere endgültige Waypoints sind nicht betroffen). In jede Sitzung eingefroren; ein Zugriffscode kann dies überschreiben.",
+    "save": "ghost-regel speichern · {name}"
+  },
+  "codeGhost": {
+    "label": "ghost-beweis",
+    "inherit": "rolle erben",
+    "on": "beweis erforderlich",
+    "off": "alle zulassen"
+  },
+  "roleDesc": {
+    "label": "über",
+    "help": "Eine kurze Zeile, die diese Rolle beschreibt — wer der Besucher ist und wie die KI ihn behandeln sollte. Wird hier nur angezeigt (Eigentümer-seitig).",
+    "placeholder": "z.B. Recruiter bei Series-B Startups",
+    "save": "über speichern · {name}"
+  },
+  "roleWaypoints": {
+    "label": "waypoints",
+    "help": "Ziele, zu denen die KI Besucher sanft lenken kann — einen pro Ziel (z.B. 'einen anruf buchen', 'die kybernetik-notiz lesen'). Jeder hat ein Gewicht (höher = bevorzugt) und optional die Corpus-Belege, die ihn stützen. Markieren Sie Buchungs-/Kontaktziele als endgültig. In jede Sitzung eingefroren; leer = die KI lenkt nie.",
+    "idPlaceholder": "id (z.B. book-a-call)",
+    "descPlaceholder": "was dieses ziel ist",
+    "weightLabel": "gewicht",
+    "terminalLabel": "endgültig",
+    "evidencePlaceholder": "belege-uris, durch kommas getrennt (z.B. wiki://kybernetik)",
+    "add": "+ waypoint hinzufügen",
+    "remove": "entfernen",
+    "save": "waypoints speichern · {name}"
+  },
+  "embeds": {
+    "new": "＋ neuer embed",
+    "intro": "Ein Embed platziert den Chat dieser Instanz auf der Website von jemand anderem als einzelnes <standmeet-chat> Tag. Jeder Embed stellt einen Zugriffscode bereit — Besucher auf dieser Seite chatten unter der Rolle des Codes, keine Code-Eingabe erforderlich. Da das Widget auf Seiten läuft, die Sie nicht kontrollieren, heften Sie die Ursprünge, von denen es laden darf.",
+    "empty": "Noch keine Embeds. Erstellen Sie einen, um einer Partner-Website einen Chat zum Einfügen zu geben.",
+    "exposesCode": "zeigt",
+    "originsAny": "läuft auf jedem Ursprung",
+    "originsPinned": "{count} geheftet",
+    "snippetLabel": "in die Host-Seite einfügen",
+    "copySnippet": "kopieren",
+    "copied": "kopiert",
+    "keyNote": "Widget-Anmeldedaten ausgegeben — der Snippet mit seinem Schlüssel wurde bei der Erstellung einmal angezeigt. Löschen & erneut erstellen zum Neuausstellen.",
+    "kidLabel": "kid {kid}",
+    "revealKicker": "widget bereit",
+    "revealTitle": "diesen snippet jetzt kopieren",
+    "revealWarning": "Dies trägt den Signaturschlüssel des Widgets und wird nur einmal angezeigt. Kopieren Sie ihn jetzt — er kann nicht erneut angezeigt werden. Er enthält nicht Ihren Zugriffscode; der Server löst ihn auf. Wenn Sie ihn verlieren, löschen Sie diesen Embed und erstellen Sie einen neuen.",
+    "edit": "bearbeiten",
+    "delete": "löschen",
+    "deleted": "embed entfernt",
+    "created": "embed erstellt",
+    "updated": "embed aktualisiert",
+    "unknownCode": "code entfernt",
+    "form": {
+      "createTitle": "code als widget zeigen",
+      "editTitle": "embed bearbeiten",
+      "createKicker": "neuer embed",
+      "editKicker": "embed bearbeiten",
+      "labelField": "label · privat für Sie",
+      "labelPlaceholder": "z.B. Acme Karriere-Seite",
+      "codeField": "zugriffscode, den dieser embed zeigt",
+      "codePlaceholder": "code auswählen…",
+      "originsField": "erlaubte ursprünge · eine pro zeile · leer = beliebig",
+      "originsPlaceholder": "https://acme.example\nhttps://careers.acme.example",
+      "originsHelp": "Schema + Host, kein nachgeordneter Pfad (https://acme.example). Das Widget wird auf jedem Ursprung abgelehnt, der nicht aufgelistet ist.",
+      "save": "embed erstellen",
+      "saveEdit": "änderungen speichern",
+      "cancel": "abbrechen",
+      "codeRequired": "wählen Sie zuerst einen code"
+    }
+  }
+}

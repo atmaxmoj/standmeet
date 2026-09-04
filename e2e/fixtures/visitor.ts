@@ -1,8 +1,8 @@
-// visitor.ts —— public API (/api/v1/*) helper：颁发 session、发消息。
+// visitor.ts —— public API (/api/v1/*) helper: issue a session, send messages.
 //
-// /gate + /admin/codes UI 已经接管真用户路径。这里给 spec 仿真
-// visitor 侧（gate UI 落地之后 access-codes spec 的 visitor 部分
-// 改成浏览器驱动）。
+// The /gate + /admin/codes UI has taken over the real user path. This simulates the
+// visitor side for specs (after the gate UI landed, the visitor part of the access-codes
+// spec switched to browser-driven).
 
 import type { APIRequestContext, APIResponse } from '@playwright/test';
 
@@ -15,14 +15,14 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 export interface SessionCapability {
   id: string;
   enabled: boolean;
-  // title —— 透传 MCP 工具的 title（人类可读显示名，dock 按钮 label 用它，无 fallback）。
+  // title —— passes through the MCP tool's title (human-readable display name, used as the dock button label, no fallback).
   title?: string;
   quota_remaining?: number;
   policy_summary?: string;
 }
 
-// DockButton —— #109/#110 会话里冻结、可渲染的 dock 按钮：能力 id + 显示名(title) + 触发词。
-// 已过滤掉 code-deny 掉的能力（那些根本不出现在按钮里）。
+// DockButton —— #109/#110 a dock button frozen in the session and renderable: capability id + display name (title) + trigger word.
+// Capabilities denied by the code are already filtered out (they don't appear as buttons at all).
 interface DockButton {
   capability_id: string;
   title: string;
@@ -34,16 +34,16 @@ export interface VisitorSession {
   conversation_id: string;
   member_id?: string;
   owner_handle: string;
-  // D-2: pi-pivot 用 —— 前端 zustand 存 capability map +
-  // pi-agent-core 装 system prompt 时按 part_ids 拉 /api/v1/prompts/{id}。
-  // 旧 spec 不 touch 这些字段，optional 兼容。
+  // D-2: used by pi-pivot —— the frontend zustand stores the capability map +
+  // pi-agent-core fetches /api/v1/prompts/{id} by part_ids when assembling the system prompt.
+  // Old specs don't touch these fields, so they're optional for compatibility.
   capabilities?: SessionCapability[];
   system_prompt_part_ids?: string[];
-  // D-2 follow-up: role.PromptBody + skill prompts inline。frontend 拼
-  // system prompt 时用 [visitor-header fragment, persona inline, ...cap
-  // fragments] 顺序。空字符串 = role 没自定义 persona / 没挂 skill。
+  // D-2 follow-up: role.PromptBody + skill prompts inline. When the frontend assembles the
+  // system prompt it uses the order [visitor-header fragment, persona inline, ...cap
+  // fragments]. Empty string = the role has no custom persona / no attached skill.
   system_prompt_persona?: string;
-  // #109/#110: owner 在 role 上配的 ≤2 个 dock 按钮（冻结、过滤 code-deny 后）。
+  // #109/#110: the ≤2 dock buttons the owner configured on the role (frozen, after filtering code-deny).
   dock_buttons?: DockButton[];
 }
 
@@ -67,17 +67,17 @@ export async function issueSession(
 export interface IssueByoaiSessionInput {
   handle: string;
   byoai_provider: string; // 'anthropic' / 'openai' / 'custom' / ...
-  // byoai_key 不再上传给 server —— 浏览器自己保管，per-request 信封带过去。
-  // node 端 fixture 直接持 plaintext，到 sendMessage 时跟 sessionToken 做 HKDF。
+  // byoai_key is no longer uploaded to the server —— the browser keeps it and carries it in a per-request envelope.
+  // The node-side fixture holds the plaintext directly, doing HKDF with the sessionToken at sendMessage time.
   byoai_key: string;
-  byoai_endpoint: string; // base URL；不带 /v1/...
+  byoai_endpoint: string; // base URL; without /v1/...
   byoai_model: string;    // model id
   visitor_name?: string;
 }
 
-// issueByoaiSession —— BYOAI mode。server 只看 byoai_provider；session 里
-// 不缓存 key/endpoint/model。Fixture 把 plaintext 字段透传到 returned
-// session 让 sendMessage 一并 wrap + 发 4 个 header。
+// issueByoaiSession —— BYOAI mode. The server only sees byoai_provider; the session does not
+// cache key/endpoint/model. The fixture passes the plaintext fields through to the returned
+// session so sendMessage can wrap them + send the 4 headers.
 export async function issueByoaiSession(
   request: APIRequestContext, input: IssueByoaiSessionInput,
 ): Promise<BYOAIVisitorSession> {
@@ -98,8 +98,8 @@ export async function issueByoaiSession(
   };
 }
 
-// BYOAIVisitorSession —— issueByoaiSession 返回；多带 plaintext key + provider
-// + endpoint + model 让后续 sendMessage 自带 wrap 上下文。
+// BYOAIVisitorSession —— returned by issueByoaiSession; carries extra plaintext key + provider
+// + endpoint + model so later sendMessage has its own wrap context.
 export interface BYOAIVisitorSession extends VisitorSession {
   byoai_provider: string;
   byoai_key: string;
@@ -107,8 +107,8 @@ export interface BYOAIVisitorSession extends VisitorSession {
   byoai_model: string;
 }
 
-// issueSessionStatus —— spec 想看错误（403 / 410 等）时用的"只问 status"版本。
-// 失败用例不该 throw —— caller 自己 assert status。
+// issueSessionStatus —— the "status only" version, for when a spec wants to see an error (403 / 410 etc.).
+// Failure cases should not throw —— the caller asserts the status itself.
 export async function issueSessionStatus(
   request: APIRequestContext, input: IssueSessionInput,
 ): Promise<number> {
@@ -116,9 +116,9 @@ export async function issueSessionStatus(
   return res.status();
 }
 
-// sendMessage —— G-Y.6: backend 的 POST /messages 路由删了；spec fixtures
-// 转而在 Node 侧跑跟 pi-agent-core 等价的 loop (visitor-chat-loop.ts)，
-// 把"一次访客提问"还原成 fake APIResponse 让现有 spec assert 不变。
+// sendMessage —— G-Y.6: the backend's POST /messages route was removed; spec fixtures
+// instead run a loop equivalent to pi-agent-core on the Node side (visitor-chat-loop.ts),
+// reducing "one visitor question" back to a fake APIResponse so existing spec asserts stay unchanged.
 export async function sendMessage(
   request: APIRequestContext, sess: VisitorSession, content: string,
 ): Promise<APIResponse | FakeAPIResponse> {

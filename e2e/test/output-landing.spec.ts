@@ -1,12 +1,12 @@
-// output-landing.spec.ts —— /output/<slug> SEO landing 端到端。
+// output-landing.spec.ts —— /output/<slug> SEO landing end to end.
 //
-// 用户故事：
-//   owner 把 wiki 提炼成 output → 给 output 设 seo_slug + published → 在
-//   admin /admin/output 卡片 "view live ↗" → 访客看到 /output/<slug>
-//   完整 markdown body，sitemap.xml 列了这条 URL。
+// User story:
+//   owner distills a wiki into an output → sets seo_slug + published on the output → in
+//   admin /admin/output the card's "view live ↗" → the visitor sees the full markdown body at
+//   /output/<slug>, and sitemap.xml lists this URL.
 //
-// 当前 seo_slug 写入只通过 MCP / DB；admin UI 后面再补 SEO 编辑。这里
-// 直接走 SetWikiSEO 同套路：postgres UPDATE 直写 output_entries。
+// Currently seo_slug is written only via MCP / DB; SEO editing in the admin UI comes later. Here we
+// go the same route as SetWikiSEO directly: a postgres UPDATE straight into output_entries.
 
 import { execSync } from 'node:child_process';
 
@@ -49,7 +49,7 @@ test.describe('public /output/<slug> SEO landing', () => {
       await goto(page, `/output/${SLUG}`);
       await expect(page.getByTestId('output-landing')).toBeVisible();
       await expectBodyAndTitle(page);
-      // #39: document 页返回 writing index,不再「← home」回 /。
+      // #39: the document page goes back to the writing index, no longer "← home" to /.
       await expect(page.getByRole('link', { name: '← writing' }))
         .toHaveAttribute('href', '/writings');
       const sitemap = await fetchSitemap(page);
@@ -71,7 +71,7 @@ async function seedOutputViaMCP(request: APIRequestContext): Promise<string> {
     request, token, sid, 'corpus.promote',
     {
       genre: 'wiki', id: wiki.id, title: OUTPUT_TITLE, tags: [],
-      // body 在 promote 时复用 source wiki body，我们再写 SQL 覆一份 distinct marker。
+      // On promote the body reuses the source wiki body; we then write SQL to overwrite it with a distinct marker.
     },
   );
   // overwrite body via DB to embed the marker string we'll assert in browser.
@@ -87,8 +87,8 @@ function setOutputBody(outputID: string, body: string): void {
   });
 }
 
-// 地址树派生(标题 slug):公开 URL = /output/local-first-essay,不写 path 列,
-// 只置 published + 描述让它进公开 landing/sitemap。
+// Address-tree derivation (title slug): public URL = /output/local-first-essay, no path column
+// written, just set published + description to get it into the public landing/sitemap.
 function setOutputSeo(outputID: string, description: string): void {
   const sql =
     `UPDATE corpus_notes SET excerpt = '${description}',`

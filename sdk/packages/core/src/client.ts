@@ -16,7 +16,8 @@
 // carry no handle parameter: the sole owner is resolved directly server-side.
 
 import type {
-  PublicPageView,
+  CorpusCard,
+  CustomPageLink,
   WikiLandingView,
   OutputLandingView,
   PublicSessionResponse,
@@ -82,13 +83,18 @@ export interface BYOAIHeaders {
 // from createClient satisfies this shape; internal fields aren't exposed
 // directly.
 export interface StandMeetClient {
-  fetchPage(): Promise<PublicPageView>;
   // fetchWikiLanding —— lang is optional: a multi-language note picks the
   // matching face by it; if this note has no such face, it falls back to
   // its identity language (`lang:`). **It's a query parameter, not a path
   // segment** —— not every note carries the same set of languages.
   fetchWikiLanding(slug: string, lang?: string): Promise<WikiLandingView | null>;
   fetchOutputLanding(slug: string): Promise<OutputLandingView | null>;
+  // fetchCorpusCards —— every published corpus entry as a card (title + excerpt +
+  // reader path). A page lists these to show corpus cards without hand-picking ids.
+  fetchCorpusCards(): Promise<CorpusCard[]>;
+  // fetchCustomPages —— the owner's OTHER published custom pages (slug + title), so a page can
+  // link the rest of the site without knowing their slugs. Empty on failure (degrade, no throw).
+  fetchCustomPages(): Promise<CustomPageLink[]>;
   issueSession(input: IssueSessionInput): Promise<PublicSessionResponse>;
   streamMessage(
     conversationID: string,
@@ -132,9 +138,10 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
   // it wants to.
   const histories = new Map<string, TurnMsg[]>();
   return {
-    fetchPage: () => fetchPage(f, baseURL),
     fetchWikiLanding: (slug, lang) => fetchWikiLanding(f, baseURL, slug, lang),
     fetchOutputLanding: (slug) => fetchOutputLanding(f, baseURL, slug),
+    fetchCorpusCards: () => fetchCorpusCards(f, baseURL),
+    fetchCustomPages: () => fetchCustomPages(f, baseURL),
     issueSession: (input) => issueSession(f, baseURL, input),
     streamMessage: (id, token, content, system, byoai) =>
       streamMessage(f, baseURL, id, token, content, system, byoai, histories),
@@ -154,12 +161,6 @@ function rememberTurn(
   histories.set(id, next.slice(-maxHistoryMsgs));
 }
 
-async function fetchPage(f: typeof fetch, baseURL: string): Promise<PublicPageView> {
-  const res = await f(`${baseURL}/api/v1/page`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`fetch page: ${res.status}`);
-  return (await res.json()) as PublicPageView;
-}
-
 async function fetchWikiLanding(
   f: typeof fetch, baseURL: string, slug: string, lang?: string,
 ): Promise<WikiLandingView | null> {
@@ -177,6 +178,26 @@ async function fetchOutputLanding(
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`fetch output ${slug}: ${res.status}`);
   return (await res.json()) as OutputLandingView;
+}
+
+async function fetchCorpusCards(f: typeof fetch, baseURL: string): Promise<CorpusCard[]> {
+  const res = await f(`${baseURL}/api/v1/corpus-cards`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`fetch corpus cards: ${res.status}`);
+  const body = (await res.json()) as { cards?: CorpusCard[] };
+  return body.cards ?? [];
+}
+
+// fetchCustomPages —— the owner's published custom pages. Degrades to [] on any failure (a
+// nav widget that can't reach the list should simply render nothing, not crash the page).
+async function fetchCustomPages(f: typeof fetch, baseURL: string): Promise<CustomPageLink[]> {
+  try {
+    const res = await f(`${baseURL}/api/v1/custom-pages`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { pages?: CustomPageLink[] };
+    return body.pages ?? [];
+  } catch {
+    return [];
+  }
 }
 
 async function issueSession(

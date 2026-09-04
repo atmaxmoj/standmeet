@@ -8,6 +8,7 @@
 import type {
   AgentTurnEvent,
   PromptSource,
+  TurnRecovery,
   TurnRequest,
   TurnStreamer,
 } from '@standmeet/agent-core';
@@ -158,4 +159,88 @@ function byoaiToHeaders(b: HttpBYOAIHeaders): Record<string, string> {
     'X-BYOAI-Endpoint': b.endpoint,
     'X-BYOAI-Model': b.model,
   };
+}
+
+// ───── TurnRecovery (HTTP): pull a dropped turn's persisted answer ─────
+//
+// K (owner-reported): a mid-stream SSE drop (network jitter) leaves the visitor
+// with a half-answer and no way back but a manual refresh. The backend, though,
+// ran the turn on a detached context (`agent_turn.go:136`) and persisted it — so
+// what a refresh recovers, this recovers automatically: poll the conversation
+// aggregate (GET /api/v1/conversations/{id}) until this turn's answer has landed.
+// The turn is never re-run; there is no regeneration.
+
+export interface HttpTurnRecoveryOptions {
+  readonly baseURL: string;
+  readonly sessionToken: string;
+  // attempts / delayMs —— how long to wait for the backend to finish and persist
+  // after the drop. Defaults suit network jitter (a few seconds), and are bounded
+  // so a genuine server failure still falls through to the honest cut error.
+  readonly attempts?: number;
+  readonly delayMs?: number;
+}
+
+// Bounded so a genuinely lost turn (nothing persisted) still gives up quickly and lets the
+// honest cut-error render: ~6s total. A real drop's turn has usually persisted within a second
+// or two of the drop (the backend was already near done), so a few short polls recover it.
+const RECOVERY_ATTEMPTS = 6;
+const RECOVERY_DELAY_MS = 1000;
+
+export function httpTurnRecovery(opts: HttpTurnRecoveryOptions): TurnRecovery {
+  const attempts = opts.attempts ?? RECOVERY_ATTEMPTS;
+  const delayMs = opts.delayMs ?? RECOVERY_DELAY_MS;
+  return {
+    async recover(conversationID: string, userMessage: string): Promise<string | null> {
+      for (let i = 0; i < attempts; i++) {
+        const answer = await fetchPersistedAnswer(opts, conversationID, userMessage);
+        if (answer !== null) return answer;
+        await sleep(delayMs);
+      }
+      return null;
+    },
+  };
+}
+
+async function fetchPersistedAnswer(
+  opts: HttpTurnRecoveryOptions, conversationID: string, userMessage: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${opts.baseURL}/api/v1/conversations/${conversationID}`, {
+      headers: { Authorization: `Bearer ${opts.sessionToken}` },
+    });
+    if (!res.ok) return null;
+    return lastAnswerFor(await res.json(), userMessage);
+  } catch {
+    return null;
+  }
+}
+
+// lastAnswerFor —— the just-cut turn is always the LAST dialog once the backend
+// persists it (the visitor can't ask again while this one is pending). Return
+// its answer only when that last dialog is this turn (question matches) and
+// actually carries text; otherwise it hasn't landed yet → keep polling.
+function lastAnswerFor(body: unknown, userMessage: string): string | null {
+  const dialogs = dialogsOf(body);
+  const last = dialogs.at(-1);
+  if (last === undefined) return null;
+  const isThisTurn = last.question.trim() === userMessage.trim() && last.answer !== '';
+  return isThisTurn ? last.answer : null;
+}
+
+function dialogsOf(body: unknown): { question: string; answer: string }[] {
+  if (body === null || typeof body !== 'object') return [];
+  const conv = (body as { conversation?: unknown }).conversation;
+  if (conv === null || typeof conv !== 'object') return [];
+  const raw = (conv as { dialogs?: unknown }).dialogs;
+  return Array.isArray(raw) ? raw.filter(isDialog) : [];
+}
+
+function isDialog(d: unknown): d is { question: string; answer: string } {
+  if (d === null || typeof d !== 'object') return false;
+  const r = d as Record<string, unknown>;
+  return typeof r['question'] === 'string' && typeof r['answer'] === 'string';
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

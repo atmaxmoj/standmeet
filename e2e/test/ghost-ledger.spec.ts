@@ -1,11 +1,11 @@
-// ghost-ledger.spec.ts —— Ghost steering P2: WaypointLedger 的机械化 visited 标记(α≈0,无 LLM 判官)。
+// ghost-ledger.spec.ts —— Ghost steering P2: WaypointLedger's mechanical visited marking (α≈0, no LLM judge).
 //
-// 设计([[ghost-steering]]):waypoint 的"到访"是**机械事实**,不靠 LLM 判:
-//   • evidence waypoint —— 当轮 assistant 的**引用**(corpus_read)触到它的 evidence_refs → visited;
-//   • action/terminal waypoint —— **工具事件**(calendar_book 约成)→ visited。
-// ledger 挂 redis visitor_session。观测点:/internal/diag/session 的 waypoints[].visited。
+// Design ([[ghost-steering]]): a waypoint's "visit" is a **mechanical fact**, not an LLM judgment:
+//   • evidence waypoint —— this turn's assistant **citation** (corpus_read) touches its evidence_refs → visited;
+//   • action/terminal waypoint —— a **tool event** (calendar_book booked) → visited.
+// The ledger hangs off the redis visitor_session. Observation point: waypoints[].visited on /internal/diag/session.
 //
-// RED(实现前):无 ledger、diag waypoints 无 visited 字段 → baseline 都读不到、引用后也不翻。
+// RED (before implementation): no ledger, diag waypoints have no visited field → baseline cannot even read it, and it does not flip after a citation.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -28,7 +28,7 @@ const OWNER = {
 const CODE = 'WPLEDGER-001';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// 证据 note:title 'Alpha' → path 'alpha' → URI wiki://alpha。waypoint 的 evidence_ref 指它。
+// Evidence note: title 'Alpha' → path 'alpha' → URI wiki://alpha. The waypoint's evidence_ref points at it.
 const EVIDENCE_TITLE = 'Alpha';
 const EVIDENCE_PATH = 'alpha';
 const EVIDENCE_URI = 'wiki://alpha';
@@ -80,7 +80,7 @@ test.describe('waypoint ledger · citation → visited · P2', () => {
 
   test('assistant 引用命中 evidence_refs → 该 waypoint 翻 visited', async ({ playwright }) => {
     const sess = await freshSession(playwright);
-    // 脚本化:下一轮 assistant 先 corpus_read 那条证据 note(产生 citation),再答。
+    // Scripted: next turn the assistant first corpus_reads the evidence note (producing a citation), then answers.
     const tag = await scriptMockToolCall(sess.request, {
       name: 'corpus_read', args: { path: EVIDENCE_PATH },
     });
@@ -116,7 +116,7 @@ async function setupOwner(playwright: Playwright): Promise<{ request: APIRequest
     corpus_uris: ['wiki://**'], waypoints: [WP_EVIDENCE],
   });
   await createCode(request, csrf, { code: CODE, label: 'wpledger', assumed_role_id: role.id });
-  // seed 证据 note(owner MCP 写),corpus_read 才有东西可读、可引用。path 'alpha' → URI wiki://alpha。
+  // Seed the evidence note (written via owner MCP) so corpus_read has something to read and cite. path 'alpha' → URI wiki://alpha.
   const apiToken = await createAPIToken(request, csrf, 'wpledger-seed');
   const sid = await initMCP(request, apiToken);
   await seedWiki(request, apiToken, sid, {

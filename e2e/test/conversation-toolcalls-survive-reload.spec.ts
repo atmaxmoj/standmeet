@@ -1,9 +1,9 @@
-// conversation-toolcalls-survive-reload.spec.ts —— tool 调用是 conversation 的
-// 一部分,刷新后该还在(owner 回看 / visitor 续看都要看见 AI search 了啥)。
+// conversation-toolcalls-survive-reload.spec.ts —— tool calls are part of the
+// conversation and must still be there after a reload (owner reviewing / visitor resuming both need to see what the AI searched).
 //
-// #28 起 backend 拥有这一轮:/agent/turn 流末端自己把 tool_calls sink 进
-// messages.tool_calls(落在 `done` 帧之前 → 答案可见即已提交)。这条守:答复
-// 用过 tool → 刷新 → 聚合从后端 tool_calls 重建 → SEARCHED 卡仍在。
+// Since #28 the backend owns this turn: at the end of the /agent/turn stream it sinks tool_calls into
+// messages.tool_calls (before the `done` frame → committed by the time the answer is visible). This guards: a reply
+// used a tool → reload → the aggregation rebuilds from the backend tool_calls → the SEARCHED card is still there.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -51,14 +51,14 @@ test.describe('tool 调用属于会话,刷新后仍在', () => {
     await input.fill(`tell me about lucerna${searchTag}`);
     await input.press('Enter');
 
-    // live:折叠的 retrieval-summary(UX-10)出现。answer-body 渲出 = 收到 `done`
-    // 帧 = backend 已把这轮(含 tool_calls)sink 进 DB(persist 在 done 之前),
-    // 此后 reload 必见。
+    // live: the collapsed retrieval-summary (UX-10) appears. answer-body rendered = `done`
+    // frame received = the backend has sunk this turn (including tool_calls) into the DB (persist before done),
+    // so a reload after this must see it.
     const summary = page.getByTestId('retrieval-summary');
     await expect(summary).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('answer-body')).toBeVisible({ timeout: 20_000 });
 
-    // reload → 聚合重建 transcript,检索行必须从后端 tool_calls 恢复,不能丢。
+    // reload → the aggregation rebuilds the transcript; the retrieval row must be restored from the backend tool_calls, not lost.
     await page.reload();
     await expect(page.getByText('tell me about lucerna')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('retrieval-summary')).toBeVisible({ timeout: 15_000 });

@@ -1,25 +1,27 @@
-// visitor-composer-receipt.spec.ts —— F-A-42。**这一轮什么时候算结束**，以及输入框凭什么开锁。
+// visitor-composer-receipt.spec.ts —— F-A-42. **When does a turn actually end**, and what unlocks the input.
 //
-// 真环境量出来的（prod，真模型）：答案写完之后输入框还锁着 10–26 秒，而它长得完全就绪
-// （`›` + `ask…` + `ASK ↵`）。往里打 20 个字，一个都没进去。开锁时刻每次都紧跟 HTTP
-// 响应体关闭（误差 30ms 内）—— 客户端拿**流的寿命**当**轮的寿命**。
+// Measured in the real environment (prod, real model): after the answer is fully written the input
+// stays locked for 10-26 seconds, while it looks completely ready
+// (`›` + `ask…` + `ASK ↵`). Type 20 characters into it, not one lands. The unlock moment always
+// follows the HTTP response body closing (within 30ms) —— the client treats the **stream's lifetime**
+// as the **turn's lifetime**.
 //
-// 而产品自己写着凭据是哪一帧（`agent-core/src/agent-turn.ts:125`）：
-//   「尾帧本身不渲任何东西，但**它到没到**是这一轮唯一可靠的『说完了』凭据」
-// `done` 帧在 `sink.Done()` 就发了；之后的 `emitEpilogue` 是一次真的 LLM 调用（ghost），
-// 流当然还开着。设计没错，错在没人接那个回执（[[nonunique-signal-not-a-receipt]]）。
+// The product itself documents which frame is the receipt (`agent-core/src/agent-turn.ts:125`):
+//   "The tail frame renders nothing itself, but **whether it arrived** is this turn's only reliable 'done' receipt"
+// The `done` frame is emitted at `sink.Done()`; the later `emitEpilogue` is a real LLM call (ghost),
+// so the stream is of course still open. The design is right; the bug is that nobody consumes that receipt ([[nonunique-signal-not-a-receipt]]).
 //
-// **替身必须会慢，否则这条缝在 e2e 里根本不存在**（[[stand-in-is-politer-than-reality]]）：
-// mock 的 ghost 调用是瞬时的 → 「轮已收场、流还开着」的窗口塌成 0 → 守卫在坏代码上照样绿。
-// 所以 `scriptMockGhost` 新增 `delayMs`，只拖慢 epilogue 那一次调用，不拖慢答案。
+// **The stand-in must be slow, or this seam simply does not exist in e2e** ([[stand-in-is-politer-than-reality]]):
+// the mock's ghost call is instantaneous → the "turn wrapped up, stream still open" window collapses to 0 → the guard passes on the broken code anyway.
+// So `scriptMockGhost` gains a `delayMs` that slows only the epilogue call, not the answer.
 //
-// 判据一律写成**「人能不能在这儿打字」**（`toBeEditable`），不写成「某个 class 在不在」：
-// 访客付的代价就是打进去的字有没有落地。
+// The criterion is always written as **"can a person type here"** (`toBeEditable`), never "is some class present":
+// the price the visitor pays is whether the characters they type land.
 //
-// RED（修复前）：
-//   · 用例 1 —— 答案早已渲完，输入框在 epilogue 的 6 秒里一直 disabled → 2s 内不可编辑，红。
-//   · 用例 2 —— 一轮在飞的时候输入框 disabled，打的字全丢 → 红。
-//   · 用例 3 —— `use-chat.ts` 的 `ask()` 在 pending 时直接 `return`，第二问被静默丢掉 → 红。
+// RED (before the fix):
+//   · Case 1 —— the answer is long rendered, but the input stays disabled through the 6 seconds of epilogue → not editable within 2s, red.
+//   · Case 2 —— the input is disabled while a turn is in flight, and typed characters are lost → red.
+//   · Case 3 —— `use-chat.ts`'s `ask()` does a bare `return` while pending, so the second question is silently dropped → red.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -41,18 +43,18 @@ const OWNER = {
 };
 const CODE = 'RECEIPT-01';
 
-// epilogue 要慢到「肉眼可辨的一段死等」，又不能慢到把用例拖垮。6 秒 = 真环境 10–26 秒的缩尺。
+// The epilogue must be slow enough to be a visibly dead wait, but not so slow it drags the case down. 6s = a scaled-down stand-in for the real 10-26s.
 const EPILOGUE_MS = 6_000;
-// 开锁必须发生在收到回执之后的这个窗口内。给 1.5 秒是留给渲染，不是留给等流。
+// The unlock must happen within this window after the receipt arrives. The 1.5s is for rendering, not for waiting on the stream.
 const UNLOCK_WINDOW_MS = 1_500;
-// 一轮「正在答」要持续这么久 —— 访客在这段时间里想到下一个问题是常态，不是边角。
+// A turn stays "answering" this long —— the visitor thinking of the next question during that time is the norm, not an edge case.
 const IN_FLIGHT_MS = 6_000;
 
 const WP = {
   waypoint_id: 'grasp-alpha', description: 'understand Alpha',
   weight: 5, evidence_refs: ['wiki://alpha'], is_terminal: false,
 };
-// epilogue 真跑起来才有那段窗口 —— role 得带 waypoint，否则 ghost 那一步整个跳过。
+// The window only exists once the epilogue actually runs —— the role needs a waypoint, or the ghost step is skipped entirely.
 const POLICY_GHOST = {
   text: 'What made you take on Alpha?',
   target_waypoint: 'grasp-alpha',
@@ -78,21 +80,21 @@ test.describe('F-A-42 · 一轮的结束认在 done 回执上，不认在字节�
     await input.fill(`what did you ship${answerTag}${ghostTag}`);
     await input.press('Enter');
 
-    // 答案到了 = 这一轮对访客已经结束。后面那 6 秒服务端在生成 ghost，跟他没关系。
+    // The answer arriving = this turn is over as far as the visitor is concerned. The 6 seconds after that are the server generating the ghost, which is none of their concern.
     await expect(page.getByTestId('answer-body'), '答案落地')
       .toContainText('Alpha is the thing I shipped', { timeout: 20_000 });
 
     await expect(input, '答案落地之后输入框必须立刻能用（红：要等 epilogue 关流）')
       .toBeEditable({ timeout: UNLOCK_WINDOW_MS });
 
-    // ghost 仍然会来 —— 早开锁不等于把 epilogue 扔了（别用一个缺陷换另一个）。
+    // The ghost still arrives —— unlocking early does not mean dropping the epilogue (don't trade one bug for another).
     await expect(input, 'epilogue 的 ghost 照旧到达')
       .toHaveAttribute('data-ghost', POLICY_GHOST.text, { timeout: 15_000 });
   });
 
   test('答的过程中打的字不会被吃掉', async ({ page, playwright }) => {
     const req = await playwright.request.newContext();
-    // 答案本身也得会慢 —— 否则「一轮在飞」的窗口在 e2e 里根本不存在，这条断言判不了负。
+    // The answer itself must also be slow —— otherwise the "turn in flight" window simply does not exist in e2e, and this assertion cannot fail.
     const answerTag = await scriptMockReplyText(
       req, 'Still writing that one out.', { delayMs: IN_FLIGHT_MS });
     await req.dispose();
@@ -102,8 +104,8 @@ test.describe('F-A-42 · 一轮的结束认在 done 回执上，不认在字节�
     await input.fill(`tell me about Alpha${answerTag}`);
     await input.press('Enter');
 
-    // 上一轮还在飞的时候，访客想到了下一个问题就会开始打 —— 产品不能置灰把它吃掉
-    // （全局第 10 条：接受请求并排队，不要置灰）。
+    // While the previous turn is still in flight, the visitor thinks of the next question and starts typing —— the product must not grey out and swallow it
+    // (global rule 10: accept the request and queue it, don't grey it out).
     await expect(input, '一轮在飞时输入框仍可编辑（红：disabled）')
       .toBeEditable({ timeout: 3_000 });
     await input.fill('and who else worked on it');
@@ -126,8 +128,8 @@ test.describe('F-A-42 · 一轮的结束认在 done 回执上，不认在字节�
     await input.fill(`second question${secondTag}`);
     await input.press('Enter');
 
-    // 两轮都必须落地。红态是第二问被 `ask()` 的 `if (pending) return` 静默吞掉：
-    // 访客看到自己按了发送、框也清空了，然后什么都没发生。
+    // Both turns must land. The red state is the second question being silently swallowed by `ask()`'s `if (pending) return`:
+    // the visitor sees themselves press send, the box clears, and then nothing happens.
     await expect(page.getByTestId('answer-body'), '排队的那一问也答了')
       .toHaveCount(2, { timeout: 40_000 });
     await expect(page.getByTestId('answer-body').last())

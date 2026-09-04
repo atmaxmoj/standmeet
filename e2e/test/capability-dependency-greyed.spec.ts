@@ -1,7 +1,9 @@
-// capability-dependency-greyed.spec.ts —— Phase H / P.6：可用性的「connector 依赖」
-// 门。能力面板每行透出它依赖的 connector 状态 —— calendar.book 需 Google
-// Calendar，未连 → 行显「需要 Google Calendar — 未连」(dependency.connected=false)。
-// 连上 → 变 true。这跟 chat-book-not-connected（访客侧隐藏）是同一门的 admin 视图。
+// capability-dependency-greyed.spec.ts —— Phase H / P.6: the availability "connector
+// dependency" gate. Each row of the capability panel surfaces the status of the connector
+// it depends on —— calendar.book needs Google Calendar; when not connected → the row shows
+// "needs Google Calendar — not connected" (dependency.connected=false). Once connected →
+// it flips to true. This is the admin-side view of the same gate as chat-book-not-connected
+// (which hides it on the visitor side).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';

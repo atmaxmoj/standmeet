@@ -1,0 +1,57 @@
+{
+  "common": {
+    "brand": "standmeet",
+    "writings": "schriften",
+    "backToWritings": "← zurück zur schriften",
+    "read": "lesen →",
+    "readMinutes": "{minutes} min lesen"
+  },
+  "breadcrumb": {
+    "back": "← schreiben"
+  },
+  "tree": {
+    "head": "schreiben"
+  },
+  "cover": {
+    "tag": "essay · standmeet",
+    "locked": "privat · code-gated"
+  },
+  "article": {
+    "coverNo": "{date} · essay",
+    "linkedFrom": "verlinkt von",
+    "privateEssay": "privater essay",
+    "lockedBody": "Dieser Essay ist gated; fragen Sie nach einem einladungs-code.",
+    "requestInvite": "fordern Sie einen einladungs-code an →"
+  },
+  "cards": {
+    "leadNo": "nein. 01 · {date}",
+    "latest": "neueste",
+    "no": "nein. {n}",
+    "readMinutesShort": "{minutes} min"
+  },
+  "index": {
+    "orSkipTheReading": "oder überspringen Sie das lesen",
+    "askHeading": "Fragen Sie die KI direkt",
+    "askBody": "Alles, das Sie hier lesen würden, sagte Ihnen zurück in der Stimme des Eigentümers. Der Chat deckt den Grund ab, den er nicht geschrieben hat, und antwortet aus dem Corpus anstelle des Archivs.",
+    "openTheChat": "öffne den chat →",
+    "ifYouOnlyReadTwo": "wenn Sie nur zwei lesen",
+    "chat": "chat",
+    "essays": "essays",
+    "title": "Schriften",
+    "lede": "Das Corpus, oberflächlich. Jeder Essay ist die erweiterte Version von etwas, das ich durchdenke — Sie können die KI direkt über jede davon fragen.",
+    "browseByTag": "browse by tag",
+    "clear": "× clear · zeigt {filtered} von {total}",
+    "all": "alle",
+    "empty": "Noch keine Essays.",
+    "mostRecent": "neueste",
+    "archive": "archiv",
+    "filteredBy": "gefiltert nach",
+    "essayCount": "{count, plural, one {# essay} other {# essays}}"
+  },
+  "editor": {
+    "slashNoMatch": "keine übereinstimmung",
+    "crosslink": "querverweis",
+    "crosslinkNoMatch": "keine übereinstimmung · geben Sie einen slug ein um zu erstellen",
+    "crosslinkHint": "↑↓ navigieren · ↵ einfügen · esc zum abbrechen"
+  }
+}

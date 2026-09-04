@@ -75,6 +75,9 @@ services:
       # e2e/fixtures/admin.ts or hand-set via admin UI) to point at the
       # llm-gateway service below; prod points at real api.anthropic.com.
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      # PUBLIC_IP —— the instance's public IP, shown on the admin System panel. A fixed
+      # TEST-NET value (RFC 5737) in dev/e2e so the panel is deterministic; prod injects the real one.
+      - PUBLIC_IP=203.0.113.42
       - SANDBOX_DRIVER=docker
       # Turnstile —— empty by default, so captcha is OFF for every ordinary spec. `make test-captcha`
       # brings the stack up with Cloudflare's always-pass TEST keys, which is the only way to drive

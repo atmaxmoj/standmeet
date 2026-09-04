@@ -1,7 +1,8 @@
-// codes.ts —— admin POST /api/admin/codes 创建 access code 的 helper。
+// codes.ts —— helper for admin POST /api/admin/codes to create an access code.
 //
-// A.3-IAM-5: code 只挂 assumed_role_id；不传时 backend 默认绑 owner 的 public
-// role。ACL 测试请配合 fixtures/roles.ts 先建一个 role 再传 assumed_role_id。
+// A.3-IAM-5: a code only carries assumed_role_id; when unset the backend
+// defaults to binding the owner's public role. For ACL tests, pair with
+// fixtures/roles.ts to create a role first, then pass assumed_role_id.
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -55,9 +56,10 @@ export async function createCode(
   return await res.json() as CodeView;
 }
 
-// revokeCode —— 撤销一张码。被撤销跟不存在是**两种**拒绝（F-D-6 把那句合成的
-// "invalid or revoked" 拆开了：打错字的人重新粘一次，被撤销的人去要一张新码），
-// 所以走访客那一侧的 spec 需要能真造出「被撤销」这个状态。
+// revokeCode —— revoke a code. Revoked and non-existent are **two different**
+// rejections (F-D-6 split the merged "invalid or revoked": someone who mistyped
+// re-pastes, someone whose code was revoked goes and asks for a new one), so a
+// spec on the visitor side needs to be able to really produce the "revoked" state.
 export async function revokeCode(
   request: APIRequestContext, csrf: string, codeID: string,
 ): Promise<void> {

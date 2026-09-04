@@ -51,7 +51,11 @@ type Handlers struct {
 	//
 	// nil = no plugins to seed (old assembly path / tests). Best-effort: a failure only
 	// logs, it never blocks claim.
-	SeedPlugins     func(ctx context.Context, ownerID string) error
+	SeedPlugins func(ctx context.Context, ownerID string) error
+	// InstallHomepage — installs the default homepage as the `home` custom page after claim.
+	// Best-effort like SeedPlugins: a failure only logs (the built-in homepage keeps serving),
+	// and it's handed in from the composition root so this layer needn't know custom-page deps.
+	InstallHomepage func(ctx context.Context, ownerID string) error
 	PromptsAdmin    PromptsAdminDeps
 	Domains         DomainsDeps
 	AIProviderAdmin AIProviderDeps
@@ -60,7 +64,6 @@ type Handlers struct {
 	SEOAdmin        SEOAdminDeps
 	HandleAdmin     HandleDeps
 	Log             *slog.Logger
-	PageAdmin       PageAdminDeps
 	IPBansAdmin     IPBansAdminDeps
 	ConnectorsAdmin ConnectorsAdminDeps
 	InstanceAdmin   InstanceAdminDeps // Observation facade: system / usage / stats.*
@@ -94,7 +97,6 @@ func (h *Handlers) MountAuthed(r chi.Router, credGuard func(http.Handler) http.H
 	h.MountConversations(r)
 	h.MountBYOAI(r)
 	h.MountDomains(r)
-	h.MountPage(r)
 	h.MountSEO(r)
 	h.MountAppearance(r)
 	h.MountAccessRequests(r)
@@ -228,6 +230,7 @@ func (h *Handlers) runClaimAndAutoLogin(
 		return
 	}
 	h.seedPluginsForOwner(r.Context(), claimed.ID)
+	h.installHomepageForOwner(r.Context(), claimed.ID)
 	loggedIn, lerr := owner.Login(r.Context(), h.Auth.Login, &owner.LoginInput{
 		Email: req.Email, Password: req.Password,
 	})

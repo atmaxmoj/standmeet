@@ -1,12 +1,12 @@
-// tool-endpoint-ext-mcp.spec.ts —— visitor 通过 per-tool HTTP 端点直调
-// owner-registered 外部 MCP server 暴露的 tool。命名 ext_<server>_<tool>
-// 跟 chat path 一字不差；executor 走 backend MCP client 拨号 → 调
-// upstream → 返 tool_result。
+// tool-endpoint-ext-mcp.spec.ts —— visitor directly calls, via the per-tool HTTP
+// endpoint, a tool exposed by an owner-registered external MCP server. The name
+// ext_<server>_<tool> matches the chat path exactly; the executor dials through the
+// backend MCP client → calls upstream → returns tool_result.
 //
-// 业务故事：owner 注册 host-tool 指 mcp-server-mock；recruiter 持
-// EXT-001 code 入 session；前端 (pi-agent-core) 调 POST /tools/
-// ext_host-tool_ping_external → 200 + result 含外部 server 返的
-// EXT-MCP-MARKER。换持没挂这个 server 的 code → 404。
+// Business story: owner registers host-tool pointing at mcp-server-mock; recruiter
+// enters a session with the EXT-001 code; the frontend (pi-agent-core) calls POST /tools/
+// ext_host-tool_ping_external → 200 + a result containing the external server's
+// EXT-MCP-MARKER. Switching to a code without this server attached → 404.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -159,10 +159,10 @@ test.describe('tool endpoint · external MCP server tool', () => {
 
   test('role attaches only an UNREACHABLE server → 404 + capability_not_enabled (silent dial fail)',
     async ({ playwright }) => {
-      // 实现选择 (agentskills_ext_mcp.go): dial 失败 silently skip server，
-      // 全失败 → bundle.tools 空 → ErrHidden → cap absent → 404。这里
-      // 验证这一兜底，而不是 plan 原文的 "tool envelope external_mcp_unreachable"
-      // (plan 跟实现不一致，按实现写真行为)。
+      // Implementation choice (agentskills_ext_mcp.go): a failed dial silently skips
+      // the server; all-failed → empty bundle.tools → ErrHidden → cap absent → 404.
+      // This verifies that fallback, not the plan's original "tool envelope
+      // external_mcp_unreachable" (plan disagrees with implementation; test the real behavior).
       const request = await playwright.request.newContext();
       await assertUnreachableServerReturns404(request);
       await request.dispose();
@@ -201,7 +201,7 @@ async function assertUnreachableServerReturns404(
   expect(res.status()).toBe(404);
   const body = await res.json() as ToolResp;
   expect(body.reason).toBe('capability_not_enabled');
-  // ext.mcp cap 也不应在 fresh state (因为 dial fail → ErrHidden)
+  // ext.mcp cap should also be absent in fresh state (because dial fail → ErrHidden)
   const extCap = body.capability_state?.find(c => c.id === 'ext.mcp');
   expect(extCap, 'ext.mcp cap absent when all servers unreachable').toBeUndefined();
 }

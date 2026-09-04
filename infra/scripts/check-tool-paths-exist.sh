@@ -1,26 +1,29 @@
 #!/usr/bin/env sh
-# check-tool-paths-exist —— **工具描述里点名的 admin 路径必须真的存在。**
+# check-tool-paths-exist —— **an admin path named in a tool description must really exist.**
 #
-# 为什么这条闸门存在：
-# 那些 description 不是注释，它们是**发给 owner 的 AI 的说明书**。`resume.draft` 的原话是
-# *"Owner opens admin preview at /admin/drafts/<id>"* —— 而那个 URL 是 404（真实路由是
-# `/admin/drafts`，然后点 OPEN COMPOSER）。owner 的 AI 会照抄这句话，把人送到一个死链接上，
-# 而**没有任何东西会报错**：Go 那边是字符串，Next 那边是文件系统路由，两边谁也不认识谁。
+# Why this gate exists:
+# Those descriptions aren't comments, they are **the manual handed to the owner's AI**. `resume.draft`
+# literally says *"Owner opens admin preview at /admin/drafts/<id>"* — and that URL is a 404 (the real
+# route is `/admin/drafts`, then click OPEN COMPOSER). The owner's AI copies this line verbatim and
+# sends the person to a dead link, and **nothing errors**: Go's side is a string, Next's side is a
+# filesystem route, and neither knows the other.
 #
-# 判据是「那一段 URL 能不能落到 app router 上」，不是「有没有写 URL」——
-# 见 [[ref-resolves-not-a-string]]：闸门查「写没写」而不是「指得到吗」，就等于没查。
+# The criterion is "does that URL segment land on the app router", not "was a URL written" —
+# see [[ref-resolves-not-a-string]]: a gate that checks "was it written" rather than "does it resolve"
+# has checked nothing.
 #
-# 动态段按 Next 的写法折算：`/admin/x/<id>` 认 `app/admin/x/[…]/page.tsx`。
+# Dynamic segments map to Next's convention: `/admin/x/<id>` matches `app/admin/x/[…]/page.tsx`.
 #
-# 自证：种一条指向不存在页面的描述，判定必须看得见。
+# Self-test: plant a description pointing at a nonexistent page, and the judgment must see it.
 
 set -eu
 
 fail=0
 ROUTES_DIR=app/src/app
 
-# route_exists —— 一个 /admin/... 路径在 app router 里有没有对应的 page.tsx。
-# 逐段走：字面段要么有同名目录，要么有一个 [dyn] 目录；<x> / {x} / :x 只能落在 [dyn] 上。
+# route_exists —— whether a /admin/... path has a matching page.tsx in the app router.
+# Walk segment by segment: a literal segment needs either a same-name directory or a [dyn] directory;
+# <x> / {x} / :x can only land on a [dyn].
 route_exists() {
   dir="$ROUTES_DIR"
   path=$(printf '%s' "$1" | sed 's#^/##; s#/$##')
@@ -45,19 +48,22 @@ route_exists() {
   [ -f "$dir/page.tsx" ]
 }
 
-# 范围按「**声明了工具的文件**」定，不按目录：按目录会把 HTTP API 路径（`/api/admin/…` 的尾巴）
-# 一起扫进来，那是另一回事，误伤会让这道闸被关掉（见 [[gate-scope-forces-architecture]]）。
-# 工具有两种声明形态，都要认 —— 只认一种的话，第一个促成这道闸的文件恰好在盲区里
-# （jobs 的工具走 capreg.MCPBinding，见 [[gate-can-go-blind]]）。
+# The scope is defined by "**files that declare a tool**", not by directory: by directory it would
+# also scan HTTP API paths (the tails of `/api/admin/…`), which is a different matter, and the
+# false positives would get this gate turned off (see [[gate-scope-forces-architecture]]).
+# Tools have two declaration forms, both must be recognized — recognize only one and the very file
+# that prompted this gate sits in the blind spot (jobs' tools go through capreg.MCPBinding, see
+# [[gate-can-go-blind]]).
 tool_files=$(grep -rl -e 'fp\.Op{' -e 'capreg\.MCPBinding{' backend/internal \
   --include='*.go' 2>/dev/null | grep -v '_test\.go' || true)
 
-# 三处收窄，每一处都是第一版误伤过的：
-#   1. 去掉 Go 注释行 —— 判据是「**工具对 AI 说了什么**」，注释不是。（讲清这条缺陷的注释
-#      里必然写着那个坏 URL，把它算进来的话，修完仍然红。）
-#   2. `/api` 前缀连着匹配再滤掉 —— `/api/admin/api-keys` 是 HTTP 路由不是页面，
-#      只匹配 `/admin/…` 会从它中间截一段。
-#   3. 尾随标点剥掉。
+# Three narrowings, each a false positive from the first version:
+#   1. Drop Go comment lines — the criterion is "**what the tool tells the AI**", not comments. (The
+#      comment explaining this very defect necessarily contains that bad URL; count it in and the fix
+#      stays red.)
+#   2. Match the `/api` prefix along and then filter it out — `/api/admin/api-keys` is an HTTP route,
+#      not a page, and matching only `/admin/…` would cut a segment out of its middle.
+#   3. Strip trailing punctuation.
 paths=$(printf '%s\n' "$tool_files" | xargs -r grep -hE '(/api)?/admin/' \
   | grep -vE '^[[:space:]]*//' \
   | grep -oE '(/api)?/admin/[A-Za-z0-9_/<>{}:-]+' \
@@ -70,7 +76,7 @@ for p in $paths; do
   fi
 done
 
-# 扫描范围自证之一：没有取到任何路径的话，上面那个循环恒绿。
+# Scan-range self-test one: if no path was captured, the loop above is always green.
 n=$(printf '%s\n' "$paths" | grep -c . || true)
 if [ "$n" -lt 1 ]; then
   echo "check-tool-paths-exist: SELF-TEST FAILED — no /admin path found in any tool description,"
@@ -78,8 +84,9 @@ if [ "$n" -lt 1 ]; then
   exit 2
 fi
 
-# 扫描范围自证之二：**两种声明形态都得在范围里**。只剩一种时上面那条计数照样过，
-# 而另一整类工具的描述从此没人看 —— 这道闸第一次跑就差点这么瞎掉。
+# Scan-range self-test two: **both declaration forms must be in range**. With only one left, the
+# count above still passes, while a whole other class of tool descriptions goes unread — this gate
+# nearly went blind this way on its first run.
 for marker in 'fp\.Op{' 'capreg\.MCPBinding{'; do
   hits=$(printf '%s\n' "$tool_files" | xargs -r grep -l "$marker" 2>/dev/null | grep -c . || true)
   if [ "$hits" -lt 1 ]; then
@@ -89,12 +96,12 @@ for marker in 'fp\.Op{' 'capreg\.MCPBinding{'; do
   fi
 done
 
-# 判定自证：一个**确定不存在**的路径必须被判为不存在。
+# Judgment self-test: a path that **definitely does not exist** must be judged nonexistent.
 if route_exists "/admin/definitely-not-a-page"; then
   echo "check-tool-paths-exist: SELF-TEST FAILED — a nonexistent route was judged to exist"
   exit 2
 fi
-# 反向自证：一个**确定存在**的路径必须被判为存在，否则这道闸会把所有人都判红并被关掉。
+# Reverse self-test: a path that **definitely exists** must be judged to exist, or this gate would flag everyone red and get turned off.
 if ! route_exists "/admin/drafts"; then
   echo "check-tool-paths-exist: SELF-TEST FAILED — /admin/drafts exists but was judged missing"
   exit 2

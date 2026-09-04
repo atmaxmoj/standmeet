@@ -28,11 +28,11 @@ type CreateRawEntryParams struct {
 	FlaggedPrivate bool
 }
 
-// corpus.sql —— raw inbox 的 query。raw 已折进统一 corpus_notes 基座（genre='raw'，#151），
-// 不再是独立表。inbox 专属字段（inbox_source / inbox_meta / flagged_private / archived /
-// promoted_to）只对 genre='raw' 有意义。列映射:body→body, source→inbox_source,
-// source_meta→inbox_meta, tags→tags。title NOT NULL,每条 INSERT 必给。
-// MCP raw_dump: title 由 caller 从 body 派生(首行 <=60 char,fallback "untitled")。
+// corpus.sql —— queries for the raw inbox. raw is folded into the unified corpus_notes base
+// (genre='raw', #151), no longer its own table. The inbox-only fields (inbox_source / inbox_meta /
+// flagged_private / archived / promoted_to) only matter for genre='raw'. Column mapping: body→body,
+// source→inbox_source, source_meta→inbox_meta, tags→tags. title is NOT NULL, so every INSERT must set it.
+// MCP raw_dump: the caller derives title from body (first line, <=60 chars, fallback "untitled").
 func (q *Queries) CreateRawEntry(ctx context.Context, arg CreateRawEntryParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, createRawEntry,
 		arg.OwnerID,
@@ -146,9 +146,9 @@ type ListRawByOwnerParams struct {
 	Limit   int32
 }
 
-// archived 这一列不再有写者:raw 的删跟 wiki / output 一样是真删(见 RawRepo.Delete)。
-// 过滤留着,是因为老库里可能还有当年归档下来的行 —— 它们当时就已经从每个列表消失了,
-// 现在也不该突然冒出来。
+// The archived column no longer has any writer: deleting raw is a hard delete, same as wiki / output
+// (see RawRepo.Delete). The filter stays because an old database may still hold rows archived back then
+// —— they had already disappeared from every list at the time, and should not suddenly reappear now.
 func (q *Queries) ListRawByOwner(ctx context.Context, arg ListRawByOwnerParams) ([]CorpusNote, error) {
 	rows, err := q.db.Query(ctx, listRawByOwner, arg.OwnerID, arg.Limit)
 	if err != nil {
@@ -249,8 +249,8 @@ type UpdateRawBodyParams struct {
 	FlaggedPrivate bool
 }
 
-// admin "edit raw" 入口：改 body + tags + flagged_private。inbox_source 不动
-// （inbox_source 是 ingest 来源标签，编辑不该改）。
+// admin "edit raw" entry point: change body + tags + flagged_private. inbox_source is left untouched
+// (inbox_source is the ingest-source tag, which editing should not change).
 func (q *Queries) UpdateRawBody(ctx context.Context, arg UpdateRawBodyParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, updateRawBody,
 		arg.ID,

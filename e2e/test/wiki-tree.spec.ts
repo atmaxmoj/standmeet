@@ -157,6 +157,8 @@ async function sidebarLazyExpand({ page }: { page: Page }): Promise<void> {
   page.on('request', (r) => {
     if (r.url().includes('/api/v1/wiki-tree')) treeReqs.push(r.url());
   });
+  // the tree rail is display:none below 1500px (reader-shell design c215f0be).
+  await page.setViewportSize({ width: 1512, height: 900 });
   await goto(page, '/wiki/essays');
   await expect(page.getByTestId('wiki-tree')).toBeVisible({ timeout: 5_000 });
   await expect(page.getByTestId('tree-node-thinking')).toBeVisible();
@@ -175,6 +177,7 @@ async function sidebarLazyExpand({ page }: { page: Page }): Promise<void> {
 // sidebarAclHidesGated — a gated root does not appear at all in the anonymous tree (its
 // title never leaks).
 async function sidebarAclHidesGated({ page }: { page: Page }): Promise<void> {
+  await page.setViewportSize({ width: 1512, height: 900 });
   await goto(page, '/wiki/thinking');
   await expect(page.getByTestId('wiki-tree')).toBeVisible({ timeout: 5_000 });
   await expect(page.getByTestId('tree-node-thinking')).toBeVisible();

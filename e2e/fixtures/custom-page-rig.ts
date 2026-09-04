@@ -1,21 +1,25 @@
-// custom-page-rig.ts —— 建一个**真的用 SDK** 的自定义页并上线。
+// custom-page-rig.ts —— build a custom page that **really uses the SDK** and put
+// it live.
 //
-// 为什么页面源码要在这里，而不是各 spec 里粘一份：判据是「页面上的 agent 就是这张码的
-// agent」，那么这一页必须真的走 SDK 的那条路（`useChatSession` → 接手已颁发的 session →
-// `/api/v1/agent/turn`）。一个只印一行字的页面能让每一条断言绿，而它证明的东西是零
-// （[[test-covers-capability-not-face]]）。
+// Why the page source lives here rather than being pasted into each spec: the
+// criterion is "the agent on the page is this code's agent", so this page must
+// really take the SDK's path (`useChatSession` → take over an issued session →
+// `/api/v1/agent/turn`). A page that just prints one line makes every assertion
+// green while proving nothing ([[test-covers-capability-not-face]]).
 //
-// 页面上的每个可断点都带 data-sm：断的是这一页给出了什么，不是它长什么样。
+// Every assertable point on the page carries data-sm: the assertion is about what
+// the page produces, not what it looks like.
 
 import { expect } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// ASK_PAGE —— 语料索引 + 问答栏。三样都真：
-//   - `useStandMeet().fetchPage()` 取 owner 的语料（读者看得到什么由后端按角色定）
-//   - `useChatSession()` 走 agent turn（接手已颁发的 session）
-//   - `byoaiOffered()` 决定给不给「自带 key」那条路
+// ASK_PAGE —— corpus index + an ask box. All three are real:
+//   - `useStandMeet().fetchPage()` fetches the owner's corpus (what the reader
+//     sees is decided by the backend per role)
+//   - `useChatSession()` takes the agent-turn path (taking over an issued session)
+//   - `byoaiOffered()` decides whether to offer the "bring your own key" path
 const ASK_PAGE = `
 import { useEffect, useState } from "react";
 import { StandMeetProvider, useStandMeet, useChatSession } from "@standmeet/sdk";
@@ -124,9 +128,10 @@ async function pageAPI(
   return { status: res.status(), body: await res.json().catch(() => ({})) as Record<string, unknown> };
 }
 
-// publishPage —— 建 → 写源码 → 构建到终态 → 上线。构建**必须**到 built：
-// 一个没上线的页面 404，而 404 会让后面每一条断言以另一种理由红，
-// 那种红读起来跟真缺陷一样（[[red-in-the-wrong-place]]）。
+// publishPage —— create → write source → build to a terminal state → go live.
+// The build **must** reach built: a page that isn't live 404s, and a 404 turns
+// every later assertion red for a different reason, a red that reads just like a
+// real defect ([[red-in-the-wrong-place]]).
 export async function publishPage(
   request: APIRequestContext, csrf: string, slug: string, source = ASK_PAGE,
 ): Promise<void> {
@@ -139,7 +144,8 @@ export async function publishPage(
   await expect.poll(async () => {
     row = (await pageAPI(request, csrf, 'get', `/builds/${id}`)).body;
     return (row['status'] as string | undefined) ?? 'pending';
-    // 180s 是**排队**预算：沙箱一次只建一个，这一族里好几条用例都要真构建。
+    // 180s is a **queueing** budget: the sandbox builds one at a time, and
+    // several cases in this family each need a real build.
   }, { timeout: 180_000, message: 'the build never settled' }).toMatch(/^(built|failed)$/);
   const why = row['error_message'];
   expect(row['status'], typeof why === 'string' ? why : '').toBe('built');
@@ -147,7 +153,7 @@ export async function publishPage(
   expect(live.status, 'promote to live').toBe(200);
 }
 
-// setPageByoai —— 这一页允不允许读者自带 key。
+// setPageByoai —— whether this page lets readers bring their own key.
 export async function setPageByoai(
   request: APIRequestContext, csrf: string, slug: string, allow: boolean,
 ): Promise<void> {
@@ -155,7 +161,7 @@ export async function setPageByoai(
   expect(res.status, 'set page byoai').toBe(200);
 }
 
-// bindCodeToPage —— 把一张码指向某一页；空 slug = 解绑。
+// bindCodeToPage —— point a code at a page; an empty slug = unbind.
 export async function bindCodeToPage(
   request: APIRequestContext, csrf: string, codeID: string, slug: string,
 ): Promise<void> {

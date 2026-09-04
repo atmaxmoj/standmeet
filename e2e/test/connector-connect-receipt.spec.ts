@@ -1,26 +1,26 @@
-// connector-connect-receipt.spec.ts —— 点 Connect 说"连上了",必须真的写下了那一笔。
+// connector-connect-receipt.spec.ts —— when Connect says "connected", it must really have written that record.
 //
-// `POST /connectors/{id}/connect` 走非 dance(bearer/apikey/basic)那条时,后端调
-// `MarkConnectorConnected`,它是一条光秃秃的 UPDATE:
+// when `POST /connectors/{id}/connect` takes the non-dance path (bearer/apikey/basic), the backend calls
+// `MarkConnectorConnected`, which is a bare UPDATE:
 //
 //     UPDATE owner_connectors SET connected_at = ... WHERE owner_id = $1 AND connector_id = $2
 //
-// **owner 还没有这一行时,更新命中 0 行,不报错**,于是 connect 返回 `connected: true` ——
-// 一句谎话。卡片当场翻成 connected,而下一次 `GET /status` 说 false。owner 刷新一下,
-// 连接就"自己断了"。
+// **when the owner doesn't have this row yet, the update hits 0 rows without erroring**, so connect returns `connected: true` ——
+// a lie. The card flips to connected on the spot, and the next `GET /status` says false. The owner refreshes, and the
+// connection "drops on its own".
 //
-// 这一行什么时候不存在?**每一次全新安装。** 行是"存凭据"那一步建的,而面板里存凭据是
-// fire-and-forget(`void adminAPI.postVoid(...)`),不挡 Connect —— owner 填完就点,
-// 两个请求赛跑。库里已经有行的时候(跑过一遍的开发机)谁先谁后都无所谓,所以这条只在
-// 干净库上翻车,看起来像"偶发"。它不是偶发,是**没有回执**。
+// when is this row missing? **every fresh install.** The row is created by the "store credentials" step, and storing credentials
+// in the panel is fire-and-forget (`void adminAPI.postVoid(...)`), which doesn't block Connect —— the owner fills it in and clicks,
+// and the two requests race. When the row already exists in the database (a dev box that's been run before) the order doesn't matter,
+// so this only breaks on a clean database and looks "flaky". It isn't flaky, it's **a missing receipt**.
 //
-// 两条断言分别钉住这件事的两半:
-//   1. 根本没存过凭据 → Connect 不该说连上(写不下就得说写不下,而且要说人话)
-//   2. 凭据还在路上就点了 Connect → 最终仍然真连上(面板得等自己那一笔落地)
+// the two assertions pin the two halves of this:
+//   1. never stored any credentials → Connect must not say connected (if it can't write, it has to say so, and in plain words)
+//   2. Connect clicked while the credentials are still in flight → it must still really connect in the end (the panel has to wait for its own write to land)
 //
-// 判据都取**回程的 `/status`**,不只看卡片上那行字:这个 bug 的全部形态就是"字对、库不对"。
-// 卡片文案单独断言时也用 `/^connected$/`——`/connected/` 连 "not connected" 都匹配,
-// 那是一条不会红的断言。
+// both checks take **the returning `/status`**, not just the line of text on the card: the entire shape of this bug is "text right, database wrong".
+// When the card's copy is asserted on its own it also uses `/^connected$/` —— `/connected/` matches even "not connected",
+// which is an assertion that can never go red.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Locator } from '@playwright/test';
@@ -37,7 +37,7 @@ const OWNER = {
   fullName: 'Receipt Owner',
 };
 
-// 非 dance 的内置连接器:bearer 鉴权,单 token 字段,存即连 —— 走的正是那条光秃秃的 UPDATE。
+// a non-dance built-in connector: bearer auth, a single token field, store-is-connect —— it takes exactly that bare UPDATE.
 const CONNECTOR_ID = 'bearer-api';
 const CREDS_URL = `**/connectors/${CONNECTOR_ID}/credentials`;
 
@@ -56,23 +56,23 @@ test.describe('connector · connect writes a receipt, not a claim', () => {
     const card = await openConnectorCard(page, CONNECTOR_ID);
     await expectNotConnected(card);
 
-    // 一个字都没填 → 从来没有过 credentials 请求 → 库里没有这一行。此时点 Connect:
-    // 那条 UPDATE 命中 0 行。今天后端把它当成功,卡片翻 connected —— 这一步就已经错了。
+    // nothing filled in → there was never a credentials request → the row isn't in the database. Clicking Connect now:
+    // that UPDATE hits 0 rows. Today the backend treats it as success and the card flips to connected —— this step is already wrong.
     await card.getByTestId('connector-connect-button').click();
 
-    // 真相在库里:没有行 = 没连上。卡片说什么都不算数。
+    // the truth is in the database: no row = not connected. Whatever the card says doesn't count.
     await expect.poll(
       async () => (await getConnectorStatus(page, CONNECTOR_ID)).connected,
       { message: 'connect must not mark a connector connected when it stored nothing' },
     ).toBe(false);
     await expectNotConnected(card);
-    // 而且写不下去要说人话:owner 得知道下一步该干什么,不能只看到一个静默回滚的状态。
+    // and if it can't write, it has to say so in plain words: the owner needs to know the next step, not just see a silently rolled-back state.
     await expect(card.getByTestId('connector-error')).toBeVisible();
   });
 
   test('Connect clicked while the credential save is still in flight still connects',
     async ({ adminPage: page }) => {
-      // 把存凭据的回程扣在手里 —— 不用计时器:闸门由本用例显式放开。
+      // hold the credentials-save round trip in hand —— no timer: the gate is released explicitly by this test.
       const gate = new Gate();
       await page.route(CREDS_URL, async (route) => {
         await gate.waited;
@@ -83,11 +83,11 @@ test.describe('connector · connect writes a receipt, not a claim', () => {
       await card.getByTestId('connector-field-token').fill('static-bearer-token');
       await expectNotConnected(card);
 
-      // owner 填完立刻点 —— 存凭据这一笔还没落地。面板必须等自己那一笔,而不是抢在前面
-      // 让后端对着一张不存在的行说"连上了"。
+      // the owner fills it in and clicks immediately —— the credentials-save write hasn't landed. The panel must wait for its own write,
+      // rather than jumping ahead and letting the backend say "connected" against a row that doesn't exist.
       await card.getByTestId('connector-connect-button').click();
-      // 状态离开 "not connected" = 面板已经开始动作(修好后是 connecting…,坏的时候直接跳
-      // connected)。两条路都会离开,所以这一步不会把用例吊死在闸门前。
+      // status leaving "not connected" = the panel has started acting (connecting… once fixed, jumping straight to
+      // connected when broken). Both paths leave it, so this step won't hang the test in front of the gate.
       await expect(card.getByTestId('connector-status')).not.toHaveText(/^not connected$/i);
       gate.open();
 
@@ -98,25 +98,25 @@ test.describe('connector · connect writes a receipt, not a claim', () => {
       ).toBe(true);
     });
 
-  // UX-65 —— 凭据存了就得说出来，否则「已存但隐藏」和「什么都没配」长得一模一样。
+  // UX-65 —— if credentials are stored, the card has to say so, otherwise "stored but hidden" and "nothing configured" look identical.
   //
-  // 后端**从不回**凭据的值（connector-security 验过：credential-form 回的是字段名，
-  // 连打码的值都没有 —— 那比打码更强，是对的）。代价是卡片上只剩一排空框：owner 看不出
-  // 自己到底配没配过，而重填一次就把好凭据覆盖掉了。事实一直在 —— `/status` 回
-  // `has_credentials: true` —— 只是没人往界面上传。
+  // the backend **never returns** the credential values (connector-security verified: the credential-form returns field names,
+  // not even masked values —— that's stronger than masking, and correct). The cost is that the card is left with a row of empty boxes:
+  // the owner can't tell whether they configured it, and refilling once overwrites the good credentials. The fact is always there ——
+  // `/status` returns `has_credentials: true` —— it just never reaches the interface.
   //
-  // 断言必须在**两种状态下给出相反结果**，否则一句"总是显示"的通用提示也能过：
-  // 存之前不该有，存之后必须有。只断后半句的守卫是不会红的。
+  // the assertion must give **opposite results in the two states**, otherwise an "always shown" generic hint would pass too:
+  // it must be absent before storing and present after. A guard that only asserts the second half can never go red.
   test('a card with stored credentials says so, instead of showing empty boxes',
     async ({ adminPage: page }) => {
-      // 这条跑在上面两条之后（describe 是 serial），bearer-api 此时已经存过凭据并连上。
+      // this runs after the two above (the describe is serial), so bearer-api has already stored credentials and connected.
       const card = await openConnectorCard(page, CONNECTOR_ID);
       await expect(
         card.getByTestId('connector-creds-stored'),
         'credentials are saved and the card must say so — empty boxes read as "nothing configured"',
       ).toBeVisible();
 
-      // 反方向：另一个从没配过的连接器上，这句话必须不在。
+      // the reverse direction: on another connector that was never configured, this line must be absent.
       const untouched = await openConnectorCard(page, 'smtp');
       await expect(
         untouched.getByTestId('connector-creds-stored'),
@@ -125,7 +125,7 @@ test.describe('connector · connect writes a receipt, not a claim', () => {
     });
 });
 
-// Gate —— 一道由本用例显式放开的闸门(替代 sleep;spec 里禁计时器等待)。
+// Gate —— a gate released explicitly by this test (replacing sleep; timer-based waits are banned in specs).
 class Gate {
   readonly waited: Promise<void>;
   private release: () => void = () => undefined;
@@ -145,8 +145,8 @@ async function openConnectorCard(page: Page, id: string): Promise<Locator> {
   return card;
 }
 
-// expectConnected —— 锚定成整串 'connected'。不加锚点的话 "not connected" 也匹配,
-// 这条断言就永远不会红。
+// expectConnected —— anchored to the whole string 'connected'. Without the anchors "not connected" matches too,
+// and this assertion would never go red.
 async function expectConnected(card: Locator): Promise<void> {
   await expect(card.getByTestId('connector-status')).toHaveText(/^connected$/i);
 }

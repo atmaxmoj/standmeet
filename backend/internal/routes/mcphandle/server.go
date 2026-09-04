@@ -41,6 +41,40 @@ type Deps struct {
 	// and the MCP face is its projection (generated). See internal/routes/dispatcher.
 	Dispatcher *dispatcher.Dispatcher
 	Log        *slog.Logger
+	// Version —— this instance's running version, reported in the MCP handshake so the owner's
+	// client (and its agent) sees which build it's driving, and surfaced in the connect
+	// instructions with a nudge to run instance.upgrade_check. Passed in from the composition
+	// root (port.AppVersion); mcphandle must not reach into that layer itself.
+	Version string
+}
+
+// ServerInstructions —— the guidance the connecting agent receives automatically in the MCP
+// initialize response. An owner installs the client and their agent should then know, without
+// being told, how to manage the corpus and to check it's on the latest version. Kept short and
+// imperative on purpose (ASD-STE100): it competes for the agent's context on every session.
+// Exported so it can be verified black-box.
+func ServerInstructions(version string) string {
+	return "StandMeet owner tools — curate the personal corpus that a visitor's AI answers from, " +
+		"in the owner's voice.\n\n" +
+		"Corpus model. One pipeline, three genres: raw → wiki → output.\n" +
+		"- raw: rough, unedited thinking. Capture it freely with corpus.create (genre \"raw\").\n" +
+		"- wiki: durable, refined ideas. A visitor's AI grounds its answers here — promote to " +
+		"wiki only once an idea is stable.\n" +
+		"- output: polished public artifacts.\n" +
+		"Move an item one step along the pipeline with corpus.promote (the genre names the " +
+		"SOURCE). Edit with corpus.update, remove with corpus.delete, read with corpus.list / " +
+		"corpus.get, and find with corpus.search.\n\n" +
+		"Best practices.\n" +
+		"- Write raw first; promote deliberately. Prefer promote over re-creating — it keeps the " +
+		"pipeline link.\n" +
+		"- Keep each item single-topic; give sibling items distinct slugs.\n" +
+		"- writings.* manage long-form published pieces; page.* manage the public page (pins, " +
+		"handle, URL).\n" +
+		"- custom_page.* build hosted React pages. Before authoring one, call custom_page.guide " +
+		"— the design system, the SDK widgets, and how to show corpus inline.\n\n" +
+		"Version. This instance runs " + version + ". At the start of a session, call " +
+		"instance.upgrade_check to see whether a newer StandMeet was released and whether this " +
+		"instance can upgrade itself."
 }
 
 // New builds an http.Handler with the tools already mounted; the caller
@@ -52,10 +86,15 @@ type Deps struct {
 // HTTPContextFunc now only carries ownerID from the request ctx to the mcp
 // ctx.
 func New(deps *Deps) http.Handler {
+	version := deps.Version
+	if version == "" {
+		version = "dev"
+	}
 	mcpSrv := server.NewMCPServer(
 		"standmeet",
-		"0.1.0",
+		version,
 		server.WithToolCapabilities(true),
+		server.WithInstructions(ServerInstructions(version)),
 	)
 	registerTools(mcpSrv, deps)
 

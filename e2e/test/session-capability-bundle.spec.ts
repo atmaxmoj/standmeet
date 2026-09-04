@@ -1,17 +1,17 @@
-// session-capability-bundle.spec.ts —— POST /api/v1/sessions 响应一次
-// 给前端 (a) 该 session 启用的 capability 列表 + (b) system prompt
-// 拼接需要的 fragment id 数组。前端按 fragment id 分别 GET
-// /api/v1/prompts/{id} 拿文本本地组合。
+// session-capability-bundle.spec.ts —— POST /api/v1/sessions responds in one shot with
+// (a) the list of capabilities enabled for this session + (b) the array of fragment ids needed to
+// assemble the system prompt. The frontend GETs /api/v1/prompts/{id} per fragment id and composes the
+// text locally.
 //
-// 不变量：
-//   - capabilities 跟 /internal/diag/session 的 capabilities
-//     字段是同一 shape (用 Registry.VisitorStates 一处算)
-//   - system_prompt_part_ids[0] 永远是 'visitor-header'
-//   - 当 capability 的 fragment 进入实际 system prompt 时，其 fragment id
-//     必出现在 system_prompt_part_ids 里 (反之亦然)
+// Invariants:
+//   - capabilities is the same shape as the capabilities field of /internal/diag/session
+//     (both computed in one place via Registry.VisitorStates)
+//   - system_prompt_part_ids[0] is always 'visitor-header'
+//   - when a capability's fragment enters the actual system prompt, its fragment id
+//     must appear in system_prompt_part_ids (and vice versa)
 //
-// 漂移侦测：以后谁加新 capability 带 fragment 而不暴露 id，spec 会 fail
-// (system_prompt_full 含某段文本但 part_ids 不含其 id)。
+// Drift detection: if anyone later adds a new capability with a fragment but does not expose its id, the
+// spec fails (system_prompt_full contains some text but part_ids lacks its id).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -122,9 +122,9 @@ test.describe('session capability bundle · POST /sessions response shape', () =
       );
       requireCaps(sess);
       const partIDs = requirePartIDs(sess);
-      // visitor-header 永远 first；其余取决于 owner 的 public role 配置
-      // (owner 在 claim 时若给 public 配了 corpus URIs，本 mode 也带 retrieval
-      // fragment) — 这里只 lock 头部不 lock 尾部。
+      // visitor-header is always first; the rest depends on the owner's public role config
+      // (if the owner gave public corpus URIs at claim time, this mode also carries the retrieval
+      // fragment) — here we only lock the head, not the tail.
       expect(partIDs.length).toBeGreaterThan(0);
       expect(partIDs[0]).toBe('visitor-header');
       await request.dispose();
@@ -164,8 +164,8 @@ async function assertPersonaInFullPrompt(
   );
   expect(typeof sess.system_prompt_persona,
     'system_prompt_persona present').toBe('string');
-  // role 自定义 PromptBody 可能为空但 helper 必返 string；当不为空时验证它真
-  // 在 system_prompt_full 里 (跟下行 LLM prompt 一致)。
+  // A role's custom PromptBody may be empty but the helper always returns a string; when non-empty,
+  // verify it really is in system_prompt_full (consistent with the LLM prompt on the line below).
   if ((sess.system_prompt_persona ?? '') !== '') {
     const dev = await fetchDevCaps(request, sess.session_token);
     expect(dev.system_prompt_full).toContain(sess.system_prompt_persona!.trim());

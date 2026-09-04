@@ -1,15 +1,15 @@
-// job-pool-stays-visible.spec.ts —— owner 那一侧的 AI 要**看得见今天的池子**，
-// 而不是只看见"这一次调用碰巧新捞上来的那几条"。
+// job-pool-stays-visible.spec.ts —— the owner-side AI must **see today's pool**, not just "the few
+// that this particular call happened to newly fetch".
 //
-// 这条守卫来自 F-E-29：真环境里 prod 的池子躺着 245 条活岗位（GUI 的
-// /admin/listings 看得见，它走 Pool.ListByOwner），而 owner 在 Claude 里
-// 第二次问「今天有什么新工作」，`jobs.fetch_new` 回的是 **1 条** —— 其余全被
-// 判为 duplicate 丢掉了，MCP 那一面再没有第二条路能列出池子。
-// 而设计把「排序 / 挑哪条」整件事交给 Claude（docs/design/job-loop.md 的分工表），
-// 排序的前提是看得见。
+// This guard comes from F-E-29: in the real environment prod's pool held 245 live jobs (visible in
+// the GUI at /admin/listings, which goes through Pool.ListByOwner), yet when the owner asked "what
+// new jobs today" a second time in Claude, `jobs.fetch_new` returned **1** — the rest were all
+// judged duplicate and dropped, and the MCP side had no second path to list the pool. Yet the design
+// hands the entire "rank / pick which" job to Claude (the division-of-labor table in
+// docs/design/job-loop.md), and ranking presupposes being able to see.
 //
-// 这里的判据都落在**同一天里问第二次**这个动作上，因为那正是缺陷的形状：
-// 第一次问永远是对的。
+// Every criterion here lands on the act of **asking a second time within the same day**, because
+// that is exactly the shape of the defect: the first ask is always right.
 
 import { execSync } from 'node:child_process';
 
@@ -38,9 +38,10 @@ test.describe('今天的池子对 owner 那一侧始终可见', () => {
     await request.dispose();
   });
 
-  // 每条用例都从**空池子**开始。这个文件里每条都自己注册一个源、抓同一份 fixture，
-  // 于是同一条 posting 会有好几份副本（每个源一份，靠跨源去重收成一条）——
-  // 数条数的断言在那种池子上量的是"历史"，不是"这一次"。
+  // Every case starts from an **empty pool**. Each case in this file registers its own source and
+  // fetches the same fixture, so the same posting has several copies (one per source, collapsed to
+  // one by cross-source dedup) — a count assertion on that kind of pool measures "history", not
+  // "this run".
   test.beforeEach(() => {
     clearPool();
   });
@@ -62,15 +63,15 @@ async function expectBoardSurvivesASecondAsk(
   const firstIDs = new Set(first.jobs.map((j) => j.cache_id));
 
   const second = await jobsFetchNew(request, token, sid, source.id);
-  // ★ 这一条就是 F-E-29 的红，**排在最前面**：`new` 那两条断言在旧代码上也红
-  //   （字段根本不存在），排在前面就会替这一条挡枪，让人看见的红不是缺陷本身
-  //   （[[two-guards-dying-at-one-line]]）。
+  // ★ This is the F-E-29 red, **placed first**: the two `new` assertions also go red on the old code
+  //   (the field simply does not exist), and placing them first would take the bullet for this one,
+  //   so the red the reader sees would not be the defect itself ([[two-guards-dying-at-one-line]]).
   expect(
     new Set(second.jobs.map((j) => j.cache_id)),
     '第二次问：整块板子原样还在（cache_id 一条不少、一条不多）',
   ).toEqual(firstIDs);
-  // 第一次问的时候每一条都是新的 —— 写出来是给下面那句做对照：不是"这个字段恒为
-  // false"，是它**该 true 的时候 true**。
+  // On the first ask every row is new — written out as a foil for the next assertion: not "this
+  // field is always false", but that it is **true when it should be true**.
   expect(
     first.jobs.every((j) => j.new),
     '第一次取数：每一条都是这一趟新进池子的',
@@ -79,8 +80,9 @@ async function expectBoardSurvivesASecondAsk(
     second.jobs.some((j) => j.new),
     '第二次问：没有一条是"新出现的" —— 板子没变，而这句话说得出来',
   ).toBe(false);
-  // 这一趟的账仍然如实报"这次一条都没进池子"：池子可见跟取数的账是两件事，
-  // 不能因为列表回满了就把 tally 也说成满的。
+  // This run's tally still honestly reports "nothing entered the pool this time": pool visibility
+  // and the fetch tally are two different things, and the list coming back full must not make the
+  // tally report full too.
   const tally = (second.sources ?? []).find((t) => t.source_id === source.id);
   expect(tally?.pooled, '第二趟确实一条都没新进池子').toBe(0);
   expect(tally?.duplicate, '它们都被认成见过的').toBe(first.jobs.length);
@@ -93,9 +95,9 @@ async function expectTTLAndBodySplit(
   const fetched = await jobsFetchNew(request, token, sid, source.id);
   const row = fetched.jobs[0]!;
 
-  // ttl_remaining 是设计里 fetch_new 回执的一部分（docs/design/job-loop.md
-  // 的 MCP tool surface），实现一直漏着 —— 没有它，owner 那侧无从知道
-  // "这条今天还来不来得及"。
+  // ttl_remaining is part of the fetch_new receipt in the design (the MCP tool surface in
+  // docs/design/job-loop.md), and the implementation kept omitting it — without it the owner side
+  // has no way to know "is this one still in time today".
   for (const j of fetched.jobs) {
     expect(j.ttl_remaining_seconds, `${j.cache_id} 说得出剩余寿命`)
       .toBeGreaterThan(0);
@@ -103,7 +105,7 @@ async function expectTTLAndBodySplit(
       .toBeLessThanOrEqual(24 * 60 * 60);
   }
 
-  // 排序要用的东西列表里都有；正文不在列表里，在 jobs.show 那边。
+  // Everything ranking needs is in the list; the body is not in the list, it is over in jobs.show.
   expect(row.title.length, '标题在列表里').toBeGreaterThan(0);
   expect(row.company.length, '公司在列表里').toBeGreaterThan(0);
   expect(
@@ -124,8 +126,9 @@ async function expectWindowTrimsByPooledAt(
   expect(fetched.jobs.length, '前置条件：捞到了岗位').toBeGreaterThan(1);
   const aged = fetched.jobs[0]!;
 
-  // 把其中一条的剩余寿命压到 1 小时 = 它 23 小时前就进池子了。
-  // 入池时间不另存，就是 24h - 剩余 TTL，所以改 TTL 就是改"它多老"。
+  // Push one row's remaining lifetime down to 1 hour = it entered the pool 23 hours ago.
+  // The pooled-at time is not stored separately, it is 24h - remaining TTL, so changing the TTL is
+  // changing "how old it is".
   ageOneKey(aged.cache_id, 60 * 60);
 
   const wide = await jobsFetchNew(request, token, sid, source.id, 24);
@@ -170,8 +173,9 @@ async function expectDiscardedStaysGone(
   expect(again.jobs.length, '其余的照常在').toBe(fetched.jobs.length - 1);
 }
 
-// ownerWithBoard —— 登录、开一条 MCP 会话、注册一个源。每条用例各注册各的源：
-// 源的「见过哪些 external_id」是按源记的，共用一个源的话第二条用例就一条都捞不到。
+// ownerWithBoard —— log in, open one MCP session, register a source. Each case registers its own
+// source: a source's "which external_ids it has seen" is tracked per source, so sharing one source
+// would leave the second case fetching nothing.
 async function ownerWithBoard(request: APIRequestContext, label: string) {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, label);
@@ -182,18 +186,19 @@ async function ownerWithBoard(request: APIRequestContext, label: string) {
   return { token, sid, source };
 }
 
-// clearPool —— 删掉全部 job:* key（单 owner 的 v1，安全）。跟
-// job-fetch-ttl-eviction.spec.ts 同一条路。
+// clearPool —— delete all job:* keys (safe under the single-owner v1). Same path as
+// job-fetch-ttl-eviction.spec.ts.
 function clearPool(): void {
   const script = 'for k in $(redis-cli --scan --pattern "job:*"); do redis-cli DEL "$k"; done';
   execSync(`docker exec standmeet-dev-redis-1 sh -c '${script}'`, { stdio: 'pipe' });
 }
 
-// ageOneKey —— 把一条池子记录的剩余寿命压到 seconds，等价于"它 (24h - seconds) 前进的池子"。
-// 走 docker exec redis-cli，跟 job-fetch-ttl-eviction.spec.ts 同一条路。
+// ageOneKey —— push one pool record's remaining lifetime down to seconds, equivalent to "it entered
+// the pool (24h - seconds) ago". Goes through docker exec redis-cli, same path as
+// job-fetch-ttl-eviction.spec.ts.
 function ageOneKey(cacheID: string, seconds: number): void {
-  // 用 shell 循环而不是 `xargs -I{}`：容器里是 busybox，别把守卫压在它的 xargs 方言上
-  // （[[gate-can-go-blind]] —— 扫描器失明时不报错，只是什么都不做）。
+  // Use a shell loop instead of `xargs -I{}`: the container is busybox, so do not rest the guard on
+  // its xargs dialect ([[gate-can-go-blind]] —— a blind scanner does not error, it just does nothing).
   const script =
     `for k in $(redis-cli --scan --pattern "job:*:${cacheID}"); ` +
     `do redis-cli EXPIRE "$k" ${seconds}; done`;

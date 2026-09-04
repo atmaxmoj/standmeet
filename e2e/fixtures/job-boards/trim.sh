@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# trim.sh — 把 .raw/ 里的 raw 捕获截到 ≤ 8 条 jobs / items，写到 git path
-# 用法：make trim-job-fixtures                  全部截
-#       make trim-job-fixtures KIND=remoteok    只截一个源（跟 capture 同一个开关）
+# trim.sh — trim the raw captures in .raw/ to ≤ 8 jobs / items, written to the git path
+# Usage: make trim-job-fixtures                  trim all
+#        make trim-job-fixtures KIND=remoteok    trim just one source (same switch as capture)
 
 set -u
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 RAW="$ROOT/.raw"
 KIND="${KIND:-}"
 
-# want —— 这一节要不要跑。KIND 空 = 全跑。跟 capture.sh 同一个词，别各叫各的。
+# want —— whether this section should run. Empty KIND = run all. Same word as
+# capture.sh, don't invent a different one.
 want() { [ -z "$KIND" ] || [ "$KIND" = "$1" ]; }
 
 if [ ! -d "$RAW" ]; then
@@ -54,9 +55,12 @@ fi
 
 # RemoteOK: array[0] legal notice + [1:9]
 #
-# **不要在这里"顺手清洗"字段**。上游发 `"location": "San Francisco, "` 就照原样留着 ——
-# fixture 的职责是复现真实世界，替身一客气，产品那边缺了归一化也没人看得见（UX-88 就是
-# 这么活到生产的）。归一化属于 ingest 边界（backend fetch.readableJobs），不属于替身。
+# **Do NOT "conveniently clean" fields here**. If upstream emits
+# `"location": "San Francisco, "`, keep it as-is —— a fixture's job is to reproduce
+# the real world, and when the mock is polite, a missing normalization on the
+# product side goes unseen (UX-88 reached production exactly this way).
+# Normalization belongs at the ingest boundary (backend fetch.readableJobs), not
+# in the mock.
 if want remoteok; then
 echo "[REMOTEOK]"
 mkdir -p "$ROOT/remoteok"

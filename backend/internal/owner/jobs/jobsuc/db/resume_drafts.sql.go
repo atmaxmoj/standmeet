@@ -95,7 +95,7 @@ WHERE owner_id = $1 AND expires_at > now()
 ORDER BY created_at DESC
 `
 
-// admin /drafts 视图：owner 未过期的 draft，按 created_at desc。
+// admin /drafts view: the owner's unexpired drafts, ordered by created_at desc.
 func (q *Queries) ListResumeDraftsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]ResumeDraft, error) {
 	rows, err := q.db.Query(ctx, listResumeDraftsByOwner, ownerID)
 	if err != nil {

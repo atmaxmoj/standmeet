@@ -1,10 +1,10 @@
-// document-render-benchmark.spec.ts —— wiki landing 上各 markdown 元素
-// 的渲染耗时 smoke。不是严格 perf gate (CI 抖动太大)，宽松上限把"突然
-// 多花几秒"这种回归抓出来；timing 写 stdout 给 owner 看趋势。
+// document-render-benchmark.spec.ts —— a render-time smoke for each markdown element
+// on the wiki landing. Not a strict perf gate (CI is too jittery); a loose ceiling catches
+// "suddenly takes several seconds longer" regressions; timing is written to stdout for the owner to watch the trend.
 //
-// 之前是 bench /dev/chat-render fixture path；G-6 删掉 dev route 后切到
-// 真 prod 路径 /wiki/<path>。注：wiki landing 自带 SessionStrip + 布局，
-// 跟纯 ChatMarkdown 比多了 page chrome 开销，阈值放宽。
+// It used to bench the /dev/chat-render fixture path; after G-6 removed the dev route it switched to
+// the real prod path /wiki/<path>. Note: the wiki landing carries its own SessionStrip + layout,
+// so it has more page-chrome overhead than plain ChatMarkdown, and the threshold is loosened.
 
 import { test, expect, type APIRequestContext, type Browser, type Page } from '@/fixtures/test';
 
@@ -103,8 +103,8 @@ async function seedBenchFixtures(request: APIRequestContext): Promise<void> {
   const token = await createAPIToken(request, csrf, 'bench-seed');
   const sid = await initMCP(request, token);
   for (const b of BENCHES) {
-    // 地址树派生:title = path slug(单段,root),叶子树路径 = slug(title) = b.path,
-    // 公开 URL /wiki/<b.path> 才解析得到这条。
+    // address-tree derived: title = path slug (single segment, root), leaf tree path = slug(title) = b.path,
+    // so the public URL /wiki/<b.path> resolves to this one.
     const { wikiID } = await seedWiki(request, token, sid, {
       body: b.body, title: b.path, path: b.path,
     });

@@ -6,7 +6,7 @@ VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: RecordPolicyGhost :one
--- ghost-steering P3: policy 出的 ghost，带 heading tag(target_waypoint) + coherence hook(follows_from)。
+-- ghost-steering P3: a policy-emitted ghost, carrying a heading tag (target_waypoint) + coherence hook (follows_from).
 INSERT INTO conversation_ghosts (
     owner_id, conversation_id, turn_index, ghost_text, source, target_waypoint, follows_from
 )

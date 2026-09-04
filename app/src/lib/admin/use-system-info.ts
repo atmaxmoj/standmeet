@@ -9,14 +9,22 @@ import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore } from '@/lib/state/create-resource-store';
+import type { ResourceStatus } from '@/lib/state/status';
 
 const HealthCheckSchema = z.object({
   name: z.string(),
   detail: z.string(),
   ok: z.boolean(),
 });
+const ContainerSchema = z.object({
+  name: z.string(),
+  cpu_percent: z.number(),
+  mem_bytes: z.number(),
+  mem_limit: z.number(),
+});
 const SystemInfoSchema = z.object({
   version: z.string(),
+  public_ip: z.string(),
   uptime_seconds: z.number(),
   goroutines: z.number(),
   mem_alloc_mb: z.number(),
@@ -27,6 +35,7 @@ const SystemInfoSchema = z.object({
   mem_used_mb: z.number(),
   load_avg_1: z.number(),
   health: z.array(HealthCheckSchema),
+  containers: z.array(ContainerSchema),
 });
 export type HealthCheck = z.infer<typeof HealthCheckSchema>;
 export type SystemInfo = z.infer<typeof SystemInfoSchema>;
@@ -39,12 +48,16 @@ const systemStore = createResourceStore<SystemInfo>({
 export interface SystemInfoHook {
   info: SystemInfo | null;
   loading: boolean;
+  // status —— for ListPane, so a panel can tell "still loading / failed" from a real empty
+  // (the cluster panel needs this: an empty container list must not read as "no data" while
+  // the fetch is still in flight or failed).
+  status: ResourceStatus;
 }
 
 export function useSystemInfo(): SystemInfoHook {
   const { data, status, ensureLoaded } = systemStore();
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
-  return { info: data ?? null, loading: status === 'loading' };
+  return { info: data ?? null, loading: status === 'loading', status };
 }
 
 // formatUptime —— seconds → a compact display like "2h 13m" / "45s".
@@ -58,15 +71,43 @@ export function formatUptime(seconds: number): string {
 // deployView —— info → deployment row display strings (null → placeholder). Lives here so the component has no branches.
 export function deployView(
   info: SystemInfo | null,
-): { version: string; cpus: string; uptime: string } {
+): { version: string; cpus: string; uptime: string; ip: string } {
   if (info === null) {
-    return { version: '—', cpus: '—', uptime: '—' };
+    return { version: '—', cpus: '—', uptime: '—', ip: '—' };
   }
   return {
     version: info.version,
     cpus: String(info.num_cpu),
     uptime: formatUptime(info.uptime_seconds),
+    ip: info.public_ip === '' ? '—' : info.public_ip,
   };
+}
+
+// ClusterRowView —— one container's usage row for the cluster panel. cpu/mem are folded into
+// one `usage` string here so the component renders no separator literal (i18n-lint clean).
+export interface ClusterRowView {
+  name: string;
+  usage: string;
+}
+
+function mb(bytes: number): string {
+  return String(Math.round(bytes / (1024 * 1024)));
+}
+
+function memText(bytes: number, limit: number): string {
+  return limit > 0 ? `${mb(bytes)} / ${mb(limit)} MB` : `${mb(bytes)} MB`;
+}
+
+// clusterRows —— info → per-container rows (own compose project). Empty (no docker socket /
+// not wired) gives no rows, so the panel shows its own "no cluster data" placeholder.
+export function clusterRows(info: SystemInfo | null): ClusterRowView[] {
+  if (info === null) {
+    return [];
+  }
+  return info.containers.map((c) => ({
+    name: c.name,
+    usage: `${c.cpu_percent.toFixed(1)}% cpu · ${memText(c.mem_bytes, c.mem_limit)}`,
+  }));
 }
 
 // healthList —— info → health rows (empty/not loaded gives one loading placeholder row).

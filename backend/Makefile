@@ -105,16 +105,18 @@ connector-boundary:
 core-agnostic:
 	@bash ../infra/scripts/check-core-agnostic.sh
 
-# §1.5:内核只封、永不解封。解封归**持有那份密文列并且当场花掉它**的那一层
-# (connector / 拥有该列的 repo)。go-arch-lint 看不见这件事 —— 内核收一个
-# `func([]byte)([]byte,error)` 不 import 任何非法包,箭头全绿。
-# baseline .core-seals-only-baseline 记的是**已声明的例外**,只能缩。
+# §1.5: the kernel only seals, never unseals. Unsealing belongs to the layer that
+# **holds that ciphertext column and spends it right there** (the connector / the repo
+# owning that column). go-arch-lint can't see this — the kernel takes a
+# `func([]byte)([]byte,error)`, imports no illegal package, and every arrow is green.
+# Baseline .core-seals-only-baseline records the **declared exceptions**; it only shrinks.
 core-seals-only:
 	@bash ../infra/scripts/check-core-seals-only.sh
 	@bash ../infra/scripts/check-core-seals-only-test.sh
 
-# #135 类图对齐:internal/ 只允许类图 8 core 模块 + routes + usecases + domain-less infra。
-# 类图里没有的目录(plugins 等)是"多出来的",baseline 只能缩 —— 逼着一个个拆掉归位。
+# #135 class-diagram alignment: internal/ allows only the diagram's 8 core modules +
+# routes + usecases + domain-less infra. Directories not in the diagram (plugins, etc.)
+# are "extras"; the baseline only shrinks — forcing them to be split out and relocated one by one.
 internal-dirs:
 	@bash ../infra/scripts/check-internal-dirs.sh
 
@@ -170,15 +172,18 @@ escape-lint:
 	@"$$(go env GOPATH)/bin/go-escape-lint" -f /tmp/auth-escape.log -pkg .
 	@rm -f /tmp/auth-escape.log
 
-# secrets —— 撤了。它在**每一次**运行里都什么也没扫。
+# secrets — removed. It scanned nothing on **every** run.
 #
-# 这个目标只在 `backend/` 里跑,而仓库的 `.git` 在上一层 —— `[ -d .git ]` 恒假,于是它每次都
-# 走 else 分支,打一行 "no .git in cwd, skipping (pre-commit on host catches this)" 然后退 0。
-# 而它指望的那个 "pre-commit on host" 走的是根 `make lint` → `backend-lint` → **它自己**:
-# 一条指回自身的免责说明。第二条出口同样静默:gitleaks 没装也直接退 0。
+# This target only ran inside `backend/`, while the repo's `.git` is one level up — so
+# `[ -d .git ]` was always false, and it took the else branch every time, printing one
+# line "no .git in cwd, skipping (pre-commit on host catches this)" and exiting 0.
+# And the "pre-commit on host" it counted on goes root `make lint` → `backend-lint` →
+# **itself**: a disclaimer pointing back at itself. The second exit was just as silent:
+# if gitleaks isn't installed it also exits 0.
 #
-# 密钥扫描现在收口在根:`make secrets` → `infra/scripts/check-secrets.sh`,扫暂存区 + 整部
-# 历史,gitleaks 缺席时**红**,而且每次跑之前先种一个诱饵证明自己看得见。
+# Secret scanning now converges at the root: `make secrets` → `infra/scripts/check-secrets.sh`,
+# scanning the staging area + the entire history, going **red** when gitleaks is absent,
+# and seeding a decoy before each run to prove it can actually see.
 
 # `make test` runs the Go unit/integration tests (testify, no DB/docker).
 # Pure-logic + in-process coverage; e2e lives in the root `make test`.

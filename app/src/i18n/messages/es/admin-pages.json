@@ -1,0 +1,135 @@
+{
+  "page": {
+    "intro": "Redacte los bloques en los que aterrizan los visitantes. Hero es el párrafo de prosa + entrada de chat. Insights y proyectos son ventanas en su corpus — fije entradas publicadas y la página muestra cada título + extracto, vinculando en el lector. Debajo de eso: dónde está y cómo comunicarse. Los cambios persisten a través de PUT /admin/page."
+  },
+  "pinManager": {
+    "empty": "sin pines aún — esta sección está oculta en la página.",
+    "unpin": "desfijar",
+    "add": "+ fijar entrada publicada",
+    "close": "× cerrar",
+    "noneToPin": "nada para fijar — publique una entrada de corpus primero."
+  },
+  "saveBar": {
+    "saving": "guardando…",
+    "unsaved": "cambios no guardados",
+    "saved": "guardado",
+    "inSync": "en sincronización",
+    "save": "guardar",
+    "revert": "revertir"
+  },
+  "handle": {
+    "label": "identificador",
+    "change": "cambiar",
+    "cancel": "cancelar"
+  },
+  "publicUrl": {
+    "label": "URL pública",
+    "unset": "no configurado",
+    "change": "cambiar",
+    "cancel": "cancelar"
+  },
+  "domain": {
+    "defaultLabel": "predeterminado",
+    "defaultHint": "sin configuración · siempre disponible",
+    "inUse": "● en uso",
+    "customLabel": "dominio personalizado",
+    "schemePrefix": "https://",
+    "clear": "limpiar",
+    "effectiveHost": "anfitrión de compartir efectivo ·",
+    "effectiveHostNote": "· utilizado por enlaces de código compartido, códigos QR, pie de página de puerta."
+  },
+  "byoai": {
+    "modeLabel": "modo byoai",
+    "modeHelp": "Cuando está activado, la página de la puerta muestra una opción 'traiga su propia IA' debajo de la entrada del código.",
+    "acceptedProviders": "proveedores aceptados"
+  },
+  "preview": {
+    "openPublic": "abrir público",
+    "loading": "cargando códigos…",
+    "seeAsCode": "ver-como · código",
+    "cardCodeRole": "{code} · rol {role}",
+    "byoaiCardTitle": "BYOAI · anónimo",
+    "byoaiCardScope": "solo alcance público",
+    "frameTitle": "vista previa · vista de visitante",
+    "byoaiBannerMode": "modo byoai",
+    "byoaiBannerModel": "modelo · suministrado por visitante",
+    "byoaiBannerScope": "alcance público",
+    "byoaiWelcome": "Hola. Se está ejecutando en su propia clave de API — pague por inferencia, solo segmento público. Los temas privados devuelven una respuesta de 'necesita un código'.",
+    "selectCode": "seleccione un código de la izquierda",
+    "codedBannerCode": "código · {code}",
+    "previewGreeting": "Hola",
+    "suggestedByYou": "sugerido por usted"
+  },
+  "customPages": {
+    "intro": {
+      "before": "Las páginas personalizadas existen en",
+      "slugPath": "/p/<slug>",
+      "after": ". Escriba uno a continuación o conduzca el mismo ciclo de vida desde Claude sobre MCP — ambos hacen lo mismo. Una página puede leer su corpus y llevar su IA; un código de acceso puede apuntar a uno, por lo que presentar ese código abre la página en lugar del chat predeterminado."
+    },
+    "importsSummary": "qué puedes importar",
+    "empty": {
+      "lead": "Sin páginas personalizadas aún. El propietario crea / construye / promueve sobre MCP",
+      "toolCreate": "custom_page.create",
+      "toolWriteFile": ".write_file",
+      "toolBuild": ".build",
+      "toolPromote": ".promote_to_live"
+    },
+    "columns": {
+      "page": "página",
+      "template": "plantilla",
+      "visibility": "visibilidad",
+      "access": "acceso",
+      "updated": "actualizado",
+      "actions": "acciones"
+    },
+    "visibilityState": {
+      "live": "vivo",
+      "staging": "intermedio",
+      "none": "ninguno"
+    },
+    "slugPath": "/p/{slug}",
+    "viewLive": "ver en vivo",
+    "noLiveBuild": "sin construcción en vivo",
+    "authorHeading": "escribir página",
+    "authorHelp": "Pegue la App.tsx de la página. Se construye en una caja de arena y, si la construcción tiene éxito, se publica en /p/<slug>. Puede importar @standmeet/sdk para leer su corpus y preguntar a su IA.",
+    "slugLabel": "slug — la página existe en /p/<slug>",
+    "sourceLabel": "App.tsx",
+    "publish": "construir + publicar →",
+    "published": "Página publicada",
+    "buildRunning": "construyendo…",
+    "buildBuilt": "construido",
+    "buildFailed": "construcción fallida",
+    "boundCodes": "abierto por",
+    "boundNone": "ningún código abre esto — solo anónimo",
+    "byoaiOn": "los lectores pueden traer su propia clave",
+    "byoaiOff": "sin traer su propia clave",
+    "byoaiVoid": "byok · decidido por el código",
+    "takeDown": "quitar",
+    "tookDown": "/p/{slug} ya no se sirve",
+    "delete": "eliminar",
+    "deleted": "/p/{slug} se ha ido",
+    "byoaiNote": "Se aplica solo cuando nadie presenta un código. Un lector que llega con un código está limitado por ese código y esta configuración no se aplica.",
+    "templatesAvailable": "plantillas disponibles",
+    "templates": {
+      "press-kit": {
+        "label": "press-kit",
+        "desc": "foto · variantes de biografía · descargas"
+      },
+      "list-prose": {
+        "label": "list-with-prose",
+        "desc": "lista arriba, explicación en prosa abajo"
+      },
+      "menu": {
+        "label": "menú",
+        "desc": "filas numeradas de servicio / oferta"
+      },
+      "auto-now": {
+        "label": "auto-now",
+        "desc": "entradas más recientes resumidas por IA · /now"
+      }
+    },
+    "previewLabel": "vista previa · última construcción exitosa",
+    "previewNoBuild": "Aún nada construido. Pida a su IA que escriba y construya esta página.",
+    "buildNone": "sin construcción"
+  }
+}

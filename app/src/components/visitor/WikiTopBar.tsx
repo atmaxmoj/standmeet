@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
 import { useTheme } from '@/lib/page/use-theme';
+import { useReadingTitle } from '@/lib/visitor/use-reading-title';
 
 const NAV_CLS =
   'mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) '
@@ -25,7 +26,7 @@ const NAV_CLS =
 // `WRITINGS` rendered as a garbled `WIKIWRITING`, and the theme toggle on
 // the right edge got clipped off-screen. Wrapping instead of cutting any
 // item: the nav drops to a second line, and every entry point stays.
-export function WikiTopBar({ handle, reading }: { handle: string; reading?: string }) {
+export function WikiTopBar({ handle }: { handle: string }) {
   const { dark, toggle } = useTheme();
   const t = useTranslations('visitor.wikiTopBar');
   return (
@@ -33,7 +34,7 @@ export function WikiTopBar({ handle, reading }: { handle: string; reading?: stri
       className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 pt-[18px] pb-[14px] px-4 sm:px-6 lg:px-8 border-b border-(--color-rule)"
       data-testid="wiki-topbar"
     >
-      <Brand handle={handle} reading={reading} />
+      <Brand handle={handle} />
       <nav className="flex items-baseline gap-5 sm:gap-6">
         <Link href="/writings" className={NAV_CLS}>{t('writing')}</Link>
         <Link href="/" className={NAV_CLS}>{t('chat')}</Link>
@@ -51,8 +52,9 @@ export function WikiTopBar({ handle, reading }: { handle: string; reading?: stri
   );
 }
 
-function Brand({ handle, reading }: { handle: string; reading?: string }) {
+function Brand({ handle }: { handle: string }) {
   const t = useTranslations('visitor.wikiTopBar');
+  const reading = useReadingTitle();
   return (
     <div className="mono text-[11px] tracking-[0.14em] uppercase flex flex-wrap items-baseline gap-x-3 gap-y-1 min-w-0">
       <Link href="/" className="text-(--color-ink) no-underline">{t('brand')}</Link>

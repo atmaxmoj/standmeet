@@ -49,6 +49,7 @@ backend/standmeet
 backend/server
 backend/job-board-mock
 backend/check-no-nil-container
+infra/scripts/check-routes-via-dispatcher/check-routes-via-dispatcher
 mock-stack/llm-gateway/llm-gateway
 
 # Local QA scratch screenshots (manual snapshots at repo root)

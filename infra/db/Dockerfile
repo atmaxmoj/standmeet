@@ -1,13 +1,14 @@
 # standmeet-db —— pgvector baked together with this version's schema.
 #
-# Why this image exists: Coolify's "Docker Compose Empty" **pastes** a
-# compose file — there's no repo checkout. A relative mount like
+# Why this image exists: the image-based deploy (`infra/deploy/docker-compose.yml`) is a
+# **downloaded or pasted** compose file with no repo checkout behind it — many PaaS flows
+# (Coolify's "Docker Compose Empty", for one) take just the raw compose. A relative mount like
 # `./backend/db/schema.sql` only resolves when the repo sits in the deploy
 # directory — without a repo, that line mounts onto a path that doesn't
 # exist, **postgres silently starts an empty database**, no error, and then
 # every backend query blows up with nothing pointing back to the cause.
 # Making the owner paste 76K of SQL into the UI would just push this problem
-# onto him.
+# onto them.
 #
 # schema.sql remains the **single source of truth**: this image only copies
 # a snapshot of it in at build time, and that copy happens alongside the

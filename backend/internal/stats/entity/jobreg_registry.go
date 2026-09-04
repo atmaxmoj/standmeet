@@ -17,6 +17,7 @@ type jobState struct {
 	name       string
 	schedule   string
 	lastStatus string
+	every      time.Duration
 }
 
 // JobRegistry — a thread-safe registry of scheduled jobs.
@@ -29,12 +30,15 @@ type JobRegistry struct {
 func NewJobRegistry() *JobRegistry { return &JobRegistry{jobs: make(map[string]*jobState)} }
 
 // Register — declares a scheduled job (idempotent; before its first run,
-// last_run=nil and status='scheduled').
-func (r *JobRegistry) Register(name, schedule string) {
+// last_run=nil and status='scheduled'). `every` is the real interval, kept so the
+// panel can tell a job that ran on time from one that's long overdue.
+func (r *JobRegistry) Register(name, schedule string, every time.Duration) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.jobs[name]; !ok {
-		r.jobs[name] = &jobState{name: name, schedule: schedule, lastStatus: "scheduled"}
+		r.jobs[name] = &jobState{
+			name: name, schedule: schedule, every: every, lastStatus: "scheduled",
+		}
 	}
 }
 
@@ -60,6 +64,7 @@ func (r *JobRegistry) ScheduledJobs() []ScheduledJob {
 	for _, j := range r.jobs {
 		out = append(out, ScheduledJob{
 			LastRun:    j.lastRun,
+			Every:      j.every,
 			Name:       j.name,
 			Schedule:   j.schedule,
 			LastStatus: j.lastStatus,

@@ -6,6 +6,8 @@
 
 import { useTranslations } from 'next-intl';
 
+import { LocaleSwitch } from '@/components/page/LocaleSwitch';
+
 type Props = {
   handle: string;
   dark: boolean;
@@ -25,14 +27,17 @@ export function TopBar({ handle, dark, onToggleDark }: Props) {
           <span className="text-(--color-faint) text-[10px] tracking-[0.16em]">{t('topBar.live')}</span>
         </span>
       </div>
-      <button
-        type="button"
-        onClick={onToggleDark}
-        aria-label="toggle theme"
-        className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink) transition-colors"
-      >
-        {dark ? 'light' : 'dark'}
-      </button>
+      <div className="flex items-baseline gap-4">
+        <LocaleSwitch />
+        <button
+          type="button"
+          onClick={onToggleDark}
+          aria-label="toggle theme"
+          className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink) transition-colors"
+        >
+          {dark ? 'light' : 'dark'}
+        </button>
+      </div>
     </header>
   );
 }

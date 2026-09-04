@@ -29,6 +29,7 @@ import { create } from 'zustand';
 import { z } from 'zod';
 
 import { safeJsonString } from '@/lib/api/typed-json';
+import { SESSION_COOKIE } from '@/lib/visitor/session-cookie';
 
 const STORAGE_KEY = 'standmeet-session';
 const CHANGED_EVENT = 'sm-session-changed';
@@ -164,6 +165,7 @@ function persist(s: VisitorSession | null): void {
     } else {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
     }
+    mirrorSessionCookie(s !== null);
     // Same-tab, cross-component subscription; the storage event only fires
     // cross-tab.
     window.dispatchEvent(new CustomEvent(CHANGED_EVENT, { detail: s }));
@@ -171,6 +173,14 @@ function persist(s: VisitorSession | null): void {
     // localStorage full / unavailable → silent; a failed write here must
     // not block chat.
   }
+}
+
+// mirrorSessionCookie —— keep the middleware-visible presence flag in step with the stored
+// session. Presence only, no data: the middleware reads just "is there a session" to route `/`.
+function mirrorSessionCookie(present: boolean): void {
+  document.cookie = present
+    ? `${SESSION_COOKIE}=1; path=/; SameSite=Lax`
+    : `${SESSION_COOKIE}=; path=/; Max-Age=0; SameSite=Lax`;
 }
 
 // useSyncVisitorSession —— attached on visitor screens; listens for

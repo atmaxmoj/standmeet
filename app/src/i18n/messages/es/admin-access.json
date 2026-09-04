@@ -1,0 +1,192 @@
+{
+  "common": {
+    "cancel": "cancelar",
+    "create": "crear",
+    "delete": "eliminar",
+    "systemPill": "[sistema]",
+    "corpus": "corpus",
+    "tools": "herramientas",
+    "prompt": "aviso",
+    "provider": "proveedor",
+    "saveCorpus": "guardar corpus",
+    "noneDash": "— ninguno —",
+    "byHand": "o escribalos manualmente:",
+    "rawDenied": "raw://** siempre se deniega a los visitantes independientemente de esta lista"
+  },
+  "codes": {
+    "new": "＋ código nuevo",
+    "intro": "Cada código abre una parte de su wiki para un contacto conocido — un proceso de contratación, una presentación de inversor o una llamada de prensa. Varias personas pueden compartir un código; cuando alguien lo ingresa, la IA pregunta quién es y los asigna a la lista de miembros del código. Cada tarjeta tiene un código QR.",
+    "empty": "Sin códigos aún."
+  },
+  "codeCard": {
+    "preview": "vista previa ↗",
+    "edit": "editar",
+    "revoke": "revocar",
+    "roleFrozen": "emitido con rol (congelado)",
+    "quota": "cuota",
+    "status": "estado · {status}",
+    "viewConversations": "ver conversaciones →",
+    "openShare": "abra el panel compartir — QR grande, enlace copiable, imprimible",
+    "opensLabel": "abre",
+    "opensChat": "el chat del visitante",
+    "opensPageOption": "/p/{slug}"
+  },
+  "codeCorpus": {
+    "loadError": "No se pudo cargar el alcance del corpus de este código. Recargue e intente de nuevo.",
+    "grantsNothing": "(el rol no otorga nada)",
+    "publishedSlice": "(lo que haya publicado — este rol no mantiene su propia lista)",
+    "inherited": "corpus · heredado del rol",
+    "takenBack": "reclamado en este código",
+    "helpSummary": "cómo funciona reclamar ▸",
+    "help": "Los URI que este código reclama de lo que el rol otorgó, uno por línea. Solo puede restar, nunca agregar — nada de lo que escriba aquí abrirá lo que el rol no otorgó. Uso típico: el rol otorga subjectivity://** (cada opinión) y este código reclama subjectivity://cv (el CV queda fuera). Los cambios solo afectan sesiones emitidas a partir de ahora: el rol se congela cuando se emite la sesión, por lo que un visitante que ya chatea mantiene el alcance anterior — pero la siguiente sesión en el mismo código obtiene el nuevo."
+  },
+  "members": {
+    "loading": "cargando miembros…",
+    "none": "ningún visitante ha usado este código aún.",
+    "anonymous": "anónimo"
+  },
+  "conversations": {
+    "privateHits": "{count, plural, one {# sesión} other {# sesiones}} tocó temas privados",
+    "filterChip": "filtro · código · {code}",
+    "clear": "limpiar ×",
+    "thVisitor": "visitante",
+    "thViaCode": "vía código",
+    "thIp": "ip",
+    "thTurns": "turnos",
+    "thSentiment": "sentimiento",
+    "thFlags": "banderas",
+    "thLast": "último",
+    "privFlag": "{hits} priv",
+    "empty": "Sin conversaciones aún. Una vez que los visitantes chaten a través de un código o sesión BYOAI, los verá aquí."
+  },
+  "transcript": {
+    "loading": "cargando transcripción…",
+    "empty": "Sin mensajes en esta conversación.",
+    "cited": "citado · {kind}",
+    "ghostsTitle": "texto fantasma mostrado",
+    "groundingTitle": "notas de punto de vista que formaron estas respuestas · no mostrado al visitante",
+    "grounded": "fundamentado"
+  },
+  "ghostTelemetry": {
+    "title": "dirección fantasma · embudo por punto de vista",
+    "thWaypoint": "punto de vista",
+    "thShown": "mostrado",
+    "thAccepted": "aceptado",
+    "thRate": "tasa",
+    "all": "todos"
+  },
+  "prompts": {
+    "new": "+ aviso nuevo",
+    "intro": "Biblioteca de personajes. Alcance del propietario, sin categorías. Cada uno es un fragmento de escritura — el agente se convierte en lo que le indique aquí. Usado por roles.",
+    "empty": "Sin avisos aún — lo público normalmente se siembra en la solicitud del propietario.",
+    "modalTitle": "aviso nuevo",
+    "bodyLabel": "cuerpo"
+  },
+  "requests": {
+    "deliveryHint": "Sin canal de salida verificado — configure uno en Conectores para que la aprobación de una solicitud pueda emitir un código y enviarlo. Hasta entonces solo puede marcar solicitudes respondidas/cerradas a mano.",
+    "intro": "Presentaciones desde la ruta 'sin código' de la compuerta. Marcar respondido una vez que haya emitido un código o respondido; cerrar para archivar. El propietario lee cada uno personalmente — ese es el punto.",
+    "empty": "Sin {filter}solicitudes.",
+    "issued": "emitido {code} — enviado por correo al solicitante",
+    "decline": "rechazar",
+    "approve": "aprobar · emitir código + correo →",
+    "connectMail": "conectar correo para emitir códigos"
+  },
+  "roles": {
+    "new": "+ rol nuevo",
+    "intro": "Un rol agrupa un aviso (carácter), una lista positiva de URI de corpus que el agente puede leer, un conjunto de habilidades y qué servidores MCP puede llamar. Los códigos no llevan permisos directamente — cada código <em>asume</em> un rol en el momento de la emisión y esa instantánea se congela para esa sesión. Edite un rol y solo futuras sesiones lo sienten.",
+    "empty": "Sin roles aún — lo público normalmente se siembra en la solicitud del propietario."
+  },
+  "roleCreate": {
+    "title": "rol nuevo",
+    "promptNone": "(ninguno)",
+    "providerDefault": "— predeterminado de instancia —",
+    "corpusLabel": "uri de corpus · uno por línea",
+    "noneConfigured": "aún no configurado"
+  },
+  "roleGas": {
+    "help": "Mida este rol contra el tanque de su proveedor. Desactivado (predeterminado) significa que no se ejecuta ninguna verificación de uso; activado significa que un visitante se detiene una vez que el tanque del proveedor está vacío. Un proveedor sin combustible nunca se mide de ninguna manera."
+  },
+  "roleCorpus": {
+    "help": "La lista positiva de URI de corpus que el agente puede leer, uno por línea. Coincidencia-cualquiera: golpear cualquier línea es suficiente para leer, por lo que el grano puede ser tan fino como desee — wiki://thinking/** otorga todo el subárbol, subjectivity://standpoint otorga solo esa nota. Una lista vacía = nada en absoluto. Los cambios solo afectan sesiones emitidas a partir de ahora: el rol se congela cuando se emite la sesión, por lo que un visitante que ya chatea mantiene el alcance anterior — pero la siguiente sesión en el mismo código obtiene el nuevo.",
+    "citabilityNote": "Esto solo controla qué puede LEER el agente. Si una entrada que lee también se enumera como fuente citada bajo su respuesta es un conmutador separado por entrada — la casilla de verificación 'citado como fuente' en la propia tarjeta de esa entrada, bajo wiki / salidas. Entonces una entrada puede ser legible aquí pero nunca aparecer en las referencias.",
+    "publicIsPublished": "Lo que haya publicado — ninguna lista separada. Esta es la identidad que obtiene un visitante sin código (y con BYOAI) y lee una entrada solo si el conmutador publicado de esa entrada está activado. Active uno desde la tarjeta de entrada bajo wiki o salidas; no hay nada para editar aquí, por lo que los dos nunca pueden decir cosas diferentes."
+  },
+  "roleTools": {
+    "help": "Lo que este rol puede llamar: sus habilidades y los servidores MCP externos que registró en api · mcp. Nada se otorga de forma predeterminada — un servidor que agregó es alcanzable solo por los roles que lo marca aquí. Los cambios solo afectan sesiones emitidas a partir de ahora: el rol se congela cuando se emite la sesión, por lo que un visitante que ya chatea mantiene el alcance anterior — pero la siguiente sesión en el mismo código obtiene el nuevo.",
+    "save": "guardar herramientas · {name}"
+  },
+  "roleDock": {
+    "label": "muelle",
+    "help": "Frase activadora — la línea que el sistema envía en nombre del visitante cuando se presiona este botón; la IA lo maneja como una pregunta del visitante. Por ejemplo 'resumir la conversación hasta ahora': presionar el botón es lo mismo que el visitante tipea esa línea.",
+    "triggerPlaceholder": "frase activadora (p.ej. resumir esta conversación)",
+    "save": "guardar muelle · {name}"
+  },
+  "roleGhost": {
+    "label": "regla fantasma",
+    "help": "Cuando está activado, la IA solo puede dirigir visitantes a puntos de vista que citen evidencia de corpus — los avisos de dirección sin evidencia se descartan (la reserva y otros puntos de vista finales no se ven afectados). Congelado en cada sesión; un código de acceso puede anular esto.",
+    "save": "guardar regla fantasma · {name}"
+  },
+  "codeGhost": {
+    "label": "evidencia fantasma",
+    "inherit": "heredar rol",
+    "on": "requerir evidencia",
+    "off": "permitir todos"
+  },
+  "roleDesc": {
+    "label": "acerca de",
+    "help": "Una línea corta describiendo este rol — quién es el visitante y cómo debería tratarlo la IA. Se muestra solo aquí (lado del propietario).",
+    "placeholder": "por ejemplo, reclutadores en startups de Serie B",
+    "save": "guardar acerca de · {name}"
+  },
+  "roleWaypoints": {
+    "label": "puntos de vista",
+    "help": "Destinos a los que la IA puede dirigir suavemente a los visitantes — uno por objetivo (por ejemplo, 'reservar una llamada', 'leer la nota de cibernética'). Cada uno lleva un peso (mayor = preferido) y opcionalmente la evidencia del corpus que lo respalda. Marque reserva/objetivos de contacto como terminales. Congelado en cada sesión; vacío = la IA nunca dirige.",
+    "idPlaceholder": "id (por ejemplo, book-a-call)",
+    "descPlaceholder": "qué es este destino",
+    "weightLabel": "peso",
+    "terminalLabel": "terminal",
+    "evidencePlaceholder": "uri de evidencia, separados por comas (por ejemplo, wiki://cibernética)",
+    "add": "+ agregar punto de vista",
+    "remove": "eliminar",
+    "save": "guardar puntos de vista · {name}"
+  },
+  "embeds": {
+    "new": "＋ embed nuevo",
+    "intro": "Un embed coloca el chat de esta instancia en el sitio web de otra persona como una única etiqueta <standmeet-chat>. Cada embed expone un código de acceso — los visitantes en esa página chatan bajo el rol del código, sin necesidad de entrada de código. Debido a que el widget se ejecuta en sitios que no controla, fije los orígenes desde los que puede cargar.",
+    "empty": "Sin embeds aún. Cree uno para dar a un sitio asociado un chat para incrustar.",
+    "exposesCode": "expone",
+    "originsAny": "se ejecuta en cualquier origen",
+    "originsPinned": "{count} fijado",
+    "snippetLabel": "pegar en la página anfitriona",
+    "copySnippet": "copiar",
+    "copied": "copiado",
+    "keyNote": "Credencial de widget emitida — el fragmento con su clave se mostró una vez en la creación. Elimine y recree para reemitir.",
+    "kidLabel": "kid {kid}",
+    "revealKicker": "widget listo",
+    "revealTitle": "copie este fragmento ahora",
+    "revealWarning": "Esto lleva la clave de firma del widget y se muestra solo una vez. Cópialo ahora — no se puede mostrar de nuevo. No contiene su código de acceso; el servidor lo resuelve. Si lo pierde, elimine este embed y cree uno nuevo.",
+    "edit": "editar",
+    "delete": "eliminar",
+    "deleted": "embed eliminado",
+    "created": "embed creado",
+    "updated": "embed actualizado",
+    "unknownCode": "código eliminado",
+    "form": {
+      "createTitle": "exponer código como widget",
+      "editTitle": "editar embed",
+      "createKicker": "embed nuevo",
+      "editKicker": "editar embed",
+      "labelField": "etiqueta · privado para usted",
+      "labelPlaceholder": "por ejemplo, página de carrera de Acme",
+      "codeField": "código de acceso que expone este embed",
+      "codePlaceholder": "elegir código…",
+      "originsField": "orígenes permitidos · uno por línea · vacío = cualquiera",
+      "originsPlaceholder": "https://acme.example\nhttps://careers.acme.example",
+      "originsHelp": "Esquema + anfitrión, sin ruta posterior (https://acme.example). El widget se rechaza en cualquier origen no enumerado aquí.",
+      "save": "crear embed",
+      "saveEdit": "guardar cambios",
+      "cancel": "cancelar",
+      "codeRequired": "elige un código primero"
+    }
+  }
+}

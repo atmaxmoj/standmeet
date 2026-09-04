@@ -1,9 +1,9 @@
-// global-teardown —— 跑完 e2e dump backend container 日志到
-// test-results/backend.log。诊断失败的 test 不用 ad-hoc tail compose log，
-// 直接读这个文件。
+// global-teardown —— after the e2e run, dump the backend container logs to
+// test-results/backend.log. To diagnose a failed test, read this file directly instead of
+// ad-hoc tailing the compose log.
 //
-// 时间窗：整个 run。test 失败时按 test name + step 时间戳在 backend.log 里
-// 搜，比每个 test 单独 attach 一段日志更简单也更可读。
+// Time window: the whole run. When a test fails, search backend.log by test name + step
+// timestamp, which is simpler and more readable than attaching a log slice to each test.
 
 import { exec } from 'node:child_process';
 import * as fs from 'node:fs/promises';

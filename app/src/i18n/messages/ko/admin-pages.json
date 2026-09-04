@@ -1,0 +1,135 @@
+{
+  "page": {
+    "intro": "Author the blocks visitors land on. Hero is the prose paragraph + chat input. Insights and projects are windows onto your corpus — pin published entries and the page shows each one's title + excerpt, linking into the reader. Below that: where you are, and how to reach you. Changes persist via PUT /admin/page."
+  },
+  "pinManager": {
+    "empty": "no pins yet — this section is hidden on the page.",
+    "unpin": "unpin",
+    "add": "+ pin a published entry",
+    "close": "× close",
+    "noneToPin": "nothing to pin — publish a corpus entry first."
+  },
+  "saveBar": {
+    "saving": "saving…",
+    "unsaved": "unsaved changes",
+    "saved": "saved",
+    "inSync": "in sync",
+    "save": "save",
+    "revert": "revert"
+  },
+  "handle": {
+    "label": "handle",
+    "change": "change",
+    "cancel": "cancel"
+  },
+  "publicUrl": {
+    "label": "public URL",
+    "unset": "unset",
+    "change": "change",
+    "cancel": "cancel"
+  },
+  "domain": {
+    "defaultLabel": "default",
+    "defaultHint": "no setup · always available",
+    "inUse": "● in use",
+    "customLabel": "custom domain",
+    "schemePrefix": "https://",
+    "clear": "clear",
+    "effectiveHost": "effective share host ·",
+    "effectiveHostNote": "· used by code share links, QRs, gate footer."
+  },
+  "byoai": {
+    "modeLabel": "byoai mode",
+    "modeHelp": "When on, the gate page shows a \"bring your own AI\" option below the code entry.",
+    "acceptedProviders": "accepted providers"
+  },
+  "preview": {
+    "openPublic": "open public",
+    "loading": "loading codes…",
+    "seeAsCode": "see-as · code",
+    "cardCodeRole": "{code} · role {role}",
+    "byoaiCardTitle": "BYOAI · anonymous",
+    "byoaiCardScope": "public scope only",
+    "frameTitle": "preview · visitor view",
+    "byoaiBannerMode": "byoai mode",
+    "byoaiBannerModel": "model · visitor-supplied",
+    "byoaiBannerScope": "public scope",
+    "byoaiWelcome": "Hi. You're running on your own API key — pay for inference, public slice only. Private topics return a “need a code” response.",
+    "selectCode": "select a code from the left",
+    "codedBannerCode": "code · {code}",
+    "previewGreeting": "Hi",
+    "suggestedByYou": "suggested by you"
+  },
+  "customPages": {
+    "intro": {
+      "before": "Custom pages live at",
+      "slugPath": "/p/<slug>",
+      "after": ". Write one below, or drive the same lifecycle from Claude over MCP — both do the same thing. A page can read your corpus and carry your AI; an access code can be pointed at one, so presenting that code opens the page instead of the default chat."
+    },
+    "importsSummary": "what you can import",
+    "empty": {
+      "lead": "No custom pages yet. Owner creates / builds / promotes via MCP",
+      "toolCreate": "custom_page.create",
+      "toolWriteFile": ".write_file",
+      "toolBuild": ".build",
+      "toolPromote": ".promote_to_live"
+    },
+    "columns": {
+      "page": "page",
+      "template": "template",
+      "visibility": "visibility",
+      "access": "access",
+      "updated": "updated",
+      "actions": "actions"
+    },
+    "visibilityState": {
+      "live": "live",
+      "staging": "staging",
+      "none": "none"
+    },
+    "slugPath": "/p/{slug}",
+    "viewLive": "view live",
+    "noLiveBuild": "no live build",
+    "authorHeading": "write a page",
+    "authorHelp": "Paste the page's App.tsx. It is built in a sandbox and, if the build succeeds, published at /p/<slug>. You can import @standmeet/sdk to read your corpus and to ask your AI.",
+    "slugLabel": "slug — the page lives at /p/<slug>",
+    "sourceLabel": "App.tsx",
+    "publish": "build + publish →",
+    "published": "Page published",
+    "buildRunning": "building…",
+    "buildBuilt": "built",
+    "buildFailed": "build failed",
+    "boundCodes": "opened by",
+    "boundNone": "no code opens this — anonymous only",
+    "byoaiOn": "readers may bring their own key",
+    "byoaiOff": "no bring-your-own-key",
+    "byoaiVoid": "byok · decided by the code",
+    "takeDown": "take down",
+    "tookDown": "/p/{slug} is no longer served",
+    "delete": "delete",
+    "deleted": "/p/{slug} is gone",
+    "byoaiNote": "Applies only when nobody presents a code. A reader arriving with a code is scoped by that code, and this setting does not apply.",
+    "templatesAvailable": "templates available",
+    "templates": {
+      "press-kit": {
+        "label": "press-kit",
+        "desc": "photo · bio variants · downloads"
+      },
+      "list-prose": {
+        "label": "list-with-prose",
+        "desc": "list above, prose explanation below"
+      },
+      "menu": {
+        "label": "menu",
+        "desc": "numbered service / offer rows"
+      },
+      "auto-now": {
+        "label": "auto-now",
+        "desc": "AI-summarized latest entries · /now"
+      }
+    },
+    "previewLabel": "preview · latest successful build",
+    "previewNoBuild": "Nothing built yet. Ask your AI to write and build this page.",
+    "buildNone": "no build"
+  }
+}

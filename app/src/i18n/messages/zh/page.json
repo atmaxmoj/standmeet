@@ -1,0 +1,37 @@
+{
+  "fallback": { "settingUp": "这个页面正在搭建中。", "enter": "申请访问 ↗" },
+  "brand": "standmeet",
+  "hero": {
+    "someExamples": "一些例子"
+  },
+  "askInput": {
+    "ask": "提问"
+  },
+  "contact": {
+    "jumpToChat": "跳到聊天 ↑",
+    "orDirectly": "或直接联系："
+  },
+  "where": {
+    "hiringFilter": "如果你在招聘，这些条件应当都满足"
+  },
+  "conversation": {
+    "you": "你",
+    "assistantLabel": "{handle} 的 ai",
+    "references": "引用 · {count}"
+  },
+  "toolCalls": {
+    "searched": "已搜索 {count}",
+    "read": "已读 {count}"
+  },
+  "topBar": {
+    "live": "在线"
+  },
+  "footer": {
+    "requestAccess": "申请访问 ↗",
+    "grounded": "基于依据的检索，不回退到开放网络"
+  },
+  "report": {
+    "title": "报告 · {id}",
+    "print": "打印 ↗"
+  }
+}

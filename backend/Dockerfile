@@ -10,33 +10,41 @@
 
 # Stage 1: Deps
 #
-# ── 这里曾经跑一整套 `make lint` ────────────────────────────────────────────────────
+# ── This used to run a full `make lint` ────────────────────────────────────────────
 #
-# 撤掉了，因为它检查的东西**已经被检查过一次**：lefthook 的 pre-commit 跑的就是同一条
-# `make lint` 链、同一份源码、同一套规则。代码进不了提交就进不了镜像，所以这一遍
-# 拦不住任何前一遍拦不住的东西。
+# Removed, because what it checks **has already been checked once**: lefthook's
+# pre-commit runs the very same `make lint` chain, the same source, the same rules.
+# Code that can't get committed can't get into the image, so this pass catches
+# nothing the earlier pass didn't.
 #
-# 代价是实打实的：一次发布五个镜像，backend 这一格要把 20 多个检查器加 golangci 再跑一遍；
-# 而 `release-push` 走 buildx 双架构时，它在 amd64 上还要**再跑一遍**（模拟执行，更慢）。
-# 同一套 lint 在一条发布链上跑三次，而每一处单独看都说得通 —— 重复是它们组合出来的。
+# The cost was real: one release builds five images, and this backend slot would run
+# 20-odd checkers plus golangci again; and when `release-push` goes through buildx
+# dual-arch, it runs it **once more** on amd64 (emulated execution, even slower).
+# The same lint runs three times on one release chain, and each spot looks reasonable
+# on its own — the duplication is what they compose into.
 #
-# 换来的风险，说清楚：**镜像不再自己证明代码干净**，它信任提交那一关。
-# 绕过的办法只有 `git commit --no-verify`。真要一道独立的门，它该在 CI 上（这个仓库
-# 现在没有），而不是让每次构建重跑一遍。
-# `--platform=$BUILDPLATFORM` —— 工具链跑在**构建这台机器**的架构上，不跟着目标架构走。
+# The risk this trades for, stated plainly: **the image no longer proves its own code
+# is clean**; it trusts the commit gate. The only way around that gate is
+# `git commit --no-verify`. If we truly want an independent gate, it belongs in CI
+# (which this repo doesn't have yet), not a re-run on every build.
+# `--platform=$BUILDPLATFORM` — the toolchain runs on **the build machine's** arch,
+# not the target arch.
 #
-# 为什么要写这一句：发布是多架构的（linux/amd64 + linux/arm64）。不写的话，
-# buildx 会为 amd64 那一路拉一个 amd64 的 golang 镜像，在 arm64 的 Mac 上**用 QEMU 模拟执行**
-# 整棵 Go 树的编译 —— 实测单这一格跑了 35 分钟还没完，五个镜像要几小时。
+# Why write this: releases are multi-arch (linux/amd64 + linux/arm64). Without it,
+# buildx pulls an amd64 golang image for the amd64 path and **runs the whole Go tree's
+# compile under QEMU emulation** on an arm64 Mac — measured at over 35 minutes for
+# this one slot alone, hours for five images.
 #
-# 而 Go 本来就是交叉编译的：让编译器原生跑，把 `GOARCH` 换成目标架构就行（见 builder stage）。
-# 模拟的是**执行**，交叉编译换的是**输出**，后者没有那个代价。
+# But Go cross-compiles natively: let the compiler run native and just set `GOARCH`
+# to the target arch (see the builder stage). Emulation emulates **execution**;
+# cross-compilation swaps the **output** — the latter has none of that cost.
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS deps
 WORKDIR /app
 
 RUN apk add --no-cache git bash make
 
-# 依赖先下（独立缓存层）。backend 不再 import 任何 mcp-servers 模块，只需 backend 自己。
+# Fetch deps first (a separate cache layer). The backend no longer imports any
+# mcp-servers module, so only backend's own deps are needed.
 COPY backend/go.mod backend/go.sum ./backend/
 WORKDIR /app/backend
 RUN go mod download
@@ -48,13 +56,15 @@ WORKDIR /app/backend
 
 # Stage 2: Build
 FROM deps AS builder
-# TARGETARCH 由 buildx 按当前正在构建的那一路注入（amd64 / arm64）。
-# CGO 关着，所以纯交叉编译，不需要任何目标架构的工具链。
+# TARGETARCH is injected by buildx per the path currently being built (amd64 / arm64).
+# CGO is off, so this is pure cross-compilation — no target-arch toolchain needed.
 ARG TARGETARCH
-# STANDMEET_VERSION —— 发布时把 tag 烧进二进制。`port.appVersion` 一直是 `var` 就为了
-# 这一句,而这一句从来没写过:于是实例对外报的是源码里那个字面量,跟真正跑着的镜像无关。
-# 线上跑着 v0.1.3 而 /api/v1/instance 说 0.1.0,就是这么来的。
-# 不传就还是那个字面量 —— 所以它现在写作 "dev",一眼看得出"这一份没盖过章"。
+# STANDMEET_VERSION — burns the release tag into the binary. `port.appVersion` was a
+# `var` precisely for this line, and this line was never written: so the instance
+# reported the literal from source, unrelated to the image actually running.
+# v0.1.3 running in prod while /api/v1/instance said 0.1.0 came from exactly this.
+# If unset it stays that literal — which is why it now reads "dev", so it's obvious
+# at a glance that "this build was never stamped".
 ARG STANDMEET_VERSION=dev
 ENV CGO_ENABLED=0 GOOS=linux
 RUN --mount=type=cache,target=/root/.cache/go-build \
@@ -93,9 +103,11 @@ WORKDIR /app
 # bwrap bind-mounts them read-only into the sandbox.
 RUN apk add --no-cache ca-certificates docker-cli bubblewrap nodejs npm python3
 
-# Typst —— resume PDF 渲染引擎（internal/owner/jobs/resumepdf 起 typst 子进程）。下 musl 静态
-# release，按目标架构选（amd64→x86_64 / arm64→aarch64）。typst 自带默认字体（衬线 + 等宽），
-# 所以没装 Newsreader/JetBrains Mono 也渲得出来（字形退默认，版式/配色不变）。
+# Typst — the resume PDF rendering engine (internal/owner/jobs/resumepdf spawns a typst
+# subprocess). Download the musl static release, selected by target arch
+# (amd64→x86_64 / arm64→aarch64). typst ships default fonts (serif + monospace), so it
+# renders even without Newsreader/JetBrains Mono installed (glyphs fall back to the
+# defaults; layout/colors unchanged).
 ARG TARGETARCH
 RUN set -eux; \
     apk add --no-cache --virtual .typst-dl wget xz tar; \

@@ -1,15 +1,15 @@
-// connector-calendar-cancel-tool.spec.ts —— §一(visitor calendar_cancel 作 tool)
+// connector-calendar-cancel-tool.spec.ts —— §1 (visitor calendar_cancel as a tool)
 //
-// 今天取消走 REST(`/api/v1/booking-cancellation`,postBookingCancellation)。重构后
-// 它成 connector-backed **tool**:booked 沙盒卡上的 cancel 按钮 post
-// `{type:'mcp-ui:tool', name:'calendar_cancel', args}` → host 带 session context 派发
-// `calendar_cancel` tool → tool 经 calendar connector proxy 删 event → 回
-// `mcp-ui:tool-result` → 卡进 cancelled 态。这条专守 **TOOL 路径**(不是旧 REST):
-//   - 删除真发生(getMockEvents 那条 event 没了 = tool 经 connector proxy 删了)
-//   - 卡进 cancelled 终态(tool-result 回卡)
-//   - 幂等:对已取消的同一 booking 再点 / 再调,不双删、不崩(E13)
+// today cancellation goes through REST (`/api/v1/booking-cancellation`, postBookingCancellation). After the refactor
+// it becomes a connector-backed **tool**: the cancel button on the booked sandbox card posts
+// `{type:'mcp-ui:tool', name:'calendar_cancel', args}` → host dispatches the `calendar_cancel` tool with session context
+// → the tool deletes the event via the calendar connector proxy → returns
+// `mcp-ui:tool-result` → the card enters the cancelled state. This spec guards the **TOOL path** (not the old REST):
+//   - the deletion really happens (that event is gone from getMockEvents = the tool deleted it via the connector proxy)
+//   - the card reaches the cancelled terminal state (tool-result returns to the card)
+//   - idempotent: clicking / calling again on an already-cancelled booking does not double-delete or crash (E13)
 //
-// RED / TDD:在 calendar_cancel 成为 tool(经 mcp-ui:tool 调,退役 REST)之前,运行期失败。
+// RED / TDD: until calendar_cancel becomes a tool (called via mcp-ui:tool, retiring REST), this fails at runtime.
 
 import { test, expect } from '@/fixtures/test';
 import type { FrameLocator, Page, Playwright } from '@playwright/test';
@@ -39,18 +39,18 @@ test.describe('connector · visitor calendar_cancel as a tool (§1)', () => {
       expect(before).toHaveLength(1);
       const eventID = before[0]!.event_id;
 
-      // cancel 经 mcp-ui:tool → calendar_cancel tool(不是 REST postBookingCancellation)。
+      // cancel goes via mcp-ui:tool → calendar_cancel tool (not REST postBookingCancellation).
       const frame = bookedFrame(page);
       await frame.getByTestId('book-card-cancel').click();
 
-      // tool 路径的可观察副作用:event 经 connector proxy 被删。派发是异步(卡 → host →
-      // tool),poll 等真实删除落地,而不是 click 后立刻读(会赛跑)。
+      // observable side effect of the tool path: the event is deleted via the connector proxy. Dispatch is async (card → host →
+      // tool), so poll until the real deletion lands, rather than reading right after the click (which would race).
       await expect.poll(
         async () => (await getMockEvents(seed.request)).find((e) => e.event_id === eventID),
         { timeout: 10_000, message: 'calendar_cancel tool removed the event' },
       ).toBeUndefined();
 
-      // 卡进 cancelled 终态(tool-result 回卡 → 重渲)。
+      // the card enters the cancelled terminal state (tool-result returns to the card → re-render).
       await expect(frame.getByTestId('tool-card-calendar_book'))
         .toHaveAttribute('data-cancelled', 'true', { timeout: 10_000 });
       await expect(frame.getByTestId('book-card-cancel')).toHaveCount(0);
@@ -73,33 +73,33 @@ test.describe('connector · visitor calendar_cancel as a tool (§1)', () => {
       await expect(frame.getByTestId('tool-card-calendar_book'))
         .toHaveAttribute('data-cancelled', 'true', { timeout: 10_000 });
 
-      // 取消后:events 里没有任何 active event(那条已删)。再次取消(若卡仍暴露重试入口
-      // 或经 reload 复现)应幂等 —— 这里以「再调一次不让计数变负/不冒新 event」为约束:
-      // 当前可观察口径是 events 列表里不会因重复取消多出/少掉东西。
+      // after cancelling: no active event in events (that one is deleted). Cancelling again (if the card still exposes a retry entry
+      // or is reproduced via reload) should be idempotent —— constrained here as "calling again doesn't drive the count negative / doesn't spawn a new event":
+      // the currently observable measure is that the events list neither gains nor loses anything from a repeated cancel.
       const afterFirst = await getMockEvents(seed.request);
       expect(afterFirst.length).toBe(0);
 
-      // reload 重建卡(restore 会从 conversation aggregate 重渲 booked 卡 + 其 cancelled 态),
-      // 幂等门保证 cancelled 卡稳定、不再有可点的 cancel 动作。
+      // reload rebuilds the card (restore re-renders the booked card + its cancelled state from the conversation aggregate),
+      // the idempotency gate guarantees the cancelled card is stable, with no clickable cancel action left.
       await page.reload();
       const reloaded = bookedFrame(page);
       await expect(reloaded.getByTestId('tool-card-calendar_book'))
         .toHaveAttribute('data-cancelled', 'true', { timeout: 15_000 });
       await expect(reloaded.getByTestId('book-card-cancel')).toHaveCount(0);
-      // 幂等:重复取消没在 mock 上留下任何残留 event。
+      // idempotent: a repeated cancel leaves no residual event on the mock.
       expect((await getMockEvents(seed.request)).length).toBe(0);
 
       await ctx.close();
     });
 });
 
-// bookedFrame —— booked 沙盒卡 iframe;内容经 frameLocator 取。
+// bookedFrame —— the booked sandbox card iframe; its content is reached via frameLocator.
 function bookedFrame(page: Page): FrameLocator {
   return page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
 }
 
-// enterAndBook —— ?code 入口 → 名字+email → script 一次 calendar_book → 触发 →
-// 等 booked 沙盒卡 iframe 出现。
+// enterAndBook —— ?code entry → name+email → script one calendar_book → trigger →
+// wait for the booked sandbox card iframe to appear.
 async function enterAndBook(
   page: Page, code: string, name: string, email: string, hour: number,
 ): Promise<void> {

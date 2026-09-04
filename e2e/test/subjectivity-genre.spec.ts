@@ -1,17 +1,20 @@
-// subjectivity-genre.spec.ts —— 目标态红测试(现在全红:subjectivity 零代码)。
+// subjectivity-genre.spec.ts —— target-state red test (all red for now: subjectivity has zero code).
 //
-// subjectivity 是 corpus_notes 上的第 4 个 genre —— owner 的自我模型(散文笔记:品味/判断/在意什么)。
-// 结构上跟 wiki 同构(树 + path 派生 + `[[链接]]` + owner-gated ACL),语义上是 self-model 非知识。
-// 这套测试证明「genre 维度真通用」:subjectivity 作为一个能跑的 genre 全绿 = 基座不是硬编 3 个。
+// subjectivity is the 4th genre on corpus_notes —— the owner's self-model (prose notes: taste/judgement/
+// what they care about). Structurally isomorphic to wiki (tree + path derivation + `[[link]]` +
+// owner-gated ACL), semantically a self-model rather than knowledge. This suite proves "the genre
+// dimension is truly generic": subjectivity as a working genre all-green = the base is not hard-coded to 3.
 //
-// 目标接口(本测试驱动其实现):
-//   - owner MCP 工具 `subjectivity_write` {title, body, parent_id?, tags?} → {subjectivity_id, path}
-//     （对齐 promote_to_wiki / writing_create 的形状；owner-only，MCP = owner）。
-//   - 寻址 `subjectivity://<path>`，path 树派生（同 wiki）。访客 corpus_read/corpus_search 走它。
-//   - ACL:role.corpus_uris 授 `subjectivity://…` → 可读/可搜；未授 → access denied（同 wiki，owner 决定）。
+// Target interface (this test drives its implementation):
+//   - owner MCP tool `subjectivity_write` {title, body, parent_id?, tags?} → {subjectivity_id, path}
+//     (aligned with the shape of promote_to_wiki / writing_create; owner-only, MCP = owner).
+//   - addressed by `subjectivity://<path>`, path derived from the tree (same as wiki). Visitor
+//     corpus_read/corpus_search go through it.
+//   - ACL: role.corpus_uris granting `subjectivity://…` → readable/searchable; ungranted → access denied
+//     (same as wiki, owner decides).
 //
-// 覆盖:happy(建/读/搜/嵌套) · corner(同 path 不同 genre 不撞) ·
-//       error(未授拒·跨-genre ACL·成环拒·parent 不存在)。
+// Coverage: happy (create/read/search/nesting) · corner (same path different genre do not collide) ·
+//       error (ungranted denied · cross-genre ACL · cycle denied · parent missing).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -171,7 +174,7 @@ async function errorMissingParent({ playwright }: Ctx): Promise<void> {
 }
 
 // ─── helpers ────────────────────────────────────────────────────
-// writeSubjectivity —— owner MCP `subjectivity_write`. updateID 给出时是 reparent/update。
+// writeSubjectivity —— owner MCP `subjectivity_write`. When updateID is given, it is a reparent/update.
 async function writeSubjectivity(
   request: APIRequestContext, title: string, body: string,
   parentID?: string, updateID?: string,
@@ -212,6 +215,10 @@ async function corpusSearch(
     `${BACKEND}/api/v1/sessions/${s.conversation_id}/tools/corpus_search`,
     { headers: { Authorization: `Bearer ${s.session_token}` }, data: { query } },
   );
-  const body = await res.json() as { result?: Array<{ path?: string; title?: string }> };
-  return body.result ?? [];
+  // corpus_search's result is the SearchResult receipt `{ hits, note? }`, not a bare array
+  // (see fixtures/retrieval.ts) — read .hits, or `.some` runs on the object and throws.
+  const body = await res.json() as {
+    result?: { hits?: Array<{ path?: string; title?: string }> };
+  };
+  return body.result?.hits ?? [];
 }

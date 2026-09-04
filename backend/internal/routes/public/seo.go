@@ -47,6 +47,8 @@ func (h *SEOHandlers) Mount(r chi.Router) {
 	r.Get("/wiki-tree", h.getWikiTree())
 	r.Get("/wiki-tree/stats", h.getWikiTreeStats())
 	r.Get("/wiki-tree/context", h.getWikiTreeContext())
+	// corpus-cards —— published wiki entries as home-page cards (handler in corpus_cards.go).
+	r.Get("/corpus-cards", h.getCorpusCards())
 }
 
 // MountRoot —— /robots.txt + /sitemap.xml are SEO's standard conventional paths,

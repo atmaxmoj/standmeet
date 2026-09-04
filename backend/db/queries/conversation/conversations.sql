@@ -9,30 +9,30 @@ RETURNING *;
 SELECT * FROM conversations WHERE id = $1 AND owner_id = $2;
 
 -- name: GetOpenConversationByMember :one
--- 「一个名字=一段续聊的会」(主对话):同名 member 的**主**对话(doc_key='')续上;
--- 没有 → caller 新建。对话不结束,同名永远续同一段主对话。
+-- "one name = one continuing session" (main conversation): resume the same-name member's **main** conversation (doc_key='');
+-- none → caller creates one. Conversations never end, so the same name always resumes the same main conversation.
 SELECT * FROM conversations
 WHERE member_id = $1 AND doc_key = ''
 ORDER BY last_at DESC
 LIMIT 1;
 
 -- name: GetOpenConversationByMemberAndDoc :one
--- 浮窗用:该 member 在某个 surface(doc_key)上的那段对话。没有 → caller 新建。
+-- For the floating widget: the member's conversation on a given surface (doc_key). none → caller creates one.
 SELECT * FROM conversations
 WHERE member_id = $1 AND doc_key = $2
 ORDER BY last_at DESC
 LIMIT 1;
 
 -- name: CountVisitorTurnsForMember :one
--- member 级 turn 配额:该 member 名下**全部对话**的访客发言合计。多段对话共享
--- 一个预算,不按单段对话各算。
+-- member-level turn quota: total visitor turns across **all conversations** under this member. Multiple
+-- conversations share one budget, not counted per conversation.
 SELECT COUNT(*)::int FROM messages m
 JOIN conversations c ON c.id = m.conversation_id
 WHERE c.member_id = $1 AND m.role = 'visitor';
 
 -- name: ListMemberOtherConversationMessages :many
--- 「互通」:拉该 member **其他**对话(排除当前这段)的近期消息,拼进 instruction
--- 让 AI 跨对话连贯。按时间正序,caller 自己截断/汇总。
+-- "cross-talk": pull recent messages from the member's **other** conversations (excluding the current one) to
+-- splice into the instruction so the AI stays coherent across conversations. Time ascending; the caller truncates/summarizes.
 SELECT c.doc_key, c.started_at, m.role, m.body, m.created_at
 FROM messages m
 JOIN conversations c ON c.id = m.conversation_id
@@ -40,14 +40,14 @@ WHERE c.member_id = $1 AND c.id <> $2
 ORDER BY m.created_at;
 
 -- name: CreateDialog :one
--- 一轮 Q-A 先建一个 dialog 行,两条 message 挂它的 id。返回真 dialog id。
+-- One Q-A round first creates a dialog row; the two messages hang off its id. Returns the real dialog id.
 INSERT INTO dialogs (conversation_id)
 VALUES ($1)
 RETURNING id;
 
 -- name: AppendMessage :one
--- grounded_subjectivity_ids 跟 cited_ 分两列:访客 footer 只读 cited_,所以私有 standpoint
--- 笔记**结构上**不可能漏进去,而不是靠每个读者记得过滤(F-A-27)。
+-- grounded_subjectivity_ids is a separate column from cited_: the visitor footer reads only cited_, so private
+-- standpoint notes are **structurally** unable to leak in, rather than relying on every reader remembering to filter (F-A-27).
 INSERT INTO messages (
     conversation_id, dialog_id, role, body, tool_calls,
     cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids,
@@ -60,14 +60,14 @@ RETURNING *;
 SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at;
 
 -- name: BumpConversation :exec
--- 只更 last_at(给列表排序);turn 数不再存,读时从 messages 派生。
+-- Only update last_at (for list ordering); turn count is no longer stored, derived from messages at read time.
 UPDATE conversations
 SET last_at = now()
 WHERE id = $1;
 
 -- name: ListConversationsByOwner :many
--- turn_count 从 dialog 派生:数 visitor-role messages(一个 dialog 一条 visitor 消息),
--- 不存计数字段。
+-- turn_count is derived from dialogs: count visitor-role messages (one visitor message per dialog),
+-- no stored count field.
 SELECT c.id, c.mode, c.code_id, c.visitor_name, c.started_at,
        c.last_at, c.client_ip,
        (SELECT COUNT(*) FROM messages m

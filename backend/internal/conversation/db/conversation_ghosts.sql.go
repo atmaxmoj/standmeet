@@ -140,7 +140,7 @@ type RecordPolicyGhostParams struct {
 	FollowsFrom    *string
 }
 
-// ghost-steering P3: policy 出的 ghost，带 heading tag(target_waypoint) + coherence hook(follows_from)。
+// ghost-steering P3: a policy-emitted ghost, carrying a heading tag (target_waypoint) + coherence hook (follows_from).
 func (q *Queries) RecordPolicyGhost(ctx context.Context, arg RecordPolicyGhostParams) (ConversationGhost, error) {
 	row := q.db.QueryRow(ctx, recordPolicyGhost,
 		arg.OwnerID,

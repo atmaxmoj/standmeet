@@ -11,7 +11,12 @@ import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { LocaleSwitch } from '@/components/page/LocaleSwitch';
 import { EmailBlock } from '@/components/admin/sections/account/EmailBlock';
+import { HandleEditor } from '@/components/admin/sections/page/HandleEditor';
+import { PublicURLEditor } from '@/components/admin/sections/page/PublicURLEditor';
+import { DomainEditor } from '@/components/admin/sections/page/DomainEditor';
+import { BYOAIEditor } from '@/components/admin/sections/page/BYOAIEditor';
 import {
   AcctBlock, PasswordField, SaveBtn,
 } from '@/components/admin/sections/account/atoms';
@@ -19,6 +24,7 @@ import {
   fullNameSaveDisabled, passwordHintMessage, passwordSaveDisabled, recoveryRowView,
 } from '@/lib/admin/account-form';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
+import { pickHandle } from '@/lib/admin/use-handle';
 import { useAccount, type AccountHook } from '@/lib/admin/use-account';
 import { adminAPI } from '@/lib/api/admin';
 import { useOutbound } from '@/lib/admin/use-outbound';
@@ -34,9 +40,85 @@ export function AccountSection() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <ProfileCard hook={account} session={session} />
         <SecurityCard hook={account} />
+        <SiteCard />
+        <ByoaiCard />
         <InferenceCard />
+        <LanguageCard />
       </div>
     </>
+  );
+}
+
+// SiteCard —— where this instance lives on the web: public URL (QR / canonical),
+// URL handle, and the custom-domain allow-list. Moved here from the old homepage
+// editor when the homepage became a custom page — these are instance settings, not
+// page content, so they belong with the owner's other settings.
+function SiteCard() {
+  const t = useTranslations('adminShell.account');
+  const view = useSiteView();
+  return (
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+      <div className="sm-smallcaps mb-3">{t('siteAddress')}</div>
+      <div className="space-y-4">
+        <PublicURLEditor current={view.publicURL} onChanged={view.setPublicURL} />
+        <HandleEditor current={view.handle} onChanged={view.setHandle} />
+        <DomainEditor handle={view.handle} />
+      </div>
+    </div>
+  );
+}
+
+// ByoaiCard —— visitors without a code may chat with their own API key against the
+// public corpus. The toggle is an instance setting; moved here with the site block.
+function ByoaiCard() {
+  const t = useTranslations('adminShell.account');
+  return (
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+      <div className="sm-smallcaps mb-3">{t('byoaiMode')}</div>
+      <BYOAIEditor />
+    </div>
+  );
+}
+
+interface SiteView {
+  handle: string;
+  publicURL: string;
+  setHandle: (h: string) => void;
+  setPublicURL: (u: string) => void;
+}
+
+function useSiteView(): SiteView {
+  const session = useAdminSession();
+  const [handleOverride, setHandleOverride] = useState<string | null>(null);
+  const [publicURLOverride, setPublicURLOverride] = useState<string | null>(null);
+  const seed = readyOwnerSeed(session);
+  return {
+    handle: pickHandle(handleOverride, seed.handle),
+    publicURL: publicURLOverride ?? seed.publicURL,
+    setHandle: setHandleOverride,
+    setPublicURL: setPublicURLOverride,
+  };
+}
+
+function readyOwnerSeed(
+  s: ReturnType<typeof useAdminSession>,
+): { handle: string; publicURL: string } {
+  return s.kind === 'ready'
+    ? { handle: s.session.handle, publicURL: s.session.public_url }
+    : { handle: '', publicURL: '' };
+}
+
+// LanguageCard —— the owner's interface language. Switching navigates to the `/<locale>/…` prefix
+// (the same mechanism as the visitor top-bar switcher), which persists the choice via cookie, so
+// the whole admin + the public pages follow it. The control lives here so it's in one settings home.
+function LanguageCard() {
+  const t = useTranslations('adminShell.account');
+  return (
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+      <div className="sm-smallcaps mb-3">{t('language')}</div>
+      <LocaleSwitch />
+      <p className="text-[12px] text-(--color-muted) mt-3">{t('languageSub')}</p>
+    </div>
   );
 }
 

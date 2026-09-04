@@ -1,0 +1,81 @@
+{
+  "common": {
+    "noCode": "kein code?",
+    "yourName": "Ihr name",
+    "checking": "prüft…"
+  },
+  "seal": {
+    "brand": "standmeet · {handle}",
+    "private": "privat"
+  },
+  "hero": {
+    "reached": "Sie haben {handle}'s corpus erreicht",
+    "headline": "Das ist nicht offen",
+    "lede": "{handle} gibt Codes nur aus, wenn es einen Grund zu sprechen gibt — eine Einstellungsschleife, ein Investorengespräch, ein Beraterumfang, ein Pressestück. Wenn Sie einen Code haben, werfen Sie ihn ein. Sonst — bringen Sie Ihre eigene KI um mit dem öffentlichen Corpus zu sprechen{note}.",
+    "ledeNote": ", oder hinterlassen Sie einen Vermerk",
+    "haveCode": "haben Sie einen code?"
+  },
+  "footnote": {
+    "text": "<muted>wie das funktioniert</muted> · standmeet ersetzt einen lebenslauf / linkedin / cold-email-antwort mit einem begrenzten, zu-den-unterlagen-gespräch. es ist keine chatbot-demo. jeder code wird von hand ausgegeben und jedes transkript wird von {handle} überprüft."
+  },
+  "footer": {
+    "brand": "standmeet",
+    "retrieval": "abruf des privaten corpus",
+    "byHand": "von hand, nicht nach feed"
+  },
+  "whatsBehind": {
+    "chatLabel": "ein chat, keine seite",
+    "chatBody": "Es gibt keinen Lebenslauf zum Durchblättern. Sie stellen Fragen, eine KI antwortet in der Stimme des Eigentümers, verankert nur in Dingen, die sie tatsächlich geschrieben haben.",
+    "sliceLabel": "ein begrenzter slice",
+    "sliceBody": "Jeder Code öffnet einen bestimmten Corpus-Slice — z.B. Interview-Slice, Investor-Slice, Berater-Slice. Private Themen bleiben geschwärzt.",
+    "recordLabel": "eine einzelne Unterhaltung, zu-den-unterlagen",
+    "recordBody": "Der Eigentümer sieht das Transkript nachher. Behandeln Sie es wie ein Treffen mit jemandem, der keine Zeit finden kann, nicht wie ChatGPT."
+  },
+  "codePanel": {
+    "enter": "eingeben",
+    "hint": "codes sehen aus wie <sample>OAEN-3K2</sample> · der eigentümer backt sie in einen QR-Code oder Link · Groß-/Kleinschreibung spielt keine Rolle · fügen Sie das ganze ein (mit oder ohne Bindestrich) und drücken Sie Eingabe.",
+    "nameHint": "Ihr Name lässt den Eigentümer Besucher trennen, die denselben Code teilen."
+  },
+  "byoai": {
+    "headline": "Bringen Sie Ihre eigene KI",
+    "lede": "Verwenden Sie Ihren eigenen Schlüssel gegen den öffentlichen Corpus des Eigentümers. Wählen Sie einen beliebigen OpenAI-kompatiblen Provider oder zeigen Sie auf Ihren eigenen selbstgehosteten Endpunkt. Private Themen geben 'benötigt einen Code' zurück.",
+    "bulletKey": "Ihr Schlüssel berührt unseren Server nie — in Ihrem Browser verschlüsselt gespeichert nur",
+    "bulletPays": "Eigentümer zahlt für Abruf, Sie zahlen für Inferenz",
+    "bulletPrivate": "private themen geben 'einen code fragen' zurück",
+    "chooseModel": "wählen Sie ein modell",
+    "endpoint": "endpunkt",
+    "model": "modell",
+    "apiKey": "api-schlüssel",
+    "keyNote": "nie hochgeladen · in Ihrem Browser verschlüsselt gespeichert",
+    "keyShapeHint": "Schlüssel für diesen Provider beginnen normalerweise mit {prefix} — wenn Ihr anders ist, weiter machen",
+    "reveal": "zeigen",
+    "hide": "verbergen",
+    "readyUsing": "bereit · verwenden",
+    "fillHint": "füllen Sie Endpunkt, Modell + Schlüssel um den öffentlichen Chat freizuschalten.",
+    "insecureOrigin": "Diese Seite wird über einfaches http bereitgestellt, daher lässt Ihr Browser keine Site einen Schlüssel hier speichern — bring-your-own-AI benötigt eine https-Adresse. Fragen Sie den Eigentümer nach einem oder verwenden Sie stattdessen einen Zugriffscode.",
+    "warmingUp": "wärmt auf…",
+    "submit": "starten Sie öffentlicher chat ↗"
+  },
+  "request": {
+    "headline": "Sagen Sie {handle} wer Sie sind",
+    "lede": "Eine kurze Notiz. Wenn es sich lohnt zu sprechen — durch die KI oder persönlich — können sie Ihnen einen Code senden. Von Hand gelesen, nicht in eine Queue.",
+    "openButton": "schreiben Sie einen Vermerk ↘",
+    "orgLabel": "wo Sie arbeiten",
+    "emailLabel": "email",
+    "whyLabel": "warum Sie sprechen möchten",
+    "footerNote": "geht direkt zum Eigentümer · gelesen von hand",
+    "sending": "sendet…",
+    "send": "senden ↵",
+    "sent": "gesendet",
+    "anonVisitor": "besucher",
+    "sentBody": "Danke, {name}. Der Eigentümer liest diese von Hand — kein Bot, keine Queue. Wenn es passt, werden sie sich selbst mit einem Code und welchem Corpus-Slice er öffnet bei <accent>{email}</accent> an Sie wenden.",
+    "sentTail": "Nicht jede Notiz erhält eine Antwort. Wenn Sie nicht innerhalb einer Woche von uns hören, das ist die Antwort."
+  },
+  "read": {
+    "kicker": "kein code? · lesen",
+    "heading": "Ein Teil davon ist bereits offen.",
+    "body": "Der veröffentlichte Teil des Corpus braucht nichts von Ihnen — keinen Code, keinen Schlüssel. Lesen Sie ihn wie Sie jeden Notizen lesen würden.",
+    "wiki": "wiki",
+    "writings": "schriften"
+  }
+}

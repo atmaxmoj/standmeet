@@ -129,3 +129,45 @@ func toNodeViews(nodes []owner.WikiTreeNode) []wikiTreeNodeView {
 	}
 	return views
 }
+
+// getCorpusCards —— GET /api/v1/corpus-cards —— every PUBLISHED wiki entry as a home-page card
+// (title + excerpt + reader path), in tree order. Keyless + anonymous: it only ever returns
+// published entries, so a custom page (the redesigned homepage among them) can render corpus
+// cards without any risk of leaking an unpublished note — which is what lets the old pinned-cards
+// machinery + its unpublish cascade be retired. Lives here, not in a new file, because it's the
+// same public keyless corpus-read family as the tree reads above (all already direct-to-facade).
+func (h *SEOHandlers) getCorpusCards() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cards, err := owner.ListPublishedCards(r.Context(), h.Deps)
+		if err != nil {
+			h.Log.Error("corpus cards", logErrKey, err)
+			writeError(h.Log, w, serverErr())
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if eerr := json.NewEncoder(w).Encode(toCorpusCardsResponse(cards)); eerr != nil {
+			h.Log.Error("encode corpus cards", logErrKey, eerr)
+		}
+	}
+}
+
+type corpusCardView struct {
+	Title   string `json:"title"`
+	Excerpt string `json:"excerpt"`
+	Path    string `json:"path"`
+}
+
+type corpusCardsResponse struct {
+	Cards []corpusCardView `json:"cards"`
+}
+
+func toCorpusCardsResponse(cards []owner.CorpusCard) corpusCardsResponse {
+	views := make([]corpusCardView, 0, len(cards))
+	for i := range cards {
+		views = append(views, corpusCardView{
+			Title: cards[i].Title, Excerpt: cards[i].Excerpt, Path: cards[i].Path,
+		})
+	}
+	return corpusCardsResponse{Cards: views}
+}

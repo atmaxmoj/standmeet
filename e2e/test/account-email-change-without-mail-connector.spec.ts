@@ -1,16 +1,17 @@
-// account-email-change-without-mail-connector.spec.ts —— 没有 SMTP 时，改邮箱靠什么兜底。
+// account-email-change-without-mail-connector.spec.ts —— what backstops an email change when there's no SMTP.
 //
-// 确认信这条路（见 account-email-change-needs-confirmation.spec.ts）有前提：得有一个
-// 已验证的 mail connector。没有的时候不能就把闸门拿掉 —— 那是「闸门粒度会挡掉好功能」的
-// 反面：为了保住能用，把保护整个丢了。没有 SMTP 时退化成两件事：
+// The confirmation-email path (see account-email-change-needs-confirmation.spec.ts) has a precondition:
+// a verified mail connector must exist. When it doesn't, you can't just remove the gate —— that's the
+// opposite of "gate granularity removes working action": dropping the protection entirely to keep it usable.
+// Without SMTP it degrades into two things:
 //
-//   1. 新邮箱输两遍。改密码已经要求输两遍（`account-password-confirm` 就在那儿），
-//      同一个面板上同等危险的另一个动作却不要求 —— 这个不一致本身就是缺陷。
-//   2. 把后果说全。现在的 blurb 只说 "Your login identity."，漏了后半句：恢复短语
-//      寄到哪里也一起搬走。一句话说不全后果，跟没有这句话差不多。
+//   1. Enter the new email twice. Changing the password already requires double entry (`account-password-confirm`
+//      is right there), yet an equally dangerous action on the same panel doesn't —— that inconsistency is itself a defect.
+//   2. State the consequence in full. The current blurb only says "Your login identity.", missing the second half:
+//      where the recovery phrase is sent moves too. A sentence that doesn't state the full consequence is about as good as no sentence.
 //
-// 判据：两遍不一致时**邮箱没变**（只断出现了错误提示不够 —— 「报了错但也改了」同样满足）；
-// 一致时身份真的搬走，且**旧邮箱登不上**（只证明新的能登，证不出身份是搬走还是多了一个）。
+// Criteria: when the two entries mismatch, the **email does not change** (asserting an error appeared is not enough —— "errored but also changed" also satisfies that);
+// when they match, the identity really moves, and the **old email cannot log in** (proving only the new one can log in doesn't prove whether the identity moved or a second one was added).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -27,7 +28,7 @@ const OWNER = {
   handle: 'nosmtp',
   fullName: 'Nora NoSMTP',
 };
-const TYPO_EMAIL = 'nosmtp+mvoed@example.com';  // 手滑版
+const TYPO_EMAIL = 'nosmtp+mvoed@example.com';  // the fat-fingered version
 const GOOD_EMAIL = 'nosmtp+moved@example.com';
 
 async function loginStatus(
@@ -56,7 +57,7 @@ test.describe('account · no mail connector → double entry, and the consequenc
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
-    // 刻意**不**配 mail connector —— 这条 spec 测的就是没有 SMTP 的那一半。
+    // Deliberately **do not** configure a mail connector —— this spec tests exactly the no-SMTP half.
     await request.dispose();
   });
 
@@ -64,7 +65,7 @@ test.describe('account · no mail connector → double entry, and the consequenc
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'account');
       await page.waitForURL('**/admin/account', { timeout: 5_000 });
-      // owner 在按下按钮之前必须读到：这一步同时搬走了恢复渠道。
+      // Before pressing the button the owner must read: this step also moves away the recovery channel.
       await expect(page.getByTestId('account-email-block')).toContainText(/recovery/i);
     });
 
@@ -77,7 +78,7 @@ test.describe('account · no mail connector → double entry, and the consequenc
       await page.getByTestId('account-email-new').fill(GOOD_EMAIL);
       await page.getByTestId('account-email-confirm').fill(TYPO_EMAIL);
 
-      // 保存按钮必须挡住 —— 两遍不一致时它不该是可按的。
+      // The save button must block —— when the two entries mismatch it shouldn't be clickable.
       await expect(page.getByTestId('account-email-save')).toBeDisabled();
 
       const request = await playwright.request.newContext();
@@ -95,13 +96,13 @@ test.describe('account · no mail connector → double entry, and the consequenc
       await page.getByTestId('account-email-new').fill(GOOD_EMAIL);
       await page.getByTestId('account-email-confirm').fill(GOOD_EMAIL);
       await page.getByTestId('account-email-save').click();
-      // 等保存**真的完成**再断登录 —— 点击是异步的，不等就是在断一个还没发生的事实。
-      // 而且这句提示必须说的是"改好了"，不是"寄了封信"：没有 SMTP 时走的是直换那条路。
+      // Wait for the save to **actually complete** before asserting login —— the click is async, and not waiting asserts a fact that hasn't happened yet.
+      // And this message must say "changed", not "sent an email": without SMTP it takes the direct-swap path.
       await expect(page.getByTestId('toast-success')).toContainText(/updated to/i);
 
       const request = await playwright.request.newContext();
       expect(await loginStatus(request, GOOD_EMAIL, OWNER.password)).toBe(200);
-      // 身份是**搬走**，不是多了一个。
+      // The identity is **moved**, not duplicated.
       expect(await loginStatus(request, OWNER.email, OWNER.password)).toBe(401);
       await request.dispose();
     });

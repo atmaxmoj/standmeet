@@ -27,6 +27,9 @@
     "dev": "tsup --watch",
     "lint": "eslint src/ && tsc --noEmit"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22"
   },

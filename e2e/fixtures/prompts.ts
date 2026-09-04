@@ -1,7 +1,8 @@
-// prompts.ts —— admin POST /api/admin/prompts 创建 owner prompt 的 helper。
+// prompts.ts —— helper for creating an owner prompt via admin POST /api/admin/prompts.
 //
-// prompts 是集中管理的 persona/instruction 片段库；role.prompt_id (#103) 和
-// access_code.prompt_id (#104) 都引它。测 per-entity prompt 时先建一份，再挂上去。
+// prompts is a centrally managed library of persona/instruction fragments; both
+// role.prompt_id (#103) and access_code.prompt_id (#104) reference it. To test a
+// per-entity prompt, create one first, then attach it.
 
 import type { APIRequestContext } from '@playwright/test';
 

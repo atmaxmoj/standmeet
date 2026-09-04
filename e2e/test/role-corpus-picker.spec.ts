@@ -52,7 +52,28 @@ test.describe('ACL · the corpus grant is picked from the real tree', () => {
     dockTriggerFitsCard);
   test('the help text says WHEN a grant edit takes effect, and says it once',
     helpExplainsTheFreezePoint);
+  test('the tree marks each node referable ◆ / not-referable ◇ (B-follow-up)',
+    marksReferabilityOnTree);
 });
+
+// marksReferabilityOnTree —— the owner (2026-09-03) asked that the scope tree itself say, per
+// node, whether that entry is *referable* (`show_as_source`), a separate axis from the read-scope
+// checkbox. Seeded: one wiki entry referable, one not. Expanding wiki must render both marks —
+// data-referable="true" for one, "false" for the other. RED if the backend stops sending
+// show_as_source on the tree (mark absent → count 0) or if the mark isn't wired.
+async function marksReferabilityOnTree({ adminPage }: { adminPage: Page }): Promise<void> {
+  await openRoles(adminPage);
+  await adminPage.getByTestId(`${PICKER}-toggle-wiki`).click();
+  const picker = adminPage.getByTestId(PICKER);
+  await expect(
+    picker.locator('[data-referable="true"]').first(),
+    'the referable entry shows the ◆ mark',
+  ).toBeVisible({ timeout: 10_000 });
+  await expect(
+    picker.locator('[data-referable="false"]').first(),
+    'the read-but-not-cited entry shows the ◇ mark',
+  ).toBeVisible();
+}
 
 // helpExplainsTheFreezePoint —— F-L-29. The explanatory sentence contradicted itself:
 //   "Changes only affect sessions issued from now on (the role is frozen when the code is issued)."
@@ -187,12 +208,17 @@ async function initOwner(playwright: Playwright): Promise<void> {
 }
 
 // seedNote —— there has to be something real in the tree to tick (an empty tree would also
-// make "can't tick anything" look like it passed).
+// make "can't tick anything" look like it passed). Two wiki entries with opposite referability
+// so the tree's per-node referability mark (◆/◇) has both states to prove out.
 async function seedNote(
   request: Awaited<ReturnType<Playwright['request']['newContext']>>, csrf: string,
 ): Promise<void> {
   await request.post(`${BACKEND}/api/admin/corpus/wiki`, {
     headers: { 'X-Csrftoken': csrf },
     data: { title: 'Thinking', body: 'A curated fact.', tags: ['node'], show_as_source: true },
+  });
+  await request.post(`${BACKEND}/api/admin/corpus/wiki`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: { title: 'Persona', body: 'Read but never cited.', tags: ['node'], show_as_source: false },
   });
 }

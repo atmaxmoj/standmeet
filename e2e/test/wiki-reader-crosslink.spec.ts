@@ -48,7 +48,7 @@ test.describe('F-L-12 · public wiki reader linkifies [[wikilinks]]', () => {
   // wiki only. applyOneWikiRewrite returns the body untouched on a miss, brackets and all.
   //
   // **What this case covers and what it does not.** It seeds a DANGLING target, not a raw one,
-  // because a raw note carries no title through `corpus.create` (ops/corpus.go:87 — "raw 没有
+  // because a raw note carries no title through `corpus.create` (ops/corpus.go:87 — "raw has no
   // title") and titled raw notes only exist via vault import. Both cases enter the same branch
   // (`!ok` → return body), so this pins the behaviour; it does not prove the raw-genre path.
   // Whoever adds the import-driven fixture should assert the raw case here too.

@@ -1,0 +1,192 @@
+{
+  "common": {
+    "cancel": "annuler",
+    "create": "créer",
+    "delete": "supprimer",
+    "systemPill": "[système]",
+    "corpus": "corpus",
+    "tools": "outils",
+    "prompt": "invite",
+    "provider": "fournisseur",
+    "saveCorpus": "enregistrer le corpus",
+    "noneDash": "— aucun —",
+    "byHand": "ou écrivez-les à la main :",
+    "rawDenied": "raw://** est toujours refusé aux visiteurs indépendamment de cette liste"
+  },
+  "codes": {
+    "new": "＋ nouveau code",
+    "intro": "Chaque code ouvre une partie de votre wiki à un destinataire connu — une boucle de recrutement, une présentation d'investisseur, ou un seul appel presse. Plusieurs personnes peuvent partager un code ; quand quelqu'un le saisit, l'IA demande qui ils sont et les ajoute à la liste des membres du code. Chaque carte porte un QR.",
+    "empty": "Aucun code pour l'instant."
+  },
+  "codeCard": {
+    "preview": "aperçu ↗",
+    "edit": "modifier",
+    "revoke": "révoquer",
+    "roleFrozen": "émis avec un rôle (figé)",
+    "quota": "quota",
+    "status": "statut · {status}",
+    "viewConversations": "voir les conversations →",
+    "openShare": "ouvrir le panneau de partage — grand QR, lien copiable, imprimable",
+    "opensLabel": "ouvre",
+    "opensChat": "le chat des visiteurs",
+    "opensPageOption": "/p/{slug}"
+  },
+  "codeCorpus": {
+    "loadError": "Impossible de charger la portée du corpus de ce code. Rechargez et réessayez.",
+    "grantsNothing": "(le rôle n'accorde rien)",
+    "publishedSlice": "(tout ce que vous avez publié — ce rôle n'a pas sa propre liste)",
+    "inherited": "corpus · hérité du rôle",
+    "takenBack": "repris sur ce code",
+    "helpSummary": "comment la reprise fonctionne ▸",
+    "help": "Les URI que ce code retire de ce que le rôle a accordé, une par ligne. Il ne peut que soustraire, jamais ajouter — tout ce que vous écrivez ici ne peut jamais ouvrir ce que le rôle n'a pas accordé. Usage typique : le rôle accorde subjectivity://** (chaque opinion), et ce code reprend subjectivity://cv (le CV reste fermé). Les changements n'affectent que les sessions émises à partir de maintenant : le rôle est figé quand la session est émise, donc un visiteur déjà en chat conserve l'ancienne portée — mais la prochaine session sur le même code, aussi ancien soit-il, obtient la nouvelle."
+  },
+  "members": {
+    "loading": "chargement des membres…",
+    "none": "aucun visiteur n'a utilisé ce code pour l'instant.",
+    "anonymous": "anonyme"
+  },
+  "conversations": {
+    "privateHits": "{count, plural, one {# session} other {# sessions}} a touché des sujets privés",
+    "filterChip": "filtre · code · {code}",
+    "clear": "effacer ×",
+    "thVisitor": "visiteur",
+    "thViaCode": "par code",
+    "thIp": "ip",
+    "thTurns": "tours",
+    "thSentiment": "sentiment",
+    "thFlags": "drapeaux",
+    "thLast": "dernier",
+    "privFlag": "{hits} priv",
+    "empty": "Aucune conversation pour l'instant. Une fois que les visiteurs chattent via un code ou une session BYOAI, vous les verrez ici."
+  },
+  "transcript": {
+    "loading": "chargement de la transcription…",
+    "empty": "Aucun message dans cette conversation.",
+    "cited": "cité · {kind}",
+    "ghostsTitle": "texte fantôme affiché",
+    "groundingTitle": "notes de point de vue qui ont formé ces réponses · non affichées au visiteur",
+    "grounded": "fondé"
+  },
+  "ghostTelemetry": {
+    "title": "direction fantôme · entonnoir par étape",
+    "thWaypoint": "étape",
+    "thShown": "affiché",
+    "thAccepted": "accepté",
+    "thRate": "taux",
+    "all": "tout"
+  },
+  "prompts": {
+    "new": "+ nouvelle invite",
+    "intro": "Bibliothèque de personnages. Propriété du propriétaire, pas de catégories. Chacune est une pièce d'écriture — l'agent devient celui que vous dites ici. Utilisé par les rôles.",
+    "empty": "Aucune invite pour l'instant — public est normalement pré-chargé à la revendication du propriétaire.",
+    "modalTitle": "nouvelle invite",
+    "bodyLabel": "corps"
+  },
+  "requests": {
+    "deliveryHint": "Aucun canal de sortie vérifié — configurez-en un sous Connecteurs pour que l'approbation d'une demande puisse émettre un code et l'envoyer. D'ici là, vous ne pouvez marquer les demandes comme répondues/fermées que manuellement.",
+    "intro": "Soumissions du chemin « sans code » de la porte. Marquez comme répondu une fois que vous avez émis un code ou répondu par écrit ; fermez pour archiver. Le propriétaire lit chacune personnellement — c'est l'intérêt.",
+    "empty": "Aucune demande {filter}.",
+    "issued": "émis {code} — envoyé par email au demandeur",
+    "decline": "refuser",
+    "approve": "approuver · émettre et envoyer le code par email →",
+    "connectMail": "connecter le mail pour émettre des codes"
+  },
+  "roles": {
+    "new": "+ nouveau rôle",
+    "intro": "Un rôle regroupe une invite (personnage), une liste positive d'URI du corpus que l'agent peut lire, un ensemble de compétences, et quels serveurs MCP il peut appeler. Les codes ne portent pas les permissions directement — chaque code <em>assume</em> un rôle au moment de l'émission et cet instantané est figé pour cette session. Modifier un rôle et seules les sessions futures le sentiront.",
+    "empty": "Aucun rôle pour l'instant — public est normalement pré-chargé à la revendication du propriétaire."
+  },
+  "roleCreate": {
+    "title": "nouveau rôle",
+    "promptNone": "(aucune)",
+    "providerDefault": "— défaut de l'instance —",
+    "corpusLabel": "uri du corpus · une par ligne",
+    "noneConfigured": "aucune configuration pour l'instant"
+  },
+  "roleGas": {
+    "help": "Mesurez ce rôle par rapport au réservoir de son fournisseur. Désactivé (par défaut) signifie qu'aucun contrôle d'utilisation ne fonctionne ; activé signifie qu'un visiteur est arrêté une fois que le réservoir du fournisseur est vide. Un fournisseur sans carburant ne sera jamais mesuré de toute façon."
+  },
+  "roleCorpus": {
+    "help": "La liste positive d'URI du corpus que l'agent peut lire, une par ligne. Match-any : frapper n'importe quelle ligne suffit à lire, donc la granularité peut être aussi fine que vous le souhaitez — wiki://thinking/** accorde tout le sous-arbre, subjectivity://standpoint n'accorde que cette note. Une liste vide = rien du tout. Les changements n'affectent que les sessions émises à partir de maintenant : le rôle est figé quand la session est émise, donc un visiteur déjà en chat conserve l'ancienne portée — mais la prochaine session sur le même code, aussi ancien soit-il, obtient la nouvelle.",
+    "citabilityNote": "Cela contrôle uniquement ce que l'agent peut LIRE. Qu'une entrée qu'il lit soit aussi listée comme source citée sous sa réponse est un commutateur séparé par entrée — la case à cocher « cité comme source » sur la carte d'entrée elle-même, sous wiki / sorties. Donc une entrée peut être lisible ici mais jamais apparaître dans les références de la réponse.",
+    "publicIsPublished": "Tout ce que vous avez publié — pas de liste séparée. C'est l'identité qu'un visiteur obtient sans code (et avec BYOAI), et il ne lit une entrée que si le commutateur publié de cette entrée est activé. Activez-en une à partir de la carte d'entrée sous wiki ou sorties ; il n'y a rien à éditer ici, les deux ne peuvent donc jamais dire des choses différentes."
+  },
+  "roleTools": {
+    "help": "Ce que ce rôle peut appeler : vos compétences et les serveurs MCP externes que vous avez enregistrés sous api · mcp. Rien n'est accordé par défaut — un serveur que vous avez ajouté n'est accessible que par les rôles que vous cochez ici. Les changements n'affectent que les sessions émises à partir de maintenant : le rôle est figé quand la session est émise, donc un visiteur déjà en chat conserve l'ancienne portée — mais la prochaine session sur le même code, aussi ancien soit-il, obtient la nouvelle.",
+    "save": "enregistrer les outils · {name}"
+  },
+  "roleDock": {
+    "label": "dock",
+    "help": "Phrase déclencheur — la ligne que le système envoie au nom du visiteur quand ce bouton est pressé ; l'IA la traite comme une question du visiteur. Par exemple « résumez la conversation jusqu'ici » : appuyer sur le bouton revient au même que le visiteur tape cette ligne.",
+    "triggerPlaceholder": "phrase déclencheur (par ex. résumez cette conversation)",
+    "save": "enregistrer le dock · {name}"
+  },
+  "roleGhost": {
+    "label": "règle fantôme",
+    "help": "Quand activé, l'IA peut seulement diriger les visiteurs vers des étapes qui citent des preuves du corpus — les invites de direction sans preuves sont supprimées (les réservations et autres étapes terminales ne sont pas affectées). Figé dans chaque session ; un code d'accès peut annuler ceci.",
+    "save": "enregistrer la règle fantôme · {name}"
+  },
+  "codeGhost": {
+    "label": "preuve fantôme",
+    "inherit": "hériter du rôle",
+    "on": "exiger une preuve",
+    "off": "autoriser tout"
+  },
+  "roleDesc": {
+    "label": "à propos",
+    "help": "Une brève ligne décrivant ce rôle — qui est le visiteur et comment l'IA doit le traiter. Affichée ici uniquement (orientée propriétaire).",
+    "placeholder": "par ex. recruteurs de startups Series-B",
+    "save": "enregistrer à propos · {name}"
+  },
+  "roleWaypoints": {
+    "label": "étapes",
+    "help": "Destinations vers lesquelles l'IA peut doucement diriger les visiteurs — une par objectif (par ex. « réserver un appel », « lire la note de cybernétique »). Chacune porte un poids (plus élevé = préféré) et, optionnellement, la preuve du corpus qui l'étaye. Marquez les objectifs de réservation/contact comme terminaux. Figé dans chaque session ; vide = l'IA ne dirige jamais.",
+    "idPlaceholder": "id (par ex. book-a-call)",
+    "descPlaceholder": "ce que cette destination est",
+    "weightLabel": "poids",
+    "terminalLabel": "terminal",
+    "evidencePlaceholder": "URI de preuves, séparées par des virgules (par ex. wiki://cybernetics)",
+    "add": "+ ajouter une étape",
+    "remove": "supprimer",
+    "save": "enregistrer les étapes · {name}"
+  },
+  "embeds": {
+    "new": "＋ nouveau partage",
+    "intro": "Un partage dépose ce chat d'instance sur le site de quelqu'un d'autre comme une seule balise <standmeet-chat>. Chaque partage expose un code d'accès — les visiteurs sur cette page chattent sous le rôle du code, pas besoin de saisir le code. Parce que le widget fonctionne sur des sites que vous ne contrôlez pas, épinglez les origines d'où il peut charger.",
+    "empty": "Aucun partage pour l'instant. Créez-en un pour donner à un site partenaire un chat prêt à l'emploi.",
+    "exposesCode": "expose",
+    "originsAny": "fonctionne sur n'importe quelle origine",
+    "originsPinned": "{count} épinglés",
+    "snippetLabel": "coller dans la page d'accueil",
+    "copySnippet": "copier",
+    "copied": "copié",
+    "keyNote": "identifiant de widget émis — le fragment avec sa clé a été affiché une seule fois à la création. Supprimer et recréer pour rémettre.",
+    "kidLabel": "kid {kid}",
+    "revealKicker": "widget prêt",
+    "revealTitle": "copiez ce fragment maintenant",
+    "revealWarning": "Ceci porte la clé de signature du widget et n'est affiché qu'une fois. Copiez-le maintenant — il ne peut pas être affiché à nouveau. Il ne contient pas votre code d'accès ; le serveur le résout. Si vous le perdez, supprimez ce partage et créez-en un nouveau.",
+    "edit": "modifier",
+    "delete": "supprimer",
+    "deleted": "partage supprimé",
+    "created": "partage créé",
+    "updated": "partage mis à jour",
+    "unknownCode": "code supprimé",
+    "form": {
+      "createTitle": "exposer un code comme widget",
+      "editTitle": "modifier le partage",
+      "createKicker": "nouveau partage",
+      "editKicker": "modifier le partage",
+      "labelField": "étiquette · privée pour vous",
+      "labelPlaceholder": "par ex. Page de carrière Acme",
+      "codeField": "code d'accès que ce partage expose",
+      "codePlaceholder": "choisir un code…",
+      "originsField": "origines autorisées · une par ligne · vide = tout",
+      "originsPlaceholder": "https://acme.example\nhttps://careers.acme.example",
+      "originsHelp": "Schéma + hôte, sans chemin d'accès à la fin (https://acme.example). Le widget est refusé sur toute origine non listée ici.",
+      "save": "créer un partage",
+      "saveEdit": "enregistrer les changements",
+      "cancel": "annuler",
+      "codeRequired": "choisir d'abord un code"
+    }
+  }
+}

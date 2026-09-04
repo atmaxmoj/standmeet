@@ -35,15 +35,18 @@ export interface BaseSeed {
 
 /** Just claim + login. Cleans GCal mock state too. */
 export async function seedOwnerLoggedIn(playwright: Playwright): Promise<BaseSeed> {
-  // 这段前置要 reset 实例 + claim + 登录 + 存凭据 + 走一遍 mock OAuth + 建 skill/role/code。
-  // 栈刚重建过(镜像层冷、沙箱第一次起)时它超过默认的 30s，而那时报出来的是
-  // **"beforeAll hook timeout"** —— 一句跟产品无关的话，长得却像这条用例挂了。
-  // 预算给在**种子这一层**而不是每条 spec 各写一遍：下一条用它的 spec 不必再撞一次
-  // （[[lesson-not-swept-to-neighbours]]）。
+  // This setup has to reset the instance + claim + log in + store credentials +
+  // run through the mock OAuth + create skill/role/code. Just after a stack
+  // rebuild (cold image layers, first sandbox spawn) it exceeds the default 30s,
+  // and what's reported then is **"beforeAll hook timeout"** —— a line unrelated
+  // to the product that looks like this case failed. The budget is given at the
+  // **seed layer** rather than written into each spec: the next spec that uses it
+  // doesn't have to hit the same wall again ([[lesson-not-swept-to-neighbours]]).
   test.setTimeout(150_000);
   resetInstance();
-  // beforeAll setup POSTs 在满载串行跑时偶发 >10s(config actionTimeout=10_000),
-  // 给 seed 的 request context 一个宽的显式超时,别让前置条件 flake 掉整个 describe。
+  // beforeAll setup POSTs occasionally take >10s when running serially under load
+  // (config actionTimeout=10_000); give the seed's request context a wide explicit
+  // timeout so a precondition doesn't flake out the whole describe.
   const request: APIRequestContext = await playwright.request.newContext({ timeout: 30_000 });
   await claim(request, findSetupToken(), {
     email: OWNER.email, password: OWNER.password,
@@ -89,8 +92,9 @@ export interface CodedSeedInput {
   granted_skills?: readonly string[];
   max_bookings?: number;
   policy?: Partial<BookingPolicy>;
-  // scopes —— owner 授出去的范围。省略 = 全授，绝大多数 spec 要的就是这个。
-  // 传 `[GCAL_SCOPE_READ]` 得到一个**连着但写不了**的实例（F-B-8）。
+  // scopes —— the scopes the owner grants. Omitted = grant everything, which is
+  // what the vast majority of specs want. Passing `[GCAL_SCOPE_READ]` gives an
+  // instance that's **connected but can't write** (F-B-8).
   scopes?: readonly string[];
 }
 
@@ -113,8 +117,9 @@ export async function seedCodeVisitorOnConnectedOwner(
     granted_skills: input.granted_skills ?? ['calendar.book'],
     max_bookings: input.max_bookings,
   });
-  // visitor_email 进 session profile —— booking 的 invite 收件人硬控走它
-  // (calendar_book 不再接受 visitor_email tool arg)。
+  // visitor_email goes into the session profile —— the booking invite's recipient
+  // is hard-controlled through it (calendar_book no longer accepts a visitor_email
+  // tool arg).
   const visitor = await issueSession(seed.request, {
     handle: OWNER.handle, mode: 'code', code: code.code,
     visitor_name: 'Recruiter Rachel', visitor_email: 'rachel@example.com',
@@ -143,13 +148,17 @@ async function runMockOAuthFlow(seed: BaseSeed): Promise<void> {
   // request context follows the 302 chain back to /callback, which the
   // backend handles + persists tokens.
   await oauthDanceWithRetry(seed);
-  // §9: connect 只是连上；要被 booking 解析到，还得占用 calendar 品类槽。
+  // §9: connect only connects; to be resolved by booking it must also occupy the
+  // calendar category slot.
   await activateGCal(seed.request, seed.csrf);
 }
 
-// oauthDanceWithRetry —— init + 走 302 链回 /callback。并行负载下 backend 的 callback 腿偶发
-// "socket hang up"（连接瞬断，非确定性失败）。只对这类瞬时网络错重试，每次重新 init 拿**新 state**
-// （state 单次使用，不能复用旧的）；确定性错（status≠200 等）立即抛，不掩盖真失败。
+// oauthDanceWithRetry —— init + follow the 302 chain back to /callback. Under
+// parallel load the backend's callback leg occasionally hits "socket hang up" (a
+// momentary connection drop, a nondeterministic failure). Retry only these
+// transient network errors, re-initing each time to get a **fresh state** (state
+// is single-use, the old one can't be reused); deterministic errors (status≠200
+// etc.) throw immediately, without masking a real failure.
 async function oauthDanceWithRetry(seed: BaseSeed): Promise<void> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -176,8 +185,9 @@ function isTransientNetErr(err: unknown): boolean {
 // ─── teardown ───────────────────────────────────────────────────
 
 export async function teardownSeed(seed: BaseSeed | undefined): Promise<void> {
-  // beforeAll 抛了(setup POST 超时等)→ seed 没赋值。别让 afterAll 再抛个
-  // "reading 'request' of undefined" 把真因盖掉;没 seed 直接静默返回。
+  // beforeAll threw (setup POST timeout etc.) → seed was never assigned. Don't let
+  // afterAll throw a "reading 'request' of undefined" that covers up the real
+  // cause; with no seed, just return silently.
   if (seed === undefined) return;
   await safeDisconnect(seed);
   await seed.request.dispose();

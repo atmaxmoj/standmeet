@@ -70,6 +70,8 @@ test.describe('wiki 阅读器外壳：换文章不重挂，读正文不跟着滚
   });
 
   test('换一篇文章，树这个 DOM 节点没有被重建', async ({ page }) => {
+    // the tree rail is display:none below 1500px (reader-shell design c215f0be).
+    await page.setViewportSize({ width: 1512, height: 900 });
     await goto(page, `/wiki/${FIRST.path}`);
     await expect(page.getByTestId('wiki-toc')).toBeVisible({ timeout: 15_000 });
 

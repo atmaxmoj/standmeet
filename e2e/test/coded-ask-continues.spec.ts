@@ -49,11 +49,18 @@ test.describe('homepage ask carries through gate into chat and gets answered', (
 
   test('ask on homepage (no code) → gate → enter code → chat answers the carried question',
     async ({ page }) => {
+      // The homepage is now a custom page installed at claim and auto-promoted once its build
+      // finishes; wait for it to be live before asking on it (else `/` shows the fallback).
+      await expect.poll(
+        async () => (await page.request.get('/api/v1/homepage')).status(),
+        { timeout: 60_000, message: 'the default homepage auto-goes-live' },
+      ).toBe(200);
       await goto(page, '/');
-      // The homepage's ask field is `home-ask-field` (5e439b51 gave it a name distinct
-      // from ChatRoom's input field).
-      const input = page.locator('[data-testid="home-ask-field"]');
-      await expect(input).toBeVisible({ timeout: 5_000 });
+      // The homepage's ask box is the SDK AgentWidget's input (`agent-widget-input`). Codeless,
+      // it hands off to /gate carrying the question — the same behavior the old `home-ask-field`
+      // had.
+      const input = page.locator('[data-testid="agent-widget-input"]');
+      await expect(input).toBeVisible({ timeout: 20_000 });
       await input.fill(QUESTION);
       await input.press('Enter');
       // Lands on gate, the question carried via ?q=.

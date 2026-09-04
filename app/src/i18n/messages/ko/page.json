@@ -1,0 +1,37 @@
+{
+  "fallback": { "settingUp": "이 페이지는 준비 중입니다.", "enter": "액세스 요청 ↗" },
+  "brand": "standmeet",
+  "hero": {
+    "someExamples": "some examples"
+  },
+  "askInput": {
+    "ask": "ask"
+  },
+  "contact": {
+    "jumpToChat": "jump to chat ↑",
+    "orDirectly": "Or directly:"
+  },
+  "where": {
+    "hiringFilter": "if you're hiring, it should fit all of these"
+  },
+  "conversation": {
+    "you": "you",
+    "assistantLabel": "{handle}’s ai",
+    "references": "references · {count}"
+  },
+  "toolCalls": {
+    "searched": "searched {count}",
+    "read": "read {count}"
+  },
+  "topBar": {
+    "live": "live"
+  },
+  "footer": {
+    "requestAccess": "request access ↗",
+    "grounded": "grounded retrieval, no open-web fallback"
+  },
+  "report": {
+    "title": "report · {id}",
+    "print": "print ↗"
+  }
+}

@@ -1,10 +1,12 @@
-// security-code-bruteforce.spec.ts —— pentest / net-new。访问码是可猜的 LABEL-XXX,而
-// 兑换路径(POST /api/v1/sessions + /codes/intro)本无失败锁定/captcha,唯一节流是
-// fail-open 的 120/min/IP —— 可被全速暴力枚举拿到别人的 RoleSnapshot(corpus + 预约配额)。
+// security-code-bruteforce.spec.ts —— pentest / net-new. Access codes are guessable LABEL-XXX, and the
+// redemption path (POST /api/v1/sessions + /codes/intro) has no failure lockout/captcha; the only
+// throttle is a fail-open 120/min/IP —— so it can be brute-forced at full speed to grab someone else's
+// RoleSnapshot (corpus + booking quota).
 //
-// 契约(修复后成立):同一来源 IP 连续试**错**码,超阈值 → 锁定(429)/要 captcha,而不是
-// 无限返 code_invalid。锁定按 IP,合法访客(带真码、干净 IP)不受牵连(不 self-DoS)。
-// RED(实现前):无锁定,20 次错码全是普通 4xx,没有 429。
+// Contract (holds after the fix): repeated **wrong** codes from the same source IP, over threshold →
+// lockout (429) / require captcha, not unlimited code_invalid. Lockout is per-IP, so a legitimate visitor
+// (real code, clean IP) is unaffected (no self-DoS).
+// RED (before implementation): no lockout, 20 wrong codes all plain 4xx, no 429.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -14,8 +16,8 @@ import { createCode } from '@/fixtures/codes';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// postSessionAttempt —— 直接打 /sessions;X-Forwarded-For 模拟来源 IP(chi.RealIP 解它到
-// RemoteAddr,clientIP 读它)。返 HTTP status。
+// postSessionAttempt —— hits /sessions directly; X-Forwarded-For simulates the source IP (chi.RealIP
+// resolves it into RemoteAddr, clientIP reads it). Returns HTTP status.
 async function postSessionAttempt(
   request: APIRequestContext, ip: string, code: string,
 ): Promise<number> {
@@ -53,11 +55,11 @@ test.describe('pentest · access-code brute-force lockout', () => {
   test('lockout is per-IP: a clean IP redeeming the VALID code is unaffected',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      // 先把攻击者 IP 打到锁定。
+      // First drive the attacker IP to lockout.
       for (let i = 0; i < 20; i++) {
         await postSessionAttempt(request, '198.51.100.8', `NOPE-${i}`);
       }
-      // 另一个干净 IP 用真码兑换 → 仍成功(200),不被连坐锁定。
+      // A different clean IP redeeming with the real code → still succeeds (200), not locked by association.
       const ok = await postSessionAttempt(request, '203.0.113.9', validCode);
       expect(ok, 'valid code from a clean IP still issues a session').toBe(200);
       await request.dispose();

@@ -68,11 +68,14 @@ func DeleteRaw(ctx context.Context, deps Deps, ownerID, rawID string) error {
 
 // CreateWikiReq —— admin starts a wiki entry directly (not promoted). SourceRawIDs stays empty.
 type CreateWikiReq struct {
-	OwnerID  string
 	ParentID *string
-	Title    string
-	Body     string
-	Tags     []string
+	// ShowAsSource —— nil = citable (default). A new entry that the owner marks non-referable
+	// (the meta/persona kind) must carry it through at CREATE too, not only on a later update.
+	ShowAsSource *bool
+	OwnerID      string
+	Title        string
+	Body         string
+	Tags         []string
 }
 
 // CreateWiki starts a new wiki entry (the entry point behind admin UI's "+new wiki" button).
@@ -83,11 +86,12 @@ func CreateWiki(
 		return entity.Wiki{}, err
 	}
 	wiki, err := deps.Wiki.Create(ctx, &repo.CreateWikiInput{
-		OwnerID:  in.OwnerID,
-		ParentID: in.ParentID,
-		Title:    in.Title,
-		Body:     in.Body,
-		Tags:     in.Tags,
+		OwnerID:      in.OwnerID,
+		ParentID:     in.ParentID,
+		Title:        in.Title,
+		Body:         in.Body,
+		Tags:         in.Tags,
+		ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
 		return entity.Wiki{}, fmt.Errorf("create wiki: %w", err)
@@ -180,11 +184,14 @@ func DeleteWiki(ctx context.Context, deps Deps, ownerID, wikiID string) error {
 // CreateOutputReq —— admin starts an output entry directly (not promoted).
 // SourceWikiIDs stays empty.
 type CreateOutputReq struct {
-	OwnerID  string
 	ParentID *string
-	Title    string
-	Body     string
-	Tags     []string
+	// ShowAsSource —— nil = quotable (default). Threaded at CREATE too, so a new non-referable
+	// output entry is honored, not silently made citable until the owner edits it.
+	ShowAsSource *bool
+	OwnerID      string
+	Title        string
+	Body         string
+	Tags         []string
 }
 
 // CreateOutput starts a new output entry (the entry point behind admin UI's "+new output" button).
@@ -195,11 +202,12 @@ func CreateOutput(
 		return entity.Output{}, apierr.ErrEmptyField
 	}
 	out, err := deps.Output.Create(ctx, &repo.CreateOutputInput{
-		OwnerID:  in.OwnerID,
-		ParentID: in.ParentID,
-		Title:    in.Title,
-		Body:     in.Body,
-		Tags:     in.Tags,
+		OwnerID:      in.OwnerID,
+		ParentID:     in.ParentID,
+		Title:        in.Title,
+		Body:         in.Body,
+		Tags:         in.Tags,
+		ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
 		return entity.Output{}, fmt.Errorf("create output: %w", err)

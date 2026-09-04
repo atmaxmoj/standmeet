@@ -5,7 +5,9 @@ package entity
 // first-glance ops data).
 type SystemInfo struct {
 	Version       string
+	PublicIP      string // the instance's public IP (deploy-provided), for the panel
 	Health        []HealthCheck
+	Containers    []Container // this compose project's per-service CPU/memory (own cluster)
 	UptimeSeconds int64
 	MemAllocMB    int64 // Go process heap (runtime), != host RAM
 	DiskTotalMB   int64 // host data disk total capacity
@@ -23,4 +25,12 @@ type HealthCheck struct {
 	Name   string
 	Detail string
 	OK     bool
+}
+
+// Container — one compose service's live resource usage (the owner's own cluster).
+type Container struct {
+	Name       string
+	CPUPercent float64
+	MemBytes   int64
+	MemLimit   int64
 }

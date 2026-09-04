@@ -1,9 +1,9 @@
-// mcp-stdio.ts —— spawn @standmeet/mcp-client child process for e2e。
-// 等价于 owner 在 Claude Desktop 启的 MCP server。每个 JSON-RPC 一行喂
-// stdin，stdout 读响应一行。
+// mcp-stdio.ts —— spawn @standmeet/mcp-client child process for e2e.
+// Equivalent to the MCP server the owner launches in Claude Desktop. Each JSON-RPC
+// is fed to stdin one line at a time, and one response line is read from stdout.
 //
-// 区别于 e2e/fixtures/mcp.ts (直接 HTTP + Sigv1)：本 fixture 走 stdio
-// 桥，验证 SDK 自己的代码路径 (creds load + sign + HTTP forward)。
+// Unlike e2e/fixtures/mcp.ts (direct HTTP + Sigv1): this fixture goes through the
+// stdio bridge, exercising the SDK's own code path (creds load + sign + HTTP forward).
 
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
@@ -12,8 +12,9 @@ import { join, resolve } from 'node:path';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// playwright 跑时 cwd = e2e/，相对解 sdk bin。`import.meta.dirname` 在
-// playwright 把 .ts 编 CJS 时不可用 (no ESM meta)，cwd-relative 更稳。
+// When playwright runs, cwd = e2e/, so resolve the sdk bin relative to it.
+// `import.meta.dirname` isn't available when playwright compiles .ts to CJS (no ESM
+// meta), so cwd-relative is more robust.
 const SDK_BIN = resolve(process.cwd(), '..', 'sdk/packages/mcp-client/bin/standmeet-mcp');
 
 export interface StdioCreds { keyId: string; privateKeyPem: string }

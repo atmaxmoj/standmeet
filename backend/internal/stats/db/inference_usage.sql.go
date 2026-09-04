@@ -25,11 +25,12 @@ WHERE u.created_at < now() - interval '7 days'
   )
 `
 
-// 7 天小表:清老行(查询本就只看 7 天,清理只为不让表无限涨)。
+// 7-day small table: purge old rows (the queries only look back 7 days anyway; cleanup only keeps the table from growing forever).
 //
-// **但计量行不能一起清**:看板只看 7 天,油量却是"从加油那次到现在"的累计。把过了 7 天的
-// 计量行删掉,等于油自己长回来 —— 一个不用加油的油箱。所以只留还在当前那一箱账期里的:
-// 上次加油之前的计量行已经不参与任何求和,跟普通老行一样删。
+// **But metered rows cannot be purged together**: the dashboard only looks at 7 days, yet gas usage is the cumulative total
+// "from the last fill to now". Deleting metered rows older than 7 days lets the gas grow back on its own —— a tank that never
+// needs filling. So keep only those still within the current tank's billing period: metered rows before the last fill no longer
+// participate in any sum, so delete them like ordinary old rows.
 func (q *Queries) DeleteInferenceUsageOlderThan7Days(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteInferenceUsageOlderThan7Days)
 	return err
@@ -52,8 +53,8 @@ type RecordInferenceUsageParams struct {
 	Metered      bool
 }
 
-// #106 每次 owner-key LLM 调用记一行。metered = 这一趟算在某箱油的账上(#7):
-// 挂了表的 role + 指得到的 provider,两个条件都成立才是 true,由调用方判定。
+// #106 record one row per owner-key LLM call. metered = this call counts against a gas tank's ledger (#7):
+// a metered role + a resolvable provider, true only when both hold, decided by the caller.
 func (q *Queries) RecordInferenceUsage(ctx context.Context, arg RecordInferenceUsageParams) error {
 	_, err := q.db.Exec(ctx, recordInferenceUsage,
 		arg.OwnerID,
@@ -78,7 +79,7 @@ type SumMeteredUsageSinceParams struct {
 	CreatedAt  pgtype.Timestamptz
 }
 
-// 一箱油自加油那一刻起花掉的量。没有计数器列 —— 跟 turn 配额一样读时求和。
+// How much a gas tank has spent since the moment it was filled. No counter column —— summed at read time, like the turn quota.
 func (q *Queries) SumMeteredUsageSince(ctx context.Context, arg SumMeteredUsageSinceParams) (int64, error) {
 	row := q.db.QueryRow(ctx, sumMeteredUsageSince, arg.ProviderID, arg.CreatedAt)
 	var column_1 int64
@@ -106,7 +107,7 @@ type SummarizeInferenceUsage7DayRow struct {
 	OutputTokens int64
 }
 
-// 近 7 天按天×model 聚合(call 数 + token 合计)。新 → 老。
+// Aggregate the last 7 days by day × model (call count + token totals). Newest → oldest.
 func (q *Queries) SummarizeInferenceUsage7Day(ctx context.Context, ownerID pgtype.UUID) ([]SummarizeInferenceUsage7DayRow, error) {
 	rows, err := q.db.Query(ctx, summarizeInferenceUsage7Day, ownerID)
 	if err != nil {

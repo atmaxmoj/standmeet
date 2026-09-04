@@ -18,6 +18,7 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
+	"github.com/atmaxmoj/standmeet/internal/infra/dockerstat"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
@@ -64,6 +65,8 @@ type SysInfoProvider struct {
 	storage *storage.Client
 	search  *search.Client // corpus lexical search; nil = Meili not configured —
 	// **still shows on the health panel**, reported as OK=false (F-S-3)
+	docker   *dockerstat.Reader // per-container usage of this compose project; nil = not wired
+	publicIP string             // deploy-provided instance public IP (env PUBLIC_IP)
 }
 
 // NewSysInfoProvider — provider of the runtime info shown at /admin/system (real
@@ -71,6 +74,7 @@ type SysInfoProvider struct {
 func NewSysInfoProvider(d *deps.Runtime) *SysInfoProvider {
 	return &SysInfoProvider{
 		started: time.Now(), db: d.DB, rdb: d.RDB, storage: d.StorageClient, search: d.SearchClient,
+		docker: d.DockerStat, publicIP: d.PublicIP,
 	}
 }
 
@@ -82,6 +86,7 @@ func (p *SysInfoProvider) SystemInfo(ctx context.Context) stats.SystemInfo {
 	host := readHostMetrics(ctx)
 	return stats.SystemInfo{
 		Version:       appVersion,
+		PublicIP:      p.publicIP,
 		UptimeSeconds: int64(time.Since(p.started).Seconds()),
 		Goroutines:    runtime.NumGoroutine(),
 		MemAllocMB:    int64(goMem.Alloc / bytesPerMB),
@@ -92,7 +97,34 @@ func (p *SysInfoProvider) SystemInfo(ctx context.Context) stats.SystemInfo {
 		MemUsedMB:     host.memUsedMB,
 		LoadAvg1:      host.load1,
 		Health:        p.healthChecks(ctx),
+		Containers:    p.containers(ctx),
 	}
+}
+
+// dockerStatBudget — the most /admin/system will wait on the docker gather. Container stats
+// are a nice-to-have; the rest of the snapshot (health, host metrics) must never be held up.
+const dockerStatBudget = 3 * time.Second
+
+// containers — this compose project's per-service usage; nil when the docker socket isn't
+// wired/available (the panel then simply shows no cluster rows, not an error).
+func (p *SysInfoProvider) containers(ctx context.Context) []stats.Container {
+	if p.docker == nil {
+		return []stats.Container{}
+	}
+	ctx, cancel := context.WithTimeout(ctx, dockerStatBudget)
+	defer cancel()
+	snap, err := p.docker.Snapshot(ctx)
+	if err != nil {
+		return []stats.Container{}
+	}
+	out := make([]stats.Container, 0, len(snap))
+	for i := range snap {
+		out = append(out, stats.Container{
+			Name: snap[i].Name, CPUPercent: snap[i].CPUPercent,
+			MemBytes: snap[i].MemBytes, MemLimit: snap[i].MemLimit,
+		})
+	}
+	return out
 }
 
 // hostMetrics — host resource snapshot (a single struct avoids the tuple-return

@@ -51,3 +51,16 @@ export interface DocContext {
 export interface TurnStreamer {
   stream(req: TurnRequest): AsyncIterable<AgentTurnEvent>;
 }
+
+// TurnRecovery —— recovers a turn whose SSE was cut mid-stream by a transport
+// drop (network jitter). The backend runs the turn on a **detached** context
+// (`agent_turn.go:136` — `context.WithoutCancel`), so it keeps generating and
+// persists the turn even when the client connection died. This pulls that
+// persisted answer back so the visitor doesn't have to manually refresh — the
+// turn is NOT re-run (no regeneration), it's read from the conversation table.
+// `recover` returns the answer text once persisted, or null if it never shows
+// up (server genuinely failed, or the wait ran out) — then the normal cut path
+// (an honest "try again") takes over.
+export interface TurnRecovery {
+  recover(conversationID: string, userMessage: string): Promise<string | null>;
+}

@@ -1,0 +1,86 @@
+/* theme.css — the StandMeet design system, shipped into every custom-page build so a page can
+   be styled exactly like the app (tokens + the two fonts + base type), instead of starting from
+   a bare Vite template. Mirrors app/src/app/globals.css (the app is the source of truth; this is
+   the subset a content page needs — colors, fonts, base, and the handful of utility classes the
+   homepage sections use). */
+
+@import "tailwindcss";
+
+/* The two brand faces. The app self-hosts these via next/font; a custom page loads them from
+   Google Fonts (the only external host custom pages rely on for type). Family names must match
+   the --font-* tokens below, or the bytes are right but the glyphs fall back. */
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* Design tokens — warm cream paper + ink + vermillion accent; Newsreader serif + JetBrains Mono.
+   Exposed to Tailwind via @theme, so `text-(--color-ink)` / `font-serif` / `text-(--color-accent)`
+   work in a page's classes just like in the app. */
+@theme {
+  --color-paper:        #F3EFE6;
+  --color-surface:      #ECE6D8;
+  --color-raised:       #E5DECC;
+  --color-ink:          #1B1814;
+  --color-muted:        #7A7167;
+  --color-faint:        #B0A89A;
+  --color-rule:         #DCD3BF;
+  --color-accent:       #B5391C;
+  --color-accent-soft:  #D9744C;
+
+  --font-serif: 'Newsreader', Georgia, serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Dark mode follows the visitor's system preference (a custom page has no TopBar toggle). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper:        #14110D;
+    --color-surface:      #1C1812;
+    --color-raised:       #221C15;
+    --color-ink:          #E8E2D5;
+    --color-muted:        #837C6F;
+    --color-faint:        #4D473D;
+    --color-rule:         #2A251D;
+    --color-accent:       #D14E2E;
+    --color-accent-soft:  #E97A52;
+  }
+}
+
+html, body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  accent-color: var(--color-accent);
+}
+body {
+  font-family: var(--font-serif);
+  font-feature-settings: 'kern', 'liga', 'onum';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  margin: 0;
+}
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+::selection { background: color-mix(in oklab, var(--color-accent) 28%, transparent); }
+
+@layer base {
+  button:not(:disabled), [role="button"]:not(:disabled), summary { cursor: pointer; }
+}
+
+/* The utility classes the homepage sections use (Hero / Insights / Projects / Where / Contact). */
+.mono { font-family: var(--font-mono); font-feature-settings: 'ss02'; }
+.reading {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 1.55;
+  letter-spacing: -0.003em;
+  font-weight: 380;
+  text-wrap: pretty;
+}
+.link {
+  color: var(--color-accent);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-accent) 35%, transparent);
+  transition: border-color .15s ease;
+}
+.link:hover { border-bottom-color: var(--color-accent); }
+.rule { border: 0; height: 1px; background: var(--color-rule); }

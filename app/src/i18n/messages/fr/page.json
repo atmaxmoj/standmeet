@@ -1,0 +1,37 @@
+{
+  "fallback": { "settingUp": "Cette page est en cours de préparation.", "enter": "demander l'accès ↗" },
+  "brand": "standmeet",
+  "hero": {
+    "someExamples": "quelques exemples"
+  },
+  "askInput": {
+    "ask": "demander"
+  },
+  "contact": {
+    "jumpToChat": "aller au chat ↑",
+    "orDirectly": "Ou directement :"
+  },
+  "where": {
+    "hiringFilter": "si vous embauchez, cela devrait correspondre à tous ces critères"
+  },
+  "conversation": {
+    "you": "vous",
+    "assistantLabel": "ia de {handle}",
+    "references": "références · {count}"
+  },
+  "toolCalls": {
+    "searched": "recherche {count}",
+    "read": "lire {count}"
+  },
+  "topBar": {
+    "live": "en direct"
+  },
+  "footer": {
+    "requestAccess": "demander l'accès ↗",
+    "grounded": "récupération fondée, pas de recours au web ouvert"
+  },
+  "report": {
+    "title": "rapport · {id}",
+    "print": "imprimer ↗"
+  }
+}

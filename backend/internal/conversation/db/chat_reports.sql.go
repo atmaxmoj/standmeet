@@ -41,7 +41,7 @@ type UpsertChatReportParams struct {
 	Html           string
 }
 
-// #129 一会话一份:conversation 已有 report → 改写 html(revise)，返回同一行(report_id 稳定)。
+// #129 one per conversation: if the conversation already has a report → rewrite html (revise), returning the same row (report_id stable).
 func (q *Queries) UpsertChatReport(ctx context.Context, arg UpsertChatReportParams) (ChatReport, error) {
 	row := q.db.QueryRow(ctx, upsertChatReport, arg.OwnerID, arg.ConversationID, arg.Html)
 	var i ChatReport

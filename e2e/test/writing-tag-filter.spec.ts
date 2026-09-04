@@ -1,6 +1,6 @@
 // writing-tag-filter.spec.ts —— writings index tag filter + empty state + CTA.
 //
-// 用户故事：
+// User stories:
 //   1. tag filter → click tag → only writings with that tag shown
 //   2. tag filter → click same tag again → clear filter (show all)
 //   3. 0 writings → empty state

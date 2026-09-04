@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/buildnotify"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
@@ -29,6 +30,11 @@ import (
 type BuilderDeps struct {
 	Log    *slog.Logger
 	Builds *owner.CustomBuildRepo
+	// Pages —— needed only so a finished build can auto-go-live the reserved home page
+	// (owner.AutopublishHomepageOnBuilt). Every other build ignores it.
+	Pages *owner.CustomPageRepo
+	// Notifier —— wakes the owner panel's preview long-poll the moment a build settles.
+	Notifier *buildnotify.Notifier
 }
 
 // MountBuilds mounts /internal/builds/* —— the caller has already added the /internal
@@ -125,6 +131,8 @@ func patchBuild(deps BuilderDeps) http.HandlerFunc {
 			http.Error(w, "patch build failed", http.StatusInternalServerError)
 			return
 		}
+		// A build settled (built or failed) → wake the owner panel's preview long-poll.
+		deps.Notifier.Signal()
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -142,8 +150,16 @@ func applyPatch(
 }
 
 func markBuilt(r *http.Request, deps BuilderDeps, id string, req *patchBuildRequest) error {
-	if _, err := deps.Builds.MarkBuilt(r.Context(), id, req.OutputPath); err != nil {
+	built, err := deps.Builds.MarkBuilt(r.Context(), id, req.OutputPath)
+	if err != nil {
 		return fmt.Errorf("mark built: %w", err)
+	}
+	// Auto-go-live the reserved home page the moment its build finishes (A Slice 5). Any other
+	// build is a no-op inside. Its failure must not fail the builder's report — the build IS built.
+	if aerr := owner.AutopublishHomepageOnBuilt(
+		r.Context(), owner.CustomPageDeps{Pages: deps.Pages, Builds: deps.Builds}, &built, deps.Log,
+	); aerr != nil {
+		deps.Log.Error("homepage auto-publish on built", "err", aerr)
 	}
 	return nil
 }

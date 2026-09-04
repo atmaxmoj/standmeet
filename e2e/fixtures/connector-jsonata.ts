@@ -1,8 +1,11 @@
-// connector-jsonata.ts —— §8-C 绑定契约用的内联 spec + 各 JSONata 绑定（happy / runtime / 坏）。
-// 从 connector-binding-jsonata.spec.ts 抽出来守 max-lines。e2e 不碰真 Google：servers / oauth
-// 端点指 external-mock 的 gcal 路由（backend 调的用 service-name，authorize 用 localhost）。
+// connector-jsonata.ts —— the inline spec + the JSONata bindings (happy / runtime /
+// broken) for the §8-C binding contract. Extracted from
+// connector-binding-jsonata.spec.ts to stay under max-lines. e2e never touches
+// real Google: the servers / oauth endpoints point at external-mock's gcal routes
+// (backend-dialed ones use the service-name, authorize uses localhost).
 
-// SAMPLE_SPEC —— 最小但合法的 OpenAPI 3.0：freebusy.query / events.insert 两个 op + oauth2。
+// SAMPLE_SPEC —— minimal but valid OpenAPI 3.0: two ops freebusy.query /
+// events.insert + oauth2.
 export const SAMPLE_SPEC = {
   openapi: '3.0.3',
   info: { title: 'Sample Calendar', version: '1.0.0' },
@@ -42,7 +45,7 @@ export const SAMPLE_SPEC = {
   },
 } as const;
 
-// SAMPLE_BINDING —— happy 绑定：list_busy/create_event 两向 JSONata。
+// SAMPLE_BINDING —— the happy binding: two-way JSONata for list_busy/create_event.
 export const SAMPLE_BINDING = {
   category: 'calendar',
   kind: 'openapi',
@@ -62,7 +65,8 @@ export const SAMPLE_BINDING = {
   },
 } as const;
 
-// NULL_REQUIRED_FIELD_BINDING —— summary 映到契约没有的字段 → 求值 null（必填却空，pre-flight 拒）。
+// NULL_REQUIRED_FIELD_BINDING —— summary maps to a field the contract doesn't have
+// → evaluates to null (required but empty, rejected at pre-flight).
 export const NULL_REQUIRED_FIELD_BINDING = {
   ...SAMPLE_BINDING,
   operations: {
@@ -71,7 +75,8 @@ export const NULL_REQUIRED_FIELD_BINDING = {
   },
 } as const;
 
-// NESTED_ARRAY_BINDING —— busy 藏在 periods[].interval{from,to}，嵌套映射 + 重命名。
+// NESTED_ARRAY_BINDING —— busy is buried in periods[].interval{from,to}, nested
+// mapping + rename.
 export const NESTED_ARRAY_BINDING = {
   ...SAMPLE_BINDING,
   operations: {
@@ -80,7 +85,8 @@ export const NESTED_ARRAY_BINDING = {
   },
 } as const;
 
-// EXTRA_OP_BINDING —— 多绑一个 consumer 不要的 cancel_event（占位合法 op）→ 应容忍。
+// EXTRA_OP_BINDING —— binds an extra cancel_event the consumer doesn't need (a
+// placeholder valid op) → should be tolerated.
 export const EXTRA_OP_BINDING = {
   ...SAMPLE_BINDING,
   operations: {
@@ -89,7 +95,7 @@ export const EXTRA_OP_BINDING = {
   },
 } as const;
 
-// BROKEN_JSONATA_BINDING —— response 缺右括号（装配期拒）。
+// BROKEN_JSONATA_BINDING —— response is missing a closing brace (rejected at assembly).
 export const BROKEN_JSONATA_BINDING = {
   ...SAMPLE_BINDING,
   operations: {
@@ -98,7 +104,8 @@ export const BROKEN_JSONATA_BINDING = {
   },
 } as const;
 
-// GHOST_OP_BINDING —— 引用 spec 里不存在的 operationId（装配期拒）。
+// GHOST_OP_BINDING —— references an operationId that doesn't exist in the spec
+// (rejected at assembly).
 export const GHOST_OP_BINDING = {
   ...SAMPLE_BINDING,
   operations: {
@@ -107,10 +114,11 @@ export const GHOST_OP_BINDING = {
   },
 } as const;
 
-// UNKNOWN_CATEGORY_BINDING —— 没有对应品类槽（装配期拒）。
+// UNKNOWN_CATEGORY_BINDING —— no matching category slot (rejected at assembly).
 export const UNKNOWN_CATEGORY_BINDING = { ...SAMPLE_BINDING, category: 'telepathy' } as const;
 
-// INCOMPLETE_BINDING —— 漏映 create_event（calendar 契约不完整，装配期拒）。
+// INCOMPLETE_BINDING —— create_event is unmapped (the calendar contract is
+// incomplete, rejected at assembly).
 export const INCOMPLETE_BINDING = {
   category: 'calendar', kind: 'openapi',
   operations: { list_busy: SAMPLE_BINDING.operations.list_busy },

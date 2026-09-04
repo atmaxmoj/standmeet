@@ -123,37 +123,60 @@ type healthOut struct {
 	OK     bool   `json:"ok"`
 }
 
+type containerOut struct {
+	Name       string  `json:"name"`
+	CPUPercent float64 `json:"cpu_percent"`
+	MemBytes   int64   `json:"mem_bytes"`
+	MemLimit   int64   `json:"mem_limit"`
+}
+
 type statusOut struct {
-	Version       string      `json:"version"`
-	Health        []healthOut `json:"health"`
-	UptimeSeconds int64       `json:"uptime_seconds"`
-	MemAllocMB    int64       `json:"mem_alloc_mb"`
-	DiskTotalMB   int64       `json:"disk_total_mb"`
-	DiskFreeMB    int64       `json:"disk_free_mb"`
-	MemTotalMB    int64       `json:"mem_total_mb"`
-	MemUsedMB     int64       `json:"mem_used_mb"`
-	LoadAvg1      float64     `json:"load_avg_1"`
-	Goroutines    int         `json:"goroutines"`
-	NumCPU        int         `json:"num_cpu"`
+	Version       string         `json:"version"`
+	PublicIP      string         `json:"public_ip"`
+	Health        []healthOut    `json:"health"`
+	Containers    []containerOut `json:"containers"`
+	UptimeSeconds int64          `json:"uptime_seconds"`
+	MemAllocMB    int64          `json:"mem_alloc_mb"`
+	DiskTotalMB   int64          `json:"disk_total_mb"`
+	DiskFreeMB    int64          `json:"disk_free_mb"`
+	MemTotalMB    int64          `json:"mem_total_mb"`
+	MemUsedMB     int64          `json:"mem_used_mb"`
+	LoadAvg1      float64        `json:"load_avg_1"`
+	Goroutines    int            `json:"goroutines"`
+	NumCPU        int            `json:"num_cpu"`
 }
 
 func instanceStatus(system SystemInfoSource) fp.Invoke {
 	return func(ctx context.Context, _ string, _ json.RawMessage) (json.RawMessage, error) {
 		info := system.SystemInfo(ctx)
-		health := make([]healthOut, 0, len(info.Health))
-		for i := range info.Health {
-			health = append(health, healthOut{
-				Name: info.Health[i].Name, Detail: info.Health[i].Detail, OK: info.Health[i].OK,
-			})
-		}
 		return json.Marshal(statusOut{
-			Version: info.Version, UptimeSeconds: info.UptimeSeconds,
+			Version: info.Version, PublicIP: info.PublicIP, UptimeSeconds: info.UptimeSeconds,
 			Goroutines: info.Goroutines, MemAllocMB: info.MemAllocMB,
 			DiskTotalMB: info.DiskTotalMB, DiskFreeMB: info.DiskFreeMB,
 			MemTotalMB: info.MemTotalMB, MemUsedMB: info.MemUsedMB,
-			LoadAvg1: info.LoadAvg1, NumCPU: info.NumCPU, Health: health,
+			LoadAvg1: info.LoadAvg1, NumCPU: info.NumCPU,
+			Health: healthRows(info.Health), Containers: containerRows(info.Containers),
 		})
 	}
+}
+
+func healthRows(in []entity.HealthCheck) []healthOut {
+	out := make([]healthOut, 0, len(in))
+	for i := range in {
+		out = append(out, healthOut{Name: in[i].Name, Detail: in[i].Detail, OK: in[i].OK})
+	}
+	return out
+}
+
+func containerRows(in []entity.Container) []containerOut {
+	out := make([]containerOut, 0, len(in))
+	for i := range in {
+		out = append(out, containerOut{
+			Name: in[i].Name, CPUPercent: in[i].CPUPercent,
+			MemBytes: in[i].MemBytes, MemLimit: in[i].MemLimit,
+		})
+	}
+	return out
 }
 
 // formatOptionalTime —— nil stays null (the frontend shows "never run yet" based on that).

@@ -38,7 +38,7 @@ test.describe('owner logs back in', () => {
   test('right credentials land owner in admin', async ({ adminPage: page }) => {
     // The adminPage fixture already runs owner-typed /admin → /login → fill form → /admin/page on its own.
     // Here we only assert that it landed in the right place (the admin sidebar rendered).
-    await expect(page.getByTestId('admin-nav-page')).toBeVisible();
+    await expect(page.getByTestId('admin-nav-account')).toBeVisible();
   });
 
   test('wrong password shows inline error, stays on /login', async ({ page }) => {

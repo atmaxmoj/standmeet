@@ -24,8 +24,8 @@ type CountPublishedCorpusRow struct {
 	Writings int64
 }
 
-// SEO 面 indexing stats：owner 各 tier 已 published 的条目数（wiki/output）+
-// published writing 数。owner 在 UI 选统计范围，默认全含（三者相加）。
+// SEO panel indexing stats: the owner's published-entry counts per tier (wiki/output) +
+// published writing count. The owner picks the stat scope in the UI; the default includes all (sum of the three).
 func (q *Queries) CountPublishedCorpus(ctx context.Context, ownerID pgtype.UUID) (CountPublishedCorpusRow, error) {
 	row := q.db.QueryRow(ctx, countPublishedCorpus, ownerID)
 	var i CountPublishedCorpusRow

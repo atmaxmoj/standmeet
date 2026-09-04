@@ -1,0 +1,233 @@
+{
+  "sidebar": {
+    "instanceLabel": "instanz ·",
+    "uptimeLabel": "betriebszeit ·",
+    "groupPrefix": "──",
+    "closeNav": "schließen Sie die bereichsliste"
+  },
+  "topBar": {
+    "brand": "standmeet",
+    "admin": "admin",
+    "live": "live",
+    "notAnswering": "antwortet nicht",
+    "viewPublic": "öffentlich anzeigen ↗",
+    "signOut": "abmelden",
+    "navOpen": "bereiche",
+    "navClose": "schließen",
+    "versionLabel": "version ·"
+  },
+  "pulse": {
+    "title": "corpus-puls",
+    "sparkWindow": "neu pro tag · letzte 14d"
+  },
+  "constellation": {
+    "empty": "noch keine links"
+  },
+  "listPane": {
+    "loadFailed": "Konnte diese Liste nicht laden — das ist also kein 'keine', es ist 'unbekannt'. Neu laden zum Erneut versuchen."
+  },
+  "modal": {
+    "close": "schließen ✕"
+  },
+  "qr": {
+    "fallback": "qr…"
+  },
+  "previewPane": {
+    "fileName": "vorschau · {name}"
+  },
+  "application": {
+    "idLabel": "anwendung · {id}",
+    "close": "schließen ✕",
+    "closeAction": "schließen",
+    "timeline": "zeitstrahl",
+    "contact": "kontakt",
+    "pingInChat": "ping in chat ↗",
+    "privateNotes": "private notizen",
+    "resumeSnapshot": "lebenslauf gesendet · snapshot",
+    "resume": "lebenslauf",
+    "tailoredFor": "zugeschnitten für {company} · {role}",
+    "viewFull": "vollständig anzeigen ↗",
+    "downloadPdf": "pdf herunterladen",
+    "status": "status",
+    "sentMeta": "gesendet {sentAt} · {method}",
+    "withdraw": "zurückziehen",
+    "logUpdate": "update protokollieren"
+  },
+  "connectorAdd": {
+    "catalogCount": "connector hinzufügen · {n} im katalog",
+    "tagline": "Erweitern Sie die corpus-oberfläche.",
+    "close": "schließen ✕",
+    "installed": "installiert",
+    "builtIn": "integriert"
+  },
+  "connectorConfig": {
+    "oauthHint": "öffnet provider oauth in einem neuen tab",
+    "choose": "auswählen…",
+    "backToCatalog": "← zurück zum katalog",
+    "connect": "verbinden →"
+  },
+  "connectorCard": {
+    "credsStored": "Anmeldedaten für diesen Connector werden gespeichert. Sie werden nie wieder angezeigt — lassen Sie die Felder leer um sie zu behalten oder geben Sie neue ein um sie zu ersetzen.",
+    "scopeShortfall": "Verbunden, aber dieser Grant kann nicht alles tun, was gefragt wird — Aktionen, die {scopes} benötigen, werden nicht ausgeführt. Aktivieren Sie oben und verbinden Sie sich erneut."
+  },
+  "connectorCred": {
+    "authentication": "authentifizierung",
+    "apiKeyHint": "Gesendet im {where} als <code>{name}</code>.",
+    "discoveryHint": "Erkennung: <code>{url}</code>",
+    "needsDance": "Dieses Schema benötigt einen Autorisierungsschritt. Montieren Sie zuerst den Connector — die Connect-Schaltfläche existiert auf seiner Karte.",
+    "scopes": "bereiche"
+  },
+  "protocolConnector": {
+    "testConnection": "Verbindung testen →"
+  },
+  "specIngest": {
+    "heading": "fügen Sie eine openapi-Spezifikation ein",
+    "blurb": "Jede OpenAPI 3.0-Spezifikation (JSON oder YAML). Wir leiten das Glaubwürdigkeits-Formular + die Kategorie davon ab.",
+    "useThisSpec": "diese spezifikation überprüfen",
+    "uploadSpec": "datei hochladen",
+    "bindingLabel": "bindung — optional",
+    "bindingHint": "JSONata (YAML) Kartierung dieser API's Operationen auf einen Kategorie-Vertrag, damit der Agent sie als Kalender, Mailer usw. verwenden kann. Lassen Sie es leer um stattdessen die Raw-Operationen freizulegen.",
+    "orFetchFromUrl": "…oder von einer URL abrufen",
+    "fetch": "abrufen",
+    "candidate": "connector-kandidat",
+    "baseUrlLabel": "basis-url — nur wenn die spezifikation keine server deklariert",
+    "assemble": "connector zusammenstellen →",
+    "exposeLabel": "Erlauben Sie dem AI eines Besuchers diese Operationen direkt aufzurufen. Jede Operation in der Spezifikation wird ein Tool, das es verwenden kann, vorbehaltlich Pro-Code-Gewährungen. Schalten Sie dies aus, wenn Sie eine Bindung versorgten.",
+    "needsBindingOrExpose": "Dies würde einen Connector zusammenstellen, den nichts aufrufen kann. Versorgten Sie eine Bindung um eine Kategorie zu füllen, oder aktivieren Sie das Kontrollkästchen oben um die Operationen dem AI eines Besuchers freizulegen."
+  },
+  "composer": {
+    "backToDrafts": "← entwürfe",
+    "regenerate": "regenerieren ⌖",
+    "send": "senden →",
+    "match": "treffer",
+    "matchOutOf": "/ 100",
+    "matchTitle": "treffer gegen die jobbeschreibung",
+    "freezeAndSend": "einfrieren + senden",
+    "confirmTitle": "Diesen Entwurf an {company} senden?",
+    "confirmBody": "Das Senden wird den Lebenslauf + Anschreiben-Snapshot einfrieren, das endgültige PDF rendern (mit QR) und eine Anwendungszeile schreiben. Der automatisch ausgegebene AccessCode wird 180 Tage, 10 Sitzungen, 50 Züge sein.",
+    "keepEditing": "← weiter bearbeiten"
+  },
+  "codeModal": {
+    "cancel": "abbrechen",
+    "addQuestion": "＋ hinzufügen",
+    "promptNone": "— keine —",
+    "roleDefault": "— standard —",
+    "providerTitle": "provider",
+    "providerSubtitle": "schlägt die rolle; leer erbt sie",
+    "providerInherit": "— erben (rolle, dann instanz-standard) —"
+  },
+  "codeQr": {
+    "copyLink": "link kopieren",
+    "printQr": "qr drucken ↗",
+    "roleLabel": "rolle ·",
+    "statusLine": "status · {status}"
+  },
+  "visitorPreview": {
+    "ownerAiReady": "eigentümer-ki · bereit",
+    "welcome": "Willkommen. Sie sind auf <accent>{label}</accent> gekommen. Bevor wir anfangen — sind Sie das oder jemand neues?",
+    "suggestedQuestions": "vorgeschlagene fragen",
+    "noSuggested": "keine vorgeschlagenen fragen für diesen code gesetzt",
+    "assumesRole": "dieser code nimmt rolle an",
+    "codeLine": "code · {code}",
+    "testThisCode": "testen Sie diesen code"
+  },
+  "dashboard": {
+    "corpusActive": "↑ {added} neu in 14d",
+    "corpusQuiet": "nichts neu in 14d",
+    "entriesTotal": "einträge · gesamt",
+    "daysAgo14": "neu pro tag · 14d ago",
+    "today": "heute",
+    "viewAll": "alle anzeigen →",
+    "all": "alle →",
+    "inPool": "im pool",
+    "applications": "anwendungen",
+    "newestInPool": "neueste im pool",
+    "poolLoading": "liest den pool…",
+    "poolError": "Konnte den job-pool nicht lesen. Neu laden und erneut versuchen.",
+    "registerSources": "registrieren Sie quellen um zu beginnen",
+    "sourcesHint": "/admin/sources → abruf → listings landen hier für einen tag",
+    "nothingFetched": "quellen sind registriert — nichts abgerufen in letzter zeit",
+    "nothingFetchedHint": "bitten Sie Claude jobs.fetch_new auszuführen; ergebnisse landen in /admin/listings für einen tag",
+    "recentError": "Konnte neueste Besucher nicht laden. Neu laden und erneut versuchen.",
+    "noConversations": "noch keine unterhaltungen — besucher erscheinen hier, sobald sie zu sprechen beginnen",
+    "visitorMeta": "{label} · {turns, plural, one {# zug} other {# züge}} · {last}",
+    "privHits": "{n} priv",
+    "nothingPending": "Nichts ausstehend — corpus ist aktuell.",
+    "review": "überprüfen →"
+  },
+  "account": {
+    "siteAddress": "site-adresse",
+    "byoaiMode": "byoai-modus",
+    "profile": "profil",
+    "language": "oberflächensprache",
+    "languageSub": "die sprache der verwaltung und Ihrer öffentlichen seiten",
+    "security": "sicherheit",
+    "inference": "inferenz",
+    "defaultProvider": "standard-provider",
+    "configuredIn": "konfiguriert in /admin/api-mcp",
+    "spend30d": "ausgaben 30-tage",
+    "spendSub": "Ihr inferenz-schlüssel · eigentümer zahlt",
+    "spendUnknown": "$—"
+  },
+  "ipBans": {
+    "intro": "Blockieren Sie missbräuchliche Quell-IPs. Eine verbotene IP erhält eine 403 auf der ganzen öffentlichen Oberfläche — Chat, Sitzungen, Zugangsanfragen. Finden Sie beleidigende IPs in <mono>conversations</mono> (jede Zeile zeigt die IP des Besuchers). Verbote können jederzeit aufgehoben werden.",
+    "banIp": "ip verbieten",
+    "empty": "Keine IPs verboten. Die öffentliche Oberfläche ist offen (noch rate-limited pro IP).",
+    "unban": "verbieten aufheben"
+  },
+  "system": {
+    "checkForUpdates": "auf updates prüfen",
+    "upgradeChecking": "prüft…",
+    "upgradeApplying": "aktualisiert…",
+    "upgradeTo": "aktualisieren auf {version}",
+    "upgradeUnknown": "Diese Instanz hat noch nicht nach einer neueren Version geprüft.",
+    "upgradeUnreachable": "Konnte die Release-Registratur nicht erreichen — diese Instanz hat möglicherweise kein ausgehendes Netzwerk. Seine eigene Version wird unten immer noch angezeigt.",
+    "upgradeCurrent": "Läuft {version} — die neueste veröffentlichte Version.",
+    "upgradeIncomparable": "Dieser Build meldet {current}, was keine veröffentlichte Version ist — er kann nicht verglichen werden. Die neueste veröffentlichte Version ist {version}.",
+    "upgradeAvailable": "{version} wurde veröffentlicht. Diese Instanz kann es anwenden.",
+    "upgradeManual": "{version} wurde veröffentlicht. Diese Instanz kann es selbst nicht anwenden — es hat keine Kontrolle über seinen Host. Stellen Sie es neu bereit, wo Sie es bereitstellen, oder setzen Sie STANDMEET_REDEPLOY_HOOK auf die Redeploy-URL, die Ihr Host Ihnen gibt.",
+    "upgradeWaiting": "Neubereitstellung angefordert. Warten Sie darauf, dass diese Instanz zurückkommt und sagt, welche Version sie ausführt.",
+    "upgradeDone": "Aktualisiert — läuft jetzt {version}.",
+    "upgradeStalled": "Die Neubereitstellung lief, aber diese Instanz meldet immer noch {version}. Ihre Image-Tags sind wahrscheinlich auf diese Version geheftet — zeigen Sie sie auf die neuere und stellen Sie neu bereit.",
+    "deployment": "bereitstellung",
+    "statusCmd": "standmeet status",
+    "treeBranch": "├─",
+    "treeLast": "└─",
+    "version": "version",
+    "cpus": "cpus",
+    "uptime": "betriebszeit",
+    "migrations": "migrationen",
+    "migrationsPending": "0 ausstehend",
+    "ready": "bereit",
+    "resources": "ressourcen · host + runtime",
+    "publicIp": "öffentliche ip",
+    "cluster": "cluster · eigene container",
+    "clusterEmpty": "keine cluster-daten — docker-socket nicht eingebunden",
+    "backgroundJobs": "hintergrund-jobs",
+    "colJob": "job",
+    "colSchedule": "zeitplan",
+    "colLast": "letztes",
+    "colStatus": "status",
+    "statusDot": "●",
+    "healthChecks": "gesundheitsprüfungen"
+  },
+  "inferenceUsage": {
+    "title": "inferenz-nutzung · letzte 7 tage",
+    "colDate": "datum",
+    "colModel": "modell",
+    "colCalls": "aufrufe",
+    "colIn": "eingang",
+    "colOut": "ausgang",
+    "empty": "keine owner-schlüssel llm aufrufe in den letzten 7 tagen"
+  },
+  "sandbox": {
+    "title": "mcp sandbox · {n} aktive arbeitsbereiche",
+    "sweepNow": "jetzt kehren",
+    "colWorkspace": "sitzungsarbeitsbereich",
+    "colAge": "alter",
+    "empty": "Keine Arbeitsbereiche gerade",
+    "emptyHint": "Ein Arbeitsbereich erscheint, wenn eine Besucher-Sitzung ein Tool verwendet, das Dateien schreibt, und er wird gekehrt, sobald er sein TTL-Leerlauf überschritten hat. Keiner hier bedeutet keinen in Gebrauch — nicht, dass etwas kaputt ist.",
+    "sweepNothing": "Nichts zu kehren — es gibt keine Arbeitsbereiche",
+    "ageSecs": "{n}s"
+  }
+}

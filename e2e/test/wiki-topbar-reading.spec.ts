@@ -1,5 +1,5 @@
-// wiki-topbar-reading.spec.ts —— F3:reader 顶栏阅读态 —— 打开一条 wiki,顶栏标出
-// 正在读的条目标题(index/列表不传,所以只 reader 有)。
+// wiki-topbar-reading.spec.ts —— F3: reader top-bar reading state —— open a wiki, and the top bar marks
+// the title of the item being read (index/list pages don't pass it, so only the reader has it).
 
 import { test, expect } from '@/fixtures/test';
 

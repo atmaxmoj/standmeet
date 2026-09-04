@@ -9,5 +9,6 @@ type ScheduledJob struct {
 	LastRun    *time.Time // nil = has not run yet
 	Name       string
 	Schedule   string
-	LastStatus string // 'scheduled' | 'ok' | 'error'
+	LastStatus string        // 'scheduled' | 'ok' | 'error'
+	Every      time.Duration // the real interval, so the panel can flag an overdue job
 }

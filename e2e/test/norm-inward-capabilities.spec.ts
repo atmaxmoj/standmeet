@@ -42,6 +42,9 @@ const GOLDEN_INWARD: readonly Cap[] = [
   // SessionGate). Landed as part of the connector refactor #155 §3, registered after
   // ext.mcp and before the leaf capabilities.
   { id: 'connector.agent_tools', shape: 'visitor_only', origin: 'builtin' },
+  // resume.read — the recruiter reads THIS application's tailored résumé by code (job loop B-7).
+  // In-host (capreg_resume_read.go), loaded before the sandboxed leaf plugins below, hence here.
+  { id: 'resume.read', shape: 'visitor_only', origin: 'builtin' },
   // ask_visitor + summarize_conversation + calendar.book + corpus.retrieval — all four leaf
   // capabilities are externalized into sandboxed plugins (mcp-servers/*), loaded through
   // registerBuiltins via the unified sandbox_stdio path with origin=builtin (after the

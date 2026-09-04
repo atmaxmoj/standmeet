@@ -1,10 +1,11 @@
-// revoke-purges-session.spec.ts —— revoke 一张 code 时,后端**清掉这张 code 在 Redis
-// 里的所有 visitor session**(token 真死)。cookie 不是 revoke 直接清的,而是**下一次
-// 请求发现 session 没了**(resolveVisitor 的 Sessions.Get miss → 401 → 清 cookie)。
+// revoke-purges-session.spec.ts —— when a code is revoked, the backend **purges all of that code's
+// visitor sessions in Redis** (the token really dies). The cookie is not cleared by revoke directly, but
+// by the **next request finding the session gone** (resolveVisitor's Sessions.Get miss → 401 → clears
+// the cookie).
 //
-// 跟 iam-revoke-blocks-next-turn 区别:那条测的是 per-turn code-revoked 检查挡住
-// (token 还活着);这条测的是 revoke **purge 了 session** → 走通用失效路径 → 连
-// cookie 一起清。
+// Difference from iam-revoke-blocks-next-turn: that one tests the per-turn code-revoked check blocking
+// (the token is still alive); this one tests revoke **purging the session** → hitting the generic
+// invalidation path → clearing the cookie too.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
@@ -38,15 +39,15 @@ test.describe('revoke purges the code\'s visitor sessions; cookie cleared on nex
   test('revoke → cookie-authed turn 401 + clears the cookie', async ({ playwright }) => {
     const visitor = await playwright.request.newContext();
     expect((await issueSessionRaw(visitor)).status()).toBe(200);
-    expect((await turnNoBearer(visitor)).status()).toBe(200); // session 活着
+    expect((await turnNoBearer(visitor)).status()).toBe(200); // session alive
 
-    // owner revoke 这张 code → 后端 purge 它的 visitor sessions。
+    // owner revokes this code → backend purges its visitor sessions.
     const admin = await playwright.request.newContext();
     const { csrf } = await loginAPI(admin, OWNER.email, OWNER.password);
     await revokeCodeByName(admin, csrf, CODE);
     await admin.dispose();
 
-    // 同一 cookie 再打:session 已被 purge → 发现无效 → 401 + 清 cookie。
+    // Hit again with the same cookie: session already purged → found invalid → 401 + clears the cookie.
     const res = await turnNoBearer(visitor);
     expect(res.status()).toBe(401);
     const cleared = setCookieHeader(res);

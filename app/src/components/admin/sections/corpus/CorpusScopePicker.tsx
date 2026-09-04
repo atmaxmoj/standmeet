@@ -160,6 +160,7 @@ function ScopeRow({ genre, node, selected, toggle, prefix }: BlockProps & { node
             data-testid={`${prefix}-node-${uriOf(genre, node)}`}
           />
           <span className="text-(--color-ink)">{node.title}</span>
+          <ReferableMark show={node.show_as_source} prefix={`${prefix}-${node.id}`} />
           {hasKids ? <span className="text-(--color-faint)">{t('everythingUnder')}</span> : null}
         </label>
       </div>
@@ -169,6 +170,33 @@ function ScopeRow({ genre, node, selected, toggle, prefix }: BlockProps & { node
       ) : null}
     </li>
   );
+}
+
+// REFERABLE_MARK —— the glyph per referability state, keyed by String(show_as_source). A missing
+// axis (writing) → String(undefined) = 'undefined', absent from the map → no mark rendered.
+const REFERABLE_MARK: Record<string, { glyph: string; cls: string; key: string }> = {
+  true: { glyph: '◆', cls: 'text-(--color-accent)', key: 'referable' },
+  false: { glyph: '◇', cls: 'text-(--color-faint)', key: 'notReferable' },
+};
+
+// ReferableMark —— a per-node glyph telling the owner, while they pick read-scope, whether this
+// entry is *referable* (can surface as a cited source: `show_as_source`). A separate axis from
+// read-scope — a role may read a note that is never cited — so it is shown, not made checkable.
+// ◆ (accent) = referable, ◇ (faint) = readable-but-never-cited; writing has no such axis → nothing.
+function ReferableMark({ show, prefix }: { show?: boolean; prefix: string }) {
+  const t = useTranslations('adminCorpus.scope');
+  const m = REFERABLE_MARK[String(show)];
+  return m ? (
+    <span
+      title={t(m.key)}
+      aria-label={t(m.key)}
+      data-testid={`${prefix}-referable`}
+      data-referable={String(show)}
+      className={`mono text-[10px] ${m.cls}`}
+    >
+      {m.glyph}
+    </span>
+  ) : null;
 }
 
 function Expander(

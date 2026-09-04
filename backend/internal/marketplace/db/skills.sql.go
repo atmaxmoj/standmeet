@@ -168,7 +168,7 @@ type SetSkillEnabledParams struct {
 	Enabled bool
 }
 
-// #48-2: owner 全局开/关一个 skill(builtin 也可开关)。
+// #48-2: owner globally enables/disables a skill (builtins can be toggled too).
 func (q *Queries) SetSkillEnabled(ctx context.Context, arg SetSkillEnabledParams) (Skill, error) {
 	row := q.db.QueryRow(ctx, setSkillEnabled, arg.ID, arg.OwnerID, arg.Enabled)
 	var i Skill
@@ -208,12 +208,12 @@ type UpdateSkillParams struct {
 	AllowedTools []string
 }
 
-// owner 改自己那份技能的正文和它可以调的工具。设计源的原话：安装会「写一份你完全拥有的
-// 本地副本 —— 之后可以改 prompt 或 allowed-tools，跟市场解耦」。
+// Owner edits the body of their own skill and the tools it may call. In the design source's words: installing
+// "writes a local copy you fully own —— you can then edit its prompt or allowed-tools, decoupled from the marketplace".
 //
-// `is_builtin = false` 跟 DeleteSkill 同一条谓词：内置那几个由 seeder 每次启动 upsert
-// （UpsertBuiltin 会覆写 description/prompt），在这里改了下次起来就没了 —— 一个存得进去、
-// 又会自己消失的编辑，比不让改更糟。命中 0 行是回执，调用方据此翻 builtin/not-found。
+// `is_builtin = false` is the same predicate as DeleteSkill: the built-in ones are upserted by the seeder on every
+// boot (UpsertBuiltin overwrites description/prompt), so an edit made here is gone on the next boot —— an edit that
+// saves yet vanishes on its own is worse than disallowing it. 0 rows matched is the receipt; the caller uses it to distinguish builtin/not-found.
 func (q *Queries) UpdateSkill(ctx context.Context, arg UpdateSkillParams) (Skill, error) {
 	row := q.db.QueryRow(ctx, updateSkill,
 		arg.ID,
@@ -264,7 +264,7 @@ type UpsertBuiltinSkillParams struct {
 }
 
 // Seed built-in skills: idempotent by (owner_id, name). Overwrite prompt /
-// description / metadata 字段以便 future seed 调整后 re-run 生效。
+// description / metadata fields so a re-run takes effect after a future seed adjustment.
 func (q *Queries) UpsertBuiltinSkill(ctx context.Context, arg UpsertBuiltinSkillParams) (Skill, error) {
 	row := q.db.QueryRow(ctx, upsertBuiltinSkill,
 		arg.OwnerID,

@@ -211,6 +211,18 @@ export function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void
     accum.retrying = false;
     return;
   }
+  if (ev.type === 'answer_recovered') {
+    // The SSE was cut mid-stream, but the backend finished on its detached
+    // context and persisted the turn (K). This is that authoritative answer,
+    // pulled back without re-running the turn. Replace the partial that
+    // streamed in before the drop, drop the throbber, and clear the cut-error
+    // that would otherwise have wrapped up the dialog.
+    accum.body = ev.text;
+    accum.currentTool = null;
+    accum.errorMsg = '';
+    accum.retrying = false;
+    return;
+  }
   if (ev.type === 'capability_state_changed') {
     useCapabilityStore.getState().setStates(ev.states);
     return;

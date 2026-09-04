@@ -1,17 +1,18 @@
-// public-role-published-only.spec.ts —— public 这个身份读到的，就是 owner 发布过的那些（F-D-7）。
+// public-role-published-only.spec.ts —— what the public identity reads is exactly what the owner published (F-D-7).
 //
-// 规则（owner 定的，一句话）：**private 的文章没有码就读不到。**
+// The rule (owner-defined, one sentence): **a private entry cannot be read without a code.**
 //
-// 而"是不是 private"只有一个数据：条目自己的 `published` 开关（`corpus_notes.published`，
-// owner 在 /admin/wiki 每条的 PUBLIC LANDING 卡上翻的那个）。`public` 角色**不该另存一份
-// 清单**去重新表述同一件事 —— 两份数据必然漂移，而漂移的那一刻没人会收到通知。
+// And "private or not" has a single source of truth: the entry's own `published` toggle
+// (`corpus_notes.published`, the one the owner flips on each PUBLIC LANDING card in /admin/wiki). The
+// `public` role **must not keep a separate list** restating the same thing —— two copies inevitably
+// drift, and no one is notified at the moment they diverge.
 //
-// 这条驱的是**未受邀访客**那条路：一张不指定 role 的码（"leave blank for public"，跟无码
-// BYOAI 落到同一个 builtin 角色）。断言落在访客自己 agent 的工具上 —— `corpus_search` 是
-// 访客侧真实的检索面，不是数据库窥探。
+// This drives the **uninvited visitor** path: a code that specifies no role ("leave blank for public",
+// which lands on the same builtin role as codeless BYOAI). The assertion lands on the visitor's own
+// agent tool —— `corpus_search` is the visitor's real retrieval surface, not a database peek.
 //
-// RED（修之前）：seed 的两条 wiki 都返回，因为 `PublicRoleCorpusURIs` 授的是 `wiki://**` ——
-// "全部"，跟每条自己的开关无关。
+// RED (before the fix): both seeded wiki entries came back, because `PublicRoleCorpusURIs` grants
+// `wiki://**` —— "everything", regardless of each entry's own toggle.
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -51,12 +52,13 @@ test.describe('the public identity reads what the owner published — and nothin
       title: 'Open Note', body: `a note the owner published about ${PUBLISHED_KEY}`,
     });
     await publishEntry(request, token, sid, { genre: 'wiki', id: open.wikiID });
-    // 不发布 —— 这条就是 /admin/wiki 上标 `● PRIVATE` 的那种。
+    // Not published —— this is the kind marked `● PRIVATE` in /admin/wiki.
     await seedWiki(request, token, sid, {
       title: 'Held Back Note', body: `a note kept private about ${UNPUBLISHED_KEY}`,
     });
-    // **显式**挑 builtin `public`：留空现在是 `invited`（发一张码就是一次邀请）。
-    // 这条守的是"没被邀请的人看到什么"，所以那个身份必须写出来，不能靠默认。
+    // **Explicitly** pick builtin `public`: leaving it blank now means `invited` (issuing a code is an
+    // invitation). This spec guards "what someone uninvited sees", so that identity must be spelled out
+    // and not left to the default.
     const publicRole = await getRoleByName(request, 'public');
     await createCode(request, csrf, {
       code: CODE, label: 'pubscope', assumed_role_id: publicRole.id,
@@ -71,8 +73,9 @@ test.describe('the public identity reads what the owner published — and nothin
         handle: OWNER.handle, code: CODE, visitor_name: 'V',
       });
 
-      // 正向对照先跑:证明检索这条路是通的,后面那个 0 才有意义
-      // ([[assertion-that-cannot-fail]]:一个什么都搜不到的实现也能让下面那条断言过)。
+      // Run the positive control first: prove the retrieval path works at all, so the 0 below means
+      // something ([[assertion-that-cannot-fail]]: an implementation that finds nothing at all would
+      // also let the assertion below pass).
       const openHits = await search(request, sess, PUBLISHED_KEY);
       expect(
         openHits.map((h) => h.title),
@@ -95,10 +98,11 @@ async function search(
     `${BACKEND}/api/v1/sessions/${s.conversation_id}/tools/corpus_search`,
     { headers: { Authorization: `Bearer ${s.session_token}` }, data: { query } },
   );
-  // 不吞状态码：一个拒绝跟"搜到 0 条"在断言里长得一模一样，而它们说的是完全不同的事。
+  // Do not swallow the status code: a rejection and "0 hits found" look identical in the assertion,
+  // yet they say completely different things.
   const text = await res.text();
   expect(res.status(), `corpus_search(${query}) answered ${res.status()}: ${text}`).toBe(200);
-  // 回执是 {hits, note?}：note 只在空手时出现（F-S-2 —— 空不等于没有）。
+  // The response is {hits, note?}: note only appears when empty-handed (F-S-2 —— empty is not nothing).
   const body = JSON.parse(text) as
     { result?: { hits?: Array<{ path?: string; title?: string }> } };
   return body.result?.hits ?? [];

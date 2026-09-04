@@ -1,0 +1,179 @@
+{
+  "common": {
+    "connect": "Verbinden",
+    "close": "✕"
+  },
+  "api": {
+    "intro": "MCP-Schlüssel lassen KI-Clients (Claude, Cursor, benutzerdefinierte Skripte) roh Einträge in Ihren Corpus pushen, sie promovieren, Codes verwalten. Jeder Schlüssel ist ein Ed25519-Keypair — Server speichert nur die öffentliche Hälfte; Sie speichern die private PEM in <code>~/.standmeet/credentials.json</code> und der Client signiert pro Anfrage.",
+    "keysHeading": "mcp schlüssel",
+    "empty": "noch keine schlüssel · generieren Sie einen um Ihren ersten KI-Client zu verbinden"
+  },
+  "aiProvider": {
+    "heading": "eigentümer-ki",
+    "intro": "Der Provider, mit dem Besucher sprechen. Wählen Sie eine Vorgabe oder zeigen Sie auf Ihren eigenen selbstgehosteten OpenAI-kompatiblen Endpunkt (ollama / vllm / lm-studio). Der Schlüssel wird mit INSTANCE_SECRET verschlüsselt und dieser Seite nie ausgelesen.",
+    "provider": "provider",
+    "endpoint": "endpunkt",
+    "model": "modell",
+    "apiKey": "api-schlüssel",
+    "clearKey": "schlüssel löschen ×"
+  },
+  "mcpClient": {
+    "heading": "mcp einrichtung",
+    "subhead": "speichern Sie credentials.json + fügen Sie config in Ihren client ein",
+    "filePath": "dateipfad",
+    "foot": "nach dem Einfügen + Speichern von credentials.json (Modus 0600) starten Sie Ihren Client neu. Jede Anfrage signiert eine kurzlebige sigv1-Herausforderung — der Server sieht Ihren privaten Schlüssel nie."
+  },
+  "mcpDownload": {
+    "heading": "verbinden Sie Ihren mcp-client",
+    "badge": "Sigv1 · /mcp",
+    "intro": "Zeigen Sie Ihren KI-Client auf den MCP-Endpunkt Ihrer Instanz. Auth ist das Ed25519-Keypair, das Sie oben generieren (Sigv1). Der Endpunkt aggregiert Ihre Owner-Tools über MCP-over-HTTP.",
+    "note": "Claude Desktop / Cursor verbinden sich über den stdio-Client in der obigen Config (npx @standmeet/mcp-client), der hinten Meile spricht MCP-over-HTTP mit Sigv1 zu diesem Endpunkt.",
+    "endpointLabel": "mcp endpunkt"
+  },
+  "mcpServers": {
+    "heading": "Externe MCP-Server",
+    "count": "{count} registriert",
+    "intro": "MCP-Server, die der Visitor Agent als Tools aufrufen kann. Fügen Sie einen hinzu, den Sie von überall bekommen — seine URL und ein optionaler Auth-Header — verbinden Sie ihn dann mit einer Rolle unter Codes.",
+    "empty": "noch keine",
+    "remove": "entfernen",
+    "check": "prüfen",
+    "checking": "fragt…",
+    "checkTools": "{count, plural, =0 {antwortet, bietet aber keine tools} one {# tool} other {# tools}}",
+    "checkFailed": "keine antwort — {reason}",
+    "checkRefused": "es antwortete, lehnte aber den auth-header ab — prüfen Sie header-name und wert",
+    "checkNoAnswer": "keine antwort — nichts antwortete auf dieser url",
+    "authBadge": "auth: {name}",
+    "add": "MCP-Server hinzufügen"
+  },
+  "newToken": {
+    "label": "schlüssel generieren",
+    "submit": "generieren"
+  },
+  "newlyCreated": {
+    "warning": "speichern Sie diese jetzt — der private schlüssel wird nur einmal angezeigt",
+    "keyId": "schlüssel id",
+    "pem": "privater schlüssel (pem)",
+    "download": "download .pem",
+    "dismiss": "entfernen"
+  },
+  "tokenRow": {
+    "meta": "erstellt {created} · zuletzt verwendet {lastUsed}",
+    "never": "nie",
+    "algo": "ed25519",
+    "revoke": "widerrufen",
+    "keyId": "schlüssel id"
+  },
+  "connectors": {
+    "intro": "Connectors lassen den Agent externe Services erreichen — Calendar und Mail sind unten live, und Sie können Ihren eigenen (OpenAPI / Protokoll) Connector hochladen um mehr hinzuzufügen.",
+    "catalogError": "Die Connector-Katalog konnte nicht geladen werden — neu laden und erneut versuchen.",
+    "overwritePrompt": "Ein <mono>{category}</mono> Connector existiert bereits. Überschreiben?",
+    "overwrite": "Überschreiben",
+    "add": "+ connector hinzufügen",
+    "builtinHeading": "Bereit zum Verbinden",
+    "builtinCount": "{count} verfügbar",
+    "uploadedHeading": "Connectors, die Sie hochgeladen haben",
+    "uploadedCount": "{count} installiert"
+  },
+  "calendar": {
+    "heading": "Google Kalender",
+    "credentialsHint": "Google Cloud Konsole → APIs & Services → Anmeldedaten → OAuth Client ID (Desktop). Der Eigentümer's eigener Client; kein globales StandMeet OAuth.",
+    "saveCredentials": "Anmeldedaten speichern",
+    "authorize": "Genehmigen auf Google →",
+    "disconnect": "Trennen (behält Anmeldedaten)",
+    "policyHeading": "Buchungsrichtlinie",
+    "timezone": "zeitzone (IANA)",
+    "timezoneUnsetOption": "— nicht gesetzt —",
+    "timezoneUnsetHint": "nicht gesetzt, also werden die oben stehenden Stunden als UTC gelesen. Ihr Browser sagt {detected} — wählen Sie es aus und Besucher bekommen die Stunden, die Sie meinten.",
+    "weekdays": "erlaubte wochentage"
+  },
+  "capabilities": {
+    "kicker": "verfügbarkeit",
+    "heading": "möglichkeiten",
+    "intro": "Schalten Sie eine Möglichkeit aus und ihre Tools verschwinden aus jeder Visitor-Sitzung. Integrierte Möglichkeiten können deaktiviert, aber nicht gelöscht werden; nur die, die Sie verfasst haben, können entfernt werden."
+  },
+  "connectorCard": {
+    "disconnect": "Trennen"
+  },
+  "connectorOp": {
+    "run": "Ausführen",
+    "running": "Läuft…",
+    "sent": "Akzeptiert vom {kind} Connector — überprüfen Sie den Posteingang um es anzubestätigen.",
+    "unreachable": "Konnte Ihre Instanz nicht erreichen — prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+    "failedNoReason": "Es funktionierte nicht, und der Connector gab keinen Grund — prüfen Sie die Server-Protokolle."
+  },
+  "connectorList": {
+    "loadError": "Konnte Ihre Connectors nicht laden — neu laden und erneut versuchen.",
+    "delete": "Löschen"
+  },
+  "skills": {
+    "new": "+ neuer skill",
+    "personaEmpty": "Noch keine Skills.",
+    "builtin": "integriert",
+    "showPrompt": "prompt anzeigen",
+    "delete": "löschen",
+    "modalTitle": "neuer skill",
+    "promptLabel": "prompt",
+    "cancel": "abbrechen",
+    "create": "erstellen"
+  },
+  "installedCard": {
+    "source": "quelle · {source}",
+    "builtin": "· integriert"
+  },
+  "marketplaceCard": {
+    "repoStars": "★ {stars} repo",
+    "author": "{author} · v{version}",
+    "authorOnly": "{author}",
+    "installed": "✓ installiert",
+    "needs": "benötigt {missing}"
+  },
+  "marketplaceTab": {
+    "intro": "Skills werden aus zwei Quellen zusammengestellt — das offene <ink>anthropics/skills</ink> GitHub Repo (jeder kann fork + PR machen) und <ink>SkillsMP</ink> (kommerzieller Kanal). Das Installieren holt die SKILL.md des Skills, analysiert sein Frontmatter und schreibt eine lokale Kopie, die Sie vollständig besitzen — bearbeiten Sie den Prompt oder erlaubte-Tools danach, abgekoppelt vom Marketplace.",
+    "manualHint": "Einen Skill anderswo gefunden? Fügen Sie seine <ink>SKILL.md</ink> (YAML Frontmatter + Body) ein. Es installiert sich als lokale Kopie, die Sie besitzen — kein Marketplace, kein Netzwerk-Abruf.",
+    "manualInstall": "installieren",
+    "loadMore": "mehr laden",
+    "searchIcon": "⌕",
+    "empty": "Keine Skills passen. Versuchen Sie einen anderen Begriff oder wechseln Sie die Quelle — das GitHub Repo und SkillsMP werden parallel abgefragt."
+  },
+  "mySkills": {
+    "empty": "Noch keine Skills — installieren Sie einen von der Marketplace-Registerkarte oder fügen Sie Ihren eigenen unter Skills hinzu."
+  },
+  "providerBook": {
+    "heading": "provider buch",
+    "intro": "Jeder Provider, an den Sie einen Turn senden können. Einer ist der Standard — derjenige, der verwendet wird, wenn weder der Zugriffscode noch die Rolle einen anderen nennt. Das Löschen eines Eintrags ist sicher: Codes und Rollen, die darauf zeigen, greifen auf den Standard zurück.",
+    "empty": "noch keine einträge · der, den Sie oben konfiguriert haben, ist der standard",
+    "defaultBadge": "standard",
+    "makeDefault": "zum standard machen",
+    "delete": "löschen ×",
+    "keySet": "● schlüssel gesetzt",
+    "keyUnset": "○ kein schlüssel",
+    "addHeading": "eintrag hinzufügen",
+    "label": "label",
+    "labelHint": "Ihr Name für diesen Eintrag",
+    "add": "hinzufügen",
+    "gasUnmetered": "unbegrenzt",
+    "gasFill": "füllen",
+    "gasUnmeter": "gauge entfernen",
+    "gasFilled": "Tank gefüllt",
+    "gasFillPlaceholder": "tokens"
+  },
+  "apiKeys": {
+    "heading": "ausgehende api-schlüssel",
+    "intro": "Schlüssel, die ein Drittanbieter-Programm gegen Ihre öffentliche API (smk_…) verwendet. Anders als die obigen MCP-Schlüssel: Diese signieren für Ihren eigenen KI-Client, diese werden dem Code von jemand anderem übergeben. Wenn einer ausläuft, widerrufen Sie ihn hier.",
+    "labelField": "label",
+    "labelPlaceholder": "wer ist dieser schlüssel für — z.B. 'zapier'",
+    "roleField": "nimmt rolle an",
+    "mint": "schlüssel ausstellen",
+    "secretOnce": "kopieren Sie ihn jetzt — das geheimnis wird nur einmal angezeigt",
+    "dismiss": "entfernen",
+    "empty": "noch keine ausgehenden schlüssel",
+    "revoke": "widerrufen",
+    "revokeConfirm": "Diesen Schlüssel widerrufen? Alles, das ihn verwendet, funktioniert sofort nicht mehr.",
+    "statusActive": "aktiv",
+    "statusRevoked": "widerrufen"
+  },
+  "embed": {
+    "heading": "Auf einer anderen Website einbetten",
+    "blurb": "Legen Sie diese zwei Zeilen auf jede Seite — Ihren eigenen Blog, die Website eines Clients, eine Landing Page. Kein Build-Schritt und kein React: Das Skript registriert ein <standmeet-chat> Element, das mit dieser Instanz spricht."
+  }
+}

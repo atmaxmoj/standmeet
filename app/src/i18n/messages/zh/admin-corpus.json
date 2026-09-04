@@ -1,0 +1,160 @@
+{
+  "assets": {
+    "heading": "文件",
+    "empty": "还没有附加文件",
+    "choose": "选择文件",
+    "kindImage": "图片",
+    "kindAttachment": "附件",
+    "insert": "插入正文",
+    "setCover": "用作封面",
+    "unsetCover": "取消用作封面",
+    "isCover": "封面",
+    "remove": "移除"
+  },
+  "hero": {
+    "headline": "封面标题",
+    "headlinePlaceholder": "叠加在封面图上的那行字",
+    "hue": "色调",
+    "hueDefault": "— 默认 —"
+  },
+  "subjectivity": {
+    "intro": "你的自我模型——品味、判断、你在意什么。除非把某条笔记标为可引用，否则保持私密。可在此写，也可通过与你的 AI 交谈来写；两者落在同一处。",
+    "empty": "这里还什么都没有",
+    "new": "+ 新建笔记"
+  },
+  "citable": {
+    "label": "可引用——出现在回答的引用中",
+    "help": "关闭它，AI 仍会读取这条笔记、仍用它来塑造回答——只是不会列在「引用」下。这是署名开关，不是保密开关：要彻底不让 AI 读取，请在 /admin/roles 或访问码上收回它的语料库 URI。"
+  },
+  "search": {
+    "label": "查找",
+    "placeholder": "笔记中的字词——标题或正文",
+    "idleHint": "下方列表是最新一页；搜索会查遍整个语料库",
+    "searching": "正在搜索整个语料库…",
+    "found": "{count, plural, one {# 条匹配} other {# 条匹配}}“{query}”——搜索了整个语料库，不只这一页",
+    "foundCapped": "显示“{query}”的前 {count} 条匹配——搜索了整个语料库；缩小字词以看到更少结果",
+    "none": "整个语料库中没有匹配“{query}”的内容。此索引是词法索引：词内子串、与标点粘连的词、以及中日韩文都分词欠佳，所以空结果并不能证明笔记不存在——试试其中一个独特的完整词。",
+    "failed": "搜索失败：{reason}"
+  },
+  "common": {
+    "loading": "加载中…",
+    "saving": "保存中…",
+    "save": "保存",
+    "saveLanding": "保存落地页",
+    "cancel": "取消",
+    "edit": "编辑",
+    "body": "正文",
+    "tagsLabel": "标签（逗号分隔）",
+    "noneRoot": "— 无（根） —",
+    "deleteX": "删除 ×"
+  },
+  "form": {
+    "title": "标题",
+    "parent": "父节点（可选）",
+    "entryHeading": "笔记本身（正文、文件、标签）"
+  },
+  "seoEditor": {
+    "heading": "公开落地页（url 由标题在树中的位置推导）",
+    "description": "meta 描述",
+    "indexed": "已发布——此 URL 上有一个公开页面，并列入 sitemap.xml"
+  },
+  "scope": {
+    "kept": "按原样保留（不在树上）：",
+    "allOfIt": "— 全部（{glob}）",
+    "everythingUnder": "+ 其下的所有内容",
+    "referable": "可引用——此条目可作为被引用来源出现",
+    "notReferable": "可读但不可引用——AI 读它，但它永不被引用"
+  },
+  "wiki": {
+    "newEntry": "+ 新建条目",
+    "all": "全部",
+    "empty": "还没有 wiki 条目。使用「+ 新建条目」，从 /admin/raw 提升，或调用 MCP <tool>promote_to_wiki</tool>。",
+    "dotPublic": "● 公开",
+    "dotPrivate": "● 私密",
+    "edit": "编辑 ↗",
+    "promoteToOutput": "提升 → 输出 ↗",
+    "viewLive": "查看 ↗"
+  },
+  "output": {
+    "slugPath": "/output/'<'slug>",
+    "intro": "输出是由你的 wiki 条目组装而成、面向公众的成品——可下载的 PDF、独立的网页文章、投资人 deck。每个都有自己的 SEO 落地页，位于 <code>{slugPath}</code>。三种可见性：<ink>公开</ink>（对任何人开放，列入 sitemap）、<amber>不公开列出</amber>（仅凭访问码可见）、<violet>私密</violet>（仅特定访问码范围，从不被索引）。",
+    "newPdf": "+ pdf 引流磁石",
+    "newEssay": "+ 网页文章",
+    "empty": "还没有输出条目。使用「+ 新建输出」，从 /admin/wiki 提升，或调用 MCP <tool>promote_wiki_to_output</tool>。",
+    "coverKicker": "输出 · {visibility}",
+    "views": "0 次浏览",
+    "downloads": "0 次下载",
+    "pathPrefix": "/output/",
+    "edit": "编辑",
+    "previewLive": "预览 ↗"
+  },
+  "raw": {
+    "quickDump": "快速记录",
+    "dumpHint": "粘一个想法 · 稍后提升",
+    "dumpOrigin": "admin · 或 mcp",
+    "dumping": "记录中…",
+    "dump": "记录 ↵",
+    "unindexedHint": "raw 在提升前不会被索引",
+    "empty": "还没有 raw 条目。从 MCP 客户端推送一条（raw_dump 工具）。",
+    "flaggedPrivateBadge": "· 标记为私密",
+    "promoteToWiki": "提升 → wiki ↗",
+    "edit": "编辑",
+    "delete": "删除",
+    "flaggedPrivateField": "标记为私密（排除在公开聊天之外）"
+  },
+  "writings": {
+    "newWriting": "＋ 新建文章",
+    "intro": "主理人精选的文章。使用下方的块编辑器——输入 `/` 调出块菜单，或通过 `writing_create` MCP 工具交给 Claude。无论哪种方式都保存为规范的 markdown。",
+    "composer": "编辑器 · {slug}",
+    "backToList": "← 返回列表",
+    "empty": "还没有文章。",
+    "coverHue": "封面色调",
+    "hueAmber": "琥珀",
+    "hueViolet": "紫罗兰",
+    "hueAcid": "酸绿",
+    "parent": "父级（阅读器树）",
+    "publishImmediately": "立即发布",
+    "coverImage": "封面图（可选）",
+    "chooseCover": "选择一张图",
+    "noImg": "无图",
+    "clear": "清除"
+  },
+  "obsidianBar": {
+    "export": "↓ 导出到 Obsidian",
+    "importing": "导入中…",
+    "import": "↑ 从 Obsidian 导入",
+    "working": "处理中…",
+    "result": "{created} 新建 · {updated} 更新 · {deleted} 删除 · {skipped} 跳过",
+    "errors": "· {count, plural, one {# 个错误} other {# 个错误}}"
+  },
+  "sideRail": {
+    "crosslinks": "交叉链接",
+    "outgoing": "外链 · {count}",
+    "noneYet": "还没有 · 输入 [[ 添加",
+    "keyboard": "键盘",
+    "keyInsertBlock": "插入块",
+    "keyCrossLinkPicker": "交叉链接选择器",
+    "keyPasteImage": "在行内粘贴图片",
+    "keyInlineLink": "添加行内链接",
+    "keyCloseMenu": "关闭菜单"
+  },
+  "obsidian": {
+    "manualMode": "○ 手动模式",
+    "importExport": "导入 / 导出",
+    "help": "导入会选取你的 Obsidian 库文件夹（wiki / subjectivity / raw / writings），并按库中路径更新或插入对应的语料库笔记。导出会把你的语料库下载为一个 markdown + frontmatter 的库。",
+    "noSync": "没有实时同步，没有文件监视——这两个动作就是全部机制，不运行就什么都不会发生。"
+  },
+  "seo": {
+    "intro": "应用于整个公开站点的默认值。逐输出／逐文章的 SEO 随各条目一起管理。站点标题在此编辑；社交描述与规范主机镜像你的 hero 文案与域名——请到它们各自所在处编辑。",
+    "defaults": "默认值",
+    "robots": "index, follow（robots）",
+    "siteTitleHint": "浏览器标签页以及搜索引擎显示的名称。留空时，页面回退到你的 handle。",
+    "ogTemplateHint": "社交卡片所用图片的 URL。留空则分享链接不带卡片图。",
+    "ogDescription": "og:description",
+    "usesHeroProse": "使用你的 hero 文案。",
+    "editOnPage": "在「页面」部分编辑 →",
+    "canonicalHost": "规范主机",
+    "indexing": "索引 · 已发布",
+    "totalInScope": "范围内总数：{total}"
+  }
+}

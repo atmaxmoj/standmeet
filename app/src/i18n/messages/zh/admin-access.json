@@ -1,0 +1,192 @@
+{
+  "common": {
+    "cancel": "取消",
+    "create": "创建",
+    "delete": "删除",
+    "systemPill": "[系统]",
+    "corpus": "语料库",
+    "tools": "工具",
+    "prompt": "提示词",
+    "provider": "服务商",
+    "saveCorpus": "保存语料库",
+    "noneDash": "— 无 —",
+    "byHand": "或手动填写：",
+    "rawDenied": "无论此列表如何设置，raw://** 始终对访客关闭"
+  },
+  "codes": {
+    "new": "＋ 新建访问码",
+    "intro": "每个访问码为某位确定的对象开放你 wiki 的一部分——一场招聘、一次投资人引荐、或单独一次媒体来访。多人可共用一个访问码；有人输入它时，AI 会先问对方是谁，再把其归入该访问码的成员名单。每张卡片都带一个二维码。",
+    "empty": "还没有访问码。"
+  },
+  "codeCard": {
+    "preview": "预览 ↗",
+    "edit": "编辑",
+    "revoke": "吊销",
+    "roleFrozen": "签发时锁定的角色（已冻结）",
+    "quota": "配额",
+    "status": "状态 · {status}",
+    "viewConversations": "查看对话 →",
+    "openShare": "打开分享面板——大二维码、可复制链接、可打印",
+    "opensLabel": "打开",
+    "opensChat": "访客聊天",
+    "opensPageOption": "/p/{slug}"
+  },
+  "codeCorpus": {
+    "loadError": "无法加载此访问码的语料库范围。请刷新后重试。",
+    "grantsNothing": "（该角色不授予任何内容）",
+    "publishedSlice": "（你已发布的一切——此角色不单独维护列表）",
+    "inherited": "语料库 · 继承自角色",
+    "takenBack": "在此访问码上收回",
+    "helpSummary": "收回如何生效 ▸",
+    "help": "此访问码从角色所授予的内容中收回的 URI，每行一个。它只能做减法、不能做加法——你在此写下的内容永远不会打开角色未授予的东西。典型用法：角色授予 subjectivity://**（所有观点），而此访问码收回 subjectivity://cv（简历不外露）。改动只影响此后签发的会话：角色在会话签发时被冻结，因此正在聊天的访客保留旧范围——但同一访问码（无论它多旧）的下一个会话会拿到新范围。"
+  },
+  "members": {
+    "loading": "正在加载成员…",
+    "none": "还没有访客用过这个访问码。",
+    "anonymous": "匿名"
+  },
+  "conversations": {
+    "privateHits": "{count, plural, one {# 个会话} other {# 个会话}}触及了私密话题",
+    "filterChip": "筛选 · 访问码 · {code}",
+    "clear": "清除 ×",
+    "thVisitor": "访客",
+    "thViaCode": "经由访问码",
+    "thIp": "ip",
+    "thTurns": "轮次",
+    "thSentiment": "情绪",
+    "thFlags": "标记",
+    "thLast": "最近",
+    "privFlag": "{hits} 私密",
+    "empty": "还没有对话。访客通过访问码或 BYOAI 会话聊天后，就会显示在这里。"
+  },
+  "transcript": {
+    "loading": "正在加载对话记录…",
+    "empty": "此对话中没有消息。",
+    "cited": "引用 · {kind}",
+    "ghostsTitle": "已展示的幽灵文本",
+    "groundingTitle": "塑造这些回答的立场笔记 · 不对访客展示",
+    "grounded": "有依据"
+  },
+  "ghostTelemetry": {
+    "title": "幽灵引导 · 各导引点漏斗",
+    "thWaypoint": "导引点",
+    "thShown": "展示",
+    "thAccepted": "采纳",
+    "thRate": "比率",
+    "all": "全部"
+  },
+  "prompts": {
+    "new": "+ 新建提示词",
+    "intro": "人设库。归主理人所有，无分类。每一条都是一段文字——你在这里告诉它是谁，AI 就成为谁。供角色使用。",
+    "empty": "还没有提示词——通常在主理人认领实例时会预置 public。",
+    "modalTitle": "新建提示词",
+    "bodyLabel": "正文"
+  },
+  "requests": {
+    "deliveryHint": "尚无已验证的外发渠道——请在「连接器」下配置一个，这样批准请求时就能签发访问码并发送。在此之前你只能手动把请求标记为已回复／已关闭。",
+    "intro": "来自门禁页「没有访问码」路径的提交。签发访问码或回信后标记为已回复；关闭即归档。主理人亲自阅读每一条——这正是本意所在。",
+    "empty": "没有{filter}请求。",
+    "issued": "已签发 {code}——已邮件发送给申请人",
+    "decline": "婉拒",
+    "approve": "批准 · 签发并邮件发送访问码 →",
+    "connectMail": "连接邮件以签发访问码"
+  },
+  "roles": {
+    "new": "+ 新建角色",
+    "intro": "一个角色打包了一份提示词（人设）、一份 agent 可读取的语料库 URI 正向列表、一组技能，以及它可调用的 MCP 服务器。访问码本身不直接携带权限——每个访问码在签发时<em>套用</em>一个角色，并将该快照冻结到那个会话。编辑角色只影响此后的会话。",
+    "empty": "还没有角色——通常在主理人认领实例时会预置 public。"
+  },
+  "roleCreate": {
+    "title": "新建角色",
+    "promptNone": "（无）",
+    "providerDefault": "— 实例默认 —",
+    "corpusLabel": "语料库 uri · 每行一个",
+    "noneConfigured": "尚未配置"
+  },
+  "roleGas": {
+    "help": "按此角色所属服务商的额度计量。关闭（默认）表示完全不做用量检查；开启表示一旦该服务商额度耗尽，访客就被拦下。额度为空的服务商无论如何都不计量。"
+  },
+  "roleCorpus": {
+    "help": "agent 可读取的语料库 URI 正向列表，每行一个。任意匹配：命中任意一行即可读取，因此粒度可以任你细分——wiki://thinking/** 授予整个子树，subjectivity://standpoint 只授予那一条笔记。空列表 = 什么都读不到。改动只影响此后签发的会话：角色在会话签发时被冻结，因此正在聊天的访客保留旧范围——但同一访问码（无论它多旧）的下一个会话会拿到新范围。",
+    "citabilityNote": "这里只控制 agent 能「读」什么。它读到的条目是否也在回答下方作为被引用来源列出，是另一个逐条目的开关——即该条目自己卡片上（在 wiki／输出下）的「作为来源引用」勾选框。所以一个条目可以在这里可读，却永远不出现在回答的引用中。",
+    "publicIsPublished": "你已发布的一切——没有单独的列表。这是访客在没有访问码时（以及 BYOAI 时）获得的身份，它只有在某条目自身的发布开关打开时才能读取该条目。在 wiki 或输出下的条目卡片上打开开关；这里没有可编辑的东西，因此两者永远不会相互矛盾。"
+  },
+  "roleTools": {
+    "help": "此角色可调用的东西：你的技能，以及你在 api · mcp 下注册的外部 MCP 服务器。默认不授予任何东西——你添加的服务器只有在此处勾选的角色才能访问。改动只影响此后签发的会话：角色在会话签发时被冻结，因此正在聊天的访客保留旧范围——但同一访问码（无论它多旧）的下一个会话会拿到新范围。",
+    "save": "保存工具 · {name}"
+  },
+  "roleDock": {
+    "label": "快捷栏",
+    "help": "触发语——按下此按钮时系统代访客发出的那行文字；AI 把它当作访客的提问来处理。例如「总结目前为止的对话」：按下按钮等同于访客亲自输入那行文字。",
+    "triggerPlaceholder": "触发语（例如 总结这段对话）",
+    "save": "保存快捷栏 · {name}"
+  },
+  "roleGhost": {
+    "label": "幽灵规则",
+    "help": "开启时，AI 只能把访客引向有语料库证据支撑的导引点——无证据的引导提示会被丢弃（预约及其他终点导引点不受影响）。冻结进每个会话；访问码可覆盖此设置。",
+    "save": "保存幽灵规则 · {name}"
+  },
+  "codeGhost": {
+    "label": "幽灵证据",
+    "inherit": "继承角色",
+    "on": "要求证据",
+    "off": "全部允许"
+  },
+  "roleDesc": {
+    "label": "说明",
+    "help": "描述此角色的一句话——访客是谁、AI 应如何对待他们。仅在此处显示（面向主理人）。",
+    "placeholder": "例如 B 轮创业公司的招聘方",
+    "save": "保存说明 · {name}"
+  },
+  "roleWaypoints": {
+    "label": "导引点",
+    "help": "AI 可温和引导访客前往的目的地——每个目标一条（例如「预约通话」「读一读控制论那条笔记」）。每条带一个权重（越高越优先），并可选地附上支撑它的语料库证据。把预约／联系类目标标记为终点。冻结进每个会话；为空 = AI 从不引导。",
+    "idPlaceholder": "id（例如 book-a-call）",
+    "descPlaceholder": "这个目的地是什么",
+    "weightLabel": "权重",
+    "terminalLabel": "终点",
+    "evidencePlaceholder": "证据 URI，逗号分隔（例如 wiki://cybernetics）",
+    "add": "+ 添加导引点",
+    "remove": "移除",
+    "save": "保存导引点 · {name}"
+  },
+  "embeds": {
+    "new": "＋ 新建嵌入",
+    "intro": "嵌入把本实例的聊天以一个 <standmeet-chat> 标签放到别人的网站上。每个嵌入暴露一个访问码——该页面上的访客以此访问码的角色聊天，无需输入访问码。由于组件运行在你无法掌控的站点上，请固定它可加载的来源。",
+    "empty": "还没有嵌入。创建一个，给合作站点一份即插即用的聊天。",
+    "exposesCode": "暴露",
+    "originsAny": "在任意来源运行",
+    "originsPinned": "已固定 {count} 个",
+    "snippetLabel": "粘贴到宿主页面",
+    "copySnippet": "复制",
+    "copied": "已复制",
+    "keyNote": "组件凭据已签发——带密钥的代码片段仅在创建时展示过一次。删除并重建以重新签发。",
+    "kidLabel": "kid {kid}",
+    "revealKicker": "组件已就绪",
+    "revealTitle": "现在就复制此代码片段",
+    "revealWarning": "它携带组件的签名密钥，只展示一次。现在就复制——它无法再次显示。它不包含你的访问码；由服务器解析。若丢失，请删除此嵌入并新建一个。",
+    "edit": "编辑",
+    "delete": "删除",
+    "deleted": "已移除嵌入",
+    "created": "已创建嵌入",
+    "updated": "已更新嵌入",
+    "unknownCode": "访问码已移除",
+    "form": {
+      "createTitle": "把访问码暴露为组件",
+      "editTitle": "编辑嵌入",
+      "createKicker": "新建嵌入",
+      "editKicker": "编辑嵌入",
+      "labelField": "标签 · 仅你可见",
+      "labelPlaceholder": "例如 Acme 招聘页",
+      "codeField": "此嵌入暴露的访问码",
+      "codePlaceholder": "选择一个访问码…",
+      "originsField": "允许的来源 · 每行一个 · 留空 = 任意",
+      "originsPlaceholder": "https://acme.example\nhttps://careers.acme.example",
+      "originsHelp": "协议 + 主机，末尾不带路径（https://acme.example）。组件在此处未列出的任何来源都会被拒绝。",
+      "save": "创建嵌入",
+      "saveEdit": "保存更改",
+      "cancel": "取消",
+      "codeRequired": "请先选择一个访问码"
+    }
+  }
+}

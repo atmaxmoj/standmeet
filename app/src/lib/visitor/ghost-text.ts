@@ -33,15 +33,8 @@ interface PlaceholderInputs {
   fallback: string;
 }
 
-// pickPlaceholder —— three-state pick (locked > ghost > fallback).
-export function pickPlaceholder(p: PlaceholderInputs): string {
-  if (p.locked) return p.lockedText;
-  if (p.ghost !== null && p.ghost !== '') return p.ghost;
-  return p.fallback;
-}
-
 // composerPlaceholder —— used by the input boxes whose ghost is rendered by
-// an overlay layer, instead of pickPlaceholder.
+// an overlay layer (the placeholder yields to empty so the two don't overlap).
 //
 // When a ghost is present, the placeholder must **yield to empty**:
 // drawing both layers overlaps text. That's exactly what happened in

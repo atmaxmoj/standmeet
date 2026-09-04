@@ -21,12 +21,21 @@ export type { ChatMessage, ChatState } from './use-chat-session.js';
 export { AnswerText } from './AnswerText.js';
 export type { AnswerTextProps } from './AnswerText.js';
 
+// Site widgets —— the central, managed drop-in blocks a custom page composes (corpus browser,
+// agent entry, gate CTA, nav to the owner's other pages). See src/widgets/.
+export {
+  CorpusWidget, AgentWidget, GateWidget, PageNavWidget,
+} from './widgets/index.js';
+export type {
+  CorpusWidgetProps, AgentWidgetProps, GateWidgetProps, PageNavWidgetProps,
+} from './widgets/index.js';
+
 // agent-core React glue + browser adapters (H.10: the loop lives in the
 // backend; the browser only uses the prompt source + agent-turn streamer)
 export {
-  httpPromptSource, httpAgentTurnStreamer,
+  httpPromptSource, httpAgentTurnStreamer, httpTurnRecovery,
 } from './agent-adapters.js';
 export type {
   HttpPromptSourceOptions, HttpAgentTurnStreamerOptions,
-  HttpBYOAIHeaders,
+  HttpBYOAIHeaders, HttpTurnRecoveryOptions,
 } from './agent-adapters.js';

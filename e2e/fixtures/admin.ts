@@ -1,6 +1,7 @@
-// admin.ts —— claim / login / API token 创建 helper（spec 共用）。
+// admin.ts —— claim / login / API-token creation helpers (shared across specs).
 //
-// 这些都属于"测试前置条件"，不是被测路径本身；放 helper 让 spec 短促。
+// These are all "test preconditions", not the path under test itself; keeping
+// them in a helper keeps the specs short.
 
 import type { APIRequestContext, Page } from '@playwright/test';
 
@@ -8,9 +9,10 @@ import { findSetupToken } from '@/fixtures/instance';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const DEFAULT_PASSWORD = 'correct-horse-battery-staple';
-// resetInstance() 的 unclaim 会轮换 setup_token;偶发 findSetupToken 读到旧
-// token → claim 401("invalid or already consumed")。这是个 beforeAll 竞态,
-// 只在 401 路径重取 token 重试,200 happy path 完全不动。
+// resetInstance()'s unclaim rotates setup_token; occasionally findSetupToken
+// reads a stale token → claim 401 ("invalid or already consumed"). This is a
+// beforeAll race; retry by re-fetching the token only on the 401 path — the
+// 200 happy path is left completely untouched.
 const CLAIM_RETRIES = 3;
 const CLAIM_RETRY_DELAY_MS = 300;
 
@@ -48,15 +50,20 @@ interface ClaimBody {
   full_name: string; public_url: string;
 }
 
-// postClaimWithRetry —— claim 有两种可重试的失败,而它们**长得完全不一样**:
+// postClaimWithRetry —— claim has two retryable failures, and they **look
+// completely different**:
 //
-//   401 —— setup_token 被 unclaim 轮换的竞态,是一个**状态码**;
-//   超时 —— backend 刚被 dev-up recreate,冷启动还没听端口,`request.post` **直接抛**。
+//   401 —— the race where setup_token was rotated by unclaim; it's a **status code**;
+//   timeout —— backend was just recreated by dev-up, cold-starting and not yet
+//     listening on the port, so `request.post` **throws directly**.
 //
-// 原来这个循环只看状态码,于是第二种失败连循环体都走不完就窜出去了:重试对真正会发生的
-// 那种失败是瞎的。在负载高的机器上 backend 冷启动超过 10 秒是常态,不是异常。
+// The loop originally only looked at the status code, so the second kind of
+// failure escaped before the loop body even completed: the retry was blind to
+// the failure that actually happens. On a loaded machine a backend cold-start
+// over 10 seconds is the norm, not the exception.
 //
-// 两种都重试;最后一次仍失败 → 照抛(把原因带出去,别吞成一句笼统的 "claim failed")。
+// Retry both; if the last attempt still fails → rethrow (carry the reason out,
+// don't swallow it into a vague "claim failed").
 async function postClaimWithRetry(
   request: APIRequestContext, setupToken: string, body: ClaimBody,
 ): Promise<void> {
@@ -76,12 +83,17 @@ async function postClaimWithRetry(
   }
 }
 
-// claimStatus —— 发一次 claim,回状态码。传输层抛错(超时/连接被拒)回 **0**,让调用方
-// 跟 401 一样当作可重试;最后一次则原样抛,保住真正的错因。
+// claimStatus —— send one claim, return the status code. A transport-layer throw
+// (timeout / connection refused) returns **0** so the caller treats it as
+// retryable just like a 401; on the last attempt it rethrows as-is, preserving
+// the real cause.
 //
-// 超时**不代表服务端没做**:请求可能已经落库,只是回包慢。这时盲目重试会撞上
-// 「token 已消费」(401)或「email 已占用」(409),最后抛一句跟真相相反的错。所以超时之后
-// 先**问一次结果**——能用这套凭据登录就说明 claim 成立,直接当 200。
+// A timeout **doesn't mean the server did nothing**: the request may already
+// have hit the DB, just with a slow response. Blindly retrying here would run
+// into "token already consumed" (401) or "email already taken" (409), and end
+// up throwing something that contradicts the truth. So after a timeout, **ask
+// for the result once** — if these credentials can log in, the claim landed;
+// treat it as 200.
 async function claimStatus(
   request: APIRequestContext, token: string, body: ClaimBody, rethrow: boolean,
 ): Promise<number> {
@@ -97,16 +109,20 @@ async function claimStatus(
   }
 }
 
-// DUMMY_CAPTCHA_TOKEN —— Cloudflare 的测试 sitekey 出的就是这个票（`XXXX.DUMMY.TOKEN.XXXX`），
-// 配套的测试 secret 认它。`make test-captcha` 把栈拉起来时用的正是那对密钥。
+// DUMMY_CAPTCHA_TOKEN —— Cloudflare's test sitekey issues exactly this token
+// (`XXXX.DUMMY.TOKEN.XXXX`), and the matching test secret accepts it. `make
+// test-captcha` brings up the stack using exactly that key pair.
 //
-// 为什么每次登录都带着：captcha 一开，`LoginGuard` 对**每一次** owner 登录都要
-// `X-Captcha-Token`（不只是被锁之后）。captcha 关着时这个头没人看，所以恒定带上是安全的 ——
-// 而少带一次的代价是整批 spec 红在夹具上，看起来像产品坏了（[[red-in-the-wrong-place]]）。
+// Why carry it on every login: once captcha is on, `LoginGuard` requires an
+// `X-Captcha-Token` on **every** owner login (not just after a lockout). When
+// captcha is off nobody reads this header, so always sending it is safe —
+// whereas missing it once turns a whole batch of specs red at the fixture,
+// looking like the product broke ([[red-in-the-wrong-place]]).
 const DUMMY_CAPTCHA_TOKEN = 'XXXX.DUMMY.TOKEN.XXXX';
 
-// loginRequest —— 三处登录同一份请求形状。以前各写各的，captcha 一开就得改三遍，
-// 而漏掉的那一处会红在别人身上。
+// loginRequest —— one request shape shared by the three login sites. They used
+// to each write their own, so turning captcha on meant changing three places,
+// and the one you missed would turn red on someone else.
 function loginRequest(email: string, password: string) {
   return {
     data: { email, password },
@@ -114,7 +130,8 @@ function loginRequest(email: string, password: string) {
   };
 }
 
-// claimLanded —— 超时之后核对 claim 到底成没成:拿同一套邮箱/口令登录得上 = 成了。
+// claimLanded —— after a timeout, verify whether the claim actually landed:
+// if the same email/password can log in, it landed.
 async function claimLanded(request: APIRequestContext, body: ClaimBody): Promise<boolean> {
   const res = await request.post(
     `${BACKEND}/api/admin/login`, loginRequest(body.email, body.password),
@@ -158,9 +175,10 @@ async function seedDevAIProvider(
   }
 }
 
-// clearAIProviderKey —— 把 owner 默认 provider 的 key 清掉,于是这台实例**答不了任何访客**。
-// `claim` 总会种一条可用的 provider(上面 seedDevAIProvider),所以"没有可用 provider"这个状态
-// 只能开出来 —— 而它正是 F-A-24 里 prod 升级之后落到的那个状态。
+// clearAIProviderKey —— clear the key on the owner's default provider, so this
+// instance **can't answer any visitor**. `claim` always seeds a working provider
+// (seedDevAIProvider above), so the "no usable provider" state can only be
+// created by hand — and it's exactly the state F-A-24 lands in after a prod upgrade.
 export async function clearAIProviderKey(
   request: APIRequestContext,
   creds: { email: string; password: string },
@@ -168,8 +186,8 @@ export async function clearAIProviderKey(
   const { csrf } = await login(request, creds.email, creds.password);
   const res = await request.patch(`${BACKEND}/api/admin/ai-provider`, {
     headers: { 'X-Csrftoken': csrf },
-    // endpoint + model 是必填的(这条 op 说的是"把默认那条整个提交一遍"),
-    // 要清的只是 key,所以其余字段照原样送回去。
+    // endpoint + model are required (this op means "resubmit the whole default
+    // provider row"); only the key is being cleared, so send the rest back as-is.
     data: {
       provider: 'anthropic',
       endpoint: process.env['LLM_GATEWAY_BACKEND_URL'] ?? 'http://llm-gateway:9300',
@@ -197,12 +215,14 @@ export async function login(
   return { csrf: body.csrf_token ?? '' };
 }
 
-// createAPIToken —— Phase C 之后老 PAT 路径已删，本 fixture 改成 generate
-// Ed25519 keypair via /api/admin/keypairs 然后把 {keyId, privateKeyPem}
-// JSON-encode 当 "creds blob" 返回。initMCP 接到该 blob → 解 + Sigv1 签。
+// createAPIToken —— after Phase C the old PAT path was removed, so this fixture
+// now generates an Ed25519 keypair via /api/admin/keypairs and returns
+// {keyId, privateKeyPem} JSON-encoded as a "creds blob". initMCP receives that
+// blob → decodes + Sigv1-signs.
 //
-// 函数名留 createAPIToken 让 78 个现有 spec 不动；返值的 string 不再是
-// plaintext bearer，是 JSON。spec 都把它当 opaque blob 透传给 initMCP。
+// The function name stays createAPIToken so the 78 existing specs don't change;
+// the returned string is no longer a plaintext bearer, it's JSON. Specs pass it
+// straight through to initMCP as an opaque blob.
 export async function createAPIToken(
   request: APIRequestContext,
   csrf: string,
@@ -222,8 +242,8 @@ export async function createAPIToken(
   return JSON.stringify({ keyId: body.key_id, privateKeyPem: body.private_key_pem });
 }
 
-// navigateToOwnerLogin —— 把 page 带到 /login（owner 输 /admin → 自动 redirect）。
-// 给 owner-login spec 测错密码停留在 /login 用。
+// navigateToOwnerLogin —— take the page to /login (owner types /admin → auto
+// redirect). Used by the owner-login spec to test that a wrong password stays on /login.
 export async function navigateToOwnerLogin(page: Page): Promise<void> {
   await page.goto('/admin');
   await page.waitForURL('**/login', { timeout: 10_000 });

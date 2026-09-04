@@ -1,17 +1,20 @@
-// code-denials.ts —— ACL hierarchy 的 code 层（capability-acl-hierarchy.md）。
+// code-denials.ts —— the code layer of the ACL hierarchy (capability-acl-hierarchy.md).
 //
-// 模型：纯 AND·code-deny。code 只能从所选 role 里**减**（presence=deny，无 state）。
-// 稀疏表 code_capability_denials / code_skill_denials；issue 时跟 role grant 集相减
-// （applyCodeDenials）再冻进 RoleSnapshot。
+// Model: pure AND·code-deny. A code can only **subtract** from the chosen role
+// (presence=deny, no state). Sparse tables code_capability_denials /
+// code_skill_denials; at issue time they're subtracted from the role's grant set
+// (applyCodeDenials) and frozen into the RoleSnapshot.
 //
-// 契约（admin 子路由，land 在 routes/admin/codes.go；实现前这些调用拿 404 → ACL 测试红）：
-//   POST   /api/admin/codes/{codeId}/denials/capability  body {capability_id}  → 201；缺字段 400；重复幂等 200
-//   DELETE /api/admin/codes/{codeId}/denials/capability/{capId}                → 204（撤销 deny）
+// Contract (admin sub-routes, landing in routes/admin/codes.go; before they're
+// implemented these calls get 404 → the ACL tests are red):
+//   POST   /api/admin/codes/{codeId}/denials/capability  body {capability_id}  → 201; missing field 400; duplicate idempotent 200
+//   DELETE /api/admin/codes/{codeId}/denials/capability/{capId}                → 204 (undo deny)
 //   POST   /api/admin/codes/{codeId}/denials/skill        body {skill_id}      → 201
 //   DELETE /api/admin/codes/{codeId}/denials/skill/{skillId}                   → 204
 //   GET    /api/admin/codes/{codeId}/denials  → { capability_ids: [], skill_ids: [] }
 //
-// 跨 owner 的 codeId → 404/403（互不串）。无 CSRF → 403。code 已 revoke → deny 仍可写但无意义。
+// A codeId from another owner → 404/403 (no cross-tenant leak). No CSRF → 403.
+// A revoked code → a deny is still writable but meaningless.
 
 import type { APIRequestContext } from '@playwright/test';
 

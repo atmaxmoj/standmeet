@@ -1,11 +1,11 @@
-// admin-auth-guards.spec.ts —— /api/admin/* 的两层防御回归。
+// admin-auth-guards.spec.ts —— regression for the two defense layers of /api/admin/*.
 //
-// 用户故事：
-//   1. 攻击者直接打 /api/admin/me 没带 cookie → 必须 401，不能泄漏 owner 数据。
-//   2. owner 浏览器被骗去 evil.com，evil 用 form 提交 POST 到 /api/admin/codes
-//      没拿到 X-Csrftoken header（document.cookie 拿不到 csrf 用），必须 403。
+// User stories:
+//   1. An attacker hits /api/admin/me directly without a cookie → must be 401, must not leak owner data.
+//   2. The owner's browser is tricked to evil.com, and evil form-submits a POST to /api/admin/codes
+//      without the X-Csrftoken header (document.cookie can't read the csrf) → must be 403.
 //
-// 全 API 驱动 —— 这条不需要 UI 介入，但属于 e2e（真实 server, 真实 db）。
+// Fully API-driven —— this doesn't need UI, but it's still e2e (real server, real db).
 
 import { test, expect } from '@/fixtures/test';
 
@@ -43,7 +43,7 @@ test.describe('admin auth + CSRF guards', () => {
   test('authenticated POST without X-Csrftoken header → 403',
     async ({ playwright }) => {
       const ctx = await playwright.request.newContext();
-      // 走 login 拿到 cookie，但故意不传 X-Csrftoken。
+      // Log in to get the cookie, but deliberately omit X-Csrftoken.
       await loginAPI(ctx, OWNER.email, OWNER.password);
       const res = await ctx.post(`${BACKEND}/api/admin/codes/`, {
         data: { code: 'CSRF-TEST', label: 'should fail', purpose: 'csrf check' },

@@ -14,8 +14,8 @@ FROM applications
 WHERE id = $1 AND owner_id = $2;
 
 -- name: GetApplicationByAccessCode :one
--- 按 session 的 access code 反查它绑的那一份 application。owner-scoped(纵深防御；
--- access_code_id 已全局唯一)。访客侧简历工具用它把"哪一份"锁到这张码上。
+-- Look up the application bound to a session's access code. owner-scoped (defense in depth;
+-- access_code_id is already globally unique). The visitor-side resume tool uses it to lock "which one" to this code.
 SELECT id, owner_id, access_code_id, job_snapshot, resume_content,
        status, submitted_at, created_at
 FROM applications

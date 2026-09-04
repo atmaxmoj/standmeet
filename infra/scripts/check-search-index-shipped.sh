@@ -25,7 +25,7 @@
 
 set -eu
 
-FILES="docker-compose.prod.yml infra/coolify/docker-compose.coolify.yml"
+FILES="docker-compose.prod.yml infra/deploy/docker-compose.yml"
 fail=0
 
 for f in $FILES; do

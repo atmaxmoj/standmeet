@@ -42,7 +42,7 @@ type AttachCodeWaypointParams struct {
 	IsTerminal   bool
 }
 
-// 逐条 insert(数量少 + evidence_refs 是 per-row jsonb),同 AttachRoleWaypoint。
+// Insert one at a time (small count + evidence_refs is per-row jsonb), same as AttachRoleWaypoint.
 func (q *Queries) AttachCodeWaypoint(ctx context.Context, arg AttachCodeWaypointParams) error {
 	_, err := q.db.Exec(ctx, attachCodeWaypoint,
 		arg.CodeID,
@@ -77,7 +77,7 @@ const countCodeMembers = `-- name: CountCodeMembers :one
 SELECT count(*) FROM code_members WHERE code_id = $1
 `
 
-// max_members 强制用:这张码已经有几个不同名字(member)。
+// Used to enforce max_members: how many distinct names (members) this code already has.
 func (q *Queries) CountCodeMembers(ctx context.Context, codeID pgtype.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countCodeMembers, codeID)
 	var count int64
@@ -96,8 +96,9 @@ type CountCodeTurnsSinceParams struct {
 	CreatedAt pgtype.Timestamptz
 }
 
-// 这张码自某时刻起累计了多少轮（跨这张码的所有会话）。每周期速率闸用它数窗口内的量。
-// 一个 dialog = 一轮。
+// How many turns this code has accumulated since a given moment (across all of this code's
+// sessions). The per-period rate gate uses it to count the volume within the window.
+// One dialog = one turn.
 func (q *Queries) CountCodeTurnsSince(ctx context.Context, arg CountCodeTurnsSinceParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCodeTurnsSince, arg.CodeID, arg.CreatedAt)
 	var count int64
@@ -132,8 +133,9 @@ type CreateAccessCodeParams struct {
 	LimitPerPeriod     []byte
 }
 
-// A.3-IAM-5：每张码必挂 assumed_role_id。corpus_permissions / granted_skills
-// 等 legacy 字段在 commit 5 drop，ACL / capability gating 全部从 role 推断。
+// A.3-IAM-5: every code must carry an assumed_role_id. Legacy fields like
+// corpus_permissions / granted_skills are dropped in commit 5; ACL / capability
+// gating is all inferred from the role.
 func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodeParams) (AccessCode, error) {
 	row := q.db.QueryRow(ctx, createAccessCode,
 		arg.OwnerID,
@@ -210,9 +212,11 @@ const getAccessCode = `-- name: GetAccessCode :one
 SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, custom_page_id, limit_per_period, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1 AND status = 'active'
 `
 
-// **不要在这里加 lower()**:`code` 列是 `citext`(见 schema.sql:245),比较本来就不分大小写。
-// 我曾以为「?code= 进不去是因为查码逐字比较」并改成 `lower(code)=lower($1)` —— 那是错的,
-// 而且有害:它让 citext 上那个 UNIQUE 索引用不上。**列的类型就是那条规矩**,别在查询里再写一遍。
+// **Do not add lower() here**: the `code` column is `citext` (see schema.sql:245), so the
+// comparison is already case-insensitive. I once assumed "?code= won't get in because the code
+// lookup compares byte-for-byte" and changed it to `lower(code)=lower($1)` -- that was wrong,
+// and harmful: it prevents the UNIQUE index on citext from being used. **The column type is the
+// rule**; don't restate it in the query.
 func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, error) {
 	row := q.db.QueryRow(ctx, getAccessCode, code)
 	var i AccessCode
@@ -243,9 +247,10 @@ const getAccessCodeAnyStatus = `-- name: GetAccessCodeAnyStatus :one
 SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, custom_page_id, limit_per_period, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1
 `
 
-// 不带状态过滤:让仓储分得出「这张码不存在」和「这张码被撤销了」。
-// 只按 status='active' 查的话两种都是 no-rows,访客那句拒绝就只能合成一句,
-// 而这两种人的下一步是相反的(重新粘一次 / 去要一张新的)—— F-D-6。
+// No status filter: lets the repo distinguish "this code doesn't exist" from "this code was
+// revoked". Querying only by status='active' makes both cases no-rows, collapsing the visitor's
+// rejection into a single message -- but the next step for these two people is opposite
+// (paste it again / go request a new one) -- F-D-6.
 func (q *Queries) GetAccessCodeAnyStatus(ctx context.Context, code string) (AccessCode, error) {
 	row := q.db.QueryRow(ctx, getAccessCodeAnyStatus, code)
 	var i AccessCode
@@ -331,10 +336,11 @@ type GetAccessCodeWithPageRow struct {
 	CustomPageSlug       string
 }
 
-// 同 GetAccessCode，外加**这张码开哪一页**的 slug。
-// 落地决定要在 codes/intro 那一刻做出来（访客带码进来时前端已经在调它），而 slug 是
-// 页那张表上的东西 —— 用 join 在 SQL 层取，访客那条路就不必跨域去问 owner 域要。
-// 空串 = 没绑，开默认的访客对话。
+// Same as GetAccessCode, plus the slug of **which page this code opens**.
+// The landing decision must be made at the codes/intro moment (the frontend already calls this
+// when a visitor arrives with a code), and the slug lives on the pages table -- fetching it via a
+// join at the SQL layer means the visitor path need not cross domains to ask the owner domain.
+// Empty string = not bound, opens the default visitor conversation.
 func (q *Queries) GetAccessCodeWithPage(ctx context.Context, code string) (GetAccessCodeWithPageRow, error) {
 	row := q.db.QueryRow(ctx, getAccessCodeWithPage, code)
 	var i GetAccessCodeWithPageRow
@@ -371,8 +377,8 @@ type GetCodeMemberByIDParams struct {
 	CodeID pgtype.UUID
 }
 
-// 按 member id 取(client 存了 member_id,再来时凭 id 续会;尤其匿名者)。
-// 限定 code_id 防跨码串。
+// Fetch by member id (the client stored member_id and resumes by id on return; anonymous users
+// especially). Scoped by code_id to prevent cross-code leakage.
 func (q *Queries) GetCodeMemberByID(ctx context.Context, arg GetCodeMemberByIDParams) (CodeMember, error) {
 	row := q.db.QueryRow(ctx, getCodeMemberByID, arg.ID, arg.CodeID)
 	var i CodeMember
@@ -433,18 +439,22 @@ type GetOrCreateCodeMemberParams struct {
 	IsAnonymous bool
 }
 
-// GetOrCreateCodeMember —— 建/续一个成员，**名额上限在同一条语句里守住**。
+// GetOrCreateCodeMember -- create/resume a member, **enforcing the seat cap within the same statement**.
 //
-// ⚠️ 这条**已经不是名额闸门**（它守不住，见 LockCodeForMemberInsert）。留着是因为还有
-// 不带上限的调用路径；带上限的那条走 repo 里的事务版本。
+// WARNING: this is **no longer a seat gate** (it can't hold; see LockCodeForMemberInsert). It stays
+// because there's still a call path without a cap; the capped path goes through the transactional
+// version in the repo.
 //
-// 上限以前只在 usecase 里比一个早先读出来的列表，插入是裸 INSERT：两个会话同时进来都读到
-// len=9、都判 9 < 10、都插进去，于是一张上限 10 的码能长到 11 个人，然后卡死在「满了而且多一个」
-// （F-D-5，实测 12 并发打进上限 5 的码 → 落库 6）。顺序跑的用例永远看不见这件事。
+// The cap used to be compared in the usecase against a list read earlier, with a bare INSERT: two
+// sessions arriving at once both read len=9, both judged 9 < 10, both inserted, so a code capped at
+// 10 could grow to 11 people and then jam at "full and one over" (F-D-5, measured: 12 concurrent
+// against a code capped at 5 -> 6 persisted). A sequentially-run usecase never sees this.
 //
-// `FOR UPDATE` 锁的是 access_codes 那一行：并发的第二条语句会阻塞到第一条提交，再重读计数，
-// 所以计数和插入之间没有缝。同名放行是**续会**，不吃新名额。
-// 满了 → 一行都不插 → :one 返回 no-rows，调用方据此报「已满」。行数就是回执。
+// `FOR UPDATE` locks the access_codes row: a concurrent second statement blocks until the first
+// commits, then re-reads the count, so there is no gap between the count and the insert. Admitting a
+// same name is a **session resume**, it does not consume a new seat.
+// Full -> no row inserted -> :one returns no-rows, and the caller reports "full" from that. The row
+// count is the receipt.
 func (q *Queries) GetOrCreateCodeMember(ctx context.Context, arg GetOrCreateCodeMemberParams) (CodeMember, error) {
 	row := q.db.QueryRow(ctx, getOrCreateCodeMember,
 		arg.CodeID,
@@ -537,9 +547,11 @@ type ListAccessCodesWithPageByOwnerRow struct {
 	CustomPageSlug       string
 }
 
-// 同上，外加**这张码开哪一页**。绑定是一个事实，两个面板读同一处：
-// 码那一侧看得到页，页那一侧看得到码（ListCustomPagesByOwner 带 bound_codes）。
-// LEFT JOIN：没绑的码 slug 为空，那是「开默认访客对话」，不是缺数据。
+// Same as above, plus **which page this code opens**. The binding is one fact, and both panels
+// read the same place: the code side sees the page, the page side sees the code
+// (ListCustomPagesByOwner carries bound_codes).
+// LEFT JOIN: an unbound code has an empty slug, which is "opens the default visitor conversation",
+// not missing data.
 func (q *Queries) ListAccessCodesWithPageByOwner(ctx context.Context, ownerID pgtype.UUID) ([]ListAccessCodesWithPageByOwnerRow, error) {
 	rows, err := q.db.Query(ctx, listAccessCodesWithPageByOwner, ownerID)
 	if err != nil {
@@ -584,7 +596,8 @@ const listCodeCorpusDenials = `-- name: ListCodeCorpusDenials :many
 SELECT uri_pattern FROM code_corpus_denials WHERE code_id = $1 ORDER BY uri_pattern ASC
 `
 
-// 这张 code 收回的 URI glob（纯减法层；role 的正列表减去它 = 本码实际可读）。
+// The URI globs this code revokes (a pure subtraction layer; the role's allow list minus this =
+// what this code can actually read).
 func (q *Queries) ListCodeCorpusDenials(ctx context.Context, codeID pgtype.UUID) ([]string, error) {
 	rows, err := q.db.Query(ctx, listCodeCorpusDenials, codeID)
 	if err != nil {
@@ -649,7 +662,7 @@ type ListCodeWaypointsRow struct {
 	IsTerminal   bool
 }
 
-// 这张 code 的 waypoint **覆盖层**(不含继承来的 role 的);合并在 domain.MergeWaypoints。
+// This code's waypoint **override layer** (excludes the inherited role's); merged in domain.MergeWaypoints.
 func (q *Queries) ListCodeWaypoints(ctx context.Context, codeID pgtype.UUID) ([]ListCodeWaypointsRow, error) {
 	rows, err := q.db.Query(ctx, listCodeWaypoints, codeID)
 	if err != nil {
@@ -680,13 +693,16 @@ const lockCodeForMemberInsert = `-- name: LockCodeForMemberInsert :one
 SELECT max_members FROM access_codes WHERE id = $1 FOR UPDATE
 `
 
-// 名额闸门的第一步:**单独一条语句**锁住这张码,并读回 max_members。
+// First step of the seat gate: a **separate statement** that locks this code and reads back max_members.
 //
-// 为什么必须单独一条:READ COMMITTED 下,一条语句里的所有读取共用**语句开始时**的那个快照。
-// 把 `FOR UPDATE` 和 `count(*)` 写进同一条语句(CTE)时,第二个并发请求确实会阻塞在锁上,
-// 但拿到锁之后它的 count 仍然来自旧快照 —— 看不见对方刚提交的那一行,于是照样放行。
-// 锁串行了,计数没有(F-D-5 的第一版就是这样,它的注释还写着「没有缝」)。
-// 拆成两条之后,count 是锁**之后**才开始的新语句,新快照,看得见已提交的成员。
+// Why it must be a separate statement: under READ COMMITTED, all reads within one statement share
+// the snapshot taken **at statement start**. If `FOR UPDATE` and `count(*)` are put in the same
+// statement (a CTE), a second concurrent request does block on the lock, but after acquiring it its
+// count still comes from the old snapshot -- it can't see the row the other just committed, so it
+// admits anyway. The lock serialized, the count did not (the first version of F-D-5 was exactly
+// this, and its comment still claimed "no gap").
+// Split into two statements, the count is a new statement that starts **after** the lock -- a new
+// snapshot that sees the committed member.
 func (q *Queries) LockCodeForMemberInsert(ctx context.Context, id pgtype.UUID) (*int32, error) {
 	row := q.db.QueryRow(ctx, lockCodeForMemberInsert, id)
 	var max_members *int32
@@ -703,7 +719,8 @@ type MemberExistsByNameParams struct {
 	DisplayName string
 }
 
-// 同名 = 续会,不吃新名额。跟 count 一样必须在锁之后单独读。
+// Same name = resume session, does not consume a new seat. Like the count, it must be read
+// separately after the lock.
 func (q *Queries) MemberExistsByName(ctx context.Context, arg MemberExistsByNameParams) (bool, error) {
 	row := q.db.QueryRow(ctx, memberExistsByName, arg.CodeID, arg.DisplayName)
 	var exists bool
@@ -724,8 +741,9 @@ type SetAccessCodeCustomPageParams struct {
 	CustomPageID pgtype.UUID
 }
 
-// 绑/解绑。$3 为 NULL = 解绑，码退回默认落地。
-// 一张码至多一页 —— 这是一列而不是一张关系表，所以「至多一个」是结构保证的，不靠校验。
+// Bind/unbind. $3 NULL = unbind, the code falls back to the default landing.
+// A code has at most one page -- this is a column, not a relation table, so "at most one" is
+// guaranteed structurally, not by validation.
 func (q *Queries) SetAccessCodeCustomPage(ctx context.Context, arg SetAccessCodeCustomPageParams) (AccessCode, error) {
 	row := q.db.QueryRow(ctx, setAccessCodeCustomPage, arg.ID, arg.OwnerID, arg.CustomPageID)
 	var i AccessCode
@@ -765,7 +783,7 @@ type SetAccessCodeGhostEvidenceParams struct {
 	RequireGhostEvidence *bool
 }
 
-// F-A-10 per-code 覆盖:NULL = 继承 role 的开关;true/false = 这张码显式覆盖。
+// F-A-10 per-code override: NULL = inherit the role's switch; true/false = this code overrides explicitly.
 func (q *Queries) SetAccessCodeGhostEvidence(ctx context.Context, arg SetAccessCodeGhostEvidenceParams) (AccessCode, error) {
 	row := q.db.QueryRow(ctx, setAccessCodeGhostEvidence, arg.ID, arg.OwnerID, arg.RequireGhostEvidence)
 	var i AccessCode
@@ -864,7 +882,7 @@ type UpdateAccessCodeRoleParams struct {
 	AssumedRoleID pgtype.UUID
 }
 
-// Admin "reassign role"。新 role 必须属于同 owner（caller 校验过）。
+// Admin "reassign role". The new role must belong to the same owner (caller has validated this).
 func (q *Queries) UpdateAccessCodeRole(ctx context.Context, arg UpdateAccessCodeRoleParams) (AccessCode, error) {
 	row := q.db.QueryRow(ctx, updateAccessCodeRole, arg.ID, arg.OwnerID, arg.AssumedRoleID)
 	var i AccessCode
@@ -905,8 +923,9 @@ type UpsertCodeMemberParams struct {
 	IsAnonymous bool
 }
 
-// 真正落库那一步。名额是否够由调用方在同一个事务里、拿到行锁之后判定 ——
-// 所以这里不再自己带闸门（带了也没用，见 LockCodeForMemberInsert 的注释）。
+// The actual persist step. Whether a seat is available is decided by the caller within the same
+// transaction, after acquiring the row lock -- so this query no longer carries a gate of its own
+// (carrying one would be useless anyway; see the LockCodeForMemberInsert comment).
 func (q *Queries) UpsertCodeMember(ctx context.Context, arg UpsertCodeMemberParams) (CodeMember, error) {
 	row := q.db.QueryRow(ctx, upsertCodeMember,
 		arg.CodeID,

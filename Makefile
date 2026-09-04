@@ -6,7 +6,7 @@
 # lefthook doesn't get blocked by a subproject that isn't wired up yet during early
 # incremental development.
 
-.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint im-bridge-test im-bridge-up im-bridge-logs
+.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-test im-bridge-up im-bridge-logs
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
@@ -116,6 +116,13 @@ sdk-lint:
 # external visitor client, and its logic (code auth / open session / quota / revoke / echo
 # guard) can be proven against a stand-in without spinning up the whole stack.
 # The real-platform pass belongs to docs/real-env-verification/items/im-bridge.md.
+# updater-e2e —— the REAL end-to-end test of the product-owned upgrade: a live local registry,
+# a live stack, a genuine :latest bump, a genuine signal, and an assertion that the running
+# container actually upgraded (then that a repeat press is a no-op). No fakes. Needs Docker + a
+# network. Heavy on purpose — not part of `make lint`.
+updater-e2e:
+	@infra/updater/updater-e2e.sh
+
 im-bridge-test:
 	@if [ -d im-bridge/node_modules ]; then \
 	  pnpm -F @standmeet/im-bridge lint && pnpm -F @standmeet/im-bridge test; \
@@ -1252,7 +1259,7 @@ TAG ?= $(shell git describe --tags --always --dirty)
 # mount like `./backend/db/schema.sql` inevitably points at nothing — and postgres's behavior
 # when its mount is empty is to **silently start an empty database**. Baking the schema into the
 # image means a registry deploy needs zero mounts (infra/db/Dockerfile).
-IMAGES := backend app builder im-bridge db
+IMAGES := backend app builder im-bridge db updater
 
 # release-build —— builds the four images by REGISTRY/TAG (without pushing).
 # app's .next is built on the host and COPYd into the image, so that step has to run first.
@@ -1303,6 +1310,7 @@ release-build: sdk-build builder-vendor
 	    builder)   docker build -t $$img ./builder ;; \
 	    im-bridge) docker build -t $$img -f im-bridge/Dockerfile . ;; \
 	    db)        docker build -t $$img -f infra/db/Dockerfile . ;; \
+	    updater)   docker build -t $$img -f infra/updater/Dockerfile . ;; \
 	  esac || exit 1; \
 	  docker tag $$img $(REGISTRY)/standmeet-$$svc:latest || exit 1; \
 	done
@@ -1502,6 +1510,7 @@ release-push: secrets secrets-image
 	    builder)   ctx="./builder" ;; \
 	    im-bridge) ctx="-f im-bridge/Dockerfile ." ;; \
 	    db)        ctx="-f infra/db/Dockerfile ." ;; \
+	    updater)   ctx="-f infra/updater/Dockerfile ." ;; \
 	  esac; \
 	  docker buildx build --builder standmeet-release \
 	    --platform $(RELEASE_PLATFORMS) \

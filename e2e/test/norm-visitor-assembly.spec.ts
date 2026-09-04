@@ -1,12 +1,13 @@
-// norm-visitor-assembly.spec.ts —— 能力归一化的访客侧黄金快照。
+// norm-visitor-assembly.spec.ts —— the visitor-side golden snapshot of capability normalization.
 //
-// registry-snapshot 锁"哪些 capability 注册了";这条锁"装配给一个访客 session 的
-// 工具集" —— 访客真正看得到的东西。归一化把那 6 个 inward 能力的加载机制外置成
-// MCP server(平台架构的 (乙)),装配结果不该受影响 —— 同一个 role 装出来的
-// tool_specs 必须一字不变。
+// registry-snapshot locks "which capabilities are registered"; this one locks "the tool set
+// assembled for a visitor session" — what the visitor actually sees. Normalization externalizes the
+// loading mechanism of those 6 inward capabilities into an MCP server (plane (b) of the platform
+// architecture), and the assembly result must not be affected — the tool_specs assembled from the
+// same role must be word-for-word identical.
 //
-// 用一个 corpus-only role(不挂 skill / 不连 calendar / 不授 echoer)→ 装配结果
-// 确定、不依赖外部连器,适合当稳定 golden。
+// Use a corpus-only role (no skill / no calendar / no echoer) → the assembly result is
+// deterministic and does not depend on external connectors, which makes it a stable golden.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -26,16 +27,19 @@ const OWNER = {
 };
 const CODE = 'NORM-ASM-1';
 
-// GOLDEN —— corpus-only role 装出来的 visitor tool 名单(排序后比,避免顺序噪声;
-// 顺序本身由 registry-snapshot 那条锁)。重构后必须一致。
+// GOLDEN —— the visitor tool list assembled from a corpus-only role (compared sorted, to avoid
+// ordering noise; the order itself is locked by registry-snapshot). Must stay identical after the
+// refactor.
 //   corpus_search/read/list/links —— corpus.retrieval (corpus_links = 1-hop backlinks, #172)
-//   corpus_map/resolve/peek       —— 同一个 corpus.retrieval 上后加的导航三件套
-//                                    (capreg_retrieval_socket_nav.go：skeleton / name→node / 批量
-//                                    stub)。**它们和前四个走同一条 ACL**：runner 拿的是
-//                                    `corpusScopeOf(req)`，即 role 的 grant 减去这张码的收回。
-//                                    这条 golden 一度没跟上它们仨 —— golden 的意义正是逼这个更新
-//                                    发生在明面上：**往这个名单里加一行 = 承认多给了访客一件工具**。
-//   ask_visitor / summarize_conversation —— 无授权门,所有 mode 暴露的基础能力
+//   corpus_map/resolve/peek       —— the navigation trio added later on the same corpus.retrieval
+//                                    (capreg_retrieval_socket_nav.go: skeleton / name→node / batch
+//                                    stub). **They go through the same ACL as the first four**: the
+//                                    runner takes `corpusScopeOf(req)`, i.e. the role's grant minus
+//                                    this code's revocations. This golden once failed to keep up with
+//                                    the three of them — the whole point of a golden is to force this
+//                                    update out into the open: **adding a line here = admitting the
+//                                    visitor was given one more tool**.
+//   ask_visitor / summarize_conversation —— no authorization gate, base capabilities exposed in all modes
 const CORPUS_RETRIEVAL_TOOLS: readonly string[] = [
   'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
   'corpus_map', 'corpus_resolve', 'corpus_peek', 'corpus_grep',
@@ -44,8 +48,8 @@ const BASELINE_TOOLS: readonly string[] = ['ask_visitor', 'summarize_conversatio
 
 const GOLDEN_CORPUS_TOOLS: readonly string[] = [...CORPUS_RETRIEVAL_TOOLS, ...BASELINE_TOOLS];
 
-// skill-granted role(fixture 默认也带 corpus)→ 锁 skill.runner 装配
-// (skill_use / skill_run_script 出现)+ corpus + 基础能力。
+// skill-granted role (the fixture also carries corpus by default) → locks skill.runner assembly
+// (skill_use / skill_run_script appear) + corpus + base capabilities.
 const GOLDEN_SKILL_TOOLS: readonly string[] = [
   ...CORPUS_RETRIEVAL_TOOLS,
   'skill_use', 'skill_run_script',
@@ -59,10 +63,11 @@ let skillToken = '';
 
 test.describe('能力归一化 · 访客装配黄金快照', () => {
   test.beforeAll(async ({ playwright }) => {
-    // 这个 beforeAll 要做 8 次 API 调用（claim / login / 建角色 / 建码 / 发会话 ×2 /
-    // 发 API token / 带技能发码），而默认预算是 30 秒、每次调用又卡在 Playwright 默认的
-    // 10 秒。发会话是其中的重活（要装配整份访客工具面）—— 机器忙的时候它单独就能吃掉 10 秒。
-    // 放宽的是驱动器的耐心；判据（tool_specs 逐字等于 golden）一个字没动。
+    // This beforeAll makes 8 API calls (claim / login / create role / create code / issue session ×2
+    // / issue API token / issue code with skills), while the default budget is 30 seconds and each
+    // call is capped at Playwright's default 10. Issuing a session is the heavy one (it assembles the
+    // whole visitor tool surface) — on a busy machine it alone can eat 10 seconds. What is relaxed is
+    // the driver's patience; the criterion (tool_specs word-for-word equal to golden) is untouched.
     test.setTimeout(120_000);
     resetInstance();
     const request = await playwright.request.newContext({ timeout: 60_000 });
@@ -82,7 +87,7 @@ test.describe('能力归一化 · 访客装配黄金快照', () => {
     corpusToken = (await issueSession(request, {
       handle: OWNER.handle, code: CODE, visitor_name: 'Inspector',
     })).session_token;
-    // 2) skill-granted role(挂一个 skill → skill.runner 暴露)
+    // 2) skill-granted role (attach a skill → skill.runner is exposed)
     await createAPIToken(request, csrf, 'norm-asm-seed');
     const skillCode = await issueCodeWithSkills(request, csrf, {
       label: 'norm skill', granted_skills: ['noop.tool'],
