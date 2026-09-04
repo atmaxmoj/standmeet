@@ -129,8 +129,10 @@ test.describe('admin system section', () => {
   test('the System panel shows the public IP and the cluster panel', clusterPanelRenders);
 });
 
-// Public IP is deploy-provided (deterministic in dev); the containers come off the docker
-// socket, scoped to THIS compose project (not other tenants' containers).
+// Public IP is deploy-provided (deterministic in dev). Container rows now come from each service
+// reading its OWN cgroup — NO docker socket: the backend reads its own directly, and each peer
+// (STANDMEET_SELFSTAT_PEERS → app's /api/selfstat) reports its own. So the panel proves the whole
+// mechanism only if BOTH the own row (backend) and a peer row (app) show up with real cgroup memory.
 async function publicIPAndCluster({ adminPage }: { adminPage: Page }): Promise<void> {
   const res = await adminPage.request.get(`${BACKEND}/api/admin/system`);
   expect(res.status(), 'system endpoint 200').toBe(200);
@@ -138,16 +140,19 @@ async function publicIPAndCluster({ adminPage }: { adminPage: Page }): Promise<v
 
   expect(body.public_ip, 'public IP is the deploy-provided value').toBe(DEV_PUBLIC_IP);
 
-  // The dev stack mounts /var/run/docker.sock, so per-container stats resolve, scoped to
-  // this project — the backend service itself must be among them.
   expect(Array.isArray(body.containers), 'containers is a list').toBe(true);
-  expect(body.containers.length, 'own-cluster containers are listed').toBeGreaterThan(0);
+  // Own row: the backend read its OWN cgroup. mem_bytes MUST be > 0 — a real cgroup read, which is
+  // exactly what the old docker.sock path (no socket in the app) could never produce.
   const backend = body.containers.find((c) => /backend/i.test(c.name));
-  expect(backend, 'the backend container appears in its own cluster').toBeTruthy();
+  expect(backend, 'backend reports its own cgroup row').toBeTruthy();
+  expect(backend?.mem_bytes, 'backend cgroup memory is a real >0 reading').toBeGreaterThan(0);
+  // Peer row: the backend fetched app's /api/selfstat (app read ITS own cgroup). Proves aggregation
+  // across services, each self-reporting — the design's whole point.
+  const app = body.containers.find((c) => /app/i.test(c.name));
+  expect(app, 'app peer self-reports over its own /selfstat endpoint').toBeTruthy();
+  expect(app?.mem_bytes, 'app cgroup memory is a real >0 reading').toBeGreaterThan(0);
   for (const c of body.containers) {
-    expect(typeof c.cpu_percent, `${c.name} cpu is numeric`).toBe('number');
     expect(c.cpu_percent, `${c.name} cpu ≥ 0`).toBeGreaterThanOrEqual(0);
-    expect(c.mem_bytes, `${c.name} mem ≥ 0`).toBeGreaterThanOrEqual(0);
   }
 }
 

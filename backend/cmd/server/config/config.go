@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Config holds the runtime configuration read once at process startup.
@@ -116,6 +117,11 @@ type Config struct {
 	// env: STANDMEET_RELEASE_REGISTRY / STANDMEET_RELEASE_REPO
 	ReleaseRegistry string
 	ReleaseRepo     string
+	// SelfStatPeers — sibling services' /selfstat URLs (comma-separated) the System panel gathers.
+	// The backend reads its OWN cgroup directly; each peer reports its own over its endpoint — no
+	// docker socket anywhere. Empty → the panel shows just the backend's own row.
+	// env: STANDMEET_SELFSTAT_PEERS
+	SelfStatPeers []string
 	// QueryQueueMaxConcurrent — global concurrency cap for the visitor chat
 	// agent loop; guards against concurrent visitors blowing an owner's
 	// anthropic quota. ≤0 disables throttling (the dev default).
@@ -210,6 +216,7 @@ func Load() (*Config, error) {
 		UpgradeSignalPath:          os.Getenv("STANDMEET_UPGRADE_SIGNAL"),
 		ReleaseRegistry:            envOr("STANDMEET_RELEASE_REGISTRY", defaultReleaseRegistry),
 		ReleaseRepo:                envOr("STANDMEET_RELEASE_REPO", defaultReleaseRepo),
+		SelfStatPeers:              splitCSV(os.Getenv("STANDMEET_SELFSTAT_PEERS")),
 		StorageUseSSL:              os.Getenv("STORAGE_USE_SSL") == "true",
 		SecureCookie:               envOr("SECURE_COOKIE", "true") == "true",
 	}
@@ -254,6 +261,17 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// splitCSV — a comma-separated env into a trimmed list, dropping empties. "" → nil.
+func splitCSV(s string) []string {
+	var out []string
+	for part := range strings.SplitSeq(s, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // envInt — env integer with a default; a non-integer value is treated as 0

@@ -111,3 +111,4 @@ mock-stack/mail/mail
 
 # builder/vendor —— SDK 产物的暂存地（infra/scripts/builder-vendor.sh 生成），不进仓库。
 builder/vendor/
+scratchpad-*.json

@@ -21,7 +21,6 @@ import (
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
 	"github.com/atmaxmoj/standmeet/internal/infra/buildnotify"
-	"github.com/atmaxmoj/standmeet/internal/infra/dockerstat"
 	"github.com/atmaxmoj/standmeet/internal/infra/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
@@ -159,7 +158,7 @@ func assembleRuntimeDeps(
 		EmbedRepo:      repos.embed,
 		SEORepo:        repos.seo,
 		CustomPageRepo: repos.customPage, CustomBuildRepo: repos.customBuild,
-		BuildNotifier: buildnotify.New(), DockerStat: dockerstat.New(""),
+		BuildNotifier: buildnotify.New(), SelfStatPeers: cfg.SelfStatPeers,
 		AccessRequestRepo:  repos.accessRequest,
 		JobSourceRepo:      repos.jobSource,
 		ResumeDraftRepo:    repos.resumeDraft,

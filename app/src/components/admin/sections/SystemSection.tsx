@@ -87,9 +87,10 @@ function ResourceStat({ label, value, sub }: { label: string; value: string; sub
   );
 }
 
-// ClusterBlock — this instance's own compose project, one row per container (CPU + memory).
-// Goes through ListPane so a genuinely empty cluster (docker socket not mounted → an honest
-// "no cluster data") is never confused with "still loading" or "the fetch failed" (F-L-53).
+// ClusterBlock — this instance's own services, one row per container (CPU + memory), each read
+// from its OWN cgroup (no docker socket). Goes through ListPane so a genuinely empty cluster (no
+// cgroup readable → an honest "no cluster data") is never confused with "still loading" or "the
+// fetch failed" (F-L-53).
 function ClusterBlock({ info, status }: { info: SystemInfo | null; status: ResourceStatus }) {
   const t = useTranslations('adminShell.system');
   const rows = clusterRows(info);

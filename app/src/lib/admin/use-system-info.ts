@@ -138,7 +138,7 @@ function pct(part: number, whole: number): string {
 export function resourceStats(info: SystemInfo | null): ResourceStatView[] {
   if (info === null) {
     return [
-      { label: 'disk', value: '—', sub: 'free / total' },
+      { label: 'disk', value: '—', sub: 'used / total' },
       { label: 'host mem', value: '—', sub: 'used / total' },
       { label: 'cpu load', value: '—', sub: '1min avg' },
       { label: 'goroutines', value: '—', sub: 'live' },
@@ -147,9 +147,12 @@ export function resourceStats(info: SystemInfo | null): ResourceStatView[] {
   }
   return [
     {
+      // used / total, like the host-mem row below — the backend sends free, so used = total - free.
+      // Showing free here (with the same `X / Y` shape mem uses for used) read as a contradiction:
+      // "54.6 / 144.2" looks like used, next to "38% free" it doesn't add up. df's convention is used.
       label: 'disk',
-      value: `${gb(info.disk_free_mb)} / ${gb(info.disk_total_mb)} GB`,
-      sub: `${pct(info.disk_free_mb, info.disk_total_mb)} free`,
+      value: `${gb(info.disk_total_mb - info.disk_free_mb)} / ${gb(info.disk_total_mb)} GB`,
+      sub: `${pct(info.disk_total_mb - info.disk_free_mb, info.disk_total_mb)} used`,
     },
     {
       label: 'host mem',

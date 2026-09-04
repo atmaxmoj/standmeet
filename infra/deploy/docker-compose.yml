@@ -47,6 +47,7 @@ services:
       - SERVICE_FQDN_APP_3000
       - BACKEND_URL=http://backend:8000
       - NODE_ENV=production
+      - STANDMEET_SERVICE_NAME=app
     # Warning: **do not declare `networks` here again.** That is the cause of a 504 that kept
     # recurring.
     #
@@ -103,6 +104,8 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8000
+      - STANDMEET_SERVICE_NAME=backend
+      - STANDMEET_SELFSTAT_PEERS=http://app:3000/api/selfstat
       - DATABASE_URL=postgres://standmeet:${SERVICE_PASSWORD_POSTGRES}@db:5432/standmeet?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
       - SESSION_KEY=${SERVICE_PASSWORD_64_SESSION}

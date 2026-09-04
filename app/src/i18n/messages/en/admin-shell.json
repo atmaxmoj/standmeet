@@ -202,7 +202,7 @@
     "resources": "resources · host + runtime",
     "publicIp": "public ip",
     "cluster": "cluster · own containers",
-    "clusterEmpty": "no cluster data — docker socket not mounted",
+    "clusterEmpty": "no cluster data — cgroup unavailable",
     "backgroundJobs": "background jobs",
     "colJob": "job",
     "colSchedule": "schedule",

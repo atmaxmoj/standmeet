@@ -28,6 +28,7 @@ services:
     environment:
       - BACKEND_URL=http://backend:8000
       - NODE_ENV=production
+      - STANDMEET_SERVICE_NAME=app
     depends_on:
       backend:
         condition: service_healthy
@@ -60,6 +61,8 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8000
+      - STANDMEET_SERVICE_NAME=backend
+      - STANDMEET_SELFSTAT_PEERS=http://app:3000/api/selfstat
       - DATABASE_URL=postgres://standmeet:standmeet_dev@db:5432/standmeet?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
       # meilisearch —— corpus 词法检索 index(1b)。写路径同步 upsert,读走 Search。

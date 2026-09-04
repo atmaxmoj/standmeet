@@ -6,7 +6,10 @@ package port
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
@@ -18,7 +21,8 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
-	"github.com/atmaxmoj/standmeet/internal/infra/dockerstat"
+	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
+	"github.com/atmaxmoj/standmeet/internal/infra/selfstat"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
@@ -59,14 +63,15 @@ const hostDiskPath = "/"
 // SysInfoProvider — the runtime info shown at /admin/system (real pings, not
 // self-reported).
 type SysInfoProvider struct {
-	started time.Time
-	db      *pgxpool.Pool
-	rdb     *redis.Client
-	storage *storage.Client
-	search  *search.Client // corpus lexical search; nil = Meili not configured —
-	// **still shows on the health panel**, reported as OK=false (F-S-3)
-	docker   *dockerstat.Reader // per-container usage of this compose project; nil = not wired
-	publicIP string             // deploy-provided instance public IP (env PUBLIC_IP)
+	started  time.Time
+	db       *pgxpool.Pool
+	rdb      *redis.Client
+	storage  *storage.Client
+	search   *search.Client
+	self     *selfstat.Reader
+	httpc    *http.Client
+	publicIP string
+	peers    []string
 }
 
 // NewSysInfoProvider — provider of the runtime info shown at /admin/system (real
@@ -74,7 +79,10 @@ type SysInfoProvider struct {
 func NewSysInfoProvider(d *deps.Runtime) *SysInfoProvider {
 	return &SysInfoProvider{
 		started: time.Now(), db: d.DB, rdb: d.RDB, storage: d.StorageClient, search: d.SearchClient,
-		docker: d.DockerStat, publicIP: d.PublicIP,
+		self:     selfstat.New("", ""),
+		peers:    d.SelfStatPeers,
+		httpc:    httpx.NewClient(httpx.Options{Timeout: containerBudget, NoRetry: true}),
+		publicIP: d.PublicIP,
 	}
 }
 
@@ -101,28 +109,71 @@ func (p *SysInfoProvider) SystemInfo(ctx context.Context) stats.SystemInfo {
 	}
 }
 
-// dockerStatBudget — the most /admin/system will wait on the docker gather. Container stats
-// are a nice-to-have; the rest of the snapshot (health, host metrics) must never be held up.
-const dockerStatBudget = 3 * time.Second
+// containerBudget — the most /admin/system waits on the per-service self-stat gather (own cgroup
+// read + peer fetches, all concurrent). Container rows are a nice-to-have; the rest of the
+// snapshot (health, host metrics) must never be held up.
+const containerBudget = 3 * time.Second
 
-// containers — this compose project's per-service usage; nil when the docker socket isn't
-// wired/available (the panel then simply shows no cluster rows, not an error).
+// containers — this instance's own services, each read from its OWN cgroup, NO docker socket:
+// the backend reads its own cgroup directly; each peer reports its own over its /selfstat endpoint
+// (Zabbix/cAdvisor read the kernel, they don't ask Docker). A service whose read/fetch fails is
+// dropped, so the panel shows what it can rather than erroring the whole snapshot.
 func (p *SysInfoProvider) containers(ctx context.Context) []stats.Container {
-	if p.docker == nil {
-		return []stats.Container{}
-	}
-	ctx, cancel := context.WithTimeout(ctx, dockerStatBudget)
+	ctx, cancel := context.WithTimeout(ctx, containerBudget)
 	defer cancel()
-	snap, err := p.docker.Snapshot(ctx)
-	if err != nil {
-		return []stats.Container{}
+	rows := make([]stats.Container, 1+len(p.peers))
+	var wg sync.WaitGroup
+	wg.Go(func() { rows[0] = ownStat(ctx, p.self) })
+	for i, u := range p.peers {
+		wg.Go(func() { rows[i+1] = peerStat(ctx, p.httpc, u) })
 	}
-	out := make([]stats.Container, 0, len(snap))
-	for i := range snap {
-		out = append(out, stats.Container{
-			Name: snap[i].Name, CPUPercent: snap[i].CPUPercent,
-			MemBytes: snap[i].MemBytes, MemLimit: snap[i].MemLimit,
-		})
+	wg.Wait()
+	return present(rows)
+}
+
+func ownStat(ctx context.Context, r *selfstat.Reader) stats.Container {
+	s, err := r.Read(ctx)
+	if err != nil {
+		return stats.Container{}
+	}
+	return toContainer(s)
+}
+
+// peerStat — GET a sibling's /selfstat (it reads its own cgroup and returns selfstat.Stat JSON).
+// Best-effort: any failure yields a zero row, dropped by present.
+func peerStat(ctx context.Context, c *http.Client, url string) stats.Container {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return stats.Container{}
+	}
+	resp, err := c.Do(req)
+	if err != nil {
+		return stats.Container{}
+	}
+	defer resp.Body.Close() //nolint:errcheck // best-effort read; close error is irrelevant
+	if resp.StatusCode != http.StatusOK {
+		return stats.Container{}
+	}
+	var s selfstat.Stat
+	if decErr := json.NewDecoder(resp.Body).Decode(&s); decErr != nil {
+		return stats.Container{}
+	}
+	return toContainer(s)
+}
+
+func toContainer(s selfstat.Stat) stats.Container {
+	return stats.Container{
+		Name: s.Name, CPUPercent: s.CPUPercent, MemBytes: s.MemBytes, MemLimit: s.MemLimit,
+	}
+}
+
+// present — drop the zero-value rows a failed read/fetch leaves (they keep an empty Name).
+func present(in []stats.Container) []stats.Container {
+	out := make([]stats.Container, 0, len(in))
+	for i := range in {
+		if in[i].Name != "" {
+			out = append(out, in[i])
+		}
 	}
 	return out
 }

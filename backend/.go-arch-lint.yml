@@ -217,8 +217,8 @@ components:
     in: internal/infra/periodic           # single scheduling point for periodic tasks: the declarer says "what to do", this handles "how often + bookkeeping"
   buildnotify:
     in: internal/infra/buildnotify        # in-memory broadcast waking custom-page preview long-pollers on build completion; domain-less leaf (stdlib sync only)
-  dockerstat:
-    in: internal/infra/dockerstat         # reads this compose project's per-container CPU/mem off the docker socket for the System panel; leaf (builds its unix client through httpx)
+  selfstat:
+    in: internal/infra/selfstat           # reads THIS container's own cgroup (CPU/mem) for the System panel; leaf (stdlib only, no docker socket)
   # cmd — the composition root, now split into five packages + the startup sequence on the root. For
   # **layering** purposes they're one thing: the one place allowed to cross all layers. Direction between
   # them is one-way: deps ← port ← axisconn ← axiscap ← wire ← cmd.
@@ -370,11 +370,10 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # dockerstat — per-container usage over the docker socket. Builds its unix-socket client
-  # through httpx (the sanctioned client home), so it depends on httpx only.
-  dockerstat:
-    mayDependOn:
-      - httpx
+  # selfstat — THIS container's own cgroup usage for the System panel. Pure stdlib file reads
+  # (/sys/fs/cgroup), no docker socket, no internal deps.
+  selfstat:
+    mayDependOn: []
     anyVendorDeps: true
 
   # hostdesk — inbound convergence, the mirror of the outbound dispatcher. It imports each domain's
@@ -1236,7 +1235,7 @@ deps:
       - corpus
       - pgstore
       - buildnotify     # the composition root constructs the preview-long-poll broadcast (one per process)
-      - dockerstat      # …and the per-container stats reader for the System panel
+      - selfstat        # …and the own-cgroup stats reader for the System panel
     anyVendorDeps: true
 
   # The five packages inside the composition root. In layering terms they're on par with cmd (both may
@@ -1312,7 +1311,7 @@ deps:
       - corpus
       - pgstore
       - buildnotify     # Runtime holds the preview-long-poll broadcast, shared by the builder callback + admin face
-      - dockerstat      # Runtime holds the per-container stats reader (System panel)
+      - selfstat        # Runtime carries the peer /selfstat URLs; SysInfoProvider builds the reader (System panel)
     anyVendorDeps: true
 
   cmdport:
@@ -1324,7 +1323,7 @@ deps:
       # needs to see it; without it the only way out would be to route around that gate and build a raw
       # client itself.
       - httpx
-      - dockerstat      # SysInfoProvider reads per-container stats for the System panel
+      - selfstat        # SysInfoProvider reads own-cgroup stats + fetches peer /selfstat (System panel)
       - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
       - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
       - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
