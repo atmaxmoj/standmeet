@@ -48,6 +48,7 @@ export const ADAPTER_KINDS: readonly { kind: string; config: string }[] = [
   { kind: 'workday', config: '{"tenant":"acme","wd":"wd5","site":"External"}' },
   { kind: 'jba', config: '{"ats":"greenhouse","location":"remote"}' },
   { kind: 'jobposting_jsonld', config: '{"sitemap":"https://example.com/sitemap.xml"}' },
+  { kind: 'rss', config: '{"feed_url":"https://example.com/jobs.rss"}' },
   { kind: 'remoteok', config: '' },
   { kind: 'hn_hiring', config: '' },
   { kind: 'wwr', config: '' },

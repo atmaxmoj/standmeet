@@ -190,8 +190,8 @@ func assembleRuntimeDeps(
 		CaptchaVerifier:    captchaVerifier,
 		CaptchaEnabled:     cfg.TurnstileSiteKey != "" && cfg.TurnstileSecret != "",
 		CaptchaSiteKey:     captchaSiteKeyFor(cfg),
-		SecureCookie:       cfg.SecureCookie,
-		BuildsRoot:         cfg.CustomPagesRoot, SessionKey: cfg.SessionKey, PublicIP: cfg.PublicIP,
+		SecureCookie:       cfg.SecureCookie, SeedDefaultSources: cfg.SeedDefaultSources,
+		BuildsRoot: cfg.CustomPagesRoot, SessionKey: cfg.SessionKey, PublicIP: cfg.PublicIP,
 		SandboxRunner:     sandbox.FromEnv(cfg.SandboxDriver),
 		PrintStore:        printStore,
 		PdfRenderer:       buildPDFRenderer(log, cfg, printStore),
@@ -232,7 +232,7 @@ func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 		Roles: d.RoleRepo, Prompts: port.PromptsByName(d),
 		CVCheck: port.SubjectivityPresence(d), Renderer: d.PdfRenderer,
 	}
-	reg.Register(pluginjobs.New(pluginjobs.Deps{
+	reg.Register(pluginjobs.New(&pluginjobs.Deps{
 		Jobs:         &jobsDeps,
 		Resume:       &resumeDeps,
 		Applications: &appsDeps,
@@ -241,8 +241,11 @@ func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 		SourcesRepo:  d.JobSourceRepo,
 		// The two builtins this plugin itself seeds (hiring prompt + role) go
 		// through OwnerSeeder.
-		Seed: jobsuc.SeedDeps{Prompts: d.PromptRepo, Roles: d.RoleRepo},
-		Log:  d.Log,
+		Seed: jobsuc.SeedDeps{
+			Prompts: d.PromptRepo, Roles: d.RoleRepo, Sources: d.JobSourceRepo,
+			SeedDefaults: d.SeedDefaultSources,
+		},
+		Log: d.Log,
 	}))
 	// There used to be a line here for ownercore — the package that wrapped every
 	// owner-MCP capability, a cross-domain grab-bag. Its last operation (writing long-form)

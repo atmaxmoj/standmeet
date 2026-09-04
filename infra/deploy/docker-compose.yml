@@ -199,6 +199,8 @@ services:
       # Where to ask "is there a new version." Empty = the official image registry.
       - STANDMEET_RELEASE_REGISTRY=${STANDMEET_RELEASE_REGISTRY:-}
       - STANDMEET_RELEASE_REPO=${STANDMEET_RELEASE_REPO:-}
+      # Seed the built-in job aggregators on a fresh claim (default true).
+      - STANDMEET_SEED_DEFAULT_SOURCES=${STANDMEET_SEED_DEFAULT_SOURCES:-true}
       # ── Third-party sandboxed plugins (origin=managed): off by default, needs the host's
       # manifest + docker.sock mounted. The five built-in ones (retrieval / ask_visitor /
       # summarize / booker / mail-sender) **do not go through here** —— they're baked into

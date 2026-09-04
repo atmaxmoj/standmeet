@@ -26,7 +26,7 @@ const LABEL = 'Sources Test Board';
 const EXPECTED_KINDS = [
   'greenhouse', 'lever', 'ashby', 'remoteok', 'wwr', 'hn_hiring', 'smartrecruiters', 'workable',
   'jba', 'workday', 'bamboohr', 'jobicy', 'remotive', 'himalayas', 'working_nomads', 'recruitee',
-  'jobposting_jsonld',
+  'jobposting_jsonld', 'rss',
 ] as const;
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });

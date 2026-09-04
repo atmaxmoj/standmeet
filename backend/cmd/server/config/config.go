@@ -129,6 +129,11 @@ type Config struct {
 	QueryQueueMaxConcurrent int
 	StorageUseSSL           bool
 	SecureCookie            bool // dev (http) uses false; prod must be true
+	// SeedDefaultSources — on a fresh claim, seed the built-in job aggregators so /admin/sources
+	// opens to a working set. Default true (prod). e2e/dev set it false: seeding real external
+	// aggregators into every claimed owner would make listings auto-fetch hit real boards and break
+	// the empty-state specs. env: STANDMEET_SEED_DEFAULT_SOURCES
+	SeedDefaultSources bool
 }
 
 // Sentinel errors returned when a required env var is missing.
@@ -217,6 +222,7 @@ func Load() (*Config, error) {
 		ReleaseRegistry:            envOr("STANDMEET_RELEASE_REGISTRY", defaultReleaseRegistry),
 		ReleaseRepo:                envOr("STANDMEET_RELEASE_REPO", defaultReleaseRepo),
 		SelfStatPeers:              splitCSV(os.Getenv("STANDMEET_SELFSTAT_PEERS")),
+		SeedDefaultSources:         envOr("STANDMEET_SEED_DEFAULT_SOURCES", "true") == "true",
 		StorageUseSSL:              os.Getenv("STORAGE_USE_SSL") == "true",
 		SecureCookie:               envOr("SECURE_COOKIE", "true") == "true",
 	}

@@ -58,6 +58,9 @@ const (
 	// KindJobPostingJSONLD — generic long-tail ingester: parses schema.org
 	// JobPosting JSON-LD off detail pages (config carries a sitemap or urls).
 	KindJobPostingJSONLD = "jobposting_jsonld"
+	// KindRSS — generic RSS 2.0 feed adapter (config: feed_url). ONE adapter covers the long
+	// tail of niche boards that expose an RSS feed; each board is a seeded source, no bespoke code.
+	KindRSS = "rss"
 )
 
 const (
@@ -163,6 +166,7 @@ func New(b *BaseURLs) *Registry {
 			KindWorkingNomads:    newWorkingNomadsFetcher(client, b.WorkingNomads),
 			KindRecruitee:        newRecruiteeFetcher(client, b.Recruitee),
 			KindJobPostingJSONLD: newJSONLDFetcher(client, ""),
+			KindRSS:              newRSSFetcher(client),
 		},
 	}
 }
@@ -294,6 +298,7 @@ var configValidators = map[string]func([]byte) error{
 	KindWorkingNomads:    validateEmptyCfg,
 	KindRecruitee:        validateRecruiteeCfg,
 	KindJobPostingJSONLD: validateJSONLDCfg,
+	KindRSS:              validateRSSCfg,
 }
 
 // validateEmptyCfg —— remoteok / hn_hiring need no config at all; accepts whatever is passed.

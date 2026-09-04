@@ -110,19 +110,24 @@ function VirtualRow({ job, start }: { job: AdminListingRow; start: number }) {
 
 function ListingRow({ job }: { job: AdminListingRow }) {
   return (
-    <li
-      className="flex items-baseline justify-between gap-3 border border-(--color-rule) rounded-[3px] px-4 py-3 mb-2 list-none"
-      data-testid={`listing-row-${job.cache_id}`}
-    >
-      <span className="min-w-0 truncate">
-        <span className="reading text-(--color-ink) text-[15px]">{job.title}</span>
-        <span className="mono text-[10.5px] tracking-[0.12em] uppercase text-(--color-muted) ml-3">
-          {job.company}
+    <li className="list-none mb-2" data-testid={`listing-row-${job.cache_id}`}>
+      <a
+        href={job.url || undefined}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-testid={`listing-link-${job.cache_id}`}
+        className="flex items-baseline justify-between gap-3 border border-(--color-rule) rounded-[3px] px-4 py-3 no-underline text-inherit hover:border-(--color-ink) transition-colors"
+      >
+        <span className="min-w-0 truncate">
+          <span className="reading text-(--color-ink) text-[15px]">{job.title}</span>
+          <span className="mono text-[10.5px] tracking-[0.12em] uppercase text-(--color-muted) ml-3">
+            {job.company}
+          </span>
         </span>
-      </span>
-      <span className="mono text-[10.5px] text-(--color-faint) shrink-0">
-        {fmtMeta(job)}
-      </span>
+        <span className="mono text-[10.5px] text-(--color-faint) shrink-0">
+          {fmtMeta(job)}
+        </span>
+      </a>
     </li>
   );
 }

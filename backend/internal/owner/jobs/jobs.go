@@ -43,23 +43,24 @@ type Deps struct {
 	DraftsRepo   *jobsuc.ResumeDraftRepo
 	AppsRepo     *jobsuc.ApplicationRepo
 	SourcesRepo  *jobsuc.JobSourceRepo
-	// Seed — the repositories needed to seed the two builtins (hiring prompt +
-	// role) this plugin owns. It belongs to the plugin, not the kernel's
-	// roles_seed: `hiring` is a job-loop concept, not a kernel-level access
-	// tier (see the header comment in jobsuc/seed.go).
+	Log          *slog.Logger
+	// Seed — the repositories needed to seed the builtins (hiring prompt + role, plus the default
+	// job aggregators) this plugin owns. It belongs to the plugin, not the kernel's roles_seed:
+	// `hiring` is a job-loop concept, not a kernel-level access tier (see jobsuc/seed.go). Kept
+	// last: it ends in a bool, so its trailing padding sits at the struct's tail (fieldalignment).
 	Seed jobsuc.SeedDeps
-	Log  *slog.Logger
 }
 
 // Plugin — entry point for the jobs outbound plugin. Since J.5 it holds a
 // Deps closure; implements capabilities.Plugin + capabilities.CapabilityRegistrar
 // + capabilities.AdminRouter.
 type Plugin struct {
-	deps Deps
+	deps *Deps
 }
 
-// New — DI constructor; the composition root holds it once.
-func New(deps Deps) *Plugin { return &Plugin{deps: deps} }
+// New — DI constructor; the composition root holds it once. Takes a pointer: Deps is a wide
+// closure of the plugin's dependencies, too heavy to pass by value (gocritic hugeParam).
+func New(deps *Deps) *Plugin { return &Plugin{deps: deps} }
 
 // Static assertions that all four interfaces are implemented.
 var (

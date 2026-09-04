@@ -810,7 +810,7 @@ CREATE TABLE job_sources (
                                     'jba','workday','bamboohr',
                                     'jobicy','remotive','himalayas',
                                     'working_nomads','recruitee',
-                                    'jobposting_jsonld')),
+                                    'jobposting_jsonld','rss')),
     -- config 形状跟 kind 走: greenhouse / lever / ashby / smartrecruiters /
     -- workable 需 {"company": "..."}; wwr 需 {"categories": ["..."]};
     -- remoteok / hn_hiring 不需要 (空 object)。

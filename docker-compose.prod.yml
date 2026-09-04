@@ -162,6 +162,9 @@ services:
       # Empty = the official images. A fork that publishes its own points these at itself.
       - STANDMEET_RELEASE_REGISTRY=${STANDMEET_RELEASE_REGISTRY:-}
       - STANDMEET_RELEASE_REPO=${STANDMEET_RELEASE_REPO:-}
+      # On a fresh claim, seed the built-in job aggregators so /admin/sources opens to a working
+      # set. Default true; set false to start empty.
+      - STANDMEET_SEED_DEFAULT_SOURCES=${STANDMEET_SEED_DEFAULT_SOURCES:-true}
       # NOTE: no other *_BASE_URL / GOOGLE_* overrides here — prod talks to the real
       # Greenhouse / Lever / Ashby / Google endpoints (backend defaults). dev adds the
       # mock overrides; that's the only env difference.

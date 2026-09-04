@@ -81,6 +81,11 @@ test.describe('admin listings list', () => {
       await expect(
         adminPage.getByTestId('listings-list').locator('[data-testid^="listing-row-"]').first(),
       ).toBeVisible({ timeout: 10_000 });
+      // A row is a real link to the job posting — clicking must go somewhere, not sit as a dead
+      // <li> (the owner: "点也跳转不到"). Assert it's an <a> with an http(s) href.
+      await expect(
+        adminPage.getByTestId('listings-list').locator('[data-testid^="listing-link-"]').first(),
+      ).toHaveAttribute('href', /^https?:\/\//);
       // And the manual "fetch now" button is here (it replaces "ask Claude to fetch").
       await expect(adminPage.getByTestId('listings-fetch')).toBeVisible();
       await adminPage.getByTestId('listings-fetch').click();

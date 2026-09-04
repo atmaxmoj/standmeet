@@ -63,6 +63,9 @@ services:
       - PORT=8000
       - STANDMEET_SERVICE_NAME=backend
       - STANDMEET_SELFSTAT_PEERS=http://app:3000/api/selfstat
+      # OFF in dev/e2e: seeding real external aggregators into every claimed owner would make
+      # listings auto-fetch hit real boards + break the empty-state specs. Prod defaults on.
+      - STANDMEET_SEED_DEFAULT_SOURCES=false
       - DATABASE_URL=postgres://standmeet:standmeet_dev@db:5432/standmeet?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
       # meilisearch —— corpus 词法检索 index(1b)。写路径同步 upsert,读走 Search。

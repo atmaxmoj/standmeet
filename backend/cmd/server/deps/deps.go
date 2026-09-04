@@ -116,4 +116,6 @@ type Runtime struct {
 	SelfStatPeers      []string
 	SecureCookie       bool
 	CaptchaEnabled     bool
+	// SeedDefaultSources — seed the built-in job aggregators on a fresh claim (config knob).
+	SeedDefaultSources bool
 }
