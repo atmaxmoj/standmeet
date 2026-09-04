@@ -20,6 +20,34 @@ import json
 import os
 import sys
 
+# Next.js bakes its OWN build-time keys into the build manifests — the Server Actions closure
+# encryption key and the Preview/Draft-mode signing+encryption keys. They are framework
+# artifacts present in every Next standalone build (they surfaced here only once this app grew
+# a middleware, which is what puts them in middleware-manifest.json's env block), NOT leaked
+# user credentials — and catching leaked USER secrets (db passwords, API keys, tokens) is the
+# whole point of this gate. Allowlist them NARROWLY: only in that manifest, only these names.
+NEXT_MANIFEST_SUFFIX = ".next/server/middleware-manifest.json"
+NEXT_FRAMEWORK_KEYS = (
+    "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY",
+    "__NEXT_PREVIEW_MODE_SIGNING_KEY",
+    "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY",
+)
+
+
+def is_next_framework_key(f: dict) -> bool:
+    """A gitleaks hit that is one of Next's own build keys in the Next build manifest."""
+    fp = f.get("File", "")
+    if not fp.endswith(NEXT_MANIFEST_SUFFIX):
+        return False
+    line = f.get("Match") or ""
+    if not any(k in line for k in NEXT_FRAMEWORK_KEYS):
+        try:
+            with open(fp, encoding="utf-8") as fh:
+                line = fh.readlines()[f.get("StartLine", 0) - 1]
+        except (OSError, IndexError):
+            line = ""
+    return any(k in line for k in NEXT_FRAMEWORK_KEYS)
+
 
 def main() -> int:
     report_path, root, image, canary_rel = sys.argv[1:5]
@@ -32,7 +60,11 @@ def main() -> int:
         findings = []
 
     canary = [f for f in findings if os.path.abspath(f["File"]) == os.path.abspath(canary_abs)]
-    real = [f for f in findings if os.path.abspath(f["File"]) != os.path.abspath(canary_abs)]
+    real = [
+        f for f in findings
+        if os.path.abspath(f["File"]) != os.path.abspath(canary_abs)
+        and not is_next_framework_key(f)
+    ]
 
     if not canary:
         print(f"secrets-image: SELF-TEST FAILED on {image} — a planted key in {canary_rel}")
