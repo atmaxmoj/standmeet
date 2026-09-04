@@ -32,14 +32,18 @@ import {
 import { useAction } from '@/lib/ui/use-action';
 import { CodeEditor } from '@/components/admin/sections/custom-pages/CodeEditor';
 
-export function AuthoringPanel({ hook }: { hook: CustomPagesHook }) {
+// AuthoringPanel — the split editor for the SELECTED page: source on the left, its live render on
+// the right (owner: "点进去左边编辑右边渲染"). slug is controlled by the list selection above; an
+// empty slug is the "new page" case, where the slug field is editable.
+export function AuthoringPanel(
+  { hook, slug, onSlugChange }: { hook: CustomPagesHook; slug: string; onSlugChange: (v: string) => void },
+) {
   const t = useTranslations('adminPages.customPages');
   const run = useAction();
-  const [slug, setSlug] = useState('');
   const [source, setSource] = useState(STARTER);
   const [build, setBuild] = useState<BuildView | null>(null);
-  // The staging build's signed preview_url lives on the list row (the store the panel
-  // shares with the list below), so the inline preview follows the same long-poll.
+  // The staging build's signed preview_url lives on the list row (the store the panel shares with
+  // the list), so the right-hand render follows the same long-poll and swaps on a new build.
   const staged = hook.rows.find((r) => r.slug === slug.trim());
 
   const preview = useCallback(() => {
@@ -52,33 +56,52 @@ export function AuthoringPanel({ hook }: { hook: CustomPagesHook }) {
   }, [run, slug, source, build, t]);
 
   return (
-    <section className="mt-6 border border-(--color-rule) rounded-[3px] p-4">
-      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-        {t('authorHeading')}
+    <section className="mt-6" data-testid="custom-page-editor">
+      <div className="grid gap-4 lg:grid-cols-2 items-start">
+        <div className="border border-(--color-rule) rounded-[3px] p-4">
+          <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
+            {t('authorHeading')}
+          </div>
+          <ImportsHelp />
+          <SlugField value={slug} onChange={onSlugChange} />
+          <SourceField value={source} onChange={setSource} />
+          <div className="flex items-center gap-3 mt-3">
+            <button
+              type="button" onClick={preview} disabled={slug.trim() === ''}
+              data-testid="custom-page-build"
+              className="sm-btn sm-btn-sm disabled:opacity-40"
+            >
+              {t('buildPreview')}
+            </button>
+            <button
+              type="button" onClick={publish} disabled={slug.trim() === ''}
+              data-testid="custom-page-publish"
+              className="sm-btn sm-btn-solid sm-btn-sm disabled:opacity-40"
+            >
+              {t('publish')}
+            </button>
+            <BuildLine build={build} />
+          </div>
+        </div>
+        <div className="lg:sticky lg:top-4">
+          {staged === undefined ? <PreviewEmpty /> : <StagingPreview page={staged} />}
+        </div>
       </div>
-      <p className="reading text-[12.5px] text-(--color-muted) mb-3">{t('authorHelp')}</p>
-      <ImportsHelp />
-      <SlugField value={slug} onChange={setSlug} />
-      <SourceField value={source} onChange={setSource} />
-      <div className="flex items-center gap-3 mt-3">
-        <button
-          type="button" onClick={preview} disabled={slug.trim() === ''}
-          data-testid="custom-page-build"
-          className="sm-btn sm-btn-sm disabled:opacity-40"
-        >
-          {t('buildPreview')}
-        </button>
-        <button
-          type="button" onClick={publish} disabled={slug.trim() === ''}
-          data-testid="custom-page-publish"
-          className="sm-btn sm-btn-solid sm-btn-sm disabled:opacity-40"
-        >
-          {t('publish')}
-        </button>
-        <BuildLine build={build} />
-      </div>
-      {staged === undefined ? null : <StagingPreview page={staged} />}
     </section>
+  );
+}
+
+// PreviewEmpty — the right pane before a build exists for this slug (a new page, or one never
+// built): say so rather than leave a blank void the owner reads as "broken".
+function PreviewEmpty() {
+  const t = useTranslations('adminPages.customPages');
+  return (
+    <div
+      data-testid="custom-page-preview-empty"
+      className="border border-dashed border-(--color-rule) rounded-[3px] h-[420px] grid place-items-center mono text-[11px] text-(--color-faint)"
+    >
+      {t('previewEmpty')}
+    </div>
   );
 }
 

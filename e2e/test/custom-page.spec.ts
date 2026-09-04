@@ -101,6 +101,22 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
       await expect(page.getByTestId('custom-page-publish')).toBeEnabled();
     });
 
+  // The redesign: the list marks the reserved `home` page, and clicking a page opens it into the
+  // split editor (its slug loads on the left, its render shows on the right) — instead of the old
+  // "every page rendered inline + one editor at the bottom".
+  test('the list marks the homepage, and opening a page loads it into the split editor',
+    async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'custom-pages');
+      await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+      await expect(
+        page.getByTestId('custom-page-homepage-badge'), 'the home page is marked in the list',
+      ).toBeVisible();
+      await page.getByTestId('custom-page-open-home').click();
+      await expect(
+        page.getByTestId('custom-page-slug'), 'clicking a page loads it into the editor',
+      ).toHaveValue('home');
+    });
+
   // F-P-2 -- **editing a version and republishing** is the most common thing done on
   // this screen, not an edge case.
   //

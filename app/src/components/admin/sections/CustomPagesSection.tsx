@@ -11,10 +11,14 @@
 
 'use client';
 
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
-import { PagePreview } from '@/components/admin/sections/custom-pages/PagePreview';
 import Link from 'next/link';
+
+// HOMEPAGE_SLUG — the reserved custom-page slug served at `/` (backend usecase.HomepageSlug). The
+// list marks this row so the owner can tell which page is their public homepage at a glance.
+const HOMEPAGE_SLUG = 'home';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { AuthoringPanel } from '@/components/admin/sections/custom-pages/AuthoringPanel';
@@ -30,6 +34,8 @@ import { stampDay } from '@/lib/ui/format-time';
 
 export function CustomPagesSection() {
   const hook = useCustomPages();
+  // The page whose split editor|preview is open below. Empty = the "new page" state (editable slug).
+  const [selectedSlug, setSelectedSlug] = useState('');
   return (
     <>
       <SectionHeader
@@ -44,9 +50,25 @@ export function CustomPagesSection() {
         count={hook.rows.length > 0 ? String(hook.rows.length) : ''}
       />
       <Intro />
-      <CustomPagesBody hook={hook} />
-      <AuthoringPanel hook={hook} />
+      <NewPageButton onNew={() => setSelectedSlug('')} />
+      <CustomPagesBody hook={hook} selectedSlug={selectedSlug} onSelect={setSelectedSlug} />
+      <AuthoringPanel hook={hook} slug={selectedSlug} onSlugChange={setSelectedSlug} />
     </>
+  );
+}
+
+// NewPageButton — clears the selection so the editor below opens in "new page" mode (editable slug).
+function NewPageButton({ onNew }: { onNew: () => void }) {
+  const t = useTranslations('adminPages.customPages');
+  return (
+    <div className="mb-3 flex justify-end">
+      <button
+        type="button" onClick={onNew} data-testid="custom-page-new"
+        className="sm-btn sm-btn-sm"
+      >
+        {t('newPage')}
+      </button>
+    </div>
   );
 }
 
@@ -59,12 +81,15 @@ function Intro() {
   );
 }
 
-function CustomPagesBody({ hook }: { hook: CustomPagesHook }) {
+function CustomPagesBody(
+  { hook, selectedSlug, onSelect }:
+  { hook: CustomPagesHook; selectedSlug: string; onSelect: (slug: string) => void },
+) {
   const map = {
     loading: <ListSkeleton count={3} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState />,
-    list: <CustomPagesTable rows={hook.rows} />,
+    list: <CustomPagesTable rows={hook.rows} selectedSlug={selectedSlug} onSelect={onSelect} />,
   } as const;
   return map[pickCustomPagesBodyState(hook)];
 }
@@ -90,13 +115,18 @@ function EmptyState() {
   );
 }
 
-function CustomPagesTable({ rows }: { rows: readonly CustomPageSummary[] }) {
+function CustomPagesTable(
+  { rows, selectedSlug, onSelect }:
+  { rows: readonly CustomPageSummary[]; selectedSlug: string; onSelect: (slug: string) => void },
+) {
   return (
     <div data-testid="custom-pages-list" className="border border-(--color-rule) rounded-[3px] overflow-hidden">
       <table className="w-full border-collapse">
         <TableHead />
         <tbody>
-          {rows.map((p) => <PageRows key={p.id} page={p} />)}
+          {rows.map((p) => (
+            <PageRow key={p.id} page={p} selected={p.slug === selectedSlug} onSelect={onSelect} />
+          ))}
         </tbody>
       </table>
     </div>
@@ -119,30 +149,19 @@ function TableHead() {
   );
 }
 
-// PageRows —— two rows per page: one metadata row, one showing **what it looks
-// like**.
-//
-// The preview belongs on the same row as its metadata, so it isn't split into a
-// separate column or drawer: while the owner is directing an agent to make changes,
-// status and appearance need to sit in the same view — switching back and forth
-// would just leave him guessing.
-function PageRows({ page }: { page: CustomPageSummary }) {
+// PageRow — one row per page. The previews no longer render inline (that put every page's full
+// render in the list at once); instead clicking the title opens this page in the split editor|
+// preview below. The row highlights when it's the one open.
+function PageRow(
+  { page, selected, onSelect }:
+  { page: CustomPageSummary; selected: boolean; onSelect: (slug: string) => void },
+) {
   return (
-    <>
-      <PageRow page={page} />
-      <tr className="border-b border-(--color-rule)/60 last:border-b-0">
-        <td colSpan={6} className="p-0">
-          <PagePreview page={page} />
-        </td>
-      </tr>
-    </>
-  );
-}
-
-function PageRow({ page }: { page: CustomPageSummary }) {
-  return (
-    <tr data-testid={`custom-page-row-${page.slug}`} className="border-b border-(--color-rule)/60">
-      <PageCell page={page} />
+    <tr
+      data-testid={`custom-page-row-${page.slug}`}
+      className={`border-b border-(--color-rule)/60 ${selected ? 'bg-(--color-surface)/60' : ''}`}
+    >
+      <PageCell page={page} onSelect={onSelect} />
       <TemplateCell />
       <VisibilityCell hasLive={page.has_live} hasStaging={page.has_staging} />
       <BindingCell page={page} />
@@ -241,14 +260,39 @@ function VisibilityCell({ hasLive, hasStaging }: { hasLive: boolean; hasStaging:
   );
 }
 
-function PageCell({ page }: { page: CustomPageSummary }) {
+function PageCell(
+  { page, onSelect }: { page: CustomPageSummary; onSelect: (slug: string) => void },
+) {
   const t = useTranslations('adminPages.customPages');
   return (
     <td className="px-4 py-3">
-      <div className="font-serif text-[16px] text-(--color-ink)">{page.title}</div>
-      <div className="mono text-[10px] text-(--color-faint) mt-0.5">{t('slugPath', { slug: page.slug })}</div>
+      <button
+        type="button" onClick={() => onSelect(page.slug)}
+        data-testid={`custom-page-open-${page.slug}`}
+        className="block text-left hover:opacity-70"
+      >
+        <span className="font-serif text-[16px] text-(--color-ink)">{page.title}</span>
+        <HomepageBadge slug={page.slug} />
+        <span className="block mono text-[10px] text-(--color-faint) mt-0.5">
+          {t('slugPath', { slug: page.slug })}
+        </span>
+      </button>
     </td>
   );
+}
+
+// HomepageBadge — marks the reserved `home` page, the one served at `/` (owner: "标注这个是
+// homepage"). Only that one row carries it.
+function HomepageBadge({ slug }: { slug: string }) {
+  const t = useTranslations('adminPages.customPages');
+  return slug === HOMEPAGE_SLUG ? (
+    <span
+      data-testid="custom-page-homepage-badge"
+      className="ml-2 align-middle mono text-[8.5px] tracking-[0.14em] uppercase px-1.5 py-0.5 border border-(--color-accent) text-(--color-accent) rounded-[2px]"
+    >
+      {t('homepageBadge')}
+    </span>
+  ) : null;
 }
 
 

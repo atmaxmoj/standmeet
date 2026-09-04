@@ -65,9 +65,10 @@ async function agentBuilds(a: Agent, marker: string): Promise<void> {
   await callTool(a.request, a.token, a.sid, 'custom_page.build', { slug: SLUG });
 }
 
-// headlineIn — the headline text inside the preview iframe.
+// headlineIn — the headline text inside the split editor's live preview iframe (the owner opens a
+// page from the list, then watches its render on the right).
 function headlineIn(page: Page) {
-  return page.frameLocator(`[data-testid="custom-page-preview-${SLUG}"]`)
+  return page.frameLocator('[data-testid="custom-page-staging-frame"]')
     .locator('[data-sm="headline"]');
 }
 
@@ -105,6 +106,10 @@ test.describe('custom pages · the panel shows what the agent just built, withou
       await gotoAdminSection(page, 'custom-pages');
       await page.waitForURL('**/admin/custom-pages', { timeout: 5_000 });
       await longPoll;
+
+      // Open this page from the list — that's what drives its live render into the split's right
+      // pane (the redesign: click a page → edit left, render right).
+      await page.getByTestId(`custom-page-open-${SLUG}`).click();
 
       // 1 + 2: the panel actually renders this page, and what it shows is **staging**
       // (never promoted to live).
