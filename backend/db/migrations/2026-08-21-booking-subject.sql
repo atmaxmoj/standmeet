@@ -19,8 +19,20 @@
 -- `subject_kind` is 'code' for every existing row by construction: the API-key path could not
 -- write a booking before this change (it had no subject to write).
 
-UPDATE mcp_calendar_book.records
-   SET doc = (doc - 'code_id')
-             || jsonb_build_object('subject_id', doc -> 'code_id', 'subject_kind', '"code"'::jsonb)
- WHERE collection = 'bookings'
-   AND doc ? 'code_id';
+-- Guard: mcp_calendar_book.records is the booking capability's **own capstore** table, created by
+-- that capability at runtime — it is NOT in schema.sql or any earlier migration. On a **fresh**
+-- install this migration runs before the capability has ever created it, so an unguarded UPDATE
+-- crash-loops the backend on first boot (F-B-11 follow-up: real-host upgrade e2e surfaced this —
+-- masked until now by persistent dev volumes and incrementally-migrated prod). A fresh install has
+-- no bookings to migrate anyway, so skip when the table isn't there yet. `to_regclass` returns
+-- NULL for a missing relation, so this stays a no-op run-twice.
+DO $$
+BEGIN
+  IF to_regclass('mcp_calendar_book.records') IS NOT NULL THEN
+    UPDATE mcp_calendar_book.records
+       SET doc = (doc - 'code_id')
+                 || jsonb_build_object('subject_id', doc -> 'code_id', 'subject_kind', '"code"'::jsonb)
+     WHERE collection = 'bookings'
+       AND doc ? 'code_id';
+  END IF;
+END $$;

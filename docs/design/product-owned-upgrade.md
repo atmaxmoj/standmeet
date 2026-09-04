@@ -16,10 +16,17 @@ self-hosters can't set up, so the button was dead by default.
   `STANDMEET_REDEPLOY_HOOK` still wins (advanced owners with an orchestrator); otherwise the
   signal path is the default; only when neither is set does the button honestly report it can't
   act. Config reads `STANDMEET_UPGRADE_SIGNAL` (`config.go`).
-- **Updater sidecar** (`infra/updater/`): a `docker:cli`-based worker that watches the signal
-  file and runs `docker compose pull && up -d` scoped to this project. It is the only container
-  with docker access. `updater-test.sh` exercises the watch loop against a fake docker (press →
-  upgrade once, idempotent on repeat, re-triggers on a fresh press).
+- **Updater = the DOCKER adapter, not "the upgrade mechanism"** (`infra/updater/`). Ownership
+  boundary (revised 2026-09-04): the backend only emits a **substrate-blind pulse** (the signal);
+  it never knows how it's deployed. This `docker:cli` worker is the *docker substrate's* adapter —
+  one of potentially many (a k8s or bare-git deployment binds a different adapter to the same
+  pulse). The product does not know this adapter exists or that it's docker.
+  - It does **not** mount this instance's on-disk compose (that bound the upgrade to how *this*
+    instance was laid down, and broke on a PaaS that keeps the compose only in its DB). Following
+    **Coolify's own self-upgrade**, it **fetches the canonical compose from the release**
+    (`STANDMEET_COMPOSE_URL`) at upgrade time, passes the local `.env` for secrets, then
+    `docker compose pull && up -d` excluding itself. So an upgrade can change the stack's *shape*,
+    not just bump tags, and needs no compose file on disk.
 - **Deploy compose** (`infra/deploy/docker-compose.yml`, renamed from the Coolify-specific
   file): ships the `updater` service + the shared `upgrade_signal` volume + docker.sock into the
   updater only, and moves the image tags to `${STANDMEET_IMAGE_TAG:-latest}` so a redeploy lands
@@ -29,11 +36,18 @@ self-hosters can't set up, so the button was dead by default.
 ## What's verified vs. still open
 
 - **Verified here:** the app writes the signal atomically and `can_apply` reflects it
-  (`upgrade_signal_test.go`, `boot_upgrade_test.go`); the updater's watch-loop logic against a
-  fake docker (`updater-test.sh`, RED-proven). YAML valid; images register in the release.
-- **NOT verified (needs a real host):** the updater actually pulling + recreating a running
-  stack, and whether an in-stack updater fights a PaaS's own reconciliation (see open questions).
-  Do not claim the end-to-end upgrade works until a real-host smoke test runs.
+  (`upgrade_signal_test.go`, `boot_upgrade_test.go`). And now a **real** end-to-end (`infra/updater/
+  updater-e2e.sh`, `make updater-e2e`): a live local registry, a live stack, a served **canonical
+  compose the updater fetches over HTTP**, a genuine `:latest` bump, a real signal → the running
+  container is actually recreated to the newer image, and a repeat press is a no-op. This targets
+  the **new** design (fetch canonical, not mount local) — 2026-09-04, green.
+- **Still open (needs a real PaaS host):** whether an in-stack updater fights a PaaS's own
+  reconciliation loop (Coolify etc.). Not a reason to keep the local-compose coupling — on a
+  managed PaaS you drop the updater entirely and point `STANDMEET_REDEPLOY_HOOK` at the platform's
+  redeploy webhook (the platform is the adapter there).
+- **Remaining product-side cleanup:** `boot_upgrade.go` still *chooses* between the webhook and
+  signal redeployers (`if RedeployHookURL != ""`). That branch is the product half-knowing its
+  adapters; collapsing it to a single "emit intent" path is the next step.
 
 ## The problem, in the code's own words
 

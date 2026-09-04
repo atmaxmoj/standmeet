@@ -123,6 +123,20 @@ sdk-lint:
 updater-e2e:
 	@infra/updater/updater-e2e.sh
 
+# upgrade-real-e2e — the REAL end-to-end: the ACTUAL StandMeet stack (backend+db+redis+minio)
+# pinned to a published release, upgraded via the button to the next release, asserting the
+# instance's own /api/v1/instance version moved AND it still serves (the boot migration ran).
+# Heavier than updater-e2e (pulls two full releases from ghcr). Set FROM_VER / TO_VER to choose.
+upgrade-real-e2e:
+	@infra/updater/upgrade-real-e2e.sh
+
+# fresh-install-e2e — a first-ever install must boot: the real backend on a BRAND-NEW pgvector
+# volume (schema.sql + every embedded migration applied at boot) must serve /api/v1/instance.
+# Guards the class of migration bug that only a truly fresh DB exposes (F-B-11). Heavy (builds
+# the backend). Not part of `make lint`.
+fresh-install-e2e:
+	@infra/db/fresh-install-e2e.sh
+
 im-bridge-test:
 	@if [ -d im-bridge/node_modules ]; then \
 	  pnpm -F @standmeet/im-bridge lint && pnpm -F @standmeet/im-bridge test; \

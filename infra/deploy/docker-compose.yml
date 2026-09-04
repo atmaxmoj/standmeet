@@ -307,35 +307,42 @@ services:
       app:
         condition: service_started
 
-  # updater —— the product-owned upgrade worker. It watches the signal file the backend writes
-  # on an /admin/system "upgrade" press and runs `docker compose pull && up -d`, so the button
-  # works with no owner configuration ([[product-owned-upgrade]]).
+  # updater —— the DOCKER upgrade adapter for the product-owned upgrade ([[product-owned-upgrade]]).
   #
-  # This is the **one** container that gets docker access; the backend never does — that's the
-  # line that keeps a compromised internet-facing app from becoming host control. All this
-  # sidecar can do is pull the newest images and recreate THIS project's services.
+  # The backend never touches docker; on an /admin/system "upgrade" press it only writes one
+  # substrate-blind pulse to the shared signal file. THIS worker is the docker substrate's
+  # adapter (a k8s or bare-git deployment would bind a different one to the same pulse). It is
+  # the **one** container with docker access — the line that keeps a compromised internet-facing
+  # app from becoming host control.
   #
-  # It needs two host paths that are NOT repo-relative, so they resolve even from a downloaded
-  # or pasted compose:
-  #   * the docker socket (its privilege), and
-  #   * this compose file itself (so it knows what to recreate). On a plain `docker compose up`
-  #     from the downloaded file, `./docker-compose.yml` resolves to it; set
-  #     STANDMEET_COMPOSE_FILE to override, or point it at your platform's copy.
+  # It does NOT mount this instance's on-disk compose (that bound the upgrade to how this
+  # particular instance was laid down, and broke outright on a PaaS that keeps the compose only
+  # in its own DB, e.g. Coolify's "Compose Empty"). Instead it **fetches the canonical compose
+  # from the release** (STANDMEET_COMPOSE_URL) at upgrade time — Coolify's own model — so the
+  # upgrade applies the authoritative definition and needs no compose file on disk. Its two host
+  # deps: the docker socket (its privilege) + the local .env (secrets stay local; only the
+  # compose STRUCTURE is fetched).
   #
-  # On a PaaS that pastes the compose with no file on disk (e.g. Coolify's "Compose Empty"),
-  # the compose mount resolves empty and this worker can't act — use STANDMEET_REDEPLOY_HOOK
-  # (the webhook fallback on the backend) there instead.
+  # A managed PaaS (Coolify/Render/Fly) doesn't need this at all — set STANDMEET_REDEPLOY_HOOK
+  # to the platform's redeploy webhook and drop this service; the platform is the adapter then.
   updater:
     image: ghcr.io/atmaxmoj/standmeet-updater:${STANDMEET_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       - STANDMEET_UPGRADE_SIGNAL=/run/standmeet/upgrade.signal
       - STANDMEET_PROJECT=standmeet
-      - STANDMEET_COMPOSE_FILE=${STANDMEET_COMPOSE_FILE:-/srv/compose/docker-compose.yml}
+      # The CANONICAL compose (the release's authoritative definition), FETCHED at upgrade time
+      # — not a mounted copy of this instance's on-disk file. That's what keeps the upgrade from
+      # binding to how this particular instance was laid down, and lets an upgrade change the
+      # stack's shape (new services), not just bump image tags — exactly Coolify's model.
+      # Override to pin a tag/mirror.
+      - STANDMEET_COMPOSE_URL=${STANDMEET_COMPOSE_URL:-https://raw.githubusercontent.com/atmaxmoj/standmeet/main/infra/deploy/docker-compose.yml}
+      # Secrets stay local: only the compose STRUCTURE is fetched; the values come from this .env.
+      - STANDMEET_UPGRADE_ENV_FILE=/srv/env/.env
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - upgrade_signal:/run/standmeet
-      - ./docker-compose.yml:/srv/compose/docker-compose.yml:ro
+      - ./.env:/srv/env/.env:ro
 
   # db —— pgvector, with the schema already baked into the image (infra/db/Dockerfile).
   #

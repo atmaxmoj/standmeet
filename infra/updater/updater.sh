@@ -1,45 +1,76 @@
 #!/bin/sh
-# updater.sh — the product-owned upgrade worker.
+# updater.sh — the DOCKER upgrade adapter for the product-owned upgrade.
 #
-# The upgrade button on /admin/system used to need the owner to paste an orchestrator webhook
-# URL, which most self-hosters can't produce, so the button was dead by default. This worker
-# removes that requirement. It watches STANDMEET_UPGRADE_SIGNAL — a file on the volume it
-# shares with the backend. The backend writes a fresh timestamp there when the owner presses
-# "upgrade"; this worker — the only container with docker access — pulls the newest images and
-# recreates the stack.
+# Ownership boundary (the whole point):
+#   - The PRODUCT (backend) never touches docker and never knows how it's deployed. When the
+#     owner presses "upgrade" it emits ONE substrate-blind pulse: a fresh timestamp on a file
+#     it shares with whatever adapter the deployment bound.
+#   - THIS worker is the *docker substrate's* adapter — one of potentially many (a k8s or a
+#     bare-git deployment would bind a different adapter to the same pulse). The product does
+#     not know this adapter exists, or that it's docker.
+#   - So this file is allowed to know docker. It is NOT allowed to bind to one specific
+#     deployment's LOCAL compose — that couples the upgrade to how *this* instance happened to
+#     be laid down.
 #
-# The backend never touches docker.sock: it writes one byte to a file. All host privilege
-# lives here, in one small, single-purpose container off the internet-facing surface
-# ([[product-owned-upgrade]]).
+# Following Coolify's own self-upgrade: it fetches the **canonical** compose from the release
+# (STANDMEET_COMPOSE_URL), not a mounted local file. So an upgrade always applies the
+# authoritative deployment definition — and can change the stack's *shape*, not just bump image
+# tags. Secrets stay local: the existing .env is passed through; only the compose STRUCTURE is
+# fetched. All host privilege lives here, off the internet-facing surface ([[product-owned-upgrade]]).
 set -eu
 
 SIGNAL="${STANDMEET_UPGRADE_SIGNAL:?STANDMEET_UPGRADE_SIGNAL must be set}"
 PROJECT="${STANDMEET_PROJECT:-standmeet}"
-COMPOSE_FILE="${STANDMEET_COMPOSE_FILE:-/srv/compose/docker-compose.yml}"
+COMPOSE_URL="${STANDMEET_COMPOSE_URL:?STANDMEET_COMPOSE_URL must be set (the canonical compose)}"
+ENV_FILE="${STANDMEET_UPGRADE_ENV_FILE:-/srv/env/.env}"
 POLL="${STANDMEET_UPGRADE_POLL_SECONDS:-5}"
 # SELF — this sidecar's own service name, excluded from the recreate below.
 SELF="${STANDMEET_UPDATER_SERVICE:-updater}"
 
 log() { echo "[updater] $*"; }
 
-# upgrade — pull the newest images the compose points at, then recreate the changed services.
-# Scoped to this project by -p, so on a shared host it touches only this stack. Separated from
-# the watch loop so the loop's logic can be exercised without a real docker daemon.
-#
-# Crucially it recreates **every service except this updater itself**: `up -d` recreating the
-# updater would kill the very process running the command mid-upgrade (a real e2e proved this is
-# fatal, not theoretical). The updater image is small and stable; a new one is picked up on the
-# next full stack restart. Excluding self also means a service whose image can't be pulled (like
-# this updater when it isn't in a registry) doesn't abort the others.
+# fetch_compose — download the canonical compose to $1. Coolify fetches from its CDN; we fetch
+# from the release. Failing to fetch aborts THIS upgrade, leaving the running stack untouched.
+fetch_compose() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$COMPOSE_URL" -o "$1"
+  else
+    wget -q -O "$1" "$COMPOSE_URL"
+  fi
+}
+
+# dc — docker compose against the FETCHED canonical compose, scoped to this project by -p, with
+# the local .env passed through if present (secrets stay local; only structure was fetched).
+dc() {
+  _compose="$1"
+  shift
+  if [ -f "$ENV_FILE" ]; then
+    docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f "$_compose" "$@"
+  else
+    docker compose -p "$PROJECT" -f "$_compose" "$@"
+  fi
+}
+
+# upgrade — fetch the canonical compose, pull the images it points at, recreate the changed
+# services. Recreates **every service except this updater itself**: `up -d` recreating the
+# updater would kill the very process running the command mid-upgrade (a real e2e proved this
+# is fatal). A new updater image is picked up on the next full stack restart.
 upgrade() {
-  log "signal received — pulling newest images (project=$PROJECT, excluding self=$SELF)"
-  others="$(docker compose -p "$PROJECT" -f "$COMPOSE_FILE" config --services \
-    | grep -vx "$SELF" | tr '\n' ' ')"
+  log "signal received — fetching canonical compose from $COMPOSE_URL"
+  _c="$(mktemp)"
+  if ! fetch_compose "$_c"; then
+    log "could not fetch the canonical compose — leaving the running stack untouched"
+    rm -f "$_c"
+    return 1
+  fi
+  others="$(dc "$_c" config --services | grep -vx "$SELF" | tr '\n' ' ')"
+  log "pulling newest images (project=$PROJECT, excluding self=$SELF)"
   # shellcheck disable=SC2086  # deliberate word-splitting: pass each service as its own arg.
-  docker compose -p "$PROJECT" -f "$COMPOSE_FILE" pull $others
+  dc "$_c" pull $others
   log "recreating services"
   # shellcheck disable=SC2086
-  docker compose -p "$PROJECT" -f "$COMPOSE_FILE" up -d $others
+  dc "$_c" up -d $others
+  rm -f "$_c"
   log "upgrade complete"
 }
 
@@ -48,10 +79,10 @@ upgrade() {
 # one, exactly once per press.
 last=""
 [ -f "$SIGNAL" ] && last="$(cat "$SIGNAL")"
-log "watching $SIGNAL every ${POLL}s (project=$PROJECT, compose=$COMPOSE_FILE)"
+log "watching $SIGNAL every ${POLL}s (project=$PROJECT)"
 
 # watch_once — one tick: act only when the signal's content changed since the last tick. A test
-# drives this directly with a fake docker on PATH; the loop below is just the clock around it.
+# drives this directly with a fake docker + a stub compose URL; the loop below is just the clock.
 watch_once() {
   [ -f "$SIGNAL" ] || return 0
   cur="$(cat "$SIGNAL")"

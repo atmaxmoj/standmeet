@@ -57,6 +57,10 @@ docker tag "alpine:$V1" "$IMG:latest"
 docker push -q "$IMG:latest" >/dev/null
 
 # ── 3. Bring up the stack: a target on :latest + the updater watching the signal ────────────
+# composesrv serves the **canonical compose over HTTP** — the updater fetches it (like Coolify
+# pulls its compose from the CDN), instead of the old mounted local file. This is the whole
+# point of the new design: the updater is bound to a URL of the authoritative definition, not to
+# this instance's on-disk layout.
 cat > "$COMPOSE" <<YML
 name: $PROJECT
 services:
@@ -64,17 +68,21 @@ services:
     image: $IMG:latest
     command: ["sh","-c","cat /etc/alpine-release; sleep 3600"]
     pull_policy: always
+  composesrv:
+    image: busybox
+    command: ["httpd","-f","-p","80","-h","/www"]
+    volumes:
+      - $COMPOSE:/www/compose.yml:ro
   updater:
     image: $UPDATER_IMG
     environment:
       - STANDMEET_UPGRADE_SIGNAL=/run/standmeet/upgrade.signal
       - STANDMEET_PROJECT=$PROJECT
-      - STANDMEET_COMPOSE_FILE=/srv/compose/compose.yml
+      - STANDMEET_COMPOSE_URL=http://composesrv:80/compose.yml
       - STANDMEET_UPGRADE_POLL_SECONDS=2
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - sig:/run/standmeet
-      - $COMPOSE:/srv/compose/compose.yml:ro
 volumes:
   sig: {}
 YML
