@@ -45,7 +45,7 @@ export function CustomPagesSection() {
       />
       <Intro />
       <CustomPagesBody hook={hook} />
-      <AuthoringPanel />
+      <AuthoringPanel hook={hook} />
     </>
   );
 }

@@ -3,7 +3,7 @@
 // is read-only and now fetches GET /api/admin/job-sources/ (was a stub).
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
 import { createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { claimFreshOwner } from '@/fixtures/seed';
@@ -31,16 +31,12 @@ test.describe('admin sources list', () => {
       await expect(adminPage.getByText(/no sources registered/i)).toBeVisible();
     });
 
-  test('no dead "+board"/"+rss" add buttons — sources are MCP-registered (F-E-1)',
-    async ({ adminPage }) => {
-      await gotoAdminSection(adminPage, 'sources');
-      await adminPage.waitForURL('**/admin/sources', { timeout: 5_000 });
-      // The old header buttons opened no form and contradicted the page's own copy. Removed —
-      // the page directs to the jobs.register_source MCP tool instead.
-      await expect(adminPage.getByRole('button', { name: /\+\s*board/i })).toHaveCount(0);
-      await expect(adminPage.getByRole('button', { name: /rss|scraper/i })).toHaveCount(0);
-      await expect(adminPage.getByText(/jobs\.register_source/i).first()).toBeVisible();
-    });
+  // F-E-1, in the world where it works. The old "+board"/"+rss" header buttons were
+  // removed because they were dead — registering was MCP-only, so a button would have
+  // lied. The backend now has POST /job-sources, so the affordance comes back **wired**:
+  // the assertion flips from "there is no form, go to MCP" to "the form is here and
+  // actually registers a source" (same shape as custom-page.spec's F-N-1).
+  test('the register form exists and is wired (F-E-1, in the world where it works)', registerFormWired);
 
   test('a registered source appears in the list',
     async ({ request, adminPage }) => {
@@ -50,6 +46,10 @@ test.describe('admin sources list', () => {
       await expect(adminPage.getByTestId('sources-list')).toBeVisible({ timeout: 5_000 });
       await expect(adminPage.getByText(LABEL)).toBeVisible();
     });
+
+  // If the owner can add a source from the panel he must be able to take one off it too
+  // (same rule as custom-pages F-P-4). The criterion is that the row is actually gone.
+  test('the panel can remove a source, and it is gone', panelRemovesSource);
   // What this page has to answer is "is my source still alive". A source that **was
   // fetched but has failed every time** used to print the same `never fetched` line as a
   // source that **has never been touched** (F-E-18, all three rows looked like that in
@@ -137,11 +137,54 @@ function expectMissingBoardSentence(text: string, srcID: string): void {
   expect(text, '不该出现状态码').not.toMatch(/\b404\b/);
 }
 
+// registerFormWired — the F-E-1 test body, extracted so the describe arrow stays under
+// the per-function line cap. Registers a source through the **form** (real UI → POST
+// /job-sources) and asserts the row shows up.
+async function registerFormWired({ adminPage }: { adminPage: Page }): Promise<void> {
+  await gotoAdminSection(adminPage, 'sources');
+  await adminPage.waitForURL('**/admin/sources', { timeout: 5_000 });
+  // The old dead header buttons are still gone...
+  await expect(adminPage.getByRole('button', { name: /\+\s*board/i })).toHaveCount(0);
+  // ...but registering is no longer MCP-only. The form is present and gates on a label.
+  await expect(adminPage.getByTestId('source-register')).toBeVisible();
+  await expect(adminPage.getByTestId('source-register-submit')).toBeDisabled();
+  await adminPage.getByTestId('source-kind').selectOption('greenhouse');
+  await adminPage.getByTestId('source-label').fill('From The Panel');
+  await adminPage.getByTestId('source-config').fill('{"company":"airbnb"}');
+  await expect(adminPage.getByTestId('source-register-submit')).toBeEnabled();
+  await adminPage.getByTestId('source-register-submit').click();
+  // The criterion is that it actually registered — the row shows up in the list.
+  await expect(adminPage.getByTestId('sources-list')).toBeVisible({ timeout: 10_000 });
+  await expect(adminPage.getByText('From The Panel')).toBeVisible();
+}
+
+async function panelRemovesSource(
+  { request, adminPage }: { request: APIRequestContext; adminPage: Page },
+): Promise<void> {
+  const src = await seedSourceReturningId(request, 'Removable Board');
+  await gotoAdminSection(adminPage, 'sources');
+  await adminPage.waitForURL('**/admin/sources', { timeout: 5_000 });
+  await expect(adminPage.getByTestId(`source-row-${src.id}`)).toBeVisible({ timeout: 5_000 });
+  await adminPage.getByTestId(`source-remove-${src.id}`).click();
+  await expect(adminPage.getByTestId(`source-row-${src.id}`)).toHaveCount(0, { timeout: 10_000 });
+}
+
 async function seedSource(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'sources-seed');
   const sid = await initMCP(request, token);
   await jobsRegisterSource(request, token, sid, {
     kind: 'greenhouse', label: LABEL, config: { company: 'airbnb' },
+  });
+}
+
+async function seedSourceReturningId(
+  request: APIRequestContext, label: string,
+): Promise<{ id: string }> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const token = await createAPIToken(request, csrf, 'sources-remove');
+  const sid = await initMCP(request, token);
+  return jobsRegisterSource(request, token, sid, {
+    kind: 'greenhouse', label, config: { company: 'stripe' },
   });
 }

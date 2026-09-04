@@ -3,13 +3,23 @@
     "intro": "De donde el bucle extrae anuncios. Greenhouse / Lever / Wellfound son de primera clase; también se admiten scrapers RSS y HTML. Nada se extrae en horario — una fuente se lee cuando le pide a Claude que ejecute <mono>jobs.fetch_new</mono>, y lo que regresa aterriza en listados durante un día. Registre fuentes a través de MCP <mono>jobs.register_source</mono>.",
     "emptyKicker": "sin fuentes registradas",
     "emptyTitle": "Conecte una junta de empleos o feed RSS.",
-    "emptyHint": "Pida a Claude que ejecute <mono>jobs.register_source</mono> con una URL de Greenhouse / Lever / RSS — aparece automáticamente aquí."
+    "emptyHint": "Registra una con el formulario de abajo — elige un tipo de fuente, dale una etiqueta y configuración.",
+    "formHeading": "registrar una fuente",
+    "kindLabel": "tipo",
+    "labelLabel": "etiqueta",
+    "configLabel": "configuración (JSON)",
+    "register": "registrar →",
+    "registered": "Fuente registrada",
+    "remove": "eliminar",
+    "removed": "Fuente eliminada"
   },
   "listings": {
     "intro": "Empleos obtenidos de sus fuentes registradas, mantenidos en un grupo de 1 día. Pida a Claude que los clasifique contra su corpus y elabore un currículum para los que valga la pena. Cualquier cosa que no redacte o descarte dentro del día vuelve a caer del grupo.",
     "emptyKicker": "sin listados en grupo",
     "emptyTitle": "Primero obtenga empleos de sus fuentes.",
-    "emptyHint": "Pida a Claude que ejecute <mono>jobs.fetch_new</mono> — los resultados aterrizan aquí durante un día hasta que los redacta o descarta."
+    "emptyHint": "Las ofertas se obtienen automáticamente al abrir esta sección — o pulsa Obtener ahora. Los resultados permanecen aquí un día hasta que los redactas o descartas.",
+    "fetchNow": "obtener ahora",
+    "fetching": "obteniendo…"
   },
   "drafts": {
     "intro": "Currículos personalizados que Claude redactó para empleos a los que dijo que sí. Abra el compositor para editar + vista previa; <ink>enviar</ink> congela la instantánea, representa el PDF final (con QR) e emite automáticamente un AccessCode.",

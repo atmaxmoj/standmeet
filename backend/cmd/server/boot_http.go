@@ -55,6 +55,7 @@ type Deps struct {
 	PublicPasswordReset     publicroutes.PasswordResetHandlers
 	PublicWritings          publicroutes.WritingHandlers
 	Builds                  sysroutes.BuilderDeps
+	IM                      sysroutes.IMDeps
 	TLSAsk                  sysroutes.TLSAskDeps
 	PrintSession            sysroutes.PrintSessionDeps
 	DiagRegistry            sysroutes.DiagRegistryDeps
@@ -170,6 +171,7 @@ func mountInternal(r chi.Router, deps *Deps) {
 	r.Route("/internal", func(r chi.Router) {
 		sysroutes.Mount(r, sysroutes.Deps{DB: deps.DB, Redis: deps.Redis, Log: deps.Log})
 		sysroutes.MountBuilds(r, deps.Builds)
+		sysroutes.MountIM(r, deps.IM)
 		sysroutes.MountTLSAsk(r, deps.TLSAsk)
 		sysroutes.MountPrintSession(r, deps.PrintSession)
 		sysroutes.MountDiagRegistry(r, deps.DiagRegistry)

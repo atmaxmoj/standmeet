@@ -27,6 +27,7 @@
     "@tiptap/react": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
     "@tiptap/suggestion": "^3.23.6",
+    "@uiw/react-textarea-code-editor": "^3.1.1",
     "@vvo/tzdb": "^6.198.0",
     "katex": "^0.16.11",
     "mermaid": "^11.4.0",

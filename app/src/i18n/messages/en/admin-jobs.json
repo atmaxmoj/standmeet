@@ -1,15 +1,25 @@
 {
   "sources": {
-    "intro": "Where the loop pulls listings from. Greenhouse / Lever / Wellfound are first-class; RSS and HTML scrapers are also supported. Nothing is pulled on a schedule — a source is read when you ask Claude to run <mono>jobs.fetch_new</mono>, and what comes back lands in listings for a day. Register sources via MCP <mono>jobs.register_source</mono>.",
+    "intro": "Where the loop pulls listings from. Greenhouse / Lever / Ashby and a dozen more ATS and remote-job feeds are supported. Register one with the form below — the listings section then fetches from your sources automatically (or on demand). Claude can still drive the same thing over MCP.",
     "emptyKicker": "no sources registered",
     "emptyTitle": "Connect a job board or RSS feed.",
-    "emptyHint": "Ask Claude to run <mono>jobs.register_source</mono> with a Greenhouse / Lever / RSS URL — it shows up here automatically."
+    "emptyHint": "Register one with the form below — pick a source kind, give it a label and config.",
+    "formHeading": "register a source",
+    "kindLabel": "kind",
+    "labelLabel": "label",
+    "configLabel": "config (JSON)",
+    "register": "register →",
+    "registered": "Source registered",
+    "remove": "remove",
+    "removed": "Source removed"
   },
   "listings": {
     "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
     "emptyKicker": "no listings in pool",
     "emptyTitle": "Fetch jobs from your sources first.",
-    "emptyHint": "Ask Claude to run <mono>jobs.fetch_new</mono> — results land here for a day until you draft or discard them."
+    "emptyHint": "Listings are fetched automatically when you open this section — or press Fetch now. Results stay here for a day until you draft or discard them.",
+    "fetchNow": "fetch now",
+    "fetching": "fetching…"
   },
   "drafts": {
     "intro": "Tailored resumes Claude drafted for jobs you said yes to. Open the composer to edit + preview; <ink>send</ink> freezes the snapshot, renders the final PDF (with QR), and auto-issues an AccessCode.",

@@ -55,6 +55,7 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 			Log: d.Log, Builds: d.CustomBuildRepo, Pages: d.CustomPageRepo,
 			Notifier: d.BuildNotifier,
 		},
+		IM:           sysroutes.IMDeps{Log: d.Log, Token: telegramTokenReader(d)},
 		TLSAsk:       sysroutes.TLSAskDeps{Log: d.Log, Domains: d.InstanceRepo},
 		PrintSession: sysroutes.PrintSessionDeps{Log: d.Log, Store: d.PrintStore},
 		DiagRegistry: sysroutes.DiagRegistryDeps{Registry: d.AgentSkills, Log: d.Log},

@@ -1,5 +1,5 @@
-// AuthoringPanel — write a custom page in the panel: paste source → build → watch status
-// → publish.
+// AuthoringPanel — write a custom page in the panel: edit source → build preview →
+// watch it render inline → publish.
 //
 // This block did not exist before. The capability to write this set **always existed**
 // (create / write_file / build / get_build / promote_to_live all present), just on MCP
@@ -7,11 +7,14 @@
 // status quo with the status quo. After removing the exception, the closure named these
 // items; this is their face.
 //
-// Three things are deliberate:
+// Four things are deliberate:
 //   · Build is **async**, so "running" / "succeeded" / "failed" must be visually
 //     distinguishable — a silently failed build, with the live page still the old one,
 //     looks identical to success from the owner's view.
 //   · On failure, show **the backend's exact message** verbatim, not just "build failed".
+//   · **Build preview is separate from publish**: the owner's words — "writing here, I
+//     can't see the effect at all." Build preview stages the build and renders it inline
+//     WITHOUT going live, so the owner sees it before shipping; publish goes live.
 //   · Publish is a separate step: a successful build does not mean the owner wants it live.
 
 'use client';
@@ -22,20 +25,31 @@ import { useTranslations } from 'next-intl';
 import {
   IMPORTABLE_MODULES, STARTER, type ImportableModule,
 } from '@/lib/admin/custom-page-imports';
-import { publishPage, type BuildView } from '@/lib/admin/use-custom-pages';
+import {
+  shipLive, stagePage, previewView, usePinnedPreviewSrc,
+  type BuildView, type CustomPageSummary, type CustomPagesHook,
+} from '@/lib/admin/use-custom-pages';
 import { useAction } from '@/lib/ui/use-action';
+import { CodeEditor } from '@/components/admin/sections/custom-pages/CodeEditor';
 
-export function AuthoringPanel() {
+export function AuthoringPanel({ hook }: { hook: CustomPagesHook }) {
   const t = useTranslations('adminPages.customPages');
   const run = useAction();
   const [slug, setSlug] = useState('');
   const [source, setSource] = useState(STARTER);
   const [build, setBuild] = useState<BuildView | null>(null);
+  // The staging build's signed preview_url lives on the list row (the store the panel
+  // shares with the list below), so the inline preview follows the same long-poll.
+  const staged = hook.rows.find((r) => r.slug === slug.trim());
+
+  const preview = useCallback(() => {
+    setBuild(null);
+    void run(() => stagePage(slug.trim(), source, setBuild), { success: t('staged') });
+  }, [run, slug, source, t]);
 
   const publish = useCallback(() => {
-    setBuild(null);
-    void run(() => publishPage(slug, source, setBuild), { success: t('published') });
-  }, [run, slug, source, t]);
+    void run(() => shipLive(slug.trim(), source, build, setBuild), { success: t('published') });
+  }, [run, slug, source, build, t]);
 
   return (
     <section className="mt-6 border border-(--color-rule) rounded-[3px] p-4">
@@ -48,7 +62,14 @@ export function AuthoringPanel() {
       <SourceField value={source} onChange={setSource} />
       <div className="flex items-center gap-3 mt-3">
         <button
-          type="button" onClick={publish} disabled={slug === ''}
+          type="button" onClick={preview} disabled={slug.trim() === ''}
+          data-testid="custom-page-build"
+          className="sm-btn sm-btn-sm disabled:opacity-40"
+        >
+          {t('buildPreview')}
+        </button>
+        <button
+          type="button" onClick={publish} disabled={slug.trim() === ''}
           data-testid="custom-page-publish"
           className="sm-btn sm-btn-solid sm-btn-sm disabled:opacity-40"
         >
@@ -56,7 +77,41 @@ export function AuthoringPanel() {
         </button>
         <BuildLine build={build} />
       </div>
+      {staged === undefined ? null : <StagingPreview page={staged} />}
     </section>
+  );
+}
+
+// StagingPreview — what the build you just staged looks like, **inline, before it goes
+// live**. Distinct testids from the list's PagePreview so the same slug rendered in both
+// places never collides. Reuses previewView + usePinnedPreviewSrc so it follows builds
+// the same way the list does (token churn doesn't reload; a new build id swaps the frame).
+function StagingPreview({ page }: { page: CustomPageSummary }) {
+  const t = useTranslations('adminPages.customPages');
+  const view = previewView(page);
+  const src = usePinnedPreviewSrc(view.buildID, view.src);
+  return src === '' ? null : (
+    <div className="mt-4 border border-(--color-rule) rounded-sm overflow-hidden" data-testid="custom-page-staging">
+      <div className="flex items-baseline justify-between px-3 py-1.5 border-b border-(--color-rule)/60">
+        <span className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint)">
+          {t('stagingLabel')}
+        </span>
+        <span
+          data-testid="custom-page-staging-state"
+          className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-muted)"
+        >
+          {view.status}
+        </span>
+      </div>
+      <iframe
+        key={view.buildID}
+        data-testid="custom-page-staging-frame"
+        src={src}
+        title="staging preview"
+        sandbox="allow-scripts"
+        className="w-full h-[420px] border-0 bg-(--color-paper)"
+      />
+    </div>
   );
 }
 
@@ -112,12 +167,7 @@ function SourceField({ value, onChange }: { value: string; onChange: (v: string)
       <span className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) block mb-1">
         {t('sourceLabel')}
       </span>
-      <textarea
-        value={value} rows={14}
-        data-testid="custom-page-source"
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-transparent border border-(--color-rule) focus:border-(--color-ink) rounded-sm p-2 mono text-[12px]"
-      />
+      <CodeEditor value={value} onChange={onChange} testId="custom-page-source" />
     </label>
   );
 }

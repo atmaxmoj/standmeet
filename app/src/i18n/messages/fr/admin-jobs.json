@@ -3,13 +3,23 @@
     "intro": "D'où la boucle tire les annonces. Greenhouse / Lever / Wellfound sont de première classe ; les scrapers RSS et HTML sont également supportés. Rien n'est tiré selon un horaire — une source est lue quand vous demandez à Claude d'exécuter <mono>jobs.fetch_new</mono>, et ce qui revient atterrit dans les annonces pour une journée. Enregistrez les sources via MCP <mono>jobs.register_source</mono>.",
     "emptyKicker": "aucune source enregistrée",
     "emptyTitle": "Connectez un tableau d'emploi ou un flux RSS.",
-    "emptyHint": "Demandez à Claude d'exécuter <mono>jobs.register_source</mono> avec une URL Greenhouse / Lever / RSS — elle apparaît ici automatiquement."
+    "emptyHint": "Enregistrez-en une avec le formulaire ci-dessous — choisissez un type de source, donnez-lui un libellé et une configuration.",
+    "formHeading": "enregistrer une source",
+    "kindLabel": "type",
+    "labelLabel": "libellé",
+    "configLabel": "configuration (JSON)",
+    "register": "enregistrer →",
+    "registered": "Source enregistrée",
+    "remove": "supprimer",
+    "removed": "Source supprimée"
   },
   "listings": {
     "intro": "Emplois récupérés de vos sources enregistrées, détenus dans un bassin d'un jour. Demandez à Claude de les classer par rapport à votre corpus et de rédiger un CV pour ceux qui valent la peine de postuler. Tout ce que vous ne rédigez pas ou ne rejetez pas dans la journée retombe hors du bassin.",
     "emptyKicker": "aucune annonce dans le bassin",
     "emptyTitle": "D'abord, récupérez les emplois de vos sources.",
-    "emptyHint": "Demandez à Claude d'exécuter <mono>jobs.fetch_new</mono> — les résultats atterrissent ici pendant une journée avant que vous les rédactoriez ou les rejetiez."
+    "emptyHint": "Les offres sont récupérées automatiquement à l'ouverture de cette section — ou appuyez sur Récupérer maintenant. Les résultats restent ici une journée jusqu'à ce que vous les rédigiez ou les rejetiez.",
+    "fetchNow": "récupérer maintenant",
+    "fetching": "récupération…"
   },
   "drafts": {
     "intro": "CV adaptés que Claude a rédigés pour les emplois auxquels vous avez dit oui. Ouvrez le compositeur pour modifier + prévisualiser ; <ink>envoyer</ink> gèle l'instantané, rend le PDF final (avec QR), et émet automatiquement un CodeAccès.",

@@ -66,7 +66,38 @@ test.describe('admin listings list', () => {
       expect(Number((await badge.innerText()).trim()), 'badge 必须等于它汇总的那张表')
         .toBe(inPool);
     });
+
+  // The owner's words: "why do I have to ask Claude to fetch?" — opening this section now
+  // pulls from the registered sources itself (auto-fetch), and a "fetch now" button
+  // re-pulls on demand. The criterion: with a source registered but **nothing fetched
+  // yet**, opening listings fills the pool on its own.
+  test('opening listings auto-fetches from a registered source (no MCP fetch)',
+    async ({ request, adminPage }) => {
+      await registerGreenhouse(request);
+      await gotoAdminSection(adminPage, 'listings');
+      await adminPage.waitForURL('**/admin/listings', { timeout: 5_000 });
+      // Auto-fetch on open populates the pool without anyone running jobs.fetch_new.
+      await expect(adminPage.getByTestId('listings-list')).toBeVisible({ timeout: 20_000 });
+      await expect(
+        adminPage.getByTestId('listings-list').locator('[data-testid^="listing-row-"]').first(),
+      ).toBeVisible({ timeout: 10_000 });
+      // And the manual "fetch now" button is here (it replaces "ask Claude to fetch").
+      await expect(adminPage.getByTestId('listings-fetch')).toBeVisible();
+      await adminPage.getByTestId('listings-fetch').click();
+      await expect(adminPage.getByTestId('listings-list')).toBeVisible({ timeout: 15_000 });
+    });
 });
+
+// registerGreenhouse — register a source but do NOT fetch it (auto-fetch is what should
+// pull the jobs). Returns nothing; the test asserts on rows appearing, not a fixed title.
+async function registerGreenhouse(request: APIRequestContext): Promise<void> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const token = await createAPIToken(request, csrf, 'listings-autofetch');
+  const sid = await initMCP(request, token);
+  await jobsRegisterSource(request, token, sid, {
+    kind: 'greenhouse', label: 'Auto Board', config: { company: 'airbnb' },
+  });
+}
 
 async function seedPool(request: APIRequestContext): Promise<string> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);

@@ -286,21 +286,23 @@ func manifestCategory(m *connector.Manifest) (string, error) {
 
 // assembleDeps —— dependencies to assemble one connector (openapi and protocol share the set).
 type assembleDeps struct {
-	doer        *http.Client
-	store       connectionStoreAdapter
-	smtpVault   smtpVaultAdapter
-	caldavVault caldavVaultAdapter
-	allow       connector.EgressAllow
+	doer          *http.Client
+	store         connectionStoreAdapter
+	smtpVault     smtpVaultAdapter
+	caldavVault   caldavVaultAdapter
+	telegramVault telegramVaultAdapter
+	allow         connector.EgressAllow
 }
 
 func newAssembleDeps(repo *connector.Repo) *assembleDeps {
 	allow := connectorEgressAllow()
 	return &assembleDeps{
-		doer:        allow.GuardedHTTPClient(),
-		store:       connectionStoreAdapter{repo: repo},
-		smtpVault:   smtpVaultAdapter{repo: repo},
-		caldavVault: caldavVaultAdapter{repo: repo},
-		allow:       allow,
+		doer:          allow.GuardedHTTPClient(),
+		store:         connectionStoreAdapter{repo: repo},
+		smtpVault:     smtpVaultAdapter{repo: repo},
+		caldavVault:   caldavVaultAdapter{repo: repo},
+		telegramVault: telegramVaultAdapter{repo: repo},
+		allow:         allow,
 	}
 }
 
@@ -339,6 +341,8 @@ func assembleProtocolConnector(
 		return connector.NewSMTPConnector(m.ID, d.smtpVault), nil
 	case "caldav":
 		return connector.NewCalDAVConnector(m.ID, d.caldavVault, d.doer), nil
+	case "telegram":
+		return connector.NewTelegramConnector(m.ID, d.telegramVault), nil
 	default:
 		return nil, fmt.Errorf("unknown protocol %q for connector %q", m.Protocol, m.ID)
 	}

@@ -135,6 +135,12 @@ func protocolCredentialForm(protocol string) (CredentialForm, error) {
 			AuthType: "caldav",
 			Fields:   []string{"url", "username", "password"},
 		}, nil
+	case "telegram":
+		// One field: the BotFather token. The save path parses it as telegramCredJSON{token}.
+		return CredentialForm{
+			AuthType: "telegram",
+			Fields:   []string{"token"},
+		}, nil
 	default:
 		return CredentialForm{}, fmt.Errorf("%w: %q", errUnknownProtocol, protocol)
 	}

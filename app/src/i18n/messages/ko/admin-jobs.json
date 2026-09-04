@@ -3,13 +3,23 @@
     "intro": "Where the loop pulls listings from. Greenhouse / Lever / Wellfound are first-class; RSS and HTML scrapers are also supported. Nothing is pulled on a schedule — a source is read when you ask Claude to run <mono>jobs.fetch_new</mono>, and what comes back lands in listings for a day. Register sources via MCP <mono>jobs.register_source</mono>.",
     "emptyKicker": "no sources registered",
     "emptyTitle": "Connect a job board or RSS feed.",
-    "emptyHint": "Ask Claude to run <mono>jobs.register_source</mono> with a Greenhouse / Lever / RSS URL — it shows up here automatically."
+    "emptyHint": "아래 양식으로 등록하세요 — 소스 종류를 고르고 라벨과 설정을 입력합니다.",
+    "formHeading": "소스 등록",
+    "kindLabel": "종류",
+    "labelLabel": "라벨",
+    "configLabel": "설정 (JSON)",
+    "register": "등록 →",
+    "registered": "소스가 등록됨",
+    "remove": "제거",
+    "removed": "소스가 제거됨"
   },
   "listings": {
     "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
     "emptyKicker": "no listings in pool",
     "emptyTitle": "Fetch jobs from your sources first.",
-    "emptyHint": "Ask Claude to run <mono>jobs.fetch_new</mono> — results land here for a day until you draft or discard them."
+    "emptyHint": "이 섹션을 열면 공고가 자동으로 가져와집니다 — 또는 지금 가져오기를 누르세요. 결과는 하루 동안 여기 남아 있으며 초안을 작성하거나 버릴 때까지 유지됩니다.",
+    "fetchNow": "지금 가져오기",
+    "fetching": "가져오는 중…"
   },
   "drafts": {
     "intro": "Tailored resumes Claude drafted for jobs you said yes to. Open the composer to edit + preview; <ink>send</ink> freezes the snapshot, renders the final PDF (with QR), and auto-issues an AccessCode.",

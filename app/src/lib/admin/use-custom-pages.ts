@@ -196,12 +196,42 @@ async function promote(slug: string, buildID: string): Promise<void> {
 export async function publishPage(
   slug: string, source: string, onTick: (b: BuildView) => void,
 ): Promise<BuildView> {
+  const settled = await stagePage(slug, source, onTick);
+  await promoteIfBuilt(slug, settled);
+  return settled;
+}
+
+// shipLive —— the panel's "publish → live" action. If the owner already staged a
+// preview of this exact source (build is 'built'), promote **that** build rather than
+// rebuilding — a rebuild is tens of seconds already paid once. Otherwise run the whole
+// build+promote sequence (the common "write then publish, no preview" path). Lives here,
+// not the panel: the branch is business logic, and the presentation layer bans `if`.
+export async function shipLive(
+  slug: string, source: string, staged: BuildView | null, onTick: (b: BuildView) => void,
+): Promise<void> {
+  if (staged?.status === 'built') {
+    await promote(slug, staged.build_id);
+    return;
+  }
+  await publishPage(slug, source, onTick);
+}
+
+// stagePage —— create → write → build → poll, then refresh the list so the staging
+// build (and its signed preview_url) show up — but do **not** go live. This is the
+// "see the effect before you ship it" half: the owner builds, looks at the staging
+// preview inline, and only then decides to publish. Splitting it out of publishPage
+// is what lets the panel offer both — a preview-first build and a one-click publish —
+// off the same sequence, instead of the owner writing blind and finding out only
+// after it's already the live page.
+export async function stagePage(
+  slug: string, source: string, onTick: (b: BuildView) => void,
+): Promise<BuildView> {
   await ensurePage(slug);
   await writeFile(slug, 'App.tsx', source);
   const started = await build(slug);
   onTick(started);
   const settled = await pollBuild(started.build_id, onTick);
-  await promoteIfBuilt(slug, settled);
+  await customPagesStore.getState().refresh();
   return settled;
 }
 

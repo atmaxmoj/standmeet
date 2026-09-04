@@ -3,13 +3,23 @@
     "intro": "Wo der Loop Einträge anzieht. Greenhouse / Lever / Wellfound sind erste Klasse; RSS und HTML Scraper werden auch unterstützt. Nichts wird nach einem Zeitplan gezogen — eine Quelle wird gelesen, wenn Sie Claude fragen <mono>jobs.fetch_new</mono> auszuführen, und was zurückkommt landet in Listings für einen Tag. Registrieren Sie Quellen über MCP <mono>jobs.register_source</mono>.",
     "emptyKicker": "keine quellen registriert",
     "emptyTitle": "Verbinden Sie ein Job-Board oder RSS-Feed.",
-    "emptyHint": "Bitten Sie Claude <mono>jobs.register_source</mono> mit einer Greenhouse / Lever / RSS URL auszuführen — es erscheint hier automatisch."
+    "emptyHint": "Registrieren Sie eine mit dem Formular unten — wählen Sie eine Quellenart, geben Sie ihr ein Label und eine Konfiguration.",
+    "formHeading": "quelle registrieren",
+    "kindLabel": "art",
+    "labelLabel": "label",
+    "configLabel": "konfiguration (JSON)",
+    "register": "registrieren →",
+    "registered": "Quelle registriert",
+    "remove": "entfernen",
+    "removed": "Quelle entfernt"
   },
   "listings": {
     "intro": "Stellen, die von Ihren registrierten Quellen abgerufen werden, in einem 1-Tage-Pool gehalten. Bitten Sie Claude, sie gegen Ihren Corpus zu ordnen und Lebensläufe für die, die sich lohnen, zu entwerfen. Alles, das Sie nicht entwerfen oder verwerfen, fällt nach einem Tag aus dem Pool.",
     "emptyKicker": "keine listings im pool",
     "emptyTitle": "Laden Sie zuerst Jobs von Ihren Quellen.",
-    "emptyHint": "Bitten Sie Claude <mono>jobs.fetch_new</mono> auszuführen — Ergebnisse landen hier für einen Tag bis Sie sie entwerfen oder verwerfen."
+    "emptyHint": "Anzeigen werden automatisch abgerufen, wenn Sie diesen Bereich öffnen — oder klicken Sie auf Jetzt abrufen. Ergebnisse bleiben einen Tag hier, bis Sie sie entwerfen oder verwerfen.",
+    "fetchNow": "jetzt abrufen",
+    "fetching": "wird abgerufen…"
   },
   "drafts": {
     "intro": "Maßgeschneiderte Lebensläufe, die Claude für Jobs entworfen hat, denen Sie zugestimmt haben. Öffnen Sie den Composer zum Bearbeiten + Vorschau; <ink>senden</ink> friert den Snapshot ein, rendern den endgültigen PDF (mit QR) und stellen automatisch einen AccessCode aus.",

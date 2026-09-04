@@ -1,0 +1,9 @@
+id: telegram
+kind: protocol
+category: im
+protocol: telegram
+
+# No owner_ops and no category contract: a telegram connector stores a bot token and does
+# nothing itself. The separate im-bridge service reads that token from GET /internal/im/config
+# and runs the actual Telegram bot (ingest + visitor chat). So there is nothing here for the
+# owner's agent to call and no category slot for an agent tool to occupy — just a stored credential.

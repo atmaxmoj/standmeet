@@ -73,6 +73,17 @@ export const CONNECTOR_REGISTRY: readonly ConnectorEntry[] = [
     ],
   },
   {
+    // Telegram protocol connector (kind=protocol). Stores the BotFather token; the separate
+    // im-bridge service reads it from /internal/im/config and runs the actual bot.
+    // protocolCategory 'im' matches the backend manifest's category (connectors/telegram).
+    id: 'telegram', name: 'Telegram', icon: '✈', category: 'comms', builtin: true,
+    protocol: 'telegram', protocolCategory: 'im',
+    blurb: 'chat with your standmeet from a Telegram bot — visitor chat + ingest, over DM.',
+    fields: [
+      { k: 'token', label: 'Bot token', secret: true },
+    ],
+  },
+  {
     // Unified assembly entry point (#155): calendar category → AssembleView
     // (paste an OpenAPI spec to assemble per-SaaS, or fill in the built-in
     // CalDAV protocol form). No longer a hardcoded provider dropdown (that was legacy, now removed).

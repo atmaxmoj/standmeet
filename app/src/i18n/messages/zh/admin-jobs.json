@@ -3,13 +3,23 @@
     "intro": "这个闭环从哪里拉取职位。Greenhouse / Lever / Wellfound 是一等公民；也支持 RSS 和 HTML 抓取。不会按计划自动拉取——只有你让 Claude 运行 <mono>jobs.fetch_new</mono> 时才读取某个源，拉回的内容会在职位列表里保留一天。通过 MCP <mono>jobs.register_source</mono> 注册源。",
     "emptyKicker": "没有已注册的源",
     "emptyTitle": "连接一个招聘板或 RSS 源。",
-    "emptyHint": "让 Claude 用一个 Greenhouse / Lever / RSS URL 运行 <mono>jobs.register_source</mono>——它会自动出现在这里。"
+    "emptyHint": "用下面的表单注册一个——选择源类型，填标签和配置。",
+    "formHeading": "注册一个源",
+    "kindLabel": "类型",
+    "labelLabel": "标签",
+    "configLabel": "配置 (JSON)",
+    "register": "注册 →",
+    "registered": "源已注册",
+    "remove": "移除",
+    "removed": "源已移除"
   },
   "listings": {
     "intro": "从你已注册的源拉取的职位，保存在一个 1 天的池子里。让 Claude 拿它们与你的语料库排序，并为值得投递的职位起草简历。任何在一天内你没起草或丢弃的职位都会滑出池子。",
     "emptyKicker": "池中没有职位",
     "emptyTitle": "先从你的源拉取职位。",
-    "emptyHint": "让 Claude 运行 <mono>jobs.fetch_new</mono>——结果会在这里保留一天，直到你起草或丢弃它们。"
+    "emptyHint": "打开这个板块时会自动拉取职位——或点「立即拉取」。结果会在这里保留一天，直到你起草或丢弃它们。",
+    "fetchNow": "立即拉取",
+    "fetching": "拉取中…"
   },
   "drafts": {
     "intro": "Claude 为你说 yes 的职位起草的定制简历。打开编辑器编辑并预览；<ink>发送</ink>会冻结快照、渲染最终 PDF（带二维码），并自动签发一个访问码。",

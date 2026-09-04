@@ -3,13 +3,23 @@
     "intro": "Where the loop pulls listings from. Greenhouse / Lever / Wellfound are first-class; RSS and HTML scrapers are also supported. Nothing is pulled on a schedule — a source is read when you ask Claude to run <mono>jobs.fetch_new</mono>, and what comes back lands in listings for a day. Register sources via MCP <mono>jobs.register_source</mono>.",
     "emptyKicker": "no sources registered",
     "emptyTitle": "Connect a job board or RSS feed.",
-    "emptyHint": "Ask Claude to run <mono>jobs.register_source</mono> with a Greenhouse / Lever / RSS URL — it shows up here automatically."
+    "emptyHint": "नीचे दिए फ़ॉर्म से एक रजिस्टर करें — स्रोत का प्रकार चुनें, उसे लेबल और कॉन्फ़िग दें।",
+    "formHeading": "स्रोत रजिस्टर करें",
+    "kindLabel": "प्रकार",
+    "labelLabel": "लेबल",
+    "configLabel": "कॉन्फ़िग (JSON)",
+    "register": "रजिस्टर करें →",
+    "registered": "स्रोत रजिस्टर हुआ",
+    "remove": "हटाएँ",
+    "removed": "स्रोत हटाया गया"
   },
   "listings": {
     "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
     "emptyKicker": "no listings in pool",
     "emptyTitle": "Fetch jobs from your sources first.",
-    "emptyHint": "Ask Claude to run <mono>jobs.fetch_new</mono> — results land here for a day until you draft or discard them."
+    "emptyHint": "इस सेक्शन को खोलने पर लिस्टिंग अपने-आप फ़ेच होती हैं — या Fetch now दबाएँ। परिणाम एक दिन यहाँ रहते हैं जब तक आप ड्राफ़्ट या डिस्कार्ड न करें।",
+    "fetchNow": "अभी फ़ेच करें",
+    "fetching": "फ़ेच हो रहा है…"
   },
   "drafts": {
     "intro": "Tailored resumes Claude drafted for jobs you said yes to. Open the composer to edit + preview; <ink>send</ink> freezes the snapshot, renders the final PDF (with QR), and auto-issues an AccessCode.",

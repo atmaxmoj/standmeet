@@ -11,7 +11,7 @@
 // `SidebarBadges.listings`, `BADGE_MAP`) with zero writers, so with 1148 real
 // listings sitting in the pool, the sidebar stayed silent.
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { z } from 'zod';
 
@@ -43,6 +43,27 @@ interface State {
   error: string | null;
 }
 
+// ListingsHook —— the listings view: the pool rows plus the ability to pull new jobs.
+export interface ListingsHook extends State {
+  fetching: boolean;
+  fetchNow: () => Promise<void>;
+}
+
+// autoFetched —— fetch-on-open, once per session (module-scoped, not per-mount). The
+// owner asked for **auto-fetch** — "why do I have to ask Claude to fetch?" — but a
+// fetch reaches out to every registered job board, so doing it on *every* navigation to
+// this section would hammer those boards. Once per session: the first time the owner
+// opens listings we pull automatically; after that it's the manual "fetch now" button.
+let autoFetched = false;
+
+// fetchNow —— pull every registered source into the pool (POST), then re-read it (GET,
+// the shared store both surfaces watch). The POST returns the pool too, but re-reading
+// keeps the sidebar badge and the list same-sourced through the one store.
+async function fetchNow(): Promise<void> {
+  await adminAPI.post('/listings/fetch', {}, ListingsSchema);
+  await listingsStore.getState().refresh();
+}
+
 // useAdminListings —— for **the two surfaces that view this pool**
 // (/admin/listings and dashboard).
 //
@@ -53,12 +74,28 @@ interface State {
 // exactly the F-L-16 family of bugs (a count frozen from before the latest
 // mutation). The shared store exists to keep the badge and the list
 // **same-sourced**, not to send fewer requests.
-export function useAdminListings(): State {
+export function useAdminListings(): ListingsHook {
   const r = useResource(listingsStore);
-  // Refetches once whenever this section is entered (`useResource` only
-  // fetches while idle, and won't touch a cached, stale pool).
-  useEffect(() => { void listingsStore.getState().refresh(); }, []);
-  return listingsState(r.data, r.status, r.error);
+  const [fetching, setFetching] = useState(false);
+  const runFetch = useCallback(async () => {
+    setFetching(true);
+    try {
+      await fetchNow();
+    } finally {
+      setFetching(false);
+    }
+  }, []);
+  // Always re-read the pool on open (fast GET — shows whatever is already there); and the
+  // first open this session **also** pulls new jobs in the background (POST). Reading
+  // first, then pulling, means the list never sits blank waiting on a fetch — the existing
+  // pool shows immediately and new jobs slot in when they land.
+  useEffect(() => {
+    void listingsStore.getState().refresh();
+    if (autoFetched) return;
+    autoFetched = true;
+    void runFetch();
+  }, [runFetch]);
+  return { ...listingsState(r.data, r.status, r.error), fetching, fetchNow: runFetch };
 }
 
 // useListingsCount —— the sidebar badge: only **reads** this store, never sends its own request.

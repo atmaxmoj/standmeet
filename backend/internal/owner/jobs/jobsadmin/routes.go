@@ -73,9 +73,12 @@ func Mount(r chi.Router, deps Deps) {
 	})
 	r.Route("/job-sources", func(r chi.Router) {
 		r.Get("/", listSources(deps))
+		r.Post("/", registerSource(deps))
+		r.Delete("/{id}", unregisterSource(deps))
 	})
 	r.Route("/listings", func(r chi.Router) {
 		r.Get("/", listListings(deps))
+		r.Post("/fetch", fetchNow(deps))
 	})
 }
 
@@ -186,20 +189,26 @@ func writeSourcesList(
 ) {
 	items := make([]sourceView, 0, len(sources))
 	for i := range sources {
-		items = append(items, sourceView{
-			ID:              sources[i].ID,
-			Kind:            sources[i].Kind,
-			Label:           sources[i].Label,
-			LastFetchedAt:   sources[i].LastFetchedAt,
-			LastAttemptedAt: sources[i].LastAttemptedAt,
-			LastError:       sources[i].LastError,
-			CreatedAt:       sources[i].CreatedAt,
-		})
+		items = append(items, sourceViewOf(&sources[i]))
 	}
 	w.Header().Set(ctHeader, ctJSON)
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(items); err != nil {
 		log.Error("encode job sources", logErrKey, err)
+	}
+}
+
+// sourceViewOf — one source row's wire shape. Shared by the list and the register
+// response so a just-registered source looks identical to a listed one.
+func sourceViewOf(s *jobsmodel.JobSource) sourceView {
+	return sourceView{
+		ID:              s.ID,
+		Kind:            s.Kind,
+		Label:           s.Label,
+		LastFetchedAt:   s.LastFetchedAt,
+		LastAttemptedAt: s.LastAttemptedAt,
+		LastError:       s.LastError,
+		CreatedAt:       s.CreatedAt,
 	}
 }
 
