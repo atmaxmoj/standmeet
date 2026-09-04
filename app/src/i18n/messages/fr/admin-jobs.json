@@ -1,6 +1,6 @@
 {
   "sources": {
-    "intro": "D'où la boucle tire les annonces. Greenhouse / Lever / Wellfound sont de première classe ; les scrapers RSS et HTML sont également supportés. Rien n'est tiré selon un horaire — une source est lue quand vous demandez à Claude d'exécuter <mono>jobs.fetch_new</mono>, et ce qui revient atterrit dans les annonces pour une journée. Enregistrez les sources via MCP <mono>jobs.register_source</mono>.",
+    "intro": "D'où la boucle tire les annonces. Greenhouse / Lever / Ashby et une douzaine d'autres flux ATS et d'emplois à distance sont pris en charge. Enregistrez-en une avec le formulaire ci-dessous — la section annonces récupère alors depuis vos sources automatiquement (ou à la demande). Claude peut toujours piloter la même chose via MCP.",
     "emptyKicker": "aucune source enregistrée",
     "emptyTitle": "Connectez un tableau d'emploi ou un flux RSS.",
     "emptyHint": "Enregistrez-en une avec le formulaire ci-dessous — choisissez un type de source, donnez-lui un libellé et une configuration.",

@@ -1,6 +1,6 @@
 {
   "sources": {
-    "intro": "Wo der Loop Einträge anzieht. Greenhouse / Lever / Wellfound sind erste Klasse; RSS und HTML Scraper werden auch unterstützt. Nichts wird nach einem Zeitplan gezogen — eine Quelle wird gelesen, wenn Sie Claude fragen <mono>jobs.fetch_new</mono> auszuführen, und was zurückkommt landet in Listings für einen Tag. Registrieren Sie Quellen über MCP <mono>jobs.register_source</mono>.",
+    "intro": "Wo der Loop Einträge herzieht. Greenhouse / Lever / Ashby und ein Dutzend weitere ATS- und Remote-Job-Feeds werden unterstützt. Registrieren Sie eine mit dem Formular unten — der Listings-Bereich holt dann automatisch (oder auf Abruf) von Ihren Quellen. Claude kann dasselbe weiterhin über MCP steuern.",
     "emptyKicker": "keine quellen registriert",
     "emptyTitle": "Verbinden Sie ein Job-Board oder RSS-Feed.",
     "emptyHint": "Registrieren Sie eine mit dem Formular unten — wählen Sie eine Quellenart, geben Sie ihr ein Label und eine Konfiguration.",

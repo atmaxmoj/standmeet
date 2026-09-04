@@ -1,6 +1,6 @@
 {
   "sources": {
-    "intro": "De donde el bucle extrae anuncios. Greenhouse / Lever / Wellfound son de primera clase; también se admiten scrapers RSS y HTML. Nada se extrae en horario — una fuente se lee cuando le pide a Claude que ejecute <mono>jobs.fetch_new</mono>, y lo que regresa aterriza en listados durante un día. Registre fuentes a través de MCP <mono>jobs.register_source</mono>.",
+    "intro": "De dónde el bucle extrae anuncios. Se admiten Greenhouse / Lever / Ashby y una docena más de feeds ATS y de empleo remoto. Registra una con el formulario de abajo — la sección de listados obtiene entonces de tus fuentes automáticamente (o a demanda). Claude puede seguir haciendo lo mismo por MCP.",
     "emptyKicker": "sin fuentes registradas",
     "emptyTitle": "Conecte una junta de empleos o feed RSS.",
     "emptyHint": "Registra una con el formulario de abajo — elige un tipo de fuente, dale una etiqueta y configuración.",

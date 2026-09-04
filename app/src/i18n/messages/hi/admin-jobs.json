@@ -1,6 +1,6 @@
 {
   "sources": {
-    "intro": "Where the loop pulls listings from. Greenhouse / Lever / Wellfound are first-class; RSS and HTML scrapers are also supported. Nothing is pulled on a schedule — a source is read when you ask Claude to run <mono>jobs.fetch_new</mono>, and what comes back lands in listings for a day. Register sources via MCP <mono>jobs.register_source</mono>.",
+    "intro": "लूप यहाँ से लिस्टिंग खींचता है। Greenhouse / Lever / Ashby और एक दर्जन से अधिक ATS व रिमोट-जॉब फ़ीड समर्थित हैं। नीचे दिए फ़ॉर्म से एक रजिस्टर करें — फिर listings सेक्शन आपकी सोर्स से अपने-आप (या माँग पर) फ़ेच करता है। Claude वही काम MCP से भी कर सकता है।",
     "emptyKicker": "no sources registered",
     "emptyTitle": "Connect a job board or RSS feed.",
     "emptyHint": "नीचे दिए फ़ॉर्म से एक रजिस्टर करें — स्रोत का प्रकार चुनें, उसे लेबल और कॉन्फ़िग दें।",
