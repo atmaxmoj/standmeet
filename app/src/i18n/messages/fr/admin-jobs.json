@@ -36,6 +36,8 @@
     "viewPdf": "voir le pdf"
   },
   "applications": {
+    "searchPlaceholder": "rechercher par entreprise ou poste…",
+    "noMatches": "aucune candidature ne correspond à « {query} »",
     "intro": "Chaque candidature engagée — instantané de CV gelé + CodeAccès auto-émis. Les recruteurs scannent le QR sur le PDF et atterrissent directement dans votre chat. Cliquez sur une carte pour examiner la chronologie + le statut + les notes privées.",
     "loading": "chargement…",
     "emptyTitle": "Aucune candidature envoyée pour l'instant.",

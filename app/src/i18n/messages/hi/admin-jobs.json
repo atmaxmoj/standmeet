@@ -36,6 +36,8 @@
     "viewPdf": "view pdf"
   },
   "applications": {
+    "searchPlaceholder": "कंपनी या भूमिका से खोजें…",
+    "noMatches": "“{query}” से कोई आवेदन मेल नहीं खाता",
     "intro": "Every committed application — frozen resume snapshot + auto-issued AccessCode. Recruiters scan the QR on the PDF and land directly in your chat. Click a card to review timeline + status + private notes.",
     "loading": "loading…",
     "emptyTitle": "No applications sent yet.",

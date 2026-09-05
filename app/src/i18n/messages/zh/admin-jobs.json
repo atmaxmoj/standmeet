@@ -36,6 +36,8 @@
     "viewPdf": "查看 pdf"
   },
   "applications": {
+    "searchPlaceholder": "按公司或职位搜索…",
+    "noMatches": "没有匹配“{query}”的申请",
     "intro": "每一份已提交的申请——冻结的简历快照 + 自动签发的访问码。招聘方扫描 PDF 上的二维码，直接进入你的聊天。点击卡片查看时间线 + 状态 + 私密备注。",
     "loading": "加载中…",
     "emptyTitle": "还没有发出申请。",

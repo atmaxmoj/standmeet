@@ -36,6 +36,8 @@
     "viewPdf": "view pdf"
   },
   "applications": {
+    "searchPlaceholder": "회사 또는 직무로 검색…",
+    "noMatches": "“{query}”와 일치하는 지원이 없습니다",
     "intro": "Every committed application — frozen resume snapshot + auto-issued AccessCode. Recruiters scan the QR on the PDF and land directly in your chat. Click a card to review timeline + status + private notes.",
     "loading": "loading…",
     "emptyTitle": "No applications sent yet.",

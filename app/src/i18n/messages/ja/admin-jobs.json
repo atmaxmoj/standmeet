@@ -36,6 +36,8 @@
     "viewPdf": "view pdf"
   },
   "applications": {
+    "searchPlaceholder": "会社名や職種で検索…",
+    "noMatches": "「{query}」に一致する応募はありません",
     "intro": "Every committed application — frozen resume snapshot + auto-issued AccessCode. Recruiters scan the QR on the PDF and land directly in your chat. Click a card to review timeline + status + private notes.",
     "loading": "loading…",
     "emptyTitle": "No applications sent yet.",

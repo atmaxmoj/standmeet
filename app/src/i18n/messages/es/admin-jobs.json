@@ -36,6 +36,8 @@
     "viewPdf": "ver pdf"
   },
   "applications": {
+    "searchPlaceholder": "buscar por empresa o puesto…",
+    "noMatches": "ninguna candidatura coincide con «{query}»",
     "intro": "Cada solicitud comprometida — instantánea de currículum congelada + AccessCode emitido automáticamente. Los reclutadores escanean el código QR en el PDF y aterrizan directamente en su chat. Haga clic en una tarjeta para revisar cronología + estado + notas privadas.",
     "loading": "cargando…",
     "emptyTitle": "Sin solicitudes enviadas aún.",

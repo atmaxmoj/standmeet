@@ -36,6 +36,8 @@
     "viewPdf": "pdf anzeigen"
   },
   "applications": {
+    "searchPlaceholder": "nach Firma oder Rolle suchen…",
+    "noMatches": "keine Bewerbungen passen zu „{query}“",
     "intro": "Jede begangene Anwendung — eingefrorener Lebenslauf-Snapshot + automatisch ausgefallener AccessCode. Recruiters scannen den QR auf dem PDF und landen direkt in Ihrem Chat. Klicken Sie auf eine Karte um Zeitstrahl + Status + private Notizen zu überprüfen.",
     "loading": "lädt…",
     "emptyTitle": "Noch keine Anwendungen gesendet.",

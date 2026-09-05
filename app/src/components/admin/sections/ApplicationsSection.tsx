@@ -27,6 +27,8 @@ import {
 export function ApplicationsSection() {
   const { rows, loading, error } = useAdminApplications();
   const [opened, setOpened] = useState<Application | null>(null);
+  const [query, setQuery] = useState('');
+  const shown = filterApplications(rows, query);
   return (
     <>
       <SectionHeader
@@ -35,12 +37,42 @@ export function ApplicationsSection() {
         count={titleCount(rows.length, loading)}
       />
       <Intro />
-      <ListBody rows={rows} loading={loading} error={error} onOpen={setOpened} />
+      <SearchField value={query} onChange={setQuery} show={rows.length > 0} />
+      <ListBody
+        rows={shown} total={rows.length} query={query}
+        loading={loading} error={error} onOpen={setOpened}
+      />
       {opened && (
         <ApplicationDetailModal app={opened} onClose={() => setOpened(null)} />
       )}
     </>
   );
+}
+
+// filterApplications —— case-insensitive match over company / role / status: the recruiter calls
+// about a job, and the owner types the company or the role to find that application fast.
+function filterApplications(
+  rows: readonly AdminApplicationRow[], query: string,
+): readonly AdminApplicationRow[] {
+  const q = query.trim().toLowerCase();
+  return q === ''
+    ? rows
+    : rows.filter((r) => `${r.company} ${r.role} ${r.status}`.toLowerCase().includes(q));
+}
+
+// SearchField —— shown only once there are applications to search. Uses the one shared text input.
+function SearchField(
+  { value, onChange, show }: { value: string; onChange: (v: string) => void; show: boolean },
+) {
+  const t = useTranslations('adminJobs');
+  return show ? (
+    <input
+      type="search" value={value} data-testid="applications-search"
+      placeholder={t('applications.searchPlaceholder')}
+      onChange={(e) => onChange(e.target.value)}
+      className="sm-field-input sm-mono mb-5 max-w-[24em]"
+    />
+  ) : null;
 }
 
 // titleCount —— counts application rows, not "sent" applications: no code today
@@ -60,18 +92,42 @@ function Intro() {
 
 function ListBody(props: {
   rows: readonly AdminApplicationRow[];
+  total: number;
+  query: string;
   loading: boolean;
   error: string | null;
   onOpen: (a: Application) => void;
 }) {
-  const kind = listViewKind(props.loading, props.error, props.rows.length);
+  // A search that matches nothing is not the same as "no applications yet": when the owner has
+  // rows but the query filters them all out, say "no matches", not the create-your-first prompt.
+  const kind = noSearchMatch(props.query, props.rows.length, props.total)
+    ? 'nomatch'
+    : listViewKind(props.loading, props.error, props.rows.length);
   const map = {
     loading: <Loading />,
     error: <LoadError msg={props.error ?? ''} />,
     empty: <EmptyState />,
+    nomatch: <NoMatches query={props.query} />,
     list: <List rows={props.rows} onOpen={props.onOpen} />,
   } as const;
   return map[kind];
+}
+
+// noSearchMatch —— a non-empty query filtered every row out (but rows exist): show "no matches".
+function noSearchMatch(query: string, shown: number, total: number): boolean {
+  return query.trim() !== '' && shown === 0 && total > 0;
+}
+
+function NoMatches({ query }: { query: string }) {
+  const t = useTranslations('adminJobs');
+  return (
+    <p
+      data-testid="applications-no-matches"
+      className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted)"
+    >
+      {t('applications.noMatches', { query })}
+    </p>
+  );
 }
 
 function Loading() {
