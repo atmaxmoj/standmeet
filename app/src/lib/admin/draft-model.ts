@@ -141,6 +141,20 @@ export function patchCustom(
   };
 }
 
+// reorder —— move the row `fromId` to sit just before the row `toId`, immutably. Used by the
+// composer's drag-to-reorder (experience / education / social / custom): dropping a row's handle
+// onto another row calls this. Same/unknown ids → the list is returned unchanged (a no-op drop).
+// The committed PDF renders sections in this array order, so reordering here reorders the résumé.
+export function reorder<T extends { id: string }>(
+  list: readonly T[], fromId: string, toId: string,
+): readonly T[] {
+  const moved = list.find((x) => x.id === fromId);
+  if (moved === undefined || fromId === toId) return list;
+  const rest = list.filter((x) => x.id !== fromId);
+  const to = rest.findIndex((x) => x.id === toId);
+  return to < 0 ? list : [...rest.slice(0, to), moved, ...rest.slice(to)];
+}
+
 // draftToResumeContent —— adapter from the composer's edit-friendly
 // DraftModel to the print-side ResumeContent shape ResumePage consumes.
 // Splits the flat skill list into one anonymous category (ResumePage's

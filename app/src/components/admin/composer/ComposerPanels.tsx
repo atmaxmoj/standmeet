@@ -12,16 +12,20 @@
 'use client';
 
 import {
-  AddBtn, EmptyHint, Field, RowHeader, SOCIAL_KINDS, Section,
+  AddBtn, EmptyHint, Field, Section,
   blankCustom, blankEducation, blankExperience, blankSocial,
 } from '@/components/admin/composer/ComposerAtoms';
-import { SelectField } from '@/components/atoms/SelectField';
-import type {
-  DraftCustom,
-  DraftEducation,
-  DraftExperience,
-  DraftModel,
-  DraftSocial,
+import {
+  CustomItem, EducationItem, ExperienceItem, SocialItem,
+} from '@/components/admin/composer/ComposerItems';
+import { ReorderableRows } from '@/components/admin/composer/ReorderableRows';
+import {
+  reorder,
+  type DraftCustom,
+  type DraftEducation,
+  type DraftExperience,
+  type DraftModel,
+  type DraftSocial,
 } from '@/lib/admin/draft-model';
 
 type Patch = (p: Partial<DraftModel>) => void;
@@ -147,10 +151,13 @@ function parseSkills(raw: string): string[] {
 
 function ExperiencePanel({ model, onPatch, onPatchExp }: Props) {
   return (
-    <Section title="experience" hint="most recent first · bullets one per line">
-      {model.experience.map((e) => (
-        <ExperienceItem key={e.id} exp={e} onPatch={onPatchExp} />
-      ))}
+    <Section title="experience" hint="most recent first · drag ⠿ to reorder · bullets one per line">
+      <ReorderableRows
+        items={model.experience}
+        testidPrefix="composer-exp"
+        onReorder={(f, t) => onPatch({ experience: reorder(model.experience, f, t) })}
+        renderItem={(e) => <ExperienceItem exp={e} onPatch={onPatchExp} />}
+      />
       <EmptyHint
         show={model.experience.length === 0}
         what="roles"
@@ -167,58 +174,15 @@ function ExperiencePanel({ model, onPatch, onPatchExp }: Props) {
   );
 }
 
-function ExperienceItem({
-  exp, onPatch,
-}: { exp: DraftExperience; onPatch: PatchExp }) {
-  return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="org">
-          <input
-            type="text" value={exp.org}
-            onChange={(e) => onPatch(exp.id, { org: e.target.value })}
-            className="sm-field-input"
-          />
-        </Field>
-        <Field label="role">
-          <input
-            type="text" value={exp.role}
-            onChange={(e) => onPatch(exp.id, { role: e.target.value })}
-            className="sm-field-input"
-          />
-        </Field>
-        <Field label="range">
-          <input
-            type="text" value={exp.range}
-            onChange={(e) => onPatch(exp.id, { range: e.target.value })}
-            className="sm-field-input sm-mono"
-          />
-        </Field>
-        <Field label="location">
-          <input
-            type="text" value={exp.loc}
-            onChange={(e) => onPatch(exp.id, { loc: e.target.value })}
-            className="sm-field-input"
-          />
-        </Field>
-      </div>
-      <Field label="bullets" hint="one per line · concrete numbers > prose">
-        <textarea
-          value={exp.bullets.join('\n')} rows={4}
-          onChange={(e) => onPatch(exp.id, { bullets: e.target.value.split('\n') })}
-          className="w-full sm-field-input sm-reading resize-y"
-        />
-      </Field>
-    </div>
-  );
-}
-
 function EducationPanel({ model, onPatch, onPatchEdu }: Props) {
   return (
-    <Section title="education" hint="institution · degree · range">
-      {model.education.map((e) => (
-        <EducationItem key={e.id} edu={e} onPatch={onPatchEdu} />
-      ))}
+    <Section title="education" hint="institution · degree · range · drag ⠿ to reorder">
+      <ReorderableRows
+        items={model.education}
+        testidPrefix="composer-edu"
+        onReorder={(f, t) => onPatch({ education: reorder(model.education, f, t) })}
+        renderItem={(e) => <EducationItem edu={e} onPatch={onPatchEdu} />}
+      />
       <EmptyHint
         show={model.education.length === 0}
         what="schools"
@@ -235,45 +199,20 @@ function EducationPanel({ model, onPatch, onPatchEdu }: Props) {
   );
 }
 
-function EducationItem({
-  edu, onPatch,
-}: { edu: DraftEducation; onPatch: PatchEdu }) {
-  return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 grid grid-cols-2 gap-3">
-      <Field label="school">
-        <input
-          type="text" value={edu.school}
-          onChange={(e) => onPatch(edu.id, { school: e.target.value })}
-          className="sm-field-input"
-        />
-      </Field>
-      <Field label="degree">
-        <input
-          type="text" value={edu.degree}
-          onChange={(e) => onPatch(edu.id, { degree: e.target.value })}
-          className="sm-field-input"
-        />
-      </Field>
-      <Field label="range">
-        <input
-          type="text" value={edu.range}
-          onChange={(e) => onPatch(edu.id, { range: e.target.value })}
-          className="sm-field-input sm-mono col-span-2"
-        />
-      </Field>
-    </div>
-  );
-}
-
 function SocialPanel({ model, onPatch, onPatchSoc }: Props) {
   return (
-    <Section title="social" hint="public profiles the recruiter can verify; top one shows first">
-      {model.social.map((s) => (
-        <SocialItem
-          key={s.id} soc={s} onPatch={onPatchSoc}
-          onRemove={() => onPatch({ social: model.social.filter((x) => x.id !== s.id) })}
-        />
-      ))}
+    <Section title="social" hint="public profiles the recruiter can verify; drag ⠿ — top one shows first">
+      <ReorderableRows
+        items={model.social}
+        testidPrefix="composer-social"
+        onReorder={(f, t) => onPatch({ social: reorder(model.social, f, t) })}
+        renderItem={(s) => (
+          <SocialItem
+            soc={s} onPatch={onPatchSoc}
+            onRemove={() => onPatch({ social: model.social.filter((x) => x.id !== s.id) })}
+          />
+        )}
+      />
       <EmptyHint show={model.social.length === 0} what="profiles" testid="composer-social-empty" />
       <AddBtn
         label="+ add a profile"
@@ -284,47 +223,23 @@ function SocialPanel({ model, onPatch, onPatchSoc }: Props) {
   );
 }
 
-function SocialItem({
-  soc, onPatch, onRemove,
-}: { soc: DraftSocial; onPatch: PatchSoc; onRemove: () => void }) {
-  return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4">
-      <RowHeader testid={`composer-social-remove-${soc.id}`} onRemove={onRemove} />
-      <div className="grid grid-cols-[120px_1fr] gap-3">
-        <Field label="kind">
-          <SelectField
-            value={soc.kind}
-            onChange={(e) => onPatch(soc.id, { kind: e.target.value })}
-            mono
-          >
-            {SOCIAL_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-          </SelectField>
-        </Field>
-        <Field label="handle" hint="url or @handle">
-          <input
-            type="text" value={soc.handle}
-            onChange={(e) => onPatch(soc.id, { handle: e.target.value })}
-            className="sm-field-input sm-mono"
-            data-testid={`composer-social-handle-${soc.id}`}
-          />
-        </Field>
-      </div>
-    </div>
-  );
-}
-
 // CustomPanel —— the owner's own named sections. Each row's `label` is a section title they choose
 // (languages, certifications, speaking, …) and `value` its content — this is how you add a section
 // the standard panels don't cover.
 function CustomPanel({ model, onPatch, onPatchCus }: Props) {
   return (
-    <Section title="custom" hint="your own named sections — the label is the section title">
-      {model.custom.map((c) => (
-        <CustomItem
-          key={c.id} cus={c} onPatch={onPatchCus}
-          onRemove={() => onPatch({ custom: model.custom.filter((x) => x.id !== c.id) })}
-        />
-      ))}
+    <Section title="custom" hint="your own named sections — the label is the section title · drag ⠿ to reorder">
+      <ReorderableRows
+        items={model.custom}
+        testidPrefix="composer-custom"
+        onReorder={(f, t) => onPatch({ custom: reorder(model.custom, f, t) })}
+        renderItem={(c) => (
+          <CustomItem
+            cus={c} onPatch={onPatchCus}
+            onRemove={() => onPatch({ custom: model.custom.filter((x) => x.id !== c.id) })}
+          />
+        )}
+      />
       <EmptyHint show={model.custom.length === 0} what="sections" testid="composer-custom-empty" />
       <AddBtn
         label="+ add a section"
@@ -332,35 +247,6 @@ function CustomPanel({ model, onPatch, onPatchCus }: Props) {
         onClick={() => onPatch({ custom: [...model.custom, blankCustom(model.custom.length)] })}
       />
     </Section>
-  );
-}
-
-function CustomItem({
-  cus, onPatch, onRemove,
-}: { cus: DraftCustom; onPatch: PatchCus; onRemove: () => void }) {
-  return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4">
-      <RowHeader testid={`composer-custom-remove-${cus.id}`} onRemove={onRemove} />
-      <div className="grid grid-cols-[150px_1fr] gap-3">
-        <Field label="section title">
-          <input
-            type="text" value={cus.label}
-            onChange={(e) => onPatch(cus.id, { label: e.target.value })}
-            className="sm-field-input"
-            placeholder="languages"
-            data-testid={`composer-custom-title-${cus.id}`}
-          />
-        </Field>
-        <Field label="content">
-          <input
-            type="text" value={cus.value}
-            onChange={(e) => onPatch(cus.id, { value: e.target.value })}
-            className="sm-field-input"
-            placeholder="English · Mandarin"
-          />
-        </Field>
-      </div>
-    </div>
   );
 }
 
