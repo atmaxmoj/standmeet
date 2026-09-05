@@ -147,6 +147,32 @@ func UpdateResumeDraft(
 	return DraftedResume{Draft: draft}, nil
 }
 
+// SaveDraftInput — the admin composer's save payload (bundled to stay under the argument limit).
+type SaveDraftInput struct {
+	Content  *jobsmodel.ResumeContent
+	OwnerID  string
+	DraftID  string
+	Template string
+}
+
+// SaveResumeDraft — the admin composer's save: persist edited content + the chosen Typst template
+// together. Distinct from UpdateResumeDraft (MCP, content-only) because the panel is the only
+// surface that picks a template.
+func SaveResumeDraft(
+	ctx context.Context, deps ResumeDeps, in SaveDraftInput,
+) (DraftedResume, error) {
+	if err := requireFields(in.OwnerID, in.DraftID, in.Content); err != nil {
+		return DraftedResume{}, err
+	}
+	draft, err := deps.Drafts.UpdateContentAndTemplate(
+		ctx, in.OwnerID, in.DraftID, in.Content, in.Template,
+	)
+	if err != nil {
+		return DraftedResume{}, fmt.Errorf("save draft: %w", err)
+	}
+	return DraftedResume{Draft: draft}, nil
+}
+
 func requireFields(s1, s2 string, content *jobsmodel.ResumeContent) error {
 	if s1 == "" || s2 == "" || content == nil {
 		return apierr.ErrEmptyField

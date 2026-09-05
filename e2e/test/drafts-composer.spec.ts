@@ -38,10 +38,10 @@ test.describe('admin /drafts composer', () => {
 
       const composer = adminPage.getByTestId('resume-composer');
       await expect(composer).toBeVisible({ timeout: 5_000 });
-      // Real seeded resume (sampleResumeContent), not the old mockDraft placeholder.
-      // Name renders lowercased via CSS text-transform — match case-insensitively.
-      await expect(composer).toContainText(/alice anderson/i);
-      await expect(composer).toContainText('71%');
+      // Real seeded resume (sampleResumeContent), not the old mockDraft placeholder. The header
+      // panel's name field carries it (the preview is now a server-rendered iframe, so the content
+      // lives in the form inputs, not the DOM text). The `match /100` gauge was removed.
+      await expect(adminPage.getByTestId('composer-name')).toHaveValue(/alice anderson/i);
       await expect(composer).not.toContainText('Lucerna');
     });
 });

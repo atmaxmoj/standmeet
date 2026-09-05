@@ -236,6 +236,9 @@ func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 		DraftsRepo:   d.ResumeDraftRepo,
 		AppsRepo:     d.ApplicationRepo,
 		SourcesRepo:  d.JobSourceRepo,
+		// Templates — the Typst layouts the composer's picker offers; the composition root is the
+		// only layer allowed to know the resumepdf package.
+		Templates: resumepdf.Templates(),
 		// The two builtins this plugin itself seeds (hiring prompt + role) go
 		// through OwnerSeeder.
 		Seed: jobsuc.SeedDeps{

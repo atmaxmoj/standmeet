@@ -162,3 +162,40 @@ func (q *Queries) UpdateResumeDraftContent(ctx context.Context, arg UpdateResume
 	)
 	return i, err
 }
+
+const updateResumeDraftFull = `-- name: UpdateResumeDraftFull :one
+UPDATE resume_drafts
+SET resume_content = $3, template = $4
+WHERE id = $1 AND owner_id = $2 AND expires_at > now()
+RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at
+`
+
+type UpdateResumeDraftFullParams struct {
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	ResumeContent []byte
+	Template      string
+}
+
+// The admin composer's save: content + the chosen Typst template together, so a template
+// pick and an edit persist in one write (the MCP path uses UpdateResumeDraftContent, content-only).
+func (q *Queries) UpdateResumeDraftFull(ctx context.Context, arg UpdateResumeDraftFullParams) (ResumeDraft, error) {
+	row := q.db.QueryRow(ctx, updateResumeDraftFull,
+		arg.ID,
+		arg.OwnerID,
+		arg.ResumeContent,
+		arg.Template,
+	)
+	var i ResumeDraft
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.JobCacheID,
+		&i.JobSnapshot,
+		&i.ResumeContent,
+		&i.Template,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}

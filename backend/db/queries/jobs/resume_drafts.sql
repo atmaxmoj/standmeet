@@ -14,6 +14,14 @@ SET resume_content = $3
 WHERE id = $1 AND owner_id = $2 AND expires_at > now()
 RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at;
 
+-- name: UpdateResumeDraftFull :one
+-- The admin composer's save: content + the chosen Typst template together, so a template
+-- pick and an edit persist in one write (the MCP path uses UpdateResumeDraftContent, content-only).
+UPDATE resume_drafts
+SET resume_content = $3, template = $4
+WHERE id = $1 AND owner_id = $2 AND expires_at > now()
+RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at;
+
 -- name: DeleteResumeDraft :exec
 DELETE FROM resume_drafts WHERE id = $1 AND owner_id = $2;
 

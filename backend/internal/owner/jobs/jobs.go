@@ -46,9 +46,11 @@ type Deps struct {
 	Log          *slog.Logger
 	// Seed — the repositories needed to seed the builtins (hiring prompt + role, plus the default
 	// job aggregators) this plugin owns. It belongs to the plugin, not the kernel's roles_seed:
-	// `hiring` is a job-loop concept, not a kernel-level access tier (see jobsuc/seed.go). Kept
-	// last: it ends in a bool, so its trailing padding sits at the struct's tail (fieldalignment).
+	// `hiring` is a job-loop concept, not a kernel-level access tier (see jobsuc/seed.go).
 	Seed jobsuc.SeedDeps
+	// Templates — Typst layout names the composer's picker offers. Threaded from the composition
+	// root (resumepdf.Templates()); the plugin can't import resumepdf under the arch rules.
+	Templates []string
 }
 
 // Plugin — entry point for the jobs outbound plugin. Since J.5 it holds a
@@ -121,7 +123,8 @@ func (p *Plugin) MountAdminRoutes(r chi.Router) {
 		// Commit — the panel's SEND button calls the **same** usecase, sharing
 		// this deps with the applications.commit path (F-E-9). Assembling a
 		// separate copy for admin would be a second source of truth.
-		Commit: p.deps.Applications,
+		Commit:    p.deps.Applications,
+		Templates: p.deps.Templates,
 	})
 }
 

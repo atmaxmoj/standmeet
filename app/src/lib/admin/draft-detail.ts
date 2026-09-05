@@ -39,6 +39,7 @@ export const ResumeContentSchema = z.object({
 
 const DraftDetailSchema = z.object({
   id: z.string(), company: z.string(), role: z.string(),
+  template: z.string().optional().default(''),
   resume_content: ResumeContentSchema,
 });
 export type DraftDetail = z.infer<typeof DraftDetailSchema>;
@@ -71,7 +72,11 @@ async function load(id: string, setState: (s: DetailState) => void): Promise<voi
   }
 }
 
-export function toDraftModel(d: DraftDetail): DraftModel {
+// toDraftModel accepts template optionally: the detail fetch always carries it, but the list /
+// application thumbnails build this shape without a template (their thumbnail render ignores it).
+export function toDraftModel(
+  d: Omit<DraftDetail, 'template'> & { template?: string },
+): DraftModel {
   const rc = d.resume_content;
   return {
     id: d.id, company: d.company, role: d.role,
@@ -91,6 +96,7 @@ export function toDraftModel(d: DraftDetail): DraftModel {
     social: rc.social.map((s, i) => ({ id: `s-${i}`, kind: s.kind, handle: s.handle })),
     custom: rc.custom.map((c, i) => ({ id: `c-${i}`, label: c.label, value: c.value })),
     coverLetter: rc.cover_letter,
+    template: d.template ?? '',
   };
 }
 

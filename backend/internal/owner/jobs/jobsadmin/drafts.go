@@ -40,6 +40,7 @@ type draftView struct {
 	Company       string                  `json:"company"`
 	Role          string                  `json:"role"`
 	ForJob        string                  `json:"for_job"`
+	Template      string                  `json:"template"`
 	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
 }
 
@@ -106,7 +107,8 @@ func writeCreatedDraft(
 	view := draftView{
 		ID: draft.ID, Company: draft.JobSnapshot.Company,
 		Role: draft.JobSnapshot.Title, ForJob: draft.JobCacheID,
-		UpdatedAt: draft.CreatedAt, ResumeContent: draft.ResumeContent,
+		UpdatedAt: draft.CreatedAt, Template: draft.Template,
+		ResumeContent: draft.ResumeContent,
 	}
 	w.Header().Set(ctHeader, ctJSON)
 	w.WriteHeader(http.StatusCreated)
@@ -121,7 +123,17 @@ type draftDetailView struct {
 	ID            string                  `json:"id"`
 	Company       string                  `json:"company"`
 	Role          string                  `json:"role"`
+	Template      string                  `json:"template"`
 	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
+}
+
+// newDraftDetailView — the shape the composer loads (and the PATCH save echoes back).
+func newDraftDetailView(draft *jobsmodel.ResumeDraft) draftDetailView {
+	return draftDetailView{
+		ID: draft.ID, Company: draft.JobSnapshot.Company,
+		Role: draft.JobSnapshot.Title, Template: draft.Template,
+		ResumeContent: draft.ResumeContent,
+	}
 }
 
 func getDraft(deps Deps) http.HandlerFunc {
@@ -132,13 +144,9 @@ func getDraft(deps Deps) http.HandlerFunc {
 			handleDraftDetailErr(deps.Log, w, err)
 			return
 		}
-		view := draftDetailView{
-			ID: draft.ID, Company: draft.JobSnapshot.Company,
-			Role: draft.JobSnapshot.Title, ResumeContent: draft.ResumeContent,
-		}
 		w.Header().Set(ctHeader, ctJSON)
 		w.WriteHeader(http.StatusOK)
-		if eerr := json.NewEncoder(w).Encode(view); eerr != nil {
+		if eerr := json.NewEncoder(w).Encode(newDraftDetailView(&draft)); eerr != nil {
 			deps.Log.Error("encode draft detail", logErrKey, eerr)
 		}
 	}
@@ -166,6 +174,7 @@ func writeDraftsList(
 			Role:          drafts[i].JobSnapshot.Title,
 			ForJob:        drafts[i].JobCacheID,
 			UpdatedAt:     drafts[i].CreatedAt,
+			Template:      drafts[i].Template,
 			ResumeContent: drafts[i].ResumeContent,
 		})
 	}

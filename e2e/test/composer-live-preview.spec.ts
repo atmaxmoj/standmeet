@@ -1,15 +1,15 @@
-// composer-live-preview.spec.ts —— end-to-end UI proof for the
-// post-2026-05-28 ResumeComposer + DraftThumb + new <ResumePage>
-// component (task 14 + 15).
+// composer-live-preview.spec.ts —— UI proof for the drafts card thumbnail (<ResumePage>) + the
+// composer's panel set + the empty-section flows.
 //
-// We seed a draft via MCP (resume.draft), open /admin/drafts, then:
-//   1. assert the DraftThumb renders the canonical <ResumePage>
-//      (data-testid="resume-page") inside the card
-//   2. open the composer, assert the preview pane stacks 2 ResumePage
-//      instances when cover_letter is non-empty
-//   3. assert the new 'social' + 'custom' panels are reachable (8 panels)
-//   4. typing into composer-name updates the live preview (proves the
-//      DraftModel → ResumeContent adapter is wired both ways)
+// The DraftThumb (the card image) still renders the canonical <ResumePage> mock. The composer's own
+// preview is now the REAL Typst render in an <iframe> (docs/design/resume-customization.md), not an
+// inline ResumePage — so the old "stacks 2 pages" / "typing updates the mock" assertions were
+// replaced (the real preview + its persistence live in draft-composer-ui.spec.ts).
+//
+// We seed a draft via MCP (resume.draft), open /admin/drafts, then assert: the thumb renders
+// ResumePage; the composer shows its preview iframe + all 8 panels; and the empty-section flows
+// (each card draws its own draft; an empty section prints no heading; an empty history panel
+// explains whose job it is and can actually be filled).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -44,21 +44,18 @@ test.describe('admin /drafts · composer live preview wires ResumePage', () => {
         .getByTestId('resume-page')).toBeVisible();
     });
 
-  test('composer preview stacks 2 ResumePage instances when cover letter is present',
+  // The composer's inline <ResumePage> mock preview was replaced by the REAL Typst render served
+  // in an <iframe> (docs/design/resume-customization.md) — so the composer no longer stacks
+  // ResumePage instances, and "typing updates the mock live" is gone. The real preview + its
+  // persistence are covered in draft-composer-ui.spec.ts. The thumbnail on the card still uses
+  // ResumePage (tested above). What remains valid here is the panel set + the empty-section flows.
+  test('composer shows the real Typst preview iframe and all 8 panels',
     async ({ adminPage }) => {
       await openDrafts(adminPage);
       await adminPage.getByText('open composer →').first().click();
       const composer = adminPage.getByTestId('resume-composer');
       await expect(composer).toBeVisible();
-      // The seeded draft (sampleResumeContent) ships a cover letter, so the
-      // composer opens with 2 pages. Clearing the cover drops it to 1; refilling
-      // brings page 2 back — proves the conditional page-2 wiring both ways.
-      await expect(composer.getByTestId('resume-page')).toHaveCount(2);
-      await composer.getByRole('button', { name: 'cover letter', exact: true }).click();
-      await composer.getByTestId('composer-cover').fill('');
-      await expect(composer.getByTestId('resume-page')).toHaveCount(1);
-      await composer.getByTestId('composer-cover').fill('Dear team — this is the cover.');
-      await expect(composer.getByTestId('resume-page')).toHaveCount(2);
+      await expect(composer.getByTestId('composer-preview-frame')).toBeVisible();
     });
 
   test('composer has 8 panels including social + custom',
@@ -71,19 +68,6 @@ test.describe('admin /drafts · composer live preview wires ResumePage', () => {
         await expect(composer.getByRole('button', { name: label, exact: true }))
           .toBeVisible();
       }
-    });
-
-  test('typing in composer-name updates the live preview',
-    async ({ adminPage }) => {
-      await openDrafts(adminPage);
-      await adminPage.getByText('open composer →').first().click();
-      const composer = adminPage.getByTestId('resume-composer');
-      await composer.getByTestId('composer-name').fill('Jordan Lee');
-      // ResumePage lowercases the name; the preview (scoped inside the composer)
-      // should reflect it. Scoped to the composer because the card underneath
-      // renders the SAVED draft — typing here has not been saved yet.
-      await expect(composer.getByTestId('resume-page').first()
-        .getByText('jordan lee')).toBeVisible({ timeout: 2_000 });
     });
 
   // The thumbnail on a card must render **this specific draft** (F-E-20). It used to render a
@@ -146,14 +130,15 @@ test.describe('履历空了之后谁来补', () => {
       await expect(hint).toContainText('yours to write');
       await expect(hint, '还要说清留空的后果').toContainText('left out of the document');
 
-      // Add an entry, fill it in, and it must show up in the preview — "saying so" isn't
-      // enough, it has to **actually work**.
+      // Add an entry and fill it in — "saying so" isn't enough, the add has to **actually work**.
+      // (The rendered result is the real Typst preview now; here we assert the row was created and
+      // holds what was typed. The persist-through-reopen path is covered in draft-composer-ui.)
       await composer.getByTestId('composer-exp-add').click();
       await composer.getByLabel('org').first().fill('Lucerna');
       await expect(
-        composer.getByTestId('resume-page').first(),
-        '刚加的那条要出现在预览里',
-      ).toContainText('Lucerna', { timeout: 3_000 });
+        composer.getByLabel('org').first(),
+        '刚加的那条真的加进去了',
+      ).toHaveValue('Lucerna');
     });
 });
 

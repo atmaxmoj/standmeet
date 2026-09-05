@@ -5,19 +5,15 @@
 //
 // Design source: docs/design/project/admin.js ResumeComposer.
 //
-// experience / education entries **can be added but not deleted** (deletion is
-// waiting on an inline ✕). The comment here used to say "push-only", but in
-// practice there wasn't even push: when these sections are empty the panel shows
-// nothing at all — no explanatory note, no button. And "empty" is the common case
-// for this instance: the draft step only recognizes dated entries in the corpus,
-// while the owner's history lives purely as prose, so it keeps coming back as an
-// empty array (F-E-22). "Whose job is this step" has no owner, because
-// **the product has no place to do this step**.
+// Every repeatable section (experience / education / social / custom) has an add button + an
+// EmptyHint; social / custom also have a per-row remove (RowHeader). Before, social / custom had
+// no add at all, so an empty draft's panel showed nothing to type into (F-E-22).
 
 'use client';
 
 import {
-  AddBtn, EmptyHint, Field, Section, blankEducation, blankExperience,
+  AddBtn, EmptyHint, Field, RowHeader, SOCIAL_KINDS, Section,
+  blankCustom, blankEducation, blankExperience, blankSocial,
 } from '@/components/admin/composer/ComposerAtoms';
 import { SelectField } from '@/components/atoms/SelectField';
 import type {
@@ -269,77 +265,101 @@ function EducationItem({
   );
 }
 
-function SocialPanel({ model, onPatchSoc }: Props) {
+function SocialPanel({ model, onPatch, onPatchSoc }: Props) {
   return (
     <Section title="social" hint="public profiles the recruiter can verify; top one shows first">
       {model.social.map((s) => (
-        <SocialItem key={s.id} soc={s} onPatch={onPatchSoc} />
+        <SocialItem
+          key={s.id} soc={s} onPatch={onPatchSoc}
+          onRemove={() => onPatch({ social: model.social.filter((x) => x.id !== s.id) })}
+        />
       ))}
+      <EmptyHint show={model.social.length === 0} what="profiles" testid="composer-social-empty" />
+      <AddBtn
+        label="+ add a profile"
+        testid="composer-social-add"
+        onClick={() => onPatch({ social: [...model.social, blankSocial(model.social.length)] })}
+      />
     </Section>
   );
 }
 
-const SOCIAL_KINDS = [
-  'linkedin', 'github', 'twitter', 'mastodon', 'bluesky',
-  'website', 'scholar', 'medium', 'substack', 'other',
-];
-
 function SocialItem({
-  soc, onPatch,
-}: { soc: DraftSocial; onPatch: PatchSoc }) {
+  soc, onPatch, onRemove,
+}: { soc: DraftSocial; onPatch: PatchSoc; onRemove: () => void }) {
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 grid grid-cols-[120px_1fr] gap-3">
-      <Field label="kind">
-        <SelectField
-          value={soc.kind}
-          onChange={(e) => onPatch(soc.id, { kind: e.target.value })}
-          mono
-        >
-          {SOCIAL_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-        </SelectField>
-      </Field>
-      <Field label="handle" hint="url or @handle">
-        <input
-          type="text" value={soc.handle}
-          onChange={(e) => onPatch(soc.id, { handle: e.target.value })}
-          className="sm-field-input sm-mono"
-        />
-      </Field>
+    <div className="border border-(--color-rule) rounded-[3px] p-4">
+      <RowHeader testid={`composer-social-remove-${soc.id}`} onRemove={onRemove} />
+      <div className="grid grid-cols-[120px_1fr] gap-3">
+        <Field label="kind">
+          <SelectField
+            value={soc.kind}
+            onChange={(e) => onPatch(soc.id, { kind: e.target.value })}
+            mono
+          >
+            {SOCIAL_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+          </SelectField>
+        </Field>
+        <Field label="handle" hint="url or @handle">
+          <input
+            type="text" value={soc.handle}
+            onChange={(e) => onPatch(soc.id, { handle: e.target.value })}
+            className="sm-field-input sm-mono"
+            data-testid={`composer-social-handle-${soc.id}`}
+          />
+        </Field>
+      </div>
     </div>
   );
 }
 
-function CustomPanel({ model, onPatchCus }: Props) {
+// CustomPanel —— the owner's own named sections. Each row's `label` is a section title they choose
+// (languages, certifications, speaking, …) and `value` its content — this is how you add a section
+// the standard panels don't cover.
+function CustomPanel({ model, onPatch, onPatchCus }: Props) {
   return (
-    <Section title="custom" hint="anything outside the standard fields — languages, certs, hobbies">
+    <Section title="custom" hint="your own named sections — the label is the section title">
       {model.custom.map((c) => (
-        <CustomItem key={c.id} cus={c} onPatch={onPatchCus} />
+        <CustomItem
+          key={c.id} cus={c} onPatch={onPatchCus}
+          onRemove={() => onPatch({ custom: model.custom.filter((x) => x.id !== c.id) })}
+        />
       ))}
+      <EmptyHint show={model.custom.length === 0} what="sections" testid="composer-custom-empty" />
+      <AddBtn
+        label="+ add a section"
+        testid="composer-custom-add"
+        onClick={() => onPatch({ custom: [...model.custom, blankCustom(model.custom.length)] })}
+      />
     </Section>
   );
 }
 
 function CustomItem({
-  cus, onPatch,
-}: { cus: DraftCustom; onPatch: PatchCus }) {
+  cus, onPatch, onRemove,
+}: { cus: DraftCustom; onPatch: PatchCus; onRemove: () => void }) {
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 grid grid-cols-[150px_1fr] gap-3">
-      <Field label="label">
-        <input
-          type="text" value={cus.label}
-          onChange={(e) => onPatch(cus.id, { label: e.target.value })}
-          className="sm-field-input"
-          placeholder="languages"
-        />
-      </Field>
-      <Field label="value">
-        <input
-          type="text" value={cus.value}
-          onChange={(e) => onPatch(cus.id, { value: e.target.value })}
-          className="sm-field-input"
-          placeholder="English · Mandarin"
-        />
-      </Field>
+    <div className="border border-(--color-rule) rounded-[3px] p-4">
+      <RowHeader testid={`composer-custom-remove-${cus.id}`} onRemove={onRemove} />
+      <div className="grid grid-cols-[150px_1fr] gap-3">
+        <Field label="section title">
+          <input
+            type="text" value={cus.label}
+            onChange={(e) => onPatch(cus.id, { label: e.target.value })}
+            className="sm-field-input"
+            placeholder="languages"
+            data-testid={`composer-custom-title-${cus.id}`}
+          />
+        </Field>
+        <Field label="content">
+          <input
+            type="text" value={cus.value}
+            onChange={(e) => onPatch(cus.id, { value: e.target.value })}
+            className="sm-field-input"
+            placeholder="English · Mandarin"
+          />
+        </Field>
+      </div>
     </div>
   );
 }

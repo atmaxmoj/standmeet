@@ -1,17 +1,16 @@
-// ResumeComposer —— the full-screen split editor opened via "open composer →" from
-// /admin/drafts. Left: 6-panel form. Right: PDF-shape preview (doesn't render a real PDF, only
-// reflects letter-spacing / paragraphs / smallcaps so the owner can see the layout while
-// editing).
+// ResumeComposer —— the full-screen split editor opened via "open composer →" from /admin/drafts.
+// Left: 8-panel form. Right: the REAL Typst render of the draft (PreviewPane's iframe).
 //
-// Design source: docs/design/project/admin.js ResumeComposer.
+// The composer now PERSISTS: every edit debounce-saves through PATCH /drafts/{id}
+// (useDraftAutosave), so the "saved" indicator is real and commit renders what the owner sees.
+// "send →" opens a confirm modal → onSend, and the caller commits the (now persisted) draft.
 //
-// Note: the real freeze + applications.commit for drafts happens on the MCP path (job loop
-// memory) — this is only the editing layer. "send →" opens a confirm modal -> calls the onSend
-// callback, and the caller does the MCP/REST commit.
+// The old `match X / 100` gauge is gone (it was keyword overlap dressed as a score — owner: "完全
+// 不知道怎么计算的，不要了"); the template picker lives in the preview toolbar (it changes that view).
 
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { ComposerPanel } from '@/components/admin/composer/ComposerPanels';
@@ -22,26 +21,14 @@ import {
   patchExperience,
   patchModel,
   patchSocial,
-  useMatchPct,
   type DraftCustom,
   type DraftEducation,
   type DraftExperience,
   type DraftModel,
   type DraftSocial,
 } from '@/lib/admin/draft-model';
-import { useDebouncedSavedLabel } from '@/lib/admin/use-debounced-saved-label';
-import { cssVars } from '@/lib/ui/css-vars';
-
-const PANELS = [
-  { id: 'header',     label: 'header' },
-  { id: 'summary',    label: 'summary' },
-  { id: 'skills',     label: 'skills' },
-  { id: 'experience', label: 'experience' },
-  { id: 'education',  label: 'education' },
-  { id: 'social',     label: 'social' },
-  { id: 'custom',     label: 'custom' },
-  { id: 'cover',      label: 'cover letter' },
-] as const;
+import { fetchTemplates } from '@/lib/admin/save-draft';
+import { useDraftAutosave, type SaveStatus } from '@/lib/admin/use-draft-autosave';
 
 interface Props {
   initial: DraftModel;
@@ -52,11 +39,11 @@ interface Props {
 export function ResumeComposer({ initial, onClose, onSend }: Props) {
   const [model, setModel] = useState<DraftModel>(initial);
   const [panel, setPanel] = useState<string>('header');
-  const [zoom, setZoom] = useState(0.62);
-  const [page, setPage] = useState(0);
   const [confirm, setConfirm] = useState(false);
-  const savedLabel = useDebouncedSavedLabel(model);
-  const matchPct = useMatchPct(model);
+  const [templates, setTemplates] = useState<string[]>([]);
+  const { status, version } = useDraftAutosave(model);
+
+  useEffect(() => { fetchTemplates().then(setTemplates).catch(() => setTemplates([])); }, []);
 
   const onPatch = useCallback((p: Partial<DraftModel>) => {
     setModel((m) => patchModel(m, p));
@@ -78,8 +65,7 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
     <div className="sm-composer-overlay" data-testid="resume-composer">
       <ComposerTopBar
         model={model}
-        matchPct={matchPct}
-        savedLabel={savedLabel}
+        savedLabel={savedLabelFor(status)}
         onClose={onClose}
         onSend={() => setConfirm(true)}
       />
@@ -90,8 +76,9 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
           onPatchSoc={onPatchSoc} onPatchCus={onPatchCus}
         />
         <PreviewPane
-          model={model} zoom={zoom} page={page}
-          onZoom={setZoom} onPage={setPage}
+          draftID={model.id} template={model.template} version={version}
+          templates={templates} fileName={fileNameFor(model)}
+          onTemplate={(tp) => onPatch({ template: tp })}
         />
       </div>
       {confirm && (
@@ -105,11 +92,27 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
   );
 }
 
+// savedLabelFor —— the top-bar indicator, driven by the real autosave status (a plain string, not
+// an i18n literal — the same shape the old cosmetic label used).
+const SAVE_LABELS: Record<SaveStatus, string> = {
+  saving: 'saving…',
+  error: 'save failed — retrying on next edit',
+  saved: 'saved',
+};
+
+function savedLabelFor(status: SaveStatus): string {
+  return SAVE_LABELS[status];
+}
+
+function fileNameFor(model: DraftModel): string {
+  const co = (model.company || 'draft').toLowerCase().replace(/\s+/g, '-');
+  return `resume_${co}.pdf`;
+}
+
 function ComposerTopBar({
-  model, matchPct, savedLabel, onClose, onSend,
+  model, savedLabel, onClose, onSend,
 }: {
   model: DraftModel;
-  matchPct: number;
   savedLabel: string;
   onClose: () => void;
   onSend: () => void;
@@ -117,7 +120,7 @@ function ComposerTopBar({
   return (
     <header className="sm-composer-topbar">
       <ComposerCrumb model={model} onClose={onClose} />
-      <ComposerActions matchPct={matchPct} savedLabel={savedLabel} onSend={onSend} />
+      <ComposerActions savedLabel={savedLabel} onSend={onSend} />
     </header>
   );
 }
@@ -142,23 +145,17 @@ function ComposerCrumb({ model, onClose }: { model: DraftModel; onClose: () => v
 }
 
 function ComposerActions({
-  matchPct, savedLabel, onSend,
-}: { matchPct: number; savedLabel: string; onSend: () => void }) {
+  savedLabel, onSend,
+}: { savedLabel: string; onSend: () => void }) {
   const t = useTranslations('adminShell.composer');
   return (
-    // Three segments separated by a vertical bar: judgment of it (match) | status (saved) |
-    // actions (regenerate / send).
+    // status (saved) | actions (regenerate / send).
     <div className="flex items-center gap-3">
-      <MatchGauge pct={matchPct} />
-      <span className="sm-bar-sep" />
-      <span className="mono text-[10px] text-(--color-faint) tracking-[0.06em]">
+      <span className="mono text-[10px] text-(--color-faint) tracking-[0.06em]" data-testid="composer-saved">
         {savedLabel}
       </span>
       <span className="sm-bar-sep" />
-      <button
-        type="button"
-        className="sm-btn sm-btn-outline sm-btn-sm"
-      >
+      <button type="button" className="sm-btn sm-btn-outline sm-btn-sm">
         {t('regenerate')}
       </button>
       <button
@@ -169,47 +166,6 @@ function ComposerActions({
         {t('send')}
       </button>
     </div>
-  );
-}
-
-function MatchGauge({ pct }: { pct: number }) {
-  const t = useTranslations('adminShell.composer');
-  return (
-    <div className="sm-session-strip-gauge" title={t('matchTitle')}>
-      <span className="sm-session-strip-gauge-text flex items-baseline gap-1.5">
-        {t('match')}
-        <span className="sm-match-num" data-testid="composer-match-num">{pct}</span>
-        <span>{t('matchOutOf')}</span>
-      </span>
-      <MatchGaugeBar pct={pct} />
-    </div>
-  );
-}
-
-// MatchGaugeBar —— this bar has **two independent causes** that can each make it render
-// nothing; either one alone is enough:
-//
-//  1. The fill percentage used to be written as a concatenated Tailwind arbitrary value, which
-//     the build-time scanner can't see -> not a single line of CSS gets generated, and
-//     `.sm-fill` falls back to its default `width: 0%`. Now it goes through `style`.
-//  2. `.sm-fill` **only has width** — height and background color live in
-//     `.sm-session-strip-gauge-fill`, and this element used to carry only the former, so even
-//     with the right width the box was still 0 tall and colorless.
-//
-// Both had to be fixed before it becomes visible, so **fixing only one still left a blank
-// bar** — which is exactly why it went unnoticed for so long: every "quick tweak" produced no
-// visible payoff, so nobody ever confirmed whether it actually rendered
-// (see [[names-that-lie]]: the number next to it was always correct, only the bar was fake).
-function MatchGaugeBar({ pct }: { pct: number }) {
-  return (
-    <span className="sm-session-strip-gauge-bar" data-testid="composer-match-track">
-      <span
-        className="sm-session-strip-gauge-fill sm-fill"
-        data-testid="composer-match-fill"
-        // eslint-disable-next-line no-restricted-syntax -- pct is a runtime match percentage; only style can carry it
-        style={cssVars({ '--fill': `${pct}%` })}
-      />
-    </span>
   );
 }
 
@@ -240,6 +196,17 @@ function EditorPane(props: {
     </div>
   );
 }
+
+const PANELS = [
+  { id: 'header', label: 'header' },
+  { id: 'summary', label: 'summary' },
+  { id: 'skills', label: 'skills' },
+  { id: 'experience', label: 'experience' },
+  { id: 'education', label: 'education' },
+  { id: 'social', label: 'social' },
+  { id: 'custom', label: 'custom' },
+  { id: 'cover', label: 'cover letter' },
+] as const;
 
 function PanelRail({
   panel, onPanel,

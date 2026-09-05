@@ -18,8 +18,6 @@
 //   - `name` + `contact.*` are owner identity, expected to stay stable
 //     across drafts (the owner's master profile; synced from settings later).
 
-import { useMemo } from 'react';
-
 import type {
   JobContext,
 } from '@/components/admin/resume-page/ResumePage';
@@ -79,6 +77,8 @@ export interface DraftModel {
   social: readonly DraftSocial[];
   custom: readonly DraftCustom[];
   coverLetter: string;
+  /** Which Typst layout the committed PDF uses ('' = default classic). Picked in the composer. */
+  template: string;
 }
 
 // **There used to be a `mockDraft()` here** — a design-time placeholder
@@ -94,50 +94,11 @@ export interface DraftModel {
 // as fake on sight. A place with missing data now renders empty (F-E-21: an
 // empty section doesn't even print its heading), and empty beats fabricated.
 
-// confidenceScore —— the match% gauge on ResumeComposer's top bar: how well
-// this resume covers **the job actually applied for**.
-//
-// rot-A2: it used to count hits from a **fixed** buzzword list
-// (retrieval/eval/llm/…) against the resume, starting at 0.5, **without
-// looking at what job was applied to at all** — while the tooltip said
-// "match against the job description". So switch to a different company, a
-// different role, and the score never moved. A gauge claiming to "score
-// against the JD" was actually just measuring whether the resume contained a
-// handful of buzzwords.
-//
-// Keywords are now derived from **the job itself** (role + company): how
-// many of the job's meaningful words appear in the resume = the match
-// signal. Change the job → change the keywords → change the score. It's not
-// a real ML eval (there's no full JD text available to the model, only
-// role/company), but it now honestly varies with "what was applied to", and
-// the tooltip is now accurate. Real ML scoring already happens during job-loop's resume.draft.
-export function confidenceScore(model: DraftModel): number {
-  const resume = (
-    model.summary + ' '
-    + model.skills.join(' ') + ' '
-    + model.experience.flatMap((e) => [e.role, ...e.bullets]).join(' ') + ' '
-    + model.coverLetter
-  ).toLowerCase();
-  const jobTerms = jobKeywords(model.role, model.company);
-  if (jobTerms.length === 0) return 0.4;
-  const hits = jobTerms.filter((t) => resume.includes(t)).length;
-  return Math.min(0.98, 0.4 + (hits / jobTerms.length) * 0.58);
-}
-
-const MATCH_STOPWORDS = new Set([
-  'the', 'and', 'for', 'with', 'staff', 'member', 'technical', 'shift', 'role', 'team',
-  'senior', 'junior', 'lead', 'engineer', 'inc', 'llc', 'corp', 'company',
-]);
-
-// jobKeywords —— extracts meaningful words from the job applied to (role + company): ≥3 letters, not a stopword, deduplicated.
-function jobKeywords(role: string, company: string): string[] {
-  const words = `${role} ${company}`.toLowerCase().split(/[^a-z0-9]+/);
-  return [...new Set(words.filter((w) => w.length >= 3 && !MATCH_STOPWORDS.has(w)))];
-}
-
-export function useMatchPct(model: DraftModel): number {
-  return useMemo(() => Math.round(confidenceScore(model) * 100), [model]);
-}
+// The `match X / 100` gauge on the composer's top bar was **removed** (owner: "完全不知道怎么
+// 计算的，不要了"). It was never a real match score — only a keyword overlap between the résumé and
+// the role+company string, dressed up as a percentage. A number that looks like a measurement but
+// isn't is worse than no number ([[names-that-lie]]); real ML scoring already happens in job-loop's
+// resume.draft. `confidenceScore`/`useMatchPct` and their stopword list went with it.
 
 // patchModel —— an immutable shallow patch across the whole draft.
 export function patchModel(m: DraftModel, p: Partial<DraftModel>): DraftModel {
@@ -216,6 +177,32 @@ export function draftToResumeContent(m: DraftModel): ResumeContent {
     custom: m.custom
       .filter((c) => c.label.trim() !== '' && c.value.trim() !== '')
       .map((c): ResumeCustom => ({ label: c.label, value: c.value })),
+  };
+}
+
+// draftToAPIContent —— the snake_case resume_content the backend persists (matches
+// jobsmodel.ResumeContent / ResumeContentSchema). Distinct from draftToResumeContent (camelCase,
+// for the client-side ResumePage): the save (PATCH /drafts/{id}) writes this shape, and it must
+// keep empty social/custom rows the owner half-filled so nothing is silently dropped on save —
+// the render-side filtering (draftToResumeContent) happens at render, not at persist.
+export function draftToAPIContent(m: DraftModel): Record<string, unknown> {
+  return {
+    identity: {
+      name: m.name, email: m.contact.email, phone: m.contact.phone,
+      location_line: m.contact.location, site: m.contact.site, links: [],
+    },
+    summary: m.summary,
+    cover_letter: m.coverLetter,
+    works: m.experience.map((e) => ({
+      period: parseRange(e.range), title: e.role, company: e.org,
+      location: e.loc, bullets: [...e.bullets],
+    })),
+    educations: m.education.map((e) => ({
+      period: parseRange(e.range), school: e.school, degree: e.degree,
+    })),
+    skills: [{ category: '', items: [...m.skills] }],
+    social: m.social.map((s) => ({ kind: s.kind, label: s.kind, handle: s.handle })),
+    custom: m.custom.map((c) => ({ label: c.label, value: c.value })),
   };
 }
 

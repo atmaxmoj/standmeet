@@ -126,6 +126,32 @@ func (r *ResumeDraftRepo) UpdateContent(
 	return toDomainResumeDraft(&row)
 }
 
+// UpdateContentAndTemplate — the admin composer's save: replace resume_content AND the chosen
+// Typst template in one write. job_snapshot stays frozen (see UpdateContent).
+func (r *ResumeDraftRepo) UpdateContentAndTemplate(
+	ctx context.Context, ownerID, id string, content *jobsmodel.ResumeContent, template string,
+) (jobsmodel.ResumeDraft, error) {
+	key, err := parseDraftKey(ownerID, id)
+	if err != nil {
+		return jobsmodel.ResumeDraft{}, err
+	}
+	contentJSON, err := json.Marshal(content)
+	if err != nil {
+		return jobsmodel.ResumeDraft{}, fmt.Errorf("marshal resume content: %w", err)
+	}
+	q := db.New(r.pool)
+	row, err := q.UpdateResumeDraftFull(ctx, db.UpdateResumeDraftFullParams{
+		ID: key.draft, OwnerID: key.owner, ResumeContent: contentJSON, Template: template,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return jobsmodel.ResumeDraft{}, jobsmodel.ErrResumeDraftNotFound
+		}
+		return jobsmodel.ResumeDraft{}, fmt.Errorf("update resume draft: %w", err)
+	}
+	return toDomainResumeDraft(&row)
+}
+
 // Delete — resume.discard_draft; an owner mismatch silently succeeds (idempotent).
 func (r *ResumeDraftRepo) Delete(ctx context.Context, ownerID, id string) error {
 	key, err := parseDraftKey(ownerID, id)

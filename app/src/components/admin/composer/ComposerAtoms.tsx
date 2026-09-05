@@ -5,7 +5,9 @@
 
 'use client';
 
-import type { DraftEducation, DraftExperience } from '@/lib/admin/draft-model';
+import type {
+  DraftCustom, DraftEducation, DraftExperience, DraftSocial,
+} from '@/lib/admin/draft-model';
 
 export function Section({
   title, hint, children,
@@ -73,4 +75,39 @@ export function blankExperience(n: number): DraftExperience {
 
 export function blankEducation(n: number): DraftEducation {
   return { id: `ed-new-${String(n)}`, school: '', degree: '', range: '' };
+}
+
+// REMOVE_GLYPH —— a module const so the ✕ isn't a bare JSX literal (i18next/no-literal-string).
+const REMOVE_GLYPH = '✕';
+
+// RowHeader —— the ✕ that removes a repeatable row (social / custom). "What can be added must be
+// removable": a section the owner filled by mistake needs an exit that isn't "delete the draft".
+export function RowHeader({ testid, onRemove }: { testid: string; onRemove: () => void }) {
+  return (
+    <div className="flex justify-end mb-1">
+      <button
+        type="button" data-testid={testid} onClick={onRemove}
+        className="mono text-[11px] text-(--color-muted) hover:text-(--color-accent)"
+        aria-label="remove"
+      >
+        {REMOVE_GLYPH}
+      </button>
+    </div>
+  );
+}
+
+// SOCIAL_KINDS —— the profile kinds the social panel's picker offers.
+export const SOCIAL_KINDS = [
+  'linkedin', 'github', 'twitter', 'mastodon', 'bluesky',
+  'website', 'scholar', 'medium', 'substack', 'other',
+];
+
+export function blankSocial(n: number): DraftSocial {
+  return { id: `s-new-${String(n)}`, kind: 'linkedin', handle: '' };
+}
+
+// blankCustom —— a self-named section: `label` is the section title the owner types, `value` its
+// content. This is how the owner adds a section of their own (languages, certs, hobbies, …).
+export function blankCustom(n: number): DraftCustom {
+  return { id: `c-new-${String(n)}`, label: '', value: '' };
 }
