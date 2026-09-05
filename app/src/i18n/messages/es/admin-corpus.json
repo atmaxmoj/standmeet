@@ -1,5 +1,8 @@
 {
   "assets": {
+    "reuseToggle": "reutilizar del grupo",
+    "reuseHide": "ocultar grupo",
+    "poolEmpty": "no hay otros recursos en tu grupo",
     "heading": "archivos",
     "empty": "sin archivos adjuntos aún",
     "choose": "elegir archivo",

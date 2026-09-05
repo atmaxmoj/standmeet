@@ -1,5 +1,8 @@
 {
   "assets": {
+    "reuseToggle": "aus dem Pool wiederverwenden",
+    "reuseHide": "Pool ausblenden",
+    "poolEmpty": "keine weiteren Assets im Pool",
     "heading": "dateien",
     "empty": "noch keine dateien angehängt",
     "choose": "datei auswählen",

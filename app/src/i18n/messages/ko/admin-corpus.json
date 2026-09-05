@@ -1,5 +1,8 @@
 {
   "assets": {
+    "reuseToggle": "풀에서 재사용",
+    "reuseHide": "풀 숨기기",
+    "poolEmpty": "풀에 다른 에셋이 없습니다",
     "heading": "files",
     "empty": "no files attached yet",
     "choose": "choose a file",

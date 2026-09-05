@@ -1,5 +1,8 @@
 {
   "assets": {
+    "reuseToggle": "从池中复用",
+    "reuseHide": "隐藏池",
+    "poolEmpty": "池中没有其他素材",
     "heading": "文件",
     "empty": "还没有附加文件",
     "choose": "选择文件",

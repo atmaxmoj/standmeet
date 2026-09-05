@@ -1,5 +1,8 @@
 {
   "assets": {
+    "reuseToggle": "पूल से पुनः उपयोग करें",
+    "reuseHide": "पूल छिपाएँ",
+    "poolEmpty": "आपके पूल में कोई अन्य एसेट नहीं",
     "heading": "फाइलें",
     "empty": "अभी तक कोई फाइलें संलग्न नहीं की गई हैं",
     "choose": "choose a file",

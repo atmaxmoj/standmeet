@@ -23,7 +23,13 @@ import {
   clearFileInput, formatBytes, useCorpusAssets,
   type CorpusAsset, type CorpusAssetsHook,
 } from '@/lib/admin/use-corpus-assets';
+import { useAssets, type PoolAsset } from '@/lib/admin/use-assets';
 import { useReportError } from '@/lib/ui/use-report-error';
+
+// AssetLike —— the minimal shape assetMarkdown needs. Both a note's own CorpusAsset and a global
+// PoolAsset satisfy it, so the "insert" path is the same whether the asset is on this entry or
+// reused from the pool.
+interface AssetLike { asset_id: string; original_filename: string; kind: string }
 
 export interface CorpusAssetsPanelProps {
   genre: string;
@@ -70,7 +76,84 @@ export function CorpusAssetsPanel(props: CorpusAssetsPanelProps) {
           ))}
         </ul>
       )}
+      <PoolReuse
+        onThisEntry={media.assets.map((a) => a.asset_id)}
+        insertIntoBody={props.insertIntoBody}
+        testid={props.testidPrefix}
+      />
     </div>
+  );
+}
+
+// PoolReuse —— cite an asset the owner uploaded ELSEWHERE (the global pool), for reuse. Inserting
+// one writes standmeet-asset:<id> into the body exactly like an own-entry insert; on save the
+// reference recompute picks it up, so the same pool asset can back many entries. Collapsed by
+// default — the pool is only fetched once opened.
+function PoolReuse(
+  { onThisEntry, insertIntoBody, testid }: {
+    onThisEntry: readonly string[];
+    insertIntoBody: (markdown: string) => void;
+    testid: string;
+  },
+) {
+  const t = useTranslations('adminCorpus.assets');
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="pt-1">
+      <button
+        type="button"
+        data-testid={`${testid}-reuse-toggle`}
+        onClick={() => { setOpen((v) => !v); }}
+        className="mono text-[10px] tracking-[0.12em] text-(--color-faint) hover:text-(--color-accent)"
+      >
+        {open ? t('reuseHide') : t('reuseToggle')}
+      </button>
+      {open ? (
+        <PoolList onThisEntry={onThisEntry} insertIntoBody={insertIntoBody} testid={testid} />
+      ) : null}
+    </div>
+  );
+}
+
+function PoolList(
+  { onThisEntry, insertIntoBody, testid }: {
+    onThisEntry: readonly string[];
+    insertIntoBody: (markdown: string) => void;
+    testid: string;
+  },
+) {
+  const t = useTranslations('adminCorpus.assets');
+  const { assets } = useAssets();
+  const others = assets.filter((a) => !onThisEntry.includes(a.asset_id));
+  return others.length === 0 ? (
+    <p className="mono text-[10.5px] text-(--color-faint) mt-1" data-testid={`${testid}-pool-empty`}>
+      {t('poolEmpty')}
+    </p>
+  ) : (
+    <ul className="space-y-1 mt-1" data-testid={`${testid}-pool-list`}>
+      {others.map((a) => <PoolRow key={a.asset_id} asset={a} insertIntoBody={insertIntoBody} testid={testid} />)}
+    </ul>
+  );
+}
+
+function PoolRow(
+  { asset, insertIntoBody, testid }: {
+    asset: PoolAsset;
+    insertIntoBody: (markdown: string) => void;
+    testid: string;
+  },
+) {
+  const t = useTranslations('adminCorpus.assets');
+  return (
+    <li className="flex items-baseline gap-3 mono text-[11px]">
+      <span className="text-(--color-ink) truncate max-w-[16rem]">{asset.original_filename}</span>
+      <span className="text-(--color-faint)">{asset.kind}</span>
+      <RowBtn
+        label={t('insert')}
+        testid={`${testid}-pool-insert-${asset.asset_id}`}
+        onClick={() => { insertIntoBody(assetMarkdown(asset)); }}
+      />
+    </li>
   );
 }
 
@@ -195,7 +278,7 @@ function BodyBoundBtns(
 // What's stored in the body is a **stable asset URI**, not a presigned URL —
 // the latter expires, and writing it into the body would leave a link that
 // eventually stops working.
-function assetMarkdown(a: CorpusAsset): string {
+function assetMarkdown(a: AssetLike): string {
   const uri = `standmeet-asset:${a.asset_id}`;
   const label = a.original_filename;
   return a.kind === 'image' ? `![${label}](${uri})` : `[${label}](${uri})`;
