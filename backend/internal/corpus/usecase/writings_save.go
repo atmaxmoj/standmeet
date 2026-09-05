@@ -158,7 +158,8 @@ func runSaveInTx(
 	if perr != nil {
 		return saveCommitted{}, perr
 	}
-	prepared, ierr := insertAssetsForWriting(ctx, deps, tx, writing.ID(), in.Files)
+	prepared, ierr := insertAssetsForWriting(
+		ctx, deps, tx, AssetHolder{OwnerID: in.OwnerID, HolderID: writing.ID()}, in.Files)
 	if ierr != nil {
 		return saveCommitted{}, ierr
 	}
@@ -275,12 +276,12 @@ func loadExistingWriting(
 // the rewrite map from it on the spot via rewriteFromPrepared.
 func insertAssetsForWriting(
 	ctx context.Context, deps WritingsTxDeps, tx pgx.Tx,
-	writingID string, files []FileInput,
+	holder AssetHolder, files []FileInput,
 ) ([]PreparedAsset, error) {
 	prepared := make([]PreparedAsset, 0, len(files))
 	for i := range files {
 		f := &files[i]
-		p, err := InsertAssetRowTx(ctx, deps.Assets, tx, writingID, &AssetUploadInput{
+		p, err := InsertAssetRowTx(ctx, deps.Assets, tx, holder, &AssetUploadInput{
 			Body: f.Body, ContentType: f.ContentType,
 			OriginalFilename: f.OriginalFilename, PendingID: f.PendingID,
 		})

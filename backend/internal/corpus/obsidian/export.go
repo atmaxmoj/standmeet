@@ -97,7 +97,7 @@ func writeOneWriting(
 	writing *corpus.Writing, written map[string]struct{},
 ) error {
 	wid := writing.ID()
-	assets, aerr := deps.Assets.ListByHolder(ctx, wid)
+	assets, aerr := deps.Assets.ListByReferrer(ctx, corpus.RefKindCorpus, wid)
 	if aerr != nil {
 		return fmt.Errorf("list assets for writing %s: %w", wid, aerr)
 	}

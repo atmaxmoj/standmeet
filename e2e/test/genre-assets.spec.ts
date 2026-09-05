@@ -126,36 +126,29 @@ test.describe('每个 genre 都能挂素材', () => {
       expect(await assetReachable(s.request, att?.url ?? ''), '按钮点得下去').toBe(true);
     });
 
-    test(`${genre}:删掉这条语料 → 它的素材跟着没`, async () => {
+    test(`${genre}:删掉这条语料 → 素材留在全局池子里(只解除这条引用)`, async () => {
       const id = await createEntry(s, genre, `${genre} to delete`, 'body');
       const asset = await uploadAsset(s, genre, id, MEDIA.pixel);
       const before = await getEntry(s, genre, id);
       // The URL comes from the **asset list**, not asset_urls — the latter only resolves the ones
       // referenced in the body, and this note's body does not reference it. Get it wrong and you get
       // an empty string, and an empty-string GET hits the site root and returns 200, making
-      // "reachable before delete" a false green and "unreachable after delete" a false red.
+      // "reachable before" a false green and "unreachable after" a false red.
       const url = before.assets?.find((a) => a.asset_id === asset.asset_id)?.url ?? '';
       expect(url, '素材清单里带着可访问地址').toBeTruthy();
       expect(await assetReachable(s.request, url), '删之前取得到').toBe(true);
 
       await callTool(s.request, s.token, s.sid, 'corpus.delete', { genre, id });
 
-      // Assert the **product surface** first: the note no longer reads back, so there is no asset to
-      // leak. This is the thing a visitor actually sees; the next assertion probes the stored bytes,
-      // which the product surface never exposes.
-      //
-      // Same assertion for all genres — delete means delete. raw used to "archive" (the row stayed,
-      // a flag was set), and that archive had no second half: no list showed it, no path restored it,
-      // and the button on the panel fired DELETE. A delete action meaning different things across
-      // genres forces the caller to remember which is which.
+      // The entry is gone from the product surface — a visitor can't read it, so it leaks nothing.
       await expect(getEntry(s, genre, id)).rejects.toThrow(/not found|不存在/i);
 
-      // Then assert the **bytes**: the invariant says the blob's lifetime ⊆ the entry's lifetime,
-      // and no product surface can ask "are the bytes still there" — only hitting the object-store
-      // URL directly proves it. Both assertions are needed: assert only the one above and orphaned
-      // bytes go unnoticed by anyone; assert only this one and "does the product still leak the
-      // image" goes untested.
-      expect(await assetReachable(s.request, url), '删之后取不到').toBe(false);
+      // But the asset is **global** now (docs/design/global-assets.md): deleting the entry frees only
+      // this entry's reference, it does NOT delete the pool asset — the same asset may be referenced
+      // by other entries or microsites, and the owner deletes it deliberately from Resources → Assets.
+      // So the blob survives, still reachable. (This reverses the old holder-owned invariant where the
+      // blob's lifetime ⊆ the entry's — see the shared-asset case in global-assets-guard.spec.ts.)
+      expect(await assetReachable(s.request, url), '素材仍在池子里:删语料不删全局素材').toBe(true);
     });
   }
 

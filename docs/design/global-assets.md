@@ -66,6 +66,35 @@ Existing assets are holder-owned corpus images. The migration:
 
 A fresh install gets the new shape directly from `schema.sql`.
 
+## References are computed at save (decided 2026-09-05)
+
+A note/microsite's references are **not** hand-maintained per action — they are
+**recomputed from its content on every save**, and set to exactly that set. This is
+the single rule that makes reuse work and keeps references honest:
+
+- **A corpus entry references** the assets its body cites (`standmeet-asset:<id>`)
+  plus its cover (`cover_image_asset_id`). On every create/update, in the write tx:
+  delete all `('corpus', note_id)` references, then insert one per asset-id in that
+  computed set. So editing an image out of the body **auto-frees** its reference
+  (#3), and citing the same pool asset from a second entry **creates** a second
+  reference (#1) — true reuse, with the guard counting both.
+- **A microsite references** the assets its built source uses (the asset widget),
+  recomputed the same way on build/publish, `referrer_kind = 'microsite'`.
+- **Uploading is pool-first.** Adding a *new* asset just puts it in the pool
+  (owner-owned, unreferenced); the reference appears when the content cites it and
+  is saved. There is no "attach to this note" that references without the content
+  citing it — the content is the single source of truth.
+
+**How the owner cites a pool asset (decided):**
+- **corpus:** a **slash command** in the editor — pick from the pool (or upload a
+  new one → pool), which inserts `standmeet-asset:<id>` into the body.
+- **microsite:** an **asset widget** in the SDK that references a pool asset by id.
+
+Consequence for existing behavior: `assets.upload` becomes "upload to the pool"; a
+note's asset list is its computed references (body + cover), not everything ever
+attached. Tests that asserted "attach → immediately on the note without saving the
+body" move to "cite in body → save → referenced".
+
 ## Touchpoints
 
 - **corpus write/delete** (`corpus_write.go` + note delete): create/rewrite

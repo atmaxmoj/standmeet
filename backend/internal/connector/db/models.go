@@ -83,6 +83,7 @@ type Application struct {
 
 type Asset struct {
 	ID               pgtype.UUID
+	OwnerID          pgtype.UUID
 	HolderID         pgtype.UUID
 	Kind             string
 	StorageKey       string
@@ -91,6 +92,12 @@ type Asset struct {
 	Sha256           string
 	OriginalFilename string
 	CreatedAt        pgtype.Timestamptz
+}
+
+type AssetReference struct {
+	AssetID      pgtype.UUID
+	ReferrerKind string
+	ReferrerID   pgtype.UUID
 }
 
 type BannedIp struct {

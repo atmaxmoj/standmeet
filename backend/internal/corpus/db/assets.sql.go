@@ -11,14 +11,28 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countAssetReferences = `-- name: CountAssetReferences :one
+SELECT count(*) FROM asset_references
+WHERE asset_id = $1
+`
+
+func (q *Queries) CountAssetReferences(ctx context.Context, assetID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countAssetReferences, assetID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAsset = `-- name: CreateAsset :one
-INSERT INTO assets (id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, kind)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at
+
+INSERT INTO assets (id, owner_id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, kind)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at
 `
 
 type CreateAssetParams struct {
 	ID               pgtype.UUID
+	OwnerID          pgtype.UUID
 	HolderID         pgtype.UUID
 	StorageKey       string
 	ContentType      string
@@ -28,9 +42,13 @@ type CreateAssetParams struct {
 	Kind             string
 }
 
+// Global asset pool + references (docs/design/global-assets.md).
+// An asset belongs to an owner; corpus entries / microsites reference it via
+// asset_references. A referenced asset can't be deleted — the referrer goes first.
 func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset, error) {
 	row := q.db.QueryRow(ctx, createAsset,
 		arg.ID,
+		arg.OwnerID,
 		arg.HolderID,
 		arg.StorageKey,
 		arg.ContentType,
@@ -42,6 +60,7 @@ func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset
 	var i Asset
 	err := row.Scan(
 		&i.ID,
+		&i.OwnerID,
 		&i.HolderID,
 		&i.Kind,
 		&i.StorageKey,
@@ -54,63 +73,63 @@ func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset
 	return i, err
 }
 
-const deleteAssetsByHolder = `-- name: DeleteAssetsByHolder :many
+const deleteAssetByID = `-- name: DeleteAssetByID :one
 DELETE FROM assets
-WHERE holder_id = $1
+WHERE id = $1 AND owner_id = $2
 RETURNING storage_key
 `
 
-// Delete all asset rows for one holder; return storage_key so the caller can batch-delete the MinIO blobs afterward.
-func (q *Queries) DeleteAssetsByHolder(ctx context.Context, holderID pgtype.UUID) ([]string, error) {
-	rows, err := q.db.Query(ctx, deleteAssetsByHolder, holderID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var storage_key string
-		if err := rows.Scan(&storage_key); err != nil {
-			return nil, err
-		}
-		items = append(items, storage_key)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type DeleteAssetByIDParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
 }
 
-const deleteAssetsByIDs = `-- name: DeleteAssetsByIDs :many
-DELETE FROM assets
-WHERE id = ANY($1::uuid[])
-RETURNING storage_key
+// Pool delete of a single asset the caller has already confirmed is unreferenced
+// (see CountAssetReferences). Scoped to owner. Returns storage_key so the caller
+// drops the MinIO blob afterward.
+func (q *Queries) DeleteAssetByID(ctx context.Context, arg DeleteAssetByIDParams) (string, error) {
+	row := q.db.QueryRow(ctx, deleteAssetByID, arg.ID, arg.OwnerID)
+	var storage_key string
+	err := row.Scan(&storage_key)
+	return storage_key, err
+}
+
+const deleteAssetReference = `-- name: DeleteAssetReference :exec
+DELETE FROM asset_references
+WHERE asset_id = $1 AND referrer_kind = $2 AND referrer_id = $3
 `
 
-// Delete by a set of ids; the caller already knows these ids belong to the same holder
-// (on update it computes removed = old_refs - new_refs). Return storage_key so the caller can delete the blobs.
-func (q *Queries) DeleteAssetsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]string, error) {
-	rows, err := q.db.Query(ctx, deleteAssetsByIDs, dollar_1)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var storage_key string
-		if err := rows.Scan(&storage_key); err != nil {
-			return nil, err
-		}
-		items = append(items, storage_key)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type DeleteAssetReferenceParams struct {
+	AssetID      pgtype.UUID
+	ReferrerKind string
+	ReferrerID   pgtype.UUID
+}
+
+// Drop one specific reference (a note stops using one image; assets survive).
+func (q *Queries) DeleteAssetReference(ctx context.Context, arg DeleteAssetReferenceParams) error {
+	_, err := q.db.Exec(ctx, deleteAssetReference, arg.AssetID, arg.ReferrerKind, arg.ReferrerID)
+	return err
+}
+
+const deleteAssetReferencesByReferrer = `-- name: DeleteAssetReferencesByReferrer :exec
+DELETE FROM asset_references
+WHERE referrer_kind = $1 AND referrer_id = $2
+`
+
+type DeleteAssetReferencesByReferrerParams struct {
+	ReferrerKind string
+	ReferrerID   pgtype.UUID
+}
+
+// Drop every reference a single referrer holds — on referrer delete, and as the
+// first half of a rewrite. Assets survive in the pool.
+func (q *Queries) DeleteAssetReferencesByReferrer(ctx context.Context, arg DeleteAssetReferencesByReferrerParams) error {
+	_, err := q.db.Exec(ctx, deleteAssetReferencesByReferrer, arg.ReferrerKind, arg.ReferrerID)
+	return err
 }
 
 const getAssetByID = `-- name: GetAssetByID :one
-SELECT id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
+SELECT id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
 WHERE id = $1
 `
 
@@ -119,6 +138,7 @@ func (q *Queries) GetAssetByID(ctx context.Context, id pgtype.UUID) (Asset, erro
 	var i Asset
 	err := row.Scan(
 		&i.ID,
+		&i.OwnerID,
 		&i.HolderID,
 		&i.Kind,
 		&i.StorageKey,
@@ -131,14 +151,66 @@ func (q *Queries) GetAssetByID(ctx context.Context, id pgtype.UUID) (Asset, erro
 	return i, err
 }
 
-const listAssetsByHolder = `-- name: ListAssetsByHolder :many
-SELECT id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
-WHERE holder_id = $1
-ORDER BY created_at
+const insertAssetReference = `-- name: InsertAssetReference :exec
+
+INSERT INTO asset_references (asset_id, referrer_kind, referrer_id)
+VALUES ($1, $2, $3)
+ON CONFLICT DO NOTHING
 `
 
-func (q *Queries) ListAssetsByHolder(ctx context.Context, holderID pgtype.UUID) ([]Asset, error) {
-	rows, err := q.db.Query(ctx, listAssetsByHolder, holderID)
+type InsertAssetReferenceParams struct {
+	AssetID      pgtype.UUID
+	ReferrerKind string
+	ReferrerID   pgtype.UUID
+}
+
+// ── references ────────────────────────────────────────────────────────────────
+func (q *Queries) InsertAssetReference(ctx context.Context, arg InsertAssetReferenceParams) error {
+	_, err := q.db.Exec(ctx, insertAssetReference, arg.AssetID, arg.ReferrerKind, arg.ReferrerID)
+	return err
+}
+
+const listAssetReferencesByAsset = `-- name: ListAssetReferencesByAsset :many
+SELECT referrer_kind, referrer_id
+FROM asset_references
+WHERE asset_id = $1
+ORDER BY referrer_kind, referrer_id
+`
+
+type ListAssetReferencesByAssetRow struct {
+	ReferrerKind string
+	ReferrerID   pgtype.UUID
+}
+
+// Who references this asset — feeds the delete-guard's "used by …" message.
+func (q *Queries) ListAssetReferencesByAsset(ctx context.Context, assetID pgtype.UUID) ([]ListAssetReferencesByAssetRow, error) {
+	rows, err := q.db.Query(ctx, listAssetReferencesByAsset, assetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAssetReferencesByAssetRow
+	for rows.Next() {
+		var i ListAssetReferencesByAssetRow
+		if err := rows.Scan(&i.ReferrerKind, &i.ReferrerID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAssetsByOwner = `-- name: ListAssetsByOwner :many
+SELECT id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
+WHERE owner_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListAssetsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Asset, error) {
+	rows, err := q.db.Query(ctx, listAssetsByOwner, ownerID)
 	if err != nil {
 		return nil, err
 	}
@@ -148,6 +220,52 @@ func (q *Queries) ListAssetsByHolder(ctx context.Context, holderID pgtype.UUID) 
 		var i Asset
 		if err := rows.Scan(
 			&i.ID,
+			&i.OwnerID,
+			&i.HolderID,
+			&i.Kind,
+			&i.StorageKey,
+			&i.ContentType,
+			&i.SizeBytes,
+			&i.Sha256,
+			&i.OriginalFilename,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAssetsByReferrer = `-- name: ListAssetsByReferrer :many
+SELECT a.id, a.owner_id, a.holder_id, a.kind, a.storage_key, a.content_type, a.size_bytes, a.sha256, a.original_filename, a.created_at FROM assets a
+JOIN asset_references r ON r.asset_id = a.id
+WHERE r.referrer_kind = $1 AND r.referrer_id = $2
+ORDER BY a.created_at
+`
+
+type ListAssetsByReferrerParams struct {
+	ReferrerKind string
+	ReferrerID   pgtype.UUID
+}
+
+// The assets one referrer (a note / microsite) references — the "files on this
+// entry" view, now expressed as references rather than holder ownership.
+func (q *Queries) ListAssetsByReferrer(ctx context.Context, arg ListAssetsByReferrerParams) ([]Asset, error) {
+	rows, err := q.db.Query(ctx, listAssetsByReferrer, arg.ReferrerKind, arg.ReferrerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Asset
+	for rows.Next() {
+		var i Asset
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
 			&i.HolderID,
 			&i.Kind,
 			&i.StorageKey,

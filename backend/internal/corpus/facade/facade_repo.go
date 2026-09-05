@@ -2,6 +2,12 @@ package corpus
 
 import "github.com/atmaxmoj/standmeet/internal/corpus/repo"
 
+// Asset reference kinds (implemented in: repo).
+const (
+	RefKindCorpus    = repo.RefKindCorpus
+	RefKindMicrosite = repo.RefKindMicrosite
+)
+
 // Types (implemented in: repo).
 type (
 	AssetRepo           = repo.AssetRepo

@@ -34,9 +34,13 @@ import (
 // misconfiguration.
 var errNoMedia = errors.New("media storage is not configured")
 
-// AssetOps — the asset operation family.
+// AssetOps — the asset operation family: attach/remove on a corpus entry, plus the global
+// pool (list / delete-guarded / references — see asset_pool.go).
 func AssetOps(deps usecase.Deps) []fp.Op {
-	return []fp.Op{assetsUploadOp(deps), assetsDeleteOp(deps)}
+	pool := AssetPoolOps(deps)
+	all := make([]fp.Op, 0, 2+len(pool))
+	all = append(all, assetsUploadOp(deps), assetsDeleteOp(deps))
+	return append(all, pool...)
 }
 
 func assetsDeleteOp(deps usecase.Deps) fp.Op {

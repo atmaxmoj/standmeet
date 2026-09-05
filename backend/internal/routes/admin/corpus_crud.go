@@ -37,4 +37,11 @@ func (h *Handlers) MountCorpusCRUD(r chi.Router) {
 	r.Post("/corpus/{genre}/{id}/assets", h.attachCorpusAsset())
 	r.Delete("/corpus/{genre}/{id}/assets/{asset_id}",
 		h.dispatchOp(face, "assets.delete", corpusAssetArgs, noContent))
+	// The global asset pool (Resources → Assets): list everything, delete one (refused,
+	// naming who uses it, while referenced), and read who references one.
+	r.Get("/assets", h.dispatchOp(face, "assets.list", emptyArgs, jsonOK))
+	r.Delete("/assets/{asset_id}",
+		h.dispatchOp(face, "assets.pool_delete", assetPoolIDArgs, noContent))
+	r.Get("/assets/{asset_id}/references",
+		h.dispatchOp(face, "assets.references", assetPoolIDArgs, jsonOK))
 }

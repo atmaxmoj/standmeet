@@ -66,6 +66,13 @@ type PreparedAsset struct {
 	Asset       entity.Asset
 }
 
+// AssetHolder —— who a new pool asset belongs to (OwnerID) and the note it arrived with
+// (HolderID, a breadcrumb). Bundled to keep InsertAssetRowTx under the argument limit.
+type AssetHolder struct {
+	OwnerID  string
+	HolderID string
+}
+
 // InsertAssetRowTx —— inserts the assets row inside the caller's given tx (doesn't
 // touch MinIO). Pre-generates uuid + storage_key so the post body_md rewrite can get
 // the real id right away. Returns PreparedAsset so the caller can call UploadBlobs
@@ -73,15 +80,15 @@ type PreparedAsset struct {
 // through to the return value so the caller can build the rewrite map in one pass.
 func InsertAssetRowTx(
 	ctx context.Context, deps AssetsDeps, tx pgstore.DBTX,
-	holderID string, in *AssetUploadInput,
+	h AssetHolder, in *AssetUploadInput,
 ) (PreparedAsset, error) {
 	id, gerr := newAssetUUID()
 	if gerr != nil {
 		return PreparedAsset{}, gerr
 	}
-	key := holderID + "/" + id
+	key := h.OwnerID + "/" + id
 	asset, cerr := insertAssetRow(ctx, &insertAssetArgs{
-		Deps: deps, Tx: tx, ID: id, HolderID: holderID, Key: key, In: in,
+		Deps: deps, Tx: tx, ID: id, OwnerID: h.OwnerID, HolderID: h.HolderID, Key: key, In: in,
 	})
 	if cerr != nil {
 		return PreparedAsset{}, cerr
@@ -99,19 +106,26 @@ type insertAssetArgs struct {
 	In       *AssetUploadInput
 	Deps     AssetsDeps
 	ID       string
+	OwnerID  string
 	HolderID string
 	Key      string
 }
 
+// insertAssetRow —— lands the pool row AND its reference to the holder note, both inside
+// the caller's tx, so the note and its asset references commit or roll back together.
 func insertAssetRow(ctx context.Context, a *insertAssetArgs) (entity.Asset, error) {
 	asset, cerr := a.Deps.Repo.CreateTx(ctx, a.Tx, &repo.CreateAssetInput{
-		ID: a.ID, HolderID: a.HolderID, StorageKey: a.Key,
+		ID: a.ID, OwnerID: a.OwnerID, HolderID: a.HolderID, StorageKey: a.Key,
 		ContentType: a.In.ContentType, SizeBytes: int64(len(a.In.Body)),
 		SHA256: sha256Hex(a.In.Body), OriginalFilename: a.In.OriginalFilename,
 		Kind: a.In.Kind,
 	})
 	if cerr != nil {
 		return entity.Asset{}, fmt.Errorf("create asset row: %w", cerr)
+	}
+	rerr := a.Deps.Repo.InsertReferenceTx(ctx, a.Tx, asset.ID, repo.RefKindCorpus, a.HolderID)
+	if rerr != nil {
+		return entity.Asset{}, fmt.Errorf("reference asset: %w", rerr)
 	}
 	return asset, nil
 }

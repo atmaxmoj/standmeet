@@ -1,26 +1,62 @@
+-- Global asset pool + references (docs/design/global-assets.md).
+-- An asset belongs to an owner; corpus entries / microsites reference it via
+-- asset_references. A referenced asset can't be deleted — the referrer goes first.
+
 -- name: CreateAsset :one
-INSERT INTO assets (id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, kind)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO assets (id, owner_id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, kind)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: GetAssetByID :one
 SELECT * FROM assets
 WHERE id = $1;
 
--- name: ListAssetsByHolder :many
+-- name: ListAssetsByOwner :many
 SELECT * FROM assets
-WHERE holder_id = $1
-ORDER BY created_at;
+WHERE owner_id = $1
+ORDER BY created_at DESC;
 
--- name: DeleteAssetsByHolder :many
--- Delete all asset rows for one holder; return storage_key so the caller can batch-delete the MinIO blobs afterward.
+-- name: DeleteAssetByID :one
+-- Pool delete of a single asset the caller has already confirmed is unreferenced
+-- (see CountAssetReferences). Scoped to owner. Returns storage_key so the caller
+-- drops the MinIO blob afterward.
 DELETE FROM assets
-WHERE holder_id = $1
+WHERE id = $1 AND owner_id = $2
 RETURNING storage_key;
 
--- name: DeleteAssetsByIDs :many
--- Delete by a set of ids; the caller already knows these ids belong to the same holder
--- (on update it computes removed = old_refs - new_refs). Return storage_key so the caller can delete the blobs.
-DELETE FROM assets
-WHERE id = ANY($1::uuid[])
-RETURNING storage_key;
+-- ── references ────────────────────────────────────────────────────────────────
+
+-- name: InsertAssetReference :exec
+INSERT INTO asset_references (asset_id, referrer_kind, referrer_id)
+VALUES ($1, $2, $3)
+ON CONFLICT DO NOTHING;
+
+-- name: DeleteAssetReferencesByReferrer :exec
+-- Drop every reference a single referrer holds — on referrer delete, and as the
+-- first half of a rewrite. Assets survive in the pool.
+DELETE FROM asset_references
+WHERE referrer_kind = $1 AND referrer_id = $2;
+
+-- name: ListAssetReferencesByAsset :many
+-- Who references this asset — feeds the delete-guard's "used by …" message.
+SELECT referrer_kind, referrer_id
+FROM asset_references
+WHERE asset_id = $1
+ORDER BY referrer_kind, referrer_id;
+
+-- name: CountAssetReferences :one
+SELECT count(*) FROM asset_references
+WHERE asset_id = $1;
+
+-- name: DeleteAssetReference :exec
+-- Drop one specific reference (a note stops using one image; assets survive).
+DELETE FROM asset_references
+WHERE asset_id = $1 AND referrer_kind = $2 AND referrer_id = $3;
+
+-- name: ListAssetsByReferrer :many
+-- The assets one referrer (a note / microsite) references — the "files on this
+-- entry" view, now expressed as references rather than holder ownership.
+SELECT a.* FROM assets a
+JOIN asset_references r ON r.asset_id = a.id
+WHERE r.referrer_kind = $1 AND r.referrer_id = $2
+ORDER BY a.created_at;

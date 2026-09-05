@@ -10,12 +10,14 @@ import (
 	"time"
 )
 
-// Asset —— value object for the assets table. HolderID is the id of the entity
-// this asset belongs to (post.id / wiki.id / ...). Owner is looked up indirectly
-// via holder → holder.owner_id.
+// Asset —— value object for the assets table (docs/design/global-assets.md). The
+// asset belongs to OwnerID (the global pool); HolderID is an optional breadcrumb (the
+// note an inline image came from), never the authority on "in use" — asset_references
+// is. Corpus entries / microsites reference it by asset_id.
 type Asset struct {
 	CreatedAt        time.Time
 	ID               string
+	OwnerID          string
 	HolderID         string
 	StorageKey       string
 	ContentType      string
@@ -27,6 +29,21 @@ type Asset struct {
 	// bans video.
 	Kind      string
 	SizeBytes int64
+}
+
+// Asset reference kinds —— which kind of thing references a pool asset. The single source
+// for these strings (repo re-exports them as RefKind*).
+const (
+	AssetRefCorpus    = "corpus"
+	AssetRefMicrosite = "microsite"
+)
+
+// AssetReference —— one live use of a pool asset: which kind of thing references it
+// (AssetRefCorpus / AssetRefMicrosite) and its id. The delete guard turns these into a
+// "used by …" message so the owner knows what to remove first.
+type AssetReference struct {
+	Kind       string
+	ReferrerID string
 }
 
 // Asset kinds —— what types and how big are allowed is split by this.

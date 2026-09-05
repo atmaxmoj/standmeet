@@ -564,12 +564,18 @@ ALTER TABLE access_codes
 -- 没 owner_id 列：归属链 asset → holder (post / wiki / ...) → 该实体的
 -- owner_id；多一层 indirection 但去掉冗余。storage_key = '<holder_id>/<asset_id>'
 -- 让 storage 也按 holder 分目录，prefix-list / batch-delete 同时方便。
+-- Global asset pool (docs/design/global-assets.md). An asset belongs to an OWNER,
+-- not a holder: the owner uploads into the pool, and corpus entries / microsites
+-- REFERENCE assets (see asset_references). A referenced asset can't be deleted —
+-- the referrer goes first. owner_id is the ownership link; holder_id is kept
+-- nullable only as a migration breadcrumb (the note an existing image came from);
+-- asset_references is authoritative for "in use", never holder_id.
 CREATE TABLE assets (
     id                 uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    holder_id          uuid          NOT NULL,
+    owner_id           uuid          NOT NULL,
+    holder_id          uuid,
     -- kind —— 'image'（正文配图 / hero）| 'attachment'（可下载的附件，如 PDF）。
     -- 收什么类型、多大，按 kind 分：一段视频天生比一张图大，拿同一个数卡它等于禁掉视频。
-    -- 默认 image —— 这一列是后加的，既有行都是配图。
     kind               text          NOT NULL DEFAULT 'image',
     storage_key        text          NOT NULL,
     content_type       text          NOT NULL DEFAULT 'application/octet-stream',
@@ -579,7 +585,22 @@ CREATE TABLE assets (
     created_at         timestamptz   NOT NULL DEFAULT now()
 );
 
-CREATE INDEX assets_holder_idx ON assets(holder_id);
+CREATE INDEX assets_owner_idx ON assets(owner_id);
+
+-- asset_references —— every live use of a pool asset. A corpus entry references an
+-- asset (cover or body 'standmeet-asset:<id>'), a microsite references one from its
+-- source. DeleteAsset refuses while any row here points at the asset, and names the
+-- referrers. Each referrer rewrites its own rows inside its own write transaction;
+-- ON DELETE CASCADE is belt-and-suspenders (the guard means an asset delete never
+-- reaches a referenced row).
+CREATE TABLE asset_references (
+    asset_id      uuid NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    referrer_kind text NOT NULL,
+    referrer_id   uuid NOT NULL,
+    PRIMARY KEY (asset_id, referrer_kind, referrer_id)
+);
+
+CREATE INDEX asset_references_referrer_idx ON asset_references(referrer_kind, referrer_id);
 
 -- writing note 现同住 corpus_notes（genre='writing'）；cover_image_asset_id FK 重指 assets（writings 已删，
 -- #151）。assets 在本文件后于 corpus_notes 声明,故 FK 在此 ALTER 补挂(不能在建表处前向引用)。

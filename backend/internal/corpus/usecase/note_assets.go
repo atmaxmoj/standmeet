@@ -108,33 +108,40 @@ func AttachAssetBytes(
 func storeAsset(
 	ctx context.Context, deps AssetsDeps, in *AttachAssetInput, media *FetchedMedia,
 ) (entity.Asset, error) {
-	prepared, ierr := insertOneAsset(ctx, deps, in.NoteID, media, kindOrImage(in.Kind))
+	prepared, ierr := insertOneAsset(ctx, deps, in, media, kindOrImage(in.Kind))
 	if ierr != nil {
 		return entity.Asset{}, ierr
 	}
 	if _, uerr := UploadBlobs(ctx, deps, []PreparedAsset{prepared}); uerr != nil {
-		// Compensate: the bytes never made it up, so the row shouldn't stick around
-		// either. The compensation itself can also fail — that leaves a row pointing at
-		// nothing, and it has to be reported alongside, not swallowed under a bare
-		// "upload failed."
-		if _, derr := deps.Repo.DeleteByIDs(ctx, []string{prepared.Asset.ID}); derr != nil {
+		// Compensate: the bytes never made it up, so drop the row. It carries no
+		// reference yet (the reference is added only after a successful upload, below),
+		// so this is a clean pool delete. A failed compensation leaves a row pointing at
+		// nothing and must be reported alongside, not swallowed under "upload failed."
+		if _, derr := deps.Repo.DeleteByID(ctx, prepared.Asset.ID, in.OwnerID); derr != nil {
 			return entity.Asset{}, fmt.Errorf("upload asset: %w (row left behind: %w)", uerr, derr)
 		}
 		return entity.Asset{}, fmt.Errorf("upload asset: %w", uerr)
 	}
+	// The blob is up; record that this note references the pool asset.
+	rerr := deps.Repo.InsertReference(ctx, prepared.Asset.ID, repo.RefKindCorpus, in.NoteID)
+	if rerr != nil {
+		return entity.Asset{}, fmt.Errorf("reference asset: %w", rerr)
+	}
 	return prepared.Asset, nil
 }
 
-// insertOneAsset —— pre-generates id + storage_key, lands one row (doesn't touch MinIO).
+// insertOneAsset —— pre-generates id + storage_key, lands one pool row (doesn't touch
+// MinIO, doesn't reference it yet). The asset belongs to the owner; holder_id keeps the
+// originating note as a breadcrumb; the storage key is owner-scoped.
 func insertOneAsset(
-	ctx context.Context, deps AssetsDeps, noteID string, media *FetchedMedia, kind string,
+	ctx context.Context, deps AssetsDeps, in *AttachAssetInput, media *FetchedMedia, kind string,
 ) (PreparedAsset, error) {
 	id, gerr := newAssetUUID()
 	if gerr != nil {
 		return PreparedAsset{}, gerr
 	}
 	asset, cerr := deps.Repo.Create(ctx, &repo.CreateAssetInput{
-		ID: id, HolderID: noteID, StorageKey: noteID + "/" + id,
+		ID: id, OwnerID: in.OwnerID, HolderID: in.NoteID, StorageKey: in.OwnerID + "/" + id,
 		ContentType: media.ContentType, SizeBytes: int64(len(media.Body)),
 		SHA256: sha256Hex(media.Body), OriginalFilename: media.Filename, Kind: kind,
 	})
@@ -169,7 +176,7 @@ type AssetView struct {
 func NoteAssets(
 	ctx context.Context, deps *NoteAssetsDeps, noteID string,
 ) ([]AssetView, error) {
-	rows, err := deps.Assets.Repo.ListByHolder(ctx, noteID)
+	rows, err := deps.Assets.Repo.ListByReferrer(ctx, repo.RefKindCorpus, noteID)
 	if err != nil {
 		return nil, fmt.Errorf("list note assets: %w", err)
 	}
@@ -223,23 +230,22 @@ func NoteAssetURLs(
 func DeleteNoteAsset(
 	ctx context.Context, deps *NoteAssetsDeps, ownerID, noteID, assetID string,
 ) error {
-	target, ferr := findHolderAsset(ctx, deps, noteID, assetID)
-	if ferr != nil {
+	if _, ferr := findReferencedAsset(ctx, deps, noteID, assetID); ferr != nil {
 		return ferr
 	}
-	if derr := DeleteBlobsStrict(ctx, deps.Assets, []string{target.StorageKey}); derr != nil {
-		return derr
-	}
-	if _, rerr := deps.Assets.Repo.DeleteByIDs(ctx, []string{target.ID}); rerr != nil {
-		return fmt.Errorf("delete asset row: %w", rerr)
+	// "Remove from this entry" de-references it — the asset survives in the pool (the
+	// owner deletes it from Resources → Assets). Clear the cover if it pointed here.
+	rerr := deps.Assets.Repo.DeleteReference(ctx, assetID, repo.RefKindCorpus, noteID)
+	if rerr != nil {
+		return fmt.Errorf("remove asset reference: %w", rerr)
 	}
 	return clearHeroIfPointsAt(ctx, deps, ownerID, noteID, assetID)
 }
 
-func findHolderAsset(
+func findReferencedAsset(
 	ctx context.Context, deps *NoteAssetsDeps, noteID, assetID string,
 ) (entity.Asset, error) {
-	rows, err := deps.Assets.Repo.ListByHolder(ctx, noteID)
+	rows, err := deps.Assets.Repo.ListByReferrer(ctx, repo.RefKindCorpus, noteID)
 	if err != nil {
 		return entity.Asset{}, fmt.Errorf("list note assets: %w", err)
 	}
@@ -265,26 +271,14 @@ func clearHeroIfPointsAt(
 	return SetNoteHero(ctx, deps, ownerID, noteID, &HeroPatch{CoverAssetID: &empty})
 }
 
-// DeleteNoteAssets —— deletes every piece of media under one corpus entry (blobs first,
-// DB rows after).
-//
-// The order is deliberate: the blob's lifetime ⊆ the entry's lifetime. Reversing it would
-// leave an orphan — DB deleted, bytes still there — that nobody recognizes and can only
-// be found by scanning.
+// DeleteNoteAssets —— on note delete, drop every reference the note holds. The pool
+// assets survive: they belong to the owner, may be reused, and are managed from
+// Resources → Assets. (Under the old holder-owned model this deleted the blobs + rows;
+// in the pool model a note's delete only frees its references — docs/design/global-assets.md.)
 func DeleteNoteAssets(ctx context.Context, deps *NoteAssetsDeps, noteID string) error {
-	rows, err := deps.Assets.Repo.ListByHolder(ctx, noteID)
-	if err != nil {
-		return fmt.Errorf("list note assets: %w", err)
-	}
-	keys := make([]string, 0, len(rows))
-	for i := range rows {
-		keys = append(keys, rows[i].StorageKey)
-	}
-	if derr := DeleteBlobsStrict(ctx, deps.Assets, keys); derr != nil {
-		return derr
-	}
-	if _, rerr := deps.Assets.Repo.DeleteByHolder(ctx, noteID); rerr != nil {
-		return fmt.Errorf("delete note asset rows: %w", rerr)
+	rerr := deps.Assets.Repo.DeleteReferencesByReferrer(ctx, repo.RefKindCorpus, noteID)
+	if rerr != nil {
+		return fmt.Errorf("remove note asset references: %w", rerr)
 	}
 	return nil
 }

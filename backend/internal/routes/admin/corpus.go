@@ -167,6 +167,13 @@ func corpusAssetArgs(r *http.Request) (json.RawMessage, error) {
 	})
 }
 
+// assetPoolIDArgs — just the asset id from the path (global pool delete / references).
+func assetPoolIDArgs(r *http.Request) (json.RawMessage, error) {
+	return marshalArgs(map[string]json.RawMessage{
+		paramAssetID: quoteJSON(chi.URLParam(r, paramAssetID)),
+	})
+}
+
 // corpusIDArgs — just genre and id from the path (for read / delete).
 func corpusIDArgs(r *http.Request) (json.RawMessage, error) {
 	return marshalArgs(map[string]json.RawMessage{
