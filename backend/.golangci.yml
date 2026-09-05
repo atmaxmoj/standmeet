@@ -315,6 +315,16 @@ linters:
       # package, same reason.
       - path: cmd/server/axis(cap|conn)/
         linters: [wrapcheck]
+      # pagestore_adapter.go backs the page-store interface with capstore in the composition
+      # root — same job as axiscap: it hands the domain a bound store, and wrapping capstore's
+      # errors here would only add a composition-root frame the domain never reads.
+      - path: cmd/server/pagestore_adapter\.go
+        linters: [wrapcheck]
+      # boot_wireup_pages.go's mapPageStoreErr classifies the store's sentinels into display
+      # errors (apierr.DisplayWrap) at the composition root — same job/reason as provider_models:
+      # the constructor MAKES the classified error the face's apierr.Classify then renders.
+      - path: cmd/server/boot_wireup_pages\.go
+        linters: [wrapcheck]
       # provider_models.go does that same classification for the port it implements:
       # providermodels speaks HTTP (DisplayError), the faces speak facadeparity, and the
       # composition root is where that translation belongs. fp.Coded/BadInput MAKE the

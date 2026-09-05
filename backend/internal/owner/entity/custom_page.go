@@ -28,6 +28,9 @@ type CustomPage struct {
 	// no one has presented a grant. **A code overrides this**: the
 	// presented grant decides everything (I-4).
 	AllowBYOAI bool
+	// StoreWritable —— whether visitors may WRITE this page's persistence store (security model C).
+	// Default false: a page has zero write attack surface until its owner opens it.
+	StoreWritable bool
 }
 
 // CustomPageBuild —— the state + output path of one sandbox vite build.

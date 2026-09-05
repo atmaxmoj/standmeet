@@ -26,8 +26,7 @@ import (
 	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
 )
 
-// buildServerDeps —— assembles each sub-router's Deps block, so serve() doesn't spell out
-// a 50+ line struct literal inline (function-length lint friendly).
+// buildServerDeps —— assembles each sub-router's Deps block (function-length lint friendly).
 func buildServerDeps(d *deps.Runtime) *Deps {
 	return &Deps{
 		DB:                      d.DB,
@@ -39,6 +38,7 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 		PublicPage:              buildPublicPageDeps(d),
 		PublicSEO:               buildPublicSEODeps(d),
 		PublicCustomPages:       buildPublicCustomPageDeps(d),
+		PublicPageStore:         buildPublicPageStoreDeps(d),
 		PublicCustomPagePreview: buildPublicCustomPagePreviewDeps(d),
 		PublicAccessRequests:    buildPublicAccessRequestsDeps(d),
 		PublicPasswordReset:     buildPublicPasswordResetDeps(d),

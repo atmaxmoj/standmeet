@@ -306,7 +306,8 @@ func providerErr(what string, err error) error {
 	switch {
 	case errors.Is(err, entity.ErrProviderIsDefault):
 		return fp.Coded(fp.Conflict(
-			"this is the default provider — make another one the default first"),
+			"this is the default provider — make another one the default first",
+		),
 			"provider_is_default")
 	case errors.Is(err, entity.ErrProviderNotFound):
 		return fp.NotFound("no such provider")

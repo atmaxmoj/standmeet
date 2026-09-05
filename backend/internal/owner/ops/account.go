@@ -83,7 +83,8 @@ func accountCredentialOps(deps AccountDeps) []fp.Op {
 			InputSchema: changeEmailSchema,
 			Kind:        fp.Action,
 			Reach: credentialed(
-				"verifies + changes the login email (current-password gated)"),
+				"verifies + changes the login email (current-password gated)",
+			),
 			Invoke: changeEmail(deps.EmailChange),
 		},
 		{

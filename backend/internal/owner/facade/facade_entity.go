@@ -6,6 +6,7 @@ import "github.com/atmaxmoj/standmeet/internal/owner/entity"
 type (
 	CustomPage      = entity.CustomPage
 	CustomPageBuild = entity.CustomPageBuild
+	PageDocument    = entity.PageDocument
 	KeypairMetadata = entity.KeypairMetadata
 	Owner           = entity.Owner
 	Prompt          = entity.Prompt
@@ -25,6 +26,8 @@ var (
 	ErrCustomPageBuildNotFound  = entity.ErrCustomPageBuildNotFound
 	ErrCustomPageNotFound       = entity.ErrCustomPageNotFound
 	ErrCustomPageSlugTaken      = entity.ErrCustomPageSlugTaken
+	ErrPageStoreNotWritable     = entity.ErrPageStoreNotWritable
+	ErrPageStoreQuota           = entity.ErrPageStoreQuota
 	ErrEmailTaken               = entity.ErrEmailTaken
 	ErrHandleTaken              = entity.ErrHandleTaken
 	ErrInstanceSettingsNotFound = entity.ErrInstanceSettingsNotFound

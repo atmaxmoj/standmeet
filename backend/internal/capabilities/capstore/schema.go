@@ -27,6 +27,9 @@ const (
 	KindConnector Kind = "connector"
 	// KindMCP —— an MCP capability's private storage, schema = mcp_<id>.
 	KindMCP Kind = "mcp"
+	// KindPage —— a custom page's own persistence namespace, schema = page_<id>. Same isolation
+	// model as a plugin: its own schema (not a shared table keyed by id), dropped with the page.
+	KindPage Kind = "page"
 )
 
 // kindPrefix —— axis → reserved prefix. A core schema never carries a prefix, so "has a
@@ -34,6 +37,7 @@ const (
 var kindPrefix = map[Kind]string{
 	KindConnector: "connector_",
 	KindMCP:       "mcp_",
+	KindPage:      "page_",
 }
 
 // coreSchemas —— core schemas that must never be DROPped (belt-and-suspenders; the
@@ -46,7 +50,7 @@ var coreSchemas = map[string]bool{
 // droppableRe —— a legal DROPpable schema name: reserved prefix + a pure [a-z0-9_] suffix.
 // This both blocks core schemas and blocks identifier injection (a schema name in DDL can
 // only be interpolated, never $1-parameterized, so the name must be locked down first).
-var droppableRe = regexp.MustCompile(`^(connector|mcp)_[a-z0-9_]+$`)
+var droppableRe = regexp.MustCompile(`^(connector|mcp|page)_[a-z0-9_]+$`)
 
 // idSuffixRe —— sanitizes a plugin id (which may contain '-'/'.', e.g. google-calendar /
 // calendar.book) into a legal suffix.

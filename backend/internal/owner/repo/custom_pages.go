@@ -115,7 +115,8 @@ func listedCustomPage(row *db.ListCustomPagesByOwnerRow) entity.CustomPage {
 		ID: row.ID, OwnerID: row.OwnerID, Slug: row.Slug, Title: row.Title,
 		Status: row.Status, LiveBuildID: row.LiveBuildID,
 		StagingBuildID: row.StagingBuildID, PreviousLiveBuildID: row.PreviousLiveBuildID,
-		AllowByoai: row.AllowByoai, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		AllowByoai: row.AllowByoai, StoreWritable: row.StoreWritable,
+		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	})
 	page.BoundCodes = row.BoundCodes
 	return page
@@ -241,9 +242,9 @@ func toDomainCustomPage(row *db.CustomPage) entity.CustomPage {
 		Slug:       row.Slug,
 		Title:      row.Title,
 		Status:     row.Status,
-		AllowBYOAI: row.AllowByoai,
-		CreatedAt:  row.CreatedAt.Time,
-		UpdatedAt:  row.UpdatedAt.Time,
+		AllowBYOAI: row.AllowByoai, StoreWritable: row.StoreWritable,
+		CreatedAt: row.CreatedAt.Time,
+		UpdatedAt: row.UpdatedAt.Time,
 	}
 	if row.LiveBuildID.Valid {
 		s := pgstore.FormatUUID(row.LiveBuildID)

@@ -128,7 +128,8 @@ func generateRecovery(deps usecase.RecoveryDeps) fp.Invoke {
 			// whatever the connector is called on the panel.
 			return nil, fp.Coded(fp.Upstream(
 				"couldn't send the recovery phrase — connect and verify a "+
-					deps.Proxy.ChannelName()+" connector first"),
+					deps.Proxy.ChannelName()+" connector first",
+			),
 				"recovery_send_failed")
 		}
 		return json.Marshal(map[string]bool{"sent": true})

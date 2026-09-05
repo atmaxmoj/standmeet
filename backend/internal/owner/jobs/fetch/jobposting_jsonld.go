@@ -40,7 +40,8 @@ const jsonLDMaxDetails = 60
 // ldScriptRe matches <script type="application/ld+json"> ... </script>, case-
 // insensitive, non-greedy, across newlines. It captures the inner JSON text.
 var ldScriptRe = regexp.MustCompile(
-	`(?is)<script[^>]*type=["']application/ld\+json["'][^>]*>(.*?)</script>`)
+	`(?is)<script[^>]*type=["']application/ld\+json["'][^>]*>(.*?)</script>`,
+)
 
 type jsonLDConfig struct {
 	Sitemap   string   `json:"sitemap"`

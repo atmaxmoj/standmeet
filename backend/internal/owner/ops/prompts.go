@@ -214,6 +214,7 @@ var promptErrClasses = []struct {
 	{entity.ErrPromptBuiltinImmutable, func() error {
 		return fp.Coded(
 			fp.Forbidden("builtin prompt cannot be renamed or deleted"),
-			"prompt_builtin_immutable")
+			"prompt_builtin_immutable",
+		)
 	}},
 }

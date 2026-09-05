@@ -124,7 +124,8 @@ func calendarCheck(d *deps.Runtime) fp.Invoke {
 			OK: true, Days: days, BusyCount: len(busy),
 			Summary: fmt.Sprintf(
 				"The calendar answered — %d busy %s in the next %d days.",
-				len(busy), plural(len(busy), "block", "blocks"), days),
+				len(busy), plural(len(busy), "block", "blocks"), days,
+			),
 		})
 	}
 }

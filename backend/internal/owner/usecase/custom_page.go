@@ -10,9 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
@@ -21,6 +19,10 @@ import (
 type CustomPageDeps struct {
 	Pages  *repo.CustomPageRepo
 	Builds *repo.CustomBuildRepo
+	// Docs — the page's own document store (per-page schema). Set on admin paths (create provisions
+	// it, delete drops it, the store ops read/write it); nil on paths that never touch it (e.g.
+	// public serving), where the lifecycle hooks and store ops are skipped.
+	Docs PageDocStore
 	// PreviewSigningKey — signs the admin preview URL (HMAC-derived, never persisted). Empty:
 	// no preview URL, but the list still works.
 	PreviewSigningKey string
@@ -49,6 +51,8 @@ func CreatePage(
 	if err != nil {
 		return entity.CustomPage{}, fmt.Errorf("create page: %w", err)
 	}
+	// The page's document schema is provisioned lazily on the first write (VisitorInsert), so
+	// creation stays independent of the store — and existing pages need no backfill.
 	return page, nil
 }
 
@@ -202,6 +206,14 @@ func DeletePage(ctx context.Context, deps CustomPageDeps, ownerID, slug string) 
 	if lerr != nil {
 		return lerr
 	}
+	// Drop the page's document schema FIRST (DROP SCHEMA CASCADE — the visitor data goes with it).
+	// Before the soft-delete so a drop failure leaves the page intact and the caller can retry;
+	// dropping after would risk a wiped store under a still-live page. No-leak is the invariant.
+	if deps.Docs != nil {
+		if derr := deps.Docs.Drop(ctx, page.ID); derr != nil {
+			return fmt.Errorf("drop page store: %w", derr)
+		}
+	}
 	if derr := deps.Pages.Delete(ctx, page.ID); derr != nil {
 		return fmt.Errorf("delete page: %w", derr)
 	}
@@ -277,72 +289,4 @@ func assertBuildBelongsBuilt(
 	return nil
 }
 
-func validateSlug(slug string) error {
-	if slug == "" {
-		return apierr.ErrEmptyField
-	}
-	if len(slug) > maxSlugLen {
-		return fmt.Errorf("slug too long (max %d)", maxSlugLen)
-	}
-	if !slugCharsOK(slug) {
-		return fmt.Errorf("slug must be a-z0-9-, got %q", slug)
-	}
-	return nil
-}
-
-func slugCharsOK(slug string) bool {
-	for _, r := range slug {
-		if !isSlugChar(r) {
-			return false
-		}
-	}
-	return true
-}
-
-func isSlugChar(r rune) bool {
-	if r == '-' {
-		return true
-	}
-	return isLowerAlnum(r)
-}
-
-func isLowerAlnum(r rune) bool {
-	if r >= 'a' && r <= 'z' {
-		return true
-	}
-	return r >= '0' && r <= '9'
-}
-
-func validatePathContent(path, content string) error {
-	if path == "" {
-		return apierr.ErrEmptyField
-	}
-	if !validRelPath(path) {
-		return fmt.Errorf("path must be relative, got %q", path)
-	}
-	if len(content) > maxFileBytes {
-		return fmt.Errorf("file too large (max %d bytes)", maxFileBytes)
-	}
-	return nil
-}
-
-func validRelPath(path string) bool {
-	if strings.Contains(path, "..") || strings.HasPrefix(path, "/") {
-		return false
-	}
-	return len(path) <= maxPathLen
-}
-
-func validateBundleSize(files map[string]string) error {
-	if len(files) > maxFiles {
-		return fmt.Errorf("too many files (max %d)", maxFiles)
-	}
-	total := 0
-	for _, v := range files {
-		total += len(v)
-	}
-	if total > maxTotalBytes {
-		return fmt.Errorf("bundle too large (max %d bytes)", maxTotalBytes)
-	}
-	return nil
-}
+// (slug / path / bundle-size validators moved to custom_page_validate.go for the line-count gate.)

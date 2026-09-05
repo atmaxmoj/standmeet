@@ -58,7 +58,8 @@ type fetchNewArgsWire struct {
 const defaultPoolWindow = 24 * time.Hour
 
 var errSinceHoursNotPositive = errors.New(
-	"since_hours must be greater than 0 — omit it for the default 24h window")
+	"since_hours must be greater than 0 — omit it for the default 24h window",
+)
 
 // source —— empty string = unspecified, run against all sources.
 func (a *fetchNewArgsWire) source() *string {

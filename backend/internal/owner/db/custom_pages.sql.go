@@ -43,7 +43,7 @@ INSERT INTO custom_pages (owner_id, slug, title)
 VALUES ($1, $2, $3)
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, created_at, updated_at
+          allow_byoai, store_writable, created_at, updated_at
 `
 
 type CreateCustomPageParams struct {
@@ -65,6 +65,7 @@ func (q *Queries) CreateCustomPage(ctx context.Context, arg CreateCustomPagePara
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
 		&i.AllowByoai,
+		&i.StoreWritable,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -125,7 +126,7 @@ func (q *Queries) GetCustomPageBuild(ctx context.Context, id pgtype.UUID) (Custo
 const getCustomPageByID = `-- name: GetCustomPageByID :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       allow_byoai, created_at, updated_at
+       allow_byoai, store_writable, created_at, updated_at
 FROM custom_pages
 WHERE id = $1 AND status != 'deleted'
 `
@@ -143,6 +144,7 @@ func (q *Queries) GetCustomPageByID(ctx context.Context, id pgtype.UUID) (Custom
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
 		&i.AllowByoai,
+		&i.StoreWritable,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -152,7 +154,7 @@ func (q *Queries) GetCustomPageByID(ctx context.Context, id pgtype.UUID) (Custom
 const getCustomPageBySlug = `-- name: GetCustomPageBySlug :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       allow_byoai, created_at, updated_at
+       allow_byoai, store_writable, created_at, updated_at
 FROM custom_pages
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
 `
@@ -175,6 +177,7 @@ func (q *Queries) GetCustomPageBySlug(ctx context.Context, arg GetCustomPageBySl
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
 		&i.AllowByoai,
+		&i.StoreWritable,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -241,7 +244,7 @@ func (q *Queries) GetLatestCustomPageBuild(ctx context.Context, pageID pgtype.UU
 const listCustomPagesByOwner = `-- name: ListCustomPagesByOwner :many
 SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
        cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
-       cp.allow_byoai, cp.created_at, cp.updated_at,
+       cp.allow_byoai, cp.store_writable, cp.created_at, cp.updated_at,
        COALESCE(
            ARRAY(
                SELECT ac.code::text FROM access_codes ac
@@ -265,6 +268,7 @@ type ListCustomPagesByOwnerRow struct {
 	StagingBuildID      pgtype.UUID
 	PreviousLiveBuildID pgtype.UUID
 	AllowByoai          bool
+	StoreWritable       bool
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
 	BoundCodes          []string
@@ -292,6 +296,7 @@ func (q *Queries) ListCustomPagesByOwner(ctx context.Context, ownerID pgtype.UUI
 			&i.StagingBuildID,
 			&i.PreviousLiveBuildID,
 			&i.AllowByoai,
+			&i.StoreWritable,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.BoundCodes,
@@ -314,7 +319,7 @@ SET live_build_id          = previous_live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, created_at, updated_at
+          allow_byoai, store_writable, created_at, updated_at
 `
 
 // Promote previous_live_build_id back to live, clearing previous. When previous was already NULL
@@ -332,6 +337,7 @@ func (q *Queries) RollbackCustomPageLive(ctx context.Context, id pgtype.UUID) (C
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
 		&i.AllowByoai,
+		&i.StoreWritable,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -430,7 +436,7 @@ SET allow_byoai = $3, updated_at = now()
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, created_at, updated_at
+          allow_byoai, store_writable, created_at, updated_at
 `
 
 type SetCustomPageByoaiParams struct {
@@ -454,6 +460,7 @@ func (q *Queries) SetCustomPageByoai(ctx context.Context, arg SetCustomPageByoai
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
 		&i.AllowByoai,
+		&i.StoreWritable,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -468,7 +475,7 @@ SET previous_live_build_id = live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, created_at, updated_at
+          allow_byoai, store_writable, created_at, updated_at
 `
 
 type SetCustomPageLiveParams struct {
@@ -490,6 +497,7 @@ func (q *Queries) SetCustomPageLive(ctx context.Context, arg SetCustomPageLivePa
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
 		&i.AllowByoai,
+		&i.StoreWritable,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -502,7 +510,7 @@ SET staging_build_id = $2, updated_at = now()
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, created_at, updated_at
+          allow_byoai, store_writable, created_at, updated_at
 `
 
 type SetCustomPageStagingParams struct {
@@ -523,10 +531,28 @@ func (q *Queries) SetCustomPageStaging(ctx context.Context, arg SetCustomPageSta
 		&i.StagingBuildID,
 		&i.PreviousLiveBuildID,
 		&i.AllowByoai,
+		&i.StoreWritable,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const setPageStoreWritable = `-- name: SetPageStoreWritable :exec
+UPDATE custom_pages SET store_writable = $3, updated_at = now()
+WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
+`
+
+type SetPageStoreWritableParams struct {
+	OwnerID       pgtype.UUID
+	Slug          string
+	StoreWritable bool
+}
+
+// Owner toggles whether this page's store accepts visitor writes. Owner-scoped by (owner_id, slug).
+func (q *Queries) SetPageStoreWritable(ctx context.Context, arg SetPageStoreWritableParams) error {
+	_, err := q.db.Exec(ctx, setPageStoreWritable, arg.OwnerID, arg.Slug, arg.StoreWritable)
+	return err
 }
 
 const softDeleteCustomPage = `-- name: SoftDeleteCustomPage :exec

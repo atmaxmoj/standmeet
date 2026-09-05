@@ -223,6 +223,7 @@ type CustomPage struct {
 	StagingBuildID      pgtype.UUID
 	PreviousLiveBuildID pgtype.UUID
 	AllowByoai          bool
+	StoreWritable       bool
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
 }

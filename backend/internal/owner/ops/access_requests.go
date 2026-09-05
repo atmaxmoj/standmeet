@@ -155,7 +155,8 @@ func updateAccessRequest(deps access.RequestsDeps) fp.Invoke {
 			return nil, fp.BadInput("invalid arguments: " + err.Error())
 		}
 		if err := fp.RequireArgs(
-			[2]string{"id", in.ID}, [2]string{"status", in.Status}); err != nil {
+			[2]string{"id", in.ID}, [2]string{"status", in.Status},
+		); err != nil {
 			return nil, err
 		}
 		row, err := access.UpdateAccessRequestStatus(ctx, deps, ownerID, in.ID, in.Status)

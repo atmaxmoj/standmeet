@@ -48,6 +48,7 @@ type Deps struct {
 	PublicPage        publicroutes.PageHandlers
 	PublicSEO         publicroutes.SEOHandlers
 	PublicCustomPages publicroutes.CustomPageHandlers
+	PublicPageStore   publicroutes.PageStoreHandlers
 	// PublicCustomPagePreview —— owner-panel preview tile. Public-side but **token-gated**:
 	// must serve without an admin cookie (a sandboxed iframe's sub-resources carry none).
 	PublicCustomPagePreview publicroutes.CustomPagePreviewHandlers
@@ -327,6 +328,8 @@ func mountPublic(r chi.Router, deps *Deps) {
 		(&deps.PublicPage).Mount(r)
 		(&deps.PublicSEO).Mount(r)
 		(&deps.PublicCustomPages).Mount(r)
+		// visitor read/write of a page's own document store
+		(&deps.PublicPageStore).Mount(r)
 		(&deps.PublicCustomPagePreview).Mount(r) // preview: public-side but token-gated
 		(&deps.PublicAccessRequests).Mount(r)
 		(&deps.PublicPasswordReset).Mount(r)

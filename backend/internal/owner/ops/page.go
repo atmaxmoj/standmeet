@@ -138,6 +138,7 @@ var pageErrClasses = []struct {
 	}},
 	{usecase.ErrPublicURLInvalid, func() error {
 		return fp.Coded(fp.BadInput(
-			"public_url must be http(s):// with a non-empty host"), "public_url_invalid")
+			"public_url must be http(s):// with a non-empty host",
+		), "public_url_invalid")
 	}},
 }

@@ -172,6 +172,61 @@ func (s *Store) Delete(
 	return tag.RowsAffected(), nil
 }
 
+// CountAll —— count every doc in the (kind,id)'s schema, across all collections. The per-namespace
+// quota gate (e.g. a page's total document cap) uses this.
+func (s *Store) CountAll(ctx context.Context, kind Kind, id string) (int64, error) {
+	schema, err := schemaName(kind, id)
+	if err != nil {
+		return 0, err
+	}
+	var n int64
+	sql := fmt.Sprintf("SELECT count(*) FROM %s.records", schema)
+	if cerr := s.pool.QueryRow(ctx, sql).Scan(&n); cerr != nil {
+		return 0, fmt.Errorf("capstore count-all %q: %w", schema, cerr)
+	}
+	return n, nil
+}
+
+// CollectedRecord —— a stored doc with its record id AND its collection. Host-side only; the admin
+// management view lists a namespace's rows grouped by collection with a per-row delete handle.
+type CollectedRecord struct {
+	ID         string
+	Collection string
+	Doc        json.RawMessage
+}
+
+// AllRecords —— every record in the (kind,id)'s schema, across collections. Host-only.
+func (s *Store) AllRecords(ctx context.Context, kind Kind, id string) ([]CollectedRecord, error) {
+	schema, err := schemaName(kind, id)
+	if err != nil {
+		return nil, err
+	}
+	sql := fmt.Sprintf(
+		"SELECT id, collection, doc FROM %s.records ORDER BY collection, created_at DESC", schema,
+	)
+	rows, qerr := s.pool.Query(ctx, sql)
+	if qerr != nil {
+		return nil, fmt.Errorf("capstore all-records %q: %w", schema, qerr)
+	}
+	defer rows.Close()
+	return scanCollected(rows)
+}
+
+func scanCollected(rows pgx.Rows) ([]CollectedRecord, error) {
+	var out []CollectedRecord
+	for rows.Next() {
+		var r CollectedRecord
+		if serr := rows.Scan(&r.ID, &r.Collection, &r.Doc); serr != nil {
+			return nil, fmt.Errorf("capstore scan collected record: %w", serr)
+		}
+		out = append(out, r)
+	}
+	if rerr := rows.Err(); rerr != nil {
+		return nil, fmt.Errorf("capstore all-records rows: %w", rerr)
+	}
+	return out, nil
+}
+
 // containment —— normalize an empty filter to `{}` (matches all); otherwise pass through
 // unchanged (the caller guarantees it's a JSON object).
 func containment(filter json.RawMessage) json.RawMessage {

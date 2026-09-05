@@ -137,48 +137,17 @@ func assembleRuntimeDeps(
 	log *slog.Logger, cfg *config.Config, c *conns, repos *repoSet, dw *deferredWiring,
 ) deps.Runtime {
 	captchaVerifier := security.NewFromConfig(
-		security.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil)
+		security.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil,
+	)
 	printStore := printsess.New(c.rdb, 0)
-	// Lexical search (Meili): empty MEILI_URL → nil search fields, falls back to Postgres FTS.
 	searchClient := search.New(cfg.MeiliURL, cfg.MeiliKey)
 	corpusIndexer := corpus.NewCorpusIndexer(searchClient, repos.vaultSync, log)
-	return deps.Runtime{
+	rt := deps.Runtime{
 		Log: log, DB: c.db, RDB: c.rdb,
-		InstanceRepo: repos.instance, OwnerRepo: repos.owner,
-		KeypairRepo: repos.keypair, RawRepo: repos.raw, WikiRepo: repos.wiki,
-		SubjectivityRepo: repos.subjectivity,
-		VaultSyncRepo:    repos.vaultSync,
-		NoteRefRepo:      repos.noteRef,
-		OutputRepo:       repos.output,
-		GrowthRepo:       repos.growth,
-		ActivityRepo:     repos.activity,
-		JobRegistry:      stats.NewJobRegistry(),
-		Corpus:           corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
-		CodeRepo:         repos.code, CodeDenialRepo: repos.codeDenial, ChatRepo: repos.chat,
-		EmbedRepo:      repos.embed,
-		SEORepo:        repos.seo,
-		CustomPageRepo: repos.customPage, CustomBuildRepo: repos.customBuild,
-		BuildNotifier: buildnotify.New(), SelfStatPeers: cfg.SelfStatPeers,
-		AccessRequestRepo:  repos.accessRequest,
-		JobSourceRepo:      repos.jobSource,
-		ResumeDraftRepo:    repos.resumeDraft,
-		ApplicationRepo:    repos.application,
-		SkillRepo:          repos.skill,
-		MCPServerRepo:      repos.mcpServer,
-		PromptRepo:         repos.prompt,
-		RoleRepo:           repos.role,
-		WritingRepo:        repos.writing,
-		WritingRefRepo:     repos.writingRef,
-		AssetRepo:          repos.asset,
-		NoteHeroRepo:       repos.noteHero,
-		CapabilityRepo:     repos.capability,
-		GhostRepo:          repos.ghost,
-		ChatReportRepo:     repos.chatReport,
-		InferenceUsageRepo: repos.inferenceUsage,
-		BannedIPRepo:       repos.bannedIP,
-		APIKeyRepo:         repos.apiKey,
-		AppStateRepo:       repos.appState,
-		ConnectorRepo:      repos.connector,
+		JobRegistry:        stats.NewJobRegistry(),
+		Corpus:             corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
+		BuildNotifier:      buildnotify.New(),
+		SelfStatPeers:      cfg.SelfStatPeers,
 		StorageClient:      dw.storageClient,
 		JobCachePool:       jobcache.New(c.rdb, 0),
 		JobFetchRegistry:   newJobFetchRegistry(cfg),
@@ -190,26 +159,54 @@ func assembleRuntimeDeps(
 		CaptchaVerifier:    captchaVerifier,
 		CaptchaEnabled:     cfg.TurnstileSiteKey != "" && cfg.TurnstileSecret != "",
 		CaptchaSiteKey:     captchaSiteKeyFor(cfg),
-		SecureCookie:       cfg.SecureCookie, SeedDefaultSources: cfg.SeedDefaultSources,
-		BuildsRoot: cfg.CustomPagesRoot, SessionKey: cfg.SessionKey, PublicIP: cfg.PublicIP,
-		SandboxRunner:     sandbox.FromEnv(cfg.SandboxDriver),
-		PrintStore:        printStore,
-		PdfRenderer:       buildPDFRenderer(log, cfg, printStore),
-		ReportPDFRenderer: buildReportPDFRenderer(cfg),
+		SecureCookie:       cfg.SecureCookie,
+		SeedDefaultSources: cfg.SeedDefaultSources,
+		BuildsRoot:         cfg.CustomPagesRoot,
+		SessionKey:         cfg.SessionKey,
+		PublicIP:           cfg.PublicIP,
+		SandboxRunner:      sandbox.FromEnv(cfg.SandboxDriver),
+		PrintStore:         printStore,
+		PdfRenderer:        buildPDFRenderer(log, cfg, printStore),
+		ReportPDFRenderer:  buildReportPDFRenderer(cfg),
 		MarketplaceClient: marketplace.NewFromEnv(
-			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL),
+			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
+		),
 		AgentSkills: capreg.NewRegistry(),
 		Upgrade:     upgradeSources(cfg),
 		// The two probes built here: unsealer reachable only from deps.go's composition root.
 		MCPProber:      &mcpServerProbe{servers: &dialableMCPServers{repo: repos.mcpServer}},
 		ProviderModels: &providerModelLister{owners: repos.owner},
-		// capStores —— wireCapabilityStorage fills this per capability, provisioned once.
-		CapStores:    map[string]*capstore.Store{},
-		SearchClient: searchClient, CorpusIndexer: corpusIndexer,
-		// J.5: pluginRegistry is built by the caller after assembleRuntimeDeps returns, using the
-		// full deps set (jobs.Plugin needs closures holding refs to *jobsuc.JobsDeps etc.). Left
-		// nil here so lint sees the field used; wirePluginRegistry backfills it after.
+		// CapStores is filled per capability by wireCapabilityStorage; PageDocs is the per-page
+		// document schema (capstore KindPage); pluginRegistry is backfilled by wirePluginRegistry.
+		CapStores:     map[string]*capstore.Store{},
+		PageDocs:      newPageDocStore(capstore.New(c.db)),
+		SearchClient:  searchClient,
+		CorpusIndexer: corpusIndexer,
 	}
+	setRuntimeRepos(&rt, repos)
+	return rt
+}
+
+// setRuntimeRepos —— wire every postgres repo onto the runtime. Split out of assembleRuntimeDeps so
+// that function stays a services/config assembler and this stays a flat repo passthrough — each
+// under the function-length gate, each with one job.
+func setRuntimeRepos(rt *deps.Runtime, repos *repoSet) {
+	rt.InstanceRepo, rt.OwnerRepo, rt.KeypairRepo = repos.instance, repos.owner, repos.keypair
+	rt.RawRepo, rt.WikiRepo, rt.SubjectivityRepo = repos.raw, repos.wiki, repos.subjectivity
+	rt.VaultSyncRepo, rt.NoteRefRepo, rt.OutputRepo = repos.vaultSync, repos.noteRef, repos.output
+	rt.GrowthRepo, rt.ActivityRepo = repos.growth, repos.activity
+	rt.CodeRepo, rt.CodeDenialRepo, rt.ChatRepo = repos.code, repos.codeDenial, repos.chat
+	rt.EmbedRepo, rt.SEORepo = repos.embed, repos.seo
+	rt.CustomPageRepo, rt.CustomBuildRepo = repos.customPage, repos.customBuild
+	rt.AccessRequestRepo = repos.accessRequest
+	rt.JobSourceRepo, rt.ResumeDraftRepo = repos.jobSource, repos.resumeDraft
+	rt.ApplicationRepo, rt.SkillRepo = repos.application, repos.skill
+	rt.MCPServerRepo, rt.PromptRepo, rt.RoleRepo = repos.mcpServer, repos.prompt, repos.role
+	rt.WritingRepo, rt.WritingRefRepo = repos.writing, repos.writingRef
+	rt.AssetRepo, rt.NoteHeroRepo, rt.CapabilityRepo = repos.asset, repos.noteHero, repos.capability
+	rt.GhostRepo, rt.ChatReportRepo = repos.ghost, repos.chatReport
+	rt.InferenceUsageRepo, rt.BannedIPRepo = repos.inferenceUsage, repos.bannedIP
+	rt.APIKeyRepo, rt.AppStateRepo, rt.ConnectorRepo = repos.apiKey, repos.appState, repos.connector
 }
 
 // buildPluginRegistry —— registers every outbound plugin currently enabled. From phase J

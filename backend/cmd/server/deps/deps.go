@@ -108,14 +108,16 @@ type Runtime struct {
 	DB                 *pgxpool.Pool
 	Dispatch           *dispatcher.Dispatcher
 	CapStores          map[string]*capstore.Store
-	SearchClient       *search.Client
-	CaptchaSiteKey     string
-	BuildsRoot         string
-	PublicIP           string
-	SessionKey         string
-	SelfStatPeers      []string
-	SecureCookie       bool
-	CaptchaEnabled     bool
+	// PageDocs —— per-custom-page document store (capstore KindPage); each page its own schema.
+	PageDocs       owner.PageDocStore
+	SearchClient   *search.Client
+	CaptchaSiteKey string
+	BuildsRoot     string
+	PublicIP       string
+	SessionKey     string
+	SelfStatPeers  []string
+	SecureCookie   bool
+	CaptchaEnabled bool
 	// SeedDefaultSources — seed the built-in job aggregators on a fresh claim (config knob).
 	SeedDefaultSources bool
 }

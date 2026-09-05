@@ -20,6 +20,10 @@ type (
 	CreatePromptInputReq       = usecase.CreatePromptInputReq
 	CreatedKeypair             = usecase.CreatedKeypair
 	CustomPageDeps             = usecase.CustomPageDeps
+	PageDocStore               = usecase.PageDocStore
+	DocWrite                   = usecase.DocWrite
+	DocQuery                   = usecase.DocQuery
+	DocRef                     = usecase.DocRef
 	EmailUpdateInput           = usecase.EmailUpdateInput
 	HandleDeps                 = usecase.HandleDeps
 	KeyChange                  = usecase.KeyChange
@@ -60,6 +64,7 @@ type (
 // Constructors/functions (impl: usecase).
 var (
 	ErrOutboundNotConfigured   = usecase.ErrOutboundNotConfigured
+	ErrPageStoreInvalid        = usecase.ErrPageStoreInvalid
 	AddAllowedDomain           = usecase.AddAllowedDomain
 	ApproveAccessRequest       = usecase.ApproveAccessRequest
 	Build                      = usecase.Build
@@ -88,6 +93,14 @@ var (
 	ListAllowedDomains         = usecase.ListAllowedDomains
 	ListKeypairs               = usecase.ListKeypairs
 	ListPages                  = usecase.ListPages
+	PageStoreInsert            = usecase.VisitorInsert
+	PageStoreQuery             = usecase.VisitorQuery
+	PublicInsertPageDoc        = usecase.PublicInsertDoc
+	PublicQueryPageDocs        = usecase.PublicQueryDocs
+	PageStoreListAll           = usecase.OwnerListDocs
+	PageStoreDeleteDoc         = usecase.OwnerDeleteDoc
+	PageStoreClear             = usecase.OwnerClear
+	PageStoreSetWritable       = usecase.OwnerSetWritable
 	ListPrompts                = usecase.ListPrompts
 	LoadSoleOwner              = usecase.LoadSoleOwner
 	SeedPublicRole             = usecase.SeedPublicRole

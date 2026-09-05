@@ -50,7 +50,8 @@ var ErrPreviewTokenInvalid = errors.New("preview token invalid")
 // all URL-safe, so the whole thing can go straight into the path.
 func NewPreviewToken(key, ownerID, slug string, now time.Time) string {
 	exp := strconv.FormatInt(now.Add(PreviewTokenTTL).Unix(), decimalBase)
-	return fmt.Sprintf("%s.%s.%s",
+	return fmt.Sprintf(
+		"%s.%s.%s",
 		base64.RawURLEncoding.EncodeToString([]byte(ownerID)),
 		exp,
 		previewSig(key, ownerID, slug, exp),

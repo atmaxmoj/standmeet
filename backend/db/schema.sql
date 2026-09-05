@@ -704,6 +704,10 @@ CREATE TABLE custom_pages (
     -- allow_byoai —— 没有人出示 grant 时，这一页给不给读者用自己的 key。
     -- **来了 code 就作废**：出示的 grant 决定一切，页面自己的设置只在无人出示时生效（I-4）。
     allow_byoai            boolean       NOT NULL DEFAULT false,
+    -- store_writable — whether visitors may WRITE this page's page_store namespace. Default false:
+    -- a page has zero write attack surface until the owner explicitly opens it (security model C).
+    -- Reads are not gated by this; writes are (+ per-page quota, doc-size cap, per-IP rate limit).
+    store_writable         boolean       NOT NULL DEFAULT false,
     created_at             timestamptz   NOT NULL DEFAULT now(),
     updated_at             timestamptz   NOT NULL DEFAULT now()
 );
@@ -754,6 +758,13 @@ CREATE TABLE custom_page_builds (
     created_at      timestamptz   NOT NULL DEFAULT now(),
     built_at        timestamptz
 );
+
+-- A custom page's own persistence namespace is NOT a table here. Each page gets its OWN Postgres
+-- schema (page_<id>) with a generic records(collection, doc jsonb) table — the capstore pattern
+-- (internal/capabilities/capstore, KindPage), same isolation as a plugin: physical schema
+-- separation (not a shared table keyed by id), created on page create, DROP SCHEMA CASCADE on page
+-- delete. See internal/owner/usecase/page_store.go. The only page_store trace in core is the
+-- custom_pages.store_writable flag above (whether visitors may write it — security model C).
 
 -- access_requests —— visitor 在 /<handle>/gate 留言（无 code 时）。
 -- owner 在 /admin/requests 看；open → replied (回邮件后) / closed (无视)。
