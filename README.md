@@ -34,15 +34,16 @@ source; the image copies it at build time, alongside the other four.
 
 `app/Dockerfile` copies a `.next/standalone` that was built on the host; it does not run
 `next build` itself. A fresh checkout has no `.next`, so building this stack from git cannot
-work. The template therefore pins published images — `v0.0.3` is on ghcr and is what it
-points at.
+work. The compose therefore pulls published images — every service uses
+`${STANDMEET_IMAGE_TAG:-latest}`, so it tracks `latest` unless you pin
+`STANDMEET_IMAGE_TAG=vX.Y.Z`.
 
-To cut your own:
+To cut your own release (always from `main`, after merging):
 
 ```bash
-git tag -a v0.0.4 -m "…"                      # the tag is the version; nothing else holds it
+git tag -a v0.1.18 -m "…"                     # the tag is the version; nothing else holds it
 docker login ghcr.io                           # a PAT, or: gh auth refresh -s write:packages
-make release-build && make release-push
+make release-build && make release-push        # builds THEN pushes multi-arch to ghcr
 ```
 
 The image tag comes from `git describe`, so a dirty tree publishes as `v0.0.4-dirty` rather

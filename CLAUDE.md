@@ -1,6 +1,6 @@
 # StandMeet
 
-> **Status (2026-05-16):** Mid product redefinition. Old architecture (Invitation Mode WebSocket gateway, Electron-only owner client, observer distillation engine) is being replaced. The dirs at the repo root (`standmeet-client/`, `standmeet-e2e/`, `standmeet-server/`) are **legacy reference**, not active development. New code will live in new top-level dirs to keep boundaries clear.
+> **Status (2026-09-05):** The redefinition is built and shipping. Active code lives in `backend/` (Go, domain modules), `app/` (Next.js — the four public surfaces + admin), `sdk/`, `builder/` (owner-written **microsites**), `im-bridge/`, and `infra/`. Released to ghcr and self-hosted on sijie.xyz (see [[live-instance-url]] in memory). The dirs at the repo root prefixed `standmeet-*` (`standmeet-client/`, `standmeet-e2e/`, `standmeet-server/`) are **legacy reference only** — not built, not run. The old architecture (Invitation Mode WebSocket gateway, Electron-only owner client, observer distillation engine) is dead.
 
 ## What StandMeet is
 
@@ -88,7 +88,7 @@ standmeet/
    └─ page-builder/     ←   the seed of the SDK + sandbox microsite system
 ```
 
-New work goes in new top-level dirs (names TBD — likely `backend/`, `app/`, `sdk/`, `infra/`).
+New work goes in the top-level dirs that now exist: `backend/`, `app/`, `sdk/`, `builder/`, `im-bridge/`, `infra/`.
 
 ## Throughput: round trips are the bottleneck
 
