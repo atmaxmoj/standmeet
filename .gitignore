@@ -70,6 +70,8 @@ test-results/
 playwright-report/
 coverage/
 logs/
+# Stray captured command output (docker build/up dumps that got committed by accident).
+*.log
 
 # Local DBs and data
 *.sqlite
