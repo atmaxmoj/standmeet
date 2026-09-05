@@ -36,9 +36,20 @@ export function AdminShell({ children }: Props) {
 // `NAV_GROUPS`). This used to copy a second list, and that copy was missing `subjectivity` —
 // the sidebar could render that section, but the path mapping didn't recognize it, so that
 // page highlighted dashboard instead (F-N-1). One fact, one source.
+// SECTION_ROUTE_ALIASES —— routes that live under a section but aren't the section's own slug.
+// The microsite editor is /admin/edit/<slug> (opened from the microsites list), so it belongs to
+// the `microsites` nav item — without this it fell through to the dashboard highlight (the owner
+// on the editor saw dashboard lit, F-N-1's sibling: a real route the nav mapping didn't recognize).
+const SECTION_ROUTE_ALIASES: Record<string, AdminSlug> = { edit: 'microsites' };
+
 function adminActiveSlug(pathname: string | null): AdminSlug {
-  const seg = (pathname ?? '').replace(/^\/admin\/?/, '').split('/')[0];
-  return ADMIN_SLUGS.find((s) => s === seg) ?? 'dashboard';
+  const seg = firstAdminSegment(pathname);
+  const canonical = SECTION_ROUTE_ALIASES[seg] ?? seg;
+  return ADMIN_SLUGS.find((s) => s === canonical) ?? 'dashboard';
+}
+
+function firstAdminSegment(pathname: string | null): string {
+  return (pathname ?? '').replace(/^\/admin\/?/, '').split('/')[0] ?? '';
 }
 
 // AdminLayout —— top bar + sidebar + main content.
