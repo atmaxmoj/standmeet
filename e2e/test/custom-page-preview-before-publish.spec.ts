@@ -18,7 +18,7 @@ import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto, reloadAdminSection } from '@/fixtures/navigate';
+import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'previewfirst@example.com',
@@ -47,8 +47,7 @@ test.describe('custom pages · preview before publish', () => {
   // The two buttons must state what they can't do yet — both are dead without a slug,
   // and saying so (disabled) is not the same as a dead button (F-N-1's shape).
   test('the editor is fillable and both actions gate on the slug', async ({ adminPage: page }) => {
-    await reloadAdminSection(page, 'custom-pages');
-    await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+    await goto(page, '/admin/edit/new');
 
     await expect(page.getByTestId('custom-page-source')).toBeVisible();
     await expect(page.getByTestId('custom-page-build')).toBeDisabled();
@@ -58,9 +57,9 @@ test.describe('custom pages · preview before publish', () => {
     await expect(page.getByTestId('custom-page-build')).toBeEnabled();
     await expect(page.getByTestId('custom-page-publish')).toBeEnabled();
 
-    // The editor is a real, fillable field (the @uiw editor's inner <textarea>).
-    await page.getByTestId('custom-page-source').fill(APP);
-    await expect(page.getByTestId('custom-page-source')).toHaveValue(new RegExp(MARKER));
+    // The editor is a real, fillable field (CodeMirror's contenteditable surface).
+    await fillSource(page, APP);
+    await expect(page.getByTestId('custom-page-source').locator('.cm-content')).toContainText(MARKER);
   });
 
   // The whole point: staged renders inline, and the visitor URL is STILL dark until publish.
@@ -99,11 +98,19 @@ test.describe('custom pages · preview before publish', () => {
 // build to reach a terminal state. Only waits for terminal: asserting "still building"
 // holds for any implementation.
 async function buildPreview(page: Page, slug: string, source: string): Promise<void> {
-  await reloadAdminSection(page, 'custom-pages');
-  await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+  await goto(page, '/admin/edit/new');
+  await page.waitForURL('**/admin/edit/new', { timeout: 10_000 });
   await page.getByTestId('custom-page-slug').fill(slug);
-  await page.getByTestId('custom-page-source').fill(source);
+  await fillSource(page, source);
   await page.getByTestId('custom-page-build').click();
   await expect(page.getByTestId('custom-page-build-status'))
     .toHaveText(/built/i, { timeout: 180_000 });
+}
+
+// fillSource — set the active file's source in the CodeMirror editor via its contenteditable
+// surface; fill() pastes in one shot so bracket-closing doesn't corrupt the JSX.
+async function fillSource(page: Page, source: string): Promise<void> {
+  const body = page.getByTestId('custom-page-source').locator('.cm-content');
+  await body.click();
+  await body.fill(source);
 }

@@ -186,53 +186,43 @@ async function promote(slug: string, buildID: string): Promise<void> {
   await customPagesStore.getState().refresh();
 }
 
-// publishPage —— the whole sequence: create → write → build → poll → go live only on success.
-//
-// Lives at this layer, not the component: **the build is async**, and
-// deciding "running / succeeded / failed" is logic, not presentation. onTick
-// hands each poll's result back, because what the owner needs to see is
-// exactly "it's still running" — a button that does nothing when clicked
-// looks identical on screen to a failed build.
-export async function publishPage(
-  slug: string, source: string, onTick: (b: BuildView) => void,
-): Promise<BuildView> {
-  const settled = await stagePage(slug, source, onTick);
-  await promoteIfBuilt(slug, settled);
-  return settled;
+// DraftFiles — the editor's file bundle: path → source. The mini-IDE loads it (loadDraft), edits
+// several files, and stages/ships the whole bundle at once (stageFiles / shipFilesLive).
+const DraftFilesSchema = z.object({ files: z.record(z.string(), z.string()) });
+export type DraftFiles = Record<string, string>;
+
+// loadDraft — the page's current draft files, for the editor to open an existing page.
+export async function loadDraft(slug: string): Promise<DraftFiles> {
+  const { files } = await adminAPI.get(`/custom-pages/${slug}/files`, DraftFilesSchema);
+  return files;
 }
 
-// shipLive —— the panel's "publish → live" action. If the owner already staged a
-// preview of this exact source (build is 'built'), promote **that** build rather than
-// rebuilding — a rebuild is tens of seconds already paid once. Otherwise run the whole
-// build+promote sequence (the common "write then publish, no preview" path). Lives here,
-// not the panel: the branch is business logic, and the presentation layer bans `if`.
-export async function shipLive(
-  slug: string, source: string, staged: BuildView | null, onTick: (b: BuildView) => void,
-): Promise<void> {
-  if (staged?.status === 'built') {
-    await promote(slug, staged.build_id);
-    return;
-  }
-  await publishPage(slug, source, onTick);
-}
-
-// stagePage —— create → write → build → poll, then refresh the list so the staging
-// build (and its signed preview_url) show up — but do **not** go live. This is the
-// "see the effect before you ship it" half: the owner builds, looks at the staging
-// preview inline, and only then decides to publish. Splitting it out of publishPage
-// is what lets the panel offer both — a preview-first build and a one-click publish —
-// off the same sequence, instead of the owner writing blind and finding out only
-// after it's already the live page.
-export async function stagePage(
-  slug: string, source: string, onTick: (b: BuildView) => void,
+// stageFiles — create-if-needed → write EACH file → build → poll. The multi-file generalisation of
+// stagePage (which is now just the one-file case).
+export async function stageFiles(
+  slug: string, files: DraftFiles, onTick: (b: BuildView) => void,
 ): Promise<BuildView> {
   await ensurePage(slug);
-  await writeFile(slug, 'App.tsx', source);
+  for (const [path, content] of Object.entries(files)) {
+    await writeFile(slug, path, content);
+  }
   const started = await build(slug);
   onTick(started);
   const settled = await pollBuild(started.build_id, onTick);
   await customPagesStore.getState().refresh();
   return settled;
+}
+
+// shipFilesLive — publish the whole bundle. Reuses an already-built staging build when present.
+export async function shipFilesLive(
+  slug: string, files: DraftFiles, staged: BuildView | null, onTick: (b: BuildView) => void,
+): Promise<void> {
+  if (staged?.status === 'built') {
+    await promote(slug, staged.build_id);
+    return;
+  }
+  const settled = await stageFiles(slug, files, onTick);
+  await promoteIfBuilt(slug, settled);
 }
 
 // ensurePage —— the first step of the publish sequence is "**does this page

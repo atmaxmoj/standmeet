@@ -32,7 +32,7 @@ import type { Page } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { gotoAdminSection } from '@/fixtures/navigate';
+import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'previewer@example.com',
@@ -103,13 +103,14 @@ test.describe('custom pages · the panel shows what the agent just built, withou
         (req) => req.url().includes('/custom-pages/wait'), { timeout: 30_000 },
       );
 
-      await gotoAdminSection(page, 'custom-pages');
-      await page.waitForURL('**/admin/custom-pages', { timeout: 5_000 });
+      // The redesign gives each page its own editor route (/admin/edit/<slug>); its right pane
+      // renders this page's live build. Go straight there — the list → editor click-through is
+      // covered in custom-page.spec, and clicking a list row while builds are settling races the
+      // list's own re-render. The preview-follow is what THIS test is about: it rides the shared
+      // long-poll (useCustomPages), which the editor route holds open too — catch it to prove the
+      // held connection exists here, not just on the list.
+      await goto(page, `/admin/edit/${SLUG}`);
       await longPoll;
-
-      // Open this page from the list — that's what drives its live render into the split's right
-      // pane (the redesign: click a page → edit left, render right).
-      await page.getByTestId(`custom-page-open-${SLUG}`).click();
 
       // 1 + 2: the panel actually renders this page, and what it shows is **staging**
       // (never promoted to live).

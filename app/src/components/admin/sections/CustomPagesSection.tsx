@@ -11,17 +11,11 @@
 
 'use client';
 
-import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import Link from 'next/link';
 
-// HOMEPAGE_SLUG — the reserved custom-page slug served at `/` (backend usecase.HomepageSlug). The
-// list marks this row so the owner can tell which page is their public homepage at a glance.
-const HOMEPAGE_SLUG = 'home';
-
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { AuthoringPanel } from '@/components/admin/sections/custom-pages/AuthoringPanel';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   pickCustomPagesBodyState,
@@ -32,10 +26,15 @@ import {
 import { useAction } from '@/lib/ui/use-action';
 import { stampDay } from '@/lib/ui/format-time';
 
+// HOMEPAGE_SLUG — the reserved custom-page slug served at `/` (backend usecase.HomepageSlug). The
+// list marks this row so the owner can tell which page is their public homepage at a glance.
+const HOMEPAGE_SLUG = 'home';
+
+// CustomPagesSection — /admin/custom-pages is JUST the list now (owner: "只是列表，不要在下面有
+// 编辑器"). Editing a page happens on its own route, /admin/edit/<slug> (the mini-IDE); the list's
+// title and "edit" action link there.
 export function CustomPagesSection() {
   const hook = useCustomPages();
-  // The page whose split editor|preview is open below. Empty = the "new page" state (editable slug).
-  const [selectedSlug, setSelectedSlug] = useState('');
   return (
     <>
       <SectionHeader
@@ -50,24 +49,20 @@ export function CustomPagesSection() {
         count={hook.rows.length > 0 ? String(hook.rows.length) : ''}
       />
       <Intro />
-      <NewPageButton onNew={() => setSelectedSlug('')} />
-      <CustomPagesBody hook={hook} selectedSlug={selectedSlug} onSelect={setSelectedSlug} />
-      <AuthoringPanel hook={hook} slug={selectedSlug} onSlugChange={setSelectedSlug} />
+      <NewPageButton />
+      <CustomPagesBody hook={hook} />
     </>
   );
 }
 
-// NewPageButton — clears the selection so the editor below opens in "new page" mode (editable slug).
-function NewPageButton({ onNew }: { onNew: () => void }) {
+// NewPageButton — start a fresh page in the editor route (create-on-save).
+function NewPageButton() {
   const t = useTranslations('adminPages.customPages');
   return (
     <div className="mb-3 flex justify-end">
-      <button
-        type="button" onClick={onNew} data-testid="custom-page-new"
-        className="sm-btn sm-btn-sm"
-      >
-        {t('newPage')}
-      </button>
+      <Link href="/admin/edit/new" className="sm-btn sm-btn-sm">
+        <span data-testid="custom-page-new">{t('newPage')}</span>
+      </Link>
     </div>
   );
 }
@@ -81,15 +76,12 @@ function Intro() {
   );
 }
 
-function CustomPagesBody(
-  { hook, selectedSlug, onSelect }:
-  { hook: CustomPagesHook; selectedSlug: string; onSelect: (slug: string) => void },
-) {
+function CustomPagesBody({ hook }: { hook: CustomPagesHook }) {
   const map = {
     loading: <ListSkeleton count={3} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState />,
-    list: <CustomPagesTable rows={hook.rows} selectedSlug={selectedSlug} onSelect={onSelect} />,
+    list: <CustomPagesTable rows={hook.rows} />,
   } as const;
   return map[pickCustomPagesBodyState(hook)];
 }
@@ -115,18 +107,13 @@ function EmptyState() {
   );
 }
 
-function CustomPagesTable(
-  { rows, selectedSlug, onSelect }:
-  { rows: readonly CustomPageSummary[]; selectedSlug: string; onSelect: (slug: string) => void },
-) {
+function CustomPagesTable({ rows }: { rows: readonly CustomPageSummary[] }) {
   return (
     <div data-testid="custom-pages-list" className="border border-(--color-rule) rounded-[3px] overflow-hidden">
       <table className="w-full border-collapse">
         <TableHead />
         <tbody>
-          {rows.map((p) => (
-            <PageRow key={p.id} page={p} selected={p.slug === selectedSlug} onSelect={onSelect} />
-          ))}
+          {rows.map((p) => <PageRow key={p.id} page={p} />)}
         </tbody>
       </table>
     </div>
@@ -149,19 +136,12 @@ function TableHead() {
   );
 }
 
-// PageRow — one row per page. The previews no longer render inline (that put every page's full
-// render in the list at once); instead clicking the title opens this page in the split editor|
-// preview below. The row highlights when it's the one open.
-function PageRow(
-  { page, selected, onSelect }:
-  { page: CustomPageSummary; selected: boolean; onSelect: (slug: string) => void },
-) {
+// PageRow — one row per page. No inline preview (that put every page's full render in the list at
+// once); the title and the "edit" action both link to the page's own editor route /admin/edit/<slug>.
+function PageRow({ page }: { page: CustomPageSummary }) {
   return (
-    <tr
-      data-testid={`custom-page-row-${page.slug}`}
-      className={`border-b border-(--color-rule)/60 ${selected ? 'bg-(--color-surface)/60' : ''}`}
-    >
-      <PageCell page={page} onSelect={onSelect} />
+    <tr data-testid={`custom-page-row-${page.slug}`} className="border-b border-(--color-rule)/60">
+      <PageCell page={page} />
       <TemplateCell />
       <VisibilityCell hasLive={page.has_live} hasStaging={page.has_staging} />
       <BindingCell page={page} />
@@ -260,23 +240,20 @@ function VisibilityCell({ hasLive, hasStaging }: { hasLive: boolean; hasStaging:
   );
 }
 
-function PageCell(
-  { page, onSelect }: { page: CustomPageSummary; onSelect: (slug: string) => void },
-) {
+function PageCell({ page }: { page: CustomPageSummary }) {
   const t = useTranslations('adminPages.customPages');
   return (
     <td className="px-4 py-3">
-      <button
-        type="button" onClick={() => onSelect(page.slug)}
-        data-testid={`custom-page-open-${page.slug}`}
-        className="block text-left hover:opacity-70"
+      <Link
+        href={`/admin/edit/${page.slug}`}
+        className="block hover:opacity-70"
       >
-        <span className="font-serif text-[16px] text-(--color-ink)">{page.title}</span>
+        <span data-testid={`custom-page-open-${page.slug}`} className="font-serif text-[16px] text-(--color-ink)">{page.title}</span>
         <HomepageBadge slug={page.slug} />
         <span className="block mono text-[10px] text-(--color-faint) mt-0.5">
           {t('slugPath', { slug: page.slug })}
         </span>
-      </button>
+      </Link>
     </td>
   );
 }
@@ -325,10 +302,25 @@ function DateCell({ iso }: { iso: string }) {
 function ActionsCell({ page }: { page: CustomPageSummary }) {
   return (
     <td className="px-4 py-3 text-right whitespace-nowrap">
+      <EditLink slug={page.slug} />
       <ViewLiveLink page={page} />
       <TakeDownLink page={page} />
       <DeleteLink slug={page.slug} />
     </td>
+  );
+}
+
+// EditLink — the discoverable "edit" affordance: a link to the page's own editor route. Without it
+// the owner saw only view/take-down/delete and couldn't tell how to edit ("看不见按键").
+function EditLink({ slug }: { slug: string }) {
+  const t = useTranslations('adminPages.customPages');
+  return (
+    <Link
+      href={`/admin/edit/${slug}`}
+      className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-accent) hover:underline"
+    >
+      <span data-testid={`custom-page-edit-${slug}`}>{t('edit')}</span>
+    </Link>
   );
 }
 
@@ -370,15 +362,19 @@ function DeleteLink({ slug }: { slug: string }) {
 
 function ViewLiveLink({ page }: { page: CustomPageSummary }) {
   const t = useTranslations('adminPages.customPages');
+  // A plain <a>, not next/link: /p/<slug> is the vite-built page served by the backend, not a
+  // route in this Next app. next/link tries a soft client navigation, finds no matching app
+  // route, and never hard-navigates — the link looks clicked but the page never changes. A raw
+  // anchor does the real cross-boundary navigation.
   return page.has_live ? (
-    <Link
+    <a
       href={`/p/${page.slug}`}
-      className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-accent) hover:underline"
+      className="ml-3 mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-accent) hover:underline"
     >
       {t('viewLive')} ↗
-    </Link>
+    </a>
   ) : (
-    <span className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-faint)">
+    <span className="ml-3 mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-faint)">
       {t('noLiveBuild')}
     </span>
   );

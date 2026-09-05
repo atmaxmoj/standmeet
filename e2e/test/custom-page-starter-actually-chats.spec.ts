@@ -25,7 +25,7 @@ import type { Page } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { goto } from '@/fixtures/navigate';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
 
 const OWNER = {
@@ -54,15 +54,16 @@ test.describe('custom pages · the starter the panel hands you is a working chat
 
   test('publishing the untouched starter produces a page a reader can ask on',
     async ({ adminPage: page, playwright }) => {
-      await gotoAdminSection(page, 'custom-pages');
-      await page.waitForURL('**/admin/custom-pages', { timeout: 5_000 });
+      // The editor starts a fresh page pre-filled with the starter template; publishing it
+      // untouched is the whole test.
+      await goto(page, '/admin/edit/new');
 
-      // The panel must **first** tell the owner what can be imported. Today it says nothing.
+      // The editor must **first** tell the owner what can be imported. Today it says nothing.
       const help = page.getByTestId('custom-page-imports');
       await expect(help).toContainText('@standmeet/sdk');
       await expect(help).toContainText('useChatSession');
 
-      // Publish the panel's own template, unchanged.
+      // Publish the editor's own template, unchanged.
       await page.getByTestId('custom-page-slug').fill(SLUG);
       await page.getByTestId('custom-page-publish').click();
       await expect(page.getByTestId('custom-page-build-status'))

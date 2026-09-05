@@ -59,6 +59,14 @@ func customPageBuildOps(deps usecase.CustomPageDeps) []fp.Op {
 			Invoke:      writeCustomPageFile(deps),
 		},
 		{
+			ID:          "custom_page.get_draft",
+			Description: "The page's current draft source files (path → content), for editing.",
+			InputSchema: pageSlugSchema,
+			Kind:        fp.Read,
+			Reach:       fp.OwnerRead(),
+			Invoke:      getCustomPageDraft(deps),
+		},
+		{
 			ID: "custom_page.build",
 			Description: "Build the current draft. The builder is asynchronous — poll the " +
 				"returned build id with custom_page.get_build.",
@@ -137,6 +145,26 @@ func writeCustomPageFile(deps usecase.CustomPageDeps) fp.Invoke {
 			return nil, customPageErr(err)
 		}
 		return json.Marshal(toBuildOut(&build))
+	}
+}
+
+// draftFilesOut — the editor's load payload: the slug and its draft files (path → content).
+type draftFilesOut struct {
+	Files map[string]string `json:"files"`
+	Slug  string            `json:"slug"`
+}
+
+func getCustomPageDraft(deps usecase.CustomPageDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := decodePageSlug(raw)
+		if perr != nil {
+			return nil, perr
+		}
+		files, err := usecase.GetDraftFiles(ctx, deps, ownerID, in.Slug)
+		if err != nil {
+			return nil, customPageErr(err)
+		}
+		return json.Marshal(draftFilesOut{Slug: in.Slug, Files: files})
 	}
 }
 

@@ -90,8 +90,9 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
   // blocker against the correct product once the capability was added.
   test('the authoring affordance exists and is wired (F-N-1, in the world where it works)',
     async ({ adminPage: page }) => {
-      await gotoAdminSection(page, 'custom-pages');
-      await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+      // The editor lives at its own route now (/admin/edit/<slug>); /admin/edit/new starts a
+      // fresh page with an editable slug.
+      await goto(page, '/admin/edit/new');
       await expect(page.getByTestId('custom-page-source')).toBeVisible();
       await expect(page.getByTestId('custom-page-publish')).toBeVisible();
       // Disabled with an empty slug -- that isn't "a dead button", that's it being able
@@ -101,20 +102,29 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
       await expect(page.getByTestId('custom-page-publish')).toBeEnabled();
     });
 
-  // The redesign: the list marks the reserved `home` page, and clicking a page opens it into the
-  // split editor (its slug loads on the left, its render shows on the right) — instead of the old
-  // "every page rendered inline + one editor at the bottom".
-  test('the list marks the homepage, and opening a page loads it into the split editor',
+  // The redesign: /admin/custom-pages is JUST the list; it marks the reserved `home` page, and
+  // clicking a page navigates to that page's OWN editor route (/admin/edit/<slug>) — a mini-IDE
+  // with the page's files — instead of the old "every page rendered inline + one editor at the
+  // bottom".
+  test('the list marks the homepage, and opening a page navigates to its own editor',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'custom-pages');
       await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
       await expect(
         page.getByTestId('custom-page-homepage-badge'), 'the home page is marked in the list',
       ).toBeVisible();
-      await page.getByTestId('custom-page-open-home').click();
+      // The row links into the page's own editor route (the redesign: /admin/custom-pages is just
+      // the list; opening a page goes to /admin/edit/<slug>). Assert the wiring on the anchor,
+      // then that the route is the editor with the page's files — this decouples the check from
+      // the client-side nav's timing, which flakes when the list is re-rendering under build load.
+      const opener = page.getByTestId('custom-page-open-home');
+      await expect(opener.locator('xpath=ancestor::a'), 'the row opens the page editor')
+        .toHaveAttribute('href', /\/admin\/edit\/home$/);
+      await goto(page, '/admin/edit/home');
       await expect(
-        page.getByTestId('custom-page-slug'), 'clicking a page loads it into the editor',
-      ).toHaveValue('home');
+        page.getByTestId('custom-page-file-App.tsx'),
+        'the page opens in its own editor with its files loaded',
+      ).toBeVisible();
     });
 
   // F-P-2 -- **editing a version and republishing** is the most common thing done on
@@ -174,19 +184,28 @@ function markerApp(marker: string): string {
 // the build to reach a terminal state. **Only waits for a terminal state**: asserting on
 // "still running" would hold for any implementation.
 async function publishFromPanel(page: Page, slug: string, source: string): Promise<void> {
-  // Does a **full page navigation** back to the panel every time -- after the previous
+  // Does a **full page navigation** to the editor route every time -- after the previous
   // run viewed the live page, the browser is sitting on `/p/<slug>`, which has no
-  // sidebar, so a click-driven gotoAdminSection can't get there; the red would land
-  // somewhere unrelated to this check.
-  await reloadAdminSection(page, 'custom-pages');
-  await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+  // sidebar. /admin/edit/new starts a fresh page with an editable slug, so re-publishing
+  // the same slug just types it again (ensurePage tolerates the existing page).
+  await goto(page, '/admin/edit/new');
+  await page.waitForURL('**/admin/edit/new', { timeout: 10_000 });
   await page.getByTestId('custom-page-slug').fill(slug);
-  await page.getByTestId('custom-page-source').fill(source);
+  await fillSource(page, source);
   await page.getByTestId('custom-page-publish').click();
   // The sandbox builds one at a time, and other tests in this family are also building --
   // the timeout budget accounts for queueing.
   await expect(page.getByTestId('custom-page-build-status'))
     .toHaveText(/built/i, { timeout: 180_000 });
+}
+
+// fillSource -- set the active file's source in the CodeMirror editor. The testid sits on the
+// editor's wrapper; the editable surface is `.cm-content` (contenteditable). fill() pastes the
+// text in one shot, so CodeMirror's bracket-closing doesn't fire per keystroke and corrupt JSX.
+async function fillSource(page: Page, source: string): Promise<void> {
+  const body = page.getByTestId('custom-page-source').locator('.cm-content');
+  await body.click();
+  await body.fill(source);
 }
 
 async function expectServed(page: Page, slug: string, marker: string): Promise<void> {

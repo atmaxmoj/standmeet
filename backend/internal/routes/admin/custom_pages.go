@@ -102,6 +102,7 @@ func parseSince(s string) int64 {
 // the body, the same shape as the skills facade.
 func (h *Handlers) mountCustomPageItem(r chi.Router, face *dispatcher.Face) {
 	r.Route("/{slug}", func(r chi.Router) {
+		r.Get("/files", h.dispatchOp(face, "custom_page.get_draft", urlParamArgs("slug"), jsonOK))
 		r.Put("/files",
 			h.dispatchOp(face, "custom_page.write_file", bodyWithURLParam("slug"), jsonOK))
 		r.Post("/build", h.dispatchOp(face, "custom_page.build", urlParamArgs("slug"), jsonOK))
