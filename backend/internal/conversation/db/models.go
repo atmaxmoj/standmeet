@@ -21,7 +21,7 @@ type AccessCode struct {
 	MaxMembers           *int32
 	RequireGhostEvidence *bool
 	ProviderID           pgtype.UUID
-	CustomPageID         pgtype.UUID
+	MicrositeID          pgtype.UUID
 	LimitPerPeriod       []byte
 	CreatedAt            pgtype.Timestamptz
 	AssumedRoleID        pgtype.UUID
@@ -213,32 +213,6 @@ type CorpusNote struct {
 	UpdatedAt           pgtype.Timestamptz
 }
 
-type CustomPage struct {
-	ID                  pgtype.UUID
-	OwnerID             pgtype.UUID
-	Slug                string
-	Title               string
-	Status              string
-	LiveBuildID         pgtype.UUID
-	StagingBuildID      pgtype.UUID
-	PreviousLiveBuildID pgtype.UUID
-	AllowByoai          bool
-	StoreWritable       bool
-	CreatedAt           pgtype.Timestamptz
-	UpdatedAt           pgtype.Timestamptz
-}
-
-type CustomPageBuild struct {
-	ID           pgtype.UUID
-	PageID       pgtype.UUID
-	Status       string
-	SourceFiles  []byte
-	OutputPath   string
-	ErrorMessage string
-	CreatedAt    pgtype.Timestamptz
-	BuiltAt      pgtype.Timestamptz
-}
-
 type Dialog struct {
 	ID             pgtype.UUID
 	ConversationID pgtype.UUID
@@ -335,6 +309,32 @@ type Message struct {
 	CitedWritingIds         []pgtype.UUID
 	GroundedSubjectivityIds []pgtype.UUID
 	CreatedAt               pgtype.Timestamptz
+}
+
+type Microsite struct {
+	ID                  pgtype.UUID
+	OwnerID             pgtype.UUID
+	Slug                string
+	Title               string
+	Status              string
+	LiveBuildID         pgtype.UUID
+	StagingBuildID      pgtype.UUID
+	PreviousLiveBuildID pgtype.UUID
+	AllowByoai          bool
+	StoreWritable       bool
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
+}
+
+type MicrositeBuild struct {
+	ID           pgtype.UUID
+	PageID       pgtype.UUID
+	Status       string
+	SourceFiles  []byte
+	OutputPath   string
+	ErrorMessage string
+	CreatedAt    pgtype.Timestamptz
+	BuiltAt      pgtype.Timestamptz
 }
 
 type NoteRef struct {

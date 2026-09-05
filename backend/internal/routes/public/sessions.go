@@ -57,9 +57,9 @@ type createSessionResponse struct {
 	MemberID       string `json:"member_id,omitempty"`
 	CodeLabel      string `json:"code_label,omitempty"`
 	VisitorName    string `json:"visitor_name,omitempty"`
-	// CustomPageSlug —— page this code opens when scanned. Empty = default conversation;
+	// MicrositeSlug —— page this code opens when scanned. Empty = default conversation;
 	// always sent (never omitempty) since missing vs. genuinely-empty must stay distinct.
-	CustomPageSlug      string                   `json:"custom_page_slug"`
+	MicrositeSlug       string                   `json:"microsite_slug"`
 	SystemPromptPersona string                   `json:"system_prompt_persona"`
 	Members             []sessionMemberResp      `json:"members"`
 	Capabilities        []capreg.CapabilityState `json:"capabilities"`
@@ -135,11 +135,11 @@ type codeIntroRequest struct {
 type codeIntroResponse struct {
 	Label    string `json:"label"`
 	Greeting string `json:"greeting"`
-	// CustomPageSlug —— which page this code opens. Empty string means the default
+	// MicrositeSlug —— which page this code opens. Empty string means the default
 	// conversation, not "no answer".
-	CustomPageSlug string `json:"custom_page_slug"`
-	MaxMembers     int32  `json:"max_members"`
-	MemberCount    int32  `json:"member_count"`
+	MicrositeSlug string `json:"microsite_slug"`
+	MaxMembers    int32  `json:"max_members"`
+	MemberCount   int32  `json:"member_count"`
 }
 
 // codeIntro —— name picker's pre-issue peek: code (in body) → greeting + name cap/used.
@@ -164,8 +164,8 @@ func writeCodeIntro(
 	w.WriteHeader(http.StatusOK)
 	resp := codeIntroResponse{
 		Label: res.Label, Greeting: res.Greeting,
-		CustomPageSlug: res.CustomPageSlug,
-		MaxMembers:     res.MaxMembers, MemberCount: res.MemberCount,
+		MicrositeSlug: res.MicrositeSlug,
+		MaxMembers:    res.MaxMembers, MemberCount: res.MemberCount,
 	}
 	if eerr := json.NewEncoder(w).Encode(resp); eerr != nil {
 		log.Error("encode code intro", "err", eerr)
@@ -287,7 +287,7 @@ func writeCreateSession(
 		MemberID:       res.MemberID,
 		CodeLabel:      res.CodeLabel,
 		VisitorName:    res.VisitorName,
-		CustomPageSlug: res.CustomPageSlug,
+		MicrositeSlug:  res.MicrositeSlug,
 		SystemPromptPersona: conversation.ComposeDynamicPersona(res.Session.Data.RoleSnapshot,
 			owner.FullNameOf(ctx, h.Owners, res.Session.Data.OwnerID)),
 		Capabilities:        bundle.States,

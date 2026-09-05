@@ -128,7 +128,7 @@ var baseline = map[string]bool{
 	"internal/routes/public/agent_turn_preflight.go":  true,
 	"internal/routes/public/app_state.go":             true,
 	"internal/routes/public/chat.go":                  true,
-	"internal/routes/public/custom_pages.go":          true,
+	"internal/routes/public/microsites.go":          true,
 	"internal/routes/public/ghosts.go":                true,
 	"internal/routes/public/history.go":               true,
 	"internal/routes/public/landing.go":               true,

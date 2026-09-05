@@ -5,7 +5,7 @@
 // because they were dead (no onClick) — registering was MCP-only, so an admin button
 // would have been lying. Now the backend has POST/DELETE /job-sources, so the affordance
 // comes back, wired: pick a kind, give it a label + config, register. Same shape as
-// custom-pages F-N-1 ("the button must not exist" → "the button must exist and work").
+// microsites F-N-1 ("the button must not exist" → "the button must exist and work").
 //
 // The header count said "N active" — but job_sources has no active/inactive column; it
 // was just the row count wearing a status word it doesn't have ([[names-that-lie]]). Now

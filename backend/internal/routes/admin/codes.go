@@ -51,8 +51,8 @@ func (h *Handlers) MountCodes(r chi.Router) {
 		h.dispatchOp(face, "codes.set_ghost_evidence", bodyWithURLParam(paramCodeID), jsonOK))
 	// Which page this code opens. An empty slug unbinds it, falling back to the default
 	// visitor chat.
-	r.Patch("/{code_id}/custom-page",
-		h.dispatchOp(face, "codes.set_custom_page", bodyWithURLParam(paramCodeID), jsonOK))
+	r.Patch("/{code_id}/microsite",
+		h.dispatchOp(face, "codes.set_microsite", bodyWithURLParam(paramCodeID), jsonOK))
 	r.Get("/{code_id}/members",
 		h.dispatchOp(face, "codes.list_members", urlParamArgs(paramCodeID), jsonOK))
 	h.mountCodeACL(r, face)
@@ -106,7 +106,8 @@ func addDenialArgs(r *http.Request) (json.RawMessage, error) {
 	target, ok := fields[denialTargetFields[kind]]
 	if !ok {
 		return nil, dispatcher.BadInput(
-			"body must carry " + denialTargetFields[kind] + " for kind " + kind)
+			"body must carry " + denialTargetFields[kind] + " for kind " + kind,
+		)
 	}
 	return marshalDenial(chi.URLParam(r, paramCodeID), kind, target)
 }

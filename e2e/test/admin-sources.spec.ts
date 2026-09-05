@@ -45,7 +45,7 @@ test.describe('admin sources list', () => {
   // removed because they were dead — registering was MCP-only, so a button would have
   // lied. The backend now has POST /job-sources, so the affordance comes back **wired**:
   // the assertion flips from "there is no form, go to MCP" to "the form is here and
-  // actually registers a source" (same shape as custom-page.spec's F-N-1).
+  // actually registers a source" (same shape as microsite.spec's F-N-1).
   test('the register form exists and is wired (F-E-1, in the world where it works)', registerFormWired);
 
   test('a registered source appears in the list',
@@ -58,7 +58,7 @@ test.describe('admin sources list', () => {
     });
 
   // If the owner can add a source from the panel he must be able to take one off it too
-  // (same rule as custom-pages F-P-4). The criterion is that the row is actually gone.
+  // (same rule as microsites F-P-4). The criterion is that the row is actually gone.
   test('the panel can remove a source, and it is gone', panelRemovesSource);
   // What this page has to answer is "is my source still alive". A source that **was
   // fetched but has failed every time** used to print the same `never fetched` line as a

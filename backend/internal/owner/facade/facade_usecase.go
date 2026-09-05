@@ -19,8 +19,8 @@ type (
 	CreatePageInput            = usecase.CreatePageInput
 	CreatePromptInputReq       = usecase.CreatePromptInputReq
 	CreatedKeypair             = usecase.CreatedKeypair
-	CustomPageDeps             = usecase.CustomPageDeps
-	PageDocStore               = usecase.PageDocStore
+	MicrositeDeps              = usecase.MicrositeDeps
+	MicrositeDocStore          = usecase.MicrositeDocStore
 	DocWrite                   = usecase.DocWrite
 	DocQuery                   = usecase.DocQuery
 	DocRef                     = usecase.DocRef
@@ -64,7 +64,7 @@ type (
 // Constructors/functions (impl: usecase).
 var (
 	ErrOutboundNotConfigured   = usecase.ErrOutboundNotConfigured
-	ErrPageStoreInvalid        = usecase.ErrPageStoreInvalid
+	ErrMicrositeStoreInvalid   = usecase.ErrMicrositeStoreInvalid
 	AddAllowedDomain           = usecase.AddAllowedDomain
 	ApproveAccessRequest       = usecase.ApproveAccessRequest
 	Build                      = usecase.Build
@@ -93,14 +93,14 @@ var (
 	ListAllowedDomains         = usecase.ListAllowedDomains
 	ListKeypairs               = usecase.ListKeypairs
 	ListPages                  = usecase.ListPages
-	PageStoreInsert            = usecase.VisitorInsert
-	PageStoreQuery             = usecase.VisitorQuery
-	PublicInsertPageDoc        = usecase.PublicInsertDoc
-	PublicQueryPageDocs        = usecase.PublicQueryDocs
-	PageStoreListAll           = usecase.OwnerListDocs
-	PageStoreDeleteDoc         = usecase.OwnerDeleteDoc
-	PageStoreClear             = usecase.OwnerClear
-	PageStoreSetWritable       = usecase.OwnerSetWritable
+	MicrositeStoreInsert       = usecase.VisitorInsert
+	MicrositeStoreQuery        = usecase.VisitorQuery
+	PublicInsertMicrositeDoc   = usecase.PublicInsertDoc
+	PublicQueryMicrositeDocs   = usecase.PublicQueryDocs
+	MicrositeStoreListAll      = usecase.OwnerListDocs
+	MicrositeStoreDeleteDoc    = usecase.OwnerDeleteDoc
+	MicrositeStoreClear        = usecase.OwnerClear
+	MicrositeStoreSetWritable  = usecase.OwnerSetWritable
 	ListPrompts                = usecase.ListPrompts
 	LoadSoleOwner              = usecase.LoadSoleOwner
 	SeedPublicRole             = usecase.SeedPublicRole
@@ -115,7 +115,7 @@ var (
 	ErrPendingEmailExpired     = usecase.ErrPendingEmailExpired
 	RemoveAllowedDomain        = usecase.RemoveAllowedDomain
 	ResolveLiveBuild           = usecase.ResolveLiveBuild
-	LiveCustomPages            = usecase.LiveCustomPages
+	LiveMicrosites             = usecase.LiveMicrosites
 	ResolvePreviewBuild        = usecase.ResolvePreviewBuild
 	NewPreviewToken            = usecase.NewPreviewToken
 	VerifyPreviewToken         = usecase.VerifyPreviewToken

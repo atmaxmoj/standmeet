@@ -478,7 +478,7 @@ export function streamChatMessage(
 export const composeChatSystem = (s: PublicSessionResponse): Promise<string> =>
   client().composeSystem(s);
 
-// Some callers still need IssueSessionInput directly (custom-page uses it in
+// Some callers still need IssueSessionInput directly (microsite uses it in
 // sdk-react's useChatSession), re-exported for compatibility.
 export type { IssueSessionInput };
 

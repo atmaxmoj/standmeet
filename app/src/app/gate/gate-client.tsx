@@ -16,14 +16,14 @@ import { WhatsBehind } from '@/components/gate/WhatsBehind';
 import { useTheme } from '@/lib/page/use-theme';
 import { useGate } from '@/lib/gate/use-gate';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
-import type { CustomPageLink } from '@/lib/api/custom-pages';
+import type { MicrositeLink } from '@/lib/api/microsites';
 
 type Props = {
   handle: string;
   canDeliverCodes: boolean;
   publicWiki: number;
   publicWritings: number;
-  pages: readonly CustomPageLink[];
+  pages: readonly MicrositeLink[];
 };
 
 export function GateClient(

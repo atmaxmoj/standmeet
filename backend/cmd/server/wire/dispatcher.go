@@ -78,9 +78,9 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 			Recovery:    port.RecoveryDeps(d),
 			EmailChange: port.EmailChangeDeps(d),
 		},
-		CustomPages: owner.CustomPageDeps{
-			Pages: d.CustomPageRepo, Builds: d.CustomBuildRepo,
-			Docs: d.PageDocs, // per-page doc schema: create provisions, delete drops (CASCADE)
+		Microsites: owner.MicrositeDeps{
+			Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo,
+			Docs: d.MicrositeDocs, // per-page doc schema: create provisions, delete drops (CASCADE)
 			// The list must sign the preview URL — the token is signed with this
 			// server-side key; the frontend never assembles it itself.
 			PreviewSigningKey: d.SessionKey,

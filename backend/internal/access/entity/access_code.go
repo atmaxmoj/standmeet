@@ -38,7 +38,7 @@ type Code struct {
 	Status               string
 	AssumedRoleID        string
 	InlinePrompt         string
-	CustomPageSlug       string
+	MicrositeSlug        string
 	ProviderID           string
 	ID                   string
 	Ghosts               []string

@@ -126,7 +126,8 @@ func buildPresignClient(cfg *Config, internal *minio.Client) (*minio.Client, err
 	if parsed.Host == "" {
 		return nil, fmt.Errorf(
 			"storage: STORAGE_PUBLIC_URL %q has no scheme — write it as https://%s",
-			cfg.PublicURL, cfg.PublicURL)
+			cfg.PublicURL, cfg.PublicURL,
+		)
 	}
 	return buildMinioClient(parsed.Host, cfg)
 }

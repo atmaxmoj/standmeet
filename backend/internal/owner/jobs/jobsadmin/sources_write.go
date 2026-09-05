@@ -100,7 +100,7 @@ func decodeRegisterReq(
 }
 
 // unregisterSource — DELETE /job-sources/{id}. If the owner can add a source from the
-// panel he must be able to take one off it too (same rule as custom-pages F-P-4).
+// panel he must be able to take one off it too (same rule as microsites F-P-4).
 func unregisterSource(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if deps.Jobs == nil {

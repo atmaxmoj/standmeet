@@ -176,7 +176,7 @@ unnecessary — it exists *because* the product is BYO-integration.)
 | **conversation** | chat / dialog / message / conversation_ghost / visitor-session assembly — **+ inference as its agent engine** |
 | **connector** | connection / integration / mail_connector / **connectorsvc (its admin/lifecycle)** + adapters. (Its registry/door move to the platform axes, below.) |
 | **access** | access_code / access_request / role / role_snapshot / dock_buttons / path_acl / api_key **(+ session)** |
-| **owner** | owner / account / instance / app_state / page_content / custom_page / appearance / keypair / login / password / recovery **+ mail (mail_otp / outbound) + prompts** |
+| **owner** | owner / account / instance / app_state / page_content / microsite / appearance / keypair / login / password / recovery **+ mail (mail_otp / outbound) + prompts** |
 | **security** | captcha / banned_ip / login-guard · anti-replay (auth = access; **protection = security**) |
 | **marketplace** | marketplace / skill / mcp_server |
 | **stats** (observability) | stats_activity / growth / jobs / inference_usage / system_info |
@@ -260,7 +260,7 @@ symptom.
 
 This doc is also self-contradictory here: it sanctions `ownercore` under **owner** (as an
 in-process, non-sandboxed owner-side cap) while its own owner inventory is
-account/instance/page/custom_page/appearance/keypair/login/password/recovery + mail + prompts —
+account/instance/page/microsite/appearance/keypair/login/password/recovery + mail + prompts —
 which is not "every other domain's MCP tools". And the principle above says controllers are **only**
 `internal/routes/*`; an inbound owner-MCP tool surface is a controller.
 

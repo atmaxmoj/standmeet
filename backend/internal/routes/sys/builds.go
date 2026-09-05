@@ -29,10 +29,10 @@ import (
 // Field order follows govet fieldalignment: Log (most-used) goes first to align padding.
 type BuilderDeps struct {
 	Log    *slog.Logger
-	Builds *owner.CustomBuildRepo
+	Builds *owner.MicrositeBuildRepo
 	// Pages —— needed only so a finished build can auto-go-live the reserved home page
 	// (owner.AutopublishHomepageOnBuilt). Every other build ignores it.
-	Pages *owner.CustomPageRepo
+	Pages *owner.MicrositeRepo
 	// Notifier —— wakes the owner panel's preview long-poll the moment a build settles.
 	Notifier *buildnotify.Notifier
 }
@@ -76,9 +76,9 @@ func claimBuild(deps BuilderDeps) http.HandlerFunc {
 }
 
 func respondClaim(
-	deps BuilderDeps, w http.ResponseWriter, err error, _ *owner.CustomPageBuild,
+	deps BuilderDeps, w http.ResponseWriter, err error, _ *owner.MicrositeBuild,
 ) {
-	if errors.Is(err, owner.ErrCustomPageBuildNotFound) {
+	if errors.Is(err, owner.ErrMicrositeBuildNotFound) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -157,7 +157,7 @@ func markBuilt(r *http.Request, deps BuilderDeps, id string, req *patchBuildRequ
 	// Auto-go-live the reserved home page the moment its build finishes (A Slice 5). Any other
 	// build is a no-op inside. Its failure must not fail the builder's report — the build IS built.
 	if aerr := owner.AutopublishHomepageOnBuilt(
-		r.Context(), owner.CustomPageDeps{Pages: deps.Pages, Builds: deps.Builds}, &built, deps.Log,
+		r.Context(), owner.MicrositeDeps{Pages: deps.Pages, Builds: deps.Builds}, &built, deps.Log,
 	); aerr != nil {
 		deps.Log.Error("homepage auto-publish on built", "err", aerr)
 	}

@@ -1,5 +1,5 @@
 {
-  "name": "standmeet-custom-page-builder",
+  "name": "standmeet-microsite-builder",
   "version": "0.1.0",
   "private": true,
   "description": "Sandbox image that runs vite build on owner-authored React source.",

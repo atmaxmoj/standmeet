@@ -1,9 +1,9 @@
-# custom-pages — Custom page hosting: create → build → promote → host
+# microsites — Custom page hosting: create → build → promote → host
 
 - **Module:** The owner authors a custom React page with the SDK. A sandboxed real Vite build produces static output, the instance hosts it, and the admin surface reflects the page's lifecycle.
-- **Surface:** `/admin/custom-pages`, and the built page at its `/p/<slug>`.
+- **Surface:** `/admin/microsites`, and the built page at its `/p/<slug>`.
 - **Real dep:** The prod stack, with a real sandbox build through the docker driver (see [[sandbox]]) and real storage.
-- **Backing e2e:** `custom-page` for the surface, plus the [[sandbox]] specs for the build. Storage and hosting of the built artifact → `gap`.
+- **Backing e2e:** `microsite` for the surface, plus the [[sandbox]] specs for the build. Storage and hosting of the built artifact → `gap`.
 
 ## Checks
 
@@ -11,10 +11,10 @@
 - **Steps:** Author a page through the MCP lifecycle: create, write files, build, promote to live. Wait for the build. Open the page's public URL. Read it. Take a chat turn on it if it embeds chat.
 - **Expected:** The build runs a real toolchain in the sandbox, not a stub. The static artifact is served from the instance. The page renders and its embedded features work.
 - **Note:** Build isolation belongs to [[sandbox]]. What this check owns is storage and hosting of the artifact.
-- **Backing test:** `custom-page.spec.ts` · artifact storage → `gap`
+- **Backing test:** `microsite.spec.ts` · artifact storage → `gap`
 
 ### 2 — Every affordance on the surface does something
-- **Steps:** Open `/admin/custom-pages`. Click every control on the page, including any create button. Observe what each one does.
+- **Steps:** Open `/admin/microsites`. Click every control on the page, including any create button. Observe what each one does.
 - **Expected:** Each control opens a flow, navigates, or gives feedback. A control that fires nothing does not exist here. If the lifecycle is MCP-driven, the copy says so and no button contradicts it.
 - **Mock gap:** A dead button fires nothing, so nothing fails. Only a click by a human, or a spec that asserts the effect of the click, can reach this.
 - **Backing test:** `gap`

@@ -35,7 +35,7 @@ type Handlers struct {
 	Auth              AuthDeps
 	KeypairsAdmin     KeypairsAdminDeps
 	SkillsAdmin       SkillsAdminDeps
-	CustomPagesAdmin  CustomPagesDeps
+	MicrositesAdmin   MicrositesDeps
 	MarketplaceAdmin  MarketplaceAdminDeps
 	MCPServersAdmin   MCPServersAdminDeps
 	BYOAI             BYOAIDeps
@@ -54,7 +54,7 @@ type Handlers struct {
 	SeedPlugins func(ctx context.Context, ownerID string) error
 	// InstallHomepage — installs the default homepage as the `home` custom page after claim.
 	// Best-effort like SeedPlugins: a failure only logs (the built-in homepage keeps serving),
-	// and it's handed in from the composition root so this layer needn't know custom-page deps.
+	// and it's handed in from the composition root so this layer needn't know microsite deps.
 	InstallHomepage func(ctx context.Context, ownerID string) error
 	PromptsAdmin    PromptsAdminDeps
 	Domains         DomainsDeps
@@ -106,7 +106,7 @@ func (h *Handlers) MountAuthed(r chi.Router, credGuard func(http.Handler) http.H
 	h.MountAccount(r, credGuard)
 	h.MountAIProvider(r)
 	h.MountProviders(r)
-	h.MountCustomPages(r)
+	h.MountMicrosites(r)
 	h.MountSkills(r)
 	h.MountPrompts(r)
 	h.MountRoles(r)

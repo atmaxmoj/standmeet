@@ -1,16 +1,16 @@
 {
   "_why": "证明托管页的天花板：远端图片 / 远端 mp4 / 远端音频 / 第三方 iframe / 远端字体 / CSS 动画 / 自己的排版，**全部走 URL，一个字节都不进构建产物**；同一张页上还挂着真语料和真 agent。之所以要驱，是因为「元素在 DOM 里」和「它真的加载出来了」是两件事 —— 截图能分辨，断言不一定。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsite-code-binding/shots",
   "viewport": [1440, 1600],
   "shots": [
     {
       "name": "cpcb-90-authoring",
-      "url": "/admin/custom-pages",
+      "url": "/admin/microsites",
       "steps": [
         { "wait": 6000 },
-        { "type": ["[data-testid=\"custom-page-slug\"]", "lucerna"] },
-        { "typeFile": ["[data-testid=\"custom-page-source\"]", "../docs/design/examples/product-page.App.tsx"] },
-        { "click": "[data-testid=\"custom-page-publish\"]" },
+        { "type": ["[data-testid=\"microsite-slug\"]", "lucerna"] },
+        { "typeFile": ["[data-testid=\"microsite-source\"]", "../docs/design/examples/product-page.App.tsx"] },
+        { "click": "[data-testid=\"microsite-publish\"]" },
         { "wait": 90000 }
       ],
       "wait": 1000,

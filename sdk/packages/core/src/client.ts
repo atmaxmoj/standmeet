@@ -17,7 +17,7 @@
 
 import type {
   CorpusCard,
-  CustomPageLink,
+  MicrositeLink,
   WikiLandingView,
   OutputLandingView,
   PublicSessionResponse,
@@ -92,9 +92,9 @@ export interface StandMeetClient {
   // fetchCorpusCards —— every published corpus entry as a card (title + excerpt +
   // reader path). A page lists these to show corpus cards without hand-picking ids.
   fetchCorpusCards(): Promise<CorpusCard[]>;
-  // fetchCustomPages —— the owner's OTHER published custom pages (slug + title), so a page can
+  // fetchMicrosites —— the owner's OTHER published custom pages (slug + title), so a page can
   // link the rest of the site without knowing their slugs. Empty on failure (degrade, no throw).
-  fetchCustomPages(): Promise<CustomPageLink[]>;
+  fetchMicrosites(): Promise<MicrositeLink[]>;
   issueSession(input: IssueSessionInput): Promise<PublicSessionResponse>;
   streamMessage(
     conversationID: string,
@@ -109,23 +109,23 @@ export interface StandMeetClient {
   // page adopting an already-existing session only has the few stored
   // items on hand, and this has never used quota / members.
   composeSystem(session: SystemPromptSource): Promise<string>;
-  // queryPageDocs —— read this page's own stored documents in a collection (a poll tally, a
+  // queryMicrositeDocs —— read this page's own stored documents in a collection (a poll tally, a
   // sign-up list). Degrades to empty on failure — a read never throws.
-  queryPageDocs(slug: string, collection: string): Promise<PageDoc[]>;
-  // insertPageDoc —— append one document to this page's store. Throws PageStoreError on a
+  queryMicrositeDocs(slug: string, collection: string): Promise<MicrositeDoc[]>;
+  // insertMicrositeDoc —— append one document to this page's store. Throws MicrositeStoreError on a
   // refusal (the store is closed, full, the doc is invalid) so the page can tell the visitor.
-  insertPageDoc(slug: string, collection: string, doc: PageDoc): Promise<string>;
+  insertMicrositeDoc(slug: string, collection: string, doc: MicrositeDoc): Promise<string>;
 }
 
-// PageDoc —— an opaque JSON document a custom page stores (the SDK doesn't model its shape).
-export type PageDoc = Record<string, unknown>;
+// MicrositeDoc —— an opaque JSON document a custom page stores (the SDK doesn't model its shape).
+export type MicrositeDoc = Record<string, unknown>;
 
-// PageStoreError —— a write refusal, carrying the HTTP status + the server's code so the page can
+// MicrositeStoreError —— a write refusal, carrying the HTTP status + the server's code so the page can
 // distinguish "closed" (403) from "full" (429) from "invalid" (400).
-export class PageStoreError extends Error {
+export class MicrositeStoreError extends Error {
   constructor(public readonly status: number, public readonly code: string, message: string) {
     super(message);
-    this.name = 'PageStoreError';
+    this.name = 'MicrositeStoreError';
   }
 }
 
@@ -159,43 +159,43 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
     fetchWikiLanding: (slug, lang) => fetchWikiLanding(f, baseURL, slug, lang),
     fetchOutputLanding: (slug) => fetchOutputLanding(f, baseURL, slug),
     fetchCorpusCards: () => fetchCorpusCards(f, baseURL),
-    fetchCustomPages: () => fetchCustomPages(f, baseURL),
+    fetchMicrosites: () => fetchMicrosites(f, baseURL),
     issueSession: (input) => issueSession(f, baseURL, input),
     streamMessage: (id, token, content, system, byoai) =>
       streamMessage(f, baseURL, id, token, content, system, byoai, histories),
     composeSystem: (session) => composeSystem(f, baseURL, session),
-    queryPageDocs: (slug, collection) => queryPageDocs(f, baseURL, slug, collection),
-    insertPageDoc: (slug, collection, doc) => insertPageDoc(f, baseURL, slug, collection, doc),
+    queryMicrositeDocs: (slug, collection) => queryMicrositeDocs(f, baseURL, slug, collection),
+    insertMicrositeDoc: (slug, collection, doc) => insertMicrositeDoc(f, baseURL, slug, collection, doc),
   };
 }
 
-const pageStoreBase = '/api/v1/pages';
+const micrositeStoreBase = '/api/v1/pages';
 
-async function queryPageDocs(
+async function queryMicrositeDocs(
   f: typeof fetch, baseURL: string, slug: string, collection: string,
-): Promise<PageDoc[]> {
+): Promise<MicrositeDoc[]> {
   try {
-    const url = `${baseURL}${pageStoreBase}/${slug}/store?collection=${encodeURIComponent(collection)}`;
+    const url = `${baseURL}${micrositeStoreBase}/${slug}/store?collection=${encodeURIComponent(collection)}`;
     const res = await f(url, { cache: 'no-store' });
     if (!res.ok) return [];
-    const body = (await res.json()) as { docs?: PageDoc[] };
+    const body = (await res.json()) as { docs?: MicrositeDoc[] };
     return body.docs ?? [];
   } catch {
     return [];
   }
 }
 
-async function insertPageDoc(
-  f: typeof fetch, baseURL: string, slug: string, collection: string, doc: PageDoc,
+async function insertMicrositeDoc(
+  f: typeof fetch, baseURL: string, slug: string, collection: string, doc: MicrositeDoc,
 ): Promise<string> {
-  const res = await f(`${baseURL}${pageStoreBase}/${slug}/store`, {
+  const res = await f(`${baseURL}${micrositeStoreBase}/${slug}/store`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ collection, doc }),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
-    throw new PageStoreError(
+    throw new MicrositeStoreError(
       res.status, body.error?.code ?? 'error', body.error?.message ?? 'could not save',
     );
   }
@@ -241,13 +241,13 @@ async function fetchCorpusCards(f: typeof fetch, baseURL: string): Promise<Corpu
   return body.cards ?? [];
 }
 
-// fetchCustomPages —— the owner's published custom pages. Degrades to [] on any failure (a
+// fetchMicrosites —— the owner's published custom pages. Degrades to [] on any failure (a
 // nav widget that can't reach the list should simply render nothing, not crash the page).
-async function fetchCustomPages(f: typeof fetch, baseURL: string): Promise<CustomPageLink[]> {
+async function fetchMicrosites(f: typeof fetch, baseURL: string): Promise<MicrositeLink[]> {
   try {
-    const res = await f(`${baseURL}/api/v1/custom-pages`, { cache: 'no-store' });
+    const res = await f(`${baseURL}/api/v1/microsites`, { cache: 'no-store' });
     if (!res.ok) return [];
-    const body = (await res.json()) as { pages?: CustomPageLink[] };
+    const body = (await res.json()) as { pages?: MicrositeLink[] };
     return body.pages ?? [];
   } catch {
     return [];

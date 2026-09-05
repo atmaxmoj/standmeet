@@ -6,9 +6,9 @@
 //
 // # Outward protocol
 //
-//   - Entities (entity): Owner / InstanceSettings / CustomPage / PageContent / Prompt / Keypair /
+//   - Entities (entity): Owner / InstanceSettings / Microsite / PageContent / Prompt / Keypair /
 //     Err* domain errors + prompt fragment loading
-//   - Repos (repo): Repo / InstanceRepo / CustomPageRepo / KeypairRepo / PromptRepo + write inputs
+//   - Repos (repo): Repo / InstanceRepo / MicrositeRepo / KeypairRepo / PromptRepo + write inputs
 //   - Usecases (usecase): account / login / claim / handle / domains / recovery / outbound notify /
-//     ai-provider / byoai / prompts / custom-page / page(+pins) / seo / css / wiki-tree app flows
+//     ai-provider / byoai / prompts / microsite / page(+pins) / seo / css / wiki-tree app flows
 package owner

@@ -52,19 +52,19 @@ type IssueCodeSessionResult struct {
 	Chat      entity.Chat
 	Code      string
 	CodeLabel string
-	// CustomPageSlug —— which page this code opens. **The landing decision travels
+	// MicrositeSlug —— which page this code opens. **The landing decision travels
 	// down with the issuance itself**, not asked again once the visitor arrives: every
 	// path that redeems a code (/gate submission, the name picker) goes through this
 	// exact call, and if only intro carries this field, a path that skips intro
 	// silently falls back to the default conversation ([[copied-invalidation-goes-stale]]).
 	// Empty string = opens the default conversation.
-	CustomPageSlug string
-	VisitorName    string
-	MemberID       string
-	Members        []access.CodeMember
-	Ghosts         []string
-	Session        access.IssuedVisitor
-	Quota          SessionQuota
+	MicrositeSlug string
+	VisitorName   string
+	MemberID      string
+	Members       []access.CodeMember
+	Ghosts        []string
+	Session       access.IssuedVisitor
+	Quota         SessionQuota
 }
 
 // codeSessionArtifacts —— the bundled return of issueCodeSessionArtifacts, to avoid a
@@ -117,7 +117,7 @@ func finalizeCodeSession(
 	}
 	return IssueCodeSessionResult{
 		Session: a.Issued, Chat: a.Conv,
-		Code: code.Code, CodeLabel: code.Label, CustomPageSlug: code.CustomPageSlug,
+		Code: code.Code, CodeLabel: code.Label, MicrositeSlug: code.MicrositeSlug,
 		VisitorName: in.VisitorName,
 		Members:     members,
 		Ghosts:      code.Ghosts,

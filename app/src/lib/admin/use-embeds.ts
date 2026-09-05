@@ -2,7 +2,7 @@
 // <standmeet-chat> widget on someone else's site; the origin allow-list lives
 // on the embed (embed plan 2026-09-01).
 //
-// Same zustand boilerplate as codes/custom-pages: createResourceStore + flat actions.
+// Same zustand boilerplate as codes/microsites: createResourceStore + flat actions.
 
 'use client';
 

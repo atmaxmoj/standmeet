@@ -1,11 +1,11 @@
 {
-  "_why": "custom-page-code-binding check 7 —— 在**面板上**撤下一个正在服务的页，然后去访客那一侧看它是不是真的没了。这条 check 的要害是「撤下」这个动作在 admin 上执行得了：以前只在 MCP 上，owner 要把自己刚发的东西拿下来得另开一个 Claude 会话（F-P-4）。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "_why": "microsite-code-binding check 7 —— 在**面板上**撤下一个正在服务的页，然后去访客那一侧看它是不是真的没了。这条 check 的要害是「撤下」这个动作在 admin 上执行得了：以前只在 MCP 上，owner 要把自己刚发的东西拿下来得另开一个 Claude 会话（F-P-4）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsite-code-binding/shots",
   "viewport": [1280, 1400],
   "shots": [
     {
       "name": "cpcb-70-before-takedown",
-      "url": "/admin/custom-pages",
+      "url": "/admin/microsites",
       "steps": [{ "wait": 6000 }],
       "wait": 800,
       "fullPage": false
@@ -13,7 +13,7 @@
     {
       "name": "cpcb-71-after-takedown",
       "steps": [
-        { "click": "[data-testid=\"custom-page-takedown-panel-made\"]" },
+        { "click": "[data-testid=\"microsite-takedown-panel-made\"]" },
         { "wait": 4000 }
       ],
       "wait": 800,

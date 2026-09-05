@@ -81,7 +81,7 @@ services:
       - SECURE_COOKIE=${SECURE_COOKIE:-true}
       # "What's the outward-facing address" is filled by the owner in the claim form, written into owners.public_url; the LLM
       # provider is also configured by the owner in admin/MCP (ai_endpoint). Neither goes through env.
-      - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      - MICROSITES_ROOT=/srv/microsites
       # PUBLIC_IP —— the instance's public IP, shown on the admin System panel. The owner
       # sets it in .env (their server's public address); empty → the panel shows "—".
       - PUBLIC_IP=${PUBLIC_IP:-}
@@ -204,7 +204,7 @@ services:
       - SYS_ADMIN
       - NET_ADMIN
     volumes:
-      - custom_pages_data:/srv/custom-pages
+      - microsites_data:/srv/microsites
       - /var/run/docker.sock:/var/run/docker.sock
       # Sandboxed MCP plugins, declared at deploy time (origin=managed) — the
       # product's real path for a self-hoster. Same class of knob as
@@ -227,12 +227,12 @@ services:
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
-      - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      - MICROSITES_ROOT=/srv/microsites
     depends_on:
       backend:
         condition: service_healthy
     volumes:
-      - custom_pages_data:/srv/custom-pages
+      - microsites_data:/srv/microsites
 
   # im-bridge —— lets someone holding an access code DM the owner's AI from a chat app.
   #
@@ -376,4 +376,4 @@ volumes:
   redisdata: {}
   miniodata: {}
   meilidata: {}
-  custom_pages_data: {}
+  microsites_data: {}

@@ -57,8 +57,8 @@ type repoSet struct {
 	codeDenial     *access.CodeDenialRepo
 	chat           *conversation.ChatRepo
 	seo            *corpus.SEORepo
-	customPage     *owner.CustomPageRepo
-	customBuild    *owner.CustomBuildRepo
+	microsite      *owner.MicrositeRepo
+	micrositeBuild *owner.MicrositeBuildRepo
 	accessRequest  *access.RequestRepo
 	jobSource      *jobsuc.JobSourceRepo
 	resumeDraft    *jobsuc.ResumeDraftRepo
@@ -99,8 +99,8 @@ func newRepos(db *pgstore.Pool) *repoSet {
 		codeDenial:     access.NewCodeDenialRepo(db),
 		chat:           conversation.NewChatRepo(db),
 		seo:            corpus.NewSEORepo(db),
-		customPage:     owner.NewCustomPageRepo(db),
-		customBuild:    owner.NewCustomBuildRepo(db),
+		microsite:      owner.NewMicrositeRepo(db),
+		micrositeBuild: owner.NewMicrositeBuildRepo(db),
 		accessRequest:  access.NewAccessRequestRepo(db),
 		jobSource:      jobsuc.NewJobSourceRepo(db),
 		resumeDraft:    jobsuc.NewResumeDraftRepo(db),
@@ -161,7 +161,7 @@ func assembleRuntimeDeps(
 		CaptchaSiteKey:     captchaSiteKeyFor(cfg),
 		SecureCookie:       cfg.SecureCookie,
 		SeedDefaultSources: cfg.SeedDefaultSources,
-		BuildsRoot:         cfg.CustomPagesRoot,
+		BuildsRoot:         cfg.MicrositesRoot,
 		SessionKey:         cfg.SessionKey,
 		PublicIP:           cfg.PublicIP,
 		SandboxRunner:      sandbox.FromEnv(cfg.SandboxDriver),
@@ -176,10 +176,10 @@ func assembleRuntimeDeps(
 		// The two probes built here: unsealer reachable only from deps.go's composition root.
 		MCPProber:      &mcpServerProbe{servers: &dialableMCPServers{repo: repos.mcpServer}},
 		ProviderModels: &providerModelLister{owners: repos.owner},
-		// CapStores is filled per capability by wireCapabilityStorage; PageDocs is the per-page
-		// document schema (capstore KindPage); pluginRegistry is backfilled by wirePluginRegistry.
+		// CapStores filled per capability by wireCapabilityStorage; MicrositeDocs is the
+		// doc schema; pluginRegistry is backfilled by wirePluginRegistry.
 		CapStores:     map[string]*capstore.Store{},
-		PageDocs:      newPageDocStore(capstore.New(c.db)),
+		MicrositeDocs: newMicrositeDocStore(capstore.New(c.db)),
 		SearchClient:  searchClient,
 		CorpusIndexer: corpusIndexer,
 	}
@@ -197,7 +197,7 @@ func setRuntimeRepos(rt *deps.Runtime, repos *repoSet) {
 	rt.GrowthRepo, rt.ActivityRepo = repos.growth, repos.activity
 	rt.CodeRepo, rt.CodeDenialRepo, rt.ChatRepo = repos.code, repos.codeDenial, repos.chat
 	rt.EmbedRepo, rt.SEORepo = repos.embed, repos.seo
-	rt.CustomPageRepo, rt.CustomBuildRepo = repos.customPage, repos.customBuild
+	rt.MicrositeRepo, rt.MicrositeBuildRepo = repos.microsite, repos.micrositeBuild
 	rt.AccessRequestRepo = repos.accessRequest
 	rt.JobSourceRepo, rt.ResumeDraftRepo = repos.jobSource, repos.resumeDraft
 	rt.ApplicationRepo, rt.SkillRepo = repos.application, repos.skill

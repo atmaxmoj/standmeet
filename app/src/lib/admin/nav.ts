@@ -13,7 +13,7 @@
 
 export type AdminSlug =
   | 'raw' | 'wiki' | 'subjectivity' | 'output' | 'conversations' | 'codes' | 'requests'
-  | 'connectors' | 'custom-pages' | 'api-mcp' | 'account'
+  | 'connectors' | 'microsites' | 'api-mcp' | 'account'
   | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system'
   | 'preview' | 'obsidian' | 'embeds'
@@ -58,12 +58,12 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { slug: 'requests', label: 'requests', badgeTestId: 'badge-requests' },
       // custom pages belongs under access, not corpus: it isn't a layer of
       // the corpus, it's **where a visitor lands**. A custom page can be
-      // bound to a code (custom-page-code-binding), and its neighbors are
+      // bound to a code (microsite-code-binding), and its neighbors are
       // codes and preview, not raw/wiki/output.
-      { slug: 'custom-pages', label: 'custom pages' },
+      { slug: 'microsites', label: 'custom pages' },
       // embeds belongs under access: an embed exposes a code as a
       // <standmeet-chat> widget on someone else's site, and its neighbors
-      // are codes (the code it's attached to) and custom-pages, not the corpus.
+      // are codes (the code it's attached to) and microsites, not the corpus.
       { slug: 'embeds', label: 'embeds' },
       { slug: 'preview', label: 'preview' },
     ],

@@ -1,6 +1,6 @@
 {
-  "_why": "custom-page-code-binding check 5 后半 —— 带着 ROOM-001（每场 1 轮）进页面，问两次。第一次要答得出来，第二次要被同一套配额挡住并且**页面说出来**。判据是页面上多了一句话，不是「没答出来」：一个静默失败的页面跟一个还在想的页面长得一样。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "_why": "microsite-code-binding check 5 后半 —— 带着 ROOM-001（每场 1 轮）进页面，问两次。第一次要答得出来，第二次要被同一套配额挡住并且**页面说出来**。判据是页面上多了一句话，不是「没答出来」：一个静默失败的页面跟一个还在想的页面长得一样。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsite-code-binding/shots",
   "viewport": [1280, 1400],
   "login": false,
   "shots": [

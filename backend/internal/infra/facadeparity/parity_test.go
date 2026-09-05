@@ -54,7 +54,7 @@ func TestConform_OnlyIsRespected(t *testing.T) {
 	fs := facades()
 	manifest := []fp.Op{
 		{
-			ID: "custom_page.build", Kind: fp.Action,
+			ID: "microsite.build", Kind: fp.Action,
 			Reach: fp.Only("authoring is MCP-only by product decision", "mcp"),
 		},
 		{
@@ -63,7 +63,7 @@ func TestConform_OnlyIsRespected(t *testing.T) {
 		},
 	}
 	vs := fp.Conform(manifest, []fp.Exposure{
-		{Facade: fs.mcp, Exposed: map[string]bool{"custom_page.build": true}},
+		{Facade: fs.mcp, Exposed: map[string]bool{"microsite.build": true}},
 		{Facade: fs.admin, Exposed: map[string]bool{"account.change_password": true}},
 	})
 	require.Empty(t, vs, "Only-pinned ops don't fault the other facade\n%s", fp.Report(vs))

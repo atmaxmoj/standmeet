@@ -143,7 +143,7 @@ setting. So the instruction points at a nonexistent field editing a value that w
   is the same class as C1 (the status surface lies) but at the vocabulary layer. **Fix:** one status
   vocabulary end to end, or an explicit map; folds into the C1 fix.
 - **D2 HIGH — "public page" vs "pages"** `AdminSidebar.tsx:78` slug `page` label "public page"
-  (settings group) vs `:42` slug `custom-pages` label "pages" (corpus group). Two confusable labels in
+  (settings group) vs `:42` slug `microsites` label "pages" (corpus group). Two confusable labels in
   two groups for two genuinely distinct things (the landing-page editor vs MCP-built microsites).
   **Fix:** rename to disambiguate ("landing page" vs "custom pages").
 - **D3 LOW — "api · mcp" is one door over two opposite MCP concepts** (`use-tokens` = inbound keypairs

@@ -8,7 +8,7 @@
 //   skills        → skill_list · skill_delete
 //   mcp_servers   → mcp_server_list · mcp_server_delete
 //   writings      → writings.publish
-//   custom_page   → custom_page.build
+//   microsite   → microsite.build
 //   seo           → seo.update_settings
 //
 // The setup (create, etc.) uses already-tested tools, purely to exercise the "dark" tools and verify their behavior.
@@ -89,14 +89,14 @@ test.describe('能力归一化 · 【对外】零覆盖 MCP 工具守护(搬动�
     await request.dispose();
   });
 
-  test('custom_page: custom_page.build 触发构建', async ({ playwright }) => {
+  test('microsite: microsite.build 触发构建', async ({ playwright }) => {
     const request = await playwright.request.newContext();
-    await callTool(request, token, sid, 'custom_page.create',
+    await callTool(request, token, sid, 'microsite.create',
       { slug: 'cov-page', title: 'Cov' });
-    await callTool(request, token, sid, 'custom_page.write_file',
+    await callTool(request, token, sid, 'microsite.write_file',
       { slug: 'cov-page', path: 'App.tsx', content: 'export default () => null' });
     const build = await callTool<{ status: string }>(
-      request, token, sid, 'custom_page.build', { slug: 'cov-page' });
+      request, token, sid, 'microsite.build', { slug: 'cov-page' });
     expect(['pending', 'building', 'built']).toContain(build.status);
     await request.dispose();
   });

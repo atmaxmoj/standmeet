@@ -43,7 +43,8 @@ func reportToolDrift(m *mcpplugin.Manifest, dialed []mcpclient.Tool) {
 			"capability visitor_tools declaration is stale — the sandbox offers a different set",
 			"cap", m.ID,
 			"declared_but_absent", drift.DeclaredButAbsent,
-			"offered_but_undeclared", drift.OfferedButUndeclared)
+			"offered_but_undeclared", drift.OfferedButUndeclared,
+		)
 	}
 }
 

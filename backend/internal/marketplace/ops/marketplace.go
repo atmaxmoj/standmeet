@@ -58,7 +58,8 @@ func Marketplace(deps usecase.InstallSkillDeps) []fp.Op {
 			Kind:        fp.Action,
 			Reach: fp.Only(
 				"pasting a SKILL.md is a browser affordance; MCP clients compose skills "+
-					"with skill_create instead", "admin"),
+					"with skill_create instead", "admin",
+			),
 			Invoke: installManualSkill(deps),
 		},
 	}
@@ -233,8 +234,10 @@ func installErr(err error) error {
 		return fp.BadInput("source, id, and a non-empty SKILL.md are required")
 	case errors.Is(err, entity.ErrSkillNameTaken):
 		return fp.Coded(
-			fp.Conflict("a skill with that name is already installed"), "skill_name_taken")
+			fp.Conflict("a skill with that name is already installed"), "skill_name_taken",
+		)
 	}
 	return fp.Coded(
-		fp.Upstream("could not fetch or parse the skill — check the source."), "install_failed")
+		fp.Upstream("could not fetch or parse the skill — check the source."), "install_failed",
+	)
 }

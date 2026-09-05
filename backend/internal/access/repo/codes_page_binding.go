@@ -46,21 +46,21 @@ func parseCodeAndOwner(ownerID, codeID string) (codeOwnerIDs, error) {
 // RETURNING reads back the slug **after the bind completes** — echoing the input
 // only proves "I received it"; reading it back proves "this is what it is now".
 const setCodePageSQL = `
-	UPDATE access_codes SET custom_page_id = CASE WHEN $3 = '' THEN NULL ELSE (
-		SELECT id FROM custom_pages
+	UPDATE access_codes SET microsite_id = CASE WHEN $3 = '' THEN NULL ELSE (
+		SELECT id FROM microsites
 		WHERE owner_id = $2 AND slug = $3 AND status != 'deleted'
 	) END
 	WHERE id = $1 AND owner_id = $2
 	RETURNING COALESCE((
-		SELECT cp.slug::text FROM custom_pages cp WHERE cp.id = access_codes.custom_page_id
+		SELECT cp.slug::text FROM microsites cp WHERE cp.id = access_codes.microsite_id
 	), '')`
 
-// SetCustomPage —— which page this code opens. An empty slug = unbind, falling
+// SetMicrosite —— which page this code opens. An empty slug = unbind, falling
 // back to the default visitor chat.
 //
 // No rows = this code doesn't belong to this owner → ErrCodeInvalid, not a
 // silent success.
-func (r *CodeRepo) SetCustomPage(
+func (r *CodeRepo) SetMicrosite(
 	ctx context.Context, ownerID, codeID, slug string,
 ) (entity.Code, error) {
 	ids, perr := parseCodeAndOwner(ownerID, codeID)
@@ -78,7 +78,7 @@ func (r *CodeRepo) SetCustomPage(
 	if slug != "" && boundSlug == "" {
 		return entity.Code{}, entity.ErrCodeInvalid
 	}
-	return entity.Code{ID: codeID, CustomPageSlug: boundSlug}, nil
+	return entity.Code{ID: codeID, MicrositeSlug: boundSlug}, nil
 }
 
 func setCodePageErr(err error) error {

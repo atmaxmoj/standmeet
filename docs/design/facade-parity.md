@@ -152,7 +152,7 @@ obligations, and the test won't go green until they're met.
   - auth/bootstrap: claim, login, recover, account (email/password/full-name/recovery),
     keypairs → `Only(Admin)` "credential bootstrap, not a driveable capability".
   - `oauth_connect` / callback → `OwnerAction.Except(BrowserBound)` — browser flow.
-  - custom-page authoring → `Only(MCP)` — existing product decision.
+  - microsite authoring → `Only(MCP)` — existing product decision.
   - raw-secret setters (provider API key) → decide at backfill; likely `Only(Admin)`.
 
 ## Plan (test-first; the audit falls out for free)

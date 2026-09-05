@@ -33,7 +33,7 @@
 
 ### 关于 builder 的一段话
 
-`custom_pages`（每个 owner 可有多个 slug）**完全通过 owner 自己 AI 客户端里调的 MCP 工具来创作**（Claude Desktop、Cursor 之类）。admin 里的 "Custom pages" 区只是一个**监控面板**——列表、状态、staging URL、publish/rollback——它**不**承载编辑器、聊天框或预览框。AI 推理的钱走 owner 已有的 AI 订阅，StandMeet 后端只为沙箱 build 付钱。
+`microsites`（每个 owner 可有多个 slug）**完全通过 owner 自己 AI 客户端里调的 MCP 工具来创作**（Claude Desktop、Cursor 之类）。admin 里的 "Custom pages" 区只是一个**监控面板**——列表、状态、staging URL、publish/rollback——它**不**承载编辑器、聊天框或预览框。AI 推理的钱走 owner 已有的 AI 订阅，StandMeet 后端只为沙箱 build 付钱。
 
 ---
 
@@ -60,7 +60,7 @@
 
 1 个按需服务：
 
-6. **`builder`** — 每次 `custom_page.build()` MCP 调用时拉起的沙箱容器，把静态产物写到共享 volume 后退出。
+6. **`builder`** — 每次 `microsite.build()` MCP 调用时拉起的沙箱容器，把静态产物写到共享 volume 后退出。
 
 可选 / 后续：
 
@@ -78,7 +78,7 @@
 
 **A.2** MCP server 放哪。和 backend 同进程（同一个 Go 二进制）vs 独立容器。**推荐：** 同进程 —— 共享鉴权（API token），共享数据层（sqlc 生成的 query），`mcp-go` 能干净地挂到 chi router 上。
 
-**A.3** Builder 生命周期。常驻 build server（旧形态）vs 按构建拉起。**推荐：** 按构建拉起，通过 `docker run`（或 k8s job 等价物），由 MCP 工具调用（`custom_page.build`）触发。多数 owner 不常 rebuild；常驻 build server 浪费 RAM 而且多一个攻击面。
+**A.3** Builder 生命周期。常驻 build server（旧形态）vs 按构建拉起。**推荐：** 按构建拉起，通过 `docker run`（或 k8s job 等价物），由 MCP 工具调用（`microsite.build`）触发。多数 owner 不常 rebuild；常驻 build server 浪费 RAM 而且多一个攻击面。
 
 **A.4** 异步任务。in-process goroutine + Redis 队列（`asynq` 或 `river`）vs 独立 worker 容器。**推荐：** v1 in-process；embedding 队列堆起来再拆。
 
@@ -429,14 +429,14 @@ seo_settings                                       -- 每个 owner 一行；全 
 ### 自定义页（MCP 创作，三档发布）
 
 ```
-custom_pages
+microsites
   id                  uuid pk
   owner_id            uuid fk
   slug                text                        -- '' = 根（覆盖默认 index）；'/blog'、'/work'、…
   packages            jsonb                       -- 允许列表内的 npm deps（服务端按 allowlist 校验）
   draft_files         jsonb                       -- {path: contents}；通过 MCP 实时写入的当前状态
-  staging_build_id    uuid null fk -> custom_page_builds
-  live_build_id       uuid null fk -> custom_page_builds
+  staging_build_id    uuid null fk -> microsite_builds
+  live_build_id       uuid null fk -> microsite_builds
   staging_url_token   text null                   -- 不可猜 token；staging URL = host/_stage/{token}/...
   staged_at           timestamptz null
   live_at             timestamptz null
@@ -450,9 +450,9 @@ custom_pages
   created_at          timestamptz
   unique(owner_id, slug)
 
-custom_page_builds                                 -- 不可变 artifact 记录
+microsite_builds                                 -- 不可变 artifact 记录
   id                  uuid pk
-  page_id             uuid fk -> custom_pages
+  page_id             uuid fk -> microsites
   status              text                        -- 'building' | 'built' | 'failed'
   build_log           text                        -- 截断到 64 KB
   output_path         text null                   -- 'custom/{owner_id}/{build_id}/'
@@ -503,8 +503,8 @@ connectors
 - `access_codes(code)` unique、`access_codes(owner_id, status)`
 - `messages(conversation_id, created_at)`
 - `api_tokens(token_hash)` unique
-- `custom_pages(owner_id, slug)` unique
-- `custom_page_builds(page_id, started_at desc)`
+- `microsites(owner_id, slug)` unique
+- `microsite_builds(page_id, started_at desc)`
 - `wiki_entries(owner_id, seo_slug) where seo_landing_enabled` unique partial — SEO landing 路由
 
 ### 决策点
@@ -521,7 +521,7 @@ connectors
 
 **C.6** 自定义页 npm 包 allowlist。沙箱不能让 owner 的 AI 随意 npm install 任意代码。维护一份 allowlist（`react`、`framer-motion`、`lucide-react`、`clsx`、`@standmeet/sdk`、…），server 端在调 builder 前校验。**推荐：** v1 列 ~15 个常用包，按需扩展。
 
-**C.7** Build 留存策略。`custom_page_builds` 会越堆越多。**推荐：** 每个 page 保留最近 20 个 + 当前 `live_build_id` 永久保留 + 30 天清理其它。
+**C.7** Build 留存策略。`microsite_builds` 会越堆越多。**推荐：** 每个 page 保留最近 20 个 + 当前 `live_build_id` 永久保留 + 30 天清理其它。
 
 ---
 
@@ -576,20 +576,20 @@ POST   /api/admin/connectors/:kind/oauth/start    -> {redirect_url}
 GET    /api/admin/connectors/:kind/oauth/callback
 
 # Custom pages —— 只做监控 / lifecycle。**不**做源文件 CRUD。
-GET    /api/admin/custom-pages              -- 列表 + 派生状态（draft/staging/live）
-GET    /api/admin/custom-pages/:id
-GET    /api/admin/custom-pages/:id/builds   -- 最近 build 历史
-POST   /api/admin/custom-pages/:id/publish  {build_id}  -- 把某个 built 提升到 live
-POST   /api/admin/custom-pages/:id/rollback              -- 上一个 live_build_id
-POST   /api/admin/custom-pages/:id/unpublish             -- live_build_id := null
-DELETE /api/admin/custom-pages/:id
+GET    /api/admin/microsites              -- 列表 + 派生状态（draft/staging/live）
+GET    /api/admin/microsites/:id
+GET    /api/admin/microsites/:id/builds   -- 最近 build 历史
+POST   /api/admin/microsites/:id/publish  {build_id}  -- 把某个 built 提升到 live
+POST   /api/admin/microsites/:id/rollback              -- 上一个 live_build_id
+POST   /api/admin/microsites/:id/unpublish             -- live_build_id := null
+DELETE /api/admin/microsites/:id
 
 # SEO（详见 J）
 GET    /api/admin/seo                       -- owner-level 默认值（seo_settings 表）
 PUT    /api/admin/seo                       -- 改 owner-level
 # per-page SEO 通过下面这些 endpoint 一起改：
 #   PUT  /api/admin/page          { ..., seo: {...} }      默认页 override
-#   PATCH /api/admin/custom-pages/:id { seo: {...} }       custom page override
+#   PATCH /api/admin/microsites/:id { seo: {...} }       custom page override
 #   PATCH /api/admin/wiki/:id     { seo_landing_enabled, seo: {...} }   wiki landing
 GET    /api/admin/seo/preview               ?path=/   -- 预览最终 <head>（owner-level + per-page 合并）
 ```
@@ -628,7 +628,7 @@ GET    /api/v1/sdk/v1/manifest             -- SDK build 元信息（给 instance
 
 # SEO 公开 endpoint（爬虫直接访问；详见 J）
 GET    /robots.txt                         -- backend 动态生成；owner 可 override
-GET    /sitemap.xml                        -- 列默认页 + 所有 live custom_pages + 所有 seo_landing_enabled 的 wiki
+GET    /sitemap.xml                        -- 列默认页 + 所有 live microsites + 所有 seo_landing_enabled 的 wiki
 GET    /api/v1/wiki/:handle/:seo_slug      -- public wiki entry 的可索引内容（仅 seo_landing_enabled 的可访问）
 GET    /api/v1/og/page/:handle             -- 自动渲染默认页 OG image (PNG)
 GET    /api/v1/og/custom/:page_id          -- 自动渲染 custom page OG image
@@ -668,32 +668,32 @@ archive(entry_kind, entry_id)
 
 ```
 # 生命周期
-custom_page.list()
+microsite.list()
   -> [{id, slug, has_draft, staging_url?, live_url?, last_build}]
-custom_page.create(slug, template?='blank')
+microsite.create(slug, template?='blank')
   -> {page_id}
-custom_page.delete(page_id)
+microsite.delete(page_id)
 
 # 文件编辑 —— AI 通过这几个工具写 React 源码
-custom_page.list_files(page_id)
+microsite.list_files(page_id)
   -> [{path, size}]
-custom_page.read_file(page_id, path)
+microsite.read_file(page_id, path)
   -> {contents}
-custom_page.write_file(page_id, path, contents)
-custom_page.delete_file(page_id, path)
-custom_page.set_packages(page_id, deps)
+microsite.write_file(page_id, path, contents)
+microsite.delete_file(page_id, path)
+microsite.set_packages(page_id, deps)
   -- deps 走 server 端 allowlist 校验（见 C.6）
 
 # Build 与发布
-custom_page.build(page_id)
+microsite.build(page_id)
   -> {build_id}                                     -- 异步；拉起 builder 容器
-custom_page.get_build(page_id, build_id?)
+microsite.get_build(page_id, build_id?)
   -> {status, log, finished_at, error?}             -- build_id 省略 = 最新
-custom_page.promote_to_staging(page_id, build_id?)
+microsite.promote_to_staging(page_id, build_id?)
   -> {staging_url}                                  -- 不可猜 token 的 URL
-custom_page.promote_to_live(page_id, build_id?)
+microsite.promote_to_live(page_id, build_id?)
   -> {live_url}
-custom_page.rollback(page_id)
+microsite.rollback(page_id)
   -- live_build_id := 上一个 live build
 ```
 
@@ -707,7 +707,7 @@ seo.set_owner(patch)                                -- 部分更新
 
 # per-page override
 seo.set_default_page(patch)                         -- 默认页 SEO override
-seo.set_custom_page(page_id, patch)                 -- custom page SEO override
+seo.set_microsite(page_id, patch)                 -- custom page SEO override
 seo.set_wiki(wiki_id, {
   landing_enabled?: bool,
   slug?: string,
@@ -719,12 +719,12 @@ seo.preview(path)
   -> {final_head_html, computed_title, computed_description, og_image_url}
 ```
 
-AI 可以在写 custom page 时一并调 `seo.set_custom_page(page_id, {title: ..., description: ...})`，不需要 owner 跳出去手动配。
+AI 可以在写 custom page 时一并调 `seo.set_microsite(page_id, {title: ..., description: ...})`，不需要 owner 跳出去手动配。
 
 Owner 的典型流程：
 
 > Owner（在 Claude Desktop）："给我加个 `/blog` 页，从我 wiki 里 visibility=public 的最近 5 篇拉内容做 hero。"
-> AI：调 `custom_page.create('/blog')` → `search_wiki(visibility='public', limit=5)` → 几次 `write_file()` → `build()` → 轮询 `get_build()` 直到 built → `promote_to_staging()` → 把 staging URL 念回来。
+> AI：调 `microsite.create('/blog')` → `search_wiki(visibility='public', limit=5)` → 几次 `write_file()` → `build()` → 轮询 `get_build()` 直到 built → `promote_to_staging()` → 把 staging URL 念回来。
 > Owner：浏览器打开看，"hero 字太小，再大一倍。"
 > AI：`write_file()` + `build()` + 新 staging URL。
 > Owner："上线。"
@@ -879,7 +879,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-      - custom_pages:/srv/custom:ro
+      - microsites:/srv/custom:ro
     environment:
       - STANDMEET_DOMAIN
       - STANDMEET_EMAIL
@@ -908,7 +908,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - media:/srv/media
-      - custom_pages:/srv/custom
+      - microsites:/srv/custom
     expose: ["8000"]
     depends_on: [db, redis]
 
@@ -934,10 +934,10 @@ volumes:
   pgdata: {}
   redisdata: {}
   media: {}
-  custom_pages: {}
+  microsites: {}
 ```
 
-`builder` 服务**不**在 compose 里 —— backend 通过 Docker socket 在每次 `custom_page.build()` 时拉起。
+`builder` 服务**不**在 compose 里 —— backend 通过 Docker socket 在每次 `microsite.build()` 时拉起。
 
 ### Backend Dockerfile（多 stage）
 
@@ -1002,7 +1002,7 @@ Backend entrypoint 启动 HTTP server 之前先跑 `goose up`。破坏性 migrat
 
 ### 备份 / 恢复
 
-- `make backup` → `pg_dump` + tar `media/` + `custom_pages/` → 一个带日期的 tarball。
+- `make backup` → `pg_dump` + tar `media/` + `microsites/` → 一个带日期的 tarball。
 - `make restore TARBALL=…` → 倒进干净的 volume。
 - v1：没有自动调度；文档里给 cron one-liner。
 
@@ -1027,7 +1027,7 @@ Backend entrypoint 启动 HTTP server 之前先跑 `goose up`。破坏性 migrat
 - **Backend：** `slog` 输出 JSON 结构化日志到 stdout。字段：`ts, level, owner_id?, request_id, route, msg`。
 - **Frontend：** 错误上报 `/internal/log`（限流）。
 - **Caddy：** JSON access log。
-- **Builder：** stdout 抓到 `custom_page_builds.build_log`；owner 通过 `custom_page.get_build()` MCP 工具或 admin 列表查看。
+- **Builder：** stdout 抓到 `microsite_builds.build_log`；owner 通过 `microsite.get_build()` MCP 工具或 admin 列表查看。
 
 ### 健康检查
 
@@ -1090,7 +1090,7 @@ per-page override                     ← 默认页 / 每个 custom page / 每�
 ```
 
 - **owner-level（`seo_settings`）** 一次配，全 instance 共用：GA tracking ID、Search Console 验证、Person schema override、默认 OG 图、`extra_head_html`（万能注入）、`robots_override`、`sitemap_exclude`。
-- **per-page override** 在 `page_content` / `custom_pages` / `wiki_entries` 里：`seo_title` / `seo_description` / `seo_og_image_id` / `seo_canonical` / `seo_extra_head_html`，空则继承 owner-level。
+- **per-page override** 在 `page_content` / `microsites` / `wiki_entries` 里：`seo_title` / `seo_description` / `seo_og_image_id` / `seo_canonical` / `seo_extra_head_html`，空则继承 owner-level。
 - **合并规则** 简单优先级：per-page 非空 → 用 per-page；否则用 owner-level；都空用 server 派生默认。
 
 ### Wiki SEO landing 页
@@ -1115,11 +1115,11 @@ per-page override                     ← 默认页 / 每个 custom page / 每�
 backend 动态生成，缓存 5 分钟。包含：
 
 - 默认页 `/{handle}` （或 v1 的 `/`）
-- 所有 `live` 状态的 `custom_pages.slug`，除非该 page 的 `seo_sitemap_include=false`
+- 所有 `live` 状态的 `microsites.slug`，除非该 page 的 `seo_sitemap_include=false`
 - 所有 `seo_landing_enabled=true` 的 wiki entries
 - `seo_settings.sitemap_exclude` 里的路径剔除
 
-每条带 `<lastmod>` 用 `updated_at`、`<changefreq>` 默认 `monthly`、`<priority>` 默认 0.5（custom_pages 0.8）。
+每条带 `<lastmod>` 用 `updated_at`、`<changefreq>` 默认 `monthly`、`<priority>` 默认 0.5（microsites 0.8）。
 
 ### robots.txt
 

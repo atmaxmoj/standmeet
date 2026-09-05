@@ -28,7 +28,7 @@ One doc per **module** (a functional unit + the surface it owns). Grouped by pro
 
 **Jobs / applications** — [job-fetch](items/job-fetch.md) · [resume-draft](items/resume-draft.md) · [application-commit](items/application-commit.md)
 
-**Facade / infra** — [marketplace](items/marketplace.md) · [api-key-facade](items/api-key-facade.md) · [sandbox](items/sandbox.md) · [deploy-forks](items/deploy-forks.md) · [resilience](items/resilience.md) · [custom-pages](items/custom-pages.md)
+**Facade / infra** — [marketplace](items/marketplace.md) · [api-key-facade](items/api-key-facade.md) · [sandbox](items/sandbox.md) · [deploy-forks](items/deploy-forks.md) · [resilience](items/resilience.md) · [microsites](items/microsites.md)
 
 **SDK / captcha** — [sdk-embed](items/sdk-embed.md) · [captcha](items/captcha.md)
 

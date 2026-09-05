@@ -212,7 +212,8 @@ func roleErr(err error) error {
 func roleDeleteErr(err error) error {
 	if errors.Is(err, entity.ErrRoleBuiltinImmutable) {
 		return fp.Coded(
-			fp.Forbidden("builtin role cannot be deleted"), "role_builtin_immutable")
+			fp.Forbidden("builtin role cannot be deleted"), "role_builtin_immutable",
+		)
 	}
 	return roleErr(err)
 }
@@ -235,7 +236,8 @@ var roleErrClasses = []struct {
 	// owner would go hunting for a typo that doesn't exist (F-D-13).
 	{entity.ErrUnknownDockCapability, func() error {
 		return fp.BadInput(
-			"this role can't show that capability — check the id, or grant it to the role's skills")
+			"this role can't show that capability — check the id, or grant it to the role's skills",
+		)
 	}},
 	{usecase.ErrRefPromptNotFound, func() error {
 		return fp.BadInput("prompt id not found for this owner")
@@ -254,7 +256,8 @@ var roleErrClasses = []struct {
 	}},
 	{entity.ErrRoleBuiltinImmutable, func() error {
 		return fp.Coded(
-			fp.Forbidden("builtin role cannot be renamed"), "role_builtin_immutable")
+			fp.Forbidden("builtin role cannot be renamed"), "role_builtin_immutable",
+		)
 	}},
 	{entity.ErrRoleNameTaken, func() error {
 		return fp.Coded(fp.Conflict("role name already taken"), "role_name_taken")

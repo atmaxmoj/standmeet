@@ -2,9 +2,9 @@
 // <standmeet-chat> widget on someone else's website, with an origin allowlist
 // (embed plan 2026-09-01).
 //
-// Its neighbors are codes / custom-pages (all in the access group): an embed
+// Its neighbors are codes / microsites (all in the access group): an embed
 // attaching a code and a custom page attaching a code are two shapes of the same
-// idea. Writes happen **in admin** (unlike custom-pages, which is MCP-only) — because
+// idea. Writes happen **in admin** (unlike microsites, which is MCP-only) — because
 // the allowlist is a security boundary, and the owner needs to manage it all in one
 // place where every embed is visible.
 

@@ -29,19 +29,19 @@ import (
 // buildServerDeps —— assembles each sub-router's Deps block (function-length lint friendly).
 func buildServerDeps(d *deps.Runtime) *Deps {
 	return &Deps{
-		DB:                      d.DB,
-		Redis:                   d.RDB,
-		Log:                     d.Log,
-		Admin:                   buildAdminDeps(d),
-		Public:                  buildPublicDeps(d),
-		PubAPI:                  buildPubAPIDeps(d),
-		PublicPage:              buildPublicPageDeps(d),
-		PublicSEO:               buildPublicSEODeps(d),
-		PublicCustomPages:       buildPublicCustomPageDeps(d),
-		PublicPageStore:         buildPublicPageStoreDeps(d),
-		PublicCustomPagePreview: buildPublicCustomPagePreviewDeps(d),
-		PublicAccessRequests:    buildPublicAccessRequestsDeps(d),
-		PublicPasswordReset:     buildPublicPasswordResetDeps(d),
+		DB:                     d.DB,
+		Redis:                  d.RDB,
+		Log:                    d.Log,
+		Admin:                  buildAdminDeps(d),
+		Public:                 buildPublicDeps(d),
+		PubAPI:                 buildPubAPIDeps(d),
+		PublicPage:             buildPublicPageDeps(d),
+		PublicSEO:              buildPublicSEODeps(d),
+		PublicMicrosites:       buildPublicMicrositeDeps(d),
+		PublicMicrositeStore:   buildPublicMicrositeStoreDeps(d),
+		PublicMicrositePreview: buildPublicMicrositePreviewDeps(d),
+		PublicAccessRequests:   buildPublicAccessRequestsDeps(d),
+		PublicPasswordReset:    buildPublicPasswordResetDeps(d),
 		PublicWritings: publicroutes.WritingHandlers{
 			Writings: corpus.WritingsDeps{Writings: d.WritingRepo},
 			CrossLink: corpus.CrossLinkQueryDeps{
@@ -52,7 +52,7 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 			Log:    d.Log,
 		},
 		Builds: sysroutes.BuilderDeps{
-			Log: d.Log, Builds: d.CustomBuildRepo, Pages: d.CustomPageRepo,
+			Log: d.Log, Builds: d.MicrositeBuildRepo, Pages: d.MicrositeRepo,
 			Notifier: d.BuildNotifier,
 		},
 		IM:           sysroutes.IMDeps{Log: d.Log, Token: telegramTokenReader(d)},
@@ -111,9 +111,9 @@ func buildAdminDeps(d *deps.Runtime) AdminDeps {
 		AIProvider: owner.AIProviderDeps{
 			Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
 		},
-		CustomPages: owner.CustomPageDeps{Pages: d.CustomPageRepo, Builds: d.CustomBuildRepo},
-		Skills:      marketplace.SkillsDeps{Skills: d.SkillRepo, Codes: d.CodeRepo},
-		Prompts:     owner.PromptsDeps{Prompts: d.PromptRepo},
+		Microsites: owner.MicrositeDeps{Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo},
+		Skills:     marketplace.SkillsDeps{Skills: d.SkillRepo, Codes: d.CodeRepo},
+		Prompts:    owner.PromptsDeps{Prompts: d.PromptRepo},
 		Roles: access.RolesDeps{
 			Roles: d.RoleRepo,
 			Refs:  port.NewRoleRefValidator(d),

@@ -22,7 +22,7 @@ func TestServerInstructions(t *testing.T) {
 		"corpus.promote",        // how to move along the pipeline
 		"raw", "wiki", "output", // the genre model
 		"instance.upgrade_check", // the version-sniff nudge the owner asked for
-		"custom_page.guide",      // authoring a good custom page starts by reading the guide
+		"microsite.guide",        // authoring a good custom page starts by reading the guide
 	} {
 		if !strings.Contains(got, s) {
 			t.Fatalf("connect instructions must mention %q, but did not; got:\n%s", s, got)

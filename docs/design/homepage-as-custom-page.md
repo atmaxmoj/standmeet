@@ -7,7 +7,7 @@ page with a fixed path."
 ## The observation
 
 The public homepage (`/`) is served by a **bespoke content system** that exists only for that
-one page, while the custom-page system (`/p/<slug>`: author React with the SDK → sandbox
+one page, while the microsite system (`/p/<slug>`: author React with the SDK → sandbox
 build → serve) already does the general case. The homepage is conceptually **one custom page
 pinned to the fixed path `/`** — but it's built as a special case instead.
 

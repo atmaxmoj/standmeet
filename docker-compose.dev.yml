@@ -7,8 +7,8 @@
 #   db       - PostgreSQL + pgvector
 #   redis    - 用于 session / 队列 / rate limit
 #
-# custom_pages_data —— builder + backend 共享 /srv/custom-pages：builder 写
-# dist；backend 读 → 走 GET /api/v1/custom-pages/<handle>/<slug>/* 服务。
+# microsites_data —— builder + backend 共享 /srv/microsites：builder 写
+# dist；backend 读 → 走 GET /api/v1/microsites/<handle>/<slug>/* 服务。
 
 name: standmeet-dev
 
@@ -80,7 +80,7 @@ services:
       # owner row's ai_endpoint is populated (post-claim seed in
       # e2e/fixtures/admin.ts or hand-set via admin UI) to point at the
       # llm-gateway service below; prod points at real api.anthropic.com.
-      - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      - MICROSITES_ROOT=/srv/microsites
       # PUBLIC_IP —— the instance's public IP, shown on the admin System panel. A fixed
       # TEST-NET value (RFC 5737) in dev/e2e so the panel is deterministic; prod injects the real one.
       - PUBLIC_IP=203.0.113.42
@@ -207,7 +207,7 @@ services:
       - SYS_ADMIN
       - NET_ADMIN
     volumes:
-      - custom_pages_data:/srv/custom-pages
+      - microsites_data:/srv/microsites
       - /var/run/docker.sock:/var/run/docker.sock
       - ./infra/dev-plugins.json:/etc/standmeet/plugins.json:ro
       # 沙箱第三方 MCP 插件代码（dev：host 上 npm 装好的目录；bwrap 只读挂进沙箱）。
@@ -364,12 +364,12 @@ services:
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
-      - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      - MICROSITES_ROOT=/srv/microsites
     depends_on:
       backend:
         condition: service_healthy
     volumes:
-      - custom_pages_data:/srv/custom-pages
+      - microsites_data:/srv/microsites
 
   db:
     image: pgvector/pgvector:pg16
@@ -490,4 +490,4 @@ volumes:
   # mocktls —— external-mock 现签的证书 + 合并根包;后端只读挂载来信任它。
   mocktls: {}
   meilidata: {}
-  custom_pages_data: {}
+  microsites_data: {}

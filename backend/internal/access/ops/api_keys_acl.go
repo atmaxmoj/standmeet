@@ -43,7 +43,8 @@ func denialsMCPOnly() fp.Reach {
 	return fp.Only(
 		"tuning, not incident response: revocation is the admin path (F-K-1); "+
 			"denials + api-open follow when the admin api section grows its candidates list",
-		"mcp")
+		"mcp",
+	)
 }
 
 func apiKeyACLOps(d APIKeysDeps) []fp.Op {
@@ -203,7 +204,8 @@ func parseKeyDenial(raw json.RawMessage) (keyDenialArgs, error) {
 	}
 	if err := fp.RequireArgs(
 		[2]string{"key_id", in.KeyID}, [2]string{"kind", in.Kind},
-		[2]string{"target_id", in.TargetID}); err != nil {
+		[2]string{"target_id", in.TargetID},
+	); err != nil {
 		return in, err
 	}
 	if in.Kind != keyDenialKindCapability && in.Kind != keyDenialKindSkill {

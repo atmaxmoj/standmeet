@@ -27,7 +27,7 @@ type Config struct {
 	RedisURL    string
 	SessionKey  string
 	// root dir for custom page build artifacts: builder writes, backend reads
-	CustomPagesRoot string
+	MicrositesRoot string
 	// PublicIP — the instance's public IP, shown on the admin System panel. Deploy-provided
 	// (the owner's server knows its own public address); empty → the panel shows "—".
 	PublicIP string
@@ -180,7 +180,7 @@ func Load() (*Config, error) {
 		DatabaseURL:                    os.Getenv("DATABASE_URL"),
 		RedisURL:                       os.Getenv("REDIS_URL"),
 		SessionKey:                     os.Getenv("SESSION_KEY"),
-		CustomPagesRoot:                envOr("CUSTOM_PAGES_ROOT", "/srv/custom-pages"),
+		MicrositesRoot:                 envOr("MICROSITES_ROOT", "/srv/microsites"),
 		PublicIP:                       os.Getenv("PUBLIC_IP"),
 		JobFetchGreenhouseBaseURL:      os.Getenv("GREENHOUSE_BASE_URL"),
 		JobFetchLeverBaseURL:           os.Getenv("LEVER_BASE_URL"),

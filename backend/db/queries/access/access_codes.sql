@@ -40,9 +40,9 @@ SELECT * FROM access_codes WHERE code = $1 AND status = 'active';
 -- when a visitor arrives with a code), and the slug lives on the pages table -- fetching it via a
 -- join at the SQL layer means the visitor path need not cross domains to ask the owner domain.
 -- Empty string = not bound, opens the default visitor conversation.
-SELECT ac.*, COALESCE(cp.slug, '')::text AS custom_page_slug
+SELECT ac.*, COALESCE(cp.slug, '')::text AS microsite_slug
 FROM access_codes ac
-LEFT JOIN custom_pages cp ON cp.id = ac.custom_page_id AND cp.status != 'deleted'
+LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
 WHERE ac.code = $1 AND ac.status = 'active';
 
 -- name: GetAccessCodeAnyStatus :one
@@ -61,21 +61,21 @@ SELECT * FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC;
 -- name: ListAccessCodesWithPageByOwner :many
 -- Same as above, plus **which page this code opens**. The binding is one fact, and both panels
 -- read the same place: the code side sees the page, the page side sees the code
--- (ListCustomPagesByOwner carries bound_codes).
+-- (ListMicrositesByOwner carries bound_codes).
 -- LEFT JOIN: an unbound code has an empty slug, which is "opens the default visitor conversation",
 -- not missing data.
-SELECT ac.*, COALESCE(cp.slug, '')::text AS custom_page_slug
+SELECT ac.*, COALESCE(cp.slug, '')::text AS microsite_slug
 FROM access_codes ac
-LEFT JOIN custom_pages cp ON cp.id = ac.custom_page_id AND cp.status != 'deleted'
+LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
 WHERE ac.owner_id = $1
 ORDER BY ac.created_at DESC;
 
--- name: SetAccessCodeCustomPage :one
+-- name: SetAccessCodeMicrosite :one
 -- Bind/unbind. $3 NULL = unbind, the code falls back to the default landing.
 -- A code has at most one page -- this is a column, not a relation table, so "at most one" is
 -- guaranteed structurally, not by validation.
 UPDATE access_codes
-SET custom_page_id = $3
+SET microsite_id = $3
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 

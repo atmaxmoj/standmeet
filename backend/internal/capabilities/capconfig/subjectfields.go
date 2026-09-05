@@ -98,7 +98,8 @@ func newSubjectFields(
 			if prev, taken := byKey[key]; taken {
 				return nil, fmt.Errorf(
 					"%w: %q claimed by both %q and %q",
-					ErrFieldTaken, key, prev.CapID, c.CapID)
+					ErrFieldTaken, key, prev.CapID, c.CapID,
+				)
 			}
 			byKey[key] = c
 		}

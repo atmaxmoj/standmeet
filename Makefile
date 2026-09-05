@@ -37,7 +37,7 @@ env-lint:
 	@infra/scripts/check-redis-bounded.sh
 	@infra/scripts/check-prod-ports-bound-local.sh
 	@infra/scripts/check-search-index-shipped.sh
-	@infra/scripts/check-custom-page-imports-declared.sh
+	@infra/scripts/check-microsite-imports-declared.sh
 	@infra/scripts/check-doc-make-targets.sh
 
 backend-lint:
@@ -161,7 +161,7 @@ dev:
 
 # sdk-build —— builds sdk-core/sdk/embed, all three packages, via tsup into dist/ for app to dogfood.
 # app-build runs sdk-build first, so Next can find @standmeet/sdk-core/dist at compile time.
-# builder-vendor —— copies the SDK build output into the custom-page builder's build context.
+# builder-vendor —— copies the SDK build output into the microsite builder's build context.
 #
 # **Why this step must exist**: inside the builder image, an owner's page can only import
 # whatever is in /opt/builder/node_modules — and that only has react/vite in it — so a hosted
@@ -200,7 +200,7 @@ dev-up: app-build builder-vendor
 	@docker compose -f docker-compose.dev.yml up -d --wait
 	@echo "[dev] app=http://localhost:3000 backend=http://localhost:8000"
 
-# dev-rebuild-builder —— rebuilds the custom-page builder image and swaps in the container.
+# dev-rebuild-builder —— rebuilds the microsite builder image and swaps in the container.
 #
 # Run after changing `builder/` (runner / template / Dockerfile) **or the SDK**: what a page can
 # import depends on what's in /opt/builder/node_modules inside the image, which is fixed at
@@ -725,7 +725,7 @@ verify-shots:
 # verify-mcp —— drives prod through the owner's MCP path. **The sibling of verify-shots**: that
 # one goes through the UI; this one goes through the same path the owner uses inside Claude —
 # several checks' Expected column asks for "read the tool's own receipt", which the admin panel
-# has no way to produce (which sections page.unpin touched, custom_page's lifecycle, how many
+# has no way to produce (which sections page.unpin touched, microsite's lifecycle, how many
 # entries jobs.fetch_new pulled back).
 #
 # **Never hand-roll a Sigv1 signer**: it starts the **product's own** stdio client

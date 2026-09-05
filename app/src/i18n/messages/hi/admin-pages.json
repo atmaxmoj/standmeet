@@ -60,7 +60,7 @@
     "previewGreeting": "Hi",
     "suggestedByYou": "suggested by you"
   },
-  "customPages": {
+  "microsites": {
     "intro": {
       "before": "Custom pages live at",
       "slugPath": "/p/<slug>",
@@ -69,7 +69,7 @@
     "importsSummary": "what you can import",
     "empty": {
       "lead": "No custom pages yet. Owner creates / builds / promotes via MCP",
-      "toolCreate": "custom_page.create",
+      "toolCreate": "microsite.create",
       "toolWriteFile": ".write_file",
       "toolBuild": ".build",
       "toolPromote": ".promote_to_live"

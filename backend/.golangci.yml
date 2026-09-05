@@ -164,7 +164,7 @@ linters:
       rules:
         # Keep revive's default ≤5 — 5 public types in one file is a healthy "one
         # aggregate per file" signal. Domains split files by aggregate (owner /
-        # access_code / conversation / wiki / raw / custom_page /
+        # access_code / conversation / wiki / raw / microsite /
         # page_content / instance / api_token / access_request) and meet it naturally.
         # Cap function inputs at 5.  Anything richer should
         # consolidate into a struct so the call sites stop counting
@@ -218,13 +218,13 @@ linters:
         # doesn't know this semantics and always false-positives. Secure + SameSite=Lax
         # still guard the attack surface.
         - G124
-        # G304 fires on os.Open(varPath) — on the custom-page asset serve path the
+        # G304 fires on os.Open(varPath) — on the microsite asset serve path the
         # filename comes from a URL segment and must be a variable. joinSafeAssetPath
         # already does a prefix-containment check, so the path passed to os.Open can't
         # escape BuildsRoot. gosec doesn't know about that check.
         - G304
         # G705 fires when "taint analysis thinks untrusted input is written to an HTTP
-        # response". In the custom-page handler, owner-controlled HTML is by design meant
+        # response". In the microsite handler, owner-controlled HTML is by design meant
         # to be sent out (the owner writes their own page). The baseHref that injectBase
         # injects already goes through html.EscapeString for quote/<> escaping; taint
         # analysis doesn't know that.
@@ -318,12 +318,12 @@ linters:
       # pagestore_adapter.go backs the page-store interface with capstore in the composition
       # root — same job as axiscap: it hands the domain a bound store, and wrapping capstore's
       # errors here would only add a composition-root frame the domain never reads.
-      - path: cmd/server/pagestore_adapter\.go
+      - path: cmd/server/micrositestore_adapter\.go
         linters: [wrapcheck]
-      # boot_wireup_pages.go's mapPageStoreErr classifies the store's sentinels into display
+      # boot_wireup_pages.go's mapMicrositeStoreErr classifies the store's sentinels into display
       # errors (apierr.DisplayWrap) at the composition root — same job/reason as provider_models:
       # the constructor MAKES the classified error the face's apierr.Classify then renders.
-      - path: cmd/server/boot_wireup_pages\.go
+      - path: cmd/server/boot_wireup_microsites\.go
         linters: [wrapcheck]
       # provider_models.go does that same classification for the port it implements:
       # providermodels speaks HTTP (DisplayError), the faces speak facadeparity, and the

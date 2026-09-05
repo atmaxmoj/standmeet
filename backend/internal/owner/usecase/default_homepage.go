@@ -26,7 +26,7 @@ const defaultHomepageTitle = "Homepage"
 // InstallDefaultHomepage — create the `home` page and write its source as a draft. Called
 // best-effort after claim; on success the owner has a homepage ready to publish.
 func InstallDefaultHomepage(
-	ctx context.Context, deps CustomPageDeps, ownerID string, log *slog.Logger,
+	ctx context.Context, deps MicrositeDeps, ownerID string, log *slog.Logger,
 ) error {
 	if _, err := CreatePage(ctx, deps, &CreatePageInput{
 		OwnerID: ownerID, Slug: HomepageSlug, Title: defaultHomepageTitle,

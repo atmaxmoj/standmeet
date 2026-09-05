@@ -13,9 +13,9 @@ export interface CorpusCard {
   readonly path: string;
 }
 
-// CustomPageLink —— one of the owner's published custom pages, for a page to link the others
-// (slug + title, nothing more). Served keyless by GET /api/v1/custom-pages.
-export interface CustomPageLink {
+// MicrositeLink —— one of the owner's published custom pages, for a page to link the others
+// (slug + title, nothing more). Served keyless by GET /api/v1/microsites.
+export interface MicrositeLink {
   readonly slug: string;
   readonly title: string;
 }
@@ -178,10 +178,10 @@ export interface PublicSessionResponse {
   // has always sent it; this field just wasn't declared here, so it got
   // dropped by the whole frontend chain and fell back to 'invited' (UX-68).
   readonly code_label?: string;
-  // custom_page_slug —— which page scanning this code lands on; empty string
+  // microsite_slug —— which page scanning this code lands on; empty string
   // = the default chat. The landing decision travels with the issuance, so
   // every path that picks up the code gets the same answer.
-  readonly custom_page_slug?: string;
+  readonly microsite_slug?: string;
   readonly visitor_name?: string;
   // member_id —— the member id resolved this time; the client stores it and
   // brings it along next time to continue the session (especially for

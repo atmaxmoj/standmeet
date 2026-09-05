@@ -33,7 +33,8 @@ func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
 		// segment**: not every note carries the same set of languages, and a
 		// `/zh/...`-style path would break on an entry with no Chinese version.
 		view, err := loadWikiLandingView(
-			r.Context(), h.Deps, slug, scope, r.URL.Query().Get("lang"))
+			r.Context(), h.Deps, slug, scope, r.URL.Query().Get("lang"),
+		)
 		if err != nil {
 			handleLandingErr(h.Log, w, err)
 			return

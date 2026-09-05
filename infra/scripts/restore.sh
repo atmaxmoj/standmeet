@@ -6,10 +6,10 @@
 #
 # Flow:
 #   1. docker compose down -v   ← wipe old data
-#   2. unpack the tar.gz for the three pieces: pg.dump, custom_pages.tar.gz, caddy_data.tar.gz
+#   2. unpack the tar.gz for the three pieces: pg.dump, microsites.tar.gz, caddy_data.tar.gz
 #   3. docker compose up -d db redis   ← bring up dependencies
 #   4. psql import pg.dump
-#   5. reload custom_pages / caddy_data contents into the named volume
+#   5. reload microsites / caddy_data contents into the named volume
 #   6. docker compose up -d full stack
 #
 # Redis is not restored (by design: session re-login).
@@ -36,12 +36,12 @@ sleep 5
 echo "[restore] importing postgres dump ..."
 docker compose -f docker-compose.prod.yml exec -T db psql -U standmeet -d standmeet < "$WORK/pg.dump"
 
-echo "[restore] reloading custom_pages volume ..."
-docker volume create standmeet_custom_pages_data >/dev/null
+echo "[restore] reloading microsites volume ..."
+docker volume create standmeet_microsites_data >/dev/null
 docker run --rm \
-  -v standmeet_custom_pages_data:/dst \
+  -v standmeet_microsites_data:/dst \
   -v "$WORK:/src:ro" \
-  alpine sh -c 'tar -C /dst -xzf /src/custom_pages.tar.gz'
+  alpine sh -c 'tar -C /dst -xzf /src/microsites.tar.gz'
 
 if [ -f "$WORK/caddy_data.tar.gz" ]; then
   echo "[restore] reloading caddy_data ..."

@@ -141,7 +141,8 @@ func pick(
 		if !ok {
 			return nil, fmt.Errorf(
 				"hostdesk: capability %q asks for host op %q, which the host does not publish",
-				pluginID, name)
+				pluginID, name,
+			)
 		}
 		out[name] = capsocket.Handler(invoke)
 	}

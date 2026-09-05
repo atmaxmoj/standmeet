@@ -201,7 +201,8 @@ func decodeAPIKeyCreate(raw json.RawMessage) (apiKeyCreateArgs, error) {
 	}
 	if err := fp.RequireArgs(
 		[2]string{"label", in.Label},
-		[2]string{"assumed_role_id", in.AssumedRoleID}); err != nil {
+		[2]string{"assumed_role_id", in.AssumedRoleID},
+	); err != nil {
 		return in, err
 	}
 	expires, eerr := parseAPIKeyExpiry(in.ExpiresAt)

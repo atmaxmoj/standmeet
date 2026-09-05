@@ -91,7 +91,8 @@ func (h *Handlers) embedTokenBlocked(
 	w http.ResponseWriter, r *http.Request, req *createSessionRequest,
 ) bool {
 	code, err := access.VerifyEmbedToken(
-		r.Context(), h.embedTokenDeps(), req.EmbedToken, r.Header.Get("Origin"))
+		r.Context(), h.embedTokenDeps(), req.EmbedToken, r.Header.Get("Origin"),
+	)
 	if err != nil {
 		handleVisitorErr(h.Log, w, err)
 		return true

@@ -102,18 +102,18 @@ func revokeCode(deps usecase.CodesDeps) fp.Invoke {
 	}
 }
 
-// codePageArgs — input for codes.set_custom_page. slug empty string = unbind.
+// codePageArgs — input for codes.set_microsite. slug empty string = unbind.
 type codePageArgs struct {
 	CodeID string `json:"code_id"`
 	Slug   string `json:"slug"`
 }
 
-// setCodeCustomPage — points this code at a page, or clears it.
+// setCodeMicrosite — points this code at a page, or clears it.
 //
-// **The binding lives on the code** (access_codes.custom_page_id), so "at most one page per
+// **The binding lives on the code** (access_codes.microsite_id), so "at most one page per
 // code" is guaranteed by structure, not by validation; the page side sees "which codes open
 // me" — the same fact read from two places, neither side storing a second copy.
-func setCodeCustomPage(deps usecase.CodesDeps) fp.Invoke {
+func setCodeMicrosite(deps usecase.CodesDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var in codePageArgs
 		if err := json.Unmarshal(raw, &in); err != nil {
@@ -122,11 +122,11 @@ func setCodeCustomPage(deps usecase.CodesDeps) fp.Invoke {
 		if perr := fp.RequireArgs([2]string{"code_id", in.CodeID}); perr != nil {
 			return nil, perr
 		}
-		code, err := usecase.SetCodeCustomPage(ctx, deps, ownerID, in.CodeID, in.Slug)
+		code, err := usecase.SetCodeMicrosite(ctx, deps, ownerID, in.CodeID, in.Slug)
 		if err != nil {
 			return nil, codeErr(err)
 		}
-		return json.Marshal(codePageOut{CodeID: code.ID, CustomPageSlug: code.CustomPageSlug})
+		return json.Marshal(codePageOut{CodeID: code.ID, MicrositeSlug: code.MicrositeSlug})
 	}
 }
 
@@ -134,8 +134,8 @@ func setCodeCustomPage(deps usecase.CodesDeps) fp.Invoke {
 // An echo only proves "I received it"; a read-back proves "this is how it is now"
 // ([[write-with-no-receipt]]).
 type codePageOut struct {
-	CodeID         string `json:"code_id"`
-	CustomPageSlug string `json:"custom_page_slug"`
+	CodeID        string `json:"code_id"`
+	MicrositeSlug string `json:"microsite_slug"`
 }
 
 type codeQuotaArgs struct {

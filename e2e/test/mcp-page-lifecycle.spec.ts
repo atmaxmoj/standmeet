@@ -1,5 +1,5 @@
-// mcp-page-lifecycle.spec.ts — the full custom_page lifecycle, covering the tools
-// custom-page.spec.ts doesn't touch: promote_to_staging (a separate step, not going
+// mcp-page-lifecycle.spec.ts — the full microsite lifecycle, covering the tools
+// microsite.spec.ts doesn't touch: promote_to_staging (a separate step, not going
 // straight to live), list (enumerate), delete (remove). Verifies the visitor's side in
 // lockstep: reachable once live, 404 after delete.
 
@@ -41,7 +41,7 @@ interface BuildPayload { build_id: string; status: string }
 type ListPayload = PagePayload[];
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
-test.describe('custom_page lifecycle: staging → live → list → delete', () => {
+test.describe('microsite lifecycle: staging → live → list → delete', () => {
   let apiToken = '';
 
   test.beforeAll(async ({ playwright }) => {
@@ -64,19 +64,19 @@ test.describe('custom_page lifecycle: staging → live → list → delete', () 
       // staging single-step: the tool not reporting an error counts as passing (list
       // doesn't expose staging_build_id; the flow is chained via promote_to_live below).
       await callTool<PagePayload>(request, apiToken, sid,
-        'custom_page.promote_to_staging', { slug: SLUG, build_id: build.build_id });
+        'microsite.promote_to_staging', { slug: SLUG, build_id: build.build_id });
       await callTool<PagePayload>(request, apiToken, sid,
-        'custom_page.promote_to_live', { slug: SLUG, build_id: build.build_id });
+        'microsite.promote_to_live', { slug: SLUG, build_id: build.build_id });
 
       const inList = await callTool<ListPayload>(
-        request, apiToken, sid, 'custom_page.list', {});
+        request, apiToken, sid, 'microsite.list', {});
       expect(inList.find((p) => p.slug === SLUG)).toBeTruthy();
 
-      // From the UI's side: admin custom-pages section → click view live ↗ →
+      // From the UI's side: admin microsites section → click view live ↗ →
       // /p/<slug> renders.
-      await gotoAdminSection(page, 'custom-pages');
-      await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
-      await page.locator(`[data-testid="custom-page-row-${SLUG}"]`)
+      await gotoAdminSection(page, 'microsites');
+      await page.waitForURL('**/admin/microsites', { timeout: 10_000 });
+      await page.locator(`[data-testid="microsite-row-${SLUG}"]`)
         .getByRole('link', { name: 'view live ↗' })
         .click();
       await page.waitForURL(`**/p/${SLUG}`, { timeout: 10_000 });
@@ -84,19 +84,19 @@ test.describe('custom_page lifecycle: staging → live → list → delete', () 
 
       // delete → the admin row disappears entirely (the has_live link goes with it).
       await callTool<unknown>(
-        request, apiToken, sid, 'custom_page.delete', { slug: SLUG });
+        request, apiToken, sid, 'microsite.delete', { slug: SLUG });
 
       const afterDelete = await callTool<ListPayload>(
-        request, apiToken, sid, 'custom_page.list', {});
+        request, apiToken, sid, 'microsite.list', {});
       expect(afterDelete.find((p) => p.slug === SLUG)).toBeUndefined();
 
       // Currently on the /p/<slug> standalone React page, no admin nav; page.goBack()
-      // returns to /admin/custom-pages (equivalent to "the user hits browser-back
+      // returns to /admin/microsites (equivalent to "the user hits browser-back
       // after viewing the live version").
       await page.goBack();
-      await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+      await page.waitForURL('**/admin/microsites', { timeout: 10_000 });
       await page.reload();
-      await expect(page.locator(`[data-testid="custom-page-row-${SLUG}"]`))
+      await expect(page.locator(`[data-testid="microsite-row-${SLUG}"]`))
         .toHaveCount(0, { timeout: 5_000 });
     });
 });
@@ -104,9 +104,9 @@ test.describe('custom_page lifecycle: staging → live → list → delete', () 
 async function prepareBuiltPage(
   request: APIRequestContext, token: string, sid: string,
 ): Promise<BuildPayload> {
-  await callTool<PagePayload>(request, token, sid, 'custom_page.create', { slug: SLUG });
+  await callTool<PagePayload>(request, token, sid, 'microsite.create', { slug: SLUG });
   const build = await callTool<BuildPayload>(
-    request, token, sid, 'custom_page.write_file',
+    request, token, sid, 'microsite.write_file',
     { slug: SLUG, path: 'App.tsx', content: APP_SOURCE },
   );
   return await pollUntilBuilt(request, token, sid, build.build_id);
@@ -119,7 +119,7 @@ async function pollUntilBuilt(
   await expect.poll(
     async () => {
       last = await callTool<BuildPayload>(
-        request, token, sid, 'custom_page.get_build', { build_id: buildID });
+        request, token, sid, 'microsite.get_build', { build_id: buildID });
       if (last.status === 'failed') throw new Error('build failed');
       return last.status;
     },

@@ -13,7 +13,7 @@
 
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiTreeStats, fetchWritingsPage } from '@/lib/api/public';
-import { fetchCustomPages } from '@/lib/api/custom-pages';
+import { fetchMicrosites } from '@/lib/api/microsites';
 
 import { GateClient } from '@/app/gate/gate-client';
 
@@ -22,7 +22,7 @@ export default async function GatePage() {
   // **without a code** can reach, and that's exactly who's on this page. Fetching with
   // a token would show someone else's view.
   const [instance, wikiStats, writings, pages] = await Promise.all([
-    fetchInstance(), fetchWikiTreeStats(), fetchWritingsPage(), fetchCustomPages(),
+    fetchInstance(), fetchWikiTreeStats(), fetchWritingsPage(), fetchMicrosites(),
   ]);
   return (
     <GateClient

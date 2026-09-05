@@ -123,7 +123,7 @@ export function useIssuePendingCode(): IssuePending {
       // the default chat means the rendering the owner built might as well
       // not exist. A full-page navigation (not router.push) is deliberate:
       // that page is a build artifact, not part of this Next app's route tree.
-      goToCodeLanding(sess.custom_page_slug ?? '');
+      goToCodeLanding(sess.microsite_slug ?? '');
       return 'ok';
     } catch (e) {
       return classifyIssueError(e);

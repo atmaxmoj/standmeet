@@ -13,14 +13,14 @@ Diagnose **from the archive only** (error-context + backend.log + code + git his
 
 **Root cause (proven)**: Slice 5 deleted the built-in homepage; `/` is now served by the custom `home` page. A few things
 the old page-shell did on `/` were not carried onto the new surface: reading `?q=` and handing off to /gate, listing the
-custom-page deck, the shared footer, the TopBar with LocaleSwitch.
+microsite deck, the shared footer, the TopBar with LocaleSwitch.
 
 | # | spec | error (from log) | fix |
 |---|------|----------------|-----|
 | 1 | ask-about-this:44 | URL stuck at `…/?q=…`, expected `/gate?q=` | middleware: `/?q=` (no code) → app, not homepage; VisitorRoot: `?q=` with no session → `/gate?q=`. ✅ |
 | 4 | integration-writing-chat-flow:38 | same `…/?q=…` | same single fix. ✅ |
-| 2 | custom-pages-linked:92 | `custom-pages-deck` not found (`/`) | new homepage uses `PageNavWidget` (`page-nav-widget-link-<slug>`); test waits for homepage live + asserts the widget. ✅ |
-| 3 | custom-pages-linked:100 | `footer-custom-pages` not found (`/`) | old shared Footer deleted; homepage discovery covered by PageNavWidget (#2) → footer case removed. ✅ |
+| 2 | microsites-linked:92 | `microsites-deck` not found (`/`) | new homepage uses `PageNavWidget` (`page-nav-widget-link-<slug>`); test waits for homepage live + asserts the widget. ✅ |
+| 3 | microsites-linked:100 | `footer-microsites` not found (`/`) | old shared Footer deleted; homepage discovery covered by PageNavWidget (#2) → footer case removed. ✅ |
 | 10 | ui-locale-in-url:56 | `locale-switch` not found (page = HomeFallback) | switcher lives in the app TopBar (gate/reader); the custom homepage has no TopBar → test drives the switcher from `/gate`. ✅ |
 
 **Status: fixed (single-spec green, pending batch REPEAT=5).**

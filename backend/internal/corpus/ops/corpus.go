@@ -325,7 +325,8 @@ var corpusErrClasses = []struct {
 	{entity.ErrParentCycle, func() error { return fp.BadInput("parent would create a cycle") }},
 	{entity.ErrSiblingSlugTaken, func() error {
 		return fp.Coded(
-			fp.Conflict("an entry with the same name already exists here"), "sibling_name_taken")
+			fp.Conflict("an entry with the same name already exists here"), "sibling_name_taken",
+		)
 	}},
 	{entity.ErrRawNotFound, func() error {
 		return fp.Coded(fp.NotFound("raw entry not found"), "raw_not_found")

@@ -1,6 +1,6 @@
 // b5-owner-only-isolation.spec.ts —— Phase B-5: verifies that every owner-only
 // capability (owner.me / seo.bundle / and the jobs / resume / applications /
-// custom_page ones migrated in later) is absent from a visitor session's
+// microsite ones migrated in later) is absent from a visitor session's
 // capability map and tool_specs.
 //
 // The existing registry-invariants spec already covers the visitor_only ↔ no

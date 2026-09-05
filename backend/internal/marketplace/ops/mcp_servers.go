@@ -300,10 +300,12 @@ var mcpServerErrClasses = []struct {
 	{usecase.ErrMCPServerRefusedAuth, func() error {
 		return fp.Coded(
 			fp.BadInput("that server answered, but it rejected the auth header"),
-			"mcp_server_refused_auth")
+			"mcp_server_refused_auth",
+		)
 	}},
 	{usecase.ErrMCPServerNoAnswer, func() error {
 		return fp.Coded(
-			fp.BadInput("nothing answered at that URL"), "mcp_server_no_answer")
+			fp.BadInput("nothing answered at that URL"), "mcp_server_no_answer",
+		)
 	}},
 }

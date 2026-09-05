@@ -25,7 +25,8 @@ func promoteCorpus(deps usecase.Deps) fp.Invoke {
 			return nil, perr
 		}
 		if err := fp.RequireArgs(
-			[2]string{"id", in.ID}, [2]string{"title", in.Title}); err != nil {
+			[2]string{"id", in.ID}, [2]string{"title", in.Title},
+		); err != nil {
 			return nil, err
 		}
 		item, err := promoteByGenre(ctx, deps, ownerID, &in)

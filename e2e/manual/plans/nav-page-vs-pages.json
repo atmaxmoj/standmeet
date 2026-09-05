@@ -13,7 +13,7 @@
     { "name": "nav-03-corpus-entry", "url": "/admin",
       "steps": [
         { "wait": 2500 },
-        { "click": "[data-testid=\"admin-nav-custom-pages\"]" },
+        { "click": "[data-testid=\"admin-nav-microsites\"]" },
         { "wait": 3000 }
       ],
       "wait": 1200 }

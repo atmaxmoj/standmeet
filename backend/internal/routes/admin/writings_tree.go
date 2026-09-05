@@ -168,7 +168,8 @@ func (h *Handlers) pageWritings() http.HandlerFunc {
 			return
 		}
 		rows, err := h.WritingsAdmin.Tree.ListPage(
-			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r))
+			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r),
+		)
 		if err != nil {
 			h.Log.Error("page writings", "err", err)
 			writeError(h.Log, w, serverErr())

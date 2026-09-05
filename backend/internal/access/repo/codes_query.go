@@ -63,9 +63,9 @@ func (r *CodeRepo) GetByCode(ctx context.Context, code string) (entity.Code, err
 			MaxMembers: row.MaxMembers, RequireGhostEvidence: row.RequireGhostEvidence,
 			ProviderID: row.ProviderID, CreatedAt: row.CreatedAt,
 			AssumedRoleID: row.AssumedRoleID, PromptID: row.PromptID,
-			InlinePrompt: row.InlinePrompt, CustomPageID: row.CustomPageID,
+			InlinePrompt: row.InlinePrompt, MicrositeID: row.MicrositeID,
 		})
-		c.CustomPageSlug = row.CustomPageSlug
+		c.MicrositeSlug = row.MicrositeSlug
 		return c, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -120,9 +120,9 @@ func codeFromListRow(row *db.ListAccessCodesWithPageByOwnerRow) entity.Code {
 		MaxMembers: row.MaxMembers, RequireGhostEvidence: row.RequireGhostEvidence,
 		ProviderID: row.ProviderID, CreatedAt: row.CreatedAt,
 		AssumedRoleID: row.AssumedRoleID, PromptID: row.PromptID,
-		InlinePrompt: row.InlinePrompt, CustomPageID: row.CustomPageID,
+		InlinePrompt: row.InlinePrompt, MicrositeID: row.MicrositeID,
 	})
-	c.CustomPageSlug = row.CustomPageSlug
+	c.MicrositeSlug = row.MicrositeSlug
 	return c
 }
 

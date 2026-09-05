@@ -4,14 +4,14 @@
 // when the URL carries ?code=, so a coded visitor reaches this component instead. It restores the
 // coded half of the old page-shell (the homepage half became a custom page). The owner's model:
 //
-//   • a code may have a custom page attached (session.custom_page_slug) → the visitor lands on
+//   • a code may have a custom page attached (session.microsite_slug) → the visitor lands on
 //     THAT page (/p/<slug>), whose AgentWidget adopts the session — this redirect is owned by
 //     use-issue-pending-code / use-absorb-code's landOnRendering, not here;
 //   • no attached page → the ORIGINAL built-in coded chat (ChatRoom).
 //
 // While the code is still pending (absorbed from ?code= but no name picked yet), the
 // VisitorNamePicker overlays the identity fallback; picking a name issues the session and this
-// re-renders into ChatRoom (or the custom-page redirect fires first).
+// re-renders into ChatRoom (or the microsite redirect fires first).
 
 'use client';
 
@@ -34,7 +34,7 @@ export function VisitorRoot({ name, handle }: { name: string; handle: string }) 
   // none, so without this a returning visitor's session never loads and `/` never becomes chat.
   useEffect(() => bindVisitorSessionSync(), []);
   // Mounts the ?code= absorb: stores the pending code + strips it from the URL. Issuing the
-  // session (and any custom-page redirect) is deferred to the name picker's path.
+  // session (and any microsite redirect) is deferred to the name picker's path.
   useAbsorbCodeFromURL();
   const session = useVisitorSessionStore((s) => s.session);
   useCodelessQuestionHandoff(session);

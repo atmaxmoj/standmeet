@@ -70,7 +70,7 @@ func ServerInstructions(version string) string {
 		"- Keep each item single-topic; give sibling items distinct slugs.\n" +
 		"- writings.* manage long-form published pieces; page.* manage the public page (pins, " +
 		"handle, URL).\n" +
-		"- custom_page.* build hosted React pages. Before authoring one, call custom_page.guide " +
+		"- microsite.* build hosted React pages. Before authoring one, call microsite.guide " +
 		"— the design system, the SDK widgets, and how to show corpus inline.\n\n" +
 		"Version. This instance runs " + version + ". At the start of a session, call " +
 		"instance.upgrade_check to see whether a newer StandMeet was released and whether this " +

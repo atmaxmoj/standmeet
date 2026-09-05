@@ -130,7 +130,8 @@ func TestDecoratorWrapsEveryFaceAlike(t *testing.T) {
 				seen = append(seen, id)
 				return next(ctx, ownerID, in)
 			}
-		})
+		},
+	)
 
 	mcpOps := d.Attach(face("mcp")).Ops()
 	_, err := mcpOps[0].Invoke(context.Background(), "o1", nil)

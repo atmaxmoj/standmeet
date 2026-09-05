@@ -12,7 +12,7 @@ func Manifest() []Entry {
 	return concat(
 		accountEntries(), corpusEntries(), codesEntries(), rolesPromptsSkills(),
 		connectorsMCPServers(), contentEntries(), settingsEntries(), governanceEntries(),
-		observabilityEntries(), customPageEntries(), apiKeyEntries(),
+		observabilityEntries(), micrositeEntries(), apiKeyEntries(),
 	)
 }
 

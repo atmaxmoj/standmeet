@@ -4,7 +4,7 @@
   "shots": [
     { "name": "sw-subjectivity", "url": "/admin/subjectivity" },
     { "name": "sw-roles-corpus", "url": "/admin/roles" },
-    { "name": "sw-custom-pages", "url": "/admin/custom-pages" },
+    { "name": "sw-microsites", "url": "/admin/microsites" },
     { "name": "sw-page-section", "url": "/admin/page" },
     { "name": "sw-applications", "url": "/admin/applications" },
     { "name": "sw-drafts", "url": "/admin/drafts" },

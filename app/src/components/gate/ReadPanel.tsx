@@ -19,9 +19,9 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
-import type { CustomPageLink } from '@/lib/api/custom-pages';
+import type { MicrositeLink } from '@/lib/api/microsites';
 
-type Props = { publicWiki: number; publicWritings: number; pages?: readonly CustomPageLink[] };
+type Props = { publicWiki: number; publicWritings: number; pages?: readonly MicrositeLink[] };
 
 const LINK_CLS = 'mono text-[12px] tracking-[0.14em] uppercase text-(--color-accent) '
   + 'hover:text-(--color-ink) transition-colors no-underline';
@@ -35,7 +35,7 @@ export function ReadPanel({ publicWiki, publicWritings, pages }: Props) {
 // hasSomethingToRead —— open the door only when a codeless visitor can reach something:
 // a public wiki/writings tree, or at least one published custom page.
 function hasSomethingToRead(
-  publicWiki: number, publicWritings: number, pages?: readonly CustomPageLink[],
+  publicWiki: number, publicWritings: number, pages?: readonly MicrositeLink[],
 ): boolean {
   return publicWiki + publicWritings > 0 || (pages !== undefined && pages.length > 0);
 }
@@ -70,9 +70,9 @@ function ReadPanelBody({ publicWiki, publicWritings, pages }: Props) {
 
 // GatePages —— the owner's published custom pages, linked by title so a codeless visitor
 // can reach the curated pages too, not only the raw wiki / writings trees. Empty → nothing.
-function GatePages({ pages }: { pages?: readonly CustomPageLink[] }) {
+function GatePages({ pages }: { pages?: readonly MicrositeLink[] }) {
   return pages && pages.length > 0 ? (
-    <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4" data-testid="gate-custom-pages">
+    <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4" data-testid="gate-microsites">
       {pages.map((p) => (
         <Link
           key={p.slug}

@@ -85,7 +85,7 @@ standmeet/
    ├─ frontend/         ←   Next.js; useful component patterns
    ├─ gateway/          ←   WebSocket pattern dies; rewrite for 3-tier model
    ├─ im-bridge/        ←   reusable for new ingest channel
-   └─ page-builder/     ←   the seed of the SDK + sandbox custom-page system
+   └─ page-builder/     ←   the seed of the SDK + sandbox microsite system
 ```
 
 New work goes in new top-level dirs (names TBD — likely `backend/`, `app/`, `sdk/`, `infra/`).

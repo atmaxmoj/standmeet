@@ -1,4 +1,4 @@
-// Package buildnotify is an in-memory broadcast that wakes custom-page preview
+// Package buildnotify is an in-memory broadcast that wakes microsite preview
 // long-pollers the moment a build finishes, so the owner's panel follows the agent's
 // edits without a fixed poll interval (the "QR-payment" long-poll the owner asked for:
 // hold one connection, get answered as soon as there's something to show).

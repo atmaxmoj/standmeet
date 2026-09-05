@@ -38,7 +38,7 @@ async function pagesApi(
   request: APIRequestContext, csrf: string,
   method: 'get' | 'post', path: string, data?: unknown,
 ): Promise<ApiResult> {
-  const url = `${BACKEND}/api/admin/custom-pages${path}`;
+  const url = `${BACKEND}/api/admin/microsites${path}`;
   const opts = { headers: { 'X-Csrftoken': csrf }, ...(data === undefined ? {} : { data }) };
   const res = method === 'get' ? await request.get(url, opts) : await request.post(url, opts);
   const body = res.ok() ? (await res.json()) as Record<string, unknown> : {};

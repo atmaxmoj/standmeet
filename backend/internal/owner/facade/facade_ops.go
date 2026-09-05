@@ -27,7 +27,7 @@ var (
 	FullNameOf    = ops.FullNameOf
 	AccountOps    = ops.Account
 	AppearanceOps = ops.Appearance
-	CustomPageOps = ops.CustomPages
+	MicrositeOps  = ops.Microsites
 	DomainOps     = ops.Domains
 	PageOps       = ops.Page
 	PromptOps     = ops.Prompts

@@ -94,16 +94,16 @@ func RevokeCode(ctx context.Context, d CodesDeps, ownerID, codeID string) error 
 	return nil
 }
 
-// SetCodeCustomPage — which page this code opens. Empty slug = unbind, fall back to
+// SetCodeMicrosite — which page this code opens. Empty slug = unbind, fall back to
 // the default visitor chat.
 //
 // **Does not revoke the session** (unlike RevokeCode): changing what renders isn't
 // revoking authorization, and someone mid-conversation shouldn't get kicked out. The
 // new destination only applies the next time this code is brought in.
-func SetCodeCustomPage(
+func SetCodeMicrosite(
 	ctx context.Context, d CodesDeps, ownerID, codeID, slug string,
 ) (entity.Code, error) {
-	code, err := d.Codes.SetCustomPage(ctx, ownerID, codeID, slug)
+	code, err := d.Codes.SetMicrosite(ctx, ownerID, codeID, slug)
 	if err != nil {
 		return entity.Code{}, fmt.Errorf("set code custom page: %w", err)
 	}

@@ -53,9 +53,9 @@ func observabilityEntries() []Entry {
 	return []Entry{}
 }
 
-// custom pages —— all moved into the outbound convergence point (dispatcher.CustomPages). The
+// custom pages —— all moved into the outbound convergence point (dispatcher.Microsites). The
 // product decision "writes are MCP-only" now lives in each op's Reach, no longer a row in this
 // table.
-func customPageEntries() []Entry {
+func micrositeEntries() []Entry {
 	return []Entry{}
 }

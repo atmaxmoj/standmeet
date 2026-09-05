@@ -1,6 +1,6 @@
 // homepage-served-at-root.spec.ts —— the redesigned homepage is a custom page pinned to `/`.
 //
-// Slice 2 of homepage-as-custom-page: GET /api/v1/homepage serves the reserved `home` page's
+// Slice 2 of homepage-as-microsite: GET /api/v1/homepage serves the reserved `home` page's
 // live build at the site root, injecting `<base href="/">` (not `/p/home/`). Two guarantees:
 //   1. Before any `home` page is promoted, it 404s — so the app keeps its built-in homepage and
 //      nothing breaks the moment this ships (the safety that lets removal come last).
@@ -37,7 +37,7 @@ async function pagesApi(
   request: APIRequestContext, csrf: string,
   method: 'get' | 'post' | 'put', path: string, data?: unknown,
 ): Promise<ApiResult> {
-  const url = `${BACKEND}/api/admin/custom-pages${path}`;
+  const url = `${BACKEND}/api/admin/microsites${path}`;
   const opts = { headers: { 'X-Csrftoken': csrf }, ...(data === undefined ? {} : { data }) };
   const res = method === 'get'
     ? await request.get(url, opts)
@@ -67,7 +67,7 @@ async function publishPatiently(
 
 test.describe.configure({ timeout: 420_000 });
 
-test.describe('homepage-as-custom-page · served at the root path', () => {
+test.describe('homepage-as-microsite · served at the root path', () => {
   test.beforeAll(async ({ playwright }) => {
     // The build poll below can run minutes; give the hook itself the budget (describe.configure
     // sets the TEST timeout, not the hook's — a 30s hook default otherwise kills the build wait).

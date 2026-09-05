@@ -8,7 +8,7 @@
 #
 # Contents:
 #   pg.dump           ← pg_dumpall sql
-#   custom_pages.tar  ← contents of the /srv/custom-pages shared volume (owner custom-page dist)
+#   microsites.tar  ← contents of the /srv/microsites shared volume (owner microsite dist)
 #   caddy_data.tar    ← Caddy issued certificates + ACME account (no re-signing after restore)
 #
 # Redis is not backed up: session / cache are discardable; losing them only kicks users out once.
@@ -25,11 +25,11 @@ echo "[backup] dumping postgres ..."
 docker compose -f docker-compose.prod.yml exec -T db \
   pg_dumpall -U standmeet > "$WORK/pg.dump"
 
-echo "[backup] tarring custom_pages ..."
+echo "[backup] tarring microsites ..."
 docker run --rm \
-  -v standmeet_custom_pages_data:/src:ro \
+  -v standmeet_microsites_data:/src:ro \
   -v "$WORK:/out" \
-  alpine sh -c 'tar -C /src -czf /out/custom_pages.tar.gz .'
+  alpine sh -c 'tar -C /src -czf /out/microsites.tar.gz .'
 
 echo "[backup] tarring caddy_data ..."
 docker run --rm \

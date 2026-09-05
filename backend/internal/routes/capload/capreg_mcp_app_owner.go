@@ -58,7 +58,8 @@ func (c *mcpAppCapability) ownerToolHandler(t *mcpplugin.OwnerTool) capreg.MCPHa
 		}
 		defer sess.Close()
 		out, cerr := sess.CallToolChecked(
-			ctx, tool, raw, &mcpclient.SessionContext{OwnerID: ownerID}, 0)
+			ctx, tool, raw, &mcpclient.SessionContext{OwnerID: ownerID}, 0,
+		)
 		if cerr != nil {
 			return c.ownerToolErr(cerr, name+" failed")
 		}

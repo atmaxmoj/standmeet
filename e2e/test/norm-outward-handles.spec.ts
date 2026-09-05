@@ -36,7 +36,7 @@ interface RegistryListResp { capabilities: Cap[] }
 //
 // Already moved (-> dispatcher): ip_bans, domains, access_requests, skills,
 // marketplace, prompts, mcp_servers, roles, capabilities, instance, appearance,
-// account/me, byoai + ai_provider, seo, page, custom_page, chat,
+// account/me, byoai + ai_provider, seo, page, microsite, chat,
 // corpus.subjectivity, api_keys, connectors (the generic registry belongs to the
 // connector axis; mail_test_send belongs to the smtp connector's own manifest), and
 // the four corpus operations (genre collapsed from three tool sets into one

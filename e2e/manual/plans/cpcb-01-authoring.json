@@ -1,11 +1,11 @@
 {
-  "_why": "custom-page-code-binding check 1 ⭐ —— 在**面板上**从零写一个页并发布。以前这一屏是只读的、写只在 MCP 上，例外的理由是「面板没有这个界面」。这一趟就是去看那个界面现在在不在、能不能用。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "_why": "microsite-code-binding check 1 ⭐ —— 在**面板上**从零写一个页并发布。以前这一屏是只读的、写只在 MCP 上，例外的理由是「面板没有这个界面」。这一趟就是去看那个界面现在在不在、能不能用。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsite-code-binding/shots",
   "viewport": [1280, 1400],
   "shots": [
     {
       "name": "cpcb-01-panel",
-      "url": "/admin/custom-pages",
+      "url": "/admin/microsites",
       "steps": [{ "wait": 5000 }],
       "wait": 1000,
       "fullPage": true

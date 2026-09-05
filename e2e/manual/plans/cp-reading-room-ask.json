@@ -1,7 +1,7 @@
 {
-  "_why": "custom-pages 验收 —— 右栏那个 agent 是不是真的。匿名（mode: public）在自定义页上问一句，答案必须来自 owner 的语料，而且要经 AnswerText 渲染（不是满屏星号）。同一趟再点一次目录条目，验 corpus 读那一半。",
+  "_why": "microsites 验收 —— 右栏那个 agent 是不是真的。匿名（mode: public）在自定义页上问一句，答案必须来自 owner 的语料，而且要经 AnswerText 渲染（不是满屏星号）。同一趟再点一次目录条目，验 corpus 读那一半。",
   "login": false,
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-pages/shots",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsites/shots",
   "viewport": [1280, 1100],
   "shots": [
     {

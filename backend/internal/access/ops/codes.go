@@ -66,7 +66,7 @@ func codeCoreOps(d CodesDeps) []fp.Op {
 			Invoke:      revokeCode(d.Codes),
 		},
 		{
-			ID: "codes.set_custom_page",
+			ID: "codes.set_microsite",
 			Description: "Point this code at a custom page, or clear it. Presenting the code " +
 				"then opens that page instead of the default visitor chat — the page is a " +
 				"rendering of the code, so the grant, quotas, identity prompt and transcript " +
@@ -74,7 +74,7 @@ func codeCoreOps(d CodesDeps) []fp.Op {
 			InputSchema: codePageSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
-			Invoke:      setCodeCustomPage(d.Codes),
+			Invoke:      setCodeMicrosite(d.Codes),
 		},
 		{
 			ID:          "codes.update_quotas",
@@ -186,11 +186,11 @@ type codeRow struct {
 	// to default. **Must be sent outbound**: a field the owner can write but not see means the
 	// panel can only guess next time it opens.
 	ProviderID string `json:"provider_id"`
-	// CustomPageSlug — which page this code opens. **Empty string = opens the default visitor
+	// MicrositeSlug — which page this code opens. **Empty string = opens the default visitor
 	// chat**, not "failed to answer". The page side can see the code, this side can see the
 	// page — a binding visible only one way, and people forget they made it.
-	CustomPageSlug string   `json:"custom_page_slug"`
-	Ghosts         []string `json:"ghosts"`
+	MicrositeSlug string   `json:"microsite_slug"`
+	Ghosts        []string `json:"ghosts"`
 	// MemberCount — how many people have claimed it so far. **Sending the cap alone isn't
 	// enough**: with only the cap, a full code and a brand-new code look identical in the
 	// panel, while the visitor side is already blocked by member_quota_reached (F-D-2). The
@@ -206,10 +206,10 @@ func toCodeRow(c *entity.Code, memberCount int32) codeRow {
 		Ghosts:     nonNilStrings(c.Ghosts),
 		MaxMembers: c.MaxMembers, MaxTurnsPerSession: c.MaxTurnsPerSession,
 		RequireGhostEvidence: c.RequireGhostEvidence, PromptID: c.PromptID,
-		CreatedAt:      c.CreatedAt.UTC().Format(time.RFC3339),
-		ExpiresAt:      formatOptionalTime(c.ExpiresAt),
-		CustomPageSlug: c.CustomPageSlug,
-		MemberCount:    memberCount,
+		CreatedAt:     c.CreatedAt.UTC().Format(time.RFC3339),
+		ExpiresAt:     formatOptionalTime(c.ExpiresAt),
+		MicrositeSlug: c.MicrositeSlug,
+		MemberCount:   memberCount,
 	}
 }
 

@@ -38,10 +38,10 @@ export const CodeViewSchema = z.object({
   // while visitors are already being turned away at the door (F-D-2). Old
   // backends don't send this field, so nullish→0.
   member_count: z.number().nullish().transform((v) => v ?? 0),
-  // custom_page_slug —— which page this code opens. '' = opens the default visitor chat.
+  // microsite_slug —— which page this code opens. '' = opens the default visitor chat.
   // nullish: old backends don't send this field, and a missing field
   // shouldn't silently fail the whole code list ([[zod-unknown-is-not-optional]]).
-  custom_page_slug: z.string().nullish().transform((v) => v ?? ''),
+  microsite_slug: z.string().nullish().transform((v) => v ?? ''),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
 
@@ -72,7 +72,7 @@ export interface CodesHook {
   revokeCode: (id: string) => Promise<void>;
   updateQuotas: (id: string, input: QuotasInput) => Promise<void>;
   setGhostEvidence: (id: string, value: boolean | null) => Promise<void>;
-  setCustomPage: (id: string, slug: string) => Promise<void>;
+  setMicrosite: (id: string, slug: string) => Promise<void>;
 }
 
 // codesStore —— a module singleton; fetched once, shared by every component.
@@ -95,7 +95,7 @@ export function useCodes(): CodesHook {
     revokeCode,
     updateQuotas,
     setGhostEvidence,
-    setCustomPage,
+    setMicrosite,
   };
 }
 
@@ -127,18 +127,18 @@ async function setGhostEvidence(id: string, value: boolean | null): Promise<void
     (prev ?? []).map((c) => c.id === updated.id ? updated : c));
 }
 
-// setCustomPage —— which page this code opens. Empty string = unbind, back to the default visitor chat.
+// setMicrosite —— which page this code opens. Empty string = unbind, back to the default visitor chat.
 // A code attaches to at most one page — so this is an **assignment**, not
 // "add one": switching pages replaces the previous one.
 // The receipt returns the **slug as read back**, not an echo of the input —
 // so what's stored into the store is the receipt's value, not the one just selected ([[write-with-no-receipt]]).
-async function setCustomPage(id: string, slug: string): Promise<void> {
+async function setMicrosite(id: string, slug: string): Promise<void> {
   const done = await adminAPI.patch(
-    `/codes/${id}/custom-page`, { slug },
-    z.object({ code_id: z.string(), custom_page_slug: z.string() }),
+    `/codes/${id}/microsite`, { slug },
+    z.object({ code_id: z.string(), microsite_slug: z.string() }),
   );
   codesStore.getState().mutate((prev) => (prev ?? []).map(
-    (c) => c.id === done.code_id ? { ...c, custom_page_slug: done.custom_page_slug } : c));
+    (c) => c.id === done.code_id ? { ...c, microsite_slug: done.microsite_slug } : c));
 }
 
 function toCreateBody(input: CreateCodeInput): Record<string, unknown> {

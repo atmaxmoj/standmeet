@@ -43,6 +43,7 @@ func requireGenre(genre string) error {
 	default:
 		return fp.Coded(
 			fp.NotFound("genre must be 'raw', 'wiki', 'output' or 'subjectivity'"),
-			"unknown_genre")
+			"unknown_genre",
+		)
 	}
 }

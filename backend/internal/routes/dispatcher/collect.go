@@ -35,7 +35,7 @@ type Deps struct {
 	Roles          access.OpsRoles
 	SEO            owner.OpsSEO
 	Marketplace    marketplace.InstallSkillDeps
-	CustomPages    owner.CustomPageDeps
+	Microsites     owner.MicrositeDeps
 	Skills         marketplace.SkillsDeps
 	MCPServers     marketplace.MCPServersDeps
 	OwnerCSS       owner.CSSStore
@@ -54,7 +54,8 @@ func Collect(d *Deps) []Resource {
 	return []Resource{
 		{Name: "subjectivity", Ops: corpus.SubjectivityOps(d.Corpus)},
 		{Name: "corpus", Ops: append(append(append(
-			corpus.CorpusReadOps(d.Corpus), corpus.CorpusSearchOps(d.Corpus)...),
+			corpus.CorpusReadOps(d.Corpus), corpus.CorpusSearchOps(d.Corpus)...,
+		),
 			corpus.CorpusWriteOps(d.Corpus)...),
 			corpus.CorpusI18nOps()...)},
 		{Name: "assets", Ops: corpus.AssetOps(d.Corpus)},
@@ -65,12 +66,13 @@ func Collect(d *Deps) []Resource {
 		{Name: "settings", Ops: owner.SettingsOps(d.Settings)},
 		{Name: "providers", Ops: owner.ProviderOps(d.Providers)},
 		{Name: "account", Ops: owner.AccountOps(d.Account)},
-		{Name: "custom_pages", Ops: owner.CustomPageOps(d.CustomPages)},
+		{Name: "microsites", Ops: owner.MicrositeOps(d.Microsites)},
 		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},
 		// The two upgrade endpoints belong to instance too -- one resource, two
 		// declaration groups.
 		{Name: "instance", Ops: append(
-			stats.InstanceOps(d.Instance), stats.UpgradeOps(d.Upgrade)...)},
+			stats.InstanceOps(d.Instance), stats.UpgradeOps(d.Upgrade)...,
+		)},
 		{Name: "mcp_servers", Ops: marketplace.MCPServerOps(d.MCPServers)},
 		{Name: "skills", Ops: marketplace.SkillOps(d.Skills)},
 		{Name: "marketplace", Ops: marketplace.MarketplaceOps(d.Marketplace)},

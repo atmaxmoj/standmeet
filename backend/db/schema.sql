@@ -330,12 +330,12 @@ CREATE TABLE access_codes (
     -- provider_id —— 这张码用哪个 provider。NULL = 继承(role,再默认)。**码压过 role**。
     -- SET NULL:那条 provider 被删 → 这张码退回默认,码本身照常用(见 owner_providers)。
     provider_id               uuid          REFERENCES owner_providers(id) ON DELETE SET NULL,
-    -- custom_page_id —— 这张码开哪一页。NULL = 开默认的访客对话（今天的行为）。
+    -- microsite_id —— 这张码开哪一页。NULL = 开默认的访客对话（今天的行为）。
     -- 页面是这张码的一个**渲染**：授权、配额、身份、记账全不变，只换读者看到的样子。
     -- **一张码至多一页**，所以它是码上的一列而不是一张关系表：绑定是一个事实，
     -- 两个面板都读它，谁也不存第二份。SET NULL —— 页删了码退回默认落地，而不是跟着消失。
-    -- 外键在 custom_pages 建完之后补（这张表在它前面，内联写就是前向引用，新卷上直接失败）。
-    custom_page_id            uuid,
+    -- 外键在 microsites 建完之后补（这张表在它前面，内联写就是前向引用，新卷上直接失败）。
+    microsite_id            uuid,
     -- limit_per_period —— 可再生的速率闸：{amount, unit:'turns'|'gas', period_seconds}。
     -- NULL = 不限。max_turns_per_session 是**每场**（访客开新会话就重置）、gas 是**总量**
     -- （花完手动续）；这一个是**每周期自动回满**的桶，按码共享（跟哪个访客/会话无关）。
@@ -691,8 +691,8 @@ CREATE TABLE messages (
 );
 CREATE INDEX messages_dialog_idx ON messages(dialog_id);
 
--- custom_pages —— owner 自定义 React 页面。
-CREATE TABLE custom_pages (
+-- microsites —— owner 自定义 React 页面。
+CREATE TABLE microsites (
     id                     uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id               uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     slug                   citext        NOT NULL,
@@ -704,7 +704,7 @@ CREATE TABLE custom_pages (
     -- allow_byoai —— 没有人出示 grant 时，这一页给不给读者用自己的 key。
     -- **来了 code 就作废**：出示的 grant 决定一切，页面自己的设置只在无人出示时生效（I-4）。
     allow_byoai            boolean       NOT NULL DEFAULT false,
-    -- store_writable — whether visitors may WRITE this page's page_store namespace. Default false:
+    -- store_writable — whether visitors may WRITE this page's microsite_store namespace. Default false:
     -- a page has zero write attack surface until the owner explicitly opens it (security model C).
     -- Reads are not gated by this; writes are (+ per-page quota, doc-size cap, per-IP rate limit).
     store_writable         boolean       NOT NULL DEFAULT false,
@@ -712,13 +712,13 @@ CREATE TABLE custom_pages (
     updated_at             timestamptz   NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX custom_pages_owner_slug_idx ON custom_pages(owner_id, slug);
+CREATE UNIQUE INDEX microsites_owner_slug_idx ON microsites(owner_id, slug);
 
--- access_codes.custom_page_id 的外键：这张表在 access_codes 之后建，所以约束补在这里。
+-- access_codes.microsite_id 的外键：这张表在 access_codes 之后建，所以约束补在这里。
 ALTER TABLE access_codes
-    ADD CONSTRAINT access_codes_custom_page_id_fkey
-    FOREIGN KEY (custom_page_id) REFERENCES custom_pages(id) ON DELETE SET NULL;
-CREATE INDEX access_codes_custom_page_idx ON access_codes(custom_page_id);
+    ADD CONSTRAINT access_codes_microsite_id_fkey
+    FOREIGN KEY (microsite_id) REFERENCES microsites(id) ON DELETE SET NULL;
+CREATE INDEX access_codes_microsite_idx ON access_codes(microsite_id);
 
 -- embeds —— owner 的 embed widget 配置。一个 embed = "把某张码作为 <standmeet-chat> 暴露,
 -- 只在这些来源站上生效"。**embed 指向 code**（embed 是包着码的配置,它引用它暴露的那张码）,
@@ -748,9 +748,9 @@ CREATE UNIQUE INDEX embeds_key_id_uniq ON embeds(key_id);
 -- （两个 embed 挂同一张码时，GetEmbedForCode:one 取哪份白名单是未定义的）。
 CREATE UNIQUE INDEX embeds_code_uniq ON embeds(code_id);
 
-CREATE TABLE custom_page_builds (
+CREATE TABLE microsite_builds (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    page_id         uuid          NOT NULL REFERENCES custom_pages(id) ON DELETE CASCADE,
+    page_id         uuid          NOT NULL REFERENCES microsites(id) ON DELETE CASCADE,
     status          text          NOT NULL DEFAULT 'pending',
     source_files    jsonb         NOT NULL DEFAULT '{}'::jsonb,
     output_path     text          NOT NULL DEFAULT '',
@@ -761,10 +761,10 @@ CREATE TABLE custom_page_builds (
 
 -- A custom page's own persistence namespace is NOT a table here. Each page gets its OWN Postgres
 -- schema (page_<id>) with a generic records(collection, doc jsonb) table — the capstore pattern
--- (internal/capabilities/capstore, KindPage), same isolation as a plugin: physical schema
+-- (internal/capabilities/capstore, KindMicrosite), same isolation as a plugin: physical schema
 -- separation (not a shared table keyed by id), created on page create, DROP SCHEMA CASCADE on page
--- delete. See internal/owner/usecase/page_store.go. The only page_store trace in core is the
--- custom_pages.store_writable flag above (whether visitors may write it — security model C).
+-- delete. See internal/owner/usecase/microsite_store.go. The only microsite_store trace in core is the
+-- microsites.store_writable flag above (whether visitors may write it — security model C).
 
 -- access_requests —— visitor 在 /<handle>/gate 留言（无 code 时）。
 -- owner 在 /admin/requests 看；open → replied (回邮件后) / closed (无视)。

@@ -91,7 +91,7 @@ function isDockButton(x: unknown): x is AdoptedDockButton {
 // pageAllowsBYOAI —— does this page allow the reader to bring their own key?
 //
 // The value comes from the meta tag injected into index.html **when this
-// request was served** (see backend custom_pages.go): if the page is taken
+// request was served** (see backend microsites.go): if the page is taken
 // down or the setting changes, the next request gets the new value —— the
 // page keeps no snapshot, and there's no second endpoint to ask.
 export function pageAllowsBYOAI(): boolean {

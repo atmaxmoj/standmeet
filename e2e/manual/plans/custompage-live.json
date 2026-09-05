@@ -1,5 +1,5 @@
 {
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-pages/shots",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsites/shots",
   "viewport": [1280, 1400],
   "login": false,
   "shots": [
@@ -7,7 +7,7 @@
       "steps": [{ "wait": 4000 }], "wait": 1200 },
     { "name": "cp-11-live-handle-path", "url": "/sijie/p/audit-b1",
       "steps": [{ "wait": 4000 }], "wait": 1200 },
-    { "name": "cp-12-admin-list-after", "url": "/admin/custom-pages",
+    { "name": "cp-12-admin-list-after", "url": "/admin/microsites",
       "steps": [{ "wait": 4500 }], "wait": 1200 }
   ]
 }

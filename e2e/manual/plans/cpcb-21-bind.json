@@ -1,6 +1,6 @@
 {
-  "_why": "custom-page-code-binding checks 6 / 8 —— 建一张真码，在**码那一侧**把它指向 /p/reading-room，然后两头都看一眼：码卡上说得出它开哪一页，页那一行说得出哪些码开它，而且页自己的 BYOK 设置在挂了码之后明说自己作废了。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "_why": "microsite-code-binding checks 6 / 8 —— 建一张真码，在**码那一侧**把它指向 /p/reading-room，然后两头都看一眼：码卡上说得出它开哪一页，页那一行说得出哪些码开它，而且页自己的 BYOK 设置在挂了码之后明说自己作废了。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsite-code-binding/shots",
   "viewport": [1280, 1600],
   "shots": [
     {
@@ -29,7 +29,7 @@
     },
     {
       "name": "cpcb-23-page-side",
-      "url": "/admin/custom-pages",
+      "url": "/admin/microsites",
       "steps": [{ "wait": 6000 }],
       "wait": 800,
       "fullPage": false

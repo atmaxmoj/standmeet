@@ -199,7 +199,8 @@ func embedErr(err error) error {
 	}
 	if errors.Is(err, entity.ErrCodeAlreadyEmbedded) {
 		return fp.Coded(
-			fp.Conflict("code already exposed by an embed"), "code_already_embedded")
+			fp.Conflict("code already exposed by an embed"), "code_already_embedded",
+		)
 	}
 	return fp.OpErr("embed op", err)
 }

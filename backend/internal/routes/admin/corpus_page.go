@@ -74,7 +74,8 @@ func (h *Handlers) pageWiki() http.HandlerFunc {
 			return
 		}
 		rows, err := h.Corpus.Corpus.Wiki.ListPage(
-			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r))
+			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r),
+		)
 		if err != nil {
 			h.Log.Error("page wiki", "err", err)
 			writeError(h.Log, w, serverErr())
@@ -93,7 +94,8 @@ func (h *Handlers) pageOutput() http.HandlerFunc {
 			return
 		}
 		rows, err := h.Corpus.Corpus.Output.ListPage(
-			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r))
+			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r),
+		)
 		if err != nil {
 			h.Log.Error("page output", "err", err)
 			writeError(h.Log, w, serverErr())
@@ -112,7 +114,8 @@ func (h *Handlers) pageRaw() http.HandlerFunc {
 			return
 		}
 		rows, err := h.Corpus.Corpus.Raw.ListPage(
-			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r))
+			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r),
+		)
 		if err != nil {
 			h.Log.Error("page raw", "err", err)
 			writeError(h.Log, w, serverErr())

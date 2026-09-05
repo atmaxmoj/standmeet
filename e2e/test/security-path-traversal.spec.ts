@@ -1,5 +1,5 @@
 // security-path-traversal.spec.ts — pentest. An owner-built custom page's static assets
-// are read from disk via GET /api/v1/custom-pages/{slug}/{*path}; `../` / encoded
+// are read from disk via GET /api/v1/microsites/{slug}/{*path}; `../` / encoded
 // traversal / absolute paths must be confined inside the build root
 // (joinSafeAssetPath), never reaching host files. Green = traversal is blocked; red =
 // arbitrary file read.
@@ -21,11 +21,11 @@ const TRAVERSALS = [
 async function fetchAsset(
   request: APIRequestContext, slug: string, path: string,
 ): Promise<{ status: number; body: string }> {
-  const res = await request.get(`${BACKEND}/api/v1/custom-pages/${slug}/${path}`);
+  const res = await request.get(`${BACKEND}/api/v1/microsites/${slug}/${path}`);
   return { status: res.status(), body: await res.text() };
 }
 
-test.describe('pentest · custom-page asset path traversal', () => {
+test.describe('pentest · microsite asset path traversal', () => {
   test('encoded / relative / absolute traversal never reaches host files',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();

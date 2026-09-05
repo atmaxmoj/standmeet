@@ -216,7 +216,7 @@ components:
   periodic:
     in: internal/infra/periodic           # single scheduling point for periodic tasks: the declarer says "what to do", this handles "how often + bookkeeping"
   buildnotify:
-    in: internal/infra/buildnotify        # in-memory broadcast waking custom-page preview long-pollers on build completion; domain-less leaf (stdlib sync only)
+    in: internal/infra/buildnotify        # in-memory broadcast waking microsite preview long-pollers on build completion; domain-less leaf (stdlib sync only)
   selfstat:
     in: internal/infra/selfstat           # reads THIS container's own cgroup (CPU/mem) for the System panel; leaf (stdlib only, no docker socket)
   # cmd — the composition root, now split into five packages + the startup sequence on the root. For
@@ -1064,7 +1064,7 @@ deps:
 
   # sys routes (/internal/healthz, tls-ask, log, builds) need to ping db / redis
   # so it can import postgres. The redis client is vendor. domain is used too:
-  # /internal/builds/claim returns ErrCustomPageBuildNotFound when there's nothing pending.
+  # /internal/builds/claim returns ErrMicrositeBuildNotFound when there's nothing pending.
   sysroutes:
     mayDependOn:
       - owner
@@ -1110,7 +1110,7 @@ deps:
       - stats       # #135 /stats/*: Monitor activity/growth/graph/jobs value objects
       - security    # #135 /ip-bans: BannedIP value object
       - depcheck    # checks at startup whether buildAdminHandlers' hand-copied dependency table has a missing row
-      - buildnotify # preview long-poll (/custom-pages/wait) reads the build-settle broadcast
+      - buildnotify # preview long-poll (/microsites/wait) reads the build-settle broadcast
     anyVendorDeps: true
 
   # obsidian — Obsidian vault two-way sync sub-usecase: frontmatter codec / image

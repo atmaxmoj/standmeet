@@ -131,7 +131,8 @@ func AcceptMedia(in *AcceptMediaInput) (FetchedMedia, error) {
 	// Limit checked against bytes actually in hand — no more evidence than a remote Content-Length.
 	if int64(len(in.Body)) > limit {
 		return FetchedMedia{}, fmt.Errorf(
-			"%w: body exceeds the %d byte limit", entity.ErrMediaRejected, limit)
+			"%w: body exceeds the %d byte limit", entity.ErrMediaRejected, limit,
+		)
 	}
 	if serr := bytesAgree(in.Body, declared); serr != nil {
 		return FetchedMedia{}, serr
@@ -245,7 +246,8 @@ func bytesAgree(body []byte, declared string) error {
 	}
 	return fmt.Errorf(
 		"%w: declared %s but the bytes are not %s — content mismatch",
-		entity.ErrMediaRejected, declared, declared)
+		entity.ErrMediaRejected, declared, declared,
+	)
 }
 
 // notExecutableDoc —— for plain-text types with no byte signature, blocks at least an
@@ -257,7 +259,8 @@ func notExecutableDoc(body []byte, declared string) error {
 	}
 	return fmt.Errorf(
 		"%w: declared %s but the bytes are %s — a document that can execute is not media",
-		entity.ErrMediaRejected, declared, sniffed)
+		entity.ErrMediaRejected, declared, sniffed,
+	)
 }
 
 // magic —— one byte signature: at offset, the bytes should be want.

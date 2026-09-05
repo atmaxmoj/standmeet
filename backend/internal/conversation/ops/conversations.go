@@ -132,7 +132,8 @@ func getConversation(d *ConversationsDeps) fp.Invoke {
 			return nil, fp.BadInput("invalid arguments: " + err.Error())
 		}
 		if err := fp.RequireArgs(
-			[2]string{"conversation_id", in.ConversationID}); err != nil {
+			[2]string{"conversation_id", in.ConversationID},
+		); err != nil {
 			return nil, err
 		}
 		bundle, err := usecase.GetConversationTranscript(ctx, d.Chats, ownerID, in.ConversationID)

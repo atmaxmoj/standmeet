@@ -220,7 +220,7 @@ internal 泄漏）。**re-export 内部类型 = 依赖，禁止**；canned 只�
 | **as-MCP-server（D）** | api-mcp · keypair | → 对外 facade（owner 的 Claude Desktop 连进来） |
 | **权限控制器（E）** | roles · codes · prompts · ip-bans/security | → host 横切 controller #1（ACL，**session 建立时的发现/装配过滤**，非 call-time 拦截） |
 | **观察器（F）** | **系统可观测**：system（版本/资源/job/health/指标）· activity-ticker；**会话观测（产品侧）**：conversations · dashboard · requests · preview · ghost 日志 | → host 横切 controller #2 = **系统可观测 → admin/system（#101）**；会话观测属产品/内容侧，**非** host controller |
-| **page 托管（G）** | page · custom-pages · preview | → SDK + 沙箱页托管 |
+| **page 托管（G）** | page · microsites · preview | → SDK + 沙箱页托管 |
 | **outbound/job（H）** | applications · drafts · listings · sources | → job-loop 插件 |
 | **account（I）** | account · security | → 账户/认证 |
 

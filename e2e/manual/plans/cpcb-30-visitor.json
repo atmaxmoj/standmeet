@@ -1,6 +1,6 @@
 {
-  "_why": "custom-page-code-binding check 4 —— 像个真读者那样进来：打开分享链接（QR 印的就是这个），回答「你是谁」，看落在哪一页，然后问一句。判据是**落在 /p/reading-room 上**，不是默认对话。login:false —— 读者不是 owner。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "_why": "microsite-code-binding check 4 —— 像个真读者那样进来：打开分享链接（QR 印的就是这个），回答「你是谁」，看落在哪一页，然后问一句。判据是**落在 /p/reading-room 上**，不是默认对话。login:false —— 读者不是 owner。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsite-code-binding/shots",
   "viewport": [1280, 1400],
   "login": false,
   "shots": [

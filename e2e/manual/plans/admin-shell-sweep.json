@@ -8,7 +8,7 @@
     { "name": "sw-04-subjectivity", "url": "/admin/subjectivity", "wait": 3000 },
     { "name": "sw-05-writings", "url": "/admin/writings", "wait": 3000 },
     { "name": "sw-06-output", "url": "/admin/output", "wait": 3000 },
-    { "name": "sw-07-custom-pages", "url": "/admin/custom-pages", "wait": 3000 },
+    { "name": "sw-07-microsites", "url": "/admin/microsites", "wait": 3000 },
     { "name": "sw-08-conversations", "url": "/admin/conversations", "wait": 3000 },
     { "name": "sw-09-codes", "url": "/admin/codes", "wait": 3000 },
     { "name": "sw-10-roles", "url": "/admin/roles", "wait": 3000 },

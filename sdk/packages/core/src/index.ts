@@ -3,12 +3,12 @@
 // Component wrapper); can also be consumed directly by Node / Deno
 // server-side code.
 
-export { createClient, PageStoreError } from './client.js';
+export { createClient, MicrositeStoreError } from './client.js';
 export type {
   BYOAIHeaders,
   ClientOptions,
   IssueSessionInput,
-  PageDoc,
+  MicrositeDoc,
   StandMeetClient,
   SystemPromptSource,
 } from './client.js';
@@ -26,7 +26,7 @@ export { parseAnswerText } from './answer-text.js';
 export type { AnswerSpan, AnswerParagraphs } from './answer-text.js';
 export type {
   CorpusCard,
-  CustomPageLink,
+  MicrositeLink,
   PublicOwnerView,
   WikiLandingView,
   LanguageOption,

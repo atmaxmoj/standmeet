@@ -55,7 +55,8 @@ func Subjectivity(deps usecase.Deps) []fp.Op {
 		// **name**, not the capability.
 		Reach: fp.Only(
 			"a historical tool name the owner's AI already calls; the panel writes this genre "+
-				"through corpus.create / corpus.update like every other genre", "mcp"),
+				"through corpus.create / corpus.update like every other genre", "mcp",
+		),
 		Invoke: writeSubjectivity(deps),
 	}}
 }

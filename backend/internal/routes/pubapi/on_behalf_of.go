@@ -38,7 +38,8 @@ const (
 )
 
 var errBadVisitorEmail = errors.New(
-	"X-Standmeet-Visitor-Email must be an email address — omit the header to book without a guest")
+	"X-Standmeet-Visitor-Email must be an email address — omit the header to book without a guest",
+)
 
 // visitorHeader —— the two fields read off the headers. **Local type, does not import the
 // domain**: a route must not connect directly to a domain facade (check-routes-via-dispatcher),

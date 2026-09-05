@@ -11,7 +11,7 @@
 //      entry, source_files }
 //   2. Lay out template + owner files into /tmp/work/<build_id>/
 //   3. Run `vite build` → dist
-//   4. cp dist → /srv/custom-pages/<page_id>/<build_id>/dist
+//   4. cp dist → /srv/microsites/<page_id>/<build_id>/dist
 //   5. PATCH /internal/builds/<id> { status: built|failed, ... }
 
 import { mkdirSync, writeFileSync, cpSync, existsSync, rmSync } from 'node:fs';
@@ -20,7 +20,7 @@ import { execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const BACKEND = process.env.BACKEND_INTERNAL_URL || 'http://backend:8000';
-const SHARED_ROOT = process.env.CUSTOM_PAGES_ROOT || '/srv/custom-pages';
+const SHARED_ROOT = process.env.MICROSITES_ROOT || '/srv/microsites';
 const TEMPLATE = '/opt/builder/template';
 const NODE_MODULES = '/opt/builder/node_modules';
 const POLL_INTERVAL_MS = 1000;

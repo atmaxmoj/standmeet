@@ -1,4 +1,4 @@
-/* theme.css — the StandMeet design system, shipped into every custom-page build so a page can
+/* theme.css — the StandMeet design system, shipped into every microsite build so a page can
    be styled exactly like the app (tokens + the two fonts + base type), instead of starting from
    a bare Vite template. Mirrors app/src/app/globals.css (the app is the source of truth; this is
    the subset a content page needs — colors, fonts, base, and the handful of utility classes the

@@ -185,7 +185,8 @@ func parseCodeDenial(raw json.RawMessage) (usecase.CodeDenialRef, error) {
 	ref := usecase.CodeDenialRef{CodeID: in.CodeID, Kind: in.Kind, TargetID: in.TargetID}
 	return ref, fp.RequireArgs(
 		[2]string{"code_id", in.CodeID}, [2]string{"kind", in.Kind},
-		[2]string{"target_id", in.TargetID})
+		[2]string{"target_id", in.TargetID},
+	)
 }
 
 // codeDenialWrite — add and remove differ only in which use case gets called; the input and
@@ -226,7 +227,8 @@ func setCodeCorpusDenials(deps usecase.CodeACLDeps) fp.Invoke {
 			return nil, err
 		}
 		d, err := usecase.SetCodeCorpusDenials(
-			ctx, deps, ownerID, in.CodeID, nonNilStrings(in.URIs))
+			ctx, deps, ownerID, in.CodeID, nonNilStrings(in.URIs),
+		)
 		if err != nil {
 			return nil, codeErr(err)
 		}

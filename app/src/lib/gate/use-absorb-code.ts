@@ -70,7 +70,7 @@ function absorbFromURL(): void {
 // and since the owner only has one code, testing it once won't catch it.
 function landOnRendering(code: string): void {
   if (!alreadyInNamedSession(code)) return;
-  const href = codeLandingHref(loadStoredSession()?.custom_page_slug ?? '');
+  const href = codeLandingHref(loadStoredSession()?.microsite_slug ?? '');
   if (href === '' || window.location.pathname === href) return;
   window.location.assign(href);
 }

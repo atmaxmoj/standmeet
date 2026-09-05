@@ -87,8 +87,8 @@
 - LockedView（gated output → "requires an access code"）[✓ 内置]
 
 #### `/p/<slug>` — Custom React 页（owner 自写，SDK 嵌）
-- Vite-built React 页 [✓ custom-page]
-- 静态资源直 serve [✓ custom-page]
+- Vite-built React 页 [✓ microsite]
+- 静态资源直 serve [✓ microsite]
 - Rollback 到上版 build [ ]
 
 ### 1.2 Auth + setup surfaces
@@ -205,11 +205,11 @@
 - edit existing post [✓ blog-posts]
 
 #### Custom Pages
-- table 视图（page / template / visibility / views / updated / actions）[✓ custom-page]
+- table 视图（page / template / visibility / views / updated / actions）[✓ microsite]
 - "+ new page" header action [✓ 内置]
-- "templates available" 4-cell grid（press-kit / list-with-prose / menu / auto-now）[✓ custom-page]
-- 编辑器 + build [✓ custom-page]
-- staging preview → promote live [✓ custom-page]
+- "templates available" 4-cell grid（press-kit / list-with-prose / menu / auto-now）[✓ microsite]
+- 编辑器 + build [✓ microsite]
+- staging preview → promote live [✓ microsite]
 - rollback [ ]
 
 #### Skills
@@ -368,7 +368,7 @@
 | A12 | Obsidian vault sync (feed face) | `/admin/obsidian` upload whole vault → `SyncVault`: top-folder→genre routing (wiki/subjectivity/raw/writing) · folder nesting→`parent_id` node tree · folder-note collapse (`foo/foo.md`) · tolerant frontmatter · whole-batch `[[link]]`→`note_refs` · web-wins guard; reverse export→zip | [✓ sync-a-routing · -b-tree · -c-title · -d-publish · -e-links · -f-frontmatter · -g-hidden · -h-reconcile · -i-raw · -j-export] |
 | A13 | 改 public page 区块 | `/admin/page` → hero/projects/where/contact/site/byoai | [✓ page-edit, page-edit-full] |
 | A14 | 接 custom domain | `/admin/page` → domain → CNAME | [ ] |
-| A15 | 写 custom React 页 | custom_page.create → write_file → build → promote | [✓ mcp-page-lifecycle, custom-page] |
+| A15 | 写 custom React 页 | microsite.create → write_file → build → promote | [✓ mcp-page-lifecycle, microsite] |
 | A16 | 接外部 MCP server | `/admin/api-mcp` MCP servers add | [✓ external-mcp-tools] |
 | A17 | 手动签 access code | `/admin/codes` new code + 配额 + suggested Q | [✓ access-codes, code-quotas] |
 | A18 | 审批 access request → auto code | `/admin/requests` → approve · issue code → | [ ] |
@@ -403,7 +403,7 @@
 | B9 | 看 private 博客 → LockedView | `/blog/<private>` 没 code | [ ] |
 | B10 | wiki SEO landing + cover hero + trust box | `/wiki/<slug>` cover hero + breadcrumb + TrustBox + AskAboutThis | [✓ wiki-landing, ask-about-this] |
 | B11 | output landing + hero + PDF preview | `/output/<slug>` hero + PDF preview card + TrustBox + AskAboutThis | [✓ output-landing, ask-about-this] |
-| B12 | 看 custom page | `/p/<slug>` | [✓ custom-page] |
+| B12 | 看 custom page | `/p/<slug>` | [✓ microsite] |
 | B13 | quota 用尽 lockdown | turns 到上限 → SessionStrip warn → ChatComposer "session full" → "request more ↗" | [~ code-quotas, session-strip] |
 | B14 | visitor summary（多轮汇总） | summary endpoint | [✓ visitor-summary] |
 | B15 | 首次 chat 填名字 | QR 进 / → VisitorNamePicker modal → 填名 / 跳过 | [✓ visitor-name-picker] |

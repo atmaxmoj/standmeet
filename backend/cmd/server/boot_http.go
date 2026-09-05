@@ -43,26 +43,26 @@ type Deps struct {
 	Redis *redis.Client
 	Log   *slog.Logger
 	// CaptchaVerifier —— login captcha verifier; composition root assembles it from env.
-	CaptchaVerifier   security.Verifier
-	Public            publicroutes.Handlers
-	PublicPage        publicroutes.PageHandlers
-	PublicSEO         publicroutes.SEOHandlers
-	PublicCustomPages publicroutes.CustomPageHandlers
-	PublicPageStore   publicroutes.PageStoreHandlers
-	// PublicCustomPagePreview —— owner-panel preview tile. Public-side but **token-gated**:
+	CaptchaVerifier      security.Verifier
+	Public               publicroutes.Handlers
+	PublicPage           publicroutes.PageHandlers
+	PublicSEO            publicroutes.SEOHandlers
+	PublicMicrosites     publicroutes.MicrositeHandlers
+	PublicMicrositeStore publicroutes.MicrositeStoreHandlers
+	// PublicMicrositePreview —— owner-panel preview tile. Public-side but **token-gated**:
 	// must serve without an admin cookie (a sandboxed iframe's sub-resources carry none).
-	PublicCustomPagePreview publicroutes.CustomPagePreviewHandlers
-	PublicAccessRequests    publicroutes.AccessRequestsHandlers
-	PublicPasswordReset     publicroutes.PasswordResetHandlers
-	PublicWritings          publicroutes.WritingHandlers
-	Builds                  sysroutes.BuilderDeps
-	IM                      sysroutes.IMDeps
-	TLSAsk                  sysroutes.TLSAskDeps
-	PrintSession            sysroutes.PrintSessionDeps
-	DiagRegistry            sysroutes.DiagRegistryDeps
-	DiagSession             sysroutes.DiagSessionDeps
-	DiagConnector           sysroutes.DiagConnectorDeps
-	DiagSandbox             sysroutes.DiagSandboxDeps
+	PublicMicrositePreview publicroutes.MicrositePreviewHandlers
+	PublicAccessRequests   publicroutes.AccessRequestsHandlers
+	PublicPasswordReset    publicroutes.PasswordResetHandlers
+	PublicWritings         publicroutes.WritingHandlers
+	Builds                 sysroutes.BuilderDeps
+	IM                     sysroutes.IMDeps
+	TLSAsk                 sysroutes.TLSAskDeps
+	PrintSession           sysroutes.PrintSessionDeps
+	DiagRegistry           sysroutes.DiagRegistryDeps
+	DiagSession            sysroutes.DiagSessionDeps
+	DiagConnector          sysroutes.DiagConnectorDeps
+	DiagSandbox            sysroutes.DiagSandboxDeps
 	// PluginRegistry —— J.5: outbound plugins register their full admin REST hook set in one
 	// shot. mountAdmin calls MountAllAdminRoutes inside the WithOwner+RequireCSRF group.
 	PluginRegistry *capabilities.Registry
@@ -113,7 +113,7 @@ type AdminDeps struct {
 	HandleAdmin     owner.HandleDeps
 	BYOAI           owner.BYOAIDeps
 	Ghosts          conversation.GhostDeps
-	CustomPages     owner.CustomPageDeps
+	Microsites      owner.MicrositeDeps
 	SecureCookie    bool
 }
 
@@ -214,10 +214,10 @@ func mustBeWired(h *adminroutes.Handlers) {
 }
 
 // installHomepageHook — the post-claim default-homepage install, built here because the
-// custom-page repos live at the composition root (the routing layer can't reach them). Best-effort.
+// microsite repos live at the composition root (the routing layer can't reach them). Best-effort.
 func installHomepageHook(deps *Deps) func(context.Context, string) error {
 	return func(ctx context.Context, ownerID string) error {
-		return owner.InstallDefaultHomepage(ctx, deps.Admin.CustomPages, ownerID, deps.Log)
+		return owner.InstallDefaultHomepage(ctx, deps.Admin.Microsites, ownerID, deps.Log)
 	}
 }
 
@@ -252,7 +252,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		InstallHomepage: installHomepageHook(deps),
 		AIProviderAdmin: adminroutes.AIProviderDeps{Face: wire.AdminFace(deps.Dispatch)},
 		ProvidersAdmin:  adminroutes.ProvidersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		CustomPagesAdmin: adminroutes.CustomPagesDeps{
+		MicrositesAdmin: adminroutes.MicrositesDeps{
 			Face: wire.AdminFace(deps.Dispatch), Notifier: deps.Builds.Notifier,
 		},
 		// Preview goes through the domain, not the dispatcher: it hands back **file bytes**, and
@@ -327,10 +327,10 @@ func mountPublic(r chi.Router, deps *Deps) {
 		(&deps.Public).Mount(r)
 		(&deps.PublicPage).Mount(r)
 		(&deps.PublicSEO).Mount(r)
-		(&deps.PublicCustomPages).Mount(r)
+		(&deps.PublicMicrosites).Mount(r)
 		// visitor read/write of a page's own document store
-		(&deps.PublicPageStore).Mount(r)
-		(&deps.PublicCustomPagePreview).Mount(r) // preview: public-side but token-gated
+		(&deps.PublicMicrositeStore).Mount(r)
+		(&deps.PublicMicrositePreview).Mount(r) // preview: public-side but token-gated
 		(&deps.PublicAccessRequests).Mount(r)
 		(&deps.PublicPasswordReset).Mount(r)
 		(&deps.PublicWritings).Mount(r)

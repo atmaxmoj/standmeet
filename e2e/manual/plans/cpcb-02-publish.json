@@ -1,16 +1,16 @@
 {
   "_why": "check 1 ⭐ —— 在面板上真写一个页并发布：填 slug、粘源码、点 BUILD + PUBLISH，看构建状态从 building 走到 built，再看它进列表。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsite-code-binding/shots",
   "viewport": [1280, 1400],
   "shots": [
     {
       "name": "cpcb-02-building",
-      "url": "/admin/custom-pages",
+      "url": "/admin/microsites",
       "steps": [
         { "wait": 5000 },
-        { "type": ["[data-testid=\"custom-page-slug\"]", "panel-made"] },
-        { "type": ["[data-testid=\"custom-page-source\"]", "export default function App() {\n  return (\n    <main style={{fontFamily:'Newsreader,Georgia,serif',padding:'3rem'}}>\n      <h1>Written from the panel</h1>\n      <p>No MCP client was involved in publishing this page.</p>\n    </main>\n  );\n}"] },
-        { "click": "[data-testid=\"custom-page-publish\"]" },
+        { "type": ["[data-testid=\"microsite-slug\"]", "panel-made"] },
+        { "type": ["[data-testid=\"microsite-source\"]", "export default function App() {\n  return (\n    <main style={{fontFamily:'Newsreader,Georgia,serif',padding:'3rem'}}>\n      <h1>Written from the panel</h1>\n      <p>No MCP client was involved in publishing this page.</p>\n    </main>\n  );\n}"] },
+        { "click": "[data-testid=\"microsite-publish\"]" },
         { "wait": 4000 }
       ],
       "wait": 500,

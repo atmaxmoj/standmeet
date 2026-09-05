@@ -1,6 +1,6 @@
 {
-  "_why": "custom-page-code-binding check 4 后半 —— 页面上问的那一轮必须记在**这张码**名下。owner 不该为了看一段逐字稿去猜它是从哪个界面来的。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "_why": "microsite-code-binding check 4 后半 —— 页面上问的那一轮必须记在**这张码**名下。owner 不该为了看一段逐字稿去猜它是从哪个界面来的。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsite-code-binding/shots",
   "viewport": [1280, 1600],
   "shots": [
     {

@@ -60,7 +60,7 @@
     "previewGreeting": "你好",
     "suggestedByYou": "你建议的"
   },
-  "customPages": {
+  "microsites": {
     "intro": {
       "before": "自定义页面位于",
       "slugPath": "/p/<slug>",
@@ -69,7 +69,7 @@
     "importsSummary": "你可以导入什么",
     "empty": {
       "lead": "还没有自定义页面。主理人通过 MCP 创建 / 构建 / 提升",
-      "toolCreate": "custom_page.create",
+      "toolCreate": "microsite.create",
       "toolWriteFile": ".write_file",
       "toolBuild": ".build",
       "toolPromote": ".promote_to_live"

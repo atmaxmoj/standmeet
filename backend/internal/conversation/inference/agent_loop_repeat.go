@@ -144,7 +144,8 @@ func repeatNote(name string, s repeatSlice) string {
 		"You already called %s with these exact arguments earlier in this turn, and its result is "+
 			"far too large to hold in context all at once — so it is being handed to you in "+
 			"sections rather than fetched again. Here is the next section:\n\n%s\n\n%s",
-		name, s.text, tail)
+		name, s.text, tail,
+	)
 }
 
 // exhaustedNote —— it's still asking after everything has already been paged through. State
@@ -153,7 +154,8 @@ func exhaustedNote(name string) string {
 	return fmt.Sprintf(
 		"You have already been handed every section of %s's result for these arguments this "+
 			"turn. There is nothing further to fetch. Answer the visitor now from what you "+
-			"have, and say plainly which part of their question the material doesn't cover.", name)
+			"have, and say plainly which part of their question the material doesn't cover.", name,
+	)
 }
 
 // repeatGuardedTool —— a wrapper around one tool: check the ledger first, only really dispatch

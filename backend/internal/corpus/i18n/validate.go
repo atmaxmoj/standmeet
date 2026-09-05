@@ -71,7 +71,8 @@ func declaredVsPanes(fm *Frontmatter, doc *Doc) []Diagnostic {
 			Code: CodeLangsWithoutBlock, Severity: SeverityError,
 			Message: fmt.Sprintf(
 				"frontmatter declares langs %v but the body has no `> [!i18n]` block, "+
-					"so there is nothing to switch between", fm.Langs),
+					"so there is nothing to switch between", fm.Langs,
+			),
 		}}
 	}
 	out := make([]Diagnostic, 0, diagHint)
@@ -91,7 +92,8 @@ func langsMismatch(fm *Frontmatter, doc *Doc) []Diagnostic {
 		Message: fmt.Sprintf(
 			"frontmatter declares langs %v but only %v have panes (%v missing); "+
 				"the note renders in a single language until they agree",
-			fm.Langs, doc.Langs, missing),
+			fm.Langs, doc.Langs, missing,
+		),
 	}}
 }
 
@@ -105,7 +107,8 @@ func fallbackLangMissing(fm *Frontmatter, doc *Doc) []Diagnostic {
 		Code: CodeLangNotInLangs, Severity: SeverityError,
 		Message: fmt.Sprintf(
 			"lang: %s has no pane — it is the language everything falls back to, "+
-				"so it must be one of %v", fm.Lang, doc.Langs),
+				"so it must be one of %v", fm.Lang, doc.Langs,
+		),
 	}}
 }
 
@@ -135,7 +138,8 @@ func onePaneShape(p *Pane, seen map[string]bool, longest int) []Diagnostic {
 		return append(out, Diagnostic{
 			Code: CodeEmptyPane, Severity: SeverityError,
 			Message: fmt.Sprintf(
-				"the %q pane is empty — a reader who picks it gets nothing", p.Lang),
+				"the %q pane is empty — a reader who picks it gets nothing", p.Lang,
+			),
 		})
 	}
 	if longest > 0 && float64(len([]rune(p.Body)))/float64(longest) < shortPaneRatio {
@@ -143,7 +147,8 @@ func onePaneShape(p *Pane, seen map[string]bool, longest int) []Diagnostic {
 			Code: CodeShortPane, Severity: SeverityWarning,
 			Message: fmt.Sprintf(
 				"the %q pane is much shorter than the others — is part untranslated?",
-				p.Lang),
+				p.Lang,
+			),
 		})
 	}
 	return out
@@ -192,7 +197,8 @@ func orphanPanes(doc *Doc, body string) []Diagnostic {
 			Code: CodeOrphanLangPane, Severity: SeverityWarning,
 			Message: fmt.Sprintf(
 				"%d `[!lang]` pane(s) sit outside any `> [!i18n]` block and render as a plain "+
-					"callout, not as a language", total-inRegions),
+					"callout, not as a language", total-inRegions,
+			),
 		}}
 	}
 	return []Diagnostic{}

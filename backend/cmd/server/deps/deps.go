@@ -59,8 +59,8 @@ type Runtime struct {
 	Log                *slog.Logger
 	ChatRepo           *conversation.ChatRepo
 	SEORepo            *corpus.SEORepo
-	CustomPageRepo     *owner.CustomPageRepo
-	CustomBuildRepo    *owner.CustomBuildRepo
+	MicrositeRepo      *owner.MicrositeRepo
+	MicrositeBuildRepo *owner.MicrositeBuildRepo
 	BuildNotifier      *buildnotify.Notifier
 	SandboxWorkspaces  *sandboxws.Manager
 	AccessRequestRepo  *access.RequestRepo
@@ -108,8 +108,8 @@ type Runtime struct {
 	DB                 *pgxpool.Pool
 	Dispatch           *dispatcher.Dispatcher
 	CapStores          map[string]*capstore.Store
-	// PageDocs —— per-custom-page document store (capstore KindPage); each page its own schema.
-	PageDocs       owner.PageDocStore
+	// MicrositeDocs —— per-microsite document store (capstore KindMicrosite); its own schema each.
+	MicrositeDocs  owner.MicrositeDocStore
 	SearchClient   *search.Client
 	CaptchaSiteKey string
 	BuildsRoot     string

@@ -10,19 +10,19 @@
 --
 -- ON DELETE SET NULL —— 页删了，码退回默认落地（访客对话），而不是跟着一起失效。
 
-ALTER TABLE custom_pages ADD COLUMN IF NOT EXISTS allow_byoai boolean NOT NULL DEFAULT false;
+ALTER TABLE microsites ADD COLUMN IF NOT EXISTS allow_byoai boolean NOT NULL DEFAULT false;
 
-ALTER TABLE access_codes ADD COLUMN IF NOT EXISTS custom_page_id uuid;
+ALTER TABLE access_codes ADD COLUMN IF NOT EXISTS microsite_id uuid;
 
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'access_codes_custom_page_id_fkey'
+        SELECT 1 FROM pg_constraint WHERE conname = 'access_codes_microsite_id_fkey'
     ) THEN
         ALTER TABLE access_codes
-            ADD CONSTRAINT access_codes_custom_page_id_fkey
-            FOREIGN KEY (custom_page_id) REFERENCES custom_pages(id) ON DELETE SET NULL;
+            ADD CONSTRAINT access_codes_microsite_id_fkey
+            FOREIGN KEY (microsite_id) REFERENCES microsites(id) ON DELETE SET NULL;
     END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS access_codes_custom_page_idx ON access_codes(custom_page_id);
+CREATE INDEX IF NOT EXISTS access_codes_microsite_idx ON access_codes(microsite_id);

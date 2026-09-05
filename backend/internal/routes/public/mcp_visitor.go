@@ -57,7 +57,8 @@ type visitorMCPSession struct {
 // toolNames comes from the assembly layer (same manifest as the api face, living in
 // paritymanifest) — this face only declares it needs a list, never looks one up itself.
 func (h *Handlers) MountVisitorMCP(toolNames []string) http.Handler {
-	srv := server.NewMCPServer("standmeet-visitor", "0.1.0",
+	srv := server.NewMCPServer(
+		"standmeet-visitor", "0.1.0",
 		server.WithToolCapabilities(true),
 		// Tool table is filtered per code (register-all + per-session filter is the
 		// mcp-go pattern). Without filtering, tools/list would advertise tools this
@@ -65,7 +66,8 @@ func (h *Handlers) MountVisitorMCP(toolNames []string) http.Handler {
 		server.WithToolFilter(h.filterVisitorTools),
 	)
 	h.registerVisitorTools(srv, toolNames)
-	httpSrv := server.NewStreamableHTTPServer(srv,
+	httpSrv := server.NewStreamableHTTPServer(
+		srv,
 		server.WithHTTPContextFunc(carryVisitorSession),
 		server.WithEndpointPath(visitorMCPPath),
 	)
@@ -132,7 +134,8 @@ func (h *Handlers) visitorMCPSessionFor(
 	r *http.Request, code string,
 ) (*visitorMCPSession, apierr.Envelope) {
 	opened, env := h.OpenCodeSession(
-		r.Context(), code, r.Header.Get(visitorNameHeader), clientIP(r))
+		r.Context(), code, r.Header.Get(visitorNameHeader), clientIP(r),
+	)
 	if opened.In == nil {
 		return nil, env
 	}
@@ -234,7 +237,8 @@ func (h *Handlers) runVisitorTool(name string) server.ToolHandlerFunc {
 			// "this code doesn't grant this tool" and "this tool is broken" are two
 			// different things — say which one clearly.
 			return mcpgo.NewToolResultError(
-				"this access code does not grant " + name), nil
+				"this access code does not grant " + name,
+			), nil
 		}
 		return runVisitorToolCall(ctx, tool, &req), nil
 	}

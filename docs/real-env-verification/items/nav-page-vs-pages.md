@@ -14,7 +14,7 @@
 
 ### 2 — Each entry lands on the surface its label names
 - **Steps:** Click the `settings` entry. Read the route and the section. Go back. Click the `corpus` entry. Read the route and the section.
-- **Expected:** The `settings` entry opens `/admin/page`, the single landing-page editor. The `corpus` entry opens `/admin/custom-pages`, the microsites list with its `/p/{slug}` items. Each destination matches the noun in its label.
+- **Expected:** The `settings` entry opens `/admin/page`, the single landing-page editor. The `corpus` entry opens `/admin/microsites`, the microsites list with its `/p/{slug}` items. Each destination matches the noun in its label.
 - **Backing test:** `nav-page-vs-pages.spec.ts`
 
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)

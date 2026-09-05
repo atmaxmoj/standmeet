@@ -75,9 +75,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // an entry in the ledger. After moving into the convergence point, both
   // facades owe them at once.
   'codes.set_corpus_denials', 'codes.set_ghost_evidence',
-  // codes.set_custom_page -- which page opens when this code is scanned
+  // codes.set_microsite -- which page opens when this code is scanned
   // (a page is one rendering of a code).
-  'codes.set_custom_page',
+  'codes.set_microsite',
   'codes.waypoints', 'codes.set_waypoints',
   // corpus -- genre is a **parameter**, not three separate tool sets: before
   // normalization there were 11 tools here
@@ -142,16 +142,16 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'writing_create',
   'writings.list', 'writings.publish', 'writings.unpublish', 'writings.delete',
   // custom page
-  'custom_page.create', 'custom_page.list', 'custom_page.get_build',
-  'custom_page.write_file', 'custom_page.build', 'custom_page.delete',
-  'custom_page.promote_to_staging', 'custom_page.promote_to_live',
-  'custom_page.rollback',
-  // custom_page.set_byoai -- whether this page allows readers to bring their
+  'microsite.create', 'microsite.list', 'microsite.get_build',
+  'microsite.write_file', 'microsite.build', 'microsite.delete',
+  'microsite.promote_to_staging', 'microsite.promote_to_live',
+  'microsite.rollback',
+  // microsite.set_byoai -- whether this page allows readers to bring their
   // own key (voided once a code is attached, which then decides instead).
-  'custom_page.set_byoai',
-  // custom_page.guide -- the frontend-authoring guide (design system, SDK
+  'microsite.set_byoai',
+  // microsite.guide -- the frontend-authoring guide (design system, SDK
   // widgets, show-corpus-inline) the owner's agent reads before writing a page.
-  'custom_page.guide',
+  'microsite.guide',
   // page / calendar / booking / appearance
   // The owner's homepage is now a custom page (the reserved `home` slug), so the
   // old built-in page content ops (get/put/pin/unpin/pinnable) are gone; what

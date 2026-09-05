@@ -17,7 +17,7 @@ import { useRoles } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
 import { useCodes, type CodeView } from '@/lib/admin/use-codes';
-import { useCustomPages } from '@/lib/admin/use-custom-pages';
+import { useMicrosites } from '@/lib/admin/use-microsites';
 
 type Props = {
   code: CodeView;
@@ -296,11 +296,11 @@ function QRCol({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeView) => 
 // binding yet" would look identical on screen.
 function OpensCol({ code }: { code: CodeView }) {
   const t = useTranslations('adminAccess');
-  const { setCustomPage } = useCodes();
-  const { rows } = useCustomPages();
+  const { setMicrosite } = useCodes();
+  const { rows } = useMicrosites();
   const run = useAction();
   const onPick = (slug: string) => run(
-    () => setCustomPage(code.id, slug),
+    () => setMicrosite(code.id, slug),
     { success: `${code.code} now opens ${slug === '' ? 'the visitor chat' : `/p/${slug}`}` },
   );
   return (
@@ -312,7 +312,7 @@ function OpensCol({ code }: { code: CodeView }) {
       <SelectField
         className="w-full"
         mono
-        value={code.custom_page_slug}
+        value={code.microsite_slug}
         onChange={(e) => void onPick(e.target.value)}
         testid={`code-opens-${code.code}`}
       >

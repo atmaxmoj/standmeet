@@ -73,7 +73,7 @@ export function postGateHref(): string {
   if (typeof window === 'undefined') {
     return '/';
   }
-  const landing = codeLandingHref(loadStoredSession()?.custom_page_slug ?? '');
+  const landing = codeLandingHref(loadStoredSession()?.microsite_slug ?? '');
   if (landing !== '') return landing;
   const q = new URL(window.location.href).searchParams.get('q');
   return q === null || q === '' ? '/' : `/?q=${encodeURIComponent(q)}`;

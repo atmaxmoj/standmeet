@@ -7,7 +7,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import type { CustomPageLink } from '@standmeet/sdk-core';
+import type { MicrositeLink } from '@standmeet/sdk-core';
 
 import { widgetClient } from './client.js';
 
@@ -19,8 +19,8 @@ export interface PageNavWidgetProps {
 export function PageNavWidget(
   { heading, exclude }: PageNavWidgetProps,
 ): React.ReactElement | null {
-  const [pages, setPages] = useState<CustomPageLink[]>([]);
-  useEffect(() => { widgetClient.fetchCustomPages().then(setPages).catch(() => undefined); }, []);
+  const [pages, setPages] = useState<MicrositeLink[]>([]);
+  useEffect(() => { widgetClient.fetchMicrosites().then(setPages).catch(() => undefined); }, []);
 
   const others = pages.filter((p) => p.slug !== exclude);
   if (others.length === 0) return null;

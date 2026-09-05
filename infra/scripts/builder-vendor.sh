@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# builder-vendor —— stage the SDK into the custom-page builder's Docker context.
+# builder-vendor —— stage the SDK into the microsite builder's Docker context.
 #
 # The builder image installs its deps from builder/package.json into
 # /opt/builder/node_modules and copies that tree into every build workspace. An

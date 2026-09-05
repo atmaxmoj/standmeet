@@ -19,14 +19,14 @@ import (
 type CodeIntroResult struct {
 	Label    string
 	Greeting string
-	// CustomPageSlug —— which page this code opens. Empty = opens the default
+	// MicrositeSlug —— which page this code opens. Empty = opens the default
 	// visitor conversation (today's behavior). The landing decision is given here
 	// because the frontend is **already** calling codes/intro when a visitor arrives
 	// with a code: no need for another round trip just for "where to," and no need for
 	// the page to ask itself "should I even exist."
-	CustomPageSlug string
-	MaxMembers     int32
-	MemberCount    int32
+	MicrositeSlug string
+	MaxMembers    int32
+	MemberCount   int32
 }
 
 // CodeIntro —— code → label + greeting (the role's; if empty, assembles a default from
@@ -44,11 +44,11 @@ func CodeIntro(
 		return CodeIntroResult{}, fmt.Errorf("count members: %w", cerr)
 	}
 	return CodeIntroResult{
-		Label:          code.Label,
-		Greeting:       resolveCodeGreeting(ctx, deps, &code),
-		CustomPageSlug: code.CustomPageSlug,
-		MaxMembers:     derefInt32(code.MaxMembers),
-		MemberCount:    count,
+		Label:         code.Label,
+		Greeting:      resolveCodeGreeting(ctx, deps, &code),
+		MicrositeSlug: code.MicrositeSlug,
+		MaxMembers:    derefInt32(code.MaxMembers),
+		MemberCount:   count,
 	}, nil
 }
 

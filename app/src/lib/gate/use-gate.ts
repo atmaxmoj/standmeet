@@ -75,12 +75,12 @@ const StoredVisitorSessionSchema = z.object({
   session_token: z.string(),
   conversation_id: z.string(),
   byoai: z.boolean(),
-  // custom_page_slug —— which page this code lands you on when scanned.
+  // microsite_slug —— which page this code lands you on when scanned.
   // **The single place the landing decision is stored**: there are two
   // paths to claim a code (/gate submit, the name picker), and both go
   // through this same persist, so neither can miss it. Empty string =
   // default chat. Old blobs lack this field → default ''.
-  custom_page_slug: z.string().default(''),
+  microsite_slug: z.string().default(''),
   capabilities: z.array(CapStateSchema).optional(),
   tool_specs: z.array(ToolSpecSchema).optional(),
   system_prompt_part_ids: z.array(z.string()).optional(),
@@ -102,7 +102,7 @@ export function persistSession(sess: PublicSessionResponse, byoai: boolean): voi
     session_token: sess.session_token,
     conversation_id: sess.conversation_id,
     byoai,
-    custom_page_slug: sess.custom_page_slug ?? '',
+    microsite_slug: sess.microsite_slug ?? '',
     capabilities: sess.capabilities ? [...sess.capabilities] : undefined,
     tool_specs: sess.tool_specs ? [...sess.tool_specs] : undefined,
     system_prompt_part_ids: sess.system_prompt_part_ids

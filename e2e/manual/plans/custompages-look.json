@@ -1,5 +1,5 @@
 {
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-pages/shots",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsites/shots",
   "viewport": [1280, 1600],
-  "shots": [ { "name": "cp-01-section", "url": "/admin/custom-pages", "wait": 6000 } ]
+  "shots": [ { "name": "cp-01-section", "url": "/admin/microsites", "wait": 6000 } ]
 }

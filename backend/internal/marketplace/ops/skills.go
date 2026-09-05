@@ -289,7 +289,8 @@ var skillErrClasses = []struct {
 	}},
 	{entity.ErrSkillNameTaken, func() error {
 		return fp.Coded(
-			fp.Conflict("a skill with that name is already installed"), "skill_name_taken")
+			fp.Conflict("a skill with that name is already installed"), "skill_name_taken",
+		)
 	}},
 	// The wording avoids "delete" — this same sentinel now also covers edit, and
 	// "can't delete it" is irrelevant to an owner who just wants to change the
@@ -298,6 +299,7 @@ var skillErrClasses = []struct {
 		return fp.Coded(
 			fp.Forbidden("a builtin skill cannot be edited or deleted — "+
 				"install a copy to change it"),
-			"skill_builtin_immutable")
+			"skill_builtin_immutable",
+		)
 	}},
 }

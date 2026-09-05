@@ -120,7 +120,7 @@ services:
       - INSTANCE_SECRET=${SERVICE_PASSWORD_64_INSTANCE}
       # Coolify terminates TLS, so the cookie must carry Secure.
       - SECURE_COOKIE=true
-      - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      - MICROSITES_ROOT=/srv/microsites
       # PUBLIC_IP —— the instance's public IP, shown on the admin System panel. Owner sets it
       # in Coolify's env; empty → "—". (The cluster panel stays empty here: docker.sock is
       # deliberately not mounted on this target, so per-container stats aren't available.)
@@ -262,7 +262,7 @@ services:
       meilisearch:
         condition: service_started
     volumes:
-      - custom_pages_data:/srv/custom-pages
+      - microsites_data:/srv/microsites
       # The upgrade-signal volume, shared with the `updater` sidecar. The backend only ever
       # WRITES here (one timestamp line on a button press); it never gets docker.sock.
       - upgrade_signal:/run/standmeet
@@ -274,18 +274,18 @@ services:
       start_period: 15s
 
   # builder —— builds the React pages the owner writes themselves; output lands in
-  # custom_pages_data.
+  # microsites_data.
   builder:
     image: ghcr.io/atmaxmoj/standmeet-builder:${STANDMEET_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
-      - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      - MICROSITES_ROOT=/srv/microsites
     depends_on:
       backend:
         condition: service_healthy
     volumes:
-      - custom_pages_data:/srv/custom-pages
+      - microsites_data:/srv/microsites
 
   # im-bridge —— lets someone holding an access code DM the owner's AI from a chat app.
   #
@@ -456,7 +456,7 @@ volumes:
   redisdata: {}
   miniodata: {}
   meilidata: {}
-  custom_pages_data: {}
+  microsites_data: {}
   # Shared backend↔updater: the backend writes the upgrade signal here, the updater reads it.
   upgrade_signal: {}
 

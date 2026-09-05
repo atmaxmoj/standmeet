@@ -14,7 +14,7 @@
 // an old address nobody uses.
 //
 // There are two consumers, and they must not be conflated: the custom page uses the
-// build-time-inlined copy (see custom-page-html-mode.spec.ts); this file covers the
+// build-time-inlined copy (see microsite-html-mode.spec.ts); this file covers the
 // **someone else's website** copy.
 
 import { test, expect } from '@/fixtures/test';

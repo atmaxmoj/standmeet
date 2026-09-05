@@ -14,9 +14,9 @@ Verified by reading, 2026-08-22:
 |---|---|
 | A built page is plain static output. The sandbox installs `react`, `react-dom`, `vite`, `@vitejs/plugin-react` — nothing else. | `builder/package.json` |
 | The scaffold mounts the owner's default export and does nothing else. | `builder/template/src/main.tsx` |
-| The host serves the built files byte-for-byte from `<page_id>/<build_id>/dist`, reverse-proxied from `/p/<slug>`. | `backend/internal/routes/public/custom_pages.go` |
+| The host serves the built files byte-for-byte from `<page_id>/<build_id>/dist`, reverse-proxied from `/p/<slug>`. | `backend/internal/routes/public/microsites.go` |
 | The SDK already packages both halves the owner would want: corpus reads and an agent turn. | `sdk/packages/react/src/index.ts` — `StandMeetProvider`, `useStandMeet`, `useChatSession`, `AnswerText`, `httpPromptSource`, `httpAgentTurnStreamer` |
-| The four advertised templates are translation keys. No template artifact exists, and `custom_page.create` takes only slug and title. | `app/src/components/admin/sections/CustomPagesSection.tsx:207` |
+| The four advertised templates are translation keys. No template artifact exists, and `microsite.create` takes only slug and title. | `app/src/components/admin/sections/MicrositesSection.tsx:207` |
 | The outward plane already converges. Outward ops are declared once; two outward facades (`chat`, `api`) project them; direction is enforced so the planes cannot mix. | `backend/internal/infra/paritymanifest/manifest_outward.go`, `internal/infra/facadeparity` |
 | Chat and the API-key facade assemble through the same registry, so ACL / denial / quota behave identically by construction. | `capreg.Registry.AssembleVisitor*`, `capload/api_key_toolset.go` |
 
@@ -69,7 +69,7 @@ State it as an invariant, because it is the thing that can silently go wrong:
   and that is the boundary precisely because everything on our side of it is not cached.
 
   ⚠️ **Verified gap, 2026-08-23:** the asset route sets no `Cache-Control` at all
-  (`routes/public/custom_pages.go`), while its neighbour `page.go` sets `no-cache`. With no
+  (`routes/public/microsites.go`), while its neighbour `page.go` sets `no-cache`. With no
   header a browser may cache heuristically, so a withdrawn page can still open on reload —
   and that is not "the browser cached it", that is us failing to say not to. Fix belongs with
   I-3, not with the browser.
@@ -110,7 +110,7 @@ This makes the landing decision a property of **the code**, not of the page — 
 has to ask who is arriving, and revoking the code (I-3) withdraws the landing too.
 
 **Visible from both ends.** The binding is one fact, so both screens read it, neither stores a
-second copy: `/admin/codes` shows which page a code opens, and `/admin/custom-pages` shows which
+second copy: `/admin/codes` shows which page a code opens, and `/admin/microsites` shows which
 code opens a page. A binding you can only see from one side is a binding people forget they made.
 
 #### How it landed — three seams, none of them the page author's job
@@ -119,7 +119,7 @@ I-5 is only an invariant if a page author cannot break it by forgetting somethin
 mechanisms carry it, and none of them lives in page source:
 
 1. **The landing rides on the issue receipt.** `POST /api/v1/sessions` returns
-   `custom_page_slug` (empty = the default chat). Both ways to redeem a code — submitting on
+   `microsite_slug` (empty = the default chat). Both ways to redeem a code — submitting on
    `/gate`, and the identity picker after arriving with `?code=` — go through the same
    `persistSession`, so the landing is stored once and neither path can be left behind on the
    old behaviour. The code never rides the URL to get there.
@@ -236,20 +236,20 @@ URL prefix, so "an owner op renders to a visitor" is a plausible mistake, not a 
 the protocol; it does not prove Claude Desktop connects.
 
 **Note on scope.** V-1..V-4 describe the destination. This design does not require the 24
-endpoints to move in one change; it requires that the custom-page mount be built **on** the
+endpoints to move in one change; it requires that the microsite mount be built **on** the
 facade rather than beside it, so the count stops growing.
 
 ## 5b. Authoring belongs on the panel too
 
 The owner-plane rule is **completeness**: every owner op renders on every owner facade
-(`facade-parity.md`). Custom-page authoring does not — `custom_page.list` is on admin, and
+(`facade-parity.md`). Custom-page authoring does not — `microsite.list` is on admin, and
 `create` / `write_file` / `build` / `get_build` / `promote_to_staging` / `promote_to_live` /
 `rollback` / `delete` are MCP-only.
 
 That is registered as a deliberate exception, and **its reason is circular**:
 
 > `fp.Only("authoring a custom page means writing code and driving the sandbox builder; the
-> panel has no such surface", "mcp")` — `internal/owner/ops/custom_pages.go`
+> panel has no such surface", "mcp")` — `internal/owner/ops/microsites.go`
 
 "The panel has no such surface" describes the state it is being used to justify. Worse, it is
 encoded where the ratchet reads it, so the gate stops reporting the gap. This is the same shape
@@ -257,7 +257,7 @@ as F-C-47 (an uploaded connector with nowhere to enter credentials) and F-C-57 (
 switch with nowhere to complete the grant): **the capability is whole, the face is missing.**
 
 **Requirement:** the panel carries authoring. The owner pastes source, builds, watches the
-build, and promotes — from `/admin/custom-pages`. The exception is removed rather than reworded,
+build, and promotes — from `/admin/microsites`. The exception is removed rather than reworded,
 so the ratchet demands the routes and keeps demanding them.
 
 The MCP path stays. This is parity, not migration: the owner drives it from Claude when that is
@@ -268,8 +268,8 @@ convenient, and from the panel when that is.
 The lifecycle stays MCP-driven — that decision already holds and the admin panel already says
 so. Mounting is a page property the owner sets alongside the source:
 
-- `custom_page.set_mounts { slug, corpus: bool, code: bool }`, or the same two fields on
-  `custom_page.create` / `.write_file`. The exact op shape is fork C.
+- `microsite.set_mounts { slug, corpus: bool, code: bool }`, or the same two fields on
+  `microsite.create` / `.write_file`. The exact op shape is fork C.
 - The admin list shows what each page mounts, because a page that reads corpus is a page the
   owner should be able to notice at a glance.
 - A page that mounts nothing must not ship the SDK at all. A static page stays static and
@@ -295,7 +295,7 @@ Bundling also preserves the current serving model exactly: a built page stays a 
 directory of static files, with no runtime dependency on a host asset path.
 
 *The cost, stated so nobody is surprised:* an SDK fix does not reach already-built pages. The
-host keeps every page's source (`custom_page.write_file`), so rebuild-all is mechanisable —
+host keeps every page's source (`microsite.write_file`), so rebuild-all is mechanisable —
 build it when the first SDK fix needs it, not before.
 
 **B. How the grant reaches the page — the page issues a session, like every other client.**
@@ -312,7 +312,7 @@ to obtain a grant the viewer does not already have.
 
 **C. Where the mount is declared — nowhere. The import is the mount.**
 
-This was going to be `custom_page.set_mounts { slug, corpus, code }`. Building it showed the op
+This was going to be `microsite.set_mounts { slug, corpus, code }`. Building it showed the op
 is not needed: vite bundles what the entry reaches, so a page that does not import
 `@standmeet/sdk` ships none of it, and a page that imports it has mounted it. The opt-in the
 requirement asked for is expressed by the source itself.
@@ -346,7 +346,7 @@ in §9 looks like, and it is a product-taste question, not a mechanism one.
 
 ## 9. How this gets verified
 
-The audit item for `custom-pages` currently proves the lifecycle. It cannot prove any of the
+The audit item for `microsites` currently proves the lifecycle. It cannot prove any of the
 above, because the page it builds renders one heading. Add:
 
 - a page that mounts corpus, viewed **anonymously**, shows the public slice and nothing else;
@@ -374,7 +374,7 @@ Missing, and each is a case an owner will actually hit:
   gone; revoke the code the page carries, and its agent stops answering;
 - **the code binding**: a code attached to a page lands there; the same code with the page
   detached lands on chat; a code cannot be attached to two pages; the binding reads the same
-  from `/admin/codes` and from `/admin/custom-pages`;
+  from `/admin/codes` and from `/admin/microsites`;
 - **precedence (I-4)**: a page with BYOK enabled, reached through a code that forbids it, does
   not offer BYOK. Assert on the page — asserting the stored setting proves nothing, since the
   defect is that the setting is honoured when it should be inert;

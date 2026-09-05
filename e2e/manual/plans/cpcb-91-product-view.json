@@ -1,6 +1,6 @@
 {
   "_why": "看这一页真的长什么样。分三段拍：hero（远端视频在播）、中段（图廊 + 音频 + 语料）、页脚（iframe 地图）。判据是**素材真的出现在截图上** —— DOM 里有一个 <img> 什么也不证明。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/custom-page-code-binding/shots",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/microsite-code-binding/shots",
   "viewport": [1440, 1000],
   "login": false,
   "shots": [
