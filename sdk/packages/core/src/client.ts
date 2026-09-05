@@ -109,6 +109,24 @@ export interface StandMeetClient {
   // page adopting an already-existing session only has the few stored
   // items on hand, and this has never used quota / members.
   composeSystem(session: SystemPromptSource): Promise<string>;
+  // queryPageDocs —— read this page's own stored documents in a collection (a poll tally, a
+  // sign-up list). Degrades to empty on failure — a read never throws.
+  queryPageDocs(slug: string, collection: string): Promise<PageDoc[]>;
+  // insertPageDoc —— append one document to this page's store. Throws PageStoreError on a
+  // refusal (the store is closed, full, the doc is invalid) so the page can tell the visitor.
+  insertPageDoc(slug: string, collection: string, doc: PageDoc): Promise<string>;
+}
+
+// PageDoc —— an opaque JSON document a custom page stores (the SDK doesn't model its shape).
+export type PageDoc = Record<string, unknown>;
+
+// PageStoreError —— a write refusal, carrying the HTTP status + the server's code so the page can
+// distinguish "closed" (403) from "full" (429) from "invalid" (400).
+export class PageStoreError extends Error {
+  constructor(public readonly status: number, public readonly code: string, message: string) {
+    super(message);
+    this.name = 'PageStoreError';
+  }
 }
 
 // TurnMsg —— one history message sent to the backend (the wire shape of the
@@ -146,7 +164,43 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
     streamMessage: (id, token, content, system, byoai) =>
       streamMessage(f, baseURL, id, token, content, system, byoai, histories),
     composeSystem: (session) => composeSystem(f, baseURL, session),
+    queryPageDocs: (slug, collection) => queryPageDocs(f, baseURL, slug, collection),
+    insertPageDoc: (slug, collection, doc) => insertPageDoc(f, baseURL, slug, collection, doc),
   };
+}
+
+const pageStoreBase = '/api/v1/pages';
+
+async function queryPageDocs(
+  f: typeof fetch, baseURL: string, slug: string, collection: string,
+): Promise<PageDoc[]> {
+  try {
+    const url = `${baseURL}${pageStoreBase}/${slug}/store?collection=${encodeURIComponent(collection)}`;
+    const res = await f(url, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { docs?: PageDoc[] };
+    return body.docs ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function insertPageDoc(
+  f: typeof fetch, baseURL: string, slug: string, collection: string, doc: PageDoc,
+): Promise<string> {
+  const res = await f(`${baseURL}${pageStoreBase}/${slug}/store`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ collection, doc }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
+    throw new PageStoreError(
+      res.status, body.error?.code ?? 'error', body.error?.message ?? 'could not save',
+    );
+  }
+  const body = (await res.json()) as { id: string };
+  return body.id;
 }
 
 // rememberTurn —— after a turn finishes, append "question + answer" to this

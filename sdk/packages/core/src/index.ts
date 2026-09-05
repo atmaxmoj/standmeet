@@ -3,11 +3,12 @@
 // Component wrapper); can also be consumed directly by Node / Deno
 // server-side code.
 
-export { createClient } from './client.js';
+export { createClient, PageStoreError } from './client.js';
 export type {
   BYOAIHeaders,
   ClientOptions,
   IssueSessionInput,
+  PageDoc,
   StandMeetClient,
   SystemPromptSource,
 } from './client.js';

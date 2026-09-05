@@ -18,6 +18,10 @@
 export { StandMeetProvider, useStandMeet } from './provider.js';
 export { useChatSession } from './use-chat-session.js';
 export type { ChatMessage, ChatState } from './use-chat-session.js';
+export { usePageStore } from './use-page-store.js';
+export type { PageStore } from './use-page-store.js';
+export { PageStoreError } from '@standmeet/sdk-core';
+export type { PageDoc } from '@standmeet/sdk-core';
 export { AnswerText } from './AnswerText.js';
 export type { AnswerTextProps } from './AnswerText.js';
 
