@@ -9,6 +9,7 @@ import { useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { CorpusConstellation } from '@/components/admin/chrome/CorpusConstellation';
+import { LocaleSwitch } from '@/components/page/LocaleSwitch';
 import { Pill } from '@/components/admin/atoms/Pill';
 import { useAppVersion } from '@/lib/app-version';
 import { signOut } from '@/lib/admin/sign-out';
@@ -129,6 +130,7 @@ function TopBarMeta({
         {t('viewPublic')}
       </Link>
       <span className="mono text-[10.5px] text-(--color-muted) hidden xl:inline">{email}</span>
+      <LocaleSwitch />
       <button
         type="button"
         onClick={onSignOut}
