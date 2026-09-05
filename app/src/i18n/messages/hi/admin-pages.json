@@ -101,6 +101,11 @@
     "buildFailed": "build failed",
     "buildPreview": "प्रीव्यू बनाएँ →",
     "newPage": "＋ नया पेज",
+    "homepage": {
+      "title": "आपका होमपेज",
+      "hint": "/ पर दिखने वाला पेज — किसी भी microsite की तरह संपादित करें",
+      "edit": "होमपेज संपादित करें →"
+    },
     "previewEmpty": "अभी कोई बिल्ड नहीं — प्रीव्यू के लिए बनाएँ",
     "homepageBadge": "होमपेज",
     "edit": "संपादित करें",

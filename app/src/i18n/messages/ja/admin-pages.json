@@ -101,6 +101,11 @@
     "buildFailed": "build failed",
     "buildPreview": "プレビューをビルド →",
     "newPage": "＋ 新規ページ",
+    "homepage": {
+      "title": "あなたのホームページ",
+      "hint": "/ で配信されるページ — 他のマイクロサイトと同様に編集",
+      "edit": "ホームページを編集 →"
+    },
     "previewEmpty": "まだビルドがありません — ビルドしてプレビュー",
     "homepageBadge": "ホームページ",
     "edit": "編集",

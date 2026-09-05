@@ -101,6 +101,11 @@
     "buildFailed": "construction échouée",
     "buildPreview": "construire l'aperçu →",
     "newPage": "＋ Nouvelle page",
+    "homepage": {
+      "title": "Votre page d'accueil",
+      "hint": "la page servie sur / — modifiable comme tout microsite",
+      "edit": "modifier l'accueil →"
+    },
     "previewEmpty": "Pas de build — compilez pour prévisualiser",
     "homepageBadge": "page d'accueil",
     "edit": "modifier",

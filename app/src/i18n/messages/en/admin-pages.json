@@ -101,6 +101,11 @@
     "buildFailed": "build failed",
     "buildPreview": "build preview →",
     "newPage": "＋ new page",
+    "homepage": {
+      "title": "Your homepage",
+      "hint": "the page served at / — edit it like any microsite",
+      "edit": "edit homepage →"
+    },
     "previewEmpty": "no build yet — build to preview",
     "homepageBadge": "homepage",
     "edit": "edit",

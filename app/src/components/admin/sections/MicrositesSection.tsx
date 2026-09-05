@@ -49,9 +49,32 @@ export function MicrositesSection() {
         count={hook.rows.length > 0 ? String(hook.rows.length) : ''}
       />
       <Intro />
+      <HomepageCard />
       <NewPageButton />
       <MicrositesBody hook={hook} />
     </>
+  );
+}
+
+// HomepageCard — a dedicated, always-present entry to edit the homepage microsite
+// (served at `/`). The `home` page is otherwise just another row in the list — easy to
+// miss, and a fresh instance's default home may not be in the list at all — so this gives
+// the owner one obvious place to open it in the editor, regardless of the list below.
+function HomepageCard() {
+  const t = useTranslations('adminPages.microsites');
+  return (
+    <Link
+      href={`/admin/edit/${HOMEPAGE_SLUG}`}
+      className="mb-6 flex items-baseline justify-between gap-3 border border-(--color-rule) rounded-[3px] px-4 py-3 hover:border-(--color-ink) transition-colors"
+    >
+      <span className="min-w-0" data-testid="microsite-edit-homepage">
+        <span className="block font-serif text-[16px] text-(--color-ink)">{t('homepage.title')}</span>
+        <span className="block mono text-[11px] text-(--color-muted) mt-0.5">{t('homepage.hint')}</span>
+      </span>
+      <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) shrink-0">
+        {t('homepage.edit')}
+      </span>
+    </Link>
   );
 }
 

@@ -101,6 +101,11 @@
     "buildFailed": "construcción fallida",
     "buildPreview": "compilar vista previa →",
     "newPage": "＋ Nueva página",
+    "homepage": {
+      "title": "Tu página de inicio",
+      "hint": "la página servida en / — se edita como cualquier microsite",
+      "edit": "editar inicio →"
+    },
     "previewEmpty": "Sin build — compila para previsualizar",
     "homepageBadge": "página de inicio",
     "edit": "editar",

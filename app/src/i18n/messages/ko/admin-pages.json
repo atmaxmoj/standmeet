@@ -101,6 +101,11 @@
     "buildFailed": "build failed",
     "buildPreview": "미리보기 빌드 →",
     "newPage": "＋ 새 페이지",
+    "homepage": {
+      "title": "홈페이지",
+      "hint": "/ 에 제공되는 페이지 — 다른 마이크로사이트처럼 편집",
+      "edit": "홈페이지 편집 →"
+    },
     "previewEmpty": "아직 빌드 없음 — 빌드하여 미리보기",
     "homepageBadge": "홈페이지",
     "edit": "편집",

@@ -101,6 +101,11 @@
     "buildFailed": "构建失败",
     "buildPreview": "构建预览 →",
     "newPage": "＋ 新页面",
+    "homepage": {
+      "title": "你的主页",
+      "hint": "在 / 提供的页面 —— 像任何 microsite 一样编辑",
+      "edit": "编辑主页 →"
+    },
     "previewEmpty": "还没有构建 — 构建后预览",
     "homepageBadge": "主页",
     "edit": "编辑",

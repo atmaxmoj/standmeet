@@ -101,6 +101,11 @@
     "buildFailed": "build fehlgeschlagen",
     "buildPreview": "Vorschau bauen →",
     "newPage": "＋ Neue Seite",
+    "homepage": {
+      "title": "Deine Startseite",
+      "hint": "die unter / ausgelieferte Seite — wie jede Microsite bearbeitbar",
+      "edit": "startseite bearbeiten →"
+    },
     "previewEmpty": "Noch kein Build — zum Ansehen bauen",
     "homepageBadge": "Startseite",
     "edit": "bearbeiten",
