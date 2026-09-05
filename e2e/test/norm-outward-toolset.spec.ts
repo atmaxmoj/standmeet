@@ -143,12 +143,20 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'writings.list', 'writings.publish', 'writings.unpublish', 'writings.delete',
   // microsite
   'microsite.create', 'microsite.list', 'microsite.get_build',
-  'microsite.write_file', 'microsite.build', 'microsite.delete',
+  'microsite.write_file', 'microsite.get_draft', 'microsite.build', 'microsite.delete',
   'microsite.promote_to_staging', 'microsite.promote_to_live',
   'microsite.rollback',
+  // assets.* -- the global asset pool (Resources -> Assets): list it, see who references an
+  // asset, and delete one (refused while a corpus entry / microsite still uses it).
+  'assets.list', 'assets.references', 'assets.pool_delete',
   // microsite.set_byoai -- whether this page allows readers to bring their
   // own key (voided once a code is attached, which then decides instead).
   'microsite.set_byoai',
+  // microsite.set_store_writable / store_docs / store_delete_doc / store_clear -- the
+  // page's data store (Resources -> Data): open it to visitor writes, and the owner-side
+  // management of what it holds (list docs / delete one / clear the store).
+  'microsite.set_store_writable',
+  'microsite.store_docs', 'microsite.store_delete_doc', 'microsite.store_clear',
   // microsite.guide -- the frontend-authoring guide (design system, SDK
   // widgets, show-corpus-inline) the owner's agent reads before writing a page.
   'microsite.guide',
