@@ -106,6 +106,7 @@
     "edit": "편집",
     "backToList": "← 모든 페이지",
     "addFile": "파일 추가",
+    "needSlug": "↑ 먼저 페이지 이름 입력",
     "staged": "빌드됨 — 아래 미리보기",
     "stagingLabel": "스테이징 미리보기 — 아직 게시되지 않음",
     "boundCodes": "opened by",

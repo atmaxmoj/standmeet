@@ -174,7 +174,57 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
         return after.status();
       }, { message: 'a page taken down in the panel stops serving' }).toBeGreaterThanOrEqual(400);
     });
+
+  // The mini-IDE's defining capability — multi-file build (see helper for the why).
+  test('a page spans multiple source files — add one, App imports it, the build renders both',
+    ({ adminPage: page }) => multiFileBuildSpansBoth(page));
+
+  // Regression guard: the list "view live" link is a real navigation (see helper).
+  test('the list "view live" link navigates to the served page (regression: dead next/link)',
+    ({ adminPage: page }) => viewLiveLinkNavigates(page));
 });
+
+// multiFileBuildSpansBoth — extracted so the describe block stays under the per-function line cap.
+async function multiFileBuildSpansBoth(page: Page): Promise<void> {
+  test.setTimeout(300_000);
+  await goto(page, '/admin/edit/new');
+  await page.getByTestId('custom-page-slug').fill('multi-file');
+  // App imports a second file that doesn't exist yet.
+  await fillSource(page, [
+    "import Helper from './Helper';",
+    'export default function App() {',
+    '  return <main><Helper /></main>;',
+    '}',
+  ].join('\n'));
+  // Add the second file via the inline field (not a window.prompt), then fill it. It becomes the
+  // active tab, so the editor now shows Helper.tsx.
+  await page.getByTestId('custom-page-add-file').click();
+  await page.getByTestId('custom-page-add-file-input').fill('Helper.tsx');
+  await page.getByTestId('custom-page-add-file-input').press('Enter');
+  await expect(page.getByTestId('custom-page-file-Helper.tsx')).toBeVisible();
+  await fillSource(page,
+    'export default function Helper() {\n  return <h1>MULTI_FILE_MARKER</h1>;\n}');
+  await page.getByTestId('custom-page-publish').click();
+  await expect(page.getByTestId('custom-page-build-status'))
+    .toHaveText(/built/i, { timeout: 180_000 });
+  // The marker lives ONLY in the imported second file — seeing it proves the build spanned both.
+  await goto(page, '/p/multi-file');
+  await expect(page.getByRole('heading', { name: 'MULTI_FILE_MARKER' }))
+    .toBeVisible({ timeout: 20_000 });
+}
+
+// viewLiveLinkNavigates — extracted for the same line-cap reason.
+async function viewLiveLinkNavigates(page: Page): Promise<void> {
+  test.setTimeout(300_000);
+  await publishFromPanel(page, 'view-live-nav', markerApp('VIEW_LIVE_NAV'));
+  await reloadAdminSection(page, 'custom-pages');
+  await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+  await page.locator('[data-testid="custom-page-row-view-live-nav"]')
+    .getByRole('link', { name: 'view live ↗' }).click();
+  await page.waitForURL('**/p/view-live-nav', { timeout: 15_000 });
+  await expect(page.getByRole('heading', { name: 'VIEW_LIVE_NAV' }))
+    .toBeVisible({ timeout: 20_000 });
+}
 
 function markerApp(marker: string): string {
   return `export default function App() {\n  return <main><h1>${marker}</h1></main>;\n}`;

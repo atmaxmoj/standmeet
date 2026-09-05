@@ -75,6 +75,7 @@ export function PageEditor({ slug }: { slug: string }) {
               value={files[active] ?? ''}
               onChange={setActiveContent}
               extensions={[javascript({ jsx: true, typescript: true })]}
+              theme="dark"
               height="440px"
               className="text-[13px]"
             />
@@ -119,8 +120,8 @@ function SlugField({ value, onChange }: { value: string; onChange: (v: string) =
         {t('slugLabel')}
       </span>
       <input
-        type="text" value={value} placeholder="press-kit" data-testid="custom-page-slug"
-        onChange={(e) => onChange(e.target.value)} className="sm-field-input sm-mono"
+        type="text" value={value} placeholder="e.g. press-kit" data-testid="custom-page-slug"
+        autoFocus onChange={(e) => onChange(e.target.value)} className="sm-field-input sm-mono"
       />
     </label>
   );
@@ -162,18 +163,29 @@ function FileTab(
   );
 }
 
-// AddFileButton — prompt-free would need a form; a tiny inline prompt keeps it to one interaction.
-// window.prompt is deliberate here: a full add-file form is more than this affordance is worth, and
-// the value is validated by the backend on write anyway.
+// AddFileButton — an inline text field, not a window.prompt: the browser dialog is ugly and can't
+// be driven in a test. Click the label → type a path → Enter (or blur) creates the file.
 function AddFileButton(
   { onAdd, label }: { onAdd: (p: string) => void; label: string },
 ) {
-  const add = useCallback(() => {
-    onAdd((globalThis.prompt(label, 'Component.tsx') ?? '').trim());
-  }, [onAdd, label]);
-  return (
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const commit = useCallback(() => {
+    onAdd(name.trim());
+    setName('');
+    setAdding(false);
+  }, [name, onAdd]);
+  return adding ? (
+    <input
+      autoFocus value={name} placeholder="Component.tsx" data-testid="custom-page-add-file-input"
+      onChange={(e) => setName(e.target.value)}
+      onKeyDown={(e) => (e.key === 'Enter' ? commit() : undefined)}
+      onBlur={commit}
+      className="mono text-[11px] px-2 py-1.5 w-36 bg-transparent border-b border-(--color-accent) text-(--color-ink) outline-none"
+    />
+  ) : (
     <button
-      type="button" onClick={add} data-testid="custom-page-add-file"
+      type="button" onClick={() => setAdding(true)} data-testid="custom-page-add-file"
       className="mono text-[11px] px-2 py-1.5 text-(--color-accent) hover:underline whitespace-nowrap"
     >
       {label}
@@ -209,8 +221,19 @@ function EditorActions(
       >
         {t('publish')}
       </button>
-      <BuildLine build={build} />
+      {disabled ? <NeedSlugHint /> : <BuildLine build={build} />}
     </div>
+  );
+}
+
+// NeedSlugHint — why the build/publish buttons are disabled: a new page needs a slug before it can
+// be built (the slug is the page's address). Says so, rather than leaving the owner to guess.
+function NeedSlugHint() {
+  const t = useTranslations('adminPages.customPages');
+  return (
+    <span data-testid="custom-page-need-slug" className="mono text-[11px] text-(--color-faint)">
+      {t('needSlug')}
+    </span>
   );
 }
 

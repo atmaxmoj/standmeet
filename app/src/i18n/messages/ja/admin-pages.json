@@ -106,6 +106,7 @@
     "edit": "編集",
     "backToList": "← すべてのページ",
     "addFile": "ファイルを追加",
+    "needSlug": "↑ まずページ名を入力",
     "staged": "ビルド完了 — 下にプレビュー",
     "stagingLabel": "ステージングプレビュー — まだ公開されていません",
     "boundCodes": "opened by",

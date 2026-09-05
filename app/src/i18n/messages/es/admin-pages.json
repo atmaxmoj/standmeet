@@ -106,6 +106,7 @@
     "edit": "editar",
     "backToList": "← Todas las páginas",
     "addFile": "añadir archivo",
+    "needSlug": "↑ primero nombra la página",
     "staged": "Compilado — vista previa abajo",
     "stagingLabel": "vista previa de staging — aún no publicada",
     "boundCodes": "abierto por",

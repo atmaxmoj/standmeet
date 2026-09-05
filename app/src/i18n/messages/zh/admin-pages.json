@@ -106,6 +106,7 @@
     "edit": "编辑",
     "backToList": "← 所有页面",
     "addFile": "添加文件",
+    "needSlug": "↑ 先给页面起个 slug",
     "staged": "已构建 — 预览见下方",
     "stagingLabel": "预览(staging）— 尚未上线",
     "boundCodes": "由以下打开",
