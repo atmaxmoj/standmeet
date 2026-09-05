@@ -228,6 +228,9 @@ func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 		Apps: d.ApplicationRepo, Owners: d.OwnerRepo,
 		Roles: d.RoleRepo, Prompts: port.PromptsByName(d),
 		CVCheck: port.SubjectivityPresence(d), Renderer: d.PdfRenderer,
+		// Codes — lets the composer's code picker reuse an existing active code (the access
+		// CodeRepo satisfies the narrow jobsuc.CodeLookup read).
+		Codes: d.CodeRepo,
 	}
 	reg.Register(pluginjobs.New(&pluginjobs.Deps{
 		Jobs:         &jobsDeps,

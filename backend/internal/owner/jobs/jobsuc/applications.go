@@ -77,6 +77,9 @@ type ApplicationsDeps struct {
 	// the submission** either, it only adds a line to the receipt.
 	CVCheck  CVPresence
 	Renderer PDFRenderer
+	// Codes — reused when the owner picks an existing code in the composer (nil = only "issue new"
+	// is available). Narrow read-only lookup; the issue path stays on deps.Apps.Commit.
+	Codes CodeLookup
 }
 
 // PromptLookup — fetches one prompt's id by name. Narrow, only as much as the job loop needs.
@@ -101,15 +104,18 @@ type OwnerLookup interface {
 	GetByID(ctx context.Context, ownerID string) (owner.Owner, error)
 }
 
+// The code picker's types (CommitOptions / CodeLookup / ErrCodeNotUsable) + resolution live in
+// applications_code.go.
+
 // CommitApplication — the main entry point. Returns the structured application + the
-// access code issued in the same transaction + the QR URL + the final PDF bytes.
+// access code (issued, or the reused one) + the QR URL + the final PDF bytes.
 func CommitApplication(
-	ctx context.Context, deps *ApplicationsDeps, ownerID, draftID string,
+	ctx context.Context, deps *ApplicationsDeps, ownerID, draftID string, opts CommitOptions,
 ) (jobsmodel.CommittedApplication, error) {
 	if ownerID == "" || draftID == "" {
 		return jobsmodel.CommittedApplication{}, apierr.ErrEmptyField
 	}
-	return renderThenCommit(ctx, deps, ownerID, draftID)
+	return renderThenCommit(ctx, deps, ownerID, draftID, opts)
 }
 
 // renderThenCommit —— render the final PDF BEFORE the irreversible commit: all render inputs (draft
@@ -117,9 +123,9 @@ func CommitApplication(
 // anything, so a render failure strands nothing and the owner can retry. Only after the PDF is in
 // hand do we commit.
 func renderThenCommit(
-	ctx context.Context, deps *ApplicationsDeps, ownerID, draftID string,
+	ctx context.Context, deps *ApplicationsDeps, ownerID, draftID string, opts CommitOptions,
 ) (jobsmodel.CommittedApplication, error) {
-	rp, err := prepareRender(ctx, deps, ownerID, draftID)
+	rp, err := prepareRender(ctx, deps, ownerID, draftID, opts)
 	if err != nil {
 		return jobsmodel.CommittedApplication{}, err
 	}
@@ -141,15 +147,18 @@ func renderThenCommit(
 }
 
 // renderPrep —— everything needed to render the final PDF, produced without persisting anything.
+// reuse is set only when the owner picked an existing code (then commit links to it instead of
+// issuing a fresh one); nil = issue a new code.
 type renderPrep struct {
 	qrURL     string
 	code      string
 	appID     string
+	reuse     *access.Code
 	renderApp jobsmodel.Application
 }
 
 func prepareRender(
-	ctx context.Context, deps *ApplicationsDeps, ownerID, draftID string,
+	ctx context.Context, deps *ApplicationsDeps, ownerID, draftID string, opts CommitOptions,
 ) (renderPrep, error) {
 	ownerRow, err := deps.Owners.GetByID(ctx, ownerID)
 	if err != nil {
@@ -162,7 +171,7 @@ func prepareRender(
 	if err != nil {
 		return renderPrep{}, fmt.Errorf("get draft render data: %w", err)
 	}
-	code, err := generateApplicationCode()
+	resolved, err := resolveCommitCode(ctx, deps, ownerID, ownerRow.PublicURL, opts)
 	if err != nil {
 		return renderPrep{}, err
 	}
@@ -171,7 +180,7 @@ func prepareRender(
 		renderApp: jobsmodel.Application{
 			ID: appID, ResumeContent: data.Resume, JobSnapshot: data.Job, Template: data.Template,
 		},
-		qrURL: buildQRURL(ownerRow.PublicURL, code), code: code, appID: appID,
+		qrURL: resolved.qrURL, code: resolved.plaintext, appID: appID, reuse: resolved.reuse,
 	}, nil
 }
 
@@ -209,6 +218,8 @@ func runCommitTx(
 		MaxMembers:         &maxMembers,
 		MaxTurnsPerSession: &maxTurns,
 		AssumedRoleID:      hiring.ID(),
+		// reuse != nil → link to that existing code instead of issuing a fresh one.
+		ReuseCode: rp.reuse,
 	}
 	out, err := deps.Apps.Commit(ctx, in)
 	if err != nil {

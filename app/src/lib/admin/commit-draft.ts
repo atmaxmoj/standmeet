@@ -21,6 +21,17 @@ const CommittedSchema = z.object({
 
 export type Committed = z.infer<typeof CommittedSchema>;
 
-export function commitDraft(id: string): Promise<Committed> {
-  return adminAPI.post(`/drafts/${id}/commit`, {}, CommittedSchema);
+// CodeChoice —— the composer's code-picker decision. mode 'new' issues a fresh access code (the
+// default); 'existing' reuses codeId (the résumé's QR carries that code — no new one issued).
+export interface CodeChoice {
+  mode: 'new' | 'existing';
+  codeId: string;
+}
+
+export function commitDraft(id: string, choice: CodeChoice): Promise<Committed> {
+  return adminAPI.post(
+    `/drafts/${id}/commit`,
+    { code_mode: choice.mode, code_id: choice.codeId },
+    CommittedSchema,
+  );
 }

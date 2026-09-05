@@ -18,7 +18,7 @@ import { Btn } from '@/components/admin/atoms/Btn';
 import { ResumeComposer } from '@/components/admin/ResumeComposer';
 import { NewDraftModal } from '@/components/admin/modals/NewDraftModal';
 import { DraftThumb } from '@/components/admin/sections/drafts/DraftThumb';
-import { commitDraft } from '@/lib/admin/commit-draft';
+import { commitDraft, type CodeChoice } from '@/lib/admin/commit-draft';
 import { useDraftDetail } from '@/lib/admin/draft-detail';
 import type { DraftModel } from '@/lib/admin/draft-model';
 import { listViewKind } from '@/lib/admin/list-view-kind';
@@ -39,14 +39,14 @@ export function DraftsSection() {
   // onSend —— actually send. This used to be `onSend={onClose}`: the confirmation
   // dialog made four promises item by item, and clicking it just closed the panel —
   // no request went out and nothing errored (F-E-9).
-  const onSend = (id: string) => void run(
+  const onSend = (id: string, choice: CodeChoice) => void run(
     async () => {
-      const c = await commitDraft(id);
+      const c = await commitDraft(id, choice);
       setOpenId(null);
       reload();
       return c;
     },
-    { success: 'Application committed — access code issued' },
+    { success: 'Application committed — résumé sent with its access code' },
   );
   return (
     <>
@@ -60,7 +60,7 @@ export function DraftsSection() {
       <DraftListBody rows={rows} loading={loading} error={error} onOpen={setOpenId} />
       <ComposerHost
         model={detail.model} onClose={() => setOpenId(null)}
-        onSend={() => { openId !== null && onSend(openId); }}
+        onSend={(choice) => { openId !== null && onSend(openId, choice); }}
       />
       {creating && (
         <NewDraftModal
@@ -79,7 +79,7 @@ function NewDraftBtn({ onOpen }: { onOpen: () => void }) {
 
 function ComposerHost({
   model, onClose, onSend,
-}: { model: DraftModel | null; onClose: () => void; onSend: () => void }) {
+}: { model: DraftModel | null; onClose: () => void; onSend: (choice: CodeChoice) => void }) {
   return model === null
     ? null
     : <ResumeComposer initial={model} onClose={onClose} onSend={onSend} />;

@@ -15,28 +15,61 @@ package jobsadmin
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	authmw "github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 )
 
+// commitReq — the composer's code picker choice. Empty body / omitted = issue a new code (the
+// default). code_mode "existing" reuses code_id (the résumé's QR carries that code).
+type commitReq struct {
+	CodeMode string `json:"code_mode"`
+	CodeID   string `json:"code_id"`
+}
+
 func commitDraft(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := authmw.OwnerIDFrom(r.Context())
+		var req commitReq
+		// An empty body is legal (default = issue new); a genuinely malformed body is the caller's
+		// mistake. EOF (no body) → keep the zero value (issue new).
+		if derr := json.NewDecoder(r.Body).Decode(&req); derr != nil && !errors.Is(derr, io.EOF) {
+			writeJSONErr(deps.Log, w, apierr.Envelope{
+				Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid body",
+			})
+			return
+		}
 		committed, err := jobsuc.CommitApplication(
 			r.Context(), deps.Commit, ownerID, chi.URLParam(r, "id"),
+			jobsuc.CommitOptions{Mode: req.CodeMode, ExistingCodeID: req.CodeID},
 		)
 		if err != nil {
-			handleDraftDetailErr(deps.Log, w, err)
+			handleCommitErr(deps.Log, w, err)
 			return
 		}
 		writeCommitted(deps.Log, w, &committed)
 	}
+}
+
+// handleCommitErr — a bad code pick is the caller's mistake (400); everything else falls through
+// to the shared draft/500 handling.
+func handleCommitErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	if errors.Is(err, jobsuc.ErrCodeNotUsable) {
+		writeJSONErr(log, w, apierr.Envelope{
+			Status: http.StatusBadRequest, Code: "bad_code",
+			Message: "that code can't be used — pick an active one or issue a new one",
+		})
+		return
+	}
+	handleDraftDetailErr(log, w, err)
 }
 
 // committedView — **carries no PDF**: on the MCP path the PDF goes to the

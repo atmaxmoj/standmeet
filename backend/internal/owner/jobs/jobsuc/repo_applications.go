@@ -44,8 +44,11 @@ type CommitInput struct {
 	CodeExpiresAt      *time.Time
 	MaxMembers         *int32
 	MaxTurnsPerSession *int32
-	OwnerID            string
-	DraftID            string
+	// ReuseCode — when set, the owner picked an existing code: link the application to it and DON'T
+	// issue a new one. nil = issue a fresh code from the Code* fields (the default).
+	ReuseCode *access.Code
+	OwnerID   string
+	DraftID   string
 	// ApplicationID —— caller-supplied so the PDF renders before commit (retryable on render fail).
 	ApplicationID string
 	CodePlaintext string
@@ -103,7 +106,7 @@ func writeCommitRows(
 	ctx context.Context, tx pgx.Tx, in *CommitInput, key *draftKey, draft *db.ResumeDraft,
 ) (CommitOutput, error) {
 	q := db.New(tx)
-	code, err := insertAccessCode(ctx, tx, in, recruiterBriefing(draft.JobSnapshot))
+	code, err := resolveCommitCodeRow(ctx, tx, in, draft)
 	if err != nil {
 		return CommitOutput{}, err
 	}
@@ -166,6 +169,18 @@ func loadDraftForCommit(
 		return db.ResumeDraft{}, fmt.Errorf("load draft: %w", err)
 	}
 	return row, nil
+}
+
+// resolveCommitCodeRow — the code to link the application to: an existing one the owner reused
+// (no issue), or a freshly issued one. Reuse is the picker's "existing" choice; both paths return
+// the same access.Code shape so insertApplication + the receipt don't care which happened.
+func resolveCommitCodeRow(
+	ctx context.Context, tx pgx.Tx, in *CommitInput, draft *db.ResumeDraft,
+) (access.Code, error) {
+	if in.ReuseCode != nil {
+		return *in.ReuseCode, nil
+	}
+	return insertAccessCode(ctx, tx, in, recruiterBriefing(draft.JobSnapshot))
 }
 
 // insertAccessCode — issues the code inside the commit transaction. The job-loop never

@@ -67,6 +67,13 @@ test.describe('resume composer · owner edits it from the browser and they persi
     await page.getByTestId('composer-panel-custom').click();
     await expect(page.getByTestId('composer-custom-title-c-0'), 'named section persisted')
       .toHaveValue('Languages');
+
+    // SEND surfaces the code picker (the résumé↔code connection is now visible + choosable).
+    await page.getByTestId('composer-send').click();
+    await expect(page.getByTestId('composer-code-picker'), 'the code picker is on the send modal')
+      .toBeVisible();
+    await expect(page.getByTestId('composer-code-new'), 'issue-a-new-code is the default option')
+      .toBeVisible();
   });
 });
 

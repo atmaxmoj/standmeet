@@ -29,11 +29,14 @@ import {
 } from '@/lib/admin/draft-model';
 import { fetchTemplates } from '@/lib/admin/save-draft';
 import { useDraftAutosave, type SaveStatus } from '@/lib/admin/use-draft-autosave';
+import { useCodes, type CodeView } from '@/lib/admin/use-codes';
+import { SelectField } from '@/components/atoms/SelectField';
+import type { CodeChoice } from '@/lib/admin/commit-draft';
 
 interface Props {
   initial: DraftModel;
   onClose: () => void;
-  onSend: (model: DraftModel) => void;
+  onSend: (choice: CodeChoice) => void;
 }
 
 export function ResumeComposer({ initial, onClose, onSend }: Props) {
@@ -85,7 +88,7 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
         <ConfirmModal
           model={model}
           onCancel={() => setConfirm(false)}
-          onSend={() => { onSend(model); setConfirm(false); }}
+          onSend={(choice) => { onSend(choice); setConfirm(false); }}
         />
       )}
     </div>
@@ -229,8 +232,9 @@ function PanelRail({
 
 function ConfirmModal({
   model, onCancel, onSend,
-}: { model: DraftModel; onCancel: () => void; onSend: () => void }) {
+}: { model: DraftModel; onCancel: () => void; onSend: (choice: CodeChoice) => void }) {
   const t = useTranslations('adminShell.composer');
+  const [choice, setChoice] = useState<CodeChoice>({ mode: 'new', codeId: '' });
   return (
     <div className="sm-fadein sm-composer-confirm-overlay" onClick={onCancel}>
       <div
@@ -244,12 +248,13 @@ function ConfirmModal({
         <p className="sm-reading text-(--color-muted) text-[14.5px] mt-2">
           {t('confirmBody')}
         </p>
+        <CodePicker choice={choice} onChoice={setChoice} />
         <div className="flex items-center justify-end gap-3 mt-5">
           <button type="button" onClick={onCancel} className="sm-btn sm-btn-ghost">
             {t('keepEditing')}
           </button>
           <button
-            type="button" onClick={onSend}
+            type="button" onClick={() => onSend(choice)}
             className="sm-btn sm-btn-accent"
             data-testid="composer-confirm-send"
           >
@@ -258,5 +263,73 @@ function ConfirmModal({
         </div>
       </div>
     </div>
+  );
+}
+
+// CodePicker —— the résumé's QR is a live-chat invitation; this makes that connection explicit and
+// lets the owner choose WHICH code it carries: a fresh one (default), or an existing active code.
+function CodePicker({
+  choice, onChoice,
+}: { choice: CodeChoice; onChoice: (c: CodeChoice) => void }) {
+  const t = useTranslations('adminShell.composer');
+  const { codes } = useCodes();
+  const active = codes.filter((c) => c.status === 'active');
+  return (
+    <div className="mt-4 border-t border-(--color-rule) pt-3" data-testid="composer-code-picker">
+      <div className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) mb-2">
+        {t('codeHeading')}
+      </div>
+      <div className="flex flex-col gap-2">
+        <CodeModeButton
+          label={t('codeNew')} active={choice.mode === 'new'}
+          testid="composer-code-new" onClick={() => onChoice({ mode: 'new', codeId: '' })}
+        />
+        <CodeExistingRow choice={choice} active={active} onChoice={onChoice} />
+      </div>
+    </div>
+  );
+}
+
+function CodeExistingRow({
+  choice, active, onChoice,
+}: { choice: CodeChoice; active: readonly CodeView[]; onChoice: (c: CodeChoice) => void }) {
+  const t = useTranslations('adminShell.composer');
+  return active.length === 0 ? null : (
+    <div className="flex items-center gap-2">
+      <CodeModeButton
+        label={t('codeExisting')} active={choice.mode === 'existing'}
+        testid="composer-code-existing"
+        onClick={() => onChoice({ mode: 'existing', codeId: active[0]?.id ?? '' })}
+      />
+      {choice.mode === 'existing' ? (
+        <SelectField
+          testid="composer-code-existing-select"
+          aria-label="existing code"
+          value={choice.codeId}
+          onChange={(e) => onChoice({ mode: 'existing', codeId: e.target.value })}
+          mono
+        >
+          {active.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.code}</option>)}
+        </SelectField>
+      ) : null}
+    </div>
+  );
+}
+
+function CodeModeButton({
+  label, active, testid, onClick,
+}: { label: string; active: boolean; testid: string; onClick: () => void }) {
+  return (
+    <button
+      type="button" onClick={onClick} data-testid={testid}
+      className={`mono text-[11px] tracking-[0.06em] text-left px-3 py-2 border rounded-[3px] ${
+        active
+          ? 'border-(--color-accent) text-(--color-ink)'
+          : 'border-(--color-rule) text-(--color-muted) hover:text-(--color-ink)'
+      }`}
+      aria-pressed={active}
+    >
+      {label}
+    </button>
   );
 }
