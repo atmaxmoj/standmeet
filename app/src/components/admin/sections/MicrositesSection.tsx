@@ -389,9 +389,13 @@ function ViewLiveLink({ page }: { page: MicrositeSummary }) {
   // route in this Next app. next/link tries a soft client navigation, finds no matching app
   // route, and never hard-navigates — the link looks clicked but the page never changes. A raw
   // anchor does the real cross-boundary navigation.
+  // The reserved `home` page is served at `/` with <base href="/"> (homepage-served-at-root),
+  // NOT at /p/home — that path 404s "asset not found" (its assets resolve against root). So the
+  // homepage's live link points at `/`, every other page at /p/<slug>.
+  const href = page.slug === HOMEPAGE_SLUG ? '/' : `/p/${page.slug}`;
   return page.has_live ? (
     <a
-      href={`/p/${page.slug}`}
+      href={href}
       className="ml-3 mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-accent) hover:underline"
     >
       {t('viewLive')} ↗

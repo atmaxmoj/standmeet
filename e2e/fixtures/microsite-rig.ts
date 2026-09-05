@@ -16,8 +16,8 @@ import type { APIRequestContext } from '@playwright/test';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 // ASK_PAGE —— corpus index + an ask box. All three are real:
-//   - `useStandMeet().fetchPage()` fetches the owner's corpus (what the reader
-//     sees is decided by the backend per role)
+//   - `useStandMeet().fetchCorpusCards()` fetches the owner's published corpus
+//     (what the reader sees is decided by the backend per role)
 //   - `useChatSession()` takes the agent-turn path (taking over an issued session)
 //   - `byoaiOffered()` decides whether to offer the "bring your own key" path
 const ASK_PAGE = `
@@ -94,16 +94,13 @@ function Reader() {
 
 function Room() {
   const sm = useStandMeet();
-  const [page, setPage] = useState(null);
-  useEffect(() => { void sm.fetchPage().then(setPage).catch(() => setPage(null)); }, [sm]);
-  const cards = page
-    ? [...page.content.insights, ...page.content.projects]
-    : [];
+  const [cards, setCards] = useState([]);
+  useEffect(() => { void sm.fetchCorpusCards().then(setCards).catch(() => setCards([])); }, [sm]);
   return (
     <main>
       <h1 data-sm="marker">PAGE_IS_A_RENDERING</h1>
       <ol data-sm="corpus">
-        {cards.map((c) => <li key={c.wiki_id} data-sm-title={c.title}>{c.title}</li>)}
+        {cards.map((c) => <li key={c.path} data-sm-title={c.title}>{c.title}</li>)}
       </ol>
       <Reader />
       <Hosted />
