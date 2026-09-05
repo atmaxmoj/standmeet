@@ -1,7 +1,7 @@
 // grant.ts —— **the grant the visitor already holds**, and what a custom
 // page should give them based on it.
 //
-// A code can be bound to a custom page: scanning it lands on that page
+// A code can be bound to a microsite: scanning it lands on that page
 // instead of the default chat. Given that, the agent on that page **must be
 // this code's agent** —— the same grant, the same role, the same quota, the
 // same accounting. The approach isn't to make every page author go fish

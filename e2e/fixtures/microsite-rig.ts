@@ -1,4 +1,4 @@
-// microsite-rig.ts —— build a custom page that **really uses the SDK** and put
+// microsite-rig.ts —— build a microsite that **really uses the SDK** and put
 // it live.
 //
 // Why the page source lives here rather than being pasted into each spec: the

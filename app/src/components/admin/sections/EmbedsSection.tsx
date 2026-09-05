@@ -3,7 +3,7 @@
 // (embed plan 2026-09-01).
 //
 // Its neighbors are codes / microsites (all in the access group): an embed
-// attaching a code and a custom page attaching a code are two shapes of the same
+// attaching a code and a microsite attaching a code are two shapes of the same
 // idea. Writes happen **in admin** (unlike microsites, which is MCP-only) — because
 // the allowlist is a security boundary, and the owner needs to manage it all in one
 // place where every embed is visible.

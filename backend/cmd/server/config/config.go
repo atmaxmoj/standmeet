@@ -26,7 +26,7 @@ type Config struct {
 	DatabaseURL string
 	RedisURL    string
 	SessionKey  string
-	// root dir for custom page build artifacts: builder writes, backend reads
+	// root dir for microsite build artifacts: builder writes, backend reads
 	MicrositesRoot string
 	// PublicIP — the instance's public IP, shown on the admin System panel. Deploy-provided
 	// (the owner's server knows its own public address); empty → the panel shows "—".

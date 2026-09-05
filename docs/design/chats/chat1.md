@@ -1269,7 +1269,7 @@ _[tool: snip]_
 看完了 —— 实际范围比我们 mock 出来的还宽不少:job loop 闭环、SEO landing 三级(raw → wiki → output)、Tiptap + Obsidian 双向 sync、自定义 React 页面 build & promote、BYOAI 的 envelope 加密 + 4-header SSE、handle alias 301 这些。
 
 你说"做完了 + 很多细节" —— 现在你想我帮你干哪个?
-- 把当前 6 个 mock 页面对齐到这份真实功能(很多 surface 缺了,比如 access-requests / job sources / output landing / custom page builder)?
+- 把当前 6 个 mock 页面对齐到这份真实功能(很多 surface 缺了,比如 access-requests / job sources / output landing / microsite builder)?
 - 还是只做某一两个具体 journey 的 design(挑几个最重要的过一遍)?
 - 还是先给整个产品做一份 design system / style guide,把现在散在各页的 mono+serif+ASCII 沉淀下来?
 
@@ -1288,7 +1288,7 @@ _[tool: questions_v2]_
 ## User
 
 Questions answered:
-- scope: A. Owner admin — 补齐现有 admin 里所有缺的 surface (output 三级 / access-requests / skills / account / SEO / Obsidian / custom page builder / job sources), B. Owner job loop — job sources + resume draft + application commit + PDF preview 这一整条(A22-A25), C. Visitor 产品面 — wiki/output SEO landing (/wiki/<slug>, /output/<slug>) + custom page 外壳 (/p/<slug>), D. Setup / onboarding — A1 深入 (补齐 docker-compose redirect, captcha, AI provider 首设都拉进 setup), E. Chat 细节 — session banner / visitor-name picker modal / quota 用尽 / BYOAI envelope 错误态 / tool-call 结果块, F. Blog 编辑器 — admin 里的 Tiptap-style post composer (slash menu, image upload, [[crosslink]] 预览, backlink), G. Design system tab — 把所有用到的 components 沉淀为可复用的面板
+- scope: A. Owner admin — 补齐现有 admin 里所有缺的 surface (output 三级 / access-requests / skills / account / SEO / Obsidian / microsite builder / job sources), B. Owner job loop — job sources + resume draft + application commit + PDF preview 这一整条(A22-A25), C. Visitor 产品面 — wiki/output SEO landing (/wiki/<slug>, /output/<slug>) + microsite 外壳 (/p/<slug>), D. Setup / onboarding — A1 深入 (补齐 docker-compose redirect, captcha, AI provider 首设都拉进 setup), E. Chat 细节 — session banner / visitor-name picker modal / quota 用尽 / BYOAI envelope 错误态 / tool-call 结果块, F. Blog 编辑器 — admin 里的 Tiptap-style post composer (slash menu, image upload, [[crosslink]] 预览, backlink), G. Design system tab — 把所有用到的 components 沉淀为可复用的面板
 - depth: Component-first — 先把所有复用的 atoms/molecules 定下来(QR / chip / cover / speaker label / sticky composer…), 再拼 surface
 - fidelity_to_code: 完全跟 real backend behavior (snapshot transactional, SSE streaming, IndexedDB envelope...) — design 拼出来必须 state-accurate
 - existing_pages: 干脆重启 admin — 按真实功能重新布局 nav 和信息架构

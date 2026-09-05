@@ -1,10 +1,10 @@
 // page.go — the sole-owner lookup + the unclaimed setup-token path.
 //
 // After the handle-URL removal: every "resolve owner by handle" path collapsed down to
-// "fetch the sole owner" — public page / wiki landing / custom page all now go through
+// "fetch the sole owner" — public page / wiki landing / microsite all now go through
 // LoadSoleOwner.
 //
-// The owner's public homepage is now a custom page (the reserved `home` slug), not
+// The owner's public homepage is now a microsite (the reserved `home` slug), not
 // built-in page_content — so GetPublicPage / the pin-joined view are gone.
 
 package usecase

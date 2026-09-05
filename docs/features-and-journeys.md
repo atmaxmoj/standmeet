@@ -204,7 +204,7 @@
 - "N posts · M drafts" 计数 [✓ 内置]
 - edit existing post [✓ blog-posts]
 
-#### Custom Pages
+#### Microsites
 - table 视图（page / template / visibility / views / updated / actions）[✓ microsite]
 - "+ new page" header action [✓ 内置]
 - "templates available" 4-cell grid（press-kit / list-with-prose / menu / auto-now）[✓ microsite]
@@ -285,7 +285,7 @@
 - resume.draft / update_draft / discard_draft [✓ resume-draft-preview, resume-draft-update, resume-draft-discard, resume-draft-ttl]
 - applications.commit（写行 + auto AccessCode + 渲 PDF + QR）[✓ applications-commit, applications-commit-qr-works, applications-commit-playwright-hint]
 
-#### Custom pages
+#### Microsites
 - create / list / delete / write_file / build_page / get_build / promote / rollback [✓ mcp-page-lifecycle]
 
 #### MCP servers
@@ -403,7 +403,7 @@
 | B9 | 看 private 博客 → LockedView | `/blog/<private>` 没 code | [ ] |
 | B10 | wiki SEO landing + cover hero + trust box | `/wiki/<slug>` cover hero + breadcrumb + TrustBox + AskAboutThis | [✓ wiki-landing, ask-about-this] |
 | B11 | output landing + hero + PDF preview | `/output/<slug>` hero + PDF preview card + TrustBox + AskAboutThis | [✓ output-landing, ask-about-this] |
-| B12 | 看 custom page | `/p/<slug>` | [✓ microsite] |
+| B12 | 看 microsite | `/p/<slug>` | [✓ microsite] |
 | B13 | quota 用尽 lockdown | turns 到上限 → SessionStrip warn → ChatComposer "session full" → "request more ↗" | [~ code-quotas, session-strip] |
 | B14 | visitor summary（多轮汇总） | summary endpoint | [✓ visitor-summary] |
 | B15 | 首次 chat 填名字 | QR 进 / → VisitorNamePicker modal → 填名 / 跳过 | [✓ visitor-name-picker] |
@@ -440,7 +440,7 @@
 
 ### P1 — 高价值但易回归
 - Custom domain + CNAME 流程
-- Custom page rollback
+- Microsite rollback
 - C6 BYOAI key 失效 re-prompt
 - Login captcha toggle + Turnstile verify path
 - Sources / Listings full table（需 admin REST endpoint）

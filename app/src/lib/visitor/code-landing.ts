@@ -1,6 +1,6 @@
 // code-landing —— what you see when a code gets scanned.
 //
-// The default is the visitor chat; if the owner attached a custom page to
+// The default is the visitor chat; if the owner attached a microsite to
 // this code, that's what shows instead (**pages give a code a rendering**).
 // Authorization is unchanged: same role, same quota, same billing — only
 // the page in front of the reader changes.

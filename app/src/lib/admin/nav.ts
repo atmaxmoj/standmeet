@@ -3,7 +3,7 @@
 // The sidebar's label and the big heading once you've clicked in are saying
 // the same thing: what this section is called. They used to be two
 // hand-written strings, hence F-N-3: the label had already been changed to
-// `landing page` / `custom pages`, while the heading behind the door still
+// `landing page` / `microsites`, while the heading behind the door still
 // said `page` / `pages` — the owner **clicks in**, and once they do, the
 // biggest word on screen is what they actually read, and that word is
 // exactly why the module exists (two names differing by just a plural). The
@@ -56,11 +56,11 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { slug: 'roles', label: 'roles' },
       { slug: 'prompts', label: 'prompts' },
       { slug: 'requests', label: 'requests', badgeTestId: 'badge-requests' },
-      // custom pages belongs under access, not corpus: it isn't a layer of
-      // the corpus, it's **where a visitor lands**. A custom page can be
+      // microsites belongs under access, not corpus: it isn't a layer of
+      // the corpus, it's **where a visitor lands**. A microsite can be
       // bound to a code (microsite-code-binding), and its neighbors are
       // codes and preview, not raw/wiki/output.
-      { slug: 'microsites', label: 'custom pages' },
+      { slug: 'microsites', label: 'microsites' },
       // embeds belongs under access: an embed exposes a code as a
       // <standmeet-chat> widget on someone else's site, and its neighbors
       // are codes (the code it's attached to) and microsites, not the corpus.

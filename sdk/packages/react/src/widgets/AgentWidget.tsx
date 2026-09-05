@@ -30,7 +30,7 @@ export interface AgentWidgetProps {
 }
 
 export function AgentWidget(props: AgentWidgetProps): React.ReactElement {
-  // hasVisitorGrant reads localStorage — resolve it after mount so a custom page (client-rendered)
+  // hasVisitorGrant reads localStorage — resolve it after mount so a microsite (client-rendered)
   // never flashes the wrong state. Default: no grant → the gate handoff.
   const [granted, setGranted] = useState(false);
   useEffect(() => { setGranted(hasVisitorGrant()); }, []);

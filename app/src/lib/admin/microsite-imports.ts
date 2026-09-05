@@ -1,4 +1,4 @@
-// microsite-imports —— what you can import when writing a custom page.
+// microsite-imports —— what you can import when writing a microsite.
 //
 // **Why this list needs to exist**: the panel used to have just a slug box
 // and a textarea, with `<main><h1>Hello</h1></main>` as the starter

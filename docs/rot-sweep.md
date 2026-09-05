@@ -36,7 +36,7 @@ exist yet). Nothing is left un-tracked.
 | C2 | "edit on domain" link 404s | ✅ `seo-domain-link.spec.ts` | point href at /admin/page |
 | C3 | og:description hardcoded; "tagline" phantom field | ✅ `public-og-description.spec.ts` | generateMetadata from `hero_prose` |
 | D1 | two doors to one skills registry | ✅ `skills-single-entrance.spec.ts` | merge into one tabbed /admin/skills |
-| D2 | "public page" vs "pages" confusable | ✅ `nav-page-vs-pages.spec.ts` | rename (landing page / custom pages) |
+| D2 | "public page" vs "pages" confusable | ✅ `nav-page-vs-pages.spec.ts` | rename (landing page / microsites) |
 | D3 | "api · mcp" one door, two MCP concepts | — no-test (LOW) | label split; manual note |
 | D4 | app status vocab front↔back divergent | (covered by C1 test) | one vocabulary; folds into C1 fix |
 | E1 | `skill-role-label` dead test | (the test IS the fix) | make real or remove |
@@ -145,7 +145,7 @@ setting. So the instruction points at a nonexistent field editing a value that w
 - **D2 HIGH — "public page" vs "pages"** `AdminSidebar.tsx:78` slug `page` label "public page"
   (settings group) vs `:42` slug `microsites` label "pages" (corpus group). Two confusable labels in
   two groups for two genuinely distinct things (the landing-page editor vs MCP-built microsites).
-  **Fix:** rename to disambiguate ("landing page" vs "custom pages").
+  **Fix:** rename to disambiguate ("landing page" vs "microsites").
 - **D3 LOW — "api · mcp" is one door over two opposite MCP concepts** (`use-tokens` = inbound keypairs
   so clients call US; `use-mcp-servers` = outbound servers WE call). One word "mcp" invites conflation.
   **Fix:** split the labels within the section.

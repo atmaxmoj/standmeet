@@ -6,8 +6,8 @@
 
 @import "tailwindcss";
 
-/* The two brand faces. The app self-hosts these via next/font; a custom page loads them from
-   Google Fonts (the only external host custom pages rely on for type). Family names must match
+/* The two brand faces. The app self-hosts these via next/font; a microsite loads them from
+   Google Fonts (the only external host microsites rely on for type). Family names must match
    the --font-* tokens below, or the bytes are right but the glyphs fall back. */
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -29,7 +29,7 @@
   --font-mono:  'JetBrains Mono', ui-monospace, monospace;
 }
 
-/* Dark mode follows the visitor's system preference (a custom page has no TopBar toggle). */
+/* Dark mode follows the visitor's system preference (a microsite has no TopBar toggle). */
 @media (prefers-color-scheme: dark) {
   :root {
     --color-paper:        #14110D;

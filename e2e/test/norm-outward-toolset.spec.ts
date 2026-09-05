@@ -141,7 +141,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // by resource after moving into the convergence point.
   'writing_create',
   'writings.list', 'writings.publish', 'writings.unpublish', 'writings.delete',
-  // custom page
+  // microsite
   'microsite.create', 'microsite.list', 'microsite.get_build',
   'microsite.write_file', 'microsite.build', 'microsite.delete',
   'microsite.promote_to_staging', 'microsite.promote_to_live',
@@ -153,7 +153,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // widgets, show-corpus-inline) the owner's agent reads before writing a page.
   'microsite.guide',
   // page / calendar / booking / appearance
-  // The owner's homepage is now a custom page (the reserved `home` slug), so the
+  // The owner's homepage is now a microsite (the reserved `home` slug), so the
   // old built-in page content ops (get/put/pin/unpin/pinnable) are gone; what
   // remains is this instance's two outward addresses. Changing the handle and the
   // public URL are the same kind of thing (this instance's outward-facing

@@ -76,7 +76,7 @@ async function publishPatiently(
 
 test.describe.configure({ timeout: 420_000 });
 
-test.describe('a custom page is built with the StandMeet design system', () => {
+test.describe('a microsite is built with the StandMeet design system', () => {
   test.beforeAll(async ({ playwright }) => {
     test.setTimeout(420_000);
     resetInstance();

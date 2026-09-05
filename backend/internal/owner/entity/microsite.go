@@ -48,11 +48,11 @@ type MicrositeBuild struct {
 }
 
 // ErrMicrositeNotFound —— slug / id lookup found no microsite.
-var ErrMicrositeNotFound = errors.New("custom page not found")
+var ErrMicrositeNotFound = errors.New("microsite not found")
 
 // ErrMicrositeBuildNotFound —— build_id lookup found no build.
-var ErrMicrositeBuildNotFound = errors.New("custom page build not found")
+var ErrMicrositeBuildNotFound = errors.New("microsite build not found")
 
 // ErrMicrositeSlugTaken —— an active page with this slug already exists
 // under this owner.
-var ErrMicrositeSlugTaken = errors.New("custom page slug already taken")
+var ErrMicrositeSlugTaken = errors.New("microsite slug already taken")

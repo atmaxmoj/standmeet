@@ -1,7 +1,7 @@
 // page.go —— GET /api/v1/instance (single-owner metadata + unclaimed setup token) and
 // GET /api/v1/appearance.css (the owner's custom stylesheet). No auth required (public).
 //
-// The owner's public homepage is now a custom page (the reserved `home` slug served at
+// The owner's public homepage is now a microsite (the reserved `home` slug served at
 // `/`), not built-in page content — so the old GET /api/v1/page is gone.
 
 package public

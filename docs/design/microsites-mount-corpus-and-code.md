@@ -1,4 +1,4 @@
-# Custom pages mount corpus and code
+# Microsites mount corpus and code
 
 > **status: ready to build.** Every decision in §7 was settled by reading the code, and the
 > evidence is recorded there. One item is left to the owner and is marked.
@@ -26,7 +26,7 @@ away and is unreachable from inside the sandbox.
 
 ## 2. What this asks for
 
-A custom page can **mount** two things, each optional and independent:
+A microsite can **mount** two things, each optional and independent:
 
 - **corpus** — read the owner's published corpus: list, search, read one entry.
 - **code** — an agent turn: ask, stream tokens back, render the answer.
@@ -34,9 +34,9 @@ A custom page can **mount** two things, each optional and independent:
 "Mount" means the page opts in per page, not per instance. A page that mounts neither stays
 exactly what it is today: static output, no network, no session.
 
-## 3. The model: a custom page is an outward-plane client
+## 3. The model: a microsite is an outward-plane client
 
-`facade-directions.md` names exactly two planes. A custom page belongs to **outward**, with
+`facade-directions.md` names exactly two planes. A microsite belongs to **outward**, with
 every other visitor: humans in chat (code / BYOAI), programs holding an API key, anonymous
 readers, and — when they are built — the IM bridge and a Gateway. It is not a third plane and
 not a privilege class.
@@ -48,7 +48,7 @@ projection rather than by adding endpoints.
 
 The consequence is the whole design:
 
-> **A custom page never carries more scope than the visitor looking at it.**
+> **A microsite never carries more scope than the visitor looking at it.**
 
 The page is markup the owner wrote. The **viewer** is who the grant belongs to. So a page that
 mounts corpus resolves a role the same way every other outward actor does — access code, BYOAI
@@ -96,7 +96,7 @@ That makes the inheritance list an invariant rather than a feature list:
 If any of those behaves differently on a page, the page has stopped being a rendering and has
 become a second channel — which is the thing this whole design refuses.
 
-A code may be attached to **one** custom page, or to none.
+A code may be attached to **one** microsite, or to none.
 
 - Attached: presenting that code lands on **that page** — the QR on a résumé opens the page the
   owner built for that recruiter, not the default chat. The page receives the code and its
@@ -181,7 +181,7 @@ capabilities, and they already share one assembly.** The correction matters, bec
 
 What is actually true: the outward plane converges at the capability layer. Outward ops are
 declared once in `ManifestOutward()`; `chat` and `api` are projections; `facadeparity.Conform`
-refuses to let an owner-plane op render outward. A custom page therefore needs **no new
+refuses to let an owner-plane op render outward. A microsite therefore needs **no new
 facade** — it is a client of the existing `chat` facade, reached the same way the embed already
 reaches it cross-origin.
 
@@ -191,9 +191,9 @@ when those are built:
 
 - **V-1** — an outward capability is declared once, and every outward facade projects it.
   Adding a facade adds no capability; it adds a projection.
-- **V-2** — the facade resolves a grant to a role in exactly one place. A custom page, a code
+- **V-2** — the facade resolves a grant to a role in exactly one place. A microsite, a code
   in chat, a BYOAI key and an anonymous reader differ only in how the grant arrives.
-- **V-3** — a new outward client (custom page, IM bridge, Gateway) is a new projection over the
+- **V-3** — a new outward client (microsite, IM bridge, Gateway) is a new projection over the
   same declarations. If building one requires a new endpoint under `routes/public`, the
   convergence has failed. This is the test to apply when IM is built: if the IM bridge needs
   its own `/im/turn`, stop and fix the facade instead.
@@ -242,13 +242,13 @@ facade rather than beside it, so the count stops growing.
 ## 5b. Authoring belongs on the panel too
 
 The owner-plane rule is **completeness**: every owner op renders on every owner facade
-(`facade-parity.md`). Custom-page authoring does not — `microsite.list` is on admin, and
+(`facade-parity.md`). Microsite authoring does not — `microsite.list` is on admin, and
 `create` / `write_file` / `build` / `get_build` / `promote_to_staging` / `promote_to_live` /
 `rollback` / `delete` are MCP-only.
 
 That is registered as a deliberate exception, and **its reason is circular**:
 
-> `fp.Only("authoring a custom page means writing code and driving the sandbox builder; the
+> `fp.Only("authoring a microsite means writing code and driving the sandbox builder; the
 > panel has no such surface", "mcp")` — `internal/owner/ops/microsites.go`
 
 "The panel has no such surface" describes the state it is being used to justify. Worse, it is
@@ -305,7 +305,7 @@ it reads an optional `code` attribute and calls `issueSession({ mode, code })`, 
 returned `session_token` for turns (`sdk/packages/embed/src/embed.ts:187-194`). Anonymous is
 the same call without a code.
 
-A custom page is a strictly easier case than the embed, because it is same-origin. It carries
+A microsite is a strictly easier case than the embed, because it is same-origin. It carries
 the code the same way every visitor surface does — in the URL — and the facade resolves it to
 a role. **This is what makes I-1 and I-2 true rather than aspirational**: the page has no way
 to obtain a grant the viewer does not already have.

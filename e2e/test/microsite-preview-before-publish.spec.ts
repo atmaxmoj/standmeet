@@ -33,7 +33,7 @@ const APP = `export default function App() {\n  return <main><h1>${MARKER}</h1><
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-test.describe('custom pages · preview before publish', () => {
+test.describe('microsites · preview before publish', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

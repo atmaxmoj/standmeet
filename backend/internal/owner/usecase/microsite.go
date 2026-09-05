@@ -15,7 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// MicrositeDeps — custom page usecase dependencies.
+// MicrositeDeps — microsite usecase dependencies.
 type MicrositeDeps struct {
 	Pages  *repo.MicrositeRepo
 	Builds *repo.MicrositeBuildRepo
@@ -33,7 +33,7 @@ type MicrositeDeps struct {
 // domain so both the public route (routes/public) and the claim-time seed can reference it.
 const HomepageSlug = "home"
 
-// CreatePageInput — input to create a custom page.
+// CreatePageInput — input to create a microsite.
 type CreatePageInput struct {
 	OwnerID string
 	Slug    string

@@ -1,4 +1,4 @@
-// homepage-served-at-root.spec.ts —— the redesigned homepage is a custom page pinned to `/`.
+// homepage-served-at-root.spec.ts —— the redesigned homepage is a microsite pinned to `/`.
 //
 // Slice 2 of homepage-as-microsite: GET /api/v1/homepage serves the reserved `home` page's
 // live build at the site root, injecting `<base href="/">` (not `/p/home/`). Two guarantees:
@@ -88,7 +88,7 @@ test.describe('homepage-as-microsite · served at the root path', () => {
     expect(res.ok(), `homepage should be 200 once live, got ${res.status()}`).toBeTruthy();
     expect(res.headers()['content-type'] ?? '').toContain('text/html');
     const htmlText = await res.text();
-    // Root base href — NOT the /p/<slug>/ base a normal custom page gets. This is the one thing
+    // Root base href — NOT the /p/<slug>/ base a normal microsite gets. This is the one thing
     // that makes it "served at /" rather than under /p/home.
     expect(htmlText, 'served at root → <base href="/">').toContain('<base href="/"');
     expect(htmlText, 'must not carry the /p/home base').not.toContain('/p/home/');

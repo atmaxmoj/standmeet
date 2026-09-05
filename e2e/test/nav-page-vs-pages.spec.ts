@@ -3,7 +3,7 @@
 //
 // History: this file used to guard the two confusable "page(s)" entries -- slug `page` ("public
 // page", the built-in landing page) vs slug `microsites` ("pages", the microsites at /p/{slug}).
-// The homepage is now a custom page, so the built-in `page` entry (and its editor) is gone -- the
+// The homepage is now a microsite, so the built-in `page` entry (and its editor) is gone -- the
 // confusion is resolved by removal, and that describe with it.
 //
 // What remains is F-N-3's lesson, which is the durable one: a guard that only reads the nav
@@ -31,7 +31,7 @@ const NAV_ENTRIES: readonly { slug: string; label: string }[] = [
   { slug: 'subjectivity', label: 'subjectivity' },
   { slug: 'writings', label: 'writings' },
   { slug: 'output', label: 'outputs' },
-  { slug: 'microsites', label: 'custom pages' },
+  { slug: 'microsites', label: 'microsites' },
   { slug: 'conversations', label: 'conversations' },
   { slug: 'codes', label: 'codes' },
   { slug: 'roles', label: 'roles' },

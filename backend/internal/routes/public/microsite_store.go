@@ -1,4 +1,4 @@
-// microsite_store.go — visitor read/write of a custom page's own document store (a poll, a sign-up
+// microsite_store.go — visitor read/write of a microsite's own document store (a poll, a sign-up
 // sheet, a guestbook). Scoped hard to the page in the URL: the owner is the sole owner, the page is
 // resolved from (owner, slug), and the caller NEVER supplies a page or schema id — so a visitor can
 // only reach the page they are on, and one page's writes can never land in another's namespace.

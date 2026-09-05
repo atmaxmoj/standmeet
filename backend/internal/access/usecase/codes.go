@@ -105,7 +105,7 @@ func SetCodeMicrosite(
 ) (entity.Code, error) {
 	code, err := d.Codes.SetMicrosite(ctx, ownerID, codeID, slug)
 	if err != nil {
-		return entity.Code{}, fmt.Errorf("set code custom page: %w", err)
+		return entity.Code{}, fmt.Errorf("set code microsite: %w", err)
 	}
 	return code, nil
 }

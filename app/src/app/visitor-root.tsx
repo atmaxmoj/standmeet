@@ -2,9 +2,9 @@
 //
 // The middleware serves the codeless custom `home` page at `/`; it deliberately does NOT rewrite
 // when the URL carries ?code=, so a coded visitor reaches this component instead. It restores the
-// coded half of the old page-shell (the homepage half became a custom page). The owner's model:
+// coded half of the old page-shell (the homepage half became a microsite). The owner's model:
 //
-//   • a code may have a custom page attached (session.microsite_slug) → the visitor lands on
+//   • a code may have a microsite attached (session.microsite_slug) → the visitor lands on
 //     THAT page (/p/<slug>), whose AgentWidget adopts the session — this redirect is owned by
 //     use-issue-pending-code / use-absorb-code's landOnRendering, not here;
 //   • no attached page → the ORIGINAL built-in coded chat (ChatRoom).

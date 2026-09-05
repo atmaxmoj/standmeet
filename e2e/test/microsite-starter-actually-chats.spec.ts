@@ -44,7 +44,7 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 // minutes -- the test-level timeout has to be raised to match, since a timeout on a single
 // assertion can't cover the whole test (the default 30s would trip first).
 test.describe.configure({ timeout: 300_000 });
-test.describe('custom pages · the starter the panel hands you is a working chat page', () => {
+test.describe('microsites · the starter the panel hands you is a working chat page', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

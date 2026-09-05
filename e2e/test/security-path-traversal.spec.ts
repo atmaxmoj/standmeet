@@ -1,4 +1,4 @@
-// security-path-traversal.spec.ts — pentest. An owner-built custom page's static assets
+// security-path-traversal.spec.ts — pentest. An owner-built microsite's static assets
 // are read from disk via GET /api/v1/microsites/{slug}/{*path}; `../` / encoded
 // traversal / absolute paths must be confined inside the build root
 // (joinSafeAssetPath), never reaching host files. Green = traversal is blocked; red =

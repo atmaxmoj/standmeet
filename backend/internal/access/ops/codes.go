@@ -67,7 +67,7 @@ func codeCoreOps(d CodesDeps) []fp.Op {
 		},
 		{
 			ID: "codes.set_microsite",
-			Description: "Point this code at a custom page, or clear it. Presenting the code " +
+			Description: "Point this code at a microsite, or clear it. Presenting the code " +
 				"then opens that page instead of the default visitor chat — the page is a " +
 				"rendering of the code, so the grant, quotas, identity prompt and transcript " +
 				"are unchanged. An empty slug clears the binding. A code opens at most one page.",
@@ -159,7 +159,7 @@ var (
 		"properties":{
 			"code_id":{"type":"string","description":"Access code id."},
 			"slug":{"type":"string",
-				"description":"Custom page slug; empty clears the binding."}
+				"description":"Microsite slug; empty clears the binding."}
 		},
 		"required":["code_id"]
 	}`)

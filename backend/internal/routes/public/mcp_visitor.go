@@ -7,7 +7,7 @@
 // code asking with their own AI" had no face; a recruiter with an AI client open could
 // only go chat on the web page.
 //
-// Shape: follows the same invariant as custom pages — this is one more rendering of the
+// Shape: follows the same invariant as microsites — this is one more rendering of the
 // same code. Same authorization, role, quota, billing; no "MCP-only" admission logic —
 // auth is swapped for the code, and assembly/execution run through the same path as the
 // visitor tools (tools.go's AssembleVisitorForTool → InvokableRun). Deny/quota/

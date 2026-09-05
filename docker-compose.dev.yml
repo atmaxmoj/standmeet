@@ -462,7 +462,7 @@ services:
       start_period: 5s
 
   # minio —— S3-compatible object storage for owner-uploaded images +
-  # attachments (post covers, raw entry attachments, custom page assets).
+  # attachments (post covers, raw entry attachments, microsite assets).
   # Self-hostable single-node. Console on :9201; S3 API on :9200.
   # Bucket "standmeet" auto-created on first backend boot via internal/storage.
   minio:

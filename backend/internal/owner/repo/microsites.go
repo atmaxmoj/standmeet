@@ -46,7 +46,7 @@ func (r *MicrositeRepo) Create(
 		if name, hit := pgstore.UniqueViolation(err); hit && name == "microsites_owner_slug_idx" {
 			return entity.Microsite{}, entity.ErrMicrositeSlugTaken
 		}
-		return entity.Microsite{}, fmt.Errorf("create custom page: %w", err)
+		return entity.Microsite{}, fmt.Errorf("create microsite: %w", err)
 	}
 	return toDomainMicrosite(&row), nil
 }
@@ -66,7 +66,7 @@ func (r *MicrositeRepo) GetBySlug(
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.Microsite{}, entity.ErrMicrositeNotFound
 		}
-		return entity.Microsite{}, fmt.Errorf("get custom page by slug: %w", err)
+		return entity.Microsite{}, fmt.Errorf("get microsite by slug: %w", err)
 	}
 	return toDomainMicrosite(&row), nil
 }
@@ -82,7 +82,7 @@ func (r *MicrositeRepo) GetByID(ctx context.Context, id string) (entity.Microsit
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.Microsite{}, entity.ErrMicrositeNotFound
 		}
-		return entity.Microsite{}, fmt.Errorf("get custom page by id: %w", err)
+		return entity.Microsite{}, fmt.Errorf("get microsite by id: %w", err)
 	}
 	return toDomainMicrosite(&row), nil
 }
@@ -97,7 +97,7 @@ func (r *MicrositeRepo) ListByOwner(
 	}
 	rows, err := db.New(r.pool).ListMicrositesByOwner(ctx, ownerUUID)
 	if err != nil {
-		return nil, fmt.Errorf("list custom pages: %w", err)
+		return nil, fmt.Errorf("list microsites: %w", err)
 	}
 	out := make([]entity.Microsite, 0, len(rows))
 	for i := range rows {

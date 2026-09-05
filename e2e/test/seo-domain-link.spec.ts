@@ -3,7 +3,7 @@
 //
 // The public-URL editor lives in /admin/account's site block (PublicURLEditor —
 // `public-url-display` / `public-url-editor` — + HandleEditor + DomainEditor), moved
-// there when the homepage became a custom page. The SEO section's canonical-host edit
+// there when the homepage became a microsite. The SEO section's canonical-host edit
 // link must reach that real editor.
 //
 // Criterion: click "edit →" on /admin/seo's canonical-host row, and assert it lands on

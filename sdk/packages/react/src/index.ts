@@ -25,7 +25,7 @@ export type { MicrositeDoc } from '@standmeet/sdk-core';
 export { AnswerText } from './AnswerText.js';
 export type { AnswerTextProps } from './AnswerText.js';
 
-// Site widgets —— the central, managed drop-in blocks a custom page composes (corpus browser,
+// Site widgets —— the central, managed drop-in blocks a microsite composes (corpus browser,
 // agent entry, gate CTA, nav to the owner's other pages). See src/widgets/.
 export {
   CorpusWidget, AgentWidget, GateWidget, PageNavWidget,

@@ -75,7 +75,7 @@ function headlineIn(page: Page) {
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 // A real build takes tens of seconds, and this test case builds twice.
 test.describe.configure({ timeout: 600_000 });
-test.describe('custom pages · the panel shows what the agent just built, without a reload', () => {
+test.describe('microsites · the panel shows what the agent just built, without a reload', () => {
   let agent: Agent;
 
   test.beforeAll(async ({ playwright }) => {

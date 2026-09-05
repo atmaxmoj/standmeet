@@ -1,6 +1,6 @@
-// microsites-linked-on-public-surfaces.spec.ts —— a published custom page is discoverable.
+// microsites-linked-on-public-surfaces.spec.ts —— a published microsite is discoverable.
 //
-// Before this, an owner's custom pages were reachable only by knowing the /p/<slug> URL:
+// Before this, an owner's microsites were reachable only by knowing the /p/<slug> URL:
 // the public index, the gate, and the readers carried no link to them, and there was no
 // endpoint to even list them. This guards the fix — GET /api/v1/microsites plus links on
 // the index (a "pages" deck), the shared footer, and the gate (the codeless-read panel).
@@ -76,7 +76,7 @@ async function publishPatiently(
 
 test.describe.configure({ timeout: 420_000 });
 
-test.describe('a published custom page is discoverable on the public surfaces', () => {
+test.describe('a published microsite is discoverable on the public surfaces', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

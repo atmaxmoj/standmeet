@@ -105,7 +105,7 @@ async function checkOwnerSettings(r: APIRequestContext): Promise<void> {
 
   const css = await callTool<{ css: string }>(r, token, sid, 'appearance.get_css', {});
   expect(typeof css.css, 'css is a string').toBe('string');
-  // page.get is gone: the homepage is a custom page now, not built-in page content.
+  // page.get is gone: the homepage is a microsite now, not built-in page content.
 }
 
 async function checkCapabilities(r: APIRequestContext): Promise<void> {

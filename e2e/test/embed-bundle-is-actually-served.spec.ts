@@ -13,7 +13,7 @@
 // and the day the path changes and the panel follows along, this test keeps verifying
 // an old address nobody uses.
 //
-// There are two consumers, and they must not be conflated: the custom page uses the
+// There are two consumers, and they must not be conflated: the microsite uses the
 // build-time-inlined copy (see microsite-html-mode.spec.ts); this file covers the
 // **someone else's website** copy.
 

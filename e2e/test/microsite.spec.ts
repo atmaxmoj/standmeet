@@ -343,7 +343,7 @@ async function ownerRollsBackToDefault(
 // visitorSeesNotFoundAfterRollback -- after rollback, the "view live ↗" link on that row
 // in admin microsites should disappear (has_live=false) -> replaced with "no live
 // build" text. Verified at the UI surface, no longer hitting the URL directly via goto.
-// The custom page (/p/<slug>) is a standalone React app with no admin nav. Getting back
+// The microsite (/p/<slug>) is a standalone React app with no admin nav. Getting back
 // to admin from there uses `page.goBack()` -- equivalent to a real user "hitting back
 // after viewing the live version".
 async function visitorSeesNotFoundAfterRollback(page: Page): Promise<void> {

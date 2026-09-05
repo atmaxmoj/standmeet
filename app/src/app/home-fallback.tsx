@@ -1,6 +1,6 @@
 // home-fallback.tsx — what `/` renders when there is NO live custom `home` page yet.
 //
-// The homepage is now a custom page (installed at claim, auto-promoted to live the moment its build
+// The homepage is now a microsite (installed at claim, auto-promoted to live the moment its build
 // finishes), served at `/` by the middleware. This component is only the FALLBACK for the narrow
 // windows where no live home exists: the seconds between claim and the first build finishing, or a
 // build that failed. So it's deliberately minimal — the owner's identity and a way in — not the old

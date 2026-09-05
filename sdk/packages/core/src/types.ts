@@ -4,7 +4,7 @@
 // back. Naming follows the backend JSON protocol (snake_case).
 
 // CorpusCard —— one published corpus entry as a home-page card (title + excerpt +
-// reader path). Returned by GET /api/v1/corpus-cards: a custom page lists these to
+// reader path). Returned by GET /api/v1/corpus-cards: a microsite lists these to
 // show corpus cards without hand-picking ids. Keyless + published-only, so it never
 // surfaces an unpublished note.
 export interface CorpusCard {
@@ -13,7 +13,7 @@ export interface CorpusCard {
   readonly path: string;
 }
 
-// MicrositeLink —— one of the owner's published custom pages, for a page to link the others
+// MicrositeLink —— one of the owner's published microsites, for a page to link the others
 // (slug + title, nothing more). Served keyless by GET /api/v1/microsites.
 export interface MicrositeLink {
   readonly slug: string;

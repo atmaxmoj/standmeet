@@ -9,7 +9,7 @@
 
 ### 1 — The two nav entries carry distinct, non-confusable labels ⭐
 - **Steps:** Open `/admin`. Read the sidebar cold, as a first-time owner. Find the entry under `settings` that opens the single public page editor. Find the entry under `corpus` that opens the microsites list.
-- **Expected:** The two labels differ by a word that names the difference, such as `landing page` against `custom pages`. Neither label is bare `page` or `pages`. A first-time owner tells them apart without clicking either one.
+- **Expected:** The two labels differ by a word that names the difference, such as `landing page` against `microsites`. Neither label is bare `page` or `pages`. A first-time owner tells them apart without clicking either one.
 - **Backing test:** `nav-page-vs-pages.spec.ts`
 
 ### 2 — Each entry lands on the surface its label names

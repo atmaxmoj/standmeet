@@ -1,4 +1,4 @@
-// use-microsite-store.ts —— a custom page reads + writes its OWN persistence store (a poll, a sign-up
+// use-microsite-store.ts —— a microsite reads + writes its OWN persistence store (a poll, a sign-up
 // sheet, a guestbook). The page's slug is taken from its address (/p/<slug>/…), so the page never
 // has to know or pass its own id; the server scopes every read/write to that page's namespace.
 //
@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { widgetClient } from './widgets/client.js';
 import type { MicrositeDoc } from '@standmeet/sdk-core';
 
-// currentPageSlug —— the <slug> in /p/<slug>/…. Empty off a custom page (e.g. the site root).
+// currentPageSlug —— the <slug> in /p/<slug>/…. Empty off a microsite (e.g. the site root).
 function currentPageSlug(): string {
   const path = globalThis.location?.pathname ?? '';
   const match = /^\/p\/([^/]+)/.exec(path);

@@ -1,6 +1,6 @@
 # microsite-code-binding — A page is a rendering of a code
 
-- **Module:** A custom page that reads the owner's corpus and carries the owner's agent, authored from the panel, and reachable through an access code that opens it instead of the default visitor chat. The code is unchanged by this — same grant, same quotas, same transcript — only what the reader looks at differs.
+- **Module:** A microsite that reads the owner's corpus and carries the owner's agent, authored from the panel, and reachable through an access code that opens it instead of the default visitor chat. The code is unchanged by this — same grant, same quotas, same transcript — only what the reader looks at differs.
 - **Surface:** `/admin/microsites` (authoring, BYOK switch, which codes open a page), `/admin/codes` (which page a code opens), and the hosted page at `/p/<slug>`.
 - **Real dep:** The prod stack, a real sandbox build, a real model for the page's agent, and real corpus — the owner's own vault mirror. Nothing here is provable against a stub: a page that renders a stubbed answer proves nothing about whether the agent is scoped by the code.
 - **Backing e2e:** `microsite-admin-authoring` · `microsite-code-binding` · `microsite-is-the-codes-rendering` · `microsite` · `mcp-page-lifecycle`.

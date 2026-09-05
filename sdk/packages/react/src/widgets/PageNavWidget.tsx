@@ -1,4 +1,4 @@
-// PageNavWidget —— navigation to the owner's OTHER published custom pages (slug + title), so the
+// PageNavWidget —— navigation to the owner's OTHER published microsites (slug + title), so the
 // homepage (or any page) links the rest of the site without hand-listing slugs. `exclude` drops
 // the current page's own slug so a page never links to itself.
 //

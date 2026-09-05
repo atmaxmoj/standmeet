@@ -7,5 +7,5 @@ packages:
   - 'e2e'
   - 'sdk/packages/*'
   # im-bridge — in the workspace (builder/ is not): it **needs @standmeet/sdk-core**,
-  # since the bridge is essentially just another visitor client, on the same client as custom pages and embed.
+  # since the bridge is essentially just another visitor client, on the same client as microsites and embed.
   - 'im-bridge'

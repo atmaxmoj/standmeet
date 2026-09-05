@@ -1,6 +1,6 @@
 // page.go —— the page resource: this instance's two outward addresses (handle, public URL).
 //
-// The owner's public homepage is now a custom page (the reserved `home` slug served at /),
+// The owner's public homepage is now a microsite (the reserved `home` slug served at /),
 // not built-in page content — so page.get/put/pin/unpin and the pinned insights/projects
 // are gone. What remains here is the pair of address-changing ops.
 

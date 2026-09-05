@@ -1,6 +1,6 @@
 // microsite-is-the-codes-rendering.spec.ts -- **pages give a code a rendering**.
 //
-// A code can be bound to a custom page. Once bound, nothing about the code itself
+// A code can be bound to a microsite. Once bound, nothing about the code itself
 // changes: the same grant, the same role, the same quota, the same accounting -- the
 // only thing that changes is the sheet of paper in front of the reader. So what this
 // file asserts is never "the page supports some feature", it's "**what would give it

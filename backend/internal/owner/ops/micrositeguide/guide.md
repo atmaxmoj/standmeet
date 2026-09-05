@@ -1,4 +1,4 @@
-# Building a StandMeet custom page
+# Building a StandMeet microsite
 
 You are authoring a React page that StandMeet builds (Vite + Tailwind v4) and hosts on this
 instance. Read this before you write `App.tsx`. The goal is a page that looks like it was

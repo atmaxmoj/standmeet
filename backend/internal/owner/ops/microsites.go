@@ -31,7 +31,7 @@ func Microsites(deps usecase.MicrositeDeps) []fp.Op {
 
 // ⚠️ There used to be an `authoringOnMCP()` entry here:
 //
-//	fp.Only("authoring a custom page means writing code and driving the sandbox builder;
+//	fp.Only("authoring a microsite means writing code and driving the sandbox builder;
 //	         the panel has no such surface", "mcp")
 //
 // **Its reasoning was circular** — "the panel has no such UI" was the very state of affairs
@@ -49,7 +49,7 @@ func micrositeReadOps(deps usecase.MicrositeDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "microsite.list",
-			Description: "List the owner's custom pages with what is live, what is waiting in " +
+			Description: "List the owner's microsites with what is live, what is waiting in " +
 				"staging, and when each was last touched.",
 			InputSchema: noArgs,
 			Kind:        fp.Read,
@@ -305,7 +305,7 @@ func micrositeErr(err error) error {
 			return c.as()
 		}
 	}
-	return fp.OpErr("custom page op", err)
+	return fp.OpErr("microsite op", err)
 }
 
 var micrositeErrClasses = []struct {

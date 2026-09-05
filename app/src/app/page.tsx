@@ -1,10 +1,10 @@
 // page.tsx — the root route `/`.
 //
-// The homepage is a custom page now (A Slice 4/5): the middleware serves the live `home` page at
+// The homepage is a microsite now (A Slice 4/5): the middleware serves the live `home` page at
 // `/` for a codeless visitor. This component runs when the middleware does NOT serve the homepage:
 //   • unclaimed instance → server-redirect to /setup (so a fresh deploy lands on the setup form);
 //   • a visitor arriving with ?code= (the middleware skips the homepage rewrite for them) → the
-//     coded-visitor strategy (VisitorRoot): the built-in chat, or the code's attached custom page;
+//     coded-visitor strategy (VisitorRoot): the built-in chat, or the code's attached microsite;
 //   • claimed but no live home yet (the brief build window, or a failed build) → VisitorRoot with
 //     no session falls through to a minimal identity page (HomeFallback).
 // The old editable long-scroll (PageContent/PageShell) is gone; VisitorRoot restores only its

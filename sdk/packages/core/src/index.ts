@@ -13,7 +13,7 @@ export type {
   SystemPromptSource,
 } from './client.js';
 export { readSSE } from './sse.js';
-// grant —— the grant the visitor already holds. A custom page adopts it
+// grant —— the grant the visitor already holds. A microsite adopts it
 // rather than opening a fresh anonymous session of its own.
 export {
   adoptStoredSession, hasVisitorGrant, adoptedDockButtons, pageAllowsBYOAI, byoaiOffered,

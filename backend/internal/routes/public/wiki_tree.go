@@ -132,7 +132,7 @@ func toNodeViews(nodes []owner.WikiTreeNode) []wikiTreeNodeView {
 
 // getCorpusCards —— GET /api/v1/corpus-cards —— every PUBLISHED wiki entry as a home-page card
 // (title + excerpt + reader path), in tree order. Keyless + anonymous: it only ever returns
-// published entries, so a custom page (the redesigned homepage among them) can render corpus
+// published entries, so a microsite (the redesigned homepage among them) can render corpus
 // cards without any risk of leaking an unpublished note — which is what lets the old pinned-cards
 // machinery + its unpublish cascade be retired. Lives here, not in a new file, because it's the
 // same public keyless corpus-read family as the tree reads above (all already direct-to-facade).

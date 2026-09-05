@@ -92,7 +92,7 @@ export interface StandMeetClient {
   // fetchCorpusCards —— every published corpus entry as a card (title + excerpt +
   // reader path). A page lists these to show corpus cards without hand-picking ids.
   fetchCorpusCards(): Promise<CorpusCard[]>;
-  // fetchMicrosites —— the owner's OTHER published custom pages (slug + title), so a page can
+  // fetchMicrosites —— the owner's OTHER published microsites (slug + title), so a page can
   // link the rest of the site without knowing their slugs. Empty on failure (degrade, no throw).
   fetchMicrosites(): Promise<MicrositeLink[]>;
   issueSession(input: IssueSessionInput): Promise<PublicSessionResponse>;
@@ -117,7 +117,7 @@ export interface StandMeetClient {
   insertMicrositeDoc(slug: string, collection: string, doc: MicrositeDoc): Promise<string>;
 }
 
-// MicrositeDoc —— an opaque JSON document a custom page stores (the SDK doesn't model its shape).
+// MicrositeDoc —— an opaque JSON document a microsite stores (the SDK doesn't model its shape).
 export type MicrositeDoc = Record<string, unknown>;
 
 // MicrositeStoreError —— a write refusal, carrying the HTTP status + the server's code so the page can
@@ -241,7 +241,7 @@ async function fetchCorpusCards(f: typeof fetch, baseURL: string): Promise<Corpu
   return body.cards ?? [];
 }
 
-// fetchMicrosites —— the owner's published custom pages. Degrades to [] on any failure (a
+// fetchMicrosites —— the owner's published microsites. Degrades to [] on any failure (a
 // nav widget that can't reach the list should simply render nothing, not crash the page).
 async function fetchMicrosites(f: typeof fetch, baseURL: string): Promise<MicrositeLink[]> {
   try {

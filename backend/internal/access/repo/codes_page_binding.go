@@ -85,5 +85,5 @@ func setCodePageErr(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return entity.ErrCodeInvalid
 	}
-	return fmt.Errorf("set code custom page: %w", err)
+	return fmt.Errorf("set code microsite: %w", err)
 }

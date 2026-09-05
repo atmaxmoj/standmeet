@@ -65,7 +65,7 @@ type micrositesListResponse struct {
 	Pages []pageLinkView `json:"pages"`
 }
 
-// listLive —— GET /api/v1/microsites: the sole owner's published custom pages (slug +
+// listLive —— GET /api/v1/microsites: the sole owner's published microsites (slug +
 // title) so a visitor can discover them from the index / gate / reader. Anonymous; an
 // unclaimed instance or a load error yields an empty list (logged), never a 500 that would
 // break the surfaces embedding it — the same "a public read never hard-fails" rule the
@@ -74,11 +74,11 @@ func (h *MicrositeHandlers) listLive() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		links, err := owner.LiveMicrosites(r.Context(), h.Deps, h.Owners)
 		if err != nil {
-			h.Log.Error("list live custom pages", logErr, err)
+			h.Log.Error("list live microsites", logErr, err)
 		}
 		resp := micrositesListResponse{Pages: toPageLinkViews(links)}
 		if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
-			h.Log.Warn("encode custom pages list", logErr, encErr)
+			h.Log.Warn("encode microsites list", logErr, encErr)
 		}
 	}
 }

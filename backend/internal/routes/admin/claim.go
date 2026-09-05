@@ -52,7 +52,7 @@ type Handlers struct {
 	// nil = no plugins to seed (old assembly path / tests). Best-effort: a failure only
 	// logs, it never blocks claim.
 	SeedPlugins func(ctx context.Context, ownerID string) error
-	// InstallHomepage — installs the default homepage as the `home` custom page after claim.
+	// InstallHomepage — installs the default homepage as the `home` microsite after claim.
 	// Best-effort like SeedPlugins: a failure only logs (the built-in homepage keeps serving),
 	// and it's handed in from the composition root so this layer needn't know microsite deps.
 	InstallHomepage func(ctx context.Context, ownerID string) error

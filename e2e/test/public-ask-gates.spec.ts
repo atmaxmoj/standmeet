@@ -32,7 +32,7 @@ test.describe('no-code/no-BYOAI visitor cannot chat ungated', () => {
 
   test('asking on the public index routes to /gate, no chat happens',
     async ({ page }) => {
-      // The homepage is a custom page installed at claim + auto-promoted once built; wait for
+      // The homepage is a microsite installed at claim + auto-promoted once built; wait for
       // it to be live before asking on it (else `/` shows the fallback, which has no ask box).
       await expect.poll(
         async () => (await page.request.get('/api/v1/homepage')).status(),

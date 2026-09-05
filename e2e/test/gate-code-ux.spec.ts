@@ -127,7 +127,7 @@ test.describe('gate code panel UX polish', () => {
 });
 
 // openGate -- these are gate code-panel tests; go straight to /gate. (The homepage is a
-// custom page now; its access CTA is the GateWidget, covered by its own specs — reaching the
+// microsite now; its access CTA is the GateWidget, covered by its own specs — reaching the
 // gate from it is not what these panel tests are about.)
 async function openGate(page: Page): Promise<void> {
   await goto(page, '/gate');

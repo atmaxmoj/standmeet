@@ -1,4 +1,4 @@
-# Homepage as a fixed-path custom page (proposal)
+# Homepage as a fixed-path microsite (proposal)
 
 Status: **proposal / seed** — a direction, not a decision. Raised 2026-09-02 by the owner:
 "the homepage isn't quite right — it has a lot of odd stuff, but it's really just a custom
@@ -8,7 +8,7 @@ page with a fixed path."
 
 The public homepage (`/`) is served by a **bespoke content system** that exists only for that
 one page, while the microsite system (`/p/<slug>`: author React with the SDK → sandbox
-build → serve) already does the general case. The homepage is conceptually **one custom page
+build → serve) already does the general case. The homepage is conceptually **one microsite
 pinned to the fixed path `/`** — but it's built as a special case instead.
 
 ## What the bespoke machinery is
@@ -39,7 +39,7 @@ just be **prose the owner authors in that page**, not schema fields.
 
 ## What the move deletes
 
-Turning the homepage into a custom page at `/` removes: the `PageContent` model, the
+Turning the homepage into a microsite at `/` removes: the `PageContent` model, the
 `PageSection` bespoke editors, the recruiter/casual prose fields, `GET /api/v1/page`'s
 content half, and most of the pin plumbing — folding them into the one system that already
 serves `/p/<slug>` (which the four live theme pages already prove can fetch + render curated
@@ -50,10 +50,10 @@ corpus views: `sijie.xyz/p/semiotics-lines`, `/cognitive-effects`, `/philosophy-
 
 1. **The pin-list invariant.** `insights` / `projects` aren't prose — they're pins with a
    maintained invariant: `pinned ⊆ published`, and **unpublishing a note auto-unpins it**
-   (page-corpus-pinning-design). A custom page can *fetch and render* corpus entries (the
+   (page-corpus-pinning-design). A microsite can *fetch and render* corpus entries (the
    theme pages do), but it can't *maintain that invariant*. Decision: either drop pinning
    (the owner links what they want, and a dead link is their problem) or keep a small
-   pin-helper the custom page can call. Dropping it is simpler and consistent with the theme
+   pin-helper the microsite can call. Dropping it is simpler and consistent with the theme
    pages; keeping it preserves the "never show an unpublished pin" guarantee.
 
 2. **`looking_for` if the job-loop is to consume it.** The moment the job-loop reads
@@ -62,16 +62,16 @@ corpus views: `sijie.xyz/p/semiotics-lines`, `/cognitive-effects`, `/philosophy-
    owner config**), not as freeform page prose. This is the [[facts live where produced]]
    rule: the fact belongs to the side that owns it, and the homepage merely *displays* it (or
    doesn't). So the clean split is: **structured owner-facts → job-loop config; presentation
-   → the homepage custom page.** Recruiter rules then vanish from the homepage — half becomes
+   → the homepage microsite.** Recruiter rules then vanish from the homepage — half becomes
    authored prose, half moves to the job-loop.
 
 ## Rough migration path (if pursued)
 
-1. Land the "fixed-path custom page" capability: a custom page may claim `/` (one per
+1. Land the "fixed-path microsite" capability: a microsite may claim `/` (one per
    instance), served by the same pipeline as `/p/<slug>` with the base at `/`.
 2. Move `looking_for` (and any other structured owner-fact the job-loop will read) into a
    small owner/job-loop config surface; leave `recruiter_prose` etc. behind.
-3. Ship a default homepage custom page (authored with the SDK) reproducing today's look, so
+3. Ship a default homepage microsite (authored with the SDK) reproducing today's look, so
    a fresh instance still has a homepage out of the box.
 4. Decide the pin question (drop vs helper); migrate any existing owner's homepage content
    into the default page's source.
@@ -80,6 +80,6 @@ corpus views: `sijie.xyz/p/semiotics-lines`, `/cognitive-effects`, `/philosophy-
 ## Open questions
 
 - One-per-instance fixed-path page, or could the owner pick which page is the homepage?
-- Pin invariant: drop, or expose a keyless "published corpus cards" helper the custom page
+- Pin invariant: drop, or expose a keyless "published corpus cards" helper the microsite
   calls (so the invariant lives in the backend, not in hand-rolled fetch)?
 - The default homepage: shipped as a starter template the owner can then edit, or generated?

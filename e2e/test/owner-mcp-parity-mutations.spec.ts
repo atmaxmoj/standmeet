@@ -147,7 +147,7 @@ async function checkCapabilityConfig(r: APIRequestContext): Promise<void> {
 }
 
 async function checkPage(r: APIRequestContext): Promise<void> {
-  // page.get / page.put are gone: the owner's homepage is a custom page now, not built-in page
+  // page.get / page.put are gone: the owner's homepage is a microsite now, not built-in page
   // content. The `page` resource keeps only its outward addresses (handle / public URL).
   const url = await callTool<{ public_url: string }>(
     r, token, sid, 'page.set_public_url', { public_url: 'https://me.example.com' });

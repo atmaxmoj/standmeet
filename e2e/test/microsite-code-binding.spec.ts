@@ -1,4 +1,4 @@
-// microsite-code-binding.spec.ts —— a code can bind one custom page.
+// microsite-code-binding.spec.ts —— a code can bind one microsite.
 //
 // **A page is a rendering of the code.** The code doesn't change: same grant, same role, same quota, same accounting;
 // the page only swaps what the reader sees. So what this asserts is never "the page supports some feature", but
@@ -72,7 +72,7 @@ async function pages(request: APIRequestContext, csrf: string): Promise<PageRow[
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-test.describe('custom pages · a code opens a page (the page is a rendering of the code)', () => {
+test.describe('microsites · a code opens a page (the page is a rendering of the code)', () => {
   let request: APIRequestContext;
   let csrf: string;
 
@@ -150,7 +150,7 @@ test.describe('custom pages · a code opens a page (the page is a rendering of t
     });
 });
 
-test.describe('custom pages · an arriving grant wins (I-4)', () => {
+test.describe('microsites · an arriving grant wins (I-4)', () => {
   let request: APIRequestContext;
   let csrf: string;
 

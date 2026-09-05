@@ -1,13 +1,13 @@
 // agent-widget-inherits-from-code.spec.ts —— the embedded AgentWidget IS the code's agent.
 //
-// The owner ruling (embedded-agent-inherits-structurally): the agent a custom page drops in must
+// The owner ruling (embedded-agent-inherits-structurally): the agent a microsite drops in must
 // INHERIT everything the access code grants — corpus scope, persona, quota, dock buttons — with no
 // per-capability decision in the widget; a new capability inherits by structure, and a TEST (this
 // one) enforces it rather than the widget asserting it.
 //
 // Setup: a role with a corpus scope + a dock button + a persona mark; a code assuming it; a custom
 // page whose whole body is `<AgentWidget/>`, built + published. A visitor enters at /gate (which
-// stores the code's session blob), then opens the custom page — where the widget ADOPTS that
+// stores the code's session blob), then opens the microsite — where the widget ADOPTS that
 // session. Asserted:
 //   1. it renders inline (grant detected — not the codeless /gate handoff);
 //   2. the code's dock button renders (inherited from the stored blob);
@@ -47,7 +47,7 @@ const TRIGGER = 'Summarize our conversation so far';
 // session (the mock gateway echoes the system prompt verbatim).
 const PERSONA_MARK = 'AGENTW-PERSONA-ECHO-XYZ';
 
-// PAGE —— a custom page whose entire body is the AgentWidget. Importing it from the shipped
+// PAGE —— a microsite whose entire body is the AgentWidget. Importing it from the shipped
 // @standmeet/sdk is the point: this drives the real widget, not a stand-in.
 const PAGE = `
 import React from 'react';
@@ -125,7 +125,7 @@ async function createPersonaPrompt(request: APIRequestContext, csrf: string): Pr
 }
 
 // enterGate —— enter the code at /gate; this issues + STORES the session blob (with the code's
-// dock buttons + persona) in localStorage, which the custom page then adopts.
+// dock buttons + persona) in localStorage, which the microsite then adopts.
 async function enterGate(page: Page): Promise<void> {
   await goto(page, '/gate');
   await page.getByTestId('gate-code').fill(CODE);

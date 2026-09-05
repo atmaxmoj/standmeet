@@ -1,6 +1,6 @@
 // client.ts —— the shared pieces every site widget uses.
 //
-// The widgets are the central, managed set of drop-in blocks a custom page composes (a corpus
+// The widgets are the central, managed set of drop-in blocks a microsite composes (a corpus
 // browser, an agent entry, a gate CTA, a nav to the owner's other pages) — so a page author
 // never hand-writes them. They all talk to the same-origin instance, so they share one client.
 

@@ -1,6 +1,6 @@
 // Package storage — S3-compatible object storage client. Production uses MinIO
 // (self-hosted), config comes from STORAGE_* env vars. Every owner-uploaded binary
-// (post cover images / raw attachments / custom page static assets) lands here.
+// (post cover images / raw attachments / microsite static assets) lands here.
 //
 // Does not expose the minio-go API directly: callers only see this package's Client
 // interface, making it easy to swap in an in-memory impl for tests (e2e runs the
@@ -49,7 +49,7 @@ type Config struct {
 }
 
 // Client — wraps minio-go. NewClient creates the bucket idempotently; every
-// owner-uploaded binary (post covers / raw attachments / custom page assets)
+// owner-uploaded binary (post covers / raw attachments / microsite assets)
 // goes through here. Object key shape "<owner_id>/<asset_id>" is flat, avoiding
 // path traversal; metadata (content-type / size / sha256) lands in the Postgres
 // assets table — the bucket holds only raw bytes.

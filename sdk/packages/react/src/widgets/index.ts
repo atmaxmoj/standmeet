@@ -1,4 +1,4 @@
-// widgets —— the central, managed set of drop-in site widgets a custom page composes. A page
+// widgets —— the central, managed set of drop-in site widgets a microsite composes. A page
 // author never hand-writes these; they import the named widget and place it. The MCP
 // microsite.guide points the owner's agent here.
 

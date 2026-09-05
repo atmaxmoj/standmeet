@@ -44,7 +44,7 @@
 ### 6 — Markdown arrives as formatting, not as syntax
 - **Steps:** Ask something whose answer contains bold, a list, and a link.
 - **Expected:** It renders. If the platform's dialect differs, the bridge converts — the reader must not see `**stars**` or a raw URL where a link belongs.
-- **Note:** same family as F-P-1 on custom pages: our answers carry markdown, and every surface has to decide what to do with it. The bridge posts `{ markdown }` rather than a bare string — the SDK's docs are explicit that a bare string is sent "without any formatting conversion", so the first version of this bridge would have shown readers `**stars**`. Writing this item is what caught it. The SDK then renders per platform (Slack's `markdown_text`, HTML for Teams, and so on).
+- **Note:** same family as F-P-1 on microsites: our answers carry markdown, and every surface has to decide what to do with it. The bridge posts `{ markdown }` rather than a bare string — the SDK's docs are explicit that a bare string is sent "without any formatting conversion", so the first version of this bridge would have shown readers `**stars**`. Writing this item is what caught it. The SDK then renders per platform (Slack's `markdown_text`, HTML for Teams, and so on).
 - **Backing test:** the wiring suite asserts the bridge posts through the markdown path; **which dialect each platform actually produces is only visible on a real run**.
 
 ### 7 — Two people on one code do not see each other

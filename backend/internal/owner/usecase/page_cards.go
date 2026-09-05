@@ -1,6 +1,6 @@
 // page_cards.go — the keyless "published corpus cards" list.
 //
-// A custom page (the redesigned homepage among them) renders corpus entries as cards without
+// A microsite (the redesigned homepage among them) renders corpus entries as cards without
 // hand-picking IDs: this returns every PUBLISHED wiki entry as {title, excerpt, path}, in tree
 // order. It only ever returns published entries, so "never surface an unpublished note" holds
 // by construction — which is what lets the old pinned-cards machinery and its unpublish cascade

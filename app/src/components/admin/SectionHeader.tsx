@@ -5,7 +5,7 @@
 // The title prop **doesn't accept a string, it accepts a slug**: what a section is called is
 // decided by the sidebar's `NAV_GROUPS` (F-N-3). When titles were hand-written, 24 of 26
 // sections copied the label exactly and 2 copied it wrong — and those two wrong copies
-// (`landing page`->`page` / `custom pages`->`pages`) were exactly the defect of "two names that
+// (`landing page`->`page` / `microsites`->`pages`) were exactly the defect of "two names that
 // differ by only a plural". Now they're not two strings chasing each other, they're one.
 
 import type { ReactNode } from 'react';

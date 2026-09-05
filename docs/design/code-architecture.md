@@ -33,7 +33,7 @@
 
 ### 关于 builder 的一段话
 
-`microsites`（每个 owner 可有多个 slug）**完全通过 owner 自己 AI 客户端里调的 MCP 工具来创作**（Claude Desktop、Cursor 之类）。admin 里的 "Custom pages" 区只是一个**监控面板**——列表、状态、staging URL、publish/rollback——它**不**承载编辑器、聊天框或预览框。AI 推理的钱走 owner 已有的 AI 订阅，StandMeet 后端只为沙箱 build 付钱。
+`microsites`（每个 owner 可有多个 slug）**完全通过 owner 自己 AI 客户端里调的 MCP 工具来创作**（Claude Desktop、Cursor 之类）。admin 里的 "Microsites" 区只是一个**监控面板**——列表、状态、staging URL、publish/rollback——它**不**承载编辑器、聊天框或预览框。AI 推理的钱走 owner 已有的 AI 订阅，StandMeet 后端只为沙箱 build 付钱。
 
 ---
 
@@ -575,7 +575,7 @@ GET    /api/admin/connectors
 POST   /api/admin/connectors/:kind/oauth/start    -> {redirect_url}
 GET    /api/admin/connectors/:kind/oauth/callback
 
-# Custom pages —— 只做监控 / lifecycle。**不**做源文件 CRUD。
+# Microsites —— 只做监控 / lifecycle。**不**做源文件 CRUD。
 GET    /api/admin/microsites              -- 列表 + 派生状态（draft/staging/live）
 GET    /api/admin/microsites/:id
 GET    /api/admin/microsites/:id/builds   -- 最近 build 历史
@@ -589,7 +589,7 @@ GET    /api/admin/seo                       -- owner-level 默认值（seo_setti
 PUT    /api/admin/seo                       -- 改 owner-level
 # per-page SEO 通过下面这些 endpoint 一起改：
 #   PUT  /api/admin/page          { ..., seo: {...} }      默认页 override
-#   PATCH /api/admin/microsites/:id { seo: {...} }       custom page override
+#   PATCH /api/admin/microsites/:id { seo: {...} }       microsite override
 #   PATCH /api/admin/wiki/:id     { seo_landing_enabled, seo: {...} }   wiki landing
 GET    /api/admin/seo/preview               ?path=/   -- 预览最终 <head>（owner-level + per-page 合并）
 ```
@@ -631,7 +631,7 @@ GET    /robots.txt                         -- backend 动态生成；owner 可 o
 GET    /sitemap.xml                        -- 列默认页 + 所有 live microsites + 所有 seo_landing_enabled 的 wiki
 GET    /api/v1/wiki/:handle/:seo_slug      -- public wiki entry 的可索引内容（仅 seo_landing_enabled 的可访问）
 GET    /api/v1/og/page/:handle             -- 自动渲染默认页 OG image (PNG)
-GET    /api/v1/og/custom/:page_id          -- 自动渲染 custom page OG image
+GET    /api/v1/og/custom/:page_id          -- 自动渲染 microsite OG image
 GET    /api/v1/og/wiki/:wiki_id            -- 自动渲染 wiki landing OG image
 ```
 
@@ -664,7 +664,7 @@ get_wiki(wiki_id)
 archive(entry_kind, entry_id)
 ```
 
-**工具 —— custom pages（整套创作面就这套工具）：**
+**工具 —— microsites（整套创作面就这套工具）：**
 
 ```
 # 生命周期
@@ -707,7 +707,7 @@ seo.set_owner(patch)                                -- 部分更新
 
 # per-page override
 seo.set_default_page(patch)                         -- 默认页 SEO override
-seo.set_microsite(page_id, patch)                 -- custom page SEO override
+seo.set_microsite(page_id, patch)                 -- microsite SEO override
 seo.set_wiki(wiki_id, {
   landing_enabled?: bool,
   slug?: string,
@@ -719,7 +719,7 @@ seo.preview(path)
   -> {final_head_html, computed_title, computed_description, og_image_url}
 ```
 
-AI 可以在写 custom page 时一并调 `seo.set_microsite(page_id, {title: ..., description: ...})`，不需要 owner 跳出去手动配。
+AI 可以在写 microsite 时一并调 `seo.set_microsite(page_id, {title: ..., description: ...})`，不需要 owner 跳出去手动配。
 
 Owner 的典型流程：
 
@@ -730,7 +730,7 @@ Owner 的典型流程：
 > Owner："上线。"
 > AI：`promote_to_live('/blog')`。
 
-admin 的 "Custom pages" 区是上面所有动作的监控面板 —— 页列表、派生状态、staging/live URL、`publish` / `rollback` / `unpublish` / `delete` 手动按钮。**不**做编辑器、不嵌聊天、不放预览 iframe。
+admin 的 "Microsites" 区是上面所有动作的监控面板 —— 页列表、派生状态、staging/live URL、`publish` / `rollback` / `unpublish` / `delete` 手动按钮。**不**做编辑器、不嵌聊天、不放预览 iframe。
 
 ### D.4 内部 endpoint — `/internal/*`
 
@@ -1083,7 +1083,7 @@ StandMeet 的页是对外门面，SEO 必须由 owner 完全控制。这章把 C
 owner-level（seo_settings 表）          ← 默认值（GA、Search Console、Person schema、默认 og）
         │
         ▼
-per-page override                     ← 默认页 / 每个 custom page / 每条 seo_landing_enabled wiki
+per-page override                     ← 默认页 / 每个 microsite / 每条 seo_landing_enabled wiki
         │
         ▼
 最终 <head>                            ← server 合并、SSR 渲染
@@ -1172,7 +1172,7 @@ server 自动从 owner profile 拼一份：
 设计里 admin 有 `page` section 编辑默认页内容。SEO 面板独立一块（在 admin 左 nav 加 "seo"，或塞进 page section 的折叠区）：
 
 - **Global SEO** —— GA / Plausible / Search Console 表单 + 默认 OG image 上传 + Person schema override（高级折叠）+ robots.txt override（高级折叠）+ extra_head_html
-- **Per-page tabs** —— 默认页 / custom pages 列表 / wiki SEO 列表，各自简表单（title / description / og_image / canonical / extra_head）
+- **Per-page tabs** —— 默认页 / microsites 列表 / wiki SEO 列表，各自简表单（title / description / og_image / canonical / extra_head）
 - **预览** —— 输入一个 path，admin 显示最终拼出来的 `<head>` 是什么样（调 `seo.preview` endpoint）
 
 ### 决策点

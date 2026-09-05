@@ -49,7 +49,7 @@ test.describe('homepage ask carries through gate into chat and gets answered', (
 
   test('ask on homepage (no code) → gate → enter code → chat answers the carried question',
     async ({ page }) => {
-      // The homepage is now a custom page installed at claim and auto-promoted once its build
+      // The homepage is now a microsite installed at claim and auto-promoted once its build
       // finishes; wait for it to be live before asking on it (else `/` shows the fallback).
       await expect.poll(
         async () => (await page.request.get('/api/v1/homepage')).status(),

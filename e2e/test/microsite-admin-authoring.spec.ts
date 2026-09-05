@@ -1,4 +1,4 @@
-// microsite-admin-authoring.spec.ts —— custom page authoring also works
+// microsite-admin-authoring.spec.ts —— microsite authoring also works
 // through the **panel**, and it says something when it fails.
 //
 // Why this file exists: writing this group once ran only through MCP, and the
@@ -123,7 +123,7 @@ async function freshOwner(playwright: Playwright): Promise<{
   return { request, csrf };
 }
 
-test.describe('custom pages · authoring from the panel (parity with MCP)', () => {
+test.describe('microsites · authoring from the panel (parity with MCP)', () => {
   let request: APIRequestContext;
   let csrf: string;
 
@@ -214,7 +214,7 @@ test.describe('custom pages · authoring from the panel (parity with MCP)', () =
 // I-3: withdrawal means withdrawal. The three cases below each withdraw a different way; the
 // criterion is always on the **visitor side**.
 // A separate describe — the block above already hit the 70-line gate.
-test.describe('custom pages · withdrawal is not a snapshot (I-3)', () => {
+test.describe('microsites · withdrawal is not a snapshot (I-3)', () => {
   let request: APIRequestContext;
   let csrf: string;
 
@@ -257,7 +257,7 @@ test.describe('custom pages · withdrawal is not a snapshot (I-3)', () => {
     expect(live.status()).toBe(200);
     const h = live.headers();
     expect(h['content-security-policy'] ?? '',
-      'a CSP here would silently kill remote img/video/audio on every custom page').toBe('');
+      'a CSP here would silently kill remote img/video/audio on every microsite').toBe('');
     expect(h['content-security-policy-report-only'] ?? '').toBe('');
     // A third-party iframe is **this page embedding someone else**, the opposite direction
     // from X-Frame-Options (someone else embedding this page), so this only asserts that

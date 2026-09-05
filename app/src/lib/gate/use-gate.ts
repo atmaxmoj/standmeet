@@ -26,7 +26,7 @@ import { storeBYOAI } from '@/lib/gate/byoai-vault';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { rememberVisitorName } from '@/lib/visitor/visitor-name';
 
-// The key name comes from the SDK: the agent on a custom page needs to
+// The key name comes from the SDK: the agent on a microsite needs to
 // **take over** this already-issued session (the page is a rendering of
 // this code), and it reads this same key. If each side wrote the literal
 // separately, changing one would silently disconnect the other.

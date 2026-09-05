@@ -51,7 +51,7 @@ export function AccountSection() {
 
 // SiteCard —— where this instance lives on the web: public URL (QR / canonical),
 // URL handle, and the custom-domain allow-list. Moved here from the old homepage
-// editor when the homepage became a custom page — these are instance settings, not
+// editor when the homepage became a microsite — these are instance settings, not
 // page content, so they belong with the owner's other settings.
 function SiteCard() {
   const t = useTranslations('adminShell.account');

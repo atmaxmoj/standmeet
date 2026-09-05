@@ -51,7 +51,7 @@ func resolveSoleOwner(ctx context.Context, owners SoleOwnerLookup) (entity.Owner
 	return soleOwner, nil
 }
 
-// LivePageLink — a published custom page as a visitor discovers it: slug + title, nothing
+// LivePageLink — a published microsite as a visitor discovers it: slug + title, nothing
 // more. The public listing carries no build ids, no drafts, no taken-down pages, no bound
 // codes — only what a link needs.
 type LivePageLink struct {
@@ -59,7 +59,7 @@ type LivePageLink struct {
 	Title string
 }
 
-// LiveMicrosites — the sole owner's published (has-live) custom pages, for public
+// LiveMicrosites — the sole owner's published (has-live) microsites, for public
 // discovery on the index / gate / reader. A page appears only once it has a live build; a
 // draft or a taken-down page never leaks here. Order follows the repo (newest first).
 func LiveMicrosites(
@@ -71,7 +71,7 @@ func LiveMicrosites(
 	}
 	pages, lerr := deps.Pages.ListByOwner(ctx, soleOwner.ID)
 	if lerr != nil {
-		return []LivePageLink{}, fmt.Errorf("list custom pages: %w", lerr)
+		return []LivePageLink{}, fmt.Errorf("list microsites: %w", lerr)
 	}
 	out := make([]LivePageLink, 0, len(pages))
 	for i := range pages {

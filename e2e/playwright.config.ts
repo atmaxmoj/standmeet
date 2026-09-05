@@ -7,7 +7,7 @@ dotenv.config({ path: path.join(__dirname, '.env.local') });
 
 // BASE_URL is the Next.js app's entry point (v1 single-owner instance: a visitor opening the
 // domain / lands on the public page, and pre-claim it server-side redirects to /setup?t=...).
-// The custom page fixture in fixtures/test.ts does goto('/') before each spec starts;
+// The microsite fixture in fixtures/test.ts does goto('/') before each spec starts;
 // the spec body afterward only clicks the UI, **so goto appears in that one place across the whole e2e suite**.
 const BASE_URL = process.env['BASE_URL'] ?? 'http://localhost:38127';
 

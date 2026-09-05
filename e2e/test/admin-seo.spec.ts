@@ -71,7 +71,7 @@ test.describe('admin SEO section (real backend)', () => {
   test('the canonical host is a read-only mirror with an edit link to the real editor',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'seo');
-      // The og:description mirror is gone: the homepage is a custom page now, so og:description
+      // The og:description mirror is gone: the homepage is a microsite now, so og:description
       // no longer mirrors a built-in "hero prose" field the owner edits here. What remains is the
       // canonical host, read-only, linking to where the public URL is actually edited — the
       // /admin/account site block (the public-URL editor moved there with the homepage rework).

@@ -1,4 +1,4 @@
-// default_homepage.go — installs the default homepage as the reserved `home` custom page at
+// default_homepage.go — installs the default homepage as the reserved `home` microsite at
 // claim, PRE-LOADED with the design-system template, so a fresh instance has a homepage ready to
 // publish. This is PRODUCTION default-content installation (like seeding the public role at
 // claim), NOT a test fixture.

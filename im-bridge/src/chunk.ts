@@ -2,7 +2,7 @@
 //
 // **Why splitting is required**: Telegram caps a single message at 4096 characters,
 // Discord at 2000. The owner's corpus routinely answers in two or three thousand
-// characters (measured 2847 in this round on the custom page). Not splitting doesn't
+// characters (measured 2847 in this round on the microsite). Not splitting doesn't
 // just mean "truncated display" — the platform rejects the message outright, the
 // reader **gets nothing at all**, and the log shows only a 400.
 //

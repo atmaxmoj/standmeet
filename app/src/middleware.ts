@@ -53,7 +53,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   // The codeless homepage is served only for a plain `/` view. It must NOT be served when:
   //   - the request carries a code (fresh ?code=) or an already-issued session (SESSION_COOKIE) —
   //     that visitor gets the coded-visitor strategy (page.tsx → VisitorRoot): absorb the code,
-  //     name picker / built-in chat / attached custom page. The session lives in localStorage
+  //     name picker / built-in chat / attached microsite. The session lives in localStorage
   //     (invisible to the server); SESSION_COOKIE is the presence flag the store mirrors for this.
   //   - the request carries a question (?q=), e.g. a reader's AskAboutThis hand-off — VisitorRoot
   //     forwards a codeless question on to /gate?q=. Routing `/?q=` to the homepage would swallow it.

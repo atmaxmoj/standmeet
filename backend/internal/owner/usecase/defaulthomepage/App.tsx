@@ -1,7 +1,7 @@
-// App.tsx — the default StandMeet homepage, authored as a custom page.
+// App.tsx — the default StandMeet homepage, authored as a microsite.
 //
 // This is the seed installed as the reserved `home` page at claim. It IS the homepage now — a
-// custom page pinned to `/` — so the owner edits it like any other page.
+// microsite pinned to `/` — so the owner edits it like any other page.
 //
 // It does NOT hand-write its blocks: it COMPOSES the managed site widgets from @standmeet/sdk
 // (the central place those live). This file only decides identity prose + which widgets go where.

@@ -9,7 +9,7 @@ Diagnose **from the archive only** (error-context + backend.log + code + git his
 
 ---
 
-## Batch A — homepage redesign fallout: the new `/` is a custom page, lost several page-shell "edges" | 5
+## Batch A — homepage redesign fallout: the new `/` is a microsite, lost several page-shell "edges" | 5
 
 **Root cause (proven)**: Slice 5 deleted the built-in homepage; `/` is now served by the custom `home` page. A few things
 the old page-shell did on `/` were not carried onto the new surface: reading `?q=` and handing off to /gate, listing the
@@ -29,7 +29,7 @@ microsite deck, the shared footer, the TopBar with LocaleSwitch.
 
 ## Batch B — Slice 5 removed the `page.get/put` op, but the parity tests still call it | 2
 
-**Root cause (proven)**: backend `tool 'page.get' not found`. With the homepage now a custom page, the `page` resource keeps
+**Root cause (proven)**: backend `tool 'page.get' not found`. With the homepage now a microsite, the `page` resource keeps
 only the two outward-address ops (handle / public URL); `page.get/put/pin/…` are gone; the owner-MCP parity tests still drive them.
 
 | # | spec | fix |

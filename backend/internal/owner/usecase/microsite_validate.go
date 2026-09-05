@@ -1,4 +1,4 @@
-// microsite_validate.go — slug / path / bundle-size validation for custom pages. Split out of
+// microsite_validate.go — slug / path / bundle-size validation for microsites. Split out of
 // microsite.go to keep that file under the max-lines gate.
 
 package usecase

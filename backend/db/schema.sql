@@ -759,7 +759,7 @@ CREATE TABLE microsite_builds (
     built_at        timestamptz
 );
 
--- A custom page's own persistence namespace is NOT a table here. Each page gets its OWN Postgres
+-- A microsite's own persistence namespace is NOT a table here. Each page gets its OWN Postgres
 -- schema (page_<id>) with a generic records(collection, doc jsonb) table — the capstore pattern
 -- (internal/capabilities/capstore, KindMicrosite), same isolation as a plugin: physical schema
 -- separation (not a shared table keyed by id), created on page create, DROP SCHEMA CASCADE on page

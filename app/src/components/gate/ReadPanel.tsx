@@ -33,7 +33,7 @@ export function ReadPanel({ publicWiki, publicWritings, pages }: Props) {
 }
 
 // hasSomethingToRead —— open the door only when a codeless visitor can reach something:
-// a public wiki/writings tree, or at least one published custom page.
+// a public wiki/writings tree, or at least one published microsite.
 function hasSomethingToRead(
   publicWiki: number, publicWritings: number, pages?: readonly MicrositeLink[],
 ): boolean {
@@ -68,7 +68,7 @@ function ReadPanelBody({ publicWiki, publicWritings, pages }: Props) {
   );
 }
 
-// GatePages —— the owner's published custom pages, linked by title so a codeless visitor
+// GatePages —— the owner's published microsites, linked by title so a codeless visitor
 // can reach the curated pages too, not only the raw wiki / writings trees. Empty → nothing.
 function GatePages({ pages }: { pages?: readonly MicrositeLink[] }) {
   return pages && pages.length > 0 ? (

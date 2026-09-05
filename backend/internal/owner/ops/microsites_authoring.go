@@ -1,4 +1,4 @@
-// microsites_authoring.go —— the steps to author a custom page: create → write file →
+// microsites_authoring.go —— the steps to author a microsite: create → write file →
 // build → promote to staging → go live / roll back / delete. The builder is asynchronous,
 // so the build step returns a build_id for the caller to poll.
 
@@ -75,7 +75,7 @@ func micrositeBuildOps(deps usecase.MicrositeDeps) []fp.Op {
 			// real address is `/p/<slug>` (the instance is single-owner, the URL
 			// carries no handle). **The owner's AI only reads the description**, so a
 			// wrong address here is the address it relays to the owner.
-			Description: "Create a custom page, served at /p/<slug>.",
+			Description: "Create a microsite, served at /p/<slug>.",
 			InputSchema: pageCreateSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -134,7 +134,7 @@ func micrositeBuildOps(deps usecase.MicrositeDeps) []fp.Op {
 		},
 		{
 			ID:          "microsite.delete",
-			Description: "Delete a custom page.",
+			Description: "Delete a microsite.",
 			InputSchema: pageSlugSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),

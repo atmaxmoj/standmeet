@@ -175,7 +175,7 @@ Suspect a flaky test? `REPEAT=5`. One pass is not evidence.
 | `backend/` | Go. Domain modules, the corpus, connectors, the MCP surfaces |
 | `app/` | Next.js. The four public surfaces and the owner's admin |
 | `sdk/` | `@standmeet/sdk` — embed chat and corpus reading in your own site |
-| `builder/` | Sandboxed build of owner-written custom pages |
+| `builder/` | Sandboxed build of owner-written microsites |
 | `im-bridge/` | Talk to the owner's AI from a chat app, on an access code |
 | `mcp-servers/` | Capability plugins, linked into the backend |
 | `infra/` | Deployment: the image-based compose (`infra/deploy/`), updater, plugin manifests, lint tooling |
