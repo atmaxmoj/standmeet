@@ -32,6 +32,18 @@
 [extend]
 useDefault = true
 
+# ── Rules the default set misses ─────────────────────────────────────────────────────────
+# gitleaks' default ruleset has no pattern for a Google OAuth **client secret** (GOCSPX-…).
+# That gap is why `make secrets` reported clean while a real GOCSPX- secret sat in a tracked
+# aria-snapshot dump (connectors3.yml) and shipped to the public repo — GitHub's push
+# protection, which does have a Google partner pattern, is what finally caught it. This rule
+# closes the gap so the local gate catches the same class before a push ever leaves.
+[[rules]]
+id = "google-oauth-client-secret"
+description = "Google OAuth client secret (GOCSPX- prefix)"
+regex = '''GOCSPX-[A-Za-z0-9_-]{20,}'''
+keywords = ["gocspx-"]
+
 [[allowlists]]
 description = """
 cryptobox test constant. The literal says what it is, and the AES key it derives exists only \

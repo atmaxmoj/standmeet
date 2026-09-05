@@ -56,6 +56,15 @@ mock-stack/llm-gateway/llm-gateway
 /demo-*.png
 /wiki-*.png
 
+# Browser-driving aria snapshots dumped at repo root (Playwright/read_page output).
+# These captured live connector credentials (a Google OAuth client secret + a bearer
+# token) into tracked files and shipped them to the public repo — see the scrub in
+# git history. Ignore every root-level .yml except the ones that are real config, so
+# the next dump can never be `git add`-ed by accident. (Root only; subdir .yml unaffected.)
+/*.yml
+!/docker-compose*.yml
+!/lefthook.yml
+
 # Test outputs
 test-results/
 playwright-report/
