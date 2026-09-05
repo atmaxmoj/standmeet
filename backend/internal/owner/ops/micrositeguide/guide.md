@@ -28,8 +28,8 @@ Type:
 ## Widgets — prefer these, don't hand-write the blocks
 
 There is ONE managed set of site widgets. Compose them; do not re-implement a chat, a corpus
-browser, or a nav by hand. `import { CorpusWidget, AgentWidget, GateWidget, PageNavWidget } from
-'@standmeet/sdk'`:
+browser, or a nav by hand. `import { CorpusWidget, AgentWidget, GateWidget, PageNavWidget,
+AssetWidget } from '@standmeet/sdk'`:
 
 - `<CorpusWidget heading? limit? />` — every published corpus entry as a card; clicking one opens
   the note **inline** (no navigation), with a quiet "read in full ↗" to the reader.
@@ -38,6 +38,10 @@ browser, or a nav by hand. `import { CorpusWidget, AgentWidget, GateWidget, Page
   code's dock buttons all inherited — nothing to wire). Just drop it in.
 - `<GateWidget label? sublabel? />` — the access CTA (enter a code / bring a key / request access).
 - `<PageNavWidget exclude? heading? />` — links to the owner's other published pages.
+- `<AssetWidget asset="standmeet-asset:<id>" alt? download? />` — embed one asset from the owner's
+  pool by id (an image, or a download link with `download="file.pdf"`). Pass the id exactly as
+  `standmeet-asset:<id>`; that records the page as using the asset, so it can't be deleted from the
+  pool while this page embeds it.
 
 ## Lower-level pieces (only if a widget doesn't fit)
 

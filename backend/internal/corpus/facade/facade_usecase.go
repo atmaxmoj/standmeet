@@ -102,6 +102,7 @@ var (
 	// lang-labels take priority).
 	I18nLabel                      = i18n.Label
 	GrepBody                       = usecase.GrepBody
+	RebuildMicrositeAssetRefs      = usecase.RebuildMicrositeAssetRefs
 	ResolveByName                  = usecase.ResolveByName
 	ResolveWikiNodeID              = usecase.ResolveWikiNodeID
 	RewriteCrossLinksForRender     = usecase.RewriteCrossLinksForRender

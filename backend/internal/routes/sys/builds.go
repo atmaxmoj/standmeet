@@ -13,6 +13,7 @@
 package sys
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,7 +36,16 @@ type BuilderDeps struct {
 	Pages *owner.MicrositeRepo
 	// Notifier —— wakes the owner panel's preview long-poll the moment a build settles.
 	Notifier *buildnotify.Notifier
+	// RebuildAssetRefs —— recompute this microsite's pool-asset references from its built source,
+	// so the delete guard protects a pooled asset a live page embeds (via the SDK AssetWidget).
+	// Injected from the corpus side (it owns the asset repo); nil-safe, best-effort.
+	RebuildAssetRefs AssetRefRebuilder
 }
+
+// AssetRefRebuilder —— recomputes a microsite's pool-asset references from its built source.
+type AssetRefRebuilder func(
+	ctx context.Context, ownerID, micrositeID string, sources map[string]string,
+) error
 
 // MountBuilds mounts /internal/builds/* —— the caller has already added the /internal
 // prefix.
@@ -154,14 +164,41 @@ func markBuilt(r *http.Request, deps BuilderDeps, id string, req *patchBuildRequ
 	if err != nil {
 		return fmt.Errorf("mark built: %w", err)
 	}
-	// Auto-go-live the reserved home page the moment its build finishes (A Slice 5). Any other
-	// build is a no-op inside. Its failure must not fail the builder's report — the build IS built.
+	runPostBuiltHooks(r, deps, &built)
+	return nil
+}
+
+// runPostBuiltHooks —— the side effects of a settled build. Both are best-effort: the build IS
+// built, so a hook failure must not fail the builder's report (it's logged, not returned).
+//   - auto-go-live the reserved home page the moment its build finishes (any other build is a
+//     no-op inside);
+//   - recompute the microsite's pool-asset references from the just-built source.
+func runPostBuiltHooks(r *http.Request, deps BuilderDeps, built *owner.MicrositeBuild) {
 	if aerr := owner.AutopublishHomepageOnBuilt(
-		r.Context(), owner.MicrositeDeps{Pages: deps.Pages, Builds: deps.Builds}, &built, deps.Log,
+		r.Context(), owner.MicrositeDeps{Pages: deps.Pages, Builds: deps.Builds}, built, deps.Log,
 	); aerr != nil {
 		deps.Log.Error("homepage auto-publish on built", "err", aerr)
 	}
-	return nil
+	if rerr := rebuildMicrositeAssetRefs(
+		r.Context(), deps, built.PageID, built.SourceFiles,
+	); rerr != nil {
+		deps.Log.Error("microsite asset refs on built", "err", rerr)
+	}
+}
+
+// rebuildMicrositeAssetRefs —— resolve the build's page → owner, then recompute its asset
+// references from the built source (via the injected corpus-side rebuilder). No-op if none wired.
+func rebuildMicrositeAssetRefs(
+	ctx context.Context, deps BuilderDeps, pageID string, sources map[string]string,
+) error {
+	if deps.RebuildAssetRefs == nil {
+		return nil
+	}
+	page, err := deps.Pages.GetByID(ctx, pageID)
+	if err != nil {
+		return fmt.Errorf("load page for asset refs: %w", err)
+	}
+	return deps.RebuildAssetRefs(ctx, page.OwnerID, pageID, sources)
 }
 
 func markFailed(r *http.Request, deps BuilderDeps, id string, req *patchBuildRequest) error {

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
+	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
@@ -23,10 +24,56 @@ import (
 
 func buildPublicMicrositeDeps(d *deps.Runtime) publicroutes.MicrositeHandlers {
 	return publicroutes.MicrositeHandlers{
-		Deps:       owner.MicrositeDeps{Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo},
-		Owners:     d.OwnerRepo,
-		Log:        d.Log,
+		Deps:   owner.MicrositeDeps{Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo},
+		Owners: d.OwnerRepo,
+		Log:    d.Log,
+		ResolvePublicAsset: func(ctx context.Context, id string) (string, bool) {
+			return resolvePublicMicrositeAsset(ctx, d, id)
+		},
 		BuildsRoot: d.BuildsRoot,
+	}
+}
+
+// resolvePublicMicrositeAsset —— the ACL + presign for GET /api/v1/assets/{id}. Composition root,
+// so it may know the domain (the public face only gets this closure). Returns a presigned blob URL
+// and true iff a microsite references the asset; any miss (not referenced / gone / presign failure)
+// is ("", false), which the handler renders as a plain 404.
+func resolvePublicMicrositeAsset(ctx context.Context, d *deps.Runtime, id string) (string, bool) {
+	if !micrositeReferencesAsset(ctx, d, id) {
+		return "", false
+	}
+	asset, err := d.AssetRepo.GetByID(ctx, id)
+	if err != nil {
+		return "", false
+	}
+	url, perr := d.StorageClient.PresignedGetURL(ctx, asset.StorageKey)
+	if perr != nil {
+		return "", false
+	}
+	return url, true
+}
+
+func micrositeReferencesAsset(ctx context.Context, d *deps.Runtime, id string) bool {
+	refs, err := d.AssetRepo.ReferencesOf(ctx, id)
+	if err != nil {
+		return false
+	}
+	for i := range refs {
+		if refs[i].Kind == corpus.RefKindMicrosite {
+			return true
+		}
+	}
+	return false
+}
+
+// micrositeAssetRefRebuilder —— the corpus-side closure the build lifecycle calls to recompute a
+// microsite's pool-asset references from its built source. Lives here so the sys layer never
+// imports the corpus package: it hands sys a plain func and closes over the asset repo.
+func micrositeAssetRefRebuilder(
+	d *deps.Runtime,
+) func(context.Context, string, string, map[string]string) error {
+	return func(ctx context.Context, ownerID, micrositeID string, sources map[string]string) error {
+		return corpus.RebuildMicrositeAssetRefs(ctx, d.AssetRepo, ownerID, micrositeID, sources)
 	}
 }
 

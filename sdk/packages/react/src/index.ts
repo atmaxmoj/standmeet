@@ -28,10 +28,10 @@ export type { AnswerTextProps } from './AnswerText.js';
 // Site widgets —— the central, managed drop-in blocks a microsite composes (corpus browser,
 // agent entry, gate CTA, nav to the owner's other pages). See src/widgets/.
 export {
-  CorpusWidget, AgentWidget, GateWidget, PageNavWidget,
+  CorpusWidget, AgentWidget, GateWidget, PageNavWidget, AssetWidget,
 } from './widgets/index.js';
 export type {
-  CorpusWidgetProps, AgentWidgetProps, GateWidgetProps, PageNavWidgetProps,
+  CorpusWidgetProps, AgentWidgetProps, GateWidgetProps, PageNavWidgetProps, AssetWidgetProps,
 } from './widgets/index.js';
 
 // agent-core React glue + browser adapters (H.10: the loop lives in the

@@ -4,15 +4,16 @@ import "github.com/atmaxmoj/standmeet/internal/corpus/entity"
 
 // Types (implemented in: entity).
 type (
-	Asset         = entity.Asset
-	NoteHero      = entity.NoteHero
-	Document      = entity.Document
-	DocumentGenre = entity.DocumentGenre
-	Output        = entity.Output
-	Raw           = entity.Raw
-	SEOSettings   = entity.SEOSettings
-	Wiki          = entity.Wiki
-	Writing       = entity.Writing
+	Asset          = entity.Asset
+	AssetReference = entity.AssetReference
+	NoteHero       = entity.NoteHero
+	Document       = entity.Document
+	DocumentGenre  = entity.DocumentGenre
+	Output         = entity.Output
+	Raw            = entity.Raw
+	SEOSettings    = entity.SEOSettings
+	Wiki           = entity.Wiki
+	Writing        = entity.Writing
 )
 
 // Constructors/functions (implemented in: entity).

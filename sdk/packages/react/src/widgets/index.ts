@@ -10,3 +10,5 @@ export { GateWidget } from './GateWidget.js';
 export type { GateWidgetProps } from './GateWidget.js';
 export { PageNavWidget } from './PageNavWidget.js';
 export type { PageNavWidgetProps } from './PageNavWidget.js';
+export { AssetWidget } from './AssetWidget.js';
+export type { AssetWidgetProps } from './AssetWidget.js';

@@ -63,7 +63,7 @@ func rebuildAssetRefs(
 		return derr
 	}
 	// Insert the cited set — InsertReference is idempotent, so already-present ones are a no-op.
-	return insertAssetRefs(ctx, assets, noteID, cited)
+	return insertRefs(ctx, assets, repo.RefKindCorpus, noteID, cited)
 }
 
 // dropStaleImageRefs —— remove references to image-kind assets this note no longer cites. Only
@@ -118,13 +118,51 @@ func RebuildWritingAssetRefs(
 	return rebuildAssetRefs(ctx, assets, ownerID, w.ID(), &hero)
 }
 
-func insertAssetRefs(
-	ctx context.Context, assets *repo.AssetRepo, noteID string, ids []string,
+func insertRefs(
+	ctx context.Context, assets *repo.AssetRepo, kind, referrerID string, ids []string,
 ) error {
 	for _, id := range ids {
-		if err := assets.InsertReference(ctx, id, repo.RefKindCorpus, noteID); err != nil {
+		if err := assets.InsertReference(ctx, id, kind, referrerID); err != nil {
 			return fmt.Errorf("reference asset: %w", err)
 		}
 	}
 	return nil
+}
+
+// RebuildMicrositeAssetRefs —— recompute which pool assets a microsite references, from its built
+// source. A microsite references an asset when its source cites standmeet-asset:<id> (via the SDK
+// AssetWidget). Recomputed on every build: replace this microsite's ('microsite', id) references
+// with exactly the owner-owned cited set, so the delete guard protects a pooled asset a live page
+// depends on. Unlike corpus, a microsite has no attachment/own-upload concept, so this is a plain
+// replace, not a diff.
+func RebuildMicrositeAssetRefs(
+	ctx context.Context, assets *repo.AssetRepo,
+	ownerID, micrositeID string, sources map[string]string,
+) error {
+	owned, err := assets.OwnedAssetIDs(ctx, ownerID, scanSourcesForAssets(sources))
+	if err != nil {
+		return fmt.Errorf("filter cited assets: %w", err)
+	}
+	const kind = repo.RefKindMicrosite
+	if derr := assets.DeleteReferencesByReferrer(ctx, kind, micrositeID); derr != nil {
+		return fmt.Errorf("clear microsite asset refs: %w", derr)
+	}
+	return insertRefs(ctx, assets, kind, micrositeID, owned)
+}
+
+// scanSourcesForAssets —— every standmeet-asset id cited across all of a microsite's source files,
+// deduplicated. The widget embeds the id as a standmeet-asset:<uuid> token so the same scanner the
+// corpus body uses works over TSX/JSX source too.
+func scanSourcesForAssets(sources map[string]string) []string {
+	seen := make(map[string]struct{})
+	out := []string{}
+	for _, content := range sources {
+		for _, id := range ScanAssetReferences(content) {
+			if _, dup := seen[id]; !dup {
+				seen[id] = struct{}{}
+				out = append(out, id)
+			}
+		}
+	}
+	return out
 }

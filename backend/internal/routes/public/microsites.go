@@ -12,6 +12,7 @@
 package public
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,16 +38,23 @@ const logErr = "err"
 
 // MicrositeHandlers —— dependencies for the visitor microsite asset route.
 type MicrositeHandlers struct {
-	Deps       owner.MicrositeDeps
-	Owners     owner.SoleOwnerLookup
-	Log        *slog.Logger
-	BuildsRoot string
+	Deps   owner.MicrositeDeps
+	Owners owner.SoleOwnerLookup
+	Log    *slog.Logger
+	// ResolvePublicAsset —— backs the pool-asset serve route (a microsite embeds a pool asset via
+	// the SDK AssetWidget; see microsite_assets.go). Closes over the domain at the composition root
+	// (the face never touches a repo): given an asset id, it returns a presigned blob URL and true
+	// iff the asset is publicly servable (a microsite references it), else ("", false).
+	ResolvePublicAsset func(ctx context.Context, id string) (string, bool)
+	BuildsRoot         string
 }
 
 // Mount wires /microsites/{slug}/* onto /api/v1. The owner is a sole owner, so the
 // URL carries no handle.
 func (h *MicrositeHandlers) Mount(r chi.Router) {
 	r.Get("/microsites", h.listLive())
+	// A pool asset a microsite embeds (served same-origin; gated to microsite-referenced assets).
+	r.Get("/assets/{id}", h.servePoolAsset())
 	r.Get("/microsites/{slug}", h.serveAsset())
 	r.Get("/microsites/{slug}/*", h.serveAsset())
 	// homepage —— the reserved `home` page served at the site root (BaseHref "/"). The app
