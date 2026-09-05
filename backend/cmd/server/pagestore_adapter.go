@@ -82,9 +82,14 @@ func (p *pageDocStore) DeleteByID(ctx context.Context, pageID, collection, recor
 	return err
 }
 
-// missingSchema — the page has no schema yet (never written): Postgres 3F000 invalid_schema_name.
-// Reads treat it as "empty", so an unwritten page reads back nothing instead of erroring.
+// missingSchema — the page has no store yet (never written). Postgres reports this two ways
+// depending on the statement: 3F000 invalid_schema_name (the page_<id> schema is absent) or 42P01
+// undefined_table (a SELECT names page_<id>.records, and Postgres reports the whole relation
+// missing). Reads treat either as "empty", so an unwritten page reads back nothing, never a 500.
 func missingSchema(err error) bool {
 	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "3F000"
+	if !errors.As(err, &pgErr) {
+		return false
+	}
+	return pgErr.Code == "3F000" || pgErr.Code == "42P01"
 }

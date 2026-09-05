@@ -118,6 +118,17 @@ var (
 		},
 		"required":["slug","allow_byoai"]
 	}`)
+
+	pageStoreWritableSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"slug":{"type":"string"},
+			"store_writable":{"type":"boolean",
+				"description":
+				"Whether visitors may write this page's data store. Off by default."}
+		},
+		"required":["slug","store_writable"]
+	}`)
 )
 
 // customPageOut / buildOut —— outbound shape (same for both faces).
@@ -270,12 +281,14 @@ type pageArgs struct {
 	// given" from "explicitly given as false"; a bare bool would read both as off
 	// (same family as the [[lesson-not-swept-to-neighbours]] lesson).
 	// Ordered first per fieldalignment (pointers before others).
-	AllowByoai *bool  `json:"allow_byoai"`
-	Slug       string `json:"slug"`
-	Title      string `json:"title"`
-	Path       string `json:"path"`
-	Content    string `json:"content"`
-	BuildID    string `json:"build_id"`
+	AllowByoai *bool `json:"allow_byoai"`
+	// StoreWritable —— set_store_writable's argument. A pointer for the same reason as AllowByoai.
+	StoreWritable *bool  `json:"store_writable"`
+	Slug          string `json:"slug"`
+	Title         string `json:"title"`
+	Path          string `json:"path"`
+	Content       string `json:"content"`
+	BuildID       string `json:"build_id"`
 }
 
 func decodePageArgs(raw json.RawMessage) (pageArgs, error) {

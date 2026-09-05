@@ -71,6 +71,7 @@ var pageStoreDisplay = []struct {
 		"this page's store is full", http.StatusTooManyRequests,
 	},
 	{owner.ErrPageStoreInvalid, "bad_request", "invalid submission", http.StatusBadRequest},
+	{owner.ErrCustomPageNotFound, "not_found", "no such page", http.StatusNotFound},
 }
 
 // mapPageStoreErr — translate the store usecase's sentinels into display errors (the composition

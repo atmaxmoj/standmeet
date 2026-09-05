@@ -31,7 +31,40 @@ func customPageSettingOps(deps usecase.CustomPageDeps) []fp.Op {
 			Reach:       fp.OwnerAction(),
 			Invoke:      setCustomPageByoai(deps),
 		},
+		{
+			ID: "custom_page.set_store_writable",
+			Description: "Open or close this page's data store to visitor writes. Off by " +
+				"default: a page has no write surface until you open it. Reads are unaffected.",
+			InputSchema: pageStoreWritableSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      setCustomPageStoreWritable(deps),
+		},
 	}
+}
+
+// setCustomPageStoreWritable —— toggle whether visitors may write this page's data store (model C).
+func setCustomPageStoreWritable(deps usecase.CustomPageDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := decodePageSlug(raw)
+		if perr != nil {
+			return nil, perr
+		}
+		if in.StoreWritable == nil {
+			return nil, fp.BadInput("store_writable is required")
+		}
+		err := usecase.OwnerSetWritable(ctx, deps, ownerID, in.Slug, *in.StoreWritable)
+		if err != nil {
+			return nil, customPageErr(err)
+		}
+		return json.Marshal(storeWritableOut{Slug: in.Slug, StoreWritable: *in.StoreWritable})
+	}
+}
+
+// storeWritableOut —— the toggle receipt.
+type storeWritableOut struct {
+	Slug          string `json:"slug"`
+	StoreWritable bool   `json:"store_writable"`
 }
 
 func customPageBuildOps(deps usecase.CustomPageDeps) []fp.Op {
