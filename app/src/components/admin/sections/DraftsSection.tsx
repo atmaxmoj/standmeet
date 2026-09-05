@@ -14,7 +14,9 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { Btn } from '@/components/admin/atoms/Btn';
 import { ResumeComposer } from '@/components/admin/ResumeComposer';
+import { NewDraftModal } from '@/components/admin/modals/NewDraftModal';
 import { DraftThumb } from '@/components/admin/sections/drafts/DraftThumb';
 import { commitDraft } from '@/lib/admin/commit-draft';
 import { useDraftDetail } from '@/lib/admin/draft-detail';
@@ -31,6 +33,7 @@ import {
 export function DraftsSection() {
   const { rows, loading, error, reload } = useAdminDrafts();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const detail = useDraftDetail(openId);
   const run = useAction();
   // onSend —— actually send. This used to be `onSend={onClose}`: the confirmation
@@ -51,6 +54,7 @@ export function DraftsSection() {
         kicker="jobs · resume drafts"
         slug="drafts"
         count={titleCount(rows.length, loading)}
+        action={<NewDraftBtn onOpen={() => setCreating(true)} />}
       />
       <Intro />
       <DraftListBody rows={rows} loading={loading} error={error} onOpen={setOpenId} />
@@ -58,8 +62,19 @@ export function DraftsSection() {
         model={detail.model} onClose={() => setOpenId(null)}
         onSend={() => { openId !== null && onSend(openId); }}
       />
+      {creating && (
+        <NewDraftModal
+          onClose={() => setCreating(false)}
+          onCreated={() => { setCreating(false); reload(); }}
+        />
+      )}
     </>
   );
+}
+
+function NewDraftBtn({ onOpen }: { onOpen: () => void }) {
+  const t = useTranslations('adminJobs');
+  return <Btn kind="solid" onClick={() => onOpen()}>{t('drafts.new')}</Btn>;
 }
 
 function ComposerHost({

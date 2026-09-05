@@ -33,7 +33,13 @@
     "regenerate": "régénérer",
     "discard": "rejeter",
     "viewApplication": "voir la demande",
-    "viewPdf": "voir le pdf"
+    "viewPdf": "voir le pdf",
+    "new": "+ nouveau brouillon",
+    "newKicker": "brouillon manuel",
+    "newTitle": "Nouveau brouillon de CV",
+    "newCompany": "entreprise",
+    "newRole": "poste",
+    "newCreate": "créer le brouillon"
   },
   "applications": {
     "searchPlaceholder": "rechercher par entreprise ou poste…",

@@ -33,7 +33,13 @@
     "regenerate": "regenerieren",
     "discard": "verwerfen",
     "viewApplication": "anwendung anzeigen",
-    "viewPdf": "pdf anzeigen"
+    "viewPdf": "pdf anzeigen",
+    "new": "+ neuer entwurf",
+    "newKicker": "manueller entwurf",
+    "newTitle": "Neuer Lebenslauf-Entwurf",
+    "newCompany": "unternehmen",
+    "newRole": "rolle",
+    "newCreate": "entwurf erstellen"
   },
   "applications": {
     "searchPlaceholder": "nach Firma oder Rolle suchen…",

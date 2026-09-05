@@ -65,6 +65,7 @@ type Deps struct {
 func Mount(r chi.Router, deps Deps) {
 	r.Route("/drafts", func(r chi.Router) {
 		r.Get("/", listDrafts(deps))
+		r.Post("/", createDraft(deps))
 		r.Get("/{id}", getDraft(deps))
 		r.Post("/{id}/commit", commitDraft(deps))
 	})

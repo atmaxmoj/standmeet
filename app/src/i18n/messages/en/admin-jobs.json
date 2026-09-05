@@ -33,7 +33,13 @@
     "regenerate": "regenerate",
     "discard": "discard",
     "viewApplication": "view application",
-    "viewPdf": "view pdf"
+    "viewPdf": "view pdf",
+    "new": "+ new draft",
+    "newKicker": "manual draft",
+    "newTitle": "New resume draft",
+    "newCompany": "company",
+    "newRole": "role",
+    "newCreate": "create draft"
   },
   "applications": {
     "searchPlaceholder": "search by company or role…",

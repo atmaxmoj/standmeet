@@ -33,7 +33,13 @@
     "regenerate": "regenerate",
     "discard": "discard",
     "viewApplication": "view application",
-    "viewPdf": "view pdf"
+    "viewPdf": "view pdf",
+    "new": "+ नया ड्राफ़्ट",
+    "newKicker": "मैनुअल ड्राफ़्ट",
+    "newTitle": "नया रिज़्यूमे ड्राफ़्ट",
+    "newCompany": "कंपनी",
+    "newRole": "भूमिका",
+    "newCreate": "ड्राफ़्ट बनाएँ"
   },
   "applications": {
     "searchPlaceholder": "कंपनी या भूमिका से खोजें…",

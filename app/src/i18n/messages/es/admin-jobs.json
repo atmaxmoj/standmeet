@@ -33,7 +33,13 @@
     "regenerate": "regenerar",
     "discard": "descartar",
     "viewApplication": "ver solicitud",
-    "viewPdf": "ver pdf"
+    "viewPdf": "ver pdf",
+    "new": "+ nuevo borrador",
+    "newKicker": "borrador manual",
+    "newTitle": "Nuevo borrador de CV",
+    "newCompany": "empresa",
+    "newRole": "puesto",
+    "newCreate": "crear borrador"
   },
   "applications": {
     "searchPlaceholder": "buscar por empresa o puesto…",

@@ -25,6 +25,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	authmw "github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
+	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 )
 
 // draftView — a single draft in the list. **Carries resume_content**: the
@@ -52,6 +53,65 @@ func listDrafts(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeDraftsList(deps.Log, w, drafts)
+	}
+}
+
+// createDraftReq — the panel's "new draft" form. Only company is required;
+// role/URL/JD are optional context.
+type createDraftReq struct {
+	Company string `json:"company"`
+	Role    string `json:"role"`
+	JobURL  string `json:"job_url"`
+	JobText string `json:"job_text"`
+}
+
+func createDraft(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := authmw.OwnerIDFrom(r.Context())
+		var req createDraftReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSONErr(deps.Log, w, apierr.Envelope{
+				Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid body",
+			})
+			return
+		}
+		out, err := jobsuc.CreateManualDraft(
+			r.Context(), jobsuc.ResumeDeps{Drafts: deps.Drafts}, ownerID,
+			jobsuc.ManualDraftInput{
+				Company: req.Company, Role: req.Role, JobURL: req.JobURL, JobText: req.JobText,
+			},
+		)
+		if err != nil {
+			handleCreateDraftErr(deps.Log, w, err)
+			return
+		}
+		writeCreatedDraft(deps.Log, w, &out.Draft)
+	}
+}
+
+func handleCreateDraftErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	if errors.Is(err, apierr.ErrEmptyField) {
+		writeJSONErr(log, w, apierr.Envelope{
+			Status: http.StatusBadRequest, Code: "bad_request", Message: "company is required",
+		})
+		return
+	}
+	log.Error("create manual draft", logErrKey, err)
+	writeServerErr(log, w)
+}
+
+func writeCreatedDraft(
+	log *slog.Logger, w http.ResponseWriter, draft *jobsmodel.ResumeDraft,
+) {
+	view := draftView{
+		ID: draft.ID, Company: draft.JobSnapshot.Company,
+		Role: draft.JobSnapshot.Title, ForJob: draft.JobCacheID,
+		UpdatedAt: draft.CreatedAt, ResumeContent: draft.ResumeContent,
+	}
+	w.Header().Set(ctHeader, ctJSON)
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(view); err != nil {
+		log.Error("encode created draft", logErrKey, err)
 	}
 }
 

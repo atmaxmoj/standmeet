@@ -70,6 +70,67 @@ func DraftResume(
 	return DraftedResume{Draft: draft}, nil
 }
 
+// ManualDraftInput — the owner starts a draft by hand from the panel, with no
+// cached job behind it. Company is required; the rest are optional.
+type ManualDraftInput struct {
+	Company string
+	Role    string
+	JobURL  string
+	JobText string
+}
+
+// CreateManualDraft — the panel's "new draft" button. No Redis job to snapshot,
+// so the snapshot is built straight from what the owner typed; resume_content is
+// carried over from their most recent draft, so a second application starts from
+// the first rather than blank.
+// ponytail: carry-over is from prior drafts only, not sent applications — the
+// first-ever manual draft opens empty. Fold applications in if owners ask.
+func CreateManualDraft(
+	ctx context.Context, deps ResumeDeps, ownerID string, in ManualDraftInput,
+) (DraftedResume, error) {
+	if ownerID == "" || in.Company == "" {
+		return DraftedResume{}, apierr.ErrEmptyField
+	}
+	content, err := seedResumeContent(ctx, deps, ownerID)
+	if err != nil {
+		return DraftedResume{}, err
+	}
+	draft, err := deps.Drafts.Create(ctx, &jobsmodel.CreateResumeDraftInput{
+		OwnerID:    ownerID,
+		JobCacheID: "",
+		JobSnapshot: jobsmodel.FetchedJob{
+			Company: in.Company, Title: in.Role, URL: in.JobURL, BodyText: in.JobText,
+		},
+		ResumeContent: content,
+	})
+	if err != nil {
+		return DraftedResume{}, fmt.Errorf("create manual draft: %w", err)
+	}
+	return DraftedResume{Draft: draft}, nil
+}
+
+// seedResumeContent — carry the owner's most recent draft content into a fresh
+// manual draft (ListByOwner is created_at DESC, so [0] is newest); empty if none.
+func seedResumeContent(
+	ctx context.Context, deps ResumeDeps, ownerID string,
+) (jobsmodel.ResumeContent, error) {
+	prior, err := deps.Drafts.ListByOwner(ctx, ownerID)
+	if err != nil {
+		return jobsmodel.ResumeContent{}, fmt.Errorf("list prior drafts: %w", err)
+	}
+	if len(prior) > 0 {
+		return prior[0].ResumeContent, nil
+	}
+	// Empty content, but with initialized slices: a nil slice marshals to JSON
+	// null, and the reader's schema takes an array (default([]) fills undefined,
+	// not null), so nil would fail the parse and the card would never render.
+	return jobsmodel.ResumeContent{
+		Works:      []jobsmodel.ResumeWork{},
+		Educations: []jobsmodel.ResumeEducation{},
+		Skills:     []jobsmodel.ResumeSkillSet{},
+	}, nil
+}
+
 // UpdateResumeDraft — Claude calls resume.update_draft to adjust content.
 // job_snapshot stays fixed (it was frozen at draft creation).
 func UpdateResumeDraft(

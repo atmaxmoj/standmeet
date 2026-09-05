@@ -33,7 +33,13 @@
     "regenerate": "regenerate",
     "discard": "discard",
     "viewApplication": "view application",
-    "viewPdf": "view pdf"
+    "viewPdf": "view pdf",
+    "new": "+ 新規ドラフト",
+    "newKicker": "手動ドラフト",
+    "newTitle": "新しい履歴書ドラフト",
+    "newCompany": "会社",
+    "newRole": "役割",
+    "newCreate": "ドラフトを作成"
   },
   "applications": {
     "searchPlaceholder": "会社名や職種で検索…",

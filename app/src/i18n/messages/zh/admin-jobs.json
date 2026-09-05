@@ -33,7 +33,13 @@
     "regenerate": "重新生成",
     "discard": "丢弃",
     "viewApplication": "查看申请",
-    "viewPdf": "查看 pdf"
+    "viewPdf": "查看 pdf",
+    "new": "+ 新建草稿",
+    "newKicker": "手动草稿",
+    "newTitle": "新建简历草稿",
+    "newCompany": "公司",
+    "newRole": "职位",
+    "newCreate": "创建草稿"
   },
   "applications": {
     "searchPlaceholder": "按公司或职位搜索…",

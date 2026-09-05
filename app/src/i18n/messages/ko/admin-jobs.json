@@ -33,7 +33,13 @@
     "regenerate": "regenerate",
     "discard": "discard",
     "viewApplication": "view application",
-    "viewPdf": "view pdf"
+    "viewPdf": "view pdf",
+    "new": "+ 새 초안",
+    "newKicker": "수동 초안",
+    "newTitle": "새 이력서 초안",
+    "newCompany": "회사",
+    "newRole": "직무",
+    "newCreate": "초안 만들기"
   },
   "applications": {
     "searchPlaceholder": "회사 또는 직무로 검색…",
