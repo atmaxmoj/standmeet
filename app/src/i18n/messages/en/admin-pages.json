@@ -146,5 +146,24 @@
     "previewLabel": "preview · latest successful build",
     "previewNoBuild": "Nothing built yet. Ask your AI to write and build this page.",
     "buildNone": "no build"
+  },
+  "assets": {
+    "intro": "Every image and file you've uploaded, shared across your corpus and microsites. An asset still used by an entry or a page can't be deleted — remove it there first; the failed delete names what's using it.",
+    "error": "couldn't load your assets — reload to try again.",
+    "empty": "No assets yet. Add one from the corpus editor or a microsite's asset widget.",
+    "delete": "delete",
+    "deleted": "asset deleted"
+  },
+  "data": {
+    "slugPath": "/p/{slug}",
+    "intro": "Each microsite has its own data store visitors can write into — a poll tally, a sign-up sheet. Open one to see what it holds, delete a document, or clear the store.",
+    "empty": "No microsites yet — a data store appears once you create a page.",
+    "error": "couldn't load your microsites — reload to try again.",
+    "storeError": "couldn't load this store.",
+    "storeEmpty": "This store is empty.",
+    "clear": "clear store",
+    "cleared": "store cleared",
+    "delete": "delete",
+    "docDeleted": "document deleted"
   }
 }

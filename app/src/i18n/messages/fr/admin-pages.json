@@ -146,5 +146,24 @@
     "previewLabel": "aperçu · dernière construction réussie",
     "previewNoBuild": "Rien n'a été construit pour l'instant. Demandez à votre IA de rédiger et construire cette page.",
     "buildNone": "aucune construction"
+  },
+  "assets": {
+    "intro": "Toutes les images et fichiers que vous avez importés, partagés entre votre corpus et vos microsites. Un asset encore utilisé par une entrée ou une page ne peut pas être supprimé : retirez-le d'abord là-bas ; la suppression échouée indique ce qui l'utilise.",
+    "error": "impossible de charger vos assets — rechargez pour réessayer.",
+    "empty": "Aucun asset pour l'instant. Ajoutez-en un depuis l'éditeur du corpus ou le widget asset d'une microsite.",
+    "delete": "supprimer",
+    "deleted": "asset supprimé"
+  },
+  "data": {
+    "slugPath": "/p/{slug}",
+    "intro": "Chaque microsite a son propre stockage de données dans lequel les visiteurs peuvent écrire — un décompte de sondage, une feuille d'inscription. Ouvrez-en un pour voir son contenu, supprimer un document ou vider le stockage.",
+    "empty": "Aucune microsite pour l'instant — un stockage de données apparaît dès que vous créez une page.",
+    "error": "impossible de charger vos microsites — rechargez pour réessayer.",
+    "storeError": "impossible de charger ce stockage.",
+    "storeEmpty": "Ce stockage est vide.",
+    "clear": "vider le stockage",
+    "cleared": "stockage vidé",
+    "delete": "supprimer",
+    "docDeleted": "document supprimé"
   }
 }

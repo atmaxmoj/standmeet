@@ -128,6 +128,40 @@ func (q *Queries) DeleteAssetReferencesByReferrer(ctx context.Context, arg Delet
 	return err
 }
 
+const filterOwnedAssetIDs = `-- name: FilterOwnedAssetIDs :many
+SELECT id FROM assets
+WHERE owner_id = $1 AND id = ANY($2::uuid[])
+`
+
+type FilterOwnedAssetIDsParams struct {
+	OwnerID pgtype.UUID
+	Ids     []pgtype.UUID
+}
+
+// Of the given ids, which are real pool assets this owner owns. The
+// reference-recompute-on-save uses it to keep asset_references honest: a body may
+// cite a deleted id or another owner's id, and neither should get a reference (nor
+// break the save). Only owner-owned, existing ids come back.
+func (q *Queries) FilterOwnedAssetIDs(ctx context.Context, arg FilterOwnedAssetIDsParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, filterOwnedAssetIDs, arg.OwnerID, arg.Ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAssetByID = `-- name: GetAssetByID :one
 SELECT id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
 WHERE id = $1

@@ -106,13 +106,23 @@ func WikiMetaPathTitleIndex(
 	return out
 }
 
-// RebuildNoteRefs — after a note write (promote/create/update), rebuild this note's outgoing
-// edges: extract `[[Title]]` from the body → resolve by title to an id in any genre of the
-// owner's corpus (**cross-genre**: wiki can reference output/subjectivity) → rewrite note_refs
-// (the wiki_refs table already FKs corpus_notes, src/dst can be any genre). Even with no `[[]]`
-// the old edges must still be cleared. The edge table is a derived index; it need not share a
-// transaction with the write.
+// RebuildNoteRefs — after a note write (promote/create/update), rebuild this note's **derived
+// indexes**: its crosslink edges AND its asset references. Both are recomputed from the note's
+// content on every save (a derived index need not share the write transaction), so every one of
+// the note-write sites gets both by calling this one hook — a new site can't forget one of them.
 func RebuildNoteRefs(
+	ctx context.Context, deps Deps, ownerID, srcID, body string,
+) error {
+	if err := rebuildCrossLinks(ctx, deps, ownerID, srcID, body); err != nil {
+		return err
+	}
+	return RebuildNoteAssetRefs(ctx, deps, ownerID, srcID)
+}
+
+// rebuildCrossLinks — the `[[Title]]` half: extract from the body → resolve by title to an id in
+// any genre of the owner's corpus (**cross-genre**: wiki can reference output/subjectivity) →
+// rewrite note_refs (src/dst can be any genre). Even with no `[[]]` the old edges are cleared.
+func rebuildCrossLinks(
 	ctx context.Context, deps Deps, ownerID, srcID, body string,
 ) error {
 	if !HasCrossLinks(body) {

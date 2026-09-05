@@ -298,7 +298,11 @@ func SetNoteHero(
 	if serr := deps.Hero.Set(ctx, ownerID, noteID, &cur); serr != nil {
 		return fmt.Errorf("write hero: %w", serr)
 	}
-	return nil
+	// The cover is part of a note's asset references, and it changes without a body write, so
+	// recompute here too — otherwise setting a cover to a pool asset never references it (the
+	// guard wouldn't protect it), and clearing a cover never frees it. cur carries the new cover
+	// + the current body, so this recomputes the full set (body ∪ cover) in one pass.
+	return rebuildAssetRefs(ctx, deps.Assets.Repo, ownerID, noteID, &cur)
 }
 
 // HeroPatch —— which hero fields to change this time. nil = leave alone (not "clear").

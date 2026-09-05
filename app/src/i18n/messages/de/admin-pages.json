@@ -146,5 +146,24 @@
     "previewLabel": "vorschau · letzter erfolgreicher build",
     "previewNoBuild": "Noch nichts gebaut. Bitten Sie Ihre KI diese Seite zu schreiben und zu bauen.",
     "buildNone": "kein build"
+  },
+  "assets": {
+    "intro": "Alle Bilder und Dateien, die du hochgeladen hast – gemeinsam von Korpus und Microsites genutzt. Ein Asset, das noch von einem Eintrag oder einer Seite verwendet wird, kann nicht gelöscht werden – entferne es dort zuerst; der fehlgeschlagene Löschversuch nennt, was es verwendet.",
+    "error": "Assets konnten nicht geladen werden – lade neu, um es erneut zu versuchen.",
+    "empty": "Noch keine Assets. Füge eines im Korpus-Editor oder über das Asset-Widget einer Microsite hinzu.",
+    "delete": "löschen",
+    "deleted": "Asset gelöscht"
+  },
+  "data": {
+    "slugPath": "/p/{slug}",
+    "intro": "Jede Microsite hat einen eigenen Datenspeicher, in den Besucher schreiben können – eine Umfrage, eine Anmeldeliste. Öffne einen, um den Inhalt zu sehen, ein Dokument zu löschen oder den Speicher zu leeren.",
+    "empty": "Noch keine Microsites – ein Datenspeicher erscheint, sobald du eine Seite erstellst.",
+    "error": "Microsites konnten nicht geladen werden – lade neu, um es erneut zu versuchen.",
+    "storeError": "Dieser Speicher konnte nicht geladen werden.",
+    "storeEmpty": "Dieser Speicher ist leer.",
+    "clear": "Speicher leeren",
+    "cleared": "Speicher geleert",
+    "delete": "löschen",
+    "docDeleted": "Dokument gelöscht"
   }
 }

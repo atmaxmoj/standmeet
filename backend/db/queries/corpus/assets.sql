@@ -53,6 +53,14 @@ WHERE asset_id = $1;
 DELETE FROM asset_references
 WHERE asset_id = $1 AND referrer_kind = $2 AND referrer_id = $3;
 
+-- name: FilterOwnedAssetIDs :many
+-- Of the given ids, which are real pool assets this owner owns. The
+-- reference-recompute-on-save uses it to keep asset_references honest: a body may
+-- cite a deleted id or another owner's id, and neither should get a reference (nor
+-- break the save). Only owner-owned, existing ids come back.
+SELECT id FROM assets
+WHERE owner_id = @owner_id AND id = ANY(@ids::uuid[]);
+
 -- name: ListAssetsByReferrer :many
 -- The assets one referrer (a note / microsite) references — the "files on this
 -- entry" view, now expressed as references rather than holder ownership.

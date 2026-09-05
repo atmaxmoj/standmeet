@@ -73,11 +73,25 @@ A note/microsite's references are **not** hand-maintained per action — they ar
 the single rule that makes reuse work and keeps references honest:
 
 - **A corpus entry references** the assets its body cites (`standmeet-asset:<id>`)
-  plus its cover (`cover_image_asset_id`). On every create/update, in the write tx:
-  delete all `('corpus', note_id)` references, then insert one per asset-id in that
-  computed set. So editing an image out of the body **auto-frees** its reference
-  (#3), and citing the same pool asset from a second entry **creates** a second
-  reference (#1) — true reuse, with the guard counting both.
+  plus its cover (`cover_image_asset_id`). On every create/update the reference set is
+  recomputed from that content (`RebuildNoteAssetRefs`). So editing an image out of the
+  body **auto-frees** its reference (#3), and citing the same pool asset from a second
+  entry **creates** a second reference (#1) — true reuse, with the guard counting both.
+
+  The recompute is a **diff over content-driven references**, not a blanket
+  delete-and-reinsert, because two kinds of reference are *not* content-driven and must
+  survive an unrelated save:
+  - **Attachments** (a PDF in the download area, `kind='attachment'`) are attached to the
+    entry and listed there, never cited in the body — referenced by attach, freed by
+    explicit detach (`DeleteNoteAsset`).
+  - **An entry's own uploads** (`holder_id == note_id`) stay attached to the entry that
+    created them whether or not its body/cover cites them — that's the per-entry asset
+    panel's working set. Only an image **reused from the pool** (`holder ≠ note`) is
+    purely content-driven: cited in → referenced, cited out → freed.
+
+  So the recompute drops only the note's references to *reused* pool images it no longer
+  cites, and inserts the currently-cited set (idempotent). Attachments and the entry's own
+  uploads are left untouched.
 - **A microsite references** the assets its built source uses (the asset widget),
   recomputed the same way on build/publish, `referrer_kind = 'microsite'`.
 - **Uploading is pool-first.** Adding a *new* asset just puts it in the pool

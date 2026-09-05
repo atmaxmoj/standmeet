@@ -16,7 +16,7 @@ export type AdminSlug =
   | 'connectors' | 'microsites' | 'api-mcp' | 'account'
   | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system'
-  | 'preview' | 'obsidian' | 'embeds'
+  | 'preview' | 'obsidian' | 'embeds' | 'assets' | 'data'
   | 'roles' | 'prompts' | 'ip-bans';
 
 export interface SectionDef {
@@ -56,16 +56,23 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { slug: 'roles', label: 'roles' },
       { slug: 'prompts', label: 'prompts' },
       { slug: 'requests', label: 'requests', badgeTestId: 'badge-requests' },
-      // microsites belongs under access, not corpus: it isn't a layer of
-      // the corpus, it's **where a visitor lands**. A microsite can be
-      // bound to a code (microsite-code-binding), and its neighbors are
-      // codes and preview, not raw/wiki/output.
-      { slug: 'microsites', label: 'microsites' },
       // embeds belongs under access: an embed exposes a code as a
       // <standmeet-chat> widget on someone else's site, and its neighbors
-      // are codes (the code it's attached to) and microsites, not the corpus.
+      // are codes (the code it's attached to), not the corpus.
       { slug: 'embeds', label: 'embeds' },
       { slug: 'preview', label: 'preview' },
+    ],
+  },
+  {
+    // resources —— the things an owner hosts on the instance: their microsites
+    // (pages a visitor lands on), the global asset pool those pages + corpus draw
+    // from, and the per-microsite data stores. microsites moved here from access:
+    // it's a hosted resource, and its neighbors are now its assets + data.
+    label: 'resources',
+    items: [
+      { slug: 'microsites', label: 'microsites' },
+      { slug: 'assets', label: 'assets' },
+      { slug: 'data', label: 'data' },
     ],
   },
   {

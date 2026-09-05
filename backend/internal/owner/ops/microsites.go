@@ -26,7 +26,8 @@ import (
 // Microsites —— list + authoring (create / write file / build / check build / promote to
 // staging / go live / roll back / delete).
 func Microsites(deps usecase.MicrositeDeps) []fp.Op {
-	return append(micrositeReadOps(deps), micrositeAuthoringOps(deps)...)
+	ops := append(micrositeReadOps(deps), micrositeAuthoringOps(deps)...)
+	return append(ops, micrositeStoreOps(deps)...)
 }
 
 // ⚠️ There used to be an `authoringOnMCP()` entry here:

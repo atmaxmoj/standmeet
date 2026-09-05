@@ -110,6 +110,15 @@ func (h *Handlers) mountMicrositeItem(r chi.Router, face *dispatcher.Face) {
 			h.dispatchOp(face, "microsite.set_byoai", bodyWithURLParam("slug"), jsonOK))
 		r.Put("/store-writable",
 			h.dispatchOp(face, "microsite.set_store_writable", bodyWithURLParam("slug"), jsonOK))
+		// store — the owner's management view of this page's data store: read every doc,
+		// delete one by (collection, record_id), or clear the whole store.
+		r.Get("/store",
+			h.dispatchOp(face, "microsite.store_docs", urlParamArgs("slug"), jsonOK))
+		r.Delete("/store",
+			h.dispatchOp(face, "microsite.store_clear", urlParamArgs("slug"), jsonOK))
+		r.Delete("/store/{collection}/{record_id}",
+			h.dispatchOp(face, "microsite.store_delete_doc",
+				bodyWithURLParam("slug", "collection", "record_id"), jsonOK))
 		r.Post("/staging",
 			h.dispatchOp(face, "microsite.promote_to_staging", bodyWithURLParam("slug"), jsonOK))
 		r.Post("/live",

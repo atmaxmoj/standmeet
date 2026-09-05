@@ -4,10 +4,10 @@
 // stores a stable URI instead, resolved to a presigned URL at API response time. That way owner
 // edits and re-saves never break a link.
 //
-// Reference integrity does not rely on scanning: every asset row hangs off some holder via
-// holder_id, and the holder's CRUD usecase maintains the assets row + storage blob in the same
-// transaction. So this file **only** exposes pure string helpers — "parse the URI" / "extract the
-// ID" — the scan/GC/orphan concept is deprecated.
+// Reference integrity is now content-derived (docs/design/global-assets.md): a note references
+// exactly the pool assets its content cites, recomputed from the body + cover on every save
+// (see note_asset_refs.go). This file exposes the scan — "extract every standmeet-asset id from a
+// body" — that the recompute and the URL-resolve paths both build on.
 
 package usecase
 

@@ -146,5 +146,24 @@
     "previewLabel": "vista previa · última construcción exitosa",
     "previewNoBuild": "Aún nada construido. Pida a su IA que escriba y construya esta página.",
     "buildNone": "sin construcción"
+  },
+  "assets": {
+    "intro": "Todas las imágenes y archivos que has subido, compartidos entre tu corpus y tus microsites. Un recurso que aún usa una entrada o una página no se puede eliminar: quítalo allí primero; el borrado fallido indica qué lo usa.",
+    "error": "no se pudieron cargar tus recursos: recarga para intentarlo de nuevo.",
+    "empty": "Aún no hay recursos. Añade uno desde el editor del corpus o el widget de recurso de una microsite.",
+    "delete": "eliminar",
+    "deleted": "recurso eliminado"
+  },
+  "data": {
+    "slugPath": "/p/{slug}",
+    "intro": "Cada microsite tiene su propio almacén de datos en el que los visitantes pueden escribir: un recuento de votos, una hoja de inscripción. Abre uno para ver su contenido, eliminar un documento o vaciar el almacén.",
+    "empty": "Aún no hay microsites: un almacén de datos aparece cuando creas una página.",
+    "error": "no se pudieron cargar tus microsites: recarga para intentarlo de nuevo.",
+    "storeError": "no se pudo cargar este almacén.",
+    "storeEmpty": "Este almacén está vacío.",
+    "clear": "vaciar almacén",
+    "cleared": "almacén vaciado",
+    "delete": "eliminar",
+    "docDeleted": "documento eliminado"
   }
 }

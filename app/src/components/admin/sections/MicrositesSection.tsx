@@ -44,7 +44,7 @@ export function MicrositesSection() {
         // nav item only changed the nav; this page's own line stayed put, so the same
         // thing belonged to two different groups ([[vocabulary-must-not-diverge]]).
         // Only visible on a real-prod eyeball check.
-        kicker="access · microsites"
+        kicker="resources · microsites"
         slug="microsites"
         count={hook.rows.length > 0 ? String(hook.rows.length) : ''}
       />

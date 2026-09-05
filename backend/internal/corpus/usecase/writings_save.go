@@ -136,7 +136,10 @@ func uploadAndCompensate(
 ) error {
 	done, uerr := UploadBlobs(ctx, deps.Assets, c.Prepared)
 	if uerr == nil {
-		return nil
+		// Blobs are up and the writing is committed: recompute its asset references from the saved
+		// content (body + cover) — the same content-authoritative rule as corpus notes. Post-commit
+		// so the pool sees the asset rows this save inserted; an image no longer cited is freed.
+		return RebuildWritingAssetRefs(ctx, deps.Assets.Repo, ownerID, &c.Writing)
 	}
 	DeleteBlobs(ctx, deps.Assets, done)
 	// A failed orphan-row cleanup can't be swallowed: the writing row would point at a

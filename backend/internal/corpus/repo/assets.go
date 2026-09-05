@@ -11,7 +11,6 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
@@ -121,141 +120,8 @@ func (r *AssetRepo) GetByID(ctx context.Context, assetID string) (entity.Asset, 
 	return toDomainAsset(&row), nil
 }
 
-// ── references ──────────────────────────────────────────────────────────────
-
-// InsertReferenceTx —— record that a referrer uses an asset (idempotent). Inside a tx
-// so it commits with the referrer's own row.
-func (*AssetRepo) InsertReferenceTx(
-	ctx context.Context, tx db.DBTX, assetID, refKind, referrerID string,
-) error {
-	ids, perr := parseRefIDs(assetID, referrerID)
-	if perr != nil {
-		return perr
-	}
-	err := db.New(tx).InsertAssetReference(ctx, db.InsertAssetReferenceParams{
-		AssetID: ids.asset, ReferrerKind: refKind, ReferrerID: ids.referrer,
-	})
-	if err != nil {
-		return fmt.Errorf("insert asset reference: %w", err)
-	}
-	return nil
-}
-
-// InsertReference —— pool variant (no tx context): record a use of an asset.
-func (r *AssetRepo) InsertReference(
-	ctx context.Context, assetID, refKind, referrerID string,
-) error {
-	return r.InsertReferenceTx(ctx, r.pool, assetID, refKind, referrerID)
-}
-
-// DeleteReferencesByReferrerTx —— drop every reference a referrer holds (on its delete,
-// or as the first half of a rewrite). Assets survive in the pool.
-func (*AssetRepo) DeleteReferencesByReferrerTx(
-	ctx context.Context, tx db.DBTX, refKind, referrerID string,
-) error {
-	referrerUUID, perr := pgstore.ParseUUID(referrerID)
-	if perr != nil {
-		return fmt.Errorf(errParseReferrerID, perr)
-	}
-	err := db.New(tx).DeleteAssetReferencesByReferrer(ctx, db.DeleteAssetReferencesByReferrerParams{
-		ReferrerKind: refKind, ReferrerID: referrerUUID,
-	})
-	if err != nil {
-		return fmt.Errorf("delete asset references by referrer: %w", err)
-	}
-	return nil
-}
-
-// DeleteReferencesByReferrer —— pool variant (no tx context).
-func (r *AssetRepo) DeleteReferencesByReferrer(
-	ctx context.Context, refKind, referrerID string,
-) error {
-	return r.DeleteReferencesByReferrerTx(ctx, r.pool, refKind, referrerID)
-}
-
-// DeleteReference —— drop one specific (asset, referrer) reference (a note stops using
-// one image). The asset survives.
-func (r *AssetRepo) DeleteReference(
-	ctx context.Context, assetID, refKind, referrerID string,
-) error {
-	ids, perr := parseRefIDs(assetID, referrerID)
-	if perr != nil {
-		return perr
-	}
-	err := db.New(r.pool).DeleteAssetReference(ctx, db.DeleteAssetReferenceParams{
-		AssetID: ids.asset, ReferrerKind: refKind, ReferrerID: ids.referrer,
-	})
-	if err != nil {
-		return fmt.Errorf("delete asset reference: %w", err)
-	}
-	return nil
-}
-
-// CountReferences —— how many referrers use this asset (the delete guard's gate).
-func (r *AssetRepo) CountReferences(ctx context.Context, assetID string) (int64, error) {
-	assetUUID, perr := pgstore.ParseUUID(assetID)
-	if perr != nil {
-		return 0, fmt.Errorf(errParseAssetID, perr)
-	}
-	n, err := db.New(r.pool).CountAssetReferences(ctx, assetUUID)
-	if err != nil {
-		return 0, fmt.Errorf("count asset references: %w", err)
-	}
-	return n, nil
-}
-
-// ReferencesOf —— who references this asset (feeds the "used by …" message).
-func (r *AssetRepo) ReferencesOf(
-	ctx context.Context, assetID string,
-) ([]entity.AssetReference, error) {
-	assetUUID, perr := pgstore.ParseUUID(assetID)
-	if perr != nil {
-		return nil, fmt.Errorf(errParseAssetID, perr)
-	}
-	rows, err := db.New(r.pool).ListAssetReferencesByAsset(ctx, assetUUID)
-	if err != nil {
-		return nil, fmt.Errorf("list asset references: %w", err)
-	}
-	out := make([]entity.AssetReference, 0, len(rows))
-	for i := range rows {
-		out = append(out, entity.AssetReference{
-			Kind: rows[i].ReferrerKind, ReferrerID: pgstore.FormatUUID(rows[i].ReferrerID),
-		})
-	}
-	return out, nil
-}
-
-// ── listing ─────────────────────────────────────────────────────────────────
-
-// ListByReferrer —— the assets one referrer uses (the "files on this entry" view).
-func (r *AssetRepo) ListByReferrer(
-	ctx context.Context, refKind, referrerID string,
-) ([]entity.Asset, error) {
-	return listByReferrerUsing(ctx, r.pool, refKind, referrerID)
-}
-
-// ListByReferrerTx —— same, inside a tx (diffing during an update).
-func (*AssetRepo) ListByReferrerTx(
-	ctx context.Context, tx db.DBTX, refKind, referrerID string,
-) ([]entity.Asset, error) {
-	return listByReferrerUsing(ctx, tx, refKind, referrerID)
-}
-
-func listByReferrerUsing(
-	ctx context.Context, dbtx db.DBTX, refKind, referrerID string,
-) ([]entity.Asset, error) {
-	referrerUUID, perr := pgstore.ParseUUID(referrerID)
-	if perr != nil {
-		return nil, fmt.Errorf(errParseReferrerID, perr)
-	}
-	rows, err := db.New(dbtx).ListAssetsByReferrer(ctx, db.ListAssetsByReferrerParams{
-		ReferrerKind: refKind, ReferrerID: referrerUUID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("list assets by referrer: %w", err)
-	}
-	return mapAssets(rows), nil
-}
+// The asset_references junction (record / clear / count / list-by-referrer / owner-filter) lives
+// in asset_references.go — this file is the pool CRUD.
 
 // ListByOwner —— the whole pool for one owner (the Assets manager).
 func (r *AssetRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.Asset, error) {
@@ -295,22 +161,6 @@ func (r *AssetRepo) DeleteByID(
 		return "", fmt.Errorf("delete asset: %w", err)
 	}
 	return key, nil
-}
-
-// refIDs — a parsed (asset, referrer) id pair (one return value, dodging the
-// result-limit).
-type refIDs struct{ asset, referrer pgtype.UUID }
-
-func parseRefIDs(assetID, referrerID string) (refIDs, error) {
-	asset, err := pgstore.ParseUUID(assetID)
-	if err != nil {
-		return refIDs{}, fmt.Errorf(errParseAssetID, err)
-	}
-	referrer, err := pgstore.ParseUUID(referrerID)
-	if err != nil {
-		return refIDs{}, fmt.Errorf(errParseReferrerID, err)
-	}
-	return refIDs{asset: asset, referrer: referrer}, nil
 }
 
 func mapAssets(rows []db.Asset) []entity.Asset {

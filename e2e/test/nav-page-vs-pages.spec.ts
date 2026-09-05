@@ -32,6 +32,8 @@ const NAV_ENTRIES: readonly { slug: string; label: string }[] = [
   { slug: 'writings', label: 'writings' },
   { slug: 'output', label: 'outputs' },
   { slug: 'microsites', label: 'microsites' },
+  { slug: 'assets', label: 'assets' },
+  { slug: 'data', label: 'data' },
   { slug: 'conversations', label: 'conversations' },
   { slug: 'codes', label: 'codes' },
   { slug: 'roles', label: 'roles' },
