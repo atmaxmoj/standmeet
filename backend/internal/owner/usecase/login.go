@@ -20,10 +20,13 @@ type LoginDeps struct {
 	Sessions *session.OwnerSessionStore
 }
 
-// LoginInput is the input to Login.
+// LoginInput is the input to Login. ClientIP + UserAgent are captured from the
+// HTTP request so the active-sessions panel can show where each login came from.
 type LoginInput struct {
-	Email    string
-	Password string
+	Email     string
+	Password  string
+	ClientIP  string
+	UserAgent string
 }
 
 // LoginOutput returns the plaintext session token + csrf token; the handler uses these
@@ -47,7 +50,7 @@ func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, er
 	if err != nil {
 		return LoginOutput{}, err
 	}
-	issued, err := deps.Sessions.Issue(ctx, creds.OwnerID)
+	issued, err := deps.Sessions.Issue(ctx, creds.OwnerID, in.ClientIP, in.UserAgent)
 	if err != nil {
 		return LoginOutput{}, fmt.Errorf("issue session: %w", err)
 	}

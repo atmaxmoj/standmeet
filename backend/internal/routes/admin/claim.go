@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
@@ -88,6 +89,7 @@ type Handlers struct {
 func (h *Handlers) MountAuthed(r chi.Router, credGuard func(http.Handler) http.Handler) {
 	h.MountMe(r)
 	r.Post("/me/logout", h.logout())
+	h.MountSessions(r)
 	r.Get("/csrf", h.csrfEndpoint())
 	r.Route("/keypairs", func(r chi.Router) { h.MountKeypairs(r) })
 	r.Route("/codes", func(r chi.Router) { h.MountCodes(r) })
@@ -233,6 +235,7 @@ func (h *Handlers) runClaimAndAutoLogin(
 	h.installHomepageForOwner(r.Context(), claimed.ID)
 	loggedIn, lerr := owner.Login(r.Context(), h.Auth.Login, &owner.LoginInput{
 		Email: req.Email, Password: req.Password,
+		ClientIP: middleware.ClientAddr(r.Context()), UserAgent: r.UserAgent(),
 	})
 	if lerr != nil {
 		h.Log.Error("auto-login after claim failed", "err", lerr)

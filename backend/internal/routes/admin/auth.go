@@ -57,6 +57,7 @@ func (h *Handlers) login() http.HandlerFunc {
 		}
 		out, err := owner.Login(r.Context(), h.Auth.Login, &owner.LoginInput{
 			Email: req.Email, Password: req.Password,
+			ClientIP: middleware.ClientAddr(r.Context()), UserAgent: r.UserAgent(),
 		})
 		if err != nil {
 			handleLoginErr(h.Log, w, err)

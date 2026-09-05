@@ -132,7 +132,9 @@ func issueRecovered(
 	if cerr := deps.Owners.ClearRecoveryHash(ctx, creds.OwnerID); cerr != nil {
 		return RecoverOutput{}, fmt.Errorf("clear recovery: %w", cerr)
 	}
-	issued, ierr := deps.Sessions.Issue(ctx, creds.OwnerID)
+	// Recovery is a rare emergency path; the IP/UA aren't threaded here, so this
+	// session shows as an unknown device in the panel until its next use.
+	issued, ierr := deps.Sessions.Issue(ctx, creds.OwnerID, "", "")
 	if ierr != nil {
 		return RecoverOutput{}, fmt.Errorf("issue recovered session: %w", ierr)
 	}

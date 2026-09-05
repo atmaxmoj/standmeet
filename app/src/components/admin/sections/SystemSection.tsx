@@ -13,6 +13,7 @@ import { ListPane } from '@/components/admin/ListPane';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { InferenceUsagePanel } from '@/components/admin/sections/system/InferenceUsagePanel';
 import { SandboxPanel } from '@/components/admin/sections/system/SandboxPanel';
+import { SessionsPanel } from '@/components/admin/sections/system/SessionsPanel';
 import { UpgradePanel } from '@/components/admin/sections/system/UpgradePanel';
 import { useScheduledJobs, jobRowViews } from '@/lib/admin/use-jobs';
 import {
@@ -34,6 +35,7 @@ export function SystemSection() {
         <DeploymentBlock info={info} />
         <ResourcesBlock info={info} />
         <ClusterBlock info={info} status={status} />
+        <SessionsPanel />
         <JobsTable />
         <HealthChecks info={info} />
         <InferenceUsagePanel />
