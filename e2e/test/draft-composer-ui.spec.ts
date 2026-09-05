@@ -33,9 +33,11 @@ test.describe('resume composer · owner edits it from the browser and they persi
     await page.getByTestId(`draft-open-${draftID}`).first().click();
     await expect(page.getByTestId('resume-composer')).toBeVisible({ timeout: 15_000 });
 
-    // the fake match gauge is gone; the preview is the real Typst iframe
+    // the fake match gauge is gone; the preview is a real Typst render (not the old client mock).
     await expect(page.getByTestId('composer-match-num'), 'the fake match gauge is removed')
       .toHaveCount(0);
+    // The preview defaults to the live WASM render; the PDF view still shows the authoritative iframe.
+    await page.getByTestId('composer-preview-view-pdf').click();
     await expect(page.getByTestId('composer-preview-frame'), 'a real PDF preview iframe').toBeVisible();
 
     // add a social profile (the panel was un-fillable before — no add button)
@@ -69,11 +71,12 @@ test.describe('resume composer · owner edits it from the browser and they persi
       .toHaveValue('Languages');
 
     // The code picker is a visible composer panel (not buried in the send modal) — the owner can
-    // find + choose it before sending.
+    // find it before sending. It selects from EXISTING codes only; this fresh owner has none yet, so
+    // it shows the create-one hint rather than minting a code from here.
     await page.getByTestId('composer-panel-code').click();
     await expect(page.getByTestId('composer-code-picker'), 'the code picker is a visible panel')
       .toBeVisible();
-    await expect(page.getByTestId('composer-code-new'), 'issue-a-new-code is the default option')
+    await expect(page.getByTestId('composer-code-empty'), 'no codes yet → a create-one hint')
       .toBeVisible();
   });
 });

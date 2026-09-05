@@ -33,7 +33,8 @@
     "fallback": "qr…"
   },
   "previewPane": {
-    "fileName": "vista previa · {name}"
+    "fileName": "vista previa · {name}",
+    "rendering": "renderizando…"
   },
   "application": {
     "idLabel": "solicitud · {id}",
@@ -105,6 +106,7 @@
     "codeHeading": "el QR del currículum abre un chat vinculado a un código",
     "codeNew": "emitir un nuevo código de acceso",
     "codeExisting": "reutilizar un código existente",
+    "codeNone": "aún no hay códigos de acceso — crea uno en Códigos",
     "freezeAndSend": "congelar + enviar",
     "confirmTitle": "¿Enviar este borrador a {company}?",
     "confirmBody": "El envío congelará la instantánea de currículum + carta de presentación, representará el PDF final (con QR) y escribirá una fila de solicitud. El AccessCode emitido automáticamente será 180 días, 10 sesiones, 50 turnos.",

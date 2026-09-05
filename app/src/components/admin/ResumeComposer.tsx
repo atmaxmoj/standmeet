@@ -16,6 +16,7 @@ import { useTranslations } from 'next-intl';
 import { ComposerPanel } from '@/components/admin/composer/ComposerPanels';
 import { PreviewPane } from '@/components/admin/composer/PreviewPane';
 import {
+  draftToAPIContent,
   patchCustom,
   patchEducation,
   patchExperience,
@@ -29,7 +30,8 @@ import {
 } from '@/lib/admin/draft-model';
 import { fetchTemplates } from '@/lib/admin/save-draft';
 import { useDraftAutosave, type SaveStatus } from '@/lib/admin/use-draft-autosave';
-import { useCodes, type CodeView } from '@/lib/admin/use-codes';
+import { useComposerCode } from '@/lib/admin/use-composer-code';
+import type { CodeView } from '@/lib/admin/use-codes';
 import { SelectField } from '@/components/atoms/SelectField';
 import type { CodeChoice } from '@/lib/admin/commit-draft';
 
@@ -44,10 +46,16 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
   const [panel, setPanel] = useState<string>('header');
   const [confirm, setConfirm] = useState(false);
   const [templates, setTemplates] = useState<string[]>([]);
-  // The code choice lives here (not in the send modal) so it's a visible, persistent composer
-  // panel — the owner sees + picks it before send, instead of it being hidden until the confirm.
-  const [codeChoice, setCodeChoice] = useState<CodeChoice>({ mode: 'new', codeId: '' });
+  // The code the résumé's QR carries — always a REAL existing code (public or invited), never minted
+  // here, never a placeholder. useComposerCode defaults it to the first existing code + derives the
+  // QR URL, so the live preview shows the same code the send will use.
+  const { activeCodes, codeId, setCodeId, selectedCode, qrURL } = useComposerCode();
   const { status, version } = useDraftAutosave(model);
+  // The live WASM preview compiles this directly (no autosave round-trip); it's the exact data.json
+  // the server feeds typst, so what the owner sees matches the committed PDF. Computed inline (no
+  // useMemo — the presentation layer bans it): an unchanged model yields an === string, so the
+  // preview's effect doesn't refire.
+  const dataJSON = JSON.stringify(draftToAPIContent(model));
 
   useEffect(() => { fetchTemplates().then(setTemplates).catch(() => setTemplates([])); }, []);
 
@@ -80,20 +88,22 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
           panel={panel} onPanel={setPanel} model={model}
           onPatch={onPatch} onPatchExp={onPatchExp} onPatchEdu={onPatchEdu}
           onPatchSoc={onPatchSoc} onPatchCus={onPatchCus}
-          codeChoice={codeChoice} onCodeChoice={setCodeChoice}
+          codes={activeCodes} codeId={codeId} onCode={setCodeId}
         />
         <PreviewPane
           draftID={model.id} template={model.template} version={version}
           templates={templates} fileName={fileNameFor(model)}
           onTemplate={(tp) => onPatch({ template: tp })}
+          dataJSON={dataJSON} role={model.role} company={model.company}
+          qrURL={qrURL}
         />
       </div>
       {confirm && (
         <ConfirmModal
           model={model}
-          choice={codeChoice}
+          code={selectedCode}
           onCancel={() => setConfirm(false)}
-          onSend={() => { onSend(codeChoice); setConfirm(false); }}
+          onSend={() => { onSend({ mode: 'existing', codeId }); setConfirm(false); }}
         />
       )}
     </div>
@@ -177,7 +187,7 @@ function ComposerActions({
   );
 }
 
-function EditorPane(props: {
+interface EditorProps {
   panel: string;
   onPanel: (p: string) => void;
   model: DraftModel;
@@ -186,9 +196,12 @@ function EditorPane(props: {
   onPatchEdu: (id: string, p: Partial<DraftEducation>) => void;
   onPatchSoc: (id: string, p: Partial<DraftSocial>) => void;
   onPatchCus: (id: string, p: Partial<DraftCustom>) => void;
-  codeChoice: CodeChoice;
-  onCodeChoice: (c: CodeChoice) => void;
-}) {
+  codes: readonly CodeView[];
+  codeId: string;
+  onCode: (id: string) => void;
+}
+
+function EditorPane(props: EditorProps) {
   return (
     <div className="sm-composer-editor">
       <PanelRail panel={props.panel} onPanel={props.onPanel} />
@@ -201,19 +214,9 @@ function EditorPane(props: {
 
 // EditorBody —— the 'code' panel is the send-time invitation choice (not part of the résumé's
 // DraftModel), so it's rendered here rather than through ComposerPanel's model-shaped map.
-function EditorBody(props: {
-  panel: string;
-  model: DraftModel;
-  onPatch: (p: Partial<DraftModel>) => void;
-  onPatchExp: (id: string, p: Partial<DraftExperience>) => void;
-  onPatchEdu: (id: string, p: Partial<DraftEducation>) => void;
-  onPatchSoc: (id: string, p: Partial<DraftSocial>) => void;
-  onPatchCus: (id: string, p: Partial<DraftCustom>) => void;
-  codeChoice: CodeChoice;
-  onCodeChoice: (c: CodeChoice) => void;
-}) {
+function EditorBody(props: EditorProps) {
   return props.panel === 'code'
-    ? <CodePicker choice={props.codeChoice} onChoice={props.onCodeChoice} />
+    ? <CodePicker codes={props.codes} codeId={props.codeId} onCode={props.onCode} />
     : (
       <ComposerPanel
         panel={props.panel}
@@ -261,8 +264,8 @@ function PanelRail({
 }
 
 function ConfirmModal({
-  model, choice, onCancel, onSend,
-}: { model: DraftModel; choice: CodeChoice; onCancel: () => void; onSend: () => void }) {
+  model, code, onCancel, onSend,
+}: { model: DraftModel; code: CodeView | undefined; onCancel: () => void; onSend: () => void }) {
   const t = useTranslations('adminShell.composer');
   return (
     <div className="sm-fadein sm-composer-confirm-overlay" onClick={onCancel}>
@@ -277,9 +280,10 @@ function ConfirmModal({
         <p className="sm-reading text-(--color-muted) text-[14.5px] mt-2">
           {t('confirmBody')}
         </p>
-        {/* The code is picked in the composer's `code` panel; here we only confirm which one. */}
+        {/* The code is picked in the composer's `code` panel; here we only confirm which one — the
+            real code the QR carries, so the owner sees exactly what the recruiter will scan. */}
         <p className="mono text-[11px] text-(--color-muted) mt-3" data-testid="composer-confirm-code">
-          {choice.mode === 'existing' ? t('codeExisting') : t('codeNew')}
+          {code ? `${code.label} · ${code.code}` : t('codeNone')}
         </p>
         <div className="flex items-center justify-end gap-3 mt-5">
           <button type="button" onClick={onCancel} className="sm-btn sm-btn-ghost">
@@ -298,70 +302,36 @@ function ConfirmModal({
   );
 }
 
-// CodePicker —— the résumé's QR is a live-chat invitation; this makes that connection explicit and
-// lets the owner choose WHICH code it carries: a fresh one (default), or an existing active code.
+// CodePicker —— the résumé's QR is a live-chat invitation. The owner chooses WHICH existing code it
+// carries (public or invited); the picker never mints a code, so the QR is always a real one. The
+// selection drives the live preview's QR + footer URL, so what's on screen is what the recruiter
+// scans. An instance with no codes yet points the owner to create one.
 function CodePicker({
-  choice, onChoice,
-}: { choice: CodeChoice; onChoice: (c: CodeChoice) => void }) {
+  codes, codeId, onCode,
+}: { codes: readonly CodeView[]; codeId: string; onCode: (id: string) => void }) {
   const t = useTranslations('adminShell.composer');
-  const { codes } = useCodes();
-  const active = codes.filter((c) => c.status === 'active');
   return (
     <div className="mt-4 border-t border-(--color-rule) pt-3" data-testid="composer-code-picker">
       <div className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) mb-2">
         {t('codeHeading')}
       </div>
-      <div className="flex flex-col gap-2">
-        <CodeModeButton
-          label={t('codeNew')} active={choice.mode === 'new'}
-          testid="composer-code-new" onClick={() => onChoice({ mode: 'new', codeId: '' })}
-        />
-        <CodeExistingRow choice={choice} active={active} onChoice={onChoice} />
-      </div>
+      {codes.length === 0
+        ? (
+          <p className="mono text-[11px] text-(--color-muted)" data-testid="composer-code-empty">
+            {t('codeNone')}
+          </p>
+        )
+        : (
+          <SelectField
+            testid="composer-code-select"
+            aria-label="access code"
+            value={codeId}
+            onChange={(e) => onCode(e.target.value)}
+            mono
+          >
+            {codes.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.code}</option>)}
+          </SelectField>
+        )}
     </div>
-  );
-}
-
-function CodeExistingRow({
-  choice, active, onChoice,
-}: { choice: CodeChoice; active: readonly CodeView[]; onChoice: (c: CodeChoice) => void }) {
-  const t = useTranslations('adminShell.composer');
-  return active.length === 0 ? null : (
-    <div className="flex items-center gap-2">
-      <CodeModeButton
-        label={t('codeExisting')} active={choice.mode === 'existing'}
-        testid="composer-code-existing"
-        onClick={() => onChoice({ mode: 'existing', codeId: active[0]?.id ?? '' })}
-      />
-      {choice.mode === 'existing' ? (
-        <SelectField
-          testid="composer-code-existing-select"
-          aria-label="existing code"
-          value={choice.codeId}
-          onChange={(e) => onChoice({ mode: 'existing', codeId: e.target.value })}
-          mono
-        >
-          {active.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.code}</option>)}
-        </SelectField>
-      ) : null}
-    </div>
-  );
-}
-
-function CodeModeButton({
-  label, active, testid, onClick,
-}: { label: string; active: boolean; testid: string; onClick: () => void }) {
-  return (
-    <button
-      type="button" onClick={onClick} data-testid={testid}
-      className={`mono text-[11px] tracking-[0.06em] text-left px-3 py-2 border rounded-[3px] ${
-        active
-          ? 'border-(--color-accent) text-(--color-ink)'
-          : 'border-(--color-rule) text-(--color-muted) hover:text-(--color-ink)'
-      }`}
-      aria-pressed={active}
-    >
-      {label}
-    </button>
   );
 }

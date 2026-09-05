@@ -33,7 +33,8 @@
     "fallback": "qr…"
   },
   "previewPane": {
-    "fileName": "aperçu · {name}"
+    "fileName": "aperçu · {name}",
+    "rendering": "rendu…"
   },
   "application": {
     "idLabel": "candidature · {id}",
@@ -105,6 +106,7 @@
     "codeHeading": "le QR du CV ouvre un chat lié à un code",
     "codeNew": "émettre un nouveau code d'accès",
     "codeExisting": "réutiliser un code existant",
+    "codeNone": "aucun code d'accès — créez-en un dans Codes",
     "freezeAndSend": "geler + envoyer",
     "confirmTitle": "Envoyer ce brouillon à {company} ?",
     "confirmBody": "L'envoi gèlera l'instantané de CV + lettre de motivation, rendra le PDF final (avec QR), et écrira une ligne de candidature. Le CodeAccès auto-émis sera 180 jours, 10 sessions, 50 tours.",

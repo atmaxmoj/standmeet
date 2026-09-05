@@ -44,6 +44,10 @@ app/public/tikz-fonts/
 # embed bundle, copied out of sdk/packages/embed by app/scripts/copy-embed-bundle.mjs
 # on every dev/build. 由本实例自己发（/embed.js），不入库 —— 产物跟着 sdk 源码走。
 app/public/embed.js
+
+# typst.ts WASM + résumé .typ templates, copied out of node_modules + backend by
+# app/scripts/copy-typst-assets.mjs on every dev/build (the compiler wasm is 28 MB). Generated.
+app/public/typst/
 # Go local-build binaries (when running `go build ./cmd/...` outside docker)
 backend/standmeet
 backend/server

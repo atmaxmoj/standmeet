@@ -25,3 +25,11 @@ export function fetchTemplates(): Promise<string[]> {
 export function previewURL(draftID: string, version: number): string {
   return `/api/admin/drafts/${draftID}/preview.pdf?v=${version}`;
 }
+
+// resumeQRURL —— the address the résumé's QR encodes for a chosen access code: the owner's public
+// URL with the code in the query (mirrors the backend's buildQRURL = `<public_url>?code=<plaintext>`
+// so the live preview shows the SAME address the committed PDF will carry). Empty when either part
+// is missing (no QR then).
+export function resumeQRURL(publicURL: string, code: string): string {
+  return publicURL === '' || code === '' ? '' : `${publicURL}?code=${code}`;
+}

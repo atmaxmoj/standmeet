@@ -33,7 +33,8 @@
     "fallback": "qr…"
   },
   "previewPane": {
-    "fileName": "preview · {name}"
+    "fileName": "preview · {name}",
+    "rendering": "rendering…"
   },
   "application": {
     "idLabel": "application · {id}",
@@ -105,6 +106,7 @@
     "codeHeading": "the résumé's QR opens a chat scoped to a code",
     "codeNew": "issue a new access code",
     "codeExisting": "reuse an existing code",
+    "codeNone": "no access codes yet — create one in Codes",
     "freezeAndSend": "freeze + send",
     "confirmTitle": "Send this draft to {company}?",
     "confirmBody": "Sending will freeze the resume + cover letter snapshot, render the final PDF (with QR), and write an application row. The auto-issued AccessCode will be 180 days, 10 sessions, 50 turns.",

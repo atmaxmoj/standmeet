@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/copy-tikz-fonts.mjs && node scripts/copy-embed-bundle.mjs && next dev",
-    "prebuild": "node scripts/copy-tikz-fonts.mjs && node scripts/copy-embed-bundle.mjs",
+    "dev": "node scripts/copy-tikz-fonts.mjs && node scripts/copy-embed-bundle.mjs && node scripts/copy-typst-assets.mjs && next dev",
+    "prebuild": "node scripts/copy-tikz-fonts.mjs && node scripts/copy-embed-bundle.mjs && node scripts/copy-typst-assets.mjs",
     "build": "next build",
     "start": "next start",
     "test:unit": "vitest run",
@@ -15,6 +15,9 @@
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.5",
+    "@myriaddreamin/typst-ts-renderer": "^0.7.0",
+    "@myriaddreamin/typst-ts-web-compiler": "^0.7.0",
+    "@myriaddreamin/typst.ts": "^0.7.0",
     "@standmeet/agent-core": "workspace:*",
     "@standmeet/sdk": "workspace:*",
     "@standmeet/sdk-core": "workspace:*",

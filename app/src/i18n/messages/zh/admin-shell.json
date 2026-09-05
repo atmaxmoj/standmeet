@@ -33,7 +33,8 @@
     "fallback": "二维码…"
   },
   "previewPane": {
-    "fileName": "预览 · {name}"
+    "fileName": "预览 · {name}",
+    "rendering": "渲染中…"
   },
   "application": {
     "idLabel": "申请 · {id}",
@@ -105,6 +106,7 @@
     "codeHeading": "简历上的二维码会打开一个绑定某个码的对话",
     "codeNew": "签发一个新的访问码",
     "codeExisting": "复用一个已有的码",
+    "codeNone": "还没有访问码 —— 去 Codes 里建一个",
     "freezeAndSend": "冻结 + 发送",
     "confirmTitle": "把这份草稿发送给 {company}？",
     "confirmBody": "发送会冻结简历 + 求职信快照、渲染最终 PDF（带二维码），并写入一条申请记录。自动签发的访问码将是 180 天、10 次会话、50 轮。",

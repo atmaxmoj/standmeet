@@ -15,8 +15,8 @@ authoritative (server `typst` binary) but the editing is form-only.
 `@myriaddreamin/typst.ts` / `reflexo` is Typst compiled to WASM: it compiles a `.typ` + data to
 SVG/canvas **in the browser**, instantly, no server round-trip. That's what makes drag/in-place
 feel live. The **server `typst` binary stays authoritative** for the committed PDF — WASM is the
-*preview/edit* surface only, so what commits is never WASM-only output (injection-safety + the QR
-stay server-owned; the WASM preview shows a placeholder QR exactly like the PDF preview does).
+*preview/edit* surface only, so what commits is never WASM-only output (injection-safety stays
+server-owned; the WASM preview draws the real selected code's QR client-side — see the QR invariant).
 
 ## Invariants (must not break)
 
@@ -24,7 +24,11 @@ stay server-owned; the WASM preview shows a placeholder QR exactly like the PDF 
   editor edits the *structured `ResumeContent`*, then recompiles; it never lets a field inject Typst.
 - **Server render is the source of truth.** The committed PDF is the `typst` binary's output; the
   WASM preview must render the *same* templates so WYSIWYG holds. One template set, two renderers.
-- **The QR is system-owned.** Placeholder in the WASM preview; real code only in the committed PDF.
+- **The QR carries a real, existing code.** (Owner correction 2026-09-05: "不要place holder …
+  永远真code".) The composer's code picker selects ONLY from codes that already exist (public /
+  invited) and defaults to one — it never mints a code. The live preview draws that code's real,
+  scannable QR client-side (qrcode-generator) and its real `<public_url>?code=<code>` URL, so the
+  preview shows exactly what the recruiter scans. No placeholder anywhere.
 - **What you see is what you send** — still true: edits persist (PATCH), commit renders the saved draft.
 
 ## Phased plan (each ships test-first, its own commit)
@@ -51,3 +55,48 @@ stay server-owned; the WASM preview shows a placeholder QR exactly like the PDF 
   2/3 after seeing it. Phases 2–3 are the large part; Phase 1 is a few days smaller.
 - typst.ts is an external dep whose CSP posture (self-hosted WASM, no CDN) must be verified against
   the artifact sandbox before committing to it.
+
+## Implementation contract (established 2026-09-05, Phase 1 shipped)
+
+Facts checked in the code, so the WASM path matches the server `typst` binary:
+
+- **CSP:** the Next admin app sets NO Content-Security-Policy (only Referrer-Policy + embed.js
+  CORS, next.config.ts). So browser WASM needs no `wasm-unsafe-eval` allowance, and a self-hosted
+  `.wasm` loads from the app origin. The CSP that blocks CDNs is the *microsite/artifact* sandbox —
+  the composer is not in it.
+- **Fonts:** `RESUME_FONT_PATH` defaults to `""` and the backend image does NOT install
+  Newsreader / JetBrains Mono (backend/Dockerfile) — the server renders with typst's DEFAULT fonts
+  (the template's `("Newsreader","Georgia")` / `("JetBrains Mono","Menlo")` chains fall through).
+  So the WASM preview should also use typst.ts's defaults — no font-binary loading for parity.
+  (Follow-up: install the real fonts in BOTH the backend image and the WASM VFS for nicer output +
+  true parity; out of scope for Phase 2 MVP.)
+- **Render contract** (resumepdf/render.go): the chosen template is `main.typ`; it reads
+  `json("data.json")` (the marshalled ResumeContent — `draftToAPIContent(model)` on the client),
+  and `sys.inputs.at("qr"|"role"|"company")`. The QR is a staged `qr.png` the template `image()`s
+  when the qr input is set. The WASM VFS carries: `main.typ` (= templates/<name>.typ, bundled
+  client-side), `data.json`, and a `qr.png` the client draws (qrcode-generator → canvas → PNG) for
+  the SELECTED real code, with the `qr` input set to `<public_url>?code=<code>`. role/company come
+  from the draft. (Implemented: typst-preview.ts + use-composer-code.ts.)
+- **Templates:** `classic.typ`, `compact.typ` live in backend/internal/owner/jobs/resumepdf/
+  templates/. Phase 2 bundles their text into the app (single source: a build step copies them, or
+  they're vendored) so the WASM compiles byte-identical templates.
+- **typst.ts API:** `@myriaddreamin/typst.ts` + `-ts-web-compiler` (compiler wasm) +
+  `-ts-renderer` (svg renderer wasm). Compile the mapped VFS → SVG; render SVG into the preview
+  pane. SVG carries the text, so e2e can assert the draft's text appears.
+
+### Phase 3 in-place edit — approach
+
+Map a click on the rendered SVG back to a ResumeContent field via typst introspection: annotate
+each editable region in the template with `#metadata(<field-path>)<label>` and use typst.ts `query`
+to get each label's page position + the field path. Overlay a positioned contenteditable/input on
+that box; on edit, write the field back to the DraftModel and recompile. Dragging a whole section
+on the canvas reuses the Phase-1 `reorder` on the same field arrays. This keeps content structured
+(no eval), same as the PDF path.
+
+### Test matrix (e2e, test-first)
+
+- P2-a: composer preview shows a WASM render whose SVG text contains the draft's name + company.
+- P2-b: switching the template picker re-renders (compact vs classic differ in the SVG).
+- P2-c: WASM-unavailable (init fails) → falls back to the server-PDF iframe, page still shows.
+- P3-a: click the summary on the canvas, type → the draft's summary updates + persists (reopen).
+- P3-b: drag a section on the canvas → order changes + persists (shares Phase-1 reorder).

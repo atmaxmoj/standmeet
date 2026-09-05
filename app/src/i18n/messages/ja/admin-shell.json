@@ -33,7 +33,8 @@
     "fallback": "qr…"
   },
   "previewPane": {
-    "fileName": "preview · {name}"
+    "fileName": "preview · {name}",
+    "rendering": "レンダリング中…"
   },
   "application": {
     "idLabel": "application · {id}",
@@ -105,6 +106,7 @@
     "codeHeading": "履歴書のQRはコードに紐づくチャットを開きます",
     "codeNew": "新しいアクセスコードを発行",
     "codeExisting": "既存のコードを再利用",
+    "codeNone": "アクセスコードがありません — Codes で作成してください",
     "freezeAndSend": "freeze + send",
     "confirmTitle": "Send this draft to {company}?",
     "confirmBody": "Sending will freeze the resume + cover letter snapshot, render the final PDF (with QR), and write an application row. The auto-issued AccessCode will be 180 days, 10 sessions, 50 turns.",

@@ -33,7 +33,8 @@
     "fallback": "qr…"
   },
   "previewPane": {
-    "fileName": "vorschau · {name}"
+    "fileName": "vorschau · {name}",
+    "rendering": "rendern…"
   },
   "application": {
     "idLabel": "anwendung · {id}",
@@ -105,6 +106,7 @@
     "codeHeading": "der QR des Lebenslaufs öffnet einen an einen Code gebundenen Chat",
     "codeNew": "neuen Zugangscode ausstellen",
     "codeExisting": "vorhandenen Code wiederverwenden",
+    "codeNone": "noch keine Zugangscodes — erstelle einen unter Codes",
     "freezeAndSend": "einfrieren + senden",
     "confirmTitle": "Diesen Entwurf an {company} senden?",
     "confirmBody": "Das Senden wird den Lebenslauf + Anschreiben-Snapshot einfrieren, das endgültige PDF rendern (mit QR) und eine Anwendungszeile schreiben. Der automatisch ausgegebene AccessCode wird 180 Tage, 10 Sitzungen, 50 Züge sein.",
