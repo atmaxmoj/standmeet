@@ -44,6 +44,9 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
   const [panel, setPanel] = useState<string>('header');
   const [confirm, setConfirm] = useState(false);
   const [templates, setTemplates] = useState<string[]>([]);
+  // The code choice lives here (not in the send modal) so it's a visible, persistent composer
+  // panel — the owner sees + picks it before send, instead of it being hidden until the confirm.
+  const [codeChoice, setCodeChoice] = useState<CodeChoice>({ mode: 'new', codeId: '' });
   const { status, version } = useDraftAutosave(model);
 
   useEffect(() => { fetchTemplates().then(setTemplates).catch(() => setTemplates([])); }, []);
@@ -77,6 +80,7 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
           panel={panel} onPanel={setPanel} model={model}
           onPatch={onPatch} onPatchExp={onPatchExp} onPatchEdu={onPatchEdu}
           onPatchSoc={onPatchSoc} onPatchCus={onPatchCus}
+          codeChoice={codeChoice} onCodeChoice={setCodeChoice}
         />
         <PreviewPane
           draftID={model.id} template={model.template} version={version}
@@ -87,8 +91,9 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
       {confirm && (
         <ConfirmModal
           model={model}
+          choice={codeChoice}
           onCancel={() => setConfirm(false)}
-          onSend={(choice) => { onSend(choice); setConfirm(false); }}
+          onSend={() => { onSend(codeChoice); setConfirm(false); }}
         />
       )}
     </div>
@@ -181,23 +186,45 @@ function EditorPane(props: {
   onPatchEdu: (id: string, p: Partial<DraftEducation>) => void;
   onPatchSoc: (id: string, p: Partial<DraftSocial>) => void;
   onPatchCus: (id: string, p: Partial<DraftCustom>) => void;
+  codeChoice: CodeChoice;
+  onCodeChoice: (c: CodeChoice) => void;
 }) {
   return (
     <div className="sm-composer-editor">
       <PanelRail panel={props.panel} onPanel={props.onPanel} />
       <div className="sm-composer-editor-body">
-        <ComposerPanel
-          panel={props.panel}
-          model={props.model}
-          onPatch={props.onPatch}
-          onPatchExp={props.onPatchExp}
-          onPatchEdu={props.onPatchEdu}
-          onPatchSoc={props.onPatchSoc}
-          onPatchCus={props.onPatchCus}
-        />
+        <EditorBody {...props} />
       </div>
     </div>
   );
+}
+
+// EditorBody —— the 'code' panel is the send-time invitation choice (not part of the résumé's
+// DraftModel), so it's rendered here rather than through ComposerPanel's model-shaped map.
+function EditorBody(props: {
+  panel: string;
+  model: DraftModel;
+  onPatch: (p: Partial<DraftModel>) => void;
+  onPatchExp: (id: string, p: Partial<DraftExperience>) => void;
+  onPatchEdu: (id: string, p: Partial<DraftEducation>) => void;
+  onPatchSoc: (id: string, p: Partial<DraftSocial>) => void;
+  onPatchCus: (id: string, p: Partial<DraftCustom>) => void;
+  codeChoice: CodeChoice;
+  onCodeChoice: (c: CodeChoice) => void;
+}) {
+  return props.panel === 'code'
+    ? <CodePicker choice={props.codeChoice} onChoice={props.onCodeChoice} />
+    : (
+      <ComposerPanel
+        panel={props.panel}
+        model={props.model}
+        onPatch={props.onPatch}
+        onPatchExp={props.onPatchExp}
+        onPatchEdu={props.onPatchEdu}
+        onPatchSoc={props.onPatchSoc}
+        onPatchCus={props.onPatchCus}
+      />
+    );
 }
 
 const PANELS = [
@@ -209,6 +236,9 @@ const PANELS = [
   { id: 'social', label: 'social' },
   { id: 'custom', label: 'custom' },
   { id: 'cover', label: 'cover letter' },
+  // code —— which access code the résumé's QR carries (issue new / reuse existing). A send-time
+  // choice, surfaced as a panel so it's discoverable before send, not buried in the confirm.
+  { id: 'code', label: 'code' },
 ] as const;
 
 function PanelRail({
@@ -231,10 +261,9 @@ function PanelRail({
 }
 
 function ConfirmModal({
-  model, onCancel, onSend,
-}: { model: DraftModel; onCancel: () => void; onSend: (choice: CodeChoice) => void }) {
+  model, choice, onCancel, onSend,
+}: { model: DraftModel; choice: CodeChoice; onCancel: () => void; onSend: () => void }) {
   const t = useTranslations('adminShell.composer');
-  const [choice, setChoice] = useState<CodeChoice>({ mode: 'new', codeId: '' });
   return (
     <div className="sm-fadein sm-composer-confirm-overlay" onClick={onCancel}>
       <div
@@ -248,13 +277,16 @@ function ConfirmModal({
         <p className="sm-reading text-(--color-muted) text-[14.5px] mt-2">
           {t('confirmBody')}
         </p>
-        <CodePicker choice={choice} onChoice={setChoice} />
+        {/* The code is picked in the composer's `code` panel; here we only confirm which one. */}
+        <p className="mono text-[11px] text-(--color-muted) mt-3" data-testid="composer-confirm-code">
+          {choice.mode === 'existing' ? t('codeExisting') : t('codeNew')}
+        </p>
         <div className="flex items-center justify-end gap-3 mt-5">
           <button type="button" onClick={onCancel} className="sm-btn sm-btn-ghost">
             {t('keepEditing')}
           </button>
           <button
-            type="button" onClick={() => onSend(choice)}
+            type="button" onClick={onSend}
             className="sm-btn sm-btn-accent"
             data-testid="composer-confirm-send"
           >
