@@ -45,13 +45,15 @@ export function SubjectivitySection() {
 function Header(
   { hook, actions }: { hook: SubjectivityHookT; actions: CorpusActionsHook },
 ) {
+  const tk = useTranslations('adminCorpus.kicker');
+  const tc = useTranslations('adminCorpus.count');
   const [creating, setCreating] = useState(false);
   return (
     <>
       <SectionHeader
-        kicker="corpus · self-model"
+        kicker={tk('subjectivity')}
         slug="subjectivity"
-        count={hook.state === 'list' ? `${hook.rows.length} notes` : ''}
+        count={hook.state === 'list' ? tc('notes', { n: hook.rows.length }) : ''}
         action={<NewBtn onClick={() => setCreating(true)} disabled={creating} />}
       />
       {creating ? (
@@ -82,14 +84,16 @@ function CreateForm(
   { actions, onDone }: { actions: CorpusActionsHook; onDone: () => void },
 ) {
   const toast = useToast();
+  const ta = useTranslations('adminCorpus.action');
+  const tt = useTranslations('adminCorpus.toast');
   const onSubmit = (input: CorpusEntryInput) => void runWith(
     () => actions.createSubjectivity(input),
-    () => { toast.success('Subjectivity note created'); onDone(); },
+    () => { toast.success(tt('subjectivityCreated')); onDone(); },
   );
   return (
     <CorpusEntryForm
       busy={actions.pending}
-      submitLabel="create"
+      submitLabel={ta('create')}
       testidPrefix="subjectivity-create"
       onSubmit={onSubmit}
       onCancel={onDone}
@@ -225,10 +229,12 @@ function EditForm(
   },
 ) {
   const toast = useToast();
+  const t = useTranslations('adminCorpus.common');
+  const tt = useTranslations('adminCorpus.toast');
   const detail = useSubjectivityDetail(row.id, actions);
   const onSubmit = (input: CorpusEntryInput) => void runWith(
     () => actions.updateSubjectivity(row.id, input),
-    () => { toast.success('Subjectivity note updated'); onDone(); },
+    () => { toast.success(tt('subjectivityUpdated')); onDone(); },
   );
   const prefix = `subjectivity-edit-form-${row.id}`;
   return (
@@ -244,7 +250,7 @@ function EditForm(
               cover_hue: detail.cover_hue,
             }}
             busy={actions.pending}
-            submitLabel="save"
+            submitLabel={t('save')}
             testidPrefix={prefix}
             onSubmit={onSubmit}
             onCancel={onDone}

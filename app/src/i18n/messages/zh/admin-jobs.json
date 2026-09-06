@@ -11,7 +11,14 @@
     "register": "注册 →",
     "registered": "源已注册",
     "remove": "移除",
-    "removed": "源已移除"
+    "removed": "源已移除",
+    "kicker": "工作 · 来源",
+    "titleRegistered": "{count} 个已注册",
+    "labelPlaceholder": "职位看板",
+    "stateNever": "从未拉取",
+    "stateFetched": "最近 · {date}",
+    "stateFailed": "上次尝试 · {date} · 失败 —— {reason}",
+    "stateUnknownDate": "未知"
   },
   "listings": {
     "intro": "从你已注册的源拉取的职位，保存在一个 1 天的池子里。让 Claude 拿它们与你的语料库排序，并为值得投递的职位起草简历。任何在一天内你没起草或丢弃的职位都会滑出池子。",
@@ -19,7 +26,9 @@
     "emptyTitle": "先从你的源拉取职位。",
     "emptyHint": "打开这个板块时会自动拉取职位——或点「立即拉取」。结果会在这里保留一天，直到你起草或丢弃它们。",
     "fetchNow": "立即拉取",
-    "fetching": "拉取中…"
+    "fetching": "拉取中…",
+    "kicker": "工作 · 职位列表",
+    "titleInPool": "{count} 个在池中"
   },
   "drafts": {
     "intro": "Claude 为你说 yes 的职位起草的定制简历。打开编辑器编辑并预览；<ink>发送</ink>会冻结快照、渲染最终 PDF（带二维码），并自动签发一个访问码。",
@@ -39,7 +48,10 @@
     "newTitle": "新建简历草稿",
     "newCompany": "公司",
     "newRole": "职位",
-    "newCreate": "创建草稿"
+    "newCreate": "创建草稿",
+    "kicker": "工作 · 简历草稿",
+    "titlePending": "{count} 个待处理",
+    "committed": "申请已提交 —— 简历已随访问代码发送"
   },
   "applications": {
     "searchPlaceholder": "按公司或职位搜索…",
@@ -53,7 +65,9 @@
     "open": "打开 ›",
     "metaCommitted": "提交于 {date}",
     "metaSubmitted": "递交于 {date}",
-    "metaNotSubmitted": "未记录递交"
+    "metaNotSubmitted": "未记录递交",
+    "kicker": "工作 · 已提交",
+    "titleCommitted": "{count} 个已提交"
   },
   "detail": {
     "kicker": "申请 · {id}",

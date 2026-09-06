@@ -58,7 +58,7 @@ function NameField({ name, onChange }: { name: string; onChange: (v: string) => 
         type="text"
         value={name}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="device label — e.g. 'mojat-mbp'"
+        placeholder={t('namePlaceholder')}
         data-testid="token-name"
         className="sm-field-input"
       />

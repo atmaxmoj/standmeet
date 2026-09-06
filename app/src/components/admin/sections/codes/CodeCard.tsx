@@ -27,6 +27,8 @@ type Props = {
   onRevoke: (c: CodeView) => void;
 };
 
+type Translator = ReturnType<typeof useTranslations>;
+
 // A revoked code card **must recede visually** (UX-88). This page answers "who can get in
 // right now" — and 7 of 13 cards here are already revoked. Before this change they were just
 // as visually loud as live codes: same title weight, same QR code, same quota bar, differing
@@ -114,11 +116,12 @@ function CodeCardTitle({ code }: { code: CodeView }) {
 }
 
 function StatusPill({ status }: { status: string }) {
+  const t = useTranslations('adminAccess');
   const active = status === 'active';
   const cls = active ? 'text-(--color-accent)' : 'text-(--color-faint)';
   return (
     <span className={`mono text-[10px] tracking-[0.16em] uppercase ${cls}`}>
-      {active ? '● active' : status}
+      {active ? t('codeCard.statusActive') : status}
     </span>
   );
 }
@@ -155,7 +158,7 @@ function GhostEvidenceCol({ code }: { code: CodeView }) {
   const run = useAction();
   const onPick = (v: string) => run(
     () => setGhostEvidence(code.id, ghostFromSelect(v)),
-    { success: `Ghost rule updated for ${code.code}` },
+    { success: t('codeCard.toast.ghostUpdated', { code: code.code }) },
   );
   return (
     <MetaPair label={t('codeGhost.label')}>
@@ -177,10 +180,11 @@ function GhostEvidenceCol({ code }: { code: CodeView }) {
 // PromptCol — #104: the per-code prompt attached to this code (references the prompts
 // library). Nothing attached → renders nothing.
 function PromptCol({ code }: { code: CodeView }) {
+  const t = useTranslations('adminAccess');
   const hook = usePrompts();
   const name = resolvePromptName(hook.prompts, code.prompt_id);
   return name === null ? null : (
-    <MetaPair label="prompt">
+    <MetaPair label={t('common.prompt')}>
       <a
         href="/admin/prompts"
         className="mono text-[12.5px] tracking-[0.02em] text-(--color-ink) underline decoration-(--color-accent)/35"
@@ -203,8 +207,9 @@ function namePartOrShortID(found: PromptView | undefined, promptID: string): str
 }
 
 function RoleCol({ code }: { code: CodeView }) {
+  const t = useTranslations('adminAccess');
   return (
-    <MetaPair label="role">
+    <MetaPair label={t('codeCard.roleLabel')}>
       <div className="flex flex-col gap-1">
         <RoleLink roleID={code.assumed_role_id} />
         <RoleFrozenLine />
@@ -253,8 +258,9 @@ function RoleFrozenLine() {
 }
 
 function MembersCol({ codeID, code }: { codeID: string; code: string }) {
+  const t = useTranslations('adminAccess');
   return (
-    <MetaPair label="members">
+    <MetaPair label={t('codeCard.membersLabel')}>
       <MembersBlock codeID={codeID} code={code} />
     </MetaPair>
   );
@@ -272,7 +278,7 @@ function QRCol({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeView) => 
   const t = useTranslations('adminAccess');
   const link = buildShareLink(code.code);
   return (
-    <MetaPair label="QR">
+    <MetaPair label={t('codeCard.qrLabel')}>
       <button
         type="button"
         onClick={() => onShowQR(code)}
@@ -301,7 +307,11 @@ function OpensCol({ code }: { code: CodeView }) {
   const run = useAction();
   const onPick = (slug: string) => run(
     () => setMicrosite(code.id, slug),
-    { success: `${code.code} now opens ${slug === '' ? 'the visitor chat' : `/p/${slug}`}` },
+    {
+      success: slug === ''
+        ? t('codeCard.toast.opensChat', { code: code.code })
+        : t('codeCard.toast.opensPage', { code: code.code, slug }),
+    },
   );
   return (
     // col-span-full — this cell holds **an address** (`/p/reading-room`), not a short word.
@@ -331,8 +341,8 @@ function QuotaBar({ code }: { code: CodeView }) {
   // code and a brand-new code look identical on this card, while the visitor side is
   // already blocked by member_quota_reached — neither side can see it, so no one can act on
   // it (F-D-2). The visitor header bar has always shown it this way: "1 / 5 names".
-  const sessions = usageSummary(code.member_count, code.max_members, 'names');
-  const turns = quotaSummary(code.max_turns_per_session, 'turns');
+  const sessions = usageSummary(t, code.member_count, code.max_members);
+  const turns = turnSummary(t, code.max_turns_per_session);
   const filled = fillPercent(code.member_count, code.max_members);
   return (
     <div className="col-span-full" data-testid={`code-quotas-${code.code}`}>
@@ -358,14 +368,16 @@ function QuotaBar({ code }: { code: CodeView }) {
   );
 }
 
-function quotaSummary(n: number | null | undefined, label: string): string {
-  return n && n > 0 ? `${n} ${label}` : `unlimited ${label}`;
+function turnSummary(t: Translator, n: number | null | undefined): string {
+  return n && n > 0 ? t('codeCard.turnsCapped', { n }) : t('codeCard.turnsUncapped');
 }
 
 // usageSummary — write "used / total" when there's a cap; even uncapped codes should show
 // how many joined: an unlimited code is still worth knowing the headcount for.
-function usageSummary(used: number, cap: number | null | undefined, label: string): string {
-  return cap && cap > 0 ? `${used} / ${cap} ${label}` : `${used} ${label} · unlimited`;
+function usageSummary(t: Translator, used: number, cap: number | null | undefined): string {
+  return cap && cap > 0
+    ? t('codeCard.namesCapped', { used, cap })
+    : t('codeCard.namesUncapped', { used });
 }
 
 // fillPercent — leave it empty when uncapped (any fill value would be fake); cap at 100 when
@@ -405,9 +417,10 @@ function FooterTop({ status, link, expiresAt }: {
 // "no expiry". Expiry is computed from expires_at (domain note: no separate status field),
 // so the owner can see at a glance when this code stops working.
 function ExpiryText({ iso }: { iso?: string }) {
+  const t = useTranslations('adminAccess');
   return (
     <span className="ml-2 text-(--color-muted)" data-testid="code-expiry">
-      {iso ? `· expires ${iso.slice(0, 10)}` : '· no expiry'}
+      {iso ? t('codeCard.expires', { date: iso.slice(0, 10) }) : t('codeCard.noExpiry')}
     </span>
   );
 }

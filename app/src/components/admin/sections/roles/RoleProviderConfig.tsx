@@ -24,9 +24,9 @@ export function RoleProviderConfig({ role }: { role: RoleView }) {
   const save = useCallback(
     (patch: Partial<WriteRoleInput>) => void run(
       () => roles.updateRole(role.id, roleUpdatePayload(role, patch)),
-      { success: `Provider updated for ${role.name}` },
+      { success: t('roles.toast.providerUpdated', { name: role.name }) },
     ),
-    [role, roles, run],
+    [role, roles, run, t],
   );
   return (
     <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-1 items-start mt-0.5">

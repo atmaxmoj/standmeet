@@ -110,6 +110,7 @@ function InstalledPill() {
 function InstallBtn({
   installing, onInstall,
 }: { installing: boolean; onInstall: () => void }) {
+  const t = useTranslations('adminIntegrations.marketplaceCard');
   return (
     <button
       type="button"
@@ -118,7 +119,7 @@ function InstallBtn({
       className={styles.installBtn}
       data-testid="install-btn"
     >
-      {installing ? 'installing…' : 'install ↓'}
+      {installing ? t('installing') : t('install')}
     </button>
   );
 }

@@ -28,11 +28,12 @@ type Props = {
 };
 
 export function ConvTranscriptModal({ transcript, onClose }: Props) {
+  const t = useTranslations('adminAccess');
   return (
     <ModalShell
       onClose={onClose}
-      kicker="conversation"
-      title={`transcript · ${transcript.conversationID.slice(0, 8)}`}
+      kicker={t('transcript.kicker')}
+      title={t('transcript.modalTitle', { id: transcript.conversationID.slice(0, 8) })}
       maxWidth={720}
     >
       <div className="px-7 py-6" data-testid="transcript-body">

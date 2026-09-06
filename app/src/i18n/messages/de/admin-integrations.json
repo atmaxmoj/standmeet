@@ -6,7 +6,9 @@
   "api": {
     "intro": "MCP-Schlüssel lassen KI-Clients (Claude, Cursor, benutzerdefinierte Skripte) roh Einträge in Ihren Corpus pushen, sie promovieren, Codes verwalten. Jeder Schlüssel ist ein Ed25519-Keypair — Server speichert nur die öffentliche Hälfte; Sie speichern die private PEM in <code>~/.standmeet/credentials.json</code> und der Client signiert pro Anfrage.",
     "keysHeading": "mcp schlüssel",
-    "empty": "noch keine schlüssel · generieren Sie einen um Ihren ersten KI-Client zu verbinden"
+    "empty": "noch keine schlüssel · generieren Sie einen um Ihren ersten KI-Client zu verbinden",
+    "kicker": "integrationen · programmatisch",
+    "keyCount": "{count, plural, one {# Schlüssel} other {# Schlüssel}}"
   },
   "aiProvider": {
     "heading": "eigentümer-ki",
@@ -15,7 +17,16 @@
     "endpoint": "endpunkt",
     "model": "modell",
     "apiKey": "api-schlüssel",
-    "clearKey": "schlüssel löschen ×"
+    "clearKey": "schlüssel löschen ×",
+    "keyPlaceholderSet": "● bereits gesetzt · tippen zum ersetzen",
+    "keyPlaceholderUnset": "schlüssel hier einfügen",
+    "hintReplace": "ersetzt beim Speichern den vorhandenen Schlüssel",
+    "hintSet": "● Schlüssel gesetzt · leer lassen zum Behalten",
+    "hintUnset": "○ nicht gesetzt",
+    "saving": "speichern…",
+    "save": "speichern",
+    "savedToast": "KI-Anbieter gespeichert",
+    "clearedToast": "KI-Anbieter gelöscht"
   },
   "mcpClient": {
     "heading": "mcp einrichtung",
@@ -43,11 +54,19 @@
     "checkRefused": "es antwortete, lehnte aber den auth-header ab — prüfen Sie header-name und wert",
     "checkNoAnswer": "keine antwort — nichts antwortete auf dieser url",
     "authBadge": "auth: {name}",
-    "add": "MCP-Server hinzufügen"
+    "add": "MCP-Server hinzufügen",
+    "removedToast": "Server entfernt",
+    "probeUnreachable": "nicht erreichbar",
+    "addError": "MCP-Server konnte nicht hinzugefügt werden",
+    "fieldName": "name",
+    "fieldUrl": "url",
+    "fieldAuthName": "auth-header-name (optional)",
+    "fieldAuthValue": "auth-header-wert (optional)"
   },
   "newToken": {
     "label": "schlüssel generieren",
-    "submit": "generieren"
+    "submit": "generieren",
+    "namePlaceholder": "gerätebezeichnung — z. B. 'mojat-mbp'"
   },
   "newlyCreated": {
     "warning": "speichern Sie diese jetzt — der private schlüssel wird nur einmal angezeigt",
@@ -62,7 +81,8 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "revoke": "widerrufen",
-    "keyId": "schlüssel id"
+    "keyId": "schlüssel id",
+    "deletedToast": "Schlüssel gelöscht"
   },
   "connectors": {
     "intro": "Connectors lassen den Agent externe Services erreichen — Calendar und Mail sind unten live, und Sie können Ihren eigenen (OpenAPI / Protokoll) Connector hochladen um mehr hinzuzufügen.",
@@ -73,7 +93,10 @@
     "builtinHeading": "Bereit zum Verbinden",
     "builtinCount": "{count} verfügbar",
     "uploadedHeading": "Connectors, die Sie hochgeladen haben",
-    "uploadedCount": "{count} installiert"
+    "uploadedCount": "{count} installiert",
+    "kicker": "integrationen",
+    "count": "kalender · mail live · eigene hochladen",
+    "removedToast": "Connector entfernt"
   },
   "calendar": {
     "heading": "Google Kalender",
@@ -85,15 +108,30 @@
     "timezone": "zeitzone (IANA)",
     "timezoneUnsetOption": "— nicht gesetzt —",
     "timezoneUnsetHint": "nicht gesetzt, also werden die oben stehenden Stunden als UTC gelesen. Ihr Browser sagt {detected} — wählen Sie es aus und Besucher bekommen die Stunden, die Sie meinten.",
-    "weekdays": "erlaubte wochentage"
+    "weekdays": "erlaubte wochentage",
+    "statusConnected": "verbunden",
+    "statusCredsOnly": "nur Zugangsdaten · auf Autorisieren klicken",
+    "statusNotConfigured": "nicht konfiguriert",
+    "disconnectedToast": "Verbindung getrennt",
+    "hoursStart": "arbeitszeit beginn (HH:MM)",
+    "hoursEnd": "arbeitszeit ende (HH:MM)",
+    "leadDays": "mindestens tage im voraus",
+    "bufferMin": "pufferminuten (um bestehende Termine)"
   },
   "capabilities": {
     "kicker": "verfügbarkeit",
     "heading": "möglichkeiten",
-    "intro": "Schalten Sie eine Möglichkeit aus und ihre Tools verschwinden aus jeder Visitor-Sitzung. Integrierte Möglichkeiten können deaktiviert, aber nicht gelöscht werden; nur die, die Sie verfasst haben, können entfernt werden."
+    "intro": "Schalten Sie eine Möglichkeit aus und ihre Tools verschwinden aus jeder Visitor-Sitzung. Integrierte Möglichkeiten können deaktiviert, aber nicht gelöscht werden; nur die, die Sie verfasst haben, können entfernt werden.",
+    "empty": "keine fähigkeiten registriert.",
+    "loading": "wird geladen…",
+    "removeTitle": "fähigkeit entfernen",
+    "removedToast": "Fähigkeit entfernt"
   },
   "connectorCard": {
-    "disconnect": "Trennen"
+    "disconnect": "Trennen",
+    "statusConnecting": "verbinden…",
+    "statusConnected": "verbunden",
+    "statusNotConnected": "nicht verbunden"
   },
   "connectorOp": {
     "run": "Ausführen",
@@ -104,7 +142,8 @@
   },
   "connectorList": {
     "loadError": "Konnte Ihre Connectors nicht laden — neu laden und erneut versuchen.",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "removeAria": "connector entfernen"
   },
   "skills": {
     "new": "+ neuer skill",
@@ -115,7 +154,20 @@
     "modalTitle": "neuer skill",
     "promptLabel": "prompt",
     "cancel": "abbrechen",
-    "create": "erstellen"
+    "create": "erstellen",
+    "kicker": "ki · skills",
+    "trackedCount": "{count, plural, one {# erfasst} other {# erfasst}}",
+    "toggleOn": "an",
+    "toggleOff": "aus",
+    "deletedToast": "Skill {name} gelöscht",
+    "createdToast": "Skill {name} erstellt",
+    "fieldName": "name",
+    "fieldDescription": "beschreibung",
+    "namePlaceholder": "z. B. patent-review",
+    "descriptionPlaceholder": "einzeilige zusammenfassung",
+    "promptPlaceholder": "Zusätzlicher System-Prompt, an die Basis-Persona angehängt…",
+    "tabInstalled": "meine skills",
+    "tabMarketplace": "marktplatz"
   },
   "installedCard": {
     "source": "quelle · {source}",
@@ -126,7 +178,9 @@
     "author": "{author} · v{version}",
     "authorOnly": "{author}",
     "installed": "✓ installiert",
-    "needs": "benötigt {missing}"
+    "needs": "benötigt {missing}",
+    "installing": "installieren…",
+    "install": "installieren ↓"
   },
   "marketplaceTab": {
     "intro": "Skills werden aus zwei Quellen zusammengestellt — das offene <ink>anthropics/skills</ink> GitHub Repo (jeder kann fork + PR machen) und <ink>SkillsMP</ink> (kommerzieller Kanal). Das Installieren holt die SKILL.md des Skills, analysiert sein Frontmatter und schreibt eine lokale Kopie, die Sie vollständig besitzen — bearbeiten Sie den Prompt oder erlaubte-Tools danach, abgekoppelt vom Marketplace.",
@@ -134,7 +188,13 @@
     "manualInstall": "installieren",
     "loadMore": "mehr laden",
     "searchIcon": "⌕",
-    "empty": "Keine Skills passen. Versuchen Sie einen anderen Begriff oder wechseln Sie die Quelle — das GitHub Repo und SkillsMP werden parallel abgefragt."
+    "empty": "Keine Skills passen. Versuchen Sie einen anderen Begriff oder wechseln Sie die Quelle — das GitHub Repo und SkillsMP werden parallel abgefragt.",
+    "pasteToggle": "eine SKILL.md einfügen",
+    "namePlaceholder": "name (optional — greift auf Frontmatter zurück)",
+    "searchPlaceholder": "skills suchen…",
+    "sourceAriaLabel": "marktplatz-quelle",
+    "sourceAll": "alle",
+    "installedToast": "Skill installiert"
   },
   "mySkills": {
     "empty": "Noch keine Skills — installieren Sie einen von der Marketplace-Registerkarte oder fügen Sie Ihren eigenen unter Skills hinzu."
@@ -156,7 +216,11 @@
     "gasFill": "füllen",
     "gasUnmeter": "gauge entfernen",
     "gasFilled": "Tank gefüllt",
-    "gasFillPlaceholder": "tokens"
+    "gasFillPlaceholder": "tokens",
+    "fieldProvider": "anbieter",
+    "fieldEndpoint": "endpunkt",
+    "fieldModel": "modell",
+    "fieldApiKey": "api-schlüssel"
   },
   "apiKeys": {
     "heading": "ausgehende api-schlüssel",
@@ -176,5 +240,19 @@
   "embed": {
     "heading": "Auf einer anderen Website einbetten",
     "blurb": "Legen Sie diese zwei Zeilen auf jede Seite — Ihren eigenen Blog, die Website eines Clients, eine Landing Page. Kein Build-Schritt und kein React: Das Skript registriert ein <standmeet-chat> Element, das mit dieser Instanz spricht."
+  },
+  "assemble": {
+    "statusConnected": "verbunden",
+    "statusConnecting": "verbinden…",
+    "statusNotConnected": "nicht verbunden",
+    "field": {
+      "url": "CalDAV-URL",
+      "username": "Benutzername",
+      "password": "Passwort",
+      "host": "Host",
+      "port": "Port",
+      "from": "Absenderadresse",
+      "tls": "TLS (none | starttls | tls)"
+    }
   }
 }

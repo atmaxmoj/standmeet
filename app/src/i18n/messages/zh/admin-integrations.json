@@ -6,7 +6,9 @@
   "api": {
     "intro": "MCP 密钥让 AI 客户端（Claude、Cursor、自定义脚本）把 raw 条目推入你的语料库、提升它们、管理访问码。每个密钥是一对 Ed25519 密钥——服务器只存公钥；你把私钥 PEM 保存在 <code>~/.standmeet/credentials.json</code>，客户端每次请求都签名。",
     "keysHeading": "mcp 密钥",
-    "empty": "还没有密钥 · 生成一个来接入你的第一个 AI 客户端"
+    "empty": "还没有密钥 · 生成一个来接入你的第一个 AI 客户端",
+    "kicker": "集成 · 编程接口",
+    "keyCount": "{count} 个密钥"
   },
   "aiProvider": {
     "heading": "主理人的 ai",
@@ -15,7 +17,16 @@
     "endpoint": "端点",
     "model": "模型",
     "apiKey": "api 密钥",
-    "clearKey": "清除密钥 ×"
+    "clearKey": "清除密钥 ×",
+    "keyPlaceholderSet": "● 已设置 · 输入以替换",
+    "keyPlaceholderUnset": "在此粘贴密钥",
+    "hintReplace": "保存时将替换现有密钥",
+    "hintSet": "● 已设置密钥 · 留空以保留",
+    "hintUnset": "○ 未设置",
+    "saving": "保存中…",
+    "save": "保存",
+    "savedToast": "已保存 AI 供应商",
+    "clearedToast": "已清除 AI 供应商"
   },
   "mcpClient": {
     "heading": "mcp 设置",
@@ -43,11 +54,19 @@
     "checkRefused": "有应答，但拒绝了认证头——请检查头的名称与取值",
     "checkNoAnswer": "无应答——该 URL 处没有任何东西响应",
     "authBadge": "认证：{name}",
-    "add": "添加 MCP 服务器"
+    "add": "添加 MCP 服务器",
+    "removedToast": "已移除服务器",
+    "probeUnreachable": "无法连接",
+    "addError": "无法添加 MCP 服务器",
+    "fieldName": "名称",
+    "fieldUrl": "地址",
+    "fieldAuthName": "认证头名称（可选）",
+    "fieldAuthValue": "认证头值（可选）"
   },
   "newToken": {
     "label": "生成密钥",
-    "submit": "生成"
+    "submit": "生成",
+    "namePlaceholder": "设备标签 — 例如 'mojat-mbp'"
   },
   "newlyCreated": {
     "warning": "现在就保存——私钥只展示一次",
@@ -62,7 +81,8 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "revoke": "吊销",
-    "keyId": "密钥 id"
+    "keyId": "密钥 id",
+    "deletedToast": "已删除密钥"
   },
   "connectors": {
     "intro": "连接器让 agent 触达外部服务——日历和邮件已在下方就绪，你也可上传自己的（OpenAPI / 协议）连接器来添加更多。",
@@ -73,7 +93,10 @@
     "builtinHeading": "可连接",
     "builtinCount": "{count} 个可用",
     "uploadedHeading": "你上传的连接器",
-    "uploadedCount": "已安装 {count} 个"
+    "uploadedCount": "已安装 {count} 个",
+    "kicker": "集成",
+    "count": "日历 · 邮件已上线 · 可上传自定义",
+    "removedToast": "已移除连接器"
   },
   "calendar": {
     "heading": "Google 日历",
@@ -85,15 +108,30 @@
     "timezone": "时区（IANA）",
     "timezoneUnsetOption": "— 未设置 —",
     "timezoneUnsetHint": "未设置，因此上面的时段按 UTC 解读。你的浏览器显示 {detected}——选它，访客就会得到你本意的时段。",
-    "weekdays": "允许的工作日"
+    "weekdays": "允许的工作日",
+    "statusConnected": "已连接",
+    "statusCredsOnly": "仅凭据 · 点击授权",
+    "statusNotConfigured": "未配置",
+    "disconnectedToast": "已断开连接",
+    "hoursStart": "工作时间开始（HH:MM）",
+    "hoursEnd": "工作时间结束（HH:MM）",
+    "leadDays": "最少提前天数",
+    "bufferMin": "缓冲分钟数（现有事件前后）"
   },
   "capabilities": {
     "kicker": "可用性",
     "heading": "能力",
-    "intro": "关闭一项能力，它的工具就从每个访客会话中消失。内置能力可停用但不可删除；只有你自己创作的能力才能移除。"
+    "intro": "关闭一项能力，它的工具就从每个访客会话中消失。内置能力可停用但不可删除；只有你自己创作的能力才能移除。",
+    "empty": "尚未注册任何能力。",
+    "loading": "加载中…",
+    "removeTitle": "移除能力",
+    "removedToast": "已移除能力"
   },
   "connectorCard": {
-    "disconnect": "断开连接"
+    "disconnect": "断开连接",
+    "statusConnecting": "连接中…",
+    "statusConnected": "已连接",
+    "statusNotConnected": "未连接"
   },
   "connectorOp": {
     "run": "运行",
@@ -104,7 +142,8 @@
   },
   "connectorList": {
     "loadError": "无法加载你的连接器——请刷新后重试。",
-    "delete": "删除"
+    "delete": "删除",
+    "removeAria": "移除连接器"
   },
   "skills": {
     "new": "+ 新建技能",
@@ -115,7 +154,20 @@
     "modalTitle": "新建技能",
     "promptLabel": "提示词",
     "cancel": "取消",
-    "create": "创建"
+    "create": "创建",
+    "kicker": "ai · 技能",
+    "trackedCount": "已跟踪 {count} 个",
+    "toggleOn": "开",
+    "toggleOff": "关",
+    "deletedToast": "已删除技能 {name}",
+    "createdToast": "已创建技能 {name}",
+    "fieldName": "名称",
+    "fieldDescription": "描述",
+    "namePlaceholder": "例如 patent-review",
+    "descriptionPlaceholder": "一句话摘要",
+    "promptPlaceholder": "附加到基础人设的额外系统提示词…",
+    "tabInstalled": "我的技能",
+    "tabMarketplace": "市场"
   },
   "installedCard": {
     "source": "来源 · {source}",
@@ -126,7 +178,9 @@
     "author": "{author} · v{version}",
     "authorOnly": "{author}",
     "installed": "✓ 已安装",
-    "needs": "需要 {missing}"
+    "needs": "需要 {missing}",
+    "installing": "安装中…",
+    "install": "安装 ↓"
   },
   "marketplaceTab": {
     "intro": "技能聚合自两个来源——开放的 <ink>anthropics/skills</ink> GitHub 仓库（任何人都可 fork + PR）和 <ink>SkillsMP</ink>（商业渠道）。安装会拉取该技能的 SKILL.md、解析其 frontmatter，并写一份你完全拥有的本地副本——之后可编辑提示词或允许的工具，与市场脱钩。",
@@ -134,7 +188,13 @@
     "manualInstall": "安装",
     "loadMore": "加载更多",
     "searchIcon": "⌕",
-    "empty": "没有匹配的技能。换个词，或切换来源——GitHub 仓库和 SkillsMP 是并行查询的。"
+    "empty": "没有匹配的技能。换个词，或切换来源——GitHub 仓库和 SkillsMP 是并行查询的。",
+    "pasteToggle": "粘贴一个 SKILL.md",
+    "namePlaceholder": "名称（可选 — 默认取 frontmatter）",
+    "searchPlaceholder": "搜索技能…",
+    "sourceAriaLabel": "市场来源",
+    "sourceAll": "全部",
+    "installedToast": "已安装技能"
   },
   "mySkills": {
     "empty": "还没有技能——从市场标签页安装一个，或在「技能」下添加你自己的。"
@@ -156,7 +216,11 @@
     "gasFill": "充值",
     "gasUnmeter": "移除计量",
     "gasFilled": "额度已充",
-    "gasFillPlaceholder": "token 数"
+    "gasFillPlaceholder": "token 数",
+    "fieldProvider": "供应商",
+    "fieldEndpoint": "端点",
+    "fieldModel": "模型",
+    "fieldApiKey": "api 密钥"
   },
   "apiKeys": {
     "heading": "对外 api 密钥",
@@ -176,5 +240,19 @@
   "embed": {
     "heading": "嵌入到另一个站点",
     "blurb": "把这两行放进任意页面——你自己的博客、客户的站点、一个落地页。无需构建步骤，也无需 React：脚本会注册一个与本实例通信的 <standmeet-chat> 元素。"
+  },
+  "assemble": {
+    "statusConnected": "已连接",
+    "statusConnecting": "连接中…",
+    "statusNotConnected": "未连接",
+    "field": {
+      "url": "CalDAV 地址",
+      "username": "用户名",
+      "password": "密码",
+      "host": "主机",
+      "port": "端口",
+      "from": "发件地址",
+      "tls": "TLS (none | starttls | tls)"
+    }
   }
 }

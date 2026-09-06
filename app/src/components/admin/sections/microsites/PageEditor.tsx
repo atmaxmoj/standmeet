@@ -190,7 +190,7 @@ function SlugRenameField({ slug, onClose }: { slug: string; onClose: () => void 
     <div className="flex items-baseline gap-2 mt-2">
       <input
         autoFocus value={raw} data-testid="microsite-rename-input"
-        placeholder="new-slug"
+        placeholder={t('renamePlaceholder')}
         onChange={(e) => setRaw(e.target.value)}
         onKeyDown={(e) => (e.key === 'Enter' ? commit() : undefined)}
         onBlur={onClose}
@@ -208,7 +208,7 @@ function SlugField({ value, onChange }: { value: string; onChange: (v: string) =
         {t('slugLabel')}
       </span>
       <input
-        type="text" value={value} placeholder="e.g. press-kit" data-testid="microsite-slug"
+        type="text" value={value} placeholder={t('slugPlaceholder')} data-testid="microsite-slug"
         autoFocus onChange={(e) => onChange(e.target.value)} className="sm-field-input sm-mono"
       />
     </label>
@@ -256,6 +256,7 @@ function FileTab(
 function AddFileButton(
   { onAdd, label }: { onAdd: (p: string) => void; label: string },
 ) {
+  const t = useTranslations('adminPages.microsites');
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const commit = useCallback(() => {
@@ -265,7 +266,7 @@ function AddFileButton(
   }, [name, onAdd]);
   return adding ? (
     <input
-      autoFocus value={name} placeholder="Component.tsx" data-testid="microsite-add-file-input"
+      autoFocus value={name} placeholder={t('addFilePlaceholder')} data-testid="microsite-add-file-input"
       onChange={(e) => setName(e.target.value)}
       onKeyDown={(e) => (e.key === 'Enter' ? commit() : undefined)}
       onBlur={commit}
@@ -396,7 +397,7 @@ function EditorPreview({ page }: { page: MicrositeSummary }) {
       </div>
       <iframe
         key={view.buildID} data-testid="microsite-staging-frame" src={src}
-        title="staging preview" sandbox="allow-scripts"
+        title={t('stagingFrameTitle')} sandbox="allow-scripts"
         className="w-full h-[440px] border-0 bg-(--color-paper)"
       />
     </div>

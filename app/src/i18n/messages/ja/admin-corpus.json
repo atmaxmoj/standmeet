@@ -147,5 +147,88 @@
     "importExport": "import / export",
     "help": "Import picks your Obsidian vault folder (wiki / subjectivity / raw / writings) and upserts the matching corpus notes by their vault path. Export downloads your corpus as a vault of markdown + frontmatter.",
     "noSync": "No live sync, no file watcher — these two actions are the whole mechanism, and neither runs unless you run it."
+  },
+  "kicker": {
+    "raw": "コーパス · 受信トレイ",
+    "wiki": "コーパス · キュレーション",
+    "subjectivity": "コーパス · 自己モデル",
+    "output": "コーパス · 公開向け",
+    "writings": "コーパス · 執筆",
+    "obsidian": "連携 · Vault"
+  },
+  "count": {
+    "unprocessed": "{n} 件未処理",
+    "entries": "{n} 件のエントリ",
+    "notes": "{n} 件のノート",
+    "artifacts": "{n} 件の成果物",
+    "writings": "{n} 件の記事",
+    "drafts": "{n} 件の下書き"
+  },
+  "action": {
+    "create": "作成",
+    "promote": "昇格",
+    "saveEntry": "エントリを保存"
+  },
+  "filter": {
+    "all": "すべて",
+    "unprocessed": "未処理",
+    "flaggedPrivate": "非公開マーク",
+    "promoted": "昇格済み"
+  },
+  "placeholder": {
+    "tags": "アーキテクチャ, ai, インディー",
+    "seoDescription": "og:description 用の一行要約",
+    "rawDump": "思いつき、チャットの一節、まとまりきらない考えを貼り付けてください。",
+    "writingSlug": "url-スラッグ",
+    "writingTitle": "記事のタイトル",
+    "writingExcerpt": "一行の要約（カバーのサブラインにも使用）",
+    "writingCoverHeadline": "大見出し",
+    "writingTags": "カンマ, 区切り"
+  },
+  "writingForm": {
+    "headingNew": "新しい記事",
+    "headingEdit": "編集 / {slug}",
+    "statusPublished": "公開済み",
+    "statusDraft": "下書き",
+    "actEdit": "編集",
+    "actPublish": "公開",
+    "actUnpublish": "公開取消",
+    "actDelete": "削除",
+    "fieldSlug": "slug",
+    "fieldTitle": "タイトル",
+    "fieldExcerpt": "抜粋",
+    "fieldCoverHeadline": "カバー見出し",
+    "fieldTags": "タグ",
+    "coverPreviewAlt": "カバープレビュー",
+    "noFileSelected": "ファイルが選択されていません"
+  },
+  "toast": {
+    "wikiCreated": "Wiki を作成しました",
+    "wikiUpdated": "Wiki を更新しました",
+    "wikiDeleted": "Wiki を削除しました",
+    "promotedToOutput": "output に昇格しました",
+    "subjectivityCreated": "主観ノートを作成しました",
+    "subjectivityUpdated": "主観ノートを更新しました",
+    "outputCreated": "output を作成しました",
+    "outputUpdated": "output を更新しました",
+    "outputDeleted": "output を削除しました",
+    "rawUpdated": "raw を更新しました",
+    "rawDeleted": "raw を削除しました",
+    "promotedToWiki": "wiki に昇格しました",
+    "obsidianImported": "Obsidian Vault をインポートしました",
+    "writingDeleted": "記事を削除しました",
+    "writingPublished": "公開しました",
+    "writingUnpublished": "公開を取り消しました",
+    "writingSaved": "記事 {slug} を保存しました"
+  },
+  "confirm": {
+    "deleteWiki": "wiki「{title}」を削除しますか？{warn} この操作は元に戻せません。",
+    "deleteWikiChildren": " これにより {n} 件の子エントリも削除されます。",
+    "deleteOutput": "output「{title}」を削除しますか？この操作は元に戻せません。",
+    "deleteRaw": "この raw エントリを削除しますか？この操作は元に戻せません。"
+  },
+  "savedLine": {
+    "saved": "保存しました",
+    "savedUnpinned": "保存しました — 公開を取り消したため {sections} からも削除されました"
   }
 }

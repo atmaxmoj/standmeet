@@ -6,7 +6,9 @@
   "api": {
     "intro": "MCP keys let AI clients (Claude, Cursor, custom scripts) push raw entries into your corpus, promote them, manage codes. Each key is an Ed25519 keypair — server stores only the public half; you save the private PEM in <code>~/.standmeet/credentials.json</code> and the client signs per request.",
     "keysHeading": "mcp keys",
-    "empty": "no keys yet · generate one to wire up your first AI client"
+    "empty": "no keys yet · generate one to wire up your first AI client",
+    "kicker": "एकीकरण · प्रोग्रामेटिक",
+    "keyCount": "{count} कुंजियाँ"
   },
   "aiProvider": {
     "heading": "owner's ai",
@@ -15,7 +17,16 @@
     "endpoint": "endpoint",
     "model": "model",
     "apiKey": "api key",
-    "clearKey": "clear key ×"
+    "clearKey": "clear key ×",
+    "keyPlaceholderSet": "● पहले से सेट · बदलने के लिए टाइप करें",
+    "keyPlaceholderUnset": "यहाँ कुंजी पेस्ट करें",
+    "hintReplace": "सहेजने पर मौजूदा कुंजी को बदल देगा",
+    "hintSet": "● कुंजी सेट · रखने के लिए खाली छोड़ें",
+    "hintUnset": "○ सेट नहीं",
+    "saving": "सहेजा जा रहा है…",
+    "save": "सहेजें",
+    "savedToast": "AI प्रदाता सहेजा गया",
+    "clearedToast": "AI प्रदाता साफ़ किया गया"
   },
   "mcpClient": {
     "heading": "mcp setup",
@@ -43,11 +54,19 @@
     "checkRefused": "it answered, but rejected the auth header — check the header name and value",
     "checkNoAnswer": "no answer — nothing responded at that URL",
     "authBadge": "auth: {name}",
-    "add": "Add MCP server"
+    "add": "Add MCP server",
+    "removedToast": "सर्वर हटाया गया",
+    "probeUnreachable": "पहुँच नहीं सका",
+    "addError": "MCP सर्वर नहीं जोड़ सका",
+    "fieldName": "नाम",
+    "fieldUrl": "url",
+    "fieldAuthName": "ऑथ हेडर नाम (वैकल्पिक)",
+    "fieldAuthValue": "ऑथ हेडर मान (वैकल्पिक)"
   },
   "newToken": {
     "label": "generate key",
-    "submit": "generate"
+    "submit": "generate",
+    "namePlaceholder": "डिवाइस लेबल — जैसे 'mojat-mbp'"
   },
   "newlyCreated": {
     "warning": "save these now — the private key is shown only once",
@@ -62,7 +81,8 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "revoke": "revoke",
-    "keyId": "key id"
+    "keyId": "key id",
+    "deletedToast": "कुंजी हटाई गई"
   },
   "connectors": {
     "intro": "Connectors let the agent reach external services — Calendar and Mail are live below, and you can upload your own (OpenAPI / protocol) connector to add more.",
@@ -73,7 +93,10 @@
     "builtinHeading": "Ready to connect",
     "builtinCount": "{count} available",
     "uploadedHeading": "Connectors you uploaded",
-    "uploadedCount": "{count} installed"
+    "uploadedCount": "{count} installed",
+    "kicker": "एकीकरण",
+    "count": "कैलेंडर · मेल लाइव · अपना अपलोड करें",
+    "removedToast": "कनेक्टर हटाया गया"
   },
   "calendar": {
     "heading": "Google Calendar",
@@ -85,15 +108,30 @@
     "timezone": "timezone (IANA)",
     "timezoneUnsetOption": "— not set —",
     "timezoneUnsetHint": "not set, so the hours above are read as UTC. your browser says {detected} — pick it and visitors get the hours you meant.",
-    "weekdays": "allowed weekdays"
+    "weekdays": "allowed weekdays",
+    "statusConnected": "कनेक्टेड",
+    "statusCredsOnly": "केवल क्रेडेंशियल · Authorize पर क्लिक करें",
+    "statusNotConfigured": "कॉन्फ़िगर नहीं",
+    "disconnectedToast": "डिस्कनेक्ट किया गया",
+    "hoursStart": "कार्य समय आरंभ (HH:MM)",
+    "hoursEnd": "कार्य समय समाप्त (HH:MM)",
+    "leadDays": "न्यूनतम अग्रिम दिन",
+    "bufferMin": "बफ़र मिनट (मौजूदा इवेंट के आसपास)"
   },
   "capabilities": {
     "kicker": "availability",
     "heading": "capabilities",
-    "intro": "Turn a capability off and its tools vanish from every visitor session. Built-in capabilities can be disabled but not deleted; only the ones you authored can be removed."
+    "intro": "Turn a capability off and its tools vanish from every visitor session. Built-in capabilities can be disabled but not deleted; only the ones you authored can be removed.",
+    "empty": "कोई क्षमता पंजीकृत नहीं है।",
+    "loading": "लोड हो रहा है…",
+    "removeTitle": "क्षमता हटाएँ",
+    "removedToast": "क्षमता हटाई गई"
   },
   "connectorCard": {
-    "disconnect": "Disconnect"
+    "disconnect": "Disconnect",
+    "statusConnecting": "कनेक्ट हो रहा है…",
+    "statusConnected": "कनेक्टेड",
+    "statusNotConnected": "कनेक्ट नहीं"
   },
   "connectorOp": {
     "run": "Run",
@@ -104,7 +142,8 @@
   },
   "connectorList": {
     "loadError": "Couldn’t load your connectors — reload and retry.",
-    "delete": "Delete"
+    "delete": "Delete",
+    "removeAria": "कनेक्टर हटाएँ"
   },
   "skills": {
     "new": "+ new skill",
@@ -115,7 +154,20 @@
     "modalTitle": "new skill",
     "promptLabel": "prompt",
     "cancel": "cancel",
-    "create": "create"
+    "create": "create",
+    "kicker": "ai · कौशल",
+    "trackedCount": "{count} ट्रैक किए गए",
+    "toggleOn": "चालू",
+    "toggleOff": "बंद",
+    "deletedToast": "कौशल {name} हटाया गया",
+    "createdToast": "कौशल {name} बनाया गया",
+    "fieldName": "नाम",
+    "fieldDescription": "विवरण",
+    "namePlaceholder": "जैसे patent-review",
+    "descriptionPlaceholder": "एक पंक्ति का सारांश",
+    "promptPlaceholder": "बेस पर्सोना में जोड़ा गया अतिरिक्त सिस्टम प्रॉम्प्ट…",
+    "tabInstalled": "मेरे कौशल",
+    "tabMarketplace": "मार्केटप्लेस"
   },
   "installedCard": {
     "source": "source · {source}",
@@ -126,7 +178,9 @@
     "author": "{author} · v{version}",
     "authorOnly": "{author}",
     "installed": "✓ installed",
-    "needs": "needs {missing}"
+    "needs": "needs {missing}",
+    "installing": "इंस्टॉल हो रहा है…",
+    "install": "इंस्टॉल ↓"
   },
   "marketplaceTab": {
     "intro": "Skills aggregate from two sources — the open <ink>anthropics/skills</ink> GitHub repo (anyone can fork + PR) and <ink>SkillsMP</ink> (commercial channel). Installing fetches the skill’s SKILL.md, parses its frontmatter, and writes a local copy you fully own — edit the prompt or allowed-tools after, decoupled from the marketplace.",
@@ -134,7 +188,13 @@
     "manualInstall": "install",
     "loadMore": "load more",
     "searchIcon": "⌕",
-    "empty": "No skills match. Try a different term, or switch source — the GitHub repo and SkillsMP are queried in parallel."
+    "empty": "No skills match. Try a different term, or switch source — the GitHub repo and SkillsMP are queried in parallel.",
+    "pasteToggle": "एक SKILL.md पेस्ट करें",
+    "namePlaceholder": "नाम (वैकल्पिक — frontmatter पर वापस जाता है)",
+    "searchPlaceholder": "कौशल खोजें…",
+    "sourceAriaLabel": "मार्केटप्लेस स्रोत",
+    "sourceAll": "सभी",
+    "installedToast": "कौशल इंस्टॉल किया गया"
   },
   "mySkills": {
     "empty": "No skills yet — install one from the marketplace tab, or add your own under Skills."
@@ -156,7 +216,11 @@
     "gasFill": "fill",
     "gasUnmeter": "remove gauge",
     "gasFilled": "Tank filled",
-    "gasFillPlaceholder": "tokens"
+    "gasFillPlaceholder": "tokens",
+    "fieldProvider": "प्रदाता",
+    "fieldEndpoint": "एंडपॉइंट",
+    "fieldModel": "मॉडल",
+    "fieldApiKey": "api कुंजी"
   },
   "apiKeys": {
     "heading": "outward api keys",
@@ -176,5 +240,19 @@
   "embed": {
     "heading": "Embed on another site",
     "blurb": "Drop these two lines into any page — your own blog, a client's site, a landing page. No build step and no React: the script registers a <standmeet-chat> element that talks to this instance."
+  },
+  "assemble": {
+    "statusConnected": "कनेक्टेड",
+    "statusConnecting": "कनेक्ट हो रहा है…",
+    "statusNotConnected": "कनेक्ट नहीं",
+    "field": {
+      "url": "CalDAV URL",
+      "username": "उपयोगकर्ता नाम",
+      "password": "पासवर्ड",
+      "host": "होस्ट",
+      "port": "पोर्ट",
+      "from": "प्रेषक पता",
+      "tls": "TLS (none | starttls | tls)"
+    }
   }
 }

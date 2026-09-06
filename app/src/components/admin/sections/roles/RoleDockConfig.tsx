@@ -41,9 +41,9 @@ export function RoleDockConfig({ role }: { role: RoleView }) {
       () => roles.updateRole(role.id, roleUpdatePayload(role, {
         dock_buttons: slotsToButtons(slots),
       })),
-      { success: `Dock buttons updated for ${role.name}` },
+      { success: t('roles.toast.dockUpdated', { name: role.name }) },
     ),
-    [role, roles, run, slots],
+    [role, roles, run, slots, t],
   );
   const options = caps.rows.filter((r) => r.title && !DOCK_INELIGIBLE.has(r.id));
   return (

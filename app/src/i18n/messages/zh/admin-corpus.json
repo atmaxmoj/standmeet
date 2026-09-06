@@ -147,5 +147,88 @@
     "importExport": "导入 / 导出",
     "help": "导入会选取你的 Obsidian 库文件夹（wiki / subjectivity / raw / writings），并按库中路径更新或插入对应的语料库笔记。导出会把你的语料库下载为一个 markdown + frontmatter 的库。",
     "noSync": "没有实时同步，没有文件监视——这两个动作就是全部机制，不运行就什么都不会发生。"
+  },
+  "kicker": {
+    "raw": "语料库 · 收件箱",
+    "wiki": "语料库 · 精选",
+    "subjectivity": "语料库 · 自我模型",
+    "output": "语料库 · 对外",
+    "writings": "语料库 · 写作",
+    "obsidian": "集成 · 库"
+  },
+  "count": {
+    "unprocessed": "{n} 条未处理",
+    "entries": "{n} 条条目",
+    "notes": "{n} 条笔记",
+    "artifacts": "{n} 个成品",
+    "writings": "{n} 篇文章",
+    "drafts": "{n} 篇草稿"
+  },
+  "action": {
+    "create": "创建",
+    "promote": "提升",
+    "saveEntry": "保存条目"
+  },
+  "filter": {
+    "all": "全部",
+    "unprocessed": "未处理",
+    "flaggedPrivate": "标记私密",
+    "promoted": "已提升"
+  },
+  "placeholder": {
+    "tags": "架构, ai, 独立开发",
+    "seoDescription": "用于 og:description 的一行摘要",
+    "rawDump": "粘贴一个想法、一段聊天记录、一个尚未成形的观点。",
+    "writingSlug": "网址标识",
+    "writingTitle": "文章标题",
+    "writingExcerpt": "一行摘要（也用作封面副标题）",
+    "writingCoverHeadline": "醒目标题",
+    "writingTags": "逗号, 分隔"
+  },
+  "writingForm": {
+    "headingNew": "新建文章",
+    "headingEdit": "编辑 / {slug}",
+    "statusPublished": "已发布",
+    "statusDraft": "草稿",
+    "actEdit": "编辑",
+    "actPublish": "发布",
+    "actUnpublish": "取消发布",
+    "actDelete": "删除",
+    "fieldSlug": "slug",
+    "fieldTitle": "标题",
+    "fieldExcerpt": "摘要",
+    "fieldCoverHeadline": "封面标题",
+    "fieldTags": "标签",
+    "coverPreviewAlt": "封面预览",
+    "noFileSelected": "未选择文件"
+  },
+  "toast": {
+    "wikiCreated": "已创建 wiki",
+    "wikiUpdated": "已更新 wiki",
+    "wikiDeleted": "已删除 wiki",
+    "promotedToOutput": "已提升为输出",
+    "subjectivityCreated": "已创建自我模型笔记",
+    "subjectivityUpdated": "已更新自我模型笔记",
+    "outputCreated": "已创建输出",
+    "outputUpdated": "已更新输出",
+    "outputDeleted": "已删除输出",
+    "rawUpdated": "已更新 raw",
+    "rawDeleted": "已删除 raw",
+    "promotedToWiki": "已提升为 wiki",
+    "obsidianImported": "已导入 Obsidian 库",
+    "writingDeleted": "已删除文章",
+    "writingPublished": "已发布",
+    "writingUnpublished": "已取消发布",
+    "writingSaved": "已保存文章 {slug}"
+  },
+  "confirm": {
+    "deleteWiki": "删除 wiki「{title}」？{warn} 此操作无法撤销。",
+    "deleteWikiChildren": " 这也会删除它的 {n} 个子条目。",
+    "deleteOutput": "删除输出「{title}」？此操作无法撤销。",
+    "deleteRaw": "删除这条 raw 条目？此操作无法撤销。"
+  },
+  "savedLine": {
+    "saved": "已保存",
+    "savedUnpinned": "已保存——取消发布也已将其从 {sections} 移除"
   }
 }

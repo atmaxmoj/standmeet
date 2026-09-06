@@ -11,7 +11,14 @@
     "register": "registrieren →",
     "registered": "Quelle registriert",
     "remove": "entfernen",
-    "removed": "Quelle entfernt"
+    "removed": "Quelle entfernt",
+    "kicker": "jobs · quellen",
+    "titleRegistered": "{count, plural, one {# registriert} other {# registriert}}",
+    "labelPlaceholder": "Stellenboard",
+    "stateNever": "nie abgerufen",
+    "stateFetched": "zuletzt · {date}",
+    "stateFailed": "letzter Versuch · {date} · fehlgeschlagen — {reason}",
+    "stateUnknownDate": "unbekannt"
   },
   "listings": {
     "intro": "Stellen, die von Ihren registrierten Quellen abgerufen werden, in einem 1-Tage-Pool gehalten. Bitten Sie Claude, sie gegen Ihren Corpus zu ordnen und Lebensläufe für die, die sich lohnen, zu entwerfen. Alles, das Sie nicht entwerfen oder verwerfen, fällt nach einem Tag aus dem Pool.",
@@ -19,7 +26,9 @@
     "emptyTitle": "Laden Sie zuerst Jobs von Ihren Quellen.",
     "emptyHint": "Anzeigen werden automatisch abgerufen, wenn Sie diesen Bereich öffnen — oder klicken Sie auf Jetzt abrufen. Ergebnisse bleiben einen Tag hier, bis Sie sie entwerfen oder verwerfen.",
     "fetchNow": "jetzt abrufen",
-    "fetching": "wird abgerufen…"
+    "fetching": "wird abgerufen…",
+    "kicker": "jobs · anzeigen",
+    "titleInPool": "{count, plural, one {# im Pool} other {# im Pool}}"
   },
   "drafts": {
     "intro": "Maßgeschneiderte Lebensläufe, die Claude für Jobs entworfen hat, denen Sie zugestimmt haben. Öffnen Sie den Composer zum Bearbeiten + Vorschau; <ink>senden</ink> friert den Snapshot ein, rendern den endgültigen PDF (mit QR) und stellen automatisch einen AccessCode aus.",
@@ -39,7 +48,10 @@
     "newTitle": "Neuer Lebenslauf-Entwurf",
     "newCompany": "unternehmen",
     "newRole": "rolle",
-    "newCreate": "entwurf erstellen"
+    "newCreate": "entwurf erstellen",
+    "kicker": "jobs · lebenslauf-entwürfe",
+    "titlePending": "{count, plural, one {# ausstehend} other {# ausstehend}}",
+    "committed": "Bewerbung übermittelt – Lebenslauf mit Zugangscode gesendet"
   },
   "applications": {
     "searchPlaceholder": "nach Firma oder Rolle suchen…",
@@ -53,7 +65,9 @@
     "open": "öffnen ›",
     "metaCommitted": "begangen {date}",
     "metaSubmitted": "eingereicht {date}",
-    "metaNotSubmitted": "einsendung nicht aufgezeichnet"
+    "metaNotSubmitted": "einsendung nicht aufgezeichnet",
+    "kicker": "jobs · übermittelt",
+    "titleCommitted": "{count, plural, one {# übermittelt} other {# übermittelt}}"
   },
   "detail": {
     "kicker": "anwendung · {id}",

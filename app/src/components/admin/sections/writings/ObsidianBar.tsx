@@ -24,10 +24,11 @@ interface Props {
 
 export function ObsidianBar({ onImported }: Props) {
   const toast = useToast();
+  const tt = useTranslations('adminCorpus.toast');
   const report = useReportError();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const onImportDone = () => {
-    toast.success('Obsidian vault imported');
+    toast.success(tt('obsidianImported'));
     onImported();
   };
   const importer = useObsidianImport(onImportDone);

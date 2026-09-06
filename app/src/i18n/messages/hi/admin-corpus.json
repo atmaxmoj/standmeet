@@ -147,5 +147,88 @@
     "importExport": "import / export",
     "help": "Import picks your Obsidian vault folder (wiki / subjectivity / raw / writings) and upserts the matching corpus notes by their vault path. Export downloads your corpus as a vault of markdown + frontmatter.",
     "noSync": "No live sync, no file watcher — these two actions are the whole mechanism, and neither runs unless you run it."
+  },
+  "kicker": {
+    "raw": "कॉर्पस · इनबॉक्स",
+    "wiki": "कॉर्पस · क्यूरेटेड",
+    "subjectivity": "कॉर्पस · स्व-मॉडल",
+    "output": "कॉर्पस · सार्वजनिक",
+    "writings": "कॉर्पस · लेखन",
+    "obsidian": "इंटीग्रेशन · वॉल्ट"
+  },
+  "count": {
+    "unprocessed": "{n} असंसाधित",
+    "entries": "{n} प्रविष्टियां",
+    "notes": "{n} नोट्स",
+    "artifacts": "{n} आर्टिफैक्ट",
+    "writings": "{n} लेख",
+    "drafts": "{n} ड्राफ्ट"
+  },
+  "action": {
+    "create": "बनाएं",
+    "promote": "प्रमोट करें",
+    "saveEntry": "प्रविष्टि सहेजें"
+  },
+  "filter": {
+    "all": "सभी",
+    "unprocessed": "असंसाधित",
+    "flaggedPrivate": "निजी चिह्नित",
+    "promoted": "प्रमोट किए गए"
+  },
+  "placeholder": {
+    "tags": "आर्किटेक्चर, एआई, इंडी",
+    "seoDescription": "og:description के लिए एक-पंक्ति सारांश",
+    "rawDump": "एक विचार, चैट का एक अंश, या अधूरी राय चिपकाएं।",
+    "writingSlug": "यूआरएल-स्लग",
+    "writingTitle": "लेख शीर्षक",
+    "writingExcerpt": "एक-पंक्ति सारांश (कवर उपशीर्षक भी)",
+    "writingCoverHeadline": "बड़ी हेडलाइन",
+    "writingTags": "अल्पविराम, से अलग"
+  },
+  "writingForm": {
+    "headingNew": "नया लेख",
+    "headingEdit": "संपादित करें / {slug}",
+    "statusPublished": "प्रकाशित",
+    "statusDraft": "ड्राफ्ट",
+    "actEdit": "संपादित करें",
+    "actPublish": "प्रकाशित करें",
+    "actUnpublish": "अप्रकाशित करें",
+    "actDelete": "हटाएं",
+    "fieldSlug": "slug",
+    "fieldTitle": "शीर्षक",
+    "fieldExcerpt": "अंश",
+    "fieldCoverHeadline": "कवर हेडलाइन",
+    "fieldTags": "टैग",
+    "coverPreviewAlt": "कवर पूर्वावलोकन",
+    "noFileSelected": "कोई फ़ाइल चयनित नहीं"
+  },
+  "toast": {
+    "wikiCreated": "Wiki बनाया गया",
+    "wikiUpdated": "Wiki अपडेट किया गया",
+    "wikiDeleted": "Wiki हटाया गया",
+    "promotedToOutput": "आउटपुट में प्रमोट किया गया",
+    "subjectivityCreated": "सब्जेक्टिविटी नोट बनाया गया",
+    "subjectivityUpdated": "सब्जेक्टिविटी नोट अपडेट किया गया",
+    "outputCreated": "आउटपुट बनाया गया",
+    "outputUpdated": "आउटपुट अपडेट किया गया",
+    "outputDeleted": "आउटपुट हटाया गया",
+    "rawUpdated": "Raw अपडेट किया गया",
+    "rawDeleted": "Raw हटाया गया",
+    "promotedToWiki": "wiki में प्रमोट किया गया",
+    "obsidianImported": "Obsidian वॉल्ट आयात किया गया",
+    "writingDeleted": "लेख हटाया गया",
+    "writingPublished": "प्रकाशित",
+    "writingUnpublished": "अप्रकाशित",
+    "writingSaved": "लेख {slug} सहेजा गया"
+  },
+  "confirm": {
+    "deleteWiki": "wiki \"{title}\" हटाएं?{warn} इसे पूर्ववत नहीं किया जा सकता।",
+    "deleteWikiChildren": " इससे इसकी {n} चाइल्ड प्रविष्टियां भी हट जाएंगी।",
+    "deleteOutput": "आउटपुट \"{title}\" हटाएं? इसे पूर्ववत नहीं किया जा सकता।",
+    "deleteRaw": "इस raw प्रविष्टि को हटाएं? इसे पूर्ववत नहीं किया जा सकता।"
+  },
+  "savedLine": {
+    "saved": "सहेजा गया",
+    "savedUnpinned": "सहेजा गया — अप्रकाशित करने से इसे {sections} से भी हटा दिया गया"
   }
 }

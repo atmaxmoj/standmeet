@@ -16,7 +16,14 @@
   "codes": {
     "new": "＋ new code",
     "intro": "Each code gates a slice of your wiki for a known recipient — a hiring loop, an investor intro, or a single press call. Multiple people can share one code; when someone enters it, the AI asks who they are and assigns them to the code's member list. Each card carries a QR.",
-    "empty": "No codes yet."
+    "empty": "No codes yet.",
+    "kicker": "アクセス · コード",
+    "count": "{active} 件有効 · {total} 件合計",
+    "toast": {
+      "revoked": "コードを取り消しました",
+      "created": "コード {code} を作成しました",
+      "quotasUpdated": "クォータを更新しました"
+    }
   },
   "codeCard": {
     "preview": "preview ↗",
@@ -29,7 +36,22 @@
     "openShare": "open the share panel — big QR, copyable link, printable",
     "opensLabel": "opens",
     "opensChat": "the visitor chat",
-    "opensPageOption": "/p/{slug}"
+    "opensPageOption": "/p/{slug}",
+    "statusActive": "● 有効",
+    "roleLabel": "ロール",
+    "membersLabel": "メンバー",
+    "qrLabel": "QR",
+    "namesCapped": "{used} / {cap} 名",
+    "namesUncapped": "{used} 名 · 無制限",
+    "turnsCapped": "{n} ターン",
+    "turnsUncapped": "無制限ターン",
+    "expires": "· 有効期限 {date}",
+    "noExpiry": "· 無期限",
+    "toast": {
+      "ghostUpdated": "{code} のゴーストルールを更新しました",
+      "opensChat": "{code} は訪問者チャットを開くようになりました",
+      "opensPage": "{code} は /p/{slug} を開くようになりました"
+    }
   },
   "codeCorpus": {
     "loadError": "Couldn’t load this code’s corpus scope. Reload and retry.",
@@ -38,12 +60,16 @@
     "inherited": "corpus · inherited from role",
     "takenBack": "taken back on this code",
     "helpSummary": "how taking back works ▸",
-    "help": "The URIs this code takes back from what the role granted, one per line. It can only subtract, never add — whatever you write here will never open what the role didn't grant. Typical use: the role grants subjectivity://** (every opinion), and this code takes back subjectivity://cv (the résumé stays out). Changes only affect sessions issued from now on: the role is frozen when the session is issued, so a visitor already chatting keeps the old scope — but the next session on the same code, however old that code is, gets the new one."
+    "help": "The URIs this code takes back from what the role granted, one per line. It can only subtract, never add — whatever you write here will never open what the role didn't grant. Typical use: the role grants subjectivity://** (every opinion), and this code takes back subjectivity://cv (the résumé stays out). Changes only affect sessions issued from now on: the role is frozen when the session is issued, so a visitor already chatting keeps the old scope — but the next session on the same code, however old that code is, gets the new one.",
+    "toast": {
+      "narrowed": "{label} のコーパスを絞り込みました"
+    }
   },
   "members": {
     "loading": "loading members…",
     "none": "no visitor has used this code yet.",
-    "anonymous": "anonymous"
+    "anonymous": "anonymous",
+    "toggle": "メンバー"
   },
   "conversations": {
     "privateHits": "{count, plural, one {# session} other {# sessions}} hit private topics",
@@ -57,7 +83,9 @@
     "thFlags": "flags",
     "thLast": "last",
     "privFlag": "{hits} priv",
-    "empty": "No conversations yet. Once visitors chat through a code or BYOAI session, you'll see them here."
+    "empty": "No conversations yet. Once visitors chat through a code or BYOAI session, you'll see them here.",
+    "kicker": "アクセス · セッション",
+    "count": "{count} 件の会話"
   },
   "transcript": {
     "loading": "loading transcript…",
@@ -65,7 +93,9 @@
     "cited": "cited · {kind}",
     "ghostsTitle": "ghost text shown",
     "groundingTitle": "standpoint notes that shaped these answers · not shown to the visitor",
-    "grounded": "grounded"
+    "grounded": "grounded",
+    "kicker": "会話",
+    "modalTitle": "トランスクリプト · {id}"
   },
   "ghostTelemetry": {
     "title": "ghost steering · per-waypoint funnel",
@@ -80,7 +110,19 @@
     "intro": "Library of personas. Owner-scoped, no categories. Each one is a piece of writing — the agent becomes whoever you tell it to be here. Used by roles.",
     "empty": "No prompts yet — public is normally seeded on owner claim.",
     "modalTitle": "new prompt",
-    "bodyLabel": "body"
+    "bodyLabel": "body",
+    "kicker": "アクセス · ペルソナ",
+    "fields": {
+      "name": "名前",
+      "description": "説明"
+    },
+    "namePlaceholder": "例：recruiter-facing",
+    "descPlaceholder": "このペルソナを使う場面",
+    "bodyPlaceholder": "あなたは '{'owner'}' の AI プロキシです。質問に正確に答えてください…",
+    "toast": {
+      "created": "プロンプト {name} を作成しました",
+      "deleted": "プロンプト {name} を削除しました"
+    }
   },
   "requests": {
     "deliveryHint": "No verified outbound channel — set one up under Connectors so approving a request can issue a code and send it. Until then you can only mark requests replied/closed by hand.",
@@ -89,19 +131,58 @@
     "issued": "issued {code} — emailed to the requester",
     "decline": "decline",
     "approve": "approve · issue + email code →",
-    "connectMail": "connect mail to issue codes"
+    "connectMail": "connect mail to issue codes",
+    "kicker": "アクセス · ゲート受信箱",
+    "countTotal": "{n} 件合計",
+    "countNew": "{n} 件新規",
+    "toast": {
+      "declined": "リクエストを辞退しました"
+    }
   },
   "roles": {
     "new": "+ new role",
     "intro": "A role bundles a prompt (persona), a positive list of corpus URIs the agent can read, a set of skills, and which MCP servers it may call. Codes don’t carry permissions directly — every code <em>assumes</em> a role at issue time and that snapshot is frozen for that session. Edit a role and only future sessions feel it.",
-    "empty": "No roles yet — public is normally seeded on owner claim."
+    "empty": "No roles yet — public is normally seeded on owner claim.",
+    "kicker": "アクセス · ペルソナ",
+    "skillsLabel": "スキル",
+    "mcpServersLabel": "mcp サーバー",
+    "meta": {
+      "corpus": "コーパス",
+      "skills": "スキル",
+      "mcp": "mcp",
+      "codes": "コード",
+      "published": "公開済みの内容",
+      "uris": "{n} 個の URI",
+      "servers": "{n} 台のサーバー",
+      "activeCodes": "{n} 件有効"
+    },
+    "toast": {
+      "created": "ロール {name} を作成しました",
+      "deleted": "ロール {name} を削除しました",
+      "promptUpdated": "{name} のプロンプトを更新しました",
+      "corpusUpdated": "{name} のコーパス URI を更新しました",
+      "toolsUpdated": "{name} のツール権限を更新しました",
+      "dockUpdated": "{name} のドックボタンを更新しました",
+      "ghostUpdated": "{name} のゴーストルールを更新しました",
+      "aboutUpdated": "{name} の説明を更新しました",
+      "providerUpdated": "{name} のプロバイダーを更新しました",
+      "waypointsUpdated": "{name} のウェイポイントを更新しました"
+    }
   },
   "roleCreate": {
     "title": "new role",
     "promptNone": "(none)",
     "providerDefault": "— instance default —",
     "corpusLabel": "corpus uris · one per line",
-    "noneConfigured": "none configured yet"
+    "noneConfigured": "none configured yet",
+    "fields": {
+      "name": "名前",
+      "description": "説明",
+      "greeting": "挨拶"
+    },
+    "namePlaceholder": "例：recruiter-default",
+    "descPlaceholder": "このロールを使う場面",
+    "greetingPlaceholder": "訪問者の名前選択画面に表示されます — 空欄の場合はデフォルトを使用"
   },
   "roleGas": {
     "help": "Meter this role against its provider's tank. Off (the default) means no usage check runs at all; on means a visitor is stopped once that provider's tank is empty. A provider with no fuel in it is never metered either way."
@@ -187,6 +268,10 @@
       "saveEdit": "save changes",
       "cancel": "cancel",
       "codeRequired": "pick a code first"
-    }
+    },
+    "kicker": "アクセス · ウィジェット",
+    "thEmbed": "埋め込み",
+    "thOrigins": "オリジン",
+    "thCreated": "作成"
   }
 }

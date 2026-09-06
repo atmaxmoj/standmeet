@@ -15,12 +15,13 @@ import { useAction } from '@/lib/ui/use-action';
 import { useEffectErrorToast } from '@/lib/ui/toast';
 
 export function SecuritySection() {
+  const t = useTranslations('adminShell.ipBans');
   const hook = useIPBans();
   useEffectErrorToast(hook.error);
   return (
     <>
       <SectionHeader
-        kicker="settings · security"
+        kicker={t('kickerSecurity')}
         slug="ip-bans"
         count={hook.status === 'ready' ? `${hook.bans.length}` : ''}
       />
@@ -52,12 +53,12 @@ function BanForm({ onBan }: { onBan: IPBansHook['banIP'] }) {
   // — if it throws, the inputs stay so the owner can retry.
   const submit = useCallback(() => run(
     () => onBan({ ip: ip.trim(), reason: reason.trim() }).then(clearForm),
-    { success: 'IP banned' },
-  ), [ip, reason, onBan, run, clearForm]);
+    { success: t('banned') },
+  ), [ip, reason, onBan, run, clearForm, t]);
   return (
     <div className="flex flex-wrap items-end gap-3 mb-7" data-testid="ban-form">
-      <Field label="ip address" value={ip} onChange={setIP} placeholder="203.0.113.7" testid="ban-ip" />
-      <Field label="reason" value={reason} onChange={setReason} placeholder="optional note" testid="ban-reason" />
+      <Field label={t('labelIp')} value={ip} onChange={setIP} placeholder="203.0.113.7" testid="ban-ip" />
+      <Field label={t('labelReason')} value={reason} onChange={setReason} placeholder={t('placeholderNote')} testid="ban-reason" />
       <button
         type="button"
         data-testid="ban-submit"
@@ -143,8 +144,8 @@ function UnbanBtn({ ban, onUnban }: { ban: BanView; onUnban: IPBansHook['unbanIP
   const t = useTranslations('adminShell.ipBans');
   const run = useAction();
   const handle = useCallback(
-    () => run(() => onUnban(ban.id), { success: 'IP unbanned' }),
-    [onUnban, ban.id, run],
+    () => run(() => onUnban(ban.id), { success: t('unbanned') }),
+    [onUnban, ban.id, run, t],
   );
   return (
     <button

@@ -24,11 +24,14 @@ export function WikiEditForm({
 }: { entry: WikiSummary; actions: CorpusActionsHook; onDone: () => void }) {
   const t = useTranslations('adminCorpus.common');
   const tf = useTranslations('adminCorpus.form');
+  const ta = useTranslations('adminCorpus.action');
+  const tt = useTranslations('adminCorpus.toast');
+  const ts = useTranslations('adminCorpus.savedLine');
   const toast = useToast();
   const detail = useWikiDetail(entry.id, actions);
   const onSubmit = (input: CorpusEntryInput) => void runWith(
     () => actions.updateWiki(entry.id, input),
-    () => { toast.success('Wiki updated'); onDone(); },
+    () => { toast.success(tt('wikiUpdated')); onDone(); },
   );
   // `wiki-edit-loaded-${id}` is attached only to the branch that has ACTUALLY finished
   // loading. It used to sit on the outer div, so it was present during the loading… state
@@ -56,7 +59,7 @@ export function WikiEditForm({
             // bottom half an owner would naturally click this more prominent button above,
             // which doesn't cover that half (UX-60).
             heading={tf('entryHeading')}
-            submitLabel="save entry"
+            submitLabel={ta('saveEntry')}
             testidPrefix={`wiki-edit-form-${entry.id}`}
             onSubmit={onSubmit}
             onCancel={onDone}
@@ -79,7 +82,7 @@ export function WikiEditForm({
               published: detail.published,
             }}
             busy={actions.pending}
-            onSave={(input: SEOUpdateInput) => void saveWikiSEO(entry.id, actions, toast, input)}
+            onSave={(input: SEOUpdateInput) => void saveWikiSEO(entry.id, actions, toast, input, ts)}
           />
         </div>
       ) : (
@@ -100,18 +103,20 @@ async function saveWikiSEO(
   actions: CorpusActionsHook,
   toast: { success: (m: string) => void },
   input: SEOUpdateInput,
+  ts: (key: string, values?: Record<string, string>) => string,
 ): Promise<void> {
   const res = await actions.updateWikiSEO(id, input);
-  res && toast.success(savedLine(res.unpinned_sections));
+  res && toast.success(savedLine(res.unpinned_sections, ts));
 }
 
 export function WikiPromoteRow({
   entry, actions, onDone,
 }: { entry: WikiSummary; actions: CorpusActionsHook; onDone: () => void }) {
   const toast = useToast();
+  const tt = useTranslations('adminCorpus.toast');
   const onSubmit = (input: PromoteInput) => void runWith(
     () => actions.promoteWiki(entry.id, input),
-    () => { toast.success('Promoted to output'); onDone(); },
+    () => { toast.success(tt('promotedToOutput')); onDone(); },
   );
   return (
     <div className="mt-4">

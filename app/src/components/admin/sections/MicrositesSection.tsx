@@ -34,6 +34,7 @@ const HOMEPAGE_SLUG = 'home';
 // 编辑器"). Editing a page happens on its own route, /admin/edit/<slug> (the mini-IDE); the list's
 // title and "edit" action link there.
 export function MicrositesSection() {
+  const t = useTranslations('adminPages.microsites');
   const hook = useMicrosites();
   // The homepage is NOT one row among the /p/<slug> pages: it's served at the site root `/` (the
   // owner's domain), so it gets its own card above and is filtered out of the table below.
@@ -48,7 +49,7 @@ export function MicrositesSection() {
         // nav item only changed the nav; this page's own line stayed put, so the same
         // thing belonged to two different groups ([[vocabulary-must-not-diverge]]).
         // Only visible on a real-prod eyeball check.
-        kicker="resources · microsites"
+        kicker={t('kicker')}
         slug="microsites"
         count={others.length > 0 ? String(others.length) : ''}
       />
@@ -268,15 +269,13 @@ function ByoaiButton({ page }: { page: MicrositeSummary }) {
       type="button"
       className="block mono text-[10px] mt-1 text-(--color-accent) hover:underline"
       data-testid={`microsite-byoai-${page.slug}`}
-      onClick={() => void run(() => setByoai(page.slug, !allow), { success: byoaiToast(page.slug, allow) })}
+      onClick={() => void run(() => setByoai(page.slug, !allow), {
+        success: t(allow ? 'byoaiToastOff' : 'byoaiToastOn', { slug: page.slug }),
+      })}
     >
       {allow ? t('byoaiOn') : t('byoaiOff')}
     </button>
   );
-}
-
-function byoaiToast(slug: string, wasAllowed: boolean): string {
-  return `BYOK ${wasAllowed ? 'off' : 'on'} for /p/${slug}`;
 }
 
 function TemplateCell() {

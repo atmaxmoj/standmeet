@@ -40,6 +40,7 @@ export function MarketplaceTab({ hook }: { hook: AgentSkillsHook }) {
 // ManualInstall —— paste a SKILL.md found/downloaded anywhere and install it
 // directly (no marketplace, no network). Backend parses frontmatter + body.
 function ManualInstall({ hook }: { hook: AgentSkillsHook }) {
+  const t = useTranslations('adminIntegrations.marketplaceTab');
   const [open, setOpen] = useState(false);
   return (
     <div className={styles.manual}>
@@ -50,7 +51,7 @@ function ManualInstall({ hook }: { hook: AgentSkillsHook }) {
         data-testid="marketplace-manual-toggle"
         aria-expanded={open}
       >
-        {open ? '− paste a SKILL.md' : '+ paste a SKILL.md'}
+        {(open ? '− ' : '+ ') + t('pasteToggle')}
       </button>
       {open ? <ManualForm hook={hook} /> : null}
     </div>
@@ -63,7 +64,7 @@ function ManualForm({ hook }: { hook: AgentSkillsHook }) {
   const [md, setMd] = useState('');
   const [name, setName] = useState('');
   const onInstall = () => {
-    void run(() => hook.installManual(md, name), { success: 'Skill installed' })
+    void run(() => hook.installManual(md, name), { success: t('installedToast') })
       .then(() => { setMd(''); setName(''); });
   };
   return (
@@ -85,7 +86,7 @@ function ManualForm({ hook }: { hook: AgentSkillsHook }) {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="name (optional — falls back to frontmatter)"
+            placeholder={t('namePlaceholder')}
             className={styles.manualName}
             data-testid="marketplace-manual-name"
           />
@@ -138,7 +139,7 @@ function SearchBar({ hook }: { hook: AgentSkillsHook }) {
         <input
           value={hook.query}
           onChange={(e) => hook.setQuery(e.target.value)}
-          placeholder="search skills…"
+          placeholder={t('searchPlaceholder')}
           className={styles.searchInput}
           data-testid="marketplace-search"
         />
@@ -151,8 +152,9 @@ function SearchBar({ hook }: { hook: AgentSkillsHook }) {
 function SourceSegmented({
   value, onChange,
 }: { value: SourceFilter; onChange: (v: SourceFilter) => void }) {
+  const t = useTranslations('adminIntegrations.marketplaceTab');
   return (
-    <div className={styles.segmented} role="tablist" aria-label="marketplace source">
+    <div className={styles.segmented} role="tablist" aria-label={t('sourceAriaLabel')}>
       {SOURCES.map((s) => (
         <SourceSegmentBtn
           key={s.value}
@@ -172,6 +174,7 @@ function SourceSegmentBtn({
   active: boolean;
   onClick: () => void;
 }) {
+  const t = useTranslations('adminIntegrations.marketplaceTab');
   return (
     <button
       type="button"
@@ -181,7 +184,7 @@ function SourceSegmentBtn({
       className={active ? styles.segmentBtnActive : styles.segmentBtn}
       data-testid={`marketplace-source-${option.value}`}
     >
-      {option.label}
+      {option.value === 'all' ? t('sourceAll') : option.label}
     </button>
   );
 }
@@ -190,6 +193,7 @@ function ResultsGrid({ hook }: { hook: AgentSkillsHook }) {
   // install now throws → useAction handles it (success toast / failure report);
   // a failed install no longer just clears the spinner and pretends it worked.
   const run = useAction();
+  const t = useTranslations('adminIntegrations.marketplaceTab');
   return hook.marketResults.length === 0 ? (
     <EmptyState />
   ) : (
@@ -200,7 +204,7 @@ function ResultsGrid({ hook }: { hook: AgentSkillsHook }) {
           skill={m}
           installed={hook.installedNames.has(m.name)}
           installing={hook.installing === m.id}
-          onInstall={() => { void run(() => hook.install(m), { success: 'Skill installed' }); }}
+          onInstall={() => { void run(() => hook.install(m), { success: t('installedToast') }); }}
         />
       ))}
     </div>

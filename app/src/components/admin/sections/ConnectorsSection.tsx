@@ -40,12 +40,13 @@ export function ConnectorsSection() {
   // AddModal's built-in-connect callback: the upload flow doesn't use it (it goes
   // through onAssemble); kept as a no-op to satisfy the prop.
   const onConnect = useCallback(() => {}, []);
+  const t = useTranslations('adminIntegrations.connectors');
   return (
     <>
       <SectionHeader
-        kicker="integrations"
+        kicker={t('kicker')}
         slug="connectors"
-        count="calendar · mail live · upload your own"
+        count={t('count')}
         action={<AddBtn onOpen={openAdd} />}
       />
       <Intro />

@@ -207,13 +207,52 @@
     "configuredIn": "konfiguriert in /admin/api-mcp",
     "spend30d": "ausgaben 30-tage",
     "spendSub": "Ihr inferenz-schlüssel · eigentümer zahlt",
-    "spendUnknown": "$—"
+    "spendUnknown": "$—",
+    "kickerOwner": "einstellungen · inhaber",
+    "fullName": "vollständiger name",
+    "fullNameBlurb": "Wird im Hero der öffentlichen Seite und in der Signaturzeile angezeigt.",
+    "saveName": "name speichern",
+    "nameUpdated": "Vollständiger Name geändert in {name}",
+    "email": "e-mail",
+    "emailBlurb": "Deine Anmeldeidentität — und wohin dein Wiederherstellungssatz gesendet wird. Eine Änderung erfordert dein aktuelles Passwort und die Adresse zweimal. Kann diese Instanz E-Mails senden, muss die neue Adresse erst bestätigt werden, bevor sich etwas ändert.",
+    "emailPlaceholder": "you@example.com",
+    "emailConfirmPlaceholder": "neue Adresse wiederholen",
+    "saveEmail": "e-mail speichern",
+    "cancel": "abbrechen",
+    "pendingEmailNote": "Warten auf Bestätigung durch {pending}. Bis dahin bleiben deine Anmeldung und dein Wiederherstellungssatz bei der aktuellen Adresse.",
+    "emailUpdated": "E-Mail geändert in {email}",
+    "emailConfirmSent": "Bestätigung an {pending} gesendet — deine Anmeldung hat sich noch nicht geändert",
+    "emailCancelled": "Ausstehende E-Mail-Änderung verworfen — dieser Bestätigungslink funktioniert nicht mehr",
+    "emailMismatch": "die beiden Adressen stimmen nicht überein",
+    "password": "passwort",
+    "passwordBlurb": "Mindestens 12 Zeichen. Bestehende Sitzungen bleiben gültig — melde dich bei Bedarf anderswo manuell ab.",
+    "currentPassword": "aktuelles passwort",
+    "newPassword": "neues passwort (≥ 12 zeichen)",
+    "confirmPassword": "neues passwort bestätigen",
+    "savePassword": "passwort speichern",
+    "passwordUpdated": "Passwort aktualisiert",
+    "pwTooShort": "das neue Passwort muss mindestens 12 Zeichen haben",
+    "pwMismatch": "neues Passwort und Bestätigung stimmen nicht überein",
+    "recoveryLabel": "Wiederherstellungssatz",
+    "generate": "erzeugen",
+    "recoverySent": "Wiederherstellungssatz gesendet",
+    "recoveryError": "Wiederherstellungssatz konnte nicht gesendet werden — richte zuerst einen ausgehenden Kanal ein und verifiziere ihn",
+    "recoveryDetailReady": "noch nicht gesetzt",
+    "recoveryDetailNeedsMail": "benötigt verifizierte E-Mail",
+    "recoveryNoteReady": "Erzeugt einen Wiederherstellungssatz und schickt ihn dir per E-Mail. Einmalig — er wird verbraucht, sobald du dich damit anmeldest.",
+    "recoveryNoteNeedsMail": "Verifiziere zuerst die E-Mail (SMTP) unter Connectors — der Wiederherstellungssatz wird dir per E-Mail zugesandt."
   },
   "ipBans": {
     "intro": "Blockieren Sie missbräuchliche Quell-IPs. Eine verbotene IP erhält eine 403 auf der ganzen öffentlichen Oberfläche — Chat, Sitzungen, Zugangsanfragen. Finden Sie beleidigende IPs in <mono>conversations</mono> (jede Zeile zeigt die IP des Besuchers). Verbote können jederzeit aufgehoben werden.",
     "banIp": "ip verbieten",
     "empty": "Keine IPs verboten. Die öffentliche Oberfläche ist offen (noch rate-limited pro IP).",
-    "unban": "verbieten aufheben"
+    "unban": "verbieten aufheben",
+    "kickerSecurity": "einstellungen · sicherheit",
+    "labelIp": "ip-adresse",
+    "labelReason": "grund",
+    "placeholderNote": "optionale notiz",
+    "banned": "IP gesperrt",
+    "unbanned": "IP entsperrt"
   },
   "system": {
     "checkForUpdates": "auf updates prüfen",
@@ -259,7 +298,8 @@
     "colLast": "letztes",
     "colStatus": "status",
     "statusDot": "●",
-    "healthChecks": "gesundheitsprüfungen"
+    "healthChecks": "gesundheitsprüfungen",
+    "kickerRuntime": "einstellungen · laufzeit"
   },
   "inferenceUsage": {
     "title": "inferenz-nutzung · letzte 7 tage",
@@ -278,6 +318,7 @@
     "empty": "Keine Arbeitsbereiche gerade",
     "emptyHint": "Ein Arbeitsbereich erscheint, wenn eine Besucher-Sitzung ein Tool verwendet, das Dateien schreibt, und er wird gekehrt, sobald er sein TTL-Leerlauf überschritten hat. Keiner hier bedeutet keinen in Gebrauch — nicht, dass etwas kaputt ist.",
     "sweepNothing": "Nichts zu kehren — es gibt keine Arbeitsbereiche",
-    "ageSecs": "{n}s"
+    "ageSecs": "{n}s",
+    "sweepDone": "Abgelaufene Sandbox-Workspaces bereinigt"
   }
 }

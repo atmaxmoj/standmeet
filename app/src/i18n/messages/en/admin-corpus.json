@@ -147,5 +147,88 @@
     "importExport": "import / export",
     "help": "Import picks your Obsidian vault folder (wiki / subjectivity / raw / writings) and upserts the matching corpus notes by their vault path. Export downloads your corpus as a vault of markdown + frontmatter.",
     "noSync": "No live sync, no file watcher — these two actions are the whole mechanism, and neither runs unless you run it."
+  },
+  "kicker": {
+    "raw": "corpus · inbox",
+    "wiki": "corpus · curated",
+    "subjectivity": "corpus · self-model",
+    "output": "corpus · public-facing",
+    "writings": "corpus · writing",
+    "obsidian": "integrations · vault"
+  },
+  "count": {
+    "unprocessed": "{n, plural, one {# unprocessed} other {# unprocessed}}",
+    "entries": "{n, plural, one {# entry} other {# entries}}",
+    "notes": "{n, plural, one {# note} other {# notes}}",
+    "artifacts": "{n, plural, one {# artifact} other {# artifacts}}",
+    "writings": "{n, plural, one {# writing} other {# writings}}",
+    "drafts": "{n, plural, one {# draft} other {# drafts}}"
+  },
+  "action": {
+    "create": "create",
+    "promote": "promote",
+    "saveEntry": "save entry"
+  },
+  "filter": {
+    "all": "all",
+    "unprocessed": "unprocessed",
+    "flaggedPrivate": "flagged private",
+    "promoted": "promoted"
+  },
+  "placeholder": {
+    "tags": "architecture, ai, indie",
+    "seoDescription": "One-line summary for og:description",
+    "rawDump": "Paste a thought, a passage from a chat, a half-formed take.",
+    "writingSlug": "url-slug",
+    "writingTitle": "Writing title",
+    "writingExcerpt": "One-line summary (also the cover subline)",
+    "writingCoverHeadline": "Big headline",
+    "writingTags": "comma, separated"
+  },
+  "writingForm": {
+    "headingNew": "new writing",
+    "headingEdit": "edit / {slug}",
+    "statusPublished": "published",
+    "statusDraft": "draft",
+    "actEdit": "edit",
+    "actPublish": "publish",
+    "actUnpublish": "unpublish",
+    "actDelete": "delete",
+    "fieldSlug": "slug",
+    "fieldTitle": "title",
+    "fieldExcerpt": "excerpt",
+    "fieldCoverHeadline": "cover headline",
+    "fieldTags": "tags",
+    "coverPreviewAlt": "cover preview",
+    "noFileSelected": "no file selected"
+  },
+  "toast": {
+    "wikiCreated": "Wiki created",
+    "wikiUpdated": "Wiki updated",
+    "wikiDeleted": "Wiki deleted",
+    "promotedToOutput": "Promoted to output",
+    "subjectivityCreated": "Subjectivity note created",
+    "subjectivityUpdated": "Subjectivity note updated",
+    "outputCreated": "Output created",
+    "outputUpdated": "Output updated",
+    "outputDeleted": "Output deleted",
+    "rawUpdated": "Raw updated",
+    "rawDeleted": "Raw deleted",
+    "promotedToWiki": "Promoted to wiki",
+    "obsidianImported": "Obsidian vault imported",
+    "writingDeleted": "Writing deleted",
+    "writingPublished": "Published",
+    "writingUnpublished": "Unpublished",
+    "writingSaved": "Writing {slug} saved"
+  },
+  "confirm": {
+    "deleteWiki": "Delete wiki \"{title}\"?{warn} This cannot be undone.",
+    "deleteWikiChildren": "{n, plural, one { This also deletes its # child entry.} other { This also deletes its # child entries.}}",
+    "deleteOutput": "Delete output \"{title}\"? This cannot be undone.",
+    "deleteRaw": "Delete this raw entry? This cannot be undone."
+  },
+  "savedLine": {
+    "saved": "saved",
+    "savedUnpinned": "saved — unpublishing also removed it from {sections}"
   }
 }

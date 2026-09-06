@@ -21,6 +21,7 @@ import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function CodesSection() {
+  const t = useTranslations('adminAccess');
   const hook = useCodes();
   const modals = useCodeModalState();
   const run = useAction();
@@ -28,15 +29,15 @@ export function CodesSection() {
   // revoke is a one-click destructive action → toast on both success and failure
   // (no more silent failure: if the revoke didn't take effect, the owner must know).
   const revokeWithToast = useCallback(
-    (id: string) => run(() => hook.revokeCode(id), { success: 'Code revoked' }),
-    [hook, run],
+    (id: string) => run(() => hook.revokeCode(id), { success: t('codes.toast.revoked') }),
+    [hook, run, t],
   );
   return (
     <>
       <SectionHeader
-        kicker="access · codes"
+        kicker={t('codes.kicker')}
         slug="codes"
-        count={titleCount(hook)}
+        count={titleCount(hook, t)}
         action={<NewCodeBtn open={modals.openCreate} />}
       />
       <Intro />
@@ -68,9 +69,11 @@ function NewCodeBtn({ open }: { open: () => void }) {
   return <Btn kind="solid" onClick={() => open()}>{t('codes.new')}</Btn>;
 }
 
-function titleCount(hook: CodesHook): string {
+type Translator = ReturnType<typeof useTranslations>;
+
+function titleCount(hook: CodesHook, t: Translator): string {
   return hook.status === 'ready'
-    ? `${countActive(hook.codes)} active · ${hook.codes.length} total`
+    ? t('codes.count', { active: countActive(hook.codes), total: hook.codes.length })
     : '';
 }
 
@@ -153,6 +156,7 @@ function CodeCreateModalSlot({
   createCode: CodesHook['createCode'];
   updateQuotas: CodesHook['updateQuotas'];
 }) {
+  const t = useTranslations('adminAccess');
   const toast = useToast();
   const report = useReportError();
   // modal: success → toast + close; failure → report + **stay open** (it used to
@@ -161,22 +165,22 @@ function CodeCreateModalSlot({
   const onCreate = useCallback(async (input: Parameters<CodesHook['createCode']>[0]) => {
     try {
       await createCode(input);
-      toast.success(`Code ${input.code} created`);
+      toast.success(t('codes.toast.created', { code: input.code }));
       onClose();
     } catch (e) {
       report(e);
     }
-  }, [createCode, onClose, toast, report]);
+  }, [createCode, onClose, toast, report, t]);
   const onUpdateQuotas = useCallback(
     async (id: string, input: Parameters<CodesHook['updateQuotas']>[1]) => {
       try {
         await updateQuotas(id, input);
-        toast.success('Quotas updated');
+        toast.success(t('codes.toast.quotasUpdated'));
         onClose();
       } catch (e) {
         report(e);
       }
-    }, [updateQuotas, onClose, toast, report]);
+    }, [updateQuotas, onClose, toast, report, t]);
   return open ? (
     <CodeCreateModal
       existing={editing}

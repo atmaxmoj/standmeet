@@ -21,11 +21,12 @@ export function OutputEditForm({
   entry, actions, onDone,
 }: { entry: OutputSummary; actions: CorpusActionsHook; onDone: () => void }) {
   const t = useTranslations('adminCorpus.common');
+  const tt = useTranslations('adminCorpus.toast');
   const toast = useToast();
   const detail = useOutputDetail(entry.id, actions);
   const onSubmit = (input: CorpusEntryInput) => void runWith(
     () => actions.updateOutput(entry.id, input),
-    () => { toast.success('Output updated'); onDone(); },
+    () => { toast.success(tt('outputUpdated')); onDone(); },
   );
   return (
     <div className="mt-4" data-testid={`output-edit-loaded-${entry.id}`}>
@@ -68,6 +69,8 @@ function EditFormBody({
 }) {
   const toast = useToast();
   const tf = useTranslations('adminCorpus.form');
+  const ta = useTranslations('adminCorpus.action');
+  const ts = useTranslations('adminCorpus.savedLine');
   return (
     <>
       <CorpusEntryForm
@@ -87,7 +90,7 @@ function EditFormBody({
         // PUBLIC LANDING card below with its own submit; each card names which
         // half it owns (UX-60).
         heading={tf('entryHeading')}
-        submitLabel="save entry"
+        submitLabel={ta('saveEntry')}
         testidPrefix={`output-edit-form-${entry.id}`}
         onSubmit={onSubmit}
         onCancel={onDone}
@@ -107,7 +110,7 @@ function EditFormBody({
         testidPrefix={`output-${entry.id}`}
         initial={{ excerpt: detail.excerpt, published: detail.published }}
         busy={actions.pending}
-        onSave={(input: SEOUpdateInput) => void saveOutputSEO(entry.id, actions, toast, input)}
+        onSave={(input: SEOUpdateInput) => void saveOutputSEO(entry.id, actions, toast, input, ts)}
       />
     </>
   );
@@ -118,7 +121,8 @@ function EditFormBody({
 async function saveOutputSEO(
   id: string, actions: CorpusActionsHook,
   toast: { success: (m: string) => void }, input: SEOUpdateInput,
+  ts: (key: string, values?: Record<string, string>) => string,
 ): Promise<void> {
   const res = await actions.updateOutputSEO(id, input);
-  res && toast.success(savedLine(res.unpinned_sections));
+  res && toast.success(savedLine(res.unpinned_sections, ts));
 }

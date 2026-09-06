@@ -11,7 +11,14 @@
     "register": "register →",
     "registered": "Source registered",
     "remove": "remove",
-    "removed": "Source removed"
+    "removed": "Source removed",
+    "kicker": "jobs · sources",
+    "titleRegistered": "{count, plural, one {# registered} other {# registered}}",
+    "labelPlaceholder": "Listings Board",
+    "stateNever": "never fetched",
+    "stateFetched": "last · {date}",
+    "stateFailed": "last try · {date} · failed — {reason}",
+    "stateUnknownDate": "unknown"
   },
   "listings": {
     "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
@@ -19,7 +26,9 @@
     "emptyTitle": "Fetch jobs from your sources first.",
     "emptyHint": "Listings are fetched automatically when you open this section — or press Fetch now. Results stay here for a day until you draft or discard them.",
     "fetchNow": "fetch now",
-    "fetching": "fetching…"
+    "fetching": "fetching…",
+    "kicker": "jobs · listings",
+    "titleInPool": "{count, plural, one {# in pool} other {# in pool}}"
   },
   "drafts": {
     "intro": "Tailored resumes Claude drafted for jobs you said yes to. Open the composer to edit + preview; <ink>send</ink> freezes the snapshot, renders the final PDF (with QR), and auto-issues an AccessCode.",
@@ -39,7 +48,10 @@
     "newTitle": "New resume draft",
     "newCompany": "company",
     "newRole": "role",
-    "newCreate": "create draft"
+    "newCreate": "create draft",
+    "kicker": "jobs · resume drafts",
+    "titlePending": "{count, plural, one {# pending} other {# pending}}",
+    "committed": "Application committed — résumé sent with its access code"
   },
   "applications": {
     "searchPlaceholder": "search by company or role…",
@@ -53,7 +65,9 @@
     "open": "open ›",
     "metaCommitted": "committed {date}",
     "metaSubmitted": "submitted {date}",
-    "metaNotSubmitted": "submission not recorded"
+    "metaNotSubmitted": "submission not recorded",
+    "kicker": "jobs · committed",
+    "titleCommitted": "{count, plural, one {# committed} other {# committed}}"
   },
   "detail": {
     "kicker": "application · {id}",

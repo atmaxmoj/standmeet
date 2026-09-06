@@ -256,7 +256,7 @@ function KeyRow({
         type="password"
         value={keyText}
         onChange={(e) => setKey(e.target.value)}
-        placeholder={configured ? '● already set · type to replace' : 'paste key here'}
+        placeholder={configured ? t('keyPlaceholderSet') : t('keyPlaceholderUnset')}
         spellCheck={false}
         autoComplete="off"
         data-testid="ai-provider-key"
@@ -281,11 +281,12 @@ function ModelsError({ message }: { message: string }) {
 }
 
 function KeyHint({ configured, typing }: { configured: boolean; typing: boolean }) {
+  const t = useTranslations('adminIntegrations.aiProvider');
   return (
     <div className="mono text-[10.5px] tracking-[0.04em] text-(--color-faint) mt-1">
-      {typing ? 'will replace existing key on save'
-        : configured ? '● key set · leave blank to keep'
-        : '○ not set'}
+      {typing ? t('hintReplace')
+        : configured ? t('hintSet')
+        : t('hintUnset')}
     </div>
   );
 }
@@ -316,8 +317,9 @@ function SaveBtn({
   toast: ReturnType<typeof useToast>;
   resetKey: () => void;
 }) {
+  const t = useTranslations('adminIntegrations.aiProvider');
   const disabled = hook.state.saving || !canSubmit(form);
-  const onSave = () => void runSave(hook, form, keyText, toast, resetKey);
+  const onSave = () => void runSave(hook, form, keyText, toast, resetKey, t('savedToast'));
   return (
     <button
       type="button"
@@ -329,7 +331,7 @@ function SaveBtn({
       // ended up with three button looks — use the atom, stop copying.
       className="sm-btn sm-btn-solid sm-btn-sm"
     >
-      {hook.state.saving ? 'saving…' : 'save'}
+      {hook.state.saving ? t('saving') : t('save')}
     </button>
   );
 }
@@ -340,7 +342,7 @@ function canSubmit(form: ProviderFormState): boolean {
 
 async function runSave(
   hook: AIProviderHook, form: ProviderFormState, keyText: string,
-  toast: ReturnType<typeof useToast>, resetKey: () => void,
+  toast: ReturnType<typeof useToast>, resetKey: () => void, savedMsg: string,
 ): Promise<void> {
   const ok = await hook.save({
     provider: form.provider,
@@ -348,7 +350,7 @@ async function runSave(
     model: form.model.trim(),
     key: keyText,
   });
-  applySaveSuccess(ok, resetKey, () => toast.success('AI provider saved'));
+  applySaveSuccess(ok, resetKey, () => toast.success(savedMsg));
 }
 
 function ClearBtn({
@@ -359,7 +361,7 @@ function ClearBtn({
   resetKey: () => void;
 }) {
   const t = useTranslations('adminIntegrations.aiProvider');
-  const onClear = () => void runClear(hook, toast, resetKey);
+  const onClear = () => void runClear(hook, toast, resetKey, t('clearedToast'));
   return hook.state.keyConfigured ? (
     <button
       type="button"
@@ -374,10 +376,10 @@ function ClearBtn({
 
 async function runClear(
   hook: AIProviderHook,
-  toast: ReturnType<typeof useToast>, resetKey: () => void,
+  toast: ReturnType<typeof useToast>, resetKey: () => void, clearedMsg: string,
 ): Promise<void> {
   const ok = await hook.clearKey();
-  applySaveSuccess(ok, resetKey, () => toast.success('AI provider cleared'));
+  applySaveSuccess(ok, resetKey, () => toast.success(clearedMsg));
 }
 
 function Label({ children }: { children: string }) {

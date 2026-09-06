@@ -6,7 +6,9 @@
   "api": {
     "intro": "Las claves MCP permiten a los clientes de IA (Claude, Cursor, scripts personalizados) ingresar entradas sin procesar en su corpus, promoverlas, administrar códigos. Cada clave es un par de claves Ed25519 — el servidor almacena solo la mitad pública; guarda el PEM privado en <code>~/.standmeet/credentials.json</code> y el cliente firma por solicitud.",
     "keysHeading": "claves mcp",
-    "empty": "sin claves aún · genere una para conectar su primer cliente de IA"
+    "empty": "sin claves aún · genere una para conectar su primer cliente de IA",
+    "kicker": "integraciones · programático",
+    "keyCount": "{count, plural, one {# clave} other {# claves}}"
   },
   "aiProvider": {
     "heading": "ia del propietario",
@@ -15,7 +17,16 @@
     "endpoint": "punto final",
     "model": "modelo",
     "apiKey": "clave api",
-    "clearKey": "limpiar clave ×"
+    "clearKey": "limpiar clave ×",
+    "keyPlaceholderSet": "● ya configurada · escribe para reemplazar",
+    "keyPlaceholderUnset": "pega la clave aquí",
+    "hintReplace": "reemplazará la clave existente al guardar",
+    "hintSet": "● clave configurada · déjala vacía para conservarla",
+    "hintUnset": "○ sin configurar",
+    "saving": "guardando…",
+    "save": "guardar",
+    "savedToast": "Proveedor de IA guardado",
+    "clearedToast": "Proveedor de IA borrado"
   },
   "mcpClient": {
     "heading": "configuración mcp",
@@ -43,11 +54,19 @@
     "checkRefused": "respondió, pero rechazó el encabezado de autenticación — verifique el nombre y valor del encabezado",
     "checkNoAnswer": "sin respuesta — nada respondió en esa URL",
     "authBadge": "auth: {name}",
-    "add": "Agregar servidor MCP"
+    "add": "Agregar servidor MCP",
+    "removedToast": "Servidor eliminado",
+    "probeUnreachable": "no se pudo contactar",
+    "addError": "No se pudo añadir el servidor MCP",
+    "fieldName": "nombre",
+    "fieldUrl": "url",
+    "fieldAuthName": "nombre del encabezado de autenticación (opcional)",
+    "fieldAuthValue": "valor del encabezado de autenticación (opcional)"
   },
   "newToken": {
     "label": "generar clave",
-    "submit": "generar"
+    "submit": "generar",
+    "namePlaceholder": "etiqueta del dispositivo — p. ej. 'mojat-mbp'"
   },
   "newlyCreated": {
     "warning": "guarde estos ahora — la clave privada se muestra solo una vez",
@@ -62,7 +81,8 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "revoke": "revocar",
-    "keyId": "id de clave"
+    "keyId": "id de clave",
+    "deletedToast": "Clave eliminada"
   },
   "connectors": {
     "intro": "Los conectores permiten que el agente llegue a servicios externos — Calendario y Correo están en vivo a continuación, y puede cargar su propio conector (OpenAPI / protocolo) para agregar más.",
@@ -73,7 +93,10 @@
     "builtinHeading": "Listo para conectar",
     "builtinCount": "{count} disponible",
     "uploadedHeading": "Conectores que cargó",
-    "uploadedCount": "{count} instalado"
+    "uploadedCount": "{count} instalado",
+    "kicker": "integraciones",
+    "count": "calendario · correo activo · sube el tuyo",
+    "removedToast": "Conector eliminado"
   },
   "calendar": {
     "heading": "Calendario de Google",
@@ -85,15 +108,30 @@
     "timezone": "zona horaria (IANA)",
     "timezoneUnsetOption": "— no configurado —",
     "timezoneUnsetHint": "no configurado, por lo que las horas anteriores se leen como UTC. su navegador dice {detected} — selecciónelo y los visitantes obtendrán las horas que pretendía.",
-    "weekdays": "días de la semana permitidos"
+    "weekdays": "días de la semana permitidos",
+    "statusConnected": "conectado",
+    "statusCredsOnly": "solo credenciales · haz clic en Autorizar",
+    "statusNotConfigured": "sin configurar",
+    "disconnectedToast": "Desconectado",
+    "hoursStart": "inicio del horario laboral (HH:MM)",
+    "hoursEnd": "fin del horario laboral (HH:MM)",
+    "leadDays": "días mínimos de antelación",
+    "bufferMin": "minutos de margen (alrededor de eventos existentes)"
   },
   "capabilities": {
     "kicker": "disponibilidad",
     "heading": "capacidades",
-    "intro": "Desactive una capacidad y sus herramientas desaparecen de todas las sesiones de visitantes. Las capacidades integradas se pueden deshabilitar pero no eliminar; solo las que ha escrito se pueden quitar."
+    "intro": "Desactive una capacidad y sus herramientas desaparecen de todas las sesiones de visitantes. Las capacidades integradas se pueden deshabilitar pero no eliminar; solo las que ha escrito se pueden quitar.",
+    "empty": "no hay capacidades registradas.",
+    "loading": "cargando…",
+    "removeTitle": "eliminar capacidad",
+    "removedToast": "Capacidad eliminada"
   },
   "connectorCard": {
-    "disconnect": "Desconectar"
+    "disconnect": "Desconectar",
+    "statusConnecting": "conectando…",
+    "statusConnected": "conectado",
+    "statusNotConnected": "no conectado"
   },
   "connectorOp": {
     "run": "Ejecutar",
@@ -104,7 +142,8 @@
   },
   "connectorList": {
     "loadError": "No se pudieron cargar sus conectores — recargue e intente de nuevo.",
-    "delete": "Eliminar"
+    "delete": "Eliminar",
+    "removeAria": "eliminar conector"
   },
   "skills": {
     "new": "+ habilidad nueva",
@@ -115,7 +154,20 @@
     "modalTitle": "habilidad nueva",
     "promptLabel": "aviso",
     "cancel": "cancelar",
-    "create": "crear"
+    "create": "crear",
+    "kicker": "ia · habilidades",
+    "trackedCount": "{count, plural, one {# registrada} other {# registradas}}",
+    "toggleOn": "activado",
+    "toggleOff": "desactivado",
+    "deletedToast": "Habilidad {name} eliminada",
+    "createdToast": "Habilidad {name} creada",
+    "fieldName": "nombre",
+    "fieldDescription": "descripción",
+    "namePlaceholder": "p. ej. patent-review",
+    "descriptionPlaceholder": "resumen de una línea",
+    "promptPlaceholder": "Prompt de sistema adicional añadido a la persona base…",
+    "tabInstalled": "mis habilidades",
+    "tabMarketplace": "mercado"
   },
   "installedCard": {
     "source": "fuente · {source}",
@@ -126,7 +178,9 @@
     "author": "{author} · v{version}",
     "authorOnly": "{author}",
     "installed": "✓ instalado",
-    "needs": "necesita {missing}"
+    "needs": "necesita {missing}",
+    "installing": "instalando…",
+    "install": "instalar ↓"
   },
   "marketplaceTab": {
     "intro": "Las habilidades se agregan desde dos fuentes — el repo <ink>anthropics/skills</ink> de GitHub abierto (cualquiera puede fork + PR) y <ink>SkillsMP</ink> (canal comercial). La instalación obtiene el SKILL.md de la habilidad, analiza su frontmatter y escribe una copia local que posee completamente — edite el aviso o herramientas permitidas después, desacopladas del marketplace.",
@@ -134,7 +188,13 @@
     "manualInstall": "instalar",
     "loadMore": "cargar más",
     "searchIcon": "⌕",
-    "empty": "Sin habilidades coinciden. Intente un término diferente o cambie de fuente — el repo de GitHub y SkillsMP se consultan en paralelo."
+    "empty": "Sin habilidades coinciden. Intente un término diferente o cambie de fuente — el repo de GitHub y SkillsMP se consultan en paralelo.",
+    "pasteToggle": "pega un SKILL.md",
+    "namePlaceholder": "nombre (opcional — usa el frontmatter por defecto)",
+    "searchPlaceholder": "buscar habilidades…",
+    "sourceAriaLabel": "fuente del mercado",
+    "sourceAll": "todo",
+    "installedToast": "Habilidad instalada"
   },
   "mySkills": {
     "empty": "Sin habilidades aún — instale una desde la pestaña marketplace o agregue la suya bajo Skills."
@@ -156,7 +216,11 @@
     "gasFill": "llenar",
     "gasUnmeter": "quitar calibrador",
     "gasFilled": "Tanque lleno",
-    "gasFillPlaceholder": "tokens"
+    "gasFillPlaceholder": "tokens",
+    "fieldProvider": "proveedor",
+    "fieldEndpoint": "endpoint",
+    "fieldModel": "modelo",
+    "fieldApiKey": "clave de api"
   },
   "apiKeys": {
     "heading": "claves api salientes",
@@ -176,5 +240,19 @@
   "embed": {
     "heading": "Incrustar en otro sitio",
     "blurb": "Coloque estas dos líneas en cualquier página — su propio blog, el sitio de un cliente, una página de destino. Sin paso de construcción y sin React: el script registra un elemento <standmeet-chat> que habla con esta instancia."
+  },
+  "assemble": {
+    "statusConnected": "conectado",
+    "statusConnecting": "conectando…",
+    "statusNotConnected": "no conectado",
+    "field": {
+      "url": "URL de CalDAV",
+      "username": "Usuario",
+      "password": "Contraseña",
+      "host": "Host",
+      "port": "Puerto",
+      "from": "Dirección de remitente",
+      "tls": "TLS (none | starttls | tls)"
+    }
   }
 }

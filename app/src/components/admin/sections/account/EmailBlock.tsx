@@ -15,9 +15,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { AcctBlock, PasswordField, SaveBtn } from '@/components/admin/sections/account/atoms';
-import { emailHintMessage, emailSaveDisabled, pendingEmailNote } from '@/lib/admin/account-form';
+import { emailHintMessage, emailSaveDisabled } from '@/lib/admin/account-form';
 import type { AccountHook, EmailChangeResult } from '@/lib/admin/use-account';
 import { useToast } from '@/lib/ui/toast';
 
@@ -41,46 +42,46 @@ interface EmailBlockProps {
 }
 
 export function EmailBlock({ hook, initialValue, pending }: EmailBlockProps) {
+  const t = useTranslations('adminShell.account');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState(initialValue);
   const [confirm, setConfirm] = useState('');
   const toast = useToast();
   const disabled = emailSaveDisabled(hook.pending, current, next, confirm, initialValue);
+  const hintKey = emailHintMessage(next, confirm);
   const save = (): void => {
-    void runSaveEmail(hook, { current, next }, { setCurrent, setConfirm }, toast);
+    void runSaveEmail(hook, { current, next }, { setCurrent, setConfirm }, toast,
+      (saved) => saved.pending === ''
+        ? t('emailUpdated', { email: saved.email })
+        : t('emailConfirmSent', { pending: saved.pending }));
   };
   return (
-    <AcctBlock title="email" testid="account-email-block"
-      // This line used to say "Changing it moves both" — that was the behavior
-      // **before** the pending-confirmation flow was added. Caught eyeballing real
-      // prod: the mechanism changed, the copy didn't, so it lies to the owner
-      // ([[names-that-lie]]). Both branches are accurate now: it waits for
-      // confirmation when it can send mail, and changes immediately when it can't.
-      blurb={'Your login identity — and where your recovery phrase is sent. '
-        + 'Changing it needs your current password and the address twice. If this '
-        + 'instance can send mail, the new address has to confirm before either moves.'}>
+    // The blurb states the consequences in full: the email column is both the login
+    // identity and the recovery recipient, and both only move once (with mail) the new
+    // address confirms. Kept accurate in-catalog ([[names-that-lie]]).
+    <AcctBlock title={t('email')} testid="account-email-block" blurb={t('emailBlurb')}>
       <div>
         <PendingEmailRow
           pending={pending}
-          onCancel={() => void runCancelEmail(hook, toast)}
+          onCancel={() => void runCancelEmail(hook, toast, t('emailCancelled'))}
         />
         <PasswordField
           testid="account-email-current-password"
-          value={current} onChange={setCurrent} label="current password"
+          value={current} onChange={setCurrent} label={t('currentPassword')}
         />
         <EmailField
           testid="account-email-new" value={next} onChange={setNext}
-          placeholder="you@example.com"
+          placeholder={t('emailPlaceholder')}
         />
         <div className="flex items-baseline gap-3 mt-3">
           <EmailField
             testid="account-email-confirm" value={confirm} onChange={setConfirm}
-            placeholder="repeat the new address"
+            placeholder={t('emailConfirmPlaceholder')}
           />
-          <SaveBtn testid="account-email-save" disabled={disabled} label="save email"
+          <SaveBtn testid="account-email-save" disabled={disabled} label={t('saveEmail')}
             onClick={save} />
         </div>
-        <FieldHint message={emailHintMessage(next, confirm)} />
+        <FieldHint message={hintKey === '' ? '' : t(hintKey)} />
       </div>
     </AcctBlock>
   );
@@ -113,16 +114,17 @@ function FieldHint({ message }: { message: string }) {
 function PendingEmailRow(
   { pending, onCancel }: { pending: string; onCancel: () => void },
 ) {
+  const t = useTranslations('adminShell.account');
   return pending === '' ? null : (
     <div
       data-testid="account-email-pending"
       className="flex items-baseline justify-between gap-3 mb-3 p-2 border border-(--color-accent)/40 rounded-[3px]"
     >
       <span className="reading text-[12.5px] text-(--color-muted)">
-        {pendingEmailNote(pending)}
+        {t('pendingEmailNote', { pending })}
       </span>
       <SaveBtn
-        testid="account-email-pending-cancel" disabled={false} label="cancel"
+        testid="account-email-pending-cancel" disabled={false} label={t('cancel')}
         onClick={onCancel}
       />
     </div>
@@ -137,34 +139,31 @@ interface EmailSaveSetters {
 async function runSaveEmail(
   hook: AccountHook, input: { current: string; next: string },
   set: EmailSaveSetters, toast: { success: (m: string) => void },
+  msg: (saved: EmailChangeResult) => string,
 ): Promise<void> {
   const saved = await hook.updateEmail(input.current, input.next);
-  saved && finishEmailSave(set, toast, saved);
+  saved && finishEmailSave(set, toast, msg(saved));
 }
 
-// finishEmailSave — the two outcomes need two different messages. "Email updated" is a
-// lie when only a confirmation email went out, and the owner will retire the old address
-// on the strength of that lie.
+// finishEmailSave — the two outcomes need two different messages (the caller picks which):
+// "Email updated" is a lie when only a confirmation email went out, and the owner will
+// retire the old address on the strength of that lie.
 //
 // Only clears the inputs, doesn't touch pending: that row's value comes from session, and
 // the hook has already reset session.
 function finishEmailSave(
   set: EmailSaveSetters,
   toast: { success: (m: string) => void },
-  saved: EmailChangeResult,
+  message: string,
 ): void {
   set.setCurrent('');
   set.setConfirm('');
-  toast.success(saved.pending === ''
-    ? `Email updated to ${saved.email}`
-    : `Confirmation sent to ${saved.pending} — your login has not changed yet`);
+  toast.success(message);
 }
 
 async function runCancelEmail(
-  hook: AccountHook, toast: { success: (m: string) => void },
+  hook: AccountHook, toast: { success: (m: string) => void }, message: string,
 ): Promise<void> {
   const email = await hook.cancelEmailChange();
-  email && toast.success(
-    'Pending email change dropped — that confirmation link no longer works',
-  );
+  email && toast.success(message);
 }

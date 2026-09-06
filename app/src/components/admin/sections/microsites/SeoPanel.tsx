@@ -32,8 +32,8 @@ function SeoForm({ slug, row, setSEO }: SeoFormProps) {
   const [desc, setDesc] = useState(init.desc);
   const [image, setImage] = useState(init.image);
   const save = useCallback(() => {
-    void run(() => setSEO(slug, title.trim(), desc.trim(), image.trim()), { success: 'SEO updated' });
-  }, [run, setSEO, slug, title, desc, image]);
+    void run(() => setSEO(slug, title.trim(), desc.trim(), image.trim()), { success: t('seoUpdated') });
+  }, [run, setSEO, slug, title, desc, image, t]);
   return (
     <details className="mt-4" data-testid="microsite-seo">
       <summary className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) cursor-pointer">
@@ -42,17 +42,17 @@ function SeoForm({ slug, row, setSEO }: SeoFormProps) {
       <div className="mt-2 space-y-2">
         <input
           value={title} onChange={(e) => setTitle(e.target.value)} spellCheck={false}
-          placeholder="page title (browser tab + search)" data-testid="microsite-seo-title"
+          placeholder={t('seoTitlePlaceholder')} data-testid="microsite-seo-title"
           className="sm-field-input w-full"
         />
         <textarea
           value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} spellCheck={false}
-          placeholder="one-line description for search results" data-testid="microsite-seo-desc"
+          placeholder={t('seoDescPlaceholder')} data-testid="microsite-seo-desc"
           className="w-full bg-transparent border border-(--color-rule) p-2 reading-tight text-[13px]"
         />
         <input
           value={image} onChange={(e) => setImage(e.target.value)} spellCheck={false}
-          placeholder="share-card image URL (og:image)" data-testid="microsite-seo-image"
+          placeholder={t('seoImagePlaceholder')} data-testid="microsite-seo-image"
           className="sm-field-input w-full"
         />
         <button type="button" onClick={save} data-testid="microsite-seo-save" className="sm-btn sm-btn-sm">

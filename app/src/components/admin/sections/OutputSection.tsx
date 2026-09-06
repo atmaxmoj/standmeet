@@ -46,13 +46,15 @@ export function OutputSection() {
 }
 
 function Header({ hook, actions }: { hook: OutputHook; actions: CorpusActionsHook }) {
+  const tk = useTranslations('adminCorpus.kicker');
+  const tc = useTranslations('adminCorpus.count');
   const [creating, setCreating] = useState(false);
   return (
     <>
       <SectionHeader
-        kicker="corpus · public-facing"
+        kicker={tk('output')}
         slug="output"
-        count={hook.status === 'ready' ? `${hook.rows.length} artifacts` : ''}
+        count={hook.status === 'ready' ? tc('artifacts', { n: hook.rows.length }) : ''}
         action={<NewBtnGroup onClick={() => setCreating(true)} disabled={creating} />}
       />
       {creating ? (
@@ -109,14 +111,16 @@ function CreateForm({
   actions, rows, onDone,
 }: { actions: CorpusActionsHook; rows: readonly OutputSummary[]; onDone: () => void }) {
   const toast = useToast();
+  const ta = useTranslations('adminCorpus.action');
+  const tt = useTranslations('adminCorpus.toast');
   const onSubmit = (input: CorpusEntryInput) => void runWith(
     () => actions.createOutput(input),
-    () => { toast.success('Output created'); onDone(); },
+    () => { toast.success(tt('outputCreated')); onDone(); },
   );
   return (
     <CorpusEntryForm
       busy={actions.pending}
-      submitLabel="create"
+      submitLabel={ta('create')}
       testidPrefix="output-create"
       parentOptions={corpusParentOptions(rows)}
       onSubmit={onSubmit}
@@ -305,11 +309,13 @@ function ViewLiveLink({ path, indexed }: { path?: string | null; indexed: boolea
 
 function DeleteBtn({ entry, actions }: { entry: OutputSummary; actions: CorpusActionsHook }) {
   const t = useTranslations('adminCorpus.common');
+  const tcf = useTranslations('adminCorpus.confirm');
+  const tt = useTranslations('adminCorpus.toast');
   const toast = useToast();
-  const onClick = () => confirm(`Delete output "${entry.title}"? This cannot be undone.`)
+  const onClick = () => confirm(tcf('deleteOutput', { title: entry.title }))
     ? void runWith(
       () => actions.deleteOutput(entry.id),
-      () => toast.success('Output deleted'),
+      () => toast.success(tt('outputDeleted')),
     )
     : null;
   return (

@@ -8,6 +8,7 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, useRef, useState } from 'react';
 
 import { CoverImagePicker, type CoverAssetState } from '@/components/admin/sections/writings/CoverImagePicker';
@@ -75,8 +76,9 @@ export function WritingForm(props: Props) {
   const [values, setValues] = useState<WritingFormValues>(props.initial);
   const pendingRef = useRef<PendingFile[]>([]);
   const toast = useToast();
+  const tt = useTranslations('adminCorpus.toast');
   const report = useReportError();
-  const submit = useSubmitHandler(values, pendingRef, props, toast, report);
+  const submit = useSubmitHandler(values, pendingRef, props, toast, report, tt);
   return (
     <div className="bg-(--color-paper) border border-(--color-rule) max-w-[720px] w-full max-h-[90vh] overflow-y-auto p-7 flex flex-col gap-4">
       <h2 className="font-serif text-[22px]">{props.heading}</h2>
@@ -105,6 +107,8 @@ function WritingFormBody({
   toast: ReturnType<typeof useToast>;
   pendingRef: { current: PendingFile[] };
 }) {
+  const tw = useTranslations('adminCorpus.writingForm');
+  const tp = useTranslations('adminCorpus.placeholder');
   const set = <K extends keyof WritingFormValues>(k: K, v: WritingFormValues[K]) =>
     setValues({ ...values, [k]: v });
   const handlePending = (p: PendingFile) => {
@@ -113,22 +117,23 @@ function WritingFormBody({
   return (
     <>
       <WritingFieldRow>
-        <WritingField label="slug" value={values.slug}
+        <WritingField label={tw('fieldSlug')} testid="writing-field-slug" value={values.slug}
           onChange={(v) => set('slug', v)}
-          placeholder="url-slug" readOnly={props.slugReadOnly} />
-        <WritingField label="title" value={values.title}
-          onChange={(v) => set('title', v)} placeholder="Writing title" />
+          placeholder={tp('writingSlug')} readOnly={props.slugReadOnly} />
+        <WritingField label={tw('fieldTitle')} testid="writing-field-title" value={values.title}
+          onChange={(v) => set('title', v)} placeholder={tp('writingTitle')} />
       </WritingFieldRow>
       {/* excerpt is written once, shared by the card / og / cover subline */}
-      <WritingField label="excerpt" value={values.excerpt}
-        onChange={(v) => set('excerpt', v)} placeholder="One-line summary (also the cover subline)" />
-      <WritingField label="cover headline" value={values.coverHeadline}
-        onChange={(v) => set('coverHeadline', v)} placeholder="Big headline" />
+      <WritingField label={tw('fieldExcerpt')} testid="writing-field-excerpt" value={values.excerpt}
+        onChange={(v) => set('excerpt', v)} placeholder={tp('writingExcerpt')} />
+      <WritingField label={tw('fieldCoverHeadline')} testid="writing-field-cover-headline"
+        value={values.coverHeadline}
+        onChange={(v) => set('coverHeadline', v)} placeholder={tp('writingCoverHeadline')} />
       <WritingFieldRow>
         <CoverHueSelect value={values.coverHue}
           onChange={(v) => set('coverHue', v)} />
-        <WritingField label="tags" value={values.tags}
-          onChange={(v) => set('tags', v)} placeholder="comma, separated" />
+        <WritingField label={tw('fieldTags')} testid="writing-field-tags" value={values.tags}
+          onChange={(v) => set('tags', v)} placeholder={tp('writingTags')} />
       </WritingFieldRow>
       <ParentSelect value={values.parentID} options={props.parentOptions}
         onChange={(v) => set('parentID', v)} />
@@ -146,21 +151,22 @@ function WritingFormBody({
 }
 
 type Reporter = ReturnType<typeof useReportError>;
+type ToastT = ReturnType<typeof useTranslations<'adminCorpus.toast'>>;
 
 function useSubmitHandler(
   values: WritingFormValues, pendingRef: { current: PendingFile[] },
-  props: Props, toast: ReturnType<typeof useToast>, report: Reporter,
+  props: Props, toast: ReturnType<typeof useToast>, report: Reporter, tt: ToastT,
 ) {
   return useCallback(async () => {
-    await runSubmit(values, pendingRef.current, props, toast, report);
-  }, [values, pendingRef, props, toast, report]);
+    await runSubmit(values, pendingRef.current, props, toast, report, tt);
+  }, [values, pendingRef, props, toast, report, tt]);
 }
 
 async function runSubmit(
   values: WritingFormValues, files: PendingFile[],
-  props: Props, toast: ReturnType<typeof useToast>, report: Reporter,
+  props: Props, toast: ReturnType<typeof useToast>, report: Reporter, tt: ToastT,
 ): Promise<void> {
-  isValid(values) && await doSubmit(values, files, props, toast, report);
+  isValid(values) && await doSubmit(values, files, props, toast, report, tt);
 }
 
 function isValid(v: WritingFormValues): boolean {
@@ -171,11 +177,11 @@ function isValid(v: WritingFormValues): boolean {
 // (the owner may have a long draft in it — don't lose it).
 async function doSubmit(
   values: WritingFormValues, files: PendingFile[],
-  props: Props, toast: ReturnType<typeof useToast>, report: Reporter,
+  props: Props, toast: ReturnType<typeof useToast>, report: Reporter, tt: ToastT,
 ): Promise<void> {
   try {
     await props.onSubmit({ values, files });
-    toast.success(`Writing ${values.slug} saved`);
+    toast.success(tt('writingSaved', { slug: values.slug }));
     props.onClose();
   } catch (e) {
     report(e);

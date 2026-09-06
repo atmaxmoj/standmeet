@@ -24,11 +24,12 @@ import { useMicrositeStore, type StoreDoc } from '@/lib/admin/use-microsite-stor
 import { useAction } from '@/lib/ui/use-action';
 
 export function DataSection() {
+  const t = useTranslations('adminPages.data');
   const hook = useMicrosites();
   return (
     <>
       <SectionHeader
-        kicker="resources · data"
+        kicker={t('kicker')}
         slug="data"
         count={hook.rows.length > 0 ? String(hook.rows.length) : ''}
       />

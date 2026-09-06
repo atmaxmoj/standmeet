@@ -147,5 +147,88 @@
     "importExport": "importieren / exportieren",
     "help": "Import wählt Ihren Obsidian-Vault-Ordner (wiki / subjectivity / raw / writings) aus und aktualisiert die entsprechenden Corpus-Notizen nach ihrem Vault-Pfad. Export lädt Ihren Corpus als Vault aus Markdown + Frontmatter.",
     "noSync": "Kein Live-Sync, kein Datei-Beobachter — diese beiden Aktionen sind der ganze Mechanismus, und keiner läuft, wenn Sie ihn nicht ausführen."
+  },
+  "kicker": {
+    "raw": "corpus · posteingang",
+    "wiki": "corpus · kuratiert",
+    "subjectivity": "corpus · selbstmodell",
+    "output": "corpus · öffentlich",
+    "writings": "corpus · schreiben",
+    "obsidian": "integrationen · vault"
+  },
+  "count": {
+    "unprocessed": "{n, plural, one {# unverarbeitet} other {# unverarbeitet}}",
+    "entries": "{n, plural, one {# eintrag} other {# einträge}}",
+    "notes": "{n, plural, one {# notiz} other {# notizen}}",
+    "artifacts": "{n, plural, one {# artefakt} other {# artefakte}}",
+    "writings": "{n, plural, one {# schrift} other {# schriften}}",
+    "drafts": "{n, plural, one {# entwurf} other {# entwürfe}}"
+  },
+  "action": {
+    "create": "erstellen",
+    "promote": "promovieren",
+    "saveEntry": "eintrag speichern"
+  },
+  "filter": {
+    "all": "alle",
+    "unprocessed": "unverarbeitet",
+    "flaggedPrivate": "als privat markiert",
+    "promoted": "promoviert"
+  },
+  "placeholder": {
+    "tags": "architektur, ai, indie",
+    "seoDescription": "einzeilige zusammenfassung für og:description",
+    "rawDump": "Fügen Sie einen Gedanken ein, eine Passage aus einem Chat, eine halbfertige Ansicht.",
+    "writingSlug": "url-slug",
+    "writingTitle": "Titel des Schreibens",
+    "writingExcerpt": "einzeilige Zusammenfassung (auch die Cover-Unterzeile)",
+    "writingCoverHeadline": "Große Überschrift",
+    "writingTags": "komma, getrennt"
+  },
+  "writingForm": {
+    "headingNew": "neues schreiben",
+    "headingEdit": "bearbeiten / {slug}",
+    "statusPublished": "veröffentlicht",
+    "statusDraft": "entwurf",
+    "actEdit": "bearbeiten",
+    "actPublish": "veröffentlichen",
+    "actUnpublish": "zurückziehen",
+    "actDelete": "löschen",
+    "fieldSlug": "slug",
+    "fieldTitle": "titel",
+    "fieldExcerpt": "auszug",
+    "fieldCoverHeadline": "cover-überschrift",
+    "fieldTags": "tags",
+    "coverPreviewAlt": "cover-vorschau",
+    "noFileSelected": "keine datei ausgewählt"
+  },
+  "toast": {
+    "wikiCreated": "Wiki erstellt",
+    "wikiUpdated": "Wiki aktualisiert",
+    "wikiDeleted": "Wiki gelöscht",
+    "promotedToOutput": "Zu output promoviert",
+    "subjectivityCreated": "Subjektivitäts-Notiz erstellt",
+    "subjectivityUpdated": "Subjektivitäts-Notiz aktualisiert",
+    "outputCreated": "Output erstellt",
+    "outputUpdated": "Output aktualisiert",
+    "outputDeleted": "Output gelöscht",
+    "rawUpdated": "Raw aktualisiert",
+    "rawDeleted": "Raw gelöscht",
+    "promotedToWiki": "Zu wiki promoviert",
+    "obsidianImported": "Obsidian-Vault importiert",
+    "writingDeleted": "Schrift gelöscht",
+    "writingPublished": "Veröffentlicht",
+    "writingUnpublished": "Zurückgezogen",
+    "writingSaved": "Schrift {slug} gespeichert"
+  },
+  "confirm": {
+    "deleteWiki": "Wiki \"{title}\" löschen?{warn} Dies kann nicht rückgängig gemacht werden.",
+    "deleteWikiChildren": "{n, plural, one { Dies löscht auch seinen # untergeordneten Eintrag.} other { Dies löscht auch seine # untergeordneten Einträge.}}",
+    "deleteOutput": "Output \"{title}\" löschen? Dies kann nicht rückgängig gemacht werden.",
+    "deleteRaw": "Diesen Raw-Eintrag löschen? Dies kann nicht rückgängig gemacht werden."
+  },
+  "savedLine": {
+    "saved": "gespeichert",
+    "savedUnpinned": "gespeichert — durch das Zurückziehen wurde es auch aus {sections} entfernt"
   }
 }

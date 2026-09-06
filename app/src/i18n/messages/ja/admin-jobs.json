@@ -11,7 +11,14 @@
     "register": "登録 →",
     "registered": "ソースを登録しました",
     "remove": "削除",
-    "removed": "ソースを削除しました"
+    "removed": "ソースを削除しました",
+    "kicker": "求人 · ソース",
+    "titleRegistered": "{count} 件登録済み",
+    "labelPlaceholder": "求人ボード",
+    "stateNever": "未取得",
+    "stateFetched": "最終 · {date}",
+    "stateFailed": "前回の試行 · {date} · 失敗 — {reason}",
+    "stateUnknownDate": "不明"
   },
   "listings": {
     "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
@@ -19,7 +26,9 @@
     "emptyTitle": "Fetch jobs from your sources first.",
     "emptyHint": "このセクションを開くと求人は自動で取得されます — または「今すぐ取得」を押してください。結果は1日ここに残り、下書きまたは破棄するまで保持されます。",
     "fetchNow": "今すぐ取得",
-    "fetching": "取得中…"
+    "fetching": "取得中…",
+    "kicker": "求人 · リスティング",
+    "titleInPool": "{count} 件プール内"
   },
   "drafts": {
     "intro": "Tailored resumes Claude drafted for jobs you said yes to. Open the composer to edit + preview; <ink>send</ink> freezes the snapshot, renders the final PDF (with QR), and auto-issues an AccessCode.",
@@ -39,7 +48,10 @@
     "newTitle": "新しい履歴書ドラフト",
     "newCompany": "会社",
     "newRole": "役割",
-    "newCreate": "ドラフトを作成"
+    "newCreate": "ドラフトを作成",
+    "kicker": "求人 · 履歴書の下書き",
+    "titlePending": "{count} 件保留中",
+    "committed": "応募を確定しました — 履歴書をアクセスコードとともに送信しました"
   },
   "applications": {
     "searchPlaceholder": "会社名や職種で検索…",
@@ -53,7 +65,9 @@
     "open": "open ›",
     "metaCommitted": "committed {date}",
     "metaSubmitted": "submitted {date}",
-    "metaNotSubmitted": "submission not recorded"
+    "metaNotSubmitted": "submission not recorded",
+    "kicker": "求人 · 送信済み",
+    "titleCommitted": "{count} 件送信済み"
   },
   "detail": {
     "kicker": "application · {id}",

@@ -21,15 +21,16 @@ type Props = { handle: string };
 // useVerifyInline — verify now throws; show it inline in place (a single settings
 // field, so inline reads better than a fleeting toast).
 function useVerifyInline(verify: () => Promise<void>) {
+  const t = useTranslations('adminPages.domain');
   const [error, setError] = useState<string | null>(null);
   const run = useCallback(async () => {
     setError(null);
     try {
       await verify();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not verify this domain. Please try again.');
+      setError(e instanceof Error ? e.message : t('verifyFailed'));
     }
-  }, [verify]);
+  }, [verify, t]);
   return { error, onVerify: () => { void run(); } };
 }
 
@@ -113,7 +114,7 @@ function DomainInputRow({ hook }: { hook: ReturnType<typeof useDomain> }) {
         type="text"
         value={hook.domain}
         onChange={(e) => hook.setDomain(e.target.value)}
-        placeholder="yourdomain.com"
+        placeholder={t('inputPlaceholder')}
         spellCheck={false}
         autoComplete="off"
         className="flex-1 min-w-0 bg-transparent py-1.5 reading-tight text-[17px] font-medium tracking-[-0.005em]"
@@ -148,13 +149,15 @@ function DomainFootRow({
 }
 
 function FootHint({ valid, sanitized }: { valid: boolean; sanitized: string }) {
+  const t = useTranslations('adminPages.domain');
   const cls = valid ? 'text-(--color-muted)' : 'text-(--color-faint)';
-  return <span className={cls}>{domainHint(valid, sanitized)}</span>;
+  return <span className={cls}>{t(domainHint(valid, sanitized))}</span>;
 }
 
 function VerifyBtn({
   show, status, onVerify,
 }: { show: boolean; status: DomainStatus; onVerify: () => void }) {
+  const t = useTranslations('adminPages.domain');
   return show ? (
     <button
       type="button"
@@ -162,7 +165,7 @@ function VerifyBtn({
       disabled={status === 'pending'}
       className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-50"
     >
-      {status === 'pending' ? 'checking…' : 'verify dns ↗'}
+      {status === 'pending' ? t('checking') : t('verifyDns')}
     </button>
   ) : null;
 }
@@ -170,8 +173,9 @@ function VerifyBtn({
 function StatusBadge({
   status, hasDomain,
 }: { status: DomainStatus; hasDomain: boolean }) {
+  const t = useTranslations('adminPages.domain');
   const cfg = domainBadge(status, hasDomain);
-  return <span className={`mono text-[10px] tracking-[0.16em] uppercase ${cfg.cls}`}>{cfg.text}</span>;
+  return <span className={`mono text-[10px] tracking-[0.16em] uppercase ${cfg.cls}`}>{t(cfg.key)}</span>;
 }
 
 function EffectiveLine({

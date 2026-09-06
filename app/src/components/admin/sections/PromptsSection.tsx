@@ -18,13 +18,14 @@ import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function PromptsSection() {
+  const t = useTranslations('adminAccess');
   const hook = usePrompts();
   const [creating, setCreating] = useState(false);
   useEffectErrorToast(hook.error);
   return (
     <>
       <SectionHeader
-        kicker="access · personas"
+        kicker={t('prompts.kicker')}
         slug="prompts"
         count={titleCount(hook)}
         action={<NewPromptBtn onClick={() => setCreating(true)} />}
@@ -141,8 +142,8 @@ function PromptDeleteBtn({
   // One-click destructive action → both success/failure end with a toast (failure is no longer
   // silent: the owner must know when a delete didn't take).
   const handleDelete = useCallback(
-    () => run(() => onDelete(prompt.id), { success: `Prompt ${prompt.name} deleted` }),
-    [onDelete, prompt.id, prompt.name, run],
+    () => run(() => onDelete(prompt.id), { success: t('prompts.toast.deleted', { name: prompt.name }) }),
+    [onDelete, prompt.id, prompt.name, run, t],
   );
   return (
     <button
@@ -182,12 +183,19 @@ function PromptCreateModal({
     >
       <div className="bg-(--color-paper) border border-(--color-rule) max-w-[640px] w-[92vw] p-7 flex flex-col gap-4">
         <h2 className="font-serif text-[22px]">{t('prompts.modalTitle')}</h2>
-        <PromptField label="name" value={name} onChange={setName} placeholder="e.g. recruiter-facing" />
         <PromptField
-          label="description"
+          id="name"
+          label={t('prompts.fields.name')}
+          value={name}
+          onChange={setName}
+          placeholder={t('prompts.namePlaceholder')}
+        />
+        <PromptField
+          id="description"
+          label={t('prompts.fields.description')}
           value={description}
           onChange={setDescription}
-          placeholder="when to use this persona"
+          placeholder={t('prompts.descPlaceholder')}
         />
         <PromptBodyField value={body} onChange={setBody} />
         <PromptModalFooter
@@ -203,8 +211,11 @@ function PromptCreateModal({
 }
 
 function PromptField({
-  label, value, onChange, placeholder,
-}: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  id, label, value, onChange, placeholder,
+}: {
+  id: string; label: string; value: string;
+  onChange: (v: string) => void; placeholder?: string;
+}) {
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">{label}</span>
@@ -213,7 +224,7 @@ function PromptField({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        data-testid={`prompt-field-${label}`}
+        data-testid={`prompt-field-${id}`}
       />
     </label>
   );
@@ -227,7 +238,7 @@ function PromptBodyField({ value, onChange }: { value: string; onChange: (v: str
       <textarea
         className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14.5px] font-serif min-h-[220px]"
         value={value}
-        placeholder="You are an AI proxy for {owner}. Answer questions accurately…"
+        placeholder={t('prompts.bodyPlaceholder')}
         onChange={(e) => onChange(e.target.value)}
         data-testid="prompt-field-body"
       />
@@ -252,12 +263,12 @@ function PromptModalFooter({
   const submit = useCallback(async () => {
     try {
       await onCreate({ name, description, body });
-      toast.success(`Prompt ${name} created`);
+      toast.success(t('prompts.toast.created', { name }));
       onClose();
     } catch (e) {
       report(e);
     }
-  }, [name, description, body, onCreate, onClose, toast, report]);
+  }, [name, description, body, onCreate, onClose, toast, report, t]);
   const disabled = name === '' || body === '';
   return (
     <div className="flex justify-end gap-3 mt-2">

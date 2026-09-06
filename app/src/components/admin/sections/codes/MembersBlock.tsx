@@ -29,6 +29,7 @@ export function MembersBlock({ codeID, code }: Props) {
 function ToggleBtn({
   open, onToggle, code,
 }: { open: boolean; onToggle: () => void; code: string }) {
+  const t = useTranslations('adminAccess');
   return (
     <button
       type="button"
@@ -36,7 +37,7 @@ function ToggleBtn({
       data-testid={`members-toggle-${code}`}
       className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
     >
-      {open ? 'members ↑' : 'members ↓'}
+      {t('members.toggle')} {open ? '↑' : '↓'}
     </button>
   );
 }

@@ -16,9 +16,13 @@ export function WritingFieldRow({ children }: { children: ReactNode }) {
 }
 
 export function WritingField({
-  label, value, onChange, placeholder, readOnly,
+  label, testid, value, onChange, placeholder, readOnly,
 }: {
-  label: string; value: string;
+  label: string;
+  // testid —— a stable slug, decoupled from the (now translated) label so e2e selectors
+  // never move with the display language.
+  testid: string;
+  value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   readOnly?: boolean;
@@ -33,7 +37,7 @@ export function WritingField({
         readOnly={readOnly}
         disabled={readOnly}
         onChange={(e) => onChange(e.target.value)}
-        data-testid={`writing-field-${label.replace(/ /g, '-')}`}
+        data-testid={testid}
       />
     </label>
   );

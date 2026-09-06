@@ -217,10 +217,15 @@ export async function runWith(
 // effect must also be stated**: unpublishing a pinned entry removes it from
 // the homepage sections, and the owner did this from the "edit a note"
 // screen — without going to that other page, they'd never know (F-L-31).
-// When there's no side effect, it's just the original sentence.
-export function savedLine(unpinnedSections: readonly string[]): string {
+// When there's no side effect, it's just the original sentence. The two
+// message strings come from the caller's `adminCorpus.savedLine` translator so
+// the receipt is localized (the caller has the hook; this lib does not).
+export function savedLine(
+  unpinnedSections: readonly string[],
+  t: (key: string, values?: Record<string, string>) => string,
+): string {
   if (unpinnedSections.length === 0) {
-    return 'saved';
+    return t('saved');
   }
-  return `saved — unpublishing also removed it from ${unpinnedSections.join(' and ')}`;
+  return t('savedUnpinned', { sections: unpinnedSections.join(' and ') });
 }

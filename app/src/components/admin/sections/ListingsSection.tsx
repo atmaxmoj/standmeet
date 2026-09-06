@@ -23,13 +23,14 @@ import {
 const ROW_PX = 64;
 
 export function ListingsSection() {
+  const t = useTranslations('adminJobs');
   const hook = useAdminListings();
   return (
     <>
       <SectionHeader
-        kicker="jobs · listings"
+        kicker={t('listings.kicker')}
         slug="listings"
-        count={hook.loading ? '' : `${hook.rows.length} in pool`}
+        count={hook.loading ? '' : t('listings.titleInPool', { count: hook.rows.length })}
       />
       <Intro />
       <FetchBar fetching={hook.fetching} onFetch={hook.fetchNow} />

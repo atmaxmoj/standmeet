@@ -5,13 +5,16 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import styles from '@/components/admin/sections/AgentSkillsSection.module.css';
 
 export type SkillsTab = 'installed' | 'marketplace';
 
-const TAB_LABEL: Record<SkillsTab, string> = {
-  installed: 'my skills',
-  marketplace: 'marketplace',
+// TAB_KEY — stable id → translation key (testid keys off the id, never the label).
+const TAB_KEY: Record<SkillsTab, string> = {
+  installed: 'tabInstalled',
+  marketplace: 'tabMarketplace',
 };
 
 export function SkillsTabs({ tab, setTab }: { tab: SkillsTab; setTab: (t: SkillsTab) => void }) {
@@ -26,6 +29,7 @@ export function SkillsTabs({ tab, setTab }: { tab: SkillsTab; setTab: (t: Skills
 function TabBtn({
   id, tab, setTab,
 }: { id: SkillsTab; tab: SkillsTab; setTab: (t: SkillsTab) => void }) {
+  const t = useTranslations('adminIntegrations.skills');
   return (
     <button
       type="button"
@@ -33,7 +37,7 @@ function TabBtn({
       className={tab === id ? styles['tabBtnActive'] : styles['tabBtn']}
       data-testid={`skills-tab-${id}`}
     >
-      {TAB_LABEL[id]}
+      {t(TAB_KEY[id])}
     </button>
   );
 }

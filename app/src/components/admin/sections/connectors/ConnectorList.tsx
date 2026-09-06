@@ -35,7 +35,7 @@ export function ConnectorList({ hook }: { hook: ConnectorListHook }) {
         <ConnectorRowItem
           key={row.id}
           row={row}
-          onDelete={() => { void run(() => hook.remove(row.id), { success: 'Connector removed' }); }}
+          onDelete={() => { void run(() => hook.remove(row.id), { success: t('removedToast') }); }}
         />
       ))}
     </div>
@@ -110,7 +110,7 @@ function DeleteControl({ onDelete }: { onDelete: () => void }) {
     <button
       type="button"
       data-testid="connector-delete-button"
-      aria-label="remove connector"
+      aria-label={t('removeAria')}
       onClick={() => setConfirming(true)}
       className="shrink-0 mono text-[13px] text-(--color-muted) hover:text-(--color-accent) transition-colors"
     >

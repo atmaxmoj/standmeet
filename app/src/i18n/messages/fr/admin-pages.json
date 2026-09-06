@@ -20,13 +20,24 @@
   "handle": {
     "label": "poignée",
     "change": "changer",
-    "cancel": "annuler"
+    "cancel": "annuler",
+    "saving": "enregistrement…",
+    "save": "enregistrer le handle",
+    "updated": "Handle mis à jour vers /{handle}"
   },
   "publicUrl": {
     "label": "URL publique",
     "unset": "non défini",
     "change": "changer",
-    "cancel": "annuler"
+    "cancel": "annuler",
+    "inputPlaceholder": "https://votredomaine.com",
+    "saving": "enregistrement…",
+    "save": "enregistrer l'URL",
+    "updated": "URL publique mise à jour vers {url}",
+    "hintEmpty": "collez l'URL que les recruteurs verront",
+    "hintInvalid": "doit commencer par http:// ou https://",
+    "hintUnchanged": "aucun changement",
+    "hintChanged": "les codes QR + balises canoniques utiliseront cette URL"
   },
   "domain": {
     "defaultLabel": "défaut",
@@ -36,12 +47,34 @@
     "schemePrefix": "https://",
     "clear": "effacer",
     "effectiveHost": "hôte de partage effectif ·",
-    "effectiveHostNote": "· utilisé par les liens de partage de code, les QR, le pied de page de porte."
+    "effectiveHostNote": "· utilisé par les liens de partage de code, les QR, le pied de page de porte.",
+    "verifyFailed": "Impossible de vérifier ce domaine. Veuillez réessayer.",
+    "inputPlaceholder": "votredomaine.com",
+    "checking": "vérification…",
+    "verifyDns": "vérifier dns ↗",
+    "badgeUnset": "○ non défini · valeur par défaut",
+    "badgeVerified": "● vérifié · en ligne",
+    "badgePending": "◐ ajout à la liste d'autorisation…",
+    "badgeNotAllowed": "○ pas dans la liste d'autorisation",
+    "hintValid": "semble être un hôte valide · cliquez sur vérifier pour l'ajouter",
+    "hintInvalid": "pas encore un hôte valide",
+    "hintEmpty": "p. ex. votredomaine.com, talk.votredomaine.com"
   },
   "byoai": {
     "modeLabel": "mode byoai",
     "modeHelp": "Quand activé, la page de porte affiche une option « apportez votre propre IA » sous l'entrée de code.",
-    "acceptedProviders": "fournisseurs acceptés"
+    "acceptedProviders": "fournisseurs acceptés",
+    "saving": "enregistrement…",
+    "save": "enregistrer byoai",
+    "hintLoading": "chargement…",
+    "hintSaving": "enregistrement…",
+    "hintDefault": "enregistrez quand vous avez fini",
+    "turnOn": "activer",
+    "turnOff": "désactiver",
+    "flagOn": "● ON",
+    "flagOff": "○ OFF",
+    "blurbLabel": "texte de portée publique · affiché à côté du champ de clé api",
+    "blurbHint": "précisez clairement les attentes · 2 phrases max"
   },
   "preview": {
     "openPublic": "ouvrir public",
@@ -58,7 +91,8 @@
     "selectCode": "sélectionnez un code à gauche",
     "codedBannerCode": "code · {code}",
     "previewGreeting": "Salut",
-    "suggestedByYou": "suggéré par vous"
+    "suggestedByYou": "suggéré par vous",
+    "kicker": "accès · vue externe"
   },
   "microsites": {
     "intro": {
@@ -152,14 +186,26 @@
     },
     "previewLabel": "aperçu · dernière construction réussie",
     "previewNoBuild": "Rien n'a été construit pour l'instant. Demandez à votre IA de rédiger et construire cette page.",
-    "buildNone": "aucune construction"
+    "buildNone": "aucune construction",
+    "kicker": "ressources · microsites",
+    "byoaiToastOn": "BYOK activé pour /p/{slug}",
+    "byoaiToastOff": "BYOK désactivé pour /p/{slug}",
+    "renamePlaceholder": "new-slug",
+    "slugPlaceholder": "p. ex. press-kit",
+    "addFilePlaceholder": "Component.tsx",
+    "stagingFrameTitle": "aperçu de staging",
+    "seoUpdated": "SEO mis à jour",
+    "seoTitlePlaceholder": "titre de page (onglet du navigateur + recherche)",
+    "seoDescPlaceholder": "description d'une ligne pour les résultats de recherche",
+    "seoImagePlaceholder": "URL de l'image de partage (og:image)"
   },
   "assets": {
     "intro": "Toutes les images et fichiers que vous avez importés, partagés entre votre corpus et vos microsites. Un asset encore utilisé par une entrée ou une page ne peut pas être supprimé : retirez-le d'abord là-bas ; la suppression échouée indique ce qui l'utilise.",
     "error": "impossible de charger vos assets — rechargez pour réessayer.",
     "empty": "Aucun asset pour l'instant. Ajoutez-en un depuis l'éditeur du corpus ou le widget asset d'une microsite.",
     "delete": "supprimer",
-    "deleted": "asset supprimé"
+    "deleted": "asset supprimé",
+    "kicker": "ressources · médias"
   },
   "data": {
     "slugPath": "/p/{slug}",
@@ -171,6 +217,7 @@
     "clear": "vider le stockage",
     "cleared": "stockage vidé",
     "delete": "supprimer",
-    "docDeleted": "document supprimé"
+    "docDeleted": "document supprimé",
+    "kicker": "ressources · données"
   }
 }

@@ -74,14 +74,14 @@ function RoleCreateModalShell({
           onChange={(v) => setForm((f) => ({ ...f, corpus_uris: v }))}
         />
         <RoleMultiSelect
-          label="skills"
+          label={t('roles.skillsLabel')}
           options={skills.map((s) => ({ id: s.id, label: s.name }))}
           value={form.skill_ids}
           onChange={(v) => setForm((f) => ({ ...f, skill_ids: v }))}
           testid="role-field-skills"
         />
         <RoleMultiSelect
-          label="mcp servers"
+          label={t('roles.mcpServersLabel')}
           options={mcpServers.map((m) => ({ id: m.id, label: m.name }))}
           value={form.mcp_server_ids}
           onChange={(v) => setForm((f) => ({ ...f, mcp_server_ids: v }))}
@@ -101,33 +101,40 @@ function RoleTextFields({
   form: WriteRoleInput;
   setForm: React.Dispatch<React.SetStateAction<WriteRoleInput>>;
 }) {
+  const t = useTranslations('adminAccess');
   return (
     <>
       <RoleField
-        label="name"
+        id="name"
+        label={t('roleCreate.fields.name')}
         value={form.name}
         onChange={(v) => setForm((f) => ({ ...f, name: v }))}
-        placeholder="e.g. recruiter-default"
+        placeholder={t('roleCreate.namePlaceholder')}
       />
       <RoleField
-        label="description"
+        id="description"
+        label={t('roleCreate.fields.description')}
         value={form.description}
         onChange={(v) => setForm((f) => ({ ...f, description: v }))}
-        placeholder="when to use this role"
+        placeholder={t('roleCreate.descPlaceholder')}
       />
       <RoleField
-        label="greeting"
+        id="greeting"
+        label={t('roleCreate.fields.greeting')}
         value={form.greeting}
         onChange={(v) => setForm((f) => ({ ...f, greeting: v }))}
-        placeholder="shown on the visitor name picker — blank uses a default"
+        placeholder={t('roleCreate.greetingPlaceholder')}
       />
     </>
   );
 }
 
 function RoleField({
-  label, value, onChange, placeholder,
-}: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  id, label, value, onChange, placeholder,
+}: {
+  id: string; label: string; value: string;
+  onChange: (v: string) => void; placeholder?: string;
+}) {
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">{label}</span>
@@ -136,7 +143,7 @@ function RoleField({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        data-testid={`role-field-${label}`}
+        data-testid={`role-field-${id}`}
       />
     </label>
   );
@@ -229,9 +236,9 @@ function RoleModalFooter({
   const toast = useToast();
   const submit = useCallback(async () => {
     const created = await onCreate(form);
-    created && toast.success(`Role ${form.name} created`);
+    created && toast.success(t('roles.toast.created', { name: form.name }));
     created && onClose();
-  }, [form, onCreate, onClose, toast]);
+  }, [form, onCreate, onClose, toast, t]);
   const disabled = form.name === '';
   return (
     <div className="flex justify-end gap-3 mt-2">

@@ -127,19 +127,19 @@ function isValid(s: string): boolean {
   return s.length > 3 && DNS_PATTERN.test(s);
 }
 
-export interface DomainBadge { cls: string; text: string }
+// domainBadge / domainHint return an adminPages.domain message key (not text); the
+// DomainEditor resolves it with useTranslations so the copy stays localized.
+export interface DomainBadge { cls: string; key: string }
 
 export function domainBadge(status: DomainStatus, hasDomain: boolean): DomainBadge {
-  return !hasDomain ? { cls: 'text-(--color-faint)', text: '○ unset · using default' }
-    : status === 'verified' ? { cls: 'text-(--color-accent)', text: '● verified · live' }
-    : status === 'pending'  ? { cls: 'text-(--color-muted)',  text: '◐ adding to allow-list…' }
-    : { cls: 'text-(--color-faint)', text: '○ not in allow-list' };
+  return !hasDomain ? { cls: 'text-(--color-faint)', key: 'badgeUnset' }
+    : status === 'verified' ? { cls: 'text-(--color-accent)', key: 'badgeVerified' }
+    : status === 'pending'  ? { cls: 'text-(--color-muted)',  key: 'badgePending' }
+    : { cls: 'text-(--color-faint)', key: 'badgeNotAllowed' };
 }
 
 export function domainHint(valid: boolean, sanitized: string): string {
-  return valid ? 'looks like a valid host · click verify to add to allow-list'
-    : sanitized ? 'not a valid host yet'
-    : 'e.g. yourdomain.com, talk.yourdomain.com';
+  return valid ? 'hintValid' : sanitized ? 'hintInvalid' : 'hintEmpty';
 }
 
 // domainEffectiveHost —— the host the public page is actually reached at: the

@@ -16,7 +16,14 @@
   "codes": {
     "new": "＋ 新建访问码",
     "intro": "每个访问码为某位确定的对象开放你 wiki 的一部分——一场招聘、一次投资人引荐、或单独一次媒体来访。多人可共用一个访问码；有人输入它时，AI 会先问对方是谁，再把其归入该访问码的成员名单。每张卡片都带一个二维码。",
-    "empty": "还没有访问码。"
+    "empty": "还没有访问码。",
+    "kicker": "访问 · 访问码",
+    "count": "{active} 个生效 · {total} 个共计",
+    "toast": {
+      "revoked": "已吊销访问码",
+      "created": "已创建访问码 {code}",
+      "quotasUpdated": "已更新配额"
+    }
   },
   "codeCard": {
     "preview": "预览 ↗",
@@ -29,7 +36,22 @@
     "openShare": "打开分享面板——大二维码、可复制链接、可打印",
     "opensLabel": "打开",
     "opensChat": "访客聊天",
-    "opensPageOption": "/p/{slug}"
+    "opensPageOption": "/p/{slug}",
+    "statusActive": "● 生效中",
+    "roleLabel": "角色",
+    "membersLabel": "成员",
+    "qrLabel": "QR",
+    "namesCapped": "{used} / {cap} 名额",
+    "namesUncapped": "{used} 名额 · 无限",
+    "turnsCapped": "{n} 轮",
+    "turnsUncapped": "无限轮次",
+    "expires": "· 到期 {date}",
+    "noExpiry": "· 永不过期",
+    "toast": {
+      "ghostUpdated": "已更新 {code} 的幽灵规则",
+      "opensChat": "{code} 现在打开访客聊天",
+      "opensPage": "{code} 现在打开 /p/{slug}"
+    }
   },
   "codeCorpus": {
     "loadError": "无法加载此访问码的语料库范围。请刷新后重试。",
@@ -38,12 +60,16 @@
     "inherited": "语料库 · 继承自角色",
     "takenBack": "在此访问码上收回",
     "helpSummary": "收回如何生效 ▸",
-    "help": "此访问码从角色所授予的内容中收回的 URI，每行一个。它只能做减法、不能做加法——你在此写下的内容永远不会打开角色未授予的东西。典型用法：角色授予 subjectivity://**（所有观点），而此访问码收回 subjectivity://cv（简历不外露）。改动只影响此后签发的会话：角色在会话签发时被冻结，因此正在聊天的访客保留旧范围——但同一访问码（无论它多旧）的下一个会话会拿到新范围。"
+    "help": "此访问码从角色所授予的内容中收回的 URI，每行一个。它只能做减法、不能做加法——你在此写下的内容永远不会打开角色未授予的东西。典型用法：角色授予 subjectivity://**（所有观点），而此访问码收回 subjectivity://cv（简历不外露）。改动只影响此后签发的会话：角色在会话签发时被冻结，因此正在聊天的访客保留旧范围——但同一访问码（无论它多旧）的下一个会话会拿到新范围。",
+    "toast": {
+      "narrowed": "已收窄 {label} 的语料库"
+    }
   },
   "members": {
     "loading": "正在加载成员…",
     "none": "还没有访客用过这个访问码。",
-    "anonymous": "匿名"
+    "anonymous": "匿名",
+    "toggle": "成员"
   },
   "conversations": {
     "privateHits": "{count, plural, one {# 个会话} other {# 个会话}}触及了私密话题",
@@ -57,7 +83,9 @@
     "thFlags": "标记",
     "thLast": "最近",
     "privFlag": "{hits} 私密",
-    "empty": "还没有对话。访客通过访问码或 BYOAI 会话聊天后，就会显示在这里。"
+    "empty": "还没有对话。访客通过访问码或 BYOAI 会话聊天后，就会显示在这里。",
+    "kicker": "访问 · 会话",
+    "count": "{count} 个会话"
   },
   "transcript": {
     "loading": "正在加载对话记录…",
@@ -65,7 +93,9 @@
     "cited": "引用 · {kind}",
     "ghostsTitle": "已展示的幽灵文本",
     "groundingTitle": "塑造这些回答的立场笔记 · 不对访客展示",
-    "grounded": "有依据"
+    "grounded": "有依据",
+    "kicker": "对话",
+    "modalTitle": "对话记录 · {id}"
   },
   "ghostTelemetry": {
     "title": "幽灵引导 · 各导引点漏斗",
@@ -80,7 +110,19 @@
     "intro": "人设库。归主理人所有，无分类。每一条都是一段文字——你在这里告诉它是谁，AI 就成为谁。供角色使用。",
     "empty": "还没有提示词——通常在主理人认领实例时会预置 public。",
     "modalTitle": "新建提示词",
-    "bodyLabel": "正文"
+    "bodyLabel": "正文",
+    "kicker": "访问 · 人设",
+    "fields": {
+      "name": "名称",
+      "description": "描述"
+    },
+    "namePlaceholder": "例如 面向招聘方",
+    "descPlaceholder": "何时使用此人设",
+    "bodyPlaceholder": "你是 '{'owner'}' 的 AI 代理。请准确回答问题…",
+    "toast": {
+      "created": "已创建提示词 {name}",
+      "deleted": "已删除提示词 {name}"
+    }
   },
   "requests": {
     "deliveryHint": "尚无已验证的外发渠道——请在「连接器」下配置一个，这样批准请求时就能签发访问码并发送。在此之前你只能手动把请求标记为已回复／已关闭。",
@@ -89,19 +131,58 @@
     "issued": "已签发 {code}——已邮件发送给申请人",
     "decline": "婉拒",
     "approve": "批准 · 签发并邮件发送访问码 →",
-    "connectMail": "连接邮件以签发访问码"
+    "connectMail": "连接邮件以签发访问码",
+    "kicker": "访问 · 门禁收件箱",
+    "countTotal": "{n} 个共计",
+    "countNew": "{n} 个新增",
+    "toast": {
+      "declined": "已婉拒请求"
+    }
   },
   "roles": {
     "new": "+ 新建角色",
     "intro": "一个角色打包了一份提示词（人设）、一份 agent 可读取的语料库 URI 正向列表、一组技能，以及它可调用的 MCP 服务器。访问码本身不直接携带权限——每个访问码在签发时<em>套用</em>一个角色，并将该快照冻结到那个会话。编辑角色只影响此后的会话。",
-    "empty": "还没有角色——通常在主理人认领实例时会预置 public。"
+    "empty": "还没有角色——通常在主理人认领实例时会预置 public。",
+    "kicker": "访问 · 人设",
+    "skillsLabel": "技能",
+    "mcpServersLabel": "mcp 服务器",
+    "meta": {
+      "corpus": "语料库",
+      "skills": "技能",
+      "mcp": "mcp",
+      "codes": "访问码",
+      "published": "你已发布的内容",
+      "uris": "{n} 个 URI",
+      "servers": "{n} 个服务器",
+      "activeCodes": "{n} 个生效"
+    },
+    "toast": {
+      "created": "已创建角色 {name}",
+      "deleted": "已删除角色 {name}",
+      "promptUpdated": "已更新 {name} 的提示词",
+      "corpusUpdated": "已更新 {name} 的语料库 URI",
+      "toolsUpdated": "已更新 {name} 的工具授权",
+      "dockUpdated": "已更新 {name} 的快捷栏按钮",
+      "ghostUpdated": "已更新 {name} 的幽灵规则",
+      "aboutUpdated": "已更新 {name} 的说明",
+      "providerUpdated": "已更新 {name} 的服务商",
+      "waypointsUpdated": "已更新 {name} 的导引点"
+    }
   },
   "roleCreate": {
     "title": "新建角色",
     "promptNone": "（无）",
     "providerDefault": "— 实例默认 —",
     "corpusLabel": "语料库 uri · 每行一个",
-    "noneConfigured": "尚未配置"
+    "noneConfigured": "尚未配置",
+    "fields": {
+      "name": "名称",
+      "description": "描述",
+      "greeting": "问候语"
+    },
+    "namePlaceholder": "例如 recruiter-default",
+    "descPlaceholder": "何时使用此角色",
+    "greetingPlaceholder": "显示在访客姓名选择器上——留空则用默认值"
   },
   "roleGas": {
     "help": "按此角色所属服务商的额度计量。关闭（默认）表示完全不做用量检查；开启表示一旦该服务商额度耗尽，访客就被拦下。额度为空的服务商无论如何都不计量。"
@@ -187,6 +268,10 @@
       "saveEdit": "保存更改",
       "cancel": "取消",
       "codeRequired": "请先选择一个访问码"
-    }
+    },
+    "kicker": "访问 · 组件",
+    "thEmbed": "嵌入",
+    "thOrigins": "来源",
+    "thCreated": "创建时间"
   }
 }

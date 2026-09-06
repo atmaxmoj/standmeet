@@ -207,13 +207,52 @@
     "configuredIn": "configured in /admin/api-mcp",
     "spend30d": "30-day spend",
     "spendSub": "your inference key · owner pays",
-    "spendUnknown": "$—"
+    "spendUnknown": "$—",
+    "kickerOwner": "settings · owner",
+    "fullName": "full name",
+    "fullNameBlurb": "Shown on the public page hero and signature line.",
+    "saveName": "save name",
+    "nameUpdated": "Full name updated to {name}",
+    "email": "email",
+    "emailBlurb": "Your login identity — and where your recovery phrase is sent. Changing it needs your current password and the address twice. If this instance can send mail, the new address has to confirm before either moves.",
+    "emailPlaceholder": "you@example.com",
+    "emailConfirmPlaceholder": "repeat the new address",
+    "saveEmail": "save email",
+    "cancel": "cancel",
+    "pendingEmailNote": "Waiting for {pending} to confirm. Until it does, your sign-in and your recovery phrase both stay on the current address.",
+    "emailUpdated": "Email updated to {email}",
+    "emailConfirmSent": "Confirmation sent to {pending} — your login has not changed yet",
+    "emailCancelled": "Pending email change dropped — that confirmation link no longer works",
+    "emailMismatch": "the two addresses do not match",
+    "password": "password",
+    "passwordBlurb": "At least 12 characters. Existing sessions stay valid — log out manually elsewhere if needed.",
+    "currentPassword": "current password",
+    "newPassword": "new password (≥ 12 chars)",
+    "confirmPassword": "confirm new password",
+    "savePassword": "save password",
+    "passwordUpdated": "Password updated",
+    "pwTooShort": "new password must be at least 12 characters",
+    "pwMismatch": "new password and confirm do not match",
+    "recoveryLabel": "Recovery phrase",
+    "generate": "generate",
+    "recoverySent": "Recovery phrase sent",
+    "recoveryError": "Couldn't send the recovery phrase — set up and verify an outbound channel first",
+    "recoveryDetailReady": "not yet set",
+    "recoveryDetailNeedsMail": "needs verified email",
+    "recoveryNoteReady": "Generates a recovery phrase and emails it to you. Single use — it is consumed when you sign in with it.",
+    "recoveryNoteNeedsMail": "Verify email (SMTP) under Connectors first — the recovery phrase is sent to you by email."
   },
   "ipBans": {
     "intro": "Block abusive source IPs. A banned IP gets a 403 on the whole public surface — chat, sessions, access requests. Find offending IPs in <mono>conversations</mono> (each row shows the visitor's IP). Bans can be lifted any time.",
     "banIp": "ban ip",
     "empty": "No IPs banned. The public surface is open (still rate-limited per IP).",
-    "unban": "unban"
+    "unban": "unban",
+    "kickerSecurity": "settings · security",
+    "labelIp": "ip address",
+    "labelReason": "reason",
+    "placeholderNote": "optional note",
+    "banned": "IP banned",
+    "unbanned": "IP unbanned"
   },
   "system": {
     "checkForUpdates": "check for updates",
@@ -259,7 +298,8 @@
     "colLast": "last",
     "colStatus": "status",
     "statusDot": "●",
-    "healthChecks": "health checks"
+    "healthChecks": "health checks",
+    "kickerRuntime": "settings · runtime"
   },
   "inferenceUsage": {
     "title": "inference usage · last 7 days",
@@ -278,6 +318,7 @@
     "empty": "No workspaces right now",
     "emptyHint": "A workspace appears when a visitor session uses a tool that writes files, and it is swept once it has been idle past its TTL. None here means none in use — not that something is broken.",
     "sweepNothing": "Nothing to sweep — there are no workspaces",
-    "ageSecs": "{n}s"
+    "ageSecs": "{n}s",
+    "sweepDone": "Swept expired sandbox workspaces"
   }
 }

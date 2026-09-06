@@ -75,9 +75,9 @@ function EditableCorpusConfig({ role }: { role: RoleView }) {
   const onSave = useCallback(
     () => run(
       () => roles.updateRole(role.id, roleUpdatePayload(role, { corpus_uris: parseURIs(text) })),
-      { success: `Corpus URIs updated for ${role.name}` },
+      { success: t('roles.toast.corpusUpdated', { name: role.name }) },
     ),
-    [role, roles, run, text],
+    [role, roles, run, text, t],
   );
   return (
     <div className="mt-2 grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">

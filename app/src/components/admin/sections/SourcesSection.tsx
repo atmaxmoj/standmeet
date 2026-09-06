@@ -19,7 +19,7 @@ import { useTranslations } from 'next-intl';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { SelectField } from '@/components/atoms/SelectField';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
-import { sourceFailed, sourceStateLine } from '@/lib/admin/source-state';
+import { sourceStateView, viewDate, viewReason } from '@/lib/admin/source-state';
 import {
   ADAPTER_KINDS, useAdminSources, pickSourcesBodyState,
   type AdminSourceRow, type AdminSourcesHook,
@@ -27,13 +27,14 @@ import {
 import { useAction } from '@/lib/ui/use-action';
 
 export function SourcesSection() {
+  const t = useTranslations('adminJobs');
   const hook = useAdminSources();
   return (
     <>
       <SectionHeader
-        kicker="jobs · sources"
+        kicker={t('sources.kicker')}
         slug="sources"
-        count={hook.loading ? '' : `${hook.rows.length} registered`}
+        count={hook.loading ? '' : t('sources.titleRegistered', { count: hook.rows.length })}
       />
       <Intro />
       <Body hook={hook} />
@@ -90,13 +91,23 @@ function SourceRow({ source, hook }: { source: AdminSourceRow; hook: AdminSource
 
 // SourceState —— never tried / last try failed (with reason) / last try succeeded (F-E-18).
 function SourceState({ source }: { source: AdminSourceRow }) {
-  const tone = sourceFailed(source) ? 'text-(--color-accent)' : 'text-(--color-faint)';
+  const t = useTranslations('adminJobs');
+  const view = sourceStateView(source);
+  const tone = view.kind === 'failed' ? 'text-(--color-accent)' : 'text-(--color-faint)';
+  const line = {
+    never: t('sources.stateNever'),
+    fetched: t('sources.stateFetched', { date: viewDate(view) }),
+    failed: t('sources.stateFailed', {
+      date: viewDate(view) || t('sources.stateUnknownDate'),
+      reason: viewReason(view),
+    }),
+  };
   return (
     <span
       className={`mono text-[10.5px] text-right max-w-[40vw] ${tone}`}
       data-testid={`source-state-${source.id}`}
     >
-      {sourceStateLine(source)}
+      {line[view.kind]}
     </span>
   );
 }
@@ -141,7 +152,7 @@ function RegisterForm({ hook }: { hook: AdminSourcesHook }) {
         <KindPicker value={kind} onChange={onKind} label={t('sources.kindLabel')} />
         <Field label={t('sources.labelLabel')}>
           <input
-            type="text" value={label} placeholder="Listings Board"
+            type="text" value={label} placeholder={t('sources.labelPlaceholder')}
             data-testid="source-label" onChange={(e) => setLabel(e.target.value)}
             className="sm-field-input sm-mono"
           />

@@ -31,12 +31,13 @@ import { useOutbound } from '@/lib/admin/use-outbound';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function AccountSection() {
+  const t = useTranslations('adminShell.account');
   const session = useAdminSession();
   const account = useAccount();
   useEffectErrorToast(account.error);
   return (
     <>
-      <SectionHeader kicker="settings · owner" slug="account" />
+      <SectionHeader kicker={t('kickerOwner')} slug="account" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <ProfileCard hook={account} session={session} />
         <SecurityCard hook={account} />
@@ -170,6 +171,7 @@ function SecurityCard({ hook }: { hook: AccountHook }) {
 // RecoveryRow —— generate a recovery phrase (emailed to the owner). Enabled only once a mail
 // connector is verified (recoveryRowView owns that copy/gating); the button POSTs and toasts.
 function RecoveryRow({ canDeliver }: { canDeliver: boolean }) {
+  const t = useTranslations('adminShell.account');
   const view = recoveryRowView(canDeliver);
   const toast = useToast();
   const [sending, setSending] = useState(false);
@@ -177,16 +179,16 @@ function RecoveryRow({ canDeliver }: { canDeliver: boolean }) {
     setSending(true);
     try {
       await adminAPI.postVoid('/account/recovery', {});
-      toast.success('Recovery phrase sent');
+      toast.success(t('recoverySent'));
     } catch {
-      toast.error("Couldn't send the recovery phrase — set up and verify an outbound channel first");
+      toast.error(t('recoveryError'));
     } finally {
       setSending(false);
     }
-  }, [toast]);
+  }, [toast, t]);
   return (
     <SecurityRow
-      label="Recovery phrase" detail={view.detail} actionLabel="generate" note={view.note}
+      label={t('recoveryLabel')} detail={t(view.detailKey)} actionLabel={t('generate')} note={t(view.noteKey)}
       onAction={canDeliver ? generate : undefined}
       disabled={!canDeliver || sending}
     />
@@ -264,10 +266,11 @@ function InferenceCard() {
 // ─── full name block ───────────────────────────────────────
 
 function FullNameBlock({ hook, initialValue }: { hook: AccountHook; initialValue: string }) {
+  const t = useTranslations('adminShell.account');
   const [raw, setRaw] = useState(initialValue);
   const toast = useToast();
   return (
-    <AcctBlock title="full name" blurb="Shown on the public page hero and signature line.">
+    <AcctBlock title={t('fullName')} blurb={t('fullNameBlurb')}>
       <div className="flex items-baseline gap-3">
         <input
           type="text"
@@ -280,8 +283,8 @@ function FullNameBlock({ hook, initialValue }: { hook: AccountHook; initialValue
         <SaveBtn
           testid="account-full-name-save"
           disabled={fullNameSaveDisabled(hook.pending, raw, initialValue)}
-          label="save name"
-          onClick={() => void runSaveFullName(hook, raw, toast)}
+          label={t('saveName')}
+          onClick={() => void runSaveFullName(hook, raw, toast, (name) => t('nameUpdated', { name }))}
         />
       </div>
     </AcctBlock>
@@ -291,36 +294,37 @@ function FullNameBlock({ hook, initialValue }: { hook: AccountHook; initialValue
 async function runSaveFullName(
   hook: AccountHook, raw: string,
   toast: { success: (m: string) => void },
+  msg: (name: string) => string,
 ): Promise<void> {
   const next = await hook.updateFullName(raw);
-  next && toast.success(`Full name updated to ${next}`);
+  next && toast.success(msg(next));
 }
 
 // ─── password block ────────────────────────────────────────
 
 function PasswordBlock({ hook }: { hook: AccountHook }) {
+  const t = useTranslations('adminShell.account');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const toast = useToast();
   const disabled = passwordSaveDisabled(hook.pending, current, next, confirm);
   return (
-    <AcctBlock title="password"
-      blurb="At least 12 characters. Existing sessions stay valid — log out manually elsewhere if needed.">
+    <AcctBlock title={t('password')} blurb={t('passwordBlurb')}>
       <PasswordField testid="account-password-current"
-        value={current} onChange={setCurrent} label="current password" />
+        value={current} onChange={setCurrent} label={t('currentPassword')} />
       <PasswordField testid="account-password-new"
-        value={next} onChange={setNext} label="new password (≥ 12 chars)" />
+        value={next} onChange={setNext} label={t('newPassword')} />
       <PasswordField testid="account-password-confirm"
-        value={confirm} onChange={setConfirm} label="confirm new password" />
+        value={confirm} onChange={setConfirm} label={t('confirmPassword')} />
       <PasswordHint next={next} confirm={confirm} />
       <div className="mt-2 flex items-baseline justify-end">
         <SaveBtn
           testid="account-password-save"
           disabled={disabled}
-          label="save password"
+          label={t('savePassword')}
           onClick={() => void runSavePassword(hook, current, next,
-            () => { setCurrent(''); setNext(''); setConfirm(''); }, toast)}
+            () => { setCurrent(''); setNext(''); setConfirm(''); }, toast, t('passwordUpdated'))}
         />
       </div>
     </AcctBlock>
@@ -328,25 +332,26 @@ function PasswordBlock({ hook }: { hook: AccountHook }) {
 }
 
 function PasswordHint({ next, confirm }: { next: string; confirm: string }) {
-  const message = passwordHintMessage(next, confirm);
-  return message
-    ? <p className="mono text-[10.5px] tracking-[0.04em] text-(--color-accent) mt-1">{message}</p>
+  const t = useTranslations('adminShell.account');
+  const key = passwordHintMessage(next, confirm);
+  return key
+    ? <p className="mono text-[10.5px] tracking-[0.04em] text-(--color-accent) mt-1">{t(key)}</p>
     : null;
 }
 
 async function runSavePassword(
   hook: AccountHook, current: string, next: string,
-  clear: () => void, toast: { success: (m: string) => void },
+  clear: () => void, toast: { success: (m: string) => void }, msg: string,
 ): Promise<void> {
   const ok = await hook.updatePassword(current, next);
-  ok && finishPasswordSave(clear, toast);
+  ok && finishPasswordSave(clear, toast, msg);
 }
 
 function finishPasswordSave(
-  clear: () => void, toast: { success: (m: string) => void },
+  clear: () => void, toast: { success: (m: string) => void }, msg: string,
 ): void {
   clear();
-  toast.success('Password updated');
+  toast.success(msg);
 }
 
 // ─── shared atoms ──────────────────────────────────────────

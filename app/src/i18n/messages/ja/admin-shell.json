@@ -207,13 +207,52 @@
     "configuredIn": "configured in /admin/api-mcp",
     "spend30d": "30-day spend",
     "spendSub": "your inference key · owner pays",
-    "spendUnknown": "$—"
+    "spendUnknown": "$—",
+    "kickerOwner": "設定 · オーナー",
+    "fullName": "氏名",
+    "fullNameBlurb": "公開ページのヒーローと署名行に表示されます。",
+    "saveName": "氏名を保存",
+    "nameUpdated": "氏名を {name} に更新しました",
+    "email": "メール",
+    "emailBlurb": "ログインの本人確認であり、リカバリーフレーズの送信先でもあります。変更には現在のパスワードと、アドレスの2回入力が必要です。このインスタンスがメールを送信できる場合、新しいアドレスの確認が済むまでどちらも切り替わりません。",
+    "emailPlaceholder": "you@example.com",
+    "emailConfirmPlaceholder": "新しいアドレスをもう一度入力",
+    "saveEmail": "メールを保存",
+    "cancel": "キャンセル",
+    "pendingEmailNote": "{pending} の確認を待っています。確認されるまで、サインインとリカバリーフレーズはどちらも現在のアドレスのままです。",
+    "emailUpdated": "メールを {email} に更新しました",
+    "emailConfirmSent": "{pending} に確認メールを送信しました — ログインはまだ変更されていません",
+    "emailCancelled": "保留中のメール変更を取り消しました — その確認リンクはもう使えません",
+    "emailMismatch": "2つのアドレスが一致しません",
+    "password": "パスワード",
+    "passwordBlurb": "12文字以上。既存のセッションは有効なままです — 必要なら他の端末で手動でログアウトしてください。",
+    "currentPassword": "現在のパスワード",
+    "newPassword": "新しいパスワード（12文字以上）",
+    "confirmPassword": "新しいパスワードの確認",
+    "savePassword": "パスワードを保存",
+    "passwordUpdated": "パスワードを更新しました",
+    "pwTooShort": "新しいパスワードは12文字以上にしてください",
+    "pwMismatch": "新しいパスワードと確認が一致しません",
+    "recoveryLabel": "リカバリーフレーズ",
+    "generate": "生成",
+    "recoverySent": "リカバリーフレーズを送信しました",
+    "recoveryError": "リカバリーフレーズを送信できませんでした — まず送信チャネルを設定して検証してください",
+    "recoveryDetailReady": "未設定",
+    "recoveryDetailNeedsMail": "検証済みメールが必要",
+    "recoveryNoteReady": "リカバリーフレーズを生成してメールで送ります。一度きり — それでサインインすると使い切られます。",
+    "recoveryNoteNeedsMail": "まず Connectors でメール（SMTP）を検証してください — リカバリーフレーズはメールで送られます。"
   },
   "ipBans": {
     "intro": "Block abusive source IPs. A banned IP gets a 403 on the whole public surface — chat, sessions, access requests. Find offending IPs in <mono>conversations</mono> (each row shows the visitor's IP). Bans can be lifted any time.",
     "banIp": "ban ip",
     "empty": "No IPs banned. The public surface is open (still rate-limited per IP).",
-    "unban": "unban"
+    "unban": "unban",
+    "kickerSecurity": "設定 · セキュリティ",
+    "labelIp": "ip アドレス",
+    "labelReason": "理由",
+    "placeholderNote": "任意のメモ",
+    "banned": "IP を禁止しました",
+    "unbanned": "IP の禁止を解除しました"
   },
   "system": {
     "checkForUpdates": "check for updates",
@@ -259,7 +298,8 @@
     "colLast": "last",
     "colStatus": "status",
     "statusDot": "●",
-    "healthChecks": "health checks"
+    "healthChecks": "health checks",
+    "kickerRuntime": "設定 · ランタイム"
   },
   "inferenceUsage": {
     "title": "inference usage · last 7 days",
@@ -278,6 +318,7 @@
     "empty": "No workspaces right now",
     "emptyHint": "A workspace appears when a visitor session uses a tool that writes files, and it is swept once it has been idle past its TTL. None here means none in use — not that something is broken.",
     "sweepNothing": "Nothing to sweep — there are no workspaces",
-    "ageSecs": "{n}s"
+    "ageSecs": "{n}s",
+    "sweepDone": "期限切れのサンドボックスワークスペースを一掃しました"
   }
 }

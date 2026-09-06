@@ -20,13 +20,24 @@
   "handle": {
     "label": "handle",
     "change": "ändern",
-    "cancel": "abbrechen"
+    "cancel": "abbrechen",
+    "saving": "speichert…",
+    "save": "handle speichern",
+    "updated": "Handle geändert auf /{handle}"
   },
   "publicUrl": {
     "label": "öffentliche url",
     "unset": "nicht gesetzt",
     "change": "ändern",
-    "cancel": "abbrechen"
+    "cancel": "abbrechen",
+    "inputPlaceholder": "https://ihredomain.de",
+    "saving": "speichert…",
+    "save": "URL speichern",
+    "updated": "Öffentliche URL geändert auf {url}",
+    "hintEmpty": "die URL einfügen, die recruiter sehen",
+    "hintInvalid": "muss mit http:// oder https:// beginnen",
+    "hintUnchanged": "keine änderung",
+    "hintChanged": "QR-codes + canonical-tags verwenden diese URL"
   },
   "domain": {
     "defaultLabel": "standard",
@@ -36,12 +47,34 @@
     "schemePrefix": "https://",
     "clear": "löschen",
     "effectiveHost": "effektiver share-host ·",
-    "effectiveHostNote": "· verwendet von code share-links, qrs, gate footer."
+    "effectiveHostNote": "· verwendet von code share-links, qrs, gate footer.",
+    "verifyFailed": "Diese Domäne konnte nicht verifiziert werden. Bitte erneut versuchen.",
+    "inputPlaceholder": "ihredomain.de",
+    "checking": "prüft…",
+    "verifyDns": "dns verifizieren ↗",
+    "badgeUnset": "○ nicht gesetzt · standard",
+    "badgeVerified": "● verifiziert · live",
+    "badgePending": "◐ wird zur allow-list hinzugefügt…",
+    "badgeNotAllowed": "○ nicht in allow-list",
+    "hintValid": "sieht wie ein gültiger host aus · zum hinzufügen verifizieren klicken",
+    "hintInvalid": "noch kein gültiger host",
+    "hintEmpty": "z. B. ihredomain.de, talk.ihredomain.de"
   },
   "byoai": {
     "modeLabel": "byoai-modus",
     "modeHelp": "Wenn aktiviert, zeigt die Gate-Seite unten eine 'bringen Sie Ihre eigene KI'-Option.",
-    "acceptedProviders": "akzeptierte provider"
+    "acceptedProviders": "akzeptierte provider",
+    "saving": "speichert…",
+    "save": "byoai speichern",
+    "hintLoading": "lädt…",
+    "hintSaving": "speichert…",
+    "hintDefault": "speichern, wenn Sie fertig sind",
+    "turnOn": "einschalten",
+    "turnOff": "ausschalten",
+    "flagOn": "● AN",
+    "flagOff": "○ AUS",
+    "blurbLabel": "öffentlicher-bereich-text · neben der api-schlüssel-eingabe gezeigt",
+    "blurbHint": "erwartungen klar setzen · max. 2 sätze"
   },
   "preview": {
     "openPublic": "öffne öffentlich",
@@ -58,7 +91,8 @@
     "selectCode": "wählen Sie einen code von links",
     "codedBannerCode": "code · {code}",
     "previewGreeting": "Hallo",
-    "suggestedByYou": "von Ihnen vorgeschlagen"
+    "suggestedByYou": "von Ihnen vorgeschlagen",
+    "kicker": "zugang · externe ansicht"
   },
   "microsites": {
     "intro": {
@@ -152,14 +186,26 @@
     },
     "previewLabel": "vorschau · letzter erfolgreicher build",
     "previewNoBuild": "Noch nichts gebaut. Bitten Sie Ihre KI diese Seite zu schreiben und zu bauen.",
-    "buildNone": "kein build"
+    "buildNone": "kein build",
+    "kicker": "ressourcen · microsites",
+    "byoaiToastOn": "BYOK an für /p/{slug}",
+    "byoaiToastOff": "BYOK aus für /p/{slug}",
+    "renamePlaceholder": "new-slug",
+    "slugPlaceholder": "z. B. press-kit",
+    "addFilePlaceholder": "Component.tsx",
+    "stagingFrameTitle": "staging-vorschau",
+    "seoUpdated": "SEO aktualisiert",
+    "seoTitlePlaceholder": "seitentitel (browser-tab + suche)",
+    "seoDescPlaceholder": "einzeilige beschreibung für suchergebnisse",
+    "seoImagePlaceholder": "share-card-bild-URL (og:image)"
   },
   "assets": {
     "intro": "Alle Bilder und Dateien, die du hochgeladen hast – gemeinsam von Korpus und Microsites genutzt. Ein Asset, das noch von einem Eintrag oder einer Seite verwendet wird, kann nicht gelöscht werden – entferne es dort zuerst; der fehlgeschlagene Löschversuch nennt, was es verwendet.",
     "error": "Assets konnten nicht geladen werden – lade neu, um es erneut zu versuchen.",
     "empty": "Noch keine Assets. Füge eines im Korpus-Editor oder über das Asset-Widget einer Microsite hinzu.",
     "delete": "löschen",
-    "deleted": "Asset gelöscht"
+    "deleted": "Asset gelöscht",
+    "kicker": "ressourcen · assets"
   },
   "data": {
     "slugPath": "/p/{slug}",
@@ -171,6 +217,7 @@
     "clear": "Speicher leeren",
     "cleared": "Speicher geleert",
     "delete": "löschen",
-    "docDeleted": "Dokument gelöscht"
+    "docDeleted": "Dokument gelöscht",
+    "kicker": "ressourcen · daten"
   }
 }

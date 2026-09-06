@@ -207,13 +207,52 @@
     "configuredIn": "configurado en /admin/api-mcp",
     "spend30d": "gasto 30 días",
     "spendSub": "su clave de inferencia · paga el propietario",
-    "spendUnknown": "$—"
+    "spendUnknown": "$—",
+    "kickerOwner": "ajustes · propietario",
+    "fullName": "nombre completo",
+    "fullNameBlurb": "Se muestra en el hero de la página pública y en la línea de firma.",
+    "saveName": "guardar nombre",
+    "nameUpdated": "Nombre completo actualizado a {name}",
+    "email": "correo",
+    "emailBlurb": "Tu identidad de acceso — y adónde se envía tu frase de recuperación. Cambiarlo requiere tu contraseña actual y la dirección dos veces. Si esta instancia puede enviar correo, la nueva dirección debe confirmarse antes de que algo cambie.",
+    "emailPlaceholder": "you@example.com",
+    "emailConfirmPlaceholder": "repite la nueva dirección",
+    "saveEmail": "guardar correo",
+    "cancel": "cancelar",
+    "pendingEmailNote": "Esperando que {pending} confirme. Hasta entonces, tu acceso y tu frase de recuperación siguen en la dirección actual.",
+    "emailUpdated": "Correo actualizado a {email}",
+    "emailConfirmSent": "Confirmación enviada a {pending} — tu acceso aún no ha cambiado",
+    "emailCancelled": "Cambio de correo pendiente descartado — ese enlace de confirmación ya no funciona",
+    "emailMismatch": "las dos direcciones no coinciden",
+    "password": "contraseña",
+    "passwordBlurb": "Al menos 12 caracteres. Las sesiones existentes siguen válidas — cierra sesión manualmente en otros sitios si hace falta.",
+    "currentPassword": "contraseña actual",
+    "newPassword": "nueva contraseña (≥ 12 caracteres)",
+    "confirmPassword": "confirmar nueva contraseña",
+    "savePassword": "guardar contraseña",
+    "passwordUpdated": "Contraseña actualizada",
+    "pwTooShort": "la nueva contraseña debe tener al menos 12 caracteres",
+    "pwMismatch": "la nueva contraseña y la confirmación no coinciden",
+    "recoveryLabel": "Frase de recuperación",
+    "generate": "generar",
+    "recoverySent": "Frase de recuperación enviada",
+    "recoveryError": "No se pudo enviar la frase de recuperación — configura y verifica primero un canal de salida",
+    "recoveryDetailReady": "aún sin configurar",
+    "recoveryDetailNeedsMail": "requiere correo verificado",
+    "recoveryNoteReady": "Genera una frase de recuperación y te la envía por correo. De un solo uso — se consume cuando inicias sesión con ella.",
+    "recoveryNoteNeedsMail": "Verifica el correo (SMTP) en Connectors primero — la frase de recuperación se te envía por correo."
   },
   "ipBans": {
     "intro": "Bloquee las IP de origen abusivas. Una IP prohibida obtiene un 403 en toda la superficie pública — chat, sesiones, solicitudes de acceso. Encuentre IP ofensivas en <mono>conversations</mono> (cada fila muestra la IP del visitante). Las prohibiciones se pueden levantar en cualquier momento.",
     "banIp": "prohibir ip",
     "empty": "Sin IP prohibidas. La superficie pública está abierta (aún limitada por tasa por IP).",
-    "unban": "permitir ip"
+    "unban": "permitir ip",
+    "kickerSecurity": "ajustes · seguridad",
+    "labelIp": "dirección ip",
+    "labelReason": "motivo",
+    "placeholderNote": "nota opcional",
+    "banned": "IP bloqueada",
+    "unbanned": "IP desbloqueada"
   },
   "system": {
     "checkForUpdates": "buscar actualizaciones",
@@ -259,7 +298,8 @@
     "colLast": "último",
     "colStatus": "estado",
     "statusDot": "●",
-    "healthChecks": "controles de salud"
+    "healthChecks": "controles de salud",
+    "kickerRuntime": "ajustes · tiempo de ejecución"
   },
   "inferenceUsage": {
     "title": "uso de inferencia · últimos 7 días",
@@ -278,6 +318,7 @@
     "empty": "Sin espacios de trabajo en este momento",
     "emptyHint": "Aparece un espacio de trabajo cuando una sesión de visitante usa una herramienta que escribe archivos, y se barre una vez que ha estado inactivo pasado su TTL. Ninguno aquí significa ninguno en uso — no que algo esté roto.",
     "sweepNothing": "Nada que barrer — no hay espacios de trabajo",
-    "ageSecs": "{n}s"
+    "ageSecs": "{n}s",
+    "sweepDone": "Espacios de trabajo del sandbox caducados barridos"
   }
 }

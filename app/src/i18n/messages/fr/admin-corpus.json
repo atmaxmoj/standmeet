@@ -147,5 +147,88 @@
     "importExport": "importer / exporter",
     "help": "L'importation choisit votre dossier de coffre Obsidian (wiki / subjectivity / raw / writings) et upserts les notes de corpus correspondantes par leur chemin de coffre. L'exportation télécharge votre corpus sous forme d'un coffre de markdown + frontmatter.",
     "noSync": "Aucune synchronisation en direct, aucun observateur de fichiers — ces deux actions sont tout le mécanisme, et aucune n'exécute sauf si vous l'exécutez."
+  },
+  "kicker": {
+    "raw": "corpus · boîte de réception",
+    "wiki": "corpus · organisé",
+    "subjectivity": "corpus · modèle de soi",
+    "output": "corpus · public",
+    "writings": "corpus · écriture",
+    "obsidian": "intégrations · vault"
+  },
+  "count": {
+    "unprocessed": "{n, plural, one {# non traité} other {# non traités}}",
+    "entries": "{n, plural, one {# entrée} other {# entrées}}",
+    "notes": "{n, plural, one {# note} other {# notes}}",
+    "artifacts": "{n, plural, one {# artefact} other {# artefacts}}",
+    "writings": "{n, plural, one {# écrit} other {# écrits}}",
+    "drafts": "{n, plural, one {# brouillon} other {# brouillons}}"
+  },
+  "action": {
+    "create": "créer",
+    "promote": "promouvoir",
+    "saveEntry": "enregistrer l'entrée"
+  },
+  "filter": {
+    "all": "tous",
+    "unprocessed": "non traités",
+    "flaggedPrivate": "marqués privés",
+    "promoted": "promus"
+  },
+  "placeholder": {
+    "tags": "architecture, ia, indé",
+    "seoDescription": "résumé d'une ligne pour og:description",
+    "rawDump": "Collez une pensée, un extrait de conversation, une idée à peine ébauchée.",
+    "writingSlug": "slug-url",
+    "writingTitle": "Titre de l'écrit",
+    "writingExcerpt": "résumé d'une ligne (aussi le sous-titre de couverture)",
+    "writingCoverHeadline": "Grand titre",
+    "writingTags": "séparés, par virgules"
+  },
+  "writingForm": {
+    "headingNew": "nouvel écrit",
+    "headingEdit": "modifier / {slug}",
+    "statusPublished": "publié",
+    "statusDraft": "brouillon",
+    "actEdit": "modifier",
+    "actPublish": "publier",
+    "actUnpublish": "dépublier",
+    "actDelete": "supprimer",
+    "fieldSlug": "slug",
+    "fieldTitle": "titre",
+    "fieldExcerpt": "extrait",
+    "fieldCoverHeadline": "titre de couverture",
+    "fieldTags": "tags",
+    "coverPreviewAlt": "aperçu de couverture",
+    "noFileSelected": "aucun fichier sélectionné"
+  },
+  "toast": {
+    "wikiCreated": "Wiki créé",
+    "wikiUpdated": "Wiki mis à jour",
+    "wikiDeleted": "Wiki supprimé",
+    "promotedToOutput": "Promu en output",
+    "subjectivityCreated": "Note de subjectivité créée",
+    "subjectivityUpdated": "Note de subjectivité mise à jour",
+    "outputCreated": "Output créé",
+    "outputUpdated": "Output mis à jour",
+    "outputDeleted": "Output supprimé",
+    "rawUpdated": "Raw mis à jour",
+    "rawDeleted": "Raw supprimé",
+    "promotedToWiki": "Promu en wiki",
+    "obsidianImported": "Vault Obsidian importé",
+    "writingDeleted": "Écrit supprimé",
+    "writingPublished": "Publié",
+    "writingUnpublished": "Dépublié",
+    "writingSaved": "Écrit {slug} enregistré"
+  },
+  "confirm": {
+    "deleteWiki": "Supprimer le wiki « {title} » ?{warn} Cette action est irréversible.",
+    "deleteWikiChildren": "{n, plural, one { Cela supprime aussi son # entrée enfant.} other { Cela supprime aussi ses # entrées enfants.}}",
+    "deleteOutput": "Supprimer l'output « {title} » ? Cette action est irréversible.",
+    "deleteRaw": "Supprimer cette entrée raw ? Cette action est irréversible."
+  },
+  "savedLine": {
+    "saved": "enregistré",
+    "savedUnpinned": "enregistré — la dépublication l'a aussi retiré de {sections}"
   }
 }

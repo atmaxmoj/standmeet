@@ -151,9 +151,9 @@ export function CodeCorpusConfig({ codeID, codeLabel }: { codeID: string; codeLa
   const onSave = useCallback(
     () => run(
       () => saveCodeCorpus(codeID, text.split('\n').map((s) => s.trim()).filter((s) => s !== '')),
-      { success: `Corpus narrowed for ${codeLabel}` },
+      { success: t('codeCorpus.toast.narrowed', { label: codeLabel }) },
     ),
-    [codeID, codeLabel, run, text],
+    [codeID, codeLabel, run, text, t],
   );
   return error ? <CorpusLoadFailed codeLabel={codeLabel} /> : loaded ? (
     <div className="mt-2 flex flex-col gap-1.5" data-testid={`code-corpus-${codeLabel}`}>

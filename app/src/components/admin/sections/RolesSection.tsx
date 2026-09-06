@@ -28,13 +28,14 @@ import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast } from '@/lib/ui/toast';
 
 export function RolesSection() {
+  const t = useTranslations('adminAccess');
   const hook = useRoles();
   const [creating, setCreating] = useState(false);
   useEffectErrorToast(hook.error);
   return (
     <>
       <SectionHeader
-        kicker="access · personas"
+        kicker={t('roles.kicker')}
         slug="roles"
         count={titleCount(hook)}
         action={<NewRoleBtn onClick={() => setCreating(true)} />}
@@ -167,9 +168,9 @@ function RolePromptRow({ role }: { role: RoleView }) {
       () => roles.updateRole(role.id, roleUpdatePayload(role, {
         prompt_id: promptID === '' ? null : promptID,
       })),
-      { success: `Prompt updated for ${role.name}` },
+      { success: t('roles.toast.promptUpdated', { name: role.name }) },
     ),
-    [role, roles, run],
+    [role, roles, run, t],
   );
   return (
     <label className="grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 items-baseline mt-1.5">
@@ -234,8 +235,8 @@ function RoleDeleteBtn({
   // delete is a one-click destructive action → both success/failure end with a toast (failure is
   // no longer silent: the owner must know when the delete didn't take).
   const handleDelete = useCallback(
-    () => run(() => onDelete(role.id), { success: `Role ${role.name} deleted` }),
-    [onDelete, role.id, role.name, run],
+    () => run(() => onDelete(role.id), { success: t('roles.toast.deleted', { name: role.name }) }),
+    [onDelete, role.id, role.name, run, t],
   );
   return (
     <button
@@ -258,31 +259,33 @@ const PUBLIC_ROLE_NAME = 'public';
 // published, decided note by note via each note's own toggle. Writing `0 URIs` for it would be
 // a lie ("reads nothing"), and writing `3 URIs` would be worse (that was the old secretly-seeded
 // second list, F-D-7). So this describes its actual scope instead.
-function corpusMetaOf(role: RoleView): string {
-  return role.name === PUBLIC_ROLE_NAME
-    ? 'what you published'
-    : `${role.corpus_uris.length} URIs`;
-}
-
 function RoleMetaGrid({ role }: { role: RoleView }) {
-  const cells: ReadonlyArray<readonly [string, string, boolean]> = [
-    ['corpus', corpusMetaOf(role), false],
-    ['skills', String(role.skill_ids.length), false],
-    ['mcp', `${role.mcp_server_ids.length} servers`, false],
-    ['codes', `${role.active_codes} active`, role.active_codes > 0],
+  const t = useTranslations('adminAccess');
+  // Each cell carries a **stable id** (drives the testid, never translated) plus a translated
+  // label and value — decoupling the two so a translated label can't shift a testid (F-N-3).
+  const cells: ReadonlyArray<readonly [string, string, string, boolean]> = [
+    ['corpus', t('roles.meta.corpus'),
+      role.name === PUBLIC_ROLE_NAME
+        ? t('roles.meta.published')
+        : t('roles.meta.uris', { n: role.corpus_uris.length }),
+      false],
+    ['skills', t('roles.meta.skills'), String(role.skill_ids.length), false],
+    ['mcp', t('roles.meta.mcp'), t('roles.meta.servers', { n: role.mcp_server_ids.length }), false],
+    ['codes', t('roles.meta.codes'),
+      t('roles.meta.activeCodes', { n: role.active_codes }), role.active_codes > 0],
   ];
   return (
     <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-1.5 mt-3 pt-2.5 border-t border-(--color-rule)/60 items-baseline">
-      {cells.map(([label, value, highlight]) => (
-        <RoleMetaCell key={label} label={label} value={value} highlight={highlight} />
+      {cells.map(([id, label, value, highlight]) => (
+        <RoleMetaCell key={id} id={id} label={label} value={value} highlight={highlight} />
       ))}
     </div>
   );
 }
 
 function RoleMetaCell({
-  label, value, highlight,
-}: { label: string; value: string; highlight: boolean }) {
+  id, label, value, highlight,
+}: { id: string; label: string; value: string; highlight: boolean }) {
   return (
     <>
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint)">
@@ -290,7 +293,7 @@ function RoleMetaCell({
       </span>
       <span
         className={`mono text-[11px] ${highlight ? 'text-(--color-accent)' : 'text-(--color-ink)'}`}
-        data-testid={`role-meta-${label}`}
+        data-testid={`role-meta-${id}`}
       >
         {value}
       </span>

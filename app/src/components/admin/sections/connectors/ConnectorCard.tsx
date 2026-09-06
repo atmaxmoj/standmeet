@@ -75,6 +75,7 @@ function cardName(entry: CatalogEntry): string {
 function CardHead(
   { name, connected, connecting }: { name: string; connected: boolean; connecting: boolean },
 ) {
+  const t = useTranslations('adminIntegrations.connectorCard');
   return (
     <div className="flex items-center justify-between mb-3">
       {/* The card name needs more weight than the fields inside it. It used to be `text-sm`,
@@ -89,7 +90,7 @@ function CardHead(
         {name}
       </span>
       <span data-testid="connector-status" className="mono text-[11px] text-(--color-muted)">
-        {statusText(connected, connecting)}
+        {t(statusKey(connected, connecting))}
       </span>
     </div>
   );
@@ -141,10 +142,10 @@ function UnreadableNote({ reason }: { reason: string }) {
   );
 }
 
-// statusText — connecting… (dance in progress; no "connected" substring, so expectConnected
+// statusKey — connecting… (dance in progress; no "connected" substring, so expectConnected
 // really waits for the round trip) / connected / not connected.
-function statusText(connected: boolean, connecting: boolean): string {
-  return connecting ? 'connecting…' : connected ? 'connected' : 'not connected';
+function statusKey(connected: boolean, connecting: boolean): string {
+  return connecting ? 'statusConnecting' : connected ? 'statusConnected' : 'statusNotConnected';
 }
 
 // SchemeSelect — lets the owner pick an auth method when there's more than one securityScheme

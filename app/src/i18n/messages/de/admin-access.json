@@ -16,7 +16,14 @@
   "codes": {
     "new": "＋ neuer code",
     "intro": "Jeder Code öffnet einen Bereich Ihres Wikis für einen bekannten Kontakt — eine Einstellungsschleife, eine Investorenpräsentation oder ein Pressegespräch. Mehrere Personen können einen Code teilen; bei der Eingabe fragt die KI, wer sie sind, und ordnet sie der Kontaktliste des Codes zu. Jede Karte hat einen QR-Code.",
-    "empty": "Noch keine Codes."
+    "empty": "Noch keine Codes.",
+    "kicker": "zugang · codes",
+    "count": "{active} aktiv · {total} gesamt",
+    "toast": {
+      "revoked": "Code widerrufen",
+      "created": "Code {code} erstellt",
+      "quotasUpdated": "Kontingente aktualisiert"
+    }
   },
   "codeCard": {
     "preview": "vorschau ↗",
@@ -29,7 +36,22 @@
     "openShare": "öffne das share-panel — großer QR, kopierbarer link, druckbar",
     "opensLabel": "öffnet",
     "opensChat": "den besucher-chat",
-    "opensPageOption": "/p/{slug}"
+    "opensPageOption": "/p/{slug}",
+    "statusActive": "● aktiv",
+    "roleLabel": "rolle",
+    "membersLabel": "mitglieder",
+    "qrLabel": "QR",
+    "namesCapped": "{used} / {cap} Namen",
+    "namesUncapped": "{used} Namen · unbegrenzt",
+    "turnsCapped": "{n} Runden",
+    "turnsUncapped": "unbegrenzte Runden",
+    "expires": "· läuft ab {date}",
+    "noExpiry": "· kein ablauf",
+    "toast": {
+      "ghostUpdated": "Ghost-Regel für {code} aktualisiert",
+      "opensChat": "{code} öffnet jetzt den Besucher-Chat",
+      "opensPage": "{code} öffnet jetzt /p/{slug}"
+    }
   },
   "codeCorpus": {
     "loadError": "Die Corpus-Scope dieses Codes konnte nicht geladen werden. Neu laden und erneut versuchen.",
@@ -38,12 +60,16 @@
     "inherited": "corpus · von Rolle geerbt",
     "takenBack": "auf diesem Code zurückgenommen",
     "helpSummary": "wie das zurücknehmen funktioniert ▸",
-    "help": "Die URIs, die dieser Code von der Rolle zurücknimmt, eine pro Zeile. Er kann nur subtrahieren, nie hinzufügen — was Sie hier schreiben, öffnet niemals etwas, das die Rolle nicht gewährt. Typische Verwendung: Die Rolle gewährt subjectivity://** (jede Meinung), und dieser Code nimmt subjectivity://cv zurück (der Lebenslauf bleibt außen vor). Änderungen beeinflussen nur Sitzungen, die ab sofort ausgegeben werden: Die Rolle wird eingefroren, wenn die Sitzung ausgegeben wird, daher behält der Besucher die alte Scope bei — aber die nächste Sitzung auf demselben Code erhält die neue."
+    "help": "Die URIs, die dieser Code von der Rolle zurücknimmt, eine pro Zeile. Er kann nur subtrahieren, nie hinzufügen — was Sie hier schreiben, öffnet niemals etwas, das die Rolle nicht gewährt. Typische Verwendung: Die Rolle gewährt subjectivity://** (jede Meinung), und dieser Code nimmt subjectivity://cv zurück (der Lebenslauf bleibt außen vor). Änderungen beeinflussen nur Sitzungen, die ab sofort ausgegeben werden: Die Rolle wird eingefroren, wenn die Sitzung ausgegeben wird, daher behält der Besucher die alte Scope bei — aber die nächste Sitzung auf demselben Code erhält die neue.",
+    "toast": {
+      "narrowed": "Korpus für {label} eingegrenzt"
+    }
   },
   "members": {
     "loading": "Mitglieder werden geladen…",
     "none": "Noch kein Besucher hat diesen Code verwendet.",
-    "anonymous": "anonym"
+    "anonymous": "anonym",
+    "toggle": "mitglieder"
   },
   "conversations": {
     "privateHits": "{count, plural, one {# Sitzung} other {# Sitzungen}} hat private Themen berührt",
@@ -57,7 +83,9 @@
     "thFlags": "flaggen",
     "thLast": "letztes",
     "privFlag": "{hits} priv",
-    "empty": "Noch keine Unterhaltungen. Sobald Besucher über einen Code oder eine BYOAI-Sitzung chatten, sehen Sie diese hier."
+    "empty": "Noch keine Unterhaltungen. Sobald Besucher über einen Code oder eine BYOAI-Sitzung chatten, sehen Sie diese hier.",
+    "kicker": "zugang · sitzungen",
+    "count": "{count, plural, one {# Sitzung} other {# Sitzungen}}"
   },
   "transcript": {
     "loading": "Transkript wird geladen…",
@@ -65,7 +93,9 @@
     "cited": "zitiert · {kind}",
     "ghostsTitle": "angezeigter ghost text",
     "groundingTitle": "standpunkt-notizen, die diese antworten geprägt haben · nicht für den besucher sichtbar",
-    "grounded": "verankert"
+    "grounded": "verankert",
+    "kicker": "unterhaltung",
+    "modalTitle": "transkript · {id}"
   },
   "ghostTelemetry": {
     "title": "ghost-steuerung · pro-waypoint-trichter",
@@ -80,7 +110,19 @@
     "intro": "Bibliothek der Personen. Eigentümer-bezogen, keine Kategorien. Jeder ist ein Textabschnitt — der Agent wird zu dem, was Sie hier festlegen. Von Rollen verwendet.",
     "empty": "Noch keine Prompts — öffentlich wird normalerweise beim Eigentümer-Claim initialisiert.",
     "modalTitle": "neuer prompt",
-    "bodyLabel": "haupttext"
+    "bodyLabel": "haupttext",
+    "kicker": "zugang · personas",
+    "fields": {
+      "name": "name",
+      "description": "beschreibung"
+    },
+    "namePlaceholder": "z. B. recruiter-facing",
+    "descPlaceholder": "wann diese Persona zu verwenden ist",
+    "bodyPlaceholder": "Du bist ein KI-Stellvertreter für '{'owner'}'. Beantworte Fragen präzise…",
+    "toast": {
+      "created": "Prompt {name} erstellt",
+      "deleted": "Prompt {name} gelöscht"
+    }
   },
   "requests": {
     "deliveryHint": "Kein verifizierter ausgehender Kanal — richten Sie einen unter Konnektoren ein, damit ein Genehmigen eine Codee ausstellen kann. Bis dahin können Sie Anfragen nur manuell beantworten/archivieren.",
@@ -89,19 +131,58 @@
     "issued": "ausgegeben {code} — per E-Mail an den Anfragenden gesendet",
     "decline": "ablehnen",
     "approve": "genehmigen · code ausstellen + E-Mail →",
-    "connectMail": "mail verbinden um codes auszustellen"
+    "connectMail": "mail verbinden um codes auszustellen",
+    "kicker": "zugang · gate-eingang",
+    "countTotal": "{n} gesamt",
+    "countNew": "{n} neu",
+    "toast": {
+      "declined": "Anfrage abgelehnt"
+    }
   },
   "roles": {
     "new": "+ neue rolle",
     "intro": "Eine Rolle bündelt einen Prompt (Person), eine positive Liste von Corpus-URIs, die der Agent lesen kann, eine Reihe von Skills und welche MCP-Server er aufrufen darf. Codes tragen Berechtigungen nicht direkt — jeder Code <em>nimmt an</em> einer Rolle bei Ausgabe an und dieser Snapshot ist für diese Sitzung eingefroren. Eine Rolle bearbeiten und nur zukünftige Sitzungen spüren es.",
-    "empty": "Noch keine Rollen — öffentlich wird normalerweise beim Eigentümer-Claim initialisiert."
+    "empty": "Noch keine Rollen — öffentlich wird normalerweise beim Eigentümer-Claim initialisiert.",
+    "kicker": "zugang · personas",
+    "skillsLabel": "skills",
+    "mcpServersLabel": "mcp-server",
+    "meta": {
+      "corpus": "korpus",
+      "skills": "skills",
+      "mcp": "mcp",
+      "codes": "codes",
+      "published": "was du veröffentlicht hast",
+      "uris": "{n} URIs",
+      "servers": "{n} Server",
+      "activeCodes": "{n} aktiv"
+    },
+    "toast": {
+      "created": "Rolle {name} erstellt",
+      "deleted": "Rolle {name} gelöscht",
+      "promptUpdated": "Prompt für {name} aktualisiert",
+      "corpusUpdated": "Korpus-URIs für {name} aktualisiert",
+      "toolsUpdated": "Tool-Berechtigungen für {name} aktualisiert",
+      "dockUpdated": "Dock-Schaltflächen für {name} aktualisiert",
+      "ghostUpdated": "Ghost-Regel für {name} aktualisiert",
+      "aboutUpdated": "Beschreibung für {name} aktualisiert",
+      "providerUpdated": "Anbieter für {name} aktualisiert",
+      "waypointsUpdated": "Wegpunkte für {name} aktualisiert"
+    }
   },
   "roleCreate": {
     "title": "neue rolle",
     "promptNone": "(keine)",
     "providerDefault": "— Instanz-Standard —",
     "corpusLabel": "corpus uris · eine pro zeile",
-    "noneConfigured": "noch nicht konfiguriert"
+    "noneConfigured": "noch nicht konfiguriert",
+    "fields": {
+      "name": "name",
+      "description": "beschreibung",
+      "greeting": "begrüßung"
+    },
+    "namePlaceholder": "z. B. recruiter-default",
+    "descPlaceholder": "wann diese Rolle zu verwenden ist",
+    "greetingPlaceholder": "wird in der Besucher-Namensauswahl angezeigt — leer verwendet einen Standard"
   },
   "roleGas": {
     "help": "Diese Rolle gegen den Tank des Providers begrenzen. Aus (Standard) bedeutet gar keine Verwendungsprüfung; An bedeutet, dass ein Besucher gestoppt wird, wenn der Tank des Providers leer ist. Ein Provider ohne Treibstoff wird in beiden Fällen nie begrenzt."
@@ -187,6 +268,10 @@
       "saveEdit": "änderungen speichern",
       "cancel": "abbrechen",
       "codeRequired": "wählen Sie zuerst einen code"
-    }
+    },
+    "kicker": "zugang · widgets",
+    "thEmbed": "einbettung",
+    "thOrigins": "ursprünge",
+    "thCreated": "erstellt"
   }
 }

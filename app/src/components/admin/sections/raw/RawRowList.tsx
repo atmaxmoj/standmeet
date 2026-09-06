@@ -188,15 +188,17 @@ interface RowActionsProps {
 
 function RawRowActions(props: RowActionsProps) {
   const t = useTranslations('adminCorpus.raw');
+  const tc = useTranslations('adminCorpus.confirm');
+  const tt = useTranslations('adminCorpus.toast');
   const toast = useToast();
   // This button used to read "archive" but fired DELETE — and the backend has no other half
   // of "archive": no list shows archived rows, no restore entry point exists. Since the action
   // is a delete, the label must say delete — and the confirm dialog must tell the truth (the
   // owner clicking "archive" would assume it's recoverable).
-  const onDelete = () => confirm('Delete this raw entry? This cannot be undone.')
+  const onDelete = () => confirm(tc('deleteRaw'))
     ? void runWith(
       () => props.actions.deleteRaw(props.row.id),
-      () => toast.success('Raw deleted'),
+      () => toast.success(tt('rawDeleted')),
     )
     : null;
   return (
@@ -237,9 +239,10 @@ interface PromoteRowProps {
 
 function PromoteRow(props: PromoteRowProps) {
   const toast = useToast();
+  const tt = useTranslations('adminCorpus.toast');
   const onSubmit = (input: PromoteInput) => void runWith(
     () => props.actions.promoteRaw(props.row.id, input),
-    () => { toast.success('Promoted to wiki'); props.onDone(); },
+    () => { toast.success(tt('promotedToWiki')); props.onDone(); },
   );
   return (
     <div className="mt-4 max-w-[560px]">
@@ -271,6 +274,7 @@ function EditRow(props: EditRowProps) {
   const heroForm = useRawHeroForm(props.row.id, props.actions);
   const { cover, setCover, coverHeadline, coverHue } = heroForm;
   const toast = useToast();
+  const tt = useTranslations('adminCorpus.toast');
   const onSave = () => void runWith(
     () => props.actions.updateRaw(props.row.id, {
       body,
@@ -278,7 +282,7 @@ function EditRow(props: EditRowProps) {
       flagged_private: flagged,
       ...heroInput(heroForm),
     }),
-    () => { toast.success('Raw updated'); props.onDone(); },
+    () => { toast.success(tt('rawUpdated')); props.onDone(); },
   );
   return (
     <div

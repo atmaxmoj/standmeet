@@ -27,9 +27,9 @@ export function RoleWaypointsConfig({ role }: { role: RoleView }) {
   const onSave = useCallback(
     () => run(
       () => roles.updateRole(role.id, roleUpdatePayload(role, { waypoints: cleanWaypoints(wps) })),
-      { success: `Waypoints updated for ${role.name}` },
+      { success: t('roles.toast.waypointsUpdated', { name: role.name }) },
     ),
-    [role, roles, run, wps],
+    [role, roles, run, wps, t],
   );
   return (
     <div className="mt-2 grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">

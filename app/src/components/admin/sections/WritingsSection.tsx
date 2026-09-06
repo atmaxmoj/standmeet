@@ -30,6 +30,8 @@ import { useEffectErrorToast } from '@/lib/ui/toast';
 
 export function WritingsSection() {
   const t = useTranslations('adminCorpus.writings');
+  const tk = useTranslations('adminCorpus.kicker');
+  const tc = useTranslations('adminCorpus.count');
   const hook = useWritings();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<AdminWritingView | null>(null);
@@ -37,9 +39,9 @@ export function WritingsSection() {
   return (
     <>
       <SectionHeader
-        kicker="corpus · writing"
+        kicker={tk('writings')}
         slug="writings"
-        count={titleCount(hook)}
+        count={writingCountLabel(hook, tc)}
         action={<Btn kind="solid" onClick={() => setCreating(true)}>{t('newWriting')}</Btn>}
       />
       <Intro />
@@ -55,14 +57,19 @@ export function WritingsSection() {
   );
 }
 
-function titleCount(hook: WritingsHook): string {
-  return hook.status === 'ready' ? formatWritingCount(hook.writings) : '';
+// CountT —— the scoped `adminCorpus.count` translator, threaded into the count helpers so
+// the "N writings · M drafts" label is a real plural (ICU per locale), not string concat.
+type CountT = ReturnType<typeof useTranslations<'adminCorpus.count'>>;
+
+function writingCountLabel(hook: WritingsHook, tc: CountT): string {
+  return hook.status === 'ready' ? formatWritingCount(hook.writings, tc) : '';
 }
 
-function formatWritingCount(writings: WritingsHook['writings']): string {
+function formatWritingCount(writings: WritingsHook['writings'], tc: CountT): string {
   const published = writings.filter((w) => w.published).length;
   const drafts = writings.length - published;
-  return drafts === 0 ? `${published} writings` : `${published} writings · ${drafts} draft${drafts === 1 ? '' : 's'}`;
+  const base = tc('writings', { n: published });
+  return drafts === 0 ? base : `${base} · ${tc('drafts', { n: drafts })}`;
 }
 
 function Intro() {
@@ -159,6 +166,7 @@ function WritingCard({
 }
 
 function WritingCardHead({ writing }: { writing: AdminWritingView }) {
+  const tw = useTranslations('adminCorpus.writingForm');
   return (
     <div className="flex items-baseline gap-3">
       <span className="font-serif text-[18px]">{writing.title}</span>
@@ -167,7 +175,7 @@ function WritingCardHead({ writing }: { writing: AdminWritingView }) {
         className={`mono text-[9px] tracking-[0.18em] uppercase ${writing.published ? 'text-(--color-accent)' : 'text-(--color-muted)'}`}
         data-testid={`writing-status-${writing.slug}`}
       >
-        {writing.published ? 'published' : 'draft'}
+        {writing.published ? tw('statusPublished') : tw('statusDraft')}
       </span>
     </div>
   );
@@ -207,10 +215,16 @@ const HOVER_CLASS: Record<ActionKind, string> = {
   unpublish: 'hover:text-(--color-ink)',
   delete: 'hover:text-(--color-accent)',
 };
+// ACT_LABEL —— message key per action. The label is translated; TESTID_NAME keeps the
+// stable English testid so e2e selectors don't move.
+const ACT_LABEL: Record<ActionKind, string> = {
+  edit: 'actEdit', publish: 'actPublish', unpublish: 'actUnpublish', delete: 'actDelete',
+};
 
 function ActionBtn({
   slug, kind, onClick,
 }: { slug: string; kind: ActionKind; onClick: () => void }) {
+  const tw = useTranslations('adminCorpus.writingForm');
   return (
     <button
       type="button"
@@ -218,7 +232,7 @@ function ActionBtn({
       data-testid={`writing-${TESTID_NAME[kind]}-${slug}`}
       className={`mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) ${HOVER_CLASS[kind]}`}
     >
-      {kind}
+      {tw(ACT_LABEL[kind])}
     </button>
   );
 }
@@ -228,10 +242,11 @@ type Run = ReturnType<typeof useAction>;
 // publish/unpublish is a discrete one-click action → both success/failure are wrapped up by run
 // (failure is no longer silent: the owner needs to know when it didn't take).
 function useTogglePublish(writing: AdminWritingView, hook: WritingsHook, run: Run) {
+  const tt = useTranslations('adminCorpus.toast');
   return useCallback(
     () => run(() => flipPublishOp(writing, hook),
-      { success: writing.published ? 'Unpublished' : 'Published' }),
-    [writing, hook, run],
+      { success: writing.published ? tt('writingUnpublished') : tt('writingPublished') }),
+    [writing, hook, run, tt],
   );
 }
 
@@ -240,9 +255,10 @@ function flipPublishOp(writing: AdminWritingView, hook: WritingsHook): Promise<v
 }
 
 function useHandleDelete(id: string, hook: WritingsHook, run: Run) {
+  const tt = useTranslations('adminCorpus.toast');
   return useCallback(
-    () => run(() => hook.deleteWriting(id), { success: 'Writing deleted' }),
-    [hook, id, run],
+    () => run(() => hook.deleteWriting(id), { success: tt('writingDeleted') }),
+    [hook, id, run, tt],
   );
 }
 
@@ -253,17 +269,19 @@ function WritingCreateModal({
   onCreate: (bundle: WritingSaveBundle) => Promise<void>;
   parentOptions: ParentOption[];
 }) {
+  const tw = useTranslations('adminCorpus.writingForm');
+  const ta = useTranslations('adminCorpus.action');
   return (
     <div
       className="fixed inset-0 bg-[var(--sm-scrim)] flex items-center justify-center sm-z-modal p-6"
       data-testid="writing-create-modal"
     >
       <WritingForm
-        heading="new writing"
+        heading={tw('headingNew')}
         initial={EMPTY_VALUES}
         slugReadOnly={false}
         showPublishToggle
-        submitLabel="create"
+        submitLabel={ta('create')}
         submitTestId="writing-create-submit"
         parentOptions={parentOptions}
         onClose={onClose}
@@ -281,17 +299,19 @@ function WritingEditModal({
   onUpdate: (id: string, bundle: WritingSaveBundle) => Promise<void>;
   parentOptions: ParentOption[];
 }) {
+  const tw = useTranslations('adminCorpus.writingForm');
+  const tcom = useTranslations('adminCorpus.common');
   return (
     <div
       className="fixed inset-0 bg-[var(--sm-scrim)] flex items-center justify-center sm-z-modal p-6"
       data-testid="writing-edit-modal"
     >
       <WritingForm
-        heading={`edit / ${writing.slug}`}
+        heading={tw('headingEdit', { slug: writing.slug })}
         initial={writingToValues(writing)}
         slugReadOnly
         showPublishToggle={false}
-        submitLabel="save"
+        submitLabel={tcom('save')}
         submitTestId="writing-edit-submit"
         assetURLs={writing.asset_urls ?? {}}
         parentOptions={parentOptions}

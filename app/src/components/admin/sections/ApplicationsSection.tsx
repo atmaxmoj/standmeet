@@ -25,16 +25,19 @@ import {
 } from '@/lib/admin/use-admin-applications';
 
 export function ApplicationsSection() {
+  const t = useTranslations('adminJobs');
   const { rows, loading, error } = useAdminApplications();
   const [opened, setOpened] = useState<Application | null>(null);
   const [query, setQuery] = useState('');
   const shown = filterApplications(rows, query);
+  // Count says "N committed", not "N sent": no code marks a row as sent, so
+  // the phrase `N sent` would be false on every instance (F-E-3).
   return (
     <>
       <SectionHeader
-        kicker="jobs · committed"
+        kicker={t('applications.kicker')}
         slug="applications"
-        count={titleCount(rows.length, loading)}
+        count={loading ? t('applications.loading') : t('applications.titleCommitted', { count: rows.length })}
       />
       <Intro />
       <SearchField value={query} onChange={setQuery} show={rows.length > 0} />
@@ -73,12 +76,6 @@ function SearchField(
       className="sm-field-input sm-mono mb-5 max-w-[24em]"
     />
   ) : null;
-}
-
-// titleCount —— counts application rows, not "sent" applications: no code today
-// marks a row as sent, so the phrase `N sent` would be false on every instance (F-E-3).
-function titleCount(n: number, loading: boolean): string {
-  return loading ? 'loading…' : `${n} committed`;
 }
 
 function Intro() {

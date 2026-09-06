@@ -16,7 +16,14 @@
   "codes": {
     "new": "＋ new code",
     "intro": "Each code gates a slice of your wiki for a known recipient — a hiring loop, an investor intro, or a single press call. Multiple people can share one code; when someone enters it, the AI asks who they are and assigns them to the code's member list. Each card carries a QR.",
-    "empty": "No codes yet."
+    "empty": "No codes yet.",
+    "kicker": "액세스 · 코드",
+    "count": "{active}개 활성 · {total}개 전체",
+    "toast": {
+      "revoked": "코드가 취소되었습니다",
+      "created": "코드 {code}이(가) 생성되었습니다",
+      "quotasUpdated": "할당량이 업데이트되었습니다"
+    }
   },
   "codeCard": {
     "preview": "preview ↗",
@@ -29,7 +36,22 @@
     "openShare": "open the share panel — big QR, copyable link, printable",
     "opensLabel": "opens",
     "opensChat": "the visitor chat",
-    "opensPageOption": "/p/{slug}"
+    "opensPageOption": "/p/{slug}",
+    "statusActive": "● 활성",
+    "roleLabel": "역할",
+    "membersLabel": "멤버",
+    "qrLabel": "QR",
+    "namesCapped": "{used} / {cap} 명",
+    "namesUncapped": "{used} 명 · 무제한",
+    "turnsCapped": "{n} 턴",
+    "turnsUncapped": "무제한 턴",
+    "expires": "· 만료 {date}",
+    "noExpiry": "· 만료 없음",
+    "toast": {
+      "ghostUpdated": "{code}의 고스트 규칙이 업데이트되었습니다",
+      "opensChat": "{code}이(가) 이제 방문자 채팅을 엽니다",
+      "opensPage": "{code}이(가) 이제 /p/{slug}을(를) 엽니다"
+    }
   },
   "codeCorpus": {
     "loadError": "Couldn’t load this code’s corpus scope. Reload and retry.",
@@ -38,12 +60,16 @@
     "inherited": "corpus · inherited from role",
     "takenBack": "taken back on this code",
     "helpSummary": "how taking back works ▸",
-    "help": "The URIs this code takes back from what the role granted, one per line. It can only subtract, never add — whatever you write here will never open what the role didn't grant. Typical use: the role grants subjectivity://** (every opinion), and this code takes back subjectivity://cv (the résumé stays out). Changes only affect sessions issued from now on: the role is frozen when the session is issued, so a visitor already chatting keeps the old scope — but the next session on the same code, however old that code is, gets the new one."
+    "help": "The URIs this code takes back from what the role granted, one per line. It can only subtract, never add — whatever you write here will never open what the role didn't grant. Typical use: the role grants subjectivity://** (every opinion), and this code takes back subjectivity://cv (the résumé stays out). Changes only affect sessions issued from now on: the role is frozen when the session is issued, so a visitor already chatting keeps the old scope — but the next session on the same code, however old that code is, gets the new one.",
+    "toast": {
+      "narrowed": "{label}의 코퍼스가 좁혀졌습니다"
+    }
   },
   "members": {
     "loading": "loading members…",
     "none": "no visitor has used this code yet.",
-    "anonymous": "anonymous"
+    "anonymous": "anonymous",
+    "toggle": "멤버"
   },
   "conversations": {
     "privateHits": "{count, plural, one {# session} other {# sessions}} hit private topics",
@@ -57,7 +83,9 @@
     "thFlags": "flags",
     "thLast": "last",
     "privFlag": "{hits} priv",
-    "empty": "No conversations yet. Once visitors chat through a code or BYOAI session, you'll see them here."
+    "empty": "No conversations yet. Once visitors chat through a code or BYOAI session, you'll see them here.",
+    "kicker": "액세스 · 세션",
+    "count": "{count}개 세션"
   },
   "transcript": {
     "loading": "loading transcript…",
@@ -65,7 +93,9 @@
     "cited": "cited · {kind}",
     "ghostsTitle": "ghost text shown",
     "groundingTitle": "standpoint notes that shaped these answers · not shown to the visitor",
-    "grounded": "grounded"
+    "grounded": "grounded",
+    "kicker": "대화",
+    "modalTitle": "대화 기록 · {id}"
   },
   "ghostTelemetry": {
     "title": "ghost steering · per-waypoint funnel",
@@ -80,7 +110,19 @@
     "intro": "Library of personas. Owner-scoped, no categories. Each one is a piece of writing — the agent becomes whoever you tell it to be here. Used by roles.",
     "empty": "No prompts yet — public is normally seeded on owner claim.",
     "modalTitle": "new prompt",
-    "bodyLabel": "body"
+    "bodyLabel": "body",
+    "kicker": "액세스 · 페르소나",
+    "fields": {
+      "name": "이름",
+      "description": "설명"
+    },
+    "namePlaceholder": "예: recruiter-facing",
+    "descPlaceholder": "이 페르소나를 사용할 때",
+    "bodyPlaceholder": "당신은 '{'owner'}'의 AI 프록시입니다. 질문에 정확히 답하세요…",
+    "toast": {
+      "created": "프롬프트 {name}이(가) 생성되었습니다",
+      "deleted": "프롬프트 {name}이(가) 삭제되었습니다"
+    }
   },
   "requests": {
     "deliveryHint": "No verified outbound channel — set one up under Connectors so approving a request can issue a code and send it. Until then you can only mark requests replied/closed by hand.",
@@ -89,19 +131,58 @@
     "issued": "issued {code} — emailed to the requester",
     "decline": "decline",
     "approve": "approve · issue + email code →",
-    "connectMail": "connect mail to issue codes"
+    "connectMail": "connect mail to issue codes",
+    "kicker": "액세스 · 게이트 수신함",
+    "countTotal": "{n}개 전체",
+    "countNew": "{n}개 신규",
+    "toast": {
+      "declined": "요청이 거절되었습니다"
+    }
   },
   "roles": {
     "new": "+ new role",
     "intro": "A role bundles a prompt (persona), a positive list of corpus URIs the agent can read, a set of skills, and which MCP servers it may call. Codes don’t carry permissions directly — every code <em>assumes</em> a role at issue time and that snapshot is frozen for that session. Edit a role and only future sessions feel it.",
-    "empty": "No roles yet — public is normally seeded on owner claim."
+    "empty": "No roles yet — public is normally seeded on owner claim.",
+    "kicker": "액세스 · 페르소나",
+    "skillsLabel": "스킬",
+    "mcpServersLabel": "mcp 서버",
+    "meta": {
+      "corpus": "코퍼스",
+      "skills": "스킬",
+      "mcp": "mcp",
+      "codes": "코드",
+      "published": "게시한 내용",
+      "uris": "{n}개 URI",
+      "servers": "{n}개 서버",
+      "activeCodes": "{n}개 활성"
+    },
+    "toast": {
+      "created": "역할 {name}이(가) 생성되었습니다",
+      "deleted": "역할 {name}이(가) 삭제되었습니다",
+      "promptUpdated": "{name}의 프롬프트가 업데이트되었습니다",
+      "corpusUpdated": "{name}의 코퍼스 URI가 업데이트되었습니다",
+      "toolsUpdated": "{name}의 도구 권한이 업데이트되었습니다",
+      "dockUpdated": "{name}의 독 버튼이 업데이트되었습니다",
+      "ghostUpdated": "{name}의 고스트 규칙이 업데이트되었습니다",
+      "aboutUpdated": "{name}의 설명이 업데이트되었습니다",
+      "providerUpdated": "{name}의 제공자가 업데이트되었습니다",
+      "waypointsUpdated": "{name}의 경유지가 업데이트되었습니다"
+    }
   },
   "roleCreate": {
     "title": "new role",
     "promptNone": "(none)",
     "providerDefault": "— instance default —",
     "corpusLabel": "corpus uris · one per line",
-    "noneConfigured": "none configured yet"
+    "noneConfigured": "none configured yet",
+    "fields": {
+      "name": "이름",
+      "description": "설명",
+      "greeting": "인사말"
+    },
+    "namePlaceholder": "예: recruiter-default",
+    "descPlaceholder": "이 역할을 사용할 때",
+    "greetingPlaceholder": "방문자 이름 선택기에 표시됩니다 — 비워 두면 기본값 사용"
   },
   "roleGas": {
     "help": "Meter this role against its provider's tank. Off (the default) means no usage check runs at all; on means a visitor is stopped once that provider's tank is empty. A provider with no fuel in it is never metered either way."
@@ -187,6 +268,10 @@
       "saveEdit": "save changes",
       "cancel": "cancel",
       "codeRequired": "pick a code first"
-    }
+    },
+    "kicker": "액세스 · 위젯",
+    "thEmbed": "임베드",
+    "thOrigins": "출처",
+    "thCreated": "생성됨"
   }
 }

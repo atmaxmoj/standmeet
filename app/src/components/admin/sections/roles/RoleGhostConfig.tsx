@@ -20,9 +20,9 @@ export function RoleGhostConfig({ role }: { role: RoleView }) {
       () => roles.updateRole(role.id, roleUpdatePayload(role, {
         require_ghost_evidence: requireEvidence,
       })),
-      { success: `Ghost rule updated for ${role.name}` },
+      { success: t('roles.toast.ghostUpdated', { name: role.name }) },
     ),
-    [role, roles, run, requireEvidence],
+    [role, roles, run, requireEvidence, t],
   );
   return (
     <div className="mt-2 grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">

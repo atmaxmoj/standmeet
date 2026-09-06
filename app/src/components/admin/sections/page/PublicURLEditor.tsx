@@ -60,6 +60,7 @@ function ChangeBtn({ onClick }: { onClick: () => void }) {
 function EditingRow({
   current, onChanged, onClose,
 }: { current: string; onChanged: (u: string) => void; onClose: () => void }) {
+  const t = useTranslations('adminPages.publicUrl');
   const [raw, setRaw] = useState(current);
   const hook = usePublicURL();
   const sanitized = sanitizePublicURL(raw);
@@ -74,7 +75,7 @@ function EditingRow({
           autoFocus
           spellCheck={false}
           autoComplete="off"
-          placeholder="https://yourdomain.com"
+          placeholder={t('inputPlaceholder')}
           data-testid="public-url-input"
           className="flex-1 min-w-0 bg-transparent py-1.5 reading-tight text-[17px] font-medium tracking-[-0.005em]"
         />
@@ -125,10 +126,11 @@ function EditFootRow({
 function HintLine({
   sanitized, current, error,
 }: { sanitized: string; current: string; error: string | null }) {
+  const t = useTranslations('adminPages.publicUrl');
   const hint = publicURLHint(sanitized, current);
   return error
     ? <span className="text-(--color-accent)" data-testid="public-url-error">{error}</span>
-    : <span className={hint.cls} data-testid="public-url-hint">{hint.text}</span>;
+    : <span className={hint.cls} data-testid="public-url-hint">{t(hint.key)}</span>;
 }
 
 function SaveBtn({
@@ -140,9 +142,10 @@ function SaveBtn({
   onChanged: (u: string) => void;
   onClose: () => void;
 }) {
+  const t = useTranslations('adminPages.publicUrl');
   const ready = canSavePublicURL(sanitized, current, hook.pending);
   const toast = useToast();
-  const onSuccess = (u: string) => toast.success(`Public URL updated to ${u}`);
+  const onSuccess = (u: string) => toast.success(t('updated', { url: u }));
   return (
     <button
       type="button"
@@ -151,7 +154,7 @@ function SaveBtn({
       data-testid="public-url-save-btn"
       className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
     >
-      {hook.pending ? 'saving…' : 'save URL'}
+      {hook.pending ? t('saving') : t('save')}
     </button>
   );
 }

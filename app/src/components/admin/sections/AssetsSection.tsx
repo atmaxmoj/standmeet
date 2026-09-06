@@ -17,11 +17,12 @@ import { isImage, sizeLabel, useAssets, type PoolAsset } from '@/lib/admin/use-a
 import { useAction } from '@/lib/ui/use-action';
 
 export function AssetsSection() {
+  const t = useTranslations('adminPages.assets');
   const hook = useAssets();
   return (
     <>
       <SectionHeader
-        kicker="resources · assets"
+        kicker={t('kicker')}
         slug="assets"
         count={hook.assets.length > 0 ? String(hook.assets.length) : ''}
       />

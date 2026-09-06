@@ -62,15 +62,17 @@ function wikiTrueCount(
 }
 
 function Header({ hook, actions }: { hook: WikiHook; actions: CorpusActionsHook }) {
+  const tk = useTranslations('adminCorpus.kicker');
+  const tc = useTranslations('adminCorpus.count');
   const [creating, setCreating] = useState(false);
   const { growth } = useCorpusGrowth();
   const total = wikiTrueCount(hook.rows.length, growth);
   return (
     <>
       <SectionHeader
-        kicker="corpus · curated"
+        kicker={tk('wiki')}
         slug="wiki"
-        count={hook.status === 'ready' ? `${total} entries` : ''}
+        count={hook.status === 'ready' ? tc('entries', { n: total }) : ''}
         action={<NewBtn onClick={() => setCreating(true)} disabled={creating} />}
       />
       {creating ? (
@@ -99,14 +101,16 @@ function CreateForm({
   actions, rows, onDone,
 }: { actions: CorpusActionsHook; rows: readonly WikiSummary[]; onDone: () => void }) {
   const toast = useToast();
+  const ta = useTranslations('adminCorpus.action');
+  const tt = useTranslations('adminCorpus.toast');
   const onSubmit = (input: CorpusEntryInput) => void runWith(
     () => actions.createWiki(input),
-    () => { toast.success('Wiki created'); onDone(); },
+    () => { toast.success(tt('wikiCreated')); onDone(); },
   );
   return (
     <CorpusEntryForm
       busy={actions.pending}
-      submitLabel="create"
+      submitLabel={ta('create')}
       testidPrefix="wiki-create"
       parentOptions={corpusParentOptions(rows)}
       onSubmit={onSubmit}
@@ -358,11 +362,16 @@ function DeleteBtn({
   entry, actions, childCount,
 }: { entry: WikiSummary; actions: CorpusActionsHook; childCount: number }) {
   const t = useTranslations('adminCorpus.common');
+  const tcf = useTranslations('adminCorpus.confirm');
+  const tt = useTranslations('adminCorpus.toast');
   const toast = useToast();
-  const onClick = () => confirm(deleteWikiPrompt(entry.title, childCount))
+  // When there are descendants, the warning says how many will also be deleted (cascading
+  // delete, no orphans left because the address tree is derived).
+  const warn = childCount > 0 ? tcf('deleteWikiChildren', { n: childCount }) : '';
+  const onClick = () => confirm(tcf('deleteWiki', { title: entry.title, warn }))
     ? void runWith(
       () => actions.deleteWiki(entry.id),
-      () => toast.success('Wiki deleted'),
+      () => toast.success(tt('wikiDeleted')),
     )
     : null;
   return (
@@ -373,13 +382,4 @@ function DeleteBtn({
       {t('deleteX')}
     </button>
   );
-}
-
-// deleteWikiPrompt —— when there are descendants, the warning says how many will also be
-// deleted (cascading delete, no orphans left because the address tree is derived).
-function deleteWikiPrompt(title: string, childCount: number): string {
-  const warn = childCount > 0
-    ? ` This also deletes its ${childCount} child ${childCount === 1 ? 'entry' : 'entries'}.`
-    : '';
-  return `Delete wiki "${title}"?${warn} This cannot be undone.`;
 }

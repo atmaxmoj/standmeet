@@ -28,11 +28,12 @@ import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListPane } from '@/components/admin/ListPane';
 import { MarketplaceTab } from '@/components/admin/sections/agent-skills/MarketplaceTab';
 import { SkillsTabs, type SkillsTab } from '@/components/admin/sections/skills/SkillsTabs';
+import { SkillCreateModal } from '@/components/admin/sections/skills/SkillCreateModal';
 import { useAgentSkills } from '@/lib/admin/use-agent-skills';
-import { useSkills, type SkillsHook, type SkillView, type CreateSkillInput } from '@/lib/admin/use-skills';
+import { useSkills, type SkillsHook, type SkillView } from '@/lib/admin/use-skills';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
-import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
+import { useEffectErrorToast } from '@/lib/ui/toast';
 
 // connectorLabel was removed (F-F-4): it hand-mapped connector rows to 'Calendar' / 'Email' so
 // the client could compute the `needs − connected` difference itself. That was a **third name**
@@ -42,17 +43,19 @@ import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 export function SkillsSection() {
   const skills = useSkills();
   const agent = useAgentSkills();
+  const t = useTranslations('adminIntegrations.skills');
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<SkillsTab>('installed');
   useEffectErrorToast(skills.error);
   // install complete → switches back to my skills, so the owner watches the new skill land in the list.
   useEffect(() => { (agent.lastInstalledAt > 0) && setTab('installed'); }, [agent.lastInstalledAt]);
+  const count = skills.status === 'ready' ? t('trackedCount', { count: skills.skills.length }) : '';
   return (
     <>
       <SectionHeader
-        kicker="ai · skills"
+        kicker={t('kicker')}
         slug="skills"
-        count={titleCount(skills)}
+        count={count}
         action={<HeaderActions tab={tab} setTab={setTab} onNew={() => setCreating(true)} />}
       />
       <SkillsBody tab={tab} skills={skills} agent={agent} />
@@ -85,10 +88,6 @@ function SkillsBody({
   return tab === 'marketplace'
     ? <MarketplaceTab hook={agent} />
     : <PersonaSkillsBlock hook={skills} />;
-}
-
-function titleCount(hook: SkillsHook): string {
-  return hook.status === 'ready' ? `${hook.skills.length} tracked` : '';
 }
 
 // ─── my skills: this registry's CRUD list ─────────────────────
@@ -171,6 +170,7 @@ function SkillToggle({
   skill, onToggle,
 }: { skill: SkillView; onToggle: (id: string, enabled: boolean) => Promise<void> }) {
   const report = useReportError();
+  const t = useTranslations('adminIntegrations.skills');
   const cls = skill.enabled ? 'text-(--color-accent)' : 'text-(--color-faint)';
   // toggle: no success toast (the switch's position change is feedback enough); failure reports
   // so the owner knows it didn't take.
@@ -181,7 +181,7 @@ function SkillToggle({
       data-testid={`skill-toggle-${skill.name}`}
       className={`mono text-[10px] tracking-[0.14em] uppercase shrink-0 hover:underline ${cls}`}
     >
-      {skill.enabled ? 'on' : 'off'}
+      {skill.enabled ? t('toggleOn') : t('toggleOff')}
     </button>
   );
 }
@@ -206,8 +206,8 @@ function SkillDeleteRow({
   // delete is a one-click destructive action → run wraps up both success toast and failure
   // report (no longer silent).
   const handleDelete = useCallback(
-    () => run(() => onDelete(skill.id), { success: `Skill ${skill.name} deleted` }),
-    [onDelete, skill.id, skill.name, run],
+    () => run(() => onDelete(skill.id), { success: t('deletedToast', { name: skill.name }) }),
+    [onDelete, skill.id, skill.name, run, t],
   );
   return (
     <div className="flex justify-end">
@@ -220,121 +220,5 @@ function SkillDeleteRow({
         {t('delete')}
       </button>
     </div>
-  );
-}
-
-// ─── create modal (unchanged) ─────────────────────────────────
-
-function SkillCreateModal({
-  onClose, onCreate,
-}: {
-  onClose: () => void;
-  onCreate: (input: CreateSkillInput) => Promise<void>;
-}) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [prompt, setPrompt] = useState('');
-  const t = useTranslations('adminIntegrations.skills');
-  return (
-    <div
-      className="fixed inset-0 bg-[var(--sm-scrim)] flex items-center justify-center sm-z-modal"
-      data-testid="skill-create-modal"
-    >
-      <div className="bg-(--color-paper) border border-(--color-rule) max-w-[640px] w-[92vw] p-7 flex flex-col gap-4">
-        <h2 className="font-serif text-[22px]">{t('modalTitle')}</h2>
-        <SkillField label="name" value={name} onChange={setName} placeholder="e.g. patent-review" />
-        <SkillField
-          label="description"
-          value={description}
-          onChange={setDescription}
-          placeholder="one line summary"
-        />
-        <SkillPromptField value={prompt} onChange={setPrompt} />
-        <SkillModalFooter
-          name={name}
-          description={description}
-          prompt={prompt}
-          onClose={onClose}
-          onCreate={onCreate}
-        />
-      </div>
-    </div>
-  );
-}
-
-function SkillModalFooter({
-  name, description, prompt, onClose, onCreate,
-}: {
-  name: string;
-  description: string;
-  prompt: string;
-  onClose: () => void;
-  onCreate: (input: CreateSkillInput) => Promise<void>;
-}) {
-  const toast = useToast();
-  const report = useReportError();
-  const t = useTranslations('adminIntegrations.skills');
-  // modal: success → toast + close; failure → report + stays open, so the owner sees the error,
-  // fixes it, and retries.
-  const submit = useCallback(async () => {
-    try {
-      await onCreate({ name, description, prompt });
-      toast.success(`Skill ${name} created`);
-      onClose();
-    } catch (e) {
-      report(e);
-    }
-  }, [name, description, prompt, onCreate, onClose, toast, report]);
-  const disabled = name === '' || prompt === '';
-  return (
-    <div className="flex justify-end gap-3 mt-2">
-      <Btn kind="ghost" onClick={onClose}>{t('cancel')}</Btn>
-      <button
-        type="button"
-        data-testid="skill-create-submit"
-        disabled={disabled}
-        onClick={() => void submit()}
-        className="mono text-[11px] tracking-[0.14em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
-      >
-        {t('create')}
-      </button>
-    </div>
-  );
-}
-
-function SkillField({
-  label, value, onChange, placeholder,
-}: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        {label}
-      </span>
-      <input
-        className="sm-field-input"
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        data-testid={`skill-field-${label}`}
-      />
-    </label>
-  );
-}
-
-function SkillPromptField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const t = useTranslations('adminIntegrations.skills');
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        {t('promptLabel')}
-      </span>
-      <textarea
-        className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[13px] font-mono min-h-[180px]"
-        value={value}
-        placeholder="Extra system prompt appended to base persona…"
-        onChange={(e) => onChange(e.target.value)}
-        data-testid="skill-field-prompt"
-      />
-    </label>
   );
 }

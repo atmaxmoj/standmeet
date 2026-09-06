@@ -80,11 +80,12 @@ function ProtocolFields(
 }
 
 function TextField({ field, onChange }: { field: AssembleField; onChange: (v: string) => void }) {
+  const t = useTranslations('adminIntegrations.assemble');
   return (
     <input
       data-testid={`connector-field-${field.k}`}
       type={field.secret ? 'password' : 'text'}
-      placeholder={field.label}
+      placeholder={t(`field.${field.k}`)}
       defaultValue={fieldDefault(field)}
       onChange={(e) => onChange(e.target.value)}
       className="sm-field-input sm-mono"
@@ -96,6 +97,7 @@ function TextField({ field, onChange }: { field: AssembleField; onChange: (v: st
 // connector and stores credentials, then runs the real connect test.
 function ConnectRow({ hook, onConnect }: { hook: ProtocolConnectHook; onConnect: () => void }) {
   const t = useTranslations('adminIntegrations.common');
+  const ta = useTranslations('adminIntegrations.assemble');
   return (
     <div className="pt-2 space-y-2">
       <button
@@ -107,17 +109,18 @@ function ConnectRow({ hook, onConnect }: { hook: ProtocolConnectHook; onConnect:
         {t('connect')}
       </button>
       <p data-testid="connector-status" className="mono text-[11px] text-(--color-muted)">
-        {protoStatusText(hook.status)}
+        {ta(protoStatusKey(hook.status))}
       </p>
       <ProtoError error={hook.error} />
     </div>
   );
 }
 
-// protoStatusText — "connecting…" has no "connected" substring, so expectConnected really
+// protoStatusKey — "connecting…" has no "connected" substring, so expectConnected really
 // waits for connect to settle.
-function protoStatusText(status: string): string {
-  return status === 'connected' ? 'connected' : status === 'connecting' ? 'connecting…' : 'not connected';
+function protoStatusKey(status: string): string {
+  return status === 'connected' ? 'statusConnected'
+    : status === 'connecting' ? 'statusConnecting' : 'statusNotConnected';
 }
 
 function ProtoError({ error }: { error: string }) {

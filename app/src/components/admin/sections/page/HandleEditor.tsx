@@ -137,9 +137,10 @@ function SaveBtn({
   onChanged: (h: string) => void;
   onClose: () => void;
 }) {
+  const t = useTranslations('adminPages.handle');
   const ready = canSaveHandle(sanitized, current, hook.pending);
   const toast = useToast();
-  const onSuccess = (h: string) => toast.success(`Handle updated to /${h}`);
+  const onSuccess = (h: string) => toast.success(t('updated', { handle: h }));
   return (
     <button
       type="button"
@@ -148,7 +149,7 @@ function SaveBtn({
       data-testid="handle-save-btn"
       className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
     >
-      {hook.pending ? 'saving…' : 'save handle'}
+      {hook.pending ? t('saving') : t('save')}
     </button>
   );
 }

@@ -20,13 +20,24 @@
   "handle": {
     "label": "handle",
     "change": "change",
-    "cancel": "cancel"
+    "cancel": "cancel",
+    "saving": "saving…",
+    "save": "save handle",
+    "updated": "Handle updated to /{handle}"
   },
   "publicUrl": {
     "label": "public URL",
     "unset": "unset",
     "change": "change",
-    "cancel": "cancel"
+    "cancel": "cancel",
+    "inputPlaceholder": "https://yourdomain.com",
+    "saving": "saving…",
+    "save": "save URL",
+    "updated": "Public URL updated to {url}",
+    "hintEmpty": "paste the URL recruiters will see",
+    "hintInvalid": "must start with http:// or https://",
+    "hintUnchanged": "no change",
+    "hintChanged": "QR codes + canonical tags will use this URL"
   },
   "domain": {
     "defaultLabel": "default",
@@ -36,12 +47,34 @@
     "schemePrefix": "https://",
     "clear": "clear",
     "effectiveHost": "effective share host ·",
-    "effectiveHostNote": "· used by code share links, QRs, gate footer."
+    "effectiveHostNote": "· used by code share links, QRs, gate footer.",
+    "verifyFailed": "Could not verify this domain. Please try again.",
+    "inputPlaceholder": "yourdomain.com",
+    "checking": "checking…",
+    "verifyDns": "verify dns ↗",
+    "badgeUnset": "○ unset · using default",
+    "badgeVerified": "● verified · live",
+    "badgePending": "◐ adding to allow-list…",
+    "badgeNotAllowed": "○ not in allow-list",
+    "hintValid": "looks like a valid host · click verify to add to allow-list",
+    "hintInvalid": "not a valid host yet",
+    "hintEmpty": "e.g. yourdomain.com, talk.yourdomain.com"
   },
   "byoai": {
     "modeLabel": "byoai mode",
     "modeHelp": "When on, the gate page shows a \"bring your own AI\" option below the code entry.",
-    "acceptedProviders": "accepted providers"
+    "acceptedProviders": "accepted providers",
+    "saving": "saving…",
+    "save": "save byoai",
+    "hintLoading": "loading…",
+    "hintSaving": "saving…",
+    "hintDefault": "save when you're done editing",
+    "turnOn": "turn on",
+    "turnOff": "turn off",
+    "flagOn": "● ON",
+    "flagOff": "○ OFF",
+    "blurbLabel": "public-scope blurb · shown next to the api key input",
+    "blurbHint": "set expectations clearly · 2 sentences max"
   },
   "preview": {
     "openPublic": "open public",
@@ -58,7 +91,8 @@
     "selectCode": "select a code from the left",
     "codedBannerCode": "code · {code}",
     "previewGreeting": "Hi",
-    "suggestedByYou": "suggested by you"
+    "suggestedByYou": "suggested by you",
+    "kicker": "access · external view"
   },
   "microsites": {
     "intro": {
@@ -152,14 +186,26 @@
     },
     "previewLabel": "preview · latest successful build",
     "previewNoBuild": "Nothing built yet. Ask your AI to write and build this page.",
-    "buildNone": "no build"
+    "buildNone": "no build",
+    "kicker": "resources · microsites",
+    "byoaiToastOn": "BYOK on for /p/{slug}",
+    "byoaiToastOff": "BYOK off for /p/{slug}",
+    "renamePlaceholder": "new-slug",
+    "slugPlaceholder": "e.g. press-kit",
+    "addFilePlaceholder": "Component.tsx",
+    "stagingFrameTitle": "staging preview",
+    "seoUpdated": "SEO updated",
+    "seoTitlePlaceholder": "page title (browser tab + search)",
+    "seoDescPlaceholder": "one-line description for search results",
+    "seoImagePlaceholder": "share-card image URL (og:image)"
   },
   "assets": {
     "intro": "Every image and file you've uploaded, shared across your corpus and microsites. An asset still used by an entry or a page can't be deleted — remove it there first; the failed delete names what's using it.",
     "error": "couldn't load your assets — reload to try again.",
     "empty": "No assets yet. Add one from the corpus editor or a microsite's asset widget.",
     "delete": "delete",
-    "deleted": "asset deleted"
+    "deleted": "asset deleted",
+    "kicker": "resources · assets"
   },
   "data": {
     "slugPath": "/p/{slug}",
@@ -171,6 +217,7 @@
     "clear": "clear store",
     "cleared": "store cleared",
     "delete": "delete",
-    "docDeleted": "document deleted"
+    "docDeleted": "document deleted",
+    "kicker": "resources · data"
   }
 }

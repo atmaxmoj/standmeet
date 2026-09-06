@@ -20,13 +20,24 @@
   "handle": {
     "label": "identificador",
     "change": "cambiar",
-    "cancel": "cancelar"
+    "cancel": "cancelar",
+    "saving": "guardando…",
+    "save": "guardar handle",
+    "updated": "Handle actualizado a /{handle}"
   },
   "publicUrl": {
     "label": "URL pública",
     "unset": "no configurado",
     "change": "cambiar",
-    "cancel": "cancelar"
+    "cancel": "cancelar",
+    "inputPlaceholder": "https://tudominio.com",
+    "saving": "guardando…",
+    "save": "guardar URL",
+    "updated": "URL pública actualizada a {url}",
+    "hintEmpty": "pega la URL que verán los reclutadores",
+    "hintInvalid": "debe empezar con http:// o https://",
+    "hintUnchanged": "sin cambios",
+    "hintChanged": "los códigos QR + etiquetas canónicas usarán esta URL"
   },
   "domain": {
     "defaultLabel": "predeterminado",
@@ -36,12 +47,34 @@
     "schemePrefix": "https://",
     "clear": "limpiar",
     "effectiveHost": "anfitrión de compartir efectivo ·",
-    "effectiveHostNote": "· utilizado por enlaces de código compartido, códigos QR, pie de página de puerta."
+    "effectiveHostNote": "· utilizado por enlaces de código compartido, códigos QR, pie de página de puerta.",
+    "verifyFailed": "No se pudo verificar este dominio. Inténtalo de nuevo.",
+    "inputPlaceholder": "tudominio.com",
+    "checking": "comprobando…",
+    "verifyDns": "verificar dns ↗",
+    "badgeUnset": "○ sin definir · usando predeterminado",
+    "badgeVerified": "● verificado · en vivo",
+    "badgePending": "◐ añadiendo a la lista de permitidos…",
+    "badgeNotAllowed": "○ no está en la lista de permitidos",
+    "hintValid": "parece un host válido · haz clic en verificar para añadir a la lista",
+    "hintInvalid": "aún no es un host válido",
+    "hintEmpty": "p. ej. tudominio.com, talk.tudominio.com"
   },
   "byoai": {
     "modeLabel": "modo byoai",
     "modeHelp": "Cuando está activado, la página de la puerta muestra una opción 'traiga su propia IA' debajo de la entrada del código.",
-    "acceptedProviders": "proveedores aceptados"
+    "acceptedProviders": "proveedores aceptados",
+    "saving": "guardando…",
+    "save": "guardar byoai",
+    "hintLoading": "cargando…",
+    "hintSaving": "guardando…",
+    "hintDefault": "guarda cuando termines de editar",
+    "turnOn": "activar",
+    "turnOff": "desactivar",
+    "flagOn": "● ON",
+    "flagOff": "○ OFF",
+    "blurbLabel": "texto de alcance público · mostrado junto a la entrada de la clave api",
+    "blurbHint": "deja claras las expectativas · máx. 2 frases"
   },
   "preview": {
     "openPublic": "abrir público",
@@ -58,7 +91,8 @@
     "selectCode": "seleccione un código de la izquierda",
     "codedBannerCode": "código · {code}",
     "previewGreeting": "Hola",
-    "suggestedByYou": "sugerido por usted"
+    "suggestedByYou": "sugerido por usted",
+    "kicker": "acceso · vista externa"
   },
   "microsites": {
     "intro": {
@@ -152,14 +186,26 @@
     },
     "previewLabel": "vista previa · última construcción exitosa",
     "previewNoBuild": "Aún nada construido. Pida a su IA que escriba y construya esta página.",
-    "buildNone": "sin construcción"
+    "buildNone": "sin construcción",
+    "kicker": "recursos · microsites",
+    "byoaiToastOn": "BYOK activado para /p/{slug}",
+    "byoaiToastOff": "BYOK desactivado para /p/{slug}",
+    "renamePlaceholder": "new-slug",
+    "slugPlaceholder": "p. ej. press-kit",
+    "addFilePlaceholder": "Component.tsx",
+    "stagingFrameTitle": "vista previa de staging",
+    "seoUpdated": "SEO actualizado",
+    "seoTitlePlaceholder": "título de página (pestaña del navegador + búsqueda)",
+    "seoDescPlaceholder": "descripción de una línea para resultados de búsqueda",
+    "seoImagePlaceholder": "URL de imagen de tarjeta (og:image)"
   },
   "assets": {
     "intro": "Todas las imágenes y archivos que has subido, compartidos entre tu corpus y tus microsites. Un recurso que aún usa una entrada o una página no se puede eliminar: quítalo allí primero; el borrado fallido indica qué lo usa.",
     "error": "no se pudieron cargar tus recursos: recarga para intentarlo de nuevo.",
     "empty": "Aún no hay recursos. Añade uno desde el editor del corpus o el widget de recurso de una microsite.",
     "delete": "eliminar",
-    "deleted": "recurso eliminado"
+    "deleted": "recurso eliminado",
+    "kicker": "recursos · activos"
   },
   "data": {
     "slugPath": "/p/{slug}",
@@ -171,6 +217,7 @@
     "clear": "vaciar almacén",
     "cleared": "almacén vaciado",
     "delete": "eliminar",
-    "docDeleted": "documento eliminado"
+    "docDeleted": "documento eliminado",
+    "kicker": "recursos · datos"
   }
 }

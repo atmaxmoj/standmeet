@@ -8,6 +8,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { RawDumpBox } from '@/components/admin/sections/raw/RawDumpBox';
 import { RawFilterBar } from '@/components/admin/sections/raw/RawFilterBar';
@@ -33,12 +35,14 @@ function rawTrueCounts(
 }
 
 export function RawSection() {
+  const tk = useTranslations('adminCorpus.kicker');
+  const tc = useTranslations('adminCorpus.count');
   const hook = useRaw();
   const { growth } = useCorpusGrowth();
   const { unprocessed, tabs } = rawTrueCounts(hook.counts, growth);
   return (
     <>
-      <SectionHeader kicker="corpus · inbox" slug="raw" count={`${unprocessed} unprocessed`} />
+      <SectionHeader kicker={tk('raw')} slug="raw" count={tc('unprocessed', { n: unprocessed })} />
       <RawBody hook={hook} tabCounts={tabs} />
     </>
   );

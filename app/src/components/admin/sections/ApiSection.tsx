@@ -26,22 +26,18 @@ import { useTokens, type TokenItem, type TokensHook } from '@/lib/admin/use-toke
 
 export function ApiSection() {
   const hook = useTokens();
+  const t = useTranslations('adminIntegrations.api');
+  const count = hook.status === 'ready' ? t('keyCount', { count: hook.tokens.length }) : '';
   return (
     <>
       <SectionHeader
-        kicker="integrations · programmatic"
+        kicker={t('kicker')}
         slug="api-mcp"
-        count={titleCount(hook)}
+        count={count}
       />
       <ApiBody hook={hook} />
     </>
   );
-}
-
-function titleCount(hook: TokensHook): string {
-  return hook.status === 'ready'
-    ? `${hook.tokens.length} key${hook.tokens.length === 1 ? '' : 's'}`
-    : '';
 }
 
 function ApiBody({ hook }: { hook: TokensHook }) {

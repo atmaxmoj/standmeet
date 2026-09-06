@@ -52,15 +52,17 @@ export function isValidPublicURL(sanitized: string): boolean {
   return URL_PATTERN.test(sanitized);
 }
 
-export interface PublicURLHint { cls: string; text: string }
+// publicURLHint returns an adminPages.publicUrl message key (not text); PublicURLEditor
+// resolves it with useTranslations so the copy stays localized.
+export interface PublicURLHint { cls: string; key: string }
 
 export function publicURLHint(sanitized: string, current: string): PublicURLHint {
   const valid = isValidPublicURL(sanitized);
   const unchanged = sanitized === current;
-  return !sanitized ? { cls: 'text-(--color-faint)', text: 'paste the URL recruiters will see' }
-    : !valid ? { cls: 'text-(--color-faint)', text: 'must start with http:// or https://' }
-    : unchanged ? { cls: 'text-(--color-faint)', text: 'no change' }
-    : { cls: 'text-(--color-muted)', text: 'QR codes + canonical tags will use this URL' };
+  return !sanitized ? { cls: 'text-(--color-faint)', key: 'hintEmpty' }
+    : !valid ? { cls: 'text-(--color-faint)', key: 'hintInvalid' }
+    : unchanged ? { cls: 'text-(--color-faint)', key: 'hintUnchanged' }
+    : { cls: 'text-(--color-muted)', key: 'hintChanged' };
 }
 
 export function canSavePublicURL(

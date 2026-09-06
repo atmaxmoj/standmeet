@@ -19,8 +19,8 @@ export function SandboxPanel() {
   const sandbox = useSandbox();
   const run = useAction();
   const onSweep = useCallback(
-    () => run(() => sandbox.sweep(), { success: 'Swept expired sandbox workspaces' }),
-    [run, sandbox],
+    () => run(() => sandbox.sweep(), { success: t('sweepDone') }),
+    [run, sandbox, t],
   );
   return (
     <div

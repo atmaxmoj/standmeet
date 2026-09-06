@@ -46,21 +46,22 @@ function Header({ status }: { status: ReturnType<typeof useGCal>['status'] }) {
 }
 
 function StatusBadge({ status }: { status: ReturnType<typeof useGCal>['status'] }) {
+  const t = useTranslations('adminIntegrations.calendar');
   return status === null
     ? null
-    : <Badge tone={badgeTone(status)} text={badgeText(status)} />;
+    : <Badge tone={badgeTone(status)} text={t(badgeKey(status))} />;
 }
 
 function badgeTone(s: NonNullable<ReturnType<typeof useGCal>['status']>): 'ok' | 'warn' | 'muted' {
   return s.connected ? 'ok' : s.has_credentials ? 'warn' : 'muted';
 }
 
-function badgeText(s: NonNullable<ReturnType<typeof useGCal>['status']>): string {
+function badgeKey(s: NonNullable<ReturnType<typeof useGCal>['status']>): string {
   return s.connected
-    ? 'connected'
+    ? 'statusConnected'
     : s.has_credentials
-      ? 'credentials only · click Authorize'
-      : 'not configured';
+      ? 'statusCredsOnly'
+      : 'statusNotConfigured';
 }
 
 function Badge({ tone, text }: { tone: 'ok' | 'warn' | 'muted'; text: string }) {
@@ -201,7 +202,7 @@ function DisconnectBtn({ hook }: { hook: ReturnType<typeof useGCal> }) {
     <button
       type="button"
       data-testid="gcal-disconnect"
-      onClick={() => { void run(() => hook.disconnect(), { success: 'Disconnected' }); }}
+      onClick={() => { void run(() => hook.disconnect(), { success: t('disconnectedToast') }); }}
       className="sm-btn sm-btn-ghost sm-btn-sm"
     >
       {t('disconnect')}

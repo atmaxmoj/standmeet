@@ -207,13 +207,52 @@
     "configuredIn": "configuré en /admin/api-mcp",
     "spend30d": "dépense sur 30 jours",
     "spendSub": "votre clé d'inférence · le propriétaire paie",
-    "spendUnknown": "$—"
+    "spendUnknown": "$—",
+    "kickerOwner": "paramètres · propriétaire",
+    "fullName": "nom complet",
+    "fullNameBlurb": "Affiché dans le hero de la page publique et sur la ligne de signature.",
+    "saveName": "enregistrer le nom",
+    "nameUpdated": "Nom complet mis à jour en {name}",
+    "email": "e-mail",
+    "emailBlurb": "Votre identité de connexion — et l'adresse où est envoyée votre phrase de récupération. La changer requiert votre mot de passe actuel et l'adresse saisie deux fois. Si cette instance peut envoyer des e-mails, la nouvelle adresse doit être confirmée avant que quoi que ce soit ne change.",
+    "emailPlaceholder": "you@example.com",
+    "emailConfirmPlaceholder": "répétez la nouvelle adresse",
+    "saveEmail": "enregistrer l'e-mail",
+    "cancel": "annuler",
+    "pendingEmailNote": "En attente de confirmation par {pending}. D'ici là, votre connexion et votre phrase de récupération restent sur l'adresse actuelle.",
+    "emailUpdated": "E-mail mis à jour en {email}",
+    "emailConfirmSent": "Confirmation envoyée à {pending} — votre connexion n'a pas encore changé",
+    "emailCancelled": "Changement d'e-mail en attente abandonné — ce lien de confirmation ne fonctionne plus",
+    "emailMismatch": "les deux adresses ne correspondent pas",
+    "password": "mot de passe",
+    "passwordBlurb": "Au moins 12 caractères. Les sessions existantes restent valides — déconnectez-vous manuellement ailleurs si nécessaire.",
+    "currentPassword": "mot de passe actuel",
+    "newPassword": "nouveau mot de passe (≥ 12 caractères)",
+    "confirmPassword": "confirmer le nouveau mot de passe",
+    "savePassword": "enregistrer le mot de passe",
+    "passwordUpdated": "Mot de passe mis à jour",
+    "pwTooShort": "le nouveau mot de passe doit comporter au moins 12 caractères",
+    "pwMismatch": "le nouveau mot de passe et la confirmation ne correspondent pas",
+    "recoveryLabel": "Phrase de récupération",
+    "generate": "générer",
+    "recoverySent": "Phrase de récupération envoyée",
+    "recoveryError": "Impossible d'envoyer la phrase de récupération — configurez et vérifiez d'abord un canal sortant",
+    "recoveryDetailReady": "pas encore définie",
+    "recoveryDetailNeedsMail": "nécessite un e-mail vérifié",
+    "recoveryNoteReady": "Génère une phrase de récupération et vous l'envoie par e-mail. Usage unique — elle est consommée dès que vous vous connectez avec.",
+    "recoveryNoteNeedsMail": "Vérifiez d'abord l'e-mail (SMTP) sous Connectors — la phrase de récupération vous est envoyée par e-mail."
   },
   "ipBans": {
     "intro": "Bloquez les IP sources abusives. Une IP bannie obtient un 403 sur toute la surface publique — chat, sessions, demandes d'accès. Trouvez les IP offensantes en <mono>conversations</mono> (chaque ligne affiche l'IP du visiteur). Les interdictions peuvent être levées à tout moment.",
     "banIp": "bannir l'ip",
     "empty": "Aucune IP bannie. La surface publique est ouverte (toujours limitée par débit par IP).",
-    "unban": "débannir"
+    "unban": "débannir",
+    "kickerSecurity": "paramètres · sécurité",
+    "labelIp": "adresse ip",
+    "labelReason": "motif",
+    "placeholderNote": "note facultative",
+    "banned": "IP bannie",
+    "unbanned": "IP débannie"
   },
   "system": {
     "checkForUpdates": "vérifier les mises à jour",
@@ -259,7 +298,8 @@
     "colLast": "dernier",
     "colStatus": "statut",
     "statusDot": "●",
-    "healthChecks": "contrôles de santé"
+    "healthChecks": "contrôles de santé",
+    "kickerRuntime": "paramètres · exécution"
   },
   "inferenceUsage": {
     "title": "utilisation de l'inférence · 7 derniers jours",
@@ -278,6 +318,7 @@
     "empty": "Pas d'espaces de travail pour l'instant",
     "emptyHint": "Un espace de travail apparaît quand une session visiteur utilise un outil qui écrit des fichiers, et il est balayé une fois qu'il a été inactif au-delà de son TTL. Aucun ici signifie aucun en usage — pas que quelque chose est cassé.",
     "sweepNothing": "Rien à balayer — il n'y a pas d'espaces de travail",
-    "ageSecs": "{n}s"
+    "ageSecs": "{n}s",
+    "sweepDone": "Espaces de travail du sandbox expirés balayés"
   }
 }

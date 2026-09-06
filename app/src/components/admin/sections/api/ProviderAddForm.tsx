@@ -74,7 +74,7 @@ function Fields({
           onChange={(label) => setForm((p) => ({ ...p, label }))}
         />
       </Field>
-      <Field label="provider">
+      <Field label={t('fieldProvider')}>
         <PresetSelect
           presets={presets} value={form.provider}
           onChange={(provider) => setForm((p) => ({
@@ -82,19 +82,19 @@ function Fields({
           }))}
         />
       </Field>
-      <Field label="endpoint">
+      <Field label={t('fieldEndpoint')}>
         <TextInput
           testid="provider-new-endpoint" value={form.endpoint}
           onChange={(endpoint) => setForm((p) => ({ ...p, endpoint }))}
         />
       </Field>
-      <Field label="model">
+      <Field label={t('fieldModel')}>
         <TextInput
           testid="provider-new-model" value={form.model}
           onChange={(model) => setForm((p) => ({ ...p, model }))}
         />
       </Field>
-      <Field label="api key">
+      <Field label={t('fieldApiKey')}>
         <TextInput
           testid="provider-new-key" value={form.key} secret
           onChange={(key) => setForm((p) => ({ ...p, key }))}

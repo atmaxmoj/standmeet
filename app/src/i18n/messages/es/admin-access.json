@@ -16,7 +16,14 @@
   "codes": {
     "new": "＋ código nuevo",
     "intro": "Cada código abre una parte de su wiki para un contacto conocido — un proceso de contratación, una presentación de inversor o una llamada de prensa. Varias personas pueden compartir un código; cuando alguien lo ingresa, la IA pregunta quién es y los asigna a la lista de miembros del código. Cada tarjeta tiene un código QR.",
-    "empty": "Sin códigos aún."
+    "empty": "Sin códigos aún.",
+    "kicker": "acceso · códigos",
+    "count": "{active} activos · {total} en total",
+    "toast": {
+      "revoked": "Código revocado",
+      "created": "Código {code} creado",
+      "quotasUpdated": "Cuotas actualizadas"
+    }
   },
   "codeCard": {
     "preview": "vista previa ↗",
@@ -29,7 +36,22 @@
     "openShare": "abra el panel compartir — QR grande, enlace copiable, imprimible",
     "opensLabel": "abre",
     "opensChat": "el chat del visitante",
-    "opensPageOption": "/p/{slug}"
+    "opensPageOption": "/p/{slug}",
+    "statusActive": "● activo",
+    "roleLabel": "rol",
+    "membersLabel": "miembros",
+    "qrLabel": "QR",
+    "namesCapped": "{used} / {cap} nombres",
+    "namesUncapped": "{used} nombres · ilimitado",
+    "turnsCapped": "{n} turnos",
+    "turnsUncapped": "turnos ilimitados",
+    "expires": "· caduca {date}",
+    "noExpiry": "· sin caducidad",
+    "toast": {
+      "ghostUpdated": "Regla ghost actualizada para {code}",
+      "opensChat": "{code} ahora abre el chat del visitante",
+      "opensPage": "{code} ahora abre /p/{slug}"
+    }
   },
   "codeCorpus": {
     "loadError": "No se pudo cargar el alcance del corpus de este código. Recargue e intente de nuevo.",
@@ -38,12 +60,16 @@
     "inherited": "corpus · heredado del rol",
     "takenBack": "reclamado en este código",
     "helpSummary": "cómo funciona reclamar ▸",
-    "help": "Los URI que este código reclama de lo que el rol otorgó, uno por línea. Solo puede restar, nunca agregar — nada de lo que escriba aquí abrirá lo que el rol no otorgó. Uso típico: el rol otorga subjectivity://** (cada opinión) y este código reclama subjectivity://cv (el CV queda fuera). Los cambios solo afectan sesiones emitidas a partir de ahora: el rol se congela cuando se emite la sesión, por lo que un visitante que ya chatea mantiene el alcance anterior — pero la siguiente sesión en el mismo código obtiene el nuevo."
+    "help": "Los URI que este código reclama de lo que el rol otorgó, uno por línea. Solo puede restar, nunca agregar — nada de lo que escriba aquí abrirá lo que el rol no otorgó. Uso típico: el rol otorga subjectivity://** (cada opinión) y este código reclama subjectivity://cv (el CV queda fuera). Los cambios solo afectan sesiones emitidas a partir de ahora: el rol se congela cuando se emite la sesión, por lo que un visitante que ya chatea mantiene el alcance anterior — pero la siguiente sesión en el mismo código obtiene el nuevo.",
+    "toast": {
+      "narrowed": "Corpus reducido para {label}"
+    }
   },
   "members": {
     "loading": "cargando miembros…",
     "none": "ningún visitante ha usado este código aún.",
-    "anonymous": "anónimo"
+    "anonymous": "anónimo",
+    "toggle": "miembros"
   },
   "conversations": {
     "privateHits": "{count, plural, one {# sesión} other {# sesiones}} tocó temas privados",
@@ -57,7 +83,9 @@
     "thFlags": "banderas",
     "thLast": "último",
     "privFlag": "{hits} priv",
-    "empty": "Sin conversaciones aún. Una vez que los visitantes chaten a través de un código o sesión BYOAI, los verá aquí."
+    "empty": "Sin conversaciones aún. Una vez que los visitantes chaten a través de un código o sesión BYOAI, los verá aquí.",
+    "kicker": "acceso · sesiones",
+    "count": "{count, plural, one {# sesión} other {# sesiones}}"
   },
   "transcript": {
     "loading": "cargando transcripción…",
@@ -65,7 +93,9 @@
     "cited": "citado · {kind}",
     "ghostsTitle": "texto fantasma mostrado",
     "groundingTitle": "notas de punto de vista que formaron estas respuestas · no mostrado al visitante",
-    "grounded": "fundamentado"
+    "grounded": "fundamentado",
+    "kicker": "conversación",
+    "modalTitle": "transcripción · {id}"
   },
   "ghostTelemetry": {
     "title": "dirección fantasma · embudo por punto de vista",
@@ -80,7 +110,19 @@
     "intro": "Biblioteca de personajes. Alcance del propietario, sin categorías. Cada uno es un fragmento de escritura — el agente se convierte en lo que le indique aquí. Usado por roles.",
     "empty": "Sin avisos aún — lo público normalmente se siembra en la solicitud del propietario.",
     "modalTitle": "aviso nuevo",
-    "bodyLabel": "cuerpo"
+    "bodyLabel": "cuerpo",
+    "kicker": "acceso · personas",
+    "fields": {
+      "name": "nombre",
+      "description": "descripción"
+    },
+    "namePlaceholder": "p. ej. recruiter-facing",
+    "descPlaceholder": "cuándo usar esta persona",
+    "bodyPlaceholder": "Eres un proxy de IA de '{'owner'}'. Responde con precisión…",
+    "toast": {
+      "created": "Prompt {name} creado",
+      "deleted": "Prompt {name} eliminado"
+    }
   },
   "requests": {
     "deliveryHint": "Sin canal de salida verificado — configure uno en Conectores para que la aprobación de una solicitud pueda emitir un código y enviarlo. Hasta entonces solo puede marcar solicitudes respondidas/cerradas a mano.",
@@ -89,19 +131,58 @@
     "issued": "emitido {code} — enviado por correo al solicitante",
     "decline": "rechazar",
     "approve": "aprobar · emitir código + correo →",
-    "connectMail": "conectar correo para emitir códigos"
+    "connectMail": "conectar correo para emitir códigos",
+    "kicker": "acceso · bandeja del gate",
+    "countTotal": "{n} en total",
+    "countNew": "{n} nuevos",
+    "toast": {
+      "declined": "Solicitud rechazada"
+    }
   },
   "roles": {
     "new": "+ rol nuevo",
     "intro": "Un rol agrupa un aviso (carácter), una lista positiva de URI de corpus que el agente puede leer, un conjunto de habilidades y qué servidores MCP puede llamar. Los códigos no llevan permisos directamente — cada código <em>asume</em> un rol en el momento de la emisión y esa instantánea se congela para esa sesión. Edite un rol y solo futuras sesiones lo sienten.",
-    "empty": "Sin roles aún — lo público normalmente se siembra en la solicitud del propietario."
+    "empty": "Sin roles aún — lo público normalmente se siembra en la solicitud del propietario.",
+    "kicker": "acceso · personas",
+    "skillsLabel": "habilidades",
+    "mcpServersLabel": "servidores mcp",
+    "meta": {
+      "corpus": "corpus",
+      "skills": "habilidades",
+      "mcp": "mcp",
+      "codes": "códigos",
+      "published": "lo que has publicado",
+      "uris": "{n} URIs",
+      "servers": "{n} servidores",
+      "activeCodes": "{n} activos"
+    },
+    "toast": {
+      "created": "Rol {name} creado",
+      "deleted": "Rol {name} eliminado",
+      "promptUpdated": "Prompt actualizado para {name}",
+      "corpusUpdated": "URIs de corpus actualizadas para {name}",
+      "toolsUpdated": "Permisos de herramientas actualizados para {name}",
+      "dockUpdated": "Botones del dock actualizados para {name}",
+      "ghostUpdated": "Regla ghost actualizada para {name}",
+      "aboutUpdated": "Descripción actualizada para {name}",
+      "providerUpdated": "Proveedor actualizado para {name}",
+      "waypointsUpdated": "Puntos de ruta actualizados para {name}"
+    }
   },
   "roleCreate": {
     "title": "rol nuevo",
     "promptNone": "(ninguno)",
     "providerDefault": "— predeterminado de instancia —",
     "corpusLabel": "uri de corpus · uno por línea",
-    "noneConfigured": "aún no configurado"
+    "noneConfigured": "aún no configurado",
+    "fields": {
+      "name": "nombre",
+      "description": "descripción",
+      "greeting": "saludo"
+    },
+    "namePlaceholder": "p. ej. recruiter-default",
+    "descPlaceholder": "cuándo usar este rol",
+    "greetingPlaceholder": "se muestra en el selector de nombre del visitante — vacío usa un valor predeterminado"
   },
   "roleGas": {
     "help": "Mida este rol contra el tanque de su proveedor. Desactivado (predeterminado) significa que no se ejecuta ninguna verificación de uso; activado significa que un visitante se detiene una vez que el tanque del proveedor está vacío. Un proveedor sin combustible nunca se mide de ninguna manera."
@@ -187,6 +268,10 @@
       "saveEdit": "guardar cambios",
       "cancel": "cancelar",
       "codeRequired": "elige un código primero"
-    }
+    },
+    "kicker": "acceso · widgets",
+    "thEmbed": "incrustación",
+    "thOrigins": "orígenes",
+    "thCreated": "creado"
   }
 }

@@ -28,15 +28,10 @@ export function emailSaveDisabled(
     || next !== confirm || next === initial;
 }
 
-// emailHintMessage —— speaks up when the two entries don't match. Empty string = nothing to say (not enough typed yet).
+// emailHintMessage —— speaks up when the two entries don't match. Returns a message
+// KEY (resolved via t() in the component) or '' when there's nothing to say yet.
 export function emailHintMessage(next: string, confirm: string): string {
-  return confirm === '' || next === confirm ? '' : 'the two addresses do not match';
-}
-
-// pendingEmailNote —— copy for the pending-confirmation row. The owner must know: **identity has not moved yet**.
-export function pendingEmailNote(pending: string): string {
-  return `Waiting for ${pending} to confirm. Until it does, your sign-in and your `
-    + 'recovery phrase both stay on the current address.';
+  return confirm === '' || next === confirm ? '' : 'emailMismatch';
 }
 
 export function passwordSaveDisabled(
@@ -45,19 +40,20 @@ export function passwordSaveDisabled(
   return pending || current === '' || !passwordPairValid(next, confirm);
 }
 
+// passwordHintMessage —— returns a message KEY (resolved via t() in the component) or ''.
 export function passwordHintMessage(next: string, confirm: string): string {
   return next === ''
     ? ''
     : next.length < 12
-      ? 'new password must be at least 12 characters'
+      ? 'pwTooShort'
       : confirm !== '' && next !== confirm
-        ? 'new password and confirm do not match'
+        ? 'pwMismatch'
         : '';
 }
 
 export interface RecoveryRowView {
-  detail: string;
-  note: string;
+  detailKey: string;
+  noteKey: string;
 }
 
 // recoveryRowView —— display data for the recovery phrase row. Recovery is sent by
@@ -74,14 +70,8 @@ export interface RecoveryRowView {
 // the copy and the code diverge again.
 export function recoveryRowView(mailConnected: boolean): RecoveryRowView {
   return mailConnected
-    ? {
-        detail: 'not yet set',
-        note: 'Generates a recovery phrase and emails it to you. Single use — it is consumed when you sign in with it.',
-      }
-    : {
-        detail: 'needs verified email',
-        note: 'Verify email (SMTP) under Connectors first — the recovery phrase is sent to you by email.',
-      };
+    ? { detailKey: 'recoveryDetailReady', noteKey: 'recoveryNoteReady' }
+    : { detailKey: 'recoveryDetailNeedsMail', noteKey: 'recoveryNoteNeedsMail' };
 }
 
 function isAnyBlank(...vals: string[]): boolean {

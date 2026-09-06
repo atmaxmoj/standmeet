@@ -11,7 +11,14 @@
     "register": "registrar →",
     "registered": "Fuente registrada",
     "remove": "eliminar",
-    "removed": "Fuente eliminada"
+    "removed": "Fuente eliminada",
+    "kicker": "empleos · fuentes",
+    "titleRegistered": "{count, plural, one {# registrada} other {# registradas}}",
+    "labelPlaceholder": "Tablón de anuncios",
+    "stateNever": "nunca obtenido",
+    "stateFetched": "última · {date}",
+    "stateFailed": "último intento · {date} · falló — {reason}",
+    "stateUnknownDate": "desconocido"
   },
   "listings": {
     "intro": "Empleos obtenidos de sus fuentes registradas, mantenidos en un grupo de 1 día. Pida a Claude que los clasifique contra su corpus y elabore un currículum para los que valga la pena. Cualquier cosa que no redacte o descarte dentro del día vuelve a caer del grupo.",
@@ -19,7 +26,9 @@
     "emptyTitle": "Primero obtenga empleos de sus fuentes.",
     "emptyHint": "Las ofertas se obtienen automáticamente al abrir esta sección — o pulsa Obtener ahora. Los resultados permanecen aquí un día hasta que los redactas o descartas.",
     "fetchNow": "obtener ahora",
-    "fetching": "obteniendo…"
+    "fetching": "obteniendo…",
+    "kicker": "empleos · listados",
+    "titleInPool": "{count, plural, one {# en el grupo} other {# en el grupo}}"
   },
   "drafts": {
     "intro": "Currículos personalizados que Claude redactó para empleos a los que dijo que sí. Abra el compositor para editar + vista previa; <ink>enviar</ink> congela la instantánea, representa el PDF final (con QR) e emite automáticamente un AccessCode.",
@@ -39,7 +48,10 @@
     "newTitle": "Nuevo borrador de CV",
     "newCompany": "empresa",
     "newRole": "puesto",
-    "newCreate": "crear borrador"
+    "newCreate": "crear borrador",
+    "kicker": "empleos · borradores de cv",
+    "titlePending": "{count, plural, one {# pendiente} other {# pendientes}}",
+    "committed": "Solicitud registrada: currículum enviado con su código de acceso"
   },
   "applications": {
     "searchPlaceholder": "buscar por empresa o puesto…",
@@ -53,7 +65,9 @@
     "open": "abierto ›",
     "metaCommitted": "comprometido {date}",
     "metaSubmitted": "enviado {date}",
-    "metaNotSubmitted": "envío no registrado"
+    "metaNotSubmitted": "envío no registrado",
+    "kicker": "empleos · enviadas",
+    "titleCommitted": "{count, plural, one {# enviada} other {# enviadas}}"
   },
   "detail": {
     "kicker": "solicitud · {id}",

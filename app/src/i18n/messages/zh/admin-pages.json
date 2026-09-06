@@ -20,13 +20,24 @@
   "handle": {
     "label": "handle",
     "change": "更改",
-    "cancel": "取消"
+    "cancel": "取消",
+    "saving": "保存中…",
+    "save": "保存 handle",
+    "updated": "handle 已更新为 /{handle}"
   },
   "publicUrl": {
     "label": "公开 URL",
     "unset": "未设置",
     "change": "更改",
-    "cancel": "取消"
+    "cancel": "取消",
+    "inputPlaceholder": "https://yourdomain.com",
+    "saving": "保存中…",
+    "save": "保存 URL",
+    "updated": "公开 URL 已更新为 {url}",
+    "hintEmpty": "粘贴招聘方会看到的 URL",
+    "hintInvalid": "必须以 http:// 或 https:// 开头",
+    "hintUnchanged": "无更改",
+    "hintChanged": "二维码 + canonical 标签会使用此 URL"
   },
   "domain": {
     "defaultLabel": "默认",
@@ -36,12 +47,34 @@
     "schemePrefix": "https://",
     "clear": "清除",
     "effectiveHost": "实际分享主机 ·",
-    "effectiveHostNote": "· 用于访问码分享链接、二维码、门禁页脚。"
+    "effectiveHostNote": "· 用于访问码分享链接、二维码、门禁页脚。",
+    "verifyFailed": "无法验证此域名，请重试。",
+    "inputPlaceholder": "yourdomain.com",
+    "checking": "检查中…",
+    "verifyDns": "验证 dns ↗",
+    "badgeUnset": "○ 未设置 · 使用默认",
+    "badgeVerified": "● 已验证 · 线上",
+    "badgePending": "◐ 正在加入允许列表…",
+    "badgeNotAllowed": "○ 不在允许列表中",
+    "hintValid": "看起来是有效主机 · 点击验证以加入允许列表",
+    "hintInvalid": "还不是有效主机",
+    "hintEmpty": "例如 yourdomain.com、talk.yourdomain.com"
   },
   "byoai": {
     "modeLabel": "byoai 模式",
     "modeHelp": "开启时，门禁页会在访问码输入下方显示「自带 AI」选项。",
-    "acceptedProviders": "接受的服务商"
+    "acceptedProviders": "接受的服务商",
+    "saving": "保存中…",
+    "save": "保存 byoai",
+    "hintLoading": "加载中…",
+    "hintSaving": "保存中…",
+    "hintDefault": "编辑完成后保存",
+    "turnOn": "开启",
+    "turnOff": "关闭",
+    "flagOn": "● 开",
+    "flagOff": "○ 关",
+    "blurbLabel": "公开范围说明 · 显示在 API 密钥输入框旁",
+    "blurbHint": "把预期讲清楚 · 最多两句"
   },
   "preview": {
     "openPublic": "打开公开页",
@@ -58,7 +91,8 @@
     "selectCode": "从左侧选择一个访问码",
     "codedBannerCode": "访问码 · {code}",
     "previewGreeting": "你好",
-    "suggestedByYou": "你建议的"
+    "suggestedByYou": "你建议的",
+    "kicker": "访问 · 外部视图"
   },
   "microsites": {
     "intro": {
@@ -152,14 +186,26 @@
     },
     "previewLabel": "预览 · 最近一次成功构建",
     "previewNoBuild": "还没有构建。让你的 AI 写并构建这个页面。",
-    "buildNone": "无构建"
+    "buildNone": "无构建",
+    "kicker": "资源 · 微站",
+    "byoaiToastOn": "已为 /p/{slug} 开启 BYOK",
+    "byoaiToastOff": "已为 /p/{slug} 关闭 BYOK",
+    "renamePlaceholder": "new-slug",
+    "slugPlaceholder": "例如 press-kit",
+    "addFilePlaceholder": "Component.tsx",
+    "stagingFrameTitle": "预发预览",
+    "seoUpdated": "SEO 已更新",
+    "seoTitlePlaceholder": "页面标题（浏览器标签 + 搜索）",
+    "seoDescPlaceholder": "用于搜索结果的一行描述",
+    "seoImagePlaceholder": "分享卡片图片 URL（og:image）"
   },
   "assets": {
     "intro": "你上传的所有图片和文件，在语料库和微站之间共享。仍被某个条目或页面引用的素材无法删除——请先在那里移除；删除失败时会指出是谁在引用它。",
     "error": "无法加载素材——请重新加载后重试。",
     "empty": "还没有素材。可从语料库编辑器或微站的素材组件添加。",
     "delete": "删除",
-    "deleted": "素材已删除"
+    "deleted": "素材已删除",
+    "kicker": "资源 · 素材"
   },
   "data": {
     "slugPath": "/p/{slug}",
@@ -171,6 +217,7 @@
     "clear": "清空存储",
     "cleared": "存储已清空",
     "delete": "删除",
-    "docDeleted": "文档已删除"
+    "docDeleted": "文档已删除",
+    "kicker": "资源 · 数据"
   }
 }

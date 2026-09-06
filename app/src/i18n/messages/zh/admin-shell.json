@@ -207,13 +207,52 @@
     "configuredIn": "在 /admin/api-mcp 中配置",
     "spend30d": "30 天花费",
     "spendSub": "你的推理密钥 · 主理人付费",
-    "spendUnknown": "$—"
+    "spendUnknown": "$—",
+    "kickerOwner": "设置 · 主理人",
+    "fullName": "姓名",
+    "fullNameBlurb": "显示在公开页面的主视觉与署名行上。",
+    "saveName": "保存姓名",
+    "nameUpdated": "姓名已更新为 {name}",
+    "email": "邮箱",
+    "emailBlurb": "你的登录身份——也是恢复口令的发送地址。修改它需要你的当前密码，并把新地址输入两次。若本实例可以发信，新地址须先确认，两者才会一并变更。",
+    "emailPlaceholder": "you@example.com",
+    "emailConfirmPlaceholder": "再次输入新地址",
+    "saveEmail": "保存邮箱",
+    "cancel": "取消",
+    "pendingEmailNote": "等待 {pending} 确认。在确认之前，你的登录与恢复口令都仍留在当前地址上。",
+    "emailUpdated": "邮箱已更新为 {email}",
+    "emailConfirmSent": "确认信已发往 {pending}——你的登录尚未变更",
+    "emailCancelled": "待确认的邮箱变更已撤销——那封确认信中的链接已失效",
+    "emailMismatch": "两个地址不一致",
+    "password": "密码",
+    "passwordBlurb": "至少 12 个字符。现有会话仍然有效——如有需要，请在其他设备手动登出。",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码（≥ 12 个字符）",
+    "confirmPassword": "确认新密码",
+    "savePassword": "保存密码",
+    "passwordUpdated": "密码已更新",
+    "pwTooShort": "新密码至少需要 12 个字符",
+    "pwMismatch": "新密码与确认不一致",
+    "recoveryLabel": "恢复口令",
+    "generate": "生成",
+    "recoverySent": "恢复口令已发送",
+    "recoveryError": "无法发送恢复口令——请先设置并验证一个出站通道",
+    "recoveryDetailReady": "尚未设置",
+    "recoveryDetailNeedsMail": "需要已验证的邮箱",
+    "recoveryNoteReady": "生成一段恢复口令并通过邮件发给你。一次性使用——用它登录后即失效。",
+    "recoveryNoteNeedsMail": "请先在 Connectors 中验证邮箱（SMTP）——恢复口令将通过邮件发给你。"
   },
   "ipBans": {
     "intro": "封禁滥用的来源 IP。被封的 IP 在整个公开面上都会收到 403——聊天、会话、访问请求。在 <mono>conversations</mono> 中找到问题 IP（每行都显示访客的 IP）。封禁可随时解除。",
     "banIp": "封禁 ip",
     "empty": "没有被封的 IP。公开面是开放的（仍按 IP 限流）。",
-    "unban": "解封"
+    "unban": "解封",
+    "kickerSecurity": "设置 · 安全",
+    "labelIp": "ip 地址",
+    "labelReason": "原因",
+    "placeholderNote": "可选备注",
+    "banned": "IP 已封禁",
+    "unbanned": "IP 已解封"
   },
   "system": {
     "checkForUpdates": "检查更新",
@@ -259,7 +298,8 @@
     "colLast": "最近",
     "colStatus": "状态",
     "statusDot": "●",
-    "healthChecks": "健康检查"
+    "healthChecks": "健康检查",
+    "kickerRuntime": "设置 · 运行时"
   },
   "inferenceUsage": {
     "title": "推理用量 · 近 7 天",
@@ -278,6 +318,7 @@
     "empty": "此刻没有工作区",
     "emptyHint": "当某个访客会话使用了写文件的工具时会出现一个工作区，闲置超过其 TTL 后即被清理。这里为空表示没有在用——并非出了什么问题。",
     "sweepNothing": "无可清理——没有工作区",
-    "ageSecs": "{n}秒"
+    "ageSecs": "{n}秒",
+    "sweepDone": "已清理过期的沙箱工作区"
   }
 }

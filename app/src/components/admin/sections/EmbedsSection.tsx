@@ -48,6 +48,7 @@ function unembeddedCodes(
 }
 
 export function EmbedsSection() {
+  const t = useTranslations('adminAccess.embeds');
   const hook = useEmbeds();
   const codesHook = useCodes();
   const [editing, setEditing] = useState<EmbedView | null>(null);
@@ -61,7 +62,7 @@ export function EmbedsSection() {
   return (
     <>
       <SectionHeader
-        kicker="access · widgets"
+        kicker={t('kicker')}
         slug="embeds"
         count={hook.embeds.length > 0 ? String(hook.embeds.length) : ''}
         action={<NewEmbedBtn open={() => setCreating(true)} />}
@@ -140,10 +141,10 @@ function TableHead() {
   return (
     <thead className="bg-(--color-surface)/60 mono text-[9.5px] tracking-[0.16em] uppercase text-(--color-muted)">
       <tr>
-        <Th text="embed" align="left" />
+        <Th text={t('thEmbed')} align="left" />
         <Th text={t('exposesCode')} align="left" />
-        <Th text="origins" align="left" />
-        <Th text="created" align="left" />
+        <Th text={t('thOrigins')} align="left" />
+        <Th text={t('thCreated')} align="left" />
         <Th text="" align="right" />
       </tr>
     </thead>

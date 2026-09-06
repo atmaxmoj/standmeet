@@ -20,13 +20,24 @@
   "handle": {
     "label": "handle",
     "change": "change",
-    "cancel": "cancel"
+    "cancel": "cancel",
+    "saving": "저장 중…",
+    "save": "handle 저장",
+    "updated": "Handle이 /{handle}(으)로 업데이트됨"
   },
   "publicUrl": {
     "label": "public URL",
     "unset": "unset",
     "change": "change",
-    "cancel": "cancel"
+    "cancel": "cancel",
+    "inputPlaceholder": "https://yourdomain.com",
+    "saving": "저장 중…",
+    "save": "URL 저장",
+    "updated": "공개 URL이 {url}(으)로 업데이트됨",
+    "hintEmpty": "채용 담당자가 볼 URL을 붙여넣으세요",
+    "hintInvalid": "http:// 또는 https://로 시작해야 합니다",
+    "hintUnchanged": "변경 없음",
+    "hintChanged": "QR 코드 + canonical 태그가 이 URL을 사용합니다"
   },
   "domain": {
     "defaultLabel": "default",
@@ -36,12 +47,34 @@
     "schemePrefix": "https://",
     "clear": "clear",
     "effectiveHost": "effective share host ·",
-    "effectiveHostNote": "· used by code share links, QRs, gate footer."
+    "effectiveHostNote": "· used by code share links, QRs, gate footer.",
+    "verifyFailed": "이 도메인을 확인할 수 없습니다. 다시 시도해 주세요.",
+    "inputPlaceholder": "yourdomain.com",
+    "checking": "확인 중…",
+    "verifyDns": "dns 확인 ↗",
+    "badgeUnset": "○ 미설정 · 기본값 사용",
+    "badgeVerified": "● 확인됨 · 라이브",
+    "badgePending": "◐ 허용 목록에 추가 중…",
+    "badgeNotAllowed": "○ 허용 목록에 없음",
+    "hintValid": "유효한 호스트로 보입니다 · 확인을 클릭하여 허용 목록에 추가하세요",
+    "hintInvalid": "아직 유효한 호스트가 아닙니다",
+    "hintEmpty": "예: yourdomain.com, talk.yourdomain.com"
   },
   "byoai": {
     "modeLabel": "byoai mode",
     "modeHelp": "When on, the gate page shows a \"bring your own AI\" option below the code entry.",
-    "acceptedProviders": "accepted providers"
+    "acceptedProviders": "accepted providers",
+    "saving": "저장 중…",
+    "save": "byoai 저장",
+    "hintLoading": "불러오는 중…",
+    "hintSaving": "저장 중…",
+    "hintDefault": "편집을 마치면 저장하세요",
+    "turnOn": "켜기",
+    "turnOff": "끄기",
+    "flagOn": "● 켜짐",
+    "flagOff": "○ 꺼짐",
+    "blurbLabel": "공개 범위 설명 · api 키 입력란 옆에 표시",
+    "blurbHint": "기대치를 명확히 · 최대 2문장"
   },
   "preview": {
     "openPublic": "open public",
@@ -58,7 +91,8 @@
     "selectCode": "select a code from the left",
     "codedBannerCode": "code · {code}",
     "previewGreeting": "Hi",
-    "suggestedByYou": "suggested by you"
+    "suggestedByYou": "suggested by you",
+    "kicker": "접근 · 외부 보기"
   },
   "microsites": {
     "intro": {
@@ -152,14 +186,26 @@
     },
     "previewLabel": "preview · latest successful build",
     "previewNoBuild": "Nothing built yet. Ask your AI to write and build this page.",
-    "buildNone": "no build"
+    "buildNone": "no build",
+    "kicker": "리소스 · 마이크로사이트",
+    "byoaiToastOn": "/p/{slug}에 대해 BYOK 켜짐",
+    "byoaiToastOff": "/p/{slug}에 대해 BYOK 꺼짐",
+    "renamePlaceholder": "new-slug",
+    "slugPlaceholder": "예: press-kit",
+    "addFilePlaceholder": "Component.tsx",
+    "stagingFrameTitle": "스테이징 미리보기",
+    "seoUpdated": "SEO 업데이트됨",
+    "seoTitlePlaceholder": "페이지 제목 (브라우저 탭 + 검색)",
+    "seoDescPlaceholder": "검색 결과용 한 줄 설명",
+    "seoImagePlaceholder": "공유 카드 이미지 URL (og:image)"
   },
   "assets": {
     "intro": "업로드한 모든 이미지와 파일로, 코퍼스와 마이크로사이트에서 공유됩니다. 항목이나 페이지가 아직 사용 중인 에셋은 삭제할 수 없습니다. 먼저 그곳에서 제거하세요. 삭제에 실패하면 무엇이 사용 중인지 알려줍니다.",
     "error": "에셋을 불러오지 못했습니다. 새로고침 후 다시 시도하세요.",
     "empty": "아직 에셋이 없습니다. 코퍼스 편집기나 마이크로사이트의 에셋 위젯에서 추가하세요.",
     "delete": "삭제",
-    "deleted": "에셋을 삭제했습니다"
+    "deleted": "에셋을 삭제했습니다",
+    "kicker": "리소스 · 에셋"
   },
   "data": {
     "slugPath": "/p/{slug}",
@@ -171,6 +217,7 @@
     "clear": "저장소 비우기",
     "cleared": "저장소를 비웠습니다",
     "delete": "삭제",
-    "docDeleted": "문서를 삭제했습니다"
+    "docDeleted": "문서를 삭제했습니다",
+    "kicker": "리소스 · 데이터"
   }
 }

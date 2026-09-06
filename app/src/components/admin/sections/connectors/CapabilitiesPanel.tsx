@@ -52,12 +52,13 @@ function Header() {
 // Once the ordering lives in one place, this is down to two sentences: what to show while
 // loading, and what to say when it's really empty (F-N-7).
 function Body({ hook }: { hook: CapabilitiesHook }) {
+  const t = useTranslations('adminIntegrations.capabilities');
   return (
     <ListPane
       status={hook.status}
       count={hook.rows.length}
-      empty={<Msg text="no capabilities registered." />}
-      skeleton={<Msg text="loading…" />}
+      empty={<Msg text={t('empty')} />}
+      skeleton={<Msg text={t('loading')} />}
     >
       <CapList hook={hook} />
     </ListPane>
@@ -180,13 +181,14 @@ function EnableToggle({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHoo
 function DeleteBtn({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHook }) {
   const run = useAction();
   const t = useTranslations('adminIntegrations.common');
+  const tc = useTranslations('adminIntegrations.capabilities');
   return row.deletable
     ? (
       <button
         type="button"
         data-testid={`delete-${row.id}`}
-        title="remove capability"
-        onClick={() => { void run(() => hook.remove(row.id), { success: 'Capability removed' }); }}
+        title={tc('removeTitle')}
+        onClick={() => { void run(() => hook.remove(row.id), { success: tc('removedToast') }); }}
         className="w-6 shrink-0 text-(--color-muted) hover:text-(--color-accent) transition-colors"
       >
         {t('close')}

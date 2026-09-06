@@ -70,11 +70,12 @@ function RawDumpHead() {
 }
 
 function RawDumpTextarea({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations('adminCorpus.placeholder');
   return (
     <textarea
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      placeholder="Paste a thought, a passage from a chat, a half-formed take."
+      placeholder={t('rawDump')}
       rows={3}
       data-testid="dump-input"
       className="w-full bg-transparent text-(--color-ink) placeholder:text-(--color-faint) reading-tight text-[15.5px]"

@@ -28,6 +28,7 @@ export function BYOAIEditor() {
 }
 
 function SaveRow({ hook }: { hook: BYOAIHook }) {
+  const t = useTranslations('adminPages.byoai');
   return (
     <div className="flex items-baseline justify-between gap-3 pt-2">
       <SaveHint loading={hook.loading} saving={hook.saving} error={hook.error} />
@@ -37,36 +38,30 @@ function SaveRow({ hook }: { hook: BYOAIHook }) {
         disabled={hook.saving || hook.loading}
         className="mono text-[11px] tracking-[0.16em] uppercase px-3.5 py-2 bg-(--color-ink) text-(--color-paper) hover:bg-(--color-accent) transition-colors disabled:opacity-50"
       >
-        {hook.saving ? 'saving…' : 'save byoai'}
+        {hook.saving ? t('saving') : t('save')}
       </button>
     </div>
   );
 }
 
+const HINT: Record<'loading' | 'saving' | 'default', { cls: string; key: string }> = {
+  loading: { cls: 'text-(--color-faint)', key: 'hintLoading' },
+  saving: { cls: 'text-(--color-muted)', key: 'hintSaving' },
+  default: { cls: 'text-(--color-faint)', key: 'hintDefault' },
+};
+
+function hintKind(loading: boolean, saving: boolean): 'loading' | 'saving' | 'default' {
+  return loading ? 'loading' : (saving ? 'saving' : 'default');
+}
+
 function SaveHint({
   loading, saving, error,
 }: { loading: boolean; saving: boolean; error: string | null }) {
-  const cfg = pickHint({ loading, saving, error });
-  return <Hint cls={cfg.cls} text={cfg.text} />;
-}
-
-interface HintInput { loading: boolean; saving: boolean; error: string | null }
-interface HintCfg { cls: string; text: string }
-
-const HINT_LOADING: HintCfg = { cls: 'text-(--color-faint)', text: 'loading…' };
-const HINT_SAVING: HintCfg = { cls: 'text-(--color-muted)', text: 'saving…' };
-const HINT_DEFAULT: HintCfg = {
-  cls: 'text-(--color-faint)', text: "save when you're done editing",
-};
-
-function pickHint(input: HintInput): HintCfg {
-  return input.loading ? HINT_LOADING : pickHintActive(input);
-}
-
-function pickHintActive(input: HintInput): HintCfg {
-  return input.error ? { cls: 'text-(--color-accent)', text: input.error }
-    : input.saving ? HINT_SAVING
-    : HINT_DEFAULT;
+  const t = useTranslations('adminPages.byoai');
+  const cfg = HINT[hintKind(loading, saving)];
+  return error
+    ? <Hint cls="text-(--color-accent)" text={error} />
+    : <Hint cls={cfg.cls} text={t(cfg.key)} />;
 }
 
 function Hint({ cls, text }: { cls: string; text: string }) {
@@ -100,11 +95,13 @@ function ToggleCopy({ enabled }: { enabled: boolean }) {
 }
 
 function ToggleFlag({ enabled }: { enabled: boolean }) {
+  const t = useTranslations('adminPages.byoai');
   const cls = enabled ? 'text-(--color-accent)' : 'text-(--color-faint)';
-  return <span className={cls}>{enabled ? '● ON' : '○ OFF'}</span>;
+  return <span className={cls}>{enabled ? t('flagOn') : t('flagOff')}</span>;
 }
 
 function ToggleBtn({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  const t = useTranslations('adminPages.byoai');
   const cls = enabled
     ? 'bg-(--color-ink) text-(--color-paper) hover:bg-(--color-accent)'
     : 'border border-(--color-ink) text-(--color-ink) hover:bg-(--color-ink) hover:text-(--color-paper)';
@@ -114,7 +111,7 @@ function ToggleBtn({ enabled, onToggle }: { enabled: boolean; onToggle: () => vo
       onClick={onToggle}
       className={`mono text-[11px] tracking-[0.16em] uppercase px-3.5 py-2 transition-colors shrink-0 ${cls}`}
     >
-      {enabled ? 'turn off' : 'turn on'}
+      {enabled ? t('turnOff') : t('turnOn')}
     </button>
   );
 }
@@ -154,10 +151,11 @@ function ChipText({ on, label }: { on: boolean; label: string }) {
 }
 
 function BlurbField({ hook }: { hook: BYOAIHook }) {
+  const t = useTranslations('adminPages.byoai');
   return hook.state.enabled
     ? <EditField
-        label="public-scope blurb · shown next to the api key input"
-        monoHint="set expectations clearly · 2 sentences max"
+        label={t('blurbLabel')}
+        monoHint={t('blurbHint')}
         value={hook.state.blurb}
         onChange={hook.setBlurb}
         multiline={3}

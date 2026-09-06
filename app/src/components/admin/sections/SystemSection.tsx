@@ -23,13 +23,14 @@ import {
 import type { ResourceStatus } from '@/lib/state/status';
 
 export function SystemSection() {
+  const t = useTranslations('adminShell.system');
   const { info, status } = useSystemInfo();
   return (
     <>
       {/* The button that was in the top bar moved into UpgradePanel — it originally had no
           onClick, wasn't wired to anything, and there also needs to be room next to it to say
           the outcome (did the upgrade happen or not), which the top bar's slot couldn't fit. */}
-      <SectionHeader kicker="settings · runtime" slug="system" />
+      <SectionHeader kicker={t('kickerRuntime')} slug="system" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <UpgradePanel />
         <DeploymentBlock info={info} />

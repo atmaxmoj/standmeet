@@ -65,6 +65,7 @@ function Heading() {
 
 function DescriptionField({ state, testid }: { state: SEOState; testid: string }) {
   const t = useTranslations('adminCorpus.seoEditor');
+  const tp = useTranslations('adminCorpus.placeholder');
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
@@ -75,7 +76,7 @@ function DescriptionField({ state, testid }: { state: SEOState; testid: string }
         value={state.description}
         onChange={(e) => state.setDescription(e.target.value)}
         spellCheck={false}
-        placeholder="One-line summary for og:description"
+        placeholder={tp('seoDescription')}
         data-testid={`${testid}-seo-description`}
         className="w-full bg-transparent border border-(--color-rule) p-2 reading-tight text-[14px]"
       />

@@ -47,16 +47,17 @@ function PolicyHoursRow({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {
   const report = useReportError();
+  const t = useTranslations('adminIntegrations.calendar');
   return (
     <div className="grid grid-cols-2 gap-3">
       <PolicyInput
-        label="working hours start (HH:MM)"
+        label={t('hoursStart')}
         testid="gcal-hours-start"
         value={policy.working_hours_start}
         onBlur={(v) => { void hook.savePolicy({ working_hours_start: v }).catch(report); }}
       />
       <PolicyInput
-        label="working hours end (HH:MM)"
+        label={t('hoursEnd')}
         testid="gcal-hours-end"
         value={policy.working_hours_end}
         onBlur={(v) => { void hook.savePolicy({ working_hours_end: v }).catch(report); }}
@@ -69,16 +70,17 @@ function PolicyLeadBufferRow({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {
   const report = useReportError();
+  const t = useTranslations('adminIntegrations.calendar');
   return (
     <div className="grid grid-cols-2 gap-3">
       <PolicyInput
-        label="min days in advance"
+        label={t('leadDays')}
         testid="gcal-lead-days"
         value={String(policy.min_lead_days)}
         onBlur={(v) => { void hook.savePolicy({ min_lead_days: positiveIntOr(v, 2) }).catch(report); }}
       />
       <PolicyInput
-        label="buffer min (around existing events)"
+        label={t('bufferMin')}
         testid="gcal-buffer-min"
         value={String(policy.buffer_min)}
         onBlur={(v) => { void hook.savePolicy({ buffer_min: parseInt(v, 10) || 0 }).catch(report); }}

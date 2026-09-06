@@ -20,13 +20,24 @@
   "handle": {
     "label": "handle",
     "change": "change",
-    "cancel": "cancel"
+    "cancel": "cancel",
+    "saving": "保存中…",
+    "save": "handle を保存",
+    "updated": "Handle を /{handle} に更新しました"
   },
   "publicUrl": {
     "label": "public URL",
     "unset": "unset",
     "change": "change",
-    "cancel": "cancel"
+    "cancel": "cancel",
+    "inputPlaceholder": "https://yourdomain.com",
+    "saving": "保存中…",
+    "save": "URL を保存",
+    "updated": "公開 URL を {url} に更新しました",
+    "hintEmpty": "採用担当者が見る URL を貼り付けてください",
+    "hintInvalid": "http:// または https:// で始まる必要があります",
+    "hintUnchanged": "変更なし",
+    "hintChanged": "QR コード + canonical タグはこの URL を使用します"
   },
   "domain": {
     "defaultLabel": "default",
@@ -36,12 +47,34 @@
     "schemePrefix": "https://",
     "clear": "clear",
     "effectiveHost": "effective share host ·",
-    "effectiveHostNote": "· used by code share links, QRs, gate footer."
+    "effectiveHostNote": "· used by code share links, QRs, gate footer.",
+    "verifyFailed": "このドメインを検証できませんでした。もう一度お試しください。",
+    "inputPlaceholder": "yourdomain.com",
+    "checking": "確認中…",
+    "verifyDns": "dns を検証 ↗",
+    "badgeUnset": "○ 未設定 · デフォルトを使用",
+    "badgeVerified": "● 検証済み · ライブ",
+    "badgePending": "◐ 許可リストに追加中…",
+    "badgeNotAllowed": "○ 許可リストにありません",
+    "hintValid": "有効なホストのようです · 検証をクリックして許可リストに追加",
+    "hintInvalid": "まだ有効なホストではありません",
+    "hintEmpty": "例: yourdomain.com、talk.yourdomain.com"
   },
   "byoai": {
     "modeLabel": "byoai mode",
     "modeHelp": "When on, the gate page shows a \"bring your own AI\" option below the code entry.",
-    "acceptedProviders": "accepted providers"
+    "acceptedProviders": "accepted providers",
+    "saving": "保存中…",
+    "save": "byoai を保存",
+    "hintLoading": "読み込み中…",
+    "hintSaving": "保存中…",
+    "hintDefault": "編集が終わったら保存してください",
+    "turnOn": "オンにする",
+    "turnOff": "オフにする",
+    "flagOn": "● オン",
+    "flagOff": "○ オフ",
+    "blurbLabel": "公開範囲の説明 · api キー入力欄の横に表示",
+    "blurbHint": "期待値を明確に · 最大 2 文"
   },
   "preview": {
     "openPublic": "open public",
@@ -58,7 +91,8 @@
     "selectCode": "select a code from the left",
     "codedBannerCode": "code · {code}",
     "previewGreeting": "Hi",
-    "suggestedByYou": "suggested by you"
+    "suggestedByYou": "suggested by you",
+    "kicker": "アクセス · 外部ビュー"
   },
   "microsites": {
     "intro": {
@@ -152,14 +186,26 @@
     },
     "previewLabel": "preview · latest successful build",
     "previewNoBuild": "Nothing built yet. Ask your AI to write and build this page.",
-    "buildNone": "no build"
+    "buildNone": "no build",
+    "kicker": "リソース · マイクロサイト",
+    "byoaiToastOn": "/p/{slug} の BYOK をオン",
+    "byoaiToastOff": "/p/{slug} の BYOK をオフ",
+    "renamePlaceholder": "new-slug",
+    "slugPlaceholder": "例: press-kit",
+    "addFilePlaceholder": "Component.tsx",
+    "stagingFrameTitle": "ステージングプレビュー",
+    "seoUpdated": "SEO を更新しました",
+    "seoTitlePlaceholder": "ページタイトル（ブラウザタブ + 検索）",
+    "seoDescPlaceholder": "検索結果用の一行説明",
+    "seoImagePlaceholder": "シェアカード画像 URL（og:image）"
   },
   "assets": {
     "intro": "アップロードしたすべての画像とファイル。コーパスとマイクロサイトで共有されます。エントリやページがまだ使用しているアセットは削除できません。先にそちらから外してください。削除に失敗すると、何が使用しているかが示されます。",
     "error": "アセットを読み込めませんでした。再読み込みしてください。",
     "empty": "まだアセットはありません。コーパスエディタ、またはマイクロサイトのアセットウィジェットから追加してください。",
     "delete": "削除",
-    "deleted": "アセットを削除しました"
+    "deleted": "アセットを削除しました",
+    "kicker": "リソース · アセット"
   },
   "data": {
     "slugPath": "/p/{slug}",
@@ -171,6 +217,7 @@
     "clear": "ストアを空にする",
     "cleared": "ストアを空にしました",
     "delete": "削除",
-    "docDeleted": "ドキュメントを削除しました"
+    "docDeleted": "ドキュメントを削除しました",
+    "kicker": "リソース · データ"
   }
 }

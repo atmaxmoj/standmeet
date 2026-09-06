@@ -6,7 +6,9 @@
   "api": {
     "intro": "MCP keys let AI clients (Claude, Cursor, custom scripts) push raw entries into your corpus, promote them, manage codes. Each key is an Ed25519 keypair — server stores only the public half; you save the private PEM in <code>~/.standmeet/credentials.json</code> and the client signs per request.",
     "keysHeading": "mcp keys",
-    "empty": "no keys yet · generate one to wire up your first AI client"
+    "empty": "no keys yet · generate one to wire up your first AI client",
+    "kicker": "integrations · programmatic",
+    "keyCount": "{count, plural, one {# key} other {# keys}}"
   },
   "aiProvider": {
     "heading": "owner's ai",
@@ -15,7 +17,16 @@
     "endpoint": "endpoint",
     "model": "model",
     "apiKey": "api key",
-    "clearKey": "clear key ×"
+    "clearKey": "clear key ×",
+    "keyPlaceholderSet": "● already set · type to replace",
+    "keyPlaceholderUnset": "paste key here",
+    "hintReplace": "will replace existing key on save",
+    "hintSet": "● key set · leave blank to keep",
+    "hintUnset": "○ not set",
+    "saving": "saving…",
+    "save": "save",
+    "savedToast": "AI provider saved",
+    "clearedToast": "AI provider cleared"
   },
   "mcpClient": {
     "heading": "mcp setup",
@@ -43,11 +54,19 @@
     "checkRefused": "it answered, but rejected the auth header — check the header name and value",
     "checkNoAnswer": "no answer — nothing responded at that URL",
     "authBadge": "auth: {name}",
-    "add": "Add MCP server"
+    "add": "Add MCP server",
+    "removedToast": "Server removed",
+    "probeUnreachable": "could not reach it",
+    "addError": "Could not add MCP server",
+    "fieldName": "name",
+    "fieldUrl": "url",
+    "fieldAuthName": "auth header name (optional)",
+    "fieldAuthValue": "auth header value (optional)"
   },
   "newToken": {
     "label": "generate key",
-    "submit": "generate"
+    "submit": "generate",
+    "namePlaceholder": "device label — e.g. 'mojat-mbp'"
   },
   "newlyCreated": {
     "warning": "save these now — the private key is shown only once",
@@ -62,7 +81,8 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "revoke": "revoke",
-    "keyId": "key id"
+    "keyId": "key id",
+    "deletedToast": "Key deleted"
   },
   "connectors": {
     "intro": "Connectors let the agent reach external services — Calendar and Mail are live below, and you can upload your own (OpenAPI / protocol) connector to add more.",
@@ -73,7 +93,10 @@
     "builtinHeading": "Ready to connect",
     "builtinCount": "{count} available",
     "uploadedHeading": "Connectors you uploaded",
-    "uploadedCount": "{count} installed"
+    "uploadedCount": "{count} installed",
+    "kicker": "integrations",
+    "count": "calendar · mail live · upload your own",
+    "removedToast": "Connector removed"
   },
   "calendar": {
     "heading": "Google Calendar",
@@ -85,15 +108,30 @@
     "timezone": "timezone (IANA)",
     "timezoneUnsetOption": "— not set —",
     "timezoneUnsetHint": "not set, so the hours above are read as UTC. your browser says {detected} — pick it and visitors get the hours you meant.",
-    "weekdays": "allowed weekdays"
+    "weekdays": "allowed weekdays",
+    "statusConnected": "connected",
+    "statusCredsOnly": "credentials only · click Authorize",
+    "statusNotConfigured": "not configured",
+    "disconnectedToast": "Disconnected",
+    "hoursStart": "working hours start (HH:MM)",
+    "hoursEnd": "working hours end (HH:MM)",
+    "leadDays": "min days in advance",
+    "bufferMin": "buffer min (around existing events)"
   },
   "capabilities": {
     "kicker": "availability",
     "heading": "capabilities",
-    "intro": "Turn a capability off and its tools vanish from every visitor session. Built-in capabilities can be disabled but not deleted; only the ones you authored can be removed."
+    "intro": "Turn a capability off and its tools vanish from every visitor session. Built-in capabilities can be disabled but not deleted; only the ones you authored can be removed.",
+    "empty": "no capabilities registered.",
+    "loading": "loading…",
+    "removeTitle": "remove capability",
+    "removedToast": "Capability removed"
   },
   "connectorCard": {
-    "disconnect": "Disconnect"
+    "disconnect": "Disconnect",
+    "statusConnecting": "connecting…",
+    "statusConnected": "connected",
+    "statusNotConnected": "not connected"
   },
   "connectorOp": {
     "run": "Run",
@@ -104,7 +142,8 @@
   },
   "connectorList": {
     "loadError": "Couldn’t load your connectors — reload and retry.",
-    "delete": "Delete"
+    "delete": "Delete",
+    "removeAria": "remove connector"
   },
   "skills": {
     "new": "+ new skill",
@@ -115,7 +154,20 @@
     "modalTitle": "new skill",
     "promptLabel": "prompt",
     "cancel": "cancel",
-    "create": "create"
+    "create": "create",
+    "kicker": "ai · skills",
+    "trackedCount": "{count, plural, one {# tracked} other {# tracked}}",
+    "toggleOn": "on",
+    "toggleOff": "off",
+    "deletedToast": "Skill {name} deleted",
+    "createdToast": "Skill {name} created",
+    "fieldName": "name",
+    "fieldDescription": "description",
+    "namePlaceholder": "e.g. patent-review",
+    "descriptionPlaceholder": "one line summary",
+    "promptPlaceholder": "Extra system prompt appended to base persona…",
+    "tabInstalled": "my skills",
+    "tabMarketplace": "marketplace"
   },
   "installedCard": {
     "source": "source · {source}",
@@ -126,7 +178,9 @@
     "author": "{author} · v{version}",
     "authorOnly": "{author}",
     "installed": "✓ installed",
-    "needs": "needs {missing}"
+    "needs": "needs {missing}",
+    "installing": "installing…",
+    "install": "install ↓"
   },
   "marketplaceTab": {
     "intro": "Skills aggregate from two sources — the open <ink>anthropics/skills</ink> GitHub repo (anyone can fork + PR) and <ink>SkillsMP</ink> (commercial channel). Installing fetches the skill’s SKILL.md, parses its frontmatter, and writes a local copy you fully own — edit the prompt or allowed-tools after, decoupled from the marketplace.",
@@ -134,7 +188,13 @@
     "manualInstall": "install",
     "loadMore": "load more",
     "searchIcon": "⌕",
-    "empty": "No skills match. Try a different term, or switch source — the GitHub repo and SkillsMP are queried in parallel."
+    "empty": "No skills match. Try a different term, or switch source — the GitHub repo and SkillsMP are queried in parallel.",
+    "pasteToggle": "paste a SKILL.md",
+    "namePlaceholder": "name (optional — falls back to frontmatter)",
+    "searchPlaceholder": "search skills…",
+    "sourceAriaLabel": "marketplace source",
+    "sourceAll": "all",
+    "installedToast": "Skill installed"
   },
   "mySkills": {
     "empty": "No skills yet — install one from the marketplace tab, or add your own under Skills."
@@ -156,7 +216,11 @@
     "gasFill": "fill",
     "gasUnmeter": "remove gauge",
     "gasFilled": "Tank filled",
-    "gasFillPlaceholder": "tokens"
+    "gasFillPlaceholder": "tokens",
+    "fieldProvider": "provider",
+    "fieldEndpoint": "endpoint",
+    "fieldModel": "model",
+    "fieldApiKey": "api key"
   },
   "apiKeys": {
     "heading": "outward api keys",
@@ -176,5 +240,19 @@
   "embed": {
     "heading": "Embed on another site",
     "blurb": "Drop these two lines into any page — your own blog, a client's site, a landing page. No build step and no React: the script registers a <standmeet-chat> element that talks to this instance."
+  },
+  "assemble": {
+    "statusConnected": "connected",
+    "statusConnecting": "connecting…",
+    "statusNotConnected": "not connected",
+    "field": {
+      "url": "CalDAV URL",
+      "username": "Username",
+      "password": "Password",
+      "host": "Host",
+      "port": "Port",
+      "from": "From address",
+      "tls": "TLS (none | starttls | tls)"
+    }
   }
 }

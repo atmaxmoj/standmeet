@@ -11,7 +11,14 @@
     "register": "रजिस्टर करें →",
     "registered": "स्रोत रजिस्टर हुआ",
     "remove": "हटाएँ",
-    "removed": "स्रोत हटाया गया"
+    "removed": "स्रोत हटाया गया",
+    "kicker": "नौकरियाँ · स्रोत",
+    "titleRegistered": "{count} पंजीकृत",
+    "labelPlaceholder": "लिस्टिंग बोर्ड",
+    "stateNever": "कभी नहीं लाया गया",
+    "stateFetched": "अंतिम · {date}",
+    "stateFailed": "अंतिम प्रयास · {date} · विफल — {reason}",
+    "stateUnknownDate": "अज्ञात"
   },
   "listings": {
     "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
@@ -19,7 +26,9 @@
     "emptyTitle": "Fetch jobs from your sources first.",
     "emptyHint": "इस सेक्शन को खोलने पर लिस्टिंग अपने-आप फ़ेच होती हैं — या Fetch now दबाएँ। परिणाम एक दिन यहाँ रहते हैं जब तक आप ड्राफ़्ट या डिस्कार्ड न करें।",
     "fetchNow": "अभी फ़ेच करें",
-    "fetching": "फ़ेच हो रहा है…"
+    "fetching": "फ़ेच हो रहा है…",
+    "kicker": "नौकरियाँ · लिस्टिंग",
+    "titleInPool": "{count} पूल में"
   },
   "drafts": {
     "intro": "Tailored resumes Claude drafted for jobs you said yes to. Open the composer to edit + preview; <ink>send</ink> freezes the snapshot, renders the final PDF (with QR), and auto-issues an AccessCode.",
@@ -39,7 +48,10 @@
     "newTitle": "नया रिज़्यूमे ड्राफ़्ट",
     "newCompany": "कंपनी",
     "newRole": "भूमिका",
-    "newCreate": "ड्राफ़्ट बनाएँ"
+    "newCreate": "ड्राफ़्ट बनाएँ",
+    "kicker": "नौकरियाँ · रिज़्यूमे ड्राफ़्ट",
+    "titlePending": "{count} लंबित",
+    "committed": "आवेदन सबमिट हो गया — रिज़्यूमे उसके एक्सेस कोड के साथ भेजा गया"
   },
   "applications": {
     "searchPlaceholder": "कंपनी या भूमिका से खोजें…",
@@ -53,7 +65,9 @@
     "open": "open ›",
     "metaCommitted": "committed {date}",
     "metaSubmitted": "submitted {date}",
-    "metaNotSubmitted": "submission not recorded"
+    "metaNotSubmitted": "submission not recorded",
+    "kicker": "नौकरियाँ · सबमिट",
+    "titleCommitted": "{count} सबमिट"
   },
   "detail": {
     "kicker": "application · {id}",

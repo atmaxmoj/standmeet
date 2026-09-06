@@ -28,12 +28,13 @@ const EMPTY: FormState = { name: '', url: '', authName: '', authValue: '' };
 export function MCPServersPanel() {
   const hook = useMCPServers();
   const run = useAction();
+  const t = useTranslations('adminIntegrations.mcpServers');
   // remove is a destructive action → both success and failure end in a
   // toast (failure is no longer silent: owner must know a delete didn't
   // take).
   const removeWithToast = useCallback(
-    (id: string) => run(() => hook.remove(id), { success: 'Server removed' }),
-    [hook, run],
+    (id: string) => run(() => hook.remove(id), { success: t('removedToast') }),
+    [hook, run, t],
   );
   return (
     <section
@@ -106,11 +107,13 @@ function ServerRow({
   onRemove: (id: string) => Promise<void>;
   onCheck: (id: string) => Promise<MCPProbe>;
 }) {
+  const t = useTranslations('adminIntegrations.mcpServers');
   const [probe, setProbe] = useState<Probe>({ state: 'idle' });
+  const unreachable = t('probeUnreachable');
   const ask = useCallback(() => {
     setProbe({ state: 'asking' });
-    void runProbe(onCheck, server.id, setProbe);
-  }, [onCheck, server.id]);
+    void runProbe(onCheck, server.id, setProbe, unreachable);
+  }, [onCheck, server.id, unreachable]);
   return (
     <li
       className="border-b border-(--color-rule)/50 pb-1.5"
@@ -145,22 +148,23 @@ function ServerRow({
 
 async function runProbe(
   onCheck: (id: string) => Promise<MCPProbe>, id: string, set: (p: Probe) => void,
+  unreachable: string,
 ): Promise<void> {
   try {
     const res = await onCheck(id);
     set({ state: 'answered', tools: res.tools });
   } catch (e) {
-    set(probeFailure(e));
+    set(probeFailure(e, unreachable));
   }
 }
 
 // probeFailure — reads a thrown value as "it failed, for what reason, of
 // what kind". An empty code means it wasn't the API answering (e.g. network
 // down), and then reason is all there is to say.
-function probeFailure(e: unknown): Probe {
+function probeFailure(e: unknown, unreachable: string): Probe {
   return {
     state: 'failed',
-    reason: e instanceof Error ? e.message : 'could not reach it',
+    reason: e instanceof Error ? e.message : unreachable,
     code: e instanceof APIError ? e.code : '',
   };
 }
@@ -293,22 +297,23 @@ function AuthBadgeText({ name }: { name: string }) {
 }
 
 function AddForm({ hook }: { hook: MCPServersHook }) {
+  const t = useTranslations('adminIntegrations.mcpServers');
   const [form, setForm] = useState<FormState>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof FormState) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const onAdd = () => { void runAdd(hook, form, setForm, setError); };
+  const onAdd = () => { void runAdd(hook, form, setForm, setError, t('addError')); };
   return (
     <div className="space-y-3 border-t border-(--color-rule)/60 pt-4">
       <div className="grid grid-cols-[1fr_1.6fr] gap-3">
-        <Field label="name" testid="mcp-server-name" value={form.name}
+        <Field label={t('fieldName')} testid="mcp-server-name" value={form.name}
           onChange={set('name')} placeholder="my-tools" />
-        <Field label="url" testid="mcp-server-url" value={form.url}
+        <Field label={t('fieldUrl')} testid="mcp-server-url" value={form.url}
           onChange={set('url')} placeholder="https://mcp.example.com/mcp" />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="auth header name (optional)" testid="mcp-server-auth-name" value={form.authName}
+        <Field label={t('fieldAuthName')} testid="mcp-server-auth-name" value={form.authName}
           onChange={set('authName')} placeholder="Authorization" />
-        <Field label="auth header value (optional)" testid="mcp-server-auth-value" value={form.authValue}
+        <Field label={t('fieldAuthValue')} testid="mcp-server-auth-value" value={form.authValue}
           onChange={set('authValue')} placeholder="Bearer …" type="password" />
       </div>
       <AddButton disabled={addDisabled(form)} onAdd={onAdd} />
@@ -324,10 +329,11 @@ function addDisabled(form: FormState): boolean {
 async function runAdd(
   hook: MCPServersHook, form: FormState,
   setForm: (f: FormState) => void, setError: (e: string | null) => void,
+  addError: string,
 ): Promise<void> {
   setError(null);
   const res = await hook.create(toInput(form));
-  res.ok ? setForm(EMPTY) : setError(res.error ?? 'Could not add MCP server');
+  res.ok ? setForm(EMPTY) : setError(res.error ?? addError);
 }
 
 function toInput(form: FormState): CreateMCPServerInput {

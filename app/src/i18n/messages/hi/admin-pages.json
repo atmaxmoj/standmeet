@@ -20,13 +20,24 @@
   "handle": {
     "label": "handle",
     "change": "change",
-    "cancel": "cancel"
+    "cancel": "cancel",
+    "saving": "सहेजा जा रहा है…",
+    "save": "handle सहेजें",
+    "updated": "Handle /{handle} पर अपडेट हुआ"
   },
   "publicUrl": {
     "label": "public URL",
     "unset": "unset",
     "change": "change",
-    "cancel": "cancel"
+    "cancel": "cancel",
+    "inputPlaceholder": "https://yourdomain.com",
+    "saving": "सहेजा जा रहा है…",
+    "save": "URL सहेजें",
+    "updated": "सार्वजनिक URL {url} पर अपडेट हुआ",
+    "hintEmpty": "वह URL पेस्ट करें जो भर्तीकर्ता देखेंगे",
+    "hintInvalid": "http:// या https:// से शुरू होना चाहिए",
+    "hintUnchanged": "कोई बदलाव नहीं",
+    "hintChanged": "QR कोड + canonical टैग इस URL का उपयोग करेंगे"
   },
   "domain": {
     "defaultLabel": "default",
@@ -36,12 +47,34 @@
     "schemePrefix": "https://",
     "clear": "clear",
     "effectiveHost": "effective share host ·",
-    "effectiveHostNote": "· used by code share links, QRs, gate footer."
+    "effectiveHostNote": "· used by code share links, QRs, gate footer.",
+    "verifyFailed": "इस डोमेन को सत्यापित नहीं किया जा सका। कृपया पुनः प्रयास करें।",
+    "inputPlaceholder": "yourdomain.com",
+    "checking": "जाँच हो रही है…",
+    "verifyDns": "dns सत्यापित करें ↗",
+    "badgeUnset": "○ अनसेट · डिफ़ॉल्ट का उपयोग",
+    "badgeVerified": "● सत्यापित · लाइव",
+    "badgePending": "◐ अनुमति-सूची में जोड़ा जा रहा है…",
+    "badgeNotAllowed": "○ अनुमति-सूची में नहीं",
+    "hintValid": "मान्य होस्ट जैसा लगता है · अनुमति-सूची में जोड़ने के लिए सत्यापित करें पर क्लिक करें",
+    "hintInvalid": "अभी तक मान्य होस्ट नहीं",
+    "hintEmpty": "जैसे yourdomain.com, talk.yourdomain.com"
   },
   "byoai": {
     "modeLabel": "byoai mode",
     "modeHelp": "When on, the gate page shows a \"bring your own AI\" option below the code entry.",
-    "acceptedProviders": "accepted providers"
+    "acceptedProviders": "accepted providers",
+    "saving": "सहेजा जा रहा है…",
+    "save": "byoai सहेजें",
+    "hintLoading": "लोड हो रहा है…",
+    "hintSaving": "सहेजा जा रहा है…",
+    "hintDefault": "संपादन पूरा होने पर सहेजें",
+    "turnOn": "चालू करें",
+    "turnOff": "बंद करें",
+    "flagOn": "● चालू",
+    "flagOff": "○ बंद",
+    "blurbLabel": "सार्वजनिक-दायरा विवरण · api कुंजी इनपुट के पास दिखाया गया",
+    "blurbHint": "अपेक्षाएँ स्पष्ट रखें · अधिकतम 2 वाक्य"
   },
   "preview": {
     "openPublic": "open public",
@@ -58,7 +91,8 @@
     "selectCode": "select a code from the left",
     "codedBannerCode": "code · {code}",
     "previewGreeting": "Hi",
-    "suggestedByYou": "suggested by you"
+    "suggestedByYou": "suggested by you",
+    "kicker": "पहुँच · बाहरी दृश्य"
   },
   "microsites": {
     "intro": {
@@ -152,14 +186,26 @@
     },
     "previewLabel": "preview · latest successful build",
     "previewNoBuild": "Nothing built yet. Ask your AI to write and build this page.",
-    "buildNone": "no build"
+    "buildNone": "no build",
+    "kicker": "संसाधन · माइक्रोसाइट",
+    "byoaiToastOn": "/p/{slug} के लिए BYOK चालू",
+    "byoaiToastOff": "/p/{slug} के लिए BYOK बंद",
+    "renamePlaceholder": "new-slug",
+    "slugPlaceholder": "जैसे press-kit",
+    "addFilePlaceholder": "Component.tsx",
+    "stagingFrameTitle": "स्टेजिंग पूर्वावलोकन",
+    "seoUpdated": "SEO अपडेट हुआ",
+    "seoTitlePlaceholder": "पेज शीर्षक (ब्राउज़र टैब + खोज)",
+    "seoDescPlaceholder": "खोज परिणामों के लिए एक-पंक्ति विवरण",
+    "seoImagePlaceholder": "शेयर-कार्ड छवि URL (og:image)"
   },
   "assets": {
     "intro": "आपके द्वारा अपलोड की गई सभी छवियाँ और फ़ाइलें, आपके कॉर्पस और माइक्रोसाइट्स में साझा। किसी प्रविष्टि या पेज द्वारा अब भी उपयोग किए जा रहे एसेट को हटाया नहीं जा सकता — पहले उसे वहाँ से हटाएँ; असफल विलोपन बताता है कि उसे कौन उपयोग कर रहा है।",
     "error": "आपके एसेट लोड नहीं हो सके — पुनः प्रयास के लिए रीलोड करें।",
     "empty": "अभी कोई एसेट नहीं। कॉर्पस एडिटर या किसी माइक्रोसाइट के एसेट विजेट से एक जोड़ें।",
     "delete": "हटाएँ",
-    "deleted": "एसेट हटाया गया"
+    "deleted": "एसेट हटाया गया",
+    "kicker": "संसाधन · एसेट"
   },
   "data": {
     "slugPath": "/p/{slug}",
@@ -171,6 +217,7 @@
     "clear": "स्टोर साफ़ करें",
     "cleared": "स्टोर साफ़ किया गया",
     "delete": "हटाएँ",
-    "docDeleted": "दस्तावेज़ हटाया गया"
+    "docDeleted": "दस्तावेज़ हटाया गया",
+    "kicker": "संसाधन · डेटा"
   }
 }

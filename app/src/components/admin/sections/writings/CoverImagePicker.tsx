@@ -56,10 +56,11 @@ function Preview({ url }: { url: string }) {
 }
 
 function PreviewImg({ url }: { url: string }) {
+  const t = useTranslations('adminCorpus.writingForm');
   return (
     <Image
       src={url}
-      alt="cover preview"
+      alt={t('coverPreviewAlt')}
       width={80}
       height={48}
       unoptimized
@@ -85,12 +86,13 @@ interface PickerInputProps {
 
 function PickerInput({ onPicked, onPending, onError }: PickerInputProps) {
   const t = useTranslations('adminCorpus.writings');
+  const tw = useTranslations('adminCorpus.writingForm');
   return (
     <FilePicker
       label={t('chooseCover')}
       testid="writing-field-cover-image"
       accept="image/*"
-      onPick={(files) => handlePick(files, onPicked, onPending, onError)}
+      onPick={(files) => handlePick(files, onPicked, onPending, onError, tw('noFileSelected'))}
     />
   );
 }
@@ -100,9 +102,10 @@ function handlePick(
   onPicked: (v: CoverAssetState) => void,
   onPending: (p: PendingFile) => void,
   onError: (msg: string) => void,
+  noFileMsg: string,
 ): void {
   const file = firstFile(files);
-  file ? attachPending(file, onPicked, onPending) : onError('no file selected');
+  file ? attachPending(file, onPicked, onPending) : onError(noFileMsg);
 }
 
 function firstFile(files: FileList | null): File | null {

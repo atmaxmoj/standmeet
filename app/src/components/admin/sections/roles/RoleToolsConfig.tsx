@@ -52,9 +52,9 @@ function EditableToolsConfig({ role }: { role: RoleView }) {
       () => roles.updateRole(role.id, roleUpdatePayload(role, {
         skill_ids: skillIDs, mcp_server_ids: serverIDs,
       })),
-      { success: `Tool grants updated for ${role.name}` },
+      { success: t('roles.toast.toolsUpdated', { name: role.name }) },
     ),
-    [role, roles, run, skillIDs, serverIDs],
+    [role, roles, run, skillIDs, serverIDs, t],
   );
   return (
     <div className="mt-2 grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">
@@ -66,14 +66,14 @@ function EditableToolsConfig({ role }: { role: RoleView }) {
           {t('roleTools.help')}
         </p>
         <RoleMultiSelect
-          label="skills"
+          label={t('roles.skillsLabel')}
           options={skills.skills.map((s) => ({ id: s.id, label: s.name }))}
           value={skillIDs}
           onChange={setSkillIDs}
           testid={`role-tools-skills-${role.name}`}
         />
         <RoleMultiSelect
-          label="mcp servers"
+          label={t('roles.mcpServersLabel')}
           options={mcp.servers.map((m) => ({ id: m.id, label: m.name }))}
           value={serverIDs}
           onChange={setServerIDs}

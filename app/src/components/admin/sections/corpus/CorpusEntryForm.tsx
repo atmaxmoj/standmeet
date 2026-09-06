@@ -221,11 +221,12 @@ export interface PromoteFormProps {
 }
 
 export function PromoteForm(props: PromoteFormProps) {
+  const t = useTranslations('adminCorpus.action');
   return (
     <CorpusEntryForm
       initial={{ title: props.defaultTitle ?? '', body: '' }}
       busy={props.busy}
-      submitLabel="promote"
+      submitLabel={t('promote')}
       testidPrefix={props.testidPrefix}
       bodyVisible={false}
       onSubmit={(input) => props.onSubmit({
@@ -283,6 +284,7 @@ function BodyField({ form, testid }: { form: CorpusFormHook; testid: string }) {
 
 function TagsField({ form, testid }: { form: CorpusFormHook; testid: string }) {
   const t = useTranslations('adminCorpus.common');
+  const tp = useTranslations('adminCorpus.placeholder');
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
@@ -293,7 +295,7 @@ function TagsField({ form, testid }: { form: CorpusFormHook; testid: string }) {
         value={form.tagsRaw}
         onChange={(e) => form.setTagsRaw(e.target.value)}
         spellCheck={false}
-        placeholder="architecture, ai, indie"
+        placeholder={tp('tags')}
         data-testid={`${testid}-tags`}
         className="sm-field-input sm-mono"
       />

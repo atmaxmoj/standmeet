@@ -17,15 +17,16 @@ import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { useConversations, type ConversationsHook, type ConvView } from '@/lib/admin/use-conversations';
 
 export function ConversationsSection() {
+  const t = useTranslations('adminAccess');
   const params = useSearchParams();
   const filterCode = params.get('code') ?? undefined;
   const hook = useConversations(filterCode);
   return (
     <>
       <SectionHeader
-        kicker="access · sessions"
+        kicker={t('conversations.kicker')}
         slug="conversations"
-        count={`${hook.rows.length} sessions`}
+        count={t('conversations.count', { count: hook.rows.length })}
         action={<PrivateHitsHint hook={hook} />}
       />
       <FilterChip code={filterCode} />

@@ -16,6 +16,7 @@ import { vaultImportLine } from '@/lib/admin/vault-import-state';
 
 export function ObsidianSection() {
   const t = useTranslations('adminCorpus.obsidian');
+  const tk = useTranslations('adminCorpus.kicker');
   // reloadKey —— re-fetches the receipt after an import completes: what's shown on
   // screen must come from **a fact that's actually been persisted**.
   const [reloadKey, setReloadKey] = useState(0);
@@ -23,7 +24,7 @@ export function ObsidianSection() {
   return (
     <>
       <SectionHeader
-        kicker="integrations · vault"
+        kicker={tk('obsidian')}
         slug="obsidian"
         action={
           <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-faint)">

@@ -207,13 +207,52 @@
     "configuredIn": "configured in /admin/api-mcp",
     "spend30d": "30-day spend",
     "spendSub": "your inference key · owner pays",
-    "spendUnknown": "$—"
+    "spendUnknown": "$—",
+    "kickerOwner": "सेटिंग्स · स्वामी",
+    "fullName": "पूरा नाम",
+    "fullNameBlurb": "सार्वजनिक पेज के हीरो और हस्ताक्षर पंक्ति पर दिखाया जाता है।",
+    "saveName": "नाम सहेजें",
+    "nameUpdated": "पूरा नाम बदलकर {name} किया गया",
+    "email": "ईमेल",
+    "emailBlurb": "आपकी लॉगिन पहचान — और वह जगह जहाँ आपका रिकवरी वाक्यांश भेजा जाता है। इसे बदलने के लिए आपका मौजूदा पासवर्ड और पता दो बार चाहिए। यदि यह इंस्टेंस मेल भेज सकता है, तो कुछ भी बदलने से पहले नए पते की पुष्टि होनी चाहिए।",
+    "emailPlaceholder": "you@example.com",
+    "emailConfirmPlaceholder": "नया पता दोबारा लिखें",
+    "saveEmail": "ईमेल सहेजें",
+    "cancel": "रद्द करें",
+    "pendingEmailNote": "{pending} की पुष्टि की प्रतीक्षा है। तब तक, आपका साइन-इन और रिकवरी वाक्यांश दोनों मौजूदा पते पर ही रहेंगे।",
+    "emailUpdated": "ईमेल बदलकर {email} किया गया",
+    "emailConfirmSent": "{pending} को पुष्टि भेजी गई — आपका लॉगिन अभी नहीं बदला है",
+    "emailCancelled": "लंबित ईमेल बदलाव हटा दिया गया — वह पुष्टि लिंक अब काम नहीं करता",
+    "emailMismatch": "दोनों पते मेल नहीं खाते",
+    "password": "पासवर्ड",
+    "passwordBlurb": "कम से कम 12 अक्षर। मौजूदा सत्र मान्य रहते हैं — ज़रूरत हो तो अन्यत्र मैन्युअल रूप से लॉग आउट करें।",
+    "currentPassword": "मौजूदा पासवर्ड",
+    "newPassword": "नया पासवर्ड (≥ 12 अक्षर)",
+    "confirmPassword": "नया पासवर्ड पुष्टि करें",
+    "savePassword": "पासवर्ड सहेजें",
+    "passwordUpdated": "पासवर्ड अपडेट किया गया",
+    "pwTooShort": "नए पासवर्ड में कम से कम 12 अक्षर होने चाहिए",
+    "pwMismatch": "नया पासवर्ड और पुष्टि मेल नहीं खाते",
+    "recoveryLabel": "रिकवरी वाक्यांश",
+    "generate": "बनाएँ",
+    "recoverySent": "रिकवरी वाक्यांश भेजा गया",
+    "recoveryError": "रिकवरी वाक्यांश नहीं भेजा जा सका — पहले एक आउटबाउंड चैनल सेट करें और सत्यापित करें",
+    "recoveryDetailReady": "अभी सेट नहीं",
+    "recoveryDetailNeedsMail": "सत्यापित ईमेल आवश्यक",
+    "recoveryNoteReady": "एक रिकवरी वाक्यांश बनाता है और आपको ईमेल करता है। एकल उपयोग — इससे साइन इन करते ही यह खपत हो जाता है।",
+    "recoveryNoteNeedsMail": "पहले Connectors के अंतर्गत ईमेल (SMTP) सत्यापित करें — रिकवरी वाक्यांश आपको ईमेल से भेजा जाता है।"
   },
   "ipBans": {
     "intro": "Block abusive source IPs. A banned IP gets a 403 on the whole public surface — chat, sessions, access requests. Find offending IPs in <mono>conversations</mono> (each row shows the visitor's IP). Bans can be lifted any time.",
     "banIp": "ban ip",
     "empty": "No IPs banned. The public surface is open (still rate-limited per IP).",
-    "unban": "unban"
+    "unban": "unban",
+    "kickerSecurity": "सेटिंग्स · सुरक्षा",
+    "labelIp": "ip पता",
+    "labelReason": "कारण",
+    "placeholderNote": "वैकल्पिक टिप्पणी",
+    "banned": "IP प्रतिबंधित",
+    "unbanned": "IP से प्रतिबंध हटाया"
   },
   "system": {
     "checkForUpdates": "check for updates",
@@ -259,7 +298,8 @@
     "colLast": "last",
     "colStatus": "status",
     "statusDot": "●",
-    "healthChecks": "health checks"
+    "healthChecks": "health checks",
+    "kickerRuntime": "सेटिंग्स · रनटाइम"
   },
   "inferenceUsage": {
     "title": "inference usage · last 7 days",
@@ -278,6 +318,7 @@
     "empty": "No workspaces right now",
     "emptyHint": "A workspace appears when a visitor session uses a tool that writes files, and it is swept once it has been idle past its TTL. None here means none in use — not that something is broken.",
     "sweepNothing": "Nothing to sweep — there are no workspaces",
-    "ageSecs": "{n}s"
+    "ageSecs": "{n}s",
+    "sweepDone": "समय-सीमा समाप्त सैंडबॉक्स वर्कस्पेस साफ़ किए गए"
   }
 }

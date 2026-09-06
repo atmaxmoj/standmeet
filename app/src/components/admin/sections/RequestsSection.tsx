@@ -25,15 +25,16 @@ import { useAction } from '@/lib/ui/use-action';
 const FILTERS: RequestStatusFilter[] = ['open', 'replied', 'closed', 'all'];
 
 export function RequestsSection() {
+  const t = useTranslations('adminAccess');
   const hook = useRequests();
   const outbound = useOutbound();
   const canDeliver = outbound.status?.connected ?? false;
   return (
     <>
       <SectionHeader
-        kicker="access · gate inbox"
+        kicker={t('requests.kicker')}
         slug="requests"
-        count={requestCount(hook)}
+        count={requestCount(hook, t)}
       />
       <Intro />
       <DeliveryHint canDeliver={canDeliver} />
@@ -90,9 +91,11 @@ function RequestBody({ hook, canDeliver }: { hook: RequestsHook; canDeliver: boo
   return map[pickBodyState(hook)];
 }
 
-function requestCount(hook: RequestsHook): string {
+type Translator = ReturnType<typeof useTranslations>;
+
+function requestCount(hook: RequestsHook, t: Translator): string {
   return hook.status === 'ready'
-    ? formatRequestCount(countOpen(hook.rows), hook.rows.length)
+    ? formatRequestCount(countOpen(hook.rows), hook.rows.length, t)
     : '';
 }
 
@@ -100,8 +103,8 @@ function countOpen(rows: readonly AccessRequestView[]): number {
   return rows.filter((r) => r.status === 'open').length;
 }
 
-function formatRequestCount(open: number, total: number): string {
-  return open === 0 ? `${total} total` : `${open} new`;
+function formatRequestCount(open: number, total: number, t: Translator): string {
+  return open === 0 ? t('requests.countTotal', { n: total }) : t('requests.countNew', { n: open });
 }
 
 function ErrorBlock({ message }: { message: string }) {
@@ -217,7 +220,7 @@ function ActiveActions({ req, hook, canDeliver, onApproved }: ActionsProps) {
   const run = useAction();
   // decline is a status change → both success/failure end with a toast (failure is no longer
   // silent: the owner must know when the mark didn't take).
-  const onDecline = () => run(() => hook.mark(req.id, 'closed'), { success: 'Request declined' });
+  const onDecline = () => run(() => hook.mark(req.id, 'closed'), { success: t('requests.toast.declined') });
   return (
     <div className="flex items-baseline gap-2 mt-4 flex-wrap" data-testid={`request-approve-${req.id}`}>
       <ApproveControl id={req.id} hook={hook} canDeliver={canDeliver} onApproved={onApproved} />

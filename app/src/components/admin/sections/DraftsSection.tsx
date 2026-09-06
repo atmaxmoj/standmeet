@@ -31,6 +31,7 @@ import {
 } from '@/lib/admin/use-admin-drafts';
 
 export function DraftsSection() {
+  const t = useTranslations('adminJobs');
   const { rows, loading, error, reload } = useAdminDrafts();
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -46,14 +47,14 @@ export function DraftsSection() {
       reload();
       return c;
     },
-    { success: 'Application committed — résumé sent with its access code' },
+    { success: t('drafts.committed') },
   );
   return (
     <>
       <SectionHeader
-        kicker="jobs · resume drafts"
+        kicker={t('drafts.kicker')}
         slug="drafts"
-        count={titleCount(rows.length, loading)}
+        count={loading ? t('drafts.loading') : t('drafts.titlePending', { count: rows.length })}
         action={<NewDraftBtn onOpen={() => setCreating(true)} />}
       />
       <Intro />
@@ -83,10 +84,6 @@ function ComposerHost({
   return model === null
     ? null
     : <ResumeComposer initial={model} onClose={onClose} onSend={onSend} />;
-}
-
-function titleCount(n: number, loading: boolean): string {
-  return loading ? 'loading…' : `${n} pending`;
 }
 
 // ink —— the <ink> tag for t.rich: lifts an emphasized word mid-sentence to ink color.

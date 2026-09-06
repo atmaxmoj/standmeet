@@ -147,5 +147,88 @@
     "importExport": "importar / exportar",
     "help": "La importación elige la carpeta de su bóveda de Obsidian (wiki / subjectivity / raw / writings) e inserta las notas de corpus coincidentes por su ruta de bóveda. La exportación descarga su corpus como una bóveda de markdown + frontmatter.",
     "noSync": "Sin sincronización en vivo, sin observador de archivos — estas dos acciones son todo el mecanismo, y ninguno se ejecuta a menos que lo ejecute."
+  },
+  "kicker": {
+    "raw": "corpus · bandeja de entrada",
+    "wiki": "corpus · curado",
+    "subjectivity": "corpus · automodelo",
+    "output": "corpus · público",
+    "writings": "corpus · escritura",
+    "obsidian": "integraciones · vault"
+  },
+  "count": {
+    "unprocessed": "{n, plural, one {# sin procesar} other {# sin procesar}}",
+    "entries": "{n, plural, one {# entrada} other {# entradas}}",
+    "notes": "{n, plural, one {# nota} other {# notas}}",
+    "artifacts": "{n, plural, one {# artefacto} other {# artefactos}}",
+    "writings": "{n, plural, one {# escrito} other {# escritos}}",
+    "drafts": "{n, plural, one {# borrador} other {# borradores}}"
+  },
+  "action": {
+    "create": "crear",
+    "promote": "promover",
+    "saveEntry": "guardar entrada"
+  },
+  "filter": {
+    "all": "todos",
+    "unprocessed": "sin procesar",
+    "flaggedPrivate": "marcados privados",
+    "promoted": "promovidos"
+  },
+  "placeholder": {
+    "tags": "arquitectura, ia, indie",
+    "seoDescription": "resumen de una línea para og:description",
+    "rawDump": "Pega un pensamiento, un fragmento de un chat, una idea a medio formar.",
+    "writingSlug": "slug-de-url",
+    "writingTitle": "Título del escrito",
+    "writingExcerpt": "resumen de una línea (también el subtítulo de portada)",
+    "writingCoverHeadline": "Titular grande",
+    "writingTags": "separados, por comas"
+  },
+  "writingForm": {
+    "headingNew": "nuevo escrito",
+    "headingEdit": "editar / {slug}",
+    "statusPublished": "publicado",
+    "statusDraft": "borrador",
+    "actEdit": "editar",
+    "actPublish": "publicar",
+    "actUnpublish": "despublicar",
+    "actDelete": "eliminar",
+    "fieldSlug": "slug",
+    "fieldTitle": "título",
+    "fieldExcerpt": "extracto",
+    "fieldCoverHeadline": "titular de portada",
+    "fieldTags": "etiquetas",
+    "coverPreviewAlt": "vista previa de portada",
+    "noFileSelected": "ningún archivo seleccionado"
+  },
+  "toast": {
+    "wikiCreated": "Wiki creado",
+    "wikiUpdated": "Wiki actualizado",
+    "wikiDeleted": "Wiki eliminado",
+    "promotedToOutput": "Promovido a output",
+    "subjectivityCreated": "Nota de subjetividad creada",
+    "subjectivityUpdated": "Nota de subjetividad actualizada",
+    "outputCreated": "Output creado",
+    "outputUpdated": "Output actualizado",
+    "outputDeleted": "Output eliminado",
+    "rawUpdated": "Raw actualizado",
+    "rawDeleted": "Raw eliminado",
+    "promotedToWiki": "Promovido a wiki",
+    "obsidianImported": "Vault de Obsidian importado",
+    "writingDeleted": "Escrito eliminado",
+    "writingPublished": "Publicado",
+    "writingUnpublished": "Despublicado",
+    "writingSaved": "Escrito {slug} guardado"
+  },
+  "confirm": {
+    "deleteWiki": "¿Eliminar el wiki \"{title}\"?{warn} Esto no se puede deshacer.",
+    "deleteWikiChildren": "{n, plural, one { Esto también elimina su # entrada secundaria.} other { Esto también elimina sus # entradas secundarias.}}",
+    "deleteOutput": "¿Eliminar el output \"{title}\"? Esto no se puede deshacer.",
+    "deleteRaw": "¿Eliminar esta entrada raw? Esto no se puede deshacer."
+  },
+  "savedLine": {
+    "saved": "guardado",
+    "savedUnpinned": "guardado — anular la publicación también lo eliminó de {sections}"
   }
 }

@@ -11,7 +11,14 @@
     "register": "enregistrer →",
     "registered": "Source enregistrée",
     "remove": "supprimer",
-    "removed": "Source supprimée"
+    "removed": "Source supprimée",
+    "kicker": "emplois · sources",
+    "titleRegistered": "{count, plural, one {# enregistrée} other {# enregistrées}}",
+    "labelPlaceholder": "Tableau d'annonces",
+    "stateNever": "jamais récupéré",
+    "stateFetched": "dernier · {date}",
+    "stateFailed": "dernier essai · {date} · échec — {reason}",
+    "stateUnknownDate": "inconnu"
   },
   "listings": {
     "intro": "Emplois récupérés de vos sources enregistrées, détenus dans un bassin d'un jour. Demandez à Claude de les classer par rapport à votre corpus et de rédiger un CV pour ceux qui valent la peine de postuler. Tout ce que vous ne rédigez pas ou ne rejetez pas dans la journée retombe hors du bassin.",
@@ -19,7 +26,9 @@
     "emptyTitle": "D'abord, récupérez les emplois de vos sources.",
     "emptyHint": "Les offres sont récupérées automatiquement à l'ouverture de cette section — ou appuyez sur Récupérer maintenant. Les résultats restent ici une journée jusqu'à ce que vous les rédigiez ou les rejetiez.",
     "fetchNow": "récupérer maintenant",
-    "fetching": "récupération…"
+    "fetching": "récupération…",
+    "kicker": "emplois · annonces",
+    "titleInPool": "{count, plural, one {# dans le pool} other {# dans le pool}}"
   },
   "drafts": {
     "intro": "CV adaptés que Claude a rédigés pour les emplois auxquels vous avez dit oui. Ouvrez le compositeur pour modifier + prévisualiser ; <ink>envoyer</ink> gèle l'instantané, rend le PDF final (avec QR), et émet automatiquement un CodeAccès.",
@@ -39,7 +48,10 @@
     "newTitle": "Nouveau brouillon de CV",
     "newCompany": "entreprise",
     "newRole": "poste",
-    "newCreate": "créer le brouillon"
+    "newCreate": "créer le brouillon",
+    "kicker": "emplois · brouillons de cv",
+    "titlePending": "{count, plural, one {# en attente} other {# en attente}}",
+    "committed": "Candidature validée — CV envoyé avec son code d'accès"
   },
   "applications": {
     "searchPlaceholder": "rechercher par entreprise ou poste…",
@@ -53,7 +65,9 @@
     "open": "ouvrir ›",
     "metaCommitted": "engagée {date}",
     "metaSubmitted": "soumis {date}",
-    "metaNotSubmitted": "soumission non enregistrée"
+    "metaNotSubmitted": "soumission non enregistrée",
+    "kicker": "emplois · soumises",
+    "titleCommitted": "{count, plural, one {# soumise} other {# soumises}}"
   },
   "detail": {
     "kicker": "candidature · {id}",

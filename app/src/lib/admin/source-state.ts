@@ -21,16 +21,36 @@ export function sourceFailed(row: AdminSourceRow): boolean {
   return (row.last_error ?? '') !== '';
 }
 
-export function sourceStateLine(row: AdminSourceRow): string {
+// SourceStateView —— the three states, as data. The copy is looked up by kind
+// in the component (through next-intl); the lib layer doesn't touch next-intl.
+// `date` is '' when the timestamp is absent — the component substitutes the
+// "unknown" label there.
+export type SourceStateView =
+  | { kind: 'never' }
+  | { kind: 'fetched'; date: string }
+  | { kind: 'failed'; date: string; reason: string };
+
+export function sourceStateView(row: AdminSourceRow): SourceStateView {
   return sourceFailed(row)
-    ? `last try · ${dayOf(row.last_attempted_at)} · failed — ${row.last_error ?? ''}`
+    ? { kind: 'failed', date: dayOf(row.last_attempted_at), reason: row.last_error ?? '' }
     : lastFetched(row.last_fetched_at);
 }
 
-function lastFetched(iso: string | null | undefined): string {
-  return iso ? `last · ${iso.slice(0, 10)}` : 'never fetched';
+// viewDate / viewReason —— narrow the union here so the presentation layer
+// (which may not write `if`) can hand the pieces straight to next-intl. '' means
+// "absent"; the component turns an absent date into the localized "unknown".
+export function viewDate(view: SourceStateView): string {
+  return view.kind === 'never' ? '' : view.date;
+}
+
+export function viewReason(view: SourceStateView): string {
+  return view.kind === 'failed' ? view.reason : '';
+}
+
+function lastFetched(iso: string | null | undefined): SourceStateView {
+  return iso ? { kind: 'fetched', date: iso.slice(0, 10) } : { kind: 'never' };
 }
 
 function dayOf(iso: string | null | undefined): string {
-  return iso ? iso.slice(0, 10) : 'unknown';
+  return iso ? iso.slice(0, 10) : '';
 }

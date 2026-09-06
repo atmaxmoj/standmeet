@@ -72,7 +72,7 @@ function RevokeBtn({ token, deleteToken }: Props) {
   return (
     <button
       type="button"
-      onClick={() => { void run(() => deleteToken(token.id), { success: 'Key deleted' }); }}
+      onClick={() => { void run(() => deleteToken(token.id), { success: t('deletedToast') }); }}
       data-testid={`token-delete-${token.name}`}
       className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-faint) hover:text-(--color-accent)"
     >
