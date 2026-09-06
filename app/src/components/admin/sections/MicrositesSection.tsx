@@ -35,6 +35,10 @@ const HOMEPAGE_SLUG = 'home';
 // title and "edit" action link there.
 export function MicrositesSection() {
   const hook = useMicrosites();
+  // The homepage is NOT one row among the /p/<slug> pages: it's served at the site root `/` (the
+  // owner's domain), so it gets its own card above and is filtered out of the table below.
+  const home = hook.rows.find((r) => r.slug === HOMEPAGE_SLUG);
+  const others = hook.rows.filter((r) => r.slug !== HOMEPAGE_SLUG);
   return (
     <>
       <SectionHeader
@@ -46,36 +50,66 @@ export function MicrositesSection() {
         // Only visible on a real-prod eyeball check.
         kicker="resources · microsites"
         slug="microsites"
-        count={hook.rows.length > 0 ? String(hook.rows.length) : ''}
+        count={others.length > 0 ? String(others.length) : ''}
       />
       <Intro />
-      <HomepageCard />
+      <HomepageCard home={home} />
       <NewPageButton />
-      <MicrositesBody hook={hook} />
+      <MicrositesBody hook={hook} rows={others} />
     </>
   );
 }
 
-// HomepageCard — a dedicated, always-present entry to edit the homepage microsite
-// (served at `/`). The `home` page is otherwise just another row in the list — easy to
-// miss, and a fresh instance's default home may not be in the list at all — so this gives
-// the owner one obvious place to open it in the editor, regardless of the list below.
-function HomepageCard() {
+// HomepageCard — the homepage's own card, above the pages table. The homepage is special: it is
+// served at the site root `/` (the owner's domain, e.g. sijie.xyz), never at /p/home, so it does
+// not belong in the same table as the other /p/<slug> pages. All of its actions live here —
+// edit / view live (→ `/`) / take down / delete. `home` may be absent on a brand-new instance
+// before the default install finishes; the edit entry is always shown, the live/take-down/delete
+// actions appear only once the page exists.
+function HomepageCard({ home }: { home: MicrositeSummary | undefined }) {
+  const t = useTranslations('adminPages.microsites');
+  return (
+    <div
+      className="mb-6 flex items-baseline justify-between gap-3 border border-(--color-rule) rounded-[3px] px-4 py-3"
+      data-testid="microsite-homepage-card"
+    >
+      <span className="min-w-0">
+        <span className="block font-serif text-[16px] text-(--color-ink)">{t('homepage.title')}</span>
+        <span className="block mono text-[11px] text-(--color-muted) mt-0.5">{t('homepage.hint')}</span>
+      </span>
+      <span className="text-right whitespace-nowrap shrink-0">
+        <HomepageEditLink />
+        <HomepageLiveActions home={home} />
+      </span>
+    </div>
+  );
+}
+
+// HomepageEditLink — the always-present edit entry (keeps the `microsite-edit-homepage` testid the
+// owner-homepage-edit-entry guard relies on). Links into the same mini-IDE at /admin/edit/home.
+function HomepageEditLink() {
   const t = useTranslations('adminPages.microsites');
   return (
     <Link
       href={`/admin/edit/${HOMEPAGE_SLUG}`}
-      className="mb-6 flex items-baseline justify-between gap-3 border border-(--color-rule) rounded-[3px] px-4 py-3 hover:border-(--color-ink) transition-colors"
+      className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-accent) hover:underline"
     >
-      <span className="min-w-0" data-testid="microsite-edit-homepage">
-        <span className="block font-serif text-[16px] text-(--color-ink)">{t('homepage.title')}</span>
-        <span className="block mono text-[11px] text-(--color-muted) mt-0.5">{t('homepage.hint')}</span>
-      </span>
-      <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) shrink-0">
-        {t('homepage.edit')}
-      </span>
+      <span data-testid="microsite-edit-homepage">{t('edit')}</span>
     </Link>
   );
+}
+
+// HomepageLiveActions — view live / take down / delete, reusing the same action components as the
+// table rows. ViewLiveLink already points the homepage at `/` (not /p/home). Only shown once the
+// `home` page actually exists.
+function HomepageLiveActions({ home }: { home: MicrositeSummary | undefined }) {
+  return home !== undefined ? (
+    <>
+      <ViewLiveLink page={home} />
+      <TakeDownLink page={home} />
+      <DeleteLink slug={home.slug} />
+    </>
+  ) : null;
 }
 
 // NewPageButton — start a fresh page in the editor route (create-on-save).
@@ -99,14 +133,14 @@ function Intro() {
   );
 }
 
-function MicrositesBody({ hook }: { hook: MicrositesHook }) {
+function MicrositesBody({ hook, rows }: { hook: MicrositesHook; rows: readonly MicrositeSummary[] }) {
   const map = {
     loading: <ListSkeleton count={3} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState />,
-    list: <MicrositesTable rows={hook.rows} />,
+    list: <MicrositesTable rows={rows} />,
   } as const;
-  return map[pickMicrositesBodyState(hook)];
+  return map[pickMicrositesBodyState(hook, rows)];
 }
 
 function ErrorBlock({ message }: { message: string }) {
@@ -272,7 +306,6 @@ function PageCell({ page }: { page: MicrositeSummary }) {
         className="block hover:opacity-70"
       >
         <span data-testid={`microsite-open-${page.slug}`} className="font-serif text-[16px] text-(--color-ink)">{page.title}</span>
-        <HomepageBadge slug={page.slug} />
         <span className="block mono text-[10px] text-(--color-faint) mt-0.5">
           {t('slugPath', { slug: page.slug })}
         </span>
@@ -280,21 +313,6 @@ function PageCell({ page }: { page: MicrositeSummary }) {
     </td>
   );
 }
-
-// HomepageBadge — marks the reserved `home` page, the one served at `/` (owner: "标注这个是
-// homepage"). Only that one row carries it.
-function HomepageBadge({ slug }: { slug: string }) {
-  const t = useTranslations('adminPages.microsites');
-  return slug === HOMEPAGE_SLUG ? (
-    <span
-      data-testid="microsite-homepage-badge"
-      className="ml-2 align-middle mono text-[8.5px] tracking-[0.14em] uppercase px-1.5 py-0.5 border border-(--color-accent) text-(--color-accent) rounded-[2px]"
-    >
-      {t('homepageBadge')}
-    </span>
-  ) : null;
-}
-
 
 type BuildKey = keyof typeof BUILD_TONE_MAP;
 

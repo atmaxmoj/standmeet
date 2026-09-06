@@ -9,7 +9,7 @@
 //   live).
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -53,17 +53,19 @@ interface PagePayload {
   title: string;
 }
 
+async function initOwner(playwright: Playwright): Promise<void> {
+  resetInstance();
+  const request = await playwright.request.newContext();
+  await claim(request, findSetupToken(), {
+    email: OWNER.email, password: OWNER.password,
+    handle: OWNER.handle, fullName: OWNER.fullName,
+  });
+  await request.dispose();
+}
+
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('owner publishes custom React page; visitor lands on it', () => {
-  test.beforeAll(async ({ playwright }) => {
-    resetInstance();
-    const request = await playwright.request.newContext();
-    await claim(request, findSetupToken(), {
-      email: OWNER.email, password: OWNER.password,
-      handle: OWNER.handle, fullName: OWNER.fullName,
-    });
-    await request.dispose();
-  });
+  test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('MCP create + write_file + build + promote_to_live → visitor sees React content',
     async ({ playwright, adminPage: page }) => {
@@ -102,23 +104,23 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
       await expect(page.getByTestId('microsite-publish')).toBeEnabled();
     });
 
-  // The redesign: /admin/microsites is JUST the list; it marks the reserved `home` page, and
-  // clicking a page navigates to that page's OWN editor route (/admin/edit/<slug>) — a mini-IDE
-  // with the page's files — instead of the old "every page rendered inline + one editor at the
-  // bottom".
-  test('the list marks the homepage, and opening a page navigates to its own editor',
+  // /admin/microsites is JUST the list; the homepage is special (served at the site root `/`, the
+  // owner's domain), so it lives in its own card above the table — never a row among the /p/<slug>
+  // pages. Opening a page goes to its own editor route (/admin/edit/<slug>), a mini-IDE.
+  test('the homepage has its own card (not a table row), and opening a page navigates to its own editor',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'microsites');
       await page.waitForURL('**/admin/microsites', { timeout: 10_000 });
       await expect(
-        page.getByTestId('microsite-homepage-badge'), 'the home page is marked in the list',
+        page.getByTestId('microsite-homepage-card'), 'the homepage has its own card',
       ).toBeVisible();
-      // The row links into the page's own editor route (the redesign: /admin/microsites is just
-      // the list; opening a page goes to /admin/edit/<slug>). Assert the wiring on the anchor,
-      // then that the route is the editor with the page's files — this decouples the check from
-      // the client-side nav's timing, which flakes when the list is re-rendering under build load.
-      const opener = page.getByTestId('microsite-open-home');
-      await expect(opener.locator('xpath=ancestor::a'), 'the row opens the page editor')
+      await expect(
+        page.getByTestId('microsite-row-home'), 'the homepage is NOT a row in the pages table',
+      ).toHaveCount(0);
+      // The card's edit entry links into the homepage's own editor route (assert the anchor, then
+      // the route loads the editor with the page's files — decoupled from flaky client-nav timing).
+      const edit = page.getByTestId('microsite-edit-homepage');
+      await expect(edit.locator('xpath=ancestor::a'), 'the card opens the homepage editor')
         .toHaveAttribute('href', /\/admin\/edit\/home$/);
       await goto(page, '/admin/edit/home');
       await expect(

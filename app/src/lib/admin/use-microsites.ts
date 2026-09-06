@@ -288,14 +288,20 @@ async function setByoai(slug: string, allow: boolean): Promise<void> {
   await micrositesStore.getState().refresh();
 }
 
-export function pickMicrositesBodyState(hook: MicrositesHook): MicrositesBodyState {
+// rows defaults to hook.rows, but the section passes the homepage-filtered rows: the homepage is
+// pulled out into its own card, so an instance with only a `home` page has an empty *table* and
+// must show the empty state, not a list with the home row stripped out to nothing.
+export function pickMicrositesBodyState(
+  hook: MicrositesHook,
+  rows: readonly MicrositeSummary[] = hook.rows,
+): MicrositesBodyState {
   // Once there's data, the list keeps showing — a background refresh flips
   // status to 'loading', and if the list were swapped for a skeleton then, the
   // whole row (preview iframe included) would unmount and remount → the preview
   // flickering and reloading on every refetch (pentest / owner feedback
   // 2026-09-01). The skeleton belongs only to the **first load** (before any
   // data exists); a background refresh shouldn't interrupt what's already being viewed.
-  if (hook.rows.length > 0) return 'list';
+  if (rows.length > 0) return 'list';
   if (hook.status === 'idle' || hook.status === 'loading') return 'loading';
   if (hook.status === 'error') return 'error';
   return 'empty';

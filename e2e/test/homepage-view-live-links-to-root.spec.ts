@@ -42,12 +42,13 @@ test.describe('homepage · the microsites list links its live view at `/`', () =
     await request.dispose();
   });
 
-  test('the home row view-live link is `/`, and it serves the homepage (not "asset not found")',
+  test('the homepage card view-live link is `/`, and it serves the homepage (not "asset not found")',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'microsites');
-      const link = page.locator('[data-testid="microsite-row-home"]')
+      // The homepage lives in its own card now (not a table row) — its view-live link is there.
+      const link = page.locator('[data-testid="microsite-homepage-card"]')
         .getByRole('link', { name: 'view live ↗' });
-      await expect(link, 'the home row shows a live-view link').toBeVisible({ timeout: 20_000 });
+      await expect(link, 'the homepage card shows a live-view link').toBeVisible({ timeout: 20_000 });
 
       // The homepage is served at `/`, never /p/home.
       await expect(link, 'home links at the root, not /p/home').toHaveAttribute('href', '/');
