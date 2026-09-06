@@ -298,7 +298,7 @@ func buildPublicSEODeps(d *deps.Runtime) publicroutes.SEOHandlers {
 		Deps: owner.SEODeps{
 			Owners: d.OwnerRepo, SEO: d.SEORepo,
 			Wiki: d.WikiRepo, Output: d.OutputRepo,
-			NoteRefs: d.NoteRefRepo,
+			Microsites: d.MicrositeRepo, NoteRefs: d.NoteRefRepo,
 			// Assets: the reader resolves standmeet-asset references in the body into URLs.
 			Media: &corpus.NoteAssetsDeps{
 				Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},

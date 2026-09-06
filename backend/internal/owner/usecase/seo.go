@@ -16,11 +16,13 @@ import (
 // SEODeps — what the SEO usecases need. Wiki/Output load the full tree and compute public
 // landing addresses (pure tree derivation; doesn't read the retired path column).
 type SEODeps struct {
-	Owners   *repo.Repo
-	SEO      *corpus.SEORepo
-	Wiki     *corpus.WikiRepo
-	Output   *corpus.OutputRepo
-	NoteRefs *corpus.NoteRefRepo
+	Owners *repo.Repo
+	SEO    *corpus.SEORepo
+	Wiki   *corpus.WikiRepo
+	Output *corpus.OutputRepo
+	// Microsites — the owner's custom pages, so the sitemap can list live ones at /p/<slug>.
+	Microsites *repo.MicrositeRepo
+	NoteRefs   *corpus.NoteRefRepo
 	// Media — assets attached to this corpus entry. Any genre can have some, so the reader
 	// must resolve `standmeet-asset:<id>` refs in the body into reachable addresses, or the
 	// visitor sees a URI that renders as nothing. Used to travel only through the writing

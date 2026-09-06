@@ -104,6 +104,7 @@ func sitemapURLs(ctx context.Context, deps owner.SEODeps) []sitemapURL {
 	out := []sitemapURL{{Loc: soleOwner.PublicURL}}
 	out = appendLandings(out, soleOwner.PublicURL, "wiki", owner.IndexedWikiLandings(ctx, deps))
 	out = appendLandings(out, soleOwner.PublicURL, "output", owner.IndexedOutputLandings(ctx, deps))
+	out = appendLandings(out, soleOwner.PublicURL, "p", owner.IndexedMicrosites(ctx, deps))
 	return out
 }
 
