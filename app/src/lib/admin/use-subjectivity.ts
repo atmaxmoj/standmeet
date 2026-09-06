@@ -14,11 +14,18 @@ import { z } from 'zod';
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 
+// One shape for BOTH sources so CorpusTreeGrid can treat subjectivity like wiki: the flat list
+// (/corpus/subjectivity) carries preview; the lazy tree (/corpus/subjectivity/tree) carries
+// has_children / parent_id / path. Each defaults the fields the other omits, so one schema parses
+// both.
 export const SubjectivitySummarySchema = z.object({
   id: z.string(),
   title: z.string(),
   preview: z.string().nullish().transform((v) => v ?? ''),
   tags: z.array(z.string()).nullish().transform((v) => v ?? []),
+  has_children: z.boolean().nullish().transform((v) => v ?? false),
+  parent_id: z.string().nullish(),
+  path: z.string().nullish(),
 });
 export type SubjectivityEntry = z.infer<typeof SubjectivitySummarySchema>;
 
@@ -26,6 +33,13 @@ export const subjectivityStore = createResourceStore<SubjectivityEntry[]>({
   name: 'subjectivity',
   fetcher: () => adminAPI.get('/corpus/subjectivity', z.array(SubjectivitySummarySchema)),
 });
+
+// loadSubjectivityTreeChildren —— one lazy layer of the subjectivity tree (empty parent = roots),
+// the same shape wiki/output/raw use, so CorpusTreeGrid renders it identically.
+export function loadSubjectivityTreeChildren(parentID: string): Promise<SubjectivityEntry[]> {
+  const qs = parentID ? `?parent=${encodeURIComponent(parentID)}` : '';
+  return adminAPI.get(`/corpus/subjectivity/tree${qs}`, z.array(SubjectivitySummarySchema));
+}
 
 export interface SubjectivityHook {
   rows: readonly SubjectivityEntry[];

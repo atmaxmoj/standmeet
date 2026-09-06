@@ -12,15 +12,21 @@ import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { Chip } from '@/components/admin/atoms/Chip';
+import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
+import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { CorpusAssetsPanel } from '@/components/admin/sections/corpus/CorpusAssetsPanel';
 import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
+import { useCorpusView } from '@/lib/admin/corpus-view';
 import {
   useCorpusActions, type CorpusActionsHook, type CorpusEntryInput,
 } from '@/lib/admin/use-corpus-actions';
 import { useSubjectivityDetail } from '@/lib/admin/use-corpus-detail';
 import { runWith } from '@/lib/admin/use-corpus-form';
-import { useSubjectivity, type SubjectivityEntry } from '@/lib/admin/use-subjectivity';
+import {
+  useSubjectivity, loadSubjectivityTreeChildren, type SubjectivityEntry,
+} from '@/lib/admin/use-subjectivity';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function SubjectivitySection() {
@@ -107,9 +113,32 @@ function Body(
     loading: <ListSkeleton count={3} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState />,
-    list: <NoteList rows={hook.rows} actions={actions} />,
+    list: <ReadyBody hook={hook} actions={actions} />,
   } as const;
   return map[hook.state];
+}
+
+// ReadyBody —— the tree/grid, same as wiki/output/raw: a lazy hierarchy from
+// /corpus/subjectivity/tree (tree view) or the flat card wall over the loaded rows (grid view).
+function ReadyBody(
+  { hook, actions }: { hook: SubjectivityHookT; actions: CorpusActionsHook },
+) {
+  const [view, setView] = useCorpusView('subjectivity');
+  return (
+    <>
+      <div className="flex justify-end mb-4">
+        <CorpusViewToggle view={view} onChange={setView} />
+      </div>
+      <CorpusTreeGrid
+        view={view} rows={hook.rows} testid="subjectivity-list"
+        rowTestid={(r) => `subjectivity-row-${r.id}`}
+        loadChildren={loadSubjectivityTreeChildren}
+        renderCard={(row, { hasChildren }) => (
+          <NoteCard row={row} actions={actions} hasChildren={hasChildren} />
+        )}
+      />
+    </>
+  );
 }
 
 function ErrorBlock({ message }: { message: string }) {
@@ -132,32 +161,45 @@ function EmptyState() {
   );
 }
 
-function NoteList(
-  { rows, actions }: { rows: readonly SubjectivityEntry[]; actions: CorpusActionsHook },
-) {
-  return (
-    <ul className="space-y-4" data-testid="subjectivity-list">
-      {rows.map((row) => <NoteRow key={row.id} row={row} actions={actions} />)}
-    </ul>
-  );
-}
-
-function NoteRow(
-  { row, actions }: { row: SubjectivityEntry; actions: CorpusActionsHook },
+// NoteCard —— one node in the tree/grid (CorpusTreeGrid wraps it with the row testid + indent).
+// hasChildren shows the same ▾ marker wiki uses; edit is inline.
+function NoteCard(
+  { row, actions, hasChildren }: {
+    row: SubjectivityEntry; actions: CorpusActionsHook; hasChildren: boolean;
+  },
 ) {
   const [editing, setEditing] = useState(false);
   return (
-    <li
-      className="border border-(--color-rule) p-4 bg-(--color-surface)/30 rounded-sm"
-      data-testid={`subjectivity-row-${row.id}`}
-    >
+    <article className="border-t border-(--color-rule) pt-4">
       <div className="flex items-baseline justify-between gap-4">
-        <span className="reading-tight text-[16px] text-(--color-ink)">{row.title}</span>
+        <h3 className="font-serif text-[18px] font-normal leading-[1.25] text-(--color-ink) m-0 flex-1">
+          {row.title}
+          {hasChildren ? (
+            <span className="ml-2 mono text-[9.5px] tracking-[0.08em] text-(--color-faint) align-middle">
+              {'▾'}
+            </span>
+          ) : null}
+        </h3>
         <EditToggle open={editing} onClick={() => setEditing(!editing)} id={row.id} />
       </div>
-      <p className="reading-tight text-[13px] text-(--color-muted) mt-1">{row.preview}</p>
+      <NotePreview preview={row.preview} />
+      <NoteTags tags={row.tags} />
       {editing ? <EditForm row={row} actions={actions} onDone={() => setEditing(false)} /> : null}
-    </li>
+    </article>
+  );
+}
+
+function NotePreview({ preview }: { preview: string }) {
+  return preview ? (
+    <p className="reading-tight text-[13px] text-(--color-muted) mt-1 line-clamp-2">{preview}</p>
+  ) : null;
+}
+
+function NoteTags({ tags }: { tags: readonly string[] }) {
+  return tags.length === 0 ? null : (
+    <div className="flex flex-wrap gap-1.5 mt-2">
+      {tags.map((t) => <Chip key={t}>{t}</Chip>)}
+    </div>
   );
 }
 
