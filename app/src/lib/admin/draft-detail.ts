@@ -88,18 +88,15 @@ export function toDraftModel(
     skills: rc.skills.flatMap((s) => s.items),
     experience: rc.works.map((w, i) => ({
       id: `e-${i}`, org: w.company, role: w.title,
-      range: fmtPeriod(w.period), loc: w.location, bullets: w.bullets,
+      start: w.period.start, end: w.period.end ?? '', loc: w.location, bullets: w.bullets,
     })),
     education: rc.educations.map((e, i) => ({
-      id: `ed-${i}`, school: e.school, degree: e.degree, range: fmtPeriod(e.period),
+      id: `ed-${i}`, school: e.school, degree: e.degree,
+      start: e.period.start, end: e.period.end ?? '',
     })),
     social: rc.social.map((s, i) => ({ id: `s-${i}`, kind: s.kind, handle: s.handle })),
     custom: rc.custom.map((c, i) => ({ id: `c-${i}`, label: c.label, value: c.value })),
     coverLetter: rc.cover_letter,
     template: d.template ?? '',
   };
-}
-
-function fmtPeriod(p: { start: string; end?: string | null }): string {
-  return p.end ? `${p.start} — ${p.end}` : `${p.start} — present`;
 }

@@ -38,7 +38,8 @@ export interface DraftExperience {
   id: string;
   org: string;
   role: string;
-  range: string;     // YYYY-MM — YYYY-MM | 'present'
+  start: string;     // YYYY-MM (free text)
+  end: string;       // YYYY-MM; empty → renders "present"
   loc: string;
   bullets: readonly string[];
 }
@@ -47,7 +48,8 @@ export interface DraftEducation {
   id: string;
   school: string;
   degree: string;
-  range: string;
+  start: string;
+  end: string;
 }
 
 export interface DraftSocial {
@@ -201,13 +203,13 @@ export function draftToResumeContent(m: DraftModel): ResumeContent {
       title: e.role,
       company: e.org,
       location: e.loc,
-      period: parseRange(e.range),
+      period: mkPeriod(e.start, e.end),
       bullets: [...e.bullets].filter((b) => b.trim() !== ''),
     })),
     educations: m.education.map((e) => ({
       school: e.school,
       degree: e.degree,
-      period: parseRange(e.range),
+      period: mkPeriod(e.start, e.end),
     })),
     skills: [{ category: '', items: [...m.skills] }],
     social: m.social
@@ -233,11 +235,11 @@ export function draftToAPIContent(m: DraftModel): Record<string, unknown> {
     summary: m.summary,
     cover_letter: m.coverLetter,
     works: m.experience.map((e) => ({
-      period: parseRange(e.range), title: e.role, company: e.org,
+      period: mkPeriod(e.start, e.end), title: e.role, company: e.org,
       location: e.loc, bullets: [...e.bullets],
     })),
     educations: m.education.map((e) => ({
-      period: parseRange(e.range), school: e.school, degree: e.degree,
+      period: mkPeriod(e.start, e.end), school: e.school, degree: e.degree,
     })),
     skills: [{ category: '', items: [...m.skills] }],
     social: m.social.map((s) => ({ kind: s.kind, label: s.kind, handle: s.handle })),
@@ -249,13 +251,11 @@ export function draftToJobContext(m: DraftModel): JobContext {
   return { role: m.role, company: m.company };
 }
 
-// parseRange —— "YYYY-MM — YYYY-MM | present" → { start, end }.
-// Tolerates extra spaces and either em-dash or hyphen. Empty / unparseable
-// → empty start (ResumePage's formatPeriod renders "—" gracefully).
-function parseRange(raw: string): { start: string; end: string | null } {
-  const cleaned = raw.replace(/—/g, '-').replace(/\s+/g, ' ').trim();
-  const parts = cleaned.split(/\s-\s/).map((s) => s.trim());
-  const start = parts[0] ?? '';
-  const rawEnd = parts[1] ?? '';
-  return { start, end: rawEnd === '' || rawEnd.toLowerCase() === 'present' ? null : rawEnd };
+// mkPeriod —— the composer's two date inputs → ResumePeriod. Empty end → null, which the template
+// renders as "present". No parsing: start and end are separate fields now (a single "range" string
+// could never express `end`, so an ended role always printed "present" — the composer's period was
+// lossy where the résumé content and the Typst template both carry start+end).
+function mkPeriod(start: string, end: string): { start: string; end: string | null } {
+  const e = end.trim();
+  return { start: start.trim(), end: e === '' || e.toLowerCase() === 'present' ? null : e };
 }

@@ -38,10 +38,19 @@ export function ExperienceItem({
             className="sm-field-input"
           />
         </Field>
-        <Field label="range">
+        <Field label="from">
           <input
-            type="text" value={exp.range}
-            onChange={(e) => onPatch(exp.id, { range: e.target.value })}
+            type="text" value={exp.start} placeholder="YYYY-MM"
+            data-testid={`composer-exp-from-${exp.id}`}
+            onChange={(e) => onPatch(exp.id, { start: e.target.value })}
+            className="sm-field-input sm-mono"
+          />
+        </Field>
+        <Field label="to" hint="empty → present">
+          <input
+            type="text" value={exp.end} placeholder="present"
+            data-testid={`composer-exp-to-${exp.id}`}
+            onChange={(e) => onPatch(exp.id, { end: e.target.value })}
             className="sm-field-input sm-mono"
           />
         </Field>
@@ -83,11 +92,20 @@ export function EducationItem({
           className="sm-field-input"
         />
       </Field>
-      <Field label="range">
+      <Field label="from">
         <input
-          type="text" value={edu.range}
-          onChange={(e) => onPatch(edu.id, { range: e.target.value })}
-          className="sm-field-input sm-mono col-span-2"
+          type="text" value={edu.start} placeholder="YYYY-MM"
+          data-testid={`composer-edu-from-${edu.id}`}
+          onChange={(e) => onPatch(edu.id, { start: e.target.value })}
+          className="sm-field-input sm-mono"
+        />
+      </Field>
+      <Field label="to" hint="empty → present">
+        <input
+          type="text" value={edu.end} placeholder="present"
+          data-testid={`composer-edu-to-${edu.id}`}
+          onChange={(e) => onPatch(edu.id, { end: e.target.value })}
+          className="sm-field-input sm-mono"
         />
       </Field>
     </div>

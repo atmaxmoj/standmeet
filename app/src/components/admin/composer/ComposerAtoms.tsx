@@ -70,11 +70,11 @@ export function AddBtn(
 }
 
 export function blankExperience(n: number): DraftExperience {
-  return { id: `e-new-${String(n)}`, org: '', role: '', range: '', loc: '', bullets: [] };
+  return { id: `e-new-${String(n)}`, org: '', role: '', start: '', end: '', loc: '', bullets: [] };
 }
 
 export function blankEducation(n: number): DraftEducation {
-  return { id: `ed-new-${String(n)}`, school: '', degree: '', range: '' };
+  return { id: `ed-new-${String(n)}`, school: '', degree: '', start: '', end: '' };
 }
 
 // REMOVE_GLYPH —— a module const so the ✕ isn't a bare JSX literal (i18next/no-literal-string).
