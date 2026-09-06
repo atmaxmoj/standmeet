@@ -19,6 +19,7 @@ import {
   CustomItem, EducationItem, ExperienceItem, SocialItem,
 } from '@/components/admin/composer/ComposerItems';
 import { ReorderableRows } from '@/components/admin/composer/ReorderableRows';
+import { SelectField } from '@/components/atoms/SelectField';
 import {
   reorder,
   type DraftCustom,
@@ -120,6 +121,7 @@ function HeaderPanel({ model, onPatch }: Props) {
         />
       </Field>
       <AccentField model={model} onPatch={onPatch} />
+      <FontSizeField model={model} onPatch={onPatch} />
     </Section>
   );
 }
@@ -138,6 +140,35 @@ function AccentField({ model, onPatch }: {
         onChange={(e) => onPatch({ accent: e.target.value })}
         className="h-8 w-16 cursor-pointer bg-transparent"
       />
+    </Field>
+  );
+}
+
+// FONT_SCALES —— the selectable whole-résumé font-size multipliers. A number (not S/M/L) so the
+// template just multiplies every size by it; 1 = the template's default.
+const FONT_SCALES: readonly { label: string; scale: number }[] = [
+  { label: 'compact', scale: 0.9 },
+  { label: 'normal', scale: 1 },
+  { label: 'large', scale: 1.1 },
+  { label: 'x-large', scale: 1.25 },
+];
+
+// FontSizeField —— the owner's font-size choice, scaling the whole résumé (read by the template as
+// data.font_scale). A select, not a slider: a small fixed set keeps the layout predictable.
+function FontSizeField({ model, onPatch }: {
+  model: DraftModel; onPatch: (p: Partial<DraftModel>) => void;
+}) {
+  return (
+    <Field label="font size" hint="scales the whole résumé">
+      <SelectField
+        value={String(model.fontScale)}
+        testid="composer-font-size"
+        onChange={(e) => onPatch({ fontScale: Number(e.target.value) })}
+      >
+        {FONT_SCALES.map((f) => (
+          <option key={f.scale} value={String(f.scale)}>{f.label}</option>
+        ))}
+      </SelectField>
     </Field>
   );
 }

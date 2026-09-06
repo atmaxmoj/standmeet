@@ -16,6 +16,12 @@
 #let muted = rgb("#5F564B")
 #let faint = rgb("#9B9282")
 
+// fs — owner-chosen font-size multiplier (data.font_scale; absent/0 → 1); every text size is scaled
+// by it (sz) so the whole résumé grows/shrinks proportionally. Matches classic.typ.
+#let fs-raw = data.at("font_scale", default: 1.0)
+#let fs = if fs-raw == 0 { 1.0 } else { fs-raw }
+#let sz(s) = s * fs
+
 #set page(
   width: 8.5in, height: 11in,
   margin: (x: 0.75in, top: 0.6in, bottom: 0.6in),
@@ -23,15 +29,15 @@
   // No footer: the access URL lives in the header QR, not a bottom-right text line (read as a
   // watermark). Dropping it also removes the page-number line.
 )
-#set text(font: ("Newsreader", "Georgia", "Noto Serif CJK SC"), fill: ink, size: 10pt)
+#set text(font: ("Newsreader", "Georgia", "Noto Serif CJK SC"), fill: ink, size: sz(10pt))
 #set par(leading: 0.55em)
 
-#let mono(size: 8pt, fill: muted, body) = text(
+#let mono(size: sz(8pt), fill: muted, body) = text(
   font: ("JetBrains Mono", "Menlo", "Noto Sans Mono CJK SC"), size: size, fill: fill,
 )[#body]
 
 #let sechead(title) = block(above: 11pt, below: 5pt)[
-  #mono(size: 8.5pt, fill: accent)[#upper(title)]
+  #mono(size: sz(8.5pt), fill: accent)[#upper(title)]
   #v(-3pt)
   #line(length: 100%, stroke: 0.5pt + rule)
 ]
@@ -68,10 +74,10 @@
 
 // header — centered name, single meta line
 #align(center)[
-  #edit-anchor("identity.name")#text(size: 22pt, weight: 500)[#lower(idy.name)]
+  #edit-anchor("identity.name")#text(size: sz(22pt), weight: 500)[#lower(idy.name)]
   #v(2pt)
-  #if role != "" [ #mono(size: 9pt, fill: ink)[#role#if company != "" [ · #company]] \ ]
-  #mono(size: 8pt)[
+  #if role != "" [ #mono(size: sz(9pt), fill: ink)[#role#if company != "" [ · #company]] \ ]
+  #mono(size: sz(8pt))[
     #idy.email #h(5pt)·#h(5pt) #idy.phone #h(5pt)·#h(5pt) #idy.location_line #if idy.at("site", default: "") != "" [#h(5pt)·#h(5pt) #idy.site]
   ]
 ]
@@ -88,11 +94,11 @@
   #for (i, w) in data.works.enumerate() [
     #row-anchor("works", i)
     #grid(columns: (1fr, auto), align: (left, right),
-      text(size: 11pt, weight: 500)[#w.title #text(size: 9.5pt, fill: accent)[· #w.company]],
-      mono(size: 7.5pt, fill: faint)[#period(w.period)])
+      text(size: sz(11pt), weight: 500)[#w.title #text(size: sz(9.5pt), fill: accent)[· #w.company]],
+      mono(size: sz(7.5pt), fill: faint)[#period(w.period)])
     #v(1pt)
     #for b in w.bullets [
-      #grid(columns: (12pt, 1fr), text(fill: faint)[•], text(size: 9.5pt)[#b])
+      #grid(columns: (12pt, 1fr), text(fill: faint)[•], text(size: sz(9.5pt))[#b])
       #v(1pt)
     ]
     #v(6pt)
@@ -104,8 +110,8 @@
   #for (i, e) in data.at("educations", default: ()).enumerate() [
     #row-anchor("educations", i)
     #grid(columns: (1fr, auto), align: (left, right),
-      text(size: 10pt, weight: 500)[#e.school #text(size: 9pt, fill: muted)[— #e.degree]],
-      mono(size: 7.5pt, fill: faint)[#period(e.period)])
+      text(size: sz(10pt), weight: 500)[#e.school #text(size: sz(9pt), fill: muted)[— #e.degree]],
+      mono(size: sz(7.5pt), fill: faint)[#period(e.period)])
     #v(3pt)
   ]
 ]
@@ -113,7 +119,7 @@
 #if data.at("skills", default: ()).any(s => s.items.len() > 0) [
   #sechead("skills")
   #for s in data.at("skills", default: ()) [
-    #mono(size: 8pt, fill: ink)[#s.category:] #text(size: 9.5pt)[ #s.items.join("  ·  ")] \
+    #mono(size: sz(8pt), fill: ink)[#s.category:] #text(size: sz(9.5pt))[ #s.items.join("  ·  ")] \
   ]
 ]
 
@@ -124,7 +130,7 @@
     #v(3pt) #line(length: 100%, stroke: 0.5pt + rule) #v(3pt)
   ] else if c.label != "" and c.value != "" [
     #sechead(c.label)
-    #text(size: 9.5pt)[#c.value]
+    #text(size: sz(9.5pt))[#c.value]
   ]
 ]
 
@@ -132,7 +138,7 @@
 #if data.at("cover_letter", default: "") != "" [
   #pagebreak()
   #v(18pt)
-  #align(center)[#text(size: 19pt, weight: 500)[to #if company != "" [#lower(company)] else [you].]]
+  #align(center)[#text(size: sz(19pt), weight: 500)[to #if company != "" [#lower(company)] else [you].]]
   #v(10pt)
   #par(justify: false, leading: 0.65em)[#data.cover_letter]
 ]

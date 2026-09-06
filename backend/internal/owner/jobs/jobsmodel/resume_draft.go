@@ -20,26 +20,28 @@ import (
 // ResumeDraft — a DB-backed draft row (jsonb job_snapshot + resume_content already
 // decoded into their domain types).
 type ResumeDraft struct {
-	CreatedAt     time.Time
-	ExpiresAt     time.Time
-	ResumeContent ResumeContent
-	ID            string
-	OwnerID       string
-	JobCacheID    string
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+	ID         string
+	OwnerID    string
+	JobCacheID string
 	// Template — the Typst layout this draft picked ('' = default classic). A
 	// customization choice, carried into the PDF at commit.
 	Template    string
 	JobSnapshot FetchedJob
+	// ResumeContent last (trailing non-pointer float64 → minimal pointer-scan prefix).
+	ResumeContent ResumeContent
 }
 
 // CreateResumeDraftInput — the usecase-layer input for draft.create (the job snapshot has
 // already been pulled from the Redis pool and injected by the caller).
 type CreateResumeDraftInput struct {
+	OwnerID     string
+	JobCacheID  string
+	Template    string
+	JobSnapshot FetchedJob
+	// ResumeContent last (trailing non-pointer float64 → minimal pointer-scan prefix).
 	ResumeContent ResumeContent
-	OwnerID       string
-	JobCacheID    string
-	Template      string
-	JobSnapshot   FetchedJob
 }
 
 // ResumeDraft-scoped sentinels.

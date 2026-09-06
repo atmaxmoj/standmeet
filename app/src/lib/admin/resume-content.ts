@@ -60,4 +60,5 @@ export interface ResumeContent {
   social?: readonly ResumeSocial[];
   custom?: readonly ResumeCustom[];
   accent?: string; // owner-chosen accent colour (#RRGGBB); empty/absent → template default
+  fontScale?: number; // owner-chosen font-size multiplier (1 = default); scales the whole résumé
 }

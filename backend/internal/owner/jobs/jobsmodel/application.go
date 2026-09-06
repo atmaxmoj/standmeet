@@ -30,32 +30,36 @@ type Application struct {
 	Status       string
 	// Template — which Typst layout this resume uses ('' = default classic).
 	// A customization option.
-	Template      string
+	Template    string
+	JobSnapshot FetchedJob
+	// ResumeContent is last: its trailing float64 (FontScale) keeps the struct's pointer-scan
+	// prefix minimal (fieldalignment).
 	ResumeContent ResumeContent
-	JobSnapshot   FetchedJob
 }
 
 // CreateApplicationInput — usecase-layer input for application.commit.
 // access_code has already been issued earlier in the same tx; the caller passes in its ID.
 type CreateApplicationInput struct {
-	OwnerID       string
-	AccessCodeID  string
+	OwnerID      string
+	AccessCodeID string
+	JobSnapshot  FetchedJob
+	// ResumeContent last (trailing non-pointer float64 → minimal pointer-scan prefix).
 	ResumeContent ResumeContent
-	JobSnapshot   FetchedJob
 }
 
 // CommittedApplication — applications.commit's return value: the application + the
 // synchronously issued AccessCode (plaintext code for the QR URL) + the final PDF bytes.
 type CommittedApplication struct {
-	Application Application
-	AccessCode  access.Code
-	QRURL       string
+	AccessCode access.Code
+	QRURL      string
 	// Warning — it went out, but there's something the owner should know (empty = nothing).
 	// Today there's only one case: the hiring role references a CV note that doesn't
 	// exist — a recruiter asking about the employer and dates gets told "not in the
 	// notes". This does NOT block submission; it just stops the gap from being silent.
 	Warning string
 	PDF     []byte
+	// Application last: its ResumeContent's trailing float64 keeps the pointer-scan prefix minimal.
+	Application Application
 }
 
 // ErrApplicationNotFound — lookup by (id, owner_id) found no match.

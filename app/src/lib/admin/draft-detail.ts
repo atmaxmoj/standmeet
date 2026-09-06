@@ -38,6 +38,8 @@ export const ResumeContentSchema = z.object({
     label: z.string(), value: z.string(), kind: z.string().optional().default(''),
   })).optional().default([]),
   accent: z.string().optional().default(''),
+  // font_scale — the whole-résumé font-size multiplier; absent/old drafts → 1 (template default).
+  font_scale: z.number().optional().default(1),
 });
 
 const DraftDetailSchema = z.object({
@@ -102,5 +104,6 @@ export function toDraftModel(
     coverLetter: rc.cover_letter,
     template: d.template ?? '',
     accent: rc.accent,
+    fontScale: rc.font_scale,
   };
 }

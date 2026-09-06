@@ -43,10 +43,12 @@ var ErrSessionMiss = errors.New("print session not found")
 // job_snapshot + identifiers + qr_url). Trimming avoids leaking
 // SubmittedAt / Status which are unrelated to print.
 type Payload struct {
-	ApplicationID string                  `json:"application_id"`
-	QRURL         string                  `json:"qr_url"`
+	ApplicationID string               `json:"application_id"`
+	QRURL         string               `json:"qr_url"`
+	JobSnapshot   jobsmodel.FetchedJob `json:"job_snapshot"`
+	// ResumeContent's trailing float64 + Version (both non-pointer) sit last to keep the
+	// pointer-scan prefix minimal (fieldalignment).
 	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
-	JobSnapshot   jobsmodel.FetchedJob    `json:"job_snapshot"`
 	Version       int                     `json:"v"`
 }
 

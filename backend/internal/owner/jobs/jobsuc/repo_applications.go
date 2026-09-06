@@ -64,8 +64,9 @@ type CommitInput struct {
 // CommitOutput — the return value of Commit. Packs (Application, AccessCode) into a
 // single struct so the method signature stays at <=2 returns (lint).
 type CommitOutput struct {
+	AccessCode access.Code
+	// Application last: its ResumeContent's trailing float64 keeps the pointer-scan prefix minimal.
 	Application jobsmodel.Application
-	AccessCode  access.Code
 }
 
 // Commit — the whole transaction. Returns the domain shape of the new application +
@@ -128,8 +129,9 @@ func writeCommitRows(
 // irreversible commit tx (so a render failure persists nothing → retryable).
 type DraftRenderData struct {
 	Template string
-	Resume   jobsmodel.ResumeContent
 	Job      jobsmodel.FetchedJob
+	// Resume last (its trailing non-pointer float64 keeps the pointer-scan prefix minimal).
+	Resume jobsmodel.ResumeContent
 }
 
 // GetDraftRenderData —— read-only fetch of a draft's render inputs (no tx, nothing deleted).

@@ -84,6 +84,8 @@ export interface DraftModel {
   template: string;
   /** Owner-chosen accent colour (#RRGGBB); '' = the template's default vermillion. */
   accent: string;
+  /** Owner-chosen font-size multiplier for the whole résumé (1 = the template default). */
+  fontScale: number;
 }
 
 // **There used to be a `mockDraft()` here** — a design-time placeholder
@@ -229,6 +231,7 @@ export function draftToResumeContent(m: DraftModel): ResumeContent {
       .filter((c) => c.kind === 'divider' || (c.label.trim() !== '' && c.value.trim() !== ''))
       .map((c): ResumeCustom => ({ label: c.label, value: c.value, kind: c.kind })),
     accent: m.accent,
+    fontScale: m.fontScale,
   };
 }
 
@@ -256,6 +259,7 @@ export function draftToAPIContent(m: DraftModel): Record<string, unknown> {
     social: m.social.map((s) => ({ kind: s.kind, label: s.kind, handle: s.handle })),
     custom: m.custom.map((c) => ({ label: c.label, value: c.value, kind: c.kind })),
     accent: m.accent,
+    font_scale: m.fontScale,
   };
 }
 

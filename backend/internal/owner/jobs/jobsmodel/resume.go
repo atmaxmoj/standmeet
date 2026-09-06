@@ -26,6 +26,9 @@ type ResumeContent struct {
 	Skills     []ResumeSkillSet  `json:"skills"`
 	Social     []ResumeSocial    `json:"social,omitempty"`
 	Custom     []ResumeCustom    `json:"custom,omitempty"`
+	// FontScale — owner-chosen font-size multiplier for the whole résumé (1 = template default).
+	// Like Accent it lives in resume_content JSONB (no schema change) and snapshots into the app.
+	FontScale float64 `json:"font_scale,omitempty"`
 }
 
 // ResumeIdentity — the identity block (the identity section barely changes when Claude

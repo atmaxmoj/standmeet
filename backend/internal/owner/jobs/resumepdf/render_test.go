@@ -50,6 +50,70 @@ func sampleContent() *jobsmodel.ResumeContent {
 	}
 }
 
+// Font-scale reflow test knobs: enough extra works to cross a page boundary, and two scales far
+// enough apart that the page count must differ.
+const (
+	heavyExtraWorks = 6
+	smallScale      = 0.7
+	largeScale      = 2.0
+)
+
+// heavyContent —— the sample fattened with many works × bullets, so a change in font size crosses a
+// page boundary decisively (a sparse résumé fits one page at almost any scale).
+func heavyContent() *jobsmodel.ResumeContent {
+	c := sampleContent()
+	base := c.Works[0]
+	bullets := []string{
+		"Owned the dispatch pipeline and its verification harness.",
+		"Cut p99 latency across the ingestion tier under real load.",
+		"Mentored engineers and ran the on-call rotation review.",
+		"Shipped the reconciliation service end to end with tests.",
+	}
+	for range heavyExtraWorks {
+		c.Works = append(c.Works, jobsmodel.ResumeWork{
+			Title: base.Title, Company: base.Company, Location: base.Location,
+			Period: base.Period, Bullets: bullets,
+		})
+	}
+	return c
+}
+
+// pageCount —— how many pages the rendered PDF has, so a layout change (font size reflowing the
+// content) can be asserted on the artifact, not on a stored field.
+func pageCount(t *testing.T, b []byte) int {
+	t.Helper()
+	r, err := pdf.NewReader(bytes.NewReader(b), int64(len(b)))
+	if err != nil {
+		t.Fatalf("open rendered pdf: %v", err)
+	}
+	return r.NumPage()
+}
+
+// TestRender_font_scale_reflows_the_document —— font_scale is a real size knob, not a stored no-op:
+// the SAME content rendered larger takes MORE pages than rendered smaller. Reads the artifact (page
+// count), so a template that ignored data.font_scale would go red. Covers Spec 2 font-size.
+func TestRender_font_scale_reflows_the_document(t *testing.T) {
+	requireTypst(t)
+	t.Parallel()
+	small, large := heavyContent(), heavyContent()
+	small.FontScale = smallScale
+	large.FontScale = largeScale
+	opts := resumepdf.RenderOptions{Role: "Eng", Company: "Acme"}
+	sb, err := resumepdf.New("", "").Render(context.Background(), small, opts)
+	if err != nil {
+		t.Fatalf("render small: %v", err)
+	}
+	lb, err := resumepdf.New("", "").Render(context.Background(), large, opts)
+	if err != nil {
+		t.Fatalf("render large: %v", err)
+	}
+	sp, lp := pageCount(t, sb), pageCount(t, lb)
+	if lp <= sp {
+		t.Errorf("larger font_scale must take more pages: small=%d, large=%d", sp, lp)
+	}
+	mustContain(t, extractText(t, lb), "Northwind Logistics", "large-scale render has content")
+}
+
 // extractText —— pull the text layer out of a PDF, so assertions read the OUTPUT, not just
 // "a PDF came back".
 func extractText(t *testing.T, b []byte) string {
