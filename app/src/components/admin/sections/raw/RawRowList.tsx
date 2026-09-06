@@ -14,7 +14,7 @@ import { CorpusAssetsPanel } from '@/components/admin/sections/corpus/CorpusAsse
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { HeroFields, PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { useCorpusView } from '@/lib/admin/corpus-view';
-import { loadRawTreeChildren } from '@/lib/admin/use-raw';
+import { loadRawTreeChildren, rawLeadDisplay } from '@/lib/admin/use-raw';
 import {
   useCorpusActions,
   type CorpusActionsHook,
@@ -79,7 +79,10 @@ function RawRow({
       <div className="flex justify-between gap-6">
         <div className="min-w-0 flex-1">
           <RawSourceLine source={row.source} createdAt={row.created_at} hasChildren={hasChildren} />
-          <RawRowBody preview={row.preview} tags={row.tags} privateFlag={row.flagged_private} media={row.media} />
+          <RawRowBody
+            preview={row.preview} path={row.path} hasChildren={hasChildren}
+            tags={row.tags} privateFlag={row.flagged_private} media={row.media}
+          />
         </div>
         <RawRowActions row={row} actions={actions} mode={mode} setMode={setMode} />
       </div>
@@ -129,9 +132,9 @@ function dropFolderNoteDup(parts: readonly string[]): readonly string[] {
 
 
 function RawRowBody({
-  preview, tags, privateFlag, media,
+  preview, path, hasChildren, tags, privateFlag, media,
 }: {
-  preview?: string; tags: readonly string[];
+  preview?: string; path?: string | null; hasChildren?: boolean; tags: readonly string[];
   privateFlag: boolean; media?: RawAdminView['media'];
 }) {
   // The card shows the backend's clean rendered lead (LeadLine) — or nothing. It must NEVER fall
@@ -139,7 +142,7 @@ function RawRowBody({
   // triage list (F-R-1). An all-structure note (LeadLine "") gets an empty lead, not source markup.
   return (
     <div className="min-w-0">
-      <PreviewLine preview={preview} />
+      <PreviewLine preview={preview} path={path} hasChildren={hasChildren} />
       {media && (
         <div className="mono text-[10px] tracking-[0.06em] text-(--color-faint) mt-1">
           {media.kind} · {media.label}
@@ -153,15 +156,19 @@ function RawRowBody({
   );
 }
 
-// PreviewLine — the clean rendered lead, or a muted "(untitled)" fallback. Raw has no title field;
-// it's identified by its source breadcrumb + this lead. An all-structure note (or one pushed with
-// no source path) has an empty lead, which used to render as a bare date row — the owner asked
-// "what is this raw, why no title". Never falls back to the raw body (that leaks markup, F-R-1).
-function PreviewLine({ preview }: { preview?: string }) {
+// PreviewLine — the clean rendered lead, or a fallback. Raw has no title field; it's identified by
+// its source breadcrumb + this lead. Two empty-lead cases differ:
+//   · a FOLDER node (the vault import's container for a directory) has an empty body but a path like
+//     "software" — show that folder name, not "(untitled)" (the owner asked "why is this untitled").
+//   · a genuinely empty note (no lead, no children) still falls back to a muted "(untitled)".
+// Never falls back to the raw body (that leaks markup, F-R-1).
+function PreviewLine({ preview, path, hasChildren }: {
+  preview?: string; path?: string | null; hasChildren?: boolean;
+}) {
   const t = useTranslations('adminCorpus.raw');
-  const shown = (preview ?? '').trim() !== '';
-  return shown
-    ? <p className="reading-tight text-(--color-ink) text-[15px] line-clamp-3">{preview}</p>
+  const d = rawLeadDisplay(preview, path, hasChildren);
+  return d.text !== ''
+    ? <p data-testid={d.testid} className="reading-tight text-(--color-ink) text-[15px] line-clamp-3">{d.text}</p>
     : <p data-testid="raw-untitled" className="reading-tight italic text-(--color-faint) text-[15px]">{t('untitled')}</p>;
 }
 

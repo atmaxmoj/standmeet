@@ -129,7 +129,13 @@ export type AccessRequestView = z.infer<typeof AccessRequestViewSchema>;
 export const RawMediaMetaSchema = z.object({ kind: z.string(), label: z.string() }).nullable().optional();
 
 export const RawAdminViewSchema = z.object({
-  id: z.string(), body: z.string(), source: z.string(), tags: z.array(z.string()),
+  id: z.string(),
+  // body / source are NULL (not "") for a folder node — the container the vault import makes for a
+  // directory has no content and no vault origin. Tolerate null so the whole raw list doesn't fail
+  // to parse (and error out entirely) the moment one folder node is present.
+  body: z.string().nullish().transform((v) => v ?? ''),
+  source: z.string().nullish().transform((v) => v ?? ''),
+  tags: z.array(z.string()),
   // preview —— a CLEAN lead excerpt (backend LeadLine: markup stripped). The card shows this,
   // not a raw substring of body, so excerpts read as rendered text not markup (F-R-1).
   preview: z.string().optional().default(''),
@@ -138,6 +144,10 @@ export const RawAdminViewSchema = z.object({
   media: RawMediaMetaSchema,
   // tree view only: this node can be drilled into (lazy layer).
   has_children: z.boolean().optional(),
+  // tree view only: the note's derived path (parent chain). A FOLDER node — a container the vault
+  // import made to mirror a directory — has an empty body/source but a path like "software"; the
+  // card shows that folder name instead of "(untitled)".
+  path: z.string().nullish(),
 });
 export type RawAdminView = z.infer<typeof RawAdminViewSchema>;
 

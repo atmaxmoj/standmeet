@@ -33,6 +33,20 @@ export interface RawHook {
   addRaw: (input: CreateRawInput) => Promise<boolean>;
 }
 
+// rawLeadDisplay — what a raw card's lead line shows, and its testid. A non-empty lead wins; else a
+// FOLDER node (an auto-created container with children — the vault import makes one per directory
+// that has no folder-note) shows its folder name (the last path segment) instead of "(untitled)";
+// else empty, and the caller renders the muted "(untitled)" fallback. Lives here (not in the card)
+// so the presentation layer stays free of branching logic.
+export function rawLeadDisplay(
+  preview: string | undefined, path: string | null | undefined, hasChildren: boolean | undefined,
+): { text: string; testid: string | undefined } {
+  const lead = (preview ?? '').trim();
+  if (lead !== '') return { text: lead, testid: undefined };
+  const folder = hasChildren === true ? ((path ?? '').split('/').filter(Boolean).pop() ?? '') : '';
+  return { text: folder, testid: 'raw-folder-name' };
+}
+
 // loadRawTreeChildren —— one lazy layer of the raw inbox tree (empty parent = roots).
 export function loadRawTreeChildren(parentID: string): Promise<RawAdminView[]> {
   const qs = parentID ? `?parent=${encodeURIComponent(parentID)}` : '';
