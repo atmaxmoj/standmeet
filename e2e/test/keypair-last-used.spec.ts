@@ -43,13 +43,18 @@ test.describe('owner-MCP keypair records + shows last-used device / ip', () => {
 
       const after = (await listKeypairs(request, csrf)).find((k) => k.key_id === kp.key_id);
       expect(after?.last_used_at, 'used key has a last-used time').not.toBeNull();
-      expect(after?.last_used_ip, 'used key records the source ip').toBeTruthy();
+      const usedIP = after?.last_used_ip;
+      expect(usedIP, 'used key records the source ip').toBeTruthy();
       expect(after?.last_used_user_agent, 'used key records the device (user-agent)').toBeTruthy();
 
-      // The panel row renders the device · ip line.
+      // The panel row renders the ACTUAL device · ip line — not just a present-but-empty element.
+      // Assert the row text contains the real ip the signed request was stamped with, so a row that
+      // rendered a placeholder (or dropped the values) fails here.
       await gotoAdminSection(adminPage, 'api-mcp');
-      await expect(adminPage.getByTestId(`token-lastused-${LABEL}`),
-        'the keypair row shows where it was last used').toBeVisible({ timeout: 10_000 });
+      const row = adminPage.getByTestId(`token-lastused-${LABEL}`);
+      await expect(row, 'the keypair row shows where it was last used').toBeVisible({ timeout: 10_000 });
+      await expect(row, 'the row shows the real source ip, not an empty placeholder')
+        .toContainText(String(usedIP));
       await request.dispose();
     });
 });
