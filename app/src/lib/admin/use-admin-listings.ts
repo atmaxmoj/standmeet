@@ -49,12 +49,33 @@ export interface ListingsHook extends State {
   fetchNow: () => Promise<void>;
 }
 
-// autoFetched —— fetch-on-open, once per session (module-scoped, not per-mount). The
-// owner asked for **auto-fetch** — "why do I have to ask Claude to fetch?" — but a
-// fetch reaches out to every registered job board, so doing it on *every* navigation to
-// this section would hammer those boards. Once per session: the first time the owner
-// opens listings we pull automatically; after that it's the manual "fetch now" button.
-let autoFetched = false;
+// autoFetched —— fetch-on-open, once per session. The owner asked for **auto-fetch** — "why do I
+// have to ask Claude to fetch?" — but a fetch reaches out to every registered job board, so doing
+// it on *every* open would hammer those boards. Once per session: the first open pulls
+// automatically; after that it's the manual "fetch now" button.
+//
+// The flag lives in sessionStorage, NOT a module variable: a module variable is reset by a full
+// page reload (a reload spins up a fresh JS context), so "once per session" silently became "once
+// per page-load" and every reload re-fetched. sessionStorage survives reloads within the tab and
+// clears when the tab/session ends — which is exactly what "session" should mean here. Wrapped in
+// try/catch: private mode / blocked storage must degrade to "not yet fetched", never throw.
+const AUTO_FETCH_KEY = 'standmeet:listings-autofetched';
+
+function autoFetchedThisSession(): boolean {
+  try {
+    return sessionStorage.getItem(AUTO_FETCH_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markAutoFetched(): void {
+  try {
+    sessionStorage.setItem(AUTO_FETCH_KEY, '1');
+  } catch {
+    /* storage blocked — auto-fetch just runs again next open; the manual button always works */
+  }
+}
 
 // fetchNow —— pull every registered source into the pool (POST), then re-read it (GET,
 // the shared store both surfaces watch). The POST returns the pool too, but re-reading
@@ -91,8 +112,8 @@ export function useAdminListings(): ListingsHook {
   // pool shows immediately and new jobs slot in when they land.
   useEffect(() => {
     void listingsStore.getState().refresh();
-    if (autoFetched) return;
-    autoFetched = true;
+    if (autoFetchedThisSession()) return;
+    markAutoFetched();
     void runFetch();
   }, [runFetch]);
   return { ...listingsState(r.data, r.status, r.error), fetching, fetchNow: runFetch };
