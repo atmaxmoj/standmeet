@@ -56,7 +56,7 @@ function Hotspot({
       data-testid={`composer-edit-hotspot-${field}`}
       aria-label={`edit ${field}`}
       onClick={onOpen}
-      className="absolute sm-z-raised-1 -translate-x-full -translate-y-1/2 mono text-[11px] leading-none px-1 py-0.5 rounded-[2px] bg-(--color-accent) text-(--color-paper) opacity-70 hover:opacity-100 cursor-pointer"
+      className="absolute sm-z-raised-1 -translate-x-full -translate-y-1/2 mono text-[11px] leading-none px-1 py-0.5 rounded-[2px] bg-(--color-accent) text-(--color-paper) opacity-0 group-hover:opacity-70 hover:!opacity-100 transition-opacity cursor-pointer"
       // eslint-disable-next-line no-restricted-syntax -- runtime px from the measured SVG geometry
       style={{ left: pos.x, top: pos.y }}
     >

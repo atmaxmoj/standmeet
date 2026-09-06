@@ -62,7 +62,7 @@ function RowGrip({
       aria-label={`drag to reorder ${anchor.kind} ${anchor.index + 1}`}
       onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onStart(); }}
       onPointerUp={(e) => { e.currentTarget.releasePointerCapture(e.pointerId); onDrop(e.clientY); }}
-      className={`absolute sm-z-raised-1 -translate-x-full -translate-y-1/2 mono text-[12px] leading-none px-1 py-0.5 rounded-[2px] select-none touch-none ${active ? 'bg-(--color-accent) text-(--color-paper)' : 'text-(--color-faint) hover:text-(--color-muted)'}`}
+      className={`absolute sm-z-raised-1 -translate-x-full -translate-y-1/2 mono text-[12px] leading-none px-1 py-0.5 rounded-[2px] select-none touch-none transition-opacity ${active ? 'opacity-100 bg-(--color-accent) text-(--color-paper)' : 'opacity-0 group-hover:opacity-100 text-(--color-faint) hover:text-(--color-muted)'}`}
       // eslint-disable-next-line no-restricted-syntax -- runtime px from the measured SVG geometry
       style={{ left: pos.x, top: pos.y, cursor: 'grab' }}
     >

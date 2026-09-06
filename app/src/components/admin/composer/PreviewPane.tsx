@@ -110,7 +110,7 @@ function LiveView({
     : (
       <div
         ref={wrapRef}
-        className={styles.liveSvg}
+        className={`${styles.liveSvg} group`}
         data-testid="composer-preview-svg"
         data-status={status}
       >
