@@ -182,6 +182,10 @@ export interface PublicSessionResponse {
   // = the default chat. The landing decision travels with the issuance, so
   // every path that picks up the code gets the same answer.
   readonly microsite_slug?: string;
+  // slug —— the code's OWN landing path (`/c/<slug>`). After absorbing ?code=,
+  // the client rewrites the URL to this so the raw code leaves the address bar
+  // and the chat gets a stable, shareable-as-a-locator path (not the credential).
+  readonly slug?: string;
   readonly visitor_name?: string;
   // member_id —— the member id resolved this time; the client stores it and
   // brings it along next time to continue the session (especially for

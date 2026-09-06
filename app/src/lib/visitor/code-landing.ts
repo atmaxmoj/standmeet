@@ -1,20 +1,41 @@
-// code-landing —— what you see when a code gets scanned.
+// code-landing —— where the browser goes once a code session is issued.
 //
-// The default is the visitor chat; if the owner attached a microsite to
-// this code, that's what shows instead (**pages give a code a rendering**).
-// Authorization is unchanged: same role, same quota, same billing — only
-// the page in front of the reader changes.
+// Two outcomes, one decision so the three claim paths (the name picker, a /gate
+// submit, re-opening the same link) never drift apart ([[copied-invalidation-goes-stale]]):
 //
-// A code is redeemed via two paths (submitting on /gate, or the name picker
-// after entering with `?code=`). Both must land on the same place, so where
-// to go is decided by this one function alone — writing it twice means a
-// change to one path silently leaves the other on old behavior
-// ([[copied-invalidation-goes-stale]]).
+//   • the owner attached a microsite to this code → a FULL navigation to
+//     `/p/<microsite>` (that page is a build artifact with its own route tree,
+//     not part of this Next app — a router.push would not reach it);
+//   • no microsite → a SOFT rewrite of the URL to `/c/<slug>`. The chat already
+//     rendered in place, so only the address bar changes: the raw `?code=` leaves
+//     the URL and the conversation gets a stable path. The slug is a LOCATOR, not
+//     a credential — visiting `/c/<slug>` without the stored session grants nothing.
 
-// codeLandingHref —— an empty slug returns an empty string, meaning "this
-// code has no landing of its own, fall back to whatever each path defaults
-// to". No default is invented here: the two paths' defaults differ (one
-// needs to carry ?q= forward, the other is already on the home page).
-export function codeLandingHref(slug: string): string {
-  return slug === '' ? '' : `/p/${slug}`;
+// LandKind —— nav: full page load (microsite); rewrite: in-place history swap
+// (coded chat gets its /c/<slug> path); none: nothing to do (no microsite, no slug).
+export type LandKind = 'nav' | 'rewrite' | 'none';
+
+export interface Landing {
+  kind: LandKind;
+  href: string;
+}
+
+// landAfterIssue —— the pure decision. micrositeSlug wins (full nav); else the
+// code's own slug drives an in-place rewrite; empty both → nothing.
+export function landAfterIssue(micrositeSlug: string, codeSlug: string): Landing {
+  if (micrositeSlug !== '') return { kind: 'nav', href: `/p/${micrositeSlug}` };
+  if (codeSlug !== '') return { kind: 'rewrite', href: `/c/${codeSlug}` };
+  return { kind: 'none', href: '' };
+}
+
+// applyLanding —— the one side-effecting half. Kept next to the decision so a
+// caller can't apply a 'rewrite' as a full nav (which would reload and lose the
+// just-issued in-memory session) or vice-versa.
+export function applyLanding(l: Landing): void {
+  if (typeof window === 'undefined' || l.kind === 'none') return;
+  if (l.kind === 'nav') {
+    window.location.assign(l.href);
+    return;
+  }
+  window.history.replaceState(null, '', l.href);
 }

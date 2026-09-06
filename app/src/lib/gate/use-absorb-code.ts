@@ -23,7 +23,7 @@ import { useEffect } from 'react';
 
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
-import { codeLandingHref } from '@/lib/visitor/code-landing';
+import { landAfterIssue, applyLanding } from '@/lib/visitor/code-landing';
 import { peekStoredSession } from '@/lib/visitor/session-store';
 import { clearNameDismiss } from '@/lib/visitor/visitor-name';
 
@@ -70,9 +70,10 @@ function absorbFromURL(): void {
 // and since the owner only has one code, testing it once won't catch it.
 function landOnRendering(code: string): void {
   if (!alreadyInNamedSession(code)) return;
-  const href = codeLandingHref(loadStoredSession()?.microsite_slug ?? '');
-  if (href === '' || window.location.pathname === href) return;
-  window.location.assign(href);
+  const stored = loadStoredSession();
+  const landing = landAfterIssue(stored?.microsite_slug ?? '', stored?.slug ?? '');
+  if (landing.href === '' || window.location.pathname === landing.href) return;
+  applyLanding(landing);
 }
 
 // alreadyInNamedSession —— whether there's already an active session that's

@@ -59,7 +59,10 @@ type createSessionResponse struct {
 	VisitorName    string `json:"visitor_name,omitempty"`
 	// MicrositeSlug —— page this code opens when scanned. Empty = default conversation;
 	// always sent (never omitempty) since missing vs. genuinely-empty must stay distinct.
-	MicrositeSlug       string                   `json:"microsite_slug"`
+	MicrositeSlug string `json:"microsite_slug"`
+	// Slug —— the code's OWN landing path (`/<slug>`). The client rewrites the URL to this after
+	// absorbing ?code=, so the raw code leaves the URL and the chat gets a real path, not bare `/`.
+	Slug                string                   `json:"slug"`
 	SystemPromptPersona string                   `json:"system_prompt_persona"`
 	Members             []sessionMemberResp      `json:"members"`
 	Capabilities        []capreg.CapabilityState `json:"capabilities"`
@@ -288,6 +291,7 @@ func writeCreateSession(
 		CodeLabel:      res.CodeLabel,
 		VisitorName:    res.VisitorName,
 		MicrositeSlug:  res.MicrositeSlug,
+		Slug:           res.Slug,
 		SystemPromptPersona: conversation.ComposeDynamicPersona(res.Session.Data.RoleSnapshot,
 			owner.FullNameOf(ctx, h.Owners, res.Session.Data.OwnerID)),
 		Capabilities:        bundle.States,

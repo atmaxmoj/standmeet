@@ -32,6 +32,7 @@ type Code struct {
 	PromptID             *string
 	LimitPerPeriod       *PeriodLimit
 	Code                 string
+	Slug                 string
 	OwnerID              string
 	Label                string
 	Purpose              string

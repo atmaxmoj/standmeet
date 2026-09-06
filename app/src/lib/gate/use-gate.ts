@@ -81,6 +81,10 @@ const StoredVisitorSessionSchema = z.object({
   // through this same persist, so neither can miss it. Empty string =
   // default chat. Old blobs lack this field → default ''.
   microsite_slug: z.string().default(''),
+  // slug —— the code's own landing path (`/c/<slug>`). Persisted here for the
+  // same reason as microsite_slug: all three landing paths (name picker, /gate
+  // submit, re-open) read it from the one stored session, so none drifts.
+  slug: z.string().default(''),
   capabilities: z.array(CapStateSchema).optional(),
   tool_specs: z.array(ToolSpecSchema).optional(),
   system_prompt_part_ids: z.array(z.string()).optional(),
@@ -103,6 +107,7 @@ export function persistSession(sess: PublicSessionResponse, byoai: boolean): voi
     conversation_id: sess.conversation_id,
     byoai,
     microsite_slug: sess.microsite_slug ?? '',
+    slug: sess.slug ?? '',
     capabilities: sess.capabilities ? [...sess.capabilities] : undefined,
     tool_specs: sess.tool_specs ? [...sess.tool_specs] : undefined,
     system_prompt_part_ids: sess.system_prompt_part_ids

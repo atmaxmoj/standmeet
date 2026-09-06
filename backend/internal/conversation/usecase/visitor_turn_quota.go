@@ -96,3 +96,44 @@ func countTurnsForQuota(
 	}
 	return n, nil
 }
+
+// SessionQuota —— the turn quota for the current conversation; used by the visitor UI to
+// render what's remaining. MaxTurns == 0 means unlimited (the owner didn't set
+// max_turns_per_session on the code). UsedTurns starts at 0 (new conv); after each
+// subsequent sendMessage the frontend increments it locally, no need for SSE to echo it
+// back (a single visitor session grows linearly, the client can count it exactly).
+type SessionQuota struct {
+	MaxTurns  int32 `json:"max_turns"`
+	UsedTurns int32 `json:"used_turns"`
+	// MaxMembers —— how many names this code allows at most (0 = unlimited); the
+	// visitor UI pairs it with the members count to render "N of M names".
+	MaxMembers int32 `json:"max_members"`
+}
+
+// codeSessionQuotaWithUsed —— on top of the static quota (max), fills in UsedTurns by
+// actually counting it from the backend. Under the new model the quota is member-level:
+// UsedTurns sums this member's visitor turns across **all conversations**
+// (countTurnsForQuota); on resume / multi-surface issuance it reports the true total,
+// no longer stuck at 0 nor counted per single conversation segment. Uncountable (DB
+// hiccup) → falls back to 0.
+func codeSessionQuotaWithUsed(
+	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
+	conv *entity.Chat,
+) SessionQuota {
+	q := codeSessionQuota(code)
+	if used, err := countTurnsForQuota(ctx, deps, conv); err == nil {
+		q.UsedTurns = used
+	}
+	return q
+}
+
+func codeSessionQuota(code *access.Code) SessionQuota {
+	q := SessionQuota{}
+	if code.MaxTurnsPerSession != nil && *code.MaxTurnsPerSession > 0 {
+		q.MaxTurns = *code.MaxTurnsPerSession
+	}
+	if code.MaxMembers != nil && *code.MaxMembers > 0 {
+		q.MaxMembers = *code.MaxMembers
+	}
+	return q
+}

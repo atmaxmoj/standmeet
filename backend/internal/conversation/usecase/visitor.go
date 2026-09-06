@@ -29,19 +29,6 @@ type IssueCodeSessionInput struct {
 	ClientIP     string // the visitor's source IP (IP-awareness); empty = unknown
 }
 
-// SessionQuota —— the turn quota for the current conversation; used by the visitor UI to
-// render what's remaining. MaxTurns == 0 means unlimited (the owner didn't set
-// max_turns_per_session on the code). UsedTurns starts at 0 (new conv); after each
-// subsequent sendMessage the frontend increments it locally, no need for SSE to echo it
-// back (a single visitor session grows linearly, the client can count it exactly).
-type SessionQuota struct {
-	MaxTurns  int32 `json:"max_turns"`
-	UsedTurns int32 `json:"used_turns"`
-	// MaxMembers —— how many names this code allows at most (0 = unlimited); the
-	// visitor UI pairs it with the members count to render "N of M names".
-	MaxMembers int32 `json:"max_members"`
-}
-
 // IssueCodeSessionResult —— the bundled result IssueCodeSession returns, to avoid a
 // 3-return. Code / VisitorName / Quota let the visitor UI banner get all self-describing
 // info in one shot, no follow-up query needed; for public/byoai tier, Code is empty and
@@ -59,12 +46,15 @@ type IssueCodeSessionResult struct {
 	// silently falls back to the default conversation ([[copied-invalidation-goes-stale]]).
 	// Empty string = opens the default conversation.
 	MicrositeSlug string
-	VisitorName   string
-	MemberID      string
-	Members       []access.CodeMember
-	Ghosts        []string
-	Session       access.IssuedVisitor
-	Quota         SessionQuota
+	// Slug —— the code's OWN landing path (`/<slug>`); the client rewrites the URL to it after
+	// absorbing ?code=. Travels with issuance for the same reason MicrositeSlug does.
+	Slug        string
+	VisitorName string
+	MemberID    string
+	Members     []access.CodeMember
+	Ghosts      []string
+	Session     access.IssuedVisitor
+	Quota       SessionQuota
 }
 
 // codeSessionArtifacts —— the bundled return of issueCodeSessionArtifacts, to avoid a
@@ -118,29 +108,13 @@ func finalizeCodeSession(
 	return IssueCodeSessionResult{
 		Session: a.Issued, Chat: a.Conv,
 		Code: code.Code, CodeLabel: code.Label, MicrositeSlug: code.MicrositeSlug,
+		Slug:        code.Slug,
 		VisitorName: in.VisitorName,
 		Members:     members,
 		Ghosts:      code.Ghosts,
 		MemberID:    a.Member.ID,
 		Quota:       codeSessionQuotaWithUsed(ctx, deps, code, &a.Conv),
 	}, nil
-}
-
-// codeSessionQuotaWithUsed —— on top of the static quota (max), fills in UsedTurns by
-// actually counting it from the backend. Under the new model the quota is member-level:
-// UsedTurns sums this member's visitor turns across **all conversations**
-// (countTurnsForQuota); on resume / multi-surface issuance it reports the true total,
-// no longer stuck at 0 nor counted per single conversation segment. Uncountable (DB
-// hiccup) → falls back to 0.
-func codeSessionQuotaWithUsed(
-	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
-	conv *entity.Chat,
-) SessionQuota {
-	q := codeSessionQuota(code)
-	if used, err := countTurnsForQuota(ctx, deps, conv); err == nil {
-		q.UsedTurns = used
-	}
-	return q
 }
 
 func issueCodeSessionArtifacts(
@@ -168,17 +142,6 @@ func issueCodeSessionArtifacts(
 		return codeSessionArtifacts{}, fmt.Errorf("issue visitor session: %w", err)
 	}
 	return codeSessionArtifacts{Conv: conv, Issued: issued, Member: member}, nil
-}
-
-func codeSessionQuota(code *access.Code) SessionQuota {
-	q := SessionQuota{}
-	if code.MaxTurnsPerSession != nil && *code.MaxTurnsPerSession > 0 {
-		q.MaxTurns = *code.MaxTurnsPerSession
-	}
-	if code.MaxMembers != nil && *code.MaxMembers > 0 {
-		q.MaxMembers = *code.MaxMembers
-	}
-	return q
 }
 
 // resolveMemberWithQuota —— resolves member via three paths:

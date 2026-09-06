@@ -18,7 +18,7 @@ import { issueCodeSession } from '@/lib/api/public';
 import { persistSession } from '@/lib/gate/use-gate';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
-import { codeLandingHref } from '@/lib/visitor/code-landing';
+import { landAfterIssue, applyLanding } from '@/lib/visitor/code-landing';
 import { seedEphemeralStores } from '@/lib/page/use-chat-restore';
 import {
   loadMemberID, rememberMemberID, rememberVisitorName, rememberVisitorEmail,
@@ -118,12 +118,10 @@ export function useIssuePendingCode(): IssuePending {
         rememberMemberID(sess.member_id ?? '');
       }
       usePendingCodeStore.getState().consume();
-      // If this code is bound to a page → switch to that page in place.
-      // **What you scanned into should be what you land on**; staying on
-      // the default chat means the rendering the owner built might as well
-      // not exist. A full-page navigation (not router.push) is deliberate:
-      // that page is a build artifact, not part of this Next app's route tree.
-      goToCodeLanding(sess.microsite_slug ?? '');
+      // Land: a microsite → full nav to /p/<slug> (what you scanned into is
+      // what you land on); no microsite → rewrite the URL to /c/<slug> so the
+      // raw code leaves the address bar and this chat gets a stable path.
+      applyLanding(landAfterIssue(sess.microsite_slug ?? '', sess.slug ?? ''));
       return 'ok';
     } catch (e) {
       return classifyIssueError(e);
@@ -132,12 +130,6 @@ export function useIssuePendingCode(): IssuePending {
     }
   }, []);
   return { busy, issue };
-}
-
-function goToCodeLanding(slug: string): void {
-  const href = codeLandingHref(slug);
-  if (href === '' || typeof window === 'undefined') return;
-  window.location.assign(href);
 }
 
 // classifyIssueError —— 403 name slots full → 'full' (keep pending, picker

@@ -57,7 +57,7 @@ func (r *CodeRepo) GetByCode(ctx context.Context, code string) (entity.Code, err
 	row, err := q.GetAccessCodeWithPage(ctx, code)
 	if err == nil {
 		c := CodeFromRow(&db.AccessCode{
-			ID: row.ID, OwnerID: row.OwnerID, Code: row.Code, Label: row.Label,
+			ID: row.ID, OwnerID: row.OwnerID, Code: row.Code, Slug: row.Slug, Label: row.Label,
 			Purpose: row.Purpose, Ghosts: row.Ghosts, ExpiresAt: row.ExpiresAt,
 			Status: row.Status, MaxTurnsPerSession: row.MaxTurnsPerSession,
 			MaxMembers: row.MaxMembers, RequireGhostEvidence: row.RequireGhostEvidence,
@@ -114,7 +114,7 @@ func (r *CodeRepo) ListByOwner(
 
 func codeFromListRow(row *db.ListAccessCodesWithPageByOwnerRow) entity.Code {
 	c := CodeFromRow(&db.AccessCode{
-		ID: row.ID, OwnerID: row.OwnerID, Code: row.Code, Label: row.Label,
+		ID: row.ID, OwnerID: row.OwnerID, Code: row.Code, Slug: row.Slug, Label: row.Label,
 		Purpose: row.Purpose, Ghosts: row.Ghosts, ExpiresAt: row.ExpiresAt,
 		Status: row.Status, MaxTurnsPerSession: row.MaxTurnsPerSession,
 		MaxMembers: row.MaxMembers, RequireGhostEvidence: row.RequireGhostEvidence,
@@ -134,6 +134,7 @@ func CodeFromRow(c *db.AccessCode) entity.Code {
 		ID:                   pgstore.FormatUUID(c.ID),
 		OwnerID:              pgstore.FormatUUID(c.OwnerID),
 		Code:                 c.Code,
+		Slug:                 c.Slug,
 		Label:                c.Label,
 		Purpose:              c.Purpose,
 		Status:               c.Status,

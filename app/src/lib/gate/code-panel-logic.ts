@@ -7,7 +7,7 @@
 // a wrong code → shake + clear + refocus.
 
 import { loadStoredSession, type GateHook } from '@/lib/gate/use-gate';
-import { codeLandingHref } from '@/lib/visitor/code-landing';
+import { landAfterIssue } from '@/lib/visitor/code-landing';
 
 export function normalizeCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 32);
@@ -73,10 +73,14 @@ export function postGateHref(): string {
   if (typeof window === 'undefined') {
     return '/';
   }
-  const landing = codeLandingHref(loadStoredSession()?.microsite_slug ?? '');
-  if (landing !== '') return landing;
+  const stored = loadStoredSession();
+  const landing = landAfterIssue(stored?.microsite_slug ?? '', stored?.slug ?? '');
+  // A microsite has its own page and does not take ?q=; go straight to it.
+  if (landing.kind === 'nav') return landing.href;
   const q = new URL(window.location.href).searchParams.get('q');
-  return q === null || q === '' ? '/' : `/?q=${encodeURIComponent(q)}`;
+  const suffix = q === null || q === '' ? '' : `?q=${encodeURIComponent(q)}`;
+  // Coded chat → /c/<slug>(+?q=); codeless → /(+?q=). ChatRoom picks up ?q= on mount.
+  return landing.kind === 'rewrite' ? `${landing.href}${suffix}` : `/${suffix}`;
 }
 
 // scheduleAutoSubmit —— the delayed auto-submit for paste (50ms lets React
