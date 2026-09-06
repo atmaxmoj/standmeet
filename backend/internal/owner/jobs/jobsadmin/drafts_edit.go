@@ -11,6 +11,7 @@ package jobsadmin
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -92,10 +93,37 @@ func previewDraft(deps Deps) http.HandlerFunc {
 			writeServerErr(deps.Log, w)
 			return
 		}
+		// Success trace: a render can succeed yet produce a wrong-looking PDF (empty identity → a
+		// near-blank page, an over-large font_scale → too many pages). Logging the content SHAPE +
+		// output size makes "why does this PDF look like that" answerable from prod logs, not from
+		// re-rendering to guess ([[no-diagnosis-by-experiment]]).
+		logRenderShape(deps.Log, chi.URLParam(r, "id"), &draft, len(pdf))
 		w.Header().Set(ctHeader, "application/pdf")
 		w.Header().Set("Cache-Control", "no-store")
 		if _, werr := w.Write(pdf); werr != nil {
 			deps.Log.Error("write preview pdf", logErrKey, werr)
 		}
 	}
+}
+
+// logRenderShape —— one success trace per render: the content shape + output size, the dimensions
+// that decide whether a PDF looks right (empty identity → near-blank; big font_scale → too many
+// pages; a wide left_width → a squeezed main column). Makes a wrong-looking PDF diagnosable from
+// prod logs instead of by re-rendering to guess ([[no-diagnosis-by-experiment]]).
+func logRenderShape(log *slog.Logger, draftID string, d *jobsmodel.ResumeDraft, pdfBytes int) {
+	rc := &d.ResumeContent
+	log.Info("rendered draft preview",
+		"draft_id", draftID,
+		"template", d.Template,
+		"works", len(rc.Works),
+		"educations", len(rc.Educations),
+		"skills", len(rc.Skills),
+		"custom", len(rc.Custom),
+		"name_empty", rc.Identity.Name == "",
+		"summary_empty", rc.Summary == "",
+		"font_scale", rc.FontScale,
+		"left_width", rc.LeftWidth,
+		"left_order", rc.LeftOrder,
+		"pdf_bytes", pdfBytes,
+	)
 }
