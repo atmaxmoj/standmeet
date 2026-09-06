@@ -279,6 +279,7 @@
     "migrationsPending": "0 ausstehend",
     "ready": "bereit",
     "resources": "ressourcen · host + runtime",
+    "res": { "disk": "Festplatte", "hostMem": "Host-Speicher", "cpuLoad": "CPU-Last", "goroutines": "Goroutines", "goHeap": "Go-Heap", "usedTotal": "belegt / gesamt", "pctUsed": "{pct} belegt", "oneMinAvg": "1-Min-Schnitt", "live": "aktiv", "mbAlloc": "MB alloziert" },
     "publicIp": "öffentliche ip",
     "cluster": "cluster · eigene container",
     "clusterEmpty": "keine cluster-daten — docker-socket nicht eingebunden",

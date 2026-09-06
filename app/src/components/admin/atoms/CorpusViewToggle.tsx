@@ -4,34 +4,39 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import type { CorpusView } from '@/lib/admin/corpus-view';
 
 export function CorpusViewToggle({
   view, onChange,
 }: { view: CorpusView; onChange: (v: CorpusView) => void }) {
+  const t = useTranslations('adminCorpus');
   return (
     <div
       className="inline-flex items-center border border-(--color-rule) rounded-sm overflow-hidden"
       data-testid="corpus-view-toggle"
       role="group"
-      aria-label="list view"
+      aria-label={t('view.groupLabel')}
     >
-      <ViewButton label="tree" glyph="⛬" active={view === 'tree'} onClick={() => onChange('tree')} />
+      <ViewButton v="tree" label={t('view.tree')} glyph="⛬" active={view === 'tree'} onClick={() => onChange('tree')} />
       <span className="w-px self-stretch bg-(--color-rule)" aria-hidden />
-      <ViewButton label="grid" glyph="▦" active={view === 'grid'} onClick={() => onChange('grid')} />
+      <ViewButton v="grid" label={t('view.grid')} glyph="▦" active={view === 'grid'} onClick={() => onChange('grid')} />
     </div>
   );
 }
 
+// v (the stable CorpusView id) drives the testid — never the translated label — so corpus-view-tree
+// / corpus-view-grid stay put once the label is localized.
 function ViewButton({
-  label, glyph, active, onClick,
-}: { label: string; glyph: string; active: boolean; onClick: () => void }) {
+  v, label, glyph, active, onClick,
+}: { v: CorpusView; label: string; glyph: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      data-testid={`corpus-view-${label}`}
+      data-testid={`corpus-view-${v}`}
       className={[
         'mono text-[10px] tracking-[0.16em] uppercase px-2.5 py-1 transition-colors',
         active

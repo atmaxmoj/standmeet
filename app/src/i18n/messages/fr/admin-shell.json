@@ -279,6 +279,7 @@
     "migrationsPending": "0 en attente",
     "ready": "prêt",
     "resources": "ressources · hôte + runtime",
+    "res": { "disk": "disque", "hostMem": "mém hôte", "cpuLoad": "charge cpu", "goroutines": "goroutines", "goHeap": "tas go", "usedTotal": "utilisé / total", "pctUsed": "{pct} utilisé", "oneMinAvg": "moy 1min", "live": "actives", "mbAlloc": "mo alloués" },
     "publicIp": "ip publique",
     "cluster": "cluster · conteneurs propres",
     "clusterEmpty": "aucune donnée de cluster — socket docker non monté",

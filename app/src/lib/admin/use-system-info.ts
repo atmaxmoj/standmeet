@@ -138,10 +138,14 @@ export function healthList(info: SystemInfo | null): HealthCheck[] {
   return info.health;
 }
 
+// ResourceStatView —— labelKey / subKey resolve from adminShell.system.res.* in the component, so
+// the panel follows the UI language. `value` is already-formatted (numbers + universal units); `pct`
+// feeds the "{pct} used" sub when subKey is 'pctUsed'.
 export interface ResourceStatView {
-  label: string;
+  labelKey: string;
   value: string;
-  sub: string;
+  subKey: string;
+  pct?: string;
 }
 
 function gb(mb: number): string {
@@ -158,11 +162,11 @@ function pct(part: number, whole: number): string {
 export function resourceStats(info: SystemInfo | null): ResourceStatView[] {
   if (info === null) {
     return [
-      { label: 'disk', value: '—', sub: 'used / total' },
-      { label: 'host mem', value: '—', sub: 'used / total' },
-      { label: 'cpu load', value: '—', sub: '1min avg' },
-      { label: 'goroutines', value: '—', sub: 'live' },
-      { label: 'go heap', value: '—', sub: 'mb alloc' },
+      { labelKey: 'disk', value: '—', subKey: 'usedTotal' },
+      { labelKey: 'hostMem', value: '—', subKey: 'usedTotal' },
+      { labelKey: 'cpuLoad', value: '—', subKey: 'oneMinAvg' },
+      { labelKey: 'goroutines', value: '—', subKey: 'live' },
+      { labelKey: 'goHeap', value: '—', subKey: 'mbAlloc' },
     ];
   }
   return [
@@ -170,17 +174,17 @@ export function resourceStats(info: SystemInfo | null): ResourceStatView[] {
       // used / total, like the host-mem row below — the backend sends free, so used = total - free.
       // Showing free here (with the same `X / Y` shape mem uses for used) read as a contradiction:
       // "54.6 / 144.2" looks like used, next to "38% free" it doesn't add up. df's convention is used.
-      label: 'disk',
+      labelKey: 'disk',
       value: `${gb(info.disk_total_mb - info.disk_free_mb)} / ${gb(info.disk_total_mb)} GB`,
-      sub: `${pct(info.disk_total_mb - info.disk_free_mb, info.disk_total_mb)} used`,
+      subKey: 'pctUsed', pct: pct(info.disk_total_mb - info.disk_free_mb, info.disk_total_mb),
     },
     {
-      label: 'host mem',
+      labelKey: 'hostMem',
       value: `${gb(info.mem_used_mb)} / ${gb(info.mem_total_mb)} GB`,
-      sub: `${pct(info.mem_used_mb, info.mem_total_mb)} used`,
+      subKey: 'pctUsed', pct: pct(info.mem_used_mb, info.mem_total_mb),
     },
-    { label: 'cpu load', value: info.load_avg_1.toFixed(2), sub: '1min avg' },
-    { label: 'goroutines', value: String(info.goroutines), sub: 'live' },
-    { label: 'go heap', value: String(info.mem_alloc_mb), sub: 'mb alloc' },
+    { labelKey: 'cpuLoad', value: info.load_avg_1.toFixed(2), subKey: 'oneMinAvg' },
+    { labelKey: 'goroutines', value: String(info.goroutines), subKey: 'live' },
+    { labelKey: 'goHeap', value: String(info.mem_alloc_mb), subKey: 'mbAlloc' },
   ];
 }

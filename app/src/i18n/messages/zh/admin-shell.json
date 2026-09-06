@@ -279,6 +279,7 @@
     "migrationsPending": "0 个待执行",
     "ready": "就绪",
     "resources": "资源 · 宿主 + 运行时",
+    "res": { "disk": "磁盘", "hostMem": "主机内存", "cpuLoad": "CPU 负载", "goroutines": "goroutine", "goHeap": "Go 堆", "usedTotal": "已用 / 总量", "pctUsed": "已用 {pct}", "oneMinAvg": "1 分钟均值", "live": "活跃", "mbAlloc": "MB 分配" },
     "publicIp": "公网 ip",
     "cluster": "集群 · 自有容器",
     "clusterEmpty": "无集群数据 —— docker socket 未挂载",

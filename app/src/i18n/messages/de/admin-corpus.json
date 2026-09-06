@@ -1,4 +1,5 @@
 {
+  "view": { "tree": "Baum", "grid": "Raster", "groupLabel": "Listenansicht" },
   "assets": {
     "reuseToggle": "aus dem Pool wiederverwenden",
     "reuseHide": "Pool ausblenden",

@@ -1,4 +1,5 @@
 {
+  "view": { "tree": "ट्री", "grid": "ग्रिड", "groupLabel": "सूची दृश्य" },
   "assets": {
     "reuseToggle": "पूल से पुनः उपयोग करें",
     "reuseHide": "पूल छिपाएँ",

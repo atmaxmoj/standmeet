@@ -1,4 +1,5 @@
 {
+  "view": { "tree": "ツリー", "grid": "グリッド", "groupLabel": "リスト表示" },
   "assets": {
     "reuseToggle": "プールから再利用",
     "reuseHide": "プールを隠す",

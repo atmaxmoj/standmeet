@@ -279,6 +279,7 @@
     "migrationsPending": "0 pending",
     "ready": "ready",
     "resources": "resources · host + runtime",
+    "res": { "disk": "ディスク", "hostMem": "ホストメモリ", "cpuLoad": "CPU 負荷", "goroutines": "goroutine", "goHeap": "Go ヒープ", "usedTotal": "使用 / 合計", "pctUsed": "{pct} 使用", "oneMinAvg": "1分平均", "live": "稼働中", "mbAlloc": "MB 割当" },
     "publicIp": "パブリック ip",
     "cluster": "クラスター · 自コンテナ",
     "clusterEmpty": "クラスターデータなし — docker ソケット未マウント",

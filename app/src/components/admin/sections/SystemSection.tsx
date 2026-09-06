@@ -18,7 +18,7 @@ import { UpgradePanel } from '@/components/admin/sections/system/UpgradePanel';
 import { useScheduledJobs, jobRowViews, parseSchedule } from '@/lib/admin/use-jobs';
 import {
   useSystemInfo, deployView, healthList, resourceStats, clusterRows,
-  type SystemInfo, type ClusterRowView,
+  type SystemInfo, type ClusterRowView, type ResourceStatView,
 } from '@/lib/admin/use-system-info';
 import type { ResourceStatus } from '@/lib/state/status';
 
@@ -72,19 +72,19 @@ function ResourcesBlock({ info }: { info: SystemInfo | null }) {
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="system-resources">
       <AdminSectionHead className="mb-3">{t('resources')}</AdminSectionHead>
       <div className="grid grid-cols-2 gap-3">
-        {stats.map((s) => (
-          <ResourceStat key={s.label} label={s.label} value={s.value} sub={s.sub} />
-        ))}
+        {stats.map((s) => <ResourceStat key={s.labelKey} s={s} />)}
       </div>
     </div>
   );
 }
 
-function ResourceStat({ label, value, sub }: { label: string; value: string; sub: string }) {
+function ResourceStat({ s }: { s: ResourceStatView }) {
+  const t = useTranslations('adminShell.system');
+  const sub = s.subKey === 'pctUsed' ? t('res.pctUsed', { pct: s.pct ?? '' }) : t(`res.${s.subKey}`);
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-3 bg-(--color-surface)/30">
-      <div className="sm-smallcaps mb-1">{label}</div>
-      <div className="font-serif text-(--color-ink) text-[28px] tabular-nums leading-none">{value}</div>
+      <div className="sm-smallcaps mb-1">{t(`res.${s.labelKey}`)}</div>
+      <div className="font-serif text-(--color-ink) text-[28px] tabular-nums leading-none">{s.value}</div>
       <div className="mono text-[10px] text-(--color-muted) tracking-[0.06em] mt-1">{sub}</div>
     </div>
   );

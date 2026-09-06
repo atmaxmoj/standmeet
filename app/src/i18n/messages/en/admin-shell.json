@@ -279,6 +279,7 @@
     "migrationsPending": "0 pending",
     "ready": "ready",
     "resources": "resources · host + runtime",
+    "res": { "disk": "disk", "hostMem": "host mem", "cpuLoad": "cpu load", "goroutines": "goroutines", "goHeap": "go heap", "usedTotal": "used / total", "pctUsed": "{pct} used", "oneMinAvg": "1min avg", "live": "live", "mbAlloc": "mb alloc" },
     "publicIp": "public ip",
     "cluster": "cluster · own containers",
     "clusterEmpty": "no cluster data — cgroup unavailable",

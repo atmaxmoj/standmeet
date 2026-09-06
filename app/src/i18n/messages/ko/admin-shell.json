@@ -279,6 +279,7 @@
     "migrationsPending": "0 pending",
     "ready": "ready",
     "resources": "resources · host + runtime",
+    "res": { "disk": "디스크", "hostMem": "호스트 메모리", "cpuLoad": "CPU 부하", "goroutines": "goroutine", "goHeap": "Go 힙", "usedTotal": "사용 / 전체", "pctUsed": "{pct} 사용", "oneMinAvg": "1분 평균", "live": "활성", "mbAlloc": "MB 할당" },
     "publicIp": "공용 ip",
     "cluster": "클러스터 · 자체 컨테이너",
     "clusterEmpty": "클러스터 데이터 없음 — docker 소켓이 마운트되지 않음",

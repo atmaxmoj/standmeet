@@ -1,4 +1,5 @@
 {
+  "view": { "tree": "árbol", "grid": "cuadrícula", "groupLabel": "vista de lista" },
   "assets": {
     "reuseToggle": "reutilizar del grupo",
     "reuseHide": "ocultar grupo",

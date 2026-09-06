@@ -1,4 +1,5 @@
 {
+  "view": { "tree": "树", "grid": "网格", "groupLabel": "列表视图" },
   "assets": {
     "reuseToggle": "从池中复用",
     "reuseHide": "隐藏池",

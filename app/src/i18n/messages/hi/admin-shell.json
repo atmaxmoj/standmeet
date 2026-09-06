@@ -279,6 +279,7 @@
     "migrationsPending": "0 pending",
     "ready": "ready",
     "resources": "resources · host + runtime",
+    "res": { "disk": "डिस्क", "hostMem": "होस्ट मेम", "cpuLoad": "सीपीयू लोड", "goroutines": "goroutines", "goHeap": "Go हीप", "usedTotal": "प्रयुक्त / कुल", "pctUsed": "{pct} प्रयुक्त", "oneMinAvg": "1मि औसत", "live": "सक्रिय", "mbAlloc": "MB आवंटित" },
     "publicIp": "सार्वजनिक ip",
     "cluster": "क्लस्टर · अपने कंटेनर",
     "clusterEmpty": "कोई क्लस्टर डेटा नहीं — docker socket माउंट नहीं है",

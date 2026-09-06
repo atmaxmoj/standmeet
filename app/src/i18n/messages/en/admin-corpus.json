@@ -1,4 +1,5 @@
 {
+  "view": { "tree": "tree", "grid": "grid", "groupLabel": "list view" },
   "assets": {
     "reuseToggle": "reuse from pool",
     "reuseHide": "hide pool",
