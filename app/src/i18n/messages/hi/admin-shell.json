@@ -12,6 +12,9 @@
     "notAnswering": "not answering",
     "viewPublic": "view public ↗",
     "signOut": "sign out",
+    "signOutConfirmTitle": "साइन आउट करें?",
+    "signOutConfirmBody": "एडमिन में वापस आने के लिए आपको फिर से साइन इन करना होगा।",
+    "signOutConfirmCancel": "रद्द करें",
     "navOpen": "sections",
     "navClose": "close",
     "versionLabel": "version ·"

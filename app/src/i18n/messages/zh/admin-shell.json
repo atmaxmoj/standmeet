@@ -12,6 +12,9 @@
     "notAnswering": "无应答",
     "viewPublic": "查看公开页 ↗",
     "signOut": "退出登录",
+    "signOutConfirmTitle": "退出登录？",
+    "signOutConfirmBody": "重新进入后台需要再次登录。",
+    "signOutConfirmCancel": "取消",
     "navOpen": "区块",
     "navClose": "关闭",
     "versionLabel": "版本 ·"

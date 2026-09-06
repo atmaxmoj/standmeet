@@ -12,6 +12,9 @@
     "notAnswering": "not answering",
     "viewPublic": "view public ↗",
     "signOut": "sign out",
+    "signOutConfirmTitle": "サインアウトしますか？",
+    "signOutConfirmBody": "管理画面に戻るには、もう一度サインインする必要があります。",
+    "signOutConfirmCancel": "キャンセル",
     "navOpen": "sections",
     "navClose": "close",
     "versionLabel": "version ·"

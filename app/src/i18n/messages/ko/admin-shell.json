@@ -12,6 +12,9 @@
     "notAnswering": "not answering",
     "viewPublic": "view public ↗",
     "signOut": "sign out",
+    "signOutConfirmTitle": "로그아웃하시겠습니까?",
+    "signOutConfirmBody": "관리자 화면으로 돌아가려면 다시 로그인해야 합니다.",
+    "signOutConfirmCancel": "취소",
     "navOpen": "sections",
     "navClose": "close",
     "versionLabel": "version ·"

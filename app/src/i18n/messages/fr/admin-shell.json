@@ -12,6 +12,9 @@
     "notAnswering": "ne répond pas",
     "viewPublic": "voir public ↗",
     "signOut": "se déconnecter",
+    "signOutConfirmTitle": "Se déconnecter ?",
+    "signOutConfirmBody": "Vous devrez vous reconnecter pour revenir à l'administration.",
+    "signOutConfirmCancel": "annuler",
     "navOpen": "sections",
     "navClose": "fermer",
     "versionLabel": "version ·"

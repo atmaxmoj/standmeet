@@ -12,6 +12,9 @@
     "notAnswering": "no responde",
     "viewPublic": "ver público ↗",
     "signOut": "desconectarse",
+    "signOutConfirmTitle": "¿Cerrar sesión?",
+    "signOutConfirmBody": "Tendrás que iniciar sesión de nuevo para volver al panel.",
+    "signOutConfirmCancel": "cancelar",
     "navOpen": "secciones",
     "navClose": "cerrar",
     "versionLabel": "versión ·"

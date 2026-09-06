@@ -30,17 +30,30 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 test.describe('owner sign-out kills the server session', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
-  test('sign out revokes the session server-side (a captured token stops working)',
+  test('sign out asks to confirm first, then revokes the session server-side',
     async ({ adminPage, playwright }) => {
       const token = await sessionCookieValue(adminPage);
       expect(token, 'owner has a session cookie after login').toBeTruthy();
       // baseline: the captured cookie authenticates an owner-only endpoint
       expect(await meStatus(playwright, token)).toBe(200);
 
+      // The first click opens a confirm modal — it must NOT sign out on its own (an accidental
+      // click shouldn't end the session).
       await adminPage.getByTestId('signout').click();
-      await adminPage.waitForURL('**/login', { timeout: 10_000 });
+      await expect(adminPage.getByTestId('signout-confirm'),
+        'sign-out opens a confirm modal').toBeVisible();
+      expect(await meStatus(playwright, token), 'opening the modal does not sign out').toBe(200);
 
-      // the security assertion: the SAME token must now be dead server-side.
+      // Cancel dismisses it and the session stays alive.
+      await adminPage.getByTestId('signout-cancel').click();
+      await expect(adminPage.getByTestId('signout-confirm')).toHaveCount(0);
+      expect(await meStatus(playwright, token), 'cancel does not sign out').toBe(200);
+
+      // Confirming actually signs out — and the security assertion still holds: the SAME captured
+      // token is dead server-side afterwards.
+      await adminPage.getByTestId('signout').click();
+      await adminPage.getByTestId('signout-confirm-btn').click();
+      await adminPage.waitForURL('**/login', { timeout: 10_000 });
       expect(await meStatus(playwright, token)).toBe(401);
     });
 });

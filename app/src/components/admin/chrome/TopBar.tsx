@@ -5,11 +5,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback } from 'react';
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { CorpusConstellation } from '@/components/admin/chrome/CorpusConstellation';
 import { LocaleSwitch } from '@/components/page/LocaleSwitch';
+import { ModalShell } from '@/components/admin/modals/ModalShell';
 import { Pill } from '@/components/admin/atoms/Pill';
 import { useAppVersion } from '@/lib/app-version';
 import { signOut } from '@/lib/admin/sign-out';
@@ -30,7 +31,10 @@ type Props = {
 // a constant look like it came "from outside" (F-C-10). The prop is gone now.
 export function TopBar({ handle, email, navOpen, onToggleNav }: Props) {
   const buildTag = useAppVersion();
-  const onSignOut = useCallback(() => void signOut(), []);
+  // Sign-out is a one-click way to lock yourself out of the admin (you have to sign in again to get
+  // back). The button opens a confirm modal instead of signing out immediately — an accidental click
+  // shouldn't end the session.
+  const [confirming, setConfirming] = useState(false);
   return (
     <header className="flex items-center px-4 sm:px-6 lg:px-8 h-14 border-b border-(--color-rule) shrink-0 gap-3 sm:gap-4">
       <NavToggle open={navOpen} onToggle={onToggleNav} />
@@ -40,8 +44,36 @@ export function TopBar({ handle, email, navOpen, onToggleNav }: Props) {
           the same 56px bar, and all three get squeezed. It's the one thing here
           that loses nothing if dropped, so it's the one that gets dropped. */}
       <div className="hidden lg:contents"><CorpusConstellation /></div>
-      <TopBarMeta email={email} buildTag={buildTag} onSignOut={onSignOut} />
+      <TopBarMeta email={email} buildTag={buildTag} onSignOut={() => setConfirming(true)} />
+      {confirming ? <SignOutConfirm onCancel={() => setConfirming(false)} /> : null}
     </header>
+  );
+}
+
+// SignOutConfirm — the confirm step for sign-out. Cancel closes it (and the backdrop / close does
+// too, via ModalShell); the accent button actually signs out.
+function SignOutConfirm({ onCancel }: { onCancel: () => void }) {
+  const t = useTranslations('adminShell.topBar');
+  return (
+    <ModalShell onClose={onCancel} title={t('signOutConfirmTitle')} maxWidth={420}>
+      <div className="px-7 py-6" data-testid="signout-confirm">
+        <p className="reading text-[15px] text-(--color-muted) mb-6">{t('signOutConfirmBody')}</p>
+        <div className="flex justify-end gap-3">
+          <button
+            type="button" onClick={onCancel} data-testid="signout-cancel"
+            className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
+          >
+            {t('signOutConfirmCancel')}
+          </button>
+          <button
+            type="button" onClick={() => void signOut()} data-testid="signout-confirm-btn"
+            className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-paper) bg-(--color-accent) px-3 py-1.5 hover:opacity-90 transition-opacity"
+          >
+            {t('signOut')}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 

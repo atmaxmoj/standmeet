@@ -12,6 +12,9 @@
     "notAnswering": "not answering",
     "viewPublic": "view public ↗",
     "signOut": "sign out",
+    "signOutConfirmTitle": "Sign out?",
+    "signOutConfirmBody": "You'll need to sign in again to get back into the admin.",
+    "signOutConfirmCancel": "cancel",
     "navOpen": "sections",
     "navClose": "close",
     "versionLabel": "version ·"

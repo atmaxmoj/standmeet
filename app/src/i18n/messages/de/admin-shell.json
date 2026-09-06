@@ -12,6 +12,9 @@
     "notAnswering": "antwortet nicht",
     "viewPublic": "öffentlich anzeigen ↗",
     "signOut": "abmelden",
+    "signOutConfirmTitle": "Abmelden?",
+    "signOutConfirmBody": "Du musst dich erneut anmelden, um wieder ins Admin zu gelangen.",
+    "signOutConfirmCancel": "abbrechen",
     "navOpen": "bereiche",
     "navClose": "schließen",
     "versionLabel": "version ·"
