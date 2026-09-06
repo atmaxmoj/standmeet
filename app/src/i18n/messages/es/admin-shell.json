@@ -161,7 +161,39 @@
     "visitorMeta": "{label} · {turns, plural, one {# turno} other {# turnos}} · {last}",
     "privHits": "{n} priv",
     "nothingPending": "Nada pendiente — el corpus está actualizado.",
-    "review": "revisar →"
+    "review": "revisar →",
+    "kicker": "resumen",
+    "loadingCount": "cargando…",
+    "lastRefresh": "última actualización · ahora",
+    "pulseTitle": "pulso del corpus · 14 d",
+    "jobsTitle": "empleo · bucle activo",
+    "recentTitle": "visitantes recientes",
+    "needsTitle": "requiere tu atención",
+    "kpi": {
+      "entries": "entradas",
+      "unprocessed": "sin procesar",
+      "codesLive": "códigos activos",
+      "requests": "solicitudes",
+      "entriesSub": "bruto + wiki + salida",
+      "unprocessedSub": "por revisar",
+      "requestsSub": "desde la puerta",
+      "trendTotal": "↑ {n} en total",
+      "trendGrowing": "↑ creciendo",
+      "trendInFlow": "↓ en flujo",
+      "trendActive": "{n} activos",
+      "trendNew": "↑ {n} nuevas",
+      "trendZero": "en cero"
+    },
+    "needs": {
+      "aiLabel": "sin proveedor de IA utilizable",
+      "aiSub": "se está rechazando a los visitantes — pon una clave en api · mcp",
+      "requestsLabel": "{n, plural, one {# solicitud de acceso} other {# solicitudes de acceso}}",
+      "requestsSub": "visitantes esperando un código",
+      "rawLabel": "{n, plural, one {# entrada bruta sin procesar} other {# entradas brutas sin procesar}}",
+      "rawSub": "promover, editar o dejar fermentar",
+      "draftsLabel": "borradores de CV pendientes",
+      "draftsSub": "generado por IA · esperando tu revisión"
+    }
   },
   "account": {
     "siteAddress": "dirección del sitio",

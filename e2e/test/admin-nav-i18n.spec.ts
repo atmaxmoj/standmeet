@@ -47,5 +47,10 @@ test.describe('admin nav + section heading are translated', () => {
       await expect(page.getByTestId('admin-sidebar'), 'zh group header').toContainText('语料库');
       // The big section heading follows the same catalog entry as the sidebar label.
       await expect(page.getByTestId('section-header'), 'zh heading').toContainText('仪表盘');
+
+      // Dashboard body copy is translated too (KPI tile labels + a card header) — these used to be
+      // hardcoded English in the view/data modules (dashboard-view.ts, use-admin-dashboard.ts).
+      await expect(page.getByTestId('kpi-entries'), 'zh KPI label').toContainText('条目');
+      await expect(page.getByTestId('dash-corpus-pulse'), 'zh card header').toContainText('语料库脉搏');
     });
 });

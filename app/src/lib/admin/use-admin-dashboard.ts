@@ -83,16 +83,16 @@ export function useAdminDashboard(): State {
   return state;
 }
 
+// ActionItem carries message KEYS, not copy: the label/sub are resolved by the component via
+// t('adminShell.dashboard.needs.*') so the list follows the UI language. `n` feeds the label's ICU
+// plural (requests / raw). `key` is the stable testid id.
 export interface ActionItem {
   key: string;
   count: number;
-  label: string;
-  sub: string;
+  labelKey: string;
+  n?: number;
+  subKey: string;
   href: string;
-}
-
-function pluralize(n: number, singular: string, plural: string): string {
-  return n === 1 ? singular : plural;
 }
 
 export function allActionItems(stats: DashboardStats): ActionItem[] {
@@ -101,21 +101,18 @@ export function allActionItems(stats: DashboardStats): ActionItem[] {
     // to answer anyone: a visitor's very first message gets a 503.
     // This row exists to **break the silence** — in F-A-24 the only way the owner could notice was to go be a visitor themself.
     { key: 'ai', count: stats.aiProviderUsable ? 0 : 1,
-      label: 'no usable AI provider',
-      sub: 'visitors are being turned away — set a key under api · mcp',
-      href: '/admin/api-mcp' },
+      labelKey: 'aiLabel', subKey: 'aiSub', href: '/admin/api-mcp' },
     { key: 'requests', count: stats.requestsNew,
-      label: `${stats.requestsNew} access ${pluralize(stats.requestsNew, 'request', 'requests')}`,
-      sub: 'visitors waiting on a code', href: '/admin/requests' },
+      labelKey: 'requestsLabel', n: stats.requestsNew,
+      subKey: 'requestsSub', href: '/admin/requests' },
     // F-C-6: the original copy "promote, edit, or archive" was a lie — raw
     // has no archive feature; and it framed raw as a to-do queue. raw is a
     // fermentation pool: leaving something untouched is a valid state, and the copy should say so.
     { key: 'raw', count: stats.rawUnprocessed,
-      label: `${stats.rawUnprocessed} raw ${pluralize(stats.rawUnprocessed, 'entry', 'entries')} unprocessed`,
-      sub: 'promote, edit, or let them ferment', href: '/admin/raw' },
+      labelKey: 'rawLabel', n: stats.rawUnprocessed,
+      subKey: 'rawSub', href: '/admin/raw' },
     { key: 'drafts', count: stats.draftsReviewing ?? 0,
-      label: 'resume drafts pending',
-      sub: 'AI generated · awaiting your review', href: '/admin/drafts' },
+      labelKey: 'draftsLabel', subKey: 'draftsSub', href: '/admin/drafts' },
   ];
 }
 

@@ -161,7 +161,39 @@
     "visitorMeta": "{label} · {turns, plural, one {# turn} other {# turns}} · {last}",
     "privHits": "{n} priv",
     "nothingPending": "Nothing pending — corpus is current.",
-    "review": "review →"
+    "review": "review →",
+    "kicker": "概要",
+    "loadingCount": "読み込み中…",
+    "lastRefresh": "最終更新 · たった今",
+    "pulseTitle": "コーパスの動き · 14日",
+    "jobsTitle": "求人 · アクティブループ",
+    "recentTitle": "最近の訪問者",
+    "needsTitle": "対応が必要",
+    "kpi": {
+      "entries": "エントリ",
+      "unprocessed": "未処理",
+      "codesLive": "有効なコード",
+      "requests": "申請",
+      "entriesSub": "生 + ウィキ + 出力",
+      "unprocessedSub": "要確認",
+      "requestsSub": "ゲートから",
+      "trendTotal": "↑ 合計 {n}",
+      "trendGrowing": "↑ 増加中",
+      "trendInFlow": "↓ 流動中",
+      "trendActive": "{n} 件有効",
+      "trendNew": "↑ {n} 件新規",
+      "trendZero": "ゼロ"
+    },
+    "needs": {
+      "aiLabel": "使用可能な AI プロバイダーがありません",
+      "aiSub": "訪問者が拒否されています — api · mcp でキーを設定してください",
+      "requestsLabel": "{n} 件のアクセス申請",
+      "requestsSub": "コード待ちの訪問者",
+      "rawLabel": "{n} 件の生エントリが未処理",
+      "rawSub": "昇格・編集、または寝かせる",
+      "draftsLabel": "履歴書の下書きが保留中",
+      "draftsSub": "AI 生成 · レビュー待ち"
+    }
   },
   "account": {
     "siteAddress": "サイトアドレス",

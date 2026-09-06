@@ -161,7 +161,39 @@
     "visitorMeta": "{label} · {turns, plural, one {# turn} other {# turns}} · {last}",
     "privHits": "{n} priv",
     "nothingPending": "Nothing pending — corpus is current.",
-    "review": "review →"
+    "review": "review →",
+    "kicker": "개요",
+    "loadingCount": "불러오는 중…",
+    "lastRefresh": "마지막 새로고침 · 방금",
+    "pulseTitle": "코퍼스 맥박 · 14일",
+    "jobsTitle": "채용 · 활성 루프",
+    "recentTitle": "최근 방문자",
+    "needsTitle": "조치 필요",
+    "kpi": {
+      "entries": "항목",
+      "unprocessed": "미처리",
+      "codesLive": "활성 코드",
+      "requests": "요청",
+      "entriesSub": "원본 + 위키 + 출력",
+      "unprocessedSub": "검토 필요",
+      "requestsSub": "게이트에서",
+      "trendTotal": "↑ 총 {n}",
+      "trendGrowing": "↑ 증가 중",
+      "trendInFlow": "↓ 흐름 중",
+      "trendActive": "{n}개 활성",
+      "trendNew": "↑ {n}개 신규",
+      "trendZero": "0"
+    },
+    "needs": {
+      "aiLabel": "사용 가능한 AI 제공자 없음",
+      "aiSub": "방문자가 거절되고 있습니다 — api · mcp에서 키를 설정하세요",
+      "requestsLabel": "{n}개 접근 요청",
+      "requestsSub": "코드를 기다리는 방문자",
+      "rawLabel": "{n}개 원본 항목 미처리",
+      "rawSub": "승격, 편집 또는 숙성시키기",
+      "draftsLabel": "이력서 초안 대기 중",
+      "draftsSub": "AI 생성 · 검토 대기"
+    }
   },
   "account": {
     "siteAddress": "사이트 주소",

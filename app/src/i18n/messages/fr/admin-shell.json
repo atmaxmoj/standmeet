@@ -161,7 +161,39 @@
     "visitorMeta": "{label} · {turns, plural, one {# tour} other {# tours}} · {last}",
     "privHits": "{n} priv",
     "nothingPending": "Rien en attente — le corpus est à jour.",
-    "review": "examiner →"
+    "review": "examiner →",
+    "kicker": "aperçu",
+    "loadingCount": "chargement…",
+    "lastRefresh": "dernière actualisation · maintenant",
+    "pulseTitle": "pouls du corpus · 14 j",
+    "jobsTitle": "emploi · boucle active",
+    "recentTitle": "visiteurs récents",
+    "needsTitle": "nécessite votre attention",
+    "kpi": {
+      "entries": "entrées",
+      "unprocessed": "non traité",
+      "codesLive": "codes actifs",
+      "requests": "demandes",
+      "entriesSub": "brut + wiki + sortie",
+      "unprocessedSub": "à examiner",
+      "requestsSub": "depuis la porte",
+      "trendTotal": "↑ {n} au total",
+      "trendGrowing": "↑ en hausse",
+      "trendInFlow": "↓ en flux",
+      "trendActive": "{n} actifs",
+      "trendNew": "↑ {n} nouvelles",
+      "trendZero": "à zéro"
+    },
+    "needs": {
+      "aiLabel": "aucun fournisseur d'IA utilisable",
+      "aiSub": "les visiteurs sont refusés — définissez une clé sous api · mcp",
+      "requestsLabel": "{n, plural, one {# demande d'accès} other {# demandes d'accès}}",
+      "requestsSub": "visiteurs en attente d'un code",
+      "rawLabel": "{n, plural, one {# entrée brute non traitée} other {# entrées brutes non traitées}}",
+      "rawSub": "promouvoir, modifier ou laisser mûrir",
+      "draftsLabel": "brouillons de CV en attente",
+      "draftsSub": "généré par IA · en attente de votre examen"
+    }
   },
   "account": {
     "siteAddress": "adresse du site",

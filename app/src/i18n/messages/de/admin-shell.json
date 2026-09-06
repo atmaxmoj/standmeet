@@ -161,7 +161,39 @@
     "visitorMeta": "{label} · {turns, plural, one {# zug} other {# züge}} · {last}",
     "privHits": "{n} priv",
     "nothingPending": "Nichts ausstehend — corpus ist aktuell.",
-    "review": "überprüfen →"
+    "review": "überprüfen →",
+    "kicker": "Übersicht",
+    "loadingCount": "lädt…",
+    "lastRefresh": "letzte Aktualisierung · jetzt",
+    "pulseTitle": "Korpus-Puls · 14 T",
+    "jobsTitle": "Jobs · aktive Schleife",
+    "recentTitle": "letzte Besucher",
+    "needsTitle": "braucht dich",
+    "kpi": {
+      "entries": "Einträge",
+      "unprocessed": "unverarbeitet",
+      "codesLive": "aktive Codes",
+      "requests": "Anfragen",
+      "entriesSub": "roh + wiki + Ausgabe",
+      "unprocessedSub": "zu prüfen",
+      "requestsSub": "vom Gate",
+      "trendTotal": "↑ {n} gesamt",
+      "trendGrowing": "↑ wachsend",
+      "trendInFlow": "↓ im Fluss",
+      "trendActive": "{n} aktiv",
+      "trendNew": "↑ {n} neu",
+      "trendZero": "bei null"
+    },
+    "needs": {
+      "aiLabel": "kein nutzbarer KI-Anbieter",
+      "aiSub": "Besucher werden abgewiesen — hinterlege einen Schlüssel unter api · mcp",
+      "requestsLabel": "{n, plural, one {# Zugangsanfrage} other {# Zugangsanfragen}}",
+      "requestsSub": "Besucher warten auf einen Code",
+      "rawLabel": "{n, plural, one {# roher Eintrag unverarbeitet} other {# rohe Einträge unverarbeitet}}",
+      "rawSub": "hochstufen, bearbeiten oder reifen lassen",
+      "draftsLabel": "Lebenslauf-Entwürfe ausstehend",
+      "draftsSub": "KI-generiert · wartet auf deine Prüfung"
+    }
   },
   "account": {
     "siteAddress": "site-adresse",

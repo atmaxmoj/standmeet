@@ -161,7 +161,39 @@
     "visitorMeta": "{label} · {turns, plural, one {# turn} other {# turns}} · {last}",
     "privHits": "{n} priv",
     "nothingPending": "Nothing pending — corpus is current.",
-    "review": "review →"
+    "review": "review →",
+    "kicker": "overview",
+    "loadingCount": "loading…",
+    "lastRefresh": "last refresh · now",
+    "pulseTitle": "corpus pulse · 14d",
+    "jobsTitle": "jobs · active loop",
+    "recentTitle": "recent visitors",
+    "needsTitle": "needs your hand",
+    "kpi": {
+      "entries": "entries",
+      "unprocessed": "unprocessed",
+      "codesLive": "codes live",
+      "requests": "requests",
+      "entriesSub": "raw + wiki + output",
+      "unprocessedSub": "needs review",
+      "requestsSub": "from gate",
+      "trendTotal": "↑ {n} total",
+      "trendGrowing": "↑ growing",
+      "trendInFlow": "↓ in flow",
+      "trendActive": "{n} active",
+      "trendNew": "↑ {n} new",
+      "trendZero": "at zero"
+    },
+    "needs": {
+      "aiLabel": "no usable AI provider",
+      "aiSub": "visitors are being turned away — set a key under api · mcp",
+      "requestsLabel": "{n, plural, one {# access request} other {# access requests}}",
+      "requestsSub": "visitors waiting on a code",
+      "rawLabel": "{n, plural, one {# raw entry unprocessed} other {# raw entries unprocessed}}",
+      "rawSub": "promote, edit, or let them ferment",
+      "draftsLabel": "resume drafts pending",
+      "draftsSub": "AI generated · awaiting your review"
+    }
   },
   "account": {
     "siteAddress": "site address",

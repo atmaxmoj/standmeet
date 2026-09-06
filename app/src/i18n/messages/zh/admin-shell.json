@@ -161,7 +161,39 @@
     "visitorMeta": "{label} · {turns, plural, one {# 轮} other {# 轮}} · {last}",
     "privHits": "{n} 私密",
     "nothingPending": "没有待处理——语料库是最新的。",
-    "review": "审阅 →"
+    "review": "审阅 →",
+    "kicker": "总览",
+    "loadingCount": "加载中…",
+    "lastRefresh": "最近刷新 · 刚刚",
+    "pulseTitle": "语料库脉搏 · 14 天",
+    "jobsTitle": "求职 · 活跃闭环",
+    "recentTitle": "近期访客",
+    "needsTitle": "需要你处理",
+    "kpi": {
+      "entries": "条目",
+      "unprocessed": "未处理",
+      "codesLive": "在用访问码",
+      "requests": "申请",
+      "entriesSub": "原始 + 维基 + 输出",
+      "unprocessedSub": "待审阅",
+      "requestsSub": "来自门禁",
+      "trendTotal": "↑ 共 {n}",
+      "trendGrowing": "↑ 增长中",
+      "trendInFlow": "↓ 流转中",
+      "trendActive": "{n} 个在用",
+      "trendNew": "↑ {n} 个新",
+      "trendZero": "为零"
+    },
+    "needs": {
+      "aiLabel": "没有可用的 AI 提供方",
+      "aiSub": "访客正被拒之门外 —— 去 api · mcp 配一个密钥",
+      "requestsLabel": "{n} 个访问申请",
+      "requestsSub": "访客在等访问码",
+      "rawLabel": "{n} 条原始条目待处理",
+      "rawSub": "提升、编辑，或让它们继续沉淀",
+      "draftsLabel": "简历草稿待审",
+      "draftsSub": "AI 生成 · 待你审阅"
+    }
   },
   "account": {
     "siteAddress": "站点地址",

@@ -161,7 +161,39 @@
     "visitorMeta": "{label} · {turns, plural, one {# turn} other {# turns}} · {last}",
     "privHits": "{n} priv",
     "nothingPending": "Nothing pending — corpus is current.",
-    "review": "review →"
+    "review": "review →",
+    "kicker": "अवलोकन",
+    "loadingCount": "लोड हो रहा है…",
+    "lastRefresh": "अंतिम ताज़ा · अभी",
+    "pulseTitle": "कोष स्पंदन · 14 दिन",
+    "jobsTitle": "नौकरी · सक्रिय लूप",
+    "recentTitle": "हाल के आगंतुक",
+    "needsTitle": "आपके ध्यान की ज़रूरत",
+    "kpi": {
+      "entries": "प्रविष्टियाँ",
+      "unprocessed": "अप्रसंस्कृत",
+      "codesLive": "सक्रिय कोड",
+      "requests": "अनुरोध",
+      "entriesSub": "कच्चा + विकी + आउटपुट",
+      "unprocessedSub": "समीक्षा चाहिए",
+      "requestsSub": "गेट से",
+      "trendTotal": "↑ कुल {n}",
+      "trendGrowing": "↑ बढ़ रहा",
+      "trendInFlow": "↓ प्रवाह में",
+      "trendActive": "{n} सक्रिय",
+      "trendNew": "↑ {n} नए",
+      "trendZero": "शून्य पर"
+    },
+    "needs": {
+      "aiLabel": "कोई उपयोगी AI प्रदाता नहीं",
+      "aiSub": "आगंतुक लौटाए जा रहे हैं — api · mcp के तहत एक कुंजी सेट करें",
+      "requestsLabel": "{n, plural, one {# पहुँच अनुरोध} other {# पहुँच अनुरोध}}",
+      "requestsSub": "आगंतुक कोड की प्रतीक्षा में",
+      "rawLabel": "{n, plural, one {# कच्ची प्रविष्टि अप्रसंस्कृत} other {# कच्ची प्रविष्टियाँ अप्रसंस्कृत}}",
+      "rawSub": "प्रचारित करें, संपादित करें, या पकने दें",
+      "draftsLabel": "रिज़्यूमे ड्राफ्ट लंबित",
+      "draftsSub": "AI जनित · आपकी समीक्षा प्रतीक्षित"
+    }
   },
   "account": {
     "siteAddress": "साइट पता",

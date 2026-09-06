@@ -29,18 +29,18 @@ import {
   type ActionItem,
   type DashboardStats,
 } from '@/lib/admin/use-admin-dashboard';
-import {
-  kpiCards, needsItems, pulseView, type KpiCard, type PulseView,
-} from '@/lib/admin/dashboard-view';
+import { needsItems, pulseView, type PulseView } from '@/lib/admin/dashboard-view';
+import { KpiRow } from '@/components/admin/sections/dashboard/DashboardKpi';
 
 export function DashboardSection() {
+  const t = useTranslations('adminShell.dashboard');
   const { stats, loading, error } = useAdminDashboard();
   return (
     <div data-testid="dashboard">
       <SectionHeader
-        kicker="overview"
+        kicker={t('kicker')}
         slug="dashboard"
-        count={loading ? 'loading…' : 'last refresh · now'}
+        count={loading ? t('loadingCount') : t('lastRefresh')}
       />
       <KpiRow stats={stats} />
       <MiddleRow stats={stats} />
@@ -48,50 +48,6 @@ export function DashboardSection() {
       <ErrorBlock msg={error} />
     </div>
   );
-}
-
-// KpiRow —— the value and the small line below it are both computed in one place,
-// `kpiCards` (F-L-52). This layer only renders: when there's no data, that small
-// line **simply doesn't exist**, so there's no need to check for it again here.
-function KpiRow({ stats }: { stats: DashboardStats | null }) {
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" data-testid="dashboard-kpis">
-      {kpiCards(stats).map((c) => <Kpi key={c.key} card={c} />)}
-    </div>
-  );
-}
-
-function Kpi({ card }: { card: KpiCard }) {
-  return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid={`kpi-${card.label}`}>
-      <div className="sm-smallcaps mb-1.5">{card.label}</div>
-      <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none tracking-[-0.02em]">
-        {card.value}
-      </div>
-      <KpiTrend trend={card.trend} sub={card.sub} />
-    </div>
-  );
-}
-
-function KpiTrend({ trend, sub }: { trend?: string; sub?: string }) {
-  const hasTrend = (trend ?? sub) !== undefined;
-  return hasTrend ? <KpiTrendBody trend={trend} sub={sub} /> : null;
-}
-
-function kpiTrendTone(trend?: string): string {
-  return trend?.startsWith('↑') ? 'text-(--color-accent)' : 'text-(--color-muted)';
-}
-
-function KpiTrendBody({ trend, sub }: { trend?: string; sub?: string }) {
-  return (
-    <div className={`mono text-[10px] tracking-[0.06em] mt-1.5 ${kpiTrendTone(trend)}`}>
-      {trend}<KpiTrendSub sub={sub} />
-    </div>
-  );
-}
-
-function KpiTrendSub({ sub }: { sub?: string }) {
-  return sub ? <span className="text-(--color-faint)"> · {sub}</span> : null;
 }
 
 function MiddleRow({ stats }: { stats: DashboardStats | null }) {
@@ -111,7 +67,7 @@ function CorpusPulse({ stats }: { stats: DashboardStats | null }) {
       className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50"
       data-testid="dash-corpus-pulse"
     >
-      <GroupHeader title="corpus pulse · 14d" action={<PulseVerdict verdict={v.verdict} />} />
+      <GroupHeader title={t('pulseTitle')} action={<PulseVerdict verdict={v.verdict} />} />
       <div className="flex items-end gap-6 mt-2">
         <div>
           <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none">
@@ -122,7 +78,7 @@ function CorpusPulse({ stats }: { stats: DashboardStats | null }) {
           </div>
         </div>
         <div className="flex-1">
-          <CorpusSparkline pulse={v.series} days={v.days} />
+          <CorpusSparkline pulse={v.series} days={v.days} label={t('pulseTitle')} />
           <div className="mono text-[9.5px] text-(--color-faint) tracking-[0.06em] mt-1 flex justify-between">
             <span>{t('daysAgo14')}</span><span>{t('today')}</span>
           </div>
@@ -161,8 +117,10 @@ function VerdictText({ active, added }: { active: boolean; added: number }) {
 // empty pulse → a flat line, which is exactly the honest shape; this used to be a
 // hardcoded MOCK_14D, a jagged line that never moved and had nothing to do with the
 // corpus.
-function CorpusSparkline({ pulse, days }: { pulse: readonly number[]; days: readonly string[] }) {
-  return <Sparkline data={pulse} labels={days} width={260} height={48} label="corpus pulse · 14d" />;
+function CorpusSparkline(
+  { pulse, days, label }: { pulse: readonly number[]; days: readonly string[]; label: string },
+) {
+  return <Sparkline data={pulse} labels={days} width={260} height={48} label={label} />;
 }
 
 function JobsHeat() {
@@ -178,7 +136,7 @@ function JobsHeat() {
   };
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="dash-jobs-panel">
-      <GroupHeader title="jobs · active loop" action={
+      <GroupHeader title={t('jobsTitle')} action={
         <Link href="/admin/listings" className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)">
           {t('viewAll')}
         </Link>
@@ -287,7 +245,7 @@ function RecentVisitors() {
   const { rows } = useRecentConversations();
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
-      <GroupHeader title="recent visitors" action={
+      <GroupHeader title={t('recentTitle')} action={
         <Link href="/admin/conversations" className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)">
           {t('all')}
         </Link>
@@ -353,9 +311,10 @@ function RecentVisitorFlags({ hits }: { hits: number }) {
 // loading frame, at a moment when it didn't even know how many entries the corpus
 // had).
 function NeedsYourHand({ stats }: { stats: DashboardStats | null }) {
+  const t = useTranslations('adminShell.dashboard');
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="needs-hand">
-      <GroupHeader title="needs your hand" />
+      <GroupHeader title={t('needsTitle')} />
       <NeedsList items={needsItems(stats)} />
     </div>
   );
@@ -394,8 +353,12 @@ function NeedRow({ item }: { item: ActionItem }) {
   return (
     <li className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0">
       <div>
-        <div className="font-serif text-(--color-ink) text-[15px]">{item.label}</div>
-        <div className="mono text-[10px] tracking-[0.06em] text-(--color-muted) mt-0.5">{item.sub}</div>
+        <div className="font-serif text-(--color-ink) text-[15px]">
+          {t(`needs.${item.labelKey}`, { n: item.n ?? 0 })}
+        </div>
+        <div className="mono text-[10px] tracking-[0.06em] text-(--color-muted) mt-0.5">
+          {t(`needs.${item.subKey}`)}
+        </div>
       </div>
       <Link href={item.href} className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) hover:text-(--color-ink)">
         <span data-testid={`dashboard-jump-${item.key}`}>{t('review')}</span>
