@@ -52,6 +52,14 @@
   [#metadata((field: field, x: p.x / 1pt, y: p.y / 1pt, page: p.page)) <sm-edit>]
 }
 
+// row-anchor —— like edit-anchor, but marks the top of a repeatable ROW (an experience/education
+// entry) so the composer can overlay drag handles and reorder ON the canvas (P3-b). Emits the
+// list `kind` + `index` + position; `query('<sm-row>')` reads them back. No visual output.
+#let row-anchor(kind, index) = context {
+  let p = here().position()
+  [#metadata((kind: kind, index: index, x: p.x / 1pt, y: p.y / 1pt, page: p.page)) <sm-row>]
+}
+
 // ── header ──────────────────────────────────────────────────────────
 #let idy = data.identity
 #grid(columns: (1fr, auto), column-gutter: 14pt, align: (left + bottom, right + top),
@@ -116,7 +124,8 @@
   // main column: experience
   [
     #sechead("experience")
-    #for w in data.works [
+    #for (i, w) in data.works.enumerate() [
+      #row-anchor("works", i)
       #grid(columns: (1fr, auto), align: (left, right),
         text(size: 11pt, weight: 500)[#w.title],
         mono(size: 7.5pt, fill: faint)[#period(w.period)])

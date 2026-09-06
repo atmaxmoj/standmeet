@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { renderResume, type EditAnchor } from '@/lib/admin/typst-preview';
+import { renderResume, type EditAnchor, type RowAnchor } from '@/lib/admin/typst-preview';
 
 export type TypstStatus = 'rendering' | 'ready' | 'failed';
 
@@ -26,9 +26,12 @@ const DEBOUNCE_MS = 350;
 
 export function useTypstPreview(
   input: Input,
-): { svg: string; anchors: readonly EditAnchor[]; status: TypstStatus } {
+): {
+  svg: string; anchors: readonly EditAnchor[]; rowAnchors: readonly RowAnchor[]; status: TypstStatus;
+} {
   const [svg, setSvg] = useState('');
   const [anchors, setAnchors] = useState<readonly EditAnchor[]>([]);
+  const [rowAnchors, setRowAnchors] = useState<readonly RowAnchor[]>([]);
   const [status, setStatus] = useState<TypstStatus>('rendering');
   const seq = useRef(0);
   const { template, dataJSON, role, company, qrURL, enabled } = input;
@@ -45,6 +48,7 @@ export function useTypstPreview(
           if (seq.current !== mine) return;
           setSvg(out.svg);
           setAnchors(out.anchors);
+          setRowAnchors(out.rowAnchors);
           setStatus('ready');
         })
         .catch((e: unknown) => {
@@ -57,5 +61,5 @@ export function useTypstPreview(
     return () => clearTimeout(timer);
   }, [template, dataJSON, role, company, qrURL, enabled]);
 
-  return { svg, anchors, status };
+  return { svg, anchors, rowAnchors, status };
 }

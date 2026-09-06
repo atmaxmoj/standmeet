@@ -92,9 +92,21 @@ export interface EditAnchor {
   page: number;
 }
 
+// RowAnchor —— the top of a repeatable row (an experience/education entry), emitted by the
+// template's `row-anchor` metadata (P3-b). The composer overlays a drag handle at each and reorders
+// the list on drop. x/y are pt from the page's top-left; page is 1-based; index is 0-based in `kind`.
+export interface RowAnchor {
+  kind: string;
+  index: number;
+  x: number;
+  y: number;
+  page: number;
+}
+
 export interface ResumeRender {
   svg: string;
   anchors: readonly EditAnchor[];
+  rowAnchors: readonly RowAnchor[];
 }
 
 // renderResume —— compile the draft to SVG + the edit anchors (throws if WASM/compile fails; the
@@ -110,21 +122,24 @@ export async function renderResume(input: TypstRenderInput): Promise<ResumeRende
   // Only map qr.png when there's a code — the template reads it only when the qr input is non-empty.
   if (input.qrURL !== '') await $typst.mapShadow('/qr.png', qrPngBytes(input.qrURL));
   const svg = await $typst.svg({ mainFilePath: '/main.typ', inputs });
-  return { svg, anchors: await queryAnchors($typst, inputs) };
+  const marks = await queryMarks($typst, inputs);
+  return { svg, anchors: marks.anchors, rowAnchors: marks.rows };
 }
 
-// queryAnchors —— read the template's edit-anchor metadata (Phase 3). typst.ts's `compiler.query`
-// throws "document is not compiled" (it queries a world that was never compiled — Myriad-Dreamin/
-// typst.ts#832); the working form is runWithWorld → world.compile() → world.query. `field: 'value'`
-// returns the metadata values ({field,x,y,page}). Any failure → [] (no overlays; preview still renders).
-async function queryAnchors(
+// queryMarks —— read the template's edit-anchor + row-anchor metadata in ONE compile. typst.ts's
+// `compiler.query` throws "document is not compiled" (it queries a world that was never compiled —
+// Myriad-Dreamin/typst.ts#832); the working form is runWithWorld → world.compile() → world.query.
+// `field: 'value'` returns the metadata values. Any failure → empty (no overlays; preview still renders).
+async function queryMarks(
   $typst: Awaited<ReturnType<typeof typst>>, inputs: Record<string, string>,
-): Promise<EditAnchor[]> {
-  const none: EditAnchor[] = [];
+): Promise<{ anchors: EditAnchor[]; rows: RowAnchor[] }> {
+  const none: { anchors: EditAnchor[]; rows: RowAnchor[] } = { anchors: [], rows: [] };
   return (await $typst.getCompiler())
     .runWithWorld({ mainFilePath: '/main.typ', inputs }, async (world) => {
       await world.compile();
-      return world.query<EditAnchor[]>({ selector: '<sm-edit>', field: 'value' });
+      const anchors = await world.query<EditAnchor[]>({ selector: '<sm-edit>', field: 'value' });
+      const rows = await world.query<RowAnchor[]>({ selector: '<sm-row>', field: 'value' });
+      return { anchors, rows };
     })
     .catch((e: unknown) => {
       // eslint-disable-next-line no-console

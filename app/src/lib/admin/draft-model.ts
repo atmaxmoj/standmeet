@@ -157,6 +157,25 @@ export function reorder<T extends { id: string }>(
   return to < 0 ? list : [...rest.slice(0, to), moved, ...rest.slice(to)];
 }
 
+// reorderRowByIndex —— the on-canvas reorder (P3-b) works in row INDICES (the row-anchor's index),
+// not ids; map them to ids and reuse `reorder`. `kind` is the template's list name (works /
+// educations). Out-of-range or unknown kind → unchanged.
+export function reorderRowByIndex(
+  m: DraftModel, kind: string, from: number, to: number,
+): DraftModel {
+  if (kind === 'works') {
+    const f = m.experience[from]; const t = m.experience[to];
+    return f === undefined || t === undefined
+      ? m : { ...m, experience: [...reorder(m.experience, f.id, t.id)] };
+  }
+  if (kind === 'educations') {
+    const f = m.education[from]; const t = m.education[to];
+    return f === undefined || t === undefined
+      ? m : { ...m, education: [...reorder(m.education, f.id, t.id)] };
+  }
+  return m;
+}
+
 // EDITABLE_FIELDS —— the résumé fields the composer's on-canvas editor (Phase 3) can edit in place,
 // keyed by the id the template's `edit-anchor` emits. Read/write go through one map so the anchor id,
 // the value shown in the inline input, and the patch on save can never drift apart.

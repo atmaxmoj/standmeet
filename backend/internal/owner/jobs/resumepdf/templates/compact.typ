@@ -47,6 +47,13 @@
   [#metadata((field: field, x: p.x / 1pt, y: p.y / 1pt, page: p.page)) <sm-edit>]
 }
 
+// row-anchor —— marks the top of a repeatable row for on-canvas drag-reorder (P3-b). Queried via
+// `<sm-row>`; matches classic.typ. No visual output.
+#let row-anchor(kind, index) = context {
+  let p = here().position()
+  [#metadata((kind: kind, index: index, x: p.x / 1pt, y: p.y / 1pt, page: p.page)) <sm-row>]
+}
+
 #let idy = data.identity
 
 // QR is a mandatory system widget on every template — qr.png is server-built from the
@@ -74,7 +81,8 @@
 #par(justify: false)[#data.summary]
 
 #sechead("experience")
-#for w in data.works [
+#for (i, w) in data.works.enumerate() [
+  #row-anchor("works", i)
   #grid(columns: (1fr, auto), align: (left, right),
     text(size: 11pt, weight: 500)[#w.title #text(size: 9.5pt, fill: accent)[· #w.company]],
     mono(size: 7.5pt, fill: faint)[#period(w.period)])

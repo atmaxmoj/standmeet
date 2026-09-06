@@ -24,6 +24,7 @@ import {
   patchExperience,
   patchModel,
   patchSocial,
+  reorderRowByIndex,
   type DraftCustom,
   type DraftEducation,
   type DraftExperience,
@@ -73,6 +74,9 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
   const onPatchSoc = useCallback((id: string, p: Partial<DraftSocial>) => {
     setModel((m) => patchSocial(m, id, p));
   }, []);
+  const onReorderRow = useCallback((kind: string, from: number, to: number) => {
+    setModel((m) => reorderRowByIndex(m, kind, from, to));
+  }, []);
   const onPatchCus = useCallback((id: string, p: Partial<DraftCustom>) => {
     setModel((m) => patchCustom(m, id, p));
   }, []);
@@ -100,6 +104,7 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
           qrURL={qrURL}
           fieldValue={(f) => readField(model, f)}
           onEditField={(f, v) => onPatch(applyFieldEdit(f, v))}
+          onReorderRow={onReorderRow}
         />
       </div>
       {confirm && (
