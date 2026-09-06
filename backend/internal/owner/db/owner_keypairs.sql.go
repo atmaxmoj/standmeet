@@ -14,7 +14,7 @@ import (
 const createOwnerKeypair = `-- name: CreateOwnerKeypair :one
 INSERT INTO owner_keypairs (owner_id, key_id, public_key_pem, label)
 VALUES ($1, $2, $3, $4)
-RETURNING id, owner_id, key_id, public_key_pem, label, last_used_at, created_at
+RETURNING id, owner_id, key_id, public_key_pem, label, last_used_at, last_used_ip, last_used_user_agent, created_at
 `
 
 type CreateOwnerKeypairParams struct {
@@ -39,6 +39,8 @@ func (q *Queries) CreateOwnerKeypair(ctx context.Context, arg CreateOwnerKeypair
 		&i.PublicKeyPem,
 		&i.Label,
 		&i.LastUsedAt,
+		&i.LastUsedIp,
+		&i.LastUsedUserAgent,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -59,7 +61,7 @@ func (q *Queries) DeleteOwnerKeypair(ctx context.Context, arg DeleteOwnerKeypair
 }
 
 const getOwnerKeypairByKeyID = `-- name: GetOwnerKeypairByKeyID :one
-SELECT id, owner_id, key_id, public_key_pem, label, last_used_at, created_at FROM owner_keypairs WHERE key_id = $1
+SELECT id, owner_id, key_id, public_key_pem, label, last_used_at, last_used_ip, last_used_user_agent, created_at FROM owner_keypairs WHERE key_id = $1
 `
 
 func (q *Queries) GetOwnerKeypairByKeyID(ctx context.Context, keyID string) (OwnerKeypair, error) {
@@ -72,23 +74,28 @@ func (q *Queries) GetOwnerKeypairByKeyID(ctx context.Context, keyID string) (Own
 		&i.PublicKeyPem,
 		&i.Label,
 		&i.LastUsedAt,
+		&i.LastUsedIp,
+		&i.LastUsedUserAgent,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listOwnerKeypairs = `-- name: ListOwnerKeypairs :many
-SELECT id, key_id, label, last_used_at, created_at FROM owner_keypairs
+SELECT id, key_id, label, last_used_at, last_used_ip, last_used_user_agent, created_at
+FROM owner_keypairs
 WHERE owner_id = $1
 ORDER BY created_at DESC
 `
 
 type ListOwnerKeypairsRow struct {
-	ID         pgtype.UUID
-	KeyID      string
-	Label      string
-	LastUsedAt pgtype.Timestamptz
-	CreatedAt  pgtype.Timestamptz
+	ID                pgtype.UUID
+	KeyID             string
+	Label             string
+	LastUsedAt        pgtype.Timestamptz
+	LastUsedIp        *string
+	LastUsedUserAgent *string
+	CreatedAt         pgtype.Timestamptz
 }
 
 func (q *Queries) ListOwnerKeypairs(ctx context.Context, ownerID pgtype.UUID) ([]ListOwnerKeypairsRow, error) {
@@ -105,6 +112,8 @@ func (q *Queries) ListOwnerKeypairs(ctx context.Context, ownerID pgtype.UUID) ([
 			&i.KeyID,
 			&i.Label,
 			&i.LastUsedAt,
+			&i.LastUsedIp,
+			&i.LastUsedUserAgent,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -118,10 +127,18 @@ func (q *Queries) ListOwnerKeypairs(ctx context.Context, ownerID pgtype.UUID) ([
 }
 
 const touchOwnerKeypair = `-- name: TouchOwnerKeypair :exec
-UPDATE owner_keypairs SET last_used_at = now() WHERE id = $1
+UPDATE owner_keypairs
+SET last_used_at = now(), last_used_ip = $2, last_used_user_agent = $3
+WHERE id = $1
 `
 
-func (q *Queries) TouchOwnerKeypair(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, touchOwnerKeypair, id)
+type TouchOwnerKeypairParams struct {
+	ID                pgtype.UUID
+	LastUsedIp        *string
+	LastUsedUserAgent *string
+}
+
+func (q *Queries) TouchOwnerKeypair(ctx context.Context, arg TouchOwnerKeypairParams) error {
+	_, err := q.db.Exec(ctx, touchOwnerKeypair, arg.ID, arg.LastUsedIp, arg.LastUsedUserAgent)
 	return err
 }

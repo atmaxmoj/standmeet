@@ -25,6 +25,9 @@ const KeypairListItemSchema = z.object({
   label: z.string(),
   created_at: z.string(),
   last_used_at: z.string().nullable(),
+  // where the key was last used — nullish so an older backend (no columns yet) still parses.
+  last_used_ip: z.string().nullish(),
+  last_used_user_agent: z.string().nullish(),
 });
 type KeypairListItem = z.infer<typeof KeypairListItemSchema>;
 
@@ -42,6 +45,8 @@ export interface TokenItem {
   name: string;
   created_at: string;
   last_used_at: string | null;
+  last_used_ip: string | null;
+  last_used_user_agent: string | null;
 }
 
 interface CreatedToken {
@@ -73,10 +78,23 @@ export const tokensStore = createResourceStore<TokenItem[]>({
   },
 });
 
+// tokenUsedFromView — the "last used from" line for a keypair row: shown only once the key has
+// actually been used AND we captured where from (older keys used before this feature show nothing,
+// not "— · —"). device is the signing client's user-agent, ip its source address.
+export function tokenUsedFromView(t: TokenItem): { shown: boolean; device: string; ip: string } {
+  return {
+    shown: t.last_used_at !== null && (t.last_used_ip !== null || t.last_used_user_agent !== null),
+    device: t.last_used_user_agent ?? '—',
+    ip: t.last_used_ip ?? '—',
+  };
+}
+
 function toTokenItemFromList(k: KeypairListItem): TokenItem {
   return {
     id: k.key_id, name: k.label,
     created_at: k.created_at, last_used_at: k.last_used_at,
+    last_used_ip: k.last_used_ip ?? null,
+    last_used_user_agent: k.last_used_user_agent ?? null,
   };
 }
 
@@ -124,7 +142,10 @@ function toCreatedToken(k: CreatedKeypair): CreatedToken {
 }
 
 function toListItem(c: CreatedToken): TokenItem {
-  return { id: c.id, name: c.name, created_at: c.created_at, last_used_at: null };
+  return {
+    id: c.id, name: c.name, created_at: c.created_at,
+    last_used_at: null, last_used_ip: null, last_used_user_agent: null,
+  };
 }
 
 // MCP client snippet helpers —— Phase C switches to keypairs. The client

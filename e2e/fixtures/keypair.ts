@@ -20,6 +20,8 @@ export interface KeypairView {
   label: string;
   created_at: string;
   last_used_at: string | null;
+  last_used_ip: string | null;
+  last_used_user_agent: string | null;
 }
 
 export async function createKeypair(

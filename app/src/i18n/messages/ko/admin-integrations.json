@@ -59,6 +59,7 @@
   "tokenRow": {
     "meta": "created {created} · last used {lastUsed}",
     "never": "never",
+    "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "revoke": "revoke",
     "keyId": "key id"

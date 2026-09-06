@@ -171,8 +171,10 @@ func ensureKeypairOwned(
 //  6. Touch last_used_at (best effort, log only on failure)
 //
 // Returns (ownerID, nil) on success; (empty, ErrKeypairUnauthorized) if any step fails.
+// usedIP / usedUA — where this request came from (clientaddr + User-Agent), recorded on the
+// keypair when the signature checks out so the owner can see the last device/IP that used it.
 func VerifySigv1(
-	ctx context.Context, deps KeypairDeps, authHeader string,
+	ctx context.Context, deps KeypairDeps, authHeader, usedIP, usedUA string,
 ) (string, error) {
 	parsed, perr := parseSigv1Header(authHeader)
 	if perr != nil {
@@ -181,7 +183,7 @@ func VerifySigv1(
 	if !withinSkew(parsed.ts) {
 		return "", entity.ErrKeypairUnauthorized
 	}
-	return verifyParsedSig(ctx, deps, parsed)
+	return verifyParsedSig(ctx, deps, parsed, usedIP, usedUA)
 }
 
 type parsedSigv1 struct {
@@ -263,7 +265,7 @@ func withinSkew(ts int64) bool {
 }
 
 func verifyParsedSig(
-	ctx context.Context, deps KeypairDeps, p parsedSigv1,
+	ctx context.Context, deps KeypairDeps, p parsedSigv1, usedIP, usedUA string,
 ) (string, error) {
 	kp, err := deps.Repo.GetByKeyID(ctx, p.keyID)
 	if err != nil {
@@ -281,7 +283,7 @@ func verifyParsedSig(
 	if rerr := checkNonceFresh(ctx, deps, p); rerr != nil {
 		return "", rerr
 	}
-	deps.Repo.Touch(ctx, deps.Log, kp.ID)
+	deps.Repo.Touch(ctx, deps.Log, kp.ID, usedIP, usedUA)
 	return kp.OwnerID, nil
 }
 

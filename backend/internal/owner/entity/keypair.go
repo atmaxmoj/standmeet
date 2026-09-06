@@ -32,10 +32,14 @@ type Keypair struct {
 // the fields the owner UI cares about. Never returns the public key (owner
 // already downloaded the PEM and keeps it themselves; no need to see the
 // server-side copy).
+// LastUsedIP / LastUsedUserAgent — where the last signed request came from (nil until the key is
+// used once after this was added), so a stale or leaked key is recognizable at a glance.
 type KeypairMetadata struct {
-	LastUsedAt *time.Time
-	CreatedAt  time.Time
-	ID         string
-	KeyID      string
-	Label      string
+	LastUsedAt        *time.Time
+	LastUsedIP        *string
+	LastUsedUserAgent *string
+	CreatedAt         time.Time
+	ID                string
+	KeyID             string
+	Label             string
 }

@@ -14,7 +14,8 @@ import (
 )
 
 // CommitOptions — the code choice from the composer's picker.
-//   - Mode "existing" reuses the active code ExistingCodeID (the QR carries it, no new code issued);
+//   - Mode "existing" reuses the active code ExistingCodeID (the QR carries it, no new code
+//     issued);
 //   - anything else ("" / "new") issues a fresh application code, today's default behavior.
 type CommitOptions struct {
 	Mode           string

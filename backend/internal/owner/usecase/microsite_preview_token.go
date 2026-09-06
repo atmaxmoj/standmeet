@@ -94,6 +94,6 @@ func previewSig(key, ownerID, slug, exp string) string {
 	// [[one-bad-element-voids-the-array]]).
 	// ownerID is a UUID, slug is [a-z0-9-], exp is numeric — none contain `\n`.
 	// hash.Hash's Write never returns an error (guaranteed by the docs).
-	mac.Write([]byte(ownerID + "\n" + slug + "\n" + exp))
+	_, _ = mac.Write([]byte(ownerID + "\n" + slug + "\n" + exp))
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }

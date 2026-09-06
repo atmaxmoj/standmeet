@@ -401,13 +401,15 @@ type OwnerConnector struct {
 }
 
 type OwnerKeypair struct {
-	ID           pgtype.UUID
-	OwnerID      pgtype.UUID
-	KeyID        string
-	PublicKeyPem string
-	Label        string
-	LastUsedAt   pgtype.Timestamptz
-	CreatedAt    pgtype.Timestamptz
+	ID                pgtype.UUID
+	OwnerID           pgtype.UUID
+	KeyID             string
+	PublicKeyPem      string
+	Label             string
+	LastUsedAt        pgtype.Timestamptz
+	LastUsedIp        *string
+	LastUsedUserAgent *string
+	CreatedAt         pgtype.Timestamptz
 }
 
 type OwnerProvider struct {

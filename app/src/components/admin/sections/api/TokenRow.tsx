@@ -8,7 +8,7 @@
 import { useTranslations } from 'next-intl';
 
 import { Chip } from '@/components/admin/atoms/Chip';
-import { type TokenItem } from '@/lib/admin/use-tokens';
+import { type TokenItem, tokenUsedFromView } from '@/lib/admin/use-tokens';
 import { useAction } from '@/lib/ui/use-action';
 
 type Props = {
@@ -39,6 +39,7 @@ function TokenRowHead({ token, deleteToken }: Props) {
             lastUsed: token.last_used_at ?? t('never'),
           })}
         </div>
+        <LastUsedFrom token={token} />
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <Chip>{t('algo')}</Chip>
@@ -46,6 +47,21 @@ function TokenRowHead({ token, deleteToken }: Props) {
       </div>
     </div>
   );
+}
+
+// LastUsedFrom — where the key was last used (device · ip). Shown only once it has been used and
+// we captured the origin (see tokenUsedFromView); a never-used or pre-feature key shows nothing.
+function LastUsedFrom({ token }: { token: TokenItem }) {
+  const t = useTranslations('adminIntegrations.tokenRow');
+  const v = tokenUsedFromView(token);
+  return v.shown ? (
+    <div
+      data-testid={`token-lastused-${token.name}`}
+      className="mono text-[10px] tracking-[0.04em] text-(--color-faint) mt-0.5 truncate max-w-full"
+    >
+      {t('lastFrom', { device: v.device, ip: v.ip })}
+    </div>
+  ) : null;
 }
 
 function RevokeBtn({ token, deleteToken }: Props) {

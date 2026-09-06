@@ -59,6 +59,7 @@
   "tokenRow": {
     "meta": "创建于 {created} · 最近使用 {lastUsed}",
     "never": "从未",
+    "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "revoke": "吊销",
     "keyId": "密钥 id"

@@ -4,7 +4,8 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: ListOwnerKeypairs :many
-SELECT id, key_id, label, last_used_at, created_at FROM owner_keypairs
+SELECT id, key_id, label, last_used_at, last_used_ip, last_used_user_agent, created_at
+FROM owner_keypairs
 WHERE owner_id = $1
 ORDER BY created_at DESC;
 
@@ -12,7 +13,9 @@ ORDER BY created_at DESC;
 SELECT * FROM owner_keypairs WHERE key_id = $1;
 
 -- name: TouchOwnerKeypair :exec
-UPDATE owner_keypairs SET last_used_at = now() WHERE id = $1;
+UPDATE owner_keypairs
+SET last_used_at = now(), last_used_ip = $2, last_used_user_agent = $3
+WHERE id = $1;
 
 -- name: DeleteOwnerKeypair :exec
 DELETE FROM owner_keypairs WHERE key_id = $1 AND owner_id = $2;

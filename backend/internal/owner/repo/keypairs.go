@@ -95,10 +95,11 @@ func (r *KeypairRepo) GetByKeyID(
 	return toDomainKeypair(&row), nil
 }
 
-// Touch —— best-effort update of last_used_at; a failure logs a warning
-// and doesn't affect the verification result.
+// Touch —— best-effort update of last_used_at + where the request came from (ip / user-agent);
+// a failure logs a warning and doesn't affect the verification result. Empty ip/ua are stored as
+// NULL (unknown this time) rather than an empty string.
 func (r *KeypairRepo) Touch(
-	ctx context.Context, log *slog.Logger, keypairID string,
+	ctx context.Context, log *slog.Logger, keypairID, usedIP, usedUA string,
 ) {
 	kpUUID, err := pgstore.ParseUUID(keypairID)
 	if err != nil {
@@ -106,9 +107,18 @@ func (r *KeypairRepo) Touch(
 		return
 	}
 	q := db.New(r.pool)
-	if terr := q.TouchOwnerKeypair(ctx, kpUUID); terr != nil {
+	if terr := q.TouchOwnerKeypair(ctx, db.TouchOwnerKeypairParams{
+		ID: kpUUID, LastUsedIp: nilIfEmpty(usedIP), LastUsedUserAgent: nilIfEmpty(usedUA),
+	}); terr != nil {
 		log.Warn("touch keypair (non-fatal)", "err", terr)
 	}
+}
+
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // Delete —— hard delete (= revoke). owner_id is also in the WHERE clause,
@@ -142,11 +152,13 @@ func toDomainKeypair(r *db.OwnerKeypair) entity.Keypair {
 
 func toDomainKeypairMetadata(r *db.ListOwnerKeypairsRow) entity.KeypairMetadata {
 	return entity.KeypairMetadata{
-		ID:         pgstore.FormatUUID(r.ID),
-		KeyID:      r.KeyID,
-		Label:      r.Label,
-		LastUsedAt: tsPtr(r.LastUsedAt),
-		CreatedAt:  r.CreatedAt.Time,
+		ID:                pgstore.FormatUUID(r.ID),
+		KeyID:             r.KeyID,
+		Label:             r.Label,
+		LastUsedAt:        tsPtr(r.LastUsedAt),
+		LastUsedIP:        r.LastUsedIp,
+		LastUsedUserAgent: r.LastUsedUserAgent,
+		CreatedAt:         r.CreatedAt.Time,
 	}
 }
 

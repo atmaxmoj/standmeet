@@ -37,10 +37,12 @@ type createKeypairResponse struct {
 }
 
 type listKeypairItem struct {
-	LastUsedAt *string `json:"last_used_at"`
-	KeyID      string  `json:"key_id"`
-	Label      string  `json:"label"`
-	CreatedAt  string  `json:"created_at"`
+	LastUsedAt        *string `json:"last_used_at"`
+	LastUsedIP        *string `json:"last_used_ip"`
+	LastUsedUserAgent *string `json:"last_used_user_agent"`
+	KeyID             string  `json:"key_id"`
+	Label             string  `json:"label"`
+	CreatedAt         string  `json:"created_at"`
 }
 
 // MountKeypairs mounts the /api/admin/keypairs subrouter.
@@ -79,9 +81,11 @@ func writeKeypairsList(
 
 func toListKeypairItem(k *owner.KeypairMetadata) listKeypairItem {
 	item := listKeypairItem{
-		KeyID:     k.KeyID,
-		Label:     k.Label,
-		CreatedAt: k.CreatedAt.Format(time.RFC3339),
+		KeyID:             k.KeyID,
+		Label:             k.Label,
+		CreatedAt:         k.CreatedAt.Format(time.RFC3339),
+		LastUsedIP:        k.LastUsedIP,
+		LastUsedUserAgent: k.LastUsedUserAgent,
 	}
 	if k.LastUsedAt != nil {
 		s := k.LastUsedAt.Format(time.RFC3339)

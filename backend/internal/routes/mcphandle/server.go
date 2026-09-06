@@ -14,6 +14,7 @@ package mcphandle
 import (
 	"context"
 	"log/slog"
+	"net"
 	"net/http"
 
 	"github.com/mark3labs/mcp-go/server"
@@ -116,7 +117,8 @@ func New(deps *Deps) http.Handler {
 func authMiddleware(deps *Deps, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
-		ownerID, err := owner.VerifySigv1(r.Context(), deps.Keypairs, authHeader)
+		ownerID, err := owner.VerifySigv1(r.Context(), deps.Keypairs, authHeader,
+			clientIP(r), r.Header.Get("User-Agent"))
 		if err != nil {
 			http.Error(w, "unauthorized: invalid Sigv1", http.StatusUnauthorized)
 			return
@@ -124,6 +126,18 @@ func authMiddleware(deps *Deps, next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), ctxKeyOwnerID, ownerID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// clientIP — the request's source address, recorded on the keypair as where it was last used.
+// chi's RealIP middleware has already folded X-Forwarded-For / X-Real-IP into RemoteAddr upstream,
+// so this just drops the port. (mcphandle sits across a component boundary from infra/clientaddr;
+// RemoteAddr post-RealIP is the same source address without the cross-package import.)
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 // propagateOwnerCtx —— HTTPContextFunc: takes ownerID from the request ctx

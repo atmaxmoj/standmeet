@@ -163,6 +163,8 @@ CREATE TABLE owner_keypairs (
     public_key_pem  text          NOT NULL,
     label           text          NOT NULL,
     last_used_at    timestamptz,
+    last_used_ip    text,
+    last_used_user_agent text,
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 
