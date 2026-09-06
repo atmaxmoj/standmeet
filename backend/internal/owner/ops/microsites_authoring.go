@@ -50,6 +50,15 @@ func micrositeSettingOps(deps usecase.MicrositeDeps) []fp.Op {
 			Reach:       fp.OwnerAction(),
 			Invoke:      renameMicrosite(deps),
 		},
+		{
+			ID: "microsite.set_seo",
+			Description: "Set this page's SEO title + description, injected into its served " +
+				"<head>. SEO follows each microsite. Empty strings clear a field.",
+			InputSchema: pageSeoSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      setMicrositeSEO(deps),
+		},
 	}
 }
 
@@ -150,21 +159,6 @@ func micrositeBuildOps(deps usecase.MicrositeDeps) []fp.Op {
 			Reach:       fp.OwnerAction(),
 			Invoke:      deleteMicrosite(deps),
 		},
-	}
-}
-
-// renameMicrosite —— change a page's slug. Returns the updated page (with its new slug).
-func renameMicrosite(deps usecase.MicrositeDeps) fp.Invoke {
-	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		in, perr := decodePageRename(raw)
-		if perr != nil {
-			return nil, perr
-		}
-		page, err := usecase.RenamePage(ctx, deps, ownerID, in.Slug, in.NewSlug)
-		if err != nil {
-			return nil, micrositeErr(err)
-		}
-		return json.Marshal(toMicrositeOut(&page))
 	}
 }
 
@@ -330,14 +324,6 @@ func decodePageFile(raw json.RawMessage) (pageArgs, error) {
 		[2]string{"slug", in.Slug}, [2]string{"path", in.Path},
 		[2]string{"content", in.Content},
 	)
-}
-
-func decodePageRename(raw json.RawMessage) (pageArgs, error) {
-	in, perr := decodePageArgs(raw)
-	if perr != nil {
-		return in, perr
-	}
-	return in, fp.RequireArgs([2]string{"slug", in.Slug}, [2]string{"new_slug", in.NewSlug})
 }
 
 func decodePagePromote(raw json.RawMessage) (pageArgs, error) {

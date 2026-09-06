@@ -127,6 +127,8 @@ func (h *Handlers) mountMicrositeItem(r chi.Router, face *dispatcher.Face) {
 			h.dispatchOp(face, "microsite.rollback", urlParamArgs("slug"), jsonOK))
 		r.Put("/slug",
 			h.dispatchOp(face, "microsite.rename", bodyWithURLParam("slug"), jsonOK))
+		r.Put("/seo",
+			h.dispatchOp(face, "microsite.set_seo", bodyWithURLParam("slug"), jsonOK))
 		r.Delete("/", h.dispatchOp(face, "microsite.delete", urlParamArgs("slug"), jsonOK))
 	})
 }

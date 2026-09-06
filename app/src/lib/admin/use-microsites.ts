@@ -30,6 +30,10 @@ const MicrositeSummarySchema = z.object({
   // server's key, and an address the frontend assembles on its own is bound
   // to drift from the server's format eventually — after which the preview goes blank with nothing erroring.
   preview_url: z.string().optional(),
+  // seo_title / seo_description —— per-page SEO the editor shows + edits. optional so an old
+  // backend (no columns) doesn't fail the whole list ([[zod-unknown-is-not-optional]]).
+  seo_title: z.string().optional(),
+  seo_description: z.string().optional(),
   created_at: z.string(), updated_at: z.string(),
 });
 export type MicrositeSummary = z.infer<typeof MicrositeSummarySchema>;
@@ -90,6 +94,7 @@ export interface MicrositesHook {
   rollback: (slug: string) => Promise<void>;
   removePage: (slug: string) => Promise<void>;
   renamePage: (slug: string, newSlug: string) => Promise<void>;
+  setSEO: (slug: string, title: string, description: string) => Promise<void>;
 }
 
 export const micrositesStore = createResourceStore<MicrositeSummary[]>({
@@ -158,6 +163,7 @@ export function useMicrosites(): MicrositesHook {
     status: r.status, rows: r.data ?? [], error: r.error,
     refresh: micrositesStore.getState().refresh,
     createPage, writeFile, build, getBuild, promote, setByoai, rollback, removePage, renamePage,
+    setSEO,
   };
 }
 
@@ -173,6 +179,13 @@ async function createPage(slug: string, title: string): Promise<void> {
 // caller navigates to the new editor route on success.
 async function renamePage(slug: string, newSlug: string): Promise<void> {
   await adminAPI.put(`/microsites/${slug}/slug`, { new_slug: newSlug }, z.object({}).passthrough());
+  await micrositesStore.getState().refresh();
+}
+
+// setSEO — set this page's per-page SEO (title + description), injected into the served <head>.
+async function setSEO(slug: string, title: string, description: string): Promise<void> {
+  await adminAPI.put(`/microsites/${slug}/seo`,
+    { seo_title: title, seo_description: description }, z.object({}).passthrough());
   await micrositesStore.getState().refresh();
 }
 

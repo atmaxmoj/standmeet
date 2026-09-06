@@ -142,6 +142,7 @@ func (h *MicrositeHandlers) serveSlugAt(
 			return BuiltAsset{
 				PageID: live.Build.PageID, BuildID: live.Build.ID,
 				AllowBYOAI: live.AllowBYOAI,
+				SeoTitle:   live.SeoTitle, SeoDescription: live.SeoDescription,
 			}, nil
 		},
 		AssetPath: chi.URLParam(r, "*"),
@@ -153,8 +154,10 @@ func (h *MicrositeHandlers) serveSlugAt(
 // this isn't the root entry point this time (a sub-resource request), nothing gets
 // injected.
 type pageHead struct {
-	base       string
-	allowBYOAI bool
+	seoTitle       *string
+	seoDescription *string
+	base           string
+	allowBYOAI     bool
 }
 
 // tags —— the lines injected into <head>.
@@ -166,6 +169,7 @@ type pageHead struct {
 // stop taking effect immediately).
 func (p pageHead) tags() string {
 	return `<base href="` + html.EscapeString(p.base) + `">` +
+		seoTitleTag(p.seoTitle) + seoDescTag(p.seoDescription) +
 		`<meta name="standmeet-page-byoai" content="` + strconv.FormatBool(p.allowBYOAI) + `">`
 }
 

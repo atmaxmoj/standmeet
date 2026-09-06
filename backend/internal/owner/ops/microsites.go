@@ -90,6 +90,16 @@ var (
 		"required":["slug"]
 	}`)
 
+	pageSeoSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"slug":{"type":"string","description":"The page's slug."},
+			"seo_title":{"type":"string","description":"<title> for this page; empty clears it."},
+			"seo_description":{"type":"string","description":"<meta description>; empty clears it."}
+		},
+		"required":["slug"]
+	}`)
+
 	pageRenameSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
@@ -143,45 +153,22 @@ var (
 
 // micrositeOut / buildOut —— outbound shape (same for both faces).
 type micrositeOut struct {
-	ID          string `json:"id"`
-	Slug        string `json:"slug"`
-	Title       string `json:"title"`
-	Status      string `json:"status"`
-	LiveBuildID string `json:"live_build_id,omitempty"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
-	// LatestBuildID / LatestBuildStatus —— this page's **most recent build** (whether
-	// it succeeded or not).
-	//
-	// The panel uses LatestBuildID to decide "the preview should refresh": the owner
-	// is directing an agent to edit the page, and the agent's every build produces a
-	// new id — the only value that changes along with that event (has_staging is a
-	// bool that stays put across a new version; live_build_id only moves once
-	// promoted). Status rides along so the owner can see "a build is in progress"
-	// rather than staring at an unchanged old preview.
-	LatestBuildID     string `json:"latest_build_id,omitempty"`
-	LatestBuildStatus string `json:"latest_build_status,omitempty"`
-	// PreviewURL —— the src of the panel's preview iframe, **with the token already
-	// signed into it**.
-	//
-	// Supplied by the backend, not assembled by the frontend: the token needs signing
-	// with the server's key, and a "the frontend assembles the address itself" path
-	// will eventually drift from the server's format — and after it drifts, the
-	// preview goes blank with nothing reporting an error.
-	PreviewURL string `json:"preview_url,omitempty"`
-
-	// BoundCodes —— which live codes unlock this page. The other end of the binding;
-	// the code side can see the page, this side can see the codes.
-	// **Always send the array, even empty** — absence and "no code points at it" are
-	// two different things.
-	// Field order follows govet fieldalignment: slice after string, before bool.
-	BoundCodes []string `json:"bound_codes"`
-
-	HasLive    bool `json:"has_live"`
-	HasStaging bool `json:"has_staging"`
-	// AllowBYOAI —— whether to allow a reader's own key when nobody presents a grant.
-	// Voided once a code shows up (I-4).
-	AllowBYOAI bool `json:"allow_byoai"`
+	LatestBuildStatus string   `json:"latest_build_status,omitempty"`
+	PreviewURL        string   `json:"preview_url,omitempty"`
+	Title             string   `json:"title"`
+	Status            string   `json:"status"`
+	LiveBuildID       string   `json:"live_build_id,omitempty"`
+	CreatedAt         string   `json:"created_at"`
+	Slug              string   `json:"slug"`
+	UpdatedAt         string   `json:"updated_at"`
+	ID                string   `json:"id"`
+	LatestBuildID     string   `json:"latest_build_id,omitempty"`
+	SeoDescription    string   `json:"seo_description"`
+	SeoTitle          string   `json:"seo_title"`
+	BoundCodes        []string `json:"bound_codes"`
+	HasLive           bool     `json:"has_live"`
+	HasStaging        bool     `json:"has_staging"`
+	AllowBYOAI        bool     `json:"allow_byoai"`
 }
 
 type buildOut struct {
@@ -207,6 +194,12 @@ func toMicrositeOut(p *entity.Microsite) micrositeOut {
 	}
 	if p.LiveBuildID != nil {
 		v.LiveBuildID = *p.LiveBuildID
+	}
+	if p.SeoTitle != nil {
+		v.SeoTitle = *p.SeoTitle
+	}
+	if p.SeoDescription != nil {
+		v.SeoDescription = *p.SeoDescription
 	}
 	return v
 }
@@ -293,13 +286,15 @@ type pageArgs struct {
 	// Ordered first per fieldalignment (pointers before others).
 	AllowByoai *bool `json:"allow_byoai"`
 	// StoreWritable —— set_store_writable's argument. A pointer for the same reason as AllowByoai.
-	StoreWritable *bool  `json:"store_writable"`
-	Slug          string `json:"slug"`
-	NewSlug       string `json:"new_slug"`
-	Title         string `json:"title"`
-	Path          string `json:"path"`
-	Content       string `json:"content"`
-	BuildID       string `json:"build_id"`
+	StoreWritable  *bool  `json:"store_writable"`
+	Slug           string `json:"slug"`
+	NewSlug        string `json:"new_slug"`
+	Title          string `json:"title"`
+	Path           string `json:"path"`
+	Content        string `json:"content"`
+	BuildID        string `json:"build_id"`
+	SeoTitle       string `json:"seo_title"`
+	SeoDescription string `json:"seo_description"`
 }
 
 func decodePageArgs(raw json.RawMessage) (pageArgs, error) {

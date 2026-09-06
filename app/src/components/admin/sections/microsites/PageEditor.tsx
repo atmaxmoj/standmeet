@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 
+import { SeoPanel } from '@/components/admin/sections/microsites/SeoPanel';
 import { IMPORTABLE_MODULES, STARTER, type ImportableModule } from '@/lib/admin/microsite-imports';
 import {
   loadDraft, stageFiles, shipFilesLive, previewView, usePinnedPreviewSrc,
@@ -91,6 +92,7 @@ export function PageEditor({ slug }: { slug: string }) {
             />
           </div>
           <EditorActions slug={pageSlug} build={build} onPreview={preview} onPublish={publish} />
+          <SeoPanel slug={pageSlug} isNew={isNew} />
           <WidgetPanel />
         </div>
         <div className="lg:sticky lg:top-4">

@@ -55,10 +55,10 @@ func oneBody(r *rand.Rand) string {
 	var b strings.Builder
 	for range 1 + r.Intn(maxLinesPer) {
 		for range 1 + r.Intn(maxWordsPer) {
-			b.WriteString(grepWords[r.Intn(len(grepWords))])
-			b.WriteByte(' ')
+			_, _ = b.WriteString(grepWords[r.Intn(len(grepWords))])
+			_ = b.WriteByte(' ')
 		}
-		b.WriteByte('\n')
+		_ = b.WriteByte('\n')
 	}
 	return b.String()
 }

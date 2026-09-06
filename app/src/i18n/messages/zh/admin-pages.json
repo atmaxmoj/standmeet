@@ -94,6 +94,8 @@
     "authorHelp": "粘贴页面的 App.tsx。它在沙箱中构建，若构建成功则发布在 /p/<slug>。你可导入 @standmeet/sdk 来读取语料库并询问你的 AI。",
     "slugLabel": "slug——页面位于 /p/<slug>",
     "sourceLabel": "App.tsx",
+    "seoHeading": "seo",
+    "seoSave": "保存 seo",
     "rename": "重命名",
     "renamed": "已重命名为 /p/{slug}",
     "publish": "构建 + 发布 →",

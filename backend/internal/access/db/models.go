@@ -329,6 +329,8 @@ type Microsite struct {
 	PreviousLiveBuildID pgtype.UUID
 	AllowByoai          bool
 	StoreWritable       bool
+	SeoTitle            *string
+	SeoDescription      *string
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
 }

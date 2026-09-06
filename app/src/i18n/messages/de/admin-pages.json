@@ -94,6 +94,8 @@
     "authorHelp": "Fügen Sie die App.tsx der Seite ein. Sie wird in einer Sandbox gebaut und, wenn der Build erfolgreich ist, auf /p/<slug> veröffentlicht. Sie können @standmeet/sdk importieren um Ihren Corpus zu lesen und Ihre KI zu befragen.",
     "slugLabel": "slug — die seite existiert bei /p/<slug>",
     "sourceLabel": "App.tsx",
+    "seoHeading": "seo",
+    "seoSave": "save seo",
     "rename": "rename",
     "renamed": "renamed to /p/{slug}",
     "publish": "baue + veröffentliche →",

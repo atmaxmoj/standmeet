@@ -147,6 +147,7 @@ func listedMicrosite(row *db.ListMicrositesByOwnerRow) entity.Microsite {
 		Status: row.Status, LiveBuildID: row.LiveBuildID,
 		StagingBuildID: row.StagingBuildID, PreviousLiveBuildID: row.PreviousLiveBuildID,
 		AllowByoai: row.AllowByoai, StoreWritable: row.StoreWritable,
+		SeoTitle: row.SeoTitle, SeoDescription: row.SeoDescription,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	})
 	page.BoundCodes = row.BoundCodes
@@ -274,6 +275,7 @@ func toDomainMicrosite(row *db.Microsite) entity.Microsite {
 		Title:      row.Title,
 		Status:     row.Status,
 		AllowBYOAI: row.AllowByoai, StoreWritable: row.StoreWritable,
+		SeoTitle: row.SeoTitle, SeoDescription: row.SeoDescription,
 		CreatedAt: row.CreatedAt.Time,
 		UpdatedAt: row.UpdatedAt.Time,
 	}

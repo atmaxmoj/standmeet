@@ -14,11 +14,15 @@ type Microsite struct {
 	LiveBuildID         *string
 	StagingBuildID      *string
 	PreviousLiveBuildID *string
-	ID                  string
-	OwnerID             string
-	Slug                string
-	Title               string
-	Status              string // 'active' | 'archived' | 'deleted'
+	// SeoTitle / SeoDescription — per-page SEO injected into the served page's <head>. Nil = none
+	// (SEO follows each microsite; see set_seo). The built page keeps its own <title> when unset.
+	SeoTitle       *string
+	SeoDescription *string
+	ID             string
+	OwnerID        string
+	Slug           string
+	Title          string
+	Status         string // 'active' | 'archived' | 'deleted'
 	// BoundCodes —— which **live** codes unlock this page (the other end of
 	// the binding). Code→page is at most one, but page→code has no such
 	// limit, so this is an array. Empty = no code points here, so it can

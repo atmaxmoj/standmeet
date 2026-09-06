@@ -3,19 +3,19 @@ INSERT INTO microsites (owner_id, slug, title)
 VALUES ($1, $2, $3)
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, created_at, updated_at;
 
 -- name: GetMicrositeBySlug :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       allow_byoai, store_writable, created_at, updated_at
+       allow_byoai, store_writable, seo_title, seo_description, created_at, updated_at
 FROM microsites
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted';
 
 -- name: GetMicrositeByID :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       allow_byoai, store_writable, created_at, updated_at
+       allow_byoai, store_writable, seo_title, seo_description, created_at, updated_at
 FROM microsites
 WHERE id = $1 AND status != 'deleted';
 
@@ -25,7 +25,7 @@ WHERE id = $1 AND status != 'deleted';
 -- Empty array = no code points at it, it can only be opened anonymously.
 SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
        cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
-       cp.allow_byoai, cp.store_writable, cp.created_at, cp.updated_at,
+       cp.allow_byoai, cp.store_writable, cp.seo_title, cp.seo_description, cp.created_at, cp.updated_at,
        COALESCE(
            ARRAY(
                SELECT ac.code::text FROM access_codes ac
@@ -46,7 +46,7 @@ SET slug = $3, updated_at = now()
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, created_at, updated_at;
 
 -- name: SetMicrositeByoai :one
 -- Whether this page lets a reader use their own key **when no one presents a grant**. Void once a
@@ -56,7 +56,7 @@ SET allow_byoai = $3, updated_at = now()
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, created_at, updated_at;
 
 -- name: SetMicrositeLive :one
 -- Move the current live_build_id into previous_live_build_id (to support rollback), then set the new live.
@@ -67,7 +67,7 @@ SET previous_live_build_id = live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, created_at, updated_at;
 
 -- name: SetMicrositeStaging :one
 UPDATE microsites
@@ -75,7 +75,7 @@ SET staging_build_id = $2, updated_at = now()
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, created_at, updated_at;
 
 -- name: RollbackMicrositeLive :one
 -- Promote previous_live_build_id back to live, clearing previous. When previous was already NULL
@@ -87,7 +87,7 @@ SET live_build_id          = previous_live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, created_at, updated_at;
 
 -- name: SoftDeleteMicrosite :exec
 UPDATE microsites
@@ -163,6 +163,12 @@ FROM microsite_builds
 WHERE page_id = $1 AND status = 'built'
 ORDER BY created_at DESC
 LIMIT 1;
+
+-- name: SetMicrositeSEO :exec
+-- Per-page SEO: the title + description injected into the served page's <head>. Owner-scoped by
+-- (owner_id, slug). Empty strings clear a field (the built page then keeps its own <title>).
+UPDATE microsites SET seo_title = $3, seo_description = $4, updated_at = now()
+WHERE owner_id = $1 AND slug = $2 AND status != 'deleted';
 
 -- name: SetMicrositeStoreWritable :exec
 -- Owner toggles whether this page's store accepts visitor writes. Owner-scoped by (owner_id, slug).

@@ -89,6 +89,23 @@ func SetPageByoai(
 	return page, nil
 }
 
+// SetPageSEOInput — set_seo's input. Empty title/description clear that field.
+type SetPageSEOInput struct {
+	OwnerID     string
+	Slug        string
+	Title       string
+	Description string
+}
+
+// SetPageSEO — set a page's per-page SEO (title + description) injected into its served <head>.
+// Empty strings clear a field. SEO follows each microsite rather than a global settings section.
+func SetPageSEO(ctx context.Context, deps MicrositeDeps, in *SetPageSEOInput) error {
+	if err := deps.Pages.SetSEO(ctx, in.OwnerID, in.Slug, in.Title, in.Description); err != nil {
+		return fmt.Errorf("set page seo: %w", err)
+	}
+	return nil
+}
+
 // WriteFileInput — accumulate-write one file into the page's next draft.
 type WriteFileInput struct {
 	OwnerID string

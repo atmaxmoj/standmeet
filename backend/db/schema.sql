@@ -731,6 +731,10 @@ CREATE TABLE microsites (
     -- a page has zero write attack surface until the owner explicitly opens it (security model C).
     -- Reads are not gated by this; writes are (+ per-page quota, doc-size cap, per-IP rate limit).
     store_writable         boolean       NOT NULL DEFAULT false,
+    -- seo_title / seo_description — per-page SEO injected into the served page's <head> (SEO follows
+    -- each microsite, not a global setting). Null = none injected (the built page keeps its own).
+    seo_title              text,
+    seo_description        text,
     created_at             timestamptz   NOT NULL DEFAULT now(),
     updated_at             timestamptz   NOT NULL DEFAULT now()
 );

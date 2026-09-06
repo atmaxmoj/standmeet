@@ -88,8 +88,10 @@ func LiveMicrosites(
 // bring-your-own-key) both come from the same row — querying them separately could give
 // answers from two different moments.
 type LivePage struct {
-	Build      entity.MicrositeBuild
-	AllowBYOAI bool
+	SeoTitle       *string
+	SeoDescription *string
+	Build          entity.MicrositeBuild
+	AllowBYOAI     bool
 }
 
 func resolveByOwner(
@@ -106,7 +108,10 @@ func resolveByOwner(
 	if berr != nil {
 		return LivePage{}, fmt.Errorf("get build: %w", berr)
 	}
-	return LivePage{Build: build, AllowBYOAI: page.AllowBYOAI}, nil
+	return LivePage{
+		Build: build, AllowBYOAI: page.AllowBYOAI,
+		SeoTitle: page.SeoTitle, SeoDescription: page.SeoDescription,
+	}, nil
 }
 
 // ResolvePreviewBuild — the version used **for owner preview**: this page's most
@@ -137,5 +142,8 @@ func ResolvePreviewBuild(
 	if berr != nil {
 		return LivePage{}, fmt.Errorf("latest built build: %w", berr)
 	}
-	return LivePage{Build: build, AllowBYOAI: page.AllowBYOAI}, nil
+	return LivePage{
+		Build: build, AllowBYOAI: page.AllowBYOAI,
+		SeoTitle: page.SeoTitle, SeoDescription: page.SeoDescription,
+	}, nil
 }

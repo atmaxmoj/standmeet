@@ -22,11 +22,13 @@ import (
 	"net/http"
 )
 
-// BuiltAsset —— which build's output is being served.
+// BuiltAsset —— which build's output is being served, plus the page settings injected into <head>.
 type BuiltAsset struct {
-	PageID     string
-	BuildID    string
-	AllowBYOAI bool
+	SeoTitle       *string
+	SeoDescription *string
+	PageID         string
+	BuildID        string
+	AllowBYOAI     bool
 }
 
 // BuildAssetReq —— everything needed to serve one build's asset.
@@ -59,7 +61,10 @@ func ServeBuildAsset(w http.ResponseWriter, _ *http.Request, req *BuildAssetReq)
 		writeAssetErr(req.Log, w, perr)
 		return
 	}
-	serveFile(req.Log, w, fp, pageHead{base: baseOf(req), allowBYOAI: asset.AllowBYOAI})
+	serveFile(req.Log, w, fp, pageHead{
+		base: baseOf(req), allowBYOAI: asset.AllowBYOAI,
+		seoTitle: asset.SeoTitle, seoDescription: asset.SeoDescription,
+	})
 }
 
 // baseOf —— base is injected only at the root entry point; injecting it on a
