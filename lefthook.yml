@@ -1,27 +1,28 @@
 # lefthook is this monorepo's git hook manager (following the same setup as Otium auth).
-# After clone, run `lefthook install` once to wire the hooks into .git/hooks/.
+# After clone / after changing the HOOKS below, run `lefthook install` once to wire them into
+# .git/hooks/ (changing a command's `run` needs no reinstall; adding/removing a hook type does).
 #
-# pre-commit is PARTITIONED BY SUBPROJECT (one block per container: backend / app / sdk / e2e /
-# im-bridge), each gated on a `glob`: a block runs only when this commit touches that subproject.
-# Change only e2e specs and only e2e-lint runs; touch only app/ and the backend/sdk/im-bridge blocks
-# stay quiet. This replaces the old "every commit runs the whole ~165s `make lint` (plus im-bridge's
-# vitest) over the entire repo" — the full aggregate still lives in `make lint` for CI / a manual
-# pre-push check; here we only pay for what changed.
+# Two gates, by cost:
 #
-# Two blocks are cross-cutting and always run (both are cheap and guard against something a
-# per-subproject scope would miss): the secret scan (an irreversible leak) and the env/config
-# consistency check (a drift that breaks a fresh deploy silently).
+#   pre-commit — PARTITIONED BY SUBPROJECT (one glob-gated block per container: backend / app / sdk /
+#     e2e / im-bridge). A block runs only when this commit touches that subproject, so a commit pays
+#     only for what it changed (change e2e specs → only e2e-lint). secrets + env-lint are cross-cutting
+#     and always run (cheap, and guard an irreversible leak / a silent deploy drift). Fast.
+#
+#   pre-push — the WHOLE thing, GLOBALLY, unscoped: the full aggregate `make lint` across every
+#     subproject PLUS im-bridge's vitest. This is the last line before code leaves the machine; CI /
+#     Coolify run the same chain, so green here is green in the pipeline. lint-cached makes a tree
+#     already linted green by hand a no-op.
 
 pre-commit:
   parallel: false   # keep output legible + avoid several `make`/go/node runs contending at once
   commands:
-    # 1) cross-cutting, always
+    # cross-cutting, always
     secrets:
       run: infra/scripts/check-secrets.sh
     env-lint:
       run: make env-lint
-
-    # 2) one block per subproject — runs only when this commit touches it
+    # one block per subproject — runs only when this commit touches it
     backend:
       glob: "backend/**"
       run: make backend-lint backend-no-mock
@@ -34,13 +35,20 @@ pre-commit:
     e2e:
       glob: "e2e/**"
       run: make e2e-lint
-    # im-bridge is standalone (an external visitor client), so its unit tests (vitest) can run right
-    # here without the stack — but only when im-bridge/ actually changed, not on every commit.
     im-bridge:
       glob: "im-bridge/**"
       run: make im-bridge-lint im-bridge-test
-
-    # 3) the real-env audit ledger — only when those items changed
     verify-items:
       glob: "docs/real-env-verification/**"
       run: make verify-items
+
+pre-push:
+  parallel: false
+  commands:
+    # everything, unscoped — the full lint chain (lint-cached skips a tree already green) …
+    lint:
+      run: make lint-cached
+    # … plus im-bridge's vitest, which is a test (kept out of `make lint`) but must still run before
+    # anything is pushed.
+    im-bridge-test:
+      run: make im-bridge-test
