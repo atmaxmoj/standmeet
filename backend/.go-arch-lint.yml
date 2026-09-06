@@ -31,6 +31,8 @@ components:
     in: internal/infra/depcheck                  # checks at startup whether a hand-copied dependency table has a missing row; domain-less leaf
   textcut:
     in: internal/infra/textcut                   # safe char/byte-bounded text truncation (single implementation); domain-less leaf
+  snowflake:
+    in: internal/infra/snowflake                 # snowflake id → short base62 slug (single implementation); domain-less leaf
   plaintext:
     in: internal/infra/plaintext                 # inbound HTML → readable text (single implementation); domain-less leaf
   providermodels:
