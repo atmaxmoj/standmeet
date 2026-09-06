@@ -103,6 +103,15 @@
   #mono(size: 8pt, fill: ink)[#s.category:] #text(size: 9.5pt)[ #s.items.join("  ·  ")] \
 ]
 
+// custom owner-named sections (languages, certifications, …). The composer offers these and
+// ResumePage renders them; the PDF must too, or they vanish from the résumé recruiters receive.
+#for c in data.at("custom", default: ()) [
+  #if c.label != "" and c.value != "" [
+    #sechead(c.label)
+    #text(size: 9.5pt)[#c.value]
+  ]
+]
+
 // ── page 2: cover letter (only when there is one) ──────────────────
 #if data.at("cover_letter", default: "") != "" [
   #pagebreak()

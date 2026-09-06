@@ -27,6 +27,7 @@ export function ExperienceItem({
         <Field label="org">
           <input
             type="text" value={exp.org}
+            data-testid={`composer-exp-org-${exp.id}`}
             onChange={(e) => onPatch(exp.id, { org: e.target.value })}
             className="sm-field-input"
           />
@@ -34,6 +35,7 @@ export function ExperienceItem({
         <Field label="role">
           <input
             type="text" value={exp.role}
+            data-testid={`composer-exp-role-${exp.id}`}
             onChange={(e) => onPatch(exp.id, { role: e.target.value })}
             className="sm-field-input"
           />
@@ -57,6 +59,7 @@ export function ExperienceItem({
         <Field label="location">
           <input
             type="text" value={exp.loc}
+            data-testid={`composer-exp-loc-${exp.id}`}
             onChange={(e) => onPatch(exp.id, { loc: e.target.value })}
             className="sm-field-input"
           />
@@ -65,6 +68,7 @@ export function ExperienceItem({
       <Field label="bullets" hint="one per line · concrete numbers > prose">
         <textarea
           value={exp.bullets.join('\n')} rows={4}
+          data-testid={`composer-exp-bullets-${exp.id}`}
           onChange={(e) => onPatch(exp.id, { bullets: e.target.value.split('\n') })}
           className="w-full sm-field-input sm-reading resize-y"
         />
@@ -81,6 +85,7 @@ export function EducationItem({
       <Field label="school">
         <input
           type="text" value={edu.school}
+          data-testid={`composer-edu-school-${edu.id}`}
           onChange={(e) => onPatch(edu.id, { school: e.target.value })}
           className="sm-field-input"
         />
@@ -88,6 +93,7 @@ export function EducationItem({
       <Field label="degree">
         <input
           type="text" value={edu.degree}
+          data-testid={`composer-edu-degree-${edu.id}`}
           onChange={(e) => onPatch(edu.id, { degree: e.target.value })}
           className="sm-field-input"
         />
@@ -163,6 +169,7 @@ export function CustomItem({
         <Field label="content">
           <input
             type="text" value={cus.value}
+            data-testid={`composer-custom-value-${cus.id}`}
             onChange={(e) => onPatch(cus.id, { value: e.target.value })}
             className="sm-field-input"
             placeholder="English · Mandarin"

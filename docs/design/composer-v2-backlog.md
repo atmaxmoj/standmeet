@@ -64,6 +64,18 @@ tofu for CJK, dropped every `end` date, and crammed cards horizontally. The rule
 alongside C/D/E/F. Fold the one-off `draft-composer-period` into T4; retire narrow single-assertion
 specs as their coverage moves into the sweep.
 
+## Found by the A1 fidelity sweep (test-the-artifact working as intended)
+
+- [x] **I. Custom sections vanished from the PDF.** The composer has a custom-sections panel and
+  ResumePage renders them (CustomRail), but NEITHER typst template rendered `data.custom` — so every
+  owner-named section (languages, certifications…) silently disappeared from the résumé recruiters
+  receive. Fixed: both templates now render custom in the same place ResumePage does. Guarded by
+  composer-pdf-fidelity A1 (the ctitle/cvalue sentinels).
+- [ ] **J. Empty-section headings not suppressed in the PDF.** ResumePage hides an empty section
+  entirely (F-E-21: an "EDUCATION" heading with nothing under it reads as broken). The typst
+  templates print the heading regardless. Preview/thumbnail and PDF disagree. Add to A4 + fix both
+  templates to skip empty sections. (Deferred; A4 currently only guards no-"undefined".)
+
 ## Non-findings (verified real, keep)
 - Side-panel drag-reorder: real HTML5 DnD, `draft-composer-reorder` genuinely GREEN (dragTo flips
   the array + persists on reopen).

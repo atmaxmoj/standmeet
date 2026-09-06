@@ -90,6 +90,7 @@ function HeaderPanel({ model, onPatch }: Props) {
       <Field label="email">
         <input
           type="email" value={model.contact.email}
+          data-testid="composer-email"
           onChange={(e) => onPatch({ contact: { ...model.contact, email: e.target.value } })}
           className="sm-field-input sm-mono"
         />
@@ -97,6 +98,7 @@ function HeaderPanel({ model, onPatch }: Props) {
       <Field label="phone" hint="optional">
         <input
           type="tel" value={model.contact.phone}
+          data-testid="composer-phone"
           onChange={(e) => onPatch({ contact: { ...model.contact, phone: e.target.value } })}
           className="sm-field-input sm-mono"
         />
@@ -104,6 +106,7 @@ function HeaderPanel({ model, onPatch }: Props) {
       <Field label="location">
         <input
           type="text" value={model.contact.location}
+          data-testid="composer-location"
           onChange={(e) => onPatch({ contact: { ...model.contact, location: e.target.value } })}
           className="sm-field-input"
         />
@@ -111,6 +114,7 @@ function HeaderPanel({ model, onPatch }: Props) {
       <Field label="site">
         <input
           type="text" value={model.contact.site}
+          data-testid="composer-site"
           onChange={(e) => onPatch({ contact: { ...model.contact, site: e.target.value } })}
           className="sm-field-input sm-mono"
         />

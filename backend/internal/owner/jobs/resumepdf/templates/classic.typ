@@ -107,6 +107,15 @@
       #mono(size: 7pt, fill: faint)[#period(e.period)]
       #v(5pt)
     ]
+    // custom owner-named sections (languages, certifications, …). The composer offers these and
+    // ResumePage renders them; the PDF must too, or they vanish from the résumé recruiters receive.
+    #for c in data.at("custom", default: ()) [
+      #if c.label != "" and c.value != "" [
+        #sechead(c.label)
+        #text(size: 9pt)[#c.value]
+        #v(4pt)
+      ]
+    ]
   ],
   // main column: experience
   [
