@@ -1,6 +1,12 @@
 // use-system-info —— #101 data layer for /admin/system. GET /api/admin/system
-// fetches real version / uptime / go runtime + real health pings. Read-only,
-// fetched once on mount.
+// fetches real version / uptime / go runtime + real health pings + per-container
+// cgroup usage. Read-only.
+//
+// It **live-refreshes ~1×/s** so the cluster/resources panels read like `docker stats`
+// instead of a frozen snapshot. The poll is SELF-SCHEDULING (the next fetch is armed only
+// after the previous one resolves), so a slow /system (a dependency ping waiting on a
+// timeout) just slows the cadence — requests never pile up. /system is owner-only and its
+// health pings hit LOCAL deps, so 1×/s while the page is open is negligible.
 
 'use client';
 
@@ -54,9 +60,21 @@ export interface SystemInfoHook {
   status: ResourceStatus;
 }
 
+const LIVE_POLL_MS = 1000;
+
 export function useSystemInfo(): SystemInfoHook {
-  const { data, status, ensureLoaded } = systemStore();
+  const { data, status, ensureLoaded, refresh } = systemStore();
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  // Live refresh ~1×/s, self-scheduling so requests never overlap (see the file header).
+  useEffect(() => {
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      void refresh().finally(() => { if (alive) timer = setTimeout(tick, LIVE_POLL_MS); });
+    };
+    timer = setTimeout(tick, LIVE_POLL_MS);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [refresh]);
   return { info: data ?? null, loading: status === 'loading', status };
 }
 

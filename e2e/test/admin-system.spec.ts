@@ -127,7 +127,27 @@ test.describe('admin system section', () => {
   // The owner asked for the instance's public IP + its own cluster's per-container usage.
   test('GET /api/admin/system exposes the public IP + own-cluster container usage', publicIPAndCluster);
   test('the System panel shows the public IP and the cluster panel', clusterPanelRenders);
+
+  // The cluster/resources panels must read like `docker stats`, not a frozen snapshot: the page
+  // live-polls GET /api/admin/system ~1×/s. Fetch-once (the old behaviour) hits it exactly once →
+  // this goes RED; the self-scheduling poll hits it repeatedly → GREEN.
+  test('the cluster panel live-refreshes (polls /system ~1/s, not fetch-once)', clusterLivePolls);
 });
+
+async function clusterLivePolls({ adminPage }: { adminPage: Page }): Promise<void> {
+  let hits = 0;
+  adminPage.on('response', (r) => {
+    if (new URL(r.url()).pathname === '/api/admin/system') hits += 1;
+  });
+  await gotoAdminSection(adminPage, 'system');
+  await adminPage.waitForURL('**/admin/system', { timeout: 5_000 });
+  await expect(adminPage.getByTestId('system-cluster')).toBeVisible();
+  // At least TWO /system responses: the initial fetch + ≥1 self-scheduled poll (~1s cadence).
+  // Fetch-once yields exactly 1 → this never reaches 2 → times out (RED).
+  await expect
+    .poll(() => hits, { timeout: 8_000, message: 'GET /api/admin/system is polled, not fetched once' })
+    .toBeGreaterThanOrEqual(2);
+}
 
 // Public IP is deploy-provided (deterministic in dev). Container rows now come from each service
 // reading its OWN cgroup — NO docker socket: the backend reads its own directly, and each peer
