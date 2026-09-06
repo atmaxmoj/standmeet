@@ -63,18 +63,20 @@ export interface SystemInfoHook {
 const LIVE_POLL_MS = 1000;
 
 export function useSystemInfo(): SystemInfoHook {
-  const { data, status, ensureLoaded, refresh } = systemStore();
+  const { data, status, ensureLoaded, refreshSilent } = systemStore();
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   // Live refresh ~1×/s, self-scheduling so requests never overlap (see the file header).
+  // refreshSilent (not refresh): the tick swaps data in place without flipping to 'loading', so the
+  // panels never flash their skeleton once loaded — only the initial ensureLoaded shows it.
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
     const tick = () => {
-      void refresh().finally(() => { if (alive) timer = setTimeout(tick, LIVE_POLL_MS); });
+      void refreshSilent().finally(() => { if (alive) timer = setTimeout(tick, LIVE_POLL_MS); });
     };
     timer = setTimeout(tick, LIVE_POLL_MS);
     return () => { alive = false; clearTimeout(timer); };
-  }, [refresh]);
+  }, [refreshSilent]);
   return { info: data ?? null, loading: status === 'loading', status };
 }
 

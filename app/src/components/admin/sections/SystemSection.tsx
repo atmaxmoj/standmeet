@@ -97,7 +97,11 @@ function ClusterBlock({ info, status }: { info: SystemInfo | null; status: Resou
   const t = useTranslations('adminShell.system');
   const rows = clusterRows(info);
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="system-cluster">
+    <div
+      className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50"
+      data-testid="system-cluster"
+      data-status={status}
+    >
       <AdminSectionHead className="mb-3">{t('cluster')}</AdminSectionHead>
       <ListPane
         status={status}

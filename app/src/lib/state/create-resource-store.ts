@@ -27,6 +27,11 @@ import type { ResourceShape, ResourceStatus } from '@/lib/state/status';
 export interface ResourceStore<T> extends ResourceShape<T> {
   ensureLoaded: () => Promise<void>;
   refresh: () => Promise<void>;
+  // refreshSilent —— re-fetch WITHOUT the loading flip: status/data stay put until the new data
+  // lands, then swap in place. For live polling (e.g. /admin/system ~1×/s), where `refresh` would
+  // drop the panel back to a skeleton on every tick. A failed tick is swallowed (keep the last good
+  // data, try again next tick) — a live poll must never flash an error either.
+  refreshSilent: () => Promise<void>;
   // mutate —— optimistic update; the caller computes the new data and pushes
   // it straight in, and the next refresh pulls the real state to reconcile.
   mutate: (next: T | ((prev: T | undefined) => T)) => void;
@@ -61,6 +66,9 @@ export function createResourceStore<T>(
     refresh: async () => {
       await runFetch(opts, set);
     },
+    refreshSilent: async () => {
+      await runFetchSilent(opts, set);
+    },
     mutate: (next) => {
       set((s) => ({ ...s, data: applyMutate(s.data, next) }));
     },
@@ -89,6 +97,18 @@ async function runFetch<T>(opts: CreateResourceStoreOpts<T>, set: Setter<T>): Pr
       // in) apart from 5xx (server is down).
       errorStatus: e instanceof APIError ? e.status : null,
     }));
+  }
+}
+
+// runFetchSilent —— re-fetch without touching status/data until the new data is in hand, then swap
+// it in place. No 'loading' flip (so a live poll never drops the panel back to a skeleton) and a
+// failed tick is swallowed (keep the last good data + status; try again next tick).
+async function runFetchSilent<T>(opts: CreateResourceStoreOpts<T>, set: Setter<T>): Promise<void> {
+  try {
+    const data = await opts.fetcher();
+    set((s) => ({ ...s, status: 'ready', data, error: null, errorStatus: null, lastFetched: Date.now() }));
+  } catch (e) {
+    logger.error(`store ${opts.name}: silent refresh`, e);
   }
 }
 

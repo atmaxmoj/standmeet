@@ -132,7 +132,33 @@ test.describe('admin system section', () => {
   // live-polls GET /api/admin/system ~1×/s. Fetch-once (the old behaviour) hits it exactly once →
   // this goes RED; the self-scheduling poll hits it repeatedly → GREEN.
   test('the cluster panel live-refreshes (polls /system ~1/s, not fetch-once)', clusterLivePolls);
+  test('the cluster panel does not flash its skeleton on each poll', clusterNoSkeletonFlash);
 });
+
+// The live poll must NOT flash the skeleton every tick: refreshSilent keeps status 'ready' (data
+// swapped in place), so the panel never drops back to 'loading' after the initial load. Sampling
+// data-status across ≥2 polls: the old refresh() flipped it to 'loading' each tick (→ skeleton) and
+// this goes RED; refreshSilent never does → GREEN.
+async function clusterNoSkeletonFlash({ adminPage }: { adminPage: Page }): Promise<void> {
+  await gotoAdminSection(adminPage, 'system');
+  await adminPage.waitForURL('**/admin/system', { timeout: 5_000 });
+  const cluster = adminPage.getByTestId('system-cluster');
+  await expect(cluster).toHaveAttribute('data-status', 'ready', { timeout: 90_000 });
+  // A live MutationObserver flags any flip of data-status back to 'loading' (no timer / sleep).
+  await adminPage.evaluate(() => {
+    const el = document.querySelector('[data-testid="system-cluster"]');
+    if (el === null) return;
+    new MutationObserver(() => {
+      if (el.getAttribute('data-status') === 'loading') document.body.dataset.clusterFlashed = '1';
+    }).observe(el, { attributes: true, attributeFilter: ['data-status'] });
+  });
+  // Let ≥2 polls happen (each is a request-start that the old refresh() flipped to 'loading').
+  const isPoll = (r: { url: () => string }) => new URL(r.url()).pathname === '/api/admin/system';
+  await adminPage.waitForResponse(isPoll, { timeout: 6_000 });
+  await adminPage.waitForResponse(isPoll, { timeout: 6_000 });
+  const flashed = await adminPage.evaluate(() => document.body.dataset.clusterFlashed === '1');
+  expect(flashed, 'cluster panel must not drop to loading on poll (no skeleton flash)').toBe(false);
+}
 
 async function clusterLivePolls({ adminPage }: { adminPage: Page }): Promise<void> {
   let hits = 0;
