@@ -103,11 +103,15 @@ WORKDIR /app
 # bwrap bind-mounts them read-only into the sandbox.
 RUN apk add --no-cache ca-certificates docker-cli bubblewrap nodejs npm python3
 
+# CJK fonts for the resume PDF — typst reads system font dirs, so installing Noto CJK here is
+# enough for the templates' "Noto Serif/Sans Mono CJK SC" fallback to resolve. Without it any
+# Chinese/Japanese/Korean character in a draft renders as tofu (.notdef), which shipped on sijie.
+RUN apk add --no-cache font-noto-cjk
+
 # Typst — the resume PDF rendering engine (internal/owner/jobs/resumepdf spawns a typst
 # subprocess). Download the musl static release, selected by target arch
-# (amd64→x86_64 / arm64→aarch64). typst ships default fonts (serif + monospace), so it
-# renders even without Newsreader/JetBrains Mono installed (glyphs fall back to the
-# defaults; layout/colors unchanged).
+# (amd64→x86_64 / arm64→aarch64). typst ships default Latin fonts (serif + monospace); CJK
+# comes from the font-noto-cjk package above, appended to each template's font fallback list.
 ARG TARGETARCH
 RUN set -eux; \
     apk add --no-cache --virtual .typst-dl wget xz tar; \

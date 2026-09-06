@@ -23,17 +23,17 @@
   margin: (x: 0.62in, top: 0.5in, bottom: 0.55in),
   fill: paper,
   footer: context {
-    set text(font: ("JetBrains Mono", "Menlo"), size: 7pt, fill: faint)
+    set text(font: ("JetBrains Mono", "Menlo", "Noto Sans Mono CJK SC"), size: 7pt, fill: faint)
     grid(columns: (1fr, 1fr),
       align(left)[page #counter(page).display() / #counter(page).final().first()],
       align(right)[#qr-url])
   },
 )
-#set text(font: ("Newsreader", "Georgia"), fill: ink, size: 9.5pt)
+#set text(font: ("Newsreader", "Georgia", "Noto Serif CJK SC"), fill: ink, size: 9.5pt)
 #set par(leading: 0.5em)
 
 #let mono(size: 8pt, fill: muted, body) = text(
-  font: ("JetBrains Mono", "Menlo"), size: size, fill: fill,
+  font: ("JetBrains Mono", "Menlo", "Noto Sans Mono CJK SC"), size: size, fill: fill,
 )[#body]
 
 #let sechead(title) = block(above: 12pt, below: 5pt)[
