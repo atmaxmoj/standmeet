@@ -24,6 +24,10 @@ export type { AdoptedSession, AdoptedDockButton } from './grant.js';
 // parsing lives here, rendering is implemented separately by each.
 export { parseAnswerText } from './answer-text.js';
 export type { AnswerSpan, AnswerParagraphs } from './answer-text.js';
+
+// CorpusWidget query language (subtree / sort / limit).
+export { parseCorpusQuery, applyCorpusQuery } from './corpus-query.js';
+export type { CorpusQuery } from './corpus-query.js';
 export type {
   CorpusCard,
   MicrositeLink,

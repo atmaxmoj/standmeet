@@ -2,27 +2,29 @@
 // opens IN PLACE (the page never navigates) — clicking pulls the note's body with the keyless
 // fetchWikiLanding and renders it as prose, with a quiet "read in full ↗" to the full reader.
 //
-// Drop-in: `<CorpusWidget />`. Optional `heading` overrides the section label; `limit` caps how
-// many cards show.
+// Drop-in: `<CorpusWidget />`. Optional `heading` overrides the section label. Pick WHICH entries and
+// their order with either `limit` (a simple cap) or `query` — a small query language: e.g.
+// `query="path:math/** sort:title limit:5"` (subtree · sort recent|title · cap). `query` wins.
 
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import type { CorpusCard, WikiLandingView } from '@standmeet/sdk-core';
+import { applyCorpusQuery, type CorpusCard, type WikiLandingView } from '@standmeet/sdk-core';
 
 import { paragraphsOf, widgetClient } from './client.js';
 
 export interface CorpusWidgetProps {
   readonly heading?: string;
   readonly limit?: number;
+  readonly query?: string; // the CorpusWidget QL — subtree / sort / limit; overrides `limit`
 }
 
-export function CorpusWidget({ heading, limit }: CorpusWidgetProps): React.ReactElement | null {
+export function CorpusWidget({ heading, limit, query }: CorpusWidgetProps): React.ReactElement | null {
   const [cards, setCards] = useState<CorpusCard[]>([]);
   useEffect(() => { widgetClient.fetchCorpusCards().then(setCards).catch(() => undefined); }, []);
 
   if (cards.length === 0) return null;
-  const shown = typeof limit === 'number' ? cards.slice(0, limit) : cards;
+  const shown = selectCards(cards, limit, query);
   return (
     <section data-testid="corpus-widget" className="w-full">
       <div className="mono text-[10px] tracking-[0.22em] uppercase text-(--color-faint) mb-7">
@@ -33,6 +35,14 @@ export function CorpusWidget({ heading, limit }: CorpusWidgetProps): React.React
       </ol>
     </section>
   );
+}
+
+// selectCards —— which cards to show: `query` (the QL) wins; else a bare `limit` cap; else all.
+function selectCards(
+  cards: readonly CorpusCard[], limit: number | undefined, query: string | undefined,
+): CorpusCard[] {
+  if (query !== undefined && query !== '') return applyCorpusQuery(cards, query);
+  return typeof limit === 'number' ? cards.slice(0, limit) : [...cards];
 }
 
 function CorpusNote({ card, index }: { card: CorpusCard; index: number }) {
