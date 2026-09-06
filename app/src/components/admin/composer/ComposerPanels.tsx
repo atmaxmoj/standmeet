@@ -13,7 +13,7 @@
 
 import {
   AddBtn, EmptyHint, Field, Section,
-  blankCustom, blankEducation, blankExperience, blankSocial,
+  blankCustom, blankDivider, blankEducation, blankExperience, blankSocial,
 } from '@/components/admin/composer/ComposerAtoms';
 import {
   CustomItem, EducationItem, ExperienceItem, SocialItem,
@@ -119,7 +119,26 @@ function HeaderPanel({ model, onPatch }: Props) {
           className="sm-field-input sm-mono"
         />
       </Field>
+      <AccentField model={model} onPatch={onPatch} />
     </Section>
+  );
+}
+
+// AccentField —— the owner's accent colour (section heads / company / rules). Extracted so HeaderPanel
+// stays under the per-function line cap. Empty accent shows the template default in the picker.
+function AccentField({ model, onPatch }: {
+  model: DraftModel; onPatch: (p: Partial<DraftModel>) => void;
+}) {
+  return (
+    <Field label="accent color" hint="section heads · company · rules">
+      <input
+        type="color"
+        value={model.accent === '' ? '#9B3018' : model.accent}
+        data-testid="composer-accent"
+        onChange={(e) => onPatch({ accent: e.target.value })}
+        className="h-8 w-16 cursor-pointer bg-transparent"
+      />
+    </Field>
   );
 }
 
@@ -249,6 +268,11 @@ function CustomPanel({ model, onPatch, onPatchCus }: Props) {
         label="+ add a section"
         testid="composer-custom-add"
         onClick={() => onPatch({ custom: [...model.custom, blankCustom(model.custom.length)] })}
+      />
+      <AddBtn
+        label="+ add a divider"
+        testid="composer-divider-add"
+        onClick={() => onPatch({ custom: [...model.custom, blankDivider(model.custom.length)] })}
       />
     </Section>
   );

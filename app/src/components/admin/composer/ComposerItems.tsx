@@ -13,6 +13,9 @@ import type {
   DraftSocial,
 } from '@/lib/admin/draft-model';
 
+// DIVIDER_LABEL —— a module const so the tag isn't a bare JSX literal (i18next/no-literal-string).
+const DIVIDER_LABEL = 'divider';
+
 type PatchExp = (id: string, p: Partial<DraftExperience>) => void;
 type PatchEdu = (id: string, p: Partial<DraftEducation>) => void;
 type PatchSoc = (id: string, p: Partial<DraftSocial>) => void;
@@ -153,7 +156,18 @@ export function SocialItem({
 export function CustomItem({
   cus, onPatch, onRemove,
 }: { cus: DraftCustom; onPatch: PatchCus; onRemove: () => void }) {
-  return (
+  return cus.kind === 'divider' ? (
+    <div
+      className="border border-(--color-rule) rounded-[3px] p-4"
+      data-testid={`composer-divider-row-${cus.id}`}
+    >
+      <RowHeader testid={`composer-custom-remove-${cus.id}`} onRemove={onRemove} />
+      <div className="flex items-center gap-3">
+        <span className="mono text-[11px] uppercase tracking-wider text-(--color-faint)">{DIVIDER_LABEL}</span>
+        <hr className="flex-1 border-0 border-t border-(--color-rule)" />
+      </div>
+    </div>
+  ) : (
     <div className="border border-(--color-rule) rounded-[3px] p-4">
       <RowHeader testid={`composer-custom-remove-${cus.id}`} onRemove={onRemove} />
       <div className="grid grid-cols-[150px_1fr] gap-3">

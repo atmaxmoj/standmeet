@@ -62,6 +62,7 @@ export interface DraftCustom {
   id: string;
   label: string;
   value: string;
+  kind: string; // '' = a label+value section; 'divider' = a horizontal rule
 }
 
 export interface DraftModel {
@@ -81,6 +82,8 @@ export interface DraftModel {
   coverLetter: string;
   /** Which Typst layout the committed PDF uses ('' = default classic). Picked in the composer. */
   template: string;
+  /** Owner-chosen accent colour (#RRGGBB); '' = the template's default vermillion. */
+  accent: string;
 }
 
 // **There used to be a `mockDraft()` here** — a design-time placeholder
@@ -235,8 +238,9 @@ export function draftToResumeContent(m: DraftModel): ResumeContent {
       .filter((s) => s.handle.trim() !== '')
       .map((s): ResumeSocial => ({ kind: s.kind, label: s.kind, handle: s.handle })),
     custom: m.custom
-      .filter((c) => c.label.trim() !== '' && c.value.trim() !== '')
-      .map((c): ResumeCustom => ({ label: c.label, value: c.value })),
+      .filter((c) => c.kind === 'divider' || (c.label.trim() !== '' && c.value.trim() !== ''))
+      .map((c): ResumeCustom => ({ label: c.label, value: c.value, kind: c.kind })),
+    accent: m.accent,
   };
 }
 
@@ -262,7 +266,8 @@ export function draftToAPIContent(m: DraftModel): Record<string, unknown> {
     })),
     skills: [{ category: '', items: [...m.skills] }],
     social: m.social.map((s) => ({ kind: s.kind, label: s.kind, handle: s.handle })),
-    custom: m.custom.map((c) => ({ label: c.label, value: c.value })),
+    custom: m.custom.map((c) => ({ label: c.label, value: c.value, kind: c.kind })),
+    accent: m.accent,
   };
 }
 

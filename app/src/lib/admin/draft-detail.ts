@@ -34,7 +34,10 @@ export const ResumeContentSchema = z.object({
     .optional().default([]),
   social: z.array(z.object({ kind: z.string(), label: z.string(), handle: z.string() }))
     .optional().default([]),
-  custom: z.array(z.object({ label: z.string(), value: z.string() })).optional().default([]),
+  custom: z.array(z.object({
+    label: z.string(), value: z.string(), kind: z.string().optional().default(''),
+  })).optional().default([]),
+  accent: z.string().optional().default(''),
 });
 
 const DraftDetailSchema = z.object({
@@ -95,8 +98,9 @@ export function toDraftModel(
       start: e.period.start, end: e.period.end ?? '',
     })),
     social: rc.social.map((s, i) => ({ id: `s-${i}`, kind: s.kind, handle: s.handle })),
-    custom: rc.custom.map((c, i) => ({ id: `c-${i}`, label: c.label, value: c.value })),
+    custom: rc.custom.map((c, i) => ({ id: `c-${i}`, label: c.label, value: c.value, kind: c.kind })),
     coverLetter: rc.cover_letter,
     template: d.template ?? '',
+    accent: rc.accent,
   };
 }

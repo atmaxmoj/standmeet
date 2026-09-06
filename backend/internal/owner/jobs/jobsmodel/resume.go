@@ -15,14 +15,17 @@ package jobsmodel
 
 // ResumeContent — the complete structured content of one resume.
 type ResumeContent struct {
-	Identity    ResumeIdentity    `json:"identity"`
-	Summary     string            `json:"summary"`
-	CoverLetter string            `json:"cover_letter,omitempty"`
-	Works       []ResumeWork      `json:"works"`
-	Educations  []ResumeEducation `json:"educations"`
-	Skills      []ResumeSkillSet  `json:"skills"`
-	Social      []ResumeSocial    `json:"social,omitempty"`
-	Custom      []ResumeCustom    `json:"custom,omitempty"`
+	Identity    ResumeIdentity `json:"identity"`
+	Summary     string         `json:"summary"`
+	CoverLetter string         `json:"cover_letter,omitempty"`
+	// Accent — owner-chosen accent colour (#RRGGBB); empty → template default. In resume_content
+	// JSONB, so no schema change; it snapshots into the committed application.
+	Accent     string            `json:"accent,omitempty"`
+	Works      []ResumeWork      `json:"works"`
+	Educations []ResumeEducation `json:"educations"`
+	Skills     []ResumeSkillSet  `json:"skills"`
+	Social     []ResumeSocial    `json:"social,omitempty"`
+	Custom     []ResumeCustom    `json:"custom,omitempty"`
 }
 
 // ResumeIdentity — the identity block (the identity section barely changes when Claude

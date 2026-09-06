@@ -9,7 +9,9 @@
 
 #let ink = rgb("#1B1814")
 #let paper = rgb("#FAF7EF")
-#let accent = rgb("#9B3018")
+// accent — owner-customizable (data.accent, #RRGGBB); empty/absent → the house vermillion.
+#let accent-raw = data.at("accent", default: "")
+#let accent = if accent-raw == "" { rgb("#9B3018") } else { rgb(accent-raw) }
 #let rule = rgb("#D7CEB9")
 #let muted = rgb("#5F564B")
 #let faint = rgb("#9B9282")
@@ -80,37 +82,46 @@
 #edit-anchor("summary")
 #par(justify: false)[#data.summary]
 
-#sechead("experience")
-#for (i, w) in data.works.enumerate() [
-  #row-anchor("works", i)
-  #grid(columns: (1fr, auto), align: (left, right),
-    text(size: 11pt, weight: 500)[#w.title #text(size: 9.5pt, fill: accent)[· #w.company]],
-    mono(size: 7.5pt, fill: faint)[#period(w.period)])
-  #v(1pt)
-  #for b in w.bullets [
-    #grid(columns: (12pt, 1fr), text(fill: faint)[•], text(size: 9.5pt)[#b])
+// Empty sections print NO heading (parity with ResumePage — a bare heading reads as broken).
+#if data.works.len() > 0 [
+  #sechead("experience")
+  #for (i, w) in data.works.enumerate() [
+    #row-anchor("works", i)
+    #grid(columns: (1fr, auto), align: (left, right),
+      text(size: 11pt, weight: 500)[#w.title #text(size: 9.5pt, fill: accent)[· #w.company]],
+      mono(size: 7.5pt, fill: faint)[#period(w.period)])
     #v(1pt)
+    #for b in w.bullets [
+      #grid(columns: (12pt, 1fr), text(fill: faint)[•], text(size: 9.5pt)[#b])
+      #v(1pt)
+    ]
+    #v(6pt)
   ]
-  #v(6pt)
 ]
 
-#sechead("education")
-#for e in data.at("educations", default: ()) [
-  #grid(columns: (1fr, auto), align: (left, right),
-    text(size: 10pt, weight: 500)[#e.school #text(size: 9pt, fill: muted)[— #e.degree]],
-    mono(size: 7.5pt, fill: faint)[#period(e.period)])
-  #v(3pt)
+#if data.at("educations", default: ()).len() > 0 [
+  #sechead("education")
+  #for e in data.at("educations", default: ()) [
+    #grid(columns: (1fr, auto), align: (left, right),
+      text(size: 10pt, weight: 500)[#e.school #text(size: 9pt, fill: muted)[— #e.degree]],
+      mono(size: 7.5pt, fill: faint)[#period(e.period)])
+    #v(3pt)
+  ]
 ]
 
-#sechead("skills")
-#for s in data.at("skills", default: ()) [
-  #mono(size: 8pt, fill: ink)[#s.category:] #text(size: 9.5pt)[ #s.items.join("  ·  ")] \
+#if data.at("skills", default: ()).any(s => s.items.len() > 0) [
+  #sechead("skills")
+  #for s in data.at("skills", default: ()) [
+    #mono(size: 8pt, fill: ink)[#s.category:] #text(size: 9.5pt)[ #s.items.join("  ·  ")] \
+  ]
 ]
 
 // custom owner-named sections (languages, certifications, …). The composer offers these and
 // ResumePage renders them; the PDF must too, or they vanish from the résumé recruiters receive.
 #for c in data.at("custom", default: ()) [
-  #if c.label != "" and c.value != "" [
+  #if c.at("kind", default: "") == "divider" [
+    #v(3pt) #line(length: 100%, stroke: 0.5pt + rule) #v(3pt)
+  ] else if c.label != "" and c.value != "" [
     #sechead(c.label)
     #text(size: 9.5pt)[#c.value]
   ]

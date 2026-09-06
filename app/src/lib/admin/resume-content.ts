@@ -47,6 +47,7 @@ export interface ResumeSocial {
 export interface ResumeCustom {
   label: string;
   value: string;
+  kind?: string; // '' / absent = label+value section; 'divider' = a horizontal rule
 }
 
 export interface ResumeContent {
@@ -58,4 +59,5 @@ export interface ResumeContent {
   skills: readonly ResumeSkillSet[];
   social?: readonly ResumeSocial[];
   custom?: readonly ResumeCustom[];
+  accent?: string; // owner-chosen accent colour (#RRGGBB); empty/absent → template default
 }

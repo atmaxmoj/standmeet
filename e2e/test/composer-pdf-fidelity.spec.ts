@@ -129,11 +129,16 @@ test.describe('composer · every typed field reaches the rendered PDF', () => {
     expect(text).not.toContain('[object Object]');
   });
 
-  test('A4 · an untouched draft renders without "undefined"/"null" holes', async ({ adminPage: page }) => {
+  test('A4 · an untouched draft renders without "undefined"/"null" holes or empty-section headings', async ({ adminPage: page }) => {
     const text = await pdfText(page, emptyID);
     expect(text.toLowerCase()).not.toContain('undefined');
     expect(text.toLowerCase()).not.toContain('null');
     expect(text).not.toContain('[object Object]');
+    // Empty sections print no heading (parity with ResumePage). sechead uses letter-spacing, so the
+    // text layer reads "E X P E R I E N C E" — strip whitespace before matching.
+    const flat = text.replace(/\s+/g, '');
+    expect(flat, 'no empty EXPERIENCE heading').not.toContain('EXPERIENCE');
+    expect(flat, 'no empty EDUCATION heading').not.toContain('EDUCATION');
   });
 });
 

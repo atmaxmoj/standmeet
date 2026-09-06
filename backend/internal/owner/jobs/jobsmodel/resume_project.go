@@ -37,4 +37,6 @@ type ResumeSocial struct {
 type ResumeCustom struct {
 	Label string `json:"label"`
 	Value string `json:"value"`
+	// Kind — "" = a label+value section; "divider" = a horizontal rule. In resume_content JSONB.
+	Kind string `json:"kind,omitempty"`
 }

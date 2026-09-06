@@ -109,5 +109,10 @@ export function blankSocial(n: number): DraftSocial {
 // blankCustom —— a self-named section: `label` is the section title the owner types, `value` its
 // content. This is how the owner adds a section of their own (languages, certs, hobbies, …).
 export function blankCustom(n: number): DraftCustom {
-  return { id: `c-new-${String(n)}`, label: '', value: '' };
+  return { id: `c-new-${String(n)}`, label: '', value: '', kind: '' };
+}
+
+// blankDivider —— a horizontal rule the owner drops between their custom sections ("分割线能自己添加").
+export function blankDivider(n: number): DraftCustom {
+  return { id: `c-new-${String(n)}`, label: '', value: '', kind: 'divider' };
 }

@@ -124,6 +124,24 @@ Disposition: **NEW** · **REWRITE** existing · **EXPAND** existing · **KEEP** 
   composer; leave as is.
 - Count: ~24 guards, down from 23 scattered specs, with artifact coverage going from ~1:3 to majority.
 
+## Status (2026-09-06)
+
+Built + GREEN: A1/A2/A3/A4 (composer-pdf-fidelity + composer-cjk-renders), B1 (wasm-preview), B3
+(composer-preview-pdf-parity), C1 (resume-qr-host), C2 (draft-code-picker + real-code-qr), D1
+(inplace-edit), D2 (reorder→PDF), D3 (canvas-drag, real pointer gesture), D4 (period), E6-partial,
+J (empty-heading suppression in A4). Features shipped: D3 canvas drag, D pencil-declutter, E accent
+colour, F dividers. Real bugs fixed: period end-date, CJK tofu, custom-not-rendered, footer
+watermark, sijie public_url.
+
+Remaining tail (lower priority, documented for a focused follow-up):
+- **B2 preview CJK** — needs a self-hosted CJK font asset for the WASM preview (a font-asset pipeline
+  like copy-typst-assets); the committed PDF's CJK is already fixed (A3).
+- **B4 template-switch geometry** — wasm-preview asserts a byte-diff; upgrade to a layout assertion.
+- **E-group consolidations** — merge admin-drafts→drafts-composer, discard+ttl→one, ui+backend, and
+  retire the redundant tool-set check in resume-enters-the-conversation. Pure cleanup; deleting
+  existing specs, so do it deliberately.
+- **ResumePage accent/parity** — the React thumbnail uses a fixed CSS accent; wire it to data.accent.
+
 ## 6. Build order
 
 C-fixes first need guards that go RED on the real bug: A2 (period), A3/B2 (CJK), C1 (host). Then the

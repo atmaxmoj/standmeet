@@ -13,7 +13,9 @@
 
 #let ink = rgb("#1B1814")
 #let paper = rgb("#FAF7EF")
-#let accent = rgb("#9B3018")
+// accent — owner-customizable (data.accent, #RRGGBB); empty/absent → the house vermillion.
+#let accent-raw = data.at("accent", default: "")
+#let accent = if accent-raw == "" { rgb("#9B3018") } else { rgb(accent-raw) }
 #let rule = rgb("#D7CEB9")
 #let muted = rgb("#5F564B")
 #let faint = rgb("#9B9282")
@@ -98,23 +100,31 @@
 #grid(columns: (0.9fr, 2fr), column-gutter: 20pt,
   // left rail
   [
-    #sechead("skills")
-    #for s in data.at("skills", default: ()) [
-      #mono(size: 7.5pt, fill: ink)[#upper(s.category)] \
-      #text(size: 9pt)[#s.items.join("  ·  ")]
-      #v(4pt)
+    // Empty sections print NO heading (parity with ResumePage; an "EDUCATION" heading with nothing
+    // under it reads as broken to a recruiter).
+    #if data.at("skills", default: ()).any(s => s.items.len() > 0) [
+      #sechead("skills")
+      #for s in data.at("skills", default: ()) [
+        #mono(size: 7.5pt, fill: ink)[#upper(s.category)] \
+        #text(size: 9pt)[#s.items.join("  ·  ")]
+        #v(4pt)
+      ]
     ]
-    #sechead("education")
-    #for e in data.at("educations", default: ()) [
-      #text(size: 10pt, weight: 500)[#e.school] \
-      #text(size: 8.5pt, fill: muted)[#e.degree] \
-      #mono(size: 7pt, fill: faint)[#period(e.period)]
-      #v(5pt)
+    #if data.at("educations", default: ()).len() > 0 [
+      #sechead("education")
+      #for e in data.at("educations", default: ()) [
+        #text(size: 10pt, weight: 500)[#e.school] \
+        #text(size: 8.5pt, fill: muted)[#e.degree] \
+        #mono(size: 7pt, fill: faint)[#period(e.period)]
+        #v(5pt)
+      ]
     ]
     // custom owner-named sections (languages, certifications, …). The composer offers these and
     // ResumePage renders them; the PDF must too, or they vanish from the résumé recruiters receive.
     #for c in data.at("custom", default: ()) [
-      #if c.label != "" and c.value != "" [
+      #if c.at("kind", default: "") == "divider" [
+        #v(3pt) #line(length: 100%, stroke: 0.5pt + rule) #v(3pt)
+      ] else if c.label != "" and c.value != "" [
         #sechead(c.label)
         #text(size: 9pt)[#c.value]
         #v(4pt)
@@ -123,6 +133,7 @@
   ],
   // main column: experience
   [
+    #if data.works.len() > 0 [
     #sechead("experience")
     #for (i, w) in data.works.enumerate() [
       #row-anchor("works", i)
@@ -138,6 +149,7 @@
         #v(1pt)
       ]
       #v(7pt)
+    ]
     ]
   ],
 )
