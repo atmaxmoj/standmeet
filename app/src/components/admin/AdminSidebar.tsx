@@ -9,7 +9,10 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
 import { SystemPulse } from '@/components/admin/chrome/SystemPulse';
-import { NAV_GROUPS, type AdminSlug, type NavGroup, type SectionDef } from '@/lib/admin/nav';
+import {
+  NAV_GROUPS, navMessageKey, groupMessageKey,
+  type AdminSlug, type NavGroup, type SectionDef,
+} from '@/lib/admin/nav';
 import { sidebarBadgeFor } from '@/lib/admin/sidebar-badge-for';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { useAppVersion } from '@/lib/app-version';
@@ -101,17 +104,18 @@ function Scrim({ onClose }: { onClose?: () => void }) {
 function Groups({ active, badges }: { active: AdminSlug; badges?: SidebarBadges }) {
   return (
     <div className="flex flex-col">
-      {NAV_GROUPS.map((g) => <Group key={g.label} group={g} active={active} badges={badges} />)}
+      {NAV_GROUPS.map((g) => <Group key={g.id} group={g} active={active} badges={badges} />)}
     </div>
   );
 }
 
 function Group({ group, active, badges }: { group: NavGroup; active: AdminSlug; badges?: SidebarBadges }) {
   const t = useTranslations('adminShell.sidebar');
+  const nav = useTranslations('adminNav');
   return (
     <div className="py-1.5">
       <div className="mono text-[9.5px] tracking-[0.22em] uppercase text-(--color-faint) px-4 py-1">
-        {t('groupPrefix')} {group.label}
+        {t('groupPrefix')} {nav(groupMessageKey(group.id))}
       </div>
       {group.items.map((s) => (
         <SidebarItem key={s.slug} section={s} active={s.slug === active} badge={sidebarBadgeFor(s.slug, badges)} />
@@ -122,13 +126,14 @@ function Group({ group, active, badges }: { group: NavGroup; active: AdminSlug; 
 
 
 function SidebarItem({ section, active, badge }: { section: SectionDef; active: boolean; badge: number | null }) {
+  const nav = useTranslations('adminNav');
   return (
     <Link
       href={`/admin/${section.slug}`}
       className={navLinkCls(active)}
       aria-current={active ? 'page' : undefined}
     >
-      <span data-testid={`admin-nav-${section.slug}`} className="flex-1">{section.label}</span>
+      <span data-testid={`admin-nav-${section.slug}`} className="flex-1">{nav(navMessageKey(section.slug))}</span>
       <Badge count={badge} testId={section.badgeTestId} />
     </Link>
   );

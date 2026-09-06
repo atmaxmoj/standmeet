@@ -1,0 +1,40 @@
+{
+  "group": {
+    "overview": "总览",
+    "corpus": "语料库",
+    "access": "访问",
+    "resources": "资源",
+    "jobs": "求职",
+    "integrations": "集成",
+    "settings": "设置"
+  },
+  "section": {
+    "dashboard": "仪表盘",
+    "raw": "原始",
+    "wiki": "维基",
+    "subjectivity": "主观",
+    "writings": "文章",
+    "output": "输出",
+    "conversations": "对话",
+    "codes": "访问码",
+    "roles": "角色",
+    "prompts": "提示词",
+    "requests": "访问申请",
+    "embeds": "嵌入",
+    "preview": "预览",
+    "microsites": "微站",
+    "assets": "素材",
+    "data": "数据",
+    "sources": "来源",
+    "listings": "职位",
+    "drafts": "草稿",
+    "applications": "投递",
+    "skills": "技能",
+    "connectors": "连接器",
+    "api-mcp": "api · mcp",
+    "obsidian": "obsidian",
+    "ip-bans": "IP 封禁",
+    "account": "账户",
+    "system": "系统"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "group": {
+    "overview": "개요",
+    "corpus": "코퍼스",
+    "access": "접근",
+    "resources": "리소스",
+    "jobs": "채용",
+    "integrations": "통합",
+    "settings": "설정"
+  },
+  "section": {
+    "dashboard": "대시보드",
+    "raw": "원본",
+    "wiki": "위키",
+    "subjectivity": "주관",
+    "writings": "글",
+    "output": "출력",
+    "conversations": "대화",
+    "codes": "코드",
+    "roles": "역할",
+    "prompts": "프롬프트",
+    "requests": "요청",
+    "embeds": "임베드",
+    "preview": "미리보기",
+    "microsites": "마이크로사이트",
+    "assets": "에셋",
+    "data": "데이터",
+    "sources": "소스",
+    "listings": "채용공고",
+    "drafts": "초안",
+    "applications": "지원",
+    "skills": "스킬",
+    "connectors": "커넥터",
+    "api-mcp": "api · mcp",
+    "obsidian": "obsidian",
+    "ip-bans": "IP 차단",
+    "account": "계정",
+    "system": "시스템"
+  }
+}

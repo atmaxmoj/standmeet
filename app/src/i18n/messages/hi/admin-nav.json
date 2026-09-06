@@ -1,0 +1,40 @@
+{
+  "group": {
+    "overview": "अवलोकन",
+    "corpus": "कोष",
+    "access": "पहुँच",
+    "resources": "संसाधन",
+    "jobs": "नौकरी",
+    "integrations": "एकीकरण",
+    "settings": "सेटिंग्स"
+  },
+  "section": {
+    "dashboard": "डैशबोर्ड",
+    "raw": "कच्चा",
+    "wiki": "विकी",
+    "subjectivity": "व्यक्तिपरकता",
+    "writings": "लेख",
+    "output": "आउटपुट",
+    "conversations": "बातचीत",
+    "codes": "कोड",
+    "roles": "भूमिकाएँ",
+    "prompts": "प्रॉम्प्ट",
+    "requests": "अनुरोध",
+    "embeds": "एम्बेड",
+    "preview": "पूर्वावलोकन",
+    "microsites": "माइक्रोसाइट",
+    "assets": "एसेट",
+    "data": "डेटा",
+    "sources": "स्रोत",
+    "listings": "लिस्टिंग",
+    "drafts": "ड्राफ्ट",
+    "applications": "आवेदन",
+    "skills": "कौशल",
+    "connectors": "कनेक्टर",
+    "api-mcp": "api · mcp",
+    "obsidian": "obsidian",
+    "ip-bans": "IP प्रतिबंध",
+    "account": "खाता",
+    "system": "सिस्टम"
+  }
+}

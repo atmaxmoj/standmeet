@@ -9,8 +9,9 @@
 // differ by only a plural". Now they're not two strings chasing each other, they're one.
 
 import type { ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 
-import { navLabel, type AdminSlug } from '@/lib/admin/nav';
+import { navMessageKey, type AdminSlug } from '@/lib/admin/nav';
 
 type Props = {
   slug: AdminSlug;
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export function SectionHeader(props: Props) {
+  const nav = useTranslations('adminNav');
   return (
     <div
       data-testid="section-header"
@@ -31,7 +33,7 @@ export function SectionHeader(props: Props) {
       className="flex flex-wrap items-baseline justify-between border-b border-(--color-rule) pb-4 mb-7 gap-x-6 gap-y-3"
     >
       <SectionHeaderTitle
-        title={navLabel(props.slug)}
+        title={nav(navMessageKey(props.slug))}
         kicker={props.kicker}
         subtitle={props.subtitle}
         count={props.count}

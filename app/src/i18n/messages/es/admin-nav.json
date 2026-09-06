@@ -1,0 +1,40 @@
+{
+  "group": {
+    "overview": "resumen",
+    "corpus": "corpus",
+    "access": "acceso",
+    "resources": "recursos",
+    "jobs": "empleo",
+    "integrations": "integraciones",
+    "settings": "ajustes"
+  },
+  "section": {
+    "dashboard": "panel",
+    "raw": "bruto",
+    "wiki": "wiki",
+    "subjectivity": "subjetividad",
+    "writings": "textos",
+    "output": "salidas",
+    "conversations": "conversaciones",
+    "codes": "códigos",
+    "roles": "roles",
+    "prompts": "prompts",
+    "requests": "solicitudes",
+    "embeds": "incrustados",
+    "preview": "vista previa",
+    "microsites": "micrositios",
+    "assets": "activos",
+    "data": "datos",
+    "sources": "fuentes",
+    "listings": "ofertas",
+    "drafts": "borradores",
+    "applications": "candidaturas",
+    "skills": "habilidades",
+    "connectors": "conectores",
+    "api-mcp": "api · mcp",
+    "obsidian": "obsidian",
+    "ip-bans": "bloqueos IP",
+    "account": "cuenta",
+    "system": "sistema"
+  }
+}

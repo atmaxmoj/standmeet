@@ -1,15 +1,11 @@
-// nav —— every admin section's **name** is written exactly once, here.
+// nav —— every admin section's identity (its slug + which group it sits in), written once here.
 //
-// The sidebar's label and the big heading once you've clicked in are saying
-// the same thing: what this section is called. They used to be two
-// hand-written strings, hence F-N-3: the label had already been changed to
-// `landing page` / `microsites`, while the heading behind the door still
-// said `page` / `pages` — the owner **clicks in**, and once they do, the
-// biggest word on screen is what they actually read, and that word is
-// exactly why the module exists (two names differing by just a plural). The
-// other 24 of 26 sections were hand-copied identically, which is exactly the proof it should have been one string all along.
-//
-// So: `SectionHeader` takes a slug and asks `navLabel` itself. To rename a section, change it here, and both places move together.
+// The display NAME is deliberately NOT here: it lives in the message catalog
+// (adminNav.section.<slug> / adminNav.group.<id>). The sidebar label and the big heading behind the
+// door both read it through t(), so they stay translated and can never disagree (F-N-3 — one source,
+// resolved the same way in both places). nav.ts carries structure, never display strings: there is
+// nothing here to forget to translate, which is exactly why the untranslated sidebar happened when
+// the names lived here as literals.
 
 export type AdminSlug =
   | 'raw' | 'wiki' | 'subjectivity' | 'output' | 'conversations' | 'codes' | 'requests'
@@ -19,105 +15,85 @@ export type AdminSlug =
   | 'preview' | 'obsidian' | 'embeds' | 'assets' | 'data'
   | 'roles' | 'prompts' | 'ip-bans';
 
+export type NavGroupID =
+  | 'overview' | 'corpus' | 'access' | 'resources' | 'jobs' | 'integrations' | 'settings';
+
 export interface SectionDef {
   slug: AdminSlug;
-  label: string;
   badgeTestId?: string;
 }
 
 export interface NavGroup {
-  label: string;
+  id: NavGroupID;
   items: readonly SectionDef[];
 }
 
 export const NAV_GROUPS: readonly NavGroup[] = [
+  { id: 'overview', items: [{ slug: 'dashboard' }] },
   {
-    label: 'overview',
-    items: [{ slug: 'dashboard', label: 'dashboard' }],
-  },
-  {
-    label: 'corpus',
+    id: 'corpus',
     items: [
-      { slug: 'raw', label: 'raw', badgeTestId: 'badge-raw' },
-      { slug: 'wiki', label: 'wiki' },
-      // subjectivity is read-only: its write path is MCP (the self-model is
-      // written while thinking out loud, not filled in through a form).
-      // This entry exists for "visible + attachable to the file" — before it, the panel had no interface at all.
-      { slug: 'subjectivity', label: 'subjectivity' },
-      { slug: 'writings', label: 'writings' },
-      { slug: 'output', label: 'outputs' },
+      { slug: 'raw', badgeTestId: 'badge-raw' },
+      { slug: 'wiki' },
+      // subjectivity is read-only: its write path is MCP (the self-model is written while thinking
+      // out loud, not filled in through a form). This entry exists for "visible + attachable".
+      { slug: 'subjectivity' },
+      { slug: 'writings' },
+      { slug: 'output' },
     ],
   },
   {
-    label: 'access',
+    id: 'access',
     items: [
-      { slug: 'conversations', label: 'conversations' },
-      { slug: 'codes', label: 'codes' },
-      { slug: 'roles', label: 'roles' },
-      { slug: 'prompts', label: 'prompts' },
-      { slug: 'requests', label: 'requests', badgeTestId: 'badge-requests' },
-      // embeds belongs under access: an embed exposes a code as a
-      // <standmeet-chat> widget on someone else's site, and its neighbors
-      // are codes (the code it's attached to), not the corpus.
-      { slug: 'embeds', label: 'embeds' },
-      { slug: 'preview', label: 'preview' },
+      { slug: 'conversations' },
+      { slug: 'codes' },
+      { slug: 'roles' },
+      { slug: 'prompts' },
+      { slug: 'requests', badgeTestId: 'badge-requests' },
+      // embeds belongs under access: an embed exposes a code as a <standmeet-chat> widget on someone
+      // else's site — its neighbor is the code it's attached to, not the corpus.
+      { slug: 'embeds' },
+      { slug: 'preview' },
     ],
   },
   {
-    // resources —— the things an owner hosts on the instance: their microsites
-    // (pages a visitor lands on), the global asset pool those pages + corpus draw
-    // from, and the per-microsite data stores. microsites moved here from access:
-    // it's a hosted resource, and its neighbors are now its assets + data.
-    label: 'resources',
+    // resources —— what an owner hosts on the instance: their microsites (pages a visitor lands on),
+    // the global asset pool those pages + corpus draw from, and the per-microsite data stores.
+    id: 'resources',
+    items: [{ slug: 'microsites' }, { slug: 'assets' }, { slug: 'data' }],
+  },
+  {
+    id: 'jobs',
     items: [
-      { slug: 'microsites', label: 'microsites' },
-      { slug: 'assets', label: 'assets' },
-      { slug: 'data', label: 'data' },
+      { slug: 'sources' },
+      { slug: 'listings', badgeTestId: 'badge-listings' },
+      { slug: 'drafts' },
+      { slug: 'applications' },
+      { slug: 'skills' },
     ],
   },
   {
-    label: 'jobs',
-    items: [
-      { slug: 'sources', label: 'sources' },
-      { slug: 'listings', label: 'listings', badgeTestId: 'badge-listings' },
-      { slug: 'drafts', label: 'drafts' },
-      { slug: 'applications', label: 'applications' },
-      { slug: 'skills', label: 'skills' },
-    ],
+    id: 'integrations',
+    items: [{ slug: 'connectors' }, { slug: 'api-mcp' }, { slug: 'obsidian' }],
   },
   {
-    label: 'integrations',
-    items: [
-      { slug: 'connectors', label: 'connectors' },
-      { slug: 'api-mcp', label: 'api · mcp' },
-      { slug: 'obsidian', label: 'obsidian' },
-    ],
-  },
-  {
-    label: 'settings',
-    items: [
-      { slug: 'ip-bans', label: 'ip bans' },
-      { slug: 'account', label: 'account' },
-      { slug: 'system', label: 'system' },
-    ],
+    id: 'settings',
+    items: [{ slug: 'ip-bans' }, { slug: 'account' }, { slug: 'system' }],
   },
 ];
 
-// ADMIN_SLUGS —— the slugs the sidebar **actually renders**, computed from
-// NAV_GROUPS, not copied separately.
-//
-// F-N-1: `AdminShell` used to maintain a second `KNOWN_SLUGS` on its own to
-// map a path to "the current section", and that copy was missing
-// `subjectivity` — so `/admin/subjectivity` fell through the "unknown →
-// dashboard" default, and the sidebar highlighted dashboard. The sidebar
-// could render this section, but the path mapping didn't recognize it: **one
-// fact, stored twice**. Now there's only NAV_GROUPS; adding a section is automatically recognized.
+// ADMIN_SLUGS —— the slugs the sidebar renders, computed from NAV_GROUPS (one source; adding a
+// section here makes the path→section mapping recognize it automatically — F-N-1).
 export const ADMIN_SLUGS: readonly AdminSlug[] =
   NAV_GROUPS.flatMap((g) => g.items.map((i) => i.slug));
 
-// navLabel —— what this section is called. Both the sidebar's label and this section's heading ask it.
-export function navLabel(slug: AdminSlug): string {
-  const found = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.slug === slug);
-  // The type system can't reach here; if it ever does, print the slug — better than silently showing an empty title.
-  return found?.label ?? slug;
+// navMessageKey / groupMessageKey —— the catalog key (within the `adminNav` namespace) a section /
+// group resolves its display name from. Kept next to the slugs the keys are built from, so a new
+// section's key shape is obvious. Dynamic in t(), so check-i18n-keys enforces them via locale
+// parity (every locale mirrors en) rather than per-call resolution.
+export function navMessageKey(slug: AdminSlug): string {
+  return `section.${slug}`;
+}
+export function groupMessageKey(id: NavGroupID): string {
+  return `group.${id}`;
 }

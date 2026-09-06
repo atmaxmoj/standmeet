@@ -1,0 +1,40 @@
+{
+  "group": {
+    "overview": "概要",
+    "corpus": "コーパス",
+    "access": "アクセス",
+    "resources": "リソース",
+    "jobs": "求人",
+    "integrations": "連携",
+    "settings": "設定"
+  },
+  "section": {
+    "dashboard": "ダッシュボード",
+    "raw": "生",
+    "wiki": "ウィキ",
+    "subjectivity": "主観",
+    "writings": "記事",
+    "output": "出力",
+    "conversations": "会話",
+    "codes": "コード",
+    "roles": "ロール",
+    "prompts": "プロンプト",
+    "requests": "リクエスト",
+    "embeds": "埋め込み",
+    "preview": "プレビュー",
+    "microsites": "マイクロサイト",
+    "assets": "アセット",
+    "data": "データ",
+    "sources": "ソース",
+    "listings": "求人一覧",
+    "drafts": "下書き",
+    "applications": "応募",
+    "skills": "スキル",
+    "connectors": "コネクター",
+    "api-mcp": "api · mcp",
+    "obsidian": "obsidian",
+    "ip-bans": "IP ブロック",
+    "account": "アカウント",
+    "system": "システム"
+  }
+}

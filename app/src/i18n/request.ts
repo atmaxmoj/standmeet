@@ -20,8 +20,9 @@ import {
 
 // NAMESPACES — message file stem → the useTranslations namespace key it provides.
 const NAMESPACES: Record<string, string> = {
-  'admin-shell': 'adminShell', 'admin-corpus': 'adminCorpus', 'admin-access': 'adminAccess',
-  'admin-integrations': 'adminIntegrations', 'admin-jobs': 'adminJobs', 'admin-pages': 'adminPages',
+  'admin-shell': 'adminShell', 'admin-nav': 'adminNav', 'admin-corpus': 'adminCorpus',
+  'admin-access': 'adminAccess', 'admin-integrations': 'adminIntegrations', 'admin-jobs': 'adminJobs',
+  'admin-pages': 'adminPages',
   auth: 'auth', gate: 'gate', page: 'page', reader: 'reader', visitor: 'visitor', writings: 'writings',
 };
 
@@ -36,7 +37,7 @@ async function loadNamespace(locale: Locale, file: string): Promise<unknown> {
   return tree;
 }
 
-// loadCatalog — one locale's messages, assembled from its 12 namespace files.
+// loadCatalog — one locale's messages, assembled from its 13 namespace files.
 async function loadCatalog(locale: Locale): Promise<Record<string, unknown>> {
   const entries = await Promise.all(
     Object.entries(NAMESPACES).map(async ([file, key]) => {
