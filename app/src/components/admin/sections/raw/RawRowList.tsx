@@ -139,7 +139,7 @@ function RawRowBody({
   // triage list (F-R-1). An all-structure note (LeadLine "") gets an empty lead, not source markup.
   return (
     <div className="min-w-0">
-      <p className="reading-tight text-(--color-ink) text-[15px] line-clamp-3">{preview}</p>
+      <PreviewLine preview={preview} />
       {media && (
         <div className="mono text-[10px] tracking-[0.06em] text-(--color-faint) mt-1">
           {media.kind} · {media.label}
@@ -151,6 +151,18 @@ function RawRowBody({
       </div>
     </div>
   );
+}
+
+// PreviewLine — the clean rendered lead, or a muted "(untitled)" fallback. Raw has no title field;
+// it's identified by its source breadcrumb + this lead. An all-structure note (or one pushed with
+// no source path) has an empty lead, which used to render as a bare date row — the owner asked
+// "what is this raw, why no title". Never falls back to the raw body (that leaks markup, F-R-1).
+function PreviewLine({ preview }: { preview?: string }) {
+  const t = useTranslations('adminCorpus.raw');
+  const shown = (preview ?? '').trim() !== '';
+  return shown
+    ? <p className="reading-tight text-(--color-ink) text-[15px] line-clamp-3">{preview}</p>
+    : <p data-testid="raw-untitled" className="reading-tight italic text-(--color-faint) text-[15px]">{t('untitled')}</p>;
 }
 
 function PrivateBadge({ on }: { on: boolean }) {
