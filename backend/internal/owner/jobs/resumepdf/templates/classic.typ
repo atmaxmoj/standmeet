@@ -112,7 +112,8 @@
     ]
     #if data.at("educations", default: ()).len() > 0 [
       #sechead("education")
-      #for e in data.at("educations", default: ()) [
+      #for (i, e) in data.at("educations", default: ()).enumerate() [
+        #row-anchor("educations", i)
         #text(size: 10pt, weight: 500)[#e.school] \
         #text(size: 8.5pt, fill: muted)[#e.degree] \
         #mono(size: 7pt, fill: faint)[#period(e.period)]

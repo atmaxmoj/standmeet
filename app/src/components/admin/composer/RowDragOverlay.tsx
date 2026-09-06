@@ -27,7 +27,7 @@ export function RowDragOverlay({ rowAnchors, geo, containerRef, onReorderRow }: 
   const drop = (kind: string, from: number, clientY: number) => {
     const el = containerRef.current;
     const py = el === null ? 0 : clientY - el.getBoundingClientRect().top + el.scrollTop;
-    const to = dropTargetIndex(rowsOfKind(rowAnchors, kind), geo, py);
+    const to = dropTargetIndex(rowsOfKind(rowAnchors, kind), geo, py, from);
     setDragging('');
     return to === from ? undefined : onReorderRow(kind, from, to);
   };

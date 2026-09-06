@@ -160,49 +160,37 @@ export function reorder<T extends { id: string }>(
   return to < 0 ? list : [...rest.slice(0, to), moved, ...rest.slice(to)];
 }
 
+// moveTo —— move item `from` to slot `to`, immutably. Direction-agnostic: dropping a row's grip onto
+// another row's grip puts the dragged row in that row's slot (splice out, splice back in at `to`).
+function moveTo<T>(list: readonly T[], from: number, to: number): T[] {
+  const arr = [...list];
+  const [item] = arr.splice(from, 1);
+  if (item === undefined) return arr;
+  arr.splice(to, 0, item);
+  return arr;
+}
+
 // reorderRowByIndex —— the on-canvas reorder (P3-b) works in row INDICES (the row-anchor's index),
-// not ids; map them to ids and reuse `reorder`. `kind` is the template's list name (works /
-// educations). Out-of-range or unknown kind → unchanged.
+// not ids. `kind` is the template's list name (works / educations). Out-of-range or same → unchanged.
 export function reorderRowByIndex(
   m: DraftModel, kind: string, from: number, to: number,
 ): DraftModel {
-  if (kind === 'works') {
-    const f = m.experience[from]; const t = m.experience[to];
-    return f === undefined || t === undefined
-      ? m : { ...m, experience: [...reorder(m.experience, f.id, t.id)] };
+  if (kind === 'works' && inRange(m.experience, from, to)) {
+    return { ...m, experience: moveTo(m.experience, from, to) };
   }
-  if (kind === 'educations') {
-    const f = m.education[from]; const t = m.education[to];
-    return f === undefined || t === undefined
-      ? m : { ...m, education: [...reorder(m.education, f.id, t.id)] };
+  if (kind === 'educations' && inRange(m.education, from, to)) {
+    return { ...m, education: moveTo(m.education, from, to) };
   }
   return m;
 }
 
-// EDITABLE_FIELDS —— the résumé fields the composer's on-canvas editor (Phase 3) can edit in place,
-// keyed by the id the template's `edit-anchor` emits. Read/write go through one map so the anchor id,
-// the value shown in the inline input, and the patch on save can never drift apart.
-const EDITABLE_FIELDS: Record<string, {
-  read: (m: DraftModel) => string; write: (v: string) => Partial<DraftModel>;
-}> = {
-  'identity.name': { read: (m) => m.name, write: (v) => ({ name: v }) },
-  summary: { read: (m) => m.summary, write: (v) => ({ summary: v }) },
-};
-
-// readField —— the current value of an editable field (for the inline editor), '' if not editable.
-export function readField(m: DraftModel, field: string): string {
-  return EDITABLE_FIELDS[field]?.read(m) ?? '';
+function inRange(list: readonly unknown[], from: number, to: number): boolean {
+  return from !== to && from >= 0 && from < list.length && to >= 0 && to < list.length;
 }
 
-// applyFieldEdit —— the patch that writes `value` into `field`; {} for a field the canvas can't edit.
-export function applyFieldEdit(field: string, value: string): Partial<DraftModel> {
-  return EDITABLE_FIELDS[field]?.write(value) ?? {};
-}
-
-// isEditableField —— whether an anchor names a field the canvas editor supports (others get no hotspot).
-export function isEditableField(field: string): boolean {
-  return field in EDITABLE_FIELDS;
-}
+// (On-canvas field editing — the ✎ pencils — was removed: editing is the left form panel, the canvas
+// is preview + drag-reorder only. EDITABLE_FIELDS / readField / applyFieldEdit / isEditableField went
+// with it.)
 
 // draftToResumeContent —— adapter from the composer's edit-friendly
 // DraftModel to the print-side ResumeContent shape ResumePage consumes.

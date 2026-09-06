@@ -26,9 +26,19 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default async function Root() {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+// hasCodeParam — is there a non-empty ?code= in the URL. Read on the SERVER so VisitorRoot knows from
+// its first paint that this is a coded visitor and never flashes HomeFallback while the client absorbs.
+function hasCodeParam(sp: SearchParams): boolean {
+  const c = sp['code'];
+  return typeof c === 'string' && c !== '';
+}
+
+export default async function Root({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const instance = await fetchInstance();
   // unclaimed → server redirect to /setup?t=TOKEN (redirect() throws, so nothing below runs).
   instance.claimed || redirect(`/setup?t=${instance.setup_token ?? ''}`);
-  return <VisitorRoot name={instance.name} handle={instance.handle} />;
+  const hasCode = hasCodeParam(await searchParams);
+  return <VisitorRoot name={instance.name} handle={instance.handle} hasCode={hasCode} />;
 }

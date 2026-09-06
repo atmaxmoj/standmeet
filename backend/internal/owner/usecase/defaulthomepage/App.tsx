@@ -82,9 +82,10 @@ export default function App() {
         <AgentWidget examples={EXAMPLES} />
       </section>
 
-      {/* INSIGHTS — published corpus entries as inline-expanding cards. */}
+      {/* INSIGHTS — the most recent published corpus entries as inline-expanding cards. `limit` keeps
+          the homepage to a handful (cards come newest-first); raise it, or add filtering, as you like. */}
       <section className="mt-24">
-        <CorpusWidget heading="things I’ve been thinking about" />
+        <CorpusWidget heading="things I’ve been thinking about" limit={6} />
       </section>
 
       {/* PROJECTS — typography only. */}

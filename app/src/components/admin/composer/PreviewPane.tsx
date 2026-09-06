@@ -15,12 +15,11 @@ import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SelectField } from '@/components/atoms/SelectField';
-import { EditOverlays } from '@/components/admin/composer/EditOverlays';
 import { RowDragOverlay } from '@/components/admin/composer/RowDragOverlay';
 import { previewURL } from '@/lib/admin/save-draft';
 import { useTypstPreview } from '@/lib/admin/use-typst-preview';
 import { useSvgGeometry } from '@/lib/admin/use-svg-geometry';
-import type { EditAnchor, RowAnchor } from '@/lib/admin/typst-preview';
+import type { RowAnchor } from '@/lib/admin/typst-preview';
 
 import styles from '@/components/admin/composer/PreviewPane.module.css';
 
@@ -36,10 +35,8 @@ interface Props {
   role: string;
   company: string;
   qrURL: string; // the real code URL the QR carries (from the code picker)
-  // Phase 3 on-canvas editing: read a field's value + write an edit back to the draft.
-  fieldValue: (field: string) => string;
-  onEditField: (field: string, value: string) => void;
-  // P3-b on-canvas reorder: move row `from`→`to` in the list `kind` (works / educations).
+  // P3-b on-canvas reorder: move row `from`→`to` in the list `kind` (works / educations). Editing
+  // itself is the left form panel — the canvas is preview + drag only (no on-canvas edit pencils).
   onReorderRow: (kind: string, from: number, to: number) => void;
 }
 
@@ -54,7 +51,7 @@ function resolveView(view: View, status: string): View {
 
 export function PreviewPane(props: Props) {
   const [view, setView] = useState<View>('live');
-  const { svg, anchors, rowAnchors, status } = useTypstPreview({
+  const { svg, rowAnchors, status } = useTypstPreview({
     template: props.template, dataJSON: props.dataJSON,
     role: props.role, company: props.company, qrURL: props.qrURL, enabled: view === 'live',
   });
@@ -70,8 +67,7 @@ export function PreviewPane(props: Props) {
         {effective === 'live'
           ? (
             <LiveView
-              svg={svg} status={status} anchors={anchors} rowAnchors={rowAnchors}
-              fieldValue={props.fieldValue} onEditField={props.onEditField}
+              svg={svg} status={status} rowAnchors={rowAnchors}
               onReorderRow={props.onReorderRow}
             />
           )
@@ -92,14 +88,11 @@ export function PreviewPane(props: Props) {
 // (résumé text placed as content, never eval'd — same injection-safety as the PDF path), so
 // injecting it is safe.
 function LiveView({
-  svg, status, anchors, rowAnchors, fieldValue, onEditField, onReorderRow,
+  svg, status, rowAnchors, onReorderRow,
 }: {
   svg: string;
   status: string;
-  anchors: readonly EditAnchor[];
   rowAnchors: readonly RowAnchor[];
-  fieldValue: (field: string) => string;
-  onEditField: (field: string, value: string) => void;
   onReorderRow: (kind: string, from: number, to: number) => void;
 }) {
   const t = useTranslations('adminShell.previewPane');
@@ -117,12 +110,9 @@ function LiveView({
         {/* typst's own SVG output — content placed, never eval'd (same injection-safety as the PDF) */}
         <div className={styles.liveSvgInner} dangerouslySetInnerHTML={{ __html: svg }} />
         {geo === null ? null : (
-          <>
-            <EditOverlays anchors={anchors} geo={geo} getValue={fieldValue} onEdit={onEditField} />
-            <RowDragOverlay
-              rowAnchors={rowAnchors} geo={geo} containerRef={wrapRef} onReorderRow={onReorderRow}
-            />
-          </>
+          <RowDragOverlay
+            rowAnchors={rowAnchors} geo={geo} containerRef={wrapRef} onReorderRow={onReorderRow}
+          />
         )}
       </div>
     );

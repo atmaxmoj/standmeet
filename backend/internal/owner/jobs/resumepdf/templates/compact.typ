@@ -101,7 +101,8 @@
 
 #if data.at("educations", default: ()).len() > 0 [
   #sechead("education")
-  #for e in data.at("educations", default: ()) [
+  #for (i, e) in data.at("educations", default: ()).enumerate() [
+    #row-anchor("educations", i)
     #grid(columns: (1fr, auto), align: (left, right),
       text(size: 10pt, weight: 500)[#e.school #text(size: 9pt, fill: muted)[— #e.degree]],
       mono(size: 7.5pt, fill: faint)[#period(e.period)])

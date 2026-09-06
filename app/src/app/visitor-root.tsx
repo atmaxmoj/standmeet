@@ -15,7 +15,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ChatRoom } from '@/components/visitor/ChatRoom';
@@ -23,12 +23,15 @@ import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { HomeFallback } from '@/app/home-fallback';
 import { useAbsorbCodeFromURL } from '@/lib/gate/use-absorb-code';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
+import { useShouldAskVisitorName } from '@/lib/visitor/visitor-name';
 import {
   useVisitorSessionStore, bindVisitorSessionSync, type VisitorSession,
 } from '@/lib/visitor/session-store';
 import type { SessionMode } from '@/lib/page/use-chat';
 
-export function VisitorRoot({ name, handle }: { name: string; handle: string }) {
+export function VisitorRoot({ name, handle, hasCode }: {
+  name: string; handle: string; hasCode: boolean;
+}) {
   // Hydrate the session store from localStorage on mount (a returning visitor's session lives
   // there). The old long-scroll did this via its <SessionStrip>; the fallback branch below has
   // none, so without this a returning visitor's session never loads and `/` never becomes chat.
@@ -37,15 +40,35 @@ export function VisitorRoot({ name, handle }: { name: string; handle: string }) 
   // session (and any microsite redirect) is deferred to the name picker's path.
   useAbsorbCodeFromURL();
   const session = useVisitorSessionStore((s) => s.session);
+  const pending = useShouldAskVisitorName();
   useCodelessQuestionHandoff(session);
-  return isChatSession(session)
-    ? <ChatRoom owner={{ handle, full_name: name, location: '' }} mode={sessionMode(session)} />
-    : (
-      <>
-        <VisitorNamePicker />
-        <HomeFallback name={name} handle={handle} />
-      </>
-    );
+  const els: Record<VisitorView, ReactElement> = {
+    chat: <ChatRoom owner={{ handle, full_name: name, location: '' }} mode={sessionMode(session)} />,
+    picker: <VisitorNamePicker />,
+    fallback: <HomeFallback name={name} handle={handle} />,
+  };
+  return els[chooseVisitorView(session, pending, hasCode)];
+}
+
+export type VisitorView = 'chat' | 'picker' | 'fallback';
+
+// chooseVisitorView —— the pure render decision at `/`, extracted so a race that only shows up in
+// timing (the ?code= absorb setting `pending` a tick after the first paint) can be pinned
+// DETERMINISTICALLY in a unit test, and so the component stays under the complexity cap. Rules:
+//   • a live coded/byoai session → the chat;
+//   • a pending code, OR `hasCode` (the server saw ?code= in the URL) → the name picker. `hasCode`
+//     covers the first paint BEFORE the client absorb runs, so HomeFallback never flashes for a
+//     coded visitor — that flash was the intermittent "page under construction" a recruiter saw;
+//   • otherwise (a genuinely codeless visitor, no live home) → HomeFallback.
+export function chooseVisitorView(
+  session: VisitorSession | null, pending: boolean, hasCode: boolean,
+): VisitorView {
+  const coded = pending || hasCode;
+  return viewFor(isChatSession(session), coded);
+}
+
+function viewFor(inChat: boolean, coded: boolean): VisitorView {
+  return inChat ? 'chat' : coded ? 'picker' : 'fallback';
 }
 
 // useCodelessQuestionHandoff — a codeless visitor arriving with a question in the URL (?q=, e.g. a

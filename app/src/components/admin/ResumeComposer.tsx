@@ -16,9 +16,7 @@ import { useTranslations } from 'next-intl';
 import { ComposerPanel } from '@/components/admin/composer/ComposerPanels';
 import { PreviewPane } from '@/components/admin/composer/PreviewPane';
 import {
-  applyFieldEdit,
   draftToAPIContent,
-  readField,
   patchCustom,
   patchEducation,
   patchExperience,
@@ -102,8 +100,6 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
           onTemplate={(tp) => onPatch({ template: tp })}
           dataJSON={dataJSON} role={model.role} company={model.company}
           qrURL={qrURL}
-          fieldValue={(f) => readField(model, f)}
-          onEditField={(f, v) => onPatch(applyFieldEdit(f, v))}
           onReorderRow={onReorderRow}
         />
       </div>
