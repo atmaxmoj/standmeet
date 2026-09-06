@@ -35,9 +35,15 @@ describe('chooseVisitorView — the / render decision', () => {
     expect(chooseVisitorView(null, false, false)).toBe('fallback');
   });
 
-  it('a live code session → chat, and a new code arriving does not knock it out', () => {
+  it('a live code session, nothing new pending → chat (re-opening the same code stays put)', () => {
     expect(chooseVisitorView(session({ code: 'HIRING-2026' }), false, false)).toBe('chat');
-    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), true, true)).toBe('chat');
+    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), false, true)).toBe('chat');
+  });
+
+  it('a NEW code pending while in a session → picker, to switch (not silently the old chat)', () => {
+    // absorb only sets `pending` for a different code, so pending-while-in-session = a switch.
+    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), true, true)).toBe('picker');
+    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), true, false)).toBe('picker');
   });
 
   it('a byoai session → chat', () => {

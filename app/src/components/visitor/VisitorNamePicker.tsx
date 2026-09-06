@@ -75,8 +75,18 @@ function Modal() {
 async function settleOutcome(
   p: Promise<IssueOutcome>, setFull: (v: boolean) => void,
 ): Promise<void> {
-  const outcome = await p;
+  handleOutcome(await p, setFull);
+}
+
+// handleOutcome —— 'full' → show the capacity state; 'invalid' → the code can't open a chat, so send
+// the visitor to the gate (enter a code / request access), a real landing, not a blank picker.
+function handleOutcome(outcome: IssueOutcome, setFull: (v: boolean) => void): void {
   (outcome === 'full') && setFull(true);
+  (outcome === 'invalid') && gotoGate();
+}
+
+function gotoGate(): void {
+  (typeof window !== 'undefined') && window.location.assign('/gate');
 }
 
 // PickerHeader —— access kicker → the owner-set "what this is" greeting →

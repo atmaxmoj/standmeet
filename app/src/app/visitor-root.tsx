@@ -63,8 +63,12 @@ export type VisitorView = 'chat' | 'picker' | 'fallback';
 export function chooseVisitorView(
   session: VisitorSession | null, pending: boolean, hasCode: boolean,
 ): VisitorView {
-  const coded = pending || hasCode;
-  return viewFor(isChatSession(session), coded);
+  // A PENDING code wins over an existing chat: the absorb only sets `pending` for a NEW code (it skips
+  // re-absorbing the same named session), so a pending code while in a session means the visitor
+  // opened a DIFFERENT code — show the picker to switch to it (owner: opening HIRING-2026xxxx while in
+  // HIRING-2026 must not silently stay in the old chat). Otherwise: a live session → chat; a fresh
+  // coded arrival before the absorb runs (hasCode) → picker (no HomeFallback flash); else → fallback.
+  return pending ? 'picker' : viewFor(isChatSession(session), hasCode);
 }
 
 function viewFor(inChat: boolean, coded: boolean): VisitorView {
