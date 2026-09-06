@@ -39,6 +39,7 @@ type CreateCodeInput struct {
 	LimitPerPeriod     *entity.PeriodLimit
 	Label              string
 	Code               string
+	Slug               string
 	Purpose            string
 	AssumedRoleID      string
 	InlinePrompt       string
@@ -79,9 +80,10 @@ func CreateAccessCodeTx(
 // createCodeOn —— writes one access_code row on any DBTX (pool connection or
 // transaction). Shared by Create and CreateAccessCodeTx.
 func createCodeOn(ctx context.Context, q *db.Queries, in *CreateCodeInput) (entity.Code, error) {
-	// Derive a code from the label when none is given. Every code-creation path
-	// converges here, so this rule exists in exactly one place.
+	// Derive a code from the label when none is given, and a landing slug (owner-set, else a
+	// snowflake short id). Every creation path converges here, so both rules live in one place.
 	in.Code = entity.DeriveCode(in.Code, in.Label)
+	in.Slug = entity.DeriveSlug(in.Slug, slugGen.Slug())
 	params, perr := buildCreateCodeParams(in)
 	if perr != nil {
 		return entity.Code{}, perr
@@ -111,6 +113,7 @@ func accessInputToCreate(in *entity.CreateAccessCodeInput) *CreateCodeInput {
 	return &CreateCodeInput{
 		OwnerID:            in.OwnerID,
 		Code:               in.Code,
+		Slug:               in.Slug,
 		Label:              in.Label,
 		Purpose:            in.Purpose,
 		AssumedRoleID:      in.AssumedRoleID,
@@ -187,6 +190,7 @@ func buildCreateCodeParams(in *CreateCodeInput) (*db.CreateAccessCodeParams, err
 		PromptID:           ids.prompt,
 		InlinePrompt:       in.InlinePrompt,
 		LimitPerPeriod:     period,
+		Slug:               in.Slug,
 	}, nil
 }
 

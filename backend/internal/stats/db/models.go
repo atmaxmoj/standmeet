@@ -23,6 +23,7 @@ type AccessCode struct {
 	ProviderID           pgtype.UUID
 	MicrositeID          pgtype.UUID
 	LimitPerPeriod       []byte
+	Slug                 string
 	CreatedAt            pgtype.Timestamptz
 	AssumedRoleID        pgtype.UUID
 	PromptID             pgtype.UUID

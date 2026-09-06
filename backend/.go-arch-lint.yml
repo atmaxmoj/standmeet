@@ -947,6 +947,7 @@ deps:
       - accessdb
       - pgstore
       - cryptobox        # per-embed Ed25519 keypair generation (embed-piracy protection)
+      - snowflake        # default code landing-slug generation (short id, cloud-ready)
     anyVendorDeps: true
   accessusecase:
     mayDependOn:

@@ -343,8 +343,14 @@ CREATE TABLE access_codes (
     -- （花完手动续）；这一个是**每周期自动回满**的桶，按码共享（跟哪个访客/会话无关）。
     -- 留在码上：公开 embed 码要它，但它是码级速率闸，任何用法都适用（embed 规划 2026-09-01）。
     limit_per_period          jsonb,
+    -- slug — the code's own public landing path (`/<slug>`), NOT the code itself. A visitor arriving
+    -- with ?code= is bounced to /<slug>, so the raw code never sits in the URL and the landing gets a
+    -- real path instead of bare `/`. Owner-set, or defaulted from a snowflake short id at create.
+    -- Unique per owner (like microsite slugs). The slug is a LOCATOR, not a credential.
+    slug                      citext        NOT NULL,
     created_at                timestamptz   NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX access_codes_owner_slug_idx ON access_codes (owner_id, slug);
 
 CREATE TABLE code_members (
     id            uuid          PRIMARY KEY DEFAULT gen_random_uuid(),

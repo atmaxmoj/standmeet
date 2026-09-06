@@ -55,6 +55,53 @@ func DeriveCode(code, label string) string {
 	return prefix + "-" + randomCodeSuffix()
 }
 
+const slugMaxLen = 32
+
+// reservedSlugs — a code slug must never take one of these, or `/<slug>` would shadow a real route.
+var reservedSlugs = map[string]bool{
+	"home": true, "gate": true, "admin": true, "api": true, "setup": true,
+	"login": true, "p": true, "wiki": true, "output": true, "assets": true,
+}
+
+// DeriveSlug — the code's landing path slug. An owner-provided slug is sanitized (lowercased,
+// url-safe) and used when valid; if it is empty, stripped to nothing, or reserved, the `generated`
+// fallback (a snowflake short id, supplied by the caller) is used instead. Always non-empty.
+func DeriveSlug(provided, generated string) string {
+	s := sanitizeSlug(provided)
+	if s == "" || reservedSlugs[s] {
+		return generated
+	}
+	return s
+}
+
+func sanitizeSlug(in string) string {
+	out := make([]rune, 0, slugMaxLen)
+	for _, c := range in {
+		if r := slugRune(c); r != 0 {
+			out = append(out, r)
+		}
+		if len(out) >= slugMaxLen {
+			break
+		}
+	}
+	return string(out)
+}
+
+// slugRune — keep lowercase letters/digits and '-'/'_'; lowercase A-Z; drop everything else (0).
+func slugRune(c rune) rune {
+	if c >= 'A' && c <= 'Z' {
+		return c - 'A' + 'a'
+	}
+	if isSlugChar(c) {
+		return c
+	}
+	return 0
+}
+
+func isSlugChar(c rune) bool {
+	return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || strings.ContainsRune("-_", c)
+}
+
 func normalizeCodeLabel(label string) string {
 	out := make([]rune, 0, codeLabelMaxLen)
 	for _, c := range label {

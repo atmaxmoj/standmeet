@@ -81,10 +81,12 @@ type CreateAccessCodeInput struct {
 	PromptID           *string
 	OwnerID            string
 	Code               string
-	Label              string
-	Purpose            string
-	AssumedRoleID      string
-	InlinePrompt       string
+	// Slug — the code's landing path (`/<slug>`). Empty → DeriveSlug fills it from a snowflake.
+	Slug          string
+	Label         string
+	Purpose       string
+	AssumedRoleID string
+	InlinePrompt  string
 	// ProviderID —— the provider this code specifies (empty = inherit from role, then default).
 	ProviderID string
 	Ghosts     []string
