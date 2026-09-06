@@ -14,6 +14,7 @@ import type { APIRequestContext, Playwright, Locator, Page } from '@playwright/t
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
 import { gotoAdminSection } from '@/fixtures/navigate';
+import { inspectPDF } from '@/fixtures/pdf-inspect';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -68,6 +69,14 @@ test.describe('resume composer · drag reorders sections and it persists', () =>
     await expect(page.getByTestId('resume-composer')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('composer-panel-experience').click();
     await expect(firstExpOrg(page), 'reordered order persisted').toHaveValue('BetaOrg');
+
+    // …and it reached the ARTIFACT: the rendered PDF lists the experience in the new order, so the
+    // drag actually changed the résumé a recruiter sees — not just the form ("看是否拖拽成功").
+    const res = await page.request.get(`${BACKEND}/api/admin/drafts/${draftID}/preview.pdf`);
+    expect(res.status(), 'preview.pdf renders').toBe(200);
+    const { text } = await inspectPDF(await res.body());
+    expect(text.indexOf('BetaOrg'), 'Beta appears in the PDF').toBeGreaterThanOrEqual(0);
+    expect(text.indexOf('BetaOrg'), 'Beta renders before Alpha in the PDF').toBeLessThan(text.indexOf('AlphaOrg'));
   });
 });
 

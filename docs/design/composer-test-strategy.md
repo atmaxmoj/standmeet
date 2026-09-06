@@ -82,6 +82,13 @@ Disposition: **NEW** · **REWRITE** existing · **EXPAND** existing · **KEEP** 
   order (not just the form). → EXPAND `draft-composer-reorder` (today form-only).
 - **D3. Canvas drag-reorder (P3-b).** Drag a section on the canvas → order flips → PDF order. → NEW,
   gated on building P3-b.
+  - **Drag MUST be a real Playwright pointer gesture** (owner directive: "typst 一定要真的 pw 拖拽,
+    然后看是否拖拽成功"): hover the handle, `page.mouse.down()`, `page.mouse.move(...)` in several
+    steps across the target, `page.mouse.up()` — NOT `dispatchEvent`, NOT calling the reorder handler
+    directly. Then ASSERT the drag SUCCEEDED by reading the new order in the rendered artifact (preview
+    SVG / committed PDF), not just component state. The same rule applies to D2. A drag guard that
+    passes without a real gesture moving a real element is a false green — the exact class the owner
+    distrusts about `dragTo`.
 - **D4. From/to period form.** from+to persist on reopen. → KEEP `draft-composer-period` (its render
   truth lives in A2).
 - **D5. Add/remove rows persist.** social/custom/experience/education add+remove round-trip; template
