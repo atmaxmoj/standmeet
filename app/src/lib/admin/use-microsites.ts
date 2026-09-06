@@ -89,6 +89,7 @@ export interface MicrositesHook {
   setByoai: (slug: string, allow: boolean) => Promise<void>;
   rollback: (slug: string) => Promise<void>;
   removePage: (slug: string) => Promise<void>;
+  renamePage: (slug: string, newSlug: string) => Promise<void>;
 }
 
 export const micrositesStore = createResourceStore<MicrositeSummary[]>({
@@ -156,7 +157,7 @@ export function useMicrosites(): MicrositesHook {
   return {
     status: r.status, rows: r.data ?? [], error: r.error,
     refresh: micrositesStore.getState().refresh,
-    createPage, writeFile, build, getBuild, promote, setByoai, rollback, removePage,
+    createPage, writeFile, build, getBuild, promote, setByoai, rollback, removePage, renamePage,
   };
 }
 
@@ -165,6 +166,13 @@ export function useMicrosites(): MicrositesHook {
 // build never ran" and "the build ran but failed" would be indistinguishable on screen.
 async function createPage(slug: string, title: string): Promise<void> {
   await adminAPI.post('/microsites/', { slug, title }, z.object({ slug: z.string() }));
+  await micrositesStore.getState().refresh();
+}
+
+// renamePage — change the page's slug (its /p/<slug> address). Bound codes follow by id; the
+// caller navigates to the new editor route on success.
+async function renamePage(slug: string, newSlug: string): Promise<void> {
+  await adminAPI.put(`/microsites/${slug}/slug`, { new_slug: newSlug }, z.object({}).passthrough());
   await micrositesStore.getState().refresh();
 }
 

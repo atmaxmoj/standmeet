@@ -56,6 +56,25 @@ func CreatePage(
 	return page, nil
 }
 
+// RenamePage — change a microsite's slug (its /p/<slug> address). The new slug must be valid and
+// free (a-z0-9-, ≤64); the reserved home slug can be neither source nor target (it is pinned to
+// `/`). Access codes bind by microsite id, so their bindings follow the rename automatically.
+func RenamePage(
+	ctx context.Context, deps MicrositeDeps, ownerID, oldSlug, newSlug string,
+) (entity.Microsite, error) {
+	if oldSlug == HomepageSlug || newSlug == HomepageSlug {
+		return entity.Microsite{}, entity.ErrMicrositeHomeReserved
+	}
+	if err := validateSlug(newSlug); err != nil {
+		return entity.Microsite{}, err
+	}
+	page, err := deps.Pages.Rename(ctx, ownerID, oldSlug, newSlug)
+	if err != nil {
+		return entity.Microsite{}, fmt.Errorf("rename page: %w", err)
+	}
+	return page, nil
+}
+
 // SetPageByoai — whether this page lets a reader use their own key when no grant is presented
 // at all. Only takes effect then: a reader arriving with a code has the code decide everything,
 // overriding this (I-4) — that rule lives on the composition side (a wiring concern), not here.

@@ -51,6 +51,37 @@ func (r *MicrositeRepo) Create(
 	return toDomainMicrosite(&row), nil
 }
 
+// Rename changes a microsite's slug. A collision with an existing slug translates to
+// ErrMicrositeSlugTaken; a missing source page to ErrMicrositeNotFound. Access codes bind by id,
+// so their bindings follow the rename.
+func (r *MicrositeRepo) Rename(
+	ctx context.Context, ownerID, oldSlug, newSlug string,
+) (entity.Microsite, error) {
+	ownerUUID, perr := pgstore.ParseUUID(ownerID)
+	if perr != nil {
+		return entity.Microsite{}, fmt.Errorf("parse owner id: %w", perr)
+	}
+	row, err := db.New(r.pool).RenameMicrosite(ctx, db.RenameMicrositeParams{
+		OwnerID: ownerUUID, Slug: oldSlug, Slug_2: newSlug,
+	})
+	if err != nil {
+		return entity.Microsite{}, renameErr(err)
+	}
+	return toDomainMicrosite(&row), nil
+}
+
+// renameErr maps a rename failure: a slug collision → ErrMicrositeSlugTaken, a missing source
+// page (no row updated) → ErrMicrositeNotFound, anything else wrapped.
+func renameErr(err error) error {
+	if name, hit := pgstore.UniqueViolation(err); hit && name == "microsites_owner_slug_idx" {
+		return entity.ErrMicrositeSlugTaken
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return entity.ErrMicrositeNotFound
+	}
+	return fmt.Errorf("rename microsite: %w", err)
+}
+
 // GetBySlug looks up by owner_id + slug.
 func (r *MicrositeRepo) GetBySlug(
 	ctx context.Context, ownerID, slug string,

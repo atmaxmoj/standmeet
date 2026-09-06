@@ -94,6 +94,8 @@
     "authorHelp": "Collez le App.tsx de la page. Il est construit dans un bac à sable et, si la construction réussit, publié à /p/<slug>. Vous pouvez importer @standmeet/sdk pour lire votre corpus et demander à votre IA.",
     "slugLabel": "slug — la page vit à /p/<slug>",
     "sourceLabel": "App.tsx",
+    "rename": "rename",
+    "renamed": "renamed to /p/{slug}",
     "publish": "construire + publier →",
     "published": "Page publiée",
     "buildRunning": "construction…",

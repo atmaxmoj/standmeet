@@ -38,6 +38,16 @@ FROM microsites cp
 WHERE cp.owner_id = $1 AND cp.status != 'deleted'
 ORDER BY cp.created_at DESC;
 
+-- name: RenameMicrosite :one
+-- Change a microsite's slug (its /p/<slug> address). The owner+slug unique index rejects a
+-- collision. Access codes reference the microsite by id, so their bindings follow the rename.
+UPDATE microsites
+SET slug = $3, updated_at = now()
+WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
+RETURNING id, owner_id, slug, title, status,
+          live_build_id, staging_build_id, previous_live_build_id,
+          allow_byoai, store_writable, created_at, updated_at;
+
 -- name: SetMicrositeByoai :one
 -- Whether this page lets a reader use their own key **when no one presents a grant**. Void once a
 -- code arrives (I-4).

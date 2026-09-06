@@ -56,3 +56,7 @@ var ErrMicrositeBuildNotFound = errors.New("microsite build not found")
 // ErrMicrositeSlugTaken —— an active page with this slug already exists
 // under this owner.
 var ErrMicrositeSlugTaken = errors.New("microsite slug already taken")
+
+// ErrMicrositeHomeReserved —— the reserved home slug (served at `/`) cannot be renamed, nor can a
+// page be renamed onto it. It is pinned to the site root, not a free /p/<slug> address.
+var ErrMicrositeHomeReserved = errors.New("the homepage slug is reserved")

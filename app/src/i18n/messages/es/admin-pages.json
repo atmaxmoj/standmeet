@@ -94,6 +94,8 @@
     "authorHelp": "Pegue la App.tsx de la página. Se construye en una caja de arena y, si la construcción tiene éxito, se publica en /p/<slug>. Puede importar @standmeet/sdk para leer su corpus y preguntar a su IA.",
     "slugLabel": "slug — la página existe en /p/<slug>",
     "sourceLabel": "App.tsx",
+    "rename": "rename",
+    "renamed": "renamed to /p/{slug}",
     "publish": "construir + publicar →",
     "published": "Página publicada",
     "buildRunning": "construyendo…",

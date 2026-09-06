@@ -94,6 +94,8 @@
     "authorHelp": "Paste the page's App.tsx. It is built in a sandbox and, if the build succeeds, published at /p/<slug>. You can import @standmeet/sdk to read your corpus and to ask your AI.",
     "slugLabel": "slug — the page lives at /p/<slug>",
     "sourceLabel": "App.tsx",
+    "rename": "rename",
+    "renamed": "renamed to /p/{slug}",
     "publish": "build + publish →",
     "published": "Page published",
     "buildRunning": "building…",

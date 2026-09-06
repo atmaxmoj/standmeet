@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 
@@ -116,7 +117,70 @@ function EditorHeader(
       </Link>
       {isNew
         ? <SlugField value={slug} onChange={onSlug} />
-        : <h2 className="font-serif text-[22px] text-(--color-ink) mt-2">{t('slugPath', { slug })}</h2>}
+        : <SlugHeading slug={slug} />}
+    </div>
+  );
+}
+
+// SlugHeading — the existing page's address, /p/<slug>, now renamable in place (owner: the slug
+// after /p should be editable). Click "rename" → an inline field; Enter commits (renames + jumps to
+// the new editor route). The reserved home page is pinned to `/`, so it shows no rename control.
+const HOME = 'home';
+
+function SlugHeading({ slug }: { slug: string }) {
+  const [editing, setEditing] = useState(false);
+  return editing
+    ? <SlugRenameField slug={slug} onClose={() => setEditing(false)} />
+    : <SlugDisplay slug={slug} onEdit={() => setEditing(true)} />;
+}
+
+function SlugDisplay({ slug, onEdit }: { slug: string; onEdit: () => void }) {
+  const t = useTranslations('adminPages.microsites');
+  return (
+    <div className="flex items-baseline gap-3 mt-2 flex-wrap">
+      <h2 className="font-serif text-[22px] text-(--color-ink)">{t('slugPath', { slug })}</h2>
+      <RenameReveal slug={slug} onEdit={onEdit} />
+    </div>
+  );
+}
+
+function RenameReveal({ slug, onEdit }: { slug: string; onEdit: () => void }) {
+  const t = useTranslations('adminPages.microsites');
+  return slug === HOME ? null : (
+    <button
+      type="button" onClick={onEdit} data-testid="microsite-rename"
+      className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) hover:underline"
+    >
+      {t('rename')}
+    </button>
+  );
+}
+
+// SlugRenameField — Enter renames + navigates to the new editor route; clicking away cancels. A
+// failed rename (slug taken / invalid) surfaces via useAction and leaves the field open to fix.
+function SlugRenameField({ slug, onClose }: { slug: string; onClose: () => void }) {
+  const t = useTranslations('adminPages.microsites');
+  const { renamePage } = useMicrosites();
+  const run = useAction();
+  const router = useRouter();
+  const [raw, setRaw] = useState(slug);
+  const commit = useCallback(() => {
+    const next = raw.trim();
+    void run(async () => {
+      await renamePage(slug, next);
+      router.push(`/admin/edit/${next}`);
+    }, { success: t('renamed', { slug: next }) });
+  }, [raw, slug, renamePage, run, router, t]);
+  return (
+    <div className="flex items-baseline gap-2 mt-2">
+      <input
+        autoFocus value={raw} data-testid="microsite-rename-input"
+        placeholder="new-slug"
+        onChange={(e) => setRaw(e.target.value)}
+        onKeyDown={(e) => (e.key === 'Enter' ? commit() : undefined)}
+        onBlur={onClose}
+        className="font-serif text-[22px] text-(--color-ink) bg-transparent border-b border-(--color-accent) outline-none min-w-0"
+      />
     </div>
   );
 }

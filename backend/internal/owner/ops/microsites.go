@@ -90,6 +90,15 @@ var (
 		"required":["slug"]
 	}`)
 
+	pageRenameSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"slug":{"type":"string","description":"The page's current slug."},
+			"new_slug":{"type":"string","description":"The new URL slug: a-z0-9-. Must be free."}
+		},
+		"required":["slug","new_slug"]
+	}`)
+
 	pageFileSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
@@ -286,6 +295,7 @@ type pageArgs struct {
 	// StoreWritable —— set_store_writable's argument. A pointer for the same reason as AllowByoai.
 	StoreWritable *bool  `json:"store_writable"`
 	Slug          string `json:"slug"`
+	NewSlug       string `json:"new_slug"`
 	Title         string `json:"title"`
 	Path          string `json:"path"`
 	Content       string `json:"content"`
@@ -321,5 +331,8 @@ var micrositeErrClasses = []struct {
 	}},
 	{entity.ErrMicrositeSlugTaken, func() error {
 		return fp.Coded(fp.Conflict("slug already taken"), "slug_taken")
+	}},
+	{entity.ErrMicrositeHomeReserved, func() error {
+		return fp.Coded(fp.BadInput("the homepage slug is reserved"), "home_reserved")
 	}},
 }
