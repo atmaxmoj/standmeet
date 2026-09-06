@@ -6,14 +6,14 @@
 # lefthook doesn't get blocked by a subproject that isn't wired up yet during early
 # incremental development.
 
-.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-test im-bridge-up im-bridge-logs
+.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── lint ────────────────────────────────────────────────────────
 # Order: env-lint is fastest, so it runs first; backend's own `make lint` chain is
 # already rich; the frontends each run eslint + tsc + knip. backend-no-mock is the
 # G-Y-mandated "backend must not contain mock-only code" constraint.
-lint: secrets env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint im-bridge-test verify-items
+lint: secrets env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint im-bridge-lint verify-items
 
 # secrets —— secret scan, runs first: it takes 5 seconds, and what it guards against has no undo.
 #
@@ -132,9 +132,19 @@ updater-e2e:
 fresh-install-e2e:
 	@infra/db/fresh-install-e2e.sh
 
+# im-bridge-lint —— the bridge's static lint only. This is the part that belongs in `make lint`;
+# the vitest suite (im-bridge-test) is a TEST and runs on its own (pre-commit's im-bridge block,
+# scoped to im-bridge/ changes), not on every lint of the whole repo.
+im-bridge-lint:
+	@if [ -d im-bridge/node_modules ]; then \
+	  pnpm -F @standmeet/im-bridge lint; \
+	else \
+	  echo "[skip] im-bridge/ has no node_modules — skipping"; \
+	fi
+
 im-bridge-test:
 	@if [ -d im-bridge/node_modules ]; then \
-	  pnpm -F @standmeet/im-bridge lint && pnpm -F @standmeet/im-bridge test; \
+	  pnpm -F @standmeet/im-bridge test; \
 	else \
 	  echo "[skip] im-bridge/ has no node_modules — skipping"; \
 	fi
