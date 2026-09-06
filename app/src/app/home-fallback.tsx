@@ -14,7 +14,10 @@ import { useTranslations } from 'next-intl';
 export function HomeFallback({ name, handle }: { name: string; handle: string }) {
   const t = useTranslations('page');
   return (
-    <main className="mx-auto max-w-[640px] px-6 min-h-screen flex flex-col justify-center">
+    <main
+      data-testid="home-fallback"
+      className="mx-auto max-w-[640px] px-6 min-h-screen flex flex-col justify-center"
+    >
       <div className="mono text-[10.5px] tracking-[0.22em] uppercase text-(--color-muted) mb-5 flex items-center gap-2">
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--color-accent)" />
         {name || handle}
