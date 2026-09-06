@@ -6,7 +6,9 @@ import { useEffect, useState } from 'react';
 
 import { z } from 'zod';
 
-import type { DraftModel } from '@/lib/admin/draft-model';
+import {
+  DEFAULT_LEFT_WIDTH, normalizeLeftOrder, type DraftModel,
+} from '@/lib/admin/draft-model';
 import { safeJson } from '@/lib/api/typed-json';
 
 const PeriodSchema = z.object({ start: z.string(), end: z.string().nullable().optional() });
@@ -40,6 +42,10 @@ export const ResumeContentSchema = z.object({
   accent: z.string().optional().default(''),
   // font_scale — the whole-résumé font-size multiplier; absent/old drafts → 1 (template default).
   font_scale: z.number().optional().default(1),
+  // left_order — order of the left-rail sections; empty/old drafts → normalizeLeftOrder fills it.
+  left_order: z.array(z.string()).optional().default([]),
+  // left_width — left-column width in fr; absent/old → the classic default.
+  left_width: z.number().optional().default(DEFAULT_LEFT_WIDTH),
 });
 
 const DraftDetailSchema = z.object({
@@ -105,5 +111,7 @@ export function toDraftModel(
     template: d.template ?? '',
     accent: rc.accent,
     fontScale: rc.font_scale,
+    leftOrder: normalizeLeftOrder(rc.left_order),
+    leftWidth: rc.left_width,
   };
 }

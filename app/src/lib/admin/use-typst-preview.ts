@@ -27,11 +27,13 @@ const DEBOUNCE_MS = 350;
 export function useTypstPreview(
   input: Input,
 ): {
-  svg: string; anchors: readonly EditAnchor[]; rowAnchors: readonly RowAnchor[]; status: TypstStatus;
+  svg: string; anchors: readonly EditAnchor[]; rowAnchors: readonly RowAnchor[];
+  sectionAnchors: readonly RowAnchor[]; status: TypstStatus;
 } {
   const [svg, setSvg] = useState('');
   const [anchors, setAnchors] = useState<readonly EditAnchor[]>([]);
   const [rowAnchors, setRowAnchors] = useState<readonly RowAnchor[]>([]);
+  const [sectionAnchors, setSectionAnchors] = useState<readonly RowAnchor[]>([]);
   const [status, setStatus] = useState<TypstStatus>('rendering');
   const seq = useRef(0);
   const { template, dataJSON, role, company, qrURL, enabled } = input;
@@ -49,6 +51,7 @@ export function useTypstPreview(
           setSvg(out.svg);
           setAnchors(out.anchors);
           setRowAnchors(out.rowAnchors);
+          setSectionAnchors(out.sectionAnchors);
           setStatus('ready');
         })
         .catch((e: unknown) => {
@@ -61,5 +64,5 @@ export function useTypstPreview(
     return () => clearTimeout(timer);
   }, [template, dataJSON, role, company, qrURL, enabled]);
 
-  return { svg, anchors, rowAnchors, status };
+  return { svg, anchors, rowAnchors, sectionAnchors, status };
 }

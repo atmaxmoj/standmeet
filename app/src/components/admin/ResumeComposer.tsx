@@ -10,7 +10,9 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import {
+  useCallback, useEffect, useState, type Dispatch, type SetStateAction,
+} from 'react';
 import { useTranslations } from 'next-intl';
 
 import { ComposerPanel } from '@/components/admin/composer/ComposerPanels';
@@ -23,6 +25,8 @@ import {
   patchModel,
   patchSocial,
   reorderRowByIndex,
+  reorderLeftSection,
+  setLeftWidth,
   type DraftCustom,
   type DraftEducation,
   type DraftExperience,
@@ -40,6 +44,22 @@ interface Props {
   initial: DraftModel;
   onClose: () => void;
   onSend: (choice: CodeChoice) => void;
+}
+
+// useCanvasHandlers —— the on-canvas layout handlers (row reorder, whole-section reorder, column
+// resize). Grouped in one hook so the component stays under the max-lines cap; each is a stable
+// setModel-based patch.
+function useCanvasHandlers(setModel: Dispatch<SetStateAction<DraftModel>>) {
+  const onReorderRow = useCallback((kind: string, from: number, to: number) => {
+    setModel((m) => reorderRowByIndex(m, kind, from, to));
+  }, [setModel]);
+  const onReorderSection = useCallback((from: number, to: number) => {
+    setModel((m) => reorderLeftSection(m, from, to));
+  }, [setModel]);
+  const onSetLeftWidth = useCallback((fr: number) => {
+    setModel((m) => setLeftWidth(m, fr));
+  }, [setModel]);
+  return { onReorderRow, onReorderSection, onSetLeftWidth };
 }
 
 export function ResumeComposer({ initial, onClose, onSend }: Props) {
@@ -72,9 +92,7 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
   const onPatchSoc = useCallback((id: string, p: Partial<DraftSocial>) => {
     setModel((m) => patchSocial(m, id, p));
   }, []);
-  const onReorderRow = useCallback((kind: string, from: number, to: number) => {
-    setModel((m) => reorderRowByIndex(m, kind, from, to));
-  }, []);
+  const { onReorderRow, onReorderSection, onSetLeftWidth } = useCanvasHandlers(setModel);
   const onPatchCus = useCallback((id: string, p: Partial<DraftCustom>) => {
     setModel((m) => patchCustom(m, id, p));
   }, []);
@@ -101,6 +119,9 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
           dataJSON={dataJSON} role={model.role} company={model.company}
           qrURL={qrURL}
           onReorderRow={onReorderRow}
+          onReorderSection={onReorderSection}
+          onSetLeftWidth={onSetLeftWidth}
+          leftWidth={model.leftWidth}
         />
       </div>
       {confirm && (

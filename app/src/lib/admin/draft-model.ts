@@ -86,6 +86,26 @@ export interface DraftModel {
   accent: string;
   /** Owner-chosen font-size multiplier for the whole résumé (1 = the template default). */
   fontScale: number;
+  /** Order of the left-rail sections (drag-to-reorder on the canvas). Keys: skills/education/custom. */
+  leftOrder: readonly string[];
+  /** Left-column width in `fr` (main column is fixed 2fr); drag the divider to rebalance. */
+  leftWidth: number;
+}
+
+// LEFT_SECTIONS —— the reorderable left-rail sections, in default order. The owner drags to permute
+// them; any missing/extra key is reconciled against this list so the render always has all three.
+export const LEFT_SECTIONS: readonly string[] = ['skills', 'education', 'custom'];
+
+// DEFAULT_LEFT_WIDTH —— the classic template's historical left-column width (fr), so an old draft with
+// no stored width renders exactly as before.
+export const DEFAULT_LEFT_WIDTH = 0.9;
+
+// normalizeLeftOrder —— a stored order may be empty (old draft), partial, or carry junk. Keep the
+// stored keys that are real, in their stored order, then append any LEFT_SECTIONS the owner hasn't
+// placed — so the result is always a permutation of all three, never dropping or inventing a section.
+export function normalizeLeftOrder(stored: readonly string[]): readonly string[] {
+  const kept = stored.filter((k) => LEFT_SECTIONS.includes(k));
+  return [...kept, ...LEFT_SECTIONS.filter((k) => !kept.includes(k))];
 }
 
 // **There used to be a `mockDraft()` here** — a design-time placeholder
@@ -190,6 +210,26 @@ function inRange(list: readonly unknown[], from: number, to: number): boolean {
   return from !== to && from >= 0 && from < list.length && to >= 0 && to < list.length;
 }
 
+// reorderLeftSection —— on-canvas drag of a whole left-rail section block (skills / education /
+// custom) to a new slot. Works in indices into leftOrder (the `<sm-section kind="left">` anchors);
+// out-of-range or same → unchanged. The template renders the left rail in leftOrder, so this reorders
+// the résumé.
+export function reorderLeftSection(m: DraftModel, from: number, to: number): DraftModel {
+  return inRange(m.leftOrder, from, to)
+    ? { ...m, leftOrder: moveTo(m.leftOrder, from, to) }
+    : m;
+}
+
+// setLeftWidth —— clamp + set the left-column width (fr). Bounded so a drag can't collapse a column to
+// nothing or swallow the other; the main column stays 2fr.
+export function setLeftWidth(m: DraftModel, fr: number): DraftModel {
+  const clamped = Math.max(minLeftWidth, Math.min(maxLeftWidth, fr));
+  return { ...m, leftWidth: clamped };
+}
+
+const minLeftWidth = 0.4;
+const maxLeftWidth = 2.4;
+
 // (On-canvas field editing — the ✎ pencils — was removed: editing is the left form panel, the canvas
 // is preview + drag-reorder only. EDITABLE_FIELDS / readField / applyFieldEdit / isEditableField went
 // with it.)
@@ -232,6 +272,8 @@ export function draftToResumeContent(m: DraftModel): ResumeContent {
       .map((c): ResumeCustom => ({ label: c.label, value: c.value, kind: c.kind })),
     accent: m.accent,
     fontScale: m.fontScale,
+    leftOrder: m.leftOrder,
+    leftWidth: m.leftWidth,
   };
 }
 
@@ -260,6 +302,8 @@ export function draftToAPIContent(m: DraftModel): Record<string, unknown> {
     custom: m.custom.map((c) => ({ label: c.label, value: c.value, kind: c.kind })),
     accent: m.accent,
     font_scale: m.fontScale,
+    left_order: [...m.leftOrder],
+    left_width: m.leftWidth,
   };
 }
 

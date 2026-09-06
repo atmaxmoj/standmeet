@@ -26,9 +26,13 @@ type ResumeContent struct {
 	Skills     []ResumeSkillSet  `json:"skills"`
 	Social     []ResumeSocial    `json:"social,omitempty"`
 	Custom     []ResumeCustom    `json:"custom,omitempty"`
+	// LeftOrder — left-rail section order (skills/education/custom); empty → template default.
+	LeftOrder []string `json:"left_order,omitempty"`
 	// FontScale — owner-chosen font-size multiplier for the whole résumé (1 = template default).
 	// Like Accent it lives in resume_content JSONB (no schema change) and snapshots into the app.
 	FontScale float64 `json:"font_scale,omitempty"`
+	// LeftWidth — left-column width in fr (main column is fixed 2fr); 0 → template default.
+	LeftWidth float64 `json:"left_width,omitempty"`
 }
 
 // ResumeIdentity — the identity block (the identity section barely changes when Claude

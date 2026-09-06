@@ -11,14 +11,15 @@
 
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SelectField } from '@/components/atoms/SelectField';
 import { RowDragOverlay } from '@/components/admin/composer/RowDragOverlay';
+import { ColumnDivider } from '@/components/admin/composer/ColumnDivider';
 import { previewURL } from '@/lib/admin/save-draft';
 import { useTypstPreview } from '@/lib/admin/use-typst-preview';
-import { useSvgGeometry } from '@/lib/admin/use-svg-geometry';
+import { useSvgGeometry, type SvgGeo } from '@/lib/admin/use-svg-geometry';
 import type { RowAnchor } from '@/lib/admin/typst-preview';
 
 import styles from '@/components/admin/composer/PreviewPane.module.css';
@@ -38,6 +39,11 @@ interface Props {
   // P3-b on-canvas reorder: move row `from`→`to` in the list `kind` (works / educations). Editing
   // itself is the left form panel — the canvas is preview + drag only (no on-canvas edit pencils).
   onReorderRow: (kind: string, from: number, to: number) => void;
+  // Spec 2 on-canvas layout: reorder whole left-rail sections, and drag the column divider to
+  // rebalance the two columns. leftWidth is the current left-column fr (for the divider's mapping).
+  onReorderSection: (from: number, to: number) => void;
+  onSetLeftWidth: (fr: number) => void;
+  leftWidth: number;
 }
 
 type View = 'live' | 'pdf';
@@ -51,7 +57,7 @@ function resolveView(view: View, status: string): View {
 
 export function PreviewPane(props: Props) {
   const [view, setView] = useState<View>('live');
-  const { svg, rowAnchors, status } = useTypstPreview({
+  const { svg, rowAnchors, sectionAnchors, status } = useTypstPreview({
     template: props.template, dataJSON: props.dataJSON,
     role: props.role, company: props.company, qrURL: props.qrURL, enabled: view === 'live',
   });
@@ -67,8 +73,9 @@ export function PreviewPane(props: Props) {
         {effective === 'live'
           ? (
             <LiveView
-              svg={svg} status={status} rowAnchors={rowAnchors}
-              onReorderRow={props.onReorderRow}
+              svg={svg} status={status} rowAnchors={rowAnchors} sectionAnchors={sectionAnchors}
+              onReorderRow={props.onReorderRow} onReorderSection={props.onReorderSection}
+              onSetLeftWidth={props.onSetLeftWidth} leftWidth={props.leftWidth}
             />
           )
           : (
@@ -87,35 +94,65 @@ export function PreviewPane(props: Props) {
 // LiveView —— the WASM-rendered SVG plus the on-canvas edit overlays. The SVG is typst's own output
 // (résumé text placed as content, never eval'd — same injection-safety as the PDF path), so
 // injecting it is safe.
-function LiveView({
-  svg, status, rowAnchors, onReorderRow,
-}: {
+interface LiveViewProps {
   svg: string;
   status: string;
   rowAnchors: readonly RowAnchor[];
+  sectionAnchors: readonly RowAnchor[];
   onReorderRow: (kind: string, from: number, to: number) => void;
-}) {
+  onReorderSection: (from: number, to: number) => void;
+  onSetLeftWidth: (fr: number) => void;
+  leftWidth: number;
+}
+
+function LiveView(p: LiveViewProps) {
   const t = useTranslations('adminShell.previewPane');
   const wrapRef = useRef<HTMLDivElement>(null);
-  const geo = useSvgGeometry(wrapRef, svg);
-  return svg === ''
+  const geo = useSvgGeometry(wrapRef, p.svg);
+  return p.svg === ''
     ? <div className={styles.livePending} data-testid="composer-preview-svg">{t('rendering')}</div>
     : (
       <div
         ref={wrapRef}
         className={`${styles.liveSvg} group`}
         data-testid="composer-preview-svg"
-        data-status={status}
+        data-status={p.status}
       >
         {/* typst's own SVG output — content placed, never eval'd (same injection-safety as the PDF) */}
-        <div className={styles.liveSvgInner} dangerouslySetInnerHTML={{ __html: svg }} />
+        <div className={styles.liveSvgInner} dangerouslySetInnerHTML={{ __html: p.svg }} />
         {geo === null ? null : (
-          <RowDragOverlay
-            rowAnchors={rowAnchors} geo={geo} containerRef={wrapRef} onReorderRow={onReorderRow}
-          />
+          <CanvasOverlays geo={geo} containerRef={wrapRef} {...p} />
         )}
       </div>
     );
+}
+
+// CanvasOverlays —— all the on-canvas drag handles for one rendered page: row reorder (works /
+// educations), whole-section reorder (left rail), and the column-resize divider. Split out so LiveView
+// stays under the presentation complexity cap. `left` sections and the `divider` come from the one
+// <sm-section> query, told apart by kind.
+function CanvasOverlays({
+  geo, containerRef, rowAnchors, sectionAnchors, onReorderRow, onReorderSection, onSetLeftWidth,
+  leftWidth,
+}: LiveViewProps & { geo: SvgGeo; containerRef: RefObject<HTMLElement | null> }) {
+  const leftSections = sectionAnchors.filter((a) => a.kind === 'left');
+  const divider = sectionAnchors.find((a) => a.kind === 'divider');
+  return (
+    <>
+      <RowDragOverlay
+        rowAnchors={rowAnchors} geo={geo} containerRef={containerRef} onReorderRow={onReorderRow}
+      />
+      <RowDragOverlay
+        rowAnchors={leftSections} geo={geo} containerRef={containerRef}
+        onReorderRow={(_, from, to) => onReorderSection(from, to)}
+      />
+      {divider === undefined ? null : (
+        <ColumnDivider
+          anchor={divider} geo={geo} leftWidth={leftWidth} onSetLeftWidth={onSetLeftWidth}
+        />
+      )}
+    </>
+  );
 }
 
 function PreviewToolbar({

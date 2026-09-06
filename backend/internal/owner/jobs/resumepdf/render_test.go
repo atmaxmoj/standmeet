@@ -51,12 +51,72 @@ func sampleContent() *jobsmodel.ResumeContent {
 }
 
 // Font-scale reflow test knobs: enough extra works to cross a page boundary, and two scales far
-// enough apart that the page count must differ.
+// enough apart that the page count must differ. Left-width knobs: a narrow vs wide left column, far
+// enough apart that the main column's wrapping (and page count) must differ.
 const (
-	heavyExtraWorks = 6
+	heavyExtraWorks = 9
 	smallScale      = 0.7
 	largeScale      = 2.0
+	leftNarrowW     = 0.4
+	leftWideW       = 3.5
 )
+
+// mustRender —— render or fail; trims the boilerplate from the multi-render layout tests.
+func mustRender(t *testing.T, c *jobsmodel.ResumeContent, opts resumepdf.RenderOptions) []byte {
+	t.Helper()
+	b, err := resumepdf.New("", "").Render(context.Background(), c, opts)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	return b
+}
+
+// contentWithLeftSections —— the sample plus a custom section, so all three left-rail sections
+// (skills / education / custom) are present to reorder.
+func contentWithLeftSections() *jobsmodel.ResumeContent {
+	c := sampleContent()
+	c.Custom = []jobsmodel.ResumeCustom{{Label: "Certifications", Value: "AWS SAA"}}
+	return c
+}
+
+// TestRender_left_order_reorders_sections —— left_order drives the on-page order of the left-rail
+// sections: reversing it flips which heading comes first in the PDF text. A template that ignored
+// left_order (fixed order) would go red. Covers Spec 2 section-drag.
+func TestRender_left_order_reorders_sections(t *testing.T) {
+	requireTypst(t)
+	t.Parallel()
+	forward := contentWithLeftSections()
+	forward.LeftOrder = []string{"skills", "education", "custom"}
+	reversed := contentWithLeftSections()
+	reversed.LeftOrder = []string{"custom", "education", "skills"}
+	opts := resumepdf.RenderOptions{Role: "Eng", Company: "Acme"}
+	ft := extractText(t, mustRender(t, forward, opts))
+	rt := extractText(t, mustRender(t, reversed, opts))
+	if strings.Index(ft, "SKILLS") >= strings.Index(ft, "EDUCATION") {
+		t.Error("forward left_order: SKILLS should print before EDUCATION")
+	}
+	if strings.Index(rt, "EDUCATION") >= strings.Index(rt, "SKILLS") {
+		t.Error("reversed left_order: EDUCATION should print before SKILLS")
+	}
+}
+
+// TestRender_left_width_narrows_the_main_column —— a wider left column (larger left_width) leaves
+// the main experience column narrower, so its bullets wrap more and the résumé takes more pages.
+// Reads the artifact (page count); a template that ignored left_width would go red. Spec 2 resize.
+func TestRender_left_width_narrows_the_main_column(t *testing.T) {
+	requireTypst(t)
+	t.Parallel()
+	narrowLeft := heavyContent() // narrow left col → wide main → fewer pages
+	narrowLeft.LeftWidth = leftNarrowW
+	wideLeft := heavyContent() // wide left col → narrow main → more pages
+	wideLeft.LeftWidth = leftWideW
+	opts := resumepdf.RenderOptions{Role: "Eng", Company: "Acme"}
+	np := pageCount(t, mustRender(t, narrowLeft, opts))
+	wp := pageCount(t, mustRender(t, wideLeft, opts))
+	if wp <= np {
+		t.Errorf("wider left column should add pages: narrow=%d, wide=%d", np, wp)
+	}
+}
 
 // heavyContent —— the sample fattened with many works × bullets, so a change in font size crosses a
 // page boundary decisively (a sparse résumé fits one page at almost any scale).
@@ -64,10 +124,10 @@ func heavyContent() *jobsmodel.ResumeContent {
 	c := sampleContent()
 	base := c.Works[0]
 	bullets := []string{
-		"Owned the dispatch pipeline and its verification harness.",
-		"Cut p99 latency across the ingestion tier under real load.",
-		"Mentored engineers and ran the on-call rotation review.",
-		"Shipped the reconciliation service end to end with tests.",
+		"Owned the dispatch pipeline and its verification harness across three regions and teams.",
+		"Cut p99 latency across the ingestion tier under real production load during peak season.",
+		"Mentored a squad of engineers and ran the weekly on-call rotation and incident review.",
+		"Shipped the reconciliation service end to end with an exhaustive integration test suite.",
 	}
 	for range heavyExtraWorks {
 		c.Works = append(c.Works, jobsmodel.ResumeWork{

@@ -26,6 +26,15 @@
 #let fs = if fs-raw == 0 { 1.0 } else { fs-raw }
 #let sz(s) = s * fs
 
+// left-w — left-column width in fr (main column is fixed 2fr); owner drags the divider to rebalance.
+// Absent/0 → the house default 0.9fr.
+#let left-w-raw = data.at("left_width", default: 0.9)
+#let left-w = if left-w-raw == 0 { 0.9 } else { left-w-raw }
+
+// left-order — order of the left-rail section blocks (skills / education / custom); the owner drags to
+// permute them on the canvas. Absent → the house default order.
+#let left-order = data.at("left_order", default: ("skills", "education", "custom"))
+
 // No footer: the access URL lives in the header QR, not a bottom-right text line (the owner read
 // that line as a watermark). Dropping it also removes the page-number line.
 #set page(
@@ -68,6 +77,55 @@
   [#metadata((kind: kind, index: index, x: p.x / 1pt, y: p.y / 1pt, page: p.page)) <sm-row>]
 }
 
+// section-anchor —— marks the top of a whole SECTION block (a left-rail section) so the composer can
+// overlay a drag grip and reorder entire sections on the canvas (Spec 2). Emits kind + index +
+// position; `query('<sm-section>')` reads them back. No visual output.
+#let section-anchor(kind, index) = context {
+  let p = here().position()
+  [#metadata((kind: kind, index: index, x: p.x / 1pt, y: p.y / 1pt, page: p.page)) <sm-section>]
+}
+
+// The three reorderable left-rail sections, each a #let so left-order can render them in any order.
+// Empty sections print NO heading (parity with ResumePage; a bare heading reads as broken).
+#let render-skills() = [
+  #if data.at("skills", default: ()).any(s => s.items.len() > 0) [
+    #sechead("skills")
+    #for s in data.at("skills", default: ()) [
+      #mono(size: sz(7.5pt), fill: ink)[#upper(s.category)] \
+      #text(size: sz(9pt))[#s.items.join("  ·  ")]
+      #v(4pt)
+    ]
+  ]
+]
+#let render-education() = [
+  #if data.at("educations", default: ()).len() > 0 [
+    #sechead("education")
+    #for (i, e) in data.at("educations", default: ()).enumerate() [
+      #row-anchor("educations", i)
+      #text(size: sz(10pt), weight: 500)[#e.school] \
+      #text(size: sz(8.5pt), fill: muted)[#e.degree] \
+      #mono(size: sz(7pt), fill: faint)[#period(e.period)]
+      #v(5pt)
+    ]
+  ]
+]
+#let render-custom() = [
+  // custom owner-named sections (languages, certifications, …). The composer offers these and
+  // ResumePage renders them; the PDF must too, or they vanish from the résumé recruiters receive.
+  #for c in data.at("custom", default: ()) [
+    #if c.at("kind", default: "") == "divider" [
+      #v(3pt) #line(length: 100%, stroke: 0.5pt + rule) #v(3pt)
+    ] else if c.label != "" and c.value != "" [
+      #sechead(c.label)
+      #text(size: sz(9pt))[#c.value]
+      #v(4pt)
+    ]
+  ]
+]
+#let render-left(key) = {
+  if key == "skills" { render-skills() } else if key == "education" { render-education() } else if key == "custom" { render-custom() }
+}
+
 // ── header ──────────────────────────────────────────────────────────
 #let idy = data.identity
 #grid(columns: (1fr, auto), column-gutter: 14pt, align: (left + bottom, right + top),
@@ -103,43 +161,18 @@
 
 // ── body: skills+education (left) · experience (right) ──────────────
 #v(4pt)
-#grid(columns: (0.9fr, 2fr), column-gutter: 20pt,
-  // left rail
+#grid(columns: (left-w * 1fr, 2fr), column-gutter: 20pt,
+  // left rail — rendered in the owner's left-order (drag-to-reorder whole sections on the canvas).
   [
-    // Empty sections print NO heading (parity with ResumePage; an "EDUCATION" heading with nothing
-    // under it reads as broken to a recruiter).
-    #if data.at("skills", default: ()).any(s => s.items.len() > 0) [
-      #sechead("skills")
-      #for s in data.at("skills", default: ()) [
-        #mono(size: sz(7.5pt), fill: ink)[#upper(s.category)] \
-        #text(size: sz(9pt))[#s.items.join("  ·  ")]
-        #v(4pt)
-      ]
-    ]
-    #if data.at("educations", default: ()).len() > 0 [
-      #sechead("education")
-      #for (i, e) in data.at("educations", default: ()).enumerate() [
-        #row-anchor("educations", i)
-        #text(size: sz(10pt), weight: 500)[#e.school] \
-        #text(size: sz(8.5pt), fill: muted)[#e.degree] \
-        #mono(size: sz(7pt), fill: faint)[#period(e.period)]
-        #v(5pt)
-      ]
-    ]
-    // custom owner-named sections (languages, certifications, …). The composer offers these and
-    // ResumePage renders them; the PDF must too, or they vanish from the résumé recruiters receive.
-    #for c in data.at("custom", default: ()) [
-      #if c.at("kind", default: "") == "divider" [
-        #v(3pt) #line(length: 100%, stroke: 0.5pt + rule) #v(3pt)
-      ] else if c.label != "" and c.value != "" [
-        #sechead(c.label)
-        #text(size: sz(9pt))[#c.value]
-        #v(4pt)
-      ]
+    #for (i, key) in left-order.enumerate() [
+      #section-anchor("left", i)
+      #render-left(key)
     ]
   ],
-  // main column: experience
+  // main column: experience. A divider anchor at its left edge marks the column boundary, so the
+  // composer can hang a drag handle there to rebalance the two columns (left_width).
   [
+    #section-anchor("divider", 0)
     #if data.works.len() > 0 [
     #sechead("experience")
     #for (i, w) in data.works.enumerate() [

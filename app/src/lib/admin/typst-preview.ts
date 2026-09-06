@@ -107,6 +107,9 @@ export interface ResumeRender {
   svg: string;
   anchors: readonly EditAnchor[];
   rowAnchors: readonly RowAnchor[];
+  // sectionAnchors —— whole-section blocks (`<sm-section>`): kind "left" = a reorderable left-rail
+  // section (index into left_order); kind "divider" = the column boundary (for the resize handle).
+  sectionAnchors: readonly RowAnchor[];
 }
 
 // renderResume —— compile the draft to SVG + the edit anchors (throws if WASM/compile fails; the
@@ -123,7 +126,7 @@ export async function renderResume(input: TypstRenderInput): Promise<ResumeRende
   if (input.qrURL !== '') await $typst.mapShadow('/qr.png', qrPngBytes(input.qrURL));
   const svg = await $typst.svg({ mainFilePath: '/main.typ', inputs });
   const marks = await queryMarks($typst, inputs);
-  return { svg, anchors: marks.anchors, rowAnchors: marks.rows };
+  return { svg, anchors: marks.anchors, rowAnchors: marks.rows, sectionAnchors: marks.sections };
 }
 
 // queryMarks —— read the template's edit-anchor + row-anchor metadata in ONE compile. typst.ts's
@@ -132,14 +135,15 @@ export async function renderResume(input: TypstRenderInput): Promise<ResumeRende
 // `field: 'value'` returns the metadata values. Any failure → empty (no overlays; preview still renders).
 async function queryMarks(
   $typst: Awaited<ReturnType<typeof typst>>, inputs: Record<string, string>,
-): Promise<{ anchors: EditAnchor[]; rows: RowAnchor[] }> {
-  const none: { anchors: EditAnchor[]; rows: RowAnchor[] } = { anchors: [], rows: [] };
+): Promise<{ anchors: EditAnchor[]; rows: RowAnchor[]; sections: RowAnchor[] }> {
+  const none = { anchors: [], rows: [], sections: [] };
   return (await $typst.getCompiler())
     .runWithWorld({ mainFilePath: '/main.typ', inputs }, async (world) => {
       await world.compile();
       const anchors = await world.query<EditAnchor[]>({ selector: '<sm-edit>', field: 'value' });
       const rows = await world.query<RowAnchor[]>({ selector: '<sm-row>', field: 'value' });
-      return { anchors, rows };
+      const sections = await world.query<RowAnchor[]>({ selector: '<sm-section>', field: 'value' });
+      return { anchors, rows, sections };
     })
     .catch((e: unknown) => {
       // eslint-disable-next-line no-console

@@ -62,6 +62,53 @@
   [#metadata((kind: kind, index: index, x: p.x / 1pt, y: p.y / 1pt, page: p.page)) <sm-row>]
 }
 
+// section-anchor —— marks the top of a whole SECTION block for on-canvas section reorder (Spec 2).
+// Matches classic.typ; queried via `<sm-section>`. No visual output.
+#let section-anchor(kind, index) = context {
+  let p = here().position()
+  [#metadata((kind: kind, index: index, x: p.x / 1pt, y: p.y / 1pt, page: p.page)) <sm-section>]
+}
+
+// left-order — the owner's order for the reorderable section blocks (skills / education / custom).
+// Compact is single-column, so these render one after another (after experience) in this order.
+#let left-order = data.at("left_order", default: ("skills", "education", "custom"))
+
+#let render-education() = [
+  #if data.at("educations", default: ()).len() > 0 [
+    #sechead("education")
+    #for (i, e) in data.at("educations", default: ()).enumerate() [
+      #row-anchor("educations", i)
+      #grid(columns: (1fr, auto), align: (left, right),
+        text(size: sz(10pt), weight: 500)[#e.school #text(size: sz(9pt), fill: muted)[— #e.degree]],
+        mono(size: sz(7.5pt), fill: faint)[#period(e.period)])
+      #v(3pt)
+    ]
+  ]
+]
+#let render-skills() = [
+  #if data.at("skills", default: ()).any(s => s.items.len() > 0) [
+    #sechead("skills")
+    #for s in data.at("skills", default: ()) [
+      #mono(size: sz(8pt), fill: ink)[#s.category:] #text(size: sz(9.5pt))[ #s.items.join("  ·  ")] \
+    ]
+  ]
+]
+#let render-custom() = [
+  // custom owner-named sections (languages, certifications, …). The composer offers these and
+  // ResumePage renders them; the PDF must too, or they vanish from the résumé recruiters receive.
+  #for c in data.at("custom", default: ()) [
+    #if c.at("kind", default: "") == "divider" [
+      #v(3pt) #line(length: 100%, stroke: 0.5pt + rule) #v(3pt)
+    ] else if c.label != "" and c.value != "" [
+      #sechead(c.label)
+      #text(size: sz(9.5pt))[#c.value]
+    ]
+  ]
+]
+#let render-left(key) = {
+  if key == "skills" { render-skills() } else if key == "education" { render-education() } else if key == "custom" { render-custom() }
+}
+
 #let idy = data.identity
 
 // QR is a mandatory system widget on every template — qr.png is server-built from the
@@ -105,33 +152,10 @@
   ]
 ]
 
-#if data.at("educations", default: ()).len() > 0 [
-  #sechead("education")
-  #for (i, e) in data.at("educations", default: ()).enumerate() [
-    #row-anchor("educations", i)
-    #grid(columns: (1fr, auto), align: (left, right),
-      text(size: sz(10pt), weight: 500)[#e.school #text(size: sz(9pt), fill: muted)[— #e.degree]],
-      mono(size: sz(7.5pt), fill: faint)[#period(e.period)])
-    #v(3pt)
-  ]
-]
-
-#if data.at("skills", default: ()).any(s => s.items.len() > 0) [
-  #sechead("skills")
-  #for s in data.at("skills", default: ()) [
-    #mono(size: sz(8pt), fill: ink)[#s.category:] #text(size: sz(9.5pt))[ #s.items.join("  ·  ")] \
-  ]
-]
-
-// custom owner-named sections (languages, certifications, …). The composer offers these and
-// ResumePage renders them; the PDF must too, or they vanish from the résumé recruiters receive.
-#for c in data.at("custom", default: ()) [
-  #if c.at("kind", default: "") == "divider" [
-    #v(3pt) #line(length: 100%, stroke: 0.5pt + rule) #v(3pt)
-  ] else if c.label != "" and c.value != "" [
-    #sechead(c.label)
-    #text(size: sz(9.5pt))[#c.value]
-  ]
+// The reorderable sections (education / skills / custom), in the owner's left-order.
+#for (i, key) in left-order.enumerate() [
+  #section-anchor("left", i)
+  #render-left(key)
 ]
 
 // ── page 2: cover letter (only when there is one) ──────────────────
