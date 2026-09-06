@@ -104,4 +104,18 @@ test.describe('the default homepage opens corpus cards inline (no redirect)', ()
       expect(new URL(page.url()).pathname,
         'opening a card must not navigate away from the homepage root').toBe('/');
     });
+
+  // The default template reproduces the original long-scroll page, not the thin earlier version:
+  // projects + where-I-am + contact sections all ship, so a fresh owner gets a full page to edit.
+  // RED if the template regressed to hero + corpus only.
+  test('the default homepage ships the identity sections (projects / where I am / contact)',
+    async ({ page }) => {
+      await goto(page, '/');
+      await expect(page.getByText('building', { exact: false }).first(),
+        'the "what I’m building" projects section').toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText('where I am', { exact: false }).first(),
+        'the where-I-am section').toBeVisible();
+      await expect(page.getByText('how to talk to me', { exact: false }).first(),
+        'the contact section').toBeVisible();
+    });
 });
