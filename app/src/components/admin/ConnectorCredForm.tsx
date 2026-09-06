@@ -220,11 +220,12 @@ function ScopeField(
 }
 
 function PlainField({ field, values }: { field: AuthField; values?: Record<string, string> }) {
+  const t = useTranslations('adminIntegrations');
   const readonly = field.type === 'readonly';
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
-        {credFieldLabel(field.key)}
+        {credFieldLabel(t, field.key)}
       </span>
       <input
         type={field.type === 'password' ? 'password' : 'text'}

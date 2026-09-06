@@ -67,7 +67,13 @@
     "metaSubmitted": "submitted {date}",
     "metaNotSubmitted": "submission not recorded",
     "kicker": "नौकरियाँ · सबमिट",
-    "titleCommitted": "{count} सबमिट"
+    "titleCommitted": "{count} सबमिट",
+    "timelineCommitted": "प्रतिबद्ध · PDF + कोड जारी",
+    "timelineSubmitted": "सबमिट किया गया",
+    "stateCommitted": "प्रतिबद्ध",
+    "stateSubmitted": "सबमिट",
+    "stateFailed": "विफल",
+    "stateWithdrawn": "वापस लिया"
   },
   "detail": {
     "kicker": "application · {id}",

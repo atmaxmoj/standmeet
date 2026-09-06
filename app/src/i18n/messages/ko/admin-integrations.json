@@ -1,4 +1,20 @@
 {
+  "credField": {
+    "host": "호스트",
+    "port": "포트",
+    "username": "사용자 이름",
+    "password": "비밀번호",
+    "from_address": "보내는 주소",
+    "from_name": "보내는 사람 이름",
+    "tls": "TLS",
+    "url": "URL",
+    "token": "토큰",
+    "api_key": "API 키",
+    "client_id": "클라이언트 ID",
+    "client_secret": "클라이언트 시크릿",
+    "redirect_uri": "리디렉션 URI",
+    "scope": "범위"
+  },
   "common": {
     "connect": "Connect",
     "close": "✕"

@@ -67,7 +67,13 @@
     "metaSubmitted": "submitted {date}",
     "metaNotSubmitted": "submission not recorded",
     "kicker": "채용 · 제출됨",
-    "titleCommitted": "{count}건 제출됨"
+    "titleCommitted": "{count}건 제출됨",
+    "timelineCommitted": "확정 · PDF + 코드 발급",
+    "timelineSubmitted": "제출됨",
+    "stateCommitted": "확정",
+    "stateSubmitted": "제출됨",
+    "stateFailed": "실패",
+    "stateWithdrawn": "철회됨"
   },
   "detail": {
     "kicker": "application · {id}",

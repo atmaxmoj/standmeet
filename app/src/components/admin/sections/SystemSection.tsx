@@ -196,7 +196,8 @@ function HealthChecks({ info }: { info: SystemInfo | null }) {
       <AdminSectionHead className="mb-3">{t('healthChecks')}</AdminSectionHead>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {healthList(info).map((c) => (
-          <HealthRow key={c.name} name={c.name} status={c.ok ? 'ok' : 'down'} detail={c.detail} />
+          <HealthRow key={c.name} name={c.name} status={c.ok ? 'ok' : 'down'}
+            detail={c.detailKey ? t(c.detailKey) : c.detail} />
         ))}
       </div>
     </div>

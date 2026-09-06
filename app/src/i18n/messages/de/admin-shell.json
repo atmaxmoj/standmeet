@@ -1,4 +1,10 @@
 {
+  "handle": {
+    "enterNew": "neuen Handle eingeben",
+    "rule": "2–64 Zeichen · a–z 0–9 Bindestrich",
+    "noChange": "keine Änderung",
+    "aliasHint": "altes /{current} bleibt über Alias erreichbar"
+  },
   "sidebar": {
     "instanceLabel": "instanz ·",
     "uptimeLabel": "betriebszeit ·",
@@ -300,6 +306,7 @@
     "colStatus": "status",
     "statusDot": "●",
     "healthChecks": "gesundheitsprüfungen",
+    "loading": "wird geladen…",
     "kickerRuntime": "einstellungen · laufzeit"
   },
   "inferenceUsage": {

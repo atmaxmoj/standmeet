@@ -1,4 +1,10 @@
 {
+  "handle": {
+    "enterNew": "새 핸들 입력",
+    "rule": "2–64자 · a–z 0–9 하이픈",
+    "noChange": "변경 없음",
+    "aliasHint": "이전 /{current} 은 별칭을 통해 계속 연결됩니다"
+  },
   "sidebar": {
     "instanceLabel": "instance ·",
     "uptimeLabel": "uptime ·",
@@ -300,6 +306,7 @@
     "colStatus": "status",
     "statusDot": "●",
     "healthChecks": "health checks",
+    "loading": "불러오는 중…",
     "kickerRuntime": "설정 · 런타임"
   },
   "inferenceUsage": {

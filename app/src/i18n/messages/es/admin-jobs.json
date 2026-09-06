@@ -67,7 +67,13 @@
     "metaSubmitted": "enviado {date}",
     "metaNotSubmitted": "envío no registrado",
     "kicker": "empleos · enviadas",
-    "titleCommitted": "{count, plural, one {# enviada} other {# enviadas}}"
+    "titleCommitted": "{count, plural, one {# enviada} other {# enviadas}}",
+    "timelineCommitted": "comprometido · PDF + código emitido",
+    "timelineSubmitted": "enviado",
+    "stateCommitted": "comprometido",
+    "stateSubmitted": "enviado",
+    "stateFailed": "fallido",
+    "stateWithdrawn": "retirado"
   },
   "detail": {
     "kicker": "solicitud · {id}",

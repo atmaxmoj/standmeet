@@ -1,4 +1,10 @@
 {
+  "handle": {
+    "enterNew": "新しいハンドルを入力",
+    "rule": "2–64 文字 · a–z 0–9 ハイフン",
+    "noChange": "変更なし",
+    "aliasHint": "古い /{current} はエイリアス経由で引き続き有効です"
+  },
   "sidebar": {
     "instanceLabel": "instance ·",
     "uptimeLabel": "uptime ·",
@@ -300,6 +306,7 @@
     "colStatus": "status",
     "statusDot": "●",
     "healthChecks": "health checks",
+    "loading": "読み込み中…",
     "kickerRuntime": "設定 · ランタイム"
   },
   "inferenceUsage": {

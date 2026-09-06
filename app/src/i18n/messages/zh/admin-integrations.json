@@ -1,4 +1,20 @@
 {
+  "credField": {
+    "host": "主机",
+    "port": "端口",
+    "username": "用户名",
+    "password": "密码",
+    "from_address": "发件地址",
+    "from_name": "发件人名称",
+    "tls": "TLS",
+    "url": "URL",
+    "token": "令牌",
+    "api_key": "API 密钥",
+    "client_id": "客户端 ID",
+    "client_secret": "客户端密钥",
+    "redirect_uri": "重定向 URI",
+    "scope": "权限范围"
+  },
   "common": {
     "connect": "连接",
     "close": "✕"

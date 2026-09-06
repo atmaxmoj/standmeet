@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl';
 
 import { ResumePage } from '@/components/admin/resume-page/ResumePage';
 import {
+  STATE_LABEL_KEY,
   SUBMISSION_STATES,
   timelineFor,
   type Application,
@@ -105,12 +106,13 @@ function Timeline({ events }: { events: TimelineEvent[] }) {
 }
 
 function TimelineRow({ event }: { event: TimelineEvent }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className="sm-app-timeline-row">
       <span className={`sm-app-timeline-dot is-${event.kind}`} />
       <div className="mono text-[9.5px] tracking-[0.06em] text-(--color-faint)">{event.t}</div>
       <div className={`font-serif text-[15px] mt-0.5 ${dotTextCls(event.kind)}`}>
-        {event.label}
+        {t(event.label)}
       </div>
     </div>
   );
@@ -261,6 +263,7 @@ function StatusBlock({ state }: { state: string }) {
 // (committed -> submitted / failed / withdrawn); the previous version segmented recruiter
 // response, and the product can't even read that axis, let alone write to it (F-E-3).
 function StatusSegmented({ value }: { value: string }) {
+  const t = useTranslations('adminJobs');
   return (
     <div className="sm-seg mt-1.5" data-testid="application-status" aria-readonly="true">
       {SUBMISSION_STATES.map((s) => (
@@ -269,7 +272,7 @@ function StatusSegmented({ value }: { value: string }) {
           className={value === s ? 'is-on' : ''}
           data-testid={`status-${s}`}
         >
-          {s}
+          {t(STATE_LABEL_KEY[s])}
         </span>
       ))}
     </div>

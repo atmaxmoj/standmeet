@@ -1,4 +1,10 @@
 {
+  "handle": {
+    "enterNew": "नया हैंडल दर्ज करें",
+    "rule": "2–64 वर्ण · a–z 0–9 हाइफ़न",
+    "noChange": "कोई बदलाव नहीं",
+    "aliasHint": "पुराना /{current} उपनाम के ज़रिए काम करता रहेगा"
+  },
   "sidebar": {
     "instanceLabel": "instance ·",
     "uptimeLabel": "uptime ·",
@@ -300,6 +306,7 @@
     "colStatus": "status",
     "statusDot": "●",
     "healthChecks": "health checks",
+    "loading": "लोड हो रहा है…",
     "kickerRuntime": "सेटिंग्स · रनटाइम"
   },
   "inferenceUsage": {

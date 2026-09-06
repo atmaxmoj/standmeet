@@ -1,4 +1,20 @@
 {
+  "credField": {
+    "host": "होस्ट",
+    "port": "पोर्ट",
+    "username": "उपयोगकर्ता नाम",
+    "password": "पासवर्ड",
+    "from_address": "प्रेषक पता",
+    "from_name": "प्रेषक नाम",
+    "tls": "TLS",
+    "url": "URL",
+    "token": "टोकन",
+    "api_key": "API कुंजी",
+    "client_id": "क्लाइंट ID",
+    "client_secret": "क्लाइंट सीक्रेट",
+    "redirect_uri": "रीडायरेक्ट URI",
+    "scope": "स्कोप"
+  },
   "common": {
     "connect": "Connect",
     "close": "✕"

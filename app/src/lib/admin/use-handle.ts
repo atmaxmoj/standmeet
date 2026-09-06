@@ -50,15 +50,17 @@ export function isValidHandle(sanitized: string): boolean {
   return HANDLE_PATTERN.test(sanitized);
 }
 
-export interface HandleHint { cls: string; text: string }
+// HandleHint —— `key` resolves from adminShell.handle.* in the component (so the hint
+// follows the UI language); `values` feeds interpolation for the alias hint.
+export interface HandleHint { cls: string; key: string; values?: Record<string, string> }
 
 export function handleHint(sanitized: string, current: string): HandleHint {
   const valid = isValidHandle(sanitized);
   const unchanged = sanitized === current;
-  return !sanitized ? { cls: 'text-(--color-faint)', text: 'enter a new handle' }
-    : !valid ? { cls: 'text-(--color-faint)', text: '2–64 chars · a–z 0–9 hyphen' }
-    : unchanged ? { cls: 'text-(--color-faint)', text: 'no change' }
-    : { cls: 'text-(--color-muted)', text: `old /${current} will keep resolving via alias` };
+  return !sanitized ? { cls: 'text-(--color-faint)', key: 'handle.enterNew' }
+    : !valid ? { cls: 'text-(--color-faint)', key: 'handle.rule' }
+    : unchanged ? { cls: 'text-(--color-faint)', key: 'handle.noChange' }
+    : { cls: 'text-(--color-muted)', key: 'handle.aliasHint', values: { current } };
 }
 
 // canSaveHandle —— whether SaveBtn is clickable: valid + changed + not

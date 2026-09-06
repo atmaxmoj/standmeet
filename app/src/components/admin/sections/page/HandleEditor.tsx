@@ -122,10 +122,11 @@ function EditFootRow({
 function HintLine({
   sanitized, current, error,
 }: { sanitized: string; current: string; error: string | null }) {
+  const t = useTranslations('adminShell');
   const hint = handleHint(sanitized, current);
   return error
     ? <span className="text-(--color-accent)" data-testid="handle-error">{error}</span>
-    : <span className={hint.cls} data-testid="handle-hint">{hint.text}</span>;
+    : <span className={hint.cls} data-testid="handle-hint">{t(hint.key, hint.values)}</span>;
 }
 
 function SaveBtn({

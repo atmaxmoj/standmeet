@@ -67,7 +67,13 @@
     "metaSubmitted": "soumis {date}",
     "metaNotSubmitted": "soumission non enregistrée",
     "kicker": "emplois · soumises",
-    "titleCommitted": "{count, plural, one {# soumise} other {# soumises}}"
+    "titleCommitted": "{count, plural, one {# soumise} other {# soumises}}",
+    "timelineCommitted": "engagée · PDF + code émis",
+    "timelineSubmitted": "soumis",
+    "stateCommitted": "engagée",
+    "stateSubmitted": "soumis",
+    "stateFailed": "échouée",
+    "stateWithdrawn": "retirée"
   },
   "detail": {
     "kicker": "candidature · {id}",

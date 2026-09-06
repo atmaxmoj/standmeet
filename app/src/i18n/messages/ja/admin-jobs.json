@@ -67,7 +67,13 @@
     "metaSubmitted": "submitted {date}",
     "metaNotSubmitted": "submission not recorded",
     "kicker": "求人 · 送信済み",
-    "titleCommitted": "{count} 件送信済み"
+    "titleCommitted": "{count} 件送信済み",
+    "timelineCommitted": "確定 · PDF + コード発行",
+    "timelineSubmitted": "送信済み",
+    "stateCommitted": "確定",
+    "stateSubmitted": "送信済み",
+    "stateFailed": "失敗",
+    "stateWithdrawn": "取り下げ"
   },
   "detail": {
     "kicker": "application · {id}",

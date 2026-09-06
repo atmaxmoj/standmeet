@@ -1,4 +1,20 @@
 {
+  "credField": {
+    "host": "Host",
+    "port": "Puerto",
+    "username": "Nombre de usuario",
+    "password": "Contraseña",
+    "from_address": "Dirección del remitente",
+    "from_name": "Nombre del remitente",
+    "tls": "TLS",
+    "url": "URL",
+    "token": "Token",
+    "api_key": "Clave de API",
+    "client_id": "ID de cliente",
+    "client_secret": "Secreto de cliente",
+    "redirect_uri": "URI de redirección",
+    "scope": "Ámbito"
+  },
   "common": {
     "connect": "Conectar",
     "close": "✕"

@@ -67,7 +67,13 @@
     "metaSubmitted": "eingereicht {date}",
     "metaNotSubmitted": "einsendung nicht aufgezeichnet",
     "kicker": "jobs · übermittelt",
-    "titleCommitted": "{count, plural, one {# übermittelt} other {# übermittelt}}"
+    "titleCommitted": "{count, plural, one {# übermittelt} other {# übermittelt}}",
+    "timelineCommitted": "begangen · PDF + Code ausgestellt",
+    "timelineSubmitted": "eingereicht",
+    "stateCommitted": "begangen",
+    "stateSubmitted": "eingereicht",
+    "stateFailed": "fehlgeschlagen",
+    "stateWithdrawn": "zurückgezogen"
   },
   "detail": {
     "kicker": "anwendung · {id}",

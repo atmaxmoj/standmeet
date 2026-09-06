@@ -1,4 +1,10 @@
 {
+  "handle": {
+    "enterNew": "enter a new handle",
+    "rule": "2–64 chars · a–z 0–9 hyphen",
+    "noChange": "no change",
+    "aliasHint": "old /{current} will keep resolving via alias"
+  },
   "sidebar": {
     "instanceLabel": "instance ·",
     "uptimeLabel": "uptime ·",
@@ -300,6 +306,7 @@
     "colStatus": "status",
     "statusDot": "●",
     "healthChecks": "health checks",
+    "loading": "loading…",
     "kickerRuntime": "settings · runtime"
   },
   "inferenceUsage": {

@@ -67,7 +67,13 @@
     "metaSubmitted": "递交于 {date}",
     "metaNotSubmitted": "未记录递交",
     "kicker": "工作 · 已提交",
-    "titleCommitted": "{count} 个已提交"
+    "titleCommitted": "{count} 个已提交",
+    "timelineCommitted": "已提交 · PDF + 访问码已签发",
+    "timelineSubmitted": "已递交",
+    "stateCommitted": "已提交",
+    "stateSubmitted": "已递交",
+    "stateFailed": "失败",
+    "stateWithdrawn": "已撤回"
   },
   "detail": {
     "kicker": "申请 · {id}",

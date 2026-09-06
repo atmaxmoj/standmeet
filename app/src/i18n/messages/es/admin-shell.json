@@ -1,4 +1,10 @@
 {
+  "handle": {
+    "enterNew": "introduce un nuevo identificador",
+    "rule": "2–64 caracteres · a–z 0–9 guion",
+    "noChange": "sin cambios",
+    "aliasHint": "el antiguo /{current} seguirá resolviéndose mediante alias"
+  },
   "sidebar": {
     "instanceLabel": "instancia ·",
     "uptimeLabel": "tiempo de actividad ·",
@@ -300,6 +306,7 @@
     "colStatus": "estado",
     "statusDot": "●",
     "healthChecks": "controles de salud",
+    "loading": "cargando…",
     "kickerRuntime": "ajustes · tiempo de ejecución"
   },
   "inferenceUsage": {

@@ -199,9 +199,10 @@ function Fields({ hook }: { hook: ConnectorCardHook }) {
 function CredField({ name, onChange }: {
   name: string; onChange: (k: string, v: string) => void;
 }) {
+  const t = useTranslations('adminIntegrations');
   return (
     <label className="sm-field">
-      <span className="sm-field-label">{credFieldLabel(name)}</span>
+      <span className="sm-field-label">{credFieldLabel(t, name)}</span>
       <input
         data-testid={`connector-field-${name}`}
         type={isSecret(name) ? 'password' : 'text'}

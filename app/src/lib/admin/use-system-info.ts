@@ -43,7 +43,6 @@ const SystemInfoSchema = z.object({
   health: z.array(HealthCheckSchema),
   containers: z.array(ContainerSchema),
 });
-export type HealthCheck = z.infer<typeof HealthCheckSchema>;
 export type SystemInfo = z.infer<typeof SystemInfoSchema>;
 
 const systemStore = createResourceStore<SystemInfo>({
@@ -130,10 +129,15 @@ export function clusterRows(info: SystemInfo | null): ClusterRowView[] {
   }));
 }
 
+// HealthRowView —— one health row. `detail` is the backend-provided sentence (kept as-is);
+// `detailKey` (adminShell.system.*) is set only for the loading placeholder so the component
+// resolves it in the UI language.
+export interface HealthRowView { name: string; detail: string; detailKey?: string; ok: boolean }
+
 // healthList —— info → health rows (empty/not loaded gives one loading placeholder row).
-export function healthList(info: SystemInfo | null): HealthCheck[] {
+export function healthList(info: SystemInfo | null): HealthRowView[] {
   if (info === null || info.health.length === 0) {
-    return [{ name: '—', detail: 'loading…', ok: true }];
+    return [{ name: '—', detail: '', detailKey: 'loading', ok: true }];
   }
   return info.health;
 }

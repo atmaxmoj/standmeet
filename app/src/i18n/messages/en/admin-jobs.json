@@ -67,7 +67,13 @@
     "metaSubmitted": "submitted {date}",
     "metaNotSubmitted": "submission not recorded",
     "kicker": "jobs · committed",
-    "titleCommitted": "{count, plural, one {# committed} other {# committed}}"
+    "titleCommitted": "{count, plural, one {# committed} other {# committed}}",
+    "timelineCommitted": "committed · pdf + code issued",
+    "timelineSubmitted": "submitted",
+    "stateCommitted": "committed",
+    "stateSubmitted": "submitted",
+    "stateFailed": "failed",
+    "stateWithdrawn": "withdrawn"
   },
   "detail": {
     "kicker": "application · {id}",

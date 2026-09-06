@@ -1,4 +1,10 @@
 {
+  "handle": {
+    "enterNew": "saisir un nouvel identifiant",
+    "rule": "2–64 caractères · a–z 0–9 trait d’union",
+    "noChange": "aucun changement",
+    "aliasHint": "l’ancien /{current} continuera de fonctionner via un alias"
+  },
   "sidebar": {
     "instanceLabel": "instance ·",
     "uptimeLabel": "uptime ·",
@@ -300,6 +306,7 @@
     "colStatus": "statut",
     "statusDot": "●",
     "healthChecks": "contrôles de santé",
+    "loading": "chargement…",
     "kickerRuntime": "paramètres · exécution"
   },
   "inferenceUsage": {

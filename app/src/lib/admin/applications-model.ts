@@ -67,6 +67,8 @@ export interface Application {
 
 export interface TimelineEvent {
   t: string;
+  // label —— an adminJobs translation sub-key (e.g. 'applications.timelineCommitted'),
+  // not display text. The component resolves it with t(); the lib stays locale-agnostic.
   label: string;
   kind: 'accent' | 'muted' | 'faint';
 }
@@ -76,12 +78,21 @@ export interface TimelineEvent {
 // It doesn't fabricate mailbox-tracker-style fake steps like "opened 6 hours later / recruiter replied the next day".
 export function timelineFor(app: Application): TimelineEvent[] {
   return [
-    { t: app.committedAt, label: 'committed · pdf + code issued', kind: 'accent' },
+    { t: app.committedAt, label: 'applications.timelineCommitted', kind: 'accent' },
     app.submittedAt === ''
-      ? { t: '—', label: 'submission not recorded', kind: 'faint' }
-      : { t: app.submittedAt, label: 'submitted', kind: 'accent' },
+      ? { t: '—', label: 'applications.metaNotSubmitted', kind: 'faint' }
+      : { t: app.submittedAt, label: 'applications.timelineSubmitted', kind: 'accent' },
   ];
 }
+
+// STATE_LABEL_KEY —— submission enum value → adminJobs sub-key for its display word.
+// The component resolves these with t(); the enum value itself stays the logic + testid value.
+export const STATE_LABEL_KEY: Record<SubmissionState, string> = {
+  committed: 'applications.stateCommitted',
+  submitted: 'applications.stateSubmitted',
+  failed: 'applications.stateFailed',
+  withdrawn: 'applications.stateWithdrawn',
+};
 
 // pillToneFor —— the tone class for a list row's status pill. Pulled out
 // into lib/ because the presentation layer must not run if / complex

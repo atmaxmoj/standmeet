@@ -1,4 +1,20 @@
 {
+  "credField": {
+    "host": "ホスト",
+    "port": "ポート",
+    "username": "ユーザー名",
+    "password": "パスワード",
+    "from_address": "送信元アドレス",
+    "from_name": "送信者名",
+    "tls": "TLS",
+    "url": "URL",
+    "token": "トークン",
+    "api_key": "APIキー",
+    "client_id": "クライアントID",
+    "client_secret": "クライアントシークレット",
+    "redirect_uri": "リダイレクトURI",
+    "scope": "スコープ"
+  },
   "common": {
     "connect": "Connect",
     "close": "✕"

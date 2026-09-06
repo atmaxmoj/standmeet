@@ -1,4 +1,10 @@
 {
+  "handle": {
+    "enterNew": "输入新的地址名",
+    "rule": "2–64 个字符 · a–z 0–9 连字符",
+    "noChange": "无变化",
+    "aliasHint": "旧的 /{current} 仍会通过别名继续解析"
+  },
   "sidebar": {
     "instanceLabel": "实例 ·",
     "uptimeLabel": "运行时长 ·",
@@ -300,6 +306,7 @@
     "colStatus": "状态",
     "statusDot": "●",
     "healthChecks": "健康检查",
+    "loading": "加载中…",
     "kickerRuntime": "设置 · 运行时"
   },
   "inferenceUsage": {
