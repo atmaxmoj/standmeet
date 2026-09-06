@@ -34,6 +34,7 @@ const MicrositeSummarySchema = z.object({
   // backend (no columns) doesn't fail the whole list ([[zod-unknown-is-not-optional]]).
   seo_title: z.string().optional(),
   seo_description: z.string().optional(),
+  seo_image: z.string().optional(),
   created_at: z.string(), updated_at: z.string(),
 });
 export type MicrositeSummary = z.infer<typeof MicrositeSummarySchema>;
@@ -94,7 +95,7 @@ export interface MicrositesHook {
   rollback: (slug: string) => Promise<void>;
   removePage: (slug: string) => Promise<void>;
   renamePage: (slug: string, newSlug: string) => Promise<void>;
-  setSEO: (slug: string, title: string, description: string) => Promise<void>;
+  setSEO: (slug: string, title: string, description: string, image: string) => Promise<void>;
 }
 
 export const micrositesStore = createResourceStore<MicrositeSummary[]>({
@@ -182,10 +183,22 @@ async function renamePage(slug: string, newSlug: string): Promise<void> {
   await micrositesStore.getState().refresh();
 }
 
-// setSEO — set this page's per-page SEO (title + description), injected into the served <head>.
-async function setSEO(slug: string, title: string, description: string): Promise<void> {
+// seoInit — a page's current SEO values as plain strings (the editor's initial field state). In
+// lib so the SeoPanel component stays under the presentation-layer branching cap (three `??`).
+export function seoInit(row: MicrositeSummary): { title: string; desc: string; image: string } {
+  return {
+    title: row.seo_title ?? '',
+    desc: row.seo_description ?? '',
+    image: row.seo_image ?? '',
+  };
+}
+
+// setSEO — set this page's per-page SEO (title + description + OG/share-card image), injected into
+// the served <head>.
+async function setSEO(slug: string, title: string, description: string, image: string): Promise<void> {
   await adminAPI.put(`/microsites/${slug}/seo`,
-    { seo_title: title, seo_description: description }, z.object({}).passthrough());
+    { seo_title: title, seo_description: description, seo_image: image },
+    z.object({}).passthrough());
   await micrositesStore.getState().refresh();
 }
 

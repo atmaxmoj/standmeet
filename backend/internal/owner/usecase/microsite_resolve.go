@@ -90,6 +90,7 @@ func LiveMicrosites(
 type LivePage struct {
 	SeoTitle       *string
 	SeoDescription *string
+	SeoImage       *string
 	Build          entity.MicrositeBuild
 	AllowBYOAI     bool
 }
@@ -110,7 +111,7 @@ func resolveByOwner(
 	}
 	return LivePage{
 		Build: build, AllowBYOAI: page.AllowBYOAI,
-		SeoTitle: page.SeoTitle, SeoDescription: page.SeoDescription,
+		SeoTitle: page.SeoTitle, SeoDescription: page.SeoDescription, SeoImage: page.SeoImage,
 	}, nil
 }
 
@@ -144,6 +145,6 @@ func ResolvePreviewBuild(
 	}
 	return LivePage{
 		Build: build, AllowBYOAI: page.AllowBYOAI,
-		SeoTitle: page.SeoTitle, SeoDescription: page.SeoDescription,
+		SeoTitle: page.SeoTitle, SeoDescription: page.SeoDescription, SeoImage: page.SeoImage,
 	}, nil
 }

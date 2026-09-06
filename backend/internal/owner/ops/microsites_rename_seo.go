@@ -42,13 +42,15 @@ func setMicrositeSEO(deps usecase.MicrositeDeps) fp.Invoke {
 			return nil, perr
 		}
 		serr := usecase.SetPageSEO(ctx, deps, &usecase.SetPageSEOInput{
-			OwnerID: ownerID, Slug: in.Slug, Title: in.SeoTitle, Description: in.SeoDescription,
+			OwnerID: ownerID, Slug: in.Slug,
+			Title: in.SeoTitle, Description: in.SeoDescription, Image: in.SeoImage,
 		})
 		if serr != nil {
 			return nil, micrositeErr(serr)
 		}
 		return json.Marshal(pageSeoOut{
-			Slug: in.Slug, SeoTitle: in.SeoTitle, SeoDescription: in.SeoDescription,
+			Slug: in.Slug, SeoTitle: in.SeoTitle,
+			SeoDescription: in.SeoDescription, SeoImage: in.SeoImage,
 		})
 	}
 }
@@ -58,4 +60,5 @@ type pageSeoOut struct {
 	Slug           string `json:"slug"`
 	SeoTitle       string `json:"seo_title"`
 	SeoDescription string `json:"seo_description"`
+	SeoImage       string `json:"seo_image"`
 }

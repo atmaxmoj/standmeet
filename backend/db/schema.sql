@@ -735,6 +735,8 @@ CREATE TABLE microsites (
     -- each microsite, not a global setting). Null = none injected (the built page keeps its own).
     seo_title              text,
     seo_description        text,
+    -- seo_image — the Open Graph / share-card image URL for this page (og:image, twitter:image).
+    seo_image              text,
     created_at             timestamptz   NOT NULL DEFAULT now(),
     updated_at             timestamptz   NOT NULL DEFAULT now()
 );

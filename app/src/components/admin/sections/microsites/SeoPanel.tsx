@@ -7,7 +7,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
-import { useMicrosites, type MicrositeSummary } from '@/lib/admin/use-microsites';
+import { useMicrosites, seoInit, type MicrositeSummary } from '@/lib/admin/use-microsites';
 import { useAction } from '@/lib/ui/use-action';
 
 export function SeoPanel({ slug, isNew }: { slug: string; isNew: boolean }) {
@@ -21,17 +21,19 @@ export function SeoPanel({ slug, isNew }: { slug: string; isNew: boolean }) {
 interface SeoFormProps {
   slug: string;
   row: MicrositeSummary;
-  setSEO: (slug: string, title: string, description: string) => Promise<void>;
+  setSEO: (slug: string, title: string, description: string, image: string) => Promise<void>;
 }
 
 function SeoForm({ slug, row, setSEO }: SeoFormProps) {
   const t = useTranslations('adminPages.microsites');
   const run = useAction();
-  const [title, setTitle] = useState(row.seo_title ?? '');
-  const [desc, setDesc] = useState(row.seo_description ?? '');
+  const init = seoInit(row);
+  const [title, setTitle] = useState(init.title);
+  const [desc, setDesc] = useState(init.desc);
+  const [image, setImage] = useState(init.image);
   const save = useCallback(() => {
-    void run(() => setSEO(slug, title.trim(), desc.trim()), { success: 'SEO updated' });
-  }, [run, setSEO, slug, title, desc]);
+    void run(() => setSEO(slug, title.trim(), desc.trim(), image.trim()), { success: 'SEO updated' });
+  }, [run, setSEO, slug, title, desc, image]);
   return (
     <details className="mt-4" data-testid="microsite-seo">
       <summary className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) cursor-pointer">
@@ -47,6 +49,11 @@ function SeoForm({ slug, row, setSEO }: SeoFormProps) {
           value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} spellCheck={false}
           placeholder="one-line description for search results" data-testid="microsite-seo-desc"
           className="w-full bg-transparent border border-(--color-rule) p-2 reading-tight text-[13px]"
+        />
+        <input
+          value={image} onChange={(e) => setImage(e.target.value)} spellCheck={false}
+          placeholder="share-card image URL (og:image)" data-testid="microsite-seo-image"
+          className="sm-field-input w-full"
         />
         <button type="button" onClick={save} data-testid="microsite-seo-save" className="sm-btn sm-btn-sm">
           {t('seoSave')}

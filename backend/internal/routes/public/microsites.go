@@ -143,6 +143,7 @@ func (h *MicrositeHandlers) serveSlugAt(
 				PageID: live.Build.PageID, BuildID: live.Build.ID,
 				AllowBYOAI: live.AllowBYOAI,
 				SeoTitle:   live.SeoTitle, SeoDescription: live.SeoDescription,
+				SeoImage: live.SeoImage,
 			}, nil
 		},
 		AssetPath: chi.URLParam(r, "*"),
@@ -156,6 +157,7 @@ func (h *MicrositeHandlers) serveSlugAt(
 type pageHead struct {
 	seoTitle       *string
 	seoDescription *string
+	seoImage       *string
 	base           string
 	allowBYOAI     bool
 }
@@ -169,7 +171,7 @@ type pageHead struct {
 // stop taking effect immediately).
 func (p pageHead) tags() string {
 	return `<base href="` + html.EscapeString(p.base) + `">` +
-		seoTitleTag(p.seoTitle) + seoDescTag(p.seoDescription) +
+		seoHead(p.seoTitle, p.seoDescription, p.seoImage) +
 		`<meta name="standmeet-page-byoai" content="` + strconv.FormatBool(p.allowBYOAI) + `">`
 }
 

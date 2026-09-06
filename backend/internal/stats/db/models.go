@@ -331,6 +331,7 @@ type Microsite struct {
 	StoreWritable       bool
 	SeoTitle            *string
 	SeoDescription      *string
+	SeoImage            *string
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
 }

@@ -94,8 +94,9 @@ var (
 		"type":"object",
 		"properties":{
 			"slug":{"type":"string","description":"The page's slug."},
-			"seo_title":{"type":"string","description":"<title> for this page; empty clears it."},
-			"seo_description":{"type":"string","description":"<meta description>; empty clears it."}
+			"seo_title":{"type":"string","description":"<title> + og:title; empty clears it."},
+			"seo_description":{"type":"string","description":"meta description + og:description."},
+			"seo_image":{"type":"string","description":"og:image / share-card image URL."}
 		},
 		"required":["slug"]
 	}`)
@@ -165,6 +166,7 @@ type micrositeOut struct {
 	LatestBuildID     string   `json:"latest_build_id,omitempty"`
 	SeoDescription    string   `json:"seo_description"`
 	SeoTitle          string   `json:"seo_title"`
+	SeoImage          string   `json:"seo_image"`
 	BoundCodes        []string `json:"bound_codes"`
 	HasLive           bool     `json:"has_live"`
 	HasStaging        bool     `json:"has_staging"`
@@ -195,13 +197,18 @@ func toMicrositeOut(p *entity.Microsite) micrositeOut {
 	if p.LiveBuildID != nil {
 		v.LiveBuildID = *p.LiveBuildID
 	}
-	if p.SeoTitle != nil {
-		v.SeoTitle = *p.SeoTitle
-	}
-	if p.SeoDescription != nil {
-		v.SeoDescription = *p.SeoDescription
-	}
+	v.SeoTitle = derefOr(p.SeoTitle)
+	v.SeoDescription = derefOr(p.SeoDescription)
+	v.SeoImage = derefOr(p.SeoImage)
 	return v
+}
+
+// derefOr — a *string as a plain string ("" when nil), so toMicrositeOut stays under the cyclo cap.
+func derefOr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func toBuildOut(b *entity.MicrositeBuild) buildOut {
@@ -295,6 +302,7 @@ type pageArgs struct {
 	BuildID        string `json:"build_id"`
 	SeoTitle       string `json:"seo_title"`
 	SeoDescription string `json:"seo_description"`
+	SeoImage       string `json:"seo_image"`
 }
 
 func decodePageArgs(raw json.RawMessage) (pageArgs, error) {

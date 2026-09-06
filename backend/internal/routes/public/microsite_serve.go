@@ -26,6 +26,7 @@ import (
 type BuiltAsset struct {
 	SeoTitle       *string
 	SeoDescription *string
+	SeoImage       *string
 	PageID         string
 	BuildID        string
 	AllowBYOAI     bool
@@ -63,7 +64,7 @@ func ServeBuildAsset(w http.ResponseWriter, _ *http.Request, req *BuildAssetReq)
 	}
 	serveFile(req.Log, w, fp, pageHead{
 		base: baseOf(req), allowBYOAI: asset.AllowBYOAI,
-		seoTitle: asset.SeoTitle, seoDescription: asset.SeoDescription,
+		seoTitle: asset.SeoTitle, seoDescription: asset.SeoDescription, seoImage: asset.SeoImage,
 	})
 }
 
