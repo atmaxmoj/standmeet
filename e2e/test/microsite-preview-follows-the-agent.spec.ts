@@ -95,22 +95,11 @@ test.describe('microsites · the panel shows what the agent just built, without 
       // ── agent builds the first version ──────────────────────────────────
       await agentBuilds(agent, 'FIRST-VERSION');
 
-      // The follow is driven by a long-poll held connection (like waiting on a payment QR),
-      // not a fixed poll interval: the panel holds GET /microsites/wait open and is
-      // answered the instant a build settles. Catch that request — the old fixed-interval
-      // code never opens it, so this both proves the mechanism and would go red on a regress.
-      const longPoll = page.waitForRequest(
-        (req) => req.url().includes('/microsites/wait'), { timeout: 30_000 },
-      );
-
       // The redesign gives each page its own editor route (/admin/edit/<slug>); its right pane
-      // renders this page's live build. Go straight there — the list → editor click-through is
+      // renders this page's staging build. Go straight there — the list → editor click-through is
       // covered in microsite.spec, and clicking a list row while builds are settling races the
-      // list's own re-render. The preview-follow is what THIS test is about: it rides the shared
-      // long-poll (useMicrosites), which the editor route holds open too — catch it to prove the
-      // held connection exists here, not just on the list.
+      // list's own re-render.
       await goto(page, `/admin/edit/${SLUG}`);
-      await longPoll;
 
       // 1 + 2: the panel actually renders this page, and what it shows is **staging**
       // (never promoted to live).
@@ -120,8 +109,11 @@ test.describe('microsites · the panel shows what the agent just built, without 
       // ── the owner does nothing. The agent makes another change. ───────────
       await agentBuilds(agent, 'SECOND-VERSION');
 
-      // 3: this is the entire point of this test: **no reload**, the preview keeps up on
-      // its own.
+      // 3: this is the entire point — **no reload**, the preview keeps up on its own. This asserts
+      // the BEHAVIOR (change it → the owner sees the new version), NOT the mechanism: the test must
+      // not know or care whether the update arrives by long-poll, a poll interval, or SSE — only
+      // that it arrives, on its own, without the owner refreshing. (It used to also catch the
+      // GET /microsites/wait request, which welded it to one implementation; that's gone.)
       await expect(headlineIn(page), 'owner 得自己刷新才看得到 = 没解决他说的那个问题')
         .toHaveText('SECOND-VERSION', { timeout: 300_000 });
     });
