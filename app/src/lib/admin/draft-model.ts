@@ -155,6 +155,31 @@ export function reorder<T extends { id: string }>(
   return to < 0 ? list : [...rest.slice(0, to), moved, ...rest.slice(to)];
 }
 
+// EDITABLE_FIELDS —— the résumé fields the composer's on-canvas editor (Phase 3) can edit in place,
+// keyed by the id the template's `edit-anchor` emits. Read/write go through one map so the anchor id,
+// the value shown in the inline input, and the patch on save can never drift apart.
+const EDITABLE_FIELDS: Record<string, {
+  read: (m: DraftModel) => string; write: (v: string) => Partial<DraftModel>;
+}> = {
+  'identity.name': { read: (m) => m.name, write: (v) => ({ name: v }) },
+  summary: { read: (m) => m.summary, write: (v) => ({ summary: v }) },
+};
+
+// readField —— the current value of an editable field (for the inline editor), '' if not editable.
+export function readField(m: DraftModel, field: string): string {
+  return EDITABLE_FIELDS[field]?.read(m) ?? '';
+}
+
+// applyFieldEdit —— the patch that writes `value` into `field`; {} for a field the canvas can't edit.
+export function applyFieldEdit(field: string, value: string): Partial<DraftModel> {
+  return EDITABLE_FIELDS[field]?.write(value) ?? {};
+}
+
+// isEditableField —— whether an anchor names a field the canvas editor supports (others get no hotspot).
+export function isEditableField(field: string): boolean {
+  return field in EDITABLE_FIELDS;
+}
+
 // draftToResumeContent —— adapter from the composer's edit-friendly
 // DraftModel to the print-side ResumeContent shape ResumePage consumes.
 // Splits the flat skill list into one anonymous category (ResumePage's

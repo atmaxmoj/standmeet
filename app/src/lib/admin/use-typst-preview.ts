@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { renderResumeSVG } from '@/lib/admin/typst-preview';
+import { renderResume, type EditAnchor } from '@/lib/admin/typst-preview';
 
 export type TypstStatus = 'rendering' | 'ready' | 'failed';
 
@@ -24,8 +24,11 @@ interface Input {
 
 const DEBOUNCE_MS = 350;
 
-export function useTypstPreview(input: Input): { svg: string; status: TypstStatus } {
+export function useTypstPreview(
+  input: Input,
+): { svg: string; anchors: readonly EditAnchor[]; status: TypstStatus } {
   const [svg, setSvg] = useState('');
+  const [anchors, setAnchors] = useState<readonly EditAnchor[]>([]);
   const [status, setStatus] = useState<TypstStatus>('rendering');
   const seq = useRef(0);
   const { template, dataJSON, role, company, qrURL, enabled } = input;
@@ -36,11 +39,12 @@ export function useTypstPreview(input: Input): { svg: string; status: TypstStatu
     seq.current = mine;
     setStatus('rendering');
     const timer = setTimeout(() => {
-      renderResumeSVG({ template, dataJSON, role, company, qrURL })
+      renderResume({ template, dataJSON, role, company, qrURL })
         .then((out) => {
           // A newer render started while this one was compiling — drop the stale result.
           if (seq.current !== mine) return;
-          setSvg(out);
+          setSvg(out.svg);
+          setAnchors(out.anchors);
           setStatus('ready');
         })
         .catch((e: unknown) => {
@@ -53,5 +57,5 @@ export function useTypstPreview(input: Input): { svg: string; status: TypstStatu
     return () => clearTimeout(timer);
   }, [template, dataJSON, role, company, qrURL, enabled]);
 
-  return { svg, status };
+  return { svg, anchors, status };
 }

@@ -47,11 +47,20 @@
   if e == none or e == "" { p.start + " – present" } else { p.start + " – " + e }
 }
 
+// edit-anchor —— an invisible, queryable marker the composer's WASM preview uses to place
+// click-to-edit overlays (docs/design/composer-visual-editor.md, Phase 3). It emits the field's
+// on-page position (pt) + page number as metadata; `query('<sm-edit>')` reads them back. Produces
+// NO visual output and takes no space, so the committed PDF is byte-identical with or without it.
+#let edit-anchor(field) = context {
+  let p = here().position()
+  [#metadata((field: field, x: p.x / 1pt, y: p.y / 1pt, page: p.page)) <sm-edit>]
+}
+
 // ── header ──────────────────────────────────────────────────────────
 #let idy = data.identity
 #grid(columns: (1fr, auto), column-gutter: 14pt, align: (left + bottom, right + top),
   [
-    #text(size: 23pt, weight: 500)[#lower(idy.name)]
+    #edit-anchor("identity.name")#text(size: 23pt, weight: 500)[#lower(idy.name)]
     #v(1pt)
     #if role != "" [ #mono(size: 9pt, fill: ink)[#role] #if company != "" [#mono(size: 9pt, fill: faint)[ · #company]] \ ]
     #mono(size: 8pt)[
@@ -77,6 +86,7 @@
 
 // ── summary ─────────────────────────────────────────────────────────
 #sechead("summary")
+#edit-anchor("summary")
 #par(justify: false)[#data.summary]
 
 // ── body: skills+education (left) · experience (right) ──────────────

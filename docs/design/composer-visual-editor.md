@@ -93,36 +93,33 @@ that box; on edit, write the field back to the DraftModel and recompile. Draggin
 on the canvas reuses the Phase-1 `reorder` on the same field arrays. This keeps content structured
 (no eval), same as the PDF path.
 
-#### Status (2026-09-05): BLOCKED on typst.ts query — reverted, not shipped
+#### Status (2026-09-05): SHIPPED
 
-Phase 3 was built end-to-end and reverted because the introspection step doesn't work in the
-browser with **typst.ts 0.7.0**:
+Phase 3 is live. The one non-obvious part was reading the anchors: typst.ts's `compiler.query()`
+throws **"document is not compiled"** — it queries a world that was never compiled
+(Myriad-Dreamin/typst.ts#832). The working form (from that issue) is to compile *inside* a world
+scope, then query it:
 
-- The template side is correct. `#let edit-anchor(field) = context { let p = here().position();
-  [#metadata((field: field, x: p.x/1pt, y: p.y/1pt, page: p.page)) <sm-edit>] }` before each field,
-  compiled with the SERVER `typst` binary, `typst query main.typ '<sm-edit>' --field value` returns
-  exactly `[{field,x,y,page}, …]`. The page is 612×792pt = the SVG viewBox, so a pt anchor maps
-  straight into the rendered SVG box.
-- typst.ts's `query` fails with **"document is not compiled"** in every form tried: the `$typst`
-  snippet's `query` (it `reset()`s the compiler first), the low-level `compiler.compile()` +
-  `compiler.query()`, and `withIncrementalServer` + incremental `compile()` + `query()`. `world.query`
-  reads the world's *current* document and none of these leave one set for it in the browser build.
-  `IncrementalServer` exposes no `query`. So the anchors always come back `[]` → no overlays.
+```ts
+(await $typst.getCompiler()).runWithWorld({ mainFilePath: '/main.typ', inputs }, async (world) => {
+  await world.compile();                                   // required — sets the world's document
+  return world.query({ selector: '<sm-edit>', field: 'value' }); // → [{field,x,y,page}, …]
+});
+```
 
-Built (and reverted, resurrect from git around this date): `edit-anchor` in both templates;
-`typst-preview.ts` renderResume+queryAnchors; `use-svg-geometry.ts` (measure the SVG, `anchorToPx`);
-`EditOverlays.tsx` (✎ hotspots + inline editor); `EDITABLE_FIELDS`/`readField`/`applyFieldEdit` in
-draft-model; `draft-composer-inplace-edit.spec.ts`.
+The template side: `#let edit-anchor(field) = context { let p = here().position();
+[#metadata((field, x: p.x/1pt, y: p.y/1pt, page: p.page)) <sm-edit>] }` before each editable field
+(classic + compact). The page is 612×792pt = the SVG viewBox, so a pt anchor maps straight into the
+rendered SVG box (`anchorToPx`). Metadata is invisible → the committed PDF is byte-identical.
 
-**Paths forward (owner to choose):**
-1. **Server computes anchors** (recommended, sidesteps the bug): the backend already has the typst
-   binary + templates and `typst query` WORKS. Add an endpoint that returns the `<sm-edit>` positions
-   for a draft; the client overlays them on the WASM SVG. Risk: the server binary and the WASM
-   renderer must lay out identically (both use typst defaults today — verify, or install the same
-   fonts in both so positions match exactly).
-2. **DOM text-layer positioning:** place an invisible marker per field and find it in the WASM SVG's
-   text layer (`getBBox`) — no typst query. Risk: depends on how typst.ts emits glyphs.
-3. **Bump typst.ts** to a version whose in-browser `query` works, then the reverted code drops back in.
+Implemented: `edit-anchor` in both templates; `typst-preview.ts` renderResume + queryAnchors (the
+runWithWorld form); `use-svg-geometry.ts` (measure the SVG + `anchorToPx`); `EditOverlays.tsx`
+(✎ hotspots + inline editor); `EDITABLE_FIELDS`/`readField`/`applyFieldEdit` in draft-model;
+`draft-composer-inplace-edit.spec.ts` (click summary → edit → preview recompiles → persists).
+
+MVP scope: `identity.name` + `summary`, page 1. Adding a field = one `edit-anchor(...)` in the
+template + one `EDITABLE_FIELDS` entry. Multi-page + repeatable rows (works/education/social/custom)
+extend `anchorToPx` (page offset) and the anchor placement; drag-on-canvas reuses Phase-1 `reorder`.
 
 ### Test matrix (e2e, test-first)
 

@@ -11,12 +11,15 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SelectField } from '@/components/atoms/SelectField';
+import { EditOverlays } from '@/components/admin/composer/EditOverlays';
 import { previewURL } from '@/lib/admin/save-draft';
 import { useTypstPreview } from '@/lib/admin/use-typst-preview';
+import { useSvgGeometry } from '@/lib/admin/use-svg-geometry';
+import type { EditAnchor } from '@/lib/admin/typst-preview';
 
 import styles from '@/components/admin/composer/PreviewPane.module.css';
 
@@ -32,6 +35,9 @@ interface Props {
   role: string;
   company: string;
   qrURL: string; // the real code URL the QR carries (from the code picker)
+  // Phase 3 on-canvas editing: read a field's value + write an edit back to the draft.
+  fieldValue: (field: string) => string;
+  onEditField: (field: string, value: string) => void;
 }
 
 type View = 'live' | 'pdf';
@@ -45,7 +51,7 @@ function resolveView(view: View, status: string): View {
 
 export function PreviewPane(props: Props) {
   const [view, setView] = useState<View>('live');
-  const { svg, status } = useTypstPreview({
+  const { svg, anchors, status } = useTypstPreview({
     template: props.template, dataJSON: props.dataJSON,
     role: props.role, company: props.company, qrURL: props.qrURL, enabled: view === 'live',
   });
@@ -59,7 +65,12 @@ export function PreviewPane(props: Props) {
       />
       <div className={styles.frameWrap}>
         {effective === 'live'
-          ? <LiveView svg={svg} status={status} />
+          ? (
+            <LiveView
+              svg={svg} status={status} anchors={anchors}
+              fieldValue={props.fieldValue} onEditField={props.onEditField}
+            />
+          )
           : (
             <iframe
               title="resume preview"
@@ -73,20 +84,36 @@ export function PreviewPane(props: Props) {
   );
 }
 
-// LiveView —— the WASM-rendered SVG. The SVG is typst's own output (résumé text placed as content,
-// never eval'd — same injection-safety as the PDF path), so injecting it is safe.
-function LiveView({ svg, status }: { svg: string; status: string }) {
+// LiveView —— the WASM-rendered SVG plus the on-canvas edit overlays. The SVG is typst's own output
+// (résumé text placed as content, never eval'd — same injection-safety as the PDF path), so
+// injecting it is safe.
+function LiveView({
+  svg, status, anchors, fieldValue, onEditField,
+}: {
+  svg: string;
+  status: string;
+  anchors: readonly EditAnchor[];
+  fieldValue: (field: string) => string;
+  onEditField: (field: string, value: string) => void;
+}) {
   const t = useTranslations('adminShell.previewPane');
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const geo = useSvgGeometry(wrapRef, svg);
   return svg === ''
     ? <div className={styles.livePending} data-testid="composer-preview-svg">{t('rendering')}</div>
     : (
       <div
+        ref={wrapRef}
         className={styles.liveSvg}
         data-testid="composer-preview-svg"
         data-status={status}
-        // typst's own SVG output — content is placed, never eval'd (same injection-safety as the PDF)
-        dangerouslySetInnerHTML={{ __html: svg }}
-      />
+      >
+        {/* typst's own SVG output — content placed, never eval'd (same injection-safety as the PDF) */}
+        <div className={styles.liveSvgInner} dangerouslySetInnerHTML={{ __html: svg }} />
+        {geo === null ? null : (
+          <EditOverlays anchors={anchors} geo={geo} getValue={fieldValue} onEdit={onEditField} />
+        )}
+      </div>
     );
 }
 

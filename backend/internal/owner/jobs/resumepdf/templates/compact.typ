@@ -43,6 +43,14 @@
   if e == none or e == "" { p.start + " – present" } else { p.start + " – " + e }
 }
 
+// edit-anchor —— invisible, queryable position marker for the composer's on-canvas editor
+// (docs/design/composer-visual-editor.md, Phase 3). No visual output; the committed PDF is
+// unaffected. Matches classic.typ; queried via `<sm-edit>`.
+#let edit-anchor(field) = context {
+  let p = here().position()
+  [#metadata((field: field, x: p.x / 1pt, y: p.y / 1pt, page: p.page)) <sm-edit>]
+}
+
 #let idy = data.identity
 
 // QR is a mandatory system widget on every template — qr.png is server-built from the
@@ -55,7 +63,7 @@
 
 // header — centered name, single meta line
 #align(center)[
-  #text(size: 22pt, weight: 500)[#lower(idy.name)]
+  #edit-anchor("identity.name")#text(size: 22pt, weight: 500)[#lower(idy.name)]
   #v(2pt)
   #if role != "" [ #mono(size: 9pt, fill: ink)[#role#if company != "" [ · #company]] \ ]
   #mono(size: 8pt)[
@@ -66,6 +74,7 @@
 #line(length: 100%, stroke: 0.75pt + rule)
 
 #sechead("summary")
+#edit-anchor("summary")
 #par(justify: false)[#data.summary]
 
 #sechead("experience")

@@ -101,8 +101,10 @@
   border: 0;
 }
 
-/* liveSvg —— the WASM-rendered page(s). Scrolls inside the pane; the SVG scales to the width. */
+/* liveSvg —— the WASM-rendered page(s). Scrolls inside the pane; the SVG scales to the width.
+   position:relative so the on-canvas edit overlays (absolute) anchor to it and scroll with it. */
 .liveSvg {
+  position: relative;
   width: 100%;
   height: 100%;
   overflow: auto;
@@ -111,6 +113,12 @@
   flex-direction: column;
   align-items: center;
   gap: 20px;
+}
+.liveSvgInner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .liveSvg :global(svg) {
   width: 100%;

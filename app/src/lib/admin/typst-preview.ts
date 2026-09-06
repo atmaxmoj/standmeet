@@ -83,18 +83,52 @@ export interface TypstRenderInput {
   qrURL: string; // the real code URL the QR encodes; '' → no QR (template draws an empty box)
 }
 
-// renderResumeSVG —— compile the draft to an SVG string (throws if WASM/compile fails; the caller
-// falls back to the server-PDF iframe). The QR is the REAL code the owner picked, drawn client-side.
-export async function renderResumeSVG(input: TypstRenderInput): Promise<string> {
+// EditAnchor —— where an editable field sits on the rendered page, emitted by the template's
+// `edit-anchor` metadata (Phase 3). x/y are pt from the page's top-left; page is 1-based.
+export interface EditAnchor {
+  field: string;
+  x: number;
+  y: number;
+  page: number;
+}
+
+export interface ResumeRender {
+  svg: string;
+  anchors: readonly EditAnchor[];
+}
+
+// renderResume —— compile the draft to SVG + the edit anchors (throws if WASM/compile fails; the
+// caller falls back to the server-PDF iframe). The QR is the REAL code the owner picked, drawn
+// client-side.
+export async function renderResume(input: TypstRenderInput): Promise<ResumeRender> {
   const $typst = await typst();
   const src = await fetchTemplateSource(input.template);
+  const inputs = { qr: input.qrURL, role: input.role, company: input.company };
   await $typst.resetShadow();
   await $typst.addSource('/main.typ', src);
   await $typst.mapShadow('/data.json', new TextEncoder().encode(input.dataJSON));
   // Only map qr.png when there's a code — the template reads it only when the qr input is non-empty.
   if (input.qrURL !== '') await $typst.mapShadow('/qr.png', qrPngBytes(input.qrURL));
-  return $typst.svg({
-    mainFilePath: '/main.typ',
-    inputs: { qr: input.qrURL, role: input.role, company: input.company },
-  });
+  const svg = await $typst.svg({ mainFilePath: '/main.typ', inputs });
+  return { svg, anchors: await queryAnchors($typst, inputs) };
+}
+
+// queryAnchors —— read the template's edit-anchor metadata (Phase 3). typst.ts's `compiler.query`
+// throws "document is not compiled" (it queries a world that was never compiled — Myriad-Dreamin/
+// typst.ts#832); the working form is runWithWorld → world.compile() → world.query. `field: 'value'`
+// returns the metadata values ({field,x,y,page}). Any failure → [] (no overlays; preview still renders).
+async function queryAnchors(
+  $typst: Awaited<ReturnType<typeof typst>>, inputs: Record<string, string>,
+): Promise<EditAnchor[]> {
+  const none: EditAnchor[] = [];
+  return (await $typst.getCompiler())
+    .runWithWorld({ mainFilePath: '/main.typ', inputs }, async (world) => {
+      await world.compile();
+      return world.query<EditAnchor[]>({ selector: '<sm-edit>', field: 'value' });
+    })
+    .catch((e: unknown) => {
+      // eslint-disable-next-line no-console
+      console.error('[typst-preview] anchor query failed:', e);
+      return none;
+    });
 }
