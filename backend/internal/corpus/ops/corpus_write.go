@@ -235,7 +235,7 @@ func writeSubjectivityEntry(
 		OwnerID: ownerID, ID: in.ID, Title: in.Title, Body: in.Body,
 		Tags: in.Tags, CSSClasses: in.CSSClasses,
 		ParentID:     parent,
-		ShowAsSource: in.showAsSource(),
+		ShowAsSource: in.showAsSourceForSubjectivity(),
 	})
 	if err != nil {
 		return corpusItemOut{}, err

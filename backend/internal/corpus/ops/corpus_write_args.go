@@ -83,6 +83,13 @@ func (a *corpusWriteArgs) showAsSource() bool {
 	return a.ShowAsSource == nil || *a.ShowAsSource
 }
 
+// showAsSourceForSubjectivity — subjectivity is the exception: it defaults to NOT citable (nil →
+// false), because it's the owner's meta/persona voice, not a referenceable source (owner:
+// "subjectivity 都应该是默认不 citable"). An explicit true still opts it in.
+func (a *corpusWriteArgs) showAsSourceForSubjectivity() bool {
+	return a.ShowAsSource != nil && *a.ShowAsSource
+}
+
 // flaggedPrivate — on **create**, not given means false (a new entry defaults to
 // non-private). Don't use this on update — use keptFlaggedPrivate instead, where
 // "not given" means **leave alone**.
