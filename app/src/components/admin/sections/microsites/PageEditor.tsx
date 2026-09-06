@@ -15,6 +15,9 @@ import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 
 import { SeoPanel } from '@/components/admin/sections/microsites/SeoPanel';
+import { EditorViewToggle } from '@/components/admin/sections/microsites/EditorViewToggle';
+import { editorGridCls, editorColCls, type EditorView } from '@/lib/admin/editor-view';
+import { useAutoBuild } from '@/lib/admin/use-auto-build';
 import { IMPORTABLE_MODULES, STARTER, type ImportableModule } from '@/lib/admin/microsite-imports';
 import {
   loadDraft, stageFiles, shipFilesLive, previewView, usePinnedPreviewSrc,
@@ -52,14 +55,22 @@ export function PageEditor({ slug }: { slug: string }) {
   const [files, setFiles] = useState<DraftFiles>({ 'App.tsx': STARTER });
   const [active, setActive] = useState('App.tsx');
   const [build, setBuild] = useState<BuildView | null>(null);
+  // Editor layout gear: code-only / split (default) / render-only. Both columns stay mounted and
+  // are hidden by CSS, so toggling never remounts CodeMirror or the preview (no flicker, no lost
+  // build/long-poll).
+  const [view, setView] = useState<EditorView>('split');
 
   useEffect(() => {
     void (isNew ? Promise.resolve() : openExisting(slug, setFiles, setActive, setBuild));
   }, [slug, isNew]);
 
+  // Auto-build on edit: the preview follows live as the owner types (debounced), no "build preview"
+  // click. Hung off the edit handler so a programmatic draft load (openExisting) never triggers it.
+  const scheduleBuild = useAutoBuild(pageSlug, files, setBuild);
   const setActiveContent = useCallback((v: string) => {
     setFiles((prev) => ({ ...prev, [active]: v }));
-  }, [active]);
+    scheduleBuild();
+  }, [active, scheduleBuild]);
 
   const addFile = useCallback((path: string) => {
     setFiles((prev) => (path === '' || prev[path] !== undefined) ? prev : { ...prev, [path]: '' });
@@ -78,8 +89,9 @@ export function PageEditor({ slug }: { slug: string }) {
   return (
     <div data-testid="microsite-editor">
       <EditorHeader slug={pageSlug} isNew={isNew} onSlug={setPageSlug} />
-      <div className="grid gap-4 lg:grid-cols-2 items-start">
-        <div className="min-w-0">
+      <EditorViewToggle view={view} onChange={setView} />
+      <div className={editorGridCls(view)}>
+        <div className={editorColCls(view, 'code')} data-testid="microsite-code-col">
           <FileTabs files={files} active={active} onSwitch={setActive} onAdd={addFile} />
           <div className="border border-(--color-rule) rounded-b-[3px] overflow-hidden" data-testid="microsite-source">
             <CodeMirror
@@ -95,13 +107,14 @@ export function PageEditor({ slug }: { slug: string }) {
           <SeoPanel slug={pageSlug} isNew={isNew} />
           <WidgetPanel />
         </div>
-        <div className="lg:sticky lg:top-4">
+        <div className={editorColCls(view, 'render')} data-testid="microsite-render-col">
           <PreviewPane slug={pageSlug} />
         </div>
       </div>
     </div>
   );
 }
+
 
 // EditorHeader — back to the list + the slug (a fixed heading for an existing page; an editable
 // field for a new one, since a new page's address is being chosen here).
