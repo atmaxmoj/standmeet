@@ -21,7 +21,7 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 test.describe('owner switches admin UI language from the top bar', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
-  test('the chrome switcher moves the admin UI to Chinese', async ({ adminPage }) => {
+  test('the chrome switcher moves the admin UI to Chinese on click, no reload', async ({ adminPage }) => {
     await gotoAdminSection(adminPage, 'system');
     // baseline: the sign-out control is in English
     await expect(adminPage.getByTestId('signout')).toHaveText(/sign out/i);
@@ -29,13 +29,14 @@ test.describe('owner switches admin UI language from the top bar', () => {
     const sw = adminPage.getByTestId('locale-switch').first();
     await expect(sw).toBeVisible();
     await sw.locator('summary').click();
-    await sw.locator('[hreflang="zh"]').click();
+    await sw.getByTestId('locale-opt-zh').click();
 
+    // The CLICK ITSELF must switch the visible chrome — a real user does not reload. This is the
+    // regression that shipped: with a next/link soft nav the URL changed to /zh and the cookie was
+    // set, but the sign-out label stayed "SIGN OUT" until a manual reload ("clicked, nothing
+    // happened"). Assert Chinese with NO reload, so a soft-nav regression fails here.
+    await expect(adminPage.getByTestId('signout')).toHaveText('退出登录', { timeout: 10_000 });
     await expect.poll(() => new URL(adminPage.url()).pathname).toMatch(/^\/zh(\/|$)/);
-    // the choice persists via the NEXT_LOCALE cookie; the next load renders Chinese
-    // (same as the public switcher, whose own test hard-reloads before asserting).
-    await adminPage.reload();
-    await expect(adminPage.getByTestId('signout')).toHaveText('退出登录', { timeout: 5_000 });
   });
 });
 

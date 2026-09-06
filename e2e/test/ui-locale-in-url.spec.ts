@@ -53,18 +53,22 @@ test.describe('G · the UI language lives in the URL and is switchable', () => {
     expect(page.url()).toContain('/fr/gate');
   });
 
-  test('the top-right switcher moves to 中文, and the choice persists to the next page',
+  test('the top-right switcher renders 中文 on click (no reload), and the choice persists',
     async ({ page }) => {
       // The switcher lives in the app TopBar (gate / readers). The index is a custom `home` page
       // now and doesn't carry the app TopBar, so drive the switcher from the gate.
       await goto(page, '/gate');
+      await expect(page.getByText(EN_HEADLINE, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
       const sw = page.getByTestId('locale-switch');
       await expect(sw).toBeVisible({ timeout: 15_000 });
 
-      // The switch is a compact disclosure — open it, then click 中文 (located by hrefLang, since
-      // the options are next/link components that can't carry a testid).
+      // Open the disclosure, click 中文, and assert the Chinese headline appears WITHOUT a reload or
+      // a second navigation. That is exactly what a user does — one click. The earlier version of
+      // this test re-`goto`'d /gate before asserting Chinese, which masked that the click alone left
+      // the page in English (a next/link soft nav changed only the URL + cookie).
       await sw.locator('summary').click();
-      await sw.locator('[hreflang="zh"]').click();
+      await sw.getByTestId('locale-opt-zh').click();
+      await expect(page.getByText(ZH_HEADLINE, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
       await expect.poll(() => new URL(page.url()).pathname).toMatch(/^\/zh(\/|$)/);
 
       // Persistence: navigate to an UN-prefixed page — the cookie carries the language, so the gate
