@@ -22,15 +22,24 @@ import { useAction } from '@/lib/ui/use-action';
 
 const NEW = 'new';
 
-// applyDraft — load an existing page's files into the editor (skipped for a brand-new page).
-async function applyDraft(
-  slug: string, setFiles: (f: DraftFiles) => void, setActive: (p: string) => void,
+// openExisting — load an existing page's files into the editor (skipped for a brand-new page), then
+// auto-build a preview so the render on the right is fresh the moment the owner walks in, with no
+// manual "build preview" click (owner: "每次点进去自动触发一下build preview"). Build failure is
+// left to surface through setBuild (BuildLine) — it must not stop the files from loading.
+async function openExisting(
+  slug: string,
+  setFiles: (f: DraftFiles) => void,
+  setActive: (p: string) => void,
+  setBuild: (b: BuildView | null) => void,
 ): Promise<void> {
   const files = await loadDraft(slug).catch((): DraftFiles => ({}));
   const paths = Object.keys(files);
   const hasFiles = paths.length > 0;
-  setFiles(hasFiles ? files : { 'App.tsx': STARTER });
+  const resolved: DraftFiles = hasFiles ? files : { 'App.tsx': STARTER };
+  setFiles(resolved);
   setActive(hasFiles ? paths[0]! : 'App.tsx');
+  setBuild(null);
+  await stageFiles(slug, resolved, setBuild).catch(() => undefined);
 }
 
 export function PageEditor({ slug }: { slug: string }) {
@@ -43,7 +52,7 @@ export function PageEditor({ slug }: { slug: string }) {
   const [build, setBuild] = useState<BuildView | null>(null);
 
   useEffect(() => {
-    void (isNew ? Promise.resolve() : applyDraft(slug, setFiles, setActive));
+    void (isNew ? Promise.resolve() : openExisting(slug, setFiles, setActive, setBuild));
   }, [slug, isNew]);
 
   const setActiveContent = useCallback((v: string) => {
