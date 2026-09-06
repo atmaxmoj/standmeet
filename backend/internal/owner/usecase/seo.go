@@ -46,27 +46,12 @@ func FirstOwner(ctx context.Context, deps SEODeps) (entity.Owner, bool) {
 	return soleOwner, true
 }
 
-// FirstOwnerSettings — the SEO rendering entry point: fetches the first owner's SEOSettings.
-func FirstOwnerSettings(ctx context.Context, deps SEODeps) (corpus.SEOSettings, bool) {
-	soleOwner, ok := FirstOwner(ctx, deps)
-	if !ok {
-		return corpus.SEOSettings{}, false
-	}
-	settings, err := deps.SEO.GetSettings(ctx, soleOwner.ID)
-	if err != nil {
-		return corpus.SEOSettings{}, false
-	}
-	return settings, true
-}
-
-// PublicReady — a centralized robots/sitemap readiness check.
+// PublicReady — a centralized robots/sitemap readiness check. A claimed instance with a public
+// URL is indexable; there is no separate robots toggle any more (SEO follows each microsite, and
+// the global SEO settings section was removed). Before claim / with no public URL, robots disallow.
 func PublicReady(ctx context.Context, deps SEODeps) (entity.Owner, bool) {
 	soleOwner, ok := FirstOwner(ctx, deps)
 	if !ok || soleOwner.PublicURL == "" {
-		return entity.Owner{}, false
-	}
-	settings, ok := FirstOwnerSettings(ctx, deps)
-	if !ok || !settings.IndexRobots {
 		return entity.Owner{}, false
 	}
 	return soleOwner, true

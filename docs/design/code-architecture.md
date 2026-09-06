@@ -402,27 +402,10 @@ page_content                                       -- 每个 owner 一行；支�
   projects            jsonb
   status_block        jsonb
   contact_block       text
-  -- per-page SEO override（为空时走 seo_settings 兜底；详见 J）
+  -- per-page SEO（无 instance 级默认；详见 J）
   seo_title           text null
   seo_description     text null
   seo_og_image_id     uuid null fk -> media_assets
-  seo_canonical       text null
-  seo_extra_head_html text null                    -- 仅这页要加的 head 注入
-  updated_at          timestamptz
-
-seo_settings                                       -- 每个 owner 一行；全 instance SEO 默认值
-  owner_id            uuid pk fk
-  default_og_image_id uuid null fk -> media_assets -- 没有特定页 og_image 时的兜底
-  -- 结构化字段（admin 表单填，server 拼标准 snippet）
-  analytics           jsonb                        -- { ga_id?, plausible_domain?, umami_id?, ... }
-  verifications       jsonb                        -- { google_search_console?, bing?, ahrefs?, ... }
-  -- 万能注入（owner 想塞任何东西）
-  extra_head_html     text null
-  -- robots / sitemap
-  robots_override     text null                    -- 完整 robots.txt override；为空 = server 生成默认
-  sitemap_exclude     text[]                       -- 路径白名单内的排除（如 ["/work"]）
-  -- Person schema 默认自动生成，owner 可以 override
-  person_schema_override jsonb null
   updated_at          timestamptz
 ```
 
@@ -440,13 +423,10 @@ microsites
   staging_url_token   text null                   -- 不可猜 token；staging URL = host/_stage/{token}/...
   staged_at           timestamptz null
   live_at             timestamptz null
-  -- per-page SEO override（同 page_content）
+  -- per-microsite SEO（同 page_content；注入服务页 <head>）
   seo_title           text null
   seo_description     text null
-  seo_og_image_id     uuid null fk -> media_assets
-  seo_canonical       text null
-  seo_extra_head_html text null
-  seo_sitemap_include bool default true            -- 是否进 sitemap.xml
+  seo_image           text null                   -- OG / Twitter card 图
   created_at          timestamptz
   unique(owner_id, slug)
 
@@ -584,14 +564,11 @@ POST   /api/admin/microsites/:id/rollback              -- 上一个 live_build_i
 POST   /api/admin/microsites/:id/unpublish             -- live_build_id := null
 DELETE /api/admin/microsites/:id
 
-# SEO（详见 J）
-GET    /api/admin/seo                       -- owner-level 默认值（seo_settings 表）
-PUT    /api/admin/seo                       -- 改 owner-level
-# per-page SEO 通过下面这些 endpoint 一起改：
-#   PUT  /api/admin/page          { ..., seo: {...} }      默认页 override
-#   PATCH /api/admin/microsites/:id { seo: {...} }       microsite override
-#   PATCH /api/admin/wiki/:id     { seo_landing_enabled, seo: {...} }   wiki landing
-GET    /api/admin/seo/preview               ?path=/   -- 预览最终 <head>（owner-level + per-page 合并）
+# SEO —— 每页各自的 SEO，无 instance 级默认（详见 J）
+PUT    /api/admin/microsites/:slug/seo     { seo_title, seo_description, seo_image }   -- microsite 自己的 SEO
+# 站点默认 SEO = 首页 microsite 自己的 per-page SEO
+# per-entry corpus SEO（publish/unpublish wiki/output entry + 设 excerpt）：
+#   PATCH /api/admin/corpus/:genre/:id/seo
 ```
 
 源文件创作完全走 MCP，不在这里（见 D.3）。
@@ -627,7 +604,7 @@ GET    /api/v1/page/:handle/byoai-config   -- {enabled, providers, public_blurb}
 GET    /api/v1/sdk/v1/manifest             -- SDK build 元信息（给 instance 自带的 <script> 用）
 
 # SEO 公开 endpoint（爬虫直接访问；详见 J）
-GET    /robots.txt                         -- backend 动态生成；owner 可 override
+GET    /robots.txt                         -- backend 动态生成；claim + public_url → allow，否则 disallow
 GET    /sitemap.xml                        -- 列默认页 + 所有 live microsites + 所有 seo_landing_enabled 的 wiki
 GET    /api/v1/wiki/:handle/:seo_slug      -- public wiki entry 的可索引内容（仅 seo_landing_enabled 的可访问）
 GET    /api/v1/og/page/:handle             -- 自动渲染默认页 OG image (PNG)
@@ -700,26 +677,14 @@ microsite.rollback(page_id)
 **工具 —— SEO（详见 J）：**
 
 ```
-# owner-level（全 instance）
-seo.get_owner()
-  -> {analytics, verifications, extra_head_html, robots_override, default_og_image_id, person_schema_override}
-seo.set_owner(patch)                                -- 部分更新
+# per-microsite SEO（首页 microsite 即站点默认）
+microsite.set_seo(page_id, {seo_title?, seo_description?, seo_image?})
 
-# per-page override
-seo.set_default_page(patch)                         -- 默认页 SEO override
-seo.set_microsite(page_id, patch)                 -- microsite SEO override
-seo.set_wiki(wiki_id, {
-  landing_enabled?: bool,
-  slug?: string,
-  title?, description?, og_image_id?
-})
-
-# 预览
-seo.preview(path)
-  -> {final_head_html, computed_title, computed_description, og_image_url}
+# per-entry corpus SEO（publish/unpublish wiki/output entry + 设 excerpt）
+seo.set_entry_seo(genre, id, {published?, excerpt?})
 ```
 
-AI 可以在写 microsite 时一并调 `seo.set_microsite(page_id, {title: ..., description: ...})`，不需要 owner 跳出去手动配。
+AI 可以在写 microsite 时一并调 `microsite.set_seo(page_id, {seo_title: ..., seo_description: ...})`，不需要 owner 跳出去手动配。
 
 Owner 的典型流程：
 
@@ -1077,21 +1042,18 @@ Backend entrypoint 启动 HTTP server 之前先跑 `goose up`。破坏性 migrat
 
 StandMeet 的页是对外门面，SEO 必须由 owner 完全控制。这章把 C/D 里散落的 SEO 字段集中讨论，并定 og image、sitemap、robots 这几样动态产物的实现策略。
 
-### 两层模型
+### 每页各自的 SEO（无 instance 级默认）
 
 ```
-owner-level（seo_settings 表）          ← 默认值（GA、Search Console、Person schema、默认 og）
+per-page SEO       ← 每个 microsite / 每条 published wiki·output entry 各自持有
         │
         ▼
-per-page override                     ← 默认页 / 每个 microsite / 每条 seo_landing_enabled wiki
-        │
-        ▼
-最终 <head>                            ← server 合并、SSR 渲染
+最终 <head>         ← server SSR 渲染
 ```
 
-- **owner-level（`seo_settings`）** 一次配，全 instance 共用：GA tracking ID、Search Console 验证、Person schema override、默认 OG 图、`extra_head_html`（万能注入）、`robots_override`、`sitemap_exclude`。
-- **per-page override** 在 `page_content` / `microsites` / `wiki_entries` 里：`seo_title` / `seo_description` / `seo_og_image_id` / `seo_canonical` / `seo_extra_head_html`，空则继承 owner-level。
-- **合并规则** 简单优先级：per-page 非空 → 用 per-page；否则用 owner-level；都空用 server 派生默认。
+- **per-microsite** 在 `microsites` 里：`seo_title` / `seo_description` / `seo_image`，编辑器里改（`microsite.set_seo` / `PUT /api/admin/microsites/:slug/seo`）。
+- **站点默认 SEO** 不是单独一层：它就是**首页 microsite 自己的 per-page SEO**。没有全 instance 的 SEO 设置表。
+- **合并规则** 无。每页读自己那一行；某字段为空时 server 从该页真实内容派生默认（如首页 `<meta description>` 从 `hero_prose` 派生，wiki/output landing 从 entry 内容派生）。
 
 ### Wiki SEO landing 页
 
@@ -1101,43 +1063,40 @@ per-page override                     ← 默认页 / 每个 microsite / 每条 
 - 自动进 `sitemap.xml`。
 - `seo_slug` 必须 owner-internal unique（索引已加）；空时从 title slugify。
 
-### `<head>` 内容的两种填法
+### `<head>` 内容
 
-按用户答复，两条路都给：
+server 从每页的 per-page SEO 字段拼 `<head>`：`<title>` + `<meta name="description">` + Open Graph（`og:title` / `og:description` / `og:image`）+ Twitter card。字段为空时从该页真实内容派生默认（见上）。
 
-1. **结构化字段**（admin 表单 + MCP `seo.set_owner`）：`analytics: {ga_id, plausible_domain, umami_id}` / `verifications: {google_search_console_token, bing_token}` / `default_og_image_id` / `person_schema_override`。Server 拼出标准 snippet（GA snippet、search-console meta tag 等）。最安全、零代码。
-2. **万能注入** `extra_head_html`：owner / AI 直接贴任何 HTML（GA gtag、第三方 SEO tool、Hotjar、…）。是 owner 自己的 instance，不做 sanitization，自担风险。
-
-二者**叠加**输出：先 server 拼的结构化 snippet，再 owner 注入的 `extra_head_html`。owner-level 和 per-page 都各有自己的 `extra_head_html`，按上下文合并。
+> 早期设计里有 owner-level 结构化字段（GA / Search Console / `extra_head_html`）和万能 HTML 注入；这些随全局 SEO 设置一并移除，不在当前实现里。
 
 ### sitemap.xml
 
 backend 动态生成，缓存 5 分钟。包含：
 
 - 默认页 `/{handle}` （或 v1 的 `/`）
-- 所有 `live` 状态的 `microsites.slug`，除非该 page 的 `seo_sitemap_include=false`
+- 所有 `live` 状态的 microsites，路径 `/p/<slug>`
 - 所有 `seo_landing_enabled=true` 的 wiki entries
-- `seo_settings.sitemap_exclude` 里的路径剔除
 
 每条带 `<lastmod>` 用 `updated_at`、`<changefreq>` 默认 `monthly`、`<priority>` 默认 0.5（microsites 0.8）。
 
 ### robots.txt
 
-backend 动态生成。默认：
+backend 动态生成，无 index 开关、无 owner override。规则由 instance 状态决定：
 
-```
-User-agent: *
-Disallow: /api/
-Disallow: /admin/
-Disallow: /login
-Disallow: /setup
-Disallow: /gate
-Disallow: /_stage/
-Disallow: /internal/
-Sitemap: https://{instance_host}/sitemap.xml
-```
+- **已 claim 且有 `public_url`** → 可索引（allow）：
 
-`seo_settings.robots_override` 非空就用 override（owner 完全替换默认）。
+  ```
+  User-agent: *
+  Allow: /
+  Sitemap: https://{public_url}/sitemap.xml
+  ```
+
+- **未 claim 或无 `public_url`** → 全部 disallow：
+
+  ```
+  User-agent: *
+  Disallow: /
+  ```
 
 ### OG image 自动生成
 
@@ -1165,15 +1124,14 @@ server 自动从 owner profile 拼一份：
 }
 ```
 
-`seo_settings.person_schema_override` 非空就用 owner 提供的 JSON 完全替换。
+（早期设计里有 owner 提供 JSON 完全替换的 `person_schema_override`；随全局 SEO 设置一并移除。）
 
-### admin SEO 面板（设计稿里没画，但要补）
+### admin 里的 SEO 编辑
 
-设计里 admin 有 `page` section 编辑默认页内容。SEO 面板独立一块（在 admin 左 nav 加 "seo"，或塞进 page section 的折叠区）：
+没有独立的全局 SEO 面板（早期设计的 `/admin/seo` 已移除）。SEO 就在它所属的对象旁边编辑：
 
-- **Global SEO** —— GA / Plausible / Search Console 表单 + 默认 OG image 上传 + Person schema override（高级折叠）+ robots.txt override（高级折叠）+ extra_head_html
-- **Per-page tabs** —— 默认页 / microsites 列表 / wiki SEO 列表，各自简表单（title / description / og_image / canonical / extra_head）
-- **预览** —— 输入一个 path，admin 显示最终拼出来的 `<head>` 是什么样（调 `seo.preview` endpoint）
+- **per-microsite** —— 在 microsite 编辑流程里设 `seo_title` / `seo_description` / `seo_image`。
+- **per-entry corpus** —— publish/unpublish wiki·output entry + 设 excerpt（`seo.set_entry_seo` / `PATCH /api/admin/corpus/:genre/:id/seo`）。
 
 ### 决策点
 
@@ -1183,11 +1141,9 @@ server 自动从 owner profile 拼一份：
 
 **J.3** Wiki landing 页的"Ask sijie about this" CTA：进 chat 时 pre-fill 一个问题（"tell me more about: {wiki.title}"），还是把 wiki body 直接当上下文塞进 conversation？**推荐：** pre-fill 问题（保持 chat surface 一致；不污染对话上下文）。
 
-**J.4** `extra_head_html` 是否做 sanitization。Owner 自己的 instance、自担风险 → 不做。但 v2 多租户时 owner A 不能让 owner B 的页执行自己的 JS。**推荐：** v1 不 sanitize；v2 多租户开启时切到允许列表（只放 `<meta>` `<link>` `<script>` 含特定 src host 等）。
+**J.4** Wiki landing 是否影响 chat 的 retrieval scope。如果 wiki `seo_landing_enabled=true` 但 `visibility='private'`，会出现一个对外可索引但 chat 时拒绝引用的怪情况。**推荐：** 强制 `seo_landing_enabled=true` 要求 `visibility='public'`，server 端校验。
 
-**J.5** Wiki landing 是否影响 chat 的 retrieval scope。如果 wiki `seo_landing_enabled=true` 但 `visibility='private'`，会出现一个对外可索引但 chat 时拒绝引用的怪情况。**推荐：** 强制 `seo_landing_enabled=true` 要求 `visibility='public'`，server 端校验。
-
-**J.6** Canonical URL 默认值。custom domain 设置后，canonical 应该指 custom domain 还是 instance domain？影响主搜索引擎对哪个 URL 当主版本。**推荐：** custom domain 一旦 verified，所有 canonical 自动指 custom domain；owner 可 per-page override。
+**J.5** Canonical URL 默认值。custom domain 设置后，canonical 应该指 custom domain 还是 instance domain？影响主搜索引擎对哪个 URL 当主版本。**推荐：** custom domain 一旦 verified，所有 canonical 自动指 custom domain。
 
 ---
 
@@ -1199,7 +1155,7 @@ server 自动从 owner profile 拼一份：
 4. **MCP 是 owner 的创作通道，不只是 ingest 通道。** 任何 owner-side 工作流，只要 AI 介入有价值（raw → wiki、写自定义页、打 tag、未来的 ghostwriting、replying），都做成工具集，不要做成 admin UI feature。admin UI 只负责监控和安全的明确控制（publish、rollback、revoke）。
 5. **自部署友好 > 功能多。** 任何需要外部 SaaS 账户的东西都是 v2 的事。
 6. **错误就是 UI 文案。** Backend code 稳定；前端字符串本地化；永远不要泄漏内部细节。
-7. **SEO 是 owner 的写作面，不是 server 的默认行为。** owner 必须能控 `<title>` / meta description / og / `<head>` 注入 / robots / sitemap / 结构化数据。server 提供合理默认，但全部可被 owner 在 admin 表单或通过 MCP 工具 override。
+7. **SEO 是 owner 的写作面，不是 server 的默认行为。** owner 每页各自控 `<title>` / meta description / og；没有 instance 级全局 SEO 设置，站点默认就是首页 microsite 自己的 per-page SEO。字段为空时 server 从该页真实内容派生默认。
 
 ---
 

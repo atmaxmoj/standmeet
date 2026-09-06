@@ -23,12 +23,10 @@ type SEOAdminDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountSEO mounts /seo + /seo/stats + /corpus/{genre}/{id}/seo.
+// MountSEO mounts per-entry publish/SEO at /corpus/{genre}/{id}/seo. The owner-wide SEO settings
+// (/seo, /seo/stats) were removed: SEO follows each microsite now, not a global settings section.
 func (h *Handlers) MountSEO(r chi.Router) {
 	face := h.SEOAdmin.Face
-	r.Get("/seo", h.dispatchOp(face, "seo.get_settings", emptyArgs, jsonOK))
-	r.Put("/seo", h.dispatchOp(face, "seo.update_settings", bodyArgs, jsonOK))
-	r.Get("/seo/stats", h.dispatchOp(face, "seo.stats", emptyArgs, jsonOK))
 	// Both genre and id sit in the path (the panel long ago folded wiki / output into
 	// one route).
 	r.Patch("/corpus/{genre}/{id}/seo",

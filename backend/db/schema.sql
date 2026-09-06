@@ -812,16 +812,6 @@ CREATE TABLE access_requests (
 CREATE INDEX access_requests_owner_status_idx
     ON access_requests(owner_id, status, created_at DESC);
 
--- seo_settings —— owner 维度的 SEO 全局开关。Singleton-per-owner。
-CREATE TABLE seo_settings (
-    owner_id        uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
-    site_title      text          NOT NULL DEFAULT '',
-    index_robots    bool          NOT NULL DEFAULT true,
-    sitemap_extras  jsonb         NOT NULL DEFAULT '[]'::jsonb,
-    og_template     text          NOT NULL DEFAULT '',
-    updated_at      timestamptz   NOT NULL DEFAULT now()
-);
-
 -- page_content —— owner public page 内容（hero / insights / projects /
 -- where / contact）。Singleton-per-owner（PK = owner_id）。各 section 用
 -- jsonb 存 schemaless 结构。设计稿 J / page-content.js 是字段语义来源。

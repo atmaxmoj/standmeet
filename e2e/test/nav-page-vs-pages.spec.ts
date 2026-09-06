@@ -48,7 +48,6 @@ const NAV_ENTRIES: readonly { slug: string; label: string }[] = [
   { slug: 'connectors', label: 'connectors' },
   { slug: 'api-mcp', label: 'api · mcp' },
   { slug: 'obsidian', label: 'obsidian' },
-  { slug: 'seo', label: 'seo' },
   { slug: 'ip-bans', label: 'ip bans' },
   { slug: 'account', label: 'account' },
   { slug: 'system', label: 'system' },

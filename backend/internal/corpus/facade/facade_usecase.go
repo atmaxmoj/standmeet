@@ -29,15 +29,11 @@ type (
 	ListPublishedWritingsPageResult = usecase.ListPublishedWritingsPageResult
 	MapEntry                        = usecase.MapEntry
 	Meta                            = usecase.Meta
-	OptionalFlag                    = usecase.OptionalFlag
-	OptionalText                    = usecase.OptionalText
-	OptionalTextList                = usecase.OptionalTextList
 	OutputLister                    = usecase.OutputLister
 	PromoteInput                    = usecase.PromoteInput
 	PromoteToOutputInput            = usecase.PromoteToOutputInput
 	RawDumpInput                    = usecase.RawDumpInput
 	RefResolver                     = usecase.RefResolver
-	SEOSettingsPatch                = usecase.SEOSettingsPatch
 	SaveWritingInput                = usecase.SaveWritingInput
 	SubjectivityCiteLookup          = usecase.SubjectivityCiteLookup
 	UpdateOutputReq                 = usecase.UpdateOutputReq
@@ -80,7 +76,6 @@ var (
 	OutputMetaTreePaths         = usecase.OutputMetaTreePaths
 	OutputPathByID              = usecase.OutputPathByID
 	OutputTreePaths             = usecase.OutputTreePaths
-	PatchSEOSettings            = usecase.PatchSEOSettings
 	PathSegment                 = usecase.PathSegment
 	PromoteToWiki               = usecase.PromoteToWiki
 	PromoteWikiToOutput         = usecase.PromoteWikiToOutput

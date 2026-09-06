@@ -242,10 +242,11 @@
 - inference: provider + 30d spend [✓ 内置]
 - data: storage + backup now + export corpus [✓ 内置]
 
-#### SEO（/admin/seo）
-- defaults form（site title / description / twitter / canonical / robots）[✓ 内置]
-- indexing stats（pages / outputs / posts）[✓ 内置]
-- OG cover preview + upload [✓ 内置]
+#### SEO（per-microsite，无独立 admin section）
+- 每个 microsite 在编辑流程里设自己的 `seo_title` / `seo_description` / `seo_image`（`microsite.set_seo`）[✓ 内置]
+- 注入服务页 `<head>`：title + meta description + Open Graph（og:title/og:description/og:image）+ Twitter card [✓ 内置]
+- 站点默认 SEO = 首页 microsite 自己的 per-page SEO；无 instance 级全局设置 [✓ 内置]
+- live microsites 进动态 `/sitemap.xml`（`/p/<slug>`）[✓ 内置]
 
 #### Obsidian（/admin/obsidian）
 - vault stats（mode / notes / size / last sync）[✓ 内置]
@@ -269,7 +270,7 @@
 
 #### Wiki / Output / SEO
 - promote_wiki_to_output / list_output [✓ output-promotion]
-- set_wiki_slug / seo.update_settings [~ seo-feeds]
+- set_wiki_slug / seo.set_entry_seo（per-entry publish + excerpt）/ microsite.set_seo（per-microsite）[~ seo-feeds]
 
 #### Skills
 - skill_create / skill_list / skill_delete [✓ skills]
@@ -379,7 +380,7 @@
 | A23 | 拉新工作 + dedup + TTL | jobs.fetch_new → Redis 1d 池 | [✓ job-fetch-multi-source, -deduplicates, -ttl-eviction] |
 | A24 | 起 resume draft + iterate | resume.draft / update_draft / discard_draft | [✓ resume-draft-*] |
 | A25 | 投 application（闭环关键） | applications.commit → 写行 + auto code + PDF + QR | [✓ applications-commit, -qr-works, -playwright-hint] |
-| A26 | SEO 全局设置 | `/admin/seo` → defaults form + indexing stats + og preview | [~ seo-feeds] |
+| A26 | per-microsite SEO + sitemap | microsite 编辑里设 `seo_title` / `seo_description` / `seo_image`（注入服务页 `<head>`）；站点默认 = 首页 microsite；live microsites 进 `/sitemap.xml` | [~ seo-feeds] |
 | A27 | 添加 connector | `/admin/connectors` → dashed "+" card / header button → ConnectorAddModal → category tabs → config form → connect | [✓ connector-add-modal] |
 | A28 | 看 dashboard | `/admin/dashboard` → 4 KPI + sparkline + jobs heat + recent visitors + needs-your-hand | [✓ admin-auth-guards] |
 | A29 | 看 drafts + open composer | `/admin/drafts` → draft card (PDF preview + status pill + diff) → "open composer →" → 6 panel + preview | [~ drafts-composer] |

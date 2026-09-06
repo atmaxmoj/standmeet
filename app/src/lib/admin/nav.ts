@@ -15,7 +15,7 @@ export type AdminSlug =
   | 'raw' | 'wiki' | 'subjectivity' | 'output' | 'conversations' | 'codes' | 'requests'
   | 'connectors' | 'microsites' | 'api-mcp' | 'account'
   | 'skills' | 'writings' | 'drafts' | 'applications'
-  | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system'
+  | 'dashboard' | 'sources' | 'listings' | 'system'
   | 'preview' | 'obsidian' | 'embeds' | 'assets' | 'data'
   | 'roles' | 'prompts' | 'ip-bans';
 
@@ -96,7 +96,6 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: 'settings',
     items: [
-      { slug: 'seo', label: 'seo' },
       { slug: 'ip-bans', label: 'ip bans' },
       { slug: 'account', label: 'account' },
       { slug: 'system', label: 'system' },

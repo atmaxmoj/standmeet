@@ -147,18 +147,5 @@
     "importExport": "importar / exportar",
     "help": "La importación elige la carpeta de su bóveda de Obsidian (wiki / subjectivity / raw / writings) e inserta las notas de corpus coincidentes por su ruta de bóveda. La exportación descarga su corpus como una bóveda de markdown + frontmatter.",
     "noSync": "Sin sincronización en vivo, sin observador de archivos — estas dos acciones son todo el mecanismo, y ninguno se ejecuta a menos que lo ejecute."
-  },
-  "seo": {
-    "intro": "Valores predeterminados aplicados en todo el sitio público. SEO por salida / por publicación vive con la entrada individual. El título del sitio se edita aquí; la descripción social y el anfitrión canónico reflejan su prosa de héroe y dominio — edítelos donde viven.",
-    "defaults": "valores predeterminados",
-    "robots": "índice, seguir (robots)",
-    "siteTitleHint": "La pestaña del navegador y el nombre que muestran los motores de búsqueda. Vacío y las páginas vuelven a su identificador.",
-    "ogTemplateHint": "URL de la imagen que usan las tarjetas sociales. Vacío y los enlaces compartidos sin imagen de tarjeta.",
-    "ogDescription": "og:descripción",
-    "usesHeroProse": "Usa tu prosa de héroe.",
-    "editOnPage": "editar en la sección Página →",
-    "canonicalHost": "anfitrión canónico",
-    "indexing": "indexación · publicado",
-    "totalInScope": "total en alcance: {total}"
   }
 }

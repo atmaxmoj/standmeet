@@ -143,18 +143,6 @@ func (w *Wiki) SourceRawIDs() []string {
 	return slices.Clone(w.sourceRawIDs)
 }
 
-// SEOSettings — owner-scoped global SEO settings.
-// Field order follows govet fieldalignment: time.Time first (internal ptr at 16), strings
-// in the middle (ptr at 0), slice near the end (ptr at 0), bool last to take the tail padding.
-type SEOSettings struct {
-	UpdatedAt     time.Time
-	OwnerID       string
-	SiteTitle     string
-	OGTemplate    string
-	SitemapExtras []string
-	IndexRobots   bool
-}
-
 // ErrWikiNotFound — looking up a wiki by id found nothing.
 var ErrWikiNotFound = errors.New("wiki entry not found")
 

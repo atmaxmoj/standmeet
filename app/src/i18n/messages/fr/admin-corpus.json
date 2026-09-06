@@ -147,18 +147,5 @@
     "importExport": "importer / exporter",
     "help": "L'importation choisit votre dossier de coffre Obsidian (wiki / subjectivity / raw / writings) et upserts les notes de corpus correspondantes par leur chemin de coffre. L'exportation télécharge votre corpus sous forme d'un coffre de markdown + frontmatter.",
     "noSync": "Aucune synchronisation en direct, aucun observateur de fichiers — ces deux actions sont tout le mécanisme, et aucune n'exécute sauf si vous l'exécutez."
-  },
-  "seo": {
-    "intro": "Valeurs par défaut appliquées sur tout le site public. SEO par sortie / par message vit avec l'entrée individuelle. Le titre du site est modifié ici ; la description sociale et l'hôte canonique reflètent votre prose héroïque et votre domaine — modifiez-les où ils vivent.",
-    "defaults": "défauts",
-    "robots": "index, follow (robots)",
-    "siteTitleHint": "L'onglet du navigateur et le nom que les moteurs de recherche affichent. Laissé vide, les pages retournent à votre poignée.",
-    "ogTemplateHint": "URL de l'image que les cartes sociales utilisent. Laissez vide et les liens partagés n'ont pas d'image de carte.",
-    "ogDescription": "og:description",
-    "usesHeroProse": "Utilise votre prose héroïque.",
-    "editOnPage": "modifier dans la section Page →",
-    "canonicalHost": "hôte canonique",
-    "indexing": "indexation · publié",
-    "totalInScope": "total en portée : {total}"
   }
 }

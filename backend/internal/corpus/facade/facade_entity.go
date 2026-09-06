@@ -11,7 +11,6 @@ type (
 	DocumentGenre  = entity.DocumentGenre
 	Output         = entity.Output
 	Raw            = entity.Raw
-	SEOSettings    = entity.SEOSettings
 	Wiki           = entity.Wiki
 	Writing        = entity.Writing
 )

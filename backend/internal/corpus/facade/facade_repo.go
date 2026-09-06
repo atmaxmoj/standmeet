@@ -21,7 +21,6 @@ type (
 	OutputMeta          = repo.OutputMeta
 	OutputRepo          = repo.OutputRepo
 	PageCursor          = repo.PageCursor
-	PublishedCounts     = repo.PublishedCounts
 	RawRepo             = repo.RawRepo
 	SEORepo             = repo.SEORepo
 	SlugTitle           = repo.SlugTitle

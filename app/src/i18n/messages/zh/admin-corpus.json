@@ -147,18 +147,5 @@
     "importExport": "导入 / 导出",
     "help": "导入会选取你的 Obsidian 库文件夹（wiki / subjectivity / raw / writings），并按库中路径更新或插入对应的语料库笔记。导出会把你的语料库下载为一个 markdown + frontmatter 的库。",
     "noSync": "没有实时同步，没有文件监视——这两个动作就是全部机制，不运行就什么都不会发生。"
-  },
-  "seo": {
-    "intro": "应用于整个公开站点的默认值。逐输出／逐文章的 SEO 随各条目一起管理。站点标题在此编辑；社交描述与规范主机镜像你的 hero 文案与域名——请到它们各自所在处编辑。",
-    "defaults": "默认值",
-    "robots": "index, follow（robots）",
-    "siteTitleHint": "浏览器标签页以及搜索引擎显示的名称。留空时，页面回退到你的 handle。",
-    "ogTemplateHint": "社交卡片所用图片的 URL。留空则分享链接不带卡片图。",
-    "ogDescription": "og:description",
-    "usesHeroProse": "使用你的 hero 文案。",
-    "editOnPage": "在「页面」部分编辑 →",
-    "canonicalHost": "规范主机",
-    "indexing": "索引 · 已发布",
-    "totalInScope": "范围内总数：{total}"
   }
 }

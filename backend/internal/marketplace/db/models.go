@@ -502,15 +502,6 @@ type RoleWaypoint struct {
 	IsTerminal   bool
 }
 
-type SeoSetting struct {
-	OwnerID       pgtype.UUID
-	SiteTitle     string
-	IndexRobots   bool
-	SitemapExtras []byte
-	OgTemplate    string
-	UpdatedAt     pgtype.Timestamptz
-}
-
 type Skill struct {
 	ID           pgtype.UUID
 	OwnerID      pgtype.UUID

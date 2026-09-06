@@ -54,14 +54,6 @@ func Domains(deps usecase.AllowedDomainsDeps) []fp.Op {
 
 var noArgs = json.RawMessage(`{"type":"object","properties":{}}`)
 
-// nonNilStrings —— a nil slice serializes to null; callers want [].
-func nonNilStrings(in []string) []string {
-	if in == nil {
-		return []string{}
-	}
-	return in
-}
-
 func domainSchema(desc string) json.RawMessage {
 	return json.RawMessage(`{
 		"type":"object",

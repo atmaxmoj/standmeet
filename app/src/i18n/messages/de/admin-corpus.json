@@ -147,18 +147,5 @@
     "importExport": "importieren / exportieren",
     "help": "Import wählt Ihren Obsidian-Vault-Ordner (wiki / subjectivity / raw / writings) aus und aktualisiert die entsprechenden Corpus-Notizen nach ihrem Vault-Pfad. Export lädt Ihren Corpus als Vault aus Markdown + Frontmatter.",
     "noSync": "Kein Live-Sync, kein Datei-Beobachter — diese beiden Aktionen sind der ganze Mechanismus, und keiner läuft, wenn Sie ihn nicht ausführen."
-  },
-  "seo": {
-    "intro": "Standards werden auf der ganzen öffentlichen Website angewendet. Pro-Output / Pro-Post SEO ist mit dem einzelnen Eintrag verbunden. Seite Titel wird hier bearbeitet; die Social-Beschreibung und der kanonische Host spiegeln Ihre Hero-Prosa und Domain — bearbeiten Sie diese dort, wo sie existieren.",
-    "defaults": "standards",
-    "robots": "index, follow (robots)",
-    "siteTitleHint": "Der Browser-Tab und der Name, den Suchmaschinen anzeigen. Leer gelassen greifen Seiten auf Ihren Handle zurück.",
-    "ogTemplateHint": "URL des Bildes, das Social Cards verwenden. Leer gelassen und geteilte Links haben kein Kartenbild.",
-    "ogDescription": "og:description",
-    "usesHeroProse": "Verwendet Ihre Hero-Prosa.",
-    "editOnPage": "auf der Page-Sektion bearbeiten →",
-    "canonicalHost": "kanonischer host",
-    "indexing": "indexierung · veröffentlicht",
-    "totalInScope": "gesamt im bereich: {total}"
   }
 }
