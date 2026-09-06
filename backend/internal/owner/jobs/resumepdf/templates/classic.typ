@@ -18,16 +18,12 @@
 #let muted = rgb("#5F564B")
 #let faint = rgb("#9B9282")
 
+// No footer: the access URL lives in the header QR, not a bottom-right text line (the owner read
+// that line as a watermark). Dropping it also removes the page-number line.
 #set page(
   width: 8.5in, height: 11in,
   margin: (x: 0.62in, top: 0.5in, bottom: 0.55in),
   fill: paper,
-  footer: context {
-    set text(font: ("JetBrains Mono", "Menlo", "Noto Sans Mono CJK SC"), size: 7pt, fill: faint)
-    grid(columns: (1fr, 1fr),
-      align(left)[page #counter(page).display() / #counter(page).final().first()],
-      align(right)[#qr-url])
-  },
 )
 #set text(font: ("Newsreader", "Georgia", "Noto Serif CJK SC"), fill: ink, size: 9.5pt)
 #set par(leading: 0.5em)

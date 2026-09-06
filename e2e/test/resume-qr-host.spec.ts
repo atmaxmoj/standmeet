@@ -3,7 +3,8 @@
 // internal Coolify host a recruiter can't reach. That specific case was bad DATA (the instance's
 // public_url was left as the internal host), but this guard pins the CONTRACT so a future regression
 // to `window.location.origin` / the request host can't slip through: claim with a distinctive
-// public_url, commit, and assert the committed PDF's footer carries exactly that host + ?code=.
+// public_url, commit, and assert the commit's `qr_url` (what the header QR encodes) carries exactly
+// that host + ?code=. Asserted on the commit response, not a PDF footer — the footer was removed.
 //
 // (v1 is single-owner, so the URL is `<public_url>?code=<code>` with no /handle — by design,
 // jobsuc/applications.go.) Matrix C1.
@@ -16,7 +17,6 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { jobsFetchNew, jobsRegisterSource } from '@/fixtures/jobs';
 import { applicationsCommit, resumeDraft, sampleResumeContent } from '@/fixtures/resume';
-import { inspectPDF } from '@/fixtures/pdf-inspect';
 
 const OWNER = {
   email: 'qrhost@example.com', password: 'correct-horse-battery-staple',
@@ -35,20 +35,22 @@ test.describe('resume QR/footer uses the configured public_url', () => {
     await request.dispose();
   });
 
-  test('the committed PDF footer carries <public_url>?code=, not the request host', async ({ request }) => {
+  test('the commit qr_url carries <public_url>?code=, not the request host', async ({ request }) => {
     const committed = await commitResume(request);
-    const { text } = await inspectPDF(committed.pdf);
+    const qr = committed.view.qr_url;
 
-    // Assert host and code separately — PDF text extraction can split a long URL across lines.
-    expect(text, 'footer carries the configured public host').toContain('recruiter-facing.example');
-    expect(text, 'footer carries the code query').toContain('code=');
+    // Host + code query + the issued code — the builder may add a trailing slash before ?code=, so
+    // assert the parts rather than an exact concatenation.
+    expect(qr, 'qr_url uses the configured public host').toContain('recruiter-facing.example');
+    expect(qr, 'qr_url carries the code query').toContain('?code=');
+    expect(qr, 'qr_url carries the issued code').toContain(committed.view.access_code);
     // A regression to the request origin / internal host would show localhost or an sslip.io host.
-    expect(text).not.toContain('localhost');
-    expect(text).not.toContain('sslip.io');
+    expect(qr).not.toContain('localhost');
+    expect(qr).not.toContain('sslip.io');
   });
 });
 
-async function commitResume(request: APIRequestContext): Promise<{ pdf: Buffer }> {
+async function commitResume(request: APIRequestContext) {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'qrhost-pdf');
   const sid = await initMCP(request, token);

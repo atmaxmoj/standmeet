@@ -18,12 +18,8 @@
   width: 8.5in, height: 11in,
   margin: (x: 0.75in, top: 0.6in, bottom: 0.6in),
   fill: paper,
-  footer: context {
-    set text(font: ("JetBrains Mono", "Menlo", "Noto Sans Mono CJK SC"), size: 7pt, fill: faint)
-    grid(columns: (1fr, 1fr),
-      align(left)[page #counter(page).display() / #counter(page).final().first()],
-      align(right)[#qr-url])
-  },
+  // No footer: the access URL lives in the header QR, not a bottom-right text line (read as a
+  // watermark). Dropping it also removes the page-number line.
 )
 #set text(font: ("Newsreader", "Georgia", "Noto Serif CJK SC"), fill: ink, size: 10pt)
 #set par(leading: 0.55em)

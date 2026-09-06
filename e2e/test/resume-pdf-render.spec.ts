@@ -106,10 +106,6 @@ test.describe('resume PDF render contract (Typst)', () => {
       expect(info.text).toContain(content.works[0]!.company); // "To Acme."
       // First sentence of the cover letter prose (won't span a line wrap).
       expect(info.text).toContain('The role caught my eye');
-      // The page numbers must tell the truth. This fixture carries a cover letter and is two
-      // pages — which happens to line up, so **this test alone cannot expose F-E-14**: that
-      // only shows up when there's no cover letter (the test below).
-      expectPageLabelsMatch(info.text, info.pages);
     });
 
   // The one without a cover letter — where F-E-14 shows up.
@@ -133,7 +129,6 @@ test.describe('resume PDF render contract (Typst)', () => {
       // The precondition must be falsifiable: it really is one page, otherwise what's
       // asserted below is testing something else.
       expect(info.pages, 'no cover letter ⇒ one page').toBe(1);
-      expectPageLabelsMatch(info.text, info.pages);
     });
 
   // Customization: the owner picks the 'compact' template in resume.draft, and the
@@ -156,31 +151,9 @@ test.describe('resume PDF render contract (Typst)', () => {
       expect(info.text).toContain(content.identity.name.toLowerCase());
       expect(info.text).toContain(content.works[0]!.company);
       expect(info.text).toContain(content.educations[0]!.school);
-      expectPageLabelsMatch(info.text, info.pages);
     });
 });
 
-// expectPageLabelsMatch — every `page N / M` footer's M must equal the **real** page count.
-// What's asserted is whether the document's own claimed total is correct, not merely
-// "does a page number get printed" — the latter would stay green even if M were hardcoded
-// to 2.
-function expectPageLabelsMatch(text: string, pages: number): void {
-  // Strip all whitespace before matching: the footer line uses monospace + letter-spacing,
-  // so **the text layer actually reads `P A G E 2 / 2`** — with a space inserted between
-  // every letter. The first version of this test wrote `page\s+\d+` the way it looks on
-  // screen, so nothing matched at all, and it went red on "label not found" instead of
-  // "total is wrong". The extraction layer doesn't look like the screen — its shape has to
-  // be read, not guessed (same family as [[right-bytes-wrong-glyphs]]).
-  const flat = text.replace(/\s+/g, '');
-  const labels = [...flat.matchAll(/page(\d+)\/(\d+)/gi)];
-  expect(
-    labels.length,
-    `the footer prints a page label — text tail was: ${JSON.stringify(text.slice(-200))}`,
-  ).toBeGreaterThan(0);
-  for (const m of labels) {
-    expect(
-      Number(m[2]),
-      `the footer claims ${m[2]} pages but the document has ${pages}`,
-    ).toBe(pages);
-  }
-}
+// (The footer — page-number line + URL — was removed at the owner's request; the résumé no longer
+// prints "page N / M", so the old page-label truthfulness check went with it. Page COUNT is still
+// asserted via info.pages above, which reads the PDF's /Count metadata directly.)
