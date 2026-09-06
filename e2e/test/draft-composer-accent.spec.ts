@@ -76,6 +76,26 @@ async function seedDraft(playwright: Playwright): Promise<string> {
   });
   expect(res.status(), 'seed draft').toBeLessThan(300);
   const id = (await res.json() as { id: string }).id;
+  // A fresh owner's first draft seeds EMPTY (seedResumeContent copies a prior draft, and there is
+  // none) — an empty résumé renders only ~30 chars, so the accent must be applied to a draft with
+  // real content for "the PDF renders with the accent" to mean anything. PATCH real content in.
+  const resume_content = {
+    identity: {
+      name: 'Accent Owner', email: 'a@x.io', phone: '', location_line: 'Remote', site: '', links: [],
+    },
+    summary: 'A backend engineer who ships trustworthy software with real verification.',
+    works: [{
+      company: 'Northwind', title: 'Senior Engineer', location: 'Remote',
+      period: { start: '2020-01', end: '2023-06' }, bullets: ['Owned the pipeline end to end.'],
+    }],
+    educations: [{ school: 'State University', degree: 'BSc', period: { start: '2014', end: '2018' } }],
+    skills: [{ category: 'Languages', items: ['Go', 'TypeScript'] }],
+    social: [], custom: [],
+  };
+  const patch = await request.patch(`${BACKEND}/api/admin/drafts/${id}`, {
+    headers: { 'X-Csrftoken': csrf }, data: { resume_content, template: '' },
+  });
+  expect(patch.status(), 'seed content').toBeLessThan(300);
   await request.dispose();
   return id;
 }
