@@ -53,6 +53,19 @@ function lastRunView(iso: string | null): string {
   return iso === null ? '—' : ago(iso);
 }
 
+// parseSchedule —— the backend sends a panel string like "every 8s" / "every 5m" / "every 1h"
+// (periodic.scheduleOf). Split off the count + unit so the component can render it translated. The
+// backend can also emit a compound Go duration ("1m30s") or "—" (the empty-state row); those don't
+// match and the component falls back to showing the raw string.
+export function parseSchedule(schedule: string): { n: number; unit: 's' | 'm' | 'h' } | null {
+  const m = /^every (\d+)([smh])$/.exec(schedule);
+  if (m === null) return null;
+  const unit = m[2];
+  // narrow to the union without a type assertion (the [smh] class guarantees it, but TS types it as string)
+  if (unit !== 's' && unit !== 'm' && unit !== 'h') return null;
+  return { n: Number(m[1]), unit };
+}
+
 // jobRowViews —— jobs → table row display strings. Empty (subsystem not up) → one honest placeholder row, not a fake job.
 export function jobRowViews(jobs: ScheduledJob[]): JobRowView[] {
   if (jobs.length === 0) {

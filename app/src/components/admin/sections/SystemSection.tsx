@@ -15,7 +15,7 @@ import { InferenceUsagePanel } from '@/components/admin/sections/system/Inferenc
 import { SandboxPanel } from '@/components/admin/sections/system/SandboxPanel';
 import { SessionsPanel } from '@/components/admin/sections/system/SessionsPanel';
 import { UpgradePanel } from '@/components/admin/sections/system/UpgradePanel';
-import { useScheduledJobs, jobRowViews } from '@/lib/admin/use-jobs';
+import { useScheduledJobs, jobRowViews, parseSchedule } from '@/lib/admin/use-jobs';
 import {
   useSystemInfo, deployView, healthList, resourceStats, clusterRows,
   type SystemInfo, type ClusterRowView,
@@ -166,13 +166,22 @@ function JobsTable() {
   );
 }
 
+// SCHED_KEY —— schedule unit → its "every {n}…" message key (adminShell.system).
+const SCHED_KEY = { s: 'everySec', m: 'everyMin', h: 'everyHour' } as const;
+
+function ScheduleText({ schedule }: { schedule: string }) {
+  const t = useTranslations('adminShell.system');
+  const p = parseSchedule(schedule);
+  return <>{p ? t(SCHED_KEY[p.unit], { n: p.n }) : schedule}</>;
+}
+
 function JobRow({ name, schedule, last, status }: { name: string; schedule: string; last: string; status: string }) {
   const t = useTranslations('adminShell.system');
   const tone = status === 'ok' ? 'text-(--color-accent)' : 'text-(--color-amber)';
   return (
     <tr className="hover:bg-(--color-surface)/30">
       <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60 font-serif text-[15px]">{name}</td>
-      <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[11.5px] tabular-nums text-(--color-muted)">{schedule}</td>
+      <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[11.5px] tabular-nums text-(--color-muted)"><ScheduleText schedule={schedule} /></td>
       <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[11.5px] tabular-nums text-(--color-muted)">{last}</td>
       <td className={`px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[10px] tracking-[0.14em] uppercase ${tone}`}>{t('statusDot')} {status}</td>
     </tr>
