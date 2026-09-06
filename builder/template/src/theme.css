@@ -6,6 +6,14 @@
 
 @import "tailwindcss";
 
+/* Scan the SDK widgets too. They live in node_modules, which Tailwind v4 does NOT scan by default —
+   so a utility class used ONLY inside a widget (e.g. the CorpusWidget card list's `flex-col`, which
+   no owner page happens to also use) generated zero CSS, and the widget rendered unstyled: the
+   corpus cards laid out in a cramped horizontal row instead of a vertical stack. Scanning the built
+   SDK makes every class its widgets use real CSS. Path is relative to this file at build time
+   (runner.mjs lays the workspace out as src/theme.css + node_modules/@standmeet/sdk). */
+@source "../node_modules/@standmeet/sdk";
+
 /* The two brand faces. The app self-hosts these via next/font; a microsite loads them from
    Google Fonts (the only external host microsites rely on for type). Family names must match
    the --font-* tokens below, or the bytes are right but the glyphs fall back. */

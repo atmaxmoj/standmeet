@@ -105,6 +105,23 @@ test.describe('the default homepage opens corpus cards inline (no redirect)', ()
         'opening a card must not navigate away from the homepage root').toBe('/');
     });
 
+  // The CorpusWidget renders its cards in `<ol className="flex flex-col">`. `flex-col` is used only
+  // inside the SDK widget, not in the owner's App.tsx — and Tailwind v4 doesn't scan node_modules by
+  // default, so without `@source` for the SDK it compiled to NOTHING and the list fell back to
+  // flex-direction:row: the corpus cards crammed into a horizontal strip (a real prod defect). A
+  // text/behaviour assertion can't see this ([[text-assertion-cannot-see-layout]]) — assert the
+  // computed direction. RED without the theme.css @source; GREEN with it.
+  test('the corpus card list stacks vertically (SDK flex-col actually compiles)',
+    async ({ page }) => {
+      await goto(page, '/');
+      await expect(page.getByText(NOTE_TITLE, { exact: false }).first()).toBeVisible({ timeout: 20_000 });
+      const dir = await page.evaluate(() => {
+        const ol = [...document.querySelectorAll('ol')].find((o) => getComputedStyle(o).display === 'flex');
+        return ol ? getComputedStyle(ol).flexDirection : 'no-flex-ol';
+      });
+      expect(dir, 'the corpus card <ol> must be flex-direction:column, not a horizontal row').toBe('column');
+    });
+
   // The default template reproduces the original long-scroll page, not the thin earlier version:
   // projects + where-I-am + contact sections all ship, so a fresh owner gets a full page to edit.
   // RED if the template regressed to hero + corpus only.
