@@ -80,3 +80,38 @@ describe('fromPuckData grouping (U3)', () => {
     expect(rc.educations).toEqual([]); // none present
   });
 });
+
+// U4 — MOVING sections must change the canonical output, per repeatable type AND for the left-rail
+// order. These are the "reorder actually reorders" guards: they feed a NON-DEFAULT arrangement and
+// assert the output follows it, so a future change that stopped honouring arrangement goes RED here
+// (an identity round-trip would stay green because it never moves anything).
+describe('reorder is honoured — moving sections reaches resume_content (U4)', () => {
+  const item = (type: string, props: Record<string, unknown>) => ({ type, props });
+
+  it('reordering repeatable entries (works, educations) flips their canonical order', () => {
+    // Default seed order is [Alpha, Beta] / [Old U, New U]; here they are dragged into the reverse.
+    const pd: PuckData = {
+      root: { props: { accent: '', fontScale: 1, leftWidth: 0.9, leftOrder: ['skills', 'education', 'custom'], coverLetter: '' } },
+      content: [
+        item(SECTION.experience, { title: 'Beta', company: 'Beta', location: '', start: '', end: '', bullets: [] }),
+        item(SECTION.experience, { title: 'Alpha', company: 'Alpha', location: '', start: '', end: '', bullets: [] }),
+        item(SECTION.education, { school: 'New U', degree: '', start: '', end: '' }),
+        item(SECTION.education, { school: 'Old U', degree: '', start: '', end: '' }),
+      ],
+      zones: {},
+    };
+    const rc = fromPuckData(pd);
+    expect(rc.works.map((w) => w.company), 'works follow the dragged order').toEqual(['Beta', 'Alpha']);
+    expect(rc.educations.map((e) => e.school), 'educations follow the dragged order').toEqual(['New U', 'Old U']);
+  });
+
+  it('a non-default left-rail order is carried through verbatim (leftOrder)', () => {
+    const reordered = ['custom', 'skills', 'education']; // moved from the ['skills','education','custom'] default
+    const pd: PuckData = {
+      root: { props: { accent: '', fontScale: 1, leftWidth: 0.9, leftOrder: reordered, coverLetter: '' } },
+      content: [item(SECTION.header, { name: 'N', email: '', locationLine: '' })],
+      zones: {},
+    };
+    expect(fromPuckData(pd).leftOrder, 'the left-rail arrangement reaches resume_content').toEqual(reordered);
+  });
+});
