@@ -164,13 +164,16 @@ function CodeSelect({
   codes, codeId, onCode,
 }: { codes: readonly CodeView[]; codeId: string; onCode: (id: string) => void }) {
   const t = useTranslations('adminShell.composer');
-  return codes.length === 0
-    ? <span className="mono text-[10px] text-(--color-faint)" data-testid="composer-code-empty">{t('codeNone')}</span>
-    : (
-      <SelectField testid="composer-code-select" aria-label="access code" value={codeId} onChange={(e) => onCode(e.target.value)} mono>
-        {codes.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.code}</option>)}
-      </SelectField>
-    );
+  // The picker is ALWAYS present — whether there are codes to pick is a data question, separate from
+  // whether the control exists (owner: "no active codes 和有没有 picker 有什么关系"). Empty → a single
+  // placeholder option (SEND still auto-issues a fresh code when none is picked); non-empty → the codes.
+  return (
+    <SelectField testid="composer-code-select" aria-label="access code" value={codeId} onChange={(e) => onCode(e.target.value)} mono>
+      {codes.length === 0
+        ? <option value="" data-testid="composer-code-empty">{t('codeNone')}</option>
+        : codes.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.code}</option>)}
+    </SelectField>
+  );
 }
 
 function ConfirmSend({

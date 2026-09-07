@@ -53,10 +53,13 @@ test.describe('resume PDF renders CJK glyphs (not tofu)', () => {
     const committed = await commitResume(request, content);
     const info = await inspectPDF(committed.pdf);
 
-    expect(info.text.length, 'the PDF has a real text layer').toBeGreaterThan(200);
-    // The template lowercases the name; CJK has no case, so it is unchanged.
-    expect(info.text, 'CJK name is a real glyph in the PDF, not tofu').toContain(CJK_NAME);
-    expect(info.text, 'CJK bullet is a real glyph in the PDF, not tofu').toContain(CJK_BULLET);
+    // NFKC-normalise: Chromium's PDF text layer can extract a CJK glyph as its compatibility codepoint
+    // (e.g. a radical lookalike); NFKC canonicalises those back so an exact CJK check holds.
+    const text = info.text.normalize('NFKC');
+    expect(text.length, 'the PDF has a real text layer').toBeGreaterThan(200);
+    // The render lowercases the name; CJK has no case, so it is unchanged.
+    expect(text, 'CJK name is a real glyph in the PDF, not tofu').toContain(CJK_NAME.normalize('NFKC'));
+    expect(text, 'CJK bullet is a real glyph in the PDF, not tofu').toContain(CJK_BULLET.normalize('NFKC'));
   });
 });
 

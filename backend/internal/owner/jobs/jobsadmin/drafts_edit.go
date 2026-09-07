@@ -87,6 +87,9 @@ func previewDraft(deps Deps) http.HandlerFunc {
 			return
 		}
 		app := jobsmodel.Application{
+			// The id only shapes the print URL (/print/application/<id>); the payload travels by
+			// one-shot token. Use the draft id so the URL resolves (an empty id would 404 → blank).
+			ID:            draft.ID,
 			ResumeContent: draft.ResumeContent,
 			Template:      draft.Template,
 			JobSnapshot:   draft.JobSnapshot,

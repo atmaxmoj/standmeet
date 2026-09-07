@@ -9,15 +9,12 @@
 
 import { notFound } from 'next/navigation';
 
-import { ResumePage, type JobContext } from '@/components/admin/resume-page/ResumePage';
-import type { ResumeContent } from '@/lib/admin/resume-content';
+import { ResumePuckRender } from '@/components/admin/resume-page/ResumePuckRender';
 import {
   fetchPrintPayload,
   toResumeContent,
   type PrintPayloadWire,
 } from '@/lib/admin/print-payload';
-
-import styles from '@/app/print/application/[id]/page.module.css';
 
 // Force dynamic — never cache; the token in the URL would defeat caching
 // anyway, and the data is one-shot from Redis.
@@ -37,34 +34,11 @@ export default async function PrintPage({
   return payload ? <PrintBody payload={payload} /> : notFound();
 }
 
-// pagesFor — which pages this document actually renders. **Page count has
-// only this one source**: the footer's "/ M" is derived from
-// `pages.length`, so it can never drift from the document (F-E-14: M used
-// to be hardcoded in i18n copy, so a one-page resume with no cover letter
-// still printed "page 1 / 2").
-function pagesFor(content: ResumeContent): (0 | 1)[] {
-  return (content.coverLetter ?? '').trim() !== '' ? [0, 1] : [0];
-}
-
+// The résumé is drawn by Puck's own <Render> from the same config as the editor (A3: one renderer).
+// Pagination (résumé + optional cover-letter page) is handled inside that render via CSS breaks, so
+// this route no longer computes pages or passes a separate job context — the job's role/company are
+// draft metadata, not résumé content, so they are not printed.
 function PrintBody({ payload }: { payload: PrintPayloadWire }) {
   const content = toResumeContent(payload.resume_content);
-  const job: JobContext = {
-    role: payload.job_snapshot.title,
-    company: payload.job_snapshot.company,
-  };
-  // pageCount is the **same** judgment as "which pages render", so the
-  // footer's "/ M" can never drift from the document (F-E-14: M used to be
-  // hardcoded in i18n copy, so a one-page resume with no cover letter still
-  // printed "1 / 2").
-  const pages = pagesFor(content);
-  return (
-    <div className={styles.printSurface}>
-      {pages.map((i) => (
-        <ResumePage
-          key={i} content={content} job={job} qrURL={payload.qr_url}
-          pageIndex={i} pageCount={pages.length === 2 ? 2 : 1}
-        />
-      ))}
-    </div>
-  );
+  return <ResumePuckRender content={content} qrURL={payload.qr_url} />;
 }

@@ -69,6 +69,13 @@ function fullContent(): Record<string, unknown> {
 let draftID = '';
 let emptyID = '';
 
+// spacedRe —— match a sentinel case-insensitively even when the PDF text layer split it with
+// inter-glyph spaces (a letter-spaced heading). Escapes regex metachars; allows \s* between chars.
+function spacedRe(value: string): RegExp {
+  const chars = value.split('').map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return new RegExp(chars.join('\\s*'), 'i');
+}
+
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('résumé · every field of resume_content reaches the rendered PDF', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -84,10 +91,15 @@ test.describe('résumé · every field of resume_content reaches the rendered PD
   });
 
   test('A1/A2 · full-field sweep → all sentinels + both period forms in the PDF', async ({ adminPage }) => {
-    const text = await pdfText(adminPage, draftID);
-    const hay = text.toLowerCase();
+    // NFKC-normalise: the PDF text layer can extract a CJK glyph as its compatibility codepoint (e.g.
+    // 文 U+6587 → ⽂ U+2F00 Kangxi radical); NFKC canonicalises those back so an exact CJK check holds.
+    const text = (await pdfText(adminPage, draftID)).normalize('NFKC');
     for (const [field, value] of Object.entries(S)) {
-      expect(hay, `field "${field}" (${value}) reached the PDF`).toContain(value.toLowerCase());
+      // The résumé is now drawn by the Puck config (one renderer for editor + PDF). Its accent section
+      // headings carry letter-spacing, which Chromium's PDF text layer reflects as spaces between
+      // glyphs (a heading-derived sentinel like the custom label "zqxctitle" reads "z q x c t i t l e").
+      // Match tolerant of that inter-glyph spacing so "did the field reach the PDF" stays the question.
+      expect(text, `field "${field}" (${value}) reached the PDF`).toMatch(spacedRe(value));
     }
     // A2 — the ended role shows its END date; the ongoing role (no end) prints "present".
     expect(text, 'ended role keeps its end date').toContain(S.to1);

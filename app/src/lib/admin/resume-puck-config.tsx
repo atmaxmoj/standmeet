@@ -8,7 +8,24 @@
 'use client';
 
 import type { ReactElement } from 'react';
-import type { Config } from '@measured/puck';
+import type { Config, Metadata } from '@measured/puck';
+
+import { QRCode } from '@/components/admin/atoms/QRCode';
+
+// resumeMeta —— the render-time context passed via Puck `metadata` (NOT résumé content, so it's the
+// same config for editor + print). qrURL: the real per-application QR to draw (empty in the editor →
+// a placeholder card). print: true when rendering for the PDF (a flowing page, not the editor's A4
+// sheet-on-a-desk). Read defensively — metadata is an open Record.
+// metadata is absent in the editor (<Puck> passes none) and present only when printing (<Render
+// metadata={...}>), so read it optionally — an over-eager `puck.metadata['x']` would throw and blank
+// the whole editor canvas.
+function metaQR(puck: { metadata?: Metadata }): string {
+  const v: unknown = puck.metadata?.['qrURL'];
+  return typeof v === 'string' ? v : '';
+}
+function metaPrint(puck: { metadata?: Metadata }): boolean {
+  return puck.metadata?.['print'] === true;
+}
 
 type TextItem = { text: string };
 
@@ -40,9 +57,22 @@ function period(start: string, end: string): string {
   return `${start} – ${end === '' ? 'present' : end}`;
 }
 
-// asList —— an array of {text} items (skills / bullets) → "a  ·  b  ·  c" for the canvas preview.
-function asList(items: TextItem[]): string {
-  return items.map((i) => i.text).join('  ·  ');
+// filled —— a field has real content once trimmed (empty / whitespace-only = not filled). An entry
+// with nothing filled renders NOTHING — no heading, no rule, no separators (owner: "没写东西就整个
+// entry 带着那些装饰一起不要渲染"), matching the typst template (an empty section prints no heading).
+function filled(s: string | undefined): boolean {
+  return (s ?? '').trim() !== '';
+}
+
+// contactsOf —— the header's contact fields that actually have content, in order (so an empty field
+// never leaves a lone " · " separator).
+function contactsOf(...xs: (string | undefined)[]): string[] {
+  return xs.map((s) => (s ?? '').trim()).filter((s) => s !== '');
+}
+
+// bulletsOf —— experience bullets with real text (drops blank rows so no empty "•" prints).
+function bulletsOf(items: TextItem[]): string[] {
+  return items.map((i) => (i.text ?? '').trim()).filter((s) => s !== '');
 }
 
 // SecHead —— the résumé's section heading, matching the typst `sechead`: accent-red uppercase mono
@@ -81,8 +111,20 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
     // subtle desk. aspect-[210/297] keeps A4 proportions at any width (mobile scales the sheet, ratio
     // held); it grows past one page only when content overflows. Own fixed paper palette (ink-on-cream)
     // regardless of the editor's day/night — see .sm-resume-paper.
-    render: ({ children }) => (
-      <div className="min-h-full flex justify-center bg-black/5 py-8 px-4">
+    // Editor: an A4 sheet on a desk (aspect-locked, so mobile keeps the ratio). Print (metadata.print):
+    // the SAME paper scope but a plain full-width flow so gotenberg's @page can paginate it — no desk,
+    // no aspect box, no shadow. One config, both surfaces (the whole point of A3: no second renderer).
+    render: ({ children, coverLetter, puck }) => metaPrint(puck) ? (
+      <div className="sm-resume-paper w-full min-h-full px-[7.5%] py-[6.5%]">
+        {children}
+        {filled(coverLetter) && (
+          <div className="break-before-page pt-8">
+            <p className="text-[13px] leading-[1.6] text-(--color-ink) whitespace-pre-wrap">{coverLetter}</p>
+          </div>
+        )}
+      </div>
+    ) : (
+      <div className="min-h-full flex justify-center items-start bg-black/5 py-8 px-4">
         <div className="sm-resume-paper w-[794px] max-w-full aspect-[210/297] px-[7.5%] py-[6.5%] shadow-[0_2px_24px_rgba(0,0,0,0.12)]">
           {children}
         </div>
@@ -99,35 +141,41 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         site: { type: 'text', label: 'Site' },
       },
       defaultProps: { name: '', email: '', phone: '', locationLine: '', site: '' },
-      // The header, matching the typst layout: name (large, lowercase) + contact mono line on the left,
-      // the accent-bordered QR card on the right, a rule beneath. (The QR image is per-application, so
-      // the editor shows the card frame; the real code's QR fills it once Puck drives the PDF.)
-      render: ({ name, email, phone, locationLine, site }) => (
-        <div data-sec="header">
-          <div className="flex items-end justify-between gap-4 pt-1">
-            <div className="min-w-0">
-              <div className="font-serif text-[30px] leading-none text-(--color-ink) lowercase">{name}</div>
-              <div className="mono text-[11px] text-(--color-muted) mt-2">
-                {[email, phone, locationLine, site].filter((s) => s !== '').join('  ·  ')}
+      // name (large, lowercase) + contact line on the left; the QR card on the right — the REAL
+      // per-application QR when printing (metadata.qrURL), a placeholder frame in the editor. NO job
+      // meta (role·company): that's draft context, not résumé content — printing it was the typst
+      // divergence the owner hit ("为什么 pdf 有 draft 的 meta"). Nothing filled → render nothing.
+      render: ({ name, email, phone, locationLine, site, puck }) => {
+        const contacts = contactsOf(email, phone, locationLine, site);
+        const qrURL = metaQR(puck);
+        return (filled(name) || contacts.length > 0) ? (
+          <div data-sec="header">
+            <div className="flex items-end justify-between gap-4 pt-1">
+              <div className="min-w-0">
+                {filled(name) && <div className="font-serif text-[30px] leading-none text-(--color-ink) lowercase">{name}</div>}
+                {contacts.length > 0 && <div className="mono text-[11px] text-(--color-muted) mt-2">{contacts.join('  ·  ')}</div>}
+              </div>
+              <div data-sec="qr" className="shrink-0 border border-(--color-accent) rounded-[2px] p-1 leading-none">
+                {qrURL !== ''
+                  ? <QRCode value={qrURL} size={46} />
+                  : <div className="w-[46px] h-[46px] bg-white grid place-items-center mono text-[7px] text-(--color-faint)">QR</div>}
               </div>
             </div>
-            <div className="shrink-0 border border-(--color-accent) rounded-[2px] p-1">
-              <div data-sec="qr" className="w-[46px] h-[46px] bg-white grid place-items-center mono text-[7px] text-(--color-faint)">QR</div>
-            </div>
+            <hr className="mt-2 border-0 border-t-[1.5px] border-(--color-rule)" />
           </div>
-          <hr className="mt-2 border-0 border-t-[1.5px] border-(--color-rule)" />
-        </div>
-      ),
+        ) : <></>;
+      },
     },
     Summary: {
       fields: { text: { type: 'textarea', label: 'Summary' } },
       defaultProps: { text: '' },
-      render: ({ text }) => (
+      // Empty summary → no heading, no rule, nothing.
+      render: ({ text }) => filled(text) ? (
         <div data-sec="summary">
           <SecHead title="summary" />
           <p className="text-(--color-ink) text-[13px] leading-[1.5]">{text}</p>
         </div>
-      ),
+      ) : <></>,
     },
     Experience: {
       fields: {
@@ -139,25 +187,36 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         bullets: { type: 'array', label: 'Bullets', arrayFields: { text: { type: 'text', label: 'Bullet' } } },
       },
       defaultProps: { title: '', company: '', location: '', start: '', end: '', bullets: [] },
-      render: ({ title, company, location, start, end, bullets }) => (
-        <div data-sec="experience" className="pt-2">
-          <div className="flex items-baseline justify-between gap-3">
-            <div className="font-serif text-[15px] font-medium text-(--color-ink)">{title}</div>
-            <div className="mono text-[9px] text-(--color-faint) shrink-0">{period(start, end)}</div>
+      // A blank entry → nothing. Each line only prints when its field has content (no lone " · ", no
+      // empty "•", no "– present" for a dateless role).
+      render: ({ title, company, location, start, end, bullets }) => {
+        const bl = bulletsOf(bullets);
+        const dates = filled(start) || filled(end) ? period(start, end) : '';
+        const empty = !filled(title) && !filled(company) && !filled(location) && dates === '' && bl.length === 0;
+        return empty ? <></> : (
+          <div data-sec="experience" className="pt-2">
+            <div className="flex items-baseline justify-between gap-3">
+              {filled(title) && <div className="font-serif text-[15px] font-medium text-(--color-ink)">{title}</div>}
+              {dates !== '' && <div className="mono text-[9px] text-(--color-faint) shrink-0">{dates}</div>}
+            </div>
+            {(filled(company) || filled(location)) && (
+              <div className="text-[12px] mt-0.5">
+                {filled(company) && <span className="text-(--color-accent)">{company}</span>}
+                {filled(location) && <span className="text-(--color-faint)">{filled(company) ? ` · ${location}` : location}</span>}
+              </div>
+            )}
+            {bl.length > 0 && (
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {bl.map((b, i) => (
+                  <li key={i} className="flex gap-2 text-[12px] text-(--color-ink)">
+                    <span className="text-(--color-faint)">•</span><span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <div className="text-[12px] mt-0.5">
-            <span className="text-(--color-accent)">{company}</span>
-            {location !== '' && <span className="text-(--color-faint)"> · {location}</span>}
-          </div>
-          <ul className="mt-1 flex flex-col gap-0.5">
-            {bullets.map((b, i) => (
-              <li key={i} className="flex gap-2 text-[12px] text-(--color-ink)">
-                <span className="text-(--color-faint)">•</span><span>{b.text}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ),
+        );
+      },
     },
     Education: {
       fields: {
@@ -167,13 +226,16 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         end: { type: 'text', label: 'End' },
       },
       defaultProps: { school: '', degree: '', start: '', end: '' },
-      render: ({ school, degree, start, end }) => (
-        <div data-sec="education" className="pt-1.5">
-          <div className="font-serif text-[13px] font-medium text-(--color-ink)">{school}</div>
-          {degree !== '' && <div className="text-[11px] text-(--color-muted)">{degree}</div>}
-          <div className="mono text-[9px] text-(--color-faint)">{period(start, end)}</div>
-        </div>
-      ),
+      render: ({ school, degree, start, end }) => {
+        const dates = filled(start) || filled(end) ? period(start, end) : '';
+        return (!filled(school) && !filled(degree) && dates === '') ? <></> : (
+          <div data-sec="education" className="pt-1.5">
+            {filled(school) && <div className="font-serif text-[13px] font-medium text-(--color-ink)">{school}</div>}
+            {filled(degree) && <div className="text-[11px] text-(--color-muted)">{degree}</div>}
+            {dates !== '' && <div className="mono text-[9px] text-(--color-faint)">{dates}</div>}
+          </div>
+        );
+      },
     },
     SkillSet: {
       fields: {
@@ -181,12 +243,16 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         items: { type: 'array', label: 'Items', arrayFields: { text: { type: 'text', label: 'Skill' } } },
       },
       defaultProps: { category: '', items: [] },
-      render: ({ category, items }) => (
-        <div data-sec="skillset" className="pt-1">
-          {category !== '' && <div className="mono text-[9px] uppercase tracking-[0.08em] text-(--color-ink)">{category}</div>}
-          <div className="text-[12px] text-(--color-ink)">{asList(items)}</div>
-        </div>
-      ),
+      // No skills → nothing (a bare category with no items is not shown).
+      render: ({ category, items }) => {
+        const skills = bulletsOf(items);
+        return skills.length === 0 ? <></> : (
+          <div data-sec="skillset" className="pt-1">
+            {filled(category) && <div className="mono text-[9px] uppercase tracking-[0.08em] text-(--color-ink)">{category}</div>}
+            <div className="text-[12px] text-(--color-ink)">{skills.join('  ·  ')}</div>
+          </div>
+        );
+      },
     },
     Social: {
       fields: {
@@ -195,11 +261,11 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         handle: { type: 'text', label: 'Handle / URL' },
       },
       defaultProps: { kind: '', label: '', handle: '' },
-      render: ({ kind, handle }) => (
+      render: ({ kind, handle }) => filled(handle) ? (
         <div data-sec="social" className="mono text-[11px] text-(--color-ink)">
-          <span className="text-(--color-muted)">{kind}</span> {handle}
+          {filled(kind) && <span className="text-(--color-muted)">{kind} </span>}{handle}
         </div>
-      ),
+      ) : <></>,
     },
     Custom: {
       fields: {
@@ -211,17 +277,19 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         },
       },
       defaultProps: { label: '', value: '', kind: '' },
-      // A divider prints the same thin rule the typst template draws (`line`, 0.5pt + rule).
-      render: ({ label, value, kind }) => (
-        kind === 'divider'
+      // A divider is an intentional decoration (prints the thin rule the typst template draws). A
+      // section with no heading AND no body → nothing.
+      render: ({ label, value, kind }) => {
+        const divider = kind === 'divider';
+        return divider
           ? <div data-sec="custom" className="py-1.5"><hr className="border-0 border-t border-(--color-rule)" /></div>
-          : (
+          : (!filled(label) && !filled(value)) ? <></> : (
             <div data-sec="custom">
-              <SecHead title={label} />
-              <p className="text-[12px] text-(--color-ink)">{value}</p>
+              {filled(label) && <SecHead title={label} />}
+              {filled(value) && <p className="text-[12px] text-(--color-ink)">{value}</p>}
             </div>
-          )
-      ),
+          );
+      },
     },
   },
 };

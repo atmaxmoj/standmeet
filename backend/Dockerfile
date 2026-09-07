@@ -103,26 +103,9 @@ WORKDIR /app
 # bwrap bind-mounts them read-only into the sandbox.
 RUN apk add --no-cache ca-certificates docker-cli bubblewrap nodejs npm python3
 
-# CJK fonts for the resume PDF — typst reads system font dirs, so installing Noto CJK here is
-# enough for the templates' "Noto Serif/Sans Mono CJK SC" fallback to resolve. Without it any
-# Chinese/Japanese/Korean character in a draft renders as tofu (.notdef), which shipped on sijie.
-RUN apk add --no-cache font-noto-cjk
-
-# Typst — the resume PDF rendering engine (internal/owner/jobs/resumepdf spawns a typst
-# subprocess). Download the musl static release, selected by target arch
-# (amd64→x86_64 / arm64→aarch64). typst ships default Latin fonts (serif + monospace); CJK
-# comes from the font-noto-cjk package above, appended to each template's font fallback list.
-ARG TARGETARCH
-RUN set -eux; \
-    apk add --no-cache --virtual .typst-dl wget xz tar; \
-    case "$TARGETARCH" in amd64) TA=x86_64;; arm64) TA=aarch64;; *) echo "unsupported arch $TARGETARCH"; exit 1;; esac; \
-    ver=v0.13.1; \
-    wget -qO /tmp/typst.tar.xz "https://github.com/typst/typst/releases/download/${ver}/typst-${TA}-unknown-linux-musl.tar.xz"; \
-    tar -xJf /tmp/typst.tar.xz -C /tmp; \
-    mv "/tmp/typst-${TA}-unknown-linux-musl/typst" /usr/local/bin/typst; \
-    rm -rf /tmp/typst*; \
-    apk del .typst-dl; \
-    typst --version
+# The résumé PDF is rendered by the SAME Puck config as the editor (one renderer, A3): gotenberg's
+# Chromium loads the app's print route and prints it — so this image no longer bundles the typst
+# binary or CJK fonts (CJK comes from the gotenberg sidecar's Chromium fonts).
 
 RUN addgroup --system --gid 1001 standmeet && \
     adduser --system --uid 1001 --ingroup standmeet standmeet

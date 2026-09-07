@@ -81,12 +81,6 @@ type Config struct {
 	//                    (gotenberg fetches <base>/print/application/<id>?token=…)
 	GotenbergURL string
 	PrintBaseURL string
-	// TypstBin / ResumeFontPath — resume PDF now goes through Typst (typst
-	// binary + an embedded template). Empty TypstBin = "typst" on PATH;
-	// ResumeFontPath points at the Newsreader + JetBrains Mono font dir (so
-	// print uses the same fonts as the web page). See internal/owner/jobs/resumepdf.
-	TypstBin       string
-	ResumeFontPath string
 	// MarketplaceGitHubBaseURL / MarketplaceSkillsMPBaseURL —— skill
 	// marketplace upstream overrides. Empty = use real GitHub / SkillsMP.
 	// dev/e2e point both at the external-mock service so the search
@@ -212,8 +206,6 @@ func Load() (*Config, error) {
 		// #117 deployment-friendly: unset falls back to the standard
 		// self-hosted compose service name, so a fresh deploy needs no
 		// field-by-field filling.
-		TypstBin:                   envOr("TYPST_BIN", "typst"),
-		ResumeFontPath:             envOr("RESUME_FONT_PATH", ""),
 		GotenbergURL:               envOr("GOTENBERG_URL", internalURL(defaultGotenbergHost)),
 		PrintBaseURL:               envOr("PRINT_BASE_URL", internalURL(defaultPrintHost)),
 		MarketplaceGitHubBaseURL:   os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),

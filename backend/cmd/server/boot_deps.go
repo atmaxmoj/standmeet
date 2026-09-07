@@ -32,7 +32,6 @@ import (
 	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/printsess"
-	"github.com/atmaxmoj/standmeet/internal/owner/jobs/resumepdf"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
@@ -239,9 +238,9 @@ func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 		DraftsRepo:   d.ResumeDraftRepo,
 		AppsRepo:     d.ApplicationRepo,
 		SourcesRepo:  d.JobSourceRepo,
-		// Templates — the Typst layouts the composer's picker offers; the composition root is the
-		// only layer allowed to know the resumepdf package.
-		Templates: resumepdf.Templates(),
+		// Templates — retired with typst: the résumé's layout is now the Puck config itself (one
+		// renderer for editor + PDF), so there is no separate template list to pick from.
+		Templates: nil,
 		// The two builtins this plugin itself seeds (hiring prompt + role) go
 		// through OwnerSeeder.
 		Seed: jobsuc.SeedDeps{
@@ -271,22 +270,6 @@ func buildReportPDFRenderer(cfg *config.Config) publicroutes.ReportPDFRenderer {
 		return gotenberg.NoopClient{}
 	}
 	return gotenberg.New(cfg.GotenbergURL)
-}
-
-// buildPDFRenderer —— resume PDFs now go through **Typst** (typst binary + embedded
-// template, see resumepdf). Typesetting quality + customizable templates + content/
-// presentation separation, all on one data-driven pipeline. The gotenberg path (React→
-// Chromium print page) is retired for resumes, handed off to the report-download route
-// (buildReportPDFRenderer still uses it). printsess.Store no longer takes part in resume
-// rendering. When typst is missing this does not silently emit an empty PDF — compile
-// errors, and commit fails loudly.
-//
-//nolint:ireturn // composition root deliberately returns interface
-func buildPDFRenderer(
-	log *slog.Logger, cfg *config.Config, _ *printsess.Store,
-) jobsuc.PDFRenderer {
-	log.Info("pdf renderer: typst", "bin", cfg.TypstBin, "font_path", cfg.ResumeFontPath)
-	return resumepdf.New(cfg.TypstBin, cfg.ResumeFontPath)
 }
 
 func newJobFetchRegistry(cfg *config.Config) *jobfetch.Registry {

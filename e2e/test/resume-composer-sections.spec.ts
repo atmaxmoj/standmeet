@@ -67,6 +67,14 @@ test.describe('the composer renders draft sections as distinct components (Q0)',
         .evaluate((el) => getComputedStyle(el).color);
       expect(headColor, 'section headings are accent-red').toBe('rgb(181, 57, 28)');
 
+      // Empty fields render NOTHING, decorations included — the header's contact line is exactly the
+      // FILLED fields joined (email + location); the empty phone + site leave no lone " · " separator
+      // (owner: "没写东西就整个 entry 带着那些装饰一起不要渲染").
+      const headerText = await canvas.locator('[data-sec="header"]').first()
+        .evaluate((el) => el.textContent ?? '');
+      expect(headerText, 'the contact line joins only the filled fields, no stray separators')
+        .toContain('e@e.io  ·  Remote');
+
       expect(pageErrors, 'the composer opens with no client-side exception').toEqual([]);
       await api.dispose();
     });
