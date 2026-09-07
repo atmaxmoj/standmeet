@@ -220,6 +220,29 @@ func mustBeWired(h *adminroutes.Handlers) {
 	}
 }
 
+// obsidianDeps —— the vault-sync handler's wiring, lifted out of buildAdminHandlers.
+//
+// Extracted for length, not for structure: that builder is one literal that grows by a line every
+// time a section is added, and it crossed the function-length gate on a rebase where two branches
+// had each added one. Its own function is the cheapest place to put the widest block back.
+func obsidianDeps(deps *Deps) adminroutes.ObsidianDeps {
+	return adminroutes.ObsidianDeps{
+		Writings: deps.Admin.Writings.Writings,
+		Assets:   deps.Admin.Assets.Repo,
+		Storage:  deps.Admin.Assets.Storage,
+		Corpus:   deps.Admin.Corpus, // sync face: VaultSync + Raw + WikiRefs all live here
+		CSS:      deps.Admin.Owners, // .obsidian/snippets harvest → owner CSS
+		WritingsTx: corpus.WritingsTxDeps{
+			Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
+			Assets: deps.Admin.Assets,
+		},
+		// Same owners repo: it's already where CSS lands, so the import receipt
+		// (UX-62) hangs off owner too — one instance has exactly one vault.
+		ImportReceipt: deps.Admin.Owners,
+		Log:           deps.Log,
+	}
+}
+
 func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 	return &adminroutes.Handlers{
 		Claim: deps.Admin.Claim,
@@ -269,21 +292,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			},
 			Tree: deps.Admin.Writings.Writings,
 		},
-		Obsidian: adminroutes.ObsidianDeps{
-			Writings: deps.Admin.Writings.Writings,
-			Assets:   deps.Admin.Assets.Repo,
-			Storage:  deps.Admin.Assets.Storage,
-			Corpus:   deps.Admin.Corpus, // sync face: VaultSync + Raw + WikiRefs all live here
-			CSS:      deps.Admin.Owners, // .obsidian/snippets harvest → owner CSS
-			WritingsTx: corpus.WritingsTxDeps{
-				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
-				Assets: deps.Admin.Assets,
-			},
-			// Same owners repo: it's already where CSS lands, so the import receipt
-			// (UX-62) hangs off owner too — one instance has exactly one vault.
-			ImportReceipt: deps.Admin.Owners,
-			Log:           deps.Log,
-		},
+		Obsidian:          obsidianDeps(deps),
 		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		ConnectorsAdmin:   deps.Admin.Connectors,
 		CapabilitiesAdmin: adminroutes.CapabilityAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
