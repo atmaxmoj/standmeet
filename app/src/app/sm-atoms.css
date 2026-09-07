@@ -1524,3 +1524,20 @@
 .sm-zoom { transform: scale(var(--zoom, 1)); transform-origin: top left; }
 .sm-pos-abs { position: absolute; top: var(--pos-top, 0); left: var(--pos-left, 0); }
 .sm-max-w { max-width: var(--max-w, 100%); }
+
+/* The résumé canvas is a DOCUMENT preview, not editor chrome: it renders in the résumé's OWN fixed
+ * paper palette (matching the typst PDF), independent of the editor's day/night. Pinning the color
+ * tokens here means every section component (text-(--color-ink) etc.) renders ink-on-cream even when
+ * the surrounding editor is dark — without it, dark mode rendered the résumé dark-on-dark (unreadable,
+ * looked blank). The PDF has its own colors; the editor follows the theme; the document does not. */
+.sm-resume-paper {
+  --color-paper: #F3EFE6;
+  --color-surface: #ECE6D8;
+  --color-ink: #1B1814;
+  --color-muted: #7A7167;
+  --color-faint: #B0A89A;
+  --color-rule: #DCD3BF;
+  --color-accent: #B5391C;
+  background: #F3EFE6;
+  color: #1B1814;
+}

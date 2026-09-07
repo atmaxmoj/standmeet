@@ -62,6 +62,11 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
       coverLetter: { type: 'textarea', label: 'Cover letter' },
     },
     defaultProps: { accent: '', fontScale: 1, leftWidth: 0.9, coverLetter: '' },
+    // The canvas is a DOCUMENT preview: wrap it in the résumé's own fixed paper palette so it renders
+    // ink-on-cream (like the PDF) regardless of the editor's day/night — see .sm-resume-paper.
+    render: ({ children }) => (
+      <div className="sm-resume-paper min-h-full px-10 py-8">{children}</div>
+    ),
   },
   components: {
     Header: {
