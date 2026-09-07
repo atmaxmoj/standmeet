@@ -57,6 +57,27 @@ finally:
 PY
 }
 
+# claimed_ports —— every port some OTHER checkout has already written down for itself.
+#
+# The third way two checkouts collide, and the one a bind test cannot see: a neighbour has
+# allocated a block and its stack is simply not up right now. Its ports are free, and they are
+# not anyone's default, so both existing checks pass — and the collision appears later, when
+# both stacks happen to be running, as a port conflict nobody changed anything to cause.
+#
+# Enumerated with `git worktree list`, not by walking a directory: the checkouts are wherever
+# the person put them, and a hardcoded `.claude/worktrees/*` would silently see none of them the
+# day someone puts one elsewhere.
+claimed_ports() {
+  local here dir
+  here=$(pwd -P)
+  git worktree list --porcelain 2>/dev/null | while read -r kind dir; do
+    [ "$kind" = "worktree" ] || continue
+    [ "$dir" = "$here" ] && continue
+    [ -f "$dir/.dev-stack.env" ] || continue
+    grep -hoE '^(DEV|PROD)_PORT_[A-Z_]+=[0-9]+' "$dir/.dev-stack.env" | cut -d= -f2
+  done
+}
+
 # mine PORT —— is this port published by one of THIS checkout's own stacks.
 #
 # Needed by the allocator, not just by `show`. A checkout reallocating (`init --force`) has its
@@ -102,6 +123,9 @@ holder() {
 offset_ok() {
   local offset=$1 key port
   local -a taken=()
+  # Read once per offset, not per port: it shells out to git and to every neighbour's file.
+  local claimed
+  claimed=$(claimed_ports)
   for key in $(port_keys); do
     port=$(( $(default_of "$key") + offset ))
     [ "$port" -lt 65536 ] || return 1
@@ -111,6 +135,8 @@ offset_ok() {
     for t in ${taken[@]+"${taken[@]}"}; do
       [ "$port" = "$t" ] && return 1
     done
+    # Written down by a neighbour, whether or not their stack is up right now.
+    echo "$claimed" | grep -qx "$port" && return 1
     # A port this checkout's own stacks are publishing counts as available: it is being replaced.
     free_port "$port" || mine "$port" || return 1
     taken+=("$port")
