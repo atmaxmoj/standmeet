@@ -106,6 +106,7 @@
     "needsBindingOrExpose": "Cela assemblerait un connecteur que rien ne peut appeler. Fournissez un binding pour remplir une catégorie, ou cochez la case ci-dessus pour ouvrir les opérations à l'IA d'un visiteur."
   },
   "composer": {
+    "save": "enregistrer",
     "backToDrafts": "← brouillons",
     "regenerate": "régénérer ⌖",
     "send": "envoyer →",

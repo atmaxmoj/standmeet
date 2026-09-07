@@ -52,19 +52,25 @@ const DraftDetailSchema = z.object({
   id: z.string(), company: z.string(), role: z.string(),
   template: z.string().optional().default(''),
   resume_content: ResumeContentSchema,
+  // puck_data — the Puck editor's own state, passed through verbatim. Absent (agent-created or
+  // pre-Puck draft) → the editor derives it from resume_content on open. Loosely typed on purpose:
+  // the app never inspects it, it only round-trips it back to the backend on Save.
+  puck_data: z.unknown().optional(),
 });
 export type DraftDetail = z.infer<typeof DraftDetailSchema>;
 
 interface DetailState {
   model: DraftModel | null;
+  // puckData — the raw Puck state to restore, or null when the draft has none yet (derive on open).
+  puckData: unknown;
   error: string | null;
 }
 
 export function useDraftDetail(id: string | null): DetailState {
-  const [state, setState] = useState<DetailState>({ model: null, error: null });
+  const [state, setState] = useState<DetailState>({ model: null, puckData: null, error: null });
   useEffect(() => {
     if (id === null) {
-      setState({ model: null, error: null });
+      setState({ model: null, puckData: null, error: null });
       return;
     }
     void load(id, setState);
@@ -77,9 +83,9 @@ async function load(id: string, setState: (s: DetailState) => void): Promise<voi
     const res = await fetch(`/api/admin/drafts/${id}`, { credentials: 'include' });
     if (!res.ok) throw new Error(`draft detail: ${res.status}`);
     const detail = await safeJson(res, DraftDetailSchema);
-    setState({ model: toDraftModel(detail), error: null });
+    setState({ model: toDraftModel(detail), puckData: detail.puck_data ?? null, error: null });
   } catch (e) {
-    setState({ model: null, error: e instanceof Error ? e.message : 'load draft failed' });
+    setState({ model: null, puckData: null, error: e instanceof Error ? e.message : 'load draft failed' });
   }
 }
 

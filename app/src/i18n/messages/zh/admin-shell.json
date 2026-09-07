@@ -106,6 +106,7 @@
     "needsBindingOrExpose": "这会组装出一个没人能调用的连接器。请提供一个绑定来填充某个分类，或勾选上方的框把操作开放给访客的 AI。"
   },
   "composer": {
+    "save": "保存",
     "backToDrafts": "← 草稿",
     "regenerate": "重新生成 ⌖",
     "send": "发送 →",

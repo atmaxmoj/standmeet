@@ -15,6 +15,17 @@ export function saveDraft(model: DraftModel): Promise<void> {
   });
 }
 
+// savePuckDraft —— the Puck editor's Save: persist the derived resume_content + template AND the
+// Puck editor's own state (puckData) verbatim, so reopening restores the exact arrangement. This is
+// the explicit commit-to-storage moment (Puck owns the state until Save; no autosave churn).
+export function savePuckDraft(model: DraftModel, puckData: unknown): Promise<void> {
+  return adminAPI.patchVoid(`/drafts/${model.id}`, {
+    template: model.template,
+    resume_content: draftToAPIContent(model),
+    puck_data: puckData,
+  });
+}
+
 // fetchTemplates —— the Typst layouts the picker offers (classic / compact / …).
 export function fetchTemplates(): Promise<string[]> {
   return adminAPI.get('/drafts/templates', z.array(z.string()));

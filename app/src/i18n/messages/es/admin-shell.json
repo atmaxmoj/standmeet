@@ -106,6 +106,7 @@
     "needsBindingOrExpose": "Esto ensamblaría un conector que nada puede llamar. Proporcione una vinculación para llenar una categoría o marque la casilla anterior para exponer las operaciones a la IA de un visitante."
   },
   "composer": {
+    "save": "guardar",
     "backToDrafts": "← borradores",
     "regenerate": "regenerar ⌖",
     "send": "enviar →",

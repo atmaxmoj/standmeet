@@ -106,6 +106,7 @@
     "needsBindingOrExpose": "This would assemble a connector nothing can call. Supply a binding to fill a category, or tick the box above to open the operations to a visitor's AI."
   },
   "composer": {
+    "save": "save",
     "backToDrafts": "← drafts",
     "regenerate": "regenerate ⌖",
     "send": "send →",

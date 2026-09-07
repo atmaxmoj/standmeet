@@ -106,6 +106,7 @@
     "needsBindingOrExpose": "Dies würde einen Connector zusammenstellen, den nichts aufrufen kann. Versorgten Sie eine Bindung um eine Kategorie zu füllen, oder aktivieren Sie das Kontrollkästchen oben um die Operationen dem AI eines Besuchers freizulegen."
   },
   "composer": {
+    "save": "speichern",
     "backToDrafts": "← entwürfe",
     "regenerate": "regenerieren ⌖",
     "send": "senden →",
