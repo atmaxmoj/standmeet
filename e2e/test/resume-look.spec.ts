@@ -1,14 +1,18 @@
-// resume-look.spec.ts —— a SCREENSHOT-only visual check of the rendered résumé (owner: "弄点假的
-// 数据，就是截图，不 assert，自己观察一下出来的 resume 是不是够朴素和专业，整的对不对"). Seeds a full,
-// realistic résumé and captures the composer's live (typst) preview to a PNG for human observation.
-// NO assertions — this exists to be LOOKED at, not to pass/fail. Artifact lands in e2e/manual-runs/.
+// resume-look.spec.ts —— a LOOK-only render of the real résumé (owner: "弄点假的数据，就是截图，不
+// assert，自己观察一下出来的 resume 是不是够朴素和专业，整的对不对"). Seeds a full, realistic résumé and
+// writes the authoritative Typst PDF (GET /drafts/{id}/preview.pdf — the exact bytes a recruiter
+// gets) to e2e/manual-runs/resume-look.pdf for human observation. NO assertions beyond "a PDF came
+// back"; this exists to be LOOKED at.
+//
+// (Rewritten for the Puck cutover: the old in-browser WASM preview it screenshotted is gone; the
+// authoritative artifact is the server Typst render.)
 
-import { test } from '@/fixtures/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
+import { writeFileSync } from 'node:fs';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
-import { gotoAdminSection } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -17,23 +21,15 @@ const OWNER = {
 };
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
-test.describe('résumé look (screenshot only, observe — no assert)', () => {
-  test.beforeAll(async ({ playwright }) => {
-    await claimFreshOwner(playwright, OWNER);
-  });
+test.describe('résumé look (render the real Typst PDF, observe — no assert)', () => {
+  test.beforeAll(async ({ playwright }) => { await claimFreshOwner(playwright, OWNER); });
 
-  test('render a realistic résumé and screenshot the preview', async ({ adminPage: page, playwright }) => {
-    test.setTimeout(180_000);
+  test('render a realistic résumé to PDF for observation', async ({ adminPage: page, playwright }) => {
+    test.setTimeout(120_000);
     const id = await seedRealistic(playwright);
-    await gotoAdminSection(page, 'drafts');
-    await page.getByTestId(`draft-open-${id}`).first().click();
-    await page.getByTestId('composer-preview-svg')
-      .waitFor({ state: 'visible', timeout: 20_000 });
-    // Wait for the WASM typst render to finish (first load pulls the ~12MB compiler).
-    await page.getByTestId('composer-preview-svg')
-      .and(page.locator('[data-status="ready"]')).waitFor({ timeout: 120_000 });
-    await page.getByTestId('composer-preview-svg')
-      .screenshot({ path: 'manual-runs/resume-look.png' });
+    const res = await page.request.get(`${BACKEND}/api/admin/drafts/${id}/preview.pdf`);
+    expect(res.status(), 'preview.pdf renders').toBe(200);
+    writeFileSync('manual-runs/resume-look.pdf', await res.body());
   });
 });
 
