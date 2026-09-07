@@ -20,7 +20,7 @@ import { useRouter } from 'next/navigation';
 
 import { ChatRoom } from '@/components/visitor/ChatRoom';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
-import { HomeFallback } from '@/app/home-fallback';
+import { DefaultHome } from '@/app/default-home';
 import { useAbsorbCodeFromURL } from '@/lib/gate/use-absorb-code';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { useShouldAskVisitorName } from '@/lib/visitor/visitor-name';
@@ -45,7 +45,7 @@ export function VisitorRoot({ name, handle, hasCode }: {
   const els: Record<VisitorView, ReactElement> = {
     chat: <ChatRoom owner={{ handle, full_name: name, location: '' }} mode={sessionMode(session)} />,
     picker: <VisitorNamePicker />,
-    fallback: <HomeFallback name={name} handle={handle} />,
+    fallback: <DefaultHome name={name} handle={handle} />,
   };
   return els[chooseVisitorView(session, pending, hasCode)];
 }

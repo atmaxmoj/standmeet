@@ -42,9 +42,10 @@ test.describe('coded landing · the code carries its own /c/<slug> path (Spec 1b
     test.setTimeout(60_000);
     // A fresh visitor (no stored session) opens a code landing path directly.
     await goto(page, '/c/some-locator');
-    // They land on the identity fallback, not a chat: the slug alone unlocks nothing.
-    await expect(page.getByTestId('home-fallback'),
-      'a slug-only visit shows the identity fallback').toBeVisible({ timeout: 15_000 });
+    // They land on the public default home (ask box + gate), NOT a coded chat: the slug alone
+    // unlocks nothing — no chat input exists without a redeemed session.
+    await expect(page.getByTestId('default-home'),
+      'a slug-only visit shows the public default home, not a coded chat').toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('chat-input-field'),
       'no chat is granted without a session').toHaveCount(0);
   });
