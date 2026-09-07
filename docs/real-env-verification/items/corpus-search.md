@@ -6,7 +6,8 @@
 - **Surface:** Visitor chat retrieval, the outward API-key facade, and the backend search itself.
 - **Real dep:** The full real corpus indexed on the prod stack. **No CJK note needs seeding** — the vault's `> [!i18n]` pane contract means real notes carry whole Chinese sections, so the CJK path has real input. (This line previously claimed the vault was English-only; it stopped being true when the i18n contract landed.)
 - **Exclusive:** none
-- **Backing e2e:** `retrieval-search-consistency` · `api-key-facade` · `retrieval-acl` · `retrieval-degrade`.
+- **Backing e2e:** `retrieval-search-consistency` · `api-key-facade` · `retrieval-acl` · `retrieval-degrade` · `corpus-search-cjk-not-silent`.
+- **Note:** The lexical index ships inside the stack, so a prod instance searches on it rather than on the database's own full-text. A round that finds Chinese unsearchable is looking at a deployment where that service did not come up — check which path the search took before recording a finding.
 
 ## Checks
 

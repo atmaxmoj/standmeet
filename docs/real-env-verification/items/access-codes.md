@@ -2,7 +2,7 @@
 
 - **Module:** The owner's access-code management. A code issues, renders in the list, shows its QR and its members, quota and expiry, revokes, and redeems end to end. An access code IS an invitation.
 - **Surface:** `/admin/codes`, plus `/gate` to redeem and `/admin/requests` to approve.
-- **Real dep:** The prod stack. A real mail connector for the emailed-code path (see [[mail-connector]]).
+- **Real dep:** The prod stack. A real mail connector for the emailed-code path (see [[mail-connector]]). Where a redeemed code lands the visitor is [[coded-landing]]; replacing a leaked code's string is [[code-rotation]].
 - **Exclusive:** gmail-inbox
 - **Backing e2e:** `access-codes` · `admin-requests` · `mail-connector`.
 

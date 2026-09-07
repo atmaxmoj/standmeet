@@ -53,6 +53,18 @@
 - **Expected:** The booking is kept. Only the send failed, and the message says so.
 - **Backing test:** `gap`
 
+### 9 — One recipient cannot be flooded from this instance
+- **Steps:** Trigger repeated sends to the same address, past the per-recipient budget for the window. Then send once to a different address.
+- **Expected:** The sends past the budget do not arrive in that inbox. The other address still receives, so the cap is per recipient rather than a global stop.
+- **Mock gap:** The unit tests cover the counter's arithmetic. Whether the wired sender consults it before a real relay hands the message over is only observable from the receiving inbox.
+- **Backing test:** `gap`
+
+### 10 — The throttle does not silence mail when its counter is unreachable
+- **Steps:** Make the counter's store unavailable, then send.
+- **Expected:** The message is delivered. Losing the ability to count does not become an inability to send.
+- **Mock gap:** Only reproducible against the real store this instance counts in.
+- **Backing test:** `gap`
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 
 The mail card states its true connected and verified state, and the approve button is enabled exactly when that state says it should be.
