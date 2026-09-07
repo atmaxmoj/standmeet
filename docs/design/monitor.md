@@ -660,7 +660,7 @@ Verified against the real dev stack, not compiled and assumed.
   page's card, CTA, ask-box focus and contact click through the microsite build's tracker.
 - **Embeds and IM as their own surfaces** (§4.8, §4.9), derived from the request rather than the
   route, with the IM bridge naming itself in its user agent.
-- 51 e2e tests across eleven specs, run one spec at a time — the repo's own convention, and
+- 54 e2e tests across twelve specs, run one spec at a time — the repo's own convention, and
   necessary here: every spec resets the shared instance in `beforeAll`, so running several
   interleaved has them wipe each other's fixtures.
 - `make lint` — the whole repo chain — clean.
