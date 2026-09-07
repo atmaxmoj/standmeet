@@ -14,6 +14,7 @@ package mw
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -101,8 +102,9 @@ func (c *Config) after(r *http.Request, status int, prefix string) {
 		// exist onto the "most read" list.
 		return
 	}
+	surface, props := reachedBy(r, rule, status)
 	in := ops.Input{
-		Surface: rule.Surface, Name: rule.Event, Props: outcomeProps(status),
+		Surface: surface, Name: rule.Event, Props: props,
 		// The recorded path is the visitor's page, not the API route behind it. Without the
 		// strip the panel lists "/api/v1/wiki/x" — a path no visitor ever typed and no owner
 		// recognises, and one that also cannot be clicked through to the page it stands for.
@@ -143,10 +145,83 @@ func (c *Config) fillCode(r *http.Request, in *ops.Input) {
 	in.CodeID, in.CodeLabel = code.ID, code.Label
 }
 
-// outcomeProps —— what happened, as a label rather than a number. An owner reads "denied", not
-// "403", and a status class is stable across the exact code a handler happens to pick.
-func outcomeProps(status int) map[string]string {
-	return map[string]string{"outcome": outcome(status)}
+// imBridgeAgent —— the outbound half of the IM bridge identifies itself here. It reaches the
+// same routes as everything else (it drives the same SDK client), so the user agent is the
+// only thing that separates "someone messaged the bot on Telegram" from "someone opened the
+// chat on the page".
+const imBridgeAgent = "standmeet-im-bridge"
+
+// reachedBy —— which surface this request actually came through, and what to record about it.
+//
+// The route table cannot answer this. Embeds and IM bots drive the SAME SDK client as the
+// first-party app, so /sessions and /agent/turn are all three of them; a table keyed on the
+// route records every one as `chat`, and the owner cannot tell the widget on someone else's
+// site from a visitor on their own page — which is the entire question for an outreach surface.
+//
+// What separates them is observable on the request, not in the route:
+//
+//   - an embed runs in a browser on ANOTHER site, so it carries a cross-origin `Origin`;
+//   - the IM bridge is a server, so it carries no Origin and names itself in its user agent.
+//
+// The origin is recorded too. "Your widget is being used" is worth less than "your widget is
+// being used on news.example.com", and that is the one thing an owner cannot find out any
+// other way.
+func reachedBy(r *http.Request, rule *rule, status int) (string, map[string]string) {
+	props := map[string]string{"outcome": outcome(status)}
+	if rule.Surface != entity.SurfaceChat {
+		return rule.Surface, props
+	}
+	if origin := foreignOrigin(r); origin != "" {
+		props["origin"] = origin
+		return entity.SurfaceEmbed, props
+	}
+	if strings.Contains(strings.ToLower(r.UserAgent()), imBridgeAgent) {
+		return entity.SurfaceIM, props
+	}
+	return rule.Surface, props
+}
+
+// foreignOrigin —— the Origin header when it is not this instance's own host.
+//
+// Same-origin requests from the instance's own pages either send no Origin or send ours; only a
+// widget embedded elsewhere sends a different one.
+func foreignOrigin(r *http.Request) string {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" || origin == "null" {
+		return ""
+	}
+	if sameHost(origin, ownHost(r)) {
+		return ""
+	}
+	return origin
+}
+
+// ownHost —— the host the visitor believes they are on. The forwarded header wins: behind a
+// reverse proxy r.Host is the internal service name, and comparing an Origin against that would
+// make every first-party request look cross-origin — turning the whole chat surface into
+// "embed" the moment the instance sits behind a proxy, which is always.
+func ownHost(r *http.Request) string {
+	if h := r.Header.Get("X-Forwarded-Host"); h != "" {
+		return strings.TrimSpace(strings.Split(h, ",")[0])
+	}
+	return r.Host
+}
+
+func sameHost(origin, host string) bool {
+	o, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(o.Hostname(), hostname(host))
+}
+
+// hostname —— a Host header without its port.
+func hostname(host string) string {
+	h, _, found := strings.Cut(host, ":")
+	if !found {
+		return host
+	}
+	return h
 }
 
 // exactOutcomes —— the statuses whose meaning to an owner is not their class. A 403 on a tool

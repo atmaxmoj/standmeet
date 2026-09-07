@@ -274,7 +274,13 @@
     "events": "事件",
     "eventsHint": "记录下的全部，含浏览",
     "bots": "爬虫",
-    "botsHint": "单独计数，不进上面四个"
+    "botsHint": "单独计数，不进上面四个",
+    "window": "时间窗口",
+    "windows": {
+      "7d": "7 天",
+      "28d": "28 天",
+      "90d": "3 个月"
+    }
   },
   "ipBans": {
     "intro": "封禁滥用的来源 IP。被封的 IP 在整个公开面上都会收到 403——聊天、会话、访问请求。在 <mono>conversations</mono> 中找到问题 IP（每行都显示访客的 IP）。封禁可随时解除。",
@@ -313,7 +319,18 @@
     "migrationsPending": "0 个待执行",
     "ready": "就绪",
     "resources": "资源 · 宿主 + 运行时",
-    "res": { "disk": "磁盘", "hostMem": "主机内存", "cpuLoad": "CPU 负载", "goroutines": "goroutine", "goHeap": "Go 堆", "usedTotal": "已用 / 总量", "pctUsed": "已用 {pct}", "oneMinAvg": "1 分钟均值", "live": "活跃", "mbAlloc": "MB 分配" },
+    "res": {
+      "disk": "磁盘",
+      "hostMem": "主机内存",
+      "cpuLoad": "CPU 负载",
+      "goroutines": "goroutine",
+      "goHeap": "Go 堆",
+      "usedTotal": "已用 / 总量",
+      "pctUsed": "已用 {pct}",
+      "oneMinAvg": "1 分钟均值",
+      "live": "活跃",
+      "mbAlloc": "MB 分配"
+    },
     "publicIp": "公网 ip",
     "cluster": "集群 · 自有容器",
     "clusterEmpty": "无集群数据 —— docker socket 未挂载",

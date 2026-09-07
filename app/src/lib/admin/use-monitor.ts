@@ -9,6 +9,7 @@
 import { useEffect } from 'react';
 
 import { z } from 'zod';
+import { create } from 'zustand';
 
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
@@ -58,9 +59,41 @@ const EMPTY_SUMMARY: MonitorSummary = {
   viewers: 0, visits: 0, views: 0, events: 0, bots: 0,
 };
 
+// MONITOR_WINDOWS —— the three spans, mirroring the backend's (monitor/repo/window.go). Three
+// and not a date picker: a traffic panel answers "is this going anywhere", and last week / last
+// month / last quarter answers it. 90d is also the retention limit, so there is nothing older
+// to ask for.
+export const MONITOR_WINDOWS = ['7d', '28d', '90d'] as const;
+export type MonitorWindow = typeof MONITOR_WINDOWS[number];
+
+interface WindowState {
+  window: MonitorWindow;
+  setWindow: (w: MonitorWindow) => void;
+}
+
+// monitorWindowStore —— which span the panel is showing.
+//
+// ONE window for both resources, held outside them. The summary and the feed beside it must be
+// counted over the same span: two independent windows would let the panel print "3 viewers" over
+// a list of fifty rows from a different month, and nothing on screen would say why.
+export const monitorWindowStore = create<WindowState>((set) => ({
+  window: '28d',
+  setWindow: (w) => {
+    set({ window: w });
+    // Both, together. Refreshing only the one the owner "changed" is what produces a mismatched
+    // pair, and a mismatched pair looks like data rather than a bug.
+    void monitorSummaryStore.getState().refresh();
+    void monitorEventsStore.getState().refresh();
+  },
+}));
+
+function currentWindow(): MonitorWindow {
+  return monitorWindowStore.getState().window;
+}
+
 export const monitorSummaryStore = createResourceStore<MonitorSummary>({
   name: 'monitor-summary',
-  fetcher: () => adminAPI.get('/monitor/stats', MonitorSummarySchema),
+  fetcher: () => adminAPI.get(`/monitor/stats?window=${currentWindow()}`, MonitorSummarySchema),
 });
 
 // The feed asks for bots; the summary does not.
@@ -72,7 +105,10 @@ export const monitorSummaryStore = createResourceStore<MonitorSummary>({
 export const monitorEventsStore = createResourceStore<MonitorEvent[]>({
   name: 'monitor-events',
   fetcher: () => adminAPI
-    .get('/monitor/events?limit=50&include_bots=true', EventsResponseSchema)
+    .get(
+      `/monitor/events?limit=50&include_bots=true&window=${currentWindow()}`,
+      EventsResponseSchema,
+    )
     .then((r) => r.events),
 });
 
@@ -103,11 +139,15 @@ export interface MonitorHook {
   rows: readonly MonitorRow[];
   view: FeedView;
   error: string | null;
+  window: MonitorWindow;
+  setWindow: (w: MonitorWindow) => void;
 }
 
 export function useMonitor(): MonitorHook {
   const summary = useResource(monitorSummaryStore);
   const events = useResource(monitorEventsStore);
+  const window = monitorWindowStore((s) => s.window);
+  const setWindow = monitorWindowStore((s) => s.setWindow);
   // refresh, not ensureLoaded. Traffic is live: `ensureLoaded` fetches once and then serves the
   // same snapshot for the rest of the session, so an owner who opens the panel, goes away, and
   // comes back reads yesterday's numbers with nothing on screen saying so. Every other section
@@ -125,6 +165,7 @@ export function useMonitor(): MonitorHook {
     rows,
     view: feedView(status, rows.length),
     error: summary.error ?? events.error,
+    window, setWindow,
   };
 }
 

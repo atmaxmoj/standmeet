@@ -53,18 +53,27 @@ var browserEvents = map[string][]entity.Surface{
 	// there (see routes.go). Without this line, surface `index` has no signal at all.
 	"": {entity.SurfaceIndex},
 
-	entity.EventScrollDepth:    {entity.SurfaceIndex, entity.SurfaceReader, entity.SurfaceWritings},
-	entity.EventReadComplete:   {entity.SurfaceReader, entity.SurfaceWritings},
-	entity.EventReadDwell:      {entity.SurfaceReader, entity.SurfaceWritings},
-	entity.EventPinClick:       {entity.SurfaceIndex},
-	entity.EventHeroCTAClick:   {entity.SurfaceIndex},
-	entity.EventContactClick:   {entity.SurfaceIndex},
-	entity.EventChatInputFocus: {entity.SurfaceIndex},
-	entity.EventRelatedClick:   {entity.SurfaceReader},
-	entity.EventCitedByClick:   {entity.SurfaceReader},
-	entity.EventSourceClick:    {entity.SurfaceChat},
-	entity.EventLangSwitch:     {entity.SurfaceReader},
-	entity.EventTreeExpand:     {entity.SurfaceReader},
+	entity.EventScrollDepth: {
+		entity.SurfaceIndex, entity.SurfaceReader, entity.SurfaceWritings, entity.SurfaceMicrosite,
+	},
+	entity.EventReadComplete: {entity.SurfaceReader, entity.SurfaceWritings},
+	entity.EventReadDwell:    {entity.SurfaceReader, entity.SurfaceWritings},
+
+	// The front-page interactions. `microsite` is here beside `index` because the owner's
+	// homepage IS a microsite — the reserved `home` page, served at `/` — so these four fire
+	// from the microsite build's tracker (builder/template/src/track.ts) on a claimed instance,
+	// and from the app's own fallback page in the window before a home build exists. One event
+	// name for one interaction; the surface says which page it happened on.
+	entity.EventPinClick:       {entity.SurfaceIndex, entity.SurfaceMicrosite},
+	entity.EventHeroCTAClick:   {entity.SurfaceIndex, entity.SurfaceMicrosite},
+	entity.EventContactClick:   {entity.SurfaceIndex, entity.SurfaceMicrosite},
+	entity.EventChatInputFocus: {entity.SurfaceIndex, entity.SurfaceMicrosite},
+
+	entity.EventRelatedClick: {entity.SurfaceReader},
+	entity.EventCitedByClick: {entity.SurfaceReader},
+	entity.EventSourceClick:  {entity.SurfaceChat},
+	entity.EventLangSwitch:   {entity.SurfaceReader},
+	entity.EventTreeExpand:   {entity.SurfaceReader},
 }
 
 // beaconBody —— what the browser sends. Deliberately small.

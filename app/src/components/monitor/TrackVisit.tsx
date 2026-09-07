@@ -11,7 +11,8 @@
 
 import { useEffect } from 'react';
 
-import { send, watchScroll } from '@/lib/monitor/beacon';
+import { send, watchScroll, watchRead } from '@/lib/monitor/beacon';
+import { watchClicks } from '@/lib/monitor/clicks';
 
 export interface TrackVisitProps {
   surface: string;
@@ -19,6 +20,10 @@ export interface TrackVisitProps {
   entitySlug?: string;
   // scroll —— also report reading depth. Worth it on a long page, noise on a short one.
   scroll?: boolean;
+  // read —— this page has an END. Adds read-complete and the dwell bucket on top of `scroll`,
+  // which are the two questions only a reading page can answer. The index scrolls too, but
+  // "scrolled past the footer" is not "finished the article".
+  read?: boolean;
   // view —— report that the page was opened. Default true.
   //
   // Set it false on a page the BACKEND already records. The corpus reader is one: its data
@@ -28,12 +33,24 @@ export interface TrackVisitProps {
 }
 
 export function TrackVisit(props: TrackVisitProps): null {
-  const { surface, entityKind, entitySlug, scroll, view } = props;
+  const { surface, entityKind, entitySlug, scroll, read, view } = props;
   useEffect(() => {
     const event = { surface, entityKind, entitySlug };
     // The view first, so a visitor who leaves immediately is still a visitor.
     view === false || send(event);
-    return scroll === true ? watchScroll(event) : undefined;
-  }, [surface, entityKind, entitySlug, scroll, view]);
+    // The click rules are installed on every tracked page, not only reading ones: each rule
+    // names the surface it reports on, so a rule whose element is not on this page simply never
+    // matches, and one that is (the chat rail's citations, on a reader page) still counts.
+    const stopClicks = watchClicks(event);
+    const stopScroll = depthWatcher(read, scroll)?.(event);
+    return () => { stopClicks(); stopScroll?.(); };
+  }, [surface, entityKind, entitySlug, scroll, read, view]);
   return null;
+}
+
+// depthWatcher —— which scroll watcher this page wants, or none. `read` implies `scroll`: a page
+// with an end is a page that scrolls, and making the caller pass both is a way to end up with a
+// reading page that reports completion and no depth.
+function depthWatcher(read?: boolean, scroll?: boolean) {
+  return read === true ? watchRead : scroll === true ? watchScroll : null;
 }

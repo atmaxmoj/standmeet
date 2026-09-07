@@ -274,7 +274,13 @@
     "events": "événements",
     "eventsHint": "tout ce qui est enregistré, vues comprises",
     "bots": "robots",
-    "botsHint": "comptés à part, jamais dans les quatre ci-dessus"
+    "botsHint": "comptés à part, jamais dans les quatre ci-dessus",
+    "window": "période",
+    "windows": {
+      "7d": "7 jours",
+      "28d": "28 jours",
+      "90d": "3 mois"
+    }
   },
   "ipBans": {
     "intro": "Bloquez les IP sources abusives. Une IP bannie obtient un 403 sur toute la surface publique — chat, sessions, demandes d'accès. Trouvez les IP offensantes en <mono>conversations</mono> (chaque ligne affiche l'IP du visiteur). Les interdictions peuvent être levées à tout moment.",
@@ -313,7 +319,18 @@
     "migrationsPending": "0 en attente",
     "ready": "prêt",
     "resources": "ressources · hôte + runtime",
-    "res": { "disk": "disque", "hostMem": "mém hôte", "cpuLoad": "charge cpu", "goroutines": "goroutines", "goHeap": "tas go", "usedTotal": "utilisé / total", "pctUsed": "{pct} utilisé", "oneMinAvg": "moy 1min", "live": "actives", "mbAlloc": "mo alloués" },
+    "res": {
+      "disk": "disque",
+      "hostMem": "mém hôte",
+      "cpuLoad": "charge cpu",
+      "goroutines": "goroutines",
+      "goHeap": "tas go",
+      "usedTotal": "utilisé / total",
+      "pctUsed": "{pct} utilisé",
+      "oneMinAvg": "moy 1min",
+      "live": "actives",
+      "mbAlloc": "mo alloués"
+    },
     "publicIp": "ip publique",
     "cluster": "cluster · conteneurs propres",
     "clusterEmpty": "aucune donnée de cluster — socket docker non monté",

@@ -34,6 +34,8 @@ var EventsInputSchema = json.RawMessage(`{
 			"description":"One surface only. Empty means all."},
 		"event":{"type":"string",
 			"description":"One event name. Empty matches views, which carry no name."},
+		"window":{"type":"string","enum":["7d","28d","90d"],
+			"description":"How far back to look. Default 28d; 90d is also the retention limit."},
 		"entity_id":{"type":"string",
 			"description":"Only events about this corpus entry, by its immutable id."},
 		"include_bots":{"type":"boolean",
@@ -42,13 +44,12 @@ var EventsInputSchema = json.RawMessage(`{
 	}
 }`)
 
-// EmptyInputSchema —— for a read that takes no arguments.
-var EmptyInputSchema = json.RawMessage(`{"type":"object","properties":{}}`)
-
 // EventsArgs —— what a caller may narrow the feed by.
 type EventsArgs struct {
-	Surface     string `json:"surface"`
-	Event       string `json:"event"`
+	Surface string `json:"surface"`
+	Event   string `json:"event"`
+	// Window —— 7d / 28d / 90d. Anything else, empty included, means the default.
+	Window      string `json:"window"`
 	EntityID    string `json:"entity_id"`
 	Limit       int    `json:"limit"`
 	IncludeBots bool   `json:"include_bots"`
@@ -79,12 +80,12 @@ func EventsQueryFrom(raw json.RawMessage, ownerID string) (EventQuery, error) {
 			return EventQuery{}, fmt.Errorf("invalid arguments: %w", err)
 		}
 	}
-	return in.query(ownerID), nil
+	return in.query(ownerID, time.Now().UTC()), nil
 }
 
 // query —— the args as a query, with the row cap bounded. One place decides the default and the
 // ceiling, so a caller cannot ask for the whole table by passing a large number.
-func (a EventsArgs) query(ownerID string) EventQuery {
+func (a *EventsArgs) query(ownerID string, now time.Time) EventQuery {
 	limit := a.Limit
 	if limit <= 0 {
 		limit = defaultEventLimit
@@ -93,6 +94,7 @@ func (a EventsArgs) query(ownerID string) EventQuery {
 		limit = maxEventLimit
 	}
 	return EventQuery{
+		Since:   WindowSince(a.Window, now),
 		OwnerID: ownerID, Limit: limit, Surface: a.Surface,
 		EventName: a.Event, EntityID: a.EntityID, IncludeBots: a.IncludeBots,
 	}
@@ -100,6 +102,9 @@ func (a EventsArgs) query(ownerID string) EventQuery {
 
 // EventQuery —— which events the owner asked for.
 type EventQuery struct {
+	// Since —— the window's lower bound. Never zero: a query with no bound would read the whole
+	// table, and the number it produced would silently disagree with every number beside it.
+	Since       time.Time
 	OwnerID     string
 	Surface     string
 	EventName   string
@@ -185,8 +190,8 @@ func collectEvents(rows interface {
 // eventFilters —— the WHERE clauses and their bind values. Bots are excluded unless asked for,
 // which is the default every number on the panel is computed under.
 func eventFilters(q *EventQuery, owner pgtype.UUID) ([]string, []any) {
-	where := []string{"owner_id = $1"}
-	args := []any{owner}
+	where := []string{"owner_id = $1", "created_at >= $2"}
+	args := []any{owner, q.Since}
 	if !q.IncludeBots {
 		where = append(where, "NOT is_bot")
 	}
@@ -260,16 +265,21 @@ SELECT count(DISTINCT viewer_id) FILTER (WHERE NOT is_bot),
        count(*) FILTER (WHERE NOT is_bot),
        count(*) FILTER (WHERE is_bot)
 FROM visit_event
-WHERE owner_id = $1`
+WHERE owner_id = $1 AND created_at >= $2`
 
-// Stats —— the summary. Bots are counted separately and never mixed into the other four.
-func (r *Repo) Stats(ctx context.Context, ownerID string) (Summary, error) {
+// Stats —— the summary over one window. Bots are counted separately and never mixed into the
+// other four.
+//
+// `since` is a parameter, not a default inside the query: the five numbers and the feed beside
+// them must be counted over the same span, and the only way to guarantee that is for one
+// caller to decide the span once and hand it to both.
+func (r *Repo) Stats(ctx context.Context, ownerID string, since time.Time) (Summary, error) {
 	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return Summary{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	var s Summary
-	serr := r.pool.QueryRow(ctx, summarySQL, owner).
+	serr := r.pool.QueryRow(ctx, summarySQL, owner, since).
 		Scan(&s.Viewers, &s.Visits, &s.Views, &s.Events, &s.Bots)
 	if serr != nil {
 		return Summary{}, fmt.Errorf("query monitor summary: %w", serr)

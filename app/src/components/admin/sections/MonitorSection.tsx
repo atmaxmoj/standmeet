@@ -15,7 +15,8 @@ import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import {
-  useMonitor, type FeedView, type MonitorRow, type MonitorSummary,
+  useMonitor, MONITOR_WINDOWS,
+  type FeedView, type MonitorRow, type MonitorSummary, type MonitorWindow,
 } from '@/lib/admin/use-monitor';
 import { useEffectErrorToast } from '@/lib/ui/toast';
 
@@ -33,9 +34,53 @@ export function MonitorSection() {
       <p className="reading-tight text-(--color-muted) mb-7 text-[15px] max-w-[54em]">
         {t('intro')}
       </p>
+      <WindowPicker current={hook.window} onPick={hook.setWindow} />
       <Summary summary={hook.summary} />
       <Feed rows={hook.rows} view={hook.view} />
     </>
+  );
+}
+
+// WindowPicker —— the span every number below is counted over.
+//
+// Above the numbers, not beside the feed: it governs both panels, and a control that sits next to
+// one of the two things it changes reads as belonging to that one.
+function WindowPicker(
+  { current, onPick }: { current: MonitorWindow; onPick: (w: MonitorWindow) => void },
+) {
+  const t = useTranslations('adminShell.monitor');
+  return (
+    <div data-testid="monitor-window" className="flex items-baseline gap-4 mb-5">
+      <span className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-faint)">
+        {t('window')}
+      </span>
+      {MONITOR_WINDOWS.map((w) => (
+        <WindowButton key={w} window={w} active={w === current} onPick={onPick} />
+      ))}
+    </div>
+  );
+}
+
+function WindowButton({ window, active, onPick }: {
+  window: MonitorWindow; active: boolean; onPick: (w: MonitorWindow) => void;
+}) {
+  const t = useTranslations('adminShell.monitor');
+  return (
+    <button
+      type="button"
+      data-testid={`monitor-window-${window}`}
+      // aria-pressed, not only a colour. Which span is showing is the difference between two
+      // readings of the same panel, and a reader who cannot see the colour has no other cue.
+      aria-pressed={active}
+      onClick={() => onPick(window)}
+      className={`mono text-[11px] tracking-[0.14em] uppercase ${
+        active
+          ? 'text-(--color-accent) border-b border-(--color-accent)'
+          : 'text-(--color-muted) hover:text-(--color-ink)'
+      }`}
+    >
+      {t(`windows.${window}`)}
+    </button>
   );
 }
 

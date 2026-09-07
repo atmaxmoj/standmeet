@@ -3,7 +3,9 @@
 import { createRoot } from 'react-dom/client';
 
 import './theme.css'; // the StandMeet design system (tokens + fonts + base), for every page.
+import { track } from './track'; // traffic instrumentation, for every page (see track.ts).
 import OwnerApp from './owner-entry';
 
 const el = document.getElementById('root');
 if (el) createRoot(el).render(<OwnerApp />);
+track();

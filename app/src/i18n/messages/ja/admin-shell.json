@@ -274,7 +274,13 @@
     "events": "イベント",
     "eventsHint": "記録された全て（閲覧を含む）",
     "bots": "クローラー",
-    "botsHint": "別勘定。上の 4 つには入りません"
+    "botsHint": "別勘定。上の 4 つには入りません",
+    "window": "期間",
+    "windows": {
+      "7d": "7日間",
+      "28d": "28日間",
+      "90d": "3か月"
+    }
   },
   "ipBans": {
     "intro": "Block abusive source IPs. A banned IP gets a 403 on the whole public surface — chat, sessions, access requests. Find offending IPs in <mono>conversations</mono> (each row shows the visitor's IP). Bans can be lifted any time.",
@@ -313,7 +319,18 @@
     "migrationsPending": "0 pending",
     "ready": "ready",
     "resources": "resources · host + runtime",
-    "res": { "disk": "ディスク", "hostMem": "ホストメモリ", "cpuLoad": "CPU 負荷", "goroutines": "goroutine", "goHeap": "Go ヒープ", "usedTotal": "使用 / 合計", "pctUsed": "{pct} 使用", "oneMinAvg": "1分平均", "live": "稼働中", "mbAlloc": "MB 割当" },
+    "res": {
+      "disk": "ディスク",
+      "hostMem": "ホストメモリ",
+      "cpuLoad": "CPU 負荷",
+      "goroutines": "goroutine",
+      "goHeap": "Go ヒープ",
+      "usedTotal": "使用 / 合計",
+      "pctUsed": "{pct} 使用",
+      "oneMinAvg": "1分平均",
+      "live": "稼働中",
+      "mbAlloc": "MB 割当"
+    },
     "publicIp": "パブリック ip",
     "cluster": "クラスター · 自コンテナ",
     "clusterEmpty": "クラスターデータなし — docker ソケット未マウント",

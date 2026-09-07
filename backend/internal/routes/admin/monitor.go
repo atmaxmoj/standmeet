@@ -35,7 +35,7 @@ func (h *Handlers) MountMonitor(r chi.Router) {
 		// The filters are query parameters because this is a read a person shares by copying
 		// the address bar: a filtered view has to survive being pasted into a message.
 		r.Get("/events", h.dispatchOp(face, "monitor.events", monitorEventsArgs, jsonOK))
-		r.Get("/stats", h.dispatchOp(face, "monitor.stats", emptyArgs, jsonOK))
+		r.Get("/stats", h.dispatchOp(face, "monitor.stats", monitorWindowArgs, jsonOK))
 	})
 }
 
@@ -51,10 +51,23 @@ func monitorEventsArgs(r *http.Request) (json.RawMessage, error) {
 		"surface":   quotedQuery(q, "surface"),
 		"event":     quotedQuery(q, "event"),
 		"entity_id": quotedQuery(q, "entity_id"),
+		"window":    quotedQuery(q, "window"),
 	}
 	addNumericQuery(fields, q, []string{"limit"})
 	addBoolQuery(fields, q, "include_bots")
 	out, err := json.Marshal(fields)
+	if err != nil {
+		return nil, dispatcher.BadInput("invalid query parameters")
+	}
+	return out, nil
+}
+
+// monitorWindowArgs — the summary takes only the window, and takes it the same way the feed
+// does. Both panels must be counted over the same span, and two decoders is how they stop being.
+func monitorWindowArgs(r *http.Request) (json.RawMessage, error) {
+	out, err := json.Marshal(map[string]json.RawMessage{
+		"window": quotedQuery(r.URL.Query(), "window"),
+	})
 	if err != nil {
 		return nil, dispatcher.BadInput("invalid query parameters")
 	}

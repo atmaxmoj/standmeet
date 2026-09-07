@@ -209,10 +209,26 @@ Copy Umami's shape. Every dimension the UI can group by gets
 partial index where is_bot = false
 ```
 
-### 3.4 Retention
+### 3.4 Retention and windows
 
-Raw events are kept for 400 days. A daily job deletes older rows. 400 days lets the owner compare
-against the same month last year.
+The panel offers **three spans and no date picker**: 7 days, 28 days, 3 months, with 28 days as
+the default. A traffic panel is read to answer "is this going anywhere", and that question has
+three useful resolutions — last week, last month, last quarter. An arbitrary range answers a
+different question (investigating one specific day) and buys a date picker instead of an answer.
+
+**Retention equals the longest window: 3 months.** One number decides both, in one place
+(`repo/window.go` names the spans; `repo/retention_periodic.go` reuses `windowSpan90d`), so
+"the panel shows three months" and "the database holds three months" cannot drift into a view
+that is empty by construction. Keeping a year "in case" would mean holding visitor records no
+view can reach, which is the opposite of what a cookieless, IP-less design is for.
+
+A **periodic** job deletes older rows, once a day — not a boot-time sweep. An instance that runs
+for months without a restart would otherwise clean once, on day one, and keep everything after,
+which reads identically to "retention is working" until the table is years deep.
+
+The summary and the feed take the **same** window parameter and are refreshed together
+(`monitorWindowStore`). Two independent windows would let the panel print one span's five numbers
+over another span's rows, with nothing on screen saying so.
 
 `ponytail: delete-only retention, no rollup tables; add hourly rollups if a self-hosted instance
 ever outgrows a raw-row scan.`
@@ -250,15 +266,24 @@ table already covers it; `beacon` means the browser reports it.
 
 ### 4.1 Public index (`app/src/app/page.tsx`, surface `index`)
 
+**The owner's front page is a microsite.** It is the reserved `home` page, built from
+owner-editable React and served at `/`, so the four front-page interactions below are emitted by
+the microsite build's tracker and land on surface `microsite` (§4.7). Surface `index` is what the
+app itself renders at `/`: the fallback page in the window before a home build exists, and the
+coded visitor's chat, both of which mount `TrackVisit`.
+
+One event name per interaction either way. The surface says which page it happened on; inventing
+a second name for the same gesture would give the owner two half-counts of one thing.
+
 | # | Event | How | Carries |
 |---|---|---|---|
 | 1 | `view` | beacon | referrer, screen, language |
-| 2 | `hero_cta_click` | beacon | which CTA |
+| 2 | `hero_cta_click` | beacon | which CTA (`gate`) |
 | 3 | `chat_input_focus` | beacon | — |
 | 4 | `chat_submit_anonymous` | beacon | the question is handed to `/gate`; record that it happened, never the text |
-| 5 | `pin_click` | beacon | `entity_kind`, `entity_id` — an insight or project pin |
-| 6 | `contact_click` | beacon | which channel |
-| 7 | `scroll_depth` | beacon | 25/50/75/100, at most once per threshold per visit |
+| 5 | `pin_click` | beacon | the entry's path — a card on the front page |
+| 6 | `contact_click` | beacon | which channel (`email` / `phone` / `link`) |
+| 7 | `scroll_depth` | beacon | 25/50/75/100, at most once per threshold per page |
 | 8 | `language_switch` | beacon | from, to |
 
 ### 4.2 Gate (`app/src/app/gate/page.tsx`, surface `gate`)
@@ -344,34 +369,69 @@ Points 44 and 45 together answer "is corpus search working". A high `search` cou
 
 ### 4.7 Microsites (surface `microsite`)
 
+Owner-authored React, rebuilt on every save. **The tracker therefore lives in the build template**
+(`builder/template/src/track.ts`), not in the page and not in a widget: instrumentation an owner
+can delete by tidying their own file is not instrumentation, and its absence would read exactly
+like "nobody visited". `main.tsx` calls it once, so every build gets it.
+
+It observes the DOM rather than being called, for the same reason the server-side recorder is a
+middleware: no widget gains an `onClick`, no widget can drop one, and the hook is the
+`data-testid` the SDK widgets already carry as a contract. A renamed testid stops a rule matching,
+which a test can see; a deleted `onClick` leaves nothing to look at. Contact links are matched by
+what they ARE (`mailto:` / `tel:`) rather than by a testid, because the owner writes them by hand.
+
+It records no page **view**: the backend already sees the request that serves the build
+(`/microsites/{slug}`), and a beacon view on top would double every number — worse than a missing
+one, because it looks like success.
+
 | # | Event | How | Carries |
 |---|---|---|---|
-| 48 | `view` | emit | `microsite_slug`, path |
+| 48 | `view` | observe | `microsite_slug`, path |
 | 49 | `widget_render` | beacon | which SDK widget |
-| 50 | `store_write` | emit | the visitor wrote to the microsite store |
+| 50 | `store_write` | observe | the visitor wrote to the microsite store |
+| 50a | `pin_click` · `hero_cta_click` · `chat_input_focus` · `contact_click` · `scroll_depth` | beacon | as §4.1 — the front page is one of these pages |
 
 ### 4.8 Embeds and SDK on third-party sites (surface `embed`)
 
-These are cross-origin. `POST /api/t` must accept them. See §7.
+**The surface is derived from the request, not from the route.** An embed drives the same SDK
+client and therefore the same routes as the first-party chat, so a route table alone records all
+three of chat, embed and IM as `chat` — and the owner cannot tell their widget on someone else's
+site from a visitor on their own page, which is the entire question for an outreach surface.
+
+What separates them is observable on the request: an embed runs in a browser on ANOTHER site, so
+it carries a cross-origin `Origin`. `mw/reachedBy` reclassifies a chat-surface request to `embed`
+when the `Origin` is not this instance's own host, and records the origin in `props`. The
+forwarded host wins when comparing, because behind a reverse proxy `r.Host` is the internal
+service name and every first-party request would otherwise look foreign.
 
 | # | Event | How | Carries |
 |---|---|---|---|
 | 51 | `embed_view` | beacon | `embed_id`, the real parent origin |
-| 52 | `embed_chat_start` | emit | `embed_id`, `code_id` |
-| 53 | `embed_blocked_origin` | emit | `embed_id`, the rejected origin |
+| 52 | `embed_chat_start` | observe | `props.origin` — the site the widget runs on |
+| 53 | `embed_blocked_origin` | observe | `embed_id`, the rejected origin |
 
-Point 51 tells the owner where their widget actually runs. Point 53 is a security signal: someone
-copied the snippet to an origin that is not on the allowlist.
+Point 52's origin tells the owner where their widget actually runs. Point 53 is a security signal:
+someone copied the snippet to an origin that is not on the allowlist.
 
 ### 4.9 IM bridge (surface `im`)
 
+Same mechanism, other half: the bridge is a server, so it carries no `Origin` and **names itself
+in its user agent** (`standmeet-im-bridge`, set once where the bridge builds its client —
+`im-bridge/src/index.ts`). Without that one header the IM surface does not exist in any statistic:
+not mis-recorded, simply absent.
+
+A person messaging the bot is a **person**. The generic bot markers would file a browserless agent
+as a crawler, which would drop the whole surface out of every human number while the rows still
+existed — instrumented-looking and counting nothing. The agent is deliberately spelled so no
+marker matches it, and a test asserts `is_bot = false`.
+
 | # | Event | How | Carries |
 |---|---|---|---|
-| 54 | `im_turn` | emit | channel kind, `code_id` |
+| 54 | `im_turn` | observe | recorded as `chat_turn_sent` on surface `im` |
 
-An IM visitor has no IP and no user agent. `viewer_id` is therefore **null**. Every aggregate must
-tolerate a null viewer: it counts as one visit and zero identified viewers. This is the one place
-where the identity model does not apply, and it must not throw.
+An IM visitor has no browser. `viewer_id` is derived from the bridge's address and agent, so every
+IM turn from one bridge shares one viewer. Every aggregate must tolerate that, and must tolerate a
+null viewer where there is no address at all: it counts as one visit and zero identified viewers.
 
 ### 4.10 Crawlers (surface `seo`)
 
@@ -592,9 +652,17 @@ Verified against the real dev stack, not compiled and assumed.
 - The retention job on the shared periodic schedule (§3.4).
 - The connector registry change (§9): `analytics` is now `export`, and the Umami and Plausible
   entries are gone.
-- 20 e2e tests across five specs. 60/60 at REPEAT=3, run one spec at a time — the repo's own
-  convention, and necessary here: every spec resets the shared instance in `beforeAll`, so
-  running five of them interleaved has them wipe each other's fixtures.
+- **The three windows and the retention behind them** (§3.4): 7d / 28d / 90d on both reads, one
+  picker driving both, and a daily prune at the longest window.
+- **Every event in the beacon's allowlist is emitted by real UI.** The eleven that the backend
+  accepted and nothing sent are wired: the reader's depth, end-of-read, dwell, related and
+  cited-by links, language switch and tree expand; the chat's citation click; and the front
+  page's card, CTA, ask-box focus and contact click through the microsite build's tracker.
+- **Embeds and IM as their own surfaces** (§4.8, §4.9), derived from the request rather than the
+  route, with the IM bridge naming itself in its user agent.
+- 51 e2e tests across eleven specs, run one spec at a time — the repo's own convention, and
+  necessary here: every spec resets the shared instance in `beforeAll`, so running several
+  interleaved has them wipe each other's fixtures.
 - `make lint` — the whole repo chain — clean.
 
 **How the two test layers divide, deliberately:**
@@ -628,15 +696,35 @@ navigation is a statement about the harness as much as about the product.
 Defects 3 through 8 were only visible by looking at the rendered panel. Every one of them had
 passing tests either side of it.
 
+**Two more, found by driving the real UI rather than the endpoint:**
+
+9. **Scroll depth never fired on the corpus reader.** The watcher listened on `window`, and that
+   reader's shell is `h-dvh overflow-hidden` with the article in an inner `overflow-y-auto`
+   column — a deliberate layout, so the tree rail can stay put. `window.scrollY` stayed 0 for a
+   reader who read every word, and the depth histogram for the whole corpus read empty while
+   every endpoint test stayed green. It listens on `document` in the capture phase now and asks
+   the event which element moved, so the watcher no longer assumes the layout. Only the page's
+   own scroller counts: the tree rail is scrollable too, and reading IT to the end is not reading
+   the article.
+10. **Eleven of the thirteen browser events had no emitter at all.** The endpoint accepted them,
+    a spec proved it accepted them, and no page sent one — which on the panel is
+    indistinguishable from "nobody clicked anything" ([[test-covers-capability-not-face]]). The
+    tests for them now click the real control in a browser and read the row back.
+
 **Not built. Nothing here is implied by the above:**
 
-- 49 of the 69 tests in `monitor-tests.md`. The reader surface, the beacon and the panel are
-  proven; the rest of §4's table is not.
-- The route rules for gate, chat, microsite, embed and SEO. Written in `mw/routes.go`,
-  unverified — a rule that never fires and a rule that fires correctly look the same from here.
+- The remaining tests in `monitor-tests.md`. The reader surface, the beacon, the browser events,
+  the windows, the outreach surfaces and the panel are proven; the rest of §4's table is not.
+- The route rules for gate and SEO beyond `robots.txt` / `sitemap.xml`. Written in
+  `mw/routes.go`, unverified — a rule that never fires and a rule that fires correctly look the
+  same from here.
+- The events §4 lists with no emitter anywhere: `chat_submit_anonymous`, `widget_render`,
+  `search`, `search_result_click`, `embed_view`, `embed_blocked_origin`. Named in `entity` and
+  accepted nowhere, so nothing can send them by accident.
 - The breakdown endpoints (`/metrics?type=`), `/series`, `/active`, `/viewers/{id}`, and the
-  filter bar that makes §5's one-vocabulary design visible to an owner. The panel today is five
-  numbers and a feed; §5's design is what turns that into something you can interrogate.
+  filter bar that makes §5's one-vocabulary design visible to an owner. The panel today is a
+  window picker, five numbers and a feed; §5's design is what turns that into something you can
+  interrogate.
 - The `?src=qr` change to the job loop (§4.3), which is what would let the owner tell a scanned
   resume from a clicked link.
 

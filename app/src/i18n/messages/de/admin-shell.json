@@ -274,7 +274,13 @@
     "events": "ereignisse",
     "eventsHint": "alles Aufgezeichnete, Aufrufe eingeschlossen",
     "bots": "crawler",
-    "botsHint": "getrennt gezählt, nie in den vier darüber"
+    "botsHint": "getrennt gezählt, nie in den vier darüber",
+    "window": "Zeitraum",
+    "windows": {
+      "7d": "7 Tage",
+      "28d": "28 Tage",
+      "90d": "3 Monate"
+    }
   },
   "ipBans": {
     "intro": "Blockieren Sie missbräuchliche Quell-IPs. Eine verbotene IP erhält eine 403 auf der ganzen öffentlichen Oberfläche — Chat, Sitzungen, Zugangsanfragen. Finden Sie beleidigende IPs in <mono>conversations</mono> (jede Zeile zeigt die IP des Besuchers). Verbote können jederzeit aufgehoben werden.",
@@ -313,7 +319,18 @@
     "migrationsPending": "0 ausstehend",
     "ready": "bereit",
     "resources": "ressourcen · host + runtime",
-    "res": { "disk": "Festplatte", "hostMem": "Host-Speicher", "cpuLoad": "CPU-Last", "goroutines": "Goroutines", "goHeap": "Go-Heap", "usedTotal": "belegt / gesamt", "pctUsed": "{pct} belegt", "oneMinAvg": "1-Min-Schnitt", "live": "aktiv", "mbAlloc": "MB alloziert" },
+    "res": {
+      "disk": "Festplatte",
+      "hostMem": "Host-Speicher",
+      "cpuLoad": "CPU-Last",
+      "goroutines": "Goroutines",
+      "goHeap": "Go-Heap",
+      "usedTotal": "belegt / gesamt",
+      "pctUsed": "{pct} belegt",
+      "oneMinAvg": "1-Min-Schnitt",
+      "live": "aktiv",
+      "mbAlloc": "MB alloziert"
+    },
     "publicIp": "öffentliche ip",
     "cluster": "cluster · eigene container",
     "clusterEmpty": "keine cluster-daten — docker-socket nicht eingebunden",

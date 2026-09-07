@@ -15,6 +15,7 @@ import { WikiReaderClient } from '@/components/visitor/WikiReaderClient';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiContext, fetchWikiLanding } from '@/lib/api/public';
 import { parseWikiLanding } from '@/lib/visitor/wiki-landing';
+import { TrackVisit } from '@/components/monitor/TrackVisit';
 
 // catch-all [...path]: path can contain `/` (grouping like projects/lucerna).
 type Params = { path: string[] };
@@ -54,18 +55,25 @@ export default async function WikiLandingPage(
     fetchWikiLanding(slug, want), fetchInstance(), fetchWikiContext(slug),
   ]);
   return (
-    <WikiReaderClient
-      // parseWikiLanding — the **same** parser used by the token-bearing refetch path.
-      // Previously the raw payload was passed straight through, and the reader-side type
-      // happened to be loose enough to accept it, so a published note's hero image / hero
-      // line / inline body images never reached the page at all, with no error anywhere
-      // (F-L-33).
-      initialWiki={parseWikiLanding(wiki)}
-      handle={instance.handle}
-      ownerName={instance.name || instance.handle}
-      slug={slug}
-      initialCtx={ctx}
-      lang={want}
-    />
+    <>
+      {/* view={false}: the backend already records this read (the middleware sees the
+          /wiki/* API call behind it), so a beacon view here would double every number. What
+          the backend CANNOT see is how far down the page the reader got, whether they reached
+          the end, how long they stayed, and which link inside the page they took. */}
+      <TrackVisit surface="reader" entityKind="wiki" entitySlug={slug} view={false} read />
+      <WikiReaderClient
+        // parseWikiLanding — the **same** parser used by the token-bearing refetch path.
+        // Previously the raw payload was passed straight through, and the reader-side type
+        // happened to be loose enough to accept it, so a published note's hero image / hero
+        // line / inline body images never reached the page at all, with no error anywhere
+        // (F-L-33).
+        initialWiki={parseWikiLanding(wiki)}
+        handle={instance.handle}
+        ownerName={instance.name || instance.handle}
+        slug={slug}
+        initialCtx={ctx}
+        lang={want}
+      />
+    </>
   );
 }

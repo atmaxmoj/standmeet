@@ -41,7 +41,8 @@ type (
 // The input schemas for those reads. Declared in the domain, next to the shapes they describe.
 var (
 	EventsInputSchema = repo.EventsInputSchema
-	EmptyInputSchema  = repo.EmptyInputSchema
+	StatsInputSchema  = repo.StatsInputSchema
+	StatsSince        = repo.StatsSince
 	// EventsQueryFrom —— decoding and bounding, kept in the domain so the face stays a
 	// declaration and a call.
 	EventsQueryFrom = repo.EventsQueryFrom

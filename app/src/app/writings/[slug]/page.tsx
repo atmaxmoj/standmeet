@@ -14,6 +14,7 @@ import { fetchWriting, fetchWritingContext } from '@/lib/api/public';
 import { WritingArticle } from '@/components/writings/WritingArticle';
 import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { WritingTreeAside } from '@/components/writings/WritingTreeAside';
+import { TrackVisit } from '@/components/monitor/TrackVisit';
 import type { TreeNode } from '@/lib/corpus/tree';
 
 export const dynamic = 'force-dynamic';
@@ -40,6 +41,9 @@ export default async function WritingArticlePage({ params, searchParams }: PageP
     const ctx = await fetchWritingContext(slug);
     return (
       <ReaderLayout mainTestId="writing-page" aside={<WritingTreeAside activeSlug={slug} />}>
+        {/* view={false}: the backend records the read itself (it serves /writings/{slug}).
+            The depth, the end and the dwell are the browser's to report. */}
+        <TrackVisit surface="writings" entityKind="writing" entitySlug={slug} view={false} read />
         <ReaderBreadcrumb ancestors={ctx.ancestors} current={writing.title} />
         <WritingArticle writing={writing} />
       </ReaderLayout>

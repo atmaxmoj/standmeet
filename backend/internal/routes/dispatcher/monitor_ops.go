@@ -44,7 +44,7 @@ func MonitorOps(repo *monitor.Repo) []Op {
 			ID: "monitor.stats",
 			Description: "Summarise visitor traffic: viewers, visits, views, events, bots. " +
 				"Viewers, visits and views are three different counts.",
-			InputSchema: monitor.EmptyInputSchema,
+			InputSchema: monitor.StatsInputSchema,
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      readMonitorStats(repo),
@@ -67,8 +67,12 @@ func listMonitorEvents(repo *monitor.Repo) Invoke {
 }
 
 func readMonitorStats(repo *monitor.Repo) Invoke {
-	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
-		sum, err := repo.Stats(ctx, ownerID)
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		since, derr := monitor.StatsSince(raw)
+		if derr != nil {
+			return nil, BadInput(derr.Error())
+		}
+		sum, err := repo.Stats(ctx, ownerID, since)
 		if err != nil {
 			return nil, fp.OpErr("summarise monitor traffic", err)
 		}

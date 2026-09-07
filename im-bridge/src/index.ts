@@ -37,9 +37,31 @@ export interface BridgeOptions {
 /**
  * startBridge —— 起桥。返回那个 Chat 实例（调用方负责监听 HTTP / 启动长轮询）。
  */
+/**
+ * BRIDGE_AGENT —— 桥对实例自报家门的 User-Agent。
+ *
+ * 桥走的是**跟第一方页面完全相同的 SDK 客户端和路由**，所以从服务端看，一次 Telegram 对话
+ * 跟一次网页对话在请求上没有任何区别。这一行是唯一的区别：没有它，实例无法知道自己有多少
+ * 访客是从 IM 来的 —— 不是记错，是这个来源根本不存在于任何统计里。
+ *
+ * 顺带也是普通的 HTTP 礼貌：一个 server-to-server 的客户端本来就该说自己是谁。
+ */
+const BRIDGE_AGENT = 'standmeet-im-bridge';
+
+/** withAgent —— 每个请求都带上 BRIDGE_AGENT，调用方不需要记得。 */
+function withAgent(): typeof fetch {
+  return (input, init) => fetch(input, {
+    ...init,
+    headers: { ...(init?.headers ?? {}), 'User-Agent': BRIDGE_AGENT },
+  });
+}
+
 export function startBridge(opts: BridgeOptions): Chat {
   const deps: Deps = {
-    client: createClient({ baseURL: opts.baseURL ?? env('STANDMEET_BASE_URL') }),
+    client: createClient({
+      baseURL: opts.baseURL ?? env('STANDMEET_BASE_URL'),
+      fetchImpl: withAgent(),
+    }),
     sessions: memorySessions(),
   };
 

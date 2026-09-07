@@ -135,6 +135,44 @@ test.describe('monitor panel · settings → monitor shows real traffic', () => 
     // is what keeps "2 crawlers" and "1 viewer" legible as different populations.
     await expect(botRow.first()).not.toContainText('Chrome');
   });
+
+});
+
+// The window picker governs BOTH panels, so it gets its own describe: the tests above are about
+// what the panel shows, these are about which span it shows it over.
+test.describe('monitor panel · the window picker', () => {
+  test('offers three spans, with 28 days selected', async ({ adminPage }) => {
+    await openPanel(adminPage);
+    await expect(adminPage.getByTestId('monitor-window')).toBeVisible();
+
+    for (const w of ['7d', '28d', '90d']) {
+      await expect(adminPage.getByTestId(`monitor-window-${w}`)).toBeVisible();
+    }
+    // aria-pressed, not a colour. Which span is showing is the difference between two readings of
+    // the same panel, and a reader who cannot see the accent has no other cue.
+    await expect(adminPage.getByTestId('monitor-window-28d')).toHaveAttribute('aria-pressed', 'true');
+    await expect(adminPage.getByTestId('monitor-window-7d')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('picking a window re-reads BOTH panels over that span', async ({ adminPage }) => {
+    await openPanel(adminPage);
+
+    // Both requests, captured together. The failure this catches is the plausible one: a picker
+    // wired to the feed only, leaving the five numbers counted over the old span with nothing on
+    // screen saying so.
+    const stats = adminPage.waitForRequest((r) => r.url().includes('/monitor/stats?window=90d'));
+    const events = adminPage.waitForRequest((r) => r.url().includes('/monitor/events')
+      && r.url().includes('window=90d'));
+    await adminPage.getByTestId('monitor-window-90d').click();
+    await stats;
+    await events;
+
+    await expect(adminPage.getByTestId('monitor-window-90d')).toHaveAttribute('aria-pressed', 'true');
+    await expect(adminPage.getByTestId('monitor-window-28d')).toHaveAttribute('aria-pressed', 'false');
+    // And the panel is still a panel afterwards, not a spinner or an error toast.
+    await expect(adminPage.getByTestId('monitor-loading')).toHaveCount(0);
+    await expect(adminPage.getByTestId('stat-views-value')).toHaveText(/^\d+$/);
+  });
 });
 
 // openPanel —— navigate to the panel and wait until it has finished loading.
