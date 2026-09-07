@@ -54,8 +54,9 @@ e2e/manual-runs/<UTC timestamp>/
 Each module owns one folder: its md and its shots together. Nothing is shared between modules,
 so a trajectory reads on its own and moves on its own.
 
-The directory is gitignored. It is evidence of a run, not a document about the product. Only
-two things ever leave it: a row in `findings.md`, and a row in `ux.md`.
+The directory is gitignored. It is evidence of a run, not a document about the product. Only two
+things ever leave it: a finding, merged into the round's own ledger when the last lane closes
+(§0·5), and a row in `ux.md`.
 
 **The run sheet is generated, never hand-copied.** It reads `items/*.md` at open, so a module
 added to the audit appears in the next round's sheet by itself. Do not edit its module list.
@@ -78,8 +79,10 @@ what you believe you did; the round exists to catch the gap between that and wha
 
 ### 0·5 · Run the round in PARALLEL — one agent, one stack, one module ⚠️
 
-Serially this loop measured **~3 modules a day** (§3), and the sheet is 54 modules. That is weeks,
-and the cost is not judgement — it is waiting: one browser, one instance, one round at a time.
+Serially this loop measured **~3 modules a day** (§3), and the sheet is dozens of modules. That is
+weeks, and the cost is not judgement — it is waiting: one browser, one instance, one round at a
+time. (No count is written here on purpose: the run sheet prints the real one, and a number in a
+document is a number nobody updates. This paragraph said 54 while the sheet had already moved.)
 
 **A checkout now owns both its stacks.** `make stack-init` allocates a dev project and a
 **prod-posture** project with their own ports (`.dev-stack.env`), so N worktrees are N complete
@@ -96,10 +99,11 @@ trajectory.
 **What may run beside what comes from the item's `Exclusive:` field**, and the run sheet prints it
 as the Lane column:
 
-- `free` — the module owns nothing outside its own stack. One agent, one stack, all at once.
-  Today that is 43 of the 54.
+- `free` — the module owns nothing outside its own stack. One agent, one stack, all at once. This
+  is most of the sheet.
 - a named resource — the members of that lane share one real-world thing and run **in sequence**.
-  Today: `google-calendar` (4), `gmail-inbox` (3), `github-api` (2), `vendor-account`, `camera`.
+  The resources in use are `google-calendar`, `gmail-inbox`, `github-api`, `vendor-account` and
+  `camera`; which modules sit in each is the run sheet's Lane column, not a list kept here.
   Different lanes never wait on each other.
 
 The lanes exist because those resources cannot be sharded and the sharing is silent. Two agents
@@ -135,7 +139,12 @@ The round must drive the code you have, on a database that matches it.
    carried a stale `ACCESS GRANTED · GHOST-WP1` banner and a pre-filled identity.)
 
 ### 0b · Set scope
-Decide which `items/` to run this round. Pick only what's **credential- / self-serve-reachable** (see each item's `Scope`). Credentials live in `~/.config/standmeet/verify-creds.env`.
+Decide which `items/` to run this round. Pick only what is credential- or self-serve-reachable: an
+item's **`Real dep`** says what it needs, and its **`Exclusive`** says what it must own alone.
+Credentials live in `~/.config/standmeet/verify-creds.env`.
+
+There is no `Scope` field. This line named one for a long time; `make verify-items` would now
+reject an item that carried it, so the instruction pointed at a field the gate forbids.
 
 ### 1 · Run the real verification by hand
 Follow each item's **Steps** with Playwright MCP / a real client, against the **real services** (`make prod-up` → `docker-compose.prod.yml` + real creds, **zero mocks**). Compare against **Expected**.
@@ -199,7 +208,12 @@ themes on any surface that has a dark mode.
 judges — composition and balance.
 
 ### 2 · On a mismatch → RECORD ONLY, do not fix in place ⚠️
-- Record `{symptom, Expected vs Actual, surface, repro}` in the **module's Findings** section, and log one row in `findings.md` — ID stays `F-<letter>-<n>` (the historical anchor for the module's area, e.g. a booking finding → `F-B-n`), and name the module in the Item column.
+- Record `{symptom, Expected vs Actual, surface, repro}` in **that module's own**
+  `trajectory/<module>/findings.md`, with a provisional id naming the module (§0·5). The real
+  `F-<letter>-<n>` — the historical anchor for the module's area, e.g. a booking finding → `F-B-n`
+  — is allocated once, at the round's merge, by the reader who can see every module's candidates
+  at the same time. Allocating it while the round is still running races every other agent for
+  the same number, and `F-<letter>-<n>` is allocated by grepping for the highest in use.
 - **Don't stop, don't fix on the spot.** The first hole must not derail the round. Finish this module / the round's remaining modules.
 
 ### 3 · After all manual verification → attribute each finding to a test (TDD fix)
