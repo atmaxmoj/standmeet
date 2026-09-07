@@ -13,12 +13,11 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { REDIS_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 import { issueSession } from '@/fixtures/visitor';
 import type { VisitorSession } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-const REDIS_CONTAINER = 'standmeet-dev-redis-1';
 
 const OWNER = {
   email: 'evict@example.com', password: 'correct-horse-battery-staple',

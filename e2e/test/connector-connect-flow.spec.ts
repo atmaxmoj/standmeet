@@ -39,7 +39,7 @@ import {
   ensureDisconnected, expectConnected, fillOAuth2Creds,
   openConnectorCard, resetMockOAuthRecord, selectScope,
 } from '@/fixtures/connector-card';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { DB_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -68,7 +68,6 @@ const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 // same mock (mapped to host port 9000), but the one name resolves differently across the
 // three parties, hence the split.
 const MOCK_API = process.env['MOCK_API_URL'] ?? 'http://external-mock:9000';
-const DB_CONTAINER = 'standmeet-dev-db-1';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 

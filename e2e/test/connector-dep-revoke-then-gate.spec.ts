@@ -11,6 +11,9 @@
 // (clears access_token / sets needs-reauth), and enabledCaps gates on that.
 
 import { execSync } from 'node:child_process';
+// Container names come from the fixture so this spec drives the stack it is testing.
+// Hardcoded, a worktree's run reached into the primary checkout's containers.
+import { DB_CONTAINER } from '@/fixtures/instance';
 import { test, expect } from '@/fixtures/test';
 
 import {
@@ -75,7 +78,7 @@ function expireAccessToken(): void {
   const sql = `UPDATE owner_connectors
               SET token_expires_at = NOW() - INTERVAL '1 hour'
               WHERE connector_id = 'google-calendar'`;
-  execSync(`docker exec standmeet-dev-db-1 psql -U standmeet -d standmeet -c "${sql}"`,
+  execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`,
     { stdio: 'pipe' });
 }
 

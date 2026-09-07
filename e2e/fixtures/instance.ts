@@ -15,10 +15,23 @@
 
 import { execSync } from 'node:child_process';
 
-const COMPOSE = '-f ../docker-compose.dev.yml -p standmeet-dev';
-const DB_CONTAINER = 'standmeet-dev-db-1';
-const REDIS_CONTAINER = 'standmeet-dev-redis-1';
+// The compose project this run drives. One machine can hold several checkouts, each with its
+// own stack (see .dev-stack.env.example); the Makefile exports COMPOSE_PROJECT_NAME and every
+// URL below, so a run always resets the stack it is testing rather than someone else's.
+//
+// Hardcoding `standmeet-dev` here meant a worktree's suite reset the PRIMARY checkout's
+// database — the tests then failed on a claimed instance, which reads as a broken fixture, and
+// the person on the other stack lost their state mid-run with no idea why.
+const PROJECT = process.env['COMPOSE_PROJECT_NAME'] ?? 'standmeet-dev';
+const COMPOSE = `-f ../docker-compose.dev.yml -p ${PROJECT}`;
+
+// Exported: several specs reach into the database or redis directly, and each one used to
+// spell the container name out. One checkout's suite then operated on another's containers.
+// Import these instead of writing the name.
+export const DB_CONTAINER = `${PROJECT}-db-1`;
+export const REDIS_CONTAINER = `${PROJECT}-redis-1`;
 const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
+const MOCK_BASE_URL = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 
 // instance_settings is a singleton (CHECK id=1); it must not be TRUNCATEd or some
 // later backend query fails — just UPDATE it back to the unclaimed state.
@@ -62,7 +75,7 @@ export function resetInstance(): void {
 function resetJobBoardMock(): void {
   try {
     execSync(
-      `curl -sS -m 5 -X POST http://localhost:9000/__mock/reset`,
+      `curl -sS -m 5 -X POST ${MOCK_BASE_URL}/__mock/reset`,
       { stdio: 'pipe' },
     );
   } catch {

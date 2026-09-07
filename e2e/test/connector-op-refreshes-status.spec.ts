@@ -31,9 +31,7 @@ import { claim, login } from '@/fixtures/admin';
 import { openConnectorCard, expectConnected } from '@/fixtures/connector-card';
 import { revokeMockGCalToken } from '@/fixtures/gcal';
 import { connectGCalOnExistingOwner, teardownSeed, type BaseSeed } from '@/fixtures/gcal-setup';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
-
-const DB_CONTAINER = 'standmeet-dev-db-1';
+import { DB_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 
 const OWNER = {
   email: 'revokecard@example.com',

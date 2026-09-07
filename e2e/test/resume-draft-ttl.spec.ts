@@ -10,7 +10,7 @@ import { execSync } from 'node:child_process';
 import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { DB_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { jobsFetchNew, jobsRegisterSource } from '@/fixtures/jobs';
 import { resumeDraft, resumeUpdateDraft, sampleResumeContent } from '@/fixtures/resume';
@@ -21,8 +21,6 @@ const OWNER = {
   handle: 'alice',
   fullName: 'Alice Anderson',
 };
-
-const DB_CONTAINER = 'standmeet-dev-db-1';
 
 test.describe('resume_drafts 1d TTL — expired row is invisible', () => {
   test.beforeAll(async ({ playwright }) => {

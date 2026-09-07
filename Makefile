@@ -9,6 +9,75 @@
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
+# ── per-checkout dev stack ──────────────────────────────────────
+# One machine, N checkouts, N stacks. Without this every worktree drives the SAME
+# containers — docker-compose.dev.yml names the project `standmeet-dev` and publishes fixed
+# host ports — so two people (or a person and an agent) working in parallel tear down each
+# other's stack mid-run, and the wreckage looks like flaky tests.
+#
+# A checkout that wants its own stack drops a `.dev-stack.env` naming its project and its
+# ports. See .dev-stack.env.example. No file → nothing changes, and the defaults are exactly
+# the values that were hardcoded before.
+#
+# Read here rather than passed with --env-file because make exports these into every recipe's
+# environment, and `docker compose` reads both COMPOSE_PROJECT_NAME and the ${DEV_PORT_*}
+# interpolations straight from the environment. That way all 60-odd compose invocations in
+# this file pick it up without one of them having to remember a flag.
+#
+# Not named `.env.local`: env-lint pairs the root `.env.example` with `.env.local` and requires
+# their key sets to match, and that `.env.example` is the prod-compose contract. Borrowing the
+# name would make every dev-stack knob look like a missing production setting.
+-include .dev-stack.env
+
+# The ports, with the values that used to be hardcoded as defaults. A checkout overrides the
+# ones it wants in .dev-stack.env; everything else below is derived, so nothing has to be kept
+# in sync by hand.
+DEV_PORT_APP ?= 38127
+DEV_PORT_BACKEND ?= 8000
+DEV_PORT_DB ?= 5432
+DEV_PORT_REDIS ?= 6379
+DEV_PORT_MINIO ?= 9200
+DEV_PORT_MINIO_CONSOLE ?= 9201
+DEV_PORT_MAILPIT ?= 18025
+DEV_PORT_MCP_MOCK ?= 9100
+DEV_PORT_EXTERNAL_MOCK ?= 9000
+DEV_PORT_EXTERNAL_MOCK_TLS ?= 9443
+DEV_PORT_LLM_GATEWAY ?= 9300
+DEV_PORT_MAIL_MOCK ?= 19400
+export DEV_PORT_APP DEV_PORT_BACKEND DEV_PORT_DB DEV_PORT_REDIS
+export DEV_PORT_MCP_MOCK DEV_PORT_EXTERNAL_MOCK DEV_PORT_EXTERNAL_MOCK_TLS
+export DEV_PORT_LLM_GATEWAY DEV_PORT_MAILPIT DEV_PORT_MAIL_MOCK
+export DEV_PORT_MINIO DEV_PORT_MINIO_CONSOLE
+
+# The URLs the e2e suite dials, DERIVED from those ports rather than written out again.
+#
+# There are twelve of them. Asking a checkout to restate all twelve next to its port numbers
+# is asking it to keep two lists in agreement, and the failure when they drift is a 401 or a
+# connection refused pointing at another checkout's stack — which reads as a broken test, not
+# as a misconfigured file.
+BASE_URL ?= http://localhost:$(DEV_PORT_APP)
+APP_BASE_URL ?= $(BASE_URL)
+PUBLIC_URL ?= $(BASE_URL)
+BACKEND_URL ?= http://localhost:$(DEV_PORT_BACKEND)
+MOCK_BASE_URL ?= http://localhost:$(DEV_PORT_EXTERNAL_MOCK)
+CALDAV_MOCK_URL ?= $(MOCK_BASE_URL)
+GCAL_MOCK_URL ?= $(MOCK_BASE_URL)
+JOB_BOARD_MOCK_URL ?= $(MOCK_BASE_URL)
+LLM_GATEWAY_URL ?= http://localhost:$(DEV_PORT_LLM_GATEWAY)
+MAILPIT_URL ?= http://localhost:$(DEV_PORT_MAILPIT)
+MAIL_MOCK_URL ?= http://localhost:$(DEV_PORT_MAIL_MOCK)
+MCP_MOCK_URL ?= http://localhost:$(DEV_PORT_MCP_MOCK)
+export BASE_URL APP_BASE_URL PUBLIC_URL BACKEND_URL MOCK_BASE_URL
+export CALDAV_MOCK_URL GCAL_MOCK_URL JOB_BOARD_MOCK_URL
+export LLM_GATEWAY_URL MAILPIT_URL MAIL_MOCK_URL MCP_MOCK_URL
+
+# DEV_PROJECT —— the compose project these recipes address. Derived from
+# COMPOSE_PROJECT_NAME so a checkout states its identity once, in one file, and both compose
+# and this Makefile agree on it. A second literal here would only move the collision.
+COMPOSE_PROJECT_NAME ?= standmeet-dev
+export COMPOSE_PROJECT_NAME
+DEV_PROJECT ?= $(COMPOSE_PROJECT_NAME)
+
 # ── lint ────────────────────────────────────────────────────────
 # Order: env-lint is fastest, so it runs first; backend's own `make lint` chain is
 # already rich; the frontends each run eslint + tsc + knip. backend-no-mock is the
@@ -208,7 +277,7 @@ dev-up: app-build builder-vendor
 	# If a mock's own code changes, run `make dev-rebuild-mocks` once.
 	@docker compose -f docker-compose.dev.yml build app backend
 	@docker compose -f docker-compose.dev.yml up -d --wait
-	@echo "[dev] app=http://localhost:3000 backend=http://localhost:8000"
+	@echo "[dev] project=$(DEV_PROJECT) app=http://localhost:$${DEV_PORT_APP:-38127} backend=http://localhost:$${DEV_PORT_BACKEND:-8000}"
 
 # dev-rebuild-builder —— rebuilds the microsite builder image and swaps in the container.
 #
@@ -219,8 +288,8 @@ dev-up: app-build builder-vendor
 # build without swapping the container and you're still running the old process, and the red
 # looks exactly like a real product red.
 dev-rebuild-builder: builder-vendor
-	@docker compose -p standmeet-dev -f docker-compose.dev.yml build builder
-	@docker compose -p standmeet-dev -f docker-compose.dev.yml up -d --no-deps builder
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml build builder
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps builder
 
 # dev-rebuild-backend —— force-rebuild + swap the dev backend image (when a normal dev-up seems to
 # have served a stale backend binary after a Go source change).
@@ -853,7 +922,7 @@ meili-start:
 # Bring it back with make dev-up (or any spec's resetInstance).
 dev-stop-svc:
 	@test -n "$(SVC)" || (echo "usage: make dev-stop-svc SVC=<service>"; exit 2)
-	@docker compose -f docker-compose.dev.yml -p standmeet-dev stop $(SVC)
+	@docker compose -f docker-compose.dev.yml -p $(DEV_PROJECT) stop $(SVC)
 
 # dev-restart-svc —— restart **one** service in the stack. Usage: make dev-restart-svc SVC=backend
 # Example: something that only runs once at process startup (a periodic task's first run happens
@@ -873,18 +942,18 @@ dev-stop-svc:
 # assertions as the same thing.
 dev-pgsearch-on:
 	@docker compose -f docker-compose.dev.yml -f docker-compose.pgsearch.yml \
-		-p standmeet-dev up -d --wait --force-recreate backend
+		-p $(DEV_PROJECT) up -d --wait --force-recreate backend
 	@echo "[dev] search path = Postgres full text (prod's default). MEILI_URL blanked."
 
 dev-pgsearch-off:
-	@docker compose -f docker-compose.dev.yml -p standmeet-dev \
+	@docker compose -f docker-compose.dev.yml -p $(DEV_PROJECT) \
 		up -d --wait --force-recreate backend
 	@echo "[dev] search path = meilisearch (dev default)."
 
 dev-restart-svc:
 	@test -n "$(SVC)" || (echo "usage: make dev-restart-svc SVC=<service>"; exit 2)
-	@docker compose -f docker-compose.dev.yml -p standmeet-dev restart $(SVC)
-	@docker compose -f docker-compose.dev.yml -p standmeet-dev up -d --wait $(SVC)
+	@docker compose -f docker-compose.dev.yml -p $(DEV_PROJECT) restart $(SVC)
+	@docker compose -f docker-compose.dev.yml -p $(DEV_PROJECT) up -d --wait $(SVC)
 
 # dev-logs —— tail a service's logs (for diagnosis). Usage: make dev-logs SVC=backend N=80
 dev-logs:
@@ -961,7 +1030,7 @@ archive-failures:
 	@ls e2e/test-results/playwright 2>/dev/null | grep -q . || exit 0
 	@d="e2e/test-results-archive/$$(date -u +%Y%m%dT%H%M%SZ)"; \
 		mkdir -p "$$d" && cp -R e2e/test-results/playwright "$$d"/ && \
-		docker logs standmeet-dev-backend-1 > "$$d/backend.log" 2>&1 || true; \
+		docker logs $(DEV_PROJECT)-backend-1 > "$$d/backend.log" 2>&1 || true; \
 		echo "[archive] failure artifacts → $$d/playwright ($$(ls e2e/test-results/playwright | wc -l | tr -d ' ') case dirs) + backend.log"
 
 # test-fresh —— same as test, but cleans first (down -v) so the db volume rebuilds and
@@ -1068,7 +1137,7 @@ test-boundary:
 # what would rebuild it). usage: make test-red SPEC=test/foo.spec.ts [GREP=...] [REPEAT=N]
 test-red:
 	@test -n "$(SPEC)" || (echo "usage: make test-red SPEC=<spec-name> [GREP=<title pattern>] [REPEAT=N]"; exit 2)
-	@docker compose -f docker-compose.dev.yml -p standmeet-dev ps --status running --quiet backend \
+	@docker compose -f docker-compose.dev.yml -p $(DEV_PROJECT) ps --status running --quiet backend \
 		| grep -q . || (echo "test-red: dev stack is not running — start it with 'make dev-up' (that rebuilds)"; exit 2)
 	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT)); \
 		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
@@ -1229,7 +1298,7 @@ prod-psql-file:
 # For validating hand-written queries (stats_activity / stats_growth bypass sqlc) against real schema.
 dev-psql:
 	@test -n "$(SQL)" || (echo 'usage: make dev-psql SQL="select 1"'; exit 2)
-	@docker compose -p standmeet-dev -f docker-compose.dev.yml exec -T db \
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml exec -T db \
 		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c "$(SQL)"
 
 # dev-psql-file —— same, for multi-line SQL.  usage: make dev-psql-file FILE=/tmp/x.sql
@@ -1237,7 +1306,7 @@ dev-psql:
 # arrives mangled and postgres reports a syntax error in a statement you did not write.
 dev-psql-file:
 	@test -f "$(FILE)" || (echo 'usage: make dev-psql-file FILE=<path.sql>'; exit 2)
-	@docker compose -p standmeet-dev -f docker-compose.dev.yml exec -T db \
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml exec -T db \
 		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 < "$(FILE)"
 
 # docker-gc —— reclaim buildkit cache + dangling images. Safe: never touches running containers,

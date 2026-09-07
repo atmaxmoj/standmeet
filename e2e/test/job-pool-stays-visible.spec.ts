@@ -17,7 +17,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { REDIS_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import {
   jobsDiscard, jobsFetchNew, jobsRegisterSource, jobsShow,
@@ -190,7 +190,7 @@ async function ownerWithBoard(request: APIRequestContext, label: string) {
 // job-fetch-ttl-eviction.spec.ts.
 function clearPool(): void {
   const script = 'for k in $(redis-cli --scan --pattern "job:*"); do redis-cli DEL "$k"; done';
-  execSync(`docker exec standmeet-dev-redis-1 sh -c '${script}'`, { stdio: 'pipe' });
+  execSync(`docker exec ${REDIS_CONTAINER} sh -c '${script}'`, { stdio: 'pipe' });
 }
 
 // ageOneKey —— push one pool record's remaining lifetime down to seconds, equivalent to "it entered
@@ -202,5 +202,5 @@ function ageOneKey(cacheID: string, seconds: number): void {
   const script =
     `for k in $(redis-cli --scan --pattern "job:*:${cacheID}"); ` +
     `do redis-cli EXPIRE "$k" ${seconds}; done`;
-  execSync(`docker exec standmeet-dev-redis-1 sh -c '${script}'`, { stdio: 'pipe' });
+  execSync(`docker exec ${REDIS_CONTAINER} sh -c '${script}'`, { stdio: 'pipe' });
 }

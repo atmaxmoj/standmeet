@@ -13,7 +13,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { DB_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { goto, gotoAdminSection } from '@/fixtures/navigate';
 
@@ -24,7 +24,6 @@ const OWNER = {
   fullName: 'Pipeline Owner',
 };
 
-const DB_CONTAINER = 'standmeet-dev-db-1';
 const RAW_BODY = 'Pipeline test: raw insight about distributed systems.';
 const WIKI_TITLE = 'Distributed systems insight';
 const OUTPUT_TITLE = 'Polished essay on distributed systems';

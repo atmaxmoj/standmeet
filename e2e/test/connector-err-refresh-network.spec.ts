@@ -13,6 +13,9 @@
 // invalid_grant, each with its own friendly degrade.
 
 import { execSync } from 'node:child_process';
+// Container names come from the fixture so this spec drives the stack it is testing.
+// Hardcoded, a worktree's run reached into the primary checkout's containers.
+import { DB_CONTAINER } from '@/fixtures/instance';
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
@@ -23,7 +26,6 @@ import { issueSession } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
-const DB_CONTAINER = 'standmeet-dev-db-1';
 
 interface ToolResp {
   ok?: boolean;

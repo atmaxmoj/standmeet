@@ -14,7 +14,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { DB_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
 
@@ -28,8 +28,6 @@ const OWNER = {
 const OUTPUT_TITLE = 'Local-first essay';
 const OUTPUT_BODY = 'POLISHED_OUTPUT_BODY_MARKER';
 const SLUG = 'local-first-essay';
-
-const DB_CONTAINER = 'standmeet-dev-db-1';
 
 test.describe('public /output/<slug> SEO landing', () => {
   test.beforeAll(async ({ playwright }) => {

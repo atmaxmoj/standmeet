@@ -21,9 +21,9 @@
 # "does this target exist" must never have a chance of running a production recipe.
 #
 # The cost is that this script has to recognize Makefile target lines itself. So it carries
-# three self-tests below: it must recognize a known target, must not recognize a known
-# non-target, and must fail (not silently pass) the moment the Makefile adopts `include`
-# (which our grep can't see into).
+# self-tests below: it must recognize a known target, must not recognize a known non-target,
+# must not report zero references, and must actually follow the Makefile's `include` lines —
+# it used to refuse to run at all once the Makefile grew one, because it could not see in.
 #
 # What about proposals: it's legitimate for a doc to discuss a target that **doesn't exist
 # yet** ("we'll need a `make verify-fixtures` eventually"). That sentence must carry the
@@ -44,18 +44,59 @@ fail=0
 MARKER='not built yet'
 MAKEFILE=Makefile
 
-# The moment the Makefile gets an include, the target table below only sees half the
-# picture — at that point it must report failure, not keep passing.
-if grep -qE '^[[:space:]]*(-|s)?include[[:space:]]' "$MAKEFILE"; then
-  echo "check-doc-make-targets: SELF-TEST FAILED — $MAKEFILE now uses include; this scan only"
-  echo "                        reads the top-level file and would miss targets defined elsewhere."
+# Includes. This used to fail outright on any `include`, because the target table below read
+# one file and an include could define targets somewhere it never looked. Failing loudly was
+# the right answer to being blind — but the better answer is to stop being blind, so the scan
+# now follows includes and reads those files too.
+#
+# An include of an env file (variables, no targets) therefore contributes nothing and is fine,
+# which is what `-include .dev-stack.env` is. An include that does define targets is seen. An
+# include whose file is absent contributes nothing, which is exactly what `-include` means.
+included=$(grep -E '^[[:space:]]*(-|s)?include[[:space:]]' "$MAKEFILE" \
+  | awk '{ for (i = 2; i <= NF; i++) print $i }' || true)
+scan_files="$MAKEFILE"
+for inc in $included; do
+  [ -f "$inc" ] && scan_files="$scan_files $inc"
+done
+
+# read_targets —— the target names in the given files. The name(s) at the start of a line,
+# several allowed before the colon (`a b:`), excluding variable assignments (`a := x`).
+read_targets() {
+  grep -hE '^[a-zA-Z0-9_.%/-]+([[:space:]]+[a-zA-Z0-9_.%/-]+)*:([^=]|$)' "$@" \
+    | awk -F: '{print $1}' | tr ' ' '\n' | grep -v '^$' | sort -u
+}
+
+targets=$(read_targets $scan_files)
+
+# Self-test, both halves. The first version only had the second, and it could not fail for the
+# thing that matters: it called read_targets with an explicit extra file, so sabotaging the
+# loop that BUILDS scan_files left it green. A self-test has to walk the same path the real
+# scan walks.
+#
+# Half one: every included file that exists is actually in the scan list.
+for inc in $included; do
+  [ -f "$inc" ] || continue
+  case " $scan_files " in
+    *" $inc "*) ;;
+    *)
+      echo "check-doc-make-targets: SELF-TEST FAILED — included file $inc exists but is not in"
+      echo "                        the scan list; targets defined there would be invisible."
+      exit 2
+      ;;
+  esac
+done
+
+# Half two: read_targets can see a target in a second file at all. Half one is vacuous in a
+# checkout with no included files present, and this half is not.
+probe_inc="${TMPDIR:-/tmp}/doc-make-targets-include-probe.mk"
+printf 'probe-target-from-include:\n\t@true\n' > "$probe_inc"
+if ! read_targets "$MAKEFILE" "$probe_inc" | grep -qx 'probe-target-from-include'; then
+  echo "check-doc-make-targets: SELF-TEST FAILED — a target defined in an included file was not"
+  echo "                        found; the include scan is not working and this gate is blind."
+  rm -f "$probe_inc"
   exit 2
 fi
-
-# Target lines: the name(s) at the start of the line, multiple can appear before the
-# colon (`a b:`), excluding variable assignments (`a := x`) and pattern rules.
-targets=$(grep -E '^[a-zA-Z0-9_.%/-]+([[:space:]]+[a-zA-Z0-9_.%/-]+)*:([^=]|$)' "$MAKEFILE" \
-  | awk -F: '{print $1}' | tr ' ' '\n' | grep -v '^$' | sort -u)
+rm -f "$probe_inc"
 
 target_exists() {
   printf '%s\n' "$targets" | grep -qx "$1"

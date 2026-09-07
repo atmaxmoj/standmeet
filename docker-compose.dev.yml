@@ -35,7 +35,7 @@ services:
     ports:
       # 用偏门端口避开和 macOS 上其它项目（lucerna / youteacher）冲突；
       # 普通访问走 nginx/Caddy 时再映回 80/443，dev 直连 38127 即可。
-      - "38127:3000"
+      - "${DEV_PORT_APP:-38127}:3000"
     healthcheck:
       # 打 app **自己**的那条（见 app/src/app/api/app-health/route.ts）。以前打的是
       # `/api/v1/instance` —— 那条被反代到 backend，于是这个检查量的是两跳，3 秒的
@@ -192,7 +192,7 @@ services:
       meilisearch:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "${DEV_PORT_BACKEND:-8000}:8000"
     # sandbox 需要 root + docker socket：dev/e2e 用 owner-curated skill
     # 脚本（python/bash/node 跑在隔离 docker container 里）。生产同样需要
     # 这两个，docs 里说明权衡。
@@ -232,7 +232,7 @@ services:
     environment:
       - PORT=9100
     ports:
-      - "9100:9100"
+      - "${DEV_PORT_MCP_MOCK:-9100}:9100"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9100/healthz"]
       interval: 3s
@@ -277,8 +277,8 @@ services:
     ports:
       # Exposed to host so e2e specs can hit /__mock/{set_day,reset} directly
       # via curl. Backend talks via the internal docker network.
-      - "9000:9000"
-      - "9443:9443"
+      - "${DEV_PORT_EXTERNAL_MOCK:-9000}:9000"
+      - "${DEV_PORT_EXTERNAL_MOCK_TLS:-9443}:9443"
     volumes:
       # Whole fixtures dir; mock reads job-boards/{kind}/ + marketplace/
       # as siblings under /fixtures.
@@ -306,7 +306,7 @@ services:
       - PORT=9300
       - INFERENCE_MOCK_REPLY=Hello visitor, alice says hi from the mock provider.
     ports:
-      - "9300:9300"
+      - "${DEV_PORT_LLM_GATEWAY:-9300}:9300"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9300/__mock/inference/state"]
       interval: 3s
@@ -326,7 +326,7 @@ services:
       - MP_SMTP_AUTH_ALLOW_INSECURE=true
     ports:
       # 18025 on the host (8025 commonly taken); e2e MAILPIT_URL points here.
-      - "18025:8025"
+      - "${DEV_PORT_MAILPIT:-18025}:8025"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8025/readyz"]
       interval: 3s
@@ -348,7 +348,7 @@ services:
       - MAILPIT_SMTP=mailpit:1025
     ports:
       # 19400 on the host → host-side Playwright arms faults via /__mock/smtp/*.
-      - "19400:9400"
+      - "${DEV_PORT_MAIL_MOCK:-19400}:9400"
     depends_on:
       mailpit:
         condition: service_healthy
@@ -385,7 +385,7 @@ services:
       # 全新软件，没有任何 production 数据需要 migrate 的负担。
       - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     ports:
-      - "5432:5432"
+      - "${DEV_PORT_DB:-5432}:5432"
     # -h 127.0.0.1 是必须的,不是啰嗦:不带它 pg_isready 走 unix socket,而 postgres
     # 官方 entrypoint 在 initdb 阶段会先起一个**只监听 socket** 的临时服务器来跑
     # /docker-entrypoint-initdb.d(也就是我们的 schema.sql),那时候 TCP 还没开。
@@ -407,7 +407,7 @@ services:
     volumes:
       - redisdata:/data
     ports:
-      - "6379:6379"
+      - "${DEV_PORT_REDIS:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
@@ -475,8 +475,8 @@ services:
     volumes:
       - miniodata:/data
     ports:
-      - "9200:9000"
-      - "9201:9201"
+      - "${DEV_PORT_MINIO:-9200}:9000"
+      - "${DEV_PORT_MINIO_CONSOLE:-9201}:9201"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/live"]
       interval: 5s

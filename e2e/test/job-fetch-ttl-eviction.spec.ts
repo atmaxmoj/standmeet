@@ -9,7 +9,7 @@ import { execSync } from 'node:child_process';
 import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { REDIS_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import {
   jobsFetchNew, jobsRegisterSource, jobsShow,
@@ -62,5 +62,5 @@ test.describe('Redis 1d TTL eviction of fetched jobs', () => {
 // immediately a miss. Single-owner v1 so this is safe.
 function deleteAllJobKeys(): void {
   const script = 'redis-cli --scan --pattern "job:*" | xargs -r redis-cli DEL';
-  execSync(`docker exec standmeet-dev-redis-1 sh -c '${script}'`, { stdio: 'pipe' });
+  execSync(`docker exec ${REDIS_CONTAINER} sh -c '${script}'`, { stdio: 'pipe' });
 }

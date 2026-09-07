@@ -12,10 +12,10 @@ import type { APIRequestContext, APIResponse } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { REDIS_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-const REDIS_CONTAINER = 'standmeet-dev-redis-1';
+
 const COOKIE = 'sm_vsession';
 
 const OWNER = {
