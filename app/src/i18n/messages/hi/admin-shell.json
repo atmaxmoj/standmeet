@@ -108,6 +108,9 @@
   "composer": {
     "save": "सहेजें",
     "previewPdf": "PDF पूर्वावलोकन ↗",
+    "discardTitle": "बदलाव छोड़ें?",
+    "discardBody": "आपके पास सहेजे न गए बदलाव हैं — अभी जाने पर वे छूट जाएंगे।",
+    "discardLeave": "छोड़ें और जाएँ",
     "backToDrafts": "← drafts",
     "regenerate": "regenerate ⌖",
     "send": "send →",

@@ -108,6 +108,9 @@
   "composer": {
     "save": "保存",
     "previewPdf": "预览 PDF ↗",
+    "discardTitle": "放弃修改？",
+    "discardBody": "有未保存的改动，现在离开会丢弃。",
+    "discardLeave": "放弃并离开",
     "backToDrafts": "← 草稿",
     "regenerate": "重新生成 ⌖",
     "send": "发送 →",

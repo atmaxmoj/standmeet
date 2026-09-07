@@ -108,6 +108,9 @@
   "composer": {
     "save": "guardar",
     "previewPdf": "vista previa PDF ↗",
+    "discardTitle": "¿Descartar cambios?",
+    "discardBody": "Tienes cambios sin guardar; al salir se descartarán.",
+    "discardLeave": "descartar + salir",
     "backToDrafts": "← borradores",
     "regenerate": "regenerar ⌖",
     "send": "enviar →",

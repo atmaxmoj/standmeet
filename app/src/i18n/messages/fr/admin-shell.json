@@ -108,6 +108,9 @@
   "composer": {
     "save": "enregistrer",
     "previewPdf": "aperçu PDF ↗",
+    "discardTitle": "Abandonner les modifications ?",
+    "discardBody": "Des modifications ne sont pas enregistrées — les quitter les supprimera.",
+    "discardLeave": "abandonner + quitter",
     "backToDrafts": "← brouillons",
     "regenerate": "régénérer ⌖",
     "send": "envoyer →",

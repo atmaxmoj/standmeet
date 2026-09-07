@@ -108,6 +108,9 @@
   "composer": {
     "save": "저장",
     "previewPdf": "PDF 미리보기 ↗",
+    "discardTitle": "변경 사항을 취소할까요?",
+    "discardBody": "저장하지 않은 변경 사항이 있습니다. 나가면 취소됩니다.",
+    "discardLeave": "취소하고 나가기",
     "backToDrafts": "← drafts",
     "regenerate": "regenerate ⌖",
     "send": "send →",

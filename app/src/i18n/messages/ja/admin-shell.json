@@ -108,6 +108,9 @@
   "composer": {
     "save": "保存",
     "previewPdf": "PDF プレビュー ↗",
+    "discardTitle": "変更を破棄しますか？",
+    "discardBody": "保存していない変更があります。移動すると破棄されます。",
+    "discardLeave": "破棄して移動",
     "backToDrafts": "← drafts",
     "regenerate": "regenerate ⌖",
     "send": "send →",

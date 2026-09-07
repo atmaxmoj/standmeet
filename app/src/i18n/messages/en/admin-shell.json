@@ -108,6 +108,9 @@
   "composer": {
     "save": "save",
     "previewPdf": "preview PDF ↗",
+    "discardTitle": "Discard changes?",
+    "discardBody": "You have unsaved edits — leaving now will discard them.",
+    "discardLeave": "discard + leave",
     "backToDrafts": "← drafts",
     "regenerate": "regenerate ⌖",
     "send": "send →",

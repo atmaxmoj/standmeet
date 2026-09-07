@@ -108,6 +108,9 @@
   "composer": {
     "save": "speichern",
     "previewPdf": "PDF-Vorschau ↗",
+    "discardTitle": "Änderungen verwerfen?",
+    "discardBody": "Es gibt ungespeicherte Änderungen — beim Verlassen gehen sie verloren.",
+    "discardLeave": "verwerfen + verlassen",
     "backToDrafts": "← entwürfe",
     "regenerate": "regenerieren ⌖",
     "send": "senden →",
