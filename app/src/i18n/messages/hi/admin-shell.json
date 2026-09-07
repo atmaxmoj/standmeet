@@ -107,6 +107,7 @@
   },
   "composer": {
     "save": "सहेजें",
+    "previewPdf": "PDF पूर्वावलोकन ↗",
     "backToDrafts": "← drafts",
     "regenerate": "regenerate ⌖",
     "send": "send →",

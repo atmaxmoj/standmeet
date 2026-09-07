@@ -107,6 +107,7 @@
   },
   "composer": {
     "save": "저장",
+    "previewPdf": "PDF 미리보기 ↗",
     "backToDrafts": "← drafts",
     "regenerate": "regenerate ⌖",
     "send": "send →",

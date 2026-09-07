@@ -107,6 +107,7 @@
   },
   "composer": {
     "save": "speichern",
+    "previewPdf": "PDF-Vorschau ↗",
     "backToDrafts": "← entwürfe",
     "regenerate": "regenerieren ⌖",
     "send": "senden →",

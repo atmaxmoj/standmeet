@@ -12,17 +12,13 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRouter } from 'next/navigation';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Btn } from '@/components/admin/atoms/Btn';
-import { ResumeComposer } from '@/components/admin/ResumeComposer';
 import { NewDraftModal } from '@/components/admin/modals/NewDraftModal';
 import { DraftThumb } from '@/components/admin/sections/drafts/DraftThumb';
-import { commitDraft, type CodeChoice } from '@/lib/admin/commit-draft';
-import { useDraftDetail } from '@/lib/admin/draft-detail';
-import type { DraftModel } from '@/lib/admin/draft-model';
 import { listViewKind } from '@/lib/admin/list-view-kind';
-import { useAction } from '@/lib/ui/use-action';
 import {
   draftActionKind,
   draftPillTone,
@@ -33,22 +29,11 @@ import {
 export function DraftsSection() {
   const t = useTranslations('adminJobs');
   const { rows, loading, error, reload } = useAdminDrafts();
-  const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const detail = useDraftDetail(openId);
-  const run = useAction();
-  // onSend —— actually send. This used to be `onSend={onClose}`: the confirmation
-  // dialog made four promises item by item, and clicking it just closed the panel —
-  // no request went out and nothing errored (F-E-9).
-  const onSend = (id: string, choice: CodeChoice) => void run(
-    async () => {
-      const c = await commitDraft(id, choice);
-      setOpenId(null);
-      reload();
-      return c;
-    },
-    { success: t('drafts.committed') },
-  );
+  const router = useRouter();
+  // Open composer → the full-page Puck editor route. Editing / Save / SEND (commit) all live there
+  // now (PuckComposer); this section is just the list + the way in.
+  const openComposer = (id: string): void => { router.push(`/admin/edit-resume/${id}`); };
   return (
     <>
       <SectionHeader
@@ -58,11 +43,7 @@ export function DraftsSection() {
         action={<NewDraftBtn onOpen={() => setCreating(true)} />}
       />
       <Intro />
-      <DraftListBody rows={rows} loading={loading} error={error} onOpen={setOpenId} />
-      <ComposerHost
-        model={detail.model} onClose={() => setOpenId(null)}
-        onSend={(choice) => { openId !== null && onSend(openId, choice); }}
-      />
+      <DraftListBody rows={rows} loading={loading} error={error} onOpen={openComposer} />
       {creating && (
         <NewDraftModal
           onClose={() => setCreating(false)}
@@ -76,14 +57,6 @@ export function DraftsSection() {
 function NewDraftBtn({ onOpen }: { onOpen: () => void }) {
   const t = useTranslations('adminJobs');
   return <Btn kind="solid" onClick={() => onOpen()}>{t('drafts.new')}</Btn>;
-}
-
-function ComposerHost({
-  model, onClose, onSend,
-}: { model: DraftModel | null; onClose: () => void; onSend: (choice: CodeChoice) => void }) {
-  return model === null
-    ? null
-    : <ResumeComposer initial={model} onClose={onClose} onSend={onSend} />;
 }
 
 // ink —— the <ink> tag for t.rich: lifts an emphasized word mid-sentence to ink color.

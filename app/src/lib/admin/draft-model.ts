@@ -127,61 +127,6 @@ export function normalizeLeftOrder(stored: readonly string[]): readonly string[]
 // isn't is worse than no number ([[names-that-lie]]); real ML scoring already happens in job-loop's
 // resume.draft. `confidenceScore`/`useMatchPct` and their stopword list went with it.
 
-// patchModel —— an immutable shallow patch across the whole draft.
-export function patchModel(m: DraftModel, p: Partial<DraftModel>): DraftModel {
-  return { ...m, ...p };
-}
-
-export function patchExperience(
-  m: DraftModel, id: string, p: Partial<DraftExperience>,
-): DraftModel {
-  return {
-    ...m,
-    experience: m.experience.map((e) => e.id === id ? { ...e, ...p } : e),
-  };
-}
-
-export function patchEducation(
-  m: DraftModel, id: string, p: Partial<DraftEducation>,
-): DraftModel {
-  return {
-    ...m,
-    education: m.education.map((e) => e.id === id ? { ...e, ...p } : e),
-  };
-}
-
-export function patchSocial(
-  m: DraftModel, id: string, p: Partial<DraftSocial>,
-): DraftModel {
-  return {
-    ...m,
-    social: m.social.map((s) => s.id === id ? { ...s, ...p } : s),
-  };
-}
-
-export function patchCustom(
-  m: DraftModel, id: string, p: Partial<DraftCustom>,
-): DraftModel {
-  return {
-    ...m,
-    custom: m.custom.map((c) => c.id === id ? { ...c, ...p } : c),
-  };
-}
-
-// reorder —— move the row `fromId` to sit just before the row `toId`, immutably. Used by the
-// composer's drag-to-reorder (experience / education / social / custom): dropping a row's handle
-// onto another row calls this. Same/unknown ids → the list is returned unchanged (a no-op drop).
-// The committed PDF renders sections in this array order, so reordering here reorders the résumé.
-export function reorder<T extends { id: string }>(
-  list: readonly T[], fromId: string, toId: string,
-): readonly T[] {
-  const moved = list.find((x) => x.id === fromId);
-  if (moved === undefined || fromId === toId) return list;
-  const rest = list.filter((x) => x.id !== fromId);
-  const to = rest.findIndex((x) => x.id === toId);
-  return to < 0 ? list : [...rest.slice(0, to), moved, ...rest.slice(to)];
-}
-
 // moveTo —— move item `from` to slot `to`, immutably. Direction-agnostic: dropping a row's grip onto
 // another row's grip puts the dragged row in that row's slot (splice out, splice back in at `to`).
 function moveTo<T>(list: readonly T[], from: number, to: number): T[] {
@@ -190,20 +135,6 @@ function moveTo<T>(list: readonly T[], from: number, to: number): T[] {
   if (item === undefined) return arr;
   arr.splice(to, 0, item);
   return arr;
-}
-
-// reorderRowByIndex —— the on-canvas reorder (P3-b) works in row INDICES (the row-anchor's index),
-// not ids. `kind` is the template's list name (works / educations). Out-of-range or same → unchanged.
-export function reorderRowByIndex(
-  m: DraftModel, kind: string, from: number, to: number,
-): DraftModel {
-  if (kind === 'works' && inRange(m.experience, from, to)) {
-    return { ...m, experience: moveTo(m.experience, from, to) };
-  }
-  if (kind === 'educations' && inRange(m.education, from, to)) {
-    return { ...m, education: moveTo(m.education, from, to) };
-  }
-  return m;
 }
 
 function inRange(list: readonly unknown[], from: number, to: number): boolean {

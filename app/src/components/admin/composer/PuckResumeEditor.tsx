@@ -1,23 +1,19 @@
-// PuckResumeEditor —— the résumé editor built on Puck (the fixed section components in
-// resume-puck-config). Puck owns the editor state; it lives in Puck until the owner clicks Save —
-// no autosave churn (owner: "puck 自己的 redux,点 save 就 save"). Save persists the Puck state
-// (puck_data) verbatim AND the derived resume_content (the typst render source), so reopening
-// restores the exact arrangement and the committed PDF matches. An un-Saved edit does NOT persist.
-// docs/design/resume-composer-puck.md (Q0).
+// PuckResumeEditor —— the Puck canvas for the résumé editor (the fixed section components in
+// resume-puck-config). Puck owns the editor state; every edit is forwarded to the parent via onData
+// (tracked, not persisted). The parent composer owns Save/SEND/preview/code and the commit-to-storage
+// moment — no autosave (owner: "puck 自己的 redux,点 save 就 save"). docs/design/resume-composer-puck.md.
 //
 // Load: a draft with saved puck_data opens from it; a draft without (agent-created / pre-Puck)
 // derives the initial doc from resume_content via toPuckData — old rows just open.
 
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Puck, type Data } from '@measured/puck';
-import { useTranslations } from 'next-intl';
 import '@measured/puck/puck.css';
 
 import { resumePuckConfig } from '@/lib/admin/resume-puck-config';
 import { toPuckData, fromPuckData, type PuckData } from '@/lib/admin/resume-puck';
-import { savePuckDraft } from '@/lib/admin/save-draft';
 import {
   draftToResumeContent, applyResumeContentToDraft, type DraftModel,
 } from '@/lib/admin/draft-model';
@@ -36,43 +32,32 @@ function savedAsData(u: unknown): Data {
   return u as Data; // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
 
-function initialData(model: DraftModel, savedPuckData: unknown): Data {
+// puckInitialData —— the document Puck opens with: the saved puck_data verbatim, else derived from
+// resume_content so old rows just open.
+export function puckInitialData(model: DraftModel, savedPuckData: unknown): Data {
   return savedPuckData == null
     ? asPuckData(toPuckData(draftToResumeContent(model)))
     : savedAsData(savedPuckData);
 }
 
-export function PuckResumeEditor({ model, initialPuckData }: {
-  model: DraftModel;
-  // The draft's saved Puck state, or null when it has none yet (derive from resume_content).
-  initialPuckData: unknown;
+// deriveModel —— fold the current Puck document back into the DraftModel (base carries the id + job
+// context; the Puck doc carries the edited sections + arrangement). The canonical resume_content the
+// typst render + commit use comes from this.
+export function deriveModel(base: DraftModel, data: Data): DraftModel {
+  return applyResumeContentToDraft(base, fromPuckData(fromData(data)));
+}
+
+export function PuckResumeEditor({ initial, onData }: {
+  initial: Data;
+  onData: (data: Data) => void;
 }) {
-  const t = useTranslations('adminShell.composer');
-  // Derived ONCE, in a lazy useState initializer (no useMemo in the presentation layer): Puck then
-  // owns the state. A saved puck_data opens verbatim; otherwise derive it from resume_content.
-  const [initial] = useState<Data>(() => initialData(model, initialPuckData));
-  // The latest Puck doc, tracked (not persisted) on every edit; Save reads it. Editing updates this
-  // ref only — nothing persists until Save, so an un-Saved edit is lost on reopen (D4).
-  const latest = useRef<Data>(initial);
-  const onChange = useCallback((data: Data) => { latest.current = data; }, []);
-
-  const handleSave = useCallback(() => {
-    const data = latest.current;
-    const derived = applyResumeContentToDraft(model, fromPuckData(fromData(data)));
-    void savePuckDraft(derived, data);
-  }, [model]);
-
+  // Puck owns the state after this first render; onChange forwards each edit to the parent, which
+  // tracks the latest doc for Save/SEND. Nothing persists here.
+  const onChange = useCallback((data: Data) => onData(data), [onData]);
+  const [data] = useState<Data>(initial);
   return (
-    <div data-testid="puck-resume-editor">
-      <div className="flex items-center justify-end gap-3 px-4 py-2 border-b border-(--color-rule)">
-        <button
-          type="button" onClick={handleSave}
-          className="sm-btn sm-btn-solid sm-btn-sm" data-testid="puck-save"
-        >
-          {t('save')}
-        </button>
-      </div>
-      <Puck config={resumePuckConfig} data={initial} onChange={onChange} />
+    <div data-testid="puck-resume-editor" className="h-full">
+      <Puck config={resumePuckConfig} data={data} onChange={onChange} />
     </div>
   );
 }

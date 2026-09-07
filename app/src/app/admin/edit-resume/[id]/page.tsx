@@ -9,7 +9,7 @@
 
 import { useParams } from 'next/navigation';
 
-import { PuckResumeEditor } from '@/components/admin/composer/PuckResumeEditor';
+import { PuckComposer } from '@/components/admin/composer/PuckComposer';
 import { Skel } from '@/components/skeletons/Skel';
 import { useDraftDetail } from '@/lib/admin/draft-detail';
 import type { DraftModel } from '@/lib/admin/draft-model';
@@ -29,5 +29,5 @@ function EditResumeBody({ model, puckData, error }: {
     ? <p data-testid="edit-resume-error" className="p-6 text-(--color-accent)">{error}</p>
     : model === null
       ? <div data-testid="edit-resume-loading" className="p-6"><Skel h="h-8" w="w-64" /></div>
-      : <PuckResumeEditor model={model} initialPuckData={puckData} />;
+      : <PuckComposer model={model} initialPuckData={puckData} />;
 }

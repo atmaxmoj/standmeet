@@ -2,18 +2,8 @@
 // local React state discarded at send; now the composer debounce-saves through PATCH /drafts/{id},
 // so the "saved" label is real and commit renders what the owner actually sees.
 
-import { z } from 'zod';
-
 import { adminAPI } from '@/lib/api/admin';
 import { draftToAPIContent, type DraftModel } from '@/lib/admin/draft-model';
-
-// saveDraft —— persist the whole edited draft (content + chosen Typst template).
-export function saveDraft(model: DraftModel): Promise<void> {
-  return adminAPI.patchVoid(`/drafts/${model.id}`, {
-    template: model.template,
-    resume_content: draftToAPIContent(model),
-  });
-}
 
 // savePuckDraft —— the Puck editor's Save: persist the derived resume_content + template AND the
 // Puck editor's own state (puckData) verbatim, so reopening restores the exact arrangement. This is
@@ -24,11 +14,6 @@ export function savePuckDraft(model: DraftModel, puckData: unknown): Promise<voi
     resume_content: draftToAPIContent(model),
     puck_data: puckData,
   });
-}
-
-// fetchTemplates —— the Typst layouts the picker offers (classic / compact / …).
-export function fetchTemplates(): Promise<string[]> {
-  return adminAPI.get('/drafts/templates', z.array(z.string()));
 }
 
 // previewURL —— the real Typst render for this draft. The `v` cache-buster forces the preview
