@@ -30,7 +30,11 @@ export function CorpusWidget({ heading, limit, query }: CorpusWidgetProps): Reac
       <div className="mono text-[10px] tracking-[0.22em] uppercase text-(--color-faint) mb-7">
         {heading ?? 'from the corpus'}
       </div>
-      <ol className="flex flex-col">
+      {/* Structural layout is INLINE, not Tailwind utilities: a consumer whose Tailwind does not scan
+          the SDK (the microsite builder, a third-party embed) never compiles `flex-col`, so `flex`
+          alone fell back to flex-direction:row and the cards ran horizontally. A widget must own its
+          own layout — inline styles always apply, no matter the consumer's CSS pipeline. */}
+      <ol style={{ display: 'flex', flexDirection: 'column', listStyle: 'none', margin: 0, padding: 0 }}>
         {shown.map((c, i) => <CorpusNote key={c.path} card={c} index={i} />)}
       </ol>
     </section>

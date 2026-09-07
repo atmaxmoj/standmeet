@@ -102,7 +102,9 @@ function InlineAgent(): React.ReactElement {
 
   return (
     <section data-testid="agent-widget" data-mode="inline" className="w-full">
-      <ol data-testid="agent-widget-transcript" className="flex flex-col gap-6 mb-6">
+      {/* Inline structural layout (see CorpusWidget): without it a consumer that doesn't compile
+          `flex-col` runs the chat transcript horizontally. */}
+      <ol data-testid="agent-widget-transcript" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', listStyle: 'none', padding: 0, margin: '0 0 1.5rem' }}>
         {chat.messages.map((m) => (
           <li key={m.id} data-role={m.role}>
             {m.role === 'visitor'

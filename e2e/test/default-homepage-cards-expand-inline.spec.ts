@@ -75,19 +75,23 @@ test.describe('the default homepage opens corpus cards inline (no redirect)', ()
 
   // The CorpusWidget renders its cards in `<ol className="flex flex-col">`. `flex-col` is used only
   // inside the SDK widget, not in the owner's App.tsx — and Tailwind v4 doesn't scan node_modules by
-  // default, so without `@source` for the SDK it compiled to NOTHING and the list fell back to
-  // flex-direction:row: the corpus cards crammed into a horizontal strip (a real prod defect). A
-  // text/behaviour assertion can't see this ([[text-assertion-cannot-see-layout]]) — assert the
-  // computed direction. RED without the theme.css @source; GREEN with it.
-  test('the corpus card list stacks vertically (SDK flex-col actually compiles)',
+  // default. Relying on a `flex-col` UTILITY class meant a consumer whose Tailwind doesn't scan the
+  // SDK (the microsite builder, a third-party embed) compiled it to NOTHING and the list fell back to
+  // flex-direction:row — the horizontal strip the owner hit on the live page. The fix is that the
+  // widget owns its layout via INLINE style, which applies in every consumer regardless of Tailwind.
+  // So assert BOTH the computed direction AND that it comes from the element's own inline style — the
+  // latter is the robustness guard: it goes RED if anyone reverts to the class. A text/behaviour
+  // assertion can't see this ([[text-assertion-cannot-see-layout]]).
+  test('the corpus card list stacks vertically from the widget’s own inline style',
     async ({ page }) => {
       await goto(page, '/');
       await expect(page.getByText(NOTE_TITLE, { exact: false }).first()).toBeVisible({ timeout: 20_000 });
-      const dir = await page.evaluate(() => {
-        const ol = [...document.querySelectorAll('ol')].find((o) => getComputedStyle(o).display === 'flex');
-        return ol ? getComputedStyle(ol).flexDirection : 'no-flex-ol';
+      const ol = await page.evaluate(() => {
+        const el = [...document.querySelectorAll('ol')].find((o) => getComputedStyle(o).display === 'flex');
+        return el ? { computed: getComputedStyle(el).flexDirection, inline: el.style.flexDirection } : null;
       });
-      expect(dir, 'the corpus card <ol> must be flex-direction:column, not a horizontal row').toBe('column');
+      expect(ol?.computed, 'the corpus card <ol> renders as a vertical column, not a horizontal row').toBe('column');
+      expect(ol?.inline, 'the column layout is the widget’s own inline style, not a Tailwind class a consumer might not compile').toBe('column');
     });
 
   // (The old EDIT-ME identity sections — projects / where-I-am / contact — were a materialized

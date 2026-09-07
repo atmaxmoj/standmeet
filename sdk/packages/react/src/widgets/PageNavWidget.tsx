@@ -29,7 +29,9 @@ export function PageNavWidget(
       <div className="mono text-[10px] tracking-[0.22em] uppercase text-(--color-faint) mb-4">
         {heading ?? 'elsewhere on this site'}
       </div>
-      <ul className="flex flex-col gap-2">
+      {/* Inline structural layout (see CorpusWidget): a consumer that doesn't compile `flex-col`
+          would otherwise run the nav links horizontally. */}
+      <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', listStyle: 'none', margin: 0, padding: 0 }}>
         {others.map((p) => (
           <li key={p.slug}>
             <a
