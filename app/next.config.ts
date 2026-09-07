@@ -28,7 +28,15 @@ const nextConfig: NextConfig = {
   //
   // 跟 F-L-20（1000 个 part 的墙）、F-L-69（后端 30s WriteTimeout）是同一族：
   // 一个没人声明过的默认值，让真实规模的 vault 用不了。真正的上限交给后端的 ctx。
-  experimental: { proxyTimeout: 15 * 60 * 1000 },
+  // staleTimes.dynamic —— the whole /admin tree is DYNAMIC (the root layout awaits headers()/cookies()
+  // for i18n), and Next 15's default `staleTimes.dynamic = 0` throws away the prefetched loading shell
+  // the moment it's fetched. So clicking a sidebar section (or the "编辑" link) can't reuse a cached
+  // shell: the router blocks on a server RSC round-trip while holding the OLD screen, and admin/loading.tsx
+  // never gets a frame to paint ("点了好久才变，没 skeleton"). A positive TTL lets the router serve the
+  // already-prefetched loading skeleton INSTANTLY on click, then stream the section behind it. Only the
+  // skeleton shell is cached (real data is fetched client-side on mount), so there's no stale-data risk.
+  // ponytail: 180s is a tuning knob; lower it if a route's shell ever embeds must-be-fresh server data.
+  experimental: { proxyTimeout: 15 * 60 * 1000, staleTimes: { dynamic: 180 } },
   // node-tikzjax(/render-tikz 用):(1) 保持 external 不被 Next 打进 route bundle —— 否则
   // __dirname 变、它读的 ../tex/*.gz 找不着;(2) 显式 trace-include 那 3 个运行时 TeX 资产
   // (core.dump.gz / tex.wasm.gz / tex_files.tar.gz 是 fs.read 的,不走 import,tracing 抓不到)。
