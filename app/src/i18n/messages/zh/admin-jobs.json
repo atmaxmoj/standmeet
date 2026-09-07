@@ -51,7 +51,11 @@
     "newCreate": "创建草稿",
     "kicker": "工作 · 简历草稿",
     "titlePending": "{count} 个待处理",
-    "committed": "申请已提交 —— 简历已随访问代码发送"
+    "committed": "申请已提交 —— 简历已随访问代码发送",
+    "discardTitle": "丢弃这份草稿？",
+    "discardBody": "这将永久删除该草稿，且无法恢复。",
+    "cancel": "取消",
+    "discarded": "草稿已丢弃"
   },
   "applications": {
     "searchPlaceholder": "按公司或职位搜索…",

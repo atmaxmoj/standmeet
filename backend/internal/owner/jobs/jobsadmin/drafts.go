@@ -156,6 +156,22 @@ func getDraft(deps Deps) http.HandlerFunc {
 	}
 }
 
+// discardDraft — DELETE /drafts/{id}. The owner throws a draft away from the list. Calls the SAME
+// idempotent usecase as MCP resume.discard_draft, so the two paths can't diverge. 204 on success.
+func discardDraft(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := authmw.OwnerIDFrom(r.Context())
+		if err := jobsuc.DiscardResumeDraft(
+			r.Context(), jobsuc.ResumeDeps{Drafts: deps.Drafts}, ownerID, chi.URLParam(r, "id"),
+		); err != nil {
+			deps.Log.Error("discard draft", logErrKey, err)
+			writeServerErr(deps.Log, w)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func handleDraftDetailErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	if errors.Is(err, jobsmodel.ErrResumeDraftNotFound) {
 		writeJSONErr(log, w, apierr.Envelope{

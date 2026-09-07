@@ -51,7 +51,11 @@
     "newCreate": "créer le brouillon",
     "kicker": "emplois · brouillons de cv",
     "titlePending": "{count, plural, one {# en attente} other {# en attente}}",
-    "committed": "Candidature validée — CV envoyé avec son code d'accès"
+    "committed": "Candidature validée — CV envoyé avec son code d'accès",
+    "discardTitle": "Supprimer ce brouillon ?",
+    "discardBody": "Le brouillon sera définitivement supprimé. Cette action est irréversible.",
+    "cancel": "annuler",
+    "discarded": "Brouillon supprimé"
   },
   "applications": {
     "searchPlaceholder": "rechercher par entreprise ou poste…",

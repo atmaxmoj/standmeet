@@ -51,7 +51,11 @@
     "newCreate": "ドラフトを作成",
     "kicker": "求人 · 履歴書の下書き",
     "titlePending": "{count} 件保留中",
-    "committed": "応募を確定しました — 履歴書をアクセスコードとともに送信しました"
+    "committed": "応募を確定しました — 履歴書をアクセスコードとともに送信しました",
+    "discardTitle": "この下書きを破棄しますか？",
+    "discardBody": "下書きが完全に削除され、元に戻せません。",
+    "cancel": "キャンセル",
+    "discarded": "下書きを破棄しました"
   },
   "applications": {
     "searchPlaceholder": "会社名や職種で検索…",

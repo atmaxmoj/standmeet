@@ -51,7 +51,11 @@
     "newCreate": "create draft",
     "kicker": "jobs · resume drafts",
     "titlePending": "{count, plural, one {# pending} other {# pending}}",
-    "committed": "Application committed — résumé sent with its access code"
+    "committed": "Application committed — résumé sent with its access code",
+    "discardTitle": "Discard this draft?",
+    "discardBody": "This permanently removes the draft. It can't be undone.",
+    "cancel": "cancel",
+    "discarded": "Draft discarded"
   },
   "applications": {
     "searchPlaceholder": "search by company or role…",

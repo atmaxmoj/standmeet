@@ -74,6 +74,7 @@ func Mount(r chi.Router, deps Deps) {
 		r.Get("/templates", listTemplates(deps))
 		r.Get("/{id}", getDraft(deps))
 		r.Patch("/{id}", patchDraft(deps))
+		r.Delete("/{id}", discardDraft(deps))
 		r.Get("/{id}/preview.pdf", previewDraft(deps))
 		r.Post("/{id}/commit", commitDraft(deps))
 	})

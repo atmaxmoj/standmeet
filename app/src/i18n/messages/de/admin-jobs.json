@@ -51,7 +51,11 @@
     "newCreate": "entwurf erstellen",
     "kicker": "jobs · lebenslauf-entwürfe",
     "titlePending": "{count, plural, one {# ausstehend} other {# ausstehend}}",
-    "committed": "Bewerbung übermittelt – Lebenslauf mit Zugangscode gesendet"
+    "committed": "Bewerbung übermittelt – Lebenslauf mit Zugangscode gesendet",
+    "discardTitle": "Diesen Entwurf verwerfen?",
+    "discardBody": "Der Entwurf wird dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.",
+    "cancel": "abbrechen",
+    "discarded": "Entwurf verworfen"
   },
   "applications": {
     "searchPlaceholder": "nach Firma oder Rolle suchen…",

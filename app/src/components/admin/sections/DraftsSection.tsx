@@ -19,6 +19,8 @@ import { Btn } from '@/components/admin/atoms/Btn';
 import { NewDraftModal } from '@/components/admin/modals/NewDraftModal';
 import { DraftThumb } from '@/components/admin/sections/drafts/DraftThumb';
 import { listViewKind } from '@/lib/admin/list-view-kind';
+import { adminAPI } from '@/lib/api/admin';
+import { useAction } from '@/lib/ui/use-action';
 import {
   draftActionKind,
   draftPillTone,
@@ -30,10 +32,22 @@ export function DraftsSection() {
   const t = useTranslations('adminJobs');
   const { rows, loading, error, reload } = useAdminDrafts();
   const [creating, setCreating] = useState(false);
+  const [discardId, setDiscardId] = useState<string | null>(null);
+  const run = useAction();
   const router = useRouter();
   // Open composer → the full-page Puck editor route. Editing / Save / SEND (commit) all live there
   // now (PuckComposer); this section is just the list + the way in.
   const openComposer = (id: string): void => { router.push(`/admin/edit-resume/${id}`); };
+  // Discard → confirm modal → DELETE /drafts/{id} (same idempotent usecase as MCP resume.discard_draft)
+  // → refetch so the thrown-away row leaves the list (F-E-9: a stale row reads as "it failed"). The id
+  // comes from the modal (only rendered when discardId is set), so no null-guard branch lives here.
+  const confirmDiscard = (id: string): void => {
+    setDiscardId(null);
+    void run(async () => {
+      await adminAPI.deleteVoid(`/drafts/${id}`);
+      reload();
+    }, { success: t('drafts.discarded') });
+  };
   return (
     <>
       <SectionHeader
@@ -43,14 +57,36 @@ export function DraftsSection() {
         action={<NewDraftBtn onOpen={() => setCreating(true)} />}
       />
       <Intro />
-      <DraftListBody rows={rows} loading={loading} error={error} onOpen={openComposer} />
+      <DraftListBody rows={rows} loading={loading} error={error} onOpen={openComposer} onDiscard={setDiscardId} />
       {creating && (
         <NewDraftModal
           onClose={() => setCreating(false)}
           onCreated={() => { setCreating(false); reload(); }}
         />
       )}
+      <DiscardDraftModal discardId={discardId} onCancel={() => setDiscardId(null)} onConfirm={confirmDiscard} />
     </>
+  );
+}
+
+// DiscardDraftModal —— confirm before throwing a draft away (delete is irreversible). Same overlay
+// language as the composer's leave-guard; the confirm button carries the destructive accent. Owns its
+// own open/closed guard (null discardId → renders nothing) so the section body stays flat.
+function DiscardDraftModal({
+  discardId, onCancel, onConfirm,
+}: { discardId: string | null; onCancel: () => void; onConfirm: (id: string) => void }) {
+  const t = useTranslations('adminJobs');
+  return discardId === null ? null : (
+    <div className="sm-fadein sm-composer-confirm-overlay" onClick={onCancel}>
+      <div className="sm-composer-confirm-card sm-rise" onClick={(e) => e.stopPropagation()} data-testid="draft-discard-modal">
+        <div className="sm-smallcaps">{t('drafts.discardTitle')}</div>
+        <p className="sm-reading text-(--color-muted) text-[14.5px] mt-2">{t('drafts.discardBody')}</p>
+        <div className="flex items-center justify-end gap-3 mt-5">
+          <button type="button" onClick={onCancel} className="sm-btn sm-btn-ghost" data-testid="draft-discard-cancel">{t('drafts.cancel')}</button>
+          <button type="button" onClick={() => onConfirm(discardId)} className="sm-btn sm-btn-accent" data-testid="draft-discard-confirm">{t('drafts.discard')}</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -78,13 +114,14 @@ function DraftListBody(props: {
   loading: boolean;
   error: string | null;
   onOpen: (id: string) => void;
+  onDiscard: (id: string) => void;
 }) {
   const kind = listViewKind(props.loading, props.error, props.rows.length);
   const map = {
     loading: <Loading />,
     error: <LoadError msg={props.error ?? ''} />,
     empty: <EmptyState />,
-    list: <DraftList rows={props.rows} onOpen={props.onOpen} />,
+    list: <DraftList rows={props.rows} onOpen={props.onOpen} onDiscard={props.onDiscard} />,
   } as const;
   return map[kind];
 }
@@ -124,28 +161,29 @@ function EmptyState() {
 }
 
 function DraftList({
-  rows, onOpen,
+  rows, onOpen, onDiscard,
 }: {
   rows: readonly AdminDraftRow[];
   onOpen: (id: string) => void;
+  onDiscard: (id: string) => void;
 }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {rows.map((r) => <DraftCard key={r.id} row={r} onOpen={() => onOpen(r.id)} />)}
+      {rows.map((r) => <DraftCard key={r.id} row={r} onOpen={() => onOpen(r.id)} onDiscard={() => onDiscard(r.id)} />)}
     </div>
   );
 }
 
 function DraftCard({
-  row, onOpen,
-}: { row: AdminDraftRow; onOpen: () => void }) {
+  row, onOpen, onDiscard,
+}: { row: AdminDraftRow; onOpen: () => void; onDiscard: () => void }) {
   return (
     <article data-testid="draft-card" className="border border-(--color-rule) rounded-[3px] p-4 hover:border-(--color-ink) transition-colors grid grid-cols-[1fr_200px] gap-4">
       <div>
         <DraftCardHead company={row.company} role={row.role} status={row.status} />
         <DraftCardMeta updatedAt={row.updated_at} forJob={row.for_job} />
         <DraftDiff text={row.diff_text} />
-        <DraftCardActions onOpen={onOpen} draftId={row.id} actionKind={draftActionKind(row.status)} />
+        <DraftCardActions onOpen={onOpen} onDiscard={onDiscard} draftId={row.id} actionKind={draftActionKind(row.status)} />
       </div>
       <DraftThumb row={row} />
     </article>
@@ -202,10 +240,10 @@ function formatDate(iso: string): string {
   return iso ? iso.slice(0, 10) : '—';
 }
 
-function DraftCardActions({ onOpen, draftId, actionKind }: { onOpen: () => void; draftId: string; actionKind: 'reviewing' | 'draft' | 'sent' }) {
+function DraftCardActions({ onOpen, onDiscard, draftId, actionKind }: { onOpen: () => void; onDiscard: () => void; draftId: string; actionKind: 'reviewing' | 'draft' | 'sent' }) {
   const map = {
     reviewing: <ReviewingActions onOpen={onOpen} draftId={draftId} />,
-    draft: <DraftActions onOpen={onOpen} draftId={draftId} />,
+    draft: <DraftActions onOpen={onOpen} onDiscard={onDiscard} draftId={draftId} />,
     sent: <SentActions draftId={draftId} />,
   } as const;
   return map[actionKind];
@@ -232,7 +270,7 @@ function ReviewingActions({ onOpen, draftId }: { onOpen: () => void; draftId: st
   );
 }
 
-function DraftActions({ onOpen, draftId }: { onOpen: () => void; draftId: string }) {
+function DraftActions({ onOpen, onDiscard, draftId }: { onOpen: () => void; onDiscard: () => void; draftId: string }) {
   const t = useTranslations('adminJobs');
   return (
     <div className="flex items-baseline gap-3" data-testid={`draft-actions-${draftId}`}>
@@ -243,7 +281,11 @@ function DraftActions({ onOpen, draftId }: { onOpen: () => void; draftId: string
       >
         {t('drafts.openComposer')}
       </button>
-      <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent)">
+      <button
+        type="button" onClick={onDiscard}
+        className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent)"
+        data-testid={`draft-discard-${draftId}`}
+      >
         {t('drafts.discard')}
       </button>
     </div>

@@ -51,7 +51,11 @@
     "newCreate": "crear borrador",
     "kicker": "empleos · borradores de cv",
     "titlePending": "{count, plural, one {# pendiente} other {# pendientes}}",
-    "committed": "Solicitud registrada: currículum enviado con su código de acceso"
+    "committed": "Solicitud registrada: currículum enviado con su código de acceso",
+    "discardTitle": "¿Descartar este borrador?",
+    "discardBody": "Esto elimina el borrador de forma permanente. No se puede deshacer.",
+    "cancel": "cancelar",
+    "discarded": "Borrador descartado"
   },
   "applications": {
     "searchPlaceholder": "buscar por empresa o puesto…",
