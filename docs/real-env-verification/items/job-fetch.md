@@ -2,7 +2,7 @@
 
 - **Module:** `jobs.fetch_new` pulls real postings from each public job board, maps each source's own schema correctly, consumes every page, collapses the same posting reached through two sources, and lands the result in the 1-day pool.
 - **Surface:** `/admin/sources` to register, and owner MCP (`jobs.fetch_new`) to pull. Results land in `/admin/listings`.
-- **Real dep:** The real public job APIs. Most need only a public company slug. One source requires an employer token that is not held, so it stays out of reach.
+- **Real dep:** The real public job APIs. Most need only a public company slug. One source requires an employer token that is not held, so it stays out of reach. A fresh claim seeds a working set of aggregators, so `/admin/sources` is not empty before the owner registers anything.
 - **Exclusive:** none
 - **Backing e2e:** `job-fetch-multi-source` · `job-fetch-deduplicates` · `job-fetch-cross-source-dedup` · `job-sources-register` · `job-fetch-ttl-eviction` · `job-fetch-workday-bamboohr` · `job-fetch-workable` · `job-fetch-jba`.
 
@@ -46,3 +46,20 @@
 The sources list populates after registering, and each row says when it last fetched.
 Fetched jobs render as readable postings, not empty rows and not raw payload.
 Every affordance on the page does something — sources are registered through MCP by design, so the page must not offer buttons that contradict that.
+
+### 7 — A fresh instance can fetch before the owner registers anything
+- **Steps:** On a newly claimed instance, open the sources section and fetch without adding a source.
+- **Expected:** A working set is already registered, and the fetch returns real postings from it.
+- **Backing test:** `job-sources-register.spec.ts` · `admin-sources.spec.ts`
+
+### 8 — A board with no adapter is still reachable through a generic one ⭐
+- **Steps:** Register a board by its feed rather than by its name, using the generic feed reader and the generic structured-data reader in turn. Fetch from each.
+- **Expected:** Both return postings whose title, company and link are populated. A board nobody wrote an adapter for is not out of reach.
+- **Mock gap:** Real feeds carry shapes no fixture invents — a missing field, an entity-escaped title, a link that redirects.
+- **Backing test:** `job-fetch-rss.spec.ts` · `job-sources-new-adapters.spec.ts`
+
+### 9 — The register form offers every kind it can actually fetch
+- **Steps:** Open the register picker and count the kinds. Register one of each that needs no token, and fetch.
+- **Expected:** Every kind offered can be registered and fetched. The picker does not list a kind the fetcher has no route for.
+- **Backing test:** `job-sources-register.spec.ts` · `job-sources-new-adapters.spec.ts`
+

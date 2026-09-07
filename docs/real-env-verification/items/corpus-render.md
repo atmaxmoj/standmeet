@@ -45,3 +45,25 @@
 Read a real note as a reader would, all the way down — this is where the product meets the owner's actual writing.
 Anything that arrives as source instead of as content is a defect, and it will sit in the middle of otherwise perfect output.
 Watch the spaces too: words glued together mark a delimiter that was consumed and never closed.
+
+### 7 — The reader shell survives navigation ⭐
+- **Steps:** Open an entry, scroll the tree rail to a branch far down, then open a sibling entry from that rail. Repeat across several entries.
+- **Expected:** The rail keeps its scroll position and its open branches. It does not flash, refetch or return to the top on each entry.
+- **Backing test:** `wiki-reader-shell-persists.spec.ts`
+
+### 8 — A language choice carries through the prose
+- **Steps:** Read a multilingual entry in a second language, then follow a link written inside its body.
+- **Expected:** The next entry opens in the same language. The choice is not dropped by a link the owner wrote rather than one the shell drew.
+- **Backing test:** `wiki-reader-crosslink.spec.ts` · `corpus-i18n-reader.spec.ts`
+
+### 9 — Several diagrams on one page all render
+- **Steps:** Open a note carrying more than one TikZ figure, and one whose figure needs a font the base image does not ship.
+- **Expected:** Every figure renders. None is replaced by its source, and none renders as boxes.
+- **Backing test:** `render-tikz.spec.ts` · `render-tikz-fonts.spec.ts`
+
+### 10 — Chinese emphasis renders as emphasis
+- **Steps:** Open a note where a Chinese phrase is emphasised in the vault's own markup.
+- **Expected:** It is emphasised on the page. The markers are not printed as literal characters.
+- **Mock gap:** Only real bilingual notes carry the shape; the rule differs from the one that holds for Latin text.
+- **Backing test:** `document-render.spec.ts`
+

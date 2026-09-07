@@ -43,3 +43,20 @@
 All three blocks render — code entry, BYOAI, request-access — and none of them is an empty frame.
 A refusal reads as a sentence a stranger can act on, and it does not clear the field without saying why.
 The identity modal appears once; a modal that re-pops over an active session reads as the product losing track of who you are.
+
+### 7 — A second code switches the session rather than being swallowed ⭐
+- **Steps:** Redeem one code and start a conversation. Then arrive with a different live code.
+- **Expected:** The visitor is moved onto the new code's session and can see they were. The old conversation is not silently continued under the new code's name.
+- **Backing test:** `gate-code-ux.spec.ts`
+
+### 8 — An invalid code arrives here rather than nowhere
+- **Steps:** Arrive at the instance carrying a code that has been revoked, and one that never existed.
+- **Expected:** Both land on this surface with the refusal stated, rather than on a blank page or on a chat that will refuse the first message.
+- **Backing test:** `gate-code-ux.spec.ts`
+
+### 9 — The code does not leave in the browser's own headers
+- **Steps:** Arrive carrying a code, and watch what the page requests from a third-party origin before the address is rewritten.
+- **Expected:** Nothing carries the code onward. The address is cleaned, and a cross-origin request made in that first moment does not spell it out.
+- **Mock gap:** What a browser attaches to a cross-origin subresource is a property of the served response headers; only a real page load shows it.
+- **Backing test:** `gap`
+

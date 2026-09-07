@@ -36,3 +36,9 @@
 The ingest turn returns a friendly confirmation, never a raw tool error.
 The ingested note appears on the admin surface immediately after, without a reload being needed to prove it landed.
 The tool count the client reports is a number worth reading — a listing that silently shrinks is how a schema error hides.
+
+### 5 — A client too old for the instance says so, once
+- **Steps:** Connect a client whose version is below the floor the instance advertises, and read the client's error stream. Then connect a current one and read it again.
+- **Expected:** The old client writes one advisory naming how to update itself, and the host's own channel stays clean enough that the connection still works. The current client writes nothing.
+- **Mock gap:** The floor is advertised by the running instance at connect time; the classifier's own unit tests cannot show whether the client reads it or where it writes the advisory.
+- **Backing test:** `gap`

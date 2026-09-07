@@ -34,3 +34,21 @@
 
 This module has no screen — the thing to look at is whether each fork is named anywhere an operator would find it.
 An unnamed fork becomes an assumption, and the assumption is always the dev value.
+
+### 5 — No internal service is reachable from off this machine ⭐
+- **Steps:** From another machine on the same network, try to reach the database, the cache, the object store and the backend at their published ports.
+- **Expected:** None answers. Only the app's own port is reachable, and only if the deployment says it should be.
+- **Mock gap:** The dev stack publishes these on purpose so tests can reach them; the posture under test is the prod compose's, on a real host with a real network.
+- **Backing test:** `gap`
+
+### 6 — The image an instance runs is the release build, not the development one
+- **Steps:** On a deployed instance, fetch a visitor-facing page and read its markup for the attributes the development build carries.
+- **Expected:** None are there. What a third party embeds, and what a visitor's browser receives, is the stripped build.
+- **Mock gap:** The two builds differ by a flag set only at release; a development stack cannot show which one a deployment took.
+- **Backing test:** `gap`
+
+### 7 — The published images run on the architecture the host has
+- **Steps:** Pull the release images on a host of each published architecture and start the stack.
+- **Expected:** Both start natively. Neither falls back to emulation, and each image resolves to this repository from its registry page.
+- **Backing test:** `gap`
+
