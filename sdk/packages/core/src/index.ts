@@ -28,6 +28,8 @@ export type { AnswerSpan, AnswerParagraphs } from './answer-text.js';
 // CorpusWidget query language (subtree / sort / limit).
 export { parseCorpusQuery, applyCorpusQuery } from './corpus-query.js';
 export type { CorpusQuery } from './corpus-query.js';
+export { classifySkew } from './version-skew.js';
+export type { SkewVerdict, SkewResult } from './version-skew.js';
 export type {
   CorpusCard,
   MicrositeLink,

@@ -58,7 +58,7 @@ export async function main(): Promise<void> {
   if (!host) throw new Error('STANDMEET_HOST env var required (run with --help for usage)');
   if (!credsPath) throw new Error('STANDMEET_CREDS_PATH env var required (run with --help for usage)');
   const creds = await loadCreds(credsPath);
-  await runBridge({ host, creds });
+  await runBridge({ host, creds, clientVersion: clientVersion() });
 }
 
 export type { Creds } from './creds.js';

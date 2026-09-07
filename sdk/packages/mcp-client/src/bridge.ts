@@ -10,24 +10,49 @@
 
 import { createInterface } from 'node:readline';
 
+import { classifySkew } from '@standmeet/sdk-core';
+
 import type { Creds } from './creds.js';
 import { signAuthHeader } from './sigv1.js';
 
 export interface BridgeOptions {
   host: string;
   creds: Creds;
+  clientVersion: string; // this client's own version, for the version-skew advisory (Q5)
 }
 
 export async function runBridge(opts: BridgeOptions): Promise<void> {
   let sessionId: string | undefined;
+  let advised = false; // the skew advisory is written to stderr at most once per session
   const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
   for await (const line of rl) {
     const trimmed = line.trim();
     if (trimmed === '') continue;
     const result = await forward(opts, trimmed, sessionId);
     if (result.sessionId) sessionId = result.sessionId;
-    if (result.body) process.stdout.write(result.body + '\n');
+    if (result.body) {
+      if (!advised) advised = adviseSkew(opts.clientVersion, result.body);
+      process.stdout.write(result.body + '\n');
+    }
   }
+}
+
+// adviseSkew —— if this response is the `initialize` result, compare the instance's version to this
+// client's and, on a mismatch, write ONE advisory to stderr (MCP clients surface stderr in their
+// logs). stdout stays the clean JSON-RPC channel. Returns true once it has advised (or determined
+// there's nothing to say from a real initialize result), so it runs once. Parse failures → not yet.
+function adviseSkew(clientVersion: string, body: string): boolean {
+  let info: { version?: string; minCompatibleClient?: string } | undefined;
+  try {
+    const msg = JSON.parse(body) as { result?: { serverInfo?: typeof info } };
+    info = msg.result?.serverInfo;
+  } catch {
+    return false;
+  }
+  if (info?.version === undefined) return false; // not the initialize result — keep looking
+  const skew = classifySkew(clientVersion, info.version, info.minCompatibleClient ?? '');
+  if (skew.verdict !== 'ok') process.stderr.write(`[standmeet-mcp] ${skew.message}\n`);
+  return true;
 }
 
 interface ForwardResult {
