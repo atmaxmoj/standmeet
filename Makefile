@@ -893,11 +893,16 @@ verify-round:
 turn-hop-probe:
 	@STACK=$(STACK) e2e/manual/turn-hop-failure-probe.sh
 
+# PLAN may be repo-relative or ABSOLUTE. The driver runs from e2e/, so a repo-relative path is
+# prefixed with `../` — and an absolute one must not be, or `/tmp/x.json` becomes `..//tmp/x.json`
+# and the run dies with ENOENT on a path nobody wrote. A parallel round needs the absolute form:
+# each agent generates its own plan outside the repo rather than editing a committed one.
 verify-shots:
 	@test -n "$(PLAN)" || (echo 'usage: make verify-shots PLAN=e2e/manual/plans/<name>.json'; exit 2)
 	@set -a; . $$HOME/.config/standmeet/verify-creds.env; \
 	  [ -f eval-harness/.env ] && . ./eval-harness/.env; set +a; \
-	  cd e2e && node manual/shoot.mjs "../$(PLAN)"
+	  case "$(PLAN)" in /*) p="$(PLAN)";; *) p="../$(PLAN)";; esac; \
+	  cd e2e && node manual/shoot.mjs "$$p"
 
 # verify-mcp —— drives prod through the owner's MCP path. **The sibling of verify-shots**: that
 # one goes through the UI; this one goes through the same path the owner uses inside Claude —

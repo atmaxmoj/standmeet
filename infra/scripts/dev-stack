@@ -120,6 +120,11 @@ holder() {
 # other key" rather than "any other dev key". A dev port that lands on prod's default does not
 # collide with anything until someone opens a verification round, and then it takes down a stack
 # that has the real corpus on it.
+#
+# On failure it prints WHY, to stderr. The first version returned a bare 1, so `pick_offset`
+# could only report "no free block found" and blame the machine — while the actual reason was
+# that the default set collides with itself at this stride. An operator reading that message
+# went looking for a dozen running stacks that were not there.
 offset_ok() {
   local offset=$1 key port
   local -a taken=()
@@ -128,33 +133,54 @@ offset_ok() {
   claimed=$(claimed_ports)
   for key in $(port_keys); do
     port=$(( $(default_of "$key") + offset ))
-    [ "$port" -lt 65536 ] || return 1
+    [ "$port" -lt 65536 ] || { echo "+$offset: $key would be $port, past 65535" >&2; return 1; }
     for other in $(port_keys); do
-      [ "$port" = "$(default_of "$other")" ] && return 1
+      [ "$port" = "$(default_of "$other")" ] \
+        && { echo "+$offset: $key lands on $port, which is $other's default" >&2; return 1; }
     done
     for t in ${taken[@]+"${taken[@]}"}; do
-      [ "$port" = "$t" ] && return 1
+      [ "$port" = "$t" ] && { echo "+$offset: two of our own knobs want $port" >&2; return 1; }
     done
     # Written down by a neighbour, whether or not their stack is up right now.
-    echo "$claimed" | grep -qx "$port" && return 1
+    echo "$claimed" | grep -qx "$port" \
+      && { echo "+$offset: $port is claimed by another checkout" >&2; return 1; }
     # A port this checkout's own stacks are publishing counts as available: it is being replaced.
-    free_port "$port" || mine "$port" || return 1
+    free_port "$port" || mine "$port" \
+      || { echo "+$offset: something is listening on $port" >&2; return 1; }
     taken+=("$port")
   done
   return 0
 }
 
-# pick_offset —— the smallest step of 100 that clears every check. A uniform offset keeps the
-# file readable: someone reading `8000 → 8400` can see what happened, where twelve unrelated
-# numbers would have to be trusted.
+# pick_offset —— the smallest offset that clears every check. A uniform offset keeps the file
+# readable: someone reading `8000 → 8400` can see what happened, where eighteen unrelated numbers
+# would have to be trusted.
+#
+# **The candidate list is not a straight 100..1500, and the reason is the third checkout.**
+# Measured during a two-agent rehearsal, when the third one could not allocate at all:
+#
+#   * The DEFAULT SET COLLIDES WITH ITSELF at a stride of 100. `38127/38227`, `8000/8100` and
+#     `9000/9100/9200/9300` are all defaults, so +100, +1000, +1100, +1200 and +1300 are dead on
+#     an empty machine — five of the fifteen, before anything is running.
+#   * EACH NEIGHBOUR POISONS ABOUT FOUR MORE. A checkout at +N owns 9000+N through 9300+N, so
+#     every offset from N-200 to N+100 puts one of my knobs on one of theirs.
+#
+# Five structural plus two neighbours at four each is fifteen. Two checkouts exhausted the whole
+# window, and the message blamed the machine — on a box with tens of thousands of free ports.
+#
+# So: the low band first, because +100 reads better than +2400 when nothing else is running, and
+# then a wide band well clear of the crowded 8000-9500 region, where the same rehearsal measured
+# every offset from +2200 to +6000 clean. Stepping by 500 up there keeps the list short; the
+# blocks are 400 wide, so 500 never overlaps its neighbour.
 pick_offset() {
   local offset
-  for offset in 100 200 300 400 500 600 700 800 900 1000 1100 1200 1300 1400 1500; do
-    if offset_ok "$offset"; then echo "$offset"; return 0; fi
+  for offset in $(seq 100 100 1500) $(seq 2000 500 20000); do
+    if offset_ok "$offset" 2>/dev/null; then echo "$offset"; return 0; fi
   done
-  echo "dev-stack: no free port block found (tried +100 through +1500)." >&2
-  echo "  Something is holding a lot of ports, or a dozen stacks are already up." >&2
-  echo "  \`docker ps --format '{{.Names}} {{.Ports}}'\` shows who." >&2
+  echo "dev-stack: no free port block found (+100 to +20000)." >&2
+  echo "  Why each of the first few was refused:" >&2
+  for offset in $(seq 100 100 600); do offset_ok "$offset" >/dev/null 2>>/dev/stderr || true; done
+  echo "  \`docker ps --format '{{.Names}} {{.Ports}}'\` shows what is running." >&2
   return 1
 }
 
@@ -318,14 +344,24 @@ cmd_ready() {
          "A round drives the real corpus. A seeded fixture corpus is a different product."
 
   # Ports last: they are the cheapest to fix and the only one this script can answer for itself.
-  local key port clash=0
-  for key in $(port_keys | grep '^PROD_PORT'); do
-    eval "port=\${$key:-$(default_of "$key")}"
-    free_port "$port" || mine "$port" || clash=1
-  done
-  [ "$clash" = 0 ] \
-    && say_ok "the prod ports are free or already this checkout's" \
-    || say_miss "something else holds a prod port" "\`make stack\` names the holder."
+  #
+  # Only meaningful once this checkout HAS ports of its own. Without the file the values below
+  # are the shared defaults, which belong to whoever is using them — and reporting those as
+  # "free" told a checkout its ports were fine while it could not allocate any at all. Two
+  # checks that disagree are worse than one check.
+  if [ ! -f "$ENV_FILE" ]; then
+    say_miss "no ports of its own yet" \
+      "The numbers above are the shared defaults; \`make stack-init\` allocates a block."
+  else
+    local key port clash=0
+    for key in $(port_keys | grep '^PROD_PORT'); do
+      eval "port=\${$key:-$(default_of "$key")}"
+      free_port "$port" || mine "$port" || clash=1
+    done
+    [ "$clash" = 0 ] \
+      && say_ok "the prod ports are free or already this checkout's" \
+      || say_miss "something else holds a prod port" "\`make stack\` names the holder."
+  fi
 
   echo
   [ "$bad" = 0 ] \
