@@ -44,8 +44,14 @@ export const SECTION = {
 
 // toPuckData —— canonical résumé → editor document. Repeatable sections (works/educations/…) become
 // one component each, in array order; whole-résumé settings go on root.
+//
+// Every component gets a unique, stable props.id. Puck's ComponentData types props as WithId (id
+// required) and keys its internal component store by props.id — id-less items all collide on
+// `undefined`, so the canvas renders duplicates of one section and editing throws (十条 #4: normalize
+// at the boundary, don't hand a downstream a malformed shape). The id is `${type}-${index}`: unique
+// across the doc and deterministic, so re-deriving the same résumé yields the same ids.
 export function toPuckData(rc: ResumeContent): PuckData {
-  const content: PuckComponent[] = [
+  const raw: PuckComponent[] = [
     { type: SECTION.header, props: { ...rc.identity } },
     { type: SECTION.summary, props: { text: rc.summary } },
     ...rc.works.map((w) => ({ type: SECTION.experience, props: workProps(w) })),
@@ -54,6 +60,9 @@ export function toPuckData(rc: ResumeContent): PuckData {
     ...(rc.social ?? []).map((s) => ({ type: SECTION.social, props: socialProps(s) })),
     ...(rc.custom ?? []).map((c) => ({ type: SECTION.custom, props: customProps(c) })),
   ];
+  const content: PuckComponent[] = raw.map((c, i) => ({
+    ...c, props: { ...c.props, id: `${c.type}-${i}` },
+  }));
   return {
     root: {
       props: {

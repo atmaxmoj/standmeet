@@ -62,6 +62,47 @@ describe('toPuckData component list (U2)', () => {
   });
 });
 
+// U5 — every emitted component MUST carry a unique, non-empty string props.id. Puck's ComponentData
+// types props as WithId<Props> (id required) and keys its internal component store by props.id; when
+// toPuckData omitted it, every item shared id===undefined, so the ids collided — the canvas rendered
+// duplicates of one section (the owner saw "all SkillSet") and selecting/editing a component threw a
+// client-side exception (the white-screen composer). Derived-from-resume_content is the broken path
+// (a draft whose puck_data is null): Puck adds ids itself on drag, so saved docs were fine.
+describe('toPuckData gives every component a unique Puck id (U5)', () => {
+  it('each content item has a unique, non-empty props.id', () => {
+    const content = toPuckData(fullContent()).content;
+    const ids = content.map((c) => c.props['id']);
+    for (const id of ids) {
+      expect(typeof id, 'every Puck component needs a string props.id').toBe('string');
+      expect(id, 'the id must be non-empty').not.toBe('');
+    }
+    expect(new Set(ids).size, 'ids must be unique across the document (else Puck collapses them)')
+      .toBe(content.length);
+  });
+
+  // The realistic shape that broke on sijie (draft 0533bda3): identity + summary + two educations +
+  // one skill set, no works. The derived doc must still be a set of DISTINCT, id-bearing components.
+  it('a no-works résumé still yields distinct, id-bearing sections (not all-one-type)', () => {
+    const rc: ResumeContent = {
+      identity: { name: 'E', email: 'e@e.io', phone: '', locationLine: 'Remote', site: '' },
+      summary: '就过来看过来', coverLetter: '',
+      works: [],
+      educations: [
+        { school: 'cwdvae', degree: '', period: { start: '', end: null } },
+        { school: 'ca dca d', degree: 'v sad', period: { start: '', end: null } },
+      ],
+      skills: [{ category: '', items: ['x'] }],
+      social: [], custom: [], accent: '', fontScale: 1, leftWidth: 0.9,
+      leftOrder: ['skills', 'education', 'custom'],
+    };
+    const content = toPuckData(rc).content;
+    expect(content.map((c) => c.type)).toEqual([
+      SECTION.header, SECTION.summary, SECTION.education, SECTION.education, SECTION.skillset,
+    ]);
+    expect(new Set(content.map((c) => c.props['id'])).size, 'all five ids are distinct').toBe(5);
+  });
+});
+
 describe('fromPuckData grouping (U3)', () => {
   it('groups by type in content order; keeps repeatable order; ignores unknown types', () => {
     const pd: PuckData = {
