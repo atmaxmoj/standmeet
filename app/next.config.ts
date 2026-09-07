@@ -33,6 +33,17 @@ const nextConfig: NextConfig = {
   // __dirname 变、它读的 ../tex/*.gz 找不着;(2) 显式 trace-include 那 3 个运行时 TeX 资产
   // (core.dump.gz / tex.wasm.gz / tex_files.tar.gz 是 fs.read 的,不走 import,tracing 抓不到)。
   serverExternalPackages: ['node-tikzjax'],
+  // happy-dom is dead code here: it's pulled in transitively by Puck's built-in RichText field (via
+  // @tiptap/html's SERVER HTML parser), but this app only ever runs Tiptap in the browser with a real
+  // DOM (the writings editor) — it never calls @tiptap/html's server path, so happy-dom is never
+  // executed. Left bundled, its FetchHTTPSCertificate self-signed test cert lands in the composer
+  // chunk and trips the release secret scan. serverExternalPackages can't reach it (Puck is a client
+  // component, so happy-dom rides in the client-component graph, not the server-components one), so
+  // alias it to an empty module — excluded from every bundle, client and server.
+  webpack: (config: { resolve: { alias?: Record<string, string | false> } }) => {
+    config.resolve.alias = { ...config.resolve.alias, 'happy-dom': false };
+    return config;
+  },
   outputFileTracingIncludes: {
     '/render-tikz': ['../node_modules/.pnpm/node-tikzjax@*/node_modules/node-tikzjax/tex/**'],
   },
