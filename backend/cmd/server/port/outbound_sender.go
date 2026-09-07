@@ -24,8 +24,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
+	"github.com/atmaxmoj/standmeet/internal/infra/mailthrottle"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
@@ -49,8 +51,12 @@ type categoryInvoker interface {
 }
 
 // OutboundSenderAdapter — wraps the registry's generic Invoke into the kernel-neutral
-// OutboundSender.
-type OutboundSenderAdapter struct{ inv categoryInvoker }
+// OutboundSender. The throttle caps sends per recipient (email-bomb defense-in-depth, Q4).
+type OutboundSenderAdapter struct {
+	inv      categoryInvoker
+	throttle *mailthrottle.Throttle
+	log      *slog.Logger
+}
 
 // ChannelName — which kind of connector the owner should go connect when sending
 // fails. **Only this layer knows which category this instance bound outbound to**;
@@ -84,6 +90,12 @@ func (a OutboundSenderAdapter) Send(
 	// **kernel's own** vocabulary, with no json tag; the composition root is responsible
 	// for translating it into the shape the other side understands — that's exactly
 	// what "translation belongs to the composition root" means.
+	// Per-recipient email-bomb cap: over budget → skip the send + log, but DON'T error the caller's
+	// flow (a booking still succeeds; only the email is rate-limited). Fail-open lives in Allow.
+	if !a.throttle.Allow(ctx, n.To) {
+		a.log.Warn("outbound mail throttled (per-recipient cap)", "owner_id", ownerID)
+		return nil
+	}
 	args, merr := json.Marshal(outboundWire{To: n.To, Subject: n.Title, Body: n.Body})
 	if merr != nil {
 		return fmt.Errorf("outbound send: encode: %w", merr)
@@ -122,5 +134,9 @@ func outboundErr(what string, err error) error {
 // OutboundSender — the kernel-neutral send port, backed by whichever connector the
 // registry resolves by name.
 func OutboundSender(d *deps.Runtime) OutboundSenderAdapter {
-	return OutboundSenderAdapter{inv: d.ConnectorSlots}
+	return OutboundSenderAdapter{
+		inv:      d.ConnectorSlots,
+		throttle: mailthrottle.New(mailthrottle.RedisCounter{RDB: d.RDB}),
+		log:      d.Log,
+	}
 }

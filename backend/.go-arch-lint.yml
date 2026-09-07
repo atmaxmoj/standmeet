@@ -33,6 +33,8 @@ components:
     in: internal/infra/textcut                   # safe char/byte-bounded text truncation (single implementation); domain-less leaf
   snowflake:
     in: internal/infra/snowflake                 # snowflake id → short base62 slug (single implementation); domain-less leaf
+  mailthrottle:
+    in: internal/infra/mailthrottle              # per-recipient outbound-mail cap (email-bomb defense); domain-less leaf
   plaintext:
     in: internal/infra/plaintext                 # inbound HTML → readable text (single implementation); domain-less leaf
   providermodels:
@@ -1326,6 +1328,7 @@ deps:
       # needs to see it; without it the only way out would be to route around that gate and build a raw
       # client itself.
       - httpx
+      - mailthrottle    # composition root caps outbound mail per-recipient at the OutboundSender bridge (email-bomb defense)
       - selfstat        # SysInfoProvider reads own-cgroup stats + fetches peer /selfstat (System panel)
       - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
       - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
