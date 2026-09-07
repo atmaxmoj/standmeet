@@ -59,11 +59,13 @@ export function PuckComposer({ model, initialPuckData }: {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
-  const markSaved = (data: Data): void => { baseline.current = contentOf(model, data); setDirty(false); };
+  const markSaved = useCallback((data: Data): void => {
+    baseline.current = contentOf(model, data); setDirty(false);
+  }, [model]);
   const save = useCallback(() => {
     const data = latest.current;
     void savePuckDraft(deriveModel(model, data), data).then(() => markSaved(data)).catch(() => undefined);
-  }, [model]);
+  }, [model, markSaved]);
 
   const leaveToDrafts = (): void => { router.push('/admin/drafts'); };
   // Leaving with unsaved edits asks first (the discard modal); a clean editor leaves straight away.
