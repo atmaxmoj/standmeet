@@ -4,14 +4,14 @@
 // Why this file exists: the authoring panel used to write blind — a bare textarea and
 // one "build + publish" button that shipped straight to /p/<slug>. The owner's words,
 // touring the live instance: "at least give me a simple editor — writing here, I can't
-// see the effect at all." So the panel now has two actions:
-//   · Build preview — stages a build and renders it inline, WITHOUT going live.
-//   · Publish → live — promotes it.
+// see the effect at all." The panel now AUTO-COMPILES as the owner types (no manual
+// "build preview" button — owner: "他应该自己 compile，时刻都是最新的") and renders the build
+// inline; a separate Publish → live promotes it.
 //
-// The criterion is the split itself: **after Build preview, the page renders inline but
-// the visitor URL is still dark**; only Publish lights it up. A test that just checked
-// "the preview shows the content" would pass even if Build preview had quietly gone live
-// — which is the exact mistake this feature removes.
+// The criterion is the split itself: **the auto-built page renders inline but the visitor
+// URL is still dark**; only Publish lights it up. A test that just checked "the preview
+// shows the content" would pass even if staging had quietly gone live — which is the exact
+// mistake this feature removes.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -44,17 +44,15 @@ test.describe('microsites · preview before publish', () => {
     await request.dispose();
   });
 
-  // The two buttons must state what they can't do yet — both are dead without a slug,
-  // and saying so (disabled) is not the same as a dead button (F-N-1's shape).
-  test('the editor is fillable and both actions gate on the slug', async ({ adminPage: page }) => {
+  // Publish must state what it can't do yet — dead without a slug, and saying so (disabled)
+  // is not the same as a dead button (F-N-1's shape).
+  test('the editor is fillable and Publish gates on the slug', async ({ adminPage: page }) => {
     await goto(page, '/admin/edit/new');
 
     await expect(page.getByTestId('microsite-source')).toBeVisible();
-    await expect(page.getByTestId('microsite-build')).toBeDisabled();
     await expect(page.getByTestId('microsite-publish')).toBeDisabled();
 
     await page.getByTestId('microsite-slug').fill('anything');
-    await expect(page.getByTestId('microsite-build')).toBeEnabled();
     await expect(page.getByTestId('microsite-publish')).toBeEnabled();
 
     // The editor is a real, fillable field (CodeMirror's contenteditable surface).
@@ -94,15 +92,14 @@ test.describe('microsites · preview before publish', () => {
   });
 });
 
-// buildPreview — fill the panel, click **Build preview** (not publish), and wait for the
-// build to reach a terminal state. Only waits for terminal: asserting "still building"
-// holds for any implementation.
+// buildPreview — fill the panel; typing AUTO-COMPILES (no button), so just wait for the build
+// to reach a terminal state. Only waits for terminal: asserting "still building" holds for any
+// implementation.
 async function buildPreview(page: Page, slug: string, source: string): Promise<void> {
   await goto(page, '/admin/edit/new');
   await page.waitForURL('**/admin/edit/new', { timeout: 10_000 });
   await page.getByTestId('microsite-slug').fill(slug);
-  await fillSource(page, source);
-  await page.getByTestId('microsite-build').click();
+  await fillSource(page, source); // editing schedules the build automatically — no "build preview" click
   await expect(page.getByTestId('microsite-build-status'))
     .toHaveText(/built/i, { timeout: 180_000 });
 }

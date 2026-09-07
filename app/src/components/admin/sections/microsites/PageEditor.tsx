@@ -18,6 +18,7 @@ import { SeoPanel } from '@/components/admin/sections/microsites/SeoPanel';
 import { EditorViewToggle } from '@/components/admin/sections/microsites/EditorViewToggle';
 import { editorGridCls, editorColCls, type EditorView } from '@/lib/admin/editor-view';
 import { useAutoBuild } from '@/lib/admin/use-auto-build';
+import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { IMPORTABLE_MODULES, STARTER, type ImportableModule } from '@/lib/admin/microsite-imports';
 import {
   loadDraft, stageFiles, shipFilesLive, previewView, usePinnedPreviewSrc,
@@ -77,11 +78,6 @@ export function PageEditor({ slug }: { slug: string }) {
     setActive((cur) => (path === '' ? cur : path));
   }, []);
 
-  const preview = useCallback(() => {
-    setBuild(null);
-    void run(() => stageFiles(pageSlug.trim(), files, setBuild), { success: t('staged') });
-  }, [run, pageSlug, files, t]);
-
   const publish = useCallback(() => {
     void run(() => shipFilesLive(pageSlug.trim(), files, build, setBuild), { success: t('published') });
   }, [run, pageSlug, files, build, t]);
@@ -103,7 +99,7 @@ export function PageEditor({ slug }: { slug: string }) {
               className="text-[13px]"
             />
           </div>
-          <EditorActions slug={pageSlug} build={build} onPreview={preview} onPublish={publish} />
+          <EditorActions slug={pageSlug} build={build} onPublish={publish} />
           <SeoPanel slug={pageSlug} isNew={isNew} />
           <WidgetPanel />
         </div>
@@ -116,8 +112,11 @@ export function PageEditor({ slug }: { slug: string }) {
 }
 
 
-// EditorHeader — back to the list + the slug (a fixed heading for an existing page; an editable
-// field for a new one, since a new page's address is being chosen here).
+// The reserved home page is served at the site ROOT — it has no /p/<slug> address and can't be renamed.
+const HOME = 'home';
+
+// EditorHeader — back to the list + the page's identity: a new page picks its slug (SlugField); an
+// existing page's name is edited in place (SlugNameEditor); the home page shows the DOMAIN it serves.
 function EditorHeader(
   { slug, isNew, onSlug }: { slug: string; isNew: boolean; onSlug: (v: string) => void },
 ) {
@@ -132,72 +131,73 @@ function EditorHeader(
       </Link>
       {isNew
         ? <SlugField value={slug} onChange={onSlug} />
-        : <SlugHeading slug={slug} />}
+        : slug === HOME ? <HomeDomainHeading /> : <SlugNameEditor slug={slug} />}
     </div>
   );
 }
 
-// SlugHeading — the existing page's address, /p/<slug>, now renamable in place (owner: the slug
-// after /p should be editable). Click "rename" → an inline field; Enter commits (renames + jumps to
-// the new editor route). The reserved home page is pinned to `/`, so it shows no rename control.
-const HOME = 'home';
-
-function SlugHeading({ slug }: { slug: string }) {
-  const [editing, setEditing] = useState(false);
-  return editing
-    ? <SlugRenameField slug={slug} onClose={() => setEditing(false)} />
-    : <SlugDisplay slug={slug} onEdit={() => setEditing(true)} />;
-}
-
-function SlugDisplay({ slug, onEdit }: { slug: string; onEdit: () => void }) {
+// HomeDomainHeading — the home page IS the site root, so its address is the owner's DOMAIN, not
+// /p/home (owner: "homepage 这边就应该显示域名").
+function HomeDomainHeading() {
   const t = useTranslations('adminPages.microsites');
+  const session = useAdminSession();
+  const domain = session.kind === 'ready' ? domainOf(session.session.public_url) : '';
   return (
     <div className="flex items-baseline gap-3 mt-2 flex-wrap">
-      <h2 className="font-serif text-[22px] text-(--color-ink)">{t('slugPath', { slug })}</h2>
-      <RenameReveal slug={slug} onEdit={onEdit} />
+      <h2 data-testid="microsite-home-domain" className="font-serif text-[22px] text-(--color-ink)">{domain}</h2>
+      <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent)">{t('homepageBadge')}</span>
     </div>
   );
 }
 
-function RenameReveal({ slug, onEdit }: { slug: string; onEdit: () => void }) {
-  const t = useTranslations('adminPages.microsites');
-  return slug === HOME ? null : (
-    <button
-      type="button" onClick={onEdit} data-testid="microsite-rename"
-      className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) hover:underline"
-    >
-      {t('rename')}
-    </button>
-  );
+// domainOf — the bare host for display (drop scheme + trailing slash). Empty stays empty.
+function domainOf(publicURL: string): string {
+  return publicURL.replace(/^https?:\/\//, '').replace(/\/+$/, '');
 }
 
-// SlugRenameField — Enter renames + navigates to the new editor route; clicking away cancels. A
-// failed rename (slug taken / invalid) surfaces via useAction and leaves the field open to fix.
-function SlugRenameField({ slug, onClose }: { slug: string; onClose: () => void }) {
+// SlugNameEditor — the page's name, edited in place (owner: "linguistics 直接可编辑，下面有条线，右边
+// 保存按钮，点了打一个一秒钟的 ✅"): an underlined field + a Save button. Save renames when the name
+// changed (jumps to the new editor route), and always flashes a 1s ✓ so the click is acknowledged.
+function SlugNameEditor({ slug }: { slug: string }) {
   const t = useTranslations('adminPages.microsites');
   const { renamePage } = useMicrosites();
   const run = useAction();
   const router = useRouter();
   const [raw, setRaw] = useState(slug);
-  const commit = useCallback(() => {
+  const [savedFlash, setSavedFlash] = useState(false);
+  const save = useCallback((): void => {
     const next = raw.trim();
-    void run(async () => {
-      await renamePage(slug, next);
-      router.push(`/admin/edit/${next}`);
-    }, { success: t('renamed', { slug: next }) });
+    const changed = next !== '' && next !== slug;
+    changed
+      ? void run(async () => {
+          await renamePage(slug, next);
+          router.push(`/admin/edit/${next}`);
+        }, { success: t('renamed', { slug: next }) })
+      : flashSaved(setSavedFlash);
   }, [raw, slug, renamePage, run, router, t]);
   return (
-    <div className="flex items-baseline gap-2 mt-2">
+    <div className="flex items-baseline gap-3 mt-2">
+      <span className="font-serif text-[22px] text-(--color-faint) shrink-0">{t('slugPrefix')}</span>
       <input
-        autoFocus value={raw} data-testid="microsite-rename-input"
-        placeholder={t('renamePlaceholder')}
+        value={raw} data-testid="microsite-name-input" aria-label="page name"
         onChange={(e) => setRaw(e.target.value)}
-        onKeyDown={(e) => (e.key === 'Enter' ? commit() : undefined)}
-        onBlur={onClose}
-        className="font-serif text-[22px] text-(--color-ink) bg-transparent border-b border-(--color-accent) outline-none min-w-0"
+        onKeyDown={(e) => (e.key === 'Enter' ? save() : undefined)}
+        className="sm-field-input font-serif text-[22px] flex-1 min-w-0 max-w-[18em]"
       />
+      <button type="button" onClick={save} data-testid="microsite-name-save" className="sm-btn sm-btn-outline sm-btn-sm shrink-0">
+        {t('saveName')}
+      </button>
+      {savedFlash && (
+        <span data-testid="microsite-name-saved" role="status" className="mono text-(--color-accent) text-[12px] shrink-0">{t('nameSaved')}</span>
+      )}
     </div>
   );
+}
+
+// flashSaved — show the ✓ for ~1s after a Save, then clear it.
+function flashSaved(set: (v: boolean) => void): void {
+  set(true);
+  setTimeout(() => set(false), 1000);
 }
 
 function SlugField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -290,20 +290,17 @@ function PreviewPane({ slug }: { slug: string }) {
   return staged === undefined ? <PreviewEmpty /> : <EditorPreview page={staged} />;
 }
 
+// EditorActions — no manual "build preview" button: the page auto-compiles as the owner types
+// (useAutoBuild) and on open, so the preview is always current (owner: "他应该自己 compile，时刻都是
+// 最新的"). What's left is Publish (promote the current build live) + the live build status.
 function EditorActions(
-  { slug, build, onPreview, onPublish }:
-  { slug: string; build: BuildView | null; onPreview: () => void; onPublish: () => void },
+  { slug, build, onPublish }:
+  { slug: string; build: BuildView | null; onPublish: () => void },
 ) {
   const t = useTranslations('adminPages.microsites');
   const disabled = slug.trim() === '';
   return (
     <div className="flex items-center gap-3 mt-3">
-      <button
-        type="button" onClick={onPreview} disabled={disabled}
-        data-testid="microsite-build" className="sm-btn sm-btn-sm disabled:opacity-40"
-      >
-        {t('buildPreview')}
-      </button>
       <button
         type="button" onClick={onPublish} disabled={disabled}
         data-testid="microsite-publish" className="sm-btn sm-btn-solid sm-btn-sm disabled:opacity-40"

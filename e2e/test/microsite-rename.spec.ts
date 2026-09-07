@@ -68,7 +68,7 @@ test.describe('microsite slug rename', () => {
       await request.dispose();
     });
 
-  test('the editor header renames in place and lands on the new editor route',
+  test('the editor header name is editable in place; Save renames and lands on the new editor route',
     async ({ playwright, adminPage: page }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
@@ -77,11 +77,37 @@ test.describe('microsite slug rename', () => {
 
       await goto(page, '/admin/edit/ui-old');
       await expect(page.getByTestId('microsite-editor')).toBeVisible({ timeout: 20_000 });
-      await page.getByTestId('microsite-rename').click();
-      await page.getByTestId('microsite-rename-input').fill('ui-new');
-      await page.getByTestId('microsite-rename-input').press('Enter');
-      await expect(page, 'the URL moves to the renamed editor route')
+      // The name is an inline field pre-filled with the current slug (no "rename" reveal step).
+      const nameField = page.getByTestId('microsite-name-input');
+      await expect(nameField).toHaveValue('ui-old');
+      await nameField.fill('ui-new');
+      await page.getByTestId('microsite-name-save').click();
+      await expect(page, 'Save renames and moves to the renamed editor route')
         .toHaveURL(/\/admin\/edit\/ui-new$/, { timeout: 15_000 });
+    });
+
+  test('the home page shows its DOMAIN in the header, not a /p/home slug',
+    async ({ adminPage: page }) => {
+      // home is served at the site root, so the editor header is the owner's domain surface, not an
+      // editable /p/<slug> name (owner: "homepage 这边就应该显示域名").
+      await goto(page, '/admin/edit/home');
+      await expect(page.getByTestId('microsite-editor')).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByTestId('microsite-home-domain')).toBeAttached();
+    });
+
+  test('clicking Save with the name unchanged flashes a ✓ acknowledgement',
+    async ({ playwright, adminPage: page }) => {
+      const request = await playwright.request.newContext();
+      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+      expect(await createPage(request, csrf, 'ui-flash')).toBe(201);
+      await request.dispose();
+
+      await goto(page, '/admin/edit/ui-flash');
+      await expect(page.getByTestId('microsite-editor')).toBeVisible({ timeout: 20_000 });
+      await page.getByTestId('microsite-name-save').click();
+      // A 1s ✓ confirms the click (the name didn't change, so it stays on this page).
+      await expect(page.getByTestId('microsite-name-saved')).toBeVisible({ timeout: 2_000 });
+      await expect(page).toHaveURL(/\/admin\/edit\/ui-flash$/);
     });
 });
 
