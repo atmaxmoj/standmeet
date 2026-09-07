@@ -1382,7 +1382,7 @@ release-assert-version:
 # looks exactly the same as a working one (the image still builds, still runs fine). So this
 # step judges both "did the strip actually happen" and "did I actually scan anything real":
 # with an empty artifact directory, "zero testids" would be a meaningless truth.
-# Three exemptions, each **mechanical** (by path), never a hand-maintained testid list:
+# Four exemptions, each **mechanical**, never a hand-maintained testid list:
 #   · node_modules —— Next's own devtools package ships `data-testid="geist-icon"`. Someone
 #     else's code.
 #   · server.js / required-server-files.json —— those are **config echoed back**
@@ -1392,6 +1392,11 @@ release-assert-version:
 #     library (Tiptap's `editorProps.attributes`) is structurally invisible to it. That spot
 #     lives in the owner's editor, and this switch's stated purpose is "clean HTML shipped to
 #     visitors" — visitors never reach /admin.
+#   · data-puck chunks —— @measured/puck's own bundled code carries `data-testid` as object keys
+#     (same unstrippable class as Tiptap). Puck is loaded ONLY by the owner's editor (/admin) and
+#     the internal print route (/print, gotenberg-only) — never a visitor route — so a chunk that
+#     is Puck's library code (contains `data-puck`) is exempt. A real leaked JSX testid lands in a
+#     non-Puck file and is still caught.
 release-assert-stripped:
 	@test -d app/.next/standalone || { echo "release: app/.next/standalone does not exist — nothing was scanned, 'zero testids' doesn't count"; exit 2; }
 	@files=$$(find app/.next/standalone -type f -not -path '*/node_modules/*' | wc -l | tr -d ' '); \
@@ -1400,7 +1405,8 @@ release-assert-stripped:
 	    | grep -v '/node_modules/' \
 	    | grep -v '/server\.js$$' \
 	    | grep -v '/required-server-files\.json$$' \
-	    | grep -v '/app/admin/'); \
+	    | grep -v '/app/admin/' \
+	    | while read -r f; do grep -q 'data-puck' "$$f" || echo "$$f"; done); \
 	  test -z "$$hits" || { \
 	    echo "release: data-testid still present in the visitor-facing build — either STRIP_TEST_HOOKS didn't fire,"; \
 	    echo "         or someone passed a testid as an object key to a library (that can't be stripped — move it to a JSX attribute):"; \
