@@ -10,6 +10,7 @@ import { adminAPI } from '@/lib/api/admin';
 import { APIError } from '@/lib/api/api-error';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
+import { useLongPoll } from '@/lib/long-poll/use-long-poll';
 
 const MicrositeSummarySchema = z.object({
   id: z.string(), slug: z.string(), title: z.string(), status: z.string(),
@@ -103,63 +104,16 @@ export const micrositesStore = createResourceStore<MicrositeSummary[]>({
   fetcher: () => adminAPI.get('/microsites', z.array(MicrositeSummarySchema)),
 });
 
-// The owner directs an agent (elsewhere, on the Claude side) to change this page and wants
-// to watch the result. Rather than poll on a fixed interval, we hold ONE long-poll
-// connection: the backend GET /microsites/wait answers the instant a build settles, so
-// the preview follows the agent's edits promptly and cheaply — like waiting on a payment QR.
-// A monotonic version cursor makes a build that lands mid-cycle impossible to miss.
-const WaitSchema = z.object({ version: z.number() });
-const backoffMs = 2_000;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => { setTimeout(resolve, ms); });
-}
-
-// waitForBuildChange —— one held request; returns the current version (immediately if it
-// already moved past `since`, otherwise when a build settles or the server's idle timeout).
-// A transient failure backs off instead of spinning, then reports no change.
-async function waitForBuildChange(since: number): Promise<number> {
-  try {
-    const res = await adminAPI.get(`/microsites/wait?since=${since}`, WaitSchema);
-    return res.version;
-  } catch {
-    await sleep(backoffMs);
-    return since;
-  }
-}
-
-// applyVersion —— refetch the list only when the version actually advanced.
-function applyVersion(since: number, version: number): number {
-  if (version <= since) return since;
-  void micrositesStore.getState().refresh();
-  return version;
-}
-
-async function pollOnce(since: number, stopped: () => boolean): Promise<number> {
-  const version = await waitForBuildChange(since);
-  return stopped() ? since : applyVersion(since, version);
-}
-
-// followBuilds —— the long-poll loop: wait, refetch-if-changed, re-hang, until unmount.
-async function followBuilds(stopped: () => boolean): Promise<void> {
-  let since = 0;
-  while (!stopped()) {
-    since = await pollOnce(since, stopped);
-  }
-}
-
 export function useMicrosites(): MicrositesHook {
   const r = useResource(micrositesStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
-  // The owner is often directing an agent to change this in another window when they open
-  // this page. The long-poll makes the panel follow those builds live, without a manual
-  // refresh — "I have to refresh it myself" is exactly what they complained about.
-  useEffect(() => {
-    let done = false;
-    void followBuilds(() => done);
-    return () => { done = true; };
-  }, []);
+  // The owner is often directing an agent to change this page in another window. A held long-poll
+  // (GET /microsites/wait answers the instant a build settles, cursor = version) makes the panel
+  // follow those builds live without a manual refresh. It runs in a WORKER so the held socket never
+  // sits on the main thread's connections and blocks navigation — terminating the worker on unmount
+  // (inside useLongPoll) kills the held request instantly ([[long-poll-worker-infra]]).
+  useLongPoll({ url: '/api/admin/microsites/wait' }, () => { void micrositesStore.getState().refresh(); });
   return {
     status: r.status, rows: r.data ?? [], error: r.error,
     refresh: micrositesStore.getState().refresh,
