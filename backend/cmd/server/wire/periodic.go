@@ -20,6 +20,7 @@ import (
 
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
+	monitor "github.com/atmaxmoj/standmeet/internal/monitor/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
@@ -34,6 +35,7 @@ func collectPeriodicJobs(d *deps.Runtime) []periodic.Job {
 	jobs := d.PluginRegistry.AllPeriodicJobs()
 	jobs = append(jobs, corpus.IndexPeriodicJobs(d.CorpusIndexer, soleOwnerID(d))...)
 	jobs = append(jobs, stats.UsagePeriodicJobs(d.InferenceUsageRepo)...)
+	jobs = append(jobs, monitor.PeriodicJobs(d.MonitorRepo)...)
 	if d.SandboxWorkspaces != nil {
 		jobs = append(jobs, d.SandboxWorkspaces.PeriodicJobs()...)
 	}

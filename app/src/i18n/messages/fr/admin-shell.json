@@ -259,6 +259,23 @@
     "recoveryNoteReady": "Génère une phrase de récupération et vous l'envoie par e-mail. Usage unique — elle est consommée dès que vous vous connectez avec.",
     "recoveryNoteNeedsMail": "Vérifiez d'abord l'e-mail (SMTP) sous Connectors — la phrase de récupération vous est envoyée par e-mail."
   },
+  "monitor": {
+    "kicker": "réglages · monitor",
+    "intro": "Qui est venu, d'où, et ce qui a été lu. Cette instance le collecte elle-même, dans sa propre base — aucune analytique tierce, aucun cookie, et aucune adresse IP n'est jamais stockée. Les robots sont comptés à part et jamais mêlés à ces chiffres.",
+    "feed": "événements récents",
+    "loading": "Lecture du journal…",
+    "empty": "Rien d'enregistré pour l'instant. Cela se remplira à la première visite.",
+    "viewers": "visiteurs",
+    "viewersHint": "des personnes, autant qu'un comptage sans cookie permet",
+    "visits": "visites",
+    "visitsHint": "une session ; une nouvelle après 30 minutes d'inactivité",
+    "views": "vues",
+    "viewsHint": "pages et entrées ouvertes",
+    "events": "événements",
+    "eventsHint": "tout ce qui est enregistré, vues comprises",
+    "bots": "robots",
+    "botsHint": "comptés à part, jamais dans les quatre ci-dessus"
+  },
   "ipBans": {
     "intro": "Bloquez les IP sources abusives. Une IP bannie obtient un 403 sur toute la surface publique — chat, sessions, demandes d'accès. Trouvez les IP offensantes en <mono>conversations</mono> (chaque ligne affiche l'IP du visiteur). Les interdictions peuvent être levées à tout moment.",
     "banIp": "bannir l'ip",

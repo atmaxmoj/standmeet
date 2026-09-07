@@ -259,6 +259,23 @@
     "recoveryNoteReady": "Genera una frase de recuperación y te la envía por correo. De un solo uso — se consume cuando inicias sesión con ella.",
     "recoveryNoteNeedsMail": "Verifica el correo (SMTP) en Connectors primero — la frase de recuperación se te envía por correo."
   },
+  "monitor": {
+    "kicker": "ajustes · monitor",
+    "intro": "Quién vino, de dónde y qué leyó. Lo recoge esta instancia, en su propia base de datos: sin analítica de terceros, sin cookies y sin guardar nunca una dirección IP. Los rastreadores se cuentan aparte y nunca se mezclan con estas cifras.",
+    "feed": "eventos recientes",
+    "loading": "Leyendo el registro…",
+    "empty": "Nada registrado todavía. Esto se llena con la primera visita.",
+    "viewers": "visitantes",
+    "viewersHint": "personas, hasta donde alcanza un recuento sin cookies",
+    "visits": "visitas",
+    "visitsHint": "una sesión; otra tras 30 minutos de inactividad",
+    "views": "vistas",
+    "viewsHint": "páginas y entradas abiertas",
+    "events": "eventos",
+    "eventsHint": "todo lo registrado, vistas incluidas",
+    "bots": "rastreadores",
+    "botsHint": "contados aparte, nunca en los cuatro de arriba"
+  },
   "ipBans": {
     "intro": "Bloquee las IP de origen abusivas. Una IP prohibida obtiene un 403 en toda la superficie pública — chat, sesiones, solicitudes de acceso. Encuentre IP ofensivas en <mono>conversations</mono> (cada fila muestra la IP del visitante). Las prohibiciones se pueden levantar en cualquier momento.",
     "banIp": "prohibir ip",

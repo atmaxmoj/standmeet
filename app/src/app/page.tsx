@@ -15,6 +15,8 @@ import type { Metadata } from 'next';
 
 import { fetchInstance } from '@/lib/api/instance';
 
+import { TrackVisit } from '@/components/monitor/TrackVisit';
+
 import { VisitorRoot } from '@/app/visitor-root';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -40,5 +42,13 @@ export default async function Root({ searchParams }: { searchParams: Promise<Sea
   // unclaimed → server redirect to /setup?t=TOKEN (redirect() throws, so nothing below runs).
   instance.claimed || redirect(`/setup?t=${instance.setup_token ?? ''}`);
   const hasCode = hasCodeParam(await searchParams);
-  return <VisitorRoot name={instance.name} handle={instance.handle} hasCode={hasCode} />;
+  return (
+    <>
+      {/* The only signal this surface has. The backend's `/homepage` route is a liveness probe
+          the middleware fires on every request to `/`, person or not, so it cannot be counted
+          (see monitor/mw/routes.go). */}
+      <TrackVisit surface="index" scroll />
+      <VisitorRoot name={instance.name} handle={instance.handle} hasCode={hasCode} />
+    </>
+  );
 }

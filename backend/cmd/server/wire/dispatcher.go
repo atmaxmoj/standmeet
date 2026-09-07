@@ -50,18 +50,12 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 	resources := dispatcher.Collect(&dispatcher.Deps{
 		Corpus:         corpusDepsOf(d),
 		BannedIPs:      d.BannedIPRepo,
+		Monitor:        d.MonitorRepo,
 		AllowedDomains: owner.AllowedDomainsDeps{Instance: d.InstanceRepo},
-		OwnerCSS:       d.OwnerRepo, OwnerFavicon: d.OwnerRepo,
-		Prompts: owner.PromptsDeps{Prompts: d.PromptRepo},
-		Settings: owner.SettingsDeps{
-			BYOAI: owner.BYOAIDeps{Owners: d.OwnerRepo},
-			// Providers must not be left out: the domain uses it to validate provider names.
-			// Omitting it compiles fine but nil-dereferences on first write — an assembly trap.
-			AI: owner.AIProviderDeps{
-				Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
-			},
-			Presets: port.AiPresets(),
-		},
+		OwnerCSS:       d.OwnerRepo,
+		OwnerFavicon:   d.OwnerRepo,
+		Prompts:        owner.PromptsDeps{Prompts: d.PromptRepo},
+		Settings:       settingsDepsOf(d),
 		// Providers — same Owners repo + provider-name validation ruler every entry must pass.
 		// Spend is the other half: owner manages the tank, stats meters usage; joined here (#7).
 		Providers: owner.OpsProviders{

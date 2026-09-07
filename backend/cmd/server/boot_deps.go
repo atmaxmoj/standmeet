@@ -26,6 +26,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
+	monitor "github.com/atmaxmoj/standmeet/internal/monitor/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	pluginjobs "github.com/atmaxmoj/standmeet/internal/owner/jobs"
 	jobcache "github.com/atmaxmoj/standmeet/internal/owner/jobs/cache"
@@ -147,6 +148,8 @@ func assembleRuntimeDeps(
 		Corpus:             corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
 		BuildNotifier:      buildnotify.New(),
 		SelfStatPeers:      cfg.SelfStatPeers,
+		StorageSecretKey:   cfg.StorageSecretKey,
+		MonitorRepo:        monitor.NewRepo(c.db),
 		StorageClient:      dw.storageClient,
 		JobCachePool:       jobcache.New(c.rdb, 0),
 		JobFetchRegistry:   newJobFetchRegistry(cfg),

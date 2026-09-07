@@ -24,6 +24,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/paritymanifest"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
+	monitormw "github.com/atmaxmoj/standmeet/internal/monitor/mw"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
@@ -70,6 +71,9 @@ type Deps struct {
 	PluginRegistry *capabilities.Registry
 	// BannedIPs —— banned-IP repo used by the public BanGuard (enforcement, not an owner cap).
 	BannedIPs *security.BannedIPRepo
+	// Monitor —— visitor-traffic recording. Mounted as ONE middleware on the public router;
+	// no handler calls it and no domain imports it (docs/design/monitor.md §0).
+	Monitor monitormw.Config
 	// Dispatch —— the outbound convergence point. Admin-side capabilities can only be wired
 	// from here (route shapes are still hand-written as usual).
 	Dispatch *dispatcher.Dispatcher
@@ -284,6 +288,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		ConnectorsAdmin:   deps.Admin.Connectors,
 		CapabilitiesAdmin: adminroutes.CapabilityAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		IPBansAdmin:       adminroutes.IPBansAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		MonitorAdmin:      adminroutes.MonitorAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		InstanceAdmin:     adminroutes.InstanceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		AppearanceAdmin:   adminroutes.AppearanceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		CapabilityConfigAdmin: adminroutes.CapabilityConfigAdminDeps{
@@ -292,55 +297,4 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		Log:          deps.Log,
 		SecureCookie: deps.Admin.SecureCookie,
 	}
-}
-
-func mountPublic(r chi.Router, deps *Deps) {
-	// Mount the Handlers value wireup already built directly, instead of re-copying
-	// each field one by one (G-1.5 smell E: a field was once added to Handlers,
-	// wireup updated, but the mount site missed the copy → silent nil ran for a while).
-	// #169 access-code redemption failure lockout: middleware wiring belongs to the
-	// server layer (cmd doesn't import middleware), assembled alongside LoginGuard.
-	// Injected into the public Handlers' narrow CodeGuard interface.
-	deps.Public.CodeGuard = authmw.NewCodeGuard(
-		deps.Redis, deps.CaptchaVerifier, deps.CaptchaEnabled,
-	)
-	// The gate on the message-request port (F-G-4): same assembly site, same parts,
-	// just counting a different thing — that one counts wrong-guessed codes, this
-	// one counts submitted messages. Without it, the queue the owner reads by hand
-	// would only have a fail-open rate limit in front of it.
-	deps.PublicAccessRequests.Guard = authmw.NewRequestGuard(
-		deps.Redis, deps.CaptchaVerifier, deps.CaptchaEnabled,
-	)
-	r.Route("/api/v1", func(r chi.Router) {
-		// CORS at the outermost layer: embeds load cross-origin from any origin, so
-		// preflight + the ACAO header must be mounted before Ban/Rate (even a later
-		// 403/429 still needs to be readable by cross-origin JS). D.2 wide-open.
-		r.Use(authmw.PublicCORS)
-		// Block banned IPs first (403), then per-IP rate-limit the public abuse
-		// surface (429).
-		r.Use(authmw.BanGuard(deps.BannedIPs))
-		r.Use(authmw.PublicRateGuard(deps.Redis))
-		(&deps.Public).Mount(r)
-		(&deps.PublicPage).Mount(r)
-		(&deps.PublicSEO).Mount(r)
-		(&deps.PublicMicrosites).Mount(r)
-		// visitor read/write of a page's own document store
-		(&deps.PublicMicrositeStore).Mount(r)
-		(&deps.PublicMicrositePreview).Mount(r) // preview: public-side but token-gated
-		(&deps.PublicAccessRequests).Mount(r)
-		(&deps.PublicPasswordReset).Mount(r)
-		(&deps.PublicWritings).Mount(r)
-		// The fallback lets /prompts/{id} return the registry's externalized-capability
-		// fragment text when the embedded .md is not found (capabilities/<id> has moved
-		// into plugin instructions and has no .md).
-		(&publicroutes.PromptsHandlers{
-			Log:      deps.Log,
-			Fallback: deps.DiagRegistry.Registry.PromptFragmentText,
-		}).Mount(r)
-	})
-}
-
-func mountRootSEO(r chi.Router, deps *Deps) {
-	// /robots.txt + /sitemap.xml are standard SEO-convention paths, not under /api/v1.
-	(&publicroutes.SEOHandlers{Deps: deps.PublicSEO.Deps, Log: deps.Log}).MountRoot(r)
 }

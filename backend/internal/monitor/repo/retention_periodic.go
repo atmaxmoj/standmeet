@@ -1,0 +1,39 @@
+// retention_periodic.go —— this domain's periodic job: drop traffic older than the window.
+//
+// Periodic, not boot-time. An instance that runs for months without a restart would otherwise
+// clean once, on day one, and keep everything after — which reads identically to "retention is
+// working" until the table is years deep.
+//
+// The window is 400 days so an owner can compare a month against the same month last year: 365
+// alone puts last year's figure just outside the window on the day you want it.
+
+package repo
+
+import (
+	"context"
+	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
+)
+
+const (
+	// RetentionWindow —— how far back traffic is kept.
+	RetentionWindow = 400 * 24 * time.Hour
+	// retentionEvery —— the table grows by the day, so once a day is enough.
+	retentionEvery = 24 * time.Hour
+)
+
+// PeriodicJobs —— the periodic jobs this domain exposes. A nil repo exposes none: a panel must
+// not show a job that reports "ok" while doing nothing.
+func PeriodicJobs(r *Repo) []periodic.Job {
+	if r == nil {
+		return []periodic.Job{}
+	}
+	return []periodic.Job{periodic.Named(
+		"visitor traffic retention", retentionEvery,
+		func(ctx context.Context) error {
+			_, err := r.Prune(ctx, time.Now().UTC().Add(-RetentionWindow))
+			return err
+		},
+	)}
+}

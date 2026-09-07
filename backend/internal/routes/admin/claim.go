@@ -66,6 +66,7 @@ type Handlers struct {
 	HandleAdmin     HandleDeps
 	Log             *slog.Logger
 	IPBansAdmin     IPBansAdminDeps
+	MonitorAdmin    MonitorAdminDeps
 	ConnectorsAdmin ConnectorsAdminDeps
 	InstanceAdmin   InstanceAdminDeps // Observation facade: system / usage / stats.*
 	AppearanceAdmin AppearanceAdminDeps
@@ -120,6 +121,7 @@ func (h *Handlers) MountAuthed(r chi.Router, credGuard func(http.Handler) http.H
 	h.MountCapabilities(r)
 	h.MountCapabilityConfig(r)
 	h.MountIPBans(r)
+	h.MountMonitor(r)
 	h.MountInstance(r)
 }
 

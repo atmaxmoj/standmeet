@@ -19,7 +19,7 @@ BASELINE="$ROOT/backend/.internal-dirs-baseline"
 
 # -- whitelist: class-diagram core modules + routes + domain-less infra --
 ALLOWED="
-access conversation connector corpus owner security marketplace stats capabilities
+access conversation connector corpus owner security marketplace stats monitor capabilities
 routes infra
 "
 

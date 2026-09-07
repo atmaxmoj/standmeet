@@ -259,6 +259,23 @@
     "recoveryNoteReady": "एक रिकवरी वाक्यांश बनाता है और आपको ईमेल करता है। एकल उपयोग — इससे साइन इन करते ही यह खपत हो जाता है।",
     "recoveryNoteNeedsMail": "पहले Connectors के अंतर्गत ईमेल (SMTP) सत्यापित करें — रिकवरी वाक्यांश आपको ईमेल से भेजा जाता है।"
   },
+  "monitor": {
+    "kicker": "सेटिंग्स · मॉनिटर",
+    "intro": "कौन आया, कहाँ से आया, और क्या पढ़ा। यह इंस्टेंस स्वयं अपने डेटाबेस में दर्ज करता है — कोई तीसरे पक्ष का एनालिटिक्स नहीं, कोई कुकी नहीं, और IP पता कभी संग्रहीत नहीं होता। क्रॉलर अलग गिने जाते हैं और इन संख्याओं में कभी नहीं मिलाए जाते।",
+    "feed": "हाल की घटनाएँ",
+    "loading": "लॉग पढ़ा जा रहा है…",
+    "empty": "अभी कुछ दर्ज नहीं हुआ। पहला विज़िटर पेज खोलते ही यह भर जाएगा।",
+    "viewers": "दर्शक",
+    "viewersHint": "लोग, जितना कुकी-रहित गणना बता सकती है",
+    "visits": "विज़िट",
+    "visitsHint": "एक बैठक; 30 मिनट निष्क्रियता के बाद नई",
+    "views": "व्यू",
+    "viewsHint": "खोले गए पेज और प्रविष्टियाँ",
+    "events": "घटनाएँ",
+    "eventsHint": "दर्ज सब कुछ, व्यू सहित",
+    "bots": "क्रॉलर",
+    "botsHint": "अलग गिने गए, ऊपर के चार में कभी नहीं"
+  },
   "ipBans": {
     "intro": "Block abusive source IPs. A banned IP gets a 403 on the whole public surface — chat, sessions, access requests. Find offending IPs in <mono>conversations</mono> (each row shows the visitor's IP). Bans can be lifted any time.",
     "banIp": "ban ip",

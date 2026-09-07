@@ -259,6 +259,23 @@
     "recoveryNoteReady": "生成一段恢复口令并通过邮件发给你。一次性使用——用它登录后即失效。",
     "recoveryNoteNeedsMail": "请先在 Connectors 中验证邮箱（SMTP）——恢复口令将通过邮件发给你。"
   },
+  "monitor": {
+    "kicker": "设置 · 监控",
+    "intro": "谁来了、从哪来、读了什么。由本实例自己采集，存在自己的数据库里——不接第三方分析，不用 cookie，任何时候都不存 IP。爬虫单独计数，绝不混进这些数字。",
+    "feed": "最近的事件",
+    "loading": "正在读取记录…",
+    "empty": "还没有记录。第一位访客打开你的页面时这里就会有内容。",
+    "viewers": "访客",
+    "viewersHint": "人数，无 cookie 能数到的精度",
+    "visits": "访问",
+    "visitsHint": "一次坐下；闲置 30 分钟算新的一次",
+    "views": "浏览",
+    "viewsHint": "打开过的页面和条目",
+    "events": "事件",
+    "eventsHint": "记录下的全部，含浏览",
+    "bots": "爬虫",
+    "botsHint": "单独计数，不进上面四个"
+  },
   "ipBans": {
     "intro": "封禁滥用的来源 IP。被封的 IP 在整个公开面上都会收到 403——聊天、会话、访问请求。在 <mono>conversations</mono> 中找到问题 IP（每行都显示访客的 IP）。封禁可随时解除。",
     "banIp": "封禁 ip",

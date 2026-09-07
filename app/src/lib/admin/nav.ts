@@ -13,7 +13,7 @@ export type AdminSlug =
   | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'system'
   | 'preview' | 'obsidian' | 'embeds' | 'assets' | 'data'
-  | 'roles' | 'prompts' | 'ip-bans';
+  | 'roles' | 'prompts' | 'ip-bans' | 'monitor';
 
 export type NavGroupID =
   | 'overview' | 'corpus' | 'access' | 'resources' | 'jobs' | 'integrations' | 'settings';
@@ -78,7 +78,9 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   },
   {
     id: 'settings',
-    items: [{ slug: 'ip-bans' }, { slug: 'account' }, { slug: 'system' }],
+    // monitor sits first: it is the only section here an owner opens out of curiosity rather
+    // than to change something, and it answers the question the others cannot — did anyone come.
+    items: [{ slug: 'monitor' }, { slug: 'ip-bans' }, { slug: 'account' }, { slug: 'system' }],
   },
 ];
 

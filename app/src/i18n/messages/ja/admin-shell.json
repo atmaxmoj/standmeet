@@ -259,6 +259,23 @@
     "recoveryNoteReady": "リカバリーフレーズを生成してメールで送ります。一度きり — それでサインインすると使い切られます。",
     "recoveryNoteNeedsMail": "まず Connectors でメール（SMTP）を検証してください — リカバリーフレーズはメールで送られます。"
   },
+  "monitor": {
+    "kicker": "設定 · モニター",
+    "intro": "誰が来て、どこから来て、何を読んだか。このインスタンス自身が自分のデータベースに記録します——第三者の解析なし、Cookie なし、IP アドレスは一切保存しません。クローラーは別に数え、これらの数値には混ぜません。",
+    "feed": "最近のイベント",
+    "loading": "記録を読み込み中…",
+    "empty": "まだ記録はありません。最初の訪問者がページを開くと表示されます。",
+    "viewers": "訪問者",
+    "viewersHint": "Cookie なしで数えられる範囲の人数",
+    "visits": "訪問",
+    "visitsHint": "一回の滞在。30 分の無操作で次の回",
+    "views": "閲覧",
+    "viewsHint": "開かれたページと項目",
+    "events": "イベント",
+    "eventsHint": "記録された全て（閲覧を含む）",
+    "bots": "クローラー",
+    "botsHint": "別勘定。上の 4 つには入りません"
+  },
   "ipBans": {
     "intro": "Block abusive source IPs. A banned IP gets a 403 on the whole public surface — chat, sessions, access requests. Find offending IPs in <mono>conversations</mono> (each row shows the visitor's IP). Bans can be lifted any time.",
     "banIp": "ban ip",

@@ -95,6 +95,21 @@ components:
     in: internal/stats/repo               # stats guts: query repository (over db + pgstore)
   statsops:
     in: internal/stats/ops                # stats guts: declaration of what this domain offers outward
+  # monitor —— visitor traffic. Its READ side converges at the dispatcher like every other
+  # domain's, so `dispatcher` may depend on `monitor` (the facade) and nothing else may.
+  # Its RECORDING side converges nowhere: monitormw observes the public router from outside and
+  # is mounted once at the composition root. No handler in any domain calls it, and an import of
+  # a monitor component from a domain is the defect this registry exists to catch.
+  monitor:
+    in: internal/monitor/facade           # monitor domain facade; the composition root uses this
+  monitorentity:
+    in: internal/monitor/entity           # monitor guts: event model, identity, normalisation, detection
+  monitorrepo:
+    in: internal/monitor/repo             # monitor guts: its own hand-written SQL over pgstore
+  monitorops:
+    in: internal/monitor/ops              # monitor guts: the recording pipeline
+  monitormw:
+    in: internal/monitor/mw               # monitor guts: the route table + the observing middleware
   security:
     in: internal/security/facade          # #135: request-level protection domain facade (banned_ip / captcha); outside the domain, only import this
   securityban:
@@ -579,6 +594,7 @@ deps:
       - conversation
       - corpus
       - marketplace
+      - monitor
       - owner
       - security
       - stats
@@ -762,6 +778,43 @@ deps:
       - facadeparity
     anyVendorDeps: true
   statsentity:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # monitor —— the isolation invariant from docs/design/monitor.md §0, made structural.
+  #
+  # Note what is NOT here: facadeparity. Every other domain declares its own ops and depends on
+  # that vocabulary; monitor declares none, because it is the domain that watches the others and
+  # the less it is entangled with, the less it can disturb. Its two reads are declared at the
+  # convergence point instead (dispatcher/monitor_ops.go), which already has the vocabulary.
+  #
+  # These four may depend inward on each other, and on nothing else.
+  monitor:
+    mayDependOn:
+      - monitorentity
+      - monitorrepo
+      - monitorops
+      - pgstore
+    anyVendorDeps: true
+  monitorops:
+    mayDependOn:
+      - monitorentity
+      - monitorrepo
+    anyVendorDeps: true
+  monitormw:
+    mayDependOn:
+      - monitorentity
+      - monitorops
+    anyVendorDeps: true
+  monitorrepo:
+    mayDependOn:
+      - monitorentity
+      - pgstore
+      # periodic — dropping traffic past the retention window is this domain's own periodic
+      # task; scheduling and bookkeeping belong to the host. Same edge as statsrepo.
+      - periodic
+    anyVendorDeps: true
+  monitorentity:
     mayDependOn: []
     anyVendorDeps: true
   statsrepo:
@@ -1233,6 +1286,11 @@ deps:
       - pgstore
       - buildnotify     # the composition root constructs the preview-long-poll broadcast (one per process)
       - selfstat        # …and the own-cgroup stats reader for the System panel
+      # monitor + monitormw — the composition root builds the traffic recorder and mounts its
+      # ONE middleware on the public router. Recording converges nowhere else: monitor observes
+      # the router from outside and is never called from inside a domain (monitor.md §0).
+      - monitor
+      - monitormw
     anyVendorDeps: true
 
   # The five packages inside the composition root. In layering terms they're on par with cmd (both may
@@ -1308,6 +1366,7 @@ deps:
       - pgstore
       - buildnotify     # Runtime holds the preview-long-poll broadcast, shared by the builder callback + admin face
       - selfstat        # Runtime carries the peer /selfstat URLs; SysInfoProvider builds the reader (System panel)
+      - monitor         # Runtime holds the traffic repo, the way it holds every other domain's
     anyVendorDeps: true
 
   cmdport:
@@ -1582,6 +1641,9 @@ deps:
       - printsess
       - stats
       - marketplace
+      # monitor — the composition root gathers this domain's retention job into the single
+      # periodic schedule, exactly as it does for stats.
+      - monitor
       - security
       - access
       - cryptobox

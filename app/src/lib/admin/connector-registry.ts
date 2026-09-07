@@ -44,7 +44,9 @@ export const CONNECTOR_CATEGORIES: readonly ConnectorCategory[] = [
   { id: 'capture',   label: 'capture',            blurb: 'where thinking lands' },
   { id: 'identity',  label: 'identity & social',  blurb: 'verified-by accounts' },
   { id: 'storage',   label: 'storage & backup',   blurb: 'where the corpus archives to' },
-  { id: 'analytics', label: 'analytics & growth', blurb: 'know who is reading' },
+  // Renamed from "analytics": knowing who is reading is now the instance's own job
+  // (settings → traffic). What is left here is sending that elsewhere.
+  { id: 'export', label: 'export', blurb: 'send events somewhere you control' },
 ];
 
 export const CONNECTOR_REGISTRY: readonly ConnectorEntry[] = [
@@ -201,25 +203,17 @@ export const CONNECTOR_REGISTRY: readonly ConnectorEntry[] = [
     ],
   },
 
-  // ── analytics ──────────────────────────────────────────────────────
+  // ── export ─────────────────────────────────────────────────────────
+  //
+  // This category used to be "analytics" and used to offer Plausible and Umami: point the
+  // instance at someone else's analytics service. Both are gone. The instance now collects its
+  // own visitor traffic (docs/design/monitor.md) — in its own database, with the visitor's
+  // access code as a first-class dimension, which no third party can see. A second, weaker copy
+  // of the same data is not worth a connector.
+  //
+  // What survives is export: sending events somewhere the owner controls.
   {
-    id: 'plausible', name: 'Plausible', icon: '◯', category: 'analytics',
-    blurb: 'cookie-free pageviews + custom events for the public site.',
-    fields: [
-      { k: 'domain', label: 'Domain' },
-      { k: 'api_key', label: 'Plausible API key (optional)', secret: true },
-    ],
-  },
-  {
-    id: 'umami', name: 'Umami', icon: '◐', category: 'analytics',
-    blurb: 'self-hosted analytics. point at your umami instance.',
-    fields: [
-      { k: 'endpoint', label: 'Endpoint URL' },
-      { k: 'site_id', label: 'Site ID' },
-    ],
-  },
-  {
-    id: 'webhook', name: 'Generic webhook', icon: '⚭', category: 'analytics',
+    id: 'webhook', name: 'Generic webhook', icon: '⚭', category: 'export',
     blurb: 'POST every chat-conversation event to a URL you control.',
     fields: [
       { k: 'endpoint', label: 'POST URL' },

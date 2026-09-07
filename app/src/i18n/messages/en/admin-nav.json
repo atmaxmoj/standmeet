@@ -33,6 +33,7 @@
     "connectors": "connectors",
     "api-mcp": "api · mcp",
     "obsidian": "obsidian",
+    "monitor": "traffic",
     "ip-bans": "ip bans",
     "account": "account",
     "system": "system"

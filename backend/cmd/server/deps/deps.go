@@ -23,6 +23,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
+	monitor "github.com/atmaxmoj/standmeet/internal/monitor/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	jobcache "github.com/atmaxmoj/standmeet/internal/owner/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"
@@ -80,6 +81,7 @@ type Runtime struct {
 	ChatReportRepo     *conversation.ChatReportRepo
 	InferenceUsageRepo *stats.InferenceUsageRepo
 	BannedIPRepo       *security.BannedIPRepo
+	MonitorRepo        *monitor.Repo
 	APIKeyRepo         *access.APIKeyRepo
 	AppStateRepo       *conversation.AppStateRepo
 	NoteRefRepo        *corpus.NoteRefRepo
@@ -115,9 +117,12 @@ type Runtime struct {
 	BuildsRoot     string
 	PublicIP       string
 	SessionKey     string
-	SelfStatPeers  []string
-	SecureCookie   bool
-	CaptchaEnabled bool
+	// StorageSecretKey — carried so the composition root can derive the monitor domain's
+	// viewer salt from it (one-way; see monitor_wireup.go). Never used as a credential here.
+	StorageSecretKey string
+	SelfStatPeers    []string
+	SecureCookie     bool
+	CaptchaEnabled   bool
 	// SeedDefaultSources — seed the built-in job aggregators on a fresh claim (config knob).
 	SeedDefaultSources bool
 }

@@ -6,7 +6,7 @@ the connector-specific steps 2-4 below. Supersedes the ad-hoc socket-op placemen
 `[[backend-domain-modules]]` under `[[structure]]`.
 
 `internal/` now holds exactly the class-diagram set and nothing else: the 8 core domain modules
-(corpus · conversation · connector · access · owner · security · marketplace · stats) plus
+(corpus · conversation · connector · access · owner · security · marketplace · stats · monitor) plus
 `capabilities` (the capability axis), `routes` (the real inbound controllers) and `infra` (the
 domain-less shared base). `check-internal-dirs.sh` enforces this with an EMPTY baseline, i.e. in
 pure-red mode: any other directory under `internal/` fails the build, with nothing grandfathered.
@@ -180,6 +180,7 @@ unnecessary — it exists *because* the product is BYO-integration.)
 | **security** | captcha / banned_ip / login-guard · anti-replay (auth = access; **protection = security**) |
 | **marketplace** | marketplace / skill / mcp_server |
 | **stats** (observability) | stats_activity / growth / jobs / inference_usage / system_info |
+| **monitor** (visitor traffic) | visit_viewer / visit_event — see `monitor.md`. **Nothing depends on it.** It observes the public router from outside (one middleware, mounted at the composition root) instead of being called from inside handlers, owns its own migration, and appears in neither `db/schema.sql` nor `sqlc.yaml`. `stats` measures the instance; `monitor` measures its visitors. |
 
 ### Fully externalized capabilities (sandboxed plugins — **not** core domains)
 

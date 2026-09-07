@@ -15,6 +15,7 @@ import (
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
+	monitor "github.com/atmaxmoj/standmeet/internal/monitor/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
@@ -41,6 +42,7 @@ type Deps struct {
 	OwnerCSS       owner.CSSStore
 	OwnerFavicon   owner.FaviconStore
 	BannedIPs      *security.BannedIPRepo
+	Monitor        *monitor.Repo
 	AllowedDomains owner.AllowedDomainsDeps
 	APIKeys        access.OpsAPIKeys
 	Conversations  conversation.OpsConversations
@@ -61,6 +63,7 @@ func Collect(d *Deps) []Resource {
 			corpus.CorpusI18nOps()...)},
 		{Name: "assets", Ops: corpus.AssetOps(d.Corpus)},
 		{Name: "ip_bans", Ops: security.IPBanOps(d.BannedIPs)},
+		{Name: "monitor", Ops: MonitorOps(d.Monitor)},
 		{Name: "domains", Ops: owner.DomainOps(d.AllowedDomains)},
 		{Name: "appearance", Ops: owner.AppearanceOps(d.OwnerCSS, d.OwnerFavicon)},
 		{Name: "prompts", Ops: owner.PromptOps(d.Prompts)},

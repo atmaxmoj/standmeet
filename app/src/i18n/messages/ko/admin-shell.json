@@ -259,6 +259,23 @@
     "recoveryNoteReady": "복구 문구를 생성해 이메일로 보냅니다. 1회용 — 그것으로 로그인하면 소모됩니다.",
     "recoveryNoteNeedsMail": "먼저 Connectors에서 이메일(SMTP)을 검증하세요 — 복구 문구는 이메일로 전송됩니다."
   },
+  "monitor": {
+    "kicker": "설정 · 모니터",
+    "intro": "누가 왔고, 어디에서 왔고, 무엇을 읽었는지. 이 인스턴스가 자체 데이터베이스에 직접 기록합니다 — 외부 분석 도구 없음, 쿠키 없음, IP 주소는 저장하지 않습니다. 크롤러는 따로 세며 이 숫자들에 섞지 않습니다.",
+    "feed": "최근 이벤트",
+    "loading": "기록을 읽는 중…",
+    "empty": "아직 기록이 없습니다. 첫 방문자가 페이지를 열면 채워집니다.",
+    "viewers": "방문자",
+    "viewersHint": "쿠키 없이 셀 수 있는 만큼의 사람 수",
+    "visits": "방문",
+    "visitsHint": "한 번의 머무름. 30분 유휴 후 새 방문",
+    "views": "조회",
+    "viewsHint": "열린 페이지와 항목",
+    "events": "이벤트",
+    "eventsHint": "기록된 전부(조회 포함)",
+    "bots": "크롤러",
+    "botsHint": "따로 셈. 위 넷에는 포함되지 않음"
+  },
   "ipBans": {
     "intro": "Block abusive source IPs. A banned IP gets a 403 on the whole public surface — chat, sessions, access requests. Find offending IPs in <mono>conversations</mono> (each row shows the visitor's IP). Bans can be lifted any time.",
     "banIp": "ban ip",
