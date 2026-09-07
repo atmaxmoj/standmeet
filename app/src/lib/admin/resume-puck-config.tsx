@@ -175,7 +175,9 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
       render: ({ name, email, phone, locationLine, site, puck }) => {
         const contacts = contactsOf(email, phone, locationLine, site);
         const qrURL = metaQR(puck);
-        return (filled(name) || contacts.length > 0) ? (
+        // The QR (the access code) belongs on every résumé, so the header shows whenever there's a QR
+        // to draw — even before any name/contact is typed. Name + contacts still suppress individually.
+        return (filled(name) || contacts.length > 0 || qrURL !== '') ? (
           <div data-sec="header">
             <div className="flex items-end justify-between gap-4 pt-1">
               <div className="min-w-0">

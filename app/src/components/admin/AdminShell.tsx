@@ -24,9 +24,13 @@ type Props = {
 
 export function AdminShell({ children }: Props) {
   const session = useAdminSession();
-  const active = adminActiveSlug(usePathname());
+  const pathname = usePathname();
+  const active = adminActiveSlug(pathname);
+  // The résumé composer is a full-bleed editor (its own full-height Puck canvas): it butts straight
+  // against the sidebar with no content padding, so the shell drops its gutters for that route only.
+  const bleed = (pathname ?? '').startsWith('/admin/edit-resume');
   return session.kind === 'ready'
-    ? <AdminLayout active={active} handle={session.session.handle} email={session.session.email}>{children}</AdminLayout>
+    ? <AdminLayout active={active} bleed={bleed} handle={session.session.handle} email={session.session.email}>{children}</AdminLayout>
     : <Loading state={session.kind} />;
 }
 
@@ -65,9 +69,9 @@ function firstAdminSegment(pathname: string | null): string {
 // Nothing moves a single pixel at `lg` and above — the feature suite runs at desktop size,
 // where the sidebar stays a static column.
 function AdminLayout({
-  active, handle, email, children,
+  active, bleed, handle, email, children,
 }: {
-  active: AdminSlug; handle: string; email: string; children: ReactNode;
+  active: AdminSlug; bleed: boolean; handle: string; email: string; children: ReactNode;
 }) {
   const badges = useSidebarBadges();
   const [navOpen, setNavOpen] = useState(false);
@@ -80,9 +84,10 @@ function AdminLayout({
         <AdminSidebar active={active} badges={badges} open={navOpen} onClose={closeNav} />
         {/* min-w-0: flex children default to min-width:auto — a wide table in the content
             would stretch the whole column instead of scrolling on its own. */}
-        <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-12 py-6 lg:py-8 overflow-y-auto">
-          {/* Fills a normal large office screen (27–32" QHD→4K); not 49"/57" ultrawides. */}
-          <div className="max-w-[2400px]">{children}</div>
+        <main className={`flex-1 min-w-0 overflow-y-auto ${bleed ? '' : 'px-4 sm:px-6 lg:px-12 py-6 lg:py-8'}`}>
+          {/* Fills a normal large office screen (27–32" QHD→4K); not 49"/57" ultrawides. Full-bleed
+              editors (composer) drop the max-width + gutters so the canvas reaches the sidebar. */}
+          <div className={bleed ? '' : 'max-w-[2400px]'}>{children}</div>
         </main>
       </div>
     </div>

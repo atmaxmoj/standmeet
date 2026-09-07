@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/internal/infra/gotenberg"
@@ -63,7 +64,12 @@ func (r gotenbergPDFRenderer) RenderApplicationPDF(
 	if err != nil {
 		return nil, fmt.Errorf("stash print session: %w", err)
 	}
-	printURL := r.printBase + "/print/application/" + app.ID + "?t=" + url.QueryEscape(token)
+	// printBase must be a URL gotenberg can reach on the SERVER network and that Chromium won't
+	// mangle — that's PRINT_BASE_URL (the instance's public https FQDN on prod, a dotted internal
+	// host in dev), NOT the browser-facing owner.public_url (in e2e that's a host port gotenberg
+	// can't dial). Trailing slash trimmed so "https://host/" + "/print/…" doesn't double up.
+	base := strings.TrimRight(r.printBase, "/")
+	printURL := base + "/print/application/" + app.ID + "?t=" + url.QueryEscape(token)
 	pdf, rerr := r.client.RenderURL(ctx, printURL)
 	if rerr != nil {
 		return nil, fmt.Errorf("render application %s: %w", app.ID, rerr)

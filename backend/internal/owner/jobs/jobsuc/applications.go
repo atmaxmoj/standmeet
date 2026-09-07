@@ -314,7 +314,10 @@ func generateApplicationCode() (string, error) {
 	return applicationCodePrefix + "-" + strings.ToLower(enc)[:applicationCodeRandLen], nil
 }
 
-func buildQRURL(publicURL, code string) string {
+// BuildQRURL — the résumé QR's share URL: `<public_url>/?code=<code>`. One source for both the
+// commit path (the code stamped into the sent PDF) and the composer preview (the owner previewing
+// the real selected code), so the two can't drift.
+func BuildQRURL(publicURL, code string) string {
 	base := strings.TrimRight(publicURL, "/")
 	return fmt.Sprintf("%s/?code=%s", base, url.QueryEscape(code))
 }

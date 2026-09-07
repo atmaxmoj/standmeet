@@ -90,7 +90,10 @@ export function PuckComposer({ model, initialPuckData }: {
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)]" data-testid="puck-composer">
-      <ComposerBar model={model} dirty={dirty} onBack={back} onSave={save} onSend={() => setConfirm(true)} />
+      <ComposerBar
+        model={model} dirty={dirty} onBack={back} onSave={save} onSend={() => setConfirm(true)}
+        previewCode={code.selectedCodePlaintext}
+      />
       <ComposerCanvas code={code} initial={initial} onData={onData} />
       {confirm && (
         <ConfirmSend
@@ -115,7 +118,10 @@ function ComposerCanvas({ code, initial, onData }: {
 }) {
   return (
     <ComposerCodeContext.Provider
-      value={{ activeCodes: code.activeCodes, codeId: code.codeId, setCodeId: code.setCodeId }}
+      value={{
+        activeCodes: code.activeCodes, codeId: code.codeId, setCodeId: code.setCodeId,
+        qrURL: code.qrURL,
+      }}
     >
       <div className="flex-1 min-h-0">
         <PuckResumeEditor initial={initial} onData={onData} />
@@ -125,9 +131,10 @@ function ComposerCanvas({ code, initial, onData }: {
 }
 
 function ComposerBar({
-  model, dirty, onBack, onSave, onSend,
+  model, dirty, onBack, onSave, onSend, previewCode,
 }: {
   model: DraftModel; dirty: boolean; onBack: () => void; onSave: () => void; onSend: () => void;
+  previewCode: string;
 }) {
   const t = useTranslations('adminShell.composer');
   return (
@@ -136,7 +143,7 @@ function ComposerBar({
         {t('backToDrafts')}
       </button>
       <div className="flex items-center gap-3">
-        <a href={previewURL(model.id, Date.now())} target="_blank" rel="noreferrer" className="mono text-[11px] tracking-[0.06em] text-(--color-muted) hover:text-(--color-ink)" data-testid="composer-preview">
+        <a href={previewURL(model.id, Date.now(), previewCode)} target="_blank" rel="noreferrer" className="mono text-[11px] tracking-[0.06em] text-(--color-muted) hover:text-(--color-ink)" data-testid="composer-preview">
           {t('previewPdf')}
         </a>
         <button type="button" onClick={onSave} className="sm-btn sm-btn-outline sm-btn-sm inline-flex items-center gap-1.5" data-testid="puck-save" data-dirty={dirty}>

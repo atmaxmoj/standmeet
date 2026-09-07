@@ -19,6 +19,10 @@ export interface ComposerCodeControl {
   activeCodes: readonly CodeView[];
   codeId: string;
   setCodeId: (id: string) => void;
+  // qrURL —— the share-URL the selected code encodes (empty when no code is selected). The editor
+  // canvas draws the REAL QR from this (via Puck metadata), so the owner previews the actual code the
+  // committed PDF will carry, not a placeholder.
+  qrURL: string;
 }
 
 const noopSetCodeId = (): void => undefined;
@@ -27,6 +31,7 @@ export const ComposerCodeContext = createContext<ComposerCodeControl>({
   activeCodes: [],
   codeId: '',
   setCodeId: noopSetCodeId,
+  qrURL: '',
 });
 
 export function useComposerCodeControl(): ComposerCodeControl {

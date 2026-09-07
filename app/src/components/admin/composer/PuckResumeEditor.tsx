@@ -13,6 +13,7 @@ import { Puck, type Data, type Overrides } from '@measured/puck';
 import '@measured/puck/puck.css';
 
 import { resumePuckConfig } from '@/lib/admin/resume-puck-config';
+import { useComposerCodeControl } from '@/lib/admin/composer-code-context';
 import { toPuckData, fromPuckData, type PuckData } from '@/lib/admin/resume-puck';
 import {
   draftToResumeContent, applyResumeContentToDraft, type DraftModel,
@@ -60,9 +61,17 @@ export function PuckResumeEditor({ initial, onData }: {
   // tracks the latest doc for Save/SEND. Nothing persists here.
   const onChange = useCallback((data: Data) => onData(data), [onData]);
   const [data] = useState<Data>(initial);
+  // The selected code's QR is fed to the canvas as Puck metadata, so the Header component draws the
+  // REAL code's QR while editing (not a placeholder) and re-draws when the owner picks another code.
+  // This component only re-renders when qrURL (context) changes, so the inline object is cheap and
+  // Puck keeps its edit state (the `data` prop is unchanged).
+  const { qrURL } = useComposerCodeControl();
   return (
     <div data-testid="puck-resume-editor" className="h-full">
-      <Puck config={resumePuckConfig} data={data} onChange={onChange} overrides={composerOverrides} />
+      <Puck
+        config={resumePuckConfig} data={data} onChange={onChange}
+        overrides={composerOverrides} metadata={{ qrURL }}
+      />
     </div>
   );
 }

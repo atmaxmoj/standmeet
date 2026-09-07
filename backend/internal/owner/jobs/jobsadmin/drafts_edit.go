@@ -78,6 +78,21 @@ func listTemplates(deps Deps) http.HandlerFunc {
 	}
 }
 
+// previewQR — the QR the preview render encodes: the REAL selected code (built from the owner's
+// public URL) so the owner sees what commit will send (owner: "不要假的"), or the non-leaking
+// placeholder marker when there's no code / no public URL.
+func previewQR(deps Deps, r *http.Request, ownerID string) string {
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		return previewQRURL
+	}
+	ownerRow, err := deps.Commit.Owners.GetByID(r.Context(), ownerID)
+	if err != nil || ownerRow.PublicURL == "" {
+		return previewQRURL
+	}
+	return jobsuc.BuildQRURL(ownerRow.PublicURL, code)
+}
+
 func previewDraft(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := authmw.OwnerIDFrom(r.Context())
@@ -94,7 +109,9 @@ func previewDraft(deps Deps) http.HandlerFunc {
 			Template:      draft.Template,
 			JobSnapshot:   draft.JobSnapshot,
 		}
-		pdf, rerr := deps.Commit.Renderer.RenderApplicationPDF(r.Context(), &app, previewQRURL)
+		// The QR is the REAL picked code (see previewQR); the print-page base stays PRINT_BASE_URL.
+		qrURL := previewQR(deps, r, ownerID)
+		pdf, rerr := deps.Commit.Renderer.RenderApplicationPDF(r.Context(), &app, qrURL)
 		if rerr != nil {
 			deps.Log.Error("render draft preview", logErrKey, rerr)
 			writeServerErr(deps.Log, w)

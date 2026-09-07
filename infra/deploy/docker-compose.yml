@@ -126,10 +126,17 @@ services:
       # deliberately not mounted on this target, so per-container stats aren't available.)
       - PUBLIC_IP=${PUBLIC_IP:-}
       - GOTENBERG_URL=http://gotenberg:3000
-      # The address gotenberg uses to fetch the print page. **Single-label hostname**: a
-      # dotted alias needs the second network, and that's exactly the cause of the 504 (see
-      # the note on the app service).
-      - PRINT_BASE_URL=http://app:3000
+      # The address gotenberg loads to render the print page. It is the instance's own PUBLIC
+      # https URL, NOT the internal `http://app:3000`. Two prod bugs came from the internal
+      # single-label host: (1) a dotted internal alias needs a second docker network, which
+      # caused a recurring 504; (2) worse, the app runs behind TLS with SECURE_COOKIE, so a
+      # plain http://app:3000 hit gets redirected toward https on a single-label host that has
+      # no cert — gotenberg's Chromium (and the owner's preview tab) then die on
+      # ERR_SSL_PROTOCOL_ERROR naming bare `app`. Fetching the real public FQDN (valid Let's
+      # Encrypt cert, dotted, terminated by the proxy) sidesteps both. The print route is
+      # one-shot-token gated, so serving it over the public origin leaks nothing. On Coolify
+      # SERVICE_URL_APP is generated as https://<the app domain>; on plain compose set it in .env.
+      - PRINT_BASE_URL=${SERVICE_URL_APP}
       # ── Storage ──────────────────────────────────────────────────────────────────
       - STORAGE_ENDPOINT=minio:9000
       - STORAGE_ACCESS_KEY=standmeet

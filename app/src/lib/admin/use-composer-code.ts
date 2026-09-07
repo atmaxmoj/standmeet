@@ -18,6 +18,9 @@ export interface ComposerCode {
   codeId: string;
   setCodeId: (id: string) => void;
   selectedCode: CodeView | undefined;
+  // selectedCodePlaintext —— the picked code's plaintext ('' when none). Derived here so the composer
+  // reads a pre-computed value (the presentation layer does no derivation in render).
+  selectedCodePlaintext: string;
   qrURL: string;
 }
 
@@ -40,6 +43,7 @@ export function useComposerCode(): ComposerCode {
   const [codeId, setCodeId] = useState('');
   useEffect(() => { setCodeId((cur) => defaultCodeId(cur, activeOf(codes))); }, [codes]);
   const selectedCode = active.find((c) => c.id === codeId);
-  const qrURL = resumeQRURL(publicURLOf(session), selectedCode ? selectedCode.code : '');
-  return { activeCodes: active, codeId, setCodeId, selectedCode, qrURL };
+  const selectedCodePlaintext = selectedCode ? selectedCode.code : '';
+  const qrURL = resumeQRURL(publicURLOf(session), selectedCodePlaintext);
+  return { activeCodes: active, codeId, setCodeId, selectedCode, selectedCodePlaintext, qrURL };
 }

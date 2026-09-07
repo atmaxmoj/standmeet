@@ -16,10 +16,12 @@ export function savePuckDraft(model: DraftModel, puckData: unknown): Promise<voi
   });
 }
 
-// previewURL —— the real Typst render for this draft. The `v` cache-buster forces the preview
-// <iframe> to reload after each save so the owner sees the persisted result, not a stale render.
-export function previewURL(draftID: string, version: number): string {
-  return `/api/admin/drafts/${draftID}/preview.pdf?v=${version}`;
+// previewURL —— the draft's rendered PDF. The `v` cache-buster forces a reload after each save so the
+// owner sees the persisted result, not a stale render. `code` is the picked access code (plaintext):
+// the preview stamps the REAL QR for it (empty → the backend's placeholder marker).
+export function previewURL(draftID: string, version: number, code = ''): string {
+  const codeParam = code === '' ? '' : `&code=${encodeURIComponent(code)}`;
+  return `/api/admin/drafts/${draftID}/preview.pdf?v=${version}${codeParam}`;
 }
 
 // resumeQRURL —— the address the résumé's QR encodes for a chosen access code: the owner's public

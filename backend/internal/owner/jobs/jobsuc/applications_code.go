@@ -48,13 +48,13 @@ func resolveCommitCode(
 		if err != nil {
 			return resolvedCode{}, err
 		}
-		return resolvedCode{qrURL: buildQRURL(publicURL, c.Code), plaintext: c.Code, reuse: &c}, nil
+		return resolvedCode{qrURL: BuildQRURL(publicURL, c.Code), plaintext: c.Code, reuse: &c}, nil
 	}
 	code, err := generateApplicationCode()
 	if err != nil {
 		return resolvedCode{}, err
 	}
-	return resolvedCode{qrURL: buildQRURL(publicURL, code), plaintext: code}, nil
+	return resolvedCode{qrURL: BuildQRURL(publicURL, code), plaintext: code}, nil
 }
 
 // usableExistingCode —— the picked code must exist, be this owner's, and be active.
