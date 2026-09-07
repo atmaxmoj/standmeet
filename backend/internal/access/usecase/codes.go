@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
@@ -103,6 +104,35 @@ func RevokeCode(ctx context.Context, d CodesDeps, ownerID, codeID string) error 
 		return fmt.Errorf("revoke code: purge visitor sessions: %w", err)
 	}
 	return nil
+}
+
+// RotateCode — changes a code's STRING (leak recovery), and purges the visitor sessions it already
+// issued. Rotation locks out a LEAK: the old string dies at the DB, and live sessions (keyed by
+// code_id, which would otherwise outlive the string change) are cleared too, as RevokeCode does.
+// Everything keyed on code_id (embeds, application rows) is untouched. A collision → ErrCodeTaken.
+func RotateCode(
+	ctx context.Context, d CodesDeps, ownerID, codeID, newCode string,
+) (entity.Code, error) {
+	trimmed := strings.TrimSpace(newCode)
+	if !rotationCodeValid(trimmed) {
+		return entity.Code{}, entity.ErrCodeInvalid
+	}
+	code, err := d.Codes.RotateCode(ctx, ownerID, codeID, trimmed)
+	if err != nil {
+		return entity.Code{}, fmt.Errorf("rotate code: %w", err)
+	}
+	if serr := d.Sessions.DeleteByCode(ctx, codeID); serr != nil {
+		return entity.Code{}, fmt.Errorf("rotate code: purge visitor sessions: %w", serr)
+	}
+	if d.Log != nil {
+		d.Log.Info("access code rotated", "owner_id", ownerID, "code_id", codeID)
+	}
+	return code, nil
+}
+
+// rotationCodeValid — the new code must be a single non-empty URL-safe token (rides in ?code=).
+func rotationCodeValid(s string) bool {
+	return s != "" && !strings.ContainsAny(s, " \t\n/?#&")
 }
 
 // SetCodeMicrosite — which page this code opens. Empty slug = unbind, fall back to

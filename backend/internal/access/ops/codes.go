@@ -65,6 +65,7 @@ func codeCoreOps(d CodesDeps) []fp.Op {
 			Reach:       fp.OwnerAction(),
 			Invoke:      revokeCode(d.Codes),
 		},
+		rotateOp(d),
 		{
 			ID: "codes.set_microsite",
 			Description: "Point this code at a microsite, or clear it. Presenting the code " +

@@ -68,3 +68,25 @@ export async function revokeCode(
   });
   if (!res.ok()) throw new Error(`revoke code failed: ${res.status()}`);
 }
+
+// rotateCode —— change a code's STRING (leak recovery): PATCH /codes/{id}/code. Returns the updated
+// code row (carrying the new string). The old string stops resolving and the code's live sessions die.
+export async function rotateCode(
+  request: APIRequestContext, csrf: string, codeID: string, newCode: string,
+): Promise<CodeView> {
+  const res = await request.patch(`${BACKEND}/api/admin/codes/${codeID}/code`, {
+    headers: { 'X-Csrftoken': csrf }, data: { code: newCode },
+  });
+  if (!res.ok()) throw new Error(`rotate code failed: ${res.status()}`);
+  return await res.json() as CodeView;
+}
+
+// rotateCodeStatus —— status-only, for asserting a collision (409) or other rejection.
+export async function rotateCodeStatus(
+  request: APIRequestContext, csrf: string, codeID: string, newCode: string,
+): Promise<number> {
+  const res = await request.patch(`${BACKEND}/api/admin/codes/${codeID}/code`, {
+    headers: { 'X-Csrftoken': csrf }, data: { code: newCode },
+  });
+  return res.status();
+}

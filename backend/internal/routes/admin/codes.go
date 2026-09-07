@@ -47,6 +47,8 @@ func (h *Handlers) MountCodes(r chi.Router) {
 		h.dispatchOp(face, "codes.revoke", urlParamArgs(paramCodeID), jsonOK))
 	r.Patch("/{code_id}/quotas",
 		h.dispatchOp(face, "codes.update_quotas", bodyWithURLParam(paramCodeID), jsonOK))
+	r.Patch("/{code_id}/code",
+		h.dispatchOp(face, "codes.rotate", bodyWithURLParam(paramCodeID), jsonOK))
 	r.Patch("/{code_id}/ghost-evidence",
 		h.dispatchOp(face, "codes.set_ghost_evidence", bodyWithURLParam(paramCodeID), jsonOK))
 	// Which page this code opens. An empty slug unbinds it, falling back to the default

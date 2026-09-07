@@ -832,6 +832,49 @@ func (q *Queries) TouchCodeMember(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const updateAccessCodeCode = `-- name: UpdateAccessCodeCode :one
+UPDATE access_codes
+SET code = $3
+WHERE id = $1 AND owner_id = $2
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
+`
+
+type UpdateAccessCodeCodeParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+	Code    string
+}
+
+// Rotate the code STRING itself — leak recovery (owner: "泄漏了我至少有办法，改一下它"). owner-scoped;
+// the citext UNIQUE on `code` (access_codes_code_key) rejects a collision, surfaced as ErrCodeTaken.
+// id + owner keep it the caller's own row; the slug and every code_id-keyed link are untouched.
+func (q *Queries) UpdateAccessCodeCode(ctx context.Context, arg UpdateAccessCodeCodeParams) (AccessCode, error) {
+	row := q.db.QueryRow(ctx, updateAccessCodeCode, arg.ID, arg.OwnerID, arg.Code)
+	var i AccessCode
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Code,
+		&i.Label,
+		&i.Purpose,
+		&i.Ghosts,
+		&i.ExpiresAt,
+		&i.Status,
+		&i.MaxTurnsPerSession,
+		&i.MaxMembers,
+		&i.RequireGhostEvidence,
+		&i.ProviderID,
+		&i.MicrositeID,
+		&i.LimitPerPeriod,
+		&i.Slug,
+		&i.CreatedAt,
+		&i.AssumedRoleID,
+		&i.PromptID,
+		&i.InlinePrompt,
+	)
+	return i, err
+}
+
 const updateAccessCodeQuotas = `-- name: UpdateAccessCodeQuotas :one
 
 UPDATE access_codes

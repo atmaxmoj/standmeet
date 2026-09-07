@@ -26,6 +26,15 @@ SET assumed_role_id = $3
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
+-- name: UpdateAccessCodeCode :one
+-- Rotate the code STRING itself — leak recovery (owner: "泄漏了我至少有办法，改一下它"). owner-scoped;
+-- the citext UNIQUE on `code` (access_codes_code_key) rejects a collision, surfaced as ErrCodeTaken.
+-- id + owner keep it the caller's own row; the slug and every code_id-keyed link are untouched.
+UPDATE access_codes
+SET code = $3
+WHERE id = $1 AND owner_id = $2
+RETURNING *;
+
 -- name: GetAccessCode :one
 -- **Do not add lower() here**: the `code` column is `citext` (see schema.sql:245), so the
 -- comparison is already case-insensitive. I once assumed "?code= won't get in because the code

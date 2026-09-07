@@ -102,6 +102,50 @@ func revokeCode(deps usecase.CodesDeps) fp.Invoke {
 	}
 }
 
+// rotateOp — codes.rotate. Lives here (not codeCoreOps) to keep codes.go under its line budget.
+func rotateOp(d CodesDeps) fp.Op {
+	return fp.Op{
+		ID: "codes.rotate",
+		Description: "Rotate a code's STRING (leak recovery). The new string replaces the old; " +
+			"anything keyed on the code id (embeds, application rows) keeps working, but every " +
+			"already-distributed copy of the OLD string — a résumé PDF/QR sent, a shared ?code= " +
+			"link — stops working, and the code's live sessions are cleared.",
+		InputSchema: codeRotateSchema,
+		Kind:        fp.Action,
+		Reach:       fp.OwnerAction(),
+		Invoke:      rotateCode(d.Codes, extrasOr(d.Extras)),
+	}
+}
+
+var codeRotateSchema = json.RawMessage(`{
+	"type":"object",
+	"properties":{
+		"code_id":{"type":"string","description":"Access code id."},
+		"code":{"type":"string","description":"The new code string (a single URL-safe token)."}
+	},
+	"required":["code_id","code"]
+}`)
+
+// codeRotateArgs — input for codes.rotate: which code (id), and its new string.
+type codeRotateArgs struct {
+	CodeID string `json:"code_id"`
+	Code   string `json:"code"`
+}
+
+func rotateCode(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		var in codeRotateArgs
+		if err := json.Unmarshal(raw, &in); err != nil {
+			return nil, fp.BadInput("invalid arguments: " + err.Error())
+		}
+		code, err := usecase.RotateCode(ctx, deps, ownerID, in.CodeID, in.Code)
+		if err != nil {
+			return nil, codeErr(err)
+		}
+		return marshalCode(ctx, extras, &code, countMembers(ctx, deps, code.ID))
+	}
+}
+
 // codePageArgs — input for codes.set_microsite. slug empty string = unbind.
 type codePageArgs struct {
 	CodeID string `json:"code_id"`
