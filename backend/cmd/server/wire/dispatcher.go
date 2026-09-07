@@ -253,7 +253,7 @@ func roleAllowedTools(
 func codeDepsOf(d *deps.Runtime) access.OpsCodes {
 	return access.OpsCodes{
 		Codes: access.CodesDeps{
-			Codes: d.CodeRepo, Roles: d.RoleRepo, Sessions: d.VisitorStore,
+			Codes: d.CodeRepo, Roles: d.RoleRepo, Sessions: d.VisitorStore, Log: d.Log,
 		},
 		ACL: access.CodeACLDeps{
 			Codes: d.CodeRepo, Denials: d.CodeDenialRepo, Roles: d.RoleRepo,

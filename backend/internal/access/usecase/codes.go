@@ -22,6 +22,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
@@ -29,11 +30,13 @@ import (
 
 // CodesDeps — repos needed by this group of code-issuing use cases. Roles is used to
 // fall back to the public role; Sessions is used to clear issued visitor sessions
-// when a code is revoked.
+// when a code is revoked. Log records issuance (owner/code/slug) so a prod code with
+// a bad or empty landing slug is diagnosable from the log alone, not by guessing.
 type CodesDeps struct {
 	Codes    *repo.CodeRepo
 	Roles    *repo.RoleRepo
 	Sessions *VisitorSessionStore
+	Log      *slog.Logger
 }
 
 // IssueCode — issues a code. AssumedRoleID left blank = use the owner's public role
@@ -49,6 +52,14 @@ func IssueCode(
 	code, cerr := d.Codes.Create(ctx, in)
 	if cerr != nil {
 		return entity.Code{}, fmt.Errorf("issue code: %w", cerr)
+	}
+	// Success shape: the landing slug is the bug-prone field (a null/empty one broke the
+	// /c/<slug> path before). Logging it makes a prod regression visible at issue time and
+	// lets a scanned /c/<slug> be traced back to this issuance.
+	if d.Log != nil {
+		d.Log.Info("access code issued",
+			"owner_id", in.OwnerID, "code_id", code.ID, "slug", code.Slug,
+			"role_id", roleID, "label", code.Label)
 	}
 	return code, nil
 }
