@@ -9,7 +9,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Puck, type Data } from '@measured/puck';
+import { Puck, type Data, type Overrides } from '@measured/puck';
 import '@measured/puck/puck.css';
 
 import { resumePuckConfig } from '@/lib/admin/resume-puck-config';
@@ -47,6 +47,11 @@ export function deriveModel(base: DraftModel, data: Data): DraftModel {
   return applyResumeContentToDraft(base, fromPuckData(fromData(data)));
 }
 
+// Drop Puck's default top bar (the "Page" title + Publish + undo/redo): the composer supplies its own
+// action bar (← drafts · Save · code · preview · SEND), so Puck's generic header — whose "Publish"
+// does nothing here — is just a confusing second bar. Overriding header to null removes it.
+const composerOverrides: Partial<Overrides> = { header: () => <></> };
+
 export function PuckResumeEditor({ initial, onData }: {
   initial: Data;
   onData: (data: Data) => void;
@@ -57,7 +62,7 @@ export function PuckResumeEditor({ initial, onData }: {
   const [data] = useState<Data>(initial);
   return (
     <div data-testid="puck-resume-editor" className="h-full">
-      <Puck config={resumePuckConfig} data={data} onChange={onChange} />
+      <Puck config={resumePuckConfig} data={data} onChange={onChange} overrides={composerOverrides} />
     </div>
   );
 }
