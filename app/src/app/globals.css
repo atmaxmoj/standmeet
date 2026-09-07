@@ -153,6 +153,28 @@ html.dark {
   --color-amber:        #D9A14B;
   --color-violet:       #A77CC9;
   --color-acid:         #9CB85E;
+
+  /* Puck editor chrome follows day/night. Puck ships no dark mode — it defines its greyscale on
+     :root (grey-01 darkest … grey-12 lightest, white = panel bg, black = text). We remap those vars
+     onto the app's OWN dark tokens (paper/surface/rule/faint/muted/ink — already defined above) so the
+     composer chrome shares one palette with the rest of the app, no bespoke Puck colours. The ramp is
+     inverted (Puck's dark end → our light ink, its light end → our dark paper) with color-mix filling
+     the between-steps. (The résumé CANVAS is exempt — .sm-resume-paper pins it to fixed cream; only the
+     chrome is themed.) html.dark beats Puck's :root. */
+  --puck-color-white:    var(--color-surface);
+  --puck-color-black:    var(--color-ink);
+  --puck-color-grey-12:  var(--color-paper);
+  --puck-color-grey-11:  var(--color-surface);
+  --puck-color-grey-10:  var(--color-surface);
+  --puck-color-grey-09:  var(--color-rule);
+  --puck-color-grey-08:  var(--color-rule);
+  --puck-color-grey-07:  var(--color-faint);
+  --puck-color-grey-06:  color-mix(in oklab, var(--color-faint) 50%, var(--color-muted));
+  --puck-color-grey-05:  var(--color-muted);
+  --puck-color-grey-04:  color-mix(in oklab, var(--color-muted) 60%, var(--color-ink));
+  --puck-color-grey-03:  color-mix(in oklab, var(--color-muted) 30%, var(--color-ink));
+  --puck-color-grey-02:  color-mix(in oklab, var(--color-muted) 15%, var(--color-ink));
+  --puck-color-grey-01:  var(--color-ink);
 }
 
 html, body {

@@ -45,6 +45,21 @@ test.describe('résumé canvas is fixed paper, not the editor theme (Q0)', () =>
     }));
     expect(seen.frameDark, 'precondition: the editor canvas is in dark mode').toBe(true);
     expect(seen.bg, 'the résumé paper stays the fixed cream even though the editor is dark').toBe(CREAM);
+
+    // The editor CHROME, by contrast, DOES follow day/night: Puck's panel-background var (--puck-color-white)
+    // is remapped onto the app's own dark surface token in dark mode, not Puck's default white. Resolve it
+    // through a real element (a probe painted with that var) so we read the final rgb, not an unresolved
+    // var() chain. Without the override this would be Puck's white → rgb(255, 255, 255).
+    const chromeBg = await page.evaluate(() => {
+      const probe = document.createElement('div');
+      probe.style.background = 'var(--puck-color-white)';
+      document.body.appendChild(probe);
+      const bg = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return bg;
+    });
+    expect(chromeBg, 'the Puck editor chrome follows dark mode (panel bg = the app’s dark surface, not white)')
+      .toBe('rgb(28, 24, 18)'); // #1C1812 = --color-surface in dark
     await api.dispose();
   });
 });
