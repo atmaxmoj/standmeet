@@ -7,7 +7,7 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: stack stack-init stack-test dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
 # One machine, N checkouts, N stacks. Without this every worktree drives the SAME
@@ -275,6 +275,24 @@ sdk-build:
 app-build: sdk-build
 	@pnpm install --frozen-lockfile
 	@BACKEND_URL=$(APP_BUILD_BACKEND_URL) pnpm -F standmeet-app build
+
+# ── which stack does this checkout drive ────────────────────────
+#
+# `make stack` before anything else answers the question that has no other cheap answer: a spec
+# reaching the WRONG stack does not fail, it passes against someone else's data. `stack-init`
+# allocates a free port block, because .dev-stack.env.example's instruction was "pick numbers no
+# other checkout uses" and choosing twelve of those by hand is done carefully once.
+stack:
+	@infra/scripts/dev-stack show
+
+stack-init:
+	@infra/scripts/dev-stack init $(if $(FORCE),--force)
+
+# stack-test —— test-asis, but it prints the stack it is about to hit first.
+# usage: make stack-test SPEC=<spec-name> [REPEAT=n]
+stack-test:
+	@test -n "$(SPEC)" || (echo "usage: make stack-test SPEC=<spec-name> [REPEAT=n]"; exit 2)
+	@infra/scripts/dev-stack test $(SPEC) $(if $(REPEAT),REPEAT=$(REPEAT))
 
 dev-up: app-build builder-vendor
 	@infra/plugins/provision.sh

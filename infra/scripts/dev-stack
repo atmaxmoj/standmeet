@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+# dev-stack —— one entry point for "which stack does this checkout drive, and run something on it".
+#
+# The per-checkout dev stack works by a `.dev-stack.env` naming a compose project and twelve
+# host ports (see .dev-stack.env.example). What it did NOT have was a way to make one, and the
+# example file said so in as many words: "There is no allocator: N worktrees means N people
+# choosing N sets, and the only rule is that they differ."
+#
+# Choosing twelve non-colliding numbers by hand is the kind of task that is done carefully the
+# first time and approximately the second. Getting it wrong does not fail loudly — the stack
+# comes up, one service quietly binds a port another checkout was using, and the symptom lands
+# on the OTHER person as a refused connection or a test failing on data that was true a second
+# ago. So: an allocator, and a way to see what you are pointed at before you run anything.
+#
+#   dev-stack init [--force]   write .dev-stack.env with a free port block
+#   dev-stack show             what this checkout drives, and who else holds those ports
+#   dev-stack test SPEC        say which stack, then run that spec on it
+#
+# Everything here derives the identity the same way the Makefile and the e2e fixture do, so
+# there is no fourth place that could disagree.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/../.."
+ENV_FILE=.dev-stack.env
+EXAMPLE=.dev-stack.env.example
+
+# PORT_KEYS —— the twelve knobs, in the order .dev-stack.env.example lists them. Read from the
+# example file rather than restated, so a thirteenth port added there is allocated here without
+# anyone remembering this script exists.
+port_keys() { grep -oE '^DEV_PORT_[A-Z_]+' "$EXAMPLE"; }
+
+# default_of KEY —— the value that was hardcoded before the per-checkout stack. Also read from
+# the example file: two lists of defaults is one more than can be kept in agreement.
+default_of() { grep -E "^$1=" "$EXAMPLE" | head -1 | cut -d= -f2; }
+
+# free_port PORT —— nothing is listening on it. A bind test rather than a scan of `lsof`, so it
+# answers the question the stack will actually ask when it comes up.
+free_port() {
+  python3 - "$1" <<'PY'
+import socket, sys
+s = socket.socket()
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+try:
+    s.bind(("127.0.0.1", int(sys.argv[1])))
+except OSError:
+    sys.exit(1)
+finally:
+    s.close()
+PY
+}
+
+# holder PORT —— what is listening, as a name a person can act on. Best effort: `lsof` is not
+# everywhere, and an unknown holder is still a holder.
+#
+# The `|| true` is load-bearing: lsof exits 1 when nothing is listening, and under `set -e` an
+# assignment from a failing command substitution takes the script with it. The first version had
+# it only in the caller's happy path, so `show` worked in the checkout where every port WAS held
+# and printed an empty table in the one where none were — the case it exists for.
+holder() {
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"$1" -sTCP:LISTEN 2>/dev/null | awk 'NR==2 {print $1" (pid "$2")"}' || true
+  fi
+  return 0
+}
+
+# ── init ────────────────────────────────────────────────────────
+
+# offset_ok OFFSET —— would every port shift by this amount land somewhere usable.
+#
+# Three ways it can fail, all checked, because each produces a different flavour of confusing:
+#   * lands on another key's DEFAULT      → collides with the primary checkout the moment it starts
+#   * lands on another key in THIS set    → two of our own services fight
+#   * something is already listening      → collides with whatever is running now
+offset_ok() {
+  local offset=$1 key port
+  local -a taken=()
+  for key in $(port_keys); do
+    port=$(( $(default_of "$key") + offset ))
+    [ "$port" -lt 65536 ] || return 1
+    for other in $(port_keys); do
+      [ "$port" = "$(default_of "$other")" ] && return 1
+    done
+    for t in ${taken[@]+"${taken[@]}"}; do
+      [ "$port" = "$t" ] && return 1
+    done
+    free_port "$port" || return 1
+    taken+=("$port")
+  done
+  return 0
+}
+
+# pick_offset —— the smallest step of 100 that clears every check. A uniform offset keeps the
+# file readable: someone reading `8000 → 8400` can see what happened, where twelve unrelated
+# numbers would have to be trusted.
+pick_offset() {
+  local offset
+  for offset in 100 200 300 400 500 600 700 800 900 1000 1100 1200 1300 1400 1500; do
+    if offset_ok "$offset"; then echo "$offset"; return 0; fi
+  done
+  echo "dev-stack: no free port block found (tried +100 through +1500)." >&2
+  echo "  Something is holding a lot of ports, or a dozen stacks are already up." >&2
+  echo "  \`docker ps --format '{{.Names}} {{.Ports}}'\` shows who." >&2
+  return 1
+}
+
+# project_name —— derived from the checkout directory, because that is the name the person
+# already uses for this checkout. A worktree at .../worktrees/traffic-analytics becomes
+# standmeet-wt-traffic-analytics, which is what `docker ps` will show them.
+project_name() {
+  printf 'standmeet-wt-%s' "$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/-*$//')"
+}
+
+cmd_init() {
+  local force=${1:-}
+  if [ -f "$ENV_FILE" ] && [ "$force" != "--force" ]; then
+    echo "dev-stack: $ENV_FILE already exists — this checkout already has a stack."
+    echo "  \`dev-stack show\` prints it. \`dev-stack init --force\` reallocates (stop the stack first:"
+    echo "  \`make dev-down\`, or its containers keep the old ports and the file stops describing them)."
+    return 1
+  fi
+  local offset project
+  offset=$(pick_offset)
+  project=$(project_name)
+  {
+    echo "# This checkout's own dev stack — written by \`make stack-init\`, git-ignored."
+    echo "# Every port is its default +$offset, and each was confirmed free when this was written."
+    echo "# See .dev-stack.env.example for what each one is and why they must differ."
+    echo "COMPOSE_PROJECT_NAME=$project"
+    for key in $(port_keys); do
+      echo "$key=$(( $(default_of "$key") + offset ))"
+    done
+  } > "$ENV_FILE"
+  echo "dev-stack: wrote $ENV_FILE — project $project, ports at +$offset."
+  echo "  Next: \`make dev-up\` builds and starts this checkout's own stack."
+  cmd_show
+}
+
+# ── show ────────────────────────────────────────────────────────
+
+# identity —— project and ports, resolved exactly as the Makefile resolves them: the file if
+# there is one, the defaults otherwise.
+identity() {
+  if [ -f "$ENV_FILE" ]; then set -a; . "./$ENV_FILE"; set +a; fi
+  PROJECT=${COMPOSE_PROJECT_NAME:-$(grep -E '^COMPOSE_PROJECT_NAME=' "$EXAMPLE" | cut -d= -f2)}
+}
+
+cmd_show() {
+  identity
+  if [ -f "$ENV_FILE" ]; then
+    echo "stack: $PROJECT   (from $ENV_FILE)"
+  else
+    echo "stack: $PROJECT   (no $ENV_FILE — this checkout uses the shared defaults)"
+    echo "       Run \`make stack-init\` before running anything alongside another checkout."
+  fi
+
+  local running
+  running=$(docker ps --filter "label=com.docker.compose.project=$PROJECT" --format '{{.Names}}' 2>/dev/null | wc -l | tr -d ' ' || true)
+  echo "containers up: ${running:-0}"
+  echo
+
+  printf '%-28s %-7s %s\n' 'KNOB' 'PORT' 'LISTENER'
+  local key port who mine
+  for key in $(port_keys); do
+    eval "port=\${$key:-$(default_of "$key")}"
+    who=$(holder "$port" || true)
+    # A port held by OUR OWN stack is the healthy state; held by something else is the whole
+    # question this command exists to answer.
+    mine=$(docker ps --filter "label=com.docker.compose.project=$PROJECT" --format '{{.Ports}}' 2>/dev/null | grep -c ":$port->" || true)
+    if [ "${mine:-0}" -gt 0 ]; then who="this stack"
+    elif [ -z "$who" ]; then who="—"
+    else who="$who  ⚠ not this stack"
+    fi
+    printf '%-28s %-7s %s\n' "$key" "$port" "$who"
+  done
+  echo
+  echo "db container:    $PROJECT-db-1"
+  echo "app:             http://localhost:${DEV_PORT_APP:-$(default_of DEV_PORT_APP)}"
+  echo "backend:         http://localhost:${DEV_PORT_BACKEND:-$(default_of DEV_PORT_BACKEND)}"
+}
+
+# ── test ────────────────────────────────────────────────────────
+
+# cmd_test —— say which stack, then run the spec on it.
+#
+# The announcement is the point. A spec that reaches the wrong stack does not fail: it passes,
+# against someone else's data. `password-reset.spec.ts` did exactly that for months — it issued
+# a reset token from another checkout's backend and drove its own app with it, green throughout.
+# Printing the target before the run is the cheapest place to notice.
+cmd_test() {
+  local spec=${1:-}
+  [ -n "$spec" ] || { echo "usage: dev-stack test <spec-name> [REPEAT=n]" >&2; return 2; }
+  shift
+  identity
+  echo "dev-stack: running '$spec' against $PROJECT (app :${DEV_PORT_APP:-$(default_of DEV_PORT_APP)}, backend :${DEV_PORT_BACKEND:-$(default_of DEV_PORT_BACKEND)})"
+  echo
+  make test-asis SPEC="$spec" "$@"
+}
+
+case "${1:-show}" in
+  init) shift; cmd_init "${1:-}" ;;
+  show) cmd_show ;;
+  test) shift; cmd_test "$@" ;;
+  *) echo "usage: dev-stack {init [--force] | show | test <spec>}" >&2; exit 2 ;;
+esac
