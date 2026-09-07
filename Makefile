@@ -1329,6 +1329,10 @@ RELEASE_PLATFORMS ?= linux/amd64,linux/arm64
 
 release-build: sdk-build builder-vendor
 	@pnpm install --frozen-lockfile
+	# Re-emit the SDK widgets WITHOUT data-testid for the release: the app imports the SDK as compiled
+	# dist, so its testids are object properties the app's JSX strip can't reach — the SDK build has to
+	# drop them (dev's sdk-build keeps them for e2e). See sdk/packages/react/tsup.config.ts.
+	@STRIP_TEST_HOOKS=1 pnpm -F @standmeet/sdk build
 	@STRIP_TEST_HOOKS=1 pnpm -F standmeet-app build
 	@$(MAKE) release-assert-stripped
 	@for svc in $(IMAGES); do \
