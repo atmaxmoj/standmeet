@@ -104,7 +104,13 @@ services:
       - STORAGE_BUCKET=standmeet
       - STORAGE_USE_SSL=false
       # PublicURL frontend hits to fetch presigned object URLs (host's mapped port).
-      - STORAGE_PUBLIC_URL=http://localhost:9200
+      # Derived from the published port, not written twice. A presigned URL is handed to the
+      # BROWSER, so it must name the port this checkout publishes minio on — and when the two
+      # drifted, every asset URL in an offset checkout pointed at 9200, which belongs to whichever
+      # stack owns the default. The signed request then arrived at a NEIGHBOUR's object store and
+      # came back 404 NoSuchKey: every asset in every parallel round red, for a reason that looks
+      # like the product losing files. Found by the assets-pool module of the first parallel round.
+      - STORAGE_PUBLIC_URL=http://localhost:${DEV_PORT_MINIO:-9200}
       # job-board fetcher base URLs point at the test mock so e2e doesn't
       # hit real Greenhouse / Lever / Ashby / RemoteOK / WWR / HN. Prod
       # leaves these unset → adapters use baked-in real URLs.
