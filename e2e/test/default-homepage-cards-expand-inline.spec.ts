@@ -12,15 +12,12 @@
 // body appears while the URL stays on /api/v1/homepage would fail.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
-
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 const OWNER = {
   email: 'homeinline@example.com', password: 'correct-horse-battery-staple',
@@ -32,37 +29,7 @@ const NOTE_TITLE = 'The Deterministic State Holder';
 // it on screen proves the body was pulled inline, not that the excerpt was already showing.
 const NOTE_BODY = 'Keeping every fact in exactly one place is the whole discipline here inline-proof.';
 
-interface ApiResult { status: number; body: Record<string, unknown> }
-
-async function pagesApi(
-  request: APIRequestContext, csrf: string,
-  method: 'get' | 'post', path: string, data?: unknown,
-): Promise<ApiResult> {
-  const url = `${BACKEND}/api/admin/microsites${path}`;
-  const opts = { headers: { 'X-Csrftoken': csrf }, ...(data === undefined ? {} : { data }) };
-  const res = method === 'get' ? await request.get(url, opts) : await request.post(url, opts);
-  const body = res.ok() ? (await res.json()) as Record<string, unknown> : {};
-  return { status: res.status(), body };
-}
-
-// buildInstalledHome —— build + promote the `home` page that claim already installed. No file is
-// written: the point is to exercise the embedded default template exactly as shipped.
-async function buildInstalledHome(request: APIRequestContext, csrf: string): Promise<void> {
-  const started = await pagesApi(request, csrf, 'post', '/home/build');
-  expect(started.status, 'start home build').toBe(200);
-  const id = started.body['build_id'] as string;
-  let row: Record<string, unknown> = {};
-  await expect.poll(async () => {
-    row = (await pagesApi(request, csrf, 'get', `/builds/${id}`)).body;
-    return (row['status'] as string | undefined) ?? 'pending';
-  }, { timeout: 300_000, intervals: [2000] }).toMatch(/^(built|failed)$/);
-  const why = row['error_message'];
-  expect(row['status'], typeof why === 'string' ? why : '').toBe('built');
-  const live = await pagesApi(request, csrf, 'post', '/home/live', { build_id: id });
-  expect(live.status, 'promote home to live').toBe(200);
-}
-
-test.describe.configure({ timeout: 420_000 });
+test.describe.configure({ timeout: 120_000 });
 
 // A Slice 4 landed the root-serving cutover (`/` → the live home page + `/assets/*` proxy), so this
 // now drives the REAL homepage at the site root `/`, exactly as a visitor to the owner's domain
@@ -80,7 +47,8 @@ test.describe('the default homepage opens corpus cards inline (no redirect)', ()
     await publishEntry(request, token, sid, {
       genre: 'wiki', id: note.wikiID, excerpt: 'a curated card excerpt',
     });
-    await buildInstalledHome(request, csrf);
+    // No home is materialized at claim now; `/` serves DefaultHome (current code) directly, so there
+    // is nothing to build — the published corpus above is all this needs.
     await request.dispose();
   });
 
@@ -122,17 +90,7 @@ test.describe('the default homepage opens corpus cards inline (no redirect)', ()
       expect(dir, 'the corpus card <ol> must be flex-direction:column, not a horizontal row').toBe('column');
     });
 
-  // The default template reproduces the original long-scroll page, not the thin earlier version:
-  // projects + where-I-am + contact sections all ship, so a fresh owner gets a full page to edit.
-  // RED if the template regressed to hero + corpus only.
-  test('the default homepage ships the identity sections (projects / where I am / contact)',
-    async ({ page }) => {
-      await goto(page, '/');
-      await expect(page.getByText('building', { exact: false }).first(),
-        'the "what I’m building" projects section').toBeVisible({ timeout: 20_000 });
-      await expect(page.getByText('where I am', { exact: false }).first(),
-        'the where-I-am section').toBeVisible();
-      await expect(page.getByText('how to talk to me', { exact: false }).first(),
-        'the contact section').toBeVisible();
-    });
+  // (The old EDIT-ME identity sections — projects / where-I-am / contact — were a materialized
+  // starter template's placeholder prose. DefaultHome deliberately drops them (owner: no placeholder
+  // junk on an unedited home); an owner who wants them creates their own `home` microsite.)
 });

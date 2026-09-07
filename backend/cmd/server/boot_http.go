@@ -5,7 +5,6 @@
 package main
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 
@@ -213,14 +212,6 @@ func mustBeWired(h *adminroutes.Handlers) {
 	}
 }
 
-// installHomepageHook — the post-claim default-homepage install, built here because the
-// microsite repos live at the composition root (the routing layer can't reach them). Best-effort.
-func installHomepageHook(deps *Deps) func(context.Context, string) error {
-	return func(ctx context.Context, ownerID string) error {
-		return owner.InstallDefaultHomepage(ctx, deps.Admin.Microsites, ownerID, deps.Log)
-	}
-}
-
 func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 	return &adminroutes.Handlers{
 		Claim: deps.Admin.Claim,
@@ -247,9 +238,10 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		AccountAdmin:   adminroutes.AccountDeps{Face: wire.AdminFace(deps.Dispatch)},
 		Recovery:       deps.Admin.Recovery,
 		EmailChange:    deps.Admin.EmailChange, // see depcheck for the cost of missing it
-		// Plugins' builtins + the default homepage are handed in from here (composition root).
+		// Homepage is NOT materialized at claim now: an unedited instance serves DefaultHome
+		// via the visitor fallback (current code), so no stored starter freezes (Q1). nil = skip.
 		SeedPlugins:     deps.PluginRegistry.SeedAllOwners,
-		InstallHomepage: installHomepageHook(deps),
+		InstallHomepage: nil,
 		AIProviderAdmin: adminroutes.AIProviderDeps{Face: wire.AdminFace(deps.Dispatch)},
 		ProvidersAdmin:  adminroutes.ProvidersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		MicrositesAdmin: adminroutes.MicrositesDeps{

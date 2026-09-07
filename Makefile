@@ -222,6 +222,18 @@ dev-rebuild-builder: builder-vendor
 	@docker compose -p standmeet-dev -f docker-compose.dev.yml build builder
 	@docker compose -p standmeet-dev -f docker-compose.dev.yml up -d --no-deps builder
 
+# dev-rebuild-backend —— force-rebuild + swap the dev backend image (when a normal dev-up seems to
+# have served a stale backend binary after a Go source change).
+dev-rebuild-backend:
+	@docker compose -p standmeet-dev -f docker-compose.dev.yml build --no-cache backend
+	@docker compose -p standmeet-dev -f docker-compose.dev.yml up -d --no-deps backend
+
+# dev-rebuild-app —— force a CLEAN app image rebuild + swap (when dev-up cached the .next COPY layer
+# and served a stale UI after a source change). Runs app-build first so .next is current.
+dev-rebuild-app: app-build
+	@docker compose -p standmeet-dev -f docker-compose.dev.yml build --no-cache app
+	@docker compose -p standmeet-dev -f docker-compose.dev.yml up -d --no-deps app
+
 # dev-rebuild-mocks —— force-rebuild the mock/support images (only needed when a mock's source
 # changed; the normal dev-up path reuses their cached images).
 dev-rebuild-mocks:

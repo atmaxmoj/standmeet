@@ -48,9 +48,11 @@ async function pagesApi(
   return { status: res.status(), body };
 }
 
-// promoteHome —— write the marker page onto the reserved `home` slug (already installed at claim),
-// build it, and promote it live.
+// promoteHome —— create the reserved `home` microsite (claim no longer seeds it — an unedited
+// instance serves DefaultHome from code), write the marker page onto it, build it, and promote it
+// live.
 async function promoteHome(request: APIRequestContext, csrf: string): Promise<void> {
+  await pagesApi(request, csrf, 'post', '/', { slug: 'home', title: 'Home' });
   await pagesApi(request, csrf, 'put', '/home/files', { path: 'App.tsx', content: HOME_PAGE });
   const started = await pagesApi(request, csrf, 'post', '/home/build');
   expect(started.status, 'start home build').toBe(200);
@@ -78,7 +80,8 @@ test.describe('A Slice 4 · the custom home page is served at the site root', ()
   });
 
   test('before a home page is live, `/` is the built-in page (no home marker)', async ({ page }) => {
-    // The claim installs a home DRAFT, not live — so `/` must still be the built-in root page.
+    // No `home` microsite exists yet (claim seeds none) — so `/` serves the built-in DefaultHome,
+    // which carries no home-marker.
     await goto(page, '/');
     await expect(page.getByTestId('home-marker')).toHaveCount(0);
   });

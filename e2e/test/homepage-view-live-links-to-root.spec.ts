@@ -7,16 +7,26 @@
 // `/p/home/`, and which on a prod instance whose home build was orphaned served a full-page "asset
 // not found" (the symptom the owner hit). The homepage's live view belongs at `/`. This guards it.
 //
+// Q1 note: claim no longer seeds a `home` microsite (an unedited instance serves DefaultHome from
+// code). So this spec BUILDS a custom `home` microsite itself — the still-valid owner path where the
+// homepage card + its view-live link exist — and guards that link's canonical `/` target.
+//
 // RED before the fix: the href is `/p/home`.
 
 import { test, expect } from '@/fixtures/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { publishPage } from '@/fixtures/microsite-rig';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-const HOME_HERO = 'I think out loud here'; // a distinctive line from the DefaultHomepage template
+const HOME_HERO = 'VIEWLIVE-HOME-HERO-MARKER'; // a distinctive line that lives ONLY in this home page
+const HOME_PAGE = `
+import React from 'react';
+export default function App() {
+  return <main data-testid="home-marker" className="p-8">${HOME_HERO}</main>;
+}
+`.trim();
 
 const OWNER = {
   email: 'homeviewlive@example.com', password: 'correct-horse-battery-staple',
@@ -32,13 +42,10 @@ test.describe('homepage · the microsites list links its live view at `/`', () =
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), OWNER);
-    await loginAPI(request, OWNER.email, OWNER.password);
-    // The homepage build is queued at claim and auto-promotes when it finishes — wait for it so the
-    // row shows the "view live" link (a page with no live build shows "no live build" instead).
-    await expect.poll(
-      async () => (await request.get(`${BACKEND}/api/v1/homepage`)).status(),
-      { message: 'the home page must go live on its own', timeout: 360_000, intervals: [3000] },
-    ).toBe(200);
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    // Build + promote a custom `home` microsite so the list shows it with a "view live" link
+    // (a page with no live build shows "no live build" instead).
+    await publishPage(request, csrf, 'home', HOME_PAGE);
     await request.dispose();
   });
 
