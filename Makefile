@@ -58,7 +58,14 @@ export DEV_PORT_MINIO DEV_PORT_MINIO_CONSOLE
 BASE_URL ?= http://localhost:$(DEV_PORT_APP)
 APP_BASE_URL ?= $(BASE_URL)
 PUBLIC_URL ?= $(BASE_URL)
+# BACKEND_URL is the HOST-side address, for the e2e suite. It is not the address the app
+# uses: `app/next.config.ts` reads the same variable name at BUILD time and bakes it into the
+# rewrites, and inside the container that address must be the compose service, not a host port.
+# One name, two meanings — so app-build pins its own and can never inherit this one. Getting
+# that wrong makes the app proxy to `localhost:<host port>`, which inside the container is the
+# app itself: every /api/* call answers 500 ECONNREFUSED while the backend sits there idle.
 BACKEND_URL ?= http://localhost:$(DEV_PORT_BACKEND)
+APP_BUILD_BACKEND_URL ?= http://backend:8000
 MOCK_BASE_URL ?= http://localhost:$(DEV_PORT_EXTERNAL_MOCK)
 CALDAV_MOCK_URL ?= $(MOCK_BASE_URL)
 GCAL_MOCK_URL ?= $(MOCK_BASE_URL)
@@ -266,7 +273,7 @@ sdk-build:
 # against the npm registry (macOS docker desktop network stack bottleneck); on the host it's 14s.
 app-build: sdk-build
 	@pnpm install --frozen-lockfile
-	@pnpm -F standmeet-app build
+	@BACKEND_URL=$(APP_BUILD_BACKEND_URL) pnpm -F standmeet-app build
 
 dev-up: app-build builder-vendor
 	@infra/plugins/provision.sh
