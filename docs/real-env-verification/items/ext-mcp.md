@@ -1,7 +1,7 @@
 # ext-mcp — External MCP: register a real remote server + dispatch
 
 - **Module:** The owner registers a third-party MCP server by URL. The backend dials it over real transport, enumerates its real tools, gates them by role, carries the owner's auth header upstream, and a visitor's call reaches the real server.
-- **Surface:** `/admin/api-mcp` to register, and visitor chat where the tools appear namespaced to the server.
+- **Surface:** `/admin/api-mcp` — the register form for external servers and the owner's own keypair rows — and visitor chat where the tools appear namespaced to the server.
 - **Real dep:** A real remote MCP server that StandMeet did not write, reachable over streamable HTTP and gated by a **static header** — the register form stores one header name and value, so anything OAuth-gated cannot be driven through it at all. Keep the token in the verify-creds file.
 - **Exclusive:** none
 - **Backing e2e:** `admin-mcp-servers` · `external-mcp-tools` · `external-mcp-auth-header` · `tool-endpoint-ext-mcp` · `connector-ext-mcp-no-dep` · `tool-roles-mcp`.
@@ -53,3 +53,10 @@ Two transports are tried, in order: streamable HTTP first, then the older HTTP+S
 URL now connects rather than failing — `F-D-3` closed. Picking a server for check 4 still means
 picking one that authenticates by **header**; a server that authenticates by query string never
 exercises the header at all.
+
+### 5 — A key's row says where it was last used ⭐
+- **Steps:** Mint a key and read its row. Make one real MCP call with it and read the row again. Use a second key from a different client or host and compare the two rows. Revoke one and call with it.
+- **Expected:** A fresh key says it has not been used, rather than showing empty fields. After the call its row names the address and the client the call came from. The two rows differ in the line meant to distinguish them, and neither shows the other's address. The revoked key's call is refused and its row reads as revoked rather than disappearing.
+- **Mock gap:** The stamp is written by the signature-verification path; a fixture that writes the row directly proves nothing about which requests reach it.
+- **Backing test:** `keypair-last-used.spec.ts` · `c2-keypair-ui.spec.ts`
+
