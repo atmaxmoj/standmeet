@@ -100,14 +100,14 @@ export function fromPuckData(pd: PuckData): ResumeContent {
 function workProps(w: ResumeWork): Record<string, unknown> {
   return {
     title: w.title, company: w.company, location: w.location,
-    start: w.period.start, end: w.period.end ?? '', bullets: [...w.bullets],
+    start: w.period.start, end: w.period.end ?? '', bullets: w.bullets.map((t) => ({ text: t })),
   };
 }
 function eduProps(e: ResumeEducation): Record<string, unknown> {
   return { school: e.school, degree: e.degree, start: e.period.start, end: e.period.end ?? '' };
 }
 function skillProps(s: ResumeSkillSet): Record<string, unknown> {
-  return { category: s.category, items: [...s.items] };
+  return { category: s.category, items: s.items.map((t) => ({ text: t })) };
 }
 function socialProps(s: ResumeSocial): Record<string, unknown> {
   return { kind: s.kind, label: s.label ?? '', handle: s.handle };
@@ -121,7 +121,7 @@ function readWork(p: Record<string, unknown>): ResumeWork {
   return {
     title: str(p['title']), company: str(p['company']), location: str(p['location']),
     period: { start: str(p['start']), end: emptyToNull(str(p['end'])) },
-    bullets: strArr(p['bullets']),
+    bullets: textItems(p['bullets']),
   };
 }
 function readEdu(p: Record<string, unknown>): ResumeEducation {
@@ -131,7 +131,7 @@ function readEdu(p: Record<string, unknown>): ResumeEducation {
   };
 }
 function readSkill(p: Record<string, unknown>): ResumeSkillSet {
-  return { category: str(p['category']), items: strArr(p['items']) };
+  return { category: str(p['category']), items: textItems(p['items']) };
 }
 function readSocial(p: Record<string, unknown>): ResumeSocial {
   return { kind: str(p['kind']), label: str(p['label']), handle: str(p['handle']) };
@@ -143,8 +143,14 @@ function readCustom(p: Record<string, unknown>): ResumeCustom {
 function str(v: unknown): string {
   return typeof v === 'string' ? v : '';
 }
-function strArr(v: unknown): string[] {
-  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+// textItems —— read a Puck array field ([{text}, …]) back into a string[]. Tolerates a plain string[]
+// too (defensive), so a hand-written or older shape still maps.
+function textItems(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => (typeof x === 'string' ? x : itemText(x))).filter((s) => s !== '');
+}
+function itemText(x: unknown): string {
+  return typeof x === 'object' && x !== null && 'text' in x ? str(x.text) : '';
 }
 function emptyToNull(s: string): string | null {
   return s === '' ? null : s;

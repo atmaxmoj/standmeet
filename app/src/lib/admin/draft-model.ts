@@ -230,6 +230,39 @@ export function setLeftWidth(m: DraftModel, fr: number): DraftModel {
 const minLeftWidth = 0.4;
 const maxLeftWidth = 2.4;
 
+// applyResumeContentToDraft —— merge a ResumeContent (e.g. the output of the Puck editor's
+// fromPuckData) back into a DraftModel, preserving the base's non-résumé fields (id / company / role
+// / template). The inverse of draftToResumeContent; the Puck editor is the producer.
+export function applyResumeContentToDraft(base: DraftModel, rc: ResumeContent): DraftModel {
+  return {
+    ...base,
+    name: rc.identity.name,
+    summary: rc.summary,
+    contact: {
+      email: rc.identity.email, phone: rc.identity.phone ?? '',
+      location: rc.identity.locationLine, site: rc.identity.site ?? '',
+    },
+    skills: rc.skills.flatMap((s) => [...s.items]),
+    experience: rc.works.map((w, i) => ({
+      id: base.experience[i]?.id ?? `e-${i}`, org: w.company, role: w.title,
+      start: w.period.start, end: w.period.end ?? '', loc: w.location, bullets: [...w.bullets],
+    })),
+    education: rc.educations.map((e, i) => ({
+      id: base.education[i]?.id ?? `ed-${i}`, school: e.school, degree: e.degree,
+      start: e.period.start, end: e.period.end ?? '',
+    })),
+    social: (rc.social ?? []).map((s, i) => ({ id: base.social[i]?.id ?? `s-${i}`, kind: s.kind, handle: s.handle })),
+    custom: (rc.custom ?? []).map((c, i) => ({
+      id: base.custom[i]?.id ?? `c-${i}`, label: c.label, value: c.value, kind: c.kind ?? '',
+    })),
+    coverLetter: rc.coverLetter ?? '',
+    accent: rc.accent ?? '',
+    fontScale: rc.fontScale ?? 1,
+    leftWidth: rc.leftWidth ?? DEFAULT_LEFT_WIDTH,
+    leftOrder: rc.leftOrder ? [...rc.leftOrder] : base.leftOrder,
+  };
+}
+
 // (On-canvas field editing — the ✎ pencils — was removed: editing is the left form panel, the canvas
 // is preview + drag-reorder only. EDITABLE_FIELDS / readField / applyFieldEdit / isEditableField went
 // with it.)
