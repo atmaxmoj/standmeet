@@ -8,9 +8,12 @@
 'use client';
 
 import type { ReactElement } from 'react';
+import { useTranslations } from 'next-intl';
 import type { Config, Metadata } from '@measured/puck';
 
 import { QRCode } from '@/components/admin/atoms/QRCode';
+import { SelectField } from '@/components/atoms/SelectField';
+import { useComposerCodeControl } from '@/lib/admin/composer-code-context';
 
 // resumeMeta —— the render-time context passed via Puck `metadata` (NOT résumé content, so it's the
 // same config for editor + print). qrURL: the real per-application QR to draw (empty in the editor →
@@ -29,7 +32,13 @@ function metaPrint(puck: { metadata?: Metadata }): boolean {
 
 type TextItem = { text: string };
 
-interface HeaderProps { name: string; email: string; phone: string; locationLine: string; site: string }
+// codePicker —— a phantom prop for the Header's access-code picker (a `custom` field, below). It
+// never holds real data: the field reads/writes the composer's code selection via context and never
+// calls Puck's onChange, so this stays '' and is dropped by fromPuckData (which maps only the named
+// identity keys). It exists solely so Puck's typed Config accepts the field on Header.
+interface HeaderProps {
+  name: string; email: string; phone: string; locationLine: string; site: string; codePicker: string;
+}
 interface SummaryProps { text: string }
 interface ExperienceProps {
   title: string; company: string; location: string; start: string; end: string; bullets: TextItem[];
@@ -87,6 +96,22 @@ function SecHead({ title }: { title: string }): ReactElement {
   );
 }
 
+// HeaderCodeField —— the access-code picker shown in the Header component's field panel (the QR is a
+// Header element, so its code lives with the Header's fields). Wired to the composer's code selection
+// via context; it does NOT use Puck's field value/onChange, so nothing persists into resume_content.
+// Empty codes → a placeholder option (SEND still auto-issues a fresh code when none is picked).
+function HeaderCodeField(): ReactElement {
+  const t = useTranslations('adminShell.composer');
+  const { activeCodes, codeId, setCodeId } = useComposerCodeControl();
+  return (
+    <SelectField testid="composer-code-select" aria-label="access code" value={codeId} onChange={(e) => setCodeId(e.target.value)} mono>
+      {activeCodes.length === 0
+        ? <option value="" data-testid="composer-code-empty">{t('codeNone')}</option>
+        : activeCodes.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.code}</option>)}
+    </SelectField>
+  );
+}
+
 export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
   root: {
     fields: {
@@ -139,8 +164,10 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         phone: { type: 'text', label: 'Phone' },
         locationLine: { type: 'text', label: 'Location' },
         site: { type: 'text', label: 'Site' },
+        // The QR's access code — picked here (with the Header's fields), not in a top bar.
+        codePicker: { type: 'custom', label: 'Access code (QR)', render: () => <HeaderCodeField /> },
       },
-      defaultProps: { name: '', email: '', phone: '', locationLine: '', site: '' },
+      defaultProps: { name: '', email: '', phone: '', locationLine: '', site: '', codePicker: '' },
       // name (large, lowercase) + contact line on the left; the QR card on the right — the REAL
       // per-application QR when printing (metadata.qrURL), a placeholder frame in the editor. NO job
       // meta (role·company): that's draft context, not résumé content — printing it was the typst

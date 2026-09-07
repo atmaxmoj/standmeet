@@ -1,17 +1,19 @@
-// draft-composer-backend.spec.ts —— the composer's write path actually persists, and the Typst
-// pipeline is reachable from the panel (docs/design/resume-customization.md). Before this, the
-// composer was display-only: edits were discarded at send, no template could be picked, and the
-// preview was a client-side mock. This proves, end to end through the real DB + typst binary:
-//   - PATCH /drafts/{id} persists edited resume_content + the chosen template;
-//   - GET /drafts/{id} reflects both;
-//   - GET /drafts/templates lists the Typst layouts;
-//   - GET /drafts/{id}/preview.pdf renders a REAL Typst PDF for the chosen template.
+// draft-composer-backend.spec.ts —— the composer's write path actually persists, and the owner's
+// live preview renders through the SAME renderer as the committed PDF (A3: one Puck config drives
+// editor + PDF; typst is gone). This proves, end to end through the real DB + gotenberg:
+//   - PATCH /drafts/{id} persists edited resume_content;
+//   - GET /drafts/{id} reflects it;
+//   - GET /drafts/{id}/preview.pdf renders a REAL PDF whose text layer carries the résumé content
+//     — i.e. the preview the owner clicks is the same render the recruiter receives, not a blank
+//     page or an error. (Before A3 this was a typst render for a picked template; the composer no
+//     longer picks templates, so the `/drafts/templates` list is empty by design.)
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { inspectPDF } from '@/fixtures/pdf-inspect';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -37,39 +39,38 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 test.describe('resume composer · backend write + templates + preview', () => {
   test.beforeAll(async ({ playwright }) => { await setup(playwright); });
 
-  test('PATCH persists content + template; detail reflects it; templates + preview work', async () => {
-    // templates on offer include both Typst layouts
-    const templates = await getJSON<string[]>('/drafts/templates');
-    expect(templates).toEqual(expect.arrayContaining(['classic', 'compact']));
-
-    // a fresh manual draft starts with no template chosen
-    const created = await postJSON<{ id: string; template: string }>('/drafts', {
+  test('PATCH persists content; detail reflects it; preview.pdf renders the résumé', async () => {
+    // a fresh manual draft
+    const created = await postJSON<{ id: string }>('/drafts', {
       company: 'Acme', role: 'Engineer',
     });
-    expect(created.template, 'fresh draft has no template yet').toBe('');
 
-    // PATCH the composer's edits: added social + custom rows and a template pick
-    const saved = await patchJSON<{ template: string; resume_content: typeof EDITED_CONTENT }>(
-      `/drafts/${created.id}`, { resume_content: EDITED_CONTENT, template: 'compact' },
+    // PATCH the composer's edits: added social + custom rows
+    const saved = await patchJSON<{ resume_content: typeof EDITED_CONTENT }>(
+      `/drafts/${created.id}`, { resume_content: EDITED_CONTENT },
     );
-    expect(saved.template).toBe('compact');
     expect(saved.resume_content.social).toHaveLength(1);
     expect(saved.resume_content.custom[0]!.label).toBe('Languages');
 
     // reopening the draft returns the persisted edits (not the discarded original)
-    const reopened = await getJSON<{ template: string; resume_content: typeof EDITED_CONTENT }>(
+    const reopened = await getJSON<{ resume_content: typeof EDITED_CONTENT }>(
       `/drafts/${created.id}`,
     );
-    expect(reopened.template, 'template persisted').toBe('compact');
     expect(reopened.resume_content.summary, 'content persisted').toBe('edited summary');
     expect(reopened.resume_content.social[0]!.handle).toBe('@acand');
 
-    // the preview is a REAL Typst PDF, not a client mock
+    // preview.pdf renders the SAME Puck → gotenberg pipeline as commit (A3: one renderer). It must be
+    // a real PDF whose text layer carries the résumé content — proves the print route SSR'd the Puck
+    // <Render> (not a blank page, not a Next error page). This is the render the recruiter receives.
     const preview = await ctx.get(`${BACKEND}/api/admin/drafts/${created.id}/preview.pdf`);
-    expect(preview.status()).toBe(200);
+    expect(preview.status(), 'preview renders (not 500)').toBe(200);
     expect(preview.headers()['content-type']).toContain('application/pdf');
     const body = await preview.body();
     expect(body.subarray(0, 5).toString('latin1'), 'a real PDF').toBe('%PDF-');
+    const info = await inspectPDF(body);
+    const text = info.text.toLowerCase();
+    expect(text, 'name is on the page').toContain('candidate');
+    expect(text, 'summary is on the page').toContain('summary');
   });
 });
 

@@ -14,10 +14,10 @@ import type { Data } from '@measured/puck';
 import {
   PuckResumeEditor, puckInitialData, deriveModel,
 } from '@/components/admin/composer/PuckResumeEditor';
-import { SelectField } from '@/components/atoms/SelectField';
+import { ComposerCodeContext } from '@/lib/admin/composer-code-context';
 import { savePuckDraft, previewURL } from '@/lib/admin/save-draft';
 import { commitDraft } from '@/lib/admin/commit-draft';
-import { useComposerCode } from '@/lib/admin/use-composer-code';
+import { useComposerCode, type ComposerCode } from '@/lib/admin/use-composer-code';
 import { useAction } from '@/lib/ui/use-action';
 import { jsonEqual } from '@/lib/json-equal';
 import { draftToAPIContent, type DraftModel } from '@/lib/admin/draft-model';
@@ -90,13 +90,8 @@ export function PuckComposer({ model, initialPuckData }: {
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)]" data-testid="puck-composer">
-      <ComposerBar
-        model={model} dirty={dirty} onBack={back} onSave={save} onSend={() => setConfirm(true)}
-        codes={code.activeCodes} codeId={code.codeId} onCode={code.setCodeId}
-      />
-      <div className="flex-1 min-h-0">
-        <PuckResumeEditor initial={initial} onData={onData} />
-      </div>
+      <ComposerBar model={model} dirty={dirty} onBack={back} onSave={save} onSend={() => setConfirm(true)} />
+      <ComposerCanvas code={code} initial={initial} onData={onData} />
       {confirm && (
         <ConfirmSend
           model={model} code={code.selectedCode}
@@ -113,11 +108,26 @@ export function PuckComposer({ model, initialPuckData }: {
   );
 }
 
+// ComposerCanvas —— the Puck editor, wrapped in the code-selection context so the picker inside the
+// Header component's field panel reads/writes the composer's chosen code (the QR is a Header element).
+function ComposerCanvas({ code, initial, onData }: {
+  code: ComposerCode; initial: Data; onData: (d: Data) => void;
+}) {
+  return (
+    <ComposerCodeContext.Provider
+      value={{ activeCodes: code.activeCodes, codeId: code.codeId, setCodeId: code.setCodeId }}
+    >
+      <div className="flex-1 min-h-0">
+        <PuckResumeEditor initial={initial} onData={onData} />
+      </div>
+    </ComposerCodeContext.Provider>
+  );
+}
+
 function ComposerBar({
-  model, dirty, onBack, onSave, onSend, codes, codeId, onCode,
+  model, dirty, onBack, onSave, onSend,
 }: {
   model: DraftModel; dirty: boolean; onBack: () => void; onSave: () => void; onSend: () => void;
-  codes: readonly CodeView[]; codeId: string; onCode: (id: string) => void;
 }) {
   const t = useTranslations('adminShell.composer');
   return (
@@ -126,7 +136,6 @@ function ComposerBar({
         {t('backToDrafts')}
       </button>
       <div className="flex items-center gap-3">
-        <CodeSelect codes={codes} codeId={codeId} onCode={onCode} />
         <a href={previewURL(model.id, Date.now())} target="_blank" rel="noreferrer" className="mono text-[11px] tracking-[0.06em] text-(--color-muted) hover:text-(--color-ink)" data-testid="composer-preview">
           {t('previewPdf')}
         </a>
@@ -157,22 +166,6 @@ function DiscardModal({ onKeep, onDiscard }: { onKeep: () => void; onDiscard: ()
         </div>
       </div>
     </div>
-  );
-}
-
-function CodeSelect({
-  codes, codeId, onCode,
-}: { codes: readonly CodeView[]; codeId: string; onCode: (id: string) => void }) {
-  const t = useTranslations('adminShell.composer');
-  // The picker is ALWAYS present — whether there are codes to pick is a data question, separate from
-  // whether the control exists (owner: "no active codes 和有没有 picker 有什么关系"). Empty → a single
-  // placeholder option (SEND still auto-issues a fresh code when none is picked); non-empty → the codes.
-  return (
-    <SelectField testid="composer-code-select" aria-label="access code" value={codeId} onChange={(e) => onCode(e.target.value)} mono>
-      {codes.length === 0
-        ? <option value="" data-testid="composer-code-empty">{t('codeNone')}</option>
-        : codes.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.code}</option>)}
-    </SelectField>
   );
 }
 
