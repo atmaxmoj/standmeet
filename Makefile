@@ -7,7 +7,7 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
 # One machine, N checkouts, N stacks. Without this every worktree drives the SAME
@@ -297,7 +297,18 @@ dev:
 builder-vendor:
 	@infra/scripts/builder-vendor.sh
 
-sdk-build:
+# deps —— the workspace install every build below needs.
+#
+# Its own target because `pnpm install` used to live inside app-build's RECIPE while sdk-build
+# was app-build's PREREQUISITE — and make runs prerequisites first. In any checkout that had
+# never installed, `make dev-up` therefore died in five seconds on `sh: tsup: command not found`,
+# before the install it was about to do. It only ever worked because every existing checkout had
+# already installed for some other reason; the two fresh worktrees of a parallel round both hit
+# it immediately, which is how it was found.
+deps:
+	@pnpm install --frozen-lockfile
+
+sdk-build: deps
 	@pnpm -F @standmeet/sdk-core build
 	@pnpm -F @standmeet/agent-core build
 	@pnpm -F @standmeet/sdk build
@@ -308,7 +319,6 @@ sdk-build:
 # Host build chosen over docker build: pnpm install inside node:22-alpine often hits < 50 KiB/s
 # against the npm registry (macOS docker desktop network stack bottleneck); on the host it's 14s.
 app-build: sdk-build
-	@pnpm install --frozen-lockfile
 	@BACKEND_URL=$(APP_BUILD_BACKEND_URL) pnpm -F standmeet-app build
 
 # ── which stack does this checkout drive ────────────────────────
