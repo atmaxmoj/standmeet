@@ -115,6 +115,7 @@ env-lint:
 	@infra/scripts/check-search-index-shipped.sh
 	@infra/scripts/check-microsite-imports-declared.sh
 	@infra/scripts/check-doc-make-targets.sh
+	@infra/scripts/check-no-hardcoded-dev-stack.sh
 
 backend-lint:
 	@$(MAKE) -C backend lint

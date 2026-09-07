@@ -10,8 +10,8 @@
 // e2e implementation: does not go through the real Makefile (`make password-reset` calls
 // `docker compose exec`, while the e2e fixture convention is `docker exec` directly
 // against the container); a fixture helper calls
-// `docker exec standmeet-dev-backend-1 /standmeet password-reset` and reads the URL out
-// of stdout.
+// `docker exec <project>-backend-1 /standmeet password-reset` and reads the URL out of
+// stdout, where <project> is this checkout's compose project (see .dev-stack.env.example).
 
 import { execSync } from 'node:child_process';
 
@@ -19,7 +19,10 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+// COMPOSE_ARGS rather than a spelled-out project flag: hardcoded, this reset ran against
+// whichever checkout owned the default project name, and the token it printed belonged to
+// another stack's backend.
+import { resetInstance, findSetupToken, COMPOSE_ARGS } from '@/fixtures/instance';
 import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -74,8 +77,7 @@ test.describe('owner uses CLI-issued reset link to set a new password', () => {
 // stdout. The subcommand exits once it's done; execSync captures the full output.
 function issueResetToken(): string {
   const out = execSync(
-    'docker compose -f ../docker-compose.dev.yml -p standmeet-dev '
-    + 'exec -T backend /app/standmeet password-reset',
+    `docker compose ${COMPOSE_ARGS} exec -T backend /app/standmeet password-reset`,
     { encoding: 'utf-8' },
   );
   const match = out.match(/(https?:\/\/[^\s]+\/account\/reset\?t=[^\s]+)/);

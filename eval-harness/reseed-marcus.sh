@@ -6,8 +6,21 @@ set -euo pipefail
 cd "$(dirname "$0")"
 set -a; source .env; set +a   # EVAL_PROVIDER/ENDPOINT/MODEL/KEY
 
-BACKEND=http://localhost:8000
-PUBLIC=http://localhost:38127
+# Which stack this checkout drives.
+#
+# Read from the checkout's own .dev-stack.env, because this script is run BY HAND rather than
+# through the Makefile, so nothing has exported those values for it. Hardcoded — as the project
+# name and both ports were — a second checkout running this truncates the FIRST checkout's
+# `owners` table and then claims an instance that is not the one it is about to talk to. The
+# person on the other stack loses their state mid-session with nothing to connect it to.
+# No file → the values that were hardcoded here before.
+[ -f ../.dev-stack.env ] && { set -a; source ../.dev-stack.env; set +a; }
+PROJECT=${COMPOSE_PROJECT_NAME:-standmeet-dev}
+DB_CONTAINER=$PROJECT-db-1
+REDIS_CONTAINER=$PROJECT-redis-1
+
+BACKEND=http://localhost:${DEV_PORT_BACKEND:-8000}
+PUBLIC=http://localhost:${DEV_PORT_APP:-38127}
 EMAIL=marcus@local.test
 PASS=correct-horse-battery-staple
 HANDLE=marcus
@@ -19,13 +32,13 @@ echo ">>> 1. reset (truncate + unclaim + redis flush)"
 # failed on an instance that was still claimed. CASCADE follows the foreign keys instead, so a
 # renamed or added owner-scoped table needs no edit here. instance_settings has no FK to owners
 # and survives — the setup token below depends on that.
-docker exec standmeet-dev-db-1 psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c \
+docker exec $DB_CONTAINER psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c \
   "TRUNCATE owners RESTART IDENTITY CASCADE" >/dev/null
-docker exec standmeet-dev-db-1 psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c \
+docker exec $DB_CONTAINER psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c \
   "TRUNCATE job_fingerprints RESTART IDENTITY" >/dev/null
-docker exec standmeet-dev-db-1 psql -U standmeet -d standmeet -c \
+docker exec $DB_CONTAINER psql -U standmeet -d standmeet -c \
   "UPDATE instance_settings SET is_claimed = false WHERE id = 1" >/dev/null
-docker exec standmeet-dev-redis-1 redis-cli FLUSHALL >/dev/null
+docker exec $REDIS_CONTAINER redis-cli FLUSHALL >/dev/null
 
 echo ">>> 2. setup token"
 TOKEN=$(curl -sS $BACKEND/api/v1/instance | jq -r .setup_token)

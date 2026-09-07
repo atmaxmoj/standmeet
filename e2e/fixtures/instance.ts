@@ -30,6 +30,11 @@ const COMPOSE = `-f ../docker-compose.dev.yml -p ${PROJECT}`;
 // Import these instead of writing the name.
 export const DB_CONTAINER = `${PROJECT}-db-1`;
 export const REDIS_CONTAINER = `${PROJECT}-redis-1`;
+
+// COMPOSE_ARGS —— for the specs that go through `docker compose` rather than `docker exec`.
+// Same reason as the two above: spelled out, a spec reaches into whichever checkout happens to
+// own the default project name.
+export const COMPOSE_ARGS = COMPOSE;
 const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const MOCK_BASE_URL = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 
