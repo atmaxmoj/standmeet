@@ -70,6 +70,7 @@ export interface CodesHook {
   refresh: () => Promise<void>;
   createCode: (input: CreateCodeInput) => Promise<void>;
   revokeCode: (id: string) => Promise<void>;
+  rotateCode: (id: string, newCode: string) => Promise<void>;
   updateQuotas: (id: string, input: QuotasInput) => Promise<void>;
   setGhostEvidence: (id: string, value: boolean | null) => Promise<void>;
   setMicrosite: (id: string, slug: string) => Promise<void>;
@@ -93,6 +94,7 @@ export function useCodes(): CodesHook {
     refresh: codesStore.getState().refresh,
     createCode,
     revokeCode,
+    rotateCode,
     updateQuotas,
     setGhostEvidence,
     setMicrosite,
@@ -110,6 +112,14 @@ async function revokeCode(id: string): Promise<void> {
   await adminAPI.postVoid(`/codes/${id}/revoke`, {});
   codesStore.getState().mutate((prev) =>
     (prev ?? []).map((c) => c.id === id ? { ...c, status: 'revoked' } : c));
+}
+
+// rotateCode —— change a code's STRING (leak recovery). The id is unchanged, so id-keyed links (embeds,
+// applications) survive; only the old literal string dies. The warning modal in the UI states this.
+async function rotateCode(id: string, newCode: string): Promise<void> {
+  const updated = await adminAPI.patch(`/codes/${id}/code`, { code: newCode }, CodeViewSchema);
+  codesStore.getState().mutate((prev) =>
+    (prev ?? []).map((c) => c.id === updated.id ? updated : c));
 }
 
 async function updateQuotas(id: string, input: QuotasInput): Promise<void> {

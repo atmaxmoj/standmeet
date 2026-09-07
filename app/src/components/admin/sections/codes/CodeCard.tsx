@@ -5,6 +5,8 @@ import { CodeCorpusConfig } from '@/components/admin/sections/codes/CodeCorpusCo
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import { ChangeCodeBtn } from '@/components/admin/sections/codes/CodeChangeControl';
+
 import { Btn } from '@/components/admin/atoms/Btn';
 import { MetaPair } from '@/components/admin/atoms/MetaPair';
 import { QRCode } from '@/components/admin/atoms/QRCode';
@@ -79,10 +81,12 @@ function CodeCardActions({ code, onEdit, onPreview, onRevoke }: HeaderProps) {
     <div className="flex items-center gap-2 shrink-0">
       <Btn size="sm" kind="ghost" onClick={() => onPreview(code)}>{t('codeCard.preview')}</Btn>
       <Btn size="sm" kind="outline" onClick={() => onEdit(code)}>{t('codeCard.edit')}</Btn>
+      <ChangeCodeBtn code={code} />
       <RevokeBtn code={code} onRevoke={onRevoke} />
     </div>
   );
 }
+
 
 function RevokeBtn({ code, onRevoke }: { code: CodeView; onRevoke: (c: CodeView) => void }) {
   const t = useTranslations('adminAccess');
