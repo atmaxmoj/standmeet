@@ -3,6 +3,7 @@
 - **Module:** The real captcha provider's verification endpoint is actually called, and the backend classifies a fresh token, a replayed one and a forged one differently. A solved token lifts the per-IP lockouts on the gate, on request-access and on login.
 - **Surface:** `/gate` (code entry and request-access) and `/login`.
 - **Real dep:** The provider's published test keys — one that always passes, one that always fails, one that reports a spent token. The verification URL is hardcoded, so real keys are the only way to exercise it. Captcha is off by default (see [[deploy-forks]]), so this path must be opted into first, and turned back off after.
+- **Exclusive:** none
 - **Backing e2e:** `security-captcha-bypass` · `security-code-bruteforce` · `security-login-guard` · `gate-request-access` · `gate-code-ux`. A positive real-verification path → `gap`.
 
 ## Checks

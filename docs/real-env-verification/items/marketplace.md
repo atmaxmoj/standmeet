@@ -3,6 +3,7 @@
 - **Module:** `marketplace.search` queries the real GitHub Contents API and lists candidate skills. Installing one fetches its `SKILL.md` and parses it into a local skill the owner owns.
 - **Surface:** `/admin/skills` → MARKETPLACE tab → source filter → INSTALL. A paste-a-SKILL.md path exists on the same tab.
 - **Real dep:** Real `api.github.com` Contents API. Unauthenticated works. `GITHUB_TOKEN` raises the 60/hr limit.
+- **Exclusive:** github-api
 - **Backing e2e:** `admin-marketplace-install` · `admin-agent-skills`.
 
 ## Checks

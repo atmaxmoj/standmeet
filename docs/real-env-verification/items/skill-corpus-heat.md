@@ -3,6 +3,7 @@
 - **Module:** Skill relevance ranking for the job loop. The product may show a "heat" figure per skill only when a real corpus query produces it.
 - **Surface:** `/admin/skills`.
 - **Real dep:** A corpus that mentions one skill heavily and another not at all.
+- **Exclusive:** none
 - **Backing e2e:** `gap`.
 
 ## Checks

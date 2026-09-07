@@ -3,6 +3,7 @@
 - **Module:** A visitor with no code brings their own AI key. The backend encrypts it, calls the visitor's real third-party provider, and streams a real answer. The public-slice ACL still holds on that real model.
 - **Surface:** The gate's BYOAI panel → visitor chat at `/<handle>?byoai=1`.
 - **Real dep:** A real third-party key and endpoint used as the VISITOR's own. No owner-side provider. Seed one private entry beside a public one, so the exclusion check has something to catch.
+- **Exclusive:** none
 - **Backing e2e:** `byoai-chat` · `byoai-errors` · `gate-byoai-ux` · `chat-book-byoai-denied` · `chat-welcome` · `corpus-retrieval-excludes-raw` · `security-byoai-endpoint-ssrf`. A real upstream and private-slice exclusion on a real answer → `gap`.
 
 ## Checks

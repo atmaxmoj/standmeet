@@ -3,6 +3,7 @@
 - **Module:** Connector credentials are encrypted and AAD-bound, and never leak on any surface. The runtime dialer blocks SSRF, including a host that resolves public and then flips to a private address. Rotating the instance secret degrades to a friendly reconnect, not a decrypt panic.
 - **Surface:** `/admin/connectors` for masking, and the backend runtime dialer for egress.
 - **Real dep:** A prod stack with the egress allow-list EMPTY, so the guard is live. A hostname you control that can flip DNS to a private IP. For rotation, a database holding encrypted credentials and a changed instance secret.
+- **Exclusive:** none
 - **Backing e2e:** `connector-secret-no-leak` · `connector-security` · Go unit `egress_test.go`. Rotation → `gap`.
 
 ## Checks

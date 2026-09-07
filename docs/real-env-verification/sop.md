@@ -76,6 +76,47 @@ Do fill in its Result / Design / Findings columns as you go.
 Write the trajectory AS YOU GO, not at the end. A trajectory reconstructed from memory records
 what you believe you did; the round exists to catch the gap between that and what happened.
 
+### 0·5 · Run the round in PARALLEL — one agent, one stack, one module ⚠️
+
+Serially this loop measured **~3 modules a day** (§3), and the sheet is 54 modules. That is weeks,
+and the cost is not judgement — it is waiting: one browser, one instance, one round at a time.
+
+**A checkout now owns both its stacks.** `make stack-init` allocates a dev project and a
+**prod-posture** project with their own ports (`.dev-stack.env`), so N worktrees are N complete
+instances. `make stack` prints what this checkout drives; `make stack-ready` says whether it can
+open a round at all, before `make prod-up` builds anything — a round that discovers a missing
+credential halfway through reads as the product refusing to work.
+
+**The unit is the MODULE, not the check.** A check-sized agent cannot run §1b's cross-view lens
+("for every count, find the list it summarizes") — that lens is why F-D-1 and F-L-4 were caught,
+and it spans a surface. A module owns its surface, so it is the smallest shard that keeps the
+lens intact. The cross-MODULE sweep still needs one reader at the end who has seen every
+trajectory.
+
+**What may run beside what comes from the item's `Exclusive:` field**, and the run sheet prints it
+as the Lane column:
+
+- `free` — the module owns nothing outside its own stack. One agent, one stack, all at once.
+  Today that is 43 of the 54.
+- a named resource — the members of that lane share one real-world thing and run **in sequence**.
+  Today: `google-calendar` (4), `gmail-inbox` (3), `github-api` (2), `vendor-account`, `camera`.
+  Different lanes never wait on each other.
+
+The lanes exist because those resources cannot be sharded and the sharing is silent. Two agents
+sending test mail into one inbox makes "did MY message arrive" unanswerable — and that question
+IS `mail-connector`'s check. Unauthenticated `api.github.com` is 60 requests an hour for the whole
+machine, so parallel agents empty it for each other and the symptom is an empty marketplace.
+
+**Findings go in the module's own folder** (`trajectory/<module>/findings.md`), with a provisional
+id naming the module. A shared ledger loses writes under N writers, and `F-<letter>-<n>` is
+allocated by "grep for the highest in use", which is a read-modify-write. The real ids are
+assigned once, at the merge, by the reader who closes the round.
+
+**What parallelism does NOT buy.** Each agent still needs its own claimed instance with the real
+vault imported, and the prod stack reads a `.env` that holds real secrets and is per-checkout —
+so N agents means the owner deciding that N checkouts may hold a copy. `make stack-ready` names
+that gap; it deliberately does not fill it.
+
 ### 0a · Bring the stack up TO DATE, then check the database ⚠️
 The round must drive the code you have, on a database that matches it.
 

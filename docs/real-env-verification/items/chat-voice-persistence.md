@@ -3,6 +3,7 @@
 - **Module:** The model stays in the owner's first-person voice across a long conversation, and it sounds like the real owner rather than a shipped persona.
 - **Surface:** Visitor chat, multi-turn.
 - **Real dep:** A real model. Voice fidelity needs a real owner's corpus; persistence can be judged against the eval persona.
+- **Exclusive:** none
 - **Backing e2e:** `code-intro-greeting` covers the role greeting only. Persistence and real-owner fidelity → `gap`. Voice eval lane: `eval-harness/reseed-marcus.sh` · `eval-harness/seed_persona.py`.
 
 ## Checks

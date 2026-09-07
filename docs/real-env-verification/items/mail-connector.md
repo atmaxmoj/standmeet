@@ -3,6 +3,7 @@
 - **Module:** The mail connector actually delivers — access-code emails, recovery phrases, test sends — over a real authenticated SMTP relay and over a real SaaS provider. It classifies real reply codes correctly and fails in one sentence the owner can act on. A verified connector un-gates approving access requests, the gate's request-access block, and recovery-phrase generation.
 - **Surface:** `/admin/connectors` (the mail card), `/admin/requests` (approve), `/admin/account` (recovery), and `/gate` (request-access).
 - **Real dep:** A real SMTP relay requiring STARTTLS and AUTH, with an inbox you can read. Optionally a real SaaS mail provider with a verified sender.
+- **Exclusive:** gmail-inbox
 - **Backing e2e:** `mail-connector` · `admin-requests` · `gate-request-access` · `recovery-phrase` · `password-reset` · `connector-protocol-smtp` · `connector-openapi-mail` · `connector-err-smtp-fail` · `connector-mail-rotate-creds-reverify`.
 
 ## Checks

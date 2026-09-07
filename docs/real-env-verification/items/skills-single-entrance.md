@@ -3,6 +3,7 @@
 - **Module:** Admin nav, one concept one door. A registry with a marketplace is one surface: the owner's skill list and the browse-and-install marketplace live under a single entrance, as tabs.
 - **Surface:** `/admin/skills`, plus the legacy `/admin/agent-skills` route.
 - **Real dep:** none.
+- **Exclusive:** none
 - **Backing e2e:** `skills-single-entrance.spec.ts`.
 
 ## Checks

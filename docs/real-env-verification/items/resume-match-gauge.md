@@ -3,6 +3,7 @@
 - **Module:** The résumé composer's send-decision affordances. A number labelled as a measurement of X must depend on X, or it must not make the claim.
 - **Surface:** `/admin/drafts` → open a draft → the composer top bar, left of **Send**.
 - **Real dep:** At least one live draft. Drafts come from the job pool, which ages out after a day, so fetch jobs first.
+- **Exclusive:** none
 - **Backing e2e:** `resume-match-gauge.spec.ts`.
 
 ## Checks

@@ -7,7 +7,7 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: stack stack-init stack-test dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
 # One machine, N checkouts, N stacks. Without this every worktree drives the SAME
@@ -84,6 +84,41 @@ export LLM_GATEWAY_URL MAILPIT_URL MAIL_MOCK_URL MCP_MOCK_URL
 COMPOSE_PROJECT_NAME ?= standmeet-dev
 export COMPOSE_PROJECT_NAME
 DEV_PROJECT ?= $(COMPOSE_PROJECT_NAME)
+
+# ── the PROD stack, same treatment ──────────────────────────────
+#
+# A checkout runs TWO stacks, not one: the dev stack the e2e suite drives, and the
+# prod-posture stack the real-environment verification round drives (`make prod-up`, zero mocks,
+# docs/real-env-verification/sop.md). They are separate compose projects with separate ports,
+# and BOTH have to be per-checkout or a parallel verification round is impossible: N agents
+# each need their own instance, their own corpus and their own browser target.
+#
+# This was also a live collision, not a hypothetical one. `docker-compose.prod.yml` published
+# 38227 / 8100 / 5532 / 6479 / 9210 / 9211 as literals, and this worktree's own dev stack had
+# been given exactly those six numbers by hand — so one `make prod-up` here would have fought
+# the dev stack on every published port. The dev allocator could not have prevented it either:
+# it checked the dev defaults and the live listeners, and prod is in neither when it is down.
+# Both default sets are avoided now (infra/scripts/dev-stack).
+PROD_PORT_APP ?= 38227
+PROD_PORT_BACKEND ?= 8100
+PROD_PORT_DB ?= 5532
+PROD_PORT_REDIS ?= 6479
+PROD_PORT_MINIO ?= 9210
+PROD_PORT_MINIO_CONSOLE ?= 9211
+export PROD_PORT_APP PROD_PORT_BACKEND PROD_PORT_DB
+export PROD_PORT_REDIS PROD_PORT_MINIO PROD_PORT_MINIO_CONSOLE
+
+PROD_PROJECT_NAME ?= standmeet-prod
+PROD_PROJECT ?= $(PROD_PROJECT_NAME)
+# Exported because scripts derive container names from it (infra/scripts/schema-drift), the same
+# way COMPOSE_PROJECT_NAME serves the dev side.
+export PROD_PROJECT
+
+# VERIFY_BASE —— where the verification driver (e2e/manual/shoot.mjs) points. Derived, so an
+# agent that has its own prod stack does not also have to be told its port: the one place that
+# knows the port tells the one thing that dials it.
+VERIFY_BASE ?= http://127.0.0.1:$(PROD_PORT_APP)
+export VERIFY_BASE
 
 # ── lint ────────────────────────────────────────────────────────
 # Order: env-lint is fastest, so it runs first; backend's own `make lint` chain is
@@ -230,10 +265,10 @@ im-bridge-test:
 # the connector credential the owner configured in admin; the bridge fetches it from the
 # internal API on startup. Without it configured, it just idles.
 im-bridge-up:
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --build im-bridge
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml up -d --build im-bridge
 
 im-bridge-logs:
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml logs -f --tail=100 im-bridge
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml logs -f --tail=100 im-bridge
 
 e2e-lint:
 	@if [ -d e2e/node_modules ]; then \
@@ -287,6 +322,31 @@ stack:
 
 stack-init:
 	@infra/scripts/dev-stack init $(if $(FORCE),--force)
+
+# stack-ready —— can this checkout open a verification round. Says every missing prerequisite at
+# once, BEFORE `make prod-up` builds anything: a round that discovers a missing credential
+# halfway through reads as the product refusing to work.
+stack-ready:
+	@infra/scripts/dev-stack ready
+
+# stack-retire —— tear down a stack this checkout no longer uses, by its OLD project name.
+#
+# What `stack-init FORCE=1` leaves behind. Containers keep the project and the ports they were
+# started with, so after a reallocation the previous stack is still up, still holding the old
+# numbers, and answering to a name nothing in the tree refers to any more — `make dev-down` now
+# addresses the NEW name and walks straight past it. Left alone it looks like "some other
+# checkout is holding my ports".
+#
+# Takes the name explicitly rather than guessing: the only thing that knows the old name is the
+# person who just changed it, and a recipe that guessed could tear down a neighbour's stack.
+#   make stack-retire PROJECT=standmeet-wt-old
+stack-retire:
+	@test -n "$(PROJECT)" || (echo 'usage: make stack-retire PROJECT=<old compose project>'; exit 2)
+	@test "$(PROJECT)" != "$(DEV_PROJECT)" -a "$(PROJECT)" != "$(PROD_PROJECT)" || \
+	  (echo "stack-retire: $(PROJECT) is what this checkout uses NOW — use dev-down / prod-down"; exit 2)
+	@docker compose -p $(PROJECT) -f docker-compose.dev.yml down -v --remove-orphans 2>/dev/null || true
+	@docker compose -p $(PROJECT) -f docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
+	@echo "[stack] retired $(PROJECT)"
 
 # stack-test —— test-asis, but it prints the stack it is about to hit first.
 # usage: make stack-test SPEC=<spec-name> [REPEAT=n]
@@ -354,7 +414,7 @@ dev-rebuild-mocks:
 prod-up: builder-vendor
 	@test -f .env || { echo "create .env first: cp .env.example .env && edit"; exit 2; }
 	@infra/plugins/provision.sh
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --build --wait
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml up -d --build --wait
 	@echo "[prod] app on http://localhost:38227 (front with your TLS proxy)"
 	@echo "[prod] that proxy must set X-Forwarded-For — without it no visitor IP is"
 	@echo "[prod] visible: no source IP on conversations, nothing for an IP ban to"
@@ -365,8 +425,8 @@ prod-up: builder-vendor
 # prod-up (which also rebuilds the backend) is unnecessary or blocked by an unrelated backend WIP.
 prod-app: app-build
 	@infra/scripts/build-cadence.sh prod-app
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml build app
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait app
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml build app
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml up -d --wait app
 	@echo "[prod] app rebuilt (backend reused) — http://localhost:38227"
 
 # prod-backend —— rebuilds the backend image and swaps it in (app untouched). The symmetric
@@ -386,18 +446,18 @@ prod-app: app-build
 prod-backend:
 	@infra/scripts/build-cadence.sh prod-backend
 	@infra/plugins/provision.sh
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml build backend
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --wait backend
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml build backend
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml up -d --wait backend
 	@echo "[prod] backend rebuilt (app reused) — http://localhost:38227"
 
 # prod-rebuild-builder —— the symmetric counterpart of `dev-rebuild-builder`. After changing
 # builder/ or the SDK, what a page on prod can import is likewise fixed at image-build time.
 prod-rebuild-builder: builder-vendor
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml build builder
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --no-deps builder
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml build builder
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml up -d --no-deps builder
 
 prod-down:
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml down
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml down
 
 # prod-stop-svc / prod-start-svc —— stop/start **one** prod service. A tool the real-env audit
 # needs repeatedly: several checks ask "what does the product say when this thing is gone?"
@@ -411,11 +471,11 @@ prod-down:
 # starting it back up returns it exactly as it was.
 prod-stop-svc:
 	@test -n "$(SVC)" || (echo "usage: make prod-stop-svc SVC=<service>"; exit 2)
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml stop $(SVC)
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml stop $(SVC)
 
 prod-start-svc:
 	@test -n "$(SVC)" || (echo "usage: make prod-start-svc SVC=<service>"; exit 2)
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml start $(SVC)
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml start $(SVC)
 
 # prod-recreate-svc —— recreates one service's container, **without rebuilding the image**.
 #
@@ -428,7 +488,7 @@ prod-start-svc:
 #   make prod-recreate-svc SVC=backend
 prod-recreate-svc:
 	@test -n "$(SVC)" || (echo "usage: make prod-recreate-svc SVC=<service>"; exit 2)
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml \
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml \
 		up -d --no-deps --force-recreate --wait $(SVC)
 
 # verify-proxy-up —— brings up the fault-injection proxy, sitting in front of the **real**
@@ -515,7 +575,7 @@ verify-api-fault-up:
 	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
 		-f docker-compose.verify.yml up -d --build api-fault
 	@BACKEND_URL=http://api-fault:9600 $(MAKE) app-build
-	@docker compose -p standmeet-prod \
+	@docker compose -p $(PROD_PROJECT) \
 		-f docker-compose.prod.yml -f docker-compose.verify-app.yml up -d --no-deps --build app
 	@echo "[verify] api-fault on http://localhost:39600 → http://backend:8000"
 	@echo "[verify] prod app rebuilt with the rewrite pointing at it"
@@ -528,7 +588,7 @@ verify-api-fault-up:
 # pointing at a proxy that no longer exists (see the paragraph above).
 verify-api-fault-down:
 	@$(MAKE) app-build
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --no-deps --build app
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml up -d --no-deps --build app
 	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
 		-f docker-compose.verify.yml rm -sf api-fault
 	@echo "[verify] prod app back on http://backend:8000"
@@ -554,7 +614,7 @@ prod-clean:
 	  echo "  rebuild backend + app ...... make prod-up"; \
 	  echo "  really wipe it ............. make prod-clean I_MEAN_IT=yes"; \
 	  exit 2)
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
 
 # prod-fresh —— recreate the prod stack from scratch (fresh schema).
 # Inherits prod-clean's confirmation: `make prod-fresh I_MEAN_IT=yes`.
@@ -991,7 +1051,7 @@ dev-logs:
 # Usage: make prod-logs SVC=backend N=80
 prod-logs:
 	@test -n "$(SVC)" || (echo "usage: make prod-logs SVC=<service> [N=<lines>]"; exit 2)
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml logs \
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml logs \
 		--tail=$(if $(N),$(N),60) $(SVC)
 
 build:
@@ -1265,7 +1325,7 @@ restore:
 # self-hosted owners (see F-A-16).
 prod-psql:
 	@test -n "$(SQL)" || (echo 'usage: make prod-psql SQL="select 1"'; exit 2)
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T db \
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml exec -T db \
 		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c "$(SQL)"
 
 # prod-redis —— run a redis command against the prod redis.  usage: make prod-redis CMD="info memory"
@@ -1276,7 +1336,7 @@ prod-psql:
 # Not an owner-facing feature.
 prod-redis:
 	@test -n "$(CMD)" || (echo 'usage: make prod-redis CMD="info memory"'; exit 2)
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T redis redis-cli $(CMD)
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml exec -T redis redis-cli $(CMD)
 
 # prod-redis-fill —— fills prod redis with KEYS 300-byte keys, **each with a 600-second TTL**
 # (no cleanup needed when done — they expire on their own). Produces the real "at capacity +
@@ -1286,7 +1346,7 @@ prod-redis:
 #
 #   make prod-redis-fill KEYS=8000
 prod-redis-fill:
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T redis redis-cli eval \
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml exec -T redis redis-cli eval \
 	 "for i=1,tonumber(ARGV[1]) do redis.call('SETEX','verifyfill:'..i,600,string.rep('x',300)) end return redis.call('dbsize')" \
 	 0 $(or $(KEYS),8000)
 
@@ -1308,8 +1368,8 @@ prod-redis-fill:
 GATE_LOCK_PATTERNS = 'codefail:ip:*' 'requestflood:ip:*' 'ratelimit:login:*'
 prod-gate-unlock:
 	@for p in $(GATE_LOCK_PATTERNS); do \
-		docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T redis \
-			redis-cli --scan --pattern "$$p" | xargs -r docker compose -p standmeet-prod \
+		docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml exec -T redis \
+			redis-cli --scan --pattern "$$p" | xargs -r docker compose -p $(PROD_PROJECT) \
 			-f docker-compose.prod.yml exec -T redis redis-cli DEL; \
 	done
 	@echo "[prod] per-IP lockouts cleared (invalid codes + note flood + login attempts)"
@@ -1317,7 +1377,7 @@ prod-gate-unlock:
 # prod-psql-file —— same, for multi-line SQL.  usage: make prod-psql-file FILE=/tmp/x.sql
 prod-psql-file:
 	@test -f "$(FILE)" || (echo 'usage: make prod-psql-file FILE=<path.sql>'; exit 2)
-	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T db \
+	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml exec -T db \
 		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 < "$(FILE)"
 
 # dev-psql —— run SQL against the DEV DB.  usage: make dev-psql SQL="select 1"

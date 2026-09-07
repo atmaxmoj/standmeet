@@ -3,6 +3,7 @@
 - **Module:** The admin left-nav. Every nav label names the surface it opens. No two labels are trivially confusable.
 - **Surface:** `/admin` — the sidebar, present on every admin page. The labels are plain strings in `AdminSidebar.tsx`, not i18n keys.
 - **Real dep:** none.
+- **Exclusive:** none
 - **Backing e2e:** `nav-page-vs-pages.spec.ts`.
 
 ## Checks

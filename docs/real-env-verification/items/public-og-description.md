@@ -3,6 +3,7 @@
 - **Module:** Public-page SEO metadata. The site root's `<meta name="description">` and og:description trace to the owner's real page content.
 - **Surface:** `/` (view source, `<head>`).
 - **Real dep:** none. The owner's own `hero_prose` is the input.
+- **Exclusive:** none
 - **Backing e2e:** `public-og-description.spec.ts`.
 
 ## Checks

@@ -3,6 +3,7 @@
 - **Module:** A calendar connects through a real OAuth dance — consent, then an exchange carrying the code, the secret, PKCE and state. Tokens refresh transparently on expiry, a rotated refresh token persists, and a revoked grant surfaces as a friendly reconnect.
 - **Surface:** `/admin/connectors`, the calendar card.
 - **Real dep:** A real OAuth authorization server and a real account. After the connector exists, its generated redirect URI must be registered back on the OAuth client. An app still in testing needs the account added as a test user first, or consent is denied — that is real first-run friction, not a defect.
+- **Exclusive:** google-calendar
 - **Backing e2e:** `connector-happy-matrix` (mock dance) · `chat-book-token-refresh` · `security-oauth-callback-state` · `connector-err-refresh-network` · `connector-retry-invalid-grant-no-retry` · `connector-gcal-rotate-creds-reverify`.
 
 ## Checks

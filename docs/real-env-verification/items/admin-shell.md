@@ -3,6 +3,7 @@
 - **Module:** The admin shell loads clean, the sidebar badges show real counts, and every figure on the dashboard reconciles with the list it summarizes. This module is the home of the cross-view-consistency lens: two views of one dataset must not disagree.
 - **Surface:** The admin shell — nav, sidebar, top bar — and `/admin/dashboard`.
 - **Real dep:** A claimed owner with enough corpus, codes and requests that the counts are non-trivial.
+- **Exclusive:** none
 - **Backing e2e:** `admin-sidebar` · `admin-dashboard` · `admin-system-pulse` · `admin-login-landing` · `admin-obsidian`.
 
 ## Checks

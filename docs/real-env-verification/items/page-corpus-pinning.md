@@ -3,6 +3,7 @@
 - **Module:** The public page's insights and projects sections are ordered pin lists over the corpus, not a second content store. A pinned entry renders its title and excerpt and links into the reader. A thought is stored once. The invariant is that a pinned entry is always a published one, enforced at both write ends.
 - **Surface:** Owner MCP (`page.pin` / `page.unpin`) and `/admin/page`'s pin manager, rendering to the public homepage.
 - **Real dep:** none external. A real corpus and the publish toggle on the instance.
+- **Exclusive:** none
 - **Backing e2e:** `page-corpus-pinning` · `chatroom-layout` · `public-page`. Design: `docs/design/page-corpus-pinning.md`.
 
 ## Checks

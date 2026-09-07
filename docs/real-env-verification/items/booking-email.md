@@ -3,6 +3,7 @@
 - **Module:** A confirmed booking sends a real invite or confirmation email — the calendar provider's own invite, the app's HTML confirmation carrying schema.org markup, or both. A declined booking sends nothing.
 - **Surface:** Visitor chat, through the booking confirmation card, into a real inbox.
 - **Real dep:** A real calendar connector (see [[calendar-connect]]), a real mail connector (see [[mail-connector]]), and an inbox you can read.
+- **Exclusive:** gmail-inbox
 - **Backing e2e:** `booking-confirmation-email` · `connector-send-confirmation-tool`.
 
 ## Checks

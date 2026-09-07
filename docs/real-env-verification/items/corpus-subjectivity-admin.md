@@ -3,6 +3,7 @@
 - **Module:** Subjectivity is not an invisible genre that only MCP can write. It lists, creates, edits and carries files, through the same form and the same files panel as wiki and output — not a bespoke page.
 - **Surface:** `/admin/subjectivity`, reached from the corpus group in the left nav.
 - **Real dep:** The real vault's subjectivity notes, and a real MCP client for the parity check.
+- **Exclusive:** none
 - **Backing e2e:** `genre-assets-admin-raw-subj` · `subjectivity-genre` · `sync-subjectivity-ingest` · `owner-mcp-parity-mutations`.
 
 ## Checks

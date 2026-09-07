@@ -3,6 +3,7 @@
 - **Module:** The shipped embed — the web component, the React binding, and the single-script drop-in — boots on a plain page served from a DIFFERENT origin than the instance, issues a session, redeems a code, and streams a real answer.
 - **Surface:** A bare HTML page on a second origin, carrying the embed and pointed at the instance's base URL. This is the customer-facing deliverable.
 - **Real dep:** A built embed bundle served by a plain static server on an origin that is not the app's. A running instance to point at.
+- **Exclusive:** none
 - **Backing e2e:** `public-cors` covers the cross-origin bootstrap. The embed itself, the React binding and the drop-in → `gap`.
 
 ## Checks

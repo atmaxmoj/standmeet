@@ -3,6 +3,7 @@
 - **Module:** Sandboxed skills and tools run isolated. Network egress is gated, the host socket and host filesystem are unreachable, and this holds under the driver prod actually uses. The workspace sweep fires on its own schedule.
 - **Surface:** The backend sandbox runtime, and the sandbox panel on `/admin/system` for workspaces (there is no `/admin/sandbox` route — the panel lives inside the system section).
 - **Real dep:** The prod stack on its real sandbox driver, plus a reachable payload origin for the egress tests.
+- **Exclusive:** none
 - **Backing e2e:** `real-third-party-mcp-network` · `real-third-party-mcp-escape` · `real-third-party-mcp-sandboxed` · `real-third-party-mcp-loader` · `sandbox-workspace-ttl-cron` · `admin-sandbox` · `skill-scripts` · `admin-system-jobs`.
 
 ## Checks

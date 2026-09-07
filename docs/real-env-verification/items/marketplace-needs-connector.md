@@ -3,6 +3,7 @@
 - **Module:** The marketplace card's connector-requirement warning. It reflects the owner's real connector state, never a constant.
 - **Surface:** `/admin/skills` → MARKETPLACE tab → a card whose skill declares a connector requirement.
 - **Real dep:** A real connector the owner can connect and disconnect (see [[calendar-connect]] / [[mail-connector]]).
+- **Exclusive:** github-api
 - **Backing e2e:** `marketplace-needs-connector.spec.ts`.
 
 ## Checks

@@ -3,6 +3,7 @@
 - **Module:** The real model ranks the day's job pool against the corpus and the owner's stated preferences, then curates raw, wiki and the job description into a tailored résumé and cover letter. The owner previews it in staging before anything is committed.
 - **Surface:** Owner MCP (`resume.draft`, job ranking) → the staging preview → `/admin/drafts`.
 - **Real dep:** A real model, a filled job pool (see [[job-fetch]] — the pool is 1-day TTL, so fetch first), and the owner's stated `looking_for`.
+- **Exclusive:** none
 - **Backing e2e:** `resume-draft-preview` · `resume-draft-update` · `applications-commit` · `integration-job-loop`. Curation and ranking quality → `gap`.
 
 ## Checks

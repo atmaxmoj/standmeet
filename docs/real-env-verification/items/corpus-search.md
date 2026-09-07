@@ -5,6 +5,7 @@
 - **Whether a given stack actually has the engine is an observation, never a premise of this file.** A deployment missing it is running degraded, and the checks below are what decide whether that is visible. Do not write the current state here — it belongs in the round's runsheet.
 - **Surface:** Visitor chat retrieval, the outward API-key facade, and the backend search itself.
 - **Real dep:** The full real corpus indexed on the prod stack. **No CJK note needs seeding** — the vault's `> [!i18n]` pane contract means real notes carry whole Chinese sections, so the CJK path has real input. (This line previously claimed the vault was English-only; it stopped being true when the i18n contract landed.)
+- **Exclusive:** none
 - **Backing e2e:** `retrieval-search-consistency` · `api-key-facade` · `retrieval-acl` · `retrieval-degrade`.
 
 ## Checks

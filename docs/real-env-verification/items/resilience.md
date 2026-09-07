@@ -3,6 +3,7 @@
 - **Module:** The failure modes no mock exercises. Redis evicting under memory pressure, a search engine drifting or lagging at scale, and inference model discovery — a different endpoint from chat. Each degrades to a sentence the owner can act on, with no 500 and no leak of an upstream body.
 - **Surface:** The backend, and the model picker used for BYOAI.
 - **Real dep:** A memory-capped Redis. A real inference key. Optionally a pinned search engine at scale — prod's default is the Postgres path, see [[corpus-search]].
+- **Exclusive:** none
 - **Backing e2e:** `job-fetch-ttl-eviction` · `session-token-eviction` · `retrieval-degrade` · `retrieval-search-consistency` · `inference-usage` · `security-inference-models-ssrf`.
 
 ## Checks

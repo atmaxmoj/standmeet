@@ -3,6 +3,7 @@
 - **Module:** The outward MCP face at `/mcp/visitor`. Someone holding an access code configures their own AI client (Claude Desktop, Cursor, the MCP Inspector) against the owner's instance and gets that code's tools. The code is unchanged by this — same grant, same role, same quotas, same transcript; only who is driving the model differs.
 - **Surface:** `/mcp/visitor` reached through the public entry point, plus `/admin/conversations` and `/admin/codes` on the owner's side.
 - **Real dep:** The prod stack, real corpus (the owner's own vault mirror), and **a real third-party MCP client** — not our own `standmeet-mcp` bridge, which speaks Sigv1 and is the owner's path. The whole claim of this module is that a client we did not write connects; driving it with our own client proves nothing about that.
+- **Exclusive:** none
 - **Backing e2e:** `visitor-mcp`.
 
 ## Checks

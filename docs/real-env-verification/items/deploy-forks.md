@@ -3,6 +3,7 @@
 - **Module:** The prod-default branches that CI never runs, because CI sets a different value. Each one behaves correctly, or is named clearly enough that nobody assumes the dev behaviour in prod.
 - **Surface:** The running prod compose config, and the code branches it selects. No owner screen.
 - **Real dep:** A running prod stack. This is observation: read each key and diff it against the dev compose.
+- **Exclusive:** none
 - **Backing e2e:** `plugin-discovery-chat` · `real-third-party-mcp-loader` · `agent-turn-endpoint` · `security-captcha-bypass`.
 
 ## Checks

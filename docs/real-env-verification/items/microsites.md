@@ -3,6 +3,7 @@
 - **Module:** The owner authors a custom React page with the SDK. A sandboxed real Vite build produces static output, the instance hosts it, and the admin surface reflects the page's lifecycle.
 - **Surface:** `/admin/microsites`, and the built page at its `/p/<slug>`.
 - **Real dep:** The prod stack, with a real sandbox build through the docker driver (see [[sandbox]]) and real storage.
+- **Exclusive:** none
 - **Backing e2e:** `microsite` for the surface, plus the [[sandbox]] specs for the build. Storage and hosting of the built artifact → `gap`.
 
 ## Checks

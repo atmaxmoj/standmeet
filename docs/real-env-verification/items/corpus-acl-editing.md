@@ -3,6 +3,7 @@
 - **Module:** The owner controls, from the admin GUI, which corpus URIs each role may read, which of those each individual code takes back, and whether a note may be cited once it has been read. Subjectivity is not special — every genre is one glob mechanism.
 - **Surface:** `/admin/roles` to grant, `/admin/codes` to narrow one code, and the entry form for the citation control.
 - **Real dep:** A real corpus, and a code whose role grants a genre containing a note that code should not see.
+- **Exclusive:** none
 - **Backing e2e:** `role-corpus-picker` · `code-corpus-narrowing` · `wiki-citation-toggle` · `admin-load-failure-not-empty` · `admin-codes-with-role` · Go `corpus_scope_test`.
 
 ## The model

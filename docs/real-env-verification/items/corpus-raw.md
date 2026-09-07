@@ -3,6 +3,7 @@
 - **Module:** The owner's raw inbox. MCP `raw_dump` lands a note. The note lists in admin/raw with a clean rendered excerpt, not raw markup. `promote_to_wiki` moves it to wiki. Every count of the inbox agrees with the list.
 - **Surface:** `/admin/raw`, plus owner MCP (`raw_dump` / `promote_to_wiki`).
 - **Real dep:** The real vault's raw notes, and a real MCP client (see [[owner-mcp]]).
+- **Exclusive:** none
 - **Backing e2e:** `sync-i-raw` · `sync-k-raw-tree` · `integration-corpus-pipeline` · `owner-mcp-parity-mutations` · `admin-raw-crud`. Excerpt cleanliness against markup-heavy bodies → `gap`.
 
 ## Checks

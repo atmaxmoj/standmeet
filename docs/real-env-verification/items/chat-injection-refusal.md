@@ -3,6 +3,7 @@
 - **Module:** The model itself resists prompt injection. It leaks no system prompt, dumps no raw notes, and fabricates no result for a tool it was never granted. This is distinct from the backend gate, which blocks a compliant model; here the model does not even try.
 - **Surface:** Visitor chat, on a code whose role grants no booking skill.
 - **Real dep:** A real model. The mock scripts a compliant model on purpose, so it can never show refusal.
+- **Exclusive:** none
 - **Backing e2e:** `security-prompt-injection.spec.ts` covers the backend gate against a compliant model. Model refusal → `gap`.
 
 ## Checks

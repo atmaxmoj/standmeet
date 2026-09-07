@@ -3,6 +3,7 @@
 - **Module:** The agent loop survives what only a real provider produces — a mid-turn tool failure, several tool calls in one message, a length-limited stop, and a rate-limit carrying a retry hint — with no crash, no retry storm and no silent quota burn.
 - **Surface:** Visitor chat, driven by the backend agent loop.
 - **Real dep:** A real provider, or a proxy in front of one that can inject rate-limit responses and retry hints.
+- **Exclusive:** none
 - **Backing e2e:** `quota-not-consumed-on-failure` · `conversation-failed-turn-reload` · `connector-retry-exhausted-degrades` · `connector-retry-read-transient-recovers`. Parallel dispatch, length-limited stops, and honouring a retry hint → `gap`.
 
 ## Checks

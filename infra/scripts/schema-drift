@@ -32,9 +32,10 @@ import sys
 # schema-drift` reads the FIRST checkout's database and reports drift against a schema.sql it
 # has never seen — an answer to a question nobody asked, in the shape of a real finding.
 DEV_CONTAINER = os.environ.get("COMPOSE_PROJECT_NAME", "standmeet-dev") + "-db-1"
+PROD_CONTAINER = os.environ.get("PROD_PROJECT", "standmeet-prod") + "-db-1"
 CONTAINER = os.environ.get(
     "SCHEMA_DRIFT_CONTAINER",
-    DEV_CONTAINER if os.environ.get("STACK") == "dev" else "standmeet-prod-db-1",
+    DEV_CONTAINER if os.environ.get("STACK") == "dev" else PROD_CONTAINER,
 )
 SCHEMA = os.path.join(os.path.dirname(__file__), "..", "..", "backend", "db", "schema.sql")
 

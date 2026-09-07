@@ -3,6 +3,7 @@
 - **Module:** A coded visitor asking about a topic outside their code's slice gets a graceful redaction. No private body, no leaked title, no paraphrase of hidden content, and the refusal survives social pressure. This boundary is the single thing separating StandMeet from a public chatbot.
 - **Surface:** Visitor chat, on a code whose role scopes the corpus.
 - **Real dep:** A real model and a real corpus holding a genuinely private entry. Two codes are needed: one whose role omits a genre, and one whose role grants a private genre but not all of it.
+- **Exclusive:** none
 - **Backing e2e:** `retrieval-acl.spec.ts` asserts the ACL denies. That the model then refuses gracefully on a real out-of-scope ask → `gap`. See also [[retrieval-vs-corpus-acl]].
 
 ## Checks

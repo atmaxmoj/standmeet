@@ -37,7 +37,26 @@ Files whose name starts with `_` are exempt, so this template may quote what it 
 - **Module:** What the module does. One or two sentences. Say the capability, not the code.
 - **Surface:** Where a human drives it. Name the route and the control.
 - **Real dep:** The real external thing this needs. Write `none` if it needs none.
+- **Exclusive:** The real-world thing this module must own ALONE while it runs, or `none`.
 - **Backing e2e:** The spec files that cover this module. Write `gap` for what nothing covers.
+
+<!-- ── Exclusive ──────────────────────────────────────────────────────────────
+A round is scheduled off this field. Modules with `none` run in PARALLEL — one agent, one
+prod-posture stack each (`make stack-init` allocates both stacks per checkout). Modules naming
+the same resource run in one LANE, one after another, because that resource cannot be sharded.
+
+The stacks are per-agent, so anything the stack owns is NOT exclusive: its database, its Redis,
+its corpus, its instance settings, even a captcha flag that needs a restart. Name only what lives
+OUTSIDE the stack and has exactly one of it.
+
+In use today: `gmail-inbox` (one account, and `inbox-peek` reads it — two agents mailing into it
+makes "did MY message arrive" unanswerable, which is the whole check), `google-calendar` (slots
+and bookings mutate one calendar), `github-api` (60 requests an hour, unauthenticated, per
+machine), `vendor-account`, `camera` (physical, and a person holds it).
+
+Write it from this module's own Steps, not from a keyword in `Real dep:`. Several items mention
+mail or a calendar only to point at the module that actually uses one.
+──────────────────────────────────────────────────────────────────────────── -->
 
 ## Checks
 

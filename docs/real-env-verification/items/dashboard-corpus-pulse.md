@@ -3,6 +3,7 @@
 - **Module:** The admin dashboard's at-a-glance numbers. Every tile and every graph traces to real data, or says it has none. A constant dressed as a measurement is the defect this module exists to catch.
 - **Surface:** `/admin/dashboard`, and the pulse rail in the admin sidebar.
 - **Real dep:** A corpus you can add to, so the numbers have something to move with.
+- **Exclusive:** none
 - **Backing e2e:** `dashboard-corpus-pulse.spec.ts` · `admin-system-pulse.spec.ts`.
 
 ## Checks

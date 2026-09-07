@@ -45,10 +45,21 @@ BASELINE = os.path.join(os.path.dirname(__file__), "verify-items.baseline")
 
 # The only field names an item may use. Anything else is either status or belongs in findings.md.
 ALLOWED_FIELDS = {
-    "Module", "Surface", "Real dep", "Backing e2e",   # header
-    "Steps", "Expected", "Mock gap", "Backing test",  # per check
-    "Note",                                           # a standing caveat about the check itself
+    "Module", "Surface", "Real dep", "Exclusive", "Backing e2e",   # header
+    "Steps", "Expected", "Mock gap", "Backing test",               # per check
+    "Note",                                          # a standing caveat about the check itself
 }
+
+# The header every item must state. Present in all of them today; required so a NEW item cannot
+# be added without deciding each one.
+#
+# `Exclusive` is the newest and the reason this rule exists at all. It names the real-world thing
+# this module must own ALONE while it runs — the one Gmail inbox, the one calendar account —
+# or `none`. A round is scheduled off that field: modules with no exclusive resource run in
+# parallel, one agent and one stack each; modules sharing an exclusive resource run in a lane,
+# one after another. Left to be inferred from `Real dep:` prose it would be inferred wrongly:
+# several items MENTION mail only to point at the module that actually uses it.
+REQUIRED_HEADER = ("Module", "Surface", "Real dep", "Exclusive", "Backing e2e")
 FIELD = re.compile(r"^\s*-\s+\*\*([^:*]+):\*\*")
 
 # Verdict glyphs. The circled digits are the SOP's ①..⑤ state machine — also status.
@@ -86,7 +97,15 @@ def scan(text):
         if w:
             out.append((lineno, "round", f"round vocabulary ({w.group(0)!r})"))
     out.extend(incomplete_checks(text))
+    out.extend(missing_header(text))
     return out
+
+
+def missing_header(text):
+    """An item that does not state Exclusive cannot be scheduled into a round."""
+    stated = {m.group(1).strip() for m in (FIELD.match(l) for l in text.split("\n")) if m}
+    missing = [f for f in REQUIRED_HEADER if f not in stated]
+    return [(1, "header", f"no {', '.join(missing)}")] if missing else []
 
 
 def incomplete_checks(text):
@@ -196,10 +215,15 @@ SAMPLES = [
     ("round", "- **Expected:** the same as last round\n"),
     ("round", "- **Expected:** re-verified against prod\n"),
     ("shape", "### 1 — something\n- **Steps:** do it\n"),
+    # An item that never states what it must own alone cannot be scheduled into a round: the
+    # scheduler would have to guess, and guessing puts two agents on one Gmail inbox.
+    ("header", "# x — y\n\n- **Module:** a thing.\n- **Surface:** /admin/x.\n"
+               "- **Real dep:** none.\n- **Backing e2e:** `x.spec.ts`.\n"),
 ]
 CLEAN = (
     "# x — y\n\n- **Module:** a thing.\n- **Surface:** /admin/x.\n"
-    "- **Real dep:** none.\n- **Backing e2e:** `x.spec.ts`.\n\n## Checks\n\n"
+    "- **Real dep:** none.\n- **Exclusive:** none\n- **Backing e2e:** `x.spec.ts`.\n\n"
+    "## Checks\n\n"
     "### 1 — it holds\n- **Steps:** open it.\n- **Expected:** the label reads EDIT.\n"
     "- **Backing test:** `x.spec.ts`\n"
 )

@@ -3,6 +3,7 @@
 - **Module:** A real MCP host connects to the instance through the shipped stdio client, discovers the full owner toolset, runs an ingest turn that persists, mints an API key, and a following visitor turn grounds on the note that was just ingested.
 - **Surface:** The owner's MCP client, spawned as a subprocess by a real host. This is the inward owner surface, not the visitor agent's toolset — see [[two-mcp-surfaces]].
 - **Real dep:** The shipped stdio client binary, an owner keypair with its credentials file, a real MCP host, and a real model for the ingest-to-answer loop.
+- **Exclusive:** none
 - **Backing e2e:** `c3-mcp-client-stdio` · `owner-mcp-parity-{reads,mutations,connectors}` · `norm-outward-toolset` · `integration-corpus-pipeline` · `api-key-facade` · `mcp-show-grounding` · `retrieval-search-consistency`.
 
 ## Checks

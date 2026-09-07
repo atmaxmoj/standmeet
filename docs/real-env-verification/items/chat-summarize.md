@@ -3,6 +3,7 @@
 - **Module:** The model produces a coherent, faithful summary of a real conversation, and the summary renders as a report artifact the visitor can open as a page.
 - **Surface:** Visitor chat → the summarize affordance → the report card → `/report/[id]`.
 - **Real dep:** A real model. The mock answers summarize with a scripted string matched by turn keys, so it never exercises summary quality.
+- **Exclusive:** none
 - **Backing e2e:** `visitor-summarize-conversation.spec.ts`. Summary quality → `gap`.
 
 ## Checks

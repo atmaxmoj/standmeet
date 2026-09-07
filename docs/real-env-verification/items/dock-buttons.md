@@ -3,6 +3,7 @@
 - **Module:** The owner binds at most two capabilities to shortcut buttons on a role. The visitor sees them in the chat dock with a resolved title, and clicking one sends its trigger as a visitor message, which fires the real capability. This is the only owner-authored affordance a visitor can press.
 - **Surface:** `/admin/roles` for the config, and the visitor chat dock for the buttons.
 - **Real dep:** A real model, because the trigger fires a real turn. The booking button additionally needs a connected calendar (see [[calendar-connect]]).
+- **Exclusive:** google-calendar
 - **Backing e2e:** `dock-buttons` · `dock-buttons-mcp` · `floating-chat-dock`.
 
 ## Checks

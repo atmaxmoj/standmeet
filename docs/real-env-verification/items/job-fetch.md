@@ -3,6 +3,7 @@
 - **Module:** `jobs.fetch_new` pulls real postings from each public job board, maps each source's own schema correctly, consumes every page, collapses the same posting reached through two sources, and lands the result in the 1-day pool.
 - **Surface:** `/admin/sources` to register, and owner MCP (`jobs.fetch_new`) to pull. Results land in `/admin/listings`.
 - **Real dep:** The real public job APIs. Most need only a public company slug. One source requires an employer token that is not held, so it stays out of reach.
+- **Exclusive:** none
 - **Backing e2e:** `job-fetch-multi-source` · `job-fetch-deduplicates` · `job-fetch-cross-source-dedup` · `job-sources-register` · `job-fetch-ttl-eviction` · `job-fetch-workday-bamboohr` · `job-fetch-workable` · `job-fetch-jba`.
 
 ## Checks

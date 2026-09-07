@@ -42,7 +42,7 @@ services:
       # and the proxy shares the host with the stack, so it reaches localhost directly.
       # Binding 0.0.0.0 directly = app reachable across the whole network over plain HTTP (pentest 2026-09-01).
       # When the proxy is on another machine, open it explicitly by setting APP_BIND_HOST=0.0.0.0 in .env.
-      - "${APP_BIND_HOST:-127.0.0.1}:38227:3000"
+      - "${APP_BIND_HOST:-127.0.0.1}:${PROD_PORT_APP:-38227}:3000"
     healthcheck:
       # Hits app's **own** route (see app/src/app/api/app-health/route.ts). It used to hit
       # `/api/v1/instance` — that one gets proxied to backend, so this check was measuring two hops. When the backend slows down,
@@ -185,7 +185,7 @@ services:
     ports:
       # Binds 127.0.0.1 only: app reaches backend over the docker internal network, this published port is only for host-side debugging.
       # Binding 0.0.0.0 would open the API to the whole network without going through the app's proxy (pentest 2026-09-01).
-      - "127.0.0.1:8100:8000"
+      - "127.0.0.1:${PROD_PORT_BACKEND:-8100}:8000"
     # sandbox needs root + the docker socket: owner-curated skill scripts run inside an isolated
     # docker container. The docs explain the trade-off.
     user: "0:0"
@@ -270,7 +270,7 @@ services:
     ports:
       # Binds 127.0.0.1 only: the whole database. Never exposed to the network — app reaches it by the internal service name,
       # `make prod-psql` goes through `docker compose exec` (pentest 2026-09-01).
-      - "127.0.0.1:5532:5432"
+      - "127.0.0.1:${PROD_PORT_DB:-5532}:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "standmeet", "-d", "standmeet"]
       interval: 3s
@@ -303,7 +303,7 @@ services:
       # Binds 127.0.0.1 only: redis has no password set, and the key name IS the plaintext session token. Binding 0.0.0.0
       # lets an unauthenticated network connection SCAN its way to the owner's admin token → full instance takeover
       # (pentest 2026-09-01, the most severe finding of the whole run).
-      - "127.0.0.1:6479:6379"
+      - "127.0.0.1:${PROD_PORT_REDIS:-6479}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
@@ -363,8 +363,8 @@ services:
     ports:
       # Binds 127.0.0.1 only: object storage (writing images/attachments). app reaches it internally, the published port is only for host-side debugging
       # (pentest 2026-09-01).
-      - "127.0.0.1:9210:9000"
-      - "127.0.0.1:9211:9201"
+      - "127.0.0.1:${PROD_PORT_MINIO:-9210}:9000"
+      - "127.0.0.1:${PROD_PORT_MINIO_CONSOLE:-9211}:9201"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/live"]
       interval: 5s

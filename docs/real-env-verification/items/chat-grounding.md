@@ -3,6 +3,7 @@
 - **Module:** The visitor's agent answers a substantive question from the owner's corpus. Retrieval fires because the model chose it, the citations match what was actually read, and figures are quoted rather than invented.
 - **Surface:** Visitor chat, on the public page or in a coded session.
 - **Real dep:** A real model as the owner's provider, and a real corpus with cross-linked notes.
+- **Exclusive:** none
 - **Backing e2e:** `visitor-chat-answer-render` · `visitor-chat-cites-writing` · `visitor-chat-cites-output` · `visitor-chat-citation-multi` · `visitor-chat-cited-precise` · `retrieval-search-consistency` · `retrieval-links`. Voice fidelity → `gap`.
 
 ## Checks

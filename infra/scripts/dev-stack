@@ -23,12 +23,19 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 ENV_FILE=.dev-stack.env
+# OWN_PROJECTS —— this checkout own compose projects; set by cmd_init before allocating.
+OWN_PROJECTS=()
 EXAMPLE=.dev-stack.env.example
 
-# PORT_KEYS —— the twelve knobs, in the order .dev-stack.env.example lists them. Read from the
-# example file rather than restated, so a thirteenth port added there is allocated here without
-# anyone remembering this script exists.
-port_keys() { grep -oE '^DEV_PORT_[A-Z_]+' "$EXAMPLE"; }
+# port_keys —— every port knob, in the order .dev-stack.env.example lists them. Read from the
+# example file rather than restated, so a knob added there is allocated here without anyone
+# remembering this script exists.
+#
+# BOTH stacks. A checkout runs a dev stack (the e2e suite) and a prod-posture stack (a
+# verification round), and allocating only one of them is how the two ended up sharing six
+# ports: prod's were literals in its compose file, so nothing that only knew the dev defaults
+# could see them.
+port_keys() { grep -oE '^(DEV|PROD)_PORT_[A-Z_]+' "$EXAMPLE"; }
 
 # default_of KEY —— the value that was hardcoded before the per-checkout stack. Also read from
 # the example file: two lists of defaults is one more than can be kept in agreement.
@@ -48,6 +55,21 @@ except OSError:
 finally:
     s.close()
 PY
+}
+
+# mine PORT —— is this port published by one of THIS checkout's own stacks.
+#
+# Needed by the allocator, not just by `show`. A checkout reallocating (`init --force`) has its
+# own stacks up, holding the very ports being replaced — and a bind test calls those taken. The
+# allocator would then refuse every offset and demand a teardown before it would even compute a
+# new one, which is a teardown to answer a question rather than to change anything.
+mine() {
+  local port=$1 p
+  for p in "${OWN_PROJECTS[@]}"; do
+    docker ps --filter "label=com.docker.compose.project=$p" --format '{{.Ports}}' 2>/dev/null \
+      | grep -q ":$port->" && return 0
+  done
+  return 1
 }
 
 # holder PORT —— what is listening, as a name a person can act on. Best effort: `lsof` is not
@@ -72,6 +94,11 @@ holder() {
 #   * lands on another key's DEFAULT      → collides with the primary checkout the moment it starts
 #   * lands on another key in THIS set    → two of our own services fight
 #   * something is already listening      → collides with whatever is running now
+#
+# The first check spans BOTH stacks' defaults, which is the whole reason it is written as "any
+# other key" rather than "any other dev key". A dev port that lands on prod's default does not
+# collide with anything until someone opens a verification round, and then it takes down a stack
+# that has the real corpus on it.
 offset_ok() {
   local offset=$1 key port
   local -a taken=()
@@ -84,7 +111,8 @@ offset_ok() {
     for t in ${taken[@]+"${taken[@]}"}; do
       [ "$port" = "$t" ] && return 1
     done
-    free_port "$port" || return 1
+    # A port this checkout's own stacks are publishing counts as available: it is being replaced.
+    free_port "$port" || mine "$port" || return 1
     taken+=("$port")
   done
   return 0
@@ -114,25 +142,33 @@ project_name() {
 cmd_init() {
   local force=${1:-}
   if [ -f "$ENV_FILE" ] && [ "$force" != "--force" ]; then
-    echo "dev-stack: $ENV_FILE already exists — this checkout already has a stack."
-    echo "  \`dev-stack show\` prints it. \`dev-stack init --force\` reallocates (stop the stack first:"
-    echo "  \`make dev-down\`, or its containers keep the old ports and the file stops describing them)."
+    echo "dev-stack: $ENV_FILE already exists — this checkout already has its stacks."
+    echo "  \`make stack\` prints them. \`make stack-init FORCE=1\` reallocates."
+    echo "  After reallocating, RECREATE what is running (\`make dev-up\` / \`make prod-up\`):"
+    echo "  containers keep the ports they were started with, so until then the file describes"
+    echo "  an intent and \`make stack\` will show every knob as held by something else."
     return 1
   fi
   local offset project
+  # Whose ports may be reused: this checkout's current stacks, read from the file being
+  # replaced. On a first init there is no file and the array is the names init is about to write,
+  # which nothing is running under yet.
+  identity
+  OWN_PROJECTS=("$PROJECT" "$PROD")
   offset=$(pick_offset)
   project=$(project_name)
   {
-    echo "# This checkout's own dev stack — written by \`make stack-init\`, git-ignored."
+    echo "# This checkout's own stacks — written by \`make stack-init\`, git-ignored."
     echo "# Every port is its default +$offset, and each was confirmed free when this was written."
     echo "# See .dev-stack.env.example for what each one is and why they must differ."
     echo "COMPOSE_PROJECT_NAME=$project"
+    echo "PROD_PROJECT_NAME=$project-prod"
     for key in $(port_keys); do
       echo "$key=$(( $(default_of "$key") + offset ))"
     done
   } > "$ENV_FILE"
-  echo "dev-stack: wrote $ENV_FILE — project $project, ports at +$offset."
-  echo "  Next: \`make dev-up\` builds and starts this checkout's own stack."
+  echo "dev-stack: wrote $ENV_FILE — dev project $project, prod project $project-prod, at +$offset."
+  echo "  Next: \`make dev-up\` for the e2e stack · \`make prod-up\` for the verification stack."
   cmd_show
 }
 
@@ -143,40 +179,58 @@ cmd_init() {
 identity() {
   if [ -f "$ENV_FILE" ]; then set -a; . "./$ENV_FILE"; set +a; fi
   PROJECT=${COMPOSE_PROJECT_NAME:-$(grep -E '^COMPOSE_PROJECT_NAME=' "$EXAMPLE" | cut -d= -f2)}
+  # The prod project every prod recipe passes as `-p`. Same defaulting rule, so a checkout with
+  # no file addresses exactly what it addressed before.
+  PROD=${PROD_PROJECT_NAME:-$(grep -E '^PROD_PROJECT_NAME=' "$EXAMPLE" | cut -d= -f2)}
+}
+
+# containers_up PROJECT —— how many of that project's containers are running.
+containers_up() {
+  docker ps --filter "label=com.docker.compose.project=$1" --format '{{.Names}}' 2>/dev/null \
+    | wc -l | tr -d ' ' || true
+}
+
+# ports_table PREFIX PROJECT —— one stack's knobs, and who is holding each port.
+ports_table() {
+  local prefix=$1 project=$2 key port who mine
+  printf '  %-28s %-7s %s\n' 'KNOB' 'PORT' 'LISTENER'
+  for key in $(port_keys | grep "^$prefix"); do
+    eval "port=\${$key:-$(default_of "$key")}"
+    who=$(holder "$port" || true)
+    # A port held by the stack it belongs to is the healthy state; held by anything else is the
+    # whole question this command exists to answer.
+    mine=$(docker ps --filter "label=com.docker.compose.project=$project" --format '{{.Ports}}' 2>/dev/null | grep -c ":$port->" || true)
+    if [ "${mine:-0}" -gt 0 ]; then who="this stack"
+    elif [ -z "$who" ]; then who="—"
+    else who="$who  ⚠ not this stack"
+    fi
+    printf '  %-28s %-7s %s\n' "$key" "$port" "$who"
+  done
 }
 
 cmd_show() {
   identity
   if [ -f "$ENV_FILE" ]; then
-    echo "stack: $PROJECT   (from $ENV_FILE)"
+    echo "from $ENV_FILE"
   else
-    echo "stack: $PROJECT   (no $ENV_FILE — this checkout uses the shared defaults)"
-    echo "       Run \`make stack-init\` before running anything alongside another checkout."
+    echo "no $ENV_FILE — this checkout uses the shared defaults."
+    echo "Run \`make stack-init\` before running anything alongside another checkout."
   fi
-
-  local running
-  running=$(docker ps --filter "label=com.docker.compose.project=$PROJECT" --format '{{.Names}}' 2>/dev/null | wc -l | tr -d ' ' || true)
-  echo "containers up: ${running:-0}"
   echo
 
-  printf '%-28s %-7s %s\n' 'KNOB' 'PORT' 'LISTENER'
-  local key port who mine
-  for key in $(port_keys); do
-    eval "port=\${$key:-$(default_of "$key")}"
-    who=$(holder "$port" || true)
-    # A port held by OUR OWN stack is the healthy state; held by something else is the whole
-    # question this command exists to answer.
-    mine=$(docker ps --filter "label=com.docker.compose.project=$PROJECT" --format '{{.Ports}}' 2>/dev/null | grep -c ":$port->" || true)
-    if [ "${mine:-0}" -gt 0 ]; then who="this stack"
-    elif [ -z "$who" ]; then who="—"
-    else who="$who  ⚠ not this stack"
-    fi
-    printf '%-28s %-7s %s\n' "$key" "$port" "$who"
-  done
+  # Two stacks, listed apart. They are separate projects with separate data: the dev stack is
+  # reset by every e2e spec, the prod stack holds the real corpus and a round never resets it.
+  # Printing them as one table is how "which one am I about to wipe" stops being obvious.
+  echo "DEV  (e2e suite)            project $PROJECT   ·  $(containers_up "$PROJECT") containers up"
+  ports_table DEV_PORT "$PROJECT"
+  echo "  db  $PROJECT-db-1"
+  echo "  app http://localhost:${DEV_PORT_APP:-$(default_of DEV_PORT_APP)}   backend http://localhost:${DEV_PORT_BACKEND:-$(default_of DEV_PORT_BACKEND)}"
   echo
-  echo "db container:    $PROJECT-db-1"
-  echo "app:             http://localhost:${DEV_PORT_APP:-$(default_of DEV_PORT_APP)}"
-  echo "backend:         http://localhost:${DEV_PORT_BACKEND:-$(default_of DEV_PORT_BACKEND)}"
+  echo "PROD (verification round)   project $PROD   ·  $(containers_up "$PROD") containers up"
+  ports_table PROD_PORT "$PROD"
+  echo "  db  $PROD-db-1"
+  echo "  app http://localhost:${PROD_PORT_APP:-$(default_of PROD_PORT_APP)}   backend http://localhost:${PROD_PORT_BACKEND:-$(default_of PROD_PORT_BACKEND)}"
+  echo "  VERIFY_BASE http://127.0.0.1:${PROD_PORT_APP:-$(default_of PROD_PORT_APP)}  (what make verify-shots dials)"
 }
 
 # ── test ────────────────────────────────────────────────────────
@@ -197,9 +251,67 @@ cmd_test() {
   make test-asis SPEC="$spec" "$@"
 }
 
+# ── ready ───────────────────────────────────────────────────────
+
+# cmd_ready —— can this checkout open a verification round.
+#
+# A round is expensive to start and expensive to abandon: `make prod-up` builds, the instance
+# has to be claimed, the vault has to be imported. Every prerequisite below has failed a round
+# at least once by being discovered halfway through, where a missing credential looks like the
+# product refusing to work. This says all of them at once, before anything is built.
+#
+# It reports; it does not create. Two of these are the owner's production secrets, and a script
+# that copied them into N checkouts would be spreading them on its own initiative.
+cmd_ready() {
+  identity
+  local bad=0
+  say_ok()   { printf '  ✓ %s\n' "$1"; }
+  say_miss() { printf '  ✗ %s\n     %s\n' "$1" "$2"; bad=1; }
+
+  echo "verification prerequisites for this checkout:"
+
+  [ -f "$ENV_FILE" ] \
+    && say_ok "$ENV_FILE — own stacks ($PROJECT / $PROD)" \
+    || say_miss "$ENV_FILE is missing" \
+         "\`make stack-init\` — without it this checkout drives the SHARED default stacks."
+
+  # The prod compose reads it, and it holds real secrets, so it is gitignored and per-checkout.
+  [ -f .env ] \
+    && say_ok ".env — prod stack secrets" \
+    || say_miss ".env is missing (docker-compose.prod.yml reads it)" \
+         "cp .env.example .env and fill it. Real secrets: the owner decides whether a checkout gets a copy."
+
+  [ -f "$HOME/.config/standmeet/verify-creds.env" ] \
+    && say_ok "~/.config/standmeet/verify-creds.env — owner login + real credentials" \
+    || say_miss "~/.config/standmeet/verify-creds.env is missing" \
+         "The driver reads the owner's login from it; without it every plan stops at the login form."
+
+  [ -d "$HOME/Develop/writing/notes" ] \
+    && say_ok "the real vault ($(find "$HOME/Develop/writing/notes" -name '*.md' 2>/dev/null | wc -l | tr -d ' ') notes)" \
+    || say_miss "the real vault is not at ~/Develop/writing/notes" \
+         "A round drives the real corpus. A seeded fixture corpus is a different product."
+
+  # Ports last: they are the cheapest to fix and the only one this script can answer for itself.
+  local key port clash=0
+  for key in $(port_keys | grep '^PROD_PORT'); do
+    eval "port=\${$key:-$(default_of "$key")}"
+    free_port "$port" || mine "$port" || clash=1
+  done
+  [ "$clash" = 0 ] \
+    && say_ok "the prod ports are free or already this checkout's" \
+    || say_miss "something else holds a prod port" "\`make stack\` names the holder."
+
+  echo
+  [ "$bad" = 0 ] \
+    && echo "ready — \`make prod-up\` then \`make verify-round\`." \
+    || { echo "not ready. Fix the ✗ lines above; a round started without them fails halfway, and"; \
+         echo "a missing credential on a real surface reads as the product being broken."; return 1; }
+}
+
 case "${1:-show}" in
   init) shift; cmd_init "${1:-}" ;;
   show) cmd_show ;;
+  ready) cmd_ready ;;
   test) shift; cmd_test "$@" ;;
-  *) echo "usage: dev-stack {init [--force] | show | test <spec>}" >&2; exit 2 ;;
+  *) echo "usage: dev-stack {init [--force] | show | ready | test <spec>}" >&2; exit 2 ;;
 esac

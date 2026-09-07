@@ -3,6 +3,7 @@
 - **Module:** Body `[[wikilinks]]` resolve by basename across genres into one unified `note_refs` edge table. `corpus_links` returns the outgoing and backlink sets the real body implies. The reader renders resolved links as anchors.
 - **Surface:** The corpus importer, the `corpus_links` tool, and the reader (`/wiki/<path>` body and its backlinks rail).
 - **Real dep:** The real vault (`~/Develop/writing/notes`), with its cross-genre links, embeds and dangling links.
+- **Exclusive:** none
 - **Backing e2e:** `sync-e-links` · `note-refs-unified` · `retrieval-links` · `wiki-reader-crosslink` · Go `wiki_crosslink_test.go`.
 
 ## Checks

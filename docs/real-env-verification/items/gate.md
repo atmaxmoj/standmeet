@@ -3,6 +3,7 @@
 - **Module:** The no-code visitor's entry surface. Code entry validates and redeems, the BYOAI panel accepts a key, request-access submits, and the identity picker resolves who the visitor is exactly once.
 - **Surface:** `/gate`, plus the identity-picker modal.
 - **Real dep:** A running instance. The downstream legs need real services and live in [[chat-byoai]], [[access-codes]] and [[mail-connector]].
+- **Exclusive:** none
 - **Backing e2e:** `gate-code-ux` · `gate-request-access` · `gate-byoai-ux` · `chat-welcome`.
 
 ## Checks

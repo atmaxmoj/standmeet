@@ -3,6 +3,7 @@
 - **Module:** `applications.commit` renders an ATS-friendly PDF through a real headless-Chromium service, prints a scannable QR top-right, and issues an access code. The QR closes the loop: a recruiter scan lands on `/{handle}?code=`, skips the gate, and reaches a real answer in the owner's voice.
 - **Surface:** Owner MCP (`applications.commit`) → the PDF artifact → a recruiter's phone → visitor chat.
 - **Real dep:** A real render service on the hardened prod posture, a real model for the recruiter's answer, and a physical camera for the last layer. A committed application must exist, which needs a live job in the pool first.
+- **Exclusive:** camera
 - **Backing e2e:** `resume-pdf-render` · `applications-commit` · `applications-commit-qr-works` · `qr-code-absorb` · `_render-sample-pdfs` · `integration-job-loop`.
 
 ## Checks

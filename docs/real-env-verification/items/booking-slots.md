@@ -3,6 +3,7 @@
 - **Module:** The booker returns only genuinely free slots inside the requested window, filtered against the account's real calendar.
 - **Surface:** Visitor chat, on a code whose role grants the booking tool.
 - **Real dep:** A connected real calendar account (see [[calendar-connect]]) with known busy blocks. Also a role that grants `calendar.book` — see the Note below, because without it the tools never assemble.
+- **Exclusive:** google-calendar
 - **Backing e2e:** `visitor-chat-list-slots`.
 
 ## Checks

@@ -3,6 +3,7 @@
 - **Module:** A booking lands on the real calendar. Cancelling deletes that event and rescheduling moves it rather than creating a second one. Quota is enforced against real accumulating events, and the same real path is reached whether the request comes from chat reasoning or from the outward API.
 - **Surface:** Visitor chat, and the outward API-key facade.
 - **Real dep:** A connected real calendar account (see [[calendar-connect]]), a real model for the chat path, and an outward key for the facade path. Also a role granting the booking tool, or the tools never assemble — see [[booking-slots]].
+- **Exclusive:** google-calendar
 - **Backing e2e:** `chat-book-success` · `chat-book-conflict-*` · `chat-book-quota-exhausted` · `tool-calendar-cancel-booking` · `connector-calendar-cancel-tool` · `visitor-cancel-booking` · `tool-endpoint-calendar-book`.
 
 ## Checks

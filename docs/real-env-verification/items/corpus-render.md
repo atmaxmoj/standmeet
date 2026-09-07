@@ -3,6 +3,7 @@
 - **Module:** Every heavy render face the real vault contains — math, diagrams, TikZ, callouts, embedded queries, sandboxed widgets, pre-rendered static blocks — renders correctly through the reader and the chat pipeline. Owner CSS and per-note classes land scoped and sanitized. Timing does not regress on heavy notes.
 - **Surface:** The corpus reader, the visitor chat markdown pipeline, and the admin note render.
 - **Real dep:** The real vault, with its real math, diagram fences, callouts, query blocks, snippet CSS and frontmatter classes.
+- **Exclusive:** none
 - **Backing e2e:** `writing-math-mermaid` · `document-render` · `visitor-chat-answer-render` · `render-callouts` · `render-tikz` · `render-widget` · `query-render` · `query-errors` · `query-acl` · `render-static-passthrough` · `leverage-static-html` · `prerender-passthrough` · `render-cssclasses` · `cssclasses-surfaces` · `render-owner-css` · `owner-css-security` · `owner-css-bypass` · `owner-css-edit` · `document-render-benchmark` · `markdown.katex.test.tsx`.
 
 ## Checks

@@ -3,6 +3,7 @@
 - **Module:** When a turn exhausts its iteration or time budget on a long tool chain, the boundary synthesizes one grounded answer from the evidence gathered so far. It never ships planning narration as the product, and it never denies a note that exists. The boundary is engineered; a bigger budget is not a boundary.
 - **Surface:** Visitor chat, driven by the backend agent loop. Also the eval harness.
 - **Real dep:** A real model. A mock reproduction is circular here, because the mock would encode the very hypothesis under test.
+- **Exclusive:** none
 - **Backing e2e:** `agent_product_test.go` for the deterministic guards, and the real-model lane `eval-harness/{narration_live,chain_exhaustion_live,experiment}_test.go`. Context evals: `eval-harness/{compaction,doc-context,cross-conversation}-test.sh`.
 
 ## Checks

@@ -3,6 +3,7 @@
 - **Module:** On a judgment or stance question the model elects to search the `subjectivity` genre and answers from the owner's documented standpoint. That grounding shapes the answer without appearing as a citation, unless the note is flagged to show as a source.
 - **Surface:** Visitor chat, on a code whose role grants `subjectivity://`. A public-role code does not grant it, and a deflection there is correct scoping, not under-grounding.
 - **Real dep:** A real model, a seeded `subjectivity` note, and a code whose role grants `subjectivity://`.
+- **Exclusive:** none
 - **Backing e2e:** `subjectivity-genre` · `subjectivity-not-cited` · `visitor-chat-hidden-source`. Real-LLM lane: `eval-harness/subjectivity-test.sh`. The inducement itself → `gap`.
 
 ## Checks

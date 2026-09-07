@@ -3,6 +3,7 @@
 - **Module:** The admin applications detail. Any control that shows a selected state reflects what the instance actually holds. A local toggle dressed as a saved edit is the defect this module exists to catch.
 - **Surface:** `/admin/applications` → open an application → the status control.
 - **Real dep:** At least one committed application, which comes from the job loop (see [[application-commit]]).
+- **Exclusive:** none
 - **Backing e2e:** `application-status-persist.spec.ts`.
 
 ## Checks

@@ -3,6 +3,7 @@
 - **Module:** Ingest a real vendor OpenAPI document, bind its operations onto the product's own categories, assemble a connector, and make a real proxied call through it. The same surface also assembles a protocol connector against a real CalDAV server.
 - **Surface:** `/admin/connectors` — upload a spec, bind, assemble, connect.
 - **Real dep:** A real vendor account with an API key and a published spec. For the CalDAV leg, a self-run CalDAV server with auth.
+- **Exclusive:** vendor-account
 - **Backing e2e:** `connector-spec-ingest` · `connector-assemble-from-ui` · `connector-happy-matrix` · `connector-openapi-mail`.
 
 ## Checks

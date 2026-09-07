@@ -3,6 +3,7 @@
 - **Module:** The outward API-key facade rate-limits per key against real Redis, isolates one key's usage from another's, and never exposes the owner surface. An outward key cannot reach admin or the owner MCP, owner tools never appear in its discovery, and a bad key only ever gets a 401.
 - **Surface:** The outward API (`api.open` / `QUERY` / `POST`). No GUI, except the admin api-keys list that mints and revokes.
 - **Real dep:** The prod stack with real Redis, and a small real corpus. Corpus dispatch itself → [[corpus-search]]. Booking through a key → [[booking-book]].
+- **Exclusive:** none
 - **Backing e2e:** `api-key-facade` · `api-key-security` · `public-rate-limit` · `retrieval-acl` · `visitor-chat-permissions-deny`.
 
 ## Checks

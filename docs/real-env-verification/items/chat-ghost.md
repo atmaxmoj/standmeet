@@ -3,6 +3,7 @@
 - **Module:** The model proposes a steering "ghost" toward a reachable, unvisited waypoint, and goes silent once every waypoint is visited. Relevance, non-repetition and good stopping are real-model properties.
 - **Surface:** Visitor chat, multi-turn, on a code whose role carries waypoints. Author the waypoints on `/admin/roles` first.
 - **Real dep:** A real model. The mock fakes the entire GhostPolicy output (`isGhostPolicy`, `messages.go`), so the mock can never exercise this.
+- **Exclusive:** none
 - **Backing e2e:** `ghost-policy` · `visitor-chat-ghost` · `ghost-waypoint-freeze` · `role-waypoints-admin` · `role-ghost-evidence`. Real-LLM lane: `eval-harness/ghost-test.sh`. Model judgment itself → `gap`.
 
 ## Checks

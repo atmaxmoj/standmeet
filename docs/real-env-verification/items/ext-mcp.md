@@ -3,6 +3,7 @@
 - **Module:** The owner registers a third-party MCP server by URL. The backend dials it over real transport, enumerates its real tools, gates them by role, carries the owner's auth header upstream, and a visitor's call reaches the real server.
 - **Surface:** `/admin/api-mcp` to register, and visitor chat where the tools appear namespaced to the server.
 - **Real dep:** A real remote MCP server that StandMeet did not write, reachable over streamable HTTP and gated by a **static header** — the register form stores one header name and value, so anything OAuth-gated cannot be driven through it at all. Keep the token in the verify-creds file.
+- **Exclusive:** none
 - **Backing e2e:** `admin-mcp-servers` · `external-mcp-tools` · `external-mcp-auth-header` · `tool-endpoint-ext-mcp` · `connector-ext-mcp-no-dep` · `tool-roles-mcp`.
 
 ## Checks
