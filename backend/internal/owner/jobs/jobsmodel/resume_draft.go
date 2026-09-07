@@ -13,6 +13,7 @@
 package jobsmodel
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 )
@@ -27,7 +28,11 @@ type ResumeDraft struct {
 	JobCacheID string
 	// Template — the Typst layout this draft picked ('' = default classic). A
 	// customization choice, carried into the PDF at commit.
-	Template    string
+	Template string
+	// PuckData — the Puck editor's own state JSON, passed through verbatim (the backend never
+	// interprets it). Nil = never opened+Saved in the Puck editor (agent-created or pre-Puck);
+	// the editor derives it from ResumeContent on open. Always rederivable from ResumeContent.
+	PuckData    json.RawMessage
 	JobSnapshot FetchedJob
 	// ResumeContent last (trailing non-pointer float64 → minimal pointer-scan prefix).
 	ResumeContent ResumeContent

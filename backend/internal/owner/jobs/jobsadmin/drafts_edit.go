@@ -28,7 +28,11 @@ import (
 const previewQRURL = "preview://standmeet/draft"
 
 type patchDraftReq struct {
-	Template      string                  `json:"template"`
+	Template string `json:"template"`
+	// PuckData — the Puck editor's own state JSON, persisted verbatim on Save so reopening the
+	// editor restores the exact arrangement. Absent (old client / MCP-created draft) = nil = the
+	// editor derives it from resume_content on open.
+	PuckData      json.RawMessage         `json:"puck_data"`
 	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
 }
 
@@ -43,9 +47,9 @@ func patchDraft(deps Deps) http.HandlerFunc {
 			return
 		}
 		out, err := jobsuc.SaveResumeDraft(
-			r.Context(), jobsuc.ResumeDeps{Drafts: deps.Drafts}, jobsuc.SaveDraftInput{
+			r.Context(), jobsuc.ResumeDeps{Drafts: deps.Drafts}, &jobsuc.SaveDraftInput{
 				OwnerID: ownerID, DraftID: chi.URLParam(r, "id"),
-				Content: &req.ResumeContent, Template: req.Template,
+				Content: &req.ResumeContent, Template: req.Template, PuckData: req.PuckData,
 			},
 		)
 		if err != nil {

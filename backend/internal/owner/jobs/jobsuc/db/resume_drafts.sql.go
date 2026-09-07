@@ -14,7 +14,7 @@ import (
 const createResumeDraft = `-- name: CreateResumeDraft :one
 INSERT INTO resume_drafts (owner_id, job_cache_id, job_snapshot, resume_content, template)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at
+RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at
 `
 
 type CreateResumeDraftParams struct {
@@ -25,6 +25,8 @@ type CreateResumeDraftParams struct {
 	Template      string
 }
 
+// Drafts are created by the MCP resume.draft path (no Puck editor involved), so puck_data starts
+// NULL and is adopted on the first admin Save (UpdateResumeDraftFull).
 func (q *Queries) CreateResumeDraft(ctx context.Context, arg CreateResumeDraftParams) (ResumeDraft, error) {
 	row := q.db.QueryRow(ctx, createResumeDraft,
 		arg.OwnerID,
@@ -40,6 +42,7 @@ func (q *Queries) CreateResumeDraft(ctx context.Context, arg CreateResumeDraftPa
 		&i.JobCacheID,
 		&i.JobSnapshot,
 		&i.ResumeContent,
+		&i.PuckData,
 		&i.Template,
 		&i.ExpiresAt,
 		&i.CreatedAt,
@@ -62,7 +65,7 @@ func (q *Queries) DeleteResumeDraft(ctx context.Context, arg DeleteResumeDraftPa
 }
 
 const getResumeDraft = `-- name: GetResumeDraft :one
-SELECT id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at
+SELECT id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at
 FROM resume_drafts
 WHERE id = $1 AND owner_id = $2 AND expires_at > now()
 `
@@ -81,6 +84,7 @@ func (q *Queries) GetResumeDraft(ctx context.Context, arg GetResumeDraftParams) 
 		&i.JobCacheID,
 		&i.JobSnapshot,
 		&i.ResumeContent,
+		&i.PuckData,
 		&i.Template,
 		&i.ExpiresAt,
 		&i.CreatedAt,
@@ -89,7 +93,7 @@ func (q *Queries) GetResumeDraft(ctx context.Context, arg GetResumeDraftParams) 
 }
 
 const listResumeDraftsByOwner = `-- name: ListResumeDraftsByOwner :many
-SELECT id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at
+SELECT id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at
 FROM resume_drafts
 WHERE owner_id = $1 AND expires_at > now()
 ORDER BY created_at DESC
@@ -111,6 +115,7 @@ func (q *Queries) ListResumeDraftsByOwner(ctx context.Context, ownerID pgtype.UU
 			&i.JobCacheID,
 			&i.JobSnapshot,
 			&i.ResumeContent,
+			&i.PuckData,
 			&i.Template,
 			&i.ExpiresAt,
 			&i.CreatedAt,
@@ -138,7 +143,7 @@ const updateResumeDraftContent = `-- name: UpdateResumeDraftContent :one
 UPDATE resume_drafts
 SET resume_content = $3
 WHERE id = $1 AND owner_id = $2 AND expires_at > now()
-RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at
+RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at
 `
 
 type UpdateResumeDraftContentParams struct {
@@ -147,6 +152,8 @@ type UpdateResumeDraftContentParams struct {
 	ResumeContent []byte
 }
 
+// The MCP path: content only (no Puck editor state), so puck_data is left untouched — an
+// agent-written draft that a human later opens still derives puck_data from resume_content.
 func (q *Queries) UpdateResumeDraftContent(ctx context.Context, arg UpdateResumeDraftContentParams) (ResumeDraft, error) {
 	row := q.db.QueryRow(ctx, updateResumeDraftContent, arg.ID, arg.OwnerID, arg.ResumeContent)
 	var i ResumeDraft
@@ -156,6 +163,7 @@ func (q *Queries) UpdateResumeDraftContent(ctx context.Context, arg UpdateResume
 		&i.JobCacheID,
 		&i.JobSnapshot,
 		&i.ResumeContent,
+		&i.PuckData,
 		&i.Template,
 		&i.ExpiresAt,
 		&i.CreatedAt,
@@ -165,9 +173,9 @@ func (q *Queries) UpdateResumeDraftContent(ctx context.Context, arg UpdateResume
 
 const updateResumeDraftFull = `-- name: UpdateResumeDraftFull :one
 UPDATE resume_drafts
-SET resume_content = $3, template = $4
+SET resume_content = $3, template = $4, puck_data = $5
 WHERE id = $1 AND owner_id = $2 AND expires_at > now()
-RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, template, expires_at, created_at
+RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at
 `
 
 type UpdateResumeDraftFullParams struct {
@@ -175,16 +183,20 @@ type UpdateResumeDraftFullParams struct {
 	OwnerID       pgtype.UUID
 	ResumeContent []byte
 	Template      string
+	PuckData      []byte
 }
 
-// The admin composer's save: content + the chosen Typst template together, so a template
-// pick and an edit persist in one write (the MCP path uses UpdateResumeDraftContent, content-only).
+// The admin composer's Save: the Puck editor state (puck_data), the derived canonical content, and
+// the chosen Typst template together, so a Save persists all three in one write. resume_content
+// stays the render source (typst renders from it); puck_data is editor fidelity, always rederivable
+// from resume_content (never a second source of truth).
 func (q *Queries) UpdateResumeDraftFull(ctx context.Context, arg UpdateResumeDraftFullParams) (ResumeDraft, error) {
 	row := q.db.QueryRow(ctx, updateResumeDraftFull,
 		arg.ID,
 		arg.OwnerID,
 		arg.ResumeContent,
 		arg.Template,
+		arg.PuckData,
 	)
 	var i ResumeDraft
 	err := row.Scan(
@@ -193,6 +205,7 @@ func (q *Queries) UpdateResumeDraftFull(ctx context.Context, arg UpdateResumeDra
 		&i.JobCacheID,
 		&i.JobSnapshot,
 		&i.ResumeContent,
+		&i.PuckData,
 		&i.Template,
 		&i.ExpiresAt,
 		&i.CreatedAt,

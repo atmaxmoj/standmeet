@@ -126,22 +126,34 @@ func (r *ResumeDraftRepo) UpdateContent(
 	return toDomainResumeDraft(&row)
 }
 
-// UpdateContentAndTemplate — the admin composer's save: replace resume_content AND the chosen
-// Typst template in one write. job_snapshot stays frozen (see UpdateContent).
+// UpdateDraftFull — the admin composer's Save payload (bundled to stay under the argument limit).
+// PuckData is passed through verbatim; nil clears the column (the editor rederives it from
+// resume_content on open).
+type UpdateDraftFull struct {
+	Content  *jobsmodel.ResumeContent
+	OwnerID  string
+	DraftID  string
+	Template string
+	PuckData json.RawMessage
+}
+
+// UpdateContentAndTemplate — the admin composer's Save: replace resume_content, the chosen Typst
+// template, and the Puck editor state in one write. job_snapshot stays frozen (see UpdateContent).
 func (r *ResumeDraftRepo) UpdateContentAndTemplate(
-	ctx context.Context, ownerID, id string, content *jobsmodel.ResumeContent, template string,
+	ctx context.Context, in *UpdateDraftFull,
 ) (jobsmodel.ResumeDraft, error) {
-	key, err := parseDraftKey(ownerID, id)
+	key, err := parseDraftKey(in.OwnerID, in.DraftID)
 	if err != nil {
 		return jobsmodel.ResumeDraft{}, err
 	}
-	contentJSON, err := json.Marshal(content)
+	contentJSON, err := json.Marshal(in.Content)
 	if err != nil {
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("marshal resume content: %w", err)
 	}
 	q := db.New(r.pool)
 	row, err := q.UpdateResumeDraftFull(ctx, db.UpdateResumeDraftFullParams{
-		ID: key.draft, OwnerID: key.owner, ResumeContent: contentJSON, Template: template,
+		ID: key.draft, OwnerID: key.owner, ResumeContent: contentJSON,
+		Template: in.Template, PuckData: in.PuckData,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -229,6 +241,7 @@ func toDomainResumeDraft(row *db.ResumeDraft) (jobsmodel.ResumeDraft, error) {
 		OwnerID:       pgstore.FormatUUID(row.OwnerID),
 		JobCacheID:    row.JobCacheID,
 		Template:      row.Template,
+		PuckData:      row.PuckData,
 		JobSnapshot:   snapshot,
 		ResumeContent: content,
 		CreatedAt:     row.CreatedAt.Time,

@@ -16,6 +16,7 @@ package jobsuc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -148,25 +149,28 @@ func UpdateResumeDraft(
 }
 
 // SaveDraftInput — the admin composer's save payload (bundled to stay under the argument limit).
+// PuckData is the Puck editor state, passed through verbatim (nil = don't retain editor state).
 type SaveDraftInput struct {
 	Content  *jobsmodel.ResumeContent
 	OwnerID  string
 	DraftID  string
 	Template string
+	PuckData json.RawMessage
 }
 
 // SaveResumeDraft — the admin composer's save: persist edited content + the chosen Typst template
 // together. Distinct from UpdateResumeDraft (MCP, content-only) because the panel is the only
 // surface that picks a template.
 func SaveResumeDraft(
-	ctx context.Context, deps ResumeDeps, in SaveDraftInput,
+	ctx context.Context, deps ResumeDeps, in *SaveDraftInput,
 ) (DraftedResume, error) {
 	if err := requireFields(in.OwnerID, in.DraftID, in.Content); err != nil {
 		return DraftedResume{}, err
 	}
-	draft, err := deps.Drafts.UpdateContentAndTemplate(
-		ctx, in.OwnerID, in.DraftID, in.Content, in.Template,
-	)
+	draft, err := deps.Drafts.UpdateContentAndTemplate(ctx, &UpdateDraftFull{
+		OwnerID: in.OwnerID, DraftID: in.DraftID, Content: in.Content,
+		Template: in.Template, PuckData: in.PuckData,
+	})
 	if err != nil {
 		return DraftedResume{}, fmt.Errorf("save draft: %w", err)
 	}

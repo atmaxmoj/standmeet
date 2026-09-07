@@ -120,10 +120,13 @@ func writeCreatedDraft(
 // draftDetailView — #52: the composer fetches the real resume_content
 // (+ job context) on open.
 type draftDetailView struct {
-	ID            string                  `json:"id"`
-	Company       string                  `json:"company"`
-	Role          string                  `json:"role"`
-	Template      string                  `json:"template"`
+	ID       string `json:"id"`
+	Company  string `json:"company"`
+	Role     string `json:"role"`
+	Template string `json:"template"`
+	// PuckData — the Puck editor state to restore on open (omitted when the draft has none yet;
+	// the editor then derives it from resume_content). Passed through verbatim.
+	PuckData      json.RawMessage         `json:"puck_data,omitempty"`
 	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
 }
 
@@ -133,6 +136,7 @@ func newDraftDetailView(draft *jobsmodel.ResumeDraft) draftDetailView {
 		ID: draft.ID, Company: draft.JobSnapshot.Company,
 		Role: draft.JobSnapshot.Title, Template: draft.Template,
 		ResumeContent: draft.ResumeContent,
+		PuckData:      draft.PuckData,
 	}
 }
 

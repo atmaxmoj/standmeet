@@ -458,6 +458,7 @@ type ResumeDraft struct {
 	JobCacheID    string
 	JobSnapshot   []byte
 	ResumeContent []byte
+	PuckData      []byte
 	Template      string
 	ExpiresAt     pgtype.Timestamptz
 	CreatedAt     pgtype.Timestamptz

@@ -894,6 +894,11 @@ CREATE TABLE resume_drafts (
     job_cache_id     text          NOT NULL,
     job_snapshot     jsonb         NOT NULL,
     resume_content   jsonb         NOT NULL,
+    -- puck_data —— the Puck editor's own state JSON (nullable). Editor fidelity; the canonical
+    -- render source stays resume_content (typst renders from it), and puck_data is always
+    -- rederivable from it via toPuckData. NULL = an agent- or pre-Puck-created draft that has never
+    -- been opened+Saved in the Puck editor; the editor derives puck_data from resume_content on open.
+    puck_data        jsonb,
     -- template —— 这份草稿选的 Typst 排版（'' = 默认 classic）。定制化的选择项。
     template         text          NOT NULL DEFAULT '',
     expires_at       timestamptz   NOT NULL DEFAULT now() + interval '1 day',
