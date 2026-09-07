@@ -103,6 +103,56 @@ describe('toPuckData gives every component a unique Puck id (U5)', () => {
   });
 });
 
+// U6 — many components of ONE type still get distinct ids (the id is `${type}-${globalIndex}`, so
+// ten works never collide with each other). A per-type counter would have repeated Experience-0.
+describe('toPuckData ids are unique even with many of one type (U6)', () => {
+  it('ten works produce ten distinct ids', () => {
+    const rc = fullContent();
+    rc.works = Array.from({ length: 10 }, (_, i) => ({
+      title: `role ${i}`, company: `co ${i}`, location: '', period: { start: '2020', end: null }, bullets: [],
+    }));
+    const content = toPuckData(rc).content;
+    const workIds = content.filter((c) => c.type === SECTION.experience).map((c) => c.props['id']);
+    expect(workIds).toHaveLength(10);
+    expect(new Set(workIds).size, 'each of the ten works has its own id').toBe(10);
+  });
+});
+
+// U7 — fromPuckData reads by type + named fields and never by id, so a document whose items carry
+// Puck's OWN generated ids (what a saved puck_data looks like after a drag) maps back exactly. This
+// pins that the id we now stamp is inert on the way back — the round-trip can't come to depend on it.
+describe('fromPuckData ignores component ids (U7)', () => {
+  it('a doc with Puck-style ids on every item round-trips the same as without', () => {
+    const bare = toPuckData(fullContent());
+    const withIds: PuckData = {
+      ...bare,
+      content: bare.content.map((c, i) => ({ ...c, props: { ...c.props, id: `puck-generated-${i}` } })),
+    };
+    expect(fromPuckData(withIds)).toEqual(fromPuckData(bare));
+  });
+});
+
+// U8 — an essentially empty résumé (no works/educations, empty skill items) must still project to a
+// valid, unique-id document and round-trip — a draft the agent just created, opened before any edit,
+// must not hand Puck a malformed shape.
+describe('an empty résumé still projects cleanly (U8)', () => {
+  const empty: ResumeContent = {
+    identity: { name: '', email: '', phone: '', locationLine: '', site: '' },
+    summary: '', coverLetter: '',
+    works: [], educations: [], skills: [{ category: '', items: [] }],
+    social: [], custom: [], accent: '', fontScale: 1, leftWidth: 0.9,
+    leftOrder: ['skills', 'education', 'custom'],
+  };
+  it('projects to header + summary + one skillset, all with unique ids', () => {
+    const content = toPuckData(empty).content;
+    expect(content.map((c) => c.type)).toEqual([SECTION.header, SECTION.summary, SECTION.skillset]);
+    expect(new Set(content.map((c) => c.props['id'])).size).toBe(content.length);
+  });
+  it('round-trips back to the same empty résumé', () => {
+    expect(fromPuckData(toPuckData(empty))).toEqual(empty);
+  });
+});
+
 describe('fromPuckData grouping (U3)', () => {
   it('groups by type in content order; keeps repeatable order; ignores unknown types', () => {
     const pd: PuckData = {
