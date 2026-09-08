@@ -32,14 +32,9 @@ test.describe('no-code/no-BYOAI visitor cannot chat ungated', () => {
 
   test('asking on the public index routes to /gate, no chat happens',
     async ({ page }) => {
-      // The homepage is a microsite installed at claim + auto-promoted once built; wait for
-      // it to be live before asking on it (else `/` shows the fallback, which has no ask box).
-      await expect.poll(
-        async () => (await page.request.get('/api/v1/homepage')).status(),
-        { timeout: 60_000, message: 'the default homepage auto-goes-live' },
-      ).toBe(200);
       await goto(page, '/');
-      // The homepage's ask box is the SDK AgentWidget's input; codeless, it hands off to /gate.
+      // `/` on an unedited instance is DefaultHome, rendered from current code (Q1); its ask box
+      // is the SDK AgentWidget's input. Codeless, it hands off to /gate.
       const input = page.locator('[data-testid="agent-widget-input"]');
       await expect(input).toBeVisible({ timeout: 20_000 });
       await input.fill('What are you working on?');
