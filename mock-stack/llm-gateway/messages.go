@@ -81,14 +81,6 @@ func (s *server) serveStream(w http.ResponseWriter, req *MessagesReq) {
 		http.Error(w, serr.Error(), http.StatusInternalServerError)
 		return
 	}
-	// [[slow-final:N]] —— corpus_read has already run → this is the call that produces the
-	// final answer. The sleep sits **before** message_start: the moment this call starts
-	// emitting frames, the frontend replaces the read throbber with the answer stream; by
-	// holding for N ms before any frame goes out, the read throbber ("reading X") stays put
-	// in the DOM long enough to assert on (test #9).
-	if d := markerDelay(req.markerText(), "slow-final"); d > 0 && req.hasToolResult(toolCorpusRead) {
-		time.Sleep(d)
-	}
 	if werr := emitMessageStart(sse, req.Model); werr != nil {
 		s.log.Warn("emit message_start", "err", werr)
 		return
@@ -241,7 +233,29 @@ func (s *server) emitToolUseTurnN(sse *sseWriter, calls []ScriptedToolCall) {
 	}
 }
 
+// slowFinalHold —— [[slow-final:N]] holds N ms before the FIRST frame of the final answer
+// goes out, so a throbber parked on the last tool ("reading X") stays in the DOM long enough
+// for a DOM assertion to catch it (test #9).
+//
+// It lives HERE, in the only path that emits a final answer, rather than in serveStream where
+// it used to sit behind `hasToolResult("corpus_read")`. That guard was the mock INFERRING
+// "this is the last call" from the wire shape of the message history — an inference it never
+// had to make, because dispatch has already decided: no registration matched, so this call IS
+// the final answer. The inference silently went false and the hold never fired; the product
+// was fine, the device was not. `has_read_result` is logged (not branched on) so the wire
+// shape stays visible if it ever matters again.
+func (s *server) slowFinalHold(req *MessagesReq) {
+	d := markerDelay(req.markerText(), "slow-final")
+	if d <= 0 {
+		return
+	}
+	s.log.Info("slow-final hold", "delay_ms", d.Milliseconds(),
+		"has_read_result", req.hasToolResult(toolCorpusRead), "shape", req.shapeSummary())
+	time.Sleep(d)
+}
+
 func (s *server) emitFinalReply(sse *sseWriter, req *MessagesReq) {
+	s.slowFinalHold(req)
 	text, stop := s.reply, stopEndTurn
 	if scripted, scriptedStop, ok := s.queue.takeReplyFor(req.markerText()); ok {
 		text, stop = scripted, scriptedStop

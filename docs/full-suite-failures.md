@@ -152,15 +152,92 @@ gets fixed.
 | # | spec | error (from log) | what is known |
 |---|------|------------------|---------------|
 | 2 | `admin-sidebar.spec.ts:85` | `toHaveText` expected `6m 46s`, received `6m 50s` | **ROOT CAUSE PROVEN.** Reads the footer on /admin/dashboard, navigates to /admin/system, compares character-for-character. Both render `deployView(info).uptime` from one store (`AdminSidebar.tsx:179`, `SystemSection.tsx:60`) — already single-source — but the store refetches between the two reads, so it compares two moments of a running clock. Fix: read BOTH testids on ONE screen (the footer is on every admin page) in a single `page.evaluate`, keeping character-exact. UT `app/src/lib/admin/system-uptime-single-source.test.ts` written and proven RED (planted `uptime:'0s'`). |
-| 1 | `admin-nav-skeleton.spec.ts:26` | `route.continue: Route is already handled!` | The spec holds **every** `/api/admin/**` and assumes each held route stays continuable; a request that outlives the assertion makes `continue()` throw. Candidate: main's `5ca6055aa` moved the microsite build long-poll into a Web Worker. NOT established — `useLongPoll('/api/admin/microsites/wait')` mounts in DataSection/MicrositesSection and this spec only visits dashboard→wiki. Diagnose by logging the held URLs from the archive snapshot first. |
+| 1 | `admin-nav-skeleton.spec.ts:26` | `route.continue: Route is already handled!` | **TEST-WRONG (teardown race), fixed.** See below. |
 | 5 | `connector-err-midstream-sse-cut.spec.ts:111` | `cut happened before the turn finished streaming` (`event: done` present) | The tool call SUCCEEDED (`calendar_book` → `ok:true`), so connector wiring is fine. The cut lands after the turn completes — the harness races the stream. |
-| 16 | `reader-expired-session.spec.ts:37` | `locator('body')` expected visible, received **hidden** | A hidden `<body>` means the page did not render at all, not that a strip was wrong. Read the page snapshot in the archive before theorising. |
+| 16 | `reader-expired-session.spec.ts:37` | `locator('body')` expected visible, received **hidden** | **TEST-WRONG (preamble describes a shape the product left behind), fixed.** See below. |
 | 17 | `real-third-party-mcp-network.spec.ts:68` | `chatroom` `toContainText` — expected 1 substring, received 42 chars | "the real server actually downloads the local payload". This stack runs a `payload-origin` service; check whether the payload URL handed out is host-visible with a default port (Batch A's class) before looking elsewhere. |
 | 18 | `sources-page-does-not-promise-a-scan.spec.ts:43` | expected substring `jobs.fetch_new`; page says "Where the loop pulls listings from…" | **OWNER-DECIDED (2026-09-08): the owner-facing sources page does NOT name the MCP call.** So the GUARD is the wrong half, not the copy. Keep the half that holds — the page must not promise an automatic scan — and drop the requirement that it name `jobs.fetch_new`. Do not weaken the remaining half into something unfalsifiable: it must still go red on copy that implies listings arrive by themselves. |
-| 19 | `visitor-chat-throbber-reading-dom.spec.ts:65` | `[data-testid="tool-throbber-corpus_read"]` not found | Either the throbber testid moved or the tool never started. |
+| 19 | `visitor-chat-throbber-reading-dom.spec.ts:65` | `[data-testid="tool-throbber-corpus_read"]` not found | **PRODUCT-WRONG — this branch's own regression: the visitor's SSE no longer streams.** See below. |
 | 20 | `visitor-multi-conversation.spec.ts:79` | `floating-chat-input` expected disabled, received enabled | Turn budget shared across a member's conversations — the budget did not bite. |
 
-**Status: not started.**
+**Status: #1 / #16 / #19 DONE (2026-09-08). #2 / #5 / #17 / #18 / #20 not started.**
+
+### #19 — the traffic recorder silently removed `Flush` from every public route
+
+Not test drift. The testid never moved (`ChatTranscript.tsx:100` still renders
+`tool-throbber-${tool.name}`) and the tool DID run (archived `backend.log`:
+`agent tool start … name=corpus_read`). Measured on a live stack, with the mock holding 2.5 s
+after `corpus_read` so the window could not be missed: `chat-progress` read **THINKING** for the
+whole hold, and then `retrieval-summary` (built from `tool_completed`) and `answer-body` appeared
+in the **same 150 ms sample**. Tool frames written seconds earlier reached the browser only when
+the handler returned — **the turn is delivered as one batch**, which is exactly the buffering
+regression this spec's own header says it exists to catch.
+
+**Root cause**: `backend/internal/monitor/mw/middleware.go` — `statusRecorder` embeds the
+`http.ResponseWriter` **interface**, which promotes `Header`/`Write`/`WriteHeader` and nothing
+else. `Record` is on **every** public route (`boot_http_public.go:57`, via `recordedRoute`),
+`POST /api/v1/agent/turn` included. So downstream `pickFlusher` (`inference/proxy.go:172`) got
+`nil` and `writeSSEFrame` skipped every flush (`inference/proxy_wire.go:286`:
+`if flusher != nil`), while `http.NewResponseController` lost the write deadline
+(`inference/agent_turn.go:203`). The second loss was **already in the archived log** and nobody
+read it: `agent turn: extend write deadline unsupported … "feature not supported"` — that WARN is
+the fingerprint of an opaque writer wrapper, and it also means `http.Server.WriteTimeout` can cut
+any long turn again (F-A-44).
+
+Two capabilities disappeared and neither reported it: a nil flusher is "then don't flush", a
+missing deadline is a WARN. [[empty-is-not-json-null]] in the writer chain.
+
+**Fix**: the recorder hands on what it does not use — `Unwrap()` (what `ResponseController`
+follows) plus `Flush()` (a plain `w.(http.Flusher)` assertion does **not** follow `Unwrap`).
+Guard: `internal/monitor/mw/middleware_writer_test.go`, proven RED by disabling the two methods
+(`statusRecorder is not an http.Flusher — every SSE frame under Record buffers…`).
+
+`login_guard.go`'s `bufferedWriter` has the same embedded-interface shape and is deliberately
+left alone: it exists to buffer, so forwarding `Flush` would defeat it, and no SSE route is
+behind it.
+
+Harness note: the mock's `[[slow-final:N]]` hold moved from `serveStream` (where it sat behind
+`hasToolResult("corpus_read")`, the mock **inferring** from wire shape which call was the last
+one) into `emitFinalReply`, the only path that emits a final answer — dispatch has already
+decided that by then, so no inference is needed. `has_read_result` is now **logged, not branched
+on** (measured `true`, with `shape=user:text|assistant:tool_use|user:tool_result|assistant:tool_use|user:tool_result`),
+so the wire shape stays visible without anything depending on it. This did not cause the red; it
+removes a device that could fail quietly while looking like a product defect.
+
+### #1 — a test device whose teardown could fail the test
+
+The product is fine: `admin-nav-skeleton-fast.spec.ts` asserts the same skeleton on the same
+build, on a stricter budget (1500 ms), and is green. `admin-nav-skeleton.spec.ts` passes **alone**
+and failed only inside the full suite — a load-dependent race, not a defect.
+
+`releaseData()` only RESUMES the held handlers, on a microtask; they are still inside
+`route.continue()` while the test walks on to `await page.unroute(…)`. Plain `unroute` removes the
+pattern without waiting for them, Playwright continues those routes itself, and the handler's own
+`continue()` then throws `Route is already handled!` from line 38 — pointing at the product.
+The alternative reading (the page cancelled a held request) has no mechanism: the only
+`AbortController` in `app/src` is inside the long-poll worker (`lib/long-poll/long-poll.worker.ts`),
+and `useMicrosites` — its only mount — is not on dashboard or wiki.
+
+**Fix**: `page.unrouteAll({ behavior: 'ignoreErrors' })`. Every product assertion is unchanged;
+only the teardown of the device stops being able to fail the test.
+
+### #16 — the preamble described the shape the product left behind
+
+Also passes alone (484 ms) and failed only in the suite: a race against the very probe the spec
+is about. `expect(page.locator('body')).toBeVisible()` asserted nothing about F-L-11, and after
+the mount probe 401s it cannot hold — `session-recovery.ts:50` rescues the code into pending, and
+`visitor-root.tsx:47` renders the name picker as a **replacement** view, not an overlay, so the
+whole body is one fixed-position modal and its layout box is empty. Whether the assertion passed
+depended on whether the probe had resolved yet.
+
+**Fix**: assert the real post-recovery contract instead — `visitor-name-overlay` visible, then the
+strip hidden. Strictly stronger: `toBeHidden` on the strip passes just as well when nothing ever
+rendered ([[negated-assertion-passes-while-absent]]), so on its own it could not tell "validated
+away" from "not there yet"; the picker is the half that proves the probe ran.
+
+Also fixed in passing: `make dev-logs` ran `docker compose` with **no `-p`**, so on a machine
+running several per-checkout stacks it read whichever project the default naming resolved to —
+another checkout's logs, presented as this one's.
 
 ---
 
