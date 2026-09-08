@@ -19,6 +19,18 @@ export function codeReady(code: string): boolean {
   return code.replace(/-/g, '').length >= 3;
 }
 
+// adoptTyped —— what a controlled field's state should be once React attaches to it.
+//
+// The gate is server-rendered, so both fields are on screen and typable BEFORE
+// hydration. Keystrokes in that window reach the DOM and nowhere else: there is no
+// listener yet, and React does not clobber a value the visitor already put into a
+// hydrated input, so afterwards the field visibly holds text that no state knows
+// about. Taking the DOM value when state is still empty makes those keystrokes count.
+// State wins whenever it has anything, so this can never undo a later edit.
+export function adoptTyped(state: string, domValue: string | undefined): string {
+  return state === '' ? (domValue ?? '') : state;
+}
+
 // codeShapedForAutoSubmit —— whether the pasted text looks like a code
 // (≥ 4 chars after stripping dashes), worth auto-running a submit;
 // otherwise it just sits in the input waiting for the user to type more.

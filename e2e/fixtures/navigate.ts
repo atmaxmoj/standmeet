@@ -38,6 +38,19 @@ export async function goto(page: Page, path: string): Promise<void> {
   await page.goto(url);
 }
 
+// gotoUnhydrated —— navigate and stop at the **server HTML**: don't wait for `load`.
+//
+// For the one kind of spec that drives a page BEFORE React attaches (the caller holds
+// the `_next/static/chunks` requests to keep hydration from starting). `load` can never
+// fire while those are held, so the normal `goto` above would time out before the spec
+// got to touch anything. Everything else must keep using `goto` — see its note on why
+// `load` is the moment a real person looks at the page.
+export async function gotoUnhydrated(page: Page, path: string): Promise<void> {
+  await page.goto(`${APP_BASE}${path.startsWith('/') ? path : `/${path}`}`, {
+    waitUntil: 'commit',
+  });
+}
+
 // gotoOnHost —— the same instance, opened from a different **origin** (F-D-14).
 //
 // The browser treats `localhost` / `127.0.0.1` as a secure context; other hostnames
