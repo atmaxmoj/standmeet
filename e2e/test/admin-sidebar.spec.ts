@@ -97,6 +97,11 @@ test.describe('admin sidebar badges + nav', () => {
       ).toHaveText(OWNER.handle);
       await expect(page.getByTestId('sidebar-uptime'), 'uptime 必须是个真时长,不是占位横杠')
         .toHaveText(/^\d+[hms]/);
+      // Wait for the system page's own uptime to have a value BEFORE sampling. The two render
+      // from one store, but not necessarily in the same paint: the footer mounts with the shell
+      // while the section is still fetching, so sampling immediately reads "" here and the
+      // comparison below fails with the feature working.
+      await expect(page.getByTestId('system-uptime')).toHaveText(/^\d+[hms]/);
       // Sample BOTH in ONE evaluate, from one paint. They render from a single store value
       // (`deployView(info).uptime` — AdminSidebar.tsx, SystemSection.tsx), so at any single
       // instant they are equal; two separate reads can still straddle a refetch. Character-exact
