@@ -87,7 +87,76 @@ selftest() {
   return 0
 }
 
+# ── the same rule, one layer down: a PORT that addresses a stack ────────────────────────────
+#
+# A compose service can hand the BROWSER a URL. `STORAGE_PUBLIC_URL` (presigned objects) and
+# `GOOGLE_AUTH_URL` (the OAuth consent hop) are both of these: the browser runs on the host, so
+# the URL must name a PUBLISHED port. Every other URL in that file names the internal network
+# (`external-mock:9000`), where a literal port is correct and required.
+#
+# Both host-visible ones were written literally, and both were missed by the sweep that
+# parameterised the `ports:` lists — because a `ports:` entry looks like a port and an
+# environment value looks like a string. `STORAGE_PUBLIC_URL=http://localhost:9200` sent every
+# presigned URL to whichever stack owned 9200: 404 NoSuchKey, which reads as the product losing
+# files. `GOOGLE_AUTH_URL=http://localhost:9000` sent the OAuth dance to a neighbour's mock,
+# which had no matching state: 401, which reads as OAuth being broken. Seven specs red, and the
+# first hour of diagnosis went into the product.
+#
+# The list of ports is DERIVED from the example env file, so a knob added tomorrow is covered
+# without anyone editing this gate ([[reframes-tasks-into-enforced-invariants]]).
+
+# knob_defaults —— every port the example file declares a default for, one per line.
+knob_defaults() {
+  grep -E '^(DEV|PROD)_PORT_[A-Z_]+=[0-9]+$' .dev-stack.env.example | cut -d= -f2 | sort -u
+}
+
+# port_pattern —— those ports as one alternation, anchored so `localhost:9000` matches and
+# `localhost:${DEV_PORT_EXTERNAL_MOCK:-9000}` does not (a `$` follows the colon there).
+port_pattern() {
+  printf 'localhost:(%s)' "$(knob_defaults | tr '\n' '|' | sed 's/|$//')"
+}
+
+# scan_ports —— host-visible URLs in the compose files naming a default port literally.
+# `CMD` lines are healthchecks, which run INSIDE the container: there `localhost:<internal port>`
+# is the correct spelling, and the internal port may collide with another service's published
+# default (minio answers on 9000 internally, which is external-mock's published default).
+scan_ports() {
+  for f in docker-compose.dev.yml docker-compose.prod.yml; do
+    [ -f "$f" ] || continue
+    grep -nE "$(port_pattern)" "$f" | grep -v 'CMD' | while read -r line; do
+      echo "$f:$line"
+    done
+  done
+}
+
+# selftest_ports —— the literal must go red, the derived spelling and a non-knob port must not.
+selftest_ports() {
+  pat=$(port_pattern)
+  bad='      - GOOGLE_AUTH_URL=http://localhost:9000/google-oauth/auth'
+  echo "$bad" | grep -qE "$pat" \
+    || { echo "check-no-hardcoded-dev-stack: port self-test failed — did not catch: $bad"; exit 2; }
+  for ok in \
+    '      - GOOGLE_AUTH_URL=http://localhost:${DEV_PORT_EXTERNAL_MOCK:-9000}/google-oauth/auth' \
+    '      - STORAGE_PUBLIC_URL=http://localhost:${DEV_PORT_MINIO:-9200}' \
+    '      test: ["CMD", "curl", "-fsS", "http://localhost:7700/health"]'
+  do
+    echo "$ok" | grep -qE "$pat" \
+      && { echo "check-no-hardcoded-dev-stack: port self-test failed — rejects a correct line: $ok"; exit 2; }
+  done
+  return 0
+}
+
 selftest
+selftest_ports
+port_violations=$(scan_ports)
+if [ -n "$port_violations" ]; then
+  echo "check-no-hardcoded-dev-stack: a host-visible URL names a default port literally —"
+  echo "$port_violations" | sed 's/^/  /'
+  echo "  This URL is handed to the BROWSER, so it must name the port THIS checkout publishes."
+  echo '  Write it as ${DEV_PORT_<KNOB>:-<default>}. If the backend calls it itself, use the'
+  echo "  compose service name instead (http://external-mock:9000) — that is not host-visible."
+  exit 1
+fi
 violations=$(scan)
 if [ -n "$violations" ]; then
   echo "check-no-hardcoded-dev-stack: the dev stack is addressed by a literal name —"
@@ -100,3 +169,6 @@ fi
 count=$(git grep -l -F 'standmeet-dev' -- . | wc -l | tr -d ' ')
 echo "check-no-hardcoded-dev-stack: nothing addresses the dev stack by name; $count file(s) carry it as a fallback default only"
 echo "                              (self-test passed: both violation shapes go red, all five defaulting syntaxes stay green)."
+nports=$(knob_defaults | wc -l | tr -d ' ')
+echo "                              no host-visible URL names any of the $nports knob default port(s) literally"
+echo '                              (self-test passed: the literal goes red, the ${KNOB:-default} spelling and a non-knob port stay green).'

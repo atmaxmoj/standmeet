@@ -154,7 +154,14 @@ services:
       # be host-reachable (localhost). The other two are POSTed by the
       # backend itself, so they use the service-name address.
       # Unset in prod → backend talks to real Google.
-      - GOOGLE_AUTH_URL=http://localhost:9000/google-oauth/auth
+      # The ONE host-visible URL in this block. Every sibling below is `external-mock:9000` —
+      # the internal network — because the backend calls them itself. This one the BROWSER
+      # follows (the OAuth consent hop), so it must name the port this checkout publishes.
+      # When it stayed literal, an offset checkout handed the browser the DEFAULT port, which
+      # belongs to whichever stack owns it: the dance reached a NEIGHBOUR's mock, which had no
+      # matching state and answered 401. Reads as "OAuth is broken", not as "wrong container" —
+      # the exact failure the comment at Makefile:55 describes.
+      - GOOGLE_AUTH_URL=http://localhost:${DEV_PORT_EXTERNAL_MOCK:-9000}/google-oauth/auth
       - GOOGLE_TOKEN_URL=http://external-mock:9000/google-oauth/token
       - GOOGLE_CALENDAR_BASE=http://external-mock:9000/google-calendar
       # Connector SSRF egress allow-list (hostname). The mock resolves to a private
