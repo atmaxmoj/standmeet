@@ -301,3 +301,31 @@ func (s *statusRecorder) WriteHeader(code int) {
 	s.status = code
 	s.ResponseWriter.WriteHeader(code)
 }
+
+// Flush / Unwrap —— a wrapper must hand on the writer capabilities it does not use.
+//
+// Embedding the `http.ResponseWriter` INTERFACE promotes exactly its three methods. Everything
+// a streaming handler reaches for OUTSIDE that interface — `http.Flusher`, and the write
+// deadline `http.NewResponseController` needs — stops being reachable the moment this recorder
+// is in the chain. `Record` is on every public route, so that included `POST /api/v1/agent/turn`,
+// the visitor chat SSE.
+//
+// Nothing reported it. `writeSSEFrame` treats a nil flusher as "then don't flush"
+// (inference/proxy_wire.go:286) and `extendStreamWriteDeadline` downgrades to a WARN
+// (inference/agent_turn.go:203). So the visitor's whole turn — tool_started, tool_completed,
+// every text delta — arrived in ONE batch when the handler returned: the progress throbber
+// ("searching…", "reading <doc>") never got a frame to paint in, and the reader watched
+// "thinking" until the finished answer appeared. The second half is worse: without the deadline
+// extension, `http.Server.WriteTimeout` cuts any turn that outlives it — F-A-44 again, the very
+// thing extendStreamWriteDeadline exists to prevent.
+//
+// Unwrap is what `http.NewResponseController` follows; Flush has to be declared here because a
+// plain `w.(http.Flusher)` type assertion does not follow Unwrap.
+func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
+
+func (s *statusRecorder) Flush() {
+	// A writer with nothing flushable underneath has nothing to flush — the same nothing that
+	// happened before, except now it is this line's decision instead of a silent capability loss.
+	//nolint:errcheck,gosec // http.Flusher.Flush returns nothing — there is no caller to tell
+	http.NewResponseController(s.ResponseWriter).Flush()
+}

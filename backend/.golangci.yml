@@ -464,6 +464,11 @@ linters:
       # sweep TOCTOU test uses unexported Manager fields + stillStale → in-package white-box.
       - path: internal/capabilities/sandboxws/
         linters: [testpackage]
+      # monitor/mw's statusRecorder is the unexported ResponseWriter wrapper Record puts on every
+      # public route; the test asserts it still forwards Flush + the write deadline (losing them
+      # silently un-streamed the visitor's SSE), so it must be in-package white-box.
+      - path: internal/monitor/mw/
+        linters: [testpackage]
       # dbq repro asserts the generated UpdateNoteSEO query string (unexported const) carries the
       # owner_id tenant filter → must be in-package white-box (now in corpus's db subpackage).
       - path: internal/corpus/db/

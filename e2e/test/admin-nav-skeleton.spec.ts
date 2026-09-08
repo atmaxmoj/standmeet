@@ -48,6 +48,14 @@ test.describe('admin section nav shows an instant skeleton (Q2)', () => {
       'the section skeleton must appear during load, not the old screen').toBeVisible({ timeout: 5_000 });
 
     releaseData(); // let the section's data through now
-    await page.unroute('**/api/admin/**');
+    // unrouteAll, not unroute: releaseData() only RESUMES the held handlers (on a microtask),
+    // so they are still mid-`route.continue()` while the test walks on. Plain `page.unroute`
+    // tears the pattern down without waiting for them, Playwright continues those routes
+    // itself, and the handler's own `continue()` then throws "Route is already handled!" —
+    // from line 38, as if the product had done something. Which side of that race wins is
+    // machine load: this spec passed alone and failed inside the full suite. The teardown of a
+    // test DEVICE must not be able to fail the test; every product assertion above is
+    // untouched.
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
   });
 });

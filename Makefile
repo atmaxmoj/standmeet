@@ -1059,7 +1059,8 @@ dev-restart-svc:
 # dev-logs —— tail a service's logs (for diagnosis). Usage: make dev-logs SVC=backend N=80
 dev-logs:
 	@test -n "$(SVC)" || (echo "usage: make dev-logs SVC=<service> [N=<lines>]"; exit 2)
-	@docker compose -f docker-compose.dev.yml logs --tail=$(if $(N),$(N),60) $(SVC)
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml logs \
+		--tail=$(if $(N),$(N),60) $(SVC)
 
 # prod-logs —— same as above, but against the real-env stack (when a real-env audit's manual
 # drive goes wrong, reading its logs is the first step).

@@ -182,6 +182,22 @@ func collectToolUseIDs(window []Msg, name string) map[string]bool {
 	return out
 }
 
+// shapeSummary —— the message history as `role:blocktype+blocktype|…`, e.g.
+// `user:text|assistant:tool_use|user:tool_result`. The one fact that decides whether a
+// wire-shape reader (hasToolResult) can see what it is looking for, and the one fact no
+// existing log carried: when the shape drifts, the reader goes quietly false.
+func (r *MessagesReq) shapeSummary() string {
+	parts := make([]string, 0, len(r.Messages))
+	for i := range r.Messages {
+		types := make([]string, 0, len(r.Messages[i].Content))
+		for j := range r.Messages[i].Content {
+			types = append(types, r.Messages[i].Content[j].Type)
+		}
+		parts = append(parts, r.Messages[i].Role+":"+strings.Join(types, "+"))
+	}
+	return strings.Join(parts, "|")
+}
+
 func anyToolResultIn(m *Msg, ids map[string]bool) bool {
 	if m.Role != "user" {
 		return false
