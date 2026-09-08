@@ -122,7 +122,25 @@ The golden (#13) is stale in both directions — it lost those 3 and has not gai
 #13 regenerates the golden — and the two monitor tools must be in it, which is this branch's
 obligation, not drift.
 
-**Status: not started.**
+**Status: DONE (2026-09-08).** `make test-only REPEAT=5` green on all three (15 / 25 / 40 passed).
+
+- #12 → `microsite.set_seo`, then read back through `microsite.list`: a receipt that echoes its own
+  request proves nothing, so the read-back is the half that carries the information.
+- #14 → `microsite.list` reads back SEO seeded in `setup`. `seo.stats`' other half (published
+  wiki / output / writing counts) has **no successor tool** on the microsite path and is not
+  re-checked; recorded here rather than dropped silently.
+- #13 → golden is now 157 names, **derived, not guessed**: every `fp.OwnerAction()`/`fp.OwnerRead()`
+  op declared in `backend/` (132 of them) was scanned and diffed against the list. The diff was
+  exactly −3 / +6, matching this row. Removed `seo.get_settings`, `seo.stats`,
+  `seo.update_settings`; added `appearance.set_favicon`, `codes.rotate`, `microsite.rename`,
+  `microsite.set_seo`, `monitor.events`, `monitor.stats`. The stale hand-written **count** in the
+  header (143, while the list held 154) is gone — a number nobody can check from the list below it
+  is a second fact with its own drift.
+
+Red was sealed by mechanism, not experiment: this checkout had 0 containers (`make test-red`
+refuses without a running stack), and `grep 'ID: "seo\.'` over `backend/` returns only
+`seo.set_entry_seo` — a dispatcher can only serve a declared op, which is the archived
+`tool 'seo.…' not found` verbatim.
 
 ---
 

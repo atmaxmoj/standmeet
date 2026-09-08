@@ -20,10 +20,15 @@
 // schema_valid_test as a backstop; this spec pins down "a real client can
 // discover the complete toolset" at the e2e level.
 //
-// golden = every owner_only tool (132 built-in + 10 from the jobs plugin + 1
-// declared by a connector manifest = 143). This spec goes red when an owner
+// golden = every owner_only tool: the ops declared with fp.OwnerAction() /
+// fp.OwnerRead() on the host side, plus the ones a capability plugin or a
+// connector manifest declares for itself. This spec goes red when an owner
 // tool is added or removed -- that's **deliberate**: it forces you to update
 // the toolset expectation in sync.
+//
+// No count is written down here on purpose. The count was wrong every time it
+// was quoted (143 while the list held 154), and a number nobody can check from
+// the list below is a second fact with its own drift.
 //
 // WARNING: **this hand-written list has gone stale for the third time now**
 // (F-P-6). It's a checker that "requires someone to remember to update it" --
@@ -54,7 +59,7 @@ const OWNER = {
   handle: 'normtoolset', fullName: 'Norm Toolset Owner',
 };
 
-// GOLDEN -- tools/list must return exactly these 139 owner tools (compared
+// GOLDEN -- tools/list must return exactly these owner tools (compared
 // after sorting; ordering noise is decided by mcp-go's registration order,
 // which is out of this spec's responsibility). Once facade-parity debt was
 // fully paid off (56 -> 0): every admin-facade owner capability has an
@@ -65,9 +70,17 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'me',
   // wiki / output are merged into one op (genre is a parameter) -- the admin
   // panel has long been a single route for this.
-  'seo.set_entry_seo', 'seo.update_settings',
-  'seo.get_settings', 'seo.stats',
+  //
+  // seo.set_entry_seo is the ONLY seo.* tool left. The global site-SEO settings
+  // (seo.get_settings / seo.stats / seo.update_settings) were removed in
+  // 7037a434e: **SEO follows each microsite**, and is set through
+  // microsite.set_seo further down. Their absence here is the design, not drift.
+  'seo.set_entry_seo',
   'codes.create', 'codes.revoke', 'codes.update_quotas',
+  // codes.rotate -- leak recovery: a new STRING on the same code id. Embeds and
+  // application rows keyed on the id keep working; every distributed copy of the
+  // old string (a résumé QR, a shared ?code= link) stops.
+  'codes.rotate',
   'codes.list', 'codes.list_members',
   'codes.list_denials', 'codes.add_denial', 'codes.remove_denial',
   // These four used to exist only on the admin panel (waypoints read/write /
@@ -146,6 +159,12 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'microsite.write_file', 'microsite.get_draft', 'microsite.build', 'microsite.delete',
   'microsite.promote_to_staging', 'microsite.promote_to_live',
   'microsite.rollback',
+  // microsite.rename -- change a page's /p/<slug> address. Bound access codes
+  // follow the rename; the reserved `home` slug can be neither source nor target.
+  'microsite.rename',
+  // microsite.set_seo -- the successor to the removed global SEO settings: SEO
+  // follows each microsite, injected into that page's served <head>.
+  'microsite.set_seo',
   // assets.* -- the global asset pool (Resources -> Assets): list it, see who references an
   // asset, and delete one (refused while a corpus entry / microsite still uses it).
   'assets.list', 'assets.references', 'assets.pool_delete',
@@ -173,6 +192,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // way of writing the same thing the sandbox already had.
   'calendar.list_slots', 'calendar.cancel_booking', 'bookings.list',
   'set_owner_css', 'appearance.get_css',
+  // appearance.set_favicon -- point /favicon.ico at an uploaded asset (asset_id
+  // from assets.list); empty clears it back to the product default.
+  'appearance.set_favicon',
   // connectors
   'connectors.list', 'connectors.catalog', 'connectors.status',
   'connectors.create', 'connectors.update', 'connectors.delete',
@@ -204,6 +226,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // owed it after moving into the convergence point.
   'instance.corpus_graph',
   'instance.activity', 'instance.jobs',
+  // monitor -- visitor traffic. This branch's own two tools: the raw event feed
+  // and the summary (viewers / visits / views / events / bots are five different
+  // counts). They belong in this golden the day they ship, which is now.
+  'monitor.events', 'monitor.stats',
   // instance.upgrade / upgrade_check -- the product-owned self-upgrade (a newer StandMeet
   // release is applied by the instance itself, not by touching the deploy host). Both are
   // owner tools; this golden was never updated when they landed (the recurring drift the
