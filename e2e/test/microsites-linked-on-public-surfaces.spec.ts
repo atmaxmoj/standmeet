@@ -90,13 +90,10 @@ test.describe('a published microsite is discoverable on the public surfaces', ()
   });
 
   test('the index links the live page via its page-nav widget', async ({ page }) => {
-    // The index is the custom `home` page now; wait for it to auto-go-live, then its PageNavWidget
-    // lists the other published pages (the old built-in "pages deck" / homepage footer are gone —
-    // discovery on the index is the widget; discovery on the gate is the panel below).
-    await expect.poll(
-      async () => (await page.request.get('/api/v1/homepage')).status(),
-      { timeout: 60_000, message: 'the default homepage auto-goes-live' },
-    ).toBe(200);
+    // The index of an unedited instance is DefaultHome (Q1: rendered from current code, no `home`
+    // microsite exists), and its PageNavWidget lists the owner's published pages — the old built-in
+    // "pages deck" / homepage footer are gone. Discovery on the index is the widget; discovery on
+    // the gate is the panel below.
     await goto(page, '/');
     const nav = page.getByTestId('page-nav-widget');
     await expect(nav, 'the homepage lists other pages once one is live').toBeVisible();

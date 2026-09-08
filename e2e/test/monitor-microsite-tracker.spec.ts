@@ -6,10 +6,11 @@
 // that page freely, and anything they can delete by tidying their own file is not
 // instrumentation, it is a suggestion.
 //
-// So this spec builds the real default homepage (no file is written; the shipped template is what
-// is under test), drives it in a browser, and reads the rows back. It is slow — a real vite build
-// in the sandbox — and there is no cheaper honest path: a tracker that never made it into a build
-// is exactly the failure this file exists to catch, and only a build can show it.
+// So this spec builds the real default homepage — the source is read from the file the backend
+// embeds, so the shipped template is what is under test, not a stub written here — drives it in a
+// browser, and reads the rows back. It is slow — a real vite build in the sandbox — and there is
+// no cheaper honest path: a tracker that never made it into a build is exactly the failure this
+// file exists to catch, and only a build can show it.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -21,8 +22,7 @@ import { initMCP } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
 import { readEvents } from '@/fixtures/monitor';
 import type { MonitorEvent } from '@/fixtures/monitor';
-
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
+import { seedDefaultHomepage } from '@/fixtures/microsite-rig';
 
 const OWNER = {
   email: 'monitor-microsite@example.com', password: 'correct-horse-battery-staple',
@@ -136,19 +136,6 @@ async function trackerRow(
   return found;
 }
 
-interface ApiResult { status: number; body: Record<string, unknown> }
-
-async function pagesApi(
-  request: APIRequestContext, csrf: string,
-  method: 'get' | 'post', path: string, data?: unknown,
-): Promise<ApiResult> {
-  const url = `${BACKEND}/api/admin/microsites${path}`;
-  const opts = { headers: { 'X-Csrftoken': csrf }, ...(data === undefined ? {} : { data }) };
-  const res = method === 'get' ? await request.get(url, opts) : await request.post(url, opts);
-  const body = res.ok() ? (await res.json()) as Record<string, unknown> : {};
-  return { status: res.status(), body };
-}
-
 async function buildHomepage(playwright: Playwright): Promise<void> {
   resetInstance();
   const request: APIRequestContext = await playwright.request.newContext();
@@ -165,19 +152,8 @@ async function buildHomepage(playwright: Playwright): Promise<void> {
   await publishEntry(request, token, sid, {
     genre: 'wiki', id: note.wikiID, excerpt: 'a curated card excerpt',
   });
-  // The `home` page claim already installed — built from the shipped template, so the template
-  // itself is what this spec exercises.
-  const started = await pagesApi(request, csrf, 'post', '/home/build');
-  expect(started.status, 'start home build').toBe(200);
-  const id = started.body['build_id'] as string;
-  let row: Record<string, unknown> = {};
-  await expect.poll(async () => {
-    row = (await pagesApi(request, csrf, 'get', `/builds/${id}`)).body;
-    return (row['status'] as string | undefined) ?? 'pending';
-  }, { timeout: 300_000, intervals: [2000] }).toMatch(/^(built|failed)$/);
-  const why = row['error_message'];
-  expect(row['status'], typeof why === 'string' ? why : '').toBe('built');
-  const live = await pagesApi(request, csrf, 'post', '/home/live', { build_id: id });
-  expect(live.status, 'promote home to live').toBe(200);
+  // Claim no longer installs the `home` page (it renders DefaultHome from current code instead),
+  // so this spec creates it — from the shipped template, which is what it exercises.
+  await seedDefaultHomepage(request, csrf);
   await request.dispose();
 }

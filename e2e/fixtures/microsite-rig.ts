@@ -10,6 +10,9 @@
 // Every assertable point on the page carries data-sm: the assertion is about what
 // the page produces, not what it looks like.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { expect } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 
@@ -131,6 +134,7 @@ async function pageAPI(
 // real defect ([[red-in-the-wrong-place]]).
 export async function publishPage(
   request: APIRequestContext, csrf: string, slug: string, source = ASK_PAGE,
+  buildTimeoutMs = 180_000,
 ): Promise<void> {
   await pageAPI(request, csrf, 'post', '/', { slug, title: slug });
   await pageAPI(request, csrf, 'put', `/${slug}/files`, { path: 'App.tsx', content: source });
@@ -143,11 +147,35 @@ export async function publishPage(
     return (row['status'] as string | undefined) ?? 'pending';
     // 180s is a **queueing** budget: the sandbox builds one at a time, and
     // several cases in this family each need a real build.
-  }, { timeout: 180_000, message: 'the build never settled' }).toMatch(/^(built|failed)$/);
+  }, { timeout: buildTimeoutMs, message: 'the build never settled' }).toMatch(/^(built|failed)$/);
   const why = row['error_message'];
   expect(row['status'], typeof why === 'string' ? why : '').toBe('built');
   const live = await pageAPI(request, csrf, 'post', `/${slug}/live`, { build_id: id });
   expect(live.status, 'promote to live').toBe(200);
+}
+
+// SHIPPED_HOMEPAGE —— the default homepage source, read from the very file the backend embeds
+// (`//go:embed defaulthomepage/App.tsx`, owner/usecase/default_homepage.go). Never re-typed here:
+// a spec whose subject is "the homepage the product ships" would silently stop testing that the
+// moment a hand-written stub drifted from the real template ([[rigged-test-fed-the-answer]]).
+const SHIPPED_HOMEPAGE = readFileSync(
+  join(__dirname, '../../backend/internal/owner/usecase/defaulthomepage/App.tsx'), 'utf-8',
+);
+
+// seedDefaultHomepage —— make the reserved `home` page exist, live, from the shipped template —
+// create → write → build → promote, the same four calls an owner's client makes.
+//
+// Claim does NOT create it any more (185c4321b: `/` renders DefaultHome from current code instead
+// of freezing a starter template into the owner's storage), so a fresh instance has no `home` row
+// at all: `/api/v1/homepage` and `/api/admin/microsites/home/build` both 404. Only a spec whose
+// subject is the BUILT homepage needs this; a spec that just needs `/` to show the ask box gets
+// that from DefaultHome with no seeding at all.
+export async function seedDefaultHomepage(
+  request: APIRequestContext, csrf: string,
+): Promise<void> {
+  // 300s rather than the shared 180s: this build bundles the SDK for real, and a loaded local
+  // sandbox settles right at the 180s edge — a race whose red reads as "the homepage is broken".
+  await publishPage(request, csrf, 'home', SHIPPED_HOMEPAGE, 300_000);
 }
 
 // setPageByoai —— whether this page lets readers bring their own key.
