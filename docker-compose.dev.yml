@@ -48,6 +48,15 @@ services:
       start_period: 10s
 
   backend:
+    # A full suite runs ~1.2h and the archive is the ONLY place a failure can be diagnosed from
+    # ("diagnose from the ARCHIVE" — docs/full-suite-failures.md). With Docker's default rotation
+    # the archived backend.log covered the last 18 MINUTES of a 72-minute run, so the cause of a
+    # failure at minute 46 was already rotated away when `archive-failures` copied it. Bound the
+    # log generously instead of leaving it to the default — and never by truncating a live
+    # json.log, which leaves the daemon writing at the old offset (see the global CLAUDE.md note).
+    logging:
+      driver: json-file
+      options: { max-size: "200m", max-file: "3" }
     build:
       context: .                   # repo root: backend links mcp-servers/* in-process
       dockerfile: backend/Dockerfile
@@ -372,6 +381,13 @@ services:
       retries: 10
 
   builder:
+    # Same reason as backend, and this one earned it: `build <id> failed: mark built: 500` appeared
+    # ONLY here — the backend's own view of that 500 had already rotated out, and the archive did
+    # not collect this container at all. A build that completes and then cannot be marked built is
+    # invisible from every other log in the stack.
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "3" }
     build:
       context: ./builder
     restart: unless-stopped

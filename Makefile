@@ -1132,8 +1132,10 @@ archive-failures:
 	@ls e2e/test-results/playwright 2>/dev/null | grep -q . || exit 0
 	@d="e2e/test-results-archive/$$(date -u +%Y%m%dT%H%M%SZ)"; \
 		mkdir -p "$$d" && cp -R e2e/test-results/playwright "$$d"/ && \
-		docker logs $(DEV_PROJECT)-backend-1 > "$$d/backend.log" 2>&1 || true; \
-		echo "[archive] failure artifacts → $$d/playwright ($$(ls e2e/test-results/playwright | wc -l | tr -d ' ') case dirs) + backend.log"
+		for svc in backend builder app; do \
+			docker logs $(DEV_PROJECT)-$$svc-1 > "$$d/$$svc.log" 2>&1 || true; \
+		done; \
+		echo "[archive] failure artifacts → $$d/playwright ($$(ls e2e/test-results/playwright | wc -l | tr -d ' ') case dirs) + backend/builder/app logs"
 
 # test-fresh —— same as test, but cleans first (down -v) so the db volume rebuilds and
 # reapplies from schema.sql. Use this when schema.sql has changed; pure code changes should
