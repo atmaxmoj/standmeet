@@ -113,6 +113,7 @@
       "template": "template",
       "visibility": "visibility",
       "access": "access",
+      "accessHelp": "A microsite can be bound to an access code. Once bound, this decides whether only people holding that code can open the page.",
       "updated": "updated",
       "actions": "actions"
     },

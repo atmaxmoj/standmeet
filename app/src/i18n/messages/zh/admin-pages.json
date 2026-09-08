@@ -113,6 +113,7 @@
       "template": "模板",
       "visibility": "可见性",
       "access": "访问",
+      "accessHelp": "微站可以绑定一个访问码。绑定后，这里决定是否只有持有该码的人才能打开这个页面。",
       "updated": "更新",
       "actions": "操作"
     },

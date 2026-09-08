@@ -113,6 +113,7 @@
       "template": "plantilla",
       "visibility": "visibilidad",
       "access": "acceso",
+      "accessHelp": "Un microsite puede vincularse a un código de acceso. Una vez vinculado, esto decide si solo quienes tienen ese código pueden abrir la página.",
       "updated": "actualizado",
       "actions": "acciones"
     },

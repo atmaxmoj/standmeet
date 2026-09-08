@@ -113,6 +113,7 @@
       "template": "template",
       "visibility": "visibility",
       "access": "access",
+      "accessHelp": "एक माइक्रोसाइट को एक्सेस कोड से बाँधा जा सकता है। बँधने पर, यह तय करता है कि केवल वही लोग पेज खोल सकें जिनके पास वह कोड हो।",
       "updated": "updated",
       "actions": "actions"
     },

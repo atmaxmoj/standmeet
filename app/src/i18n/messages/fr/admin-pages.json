@@ -113,6 +113,7 @@
       "template": "template",
       "visibility": "visibilité",
       "access": "accès",
+      "accessHelp": "Un microsite peut être lié à un code d'accès. Une fois lié, ceci détermine si seules les personnes possédant ce code peuvent ouvrir la page.",
       "updated": "mis à jour",
       "actions": "actions"
     },

@@ -113,6 +113,7 @@
       "template": "vorlage",
       "visibility": "sichtbarkeit",
       "access": "zugang",
+      "accessHelp": "Eine Microsite kann an einen Zugangscode gebunden werden. Ist sie gebunden, entscheidet dies, ob nur Personen mit diesem Code die Seite öffnen können.",
       "updated": "aktualisiert",
       "actions": "aktionen"
     },

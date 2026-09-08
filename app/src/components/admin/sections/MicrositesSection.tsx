@@ -178,6 +178,24 @@ function MicrositesTable({ rows }: { rows: readonly MicrositeSummary[] }) {
   );
 }
 
+// InfoTip —— a "?" that reveals a short explanation on hover/focus. The label carries the same text,
+// so keyboard + screen-reader users get it too, not only mouse hover.
+function InfoTip({ text }: { text: string }) {
+  return (
+    <span className="relative inline-flex group align-middle ml-1">
+      <span
+        tabIndex={0}
+        aria-label={text}
+        className="w-3.5 h-3.5 grid place-items-center rounded-full border border-(--color-rule) text-(--color-faint) text-[8px] cursor-help focus:outline-none focus:border-(--color-accent)"
+      >?</span>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute left-0 top-full mt-1 sm-z-float hidden group-hover:block group-focus-within:block w-60 normal-case tracking-normal font-normal rounded-[3px] border border-(--color-rule) bg-(--color-surface) px-2.5 py-1.5 text-[10.5px] leading-snug text-(--color-muted) shadow-lg"
+      >{text}</span>
+    </span>
+  );
+}
+
 function TableHead() {
   const t = useTranslations('adminPages.microsites.columns');
   return (
@@ -186,7 +204,9 @@ function TableHead() {
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('page')}</th>
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('template')}</th>
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('visibility')}</th>
-        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('access')}</th>
+        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">
+          {t('access')}<InfoTip text={t('accessHelp')} />
+        </th>
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('updated')}</th>
         <th className="text-right px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('actions')}</th>
       </tr>
@@ -259,20 +279,25 @@ function ByoaiVoid({ slug }: { slug: string }) {
 // "which codes unlock this page", reading on screen as
 // `…anonymous onlyno bring-your-own-key`: two sentences glued into one nobody could
 // parse (UX-98).
+// A pill toggle, not a text link: the old plain-accent text read as a label, not a control ("看不出
+// 它是可以点的"). The bordered pill + a state dot (filled = allowed) makes it obviously clickable and
+// shows on/off at a glance.
 function ByoaiButton({ page }: { page: MicrositeSummary }) {
   const t = useTranslations('adminPages.microsites');
   const { setByoai } = useMicrosites();
   const run = useAction();
-  const allow = page.allow_byoai ?? false;
+  const allow = page.allow_byoai === true;
   return (
     <button
       type="button"
-      className="block mono text-[10px] mt-1 text-(--color-accent) hover:underline"
+      className="inline-flex items-center gap-1.5 mono text-[10px] mt-1.5 px-2 py-0.5 rounded-full border border-(--color-rule) text-(--color-muted) hover:border-(--color-accent) hover:text-(--color-ink) transition-colors"
       data-testid={`microsite-byoai-${page.slug}`}
+      aria-pressed={allow}
       onClick={() => void run(() => setByoai(page.slug, !allow), {
         success: t(allow ? 'byoaiToastOff' : 'byoaiToastOn', { slug: page.slug }),
       })}
     >
+      <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${allow ? 'bg-(--color-accent)' : 'bg-(--color-faint)'}`} />
       {allow ? t('byoaiOn') : t('byoaiOff')}
     </button>
   );

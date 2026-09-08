@@ -113,6 +113,7 @@
       "template": "template",
       "visibility": "visibility",
       "access": "access",
+      "accessHelp": "マイクロサイトはアクセスコードに紐付けできます。紐付けると、そのコードを持つ人だけがこのページを開けるかどうかをここで決めます。",
       "updated": "updated",
       "actions": "actions"
     },
