@@ -154,6 +154,25 @@ func TestStdio_InitializeTimeoutOnHang(t *testing.T) {
 	require.Error(t, err)
 }
 
+// error-stream: a server that dies at STARTUP (bad import / missing dep) says why on
+// stderr and then exits, so the transport only ever reports `transport closed` — a
+// symptom every startup failure shares. The dial error must carry the child's own
+// stderr, or the log cannot distinguish the causes and diagnosis needs a by-hand
+// re-run inside the container (impossible in prod).
+// Replays the real 2026-09-08 failure: the vendored fetch plugin imported `McpError`
+// from an `mcp` that had renamed it to `MCPError`.
+func TestStdio_DialErrorCarriesChildStderr(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
+	const cry = "ImportError: cannot import name 'McpError'"
+	_, err := mcpclient.DialStdio(ctx, "/bin/sh",
+		[]string{"-c", "echo \"" + cry + "\" >&2; exit 1"}, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), cry,
+		"dial error must quote what the child printed before dying")
+}
+
 // error-stream/lifecycle: Close is idempotent; calling again after close → errors (no panic).
 func TestStdio_CloseIdempotentThenCallErrors(t *testing.T) {
 	t.Parallel()

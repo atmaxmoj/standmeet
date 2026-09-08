@@ -155,12 +155,44 @@ gets fixed.
 | 1 | `admin-nav-skeleton.spec.ts:26` | `route.continue: Route is already handled!` | **TEST-WRONG (teardown race), fixed.** See below. |
 | 5 | `connector-err-midstream-sse-cut.spec.ts:111` | `cut happened before the turn finished streaming` (`event: done` present) | The tool call SUCCEEDED (`calendar_book` → `ok:true`), so connector wiring is fine. The cut lands after the turn completes — the harness races the stream. |
 | 16 | `reader-expired-session.spec.ts:37` | `locator('body')` expected visible, received **hidden** | **TEST-WRONG (preamble describes a shape the product left behind), fixed.** See below. |
-| 17 | `real-third-party-mcp-network.spec.ts:68` | `chatroom` `toContainText` — expected 1 substring, received 42 chars | "the real server actually downloads the local payload". This stack runs a `payload-origin` service; check whether the payload URL handed out is host-visible with a default port (Batch A's class) before looking elsewhere. |
+| 17 | `real-third-party-mcp-network.spec.ts:68` | `chatroom` `toContainText` — expected 1 substring, received 42 chars | **PRODUCT-WRONG — inconsistent vendored plugin bundle, fixed.** See below. |
 | 18 | `sources-page-does-not-promise-a-scan.spec.ts:43` | expected substring `jobs.fetch_new`; page says "Where the loop pulls listings from…" | **OWNER-DECIDED (2026-09-08): the owner-facing sources page does NOT name the MCP call.** So the GUARD is the wrong half, not the copy. Keep the half that holds — the page must not promise an automatic scan — and drop the requirement that it name `jobs.fetch_new`. Do not weaken the remaining half into something unfalsifiable: it must still go red on copy that implies listings arrive by themselves. |
 | 19 | `visitor-chat-throbber-reading-dom.spec.ts:65` | `[data-testid="tool-throbber-corpus_read"]` not found | **PRODUCT-WRONG — this branch's own regression: the visitor's SSE no longer streams.** See below. |
 | 20 | `visitor-multi-conversation.spec.ts:79` | `floating-chat-input` expected disabled, received enabled | Turn budget shared across a member's conversations — the budget did not bite. |
 
-**Status: #1 / #16 / #19 DONE (2026-09-08). #2 / #5 / #17 / #18 / #20 not started.**
+**Status: #1 / #16 / #17 / #19 DONE (2026-09-08). #2 / #5 / #18 / #20 not started.**
+
+### #17 — the fetch plugin died at import, so the capability never existed
+
+`infra/plugins/provision.sh` installed `mcp-server-fetch==2026.6.4`, whose metadata declares
+`mcp>=1.1.3` with **no upper bound**. pip therefore resolved `mcp` 2.x, which renamed
+`McpError` → `MCPError` — the exact name `mcp_server_fetch/server.py` imports. The bundle
+installed clean and died on the first line of the module:
+
+```
+ImportError: cannot import name 'McpError' from 'mcp.shared.exceptions'. Did you mean: 'MCPError'?
+```
+
+Both `netfetch` and `cagedfetch` read that one bundle, so **both** capabilities failed to bind.
+The `:90` case ("egress denied") was green for the wrong reason: the tool did not exist at all,
+so of course nothing was fetched.
+
+Three defects, all fixed:
+
+1. **The bundle.** Bumped to `mcp-server-fetch==2026.8.18`, which upstream fixed by capping the
+   dependency itself (`mcp<2,>=1.29.0` in its PyPI `requires_dist`); pip now resolves `mcp` 1.30.0,
+   which still exports `McpError`. The constraint belongs in the package metadata, not duplicated
+   in our script — so `install_python_into` still takes one spec.
+2. **The bundle could not be repaired by the tool that creates it.** `install_python_into` skipped
+   on "directory exists", so changing the pin changed nothing on any machine that had already
+   provisioned, and re-running provisioning printed `already present` — which reads like success.
+   Each bundle now carries a `.provision-spec` stamp; a spec mismatch wipes and reinstalls.
+3. **The child's stderr was swallowed.** A server that dies at startup never speaks JSON-RPC, so
+   `mcpclient.DialStdio` reported only `transport closed` — the symptom every startup failure
+   shares — while the child had already printed the answer. `DialStdio` now drains the child's
+   stderr (bounded 2 KiB / 500 ms, *before* Close reaps the pipe) into the dial error. Guarded by
+   `TestStdio_DialErrorCarriesChildStderr`, proven RED: without the drain the message is exactly
+   `mcp server unreachable: stdio initialize [...]: transport error: transport closed`.
 
 ### #19 — the traffic recorder silently removed `Flush` from every public route
 
