@@ -48,6 +48,13 @@ const FULL_CODE = 'GATEUX-FULL';
 // different claim from "never existed".
 const REVOKED_CODE = 'GATEUX-REVOKED';
 
+// CODED_LANDING —— where redeeming a code puts the visitor: this code's OWN
+// `/c/<slug>` path, not the site root (app/src/lib/visitor/code-landing.ts —— no
+// microsite on these codes, so the URL soft-rewrites to /c/<slug>). Deliberately not
+// `**/`: that also matches the root, so it would stay green even if the landing
+// stopped happening at all.
+const CODED_LANDING = /\/c\/[^/?#]+$/;
+
 test.describe('gate code panel UX polish', () => {
   test.beforeAll(async ({ playwright }) => {
     test.setTimeout(180_000); // resetInstance takes ~48s under high load, and the default hook budget is only 30s
@@ -95,14 +102,14 @@ test.describe('gate code panel UX polish', () => {
   test('submit → checking state → button text changes',
     async ({ page }) => {
       await submitCode(page, CODE);
-      await page.waitForURL('**/', { timeout: 10_000 });
+      await page.waitForURL(CODED_LANDING, { timeout: 10_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
     });
 
   test('the strip and the welcome name THIS code’s slice, not the fallback (UX-68)',
     async ({ page }) => {
       await submitCode(page, CODE);
-      await page.waitForURL('**/', { timeout: 10_000 });
+      await page.waitForURL(CODED_LANDING, { timeout: 10_000 });
       const strip = page.getByTestId('session-strip');
       await expect(strip).toBeVisible({ timeout: 5_000 });
       // Pull the text out first, then assert: `.not.toContainText` also passes when the
@@ -120,7 +127,7 @@ test.describe('gate code panel UX polish', () => {
       await page.getByTestId('gate-code').fill(CODE);
       await page.getByTestId('gate-visitor-name').fill('Bob Smith');
       await page.getByTestId('gate-code-submit').click();
-      await page.waitForURL('**/', { timeout: 10_000 });
+      await page.waitForURL(CODED_LANDING, { timeout: 10_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('session-strip')).toContainText('Bob Smith');
     });

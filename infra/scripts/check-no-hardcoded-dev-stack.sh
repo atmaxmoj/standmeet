@@ -110,10 +110,26 @@ knob_defaults() {
   grep -E '^(DEV|PROD)_PORT_[A-Z_]+=[0-9]+$' .dev-stack.env.example | cut -d= -f2 | sort -u
 }
 
-# port_pattern —— those ports as one alternation, anchored so `localhost:9000` matches and
-# `localhost:${DEV_PORT_EXTERNAL_MOCK:-9000}` does not (a `$` follows the colon there).
+# port_pattern —— those ports as one alternation, after `localhost` and a SEPARATOR.
+#
+# The separator is itself an alternation, and that is the whole point. The first version of this
+# rule matched a literal colon only, and read the tree as clean while `writings.spec.ts` asserted
+#
+#     expect(src).toMatch(/localhost(%3A|:)9200/)
+#
+# — the default minio port, in a spec that then failed on a checkout publishing 9600. The literal
+# `localhost:9200` never appears there, so the gate could not see it: a verifier reporting clean
+# coverage it does not have ([[verifier-can-lie-about-its-own-coverage]]). The encoded spelling is
+# not exotic — a Next-optimized `src` carries the presigned URL as an ENCODED query parameter, so
+# any spec asserting on one is pushed toward exactly this form.
+#
+# Three spellings, enumerated rather than approximated: a fuzzy "localhost, then some junk, then
+# the port" would swallow unrelated lines, and `%3A` contains alphanumerics so the obvious
+# character-class shortcut does not work either.
+#
+# `localhost:${DEV_PORT_…:-9000}` still does not match — a `$` follows the colon there, not a digit.
 port_pattern() {
-  printf 'localhost:(%s)' "$(knob_defaults | tr '\n' '|' | sed 's/|$//')"
+  printf 'localhost(:|%%3A|\\(%%3A\\|:\\))(%s)' "$(knob_defaults | tr '\n' '|' | sed 's/|$//')"
 }
 
 # scan_ports —— host-visible URLs in the compose files naming a default port literally.
@@ -170,9 +186,14 @@ selftest_ports() {
   # the e2e half: a bare literal goes red, the env-read fallback stays green. Written as the
   # same two filters the real scan applies, in the same order, so the pair cannot drift apart.
   e2e_hits() { grep -E "$pat" | grep -v 'process\.env' || true; }
-  bad_ts="const DEFAULT_PUBLIC_URL = 'http://localhost:38127';"
-  [ -n "$(echo "$bad_ts" | e2e_hits)" ] \
-    || { echo "check-no-hardcoded-dev-stack: e2e self-test failed — did not catch: $bad_ts"; exit 2; }
+  for bad_ts in \
+    "const DEFAULT_PUBLIC_URL = 'http://localhost:38127';" \
+    'expect(src).toMatch(/localhost(%3A|:)9200/);' \
+    "expect(u).toContain('localhost%3A9200');"
+  do
+    [ -n "$(echo "$bad_ts" | e2e_hits)" ] \
+      || { echo "check-no-hardcoded-dev-stack: e2e self-test failed — did not catch: $bad_ts"; exit 2; }
+  done
   ok_ts="const B = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';"
   [ -z "$(echo "$ok_ts" | e2e_hits)" ] \
     || { echo "check-no-hardcoded-dev-stack: e2e self-test failed — rejects the env-read form"; exit 2; }

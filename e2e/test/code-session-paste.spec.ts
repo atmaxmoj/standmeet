@@ -25,6 +25,13 @@ const OWNER = {
 
 const VALID_CODE = 'PASTE-001';
 
+// CODED_LANDING —— where redeeming a code puts the visitor: this code's OWN
+// `/c/<slug>` path, not the site root (app/src/lib/visitor/code-landing.ts —— no
+// microsite on this code, so the URL soft-rewrites to /c/<slug>). Deliberately not
+// `**/`: that also matches the root, so it would stay green even if the landing
+// stopped happening at all.
+const CODED_LANDING = /\/c\/[^/?#]+$/;
+
 test.describe('gate code paste + error flows', () => {
   test.beforeAll(async ({ playwright }) => {
     await initOwnerWithCode(playwright);
@@ -46,8 +53,8 @@ test.describe('gate code paste + error flows', () => {
         input.dispatchEvent(ev);
         input.dispatchEvent(new Event('input', { bubbles: true }));
       }, VALID_CODE);
-      // auto-submit fires 50ms after paste → navigates to /
-      await page.waitForURL('**/', { timeout: 10_000 });
+      // auto-submit fires 50ms after paste → lands on this code's /c/<slug>
+      await page.waitForURL(CODED_LANDING, { timeout: 10_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
     });
 

@@ -31,6 +31,7 @@ import {
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { STORAGE_HOST_RE } from '@/fixtures/stack';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -175,7 +176,7 @@ test.describe('writings: atomic image upload via multipart save', () => {
       const cover = page.locator('[data-writing-cover]').first();
       const img = cover.locator('img').first();
       const src = await img.getAttribute('src');
-      expect(src).toMatch(/localhost(%3A|:)9200/);
+      expect(src).toMatch(STORAGE_HOST_RE);
       // F-I-1: assert the cover actually LOADS, not just that a URL is present. Next's image
       // optimizer 400s the presigned storage URL (host not in images.remotePatterns), so through
       // /_next/image the cover is a broken image. `unoptimized` serves the presigned URL directly.
@@ -209,7 +210,7 @@ test.describe('writings: atomic image upload via multipart save', () => {
       const img = page.getByTestId('writing-article-body').locator('img').first();
       await expect(img).toBeVisible();
       const src = await img.getAttribute('src');
-      expect(src).toMatch(/localhost(%3A|:)9200/); // presigned URL host (minio public)
+      expect(src).toMatch(STORAGE_HOST_RE); // presigned URL host (minio public, THIS checkout's port)
 
       // admin GET: body_md contains real asset UUID (not pending-) URI
       await assertAdminBodyHasURI(request, OWNER, 'image-writing');

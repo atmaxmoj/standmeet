@@ -14,10 +14,13 @@
 // `/admin/listings` gets it right, so the same product tells two different stories
 // on two pages.
 //
-// Two assertions, both aimed at **what this page says**:
-//   1. it must not promise an automatic scan (that's false);
-//   2. it must name the real entry point (`jobs.fetch_new`), otherwise the owner has
-//      nowhere to go.
+// ONE assertion now, aimed at **what this page says**: it must not promise an automatic
+// scan, because no periodic performs one.
+//
+// It used to carry a second — "it must name the real entry point (`jobs.fetch_new`)". The owner
+// removed that requirement on 2026-09-08: the owner-facing page does not carry the MCP call name.
+// The paragraph above is kept because it records why the FIRST assertion exists; the worry it
+// raises about the owner having nowhere to go is answered on `/admin/listings`, not here.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -48,8 +51,10 @@ test.describe('the sources page describes the fetch that actually exists', () =>
       const intro = await adminPage.getByTestId('sources-intro').innerText();
       expect(intro, 'the page must not promise a scheduled scan that no periodic performs')
         .not.toMatch(/scanned every|every \d+ minutes|automatically fetch/i);
-      expect(intro, 'the page must name the way listings actually arrive')
-        .toContain('jobs.fetch_new');
+      // The second half of this guard — "the page must name `jobs.fetch_new`" — was REMOVED by
+      // owner decision on 2026-09-08: the owner-facing sources page does not carry the MCP call
+      // name. Do not restore it. What remains is the half that still holds, and it is still
+      // falsifiable: copy claiming listings arrive on their own goes red above.
     });
 });
 

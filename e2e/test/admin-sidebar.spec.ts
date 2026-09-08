@@ -84,19 +84,31 @@ test.describe('admin sidebar badges + nav', () => {
   // system page.
   test('sidebar footer reports THIS instance and a real uptime (UX-27)',
     async ({ adminPage: page }) => {
-      await gotoAdminSection(page, 'dashboard');
+      // Go to /admin/system FIRST. The footer is on every admin page, so both uptimes are on
+      // THIS screen — and that is what makes the character-exact comparison below possible.
+      // The earlier shape read the footer on /admin/dashboard, navigated here, and compared: the
+      // store refetches across a navigation, so it was comparing two moments of a RUNNING clock
+      // and could only pass inside one second. It failed "6m 46s" vs "6m 50s" with the feature
+      // working exactly as designed.
+      await gotoAdminSection(page, 'system');
       await expect(
         page.getByTestId('sidebar-instance'),
         '页脚的 instance 必须是这台机器的 handle,不是产品名',
       ).toHaveText(OWNER.handle);
-      const footerUptime = page.getByTestId('sidebar-uptime');
-      await expect(footerUptime, 'uptime 必须是个真时长,不是占位横杠').toHaveText(/^\d+[hms]/);
-      // Same system-info: both places read the same store, so the literal text must match
-      // character for character. Asserting only "both look like a duration" isn't enough —
-      // that would also pass if each side computed its own independent value.
-      const footerText = (await footerUptime.innerText()).trim();
-      await gotoAdminSection(page, 'system');
-      await expect(page.getByTestId('system-uptime')).toHaveText(footerText);
+      await expect(page.getByTestId('sidebar-uptime'), 'uptime 必须是个真时长,不是占位横杠')
+        .toHaveText(/^\d+[hms]/);
+      // Sample BOTH in ONE evaluate, from one paint. They render from a single store value
+      // (`deployView(info).uptime` — AdminSidebar.tsx, SystemSection.tsx), so at any single
+      // instant they are equal; two separate reads can still straddle a refetch. Character-exact
+      // is kept deliberately: "both look like a duration" would also pass if each side computed
+      // its own value, which is the defect (UX-27) this test exists for. `deployView`'s own
+      // totality is covered by app/src/lib/admin/system-uptime-single-source.test.ts.
+      const [footerText, systemText] = await page.evaluate(() => [
+        document.querySelector('[data-testid="sidebar-uptime"]')?.textContent?.trim() ?? '',
+        document.querySelector('[data-testid="system-uptime"]')?.textContent?.trim() ?? '',
+      ]);
+      expect(footerText, '页脚 uptime 不能是空的 —— 空等于空会让下面那条断言永远成立').not.toBe('');
+      expect(systemText).toBe(footerText);
     });
 
   // #34: AdminShell mounts at the layout level → the sidebar doesn't remount when

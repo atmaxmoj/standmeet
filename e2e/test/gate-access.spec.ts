@@ -23,6 +23,13 @@ const OWNER = {
 
 const CODE = 'INTRO-001';
 
+// CODED_LANDING —— where redeeming a code puts the visitor: this code's OWN
+// `/c/<slug>` path, not the site root (app/src/lib/visitor/code-landing.ts —— no
+// microsite on this code, so the URL soft-rewrites to /c/<slug>). Deliberately not
+// `**/`: that also matches the root, so it would stay green even if the landing
+// stopped happening at all.
+const CODED_LANDING = /\/c\/[^/?#]+$/;
+
 test.describe('visitor uses a gate code to enter a private page', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
@@ -35,7 +42,7 @@ test.describe('visitor uses a gate code to enter a private page', () => {
     await request.dispose();
   });
 
-  test('typing code on /<handle>/gate lands visitor on /<handle>',
+  test('typing code on /<handle>/gate lands visitor on that code’s /c/<slug>',
     async ({ page }) => {
       await page.getByRole('link', { name: 'request access ↗' }).click();
       await page.waitForURL('**/gate', { timeout: 10_000 });
@@ -43,7 +50,7 @@ test.describe('visitor uses a gate code to enter a private page', () => {
       await page.getByTestId('gate-code').fill(CODE);
       await page.getByTestId('gate-visitor-name').fill('Sarah (HR)');
       await page.getByTestId('gate-code-submit').click();
-      await page.waitForURL('**/', { timeout: 10_000 });
+      await page.waitForURL(CODED_LANDING, { timeout: 10_000 });
       // A coded visitor now sees ChatRoom (focused chat), not the long-scroll page.
       // Verify session-strip is visible + chat input is visible.
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
