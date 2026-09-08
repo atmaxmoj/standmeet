@@ -7,8 +7,16 @@
 # It installs in a temp dir OUTSIDE the pnpm monorepo (a bare `npm install` under
 # infra/ walks up to the workspace root and dies), then copies node_modules in.
 #
-# Idempotent: skips a plugin whose node_modules already exists. Run from anywhere;
-# `make dev-up` runs it before bringing the stack up.
+# Idempotent, but NOT blindly: each installed bundle carries a `.spec` stamp of the
+# exact package spec it was built from, and a plugin is reinstalled whenever that
+# stamp doesn't match what this script now asks for. A plain "dir exists → skip"
+# made a bundle UNREPAIRABLE by the tool that creates it: changing the pin here
+# changed nothing on any machine that had already provisioned, and re-running
+# provisioning printed "already present" — which reads like success.
+# (Cost: `mcp-server-fetch==2026.6.4` declared `mcp>=1.1.3`, pip took mcp 2.x, which
+# renamed `McpError` → `MCPError`. The fetch plugin died at IMPORT, the capability
+# never bound, and re-provisioning could not fix it.)
+# Run from anywhere; `make dev-up` runs it before bringing the stack up.
 #
 # NOTE: this is the dev/e2e provisioning path. In prod, owner-installed MCP
 # plugins live as artifacts in object storage (MinIO) and are materialized per
@@ -18,12 +26,22 @@ set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# up_to_date —— true when $1 (the bundle dir) exists AND the spec stamp INSIDE it
+# equals the spec we're about to install. A mismatch, or a stamp-less legacy bundle,
+# is stale: the caller wipes it and reinstalls. The stamp lives inside the bundle so
+# it is removed with it and inherits its gitignore.
+up_to_date() {
+  local dir="$1" pkg="$2"
+  [ -d "$dir" ] && [ "$(cat "$dir/.provision-spec" 2>/dev/null)" = "$pkg" ]
+}
+
 install_into() {
   local plugin="$1" pkg="$2"
-  if [ -d "$DIR/$plugin/node_modules" ]; then
-    echo "[provision] $plugin: already present, skip"
+  if up_to_date "$DIR/$plugin/node_modules" "$pkg"; then
+    echo "[provision] $plugin: up to date ($pkg), skip"
     return
   fi
+  rm -rf "$DIR/$plugin/node_modules"
   local tmp
   tmp="$(mktemp -d)"
   ( cd "$tmp" && npm init -y >/dev/null 2>&1 \
@@ -31,6 +49,7 @@ install_into() {
   mkdir -p "$DIR/$plugin"
   cp -R "$tmp/node_modules" "$DIR/$plugin/"
   rm -rf "$tmp"
+  echo "$pkg" > "$DIR/$plugin/node_modules/.provision-spec"
   echo "[provision] $plugin <- $pkg"
 }
 
@@ -42,13 +61,15 @@ install_into() {
 # PYTHONPATH=/plugin/pkg.
 install_python_into() {
   local plugin="$1" pkg="$2"
-  if [ -d "$DIR/$plugin/pkg" ]; then
-    echo "[provision] $plugin: already present, skip"
+  if up_to_date "$DIR/$plugin/pkg" "$pkg"; then
+    echo "[provision] $plugin: up to date ($pkg), skip"
     return
   fi
+  rm -rf "$DIR/$plugin/pkg"
   mkdir -p "$DIR/$plugin/pkg"
   docker run --rm -v "$DIR/$plugin/pkg:/out" python:3.12-alpine \
     pip install --target /out "$pkg" --no-cache-dir -q
+  echo "$pkg" > "$DIR/$plugin/pkg/.provision-spec"
   echo "[provision] $plugin (python) <- $pkg"
 }
 
@@ -77,5 +98,11 @@ install_into everything "@modelcontextprotocol/server-everything@2026.1.26"
 install_into fsmcp      "@modelcontextprotocol/server-filesystem@2026.1.14"
 # fetch —— shared by both netfetch (allow_net) and cagedfetch (--network=none);
 # they read the same immutable code, differ only in network policy.
-install_python_into fetch "mcp-server-fetch==2026.6.4"
+# 2026.8.18, NOT 2026.6.4: 2026.6.4 declares `mcp>=1.1.3` with no upper bound, so pip
+# resolves mcp 2.x — which renamed `McpError` to `MCPError`, the very name this
+# server's `server.py` imports. The bundle installs clean and dies at import.
+# Upstream fixed it by capping the dependency: 2026.8.18 declares `mcp<2,>=1.29.0`
+# (PyPI requires_dist), so pip picks an mcp that still exports `McpError`. The
+# constraint belongs upstream in the package metadata, not duplicated here.
+install_python_into fetch "mcp-server-fetch==2026.8.18"
 echo "[provision] done"

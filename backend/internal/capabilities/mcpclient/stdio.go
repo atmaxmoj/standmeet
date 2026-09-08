@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"strings"
 	"time"
 
 	mcpgoclient "github.com/mark3labs/mcp-go/client"
@@ -50,6 +52,56 @@ func dialTiming(parent context.Context, spawnMS int64, initStart time.Time) stri
 		spawnMS, time.Since(initStart).Milliseconds(), dialTimeout, cause)
 }
 
+// childStderrBudget —— how much of the child's stderr we quote, and how long we
+// wait for it. A crashing interpreter prints its traceback and exits immediately,
+// so the read returns at EOF long before the deadline; the deadline only exists so
+// a child that came up but failed initialize for another reason (still holding the
+// pipe open) cannot wedge the dial.
+const (
+	childStderrBudget  = 2048
+	childStderrTimeout = 500 * time.Millisecond
+)
+
+// childStderr —— whatever the subprocess printed to stderr, bounded in bytes and in
+// time, as a single line ready to append to a dial error.
+//
+// Why this is needed: an MCP server that dies at STARTUP (bad import, missing
+// interpreter, syntax error) never speaks JSON-RPC, so the transport reports only
+// `transport closed` — a symptom shared by every startup failure there is. The child
+// has meanwhile printed the exact cause and nobody read it. Diagnosing that from the
+// log alone is impossible; you have to re-run the plugin by hand inside the
+// container, which production does not allow.
+// (Cost, 2026-09-08: `plugin dial: mcp server unreachable: stdio initialize [...]:
+// transport closed` took an hour to trace to a one-line `ImportError: cannot import
+// name 'McpError'` the child had already printed.)
+func childStderr(cli *mcpgoclient.Client) string {
+	r, ok := mcpgoclient.GetStderr(cli)
+	if !ok || r == nil {
+		return ""
+	}
+	done := make(chan string, 1)
+	go func() {
+		b, rerr := io.ReadAll(io.LimitReader(r, childStderrBudget))
+		_ = rerr // whatever arrived before the error is still the answer
+		done <- strings.TrimSpace(string(b))
+	}()
+	select {
+	case s := <-done:
+		return quoteStderr(s)
+	case <-time.After(childStderrTimeout):
+		return ""
+	}
+}
+
+// quoteStderr —— one log-safe line: empty stays empty, newlines become " | " so the
+// whole traceback survives inside a single structured log field.
+func quoteStderr(s string) string {
+	if s == "" {
+		return ""
+	}
+	return " child-stderr: " + strings.ReplaceAll(s, "\n", " | ")
+}
+
 // closeQuietly —— closes the client ignoring the error (releases the subprocess / transport).
 func closeQuietly(cli *mcpgoclient.Client) {
 	cerr := cli.Close()
@@ -76,9 +128,12 @@ func DialStdio(
 	initStart := time.Now()
 	res, ierr := cli.Initialize(ictx, initRequest())
 	if ierr != nil {
+		// Drain stderr BEFORE Close: Close reaps the process, which shuts the pipe
+		// and would throw away the very traceback we need.
+		stderr := childStderr(cli)
 		closeQuietly(cli)
-		return nil, fmt.Errorf("%w: stdio initialize %s: %w",
-			ErrUnreachable, dialTiming(ctx, spawnMS, initStart), ierr)
+		return nil, fmt.Errorf("%w: stdio initialize %s: %w%s",
+			ErrUnreachable, dialTiming(ctx, spawnMS, initStart), ierr, stderr)
 	}
 	return &Session{
 		c: cli, url: "stdio:" + command, instructions: initInstructions(res),
