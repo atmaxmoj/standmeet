@@ -23,6 +23,7 @@ import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
+import { BACKEND } from '@/fixtures/stack';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -104,7 +105,7 @@ async function createCodeAttachingServer(
   request: APIRequestContext, csrf: string, serverID: string,
 ): Promise<void> {
   // A.3-IAM-5: create a role with the mcp server attached, then issue a code with that role id.
-  const roleRes = await request.post('http://localhost:8000/api/admin/roles/', {
+  const roleRes = await request.post(`${BACKEND}/api/admin/roles/`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
       name: 'ext-mcp-role',
@@ -119,7 +120,7 @@ async function createCodeAttachingServer(
     throw new Error(`create role failed: ${roleRes.status()} ${await roleRes.text()}`);
   }
   const role = await roleRes.json() as { id: string };
-  const res = await request.post('http://localhost:8000/api/admin/codes/', {
+  const res = await request.post(`${BACKEND}/api/admin/codes/`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
       code: CODE,

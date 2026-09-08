@@ -17,14 +17,17 @@ import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { APP_BASE } from '@/fixtures/stack';
 
 const OWNER = {
   email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
   handle: 'alice',
   fullName: 'Alice Anderson',
-  // The claim helper defaults to http://localhost:38127; spelled out explicitly here for the assertion.
-  initialPublicURL: 'http://localhost:38127',
+  // What the claim helper defaults to — named here because the assertion reads it back.
+  // Both sides must be the SAME expression: spelling the default out a second time is how
+  // this file came to name a port that belongs to whichever checkout owns it.
+  initialPublicURL: APP_BASE,
 };
 
 const NEW_PUBLIC_URL = 'https://alice.dev';

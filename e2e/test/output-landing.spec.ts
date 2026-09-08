@@ -17,6 +17,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { DB_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
+import { BACKEND } from '@/fixtures/stack';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -102,7 +103,7 @@ async function expectBodyAndTitle(page: Page): Promise<void> {
 }
 
 async function fetchSitemap(page: Page): Promise<string> {
-  const resp = await page.request.get('http://localhost:8000/sitemap.xml');
+  const resp = await page.request.get(`${BACKEND}/sitemap.xml`);
   expect(resp.ok()).toBeTruthy();
   return resp.text();
 }

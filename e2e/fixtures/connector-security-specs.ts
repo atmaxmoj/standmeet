@@ -10,7 +10,7 @@
 // Everything else is benign so a REJECT can only be attributed to the URL.
 
 export const INTERNAL_SERVER_URLS = [
-  'http://localhost:8000',          // the backend itself (loopback)
+  'http://localhost:8000',          // stack-port-ok: a payload, not an address — asserted REFUSED
   'http://127.0.0.1/admin',         // loopback IP
   'http://169.254.169.254/latest/meta-data/', // cloud metadata (the classic SSRF target)
   'http://10.0.0.5/internal',       // RFC1918 private

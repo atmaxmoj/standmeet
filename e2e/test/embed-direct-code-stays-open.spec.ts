@@ -31,8 +31,7 @@ import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
-
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
+import { APP_BASE, BACKEND } from '@/fixtures/stack';
 
 const OWNER = {
   email: 'embeddirect@example.com', password: 'correct-horse-battery-staple',
@@ -40,7 +39,7 @@ const OWNER = {
 };
 
 const ALLOWED = 'https://partner.example';
-const INSTANCE = 'http://localhost:38127'; // QR / share links land here (same-origin as the instance)
+const INSTANCE = APP_BASE; // QR / share links land here (same-origin as the instance)
 const ELSEWHERE = 'https://somewhere-else.example';
 const EMBEDDED_CODE = 'EMBED-DIRECT';
 

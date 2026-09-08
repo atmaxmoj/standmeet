@@ -17,6 +17,7 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
 import { publishEntry } from '@/fixtures/corpus';
+import { BACKEND } from '@/fixtures/stack';
 
 const OWNER = {
   email: 'outlandscale@example.com', password: 'correct-horse-battery-staple',
@@ -57,7 +58,7 @@ test.describe('public output landing + sitemap cover the whole corpus, not newes
     });
 
   test('sitemap.xml lists an indexed output beyond newest-50', async ({ page }) => {
-    const resp = await page.request.get('http://localhost:8000/sitemap.xml');
+    const resp = await page.request.get(`${BACKEND}/sitemap.xml`);
     expect(resp.ok()).toBeTruthy();
     expect(await resp.text()).toContain(`/output/${NEEDLE_PATH}`);
   });

@@ -18,6 +18,7 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
 import { goto } from '@/fixtures/navigate';
 import { publishEntry } from '@/fixtures/corpus';
+import { BACKEND } from '@/fixtures/stack';
 
 const OWNER = {
   email: 'wikilandscale@example.com', password: 'correct-horse-battery-staple',
@@ -60,7 +61,7 @@ test.describe('public wiki landing + sitemap cover the whole corpus, not newest-
     });
 
   test('sitemap.xml lists an indexed wiki beyond newest-50', async ({ page }) => {
-    const resp = await page.request.get('http://localhost:8000/sitemap.xml');
+    const resp = await page.request.get(`${BACKEND}/sitemap.xml`);
     expect(resp.ok()).toBeTruthy();
     expect(await resp.text()).toContain(`/wiki/${NEEDLE_PATH}`);
   });

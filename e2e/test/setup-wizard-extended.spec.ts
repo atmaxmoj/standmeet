@@ -13,11 +13,12 @@ import type { Page } from '@playwright/test';
 
 import { resetInstance } from '@/fixtures/instance';
 import { test, expect } from '@/fixtures/test';
+import { APP_BASE } from '@/fixtures/stack';
 
 const OWNER = {
   full: 'Test User',
   handle: 'testuser',
-  publicUrl: 'http://localhost:38127',
+  publicUrl: APP_BASE,
   email: 'test@example.com',
   password: 'correct-horse-battery-staple',
 };

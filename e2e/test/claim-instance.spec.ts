@@ -12,11 +12,12 @@ import type { Page } from '@playwright/test';
 import { execSQL, resetInstance } from '@/fixtures/instance';
 import { goto } from '@/fixtures/navigate';
 import { test, expect } from '@/fixtures/test';
+import { APP_BASE } from '@/fixtures/stack';
 
 const OWNER = {
   full: 'Alice Anderson',
   handle: 'alice',
-  publicUrl: 'http://localhost:38127',
+  publicUrl: APP_BASE,
   email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
 };

@@ -32,7 +32,7 @@ const SSRF_REJECT_RE = /internal|loopback|private|not allowed|disallow|blocked/i
 // unauthenticated-endpoint spec covers the link-local/metadata set; the guard blocks the whole
 // class, so loopback here is a sufficient boundary probe.
 const INTERNAL_ENDPOINTS = [
-  'http://localhost:8000',
+  'http://localhost:8000', // stack-port-ok: a payload, not an address — asserted REFUSED
   'http://127.0.0.1',
   'http://[::1]:8000',
 ];

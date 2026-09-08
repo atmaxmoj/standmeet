@@ -17,11 +17,12 @@ import { gotoAdminSection } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 import { test, expect } from '@/fixtures/test';
+import { APP_BASE } from '@/fixtures/stack';
 
 const OWNER = {
   full: 'Sijie Wang',
   handle: 'sijie',
-  publicUrl: 'http://localhost:38127',
+  publicUrl: APP_BASE,
   email: 'sijie@example.com',
   password: 'correct-horse-battery-staple',
 };

@@ -82,6 +82,7 @@ import {
   disconnectConnector, initOwner, sessionToolNames, sessionToolSpecs, startSession,
 } from '@/fixtures/connector-agent-rig';
 import { scriptMockToolCall, sendAndDrain } from '@/fixtures/mock-llm-script';
+import { MOCK_BASE } from '@/fixtures/stack';
 
 test.use({ ownerCredentials: { email: AGENT_OWNER.email, password: AGENT_OWNER.password } });
 
@@ -168,7 +169,7 @@ const CALENDAR_SPEC = {
         type: 'oauth2',
         flows: {
           authorizationCode: {
-            authorizationUrl: 'http://localhost:9000/google-oauth/auth',
+            authorizationUrl: `${MOCK_BASE}/google-oauth/auth`,
             tokenUrl: 'http://external-mock:9000/google-oauth/token',
             scopes: { 'calendar.readonly': 'read', 'calendar.events': 'write' },
           },

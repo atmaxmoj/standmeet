@@ -4,6 +4,8 @@
 // real Google: the servers / oauth endpoints point at external-mock's gcal routes
 // (backend-dialed ones use the service-name, authorize uses localhost).
 
+import { MOCK_BASE } from '@/fixtures/stack';
+
 // SAMPLE_SPEC —— minimal but valid OpenAPI 3.0: two ops freebusy.query /
 // events.insert + oauth2.
 export const SAMPLE_SPEC = {
@@ -35,7 +37,7 @@ export const SAMPLE_SPEC = {
         type: 'oauth2',
         flows: {
           authorizationCode: {
-            authorizationUrl: 'http://localhost:9000/google-oauth/auth',
+            authorizationUrl: `${MOCK_BASE}/google-oauth/auth`,
             tokenUrl: 'http://external-mock:9000/google-oauth/token',
             scopes: { 'calendar.readonly': 'read free/busy', 'calendar.events': 'write events' },
           },

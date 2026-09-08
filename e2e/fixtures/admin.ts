@@ -24,10 +24,16 @@ export interface ClaimOptions {
   publicUrl?: string;
 }
 
-// Default public_url for specs: the app port (38127) since recruiters land
-// on the Next.js app. QR URL builder uses this from owners.public_url at
-// commit time. Override per spec if exercising a different public host.
-const DEFAULT_PUBLIC_URL = 'http://localhost:38127';
+// Default public_url for specs: the app, since recruiters land on the Next.js app.
+//
+// It must be THIS checkout's app port, and it was a bare literal until the per-checkout stacks
+// landed. owners.public_url is not decoration — the backend builds outbound links from it: the
+// QR URL at application-commit time, the OAuth `redirect_uri` (connector/svc_oauth.go:49) and
+// the email-confirmation link. Pointing at the default port sent all three at whichever checkout
+// owns it, so an offset checkout ran the OAuth callback and the email confirmation against a
+// NEIGHBOUR's instance, which had neither state: 401, and "That link is not valid."
+// Override per spec if exercising a different public host.
+const DEFAULT_PUBLIC_URL = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';
 
 export async function claim(
   request: APIRequestContext,

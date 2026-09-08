@@ -14,6 +14,7 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { resetMockGCal, MOCK_GCAL_CREDS } from '@/fixtures/gcal';
 import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
 import { issueSession, type VisitorSession } from '@/fixtures/visitor';
+import { MOCK_BASE } from '@/fixtures/stack';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -35,7 +36,7 @@ export const MOCK_OAUTH2_SCHEME = {
     type: 'oauth2',
     flows: {
       authorizationCode: {
-        authorizationUrl: 'http://localhost:9000/google-oauth/auth',
+        authorizationUrl: `${MOCK_BASE}/google-oauth/auth`,
         tokenUrl: 'http://external-mock:9000/google-oauth/token',
         scopes: {
           'contacts.read': 'read contacts',

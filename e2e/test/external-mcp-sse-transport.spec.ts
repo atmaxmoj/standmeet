@@ -26,6 +26,7 @@ import { createRole } from '@/fixtures/roles';
 import { enterCodeSession, gotoAdminSection } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
+import { BACKEND } from '@/fixtures/stack';
 
 const OWNER = {
   email: 'ssemcp@example.com',
@@ -142,7 +143,7 @@ interface ServerRow { id: string; name: string }
 async function findServerID(
   request: APIRequestContext, csrf: string, name: string,
 ): Promise<string> {
-  const res = await request.get('http://localhost:8000/api/admin/mcp-servers', {
+  const res = await request.get(`${BACKEND}/api/admin/mcp-servers`, {
     headers: { 'X-Csrftoken': csrf },
   });
   expect(res.status(), 'list mcp servers').toBe(200);

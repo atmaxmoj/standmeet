@@ -129,6 +129,30 @@ scan_ports() {
   done
 }
 
+# scan_e2e_ports —— the same rule in the suite, where the correct spelling is an env read with
+# the default as its FALLBACK (`process.env['APP_BASE_URL'] ?? 'http://localhost:38127'`). A bare
+# literal is the violation: `e2e/fixtures/admin.ts` set every spec's `owners.public_url` to the
+# default app port that way, and the backend builds its outbound links from that column — the QR
+# URL, the OAuth redirect_uri, the email-confirmation link. In an offset checkout all three
+# pointed at a NEIGHBOUR's instance, which held neither the OAuth state nor the pending-email
+# token. Seven specs red across two families that looked unrelated.
+#
+# Three things are skipped, and each is a place where a literal is the CORRECT spelling:
+#
+#   comment lines          several explain the default by naming it, and a comment reaches nothing.
+#   e2e/manual/            recorded evidence of a past round — the URL a QR actually decoded to.
+#                          Rewriting it would falsify the record.
+#   `stack-port-ok: <why>` a literal that is a PAYLOAD, not an address: the SSRF lists assert that
+#                          the connector REFUSES loopback, so the port is beside the point and
+#                          making it track a knob would be noise. The reason is required — an
+#                          unexplained marker is how an exemption becomes a hole.
+scan_e2e_ports() {
+  git grep -nE "$(port_pattern)" -- e2e ':!e2e/manual' \
+    | grep -v 'process\.env' \
+    | grep -vE 'stack-port-ok: *[^ ]' \
+    | grep -vE ':[0-9]+:[[:space:]]*(//|\*|#)' || true
+}
+
 # selftest_ports —— the literal must go red, the derived spelling and a non-knob port must not.
 selftest_ports() {
   pat=$(port_pattern)
@@ -143,12 +167,21 @@ selftest_ports() {
     echo "$ok" | grep -qE "$pat" \
       && { echo "check-no-hardcoded-dev-stack: port self-test failed — rejects a correct line: $ok"; exit 2; }
   done
+  # the e2e half: a bare literal goes red, the env-read fallback stays green. Written as the
+  # same two filters the real scan applies, in the same order, so the pair cannot drift apart.
+  e2e_hits() { grep -E "$pat" | grep -v 'process\.env' || true; }
+  bad_ts="const DEFAULT_PUBLIC_URL = 'http://localhost:38127';"
+  [ -n "$(echo "$bad_ts" | e2e_hits)" ] \
+    || { echo "check-no-hardcoded-dev-stack: e2e self-test failed — did not catch: $bad_ts"; exit 2; }
+  ok_ts="const B = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';"
+  [ -z "$(echo "$ok_ts" | e2e_hits)" ] \
+    || { echo "check-no-hardcoded-dev-stack: e2e self-test failed — rejects the env-read form"; exit 2; }
   return 0
 }
 
 selftest
 selftest_ports
-port_violations=$(scan_ports)
+port_violations=$(scan_ports; scan_e2e_ports)
 if [ -n "$port_violations" ]; then
   echo "check-no-hardcoded-dev-stack: a host-visible URL names a default port literally —"
   echo "$port_violations" | sed 's/^/  /'

@@ -1,133 +1,160 @@
-# Full e2e suite failures — 2026-09-04 round (1608 passed / 20 failed, 45.2m, 1 worker, chromium project)
+# Full-suite failures — round 2026-09-08 (branch `worktree-traffic-analytics`, rebased on `origin/main` 36789537d)
 
-> The previous round's triage (2026-08-02, 1168 passed / 14 failed) is in git history (this file is rewritten per round).
+**1722 passed · 22 failed · 6 skipped · 1.1h.**
 
-Archived evidence: `scratchpad/fullsuite2.log` (failure summary at lines 36734–37343, Playwright numbers the 20 blocks 1..20)
-+ `e2e/test-results-archive/20260904T03*/` + `test-results/playwright/*/error-context.md` (page snapshots).
-Diagnose **from the archive only** (error-context + backend.log + code + git history). Don't re-run, don't bare-docker.
-**No "pre-existing" exemption — all 20 go green.**
+- Suite log (numbered failure blocks 1–22 at the end): `scratchpad/gate2.log`
+- Failure artifacts: `e2e/test-results-archive/20260908T041849Z/` (per-test `error-context.md` with page snapshots)
+- Backend log: `e2e/test-results/backend.log`
 
----
+Diagnose from the archive. Do not re-run to diagnose, do not bare-docker.
 
-## Batch A — homepage redesign fallout: the new `/` is a microsite, lost several page-shell "edges" | 5
+**No pre-existing exemption.** Several batches below were caused by deliberate main-side design
+changes, not by this branch. That is an explanation, not an excuse — every red goes green.
 
-**Root cause (proven)**: Slice 5 deleted the built-in homepage; `/` is now served by the custom `home` page. A few things
-the old page-shell did on `/` were not carried onto the new surface: reading `?q=` and handing off to /gate, listing the
-microsite deck, the shared footer, the TopBar with LocaleSwitch.
+## What the previous round already fixed
 
-| # | spec | error (from log) | fix |
-|---|------|----------------|-----|
-| 1 | ask-about-this:44 | URL stuck at `…/?q=…`, expected `/gate?q=` | middleware: `/?q=` (no code) → app, not homepage; VisitorRoot: `?q=` with no session → `/gate?q=`. ✅ |
-| 4 | integration-writing-chat-flow:38 | same `…/?q=…` | same single fix. ✅ |
-| 2 | microsites-linked:92 | `microsites-deck` not found (`/`) | new homepage uses `PageNavWidget` (`page-nav-widget-link-<slug>`); test waits for homepage live + asserts the widget. ✅ |
-| 3 | microsites-linked:100 | `footer-microsites` not found (`/`) | old shared Footer deleted; homepage discovery covered by PageNavWidget (#2) → footer case removed. ✅ |
-| 10 | ui-locale-in-url:56 | `locale-switch` not found (page = HomeFallback) | switcher lives in the app TopBar (gate/reader); the custom homepage has no TopBar → test drives the switcher from `/gate`. ✅ |
-
-**Status: fixed (single-spec green, pending batch REPEAT=5).**
+Run 1 of this suite had 7 reds by test #44 from ONE root cause of this branch's own making: the
+per-checkout port work swept compose `ports:` lists and missed every **host-visible URL**. Fixed in
+18 places (`GOOGLE_AUTH_URL`, `e2e/fixtures/admin.ts` public_url, 9 specs calling `localhost:8000`,
+3 connector `authorizationUrl`, 5 `owners.public_url` writers) plus a gate. Those 7 are green here.
+Batch A below is the same class surviving in a spelling the gate cannot see.
 
 ---
 
-## Batch B — Slice 5 removed the `page.get/put` op, but the parity tests still call it | 2
+## Batch A — a knob default written into an ASSERTION, where the gate cannot see it | 2
 
-**Root cause (proven)**: backend `tool 'page.get' not found`. With the homepage now a microsite, the `page` resource keeps
-only the two outward-address ops (handle / public URL); `page.get/put/pin/…` are gone; the owner-MCP parity tests still drive them.
+| # | spec | error (from log) |
+|---|------|------------------|
+| 21 | `writings.spec.ts:143` | `toMatch` expected `/localhost(%3A\|:)9200/`, received `http://localhost:9600/standmeet/…` |
+| 22 | `writings.spec.ts:187` | same |
 
-| # | spec | fix |
-|---|------|-----|
-| 6 | owner-mcp-parity-mutations:212 | `checkPage` only tests `page.set_public_url`; drop the page.get/put roundtrip. ✅ |
-| 7 | owner-mcp-parity-reads:185 | `checkOwnerSettings` drops the `page.get` step. ✅ |
+**Root cause (proven)**: 9200 is `DEV_PORT_MINIO`'s DEFAULT; this checkout publishes minio on 9600.
+The presigned URL is correct — `STORAGE_PUBLIC_URL` was fixed last round to follow the knob. The
+spec asserts the default port instead of this checkout's.
 
-**Status: fixed, verified green individually.**
+The interesting half: `check-no-hardcoded-dev-stack.sh` was extended last round to catch exactly
+this, and it did NOT catch these two. Its pattern is `localhost:(9200|…)`; the spec writes a REGEX,
+`localhost(%3A|:)9200`, so the literal `localhost:9200` never appears. The gate is blind to the
+escaped/alternated spelling — a verifier that reports a clean tree while the defect is in it
+([[verifier-can-lie-about-its-own-coverage]]).
 
----
+**Fix**: assert against the storage origin this checkout publishes (derive from
+`process.env['STORAGE_PUBLIC_URL']` / the minio knob, the way `e2e/fixtures/stack.ts` does), and
+widen the gate's pattern so `localhost` followed by a separator-alternation and a knob default also
+goes red. Prove the widened gate red on these two lines before fixing them.
 
-## Batch C — inward golden stale | 1
-
-| # | spec | error | root cause (proven) | fix |
-|---|------|------|---------------------|-----|
-| 5 | norm-inward-capabilities:93 | golden diff `+ resume.read` (Received +5) | `resume.read` (recruiter reads this application's résumé by code, job-loop B-7, commit 9b6a2447) was added to the registry but not synced into the golden | golden gains `resume.read` (in-host, ordered after `connector.agent_tools`). ✅ |
-
-**Status: fixed, verified green.**
-
----
-
-## Batch D — subjectivity local corpusSearch helper reads the wrong receipt shape | 1
-
-| # | spec | error | root cause (proven) | fix |
-|---|------|------|---------------------|-----|
-| 9 | subjectivity-genre:51 | `TypeError: hits.some is not a function` | the local helper treated `body.result` as an array; `corpus_search`'s result is actually `{hits, note?}` (see fixtures/retrieval.ts) | helper reads `body.result?.hits ?? []`. ✅ (pending verify) |
-
-**Status: fixed, pending verify + REPEAT=5.**
+**Status: not started.**
 
 ---
 
-## Batch E — wiki reader refactor drift: c215f0be split the reader, tests didn't follow | 10
+## Batch B — the starter homepage is no longer materialized at claim | 4
 
-**Root cause (proven)**: `c215f0be fix(wiki): the reader shell lives in a layout` (before this session) rebuilt the wiki
-reader. It **removed testids the tests still assert**, and changed the tree rail to `display:block` only at
-`@media(min-width:1500px)` (the CSS comment spells out "why 1500 not 1280"). The chromium project viewport is 1280
-(Desktop Chrome) and the tests mostly use 1280 → the rail is hidden; and `wiki-index` / `wiki-toc-resize` no longer exist
-in the code. Deterministic red, red before this session.
+| # | spec | error (from log) |
+|---|------|------------------|
+| 4 | `coded-ask-continues.spec.ts:50` | `the default homepage auto-goes-live` — expected 200, received 404 |
+| 10 | `microsites-linked-on-public-surfaces.spec.ts:92` | same |
+| 15 | `public-ask-gates.spec.ts:33` | same |
+| 11 | `monitor-microsite-tracker.spec.ts:46` | `start home build` — `POST /home/build` expected 200, received 404 |
 
-Mapping from the refactored code:
-- `wiki-index` → **removed**. The `/wiki` index now renders `WikiIndexRoots` (testid `wiki-index-roots`, or `wiki-index-empty` when empty).
-- `wiki-toc-resize` → **removed** (the reader has no draggable resize handle any more).
-- `wiki-topbar-reading` → **still exists** (WikiTopBar.tsx:72), so :35 is the rail/viewport, not a missing id.
-- the rail (`wiki-toc`, the `styles.rail` aside) is `display:none` below 1500px → viewport must be ≥1500.
+**Root cause (proven)**: `185c4321b` — *"Q1 part 2: stop materializing the starter home at claim —
+serve DefaultHome from code"* (on `origin/main`, NOT this branch). `backend/cmd/server/boot_http.go:275`
+now passes `InstallHomepage: nil`, with the comment *"Homepage is NOT materialized at claim now: an
+unedited instance serves DefaultHome"*. `InstallDefaultHomepage` is still exported through
+`owner/facade/facade_usecase.go:77` and has **no remaining caller**. So there is no `home`
+microsite row on a fresh instance: `/home/build` 404s and nothing ever goes live.
 
-| # | spec | error | fix |
-|---|------|------|-----|
-| 12 | wiki-landing-extended:139 | `wiki-index` not found (/wiki index) | `wiki-index` → `wiki-index-roots` |
-| 13 | wiki-landing-extended:153 | `wiki-toc` hidden (rail) | viewport 1512 ✅ |
-| 14 | wiki-landing-extended:203 | `wiki-toc` visible, but `wiki-toc-resize` removed | drop the resize-handle assertion |
-| 15 | wiki-landing-extended:277 | nested sidebar (rail/tree hidden) | viewport 1512 |
-| 16 | wiki-reader-shell-persists:72 | `wiki-toc` hidden | viewport 1512 |
-| 17 | wiki-topbar-reading:35 | rail hidden (topbar-reading id exists) | viewport 1512 |
-| 18 | wiki-tree-stats:43 | `wiki-tree-stats` hidden (inside rail) | viewport 1512 |
-| 19 | wiki-tree:145 | `wiki-tree` hidden | viewport 1512 |
-| 20 | wiki-tree:146 | `wiki-tree` hidden | viewport 1512 |
-| 8 | reader-scoped-gated-entry:73 | `wiki-index` not found | `wiki-index` → `wiki-index-roots` |
+The four specs all assume the old shape (a `home` row exists, can be built, and auto-promotes).
 
-**Fix**: align the stale tests to the refactored reader — testid rename (`wiki-index` → `wiki-index-roots`), drop the
-removed `wiki-toc-resize` assertion, viewport ≥1500 for the rail-dependent tests (the 1500 breakpoint is deliberate, so
-the tests move, not the CSS). **No exemption.**
+**Fix (owner-decided, 2026-09-08): the specs SEED a homepage.** Not "assert against DefaultHome",
+not "put the claim-time install back" — a spec that needs a homepage creates one, the way an owner
+does. One shared helper for all four (they already share the auto-goes-live poll), so the seed
+happens in one place and #11 exercises the shipped template through it too.
 
-`wiki-topbar-reading` is the one **real regression** (not test drift): the refactor moved the shell into a layout and
-dropped the `reading` prop (layout must stay URL-derived), so the topbar's reading tag never rendered. Fixed in the
-product: WikiTopBar now derives `reading` from `document.title` on entry paths (`lib/visitor/use-reading-title.ts`),
-the same URL-derived pattern the tree highlight uses — no per-article prop.
-
-**Status: fixed.** 153 (viewport) + topbar (code) + 139/8 (`wiki-index-roots`) + 203 (drop resize) + 277/72/43/145/146 (viewport 1512).
+**Status: not started.**
 
 ---
 
-## Batch F — after upgrade, the embed origin allow-list isn't enforced | 1
+## Batch C — a code now lands on `/c/<slug>`, the specs still wait for `**/` | 5
 
-| # | spec | error (from log) | what's known |
-|---|------|----------------|--------------|
-| 11 | upgrade-embed-schema:115 | `sessionFromOrigin(CODE,'https://evil.example')` expected 403, got 200 | after the downgrade→restart upgrade, an embed pinned to ALLOWED origins was created for CODE, yet a session from evil.example is still let through |
+| # | spec | error (from log) |
+|---|------|------------------|
+| 3 | `code-session-paste.spec.ts:33` | `waitForURL` timeout waiting `**/`; navigated to `/c/6HaQXYnnck` |
+| 6 | `gate-access.spec.ts:38` | same; `/c/6HbRkns5gY` |
+| 7 | `gate-code-ux.spec.ts:95` | same; `/c/6HbSviEV4A` |
+| 8 | `gate-code-ux.spec.ts:102` | same; `/c/6HbTxyOGM8` |
+| 9 | `gate-code-ux.spec.ts:117` | same; `/c/6HbUAEDs9q` |
 
-**Root cause (proven)**: the **test asserts the wrong contract**. `sessionFromOrigin` sends a DIRECT plaintext code
-(`{mode:'code', code}`, no `embed_token`). By deliberate design (`sessions_guard.go` `embedAuthBlocked` +
-`[[embed-direct-code-stays-open]]`) a direct code connection is NOT origin-restricted — the allowlist gates only the
-widget/`embed_token` path, and the job-loop QR flow requires a direct code to work from any origin. So 200 is correct;
-`embed-direct-code-stays-open.spec.ts` + `embed-token-auth.spec.ts` already cover both halves.
+**Root cause (proven)**: `c6c54ce88` *"feat(access): code carries its own /c/<slug> landing path"*
+(2026-09-06, an ANCESTOR of this branch's start `6ed1759bb` — so it is main's, and predates this
+work entirely). Redeeming a code lands the visitor on `/c/<slug>`, not on the site root. Five specs
+still `waitForURL('**/')`.
 
-**Fix**: exercise the allowlist through the token path, mirroring `embed-token-auth.spec.ts:149` — capture the embed's
-`key_id`/`private_key` from create (proves the signing-key columns came up post-upgrade), `signEmbedToken` for an
-off-allowlist origin, POST `/api/v1/sessions` with `embed_token` + that `Origin` → 403.
+The contract is already settled and unit-tested — `app/src/lib/visitor/code-landing.ts:27` +
+`code-landing.test.ts`: a code with a **microsite** goes to the microsite; otherwise a code with a
+**slug** SOFT-rewrites to `/c/<slug>`; a code with neither does nothing. No design question here.
 
-**Status: fixed.**
+**Fix**: wait for the landing path the product now uses. Do NOT relax the glob to something that
+also matches the root — that would pass whether or not the landing works. The tests that then go on
+to assert chat/strip/name behaviour keep those assertions unchanged.
+
+**Status: not started.**
 
 ---
 
-## Round status (2026-09-04)
-All six batches green. Batch E+F rebuild: **41 passed**. Flake check `REPEAT=5` across all touched
-specs: **205 passed, 0 flaky**. Final `make lint` caught one leftover parse error from Batch D's fix
-(`subjectivity-genre.spec.ts:221` — a line terminator before `as`, which esbuild runs but
-typescript-eslint rejects; [[host-lint-is-not-image-lint]]); fixed. Remaining gate: one full suite re-run.
+## Batch D — global SEO settings were removed; three guards still call them | 3
 
-## Closing rules (SOP, from this file's prior rounds)
+| # | spec | error (from log) |
+|---|------|------------------|
+| 12 | `norm-outward-tools-coverage.spec.ts:104` | `tool 'seo.update_settings' not found` |
+| 14 | `owner-mcp-parity-reads.spec.ts:181` | `tool 'seo.get_settings' not found` |
+| 13 | `norm-outward-toolset.spec.ts:245` | `tools/list` golden: −3 / +6 |
+
+**Root cause (proven)**: `7037a434e` *"refactor(seo): remove the global SEO settings feature (SEO
+follows each microsite)"*. The owner confirmed the intent directly: **SEO belongs on the homepage
+microsite**, set through `microsite.set_seo` / `seo.set_entry_seo`. The three global tools
+(`seo.get_settings`, `seo.stats`, `seo.update_settings`) are gone by design.
+
+The golden (#13) is stale in both directions — it lost those 3 and has not gained 6:
+`appearance.set_favicon`, `codes.rotate`, `microsite.rename`, `microsite.set_seo` (all main's) and
+**`monitor.events`, `monitor.stats` (this branch's)**.
+
+**Fix**: #12/#14 exercise SEO through the microsite path instead of the removed global tools.
+#13 regenerates the golden — and the two monitor tools must be in it, which is this branch's
+obligation, not drift.
+
+**Status: not started.**
+
+---
+
+## Batch E — assertions that cannot hold, one cause each | 8
+
+Grouped because each needs its own attribution, not because they share a cause. Every one still
+gets fixed.
+
+| # | spec | error (from log) | what is known |
+|---|------|------------------|---------------|
+| 2 | `admin-sidebar.spec.ts:85` | `toHaveText` expected `6m 46s`, received `6m 50s` | **ROOT CAUSE PROVEN.** Reads the footer on /admin/dashboard, navigates to /admin/system, compares character-for-character. Both render `deployView(info).uptime` from one store (`AdminSidebar.tsx:179`, `SystemSection.tsx:60`) — already single-source — but the store refetches between the two reads, so it compares two moments of a running clock. Fix: read BOTH testids on ONE screen (the footer is on every admin page) in a single `page.evaluate`, keeping character-exact. UT `app/src/lib/admin/system-uptime-single-source.test.ts` written and proven RED (planted `uptime:'0s'`). |
+| 1 | `admin-nav-skeleton.spec.ts:26` | `route.continue: Route is already handled!` | The spec holds **every** `/api/admin/**` and assumes each held route stays continuable; a request that outlives the assertion makes `continue()` throw. Candidate: main's `5ca6055aa` moved the microsite build long-poll into a Web Worker. NOT established — `useLongPoll('/api/admin/microsites/wait')` mounts in DataSection/MicrositesSection and this spec only visits dashboard→wiki. Diagnose by logging the held URLs from the archive snapshot first. |
+| 5 | `connector-err-midstream-sse-cut.spec.ts:111` | `cut happened before the turn finished streaming` (`event: done` present) | The tool call SUCCEEDED (`calendar_book` → `ok:true`), so connector wiring is fine. The cut lands after the turn completes — the harness races the stream. |
+| 16 | `reader-expired-session.spec.ts:37` | `locator('body')` expected visible, received **hidden** | A hidden `<body>` means the page did not render at all, not that a strip was wrong. Read the page snapshot in the archive before theorising. |
+| 17 | `real-third-party-mcp-network.spec.ts:68` | `chatroom` `toContainText` — expected 1 substring, received 42 chars | "the real server actually downloads the local payload". This stack runs a `payload-origin` service; check whether the payload URL handed out is host-visible with a default port (Batch A's class) before looking elsewhere. |
+| 18 | `sources-page-does-not-promise-a-scan.spec.ts:43` | expected substring `jobs.fetch_new`; page says "Where the loop pulls listings from…" | **OWNER-DECIDED (2026-09-08): the owner-facing sources page does NOT name the MCP call.** So the GUARD is the wrong half, not the copy. Keep the half that holds — the page must not promise an automatic scan — and drop the requirement that it name `jobs.fetch_new`. Do not weaken the remaining half into something unfalsifiable: it must still go red on copy that implies listings arrive by themselves. |
+| 19 | `visitor-chat-throbber-reading-dom.spec.ts:65` | `[data-testid="tool-throbber-corpus_read"]` not found | Either the throbber testid moved or the tool never started. |
+| 20 | `visitor-multi-conversation.spec.ts:79` | `floating-chat-input` expected disabled, received enabled | Turn budget shared across a member's conversations — the budget did not bite. |
+
+**Status: not started.**
+
+---
+
+## Round status (2026-09-08)
+
+Batches A–E written from the archive; none started. Batch order is by blast radius: B and C are 9
+of the 22 and share one helper each.
+
+## Closing rules (SOP — carried from this file's prior rounds)
 - A batch is done only when `make test-only SPEC="<spec>" REPEAT=5` is all green.
-- Inside a batch, only edit — don't run. At the batch boundary, once: `test-red` (prove red) → one dev build → one test-only (green) → one lint.
+- Inside a batch, only edit — don't run. At the batch boundary, once: `make test-red SPEC=…` (prove
+  red against the STILL-RUNNING unfixed images) → one `make dev-up` → one `make test-only` (green)
+  → one `make lint`. A second build for one batch means the batch was cut wrong.
+- **No pre-existing exemption. Every red goes green.**
 - **Run the full suite once, only after every batch is REPEAT=5 green.**
