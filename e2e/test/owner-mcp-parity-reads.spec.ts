@@ -4,10 +4,16 @@
 // read-only tool **can actually be invoked + returns a sane shape** (the binding really
 // unmarshals→usecase→marshals).
 //
-// Covers: instance.{status,inference_usage,corpus_growth,activity,jobs} · seo.{get_settings,
-// stats} · ai_provider.presets · appearance.get_css · page.get · capabilities.list ·
+// Covers: instance.{status,inference_usage,corpus_growth,activity,jobs} · microsite.list ·
+// ai_provider.presets · appearance.get_css · page.get · capabilities.list ·
 // conversations.{list,ghost_telemetry} · access_requests.list · ip_bans.list · domains.list ·
 // connectors.{list,catalog} · booking.get_policy · bookings.list · codes.list · codes.list_members
+//
+// The SEO read used to be seo.{get_settings,stats}, the global site-SEO settings. That feature is
+// gone (7037a434e): **SEO follows each microsite**, so the read that carries SEO now is
+// microsite.list, whose rows carry seo_title / seo_description / seo_image. seo.stats' other half
+// — published wiki / output / writing counts — has no equivalent on the microsite path and no
+// successor tool; it is not re-checked here.
 
 import { test, expect } from '@/fixtures/test';
 
@@ -22,6 +28,15 @@ import { createRole } from '@/fixtures/roles';
 const OWNER = {
   email: 'parity-reads@example.com', password: 'correct-horse-battery-staple',
   handle: 'parityreads', fullName: 'Parity Reads Owner',
+};
+
+// SEO_PAGE —— seeded in setup with microsite.set_seo, read back by checkSEO. Asserting the seeded
+// values (not just `typeof === 'string'`) is what makes this a read guard: a binding that dropped
+// the seo fields, or returned a different page's, goes red.
+const SEO_PAGE = {
+  slug: 'reads-seo', title: 'Reads SEO',
+  seoTitle: 'Reads SEO Title', seoDescription: 'Reads SEO description',
+  seoImage: 'https://cdn.example.com/reads.png',
 };
 
 let token = '';
@@ -48,6 +63,12 @@ async function setup(playwright: Playwright): Promise<void> {
     code: 'READS-001', label: 'READS', assumed_role_id: role.id, max_members: 3,
   });
   codeID = made.id;
+  await callTool(request, token, sid, 'microsite.create',
+    { slug: SEO_PAGE.slug, title: SEO_PAGE.title });
+  await callTool(request, token, sid, 'microsite.set_seo', {
+    slug: SEO_PAGE.slug, seo_title: SEO_PAGE.seoTitle,
+    seo_description: SEO_PAGE.seoDescription, seo_image: SEO_PAGE.seoImage,
+  });
   await request.dispose();
 }
 
@@ -85,15 +106,14 @@ async function checkInstance(r: APIRequestContext): Promise<void> {
 }
 
 async function checkSEO(r: APIRequestContext): Promise<void> {
-  const settings = await callTool<{ site_title: string; index_robots: boolean }>(
-    r, token, sid, 'seo.get_settings', {});
-  expect(typeof settings.site_title, 'site_title string').toBe('string');
-  expect(typeof settings.index_robots, 'index_robots bool').toBe('boolean');
-
-  const stats = await callTool<{ wiki: number; outputs: number; writings: number }>(
-    r, token, sid, 'seo.stats', {});
-  expect(typeof stats.wiki, 'stats.wiki number').toBe('number');
-  expect(typeof stats.writings, 'stats.writings number').toBe('number');
+  const pages = await callTool<Array<{
+    slug: string; seo_title: string; seo_description: string; seo_image: string;
+  }>>(r, token, sid, 'microsite.list', {});
+  const row = pages.find((p) => p.slug === SEO_PAGE.slug);
+  expect(row, 'microsite.list contains the seeded page').toBeDefined();
+  expect(row!.seo_title, 'seo_title read back').toBe(SEO_PAGE.seoTitle);
+  expect(row!.seo_description, 'seo_description read back').toBe(SEO_PAGE.seoDescription);
+  expect(row!.seo_image, 'seo_image read back').toBe(SEO_PAGE.seoImage);
 }
 
 async function checkOwnerSettings(r: APIRequestContext): Promise<void> {
@@ -178,7 +198,7 @@ test.describe('facade-parity · 新增 owner-MCP 只读工具功能守护', () =
 
   test('instance.* observability tools return real shapes',
     ({ playwright }) => run(playwright, checkInstance));
-  test('seo.get_settings + seo.stats return settings + published counts',
+  test('microsite.list reads back each page\'s SEO (SEO follows the microsite)',
     ({ playwright }) => run(playwright, checkSEO));
   test('ai_provider.presets + appearance.get_css return owner settings',
     ({ playwright }) => run(playwright, checkOwnerSettings));

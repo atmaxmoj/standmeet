@@ -8,8 +8,13 @@
 //   skills        → skill_list · skill_delete
 //   mcp_servers   → mcp_server_list · mcp_server_delete
 //   writings      → writings.publish
-//   microsite   → microsite.build
-//   seo           → seo.update_settings
+//   microsite   → microsite.build · microsite.set_seo
+//
+// The seo slot used to be `seo.update_settings`, the global site-SEO settings tool. That feature
+// is gone (7037a434e): SEO follows each microsite now, so the tool the owner's client actually
+// calls to set SEO is `microsite.set_seo`. It is uncovered on THIS path for the same reason
+// update_settings was — microsite-per-page-seo.spec.ts drives the admin SeoPanel (browser →
+// PUT /seo), never the MCP tool — so the slot stays, pointed at the tool that exists.
 //
 // The setup (create, etc.) uses already-tested tools, purely to exercise the "dark" tools and verify their behavior.
 
@@ -41,6 +46,39 @@ async function setupOwnerMCP(playwright: Playwright): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   token = await createAPIToken(request, csrf, 'norm-outward-cov');
   sid = await initMCP(request, token);
+  await request.dispose();
+}
+
+// SEO_PAGE —— the page checkMicrositeSEO authors. Its own slug, not the build test's, so this
+// case holds when run alone (-g).
+const SEO_PAGE = {
+  slug: 'cov-seo', title: 'Cov SEO', seoTitle: 'Cov Title',
+  seoDescription: 'Cov description', seoImage: 'https://cdn.example.com/cov.png',
+};
+
+// checkMicrositeSEO —— microsite.set_seo sets this page's SEO, and microsite.list proves it
+// LANDED. A receipt can echo its own request without storing anything, so the read-back through a
+// different tool is the half that carries the information.
+async function checkMicrositeSEO(playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  await callTool(request, token, sid, 'microsite.create',
+    { slug: SEO_PAGE.slug, title: SEO_PAGE.title });
+  const saved = await callTool<{
+    slug: string; seo_title: string; seo_description: string; seo_image: string;
+  }>(request, token, sid, 'microsite.set_seo', {
+    slug: SEO_PAGE.slug, seo_title: SEO_PAGE.seoTitle,
+    seo_description: SEO_PAGE.seoDescription, seo_image: SEO_PAGE.seoImage,
+  });
+  expect(saved.slug).toBe(SEO_PAGE.slug);
+  expect(saved.seo_title).toBe(SEO_PAGE.seoTitle);
+  expect(saved.seo_description).toBe(SEO_PAGE.seoDescription);
+  expect(saved.seo_image).toBe(SEO_PAGE.seoImage);
+
+  const pages = await callTool<Array<{ slug: string; seo_title: string }>>(
+    request, token, sid, 'microsite.list', {});
+  const row = pages.find((p) => p.slug === SEO_PAGE.slug);
+  expect(row, 'the page is listed').toBeDefined();
+  expect(row!.seo_title, 'the SEO title was stored, not just echoed').toBe(SEO_PAGE.seoTitle);
   await request.dispose();
 }
 
@@ -101,13 +139,6 @@ test.describe('能力归一化 · 【对外】零覆盖 MCP 工具守护(搬动�
     await request.dispose();
   });
 
-  test('seo: seo.update_settings 改全站 SEO 设置', async ({ playwright }) => {
-    const request = await playwright.request.newContext();
-    const saved = await callTool<{ index_robots: boolean; og_template: string }>(
-      request, token, sid, 'seo.update_settings',
-      { index_robots: false, sitemap_extras: ['/extra'], og_template: 'tpl' });
-    expect(saved.index_robots).toBe(false);
-    expect(saved.og_template).toBe('tpl');
-    await request.dispose();
-  });
+  test('seo: microsite.set_seo 改这个页面的 SEO(SEO 跟着 microsite 走)',
+    ({ playwright }) => checkMicrositeSEO(playwright));
 });
