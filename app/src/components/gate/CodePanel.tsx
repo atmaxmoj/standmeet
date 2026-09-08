@@ -14,7 +14,7 @@
 
 'use client';
 
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
@@ -22,6 +22,7 @@ import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
 import { useCaptchaSiteKey } from '@/lib/auth/use-captcha-site-key';
 import type { GateHook } from '@/lib/gate/use-gate';
 import {
+  adoptTyped,
   codeReady,
   handlePasteEvent,
   normalizeCode,
@@ -44,11 +45,24 @@ export function CodePanel({ hook }: Props) {
   // screen shows nothing (F-G-3).
   const [captchaToken, setCaptchaToken] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const nameRef = useRef<HTMLInputElement | null>(null);
   // Wrong code / network failure -> 0.4s shake -> clear + refocus.
   const shake = useShakeOnError(hook.code.error, () => {
     setCode('');
     inputRef.current?.focus();
   });
+  // This panel is server-rendered, so both fields are on screen and typable **before**
+  // React attaches. Keystrokes that land in that window reach the DOM and nowhere else:
+  // there is no listener yet, and React never re-sets a controlled input whose prop did
+  // not change. The visitor is then left staring at a field that plainly holds their
+  // code above an `enter ↵` that will not enable, and their name -- typed into the same
+  // dead form -- would be dropped, logging them anonymous with no sign anything was lost.
+  // A recruiter who scans a QR and types the code they were handed is exactly the person
+  // fast enough to hit this. So on mount, adopt whatever the fields already hold.
+  useEffect(() => {
+    setCode((c) => normalizeCode(adoptTyped(c, inputRef.current?.value)));
+    setName((n) => adoptTyped(n, nameRef.current?.value));
+  }, []);
 
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +107,7 @@ export function CodePanel({ hook }: Props) {
             The backend already accepts this ticket (`code_guard.go`); this just
             surfaces that path (F-G-3). */}
         <LockedCaptcha locked={hook.code.locked} onToken={setCaptchaToken} />
-        <NameRow name={name} setName={setName} />
+        <NameRow name={name} setName={setName} inputRef={nameRef} />
       </form>
       <Hint />
     </section>
@@ -203,7 +217,11 @@ function CodeEnterLabel() {
   );
 }
 
-function NameRow({ name, setName }: { name: string; setName: (v: string) => void }) {
+function NameRow({ name, setName, inputRef }: {
+  name: string;
+  setName: (v: string) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
   const t = useTranslations('gate.common');
   return (
     <div className="flex items-baseline gap-3 py-2 border-b border-(--color-rule)">
@@ -211,6 +229,7 @@ function NameRow({ name, setName }: { name: string; setName: (v: string) => void
         {t('yourName')}
       </span>
       <input
+        ref={inputRef}
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}

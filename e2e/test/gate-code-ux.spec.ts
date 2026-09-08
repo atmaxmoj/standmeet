@@ -21,9 +21,21 @@
 // code_label, but the SDK's PublicSessionResponse never declared the field, and the
 // gate hardcoded label: null, so every code got called invited -- and that welcome line
 // is meant to tell the visitor their own scope of access.
+//
+// Pre-hydration typing: the gate is SSR'd, so the code + name fields are on screen and
+// typable BEFORE React attaches to them. Keystrokes in that window land in the DOM and
+// nowhere else -- there is no listener yet, and React does not re-set a controlled input
+// whose prop did not change -- so the visitor ends up looking at a field that plainly
+// holds their code above an `enter ↵` that will not enable
+// (`disabled = busy || !(codeReady(code) && !blocked)`, and with no submit yet an empty
+// `code` is the only thing that can hold it down). The name half is worse because it is
+// silent: it would be dropped and the member logged anonymous. A recruiter who scans a QR
+// and types the code they were handed is exactly the person fast enough to hit it, and as
+// a race it reads as "sometimes the button is dead" -- it was the intermittent red in
+// coded-ask-continues. Held deterministically here via openGateUnhydrated.
 
 import { test, expect } from '@/fixtures/test';
-import type { Page, Playwright } from '@playwright/test';
+import type { Page, Playwright, Route } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode, revokeCode } from '@/fixtures/codes';
@@ -31,7 +43,12 @@ import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { issueSession } from '@/fixtures/visitor';
-import { goto } from '@/fixtures/navigate';
+import { goto, gotoUnhydrated } from '@/fixtures/navigate';
+
+// JS_CHUNKS —— the app's client bundle. Holding these requests holds HYDRATION: the
+// server HTML (and its CSS) still arrives and paints, so the form is on screen and
+// typable, but React has not attached to it yet.
+const JS_CHUNKS = '**/_next/static/chunks/**';
 
 const OWNER = {
   email: 'gate-ux@example.com',
@@ -131,7 +148,49 @@ test.describe('gate code panel UX polish', () => {
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('session-strip')).toContainText('Bob Smith');
     });
+
+  // See the header note on pre-hydration typing.
+  test('a code + name typed BEFORE the panel hydrates are not swallowed',
+    async ({ page }) => {
+      const hydrate = await openGateUnhydrated(page);
+      await page.getByTestId('gate-code').fill(CODE);
+      await page.getByTestId('gate-visitor-name').fill('Fast Typist');
+      await hydrate();
+      // The DOM still holds what was typed — that half is React's hydration contract (it
+      // does not clobber a value the visitor already put there); what this case asks is
+      // whether the PANEL took it.
+      await expect(page.getByTestId('gate-code')).toHaveValue(CODE);
+      await page.getByTestId('gate-code-submit').click();
+      await page.waitForURL(CODED_LANDING, { timeout: 10_000 });
+      // The name proves the second, silent half: had it been swallowed too, the code would
+      // still have redeemed and the strip would still be here -- just anonymous.
+      await expect(page.getByTestId('session-strip')).toContainText('Fast Typist');
+    });
 });
+
+// openGateUnhydrated -- open /gate with React NOT attached, and hand back the release.
+// Every JS chunk is held, so the server HTML paints (the form is there and typable) while
+// hydration cannot start; calling the returned function lets it run.
+//
+// Release by flipping a flag, never by `unroute`: unroute drops the pattern without
+// waiting for the held routes, Playwright continues them itself, and this handler's own
+// continue() then throws (docs/full-suite-failures.md #1). As a flag, the same handler
+// simply becomes a pass-through and nothing is handled twice.
+async function openGateUnhydrated(page: Page): Promise<() => Promise<void>> {
+  let releasing = false;
+  const held: Route[] = [];
+  await page.route(JS_CHUNKS, async (r) => {
+    if (!releasing) { held.push(r); return; }
+    await r.continue();
+  });
+  await gotoUnhydrated(page, '/gate');
+  return async () => {
+    expect(held.length, 'hydration was never actually held — the case proves nothing')
+      .toBeGreaterThan(0);
+    releasing = true;
+    await Promise.all(held.map((r) => r.continue()));
+  };
+}
 
 // openGate -- these are gate code-panel tests; go straight to /gate. (The homepage is a
 // microsite now; its access CTA is the GateWidget, covered by its own specs — reaching the
