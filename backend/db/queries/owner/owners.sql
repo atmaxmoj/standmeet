@@ -95,6 +95,19 @@ SELECT custom_css FROM owners WHERE id = $1;
 -- Store the owner's CSS (what the caller passes in should already be the sanitized+scoped safe version).
 UPDATE owners SET custom_css = $2 WHERE id = $1;
 
+-- name: GetOwnerFavicon :one
+-- The asset_id the owner picked as their favicon ('' = product default).
+SELECT favicon_asset_id FROM owners WHERE id = $1;
+
+-- name: SetOwnerFavicon :exec
+-- Point the owner's favicon at an asset in the pool ('' clears it back to the default).
+UPDATE owners SET favicon_asset_id = $2 WHERE id = $1;
+
+-- name: GetSoleOwnerFavicon :one
+-- v1 is single-owner: the /favicon.ico route has no owner in scope (it's an unauthenticated browser
+-- request), so it reads THE owner's favicon directly. Oldest row = the claimed owner.
+SELECT id, favicon_asset_id FROM owners ORDER BY created_at ASC LIMIT 1;
+
 -- name: RecordVaultImport :execrows
 -- UX-62: record the "last vault import" -- the import is the operation that defines this product's
 -- ground truth, and before this "did it happen" had no landing spot in the DB, so that on-screen

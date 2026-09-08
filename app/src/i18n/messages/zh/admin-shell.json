@@ -207,6 +207,12 @@
     }
   },
   "account": {
+    "favicon": "网站图标",
+    "faviconCurrent": "当前图标",
+    "faviconChoose": "选择一张图片…",
+    "faviconDefault": "默认（内置图标）",
+    "faviconSaved": "图标已更新",
+    "faviconHelp": "选一张已上传的图片，或用默认的内置图标。",
     "siteAddress": "站点地址",
     "byoaiMode": "byoai 模式",
     "profile": "个人资料",

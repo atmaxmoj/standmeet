@@ -28,5 +28,7 @@ func (h *Handlers) MountAppearance(r chi.Router) {
 	r.Route("/appearance", func(r chi.Router) {
 		r.Get("/css", h.dispatchOp(face, "appearance.get_css", emptyArgs, jsonOK))
 		r.Put("/css", h.dispatchOp(face, "set_owner_css", bodyArgs, jsonOK))
+		// The owner's favicon: PUT {asset_id} (empty clears it). Served at /favicon.ico.
+		r.Put("/favicon", h.dispatchOp(face, "appearance.set_favicon", bodyArgs, jsonOK))
 	})
 }

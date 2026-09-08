@@ -72,8 +72,8 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 		CaptchaVerifier: d.CaptchaVerifier,
 		CaptchaEnabled:  d.CaptchaEnabled,
 		PluginRegistry:  d.PluginRegistry,
-		BannedIPs:       d.BannedIPRepo,
-		Dispatch:        d.Dispatch,
+		BannedIPs:       d.BannedIPRepo, Dispatch: d.Dispatch,
+		FaviconHandler: buildFaviconHandler(d),
 	}
 }
 

@@ -84,6 +84,10 @@ CREATE TABLE owners (
     -- custom_css —— owner 自定义 CSS(Obsidian snippets sync / admin / MCP 任一面写)。存的是
     -- **sanitize + scope(.corpus-content)后**的安全版本;公开 reader 注入。user-provided → 攻击面。
     custom_css           text          NOT NULL DEFAULT '',
+    -- favicon_asset_id —— the owner's chosen favicon, a reference into the global asset pool (empty =
+    -- product default). Served at /favicon.ico from an in-memory cache (loaded on boot, refreshed on
+    -- change), so the request path never hits storage. See owner/usecase/favicon.go.
+    favicon_asset_id     text          NOT NULL DEFAULT '',
     -- last_vault_import_* —— 上一次 vault 导入的回执（UX-62）。
     --
     -- 为什么这几列必须存在：vault 导入是**定义这个产品 ground truth 的那个操作**，而在此之前

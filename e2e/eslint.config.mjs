@@ -7,6 +7,40 @@ import tseslint from 'typescript-eslint';
 // presentation / controller blocks since this repo has none of
 // those layers.
 
+// e2eLocal — a local plugin holding one rule with its OWN name, so it carries its own
+// severity independent of the error-level `no-restricted-syntax` below.
+//
+// no-goto-teleport (WARN) — the strict `page.goto` ban only matches the MEMBER form
+// `page.goto(...)`. Specs sidestep it by calling the fixtures/navigate `goto(page, '/deep/url')`
+// FREE function (callee is a bare Identifier, not a `.goto` member), teleporting straight into deep
+// routes — exactly what the ban meant to stop (255 such call sites across 126 specs today). This
+// flags every bare `goto(...)` call in a spec as a WARNING: non-blocking, so the whole backlog is
+// visible at once; flip to 'error' when the specs are converted to entry-point + click-nav.
+const e2eLocal = {
+  rules: {
+    'no-goto-teleport': {
+      meta: {
+        type: 'suggestion',
+        docs: { description: 'no fixtures/navigate goto() teleport in spec bodies' },
+        messages: {
+          teleport:
+            'E2E spec: no goto() teleport — reach the page via a known entry point + click-nav ' +
+            '(warning for now; the fixtures/navigate goto helper is being phased out of specs).',
+        },
+      },
+      create(context) {
+        return {
+          CallExpression(node) {
+            if (node.callee.type === 'Identifier' && node.callee.name === 'goto') {
+              context.report({ node: node.callee, messageId: 'teleport' });
+            }
+          },
+        };
+      },
+    },
+  },
+};
+
 // SPEC_SYNTAX_RESTRICTIONS — the no-restricted-syntax selectors every spec file
 // obeys.  Extracted to a const so the connector-spec block can extend (not
 // replace) them with the CJK ban below.
@@ -154,6 +188,7 @@ export default tseslint.config(
   // drive the UI through real user actions.
   {
     files: ['test/**/*.spec.ts'],
+    plugins: { 'e2e-local': e2eLocal },
     rules: {
       // The strict type-checked rules from the recommended set are
       // relaxed in spec files only.  Specs read freely from JSON
@@ -167,6 +202,8 @@ export default tseslint.config(
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'no-restricted-syntax': ['error', ...SPEC_SYNTAX_RESTRICTIONS],
+      // The goto-teleport backlog — a WARNING (see e2eLocal above); flip to 'error' to enforce.
+      'e2e-local/no-goto-teleport': 'warn',
     },
   },
   // Connector specs additionally ban Chinese in test titles + expect messages

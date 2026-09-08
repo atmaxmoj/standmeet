@@ -207,6 +207,12 @@
     }
   },
   "account": {
+    "favicon": "फ़ेविकॉन",
+    "faviconCurrent": "वर्तमान फ़ेविकॉन",
+    "faviconChoose": "एक छवि चुनें…",
+    "faviconDefault": "डिफ़ॉल्ट (अंतर्निहित आइकन)",
+    "faviconSaved": "फ़ेविकॉन अपडेट हुआ",
+    "faviconHelp": "कोई अपलोड की गई छवि चुनें, या डिफ़ॉल्ट अंतर्निहित आइकन उपयोग करें।",
     "siteAddress": "साइट पता",
     "byoaiMode": "byoai मोड",
     "profile": "profile",

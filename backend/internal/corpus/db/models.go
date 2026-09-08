@@ -374,6 +374,7 @@ type Owner struct {
 	PasswordResetAt        pgtype.Timestamptz
 	ProfileTimezone        string
 	CustomCss              string
+	FaviconAssetID         string
 	LastVaultImportAt      pgtype.Timestamptz
 	LastVaultImportNew     int32
 	LastVaultImportUpdated int32

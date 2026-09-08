@@ -39,6 +39,7 @@ type Deps struct {
 	Skills         marketplace.SkillsDeps
 	MCPServers     marketplace.MCPServersDeps
 	OwnerCSS       owner.CSSStore
+	OwnerFavicon   owner.FaviconStore
 	BannedIPs      *security.BannedIPRepo
 	AllowedDomains owner.AllowedDomainsDeps
 	APIKeys        access.OpsAPIKeys
@@ -61,7 +62,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "assets", Ops: corpus.AssetOps(d.Corpus)},
 		{Name: "ip_bans", Ops: security.IPBanOps(d.BannedIPs)},
 		{Name: "domains", Ops: owner.DomainOps(d.AllowedDomains)},
-		{Name: "appearance", Ops: owner.AppearanceOps(d.OwnerCSS)},
+		{Name: "appearance", Ops: owner.AppearanceOps(d.OwnerCSS, d.OwnerFavicon)},
 		{Name: "prompts", Ops: owner.PromptOps(d.Prompts)},
 		{Name: "settings", Ops: owner.SettingsOps(d.Settings)},
 		{Name: "providers", Ops: owner.ProviderOps(d.Providers)},

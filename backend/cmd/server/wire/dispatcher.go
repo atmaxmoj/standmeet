@@ -51,8 +51,8 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		Corpus:         corpusDepsOf(d),
 		BannedIPs:      d.BannedIPRepo,
 		AllowedDomains: owner.AllowedDomainsDeps{Instance: d.InstanceRepo},
-		OwnerCSS:       d.OwnerRepo,
-		Prompts:        owner.PromptsDeps{Prompts: d.PromptRepo},
+		OwnerCSS:       d.OwnerRepo, OwnerFavicon: d.OwnerRepo,
+		Prompts: owner.PromptsDeps{Prompts: d.PromptRepo},
 		Settings: owner.SettingsDeps{
 			BYOAI: owner.BYOAIDeps{Owners: d.OwnerRepo},
 			// Providers must not be left out: the domain uses it to validate provider names.

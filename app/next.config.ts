@@ -86,6 +86,9 @@ const nextConfig: NextConfig = {
       // build dir on the backend — proxy them there. beforeFiles so this beats any app route; the
       // app itself serves nothing at /assets (its own static is /_next), so there's no collision.
       { source: '/assets/:path*', destination: `${BACKEND_URL}/api/v1/homepage/assets/:path*` },
+      // The owner's chosen favicon is served by the backend (custom asset, or the embedded default).
+      // beforeFiles so it beats Next's own app/favicon.ico file route, which would otherwise win.
+      { source: '/favicon.ico', destination: `${BACKEND_URL}/favicon.ico` },
     ],
     afterFiles: [
       { source: '/api/:path*', destination: `${BACKEND_URL}/api/:path*` },

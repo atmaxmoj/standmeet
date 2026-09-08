@@ -207,6 +207,12 @@
     }
   },
   "account": {
+    "favicon": "favicon",
+    "faviconCurrent": "current favicon",
+    "faviconChoose": "Choose an image…",
+    "faviconDefault": "Default (built-in icon)",
+    "faviconSaved": "Favicon updated",
+    "faviconHelp": "Pick an uploaded image, or Default to use the built-in icon.",
     "siteAddress": "site address",
     "byoaiMode": "byoai mode",
     "profile": "profile",

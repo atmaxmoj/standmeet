@@ -19,8 +19,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
-// Appearance —— read / write custom CSS.
-func Appearance(store usecase.CSSStore) []fp.Op {
+// Appearance —— read / write custom CSS + the favicon.
+func Appearance(store usecase.CSSStore, fav usecase.FaviconStore) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "appearance.get_css",
@@ -40,6 +40,39 @@ func Appearance(store usecase.CSSStore) []fp.Op {
 			Reach:       fp.OwnerAction(),
 			Invoke:      setCSS(store),
 		},
+		{
+			ID: "appearance.set_favicon",
+			Description: "Set the owner's favicon to an uploaded image asset — pass its asset_id " +
+				"from the asset pool (assets.list); an empty asset_id clears it back to the " +
+				"product default. Served at /favicon.ico.",
+			InputSchema: faviconSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      setFavicon(fav),
+		},
+	}
+}
+
+var faviconSchema = json.RawMessage(`{
+	"type":"object",
+	"properties":{"asset_id":{"type":"string","description":"An image asset_id ('' clears it)."}},
+	"required":["asset_id"]
+}`)
+
+type faviconPayload struct {
+	AssetID string `json:"asset_id"`
+}
+
+func setFavicon(store usecase.FaviconStore) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		var in faviconPayload
+		if err := json.Unmarshal(raw, &in); err != nil {
+			return nil, fp.BadInput("invalid arguments: " + err.Error())
+		}
+		if err := usecase.SetOwnerFavicon(ctx, store, ownerID, in.AssetID); err != nil {
+			return nil, fp.OpErr("save favicon", err)
+		}
+		return json.Marshal(in)
 	}
 }
 

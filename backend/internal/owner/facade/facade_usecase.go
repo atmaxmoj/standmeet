@@ -12,6 +12,7 @@ type (
 	ApproveRequestDeps         = usecase.ApproveRequestDeps
 	BYOAIDeps                  = usecase.BYOAIDeps
 	CSSStore                   = usecase.CSSStore
+	FaviconStore               = usecase.FaviconStore
 	VaultImportStore           = usecase.VaultImportStore
 	ClaimDeps                  = usecase.ClaimDeps
 	ClaimInput                 = usecase.ClaimInput
@@ -122,6 +123,7 @@ var (
 	VerifyPreviewToken         = usecase.VerifyPreviewToken
 	Rollback                   = usecase.Rollback
 	SetOwnerCSS                = usecase.SetOwnerCSS
+	SetOwnerFavicon            = usecase.SetOwnerFavicon
 	UpdateBYOAI                = usecase.UpdateBYOAI
 	UpdateOwnerAIProvider      = usecase.UpdateOwnerAIProvider
 	UpdateOwnerEmail           = usecase.UpdateOwnerEmail

@@ -273,3 +273,26 @@ func (r *Repo) SetCSS(ctx context.Context, ownerID, css string) error {
 	}
 	return nil
 }
+
+// SetFavicon —— points the owner's favicon at an asset in the pool (” clears it to the default).
+func (r *Repo) SetFavicon(ctx context.Context, ownerID, assetID string) error {
+	pgID, perr := pgstore.ParseUUID(ownerID)
+	if perr != nil {
+		return fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	params := db.SetOwnerFaviconParams{ID: pgID, FaviconAssetID: assetID}
+	if err := db.New(r.pool).SetOwnerFavicon(ctx, params); err != nil {
+		return fmt.Errorf("set owner favicon: %w", err)
+	}
+	return nil
+}
+
+// SoleFavicon —— the sole (v1) owner's favicon asset_id (” = none). Used by the /favicon.ico route,
+// which has no owner in scope (an unauthenticated browser request).
+func (r *Repo) SoleFavicon(ctx context.Context) (string, error) {
+	row, err := db.New(r.pool).GetSoleOwnerFavicon(ctx)
+	if err != nil {
+		return "", fmt.Errorf("get sole owner favicon: %w", err)
+	}
+	return row.FaviconAssetID, nil
+}

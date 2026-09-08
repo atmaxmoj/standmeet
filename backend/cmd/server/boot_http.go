@@ -41,6 +41,9 @@ type Deps struct {
 	DB    *pgxpool.Pool
 	Redis *redis.Client
 	Log   *slog.Logger
+	// FaviconHandler —— GET /favicon.ico (built in buildServerDeps from the owner favicon + asset
+	// repos + storage). nil in tests that don't wire it; then the route is simply not mounted.
+	FaviconHandler http.HandlerFunc
 	// CaptchaVerifier —— login captcha verifier; composition root assembles it from env.
 	CaptchaVerifier      security.Verifier
 	Public               publicroutes.Handlers
@@ -137,6 +140,7 @@ func New(deps *Deps) http.Handler {
 	mountAdmin(r, deps)
 	mountPublic(r, deps)
 	mountRootSEO(r, deps)
+	mountFavicon(r, deps)
 	if deps.PubAPI != nil {
 		deps.PubAPI.Mount(r)
 	}

@@ -207,6 +207,12 @@
     }
   },
   "account": {
+    "favicon": "ファビコン",
+    "faviconCurrent": "現在のファビコン",
+    "faviconChoose": "画像を選択…",
+    "faviconDefault": "デフォルト（内蔵アイコン）",
+    "faviconSaved": "ファビコンを更新しました",
+    "faviconHelp": "アップロード済みの画像を選ぶか、デフォルトの内蔵アイコンを使います。",
     "siteAddress": "サイトアドレス",
     "byoaiMode": "byoai モード",
     "profile": "profile",

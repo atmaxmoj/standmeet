@@ -207,6 +207,12 @@
     }
   },
   "account": {
+    "favicon": "파비콘",
+    "faviconCurrent": "현재 파비콘",
+    "faviconChoose": "이미지 선택…",
+    "faviconDefault": "기본값 (내장 아이콘)",
+    "faviconSaved": "파비콘이 업데이트됨",
+    "faviconHelp": "업로드한 이미지를 고르거나 기본 내장 아이콘을 사용하세요.",
     "siteAddress": "사이트 주소",
     "byoaiMode": "byoai 모드",
     "profile": "profile",
