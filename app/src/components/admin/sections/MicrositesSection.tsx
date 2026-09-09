@@ -16,6 +16,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { Toggle } from '@/components/atoms/Toggle';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   pickMicrositesBodyState,
@@ -275,31 +276,25 @@ function ByoaiVoid({ slug }: { slug: string }) {
   );
 }
 
-// block —— the previous version was an inline `<button>`, so it sat right after
-// "which codes unlock this page", reading on screen as
-// `…anonymous onlyno bring-your-own-key`: two sentences glued into one nobody could
-// parse (UX-98).
-// A pill toggle, not a text link: the old plain-accent text read as a label, not a control ("看不出
-// 它是可以点的"). The bordered pill + a state dot (filled = allowed) makes it obviously clickable and
-// shows on/off at a glance.
+// An iOS-style toggle switch (track + sliding knob), not a text pill: the owner asked for "那种能点
+// 的 iPhone 的" switch. The switch has no visible text — its meaning comes from the Access column's
+// "?" tooltip; its accessible name (and the on/off state for tests) is the byoaiOn/byoaiOff string.
 function ByoaiButton({ page }: { page: MicrositeSummary }) {
   const t = useTranslations('adminPages.microsites');
   const { setByoai } = useMicrosites();
   const run = useAction();
   const allow = page.allow_byoai === true;
   return (
-    <button
-      type="button"
-      className="inline-flex items-center gap-1.5 mono text-[10px] mt-1.5 px-2 py-0.5 rounded-full border border-(--color-rule) text-(--color-muted) hover:border-(--color-accent) hover:text-(--color-ink) transition-colors"
-      data-testid={`microsite-byoai-${page.slug}`}
-      aria-pressed={allow}
-      onClick={() => void run(() => setByoai(page.slug, !allow), {
-        success: t(allow ? 'byoaiToastOff' : 'byoaiToastOn', { slug: page.slug }),
-      })}
-    >
-      <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${allow ? 'bg-(--color-accent)' : 'bg-(--color-faint)'}`} />
-      {allow ? t('byoaiOn') : t('byoaiOff')}
-    </button>
+    <div className="mt-1.5">
+      <Toggle
+        on={allow}
+        testid={`microsite-byoai-${page.slug}`}
+        label={allow ? t('byoaiOn') : t('byoaiOff')}
+        onToggle={() => void run(() => setByoai(page.slug, !allow), {
+          success: t(allow ? 'byoaiToastOff' : 'byoaiToastOn', { slug: page.slug }),
+        })}
+      />
+    </div>
   );
 }
 

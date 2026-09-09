@@ -11,6 +11,7 @@ import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { ListPane } from '@/components/admin/ListPane';
+import { Toggle } from '@/components/atoms/Toggle';
 import {
   useCapabilities, dependencyHint,
   type CapabilityRow, type CapabilitiesHook,
@@ -141,21 +142,8 @@ function KindBadge({ row }: { row: CapabilityRow }) {
     : <span className={`${BADGE_BASE} text-(--color-muted) border-(--color-rule)`}>{row.kind}</span>;
 }
 
-// A connector row's `enabled` reflects connection state and can't be toggled by hand
-// (connect/disconnect happens on that connector's own card).
-function toggleTrackClass(enabled: boolean, locked: boolean): string {
-  const tint = enabled
-    ? 'bg-(--color-ink) border-(--color-ink)'
-    : 'bg-transparent border-(--color-rule)';
-  const cursor = locked ? ' opacity-40 cursor-not-allowed' : ' cursor-pointer';
-  return `relative h-5 w-9 shrink-0 rounded-full border transition-colors ${tint}${cursor}`;
-}
-
-function toggleKnobClass(enabled: boolean): string {
-  const pos = enabled ? 'left-[18px] bg-(--color-paper)' : 'left-0.5 bg-(--color-muted)';
-  return `absolute top-0.5 h-3.5 w-3.5 rounded-full transition-all ${pos}`;
-}
-
+// A connector row's `enabled` reflects connection state and can't be toggled by hand (connect /
+// disconnect happens on that connector's own card), so it renders locked.
 function EnableToggle({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHook }) {
   const report = useReportError();
   const locked = row.kind === 'connector';
@@ -164,17 +152,13 @@ function EnableToggle({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHoo
   // could still be live, a safety hole); no success toast either — the toggle moving is
   // already the feedback.
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={row.enabled}
+    <Toggle
+      on={row.enabled}
       disabled={locked}
-      data-testid={`toggle-${row.id}`}
-      onClick={() => { void hook.setEnabled(row.id, !row.enabled).catch(report); }}
-      className={toggleTrackClass(row.enabled, locked)}
-    >
-      <span className={toggleKnobClass(row.enabled)} />
-    </button>
+      testid={`toggle-${row.id}`}
+      label={capabilityLabel(row)}
+      onToggle={() => { void hook.setEnabled(row.id, !row.enabled).catch(report); }}
+    />
   );
 }
 

@@ -3,7 +3,8 @@
 // the real page and covers every visible branch:
 //   - the panel mounts with NO client-side exception — i.e. the build-watcher long-poll now running
 //     in a Web Worker (use-microsites → useLongPoll) mounts without breaking the page;
-//   - byoai is a clickable PILL (a real <button aria-pressed>), not plain text "看不出可以点";
+//   - byoai is an iOS-style toggle SWITCH (role="switch" + aria-checked, a knob that slides), not a
+//     text pill and not plain text "看不出可以点";
 //     clicking it flips the state AND the flip survives a reload (it persisted, not just toggled in place);
 //   - the binding cell reads "no code" for an unbound page, and the code string once a code is bound
 //     (the other end of the binding, visible from the page side too);
@@ -12,7 +13,7 @@
 //   - the Access column carries a "?" tooltip explaining code binding.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
@@ -52,6 +53,12 @@ async function openMicrosites(page: Page): Promise<void> {
   await expect(page.getByTestId('microsites-list')).toBeVisible({ timeout: 30_000 });
 }
 
+// knobLeft —— the x position of the switch's sliding knob (its inner span). It moves when the switch
+// flips, so comparing it before/after proves the control is a real track+knob switch, not text.
+async function knobLeft(sw: Locator): Promise<number> {
+  return sw.locator('span').first().evaluate((el) => el.getBoundingClientRect().left);
+}
+
 // refetchMicrosites —— reload the current /admin/microsites page. The list is backed by a
 // module-level store that loads once and survives in-app nav, so leaving and returning would just
 // re-show the cached rows; only a real reload drops that store and re-reads from the server. That's
@@ -77,21 +84,25 @@ test.describe('microsites admin panel UI', () => {
     await openMicrosites(page);
     await expect(page.getByTestId('microsite-row-togglepage')).toBeVisible({ timeout: 30_000 });
 
-    // The byoai control is a pill toggle: a real button carrying on/off state.
+    // The byoai control is an iOS-style toggle SWITCH: role="switch" carrying on/off state, with a
+    // knob that physically slides — not a text pill.
     const byoai = page.getByTestId('microsite-byoai-togglepage');
-    await expect(byoai, 'byoai is a pill toggle').toHaveAttribute('aria-pressed', /^(true|false)$/);
-    const before = await byoai.getAttribute('aria-pressed');
+    await expect(byoai, 'byoai is a switch').toHaveAttribute('role', 'switch');
+    await expect(byoai, 'switch carries on/off state').toHaveAttribute('aria-checked', /^(true|false)$/);
+    const before = await byoai.getAttribute('aria-checked');
+    const knobBefore = await knobLeft(byoai);
 
-    // Clicking it flips the state...
+    // Clicking it flips the state, and the knob slides (geometry — proves it's a switch, not text).
     await byoai.click();
     const flipped = before === 'true' ? 'false' : 'true';
-    await expect(byoai, 'clicking the pill flips it').toHaveAttribute('aria-pressed', flipped);
+    await expect(byoai, 'clicking the switch flips it').toHaveAttribute('aria-checked', flipped);
+    expect(await knobLeft(byoai), 'the knob slid to the other end').not.toBe(knobBefore);
 
     // ...and the flip PERSISTED — a reload drops the client store and re-reads from the server, so
     // it wasn't just local state.
     await refetchMicrosites(page);
     await expect(page.getByTestId('microsite-byoai-togglepage'), 'the flip survived a reload')
-      .toHaveAttribute('aria-pressed', flipped);
+      .toHaveAttribute('aria-checked', flipped);
 
     // The Access column has the "?" tooltip explaining code binding (aria-label carries the text).
     await expect(page.getByLabel(/bound to an access code/i), 'access "?" tooltip present').toBeVisible();
