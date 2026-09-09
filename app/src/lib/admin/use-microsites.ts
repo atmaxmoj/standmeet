@@ -57,6 +57,15 @@ export function previewView(page: MicrositeSummary): PreviewView {
   };
 }
 
+// previewIsLive —— the preview pane always shows the LATEST build; that build IS the live one only
+// when its id equals the live build id. Otherwise the preview is a staging build not yet promoted
+// (or the page was never made live). This drives the pane's live/staging caption — the caption used
+// to be a hardcoded "not yet live", which lied whenever the previewed build was already the live one.
+export function previewIsLive(page: MicrositeSummary): boolean {
+  const latest = page.latest_build_id ?? '';
+  return latest !== '' && latest === page.live_build_id;
+}
+
 // usePinnedPreviewSrc —— the preview iframe's src, pinned to buildID.
 //
 // The token in preview_url is signed fresh by the backend on every request

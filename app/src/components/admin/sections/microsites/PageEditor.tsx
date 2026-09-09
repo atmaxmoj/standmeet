@@ -21,7 +21,7 @@ import { useAutoBuild } from '@/lib/admin/use-auto-build';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { IMPORTABLE_MODULES, STARTER, type ImportableModule } from '@/lib/admin/microsite-imports';
 import {
-  loadDraft, stageFiles, shipFilesLive, previewView, usePinnedPreviewSrc,
+  loadDraft, stageFiles, shipFilesLive, previewView, previewIsLive, usePinnedPreviewSrc,
   useMicrosites, type BuildView, type MicrositeSummary, type DraftFiles,
 } from '@/lib/admin/use-microsites';
 import { useAction } from '@/lib/ui/use-action';
@@ -385,8 +385,8 @@ function EditorPreview({ page }: { page: MicrositeSummary }) {
   return src === '' ? <PreviewEmpty /> : (
     <div className="border border-(--color-rule) rounded-sm overflow-hidden" data-testid="microsite-staging">
       <div className="flex items-baseline justify-between px-3 py-1.5 border-b border-(--color-rule)/60">
-        <span className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint)">
-          {t('stagingLabel')}
+        <span data-testid="microsite-preview-state" className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint)">
+          {previewIsLive(page) ? t('visibilityState.live') : t('visibilityState.staging')}
         </span>
         <span data-testid="microsite-staging-state" className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-muted)">
           {view.status}
