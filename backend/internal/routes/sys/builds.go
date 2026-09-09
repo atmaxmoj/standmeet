@@ -137,7 +137,13 @@ func patchBuild(deps BuilderDeps) http.HandlerFunc {
 			return
 		}
 		if perr := applyPatch(r, deps, id, &req); perr != nil {
-			deps.Log.Error("patch build", "err", perr)
+			// The builder's side of this failure is one line — `mark built: 500` — with no id and
+			// no reason, so this is the ONLY place the cause is ever written down. Name the build
+			// and the status it was reporting: the common cause is a build whose row is gone
+			// (its page or owner was deleted while vite was still running), and "no rows in
+			// result set" alone cannot be told apart from a genuine database fault.
+			deps.Log.Error("patch build",
+				"err", perr, "build_id", id, "reported_status", req.Status)
 			http.Error(w, "patch build failed", http.StatusInternalServerError)
 			return
 		}
