@@ -273,6 +273,36 @@ another checkout's logs, presented as this one's.
 
 ---
 
+## Still open, merged deliberately (owner's call, 2026-09-09)
+
+**`microsite-editor-live-follow.spec.ts:66` — 1 red in 1748, intermittent, NOT root-caused.**
+In the final full suite it timed out after 300s with the staging preview still on `INITIAL`.
+Recorded here rather than left as folklore, with what is proven and what is not:
+
+**Proven.** `resetInstance()` TRUNCATEs `microsite_builds` (`truncate cascades to table
+"microsite_builds"` in the reset log), while the builder is a long-lived container that outlives
+any one spec's data. A build still in flight when that happens cannot report:
+`patch build err="mark built: no rows in result set"` → 500 (backend), `mark built: 500` (builder).
+Reproduced twice. Both `mark built` and `mark failed` fail, so it is independent of the build's
+outcome.
+
+**NOT proven — and two readings were wrong on the way here.** (1) "It is contention for the
+builder": builds take ~3s each and the builder is never starved; the claim had no evidence.
+(2) The 500 is a *symptom*, not the cause — the reset that truncates the row belongs to the NEXT
+spec, so it fires only after live-follow has already timed out. (3) A reproduction that showed a
+30s `beforeAll` timeout was **contaminated**: six `make stack-retire` runs (`docker compose down -v`)
+were executing concurrently. On a quiet machine the same six microsite specs at REPEAT=3 are
+**57 passed / 0 failed in 3.3 min**, with zero `mark built: 500`.
+
+So the failure needs the full suite's load to appear, and the two things that would have made it
+attributable — bounded container logs and `build_id` on the patch-build error — landed only after
+that run. The next full suite has both.
+
+**What is worth fixing regardless of this red:** a test reset and a long-lived builder are not
+coordinated. Production never truncates these tables, so this is a harness defect; the reset should
+drain or pause the builder before truncating, rather than deleting rows out from under work in
+progress.
+
 ## Round status (2026-09-08)
 
 Batches A–E written from the archive; none started. Batch order is by blast radius: B and C are 9
