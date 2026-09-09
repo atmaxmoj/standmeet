@@ -5,14 +5,17 @@
 import { adminAPI } from '@/lib/api/admin';
 import { draftToAPIContent, type DraftModel } from '@/lib/admin/draft-model';
 
-// savePuckDraft —— the Puck editor's Save: persist the derived resume_content + template AND the
-// Puck editor's own state (puckData) verbatim, so reopening restores the exact arrangement. This is
-// the explicit commit-to-storage moment (Puck owns the state until Save; no autosave churn).
-export function savePuckDraft(model: DraftModel, puckData: unknown): Promise<void> {
+// savePuckDraft —— the Puck editor's Save: persist the derived resume_content + template. This is the
+// explicit commit-to-storage moment (Puck owns the state until Save; no autosave churn).
+//
+// puck_data is intentionally NOT persisted: resume_content is the single canonical source, and the
+// editor re-derives its Puck document from it on open (puckInitialData). A stored second copy is
+// exactly what drifted — the editor showed an empty puck_data while the listing thumbnail and the
+// committed PDF rendered a populated resume_content.
+export function savePuckDraft(model: DraftModel): Promise<void> {
   return adminAPI.patchVoid(`/drafts/${model.id}`, {
     template: model.template,
     resume_content: draftToAPIContent(model),
-    puck_data: puckData,
   });
 }
 

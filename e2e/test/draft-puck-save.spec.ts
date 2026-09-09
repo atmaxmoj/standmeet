@@ -1,21 +1,20 @@
-// draft-puck-save.spec.ts —— Q0 Group D4 (Save semantics): the Puck editor's state lives in Puck
-// until the owner clicks Save; Save persists puck_data + the derived resume_content, and reopening
-// restores it. docs/design/resume-composer-puck.md — owner: "puck 自己的 redux,点 save 就 save".
+// draft-puck-save.spec.ts —— the Puck editor's Save persists the résumé to its SINGLE canonical
+// source (resume_content), and reopening the editor shows it.
 //
-// Proven through the REAL UI + DB:
-//   - a freshly-seeded draft has NO puck_data (created without the Puck editor);
-//   - opening the editor and clicking Save writes puck_data (a real Puck document) to the draft;
-//   - reopening the editor still mounts (it loads from the saved puck_data).
+// Before the single-source change this asserted Save wrote a separate puck_data copy. That copy is
+// gone: resume_content is the one source, and the editor re-derives its Puck document from it on
+// open (a stored puck_data that had drifted used to blank the editor — see resume-single-source).
 //
-// RED-reachability: if Save didn't wire through to puck_data, the post-Save GET would still show no
-// puck_data and the poll would time out.
+// Proven through the REAL UI + DB, POSITIVE assertions:
+//   - the editor opens showing the seeded resume_content (derived);
+//   - clicking Save keeps resume_content intact in the DB (the Save button reaches the canonical source);
+//   - reopening the editor still shows that content (loaded from resume_content, no puck_data needed).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
-import { goto } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -23,43 +22,52 @@ const OWNER = {
   handle: 'pucksave', fullName: 'Puck Save Owner',
 };
 
-interface DraftDetail { puck_data?: { content?: unknown[] } }
+const NAME = 'Sijie Wang';
+const NAME_SHOWN = new RegExp(NAME, 'i'); // the résumé displays the name lowercase
+
+interface DraftDetail { resume_content?: { identity?: { name?: string } } }
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
-test.describe('Puck résumé editor · Save persists puck_data (Q0 D4)', () => {
+test.describe('Puck résumé editor · Save persists resume_content (single source)', () => {
   test.beforeAll(async ({ playwright }) => { await claimFreshOwner(playwright, OWNER); });
 
-  test('a seeded draft has no puck_data; clicking Save writes it; reopening loads it',
+  test('editor opens with resume_content; Save keeps it; reopening still shows it',
     async ({ adminPage: page, playwright }) => {
       test.setTimeout(120_000);
       const api = await playwright.request.newContext();
       const { csrf } = await loginAPI(api, OWNER.email, OWNER.password);
       const id = await seed(api, csrf);
 
-      // Pre-Save: the draft carries no puck_data.
-      const before = await getDraft(api, id);
-      expect(before.puck_data, 'a freshly-seeded draft has no puck_data yet').toBeUndefined();
+      // Open the composer via click-nav (drafts → open composer).
+      await openComposer(page, id);
+      const canvas = page.frameLocator('iframe').first();
+      await expect(canvas.locator('[data-sec="header"]'), 'editor opens showing resume_content')
+        .toContainText(NAME_SHOWN, { timeout: 30_000 });
 
-      // Open the Puck editor and Save.
-      await goto(page, `/admin/edit-resume/${id}`);
-      await expect(page.getByTestId('puck-resume-editor')).toBeVisible({ timeout: 30_000 });
+      // Click Save → resume_content stays intact in the DB (the Save button reaches the canonical source).
       await clickSave(page);
+      await expect.poll(async () => (await getDraft(api, id)).resume_content?.identity?.name, {
+        message: 'Save keeps resume_content in the canonical store', timeout: 20_000,
+      }).toBe(NAME);
 
-      // Post-Save: puck_data is now a real Puck document (has a content array with the sections).
-      await expect.poll(async () => {
-        const content = (await getDraft(api, id)).puck_data?.content;
-        return Array.isArray(content) ? content.length : -1;
-      }, { message: 'Save must persist puck_data with the résumé sections', timeout: 20_000 })
-        .toBeGreaterThan(0);
-
-      // Reopen: the editor still mounts (now loading from the saved puck_data).
-      await goto(page, `/admin/edit-resume/${id}`);
-      await expect(page.getByTestId('puck-resume-editor')).toBeVisible({ timeout: 30_000 });
+      // Reopen: the editor still shows the content (loaded from resume_content).
+      await openComposer(page, id);
+      await expect(page.frameLocator('iframe').first().locator('[data-sec="header"]'),
+        'reopened editor still shows resume_content').toContainText(NAME_SHOWN, { timeout: 30_000 });
       await api.dispose();
     });
 });
 
-// clickSave —— the editor's Save action (Puck owns the state; this is the commit-to-storage moment).
+// openComposer —— reach the full-page editor the way the owner does: drafts nav → the draft's
+// "open composer" button. (adminPage lands on /admin.)
+async function openComposer(page: Page, id: string): Promise<void> {
+  await page.getByTestId('admin-nav-drafts').click();
+  const open = page.getByTestId(`draft-open-${id}`);
+  await expect(open).toBeVisible({ timeout: 30_000 });
+  await open.click();
+  await expect(page.getByTestId('puck-resume-editor')).toBeVisible({ timeout: 30_000 });
+}
+
 async function clickSave(page: Page): Promise<void> {
   const save = page.getByTestId('puck-save');
   await expect(save, 'the Puck editor shows a Save action').toBeVisible({ timeout: 15_000 });
@@ -79,7 +87,7 @@ async function seed(api: APIRequestContext, csrf: string): Promise<string> {
   const id = (await created.json() as { id: string }).id;
   const resume_content = {
     identity: {
-      name: 'Sijie Wang', email: 'sijie@example.com', phone: '+1 555 0142',
+      name: NAME, email: 'sijie@example.com', phone: '+1 555 0142',
       location_line: 'Hamilton, ON', site: 'sijie.xyz', links: [],
     },
     summary: 'Backend engineer who builds trustworthy natural-language software.',

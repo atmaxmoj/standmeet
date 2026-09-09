@@ -27,18 +27,14 @@ function asPuckData(pd: PuckData): Data {
 function fromData(d: Data): PuckData {
   return d as unknown as PuckData; // eslint-disable-line @typescript-eslint/consistent-type-assertions
 }
-// A draft's saved puck_data arrives as `unknown` (the app never inspects it); it was written by Puck
-// itself, so at this one boundary it is a Puck Data document.
-function savedAsData(u: unknown): Data {
-  return u as Data; // eslint-disable-line @typescript-eslint/consistent-type-assertions
-}
-
-// puckInitialData —— the document Puck opens with: the saved puck_data verbatim, else derived from
-// resume_content so old rows just open.
-export function puckInitialData(model: DraftModel, savedPuckData: unknown): Data {
-  return savedPuckData == null
-    ? asPuckData(toPuckData(draftToResumeContent(model)))
-    : savedAsData(savedPuckData);
+// puckInitialData —— the document Puck opens with: ALWAYS derived from resume_content, the single
+// canonical source. Ignoring any stored puck_data is deliberate — a persisted second copy drifted
+// from resume_content (the editor opened an empty puck_data while the listing thumbnail and the
+// committed PDF rendered a populated resume_content: "多个 source of truth"). The résumé is a fixed
+// template, so resume_content is a complete representation and derives losslessly; the editor is a
+// faithful view of it, and Save writes resume_content back (save-draft.ts).
+export function puckInitialData(model: DraftModel): Data {
+  return asPuckData(toPuckData(draftToResumeContent(model)));
 }
 
 // deriveModel —— fold the current Puck document back into the DraftModel (base carries the id + job

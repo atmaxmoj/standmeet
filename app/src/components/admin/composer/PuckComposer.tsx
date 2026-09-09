@@ -1,8 +1,8 @@
 // PuckComposer —— the full-page résumé composer (owner-chosen layout A): a top action bar
 // (← drafts · Save · code▾ · preview PDF ↗ · SEND) over the full-page Puck editor. Puck owns the
-// editor state; Save persists it (puck_data + derived resume_content); SEND freezes the draft into
-// an application (auto-issued code + rendered PDF) and returns to /admin/drafts.
-// docs/design/resume-composer-puck.md (Q0 cutover).
+// editor state; Save persists the derived resume_content (the single canonical source — no separate
+// puck_data copy); SEND freezes the draft into an application (auto-issued code + rendered PDF) and
+// returns to /admin/drafts. docs/design/resume-composer-puck.md (Q0 cutover).
 
 'use client';
 
@@ -32,15 +32,12 @@ function contentOf(model: DraftModel, d: Data): unknown {
   return draftToAPIContent(deriveModel(model, d));
 }
 
-export function PuckComposer({ model, initialPuckData }: {
-  model: DraftModel;
-  initialPuckData: unknown;
-}) {
+export function PuckComposer({ model }: { model: DraftModel }) {
   const tJobs = useTranslations('adminJobs');
   const router = useRouter();
   const run = useAction();
   const code = useComposerCode();
-  const [initial] = useState<Data>(() => puckInitialData(model, initialPuckData));
+  const [initial] = useState<Data>(() => puckInitialData(model));
   const latest = useRef<Data>(initial);
   const baseline = useRef<unknown>(draftToAPIContent(model)); // last-saved resume_content
   const [dirty, setDirty] = useState(false);
@@ -64,7 +61,7 @@ export function PuckComposer({ model, initialPuckData }: {
   }, [model]);
   const save = useCallback(() => {
     const data = latest.current;
-    void savePuckDraft(deriveModel(model, data), data).then(() => markSaved(data)).catch(() => undefined);
+    void savePuckDraft(deriveModel(model, data)).then(() => markSaved(data)).catch(() => undefined);
   }, [model, markSaved]);
 
   const leaveToDrafts = (): void => { router.push('/admin/drafts'); };
@@ -80,7 +77,7 @@ export function PuckComposer({ model, initialPuckData }: {
       : { mode: 'existing' as const, codeId: code.codeId };
     void run(async () => {
       // Persist the current edit first so the committed PDF matches what's on screen, then freeze.
-      await savePuckDraft(deriveModel(model, latest.current), latest.current);
+      await savePuckDraft(deriveModel(model, latest.current));
       const committed = await commitDraft(model.id, choice);
       markSaved(latest.current); // committed → nothing left to discard on the way out
       router.push('/admin/drafts');

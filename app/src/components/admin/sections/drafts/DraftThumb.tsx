@@ -28,7 +28,10 @@ import type { AdminDraftRow } from '@/lib/admin/use-admin-drafts';
 import styles from '@/components/admin/sections/drafts/DraftThumb.module.css';
 
 const THUMB_SCALE = 0.30;
-const PREVIEW_QR_URL = 'preview://standmeet/draft';
+// A draft has no access code yet (the code is issued at applications.commit), so there is no real URL
+// to encode. Passing '' draws the QR placeholder frame — the same thing the editor shows before a code
+// is picked — rather than a scannable QR that encodes a dead marker (owner: "假的，不要假的").
+const PREVIEW_QR_URL = '';
 
 export function DraftThumb({ row }: { row: AdminDraftRow }) {
   const model = previewModel(row);
