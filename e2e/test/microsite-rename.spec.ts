@@ -92,7 +92,12 @@ test.describe('microsite slug rename', () => {
       // editable /p/<slug> name (owner: "homepage 这边就应该显示域名").
       await goto(page, '/admin/edit/home');
       await expect(page.getByTestId('microsite-editor')).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByTestId('microsite-home-domain')).toBeAttached();
+      // Not just "the element exists" — it must actually show the owner's DOMAIN: a bare host (letters
+      // / digits / dots / hyphens, optional :port), never empty and never a scheme or a /p/ slug.
+      await expect(
+        page.getByTestId('microsite-home-domain'),
+        'the header shows the owner domain (a bare host), not empty and not a /p/ slug',
+      ).toHaveText(/^[a-z0-9.-]+(:\d+)?$/i, { timeout: 20_000 });
     });
 
   test('clicking Save with the name unchanged flashes a ✓ acknowledgement',
