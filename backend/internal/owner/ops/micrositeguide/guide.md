@@ -54,6 +54,35 @@ AssetWidget } from '@standmeet/sdk'`:
   - `useChatSession(input)` → `{ messages, streaming, error, send(text) }` (what AgentWidget uses).
   - `<AnswerText text={…} />` renders an answer with StandMeet's paragraph/citation formatting.
 
+## Persist state — the page's own store
+
+A microsite can save and read back its **own** data — a poll tally, a sign-up sheet, a guestbook, an
+edited-in-place document. This is a per-page key/value store, scoped automatically to this page (the
+server keys every read/write to the page's slug from `/p/<slug>/…`, so you never pass an id).
+
+```tsx
+import { useMicrositeStore } from '@standmeet/sdk';
+
+function Guestbook() {
+  const { docs, save, error } = useMicrositeStore('entries'); // 'entries' = a collection name
+  // docs: the stored documents (each an opaque JSON object), newest state on mount + after each save.
+  // save(doc): append one document; resolves when stored, or sets `error` if the write is refused.
+  const add = (name: string, note: string) => { void save({ name, note, at: Date.now() }); };
+  // …render docs as a list, an input that calls add(), and show `error` if present.
+}
+```
+
+- `useMicrositeStore(collection, slugOverride?)` → `{ docs, save, error }`. `docs` is a
+  `Record<string, unknown>[]`; `save(doc)` appends one; `error` is a human string or null.
+- **Reads never throw** — they degrade to an empty list. **Writes can be refused**: the owner may
+  have this page's store set to read-only, or it may be full, or the document invalid — surface
+  `error` to the reader rather than assuming success.
+- The store is **enabled per page by the owner** (`microsite.set_store_writable`). If writes always
+  fail with a "not writable" error, that's why — the owner has to open the store for this page.
+
+For deeper context (the current page, the owner, the active session), `import { useStandMeet } from
+'@standmeet/sdk'` exposes the provider's context; most pages need only the widgets + the store above.
+
 ## Show corpus inline — do not just link out
 
 The old default homepage's mistake: every corpus card was an `<a href="/wiki/…">` and the ask box

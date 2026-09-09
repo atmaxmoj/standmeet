@@ -42,7 +42,7 @@
 // Placed in lib/ because components/ + app/**/*.tsx forbid `if`, so the
 // wizard's branch logic lives cleanly in a hook instead.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { claim, type ClaimResult } from '@/lib/api/auth';
 
@@ -130,6 +130,12 @@ export function useSetupForm(setupToken: string): SetupFormHook {
   const [form, setForm] = useState<SetupFormState>(initialState());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Prefill the public URL with the domain the claimer is already on (origin, path stripped) — they
+  // are almost always sitting on the exact domain they'll use. initialState() must be SSR-safe (no
+  // window), so this runs once on the client after mount, only when the field is still untouched.
+  useEffect(() => {
+    setForm((f) => (f.publicUrl === '' ? { ...f, publicUrl: window.location.origin } : f));
+  }, []);
   const provider = SETUP_PROVIDERS.find((p) => p.id === form.aiProvider) ?? SETUP_PROVIDERS[0]!;
 
   const setField = useCallback((key: keyof SetupFormState, value: string) => {

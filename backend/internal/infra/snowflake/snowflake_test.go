@@ -47,7 +47,10 @@ func TestUniqueAndMonotonic(t *testing.T) {
 func TestSequenceRollover(t *testing.T) {
 	t.Parallel()
 	var reads int64
-	n := &Node{nodeID: 2, now: func() int64 { reads++; return epochMs + tickReads + reads/tickReads }}
+	n := &Node{
+		nodeID: 2,
+		now:    func() int64 { reads++; return epochMs + tickReads + reads/tickReads },
+	}
 	seen := make(map[int64]bool, maxSeq*3)
 	var prev int64
 	for i := range maxSeq * 3 {
