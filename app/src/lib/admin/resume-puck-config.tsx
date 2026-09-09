@@ -7,13 +7,14 @@
 
 'use client';
 
-import type { ReactElement } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 import { useTranslations } from 'next-intl';
 import type { Config, Metadata } from '@measured/puck';
 
 import { QRCode } from '@/components/admin/atoms/QRCode';
 import { SelectField } from '@/components/atoms/SelectField';
 import { useComposerCodeControl } from '@/lib/admin/composer-code-context';
+import { cssVars } from '@/lib/ui/css-vars';
 
 // resumeMeta —— the render-time context passed via Puck `metadata` (NOT résumé content, so it's the
 // same config for editor + print). qrURL: the real per-application QR to draw (empty in the editor →
@@ -28,6 +29,15 @@ function metaQR(puck: { metadata?: Metadata }): string {
 }
 function metaPrint(puck: { metadata?: Metadata }): boolean {
   return puck.metadata?.['print'] === true;
+}
+
+// paperStyle —— the whole-résumé root knobs, applied as CSS variables on the paper element so every
+// descendant follows: the owner's accent colour overrides `--color-accent` (section heads, the
+// company name, the QR frame), and `--resume-scale` multiplies every font size (the sizes are written
+// `text-[calc(Npx*var(--resume-scale))]`). Empty accent keeps the theme default; scale defaults to 1.
+function paperStyle(accent: string, fontScale: number): CSSProperties {
+  const base: Record<`--${string}`, string> = { '--resume-scale': String(fontScale) };
+  return cssVars(filled(accent) ? { ...base, '--color-accent': accent } : base);
 }
 
 type TextItem = { text: string };
@@ -90,7 +100,7 @@ function bulletsOf(items: TextItem[]): string[] {
 function SecHead({ title }: { title: string }): ReactElement {
   return (
     <div className="mt-3 mb-1.5">
-      <div data-sec-head className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent)">{title}</div>
+      <div data-sec-head className="mono text-[calc(10px*var(--resume-scale))] tracking-[0.14em] uppercase text-(--color-accent)">{title}</div>
       <hr className="mt-0.5 border-0 border-t border-(--color-rule)" />
     </div>
   );
@@ -139,18 +149,26 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
     // Editor: an A4 sheet on a desk (aspect-locked, so mobile keeps the ratio). Print (metadata.print):
     // the SAME paper scope but a plain full-width flow so gotenberg's @page can paginate it — no desk,
     // no aspect box, no shadow. One config, both surfaces (the whole point of A3: no second renderer).
-    render: ({ children, coverLetter, puck }) => metaPrint(puck) ? (
-      <div className="sm-resume-paper w-full min-h-full px-[7.5%] py-[6.5%]">
+    render: ({ children, coverLetter, accent, fontScale, puck }) => metaPrint(puck) ? (
+      <div
+        className="sm-resume-paper w-full min-h-full px-[7.5%] py-[6.5%]"
+        // eslint-disable-next-line no-restricted-syntax -- accent + font-scale are runtime, props-driven résumé knobs applied as CSS vars
+        style={paperStyle(accent, fontScale)}
+      >
         {children}
         {filled(coverLetter) && (
           <div className="break-before-page pt-8">
-            <p className="text-[13px] leading-[1.6] text-(--color-ink) whitespace-pre-wrap">{coverLetter}</p>
+            <p className="text-[calc(13px*var(--resume-scale))] leading-[1.6] text-(--color-ink) whitespace-pre-wrap">{coverLetter}</p>
           </div>
         )}
       </div>
     ) : (
       <div className="min-h-full flex justify-center items-start bg-black/5 py-8 px-4">
-        <div className="sm-resume-paper w-[794px] max-w-full aspect-[210/297] px-[7.5%] py-[6.5%] shadow-[0_2px_24px_rgba(0,0,0,0.12)]">
+        <div
+          className="sm-resume-paper w-[794px] max-w-full aspect-[210/297] px-[7.5%] py-[6.5%] shadow-[0_2px_24px_rgba(0,0,0,0.12)]"
+          // eslint-disable-next-line no-restricted-syntax -- accent + font-scale are runtime, props-driven résumé knobs applied as CSS vars
+          style={paperStyle(accent, fontScale)}
+        >
           {children}
         </div>
       </div>
@@ -181,13 +199,13 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
           <div data-sec="header">
             <div className="flex items-end justify-between gap-4 pt-1">
               <div className="min-w-0">
-                {filled(name) && <div className="font-serif text-[30px] leading-none text-(--color-ink) lowercase">{name}</div>}
-                {contacts.length > 0 && <div className="mono text-[11px] text-(--color-muted) mt-2">{contacts.join('  ·  ')}</div>}
+                {filled(name) && <div className="font-serif text-[calc(30px*var(--resume-scale))] leading-none text-(--color-ink) lowercase">{name}</div>}
+                {contacts.length > 0 && <div className="mono text-[calc(11px*var(--resume-scale))] text-(--color-muted) mt-2">{contacts.join('  ·  ')}</div>}
               </div>
               <div data-sec="qr" className="shrink-0 border border-(--color-accent) rounded-[2px] p-1 leading-none">
                 {qrURL !== ''
                   ? <QRCode value={qrURL} size={46} />
-                  : <div className="w-[46px] h-[46px] bg-white grid place-items-center mono text-[7px] text-(--color-faint)">QR</div>}
+                  : <div className="w-[46px] h-[46px] bg-white grid place-items-center mono text-[calc(7px*var(--resume-scale))] text-(--color-faint)">QR</div>}
               </div>
             </div>
             <hr className="mt-2 border-0 border-t-[1.5px] border-(--color-rule)" />
@@ -202,7 +220,7 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
       render: ({ text }) => filled(text) ? (
         <div data-sec="summary">
           <SecHead title="summary" />
-          <p className="text-(--color-ink) text-[13px] leading-[1.5]">{text}</p>
+          <p className="text-(--color-ink) text-[calc(13px*var(--resume-scale))] leading-[1.5]">{text}</p>
         </div>
       ) : <></>,
     },
@@ -225,11 +243,11 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         return empty ? <></> : (
           <div data-sec="experience" className="pt-2">
             <div className="flex items-baseline justify-between gap-3">
-              {filled(title) && <div className="font-serif text-[15px] font-medium text-(--color-ink)">{title}</div>}
-              {dates !== '' && <div className="mono text-[9px] text-(--color-faint) shrink-0">{dates}</div>}
+              {filled(title) && <div className="font-serif text-[calc(15px*var(--resume-scale))] font-medium text-(--color-ink)">{title}</div>}
+              {dates !== '' && <div className="mono text-[calc(9px*var(--resume-scale))] text-(--color-faint) shrink-0">{dates}</div>}
             </div>
             {(filled(company) || filled(location)) && (
-              <div className="text-[12px] mt-0.5">
+              <div className="text-[calc(12px*var(--resume-scale))] mt-0.5">
                 {filled(company) && <span className="text-(--color-accent)">{company}</span>}
                 {filled(location) && <span className="text-(--color-faint)">{filled(company) ? ` · ${location}` : location}</span>}
               </div>
@@ -237,7 +255,7 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
             {bl.length > 0 && (
               <ul className="mt-1 flex flex-col gap-0.5">
                 {bl.map((b, i) => (
-                  <li key={i} className="flex gap-2 text-[12px] text-(--color-ink)">
+                  <li key={i} className="flex gap-2 text-[calc(12px*var(--resume-scale))] text-(--color-ink)">
                     <span className="text-(--color-faint)">•</span><span>{b}</span>
                   </li>
                 ))}
@@ -259,9 +277,9 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         const dates = filled(start) || filled(end) ? period(start, end) : '';
         return (!filled(school) && !filled(degree) && dates === '') ? <></> : (
           <div data-sec="education" className="pt-1.5">
-            {filled(school) && <div className="font-serif text-[13px] font-medium text-(--color-ink)">{school}</div>}
-            {filled(degree) && <div className="text-[11px] text-(--color-muted)">{degree}</div>}
-            {dates !== '' && <div className="mono text-[9px] text-(--color-faint)">{dates}</div>}
+            {filled(school) && <div className="font-serif text-[calc(13px*var(--resume-scale))] font-medium text-(--color-ink)">{school}</div>}
+            {filled(degree) && <div className="text-[calc(11px*var(--resume-scale))] text-(--color-muted)">{degree}</div>}
+            {dates !== '' && <div className="mono text-[calc(9px*var(--resume-scale))] text-(--color-faint)">{dates}</div>}
           </div>
         );
       },
@@ -277,8 +295,8 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         const skills = bulletsOf(items);
         return skills.length === 0 ? <></> : (
           <div data-sec="skillset" className="pt-1">
-            {filled(category) && <div className="mono text-[9px] uppercase tracking-[0.08em] text-(--color-ink)">{category}</div>}
-            <div className="text-[12px] text-(--color-ink)">{skills.join('  ·  ')}</div>
+            {filled(category) && <div className="mono text-[calc(9px*var(--resume-scale))] uppercase tracking-[0.08em] text-(--color-ink)">{category}</div>}
+            <div className="text-[calc(12px*var(--resume-scale))] text-(--color-ink)">{skills.join('  ·  ')}</div>
           </div>
         );
       },
@@ -291,7 +309,7 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
       },
       defaultProps: { kind: '', label: '', handle: '' },
       render: ({ kind, handle }) => filled(handle) ? (
-        <div data-sec="social" className="mono text-[11px] text-(--color-ink)">
+        <div data-sec="social" className="mono text-[calc(11px*var(--resume-scale))] text-(--color-ink)">
           {filled(kind) && <span className="text-(--color-muted)">{kind} </span>}{handle}
         </div>
       ) : <></>,
@@ -315,7 +333,7 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
           : (!filled(label) && !filled(value)) ? <></> : (
             <div data-sec="custom">
               {filled(label) && <SecHead title={label} />}
-              {filled(value) && <p className="text-[12px] text-(--color-ink)">{value}</p>}
+              {filled(value) && <p className="text-[calc(12px*var(--resume-scale))] text-(--color-ink)">{value}</p>}
             </div>
           );
       },
