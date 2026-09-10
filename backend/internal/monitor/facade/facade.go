@@ -39,6 +39,11 @@ type (
 	// The per-viewer breakdown: which people made the summary's numbers, and what each did.
 	SessionRow  = repo.SessionRow
 	SessionsOut = repo.SessionsOut
+	// Location + LocationResolver —— the geoip seam. The composition root supplies a resolver (a
+	// geoip database) as Deps.Geo; monitor resolves a client IP through it when no CDN header
+	// carried a location. Re-exported so the wiring never names the internal entity package.
+	Location         = entity.Location
+	LocationResolver = entity.LocationResolver
 )
 
 // The input schemas for those reads. Declared in the domain, next to the shapes they describe.

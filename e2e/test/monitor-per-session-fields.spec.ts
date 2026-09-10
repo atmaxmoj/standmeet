@@ -26,7 +26,24 @@ const OWNER = {
   handle: 'monitorsession', fullName: 'Monitor Session Owner',
 };
 const ENTRY = { title: 'Column Coverage', path: 'column-coverage' };
-const GEO = { 'cf-ipcountry': 'US', 'cf-region-code': 'CA', 'cf-ipcity': 'San Francisco' };
+
+// realPublicIP —— THIS machine's actual public IP. Nothing is hardcoded: the test cannot know the
+// answer in advance, so it discovers the input at runtime.
+async function realPublicIP(): Promise<string> {
+  const res = await fetch('https://api.ipify.org?format=json');
+  const body = (await res.json()) as { ip: string };
+  return body.ip;
+}
+
+// independentCountry —— the ISO country code an INDEPENDENT geoip service resolves for that IP. The
+// instance uses its own bundled db-ip database; asserting the instance's answer equals a different
+// provider's is what proves the instance resolved the real IP correctly (not that db-ip == db-ip).
+async function independentGeo(ip: string): Promise<{ country: string; city: string }> {
+  const res = await fetch(`http://ip-api.com/json/${ip}?fields=countryCode,city,status`);
+  const j = (await res.json()) as { status: string; countryCode?: string; city?: string };
+  if (j.status !== 'success' || !j.countryCode) throw new Error(`independent geoip failed for ${ip}: ${JSON.stringify(j)}`);
+  return { country: j.countryCode, city: j.city ?? '' };
+}
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('monitor · the panel shows a per-session breakdown, not just a flat event list', () => {
@@ -36,9 +53,14 @@ test.describe('monitor · the panel shows a per-session breakdown, not just a fl
     async ({ adminPage: page, playwright }) => {
       test.setTimeout(120_000);
 
-      // One real visitor (one browser context = one session) opens the same reader page twice:
-      // two views, one visit — a clean per-session aggregation over one counted surface.
-      const ctx = await openVisitorBrowser(playwright, GEO);
+      // Discover the real input (this machine's IP) + the independent expected answer at runtime —
+      // nothing hardcoded.
+      const myIP = await realPublicIP();
+      const expected = await independentGeo(myIP);
+
+      // One real visitor (one browser context = one session) opens the same reader page twice: two
+      // views, one visit. X-Forwarded-For carries the real IP exactly as Cloudflare/Coolify do.
+      const ctx = await openVisitorBrowser(playwright, { 'X-Forwarded-For': myIP });
       await ctx.read(`/wiki/${ENTRY.path}`);
       await ctx.read(`/wiki/${ENTRY.path}`);
       await ctx.dispose();
@@ -55,8 +77,14 @@ test.describe('monitor · the panel shows a per-session breakdown, not just a fl
       // Two reads in one sitting → a positive view count (the exact total also folds in the index
       // view an anonymous /wiki read emits — a separate instrumentation nuance, tracked in the queue).
       await expect(row.getByTestId('monitor-session-views'), 'views count').toHaveText(/^[1-9][0-9]*$/);
-      await expect(row.getByTestId('monitor-session-country'), 'country').toContainText(/United States|US/);
-      await expect(row.getByTestId('monitor-session-city'), 'city').toContainText('San Francisco');
+      // The instance's OWN geoip resolution of the real IP equals what an INDEPENDENT provider says —
+      // nothing pre-baked. (ISO country code; db-ip and ip-api agree on country for real IPs.)
+      await expect(row.getByTestId('monitor-session-country'), `country for the real IP ${myIP}`)
+        .toHaveText(expected.country);
+      // City is resolved too (present, not the em-dash placeholder). Different providers can label a
+      // city slightly differently, so this asserts it was resolved, not an exact string match.
+      await expect(row.getByTestId('monitor-session-city'), 'city resolved (not —)')
+        .not.toHaveText('—');
       await expect(row.getByTestId('monitor-session-browser'), 'browser').toContainText(/Chrome|Chromium/);
       await expect(row.getByTestId('monitor-session-os'), 'os').not.toBeEmpty();
       await expect(row.getByTestId('monitor-session-device'), 'device').not.toBeEmpty();

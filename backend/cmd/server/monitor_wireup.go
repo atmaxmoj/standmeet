@@ -30,6 +30,7 @@ func buildMonitor(d *deps.Runtime) mw.Config {
 			OwnerID:        soleOwnerID(seo),
 			Enabled:        collectionEnabled,
 			IsOwnerRequest: ownerBrowserPresent(),
+			Geo:            loadGeoResolver(d.Log),
 		},
 		Resolver: &monitorResolver{seo: seo, codes: d.CodeRepo},
 	}

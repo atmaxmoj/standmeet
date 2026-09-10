@@ -25,6 +25,7 @@ type SessionRow struct {
 	Browser  string    `json:"browser"`
 	OS       string    `json:"os"`
 	Device   string    `json:"device"`
+	BotName  string    `json:"bot_name"`
 	Visits   int64     `json:"visits"`
 	Views    int64     `json:"views"`
 	IsBot    bool      `json:"is_bot"`
@@ -53,6 +54,7 @@ SELECT coalesce(viewer_id,'')                    AS viewer_id,
        ` + latestNonEmpty("browser") + ` AS browser,
        ` + latestNonEmpty("os") + ` AS os,
        ` + latestNonEmpty("device") + ` AS device,
+       ` + latestNonEmpty("props->>'bot'") + ` AS bot_name,
        bool_or(is_bot)                           AS is_bot
 FROM visit_event
 WHERE owner_id = $1 AND created_at >= $2
@@ -94,7 +96,8 @@ func collectSessions(rows interface {
 	for rows.Next() {
 		var s SessionRow
 		if e := rows.Scan(&s.ViewerID, &s.Visits, &s.Views, &s.LastSeen,
-			&s.Country, &s.Region, &s.City, &s.Browser, &s.OS, &s.Device, &s.IsBot); e != nil {
+			&s.Country, &s.Region, &s.City, &s.Browser, &s.OS, &s.Device,
+			&s.BotName, &s.IsBot); e != nil {
 			return nil, fmt.Errorf("scan session row: %w", e)
 		}
 		out = append(out, s)

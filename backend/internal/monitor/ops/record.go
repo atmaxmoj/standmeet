@@ -51,8 +51,13 @@ type Deps struct {
 	// session store.
 	IsOwnerRequest func(r *http.Request) bool
 
+	// Geo —— resolves a client IP to a location when no CDN header carried one. Nil is valid (no
+	// geoip database): geolocation then comes from proxy headers alone.
+	Geo entity.LocationResolver
+
 	// Secret —— the instance secret that salts the viewer hash. Without it, anyone knowing a
-	// visitor's IP and user agent could confirm from a public number that they visited.
+	// visitor's IP and user agent could confirm from a public number that they visited. (Kept last:
+	// a slice's len/cap are non-pointer words, so trailing it minimises pointer bytes.)
 	Secret []byte
 }
 
@@ -102,7 +107,7 @@ func RecordRequest(ctx context.Context, d *Deps, r *http.Request, in *Input) {
 		return
 	}
 	now := time.Now().UTC()
-	ev := buildEvent(r, in)
+	ev := buildEvent(r, in, d.Geo)
 	d.persist(ctx, ownerID, r, &ev, now)
 }
 
@@ -151,12 +156,12 @@ func recordOwnerOverride() bool {
 
 // buildEvent —— an Input plus a request becomes an Event. Everything derivable is derived here,
 // so a caller cannot report a browser, a country or a bot flag of its own choosing.
-func buildEvent(r *http.Request, in *Input) entity.Event {
+func buildEvent(r *http.Request, in *Input, geo entity.LocationResolver) entity.Event {
 	page := entity.NormalizeURL(effectiveURL(r, in.URL), hostOf(r))
 	page.Title = in.Title
 	entity.ApplyReferrer(&page, effectiveReferrer(r, in.Referrer))
 
-	client := clientOf(r, in)
+	client := clientOf(r, in, geo)
 	return entity.Event{
 		Props:         propsWithBot(in.Props, &client),
 		Page:          page,
@@ -191,11 +196,13 @@ func propsWithBot(in map[string]string, c *entity.Client) map[string]string {
 	return out
 }
 
-// clientOf —— browser, OS, device, language and location, all read off the request.
-func clientOf(r *http.Request, in *Input) entity.Client {
+// clientOf —— browser, OS, device, language and location, all read off the request. Location comes
+// from a proxy header if one is set, else by resolving the request's client IP (clientIP) against
+// the geoip database — so a bare self-hosted instance still records where a visitor came from.
+func clientOf(r *http.Request, in *Input, geo entity.LocationResolver) entity.Client {
 	c := entity.DetectClient(r.UserAgent(), in.Screen)
 	c.Language = firstLanguage(in.Language, r.Header.Get("Accept-Language"))
-	loc := entity.DetectLocation(r.Header.Get)
+	loc := entity.DetectLocation(r.Header.Get, clientIP(r), geo)
 	c.Country, c.Region, c.City = loc.Country, loc.Region, loc.City
 	return c
 }

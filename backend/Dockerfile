@@ -90,6 +90,21 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     done
 WORKDIR /app/backend
 
+# Stage 2b: geoip database (db-ip City Lite, CC-BY) — resolves a visitor IP to country/city when no
+# CDN header sets one (the bare self-hosted case; umami does the same). A separate stage so the
+# ~60MB download caches on its own and curl never reaches the production image.
+FROM alpine:3.21 AS geoip
+RUN apk add --no-cache curl
+# Pinned month, with fallbacks (db-ip keeps a few recent months live).
+ARG GEOIP_MONTH=2026-09
+RUN mkdir -p /srv/geoip && \
+    for m in "$GEOIP_MONTH" 2026-08 2026-07; do \
+      if curl -fsSL "https://download.db-ip.com/free/dbip-city-lite-$m.mmdb.gz" -o /tmp/geo.gz; then \
+        gunzip -c /tmp/geo.gz > /srv/geoip/dbip-city-lite.mmdb && break; \
+      fi; \
+    done && \
+    test -s /srv/geoip/dbip-city-lite.mmdb
+
 # Stage 3: Production
 FROM alpine:3.21 AS production
 # ghcr → repo linkage: GitHub reads this to list the pushed image under the repo's Packages.
@@ -115,6 +130,9 @@ COPY --from=builder --chown=standmeet:standmeet /app/backend/entrypoint.sh /app/
 RUN mkdir -p /srv && chown standmeet:standmeet /srv
 # Bake the builtin capability plugins so the bwrap sandbox finds them at /srv/plugins/<name>.
 COPY --from=builder --chown=standmeet:standmeet /srv/plugins /srv/plugins
+# Bundle the geoip database (default path matches monitor_geoip.go's geoDefaultPath), so the monitor
+# resolves visitor country/city from the IP even when no CDN header carried one.
+COPY --from=geoip --chown=standmeet:standmeet /srv/geoip /srv/geoip
 
 USER standmeet
 

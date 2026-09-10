@@ -127,6 +127,7 @@ export const MonitorSessionSchema = z.object({
   browser: z.string(),
   os: z.string(),
   device: z.string(),
+  bot_name: z.string(),
   is_bot: z.boolean(),
 });
 export type MonitorSession = z.infer<typeof MonitorSessionSchema>;
@@ -282,10 +283,13 @@ export function toSessionCells(s: MonitorSession): SessionCells {
   };
 }
 
-// sessionLabel —— a crawler reads as "bot"; a person is the short head of their (salted,
-// non-identifying) viewer hash — enough to tell two sessions apart, nothing that points at a human.
+// sessionLabel —— a crawler reads as its name (Googlebot, ClaudeBot), because which crawler is the
+// whole point of storing it; an unnamed bot falls back to "bot". A person is the short head of their
+// (salted, non-identifying) viewer hash — enough to tell two sessions apart, nothing that points at
+// a human.
 function sessionLabel(s: MonitorSession): string {
-  return s.is_bot ? 'bot' : s.viewer_id.slice(0, 8);
+  if (s.is_bot) return s.bot_name === '' ? 'bot' : s.bot_name;
+  return s.viewer_id.slice(0, 8);
 }
 
 // sessionWhen —— month-day hh:mm in the reader's timezone. The sessions panel spans the window

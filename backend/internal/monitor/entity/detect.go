@@ -227,10 +227,17 @@ var geoHeaderSets = [][3]string{
 // HeaderLookup —— just enough of http.Header for this package to stay free of net/http.
 type HeaderLookup func(name string) string
 
-// DetectLocation —— country, region and city from proxy headers. All three stay empty behind a
-// proxy that sets none, and that is the intended outcome: an empty country is honest, and a
-// guessed one is not.
-func DetectLocation(get HeaderLookup) Location {
+// LocationResolver —— resolves a client IP to a location, for the common self-hosted shape where no
+// CDN sets a geo header. A nil resolver is valid (an instance with no geoip database): geo then
+// comes from headers alone. The IP is resolved and discarded, never stored (monitor.md privacy).
+type LocationResolver interface {
+	Lookup(ip string) Location
+}
+
+// DetectLocation —— country, region and city: from a proxy header if one is set (a CDN edge), else
+// by resolving the client IP against a geoip database (the bare self-hosted case, matching umami).
+// Empty when neither can answer, which is honest — a guessed location is not.
+func DetectLocation(get HeaderLookup, ip string, geo LocationResolver) Location {
 	for _, set := range geoHeaderSets {
 		c := strings.TrimSpace(get(set[0]))
 		if c == "" {
@@ -241,6 +248,11 @@ func DetectLocation(get HeaderLookup) Location {
 			Region:  regionCode(c, strings.TrimSpace(get(set[1]))),
 			City:    strings.TrimSpace(get(set[2])),
 		}
+	}
+	if geo != nil && ip != "" {
+		loc := geo.Lookup(ip)
+		loc.Region = regionCode(loc.Country, loc.Region)
+		return loc
 	}
 	return Location{}
 }

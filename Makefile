@@ -400,6 +400,12 @@ dev-rebuild-backend:
 	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml build --no-cache backend
 	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps backend
 
+# dev-recreate-backend —— recreate the backend container on the EXISTING image, no rebuild. For when
+# the image is already built (a manual build, or a container-name conflict left the service down)
+# and dev-rebuild-backend's --no-cache rebuild would be wasted minutes.
+dev-recreate-backend:
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps --no-build backend
+
 # dev-rebuild-app —— force a CLEAN app image rebuild + swap (when dev-up cached the .next COPY layer
 # and served a stale UI after a source change). Runs app-build first so .next is current.
 dev-rebuild-app: app-build

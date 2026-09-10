@@ -182,6 +182,8 @@ components:
     in: internal/capabilities/sandboxws                # per-session sandbox workspace lifecycle: lazy-create/TTL/cron sweep (leaf)
   storage:
     in: internal/infra/storage                  # MinIO/S3 object storage (images / attachments)
+  geoip:
+    in: internal/infra/geoip                    # geoip mmdb reader (IP → country/region/city), umami-style
   connector:
     in: internal/connector                # Phase B: Nango-style connector layer — decrypts credentials + relays to external services (gcal/mailer); credentials never leave the vault into usecases
   connectoropenapi:
@@ -516,6 +518,11 @@ deps:
 
   # storage is an S3 / MinIO client, pure vendor + stdlib.
   storage:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # geoip is a mmdb reader (db-ip / MaxMind), pure vendor + stdlib.
+  geoip:
     mayDependOn: []
     anyVendorDeps: true
 
@@ -1219,6 +1226,8 @@ deps:
       - cmdwire
       # clientaddr — the composition root mounts it right after chi.RealIP: "is the source address the visitor's own" is decided exactly once there.
       - clientaddr
+      # geoip — the composition root opens the bundled geoip DB and adapts it to monitor's LocationResolver port (the domain never names an infra file).
+      - geoip
       - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
       - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
       - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
