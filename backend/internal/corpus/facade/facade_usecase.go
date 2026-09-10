@@ -91,6 +91,7 @@ var (
 	ReindexCorpusNote           = usecase.ReindexCorpusNote
 	ReindexCorpusOwner          = usecase.ReindexCorpusOwner
 	ResolveAssetURLs            = usecase.ResolveAssetURLs
+	VerifyAssetURL              = usecase.VerifyAssetURL
 	CompileGrep                 = usecase.CompileGrep
 	I18nViewFor                 = usecase.ViewFor
 	// I18nLabel —— what a language code displays as in the switcher (owner's

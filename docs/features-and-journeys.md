@@ -56,7 +56,7 @@
 - Cover section [✓ blog-posts]
 - ArticleHeader（title + meta + tags）[✓ blog-posts]
 - GFM body 渲染（h2/h3/bold/italic/list/table/code/quote/img/checklist）[✓ blog-posts]
-- 内联图（`standmeet-asset:<id>` → presigned URL）[✓ blog-posts]
+- 内联图（`standmeet-asset:<id>` → 后端签名的 `/api/v1/assets/{id}` URL，走内网 minio）[✓ blog-posts]
 - `[[crosslink]]` render-time rewrite [✓ blog-crosslinks]
 - Backlinks aside（"linked from"）[✓ blog-crosslinks]
 - AskAboutThis（文末 follow-up 输入条 + starter prompts → `/?q=...`）[✓ ask-about-this]

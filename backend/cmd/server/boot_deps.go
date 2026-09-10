@@ -81,7 +81,7 @@ type repoSet struct {
 	connector      *connector.Repo
 }
 
-func newRepos(db *pgstore.Pool) *repoSet {
+func newRepos(db *pgstore.Pool, sessionKey string) *repoSet {
 	return &repoSet{
 		instance:       owner.NewInstanceRepo(db),
 		owner:          owner.NewRepo(db),
@@ -109,7 +109,7 @@ func newRepos(db *pgstore.Pool) *repoSet {
 		mcpServer:      marketplace.NewMCPServerRepo(db),
 		prompt:         owner.NewPromptRepo(db),
 		role:           access.NewRoleRepo(db),
-		asset:          corpus.NewAssetRepo(db),
+		asset:          corpus.NewAssetRepo(db, sessionKey),
 		noteHero:       corpus.NewNoteHeroRepo(db),
 		writing:        corpus.NewWritingRepo(db),
 		writingRef:     corpus.NewWritingRefRepo(db),

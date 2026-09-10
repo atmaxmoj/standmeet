@@ -13,16 +13,17 @@
 //	visibility  blob visibility ⊆ entry visibility — only reading the entry gets you the URL
 //
 // The visibility invariant **is not judged here**: media's only exit is "read the entry, and get
-// its media URL along with it." Reading the entry has already gone through ACL, and the URL is the
-// stable /api/v1/assets/{id} serve route the entry hands out. That route serves by (unguessable) id
-// — the same capability the presigned URL was: the id is only ever exposed inside content a reader
-// was already authorized to see.
+// its media URL along with it." Reading the entry has already gone through ACL, and the URL the
+// entry hands out is *signed* (SignAssetURL) — a credential only an authorized render can mint. So
+// the serve route honors a corpus asset only when it carries that signature; a bare or guessed id
+// gets a 404 (genre-assets-inherit.spec.ts:74), which is what keeps a revoke from being a lie.
 
 package usecase
 
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
@@ -182,19 +183,19 @@ func NoteAssets(
 	}
 	out := make([]AssetView, 0, len(rows))
 	for i := range rows {
-		out = append(out, assetView(&rows[i]))
+		out = append(out, assetView(&rows[i], deps.Assets.Repo))
 	}
 	return out, nil
 }
 
-func assetView(a *entity.Asset) AssetView {
-	// URL is the backend's stable serve route (/api/v1/assets/{id}); the handler streams the bytes
-	// from object storage over the internal network, so this never depends on minio being reachable
-	// from the browser.
+func assetView(a *entity.Asset, repo *repo.AssetRepo) AssetView {
+	// URL is the backend's stable serve route (/api/v1/assets/{id}), SIGNED so the route honors it
+	// for a gated entry's asset (SignAssetURL); the handler streams the bytes from object storage
+	// over the internal network, so this never depends on minio being reachable from the browser.
 	return AssetView{
 		AssetID: a.ID, Kind: a.Kind, ContentType: a.ContentType,
 		Filename: a.OriginalFilename, SizeBytes: a.SizeBytes,
-		URL: assetPublicPath(a.ID),
+		URL: SignAssetURL(repo.URLKey(), a.ID, time.Now()),
 	}
 }
 

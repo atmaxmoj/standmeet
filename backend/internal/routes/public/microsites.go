@@ -20,6 +20,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -41,12 +42,11 @@ type MicrositeHandlers struct {
 	Deps   owner.MicrositeDeps
 	Owners owner.SoleOwnerLookup
 	Log    *slog.Logger
-	// ServeAsset —— backs GET /api/v1/assets/{id} (see microsite_assets.go). A thin pass-through:
-	// given an id, it reads the bytes from object storage over the internal net and returns them to
-	// stream. Closes over the domain at the composition root (the face never touches a repo).
-	// ok=false (unknown id / read failure) → 404. Served by (unguessable) id — the id is the
-	// capability, exactly as the presigned URL was; no reference ACL, and minio is never exposed.
-	ServeAsset func(ctx context.Context, id string) (AssetBlob, bool)
+	// ServeAsset —— backs GET /api/v1/assets/{id} (see microsite_assets.go). The composition-root
+	// closure decides authorization from the URL query (a valid signature on a gated corpus asset,
+	// or a microsite reference for a public one), then reads the bytes over the internal net.
+	// ok=false (unauthorized / unknown id / read fail) means 404; the face just streams the rest.
+	ServeAsset func(ctx context.Context, id string, q url.Values) (AssetBlob, bool)
 	BuildsRoot string
 }
 

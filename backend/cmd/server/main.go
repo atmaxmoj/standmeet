@@ -110,7 +110,7 @@ func wireAndServe(
 	ctx context.Context, log *slog.Logger, cfg *config.Config,
 	c *conns, stop context.CancelFunc,
 ) error {
-	repos := newRepos(c.db)
+	repos := newRepos(c.db, cfg.SessionKey)
 	// resolver always builds from owner.ai_provider + decrypted key (in dev/e2e the
 	// owner's endpoint is seeded to the mock llm-gateway; see
 	// e2e/fixtures/admin.ts seedDevAIProvider). Unsealing happens inside

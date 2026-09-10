@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
@@ -27,20 +28,27 @@ func buildPublicMicrositeDeps(d *deps.Runtime) publicroutes.MicrositeHandlers {
 		Deps:   owner.MicrositeDeps{Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo},
 		Owners: d.OwnerRepo,
 		Log:    d.Log,
-		ServeAsset: func(ctx context.Context, id string) (publicroutes.AssetBlob, bool) {
-			return serveAssetBlob(ctx, d, id)
+		ServeAsset: func(
+			ctx context.Context, id string, q url.Values,
+		) (publicroutes.AssetBlob, bool) {
+			return serveAssetBlob(ctx, d, id, q)
 		},
 		BuildsRoot: d.BuildsRoot,
 	}
 }
 
-// serveAssetBlob —— read an asset's bytes from object storage (the internal minio) for GET
-// /api/v1/assets/{id}. Composition root, so it may touch the repo + storage; the public face only
-// gets this closure. Served by (unguessable) id — no reference ACL, matching the old presigned-URL
-// capability model. Any miss (unknown id / read failure) is (zero, false), rendered as a plain 404.
+// serveAssetBlob —— authorize, then read an asset's bytes from the internal minio for GET
+// /api/v1/assets/{id}. Composition root, so it may touch the repo + storage + know the signing key.
+// Two-branch permit: a valid signature on the URL (a gated corpus asset, minted by an authorized
+// render) OR a microsite reference (a public page's asset, served on a bare id). Neither → not
+// authorized. Any miss (unauthorized / unknown id / read failure) is (zero, false) → a plain 404.
 func serveAssetBlob(
-	ctx context.Context, d *deps.Runtime, id string,
+	ctx context.Context, d *deps.Runtime, id string, q url.Values,
 ) (publicroutes.AssetBlob, bool) {
+	signed := corpus.VerifyAssetURL(d.SessionKey, id, q, time.Now())
+	if !signed && !micrositeReferencesAsset(ctx, d, id) {
+		return publicroutes.AssetBlob{}, false
+	}
 	asset, err := d.AssetRepo.GetByID(ctx, id)
 	if err != nil {
 		return publicroutes.AssetBlob{}, false
@@ -50,6 +58,22 @@ func serveAssetBlob(
 		return publicroutes.AssetBlob{}, false
 	}
 	return publicroutes.AssetBlob{Data: data, ContentType: asset.ContentType}, true
+}
+
+// micrositeReferencesAsset —— true iff a microsite references this asset, i.e. it is public (a
+// microsite is a public page). Those serve on a bare id; a corpus-only asset returns false and must
+// instead carry a signature. Any error → false (fail closed, rendered as 404).
+func micrositeReferencesAsset(ctx context.Context, d *deps.Runtime, id string) bool {
+	refs, err := d.AssetRepo.ReferencesOf(ctx, id)
+	if err != nil {
+		return false
+	}
+	for i := range refs {
+		if refs[i].Kind == corpus.RefKindMicrosite {
+			return true
+		}
+	}
+	return false
 }
 
 // micrositeAssetRefRebuilder —— the corpus-side closure the build lifecycle calls to recompute a

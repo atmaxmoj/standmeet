@@ -4,8 +4,16 @@
 // the blob rides the instance's own HTTPS origin and minio is never exposed to the browser. This
 // replaces a 302-redirect to a presigned minio URL, which required minio to be publicly reachable.
 //
-// The read lives in ServeAsset, a closure wired at the composition root (the face never touches a
-// repo — check-routes-via-dispatcher). Served by (unguessable) id; ok=false → a plain 404.
+// Authorization is a two-branch permit, decided inside ServeAsset at the composition root (BEFORE
+// any read), so this face stays a thin pass-through:
+//   - public asset (a microsite references it) → served on a bare id: the page is public, and the
+//     AssetWidget builds the URL client-side with no key to sign.
+//   - gated asset (a corpus entry references it) → must carry a valid signature (from
+//     usecase.SignAssetURL), which only an authorized render emits. Bare id + not public → 404,
+//     so a leaked/guessed id never bypasses the entry's ACL (genre-assets-inherit.spec.ts:74).
+//
+// ServeAsset closes over the domain at the composition root (the face never touches a repo —
+// check-routes-via-dispatcher); the query carries the signature it checks.
 
 package public
 
@@ -19,7 +27,7 @@ import (
 
 func (h *MicrositeHandlers) servePoolAsset() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		blob, ok := h.ServeAsset(r.Context(), chi.URLParam(r, "id"))
+		blob, ok := h.ServeAsset(r.Context(), chi.URLParam(r, "id"), r.URL.Query())
 		if !ok {
 			http.NotFound(w, r)
 			return

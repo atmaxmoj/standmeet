@@ -37,7 +37,7 @@ func ListPoolAssetViews(
 	}
 	out := make([]AssetView, 0, len(assets))
 	for i := range assets {
-		out = append(out, assetView(&assets[i]))
+		out = append(out, assetView(&assets[i], deps.Repo))
 	}
 	return out, nil
 }

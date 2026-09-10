@@ -32,12 +32,23 @@ const (
 
 // AssetRepo —— CRUD for the assets pool + references. pool is the fallback for reads /
 // standalone writes; every write also has a Tx variant taking a caller's transaction.
+//
+// urlKey is the server key an authorized render signs a gated asset's serve URL with
+// (usecase.SignAssetURL) — carried here because the repo is the one dependency already
+// threaded to every URL-emitting site. The repo itself does no crypto; it only hands the
+// key to the usecase layer, keeping crypto out of the repo package.
 type AssetRepo struct {
-	pool *pgstore.Pool
+	pool   *pgstore.Pool
+	urlKey string
 }
 
-// NewAssetRepo constructs a repo.
-func NewAssetRepo(pool *pgstore.Pool) *AssetRepo { return &AssetRepo{pool: pool} }
+// NewAssetRepo constructs a repo. urlKey (the instance SESSION_KEY) signs gated asset URLs.
+func NewAssetRepo(pool *pgstore.Pool, urlKey string) *AssetRepo {
+	return &AssetRepo{pool: pool, urlKey: urlKey}
+}
+
+// URLKey — the key used to sign this asset's serve URL. See usecase.SignAssetURL.
+func (r *AssetRepo) URLKey() string { return r.urlKey }
 
 // CreateAssetInput —— a new pool asset. OwnerID is required (the pool is owner-scoped);
 // HolderID is an optional breadcrumb (the note an inline image came from) — never the

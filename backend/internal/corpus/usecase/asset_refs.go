@@ -15,6 +15,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 )
@@ -79,18 +80,20 @@ func ResolveAssetURLs(
 	return out, nil
 }
 
-// resolveOne — the asset's stable serve path, once its existence is confirmed. Missing → skipped.
+// resolveOne — the asset's signed serve URL, once its existence is confirmed. Missing → skipped.
+// The URL is signed (SignAssetURL) so the serve route honors it even for a gated entry's asset;
+// only a render that was allowed to emit this URL could have produced the signature.
 func resolveOne(ctx context.Context, repo *repo.AssetRepo, id string) (string, error) {
 	if _, err := repo.GetByID(ctx, id); err != nil {
 		return "", fmt.Errorf("get asset %s: %w", id, err)
 	}
-	return assetPublicPath(id), nil
+	return SignAssetURL(repo.URLKey(), id, time.Now()), nil
 }
 
 // assetPublicPath — the backend's thin serve route for an asset (GET /api/v1/assets/{id}). The body
-// stores the stable standmeet-asset:<id> URI; this resolves it to the route the browser fetches,
-// which streams the bytes from object storage over the internal network — never a presigned minio
-// link, so minio is never exposed.
+// stores the stable standmeet-asset:<id> URI; SignAssetURL resolves it to the route the browser
+// fetches, which streams the bytes from object storage over the internal network — never a
+// presigned minio link, so minio is never exposed.
 func assetPublicPath(id string) string {
 	return "/api/v1/assets/" + id
 }
