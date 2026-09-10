@@ -1,7 +1,8 @@
 // asset.go —— metadata for owner-uploaded binaries (images/attachments). Bytes
 // land in MinIO; this only carries the PG-side row. posts/wiki/raw reference
-// via asset_id; the backend presigns the URL on demand, the frontend never
-// touches storage credentials directly.
+// via asset_id; the frontend fetches the bytes from the backend's thin forwarder
+// (GET /api/v1/assets/{id}), which reads MinIO over the internal network — the
+// frontend never touches storage credentials or MinIO directly.
 
 package entity
 

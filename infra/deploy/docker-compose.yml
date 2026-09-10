@@ -143,19 +143,12 @@ services:
       - STORAGE_SECRET_KEY=${SERVICE_PASSWORD_64_MINIO}
       - STORAGE_BUCKET=standmeet
       - STORAGE_USE_SSL=false
-      # STORAGE_PUBLIC_URL —— the address the **browser** uses to fetch images, not the
-      # address inside the container network. Signed URLs are sent to the visitor's browser,
-      # and a URL pointing at minio:9000 wouldn't resolve there. So minio needs its own domain
-      # (see the block below).
-      #
-      # Warning: use `SERVICE_URL_*`, not `SERVICE_FQDN_*`: Coolify's convention is
-      # **FQDN has no scheme, URL does**. Written as FQDN, this would resolve to `host:9000`,
-      # and the backend runs `url.Parse(...).Host` on it —— with no scheme, Go returns an
-      # empty hostname **and no error**, so the whole instance crashes on a line that points
-      # at `STORAGE_ENDPOINT`, even though that variable is actually correct (F-S-1). The
-      # backend now rejects this outright and names the actual line, but better not to let it
-      # get there.
-      - STORAGE_PUBLIC_URL=${SERVICE_URL_MINIO_9000}
+      # STORAGE_PUBLIC_URL —— leave EMPTY. It is not needed to display images. Owner-uploaded
+      # images are served to the browser by the backend's thin forwarder (GET /api/v1/assets/{id}),
+      # which reads the bytes from minio over the INTERNAL network — so minio never has to be
+      # reachable from the browser and needs no public domain (see the minio block below). This
+      # value only feeds a presign helper that nothing in the serving path uses.
+      - STORAGE_PUBLIC_URL=
       # ── everything below is left empty as the default posture; fill in as needed ──────
       # CAPTCHA: only turns on once both are filled in.
       - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
@@ -439,15 +432,16 @@ services:
   # minio —— the bundled S3-compatible object storage. The "standmeet" bucket is auto-created
   # by the backend on first boot.
   #
-  # **It needs its own domain**: images the owner uploads are handed to the visitor's browser
-  # as signed URLs, and that address has to be a publicly resolvable one, not `minio:9000`.
-  # Configure a dedicated subdomain for this one in Coolify (e.g. files.your-domain).
+  # **Internal only — do NOT give it a public domain.** Owner-uploaded images are served to the
+  # browser by the backend's thin forwarder (GET /api/v1/assets/{id}), which reads the bytes from
+  # minio over the internal network. So minio never has to be reachable from the browser — no
+  # subdomain, no cert, no exposed port. (Reaching minio directly over HTTPS would otherwise need
+  # its own domain + cert on a shared host; the forwarder avoids all of that.)
   minio:
     image: minio/minio:RELEASE.2025-04-08T15-41-24Z
     restart: unless-stopped
     command: server /data --console-address ":9201"
     environment:
-      - SERVICE_FQDN_MINIO_9000
       - MINIO_ROOT_USER=standmeet
       - MINIO_ROOT_PASSWORD=${SERVICE_PASSWORD_64_MINIO}
     volumes:
