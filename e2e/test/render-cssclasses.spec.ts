@@ -8,7 +8,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { resetInstance } from '@/fixtures/instance';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { adminSetCSS } from '@/fixtures/presentation';
 import { claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
 
@@ -28,7 +28,7 @@ test.describe('render · per-note cssclasses applies on the reader', () => {
       await uploadVault(request, OWNER, [
         { rel: 'wiki/boxed.md', body: makeVaultMD({ publish: true, cssclasses: ['boxed'] }, '## H\n\nb') },
       ]);
-      await goto(page, '/wiki/boxed');
+      await openReader(page, '/wiki/boxed');
       const inner = page.getByTestId('wiki-body').locator('.corpus-content > .boxed');
       await expect(inner).toHaveCount(1);
       await expect(inner).toHaveCSS('border-style', 'dashed');
@@ -39,7 +39,7 @@ test.describe('render · per-note cssclasses applies on the reader', () => {
       await uploadVault(request, OWNER, [
         { rel: 'wiki/nobox.md', body: makeVaultMD({ publish: true }, '## H\n\nb') },
       ]);
-      await goto(page, '/wiki/nobox');
+      await openReader(page, '/wiki/nobox');
       await expect(page.getByTestId('wiki-body').locator('.corpus-content')).toHaveCount(1);
       await expect(page.getByTestId('wiki-body').locator('.boxed')).toHaveCount(0);
     });

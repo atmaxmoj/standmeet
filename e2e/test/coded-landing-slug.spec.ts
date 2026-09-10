@@ -11,7 +11,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'slug-landing@example.com', password: 'correct-horse-battery-staple',
@@ -41,7 +41,7 @@ test.describe('coded landing · the code carries its own /c/<slug> path (Spec 1b
   test('D3: /c/<slug> with no session grants no access — a locator, not a credential', async ({ page }) => {
     test.setTimeout(60_000);
     // A fresh visitor (no stored session) opens a code landing path directly.
-    await goto(page, '/c/some-locator');
+    await openReader(page, '/c/some-locator');
     // They land on the public default home (ask box + gate), NOT a coded chat: the slug alone
     // unlocks nothing — no chat input exists without a redeemed session.
     await expect(page.getByTestId('default-home'),

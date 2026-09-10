@@ -14,7 +14,7 @@ import type { Playwright } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'editorentry@example.com',
@@ -30,7 +30,7 @@ test.describe('microsite editor entry', () => {
   // #4 — opening an existing page auto-builds; the build status line appears with no manual click.
   test('opening an existing page auto-builds a preview (no manual build click)',
     async ({ adminPage: page }) => {
-      await goto(page, '/admin/edit/home');
+      await openReader(page, '/admin/edit/home');
       await expect(page.getByTestId('microsite-editor')).toBeVisible({ timeout: 20_000 });
       // Nobody clicked "build preview" — openExisting kicks off stageFiles on entry, so the build
       // status line shows on its own. RED before the fix: no build runs until the button is clicked.

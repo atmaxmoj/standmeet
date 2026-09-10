@@ -22,7 +22,7 @@ import type { Page } from '@playwright/test';
 import { claim } from '@/fixtures/admin';
 import { skipUnlessCaptchaOn } from '@/fixtures/captcha';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'login-lift@example.com',
@@ -50,7 +50,7 @@ test.describe('login · a rate-limited owner can still clear the check and get i
 
   test('past the attempt ceiling a solved check still lets the right password through',
     async ({ page }) => {
-      await goto(page, '/login');
+      await openReader(page, '/login');
       // First prove this instance actually has captcha configured — otherwise "solved
       // the check yet still can't get in" is testing a machine with no check at all,
       // going red for a reason nobody can point to ([[red-in-the-wrong-place]]).

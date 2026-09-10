@@ -26,7 +26,7 @@
 import { test, expect } from '@/fixtures/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection, openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'skills-door@example.com',
@@ -63,7 +63,7 @@ test.describe('admin sidebar · one skills entrance, not two doors to one regist
   // (2) The old route redirects to /admin/skills. RED now: `/admin/agent-skills` renders its own
   //     AgentSkillsSection and the URL stays there. GREEN after merge: it forwards to /admin/skills.
   test('visiting /admin/agent-skills lands on /admin/skills', async ({ adminPage }) => {
-    await goto(adminPage, '/admin/agent-skills');
+    await openReader(adminPage, '/admin/agent-skills');
     await expect(
       adminPage,
       'the old door must redirect to the merged /admin/skills (RED now: it stays on /admin/agent-skills)',

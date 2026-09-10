@@ -14,7 +14,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto, gotoAdminSection } from '@/fixtures/navigate';
+import { enterCodeSession, gotoAdminSection, openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'integ-chat@example.com',
@@ -99,7 +99,7 @@ async function openLatestTranscript(
 ): Promise<{ ctx: BrowserContext; page: Page }> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
-  await goto(page, '/admin');
+  await openReader(page, '/admin');
   await page.getByTestId('email').fill(OWNER.email);
   await page.getByTestId('password').fill(OWNER.password);
   await page.getByTestId('submit').click();

@@ -18,7 +18,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -44,7 +44,7 @@ test.describe('Puck field edit reaches resume_content (Q0 D2)', () => {
     const before = (await getDetail(api, id)).resume_content;
     expect(before.cover_letter).toBe(OLD);
 
-    await goto(page, `/admin/edit-resume/${id}`);
+    await openReader(page, `/admin/edit-resume/${id}`);
     await expect(page.getByTestId('puck-resume-editor')).toBeVisible({ timeout: 30_000 });
     // The root fields are shown without selecting anything on the canvas.
     const cover = page.getByLabel('Cover letter');

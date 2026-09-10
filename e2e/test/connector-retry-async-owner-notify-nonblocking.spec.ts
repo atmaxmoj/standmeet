@@ -30,7 +30,7 @@ import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
 import { login } from '@/fixtures/admin';
 import { getMockEvents } from '@/fixtures/gcal';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const TOPIC = 'Intro call about backend work';
 
@@ -88,7 +88,7 @@ async function enterAndBook(
 ): Promise<Page> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
-  await goto(page, `/?code=${code}`);
+  await openReader(page, `/?code=${code}`);
   const session = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200, { timeout: 15_000 },
   );

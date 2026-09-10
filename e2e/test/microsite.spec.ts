@@ -14,7 +14,7 @@ import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
-import { goto, gotoAdminSection, reloadAdminSection } from '@/fixtures/navigate';
+import { openReader, gotoAdminSection, reloadAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -94,7 +94,7 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
     async ({ adminPage: page }) => {
       // The editor lives at its own route now (/admin/edit/<slug>); /admin/edit/new starts a
       // fresh page with an editable slug.
-      await goto(page, '/admin/edit/new');
+      await openReader(page, '/admin/edit/new');
       await expect(page.getByTestId('microsite-source')).toBeVisible();
       await expect(page.getByTestId('microsite-publish')).toBeVisible();
       // Disabled with an empty slug -- that isn't "a dead button", that's it being able
@@ -122,7 +122,7 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
       const edit = page.getByTestId('microsite-edit-homepage');
       await expect(edit.locator('xpath=ancestor::a'), 'the card opens the homepage editor')
         .toHaveAttribute('href', /\/admin\/edit\/home$/);
-      await goto(page, '/admin/edit/home');
+      await openReader(page, '/admin/edit/home');
       await expect(
         page.getByTestId('microsite-file-App.tsx'),
         'the page opens in its own editor with its files loaded',
@@ -189,7 +189,7 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
 // multiFileBuildSpansBoth — extracted so the describe block stays under the per-function line cap.
 async function multiFileBuildSpansBoth(page: Page): Promise<void> {
   test.setTimeout(300_000);
-  await goto(page, '/admin/edit/new');
+  await openReader(page, '/admin/edit/new');
   await page.getByTestId('microsite-slug').fill('multi-file');
   // App imports a second file that doesn't exist yet.
   await fillSource(page, [
@@ -210,7 +210,7 @@ async function multiFileBuildSpansBoth(page: Page): Promise<void> {
   await expect(page.getByTestId('microsite-build-status'))
     .toHaveText(/built/i, { timeout: 180_000 });
   // The marker lives ONLY in the imported second file — seeing it proves the build spanned both.
-  await goto(page, '/p/multi-file');
+  await openReader(page, '/p/multi-file');
   await expect(page.getByRole('heading', { name: 'MULTI_FILE_MARKER' }))
     .toBeVisible({ timeout: 20_000 });
 }
@@ -240,7 +240,7 @@ async function publishFromPanel(page: Page, slug: string, source: string): Promi
   // run viewed the live page, the browser is sitting on `/p/<slug>`, which has no
   // sidebar. /admin/edit/new starts a fresh page with an editable slug, so re-publishing
   // the same slug just types it again (ensurePage tolerates the existing page).
-  await goto(page, '/admin/edit/new');
+  await openReader(page, '/admin/edit/new');
   await page.waitForURL('**/admin/edit/new', { timeout: 10_000 });
   await page.getByTestId('microsite-slug').fill(slug);
   await fillSource(page, source);
@@ -265,7 +265,7 @@ async function expectServed(page: Page, slug: string, marker: string): Promise<v
   expect(served.status(), `/p/${slug} is serving`).toBe(200);
   const assets = await page.request.get(`/p/${slug}`);
   expect(await assets.text(), `the live page carries ${marker}`).toContain('<div id="root">');
-  await goto(page, `/p/${slug}`);
+  await openReader(page, `/p/${slug}`);
   await expect(page.getByRole('heading', { name: marker })).toBeVisible({ timeout: 20_000 });
 }
 

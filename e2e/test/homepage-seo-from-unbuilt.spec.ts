@@ -15,7 +15,7 @@
 import { test, expect } from '@/fixtures/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'home-seo-unbuilt@example.com', password: 'correct-horse-battery-staple',
@@ -34,7 +34,7 @@ test.describe('homepage SEO is reachable from the default (unbuilt) homepage, no
 
       // The owner opens the homepage editor the way the admin offers it — a click, from the default
       // state. No seedDefaultHomepage: `home` is not built here, exactly like a real fresh instance.
-      await goto(page, '/admin/edit/home');
+      await openReader(page, '/admin/edit/home');
 
       // The SEO control must be here for the owner to use. The panel is a collapsed <details>, so
       // expand it first (its absence — not its collapse — is the real "no SEO" case).

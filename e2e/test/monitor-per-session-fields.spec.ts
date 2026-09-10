@@ -18,7 +18,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki, publishEntry } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 import { openVisitorBrowser } from '@/fixtures/visitor-browser';
 
 const OWNER = {
@@ -65,7 +65,7 @@ test.describe('monitor · the panel shows a per-session breakdown, not just a fl
       await ctx.read(`/wiki/${ENTRY.path}`);
       await ctx.dispose();
 
-      await goto(page, '/admin/monitor');
+      await gotoAdminSection(page, 'monitor');
 
       // The owner sees a per-session row — the thing the flat feed cannot express.
       const row = page.getByTestId('monitor-session-row').first();

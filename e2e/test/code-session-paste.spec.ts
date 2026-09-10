@@ -11,7 +11,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { createCode } from '@/fixtures/codes';
+import { createCode, revokeCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
@@ -115,8 +115,5 @@ async function revokeCodeAPI(
   const codes = await listRes.json() as Array<{ id: string; code: string }>;
   const target = codes.find((c) => c.code === code);
   if (!target) throw new Error(`code ${code} not found`);
-  const res = await request.post(`${BACKEND}/api/admin/codes/${target.id}/revoke`, {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  if (!res.ok()) throw new Error(`revoke failed: ${res.status()}`);
+  await revokeCode(request, csrf, target.id);
 }

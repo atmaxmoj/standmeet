@@ -21,7 +21,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki, publishEntry } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { readEvents } from '@/fixtures/monitor';
 import type { MonitorEvent } from '@/fixtures/monitor';
 
@@ -76,7 +76,7 @@ test.describe('monitor · the links a reader takes', () => {
   test('opening a related entry emits related_click, naming where it went', async (
     { page, request },
   ) => {
-    await goto(page, `/wiki/${SOURCE.path}`);
+    await openReader(page, `/wiki/${SOURCE.path}`);
     const rail = page.getByTestId('related-rail-read-next');
     await expect(rail).toBeVisible({ timeout: 20_000 });
     await rail.getByRole('link').first().click();
@@ -92,7 +92,7 @@ test.describe('monitor · the links a reader takes', () => {
   test('opening a citing entry emits cited_by_click, not related_click', async (
     { page, request },
   ) => {
-    await goto(page, `/wiki/${TARGET.path}`);
+    await openReader(page, `/wiki/${TARGET.path}`);
     const rail = page.getByTestId('related-rail-cited-by');
     await expect(rail).toBeVisible({ timeout: 20_000 });
     await rail.getByRole('link').first().click();
@@ -111,7 +111,7 @@ test.describe('monitor · the links a reader takes', () => {
     // indented tree, and it is hidden on purpose (app/src/app/wiki/wiki-shell.module.css). The
     // default 1280 viewport therefore has no tree to expand — a harness fact, not a product one.
     await page.setViewportSize({ width: 1600, height: 900 });
-    await goto(page, `/wiki/${TARGET.path}`);
+    await openReader(page, `/wiki/${TARGET.path}`);
     const toggle = page.getByTestId('tree-toggle-storage-source').first();
     await expect(toggle).toBeVisible({ timeout: 20_000 });
 
@@ -140,7 +140,7 @@ test.describe('monitor · how far a reader got', () => {
   test('reaching the end of a long entry emits scroll_depth and read_complete', async (
     { page, request },
   ) => {
-    await goto(page, `/wiki/${TARGET.path}`);
+    await openReader(page, `/wiki/${TARGET.path}`);
     await expect(page.getByTestId('wiki-body')).toBeVisible({ timeout: 20_000 });
     await readToTheEnd(page, request, 'reader', `/wiki/${TARGET.path}`);
 
@@ -165,7 +165,7 @@ test.describe('monitor · how far a reader got', () => {
     // Its own entry, read by no other test in this file: the count below is then a fact about
     // this page rather than about everything the file has scrolled.
     const path = `/wiki/${ONCE.path}`;
-    await goto(page, path);
+    await openReader(page, path);
     await expect(page.getByTestId('wiki-body')).toBeVisible({ timeout: 20_000 });
     await readToTheEnd(page, request, 'reader', path);
     const settled = (await scrollRows(request, 'reader', path)).length;
@@ -190,7 +190,7 @@ test.describe('monitor · how far a reader got', () => {
   test('leaving a page emits read_dwell, bucketed rather than timed', async (
     { page, request },
   ) => {
-    await goto(page, `/wiki/${TARGET.path}`);
+    await openReader(page, `/wiki/${TARGET.path}`);
     await expect(page.getByTestId('wiki-body')).toBeVisible({ timeout: 20_000 });
     await stayAtLeast(page, 2500);
     await hidePage(page);
@@ -205,7 +205,7 @@ test.describe('monitor · how far a reader got', () => {
   test('switching language emits lang_switch, naming the language', async (
     { page, request },
   ) => {
-    await goto(page, `/wiki/${MULTILINGUAL.path}`);
+    await openReader(page, `/wiki/${MULTILINGUAL.path}`);
     // Located by hrefLang, which is how a reader's browser recognises it too. The visible label
     // is the owner's, and a test keyed on it would break on a note that spells its languages
     // differently.
@@ -223,7 +223,7 @@ test.describe('monitor · how far a reader got', () => {
   test('the writings reader reports on its own surface, not the corpus one', async (
     { page, request },
   ) => {
-    await goto(page, `/writings/${WRITING.slug}`);
+    await openReader(page, `/writings/${WRITING.slug}`);
     await expect(page.getByTestId('writing-page')).toBeVisible({ timeout: 20_000 });
     await readToTheEnd(page, request, 'writings');
 

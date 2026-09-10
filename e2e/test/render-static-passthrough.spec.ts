@@ -12,7 +12,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { resetInstance } from '@/fixtures/instance';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
 
 const OWNER = syncOwner('renderstatic');
@@ -36,7 +36,7 @@ test.describe('render · pre-rendered static passes through; raw plugin block de
       await uploadVault(request, OWNER, [
         { rel: 'wiki/baked.md', body: makeVaultMD({ publish: true }, body) },
       ]);
-      await goto(page, '/wiki/baked');
+      await openReader(page, '/wiki/baked');
       const doc = page.getByTestId('wiki-body');
       await expect(doc.locator('table')).toBeVisible();
       await expect(doc.locator('table')).toContainText('Lucerna');
@@ -55,7 +55,7 @@ test.describe('render · pre-rendered static passes through; raw plugin block de
       await uploadVault(request, OWNER, [
         { rel: 'wiki/rawdv.md', body: makeVaultMD({ publish: true }, body) },
       ]);
-      await goto(page, '/wiki/rawdv');
+      await openReader(page, '/wiki/rawdv');
       const doc = page.getByTestId('wiki-body');
       await expect(doc).toBeVisible();
       // the query text is shown verbatim inside a code block, not evaluated.

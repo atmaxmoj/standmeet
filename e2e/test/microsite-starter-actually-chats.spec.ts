@@ -25,7 +25,7 @@ import type { Page } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
 
 const OWNER = {
@@ -56,7 +56,7 @@ test.describe('microsites · the starter the panel hands you is a working chat p
     async ({ adminPage: page, playwright }) => {
       // The editor starts a fresh page pre-filled with the starter template; publishing it
       // untouched is the whole test.
-      await goto(page, '/admin/edit/new');
+      await openReader(page, '/admin/edit/new');
 
       // The editor must **first** tell the owner what can be imported. Today it says nothing.
       const help = page.getByTestId('microsite-imports');
@@ -78,7 +78,7 @@ test.describe('microsites · the starter the panel hands you is a working chat p
       const tag = await scriptMockReplyText(request, ANSWER);
 
       const reader = await (await playwright.chromium.launch()).newPage();
-      await goto(reader, `/p/${SLUG}`);
+      await openReader(reader, `/p/${SLUG}`);
 
       const box = sm(reader, 'ask');
       await box.waitFor({ state: 'visible', timeout: 20_000 });

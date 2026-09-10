@@ -12,7 +12,7 @@ import type { Page } from '@playwright/test';
 import { test, expect } from '@/fixtures/test';
 
 import { seedWiki } from '@/fixtures/corpus';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { setPublished, setupRetrievalOwner, type RetrievalOwner } from '@/fixtures/retrieval';
 
 let O: RetrievalOwner;
@@ -20,7 +20,7 @@ let O: RetrievalOwner;
 // enter — the ?code entry point → fill in a name at the name picker → submit → wait
 // for the session to be issued (only then does the search box appear).
 async function enter(page: Page): Promise<void> {
-  await goto(page, `/?code=${O.fullCode}`);
+  await openReader(page, `/?code=${O.fullCode}`);
   const session = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200, { timeout: 15_000 },
   );

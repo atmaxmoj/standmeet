@@ -12,7 +12,7 @@
 import { test, expect } from '@/fixtures/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
-import { goto } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'nav-skeleton@example.com', password: 'correct-horse-battery-staple',
@@ -25,7 +25,7 @@ test.describe('admin nav paints the skeleton instantly (Q2)', () => {
 
   test('clicking a sidebar section shows the skeleton within a frame, not after the RSC round-trip',
     async ({ adminPage: page }) => {
-      await goto(page, '/admin/dashboard');
+      await gotoAdminSection(page, 'dashboard');
       await expect(page.getByTestId('admin-sidebar')).toBeVisible({ timeout: 20_000 });
       // Give the sidebar links a moment to prefetch their loading shells (staleTimes.dynamic keeps
       // those shells reusable), then navigate.

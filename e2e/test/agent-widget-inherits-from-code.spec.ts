@@ -27,7 +27,8 @@ import { createCode } from '@/fixtures/codes';
 import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openGate, openReader } from '@/fixtures/navigate';
+import { createPrompt } from '@/fixtures/prompts';
 import { createRole } from '@/fixtures/roles';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
 
@@ -116,18 +117,16 @@ async function initOwner(playwright: Playwright): Promise<void> {
 // createPersonaPrompt —— the role's prompt body, which the assembled system prompt carries (and
 // the mock echoes). Returns the prompt id to set on the role.
 async function createPersonaPrompt(request: APIRequestContext, csrf: string): Promise<string> {
-  const p = await request.post(`${BACKEND}/api/admin/prompts`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { name: 'agentw-persona', body: `${PERSONA_MARK}. Speak plainly.` },
+  const p = await createPrompt(request, csrf, {
+    name: 'agentw-persona', body: `${PERSONA_MARK}. Speak plainly.`,
   });
-  expect(p.ok(), `create persona prompt: ${p.status()}`).toBeTruthy();
-  return (await p.json() as { id: string }).id;
+  return p.id;
 }
 
 // enterGate —— enter the code at /gate; this issues + STORES the session blob (with the code's
 // dock buttons + persona) in localStorage, which the microsite then adopts.
 async function enterGate(page: Page): Promise<void> {
-  await goto(page, '/gate');
+  await openGate(page, '/gate');
   await page.getByTestId('gate-code').fill(CODE);
   await page.getByTestId('gate-visitor-name').fill('Embedded Reader');
   await page.getByTestId('gate-code-submit').click();
@@ -143,7 +142,7 @@ test.describe('the embedded AgentWidget inherits the code (corpus + persona + do
   });
 
   test('codeless visit → the widget is the /gate handoff, not an inline agent', async ({ page }) => {
-    await goto(page, `/p/${SLUG}/`);
+    await openReader(page, `/p/${SLUG}/`);
     const w = page.getByTestId('agent-widget');
     await expect(w).toBeVisible({ timeout: 20_000 });
     await expect(w).toHaveAttribute('data-mode', 'gate');
@@ -153,7 +152,7 @@ test.describe('the embedded AgentWidget inherits the code (corpus + persona + do
     async ({ page, request }: { page: Page; request: APIRequestContext }) => {
       const tag = await scriptMockReplyText(request, 'noted.');
       await enterGate(page); // stores the code's session blob
-      await goto(page, `/p/${SLUG}/`);
+      await openReader(page, `/p/${SLUG}/`);
 
       const w = page.getByTestId('agent-widget');
       await expect(w).toBeVisible({ timeout: 20_000 });

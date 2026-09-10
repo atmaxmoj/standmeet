@@ -15,7 +15,7 @@ import { createCode } from '@/fixtures/codes';
 import { publishEntry, seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'wiki-ext@example.com',
@@ -52,7 +52,7 @@ function registerAboutCardTests(): void {
   test('匿名访客:卡片不许叫他「在下面接着问」,而要给出他真走得到的那条路',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
-      await goto(page, '/wiki/wiki-extended');
+      await openReader(page, '/wiki/wiki-extended');
       const about = page.getByTestId('reader-about');
       await expect(about).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('floating-dock-pill'), '这一页确实没有入口').toHaveCount(0);
@@ -69,7 +69,7 @@ function registerAboutCardTests(): void {
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     await createCode(request, csrf, { code: 'ABOUT-PASS', label: 'About access' });
     await enterCodeSession(page, 'ABOUT-PASS', 'Robin');
-    await goto(page, '/wiki/wiki-extended');
+    await openReader(page, '/wiki/wiki-extended');
     await expect(page.getByTestId('floating-dock-pill')).toBeVisible({ timeout: 5_000 });
     await expect(page.getByTestId('reader-about')).toContainText('below');
   });
@@ -78,7 +78,7 @@ function registerAboutCardTests(): void {
   // "in his voice".
   test('卡片不替 owner 认性别', async ({ request, page }) => {
     await seedIndexedWiki(request);
-    await goto(page, '/wiki/wiki-extended');
+    await openReader(page, '/wiki/wiki-extended');
     const text = await page.getByTestId('reader-about').innerText();
     expect(text, '实例没存过 owner 的性别').not.toMatch(/\b(his|her|hers)\b/i);
   });
@@ -94,14 +94,14 @@ function registerHeroTests(): void {
   test('wiki page renders the entry: landing + title',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
-      await goto(page, '/wiki/wiki-extended');
+      await openReader(page, '/wiki/wiki-extended');
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByRole('heading', { name: 'Wiki Extended' })).toBeVisible();
     });
 
   test('nonexistent wiki slug → locked view',
     async ({ page }) => {
-      await goto(page, '/wiki/nonexistent-wiki-slug-xyz');
+      await openReader(page, '/wiki/nonexistent-wiki-slug-xyz');
       await expect(page.getByText('This entry requires an access code'))
         .toBeVisible({ timeout: 5_000 });
     });
@@ -109,7 +109,7 @@ function registerHeroTests(): void {
   test('metadata strip: cover tag + tag chips + by owner full name',
     async ({ request, page }) => {
       await seedTaggedWiki(request);
-      await goto(page, '/wiki/tagged-entry');
+      await openReader(page, '/wiki/tagged-entry');
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       // The cover badge uses the first tag (no longer hardcoded to "corpus").
       await expect(page.getByTestId('wiki-cover')).toContainText('wiki · lucerna');
@@ -126,7 +126,7 @@ function registerHeroTests(): void {
   test('wiki page has no inline ask-about-this composer',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
-      await goto(page, '/wiki/wiki-extended');
+      await openReader(page, '/wiki/wiki-extended');
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('article-ask-form')).toHaveCount(0);
     });
@@ -139,7 +139,7 @@ function registerLayoutTests(): void {
   test('wiki breadcrumb back link goes to /wiki (its own index), not /writings',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
-      await goto(page, '/wiki/wiki-extended');
+      await openReader(page, '/wiki/wiki-extended');
       const back = page.getByTestId('wiki-breadcrumb').getByRole('link', { name: '← wiki' });
       await expect(back).toHaveAttribute('href', '/wiki');
       await back.click();
@@ -154,7 +154,7 @@ function registerLayoutTests(): void {
     async ({ request, page }) => {
       await seedIndexedWiki(request);
       await page.setViewportSize({ width: 1512, height: 900 });
-      await goto(page, '/wiki/wiki-extended');
+      await openReader(page, '/wiki/wiki-extended');
       const aside = page.getByTestId('wiki-toc');
       await expect(aside).toBeVisible({ timeout: 5_000 });
       await page.evaluate(() => window.scrollTo(0, 1500));
@@ -170,7 +170,7 @@ function registerLayoutTests(): void {
     async ({ request, page }) => {
       await seedIndexedWiki(request);
       await page.setViewportSize({ width: 1512, height: 900 });
-      await goto(page, '/wiki/wiki-extended');
+      await openReader(page, '/wiki/wiki-extended');
       const about = page.getByText('about this entry');
       await about.scrollIntoViewIfNeeded();
       await expect(about).toBeInViewport({ timeout: 5_000 });
@@ -181,7 +181,7 @@ function registerLayoutTests(): void {
   test('reader TopBar renders branding, nav, and a working theme toggle',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
-      await goto(page, '/wiki/wiki-extended');
+      await openReader(page, '/wiki/wiki-extended');
       const bar = page.getByTestId('wiki-topbar');
       await expect(bar).toBeVisible({ timeout: 5_000 });
       await expect(bar).toContainText('standmeet');
@@ -205,7 +205,7 @@ function registerSidebarSessionTests(): void {
     async ({ request, page }) => {
       await seedIndexedWiki(request);
       await page.setViewportSize({ width: 1512, height: 900 });
-      await goto(page, '/wiki/wiki-extended');
+      await openReader(page, '/wiki/wiki-extended');
       const toc = page.getByTestId('wiki-toc');
       await expect(toc).toBeVisible({ timeout: 5_000 });
       const box = await toc.boundingBox();
@@ -228,7 +228,7 @@ function registerSidebarSessionTests(): void {
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       await createCode(request, csrf, { code: 'READER-PASS', label: 'Reader access' });
       await enterCodeSession(page, 'READER-PASS', 'Sam');
-      await goto(page, '/wiki/wiki-extended');
+      await openReader(page, '/wiki/wiki-extended');
       const strip = page.getByTestId('session-strip');
       await expect(strip).toContainText('Reader access', { timeout: 5_000 });
       await expect(strip, 'a named code must not be reported as anonymous').not.toContainText('anonymous');
@@ -245,12 +245,12 @@ function registerSidebarSessionTests(): void {
     await createCode(request, csrf, { code: 'THEME-PASS', label: 'Theme access' });
     await enterCodeSession(page, 'THEME-PASS', 'Nour');
 
-    await goto(page, '/wiki/wiki-extended');
+    await openReader(page, '/wiki/wiki-extended');
     await page.getByTestId('wiki-theme-toggle').click();
     await expect.poll(() => page.evaluate(() =>
       document.documentElement.classList.contains('dark'))).toBe(true);
 
-    await goto(page, '/');
+    await openReader(page, '/');
     await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 8_000 });
     await expect.poll(
       () => page.evaluate(() => document.documentElement.classList.contains('dark')),
@@ -263,7 +263,7 @@ function registerSidebarSessionTests(): void {
   test('without a session: the ask dock does not render (AI not powering)',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
-      await goto(page, '/wiki/wiki-extended');
+      await openReader(page, '/wiki/wiki-extended');
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('floating-dock-pill')).toHaveCount(0);
     });
@@ -274,7 +274,7 @@ function registerSidebarSessionTests(): void {
     async ({ request, page }) => {
       const { parentTitle, childTitle, childPath } = await seedNestedWiki(request);
       await page.setViewportSize({ width: 1512, height: 900 });
-      await goto(page, `/wiki/${childPath}`);
+      await openReader(page, `/wiki/${childPath}`);
       const tree = page.getByTestId('wiki-tree');
       await expect(tree).toContainText(parentTitle, { timeout: 5_000 });
       // Lazy loading + openPaths (the current entry's prefix) auto-expands to the
@@ -291,7 +291,7 @@ function registerGraphTests(): void {
   test('a [[Title]] wikilink in a wiki body renders as a clickable /wiki link',
     async ({ request, page }) => {
       const { srcPath, dstPath, dstTitle } = await seedLinkedWikis(request);
-      await goto(page, `/wiki/${srcPath}`);
+      await openReader(page, `/wiki/${srcPath}`);
       const link = page.getByTestId('wiki-body').getByRole('link', { name: dstTitle });
       await expect(link).toHaveAttribute('href', `/wiki/${dstPath}`, { timeout: 5_000 });
     });

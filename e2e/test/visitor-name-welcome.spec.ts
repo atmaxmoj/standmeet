@@ -15,7 +15,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'welcome-owner@example.com',
@@ -33,7 +33,7 @@ test.describe('visitor name → ChatRoom welcome greeting', () => {
 
   test('fill name → welcome says "Hi, {firstName}"',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
+      await openReader(page, `/?code=${CODE}`);
       const nameInput = page.getByTestId('visitor-name-input');
       await expect(nameInput).toBeVisible({ timeout: 5_000 });
       await nameInput.fill('Sarah Chen');
@@ -45,7 +45,7 @@ test.describe('visitor name → ChatRoom welcome greeting', () => {
 
   test('skip name → welcome says generic greeting',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
+      await openReader(page, `/?code=${CODE}`);
       const skipBtn = page.getByTestId('visitor-name-skip');
       await expect(skipBtn).toBeVisible({ timeout: 5_000 });
       await skipBtn.click();

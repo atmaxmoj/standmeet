@@ -18,7 +18,7 @@ import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, type CodedSeed,
 } from '@/fixtures/gcal-setup';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const TOPIC = 'Intro call about backend work';
 
@@ -68,7 +68,7 @@ test.describe('connector · booked card is a ui:// sandbox iframe (§1 externali
 async function enterAndBook(
   page: Page, code: string, name: string, email: string, hour: number,
 ): Promise<void> {
-  await goto(page, `/?code=${code}`);
+  await openReader(page, `/?code=${code}`);
   const session = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200, { timeout: 15_000 },
   );

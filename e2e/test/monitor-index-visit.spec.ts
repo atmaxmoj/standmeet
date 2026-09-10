@@ -15,7 +15,7 @@ import type { Playwright } from '@playwright/test';
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { readEvents } from '@/fixtures/monitor';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { openReader, gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'monitor-index@example.com',
@@ -36,7 +36,7 @@ test.describe('monitor · a browser opening the index is recorded', () => {
     const page = await visitor.newPage();
     // The shared helper waits for load, not domcontentloaded: the beacon fires from an effect
     // after mount, and a real person always looks at the page after load.
-    await goto(page, '/');
+    await openReader(page, '/');
     // The beacon fires from an effect after mount; wait for the row rather than for a timer.
     await expect.poll(
       async () => (await readEvents(request, OWNER, { surface: 'index' })).length,

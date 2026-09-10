@@ -12,7 +12,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -91,7 +91,7 @@ async function measure(browser: Browser, b: Bench): Promise<number> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   const t0 = Date.now();
-  await goto(page, `/wiki/${b.path}`);
+  await openReader(page, `/wiki/${b.path}`);
   await b.awaitSelector(page);
   const elapsed = Date.now() - t0;
   await ctx.close();

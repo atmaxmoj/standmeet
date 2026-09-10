@@ -27,7 +27,7 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { MEDIA, uploadAsset } from '@/fixtures/genre-assets';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'metarow@example.com', password: 'correct-horse-battery-staple',
@@ -90,7 +90,7 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
   // thing once per screen.
   test('日期只出现一次:面包屑只导航,meta 行讲这条笔记',
     async ({ page }) => {
-      await goto(page, `/wiki/${PATH}`);
+      await openReader(page, `/wiki/${PATH}`);
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('wiki-meta')).toContainText(OWNER.fullName);
       // Once removed, it must not resurface under different wording -- the
@@ -116,14 +116,14 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
   // holds just as well on a note that has a cover, so it's moved here.
   test('cover with no tag shows just "wiki", not the hardcoded "corpus" fallback',
     async ({ page }) => {
-      await goto(page, `/wiki/${COVERED_PATH}`);
+      await openReader(page, `/wiki/${COVERED_PATH}`);
       const cover = page.getByTestId('wiki-cover');
       await expect(cover).toBeVisible({ timeout: 5_000 });
       await expect(cover).not.toContainText('corpus');
     });
 
   test('没设 hero 的笔记不渲染空的 hero 壳', async ({ page }) => {
-    await goto(page, `/wiki/${PATH}`);
+    await openReader(page, `/wiki/${PATH}`);
     // First confirm the page actually rendered -- otherwise "counted 0" just
     // means nothing has loaded yet.
     await expect(page.getByTestId('wiki-meta')).toBeVisible({ timeout: 5_000 });
@@ -135,7 +135,7 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
   });
 
   test('已发布的笔记:owner 设的封面图 + 那句话渲得出来(SSR 那条路)', async ({ page }) => {
-    await goto(page, `/wiki/${COVERED_PATH}`);
+    await openReader(page, `/wiki/${COVERED_PATH}`);
     const img = page.getByTestId('wiki-cover-image').locator('img');
     await expect(img, '封面图挂上去了').toBeVisible({ timeout: 8_000 });
     expect(await img.getAttribute('src') ?? '', '指向那份素材').toContain(coverAssetID);
@@ -143,7 +143,7 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
   });
 
   test('已发布的笔记:正文里的配图也换成了真地址', async ({ page }) => {
-    await goto(page, `/wiki/${COVERED_PATH}`);
+    await openReader(page, `/wiki/${COVERED_PATH}`);
     const img = page.getByTestId('wiki-body').locator('img').first();
     await expect(img, '正文配图渲在页面上').toBeVisible({ timeout: 8_000 });
     const src = await img.getAttribute('src') ?? '';
@@ -152,7 +152,7 @@ test.describe('W3/F1 wiki reader head: meta row + hero', () => {
   });
 
   test('渲出来的是 owner 选的那个色调,不是按 slug 哈希出来的', async ({ page }) => {
-    await goto(page, `/wiki/${COVERED_PATH}`);
+    await openReader(page, `/wiki/${COVERED_PATH}`);
     const cover = page.getByTestId('wiki-cover');
     await expect(cover).toBeVisible({ timeout: 5_000 });
     // data-hue IS the coloring mechanism itself (CSS attribute selectors

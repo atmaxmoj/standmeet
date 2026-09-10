@@ -12,12 +12,12 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { createCode } from '@/fixtures/codes';
 import { enterCodeSession } from '@/fixtures/navigate';
+import { createRole } from '@/fixtures/roles';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { scriptMockToolCall, scriptMockReplyText } from '@/fixtures/mock-llm-script';
-
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 const OWNER = {
   email: 'dump-owner@example.com', password: 'correct-horse-battery-staple',
@@ -95,19 +95,12 @@ async function seedSkillRoleCode(request: APIRequestContext): Promise<void> {
     description: 'Reviews patents.',
     prompt: `When reviewing, always note ${BODY_MARKER}.`,
   });
-  const roleRes = await request.post(`${BACKEND}/api/admin/roles/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      name: 'dump-role', description: 'dump card fixture role',
-      prompt_id: null, corpus_uris: ['wiki://**'],
-      skill_ids: [skill.id], mcp_server_ids: [],
-    },
+  const role = await createRole(request, csrf, {
+    name: 'dump-role', description: 'dump card fixture role',
+    prompt_id: null, corpus_uris: ['wiki://**'],
+    skill_ids: [skill.id], mcp_server_ids: [],
   });
-  if (roleRes.status() !== 201) throw new Error(`create role: ${roleRes.status()}`);
-  const role = await roleRes.json() as { id: string };
-  const codeRes = await request.post(`${BACKEND}/api/admin/codes/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { code: CODE, label: 'dump code', ghosts: [], assumed_role_id: role.id },
+  await createCode(request, csrf, {
+    code: CODE, label: 'dump code', ghosts: [], assumed_role_id: role.id,
   });
-  if (codeRes.status() !== 201) throw new Error(`create code: ${codeRes.status()}`);
 }

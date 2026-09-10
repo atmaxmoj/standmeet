@@ -10,7 +10,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki, publishEntry } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'defaulthome@example.com', password: 'correct-horse-battery-staple',
@@ -34,7 +34,7 @@ test.describe('DefaultHome look (screenshot, observe)', () => {
 
   test('DefaultHome renders the widgets (no session)', async ({ page }) => {
     test.setTimeout(60_000);
-    await goto(page, '/c/observe'); // no session → visitor fallback → DefaultHome
+    await openReader(page, '/c/observe'); // no session → visitor fallback → DefaultHome
     await expect(page.getByTestId('default-home')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('corpus-widget')).toBeVisible({ timeout: 15_000 });
     await page.screenshot({ path: 'manual-runs/default-home-look.png', fullPage: true });

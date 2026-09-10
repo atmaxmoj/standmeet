@@ -21,7 +21,7 @@ import {
 import {
   lastGatewayRequest, resetGatewayRequests, scriptMockReplyText,
 } from '@/fixtures/mock-llm-script';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 // MEMORABLE —— a phrase in the first turn unique to this spec. Looked for in the
 // second turn's request.
@@ -81,7 +81,7 @@ async function ask(page: Page, q: string): Promise<void> {
 }
 
 async function enterChat(page: Page, code: string): Promise<void> {
-  await goto(page, `/?code=${code}`);
+  await openReader(page, `/?code=${code}`);
   const session = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200, { timeout: 15_000 },
   );

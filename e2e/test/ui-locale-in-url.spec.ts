@@ -16,7 +16,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openGate, openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'uilocale@example.com', password: 'correct-horse-battery-staple',
@@ -40,15 +40,15 @@ test.describe('G · the UI language lives in the URL and is switchable', () => {
   });
 
   test('`/gate` is English; `/zh/gate` is Chinese and the URL keeps the locale', async ({ page }) => {
-    await goto(page, '/gate');
+    await openGate(page, '/gate');
     await expect(page.getByText(EN_HEADLINE, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
 
-    await goto(page, '/zh/gate');
+    await openReader(page, '/zh/gate');
     await expect(page.getByText(ZH_HEADLINE, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
     expect(page.url(), 'the chosen language stays in the URL').toContain('/zh/gate');
 
     // The mechanism is locale-agnostic — a third language (fr) proves it generalizes past en/zh.
-    await goto(page, '/fr/gate');
+    await openReader(page, '/fr/gate');
     await expect(page.getByText(FR_HEADLINE, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
     expect(page.url()).toContain('/fr/gate');
   });
@@ -57,7 +57,7 @@ test.describe('G · the UI language lives in the URL and is switchable', () => {
     async ({ page }) => {
       // The switcher lives in the app TopBar (gate / readers). The index is a custom `home` page
       // now and doesn't carry the app TopBar, so drive the switcher from the gate.
-      await goto(page, '/gate');
+      await openGate(page, '/gate');
       await expect(page.getByText(EN_HEADLINE, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
       const sw = page.getByTestId('locale-switch');
       await expect(sw).toBeVisible({ timeout: 15_000 });
@@ -73,7 +73,7 @@ test.describe('G · the UI language lives in the URL and is switchable', () => {
 
       // Persistence: navigate to an UN-prefixed page — the cookie carries the language, so the gate
       // still comes up in Chinese even without a /zh prefix on this URL.
-      await goto(page, '/gate');
+      await openGate(page, '/gate');
       await expect(page.getByText(ZH_HEADLINE, { exact: false }).first())
         .toBeVisible({ timeout: 15_000 });
     });

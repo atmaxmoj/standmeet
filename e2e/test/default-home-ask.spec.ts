@@ -7,7 +7,7 @@
 import { test, expect } from '@/fixtures/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'defaulthome-ask@example.com', password: 'correct-horse-battery-staple',
@@ -20,7 +20,7 @@ test.describe('DefaultHome · the ask box hands a codeless visitor to /gate with
 
   test('typing a question and asking navigates to /gate carrying it', async ({ page }) => {
     test.setTimeout(60_000);
-    await goto(page, '/c/observe'); // no session → visitor fallback → DefaultHome
+    await openReader(page, '/c/observe'); // no session → visitor fallback → DefaultHome
     await expect(page.getByTestId('default-home')).toBeVisible({ timeout: 20_000 });
 
     // Type a question into the DefaultHome ask box and ask.

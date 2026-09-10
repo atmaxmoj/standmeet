@@ -17,7 +17,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
 const OWNER = {
@@ -43,7 +43,7 @@ test.describe('F-L-11 · invited viewer reads a gated entry via the bearer-aware
   test('a gated entry renders its body for an invited viewer (not RestrictedDoc)',
     async ({ page }) => {
       await enterCodeSession(page, CODE, 'Reader');
-      await goto(page, `/wiki/${NOTE.path}`);
+      await openReader(page, `/wiki/${NOTE.path}`);
       // The bearer re-fetch swaps in the real entry body.
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 8_000 });
       await expect(page.getByTestId('wiki-body')).toContainText(NOTE.body, { timeout: 8_000 });
@@ -55,7 +55,7 @@ test.describe('F-L-11 · invited viewer reads a gated entry via the bearer-aware
   // case (no session + published count 0), and never for an invited viewer.
   test('anonymous /wiki on an all-gated corpus shows the honest enter-a-code hint',
     async ({ page }) => {
-      await goto(page, '/wiki');
+      await openReader(page, '/wiki');
       await expect(page.getByTestId('wiki-tree-gated-hint')).toBeVisible({ timeout: 5_000 });
     });
 
@@ -75,7 +75,7 @@ test.describe('F-L-11 · invited viewer reads a gated entry via the bearer-aware
       await enterCodeSession(page, CODE, 'Reader');
       // the sidebar footer stats live in the rail, display:none below 1500px (c215f0be).
       await page.setViewportSize({ width: 1512, height: 900 });
-      await goto(page, '/wiki');
+      await openReader(page, '/wiki');
       await expect(page.getByTestId('wiki-index-roots')).toBeVisible({ timeout: 8_000 });
       await expect(
         page.getByTestId('wiki-index-roots'),

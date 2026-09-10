@@ -30,7 +30,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
 import { publishEntry } from '@/fixtures/corpus';
@@ -159,7 +159,7 @@ async function sidebarLazyExpand({ page }: { page: Page }): Promise<void> {
   });
   // the tree rail is display:none below 1500px (reader-shell design c215f0be).
   await page.setViewportSize({ width: 1512, height: 900 });
-  await goto(page, '/wiki/essays');
+  await openReader(page, '/wiki/essays');
   await expect(page.getByTestId('wiki-tree')).toBeVisible({ timeout: 5_000 });
   await expect(page.getByTestId('tree-node-thinking')).toBeVisible();
   await expect(page.getByTestId('tree-node-essays')).toBeVisible();
@@ -178,7 +178,7 @@ async function sidebarLazyExpand({ page }: { page: Page }): Promise<void> {
 // title never leaks).
 async function sidebarAclHidesGated({ page }: { page: Page }): Promise<void> {
   await page.setViewportSize({ width: 1512, height: 900 });
-  await goto(page, '/wiki/thinking');
+  await openReader(page, '/wiki/thinking');
   await expect(page.getByTestId('wiki-tree')).toBeVisible({ timeout: 5_000 });
   await expect(page.getByTestId('tree-node-thinking')).toBeVisible();
   await expect(page.getByTestId('tree-node-fundraising')).toHaveCount(0);
@@ -235,7 +235,7 @@ async function context(
 // breadcrumbShowsAncestor — the breadcrumb at the top of the lucerna landing page shows a
 // link to its ancestor, Thinking.
 async function breadcrumbShowsAncestor({ page }: { page: Page }): Promise<void> {
-  await goto(page, '/wiki/thinking/lucerna');
+  await openReader(page, '/wiki/thinking/lucerna');
   await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
   const crumb = page.getByTestId('wiki-breadcrumb');
   await expect(crumb).toBeVisible();

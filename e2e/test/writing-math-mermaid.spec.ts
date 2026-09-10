@@ -22,7 +22,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'math-owner@example.com',
@@ -89,7 +89,7 @@ test.describe('writings · LaTeX + mermaid render · I.2', () => {
   test('inline + display math + mermaid block render in /writings/[slug]',
     async ({ request, page }) => {
       await mcpCreateMathWriting(request, 'math-mermaid-token');
-      await goto(page, '/writings/math-mermaid-essay');
+      await openReader(page, '/writings/math-mermaid-essay');
       const body = page.getByTestId('writing-article-body');
       await expect(body, 'page rendered').toBeVisible({ timeout: 10_000 });
 

@@ -16,7 +16,7 @@ import type { Page } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'livefollow@example.com',
@@ -65,7 +65,7 @@ test.describe('microsites · the GUI editor follows live as the owner types', ()
 
   test('editing the source updates the preview live — no build click, no reload',
     async ({ adminPage: page }) => {
-      await goto(page, `/admin/edit/${SLUG}`);
+      await openReader(page, `/admin/edit/${SLUG}`);
 
       // First edit: type a new headline and DON'T click build. The preview must catch up on its own.
       // RED before auto-build-on-edit: the preview never changes until "build preview" is clicked.

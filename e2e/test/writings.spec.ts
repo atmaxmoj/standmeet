@@ -30,7 +30,7 @@ import {
 } from '@/fixtures/writing-assets';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection, openReader } from '@/fixtures/navigate';
 import { STORAGE_HOST_RE } from '@/fixtures/stack';
 
 const OWNER = {
@@ -97,7 +97,7 @@ test.describe('writings: editor flow + rich render + XSS', () => {
       await expect(adminPage.getByTestId('writing-row-editor-flow'))
         .toBeVisible({ timeout: 5_000 });
 
-      await goto(page, '/writings');
+      await openReader(page, '/writings');
       await page.locator('a[href="/writings/editor-flow"]').first().click();
       const body = page.getByTestId('writing-article-body');
       await expect(body.locator('h2')).toHaveText('A heading');
@@ -113,7 +113,7 @@ test.describe('writings: editor flow + rich render + XSS', () => {
         cover_headline: 'rich markdown.',
         cover_hue: 'amber', tags: ['markdown', 'gfm'],
       });
-      await goto(page, '/writings');
+      await openReader(page, '/writings');
       await page.locator('a[href="/writings/rich-markdown-essay"]').first().click();
       await expect(page.getByTestId('writing-article-title')).toHaveText('Rich markdown essay');
       await assertGFMRendering(page);
@@ -129,7 +129,7 @@ test.describe('writings: editor flow + rich render + XSS', () => {
         cover_headline: 'xss.', cover_hue: 'acid',
         tags: ['security'],
       });
-      await goto(page, '/writings/xss-attempt');
+      await openReader(page, '/writings/xss-attempt');
       await expect(page.getByTestId('writing-article-body').locator('script')).toHaveCount(0);
       const flag = await page.evaluate(() =>
         (window as Window & { __xssRan?: boolean }).__xssRan);
@@ -172,7 +172,7 @@ test.describe('writings: atomic image upload via multipart save', () => {
       expect(publicWriting.cover_image_asset_id).toBe(stored?.cover_image_asset_id);
       expect(Object.keys(publicWriting.asset_urls ?? {})).toContain(publicWriting.cover_image_asset_id);
 
-      await goto(page, '/writings/with-cover');
+      await openReader(page, '/writings/with-cover');
       const cover = page.locator('[data-writing-cover]').first();
       const img = cover.locator('img').first();
       const src = await img.getAttribute('src');
@@ -206,7 +206,7 @@ test.describe('writings: atomic image upload via multipart save', () => {
         .toBeVisible({ timeout: 10_000 });
 
       // visitor side: img element with presigned URL
-      await goto(page, '/writings/image-writing');
+      await openReader(page, '/writings/image-writing');
       const img = page.getByTestId('writing-article-body').locator('img').first();
       await expect(img).toBeVisible();
       const src = await img.getAttribute('src');
@@ -242,7 +242,7 @@ test.describe('writings: edit existing writing', () => {
       await adminPage.getByTestId('writing-edit-submit').click();
       await expect(adminPage.getByTestId('writing-edit-modal')).toBeHidden({ timeout: 5_000 });
 
-      await goto(page, '/writings/editable-writing');
+      await openReader(page, '/writings/editable-writing');
       await expect(page.getByTestId('writing-article-title')).toHaveText('Updated title');
     });
 });
@@ -257,7 +257,7 @@ test.describe('writings: infinite scroll', () => {
       const apiToken = await createAPIToken(request, csrf, 'writing-scroll-token');
       const sid = await initMCP(request, apiToken);
       await seedExtraWritings(request, apiToken, sid, 13);
-      await goto(page, '/writings');
+      await openReader(page, '/writings');
       // order is published_at desc, so newest 13 visible first, oldest
       // (scroll-01) lands on page 2.
       const pageTwo = page.waitForResponse((res) =>

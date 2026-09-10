@@ -14,6 +14,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
 import { login as loginAPI } from '@/fixtures/admin';
+import { setCodeCorpusDenials } from '@/fixtures/code-denials';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
 import {
@@ -62,11 +63,8 @@ async function setDenied(
   request: APIRequestContext, codeID: string, denied: string[],
 ): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  const res = await request.put(`${BACKEND}/api/admin/codes/${codeID}/denials/corpus`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { uris: denied },
-  });
-  expect(res.status(), 'owner can narrow a code').toBe(200);
+  const status = await setCodeCorpusDenials(request, csrf, codeID, denied);
+  expect(status, 'owner can narrow a code').toBe(200);
 }
 
 async function codeIDOf(request: APIRequestContext): Promise<string> {

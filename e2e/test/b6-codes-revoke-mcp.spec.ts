@@ -13,6 +13,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
+import { createCode } from '@/fixtures/codes';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -42,17 +43,9 @@ test.describe('Phase B-6 codes.revoke via MCP parity', () => {
       name: 'b6-role', description: 'b6 spec',
       corpus_uris: ['wiki://**', 'output://**'],
     });
-    const createRes = await request.post(`${BACKEND}/api/admin/codes/`, {
-      headers: { 'X-Csrftoken': csrf },
-      data: {
-        code: CODE, label: 'b6 spec',
-        ghosts: [], assumed_role_id: role.id,
-      },
+    codeRecord = await createCode(request, csrf, {
+      code: CODE, label: 'b6 spec', assumed_role_id: role.id,
     });
-    if (createRes.status() !== 201) {
-      throw new Error(`create code: ${createRes.status()}`);
-    }
-    codeRecord = await createRes.json() as CodeView;
     await request.dispose();
   });
 

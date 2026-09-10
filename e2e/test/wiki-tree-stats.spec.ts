@@ -11,7 +11,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'treestats@example.com', password: 'correct-horse-battery-staple',
@@ -43,7 +43,7 @@ test.describe('F3 wiki sidebar stats (entries / roots / gated)', () => {
   test('sidebar footer shows entries / roots / gated counts', async ({ page }) => {
     // the sidebar (with its footer stats) is display:none below 1500px (c215f0be).
     await page.setViewportSize({ width: 1512, height: 900 });
-    await goto(page, '/wiki/alpha');
+    await openReader(page, '/wiki/alpha');
     await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
     const stats = page.getByTestId('wiki-tree-stats');
     await expect(stats).toBeVisible();

@@ -20,7 +20,7 @@ import {
   clearMailpit, configureMailConnector, confirmLinkIn, followMailedLink,
   mailpitHasNothingTo, waitForMailTo,
 } from '@/fixtures/mail';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection, openReader } from '@/fixtures/navigate';
 
 // PW — the `playwright` from the worker fixture. Test bodies are extracted into module-level
 // functions (max-lines-per-function), so its type has to be spelled out.
@@ -188,7 +188,7 @@ async function garbageTokenIsReadable(page: Page): Promise<void> {
   // Use the goto fixture instead of hand-building the host — an earlier version hardcoded :3000
   // (the in-container port), while the app is exposed at :38127, so the failure was a connection
   // refused, unrelated to whether the page's copy is human-readable.
-  await goto(page, '/confirm-email?token=nope');
+  await openReader(page, '/confirm-email?token=nope');
   await expect(page.getByTestId('email-confirm-invalid')).toBeVisible({ timeout: 10_000 });
   // No raw error may appear in the UI — the CLAUDE.md rule "errors must be human readable".
   const text = await page.locator('body').innerText();

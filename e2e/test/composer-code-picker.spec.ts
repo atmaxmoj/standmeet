@@ -13,7 +13,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -32,7 +32,7 @@ test.describe('résumé composer code picker lives in the Header field panel', (
       const { csrf } = await loginAPI(api, OWNER.email, OWNER.password);
       const id = await seed(api, csrf);
 
-      await goto(page, `/admin/edit-resume/${id}`);
+      await openReader(page, `/admin/edit-resume/${id}`);
       await expect(page.getByTestId('puck-resume-editor')).toBeVisible({ timeout: 30_000 });
 
       // Not on the always-visible action bar: before the Header is selected there is no code picker on

@@ -24,7 +24,10 @@ const APP_BASE = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';
 const SESSION_OPEN_TIMEOUT_MS = 30_000;
 
 // goto —— any relative path (including a query). eslint confines page.goto to
-// helper/. The caller passes things like "/setup?t=xxx", "/login", "/alice".
+// helper/. Now internal to this file: specs no longer teleport via a bare `goto`
+// (that generic form is the one the no-goto-teleport rule phases out); they call the
+// semantic helpers below (openReader / openGate / gotoAdminSection), which route
+// through this. The caller passes things like "/setup?t=xxx", "/login", "/alice".
 //
 // **Wait for `load` —— don't switch it to `domcontentloaded`.** I changed it once to
 // fix a timeout, and that change **hides a real defect**: `role-waypoints-admin`'s
@@ -33,7 +36,7 @@ const SESSION_OPEN_TIMEOUT_MS = 30_000;
 // domcontentloaded, what got measured was the layout under fallback fonts, four
 // cases went green, and the defect was still on the page. A real person always
 // looks at the page after load; the criterion has to stand there too.
-export async function goto(page: Page, path: string): Promise<void> {
+async function goto(page: Page, path: string): Promise<void> {
   const url = path.startsWith('/') ? `${APP_BASE}${path}` : `${APP_BASE}/${path}`;
   await page.goto(url);
 }
@@ -138,4 +141,17 @@ export async function gotoAdminSection(page: Page, slug: string): Promise<void> 
 // he refreshes, or opens a fresh tab the next day.
 export async function reloadAdminSection(page: Page, slug: string): Promise<void> {
   await page.goto(`/admin/${slug}`);
+}
+
+// openReader —— a visitor opens a public reader page by its shareable link (/wiki, /writings,
+// /output, or a microsite /p/…). A reader page's entry point IS its link: a visitor arrives with the
+// URL and there is no in-product click path to it, so this navigates straight there — a named
+// semantic function, which is what specs are meant to use instead of the raw goto teleport.
+export async function openReader(page: Page, path: string): Promise<void> {
+  await goto(page, path);
+}
+
+// openGate —— a code-less visitor lands on the gate (optionally carrying ?q=… / ?code=… in `path`).
+export async function openGate(page: Page, path = '/gate'): Promise<void> {
+  await goto(page, path);
 }

@@ -14,7 +14,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { resetInstance } from '@/fixtures/instance';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
 
 const OWNER = syncOwner('rendertikz');
@@ -38,7 +38,7 @@ test.describe('render · TikZ diagrams on the reader', () => {
       await uploadVault(request, OWNER, [
         { rel: 'wiki/tikz.md', body: makeVaultMD({ publish: true }, `## Diagram\n\n${TIKZ}`) },
       ]);
-      await goto(page, '/wiki/tikz');
+      await openReader(page, '/wiki/tikz');
       const doc = page.getByTestId('wiki-body');
       await expect(doc).toBeVisible();
       // the tikz block becomes an SVG (TikZJax output), not a stuck code block.
@@ -62,7 +62,7 @@ test.describe('render · TikZ diagrams on the reader', () => {
       await uploadVault(request, OWNER, [
         { rel: 'wiki/tikz-quoted.md', body: makeVaultMD({ publish: true }, quoted) },
       ]);
-      await goto(page, '/wiki/tikz-quoted');
+      await openReader(page, '/wiki/tikz-quoted');
       const doc = page.getByTestId('wiki-body');
       await expect(doc).toBeVisible();
       await expect(doc.locator('[data-testid="tikz-svg"] svg'),
@@ -90,7 +90,7 @@ test.describe('render · TikZ diagrams on the reader', () => {
       await uploadVault(request, OWNER, [
         { rel: 'wiki/tikz-many.md', body: makeVaultMD({ publish: true }, `## Three\n\n${three}`) },
       ]);
-      await goto(page, '/wiki/tikz-many');
+      await openReader(page, '/wiki/tikz-many');
       const doc = page.getByTestId('wiki-body');
       await expect(doc).toBeVisible();
       await expect(doc.locator('[data-testid="tikz-svg"] svg').nth(2))

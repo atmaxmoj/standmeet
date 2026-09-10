@@ -12,7 +12,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'gateowner@example.com', password: 'correct-horse-battery-staple',
@@ -32,7 +32,7 @@ test.describe('no-code/no-BYOAI visitor cannot chat ungated', () => {
 
   test('asking on the public index routes to /gate, no chat happens',
     async ({ page }) => {
-      await goto(page, '/');
+      await openReader(page, '/');
       // `/` on an unedited instance is DefaultHome, rendered from current code (Q1); its ask box
       // is the SDK AgentWidget's input. Codeless, it hands off to /gate.
       const input = page.locator('[data-testid="agent-widget-input"]');

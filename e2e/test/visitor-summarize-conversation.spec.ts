@@ -23,7 +23,7 @@ import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { scriptMockToolCall, scriptMockReplyText } from '@/fixtures/mock-llm-script';
-import { goto, enterCodeSession } from '@/fixtures/navigate';
+import { openReader, enterCodeSession } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
 
@@ -212,7 +212,7 @@ async function reportPDFDownloadUITest(page: Page, playwright: Playwright): Prom
   const reportID = await card.getAttribute('data-report-id');
   expect(reportID).toBeTruthy();
 
-  await goto(page, `/report/${reportID}`);
+  await openReader(page, `/report/${reportID}`);
   const dlBtn = page.getByTestId('report-download-pdf');
   await expect(dlBtn).toBeEnabled({ timeout: 10_000 });
   const [download] = await Promise.all([
@@ -243,7 +243,7 @@ async function reportStyledTest(page: Page, playwright: Playwright): Promise<voi
   const reportID = await card.getAttribute('data-report-id');
   expect(reportID).toBeTruthy();
 
-  await goto(page, `/report/${reportID}`);
+  await openReader(page, `/report/${reportID}`);
   const frame = page.getByTestId('report-iframe');
   const srcdoc = await frame.getAttribute('srcdoc');
   expect(srcdoc, 'report iframe wraps the fragment in a styled document').toBeTruthy();

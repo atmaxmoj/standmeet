@@ -23,7 +23,7 @@ import {
 import {
   lastGatewayRequest, resetGatewayRequests, scriptMockReplyText, scriptMockToolCall,
 } from '@/fixtures/mock-llm-script';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const TOPIC = 'Reload recruiter chat';
 
@@ -106,7 +106,7 @@ function bookedFrame(page: Page): FrameLocator {
 }
 
 async function enterChat(page: Page, code: string): Promise<void> {
-  await goto(page, `/?code=${code}`);
+  await openReader(page, `/?code=${code}`);
   const session = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200, { timeout: 15_000 },
   );

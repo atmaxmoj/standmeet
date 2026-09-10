@@ -10,7 +10,7 @@ import { seedWiki, publishEntry } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { visitAsStranger } from '@/fixtures/monitor';
-import { goto } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'monitor-botname@example.com', password: 'correct-horse-battery-staple',
@@ -29,7 +29,7 @@ test.describe('monitor · a crawler session names the crawler', () => {
       // A crawler reads the public entry (a bot beacon is not a thing; crawlers hit the API route).
       await visitAsStranger(playwright, `/api/v1/wiki/${ENTRY.path}`, CLAUDEBOT);
 
-      await goto(page, '/admin/monitor');
+      await gotoAdminSection(page, 'monitor');
       const sessions = page.getByTestId('monitor-sessions');
       await expect(sessions, 'the sessions panel renders').toBeVisible({ timeout: 20_000 });
       // Some session row identifies the crawler by name.

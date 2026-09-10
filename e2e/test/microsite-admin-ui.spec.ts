@@ -17,6 +17,7 @@ import type { APIRequestContext, Locator, Page } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
+import { bindCodeToPage } from '@/fixtures/microsite-rig';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -37,13 +38,6 @@ async function createCode(api: APIRequestContext, csrf: string, label: string): 
   });
   expect(r.status(), `create code ${label}`).toBeLessThan(300);
   return await r.json() as { id: string; code: string };
-}
-
-async function bindCode(api: APIRequestContext, csrf: string, codeID: string, slug: string): Promise<void> {
-  const r = await api.patch(`${BACKEND}/api/admin/codes/${codeID}/microsite`, {
-    headers: { 'X-Csrftoken': csrf }, data: { slug },
-  });
-  expect(r.status(), `bind ${codeID} → ${slug}`).toBe(200);
 }
 
 // openMicrosites —— click into the microsites section from the /admin landing (adminPage lands
@@ -128,7 +122,7 @@ test.describe('microsites admin panel UI', () => {
     // Bind a code to the page, then reload: the cell now names the code (the page side sees the
     // binding), and the byoai pill is REPLACED by the "overridden" state — not hidden.
     const code = await createCode(api, csrf, 'RECRUITER');
-    await bindCode(api, csrf, code.id, 'bindpage');
+    await bindCodeToPage(api, csrf, code.id, 'bindpage');
 
     await refetchMicrosites(page);
     await expect(page.getByTestId('microsite-codes-bindpage'), 'the page side lists the bound code')

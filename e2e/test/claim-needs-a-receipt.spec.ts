@@ -27,7 +27,7 @@ import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, type CodedSeed,
 } from '@/fixtures/gcal-setup';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 // FABRICATED — a reply that only talks and does nothing, shaped exactly like the one from
 // the real environment.
@@ -113,7 +113,7 @@ test.describe('F-A-37 · a claim without a receipt does not stand', () => {
 });
 
 async function enterChat(page: Page, code: string, name: string): Promise<void> {
-  await goto(page, `/?code=${code}`);
+  await openReader(page, `/?code=${code}`);
   const session = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200, { timeout: 15_000 },
   );

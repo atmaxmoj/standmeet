@@ -20,7 +20,7 @@ import {
   OWNER, seedCodeVisitorOnConnectedOwner, teardownSeed, type CodedSeed,
 } from '@/fixtures/gcal-setup';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection, openReader } from '@/fixtures/navigate';
 
 const VISITOR = 'Transcript Tess';
 
@@ -91,7 +91,7 @@ function bookedFrame(page: Page): FrameLocator {
 }
 
 async function enterChat(page: Page, code: string): Promise<void> {
-  await goto(page, `/?code=${code}`);
+  await openReader(page, `/?code=${code}`);
   const session = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200, { timeout: 15_000 },
   );

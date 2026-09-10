@@ -24,7 +24,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
 const OWNER = {
@@ -55,7 +55,7 @@ test.describe('code intro · greeting + member-count on name picker', () => {
 
   test('picker shows owner greeting + "Up to 2 people … 0 already in"',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
+      await openReader(page, `/?code=${CODE}`);
       await expect(page.getByTestId('visitor-name-greeting')).toHaveText(GREETING, {
         timeout: 5_000,
       });
@@ -70,7 +70,7 @@ test.describe('code intro · greeting + member-count on name picker', () => {
       // A fresh context (no LS) scanning the same code → the intro reflects member_count=1.
       const ctx = await browser.newContext();
       const fresh = await ctx.newPage();
-      await goto(fresh, `/?code=${CODE}`);
+      await openReader(fresh, `/?code=${CODE}`);
       await expect(fresh.getByTestId('visitor-name-capacity')).toContainText(
         'Up to 2 people can use this code — 1 already in.',
         { timeout: 5_000 },
@@ -80,7 +80,7 @@ test.describe('code intro · greeting + member-count on name picker', () => {
 
   test('role without greeting → default "This is <handle>\'s AI…"',
     async ({ page }) => {
-      await goto(page, `/?code=${DEFAULT_CODE}`);
+      await openReader(page, `/?code=${DEFAULT_CODE}`);
       await expect(page.getByTestId('visitor-name-greeting')).toHaveText(
         DEFAULT_GREETING,
         { timeout: 5_000 },
@@ -92,7 +92,7 @@ test.describe('code intro · greeting + member-count on name picker', () => {
 
   test('max_members=1 → singular "Up to 1 person"',
     async ({ page }) => {
-      await goto(page, `/?code=${SOLO_CODE}`);
+      await openReader(page, `/?code=${SOLO_CODE}`);
       const cap = page.getByTestId('visitor-name-capacity');
       await expect(cap).toContainText('Up to 1 person can use this code — 0 already in.', {
         timeout: 5_000,
@@ -102,7 +102,7 @@ test.describe('code intro · greeting + member-count on name picker', () => {
 
   test('unlimited (max_members unset) → falls back to "More than one person…"',
     async ({ page }) => {
-      await goto(page, `/?code=${OPEN_CODE}`);
+      await openReader(page, `/?code=${OPEN_CODE}`);
       const cap = page.getByTestId('visitor-name-capacity');
       await expect(cap).toContainText('More than one person can use this code.', {
         timeout: 5_000,
@@ -112,7 +112,7 @@ test.describe('code intro · greeting + member-count on name picker', () => {
 
   test('invalid code → intro fails, no greeting, picker degrades gracefully',
     async ({ page }) => {
-      await goto(page, `/?code=${BAD_CODE}`);
+      await openReader(page, `/?code=${BAD_CODE}`);
       // The picker still renders (absorb takes the code unconditionally); the intro fetch
       // just fails → no greeting line + fallback member-count line, and the visitor can
       // still type a name (submit is where code_invalid actually hits).

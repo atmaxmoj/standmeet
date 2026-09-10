@@ -12,7 +12,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -36,7 +36,7 @@ test.describe('Puck section-field edit reaches resume_content (Q0 D)', () => {
       const id = await seed(api, csrf);
       expect((await getDetail(api, id)).resume_content.identity?.name).toBe(OLD_NAME);
 
-      await goto(page, `/admin/edit-resume/${id}`);
+      await openReader(page, `/admin/edit-resume/${id}`);
       await expect(page.getByTestId('puck-resume-editor')).toBeVisible({ timeout: 30_000 });
 
       // Select the Header on the canvas → its field panel (with the Name field) opens. dnd-kit can

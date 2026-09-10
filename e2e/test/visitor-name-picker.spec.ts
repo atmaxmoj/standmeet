@@ -14,7 +14,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'name-owner@example.com',
@@ -32,7 +32,7 @@ test.describe('VisitorNamePicker · auto-pop on first chat + persist', () => {
 
   test('QR absorb → modal pops; submit name → session + strip shows name',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
+      await openReader(page, `/?code=${CODE}`);
       // The modal auto-pops (there's a pending code).
       const nameInput = page.getByTestId('visitor-name-input');
       await expect(nameInput).toBeVisible({ timeout: 5_000 });
@@ -47,7 +47,7 @@ test.describe('VisitorNamePicker · auto-pop on first chat + persist', () => {
 
   test('skip → anonymous session, modal closes; reload does not re-pop',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
+      await openReader(page, `/?code=${CODE}`);
       const skipBtn = page.getByTestId('visitor-name-skip');
       await expect(skipBtn).toBeVisible({ timeout: 5_000 });
       await skipBtn.click();
@@ -55,7 +55,7 @@ test.describe('VisitorNamePicker · auto-pop on first chat + persist', () => {
       await expect(skipBtn).toBeHidden({ timeout: 5_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 10_000 });
       // Reload: pending consumed + session persisted to LS -> modal does not pop again.
-      await goto(page, '/');
+      await openReader(page, '/');
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('visitor-name-skip')).toBeHidden();
     });
@@ -65,7 +65,7 @@ test.describe('VisitorNamePicker · auto-pop on first chat + persist', () => {
   test('re-entry with the same code does not re-pop the picker over an active session',
     async ({ page }) => {
       // Establish a named session for CODE.
-      await goto(page, `/?code=${CODE}`);
+      await openReader(page, `/?code=${CODE}`);
       const nameInput = page.getByTestId('visitor-name-input');
       await expect(nameInput).toBeVisible({ timeout: 5_000 });
       await nameInput.fill('Recruiter Joe');
@@ -75,7 +75,7 @@ test.describe('VisitorNamePicker · auto-pop on first chat + persist', () => {
         timeout: 10_000,
       });
       // Recruiter re-scans / re-opens the same code link — already resolved.
-      await goto(page, `/?code=${CODE}`);
+      await openReader(page, `/?code=${CODE}`);
       // Strip still shows the same identity; the picker does NOT re-appear.
       await expect(page.getByTestId('session-strip')).toContainText('Recruiter Joe', {
         timeout: 10_000,

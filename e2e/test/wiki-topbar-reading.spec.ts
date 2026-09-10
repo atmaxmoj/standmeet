@@ -7,7 +7,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'readtop@example.com', password: 'correct-horse-battery-staple',
@@ -34,7 +34,7 @@ test.describe('F3 wiki reader TopBar reading-state', () => {
 
   test('opening a wiki shows the entry title in the TopBar reading-state',
     async ({ page }) => {
-      await goto(page, `/wiki/${PATH}`);
+      await openReader(page, `/wiki/${PATH}`);
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('wiki-topbar-reading')).toContainText(TITLE);
     });

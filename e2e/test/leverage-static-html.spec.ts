@@ -15,7 +15,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { resetInstance } from '@/fixtures/instance';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
 
 const OWNER = syncOwner('leveragehtml');
@@ -45,7 +45,7 @@ test.describe('leverage · pre-rendered static HTML (baked at export) renders, s
       await uploadVault(request, OWNER, [
         { rel: 'wiki/baked-html.md', body: makeVaultMD({ publish: true }, `## Report\n\n${baked}`) },
       ]);
-      await goto(page, '/wiki/baked-html');
+      await openReader(page, '/wiki/baked-html');
       const doc = page.getByTestId('wiki-body');
       await expect(doc).toBeVisible();
       // the baked HTML becomes real DOM (a <table>), not verbatim text.
@@ -64,7 +64,7 @@ test.describe('leverage · pre-rendered static HTML (baked at export) renders, s
       await uploadVault(request, OWNER, [
         { rel: 'wiki/evil-html.md', body: makeVaultMD({ publish: true }, `## X\n\n${evil}`) },
       ]);
-      await goto(page, '/wiki/evil-html');
+      await openReader(page, '/wiki/evil-html');
       const doc = page.getByTestId('wiki-body');
       await expect(doc.locator('#ok')).toHaveText('safe');
       await expect(doc.locator('script')).toHaveCount(0);

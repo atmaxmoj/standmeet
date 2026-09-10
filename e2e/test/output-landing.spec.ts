@@ -16,7 +16,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { DB_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { BACKEND } from '@/fixtures/stack';
 
 const OWNER = {
@@ -45,7 +45,7 @@ test.describe('public /output/<slug> SEO landing', () => {
 
   test('visitor opens /output/<slug> → sees full body + sitemap lists URL',
     async ({ page }) => {
-      await goto(page, `/output/${SLUG}`);
+      await openReader(page, `/output/${SLUG}`);
       await expect(page.getByTestId('output-landing')).toBeVisible();
       await expectBodyAndTitle(page);
       // #39: the document page goes back to the writing index, no longer "← home" to /.

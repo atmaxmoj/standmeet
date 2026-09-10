@@ -8,13 +8,13 @@
 import { test, expect } from '@/fixtures/test';
 
 import { resetInstance } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 test.describe('first-run setup · PUBLIC URL prefilled from the browser origin', () => {
   test('the public-url field defaults to the current origin (not the placeholder)', async ({ page }) => {
     resetInstance();
     // An unclaimed instance redirects "/" to /setup?t=<token> (the first-run entry point).
-    await goto(page, '/');
+    await openReader(page, '/');
     await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
 
     const origin = await page.evaluate(() => window.location.origin);

@@ -12,7 +12,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
 import { seedWiki } from '@/fixtures/corpus';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { setPublished, setupRetrievalOwner, type RetrievalOwner } from '@/fixtures/retrieval';
 
 let O: RetrievalOwner;
@@ -101,7 +101,7 @@ test.afterAll(async () => { await O.request.dispose(); });
 
 async function readIn(page: Page, lang: string) {
   const q = lang === '' ? '' : `?lang=${lang}`;
-  await goto(page, `/wiki/projects/dynamics${q}`);
+  await openReader(page, `/wiki/projects/dynamics${q}`);
   await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 10_000 });
 }
 
@@ -255,7 +255,7 @@ test.describe('multilingual reader · 标题不在一屏上说两遍', () => {
   });
 
   test('pane 开头那句跟标题同字 → 正文里不再出现,页头留着那一份', async ({ page }) => {
-    await goto(page, '/wiki/projects/echo');
+    await openReader(page, '/wiki/projects/echo');
     const body = page.getByTestId('wiki-body');
     await expect(body, '正文照渲').toContainText('The English body of the echo note');
     await expect(
@@ -266,7 +266,7 @@ test.describe('multilingual reader · 标题不在一屏上说两遍', () => {
   });
 
   test('非多语笔记也一样:开头那句跟标题同字就去掉', async ({ page }) => {
-    await goto(page, '/wiki/projects/solo');
+    await openReader(page, '/wiki/projects/solo');
     const body = page.getByTestId('wiki-body');
     await expect(body).toContainText('The body of a note that is not multilingual');
     await expect(body.getByRole('heading', { name: 'Solo', exact: true })).toHaveCount(0);
@@ -289,7 +289,7 @@ test.describe('multilingual reader · a note without any of this', () => {
     });
     await setPublished(O.request, O.csrf, plain.wikiID, true);
 
-    await goto(page, '/wiki/projects/plain');
+    await openReader(page, '/wiki/projects/plain');
     await expect(page.getByTestId('wiki-landing')).toContainText('Just one language here');
     await expect(
       page.getByTestId('language-switch'),

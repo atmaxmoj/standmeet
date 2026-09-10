@@ -32,7 +32,7 @@ import type { Page } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'previewer@example.com',
@@ -99,7 +99,7 @@ test.describe('microsites · the panel shows what the agent just built, without 
       // renders this page's staging build. Go straight there — the list → editor click-through is
       // covered in microsite.spec, and clicking a list row while builds are settling races the
       // list's own re-render.
-      await goto(page, `/admin/edit/${SLUG}`);
+      await openReader(page, `/admin/edit/${SLUG}`);
 
       // 1 + 2: the panel actually renders this page, and what it shows is **staging**
       // (never promoted to live).

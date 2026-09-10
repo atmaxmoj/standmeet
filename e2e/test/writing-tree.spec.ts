@@ -23,7 +23,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'writingtree@example.com',
@@ -128,7 +128,7 @@ async function ctxSubAncestors({ request }: { request: APIRequestContext }): Pro
 // articleBreadcrumb -- /writings/sub-post's top breadcrumb shows the clickable
 // ancestor Essays, and the tree sidebar is still present alongside it.
 async function articleBreadcrumb({ page }: { page: Page }): Promise<void> {
-  await goto(page, '/writings/sub-post');
+  await openReader(page, '/writings/sub-post');
   const crumb = page.getByTestId('writing-breadcrumb');
   await expect(crumb).toBeVisible({ timeout: 5_000 });
   await expect(crumb.getByRole('link', { name: 'Essays' })).toBeVisible();
@@ -142,7 +142,7 @@ async function readerSidebar({ page }: { page: Page }): Promise<void> {
   page.on('request', (r) => {
     if (r.url().includes('/api/v1/writing-tree')) treeReqs.push(r.url());
   });
-  await goto(page, '/writings');
+  await openReader(page, '/writings');
   await expect(page.getByTestId('writing-tree')).toBeVisible({ timeout: 5_000 });
   await expect(page.getByTestId('tree-node-essays')).toBeVisible();
   await expect(page.getByTestId('tree-node-private-post')).toBeVisible();

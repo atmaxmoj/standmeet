@@ -19,7 +19,7 @@ import { test, expect } from '@/fixtures/test';
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { seedDefaultHomepage } from '@/fixtures/microsite-rig';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -54,7 +54,7 @@ test.describe('homepage SEO comes from the same editor panel and lands on the si
       await seedDefaultHomepage(request, csrf);
 
       // Drive the REAL SeoPanel in the HOME editor — the same panel any page has.
-      await goto(adminPage, `/admin/edit/home`);
+      await openReader(adminPage, `/admin/edit/home`);
       const panel = adminPage.getByTestId('microsite-seo');
       await expect(panel, 'the home editor shows the same SEO panel').toBeVisible({ timeout: 15_000 });
       await panel.locator('summary').click();

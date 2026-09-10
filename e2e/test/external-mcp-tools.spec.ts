@@ -19,11 +19,12 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { createCode } from '@/fixtures/codes';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
-import { BACKEND } from '@/fixtures/stack';
+import { createRole } from '@/fixtures/roles';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -105,31 +106,15 @@ async function createCodeAttachingServer(
   request: APIRequestContext, csrf: string, serverID: string,
 ): Promise<void> {
   // A.3-IAM-5: create a role with the mcp server attached, then issue a code with that role id.
-  const roleRes = await request.post(`${BACKEND}/api/admin/roles/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      name: 'ext-mcp-role',
-      description: 'attaches external mcp server for ext_ tool spec',
-      prompt_id: null,
-      corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
-      skill_ids: [],
-      mcp_server_ids: [serverID],
-    },
+  const role = await createRole(request, csrf, {
+    name: 'ext-mcp-role',
+    description: 'attaches external mcp server for ext_ tool spec',
+    corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
+    mcp_server_ids: [serverID],
   });
-  if (roleRes.status() !== 201) {
-    throw new Error(`create role failed: ${roleRes.status()} ${await roleRes.text()}`);
-  }
-  const role = await roleRes.json() as { id: string };
-  const res = await request.post(`${BACKEND}/api/admin/codes/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      code: CODE,
-      label: 'External MCP code',
-      ghosts: [],
-      assumed_role_id: role.id,
-    },
+  await createCode(request, csrf, {
+    code: CODE,
+    label: 'External MCP code',
+    assumed_role_id: role.id,
   });
-  if (res.status() !== 201) {
-    throw new Error(`create code failed: ${res.status()} ${await res.text()}`);
-  }
 }

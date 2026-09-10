@@ -8,7 +8,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { resetInstance } from '@/fixtures/instance';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
 
 const OWNER = syncOwner('rendercallout');
@@ -33,7 +33,7 @@ test.describe('render · Obsidian callouts on the reader', () => {
       await uploadVault(request, OWNER, [
         { rel: 'wiki/callout.md', body: makeVaultMD({ publish: true }, body) },
       ]);
-      await goto(page, '/wiki/callout');
+      await openReader(page, '/wiki/callout');
       const doc = page.getByTestId('wiki-body');
 
       const theorem = doc.locator('.callout[data-callout="theorem"]');
@@ -49,7 +49,7 @@ test.describe('render · Obsidian callouts on the reader', () => {
       await uploadVault(request, OWNER, [
         { rel: 'wiki/plainbq.md', body: makeVaultMD({ publish: true }, '## H\n\n> just a quote') },
       ]);
-      await goto(page, '/wiki/plainbq');
+      await openReader(page, '/wiki/plainbq');
       const doc = page.getByTestId('wiki-body');
       await expect(doc.locator('blockquote')).toHaveCount(1);
       await expect(doc.locator('.callout')).toHaveCount(0);

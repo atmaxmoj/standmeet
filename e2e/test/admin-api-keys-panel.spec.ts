@@ -26,7 +26,7 @@ import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -42,7 +42,7 @@ test.describe('F-K-1 · outward API keys are managed from the admin panel, not o
 
   test('mint → the secret shows once and the list keeps only the prefix → revoke kills it',
     async ({ adminPage, playwright }) => {
-      await goto(adminPage, '/admin/api-mcp');
+      await openReader(adminPage, '/admin/api-mcp');
 
       // Positive control: the panel actually renders. Without this, every assertion
       // below would fail with "element not found", and the failure would get blamed
@@ -72,7 +72,7 @@ test.describe('F-K-1 · outward API keys are managed from the admin panel, not o
       // first version waited for `api-keys-panel` to be visible and then read
       // innerText, which read the still-empty shell — the same mistake made twice
       // tonight ([[red-in-the-wrong-place]]).
-      await goto(adminPage, '/admin/api-mcp');
+      await openReader(adminPage, '/admin/api-mcp');
       const revokeBtn = adminPage.getByTestId('api-key-revoke-panel-minted');
       await expect(revokeBtn, 'the key survived the reload and is listed')
         .toBeVisible({ timeout: 15_000 });

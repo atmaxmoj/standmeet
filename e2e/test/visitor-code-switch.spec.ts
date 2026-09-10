@@ -12,7 +12,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'code-switch@example.com', password: 'correct-horse-battery-staple',
@@ -35,7 +35,7 @@ test.describe('visitor · a different ?code= while in a live chat offers the swi
 
       // Open a DIFFERENT code while in that live session. The visitor must be offered the switch
       // (the identity picker returns) rather than being silently left in A's chat.
-      await goto(page, `/?code=${CODE_B}`);
+      await openReader(page, `/?code=${CODE_B}`);
       await expect(page.getByTestId('visitor-name-overlay'),
         'a different ?code= offers the switch (does not silently keep the old A chat)')
         .toBeVisible({ timeout: 15_000 });

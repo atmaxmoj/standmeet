@@ -15,7 +15,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { DB_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection, openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'pipeline@example.com',
@@ -59,7 +59,7 @@ test.describe('corpus pipeline: raw → wiki → output end-to-end', () => {
 
   test('wiki SEO landing accessible',
     async ({ page }) => {
-      await goto(page, '/wiki/distributed-systems-insight');
+      await openReader(page, '/wiki/distributed-systems-insight');
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByRole('heading', { name: WIKI_TITLE })).toBeVisible();
     });
@@ -74,7 +74,7 @@ test.describe('corpus pipeline: raw → wiki → output end-to-end', () => {
 
   test('output SEO landing accessible',
     async ({ page }) => {
-      await goto(page, '/output/polished-essay-on-distributed-systems');
+      await openReader(page, '/output/polished-essay-on-distributed-systems');
       await expect(page.getByTestId('output-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByRole('heading', { name: OUTPUT_TITLE })).toBeVisible();
     });

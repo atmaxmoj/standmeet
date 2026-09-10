@@ -8,7 +8,7 @@ import { test, expect } from '@/fixtures/test';
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { createCode } from '@/fixtures/codes';
-import { goto } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'codechange@example.com', password: 'correct-horse-battery-staple',
@@ -30,7 +30,7 @@ test.describe('changing a code string from the admin (leak recovery)', () => {
 
   test('the change button warns what breaks, then rotates the code on confirm',
     async ({ adminPage: page }) => {
-      await goto(page, '/admin/codes');
+      await gotoAdminSection(page, 'codes');
       await expect(page.getByTestId('code-card-UI-OLDCODE')).toBeVisible({ timeout: 20_000 });
 
       // Change → a warning modal appears (it must state the impact, not just rotate silently).

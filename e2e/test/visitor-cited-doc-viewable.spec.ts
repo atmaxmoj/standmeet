@@ -14,7 +14,7 @@ import { test, expect } from '@/fixtures/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 
@@ -58,7 +58,7 @@ test.describe('持 code 访客点引用 → 看得到被引文档(不落锁屏)'
 
       // Simulate clicking a citation: in the same context (with the session in
       // localStorage), open that doc's public URL.
-      await goto(page, `/wiki/${TARGET_PATH}`);
+      await openReader(page, `/wiki/${TARGET_PATH}`);
 
       // The full text is fetched and rendered via the session — wiki-body appears
       // and contains the original text, and the lock screen is absent.

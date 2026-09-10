@@ -19,7 +19,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { readEvents } from '@/fixtures/monitor';
 import type { MonitorEvent } from '@/fixtures/monitor';
 import { seedDefaultHomepage } from '@/fixtures/microsite-rig';
@@ -44,7 +44,7 @@ test.describe('monitor · the homepage build carries its own instrumentation', (
   });
 
   test('clicking a corpus card is recorded, naming the entry', async ({ page, request }) => {
-    await goto(page, '/');
+    await openReader(page, '/');
     const card = page.getByText(NOTE.title, { exact: false }).first();
     await expect(card).toBeVisible({ timeout: 30_000 });
     await card.click();
@@ -63,7 +63,7 @@ test.describe('monitor · the homepage build carries its own instrumentation', (
   test('focusing the ask box is recorded — considering a question, not only asking one', async (
     { page, request },
   ) => {
-    await goto(page, '/');
+    await openReader(page, '/');
     const input = page.getByTestId('agent-widget-input');
     await expect(input).toBeVisible({ timeout: 30_000 });
     await input.focus();
@@ -76,7 +76,7 @@ test.describe('monitor · the homepage build carries its own instrumentation', (
   });
 
   test('clicking the access CTA is recorded', async ({ page, request }) => {
-    await goto(page, '/');
+    await openReader(page, '/');
     const cta = page.getByTestId('gate-widget');
     await expect(cta).toBeVisible({ timeout: 30_000 });
     await cta.click();
@@ -87,7 +87,7 @@ test.describe('monitor · the homepage build carries its own instrumentation', (
   });
 
   test('clicking a contact link is recorded, naming the channel', async ({ page, request }) => {
-    await goto(page, '/');
+    await openReader(page, '/');
     const mail = page.locator('a[href^="mailto:"]').first();
     await expect(mail).toBeVisible({ timeout: 30_000 });
     await mail.click();
@@ -103,7 +103,7 @@ test.describe('monitor · the homepage build carries its own instrumentation', (
   test('the tracker survives being in a build the owner did not write', async (
     { page, request },
   ) => {
-    await goto(page, '/');
+    await openReader(page, '/');
     await expect(page.getByTestId('agent-widget-input')).toBeVisible({ timeout: 30_000 });
     await page.evaluate(() => {
       const scrollable = document.documentElement.scrollHeight - window.innerHeight;

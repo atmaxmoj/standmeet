@@ -11,7 +11,7 @@ import type { Playwright } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'subjtree@example.com', password: 'correct-horse-battery-staple',
@@ -29,7 +29,7 @@ test.describe('subjectivity admin view is a tree, like wiki', () => {
 
   test('the section shows the tree/grid toggle and expands a parent to its child',
     async ({ adminPage: page }) => {
-      await goto(page, '/admin/subjectivity');
+      await gotoAdminSection(page, 'subjectivity');
       // The wiki-style view has a tree/grid toggle — the old flat <ul> had none.
       await expect(page.getByTestId('corpus-view-toggle'),
         'subjectivity has the same tree/grid toggle as wiki').toBeVisible({ timeout: 10_000 });

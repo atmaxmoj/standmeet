@@ -15,7 +15,7 @@ import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'expired-reader@example.com', password: 'correct-horse-battery-staple',
@@ -37,7 +37,7 @@ test.describe('F-L-11 · expired visitor session drops the fake "unlocked" chrom
   test('a dead token in localStorage → strip validated away, not shown as unlocked',
     async ({ page }) => {
       await plantDeadSession(page);
-      await goto(page, '/');
+      await openReader(page, '/');
       // The dead token's code is rescued into pending and the visitor is asked to re-enter
       // (session-recovery.ts: clear the identity, keep the code, pop the name picker). Asserted
       // FIRST because it is the half that proves the mount probe actually ran: `toBeHidden` on

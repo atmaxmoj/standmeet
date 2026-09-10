@@ -21,6 +21,8 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { issueSession } from '@/fixtures/visitor';
+import { createRole } from '@/fixtures/roles';
+import { createCode } from '@/fixtures/codes';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -170,48 +172,6 @@ async function seedExtServerRoleAndCode(request: APIRequestContext): Promise<voi
   await createCode(request, csrf, {
     code: EXT_CODE, label: 'b3 ext', assumed_role_id: role.id,
   });
-}
-
-interface CreateRoleInput {
-  name: string;
-  description: string;
-  corpus_uris: string[];
-  skill_ids?: string[];
-  mcp_server_ids?: string[];
-}
-interface CreatedRole { id: string }
-async function createRole(
-  request: APIRequestContext, csrf: string, input: CreateRoleInput,
-): Promise<CreatedRole> {
-  const res = await request.post(`${BACKEND}/api/admin/roles/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      name: input.name, description: input.description, prompt_id: null,
-      corpus_uris: input.corpus_uris,
-      skill_ids: input.skill_ids ?? [],
-      mcp_server_ids: input.mcp_server_ids ?? [],
-    },
-  });
-  if (res.status() !== 201) {
-    throw new Error(`create role: ${res.status()} ${await res.text()}`);
-  }
-  return await res.json() as CreatedRole;
-}
-
-async function createCode(
-  request: APIRequestContext, csrf: string,
-  input: { code: string; label: string; assumed_role_id: string },
-): Promise<void> {
-  const res = await request.post(`${BACKEND}/api/admin/codes/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      code: input.code, label: input.label, ghosts: [],
-      assumed_role_id: input.assumed_role_id,
-    },
-  });
-  if (res.status() !== 201) {
-    throw new Error(`create code: ${res.status()} ${await res.text()}`);
-  }
 }
 
 async function fetchVisitorCapabilities(

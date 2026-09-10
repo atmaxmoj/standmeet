@@ -13,7 +13,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -103,7 +103,7 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
 
   test('基础 markdown · heading / bold / italic / inline code / list / link',
     async ({ page }) => {
-      await goto(page, `/wiki/${pathFor('markdown')}`);
+      await openReader(page, `/wiki/${pathFor('markdown')}`);
       const body = page.getByTestId('wiki-body');
       await expect(body).toBeVisible();
       await expect(body.locator('h1')).toHaveText('Heading');
@@ -126,7 +126,7 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
 
   test('gfm · table / strikethrough / autolink',
     async ({ page }) => {
-      await goto(page, `/wiki/${pathFor('gfm')}`);
+      await openReader(page, `/wiki/${pathFor('gfm')}`);
       const body = page.getByTestId('wiki-body');
       await expect(body.locator('table')).toBeVisible();
       await expect(body.locator('table th').first()).toContainText('col1');
@@ -137,7 +137,7 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
 
   test('katex · inline + display 都有 .katex / .katex-display 元素',
     async ({ page }) => {
-      await goto(page, `/wiki/${pathFor('katex')}`);
+      await openReader(page, `/wiki/${pathFor('katex')}`);
       const body = page.getByTestId('wiki-body');
       await expect(body.locator('.katex').first()).toBeVisible();
       await expect(body.locator('.katex-display')).toBeVisible();
@@ -145,7 +145,7 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
 
   test('mermaid · ```mermaid block 异步渲染 <svg>',
     async ({ page }) => {
-      await goto(page, `/wiki/${pathFor('mermaid')}`);
+      await openReader(page, `/wiki/${pathFor('mermaid')}`);
       const body = page.getByTestId('wiki-body');
       await expect(body.getByTestId('mermaid-svg').locator('svg'))
         .toBeVisible({ timeout: 10_000 });
@@ -153,7 +153,7 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
 
   test('xss sanitize · <script> 被剔除 + onerror 不触发',
     async ({ page }) => {
-      await goto(page, `/wiki/${pathFor('xss')}`);
+      await openReader(page, `/wiki/${pathFor('xss')}`);
       const body = page.getByTestId('wiki-body');
       await expect(body).toContainText('Before');
       await expect(body).toContainText('After');
@@ -182,7 +182,7 @@ function pathFor(key: FixtureKey): string {
 // at all. Both must hold: the asterisks became a tag, and that tag contains
 // the sentence.
 async function assertCjkEmphasis(page: Page): Promise<void> {
-  await goto(page, `/wiki/${pathFor('cjk')}`);
+  await openReader(page, `/wiki/${pathFor('cjk')}`);
   const body = page.getByTestId('wiki-body');
   await expect(body).toBeVisible();
   await expect(body.locator('strong').first(), '`**` 闭合了,渲成了 strong')

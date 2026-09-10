@@ -9,7 +9,7 @@ import type { Playwright } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'out-ext@example.com',
@@ -25,7 +25,7 @@ test.describe('output landing extended cases', () => {
 
   test('nonexistent output slug → locked view',
     async ({ page }) => {
-      await goto(page, '/output/nonexistent-output-slug-xyz');
+      await openReader(page, '/output/nonexistent-output-slug-xyz');
       await expect(page.getByText('This output requires an access code'))
         .toBeVisible({ timeout: 5_000 });
     });

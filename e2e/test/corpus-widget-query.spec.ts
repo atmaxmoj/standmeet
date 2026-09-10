@@ -16,7 +16,7 @@ import { seedWiki, publishEntry } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { publishPage } from '@/fixtures/microsite-rig';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'corpus-query@example.com', password: 'correct-horse-battery-staple',
@@ -51,7 +51,7 @@ test.describe('SDK · CorpusWidget query language shapes the rendered cards (sor
 
   test('sort:title limit:2 renders exactly the two alphabetically-first entries, in order', async ({ page }) => {
     test.setTimeout(90_000);
-    await goto(page, `/p/${SLUG}`);
+    await openReader(page, `/p/${SLUG}`);
     const widget = page.getByTestId('corpus-widget');
     await expect(widget, 'the CorpusWidget rendered').toBeVisible({ timeout: 20_000 });
 

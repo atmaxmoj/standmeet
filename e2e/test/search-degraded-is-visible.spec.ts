@@ -42,7 +42,7 @@ import type { Page } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken, setSearchDegraded } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'search-degraded@example.com', password: 'correct-horse-battery-staple',
@@ -101,7 +101,7 @@ test.describe('F-S-3 · a degraded search path is stated, not silent', () => {
 //     doesn't exist". Waiting for **the specific row** to appear naturally
 //     separates the two ([[red-in-the-wrong-place]]).
 async function searchHealthRow(page: Page): Promise<string> {
-  await goto(page, '/admin/system');
+  await openReader(page, '/admin/system');
   const row = page.getByTestId('health-row-search');
   await expect(row, 'the search row is in the health table at all').toBeVisible({ timeout: 15_000 });
   return row.innerText();

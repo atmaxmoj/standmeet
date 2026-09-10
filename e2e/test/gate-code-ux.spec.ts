@@ -43,7 +43,7 @@ import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { issueSession } from '@/fixtures/visitor';
-import { goto, gotoUnhydrated } from '@/fixtures/navigate';
+import { gotoUnhydrated, openGate } from '@/fixtures/navigate';
 
 // JS_CHUNKS —— the app's client bundle. Holding these requests holds HYDRATION: the
 // server HTML (and its CSS) still arrives and paints, so the form is on screen and
@@ -196,7 +196,7 @@ async function openGateUnhydrated(page: Page): Promise<() => Promise<void>> {
 // microsite now; its access CTA is the GateWidget, covered by its own specs — reaching the
 // gate from it is not what these panel tests are about.)
 async function openGate(page: Page): Promise<void> {
-  await goto(page, '/gate');
+  await openGate(page);
 }
 
 // submitCode -- enter the gate, fill in a code (optionally a name), submit. Each test

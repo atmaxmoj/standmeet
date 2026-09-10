@@ -33,6 +33,8 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
+import { createPrompt } from '@/fixtures/prompts';
+import { createRole } from '@/fixtures/roles';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
@@ -178,22 +180,12 @@ async function initOwner(playwright: Playwright): Promise<void> {
 async function createRoleWithPersona(
   request: APIRequestContext, csrf: string,
 ): Promise<string> {
-  const backend = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-  const p = await request.post(`${backend}/api/admin/prompts`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { name: 'sdk-persona-body', body: `${PERSONA_MARK}. Speak plainly.` },
+  const prompt = await createPrompt(request, csrf, {
+    name: 'sdk-persona-body', body: `${PERSONA_MARK}. Speak plainly.`,
   });
-  if (!p.ok()) throw new Error(`create prompt failed: ${p.status()}`);
-  const prompt = await p.json() as { id: string };
-  const r = await request.post(`${backend}/api/admin/roles`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      name: ROLE, description: 'carries a persona', greeting: '',
-      prompt_id: prompt.id, corpus_uris: ['wiki://**'],
-      skill_ids: [], mcp_server_ids: [], dock_buttons: [], waypoints: [],
-    },
+  const role = await createRole(request, csrf, {
+    name: ROLE, description: 'carries a persona', greeting: '',
+    prompt_id: prompt.id, corpus_uris: ['wiki://**'],
   });
-  if (!r.ok()) throw new Error(`create role failed: ${r.status()}`);
-  const role = await r.json() as { id: string };
   return role.id;
 }

@@ -18,7 +18,7 @@ import { createCode } from '@/fixtures/codes';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
 const OWNER = {
@@ -46,7 +46,7 @@ test.describe('F-L-13 · invited reader sees gated children in the sub-entries r
   test('a gated child renders as a link in the parent reader page for an invited viewer',
     async ({ page }) => {
       await enterCodeSession(page, CODE, 'Visitor');
-      await goto(page, `/wiki/${PARENT.path}`);
+      await openReader(page, `/wiki/${PARENT.path}`);
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       const rail = page.getByTestId('wiki-subentries');
       await expect(rail).toBeVisible({ timeout: 5_000 });

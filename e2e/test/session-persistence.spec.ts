@@ -14,7 +14,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto, enterCodeSession } from '@/fixtures/navigate';
+import { openReader, enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'persist-owner@example.com',
@@ -35,7 +35,7 @@ test.describe('session persistence: refresh + exit', () => {
       await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       // refresh
-      await goto(page, '/');
+      await openReader(page, '/');
       // session should restore from localStorage
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('chat-input')).toBeVisible();
@@ -67,7 +67,7 @@ test.describe('session persistence: refresh + exit', () => {
       await page.waitForURL('**/', { timeout: 10_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       // refresh
-      await goto(page, '/');
+      await openReader(page, '/');
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('session-strip')).toContainText(/byoai/i);
     });

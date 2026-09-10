@@ -38,7 +38,7 @@ import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 
 const SHOTS = path.join(process.cwd(), 'manual-runs', 'mobile-sweep');
 const ROUTES_ROOT = path.join(process.cwd(), '..', 'app', 'src', 'app');
@@ -158,7 +158,7 @@ test.describe('mobile sweep · 每个面留一张图', () => {
     for (const route of routes) {
       i += 1;
       const name = route === '/' ? 'index' : route.slice(1).replace(/\//g, '-');
-      await goto(page, route);
+      await openReader(page, route);
       await shoot(page, `pub-${String(i).padStart(2, '0')}-${name}`);
       // For the pages with a long scroll, also keep a full-page shot: the first screen
       // looking fine doesn't mean the whole page does.
@@ -173,7 +173,7 @@ test.describe('mobile sweep · 每个面留一张图', () => {
     // Never guess a slug -- click into whatever the index page lists first; the
     // product itself decides where the article lives.
     for (const [idx, name] of [['/wiki', 'wiki'], ['/writings', 'writings']] as const) {
-      await goto(page, idx);
+      await openReader(page, idx);
       await settle(page);
       // `:visible` is required. The desktop sidebar tree gets collapsed on a narrow
       // screen (this is **correct** responsive behavior), but the links are still in
@@ -204,7 +204,7 @@ test.describe('mobile sweep · 每个面留一张图', () => {
     ].join(' '));
     await req.dispose();
 
-    await goto(page, `/?code=${CODE}`);
+    await openReader(page, `/?code=${CODE}`);
     await shoot(page, 'visit-01-identity-modal');
 
     await enterCodeSession(page, CODE);

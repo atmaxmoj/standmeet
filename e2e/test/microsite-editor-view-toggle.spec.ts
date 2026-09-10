@@ -8,7 +8,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'viewtoggle@example.com',
@@ -27,7 +27,7 @@ test.describe('microsites · editor layout gear (code / split / render)', () => 
   });
 
   test('the gear shows code-only, render-only, or the split — split by default', async ({ adminPage: page }) => {
-    await goto(page, '/admin/edit/new');
+    await openReader(page, '/admin/edit/new');
     await expect(page.getByTestId('microsite-editor')).toBeVisible();
     const code = page.getByTestId('microsite-code-col');
     const render = page.getByTestId('microsite-render-col');

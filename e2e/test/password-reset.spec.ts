@@ -23,7 +23,7 @@ import { claim, login as loginAPI } from '@/fixtures/admin';
 // whichever checkout owned the default project name, and the token it printed belonged to
 // another stack's backend.
 import { resetInstance, findSetupToken, COMPOSE_ARGS } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -64,7 +64,7 @@ test.describe('owner uses CLI-issued reset link to set a new password', () => {
       // First submission succeeds (change the password once first)
       await openResetAndSubmit(page, url, NEW_PASSWORD + '-1');
       // Second submission at the same URL should get 401 and stay on the form
-      await goto(page, urlPath(url));
+      await openReader(page, urlPath(url));
       await page.getByTestId('reset-new-password').fill(NEW_PASSWORD + '-2');
       await page.getByTestId('reset-confirm-password').fill(NEW_PASSWORD + '-2');
       await page.getByTestId('reset-submit').click();
@@ -93,7 +93,7 @@ function urlPath(absURL: string): string {
 }
 
 async function openResetAndSubmit(page: Page, url: string, newPwd: string): Promise<void> {
-  await goto(page, urlPath(url));
+  await openReader(page, urlPath(url));
   await expect(page.getByRole('heading', { name: /Set a new/i })).toBeVisible();
   await page.getByTestId('reset-new-password').fill(newPwd);
   await page.getByTestId('reset-confirm-password').fill(newPwd);

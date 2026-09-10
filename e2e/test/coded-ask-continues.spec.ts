@@ -16,7 +16,7 @@ import { createRole } from '@/fixtures/roles';
 import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'askflow@example.com', password: 'correct-horse-battery-staple',
@@ -49,7 +49,7 @@ test.describe('homepage ask carries through gate into chat and gets answered', (
 
   test('ask on homepage (no code) → gate → enter code → chat answers the carried question',
     async ({ page }) => {
-      await goto(page, '/');
+      await openReader(page, '/');
       // `/` on an unedited instance is DefaultHome, rendered from current code (Q1); its ask box
       // is the SDK AgentWidget's input (`agent-widget-input`). Codeless, it hands off to /gate
       // carrying the question — the same behavior the old `home-ask-field` had.

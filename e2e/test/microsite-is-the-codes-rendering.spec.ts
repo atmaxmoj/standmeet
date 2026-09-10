@@ -26,7 +26,7 @@ import { initMCP } from '@/fixtures/mcp';
 import { bindCodeToPage, publishPage, setPageByoai } from '@/fixtures/microsite-rig';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'page-rendering@example.com',
@@ -60,7 +60,7 @@ async function freshOwner(playwright: Playwright): Promise<Admin> {
 // specify a destination**: where it lands is the product's own decision, this helper
 // only carries out the code-claiming step.
 async function enterWithCode(page: Page, code: string, name: string): Promise<void> {
-  await goto(page, `/?code=${code}`);
+  await openReader(page, `/?code=${code}`);
   const issued = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200, { timeout: 20_000 },
   );
@@ -166,14 +166,14 @@ test.describe('a page cannot show what the viewer cannot read', () => {
     // The positive control runs first. Without it, the "won't open" case below could
     // just mean this page's read path was never built at all
     // ([[assertion-that-cannot-fail]]).
-    await goto(page, '/p/scoped?read=open-note');
+    await openReader(page, '/p/scoped?read=open-note');
     await expect(sm(page, 'note-state')).toHaveText('open', { timeout: 20_000 });
     await expect(sm(page, 'note')).toHaveText('Open Note');
 
     // The criterion is **on the page**: the backend refusing while the page still
     // prints the title anyway (a stale cache/over-fetch) is exactly the failure mode
     // this check exists to catch.
-    await goto(page, '/p/scoped?read=private-note');
+    await openReader(page, '/p/scoped?read=private-note');
     await expect(sm(page, 'note-state'),
       'an unpublished entry does not open for an anonymous reader')
       .toHaveText('denied', { timeout: 20_000 });
@@ -211,7 +211,7 @@ test.describe('a page can serve the instance’s own media, not just remote URLs
         'wiki', note.wikiID, MEDIA.pixel, { filename: 'on-the-page.png' });
       expect(up.content_type).toBe('image/png');
 
-      await goto(page, '/p/hosted?shot=shot-note');
+      await openReader(page, '/p/hosted?shot=shot-note');
       await expect(sm(page, 'hosted-state')).toHaveText('ready', { timeout: 20_000 });
       await expect(sm(page, 'hosted-name')).toHaveText('on-the-page.png');
 
@@ -282,7 +282,7 @@ test.describe('everything the code carries, carries onto the page', () => {
     // property of this code, not of this machine.
     const other = await browser.newContext();
     const second = await other.newPage();
-    await goto(second, '/?code=NAME-001');
+    await openReader(second, '/?code=NAME-001');
     await second.getByTestId('visitor-name-input').waitFor({ state: 'visible', timeout: 20_000 });
     await second.getByTestId('visitor-name-input').fill('Second Reader');
     await second.getByTestId('visitor-name-submit').click();
@@ -334,7 +334,7 @@ test.describe('an arriving grant wins over the page’s own setting (I-4)', () =
       await publishPage(admin.request, admin.csrf, 'byok-on');
       await setPageByoai(admin.request, admin.csrf, 'byok-on', true);
 
-      await goto(page, '/p/byok-on');
+      await openReader(page, '/p/byok-on');
       // The positive control. Without it, the next test's "wasn't offered" could just
       // mean this path was never built ([[assertion-that-cannot-fail]]).
       await expect(sm(page, 'byok'), 'with no grant, the page’s own setting applies')
@@ -364,11 +364,11 @@ test.describe('an arriving grant wins over the page’s own setting (I-4)', () =
     async ({ page }) => {
       await publishPage(admin.request, admin.csrf, 'byok-off');
       await setPageByoai(admin.request, admin.csrf, 'byok-off', true);
-      await goto(page, '/p/byok-off');
+      await openReader(page, '/p/byok-off');
       await expect(sm(page, 'byok')).toBeVisible({ timeout: 20_000 });
 
       await setPageByoai(admin.request, admin.csrf, 'byok-off', false);
-      await goto(page, '/p/byok-off');
+      await openReader(page, '/p/byok-off');
       await expect(sm(page, 'marker')).toBeVisible({ timeout: 20_000 });
       await expect(sm(page, 'byok'), 'the withdrawn setting takes effect on the next request')
         .toHaveCount(0);

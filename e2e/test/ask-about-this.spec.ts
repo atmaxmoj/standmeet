@@ -12,7 +12,7 @@ import type { Playwright } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'ask-owner@example.com',
@@ -28,7 +28,7 @@ test.describe('AskAboutThis · follow-up bar on blog/[slug]', () => {
 
   test('writing article shows starter prompts → click → goto / with ?q=...',
     async ({ page }) => {
-      await goto(page, '/writings/eval-is-the-product');
+      await openReader(page, '/writings/eval-is-the-product');
       const form = page.getByTestId('article-ask-form');
       await expect(form).toBeVisible({ timeout: 5_000 });
       // click first "try" starter
@@ -43,7 +43,7 @@ test.describe('AskAboutThis · follow-up bar on blog/[slug]', () => {
 
   test('custom question submit → action="/" GET fires → 无码 hand off 到 /gate(带 ?q=)',
     async ({ page }) => {
-      await goto(page, '/writings/eval-is-the-product');
+      await openReader(page, '/writings/eval-is-the-product');
       // type a custom question → submit the form (GET / with q=...)
       const input = page.locator('input[name="q"]');
       await input.fill('how did you build the eval rubric?');

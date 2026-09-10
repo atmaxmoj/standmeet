@@ -8,7 +8,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -25,7 +25,7 @@ test.describe('Puck résumé editor (screenshot, observe)', () => {
   test('the Puck editor mounts and renders the résumé sections', async ({ adminPage: page, playwright }) => {
     test.setTimeout(120_000);
     const id = await seed(playwright);
-    await goto(page, `/admin/edit-resume/${id}`);
+    await openReader(page, `/admin/edit-resume/${id}`);
     await expect(page.getByTestId('puck-resume-editor')).toBeVisible({ timeout: 30_000 });
     // Puck renders its canvas in an iframe, so assert on the editor chrome (the section drawer), not
     // the canvas content. The 7 fixed section components proving the config loaded is enough.

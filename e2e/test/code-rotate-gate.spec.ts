@@ -8,7 +8,7 @@ import { test, expect } from '@/fixtures/test';
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode, rotateCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openGate } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'rotate-gate@example.com', password: 'correct-horse-battery-staple',
@@ -34,14 +34,14 @@ test.describe('code rotation · verified at the real /gate front door', () => {
     test.setTimeout(90_000);
     // NEW string works at the front door → the code is accepted and a live coded chat opens (the
     // visitor leaves /gate and lands in a usable chat).
-    await goto(page, '/gate');
+    await openGate(page);
     await page.getByTestId('gate-code').fill(NEW);
     await page.getByTestId('gate-code-submit').click();
     await expect(page.getByTestId('chat-input-field'), 'the rotated-in code opens a usable chat')
       .toBeEnabled({ timeout: 15_000 });
 
     // OLD string (the leaked one, rotated away) is refused at the front door → the gate error shows.
-    await goto(page, '/gate');
+    await openGate(page);
     await page.getByTestId('gate-code').fill(OLD);
     await page.getByTestId('gate-code-submit').click();
     await expect(page.getByTestId('code-panel').getByTestId('gate-error'),

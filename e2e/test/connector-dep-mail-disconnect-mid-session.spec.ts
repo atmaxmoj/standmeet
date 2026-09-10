@@ -19,6 +19,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, login } from '@/fixtures/admin';
 import { configureMailConnector } from '@/fixtures/mail';
+import { disconnectConnector } from '@/fixtures/connector-agent-rig';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -51,10 +52,7 @@ test.describe('connector dep · mail disconnect between turns hides smtp-depende
 
       // Owner disconnects the mail connector between the two turns.
       const { csrf } = await login(request, OWNER.email, OWNER.password);
-      const dis = await request.post(`${BACKEND}/api/admin/connectors/smtp/disconnect`, {
-        headers: { 'X-Csrftoken': csrf }, data: {},
-      });
-      expect(dis.status()).toBe(200);
+      await disconnectConnector(request, csrf, 'smtp');
 
       // Next turn (re-querying the instance): Requires:[smtp] is no longer satisfied →
       // the capability disappears.

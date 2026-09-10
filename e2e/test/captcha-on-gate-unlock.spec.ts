@@ -30,7 +30,7 @@ import { claim, login as loginAPI } from '@/fixtures/admin';
 import { skipUnlessCaptchaOn } from '@/fixtures/captcha';
 import { createCode } from '@/fixtures/codes';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openGate } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'captcha-gate@example.com',
@@ -61,7 +61,7 @@ test.describe('gate · a locked visitor is offered the way out the backend alrea
 
   test('captcha on + locked out ⇒ the gate shows a captcha, and solving it lets a real code through',
     async ({ page }) => {
-      await goto(page, '/gate');
+      await openGate(page);
       // First prove captcha is genuinely on — otherwise "no widget" below would just
       // mean this instance was never configured for it, and the spec would go red on
       // the environment rather than on the defect ([[red-in-the-wrong-place]]).

@@ -24,7 +24,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'i18nwriting@example.com',
@@ -61,7 +61,7 @@ test.describe('a multilingual writing reads as content, not as source', () => {
 
   test('the reader shows neither the block markers nor the switcher HTML (F-R-5)',
     async ({ page }) => {
-      await goto(page, '/writings/i18n-wedge');
+      await openReader(page, '/writings/i18n-wedge');
       const body = page.getByTestId('writing-article-body');
       await expect(body).toBeVisible({ timeout: 10_000 });
       // Reads the text before judging it (see the file header).
@@ -89,7 +89,7 @@ test.describe('a multilingual writing reads as content, not as source', () => {
   // verbatim would produce.
   test('the reader can switch to the other language (F-R-6)',
     async ({ page }) => {
-      await goto(page, '/writings/i18n-wedge');
+      await openReader(page, '/writings/i18n-wedge');
       const body = page.getByTestId('writing-article-body');
       await expect(body).toBeVisible({ timeout: 10_000 });
       await expect(page.getByTestId('language-switch'),
@@ -129,7 +129,7 @@ test.describe('a multilingual writing reads as content, not as source', () => {
   // group, so it shouldn't be changed for this one test. `scroll={false}` is still sent
   // as before, this just doesn't pretend to test it here.
   test('切语言不重载整页', async ({ page }) => {
-    await goto(page, '/writings/i18n-wedge');
+    await openReader(page, '/writings/i18n-wedge');
     const body = page.getByTestId('writing-article-body');
     await expect(body).toBeVisible({ timeout: 10_000 });
 

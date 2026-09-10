@@ -23,7 +23,7 @@ import { claim } from '@/fixtures/admin';
 import { skipUnlessCaptchaOn } from '@/fixtures/captcha';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
 import { configureMailConnector } from '@/fixtures/mail';
-import { goto } from '@/fixtures/navigate';
+import { openGate } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'request-flood@example.com',
@@ -60,7 +60,7 @@ test.describe('gate · the request-access door has a lock, and the captcha is it
 
   test('past the threshold the form demands a human check, and solving it still delivers the note',
     async ({ page }) => {
-      await goto(page, '/gate');
+      await openGate(page);
       await expect(page.getByTestId('request-panel')).toBeVisible({ timeout: 10_000 });
 
       // First prove this path normally works -- otherwise "later gets blocked"
@@ -73,13 +73,13 @@ test.describe('gate · the request-access door has a lock, and the captcha is it
       ).toBeVisible({ timeout: 10_000 });
 
       for (let i = 1; i < FLOOD; i++) {
-        await goto(page, '/gate');
+        await openGate(page);
         await sendNote(page, i);
       }
 
       // Past the threshold: this note gets blocked, and **the key is offered**
       // (not just left with a bare refusal).
-      await goto(page, '/gate');
+      await openGate(page);
       await sendNote(page, FLOOD);
       await expect(
         page.getByTestId('request-captcha'),
@@ -113,7 +113,7 @@ test.describe('gate · the request-access door has a lock, and the captcha is it
   // door (F-G-6).
   test('the refusal shows up on the door that was used, and leaves the other doors alone',
     async ({ page }) => {
-      await goto(page, '/gate');
+      await openGate(page);
       await sendNote(page, FLOOD + 1);
 
       // Positive control first: this note really was blocked, and blocked at

@@ -12,7 +12,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -88,7 +88,7 @@ test.describe('a microsite is built with the StandMeet design system', () => {
   });
 
   test('design-system classes render with the real accent color and serif face', async ({ page }) => {
-    await goto(page, `/p/${SLUG}/`);
+    await openReader(page, `/p/${SLUG}/`);
     const line = page.getByTestId('themed-line');
     await expect(line).toBeVisible();
 

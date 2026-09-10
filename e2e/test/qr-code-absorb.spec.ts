@@ -14,7 +14,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto, enterCodeSession } from '@/fixtures/navigate';
+import { openReader, enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'qr-owner@example.com',
@@ -32,7 +32,7 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
 
   test('lands on /?code=QR-001 → URL stripped + picker pops; skip → session + strip',
     async ({ page }) => {
-      await goto(page, '/?code=' + VISITOR_CODE);
+      await openReader(page, '/?code=' + VISITOR_CODE);
 
       // 1. The URL is cleaned up immediately (?code= never stays in the
       //    URL/history/screenshot).
@@ -75,7 +75,7 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
           extraCalls++;
         }
       });
-      await goto(page, '/');
+      await openReader(page, '/');
       // The banner re-mounting means the mount cycle ran to completion, so extraCalls
       // must be at its final value by now (there's no setTimeout / debounce code path
       // that would delay a POST).
@@ -85,10 +85,10 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
 
   test('invalid `?code=BOGUS` → URL 清干净;提交后 401 → 回落 public(无 strip)',
     async ({ page }) => {
-      await goto(page, '/');
+      await openReader(page, '/');
       await page.evaluate(() => window.localStorage.clear());
 
-      await goto(page, '/?code=BOGUS-NOPE');
+      await openReader(page, '/?code=BOGUS-NOPE');
       // code= is cleared from the URL (absorb still happens, it just doesn't issue
       // right away).
       await expect.poll(() => page.url(), { timeout: 5_000 })

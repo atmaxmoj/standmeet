@@ -10,7 +10,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -75,7 +75,7 @@ test.describe('microsite slug rename', () => {
       expect(await createPage(request, csrf, 'ui-old')).toBe(201);
       await request.dispose();
 
-      await goto(page, '/admin/edit/ui-old');
+      await openReader(page, '/admin/edit/ui-old');
       await expect(page.getByTestId('microsite-editor')).toBeVisible({ timeout: 20_000 });
       // The name is an inline field pre-filled with the current slug (no "rename" reveal step).
       const nameField = page.getByTestId('microsite-name-input');
@@ -90,7 +90,7 @@ test.describe('microsite slug rename', () => {
     async ({ adminPage: page }) => {
       // home is served at the site root, so the editor header is the owner's domain surface, not an
       // editable /p/<slug> name (owner: "homepage 这边就应该显示域名").
-      await goto(page, '/admin/edit/home');
+      await openReader(page, '/admin/edit/home');
       await expect(page.getByTestId('microsite-editor')).toBeVisible({ timeout: 20_000 });
       // Not just "the element exists" — it must actually show the owner's DOMAIN: a bare host (letters
       // / digits / dots / hyphens, optional :port), never empty and never a scheme or a /p/ slug.
@@ -107,7 +107,7 @@ test.describe('microsite slug rename', () => {
       expect(await createPage(request, csrf, 'ui-flash')).toBe(201);
       await request.dispose();
 
-      await goto(page, '/admin/edit/ui-flash');
+      await openReader(page, '/admin/edit/ui-flash');
       await expect(page.getByTestId('microsite-editor')).toBeVisible({ timeout: 20_000 });
       await page.getByTestId('microsite-name-save').click();
       // A 1s ✓ confirms the click (the name didn't change, so it stays on this page).

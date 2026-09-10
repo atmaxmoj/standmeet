@@ -29,7 +29,7 @@ import {
 } from '@/fixtures/gcal-setup';
 import { getMockEvents, resetMockGCal } from '@/fixtures/gcal';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const TOPIC = 'Intro call about backend work';
 
@@ -86,7 +86,7 @@ function bookedFrame(page: Page): FrameLocator {
 async function enterAndBook(
   page: Page, code: string, name: string, email: string, hour: number,
 ): Promise<void> {
-  await goto(page, `/?code=${code}`);
+  await openReader(page, `/?code=${code}`);
   const session = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200, { timeout: 15_000 },
   );

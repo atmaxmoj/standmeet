@@ -27,8 +27,8 @@ import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { scriptMockToolCall, scriptMockReplyText } from '@/fixtures/mock-llm-script';
-
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
+import { createRole } from '@/fixtures/roles';
+import { createCode } from '@/fixtures/codes';
 
 const OWNER = {
   email: 'pd-owner@example.com', password: 'correct-horse-battery-staple',
@@ -123,23 +123,10 @@ async function seedSkillsRoleCode(request: APIRequestContext): Promise<void> {
 async function createRoleAndCode(
   request: APIRequestContext, csrf: string, skillID: string,
 ): Promise<void> {
-  const roleRes = await request.post(`${BACKEND}/api/admin/roles/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      name: 'pd-role', description: 'progressive disclosure fixture role',
-      prompt_id: null, corpus_uris: ['wiki://**'],
-      skill_ids: [skillID], mcp_server_ids: [],
-    },
+  const role = await createRole(request, csrf, {
+    name: 'pd-role', description: 'progressive disclosure fixture role',
+    prompt_id: null, corpus_uris: ['wiki://**'],
+    skill_ids: [skillID], mcp_server_ids: [],
   });
-  if (roleRes.status() !== 201) {
-    throw new Error(`create role: ${roleRes.status()} ${await roleRes.text()}`);
-  }
-  const role = await roleRes.json() as { id: string };
-  const codeRes = await request.post(`${BACKEND}/api/admin/codes/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { code: CODE, label: 'PD code', ghosts: [], assumed_role_id: role.id },
-  });
-  if (codeRes.status() !== 201) {
-    throw new Error(`create code: ${codeRes.status()} ${await codeRes.text()}`);
-  }
+  await createCode(request, csrf, { code: CODE, label: 'PD code', ghosts: [], assumed_role_id: role.id });
 }

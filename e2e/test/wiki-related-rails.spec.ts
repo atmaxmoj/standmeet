@@ -15,7 +15,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'rails@example.com', password: 'correct-horse-battery-staple',
@@ -49,7 +49,7 @@ test.describe('F2 wiki reader related rails (read next / cited by)', () => {
   });
 
   test('A reader shows a "read next" rail linking the outbound target', async ({ page }) => {
-    await goto(page, '/wiki/entry-a');
+    await openReader(page, '/wiki/entry-a');
     await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
     const rail = page.getByTestId('related-rail-read-next');
     await expect(rail).toBeVisible();
@@ -60,7 +60,7 @@ test.describe('F2 wiki reader related rails (read next / cited by)', () => {
   });
 
   test('B reader shows a "cited by" rail linking the inbound source', async ({ page }) => {
-    await goto(page, '/wiki/target-b');
+    await openReader(page, '/wiki/target-b');
     await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
     const rail = page.getByTestId('related-rail-cited-by');
     await expect(rail).toBeVisible();

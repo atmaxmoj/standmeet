@@ -25,7 +25,7 @@ import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { createRole } from '@/fixtures/roles';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'codedlink@example.com', password: 'correct-horse-battery-staple',
@@ -55,7 +55,7 @@ test.describe('产品发出去的那个链接，前门认不认', () => {
 
   test('带着小写码的链接（批准信 / 简历 QR 的形状）直接开身份选择器，不掉回 gate',
     async ({ page }) => {
-      await goto(page, `/?code=${MINTED_LOWERCASE}`);
+      await openReader(page, `/?code=${MINTED_LOWERCASE}`);
       // the identity picker = this path went through. If it fell back to gate this testid wouldn't exist at all.
       await expect(
         page.getByTestId('visitor-name-overlay'),
@@ -65,7 +65,7 @@ test.describe('产品发出去的那个链接，前门认不认', () => {
 
   test('大写的同一张码照旧工作（修法不许把原来能用的那半弄坏）',
     async ({ page }) => {
-      await goto(page, `/?code=${MINTED_LOWERCASE.toUpperCase()}`);
+      await openReader(page, `/?code=${MINTED_LOWERCASE.toUpperCase()}`);
       await expect(page.getByTestId('visitor-name-overlay')).toBeVisible({ timeout: 8_000 });
     });
 });

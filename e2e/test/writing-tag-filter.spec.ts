@@ -13,7 +13,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'writing-tag@example.com',
@@ -30,7 +30,7 @@ test.describe('writings index: tag filter + empty state', () => {
   test('click tag → filter → click again → clear',
     async ({ request, page }) => {
       await seedWritings(request);
-      await goto(page, '/writings');
+      await openReader(page, '/writings');
       // Should see both writings initially
       await expect(page.locator('[data-writing-card]')).toHaveCount(2, { timeout: 5_000 });
       // Click the "alpha" tag filter
@@ -52,7 +52,7 @@ test.describe('writings index: empty state', () => {
 
   test('0 writings → empty state shown',
     async ({ page }) => {
-      await goto(page, '/writings');
+      await openReader(page, '/writings');
       await expect(page.getByTestId('writings-empty')).toBeVisible({ timeout: 5_000 });
     });
 });

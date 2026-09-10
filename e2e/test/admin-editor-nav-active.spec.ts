@@ -8,7 +8,7 @@
 import { test, expect } from '@/fixtures/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'editor-nav@example.com', password: 'correct-horse-battery-staple',
@@ -20,7 +20,7 @@ test.describe('admin · the microsite editor highlights microsites, not dashboar
   test.beforeAll(async ({ playwright }) => { await claimFreshOwner(playwright, OWNER); });
 
   test('on /admin/edit/<slug> the active nav item is microsites', async ({ adminPage: page }) => {
-    await goto(page, '/admin/edit/home');
+    await openReader(page, '/admin/edit/home');
     await expect(page.getByTestId('admin-nav-microsites')).toBeVisible({ timeout: 15_000 });
 
     // The active nav link carries aria-current="page" (on the <a>, which wraps the testid span).

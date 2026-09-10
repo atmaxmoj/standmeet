@@ -16,7 +16,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openGate, openReader } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -94,7 +94,7 @@ test.describe('a published microsite is discoverable on the public surfaces', ()
     // microsite exists), and its PageNavWidget lists the owner's published pages — the old built-in
     // "pages deck" / homepage footer are gone. Discovery on the index is the widget; discovery on
     // the gate is the panel below.
-    await goto(page, '/');
+    await openReader(page, '/');
     const nav = page.getByTestId('page-nav-widget');
     await expect(nav, 'the homepage lists other pages once one is live').toBeVisible();
     await expect(nav.getByTestId(`page-nav-widget-link-${SLUG}`))
@@ -107,7 +107,7 @@ test.describe('a published microsite is discoverable on the public surfaces', ()
   });
 
   test('the gate read panel links the page for a codeless visitor', async ({ page }) => {
-    await goto(page, '/gate');
+    await openGate(page, '/gate');
     const panel = page.getByTestId('gate-microsites');
     await expect(panel, 'the gate surfaces published pages to a no-code visitor').toBeVisible();
     await expect(panel.getByRole('link', { name: SLUG })).toHaveAttribute('href', `/p/${SLUG}`);

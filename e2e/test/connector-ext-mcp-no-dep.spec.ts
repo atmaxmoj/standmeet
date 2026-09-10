@@ -27,6 +27,8 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { createRole } from '@/fixtures/roles';
+import { createCode } from '@/fixtures/codes';
 import {
   MOCK_GCAL_CREDS, getGCalStatus, initGCalOAuth, resetMockGCal, saveGCalCredentials,
 } from '@/fixtures/gcal';
@@ -84,28 +86,17 @@ async function registerExtServerAndCode(
     request, apiToken, sid, 'mcp_server_create',
     { name: SERVER_NAME, url: MOCK_MCP_URL },
   );
-  const roleRes = await request.post(`${BACKEND}/api/admin/roles/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      name: 'extmcpdep-role',
-      description: 'ext-mcp server declaring Requires:[calendar]',
-      prompt_id: null,
-      corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
-      skill_ids: [],
-      mcp_server_ids: [server.id],
-    },
+  const role = await createRole(request, csrf, {
+    name: 'extmcpdep-role',
+    description: 'ext-mcp server declaring Requires:[calendar]',
+    prompt_id: null,
+    corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
+    skill_ids: [],
+    mcp_server_ids: [server.id],
   });
-  if (roleRes.status() !== 201) {
-    throw new Error(`create role: ${roleRes.status()} ${await roleRes.text()}`);
-  }
-  const role = await roleRes.json() as { id: string };
-  const codeRes = await request.post(`${BACKEND}/api/admin/codes/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { code: CODE, label: 'extmcpdep code', ghosts: [], assumed_role_id: role.id },
+  await createCode(request, csrf, {
+    code: CODE, label: 'extmcpdep code', ghosts: [], assumed_role_id: role.id,
   });
-  if (codeRes.status() !== 201 && codeRes.status() !== 200) {
-    throw new Error(`create code: ${codeRes.status()} ${await codeRes.text()}`);
-  }
   return server.id;
 }
 

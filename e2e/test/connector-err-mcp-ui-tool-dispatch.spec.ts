@@ -20,7 +20,7 @@ import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, OWNER, type CodedSeed,
 } from '@/fixtures/gcal-setup';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const TOPIC = 'Intro call about backend work';
 const TOOL_ROUTE = '**/api/v1/sessions/*/tools/send_confirmation';
@@ -131,7 +131,7 @@ function bookedFrame(page: Page): FrameLocator {
 async function enterAndBook(
   page: Page, code: string, name: string, hour: number, email: string,
 ): Promise<string> {
-  await goto(page, `/?code=${code}`);
+  await openReader(page, `/?code=${code}`);
   const sessionResp = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200, { timeout: 15_000 },
   );

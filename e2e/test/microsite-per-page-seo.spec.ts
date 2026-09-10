@@ -9,11 +9,12 @@
 // panel is exercised through the browser, not bypassed via the API.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Playwright } from '@playwright/test';
+import type { Playwright } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
+import { publishPage } from '@/fixtures/microsite-rig';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -35,11 +36,12 @@ test.describe('per-microsite SEO is set from the editor panel and injected into 
     async ({ playwright, adminPage }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      await buildLiveMicrosite(request, csrf);
+      await publishPage(request, csrf, SLUG,
+        'export default function App(){return <main>press</main>;}', 300_000);
 
       // Drive the REAL SeoPanel in the editor: open it, fill the three fields, click Save. No API
       // shortcut — if the panel or its Save button is not wired, this fails (the LocaleSwitch lesson).
-      await goto(adminPage, `/admin/edit/${SLUG}`);
+      await openReader(adminPage, `/admin/edit/${SLUG}`);
       const panel = adminPage.getByTestId('microsite-seo');
       await expect(panel, 'the editor shows the SEO panel for an existing page').toBeVisible({ timeout: 15_000 });
       await panel.locator('summary').click();
@@ -65,27 +67,6 @@ test.describe('per-microsite SEO is set from the editor panel and injected into 
       await request.dispose();
     });
 });
-
-async function buildLiveMicrosite(request: APIRequestContext, csrf: string): Promise<void> {
-  const h = { 'X-Csrftoken': csrf };
-  expect((await request.post(`${BACKEND}/api/admin/microsites/`, {
-    headers: h, data: { slug: SLUG, title: 'Press' },
-  })).status(), 'create').toBe(201);
-  await request.put(`${BACKEND}/api/admin/microsites/${SLUG}/files`, {
-    headers: h, data: { path: 'App.tsx', content: 'export default function App(){return <main>press</main>;}' },
-  });
-  const buildID = (await (await request.post(`${BACKEND}/api/admin/microsites/${SLUG}/build`, { headers: h })).json() as { build_id: string }).build_id;
-  let row: Record<string, unknown> = {};
-  await expect.poll(async () => {
-    row = await (await request.get(`${BACKEND}/api/admin/microsites/builds/${buildID}`, { headers: h })).json();
-    return (row['status'] as string | undefined) ?? 'pending';
-  }, { timeout: 300_000, intervals: [2000] }).toMatch(/^(built|failed)$/);
-  const why = row['error_message'];
-  expect(row['status'], typeof why === 'string' ? why : '').toBe('built');
-  expect((await request.post(`${BACKEND}/api/admin/microsites/${SLUG}/live`, {
-    headers: h, data: { build_id: buildID },
-  })).status(), 'promote to live').toBe(200);
-}
 
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();

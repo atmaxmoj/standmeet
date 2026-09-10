@@ -14,7 +14,7 @@ import type { Playwright } from '@playwright/test';
 
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
 import { claimSyncOwner, syncOwner, type SyncOwner } from '@/fixtures/vault-sync';
-import { goto } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER: SyncOwner = syncOwner('rawfolder');
 
@@ -33,7 +33,7 @@ test.describe('#8 · an auto-created raw folder node shows its name, not (untitl
 
   test('the empty-body folder node renders "software", not the untitled fallback',
     async ({ adminPage }) => {
-      await goto(adminPage, '/admin/raw');
+      await gotoAdminSection(adminPage, 'raw');
       // The folder node is a tree root; its card shows the folder name via raw-folder-name.
       const folder = adminPage.getByTestId('raw-folder-name').filter({ hasText: 'software' });
       await expect(folder, 'the folder node shows its name "software"').toBeVisible({ timeout: 15_000 });

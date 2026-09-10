@@ -16,7 +16,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'crosslink-owner@example.com',
@@ -64,7 +64,7 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
       });
 
       // Visit A -> all three links render as anchors to /writings/writing-b; the ghost stays literal.
-      await goto(page, '/writings/writing-a');
+      await openReader(page, '/writings/writing-a');
       const body = page.getByTestId('writing-article-body');
       const linkSlug = body.locator('a[href="/writings/writing-b"]', { hasText: 'Writing B Heading' });
       await expect(linkSlug).toHaveCount(2); // slug match + title match both render dst.title
@@ -83,7 +83,7 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
       await expect(page.getByTestId('writing-article-backlinks')).toHaveCount(0);
 
       // Visit B -> A is in the backlinks
-      await goto(page, '/writings/writing-b');
+      await openReader(page, '/writings/writing-b');
       const backlinks = page.getByTestId('writing-article-backlinks');
       await expect(backlinks).toBeVisible();
       const aLi = page.getByTestId('backlink-writing-a');
@@ -104,7 +104,7 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
       expect(aRow).toBeTruthy();
       await callTool(request, tok, sid, 'writings.delete', { writing_id: aRow!.id });
 
-      await goto(page, '/writings/writing-b');
+      await openReader(page, '/writings/writing-b');
       // The backlinks section disappears; at minimum it no longer contains writing-a.
       await expect(page.getByTestId('backlink-writing-a')).toHaveCount(0);
     });

@@ -19,7 +19,7 @@ import { createRole } from '@/fixtures/roles';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'writingchat@example.com',
@@ -37,7 +37,7 @@ test.describe('writing → chat flow integration', () => {
 
   test('visitor reads writing → AskAboutThis → /gate → 填码 → auto-ask → answer',
     async ({ page }) => {
-      await goto(page, '/writings/writing-chat-test');
+      await openReader(page, '/writings/writing-chat-test');
       await expect(page.getByTestId('writing-article-title'))
         .toHaveText('Writing Chat Test');
 

@@ -16,7 +16,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { publishEntry } from '@/fixtures/corpus';
 import { BACKEND } from '@/fixtures/stack';
 
@@ -55,7 +55,7 @@ test.describe('public wiki landing + sitemap cover the whole corpus, not newest-
 
   test('deep link to an indexed wiki beyond newest-50 renders (not 404)',
     async ({ page }) => {
-      await goto(page, `/wiki/${NEEDLE_PATH}`);
+      await openReader(page, `/wiki/${NEEDLE_PATH}`);
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByRole('heading', { name: NEEDLE_TITLE })).toBeVisible();
     });

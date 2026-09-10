@@ -39,7 +39,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'reader-shell@example.com',
@@ -72,7 +72,7 @@ test.describe('wiki 阅读器外壳：换文章不重挂，读正文不跟着滚
   test('换一篇文章，树这个 DOM 节点没有被重建', async ({ page }) => {
     // the tree rail is display:none below 1500px (reader-shell design c215f0be).
     await page.setViewportSize({ width: 1512, height: 900 });
-    await goto(page, `/wiki/${FIRST.path}`);
+    await openReader(page, `/wiki/${FIRST.path}`);
     await expect(page.getByTestId('wiki-toc')).toBeVisible({ timeout: 15_000 });
 
     // An expando property: React never touches it, it survives as long as the node
@@ -97,7 +97,7 @@ test.describe('wiki 阅读器外壳：换文章不重挂，读正文不跟着滚
   });
 
   test('滚正文，顶栏留在原地', async ({ page }) => {
-    await goto(page, `/wiki/${SECOND.path}`);
+    await openReader(page, `/wiki/${SECOND.path}`);
     await expect(page.getByTestId('wiki-body')).toBeVisible({ timeout: 15_000 });
 
     const before = await shellTop(page);

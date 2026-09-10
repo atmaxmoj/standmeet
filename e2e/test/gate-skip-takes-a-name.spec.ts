@@ -19,7 +19,7 @@
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { test, expect } from '@/fixtures/test';
 
 const OWNER = {
@@ -41,7 +41,7 @@ test.describe('gate · the identity picker says what skipping costs', () => {
   });
 
   test('the picker explains that skipping still uses one of the code names', async ({ page }) => {
-    await goto(page, `/?code=${CODE}`);
+    await openReader(page, `/?code=${CODE}`);
     const skip = page.getByTestId('visitor-name-skip');
     await expect(skip).toBeVisible();
 

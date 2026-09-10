@@ -24,7 +24,7 @@ import { createCode } from '@/fixtures/codes';
 import { publishEntry, seedPublicWiki, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'multiconv-owner@example.com',
@@ -55,7 +55,7 @@ test.describe('visitor multi-conversation model', () => {
 
       // Back to the main page -> the main conversation is still there (1 message), and
       // doesn't include the dock one.
-      await goto(page, '/');
+      await openReader(page, '/');
       await expect(page.getByTestId('answer-body')).toHaveCount(1, { timeout: 15_000 });
     });
 
@@ -99,7 +99,7 @@ test.describe('visitor multi-conversation model', () => {
       // Back to the main page: once restore lands (the main conversation's 1 turn
       // reappears, and the same VisitorView sets used to 2), the main composer is also
       // locked by that same shared used value — consistent across surfaces.
-      await goto(page, '/');
+      await openReader(page, '/');
       await expect(page.getByTestId('answer-body')).toHaveCount(1, { timeout: 15_000 });
       await expect(page.getByTestId('chat-input-field')).toBeDisabled();
     });
@@ -116,7 +116,7 @@ async function askMain(page: Page, text: string): Promise<void> {
 // real doc page; the /writings index page has no docContext, so its dock falls back to
 // the main conversation (that's expected — an index isn't an article).
 async function openDock(page: Page): Promise<ReturnType<Page['getByTestId']>> {
-  await goto(page, '/wiki/projects/lucerna');
+  await openReader(page, '/wiki/projects/lucerna');
   await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
   await page.getByTestId('floating-dock-pill').click();
   const panel = page.getByTestId('floating-chat-panel');

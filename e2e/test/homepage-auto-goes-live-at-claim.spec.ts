@@ -13,7 +13,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'autolive@example.com', password: 'correct-horse-battery-staple',
@@ -31,7 +31,7 @@ test.describe('a fresh instance serves the default homepage at / (no materializa
 
   test('after claim, / serves DefaultHome with no publish/materialization', async ({ page }) => {
     test.setTimeout(60_000);
-    await goto(page, '/');
+    await openReader(page, '/');
     await expect(page.getByTestId('default-home'),
       'a claimed, unedited instance serves DefaultHome at the site root').toBeVisible({ timeout: 20_000 });
   });

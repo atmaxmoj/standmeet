@@ -10,7 +10,7 @@
 import type { Page } from '@playwright/test';
 
 import { execSQL, resetInstance } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { test, expect } from '@/fixtures/test';
 import { APP_BASE } from '@/fixtures/stack';
 
@@ -72,12 +72,12 @@ test.describe('owner claims a fresh instance via /setup', () => {
 // Then walk the owner's own path and assert **the good outcome**: they get into admin.
 async function claimAfterDivergence(page: Page): Promise<void> {
   resetInstance();
-  await goto(page, '/');
+  await openReader(page, '/');
   await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
   execSQL(`UPDATE instance_settings SET setup_token_hash = `
     + `'0000000000000000000000000000000000000000000000000000000000000000' WHERE id = 1`);
 
-  await goto(page, '/');
+  await openReader(page, '/');
   await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
   await fillIdentityStep(page);
   await fillCredentialsStep(page);

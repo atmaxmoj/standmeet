@@ -8,7 +8,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection, openReader } from '@/fixtures/navigate';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
@@ -119,7 +119,7 @@ test.describe('admin conversations extended', () => {
 
   test('filter by code → only matching conversations',
     async ({ adminPage }) => {
-      await goto(adminPage, `/admin/conversations?code=CONV-A`);
+      await openReader(adminPage, `/admin/conversations?code=CONV-A`);
       await expect(adminPage.getByText('Visitor A', { exact: true })).toBeVisible();
       await expect(adminPage.getByText('Visitor B', { exact: true })).toHaveCount(0);
     });

@@ -11,7 +11,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { resetInstance } from '@/fixtures/instance';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { adminSetCSS } from '@/fixtures/presentation';
 import { claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
 
@@ -32,7 +32,7 @@ test.describe('render · owner custom CSS actually applies on the reader', () =>
         { rel: 'wiki/styled.md', body: makeVaultMD({ publish: true }, '## Section Heading\n\nBody.') },
       ]);
 
-      await goto(page, '/wiki/styled');
+      await openReader(page, '/wiki/styled');
       const body = page.getByTestId('wiki-body');
       await expect(body).toBeVisible();
       // (a) the stylesheet resource is <link>ed.
@@ -47,7 +47,7 @@ test.describe('render · owner custom CSS actually applies on the reader', () =>
       await uploadVault(request, OWNER, [
         { rel: 'wiki/plain.md', body: makeVaultMD({ publish: true }, '## Plain Heading\n\nBody.') },
       ]);
-      await goto(page, '/wiki/plain');
+      await openReader(page, '/wiki/plain');
       const h2 = page.getByTestId('wiki-body').locator('h2');
       await expect(h2).toBeVisible();
       const color = await h2.evaluate((el) => getComputedStyle(el).color);
@@ -63,7 +63,7 @@ test.describe('render · owner custom CSS actually applies on the reader', () =>
       await uploadVault(request, OWNER, [
         { rel: 'wiki/scoped.md', body: makeVaultMD({ publish: true }, '## Scoped\n\nBody.') },
       ]);
-      await goto(page, '/wiki/scoped');
+      await openReader(page, '/wiki/scoped');
       // the wiki top bar (a nav outside the note body) is still visible.
       await expect(page.getByTestId('wiki-body')).toBeVisible();
       const navHidden = await page.locator('nav').first().evaluate(
@@ -87,7 +87,7 @@ test.describe('render · owner custom CSS actually applies on the reader', () =>
       expect(status).toBe(200);
       await seedCalloutNote(request, 'theorem-note', 'theorem', 'T1');
 
-      await goto(page, '/wiki/theorem-note');
+      await openReader(page, '/wiki/theorem-note');
       const callout = page.getByTestId('wiki-body').locator('.callout[data-callout="theorem"]');
       await expect(callout).toBeVisible({ timeout: 8_000 });
       // The left-hand vertical bar IS the coloring mechanism — if the owner says blue, it must be blue, not the site's vermillion.
@@ -97,7 +97,7 @@ test.describe('render · owner custom CSS actually applies on the reader', () =>
   test('没写 snippet 的 callout 保持站点自己的 accent（默认值没被改坏）',
     async ({ request, page }) => {
       await seedCalloutNote(request, 'plain-callout', 'note', 'N1');
-      await goto(page, '/wiki/plain-callout');
+      await openReader(page, '/wiki/plain-callout');
       const callout = page.getByTestId('wiki-body').locator('.callout[data-callout="note"]');
       await expect(callout).toBeVisible({ timeout: 8_000 });
       await expect(callout).toHaveCSS('border-left-color', 'rgb(181, 57, 28)');

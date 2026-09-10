@@ -17,7 +17,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'strip-owner@example.com',
@@ -48,15 +48,15 @@ test.describe('SessionStrip · gauge / cross-surface / invalid', () => {
   test('strip mounts on /writings (cross-surface)',
     async ({ page }) => {
       await enterCodeSession(page, VISITOR_CODE);
-      await goto(page, '/writings');
+      await openReader(page, '/writings');
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
     });
 
   test('invalid code → picker → submit fails (401) → no strip (public tier)',
     async ({ page }) => {
-      await goto(page, '/');
+      await openReader(page, '/');
       await page.evaluate(() => window.localStorage.clear());
-      await goto(page, '/?code=BOGUS-XYZ');
+      await openReader(page, '/?code=BOGUS-XYZ');
       await expect.poll(() => page.url(), { timeout: 3_000 }).not.toMatch(/[?&]code=/);
       const skip = page.getByTestId('visitor-name-skip');
       await expect(skip).toBeVisible({ timeout: 5_000 });

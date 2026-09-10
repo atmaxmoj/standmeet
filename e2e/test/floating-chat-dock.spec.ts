@@ -16,7 +16,7 @@ import { seedPublicWiki, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
-import { goto, enterCodeSession } from '@/fixtures/navigate';
+import { openReader, enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'dock-owner@example.com',
@@ -37,7 +37,7 @@ test.describe('FloatingChatDock on writings/wiki pages', () => {
       // Public visitor has no session → no inference funding (owner won't pay
       // for random visitors, no BYOAI key). Pill hidden until visitor either
       // absorbs a code or adds BYOAI on /gate.
-      await goto(page, '/writings');
+      await openReader(page, '/writings');
       await expect(page.getByTestId('floating-dock-pill')).toHaveCount(0);
     });
 
@@ -48,7 +48,7 @@ test.describe('FloatingChatDock on writings/wiki pages', () => {
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
       // Navigate to writings
-      await goto(page, '/writings');
+      await openReader(page, '/writings');
       // Pill should be visible
       const pill = page.getByTestId('floating-dock-pill');
       await expect(pill).toBeVisible({ timeout: 5_000 });
@@ -72,7 +72,7 @@ test.describe('FloatingChatDock on writings/wiki pages', () => {
   test('dock reuses main-chat rendering: ask → throbber + answer-body (no reset)',
     async ({ page }) => {
       await enterCodeSession(page, CODE);
-      await goto(page, '/writings');
+      await openReader(page, '/writings');
       await page.getByTestId('floating-dock-pill').click();
       const panel = page.getByTestId('floating-chat-panel');
       await expect(panel).toBeVisible({ timeout: 3_000 });
@@ -101,7 +101,7 @@ test.describe('FloatingChatDock on writings/wiki pages', () => {
 
 async function dockFullFlow({ page }: { page: Page }): Promise<void> {
   await enterCodeSession(page, CODE);
-  await goto(page, '/writings');
+  await openReader(page, '/writings');
   await page.getByTestId('floating-dock-pill').click();
   const panel = page.getByTestId('floating-chat-panel');
   await expect(panel).toBeVisible({ timeout: 3_000 });
@@ -149,7 +149,7 @@ async function dockSendsDocContext({ page }: { page: Page }): Promise<void> {
     turnBody = route.request().postDataJSON() as TurnBody;
     await route.continue();
   });
-  await goto(page, '/wiki/projects/lucerna');
+  await openReader(page, '/wiki/projects/lucerna');
   await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
   await page.getByTestId('floating-dock-pill').click();
   const input = page.getByTestId('floating-chat-input');

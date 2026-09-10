@@ -23,7 +23,7 @@ import type { Page } from '@playwright/test';
 import { claim } from '@/fixtures/admin';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
 import { configureMailConnector } from '@/fixtures/mail';
-import { goto } from '@/fixtures/navigate';
+import { openGate } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'lock-copy@example.com',
@@ -70,7 +70,7 @@ test.describe('gate · a refusal names a way out only when there is one', () => 
   test('the note door, with no captcha configured, does not send the visitor looking for one',
     async ({ page }) => {
       for (let i = 0; i < NOTE_FLOOD; i++) {
-        await goto(page, '/gate');
+        await openGate(page);
         await sendNote(page, i);
       }
 
@@ -97,7 +97,7 @@ test.describe('gate · a refusal names a way out only when there is one', () => 
 
   test('the code door, with no captcha configured, does not send the visitor looking for one',
     async ({ page }) => {
-      await goto(page, '/gate');
+      await openGate(page);
       for (let i = 0; i < CODE_FLOOD; i++) {
         await page.getByTestId('gate-code').fill(`NOPE-${String(i).padStart(3, '0')}`);
         // Once the throttle trips, the submit button is disabled (there's no captcha

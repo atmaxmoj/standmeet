@@ -16,7 +16,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -47,7 +47,7 @@ test.describe('SEO wiki landing renders for crawlers and deep links', () => {
   });
 
   test('open /<handle>/wiki/<slug> → title + body visible', async ({ page }) => {
-    await goto(page, `/wiki/${WIKI.slug}`);
+    await openReader(page, `/wiki/${WIKI.slug}`);
     await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
     await expect(page.getByRole('heading', { name: WIKI.title })).toBeVisible();
     await expect(page.getByText(WIKI.body, { exact: false })).toBeVisible();

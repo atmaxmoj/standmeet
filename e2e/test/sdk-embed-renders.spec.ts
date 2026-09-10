@@ -29,7 +29,7 @@ import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { scriptMockError, scriptMockReplyText } from '@/fixtures/mock-llm-script';
-import { goto } from '@/fixtures/navigate';
+import { openGate } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'embed-renders@example.com',
@@ -133,7 +133,7 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
 // a locator.
 async function mountWidget(page: Page): Promise<void> {
   const base = process.env['BASE_URL'] ?? 'http://localhost:38127';
-  await goto(page, '/gate');
+  await openGate(page, '/gate');
   await page.addScriptTag({ content: readFileSync(EMBED_DIST, 'utf8') });
   await page.evaluate(([b, c]) => {
     const el = document.createElement('standmeet-chat');

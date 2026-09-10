@@ -26,7 +26,7 @@ import { createCode } from '@/fixtures/codes';
 import { MEDIA, createEntry, uploadAsset, getEntry } from '@/fixtures/genre-assets';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
 const OWNER = {
@@ -78,7 +78,7 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
 
   test('授了这条的访客:图渲在页面上,src 指向真实素材', async ({ page }) => {
     await enterCodeSession(page, IN_CODE, 'Reader');
-    await goto(page, `/wiki/${entryPath}`);
+    await openReader(page, `/wiki/${entryPath}`);
     await expect(page.getByTestId('wiki-body')).toBeVisible({ timeout: 8_000 });
 
     // The standmeet-asset URI in the body has been swapped for a reachable URL — the
@@ -92,7 +92,7 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
 
   test('owner 设的封面图渲在 hero 上,不是那块程序生成的色板', async ({ page }) => {
     await enterCodeSession(page, IN_CODE, 'Reader');
-    await goto(page, `/wiki/${entryPath}`);
+    await openReader(page, `/wiki/${entryPath}`);
     await expect(page.getByTestId('wiki-cover')).toBeVisible({ timeout: 8_000 });
 
     // The hero used to have **only** the color-swatch branch: the owner sets
@@ -109,7 +109,7 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
 
   test('附件渲成下载区:文件名 + 真实字节数 + 可下载的地址', async ({ page }) => {
     await enterCodeSession(page, IN_CODE, 'Reader');
-    await goto(page, `/wiki/${entryPath}`);
+    await openReader(page, `/wiki/${entryPath}`);
 
     const box = page.getByTestId('wiki-attachments');
     await expect(box, '有附件就该有下载区').toBeVisible({ timeout: 8_000 });
@@ -132,7 +132,7 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
   // leaks at the rendering layer.
   test('没授这条的访客:页面上没有图,也没有素材的任何痕迹', async ({ page }) => {
     await enterCodeSession(page, OUT_CODE, 'Outsider');
-    await goto(page, `/wiki/${entryPath}`);
+    await openReader(page, `/wiki/${entryPath}`);
 
     // **Assert positively "they were blocked" first**. Asserting only "no img" isn't
     // enough: a 404 page, a renamed component, or a broken route would leave the
@@ -160,7 +160,7 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
   // decide which message to show.
   test('手里有码的访客撞上读不到的条目:不该被要求再去输一次码', async ({ page }) => {
     await enterCodeSession(page, OUT_CODE, 'Outsider');
-    await goto(page, `/wiki/${entryPath}`);
+    await openReader(page, `/wiki/${entryPath}`);
     const locked = page.getByTestId('wiki-locked');
     await expect(locked, '访客确实被拦在门外').toBeVisible({ timeout: 8_000 });
 
@@ -191,7 +191,7 @@ test.describe('访客在页面上看得见素材（可见性纯继承文章）',
 test.describe('正文引着一份已经不在的素材', () => {
   test('什么都不渲:不给访客裂图，也不给内部文件名', async ({ page }) => {
     await enterCodeSession(page, IN_CODE, 'Reader');
-    await goto(page, `/wiki/${danglingPath}`);
+    await openReader(page, `/wiki/${danglingPath}`);
     const body = page.getByTestId('wiki-body');
     // Assert the body actually loaded first — otherwise the two assertions below
     // would also pass while the page is still empty
@@ -214,7 +214,7 @@ test.describe('正文引着一份已经不在的素材', () => {
 // no code.
 test.describe('output 的 reader 也渲素材', () => {
   test('正文图 + 封面 + 附件', async ({ page }) => {
-    await goto(page, `/output/${outputPath}`);
+    await openReader(page, `/output/${outputPath}`);
     await expect(page.getByTestId('output-landing')).toBeVisible({ timeout: 8_000 });
 
     const img = page.getByTestId('output-body').locator('img').first();
@@ -242,7 +242,7 @@ test.describe('output 的 reader 也渲素材', () => {
   // the owner picks a hue, the backend stores and sends it, and the page always
   // shows the same flat color (F-L-34).
   test('owner 挑的色调也上到 hero 上', async ({ page }) => {
-    await goto(page, `/output/${outputPath}`);
+    await openReader(page, `/output/${outputPath}`);
     const hero = page.getByTestId('output-cover');
     await expect(hero).toBeVisible({ timeout: 8_000 });
     // data-hue is the coloring mechanism itself (CSS produces the gradient via an

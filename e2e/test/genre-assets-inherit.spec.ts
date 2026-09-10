@@ -40,7 +40,7 @@ import {
 } from '@/fixtures/genre-assets';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
 
@@ -94,7 +94,7 @@ test.describe('素材依附文章:可见性纯继承', () => {
 
     // The code that grants it: the image is there.
     await enterCodeSession(page, openCode, 'Before');
-    await goto(page, `/wiki/${path}`);
+    await openReader(page, `/wiki/${path}`);
     const img = page.getByTestId('wiki-body').locator('img').first();
     await expect(img, '收回之前图渲得出来').toBeVisible({ timeout: 8_000 });
     expect(await img.getAttribute('src') ?? '', '就是那份素材').toContain(up.asset_id);
@@ -102,7 +102,7 @@ test.describe('素材依附文章:可见性纯继承', () => {
     // Switch to a code that doesn't grant it: the whole page has no trace of this
     // asset at all.
     await enterCodeSession(page, shutCode, 'After');
-    await goto(page, `/wiki/${path}`);
+    await openReader(page, `/wiki/${path}`);
     await expect(page.getByTestId('wiki-locked'), '换一张码就进不去了')
       .toBeVisible({ timeout: 8_000 });
     const html = await page.content();

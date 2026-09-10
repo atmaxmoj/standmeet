@@ -10,7 +10,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -32,7 +32,7 @@ test.describe('discarding a draft removes it from the list (Q0)', () => {
       });
       const id = (await created.json() as { id: string }).id;
 
-      await goto(page, '/admin/drafts');
+      await openReader(page, '/admin/drafts');
       const card = page.getByTestId('draft-card');
       await expect(card).toHaveCount(1);
 

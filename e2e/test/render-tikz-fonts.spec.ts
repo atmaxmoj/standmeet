@@ -22,7 +22,7 @@
 // got it: that's exactly the one thing missing when this is broken.
 
 import { resetInstance } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
 import { test, expect } from '@/fixtures/test';
 import { claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
@@ -70,7 +70,7 @@ test.describe('render · TikZ text uses the TeX fonts, not a fallback', () => {
         { timeout: 30_000 },
       );
 
-      await goto(page, '/wiki/tikz-text');
+      await openReader(page, '/wiki/tikz-text');
       await expect(page.getByTestId('wiki-body')).toBeVisible();
       await expect(page.locator('[data-testid="tikz-svg"] svg')).toBeVisible({ timeout: 30_000 });
 

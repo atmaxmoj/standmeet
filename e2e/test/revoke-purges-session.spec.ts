@@ -11,7 +11,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
-import { createCode } from '@/fixtures/codes';
+import { createCode, revokeCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -87,8 +87,5 @@ async function revokeCodeByName(
   const codes = await listRes.json() as Array<{ id: string; code: string }>;
   const target = codes.find((c) => c.code === codeStr);
   if (!target) throw new Error(`code ${codeStr} not found`);
-  const res = await request.post(`${BACKEND}/api/admin/codes/${target.id}/revoke`, {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  if (!res.ok()) throw new Error(`revoke: ${res.status()}`);
+  await revokeCode(request, csrf, target.id);
 }

@@ -12,7 +12,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'tab-owner@example.com',
@@ -35,7 +35,7 @@ test.describe('cross-tab session sync via localStorage', () => {
       const tabB = await context.newPage();
 
       // Tab B starts at /
-      await goto(tabB, '/');
+      await openReader(tabB, '/');
       await expect(tabB.getByTestId('session-strip')).toHaveCount(0);
 
       // Tab A scans the code + picks a name (defer-issue:skip is what actually issues
@@ -59,7 +59,7 @@ test.describe('cross-tab session sync via localStorage', () => {
       await enterCodeSession(tabA, CODE);
       await expect(tabA.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
-      await goto(tabB, '/');
+      await openReader(tabB, '/');
       await expect(tabB.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
       // Tab A exits → navigates to /gate → clears localStorage

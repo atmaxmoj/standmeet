@@ -22,7 +22,8 @@ import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { scriptMockToolCall, scriptMockReplyText } from '@/fixtures/mock-llm-script';
-import { BACKEND } from '@/fixtures/stack';
+import { createRole } from '@/fixtures/roles';
+import { createCode } from '@/fixtures/codes';
 import type { APIRequestContext } from '@playwright/test';
 
 const OWNER = {
@@ -112,31 +113,18 @@ async function createCodeAttachingSkill(
   request: APIRequestContext, csrf: string, skillID: string,
 ): Promise<void> {
   // A.3-IAM-5: create a role with the skill attached, then issue a code referencing that role.
-  const roleRes = await request.post(`${BACKEND}/api/admin/roles/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      name: 'sandbox-role',
-      description: 'sandbox marker fixture role',
-      prompt_id: null,
-      corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
-      skill_ids: [skillID],
-      mcp_server_ids: [],
-    },
+  const role = await createRole(request, csrf, {
+    name: 'sandbox-role',
+    description: 'sandbox marker fixture role',
+    prompt_id: null,
+    corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
+    skill_ids: [skillID],
+    mcp_server_ids: [],
   });
-  if (roleRes.status() !== 201) {
-    throw new Error(`create role failed: ${roleRes.status()} ${await roleRes.text()}`);
-  }
-  const role = await roleRes.json() as { id: string };
-  const res = await request.post(`${BACKEND}/api/admin/codes/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      code: CODE,
-      label: 'Sandbox marker code',
-      ghosts: [],
-      assumed_role_id: role.id,
-    },
+  await createCode(request, csrf, {
+    code: CODE,
+    label: 'Sandbox marker code',
+    ghosts: [],
+    assumed_role_id: role.id,
   });
-  if (res.status() !== 201) {
-    throw new Error(`create code failed: ${res.status()} ${await res.text()}`);
-  }
 }

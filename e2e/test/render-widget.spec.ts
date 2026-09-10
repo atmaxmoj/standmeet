@@ -17,7 +17,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { resetInstance } from '@/fixtures/instance';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 import { claimSyncOwner, syncOwner } from '@/fixtures/vault-sync';
 
 const OWNER = syncOwner('renderwidget');
@@ -39,7 +39,7 @@ test.describe('render · standmeet-widget sandboxed iframe', () => {
       await uploadVault(request, OWNER, [
         { rel: 'wiki/widget.md', body: makeVaultMD({ publish: true }, `## W\n\n${WIDGET}`) },
       ]);
-      await goto(page, '/wiki/widget');
+      await openReader(page, '/wiki/widget');
       const doc = page.getByTestId('wiki-body');
       await expect(doc).toBeVisible();
       const frame = doc.locator('iframe[data-testid="widget-iframe"]');
@@ -55,7 +55,7 @@ test.describe('render · standmeet-widget sandboxed iframe', () => {
       await uploadVault(request, OWNER, [
         { rel: 'wiki/badwidget.md', body: makeVaultMD({ publish: true }, `## W\n\n${bad}`) },
       ]);
-      await goto(page, '/wiki/badwidget');
+      await openReader(page, '/wiki/badwidget');
       const doc = page.getByTestId('wiki-body');
       await expect(doc).toBeVisible();
       await expect(doc.locator('iframe[data-testid="widget-iframe"]')).toHaveCount(0);

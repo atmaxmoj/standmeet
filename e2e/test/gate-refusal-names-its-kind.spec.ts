@@ -25,9 +25,9 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
-import { createCode } from '@/fixtures/codes';
+import { createCode, revokeCode } from '@/fixtures/codes';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openGate } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'refusal@example.com',
@@ -87,7 +87,7 @@ test.describe('gate · every refusal names its own kind (F-D-6)', () => {
 // refusalFor -- fills in code + name on the gate, submits, and reads back the exact refusal
 // text the visitor sees.
 async function refusalFor(page: Page, code: string, name: string): Promise<string> {
-  await goto(page, '/gate');
+  await openGate(page);
   await page.getByTestId('gate-code').fill(code);
   await page.getByTestId('gate-visitor-name').fill(name);
   await page.getByTestId('gate-code-submit').click();
@@ -111,10 +111,7 @@ async function setup(playwright: Playwright): Promise<{ request: APIRequestConte
   await enterOnce(request, FULL_CODE, 'FirstSeat');
   // Revoked: created, then revoked.
   const gone = await createCode(request, csrf, { code: REVOKED_CODE, label: 'gone' });
-  const res = await request.post(`${BACKEND}/api/admin/codes/${gone.id}/revoke`, {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  if (res.status() !== 200) throw new Error(`revoke: ${res.status()}`);
+  await revokeCode(request, csrf, gone.id);
   return { request, csrf };
 }
 

@@ -12,7 +12,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openGate } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -77,7 +77,7 @@ test.describe('dock buttons · E — visitor render + click', () => {
   });
 
   async function enterChat(page: Page, code = CODE, name = 'Sam'): Promise<void> {
-    await goto(page, '/gate');
+    await openGate(page);
     await page.getByTestId('gate-code').fill(code);
     await page.getByTestId('gate-visitor-name').fill(name);
     await page.getByTestId('gate-code-submit').click();

@@ -13,7 +13,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'wiki-xlink@example.com', password: 'correct-horse-battery-staple',
@@ -29,7 +29,7 @@ test.describe('F-L-12 · public wiki reader linkifies [[wikilinks]]', () => {
 
   test('a [[Title]] in the body renders as a /wiki/ anchor, not literal [[…]]',
     async ({ page }) => {
-      await goto(page, '/wiki/hub');
+      await openReader(page, '/wiki/hub');
       const body = page.getByTestId('wiki-body');
       await expect(body).toBeVisible({ timeout: 5_000 });
       // the wikilink resolved to an anchor pointing at the target entry
@@ -58,7 +58,7 @@ test.describe('F-L-12 · public wiki reader linkifies [[wikilinks]]', () => {
   // claim about what the visitor sees.
   test('a [[link]] the reader cannot resolve degrades to plain text, not to markup',
     async ({ page }) => {
-      await goto(page, '/wiki/hub');
+      await openReader(page, '/wiki/hub');
       const body = page.getByTestId('wiki-body');
       await expect(body).toBeVisible({ timeout: 5_000 });
       const text = (await body.innerText()).trim();

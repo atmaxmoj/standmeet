@@ -12,7 +12,7 @@ import type { Playwright } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'navi18n@example.com',
@@ -33,13 +33,13 @@ test.describe('admin nav + section heading are translated', () => {
   test('English by default; Chinese under /zh — sidebar labels, group headers, and the heading',
     async ({ adminPage: page }) => {
       // Baseline: English.
-      await goto(page, '/admin/dashboard');
+      await openReader(page, '/admin/dashboard');
       await expect(page.getByTestId('admin-nav-raw'), 'en nav label').toHaveText('raw');
       await expect(page.getByTestId('admin-nav-output'), 'en: output slug shows "outputs"').toHaveText('outputs');
       await expect(page.getByTestId('section-header'), 'en heading').toContainText('dashboard');
 
       // Chinese via the URL locale prefix — the same page renders translated.
-      await goto(page, '/zh/admin/dashboard');
+      await openReader(page, '/zh/admin/dashboard');
       await expect(page.getByTestId('admin-nav-raw'), 'zh nav label').toHaveText('原始');
       await expect(page.getByTestId('admin-nav-output'), 'zh: output section name').toHaveText('输出');
       await expect(page.getByTestId('admin-nav-microsites')).toHaveText('微站');

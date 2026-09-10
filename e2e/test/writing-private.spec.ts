@@ -12,7 +12,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'writing-priv@example.com',
@@ -31,7 +31,7 @@ test.describe('writing private: locked view + code access', () => {
   test('XSS in body → script not executed',
     async ({ page, request }) => {
       await seedWritings(request);
-      await goto(page, '/writings/xss-deep');
+      await openReader(page, '/writings/xss-deep');
       const body = page.getByTestId('writing-article-body');
       await expect(body).toBeVisible({ timeout: 5_000 });
       await expect(body.locator('script')).toHaveCount(0);
@@ -50,7 +50,7 @@ test.describe('writing private: locked view + code access', () => {
   test('crosslink to broken slug → degrades to plain text, not markup',
     async ({ page }) => {
       // Use the writing seeded above which has [[nonexistent-slug]]
-      await goto(page, '/writings/xss-deep');
+      await openReader(page, '/writings/xss-deep');
       const body = page.getByTestId('writing-article-body');
       await expect(body).toBeVisible({ timeout: 5_000 });
       const text = (await body.innerText()).trim();

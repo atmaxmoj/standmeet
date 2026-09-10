@@ -18,7 +18,7 @@ import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'previewfirst@example.com',
@@ -47,7 +47,7 @@ test.describe('microsites · preview before publish', () => {
   // Publish must state what it can't do yet — dead without a slug, and saying so (disabled)
   // is not the same as a dead button (F-N-1's shape).
   test('the editor is fillable and Publish gates on the slug', async ({ adminPage: page }) => {
-    await goto(page, '/admin/edit/new');
+    await openReader(page, '/admin/edit/new');
 
     await expect(page.getByTestId('microsite-source')).toBeVisible();
     await expect(page.getByTestId('microsite-publish')).toBeDisabled();
@@ -87,7 +87,7 @@ test.describe('microsites · preview before publish', () => {
     }, { message: 'after publish the visitor URL serves', timeout: 60_000 }).toBe(200);
 
     // And the live page really carries the content (panel "success" is not the criterion).
-    await goto(page, `/p/${SLUG}`);
+    await openReader(page, `/p/${SLUG}`);
     await expect(page.getByRole('heading', { name: MARKER })).toBeVisible({ timeout: 20_000 });
   });
 });
@@ -96,7 +96,7 @@ test.describe('microsites · preview before publish', () => {
 // to reach a terminal state. Only waits for terminal: asserting "still building" holds for any
 // implementation.
 async function buildPreview(page: Page, slug: string, source: string): Promise<void> {
-  await goto(page, '/admin/edit/new');
+  await openReader(page, '/admin/edit/new');
   await page.waitForURL('**/admin/edit/new', { timeout: 10_000 });
   await page.getByTestId('microsite-slug').fill(slug);
   await fillSource(page, source); // editing schedules the build automatically — no "build preview" click

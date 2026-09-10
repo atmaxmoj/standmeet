@@ -12,7 +12,7 @@ import type { Page } from '@playwright/test';
 import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, type CodedSeed,
 } from '@/fixtures/gcal-setup';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const TZ = 'Asia/Tokyo';
 
@@ -46,7 +46,7 @@ test.describe('visitor · browser timezone reaches the agent turn (#120)', () =>
 
 // enterCode —— ?code entry → fill name in the name picker → submit → wait for the session to land.
 async function enterCode(page: Page, code: string, name: string): Promise<void> {
-  await goto(page, `/?code=${code}`);
+  await openReader(page, `/?code=${code}`);
   const session = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200, { timeout: 15_000 },
   );

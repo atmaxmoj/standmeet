@@ -18,8 +18,10 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool as callMCPTool, initMCP } from '@/fixtures/mcp';
+import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
 import type { SessionCapability, VisitorSession } from '@/fixtures/visitor';
 
@@ -91,25 +93,14 @@ async function seedOwnerWithSkill(request: APIRequestContext): Promise<string> {
 async function createRoleAndCode(
   request: APIRequestContext, csrf: string, skillID: string | null, code: string,
 ): Promise<void> {
-  const roleRes = await request.post(`${BACKEND}/api/admin/roles/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      name: `role-${code}`, description: 'role for skill-tool spec',
-      prompt_id: null, corpus_uris: ['wiki://**', 'output://**'],
-      skill_ids: skillID ? [skillID] : [], mcp_server_ids: [],
-    },
+  const role = await createRole(request, csrf, {
+    name: `role-${code}`, description: 'role for skill-tool spec',
+    prompt_id: null, corpus_uris: ['wiki://**', 'output://**'],
+    skill_ids: skillID ? [skillID] : [], mcp_server_ids: [],
   });
-  if (roleRes.status() !== 201) {
-    throw new Error(`create role: ${roleRes.status()} ${await roleRes.text()}`);
-  }
-  const role = await roleRes.json() as { id: string };
-  const codeRes = await request.post(`${BACKEND}/api/admin/codes/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { code, label: code, ghosts: [], assumed_role_id: role.id },
+  await createCode(request, csrf, {
+    code, label: code, ghosts: [], assumed_role_id: role.id,
   });
-  if (codeRes.status() !== 201) {
-    throw new Error(`create code: ${codeRes.status()} ${await codeRes.text()}`);
-  }
 }
 
 test.describe('tool endpoint · Phase C generic skill tools (skill_use / skill_run_script)', () => {

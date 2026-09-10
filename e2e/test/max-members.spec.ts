@@ -19,7 +19,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, goto } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'maxmembers-owner@example.com',
@@ -56,7 +56,7 @@ test.describe('max_members: code caps how many names, with a clear full state', 
       // Carol (name 3) -> full, the name picker shows "code full", no session.
       const carolCtx = await browser.newContext();
       const carol = await carolCtx.newPage();
-      await goto(carol, `/?code=${CODE}`);
+      await openReader(carol, `/?code=${CODE}`);
       await carol.getByTestId('visitor-name-input').fill('Carol');
       await carol.getByTestId('visitor-name-submit').click();
       await expect(carol.getByTestId('visitor-name-full')).toBeVisible({ timeout: 10_000 });
@@ -90,7 +90,7 @@ test.describe('max_members: code caps how many names, with a clear full state', 
       // picker. So "pre-fill" has to be verified where it actually does pop:
       // switch to a **new code** (a new scenario -> clearNameDismiss -> the
       // picker asks again), and the input pre-fills the previous Dana.
-      await goto(page, `/?code=${CODE}`);
+      await openReader(page, `/?code=${CODE}`);
       await expect(page.getByTestId('visitor-name-input')).toHaveValue('Dana');
       await ctx.close();
     });

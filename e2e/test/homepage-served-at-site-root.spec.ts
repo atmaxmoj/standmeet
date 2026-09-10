@@ -16,7 +16,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -82,7 +82,7 @@ test.describe('A Slice 4 · the custom home page is served at the site root', ()
   test('before a home page is live, `/` is the built-in page (no home marker)', async ({ page }) => {
     // No `home` microsite exists yet (claim seeds none) — so `/` serves the built-in DefaultHome,
     // which carries no home-marker.
-    await goto(page, '/');
+    await openReader(page, '/');
     await expect(page.getByTestId('home-marker')).toHaveCount(0);
   });
 
@@ -92,7 +92,7 @@ test.describe('A Slice 4 · the custom home page is served at the site root', ()
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     await promoteHome(request, csrf);
 
-    await goto(page, '/');
+    await openReader(page, '/');
     // The marker only exists in the promoted home page → its presence proves `/` served it.
     await expect(page.getByTestId('home-marker')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('home-marker')).toContainText(MARKER);

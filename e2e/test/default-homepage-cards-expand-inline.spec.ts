@@ -17,7 +17,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { openReader } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'homeinline@example.com', password: 'correct-horse-battery-staple',
@@ -54,7 +54,7 @@ test.describe('the default homepage opens corpus cards inline (no redirect)', ()
 
   test('a card shows the note, and clicking it reveals the body inline without navigating',
     async ({ page }) => {
-      await goto(page, '/'); // the site root — the homepage as a visitor to the domain sees it
+      await openReader(page, '/'); // the site root — the homepage as a visitor to the domain sees it
 
       // The card is there (title from fetchCorpusCards, via CorpusWidget).
       const title = page.getByText(NOTE_TITLE, { exact: false });
@@ -84,7 +84,7 @@ test.describe('the default homepage opens corpus cards inline (no redirect)', ()
   // assertion can't see this ([[text-assertion-cannot-see-layout]]).
   test('the corpus card list stacks vertically from the widget’s own inline style',
     async ({ page }) => {
-      await goto(page, '/');
+      await openReader(page, '/');
       await expect(page.getByText(NOTE_TITLE, { exact: false }).first()).toBeVisible({ timeout: 20_000 });
       const ol = await page.evaluate(() => {
         const el = [...document.querySelectorAll('ol')].find((o) => getComputedStyle(o).display === 'flex');
