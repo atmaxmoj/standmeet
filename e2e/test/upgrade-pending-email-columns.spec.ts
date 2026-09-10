@@ -34,6 +34,7 @@ import { claim, createAPIToken, login } from '@/fixtures/admin';
 import {
   execSQL, findSetupToken, querySQL, resetInstance, restartBackend,
 } from '@/fixtures/instance';
+import { changeAccountEmail } from '@/fixtures/admin-mutations';
 import { configureMailConnector } from '@/fixtures/mail';
 import { callTool, initMCP } from '@/fixtures/mcp';
 
@@ -79,6 +80,7 @@ function downgrade(): void {
 async function loginStatus(
   request: APIRequestContext, email: string, password: string,
 ): Promise<number> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- login-status probe: the test asserts THIS call's status (old email still authenticates) as the point
   const res = await request.post(`${BACKEND}/api/admin/login`, { data: { email, password } });
   return res.status();
 }
@@ -114,11 +116,7 @@ async function seedInstance(request: APIRequestContext): Promise<void> {
 async function expectEmailChangeGoesPending(request: APIRequestContext): Promise<void> {
   const moved = 'upgrader+moved@example.com';
   const { csrf } = await login(request, OWNER.email, OWNER.password);
-  const res = await request.patch(`${BACKEND}/api/admin/account/email`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { current_password: OWNER.password, new_email: moved },
-  });
-  expect(res.status()).toBe(200);
+  await changeAccountEmail(request, csrf, { current_password: OWNER.password, new_email: moved });
   expect(querySQL(`SELECT pending_email FROM owners WHERE handle = '${OWNER.handle}'`))
     .toBe(moved);
   // Identity hasn't moved yet: before confirmation, login still uses the old email.

@@ -60,6 +60,7 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 async function uploadSpec(
   request: APIRequestContext, csrf: string, spec: string,
 ): Promise<string> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: uploads a spec-driven connector; the security suite inspects the created connector / rejection
   const res = await request.post(`${BACKEND}/api/admin/connectors`, {
     headers: { 'X-Csrftoken': csrf },
     // The unified upload contract is {spec object, binding object} (the spec is
@@ -132,6 +133,7 @@ async function ssrfServerUrlRejected(playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   for (const url of INTERNAL_SERVER_URLS) {
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- attacker probe: uploads a spec whose servers[].url points at an internal net, asserts assembly is refused
     const res = await request.post(`${BACKEND}/api/admin/connectors`, {
       headers: { 'X-Csrftoken': csrf },
       data: { spec: JSON.parse(specWithServerURL(url)) },
@@ -155,6 +157,7 @@ async function ssrfOAuthUrlRejected(playwright: Playwright): Promise<void> {
   // both URLs point at cloud-metadata; a server-side OAuth dance would fetch
   // them. The backend must refuse — either at upload, or at connect time.
   const spec = specWithOAuthURLs('http://169.254.169.254/authorize', 'http://169.254.169.254/token');
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- attacker probe: uploads a spec whose oauth2 URLs point at cloud-metadata, asserts upload or connect refuses egress
   const upload = await request.post(`${BACKEND}/api/admin/connectors`, {
     headers: { 'X-Csrftoken': csrf }, data: { spec: JSON.parse(spec), binding: BENIGN_BINDING },
   });
@@ -166,6 +169,7 @@ async function ssrfOAuthUrlRejected(playwright: Playwright): Promise<void> {
   }
   // accepted at upload → must refuse to start the dance against an internal token URL.
   const id = (await upload.json() as { id: string }).id;
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- attacker probe: connect must refuse to start the oauth dance against an internal token URL
   const connect = await request.post(`${BACKEND}/api/admin/connectors/${id}/connect`, {
     headers: { 'X-Csrftoken': csrf }, data: {},
   });
@@ -178,6 +182,7 @@ async function ssrfOAuthUrlRejected(playwright: Playwright): Promise<void> {
 async function ssrfRejectLeavesNoConnector(playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
   const { csrf } = await login(request, OWNER.email, OWNER.password);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- attacker probe: uploads a rejected internal spec, asserts no connector row was persisted
   await request.post(`${BACKEND}/api/admin/connectors`, {
     headers: { 'X-Csrftoken': csrf },
     data: { spec: JSON.parse(specWithServerURL('http://169.254.169.254/latest/meta-data/')) },
@@ -201,6 +206,7 @@ async function ssrfConsumeTimeRejected(playwright: Playwright): Promise<void> {
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   // passes upload (public-looking base) + credentials cleanly.
   const id = await uploadSpec(request, csrf, specConsumeRedirectsInternal());
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- attacker-probe setup: credential a benign-looking connector before driving the consume-time internal-redirect probe
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf }, data: { api_key: 'benign-key' },
   });
@@ -225,11 +231,13 @@ async function ssrfOAuthDanceRedirectRejected(playwright: Playwright): Promise<v
   const request = await playwright.request.newContext();
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   const id = await uploadSpec(request, csrf, specOAuthDanceRedirectsInternal());
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- attacker-probe setup: credential the connector before driving the oauth-dance internal-redirect probe
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf }, data: { client_id: 'cid', client_secret: 'sec' },
   });
   // start the dance; the mock authorize/token redirect toward internal. The dance
   // must NOT land a connection by following an internal redirect.
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- attacker probe: connect drives the oauth dance; asserts an internal redirect never lands a connection
   const connect = await request.post(`${BACKEND}/api/admin/connectors/${id}/connect`, {
     headers: { 'X-Csrftoken': csrf }, data: {},
   });
@@ -255,6 +263,7 @@ async function secretMaskedInAdminReads(playwright: Playwright): Promise<void> {
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   const id = await uploadSpec(request, csrf, SPEC_BENIGN_APIKEY);
 
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: the credentials write itself must accept + mask the secret in its own response
   const credRes = await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf }, data: { api_key: BENIGN_API_KEY_SECRET },
   });
@@ -312,6 +321,7 @@ async function unreadableCredentialAsksReconnect(playwright: Playwright): Promis
   const request = await playwright.request.newContext();
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   const id = await uploadSpec(request, csrf, SPEC_BENIGN_APIKEY);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- rotation-probe setup: connect a connector before corrupting its stored ciphertext to test the reconnect prompt
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf }, data: { api_key: BENIGN_API_KEY_SECRET },
   });
@@ -345,6 +355,7 @@ async function unreadableCredentialDoesNotSinkTheList(playwright: Playwright): P
   const request = await playwright.request.newContext();
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   const broken = await uploadSpec(request, csrf, SPEC_BENIGN_APIKEY);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- rotation-probe setup: connect a connector before corrupting its ciphertext to prove one bad row doesn't sink the list
   await request.post(`${BACKEND}/api/admin/connectors/${broken}/credentials`, {
     headers: { 'X-Csrftoken': csrf }, data: { api_key: BENIGN_API_KEY_SECRET },
   });
@@ -368,6 +379,7 @@ async function secretNotInVisitorSurface(playwright: Playwright): Promise<void> 
   const request = await playwright.request.newContext();
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   const id = await uploadSpec(request, csrf, SPEC_BENIGN_APIKEY);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- no-leak setup: store a secret so the test can prove it never appears on the visitor-facing surface
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf }, data: { api_key: BENIGN_API_KEY_SECRET },
   });
@@ -406,10 +418,12 @@ async function unauthCannotMutateConnector(playwright: Playwright): Promise<void
   const anon = await playwright.request.newContext();
   // no csrf, no session → mutating routes must refuse (owner_id scoping + CSRF),
   // never silently disconnect or overwrite another owner's creds.
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- attacker probe: unauthenticated credentials write must be refused 401/403
   const cred = await anon.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     data: { api_key: 'attacker-key' },
   });
   expect([401, 403], 'unauthenticated credentials write refused').toContain(cred.status());
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- attacker probe: unauthenticated disconnect must be refused 401/403
   const dis = await anon.delete(`${BACKEND}/api/admin/connectors/${id}/disconnect`);
   expect([401, 403], 'unauthenticated disconnect refused').toContain(dis.status());
   await anon.dispose();
@@ -436,6 +450,7 @@ async function diagInvoke(
   request: APIRequestContext, csrf: string, id: string,
   category: string, op: string, args: Record<string, unknown>,
 ): Promise<{ status: number; text: string }> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- diag back door, kept deliberately inline (extracting it into a fixture would license the bypass; see the comment above)
   const res = await request.post(
     `${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/invoke`,
     { headers: { 'X-Csrftoken': csrf }, data: { category, op, args } },

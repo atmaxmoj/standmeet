@@ -26,6 +26,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { createMcpServer } from '@/fixtures/admin-mutations';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
@@ -102,10 +103,8 @@ async function initOwner(playwright: Playwright): Promise<void> {
   });
   // A registered external MCP server — whether it's **reachable** is irrelevant to this
   // guard; what's asserted here is whether the grant can be edited.
-  const res = await request.post(`${process.env['BACKEND_URL'] ?? 'http://localhost:8000'}/api/admin/mcp-servers`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { name: SERVER, url: 'https://mcp.example.com/mcp', auth_header_name: '', auth_header_value: '' },
+  await createMcpServer(request, csrf, {
+    name: SERVER, url: 'https://mcp.example.com/mcp', auth_header_name: '', auth_header_value: '',
   });
-  if (!res.ok()) throw new Error(`register mcp server failed: ${res.status()}`);
   await request.dispose();
 }

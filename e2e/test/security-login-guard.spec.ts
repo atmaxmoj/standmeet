@@ -12,6 +12,7 @@ import { OWNER, seedOwnerLoggedIn, teardownSeed, type BaseSeed } from '@/fixture
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 async function tryLogin(request: APIRequestContext, ip: string, password: string): Promise<number> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: the pentest hammers /login directly and asserts the rate-limit status (429/503); a throw-on-error fixture would erase the probe.
   const res = await request.post(`${BACKEND}/api/admin/login`, {
     headers: { 'X-Forwarded-For': ip },
     data: { email: OWNER.email, password },

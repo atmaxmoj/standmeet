@@ -113,6 +113,7 @@ test.describe('first-run claim · 4-step wizard polish', () => {
   // is inherently an API-layer concern** -- on the GUI path the token is supplied by the
   // environment, and there's no way to test against "a different token" from there.
   test('a bad setup token is refused by the server', async ({ request }) => {
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- claim is the action under test: asserts a forged setup token is refused (401 + invalid_setup_token)
     const res = await request.post(`${BACKEND}/api/admin/claim`, {
       data: {
         token: 'not-a-real-setup-token',

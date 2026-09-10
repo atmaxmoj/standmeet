@@ -22,12 +22,12 @@ import { setCapabilityEnabled, sessionToolNames } from '@/fixtures/capabilities'
 import {
   setCodeCapabilityDenial, listCodeDenialsStatus, setCodeCorpusDenials,
 } from '@/fixtures/code-denials';
+import { createSkill } from '@/fixtures/admin-mutations';
 import { createCode } from '@/fixtures/codes';
 import { createRole } from '@/fixtures/roles';
 import { OWNER, seedOwnerGCalConnected, teardownSeed, type BaseSeed } from '@/fixtures/gcal-setup';
 import { issueSession } from '@/fixtures/visitor';
 
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const CAP = 'calendar.book';
 let n = 0;
 
@@ -36,12 +36,9 @@ let n = 0;
 // (§D: two codes on the same role).
 async function roleGrantingBook(req: APIRequestContext, csrf: string): Promise<string> {
   n += 1;
-  const sk = await req.post(`${BACKEND}/api/admin/skills/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { name: `acl-bk-${n}`, description: 'book skill', prompt: 'b', allowed_tools: [CAP] },
+  const { id: skillID } = await createSkill(req, csrf, {
+    name: `acl-bk-${n}`, description: 'book skill', prompt: 'b', allowed_tools: [CAP],
   });
-  if (sk.status() !== 201) throw new Error(`skill: ${sk.status()}`);
-  const skillID = (await sk.json() as { id: string }).id;
   const role = await createRole(req, csrf, {
     name: `acl-role-${n}`, description: 'grants book', skill_ids: [skillID],
     corpus_uris: ['wiki://**', 'output://**'],

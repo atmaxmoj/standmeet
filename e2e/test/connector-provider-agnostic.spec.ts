@@ -203,6 +203,7 @@ async function connectCalDAVCalendar(
   });
   // Clear this collection's mock state (events/busy/fail) -- multiple tests share the same connector, so absolute counts must start clean.
   await request.post(`${CALDAV_MOCK}/__mock/caldav/${id}/reset`, { data: {} }).catch(() => undefined);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connector connect flow (save caldav credentials) this spec exercises
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
@@ -218,6 +219,7 @@ async function connectSMTPMail(request: APIRequestContext, csrf: string): Promis
     kind: 'protocol', protocol: 'smtp', category: 'mail',
   });
   const host = process.env['MAILPIT_SMTP_HOST'] ?? 'mail-mock';
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connector connect flow (save smtp credentials) this spec exercises
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
@@ -240,6 +242,7 @@ async function ensureConnector(
     const hit = rows.find((c) => c.category === body.category);
     if (hit) return hit.id;
   }
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bespoke protocol connector build this spec exercises
   const res = await request.post(`${BACKEND}/api/admin/connectors`, {
     headers: { 'X-Csrftoken': csrf }, data: body,
   });
@@ -250,6 +253,7 @@ async function ensureConnector(
 async function connectAndRead(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<ConnRef> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connector connect flow this spec exercises
   const res = await request.post(`${BACKEND}/api/admin/connectors/${id}/connect`, {
     headers: { 'X-Csrftoken': csrf }, data: {},
   });
@@ -261,6 +265,7 @@ async function connectAndRead(
 async function disconnectConnector(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<void> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: disconnect is a connector-lifecycle op this spec exercises
   const res = await request.post(`${BACKEND}/api/admin/connectors/${id}/disconnect`, {
     headers: { 'X-Csrftoken': csrf }, data: {},
   });
@@ -285,6 +290,7 @@ async function sendViaMailContract(
   // that route lived on the generic connector registry, so a category name leaked into the
   // generic layer. Now the registry doesn't write a single category name; the name comes
   // from backend/connectors/smtp/manifest.yaml's owner_ops.
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- op under test: mail_test_send drives MailContract.Send; test asserts ok + via_kind are provider-agnostic
   const res = await request.post(`${BACKEND}/api/admin/connectors/ops/mail_test_send`, {
     headers: { 'X-Csrftoken': csrf }, data: mail,
   });

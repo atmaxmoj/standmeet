@@ -23,6 +23,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { updatePrompt } from '@/fixtures/admin-mutations';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { jobsFetchNew, jobsRegisterSource, mockSetDay, MOCK_UNTITLED_DAY2 } from '@/fixtures/jobs';
@@ -203,11 +204,9 @@ async function livePromptReachesIssuedCodes(request: APIRequestContext): Promise
   const list = await prompts.json() as { id: string; name: string; body: string }[];
   const hiring = list.find((p) => p.name === 'hiring');
   expect(hiring, 'the hiring prompt must exist for a job-loop code to point at it').toBeDefined();
-  const upd = await request.put(`${BACKEND}/api/admin/prompts/${hiring!.id}`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { prompt_id: hiring!.id, name: hiring!.name, body: `${hiring!.body}\n\n${marker}` },
+  await updatePrompt(request, csrf, hiring!.id, {
+    prompt_id: hiring!.id, name: hiring!.name, body: `${hiring!.body}\n\n${marker}`,
   });
-  expect(upd.status(), await upd.text()).toBe(200);
 
   // The recruiter opens the code for the first time only now -- they should get the
   // improved version.

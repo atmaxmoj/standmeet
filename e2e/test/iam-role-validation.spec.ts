@@ -65,6 +65,7 @@ async function expectRenameKeepsGrant(
     .toContain('wiki://public/**');
 
   // The most ordinary thing the owner's AI does: rename only.
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: rename must not silently wipe the role's ACL/safety switch
   const res = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
     headers: { 'X-Csrftoken': csrf },
     data: { name: 'acl-keeper-renamed' },
@@ -86,6 +87,7 @@ async function expectRenameKeepsGrant(
 async function expectEvidenceSwitchSticks(
   request: APIRequestContext, csrf: string,
 ): Promise<void> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: verifies the require_ghost_evidence switch sticks on create
   const res = await request.post(`${BACKEND}/api/admin/roles/`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
@@ -107,6 +109,7 @@ test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
   test('PUT publicRow with a different name → 403 role_builtin_immutable',
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: rename builtin role rejected with 403 role_builtin_immutable
       const res = await request.put(`${BACKEND}/api/admin/roles/${ctx.publicID}`, {
         headers: { 'X-Csrftoken': csrf },
         data: {
@@ -169,6 +172,7 @@ test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
 
   test('DELETE publicRow → 403 role_builtin_immutable', async ({ playwright }) => {
     const { request, csrf } = await authedRequest(() => playwright.request.newContext());
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: delete builtin role rejected with 403 role_builtin_immutable
     const res = await request.delete(`${BACKEND}/api/admin/roles/${ctx.publicID}`, {
       headers: { 'X-Csrftoken': csrf },
     });
@@ -182,6 +186,7 @@ test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
       await createRole(request, csrf, { name: 'dup-role' });
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: duplicate name rejected with 409 role_name_taken
       const res = await request.post(`${BACKEND}/api/admin/roles/`, {
         headers: { 'X-Csrftoken': csrf },
         data: {
@@ -201,6 +206,7 @@ test.describe('A.3-IAM role REST · join ownership validation', () => {
 
   test('role with bogus prompt_id → 400 bad_request', async ({ playwright }) => {
     const { request, csrf } = await authedRequest(() => playwright.request.newContext());
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bogus prompt_id rejected with 400 bad_request
     const res = await request.post(`${BACKEND}/api/admin/roles/`, {
       headers: { 'X-Csrftoken': csrf },
       data: {
@@ -214,6 +220,7 @@ test.describe('A.3-IAM role REST · join ownership validation', () => {
 
   test('role with bogus skill_id → 400 bad_request', async ({ playwright }) => {
     const { request, csrf } = await authedRequest(() => playwright.request.newContext());
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bogus skill_id rejected with 400 bad_request
     const res = await request.post(`${BACKEND}/api/admin/roles/`, {
       headers: { 'X-Csrftoken': csrf },
       data: {
@@ -227,6 +234,7 @@ test.describe('A.3-IAM role REST · join ownership validation', () => {
 
   test('role with bogus mcp_server_id → 400 bad_request', async ({ playwright }) => {
     const { request, csrf } = await authedRequest(() => playwright.request.newContext());
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bogus mcp_server_id rejected with 400 bad_request
     const res = await request.post(`${BACKEND}/api/admin/roles/`, {
       headers: { 'X-Csrftoken': csrf },
       data: {

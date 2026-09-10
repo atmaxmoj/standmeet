@@ -8,9 +8,9 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
+import { createDraft, updateDraft } from '@/fixtures/admin-mutations';
 import { openReader } from '@/fixtures/navigate';
 
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
   email: 'puck-paper@example.com', password: 'correct-horse-battery-staple',
   handle: 'puckpaper', fullName: 'Puck Paper Owner',
@@ -65,10 +65,7 @@ test.describe('résumé canvas is fixed paper, not the editor theme (Q0)', () =>
 });
 
 async function seed(api: APIRequestContext, csrf: string): Promise<string> {
-  const created = await api.post(`${BACKEND}/api/admin/drafts`, {
-    headers: { 'X-Csrftoken': csrf }, data: { company: 'Acme', role: 'Engineer' },
-  });
-  const id = (await created.json() as { id: string }).id;
+  const { id } = await createDraft(api, csrf, { company: 'Acme', role: 'Engineer' });
   const resume_content = {
     identity: { name: 'Sijie Wang', email: 's@ex.io', phone: '', location_line: 'Remote', site: '', links: [] },
     summary: 'A backend engineer.', works: [
@@ -77,8 +74,6 @@ async function seed(api: APIRequestContext, csrf: string): Promise<string> {
     educations: [], skills: [{ category: 'Languages', items: ['Go', 'TypeScript'] }],
     social: [], custom: [], accent: '',
   };
-  await api.patch(`${BACKEND}/api/admin/drafts/${id}`, {
-    headers: { 'X-Csrftoken': csrf }, data: { resume_content, template: '' },
-  });
+  await updateDraft(api, csrf, id, { resume_content, template: '' });
   return id;
 }

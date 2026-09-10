@@ -13,6 +13,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { issueCodeWithSkills, expectCalendarBookExposed } from '@/fixtures/agent-skills-grant';
 import { sessionToolNames } from '@/fixtures/capabilities';
+import { revokeCode } from '@/fixtures/codes';
 import {
   setCodeCapabilityDenial, clearCodeCapabilityDenial, listCodeDenials, postCodeCapabilityDenialRaw,
 } from '@/fixtures/code-denials';
@@ -57,10 +58,7 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
     const { request } = seed; // independent APIRequestContext; bare variable dodges the "writes go through the UI" rule
     const code = await issueCodeWithSkills(request, seed.csrf, { granted_skills: [CAP] });
     await setCodeCapabilityDenial(request, seed.csrf, code.id, CAP);
-    const revoke = await request.post(`${BACKEND}/api/admin/codes/${code.id}/revoke`, {
-      headers: { 'X-Csrftoken': seed.csrf },
-    });
-    expect(revoke.status()).toBeLessThan(300);
+    await revokeCode(request, seed.csrf, code.id);
     const status = await issueSessionStatus(seed.request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'eRevoked' });
     expect(status).toBe(401);
   });
@@ -68,6 +66,7 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
   test('acl-deny-missing-csrf · write deny without CSRF → 403', async () => {
     const { request } = seed; // independent APIRequestContext; bare variable dodges the "writes go through the UI" rule
     const code = await issueCodeWithSkills(request, seed.csrf, { granted_skills: [CAP] });
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: deny write without CSRF must be rejected 403
     const res = await request.post(
       `${BACKEND}/api/admin/codes/${code.id}/denials/capability`,
       { data: { capability_id: CAP } }, // no X-Csrftoken

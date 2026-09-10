@@ -13,6 +13,7 @@ import { writeFileSync } from 'node:fs';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
+import { createDraft, updateDraft } from '@/fixtures/admin-mutations';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -36,10 +37,7 @@ test.describe('résumé look (render the real Typst PDF, observe — no assert)'
 async function seedRealistic(playwright: Playwright): Promise<string> {
   const request: APIRequestContext = await playwright.request.newContext();
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  const created = await request.post(`${BACKEND}/api/admin/drafts`, {
-    headers: { 'X-Csrftoken': csrf }, data: { company: 'Northwind', role: 'Staff Backend Engineer' },
-  });
-  const id = (await created.json() as { id: string }).id;
+  const { id } = await createDraft(request, csrf, { company: 'Northwind', role: 'Staff Backend Engineer' });
   const resume_content = {
     identity: {
       name: 'Sijie Wang', email: 'sijie@example.com', phone: '+1 555 0142',
@@ -74,9 +72,7 @@ async function seedRealistic(playwright: Playwright): Promise<string> {
     custom: [{ label: 'Certifications', value: 'AWS Solutions Architect (SAA)', kind: '' }],
     accent: '',
   };
-  await request.patch(`${BACKEND}/api/admin/drafts/${id}`, {
-    headers: { 'X-Csrftoken': csrf }, data: { resume_content, template: '' },
-  });
+  await updateDraft(request, csrf, id, { resume_content, template: '' });
   await request.dispose();
   return id;
 }

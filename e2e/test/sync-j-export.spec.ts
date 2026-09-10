@@ -7,9 +7,10 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 import * as fflate from 'fflate';
 
 import { login as loginAPI } from '@/fixtures/admin';
+import { updateCorpusEntry } from '@/fixtures/admin-mutations';
 import { makeVaultMD, uploadVault, downloadExport } from '@/fixtures/obsidian';
 import {
-  BACKEND, claimSyncOwner, syncOwner, adminGenreList, type SyncOwner,
+  claimSyncOwner, syncOwner, adminGenreList, type SyncOwner,
 } from '@/fixtures/vault-sync';
 
 type Ctx = { playwright: Playwright };
@@ -198,9 +199,8 @@ async function exportReflectsWebEdit({ playwright }: Ctx): Promise<void> {
   await uploadVault(request, OWNER, [{ rel: 'wiki/edited.md', body: md('vault original') }]);
   const id = (await adminGenreList(request, OWNER, 'wiki')).find((n) => n.title === 'edited')?.id ?? '';
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  await request.patch(`${BACKEND}/api/admin/corpus/wiki/${id}`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { title: 'edited', body: 'WEBEDITKW body', tags: [], parent_id: null, show_as_source: true },
+  await updateCorpusEntry(request, csrf, 'wiki', id, {
+    title: 'edited', body: 'WEBEDITKW body', tags: [], parent_id: null, show_as_source: true,
   });
   const zip = await exportEntries(request);
   const entry = Object.entries(zip).find(([k]) => k.endsWith('wiki/edited.md'))?.[1] ?? '';

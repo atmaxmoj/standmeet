@@ -210,6 +210,7 @@ async function fillSMTPForm(page: Page, fields: Record<string, string>): Promise
 // kind=protocol carries no spec.
 async function createSMTPConnector(request: APIRequestContext): Promise<string> {
   const { csrf } = await login(request, OWNER.email, OWNER.password);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bespoke protocol(SMTP) connector build this spec exercises
   const res = await request.post(`${BACKEND}/api/admin/connectors`, {
     headers: { 'X-Csrftoken': csrf },
     data: { kind: 'protocol', protocol: 'smtp', category: 'mail' },
@@ -222,6 +223,7 @@ async function postCredentials(
   request: APIRequestContext, id: string, fields: Record<string, string>,
 ): Promise<void> {
   const { csrf } = await login(request, OWNER.email, OWNER.password);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connector connect flow (save smtp credentials) this spec exercises
   const res = await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf }, data: fields,
   });
@@ -232,6 +234,7 @@ async function postConnect(
   request: APIRequestContext, id: string,
 ): Promise<{ status: number; body: ConnectResp }> {
   const { csrf } = await login(request, OWNER.email, OWNER.password);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connect returns status+body so the smtp tests assert the connect result
   const res = await request.post(`${BACKEND}/api/admin/connectors/${id}/connect`, {
     headers: { 'X-Csrftoken': csrf }, data: {},
   });

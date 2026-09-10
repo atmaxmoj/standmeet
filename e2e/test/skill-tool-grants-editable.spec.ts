@@ -30,6 +30,7 @@ import type { APIRequestContext } from '@playwright/test';
 import {
   AGENT_OWNER, MOCK_OAUTH2_SCHEME, createAndConnect, disconnectConnector, initOwner,
 } from '@/fixtures/connector-agent-rig';
+import { createSkill, updateSkill } from '@/fixtures/admin-mutations';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -100,22 +101,15 @@ test.describe('skills · a connector operation can be granted from the owner fac
     await createAndConnect(request, csrf, { spec: VENDOR_SPEC, expose_as_agent_tools: true });
     const [op] = (await agentOps(request))[0]!.ops;
 
-    const made = await request.post(`${BACKEND}/api/admin/skills/`, {
-      headers: { 'X-Csrftoken': csrf },
-      data: { name: 'vendor-contacts', description: 'reach the vendor', prompt: 'Use the vendor.' },
+    const skill = await createSkill(request, csrf, {
+      name: 'vendor-contacts', description: 'reach the vendor', prompt: 'Use the vendor.',
     });
-    expect(made.status()).toBe(201);
-    const skill = await made.json() as { id: string };
 
-    const put = await request.put(`${BACKEND}/api/admin/skills/${skill.id}`, {
-      headers: { 'X-Csrftoken': csrf },
-      data: {
-        name: 'vendor-contacts', description: 'reach the vendor',
-        prompt: 'Call the vendor when asked about contacts.',
-        allowed_tools: [op!.name],
-      },
+    const put = await updateSkill(request, csrf, skill.id, {
+      name: 'vendor-contacts', description: 'reach the vendor',
+      prompt: 'Call the vendor when asked about contacts.',
+      allowed_tools: [op!.name],
     });
-    expect(put.status(), 'the owner face accepts a tool grant').toBe(200);
     const saved = await put.json() as { allowed_tools: string[]; prompt: string };
     // What comes back must be **the copy that was actually stored**:
     // asserting only 200 would let an implementation that drops

@@ -21,6 +21,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
+import { createEmbed, deleteEmbed } from '@/fixtures/admin-mutations';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
@@ -48,12 +49,9 @@ interface EmbedWithKey {
 async function createEmbedWithKey(
   request: APIRequestContext, csrf: string, codeID: string, origins: string[],
 ): Promise<EmbedWithKey> {
-  const res = await request.post(`${BACKEND}/api/admin/embeds`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { code_id: codeID, label: 'partner', allowed_origins: origins },
-  });
-  if (res.status() !== 201) throw new Error(`create embed failed: ${res.status()}`);
-  const body = await res.json() as Partial<EmbedWithKey>;
+  const body = await createEmbed(request, csrf, {
+    code_id: codeID, label: 'partner', allowed_origins: origins,
+  }) as Partial<EmbedWithKey>;
   if (!body.key_id || !body.private_key) {
     throw new Error('embed create did not return a per-embed key');
   }
@@ -174,9 +172,7 @@ test.describe('embed · the credential is a per-embed signed JWT, never the code
 
   test('after the embed is revoked, its tokens stop working', async () => {
     const token = tokenFor(embed, ALLOWED);
-    await request.delete(`${BACKEND}/api/admin/embeds/${embed.id}`, {
-      headers: { 'X-Csrftoken': csrf },
-    });
+    await deleteEmbed(request, csrf, embed.id);
     expect((await issueWithToken(request, token, ALLOWED)).status,
       'a revoked embed → its key_id no longer resolves → 401').toBe(401);
   });

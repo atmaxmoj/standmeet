@@ -22,6 +22,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { setEntrySeo } from '@/fixtures/admin-mutations';
 import { createCode } from '@/fixtures/codes';
 import { MEDIA, createEntry, uploadAsset, getEntry } from '@/fixtures/genre-assets';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -56,7 +57,6 @@ const COVER_LINE = 'the line laid over the hero';
 // OUTPUT_HUE — the one the owner picked in the hero editor. **Not** the one derived
 // from code.
 const OUTPUT_HUE = 'violet';
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 test.describe('访客在页面上看得见素材（可见性纯继承文章）', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -318,11 +318,7 @@ async function seedIllustratedOutput(): Promise<void> {
   // Publish — the output landing page is **public**, and an unpublished entry can't
   // be read. There is no MCP op for publishing (it's a toggle on the panel's SEO
   // tab), so this step goes through the admin route.
-  const res = await s.request.patch(
-    `${BACKEND}/api/admin/corpus/output/${id}/seo`,
-    { headers: { 'X-Csrftoken': csrf }, data: { excerpt: '', published: true } },
-  );
-  expect(res.status(), '发布成功了才谈得上读').toBe(200);
+  await setEntrySeo(s.request, csrf, 'output', id, { excerpt: '', published: true });
   outputPath = (await getEntry(s, 'output', id)).path ?? '';
 }
 

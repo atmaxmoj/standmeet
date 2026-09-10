@@ -49,11 +49,13 @@ test.describe('admin sandbox management · #147', () => {
       const list = await listRes.json() as WorkspaceList;
       expect(Array.isArray(list.workspaces), 'workspaces is an array').toBe(true);
 
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: asserts the owner-authed set-TTL route returns 200
       const ttlRes = await request.post(`${BACKEND}/api/admin/sandbox/ttl`, {
         headers: { 'X-Csrftoken': csrf }, data: { seconds: 3600 },
       });
       expect(ttlRes.status(), 'set TTL 200').toBe(200);
 
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: asserts the owner-authed sweep route returns 200 + removed count
       const sweepRes = await request.post(`${BACKEND}/api/admin/sandbox/sweep`, {
         headers: { 'X-Csrftoken': csrf }, data: {},
       });

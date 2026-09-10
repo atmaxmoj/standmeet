@@ -36,6 +36,7 @@ const OWNER = {
 async function guessPassword(
   request: APIRequestContext, csrf: string, guess: string,
 ): Promise<number> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: brute-force probe of the password gate, asserts a 429 appears
   const res = await request.patch(`${BACKEND}/api/admin/account/password`, {
     headers: { 'X-Csrftoken': csrf },
     data: { current_password: guess, new_password: 'whatever-the-attacker-wants-1' },
@@ -86,6 +87,7 @@ test.describe('account · the current-password gate is rate limited like the fro
 
       const codes: number[] = [];
       for (let i = 0; i < ATTEMPTS; i += 1) {
+        // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: brute-force probe of the email gate, asserts a 429 appears
         const res = await request.patch(`${BACKEND}/api/admin/account/email`, {
           headers: { 'X-Csrftoken': csrf },
           data: { current_password: `guess-number-${i}`, new_email: 'attacker@example.com' },

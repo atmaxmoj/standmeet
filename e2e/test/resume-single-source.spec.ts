@@ -15,6 +15,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
+import { createDraft, updateDraft } from '@/fixtures/admin-mutations';
 import { inspectPDF } from '@/fixtures/pdf-inspect';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -85,11 +86,7 @@ test.describe('résumé · one source of truth (editor == thumbnail == PDF)', ()
 // seedDivergent — a draft carrying real resume_content AND an empty stored puck_data: the exact
 // drift the single-source fix defends against.
 async function seedDivergent(api: APIRequestContext, csrf: string): Promise<string> {
-  const created = await api.post(`${BACKEND}/api/admin/drafts`, {
-    headers: { 'X-Csrftoken': csrf }, data: { company: 'Northwind', role: 'Staff Engineer' },
-  });
-  expect(created.status(), 'create draft').toBeLessThan(300);
-  const id = (await created.json() as { id: string }).id;
+  const { id } = await createDraft(api, csrf, { company: 'Northwind', role: 'Staff Engineer' });
   const resume_content = {
     identity: {
       name: NAME, email: 'z@example.com', phone: '+1 555 0100',
@@ -100,12 +97,8 @@ async function seedDivergent(api: APIRequestContext, csrf: string): Promise<stri
     skills: [{ category: 'Languages', items: [SKILL] }],
     social: [], custom: [], accent: '',
   };
-  const res = await api.patch(`${BACKEND}/api/admin/drafts/${id}`, {
-    headers: { 'X-Csrftoken': csrf },
-    // Populated content + EMPTY puck_data = the divergence. The fix ignores the empty puck_data and
-    // derives the editor from resume_content, so the editor is not blanked.
-    data: { resume_content, template: '', puck_data: { content: [], root: { props: {} } } },
-  });
-  expect(res.status(), 'seed resume_content + empty puck_data').toBeLessThan(300);
+  // Populated content + EMPTY puck_data = the divergence. The fix ignores the empty puck_data and
+  // derives the editor from resume_content, so the editor is not blanked.
+  await updateDraft(api, csrf, id, { resume_content, template: '', puck_data: { content: [], root: { props: {} } } });
   return id;
 }

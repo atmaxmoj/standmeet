@@ -57,6 +57,7 @@ test.describe('login · a failed human check must not be reported as a wrong pas
     async () => {
       // The password is correct — that's the entire point of this case: the
       // rejection reason is that check, not the credentials.
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: asserts login with the RIGHT password but no captcha token returns 401 naming the human check
       const res = await request.post(`${BACKEND}/api/admin/login`, {
         data: { email: OWNER.email, password: OWNER.password },
       });

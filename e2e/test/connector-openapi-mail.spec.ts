@@ -178,6 +178,7 @@ async function createConnector(
   request: APIRequestContext, csrf: string,
   body: { spec: unknown; binding: unknown },
 ): Promise<CreateResult> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bespoke openapi connector build; returns status+id+error so callers inspect both 201 and 4xx
   const res = await request.post(`${BACKEND}/api/admin/connectors`, {
     headers: { 'X-Csrftoken': csrf },
     data: body,
@@ -192,11 +193,13 @@ async function createConnector(
 async function connectApiKey(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<ConnStatus> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: the connector connect flow (save credentials) is what the mail tests exercise
   const credRes = await request.post(
     `${BACKEND}/api/admin/connectors/${encodeURIComponent(id)}/credentials`,
     { headers: { 'X-Csrftoken': csrf }, data: { token: 'SG.e2e-fake-key' } },
   );
   if (credRes.status() !== 200) throw new Error(`mail credentials: ${credRes.status()}`);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: the connector connect flow (connect) is what the mail tests exercise
   const connectRes = await request.post(
     `${BACKEND}/api/admin/connectors/${encodeURIComponent(id)}/connect`,
     { headers: { 'X-Csrftoken': csrf }, data: {} },
@@ -210,6 +213,7 @@ async function connectApiKey(
 async function disconnectConnector(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<void> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: disconnect is a connector-lifecycle op the mail tests exercise
   const res = await request.post(
     `${BACKEND}/api/admin/connectors/${encodeURIComponent(id)}/disconnect`,
     { headers: { 'X-Csrftoken': csrf }, data: {} },
@@ -233,6 +237,7 @@ async function diagSend(
   request: APIRequestContext, csrf: string, _id: string,
   mail: { to: string; subject: string; text: string },
 ): Promise<MailSendDiag> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- op under test: mail_test_send is the "send a test mail" button the owner actually clicks; tests assert its categorized reply
   const res = await request.post(`${BACKEND}/api/admin/connectors/ops/mail_test_send`, {
     headers: { 'X-Csrftoken': csrf },
     data: { to: mail.to, subject: mail.subject, text: mail.text },

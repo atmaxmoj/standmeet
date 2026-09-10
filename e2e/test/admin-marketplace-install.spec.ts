@@ -50,6 +50,7 @@ test.describe('marketplace install', () => {
       expect(market.length).toBeGreaterThan(0);
       const pick = market[0]!;
 
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: the marketplace install itself (fetch+parse SKILL.md) is what this verifies
       const installRes = await request.post(`${BACKEND}/api/admin/marketplace/install`, {
         headers: { 'X-Csrftoken': csrf },
         data: { source: pick.source, id: pick.id, name: pick.name, version: pick.version },
@@ -80,6 +81,7 @@ test.describe('marketplace install', () => {
         'PASTED-MANUAL-MARKER body instructions.',
       ].join('\n');
 
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: the manual SKILL.md install itself is what this verifies
       const res = await request.post(`${BACKEND}/api/admin/marketplace/install-manual`, {
         headers: { 'X-Csrftoken': csrf },
         data: { skill_md: md, name: '' },

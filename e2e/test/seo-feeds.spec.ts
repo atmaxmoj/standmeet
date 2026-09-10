@@ -14,9 +14,9 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { publishPage } from '@/fixtures/microsite-rig';
 
 const APP_BASE = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -77,27 +77,11 @@ test.describe('crawlers can read robots + sitemap', () => {
 // live pages appear in the sitemap). The build is asynchronous, so poll it to 'built' before
 // promoting.
 async function seedLiveMicrosite(request: APIRequestContext, csrf: string): Promise<void> {
-  const h = { 'X-Csrftoken': csrf };
-  const create = await request.post(`${BACKEND}/api/admin/microsites/`, {
-    headers: h, data: { slug: MICRO_SLUG, title: 'Press Kit' },
-  });
-  expect(create.status(), 'create microsite').toBe(201);
-  await request.put(`${BACKEND}/api/admin/microsites/${MICRO_SLUG}/files`, {
-    headers: h, data: { path: 'App.tsx', content: 'export default function App(){return <main>press kit</main>;}' },
-  });
-  const started = await request.post(`${BACKEND}/api/admin/microsites/${MICRO_SLUG}/build`, { headers: h });
-  const buildID = (await started.json() as { build_id: string }).build_id;
-  let row: Record<string, unknown> = {};
-  await expect.poll(async () => {
-    row = await (await request.get(`${BACKEND}/api/admin/microsites/builds/${buildID}`, { headers: h })).json();
-    return (row['status'] as string | undefined) ?? 'pending';
-  }, { timeout: 300_000, intervals: [2000] }).toMatch(/^(built|failed)$/);
-  const why = row['error_message'];
-  expect(row['status'], typeof why === 'string' ? why : '').toBe('built');
-  const live = await request.post(`${BACKEND}/api/admin/microsites/${MICRO_SLUG}/live`, {
-    headers: h, data: { build_id: buildID },
-  });
-  expect(live.status(), 'promote to live').toBe(200);
+  await publishPage(
+    request, csrf, MICRO_SLUG,
+    'export default function App(){return <main>press kit</main>;}',
+    300_000,
+  );
 }
 
 async function seedIndexedWiki(request: APIRequestContext): Promise<void> {

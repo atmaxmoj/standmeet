@@ -163,6 +163,7 @@ async function poolAssetIDs(): Promise<string[]> {
 // browser UI's delete is covered in assets-manager-ui.spec.ts), so it drives the admin
 // endpoint directly, the same way global-assets-guard.spec.ts does.
 function poolDelete(id: string) {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: asserts the reference-integrity delete-guard (409 while referenced, 204 once free)
   return request.delete(`${BACKEND}/api/admin/assets/${id}`, {
     headers: { 'X-Csrftoken': csrf },
   });

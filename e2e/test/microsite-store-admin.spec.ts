@@ -95,12 +95,14 @@ async function listDocs(slug: string): Promise<StoreDocs> {
 }
 
 function deleteDoc(slug: string, collection: string, recordID: string) {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: store single-doc delete verified by the spec
   return ctx.delete(`${BACKEND}/api/admin/microsites/${slug}/store/${collection}/${recordID}`, {
     headers: { 'X-Csrftoken': csrf },
   });
 }
 
 function clearStore(slug: string) {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: store clear-all delete verified by the spec
   return ctx.delete(`${BACKEND}/api/admin/microsites/${slug}/store`, {
     headers: { 'X-Csrftoken': csrf },
   });

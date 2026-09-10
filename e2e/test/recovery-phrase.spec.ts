@@ -36,6 +36,7 @@ function extractPhrase(body: string): string {
 }
 
 async function generateRecovery(request: APIRequestContext, csrf: string): Promise<number> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: this spec drives the recovery-generation endpoint and asserts its status (200); returning the status is the point, so it stays inline.
   const res = await request.post(`${BACKEND}/api/admin/account/recovery`, {
     headers: { 'X-Csrftoken': csrf },
   });
@@ -45,6 +46,7 @@ async function generateRecovery(request: APIRequestContext, csrf: string): Promi
 async function recover(
   request: APIRequestContext, email: string, phrase: string,
 ): Promise<number> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: /recover is the endpoint this spec probes and asserts (200 valid, 401 wrong/reused); a throw-on-error fixture would erase those negative assertions.
   const res = await request.post(`${BACKEND}/api/admin/recover`, {
     data: { email, recovery_phrase: phrase },
   });

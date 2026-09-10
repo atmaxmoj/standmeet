@@ -24,6 +24,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { deleteCorpusEntry } from '@/fixtures/admin-mutations';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
 
@@ -139,7 +140,7 @@ async function promoteOutput(request: APIRequestContext, title: string, body: st
 async function deleteWiki(request: APIRequestContext, id: string): Promise<void> {
   // admin route is owner-authed → fresh login on this context sets the cookie + csrf.
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  await request.delete(`${BACKEND}/api/admin/corpus/wiki/${id}`, { headers: { 'X-Csrftoken': csrf } });
+  await deleteCorpusEntry(request, csrf, 'wiki', id);
 }
 
 interface Ref { id: string; title: string }

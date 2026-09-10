@@ -34,6 +34,7 @@ const GOOD_EMAIL = 'nosmtp+moved@example.com';
 async function loginStatus(
   request: APIRequestContext, email: string, password: string,
 ): Promise<number> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: login probe whose status (200/401) proves whether identity moved
   const res = await request.post(`${BACKEND}/api/admin/login`, {
     data: { email, password },
   });

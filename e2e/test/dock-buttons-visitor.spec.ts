@@ -14,8 +14,8 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { openGate } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
+import { updateRole } from '@/fixtures/admin-mutations';
 
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
   email: 'dock-visitor@example.com', password: 'correct-horse-battery-staple',
   handle: 'dockvisitor', fullName: 'Dock Visitor Owner',
@@ -32,15 +32,11 @@ let lateRoleID = '';
 // it while a visitor is mid-session). Module-scope so the describe callback stays within its line cap.
 async function bindSummarizeDock(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  const res = await request.put(`${BACKEND}/api/admin/roles/${lateRoleID}`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      name: 'dockv-late', description: 'wiki', greeting: '', prompt_id: null,
-      corpus_uris: ['wiki://**'], skill_ids: [], mcp_server_ids: [], waypoints: [],
-      dock_buttons: [{ capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }],
-    },
+  await updateRole(request, csrf, lateRoleID, {
+    name: 'dockv-late', description: 'wiki', greeting: '', prompt_id: null,
+    corpus_uris: ['wiki://**'], skill_ids: [], mcp_server_ids: [], waypoints: [],
+    dock_buttons: [{ capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }],
   });
-  expect(res.status(), 'bind dock via admin PUT').toBe(200);
 }
 
 test.describe('dock buttons · E — visitor render + click', () => {

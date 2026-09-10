@@ -73,6 +73,7 @@ test.describe('admin requests management', () => {
       const request = await playwright.request.newContext();
       const id = await firstRequestID(request);
       const { csrf } = await login(request, OWNER.email, OWNER.password);
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: asserts approve returns 400 without a verified mail connector
       const res = await request.post(`${BACKEND}/api/admin/access-requests/${id}/approve`, {
         headers: { 'X-Csrftoken': csrf }, data: {},
       });
@@ -90,11 +91,13 @@ test.describe('admin requests management', () => {
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await login(request, OWNER.email, OWNER.password);
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: #155 asserts saving empty SMTP creds returns 200
       const saved = await request.post(`${BACKEND}/api/admin/connectors/smtp/credentials`, {
         headers: { 'X-Csrftoken': csrf },
         data: { host: '', port: '0', username: '', password: '', from_address: '', from_name: '' },
       });
       expect(saved.status()).toBe(200);
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: #155 asserts connect returns 200 + connected:false + reason
       const connected = await request.post(`${BACKEND}/api/admin/connectors/smtp/connect`, {
         headers: { 'X-Csrftoken': csrf },
       });

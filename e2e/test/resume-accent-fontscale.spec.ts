@@ -14,8 +14,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
-
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
+import { createDraft, updateDraft } from '@/fixtures/admin-mutations';
 const OWNER = {
   email: 'resume-knobs@example.com', password: 'correct-horse-battery-staple',
   handle: 'resumeknobs', fullName: 'Resume Knobs Owner',
@@ -63,10 +62,7 @@ async function openComposer(page: Page, id: string): Promise<void> {
 // seed — a draft whose resume_content sets the accent + font_scale knobs, with a summary so a section
 // heading (which uses both) renders.
 async function seed(api: APIRequestContext, csrf: string): Promise<string> {
-  const created = await api.post(`${BACKEND}/api/admin/drafts`, {
-    headers: { 'X-Csrftoken': csrf }, data: { company: 'Northwind', role: 'Staff Engineer' },
-  });
-  const id = (await created.json() as { id: string }).id;
+  const { id } = await createDraft(api, csrf, { company: 'Northwind', role: 'Staff Engineer' });
   const resume_content = {
     identity: {
       name: 'Ada Knobs', email: 'ada@example.com', phone: '', location_line: '', site: '', links: [],
@@ -75,9 +71,6 @@ async function seed(api: APIRequestContext, csrf: string): Promise<string> {
     works: [], educations: [], skills: [], social: [], custom: [],
     accent: ACCENT, font_scale: SCALE,
   };
-  const res = await api.patch(`${BACKEND}/api/admin/drafts/${id}`, {
-    headers: { 'X-Csrftoken': csrf }, data: { resume_content, template: '' },
-  });
-  expect(res.status(), 'seed resume_content with accent + font_scale').toBeLessThan(300);
+  await updateDraft(api, csrf, id, { resume_content, template: '' });
   return id;
 }

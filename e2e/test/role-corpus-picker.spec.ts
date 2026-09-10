@@ -17,7 +17,7 @@ import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
-import { BACKEND } from '@/fixtures/vault-sync';
+import { createCorpusEntry } from '@/fixtures/admin-mutations';
 
 const OWNER = {
   email: 'picker@example.com',
@@ -213,12 +213,10 @@ async function initOwner(playwright: Playwright): Promise<void> {
 async function seedNote(
   request: Awaited<ReturnType<Playwright['request']['newContext']>>, csrf: string,
 ): Promise<void> {
-  await request.post(`${BACKEND}/api/admin/corpus/wiki`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { title: 'Thinking', body: 'A curated fact.', tags: ['node'], show_as_source: true },
+  await createCorpusEntry(request, csrf, 'wiki', {
+    title: 'Thinking', body: 'A curated fact.', tags: ['node'], show_as_source: true,
   });
-  await request.post(`${BACKEND}/api/admin/corpus/wiki`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { title: 'Persona', body: 'Read but never cited.', tags: ['node'], show_as_source: false },
+  await createCorpusEntry(request, csrf, 'wiki', {
+    title: 'Persona', body: 'Read but never cited.', tags: ['node'], show_as_source: false,
   });
 }

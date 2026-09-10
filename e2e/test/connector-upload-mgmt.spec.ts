@@ -120,10 +120,12 @@ test.describe('connector · area G upload / manage', () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     // google-calendar is a built-in connector (builtins/data/google-calendar,
     // embedded into the binary).
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: DELETE a built-in connector must be refused 409 builtin_readonly
     const del = await request.delete(`${BACKEND}/api/admin/connectors/google-calendar`, {
       headers: { 'X-Csrftoken': csrf },
     });
     expect(del.status(), 'DELETE a built-in connector → 409 builtin_readonly').toBe(409);
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: PUT (edit) a built-in connector must be refused 409 builtin_readonly
     const put = await request.put(`${BACKEND}/api/admin/connectors/google-calendar`, {
       headers: { 'X-Csrftoken': csrf },
       data: { spec: JSON.parse(validCalendarSpec()), binding: calendarBinding() },

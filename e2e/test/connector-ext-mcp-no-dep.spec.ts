@@ -29,6 +29,7 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
+import { grantMcpDep } from '@/fixtures/admin-mutations';
 import {
   MOCK_GCAL_CREDS, getGCalStatus, initGCalOAuth, resetMockGCal, saveGCalCredentials,
 } from '@/fixtures/gcal';
@@ -106,10 +107,7 @@ async function registerExtServerAndCode(
 async function authorizeDepGrant(
   request: APIRequestContext, csrf: string, serverID: string, dep: string,
 ): Promise<void> {
-  await request.post(`${BACKEND}/api/admin/mcp-servers/${serverID}/dep-grants`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { dep },
-  });
+  await grantMcpDep(request, csrf, serverID, { dep });
 }
 
 test.describe('connector dep · ext-mcp plugin is NOT auto-injected a dep handle (lowest trust)', () => {

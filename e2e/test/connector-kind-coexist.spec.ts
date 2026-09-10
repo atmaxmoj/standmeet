@@ -301,6 +301,7 @@ async function connectGoogleCalendar(
 ): Promise<ConnRef> {
   let id = await findExisting(request, 'calendar', 'openapi');
   if (!id) {
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bespoke openapi calendar connector build the coexistence tests inspect
     const res = await request.post(`${BACKEND}/api/admin/connectors`, {
       headers: { 'X-Csrftoken': csrf }, data: { spec: SAMPLE_SPEC, binding: SAMPLE_BINDING },
     });
@@ -308,11 +309,13 @@ async function connectGoogleCalendar(
     id = (await res.json() as { id: string }).id;
   }
   await request.post(`${GCAL_MOCK}/__mock/gcal/reset`, { data: {} }).catch(() => undefined);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connector connect flow (save oauth credentials) the coexistence tests exercise
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf }, data: { client_id: 'kc-client', client_secret: 'kc-secret' },
   });
   // oauth2 dance: connect returns the consent-page URL; walk through
   // authorize→callback→token, and coming back means connected+active.
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connector connect flow (oauth2 connect) the coexistence tests exercise
   const conn = await request.post(`${BACKEND}/api/admin/connectors/${id}/connect`, {
     headers: { 'X-Csrftoken': csrf }, data: {},
   });
@@ -331,6 +334,7 @@ async function connectCalDAVCalendar(
     kind: 'protocol', protocol: 'caldav', category: 'calendar',
   });
   await request.post(`${CALDAV_MOCK}/__mock/caldav/${id}/reset`, { data: {} }).catch(() => undefined);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connector connect flow (save caldav credentials) the coexistence tests exercise
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
     data: { url: `${CALDAV_API}/caldav/${id}`, username: 'owner', password: 'pw', tls: 'none' },
@@ -347,6 +351,7 @@ async function ensureProtocolConnector(
 ): Promise<string> {
   const hit = await findExisting(request, body.category, body.kind);
   if (hit) return hit;
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bespoke protocol connector build the coexistence tests inspect
   const res = await request.post(`${BACKEND}/api/admin/connectors`, {
     headers: { 'X-Csrftoken': csrf }, data: body,
   });
@@ -386,6 +391,7 @@ function activeId(cals: ConnRef[]): string | undefined {
 async function activateConnector(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<void> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: activate is the coexistence slot-arbitration action this spec proposes and exercises
   const res = await request.post(`${BACKEND}/api/admin/connectors/${id}/activate`, {
     headers: { 'X-Csrftoken': csrf }, data: {},
   });
@@ -395,6 +401,7 @@ async function activateConnector(
 async function connectAndRead(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<ConnRef> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connector connect flow the coexistence tests exercise
   const res = await request.post(`${BACKEND}/api/admin/connectors/${id}/connect`, {
     headers: { 'X-Csrftoken': csrf }, data: {},
   });
@@ -406,6 +413,7 @@ async function connectAndRead(
 async function disconnectConnector(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<void> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: disconnect is a connector-lifecycle op the coexistence tests exercise
   const res = await request.post(`${BACKEND}/api/admin/connectors/${id}/disconnect`, {
     headers: { 'X-Csrftoken': csrf }, data: {},
   });

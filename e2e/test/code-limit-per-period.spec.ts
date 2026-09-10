@@ -41,6 +41,7 @@ const CODE = 'RATE-2PH'; // 2 turns per hour
 async function createCodeRaw(
   request: APIRequestContext, csrf: string, body: Record<string, unknown>,
 ): Promise<void> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- seed the createCode fixture cannot express: it carries limit_per_period, which CreateCodeInput drops
   const res = await request.post(`${BACKEND}/api/admin/codes`, {
     headers: { 'X-Csrftoken': csrf }, data: body,
   });

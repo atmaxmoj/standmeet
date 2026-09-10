@@ -21,6 +21,7 @@ import { join } from 'node:path';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { createKeypair } from '@/fixtures/keypair';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const REPO = join(__dirname, '../..');
@@ -79,11 +80,7 @@ test.describe('MCP client version-skew advisory follows the real versions', () =
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
 
       // A signed keypair, written where the bin expects its creds.
-      const kp = await request.post(`${BACKEND}/api/admin/keypairs`, {
-        headers: { 'X-Csrftoken': csrf }, data: { label: 'skew-e2e' },
-      });
-      expect(kp.status(), 'keypair created').toBe(201);
-      const key = (await kp.json()) as { key_id: string; private_key_pem: string };
+      const key = await createKeypair(request, csrf, 'skew-e2e');
       const dir = await mkdtemp(join(tmpdir(), 'skew-'));
       const credsPath = join(dir, 'creds.json');
       await writeFile(credsPath, JSON.stringify({ keyId: key.key_id, privateKeyPem: key.private_key_pem }));

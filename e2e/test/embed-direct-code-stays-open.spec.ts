@@ -46,6 +46,7 @@ const EMBEDDED_CODE = 'EMBED-DIRECT';
 async function createEmbed(
   request: APIRequestContext, csrf: string, codeID: string, origins: string[],
 ): Promise<number> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: this helper returns the status so a test can assert a second embed on a code → 409
   const res = await request.post(`${BACKEND}/api/admin/embeds`, {
     headers: { 'X-Csrftoken': csrf },
     data: { code_id: codeID, label: 'e', allowed_origins: origins },

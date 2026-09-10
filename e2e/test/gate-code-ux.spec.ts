@@ -192,12 +192,9 @@ async function openGateUnhydrated(page: Page): Promise<() => Promise<void>> {
   };
 }
 
-// openGate -- these are gate code-panel tests; go straight to /gate. (The homepage is a
-// microsite now; its access CTA is the GateWidget, covered by its own specs — reaching the
-// gate from it is not what these panel tests are about.)
-async function openGate(page: Page): Promise<void> {
-  await openGate(page);
-}
+// These are gate code-panel tests; go straight to /gate via the imported openGate helper. (The
+// homepage is a microsite now; its access CTA is the GateWidget, covered by its own specs — reaching
+// the gate from it is not what these panel tests are about.)
 
 // submitCode -- enter the gate, fill in a code (optionally a name), submit. Each test
 // case is left with only the one assertion it cares about.

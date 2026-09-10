@@ -26,6 +26,7 @@ const OWNER = {
 let imageAsset = { id: '', size: 0 };
 
 async function setFavicon(api: APIRequestContext, csrf: string, assetID: string): Promise<void> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- needs helper: no admin-mutations helper for PUT /api/admin/appearance/favicon; setting the favicon is also the action under test (picked-image case asserts the served bytes)
   const res = await api.put(`${BACKEND}/api/admin/appearance/favicon`, {
     headers: { 'X-Csrftoken': csrf }, data: { asset_id: assetID },
   });

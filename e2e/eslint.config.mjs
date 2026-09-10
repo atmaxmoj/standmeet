@@ -254,11 +254,10 @@ export default tseslint.config(
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'no-restricted-syntax': ['error', ...SPEC_SYNTAX_RESTRICTIONS],
-      // The goto-teleport backlog — a WARNING (see e2eLocal above); flip to 'error' to enforce.
-      'e2e-local/no-goto-teleport': 'warn',
-      // The direct-mutating-API backlog — WARN (see e2eLocal above); flip to 'error' once specs
-      // seed via MCP/fixtures or drive the GUI instead of `api.post/.patch(...)`.
-      'e2e-local/no-direct-mutating-api': 'warn',
+      // Backlog cleared (all specs converted to semantic nav helpers + fixture/MCP seeds, with
+      // marked eslint-disables on the action-under-test calls), so both are now ENFORCED.
+      'e2e-local/no-goto-teleport': 'error',
+      'e2e-local/no-direct-mutating-api': 'error',
     },
   },
   // Connector specs additionally ban Chinese in test titles + expect messages

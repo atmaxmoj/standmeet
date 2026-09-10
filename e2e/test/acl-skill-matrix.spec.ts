@@ -13,6 +13,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
+import { createSkill as seedSkill } from '@/fixtures/admin-mutations';
 import { setCodeSkillDenial } from '@/fixtures/code-denials';
 import { OWNER, seedOwnerLoggedIn, teardownSeed, type BaseSeed } from '@/fixtures/gcal-setup';
 import { createCode } from '@/fixtures/codes';
@@ -24,12 +25,10 @@ const MARKER = 'ACL-SKILL-L1-MARKER-7f3a';
 const HANDLE = OWNER.handle;
 
 async function createSkill(req: APIRequestContext, csrf: string, name: string, desc: string): Promise<string> {
-  const res = await req.post(`${BACKEND}/api/admin/skills/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { name, description: desc, prompt: 'fixture body', allowed_tools: [] },
+  const { id } = await seedSkill(req, csrf, {
+    name, description: desc, prompt: 'fixture body', allowed_tools: [],
   });
-  if (res.status() !== 201) throw new Error(`create skill: ${res.status()}`);
-  return (await res.json() as { id: string }).id;
+  return id;
 }
 
 async function diagPrompt(req: APIRequestContext, token: string): Promise<{ full: string; hash: string }> {

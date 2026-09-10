@@ -26,6 +26,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { createEmbed } from '@/fixtures/admin-mutations';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { createEntry } from '@/fixtures/genre-assets';
@@ -60,17 +61,6 @@ const CV_BODY = [
   'Owned the dispatch pipeline and its verification harness.',
 ].join('\n');
 
-// createEmbed -- creates an embed (attached to a given code, pinned to an origin).
-async function createEmbed(
-  request: APIRequestContext, csrf: string, codeID: string, origins: string[],
-): Promise<number> {
-  const res = await request.post(`${BACKEND}/api/admin/embeds`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { code_id: codeID, label: 'partner-site', allowed_origins: origins },
-  });
-  return res.status();
-}
-
 // issueWidgetSession -- creates a code session from **the host site's origin**, exactly
 // the cross-origin POST (carrying an Origin header) that a browser's <standmeet-chat>
 // would send. Returns the parsed session so it can feed into searchTitles/grepTitles.
@@ -104,8 +94,9 @@ test.describe('embed · a widget session carries the code\'s corpus reach and ca
     const code = await createCode(request, csrf, {
       code: WIDGET_CODE, label: 'partner widget', assumed_role_id: hiring.id,
     });
-    const embedStatus = await createEmbed(request, csrf, code.id, [ALLOWED]);
-    expect(embedStatus, '建 embed 必须成功（201）').toBe(201);
+    await createEmbed(request, csrf, {
+      code_id: code.id, label: 'partner-site', allowed_origins: [ALLOWED],
+    });
     await request.dispose();
   });
 

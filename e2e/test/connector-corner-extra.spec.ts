@@ -94,6 +94,7 @@ test.describe('connector · extra corner / error stream (wrap-up)', () => {
       '{"bearer":{"type":"http","scheme":"bearer"}}',
       '{"apiKey":{"type":"apiKey","in":"header","name":"X-Api-Key"}}',
     );
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: #161 asserts editing spec (bearer→apiKey) returns 200 and re-derives the credential form
     const res = await request.put(`${BACKEND}/api/admin/connectors/${id}`, {
       headers: { 'X-Csrftoken': csrf },
       data: { spec: JSON.parse(apiKeySpec), binding: CAL_BINDING },
@@ -122,6 +123,7 @@ test.describe('connector · extra corner / error stream (wrap-up)', () => {
     expect(cals.filter((c) => c.active).length, 'exactly one active').toBe(1);
 
     // Explicitly activating the other one → the slot hands over.
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: asserts activating b hands over the single active slot (b active, a inactive)
     await request.post(`${BACKEND}/api/admin/connectors/${b}/activate`, { headers: { 'X-Csrftoken': csrf }, data: {} });
     const after = (await listConnectors(request)).filter((c) => c.category === 'calendar');
     expect(after.find((c) => c.id === b)?.active, 'after activate, b becomes active').toBe(true);
@@ -154,6 +156,7 @@ test.describe('connector · credential-form derivation drift guards (area B)', (
       '{"bearer":{"type":"http","scheme":"bearer"}}',
       '{"sendgrid":{"type":"apiKey","in":"header","name":"X-Custom-Key"}}',
     );
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: asserts PUT of a named-apiKey spec returns 200 and the derived field stays "key"
     const res = await request.put(`${BACKEND}/api/admin/connectors/${id}`, {
       headers: { 'X-Csrftoken': csrf },
       data: { spec: JSON.parse(namedSpec), binding: CAL_BINDING },
@@ -178,6 +181,7 @@ test.describe('connector · credential-form derivation drift guards (area B)', (
       '{"bearer":{"type":"http","scheme":"bearer"}}',
       '{"oidc":{"type":"openIdConnect","openIdConnectUrl":"https://issuer.example.com/.well-known/openid-configuration"}}',
     );
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: asserts PUT of an oidc spec returns 200 and derives oauth fields, not a bare token
     const res = await request.put(`${BACKEND}/api/admin/connectors/${id}`, {
       headers: { 'X-Csrftoken': csrf },
       data: { spec: JSON.parse(oidcSpec), binding: CAL_BINDING },
@@ -211,14 +215,17 @@ async function initOwner(playwright: Playwright): Promise<APIRequestContext> {
 async function assembleOpenapiCalendar(
   request: APIRequestContext, csrf: string, spec: string, binding: unknown,
 ): Promise<string> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- bespoke connector build (spec+binding); no fixture exists for the connector-assembly REST surface this spec exercises
   const res = await request.post(`${BACKEND}/api/admin/connectors`, {
     headers: { 'X-Csrftoken': csrf }, data: { spec: JSON.parse(spec), binding },
   });
   if (res.status() !== 201) throw new Error(`create connector: ${res.status()}`);
   const id = (await res.json() as { id: string }).id;
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- bespoke connector build: stores bearer creds on the freshly assembled connector (no fixture for this surface)
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf }, data: { token: 'test-bearer-token' },
   });
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- bespoke connector build: connects the freshly assembled connector (no fixture for this surface)
   await request.post(`${BACKEND}/api/admin/connectors/${id}/connect`, {
     headers: { 'X-Csrftoken': csrf }, data: {},
   });
@@ -256,6 +263,7 @@ async function diagInvoke(
   request: APIRequestContext, csrf: string, id: string,
   category: string, op: string, args: Record<string, unknown>,
 ): Promise<{ status: number; text: string }> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- diag backdoor deliberately kept inline (see comment above); not a seed
   const res = await request.post(
     `${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/invoke`,
     { headers: { 'X-Csrftoken': csrf }, data: { category, op, args } },

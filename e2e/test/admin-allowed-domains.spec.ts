@@ -46,6 +46,7 @@ test.describe('admin allowed domains', () => {
 
         expect(await listDomains(request)).not.toContain(DOMAIN);
 
+        // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: pins the facade contract (add returns 204 + empty body)
         const added = await request.post(`${BACKEND}/api/admin/allowed-domains`, {
           headers: { 'X-Csrftoken': csrf },
           data: { domain: DOMAIN },
@@ -54,6 +55,7 @@ test.describe('admin allowed domains', () => {
         expect(await added.text()).toBe('');
         expect(await listDomains(request)).toContain(DOMAIN);
 
+        // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: pins the facade contract (remove returns 204)
         const removed = await request.delete(
           `${BACKEND}/api/admin/allowed-domains/${DOMAIN}`,
           { headers: { 'X-Csrftoken': csrf } },
@@ -62,6 +64,7 @@ test.describe('admin allowed domains', () => {
         expect(await listDomains(request)).not.toContain(DOMAIN);
 
         // idempotent: deleting one that doesn't exist does not error.
+        // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: asserts a repeat delete is idempotent (still 204)
         const again = await request.delete(
           `${BACKEND}/api/admin/allowed-domains/${DOMAIN}`,
           { headers: { 'X-Csrftoken': csrf } },
@@ -77,6 +80,7 @@ test.describe('admin allowed domains', () => {
       const request = await playwright.request.newContext();
       try {
         const { csrf } = await login(request, OWNER.email, OWNER.password);
+        // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: asserts an empty domain is rejected 400, not 500
         const res = await request.post(`${BACKEND}/api/admin/allowed-domains`, {
           headers: { 'X-Csrftoken': csrf },
           data: { domain: '' },

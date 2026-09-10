@@ -18,9 +18,8 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
+import { createDraft, updateDraft } from '@/fixtures/admin-mutations';
 import { openReader } from '@/fixtures/navigate';
-
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
   email: 'puck-sections@example.com', password: 'correct-horse-battery-staple',
   handle: 'pucksections', fullName: 'Puck Sections Owner',
@@ -81,10 +80,7 @@ test.describe('the composer renders draft sections as distinct components (Q0)',
 });
 
 async function seed(api: APIRequestContext, csrf: string): Promise<string> {
-  const created = await api.post(`${BACKEND}/api/admin/drafts`, {
-    headers: { 'X-Csrftoken': csrf }, data: { company: 'Acme', role: 'Engineer' },
-  });
-  const id = (await created.json() as { id: string }).id;
+  const { id } = await createDraft(api, csrf, { company: 'Acme', role: 'Engineer' });
   // The exact shape that broke on sijie (draft 0533bda3): no works; two educations; one skill set.
   const resume_content = {
     identity: { name: 'E', email: 'e@e.io', phone: '', location_line: 'Remote', site: '', links: [] },
@@ -97,8 +93,6 @@ async function seed(api: APIRequestContext, csrf: string): Promise<string> {
     skills: [{ category: '', items: ['x'] }],
     social: [], custom: [], accent: '',
   };
-  await api.patch(`${BACKEND}/api/admin/drafts/${id}`, {
-    headers: { 'X-Csrftoken': csrf }, data: { resume_content, template: '' },
-  });
+  await updateDraft(api, csrf, id, { resume_content, template: '' });
   return id;
 }

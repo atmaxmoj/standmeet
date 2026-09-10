@@ -45,6 +45,7 @@ test.describe('admin auth + CSRF guards', () => {
       const ctx = await playwright.request.newContext();
       // Log in to get the cookie, but deliberately omit X-Csrftoken.
       await loginAPI(ctx, OWNER.email, OWNER.password);
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: authenticated POST without X-Csrftoken must be rejected 403 (csrf_invalid)
       const res = await ctx.post(`${BACKEND}/api/admin/codes/`, {
         data: { code: 'CSRF-TEST', label: 'should fail', purpose: 'csrf check' },
         headers: { 'Content-Type': 'application/json' },

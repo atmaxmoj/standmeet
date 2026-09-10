@@ -15,6 +15,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, PlaywrightWorkerArgs } from '@playwright/test';
 
 import { claim, login } from '@/fixtures/admin';
+import { changeAccountEmail, changeAccountPassword, requestRecovery } from '@/fixtures/admin-mutations';
 import { execSQL, findSetupToken, querySQL, resetInstance } from '@/fixtures/instance';
 import {
   clearMailpit, configureMailConnector, confirmLinkIn, followMailedLink,
@@ -40,6 +41,7 @@ const SECOND = 'pending+second@example.com';
 async function loginStatus(
   request: APIRequestContext, email: string, password: string,
 ): Promise<number> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: login probe whose status (200/401) proves whether identity moved
   const res = await request.post(`${BACKEND}/api/admin/login`, { data: { email, password } });
   return res.status();
 }
@@ -47,9 +49,8 @@ async function loginStatus(
 async function requestChange(
   request: APIRequestContext, csrf: string, newEmail: string,
 ): Promise<number> {
-  const res = await request.patch(`${BACKEND}/api/admin/account/email`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { current_password: OWNER.password, new_email: newEmail },
+  const res = await changeAccountEmail(request, csrf, {
+    current_password: OWNER.password, new_email: newEmail,
   });
   return res.status();
 }
@@ -111,10 +112,7 @@ async function recoveryStaysOnTheOldAddress(playwright: PW): Promise<void> {
   expect(await requestChange(request, csrf, FIRST)).toBe(200);
   await clearMailpit(request);
 
-  const res = await request.post(`${BACKEND}/api/admin/account/recovery`, {
-    headers: { 'X-Csrftoken': csrf }, data: {},
-  });
-  expect(res.status()).toBe(200);
+  await requestRecovery(request, csrf);
 
   // It went to the old address.
   expect((await waitForMailTo(request, OWNER.email)).length).toBeGreaterThan(0);
@@ -205,9 +203,8 @@ async function passwordChangeLeavesPendingAlone(
   expect(await requestChange(request, csrf, FIRST)).toBe(200);
 
   const newPassword = 'another-correct-horse-9876';
-  const res = await request.patch(`${BACKEND}/api/admin/account/password`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { current_password: OWNER.password, new_password: newPassword },
+  const res = await changeAccountPassword(request, csrf, {
+    current_password: OWNER.password, new_password: newPassword,
   });
   // The password-change route uses noContent — success is 204, not 200.
   expect(res.status()).toBe(204);
@@ -217,9 +214,8 @@ async function passwordChangeLeavesPendingAlone(
 
   // Reset it, so later tests in this file aren't affected.
   const fresh = await login(request, OWNER.email, newPassword);
-  await request.patch(`${BACKEND}/api/admin/account/password`, {
-    headers: { 'X-Csrftoken': fresh.csrf },
-    data: { current_password: newPassword, new_password: OWNER.password },
+  await changeAccountPassword(request, fresh.csrf, {
+    current_password: newPassword, new_password: OWNER.password,
   });
   await request.dispose();
 }

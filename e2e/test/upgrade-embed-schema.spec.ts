@@ -19,6 +19,7 @@ import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
 import { signEmbedToken } from '@/fixtures/embed-token';
+import { createEmbed } from '@/fixtures/admin-mutations';
 import {
   execSQL, findSetupToken, querySQL, resetInstance, restartBackend,
 } from '@/fixtures/instance';
@@ -153,12 +154,9 @@ test.describe('upgrade · deploying the new version brings up the embeds table +
       // The new feature works end-to-end post-upgrade: create an embed pinned to an
       // origin (the server mints its Ed25519 keypair, proving the signing-key columns
       // came up), then an embed_token signed for an off-allowlist origin is refused (403).
-      const mk = await request.post(`${BACKEND}/api/admin/embeds`, {
-        headers: { 'X-Csrftoken': auth.csrf },
-        data: { code_id: codeID, label: 'e', allowed_origins: [ALLOWED] },
-      });
-      expect(mk.status(), '升级后能建 embed').toBe(201);
-      const embed = await mk.json() as { id: string; key_id: string; private_key: string };
+      const embed = await createEmbed(request, auth.csrf, {
+        code_id: codeID, label: 'e', allowed_origins: [ALLOWED],
+      }) as { id: string; key_id: string; private_key: string };
       expect(embed.key_id && embed.private_key, '升级后 embed 带回了签名密钥').toBeTruthy();
       const evilToken = signEmbedToken({
         keyId: embed.key_id, embedId: embed.id,

@@ -10,6 +10,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
+import { createDraft } from '@/fixtures/admin-mutations';
 import { openReader } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -27,10 +28,7 @@ test.describe('discarding a draft removes it from the list (Q0)', () => {
       test.setTimeout(120_000);
       const api: APIRequestContext = await playwright.request.newContext();
       const { csrf } = await loginAPI(api, OWNER.email, OWNER.password);
-      const created = await api.post(`${BACKEND}/api/admin/drafts`, {
-        headers: { 'X-Csrftoken': csrf }, data: { company: 'Acme', role: 'Engineer' },
-      });
-      const id = (await created.json() as { id: string }).id;
+      const { id } = await createDraft(api, csrf, { company: 'Acme', role: 'Engineer' });
 
       await openReader(page, '/admin/drafts');
       const card = page.getByTestId('draft-card');

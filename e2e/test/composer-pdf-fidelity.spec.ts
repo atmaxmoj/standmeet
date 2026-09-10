@@ -14,6 +14,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
+import { createDraft, updateDraft } from '@/fixtures/admin-mutations';
 import { inspectPDF } from '@/fixtures/pdf-inspect';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -129,16 +130,10 @@ async function pdfText(page: Page, id: string): Promise<string> {
 async function patchContent(
   api: APIRequestContext, csrf: string, id: string, content: Record<string, unknown>,
 ): Promise<void> {
-  const res = await api.patch(`${BACKEND}/api/admin/drafts/${id}`, {
-    headers: { 'X-Csrftoken': csrf }, data: { resume_content: content, template: '' },
-  });
-  expect(res.status(), 'PATCH full content').toBe(200);
+  await updateDraft(api, csrf, id, { resume_content: content, template: '' });
 }
 
 async function seedDraft(api: APIRequestContext, csrf: string): Promise<string> {
-  const res = await api.post(`${BACKEND}/api/admin/drafts`, {
-    headers: { 'X-Csrftoken': csrf }, data: { company: 'Acme', role: 'Engineer' },
-  });
-  expect(res.status(), 'seed draft').toBeLessThan(300);
-  return (await res.json() as { id: string }).id;
+  const { id } = await createDraft(api, csrf, { company: 'Acme', role: 'Engineer' });
+  return id;
 }

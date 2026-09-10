@@ -24,6 +24,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login } from '@/fixtures/admin';
+import { requestRecovery, changeAccountEmail } from '@/fixtures/admin-mutations';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import {
   clearMailpit, configureMailConnector, confirmLinkIn, followMailedLink,
@@ -41,6 +42,7 @@ const PASSWORD = 'correct-horse-battery-staple';
 async function loginStatus(
   request: APIRequestContext, email: string, password: string,
 ): Promise<number> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: normalization "works" only if the clean/dirty form can actually log in, so the spec probes /login and asserts its status (200). Returning the status is the point.
   const res = await request.post(`${BACKEND}/api/admin/login`, {
     data: { email, password },
   });
@@ -102,15 +104,13 @@ test.describe('owner email · normalized at the entrance, not at one use site', 
       // which swaps out the session, invalidating a token fetched earlier (403).
       const { csrf } = await login(request, CLEAN, PASSWORD);
 
-      const gen = await request.post(`${BACKEND}/api/admin/account/recovery`, {
-        headers: { 'X-Csrftoken': csrf }, data: {},
-      });
-      expect(gen.status()).toBe(200);
+      await requestRecovery(request, csrf);
       const phrase = recoveryPhraseIn(await waitForMailTo(request, CLEAN));
 
       // The owner is locked out, typing the clean address they remember — while what
       // was stored is the dirty string from claim time.
       const fresh = await playwright.request.newContext();
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: this asserts recover finds the same owner through the CLEAN form of a dirty-claimed email (200); the recover call and its status ARE the assertion.
       const rec = await fresh.post(`${BACKEND}/api/admin/recover`, {
         data: { email: CLEAN, recovery_phrase: phrase },
       });
@@ -139,11 +139,7 @@ test.describe('owner email · normalized at the entrance, not at one use site', 
 
       const moved = '  Nadia+Moved@Example.COM  ';
       const clean = 'nadia+moved@example.com';
-      const res = await request.patch(`${BACKEND}/api/admin/account/email`, {
-        headers: { 'X-Csrftoken': csrf },
-        data: { current_password: PASSWORD, new_email: moved },
-      });
-      expect(res.status()).toBe(200);
+      await changeAccountEmail(request, csrf, { current_password: PASSWORD, new_email: moved });
 
       // What the pending column stores must be the clean form — it's going to become
       // the email column eventually, and both sides need to be measured with the same

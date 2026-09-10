@@ -77,6 +77,7 @@ async function poolAssetIDs(request: APIRequestContext, csrf: string): Promise<s
 }
 
 function poolDelete(request: APIRequestContext, csrf: string, id: string) {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: the delete guard asserts a referenced asset → 409 and a freed asset → 204
   return request.delete(`${BACKEND}/api/admin/assets/${id}`, {
     headers: { 'X-Csrftoken': csrf },
   });

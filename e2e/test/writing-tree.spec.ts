@@ -107,6 +107,7 @@ test.describe('reader writing 树端点:published 进树 + private 显示成 loc
 // sub -> a cycle, 400.
 async function adminReparentCycle({ request }: { request: APIRequestContext }): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- asserts reparent cycle returns 400 (the negative is the action under test)
   const res = await request.patch(`/api/admin/writings/${ids['essays']}`, {
     headers: { 'X-Csrftoken': csrf },
     multipart: { data: JSON.stringify({ title: 'Essays', parent_id: ids['sub'] }) },

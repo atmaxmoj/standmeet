@@ -16,6 +16,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { updateRole } from '@/fixtures/admin-mutations';
 import { createCode } from '@/fixtures/codes';
 import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -142,20 +143,14 @@ async function seedOutput(
 async function widenRole(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<void> {
-  const res = await request.put(`${BACKEND}/api/admin/roles/${id}`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      name: 'thinking-only',
-      description: 'widened mid-session',
-      prompt_id: null,
-      corpus_uris: ['wiki://thinking/**', 'output://**'],
-      skill_ids: [],
-      mcp_server_ids: [],
-    },
+  await updateRole(request, csrf, id, {
+    name: 'thinking-only',
+    description: 'widened mid-session',
+    prompt_id: null,
+    corpus_uris: ['wiki://thinking/**', 'output://**'],
+    skill_ids: [],
+    mcp_server_ids: [],
   });
-  if (res.status() !== 200) {
-    throw new Error(`widen role failed: ${res.status()} ${await res.text()}`);
-  }
 }
 
 interface CitedRefView { id: string; title: string; path: string }

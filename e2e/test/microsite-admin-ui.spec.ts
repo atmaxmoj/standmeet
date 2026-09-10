@@ -17,27 +17,21 @@ import type { APIRequestContext, Locator, Page } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
+import { createMicrosite } from '@/fixtures/admin-mutations';
+import { createCode as seedCode } from '@/fixtures/codes';
 import { bindCodeToPage } from '@/fixtures/microsite-rig';
 
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
   email: 'msite-ui@example.com', password: 'correct-horse-battery-staple',
   handle: 'msiteui', fullName: 'Microsite UI Owner',
 };
 
 async function createPage(api: APIRequestContext, csrf: string, slug: string): Promise<void> {
-  const r = await api.post(`${BACKEND}/api/admin/microsites/`, {
-    headers: { 'X-Csrftoken': csrf }, data: { slug, title: slug },
-  });
-  expect(r.status(), `create page ${slug}`).toBeLessThan(300);
+  await createMicrosite(api, csrf, { slug, title: slug });
 }
 
 async function createCode(api: APIRequestContext, csrf: string, label: string): Promise<{ id: string; code: string }> {
-  const r = await api.post(`${BACKEND}/api/admin/codes/`, {
-    headers: { 'X-Csrftoken': csrf }, data: { label },
-  });
-  expect(r.status(), `create code ${label}`).toBeLessThan(300);
-  return await r.json() as { id: string; code: string };
+  return await seedCode(api, csrf, { code: `${label}-1`, label });
 }
 
 // openMicrosites —— click into the microsites section from the /admin landing (adminPage lands

@@ -12,9 +12,9 @@ import type { APIRequestContext } from '@playwright/test';
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
+import { createDraft } from '@/fixtures/admin-mutations';
 import { openReader } from '@/fixtures/navigate';
 
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
   email: 'composer-qr@example.com', password: 'correct-horse-battery-staple',
   handle: 'composerqr', fullName: 'Composer QR Owner',
@@ -32,10 +32,7 @@ test.describe('composer QR shows the real code + themed chrome', () => {
       // An active code so the composer auto-selects it → the editor draws its real QR.
       await createCode(api, csrf, { code: 'HIRING-2026', label: 'hiring' });
       // A draft with an EMPTY identity (default) — the QR must still show.
-      const created = await api.post(`${BACKEND}/api/admin/drafts`, {
-        headers: { 'X-Csrftoken': csrf }, data: { company: 'Acme', role: 'Engineer' },
-      });
-      const id = (await created.json() as { id: string }).id;
+      const { id } = await createDraft(api, csrf, { company: 'Acme', role: 'Engineer' });
 
       await openReader(page, `/admin/edit-resume/${id}`);
       await expect(page.getByTestId('puck-resume-editor')).toBeVisible({ timeout: 30_000 });

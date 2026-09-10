@@ -10,6 +10,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, login } from '@/fixtures/admin';
+import { approveAccessRequest } from '@/fixtures/admin-mutations';
 import { configureMailConnector, clearMailpit, waitForMailTo } from '@/fixtures/mail';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { issueSession } from '@/fixtures/visitor';
@@ -52,6 +53,7 @@ test.describe('mail connector access-code loop', () => {
       const request = await playwright.request.newContext();
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       const missing = '00000000-0000-0000-0000-000000000000';
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: approve of unknown request id rejected with 404
       const res = await request.post(`${BACKEND}/api/admin/access-requests/${missing}/approve`, {
         headers: { 'X-Csrftoken': csrf }, data: {},
       });
@@ -65,6 +67,7 @@ test.describe('mail connector access-code loop', () => {
     async ({ playwright, page }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await login(request, OWNER.email, OWNER.password);
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: disconnect flips can_deliver_codes; needs helper: connectors
       const dis = await request.post(`${BACKEND}/api/admin/connectors/smtp/disconnect`, {
         headers: { 'X-Csrftoken': csrf }, data: {},
       });
@@ -108,12 +111,6 @@ async function approve(
   request: APIRequestContext, id: string,
 ): Promise<{ code: string; link: string }> {
   const { csrf } = await login(request, OWNER.email, OWNER.password);
-  const res = await request.post(
-    `${BACKEND}/api/admin/access-requests/${id}/approve`,
-    { headers: { 'X-Csrftoken': csrf }, data: {} },
-  );
-  if (res.status() !== 200) {
-    throw new Error(`approve failed: ${res.status()} ${await res.text()}`);
-  }
+  const res = await approveAccessRequest(request, csrf, id);
   return await res.json() as { code: string; link: string };
 }

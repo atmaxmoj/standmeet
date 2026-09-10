@@ -44,6 +44,7 @@ interface CreateResult { status: number; id?: string; error?: string }
 async function createConnector(
   request: APIRequestContext, csrf: string, body: { spec: unknown; binding: unknown },
 ): Promise<CreateResult> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bespoke connector build the test inspects (status/id/error, both 201 and 4xx cases)
   const res = await request.post(`${BACKEND}/api/admin/connectors`, { headers: { 'X-Csrftoken': csrf }, data: body });
   const json = await res.json().catch(() => ({})) as {
     id?: string; error?: string | { message?: string };
@@ -135,11 +136,13 @@ function future(days: number, hour: number): string {
 async function connectAndAssembleSession(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<string[]> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: the mock oauth2 connect dance this spec exercises (no fixture; asserts 200)
   const credRes = await request.post(
     `${BACKEND}/api/admin/connectors/${encodeURIComponent(id)}/credentials`,
     { headers: { 'X-Csrftoken': csrf }, data: MOCK_GCAL_CREDS },
   );
   expect(credRes.status()).toBe(200);
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: the mock oauth2 connect dance this spec exercises (no fixture; asserts 200 + auth_url)
   const initRes = await request.post(
     `${BACKEND}/api/admin/connectors/${encodeURIComponent(id)}/connect`,
     { headers: { 'X-Csrftoken': csrf } },
@@ -439,6 +442,7 @@ async function diagInvoke(
   request: APIRequestContext, csrf: string, id: string,
   category: string, op: string, args: Record<string, unknown>,
 ): Promise<{ status: number; text: string }> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- diag backdoor deliberately kept inline (see comment above); not a seed
   const res = await request.post(
     `${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/invoke`,
     { headers: { 'X-Csrftoken': csrf }, data: { category, op, args } },

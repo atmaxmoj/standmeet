@@ -17,6 +17,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
+import { updateRole } from '@/fixtures/admin-mutations';
 import { setCodeCapabilityDenial } from '@/fixtures/code-denials';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { configureMailConnector } from '@/fixtures/mail';
@@ -72,6 +73,7 @@ test.afterAll(async () => { await request.dispose(); });
 async function postRole(
   request: APIRequestContext, body: Record<string, unknown>,
 ) {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- validation probe helper: returns the raw response so A2/A3/A4/A5 can assert the 400 rejection
   return request.post(`${BACKEND}/api/admin/roles/`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
@@ -88,6 +90,7 @@ async function postRole(
 async function putRoleWithDock(
   request: APIRequestContext, role: RoleView, dock: DockButtonConfig[],
 ): Promise<number> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- helper returns the status code so the caller (D4) can assert it
   const res = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
@@ -173,6 +176,7 @@ test.describe('dock buttons · A — config storage + validation', () => {
       name: 'a6-clearable', corpus_uris: ['wiki://**'],
       dock_buttons: [{ capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }],
     });
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: A6 asserts this PUT returns 200 and the roleView it returns has empty dock_buttons
     const res = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
       headers: { 'X-Csrftoken': csrf },
       data: {
@@ -203,13 +207,10 @@ test.describe('dock buttons · C — freeze into the session snapshot', () => {
       expect(sess.dock_buttons).toHaveLength(1);
       expect(sess.dock_buttons?.[0]?.trigger).toBe(TRIGGER_SUMMARIZE);
       // owner changes the role's dock buttons AFTER the session was issued
-      await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
-        headers: { 'X-Csrftoken': csrf },
-        data: {
-          name: role.name, description: '', greeting: '', prompt_id: null,
-          corpus_uris: ['wiki://**'], skill_ids: [], mcp_server_ids: [],
-          notify_owner: false, dock_buttons: [],
-        },
+      await updateRole(request, csrf, role.id, {
+        name: role.name, description: '', greeting: '', prompt_id: null,
+        corpus_uris: ['wiki://**'], skill_ids: [], mcp_server_ids: [],
+        notify_owner: false, dock_buttons: [],
       });
       // a NEW session reflects the change; the old session's frozen snapshot does not.
       const fresh = await issueSession(request, {

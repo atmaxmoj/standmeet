@@ -8,10 +8,11 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { login as loginAPI, createAPIToken } from '@/fixtures/admin';
+import { updateCorpusEntry } from '@/fixtures/admin-mutations';
 import { initMCP, callTool } from '@/fixtures/mcp';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
 import {
-  BACKEND, claimSyncOwner, syncOwner, syncSession, syncRead, adminGenreList, type SyncOwner,
+  claimSyncOwner, syncOwner, syncSession, syncRead, adminGenreList, type SyncOwner,
 } from '@/fixtures/vault-sync';
 
 type Ctx = { playwright: Playwright };
@@ -57,9 +58,8 @@ async function uiSets({ playwright }: Ctx): Promise<void> {
   await uploadVault(request, OWNER, [{ rel: 'wiki/ui.md', body: makeVaultMD({ publish: true }, 'x') }]);
   const id = (await adminGenreList(request, OWNER, 'wiki')).find((n) => n.title === 'ui')?.id ?? '';
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  await request.patch(`${BACKEND}/api/admin/corpus/wiki/${id}`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { title: 'ui', body: 'x', tags: [], parent_id: null, show_as_source: true, css_classes: ['boxed'] },
+  await updateCorpusEntry(request, csrf, 'wiki', id, {
+    title: 'ui', body: 'x', tags: [], parent_id: null, show_as_source: true, css_classes: ['boxed'],
   });
   expect(await classesOf(request, 'ui'), 'UI-set css_classes').toEqual(['boxed']);
   await request.dispose();

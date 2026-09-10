@@ -63,6 +63,7 @@ test.describe('microsite asset widget · reference + guard + public serve', () =
       .toContain('microsite');
 
     // Delete guard: the asset a live page embeds cannot be deleted — the message names the microsite.
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: delete guard refuses a microsite-embedded asset with 409
     const refused = await ctx.delete(`${BACKEND}/api/admin/assets/${embedded}`, {
       headers: { 'X-Csrftoken': csrf },
     });

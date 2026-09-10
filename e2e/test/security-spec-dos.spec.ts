@@ -45,6 +45,7 @@ test.describe('pentest · connector spec-ingest DoS resistance', () => {
       // directly — that's exactly the attacker's perspective (a DoS boundary), so
       // the UI-write rule is disabled here.
       /* eslint-disable no-restricted-syntax */
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- attacker/DoS probe: hits the raw API from the attacker's perspective; the test asserts THIS call is bounded (no 5xx, never ok:true)
       const res = await seed.request.post(`${BACKEND}/api/admin/connectors/validate-spec`, {
         headers: { 'X-Csrftoken': seed.csrf },
         data: { spec, url: '' },

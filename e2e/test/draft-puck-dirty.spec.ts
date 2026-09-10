@@ -10,9 +10,9 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
+import { createDraft, updateDraft } from '@/fixtures/admin-mutations';
 import { openReader } from '@/fixtures/navigate';
 
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
   email: 'puck-dirty@example.com', password: 'correct-horse-battery-staple',
   handle: 'puckdirty', fullName: 'Puck Dirty Owner',
@@ -63,17 +63,12 @@ test.describe('Puck composer · unsaved-changes tracking + discard on leave', ()
 });
 
 async function seed(api: APIRequestContext, csrf: string): Promise<string> {
-  const created = await api.post(`${BACKEND}/api/admin/drafts`, {
-    headers: { 'X-Csrftoken': csrf }, data: { company: 'Acme', role: 'Engineer' },
-  });
-  const id = (await created.json() as { id: string }).id;
+  const { id } = await createDraft(api, csrf, { company: 'Acme', role: 'Engineer' });
   const resume_content = {
     identity: { name: 'R', email: 'r@ex.io', phone: '', location_line: '', site: '', links: [] },
     summary: 'a summary', works: [], educations: [], skills: [], social: [], custom: [],
     cover_letter: ORIGINAL, accent: '',
   };
-  await api.patch(`${BACKEND}/api/admin/drafts/${id}`, {
-    headers: { 'X-Csrftoken': csrf }, data: { resume_content, template: '' },
-  });
+  await updateDraft(api, csrf, id, { resume_content, template: '' });
   return id;
 }

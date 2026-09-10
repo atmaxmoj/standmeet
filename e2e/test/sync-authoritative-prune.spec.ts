@@ -15,8 +15,9 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { login as loginAPI } from '@/fixtures/admin';
+import { updateCorpusEntry } from '@/fixtures/admin-mutations';
 import { listAdminWritings, makeVaultMD, uploadVault } from '@/fixtures/obsidian';
-import { BACKEND, claimSyncOwner, syncOwner, adminGenreList, type SyncOwner } from '@/fixtures/vault-sync';
+import { claimSyncOwner, syncOwner, adminGenreList, type SyncOwner } from '@/fixtures/vault-sync';
 
 type Ctx = { playwright: Playwright };
 const OWNER: SyncOwner = syncOwner('prune');
@@ -154,12 +155,9 @@ async function webEditIsNotAPin({ playwright }: Ctx): Promise<void> {
   expect(gone, 'fixture sanity: the note exists before the web edit').toBeTruthy();
 
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  await request.patch(`${BACKEND}/api/admin/corpus/wiki/${gone?.id}`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      title: 'gone', body: 'edited by the owner on the web', tags: [],
-      parent_id: null, show_as_source: true,
-    },
+  await updateCorpusEntry(request, csrf, 'wiki', gone!.id, {
+    title: 'gone', body: 'edited by the owner on the web', tags: [],
+    parent_id: null, show_as_source: true,
   });
 
   const minusGone = FULL_VAULT.filter((f) => f.rel !== 'wiki/gone.md');

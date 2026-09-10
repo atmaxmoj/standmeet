@@ -8,6 +8,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { login } from '@/fixtures/admin';
+import { addIpBan, removeIpBan } from '@/fixtures/admin-mutations';
 import { claimFreshOwner } from '@/fixtures/seed';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -48,20 +49,13 @@ test.describe('admin ip bans', () => {
 });
 
 async function banIP(request: APIRequestContext, csrf: string, ip: string): Promise<string> {
-  const res = await request.post(`${BACKEND}/api/admin/ip-bans/`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { ip, reason: 'e2e abuse' },
-  });
-  expect(res.status()).toBe(200);
+  const res = await addIpBan(request, csrf, { ip, reason: 'e2e abuse' });
   const body = await res.json() as { id: string };
   return body.id;
 }
 
 async function unbanIP(request: APIRequestContext, csrf: string, id: string): Promise<void> {
-  const res = await request.delete(`${BACKEND}/api/admin/ip-bans/${id}`, {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  expect(res.status()).toBe(200);
+  await removeIpBan(request, csrf, id);
 }
 
 async function listContains(request: APIRequestContext, ip: string): Promise<boolean> {

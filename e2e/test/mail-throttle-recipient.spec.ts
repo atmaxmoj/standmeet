@@ -73,6 +73,7 @@ test.describe('the per-recipient mail cap holds against a multi-IP bomb of one v
       // The owner approves every one — each approve issues a code and mails the victim. Even the one
       // past the cap must return success: the throttle drops the mail, it does not fail the action.
       for (let i = 0; i < ids.length; i++) {
+        // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: approve must return 200 even when its mail is throttle-dropped
         const res = await request.post(
           `${BACKEND}/api/admin/access-requests/${ids[i]}/approve`,
           { headers: { 'X-Csrftoken': csrf } },

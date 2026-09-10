@@ -10,9 +10,10 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { login as loginAPI } from '@/fixtures/admin';
+import { updateCorpusEntry } from '@/fixtures/admin-mutations';
 import { makeVaultMD, uploadVault } from '@/fixtures/obsidian';
 import {
-  BACKEND, claimSyncOwner, syncOwner, syncSession, syncRead, adminGenreList, adminNoteRefs,
+  claimSyncOwner, syncOwner, syncSession, syncRead, adminGenreList, adminNoteRefs,
   type SyncOwner,
 } from '@/fixtures/vault-sync';
 
@@ -70,9 +71,8 @@ async function adminUpdateWiki(
   request: APIRequestContext, id: string, title: string, body: string,
 ): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  await request.patch(`${BACKEND}/api/admin/corpus/wiki/${id}`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { title, body, tags: [], parent_id: null, show_as_source: true },
+  await updateCorpusEntry(request, csrf, 'wiki', id, {
+    title, body, tags: [], parent_id: null, show_as_source: true,
   });
 }
 async function wikiId(request: APIRequestContext, title: string): Promise<string> {

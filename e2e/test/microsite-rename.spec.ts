@@ -9,6 +9,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
+import { createMicrosite } from '@/fixtures/admin-mutations';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { openReader } from '@/fixtures/navigate';
 
@@ -19,16 +20,14 @@ const OWNER = {
   handle: 'kprename', fullName: 'Rename Owner',
 };
 
-async function createPage(request: APIRequestContext, csrf: string, slug: string): Promise<number> {
-  const res = await request.post(`${BACKEND}/api/admin/microsites/`, {
-    headers: { 'X-Csrftoken': csrf }, data: { slug, title: slug },
-  });
-  return res.status();
+async function createPage(request: APIRequestContext, csrf: string, slug: string): Promise<void> {
+  await createMicrosite(request, csrf, { slug, title: slug });
 }
 
 async function renamePage(
   request: APIRequestContext, csrf: string, slug: string, newSlug: string,
 ): Promise<number> {
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: returns status for the happy (200) + collision (409) + reserved (400) rename assertions
   const res = await request.put(`${BACKEND}/api/admin/microsites/${slug}/slug`, {
     headers: { 'X-Csrftoken': csrf }, data: { new_slug: newSlug },
   });
@@ -49,8 +48,8 @@ test.describe('microsite slug rename', () => {
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      expect(await createPage(request, csrf, 'old-name')).toBe(201);
-      expect(await createPage(request, csrf, 'other-name')).toBe(201);
+      await createPage(request, csrf, 'old-name');
+      await createPage(request, csrf, 'other-name');
 
       // Happy path: old-name → fresh-name.
       expect(await renamePage(request, csrf, 'old-name', 'fresh-name')).toBe(200);
@@ -72,7 +71,7 @@ test.describe('microsite slug rename', () => {
     async ({ playwright, adminPage: page }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      expect(await createPage(request, csrf, 'ui-old')).toBe(201);
+      await createPage(request, csrf, 'ui-old');
       await request.dispose();
 
       await openReader(page, '/admin/edit/ui-old');
@@ -104,7 +103,7 @@ test.describe('microsite slug rename', () => {
     async ({ playwright, adminPage: page }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      expect(await createPage(request, csrf, 'ui-flash')).toBe(201);
+      await createPage(request, csrf, 'ui-flash');
       await request.dispose();
 
       await openReader(page, '/admin/edit/ui-flash');

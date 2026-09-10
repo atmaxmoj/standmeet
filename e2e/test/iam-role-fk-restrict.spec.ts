@@ -48,6 +48,7 @@ test.describe('A.3-IAM role FK restrict + bogus role_id at code-create', () => {
       await createCode(request, csrf, {
         code: 'IN-USE-1', label: 'in-use', assumed_role_id: role.id,
       });
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: FK RESTRICT rejection asserted (delete must fail)
       const res = await request.delete(`${BACKEND}/api/admin/roles/${role.id}`, {
         headers: { 'X-Csrftoken': csrf },
       });
@@ -62,6 +63,7 @@ test.describe('A.3-IAM role FK restrict + bogus role_id at code-create', () => {
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
       const bogus = '00000000-0000-0000-0000-000000000000';
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bogus role_id FK violation rejection asserted (>=400)
       const res = await request.post(`${BACKEND}/api/admin/codes`, {
         headers: { 'X-Csrftoken': csrf },
         data: {

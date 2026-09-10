@@ -9,6 +9,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { createPrompt } from '@/fixtures/prompts';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -49,6 +50,7 @@ test.describe('A.3-IAM prompt REST · builtin immutable rename / delete', () => 
   test('PUT publicRow with a different name → 403 prompt_builtin_immutable',
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: renaming a builtin prompt must be refused with 403 prompt_builtin_immutable
       const res = await request.put(`${BACKEND}/api/admin/prompts/${ctx.publicID}`, {
         headers: { 'X-Csrftoken': csrf },
         data: {
@@ -65,6 +67,7 @@ test.describe('A.3-IAM prompt REST · builtin immutable rename / delete', () => 
   test('PUT publicRow with SAME name but new body → 200 (only rename is blocked)',
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: a body edit that keeps the builtin's name must be allowed (200), the contrast to the rename-403 case
       const res = await request.put(`${BACKEND}/api/admin/prompts/${ctx.publicID}`, {
         headers: { 'X-Csrftoken': csrf },
         data: {
@@ -78,6 +81,7 @@ test.describe('A.3-IAM prompt REST · builtin immutable rename / delete', () => 
 
   test('DELETE publicRow → 403 prompt_builtin_immutable', async ({ playwright }) => {
     const { request, csrf } = await authedRequest(() => playwright.request.newContext());
+    // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: deleting a builtin prompt must be refused with 403 prompt_builtin_immutable
     const res = await request.delete(`${BACKEND}/api/admin/prompts/${ctx.publicID}`, {
       headers: { 'X-Csrftoken': csrf },
     });
@@ -92,11 +96,8 @@ test.describe('A.3-IAM prompt REST · name uniqueness', () => {
   test('duplicate prompt name in same owner → 409 prompt_name_taken',
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
-      const first = await request.post(`${BACKEND}/api/admin/prompts/`, {
-        headers: { 'X-Csrftoken': csrf },
-        data: { name: 'dup-prompt', description: '', body: 'a' },
-      });
-      expect(first.status()).toBe(201);
+      await createPrompt(request, csrf, { name: 'dup-prompt', description: '', body: 'a' });
+      // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: a second prompt with the same name must be refused with 409 prompt_name_taken
       const second = await request.post(`${BACKEND}/api/admin/prompts/`, {
         headers: { 'X-Csrftoken': csrf },
         data: { name: 'dup-prompt', description: '', body: 'b' },

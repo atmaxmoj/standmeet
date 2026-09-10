@@ -434,6 +434,7 @@ async function expectMailSent(
   // The address is derived from the connector's own declaration (smtp's manifest.yaml →
   // connectors.mail_test_send), no longer hardcoded as `/connectors/mail/test-send` on the
   // generic registry.
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- op under test: mail_test_send drives MailContract.Send; test asserts 200 and Mailpit receipt
   const res = await request.post(`${BACKEND}/api/admin/connectors/ops/mail_test_send`, {
     headers: { 'X-Csrftoken': csrf }, data: { to, subject, text: 'hello from matrix' },
   });
