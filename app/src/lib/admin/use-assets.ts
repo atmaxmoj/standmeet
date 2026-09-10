@@ -28,12 +28,20 @@ interface State {
 export function useAssets(): State & {
   reload: () => void;
   remove: (id: string) => Promise<void>;
+  upload: (file: File) => Promise<void>;
 } {
   const [state, setState] = useState<State>({ assets: [], status: 'loading' });
   const reload = useCallback(() => { void load(setState); }, []);
   useEffect(() => { reload(); }, [reload]);
   const remove = useCallback((id: string) => adminAPI.deleteVoid(`/assets/${id}`), []);
-  return { ...state, reload, remove };
+  // Upload straight into the pool (no corpus entry): POST /assets, bytes as multipart. The
+  // caller re-lists afterward, which is this control's receipt (the new card appears).
+  const upload = useCallback((file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return adminAPI.postFormVoid('/assets', form);
+  }, []);
+  return { ...state, reload, remove, upload };
 }
 
 async function load(setState: (s: State) => void): Promise<void> {

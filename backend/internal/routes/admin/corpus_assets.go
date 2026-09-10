@@ -46,6 +46,65 @@ const assetFileField = "file"
 
 const opAssetsUpload = "assets.upload"
 
+//nolint:gosec // G101 false positive: this is a dispatcher op id (verb name), not a credential.
+const opAssetsPoolUpload = "assets.pool_upload"
+
+// uploadPoolAsset — POST /assets. The Assets panel's own upload: a file picked with no corpus
+// entry to attach to, landing straight in the pool. Panel-only (multipart), so no JSON/URL branch
+// here — the AI reaches the same op through MCP with a URL instead. Unpacks the multipart form the
+// same way attachCorpusAsset does, minus the genre/id from the path (there is none).
+func (h *Handlers) uploadPoolAsset() http.HandlerFunc {
+	op := h.Corpus.Face.MustOpFiles(opAssetsPoolUpload)
+	invoke := op.Invoke
+	return func(w http.ResponseWriter, r *http.Request) {
+		req, perr := readPoolUploadRequest(w, r)
+		if perr != nil {
+			writeError(h.Log, w, envBadReq(perr.Error()))
+			return
+		}
+		h.runPoolUpload(w, r, invoke, &req)
+	}
+}
+
+// readPoolUploadRequest — unpack the multipart form into the op's args (just the kind; the bytes
+// ride the ctx) plus the uploaded file. No genre/id, unlike a corpus attach.
+func readPoolUploadRequest(w http.ResponseWriter, r *http.Request) (assetRequest, error) {
+	upload, perr := readAssetUpload(w, r)
+	if perr != nil {
+		return assetRequest{}, perr
+	}
+	args, aerr := poolUploadArgs(upload.Kind)
+	if aerr != nil {
+		return assetRequest{}, aerr
+	}
+	return assetRequest{Args: args, Upload: upload}, nil
+}
+
+// poolUploadArgs — this upload's op args: just the kind picked in the form (the bytes ride the
+// ctx). No genre/id, unlike a corpus attach.
+func poolUploadArgs(kind string) (json.RawMessage, error) {
+	fields := map[string]json.RawMessage{}
+	if kind != "" {
+		fields["kind"] = quoteJSON(kind)
+	}
+	return marshalArgs(fields)
+}
+
+func (h *Handlers) runPoolUpload(
+	w http.ResponseWriter, r *http.Request, invoke dispatcher.Invoke, req *assetRequest,
+) {
+	ctx := dispatcher.WithFiles(r.Context(), []dispatcher.File{{
+		Field: assetFileField, Filename: req.Upload.Filename,
+		ContentType: req.Upload.ContentType, Body: req.Upload.Body,
+	}})
+	out, err := invoke(ctx, middleware.OwnerIDFrom(r.Context()), req.Args)
+	if err != nil {
+		h.writeOpError(w, opAssetsPoolUpload, err)
+		return
+	}
+	writeStatusBody(h.Log, w, http.StatusCreated, out)
+}
+
 // attachCorpusAsset — POST /corpus/{genre}/{id}/assets. Splits into two routes by
 // Content-Type, **the same op**: JSON goes through the ordinary invocation, multipart
 // goes through OpFiles (this facade's registration must be able to carry fp.Multipart —

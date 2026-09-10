@@ -209,6 +209,8 @@
     "empty": "Aún no hay recursos. Añade uno desde el editor del corpus o el widget de recurso de una microsite.",
     "delete": "eliminar",
     "deleted": "recurso eliminado",
+    "upload": "Añadir recurso",
+    "uploaded": "Recurso añadido",
     "kicker": "recursos · activos"
   },
   "data": {

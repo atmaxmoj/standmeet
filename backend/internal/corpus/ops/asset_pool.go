@@ -27,9 +27,94 @@ type assetIDArgs struct {
 	AssetID string `json:"asset_id"`
 }
 
-// AssetPoolOps — the pool operation family (list / delete-guarded / references).
+// AssetPoolOps — the pool operation family (list / pool-upload / delete-guarded / references).
 func AssetPoolOps(deps usecase.Deps) []fp.Op {
-	return []fp.Op{assetsListOp(deps), assetsPoolDeleteOp(deps), assetsReferencesOp(deps)}
+	return []fp.Op{
+		assetsListOp(deps), assetsPoolUploadOp(deps),
+		assetsPoolDeleteOp(deps), assetsReferencesOp(deps),
+	}
+}
+
+var poolUploadSchema = json.RawMessage(`{
+	"type":"object",
+	"properties":{
+		"url":{"type":"string","description":"Public https URL the server fetches the bytes from."},
+		"kind":{"type":"string","description":"'image' (default) | 'attachment'."},
+		"filename":{"type":"string",
+			"description":"Shown on the download button; defaults to the URL's last segment."}
+	}
+}`)
+
+type poolUploadArgs struct {
+	URL      string `json:"url"`
+	Kind     string `json:"kind"`
+	Filename string `json:"filename"`
+}
+
+func assetsPoolUploadOp(deps usecase.Deps) fp.Op {
+	return fp.Op{
+		ID: "assets.pool_upload",
+		Description: "Upload a file straight into your global pool — no corpus entry needed. " +
+			"Pass a public https `url` the server fetches; kind='image' (default) or " +
+			"'attachment'. The asset lands unreferenced; cite it later with " +
+			"'standmeet-asset:<asset_id>' in an entry's body or a microsite. (The Assets panel's " +
+			"file picker uses this same op with the bytes attached.)",
+		InputSchema: poolUploadSchema,
+		Kind:        fp.Action,
+		Reach:       fp.OwnerAction(),
+		Invoke:      uploadPoolAsset(deps),
+	}
+}
+
+func uploadPoolAsset(deps usecase.Deps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		if !deps.HasMedia() {
+			return nil, fp.OpErr("upload asset", errNoMedia)
+		}
+		in, perr := poolUploadInput(ctx, ownerID, raw)
+		if perr != nil {
+			return nil, perr
+		}
+		asset, err := usecase.UploadPoolAsset(ctx, deps.Media.Assets, in)
+		if err != nil {
+			return nil, assetUploadErr(err)
+		}
+		return marshalAssetUploaded(&asset)
+	}
+}
+
+// poolUploadInput — parse the args and pick the intake route: the panel attaches bytes (they ride
+// the ctx), the AI hands a URL. Bytes win when present; the file's own name fills in when none was
+// given; one of the two must be there.
+func poolUploadInput(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) (*usecase.PoolUploadInput, error) {
+	var args poolUploadArgs
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return nil, fp.BadInput("invalid arguments: " + err.Error())
+	}
+	in := &usecase.PoolUploadInput{
+		OwnerID: ownerID, URL: args.URL, Kind: args.Kind, Filename: args.Filename,
+	}
+	mergeUploadBytes(ctx, in)
+	if len(in.Body) == 0 && in.URL == "" {
+		return nil, fp.BadInput("provide a url (or attach a file)")
+	}
+	return in, nil
+}
+
+// mergeUploadBytes — fold the panel's attached file (if any) into the input: its bytes, its
+// content-type, and its own name when the caller gave none.
+func mergeUploadBytes(ctx context.Context, in *usecase.PoolUploadInput) {
+	files := fp.FilesFrom(ctx)
+	if len(files) == 0 {
+		return
+	}
+	in.Body = files[0].Body
+	in.ContentType = files[0].ContentType
+	if in.Filename == "" {
+		in.Filename = files[0].Filename
+	}
 }
 
 func assetsListOp(deps usecase.Deps) fp.Op {

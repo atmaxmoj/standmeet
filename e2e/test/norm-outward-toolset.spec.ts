@@ -165,9 +165,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // microsite.set_seo -- the successor to the removed global SEO settings: SEO
   // follows each microsite, injected into that page's served <head>.
   'microsite.set_seo',
-  // assets.* -- the global asset pool (Resources -> Assets): list it, see who references an
-  // asset, and delete one (refused while a corpus entry / microsite still uses it).
-  'assets.list', 'assets.references', 'assets.pool_delete',
+  // assets.* -- the global asset pool (Resources -> Assets): list it, upload straight into it
+  // (no corpus entry needed), see who references an asset, and delete one (refused while a
+  // corpus entry / microsite still uses it).
+  'assets.list', 'assets.pool_upload', 'assets.references', 'assets.pool_delete',
   // microsite.set_byoai -- whether this page allows readers to bring their
   // own key (voided once a code is attached, which then decides instead).
   'microsite.set_byoai',

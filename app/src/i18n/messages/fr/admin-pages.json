@@ -209,6 +209,8 @@
     "empty": "Aucun asset pour l'instant. Ajoutez-en un depuis l'éditeur du corpus ou le widget asset d'une microsite.",
     "delete": "supprimer",
     "deleted": "asset supprimé",
+    "upload": "Ajouter un asset",
+    "uploaded": "Asset ajouté",
     "kicker": "ressources · médias"
   },
   "data": {

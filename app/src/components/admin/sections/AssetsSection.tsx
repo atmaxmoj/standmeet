@@ -11,6 +11,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { FilePicker } from '@/components/admin/atoms/FilePicker';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { isImage, sizeLabel, useAssets, type PoolAsset } from '@/lib/admin/use-assets';
@@ -27,8 +28,30 @@ export function AssetsSection() {
         count={hook.assets.length > 0 ? String(hook.assets.length) : ''}
       />
       <Intro />
+      <UploadBar hook={hook} />
       <Body hook={hook} />
     </>
+  );
+}
+
+// UploadBar —— the pool's own "add" entry: pick a file → it uploads straight into the pool (no
+// corpus entry needed) and the list re-fetches, so the new card is the receipt.
+function UploadBar({ hook }: { hook: Hook }) {
+  const t = useTranslations('adminPages.assets');
+  const run = useAction();
+  const onPick = (files: FileList | null) => {
+    const file = files?.[0];
+    file && void run(() => hook.upload(file).then(hook.reload), { success: t('uploaded') });
+  };
+  return (
+    <div className="mb-6">
+      <FilePicker
+        label={t('upload')}
+        testid="assets-upload"
+        accept="image/*,application/pdf"
+        onPick={onPick}
+      />
+    </div>
   );
 }
 

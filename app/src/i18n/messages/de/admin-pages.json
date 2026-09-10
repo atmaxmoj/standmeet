@@ -209,6 +209,8 @@
     "empty": "Noch keine Assets. Füge eines im Korpus-Editor oder über das Asset-Widget einer Microsite hinzu.",
     "delete": "löschen",
     "deleted": "Asset gelöscht",
+    "upload": "Asset hinzufügen",
+    "uploaded": "Asset hinzugefügt",
     "kicker": "ressourcen · assets"
   },
   "data": {

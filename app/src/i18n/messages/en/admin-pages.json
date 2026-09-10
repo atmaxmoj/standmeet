@@ -209,6 +209,8 @@
     "empty": "No assets yet. Add one from the corpus editor or a microsite's asset widget.",
     "delete": "delete",
     "deleted": "asset deleted",
+    "upload": "add asset",
+    "uploaded": "asset added",
     "kicker": "resources · assets"
   },
   "data": {
