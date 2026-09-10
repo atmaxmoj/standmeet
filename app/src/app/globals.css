@@ -88,6 +88,7 @@
      but never escape their own band; +10 would collide with the next band, so the gate
      forbids an offset ≥ 10. Cross-band changes happen in this table; within-band changes
      happen at the call site. */
+  --z-behind:      -1;  /* Below page content: a full-page background layer (résumé print ground) */
   --z-local:        0;  /* Not part of the global order: just creates a local stacking context (0 ≠ auto) */
   --z-raised:      10;  /* Raised within the page: the sticky save bar */
   --z-sticky:      20;  /* The sticky top bar */

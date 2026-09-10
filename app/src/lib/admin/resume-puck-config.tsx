@@ -149,6 +149,8 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
     // Editor: an A4 sheet on a desk (aspect-locked, so mobile keeps the ratio). Print (metadata.print):
     // the SAME paper scope but a plain full-width flow so gotenberg's @page can paginate it — no desk,
     // no aspect box, no shadow. One config, both surfaces (the whole point of A3: no second renderer).
+    // Print pages get their full-page cream ground from print.css (imported by the print route),
+    // not this div — its background only covers its content box.
     render: ({ children, coverLetter, accent, fontScale, puck }) => metaPrint(puck) ? (
       <div
         className="sm-resume-paper w-full min-h-full px-[7.5%] py-[6.5%]"

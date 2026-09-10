@@ -1,0 +1,10 @@
+/* Résumé print route only: a position:fixed layer paints the paper cream on every printed page.
+   The root (html/body) background isn't painted across Chromium's page breaks; an element's is, and
+   fixed elements repeat per page. Without it a short page 2 shows white below the text. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: #F3EFE6;
+  z-index: var(--z-behind);
+}

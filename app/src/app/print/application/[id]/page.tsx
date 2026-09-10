@@ -10,6 +10,8 @@
 import { notFound } from 'next/navigation';
 
 import { ResumePuckRender } from '@/components/admin/resume-page/ResumePuckRender';
+// Paints the whole A4 sheet cream on every printed page (only loaded on this print route).
+import '@/app/print/application/[id]/print.css';
 import {
   fetchPrintPayload,
   toResumeContent,
