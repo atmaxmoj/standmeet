@@ -61,7 +61,7 @@ func AttachAsset(
 	if ferr != nil {
 		return entity.Asset{}, ferr
 	}
-	return storeAsset(ctx, deps.Assets, in, &media)
+	return storeAssetDedup(ctx, deps.Assets, in, &media)
 }
 
 // AttachBytesInput —— the owner picked a local file in the admin panel; the bytes are
@@ -95,7 +95,7 @@ func AttachAssetBytes(
 	if aerr != nil {
 		return entity.Asset{}, aerr
 	}
-	return storeAsset(ctx, deps.Assets, &AttachAssetInput{
+	return storeAssetDedup(ctx, deps.Assets, &AttachAssetInput{
 		OwnerID: in.OwnerID, NoteID: in.NoteID, Kind: in.Kind, Filename: in.Filename,
 	}, &media)
 }

@@ -147,6 +147,40 @@ func (r *AssetRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.A
 	return mapAssets(rows), nil
 }
 
+// FindByContentKey —— an owner's pool asset with the same filename AND content hash. Returns a
+// zero-value asset (empty ID) with nil error when there is none — nothing to dedup against.
+//
+// The dedup key is **name + content** (the owner's call): the same file re-referenced (another
+// entry, a re-run vault sync, a re-pasted image) reuses the one pool asset, never minting a second
+// byte-identical row — the pool must not grow on re-reference. A different name, or different
+// bytes, is a distinct asset.
+//
+// ponytail: a linear scan of the owner's pool — fine at personal-corpus scale (hundreds of assets);
+// a unique index on (owner_id, original_filename, sha256) would index this AND close the narrow
+// concurrent-insert race (two identical uploads racing could both miss the scan and both insert).
+func (r *AssetRepo) FindByContentKey(
+	ctx context.Context, ownerID, filename, sha256 string,
+) (entity.Asset, error) {
+	if filename == "" || sha256 == "" {
+		return entity.Asset{}, nil
+	}
+	assets, err := r.ListByOwner(ctx, ownerID)
+	if err != nil {
+		return entity.Asset{}, fmt.Errorf("find asset by content key: %w", err)
+	}
+	return matchByContentKey(assets, filename, sha256), nil
+}
+
+// matchByContentKey —— first asset whose filename AND content hash match, or a zero-value asset.
+func matchByContentKey(assets []entity.Asset, filename, sha256 string) entity.Asset {
+	for i := range assets {
+		if assets[i].OriginalFilename == filename && assets[i].SHA256 == sha256 {
+			return assets[i]
+		}
+	}
+	return entity.Asset{}
+}
+
 // ── pool delete ───────────────────────────────────────────────────────────────
 
 // DeleteByID —— delete one asset the caller has already confirmed is unreferenced,
