@@ -1513,7 +1513,12 @@ release-build: sdk-build builder-vendor
 	# dist, so its testids are object properties the app's JSX strip can't reach — the SDK build has to
 	# drop them (dev's sdk-build keeps them for e2e). See sdk/packages/react/tsup.config.ts.
 	@STRIP_TEST_HOOKS=1 pnpm -F @standmeet/sdk build
-	@STRIP_TEST_HOOKS=1 pnpm -F standmeet-app build
+	@# BACKEND_URL must be the compose service name baked into the app's /api/* rewrites, NEVER the
+	@# host-side value BACKEND_URL carries for the e2e suite (per-checkout localhost:$(DEV_PORT_BACKEND),
+	@# which is EXPORTED). Without this override the release app proxied to localhost:<port> = the app
+	@# container itself → every /api/* + /mcp answered 500 ECONNREFUSED in prod. Same override as
+	@# app-build; the dev-stack port parameterisation is deliberately left untouched.
+	@STRIP_TEST_HOOKS=1 BACKEND_URL=$(APP_BUILD_BACKEND_URL) pnpm -F standmeet-app build
 	@$(MAKE) release-assert-stripped
 	@for svc in $(IMAGES); do \
 	  img=$(REGISTRY)/standmeet-$$svc:$(TAG); \
