@@ -146,7 +146,7 @@ func (d WritingsDeps) assetURLs(ctx context.Context, wg *entity.Writing) map[str
 		coverPtr = &cover
 	}
 	urls, err := usecase.ResolveAssetURLs(
-		ctx, d.Tx.Assets.Repo, d.Tx.Assets.Storage,
+		ctx, d.Tx.Assets.Repo,
 		usecase.WritingAssetIDs(wg.Body(), coverPtr),
 	)
 	if err != nil {

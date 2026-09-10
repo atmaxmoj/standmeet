@@ -85,7 +85,6 @@ func resolveWritingAssetURLs(
 	urls, err := corpus.ResolveAssetURLs(
 		r.Context(),
 		h.WritingsAdmin.WritingsTx.Assets.Repo,
-		h.WritingsAdmin.WritingsTx.Assets.Storage,
 		ids,
 	)
 	if err != nil {

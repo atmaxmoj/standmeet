@@ -293,7 +293,7 @@ func resolveWritingAssetURLs(
 		coverPtr = &coverID
 	}
 	ids := corpus.WritingAssetIDs(wg.Body(), coverPtr)
-	urls, err := corpus.ResolveAssetURLs(r.Context(), h.Assets.Repo, h.Assets.Storage, ids)
+	urls, err := corpus.ResolveAssetURLs(r.Context(), h.Assets.Repo, ids)
 	if err != nil {
 		h.Log.Error("resolve asset urls", logErr, err)
 		return map[string]string{}

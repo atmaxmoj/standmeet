@@ -41,12 +41,19 @@ type MicrositeHandlers struct {
 	Deps   owner.MicrositeDeps
 	Owners owner.SoleOwnerLookup
 	Log    *slog.Logger
-	// ResolvePublicAsset —— backs the pool-asset serve route (a microsite embeds a pool asset via
-	// the SDK AssetWidget; see microsite_assets.go). Closes over the domain at the composition root
-	// (the face never touches a repo): given an asset id, it returns a presigned blob URL and true
-	// iff the asset is publicly servable (a microsite references it), else ("", false).
-	ResolvePublicAsset func(ctx context.Context, id string) (string, bool)
-	BuildsRoot         string
+	// ServeAsset —— backs GET /api/v1/assets/{id} (see microsite_assets.go). A thin pass-through:
+	// given an id, it reads the bytes from object storage over the internal net and returns them to
+	// stream. Closes over the domain at the composition root (the face never touches a repo).
+	// ok=false (unknown id / read failure) → 404. Served by (unguessable) id — the id is the
+	// capability, exactly as the presigned URL was; no reference ACL, and minio is never exposed.
+	ServeAsset func(ctx context.Context, id string) (AssetBlob, bool)
+	BuildsRoot string
+}
+
+// AssetBlob —— an asset's bytes + content type, read from storage for the thin serve route.
+type AssetBlob struct {
+	ContentType string
+	Data        []byte
 }
 
 // Mount wires /microsites/{slug}/* onto /api/v1. The owner is a sole owner, so the

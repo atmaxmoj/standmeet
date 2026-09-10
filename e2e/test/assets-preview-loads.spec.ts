@@ -61,12 +61,19 @@ test.describe('Resources → 素材 · an uploaded image actually displays', () 
       })
       .toBeGreaterThan(0);
 
-    // VISIT the URL the panel renders — this is what catches an unreachable host/port, a 404, or the
-    // wrong asset. The signed URL must return 200 + image bytes.
+    // The URL is the backend's THIN FORWARDER (/api/v1/assets/<id>) — not a presigned minio direct
+    // link (which would carry X-Amz-* and point at object storage on its own host/port). So it rides
+    // the instance's own HTTPS origin, and minio is never exposed to the browser.
     const src = await img.getAttribute('src');
     expect(src, 'the img has a src URL').toBeTruthy();
-    const served = await page.request.get(src as string);
-    expect(served.status(), `the asset URL ${src} is reachable`).toBe(200);
+    expect(src as string, 'asset URL is the backend forwarder route').toContain('/api/v1/assets/');
+    expect(src as string, 'asset URL is not a presigned object-storage link').not.toContain('X-Amz-');
+
+    // VISIT it — resolve the (relative) route against the admin origin → app proxy → backend →
+    // minio (internal). This is what catches an unreachable path, a 404, or the wrong asset.
+    const abs = new URL(src as string, page.url()).toString();
+    const served = await page.request.get(abs);
+    expect(served.status(), `the asset URL ${abs} is reachable`).toBe(200);
     expect(served.headers()['content-type'] ?? '', 'the URL serves an image').toContain('image');
 
     // COMPARE — the served bytes ARE the image we uploaded: its mean colour is the red we sent, not a

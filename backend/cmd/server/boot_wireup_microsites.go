@@ -27,43 +27,29 @@ func buildPublicMicrositeDeps(d *deps.Runtime) publicroutes.MicrositeHandlers {
 		Deps:   owner.MicrositeDeps{Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo},
 		Owners: d.OwnerRepo,
 		Log:    d.Log,
-		ResolvePublicAsset: func(ctx context.Context, id string) (string, bool) {
-			return resolvePublicMicrositeAsset(ctx, d, id)
+		ServeAsset: func(ctx context.Context, id string) (publicroutes.AssetBlob, bool) {
+			return serveAssetBlob(ctx, d, id)
 		},
 		BuildsRoot: d.BuildsRoot,
 	}
 }
 
-// resolvePublicMicrositeAsset —— the ACL + presign for GET /api/v1/assets/{id}. Composition root,
-// so it may know the domain (the public face only gets this closure). Returns a presigned blob URL
-// and true iff a microsite references the asset; any miss (not referenced / gone / presign failure)
-// is ("", false), which the handler renders as a plain 404.
-func resolvePublicMicrositeAsset(ctx context.Context, d *deps.Runtime, id string) (string, bool) {
-	if !micrositeReferencesAsset(ctx, d, id) {
-		return "", false
-	}
+// serveAssetBlob —— read an asset's bytes from object storage (the internal minio) for GET
+// /api/v1/assets/{id}. Composition root, so it may touch the repo + storage; the public face only
+// gets this closure. Served by (unguessable) id — no reference ACL, matching the old presigned-URL
+// capability model. Any miss (unknown id / read failure) is (zero, false), rendered as a plain 404.
+func serveAssetBlob(
+	ctx context.Context, d *deps.Runtime, id string,
+) (publicroutes.AssetBlob, bool) {
 	asset, err := d.AssetRepo.GetByID(ctx, id)
 	if err != nil {
-		return "", false
+		return publicroutes.AssetBlob{}, false
 	}
-	url, perr := d.StorageClient.PresignedGetURL(ctx, asset.StorageKey)
-	if perr != nil {
-		return "", false
+	data, gerr := d.StorageClient.Get(ctx, asset.StorageKey)
+	if gerr != nil {
+		return publicroutes.AssetBlob{}, false
 	}
-	return url, true
-}
-
-func micrositeReferencesAsset(ctx context.Context, d *deps.Runtime, id string) bool {
-	refs, err := d.AssetRepo.ReferencesOf(ctx, id)
-	if err != nil {
-		return false
-	}
-	for i := range refs {
-		if refs[i].Kind == corpus.RefKindMicrosite {
-			return true
-		}
-	}
-	return false
+	return publicroutes.AssetBlob{Data: data, ContentType: asset.ContentType}, true
 }
 
 // micrositeAssetRefRebuilder —— the corpus-side closure the build lifecycle calls to recompute a

@@ -3,8 +3,10 @@
 //   - on build, the microsite's source is scanned for standmeet-asset:<id> and the asset gains a
 //     'microsite' reference (RebuildMicrositeAssetRefs, hooked into the build lifecycle);
 //   - the delete guard then refuses to delete that asset, naming the microsite;
-//   - the public serve route (GET /api/v1/assets/{id}) serves an asset a microsite references, and
-//     404s one no microsite references — so it can't enumerate the owner's pool.
+//   - the public serve route (GET /api/v1/assets/{id}) is a THIN pass-through: it reads the asset's
+//     bytes from object storage over the internal network and streams them (no presigned redirect,
+//     minio never exposed). Served by (unguessable) id — the id is the capability, exactly as the
+//     presigned URL was.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -67,13 +69,23 @@ test.describe('microsite asset widget · reference + guard + public serve', () =
     expect(refused.status(), 'a microsite-embedded asset refuses delete').toBe(409);
     expect((await refused.text()).toLowerCase()).toContain('microsite');
 
-    // Public serve ACL: an asset a microsite references is publicly servable (302 → the blob);
-    // one no microsite references is not (404, indistinguishable from "does not exist").
+    // Public serve: the route is a thin pass-through. It STREAMS the asset's bytes (200 + image
+    // content-type + a real body) instead of 302-redirecting to a presigned minio URL — so the blob
+    // rides the instance's own HTTPS origin and minio is never exposed.
     const served = await ctx.get(`${BACKEND}/api/v1/assets/${embedded}`, { maxRedirects: 0 });
-    expect(served.status(), 'a microsite-referenced asset is served (redirect to blob)').toBe(302);
+    expect(served.status(), 'a referenced asset streams its bytes (not a redirect)').toBe(200);
+    expect(served.headers()['content-type'] ?? '', 'streamed as an image').toContain('image');
+    expect((await served.body()).length, 'a real body, not an empty redirect').toBeGreaterThan(0);
 
-    const hidden = await ctx.get(`${BACKEND}/api/v1/assets/${corpusOnly}`, { maxRedirects: 0 });
-    expect(hidden.status(), 'a corpus-only asset is not publicly servable').toBe(404);
+    // No reference-ACL: a corpus-only asset is served too — served by its (unguessable) id, the same
+    // capability model the presigned URL had.
+    const other = await ctx.get(`${BACKEND}/api/v1/assets/${corpusOnly}`, { maxRedirects: 0 });
+    expect(other.status(), 'a corpus-only asset also streams (served by id)').toBe(200);
+
+    // An unknown id is a plain 404.
+    const missing = await ctx.get(
+      `${BACKEND}/api/v1/assets/00000000-0000-4000-8000-000000000000`, { maxRedirects: 0 });
+    expect(missing.status(), 'an unknown asset id is 404').toBe(404);
   });
 });
 

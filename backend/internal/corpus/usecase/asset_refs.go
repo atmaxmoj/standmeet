@@ -17,7 +17,6 @@ import (
 	"regexp"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
-	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 )
 
 // AssetURIScheme — the stable reference prefix used inside a markdown body.
@@ -59,11 +58,11 @@ func WritingAssetIDs(bodyMD string, coverImageAssetID *string) []string {
 	return ids
 }
 
-// ResolveAssetURLs — issues presigned URLs in batch for a set of real asset IDs. pending-*
-// placeholders never appear here (the caller has already rewritten them). A missing ID is
-// skipped best-effort.
+// ResolveAssetURLs — resolves a set of real asset IDs to their stable serve paths (the backend's
+// thin /api/v1/assets/{id} route). pending-* placeholders never appear here (the caller has already
+// rewritten them). A missing ID is skipped best-effort.
 func ResolveAssetURLs(
-	ctx context.Context, repo *repo.AssetRepo, store *storage.Client,
+	ctx context.Context, repo *repo.AssetRepo,
 	ids []string,
 ) (map[string]string, error) {
 	if len(ids) == 0 {
@@ -71,7 +70,7 @@ func ResolveAssetURLs(
 	}
 	out := make(map[string]string, len(ids))
 	for _, id := range ids {
-		url, err := resolveOne(ctx, repo, store, id)
+		url, err := resolveOne(ctx, repo, id)
 		if err != nil {
 			continue
 		}
@@ -80,16 +79,18 @@ func ResolveAssetURLs(
 	return out, nil
 }
 
-func resolveOne(
-	ctx context.Context, repo *repo.AssetRepo, store *storage.Client, id string,
-) (string, error) {
-	asset, err := repo.GetByID(ctx, id)
-	if err != nil {
+// resolveOne — the asset's stable serve path, once its existence is confirmed. Missing → skipped.
+func resolveOne(ctx context.Context, repo *repo.AssetRepo, id string) (string, error) {
+	if _, err := repo.GetByID(ctx, id); err != nil {
 		return "", fmt.Errorf("get asset %s: %w", id, err)
 	}
-	url, perr := store.PresignedGetURL(ctx, asset.StorageKey)
-	if perr != nil {
-		return "", fmt.Errorf("presign %s: %w", id, perr)
-	}
-	return url, nil
+	return assetPublicPath(id), nil
+}
+
+// assetPublicPath — the backend's thin serve route for an asset (GET /api/v1/assets/{id}). The body
+// stores the stable standmeet-asset:<id> URI; this resolves it to the route the browser fetches,
+// which streams the bytes from object storage over the internal network — never a presigned minio
+// link, so minio is never exposed.
+func assetPublicPath(id string) string {
+	return "/api/v1/assets/" + id
 }

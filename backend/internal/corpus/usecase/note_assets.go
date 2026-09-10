@@ -12,10 +12,11 @@
 //	lifetime    blob lifetime ⊆ entry lifetime — the entry is gone, its bytes go too
 //	visibility  blob visibility ⊆ entry visibility — only reading the entry gets you the URL
 //
-// The visibility invariant **is not judged here**: media's only exit is "read the entry,
-// and get its media along with it." Reading the entry has already gone through ACL, and
-// media hangs off it, inheriting naturally. There is no second path that fetches media by
-// id — not building that path is more reliable than building it and then guarding it.
+// The visibility invariant **is not judged here**: media's only exit is "read the entry, and get
+// its media URL along with it." Reading the entry has already gone through ACL, and the URL is the
+// stable /api/v1/assets/{id} serve route the entry hands out. That route serves by (unguessable) id
+// — the same capability the presigned URL was: the id is only ever exposed inside content a reader
+// was already authorized to see.
 
 package usecase
 
@@ -25,7 +26,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
-	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 )
 
 // NoteAssetsDeps —— what these media operations need.
@@ -182,22 +182,20 @@ func NoteAssets(
 	}
 	out := make([]AssetView, 0, len(rows))
 	for i := range rows {
-		out = append(out, assetView(ctx, deps.Assets.Storage, &rows[i]))
+		out = append(out, assetView(&rows[i]))
 	}
 	return out, nil
 }
 
-func assetView(ctx context.Context, store *storage.Client, a *entity.Asset) AssetView {
-	v := AssetView{
+func assetView(a *entity.Asset) AssetView {
+	// URL is the backend's stable serve route (/api/v1/assets/{id}); the handler streams the bytes
+	// from object storage over the internal network, so this never depends on minio being reachable
+	// from the browser.
+	return AssetView{
 		AssetID: a.ID, Kind: a.Kind, ContentType: a.ContentType,
 		Filename: a.OriginalFilename, SizeBytes: a.SizeBytes,
+		URL: assetPublicPath(a.ID),
 	}
-	// Leave it blank if the URL can't be obtained: one piece of media failing to get a
-	// URL shouldn't make the whole entry unreadable.
-	if url, err := store.PresignedGetURL(ctx, a.StorageKey); err == nil {
-		v.URL = url
-	}
-	return v
 }
 
 // NoteAssetURLs —— the standmeet-asset references in the body plus the hero image →
@@ -209,7 +207,7 @@ func NoteAssetURLs(
 	if hero.CoverAssetID != "" {
 		ids = append(ids, hero.CoverAssetID)
 	}
-	urls, err := ResolveAssetURLs(ctx, deps.Assets.Repo, deps.Assets.Storage, ids)
+	urls, err := ResolveAssetURLs(ctx, deps.Assets.Repo, ids)
 	if err != nil {
 		return map[string]string{}, fmt.Errorf("resolve note asset urls: %w", err)
 	}
