@@ -10,10 +10,10 @@ import { ChangeCodeBtn } from '@/components/admin/sections/codes/CodeChangeContr
 import { Btn } from '@/components/admin/atoms/Btn';
 import { MetaPair } from '@/components/admin/atoms/MetaPair';
 import { QRCode } from '@/components/admin/atoms/QRCode';
+import { GhostEvidenceCol } from '@/components/admin/sections/codes/CodeCardGhost';
 import { MembersBlock } from '@/components/admin/sections/codes/MembersBlock';
 import { SelectField } from '@/components/atoms/SelectField';
 import { buildShareLink } from '@/lib/admin/code-share';
-import { ghostFromSelect, ghostToSelect } from '@/lib/admin/code-ghost';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import { useRoles } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
@@ -150,34 +150,6 @@ function CodeCardBody({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeVi
       <QRCol code={code} onShowQR={onShowQR} />
       <QuotaBar code={code} />
     </div>
-  );
-}
-
-// GhostEvidenceCol — F-A-10 per-code override of the ghost-evidence rule. 3 states:
-// inherit (inherits from role, null) / require (evidence mandatory, true) / allow (no
-// restriction, false). Code overrides role. Save → PATCH /ghost-evidence.
-function GhostEvidenceCol({ code }: { code: CodeView }) {
-  const t = useTranslations('adminAccess');
-  const { setGhostEvidence } = useCodes();
-  const run = useAction();
-  const onPick = (v: string) => run(
-    () => setGhostEvidence(code.id, ghostFromSelect(v)),
-    { success: t('codeCard.toast.ghostUpdated', { code: code.code }) },
-  );
-  return (
-    <MetaPair label={t('codeGhost.label')}>
-      <SelectField
-        className="min-w-0 max-w-full"
-        mono
-        value={ghostToSelect(code.require_ghost_evidence)}
-        onChange={(e) => void onPick(e.target.value)}
-        testid={`code-ghost-evidence-${code.code}`}
-      >
-        <option value="inherit">{t('codeGhost.inherit')}</option>
-        <option value="on">{t('codeGhost.on')}</option>
-        <option value="off">{t('codeGhost.off')}</option>
-      </SelectField>
-    </MetaPair>
   );
 }
 
@@ -392,9 +364,6 @@ function fillPercent(used: number, cap: number | null | undefined): number {
 }
 
 // A.3-IAM-5: ScopeBlock / PathPerm / UnrestrictedHint removed — ACL is inferred from role.
-
-
-
 
 function CodeCardFooter({ code, link }: { code: CodeView; link: string }) {
   return (

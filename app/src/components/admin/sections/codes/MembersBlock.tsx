@@ -18,8 +18,11 @@ type Props = { codeID: string; code: string };
 export function MembersBlock({ codeID, code }: Props) {
   const [open, setOpen] = useState(false);
   const hook = useMembers(codeID, open);
+  // `relative` so the members list can float as an absolute popover: opening it must not push the rest
+  // of the card (and every card below it) down — it overlays instead (owner: "做成 floating，别影响
+  // code 页布局；下面的东西不能变位置").
   return (
-    <div className="mt-4">
+    <div className="mt-4 relative">
       <ToggleBtn open={open} onToggle={() => setOpen((v) => !v)} code={code} />
       <MembersBody open={open} hook={hook} code={code} />
     </div>
@@ -45,7 +48,16 @@ function ToggleBtn({
 function MembersBody({
   open, hook, code,
 }: { open: boolean; hook: MembersHook; code: string }) {
-  return open ? <MembersList hook={hook} code={code} /> : null;
+  // A floating popover anchored under the toggle (sm-z-float-1 = the "floating triggers" band). Its own
+  // paper background + border + shadow read it as an overlay above the card, so nothing below it moves.
+  return open ? (
+    <div
+      data-testid={`members-panel-${code}`}
+      className="absolute left-0 top-full mt-1 min-w-[200px] max-w-[280px] sm-z-float-1 bg-(--color-paper) border border-(--color-rule) rounded-[3px] shadow-lg p-2.5"
+    >
+      <MembersList hook={hook} code={code} />
+    </div>
+  ) : null;
 }
 
 function MembersList({ hook, code }: { hook: MembersHook; code: string }) {

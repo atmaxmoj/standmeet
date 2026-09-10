@@ -3,7 +3,8 @@
 import type { ReactNode } from 'react';
 
 type Props = {
-  label: string;
+  // label is a ReactNode (not just string) so a pair can carry an inline help "?" dot beside its name.
+  label: ReactNode;
   children: ReactNode;
   className?: string;
 };

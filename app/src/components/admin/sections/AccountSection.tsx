@@ -17,7 +17,6 @@ import { HandleEditor } from '@/components/admin/sections/page/HandleEditor';
 import { PublicURLEditor } from '@/components/admin/sections/page/PublicURLEditor';
 import { DomainEditor } from '@/components/admin/sections/page/DomainEditor';
 import { BYOAIEditor } from '@/components/admin/sections/page/BYOAIEditor';
-import { FaviconEditor } from '@/components/admin/sections/page/FaviconEditor';
 import {
   AcctBlock, PasswordField, SaveBtn,
 } from '@/components/admin/sections/account/atoms';
@@ -65,7 +64,6 @@ function SiteCard() {
         <PublicURLEditor current={view.publicURL} onChanged={view.setPublicURL} />
         <HandleEditor current={view.handle} onChanged={view.setHandle} />
         <DomainEditor handle={view.handle} />
-        <FaviconEditor />
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ import { Pill } from '@/components/admin/atoms/Pill';
 import { useAppVersion } from '@/lib/app-version';
 import { signOut } from '@/lib/admin/sign-out';
 import { useInstanceLiveness } from '@/lib/state/instance-liveness';
+import { useTheme } from '@/lib/page/use-theme';
 
 type Props = {
   handle: string;
@@ -146,6 +147,26 @@ function LiveDot() {
   );
 }
 
+// ThemeToggle — day/night for the admin. The admin had none, so an owner on a dark OS was stuck with
+// a bright-cream backend (owner: "我 admin 这边怎么没办法调白天黑夜的"). Shares useTheme with the
+// public TopBar (flips `.dark` on <html>, writes the same localStorage lock), and the whole app's
+// tokens already swap under `html.dark` — so this is a control, not a new theme. Text, not an icon, to
+// match this chrome's lowercase-mono vocabulary; the label is the mode it switches TO.
+function ThemeToggle() {
+  const { dark, toggle } = useTheme();
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      data-testid="admin-theme-toggle"
+      aria-label="toggle theme"
+      className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-faint) hover:text-(--color-accent) transition-colors"
+    >
+      {dark ? 'light' : 'dark'}
+    </button>
+  );
+}
+
 function TopBarMeta({
   email, buildTag, onSignOut,
 }: { email: string; buildTag: string; onSignOut: () => void }) {
@@ -162,6 +183,7 @@ function TopBarMeta({
         {t('viewPublic')}
       </Link>
       <span className="mono text-[10.5px] text-(--color-muted) hidden xl:inline">{email}</span>
+      <ThemeToggle />
       <LocaleSwitch />
       <button
         type="button"

@@ -101,14 +101,27 @@ test.describe('owner favicon (G2)', () => {
     await api.dispose();
   });
 
-  test('the picker lists the image and choosing it changes what is served', async ({ adminPage: page, playwright }) => {
+  test('the favicon control lives under Resources → 素材 and choosing an image changes what is served', async ({ adminPage: page, playwright }) => {
     test.setTimeout(120_000);
     const api: APIRequestContext = await playwright.request.newContext();
     const { csrf } = await loginAPI(api, OWNER.email, OWNER.password);
     await setFavicon(api, csrf, ''); // known start: the default
 
-    await page.getByTestId('admin-nav-account').click();
-    await expect(page.getByTestId('favicon-editor')).toBeVisible({ timeout: 30_000 });
+    // The owner looks for the favicon under Resources → Assets (素材), reached by CLICKING that nav —
+    // not buried in Account where they could not find it (owner: "在这个资源下面…你点不到，因为现在没有").
+    await page.getByTestId('admin-nav-assets').click();
+    const editor = page.getByTestId('favicon-editor');
+    await expect(editor, 'the favicon control is present under Resources → Assets').toBeVisible({ timeout: 30_000 });
+    // The panel's live preview must actually DISPLAY the current favicon — a present-but-broken <img>
+    // is exactly "favicon 没在面板上" (owner). naturalWidth > 0 is the browser's own decode signal.
+    const preview = editor.locator('img');
+    await expect(preview, 'the panel shows a favicon preview image').toBeVisible();
+    await expect
+      .poll(async () => preview.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth), {
+        message: 'the favicon preview actually loads (naturalWidth > 0), not a broken image',
+        timeout: 20_000,
+      })
+      .toBeGreaterThan(0);
     const select = page.getByTestId('favicon-select');
     await expect(select).toBeVisible();
     // A Default (deselect) option and the uploaded image are both selectable.

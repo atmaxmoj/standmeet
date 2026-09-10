@@ -13,6 +13,7 @@ import { useTranslations } from 'next-intl';
 
 import { FilePicker } from '@/components/admin/atoms/FilePicker';
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { FaviconEditor } from '@/components/admin/sections/page/FaviconEditor';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { isImage, sizeLabel, useAssets, type PoolAsset } from '@/lib/admin/use-assets';
 import { useAction } from '@/lib/ui/use-action';
@@ -28,9 +29,21 @@ export function AssetsSection() {
         count={hook.assets.length > 0 ? String(hook.assets.length) : ''}
       />
       <Intro />
+      <FaviconBlock />
       <UploadBar hook={hook} />
       <Body hook={hook} />
     </>
+  );
+}
+
+// FaviconBlock —— the site favicon is chosen FROM an image in this pool, so its control lives here in
+// Resources → Assets, where the owner looks for it (owner: "favicon 在这个资源下面"). It was buried in
+// Account, unreachable by the Resources nav.
+function FaviconBlock() {
+  return (
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/40 mb-6">
+      <FaviconEditor />
+    </div>
   );
 }
 
