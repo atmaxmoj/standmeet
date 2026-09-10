@@ -30,9 +30,17 @@ Once connected, the server hands your agent its own instructions on how to curat
 StandMeet is available.
 `;
 
-// clientVersion — read from the package's own package.json (one dir up from the built file), so
-// --version reports the installed release rather than a hardcoded string.
+// __MCP_CLIENT_VERSION__ — replaced at build by tsup's `define` with the build's STANDMEET_VERSION
+// (the git tag), the same single source the server stamps into its own version. Empty on an
+// unstamped local build.
+declare const __MCP_CLIENT_VERSION__: string;
+
+// clientVersion — the build-stamped version (follows the big version / git tag), falling back to the
+// package's own package.json only for an unstamped local build.
 function clientVersion(): string {
+  if (__MCP_CLIENT_VERSION__) {
+    return __MCP_CLIENT_VERSION__;
+  }
   try {
     const p = fileURLToPath(new URL('../package.json', import.meta.url));
     const pkg = JSON.parse(readFileSync(p, 'utf8')) as { version?: string };

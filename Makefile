@@ -313,7 +313,14 @@ sdk-build: deps
 	@pnpm -F @standmeet/agent-core build
 	@pnpm -F @standmeet/sdk build
 	@pnpm -F @standmeet/embed build
-	@pnpm -F @standmeet/mcp-client build
+	@# Stamp the mcp-client version from the SAME git tag the server uses (never a frozen 0.0.0), so
+	@# the version-skew advisory is meaningful. Then assert the built client self-reports it — the
+	@# client-side of release-assert-version.
+	@STANDMEET_VERSION=$(TAG) pnpm -F @standmeet/mcp-client build
+	@got=$$(node sdk/packages/mcp-client/bin/standmeet-mcp --version); \
+	  test "$$got" = "$(TAG)" || { \
+	    echo "sdk-build: mcp-client self-reports '$$got', but this build is '$(TAG)' — the version stopped following the tag"; \
+	    exit 1; }
 
 # app-build —— pnpm build on the host, producing .next/standalone for the docker image to COPY.
 # Host build chosen over docker build: pnpm install inside node:22-alpine often hits < 50 KiB/s
