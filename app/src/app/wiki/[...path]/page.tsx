@@ -56,11 +56,12 @@ export default async function WikiLandingPage(
   ]);
   return (
     <>
-      {/* view={false}: the backend already records this read (the middleware sees the
-          /wiki/* API call behind it), so a beacon view here would double every number. What
-          the backend CANNOT see is how far down the page the reader got, whether they reached
-          the end, how long they stayed, and which link inside the page they took. */}
-      <TrackVisit surface="reader" entityKind="wiki" entitySlug={slug} view={false} read />
+      {/* view (default): the BROWSER reports this read. The /wiki/* API call behind the page is
+          the app's own SSR fetch over the container network — the app rendering, not a visitor —
+          and it is tagged internal so the monitor skips it (public.ts ssrFetch). So the beacon is
+          the one real view (with the visitor's own browser/geo), not a phantom, and not doubled.
+          read: the depth, the end and the dwell the backend cannot see either. */}
+      <TrackVisit surface="reader" entityKind="wiki" entitySlug={slug} read />
       <WikiReaderClient
         // parseWikiLanding — the **same** parser used by the token-bearing refetch path.
         // Previously the raw payload was passed straight through, and the reader-side type

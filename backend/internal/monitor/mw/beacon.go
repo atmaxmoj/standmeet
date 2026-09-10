@@ -48,10 +48,13 @@ const (
 // write a row, so what they may write is enumerated rather than validated: a name not in this
 // table is dropped, and a name in it can still only arrive on a surface that makes sense for it.
 var browserEvents = map[string][]entity.Surface{
-	// A view of the index. The server cannot record this: the page is rendered by the app, and
-	// the only backend route involved is a liveness probe that fires whether or not a person is
-	// there (see routes.go). Without this line, surface `index` has no signal at all.
-	"": {entity.SurfaceIndex},
+	// A view, reported by the browser. The server cannot record these honestly: each page is
+	// rendered by the app, and the backend route behind it is a liveness probe (index) or the app's
+	// OWN server-side fetch over the container network (reader/writings) — the app rendering, not a
+	// visitor. That SSR fetch is tagged internal and skipped (record.go), so the ONE real view (the
+	// visitor's own browser + geo) is this beacon. Without reader/writings here, a reader view is
+	// dropped and those pages show zero reads.
+	"": {entity.SurfaceIndex, entity.SurfaceReader, entity.SurfaceWritings},
 
 	entity.EventScrollDepth: {
 		entity.SurfaceIndex, entity.SurfaceReader, entity.SurfaceWritings, entity.SurfaceMicrosite,

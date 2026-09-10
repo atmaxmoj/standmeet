@@ -260,6 +260,14 @@
     "recoveryNoteNeedsMail": "请先在 Connectors 中验证邮箱（SMTP）——恢复口令将通过邮件发给你。"
   },
   "monitor": {
+    "sessionsHeading": "会话",
+    "colSession": "会话",
+    "colCountry": "国家",
+    "colCity": "城市",
+    "colBrowser": "浏览器",
+    "colOs": "系统",
+    "colDevice": "设备",
+    "colLastSeen": "最近访问",
     "kicker": "设置 · 监控",
     "intro": "谁来了、从哪来、读了什么。由本实例自己采集，存在自己的数据库里——不接第三方分析，不用 cookie，任何时候都不存 IP。爬虫单独计数，绝不混进这些数字。",
     "feed": "最近的事件",

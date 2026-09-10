@@ -38,6 +38,58 @@ const e2eLocal = {
         };
       },
     },
+    // no-direct-mutating-api (WARN) — the no-restricted-syntax bans below only match the MEMBER
+    // form `page.request.post(...)` and free `fetch({method})`. Specs sidestep them by seeding
+    // through a bare APIRequestContext: `const api = await playwright.request.newContext();
+    // api.post('/api/admin/…'); api.patch(…)` — a different receiver name, the same capability
+    // ([[goto-guard-checks-name-not-capability]]). And `.patch` was never banned at all. Seeding a
+    // spec through the API directly hands the implementation its own expected data and lets the test
+    // pass while the real GUI/MCP path is broken ([[e2e-must-be-blackbox]]). This flags EVERY
+    // `.post/.put/.patch/.delete` member call in a spec regardless of receiver: WARN for now so the
+    // backlog is visible at once; flip to 'error' once specs seed via MCP/fixtures or drive the GUI.
+    'no-direct-mutating-api': {
+      meta: {
+        type: 'suggestion',
+        docs: { description: 'no direct non-GET API calls in spec bodies — seed via MCP/fixtures or drive the GUI' },
+        messages: {
+          mutate:
+            'E2E spec: no direct non-GET API (.{{m}}()). Seeding or acting by calling the API directly ' +
+            'bypasses the real GUI/MCP path, so the test can pass while that path is broken. Drive the UI, ' +
+            'or seed through an MCP/fixture setup helper (warning for now).',
+        },
+      },
+      create(context) {
+        const MUTATING = new Set(['post', 'put', 'patch', 'delete']);
+        // The rigging is a non-GET straight to the OWNER surface (/api/admin/*), which every one of
+        // these features also exposes through the GUI. The sanctioned machine door (MCP /mcp) and
+        // the login/claim/token bootstrap are NOT rigging — a spec must be allowed to sign in and to
+        // drive the owner's own client. So flag only when the target URL names /api/admin/.
+        const firstArgText = (node) => {
+          const a = node.arguments[0];
+          if (!a) return '';
+          if (a.type === 'Literal' && typeof a.value === 'string') return a.value;
+          if (a.type === 'TemplateLiteral') return a.quasis.map((q) => q.value.raw).join('');
+          return '';
+        };
+        // No URL carve-outs — not even login/claim/token. A spec may reach the owner API through
+        // NO direct call; bootstrap is allowed ONLY because it lives in fixtures/ (which this
+        // spec-scoped rule does not lint). Excluding bootstrap by URL here would be a hole to
+        // relabel a seeding call through later — confine it to a place (fixtures), not a name.
+        return {
+          CallExpression(node) {
+            const c = node.callee;
+            if (
+              c.type === 'MemberExpression' &&
+              c.property.type === 'Identifier' &&
+              MUTATING.has(c.property.name) &&
+              firstArgText(node).includes('/api/admin/')
+            ) {
+              context.report({ node: c.property, messageId: 'mutate', data: { m: c.property.name } });
+            }
+          },
+        };
+      },
+    },
   },
 };
 
@@ -204,6 +256,9 @@ export default tseslint.config(
       'no-restricted-syntax': ['error', ...SPEC_SYNTAX_RESTRICTIONS],
       // The goto-teleport backlog — a WARNING (see e2eLocal above); flip to 'error' to enforce.
       'e2e-local/no-goto-teleport': 'warn',
+      // The direct-mutating-API backlog — WARN (see e2eLocal above); flip to 'error' once specs
+      // seed via MCP/fixtures or drive the GUI instead of `api.post/.patch(...)`.
+      'e2e-local/no-direct-mutating-api': 'warn',
     },
   },
   // Connector specs additionally ban Chinese in test titles + expect messages

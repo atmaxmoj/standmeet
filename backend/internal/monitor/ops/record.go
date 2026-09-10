@@ -114,10 +114,22 @@ func View(ctx context.Context, d *Deps, r *http.Request, surface string, e entit
 // shouldRecord —— the two gates, in the order §4.11 requires: the owner exclusion first, then
 // the collection switch.
 func (d *Deps) shouldRecord(ctx context.Context, r *http.Request) bool {
-	if d.Repo == nil || d.isExcludedOwner(r) {
+	if d.Repo == nil || isInternalSelfFetch(r) || d.isExcludedOwner(r) {
 		return false
 	}
 	return d.Enabled == nil || d.Enabled(ctx)
+}
+
+// ssrInternalHeader —— the app's SSR client stamps this on its own server-side fetches to the
+// public API (app/src/lib/api/public.ts ssrFetch). Canonical spelling; keep it in step there.
+const ssrInternalHeader = "X-Standmeet-Ssr-Internal"
+
+// isInternalSelfFetch —— the app rendering a page fetches the SAME public routes the monitor
+// counts, over the container network. That is the app rendering, not a visitor reading: it carries
+// the app's own identity (no browser UA), so counting it invents a phantom viewer and doubles every
+// read. The SSR fetch is tagged; skip it — the browser's own fetch is the real one.
+func isInternalSelfFetch(r *http.Request) bool {
+	return r.Header.Get(ssrInternalHeader) == "1"
 }
 
 // isExcludedOwner —— the owner reading their own page records nothing. This is the single most

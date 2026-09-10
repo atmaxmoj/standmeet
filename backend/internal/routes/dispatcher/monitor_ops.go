@@ -49,6 +49,15 @@ func MonitorOps(repo *monitor.Repo) []Op {
 			Reach:       fp.OwnerRead(),
 			Invoke:      readMonitorStats(repo),
 		},
+		{
+			ID: "monitor.sessions",
+			Description: "List visitor sessions, one per viewer: visits, views, country, city, " +
+				"browser, os, device, last seen. Bots are included and flagged.",
+			InputSchema: monitor.StatsInputSchema,
+			Kind:        fp.Read,
+			Reach:       fp.OwnerRead(),
+			Invoke:      readMonitorSessions(repo),
+		},
 	}
 }
 
@@ -77,5 +86,19 @@ func readMonitorStats(repo *monitor.Repo) Invoke {
 			return nil, fp.OpErr("summarise monitor traffic", err)
 		}
 		return json.Marshal(sum)
+	}
+}
+
+func readMonitorSessions(repo *monitor.Repo) Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		since, derr := monitor.StatsSince(raw)
+		if derr != nil {
+			return nil, BadInput(derr.Error())
+		}
+		rows, err := repo.Sessions(ctx, ownerID, since, 0)
+		if err != nil {
+			return nil, fp.OpErr("list monitor sessions", err)
+		}
+		return json.Marshal(monitor.SessionsOut{Sessions: rows})
 	}
 }

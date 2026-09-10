@@ -1,20 +1,31 @@
-/* DraftThumb —— framed scaled ResumePage. Width:height locked to 8.5:11
-   so the scaled child fits its grid cell exactly without overflow. */
+/* DraftThumb —— a scaled-down ResumePuckRender (the SAME renderer as the editor + PDF).
+   The box is sized to EXACTLY the scaled A4 sheet, so it cannot be larger than the page —
+   that mismatch was the dark frame the owner saw on the right + bottom. */
 
 .thumb {
-  width: 100%;
-  aspect-ratio: 8.5 / 11;
+  /* 210mm ≈ 793.7px; scaled by --thumb-scale below → the box is that page, nothing more. */
+  width: calc(793.7px * var(--thumb-scale));
+  max-width: 100%;
+  aspect-ratio: 210 / 297; /* A4 — the résumé page's own shape (was 8.5/11 = Letter → letterbox gap) */
   border: 1px solid var(--color-rule);
   border-radius: 3px;
-  background: color-mix(in oklab, var(--color-surface) 60%, transparent);
   overflow: hidden;
   position: relative;
 }
 
-/* Center the scaled page inside the box; the ResumePage component's
-   transform-origin is top-left, so the scaled child sits at 0,0 by
-   default — explicit 0/0 keeps it pinned even if the design changes. */
-.thumb > * {
+/* .page — the full-size A4 sheet, pinned top-left and scaled down. transform is visual only, so the
+   .thumb width above is set to the SAME scaled size; the two match and no background shows through. */
+.page {
+  --thumb-scale: 0.232;
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 793.7px;
+  transform-origin: top left;
+  transform: scale(var(--thumb-scale));
+}
+
+/* --thumb-scale lives on .page but the box needs it too; hoist it to the box. */
+.thumb {
+  --thumb-scale: 0.232;
 }

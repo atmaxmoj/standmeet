@@ -260,6 +260,14 @@
     "recoveryNoteNeedsMail": "Verifica el correo (SMTP) en Connectors primero — la frase de recuperación se te envía por correo."
   },
   "monitor": {
+    "sessionsHeading": "sesiones",
+    "colSession": "sesión",
+    "colCountry": "país",
+    "colCity": "ciudad",
+    "colBrowser": "navegador",
+    "colOs": "SO",
+    "colDevice": "dispositivo",
+    "colLastSeen": "última vez",
     "kicker": "ajustes · monitor",
     "intro": "Quién vino, de dónde y qué leyó. Lo recoge esta instancia, en su propia base de datos: sin analítica de terceros, sin cookies y sin guardar nunca una dirección IP. Los rastreadores se cuentan aparte y nunca se mezclan con estas cifras.",
     "feed": "eventos recientes",

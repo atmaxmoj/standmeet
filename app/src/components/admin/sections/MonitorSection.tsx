@@ -11,12 +11,14 @@
 
 'use client';
 
+import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import {
-  useMonitor, MONITOR_WINDOWS,
-  type FeedView, type MonitorRow, type MonitorSummary, type MonitorWindow,
+  useMonitor, MONITOR_WINDOWS, toSessionCells,
+  type FeedView, type MonitorRow, type MonitorSession, type SessionCells,
+  type MonitorSummary, type MonitorWindow,
 } from '@/lib/admin/use-monitor';
 import { useEffectErrorToast } from '@/lib/ui/toast';
 
@@ -36,6 +38,7 @@ export function MonitorSection() {
       </p>
       <WindowPicker current={hook.window} onPick={hook.setWindow} />
       <Summary summary={hook.summary} />
+      <Sessions sessions={hook.sessions} />
       <Feed rows={hook.rows} view={hook.view} />
     </>
   );
@@ -118,6 +121,69 @@ function Stat(props: {
       </div>
       <div className="text-[12px] text-(--color-muted) mt-2 reading-tight">{props.hint}</div>
     </div>
+  );
+}
+
+// Sessions —— the per-viewer breakdown, the summary's numbers made legible as PEOPLE. Each row is
+// one viewer (a monthly-salted hash, never an identity): its visits + views, where it came from,
+// on what browser/os/device, and when last seen. Bots are flagged in place, not hidden.
+function Sessions({ sessions }: { sessions: readonly MonitorSession[] }) {
+  const t = useTranslations('adminShell.monitor');
+  return sessions.length === 0 ? null : (
+    <div data-testid="monitor-sessions" className="mb-9">
+      <h3 className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-muted) mb-3">
+        {t('sessionsHeading')}
+      </h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[13px] border-collapse">
+          <thead>
+            <tr className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) text-left">
+              <Th>{t('colSession')}</Th><Th>{t('visits')}</Th><Th>{t('views')}</Th>
+              <Th>{t('colCountry')}</Th><Th>{t('colCity')}</Th><Th>{t('colBrowser')}</Th>
+              <Th>{t('colOs')}</Th><Th>{t('colDevice')}</Th><Th>{t('colLastSeen')}</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {sessions.map((s) => <SessionRow key={s.viewer_id} cells={toSessionCells(s)} />)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function Th({ children }: { children: ReactNode }) {
+  return <th className="py-2 pr-4 font-normal whitespace-nowrap">{children}</th>;
+}
+
+// SessionRow —— all display + fallback decisions were made in toSessionCells, so this only places
+// strings into testid'd cells (the presentation layer holds no branches).
+function SessionRow({ cells }: { cells: SessionCells }) {
+  return (
+    <tr data-testid="monitor-session-row" className="border-b border-(--color-rule) align-baseline">
+      <Cell testid="monitor-session-id" mono>{cells.id}</Cell>
+      <Cell testid="monitor-session-visits" mono>{cells.visits}</Cell>
+      <Cell testid="monitor-session-views" mono>{cells.views}</Cell>
+      <Cell testid="monitor-session-country">{cells.country}</Cell>
+      <Cell testid="monitor-session-city">{cells.city}</Cell>
+      <Cell testid="monitor-session-browser">{cells.browser}</Cell>
+      <Cell testid="monitor-session-os">{cells.os}</Cell>
+      <Cell testid="monitor-session-device">{cells.device}</Cell>
+      <Cell testid="monitor-session-lastseen" mono>{cells.lastSeen}</Cell>
+    </tr>
+  );
+}
+
+function Cell(
+  { testid, children, mono }: { testid: string; children: ReactNode; mono?: boolean },
+) {
+  return (
+    <td
+      data-testid={testid}
+      className={`py-2 pr-4 whitespace-nowrap text-(--color-ink) ${mono ? 'mono text-[11px]' : 'text-[12.5px]'}`}
+    >
+      {children}
+    </td>
   );
 }
 

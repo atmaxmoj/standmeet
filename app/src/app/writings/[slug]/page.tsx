@@ -41,9 +41,11 @@ export default async function WritingArticlePage({ params, searchParams }: PageP
     const ctx = await fetchWritingContext(slug);
     return (
       <ReaderLayout mainTestId="writing-page" aside={<WritingTreeAside activeSlug={slug} />}>
-        {/* view={false}: the backend records the read itself (it serves /writings/{slug}).
-            The depth, the end and the dwell are the browser's to report. */}
-        <TrackVisit surface="writings" entityKind="writing" entitySlug={slug} view={false} read />
+        {/* view (default): the BROWSER reports this read. The /writings/{slug} fetch behind the
+            page is the app's own SSR fetch (tagged internal, skipped by the monitor — public.ts
+            ssrFetch), so the beacon is the one real view with the visitor's browser/geo, not a
+            phantom, not doubled. read: depth, end and dwell too. */}
+        <TrackVisit surface="writings" entityKind="writing" entitySlug={slug} read />
         <ReaderBreadcrumb ancestors={ctx.ancestors} current={writing.title} />
         <WritingArticle writing={writing} />
       </ReaderLayout>

@@ -46,8 +46,22 @@ export function baseURL(): string {
   return '';
 }
 
+// ssrFetch —— the app's OWN server-side fetches to the backend must not be counted as visitor
+// traffic. The traffic monitor observes the public API routes; a server-rendered reader page fetches
+// those same routes over the container network to render, so without this the app rendering a page
+// counts as a visitor reading it (a phantom row with no browser, and every read doubled). Tag each
+// SSR fetch so the monitor skips it — the visitor's OWN browser fetch, which the reader page also
+// makes, is what actually counts. In the browser (window defined) this is a no-op: a real visitor.
+export const SSR_INTERNAL_HEADER = 'X-Standmeet-SSR-Internal';
+const ssrFetch: typeof fetch = (input, init) => {
+  if (typeof window !== 'undefined') return fetch(input, init);
+  const headers = new Headers(init?.headers);
+  headers.set(SSR_INTERNAL_HEADER, '1');
+  return fetch(input, { ...init, headers });
+};
+
 function client(): StandMeetClient {
-  return createClient({ baseURL: baseURL() });
+  return createClient({ baseURL: baseURL(), fetchImpl: ssrFetch });
 }
 
 // v1 single-owner instance —— session input carries no handle.
@@ -498,7 +512,7 @@ import { z } from 'zod';
 import { safeJson } from '@/lib/api/typed-json';
 
 async function fetchJSONSchema<T>(path: string, schema: z.ZodType<T>): Promise<T> {
-  const res = await fetch(baseURL() + path, { cache: 'no-store' });
+  const res = await ssrFetch(baseURL() + path, { cache: 'no-store' });
   if (!res.ok) throw new Error(`${path}: ${res.status}`);
   return safeJson(res, schema);
 }

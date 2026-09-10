@@ -36,6 +36,9 @@ type (
 	EventsArgs = repo.EventsArgs
 	EventsOut  = repo.EventsOut
 	Summary    = repo.Summary
+	// The per-viewer breakdown: which people made the summary's numbers, and what each did.
+	SessionRow  = repo.SessionRow
+	SessionsOut = repo.SessionsOut
 )
 
 // The input schemas for those reads. Declared in the domain, next to the shapes they describe.

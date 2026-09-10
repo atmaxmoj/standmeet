@@ -16,18 +16,13 @@
 
 'use client';
 
-import { ResumePage } from '@/components/admin/resume-page/ResumePage';
+import { ResumePuckRender } from '@/components/admin/resume-page/ResumePuckRender';
 import { toDraftModel } from '@/lib/admin/draft-detail';
-import {
-  draftToJobContext,
-  draftToResumeContent,
-  type DraftModel,
-} from '@/lib/admin/draft-model';
+import { draftToResumeContent, type DraftModel } from '@/lib/admin/draft-model';
 import type { AdminDraftRow } from '@/lib/admin/use-admin-drafts';
 
 import styles from '@/components/admin/sections/drafts/DraftThumb.module.css';
 
-const THUMB_SCALE = 0.30;
 // A draft has no access code yet (the code is issued at applications.commit), so there is no real URL
 // to encode. Passing '' draws the QR placeholder frame — the same thing the editor shows before a code
 // is picked — rather than a scannable QR that encodes a dead marker (owner: "假的，不要假的").
@@ -35,17 +30,15 @@ const PREVIEW_QR_URL = '';
 
 export function DraftThumb({ row }: { row: AdminDraftRow }) {
   const model = previewModel(row);
+  // The SAME renderer as the editor + PDF (ResumePuckRender / resumePuckConfig). It used to draw the
+  // legacy <ResumePage>, which the A3 cutover left behind — so the card drifted from the preview it is
+  // supposed to be a miniature of. print=false = the A4 sheet look; the .page wrapper scales that full
+  // A4 sheet down to fill the card (a fixed scale left a gap when the column wasn't exactly its width).
   return (
     <div className={styles.thumb} data-testid="draft-thumb">
-      <ResumePage
-        content={draftToResumeContent(model)}
-        job={draftToJobContext(model)}
-        qrURL={PREVIEW_QR_URL}
-        pageIndex={0}
-        // The thumbnail renders only the first page — it is the whole card, so the count is 1.
-        pageCount={1}
-        scale={THUMB_SCALE}
-      />
+      <div className={styles.page}>
+        <ResumePuckRender content={draftToResumeContent(model)} qrURL={PREVIEW_QR_URL} print={false} />
+      </div>
     </div>
   );
 }

@@ -80,10 +80,11 @@ export const monitorWindowStore = create<WindowState>((set) => ({
   window: '28d',
   setWindow: (w) => {
     set({ window: w });
-    // Both, together. Refreshing only the one the owner "changed" is what produces a mismatched
-    // pair, and a mismatched pair looks like data rather than a bug.
+    // All three, together. Refreshing only the one the owner "changed" is what produces a
+    // mismatched set, and a mismatch looks like data rather than a bug.
     void monitorSummaryStore.getState().refresh();
     void monitorEventsStore.getState().refresh();
+    void monitorSessionsStore.getState().refresh();
   },
 }));
 
@@ -112,6 +113,35 @@ export const monitorEventsStore = createResourceStore<MonitorEvent[]>({
     .then((r) => r.events),
 });
 
+// MonitorSession —— one viewer, aggregated: the summary's numbers made legible as PEOPLE. Declared
+// in full (not picked) for the same reason as the event schema: a server that narrows its response
+// would fail the parse silently and blank the panel, which reads as "nobody came".
+export const MonitorSessionSchema = z.object({
+  viewer_id: z.string(),
+  visits: z.number(),
+  views: z.number(),
+  last_seen: z.string(),
+  country: z.string(),
+  region: z.string(),
+  city: z.string(),
+  browser: z.string(),
+  os: z.string(),
+  device: z.string(),
+  is_bot: z.boolean(),
+});
+export type MonitorSession = z.infer<typeof MonitorSessionSchema>;
+
+const SessionsResponseSchema = z.object({ sessions: z.array(MonitorSessionSchema) });
+
+// The sessions panel is counted over the same window as the summary + feed (monitorWindowStore
+// refreshes all three together), so a viewer's visit/view counts never disagree with the totals.
+export const monitorSessionsStore = createResourceStore<MonitorSession[]>({
+  name: 'monitor-sessions',
+  fetcher: () => adminAPI
+    .get(`/monitor/sessions?window=${currentWindow()}`, SessionsResponseSchema)
+    .then((r) => r.sessions),
+});
+
 // MonitorRow —— one feed line, already reduced to the five strings the panel prints.
 //
 // The reduction happens here, not in the component: the presentation layer holds no branches
@@ -137,6 +167,7 @@ export interface MonitorHook {
   status: ResourceStatus;
   summary: MonitorSummary;
   rows: readonly MonitorRow[];
+  sessions: readonly MonitorSession[];
   view: FeedView;
   error: string | null;
   window: MonitorWindow;
@@ -146,6 +177,7 @@ export interface MonitorHook {
 export function useMonitor(): MonitorHook {
   const summary = useResource(monitorSummaryStore);
   const events = useResource(monitorEventsStore);
+  const sessions = useResource(monitorSessionsStore);
   const window = monitorWindowStore((s) => s.window);
   const setWindow = monitorWindowStore((s) => s.setWindow);
   // refresh, not ensureLoaded. Traffic is live: `ensureLoaded` fetches once and then serves the
@@ -154,17 +186,21 @@ export function useMonitor(): MonitorHook {
   // here describes state the owner themselves changed; this one describes other people.
   const loadSummary = monitorSummaryStore.getState().refresh;
   const loadEvents = monitorEventsStore.getState().refresh;
-  useEffect(() => { void loadSummary(); void loadEvents(); }, [loadSummary, loadEvents]);
-  // The panel is ready once BOTH have answered: showing the feed under a still-loading zero
+  const loadSessions = monitorSessionsStore.getState().refresh;
+  useEffect(() => {
+    void loadSummary(); void loadEvents(); void loadSessions();
+  }, [loadSummary, loadEvents, loadSessions]);
+  // The panel is ready once ALL have answered: showing the feed under a still-loading zero
   // would read as "50 events, 0 viewers", which is a number the data never said.
-  const status = worstStatus(summary.status, events.status);
+  const status = worstStatus(worstStatus(summary.status, events.status), sessions.status);
   const rows = (events.data ?? []).map(toRow);
   return {
     status,
     summary: summary.data ?? EMPTY_SUMMARY,
     rows,
+    sessions: sessions.data ?? [],
     view: feedView(status, rows.length),
-    error: summary.error ?? events.error,
+    error: summary.error ?? events.error ?? sessions.error,
     window, setWindow,
   };
 }
@@ -215,6 +251,49 @@ function shortTime(iso: string): string {
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
+}
+
+// SessionCells —— one session row reduced to the display strings the panel prints, so the
+// presentation layer holds no branches (its lint says so): which field to show, and its empty
+// fallback, are decisions about the data and belong where the data is + is tested.
+export interface SessionCells {
+  id: string;
+  visits: string;
+  views: string;
+  country: string;
+  city: string;
+  browser: string;
+  os: string;
+  device: string;
+  lastSeen: string;
+}
+
+export function toSessionCells(s: MonitorSession): SessionCells {
+  return {
+    id: sessionLabel(s),
+    visits: String(s.visits),
+    views: String(s.views),
+    country: s.country === '' ? DASH : s.country,
+    city: s.city === '' ? DASH : s.city,
+    browser: s.browser === '' ? DASH : s.browser,
+    os: s.os === '' ? DASH : s.os,
+    device: s.device === '' ? DASH : s.device,
+    lastSeen: sessionWhen(s.last_seen),
+  };
+}
+
+// sessionLabel —— a crawler reads as "bot"; a person is the short head of their (salted,
+// non-identifying) viewer hash — enough to tell two sessions apart, nothing that points at a human.
+function sessionLabel(s: MonitorSession): string {
+  return s.is_bot ? 'bot' : s.viewer_id.slice(0, 8);
+}
+
+// sessionWhen —— month-day hh:mm in the reader's timezone. The sessions panel spans the window
+// (days), so unlike the feed it earns the date.
+function sessionWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return DASH;
+  return `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 // worstStatus —— error beats loading beats ready. A panel is only ready when nothing is still

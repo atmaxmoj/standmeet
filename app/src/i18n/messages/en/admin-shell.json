@@ -260,6 +260,14 @@
     "recoveryNoteNeedsMail": "Verify email (SMTP) under Connectors first — the recovery phrase is sent to you by email."
   },
   "monitor": {
+    "sessionsHeading": "sessions",
+    "colSession": "session",
+    "colCountry": "country",
+    "colCity": "city",
+    "colBrowser": "browser",
+    "colOs": "os",
+    "colDevice": "device",
+    "colLastSeen": "last seen",
     "kicker": "settings · monitor",
     "intro": "Who came, where from, and what they read. Collected by this instance, in its own database — no third-party analytics, no cookies, and no IP address is ever stored. Crawlers are counted separately and never mixed into the numbers.",
     "feed": "recent events",

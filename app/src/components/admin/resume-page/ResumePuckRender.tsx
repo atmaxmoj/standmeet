@@ -14,10 +14,12 @@ import { toPuckData } from '@/lib/admin/resume-puck';
 import type { ResumeContent } from '@/lib/admin/resume-content';
 
 export function ResumePuckRender(
-  { content, qrURL }: { content: ResumeContent; qrURL: string },
+  { content, qrURL, print = true }: { content: ResumeContent; qrURL: string; print?: boolean },
 ) {
   // toPuckData is the same projection the editor opens with; cast at this boundary (the projection is
   // Puck-runtime-free + unit-tested).
   const data = toPuckData(content) as unknown as Data; // eslint-disable-line @typescript-eslint/consistent-type-assertions
-  return <Render config={resumePuckConfig} data={data} metadata={{ qrURL, print: true }} />;
+  // print=true → the flowing page gotenberg paginates. print=false → the editor's A4 sheet, which is
+  // what a scaled-down thumbnail wants (same renderer as the editor, so the card cannot drift from it).
+  return <Render config={resumePuckConfig} data={data} metadata={{ qrURL, print }} />;
 }

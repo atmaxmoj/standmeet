@@ -36,6 +36,8 @@ func (h *Handlers) MountMonitor(r chi.Router) {
 		// the address bar: a filtered view has to survive being pasted into a message.
 		r.Get("/events", h.dispatchOp(face, "monitor.events", monitorEventsArgs, jsonOK))
 		r.Get("/stats", h.dispatchOp(face, "monitor.stats", monitorWindowArgs, jsonOK))
+		// The per-viewer breakdown behind the summary numbers: who came, and what each did.
+		r.Get("/sessions", h.dispatchOp(face, "monitor.sessions", monitorWindowArgs, jsonOK))
 	})
 }
 

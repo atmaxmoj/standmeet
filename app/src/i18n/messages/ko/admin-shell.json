@@ -260,6 +260,14 @@
     "recoveryNoteNeedsMail": "먼저 Connectors에서 이메일(SMTP)을 검증하세요 — 복구 문구는 이메일로 전송됩니다."
   },
   "monitor": {
+    "sessionsHeading": "세션",
+    "colSession": "세션",
+    "colCountry": "국가",
+    "colCity": "도시",
+    "colBrowser": "브라우저",
+    "colOs": "OS",
+    "colDevice": "기기",
+    "colLastSeen": "마지막 접속",
     "kicker": "설정 · 모니터",
     "intro": "누가 왔고, 어디에서 왔고, 무엇을 읽었는지. 이 인스턴스가 자체 데이터베이스에 직접 기록합니다 — 외부 분석 도구 없음, 쿠키 없음, IP 주소는 저장하지 않습니다. 크롤러는 따로 세며 이 숫자들에 섞지 않습니다.",
     "feed": "최근 이벤트",

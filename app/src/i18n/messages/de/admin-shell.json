@@ -260,6 +260,14 @@
     "recoveryNoteNeedsMail": "Verifiziere zuerst die E-Mail (SMTP) unter Connectors — der Wiederherstellungssatz wird dir per E-Mail zugesandt."
   },
   "monitor": {
+    "sessionsHeading": "Sitzungen",
+    "colSession": "Sitzung",
+    "colCountry": "Land",
+    "colCity": "Stadt",
+    "colBrowser": "Browser",
+    "colOs": "OS",
+    "colDevice": "Gerät",
+    "colLastSeen": "Zuletzt gesehen",
     "kicker": "einstellungen · monitor",
     "intro": "Wer kam, woher, und was gelesen wurde. Diese Instanz erhebt es selbst, in ihrer eigenen Datenbank — keine Fremdanalyse, keine Cookies, und niemals wird eine IP-Adresse gespeichert. Crawler werden getrennt gezählt und nie in diese Zahlen gemischt.",
     "feed": "letzte ereignisse",
