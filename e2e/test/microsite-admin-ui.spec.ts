@@ -84,7 +84,11 @@ test.describe('microsites admin panel UI', () => {
     await byoai.click();
     const flipped = before === 'true' ? 'false' : 'true';
     await expect(byoai, 'clicking the switch flips it').toHaveAttribute('aria-checked', flipped);
-    expect(await knobLeft(byoai), 'the knob slid to the other end').not.toBe(knobBefore);
+    // Poll the knob geometry: the knob slides via a CSS `transition-all`, so a synchronous read
+    // right after the state flips catches it still at the start position. Poll until it has moved.
+    await expect
+      .poll(() => knobLeft(byoai), { message: 'the knob slid to the other end' })
+      .not.toBe(knobBefore);
 
     // ...and the flip PERSISTED — a reload drops the client store and re-reads from the server, so
     // it wasn't just local state.
