@@ -17,9 +17,9 @@
 //      never reach the DOM.
 //   5. image upload: the owner pastes an image into the editor -> it's
 //      uploaded to MinIO -> the markdown stores a `standmeet-asset:<id>` URI
-//      -> the backend resolves it into a presigned URL when /writings
-//      renders; the orphan scan should read 0 at this point (the asset has
-//      a writing referencing it).
+//      -> the backend resolves it into its /api/v1/assets/<id> forwarder URL
+//      when /writings renders; the orphan scan should read 0 at this point
+//      (the asset has a writing referencing it).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -31,7 +31,6 @@ import {
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection, openReader } from '@/fixtures/navigate';
-import { STORAGE_HOST_RE } from '@/fixtures/stack';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -176,16 +175,16 @@ test.describe('writings: atomic image upload via multipart save', () => {
       const cover = page.locator('[data-writing-cover]').first();
       const img = cover.locator('img').first();
       const src = await img.getAttribute('src');
-      expect(src).toMatch(STORAGE_HOST_RE);
+      expect(src, 'cover URL is the backend asset forwarder').toContain('/api/v1/assets/');
       // F-I-1: assert the cover actually LOADS, not just that a URL is present. Next's image
-      // optimizer 400s the presigned storage URL (host not in images.remotePatterns), so through
-      // /_next/image the cover is a broken image. `unoptimized` serves the presigned URL directly.
+      // optimizer would 400 the backend asset URL (host not in images.remotePatterns), so through
+      // /_next/image the cover is a broken image. `unoptimized` serves the forwarder URL directly.
       expect(src).not.toContain('/_next/image');
       const naturalWidth = await img.evaluate((el: HTMLImageElement) => el.naturalWidth);
       expect(naturalWidth).toBeGreaterThan(0);
     });
 
-  test('paste image in editor → save → /writings renders presigned URL; body_md stores URI',
+  test('paste image in editor → save → /writings renders forwarder URL; body_md stores URI',
     async ({ adminPage, page, request }) => {
       await openAdminWritings(adminPage);
       await fillWritingMeta(adminPage, {
@@ -205,12 +204,12 @@ test.describe('writings: atomic image upload via multipart save', () => {
       await expect(adminPage.getByTestId('writing-row-image-writing'))
         .toBeVisible({ timeout: 10_000 });
 
-      // visitor side: img element with presigned URL
+      // visitor side: img element served through the backend asset forwarder
       await openReader(page, '/writings/image-writing');
       const img = page.getByTestId('writing-article-body').locator('img').first();
       await expect(img).toBeVisible();
       const src = await img.getAttribute('src');
-      expect(src).toMatch(STORAGE_HOST_RE); // presigned URL host (minio public, THIS checkout's port)
+      expect(src, 'pasted-image URL is the backend asset forwarder').toContain('/api/v1/assets/');
 
       // admin GET: body_md contains real asset UUID (not pending-) URI
       await assertAdminBodyHasURI(request, OWNER, 'image-writing');

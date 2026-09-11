@@ -227,10 +227,14 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // owed it after moving into the convergence point.
   'instance.corpus_graph',
   'instance.activity', 'instance.jobs',
-  // monitor -- visitor traffic. This branch's own two tools: the raw event feed
-  // and the summary (viewers / visits / views / events / bots are five different
-  // counts). They belong in this golden the day they ship, which is now.
-  'monitor.events', 'monitor.stats',
+  // monitor -- visitor traffic. This branch's own tools: the raw event feed, the
+  // summary (viewers / visits / views / events / bots are five different counts),
+  // and the per-viewer session panel. They belong in this golden the day they ship.
+  'monitor.events', 'monitor.stats', 'monitor.sessions',
+  // obsidian.import -- the owner MCP twin of the admin vault-upload route: sync the
+  // vault's files (as JSON) into the corpus through the same SyncIngester. MCP-owned
+  // (the admin surface is the bespoke multipart route, not a dispatched op).
+  'obsidian.import',
   // instance.upgrade / upgrade_check -- the product-owned self-upgrade (a newer StandMeet
   // release is applied by the instance itself, not by touching the deploy host). Both are
   // owner tools; this golden was never updated when they landed (the recurring drift the

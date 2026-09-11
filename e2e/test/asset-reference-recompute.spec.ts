@@ -107,7 +107,12 @@ test.describe('asset references · recomputed from content on every save', () =>
 
   test('a shared asset refuses delete until every referrer is gone', async () => {
     const holder = await createEntry(s, 'wiki', 'Shared Holder', 'body');
-    const d = (await uploadAsset(s, 'wiki', holder, MEDIA.pixel)).asset_id;
+    // Distinct filename: this file resets once (beforeAll), and upload dedups on
+    // (filename + bytes), so a plain MEDIA.pixel upload would REUSE the pool asset the
+    // earlier tests uploaded — inheriting their still-live referrers, so freeing this
+    // test's three would never reach 0. A unique name gives this test its own asset.
+    const d = (await uploadAsset(s, 'wiki', holder, MEDIA.pixel,
+      { filename: 'shared-refcount-probe.png' })).asset_id;
     const n1 = await createEntry(s, 'wiki', 'Sharer 1', `a standmeet-asset:${d}`);
     const n2 = await createEntry(s, 'wiki', 'Sharer 2', `b standmeet-asset:${d}`);
     expect(referrerIDs(await refsOf(d))).toEqual(expect.arrayContaining([holder, n1, n2]));
