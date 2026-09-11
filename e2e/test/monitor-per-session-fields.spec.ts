@@ -66,6 +66,8 @@ test.describe('monitor · the panel shows a per-session breakdown, not just a fl
       await ctx.dispose();
 
       await gotoAdminSection(page, 'monitor');
+      // The per-viewer breakdown lives behind its own sub-tab now (feed is the default view).
+      await page.getByTestId('monitor-tab-sessions').click();
 
       // The owner sees a per-session row — the thing the flat feed cannot express.
       const row = page.getByTestId('monitor-session-row').first();

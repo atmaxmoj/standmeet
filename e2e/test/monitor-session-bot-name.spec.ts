@@ -30,6 +30,8 @@ test.describe('monitor · a crawler session names the crawler', () => {
       await visitAsStranger(playwright, `/api/v1/wiki/${ENTRY.path}`, CLAUDEBOT);
 
       await gotoAdminSection(page, 'monitor');
+      // The per-viewer breakdown lives behind its own sub-tab now (feed is the default view).
+      await page.getByTestId('monitor-tab-sessions').click();
       const sessions = page.getByTestId('monitor-sessions');
       await expect(sessions, 'the sessions panel renders').toBeVisible({ timeout: 20_000 });
       // Some session row identifies the crawler by name.
