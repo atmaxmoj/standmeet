@@ -100,7 +100,7 @@ export function PageEditor({ slug }: { slug: string }) {
             />
           </div>
           <EditorActions slug={pageSlug} build={build} onPublish={publish} />
-          <SeoPanel slug={pageSlug} isNew={isNew} />
+          <SeoPanel slug={pageSlug} />
           <WidgetPanel />
         </div>
         <div className={editorColCls(view, 'render')} data-testid="microsite-render-col">

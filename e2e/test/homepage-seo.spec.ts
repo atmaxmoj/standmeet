@@ -1,25 +1,20 @@
-// homepage-seo.spec.ts —— the homepage's SEO is set the SAME way as any microsite (the editor's
-// SEO panel), and it applies to the SITE ROOT `/`. The homepage IS the reserved `home` microsite,
-// so setting its seo_title / seo_description / seo_image injects <title> + <meta description> + the
-// OG/Twitter tags into what `/api/v1/homepage` serves at the root.
+// homepage-seo.spec.ts —— the homepage's SEO is set the SAME way as any microsite: the owner opens
+// the microsites section, opens the homepage editor, opens its SEO panel, fills it, saves — and it
+// lands on the SITE ROOT `/` (served by /api/v1/homepage). The homepage IS the reserved `home`
+// microsite, so its seo_title / seo_description / seo_image become <title> + <meta description> +
+// the OG/Twitter tags at the root.
 //
-// Why this spec exists (the gap it closes): "SEO follows the microsite" was only ever tested on
-// `/p/<slug>` (microsite-per-page-seo.spec, slug='press'). The homepage serves through a DIFFERENT
-// endpoint (`/api/v1/homepage`, serveHomepage → serveSlugAt) and had NO SEO test at all — so by the
-// "find the test" rule, the site root's SEO was unverified (== not there). Two green decisions left
-// the hole: Q1 (185c4321b) stopped materializing `home` at claim, and drop-seo-settings removed the
-// global SEO on the premise that "site-wide default SEO = the homepage microsite's own per-page
-// SEO" — a premise that only holds once the homepage is that microsite. This locks it down.
-//
-// Drives the REAL SeoPanel in the home editor (fill fields, click Save), not PUT /seo — an owner
-// control that renders but isn't wired must fail an e2e (the LocaleSwitch lesson).
+// This drives ONLY the UI — click the microsites nav, click the homepage's edit entry, open the SEO
+// panel, type, click Save. NOTHING is seeded through the API or MCP: the owner's real complaint was
+// that the homepage editor had no SEO section at all (the panel only rendered once a `home` row was
+// materialized, which a normal owner never does by hand). A test that seeds that row first proves
+// the panel works in a state the owner can't reach — so it seeds nothing and walks the owner's path.
 
 import { test, expect } from '@/fixtures/test';
 
-import { claim, login as loginAPI } from '@/fixtures/admin';
+import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { seedDefaultHomepage } from '@/fixtures/microsite-rig';
-import { openReader } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -35,7 +30,7 @@ const SEO_IMAGE = 'https://cdn.example.com/home-card.png';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe.configure({ timeout: 420_000 });
-test.describe('homepage SEO comes from the same editor panel and lands on the site root', () => {
+test.describe('homepage SEO is edited in the homepage editor, like any microsite, and reaches the root', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -46,17 +41,18 @@ test.describe('homepage SEO comes from the same editor panel and lands on the si
     await request.dispose();
   });
 
-  test('the home editor SEO panel injects title + description + Open Graph into /api/v1/homepage',
+  test('microsites → homepage → SEO panel: fill + Save injects title/description/OG into the root',
     async ({ playwright, adminPage }) => {
-      const request = await playwright.request.newContext();
-      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      // The owner edited the homepage → the reserved `home` microsite exists and is live.
-      await seedDefaultHomepage(request, csrf);
+      // Owner's own path: microsites section → the homepage card's "edit" → the mini-IDE at /home.
+      await gotoAdminSection(adminPage, 'microsites');
+      await adminPage.getByTestId('microsite-edit-homepage').click();
+      await expect(adminPage.getByTestId('microsite-editor'), 'the homepage editor opened')
+        .toBeVisible({ timeout: 30_000 });
 
-      // Drive the REAL SeoPanel in the HOME editor — the same panel any page has.
-      await openReader(adminPage, `/admin/edit/home`);
+      // The homepage editor must carry the SAME SEO panel every other microsite editor has.
       const panel = adminPage.getByTestId('microsite-seo');
-      await expect(panel, 'the home editor shows the same SEO panel').toBeVisible({ timeout: 15_000 });
+      await expect(panel, 'the homepage editor shows a SEO panel, like any microsite')
+        .toBeVisible({ timeout: 15_000 });
       await panel.locator('summary').click();
       await adminPage.getByTestId('microsite-seo-title').fill(SEO_TITLE);
       await adminPage.getByTestId('microsite-seo-desc').fill(SEO_DESC);
@@ -64,10 +60,11 @@ test.describe('homepage SEO comes from the same editor panel and lands on the si
       await adminPage.getByTestId('microsite-seo-save').click();
 
       // The SITE ROOT serve (/api/v1/homepage) reflects what the panel saved (Save is async → poll).
+      const request = await playwright.request.newContext();
       await expect.poll(async () => {
         const html = await (await request.get(`${BACKEND}/api/v1/homepage`)).text();
         return html.includes(`<title>${SEO_TITLE}</title>`);
-      }, { message: 'the panel Save reached the homepage head', timeout: 15_000 }).toBe(true);
+      }, { message: 'the panel Save reached the homepage head', timeout: 20_000 }).toBe(true);
 
       const html = await (await request.get(`${BACKEND}/api/v1/homepage`)).text();
       expect(html, 'meta description').toContain(`<meta name="description" content="${SEO_DESC}">`);

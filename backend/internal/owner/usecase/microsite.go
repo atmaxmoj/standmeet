@@ -102,10 +102,16 @@ type SetPageSEOInput struct {
 // injected into its served <head>. Empty strings clear a field. SEO follows each microsite rather
 // than a global settings section.
 func SetPageSEO(ctx context.Context, deps MicrositeDeps, in *SetPageSEOInput) error {
-	err := deps.Pages.SetSEO(ctx, in.OwnerID, in.Slug, &repo.SEOFields{
+	// The page must exist for SEO to land. The homepage is a real destination at `/` before it is
+	// built, but its `home` row isn't materialized until first customized. Create it if absent (an
+	// existing page just reports slug-taken) so Save never no-ops on a missing row.
+	if _, err := deps.Pages.Create(ctx, in.OwnerID, in.Slug, in.Slug); err != nil &&
+		!errors.Is(err, entity.ErrMicrositeSlugTaken) {
+		return fmt.Errorf("materialize page for seo: %w", err)
+	}
+	if err := deps.Pages.SetSEO(ctx, in.OwnerID, in.Slug, &repo.SEOFields{
 		Title: in.Title, Description: in.Description, Image: in.Image,
-	})
-	if err != nil {
+	}); err != nil {
 		return fmt.Errorf("set page seo: %w", err)
 	}
 	return nil
