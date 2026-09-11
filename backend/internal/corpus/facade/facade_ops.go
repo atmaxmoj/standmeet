@@ -8,7 +8,14 @@ package corpus
 import "github.com/atmaxmoj/standmeet/internal/corpus/ops"
 
 // Types needed when declaring operations (implemented in: ops).
-type OpsWritingsDeps = ops.WritingsDeps
+type (
+	OpsWritingsDeps = ops.WritingsDeps
+	// VaultIngest — the vault-sync port for obsidian.import; the composition root adapts
+	// connector.IngestFunc to it (the dispatcher may not import connector).
+	VaultIngest     = ops.VaultIngest
+	VaultFile       = ops.VaultFile
+	VaultSyncResult = ops.VaultSyncResult
+)
 
 // Operation groups (implemented in: ops).
 var (
@@ -19,4 +26,5 @@ var (
 	CorpusI18nOps   = ops.I18nOps
 	SubjectivityOps = ops.Subjectivity
 	WritingOps      = ops.Writings
+	ObsidianSyncOps = ops.ObsidianSync
 )

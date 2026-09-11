@@ -29,6 +29,9 @@ type Deps struct {
 	Embeds         access.OpsEmbeds
 	Corpus         corpus.Deps
 	Writings       corpus.OpsWritingsDeps
+	// ObsidianIngest — the vault-sync port for obsidian.import (owner MCP + admin). The composition
+	// root adapts connector.IngestFunc to it (the dispatcher may not import connector).
+	ObsidianIngest corpus.VaultIngest
 	Instance       stats.InstanceDeps
 	Upgrade        stats.UpgradeDeps
 	Page           owner.OpsPage
@@ -72,6 +75,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "account", Ops: owner.AccountOps(d.Account)},
 		{Name: "microsites", Ops: owner.MicrositeOps(d.Microsites)},
 		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},
+		{Name: "obsidian", Ops: corpus.ObsidianSyncOps(d.ObsidianIngest)},
 		// The two upgrade endpoints belong to instance too -- one resource, two
 		// declaration groups.
 		{Name: "instance", Ops: append(

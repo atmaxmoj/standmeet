@@ -46,7 +46,13 @@ func contentEntries() []Entry {
 			Admin: []string{"GET /api/admin/obsidian/export"},
 		},
 		{
-			Op:    act("obsidian.import", fp.Only("multipart vault upload; the sync connector's ingest surface", FacadeAdmin).Except(fp.Multipart)),
+			// The vault sync lives on both surfaces with different transports: the admin route takes
+			// a multipart folder upload (a browser picker, a bespoke handler — not a dispatched op),
+			// and the MCP op takes the files as a JSON array. Same SyncIngester underneath. The reach
+			// is MCP-owned because only the MCP surface is a dispatched op; the admin multipart route
+			// is declared below as its own bespoke surface.
+			Op:    act("obsidian.import", fp.Only("admin twin is the multipart upload route", FacadeMCP)),
+			MCP:   []string{"obsidian.import"},
 			Admin: []string{"POST /api/admin/obsidian/import"},
 		},
 		// conversations — all three ops moved into the outbound convergence point

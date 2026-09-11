@@ -21,6 +21,7 @@ package wire
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/axiscap"
@@ -28,12 +29,14 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	"github.com/atmaxmoj/standmeet/internal/infra/paritymanifest"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
@@ -93,6 +96,7 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		},
 		Page:           pageDepsOf(d),
 		SEO:            seoDepsOf(d),
+		ObsidianIngest: obsidianIngestOf(d),
 		AccessRequests: accessRequestDepsOf(d),
 		Codes:          codeDepsOf(d),
 		Embeds:         access.OpsEmbeds{Embeds: d.EmbedRepo},
@@ -116,6 +120,46 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		axiscap.CapabilityConfigResource(d),
 		axisconn.ConnectorResource(d),
 	)...)
+}
+
+// obsidianIngestOf — the vault-sync port for the obsidian.import op, built from the runtime repos.
+// It reuses adminroutes.ObsidianDeps (the same SyncIngester the admin multipart route uses), so the
+// MCP op and the admin route ingest through one code path; only the transport differs (JSON files
+// here, multipart there). The dispatcher may not import connector, so this adapts the connector
+// types to the corpus domain's VaultIngest port.
+func obsidianIngestOf(d *deps.Runtime) corpus.VaultIngest {
+	assets := corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient}
+	od := adminroutes.ObsidianDeps{
+		Writings: d.WritingRepo,
+		Assets:   d.AssetRepo,
+		Storage:  d.StorageClient,
+		Corpus: corpus.Deps{
+			Raw: d.RawRepo, Wiki: d.WikiRepo, Output: d.OutputRepo, NoteRefs: d.NoteRefRepo,
+			Subjectivity: d.SubjectivityRepo, VaultSync: d.VaultSyncRepo, Index: d.CorpusIndexer,
+		},
+		CSS: d.OwnerRepo,
+		WritingsTx: corpus.WritingsTxDeps{
+			Writings: d.WritingRepo, WritingRefs: d.WritingRefRepo, Assets: assets,
+		},
+		ImportReceipt: d.OwnerRepo,
+		Log:           d.Log,
+	}
+	return func(
+		ctx context.Context, ownerID string, files []corpus.VaultFile, authoritative bool,
+	) (corpus.VaultSyncResult, error) {
+		sf := make([]connector.SyncFile, len(files))
+		for i := range files {
+			sf[i] = connector.SyncFile{RelPath: files[i].Path, Body: []byte(files[i].Content)}
+		}
+		res, err := od.Ingest(ctx, ownerID, sf, connector.SyncOpts{Authoritative: authoritative})
+		if err != nil {
+			return corpus.VaultSyncResult{}, fmt.Errorf("obsidian ingest: %w", err)
+		}
+		return corpus.VaultSyncResult{
+			Created: res.Created, Updated: res.Updated, Skipped: res.Skipped,
+			Deleted: res.Deleted, Errors: res.Errors,
+		}, nil
+	}
 }
 
 func writingsDepsOf(d *deps.Runtime) corpus.OpsWritingsDeps {
