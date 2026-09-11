@@ -137,20 +137,30 @@ func patchBuild(deps BuilderDeps) http.HandlerFunc {
 			return
 		}
 		if perr := applyPatch(r, deps, id, &req); perr != nil {
-			// The builder's side of this failure is one line — `mark built: 500` — with no id and
-			// no reason, so this is the ONLY place the cause is ever written down. Name the build
-			// and the status it was reporting: the common cause is a build whose row is gone
-			// (its page or owner was deleted while vite was still running), and "no rows in
-			// result set" alone cannot be told apart from a genuine database fault.
-			deps.Log.Error("patch build",
-				"err", perr, "build_id", id, "reported_status", req.Status)
-			http.Error(w, "patch build failed", http.StatusInternalServerError)
+			respondPatchErr(deps, w, id, req.Status, perr)
 			return
 		}
 		// A build settled (built or failed) → wake the owner panel's preview long-poll.
 		deps.Notifier.Signal()
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// respondPatchErr —— maps a patch failure to a status. A build whose row is gone (page/owner
+// deleted, or a reset truncated it, while vite ran) is not a server fault — it is "superseded /
+// gone", so answer 404 and the builder skips it rather than throwing `mark built: 500` (the noisy
+// symptom behind flake #972). Any other error is a genuine fault and stays a 500 — and a 500's
+// builder-side line is just `mark built: 500` with no id, so this is the ONLY place the cause is
+// written down: name the build and the status it reported.
+func respondPatchErr(deps BuilderDeps, w http.ResponseWriter, id, status string, err error) {
+	if errors.Is(err, owner.ErrMicrositeBuildNotFound) {
+		deps.Log.Info("patch build: build gone (superseded / deleted mid-build)",
+			"build_id", id, "reported_status", status)
+		http.Error(w, "build not found", http.StatusNotFound)
+		return
+	}
+	deps.Log.Error("patch build", "err", err, "build_id", id, "reported_status", status)
+	http.Error(w, "patch build failed", http.StatusInternalServerError)
 }
 
 func applyPatch(

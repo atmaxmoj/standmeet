@@ -156,6 +156,13 @@ async function markBuilt(buildID, outputPath) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status: 'built', output_path: outputPath }),
   });
+  // 404 = the build's row is gone (superseded / deleted / reset truncated it while vite ran). The
+  // work is moot, not failed — log and move on. Throwing here is what produced the noisy
+  // `mark built: 500` behind flake #972; a real fault (any other non-ok) still throws.
+  if (res.status === 404) {
+    console.log(`[builder] build ${buildID} gone (superseded); discarding output`);
+    return;
+  }
   if (!res.ok) throw new Error(`mark built: ${res.status}`);
 }
 

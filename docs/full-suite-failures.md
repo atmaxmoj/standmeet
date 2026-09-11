@@ -1,4 +1,53 @@
-# Full-suite failures — round 2026-09-11 (branch `worktree-resume-sot-batch`)
+# Full-suite failures — round 2026-09-11 · RUN 2 (post monitor-privacy commits)
+
+**1782 passed · 7 failed · 3 did not run · 2.1h.** (branch `worktree-resume-sot-batch`, HEAD `8809f8577`)
+
+- Suite log: `scratchpad/fullsuite-monitor-privacy.log` · artifacts: `e2e/test-results-archive/20260911T182057Z/`
+- Integrated commits since RUN 1: `ef78caedb` (monitor tabs), `6bdefbddb` (homepage-SEO decouple),
+  `557edb901` (session-tab regression fix), `8809f8577` (monitor off-switch + GDPR consent).
+- **Host load hit 29** (1-min) with neighbours `lucerna-e2e` + `lucerna-local` churning — the flake band.
+
+## Triage of the 7 (root cause + disposition)
+
+**Batch L2 — machine-load flakes (5) · disposition: re-run on low load, green = fine (owner's rule).**
+Re-ran all 5 together via `test-asis` on load≈5.5 → **5 passed**. Failure signatures are all 10s-class
+timeouts / setup cascades under load 29, and the archived snapshots carry **no consent-banner** (so my
+monitor-privacy change is not implicated — checked explicitly, [[plausible-cause-is-not-the-cause]]):
+- `visitor-ask-visitor:88` (20.7s, `locator.click` timeout)
+- `visitor-chat-sse-drop-auto-recovers:68` (16s, `route.fetch` timeout)
+- `visitor-chat-throbber-reading-dom:65` (0ms — setup cascade)
+- `visitor-multi-conversation:42` (0ms — setup cascade)
+- `wiki-citation-toggle:54` (17.4s, `toBeVisible` timeout)
+
+**Batch A — `microsite-editor-live-follow:66` (5.1m) — REAL, pre-existing race #972. NOT load.**
+Root cause drilled + confirmed by curl: builder finishes, calls PATCH `/internal/builds/{id}` mark-built,
+but the build row was truncated mid-build by a concurrent `resetInstance` → `MarkBuilt`'s
+`SetMicrositeBuildBuilt` UPDATE hits 0 rows → `pgx.ErrNoRows` → `patchBuild` (builds.go:139-148)
+**blanket-500s** (the author even documented this exact case in the comment but returned 500 anyway).
+`curl PATCH /internal/builds/<nil-uuid> {status:built}` → **500** (RED, deterministic, no timing needed —
+nonexistent id is the same UPDATE-0-rows path). Fix (test-first): `MarkBuilt`/`MarkFailed` map ErrNoRows →
+`owner.ErrMicrositeBuildNotFound`; `patchBuild` → 404 + benign log; builder `runner.mjs` treats 404 as
+"build gone, skip" not a throw. "Up": that plus `resetInstance` draining the builder before truncate is
+what makes live-follow deterministically green.
+
+**Batch B — `vault-roundtrip-noop:74` (1.7m in-suite / assertion on low load) — REAL + dangerous test design.**
+Deterministic 5/5 on low load (`changed:1`). It reads the **live** vault `~/Develop/writing/notes`
+(1142 files, drifts as the owner writes; `test.skip` if absent → **false-green on any other machine/CI**;
+prints private note bytes to stdout on failure → **privacy leak in a public repo**). The changed note
+`wiki/cybernetics/theory/cot-is-an-effect-iterator.md`: a `> [!i18n]` callout line right after frontmatter
+is dropped to an empty line on export — a real export idempotency gap (same class as documented F-L-70/71).
+Fix (owner's call): commit a **synthetic** fixture vault under `e2e/` (covers the real constructs, no
+private content), default `VAULT_DIR` → fixture, keep `REAL_VAULT` env override for the live audit; then
+fix / document the export gaps the fixture surfaces. (Cannot commit the live notes — public repo.)
+
+**3 did not run** = conditional skips (captcha/boundary) + cascade orphans of the 0ms setup failures. Expected.
+
+**My monitor-privacy commits: zero red causally attributable** (5 flakes no-banner + green on isolation;
+the 2 real reds are pre-existing infra/content). Committed code effectively green pending Batch A + B.
+
+---
+
+# Full-suite failures — round 2026-09-11 · RUN 1 (branch `worktree-resume-sot-batch`)
 
 **1753 passed · 21 failed · 6 did not run · 2.4h.**
 

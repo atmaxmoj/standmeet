@@ -147,6 +147,12 @@ func (r *MicrositeBuildRepo) MarkBuilt(
 		ID: pgID, OutputPath: outputPath,
 	})
 	if err != nil {
+		// 0 rows = the build's row is gone (page/owner deleted, or a reset truncated it, while vite
+		// ran). That is "superseded / gone", not a server fault — surface the sentinel so the route
+		// answers 404 instead of 500 (the builder then skips, rather than throwing).
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entity.MicrositeBuild{}, entity.ErrMicrositeBuildNotFound
+		}
 		return entity.MicrositeBuild{}, fmt.Errorf("mark built: %w", err)
 	}
 	return toDomainBuild(&row)
@@ -165,6 +171,10 @@ func (r *MicrositeBuildRepo) MarkFailed(
 		ID: pgID, ErrorMessage: errMsg,
 	})
 	if err != nil {
+		// Same as MarkBuilt: 0 rows = the build's row is gone → the sentinel, so the route 404s.
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entity.MicrositeBuild{}, entity.ErrMicrositeBuildNotFound
+		}
 		return entity.MicrositeBuild{}, fmt.Errorf("mark failed: %w", err)
 	}
 	return toDomainBuild(&row)
