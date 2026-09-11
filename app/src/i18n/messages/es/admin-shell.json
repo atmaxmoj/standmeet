@@ -284,6 +284,8 @@
     "bots": "rastreadores",
     "botsHint": "contados aparte, nunca en los cuatro de arriba",
     "window": "periodo",
+    "prevPage": "Página anterior",
+    "nextPage": "Página siguiente",
     "windows": {
       "7d": "7 días",
       "28d": "28 días",

@@ -284,6 +284,8 @@
     "bots": "爬虫",
     "botsHint": "单独计数，不进上面四个",
     "window": "时间窗口",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
     "windows": {
       "7d": "7 天",
       "28d": "28 天",

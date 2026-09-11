@@ -284,6 +284,8 @@
     "bots": "robots",
     "botsHint": "comptés à part, jamais dans les quatre ci-dessus",
     "window": "période",
+    "prevPage": "Page précédente",
+    "nextPage": "Page suivante",
     "windows": {
       "7d": "7 jours",
       "28d": "28 jours",

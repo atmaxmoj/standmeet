@@ -12,20 +12,32 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { ListPane } from '@/components/admin/ListPane';
 import {
-  useMonitor, MONITOR_WINDOWS, toSessionCells,
+  useMonitor, MONITOR_WINDOWS, toSessionCells, paginate,
   type FeedView, type MonitorRow, type MonitorSession, type SessionCells,
-  type MonitorSummary, type MonitorWindow,
+  type MonitorSummary, type MonitorWindow, type Paged,
 } from '@/lib/admin/use-monitor';
+import type { ResourceStatus } from '@/lib/state/status';
 import { useEffectErrorToast } from '@/lib/ui/toast';
+
+// MonitorTab —— which single view is on screen. The sessions table and the event feed used to
+// stack on one long page; now a tab row (below the window picker) shows exactly one at a time.
+type MonitorTab = 'feed' | 'sessions';
 
 export function MonitorSection() {
   const t = useTranslations('adminShell.monitor');
   const hook = useMonitor();
   useEffectErrorToast(hook.error);
+  const [tab, setTab] = useState<MonitorTab>('feed');
+  // A page index per view, kept as the owner switches tabs. paginate() clamps a stale index, so a
+  // window change that shrinks a list can never strand the viewer on a now-empty page.
+  const [feedPage, setFeedPage] = useState(0);
+  const [sessionsPage, setSessionsPage] = useState(0);
   return (
     <>
       <SectionHeader
@@ -38,9 +50,129 @@ export function MonitorSection() {
       </p>
       <WindowPicker current={hook.window} onPick={hook.setWindow} />
       <Summary summary={hook.summary} />
-      <Sessions sessions={hook.sessions} />
-      <Feed rows={hook.rows} view={hook.view} />
+      <TabBar tab={tab} onPick={setTab} />
+      {tab === 'feed'
+        ? <FeedPanel rows={hook.rows} view={hook.view} page={feedPage} onPage={setFeedPage} />
+        : (
+          <SessionsPanel
+            status={hook.status} sessions={hook.sessions}
+            page={sessionsPage} onPage={setSessionsPage}
+          />
+        )}
     </>
+  );
+}
+
+// TabBar —— the second row of tabs (under the window picker) that picks feed vs sessions. Both are
+// counted over the same window; the window picker above still governs both.
+function TabBar({ tab, onPick }: { tab: MonitorTab; onPick: (t: MonitorTab) => void }) {
+  const t = useTranslations('adminShell.monitor');
+  return (
+    <div data-testid="monitor-tabs" className="flex items-baseline gap-4 mb-6">
+      <TabButton tab="feed" active={tab === 'feed'} onPick={onPick} label={t('feed')} />
+      <TabButton tab="sessions" active={tab === 'sessions'} onPick={onPick} label={t('sessionsHeading')} />
+    </div>
+  );
+}
+
+function TabButton({ tab, active, onPick, label }: {
+  tab: MonitorTab; active: boolean; onPick: (t: MonitorTab) => void; label: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={`monitor-tab-${tab}`}
+      aria-pressed={active}
+      onClick={() => onPick(tab)}
+      className={`mono text-[11px] tracking-[0.14em] uppercase ${
+        active
+          ? 'text-(--color-accent) border-b border-(--color-accent)'
+          : 'text-(--color-muted) hover:text-(--color-ink)'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+// FeedPanel —— the event feed, one page at a time. loading / empty keep their own renderings (a
+// heading over nothing reads as "no visitors"); the rows case pages the list.
+function FeedPanel(
+  { rows, view, page, onPage }: {
+    rows: readonly MonitorRow[]; view: FeedView; page: number; onPage: (p: number) => void;
+  },
+) {
+  const t = useTranslations('adminShell.monitor');
+  const paged = paginate(rows, page);
+  return {
+    loading: <p data-testid="monitor-loading" className="text-(--color-muted) text-[15px]">
+      {t('loading')}
+    </p>,
+    empty: <p data-testid="monitor-empty" className="text-(--color-muted) text-[15px] reading-tight">
+      {t('empty')}
+    </p>,
+    rows: <>
+      <FeedTable rows={paged.items} />
+      <Pager which="feed" paged={paged} onPage={onPage} />
+    </>,
+  }[view];
+}
+
+// SessionsPanel —— the per-viewer table, one page at a time. Empty is the fresh-instance normal,
+// rendered as a note rather than a bare heading.
+function SessionsPanel(
+  { status, sessions, page, onPage }: {
+    status: ResourceStatus; sessions: readonly MonitorSession[];
+    page: number; onPage: (p: number) => void;
+  },
+) {
+  const t = useTranslations('adminShell.monitor');
+  const paged = paginate(sessions, page);
+  // ListPane, not `sessions.length === 0`: a failed load is also an empty array, and it must not
+  // wear the empty state's clothes (error/loading are checked before the count).
+  return (
+    <ListPane
+      status={status}
+      count={sessions.length}
+      empty={(
+        <p data-testid="monitor-sessions-empty" className="text-(--color-muted) text-[15px] reading-tight">
+          {t('empty')}
+        </p>
+      )}
+    >
+      <SessionsTable sessions={paged.items} />
+      <Pager which="sessions" paged={paged} onPage={onPage} />
+    </ListPane>
+  );
+}
+
+// Pager —— prev / page-of-pages / next. Hidden entirely when there is only one page (nothing to
+// page). Arrow glyphs + aria-label (attributes are i18n-exempt); the indicator is numbers only, so
+// the control needs no translatable text.
+function Pager<T>(
+  { which, paged, onPage }: { which: string; paged: Paged<T>; onPage: (p: number) => void },
+) {
+  const t = useTranslations('adminShell.monitor');
+  return paged.pages <= 1 ? null : (
+    <div data-testid={`monitor-${which}-pager`} className="flex items-center gap-4 mt-4">
+      <button
+        type="button" data-testid={`monitor-${which}-prev`} aria-label={t('prevPage')}
+        disabled={!paged.hasPrev} onClick={() => onPage(paged.page - 1)}
+        className="mono text-[13px] text-(--color-muted) hover:text-(--color-ink) disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        ‹
+      </button>
+      <span data-testid={`monitor-${which}-page`} className="mono text-[10.5px] tracking-[0.14em] text-(--color-faint)">
+        {paged.page + 1} / {paged.pages}
+      </span>
+      <button
+        type="button" data-testid={`monitor-${which}-next`} aria-label={t('nextPage')}
+        disabled={!paged.hasNext} onClick={() => onPage(paged.page + 1)}
+        className="mono text-[13px] text-(--color-muted) hover:text-(--color-ink) disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        ›
+      </button>
+    </div>
   );
 }
 
@@ -127,10 +259,10 @@ function Stat(props: {
 // Sessions —— the per-viewer breakdown, the summary's numbers made legible as PEOPLE. Each row is
 // one viewer (a monthly-salted hash, never an identity): its visits + views, where it came from,
 // on what browser/os/device, and when last seen. Bots are flagged in place, not hidden.
-function Sessions({ sessions }: { sessions: readonly MonitorSession[] }) {
+function SessionsTable({ sessions }: { sessions: readonly MonitorSession[] }) {
   const t = useTranslations('adminShell.monitor');
-  return sessions.length === 0 ? null : (
-    <div data-testid="monitor-sessions" className="mb-9">
+  return (
+    <div data-testid="monitor-sessions" className="mb-6">
       <h3 className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-muted) mb-3">
         {t('sessionsHeading')}
       </h3>
@@ -187,23 +319,6 @@ function Cell(
   );
 }
 
-function Feed({ rows, view }: { rows: readonly MonitorRow[]; view: FeedView }) {
-  const t = useTranslations('adminShell.monitor');
-  // Three states, three renderings. "Still loading" must never borrow the empty state's words,
-  // and neither may render the feed's heading over nothing — a heading with no rows under it
-  // says "you have no visitors" whether or not that is true yet.
-  return {
-    loading: <p data-testid="monitor-loading" className="text-(--color-muted) text-[15px]">
-      {t('loading')}
-    </p>,
-    // Nothing yet is the normal state of a fresh instance, and it must not read as a fault.
-    empty: <p data-testid="monitor-empty" className="text-(--color-muted) text-[15px] reading-tight">
-      {t('empty')}
-    </p>,
-    rows: <FeedTable rows={rows} />,
-  }[view];
-}
-
 function FeedTable({ rows }: { rows: readonly MonitorRow[] }) {
   const t = useTranslations('adminShell.monitor');
   return (
@@ -224,7 +339,10 @@ function FeedTable({ rows }: { rows: readonly MonitorRow[] }) {
 
 function Row({ row }: { row: MonitorRow }) {
   return (
-    <tr data-testid="monitor-row" className="border-b border-(--color-rule) align-baseline">
+    <tr
+      data-testid="monitor-row" data-row-id={row.id}
+      className="border-b border-(--color-rule) align-baseline"
+    >
       <td className="mono text-[11px] text-(--color-muted) py-2 pr-4 whitespace-nowrap">
         {row.time}
       </td>

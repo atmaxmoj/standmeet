@@ -284,6 +284,8 @@
     "bots": "crawler",
     "botsHint": "getrennt gezählt, nie in den vier darüber",
     "window": "Zeitraum",
+    "prevPage": "Vorherige Seite",
+    "nextPage": "Nächste Seite",
     "windows": {
       "7d": "7 Tage",
       "28d": "28 Tage",

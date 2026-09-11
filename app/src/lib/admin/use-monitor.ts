@@ -59,6 +59,39 @@ const EMPTY_SUMMARY: MonitorSummary = {
   viewers: 0, visits: 0, views: 0, events: 0, bots: 0,
 };
 
+// MONITOR_PAGE_SIZE —— rows per page in the feed and the sessions table. The panel was one long
+// scroll (feed + sessions stacked); each view now pages so neither runs off the screen. Client-side
+// over the fetched window (the feed fetches 50, sessions its own limit): the point is on-screen
+// length, and true offset paging past the fetch window is a later ceiling, not this.
+export const MONITOR_PAGE_SIZE = 20;
+
+// Paged —— one page of a list plus what the pager needs to render (0-based page, total pages, and
+// whether prev/next exist). Kept in the data layer so the presentation layer stays branch-free.
+export interface Paged<T> {
+  items: readonly T[];
+  page: number;
+  pages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+}
+
+// paginate —— slice `all` into the `page`-th window of `size`, clamping an out-of-range page to the
+// last one (so deleting the tail of a list can't strand the viewer on an empty page).
+export function paginate<T>(
+  all: readonly T[], page: number, size: number = MONITOR_PAGE_SIZE,
+): Paged<T> {
+  const pages = Math.max(1, Math.ceil(all.length / size));
+  const clamped = Math.min(Math.max(0, page), pages - 1);
+  const start = clamped * size;
+  return {
+    items: all.slice(start, start + size),
+    page: clamped,
+    pages,
+    hasPrev: clamped > 0,
+    hasNext: clamped < pages - 1,
+  };
+}
+
 // MONITOR_WINDOWS —— the three spans, mirroring the backend's (monitor/repo/window.go). Three
 // and not a date picker: a traffic panel answers "is this going anywhere", and last week / last
 // month / last quarter answers it. 90d is also the retention limit, so there is nothing older
