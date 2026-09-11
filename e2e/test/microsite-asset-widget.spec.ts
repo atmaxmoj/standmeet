@@ -78,10 +78,13 @@ test.describe('microsite asset widget · reference + guard + public serve', () =
     expect(served.headers()['content-type'] ?? '', 'streamed as an image').toContain('image');
     expect((await served.body()).length, 'a real body, not an empty redirect').toBeGreaterThan(0);
 
-    // No reference-ACL: a corpus-only asset is served too — served by its (unguessable) id, the same
-    // capability model the presigned URL had.
+    // A corpus-only asset (no microsite reference) is NOT served on a bare id: the public serve
+    // above works only because a microsite references `embedded`. A corpus asset needs the SIGNED
+    // URL an authorized reader render hands out (usecase.SignAssetURL) — knowing the id alone is
+    // useless, or an owner revoking a gated entry from a code would be a lie. The full deny path is
+    // owned by genre-assets-inherit.spec.ts:74.
     const other = await ctx.get(`${BACKEND}/api/v1/assets/${corpusOnly}`, { maxRedirects: 0 });
-    expect(other.status(), 'a corpus-only asset also streams (served by id)').toBe(200);
+    expect(other.status(), 'a corpus-only asset is NOT served on a bare id — it needs a signature').toBe(404);
 
     // An unknown id is a plain 404.
     const missing = await ctx.get(
