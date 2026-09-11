@@ -40,6 +40,13 @@ Fix (owner's call): commit a **synthetic** fixture vault under `e2e/` (covers th
 private content), default `VAULT_DIR` → fixture, keep `REAL_VAULT` env override for the live audit; then
 fix / document the export gaps the fixture surfaces. (Cannot commit the live notes — public repo.)
 
+**DONE.** `e2e/fixtures/vault-sample/` (raw + wiki, 3 notes) bootstrapped as the round-trip **fixed
+point** (its bytes are export's own output, so `roundTrip(fixture)===fixture` by construction —
+deterministic, no skip on CI, no private bytes in logs). Spec default repointed to it; `REAL_VAULT`
+kept for the opt-in live audit. `test-asis REPEAT=3` → 3 passed (round 1 = 2.4s). The `> [!i18n]`
+export gap is (b)-documented, not fixed here (it's normalized out of the fixed-point fixture; the live
+audit under REAL_VAULT still surfaces it).
+
 **3 did not run** = conditional skips (captcha/boundary) + cascade orphans of the 0ms setup failures. Expected.
 
 **My monitor-privacy commits: zero red causally attributable** (5 flakes no-banner + green on isolation;

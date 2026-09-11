@@ -28,15 +28,19 @@
 //      ① red and ② also red = every single sync produces a diff, forever. That's a
 //      defect of a different order.
 //
-// What's fed in is a **real vault**, not a synthetic one: frontmatter conventions,
-// Chinese-language titles, attachment references, directory depth — a synthetic
-// fixture cannot pick out these shapes, and rewriting happens exactly on these shapes
-// ([[stand-in-is-politer-than-reality]]).
-// If no real vault is present, skip — and **say so out loud**: a silently skipped
-// case looks identical to a pass.
+// What is fed in by default is a **committed synthetic fixture** (`e2e/fixtures/vault-sample/`),
+// NOT the owner's live vault. The live vault was too dangerous as the default: it drifts (a new
+// note flips this red with zero code change), it is machine-specific (absent on CI → `test.skip` →
+// a silent false-green), and printing its diff on failure leaks private note bytes into a public
+// repo's logs. The fixture is the **round-trip fixed point** (its bytes are what export produces, so
+// `roundTrip(fixture) === fixture` by construction) — deterministic everywhere, and still red the
+// moment the export mapper changes the covered constructs.
+//
+// The real-vault audit is preserved, opt-in: set `REAL_VAULT=/path/to/vault` to run the original
+// [[stand-in-is-politer-than-reality]] check against live shapes the synthetic fixture cannot invent.
+// Regenerate the fixture with the one-shot bootstrap (see git history of zz-bootstrap-vault-fixture).
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join, relative } from 'node:path';
 
 import * as fflate from 'fflate';
@@ -53,9 +57,9 @@ const OWNER = {
   handle: 'vaultroundtrip', fullName: 'Vault Roundtrip Owner',
 };
 
-// VAULT_DIR — the owner's actual vault. Can be pointed elsewhere with REAL_VAULT
-// (the path differs on another machine).
-const VAULT_DIR = process.env['REAL_VAULT'] ?? join(homedir(), 'Develop/writing/notes');
+// VAULT_DIR — the committed synthetic fixture by default (deterministic, safe, present everywhere);
+// point REAL_VAULT at a live vault to run the audit against real shapes instead.
+const VAULT_DIR = process.env['REAL_VAULT'] ?? join(__dirname, '..', 'fixtures', 'vault-sample');
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
@@ -73,10 +77,12 @@ test.describe('vault mirror · a round trip with no edits', () => {
 
   test('sync up then sync down returns the same bytes, and a second round changes nothing',
     async ({ playwright }) => {
-      test.skip(!existsSync(VAULT_DIR), `no vault at ${VAULT_DIR} — set REAL_VAULT to point at one`);
-      // Two rounds against a real vault (measured at ~17s per round, a thousand
-      // notes) don't fit in the default 30s. Same as above: what's relaxed is
-      // patience.
+      // The committed fixture is always present; this only fires when REAL_VAULT points somewhere
+      // that isn't there — say so out loud, a silent skip looks identical to a pass.
+      test.skip(!existsSync(VAULT_DIR), `no vault at ${VAULT_DIR} — check REAL_VAULT`);
+      // A large REAL_VAULT (~17s per round, a thousand notes) doesn't fit in the default 30s; the
+      // fixture is tiny but keep the headroom so the same test serves both. What's relaxed is
+      // patience, not the criterion.
       test.setTimeout(300_000);
       // Importing a thousand notes naturally takes tens of seconds, and
       // Playwright's API default cap is 10 seconds — that number belongs to the
@@ -101,9 +107,9 @@ test.describe('vault mirror · a round trip with no edits', () => {
       report('一次往返（原样返回）', once);
       report('二次往返（收敛）', twice);
 
-      // ① The exact question the owner is asking. What's checked is the three
-      // corpus genres (raw / wiki / subjectivity) — on this real vault run, that's
-      // 1077 out of 1078 files.
+      // ① The exact question the owner is asking. What's checked is the corpus genres
+      // (raw / wiki / subjectivity) — every file in the fixture (or, under REAL_VAULT, every
+      // genre note in the live vault).
       //
       // The two excluded categories each **have a name and a reason**, not "close
       // enough":
