@@ -370,6 +370,7 @@ type Owner struct {
 	ByoaiEnabled           bool
 	ByoaiProviders         []byte
 	ByoaiPublicBlurb       string
+	MonitoringEnabled      bool
 	PasswordResetHash      []byte
 	PasswordResetAt        pgtype.Timestamptz
 	ProfileTimezone        string

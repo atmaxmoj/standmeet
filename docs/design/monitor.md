@@ -571,13 +571,22 @@ POST /api/t
   returning visitor looks new after a month boundary. Accepted.
 - **No cookies.** Nothing is written to visitor browser storage except the in-memory cache token
   described in §7.
-- Cookieless collection with no personal data means no consent banner is required. We do not build
-  one.
+- **Consent banner (opt-in).** Collection is cookieless and stores no personal data, so a banner is
+  not legally *required* — but the owner asked for one (2026-09-11), and it is built: a visitor sees
+  an accept/decline prompt and **nothing is recorded until they accept**. The choice lives in the
+  visitor's own `localStorage` (`sm_consent`), never sent anywhere; a returning visitor is not asked
+  again. It gates the browser beacon (`app/src/lib/monitor/beacon.ts` `send()` + the `TrackVisit`
+  install), which is the index surface's only recorded signal, so declining produces no beacon at
+  all. (This reverses the earlier "no consent banner" decision — the owner's newer instruction wins.)
 - **Redaction rule.** The following must never reach a row: an access code's text, an API key, a
   visitor's chat message body, an email address. Point 44 records a search query; the query is
   truncated and stored only because it is the owner's own corpus search, and the admin panel is
   owner-only. Any new event that wants free text must state here why it is safe.
-- The owner may switch traffic collection off entirely. One setting, honoured at ingest.
+- **The owner may switch traffic collection off entirely.** Built as one owner setting
+  (`owners.monitoring_enabled`, default true), honoured at the ingest gate: `cmd/server`
+  `collectionEnabled` reads it per request and the recorder's `shouldRecord` consults it, so a flip
+  takes effect on the very next visitor with no restart. Written by `monitoring.set` (the owner op)
+  / `PUT /api/admin/monitoring`, toggled from the monitor panel (§10). Off = nothing new is recorded.
 
 ## 9. What happens to the analytics connectors
 

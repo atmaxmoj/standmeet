@@ -231,6 +231,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // summary (viewers / visits / views / events / bots are five different counts),
   // and the per-viewer session panel. They belong in this golden the day they ship.
   'monitor.events', 'monitor.stats', 'monitor.sessions',
+  // monitoring.set -- the owner's traffic-collection master switch (off collects nothing). It is
+  // an owner setting (returns the settings envelope), but its home is the monitor panel.
+  'monitoring.set',
   // obsidian.import -- the owner MCP twin of the admin vault-upload route: sync the
   // vault's files (as JSON) into the corpus through the same SyncIngester. MCP-owned
   // (the admin surface is the bespoke multipart route, not a dispatched op).

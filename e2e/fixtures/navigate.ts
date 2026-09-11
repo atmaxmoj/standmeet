@@ -37,6 +37,19 @@ const SESSION_OPEN_TIMEOUT_MS = 30_000;
 // cases went green, and the defect was still on the page. A real person always
 // looks at the page after load; the criterion has to stand there too.
 async function goto(page: Page, path: string): Promise<void> {
+  // Pre-consent to tracking. Tracking is opt-in now (a GDPR banner gates the beacon), and a spec
+  // driving a visitor page through this helper is measuring a CONSENTING visitor — a returning one
+  // who accepted before carries exactly this localStorage. The banner's own accept/decline
+  // behaviour is proven separately (monitor-consent-banner.spec.ts, which uses its own opener and
+  // does NOT go through here). Harmless on admin/gate pages, which mount no tracker.
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem('sm_consent', 'accepted');
+    } catch {
+      // storage blocked — the page falls back to 'unset'; only tracking specs care, and they run
+      // in normal contexts where this succeeds.
+    }
+  });
   const url = path.startsWith('/') ? `${APP_BASE}${path}` : `${APP_BASE}/${path}`;
   await page.goto(url);
 }

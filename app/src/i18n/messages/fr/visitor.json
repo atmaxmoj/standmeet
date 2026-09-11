@@ -1,4 +1,10 @@
 {
+  "consent": {
+    "title": "consentement au suivi",
+    "body": "Ce site tient un décompte anonyme et sans cookies des visites pour que le propriétaire voie ce qui est lu ; aucune donnée personnelle n’est conservée. Compter cette visite ?",
+    "accept": "Accepter",
+    "decline": "Refuser"
+  },
   "common": {
     "try": "essayer"
   },

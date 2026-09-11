@@ -13,6 +13,7 @@ type (
 	BYOAIDeps                  = usecase.BYOAIDeps
 	CSSStore                   = usecase.CSSStore
 	FaviconStore               = usecase.FaviconStore
+	MonitoringDeps             = usecase.MonitoringDeps
 	VaultImportStore           = usecase.VaultImportStore
 	ClaimDeps                  = usecase.ClaimDeps
 	ClaimInput                 = usecase.ClaimInput
@@ -125,6 +126,7 @@ var (
 	SetOwnerCSS                = usecase.SetOwnerCSS
 	SetOwnerFavicon            = usecase.SetOwnerFavicon
 	UpdateBYOAI                = usecase.UpdateBYOAI
+	UpdateMonitoring           = usecase.UpdateMonitoring
 	UpdateOwnerAIProvider      = usecase.UpdateOwnerAIProvider
 	UpdateOwnerEmail           = usecase.UpdateOwnerEmail
 	UpdateOwnerFullName        = usecase.UpdateOwnerFullName

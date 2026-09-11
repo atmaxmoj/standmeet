@@ -83,6 +83,53 @@ has neither; the SEO test asserts the site root `/` reflects it with NO home bui
 
 ---
 
+## Batch O — monitor privacy controls (NEW this session; own batch, held out of the full suite)
+
+Two features written THIS session (owner 2026-09-11 queue #1b), validated on their own via
+`make test-only` — NOT mixed into the full suite. Both static gate sets green (go build, golangci,
+routes-cyclo, routes-via-dispatcher, max-lines; app eslint/tsc/knip, i18n key-parity + resolution,
+check-one-* presentation gates; e2e eslint/knip).
+
+- **O1 — owner traffic-collection off-switch.** Owner setting `owners.monitoring_enabled` (migration
+  `2026-09-11-monitoring-enabled.sql` + schema, default true), read per request by `cmd/server`
+  `collectionEnabled` → the recorder's `shouldRecord` (the pre-built seam), written by a new
+  `monitoring.set` owner op (mirrors `byoai.set`, returns the settings envelope) + `PUT
+  /api/admin/monitoring`, surfaced on `/me` (settings.monitoring_enabled) and flipped from a real
+  `Toggle` at the top of MonitorSection. Golden updated: `norm-outward-toolset` gains `monitoring.set`.
+  Test `monitor-off-switch.spec.ts` drives the REAL toggle then proves a stranger read is / isn't
+  recorded (on→off→on) + persists across reload. Upgrade path: `upgrade-monitoring-enabled-column.spec.ts`
+  (drop column + ledger row → restartBackend=deploy → column back, old owner intact, default true).
+
+- **O2 — visitor GDPR consent banner (opt-in).** `consent.ts` + `use-consent.ts` (localStorage
+  `sm_consent`, cookieless), `ConsentBanner.tsx` (accept/decline, 8-locale `visitor.consent`), gated
+  in `TrackVisit`'s install (`track.ts`) AND in `beacon.ts` `send()` — nothing is sent until accept.
+  Reverses monitor.md §8's "no consent banner" line (owner's newer instruction wins; doc updated).
+  Test `monitor-consent-banner.spec.ts`: fresh visitor sees the banner; **differential** — decline +
+  accept → owner ends with EXACTLY ONE new index view (accept records, decline doesn't; the accept is
+  the positive control so the decline half can't pass on a dead pipeline); persists in-browser.
+  Existing beacon specs kept green by pre-consenting the visitor navigate fixture (`navigate.ts` goto
+  + `openVisitorBrowser`) — they model a consenting/returning visitor; only the consent spec uses the
+  un-consented opener (`openInteractiveVisitor`).
+
+**RED by construction:** the off-switch spec asserts a `monitor-collection-toggle` + a `monitoring_enabled`
+gate the committed baseline has neither of; the consent spec asserts a `consent-banner` + an opt-in
+beacon gate the baseline lacks (its beacon fires unconditionally). So both red on the pre-change images.
+
+**Status: DONE + validated.** `make dev-up` (backend booted clean — no parity panic from `monitoring.set`;
+migration applied at boot) then `make test-asis`:
+- the 3 new specs → **7 passed** (off-switch on→off→on + reload-persist; consent banner shown +
+  decline/accept differential + in-browser persist; upgrade drop→deploy→column back, default on).
+- regression over the beacon-dependent + session monitor specs → **all green**.
+
+**Regression caught + fixed here (NOT the consent change):** `monitor-per-session-fields` and
+`monitor-session-bot-name` asserted `monitor-session-row` without switching to the sessions sub-tab —
+broken by THIS session's earlier tabs commit `ef78caedb` (which moved the sessions table behind a
+non-default tab), surfaced now because that commit was validated only against its own new spec. Root
+cause proven by DB inspection: the 2 reader views WERE recorded (`visit_event`), the panel just wasn't
+on the sessions view. Fixed by clicking `monitor-tab-sessions` before asserting session rows. Lesson:
+[[regress-is-manual-not-e2e]] / [[full-suite-catches-scoped-gaps]] — a UI-shape change must re-run
+every spec that reads the moved surface, not just the new one.
+
 ## Closing rules (SOP — carried forward)
 - A batch is done only when `make test-only SPEC="<spec>" REPEAT=5` is all green.
 - Inside a batch, only edit — don't run. At the batch boundary, once: `make test-red` (prove red on the

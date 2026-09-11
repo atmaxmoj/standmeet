@@ -39,6 +39,11 @@ func (h *Handlers) MountMonitor(r chi.Router) {
 		// The per-viewer breakdown behind the summary numbers: who came, and what each did.
 		r.Get("/sessions", h.dispatchOp(face, "monitor.sessions", monitorWindowArgs, jsonOK))
 	})
+	// The collection master switch (monitor.md §8): the owner turns their own monitoring off.
+	// It is an owner setting (monitoring.set → the owners row), not a monitor-domain op, but its
+	// natural home is the monitor panel, so it mounts alongside the reads on the same admin Face.
+	// The response is the whole settings envelope, so the frontend swaps it into its /me cache.
+	r.Put("/monitoring", h.dispatchOp(face, "monitoring.set", bodyArgs, jsonOK))
 }
 
 // monitorEventsArgs — the REST query string as the op's arguments.

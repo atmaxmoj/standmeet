@@ -111,6 +111,7 @@ func toOwnerSettings(o *db.Owner, def *ProviderRow) entity.Settings {
 			Providers:   decodeProviders(o.ByoaiProviders),
 			PublicBlurb: o.ByoaiPublicBlurb,
 		},
+		MonitoringEnabled: o.MonitoringEnabled,
 	}
 	if def != nil {
 		out.AI = entity.AISettings{
@@ -185,6 +186,33 @@ func (r *Repo) GetSettings(
 		return entity.Settings{}, fmt.Errorf("get owner settings: %w", err)
 	}
 	return r.settingsFor(ctx, &row), nil
+}
+
+// SetMonitoringEnabled —— flip the owner's traffic-collection master switch (monitor.md §8).
+func (r *Repo) SetMonitoringEnabled(ctx context.Context, ownerID string, enabled bool) error {
+	pgID, perr := pgstore.ParseUUID(ownerID)
+	if perr != nil {
+		return fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	params := db.SetOwnerMonitoringEnabledParams{ID: pgID, MonitoringEnabled: enabled}
+	if err := db.New(r.pool).SetOwnerMonitoringEnabled(ctx, params); err != nil {
+		return fmt.Errorf("set owner monitoring_enabled: %w", err)
+	}
+	return nil
+}
+
+// SoleMonitoringEnabled —— the sole (v1) owner's collection switch. Read by the recording gate,
+// which runs on unauthenticated public requests with no owner in scope. An unclaimed instance
+// (no owner row) reports true: a fresh install with nothing to collect yet is not "off".
+func (r *Repo) SoleMonitoringEnabled(ctx context.Context) (bool, error) {
+	enabled, err := db.New(r.pool).GetSoleOwnerMonitoringEnabled(ctx)
+	if err != nil {
+		if errors.Is(err, pgxErrNoRows()) {
+			return true, nil
+		}
+		return true, fmt.Errorf("get sole owner monitoring_enabled: %w", err)
+	}
+	return enabled, nil
 }
 
 // buildBYOAIParams normalizes + marshals the input in one pass, keeping

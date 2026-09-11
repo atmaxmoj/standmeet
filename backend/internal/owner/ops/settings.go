@@ -36,9 +36,10 @@ import (
 // cycle). Another spot in the domain uses the same trick: ProviderValidator is a narrow
 // port, not an import.
 type SettingsDeps struct {
-	BYOAI   usecase.BYOAIDeps
-	AI      usecase.AIProviderDeps
-	Presets []AIPreset
+	BYOAI      usecase.BYOAIDeps
+	AI         usecase.AIProviderDeps
+	Monitoring usecase.MonitoringDeps
+	Presets    []AIPreset
 }
 
 // AIPreset —— one built-in provider preset.
@@ -71,6 +72,14 @@ func Settings(deps SettingsDeps) []fp.Op {
 			Invoke:      setAIProvider(deps.AI),
 		},
 		{
+			ID:          "monitoring.set",
+			Description: "Turn the owner's traffic monitoring on or off; off collects nothing.",
+			InputSchema: monitoringSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      setMonitoring(deps.Monitoring),
+		},
+		{
 			ID: "ai_provider.presets",
 			Description: "List the built-in AI provider presets (name, label, base_url, " +
 				"key_prefix) used to configure the owner's inference provider.",
@@ -93,6 +102,14 @@ var (
 		"required":["enabled"]
 	}`)
 
+	monitoringSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"enabled":{"type":"boolean"}
+		},
+		"required":["enabled"]
+	}`)
+
 	aiProviderSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
@@ -110,6 +127,9 @@ var (
 type settingsOut struct {
 	AI    aiSettingsOut    `json:"ai"`
 	BYOAI byoaiSettingsOut `json:"byoai"`
+	// MonitoringEnabled —— the owner's traffic-collection switch, so the panel reads its current
+	// state from the same /me the byoai toggle does.
+	MonitoringEnabled bool `json:"monitoring_enabled"`
 }
 
 type aiSettingsOut struct {
@@ -141,6 +161,7 @@ func settingsPayload(s *entity.Settings) settingsOut {
 			Enabled: s.BYOAI.Enabled, Providers: providers,
 			PublicBlurb: s.BYOAI.PublicBlurb,
 		},
+		MonitoringEnabled: s.MonitoringEnabled,
 	}
 }
 
@@ -163,6 +184,24 @@ func setBYOAI(deps usecase.BYOAIDeps) fp.Invoke {
 		s, err := usecase.UpdateBYOAI(ctx, deps, &usecase.UpdateBYOAIInputReq{
 			OwnerID: ownerID, Enabled: in.Enabled, Providers: providers, Blurb: in.Blurb,
 		})
+		if err != nil {
+			return nil, settingsErr(err)
+		}
+		return json.Marshal(settingsPayload(&s))
+	}
+}
+
+type monitoringArgs struct {
+	Enabled bool `json:"enabled"`
+}
+
+func setMonitoring(deps usecase.MonitoringDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		var in monitoringArgs
+		if err := json.Unmarshal(raw, &in); err != nil {
+			return nil, fp.BadInput("invalid arguments: " + err.Error())
+		}
+		s, err := usecase.UpdateMonitoring(ctx, deps, ownerID, in.Enabled)
 		if err != nil {
 			return nil, settingsErr(err)
 		}

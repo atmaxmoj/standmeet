@@ -14,7 +14,8 @@ import (
 
 func settingsDepsOf(d *deps.Runtime) owner.SettingsDeps {
 	return owner.SettingsDeps{
-		BYOAI: owner.BYOAIDeps{Owners: d.OwnerRepo},
+		BYOAI:      owner.BYOAIDeps{Owners: d.OwnerRepo},
+		Monitoring: owner.MonitoringDeps{Owners: d.OwnerRepo},
 		// Providers must not be left out: the domain uses it to validate provider names.
 		// Omitting it compiles fine but nil-dereferences on first write — an assembly trap.
 		AI: owner.AIProviderDeps{

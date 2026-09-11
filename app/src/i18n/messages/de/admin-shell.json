@@ -260,6 +260,9 @@
     "recoveryNoteNeedsMail": "Verifiziere zuerst die E-Mail (SMTP) unter Connectors — der Wiederherstellungssatz wird dir per E-Mail zugesandt."
   },
   "monitor": {
+    "collection": "Traffic-Erfassung",
+    "collectionOn": "Ein — neue Besuche werden aufgezeichnet.",
+    "collectionOff": "Aus — nichts Neues wird aufgezeichnet.",
     "sessionsHeading": "Sitzungen",
     "colSession": "Sitzung",
     "colCountry": "Land",

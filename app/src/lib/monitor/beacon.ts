@@ -13,6 +13,8 @@
 //  3. Each threshold fires once per page. A scroll bar dragged up and down is one reader, not
 //     twenty, and a counter that says otherwise is worse than no counter.
 
+import { readConsent } from '@/lib/monitor/consent';
+
 const ENDPOINT = '/api/v1/t';
 
 export interface BeaconEvent {
@@ -25,6 +27,10 @@ export interface BeaconEvent {
 
 // send —— one event, best effort.
 export function send(event: BeaconEvent): void {
+  // Opt-in consent gate (GDPR): nothing leaves the browser until the visitor accepts. TrackVisit
+  // already withholds the install until then; this is the belt-and-braces at the one network call,
+  // so any future caller of send() inherits the same guarantee for free.
+  if (readConsent() !== 'accepted') return;
   try {
     post(JSON.stringify(body(event)));
   } catch {

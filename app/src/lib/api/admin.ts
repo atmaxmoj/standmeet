@@ -176,7 +176,13 @@ const BYOAISettingsViewSchema = z.object({
   enabled: z.boolean(), providers: z.array(z.string()), public_blurb: z.string(),
 });
 
-export const SettingsViewSchema = z.object({ ai: AISettingsViewSchema, byoai: BYOAISettingsViewSchema });
+export const SettingsViewSchema = z.object({
+  ai: AISettingsViewSchema,
+  byoai: BYOAISettingsViewSchema,
+  // monitoring_enabled —— the owner's traffic-collection master switch. Declared (not left off):
+  // z.object strips undeclared keys, so the panel could never read it if it weren't here.
+  monitoring_enabled: z.boolean(),
+});
 
 export const OwnerProfileViewSchema = z.object({
   owner_id: z.string(), email: z.string(), handle: z.string(), full_name: z.string(),
@@ -199,5 +205,7 @@ export function fetchAIProviderPresets(): Promise<AIProviderPresetView[]> {
 }
 
 export interface BYOAIUpdateInput { enabled: boolean; providers: string[]; blurb: string }
+
+export interface MonitoringUpdateInput { enabled: boolean }
 
 export const AllowedDomainsRespSchema = z.object({ domains: z.array(z.string()) });

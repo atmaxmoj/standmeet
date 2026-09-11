@@ -11,8 +11,9 @@
 
 import { useEffect } from 'react';
 
-import { send, watchScroll, watchRead } from '@/lib/monitor/beacon';
-import { watchClicks } from '@/lib/monitor/clicks';
+import { ConsentBanner } from '@/components/monitor/ConsentBanner';
+import { useConsent } from '@/lib/monitor/use-consent';
+import { installTracking } from '@/lib/monitor/track';
 
 export interface TrackVisitProps {
   surface: string;
@@ -32,25 +33,15 @@ export interface TrackVisitProps {
   view?: boolean;
 }
 
-export function TrackVisit(props: TrackVisitProps): null {
+export function TrackVisit(props: TrackVisitProps): React.JSX.Element {
   const { surface, entityKind, entitySlug, scroll, read, view } = props;
-  useEffect(() => {
-    const event = { surface, entityKind, entitySlug };
-    // The view first, so a visitor who leaves immediately is still a visitor.
-    view === false || send(event);
-    // The click rules are installed on every tracked page, not only reading ones: each rule
-    // names the surface it reports on, so a rule whose element is not on this page simply never
-    // matches, and one that is (the chat rail's citations, on a reader page) still counts.
-    const stopClicks = watchClicks(event);
-    const stopScroll = depthWatcher(read, scroll)?.(event);
-    return () => { stopClicks(); stopScroll?.(); };
-  }, [surface, entityKind, entitySlug, scroll, read, view]);
-  return null;
-}
-
-// depthWatcher —— which scroll watcher this page wants, or none. `read` implies `scroll`: a page
-// with an end is a page that scrolls, and making the caller pass both is a way to end up with a
-// reading page that reports completion and no depth.
-function depthWatcher(read?: boolean, scroll?: boolean) {
-  return read === true ? watchRead : scroll === true ? watchScroll : null;
+  // Opt-in: nothing is recorded until the visitor accepts (GDPR). `consent` is in the deps, so
+  // when the banner flips it to 'accepted' the effect re-runs and THIS page's view is sent then —
+  // a visitor who accepts after the page loads is still counted for the page they accepted on.
+  const consent = useConsent();
+  useEffect(
+    () => installTracking(consent, { surface, entityKind, entitySlug }, { scroll, read, view }),
+    [surface, entityKind, entitySlug, scroll, read, view, consent],
+  );
+  return <ConsentBanner />;
 }

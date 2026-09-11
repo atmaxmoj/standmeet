@@ -260,6 +260,9 @@
     "recoveryNoteNeedsMail": "Vérifiez d'abord l'e-mail (SMTP) sous Connectors — la phrase de récupération vous est envoyée par e-mail."
   },
   "monitor": {
+    "collection": "collecte du trafic",
+    "collectionOn": "Activé — les nouvelles visites sont enregistrées.",
+    "collectionOff": "Désactivé — plus rien n’est enregistré.",
     "sessionsHeading": "sessions",
     "colSession": "session",
     "colCountry": "pays",

@@ -121,6 +121,15 @@ UPDATE owners SET homepage_seo_title = $2, homepage_seo_description = $3, homepa
 -- THE owner's homepage SEO directly. Oldest row = the claimed owner.
 SELECT homepage_seo_title, homepage_seo_description, homepage_seo_image FROM owners ORDER BY created_at ASC LIMIT 1;
 
+-- name: SetOwnerMonitoringEnabled :exec
+-- Flip the owner's traffic-collection master switch (monitor.md §8).
+UPDATE owners SET monitoring_enabled = $2 WHERE id = $1;
+
+-- name: GetSoleOwnerMonitoringEnabled :one
+-- v1 single-owner: the recording middleware runs on unauthenticated public requests with no owner
+-- in scope, so the collection gate reads THE owner's switch directly. Oldest row = the claimed owner.
+SELECT monitoring_enabled FROM owners ORDER BY created_at ASC LIMIT 1;
+
 -- name: RecordVaultImport :execrows
 -- UX-62: record the "last vault import" -- the import is the operation that defines this product's
 -- ground truth, and before this "did it happen" had no landing spot in the DB, so that on-screen

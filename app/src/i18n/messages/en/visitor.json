@@ -1,4 +1,10 @@
 {
+  "consent": {
+    "title": "tracking consent",
+    "body": "This site keeps an anonymous, cookieless count of visits so the owner can see what people read — no personal data is stored. May we count this one?",
+    "accept": "Accept",
+    "decline": "Decline"
+  },
   "common": {
     "try": "try"
   },

@@ -17,11 +17,13 @@ import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListPane } from '@/components/admin/ListPane';
+import { Toggle } from '@/components/atoms/Toggle';
 import {
   useMonitor, MONITOR_WINDOWS, toSessionCells, paginate,
   type FeedView, type MonitorRow, type MonitorSession, type SessionCells,
   type MonitorSummary, type MonitorWindow, type Paged,
 } from '@/lib/admin/use-monitor';
+import { useMonitoringSwitch } from '@/lib/admin/use-monitoring';
 import type { ResourceStatus } from '@/lib/state/status';
 import { useEffectErrorToast } from '@/lib/ui/toast';
 
@@ -48,6 +50,7 @@ export function MonitorSection() {
       <p className="reading-tight text-(--color-muted) mb-7 text-[15px] max-w-[54em]">
         {t('intro')}
       </p>
+      <CollectionSwitch />
       <WindowPicker current={hook.window} onPick={hook.setWindow} />
       <Summary summary={hook.summary} />
       <TabBar tab={tab} onPick={setTab} />
@@ -60,6 +63,34 @@ export function MonitorSection() {
           />
         )}
     </>
+  );
+}
+
+// CollectionSwitch —— the owner's traffic-collection master switch (monitor.md §8). Off collects
+// nothing new; the numbers below then only ever reflect what was recorded while it was on. It sits
+// above the window picker because it governs whether there is anything to show at all.
+function CollectionSwitch() {
+  const t = useTranslations('adminShell.monitor');
+  const s = useMonitoringSwitch();
+  return (
+    <div
+      data-testid="monitor-collection"
+      className="flex items-center gap-3 mb-6 pb-5 border-b border-(--color-rule)"
+    >
+      <Toggle
+        on={s.enabled}
+        onToggle={s.toggle}
+        disabled={s.loading || s.saving}
+        label={t('collection')}
+        testid="monitor-collection-toggle"
+      />
+      <span className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted)">
+        {t('collection')}
+      </span>
+      <span data-testid="monitor-collection-state" className="text-[12.5px] text-(--color-faint) reading-tight">
+        {s.enabled ? t('collectionOn') : t('collectionOff')}
+      </span>
+    </div>
   );
 }
 

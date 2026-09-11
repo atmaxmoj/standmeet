@@ -260,6 +260,9 @@
     "recoveryNoteNeedsMail": "Verify email (SMTP) under Connectors first — the recovery phrase is sent to you by email."
   },
   "monitor": {
+    "collection": "traffic collection",
+    "collectionOn": "On — new visits are being recorded.",
+    "collectionOff": "Off — nothing new is being recorded.",
     "sessionsHeading": "sessions",
     "colSession": "session",
     "colCountry": "country",

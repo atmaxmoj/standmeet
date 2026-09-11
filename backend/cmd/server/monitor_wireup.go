@@ -28,7 +28,7 @@ func buildMonitor(d *deps.Runtime) mw.Config {
 			Log:            d.Log,
 			Secret:         monitorSalt(d.StorageSecretKey),
 			OwnerID:        soleOwnerID(seo),
-			Enabled:        collectionEnabled,
+			Enabled:        collectionEnabled(d),
 			IsOwnerRequest: ownerBrowserPresent(),
 			Geo:            loadGeoResolver(d.Log),
 		},
@@ -62,12 +62,23 @@ func soleOwnerID(seo owner.SEODeps) func(context.Context) (string, error) {
 	}
 }
 
-// collectionEnabled —— the owner's collection switch.
+// collectionEnabled —— the owner's collection switch (monitor.md §8).
 //
-// Always on today. The setting described in monitor.md §8 is not built yet, and this function
-// is the seam it will land on. It returns a constant rather than being absent so that the gate
-// exists in the pipeline from the first day, instead of being retrofitted through every caller.
-func collectionEnabled(context.Context) bool { return true }
+// Reads the sole owner's monitoring_enabled column per request, so flipping the toggle takes
+// effect on the very next visitor with no restart. Fail-open: a read error (or an unclaimed
+// instance) keeps collecting — instrumentation must never take the instance down, and the repo
+// already returns true for "no owner row yet". The owner turning it OFF is the only thing that
+// stops the recorder.
+func collectionEnabled(d *deps.Runtime) func(context.Context) bool {
+	return func(ctx context.Context) bool {
+		enabled, err := d.OwnerRepo.SoleMonitoringEnabled(ctx)
+		if err != nil {
+			d.Log.Warn("read monitoring switch", "err", err)
+			return true
+		}
+		return enabled
+	}
+}
 
 // ownerBrowserPresent —— is this request coming from the browser the owner is signed in on.
 //

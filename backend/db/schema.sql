@@ -70,6 +70,10 @@ CREATE TABLE owners (
     byoai_enabled        boolean       NOT NULL DEFAULT true,
     byoai_providers      jsonb         NOT NULL DEFAULT '["claude","openai"]'::jsonb,
     byoai_public_blurb   text          NOT NULL DEFAULT '',
+    -- monitoring_enabled —— the owner's traffic-collection master switch (monitor.md §8). true = the
+    -- always-on default every instance shipped with; false stops the recorder at the gate
+    -- (cmd/server monitor_wireup collectionEnabled → monitor shouldRecord), collecting nothing.
+    monitoring_enabled   boolean       NOT NULL DEFAULT true,
     -- owner 自己的 AI provider 搬去了 owner_providers（一份 → 一本，见那张表）。
     -- byoai_* 那条"访客自带 key"的路跟它完全独立，留在这儿。
     -- password_reset_hash —— 紧急 reset 兜底：CLI 颁发的一次性 token 的

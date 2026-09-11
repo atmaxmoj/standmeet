@@ -260,6 +260,9 @@
     "recoveryNoteNeedsMail": "먼저 Connectors에서 이메일(SMTP)을 검증하세요 — 복구 문구는 이메일로 전송됩니다."
   },
   "monitor": {
+    "collection": "트래픽 수집",
+    "collectionOn": "켜짐 — 새 방문이 기록됩니다.",
+    "collectionOff": "꺼짐 — 새로운 기록이 없습니다.",
     "sessionsHeading": "세션",
     "colSession": "세션",
     "colCountry": "국가",

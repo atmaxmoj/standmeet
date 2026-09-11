@@ -1,4 +1,10 @@
 {
+  "consent": {
+    "title": "Tracking-Einwilligung",
+    "body": "Diese Seite zählt Besuche anonym und ohne Cookies, damit die Betreiberin sieht, was gelesen wird — es werden keine personenbezogenen Daten gespeichert. Diesen Besuch mitzählen?",
+    "accept": "Annehmen",
+    "decline": "Ablehnen"
+  },
   "common": {
     "try": "versuchen"
   },

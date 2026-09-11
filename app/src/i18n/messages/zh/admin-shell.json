@@ -260,6 +260,9 @@
     "recoveryNoteNeedsMail": "请先在 Connectors 中验证邮箱（SMTP）——恢复口令将通过邮件发给你。"
   },
   "monitor": {
+    "collection": "流量采集",
+    "collectionOn": "已开启 —— 正在记录新的访问。",
+    "collectionOff": "已关闭 —— 不再记录任何新访问。",
     "sessionsHeading": "会话",
     "colSession": "会话",
     "colCountry": "国家",

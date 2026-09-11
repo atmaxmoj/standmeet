@@ -47,6 +47,10 @@ type Owner struct {
 type Settings struct {
 	AI    AISettings
 	BYOAI BYOAISettings
+	// MonitoringEnabled —— the owner's traffic-collection master switch (monitor.md §8). Travels
+	// with the settings envelope so /me carries it (the panel reads its current state from there),
+	// and the recording gate reads the same column server-side.
+	MonitoringEnabled bool
 }
 
 // AISettings —— the owner's own inference provider config (used for real

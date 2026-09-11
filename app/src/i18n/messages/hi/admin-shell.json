@@ -260,6 +260,9 @@
     "recoveryNoteNeedsMail": "पहले Connectors के अंतर्गत ईमेल (SMTP) सत्यापित करें — रिकवरी वाक्यांश आपको ईमेल से भेजा जाता है।"
   },
   "monitor": {
+    "collection": "ट्रैफ़िक संग्रह",
+    "collectionOn": "चालू — नई विज़िट रिकॉर्ड की जा रही हैं।",
+    "collectionOff": "बंद — कुछ भी नया रिकॉर्ड नहीं हो रहा।",
     "sessionsHeading": "सत्र",
     "colSession": "सत्र",
     "colCountry": "देश",
