@@ -2,11 +2,12 @@
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
+import { fetchHomepageSEO } from '@/lib/api/microsites';
 import { APIError } from '@/lib/api/api-error';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
@@ -148,12 +149,55 @@ async function renamePage(slug: string, newSlug: string): Promise<void> {
 
 // seoInit — a page's current SEO values as plain strings (the editor's initial field state). In
 // lib so the SeoPanel component stays under the presentation-layer branching cap (three `??`).
-export function seoInit(row: MicrositeSummary): { title: string; desc: string; image: string } {
+export function seoInit(row: MicrositeSummary): SeoInit {
   return {
     title: row.seo_title ?? '',
     desc: row.seo_description ?? '',
     image: row.seo_image ?? '',
   };
+}
+
+// SeoInit — the editor's initial SEO field values (plain strings).
+export interface SeoInit { title: string; desc: string; image: string }
+
+const EMPTY_SEO_INIT: SeoInit = { title: '', desc: '', image: '' };
+
+// useHomepageSeoInit — the HOMEPAGE editor loads its current SEO from the owner store (the site
+// root's SEO is owner-level, decoupled from the `home` microsite — there may be no `home` row to
+// read). Returns { loaded, init }; when disabled (a /p page, which reads its own row) it resolves
+// immediately to empty and is ignored by the caller. `loaded` gates the panel so it renders with
+// the real values, not a flash of empty.
+export function useHomepageSeoInit(enabled: boolean): { loaded: boolean; init: SeoInit } {
+  const [state, setState] = useState<{ loaded: boolean; init: SeoInit }>({
+    loaded: false, init: EMPTY_SEO_INIT,
+  });
+  useEffect(() => {
+    if (!enabled) {
+      setState({ loaded: true, init: EMPTY_SEO_INIT });
+      return undefined;
+    }
+    let alive = true;
+    void fetchHomepageSEO().then((s) => {
+      if (alive) {
+        setState({ loaded: true, init: { title: s.title, desc: s.description, image: s.image } });
+      }
+    });
+    return () => { alive = false; };
+  }, [enabled]);
+  return state;
+}
+
+// seoPanelInit —— the SEO panel's initial values + whether they're ready to show. The homepage reads
+// the owner store (async → wait for `loaded`); a /p page reads its own already-loaded row. Derived
+// here so the SeoPanel component stays under the presentation branching cap.
+export function seoPanelInit(
+  isHome: boolean,
+  home: { loaded: boolean; init: SeoInit },
+  row: MicrositeSummary | undefined,
+): { init: SeoInit; ready: boolean } {
+  const init = isHome ? home.init : (row === undefined ? EMPTY_SEO_INIT : seoInit(row));
+  const ready = isHome ? home.loaded : true;
+  return { init, ready };
 }
 
 // setSEO — set this page's per-page SEO (title + description + OG/share-card image), injected into

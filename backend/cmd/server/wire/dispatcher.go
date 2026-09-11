@@ -78,6 +78,9 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		Microsites: owner.MicrositeDeps{
 			Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo,
 			Docs: d.MicrositeDocs, // per-page doc schema: create provisions, delete drops (CASCADE)
+			// set_seo for the reserved home slug writes the SITE ROOT's SEO on the owner (decoupled
+			// from the `home` microsite), so the owner repo is the homepage-SEO store.
+			HomepageSEO: d.OwnerRepo,
 			// The list must sign the preview URL — the token is signed with this
 			// server-side key; the frontend never assembles it itself.
 			PreviewSigningKey: d.SessionKey,

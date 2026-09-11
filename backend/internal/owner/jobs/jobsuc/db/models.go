@@ -375,6 +375,9 @@ type Owner struct {
 	ProfileTimezone        string
 	CustomCss              string
 	FaviconAssetID         string
+	HomepageSeoTitle       string
+	HomepageSeoDescription string
+	HomepageSeoImage       string
 	LastVaultImportAt      pgtype.Timestamptz
 	LastVaultImportNew     int32
 	LastVaultImportUpdated int32

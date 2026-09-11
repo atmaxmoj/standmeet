@@ -15,7 +15,7 @@ const clearOwnerPendingEmail = `-- name: ClearOwnerPendingEmail :one
 UPDATE owners
 SET pending_email = NULL, pending_email_token_hash = '', pending_email_expires_at = NULL
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 // The owner changes their mind. :one + RETURNING is what tells us whether a row was actually
@@ -43,6 +43,9 @@ func (q *Queries) ClearOwnerPendingEmail(ctx context.Context, id pgtype.UUID) (O
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -83,7 +86,7 @@ WHERE pending_email_token_hash = $1
   AND pending_email_token_hash <> ''
   AND pending_email IS NOT NULL
   AND pending_email_expires_at > now()
-RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 // Single-use + not-expired, all decided in this one statement: 0 rows = wrong token / expired /
@@ -112,6 +115,9 @@ func (q *Queries) ConfirmOwnerPendingEmail(ctx context.Context, pendingEmailToke
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -136,7 +142,7 @@ func (q *Queries) CountOwners(ctx context.Context) (int64, error) {
 const createOwner = `-- name: CreateOwner :one
 INSERT INTO owners (email, password_hash, handle, full_name, public_url)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type CreateOwnerParams struct {
@@ -176,6 +182,9 @@ func (q *Queries) CreateOwner(ctx context.Context, arg CreateOwnerParams) (Owner
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -219,7 +228,7 @@ func (q *Queries) GetFirstOwnerResetToken(ctx context.Context) (GetFirstOwnerRes
 }
 
 const getOwnerByEmail = `-- name: GetOwnerByEmail :one
-SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE email = $1
+SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE email = $1
 `
 
 func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, error) {
@@ -245,6 +254,9 @@ func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, err
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -256,7 +268,7 @@ func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, err
 }
 
 const getOwnerByHandle = `-- name: GetOwnerByHandle :one
-SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE handle = $1
+SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE handle = $1
 `
 
 func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, error) {
@@ -282,6 +294,9 @@ func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, e
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -293,7 +308,7 @@ func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, e
 }
 
 const getOwnerByID = `-- name: GetOwnerByID :one
-SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE id = $1
+SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners WHERE id = $1
 `
 
 func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, error) {
@@ -319,6 +334,9 @@ func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, erro
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -330,7 +348,7 @@ func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, erro
 }
 
 const getOwnerByPendingToken = `-- name: GetOwnerByPendingToken :one
-SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners
+SELECT id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at FROM owners
 WHERE pending_email_token_hash = $1 AND pending_email_token_hash <> ''
 `
 
@@ -359,6 +377,9 @@ func (q *Queries) GetOwnerByPendingToken(ctx context.Context, pendingEmailTokenH
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -393,6 +414,24 @@ func (q *Queries) GetOwnerFavicon(ctx context.Context, id pgtype.UUID) (string, 
 	return favicon_asset_id, err
 }
 
+const getOwnerHomepageSEO = `-- name: GetOwnerHomepageSEO :one
+SELECT homepage_seo_title, homepage_seo_description, homepage_seo_image FROM owners WHERE id = $1
+`
+
+type GetOwnerHomepageSEORow struct {
+	HomepageSeoTitle       string
+	HomepageSeoDescription string
+	HomepageSeoImage       string
+}
+
+// The site-root SEO (title / description / OG image) for the homepage editor to load. Empty = unset.
+func (q *Queries) GetOwnerHomepageSEO(ctx context.Context, id pgtype.UUID) (GetOwnerHomepageSEORow, error) {
+	row := q.db.QueryRow(ctx, getOwnerHomepageSEO, id)
+	var i GetOwnerHomepageSEORow
+	err := row.Scan(&i.HomepageSeoTitle, &i.HomepageSeoDescription, &i.HomepageSeoImage)
+	return i, err
+}
+
 const getOwnerPasswordHash = `-- name: GetOwnerPasswordHash :one
 SELECT password_hash FROM owners WHERE id = $1
 `
@@ -419,6 +458,25 @@ func (q *Queries) GetSoleOwnerFavicon(ctx context.Context) (GetSoleOwnerFaviconR
 	row := q.db.QueryRow(ctx, getSoleOwnerFavicon)
 	var i GetSoleOwnerFaviconRow
 	err := row.Scan(&i.ID, &i.FaviconAssetID)
+	return i, err
+}
+
+const getSoleOwnerHomepageSEO = `-- name: GetSoleOwnerHomepageSEO :one
+SELECT homepage_seo_title, homepage_seo_description, homepage_seo_image FROM owners ORDER BY created_at ASC LIMIT 1
+`
+
+type GetSoleOwnerHomepageSEORow struct {
+	HomepageSeoTitle       string
+	HomepageSeoDescription string
+	HomepageSeoImage       string
+}
+
+// v1 single-owner: serveHomepage is an unauthenticated request with no owner in scope, so it reads
+// THE owner's homepage SEO directly. Oldest row = the claimed owner.
+func (q *Queries) GetSoleOwnerHomepageSEO(ctx context.Context) (GetSoleOwnerHomepageSEORow, error) {
+	row := q.db.QueryRow(ctx, getSoleOwnerHomepageSEO)
+	var i GetSoleOwnerHomepageSEORow
+	err := row.Scan(&i.HomepageSeoTitle, &i.HomepageSeoDescription, &i.HomepageSeoImage)
 	return i, err
 }
 
@@ -488,11 +546,33 @@ func (q *Queries) SetOwnerFavicon(ctx context.Context, arg SetOwnerFaviconParams
 	return err
 }
 
+const setOwnerHomepageSEO = `-- name: SetOwnerHomepageSEO :exec
+UPDATE owners SET homepage_seo_title = $2, homepage_seo_description = $3, homepage_seo_image = $4 WHERE id = $1
+`
+
+type SetOwnerHomepageSEOParams struct {
+	ID                     pgtype.UUID
+	HomepageSeoTitle       string
+	HomepageSeoDescription string
+	HomepageSeoImage       string
+}
+
+// Set the site-root SEO. Empty strings clear a field. Independent of any `home` microsite row.
+func (q *Queries) SetOwnerHomepageSEO(ctx context.Context, arg SetOwnerHomepageSEOParams) error {
+	_, err := q.db.Exec(ctx, setOwnerHomepageSEO,
+		arg.ID,
+		arg.HomepageSeoTitle,
+		arg.HomepageSeoDescription,
+		arg.HomepageSeoImage,
+	)
+	return err
+}
+
 const setOwnerPendingEmail = `-- name: SetOwnerPendingEmail :one
 UPDATE owners
 SET pending_email = $2, pending_email_token_hash = $3, pending_email_expires_at = $4
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type SetOwnerPendingEmailParams struct {
@@ -534,6 +614,9 @@ func (q *Queries) SetOwnerPendingEmail(ctx context.Context, arg SetOwnerPendingE
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -581,7 +664,7 @@ SET byoai_enabled = $2,
     byoai_providers = $3,
     byoai_public_blurb = $4
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerBYOAIParams struct {
@@ -619,6 +702,9 @@ func (q *Queries) UpdateOwnerBYOAI(ctx context.Context, arg UpdateOwnerBYOAIPara
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -633,7 +719,7 @@ const updateOwnerEmail = `-- name: UpdateOwnerEmail :one
 UPDATE owners
 SET email = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerEmailParams struct {
@@ -664,6 +750,9 @@ func (q *Queries) UpdateOwnerEmail(ctx context.Context, arg UpdateOwnerEmailPara
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -678,7 +767,7 @@ const updateOwnerFullName = `-- name: UpdateOwnerFullName :one
 UPDATE owners
 SET full_name = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerFullNameParams struct {
@@ -709,6 +798,9 @@ func (q *Queries) UpdateOwnerFullName(ctx context.Context, arg UpdateOwnerFullNa
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -723,7 +815,7 @@ const updateOwnerPasswordHash = `-- name: UpdateOwnerPasswordHash :one
 UPDATE owners
 SET password_hash = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerPasswordHashParams struct {
@@ -754,6 +846,9 @@ func (q *Queries) UpdateOwnerPasswordHash(ctx context.Context, arg UpdateOwnerPa
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -768,7 +863,7 @@ const updateOwnerProfileTimezone = `-- name: UpdateOwnerProfileTimezone :one
 UPDATE owners
 SET profile_timezone = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerProfileTimezoneParams struct {
@@ -799,6 +894,9 @@ func (q *Queries) UpdateOwnerProfileTimezone(ctx context.Context, arg UpdateOwne
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,
@@ -814,7 +912,7 @@ const updateOwnerPublicURL = `-- name: UpdateOwnerPublicURL :one
 UPDATE owners
 SET public_url = $2
 WHERE id = $1
-RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
+RETURNING id, email, password_hash, recovery_hash, pending_email, pending_email_token_hash, pending_email_expires_at, handle, full_name, location, public_url, byoai_enabled, byoai_providers, byoai_public_blurb, password_reset_hash, password_reset_at, profile_timezone, custom_css, favicon_asset_id, homepage_seo_title, homepage_seo_description, homepage_seo_image, last_vault_import_at, last_vault_import_new, last_vault_import_updated, last_vault_import_skipped, last_vault_import_deleted, created_at
 `
 
 type UpdateOwnerPublicURLParams struct {
@@ -848,6 +946,9 @@ func (q *Queries) UpdateOwnerPublicURL(ctx context.Context, arg UpdateOwnerPubli
 		&i.ProfileTimezone,
 		&i.CustomCss,
 		&i.FaviconAssetID,
+		&i.HomepageSeoTitle,
+		&i.HomepageSeoDescription,
+		&i.HomepageSeoImage,
 		&i.LastVaultImportAt,
 		&i.LastVaultImportNew,
 		&i.LastVaultImportUpdated,

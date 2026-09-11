@@ -108,6 +108,19 @@ UPDATE owners SET favicon_asset_id = $2 WHERE id = $1;
 -- request), so it reads THE owner's favicon directly. Oldest row = the claimed owner.
 SELECT id, favicon_asset_id FROM owners ORDER BY created_at ASC LIMIT 1;
 
+-- name: GetOwnerHomepageSEO :one
+-- The site-root SEO (title / description / OG image) for the homepage editor to load. Empty = unset.
+SELECT homepage_seo_title, homepage_seo_description, homepage_seo_image FROM owners WHERE id = $1;
+
+-- name: SetOwnerHomepageSEO :exec
+-- Set the site-root SEO. Empty strings clear a field. Independent of any `home` microsite row.
+UPDATE owners SET homepage_seo_title = $2, homepage_seo_description = $3, homepage_seo_image = $4 WHERE id = $1;
+
+-- name: GetSoleOwnerHomepageSEO :one
+-- v1 single-owner: serveHomepage is an unauthenticated request with no owner in scope, so it reads
+-- THE owner's homepage SEO directly. Oldest row = the claimed owner.
+SELECT homepage_seo_title, homepage_seo_description, homepage_seo_image FROM owners ORDER BY created_at ASC LIMIT 1;
+
 -- name: RecordVaultImport :execrows
 -- UX-62: record the "last vault import" -- the import is the operation that defines this product's
 -- ground truth, and before this "did it happen" had no landing spot in the DB, so that on-screen

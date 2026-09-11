@@ -19,6 +19,9 @@ import (
 type MicrositeDeps struct {
 	Pages  *repo.MicrositeRepo
 	Builds *repo.MicrositeBuildRepo
+	// HomepageSEO — where the reserved home slug's SEO is written (the owner, not a microsite row).
+	// Wired only where set_seo can be invoked for the homepage (the dispatcher); nil elsewhere.
+	HomepageSEO HomepageSEOStore
 	// Docs — the page's own document store (per-page schema). Set on admin paths (create provisions
 	// it, delete drops it, the store ops read/write it); nil on paths that never touch it (e.g.
 	// public serving), where the lifecycle hooks and store ops are skipped.
@@ -87,34 +90,6 @@ func SetPageByoai(
 		return entity.Microsite{}, fmt.Errorf("set page byoai: %w", err)
 	}
 	return page, nil
-}
-
-// SetPageSEOInput — set_seo's input. Empty title/description/image clear that field.
-type SetPageSEOInput struct {
-	OwnerID     string
-	Slug        string
-	Title       string
-	Description string
-	Image       string
-}
-
-// SetPageSEO — set a page's per-page SEO (title, description, Open Graph / share-card image)
-// injected into its served <head>. Empty strings clear a field. SEO follows each microsite rather
-// than a global settings section.
-func SetPageSEO(ctx context.Context, deps MicrositeDeps, in *SetPageSEOInput) error {
-	// The page must exist for SEO to land. The homepage is a real destination at `/` before it is
-	// built, but its `home` row isn't materialized until first customized. Create it if absent (an
-	// existing page just reports slug-taken) so Save never no-ops on a missing row.
-	if _, err := deps.Pages.Create(ctx, in.OwnerID, in.Slug, in.Slug); err != nil &&
-		!errors.Is(err, entity.ErrMicrositeSlugTaken) {
-		return fmt.Errorf("materialize page for seo: %w", err)
-	}
-	if err := deps.Pages.SetSEO(ctx, in.OwnerID, in.Slug, &repo.SEOFields{
-		Title: in.Title, Description: in.Description, Image: in.Image,
-	}); err != nil {
-		return fmt.Errorf("set page seo: %w", err)
-	}
-	return nil
 }
 
 // WriteFileInput — accumulate-write one file into the page's next draft.

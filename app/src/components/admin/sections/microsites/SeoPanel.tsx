@@ -12,30 +12,43 @@
 import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
-import { useMicrosites, seoInit, type MicrositeSummary } from '@/lib/admin/use-microsites';
+import {
+  useMicrosites, useHomepageSeoInit, seoPanelInit, type SeoInit,
+} from '@/lib/admin/use-microsites';
 import { useAction } from '@/lib/ui/use-action';
+
+// HOMEPAGE_SLUG — the reserved site-root page. Its SEO lives on the owner (decoupled from the
+// `home` microsite), so the panel loads/saves it there, not via a microsite row.
+const HOMEPAGE_SLUG = 'home';
 
 export function SeoPanel({ slug }: { slug: string }) {
   const { rows, setSEO } = useMicrosites();
   const trimmed = slug.trim();
-  const row = rows.find((r) => r.slug === trimmed);
-  // A brand-new page has no slug to save to until it is named; everything else (the homepage
-  // included, even before its `home` row exists) gets the panel — Save materializes the page.
-  return trimmed === ''
+  const isHome = trimmed === HOMEPAGE_SLUG;
+  // The homepage loads its current SEO from the owner store; a /p page reads its own row.
+  const home = useHomepageSeoInit(isHome);
+  const { init, ready } = seoPanelInit(isHome, home, rows.find((r) => r.slug === trimmed));
+  // A brand-new page has no slug until it is named; the homepage waits for its owner-store SEO to
+  // load so the fields show the real values, not a flash of empty (`ready`).
+  return (trimmed === '' || !ready)
     ? null
-    : <SeoForm slug={trimmed} row={row} setSEO={setSEO} />;
+    : (
+      <SeoForm
+        key={`${trimmed}:${init.title}:${init.desc}:${init.image}`}
+        slug={trimmed} init={init} setSEO={setSEO}
+      />
+    );
 }
 
 interface SeoFormProps {
   slug: string;
-  row: MicrositeSummary | undefined;
+  init: SeoInit;
   setSEO: (slug: string, title: string, description: string, image: string) => Promise<void>;
 }
 
-function SeoForm({ slug, row, setSEO }: SeoFormProps) {
+function SeoForm({ slug, init, setSEO }: SeoFormProps) {
   const t = useTranslations('adminPages.microsites');
   const run = useAction();
-  const init = row === undefined ? { title: '', desc: '', image: '' } : seoInit(row);
   const [title, setTitle] = useState(init.title);
   const [desc, setDesc] = useState(init.desc);
   const [image, setImage] = useState(init.image);

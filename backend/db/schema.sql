@@ -88,6 +88,13 @@ CREATE TABLE owners (
     -- product default). Served at /favicon.ico from an in-memory cache (loaded on boot, refreshed on
     -- change), so the request path never hits storage. See owner/usecase/favicon.go.
     favicon_asset_id     text          NOT NULL DEFAULT '',
+    -- homepage_seo_* —— the site root's SEO (title / meta description / OG image), kept on the OWNER,
+    -- not on the `home` microsite. The root (/) always exists as a destination whether or not a
+    -- `home` page is materialized / built / deleted, so its SEO is decoupled from that lifecycle and
+    -- survives it. Empty = nothing emitted. See owner/usecase homepage SEO + public serveHomepage.
+    homepage_seo_title       text          NOT NULL DEFAULT '',
+    homepage_seo_description text          NOT NULL DEFAULT '',
+    homepage_seo_image       text          NOT NULL DEFAULT '',
     -- last_vault_import_* —— 上一次 vault 导入的回执（UX-62）。
     --
     -- 为什么这几列必须存在：vault 导入是**定义这个产品 ground truth 的那个操作**，而在此之前

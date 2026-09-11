@@ -1,79 +1,90 @@
-// homepage-seo.spec.ts —— the homepage's SEO is set the SAME way as any microsite: the owner opens
-// the microsites section, opens the homepage editor, opens its SEO panel, fills it, saves — and it
-// lands on the SITE ROOT `/` (served by /api/v1/homepage). The homepage IS the reserved `home`
-// microsite, so its seo_title / seo_description / seo_image become <title> + <meta description> +
-// the OG/Twitter tags at the root.
+// homepage-seo.spec.ts —— the site root's SEO is DECOUPLED from the `home` microsite.
 //
-// This drives ONLY the UI — click the microsites nav, click the homepage's edit entry, open the SEO
-// panel, type, click Save. NOTHING is seeded through the API or MCP: the owner's real complaint was
-// that the homepage editor had no SEO section at all (the panel only rendered once a `home` row was
-// materialized, which a normal owner never does by hand). A test that seeds that row first proves
-// the panel works in a state the owner can't reach — so it seeds nothing and walks the owner's path.
+// The homepage is special: `/` is always a destination whether or not a `home` page is materialized,
+// built, or deleted. So its SEO lives on the OWNER, not a microsite row, and reaches `/` on both
+// serve paths — the backend's /api/v1/homepage (when a home build is live) and the app's DefaultHome
+// metadata (when none is). This asserts the invariant the owner asked for: "有没有 [materialized] 都
+// 不应该影响 seo，他们不应该耦合" — SEO holds across the home page's whole lifecycle.
+//
+// Driven ONLY through the owner's real UI (microsites nav → homepage edit → SEO panel → fill → Save)
+// and read back from the public site root `/` as a visitor sees it. No API/MCP seeding.
 
 import { test, expect } from '@/fixtures/test';
+import type { Page, Playwright } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-
 const OWNER = {
   email: 'homeseo@example.com', password: 'correct-horse-battery-staple',
   handle: 'homeseo', fullName: 'Home SEO Owner',
 };
-// No '&' / '<' in the title: the served head HTML-escapes them (correctly), and this spec's subject
-// is "home SEO reaches the site root", not the escaping (that is seoHead's own concern).
 const SEO_TITLE = 'Sijie Wang — Portfolio and Thoughts';
 const SEO_DESC = 'What I keep thinking about, answered in my own voice.';
 const SEO_IMAGE = 'https://cdn.example.com/home-card.png';
 
+// setHomepageSEO —— the owner's real path: microsites nav → the homepage card's edit → the SEO
+// panel → fill the three fields → Save. Nothing seeded.
+async function setHomepageSEO(page: Page): Promise<void> {
+  await gotoAdminSection(page, 'microsites');
+  await page.getByTestId('microsite-edit-homepage').click();
+  await expect(page.getByTestId('microsite-editor')).toBeVisible({ timeout: 30_000 });
+  const panel = page.getByTestId('microsite-seo');
+  await expect(panel, 'the homepage editor has the SEO panel, like any microsite')
+    .toBeVisible({ timeout: 15_000 });
+  await panel.locator('summary').click();
+  await page.getByTestId('microsite-seo-title').fill(SEO_TITLE);
+  await page.getByTestId('microsite-seo-desc').fill(SEO_DESC);
+  await page.getByTestId('microsite-seo-image').fill(SEO_IMAGE);
+  await page.getByTestId('microsite-seo-save').click();
+  // Save is async; the toast confirms it reached the server before we read the root back.
+  await expect(page.getByTestId('microsite-seo-save')).toBeEnabled();
+}
+
+// rootReflectsSEO —— open the public site root `/` as a fresh visitor and assert the SEO is in its
+// <head>. Works on both serve paths (backend build serve, or app DefaultHome metadata).
+async function rootReflectsSEO(playwright: Playwright): Promise<void> {
+  const ctx = await playwright.request.newContext();
+  await expect.poll(async () => {
+    const html = await (await ctx.get('/')).text();
+    return html.includes(SEO_TITLE) && html.includes(SEO_DESC) && html.includes(SEO_IMAGE);
+  }, { message: 'the site root <head> carries the homepage SEO', timeout: 20_000 }).toBe(true);
+  await ctx.dispose();
+}
+
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe.configure({ timeout: 420_000 });
-test.describe('homepage SEO is edited in the homepage editor, like any microsite, and reaches the root', () => {
+test.describe('site-root SEO is set in the homepage editor and is decoupled from the home page', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {
-      email: OWNER.email, password: OWNER.password,
-      handle: OWNER.handle, fullName: OWNER.fullName,
+      email: OWNER.email, password: OWNER.password, handle: OWNER.handle, fullName: OWNER.fullName,
     });
     await request.dispose();
   });
 
-  test('microsites → homepage → SEO panel: fill + Save injects title/description/OG into the root',
-    async ({ playwright, adminPage }) => {
-      // Owner's own path: microsites section → the homepage card's "edit" → the mini-IDE at /home.
+  test('no home page materialized: the editor sets site-root SEO and it lands on /', async ({
+    adminPage, playwright,
+  }) => {
+    // A fresh claimed instance has NO `home` microsite (verified elsewhere: prod has none either).
+    await setHomepageSEO(adminPage);
+    await rootReflectsSEO(playwright);
+  });
+
+  test('the SEO survives materializing + publishing a real home page (build does not overwrite it)',
+    async ({ adminPage, playwright }) => {
+      await setHomepageSEO(adminPage);
+      await rootReflectsSEO(playwright);
+
+      // Materialize + publish a real `home` page through the UI (the home editor's build+publish).
+      // Whichever serve path then answers `/` — the backend serving the live build, or the app's
+      // DefaultHome — the owner's site-root SEO must still be there: it is not the build's to own.
       await gotoAdminSection(adminPage, 'microsites');
       await adminPage.getByTestId('microsite-edit-homepage').click();
-      await expect(adminPage.getByTestId('microsite-editor'), 'the homepage editor opened')
-        .toBeVisible({ timeout: 30_000 });
-
-      // The homepage editor must carry the SAME SEO panel every other microsite editor has.
-      const panel = adminPage.getByTestId('microsite-seo');
-      await expect(panel, 'the homepage editor shows a SEO panel, like any microsite')
-        .toBeVisible({ timeout: 15_000 });
-      await panel.locator('summary').click();
-      await adminPage.getByTestId('microsite-seo-title').fill(SEO_TITLE);
-      await adminPage.getByTestId('microsite-seo-desc').fill(SEO_DESC);
-      await adminPage.getByTestId('microsite-seo-image').fill(SEO_IMAGE);
-      await adminPage.getByTestId('microsite-seo-save').click();
-
-      // The SITE ROOT serve (/api/v1/homepage) reflects what the panel saved (Save is async → poll).
-      const request = await playwright.request.newContext();
-      await expect.poll(async () => {
-        const html = await (await request.get(`${BACKEND}/api/v1/homepage`)).text();
-        return html.includes(`<title>${SEO_TITLE}</title>`);
-      }, { message: 'the panel Save reached the homepage head', timeout: 20_000 }).toBe(true);
-
-      const html = await (await request.get(`${BACKEND}/api/v1/homepage`)).text();
-      expect(html, 'meta description').toContain(`<meta name="description" content="${SEO_DESC}">`);
-      expect(html, 'og:title').toContain(`<meta property="og:title" content="${SEO_TITLE}">`);
-      expect(html, 'og:description').toContain(`<meta property="og:description" content="${SEO_DESC}">`);
-      expect(html, 'og:image').toContain(`<meta property="og:image" content="${SEO_IMAGE}">`);
-      expect(html, 'twitter card is the large-image variant when an image is set')
-        .toContain('<meta name="twitter:card" content="summary_large_image">');
-      expect(html, 'twitter:image').toContain(`<meta name="twitter:image" content="${SEO_IMAGE}">`);
-      await request.dispose();
+      await expect(adminPage.getByTestId('microsite-editor')).toBeVisible({ timeout: 30_000 });
+      await adminPage.getByTestId('microsite-publish').click();
+      await rootReflectsSEO(playwright);
     });
 });

@@ -33,6 +33,15 @@ func buildPublicMicrositeDeps(d *deps.Runtime) publicroutes.MicrositeHandlers {
 		) (publicroutes.AssetBlob, bool) {
 			return serveAssetBlob(ctx, d, id, q)
 		},
+		// The site root's SEO lives on the owner (decoupled from the `home` microsite), so serve it
+		// from the owner repo — it holds whether or not a home page is materialized/built/deleted.
+		HomepageSEO: func(ctx context.Context) (string, string, string, error) {
+			f, ferr := d.OwnerRepo.SoleHomepageSEO(ctx)
+			if ferr != nil {
+				return "", "", "", ferr
+			}
+			return f.Title, f.Description, f.Image, nil
+		},
 		BuildsRoot: d.BuildsRoot,
 	}
 }

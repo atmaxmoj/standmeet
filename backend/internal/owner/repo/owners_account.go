@@ -296,3 +296,54 @@ func (r *Repo) SoleFavicon(ctx context.Context) (string, error) {
 	}
 	return row.FaviconAssetID, nil
 }
+
+// GetHomepageSEO —— the owner's site-root SEO (title / description / OG image), for the homepage
+// editor to load. Kept on the owner, not the `home` microsite, so it survives that page's life.
+func (r *Repo) GetHomepageSEO(ctx context.Context, ownerID string) (SEOFields, error) {
+	pgID, perr := pgstore.ParseUUID(ownerID)
+	if perr != nil {
+		return SEOFields{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	row, err := db.New(r.pool).GetOwnerHomepageSEO(ctx, pgID)
+	if err != nil {
+		return SEOFields{}, fmt.Errorf("get owner homepage seo: %w", err)
+	}
+	return SEOFields{
+		Title:       row.HomepageSeoTitle,
+		Description: row.HomepageSeoDescription,
+		Image:       row.HomepageSeoImage,
+	}, nil
+}
+
+// SetHomepageSEO —— set the owner's site-root SEO. Empty strings clear a field. Never touches any
+// microsite row, so materializing / deleting the `home` page can't lose it.
+func (r *Repo) SetHomepageSEO(ctx context.Context, ownerID string, f SEOFields) error {
+	pgID, perr := pgstore.ParseUUID(ownerID)
+	if perr != nil {
+		return fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	err := db.New(r.pool).SetOwnerHomepageSEO(ctx, db.SetOwnerHomepageSEOParams{
+		ID:                     pgID,
+		HomepageSeoTitle:       f.Title,
+		HomepageSeoDescription: f.Description,
+		HomepageSeoImage:       f.Image,
+	})
+	if err != nil {
+		return fmt.Errorf("set owner homepage seo: %w", err)
+	}
+	return nil
+}
+
+// SoleHomepageSEO —— the sole (v1) owner's site-root SEO. Used by serveHomepage, an unauthenticated
+// request with no owner in scope, so it reads THE owner's homepage SEO directly.
+func (r *Repo) SoleHomepageSEO(ctx context.Context) (SEOFields, error) {
+	row, err := db.New(r.pool).GetSoleOwnerHomepageSEO(ctx)
+	if err != nil {
+		return SEOFields{}, fmt.Errorf("get sole owner homepage seo: %w", err)
+	}
+	return SEOFields{
+		Title:       row.HomepageSeoTitle,
+		Description: row.HomepageSeoDescription,
+		Image:       row.HomepageSeoImage,
+	}, nil
+}

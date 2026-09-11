@@ -14,17 +14,28 @@ import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 
 import { fetchInstance } from '@/lib/api/instance';
+import { fetchHomepageSEO, homepageMetadata } from '@/lib/api/microsites';
 
 import { TrackVisit } from '@/components/monitor/TrackVisit';
 
 import { VisitorRoot } from '@/app/visitor-root';
 
+// generateMetadata —— the site root's <head> when THIS component serves `/` (no live `home` build;
+// when one is live the middleware rewrites to the backend, which injects the same SEO there). The
+// owner's site-root SEO wins over the instance name; it is owner-level, so it holds whether or not a
+// `home` page is materialized. The Metadata is assembled in lib (homepageMetadata) so this stays flat.
 export async function generateMetadata(): Promise<Metadata> {
+  const seo = await fetchHomepageSEO();
+  return homepageMetadata(seo, await instanceName());
+}
+
+// instanceName —— the instance's name for the title fallback (used when the owner set no homepage
+// SEO title). Degrades to "StandMeet" if the instance can't be read.
+async function instanceName(): Promise<string> {
   try {
-    const instance = await fetchInstance();
-    return { title: instance.name || 'StandMeet' };
+    return (await fetchInstance()).name || 'StandMeet';
   } catch {
-    return { title: 'StandMeet' };
+    return 'StandMeet';
   }
 }
 
