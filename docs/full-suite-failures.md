@@ -193,3 +193,11 @@ every spec that reads the moved surface, not just the new one.
   batch means the batch was cut wrong.
 - No pre-existing exemption — except a red proven to be host load (Batch L), which re-runs green.
 - Run the full suite once, only after every batch is REPEAT=5 green **and** the host is quiet.
+- **Race the e2e can't reproduce stably → drill DOWN to a deterministic unit test, then come back up.**
+  Do not keep re-running the e2e hoping it repeats. Write a unit test that constructs the race's STATE
+  directly (no timing window) so it fails 必现: RED on the current code → fix → GREEN → then re-run the
+  original e2e race case `REPEAT`-many until green. (This round: flake #972 `microsite-editor-live-follow`
+  → drilled to `microsite-build-mark-gone` (a nonexistent build id hits the same `UPDATE … RETURNING`
+  0-rows path a truncate-mid-build produces) → RED 500 → fix → GREEN 404 REPEAT=5. Caveat: a real bug
+  found on that path is not proof it caused the flake — still re-run the e2e; live-follow was host-load,
+  the mark-built 500 a separate real defect.)
