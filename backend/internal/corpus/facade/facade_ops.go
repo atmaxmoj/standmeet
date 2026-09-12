@@ -11,7 +11,7 @@ import "github.com/atmaxmoj/standmeet/internal/corpus/ops"
 type (
 	OpsWritingsDeps = ops.WritingsDeps
 	// VaultIngest — the vault-sync port for obsidian.import; the composition root adapts
-	// connector.IngestFunc to it (the dispatcher may not import connector).
+	// corpus/integration's sync types to it (the dispatcher may not import that layer).
 	VaultIngest     = ops.VaultIngest
 	VaultFile       = ops.VaultFile
 	VaultSyncResult = ops.VaultSyncResult

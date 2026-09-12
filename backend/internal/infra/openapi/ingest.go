@@ -76,7 +76,7 @@ func ValidateIngest(raw []byte) (string, error) {
 // SpecTitle — the name the vendor gave this API themselves (info.title). Unreadable → empty
 // string.
 //
-// This is exactly the string shown on `CONNECTOR CANDIDATE` at the moment of ingest. It's
+// This is exactly the string shown on `SUPPLIER CANDIDATE` at the moment of ingest. It's
 // fetched again and stored at assembly time, so the list doesn't have to re-parse a 12.9 MB
 // document just to get a name (F-C-56).
 func SpecTitle(raw []byte) string {

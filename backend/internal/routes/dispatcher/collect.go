@@ -29,8 +29,9 @@ type Deps struct {
 	Embeds         access.OpsEmbeds
 	Corpus         corpus.Deps
 	Writings       corpus.OpsWritingsDeps
-	// ObsidianIngest — the vault-sync port for obsidian.import (owner MCP + admin). The composition
-	// root adapts connector.IngestFunc to it (the dispatcher may not import connector).
+	// ObsidianIngest — the vault-sync port for obsidian.import (owner MCP + admin). The
+	// composition root adapts corpus/integration's sync types to it; the dispatcher may not
+	// import that layer.
 	ObsidianIngest corpus.VaultIngest
 	Instance       stats.InstanceDeps
 	Upgrade        stats.UpgradeDeps

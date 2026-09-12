@@ -7,8 +7,8 @@
 // port the admin route feeds. Without it the owner cannot sync from their AI client, which is the
 // whole point of the owner MCP.
 //
-// The ingest port (VaultIngest) is declared here as a domain port: the composition root adapts the
-// connector-layer IngestFunc to it (the dispatcher may not import connector — arch boundary).
+// The ingest port (VaultIngest) is declared here as a domain port. The dispatcher may not import
+// the ingest layer, so the composition root adapts corpus/integration's sync types to it.
 
 package ops
 
@@ -35,8 +35,8 @@ type VaultSyncResult struct {
 	Deleted int
 }
 
-// VaultIngest — the injected vault-sync port. The composition root adapts the connector-layer
-// IngestFunc to this (the dispatcher may not import connector — arch boundary).
+// VaultIngest — the injected vault-sync port. The composition root adapts
+// corpus/integration's sync types to this (the dispatcher may not import the ingest layer).
 type VaultIngest func(
 	ctx context.Context, ownerID string, files []VaultFile, authoritative bool,
 ) (VaultSyncResult, error)
