@@ -440,12 +440,12 @@ test.describe('supplier binding · JSONata binding (§8 area C)', () => {
 // should stay or go.
 async function diagInvoke(
   request: APIRequestContext, csrf: string, id: string,
-  category: string, op: string, args: Record<string, unknown>,
+  seam: string, op: string, args: Record<string, unknown>,
 ): Promise<{ status: number; text: string }> {
   // eslint-disable-next-line e2e-local/no-direct-mutating-api -- diag backdoor deliberately kept inline (see comment above); not a seed
   const res = await request.post(
     `${BACKEND}/api/admin/diag/supplier/${encodeURIComponent(id)}/invoke`,
-    { headers: { 'X-Csrftoken': csrf }, data: { category, op, args } },
+    { headers: { 'X-Csrftoken': csrf }, data: { seam, op, args } },
   );
   return { status: res.status(), text: await res.text() };
 }

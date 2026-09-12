@@ -448,12 +448,12 @@ async function initOwner(playwright: Playwright): Promise<void> {
 // goes is tracked in the "diag back door" task.
 async function diagInvoke(
   request: APIRequestContext, csrf: string, id: string,
-  category: string, op: string, args: Record<string, unknown>,
+  seam: string, op: string, args: Record<string, unknown>,
 ): Promise<{ status: number; text: string }> {
   // eslint-disable-next-line e2e-local/no-direct-mutating-api -- diag back door, kept deliberately inline (extracting it into a fixture would license the bypass; see the comment above)
   const res = await request.post(
     `${BACKEND}/api/admin/diag/supplier/${encodeURIComponent(id)}/invoke`,
-    { headers: { 'X-Csrftoken': csrf }, data: { category, op, args } },
+    { headers: { 'X-Csrftoken': csrf }, data: { seam, op, args } },
   );
   return { status: res.status(), text: await res.text() };
 }

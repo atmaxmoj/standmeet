@@ -456,9 +456,9 @@ async function pollConnectedCalendarId(request: APIRequestContext): Promise<stri
     const res = await request.get(`${BACKEND}/api/admin/suppliers`);
     if (res.status() !== 200) return false;
     const rows = (await res.json() as {
-      suppliers?: { id: string; category: string; connected: boolean }[];
+      suppliers?: { id: string; seam: string; connected: boolean }[];
     }).suppliers ?? [];
-    const hit = rows.find((c) => c.category === 'calendar' && c.connected);
+    const hit = rows.find((c) => c.seam === 'calendar' && c.connected);
     if (hit) id = hit.id;
     return Boolean(hit);
   }, { timeout: 15_000 }).toBe(true);
@@ -555,12 +555,12 @@ async function initOwner(playwright: Playwright): Promise<void> {
 // Whether this backdoor itself should stay or go is tracked in the "diag backdoor" task.
 async function diagInvoke(
   request: APIRequestContext, csrf: string, id: string,
-  category: string, op: string, args: Record<string, unknown>,
+  seam: string, op: string, args: Record<string, unknown>,
 ): Promise<{ status: number; text: string }> {
   // eslint-disable-next-line e2e-local/no-direct-mutating-api -- diag backdoor deliberately kept inline (see comment above); not a seed
   const res = await request.post(
     `${BACKEND}/api/admin/diag/supplier/${encodeURIComponent(id)}/invoke`,
-    { headers: { 'X-Csrftoken': csrf }, data: { category, op, args } },
+    { headers: { 'X-Csrftoken': csrf }, data: { seam, op, args } },
   );
   return { status: res.status(), text: await res.text() };
 }

@@ -46,6 +46,11 @@ const TRIGGER = 'Summarize our conversation so far';
 // A sentence that can ONLY come from the role persona (not the corpus, not any generic header) —
 // its appearance in an answer proves the code's persona reached the model through the adopted
 // session (the mock gateway echoes the system prompt verbatim).
+// SESSION_KEY —— the localStorage key the gate writes and the SDK adopts. Spelled out here
+// because e2e cannot import @standmeet/sdk-core (no exports main). A drift between this literal
+// and the SDK's own constant cannot go unnoticed: the widget would fail to adopt at all, and
+// assertion 1 (data-mode="inline") is red before this probe is ever reached.
+const SESSION_KEY = 'standmeet:visitor-session';
 const PERSONA_MARK = 'AGENTW-PERSONA-ECHO-XYZ';
 
 // PAGE —— a microsite whose entire body is the AgentWidget. Importing it from the shipped
@@ -133,6 +138,21 @@ async function enterGate(page: Page): Promise<void> {
   await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 10_000 });
 }
 
+// storedDockButtons —— what /gate actually persisted, read off the blob the widget adopts.
+//
+// The widget's dock has two halves — the gate WRITES the buttons into the session blob, the SDK
+// READS them back out of it — and "no button on screen" is the same picture either way. Asserting
+// only the rendered button made the red unable to say which half broke, and the diagnosis carried
+// in docs/full-suite-failures.md for two rounds blamed a third place entirely (resolveDockButtons
+// dropping the block), which dock-buttons.spec.ts D2-D4 disprove. Read the blob, so the red names
+// a side.
+async function storedDockButtons(page: Page): Promise<unknown> {
+  return await page.evaluate((k) => {
+    const raw = window.localStorage.getItem(k);
+    return raw === null ? null : (JSON.parse(raw) as Record<string, unknown>)['dock_buttons'];
+  }, SESSION_KEY);
+}
+
 test.describe.configure({ timeout: 420_000 });
 
 test.describe('the embedded AgentWidget inherits the code (corpus + persona + dock)', () => {
@@ -151,11 +171,41 @@ test.describe('the embedded AgentWidget inherits the code (corpus + persona + do
   test('with the code adopted → inline agent, inherits dock + persona, dock sends its trigger',
     async ({ page, request }: { page: Page; request: APIRequestContext }) => {
       const tag = await scriptMockReplyText(request, 'noted.');
+      // A widget that throws while mounting renders its shell and drops everything the effect
+      // would have added — which looks exactly like "the dock was not configured".
+      const pageErrors: string[] = [];
+      page.on('pageerror', (e) => pageErrors.push(e.message));
+
       await enterGate(page); // stores the code's session blob
+
+      // Which half? — the gate must have PUT the code's dock button into the blob before the
+      // widget can be blamed for not rendering it.
+      // The SDK guard (isDockButton) drops any entry missing ANY of block_id/title/trigger, so
+      // the probe asserts the WHOLE shape it demands — a toMatchObject on two of the three would
+      // pass while the third is absent and the dock silently renders empty.
+      const stored = await storedDockButtons(page);
+      expect(stored, '/gate persisted the code dock buttons into the session blob')
+        .toMatchObject([{ block_id: BLOCK_SUMMARIZE, trigger: TRIGGER }]);
+      expect((stored as Array<Record<string, unknown>>)[0],
+        'the stored button carries every field the SDK guard requires')
+        .toEqual({ block_id: BLOCK_SUMMARIZE, title: expect.any(String), trigger: TRIGGER });
+
       await openReader(page, `/p/${SLUG}/`);
+
+      // …and the blob must still be readable FROM THE MICROSITE PAGE. /gate and /p/<slug>/ are
+      // only one localStorage if they are one origin; if they are not, everything above still
+      // passes and the widget simply sees nothing.
+      expect(await storedDockButtons(page),
+        'the microsite page reads the same session blob /gate wrote')
+        .toMatchObject([{ block_id: BLOCK_SUMMARIZE }]);
 
       const w = page.getByTestId('agent-widget');
       await expect(w).toBeVisible({ timeout: 20_000 });
+      expect(pageErrors, 'the microsite mounted without throwing').toEqual([]);
+      // What the adopt effect actually resolved. "0" means the widget read nothing; "1" with no
+      // button on screen would mean the render, not the read.
+      await expect(w, 'the adopt effect resolved the code dock button')
+        .toHaveAttribute('data-dock-count', '1');
       // 1. grant adopted → inline, not the handoff.
       await expect(w).toHaveAttribute('data-mode', 'inline');
       // 2. the code's dock button is inherited from the stored blob.

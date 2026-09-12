@@ -101,7 +101,17 @@ function InlineAgent(): React.ReactElement {
   };
 
   return (
-    <section data-testid="agent-widget" data-mode="inline" className="w-full">
+    // data-dock-count —— how many buttons the adopt effect actually resolved.
+    //
+    // Without it, "the code configured no dock", "the blob lost them" and "the guard dropped them"
+    // all render as the same thing: no button. That ambiguity cost a full diagnosis round, in which
+    // seven separate hypotheses had to be killed one at a time from the outside. The count is the
+    // one number that separates them, and it belongs next to data-mode, which is here for exactly
+    // the same reason.
+    <section
+      data-testid="agent-widget" data-mode="inline" data-dock-count={dock.length}
+      className="w-full"
+    >
       {/* Inline structural layout (see CorpusWidget): without it a consumer that doesn't compile
           `flex-col` runs the chat transcript horizontally. */}
       <ol data-testid="agent-widget-transcript" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', listStyle: 'none', padding: 0, margin: '0 0 1.5rem' }}>

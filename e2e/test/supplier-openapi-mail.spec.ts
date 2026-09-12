@@ -148,7 +148,7 @@ const NON_SENDING_BINDING = {
 // ─── target REST/diag helpers (unbuilt; §8 interface sketch) ───
 
 interface CreateResult { status: number; id?: string; error?: string }
-interface ConnStatus { id: string; category: string; kind: string; has_credentials: boolean; connected: boolean }
+interface ConnStatus { id: string; seam: string; kind: string; has_credentials: boolean; connected: boolean }
 // One SaaS send the mock recorded (used to assert the body shape the request JSONata built).
 interface SentMail {
   // id -- the message id this fake vendor issued for this mail (the receipt carries the same one).
@@ -306,7 +306,7 @@ async function initOwner(playwright: Playwright): Promise<{
 async function runHappyMainline(request: APIRequestContext, csrf: string): Promise<void> {
   const st = await assembleAndConnectMail(request, csrf);
   expect(st.kind, 'kind=openapi (not protocol)').toBe('openapi');
-  expect(st.category).toBe('mail');
+  expect(st.seam, 'the row names the seam it fills').toBe('mail');
   expect(st.connected, 'apiKey connects on saving the key, no OAuth dance').toBe(true);
 
   // dep-gating: the mail category slot is now connected -> the mail.send cap gate opens.

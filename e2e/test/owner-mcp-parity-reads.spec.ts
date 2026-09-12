@@ -166,10 +166,10 @@ async function checkSuppliers(r: APIRequestContext): Promise<void> {
   const list = await callTool<unknown[]>(r, token, sid, 'suppliers.list', {});
   expect(Array.isArray(list), 'suppliers.list array').toBe(true);
 
-  const catalog = await callTool<Array<{ id: string; category: string; kind: string }>>(
+  const catalog = await callTool<Array<{ id: string; seam: string; kind: string }>>(
     r, token, sid, 'suppliers.catalog', {});
   expect(catalog.length, 'catalog has built-in suppliers').toBeGreaterThan(0);
-  expect(typeof catalog[0]!.category, 'catalog entry has category').toBe('string');
+  expect(typeof catalog[0]!.seam, 'catalog entry has a seam').toBe('string');
 }
 
 // The booking policy is read through the **generic** block_config interface — the

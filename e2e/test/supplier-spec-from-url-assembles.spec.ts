@@ -111,7 +111,7 @@ test.describe('a spec fetched from a URL can actually be assembled', () => {
     await openSupplierAdd(page);
 
     await page.getByTestId('supplier-spec-input').fill(specWithServers());
-    await page.getByTestId('supplier-binding-input').fill(bindingUnknownCategory());
+    await page.getByTestId('supplier-binding-input').fill(bindingUnknownSeam());
     await page.getByTestId('supplier-spec-submit').click();
     await expect(page.getByTestId('supplier-candidate')).toBeVisible();
 
@@ -171,11 +171,15 @@ function specWithServers(): string {
   });
 }
 
-// bindingUnknownCategory — the category names a contract that doesn't exist → at assemble
-// time it resolves to no adapter, and the backend refuses.
-function bindingUnknownCategory(): string {
+// bindingUnknownSeam — the seam names a contract that doesn't exist → at assemble time it
+// resolves to no adapter, and the backend refuses.
+//
+// It used to be keyed `category:`, the pre-rename word the struct no longer reads, so the seam
+// parsed as "" and this test proved "an EMPTY seam is refused" while claiming to prove "an
+// UNKNOWN seam is refused". Still green either way — which is what made it invisible.
+function bindingUnknownSeam(): string {
   return [
-    'category: telepathy',
+    'seam: telepathy',
     'operations:',
     '  list_slots:',
     '    op: bookings.list',

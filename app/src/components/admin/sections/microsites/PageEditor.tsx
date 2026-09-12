@@ -388,7 +388,15 @@ function EditorPreview({ page }: { page: MicrositeSummary }) {
         <span data-testid="microsite-preview-state" className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint)">
           {previewIsLive(page) ? t('visibilityState.live') : t('visibilityState.staging')}
         </span>
-        <span data-testid="microsite-staging-state" className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-muted)">
+        {/* data-build-id — WHICH build the panel currently believes in. Without it, "the client
+            never heard about the new build" and "it heard and is showing the old one" render
+            identically: an unchanged preview. Every link in the follow chain (Signal → /wait →
+            worker cursor → iframe key) reads correct on inspection, so this is the one fact none
+            of them can settle from the outside. */}
+        <span
+          data-testid="microsite-staging-state" data-build-id={view.buildID}
+          className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-muted)"
+        >
           {view.status}
         </span>
       </div>

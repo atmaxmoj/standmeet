@@ -118,14 +118,14 @@ test.describe('supplier · extra corner / error stream (wrap-up)', () => {
 
     // Both are connected, but the category slot allows exactly one active.
     const rows = await listSuppliers(request);
-    const cals = rows.filter((c) => c.category === 'calendar');
+    const cals = rows.filter((c) => c.seam === 'calendar');
     expect(cals.length, 'two suppliers of the same category coexist').toBeGreaterThanOrEqual(2);
     expect(cals.filter((c) => c.active).length, 'exactly one active').toBe(1);
 
     // Explicitly activating the other one → the slot hands over.
     // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: asserts activating b hands over the single active slot (b active, a inactive)
     await request.post(`${BACKEND}/api/admin/suppliers/${b}/activate`, { headers: { 'X-Csrftoken': csrf }, data: {} });
-    const after = (await listSuppliers(request)).filter((c) => c.category === 'calendar');
+    const after = (await listSuppliers(request)).filter((c) => c.seam === 'calendar');
     expect(after.find((c) => c.id === b)?.active, 'after activate, b becomes active').toBe(true);
     expect(after.find((c) => c.id === a)?.active, 'a falls back to inactive').toBe(false);
 
@@ -198,7 +198,7 @@ test.describe('supplier · credential-form derivation drift guards (area B)', ()
 
 // ─── helpers (inline; promote to fixtures/supplier-corner.ts once the implementation goes green) ───
 
-interface ConnRow { id: string; category: string; kind: string; active: boolean; connected: boolean }
+interface ConnRow { id: string; seam: string; kind: string; active: boolean; connected: boolean }
 
 async function initOwner(playwright: Playwright): Promise<APIRequestContext> {
   resetInstance();
@@ -261,12 +261,12 @@ async function diagListBusy(
 // backdoor" task.
 async function diagInvoke(
   request: APIRequestContext, csrf: string, id: string,
-  category: string, op: string, args: Record<string, unknown>,
+  seam: string, op: string, args: Record<string, unknown>,
 ): Promise<{ status: number; text: string }> {
   // eslint-disable-next-line e2e-local/no-direct-mutating-api -- diag backdoor deliberately kept inline (see comment above); not a seed
   const res = await request.post(
     `${BACKEND}/api/admin/diag/supplier/${encodeURIComponent(id)}/invoke`,
-    { headers: { 'X-Csrftoken': csrf }, data: { category, op, args } },
+    { headers: { 'X-Csrftoken': csrf }, data: { seam, op, args } },
   );
   return { status: res.status(), text: await res.text() };
 }

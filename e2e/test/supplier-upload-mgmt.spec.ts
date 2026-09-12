@@ -328,7 +328,7 @@ function validCalendarSpec(): string {
 // to freebusy.query / events.insert, with request/response in JSONata (decision §7.1).
 function calendarBinding(): string {
   return [
-    'category: calendar',
+    'seam: calendar',
     'kind: openapi',
     'operations:',
     '  list_busy:',

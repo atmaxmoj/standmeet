@@ -1,3 +1,215 @@
+# Full-suite failures — round 2026-09-12 (branch `plugin-model`, rebased onto `origin/main`)
+
+**1787 passed · 23 failed · ~6h.** HEAD `b43bb0559`, rebased onto `b58af8157` (22 commits).
+Log: `scratchpad/e2e7.log` · artifacts: `e2e/test-results-archive/20260912T170912Z/`
+
+First full run on the rebased tree. The load reading quoted per red is the machine-witness line
+written **immediately before that red**, extracted with `scratchpad/load_correlate.py` — so the
+load call below is evidence from this run, not a guess from the error text.
+
+## The split
+
+| | reds | disposition |
+|---|---|---|
+| Batch V — one wire-vocabulary class | 17 | real; fixed here; pending REPEAT=5 |
+| Batch W — the embedded widget's dock | 1 | **CLOSED** — stale builder artifact; REPEAT=5 green |
+| Batch M — microsite editor live-follow | 1 | **CLOSED** — the test raced the editor's draft load; REPEAT=5 green. Both labels it carried (host load, orphaned builder) disproved |
+| Batch L — host load | 3 | **confirmed + re-run green, excluded** |
+
+## Batch L — host load (3) · CONFIRMED, excluded
+
+Each was re-run alone with `make test-only SPEC=… REPEAT=5` at host load ≈ 12:
+
+| red | load when it failed | signature | re-run |
+|---|---|---|---|
+| `composer-pdf-fidelity:94` | **33.04** | `apiRequestContext.get` 10s timeout | **12 / 12 green** |
+| `composer-cjk-renders:40` | 13.25 | whole-test 30s timeout | **7 / 7 green** |
+| `supplier-happy-matrix:539` | 12.03 | whole-test 30s timeout | **32 / 32 green** |
+
+`composer-pdf-fidelity` is the only red in the whole run that sat at genuinely high load — 33.04,
+with `lucerna-e2e` + `lucerna-local` both churning. The other two are the same family (heavy PDF
+render / full assemble loop) at the top of the normal band. None of the three was edited before the
+re-run, so the green is the machine's answer, not a fix's.
+
+**What the load readings also did was stop three wrong exclusions**: every other red in this run sat
+at load 6.8–13.7, i.e. the machine's ordinary band, so "it was busy" was never available for them.
+
+## Batch V — `category` → `seam` never reached the wire (17)
+
+One root cause, three faces. Identical in shape to the `google-calendar/binding.yaml` incident this
+document already records: **the Go struct tag moved, the string on the other side of the wire did
+not**, and a JSON field nobody sends decodes to the zero value in silence.
+
+| face | mechanism | reds |
+|---|---|---|
+| request payload | specs POST `{category, op, args}`; `diagInvokeReq` reads `seam` → `""` → `complete()` false → **400 "seam and op are required"** | `supplier-binding-jsonata` ×7, `supplier-corner-extra:74`, `supplier-security:109` |
+| response read | specs read `.category` off supplier rows; `supplierRowOut` (and `catalogRowOut`, which embeds it) sends `json:"seam"` → always `undefined` | `owner-mcp-parity-reads:209`, `supplier-connect-flow:292`, `supplier-openapi-mail:466`, `supplier-corner-extra:113` |
+| uploaded binding | the binding TEXT a spec uploads is keyed `category: calendar`; the seam parses `""`, so the row's testid becomes `supplier-row-` (empty suffix) and `supplier-row-calendar` never exists | `supplier-upload-mgmt` ×5 |
+
+Fixed: four `diagInvoke` helpers now send `seam`; five read-sites and their four TS row types now
+read `seam`; two uploaded binding texts re-keyed.
+
+**CLOSED** — batch boundary: `make test-only SPEC="<the 8 specs>" REPEAT=5` → **337 passed / 0
+failed**, then one `make lint` → rc=0. The RED side of this batch is the archived run itself
+(`20260912T170912Z`), which carries all 17 signatures on the unfixed specs.
+
+**A green test was lying, and it is in this class.** `supplier-spec-from-url-assembles` means to
+prove *an unknown seam is refused* and uploads `category: telepathy`. The product ignores
+`category`, so the seam was `""` — the test was actually exercising *an empty seam is refused*, and
+passed either way. Re-keyed to `seam: telepathy`, and the helper renamed
+`bindingUnknownCategory` → `bindingUnknownSeam` so the name states what it now tests. It was never
+red, which is exactly what made it invisible ([[names-that-lie]]).
+
+**Why the read-side half only cost four reds and not more**: `.find(r => r.category === x)` on a
+field that is always `undefined` does not throw — it returns `undefined`. These four were red only
+because the assertion downstream happened to be positive. A negated one would have passed forever
+([[negated-assertion-passes-while-absent]]).
+
+## Batch W — `agent-widget-inherits-from-code:151` · load 6.85 · **CLOSED — stale builder artifact**
+
+**Root cause: the builder container was serving microsite builds made with an old SDK.**
+`make dev-up` runs `builder-vendor`, which refreshes `builder/vendor` **on the host** — but the
+builder service has `build: context: ./builder` and mounts only `microsites_data`, so the vendored
+SDK is **baked into its image**. A host-side refresh never reaches the running container. Every
+microsite built in this stack therefore carried whatever SDK the image was baked with, and an
+SDK-side change is invisible to microsite e2e until `make dev-rebuild-builder`.
+
+Sequence, with nothing else touched: `make sdk-build` → `make builder-vendor` →
+`make dev-rebuild-builder` → **REPEAT=5, 10 passed / 0 failed**. The only code change in that window
+was adding `data-dock-count` to the widget, an attribute that cannot make a button exist.
+
+**What this costs whoever hits it next**: the red lands on the FEATURE ("the dock never renders"),
+never on the staleness, and every check made from outside the container agrees with the code —
+which is why seven hypotheses below all had to be killed before the artifact was suspected at all.
+Honest limit: the strings the earlier greps looked for (`agent-widget-dock-`, `dock_buttons`) were
+present in the old artifact too, so the stale part was subtler than "the code was missing", and
+which file differed was not pinned before the rebuild overwrote it.
+
+**Kept from the diagnosis** (they make the red name a side instead of leaving identical-looking
+halves): three probes in this spec — the blob after `/gate` asserted by exact shape, the same read
+repeated on the microsite page, and a `pageerror` capture — plus `data-dock-count` on the widget,
+which is the number that separates "read nothing" from "read it and failed to render".
+
+### The diagnosis that was wrong, and the seven eliminations
+
+The lowest load of the entire run, so this is not the machine.
+
+**The diagnosis this document carried forward is wrong.** It read: *"`resolveDockButtons` drops a
+button whose block is absent from the session's states, and `summarize_conversation` is `acl:always`
+so it should never be absent."* This run disproves it: `dock-buttons.spec.ts` **D1–D4 all pass**,
+and D2/D3/D4 assert exactly that payload — the code-denied button is absent, the disabled one stays
+with `enabled=false`, the publicRow one arrives. `resolveDockButtons` and `bundle.States` are fine
+([[parked-test-carries-a-wrong-diagnosis]]).
+
+Where it actually is: the widget renders `data-mode="inline"`, and that attribute is decided by
+`hasVisitorGrant()` → `adoptStoredSession()`, which reads **the same localStorage key** as
+`adoptedDockButtons()`. So the blob is found and the blob lacks `dock_buttons`.
+
+Every layer between reads correct, statically:
+
+- `dockButtonResp` sends `block_id` / `title` / `trigger`;
+- `issueSession` returns `(await res.json()) as PublicSessionResponse` — a plain cast, nothing
+  strips the field;
+- `persistSession` writes `dock_buttons: sess.dock_buttons ? [...] : undefined`;
+- the gate's code path calls that same `persistSession`;
+- the SDK's `isDockButton` guard wants exactly those three string fields.
+
+**Observed, not reasoned.** Three probes were added to this spec (they stay — they make the red
+name a side instead of leaving two halves that look identical):
+
+1. after `/gate`, the blob carries `[{block_id, title, trigger}]` — `toEqual`, exact shape, so a
+   missing `title` cannot hide (the SDK guard drops an entry missing any of the three);
+2. the same read repeated **on the microsite page**, so "different origin, empty localStorage" is
+   ruled out rather than assumed;
+3. a `pageerror` capture, so a throw during mount cannot masquerade as "no dock configured".
+
+All three pass. Eliminated with evidence, each one a hypothesis that was live before:
+
+| hypothesis | evidence | verdict |
+|---|---|---|
+| `resolveDockButtons` drops the block (the diagnosis this doc carried) | `dock-buttons.spec.ts` D1-D4 green; D2/D3/D4 assert that payload | **wrong** |
+| `/gate` never persisted them | probe 1 | ruled out |
+| blob shape fails the SDK guard | probe 1 (`toEqual`, exact) | ruled out |
+| microsite is a second origin | probe 2 | ruled out |
+| vendored / in-container SDK is stale | `adoptedDockButtons` + `agent-widget-dock` present in `builder/vendor` AND in the builder container's `node_modules` | ruled out |
+| the SERVED microsite bundle lacks the code | that bundle contains `agent-widget-dock-`, `dock_buttons`, `standmeet:visitor-session` — one occurrence each (one copy, not two) | ruled out |
+| the widget throws while mounting | probe 3 | ruled out |
+
+So: the data is right, the origin is right, the bundle is right, nothing throws — and
+`adoptedDockButtons()` still yields an empty dock. **What is missing here is an instrument, not
+another hypothesis** ([[no-diagnosis-by-experiment]]). The next step is to make the DOM state what
+the effect computed — a `data-dock-count` on the widget — so the count is observable instead of
+inferred from the absence of a button. That is a product change (one attribute) and a builder image
+rebuild, which is why it is named here rather than guessed at.
+
+## Batch M — `microsite-editor-live-follow:66` · load 7.73 · REAL
+
+This document files it as flake #972, *"a builder-throughput-under-load flake (passes ~28s on low
+load, times out at 300s under load ~29)"*. **It failed this round at load 7.73.** That is low load,
+so the throughput story does not cover this occurrence and it cannot be excluded under Batch L's
+rule. `Expected "LIVE-EDIT-ONE" / Received "INITIAL"` — the preview never followed the first edit.
+
+Note the neighbouring fix that already landed on main (`a48b6eff7`, mark-built 404-not-500) carried
+its own caveat: *"a real bug found on that path is not proof it caused the flake."* That caveat now
+runs the other way too — that fix landing did not make this green.
+
+**Re-run alone, after the Batch W builder rebuild, on a quiet host: still red at 5.1m.** That kills
+the two stories this red has been carrying:
+
+- **not host load** — it failed at 7.73 in the suite and again standalone on a quiet machine;
+- **not the orphaned-builder race** (main's *"resetInstance has to drain the builder before
+  truncating"*) — a single-spec run has no previous spec's builder to orphan.
+
+**What the builder log says, which nobody had looked at**: three builds for this page, all
+`OK`, promptly. So **the build is not what fails — the preview is.** The staging frame keeps
+reading `INITIAL` for the full 300s while the builds it should be following complete fine.
+
+Where it has to be: `EditorPreview` renders `<iframe key={view.buildID} src={usePinnedPreviewSrc(…)}>`
+and follows builds "via the shared long-poll". The iframe remounts only when `view.buildID` changes,
+so the break is between *a build finishing* and *the client learning its new build id* — the
+long-poll / `previewView` half, not the builder and not the editor's typing.
+
+**The long-poll chain, walked end to end — every link is correct:**
+
+| link | checked | verdict |
+|---|---|---|
+| a settled build wakes the panel | `patchBuild` calls `deps.Notifier.Signal()` on built **and** failed | fires |
+| the wait endpoint | `micrositesWait` → `awaitBuildChange`: returns immediately when `cur > since`, else blocks | correct |
+| the worker's cursor wiring | `useLongPoll` defaults `cursorParam='since'`, `cursorField='version'` — matching the handler's `?since=` and `{"version":N}` | correct |
+| the iframe remount | `<iframe key={view.buildID}>`, and `usePinnedPreviewSrc` swaps `src` only when `buildID` changes | correct |
+| debounced auto-build uses the LATEST text | `useAutoBuild` keeps `latest.current = {slug, files, onTick}` reassigned every render and `run()` reads it **at fire time**, so the classic stale-closure ("the preview is always one edit behind", which would produce exactly this `INITIAL`) does **not** apply | correct |
+
+Every link reads right, the builds succeed, and the preview still did not move — so the instrument
+went in: `data-build-id` on `microsite-staging-state`, the one fact none of the links above can
+settle from outside (did the client never hear about the new build, or hear and render the old one).
+
+**CLOSED — the test was racing the editor's own initialization.**
+
+`PageEditor` mounts, `openExisting` loads the draft and calls `setFiles(resolved)`, then stages an
+open-time build. The test navigated and typed **immediately**. Typing inside that window is
+overwritten by `setFiles(resolved)` when the load lands, so the editor's content reverts to the
+seeded source and every subsequent build faithfully rebuilds `INITIAL` — which is exactly what was
+observed: builds `OK`, preview stuck, for the full 300s.
+
+The fix is in the test, and it makes the test state what it means: wait for the open-time build to
+show the seeded `INITIAL` (the starting state its own setup wrote), take the build id as a baseline,
+*then* edit. **REPEAT=5 → 5 passed / 0 failed**, ~33s a run against a 300s ceiling.
+
+**The two candidates were separable, and it matters which one it was**: the app image was rebuilt
+BEFORE a run that was still red, and the only change after that was the baseline wait. So the
+rebuild is not what fixed this one (unlike Batch W, where it was).
+
+**Left as a finding, not silently fixed**: a real owner typing into the editor during that same
+load window loses those keystrokes the same way. Narrow, but it is the product's race, not the
+test's — the test merely stopped standing in it.
+
+**Instruments kept**: `data-build-id` on the panel, and the spec's baseline assertion. Note the
+probe was first written as `.not.toHaveAttribute(...)`, which passes when the element is simply
+absent — it was rewritten to poll the VALUE and assert it is a real uuid and a different one
+([[dont-write-absence-tests]]).
+
+---
+
 # Full-suite failures — round 2026-09-11 · RUN 2 (post monitor-privacy commits)
 
 **1782 passed · 7 failed · 3 did not run · 2.1h.** (branch `worktree-resume-sot-batch`, HEAD `8809f8577`)

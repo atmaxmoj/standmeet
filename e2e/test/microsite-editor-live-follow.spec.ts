@@ -48,6 +48,18 @@ async function editSource(page: Page, source: string): Promise<void> {
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 // Each edit triggers a real sandbox build (tens of seconds), and this case edits twice.
 test.describe.configure({ timeout: 600_000 });
+// pollBuildID —— the build id the panel currently believes in, once it has moved off `prev`.
+// Returns whatever it holds when the window closes, so the caller asserts the VALUE rather than
+// the absence of a change.
+async function pollBuildID(page: Page, prev: string): Promise<string> {
+  let seen = prev;
+  await expect.poll(async () => {
+    seen = (await page.getByTestId('microsite-staging-state').getAttribute('data-build-id')) ?? '';
+    return seen !== prev && seen !== '';
+  }, { timeout: 120_000, intervals: [1000] }).toBe(true);
+  return seen;
+}
+
 test.describe('microsites · the GUI editor follows live as the owner types', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
@@ -69,7 +81,27 @@ test.describe('microsites · the GUI editor follows live as the owner types', ()
 
       // First edit: type a new headline and DON'T click build. The preview must catch up on its own.
       // RED before auto-build-on-edit: the preview never changes until "build preview" is clicked.
+      // Pin the STARTING state first. The panel renders PreviewEmpty until the open-time build
+      // lands, so reading the baseline straight after navigating reads an element that does not
+      // exist yet — and the test's own setup wrote INITIAL, so this is the state it means to
+      // start from rather than one it assumes.
+      await expect(headlineIn(page), 'the open-time build lands and shows the seeded source')
+        .toHaveText('INITIAL', { timeout: 300_000 });
+      const before = await page.getByTestId('microsite-staging-state')
+        .getAttribute('data-build-id');
       await editSource(page, appWith('LIVE-EDIT-ONE'));
+
+      // Which half? — the panel must first LEARN of a new build. A preview that never moves looks
+      // the same whether the client never heard about the rebuild or heard and rendered the old
+      // one; data-build-id is the only thing that separates them.
+      // Positive, not `.not.toHaveAttribute`: a negated form passes when the element is simply
+      // gone ([[dont-write-absence-tests]]). Poll the VALUE, then assert it is a real id and a
+      // different one.
+      const after = await pollBuildID(page, before ?? '');
+      expect(after, 'the panel learned of a new build (the follow chain delivered it)')
+        .toMatch(/^[0-9a-f-]{36}$/);
+      expect(after, 'and it is a different build than before the edit').not.toBe(before);
+
       await expect(headlineIn(page), 'the preview follows the first edit with no build click')
         .toHaveText('LIVE-EDIT-ONE', { timeout: 300_000 });
 
